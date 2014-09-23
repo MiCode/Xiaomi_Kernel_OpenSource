@@ -502,26 +502,6 @@ static int i915_drm_freeze(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
-	u32 mask;
-	int err = 0;
-
-	/* Following sequence from vlv_runtime_suspend */
-	if (IS_VALLEYVIEW(dev)) {
-		/*
-		 * Bspec defines the following GT well on flags as debug only,
-		 * so don't treat them as hard failures.
-		 */
-		(void)vlv_wait_for_gt_wells(dev_priv, false);
-
-		mask = VLV_GTLC_RENDER_CTX_EXISTS | VLV_GTLC_MEDIA_CTX_EXISTS;
-		WARN_ON((I915_READ(VLV_GTLC_WAKE_CTRL) & mask) != mask);
-
-		vlv_check_no_gt_access(dev_priv);
-
-		err = vlv_force_gfx_clock(dev_priv, true);
-		if (err)
-			goto err1;
-	}
 
 	/* ignore lid events during suspend */
 	mutex_lock(&dev_priv->modeset_restore_lock);
@@ -566,10 +546,6 @@ static int i915_drm_freeze(struct drm_device *dev)
 
 	i915_gem_suspend_gtt_mappings(dev);
 
-	/* Save Gunit State */
-	if (IS_VALLEYVIEW(dev))
-		vlv_save_gunit_s0ix_state(dev_priv);
-
 	i915_save_state(dev);
 
 	intel_uncore_forcewake_reset(dev, false);
@@ -583,27 +559,7 @@ static int i915_drm_freeze(struct drm_device *dev)
 
 	intel_display_set_init_power(dev_priv, false);
 
-	/* Clear Allow Wake Bit so that none of the
-	 * force/demand wake requests
-	 */
-	if (IS_VALLEYVIEW(dev)) {
-		err = vlv_allow_gt_wake(dev_priv, false);
-		if (err)
-			goto err2;
-
-		/* Release graphics clocks */
-		vlv_force_gfx_clock(dev_priv, false);
-	}
-	return err;
-err2:
-	/* For safety always re-enable waking and disable gfx clock forcing */
-	if (IS_VALLEYVIEW(dev))
-		vlv_allow_gt_wake(dev_priv, true);
-err1:
-	if (IS_VALLEYVIEW(dev))
-		vlv_force_gfx_clock(dev_priv, false);
-
-	return err;
+	return 0;
 }
 
 int i915_suspend(struct drm_device *dev, pm_message_t state)
@@ -652,7 +608,6 @@ static int i915_drm_thaw_early(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret = 0;
-	int err;
 
 	ret = intel_resume_prepare(dev_priv, false);
 	if (ret)
@@ -731,14 +686,8 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 
 	sysfs_notify(&dev->primary->kdev->kobj, NULL, "thaw");
 
-	if (IS_VALLEYVIEW(dev)) {
-		/* Release graphics clocks turned on in thaw_early*/
-		vlv_force_gfx_clock(dev_priv, false);
-	}
-
 	return 0;
 }
-
 
 static int i915_drm_thaw(struct drm_device *dev)
 {
@@ -1077,7 +1026,7 @@ static int hsw_resume_prepare(struct drm_i915_private *dev_priv,
  * a black-box for the driver. Further investigation is needed to reduce the
  * saved/restored registers even further, by following the same 3 criteria.
  */
-void vlv_save_gunit_s0ix_state(struct drm_i915_private *dev_priv)
+static void vlv_save_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 {
 	struct vlv_s0ix_state *s = &dev_priv->vlv_s0ix_state;
 	int i;
@@ -1147,7 +1096,6 @@ void vlv_save_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 	s->gu_ctl0		= I915_READ(VLV_GU_CTL0);
 	s->gu_ctl1		= I915_READ(VLV_GU_CTL1);
 	s->clock_gate_dis2	= I915_READ(VLV_GUNIT_CLOCK_GATE2);
-	s->dpio_cfg_data	= I915_READ(DPIO_CTL);
 
 	/*
 	 * Not saving any of:
@@ -1158,7 +1106,7 @@ void vlv_save_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 	 */
 }
 
-void vlv_restore_gunit_s0ix_state(struct drm_i915_private *dev_priv)
+static void vlv_restore_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 {
 	struct vlv_s0ix_state *s = &dev_priv->vlv_s0ix_state;
 	u32 val;
@@ -1242,8 +1190,6 @@ void vlv_restore_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 	I915_WRITE(VLV_GU_CTL0,			s->gu_ctl0);
 	I915_WRITE(VLV_GU_CTL1,			s->gu_ctl1);
 	I915_WRITE(VLV_GUNIT_CLOCK_GATE2,	s->clock_gate_dis2);
-	I915_WRITE(DPIO_CTL,			s->dpio_cfg_data);
-
 }
 
 int vlv_force_gfx_clock(struct drm_i915_private *dev_priv, bool force_on)
@@ -1283,7 +1229,7 @@ int vlv_force_gfx_clock(struct drm_i915_private *dev_priv, bool force_on)
 #undef COND
 }
 
-int vlv_allow_gt_wake(struct drm_i915_private *dev_priv, bool allow)
+static int vlv_allow_gt_wake(struct drm_i915_private *dev_priv, bool allow)
 {
 	u32 val;
 	int err = 0;
@@ -1304,7 +1250,7 @@ int vlv_allow_gt_wake(struct drm_i915_private *dev_priv, bool allow)
 #undef COND
 }
 
-int vlv_wait_for_gt_wells(struct drm_i915_private *dev_priv,
+static int vlv_wait_for_gt_wells(struct drm_i915_private *dev_priv,
 				 bool wait_for_on)
 {
 	u32 mask;
@@ -1334,7 +1280,7 @@ int vlv_wait_for_gt_wells(struct drm_i915_private *dev_priv,
 #undef COND
 }
 
-void vlv_check_no_gt_access(struct drm_i915_private *dev_priv)
+static void vlv_check_no_gt_access(struct drm_i915_private *dev_priv)
 {
 	if (!(I915_READ(VLV_GTLC_PW_STATUS) & VLV_GTLC_ALLOWWAKEERR))
 		return;

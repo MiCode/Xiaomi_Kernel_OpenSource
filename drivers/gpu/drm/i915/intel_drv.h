@@ -1058,12 +1058,6 @@ void intel_init_drrs_idleness_detection(struct drm_device *dev,
 		struct intel_connector *connector);
 void intel_update_drrs(struct drm_device *dev);
 void intel_disable_drrs(struct drm_device *dev);
-int vlv_wait_for_gt_wells(struct drm_i915_private *dev_priv,
-				 bool wait_for_on);
-void vlv_check_no_gt_access(struct drm_i915_private *dev_priv);
-void vlv_save_gunit_s0ix_state(struct drm_i915_private *dev_priv);
-void vlv_restore_gunit_s0ix_state(struct drm_i915_private *dev_priv);
-int vlv_allow_gt_wake(struct drm_i915_private *dev_priv, bool allow);
 
 /* intel_sdvo.c */
 bool intel_sdvo_init(struct drm_device *dev, uint32_t sdvo_reg, bool is_sdvob);
