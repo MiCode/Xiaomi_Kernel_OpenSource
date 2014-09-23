@@ -134,6 +134,7 @@ static void intel_update_primary_plane(struct drm_plane *dplane,
 	int plane = intel_crtc->plane;
 	int pipe = intel_crtc->pipe;
 	struct intel_plane *intel_plane = to_intel_plane(dplane);
+	int mask = 0x000000ff;
 
 	if (intel_crtc->primary_enabled) {
 		intel_crtc->reg.cntr = I915_READ(dspreg) | DISPLAY_PLANE_ENABLE;
@@ -162,6 +163,7 @@ static void intel_update_primary_plane(struct drm_plane *dplane,
 		}
 		dev_priv->plane_stat &=
 				~VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
+		I915_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
 	}
 }
 
@@ -415,6 +417,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 	u32 start_vbl_count;
 	bool atomic_update = false;
+	int sprite_ddl, sp_prec_multi;
+	u32 mask, shift;
 
 	sprctl = I915_READ(SPCNTR(pipe, plane));
 
@@ -525,7 +529,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	 */
 	intel_update_drrs(dev);
 
-	if (intel_plane->last_pixel_size < pixel_size) {
+	if (!dev_priv->atomic_update) {
 		intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size,
 				true, src_w != crtc_w || src_h != crtc_h);
 	}
@@ -626,6 +630,32 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		dev_priv->vblcount =
 			atomic_read(&dev->vblank[intel_crtc->pipe].count);
 	}
+
+	/*
+	 * calculate the DDL and set to 0 is there is a change. Else cache
+	 * the value and wrrite on next vblank.
+	 */
+	if (intel_plane->plane == 0) {
+		mask = 0x0000ff00;
+		shift = DDL_SPRITEA_SHIFT;
+	} else {
+		mask = 0x00ff0000;
+		shift = DDL_SPRITEB_SHIFT;
+	}
+
+	vlv_calculate_ddl(crtc, pixel_size, &sp_prec_multi, &sprite_ddl);
+	sprite_ddl = (sp_prec_multi | sprite_ddl) << shift;
+
+	if (intel_plane->plane) {
+		intel_crtc->reg_ddl.spriteb_ddl = sprite_ddl;
+		intel_crtc->reg_ddl.spriteb_ddl_mask = mask;
+	} else {
+		intel_crtc->reg_ddl.spritea_ddl = sprite_ddl;
+		intel_crtc->reg_ddl.spritea_ddl_mask = mask;
+	}
+	if ((sprite_ddl & mask) != (I915_READ(VLV_DDL(pipe)) & mask))
+		I915_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
+
 	intel_plane->reg.cntr = sprctl;
 	intel_plane->reg.surf |= i915_gem_obj_ggtt_offset(obj) + sprsurf_offset;
 	if (!dev_priv->atomic_update) {
@@ -644,16 +674,9 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	if (event == NULL)
 		POSTING_READ(SPSURF(pipe, plane));
 
-	if (intel_plane->last_pixel_size > pixel_size) {
-		if (plane == PLANE_A)
-			dev_priv->pf_change_status[pipe] |= BPP_CHANGED_SPRITEA;
-		else
-			dev_priv->pf_change_status[pipe] |= BPP_CHANGED_SPRITEB;
-
+	if (!dev_priv->atomic_update)
 		intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size,
 				true, src_w != crtc_w || src_h != crtc_h);
-	}
-	intel_plane->last_pixel_size = pixel_size;
 
 	if (!dev_priv->atomic_update) {
 		if (atomic_update)
@@ -672,6 +695,7 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	int plane = intel_plane->plane;
 	u32 start_vbl_count;
 	bool atomic_update = false;
+	u32 mask, shift;
 
 	if (!dev_priv->atomic_update) {
 		atomic_update = intel_pipe_update_start(intel_crtc,
@@ -700,9 +724,20 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 			intel_pipe_update_end(intel_crtc, start_vbl_count);
 	}
 
-	intel_update_sprite_watermarks(dplane, crtc, 0, 0, false, false);
+	if (!dev_priv->atomic_update)
+		intel_update_sprite_watermarks(dplane,
+			crtc, 0, 0, false, false);
 	intel_plane->last_plane_state = INTEL_PLANE_STATE_DISABLED;
-	intel_plane->last_pixel_size = 0;
+
+	/* set to 0 as the plane is disabled */
+	if (intel_plane->plane == 0) {
+		mask = 0x0000ff00;
+		shift = DDL_SPRITEA_SHIFT;
+	} else {
+		mask = 0x00ff0000;
+		shift = DDL_SPRITEB_SHIFT;
+	}
+	I915_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
 }
 
 void intel_prepare_sprite_page_flip(struct drm_device *dev, int plane)
@@ -735,6 +770,18 @@ void intel_finish_sprite_page_flip(struct drm_device *dev, int pipe)
 	/* Ignore early vblank irqs */
 	if (intel_crtc == NULL)
 		return;
+
+	/* Program the precalculated DDL value */
+	if (intel_crtc->reg_ddl.spritea_ddl) {
+		I915_WRITE_BITS(VLV_DDL(pipe), intel_crtc->reg_ddl.spritea_ddl,
+			intel_crtc->reg_ddl.spritea_ddl_mask);
+		intel_crtc->reg_ddl.spritea_ddl = 0;
+	}
+	if (intel_crtc->reg_ddl.spriteb_ddl) {
+		I915_WRITE_BITS(VLV_DDL(pipe), intel_crtc->reg_ddl.spriteb_ddl,
+			intel_crtc->reg_ddl.spriteb_ddl_mask);
+		intel_crtc->reg_ddl.spriteb_ddl = 0;
+	}
 
 	spin_lock_irqsave(&dev->event_lock, flags);
 	work = intel_crtc->sprite_unpin_work;
@@ -1195,6 +1242,7 @@ intel_post_enable_primary(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	/*
 	 * BDW signals flip done immediately if the plane
@@ -1215,7 +1263,8 @@ intel_post_enable_primary(struct drm_crtc *crtc)
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
 	intel_update_drrs(dev);
-	intel_update_watermarks(crtc);
+	if (!dev_priv->atomic_update)
+		intel_update_watermarks(crtc);
 	mutex_unlock(&dev->struct_mutex);
 }
 
@@ -1670,7 +1719,6 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 			/* Enable for non-VLV if required */
 			if (IS_VALLEYVIEW(dev)) {
 				intel_crtc->primary_enabled = false;
-				intel_crtc->last_pixel_size = 0;
 				intel_pre_disable_primary(crtc);
 				if (dev_priv->atomic_update)
 					intel_update_primary_plane(plane,
@@ -1983,7 +2031,6 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 	intel_plane->plane = plane;
 	intel_plane->rotate180 = false;
 	intel_plane->last_plane_state = INTEL_PLANE_STATE_DISABLED;
-	intel_plane->last_pixel_size = 0;
 	possible_crtcs = (1 << pipe);
 	ret = drm_plane_init(dev, &intel_plane->base, possible_crtcs,
 			     &intel_plane_funcs,

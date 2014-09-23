@@ -387,6 +387,15 @@ struct intel_disp_reg {
 	u32 spbcntr;
 };
 
+struct intel_ddl_reg {
+	u32 plane_ddl;
+	u32 plane_ddl_mask;
+	u32 spritea_ddl;
+	u32 spritea_ddl_mask;
+	u32 spriteb_ddl;
+	u32 spriteb_ddl_mask;
+};
+
 struct intel_crtc {
 	struct drm_crtc base;
 	enum pipe pipe;
@@ -453,6 +462,7 @@ struct intel_crtc {
 	/* panel fitter status flag */
 	bool	pfit_en_status;
 	struct intel_disp_reg reg;
+	struct intel_ddl_reg reg_ddl;
 
 	/* per-pipe watermark state */
 	struct {
@@ -492,7 +502,6 @@ struct intel_plane {
 	unsigned int crtc_w, crtc_h;
 	uint32_t src_x, src_y;
 	uint32_t src_w, src_h;
-	int last_pixel_size;
 	bool last_plane_state;
 
 	/* Since we need to change the watermarks before/after
@@ -1120,5 +1129,6 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv);
 extern void intel_unpin_work_fn(struct work_struct *__work);
 extern void intel_unpin_sprite_work_fn(struct work_struct *__work);
 extern bool intel_pipe_has_type(struct drm_crtc *crtc, int type);
-
+bool vlv_calculate_ddl(struct drm_crtc *crtc, int pixel_size,
+	int *prec_multi, int *ddl);
 #endif /* __INTEL_DRV_H__ */

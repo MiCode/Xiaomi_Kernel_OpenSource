@@ -1486,9 +1486,6 @@ struct i915_dpst_registers {
 #define DL_PRIMARY_MASK 0x000000ff
 #define DL_SPRITEA_MASK 0x0000ff00
 #define DL_SPRITEB_MASK 0x00ff0000
-#define BPP_CHANGED_PRIMARY (1 << 24)
-#define BPP_CHANGED_SPRITEA (1 << 25)
-#define BPP_CHANGED_SPRITEB (1 << 26)
 #define VLV_PLANES_PER_PIPE 4
 #define VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe) \
 	(1 << (VLV_PLANES_PER_PIPE * (pipe)))
@@ -1657,7 +1654,6 @@ struct drm_i915_private {
 	bool csc_enabled;
 	bool gamma_enabled;
 	bool is_resuming;
-	uint32_t pf_change_status[I915_MAX_PIPES];
 
 	/* Indicates currently enabled planes */
 	unsigned int plane_stat;

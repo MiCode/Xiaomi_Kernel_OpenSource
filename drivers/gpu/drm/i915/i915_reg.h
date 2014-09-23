@@ -3977,13 +3977,14 @@ enum punit_power_well {
 #define   DPINVGTT_STATUS_MASK			0xff
 #define   DPINVGTT_STATUS_MASK_CHV		0xfff
 
-#define DSPARB			0x70030
-#define   DSPARB_CSTART_MASK	(0x7f << 7)
-#define   DSPARB_CSTART_SHIFT	7
-#define   DSPARB_BSTART_MASK	(0x7f)
-#define   DSPARB_BSTART_SHIFT	0
-#define   DSPARB_BEND_SHIFT	9 /* on 855 */
-#define   DSPARB_AEND_SHIFT	0
+#define	DSPARB	(dev_priv->info.display_mmio_offset + 0x70030)
+#define	DSPARB_VLV_DEFAULT	0xc080c080
+#define	DSPARB_CSTART_MASK	(0x7f << 7)
+#define	DSPARB_CSTART_SHIFT	7
+#define	DSPARB_BSTART_MASK	(0x7f)
+#define	DSPARB_BSTART_SHIFT	0
+#define	DSPARB_BEND_SHIFT	9 /* on 855 */
+#define	DSPARB_AEND_SHIFT	0
 
 #define DSPFW1			(dev_priv->info.display_mmio_offset + 0x70034)
 #define   DSPFW_SR_SHIFT	23
@@ -4057,6 +4058,7 @@ enum punit_power_well {
 #define DDL_SPRITEB_PRECISION_H		(1<<23)
 #define DDL_SPRITEB_PRECISION_L		(0<<23)
 #define DDL_SPRITEA_SHIFT	8
+
 #define DDL_PLANEA_PRECISION_H		(1<<7)
 #define DDL_PLANEA_PRECISION_L		(0<<7)
 

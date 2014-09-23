@@ -661,7 +661,8 @@ static void intel_drrs_work_fn(struct work_struct *__work)
 	intel_dp_set_drrs_state(work->crtc->dev,
 		dev_priv->drrs.connector->panel.downclock_mode->vrefresh);
 
-	intel_update_watermarks(work->crtc);
+	if (!dev_priv->atomic_update)
+		intel_update_watermarks(work->crtc);
 }
 
 static void intel_cancel_drrs_work(struct drm_i915_private *dev_priv)
@@ -719,8 +720,10 @@ void intel_disable_drrs(struct drm_device *dev)
 
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
 		if (crtc) {
-			if (intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP))
-				intel_update_watermarks(crtc);
+			if (intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP)) {
+				if (!dev_priv->atomic_update)
+					intel_update_watermarks(crtc);
+			}
 		}
 	}
 }
@@ -1487,8 +1490,7 @@ static bool g4x_compute_srwm(struct drm_device *dev,
 }
 
 
-static bool vlv_get_dl(struct drm_device *dev,
-				struct drm_crtc *crtc,
+bool vlv_calculate_ddl(struct drm_crtc *crtc,
 				int pixel_size,
 				int *plane_prec_mult,
 				int *dl) {
@@ -1496,8 +1498,17 @@ static bool vlv_get_dl(struct drm_device *dev,
 	int clock;
 	int h_precision;
 	int l_precision;
+	struct drm_device *dev = crtc->dev;
 
 	clock = to_intel_crtc(crtc)->config.adjusted_mode.crtc_clock;
+
+	/*
+	 * WAR (FIXME):
+	 * Sometimes in the resume path adjusted_mode clock is 0
+	 * Needs to be fixed - TODO
+	 */
+	if (clock == 0)
+		clock = crtc->mode.clock;
 
 	if (IS_CHERRYVIEW(dev)) {
 		h_precision = 32;
@@ -1510,10 +1521,14 @@ static bool vlv_get_dl(struct drm_device *dev,
 	if (!intel_crtc_active(crtc))
 		return false;
 
-	*plane_prec_mult = h_precision;
+	/*
+	 * DDL_PLANEA_PRECISION_H,
+	 * DDL_PLANEB_PRECISION_H all have same values (1 << 7)
+	 */
+	*plane_prec_mult = DDL_PLANEA_PRECISION_H;
 	*dl = (64 * h_precision * 4 * 1000) / (clock * pixel_size);
 	if (*dl > 127) {
-		*plane_prec_mult = l_precision;
+		*plane_prec_mult = DDL_PLANEA_PRECISION_L;
 		*dl = (64 * l_precision * 4 * 1000) / (clock * pixel_size);
 	}
 
@@ -1523,153 +1538,6 @@ static bool vlv_get_dl(struct drm_device *dev,
 	}
 
 	return true;
-}
-
-static bool vlv_compute_drain_latency(struct drm_device *dev,
-				int pipe,
-				int *plane_prec_mult,
-				int *plane_dl,
-				int *cursor_prec_mult,
-				int *cursor_dl,
-				int *sprite_prec_mult, int *sprite_dl,
-				int sprite_pixel_size,
-				struct vlv_MA_component_enabled enable)
-{
-	struct drm_crtc *crtc;
-	bool latencyprogrammed = false;
-
-	crtc = intel_get_crtc_for_pipe(dev, pipe);
-	if (!intel_crtc_active(crtc))
-		return false;
-
-	/* VESA DOT Clock */
-	if (enable.plane_enabled) {
-		vlv_get_dl(dev, crtc, crtc->primary->fb->bits_per_pixel / 8,
-						plane_prec_mult, plane_dl);
-		latencyprogrammed = true;
-	}
-
-	if (enable.cursor_enabled) {
-		/* BPP is always 4 for cursor */
-		vlv_get_dl(dev, crtc, 4, cursor_prec_mult, cursor_dl);
-		latencyprogrammed = true;
-	}
-
-	if (enable.sprite_enabled) {
-		vlv_get_dl(dev, crtc, sprite_pixel_size,
-					sprite_prec_mult, sprite_dl);
-		latencyprogrammed = true;
-	}
-
-	return latencyprogrammed;
-}
-
-static void vlv_update_drain_latency(struct drm_device *dev)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	int planea_prec = 0, planea_dl = 0, planeb_prec = 0, planeb_dl = 0;
-	int cursora_prec = 0, cursora_dl = 0, cursorb_prec = 0, cursorb_dl = 0;
-	int plane_prec_mult = 0, cursor_prec_mult = 0;
-	/* Precision multiplier is either 64 or 32 */
-	struct vlv_MA_component_enabled enable;
-
-	enable.plane_enabled = is_plane_enabled(dev_priv, 0);
-	enable.cursor_enabled = false;
-	enable.sprite_enabled = false;
-
-	/* For plane A */
-	if (vlv_compute_drain_latency(dev, 0, &plane_prec_mult,
-		&planea_dl, NULL, NULL, NULL, NULL, 0, enable)) {
-
-		if (IS_CHERRYVIEW(dev))
-			planea_prec = (plane_prec_mult ==
-					DRAIN_LATENCY_PRECISION_32) ?
-					DDL_PLANEA_PRECISION_H :
-					DDL_PLANEA_PRECISION_L;
-		else
-			planea_prec = (plane_prec_mult ==
-					DRAIN_LATENCY_PRECISION_32) ?
-					DDL_PLANEA_PRECISION_L :
-					DDL_PLANEA_PRECISION_H;
-
-		if (dev_priv->pf_change_status[PIPE_A] & BPP_CHANGED_PRIMARY) {
-			dev_priv->pf_change_status[PIPE_A] |=
-				(planea_prec | planea_dl);
-		} else {
-			I915_WRITE_BITS(VLV_DDL1, planea_prec | planea_dl,
-				0x000000ff);
-		}
-	} else
-		I915_WRITE_BITS(VLV_DDL1, 0x0000, 0x000000ff);
-
-	/* Cursor A */
-	enable.plane_enabled = false;
-	enable.cursor_enabled = is_cursor_enabled(dev_priv, 0);
-
-	if (vlv_compute_drain_latency(dev, 0, NULL, NULL, &cursor_prec_mult,
-			&cursora_dl, NULL, NULL, 0, enable)) {
-		if (IS_CHERRYVIEW(dev))
-			cursora_prec = (cursor_prec_mult ==
-					DRAIN_LATENCY_PRECISION_32) ?
-					DDL_CURSORA_PRECISION_H :
-					DDL_CURSORA_PRECISION_L;
-		else
-			cursora_prec = (cursor_prec_mult ==
-					DRAIN_LATENCY_PRECISION_32) ?
-					DDL_CURSORA_PRECISION_L :
-					DDL_CURSORA_PRECISION_H;
-
-		I915_WRITE_BITS(VLV_DDL1, cursora_prec |
-			(cursora_dl << DDL_CURSORA_SHIFT), 0xff000000);
-	} else
-		I915_WRITE_BITS(VLV_DDL1, 0x0000, 0xff000000);
-
-	/* For plane B */
-	enable.plane_enabled = is_plane_enabled(dev_priv, 1);
-	enable.cursor_enabled = false;
-	if (vlv_compute_drain_latency(dev, 1, &plane_prec_mult,
-		&planeb_dl, NULL, NULL, NULL, NULL, 0, enable)) {
-
-		if (IS_CHERRYVIEW(dev))
-			planeb_prec = (plane_prec_mult ==
-					DRAIN_LATENCY_PRECISION_32) ?
-					DDL_PLANEB_PRECISION_H :
-					DDL_PLANEB_PRECISION_L;
-		else
-			planeb_prec = (plane_prec_mult ==
-					DRAIN_LATENCY_PRECISION_32) ?
-					DDL_PLANEB_PRECISION_L :
-					DDL_PLANEB_PRECISION_H;
-		if (dev_priv->pf_change_status[PIPE_B] & BPP_CHANGED_PRIMARY) {
-			dev_priv->pf_change_status[PIPE_B] |=
-				(planeb_prec | planeb_dl);
-		} else {
-			I915_WRITE_BITS(VLV_DDL2, planeb_prec |
-					planeb_dl, 0x000000ff);
-		}
-	} else
-		I915_WRITE_BITS(VLV_DDL2, 0x0000, 0x000000ff);
-
-	/* Cursor B */
-	enable.plane_enabled = false;
-	enable.cursor_enabled = is_cursor_enabled(dev_priv, 1);
-	if (vlv_compute_drain_latency(dev, 1, NULL, NULL, &cursor_prec_mult,
-			&cursorb_dl, NULL, NULL, 0, enable)) {
-		if (IS_CHERRYVIEW(dev))
-			cursorb_prec = (cursor_prec_mult ==
-					DRAIN_LATENCY_PRECISION_32) ?
-					DDL_CURSORB_PRECISION_H :
-					DDL_CURSORB_PRECISION_L;
-		else
-			cursorb_prec = (cursor_prec_mult ==
-					DRAIN_LATENCY_PRECISION_32) ?
-					DDL_CURSORB_PRECISION_L :
-					DDL_CURSORB_PRECISION_H;
-
-		I915_WRITE_BITS(VLV_DDL2, cursorb_prec | (cursorb_dl <<
-				DDL_CURSORB_SHIFT), 0xff000000);
-	} else
-		I915_WRITE_BITS(VLV_DDL2, 0x0000, 0xff000000);
 }
 
 #define single_plane_enabled(mask) is_power_of_2(mask)
@@ -1717,7 +1585,6 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int planea_wm, planeb_wm, cursora_wm, cursorb_wm;
 	unsigned int enabled = 0;
-	vlv_update_drain_latency(dev);
 
 	if (g4x_compute_wm0(dev, PIPE_A,
 			    &valleyview_wm_info, latency_ns,
@@ -1748,6 +1615,7 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 			(DSPFW5_CURSORB_VAL << DSPFW5_CURSORB_SHIFT) |
 			DSPFW5_CURSORSR_VAL);
 	I915_WRITE(DSPFW6, DSPFW6_DISPLAYSR_VAL);
+	I915_WRITE(DSPARB, DSPARB_VLV_DEFAULT);
 }
 
 static void g4x_update_wm(struct drm_crtc *crtc)
@@ -3228,63 +3096,11 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_plane *intel_plane = to_intel_plane(plane);
-	int sprite_prec = 0, sprite_dl = 0;
-	int sprite_prec_mult = 0;
-	u32 mask, shift;
 	struct vlv_MA_component_enabled enable;
 
 	enable.plane_enabled = false;
 	enable.cursor_enabled = false;
 	enable.sprite_enabled = enabled;
-
-	if (intel_plane->plane == 0) {
-		mask = 0x0000ff00;
-		shift = DDL_SPRITEA_SHIFT;
-	} else {
-		mask = 0x00ff0000;
-		shift = DDL_SPRITEB_SHIFT;
-	}
-
-	if (enabled && vlv_compute_drain_latency(dev, intel_plane->pipe,
-				NULL, NULL, NULL, NULL, &sprite_prec_mult,
-				&sprite_dl, pixel_size, enable)) {
-
-		if (intel_plane->plane == 0)
-			if (IS_CHERRYVIEW(dev))
-				sprite_prec = (sprite_prec_mult ==
-						DRAIN_LATENCY_PRECISION_32) ?
-						DDL_SPRITEA_PRECISION_H :
-						DDL_SPRITEA_PRECISION_L;
-			else
-				sprite_prec = (sprite_prec_mult ==
-						DRAIN_LATENCY_PRECISION_32) ?
-						DDL_SPRITEA_PRECISION_L :
-						DDL_SPRITEA_PRECISION_H;
-
-		else
-			if (IS_CHERRYVIEW(dev))
-				sprite_prec = (sprite_prec_mult ==
-						DRAIN_LATENCY_PRECISION_32) ?
-						DDL_SPRITEB_PRECISION_H :
-						DDL_SPRITEB_PRECISION_L;
-			else
-				sprite_prec = (sprite_prec_mult ==
-						DRAIN_LATENCY_PRECISION_32) ?
-						DDL_SPRITEB_PRECISION_L :
-						DDL_SPRITEB_PRECISION_H;
-
-
-		if (dev_priv->pf_change_status[intel_plane->pipe] &
-			(BPP_CHANGED_SPRITEA | BPP_CHANGED_SPRITEB)) {
-			dev_priv->pf_change_status[intel_plane->pipe] |=
-					(sprite_prec | (sprite_dl << shift));
-		} else {
-			I915_WRITE_BITS(VLV_DDL(intel_plane->pipe),
-				sprite_prec | (sprite_dl << shift), mask);
-		}
-	} else
-		I915_WRITE_BITS(VLV_DDL(intel_plane->pipe), 0x00, mask);
 
 	I915_WRITE(DSPFW4, (DSPFW4_SPRITEB_VAL << DSPFW4_SPRITEB_SHIFT) |
 			(DSPFW4_CURSORA_VAL << DSPFW4_CURSORA_SHIFT) |

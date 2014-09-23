@@ -2096,26 +2096,8 @@ static void valleyview_pipestat_irq_handler(struct drm_device *dev, u32 iir)
 	spin_unlock(&dev_priv->irq_lock);
 
 	for_each_pipe(pipe) {
-		if (pipe_stats[pipe] & PIPE_START_VBLANK_INTERRUPT_STATUS) {
-			if (dev_priv->pf_change_status[pipe] &
-					BPP_CHANGED_PRIMARY)
-				I915_WRITE_BITS(VLV_DDL(pipe),
-					dev_priv->pf_change_status[pipe],
-						DL_PRIMARY_MASK);
-			else if (dev_priv->pf_change_status[pipe] &
-					BPP_CHANGED_SPRITEA)
-				I915_WRITE_BITS(VLV_DDL(pipe),
-					dev_priv->pf_change_status[pipe],
-						DL_SPRITEA_MASK);
-			else if (dev_priv->pf_change_status[pipe] &
-					BPP_CHANGED_SPRITEB)
-				I915_WRITE_BITS(VLV_DDL(pipe),
-					dev_priv->pf_change_status[pipe],
-						DL_SPRITEB_MASK);
-			dev_priv->pf_change_status[pipe] = 0x0;
+		if (pipe_stats[pipe] & PIPE_START_VBLANK_INTERRUPT_STATUS)
 			intel_pipe_handle_vblank(dev, pipe);
-		}
-
 		if (pipe_stats[pipe] & PLANE_FLIP_DONE_INT_STATUS_VLV) {
 			crtc = intel_get_crtc_for_pipe(dev, pipe);
 			intel_crtc = to_intel_crtc(crtc);
