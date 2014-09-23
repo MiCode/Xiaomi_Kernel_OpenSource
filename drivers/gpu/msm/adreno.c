@@ -619,21 +619,26 @@ static int adreno_of_get_iommu(struct platform_device *pdev,
 	struct kgsl_device_platform_data *pdata)
 {
 	struct device_node *parent = pdev->dev.of_node;
-	struct adreno_device *adreno_dev = adreno_get_dev(pdev);
+	struct adreno_device *adreno_dev;
 	int result = -EINVAL;
 	struct device_node *node, *child;
 	struct kgsl_device_iommu_data *data = NULL;
 	struct kgsl_iommu_ctx *ctxs = NULL;
 	u32 reg_val[2];
+	u32 secure_id;
 	int ctx_index = 0;
 
 	node = of_parse_phandle(parent, "iommu", 0);
 	if (node == NULL)
 		return -EINVAL;
 
-	if (adreno_dev)
-		adreno_dev->dev.mmu.secured =
-			of_property_read_bool(node, "qcom,iommu-secure-id");
+	adreno_dev = adreno_get_dev(pdev);
+	if (adreno_dev == NULL)
+		return -EINVAL;
+
+	adreno_dev->dev.mmu.secured =
+		(of_property_read_u32(node, "qcom,iommu-secure-id",
+			&secure_id) == 0) ?  true : false;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
