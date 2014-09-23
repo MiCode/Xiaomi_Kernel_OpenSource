@@ -2775,6 +2775,65 @@ int arizona_set_custom_jd(struct snd_soc_codec *codec,
 }
 EXPORT_SYMBOL_GPL(arizona_set_custom_jd);
 
+int arizona_enable_force_bypass(struct snd_soc_codec *codec)
+{
+	struct arizona *arizona = dev_get_drvdata(codec->dev->parent);
+	unsigned int val;
+
+	regmap_read(arizona->regmap, ARIZONA_MIC_CHARGE_PUMP_1, &val);
+	arizona->bypass_cache = !(val & ARIZONA_CPMIC_BYPASS);
+	if (arizona->bypass_cache) {
+		mutex_lock(&arizona->dapm->card->dapm_mutex);
+		snd_soc_dapm_disable_pin(arizona->dapm, "MICSUPP");
+		mutex_unlock(&arizona->dapm->card->dapm_mutex);
+
+		snd_soc_dapm_sync(arizona->dapm);
+
+		regmap_update_bits(arizona->regmap, ARIZONA_MIC_CHARGE_PUMP_1,
+				   ARIZONA_CPMIC_BYPASS, ARIZONA_CPMIC_BYPASS);
+	}
+
+	regmap_update_bits(arizona->regmap, ARIZONA_MIC_BIAS_CTRL_1,
+			   ARIZONA_MICB1_BYPASS, ARIZONA_MICB1_BYPASS);
+	regmap_update_bits(arizona->regmap, ARIZONA_MIC_BIAS_CTRL_2,
+			   ARIZONA_MICB2_BYPASS, ARIZONA_MICB2_BYPASS);
+	regmap_update_bits(arizona->regmap, ARIZONA_MIC_BIAS_CTRL_3,
+			   ARIZONA_MICB3_BYPASS, ARIZONA_MICB3_BYPASS);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(arizona_enable_force_bypass);
+
+int arizona_disable_force_bypass(struct snd_soc_codec *codec)
+{
+	struct arizona *arizona = dev_get_drvdata(codec->dev->parent);
+	struct arizona_micbias *micbias = arizona->pdata.micbias;
+
+	if (arizona->bypass_cache) {
+		mutex_lock(&arizona->dapm->card->dapm_mutex);
+		snd_soc_dapm_force_enable_pin(arizona->dapm, "MICSUPP");
+		mutex_unlock(&arizona->dapm->card->dapm_mutex);
+
+		snd_soc_dapm_sync(arizona->dapm);
+
+		regmap_update_bits(arizona->regmap, ARIZONA_MIC_CHARGE_PUMP_1,
+				   ARIZONA_CPMIC_BYPASS, 0);
+	}
+
+	if (!micbias[0].bypass && micbias[0].mV)
+		regmap_update_bits(arizona->regmap, ARIZONA_MIC_BIAS_CTRL_1,
+				   ARIZONA_MICB1_BYPASS, 0);
+	if (!micbias[1].bypass && micbias[1].mV)
+		regmap_update_bits(arizona->regmap, ARIZONA_MIC_BIAS_CTRL_2,
+				   ARIZONA_MICB1_BYPASS, 0);
+	if (!micbias[2].bypass && micbias[2].mV)
+		regmap_update_bits(arizona->regmap, ARIZONA_MIC_BIAS_CTRL_3,
+				   ARIZONA_MICB1_BYPASS, 0);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(arizona_disable_force_bypass);
+
 MODULE_DESCRIPTION("ASoC Wolfson Arizona class device support");
 MODULE_AUTHOR("Mark Brown <broonie@opensource.wolfsonmicro.com>");
 MODULE_LICENSE("GPL");
