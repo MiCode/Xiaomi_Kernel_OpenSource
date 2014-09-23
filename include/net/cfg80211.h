@@ -1855,6 +1855,24 @@ struct cfg80211_qos_map {
 };
 
 /**
+ * struct cfg80211_auth_params - Information about a key managment offload
+ *
+ * Information reported when a key managment offload has completed.
+ *
+ * @status: whether offload was successful
+ * @key_replay_ctr: Key Replay Counter value last used in a valid
+ *	EAPOL-Key frame
+ * @ptk_kck: the derived PTK KCK
+ * @ptk_kek: the derived PTK KEK
+ */
+struct cfg80211_auth_params {
+	enum nl80211_authorization_status status;
+	const u8 *key_replay_ctr;
+	const u8 *ptk_kck;
+	const u8 *ptk_kek;
+};
+
+/**
  * struct cfg80211_ops - backend description for wireless configuration
  *
  * This struct is registered by fullmac card drivers and/or wireless stacks
@@ -4535,6 +4553,27 @@ void cfg80211_authorization_event(struct net_device *dev,
 				  enum nl80211_authorization_status auth_status,
 				  const u8 *key_replay_ctr,
 				  gfp_t gfp);
+
+/**
+ * cfg80211_key_mgmt_auth - indicates key management offload complete
+ * @dev: the device reporting offload
+ * @auth_params: information about the offload
+ * @gfp: allocation flags
+ *
+ * This function reports that the device offloaded the key management
+ * operation and established temporal keys for an RSN connection.  In
+ * this case, the device handled the exchange necessary to establish
+ * the temporal keys by processing the EAPOL-Key frames instead of
+ * the supplicant doing it.  This means the initial connection, roam
+ * operation, or PKT rekeying is complete and the supplicant should
+ * enter the authorized state for the port.  This event can be signaled
+ * after cfg80211_connect_result during initial connection or after
+ * cfg80211_roamed in the case of roaming.  This event might also be
+ * signaled after the device handles a PTK rekeying operation.
+ */
+void cfg80211_key_mgmt_auth(struct net_device *dev,
+			    struct cfg80211_auth_params *auth_params,
+			    gfp_t gfp);
 
 /* Logging, debugging and troubleshooting/diagnostic helpers. */
 
