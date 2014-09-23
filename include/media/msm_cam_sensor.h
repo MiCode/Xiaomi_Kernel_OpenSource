@@ -303,6 +303,7 @@ struct msm_camera_sensor_slave_info32 {
 	char eeprom_name[32];
 	char actuator_name[32];
 	char ois_name[32];
+	char flash_name[32];
 	enum msm_sensor_camera_id_t camera_id;
 	uint16_t slave_addr;
 	enum i2c_freq_mode_t i2c_freq_mode;
@@ -556,6 +557,24 @@ struct msm_camera_led_cfg_t {
 	uint32_t flash_duration[MAX_LED_TRIGGERS];
 };
 
+struct msm_flash_init_info_t {
+	enum msm_flash_driver_type flash_driver_type;
+	struct msm_sensor_power_setting_array *power_setting_array;
+	struct msm_camera_i2c_reg_setting_array *settings;
+};
+
+struct msm_flash_cfg_data_t {
+	enum msm_flash_cfg_type_t cfg_type;
+	uint32_t torch_current;
+	uint32_t flash_current[MAX_LED_TRIGGERS];
+	uint32_t flash_duration[MAX_LED_TRIGGERS];
+	union {
+		struct msm_flash_init_info_t *flash_init_info;
+		struct msm_camera_i2c_reg_setting_array *settings;
+		uint32_t flash_current[MAX_LED_TRIGGERS];
+	} cfg;
+};
+
 /* sensor init structures and enums */
 enum msm_sensor_init_cfg_type_t {
 	CFG_SINIT_PROBE,
@@ -604,6 +623,9 @@ struct sensor_init_cfg_data {
 
 #define VIDIOC_MSM_OIS_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 11, struct msm_ois_cfg_data)
+
+#define VIDIOC_MSM_FLASH_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 13, struct msm_flash_cfg_data_t)
 
 #ifdef CONFIG_COMPAT
 struct msm_camera_i2c_reg_setting32 {
@@ -708,6 +730,24 @@ struct msm_ois_cfg_data32 {
 	} cfg;
 };
 
+struct msm_flash_init_info_t32 {
+	enum msm_flash_driver_type flash_driver_type;
+	compat_uptr_t power_setting_array;
+	compat_uptr_t settings;
+};
+
+struct msm_flash_cfg_data_t32 {
+	enum msm_flash_cfg_type_t cfg_type;
+	uint32_t torch_current;
+	uint32_t flash_current[MAX_LED_TRIGGERS];
+	uint32_t flash_duration[MAX_LED_TRIGGERS];
+	union {
+		compat_uptr_t flash_init_info;
+		compat_uptr_t settings;
+		uint32_t flash_current[MAX_LED_TRIGGERS];
+	} cfg;
+};
+
 #define VIDIOC_MSM_ACTUATOR_CFG32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct msm_actuator_cfg_data32)
 
@@ -729,6 +769,8 @@ struct msm_ois_cfg_data32 {
 #define VIDIOC_MSM_CSID_IO_CFG32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct csid_cfg_data32)
 
+#define VIDIOC_MSM_FLASH_CFG32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 13, struct msm_flash_cfg_data_t32)
 #endif
 
 #endif /* __LINUX_MSM_CAM_SENSOR_H */
