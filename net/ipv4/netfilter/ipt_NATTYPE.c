@@ -41,16 +41,12 @@
 #include <linux/netfilter_ipv4/ipt_NATTYPE.h>
 #include <linux/atomic.h>
 
-#if !defined(NATTYPE_DEBUG)
-#define DEBUGP(type, args...)
-#else
 static const char * const types[] = {"TYPE_PORT_ADDRESS_RESTRICTED",
 			"TYPE_ENDPOINT_INDEPENDENT",
 			"TYPE_ADDRESS_RESTRICTED"};
 static const char * const modes[] = {"MODE_DNAT", "MODE_FORWARD_IN",
 			"MODE_FORWARD_OUT"};
-#define DEBUGP(args...) printk(KERN_DEBUG args);
-#endif
+#define DEBUGP(args...) pr_debug(args);
 
 /*
  * TODO: Add magic value checks to data structure.
@@ -82,13 +78,13 @@ static DEFINE_SPINLOCK(nattype_lock);
 static void nattype_nte_debug_print(const struct ipt_nattype *nte,
 				const char *s)
 {
-#if defined(NATTYPE_DEBUG)
-	DEBUGP("%p: %s - proto[%d], src[%pI4:%d], nat[<x>:%d], dest[%pI4:%d]\n",
+	DEBUGP("%p:%s-proto[%d],src[%pI4:%d],nat[%d],dest[%pI4:%d]\n",
 		nte, s, nte->proto,
-		&nte->range.min_addr.ip, ntohs(nte->range.min.all),
+		&nte->range.min_addr.ip, ntohs(nte->range.min_proto.all),
 		ntohs(nte->nat_port),
 		&nte->dest_addr, ntohs(nte->dest_port));
-#endif
+	DEBUGP("Timeout[%lx], Expires[%lx]\n", nte->timeout_value,
+		nte->timeout.expires);
 }
 
 /*
@@ -97,7 +93,6 @@ static void nattype_nte_debug_print(const struct ipt_nattype *nte,
  */
 static void nattype_free(struct ipt_nattype *nte)
 {
-	nattype_nte_debug_print(nte, "free");
 	kfree(nte);
 }
 
@@ -116,10 +111,10 @@ bool nattype_refresh_timer(unsigned long nat_type, unsigned long timeout_value)
 		return false;
 	}
 	if (del_timer(&nte->timeout)) {
-		nte->timeout_value = timeout_value - jiffies;
 		nte->timeout.expires = timeout_value;
 		add_timer(&nte->timeout);
 		spin_unlock_bh(&nattype_lock);
+		nattype_nte_debug_print(nte, "refresh");
 		return true;
 	}
 	spin_unlock_bh(&nattype_lock);
@@ -249,10 +244,10 @@ static bool nattype_compare(struct ipt_nattype *n1, struct ipt_nattype *n2,
 		return false;
 	}
 
-	if (n1->range.min_addr.all != n2->range.min_addr.all) {
+	if (n1->range.min_proto.all != n2->range.min_proto.all) {
 		DEBUGP("nattype_compare: r.min mismatch: %d:%d\n",
-				ntohs(n1->range.min_addr.all),
-				ntohs(n2->range.min_addr.all));
+				ntohs(n1->range.min_proto.all),
+				ntohs(n2->range.min_proto.all));
 		return false;
 	}
 
@@ -329,7 +324,8 @@ static unsigned int nattype_nat(struct sk_buff *skb,
 		 * Expand the ingress conntrack to include the reply as source
 		 */
 		DEBUGP("Expand ingress conntrack=%p, type=%d, src[%pI4:%d]\n",
-			ct, ctinfo, &newrange.min_addr.ip, ntohs(newrange.min.all));
+			ct, ctinfo, &newrange.min_addr.ip,
+			ntohs(newrange.min_proto.all));
 		ct->nattype_entry = (unsigned long)nte;
 		ret = nf_nat_setup_info(ct, &newrange, NF_NAT_MANIP_DST);
 		DEBUGP("Expand returned: %d\n", ret);
@@ -357,7 +353,7 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	enum ip_conntrack_dir dir;
 
 
-	if (par->hooknum != NF_INET_FORWARD)
+	if (par->hooknum != NF_INET_POST_ROUTING)
 		return XT_CONTINUE;
 
 	/*
@@ -462,9 +458,8 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 		 * entry as this one is timed out and will be removed
 		 * from the list shortly.
 		 */
-		nte2->timeout_value = ct->timeout.expires - jiffies;
 		if (!nattype_refresh_timer((unsigned long)nte2,
-				ct->timeout.expires))
+				jiffies + nte2->timeout_value))
 			break;
 		/*
 		 * Found and refreshed an existing entry.  Its values
@@ -480,8 +475,8 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	/*
 	 * Add the new entry to the list.
 	 */
-	nte->timeout_value = ct->timeout.expires - jiffies;
-	nte->timeout.expires = ct->timeout.expires;
+	nte->timeout_value = ct->timeout.expires;
+	nte->timeout.expires = ct->timeout.expires + jiffies;
 	add_timer(&nte->timeout);
 	list_add(&nte->list, &nattype_list);
 	ct->nattype_entry = (unsigned long)nte;
@@ -575,7 +570,7 @@ static int nattype_check(const struct xt_tgchk_param *par)
 		types[info->type], modes[info->mode]);
 
 	if (par->hook_mask & ~((1 << NF_INET_PRE_ROUTING) |
-		(1 << NF_INET_FORWARD))) {
+		(1 << NF_INET_POST_ROUTING))) {
 		DEBUGP("nattype_check: bad hooks %x.\n", par->hook_mask);
 		return -EINVAL;
 	}
@@ -616,7 +611,7 @@ static struct xt_target nattype = {
 	.checkentry	= nattype_check,
 	.targetsize	= sizeof(struct ipt_nattype_info),
 	.hooks		= ((1 << NF_INET_PRE_ROUTING) |
-				(1 << NF_INET_FORWARD)),
+				(1 << NF_INET_POST_ROUTING)),
 	.me		= THIS_MODULE,
 };
 
