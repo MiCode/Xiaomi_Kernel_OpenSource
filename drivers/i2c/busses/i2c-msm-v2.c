@@ -1096,36 +1096,51 @@ static struct i2c_msm_clk_div_fld i2c_msm_clk_div_map[] = {
 	{KHz(1000),  8,  5},
 };
 
-/* @return zero on success */
-static int i2c_msm_set_mstr_clk_ctl(struct i2c_msm_ctrl *ctrl)
+/*
+ * @return zero on success
+ * @fs_div when zero use value from table above, otherwise use given value
+ * @ht_div when zero use value from table above, otherwise use given value
+ *
+ * Format the value to be configured into the clock divider register. This
+ * register is configured every time core is moved from reset to run state.
+ */
+static int i2c_msm_set_mstr_clk_ctl(struct i2c_msm_ctrl *ctrl, int fs_div,
+			int ht_div, int noise_rjct_scl, int noise_rjct_sda)
 {
-	int fs_div = 0;
-	int ht_div = 0;
-	bool match = false;
+	int ret = 0;
 	int i;
 	u32 reg_val = 0;
 	struct i2c_msm_clk_div_fld *itr = i2c_msm_clk_div_map;
 
 	/* set noise rejection values for scl and sda */
-	reg_val = I2C_MSM_SCL_NOISE_REJECTION(reg_val, ctrl->noise_rjct_scl);
-	reg_val = I2C_MSM_SDA_NOISE_REJECTION(reg_val, ctrl->noise_rjct_sda);
+	reg_val = I2C_MSM_SCL_NOISE_REJECTION(reg_val, noise_rjct_scl);
+	reg_val = I2C_MSM_SDA_NOISE_REJECTION(reg_val, noise_rjct_sda);
 
-	/* set divider values */
+	/*
+	 * find matching freq and set divider values unless they are forced
+	 * from parametr list
+	 */
 	for (i = 0; i < ARRAY_SIZE(i2c_msm_clk_div_map); ++i, ++itr) {
 		if (ctrl->rsrcs.clk_freq_out == itr->clk_freq_out) {
-			fs_div = itr->fs_div;
-			ht_div = itr->ht_div;
-			match  = true;
+			if (!fs_div)
+				fs_div = itr->fs_div;
+			if (!ht_div)
+				ht_div = itr->ht_div;
 			break;
 		}
 	}
-	ctrl->mstr_clk_ctl = (reg_val & (~0xff07ff)) | ((ht_div & 0xff) << 16)
-				|(fs_div & 0xff);
+	if (!fs_div) {
+		dev_err(ctrl->dev, "For non-standard clock freq:%dKHz\n"
+		"clk divider value fs_div should be supply by client through\n"
+		"device tree\n", (ctrl->rsrcs.clk_freq_out / 1000));
+		return -EINVAL;
+	}
 
-	if (!match)
-		dev_err(ctrl->dev, "error clock frequency %dKHz is not supported\n"
-					, (ctrl->rsrcs.clk_freq_out / 1000));
-	return !match;
+	/* format values in clk-ctl cache */
+	ctrl->mstr_clk_ctl = (reg_val & (~0xff07ff)) | ((ht_div & 0xff) << 16)
+							|(fs_div & 0xff);
+
+	return ret;
 }
 
 /*
@@ -3484,14 +3499,17 @@ static int i2c_msm_dt_to_pdata_populate(struct i2c_msm_ctrl *ctrl,
 
 
 /*
- * i2c_msm_rsrcs_dt_to_pdata: copy data from DT to platform data
+ * i2c_msm_rsrcs_process_dt: copy data from DT to platform data
  *
  * @pdata out parameter
  * @return zero on success or negative error code
  */
-static int i2c_msm_rsrcs_dt_to_pdata(struct i2c_msm_ctrl *ctrl,
+static int i2c_msm_rsrcs_process_dt(struct i2c_msm_ctrl *ctrl,
 					struct platform_device *pdev)
 {
+	u32 fs_clk_div, ht_clk_div, noise_rjct_scl, noise_rjct_sda;
+	int ret;
+
 	struct i2c_msm_dt_to_pdata_map map[] = {
 	{"i2c",				&pdev->id,	DT_REQ,  DT_ID,  -1},
 	{"qcom,clk-freq-out",		&ctrl->rsrcs.clk_freq_out,
@@ -3506,13 +3524,24 @@ static int i2c_msm_rsrcs_dt_to_pdata(struct i2c_msm_ctrl *ctrl,
 							DT_OPT,  DT_BOOL, 0},
 	{"qcom,master-id",		&(ctrl->rsrcs.clk_path_vote.mstr_id),
 							DT_SGST, DT_U32,  0},
-	{"qcom,noise-rjct-scl",		&(ctrl->noise_rjct_scl),
+	{"qcom,noise-rjct-scl",		&noise_rjct_scl,
 							DT_OPT,  DT_U32,  0},
-	{"qcom,noise-rjct-sda",		&(ctrl->noise_rjct_sda),
+	{"qcom,noise-rjct-sda",		&noise_rjct_sda,
+							DT_OPT,  DT_U32,  0},
+	{"qcom,high-time-clk-div",	&ht_clk_div,
+							DT_OPT,  DT_U32,  0},
+	{"qcom,fs-clk-div",		&fs_clk_div,
 							DT_OPT,  DT_U32,  0},
 	{NULL,  NULL,					0,       0,       0},
 	};
-	return i2c_msm_dt_to_pdata_populate(ctrl, pdev, map);
+
+	ret = i2c_msm_dt_to_pdata_populate(ctrl, pdev, map);
+	if (ret)
+		return ret;
+
+	/* set divider and noise reject values */
+	return i2c_msm_set_mstr_clk_ctl(ctrl, fs_clk_div, ht_clk_div,
+						noise_rjct_scl, noise_rjct_sda);
 }
 
 /*
@@ -4046,9 +4075,11 @@ static int i2c_msm_probe(struct platform_device *pdev)
 		return -EBADE;
 	}
 
-	ret = i2c_msm_rsrcs_dt_to_pdata(ctrl, pdev);
-	if (ret)
+	ret = i2c_msm_rsrcs_process_dt(ctrl, pdev);
+	if (ret) {
+		dev_err(ctrl->dev, "error in process device tree node");
 		return ret;
+	}
 
 	ret = i2c_msm_rsrcs_mem_init(pdev, ctrl);
 	if (ret)
@@ -4066,11 +4097,6 @@ static int i2c_msm_probe(struct platform_device *pdev)
 		dev_err(ctrl->dev, "error in enabling clocks:%d\n", ret);
 		goto clk_err;
 	}
-
-	/* set divider and noise reject values */
-	ret = i2c_msm_set_mstr_clk_ctl(ctrl);
-	if (ret)
-		goto clk_err;
 
 	ret = i2c_msm_ctrl_ver_detect_and_set(ctrl);
 	if (ret) {
