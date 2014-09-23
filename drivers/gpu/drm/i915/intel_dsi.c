@@ -137,9 +137,8 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	if (is_cmd_mode(intel_dsi))
 		I915_WRITE(MIPI_MAX_RETURN_PKT_SIZE(pipe), 8 * 4);
 	else {
-		msleep(20); /* XXX */
 		dpi_send_cmd(intel_dsi, TURN_ON, DPI_LP_MODE_EN);
-		msleep(100);
+		usleep_range(1500, 2000);
 
 		if (intel_dsi->dev.dev_ops->enable)
 			intel_dsi->dev.dev_ops->enable(&intel_dsi->dev);
