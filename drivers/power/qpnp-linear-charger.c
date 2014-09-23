@@ -934,8 +934,6 @@ static int qpnp_lbc_tchg_max_set(struct qpnp_lbc_chip *chip, int minutes)
 	u8 reg_val = 0;
 	int rc;
 
-	minutes = clamp(minutes, QPNP_LBC_TCHG_MIN, QPNP_LBC_TCHG_MAX);
-
 	/* Disable timer */
 	rc = qpnp_lbc_masked_write(chip, chip->chgr_base + CHG_TCHG_MAX_EN_REG,
 						CHG_TCHG_MAX_EN_BIT, 0);
@@ -943,6 +941,14 @@ static int qpnp_lbc_tchg_max_set(struct qpnp_lbc_chip *chip, int minutes)
 		pr_err("Failed to write tchg_max_en rc=%d\n", rc);
 		return rc;
 	}
+
+	/* If minutes is 0, just disable timer */
+	if (!minutes) {
+		pr_debug("Charger safety timer disabled\n");
+		return rc;
+	}
+
+	minutes = clamp(minutes, QPNP_LBC_TCHG_MIN, QPNP_LBC_TCHG_MAX);
 
 	reg_val = (minutes / QPNP_LBC_TCHG_STEP) - 1;
 
