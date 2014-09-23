@@ -300,6 +300,14 @@ static struct clk_freq_tbl ftbl_ufs_axi_clk_src[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_ufs_axi_clk_src_v2[] = {
+	F(  50000000, gpll0_out_main,   12,    0,     0),
+	F( 100000000, gpll0_out_main,    6,    0,     0),
+	F( 200000000, gpll0_out_main,    3,    0,     0),
+	F( 240000000, gpll0_out_main,  2.5,    0,     0),
+	F_END
+};
+
 static struct rcg_clk ufs_axi_clk_src = {
 	.cmd_rcgr_reg = UFS_AXI_CMD_RCGR,
 	.set_rate = set_rate_mnd,
@@ -353,6 +361,17 @@ static struct rcg_clk blsp1_qup1_i2c_apps_clk_src = {
 		VDD_DIG_FMAX_MAP2(LOWER, 19200000, LOW, 50000000),
 		CLK_INIT(blsp1_qup1_i2c_apps_clk_src.c),
 	},
+};
+
+static struct clk_freq_tbl ftbl_blspqup_spi_apps_clk_src_v2[] = {
+	F(    960000,         gcc_xo,   10,    1,     2),
+	F(   4800000,         gcc_xo,    4,    0,     0),
+	F(   9600000,         gcc_xo,    2,    0,     0),
+	F(  15000000, gpll0_out_main,   10,    1,     4),
+	F(  19200000,         gcc_xo,    1,    0,     0),
+	F(  25000000, gpll0_out_main,   12,    1,     2),
+	F(  50000000, gpll0_out_main,   12,    0,     0),
+	F_END
 };
 
 static struct clk_freq_tbl ftbl_blsp1_qup1_spi_apps_clk_src[] = {
@@ -2650,7 +2669,11 @@ static struct mux_clk gcc_debug_mux = {
 	},
 };
 
-static struct clk_lookup msm_clocks_gcc_8994[] = {
+static struct clk_lookup gcc_clocks_8994_v1[] = {
+	CLK_LIST(gcc_bam_dma_ahb_clk),
+};
+
+static struct clk_lookup gcc_clocks_8994_common[] = {
 	CLK_LIST(gcc_xo),
 	CLK_LIST(gcc_xo_a_clk),
 	CLK_LIST(debug_mmss_clk),
@@ -2724,7 +2747,6 @@ static struct clk_lookup msm_clocks_gcc_8994[] = {
 	CLK_LIST(pcie_1_phy_ldo),
 	CLK_LIST(ufs_phy_ldo),
 	CLK_LIST(usb_ss_phy_ldo),
-	CLK_LIST(gcc_bam_dma_ahb_clk),
 	CLK_LIST(gcc_blsp1_ahb_clk),
 	CLK_LIST(gcc_blsp1_qup1_i2c_apps_clk),
 	CLK_LIST(gcc_blsp1_qup1_spi_apps_clk),
@@ -2813,11 +2835,60 @@ static struct clk_lookup msm_clocks_gcc_8994[] = {
 	CLK_LIST(gcc_usb_phy_cfg_ahb2phy_clk),
 };
 
+static void msm_gcc_8994v2_fixup(void)
+{
+	ufs_axi_clk_src.freq_tbl = ftbl_ufs_axi_clk_src_v2;
+	ufs_axi_clk_src.c.fmax[VDD_DIG_NOMINAL] = 200000000;
+	ufs_axi_clk_src.c.fmax[VDD_DIG_HIGH] = 240000000;
+
+	blsp1_qup1_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+	blsp1_qup2_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+	blsp1_qup3_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+	blsp1_qup4_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+	blsp1_qup5_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+	blsp1_qup6_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+	blsp2_qup1_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+	blsp2_qup2_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+	blsp2_qup3_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+	blsp2_qup4_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+	blsp2_qup5_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+	blsp2_qup6_spi_apps_clk_src.freq_tbl = ftbl_blspqup_spi_apps_clk_src_v2;
+
+	blsp1_qup1_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	blsp1_qup2_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	blsp1_qup3_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	blsp1_qup4_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	blsp1_qup5_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	blsp1_qup6_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	blsp2_qup1_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	blsp2_qup2_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	blsp2_qup3_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	blsp2_qup4_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	blsp2_qup5_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	blsp2_qup6_spi_apps_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+
+	blsp1_qup1_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+	blsp1_qup2_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+	blsp1_qup3_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+	blsp1_qup4_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+	blsp1_qup5_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+	blsp1_qup6_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+	blsp2_qup1_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+	blsp2_qup2_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+	blsp2_qup3_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+	blsp2_qup4_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+	blsp2_qup5_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+	blsp2_qup6_spi_apps_clk_src.c.fmax[VDD_DIG_HIGH] = 0;
+}
+
 static int msm_gcc_8994_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct clk *tmp_clk;
 	int ret;
+	const char *compat = NULL;
+	int compatlen = 0;
+	bool is_v2 = false;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -2851,10 +2922,27 @@ static int msm_gcc_8994_probe(struct platform_device *pdev)
 		return PTR_ERR(tmp_clk);
 	}
 
-	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_gcc_8994,
-				    ARRAY_SIZE(msm_clocks_gcc_8994));
+	/* Perform revision specific fixes */
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+	is_v2 = !strcmp(compat, "qcom,gcc-8994v2");
+	if (is_v2)
+		msm_gcc_8994v2_fixup();
+
+	/* register common clock table */
+	ret = of_msm_clock_register(pdev->dev.of_node, gcc_clocks_8994_common,
+				    ARRAY_SIZE(gcc_clocks_8994_common));
 	if (ret)
 		return ret;
+
+	if (!is_v2) {
+		/* register v1 specific clocks */
+		ret = of_msm_clock_register(pdev->dev.of_node,
+			gcc_clocks_8994_v1, ARRAY_SIZE(gcc_clocks_8994_v1));
+		if (ret)
+			return ret;
+	}
 
 	dev_info(&pdev->dev, "Registered GCC clocks.\n");
 	return 0;
@@ -2862,6 +2950,7 @@ static int msm_gcc_8994_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-8994" },
+	{ .compatible = "qcom,gcc-8994v2" },
 	{}
 };
 
