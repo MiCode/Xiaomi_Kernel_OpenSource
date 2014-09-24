@@ -13,7 +13,7 @@ Required properties:
 - compatible : Must be "qcom,avtimer"
 
 Optional properties:
-- clk_div : For 8916 the clk is at 27MHz and hence ticks are to be
+- clk_div : The clk is at 27MHz and hence ticks are to be
  divided by 27 to achive the msec value.
 
 Example:
