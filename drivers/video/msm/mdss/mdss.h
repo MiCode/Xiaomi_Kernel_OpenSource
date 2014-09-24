@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -325,10 +325,12 @@ struct mdss_util_intf {
 	void (*disable_irq)(struct mdss_hw *hw);
 	void (*disable_irq_nosync)(struct mdss_hw *hw);
 	int (*irq_dispatch)(u32 hw_ndx, int irq, void *ptr);
+	int (*get_iommu_domain)(u32 type);
 	int (*iommu_attached)(void);
 	int (*iommu_ctrl)(int enable);
 	void (*bus_bandwidth_ctrl)(int enable);
 	int (*bus_scale_set_quota)(int client, u64 ab_quota, u64 ib_quota);
+	struct mdss_panel_cfg* (*panel_intf_type)(int intf_val);
 };
 
 struct mdss_util_intf *mdss_get_util_intf(void);

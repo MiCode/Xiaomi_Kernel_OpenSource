@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -497,7 +497,8 @@ novreg:
 	return rc;
 }
 
-static int mdss_dsi_get_panel_cfg(char *panel_cfg)
+static int mdss_dsi_get_panel_cfg(char *panel_cfg,
+				struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	int rc;
 	struct mdss_panel_cfg *pan_cfg = NULL;
@@ -505,7 +506,7 @@ static int mdss_dsi_get_panel_cfg(char *panel_cfg)
 	if (!panel_cfg)
 		return MDSS_PANEL_INTF_INVALID;
 
-	pan_cfg = mdss_panel_intf_type(MDSS_PANEL_INTF_DSI);
+	pan_cfg = ctrl->mdss_util->panel_intf_type(MDSS_PANEL_INTF_DSI);
 	if (IS_ERR(pan_cfg)) {
 		return PTR_ERR(pan_cfg);
 	} else if (!pan_cfg) {
@@ -1507,7 +1508,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		return -ENOTSUPP;
 	}
 
-	pan_cfg = mdss_panel_intf_type(MDSS_PANEL_INTF_HDMI);
+	pan_cfg = util->panel_intf_type(MDSS_PANEL_INTF_HDMI);
 	if (IS_ERR(pan_cfg)) {
 		return PTR_ERR(pan_cfg);
 	} else if (pan_cfg) {
@@ -1586,7 +1587,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 			pdev->dev.of_node, "qcom,dsi-panel-bias-vreg");
 
 	/* DSI panels can be different between controllers */
-	rc = mdss_dsi_get_panel_cfg(panel_cfg);
+	rc = mdss_dsi_get_panel_cfg(panel_cfg, ctrl_pdata);
 	if (!rc)
 		/* dsi panel cfg not present */
 		pr_warn("%s:%d:dsi specific cfg not present\n",

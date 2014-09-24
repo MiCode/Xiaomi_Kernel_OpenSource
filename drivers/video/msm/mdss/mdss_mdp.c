@@ -1,7 +1,7 @@
 /*
  * MDSS MDP Interface (used by framebuffer core)
  *
- * Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1480,10 +1480,12 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	mdss_res->mdss_util->get_iommu_domain = mdss_get_iommu_domain;
 	mdss_res->mdss_util->iommu_attached = is_mdss_iommu_attached;
 	mdss_res->mdss_util->iommu_ctrl = mdss_iommu_ctrl;
 	mdss_res->mdss_util->bus_scale_set_quota = mdss_bus_scale_set_quota;
 	mdss_res->mdss_util->bus_bandwidth_ctrl = mdss_bus_bandwidth_ctrl;
+	mdss_res->mdss_util->panel_intf_type = mdss_panel_intf_type;
 
 	rc = msm_dss_ioremap_byname(pdev, &mdata->mdss_io, "mdp_phys");
 	if (rc) {

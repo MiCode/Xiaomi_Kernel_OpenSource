@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,12 +145,13 @@ struct mdss_util_intf mdss_util = {
 	.disable_irq = mdss_disable_irq,
 	.disable_irq_nosync = mdss_disable_irq_nosync,
 	.irq_dispatch = mdss_irq_dispatch,
+	.get_iommu_domain = NULL,
 	.iommu_attached = NULL,
 	.iommu_ctrl = NULL,
 	.bus_bandwidth_ctrl = NULL,
 	.bus_scale_set_quota = NULL,
+	.panel_intf_type = NULL,
 	.mdp_probe_done = false
-
 };
 
 struct mdss_util_intf *mdss_get_util_intf()
