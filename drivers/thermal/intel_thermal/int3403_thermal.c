@@ -386,6 +386,8 @@ static int int3403_cdev_add(struct int3403_priv *priv)
 
 	/* TODO: add ACPI notification support */
 end:
+	kfree(buf.pointer);
+
 	if (result)
 		kfree(obj);
 	return result;
