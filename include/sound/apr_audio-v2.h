@@ -34,6 +34,8 @@
 
 #define ADM_MAX_COPPS 5
 
+/* make sure this matches with msm_audio_calibration */
+#define SP_V2_NUM_MAX_SPKR 2
 
 /*  Session map node structure.
 *	Immediately following this structure are num_copps
@@ -6860,8 +6862,10 @@ struct cmd_set_topologies {
  */
 
 #define AFE_MODULE_FB_SPKR_PROT_RX 0x0001021C
+#define AFE_MODULE_FB_SPKR_PROT_V2_RX 0x0001025F
 
 #define AFE_PARAM_ID_FBSP_MODE_RX_CFG 0x0001021D
+#define AFE_PARAM_ID_FBSP_PTONE_RAMP_CFG 0x00010260
 
 struct asm_fbsp_mode_rx_cfg {
 	uint32_t minor_version;
@@ -6878,25 +6882,31 @@ struct asm_fbsp_mode_rx_cfg {
  */
 
 #define AFE_MODULE_FB_SPKR_PROT_VI_PROC 0x00010226
+#define AFE_MODULE_FB_SPKR_PROT_VI_PROC_V2 0x0001026A
 
 #define AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG 0x0001022A
+#define AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG_V2  0x0001026B
 
 struct asm_spkr_calib_vi_proc_cfg {
 	uint32_t minor_version;
-	int32_t	r0_cali_q24;
-	int16_t	t0_cali_q6;
-	int16_t	reserved;
+	uint32_t operation_mode;
+	uint32_t r0_t0_selection_flag[SP_V2_NUM_MAX_SPKR];
+	int32_t r0_cali_q24[SP_V2_NUM_MAX_SPKR];
+	int16_t	t0_cali_q6[SP_V2_NUM_MAX_SPKR];
+	uint32_t quick_calib_flag;
 } __packed;
 
 #define AFE_PARAM_ID_CALIB_RES_CFG 0x0001022B
+#define AFE_PARAM_ID_CALIB_RES_CFG_V2 0x0001026E
 
 struct asm_calib_res_cfg {
 	uint32_t minor_version;
-	int32_t	r0_cali_q24;
+	int32_t	r0_cali_q24[SP_V2_NUM_MAX_SPKR];
 	uint32_t th_vi_ca_state;
 } __packed;
 
 #define AFE_PARAM_ID_FEEDBACK_PATH_CFG 0x0001022C
+#define AFE_MODULE_FEEDBACK 0x00010257
 
 struct asm_feedback_path_cfg {
 	uint32_t minor_version;

@@ -249,16 +249,23 @@ enum msm_spkr_prot_states {
 	MSM_SPKR_PROT_NOT_CALIBRATED
 };
 
+enum msm_spkr_count {
+	SP_V2_SPKR_1,
+	SP_V2_SPKR_2,
+	SP_V2_NUM_MAX_SPKRS
+};
+
 struct audio_cal_info_spk_prot_cfg {
-	int32_t		r0;
-	int32_t		t0;
+	int32_t		r0[SP_V2_NUM_MAX_SPKRS];
+	int32_t		t0[SP_V2_NUM_MAX_SPKRS];
+	uint32_t	quick_calib_flag;
 	uint32_t	mode; /*0 - Start spk prot
 	1 - Start calib
 	2 - Disable spk prot*/
 };
 
 struct audio_cal_info_msm_spk_prot_status {
-	int32_t		r0;
+	int32_t		r0[SP_V2_NUM_MAX_SPKRS];
 	int32_t		status;
 };
 
