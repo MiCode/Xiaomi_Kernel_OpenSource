@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -703,6 +703,18 @@ static int mdp3_irq_setup(void)
 	mdp3_res->mdss_util->disable_irq_nosync(&mdp3_res->mdp3_hw);
 	mdp3_res->irq_registered = true;
 	return 0;
+}
+
+
+static int mdp3_get_iommu_domain(u32 type)
+{
+	if (type >= MDSS_IOMMU_MAX_DOMAIN)
+		return -EINVAL;
+
+	if (!mdp3_res)
+		return -ENODEV;
+
+	return mdp3_res->domains[type].domain_idx;
 }
 
 int mdp3_iommu_attach(int context)
@@ -1948,6 +1960,18 @@ int mdp3_footswitch_ctrl(int enable)
 	return rc;
 }
 
+struct mdss_panel_cfg *mdp3_panel_intf_type(int intf_val)
+{
+	if (!mdp3_res || !mdp3_res->pan_cfg.init_done)
+		return ERR_PTR(-EPROBE_DEFER);
+
+	if (mdp3_res->pan_cfg.pan_intf == intf_val)
+		return &mdp3_res->pan_cfg;
+	else
+		return NULL;
+}
+EXPORT_SYMBOL(mdp3_panel_intf_type);
+
 static int mdp3_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -1992,9 +2016,11 @@ static int mdp3_probe(struct platform_device *pdev)
 		rc =  -ENODEV;
 		goto get_util_fail;
 	}
+	mdp3_res->mdss_util->get_iommu_domain = mdp3_get_iommu_domain;
 	mdp3_res->mdss_util->iommu_attached = mdp3_iommu_is_attached;
 	mdp3_res->mdss_util->iommu_ctrl = mdp3_iommu_ctrl;
 	mdp3_res->mdss_util->bus_scale_set_quota = mdp3_bus_scale_set_quota;
+	mdp3_res->mdss_util->panel_intf_type = mdp3_panel_intf_type;
 
 	rc = mdp3_parse_dt(pdev);
 	if (rc)
@@ -2065,18 +2091,6 @@ get_util_fail:
 
 	return rc;
 }
-
-struct mdss_panel_cfg *mdp3_panel_intf_type(int intf_val)
-{
-	if (!mdp3_res || !mdp3_res->pan_cfg.init_done)
-		return ERR_PTR(-EPROBE_DEFER);
-
-	if (mdp3_res->pan_cfg.pan_intf == intf_val)
-		return &mdp3_res->pan_cfg;
-	else
-		return NULL;
-}
-EXPORT_SYMBOL(mdp3_panel_intf_type);
 
 int mdp3_panel_get_boot_cfg(void)
 {

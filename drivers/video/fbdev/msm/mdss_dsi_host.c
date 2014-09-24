@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1522,7 +1522,7 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	if (ctrl->mdss_util->iommu_attached()) {
 		int ret = msm_iommu_map_contig_buffer(tp->dmap,
-				mdss_get_iommu_domain(domain), 0,
+				ctrl->mdss_util->get_iommu_domain(domain), 0,
 				ctrl->dma_size, SZ_4K, 0, &(ctrl->dma_addr));
 		if (IS_ERR_VALUE(ret)) {
 			pr_err("unable to map dma memory to iommu(%d)\n", ret);
@@ -1570,7 +1570,8 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (mctrl && mctrl->dma_addr) {
 		if (ctrl->mdss_util->iommu_attached()) {
 			msm_iommu_unmap_contig_buffer(mctrl->dma_addr,
-			mdss_get_iommu_domain(domain), 0, mctrl->dma_size);
+			ctrl->mdss_util->get_iommu_domain(domain),
+							0, mctrl->dma_size);
 		}
 		mctrl->dma_addr = 0;
 		mctrl->dma_size = 0;
@@ -1578,7 +1579,8 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	if (ctrl->mdss_util->iommu_attached()) {
 		msm_iommu_unmap_contig_buffer(ctrl->dma_addr,
-			mdss_get_iommu_domain(domain), 0, ctrl->dma_size);
+			ctrl->mdss_util->get_iommu_domain(domain),
+							0, ctrl->dma_size);
 	}
 
 	ctrl->dma_addr = 0;
