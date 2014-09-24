@@ -272,12 +272,16 @@ static int32_t msm_sensor_fill_ois_subdevid_by_name(
 {
 	int32_t rc = 0;
 	struct device_node *src_node = NULL;
-	uint32_t val = 0;
+	uint32_t val = 0, ois_name_len;
 	int32_t *ois_subdev_id;
 	struct  msm_sensor_info_t *sensor_info;
 	struct device_node *of_node = s_ctrl->of_node;
 
-	if (!of_node)
+	if (!s_ctrl->sensordata->ois_name || !of_node)
+		return -EINVAL;
+
+	ois_name_len = strlen(s_ctrl->sensordata->ois_name);
+	if (ois_name_len >= MAX_SENSOR_NAME)
 		return -EINVAL;
 
 	sensor_info = s_ctrl->sensordata->sensor_info;
@@ -287,6 +291,9 @@ static int32_t msm_sensor_fill_ois_subdevid_by_name(
 	 * and try to found new id
 	 */
 	*ois_subdev_id = -1;
+
+	if (0 == ois_name_len)
+		return 0;
 
 	src_node = of_parse_phandle(of_node, "qcom,ois-src", 0);
 	if (!src_node) {
@@ -828,6 +835,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 	s_ctrl->sensordata->sensor_name = slave_info->sensor_name;
 	s_ctrl->sensordata->eeprom_name = slave_info->eeprom_name;
 	s_ctrl->sensordata->actuator_name = slave_info->actuator_name;
+	s_ctrl->sensordata->ois_name = slave_info->ois_name;
 	/*
 	 * Update eeporm subdevice Id by input eeprom name
 	 */
