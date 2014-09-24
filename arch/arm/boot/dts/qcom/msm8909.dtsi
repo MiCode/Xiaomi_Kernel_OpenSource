@@ -600,41 +600,57 @@
 
 	usb_otg: usb@78d9000 {
 		compatible = "qcom,hsusb-otg";
+		reg = <0x78d9000 0x400>, <0x6c000 0x200>;
+		reg-names = "core", "phy_csr";
 
-		reg = <0x78d9000 0x400>;
-		reg-names = "core";
 		interrupts = <0 134 0>,<0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 
-		hsusb_vdd_dig-supply = <&pm8909_s1_corner>;
+		hsusb_vdd_dig-supply = <&pm8909_l2>;
 		HSUSB_1p8-supply = <&pm8909_l7>;
 		HSUSB_3p3-supply = <&pm8909_l13>;
-		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,vdd-voltage-level = <0 1200000 1200000>;
 
 		qcom,hsusb-otg-phy-init-seq =
 			<0x44 0x80 0x6B 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
-		qcom,hsusb-otg-phy-type = <2>; /* SNPS 28nm Pico PHY */
+		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
 		qcom,hsusb-otg-mode = <1>; /* DEVICE only */
-		qcom,hsusb-otg-otg-control = <1>; /* PHY */
+		qcom,hsusb-otg-otg-control = <2>; /* PMIC */
 		qcom,dp-manual-pullup;
+		qcom,hsusb-otg-disable-reset;
+		qcom,phy-dvdd-always-on;
+		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
+		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
 
 		qcom,msm-bus,name = "usb2";
 		qcom,msm-bus,num-cases = <3>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<87 512 0 0>,
-				<87 512 60000 960000>,
+				<87 512 80000 0>,
 				<87 512 6000  6000>;
 		clocks = <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
 			 <&clock_gcc clk_gcc_usb_hs_system_clk>,
 			 <&clock_gcc clk_gcc_usb2a_phy_sleep_clk>,
+			 <&clock_rpm clk_bimc_usb_a_clk>,
+			 <&clock_rpm clk_snoc_usb_a_clk>,
+			 <&clock_rpm clk_pcnoc_usb_a_clk>,
+			 <&clock_gcc clk_gcc_qusb2_phy_clk>,
+			 <&clock_gcc clk_gcc_usb2_hs_phy_only_clk>,
+			 <&clock_gcc clk_gcc_usb_hs_phy_cfg_ahb_clk>,
 			 <&clock_rpm clk_xo_otg_clk>;
 		clock-names = "iface_clk", "core_clk", "sleep_clk",
+				"bimc_clk", "snoc_clk", "pcnoc_clk",
+				"phy_reset_clk", "phy_por_clk", "phy_csr_clk",
 				"xo";
+		qcom,bus-clk-rate = <400000000 200000000 100000000>;
 	};
 
-	android_usb {
+	android_usb: android_usb@086000c8 {
 		compatible = "qcom,android-usb";
+		reg = <0x086000c8 0xc8>;
+		qcom,pm-qos-latency = <2 1001 12701>;
+		qcom,streaming-func = "mtp";
 	};
 
 	qcom,usbbam@78c4000 {
