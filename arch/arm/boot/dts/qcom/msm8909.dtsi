@@ -121,6 +121,7 @@
 #include "msm8909-gpu.dtsi"
 #include "msm8909-coresight.dtsi"
 #include "msm8909-bus.dtsi"
+#include "msm8909-mdss-pll.dtsi"
 
 &soc {
 	#address-cells = <1>;
