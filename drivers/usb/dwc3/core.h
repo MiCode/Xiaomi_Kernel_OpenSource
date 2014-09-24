@@ -890,7 +890,6 @@ struct dwc3 {
 	bool			nominal_elastic_buffer;
 	bool			core_reset_after_phy_init;
 	bool			err_evt_seen;
-	bool			hsphy_auto_suspend_disable;
 	bool			ssphy_clear_auto_suspend_on_disconnect;
 	bool			usb3_u1u2_disable;
 	bool			enable_bus_suspend;
@@ -1071,6 +1070,7 @@ int dwc3_gadget_prepare(struct dwc3 *dwc);
 void dwc3_gadget_complete(struct dwc3 *dwc);
 int dwc3_gadget_suspend(struct dwc3 *dwc);
 int dwc3_gadget_resume(struct dwc3 *dwc);
+void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend);
 #else
 static inline int dwc3_gadget_prepare(struct dwc3 *dwc)
 {
@@ -1090,6 +1090,8 @@ static inline int dwc3_gadget_resume(struct dwc3 *dwc)
 {
 	return 0;
 }
+
+static void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend) { }
 #endif /* !IS_ENABLED(CONFIG_USB_DWC3_HOST) */
 
 void dwc3_gadget_restart(struct dwc3 *dwc);

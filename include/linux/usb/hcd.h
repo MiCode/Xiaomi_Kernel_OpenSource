@@ -368,7 +368,6 @@ struct hc_driver {
 	void	(*dump_regs)(struct usb_hcd *);
 	void	(*set_autosuspend_delay)(struct usb_device *);
 	void	(*reset_sof_bug_handler)(struct usb_hcd *hcd, u32 val);
-	void	(*set_autosuspend)(struct usb_hcd *hcd, int enable_autosuspend);
 	void	(*udev_enum_done)(struct usb_hcd *hcd);
 };
 

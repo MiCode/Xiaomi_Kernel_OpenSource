@@ -2746,27 +2746,6 @@ unreg_chrdev:
 	return ret;
 }
 
-static int msm_dwc3_hsphy_autosuspend(struct usb_phy *x, struct device *dev,
-				int enable_autosuspend)
-{
-	struct dwc3_msm *mdwc = dev_get_drvdata(dev->parent->parent);
-	struct dwc3 *dwc = dev_get_drvdata(dev->parent);
-	u32 reg;
-
-	if (dwc->hsphy_auto_suspend_disable)
-		return 0;
-
-	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
-	if (enable_autosuspend)
-		reg |= DWC3_GUSB2PHYCFG_SUSPHY;
-	else
-		reg &= ~(DWC3_GUSB2PHYCFG_SUSPHY);
-
-	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0), reg);
-
-	return 0;
-}
-
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
@@ -3162,7 +3141,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(mdwc->hs_phy);
 		goto put_dwc3;
 	}
-	mdwc->hs_phy->set_phy_autosuspend = msm_dwc3_hsphy_autosuspend;
 
 	mdwc->ss_phy = devm_usb_get_phy_by_phandle(&mdwc->dwc3->dev,
 							"usb-phy", 1);
