@@ -1584,7 +1584,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	dev_dbg(mdwc->dev, "%s: entering lpm. usb_lpm_override:%d\n",
 					 __func__, usb_lpm_override);
-	dbg_event(0xFF, "Controller Suspend", 0);
+	dbg_event(0xFF, "Ctl Sus", atomic_read(&dwc->in_lpm));
 
 	if (!usb_lpm_override && mdwc->suspend_resume_no_support) {
 		dev_dbg(mdwc->dev, "%s no support for suspend\n", __func__);
@@ -1777,7 +1777,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
-	dbg_event(0xFF, "Controller Resume", 0);
+	dbg_event(0xFF, "Ctl Res", atomic_read(&dwc->in_lpm));
 
 	if (!atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already resumed\n", __func__);
@@ -1947,6 +1947,7 @@ static void dwc3_resume_work(struct work_struct *w)
 		return;
 	}
 
+	dbg_event(0xFF, "ReWr flag", atomic_read(&mdwc->pm_suspended));
 	/* bail out if system resume in process, else initiate RESUME */
 	if (atomic_read(&mdwc->pm_suspended)) {
 		mdwc->resume_pending = true;
@@ -1960,6 +1961,7 @@ static void dwc3_resume_work(struct work_struct *w)
 			pm_runtime_resume(&dwc->xhci->dev);
 		}
 
+		dbg_event(0xFF, "ReWr Else", mdwc->otg_xceiv ? 1 : 0);
 		pm_runtime_put_noidle(mdwc->dev);
 		if (mdwc->otg_xceiv && (mdwc->ext_xceiv.otg_capability)) {
 			dwc3_wait_for_ext_chg_done(mdwc);
@@ -2602,6 +2604,7 @@ dwc3_msm_ext_chg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		pr_debug("%s: LPM block request %d\n", __func__, val);
 		if (val) { /* block LPM */
 			if (mdwc->charger.chg_type == DWC3_DCP_CHARGER) {
+				dbg_event(0xFF, "CHGioct gsyn", 0);
 				pm_runtime_get_sync(mdwc->dev);
 			} else {
 				mdwc->ext_chg_active = false;
@@ -2611,6 +2614,7 @@ dwc3_msm_ext_chg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		} else {
 			mdwc->ext_chg_active = false;
 			complete(&mdwc->ext_chg_wait);
+			dbg_event(0xFF, "CHGioct put", 0);
 			pm_runtime_put(mdwc->dev);
 		}
 		break;
@@ -3304,6 +3308,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	 * Hence turn ON the clocks manually.
 	 */
 	ret_pm = pm_runtime_get_sync(mdwc->dev);
+	dbg_event(0xFF, "Remov gsyn", ret_pm);
 	if (ret_pm < 0) {
 		dev_err(mdwc->dev,
 			"pm_runtime_get_sync failed with %d\n", ret_pm);
@@ -3335,6 +3340,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	platform_device_put(mdwc->dwc3);
 	device_for_each_child(&pdev->dev, NULL, dwc3_msm_remove_children);
 
+	dbg_event(0xFF, "Remov put", 0);
 	pm_runtime_disable(mdwc->dev);
 	pm_runtime_barrier(mdwc->dev);
 	pm_runtime_put_sync(mdwc->dev);
@@ -3374,6 +3380,7 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(dev, "dwc3-msm PM suspend\n");
+	dbg_event(0xFF, "PM Sus", 0);
 
 	flush_delayed_work(&mdwc->resume_work);
 	if (!atomic_read(&dwc->in_lpm)) {
@@ -3397,10 +3404,12 @@ static int dwc3_msm_pm_resume(struct device *dev)
 	dev_dbg(dev, "dwc3-msm PM resume\n");
 
 	atomic_set(&mdwc->pm_suspended, 0);
+	dbg_event(0xFF, "PM Res", mdwc->resume_pending);
 	if (mdwc->resume_pending) {
 		mdwc->resume_pending = false;
 
 		ret = dwc3_msm_resume(mdwc);
+
 		/* Update runtime PM status */
 		pm_runtime_disable(dev);
 		pm_runtime_set_active(dev);
@@ -3456,6 +3465,7 @@ static int dwc3_msm_runtime_suspend(struct device *dev)
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "DWC3-msm runtime suspend\n");
+	dbg_event(0xFF, "RT Sus", 0);
 
 	return dwc3_msm_suspend(mdwc);
 }
@@ -3465,6 +3475,7 @@ static int dwc3_msm_runtime_resume(struct device *dev)
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "DWC3-msm runtime resume\n");
+	dbg_event(0xFF, "RT Res", 0);
 
 	return dwc3_msm_resume(mdwc);
 }

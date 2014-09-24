@@ -1357,7 +1357,7 @@ static void __dwc3_gadget_start_isoc(struct dwc3 *dwc,
 
 	ret = __dwc3_gadget_kick_transfer(dep, uf, 1);
 	if (ret < 0)
-		dbg_event(dep->number, "QUEUE", ret);
+		dbg_event(dep->number, "ISOC QUEUE", ret);
 }
 
 static void dwc3_gadget_start_isoc(struct dwc3 *dwc,
@@ -1442,7 +1442,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 
 		ret = __dwc3_gadget_kick_transfer(dep, 0, true);
 		if (ret && ret != -EBUSY) {
-			dbg_event(dep->number, "QUEUE", ret);
+			dbg_event(dep->number, "XfNR QUEUE", ret);
 			dev_dbg(dwc->dev, "%s: failed to kick transfers\n",
 					dep->name);
 		}
@@ -1461,7 +1461,7 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		ret = __dwc3_gadget_kick_transfer(dep, dep->resource_index,
 				false);
 		if (ret && ret != -EBUSY) {
-			dbg_event(dep->number, "QUEUE", ret);
+			dbg_event(dep->number, "XfIP QUEUE", ret);
 			dev_dbg(dwc->dev, "%s: failed to kick transfers\n",
 					dep->name);
 		}
@@ -1717,6 +1717,7 @@ static void dwc3_gadget_wakeup_work(struct work_struct *w)
 
 	if (atomic_read(&dwc->in_lpm)) {
 		spin_unlock_irqrestore(&dwc->lock, flags);
+		dbg_event(0xFF, "Gdgwake gsyn", 0);
 		pm_runtime_get_sync(dwc->dev);
 		spin_lock_irqsave(&dwc->lock, flags);
 	}
@@ -1972,6 +1973,7 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	 */
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	if (atomic_read(&dwc->in_lpm) && !is_on) {
+		dbg_event(0xFF, "Gdgpull gsyn", 0);
 		pm_runtime_get_sync(dwc->dev);
 		if (dwc3_gadget)
 			dwc3_gadget->disable_during_lpm = true;
@@ -1979,6 +1981,7 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	}
 
 	if (is_on && dwc3_gadget && dwc3_gadget->disable_during_lpm) {
+		dbg_event(0xFF, "Gdgpull psyn", 0);
 		pm_runtime_put_sync(dwc->dev);
 		if (dwc3_gadget)
 			dwc3_gadget->disable_during_lpm = false;
@@ -3340,7 +3343,7 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 			dwc->dbg_gadget_events.eopf++;
 		} else {
 			dev_vdbg(dwc->dev, "U3/L1-L2 Suspend Event\n");
-			dbg_event(0xFF, "SUSPEND", 0);
+			dbg_event(0xFF, "GAD SUS", 0);
 			dwc->dbg_gadget_events.suspend++;
 
 			/*

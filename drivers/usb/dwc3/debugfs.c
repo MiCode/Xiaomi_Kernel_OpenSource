@@ -876,7 +876,7 @@ void dbg_print(u8 ep_num, const char *name, int status, const char *extra)
 	write_lock_irqsave(&dbg_dwc3_data.lck, flags);
 
 	scnprintf(dbg_dwc3_data.buf[dbg_dwc3_data.idx], DBG_DATA_MSG,
-		  "%s\t? %02X %-7.7s %4i ?\t%s\n",
+		  "%s\t? %02X %-12.12s %4i ?\t%s\n",
 		  get_timestamp(tbuf), ep_num, name, status, extra);
 
 	dbg_inc(&dbg_dwc3_data.idx);
