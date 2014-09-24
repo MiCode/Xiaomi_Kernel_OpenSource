@@ -6,7 +6,8 @@ the clocks are scaled and also other HW specific parameters like fmax tables,
 avs settings table, etc.
 
 Required properties:
-- compatible:		Must be "qcom,clock-cpu-8994"
+- compatible:		Must be one of "qcom,clock-cpu-8994" or
+			"qcom,clock-cpu-8994-v2"
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Expected
