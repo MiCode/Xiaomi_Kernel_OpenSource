@@ -1957,6 +1957,9 @@ static void monitor_soc_work(struct work_struct *work)
 
 				pr_debug("update bms_psy\n");
 				power_supply_changed(&chip->bms_psy);
+			} else if (chip->last_soc != chip->calculated_soc) {
+				pr_debug("update bms_psy\n");
+				power_supply_changed(&chip->bms_psy);
 			} else {
 				report_vm_bms_soc(chip);
 			}
