@@ -101,3 +101,7 @@
 &qcom_seecom {
 	status = "okay";
 };
+
+&qcom_tzlog {
+	status = "okay";
+};

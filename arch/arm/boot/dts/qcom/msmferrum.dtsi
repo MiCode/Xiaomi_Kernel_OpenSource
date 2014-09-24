@@ -1235,6 +1235,12 @@
 		qcom,cdc-us-euro-gpios = <&msm_gpio 97 0>;
 	};
 
+	qcom_tzlog: tz-log@8600720 {
+		compatible = "qcom,tz-log";
+		reg = <0x08600720 0x1000>;
+		status = "disabled";
+	};
+
 	qcom_rng: qrng@22000 {
 		compatible = "qcom,msm-rng";
 		reg = <0x22000 0x200>;
