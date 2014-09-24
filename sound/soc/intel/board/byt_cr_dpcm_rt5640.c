@@ -55,6 +55,7 @@ enum {
 	RT5640_GPIO_JD_INT2,
 	RT5640_GPIO_JACK_SWITCH,
 	RT5640_GPIO_JD_BUTTONS,
+	RT5640_GPIO_I2S_TRISTATE,
 };
 
 #define RT5640_GPIO_NA		-1
@@ -64,6 +65,7 @@ struct rt5640_gpios {
 	int jd_int2_gpio;
 	int jd_buttons_gpio;
 	int debug_mux_gpio;
+	int i2s_tristate_en_gpio;
 };
 
 struct byt_drvdata {
@@ -636,6 +638,27 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	} else {
 		drvdata->gpios.jd_buttons_gpio = RT5640_GPIO_NA;
 		pr_warn("%s: GPIOs - JD-buttons: Not present!\n", __func__);
+	}
+
+	desc = devm_gpiod_get_index(codec->dev, NULL, RT5640_GPIO_I2S_TRISTATE);
+	if (!IS_ERR(desc)) {
+		drvdata->gpios.i2s_tristate_en_gpio = desc_to_gpio(desc);
+		devm_gpiod_put(codec->dev, desc);
+
+		byt_export_gpio(desc, "I2S-Tristate-En");
+		ret = gpiod_direction_output(desc, 0);
+		if (ret)
+			pr_warn("%s: Failed to set direction for GPIO%d (err = %d)!\n",
+				__func__, drvdata->gpios.i2s_tristate_en_gpio,
+				ret);
+
+		pr_info("%s: GPIOs - I2S-Tristate-En: %d (pol = %d, val = %d)\n",
+			__func__, drvdata->gpios.i2s_tristate_en_gpio,
+			gpiod_is_active_low(desc), gpiod_get_value(desc));
+	} else {
+		drvdata->gpios.i2s_tristate_en_gpio = RT5640_GPIO_NA;
+		pr_warn("%s: GPIOs - i2s_tristate_en-mux: Not present!\n",
+				__func__);
 	}
 
 	/* BYT-CR Audio Jack */
