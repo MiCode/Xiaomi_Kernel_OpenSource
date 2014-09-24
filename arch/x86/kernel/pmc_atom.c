@@ -45,7 +45,10 @@ struct pmc_bit_map {
 };
 
 static  struct pmc_bit_map *dev_map;
+static  struct pmc_bit_map *pss_map;
 static int dev_num;
+static int pss_num;
+
 static  struct pmc_bit_map byt_dev_map[] = {
 	{"0  - LPSS1_F0_DMA",		BIT_LPSS1_F0_DMA},
 	{"1  - LPSS1_F1_PWM1",		BIT_LPSS1_F1_PWM1},
@@ -85,7 +88,7 @@ static  struct pmc_bit_map byt_dev_map[] = {
 	{"35 - DFX",			BIT_DFX_BYT},
 };
 
-static const struct pmc_bit_map pss_map[] = {
+static struct pmc_bit_map pss_map_vlv[] = {
 	{"0  - GBE",			PMC_PSS_BIT_GBE},
 	{"1  - SATA",			PMC_PSS_BIT_SATA},
 	{"2  - HDA",			PMC_PSS_BIT_HDA},
@@ -142,6 +145,28 @@ static struct pmc_bit_map cht_dev_map[] = {
 	{"32 - SMB",	BIT_SMB},
 	{"33 - GMM",	BIT_GMM_CHT,	BIT_GMM_FD_CHT},
 	{"34 - ISH",	BIT_ISH_CHT,	BIT_ISH_FD_CHT},
+};
+
+static struct pmc_bit_map pss_map_cht[] = {
+	{"1  - SATA",			PMC_PSS_BIT_SATA},
+	{"2  - HDA",			PMC_PSS_BIT_HDA},
+	{"3  - SEC",			PMC_PSS_BIT_SEC},
+	{"4  - PCIE",			PMC_PSS_BIT_PCIE},
+	{"5  - LPSS",			PMC_PSS_BIT_LPSS},
+	{"6  - LPE",			PMC_PSS_BIT_LPE},
+	{"7  - UFS",			PMC_PSS_BIT_UFS},
+	{"11  - UXD(xDCI)",		PMC_PSS_BIT_UXD},
+	{"12  - UXD FD SX(xDCI)",		PMC_PSS_BIT_UXD_FD},
+	{"15 -  UX Engine(xHCI) ",		PMC_PSS_BIT_UX_ENG},
+	{"16 - USB SUS ",		PMC_PSS_BIT_USB_SUS_CHT},
+	{"17 - GMM",		PMC_PSS_BIT_GMM},
+	{"18 - ISH",		PMC_PSS_BIT_ISH},
+	{"26 - DFX Master",		PMC_PSS_BIT_DFX_MASTER},
+	{"27 - DFX Cluster1",		PMC_PSS_BIT_DFX_CLSTR1},
+	{"28 - DFX Cluster2",		PMC_PSS_BIT_DFX_CLSTR2},
+	{"29 - DFX Cluster3",		PMC_PSS_BIT_DFX_CLSTR3},
+	{"30 - DFX Cluster4",		PMC_PSS_BIT_DFX_CLSTR4},
+	{"31 - DFX Cluster5",		PMC_PSS_BIT_DFX_CLSTR5},
 };
 
 static inline u32 pmc_reg_read(struct pmc_dev *pmc, int reg_offset)
@@ -240,7 +265,7 @@ static int pmc_pss_state_show(struct seq_file *s, void *unused)
 	u32 pss = pmc_reg_read(pmc, PMC_PSS);
 	int pss_index;
 
-	for (pss_index = 0; pss_index < ARRAY_SIZE(pss_map); pss_index++) {
+	for (pss_index = 0; pss_index < pss_num; pss_index++) {
 		seq_printf(s, "Island: %-32s\tState: %s\n",
 			pss_map[pss_index].name,
 			pss_map[pss_index].d3_sts_bit & pss ? "Off" : "On");
@@ -414,10 +439,14 @@ static int __init pmc_atom_init(void)
 			case PCI_DEVICE_ID_BYT_PMC:
 				dev_map = byt_dev_map;
 				dev_num = ARRAY_SIZE(byt_dev_map);
+				pss_map = pss_map_vlv;
+				pss_num = ARRAY_SIZE(pss_map_vlv);
 				break;
 			case PCI_DEVICE_ID_CHT_PMC:
 				dev_map = cht_dev_map;
 				dev_num = ARRAY_SIZE(cht_dev_map);
+				pss_map = pss_map_cht;
+				pss_num = ARRAY_SIZE(pss_map_cht);
 				break;
 			}
 			err = pmc_setup_dev(pdev);

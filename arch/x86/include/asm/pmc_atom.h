@@ -47,13 +47,16 @@
 /* Power gate status register */
 #define	PMC_PSS			0x98
 
-#define PMC_PSS_BIT_GBE			BIT(0)
+/* common bit definition */
 #define PMC_PSS_BIT_SATA		BIT(1)
 #define PMC_PSS_BIT_HDA			BIT(2)
 #define PMC_PSS_BIT_SEC			BIT(3)
 #define PMC_PSS_BIT_PCIE		BIT(4)
 #define PMC_PSS_BIT_LPSS		BIT(5)
 #define PMC_PSS_BIT_LPE			BIT(6)
+
+/* BYT specific bits */
+#define PMC_PSS_BIT_GBE			BIT(0)
 #define PMC_PSS_BIT_DFX			BIT(7)
 #define PMC_PSS_BIT_USH_CTRL		BIT(8)
 #define PMC_PSS_BIT_USH_SUS		BIT(9)
@@ -65,6 +68,21 @@
 #define PMC_PSS_BIT_OTG_VCCA		BIT(15)
 #define PMC_PSS_BIT_USB			BIT(16)
 #define PMC_PSS_BIT_USB_SUS		BIT(17)
+
+/* CHT specific bits */
+#define PMC_PSS_BIT_UFS			BIT(7)
+#define PMC_PSS_BIT_UXD			BIT(11)
+#define PMC_PSS_BIT_UXD_FD		BIT(12)
+#define PMC_PSS_BIT_UX_ENG		BIT(15)
+#define PMC_PSS_BIT_USB_SUS_CHT		BIT(16)
+#define PMC_PSS_BIT_GMM		BIT(17)
+#define PMC_PSS_BIT_ISH		BIT(18)
+#define PMC_PSS_BIT_DFX_MASTER		BIT(26)
+#define PMC_PSS_BIT_DFX_CLSTR1		BIT(27)
+#define PMC_PSS_BIT_DFX_CLSTR2		BIT(28)
+#define PMC_PSS_BIT_DFX_CLSTR3		BIT(29)
+#define PMC_PSS_BIT_DFX_CLSTR4		BIT(30)
+#define PMC_PSS_BIT_DFX_CLSTR5		BIT(31)
 
 
 /* The timers acumulate time spent in sleep state */
