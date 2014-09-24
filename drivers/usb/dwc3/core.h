@@ -165,6 +165,10 @@
 
 /* Bit fields */
 
+/* Global SoC Bus Configuration Register 1 */
+#define DWC3_GSBUSCFG1_PIPETRANSLIMIT_MASK	(0x0f << 8)
+#define DWC3_GSBUSCFG1_PIPETRANSLIMIT(n)	((n) << 8)
+
 /* Global Configuration Register */
 #define DWC3_GCTL_PWRDNSCALE(n)	((n) << 19)
 #define DWC3_GCTL_PWRDNSCALEMASK (0xFFF80000)
@@ -205,6 +209,7 @@
 #define DWC3_GUSB3PIPECTL_PHYSOFTRST	(1 << 31)
 #define DWC3_GUSB3PIPECTL_SUSPHY	(1 << 17)
 #define DWC3_GUSB3PIPECTL_DELAY_P1P2P3	(7 << 19)
+#define DWC3_GUSB3PIPECTL_DELAYP1TRANS  (1 << 18)
 #define DWC3_GUSB3PIPECTL_DIS_RXDET_U3_RXDET (1 << 22)
 #define DWC3_GUSB3PIPECTL_ELASTIC_BUF_MODE	(1 << 0)
 
@@ -845,6 +850,7 @@ struct dwc3 {
 #define DWC3_REVISION_230A	0x5533230a
 #define DWC3_REVISION_240A	0x5533240a
 #define DWC3_REVISION_250A	0x5533250a
+#define DWC3_REVISION_270A	0x5533270a
 
 	unsigned		is_selfpowered:1;
 	unsigned		three_stage_setup:1;
@@ -891,7 +897,6 @@ struct dwc3 {
 	bool			tx_fifo_reduced;
 
 	bool			nominal_elastic_buffer;
-	bool			core_reset_after_phy_init;
 	bool			err_evt_seen;
 	bool			ssphy_clear_auto_suspend_on_disconnect;
 	bool			usb3_u1u2_disable;
@@ -1098,6 +1103,7 @@ static void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend) { }
 #endif /* !IS_ENABLED(CONFIG_USB_DWC3_HOST) */
 
 void dwc3_gadget_restart(struct dwc3 *dwc);
+int dwc3_core_init(struct dwc3 *dwc);
 void dwc3_post_host_reset_core_init(struct dwc3 *dwc);
 int dwc3_event_buffers_setup(struct dwc3 *dwc);
 

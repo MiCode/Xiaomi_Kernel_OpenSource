@@ -1028,6 +1028,8 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 		dev_dbg(mdwc->dev, "block_reset ASSERT\n");
 		clk_disable_unprepare(mdwc->ref_clk);
 		clk_disable_unprepare(mdwc->iface_clk);
+		clk_disable_unprepare(mdwc->utmi_clk);
+		clk_disable_unprepare(mdwc->sleep_clk);
 		clk_disable_unprepare(mdwc->core_clk);
 		ret = clk_reset(mdwc->core_clk, CLK_RESET_ASSERT);
 		if (ret)
@@ -1037,6 +1039,8 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 		ret = clk_reset(mdwc->core_clk, CLK_RESET_DEASSERT);
 		ndelay(200);
 		clk_prepare_enable(mdwc->core_clk);
+		clk_prepare_enable(mdwc->sleep_clk);
+		clk_prepare_enable(mdwc->utmi_clk);
 		clk_prepare_enable(mdwc->ref_clk);
 		clk_prepare_enable(mdwc->iface_clk);
 		if (ret)
@@ -1450,46 +1454,8 @@ static void dwc3_start_chg_det(struct dwc3_charger *charger, bool start)
 
 static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
-	u32		reg;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
-	/* Put Core in Reset */
-	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GCTL);
-	reg |= DWC3_GCTL_CORESOFTRESET;
-	dwc3_msm_write_reg(mdwc->base, DWC3_GCTL, reg);
-
-	usb_phy_init(dwc->usb2_phy);
-
-	/* Assert USB3 PHY reset */
-	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB3PIPECTL(0));
-	reg |= DWC3_GUSB3PIPECTL_PHYSOFTRST;
-	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(0), reg);
-
-	/* Assert USB2 PHY reset */
-	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
-	reg |= DWC3_GUSB2PHYCFG_PHYSOFTRST;
-	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0), reg);
-
-	udelay(100);
-
-	/* Clear USB3 PHY reset */
-	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB3PIPECTL(0));
-	reg &= ~DWC3_GUSB3PIPECTL_PHYSOFTRST;
-	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB3PIPECTL(0), reg);
-
-	/* Clear USB2 PHY reset */
-	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
-	reg &= ~DWC3_GUSB2PHYCFG_PHYSOFTRST;
-	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0), reg);
-
-	udelay(100);
-	/* After PHYs are stable we can take Core out of reset state */
-	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GCTL);
-	reg &= ~DWC3_GCTL_CORESOFTRESET;
-	dwc3_msm_write_reg(mdwc->base, DWC3_GCTL, reg);
-
-	udelay(100);
-
+	dwc3_core_init(dwc);
 	/* Re-configure event buffers */
 	dwc3_event_buffers_setup(dwc);
 }
@@ -1714,6 +1680,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		mdwc->lpm_flags |= MDWC3_POWER_COLLAPSE;
 		dev_dbg(mdwc->dev, "%s: power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 0);
+		clk_disable_unprepare(mdwc->sleep_clk);
 	}
 
 	clk_disable_unprepare(mdwc->iface_clk);
@@ -1832,7 +1799,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			clk_reset(mdwc->phy_com_reset, CLK_RESET_DEASSERT);
 	}
 
-	clk_prepare_enable(mdwc->utmi_clk);
 
 	if (mdwc->lpm_flags & MDWC3_PHY_REF_CLK_OFF) {
 		clk_prepare_enable(mdwc->ref_clk);
@@ -1848,6 +1814,11 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		mdwc->lpm_flags &= ~MDWC3_CORECLK_OFF;
 	}
 
+	clk_prepare_enable(mdwc->utmi_clk);
+
+	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE)
+		clk_prepare_enable(mdwc->sleep_clk);
+
 	usb_phy_set_suspend(mdwc->hs_phy, 0);
 
 	/* Recover from controller power collapse */
@@ -1859,6 +1830,13 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		ret = usb_phy_reset(mdwc->hs_phy);
 		if (ret) {
 			dev_err(mdwc->dev, "hsphy reset failed\n");
+			return ret;
+		}
+
+		/* Reset SS PHY */
+		ret = usb_phy_reset(mdwc->ss_phy);
+		if (ret) {
+			dev_err(mdwc->dev, "ssphy reset failed\n");
 			return ret;
 		}
 
@@ -3145,6 +3123,11 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			goto put_psupply;
 		}
 	}
+
+	/* Perform controller GCC reset */
+	dwc3_msm_link_clk_reset(mdwc, 1);
+	msleep(20);
+	dwc3_msm_link_clk_reset(mdwc, 0);
 
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
 	if (ret) {
