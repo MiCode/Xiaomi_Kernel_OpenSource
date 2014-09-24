@@ -742,6 +742,36 @@ do_alignment_t32_to_handler(unsigned long *pinstr, struct pt_regs *regs,
 	return NULL;
 }
 
+#ifdef CONFIG_FORCE_INSTRUCTION_ALIGNMENT
+static int
+do_ialignment(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
+{
+	/*
+	 * Branching to an address in ARM state which is not word aligned,
+	 * where this is defined to be UNPREDICTABLE,
+	 * can cause one of the following two behaviours:
+	 *     1. The unaligned location is forced to be aligned.
+	 *     2. Using the unaligned address generates a Prefetch Abort on
+	 *        the first instruction using the unaligned PC value.
+	 */
+	int isize = 4;
+
+	if (user_mode(regs) && !thumb_mode(regs)) {
+		ai_sys += 1;
+
+		/*
+		* Force align the instruction in software to be following
+		* a single behaviour for the unpredicatable cases.
+		*/
+		instruction_pointer(regs) &= ~(isize + (-1UL));
+		return 0;
+	}
+
+	ai_skipped += 1;
+	return 1;
+}
+#endif
+
 static int
 do_alignment(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
 {
@@ -972,6 +1002,11 @@ static int __init alignment_init(void)
 
 	hook_fault_code(FAULT_CODE_ALIGNMENT, do_alignment, SIGBUS, BUS_ADRALN,
 			"alignment exception");
+
+#ifdef CONFIG_FORCE_INSTRUCTION_ALIGNMENT
+	hook_ifault_code(FAULT_CODE_ALIGNMENT, do_ialignment, SIGBUS,
+			BUS_ADRALN, "alignment exception");
+#endif
 
 	/*
 	 * ARMv6K and ARMv7 use fault status 3 (0b00011) as Access Flag section

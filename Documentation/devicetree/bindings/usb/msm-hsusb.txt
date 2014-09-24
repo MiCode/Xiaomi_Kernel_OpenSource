@@ -59,6 +59,12 @@ Optional properties :
 		and MIN bandwidth votes. Minimum two cases must be defined for
 		both NONE and MAX votes. If MIN vote is different from NONE VOTE
 		then specify third case for MIN VOTE.
+		then specify third case for MIN VOTE. If explicit NOC clock rates
+		are not specified then MAX value should be large enough to get
+		desired BUS frequencies. In case explicit NOC clock rates are
+		specified, peripheral mode bus bandwidth vote should be defined
+		to vote for arbitrated bandwidth so that 60MHz frequency is met.
+
     - qcom,msm-bus,num_paths
     - qcom,msm-bus,vectors
 - qcom,hsusb-otg-lpm-on-dev-suspend: If present then USB enter to
@@ -113,6 +119,10 @@ Optional properties :
 - qcom,usbin-vadc: Corresponding vadc device's phandle to read usbin voltage using VADC.
 	This will be used to get value of usb power supply's VOLTAGE_NOW property.
 - qcom,usbid-gpio: This corresponds to gpio which is used for USB ID detection.
+- qcom,bus-clk-rate: If present, indicates nominal bus frequency to be voted for
+	bimc/snoc/pcnoc clock with usb cable connected. If AHB2AHB bypass is enabled,
+	pcnoc value should be defined to very large number so that PNOC runs at max
+	frequency.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
