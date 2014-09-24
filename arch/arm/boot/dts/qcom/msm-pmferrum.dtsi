@@ -187,6 +187,12 @@
 				interrupts = <0x0 0x61 0x1>;
 			};
 		};
+
+		qcom,leds@a300 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xa300 0x100>;
+			label = "mpp";
+		};
 	};
 
 	qcom,pmferrum@1 {
