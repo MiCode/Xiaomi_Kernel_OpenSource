@@ -1980,6 +1980,13 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	u32 irq_stat, irq_clear = 0;
 
+	/*
+	 * Increment the PM count to prevent suspend from happening
+	 * during this routine. noresume is fine, since this function
+	 * should only be called when not in LPM.
+	 */
+	pm_runtime_get_noresume(mdwc->dev);
+
 	irq_stat = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
 	dev_dbg(mdwc->dev, "%s irq_stat=%X\n", __func__, irq_stat);
 
@@ -2029,6 +2036,7 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 			__func__, irq_stat);
 
 	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG, irq_clear);
+	pm_runtime_put(mdwc->dev);
 }
 
 static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
