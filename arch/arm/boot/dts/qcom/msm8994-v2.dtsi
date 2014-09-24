@@ -26,6 +26,11 @@
 };
 
 &soc {
+	qcom,cpu-clock-8994@f9015000 {
+		compatible = "qcom,cpu-clock-8994-v2";
+		status = "disabled";
+	};
+
 	arm64-cpu-erp@f9100000 {
 		compatible = "arm,arm64-cpu-erp";
 		reg = <0xf9100000 0x1000>;
