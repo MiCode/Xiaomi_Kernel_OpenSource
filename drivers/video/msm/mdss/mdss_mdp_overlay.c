@@ -295,6 +295,7 @@ static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 
 	for (plane = 0; plane < MAX_PLANES; plane++) {
 		u32 hor_req_pixels, hor_fetch_pixels;
+		u32 hor_ov_fetch, vert_ov_fetch;
 		u32 vert_req_pixels, vert_fetch_pixels;
 		u32 src_w = pipe->src.w >> pipe->horz_deci;
 		u32 src_h = pipe->src.h >> pipe->vert_deci;
@@ -331,21 +332,28 @@ static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 			pipe->scale.right_ftch[plane] +
 			pipe->scale.right_rpt[plane];
 
-		vert_req_pixels = src_h + pipe->scale.num_ext_pxls_top[plane] +
+		hor_ov_fetch = src_w + pipe->scale.left_ftch[plane] +
+			pipe->scale.right_ftch[plane];
+
+		vert_req_pixels = pipe->scale.num_ext_pxls_top[plane] +
 			pipe->scale.num_ext_pxls_btm[plane];
 
-		vert_fetch_pixels = src_h + pipe->scale.top_ftch[plane] +
+		vert_fetch_pixels = pipe->scale.top_ftch[plane] +
 			pipe->scale.top_rpt[plane] +
 			pipe->scale.btm_ftch[plane] +
 			pipe->scale.btm_rpt[plane];
 
+		vert_ov_fetch = src_h + pipe->scale.top_ftch[plane] +
+			pipe->scale.btm_ftch[plane];
+
 		if ((hor_req_pixels != hor_fetch_pixels) ||
-			(hor_fetch_pixels > pipe->img_width) ||
+			(hor_ov_fetch > pipe->img_width) ||
 			(vert_req_pixels != vert_fetch_pixels) ||
-			(vert_fetch_pixels > pipe->img_height)) {
-			pr_err("err: h_req:%d h_fetch:%d v_req:%d v_fetch:%d\n",
+			(vert_ov_fetch > pipe->img_height)) {
+			pr_err("err: h_req:%d h_fetch:%d v_req:%d v_fetch:%d src_img:[%d,%d]\n",
 					hor_req_pixels, hor_fetch_pixels,
-					vert_req_pixels, vert_fetch_pixels);
+					vert_req_pixels, vert_fetch_pixels,
+					pipe->img_width, pipe->img_height);
 			return -EINVAL;
 		}
 	}
