@@ -154,6 +154,22 @@ enum mpu_accl_fs {
 	NUM_ACCL_FSR
 };
 
+/* Sensitivity Scale Factor */
+/* Sensor HAL will take 1024 LSB/g */
+enum mpu_accel_fs_shift {
+	ACCEL_SCALE_SHIFT_02G = 4,
+	ACCEL_SCALE_SHIFT_04G = 3,
+	ACCEL_SCALE_SHIFT_08G = 2,
+	ACCEL_SCALE_SHIFT_16G = 1
+};
+
+enum mpu_gyro_fs_shift {
+	GYRO_SCALE_SHIFT_FS0 = 3,
+	GYRO_SCALE_SHIFT_FS1 = 2,
+	GYRO_SCALE_SHIFT_FS2 = 1,
+	GYRO_SCALE_SHIFT_FS3 = 0
+};
+
 /*device enum */
 enum inv_devices {
 	INV_MPU6050,
