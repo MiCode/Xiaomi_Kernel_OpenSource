@@ -2676,8 +2676,6 @@ static struct clk_lookup gcc_clocks_8994_v1[] = {
 static struct clk_lookup gcc_clocks_8994_common[] = {
 	CLK_LIST(gcc_xo),
 	CLK_LIST(gcc_xo_a_clk),
-	CLK_LIST(debug_mmss_clk),
-	CLK_LIST(debug_rpm_clk),
 	CLK_LIST(gpll0),
 	CLK_LIST(gpll0_ao),
 	CLK_LIST(gpll0_out_main),
@@ -2971,6 +2969,9 @@ arch_initcall(msm_gcc_8994_init);
 
 /* ======== Clock Debug Controller ======== */
 static struct clk_lookup msm_clocks_measure_8994[] = {
+	CLK_LIST(debug_mmss_clk),
+	CLK_LIST(debug_rpm_clk),
+	CLK_LIST(debug_cpu_clk),
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
 };
 
@@ -3001,23 +3002,12 @@ static int msm_clock_debug_8994_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	debug_mmss_clk.c.parent = clk_get(&pdev->dev, "debug_mmss_clk");
-	if (IS_ERR(debug_mmss_clk.c.parent)) {
-		dev_err(&pdev->dev, "Failed to get MMSS debug mux\n");
-		return PTR_ERR(debug_mmss_clk.c.parent);
-	}
-
-	debug_rpm_clk.c.parent = clk_get(&pdev->dev, "debug_rpm_clk");
-	if (IS_ERR(debug_rpm_clk.c.parent)) {
-		dev_err(&pdev->dev, "Failed to get RPM debug mux\n");
-		return PTR_ERR(debug_rpm_clk.c.parent);
-	}
-
-	debug_cpu_clk.c.parent = clk_get(&pdev->dev, "debug_cpu_clk");
-	if (IS_ERR(debug_cpu_clk.c.parent)) {
-		dev_err(&pdev->dev, "Failed to get CPU debug mux\n");
-		return PTR_ERR(debug_cpu_clk.c.parent);
-	}
+	debug_mmss_clk.dev = &pdev->dev;
+	debug_mmss_clk.clk_id = "debug_mmss_clk";
+	debug_rpm_clk.dev = &pdev->dev;
+	debug_rpm_clk.clk_id = "debug_rpm_clk";
+	debug_cpu_clk.dev = &pdev->dev;
+	debug_cpu_clk.clk_id = "debug_cpu_clk";
 
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				    msm_clocks_measure_8994,
