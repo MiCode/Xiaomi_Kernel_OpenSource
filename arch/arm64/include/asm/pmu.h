@@ -59,6 +59,9 @@ struct arm_pmu {
 	void			(*start)(void);
 	void			(*stop)(void);
 	void			(*reset)(void *);
+	int			(*request_irq)(struct arm_pmu *,
+					       irq_handler_t handler);
+	void			(*free_irq)(struct arm_pmu *);
 	int			(*map_event)(struct perf_event *event);
 	int			num_events;
 	atomic_t		active_events;
