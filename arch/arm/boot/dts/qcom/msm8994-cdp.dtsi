@@ -314,8 +314,6 @@
 	qcom,dsi-panel-bias-vreg;
 	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
 	qcom,platform-bklight-en-gpio = <&pmi8994_gpios 2 0>;
-
-	qcom,platform-enable-gpio = <&pm8994_gpios 14 0>;
 };
 
 &mdss_dsi1 {
@@ -341,6 +339,7 @@
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,5v-boost-gpio = <&pm8994_gpios 14 0>;
 	qcom,cont-splash-enabled;
 };
 
@@ -356,6 +355,7 @@
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,5v-boost-gpio = <&pm8994_gpios 14 0>;
 	qcom,cont-splash-enabled;
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
@@ -588,13 +588,6 @@
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,invert = <0>;       /* Invert */
 		qcom,master-en = <1>;    /* Enable GPIO */
-	};
-	gpio@cd00 { /* GPIO 14 */
-		qcom,mode = <1>;
-		qcom,vin-sel = <2>;
-		qcom,src-sel = <1>;	/* sel = 1 is high */
-		qcom,invert = <0>; 	/* need invert = 0 */
-		qcom,master-en = <1>;
 	};
 };
 
