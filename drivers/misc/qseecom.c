@@ -275,6 +275,40 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 		ret = scm_call2(smc_id, &desc);
 		break;
 	}
+	case SCM_SVC_ES: {
+		switch (tz_cmd_id) {
+		case SCM_SAVE_PARTITION_HASH_ID: {
+			u32 tzbuflen = PAGE_ALIGN(SHA256_DIGEST_LENGTH);
+			struct qseecom_save_partition_hash_req *p_hash_req =
+				(struct qseecom_save_partition_hash_req *)
+				req_buf;
+			char *tzbuf = kzalloc(tzbuflen, GFP_KERNEL);
+			if (!tzbuf) {
+				pr_err("error allocating data\n");
+				return -ENOMEM;
+			}
+			memset(tzbuf, 0, tzbuflen);
+			memcpy(tzbuf, p_hash_req->digest,
+				SHA256_DIGEST_LENGTH);
+			dmac_flush_range(tzbuf, tzbuf + tzbuflen);
+			smc_id = TZ_ES_SAVE_PARTITION_HASH_ID;
+			desc.arginfo = TZ_ES_SAVE_PARTITION_HASH_ID_PARAM_ID;
+			desc.args[0] = p_hash_req->partition_id;
+			desc.args[1] = virt_to_phys(tzbuf);
+			desc.args[2] = SHA256_DIGEST_LENGTH;
+			ret = scm_call2(smc_id, &desc);
+			kzfree(tzbuf);
+			break;
+		}
+		default: {
+			pr_err("tz_cmd_id %d is not supported by scm_call2\n",
+						tz_cmd_id);
+			ret = -EINVAL;
+			break;
+		}
+		} /* end of switch (tz_cmd_id) */
+		break;
+	} /* end of case SCM_SVC_ES */
 	case SCM_SVC_TZSCHEDULER: {
 		switch (qseos_cmd_id) {
 		case QSEOS_APP_START_COMMAND: {
@@ -3866,30 +3900,30 @@ static int qseecom_update_key_user_info(struct qseecom_dev_handle *data,
 static int qseecom_is_es_activated(void __user *argp)
 {
 	struct qseecom_is_es_activated_req req;
+	struct qseecom_command_scm_resp resp;
 	int ret;
-	int resp_buf;
 
 	if (qseecom.qsee_version < QSEE_VERSION_04) {
-		pr_err("invalid qsee version");
+		pr_err("invalid qsee version\n");
 		return -ENODEV;
 	}
 
 	if (argp == NULL) {
-		pr_err("arg is null");
+		pr_err("arg is null\n");
 		return -EINVAL;
 	}
 
-	ret = qseecom_scm_call(SCM_SVC_ES, SCM_IS_ACTIVATED_ID, NULL, 0,
-		       (void *) &resp_buf, sizeof(resp_buf));
+	ret = qseecom_scm_call(SCM_SVC_ES, SCM_IS_ACTIVATED_ID,
+		&req, sizeof(req), &resp, sizeof(resp));
 	if (ret) {
-		pr_err("scm_call failed");
+		pr_err("scm_call failed\n");
 		return ret;
 	}
 
-	req.is_activated = resp_buf;
+	req.is_activated = resp.result;
 	ret = copy_to_user(argp, &req, sizeof(req));
 	if (ret) {
-		pr_err("copy_to_user failed");
+		pr_err("copy_to_user failed\n");
 		return ret;
 	}
 
@@ -3899,28 +3933,31 @@ static int qseecom_is_es_activated(void __user *argp)
 static int qseecom_save_partition_hash(void __user *argp)
 {
 	struct qseecom_save_partition_hash_req req;
+	struct qseecom_command_scm_resp resp;
 	int ret;
 
+	memset(&resp, 0x00, sizeof(resp));
+
 	if (qseecom.qsee_version < QSEE_VERSION_04) {
-		pr_err("invalid qsee version ");
+		pr_err("invalid qsee version\n");
 		return -ENODEV;
 	}
 
 	if (argp == NULL) {
-		pr_err("arg is null");
+		pr_err("arg is null\n");
 		return -EINVAL;
 	}
 
 	ret = copy_from_user(&req, argp, sizeof(req));
 	if (ret) {
-		pr_err("copy_from_user failed");
+		pr_err("copy_from_user failed\n");
 		return ret;
 	}
 
 	ret = qseecom_scm_call(SCM_SVC_ES, SCM_SAVE_PARTITION_HASH_ID,
-		       (void *) &req, sizeof(req), NULL, 0);
+		       (void *)&req, sizeof(req), (void *)&resp, sizeof(resp));
 	if (ret) {
-		pr_err("qseecom_scm_call failed");
+		pr_err("qseecom_scm_call failed\n");
 		return ret;
 	}
 
