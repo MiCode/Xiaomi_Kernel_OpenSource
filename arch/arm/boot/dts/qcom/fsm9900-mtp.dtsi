@@ -15,12 +15,17 @@
 / {
 	aliases {
 		serial0 = &uart0;
+		serial1 = &uart1;
 	};
 };
 
 &soc {
 	uart0: serial@f9960000 {
 		status = "ok";
+	};
+
+	uart1: serial@f9921000 {
+		status = "disabled";
 	};
 
 	uim0: qcom,uim@f995d000 {
