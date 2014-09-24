@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2014 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -121,7 +121,8 @@ enum mc_result mc_open_device(uint32_t device_id)
 			break;
 		}
 
-		struct mc_drv_response_header_t  rsp_header;
+		struct mc_drv_response_header_t rsp_header;
+		memset(&rsp_header, 0, sizeof(rsp_header));
 		len = connection_read_datablock(
 					dev_con,
 					&rsp_header,
@@ -226,7 +227,8 @@ enum mc_result mc_close_device(uint32_t device_id)
 			mc_result = MC_DRV_ERR_DAEMON_UNREACHABLE;
 		}
 
-		struct mc_drv_response_header_t  rsp_header;
+		struct mc_drv_response_header_t rsp_header;
+		memset(&rsp_header, 0, sizeof(rsp_header));
 		len = connection_read_datablock(
 					dev_con,
 					&rsp_header,
@@ -257,7 +259,7 @@ EXPORT_SYMBOL(mc_close_device);
 
 enum mc_result mc_open_session(struct mc_session_handle *session,
 			       const struct mc_uuid_t *uuid,
-			       uint8_t *tci, uint32_t len)
+			       uint8_t *tci, uint32_t tci_len)
 {
 	enum mc_result mc_result = MC_DRV_OK;
 
@@ -279,7 +281,7 @@ enum mc_result mc_open_session(struct mc_session_handle *session,
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
 			break;
 		}
-		if (len > MC_MAX_TCI_LEN) {
+		if (tci_len > MC_MAX_TCI_LEN) {
 			MCDRV_DBG_ERROR(mc_kapi, "TCI length is longer than %d",
 					MC_MAX_TCI_LEN);
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
@@ -306,7 +308,7 @@ enum mc_result mc_open_session(struct mc_session_handle *session,
 			break;
 		}
 
-		if (wsm->len < len) {
+		if (wsm->len < tci_len) {
 			MCDRV_DBG_ERROR(mc_kapi,
 					"length is more than allocated TCI");
 			mc_result = MC_DRV_ERR_INVALID_PARAMETER;
@@ -321,9 +323,9 @@ enum mc_result mc_open_session(struct mc_session_handle *session,
 			{
 				session->device_id,
 				*uuid,
-				(uint32_t)(wsm->virt_addr) & 0xFFF,
+				(uint32_t)((uintptr_t)(wsm->virt_addr) & 0xFFF),
 				wsm->handle,
-				len
+				tci_len
 			}
 		};
 
@@ -343,6 +345,7 @@ enum mc_result mc_open_session(struct mc_session_handle *session,
 
 		/* read header first */
 		struct mc_drv_response_header_t rsp_header;
+		memset(&rsp_header, 0, sizeof(rsp_header));
 		len = connection_read_datablock(dev_con,
 						&rsp_header,
 						sizeof(rsp_header));
@@ -375,6 +378,8 @@ enum mc_result mc_open_session(struct mc_session_handle *session,
 		/* read payload */
 		struct mc_drv_rsp_open_session_payload_t
 					rsp_open_session_payload;
+		memset(&rsp_open_session_payload, 0,
+		       sizeof(rsp_open_session_payload));
 		len = connection_read_datablock(
 					dev_con,
 					&rsp_open_session_payload,
@@ -509,6 +514,7 @@ enum mc_result mc_close_session(struct mc_session_handle *session)
 
 		/* Read command response */
 		struct mc_drv_response_header_t rsp_header;
+		memset(&rsp_header, 0, sizeof(rsp_header));
 		int len = connection_read_datablock(dev_con,
 						    &rsp_header,
 						    sizeof(rsp_header));
@@ -625,6 +631,7 @@ enum mc_result mc_wait_notification(struct mc_session_handle *session,
 		/* Read notification queue till it's empty */
 		for (;;) {
 			struct notification notification;
+			memset(&notification, 0, sizeof(notification));
 			ssize_t num_read =
 				connection_read_data(nqconnection,
 						     &notification,
@@ -827,6 +834,7 @@ enum mc_result mc_map(struct mc_session_handle *session_handle, void *buf,
 		}
 
 		/* Prepare map command */
+		uintptr_t offset = (uintptr_t)(bulk_buf->virt_addr) & 0xFFF;
 		struct mc_drv_cmd_map_bulk_mem_t mc_drv_cmd_map_bulk_mem = {
 			{
 				MC_DRV_CMD_MAP_BULK_BUF
@@ -835,7 +843,7 @@ enum mc_result mc_map(struct mc_session_handle *session_handle, void *buf,
 				session->session_id,
 				bulk_buf->handle,
 				0,
-				(uint32_t)(bulk_buf->virt_addr) & 0xFFF,
+				(uint32_t)offset,
 				bulk_buf->len
 			}
 		};
@@ -847,6 +855,7 @@ enum mc_result mc_map(struct mc_session_handle *session_handle, void *buf,
 
 		/* Read command response */
 		struct mc_drv_response_header_t rsp_header;
+		memset(&rsp_header, 0, sizeof(rsp_header));
 		int len = connection_read_datablock(dev_con,
 							&rsp_header,
 							sizeof(rsp_header));
@@ -879,13 +888,15 @@ enum mc_result mc_map(struct mc_session_handle *session_handle, void *buf,
 
 		struct mc_drv_rsp_map_bulk_mem_payload_t
 						rsp_map_bulk_mem_payload;
+		memset(&rsp_map_bulk_mem_payload, 0,
+		       sizeof(rsp_map_bulk_mem_payload));
 		connection_read_datablock(dev_con,
 					  &rsp_map_bulk_mem_payload,
 					  sizeof(rsp_map_bulk_mem_payload));
 
 		/* Set mapping info for Trustlet */
 		map_info->secure_virt_addr =
-			(void *)(rsp_map_bulk_mem_payload.secure_virtual_adr);
+			rsp_map_bulk_mem_payload.secure_virtual_adr;
 		map_info->secure_virt_len = buf_len;
 		mc_result = MC_DRV_OK;
 
@@ -956,7 +967,7 @@ enum mc_result mc_unmap(struct mc_session_handle *session_handle, void *buf,
 				{
 					session->session_id,
 					handle,
-					(uint32_t)(map_info->secure_virt_addr),
+					map_info->secure_virt_addr,
 					map_info->secure_virt_len
 				}
 			};
@@ -967,6 +978,7 @@ enum mc_result mc_unmap(struct mc_session_handle *session_handle, void *buf,
 
 		/* Read command response */
 		struct mc_drv_response_header_t rsp_header;
+		memset(&rsp_header, 0, sizeof(rsp_header));
 		int len = connection_read_datablock(dev_con,
 						    &rsp_header,
 						    sizeof(rsp_header));
@@ -1053,19 +1065,4 @@ enum mc_result mc_get_session_error_code(struct mc_session_handle *session,
 	return mc_result;
 }
 EXPORT_SYMBOL(mc_get_session_error_code);
-
-enum mc_result mc_driver_ctrl(enum mc_driver_ctrl param, uint8_t *data,
-			      uint32_t len)
-{
-	MCDRV_DBG_WARN(mc_kapi, "not implemented");
-	return MC_DRV_ERR_NOT_IMPLEMENTED;
-}
-EXPORT_SYMBOL(mc_driver_ctrl);
-
-enum mc_result mc_manage(uint32_t device_id, uint8_t *data, uint32_t len)
-{
-	MCDRV_DBG_WARN(mc_kapi, "not implemented");
-	return MC_DRV_ERR_NOT_IMPLEMENTED;
-}
-EXPORT_SYMBOL(mc_manage);
 

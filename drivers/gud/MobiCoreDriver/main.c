@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2014 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -220,6 +220,8 @@ bool mc_check_owner_fd(struct mc_instance *instance, int32_t fd)
 
 	rcu_read_lock();
 	fp = fcheck_files(current->files, fd);
+	if (fp == NULL)
+		goto out;
 	s = __get_socket(fp);
 	if (s)
 		peer = get_pid_task(s->sk_peer_pid, PIDTYPE_PID);
@@ -392,7 +394,9 @@ int mc_get_buffer(struct mc_instance *instance,
 	void *addr = 0;
 	phys_addr_t phys = 0;
 	unsigned int order;
+#if defined(DEBUG_VERBOSE)
 	unsigned long allocated_size;
+#endif
 	int ret = 0;
 
 	if (WARN(!instance, "No instance data available"))
@@ -408,7 +412,9 @@ int mc_get_buffer(struct mc_instance *instance,
 		MCDRV_DBG_WARN(mcd, "Buffer size too large");
 		return -ENOMEM;
 	}
+#if defined(DEBUG_VERBOSE)
 	allocated_size = (1 << order) * PAGE_SIZE;
+#endif
 
 	if (mutex_lock_interruptible(&instance->lock))
 		return -ERESTARTSYS;
@@ -781,13 +787,41 @@ static long mc_fd_user_ioctl(struct file *file, unsigned int cmd,
 		ret = mc_free_buffer(instance, (uint32_t)arg);
 		break;
 
+	/* 32/64 bit interface compatiblity notice:
+	 * mc_ioctl_reg_wsm has been defined with the buffer parameter
+	 * as void* which means that the size and layout of the structure
+	 * are different between 32 and 64 bit variants.
+	 * However our 64 bit Linux driver must be able to service both
+	 * 32 and 64 bit clients so we have to allow both IOCTLs. Though
+	 * we have a bit of copy paste code we provide maximum backwards
+	 * compatiblity */
 	case MC_IO_REG_WSM:{
 		struct mc_ioctl_reg_wsm reg;
-		phys_addr_t phys;
+		phys_addr_t phys = 0;
 		if (copy_from_user(&reg, uarg, sizeof(reg)))
 			return -EFAULT;
 
-		ret = mc_register_wsm_mmu(instance, (void *)reg.buffer,
+		ret = mc_register_wsm_mmu(instance,
+			(void *)(uintptr_t)reg.buffer,
+			reg.len, &reg.handle, &phys);
+		reg.table_phys = phys;
+
+		if (!ret) {
+			if (copy_to_user(uarg, &reg, sizeof(reg))) {
+				ret = -EFAULT;
+				mc_unregister_wsm_mmu(instance, reg.handle);
+			}
+		}
+		break;
+	}
+	case MC_COMPAT_REG_WSM:{
+		struct mc_compat_ioctl_reg_wsm reg;
+		phys_addr_t phys = 0;
+		if (copy_from_user(&reg, uarg, sizeof(reg)))
+			return -EFAULT;
+
+		ret = mc_register_wsm_mmu(instance,
+			(void *)(uintptr_t)reg.buffer,
 			reg.len, &reg.handle, &phys);
 		reg.table_phys = phys;
 
@@ -1437,8 +1471,8 @@ free_pm:
 #ifdef MC_PM_RUNTIME
 	mc_pm_free();
 free_isr:
-	free_irq(MC_INTR_SSIQ, &ctx);
 #endif
+	free_irq(MC_INTR_SSIQ, &ctx);
 err_req_irq:
 	mc_fastcall_destroy();
 error:
@@ -1489,7 +1523,6 @@ bool mc_sleep_ready(void)
 /* Linux Driver Module Macros */
 module_init(mobicore_init);
 module_exit(mobicore_exit);
-MODULE_AUTHOR("Giesecke & Devrient GmbH");
 MODULE_AUTHOR("Trustonic Limited");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MobiCore driver");
