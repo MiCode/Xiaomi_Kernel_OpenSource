@@ -59,7 +59,7 @@
 #define MISR_POLL_TIMEOUT               32000
 #define MDP3_REG_CAPTURED_DSI_PCLK_MASK 1
 
-#define MDP_CORE_HW_VERSION	0x03040310
+#define MDP_CORE_HW_VERSION	0x03050305
 struct mdp3_hw_resource *mdp3_res;
 
 #define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
