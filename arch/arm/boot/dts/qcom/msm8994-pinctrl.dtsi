@@ -1133,6 +1133,18 @@
 			};
 		};
 
+		cnss_lpass: cnss_lpass {
+			qcom,pins = <&gp 111>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "cnss-lpass";
+			/* default state */
+			cnss_lpass_default: cnss_lpass_default {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
 		pcie0_clkreq {
 			qcom,pins = <&gp 54>;
 			qcom,num-grp-pins = <1>;
