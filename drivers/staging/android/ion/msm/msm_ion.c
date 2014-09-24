@@ -29,6 +29,7 @@
 #include <linux/dma-contiguous.h>
 #include <linux/vmalloc.h>
 #include <linux/highmem.h>
+#include <linux/show_mem_notifier.h>
 #include <asm/cacheflush.h>
 #include "../ion_priv.h"
 #include "ion_cp_common.h"
@@ -106,6 +107,17 @@ static struct ion_heap_desc ion_heap_meta[] = {
 	}
 };
 #endif
+
+static int msm_ion_lowmem_notifier(struct notifier_block *nb,
+					unsigned long action, void *data)
+{
+	show_ion_usage(idev);
+	return 0;
+}
+
+static struct notifier_block msm_ion_nb = {
+	.notifier_call = msm_ion_lowmem_notifier,
+};
 
 struct ion_client *msm_ion_client_create(const char *name)
 {
@@ -1052,6 +1064,8 @@ static int msm_ion_probe(struct platform_device *pdev)
 	 * completely until Ion is setup
 	 */
 	idev = new_dev;
+
+	show_mem_notifier_register(&msm_ion_nb);
 	return 0;
 
 freeheaps:
