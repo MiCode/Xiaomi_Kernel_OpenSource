@@ -145,12 +145,13 @@ struct mdss_util_intf mdss_util = {
 	.disable_irq = mdss_disable_irq,
 	.disable_irq_nosync = mdss_disable_irq_nosync,
 	.irq_dispatch = mdss_irq_dispatch,
+	.get_iommu_domain = NULL,
 	.iommu_attached = NULL,
 	.iommu_ctrl = NULL,
 	.bus_bandwidth_ctrl = NULL,
 	.bus_scale_set_quota = NULL,
+	.panel_intf_type = NULL,
 	.mdp_probe_done = false
-
 };
 
 struct mdss_util_intf *mdss_get_util_intf()
