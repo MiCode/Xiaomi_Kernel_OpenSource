@@ -20,6 +20,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/qmi_encdec.h>
+#include <linux/ratelimit.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/srcu.h>
@@ -47,6 +48,9 @@ module_param_named(debug_mask, shm_debug_mask,
 static int shm_default_timeout_ms = 2000;
 module_param_named(default_timeout_ms, shm_default_timeout_ms,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+
+#define DEFAULT_SHM_RATELIMIT_INTERVAL (HZ / 5)
+#define DEFAULT_SHM_RATELIMIT_BURST 2
 
 #define SHM_ILCTXT_NUM_PAGES 2
 static void *shm_ilctxt;
@@ -109,6 +113,7 @@ static void shm_svc_req_worker(struct work_struct *work);
  * @is_in_reset:	Flag to identify if the remote subsystem is in reset.
  * @restart_nb:		Notifier block to receive subsystem restart events.
  * @restart_nb_h:	Handle to subsystem restart notifier block.
+ * @rs:			Rate-limit the health check.
  */
 struct hma_info {
 	struct list_head list;
@@ -122,6 +127,7 @@ struct hma_info {
 	atomic_t is_in_reset;
 	struct notifier_block restart_nb;
 	void *restart_nb_h;
+	struct ratelimit_state rs;
 };
 
 struct restart_work {
@@ -265,6 +271,10 @@ static int shm_send_health_check_ind(struct hma_info *tmp_hma_info)
 	struct restart_work *rwp;
 
 	if (!tmp_hma_info->conn_h)
+		return 0;
+
+	/* Rate limit the health check as configured by the subsystem */
+	if (!__ratelimit(&tmp_hma_info->rs))
 		return 0;
 
 	rwp = kzalloc(sizeof(*rwp), GFP_KERNEL);
@@ -450,6 +460,9 @@ static int handle_health_mon_reg_req(void *conn_h, void *req_h, void *buf)
 				tmp_hma_info->timeout = req->timeout;
 			else
 				tmp_hma_info->timeout = shm_default_timeout_ms;
+			ratelimit_state_init(&tmp_hma_info->rs,
+					     DEFAULT_SHM_RATELIMIT_INTERVAL,
+					     DEFAULT_SHM_RATELIMIT_BURST);
 			SHM_INFO("%s: from %s timeout_ms %d\n",
 				 __func__, req->name, tmp_hma_info->timeout);
 			hma_info_found = true;
