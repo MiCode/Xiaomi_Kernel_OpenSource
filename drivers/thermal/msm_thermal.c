@@ -59,6 +59,7 @@
 #define SENSOR_SCALING_FACTOR 1
 #define MSM_THERMAL_NAME "msm_thermal"
 #define MSM_TSENS_PRINT  "log_tsens_temperature"
+#define MSM_CONFIG       "config"
 #define CPU_BUF_SIZE 64
 #define CPU_DEVICE "cpu%d"
 
@@ -269,6 +270,7 @@ enum msm_temp_band {
 struct msm_thermal_debugfs_entry {
 	struct dentry *parent;
 	struct dentry *tsens_print;
+	struct dentry *config;
 };
 
 static struct psm_rail *psm_rails;
@@ -299,6 +301,8 @@ enum ocr_request {
 	OPTIMUM_CURRENT_MAX,
 	OPTIMUM_CURRENT_NR,
 };
+
+static int thermal_config_debugfs_read(struct seq_file *m, void *data);
 
 #define SYNC_CORE(_cpu) \
 	(core_ptr && cpus[_cpu].parent_ptr->sync_cluster)
@@ -393,7 +397,7 @@ static uint32_t get_mask_from_core_handle(struct platform_device *pdev,
 	return mask;
 }
 
-void get_cluster_mask(uint32_t cpu, cpumask_t *mask)
+static void get_cluster_mask(uint32_t cpu, cpumask_t *mask)
 {
 	int i;
 
@@ -411,7 +415,7 @@ void get_cluster_mask(uint32_t cpu, cpumask_t *mask)
 	}
 }
 
-uint32_t get_core_max_freq(uint32_t cpu)
+static uint32_t get_core_max_freq(uint32_t cpu)
 {
 	int i;
 	uint32_t max_freq = 0;
@@ -448,7 +452,7 @@ static void cpus_previously_online_update(void)
 	pr_debug("%s\n", buf);
 }
 
-uint32_t get_core_min_freq(uint32_t cpu)
+static uint32_t get_core_min_freq(uint32_t cpu)
 {
 	int i;
 	uint32_t min_freq = UINT_MAX;
@@ -963,6 +967,20 @@ static ssize_t cluster_info_show(
 	return tot_size;
 }
 
+static int thermal_config_debugfs_open(struct inode *inode,
+					struct file *file)
+{
+	return single_open(file, thermal_config_debugfs_read,
+				inode->i_private);
+}
+
+static const struct file_operations thermal_debugfs_config_ops = {
+	.open = thermal_config_debugfs_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static int create_thermal_debugfs(void)
 {
 	int ret = 0;
@@ -989,6 +1007,15 @@ static int create_thermal_debugfs(void)
 		ret = PTR_ERR(msm_therm_debugfs->tsens_print);
 		pr_err("Error creating debugfs:[%s]. err:%d\n",
 			MSM_TSENS_PRINT, ret);
+		goto create_exit;
+	}
+
+	msm_therm_debugfs->config = debugfs_create_file(MSM_CONFIG,
+			0600, msm_therm_debugfs->parent, NULL,
+			&thermal_debugfs_config_ops);
+	if (!msm_therm_debugfs->config) {
+		pr_err("Error creating debugfs:[%s]\n",
+			MSM_CONFIG);
 		goto create_exit;
 	}
 
@@ -5889,6 +5916,171 @@ PROBE_FREQ_EXIT:
 		freq_mitigation_enabled = 0;
 	}
 	return ret;
+}
+
+static void thermal_boot_config_read(struct seq_file *m, void *data)
+{
+
+	seq_puts(m, "---------Boot Mitigation------------\n");
+	seq_printf(m, "tsens sensor:tsens_tz_sensor%d\n",
+			msm_thermal_info.sensor_id);
+	seq_printf(m, "polling rate:%d ms\n", msm_thermal_info.poll_ms);
+	seq_printf(m, "frequency threshold:%d degC\n",
+			msm_thermal_info.limit_temp_degC);
+	seq_printf(m, "frequency threshold clear:%d degC\n",
+			msm_thermal_info.limit_temp_degC
+			- msm_thermal_info.temp_hysteresis_degC);
+	seq_printf(m, "frequency step:%d\n",
+			msm_thermal_info.bootup_freq_step);
+	seq_printf(m, "frequency mask:0x%x\n",
+			msm_thermal_info.bootup_freq_control_mask);
+	seq_printf(m, "hotplug threshold:%d degC\n",
+			msm_thermal_info.core_limit_temp_degC);
+	seq_printf(m, "hotplug threshold clear:%d degC\n",
+			msm_thermal_info.core_limit_temp_degC
+			- msm_thermal_info.core_temp_hysteresis_degC);
+	seq_printf(m, "hotplug mask:0x%x\n",
+			msm_thermal_info.core_control_mask);
+	seq_printf(m, "reset threshold:%d degC\n",
+			msm_thermal_info.therm_reset_temp_degC);
+}
+
+static void thermal_emergency_config_read(struct seq_file *m, void *data)
+{
+	int cpu = 0;
+
+	seq_puts(m, "\n---------Emergency Mitigation------------\n");
+	for_each_possible_cpu(cpu)
+		seq_printf(m, "cpu%d sensor:%s\n", cpu, cpus[cpu].sensor_type);
+	seq_printf(m, "frequency threshold:%d degC\n",
+			msm_thermal_info.freq_mitig_temp_degc);
+	seq_printf(m, "frequency threshold clr:%d degC\n",
+			msm_thermal_info.freq_mitig_temp_degc
+			- msm_thermal_info.freq_mitig_temp_hysteresis_degc);
+	seq_printf(m, "frequency value:%d KHz\n",
+			msm_thermal_info.freq_limit);
+	seq_printf(m, "frequency mask:0x%x\n",
+			msm_thermal_info.freq_mitig_control_mask);
+	seq_printf(m, "hotplug threshold:%d degC\n",
+			msm_thermal_info.hotplug_temp_degC);
+	seq_printf(m, "hotplug threshold clr:%d degC\n",
+			msm_thermal_info.hotplug_temp_degC
+			- msm_thermal_info.hotplug_temp_hysteresis_degC);
+	seq_printf(m, "hotplug mask:0x%x\n",
+			msm_thermal_info.core_control_mask);
+	seq_printf(m, "online hotplug core:%s\n", online_core
+			? "true" : "false");
+
+}
+
+static void thermal_mx_config_read(struct seq_file *m, void *data)
+{
+	if (vdd_mx_enabled) {
+		seq_puts(m, "\n---------Mx Retention------------\n");
+		seq_printf(m, "threshold:%d degC\n",
+				msm_thermal_info.vdd_mx_temp_degC);
+		seq_printf(m, "threshold clear:%d degC\n",
+				msm_thermal_info.vdd_mx_temp_degC
+				+ msm_thermal_info.vdd_mx_temp_hyst_degC);
+		seq_printf(m, "retention value:%d\n",
+				msm_thermal_info.vdd_mx_min);
+	}
+}
+
+static void thermal_vdd_config_read(struct seq_file *m, void *data)
+{
+	int i = 0;
+
+	if (vdd_rstr_enabled) {
+		seq_puts(m, "\n---------VDD restriction------------\n");
+		seq_printf(m, "threshold:%d degC\n",
+				msm_thermal_info.vdd_rstr_temp_degC);
+		seq_printf(m, "threshold clear:%d degC\n",
+				msm_thermal_info.vdd_rstr_temp_hyst_degC);
+		for (i = 0; i < rails_cnt; i++) {
+			if (!strcmp(rails[i].name, "vdd-dig")
+				&& rails[i].num_levels)
+				seq_printf(m, "vdd_dig restriction value:%d\n",
+					rails[i].levels[0]);
+			if (!strcmp(rails[i].name, "vdd-gfx")
+				&& rails[i].num_levels)
+				seq_printf(m, "vdd_gfx restriction value:%d\n",
+					rails[i].levels[0]);
+			if (!strcmp(rails[i].name, "vdd-apps")
+				&& rails[i].num_levels)
+				seq_printf(m,
+					"vdd_apps restriction value:%d KHz\n",
+					rails[i].levels[0]);
+		}
+	}
+}
+
+static void thermal_psm_config_read(struct seq_file *m, void *data)
+{
+	if (psm_enabled) {
+		seq_puts(m, "\n------PMIC Software Mode(PSM)-------\n");
+		seq_printf(m, "threshold:%d degC\n",
+				msm_thermal_info.psm_temp_degC);
+		seq_printf(m, "threshold clear:%d degC\n",
+				msm_thermal_info.psm_temp_degC
+				- msm_thermal_info.psm_temp_hyst_degC);
+	}
+}
+
+static void thermal_ocr_config_read(struct seq_file *m, void *data)
+{
+	if (ocr_enabled) {
+		seq_puts(m, "\n-----Optimum Current Request(OCR)-----\n");
+		seq_printf(m, "threshold:%d degC\n",
+				msm_thermal_info.ocr_temp_degC);
+		seq_printf(m, "threshold clear:%d degC\n",
+				msm_thermal_info.ocr_temp_degC
+				- msm_thermal_info.ocr_temp_hyst_degC);
+		seq_printf(m, "tsens sensor:tsens_tz_sensor%d\n",
+				msm_thermal_info.ocr_sensor_id);
+	}
+}
+
+static void thermal_phase_ctrl_config_read(struct seq_file *m, void *data)
+{
+	if (cx_phase_ctrl_enabled) {
+		seq_puts(m, "\n---------Phase control------------\n");
+		seq_printf(m, "cx hot critical threshold:%d degC\n",
+				msm_thermal_info.cx_phase_hot_temp_degC);
+		seq_printf(m, "cx hot critical threshold clear:%d degC\n",
+			msm_thermal_info.cx_phase_hot_temp_degC
+			- msm_thermal_info.cx_phase_hot_temp_hyst_degC);
+	}
+	if (gfx_crit_phase_ctrl_enabled) {
+		seq_printf(m, "gfx hot critical threshold:%d degC\n",
+				msm_thermal_info.gfx_phase_hot_temp_degC);
+		seq_printf(m, "gfx hot critical threshold clear:%d degC\n",
+			msm_thermal_info.gfx_phase_hot_temp_degC
+			- msm_thermal_info.gfx_phase_hot_temp_hyst_degC);
+	}
+	if (gfx_warm_phase_ctrl_enabled) {
+		seq_printf(m, "gfx warm threshold:%d degC\n",
+				msm_thermal_info.gfx_phase_warm_temp_degC);
+		seq_printf(m, "gfx warm threshold clear:%d degC\n",
+			msm_thermal_info.gfx_phase_warm_temp_degC
+			- msm_thermal_info.gfx_phase_warm_temp_hyst_degC);
+	}
+	if (gfx_crit_phase_ctrl_enabled || gfx_warm_phase_ctrl_enabled)
+		seq_printf(m, "gfx tsens sensor:tsens_tz_sensor%d\n",
+			msm_thermal_info.gfx_sensor);
+}
+
+static int thermal_config_debugfs_read(struct seq_file *m, void *data)
+{
+	thermal_boot_config_read(m, data);
+	thermal_emergency_config_read(m, data);
+	thermal_mx_config_read(m, data);
+	thermal_vdd_config_read(m, data);
+	thermal_psm_config_read(m, data);
+	thermal_ocr_config_read(m, data);
+	thermal_phase_ctrl_config_read(m, data);
+
+	return 0;
 }
 
 static int msm_thermal_dev_probe(struct platform_device *pdev)
