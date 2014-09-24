@@ -65,6 +65,7 @@ endif
 obj-$(CONFIG_PROBE_EVENTS) += trace_probe.o
 obj-$(CONFIG_UPROBE_EVENT) += trace_uprobe.o
 obj-$(CONFIG_GPU_TRACEPOINTS) += gpu-traces.o
+obj-$(CONFIG_QCOM_RTB) += msm_rtb.o
 
 obj-$(CONFIG_TRACEPOINT_BENCHMARK) += trace_benchmark.o
 
