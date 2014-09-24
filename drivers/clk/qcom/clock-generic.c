@@ -18,6 +18,7 @@
 #include <linux/io.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/clk/msm-clock-generic.h>
+#include <soc/qcom/msm-clock-controller.h>
 
 /* ==================== Mux clock ==================== */
 
@@ -591,6 +592,27 @@ struct clk_ops clk_ops_ext = {
 	.get_parent = ext_get_parent,
 };
 
+static void *ext_clk_dt_parser(struct device *dev, struct device_node *np)
+{
+	struct ext_clk *ext;
+	const char *str;
+	int rc;
+
+	ext = devm_kzalloc(dev, sizeof(*ext), GFP_KERNEL);
+	if (!ext) {
+		dev_err(dev, "memory allocation failure\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	ext->dev = dev;
+	rc = of_property_read_string(np, "qcom,clock-names", &str);
+	if (!rc)
+		ext->clk_id = (void *)str;
+
+	ext->c.ops = &clk_ops_ext;
+	return msmclk_generic_clk_init(dev, np, &ext->c);
+}
+MSMCLK_PARSER(ext_clk_dt_parser, "qcom,ext-clk", 0);
 
 /* ==================== Mux_div clock ==================== */
 
