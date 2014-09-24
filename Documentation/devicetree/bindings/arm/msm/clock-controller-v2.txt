@@ -490,3 +490,48 @@ mmss_gcc_dbg_clk: mmss_gcc_dbg_clk {
 		<    2 &debug_clk_src>,
 		<>;
 };
+
+*****************************************************************************
+
+"qcom,measure-mux"
+
+Represents a mux which has the ability to measure its input clock.
+
+Required Properties:
+- compatible:		Must be "qcom,measure-mux".
+
+- qcom,offset:		Register selecting the input clk.
+- qcom,mask:		Bitmask for the mux src select register.
+- qcom,shift:		Shift applied to mask and src sel.
+- qcom,parents:		Array of <mux_selection  parent_phandle>.
+- qcom,cxo:		CXO is required to be enabled for proper operation.
+- qcom,xo-div4-cbcr:	Control register for the CXO clock.
+- qcom,test-pad-cfg:	Settings for gpio drive strength, polarity, and pulldown.
+
+Recommended Properties:
+- qcom,clk-flags:	CLKFLAG_MEASURE and CLKFLAG_NO_RATE_CACHE should be set
+			in most cases.
+
+Optional Properties:
+- qcom,en-offset:	Register controlling gating functionality.
+- qcom,en-mask:		Bitmask for the enable register.
+- qcom,recursive-parents:
+			Refer to the description under "qcom,mux-reg"
+
+ mmss_gcc_dbg_clk: mmss_gcc_dbg_clk {
+	compatible = "qcom,measure-mux";
+	qcom,recursive-parents = <&debug_clk_src>;
+	qcom,offset = <MMSS_MMSS_DEBUG_CLK_CTL>;
+	qcom,mask = <0xFFF>;
+	qcom,shift = <0>;
+	qcom,en-offset = <MMSS_MMSS_DEBUG_CLK_CTL>;
+	qcom,en-mask = <0x10000>;
+	qcom,parents =
+		<    0 &gcc_xo>,
+		<    1 &gpll0>,
+		<    2 &debug_clk_src>,
+		<>;
+	qcom,cxo = <&gcc_xo>;
+	qcom,xo-div4-cbcr = <GCC_GCC_XO_DIV4_CBCR>;
+	qcom,test-pad-cfg = <0x51A00>;
+};
