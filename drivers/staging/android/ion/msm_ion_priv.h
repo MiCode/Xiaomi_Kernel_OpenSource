@@ -123,4 +123,6 @@ int ion_heap_allow_handle_secure(enum ion_heap_type type);
  */
 struct sg_table *ion_create_chunked_sg_table(phys_addr_t buffer_base,
 					size_t chunk_size, size_t total_size);
+
+void show_ion_usage(struct ion_device *dev);
 #endif /* _MSM_ION_PRIV_H */
