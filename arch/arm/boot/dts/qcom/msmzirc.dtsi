@@ -755,6 +755,9 @@
 		qcom,msm-bus,vectors-KBps =
 					<61 512 0 0>,
 					<61 512 240000 960000>;
+		qcom,power-collapse-on-cable-disconnect;
+		qcom,por-after-power-collapse;
+		qcom,lpm-to-suspend-delay-ms = <2000>;
 
 		clocks = <&clock_gcc clk_gcc_usb30_master_clk>,
 			 <&clock_gcc clk_gcc_sys_noc_usb3_axi_clk>,
@@ -774,10 +777,9 @@
 			interrupt-names = "irq", "otg_irq";
 			usb-phy = <&qusb_phy>, <&ssphy>;
 			snps,nominal-elastic-buffer;
-			snps,core-reset-after-phy-init;
 			snps,hsphy-auto-suspend-disable;
 			snps,ssphy-auto-suspend-disable;
-			snps,hird_thresh = <0x10>;
+			snps,hird_thresh = <0x7>;
 		};
 	};
 
