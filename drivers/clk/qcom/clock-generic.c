@@ -116,7 +116,10 @@ static int mux_set_rate(struct clk *c, unsigned long rate)
 	for (i = 0; i < mux->num_parents && !new_parent; i++) {
 		if (clk_round_rate(mux->parents[i].src, rate) == rate) {
 			new_parent = mux->parents[i].src;
-			break;
+			if (!mux->try_new_parent)
+				break;
+			if (mux->try_new_parent && new_parent != c->parent)
+				break;
 		}
 	}
 
@@ -126,9 +129,12 @@ static int mux_set_rate(struct clk *c, unsigned long rate)
 	/*
 	 * Switch to safe parent since the old and new parent might be the
 	 * same and the parent might temporarily turn off while switching
-	 * rates.
+	 * rates. If the mux can switch between distinct sources safely
+	 * (indicated by try_new_parent), and the new source is not the current
+	 * parent, do not switch to the safe parent.
 	 */
-	if (mux->safe_sel >= 0) {
+	if (mux->safe_sel >= 0 &&
+		!(mux->try_new_parent && (new_parent != c->parent))) {
 		/*
 		 * The safe parent might be a clock with multiple sources;
 		 * to select the "safe" source, set a safe frequency.
@@ -150,9 +156,10 @@ static int mux_set_rate(struct clk *c, unsigned long rate)
 		spin_lock_irqsave(&c->lock, flags);
 		rc = mux->ops->set_mux_sel(mux, mux->safe_sel);
 		spin_unlock_irqrestore(&c->lock, flags);
+		if (rc)
+			return rc;
+
 	}
-	if (rc)
-		return rc;
 
 	new_par_curr_rate = clk_get_rate(new_parent);
 	rc = clk_set_rate(new_parent, rate);
