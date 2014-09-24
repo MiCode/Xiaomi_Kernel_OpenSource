@@ -26,6 +26,15 @@ config MESSAGE_LOGLEVEL_DEFAULT
 	  that are auditing their logs closely may want to set it to a lower
 	  priority.
 
+config LOG_BUF_MAGIC
+	bool "Recovery of partially corrupted dmesg from ramdumps"
+	depends on PRINTK
+	help
+	  Select this option to add a magic number to the log buf record. In the
+	  event that a log buf record is corrupted, post-mortem crash analysis
+	  tools may use this magic number to search for the next noncorrupted
+	  log record.
+
 config BOOT_PRINTK_DELAY
 	bool "Delay each boot printk message by N milliseconds"
 	depends on DEBUG_KERNEL && PRINTK && GENERIC_CALIBRATE_DELAY
