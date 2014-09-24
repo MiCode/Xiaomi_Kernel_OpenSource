@@ -44,6 +44,29 @@
 				BIT_ORED_DEDICATED_IRQ_GPSC | \
 				BIT_SHARED_IRQ_GPSS)
 
+/* Power gate status register */
+#define	PMC_PSS			0x98
+
+#define PMC_PSS_BIT_GBE			BIT(0)
+#define PMC_PSS_BIT_SATA		BIT(1)
+#define PMC_PSS_BIT_HDA			BIT(2)
+#define PMC_PSS_BIT_SEC			BIT(3)
+#define PMC_PSS_BIT_PCIE		BIT(4)
+#define PMC_PSS_BIT_LPSS		BIT(5)
+#define PMC_PSS_BIT_LPE			BIT(6)
+#define PMC_PSS_BIT_DFX			BIT(7)
+#define PMC_PSS_BIT_USH_CTRL		BIT(8)
+#define PMC_PSS_BIT_USH_SUS		BIT(9)
+#define PMC_PSS_BIT_USH_VCCS		BIT(10)
+#define PMC_PSS_BIT_USH_VCCA		BIT(11)
+#define PMC_PSS_BIT_OTG_CTRL		BIT(12)
+#define PMC_PSS_BIT_OTG_VCCS		BIT(13)
+#define PMC_PSS_BIT_OTG_VCCA_CLK	BIT(14)
+#define PMC_PSS_BIT_OTG_VCCA		BIT(15)
+#define PMC_PSS_BIT_USB			BIT(16)
+#define PMC_PSS_BIT_USB_SUS		BIT(17)
+
+
 /* The timers acumulate time spent in sleep state */
 #define	PMC_S0IR_TMR		0x80
 #define	PMC_S0I1_TMR		0x84
