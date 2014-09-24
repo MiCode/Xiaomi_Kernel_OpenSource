@@ -1,0 +1,16 @@
+#
+# Near Field Communication (NFC) devices
+#
+
+config ANDROID_NFC_FDP
+
+	tristate "Enable Android FDP NFC device"
+	depends on I2C
+	depends on ANDROID
+	---help---
+	   This module adds support for FDP NFC i2c driver and
+	   its designed mainly to work with libnfc android stack
+	   If you choose to build this driver as module, choose
+	   m here. This module will be called fdp_nfc. If unsure
+	   say N.
+
