@@ -109,3 +109,11 @@
 &qcom_rng {
 	status = "okay";
 };
+
+&qcom_crypto {
+	status = "okay";
+};
+
+&qcom_cedev {
+	status = "okay";
+};
