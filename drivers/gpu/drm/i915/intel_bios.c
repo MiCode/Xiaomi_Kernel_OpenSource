@@ -768,7 +768,11 @@ static u8 *goto_next_sequence_v3(u8 *data, int *size)
 	if (--tmp < 0)
 		return NULL;
 
-	/* Skip the panel id and the sequence size */
+	/*
+	 * Skipping the Sequence byte (1 byte) and
+	 * Size of operation(4 bytes) to
+	 * goto the first element
+	 */
 	data = data + 5;
 	while (*data != 0) {
 		u8 element_type = *data++;
