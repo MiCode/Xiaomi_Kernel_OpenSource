@@ -1093,6 +1093,8 @@ static const struct v4l2_ioctl_ops fd_ioctl_ops = {
 static void msm_fd_fill_results(struct msm_fd_device *fd,
 	struct msm_fd_face_data *face, int idx)
 {
+	int half_face_size;
+
 	msm_fd_hw_get_result_angle_pose(fd, idx, &face->angle, &face->pose);
 
 	msm_fd_hw_get_result_conf_size(fd, idx, &face->confidence,
@@ -1102,8 +1104,17 @@ static void msm_fd_fill_results(struct msm_fd_device *fd,
 	face->face.left = msm_fd_hw_get_result_x(fd, idx);
 	face->face.top = msm_fd_hw_get_result_y(fd, idx);
 
-	face->face.left -= (face->face.width >> 1);
-	face->face.top -= (face->face.height >> 1);
+	half_face_size = (face->face.width >> 1);
+	if (face->face.left > half_face_size)
+		face->face.left -= half_face_size;
+	else
+		face->face.left = 0;
+
+	half_face_size = (face->face.height >> 1);
+	if (face->face.top > half_face_size)
+		face->face.top -= half_face_size;
+	else
+		face->face.top = 0;
 }
 
 /*
