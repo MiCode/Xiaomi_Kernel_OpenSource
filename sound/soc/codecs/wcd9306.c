@@ -5592,7 +5592,7 @@ static const struct tapan_reg_mask_val tapan_codec_reg_init_val[] = {
 	{TAPAN_A_CDC_CONN_MISC, 0x04, 0x04},
 
 	/* CLASS H config */
-	{TAPAN_A_CDC_CONN_CLSH_CTL, 0x3C, 0x14},
+	{TAPAN_A_CDC_CONN_CLSH_CTL, 0x30, 0x10},
 
 	/* Use 16 bit sample size for TX1 to TX5 */
 	{TAPAN_A_CDC_CONN_TX_SB_B1_CTL, 0x30, 0x20},
@@ -6100,8 +6100,6 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	tapan = snd_soc_codec_get_drvdata(codec);
 
-	snd_soc_card_change_online_state(codec->card, 1);
-
 	mutex_lock(&codec->mutex);
 	if (codec->reg_def_copy) {
 		pr_debug("%s: Update ASOC cache", __func__);
@@ -6114,6 +6112,10 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 			return -ENOMEM;
 		}
 	}
+
+	tapan->machine_codec_event_cb(codec, WCD9XXX_CODEC_EVENT_CODEC_UP);
+
+	snd_soc_card_change_online_state(codec->card, 1);
 
 	if (spkr_drv_wrnd == 1)
 		snd_soc_update_bits(codec, TAPAN_A_SPKR_DRV_EN, 0x80, 0x80);
@@ -6149,8 +6151,6 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	ret = tapan_setup_irqs(tapan);
 	if (ret)
 		pr_err("%s: Failed to setup irq: %d\n", __func__, ret);
-
-	tapan->machine_codec_event_cb(codec, WCD9XXX_CODEC_EVENT_CODEC_UP);
 
 	for (count = 0; count < NUM_CODEC_DAIS; count++)
 		tapan->dai[count].bus_down_in_recovery = true;
