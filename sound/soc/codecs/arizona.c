@@ -2244,11 +2244,9 @@ struct arizona_fll_cfg {
 
 static int arizona_validate_fll(struct arizona_fll *fll,
 				unsigned int Fref,
-				unsigned int Fout)
+				unsigned int Fvco)
 {
-	unsigned int Fvco_min;
-
-	if (fll->fout && Fout != fll->fout) {
+	if (fll->fvco && Fvco != fll->fvco) {
 		arizona_fll_err(fll,
 				"Can't change output on active FLL\n");
 		return -EINVAL;
@@ -2258,13 +2256,6 @@ static int arizona_validate_fll(struct arizona_fll *fll,
 		arizona_fll_err(fll,
 				"Can't scale %dMHz in to <=13.5MHz\n",
 				Fref);
-		return -EINVAL;
-	}
-
-	Fvco_min = ARIZONA_FLL_MIN_FVCO * fll->vco_mult;
-	if (Fout * ARIZONA_FLL_MAX_OUTDIV < Fvco_min) {
-		arizona_fll_err(fll, "No FLL_OUTDIV for Fout=%uHz\n",
-				Fout);
 		return -EINVAL;
 	}
 
@@ -2371,20 +2362,13 @@ static int arizona_calc_fll(struct arizona_fll *fll,
 			    struct arizona_fll_cfg *cfg,
 			    unsigned int Fref, bool sync)
 {
-	unsigned int target, div, gcd_fll;
+	unsigned int target, gcd_fll;
 	int i, ratio;
 
 	arizona_fll_dbg(fll, "Fref=%u Fout=%u\n", Fref, fll->fout);
 
-	/* Fvco should be over the targt; don't check the upper bound */
-	div = ARIZONA_FLL_MIN_OUTDIV;
-	while (fll->fout * div < ARIZONA_FLL_MIN_FVCO * fll->vco_mult) {
-		div++;
-		if (div > ARIZONA_FLL_MAX_OUTDIV)
-			return -EINVAL;
-	}
-	target = fll->fout * div / fll->vco_mult;
-	cfg->outdiv = div;
+	target = fll->fvco;
+	cfg->outdiv = fll->outdiv;
 
 	arizona_fll_dbg(fll, "Fvco=%dHz\n", target);
 
@@ -2604,7 +2588,7 @@ int arizona_set_fll_refclk(struct arizona_fll *fll, int source,
 		return 0;
 
 	if (fll->fout && Fref > 0) {
-		ret = arizona_validate_fll(fll, Fref, fll->fout);
+		ret = arizona_validate_fll(fll, Fref, fll->fvco);
 		if (ret != 0)
 			return ret;
 	}
@@ -2623,6 +2607,8 @@ EXPORT_SYMBOL_GPL(arizona_set_fll_refclk);
 int arizona_set_fll(struct arizona_fll *fll, int source,
 		    unsigned int Fref, unsigned int Fout)
 {
+	unsigned int Fvco = 0;
+	int div = 0;
 	int ret = 0;
 
 	if (fll->sync_src == source &&
@@ -2630,19 +2616,33 @@ int arizona_set_fll(struct arizona_fll *fll, int source,
 		return 0;
 
 	if (Fout) {
+		div = ARIZONA_FLL_MIN_OUTDIV;
+		while (Fout * div < ARIZONA_FLL_MIN_FVCO * fll->vco_mult) {
+			div++;
+			if (div > ARIZONA_FLL_MAX_OUTDIV) {
+				arizona_fll_err(fll,
+						"No FLL_OUTDIV for Fout=%uHz\n",
+						Fout);
+				return -EINVAL;
+			}
+		}
+		Fvco = Fout * div / fll->vco_mult;
+
 		if (fll->ref_src >= 0) {
-			ret = arizona_validate_fll(fll, fll->ref_freq, Fout);
+			ret = arizona_validate_fll(fll, fll->ref_freq, Fvco);
 			if (ret != 0)
 				return ret;
 		}
 
-		ret = arizona_validate_fll(fll, Fref, Fout);
+		ret = arizona_validate_fll(fll, Fref, Fvco);
 		if (ret != 0)
 			return ret;
 	}
 
 	fll->sync_src = source;
 	fll->sync_freq = Fref;
+	fll->fvco = Fvco;
+	fll->outdiv = div;
 	fll->fout = Fout;
 
 	if (Fout)
