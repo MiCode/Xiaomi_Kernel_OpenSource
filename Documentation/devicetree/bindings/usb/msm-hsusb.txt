@@ -4,7 +4,12 @@ OTG:
 
 Required properties :
 - compatible : should be "qcom,hsusb-otg"
-- regs : offset and length of the register set in the memory map
+- regs : Array of offset and length of the register sets in the memory map
+- reg-names : indicates various iomem resources passed by name. The possible
+	strings in this field are:
+	"core": USB controller register space. (Required)
+	"tcsr": TCSR register for routing USB Controller signals to
+	either picoPHY0 or picoPHY1. (Optional)
 - interrupts: IRQ line
 - interrupt-names: OTG interrupt name(s) referenced in interrupts above
             HSUSB OTG expects "core_irq" which is IRQ line from CORE and
@@ -32,8 +37,6 @@ Required properties :
 	in microvolts or a value corresponding to voltage corner.
 
 Optional properties :
-- reg : offset and length of the TCSR register for routing USB Controller
-	signals to either picoPHY0 or picoPHY1.
 - interrupt-names : Optional interrupt resource entries are:
     "async_irq" : Interrupt from HSPHY for asynchronous wakeup events in LPM.
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
@@ -128,6 +131,7 @@ Example HSUSB OTG controller device node :
 	usb@f9690000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0xf9690000 0x400>;
+		reg-names = "core";
 		interrupts = <134>;
 		interrupt-names = "core_irq";
 
