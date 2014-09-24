@@ -979,7 +979,7 @@
 			<0x7884000 0x19000>;
 		interrupt-names = "spi_irq", "spi_bam_irq";
 		interrupts = <0 99 0>, <0 238 0>;
-		spi-max-frequency = <5000000>;
+		spi-max-frequency = <18000000>;
 		qcom,use-pinctrl;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&spi5_default &spi5_cs0_active>;
