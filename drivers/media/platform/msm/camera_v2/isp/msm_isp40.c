@@ -1328,13 +1328,17 @@ static int msm_vfe40_axi_halt(struct vfe_device *vfe_dev,
 		pr_err("%s: calling complete on stream update\n", __func__);
 		complete(&vfe_dev->stream_config_complete);
 	}
-	/* Halt AXI Bus Bridge */
-	init_completion(&vfe_dev->halt_complete);
-	msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);
 	if (blocking) {
+		init_completion(&vfe_dev->halt_complete);
+		/* Halt AXI Bus Bridge */
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);
 		rc = wait_for_completion_interruptible_timeout(
 			&vfe_dev->halt_complete, msecs_to_jiffies(500));
+	} else {
+		/* Halt AXI Bus Bridge */
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);
 	}
+
 	return rc;
 }
 
