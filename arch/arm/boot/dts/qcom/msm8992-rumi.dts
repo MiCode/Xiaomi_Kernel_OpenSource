@@ -28,6 +28,10 @@
 	status = "ok";
 };
 
+&pcie0 {
+	status = "disabled";
+};
+
 &spi_0 {
 	ethernet-controller@2 {
 		compatible = "micrel,ks8851";
