@@ -5759,22 +5759,6 @@ enum punit_power_well {
 #define   GEN6_PCODE_FREQ_IA_RATIO_SHIFT	8
 #define   GEN6_PCODE_FREQ_RING_RATIO_SHIFT	16
 
-#define OPCODE_REG_READ				6
-#define OPCODE_REG_WRITE			7
-
-#define CCU_iCLK5_REG				0x0114
-#define   iCLK5_BENDCLKEN_SHIFT			16
-#define   iCLK5_DISPBENDCLKEN			(1<<16)
-#define   iCLK5_DISPBENDCLKREQ			(1<<0)
-#define CCU_iCLK1_REG				0x0104
-#define   iCLK1_BENDTIME_SHIFT			20
-#define   iCLK1_BENDUPDOWN_SHIFT		28
-#define   iCLK1_BENDTIMETOSW			(0xFF<<20)
-#define   iCLK1_BENDUPDOWN			(1<<28)
-#define CCU_iCLK0_REG				0x0100
-#define   iCLK0_STEPSIZE_SHIFT			9
-#define   iCLK0_BENDSTEPSIZE			(0xF<<9)
-
 #define GEN6_GT_CORE_STATUS		0x138060
 #define   GEN6_CORE_CPD_STATE_MASK	(7<<4)
 #define   GEN6_RCn_MASK			7
