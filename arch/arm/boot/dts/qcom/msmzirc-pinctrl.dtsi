@@ -58,7 +58,7 @@
 			/* MOSI, MISO, CLK */
 			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
 			qcom,num-grp-pins = <3>;
-			qcom,pin-func = <1>;
+			qcom,pin-func = <2>;
 			label = "spi0-active";
 			/* active state */
 			spi0_default: default {
@@ -84,7 +84,7 @@
 			/* CS */
 			qcom,pins = <&gp 2>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <1>;
+			qcom,pin-func = <2>;
 			label = "spi0-cs0-active";
 			spi0_cs0_active: cs0_active {
 				drive-strength = <2>;
@@ -582,24 +582,6 @@
 			setb_18: setb {
 				drive-strength = <16>;
 				bias-disable;
-			};
-		};
-
-		pmx_i2c_2 {
-			/* CLK, DATA */
-			qcom,pins = <&gp 6>, <&gp 7>;
-			qcom,num-grp-pins = <2>;
-			qcom,pin-func = <3>;
-			label = "pmx_i2c_2";
-
-			i2c_2_active: i2c_2_active {
-				drive-strength = <2>; /* 2 MA */
-				bias-disable = <0>; /* No PULL */
-			};
-
-			i2c_2_sleep: i2c_2_sleep {
-				drive-strength = <2>; /* 2 MA */
-				bias-disable = <0>; /* No PULL */
 			};
 		};
 
