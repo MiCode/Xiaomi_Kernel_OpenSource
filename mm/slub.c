@@ -649,8 +649,12 @@ static void init_object(struct kmem_cache *s, void *object, u8 val)
 static void restore_bytes(struct kmem_cache *s, char *message, u8 data,
 						void *from, void *to)
 {
+#ifdef CONFIG_SLUB_DEBUG_PANIC_ON
+	panic("Found corruption 0x%p-0x%p=0x%x\n", from, to - 1, data);
+#else
 	slab_fix(s, "Restoring 0x%p-0x%p=0x%x\n", from, to - 1, data);
 	memset(from, data, to - from);
+#endif
 }
 
 static int check_bytes_and_report(struct kmem_cache *s, struct page *page,
