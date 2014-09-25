@@ -1,0 +1,22 @@
+#
+# Modem Control Driver.
+# Perform power on/reset/power off on IMC modems
+#
+
+config MDM_CTRL
+	tristate "Modem control driver"
+	default y
+	---help---
+	  The modem control driver for IMC modems. This driver will perform any
+	  power request on IMC modems. It will create /dev/mdm_ctrl char device
+	  by default.
+	  Verified for XMM6260, XMM7160, XMM6360 and XMM 6263 modems.
+
+config MDM_CTRL_DEV_NAME
+	string "Boot driver device name"
+	depends on MDM_CTRL
+	default "mdm_ctrl"
+	---help---
+	  Sets the name for the modem control driver device.
+
+	  If unsure, use the default value.
