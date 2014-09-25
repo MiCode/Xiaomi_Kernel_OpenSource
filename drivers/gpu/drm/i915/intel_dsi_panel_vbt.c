@@ -303,16 +303,75 @@ static u8 *mipi_exec_delay(struct intel_dsi *intel_dsi, u8 *data)
 	return data;
 }
 
-static u8 *mipi_exec_gpio(struct intel_dsi *intel_dsi, u8 *data)
+static int chv_program_gpio(struct intel_dsi *intel_dsi,
+						u8 *data, u8 **cur_data)
 {
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u8 gpio, action;
+	u16 family_num;
+	u16 function, pad;
+	u8 block;
+
+	/*
+	 * Skipping the first byte as it is of no
+	 * interest for linux kernel in new VBT version
+	 */
+	if (dev_priv->vbt.dsi.seq_version >= 3)
+		data++;
+
+	gpio = *data++;
+
+	/* pull up/down */
+	action = *data++;
+
+	if (dev_priv->vbt.dsi.seq_version >= 3) {
+		if (gpio <= CHV_MAX_GPIO_NUM_N) {
+			block = CHV_IOSF_PORT_GPIO_N;
+			DRM_DEBUG_DRIVER("GPIO is in the north Block\n");
+		} else if (gpio <= CHV_MAX_GPIO_NUM_SE) {
+			block = CHV_IOSF_PORT_GPIO_SE;
+			gpio = gpio - CHV_MIN_GPIO_NUM_SE;
+			DRM_DEBUG_DRIVER("GPIO is in the south east Block\n");
+		} else if (gpio <= CHV_MAX_GPIO_NUM_SW) {
+			block = CHV_IOSF_PORT_GPIO_SW;
+			gpio = gpio - CHV_MIN_GPIO_NUM_SW;
+			DRM_DEBUG_DRIVER("GPIO is in the south west Block\n");
+		} else {
+			block = CHV_IOSF_PORT_GPIO_E;
+			gpio = gpio - CHV_MIN_GPIO_NUM_E;
+			DRM_DEBUG_DRIVER("GPIO is in the east Block\n");
+		}
+	} else
+		block = IOSF_PORT_GPIO_NC;
+
+	family_num =  gpio / CHV_VBT_MAX_PINS_PER_FMLY;
+	gpio = gpio - (family_num * CHV_VBT_MAX_PINS_PER_FMLY);
+	pad = CHV_PAD_FMLY_BASE + (family_num * CHV_PAD_FMLY_SIZE) +
+			(((u16)gpio) * CHV_PAD_CFG_0_1_REG_SIZE);
+	function = pad + CHV_PAD_CFG_REG_SIZE;
+
+	mutex_lock(&dev_priv->dpio_lock);
+	vlv_gpio_write(dev_priv, block, function,
+					CHV_GPIO_CFG_UNLOCK);
+	vlv_gpio_write(dev_priv, block, pad, CHV_GPIO_CFG_HiZ |
+			(action << CHV_GPIO_CFG_TX_STATE_SHIFT));
+	mutex_unlock(&dev_priv->dpio_lock);
+
+	*cur_data = data;
+
+	return 0;
+}
+
+static int vlv_program_gpio(struct intel_dsi *intel_dsi,
+						u8 *data, u8 **cur_data)
+{
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	u8 gpio, action;
 	u16 function, pad;
 	u32 val;
 	u8 block;
-	struct drm_device *dev = intel_dsi->base.base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
-	DRM_DEBUG_DRIVER("MIPI: executing gpio element\n");
 
 	/*
 	 * Skipping the first byte as it is of no
@@ -328,38 +387,61 @@ static u8 *mipi_exec_gpio(struct intel_dsi *intel_dsi, u8 *data)
 
 	if (dev_priv->vbt.dsi.seq_version >= 3) {
 		if (gpio <= MAX_GPIO_NUM_NC) {
-			DRM_DEBUG_DRIVER("GPIO is in the north Block\n");
 			block = IOSF_PORT_GPIO_NC;
+			DRM_DEBUG_DRIVER("GPIO is in the north Block\n");
 		} else if (gpio > MAX_GPIO_NUM_NC && gpio <= MAX_GPIO_NUM_SC) {
-			DRM_DEBUG_DRIVER("GPIO is in the south Block\n");
 			block = IOSF_PORT_GPIO_SC;
+			DRM_DEBUG_DRIVER("GPIO is in the south Block\n");
 		} else if (gpio > MAX_GPIO_NUM_SC && gpio <= MAX_GPIO_NUM) {
-			DRM_DEBUG_DRIVER("GPIO is in the SUS Block\n");
 			block = IOSF_PORT_GPIO_SUS;
+			DRM_DEBUG_DRIVER("GPIO is in the SUS Block\n");
 		} else {
 			DRM_ERROR("GPIO number is not present in the table\n");
-			return NULL;
+			return -EINVAL;
 		}
-	} else {
+	} else
 		block = IOSF_PORT_GPIO_NC;
-	}
 
 	function = gtable[gpio].function_reg;
 	pad = gtable[gpio].pad_reg;
 
 	mutex_lock(&dev_priv->dpio_lock);
-	if (!gtable[gpio].init) {
-		/* program the function */
-		/* FIXME: remove constant below */
-		vlv_gpio_write(dev_priv, block, function, 0x2000CC00);
-		gtable[gpio].init = 1;
-	}
 
-	val = 0x4 | action;
+	if (!gtable[gpio].init) {
+		vlv_gpio_write(dev_priv, block, function,
+						VLV_GPIO_CFG);
+		gtable[gpio].init = true;
+	}
+	val = VLV_GPIO_INPUT_DIS | action;
 
 	/* pull up/down */
 	vlv_gpio_write(dev_priv, block, pad, val);
+
 	mutex_unlock(&dev_priv->dpio_lock);
+
+	*cur_data = data;
+
+	return 0;
+}
+
+static u8 *mipi_exec_gpio(struct intel_dsi *intel_dsi, u8 *data)
+{
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	int ret;
+
+	DRM_DEBUG_DRIVER("MIPI: executing gpio element\n");
+
+	ret = -EINVAL;
+
+	if (IS_CHERRYVIEW(dev))
+		ret = chv_program_gpio(intel_dsi, data, &data);
+	else if (IS_VALLEYVIEW(dev))
+		ret = vlv_program_gpio(intel_dsi, data, &data);
+	else
+		DRM_ERROR("GPIO programming missing for this platform.\n");
+
+	if (ret)
+		return NULL;
 
 	return data;
 }
