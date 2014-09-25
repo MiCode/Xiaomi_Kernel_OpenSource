@@ -85,99 +85,69 @@ static uint8_t stats_pingpong_offset_map[] = {
 	(VFE46_STATS_BASE(idx) + 0x4 * \
 	(~(ping_pong >> (stats_pingpong_offset_map[idx])) & 0x1))
 
-#define VFE46_VBIF_ROUND_ROBIN_QOS_ARB   0x124
-#define VFE46_BUS_BDG_QOS_CFG_BASE       0x378
-#define VFE46_BUS_BDG_QOS_CFG_NUM            8
-#define VFE46_BUS_BDG_DS_CFG_BASE        0xBD8
-#define VFE46_BUS_BDG_DS_CFG_NUM            17
-
 #define VFE46_CLK_IDX 2
 static struct msm_cam_clk_info msm_vfe46_clk_info[VFE_CLK_INFO_MAX];
-
-static uint32_t vfe46_qos_settings_8994_v1[] = {
-	0xAAA9AAA9, /* QOS_CFG_0 */
-	0xAAA9AAA9, /* QOS_CFG_1 */
-	0xAAA9AAA9, /* QOS_CFG_2 */
-	0xAAA9AAA9, /* QOS_CFG_3 */
-	0xAAA9AAA9, /* QOS_CFG_4 */
-	0xAAA9AAA9, /* QOS_CFG_5 */
-	0xAAA9AAA9, /* QOS_CFG_6 */
-	0x0001AAA9, /* QOS_CFG_7 */
-};
-
-static uint32_t vfe46_ds_settings_8994_v1[] = {
-	0x44441111, /* DS_CFG_0 */
-	0x44441111, /* DS_CFG_1 */
-	0x44441111, /* DS_CFG_2 */
-	0x44441111, /* DS_CFG_3 */
-	0x44441111, /* DS_CFG_4 */
-	0x44441111, /* DS_CFG_5 */
-	0x44441111, /* DS_CFG_6 */
-	0x44441111, /* DS_CFG_7 */
-	0x44441111, /* DS_CFG_8 */
-	0x44441111, /* DS_CFG_9 */
-	0x44441111, /* DS_CFG_10 */
-	0x44441111, /* DS_CFG_11 */
-	0x44441111, /* DS_CFG_12 */
-	0x44441111, /* DS_CFG_13 */
-	0x44441111, /* DS_CFG_14 */
-	0x44441111, /* DS_CFG_15 */
-	0x00000103, /* DS_CFG_16 */
-};
-
-static void msm_vfe46_init_qos_parms(struct vfe_device *vfe_dev)
+static int32_t msm_vfe46_init_dt_parms(struct vfe_device *vfe_dev,
+				struct msm_vfe_hw_init_parms *dt_parms)
 {
 	void __iomem *vfebase = vfe_dev->vfe_base;
-	uint32_t *qos_settings = NULL;
+	struct device_node *of_node;
+	int32_t i = 0 , rc = 0;
+	uint32_t *dt_settings = NULL, *dt_regs = NULL, dt_entries = 0;
 
-	if (vfe_dev->vfe_hw_version >= VFE46_8994V1_VERSION)
-		qos_settings = vfe46_qos_settings_8994_v1;
+	of_node = vfe_dev->pdev->dev.of_node;
 
-	if (qos_settings == NULL) {
-		pr_err("%s: QOS is NOT configured for HW Version %x\n",
-			__func__, vfe_dev->vfe_hw_version);
-		BUG();
+	rc = of_property_read_u32(of_node, dt_parms->entries,
+		&dt_entries);
+	if (rc < 0 || !dt_entries) {
+		pr_err("%s: NO QOS entries found\n", __func__);
+		return -EINVAL;
 	} else {
-		uint32_t i;
-		for (i = 0; i < VFE46_BUS_BDG_QOS_CFG_NUM; i++)
-			msm_camera_io_w(qos_settings[i],
-				vfebase + VFE46_BUS_BDG_QOS_CFG_BASE + i * 4);
+		dt_settings = kzalloc(sizeof(uint32_t) * dt_entries,
+			GFP_KERNEL);
+		if (!dt_settings) {
+			pr_err("%s:%d No memory\n", __func__, __LINE__);
+			return -ENOMEM;
+		}
+		dt_regs = kzalloc(sizeof(uint32_t) * dt_entries,
+			GFP_KERNEL);
+		if (!dt_regs) {
+			pr_err("%s:%d No memory\n", __func__, __LINE__);
+			kfree(dt_settings);
+			return -ENOMEM;
+		}
+		rc = of_property_read_u32_array(of_node, dt_parms->regs,
+			dt_regs, dt_entries);
+		if (rc < 0) {
+			pr_err("%s: NO QOS BUS BDG info\n", __func__);
+			kfree(dt_settings);
+			kfree(dt_regs);
+			return -EINVAL;
+		} else {
+			if (dt_parms->settings) {
+				rc = of_property_read_u32_array(of_node,
+					dt_parms->settings,
+					dt_settings, dt_entries);
+				if (rc < 0) {
+					pr_err("%s: NO QOS settings\n",
+						__func__);
+					kfree(dt_settings);
+					kfree(dt_regs);
+				} else {
+					for (i = 0; i < dt_entries; i++) {
+						msm_camera_io_w(dt_settings[i],
+							vfebase + dt_regs[i]);
+					}
+					kfree(dt_settings);
+					kfree(dt_regs);
+				}
+			} else {
+				kfree(dt_settings);
+				kfree(dt_regs);
+			}
+		}
 	}
-}
-
-static void msm_vfe46_init_vbif_parms(struct vfe_device *vfe_dev)
-{
-	void __iomem *vfe_vbif_base = vfe_dev->vfe_vbif_base;
-
-	if (vfe_dev->vfe_hw_version >= VFE46_8994V1_VERSION) {
-		msm_camera_io_w(0x3,
-			vfe_vbif_base + VFE46_VBIF_ROUND_ROBIN_QOS_ARB);
-	} else {
-		pr_err("%s: VBIF is NOT configured for HW Version %x\n",
-			__func__, vfe_dev->vfe_hw_version);
-		BUG();
-	}
-}
-
-static void msm_vfe46_init_danger_safe_parms(
-	struct vfe_device *vfe_dev)
-{
-	void __iomem *vfebase = vfe_dev->vfe_base;
-	uint32_t *ds_settings = NULL;
-
-	if (vfe_dev->vfe_hw_version >= VFE46_8994V1_VERSION)
-		ds_settings = vfe46_ds_settings_8994_v1;
-
-	if (ds_settings == NULL) {
-		pr_err("%s: DS is NOT configured for HW Version %x\n",
-			__func__, vfe_dev->vfe_hw_version);
-		BUG();
-	} else {
-		uint32_t i;
-		for (i = 0; i < VFE46_BUS_BDG_DS_CFG_NUM; i++)
-			msm_camera_io_w(ds_settings[i],
-				vfebase + VFE46_BUS_BDG_DS_CFG_BASE + i * 4);
-	}
+	return 0;
 }
 
 static int msm_vfe46_init_hardware(struct vfe_device *vfe_dev)
@@ -279,9 +249,25 @@ static void msm_vfe46_release_hardware(struct vfe_device *vfe_dev)
 
 static void msm_vfe46_init_hardware_reg(struct vfe_device *vfe_dev)
 {
-	msm_vfe46_init_qos_parms(vfe_dev);
-	msm_vfe46_init_vbif_parms(vfe_dev);
-	msm_vfe46_init_danger_safe_parms(vfe_dev);
+	struct msm_vfe_hw_init_parms qos_parms;
+	struct msm_vfe_hw_init_parms vbif_parms;
+	struct msm_vfe_hw_init_parms ds_parms;
+
+	qos_parms.entries = "qos-entries";
+	qos_parms.regs = "qos-regs";
+	qos_parms.settings = "qos-settings";
+	vbif_parms.entries = "vbif-entries";
+	vbif_parms.regs = "vbif-regs";
+	vbif_parms.settings = "vbif-settings";
+	ds_parms.entries = "ds-entries";
+	ds_parms.regs = "ds-regs";
+	ds_parms.settings = "ds-settings";
+
+	msm_vfe46_init_dt_parms(vfe_dev, &qos_parms);
+	msm_vfe46_init_dt_parms(vfe_dev, &ds_parms);
+	msm_vfe46_init_dt_parms(vfe_dev, &vbif_parms);
+
+	/* CGC_OVERRIDE */
 	/* MODULE_LENS_CGC_OVERRIDE */
 	msm_camera_io_w(0x00000182, vfe_dev->vfe_base + 0x2C);
 	/* MODULE_COLOR_CGC_OVERRIDE */
