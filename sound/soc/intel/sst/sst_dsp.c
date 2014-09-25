@@ -1257,10 +1257,9 @@ out:
 static int sst_request_fw(struct intel_sst_drv *sst)
 {
 	int retval = 0;
-	char name[20];
 	const struct firmware *fw;
 
-	pr_debug("Requesting FW %s now...\n", name);
+	pr_debug("Requesting FW %s now...\n", sst->firmware_name);
 
 	retval = request_firmware(&fw, sst->firmware_name, sst->dev);
 	if (fw == NULL) {

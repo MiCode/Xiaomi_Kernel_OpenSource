@@ -622,7 +622,7 @@ int sst_acpi_probe(struct platform_device *pdev)
 	}
 	ret = sst_request_firmware_async(ctx);
 	if (ret) {
-		pr_err("Firmware download failed:%d\n", ret);
+		pr_err("Request Firmware failed:%d\n", ret);
 		goto do_free_wq;
 	}
 
