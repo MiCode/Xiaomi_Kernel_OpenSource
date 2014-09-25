@@ -42,6 +42,8 @@ struct desc_field_offset {
 		}							\
 	} while (0)
 
+#define DOORBELL_CLR_TOUT_US	(1000 * 1000) /* 1 sec */
+
 #ifdef CONFIG_UFS_FAULT_INJECTION
 
 #define INJECT_COMMAND_HANG (0x0)
@@ -756,7 +758,6 @@ out:
 static int ufsdbg_config_pwr_mode(struct ufs_hba *hba,
 		struct ufs_pa_layer_attr *desired_pwr_mode)
 {
-	#define DOORBELL_CLR_TOUT_US	(1000 * 1000) /* 1 sec */
 	int ret;
 
 	pm_runtime_get_sync(hba->dev);
@@ -854,7 +855,11 @@ static int ufsdbg_dme_read(void *data, u64 *attr_val, bool peer)
 	attr_id = peer ? hba->debugfs_files.dme_peer_attr_id :
 			 hba->debugfs_files.dme_local_attr_id;
 	pm_runtime_get_sync(hba->dev);
-	ret = ufshcd_dme_get(hba, UIC_ARG_MIB(attr_id), &read_val);
+	scsi_block_requests(hba->host);
+	ret = ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US);
+	if (!ret)
+		ret = read_func(hba, UIC_ARG_MIB(attr_id), &read_val);
+	scsi_unblock_requests(hba->host);
 	pm_runtime_put_sync(hba->dev);
 
 	if (!ret)
@@ -887,39 +892,12 @@ DEFINE_SIMPLE_ATTRIBUTE(ufsdbg_dme_local_read_ops,
 
 static int ufsdbg_dme_peer_read(void *data, u64 *attr_val)
 {
-	int ret;
 	struct ufs_hba *hba = data;
-	struct ufs_pa_layer_attr orig_pwr_info;
-	struct ufs_pa_layer_attr temp_pwr_info;
-	bool restore_pwr_mode = false;
 
 	if (!hba)
 		return -EINVAL;
-
-	if (hba->quirks & UFSHCD_QUIRK_DME_PEER_GET_FAST_MODE) {
-		orig_pwr_info = hba->pwr_info;
-		temp_pwr_info = orig_pwr_info;
-		if (orig_pwr_info.pwr_tx == FAST_MODE ||
-		    orig_pwr_info.pwr_rx == FAST_MODE) {
-			temp_pwr_info.pwr_tx = FASTAUTO_MODE;
-			temp_pwr_info.pwr_rx = FASTAUTO_MODE;
-			ret = ufsdbg_config_pwr_mode(hba, &temp_pwr_info);
-			if (ret)
-				goto out;
-			else
-				restore_pwr_mode = true;
-		}
-	}
-
-	ret = ufsdbg_dme_read(data, attr_val, true);
-
-	if (hba->quirks & UFSHCD_QUIRK_DME_PEER_GET_FAST_MODE) {
-		if (restore_pwr_mode)
-			ufsdbg_config_pwr_mode(hba, &orig_pwr_info);
-	}
-
-out:
-	return ret;
+	else
+		return ufsdbg_dme_read(data, attr_val, true);
 }
 
 static int ufsdbg_dme_peer_set_attr_id(void *data, u64 attr_id)
