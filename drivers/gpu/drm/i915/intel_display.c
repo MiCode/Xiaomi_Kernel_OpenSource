@@ -6667,9 +6667,8 @@ void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
 	bool ssbendupdown = 0, clkbenden = 0;
 	u32 iClk1val = 0, iClk0val = 0, iClk5val = 0, writeval = 0;
 	unsigned long long bendadjust = 0, bendstepsize = 0;
-	u32 bendtimetosw = 0, regval = 0;
+	u32 bendtimetosw = 0;
 	unsigned long long mult = 0, div = 0;
-	unsigned long timeout = jiffies + msecs_to_jiffies(100);
 
 	clkbenden = clockbend->is_enable;
 	if (clockbend->is_enable) {
@@ -6742,22 +6741,15 @@ void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
 
 			Disable clock bending if enabled: toggling of enable bit
 			is required for new parameters to take effect.*/
-			iClk5val = vlv_nc_read(dev_priv, CCU_iCLK5_REG);
+			intel_iosf_rw(dev_priv, OPCODE_REG_READ,
+				IOSF_PORT_CCU, CCU_iCLK5_REG, &iClk5val);
 			if (true == ((iClk5val & iCLK5_DISPBENDCLKEN)
 					>> iCLK5_BENDCLKEN_SHIFT)) {
-				/* HW WA - Clear the dispbendclken */
-				intel_pmc_write_bits(dev_priv,
-				PMC_WA_FORICLK5_REG, PMC_WA_HNDSHK, 0x3);
-				do {
-					regval = 0xF; /* Random */
-					intel_pmc_read(dev_priv,
-						PMC_WA_FORICLK5_REG, &regval);
-				 /* Wait for handshake bit clearance */
-				} while (((regval & PMC_WA_HNDSHK) != 0x0) &&
-					time_after(timeout, jiffies));
-				if (time_after(jiffies, timeout))
-					DRM_DEBUG_DRIVER(
-					"Clock bending prgm timed out\n");
+				writeval = ~iCLK5_DISPBENDCLKEN;
+				iClk5val = iClk5val & writeval;
+				intel_iosf_rw(dev_priv, OPCODE_REG_WRITE,
+					IOSF_PORT_CCU, CCU_iCLK5_REG,
+					&iClk5val);
 			}
 
 			/*program step size*/
@@ -6781,20 +6773,12 @@ void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
 				IOSF_PORT_CCU, CCU_iCLK1_REG, &iClk1val);
 
 			/*enable clock bend*/
-			/* Alternative HW WA */
-			/* Handshake bit and bit 1 mapped to bit 16 of iclk5 */
-			intel_pmc_write_bits(dev_priv, PMC_WA_FORICLK5_REG,
-				PMC_WA_HNDSHK | PMC_WA_ICLK5_BIT16_BND, 0x3);
-			do {
-				regval = 0xF; /* Random */
-				intel_pmc_read(dev_priv,
-					PMC_WA_FORICLK5_REG, &regval);
-			/* Wait for handshake bit clearance */
-			} while (((regval & PMC_WA_HNDSHK) != 0x0) &&
-				time_after(timeout, jiffies));
-			if (time_after(jiffies, timeout))
-				DRM_DEBUG_DRIVER(
-				"Clock bending prgm timed out\n");
+			intel_iosf_rw(dev_priv, OPCODE_REG_READ,
+				IOSF_PORT_CCU, CCU_iCLK5_REG, &iClk5val);
+			writeval = iCLK5_DISPBENDCLKREQ | iCLK5_DISPBENDCLKEN;
+			iClk5val = iClk5val | writeval;
+			intel_iosf_rw(dev_priv, OPCODE_REG_WRITE,
+				IOSF_PORT_CCU, CCU_iCLK5_REG, &iClk5val);
 		} else {
 			clkbenden = false;
 		}
@@ -6815,20 +6799,11 @@ void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
 		intel_iosf_rw(dev_priv, OPCODE_REG_WRITE, IOSF_PORT_CCU,
 				CCU_iCLK1_REG, &iClk1val);
 
-		/* Alternative HW WA */
-		intel_pmc_write_bits(dev_priv,
-			PMC_WA_FORICLK5_REG, PMC_WA_HNDSHK, 0x3);
-		do {
-			regval = 0xF; /* Random */
-			intel_pmc_read(dev_priv, PMC_WA_FORICLK5_REG, &regval);
-		 /* Wait for handshake bit clearance */
-		} while (((regval & PMC_WA_HNDSHK) != 0x0) &&
-			time_after(timeout, jiffies));
-		if (time_after(jiffies, timeout))
-			DRM_DEBUG_DRIVER(
-			"Clock bending prgm timed out\n");
-		iClk5val = vlv_nc_read(dev_priv, CCU_iCLK5_REG);
-		DRM_DEBUG_DRIVER("iCLK5 Reg Value = %x\n", iClk5val);
+		intel_iosf_rw(dev_priv, OPCODE_REG_READ,
+				IOSF_PORT_CCU, CCU_iCLK5_REG, &iClk5val);
+		iClk5val = iClk5val & ~iCLK5_DISPBENDCLKEN;
+		intel_iosf_rw(dev_priv, OPCODE_REG_WRITE, IOSF_PORT_CCU,
+				CCU_iCLK5_REG, &iClk5val);
 	}
 }
 
