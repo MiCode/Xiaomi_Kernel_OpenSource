@@ -592,6 +592,12 @@ static void sst_send_pipe_module_params(struct snd_soc_dapm_widget *w)
 static int sst_generic_modules_event(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *k, int event)
 {
+	struct snd_card *card = w->platform->card->snd_card;
+
+	if (snd_power_get_state(card) == SNDRV_CTL_POWER_D3) {
+		pr_info("The fw may be in a bad state\n");
+		return -EAGAIN;
+	}
 	if (SND_SOC_DAPM_EVENT_ON(event))
 		sst_send_pipe_module_params(w);
 	return 0;
@@ -681,6 +687,12 @@ static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
 	struct sst_ids *ids = w->priv;
 	bool set_mixer = false;
 	int val = sst->widget[ids->reg];
+	struct snd_card *card = w->platform->card->snd_card;
+
+	if (snd_power_get_state(card) == SNDRV_CTL_POWER_D3) {
+		pr_info("The fw may be in a bad state\n");
+		return -EAGAIN;
+	}
 
 	pr_debug("%s: widget = %s\n", __func__, w->name);
 	pr_debug("%s: reg[%d] = %#x\n", __func__, ids->reg, val);
@@ -921,6 +933,12 @@ static int sst_set_be_modules(struct snd_soc_dapm_widget *w,
 			 struct snd_kcontrol *k, int event)
 {
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+	struct snd_card *card = w->platform->card->snd_card;
+
+	if (snd_power_get_state(card) == SNDRV_CTL_POWER_D3) {
+		pr_info("The fw may be in a bad state\n");
+		return -EAGAIN;
+	}
 
 	pr_debug("Enter: %s, widget=%s\n", __func__, w->name);
 
@@ -945,6 +963,13 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	bool is_wideband;
 	static int speech_active;
+	struct snd_card *card = w->platform->card->snd_card;
+
+
+	if (snd_power_get_state(card) == SNDRV_CTL_POWER_D3) {
+		pr_info("The fw may be in a bad state\n");
+		return -EAGAIN;
+	}
 
 	pr_debug("%s: widget=%s\n", __func__, w->name);
 
@@ -991,6 +1016,13 @@ static int sst_set_linked_pipe(struct snd_soc_dapm_widget *w,
 {
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	struct sst_ids *ids = w->priv;
+	struct snd_card *card = w->platform->card->snd_card;
+
+	if (snd_power_get_state(card) == SNDRV_CTL_POWER_D3) {
+		pr_info("The fw may be in a bad state\n");
+		return -EAGAIN;
+	}
+
 	pr_debug("%s: widget=%s\n", __func__, w->name);
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		if (ids->parent_w && ids->parent_w->power)
@@ -1006,6 +1038,12 @@ static int sst_set_media_path(struct snd_soc_dapm_widget *w,
 	struct sst_cmd_set_media_path cmd;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	struct sst_ids *ids = w->priv;
+	struct snd_card *card = w->platform->card->snd_card;
+
+	if (snd_power_get_state(card) == SNDRV_CTL_POWER_D3) {
+		pr_info("The fw may be in a bad state\n");
+		return -EAGAIN;
+	}
 
 	pr_debug("%s: widget=%s\n", __func__, w->name);
 	pr_debug("%s: task=%u, location=%#x\n", __func__,
@@ -1039,6 +1077,12 @@ static int sst_set_media_loop(struct snd_soc_dapm_widget *w,
 	struct sst_cmd_sba_set_media_loop_map cmd;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	struct sst_ids *ids = w->priv;
+	struct snd_card *card = w->platform->card->snd_card;
+
+	if (snd_power_get_state(card) == SNDRV_CTL_POWER_D3) {
+		pr_info("The fw may be in a bad state\n");
+		return -EAGAIN;
+	}
 
 	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
 	if (SND_SOC_DAPM_EVENT_ON(event))
@@ -1072,7 +1116,12 @@ static int sst_tone_generator_event(struct snd_soc_dapm_widget *w,
 	struct sst_cmd_tone_stop cmd;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	struct sst_ids *ids = w->priv;
+	struct snd_card *card = w->platform->card->snd_card;
 
+	if (snd_power_get_state(card) == SNDRV_CTL_POWER_D3) {
+		pr_info("The fw may be in a bad state\n");
+		return -EAGAIN;
+	}
 	pr_debug("Enter:%s, widget=%s\n", __func__, w->name);
 	/* in case of tone generator, the params are combined with the ON cmd */
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
@@ -1227,6 +1276,12 @@ static int sst_hostless_stream_event(struct snd_soc_dapm_widget *w,
 					struct snd_kcontrol *k, int event)
 {
 	struct sst_ids *ids = w->priv;
+	struct snd_card *card = w->platform->card->snd_card;
+
+	if (snd_power_get_state(card) == SNDRV_CTL_POWER_D3) {
+		pr_info("The fw may be in a bad state\n");
+		return -EAGAIN;
+	}
 
 #define MERR_DPCM_HOSTLESS_STRID 25
 	if (SND_SOC_DAPM_EVENT_ON(event))
