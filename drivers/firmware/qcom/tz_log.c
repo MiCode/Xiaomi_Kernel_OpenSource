@@ -614,6 +614,13 @@ static void tzdbg_register_qsee_log_buf(void)
 
 	g_qsee_log =
 		(struct tzdbg_log_t *)ion_map_kernel(g_ion_clnt, g_ihandle);
+
+	if (IS_ERR(g_qsee_log)) {
+		pr_err("%s: Couldn't map ion buffer to kernel\n",
+			__func__);
+		goto err2;
+	}
+
 	g_qsee_log->log_pos.wrap = g_qsee_log->log_pos.offset = 0;
 	return;
 
