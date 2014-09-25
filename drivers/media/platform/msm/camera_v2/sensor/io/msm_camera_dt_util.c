@@ -115,8 +115,11 @@ int msm_sensor_get_sub_module_index(struct device_node *of_node,
 		pr_err("%s:%d failed\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
-	for (i = 0; i < SUB_MODULE_MAX; i++)
+	for (i = 0; i < SUB_MODULE_MAX; i++) {
 		sensor_info->subdev_id[i] = -1;
+		/* Subdev expose additional interface for same sub module*/
+		sensor_info->subdev_intf[i] = -1;
+	}
 
 	src_node = of_parse_phandle(of_node, "qcom,actuator-src", 0);
 	if (!src_node) {

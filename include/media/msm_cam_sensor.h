@@ -199,6 +199,7 @@ struct msm_sensor_info_t {
 	char     sensor_name[MAX_SENSOR_NAME];
 	uint32_t session_id;
 	int32_t  subdev_id[SUB_MODULE_MAX];
+	int32_t  subdev_intf[SUB_MODULE_MAX];
 	uint8_t  is_mount_angle_valid;
 	uint32_t sensor_mount_angle;
 	int modes_supported;

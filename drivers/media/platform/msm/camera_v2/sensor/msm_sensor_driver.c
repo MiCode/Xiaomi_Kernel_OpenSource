@@ -598,9 +598,12 @@ static void msm_sensor_fill_sensor_info(struct msm_sensor_ctrl_t *s_ctrl,
 
 	s_ctrl->sensordata->sensor_info->subdev_id[SUB_MODULE_SENSOR] =
 		s_ctrl->sensordata->sensor_info->session_id;
-	for (i = 0; i < SUB_MODULE_MAX; i++)
+	for (i = 0; i < SUB_MODULE_MAX; i++) {
 		sensor_info->subdev_id[i] =
 			s_ctrl->sensordata->sensor_info->subdev_id[i];
+		sensor_info->subdev_intf[i] =
+			s_ctrl->sensordata->sensor_info->subdev_intf[i];
+	}
 
 	sensor_info->is_mount_angle_valid =
 		s_ctrl->sensordata->sensor_info->is_mount_angle_valid;
