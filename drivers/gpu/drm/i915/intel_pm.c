@@ -3939,8 +3939,6 @@ static void gen6_disable_rps(struct drm_device *dev)
 
 static void cherryview_disable_rps(struct drm_device *dev)
 {
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
 	/* Disable rc6 */
 	vlv_set_rc6_mode(dev, true);
 
