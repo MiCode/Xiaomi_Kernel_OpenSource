@@ -237,7 +237,7 @@
 			320000000 0 0>;
 	};
 
-	qcom,vfe@fda10000 {
+	vfe0: qcom,vfe@fda10000 {
 		cell-index = <0>;
 		compatible = "qcom,vfe46";
 		reg = <0xfda10000 0x1000>,
@@ -260,7 +260,7 @@
 
 	};
 
-	qcom,vfe@fda14000 {
+	vfe1: qcom,vfe@fda14000 {
 		cell-index = <1>;
 		compatible = "qcom,vfe46";
 		reg = <0xfda14000 0x1000>,

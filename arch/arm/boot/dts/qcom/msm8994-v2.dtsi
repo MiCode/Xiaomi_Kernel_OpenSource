@@ -18,6 +18,7 @@
 
 #include "msm8994.dtsi"
 #include "msm8994-coresight-v2.dtsi"
+#include "msm8994-camera-v2.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8994v2";
