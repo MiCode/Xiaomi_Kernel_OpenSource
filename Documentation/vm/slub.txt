@@ -252,6 +252,10 @@ After reporting the details of the issue encountered the FIX SLUB message
 tells us that SLUB has restored the Redzone to its proper value and then
 system operations continue.
 
+If it is required to only report the details of the issue and panic immediately
+after in order to possibly catch any scribblers one can set the
+CONFIG_DEBUG_SLUB_PANIC_ON option.
+
 Emergency operations:
 ---------------------
 
