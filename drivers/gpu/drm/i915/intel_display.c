@@ -10009,7 +10009,7 @@ static int intel_postpone_flip(struct drm_i915_gem_object *obj)
 
 	ring = obj->ring;
 
-	dev_priv = ring->dev;
+	dev_priv = to_i915(ring->dev);
 	ret = i915_gem_check_wedge(&dev_priv->gpu_error,
 				   dev_priv->mm.interruptible, obj->ring);
 	if (ret)
