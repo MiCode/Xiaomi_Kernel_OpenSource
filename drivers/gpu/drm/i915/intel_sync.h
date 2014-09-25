@@ -97,7 +97,7 @@ void i915_sync_reset_timelines(struct drm_i915_private *dev_priv)
 }
 
 static int i915_sync_create_fence(struct intel_engine_cs *ring, u32 seqno,
-				  int *fd_out)
+				  int *fd_out, u64 ring_mask)
 {
 	return 0;
 }
