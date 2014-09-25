@@ -456,6 +456,13 @@ config INTEL_FG_UIFACE
 	  Say Y here to enable support for Intel SW Fuel gauge Algo User
 	  Interface.
 
+config BQ24261_CHARGER
+	bool "TI BQ24261 charger driver"
+	help
+	  This enables the TI BQ24261 battery charger driver.
+
+	  Say Y here to enable support for TI BQ24261 charger driver
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY

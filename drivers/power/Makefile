@@ -67,3 +67,4 @@ obj-$(CONFIG_CHARGER_BQ24192)	+= bq24192_charger.o
 obj-$(CONFIG_INTEL_FUEL_GAUGE)	+= intel_fuel_gauge.o
 obj-$(CONFIG_INTEL_FG_UIFACE)	+= intel_fg_uiface.o
 obj-$(CONFIG_INTEL_SOC_PMIC) 	+= intel_pmic_ccsm.o
+obj-$(CONFIG_CHARGER_BQ24261) 	+= bq24261_charger.o
