@@ -76,7 +76,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x86000000 0x0 0x0800000>;
+			reg = <0x0 0x87900000 0x0 0x0700000>;
 			label = "external_image_mem";
 		};
 
@@ -84,7 +84,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x86800000 0x0 0x05a00000>;
+			reg = <0x0 0x88000000 0x0 0x05a00000>;
 			label = "modem_adsp_mem";
 		};
 
@@ -92,7 +92,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x8c200000 0x0 0x0600000>;
+			reg = <0x0 0x8da00000 0x0 0x0600000>;
 			label = "peripheral_mem";
 		};
 
