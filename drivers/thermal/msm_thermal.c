@@ -123,6 +123,7 @@ static struct attribute_group mx_attr_group;
 static struct regulator *vdd_mx;
 static struct cpufreq_frequency_table *pending_freq_table_ptr;
 static int pending_cpu_freq = -1;
+static long *tsens_temp_at_panic;
 
 enum thermal_threshold {
 	HOTPLUG_THRESHOLD_HIGH,
@@ -1594,6 +1595,23 @@ static int therm_get_temp(uint32_t id, enum sensor_id_type type, long *temp)
 get_temp_exit:
 	return ret;
 }
+
+static int msm_thermal_panic_callback(struct notifier_block *nfb,
+			unsigned long event, void *data)
+{
+	int i;
+
+	for (i = 0; i < max_tsens_num; i++)
+		therm_get_temp(tsens_id_map[i],
+				THERM_TSENS_ID,
+				&tsens_temp_at_panic[i]);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block msm_thermal_panic_notifier = {
+	.notifier_call = msm_thermal_panic_callback,
+};
 
 static int set_threshold(uint32_t zone_id,
 	struct sensor_threshold *threshold)
@@ -3652,7 +3670,26 @@ done_mx_nodes:
 	return ret;
 }
 
-int msm_thermal_pre_init(void)
+static void msm_thermal_panic_notifier_init(struct device *dev)
+{
+	int i;
+
+	tsens_temp_at_panic = devm_kzalloc(dev,
+				sizeof(long) * max_tsens_num,
+				GFP_KERNEL);
+	if (!tsens_temp_at_panic) {
+		pr_err("kzalloc failed\n");
+		return;
+	}
+
+	for (i = 0; i < max_tsens_num; i++)
+		tsens_temp_at_panic[i] = LONG_MIN;
+
+	atomic_notifier_chain_register(&panic_notifier_list,
+		&msm_thermal_panic_notifier);
+}
+
+int msm_thermal_pre_init(struct device *dev)
 {
 	int ret = 0;
 
@@ -3672,6 +3709,9 @@ int msm_thermal_pre_init(void)
 		ret = -EINVAL;
 		goto pre_init_exit;
 	}
+
+	if (!tsens_temp_at_panic)
+		msm_thermal_panic_notifier_init(dev);
 
 	if (!thresh) {
 		thresh = kzalloc(
@@ -4813,7 +4853,7 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	memset(&data, 0, sizeof(struct msm_thermal_data));
 	data.pdev = pdev;
 
-	ret = msm_thermal_pre_init();
+	ret = msm_thermal_pre_init(&pdev->dev);
 	if (ret) {
 		pr_err("thermal pre init failed. err:%d\n", ret);
 		goto fail;
