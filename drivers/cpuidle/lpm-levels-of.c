@@ -344,6 +344,7 @@ static int parse_lpm_mode(const char *str)
 		{MSM_SPM_MODE_POWER_COLLAPSE, "pc"},
 		{MSM_SPM_MODE_GDHS, "gdhs"},
 		{MSM_SPM_MODE_RETENTION, "retention"},
+		{MSM_SPM_MODE_CLOCK_GATING, "wfi"},
 		{MSM_SPM_MODE_DISABLED, "active"}
 	};
 
