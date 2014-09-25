@@ -35,7 +35,8 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 
 /* QSCRATCH register settings differ based on MSM core ver */
 #define MSM_CORE_VER_120		0x10020061
-
+#define MSM_CORE_VER_160		0x10060000
+#define MSM_CORE_VER_161		0x10060001
 
 /* QSCRATCH register offsets */
 #define GENERAL_CFG_REG			(0x08)
@@ -108,6 +109,7 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 #define USB_HSPHY_3P3_VOL_MIN			3050000 /* uV */
 #define USB_HSPHY_3P3_VOL_MAX			3300000 /* uV */
 #define USB_HSPHY_3P3_HPM_LOAD			16000	/* uA */
+#define USB_HSPHY_3P3_VOL_FSHOST		3150000 /* uV */
 
 #define USB_HSPHY_1P8_VOL_MIN			1800000 /* uV */
 #define USB_HSPHY_1P8_VOL_MAX			1800000 /* uV */
@@ -542,12 +544,27 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 static int msm_hsphy_notify_connect(struct usb_phy *uphy,
 				    enum usb_device_speed speed)
 {
+	int rc = 0;
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
 
 	phy->cable_connected = true;
 
-	if (uphy->flags & PHY_HOST_MODE)
+	if (uphy->flags & PHY_HOST_MODE) {
+		if (phy->core_ver == MSM_CORE_VER_160 ||
+			phy->core_ver == MSM_CORE_VER_161) {
+			/* Some snps usb2 picophy revisions require 3.15 V to
+			 * operate correctly during full speed host mode at
+			 * sub zero temperature.
+			 */
+			rc = regulator_set_voltage(phy->vdda33,
+					USB_HSPHY_3P3_VOL_FSHOST,
+					USB_HSPHY_3P3_VOL_MAX);
+			if (rc)
+				dev_err(phy->phy.dev,
+					"unable to set voltage for vdda33\n");
+		}
 		return 0;
+	}
 
 	if (!(uphy->flags & PHY_VBUS_VALID_OVERRIDE))
 		return 0;
@@ -584,12 +601,23 @@ static int msm_hsphy_notify_connect(struct usb_phy *uphy,
 static int msm_hsphy_notify_disconnect(struct usb_phy *uphy,
 				       enum usb_device_speed speed)
 {
+	int rc = 0;
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
 
 	phy->cable_connected = false;
 
-	if (uphy->flags & PHY_HOST_MODE)
+	if (uphy->flags & PHY_HOST_MODE) {
+		if (phy->core_ver == MSM_CORE_VER_160 ||
+			phy->core_ver == MSM_CORE_VER_161) {
+			rc = regulator_set_voltage(phy->vdda33,
+					USB_HSPHY_3P3_VOL_MIN,
+					USB_HSPHY_3P3_VOL_MAX);
+			if (rc)
+				dev_err(phy->phy.dev,
+					"unable to set voltage for vdda33\n");
+		}
 		return 0;
+	}
 
 	if (!(uphy->flags & PHY_VBUS_VALID_OVERRIDE))
 		return 0;
