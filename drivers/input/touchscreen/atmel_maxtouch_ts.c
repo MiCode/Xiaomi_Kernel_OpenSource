@@ -251,6 +251,9 @@ struct t9_range {
 #define MXT_XVDD_VTG_MIN_UV	2700000
 #define MXT_XVDD_VTG_MAX_UV	10000000
 
+#define MXT_GEN_CFG	"maxtouch_generic_cfg.raw"
+#define MXT_NAME_MAX_LEN 100
+
 struct mxt_info {
 	u8 family_id;
 	u8 variant_id;
@@ -313,8 +316,8 @@ struct mxt_data {
 	struct regulator *reg_vdd;
 	struct regulator *reg_avdd;
 	struct regulator *reg_xvdd;
-	char *fw_name;
-	char *cfg_name;
+	char fw_name[MXT_NAME_MAX_LEN];
+	char cfg_name[MXT_NAME_MAX_LEN];
 
 #if defined(CONFIG_FB)
 	struct notifier_block fb_notif;
@@ -532,11 +535,8 @@ static int mxt_debug_msg_init(struct mxt_data *data)
 	data->debug_msg_attr.size = data->T5_msg_size * DEBUG_MSG_MAX;
 
 	if (sysfs_create_bin_file(&data->client->dev.kobj,
-				  &data->debug_msg_attr) < 0) {
-		dev_err(&data->client->dev, "Failed to create %s\n",
-			data->debug_msg_attr.attr.name);
-		return -EINVAL;
-	}
+				  &data->debug_msg_attr) < 0)
+		dev_info(&data->client->dev, "Debugfs already exists\n");
 
 	return 0;
 }
@@ -2397,6 +2397,11 @@ err_free_irq:
 static int mxt_regulator_enable(struct mxt_data *data)
 {
 	int error;
+
+
+	if (!data->use_regulator)
+		return 0;
+
 	gpio_set_value(data->pdata->gpio_reset, 0);
 
 	error = regulator_enable(data->reg_vdd);
@@ -2443,24 +2448,27 @@ static void mxt_regulator_disable(struct mxt_data *data)
 		regulator_disable(data->reg_xvdd);
 }
 
-static int mxt_probe_regulators(struct mxt_data *data)
+static int mxt_regulator_configure(struct mxt_data *data, bool state)
 {
 	struct device *dev = &data->client->dev;
-	int error;
+	int error = 0;
 
 	/* According to maXTouch power sequencing specification, RESET line
 	 * must be kept low until some time after regulators come up to
 	 * voltage */
 	if (!data->pdata->gpio_reset) {
 		dev_warn(dev, "Must have reset GPIO to use regulator support\n");
-		goto fail;
+		return 0;
 	}
+
+	if (!state)
+		goto deconfig;
 
 	data->reg_vdd = regulator_get(dev, "vdd");
 	if (IS_ERR(data->reg_vdd)) {
 		error = PTR_ERR(data->reg_vdd);
 		dev_err(dev, "Error %d getting vdd regulator\n", error);
-		goto fail;
+		return error;
 	}
 
 	if (regulator_count_voltages(data->reg_vdd) > 0) {
@@ -2469,7 +2477,7 @@ static int mxt_probe_regulators(struct mxt_data *data)
 		if (error) {
 			dev_err(&data->client->dev,
 				"vdd set_vtg failed err=%d\n", error);
-			goto fail;
+			goto fail_put_vdd;
 		}
 	}
 
@@ -2477,7 +2485,7 @@ static int mxt_probe_regulators(struct mxt_data *data)
 	if (IS_ERR(data->reg_avdd)) {
 		error = PTR_ERR(data->reg_avdd);
 		dev_err(dev, "Error %d getting avdd regulator\n", error);
-		goto fail_release;
+		goto fail_put_vdd;
 	}
 
 	if (regulator_count_voltages(data->reg_avdd) > 0) {
@@ -2486,7 +2494,7 @@ static int mxt_probe_regulators(struct mxt_data *data)
 		if (error) {
 			dev_err(&data->client->dev,
 				"avdd set_vtg failed err=%d\n", error);
-			goto fail_release;
+			goto fail_put_avdd;
 		}
 	}
 
@@ -2504,26 +2512,17 @@ static int mxt_probe_regulators(struct mxt_data *data)
 	}
 
 	data->use_regulator = true;
-	error = mxt_regulator_enable(data);
-	if (error) {
-		dev_err(dev, "Error %d enabling regulators\n", error);
-		goto fail_release_all;
-	}
 
 	dev_dbg(dev, "Initialised regulators\n");
 	return 0;
 
-fail_release_all:
+deconfig:
 	if (!IS_ERR(data->reg_xvdd))
 		regulator_put(data->reg_xvdd);
+fail_put_avdd:
 	regulator_put(data->reg_avdd);
-fail_release:
+fail_put_vdd:
 	regulator_put(data->reg_vdd);
-fail:
-	data->reg_vdd = NULL;
-	data->reg_avdd = NULL;
-	data->reg_xvdd = NULL;
-	data->use_regulator = false;
 	return error;
 }
 
@@ -2919,14 +2918,6 @@ static int mxt_configure_objects(struct mxt_data *data)
 		return error;
 	}
 
-	/* Check register init values */
-	error = mxt_check_reg_init(data);
-	if (error) {
-		dev_err(&client->dev, "Error %d initialising configuration\n",
-			error);
-		return error;
-	}
-
 	if (data->T9_reportid_min) {
 		error = mxt_initialize_t9_input_device(data);
 		if (error)
@@ -2943,6 +2934,176 @@ static int mxt_configure_objects(struct mxt_data *data)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static int mxt_get_dt_coords(struct device *dev, char *name,
+				struct mxt_platform_data *pdata)
+{
+	u32 coords[MXT_COORDS_ARR_SIZE];
+	struct property *prop;
+	struct device_node *np = dev->of_node;
+	size_t coords_size;
+	int error;
+
+	prop = of_find_property(np, name, NULL);
+	if (!prop)
+		return -EINVAL;
+	if (!prop->value)
+		return -ENODATA;
+
+	coords_size = prop->length / sizeof(u32);
+	if (coords_size != MXT_COORDS_ARR_SIZE) {
+		dev_err(dev, "invalid %s\n", name);
+		return -EINVAL;
+	}
+
+	error = of_property_read_u32_array(np, name, coords, coords_size);
+	if (error && (error != -EINVAL)) {
+		dev_err(dev, "Unable to read %s\n", name);
+		return error;
+	}
+
+	if (strcmp(name, "atmel,panel-coords") == 0) {
+		pdata->panel_minx = coords[0];
+		pdata->panel_miny = coords[1];
+		pdata->panel_maxx = coords[2];
+		pdata->panel_maxy = coords[3];
+	} else if (strcmp(name, "atmel,display-coords") == 0) {
+		pdata->disp_minx = coords[0];
+		pdata->disp_miny = coords[1];
+		pdata->disp_maxx = coords[2];
+		pdata->disp_maxy = coords[3];
+	} else {
+		dev_err(dev, "unsupported property %s\n", name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int mxt_search_fw_name(struct mxt_data *data)
+{
+	struct device *dev = &data->client->dev;
+	struct device_node *np = dev->of_node, *temp;
+	u32 temp_val; size_t len;
+	int rc;
+
+	data->fw_name[0] = '\0';
+
+	for_each_child_of_node(np, temp) {
+		rc = of_property_read_u32(temp, "atmel,version", &temp_val);
+		if (rc && (rc != -EINVAL)) {
+			dev_err(dev, "Unable to read controller version\n");
+			return rc;
+		}
+
+		if (temp_val != data->info->version)
+			continue;
+
+		rc = of_property_read_u32(temp, "atmel,build", &temp_val);
+		if (rc && (rc != -EINVAL)) {
+			dev_err(dev, "Unable to read build id\n");
+			return rc;
+		}
+
+		if (temp_val != data->info->build)
+			continue;
+
+		rc = of_property_read_string(temp, "atmel,fw-name",
+					&data->pdata->fw_name);
+		if (rc && (rc != -EINVAL)) {
+			dev_err(dev, "Unable to read fw name\n");
+			return rc;
+		}
+
+		dev_dbg(dev, "fw name found(%s)\n", data->pdata->fw_name);
+
+		if (data->pdata->fw_name) {
+			len = strlen(data->pdata->fw_name);
+			if (len > MXT_NAME_MAX_LEN - 1) {
+				dev_err(dev, "Invalid firmware name\n");
+				return -EINVAL;
+			}
+			strlcpy(data->fw_name, data->pdata->fw_name, len + 1);
+		}
+	}
+
+	return 0;
+}
+
+static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
+{
+	int error;
+	u32 temp_val;
+	struct device_node *np = dev->of_node;
+	struct property *prop;
+
+	error = mxt_get_dt_coords(dev, "atmel,panel-coords", pdata);
+	if (error)
+		return error;
+
+	error = mxt_get_dt_coords(dev, "atmel,display-coords", pdata);
+	if (error)
+		return error;
+
+	pdata->cfg_name = MXT_GEN_CFG;
+	error = of_property_read_string(np, "atmel,cfg-name", &pdata->cfg_name);
+	if (error && (error != -EINVAL)) {
+		dev_err(dev, "Unable to read cfg name\n");
+		return error;
+	}
+
+	/* reset, irq gpio info */
+	pdata->gpio_reset = of_get_named_gpio_flags(np, "atmel,reset-gpio",
+				0, &temp_val);
+	pdata->resetflags = temp_val;
+	pdata->gpio_irq = of_get_named_gpio_flags(np, "atmel,irq-gpio",
+				0, &temp_val);
+	pdata->irqflags = temp_val;
+	pdata->gpio_i2cmode = of_get_named_gpio_flags(np, "atmel,i2cmode-gpio",
+				0, &temp_val);
+
+	pdata->ignore_crc = of_property_read_bool(np, "atmel,ignore-crc");
+
+	error = of_property_read_u32(np, "atmel,bl-addr", &temp_val);
+	if (error && (error != -EINVAL))
+		dev_err(dev, "Unable to read bootloader address\n");
+	else if (error != -EINVAL)
+		pdata->bl_addr = (u8) temp_val;
+
+	/* keycodes for keyarray object */
+	prop = of_find_property(np, "atmel,key-codes", NULL);
+	if (prop) {
+		pdata->key_codes = devm_kzalloc(dev,
+				sizeof(int) * MXT_KEYARRAY_MAX_KEYS,
+				GFP_KERNEL);
+		if (!pdata->key_codes)
+			return -ENOMEM;
+		if ((prop->length/sizeof(u32)) == MXT_KEYARRAY_MAX_KEYS) {
+			error = of_property_read_u32_array(np,
+				"atmel,key-codes", pdata->key_codes,
+				MXT_KEYARRAY_MAX_KEYS);
+			if (error) {
+				dev_err(dev, "Unable to read key codes\n");
+				return error;
+			}
+		} else
+			return -EINVAL;
+	}
+
+	return 0;
+}
+#else
+static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
+{
+	return -ENODEV;
+}
+
+static int mxt_search_fw_name(struct mxt_data *data)
+{
+
+	return -ENODEV;
+}
+#endif
 
 static int mxt_initialize(struct mxt_data *data)
 {
@@ -2995,6 +3156,10 @@ retry_bootloader:
 	error = mxt_configure_objects(data);
 	if (error)
 		return error;
+
+	error = mxt_search_fw_name(data);
+	if (error)
+		dev_dbg(&client->dev, "firmware name search fail\n");
 
 	return 0;
 }
@@ -3227,45 +3392,12 @@ release_firmware:
 	return ret;
 }
 
-static int mxt_update_file_name(struct device *dev, char **file_name,
-				const char *buf, size_t count)
-{
-	char *file_name_tmp;
-
-	/* Simple sanity check */
-	if (count > 64) {
-		dev_warn(dev, "File name too long\n");
-		return -EINVAL;
-	}
-
-	file_name_tmp = krealloc(*file_name, count + 1, GFP_KERNEL);
-	if (!file_name_tmp) {
-		dev_warn(dev, "no memory\n");
-		return -ENOMEM;
-	}
-
-	*file_name = file_name_tmp;
-	memcpy(*file_name, buf, count);
-
-	/* Echo into the sysfs entry may append newline at the end of buf */
-	if (buf[count - 1] == '\n')
-		(*file_name)[count - 1] = '\0';
-	else
-		(*file_name)[count] = '\0';
-
-	return 0;
-}
-
 static ssize_t mxt_update_fw_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
 {
 	struct mxt_data *data = dev_get_drvdata(dev);
 	int error;
-
-	error = mxt_update_file_name(dev, &data->fw_name, buf, count);
-	if (error)
-		return error;
 
 	error = mxt_load_fw(dev);
 	if (error) {
@@ -3274,6 +3406,7 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 	} else {
 		dev_info(dev, "The firmware update succeeded\n");
 
+		msleep(MXT_FW_RESET_TIME);
 		data->suspended = false;
 
 		error = mxt_initialize(data);
@@ -3296,31 +3429,25 @@ static ssize_t mxt_update_cfg_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	ret = mxt_update_file_name(dev, &data->cfg_name, buf, count);
-	if (ret)
-		return ret;
-
 	data->enable_reporting = false;
-	mxt_free_input_device(data);
 
 	if (data->suspended) {
 		if (data->use_regulator)
 			mxt_regulator_enable(data);
-		else
-			mxt_set_t7_power_cfg(data, MXT_POWER_CFG_RUN);
+
+		mxt_set_t7_power_cfg(data, MXT_POWER_CFG_RUN);
 
 		mxt_acquire_irq(data);
 
 		data->suspended = false;
 	}
 
-	ret = mxt_configure_objects(data);
+	/* Check register init values */
+	ret = mxt_check_reg_init(data);
 	if (ret)
-		goto out;
+		return ret;
 
-	ret = count;
-out:
-	return ret;
+	return count;
 }
 
 static ssize_t mxt_debug_enable_show(struct device *dev,
@@ -3559,6 +3686,56 @@ static DEVICE_ATTR(secure_touch_enable, S_IRUGO | S_IWUSR | S_IWGRP ,
 static DEVICE_ATTR(secure_touch, S_IRUGO, mxt_secure_touch_show, NULL);
 #endif
 
+static ssize_t mxt_fw_name_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	return snprintf(buf, MXT_NAME_MAX_LEN - 1, "%s\n", data->fw_name);
+}
+
+static ssize_t mxt_fw_name_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+
+	if (size > MXT_NAME_MAX_LEN - 1)
+		return -EINVAL;
+
+	strlcpy(data->fw_name, buf, size);
+	if (data->fw_name[size-1] == '\n')
+		data->fw_name[size-1] = 0;
+
+	return size;
+}
+
+static ssize_t mxt_cfg_name_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	return snprintf(buf, MXT_NAME_MAX_LEN - 1, "%s\n", data->cfg_name);
+}
+
+static ssize_t mxt_cfg_name_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+
+	if (size > MXT_NAME_MAX_LEN - 1)
+		return -EINVAL;
+
+	strlcpy(data->cfg_name, buf, size);
+	if (data->cfg_name[size-1] == '\n')
+		data->cfg_name[size-1] = 0;
+
+	return size;
+}
+
+static DEVICE_ATTR(fw_name, S_IWUSR | S_IRUSR,
+			mxt_fw_name_show, mxt_fw_name_store);
+static DEVICE_ATTR(cfg_name, S_IWUSR | S_IRUSR,
+			mxt_cfg_name_show, mxt_cfg_name_store);
 static DEVICE_ATTR(fw_version, S_IRUGO, mxt_fw_version_show, NULL);
 static DEVICE_ATTR(hw_version, S_IRUGO, mxt_hw_version_show, NULL);
 static DEVICE_ATTR(object, S_IRUGO, mxt_object_show, NULL);
@@ -3570,6 +3747,8 @@ static DEVICE_ATTR(debug_enable, S_IWUSR | S_IRUSR, mxt_debug_enable_show,
 		   mxt_debug_enable_store);
 
 static struct attribute *mxt_attrs[] = {
+	&dev_attr_fw_name.attr,
+	&dev_attr_cfg_name.attr,
 	&dev_attr_fw_version.attr,
 	&dev_attr_hw_version.attr,
 	&dev_attr_object.attr,
@@ -3588,52 +3767,6 @@ static struct attribute *mxt_attrs[] = {
 static const struct attribute_group mxt_attr_group = {
 	.attrs = mxt_attrs,
 };
-
-#ifdef CONFIG_OF
-static int mxt_get_dt_coords(struct device *dev, char *name,
-				struct mxt_platform_data *pdata)
-{
-	u32 coords[MXT_COORDS_ARR_SIZE];
-	struct property *prop;
-	struct device_node *np = dev->of_node;
-	size_t coords_size;
-	int error;
-
-	prop = of_find_property(np, name, NULL);
-	if (!prop)
-		return -EINVAL;
-	if (!prop->value)
-		return -ENODATA;
-
-	coords_size = prop->length / sizeof(u32);
-	if (coords_size != MXT_COORDS_ARR_SIZE) {
-		dev_err(dev, "invalid %s\n", name);
-		return -EINVAL;
-	}
-
-	error = of_property_read_u32_array(np, name, coords, coords_size);
-	if (error && (error != -EINVAL)) {
-		dev_err(dev, "Unable to read %s\n", name);
-		return error;
-	}
-
-	if (strcmp(name, "atmel,panel-coords") == 0) {
-		pdata->panel_minx = coords[0];
-		pdata->panel_miny = coords[1];
-		pdata->panel_maxx = coords[2];
-		pdata->panel_maxy = coords[3];
-	} else if (strcmp(name, "atmel,display-coords") == 0) {
-		pdata->disp_minx = coords[0];
-		pdata->disp_miny = coords[1];
-		pdata->disp_maxx = coords[2];
-		pdata->disp_maxy = coords[3];
-	} else {
-		dev_err(dev, "unsupported property %s\n", name);
-		return -EINVAL;
-	}
-
-	return 0;
-}
 
 #ifdef CONFIG_PM_SLEEP
 static int mxt_suspend(struct device *dev)
@@ -3715,68 +3848,6 @@ static const struct dev_pm_ops mxt_pm_ops = {
 };
 #endif
 
-static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
-{
-	int error;
-	u32 temp_val;
-	struct device_node *np = dev->of_node;
-	struct property *prop;
-
-	error = mxt_get_dt_coords(dev, "atmel,panel-coords", pdata);
-	if (error)
-		return error;
-
-	error = mxt_get_dt_coords(dev, "atmel,display-coords", pdata);
-	if (error)
-		return error;
-
-	/* reset, irq gpio info */
-	pdata->gpio_reset = of_get_named_gpio_flags(np, "atmel,reset-gpio",
-				0, &temp_val);
-	pdata->resetflags = temp_val;
-	pdata->gpio_irq = of_get_named_gpio_flags(np, "atmel,irq-gpio",
-				0, &temp_val);
-	pdata->irqflags = temp_val;
-	pdata->gpio_i2cmode = of_get_named_gpio_flags(np, "atmel,i2cmode-gpio",
-				0, &temp_val);
-
-	pdata->ignore_crc = of_property_read_bool(np, "atmel,ignore-crc");
-
-	error = of_property_read_u32(np, "atmel,bl-addr", &temp_val);
-	if (error && (error != -EINVAL))
-		dev_err(dev, "Unable to read bootloader address\n");
-	else if (error != -EINVAL)
-		pdata->bl_addr = (u8) temp_val;
-
-	/* keycodes for keyarray object*/
-	prop = of_find_property(np, "atmel,key-codes", NULL);
-	if (prop) {
-		pdata->key_codes = devm_kzalloc(dev,
-				sizeof(int) * MXT_KEYARRAY_MAX_KEYS,
-				GFP_KERNEL);
-		if (!pdata->key_codes)
-			return -ENOMEM;
-		if ((prop->length/sizeof(u32)) == MXT_KEYARRAY_MAX_KEYS) {
-			error = of_property_read_u32_array(np,
-				"atmel,key-codes", pdata->key_codes,
-				MXT_KEYARRAY_MAX_KEYS);
-			if (error) {
-				dev_err(dev, "Unable to read key codes\n");
-				return error;
-			}
-		} else
-			return -EINVAL;
-	}
-
-	return 0;
-}
-#else
-static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
-{
-	return -ENODEV;
-}
-#endif
-
 #if defined(CONFIG_SECURE_TOUCH)
 static void mxt_secure_touch_init(struct mxt_data *data)
 {
@@ -3818,7 +3889,7 @@ static int mxt_probe(struct i2c_client *client,
 {
 	struct mxt_data *data;
 	struct mxt_platform_data *pdata;
-	int error;
+	int error, len;
 
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev,
@@ -3851,16 +3922,20 @@ static int mxt_probe(struct i2c_client *client,
 	data->pdata = pdata;
 	i2c_set_clientdata(client, data);
 
-	if (data->pdata->cfg_name)
-		mxt_update_file_name(&data->client->dev,
-				     &data->cfg_name,
-				     data->pdata->cfg_name,
-				     strlen(data->pdata->cfg_name));
-
 	init_completion(&data->bl_completion);
 	init_completion(&data->reset_completion);
 	init_completion(&data->crc_completion);
 	mutex_init(&data->debug_msg_lock);
+
+	if (data->pdata->cfg_name) {
+		len = strlen(data->pdata->cfg_name);
+		if (len > MXT_NAME_MAX_LEN - 1) {
+			dev_err(&client->dev, "Invalid config name\n");
+			goto err_destroy_mutex;
+		}
+
+		strlcpy(data->cfg_name, data->pdata->cfg_name, len + 1);
+	}
 
 	error = mxt_pinctrl_init(data);
 	if (error)
@@ -3874,10 +3949,16 @@ static int mxt_probe(struct i2c_client *client,
 	data->irq = data->client->irq =
 				gpio_to_irq(data->pdata->gpio_irq);
 
-	error = mxt_probe_regulators(data);
+	error = mxt_regulator_configure(data, true);
 	if (error) {
 		dev_err(&client->dev, "Failed to probe regulators\n");
 		goto err_free_gpios;
+	}
+
+	error = mxt_regulator_enable(data);
+	if (error) {
+		dev_err(&client->dev, "Error %d enabling regulators\n", error);
+		goto err_put_regs;
 	}
 
 	error = mxt_initialize(data);
@@ -3941,6 +4022,8 @@ err_remove_sysfs_group:
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 err_free_object:
 	mxt_free_object_table(data);
+err_put_regs:
+	mxt_regulator_configure(data, false);
 err_free_regs:
 	mxt_regulator_disable(data);
 err_free_gpios:
@@ -3965,6 +4048,7 @@ static int mxt_remove(struct i2c_client *client)
 #endif
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 	free_irq(data->irq, data);
+	mxt_regulator_configure(data, false);
 	mxt_regulator_disable(data);
 	if (!IS_ERR(data->reg_xvdd))
 		regulator_put(data->reg_xvdd);

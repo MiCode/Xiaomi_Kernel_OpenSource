@@ -19,6 +19,8 @@ Required properties:
  - atmel,reset-gpio	: reset gpio
 
 Optional property:
+ - atmel,cfg-name	: Configuration file name with file extension as "raw".
+			Default value maxtouch_generic_cfg.raw.
  - atmel,ignore-crc	: Boolean flag to ignore cyclic redundancy check (CRC) on
 			configuration
  - xvdd-supply		: x-line drive voltage supply. It is used for charging
@@ -43,6 +45,13 @@ Optional property:
  - clock-names:		: clock names used for secure touch. The names are:
 			"iface_clk", "core_clk".
 
+Optional sub-child properties:
+The sub-child properties are used to identify different firmware versions supported.
+- atmel,version		: Firmware version of the controller
+- atmel,build		: Firmware build of the controller
+- atmel,fw-name		: Firmware file name for the next upgrade. Do not specify this
+			when the firmware version is latest.
+
 Example:
 	i2c@f9966000 {
 		atmel_maxtouch_ts@4a {
@@ -66,5 +75,11 @@ Example:
 			clock-names = "iface_clk", "core_clk";
 			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 				 <&clock_gcc clk_gcc_blsp1_qup2_i2c_apps_clk>;
+			atmel,cfg-name = "maxtouch_8994_liquid_cfg.raw";
+			atmel,cfg_1 {
+				atmel,version = <0x10>;
+				atmel,build = <0xaa>;
+				atmel,fw-name = "maxtouch_8994_liquid_v1_1_AB.fw";
+			};
 		};
 	};
