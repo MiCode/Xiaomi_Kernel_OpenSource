@@ -3,6 +3,8 @@
 
 #include <linux/v4l2-mediabus.h>
 
+#define KVERSION 0x1
+
 #define MAX_POWER_CONFIG      12
 #define GPIO_OUT_LOW          (0 << 1)
 #define GPIO_OUT_HIGH         (1 << 1)
