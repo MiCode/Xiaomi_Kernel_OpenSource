@@ -1,0 +1,14 @@
+*CPUSS-8994
+
+CPUSS refers to the CPU sub-system and this node provides the base address to the CPU sub-system
+registers like TCSR_HW_SOC_VERSION which contain the CPU SOC VERSION for 8994 and variant chips.
+
+compatible:	Must be "qcom,cpuss-8994"
+reg:		Base Address for the CPUSS
+
+Example:
+ tss@fd4a8000 {
+               compatible = "qcom,cpuss-8994";
+               reg = <0xfd4a8000 0x4>;
+ };
+
