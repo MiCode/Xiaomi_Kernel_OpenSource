@@ -16,31 +16,31 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		qcom,ion-heap@25 {
+		system_heap: qcom,ion-heap@25 {
 			reg = <25>;
 			qcom,ion-heap-type = "SYSTEM";
 		};
 
-		qcom,ion-heap@21 {
+		system_contig_heap: qcom,ion-heap@21 {
 			reg = <21>;
 			qcom,ion-heap-type = "SYSTEM_CONTIG";
 		};
 
-		qcom,ion-heap@27 { /* QSEECOM HEAP */
+		qsecom_heap: qcom,ion-heap@27 { /* QSEECOM HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <27>;
 			linux,contiguous-region = <&venus_qseecom_mem>;
 			qcom,ion-heap-type = "DMA";
 		};
 
-		qcom,ion-heap@28 { /* AUDIO HEAP */
+		audio_heap: qcom,ion-heap@28 { /* AUDIO HEAP */
                         compatible = "qcom,msm-ion-reserve";
                         reg = <28>;
                         linux,contiguous-region = <&audio_mem>;
                         qcom,ion-heap-type = "DMA";
 		};
 
-		qcom,ion-heap@26 { /* MODEM HEAP */
+		modem_heap: qcom,ion-heap@26 { /* MODEM HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <26>;
 			linux,contiguous-region = <&modem_adsp_mem>;
