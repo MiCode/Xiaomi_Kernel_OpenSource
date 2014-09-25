@@ -91,7 +91,7 @@
 				"core_clk", "vsync_clk";
 		qcom,vbif-settings = <0x030 0x0000006f>,
 				     <0x034 0x00001040>;
-		qcom,mdp-settings = <0x0000117C 0x00005555>,
+		qcom,mdp-settings = <0x0000117C 0x0000AAAA>,
 				    <0x000011e4 0x00000000>,
 				    <0x00065048 0x00000008>,
 				    <0x00065848 0x00000008>,
