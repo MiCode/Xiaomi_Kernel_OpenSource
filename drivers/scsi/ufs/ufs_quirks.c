@@ -48,7 +48,12 @@ int ufs_get_device_info(struct ufs_hba *hba, struct ufs_card_info *card_data)
 		goto out;
 
 	str_desc_buf[QUERY_DESC_STRING_MAX_SIZE] = '\0';
-	strlcpy(card_data->model, str_desc_buf, MAX_MODEL_LEN + 1);
+	strlcpy(card_data->model, (str_desc_buf + QUERY_DESC_HDR_SIZE),
+		min_t(u8, str_desc_buf[QUERY_DESC_LENGTH_OFFSET],
+		      MAX_MODEL_LEN));
+	/* Null terminate the model string */
+	card_data->model[MAX_MODEL_LEN] = '\0';
+
 out:
 	return err;
 }
