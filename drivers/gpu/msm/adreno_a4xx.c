@@ -798,6 +798,22 @@ uint64_t a4xx_perfcounter_read_vbif_pwr(struct adreno_device *adreno_dev,
 						.regs[counter].value;
 }
 
+static int a4xx_perfcounter_enable(struct adreno_device *adreno_dev,
+		unsigned int group, unsigned int counter,
+		unsigned int countable)
+{
+	/* The always on counter is... always on.  No need to enable it */
+	if (group == KGSL_PERFCOUNTER_GROUP_ALWAYSON) {
+		struct adreno_perfcounters *counters =
+			ADRENO_PERFCOUNTERS(adreno_dev);
+		if (counters)
+			counters->groups[group].regs[0].value = 0;
+		return 0;
+	}
+
+	return a3xx_perfcounter_enable(adreno_dev, group, counter, countable);
+}
+
 uint64_t a4xx_alwayson_counter_read(struct adreno_device *adreno_dev)
 {
 	unsigned int lo, hi;
@@ -808,6 +824,22 @@ uint64_t a4xx_alwayson_counter_read(struct adreno_device *adreno_dev)
 	return (((uint64_t) hi) << 32) | lo;
 }
 
+static uint64_t a4xx_perfcounter_read(struct adreno_device *adreno_dev,
+		unsigned int group, unsigned int counter)
+{
+
+	if (group == KGSL_PERFCOUNTER_GROUP_ALWAYSON) {
+		struct adreno_perfcounters *counters =
+			ADRENO_PERFCOUNTERS(adreno_dev);
+		uint64_t val = a4xx_alwayson_counter_read(adreno_dev);
+		if (counters)
+			val += counters->groups[group].regs[0].value;
+
+		return val;
+	}
+
+	return a3xx_perfcounter_read(adreno_dev, group, counter);
+}
 
 /*
  * a4xx_err_callback() - Callback for a4xx error interrupts
@@ -1244,6 +1276,11 @@ static struct adreno_perfcount_register a4xx_perfcounters_vbif_pwr[] = {
 		A4XX_VBIF_PERF_PWR_CNT_HIGH3, -1, A4XX_VBIF_PERF_PWR_CNT_EN3 },
 };
 
+static struct adreno_perfcount_register a4xx_perfcounters_alwayson[] = {
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_RBBM_ALWAYSON_COUNTER_LO,
+		A4XX_RBBM_ALWAYSON_COUNTER_HI, 0 },
+};
+
 #define A4XX_PERFCOUNTER_GROUP(offset, name) \
 	ADRENO_PERFCOUNTER_GROUP(a4xx, offset, name)
 
@@ -1270,6 +1307,8 @@ static struct adreno_perfcount_group a4xx_perfcounter_groups
 		ADRENO_PERFCOUNTER_GROUP_FIXED),
 	A4XX_PERFCOUNTER_GROUP(VBIF, vbif),
 	A4XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, vbif_pwr,
+		ADRENO_PERFCOUNTER_GROUP_FIXED),
+	A4XX_PERFCOUNTER_GROUP_FLAGS(ALWAYSON, alwayson,
 		ADRENO_PERFCOUNTER_GROUP_FIXED),
 };
 
@@ -1772,8 +1811,8 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.busy_cycles = a3xx_busy_cycles,
 	.coresight = &a4xx_coresight,
 	.start = a4xx_start,
-	.perfcounter_enable = a3xx_perfcounter_enable,
-	.perfcounter_read = a3xx_perfcounter_read,
+	.perfcounter_enable = a4xx_perfcounter_enable,
+	.perfcounter_read = a4xx_perfcounter_read,
 	.alwayson_counter_read = a4xx_alwayson_counter_read,
 	.snapshot = a4xx_snapshot,
 	.is_sptp_idle = a4xx_is_sptp_idle,
