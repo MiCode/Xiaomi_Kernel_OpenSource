@@ -115,9 +115,9 @@
 	rpm-regulator-ldoa4 {
 		status = "okay";
 		pmd9635_l4: regulator-l4 {
-			regulator-min-microvolt = <950000>;
-			regulator-max-microvolt = <950000>;
-			qcom,init-voltage = <950000>;
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
 			status = "okay";
 		};
 	};

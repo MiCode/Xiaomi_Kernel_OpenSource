@@ -700,10 +700,10 @@
 		      <0x08af8800 0x400>;
 		reg-names = "qusb_phy_base",
 			    "qscratch_base";
-		vdd-supply = <&pmd9635_l9_corner>;
+		vdd-supply = <&pmd9635_l4>;
 		vdda18-supply = <&pmd9635_l8>;
 		vdda33-supply = <&pmd9635_l10>;
-		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,vdd-voltage-level = <0 1000000 1000000>;
 
 		clocks = <&clock_rpm clk_ln_bb_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
@@ -719,7 +719,7 @@
 		reg-names = "qmp_phy_base";
 		vdd-supply = <&pmd9635_l4>;
 		vdda18-supply = <&pmd9635_l8>;
-		qcom,vdd-voltage-level = <0 950000 950000>;
+		qcom,vdd-voltage-level = <0 1000000 1000000>;
 		qcom,vbus-valid-override;
 		qcom,ext-vbus-id;
 
