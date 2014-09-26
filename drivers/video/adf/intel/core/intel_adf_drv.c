@@ -39,6 +39,9 @@ static int intel_adf_init(void)
 		return -EINVAL;
 	}
 
+	/* indiacte to i915 that we are ready */
+	set_adf_ready();
+
 	pr_err("ADF: %s\n", __func__);
 	return 0;
 }
