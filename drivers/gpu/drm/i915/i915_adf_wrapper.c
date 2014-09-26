@@ -128,5 +128,10 @@ void intel_adf_get_dsi_vbt_data(void **vbt_data, struct drm_display_mode **mode)
 }
 EXPORT_SYMBOL(intel_adf_get_dsi_vbt_data);
 
+u32 intel_adf_get_pwm_vbt_data(void)
+{
+	return i915_adf_dev->vbt.backlight.pwm_freq_hz;
+}
+EXPORT_SYMBOL(intel_adf_get_pwm_vbt_data);
 
 #endif

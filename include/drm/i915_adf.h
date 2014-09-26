@@ -49,6 +49,7 @@ extern void intel_adf_pci_sideband_rw(u32 operation, u32 port,
 extern struct pci_dev *i915_adf_get_pci_dev(void);
 extern void intel_adf_get_dsi_vbt_data(void **vbt_data,
 				   struct drm_display_mode **mode);
+extern u32 intel_adf_get_pwm_vbt_data(void);
 extern void set_adf_ready(void);
 extern volatile bool g_adf_ready;
 extern int intel_adf_context_on_event(void);
