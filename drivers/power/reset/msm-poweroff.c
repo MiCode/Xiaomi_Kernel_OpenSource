@@ -50,7 +50,7 @@ static bool scm_pmic_arbiter_disable_supported;
 /* Download mode master kill-switch */
 static void __iomem *msm_ps_hold;
 
-#ifdef CONFIG_MSM_DLOAD_MODE
+#ifdef CONFIG_QCOM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
 #define DL_MODE_PROP "qcom,msm-imem-download_mode"
 
@@ -208,7 +208,7 @@ static void halt_spmi_pmic_arbiter(void)
 
 static void msm_restart_prepare(const char *cmd)
 {
-#ifdef CONFIG_MSM_DLOAD_MODE
+#ifdef CONFIG_QCOM_DLOAD_MODE
 
 	/* Write download mode flags if we're panic'ing
 	 * Write download mode flags if restart_mode says so
@@ -268,6 +268,7 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 
 	msm_restart_prepare(cmd);
 
+#ifdef CONFIG_QCOM_DLOAD_MODE
 	/*
 	 * Trigger a watchdog bite here and if this fails,
 	 * device will take the usual restart path.
@@ -275,6 +276,7 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 
 	if (WDOG_BITE_ON_PANIC && in_panic)
 		msm_trigger_wdog_bite();
+#endif
 
 	/* Needed to bypass debug image on some chips */
 	if (!is_scm_armv8())
@@ -302,7 +304,7 @@ static void do_msm_poweroff(void)
 	};
 
 	pr_notice("Powering off the SoC\n");
-#ifdef CONFIG_MSM_DLOAD_MODE
+#ifdef CONFIG_QCOM_DLOAD_MODE
 	set_dload_mode(0);
 #endif
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
@@ -332,7 +334,7 @@ static int msm_restart_probe(struct platform_device *pdev)
 	struct device_node *np;
 	int ret = 0;
 
-#ifdef CONFIG_MSM_DLOAD_MODE
+#ifdef CONFIG_QCOM_DLOAD_MODE
 	if (scm_is_call_available(SCM_SVC_BOOT, SCM_DLOAD_CMD) > 0)
 		scm_dload_supported = true;
 
@@ -384,7 +386,7 @@ static int msm_restart_probe(struct platform_device *pdev)
 	return 0;
 
 err_restart_reason:
-#ifdef CONFIG_MSM_DLOAD_MODE
+#ifdef CONFIG_QCOM_DLOAD_MODE
 	iounmap(emergency_dload_mode_addr);
 	iounmap(dload_mode_addr);
 #endif
