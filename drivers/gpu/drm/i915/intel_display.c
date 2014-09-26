@@ -9892,25 +9892,14 @@ static void intel_do_mmio_flip(struct intel_crtc *intel_crtc)
 	struct intel_framebuffer *intel_fb =
 		to_intel_framebuffer(intel_crtc->base.primary->fb);
 	struct drm_i915_gem_object *obj = intel_fb->obj;
+	struct drm_crtc *crtc =
+		dev_priv->pipe_to_crtc_mapping[intel_crtc->pipe];
 	u32 dspcntr;
 	u32 reg;
 
 	intel_mark_page_flip_active(intel_crtc);
-
-	reg = DSPCNTR(intel_crtc->plane);
-	dspcntr = I915_READ(reg);
-
-	if (INTEL_INFO(dev)->gen >= 4) {
-		if (obj->tiling_mode != I915_TILING_NONE)
-			dspcntr |= DISPPLANE_TILED;
-		else
-			dspcntr &= ~DISPPLANE_TILED;
-	}
-	I915_WRITE(reg, dspcntr);
-
-	I915_WRITE(DSPSURF(intel_crtc->plane),
-		   intel_crtc->unpin_work->gtt_offset);
-	POSTING_READ(DSPSURF(intel_crtc->plane));
+	dev_priv->display.update_primary_plane(crtc,
+		crtc->primary->fb, 0, 0);
 }
 
 static int intel_postpone_flip(struct drm_i915_gem_object *obj)
