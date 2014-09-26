@@ -465,7 +465,7 @@ int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate,
 			mutex_unlock(&mdp3_res->res_mutex);
 			return -EINVAL;
 		}
-		if (clk_type == MDP3_CLK_CORE) {
+		if (clk_type == MDP3_CLK_MDP_CORE) {
 			if (client == MDP3_CLIENT_DMA_P) {
 				mdp3_res->dma_core_clk_request = rounded_rate;
 			} else if (client == MDP3_CLIENT_PPP) {
@@ -539,7 +539,15 @@ static int mdp3_clk_setup(void)
 	if (rc)
 		return rc;
 
-	rc = mdp3_clk_register("core_clk", MDP3_CLK_CORE);
+	rc = mdp3_clk_register("bus_clk", MDP3_CLK_AXI);
+	if (rc)
+		return rc;
+
+	rc = mdp3_clk_register("core_clk_src", MDP3_CLK_MDP_SRC);
+	if (rc)
+		return rc;
+
+	rc = mdp3_clk_register("core_clk", MDP3_CLK_MDP_CORE);
 	if (rc)
 		return rc;
 
@@ -547,13 +555,6 @@ static int mdp3_clk_setup(void)
 	if (rc)
 		return rc;
 
-	rc = mdp3_clk_register("lcdc_clk", MDP3_CLK_LCDC);
-	if (rc)
-		return rc;
-
-	rc = mdp3_clk_register("dsi_clk", MDP3_CLK_DSI);
-	if (rc)
-		return rc;
 	return rc;
 }
 
@@ -562,17 +563,18 @@ static void mdp3_clk_remove(void)
 	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_AHB]))
 		clk_put(mdp3_res->clocks[MDP3_CLK_AHB]);
 
-	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_CORE]))
-		clk_put(mdp3_res->clocks[MDP3_CLK_CORE]);
+	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_AXI]))
+		clk_put(mdp3_res->clocks[MDP3_CLK_AXI]);
+
+	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_MDP_SRC]))
+		clk_put(mdp3_res->clocks[MDP3_CLK_MDP_SRC]);
+
+	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_MDP_CORE]))
+		clk_put(mdp3_res->clocks[MDP3_CLK_MDP_CORE]);
 
 	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_VSYNC]))
 		clk_put(mdp3_res->clocks[MDP3_CLK_VSYNC]);
 
-	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_LCDC]))
-		clk_put(mdp3_res->clocks[MDP3_CLK_LCDC]);
-
-	if (!IS_ERR_OR_NULL(mdp3_res->clocks[MDP3_CLK_DSI]))
-		clk_put(mdp3_res->clocks[MDP3_CLK_DSI]);
 }
 
 int mdp3_clk_enable(int enable, int dsi_clk)
@@ -583,10 +585,10 @@ int mdp3_clk_enable(int enable, int dsi_clk)
 
 	mutex_lock(&mdp3_res->res_mutex);
 	rc = mdp3_clk_update(MDP3_CLK_AHB, enable);
-	rc |= mdp3_clk_update(MDP3_CLK_CORE, enable);
+	rc |= mdp3_clk_update(MDP3_CLK_AXI, enable);
+	rc |= mdp3_clk_update(MDP3_CLK_MDP_SRC, enable);
+	rc |= mdp3_clk_update(MDP3_CLK_MDP_CORE, enable);
 	rc |= mdp3_clk_update(MDP3_CLK_VSYNC, enable);
-	if (dsi_clk)
-		rc |= mdp3_clk_update(MDP3_CLK_DSI, enable);
 	mutex_unlock(&mdp3_res->res_mutex);
 	return rc;
 }
@@ -850,14 +852,14 @@ static int mdp3_check_version(void)
 	int rc;
 
 	rc = mdp3_clk_update(MDP3_CLK_AHB, 1);
-	rc |= mdp3_clk_update(MDP3_CLK_CORE, 1);
+	rc |= mdp3_clk_update(MDP3_CLK_MDP_CORE, 1);
 	if (rc)
 		return rc;
 
 	mdp3_res->mdp_rev = MDP3_REG_READ(MDP3_REG_HW_VERSION);
 
 	rc = mdp3_clk_update(MDP3_CLK_AHB, 0);
-	rc |= mdp3_clk_update(MDP3_CLK_CORE, 0);
+	rc |= mdp3_clk_update(MDP3_CLK_MDP_CORE, 0);
 	if (rc)
 		pr_err("fail to turn off the MDP3_CLK_AHB clk\n");
 
@@ -1573,7 +1575,7 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 	u32 status;
 
 	mdp3_clk_update(MDP3_CLK_AHB, 1);
-	mdp3_clk_update(MDP3_CLK_CORE, 1);
+	mdp3_clk_update(MDP3_CLK_MDP_CORE, 1);
 
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
 		status = MDP3_REG_READ(MDP3_REG_DSI_VIDEO_EN);
@@ -1587,7 +1589,7 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 	mdp3_res->splash_mem_addr = MDP3_REG_READ(MDP3_REG_DMA_P_IBUF_ADDR);
 
 	mdp3_clk_update(MDP3_CLK_AHB, 0);
-	mdp3_clk_update(MDP3_CLK_CORE, 0);
+	mdp3_clk_update(MDP3_CLK_MDP_CORE, 0);
 	return rc;
 }
 
@@ -1603,7 +1605,7 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 	mdp3_clk_set_rate(MDP3_CLK_VSYNC, MDP_VSYNC_CLK_RATE,
 			MDP3_CLIENT_DMA_P);
 
-	mdp3_clk_set_rate(MDP3_CLK_CORE, MDP_CORE_CLK_RATE,
+	mdp3_clk_set_rate(MDP3_CLK_MDP_CORE, MDP_CORE_CLK_RATE,
 			MDP3_CLIENT_DMA_P);
 
 	bus_handle = &mdp3_res->bus_handle[MDP3_BUS_HANDLE];
