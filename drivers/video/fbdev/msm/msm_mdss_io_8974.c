@@ -1510,45 +1510,80 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (link_changed && (!bus_changed && !ctrl->bus_clk_cnt)) {
 		pr_err("%s: Trying to enable link clks w/o enabling bus clks for ctrl%d",
 			__func__, mctrl->ndx);
-		goto error_mctrl_start;
+		goto error_mctrl_bus_start;
 	}
 
 	if (m_link_changed && (!m_bus_changed && !mctrl->bus_clk_cnt)) {
 		pr_err("%s: Trying to enable link clks w/o enabling bus clks for ctrl%d",
 			__func__, ctrl->ndx);
-		goto error_mctrl_start;
+		goto error_mctrl_bus_start;
 	}
 
-	if (enable && (m_bus_changed || m_link_changed)) {
-		rc = mdss_dsi_clk_ctrl_sub(mctrl, clk_type, enable);
+	if (enable && m_bus_changed) {
+		rc = mdss_dsi_clk_ctrl_sub(mctrl, DSI_BUS_CLKS, 1);
 		if (rc) {
-			pr_err("Failed to start mctrl clocks. rc=%d\n", rc);
-			goto error_mctrl_start;
+			pr_err("Failed to start mctrl bus clocks rc=%d\n", rc);
+			goto error_mctrl_bus_start;
+		}
+	}
+	if (enable && bus_changed) {
+		rc = mdss_dsi_clk_ctrl_sub(ctrl, DSI_BUS_CLKS, 1);
+		if (rc) {
+			pr_err("Failed to start ctrl bus clocks rc=%d\n", rc);
+			goto error_ctrl_bus_start;
 		}
 	}
 
-	if (!enable && (m_bus_changed || m_link_changed)) {
-		rc = mdss_dsi_clk_ctrl_sub(mctrl, clk_type, enable);
+	if (m_link_changed) {
+		rc = mdss_dsi_clk_ctrl_sub(mctrl, DSI_LINK_CLKS, enable);
 		if (rc) {
-			pr_err("Failed to stop mctrl clocks. rc=%d\n", rc);
-			goto error_mctrl_stop;
-		}
-	}
-	rc = mdss_dsi_clk_ctrl_sub(ctrl, clk_type, enable);
-	if (rc) {
-		pr_err("Failed to %s ctrl clocks. rc=%d\n",
+			pr_err("Failed to %s mctrl clocks. rc=%d\n",
 			(enable ? "start" : "stop"), rc);
-		goto error_ctrl;
+			goto error_mctrl_link_change;
+		}
+	}
+	if (link_changed) {
+		rc = mdss_dsi_clk_ctrl_sub(ctrl, DSI_LINK_CLKS, enable);
+		if (rc) {
+			pr_err("Failed to %s ctrl clocks. rc=%d\n",
+			(enable ? "start" : "stop"), rc);
+			goto error_ctrl_link_change;
+		}
+	}
+
+	if (!enable && m_bus_changed) {
+		rc = mdss_dsi_clk_ctrl_sub(mctrl, DSI_BUS_CLKS, 0);
+		if (rc) {
+			pr_err("Failed to stop mctrl bus clocks rc=%d\n", rc);
+			goto error_mctrl_bus_stop;
+		}
+	}
+	if (!enable && bus_changed) {
+		rc = mdss_dsi_clk_ctrl_sub(ctrl, DSI_BUS_CLKS, 0);
+		if (rc) {
+			pr_err("Failed to stop ctrl bus clocks\n rc=%d", rc);
+			goto error_ctrl_bus_stop;
+		}
 	}
 
 	goto no_error;
 
-error_mctrl_stop:
-	mdss_dsi_clk_ctrl_sub(ctrl, clk_type, enable ? 0 : 1);
-error_ctrl:
-	if (enable && (m_bus_changed || m_link_changed))
-		mdss_dsi_clk_ctrl_sub(mctrl, clk_type, 0);
-error_mctrl_start:
+error_ctrl_bus_stop:
+	if (m_bus_changed)
+		mdss_dsi_clk_ctrl_sub(mctrl, DSI_BUS_CLKS, 1);
+error_mctrl_bus_stop:
+	if (link_changed)
+		mdss_dsi_clk_ctrl_sub(ctrl, DSI_LINK_CLKS, enable ? 0 : 1);
+error_ctrl_link_change:
+	if (m_link_changed)
+		mdss_dsi_clk_ctrl_sub(mctrl, DSI_LINK_CLKS, enable ? 0 : 1);
+error_mctrl_link_change:
+	if (bus_changed && enable)
+		mdss_dsi_clk_ctrl_sub(ctrl, DSI_BUS_CLKS, 0);
+error_ctrl_bus_start:
+	if (m_bus_changed && enable)
+		mdss_dsi_clk_ctrl_sub(mctrl, DSI_BUS_CLKS, 0);
+error_mctrl_bus_start:
 	if (clk_type & DSI_BUS_CLKS) {
 		if (mctrl)
 			__mdss_dsi_update_clk_cnt(&mctrl->bus_clk_cnt,
