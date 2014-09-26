@@ -795,6 +795,7 @@ static int bmc150_accel_write_event_config(struct iio_dev *indio_dev,
 
 	ret = bmc150_accel_setup_any_motion_interrupt(data, state);
 	if (ret < 0) {
+		bmc150_accel_set_power_state(data, false);
 		mutex_unlock(&data->mutex);
 		return ret;
 	}
@@ -963,6 +964,7 @@ static int bmc150_accel_data_rdy_trigger_set_state(struct iio_trigger *trig,
 	else
 		ret = bmc150_accel_setup_new_data_interrupt(data, state);
 	if (ret < 0) {
+		bmc150_accel_set_power_state(data, false);
 		mutex_unlock(&data->mutex);
 		return ret;
 	}
@@ -1231,6 +1233,7 @@ static int bmc150_accel_suspend(struct device *dev)
 	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
 	struct bmc150_accel_data *data = iio_priv(indio_dev);
 
+	dev_dbg(&data->client->dev,  __func__);
 	mutex_lock(&data->mutex);
 	bmc150_accel_set_mode(data, BMC150_ACCEL_SLEEP_MODE_SUSPEND, 0);
 	mutex_unlock(&data->mutex);
@@ -1243,10 +1246,13 @@ static int bmc150_accel_resume(struct device *dev)
 	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
 	struct bmc150_accel_data *data = iio_priv(indio_dev);
 
+	dev_dbg(&data->client->dev,  __func__);
 	mutex_lock(&data->mutex);
 	if (data->dready_trigger_on || data->motion_trigger_on ||
-							data->ev_enable_state)
+	    data->ev_enable_state || pm_runtime_autosuspend_expiration(dev)) {
+		dev_err(&data->client->dev, "change back to normal mode\n");
 		bmc150_accel_set_mode(data, BMC150_ACCEL_SLEEP_MODE_NORMAL, 0);
+	}
 	mutex_unlock(&data->mutex);
 
 	return 0;
