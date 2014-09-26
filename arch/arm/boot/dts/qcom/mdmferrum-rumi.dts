@@ -13,11 +13,11 @@
 /dts-v1/;
 
 #include "mdmferrum.dtsi"
-#include "msmferrum-pinctrl.dtsi"
+#include "msm8909-pinctrl.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MDMFERRUM RUMI";
-	compatible = "qcom,msmferrum-rumi", "qcom,msmferrum", "qcom,rumi";
+	compatible = "qcom,msm8909-rumi", "qcom,msm8909", "qcom,rumi";
 	qcom,board-id = <15 0>;
 };
 

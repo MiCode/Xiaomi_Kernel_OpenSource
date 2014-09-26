@@ -10,10 +10,12 @@
  * GNU General Public License for more details.
  */
 
-#include "msmferrum-qrd.dtsi"
+/dts-v1/;
+
+#include "msm8909-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSMFERRUM QRD SKUA";
-	compatible = "qcom,msmferrum-qrd", "qcom,msmferrum", "qcom,qrd";
+	model = "Qualcomm Technologies, Inc. MSM8909 MTP";
+	compatible = "qcom,msm8909-mtp", "qcom,msm8909", "qcom,mtp";
+	qcom,board-id= <8 0x100>;
 };
-

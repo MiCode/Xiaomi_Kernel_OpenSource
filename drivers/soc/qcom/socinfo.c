@@ -463,11 +463,11 @@ static struct msm_soc_info cpu_of_id[] = {
 	[241] = {MSM_CPU_8939, "APQ8039"},
 	[263] = {MSM_CPU_8939, "MSM8239"},
 
-	/* ferrum IDs */
-	[245] = {MSM_CPU_FERRUM, "MSMFERRUM"},
-	[260] = {MSM_CPU_FERRUM, "MDMFERRUM"},
-	[261] = {MSM_CPU_FERRUM, "MDMFERRUM"},
-	[262] = {MSM_CPU_FERRUM, "MDMFERRUM"},
+	/* 8909 IDs */
+	[245] = {MSM_CPU_8909, "MSM8909"},
+	[260] = {MSM_CPU_8909, "MDMFERRUM"},
+	[261] = {MSM_CPU_8909, "MDMFERRUM"},
+	[262] = {MSM_CPU_8909, "MDMFERRUM"},
 
 	/* ZIRC IDs */
 	[234] = {MSM_CPU_ZIRC, "MSMZIRC"},
@@ -974,9 +974,9 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 187;
 		strlcpy(dummy_socinfo.build_id, "mdm9630 - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msmferrum()) {
+	} else if (early_machine_is_msm8909()) {
 		dummy_socinfo.id = 245;
-		strlcpy(dummy_socinfo.build_id, "msmferrum - ",
+		strlcpy(dummy_socinfo.build_id, "msm8909 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msm8916()) {
 		dummy_socinfo.id = 206;

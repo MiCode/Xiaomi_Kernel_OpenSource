@@ -12,33 +12,13 @@
 
 /dts-v1/;
 
-#include "msmferrum.dtsi"
-#include "msmferrum-pinctrl.dtsi"
+#include "msm8909.dtsi"
+#include "msm8909-pinctrl.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSMFERRUM RUMI";
-	compatible = "qcom,msmferrum-rumi", "qcom,msmferrum", "qcom,rumi";
-	qcom,board-id= <15 0>;
-};
-
-&soc {
-	timer {
-		clock-frequency = <5000000>;
-	};
-
-	clock_gcc: qcom,gcc@1800000 {
-		compatible = "qcom,dummycc";
-		#clock-cells = <1>;
-	};
-
-	clock_rpm: qcom,rpmcc@1800000 {
-		compatible = "qcom,dummycc";
-		#clock-cells = <1>;
-	};
-};
-
-&clock_debug {
-	status = "disabled";
+	model = "Qualcomm Technologies, Inc. MSM8909 Simulator";
+	compatible = "qcom,msm8909-sim", "qcom,msm8909", "qcom,sim";
+	qcom,board-id= <16 0>;
 };
 
 &blsp1_uart2 {
@@ -47,20 +27,12 @@
 	pinctrl-0 = <&uart_console_sleep>;
 };
 
-&pmferrum_mpps {
-	status = "disabled";
-};
-
-&pmferrum_gpios {
-	status = "disabled";
-};
-
 &sdhc_1 {
-	vdd-supply = <&pmferrum_l8>;
+	vdd-supply = <&pm8909_l8>;
 	qcom,vdd-voltage-level = <2900000 2900000>;
 	qcom,vdd-current-level = <200 400000>;
 
-	vdd-io-supply = <&pmferrum_l5>;
+	vdd-io-supply = <&pm8909_l5>;
 	qcom,vdd-io-always-on;
 	qcom,vdd-io-lpm-sup;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
@@ -78,7 +50,7 @@
 };
 
 &sdhc_2 {
-	#address-cells = <0>;
+	 #address-cells = <0>;
 	interrupt-parent = <&sdhc_2>;
 	interrupts = <0 1 2>;
 	#interrupt-cells = <1>;
@@ -89,11 +61,11 @@
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
 	cd-gpios = <&msm_gpio 38 0x1>;
 
-	vdd-supply = <&pmferrum_l11>;
+	vdd-supply = <&pm8909_l11>;
 	qcom,vdd-voltage-level = <1800000 2950000>;
 	qcom,vdd-current-level = <15000 400000>;
 
-	vdd-io-supply = <&pmferrum_l12>;
+	vdd-io-supply = <&pm8909_l12>;
 	qcom,vdd-io-voltage-level = <1800000 2950000>;
 	qcom,vdd-io-current-level = <200 50000>;
 
@@ -104,6 +76,14 @@
 	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
 
 	status = "ok";
+};
+
+&pm8909_mpps {
+	status = "disabled";
+};
+
+&pm8909_gpios {
+	status = "disabled";
 };
 
 &qcom_rng {

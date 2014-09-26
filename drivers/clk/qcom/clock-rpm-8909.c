@@ -27,7 +27,7 @@
 
 #include <linux/clk/msm-clock-generic.h>
 
-#include <dt-bindings/clock/msm-clocks-ferrum.h>
+#include <dt-bindings/clock/msm-clocks-8909.h>
 
 #include "clock.h"
 
@@ -173,7 +173,7 @@ static struct clk_lookup msm_clocks_rpm[] = {
 	CLK_LIST(rpm_debug_mux),
 };
 
-static int msm_rpmcc_ferrum_probe(struct platform_device *pdev)
+static int msm_rpmcc_8909_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	int ret;
@@ -215,21 +215,21 @@ static int msm_rpmcc_ferrum_probe(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_clk_rpm_match_table[] = {
-	{ .compatible = "qcom,rpmcc-ferrum" },
+	{ .compatible = "qcom,rpmcc-8909" },
 	{}
 };
 
 static struct platform_driver msm_clock_rpm_driver = {
-	.probe = msm_rpmcc_ferrum_probe,
+	.probe = msm_rpmcc_8909_probe,
 	.driver = {
-		.name = "qcom,rpmcc-ferrum",
+		.name = "qcom,rpmcc-8909",
 		.of_match_table = msm_clk_rpm_match_table,
 		.owner = THIS_MODULE,
 	},
 };
 
-int __init msm_rpmcc_ferrum_init(void)
+int __init msm_rpmcc_8909_init(void)
 {
 	return platform_driver_register(&msm_clock_rpm_driver);
 }
-arch_initcall(msm_rpmcc_ferrum_init);
+arch_initcall(msm_rpmcc_8909_init);

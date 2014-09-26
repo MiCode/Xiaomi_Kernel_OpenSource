@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __ASM_ARCH_MSM_IOMAP_FERRUM_H
-#define __ASM_ARCH_MSM_IOMAP_FERRUM_H
+#ifndef __ASM_ARCH_MSM_IOMAP_8909_H
+#define __ASM_ARCH_MSM_IOMAP_8909_H
 
 /* Physical base address and size of peripherals.
  * Ordered by the virtual base addresses they will be mapped at.
@@ -22,10 +22,10 @@
  *
  */
 
-#define MSMFERRUM_APCS_GCC_PHYS	0xB011000
-#define MSMFERRUM_APCS_GCC_SIZE	SZ_4K
+#define MSM8909_APCS_GCC_PHYS	0xB011000
+#define MSM8909_APCS_GCC_SIZE	SZ_4K
 
-#if defined(CONFIG_DEBUG_MSMFERRUM_UART) || defined(CONFIG_DEBUG_MDMFERRUM_UART)
+#if defined(CONFIG_DEBUG_MSM8909_UART) || defined(CONFIG_DEBUG_MDMFERRUM_UART)
 #define MSM_DEBUG_UART_BASE	IOMEM(0xFA0B0000)
 #define MSM_DEBUG_UART_PHYS	0x78B0000
 #endif

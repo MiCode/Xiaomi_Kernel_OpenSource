@@ -12,18 +12,18 @@
 
 &spmi_bus {
 
-	qcom,pmferrum@0 {
+	qcom,pm8909@0 {
 		spmi-slave-container;
 		reg = <0x0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pmferrum_revid: qcom,revid@100 {
+		pm8909_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
 			reg = <0x100 0x100>;
 		};
 
-		pmferrum_pon: qcom,power-on@800 {
+		pm8909_pon: qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
 			interrupts = <0x0 0x8 0x0>,
@@ -49,14 +49,14 @@
 			};
 		};
 
-		pmferrum_mpps: mpps {
+		pm8909_mpps: mpps {
 			compatible = "qcom,qpnp-pin";
 			spmi-dev-container;
 			gpio-controller;
 			#gpio-cells = <2>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			label = "pmferrum-mpp";
+			label = "pm8909-mpp";
 
 			mpp@a000 {
 				reg = <0xa000 0x100>;
@@ -79,14 +79,14 @@
 			};
 		};
 
-		pmferrum_gpios: gpios {
+		pm8909_gpios: gpios {
 			compatible = "qcom,qpnp-pin";
 			spmi-dev-container;
 			gpio-controller;
 			#gpio-cells = <2>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			label = "pmferrum-gpio";
+			label = "pm8909-gpio";
 
 			gpio@c000 {
 				reg = <0xc000 0x100>;
@@ -109,7 +109,7 @@
 			};
 		};
 
-		pmferrum_vadc: vadc@3100 {
+		pm8909_vadc: vadc@3100 {
 			compatible = "qcom,qpnp-vadc";
 			reg = <0x3100 0x100>;
 			#address-cells = <1>;
@@ -119,7 +119,7 @@
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
 			qcom,vadc-poll-eoc;
-			qcom,pmic-revid = <&pmferrum_revid>;
+			qcom,pmic-revid = <&pm8909_revid>;
 
 			chan@8 {
 				label = "die_temp";
@@ -155,7 +155,7 @@
 			};
 		};
 
-		pmferrum_adc_tm: vadc@3400 {
+		pm8909_adc_tm: vadc@3400 {
 			compatible = "qcom,qpnp-adc-tm";
 			reg = <0x3400 0x100>;
 			#address-cells = <1>;
@@ -168,10 +168,10 @@
 						"low-thr-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
-			qcom,adc_tm-vadc = <&pmferrum_vadc>;
+			qcom,adc_tm-vadc = <&pm8909_vadc>;
 		};
 
-		pmferrum_rtc: qcom,pmferrum_rtc {
+		pm8909_rtc: qcom,pm8909_rtc {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-rtc";
 			#address-cells = <1>;
@@ -179,10 +179,10 @@
 			qcom,qpnp-rtc-write = <0>;
 			qcom,qpnp-rtc-alarm-pwrup = <0>;
 
-			qcom,pmferrum_rtc_rw@6000 {
+			qcom,pm8909_rtc_rw@6000 {
 				reg = <0x6000 0x100>;
 			};
-			qcom,pmferrum_rtc_alarm@6100 {
+			qcom,pm8909_rtc_alarm@6100 {
 				reg = <0x6100 0x100>;
 				interrupts = <0x0 0x61 0x1>;
 			};
@@ -195,7 +195,7 @@
 		};
 	};
 
-	qcom,pmferrum@1 {
+	qcom,pm8909@1 {
 		spmi-slave-container;
 		reg = <0x1>;
 		#address-cells = <1>;
@@ -203,7 +203,7 @@
 
 		regulator@1400 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_s1";
+			regulator-name = "8909_s1";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -223,7 +223,7 @@
 
 		regulator@1700 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_s2";
+			regulator-name = "8909_s2";
 			spmi-dev-container;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -243,131 +243,131 @@
 
 		regulator@4000 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l1";
+			regulator-name = "8909_l1";
 			reg = <0x4000 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4100 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l2";
+			regulator-name = "8909_l2";
 			reg = <0x4100 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4200 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l3";
+			regulator-name = "8909_l3";
 			reg = <0x4200 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4300 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l4";
+			regulator-name = "8909_l4";
 			reg = <0x4300 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4400 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l5";
+			regulator-name = "8909_l5";
 			reg = <0x4400 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4500 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l6";
+			regulator-name = "8909_l6";
 			reg = <0x4500 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4600 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l7";
+			regulator-name = "8909_l7";
 			reg = <0x4600 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4700 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l8";
+			regulator-name = "8909_l8";
 			reg = <0x4700 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4800 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l9";
+			regulator-name = "8909_l9";
 			reg = <0x4800 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4900 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l10";
+			regulator-name = "8909_l10";
 			reg = <0x4900 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4a00 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l11";
+			regulator-name = "8909_l11";
 			reg = <0x4a00 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4b00 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l12";
+			regulator-name = "8909_l12";
 			reg = <0x4b00 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4c00 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l13";
+			regulator-name = "8909_l13";
 			reg = <0x4c00 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4d00 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l14";
+			regulator-name = "8909_l14";
 			reg = <0x4d00 0x100>;
 			status = "disabled";
 		};
 
 		regulator@4e00 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l15";
+			regulator-name = "8909_l15";
 			reg = <0x4e00 0x100>;
 			status = "disabled";
 		};
 
 		regulator@5000 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l17";
+			regulator-name = "8909_l17";
 			reg = <0x5000 0x100>;
 			status = "disabled";
 		};
 
 		regulator@5100 {
 			compatible = "qcom,qpnp-regulator";
-			regulator-name = "ferrum_l18";
+			regulator-name = "8909_l18";
 			reg = <0x5100 0x100>;
 			status = "disabled";
 		};
 
-		pmferrum_vib: qcom,vibrator@c000 {
+		pm8909_vib: qcom,vibrator@c000 {
 			compatible = "qcom,qpnp-vibrator";
 			reg = <0xc000 0x100>;
 			label = "vibrator";
 			status = "disabled";
 		};
 
-		pmferrum_conga_dig: ferrum_wcd_codec@f000 {
+		pm8909_conga_dig: 8909_wcd_codec@f000 {
 			compatible = "qcom,wcd-spmi";
 			reg = <0xf000 0x100>;
 			interrupt-parent = <&spmi_bus>;
@@ -388,23 +388,23 @@
 					  "ins_rem_det",
 					  "mbhc_int";
 
-			cdc-vdda-cp-supply = <&pmferrum_s2>;
+			cdc-vdda-cp-supply = <&pm8909_s2>;
 			qcom,cdc-vdda-cp-voltage = <1800000 2200000>;
 			qcom,cdc-vdda-cp-current = <500000>;
 
-			cdc-vdda-h-supply = <&pmferrum_l6>;
+			cdc-vdda-h-supply = <&pm8909_l6>;
 			qcom,cdc-vdda-h-voltage = <1800000 1800000>;
 			qcom,cdc-vdda-h-current = <10000>;
 
-			cdc-vdd-px-supply = <&pmferrum_l6>;
+			cdc-vdd-px-supply = <&pm8909_l6>;
 			qcom,cdc-vdd-px-voltage = <1800000 1800000>;
 			qcom,cdc-vdd-px-current = <5000>;
 
-			cdc-vdd-pa-supply = <&pmferrum_s2>;
+			cdc-vdd-pa-supply = <&pm8909_s2>;
 			qcom,cdc-vdd-pa-voltage = <1800000 2200000>;
 			qcom,cdc-vdd-pa-current = <130000>;
 
-			cdc-vdd-mic-bias-supply = <&pmferrum_l13>;
+			cdc-vdd-mic-bias-supply = <&pm8909_l13>;
 			qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
 			qcom,cdc-vdd-mic-bias-current = <5000>;
 
@@ -418,7 +418,7 @@
 			qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
 		};
 
-		pmferrum_conga_analog: ferrum_wcd_codec@f100 {
+		pm8909_conga_analog: 8909_wcd_codec@f100 {
 			compatible = "qcom,wcd-spmi";
 			reg = <0xf100 0x100>;
 			interrupt-parent = <&spmi_bus>;

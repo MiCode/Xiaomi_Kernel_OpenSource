@@ -381,7 +381,7 @@ config SND_SOC_WCD_CPE
 	tristate
 	default y if SND_SOC_WCD9330=y
 
-config SND_SOC_MSMFERRUM_WCD
+config SND_SOC_MSM8909_WCD
 	tristate
 
 config SND_SOC_WL1273
