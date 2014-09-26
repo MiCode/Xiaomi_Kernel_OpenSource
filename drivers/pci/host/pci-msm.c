@@ -2858,7 +2858,7 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	}
 
 	if (dev->ep_latency)
-		msleep(dev->ep_latency);
+		usleep_range(dev->ep_latency * 1000, dev->ep_latency * 1000);
 
 	/* de-assert PCIe reset link to bring EP out of reset */
 
