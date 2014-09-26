@@ -719,6 +719,7 @@ static int bmg160_write_event_config(struct iio_dev *indio_dev,
 
 	ret =  bmg160_setup_any_motion_interrupt(data, state);
 	if (ret < 0) {
+		bmg160_set_power_state(data, false);
 		mutex_unlock(&data->mutex);
 		return ret;
 	}
@@ -885,6 +886,7 @@ static int bmg160_data_rdy_trigger_set_state(struct iio_trigger *trig,
 	else
 		ret = bmg160_setup_new_data_interrupt(data, state);
 	if (ret < 0) {
+		bmg160_set_power_state(data, false);
 		mutex_unlock(&data->mutex);
 		return ret;
 	}
@@ -1158,8 +1160,10 @@ static int bmg160_resume(struct device *dev)
 
 	mutex_lock(&data->mutex);
 	if (data->dready_trigger_on || data->motion_trigger_on ||
-							data->ev_enable_state)
+	    data->ev_enable_state || pm_runtime_autosuspend_expiration(dev)) {
+		dev_err(&data->client->dev, "change back to normal mode\n");
 		bmg160_set_mode(data, BMG160_MODE_NORMAL);
+	}
 	mutex_unlock(&data->mutex);
 
 	return 0;
