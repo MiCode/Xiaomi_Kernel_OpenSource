@@ -18,7 +18,7 @@
 	compatible = "qcom,msm8909-qrd", "qcom,msm8909", "qcom,qrd";
 };
 
-&blsp1_uart2 {
+&blsp1_uart1 {
 	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;

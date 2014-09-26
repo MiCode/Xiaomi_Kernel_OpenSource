@@ -31,9 +31,9 @@
 		};
 
 		pmx-uartconsole {
-			qcom,pins = <&gp 20>, <&gp 21>;
+			qcom,pins = <&gp 4>, <&gp 5>;
 			qcom,num-grp-pins = <2>;
-			qcom,pin-func = <3>;
+			qcom,pin-func = <2>;
 			label = "uart-console";
 			uart_console_sleep: uart-console {
 				drive-strength = <2>;
