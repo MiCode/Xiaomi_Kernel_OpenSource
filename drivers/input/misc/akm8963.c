@@ -120,7 +120,7 @@ static struct sensors_classdev sensors_cdev = {
 	.fifo_reserved_event_count = 0,
 	.fifo_max_event_count = 0,
 	.enabled = 0,
-	.delay_msec = 10000,
+	.delay_msec = 10,
 	.sensors_enable = NULL,
 	.sensors_poll_delay = NULL,
 };
