@@ -359,6 +359,11 @@
 #define   IOSF_PORT_NC				0x11
 #define   IOSF_PORT_DPIO			0x12
 #define   IOSF_PORT_GPIO_NC			0x13
+#define   IOSF_PORT_GPIO_SC			0x48
+#define   IOSF_PORT_GPIO_SUS			0xA8
+#define   MAX_GPIO_NUM_NC			26
+#define   MAX_GPIO_NUM_SC			128
+#define   MAX_GPIO_NUM				172
 #define   IOSF_PORT_CCK				0x14
 #define   IOSF_PORT_CCU				0xA9
 #define   IOSF_PORT_GPS_CORE			0x48
