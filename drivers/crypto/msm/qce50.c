@@ -5354,10 +5354,13 @@ int qce_disable_clk(void *handle)
 		clk_disable_unprepare(pce_dev->ce_bus_clk);
 	if (pce_dev->ce_clk)
 		clk_disable_unprepare(pce_dev->ce_clk);
-	if (pce_dev->ce_core_clk)
-		clk_disable_unprepare(pce_dev->ce_core_clk);
-	if (pce_dev->ce_core_src_clk)
-		clk_disable_unprepare(pce_dev->ce_core_src_clk);
+	if (pce_dev->support_only_core_src_clk) {
+		if (pce_dev->ce_core_src_clk)
+			clk_disable_unprepare(pce_dev->ce_core_src_clk);
+	} else {
+		if (pce_dev->ce_core_clk)
+			clk_disable_unprepare(pce_dev->ce_core_clk);
+	}
 
 	return rc;
 }
