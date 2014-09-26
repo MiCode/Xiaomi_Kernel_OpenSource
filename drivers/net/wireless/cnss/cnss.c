@@ -64,6 +64,7 @@
 #define QCA6174_FW_1_3	(0x13)
 #define QCA6174_FW_2_0	(0x20)
 #define QCA6174_FW_3_0	(0x30)
+#define QCA6174_FW_3_2	(0x32)
 #define BEELINER_FW	(0x00)
 #define AR6320_REV1_VERSION             0x5000000
 #define AR6320_REV1_1_VERSION           0x5000001
@@ -573,6 +574,7 @@ void cnss_setup_fw_files(u16 revision)
 		break;
 
 	case QCA6174_FW_3_0:
+	case QCA6174_FW_3_2:
 		strlcpy(penv->fw_files.image_file, "qwlan30.bin",
 			CNSS_MAX_FILE_NAME);
 		strlcpy(penv->fw_files.board_data, "bdwlan30.bin",
@@ -703,8 +705,9 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 
 	cnss_wlan_fw_mem_alloc(pdev);
 
-	if (penv->revision_id != QCA6174_FW_3_0) {
-		pr_debug("Supported Target Revision:%d\n", penv->revision_id);
+	if (penv->revision_id != QCA6174_FW_3_0 ||
+		penv->revision_id != QCA6174_FW_3_2) {
+		pr_debug("Code-swap not enabled: %d\n", penv->revision_id);
 		goto err_pcie_suspend;
 	}
 
@@ -1062,7 +1065,8 @@ again:
 	}
 	penv->pcie_link_state = PCIE_LINK_UP;
 
-	if (penv->revision_id == QCA6174_FW_3_0)
+	if (penv->revision_id == QCA6174_FW_3_0 ||
+		penv->revision_id == QCA6174_FW_3_2)
 		cnss_wlan_memory_expansion();
 
 	if (wdrv->probe) {
