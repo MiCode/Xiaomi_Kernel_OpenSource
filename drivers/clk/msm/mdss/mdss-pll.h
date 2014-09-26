@@ -42,6 +42,7 @@ enum {
 	MDSS_PLL_TARGET_8994,
 	MDSS_PLL_TARGET_8916,
 	MDSS_PLL_TARGET_8939,
+	MDSS_PLL_TARGET_8909,
 };
 
 struct mdss_pll_resources {
