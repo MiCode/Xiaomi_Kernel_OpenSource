@@ -264,6 +264,11 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
+	cpuss@fd4a8000 {
+		compatible = "qcom,cpuss-8994";
+		reg = <0xfd4a8000 0x4>;
+	};
+
 	acc0:clock-controller@f908b004 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0xf9070000 0x1000>,
