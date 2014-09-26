@@ -2289,7 +2289,8 @@ enum context_submission_status {
 #define HAS_FW_BLC(dev) (INTEL_INFO(dev)->gen > 2)
 #define HAS_PIPE_CXSR(dev) (INTEL_INFO(dev)->has_pipe_cxsr)
 #define HAS_FBC(dev) (INTEL_INFO(dev)->has_fbc)
-#define I915_HAS_DPST(dev) (INTEL_INFO(dev)->has_dpst)
+#define I915_HAS_DPST(dev) (INTEL_INFO(dev)->has_dpst && \
+			    !(i915.enable_intel_adf))
 
 #define HAS_IPS(dev)		(IS_ULT(dev) || IS_BROADWELL(dev))
 
