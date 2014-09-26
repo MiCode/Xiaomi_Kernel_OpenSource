@@ -72,7 +72,9 @@ void vlv_wait_for_pipe_off(int pipe)
 
 int vlv_display_on(struct intel_pipe *pipe)
 {
-	int reg;
+	struct dsi_pipe *dsi_pipe;
+	struct drm_mode_modeinfo mode;
+	int reg, i;
 	u32 val = 0;
 	u8 index;
 
@@ -84,6 +86,26 @@ int vlv_display_on(struct intel_pipe *pipe)
 	/* Enable VBLANK on ?*/
 
 	reg = PALETTE(0);
+
+	if (pipe->type == INTEL_PIPE_DSI) {
+		dsi_pipe = to_dsi_pipe(pipe);
+
+		/* encoder enable */
+		dsi_pipe->ops.power_on(dsi_pipe);
+
+		for (i = 0; i < 256; i++) {
+			REG_WRITE(reg + 4 * i,
+				(dsi_pipe->config.lut_r[i] << 16) |
+				(dsi_pipe->config.lut_g[i] << 8) |
+				(dsi_pipe->config.lut_b[i]));
+		}
+
+		/* get the configured mode */
+		dsi_pipe->panel->ops->get_config_mode(&dsi_pipe->config, &mode);
+		dsi_pipe->dpms_state = DRM_MODE_DPMS_ON;
+	}
+
+	pipe_mode_set(pipe, &mode);
 
 	/* Enable pipe */
 	reg = PIPECONF(index);
@@ -109,7 +131,9 @@ int vlv_display_on(struct intel_pipe *pipe)
 	REG_WRITE(DSPSURF(index), REG_READ(DSPSURF(index)));
 	REG_POSTING_READ(DSPSURF(index));
 
-	/* TODO Encoder Enable */
+	/* enable vsyncs */
+	pipe->ops->set_event(pipe, INTEL_PIPE_EVENT_VSYNC, true);
+
 	return 0;
 }
 
@@ -121,10 +145,15 @@ int vlv_display_off(struct intel_pipe *pipe)
 	struct dsi_pipe *dsi = NULL;
 	int is_dsi = pipe->type == INTEL_PIPE_DSI ? true : false;
 
+	pr_debug("ADF: %s\n", __func__);
+
 	if (!pipe)
 		return -EINVAL;
 
 	index = pipe->base.idx;
+
+	/* disable vsyncs */
+	pipe->ops->set_event(pipe, INTEL_PIPE_EVENT_VSYNC, false);
 
 	 /* encoder specifific disabling if needed */
 	if (is_dsi) {
@@ -173,8 +202,10 @@ int vlv_display_off(struct intel_pipe *pipe)
 	* Interface specific encoder post disable should be done here */
 
 	/* encoder off interface specific */
-	if (is_dsi)
+	if (is_dsi) {
 		dsi->ops.power_off(dsi);
+		dsi->dpms_state = DRM_MODE_DPMS_OFF;
+	}
 	/*
 	 * Disable PLL
 	 * Needed for interfaces other than DSI
@@ -244,8 +275,6 @@ int pipe_mode_set(struct intel_pipe *pipe, struct drm_mode_modeinfo *mode)
 	REG_POSTING_READ(PIPECONF(index));
 
 	/* TODO primary plane fb update */
-
-	vlv_display_on(pipe);
 
 	return 0;
 }

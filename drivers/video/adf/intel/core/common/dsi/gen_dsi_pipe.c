@@ -11,6 +11,7 @@
 #include <core/intel_dc_config.h>
 #include <core/vlv/vlv_dc_regs.h>
 #include <core/vlv/vlv_dc_hw.h>
+#include <core/vlv/vlv_dc_config.h>
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/dsi/dsi_config.h>
 #include <intel_adf_device.h>
@@ -115,17 +116,30 @@ static int dsi_dpms(struct intel_pipe *pipe, u8 state)
 	struct dsi_config *config = &dsi_pipe->config;
 	int err = 0;
 
-	if (!config)
+	pr_debug("ADF: %s current_state = %d, requested_state = %d\n",
+			__func__, dsi_pipe->dpms_state, state);
+
+	if (!config) {
+		pr_err("ADF: %s config not set!!\n", __func__);
 		return -EINVAL;
+	}
 
 	mutex_lock(&config->ctx_lock);
 
+	if (dsi_pipe->dpms_state == state) {
+		pr_err("ADF: %s: Current DPMS State same as requested = %s\n",
+				__func__, state ? "DPMS_OFF" : "DPMS_ON");
+
+		mutex_unlock(&config->ctx_lock);
+		return 0;
+	}
+
 	switch (state) {
 	case DRM_MODE_DPMS_ON:
-		err = dsi_pipe->ops.power_on(dsi_pipe);
+		err = vlv_display_on(pipe);
 		break;
 	case DRM_MODE_DPMS_OFF:
-		err = dsi_pipe->ops.power_off(dsi_pipe);
+		err = vlv_display_off(pipe);
 		break;
 	case DRM_MODE_DPMS_STANDBY:
 	case DRM_MODE_DPMS_SUSPEND:
@@ -146,6 +160,8 @@ static int dsi_modeset(struct intel_pipe *pipe,
 	struct dsi_config *config = &dsi_pipe->config;
 	int err = 0;
 
+	pr_debug("ADF: %s\n", __func__);
+
 	if (!mode) {
 		pr_err("%s: invalid mode\n", __func__);
 		err = -EINVAL;
@@ -159,15 +175,10 @@ static int dsi_modeset(struct intel_pipe *pipe,
 	}
 
 	mutex_lock(&config->ctx_lock);
-
-	err = dsi_pipe->ops.mode_set(dsi_pipe, mode);
-	if (err) {
-		pr_err("%s: failed to set mode\n", __func__);
-		goto out_err;
-	}
-
-out_err:
+	vlv_display_off(pipe);
+	vlv_display_on(pipe);
 	mutex_unlock(&config->ctx_lock);
+
 	return err;
 }
 
@@ -216,7 +227,7 @@ static u32 dsi_get_supported_events(struct intel_pipe *pipe)
 	return INTEL_PIPE_EVENT_VSYNC;
 }
 
-static int dsi_set_event(struct intel_pipe *pipe, u16 event, bool enabled)
+int dsi_set_event(struct intel_pipe *pipe, u16 event, bool enabled)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
 
@@ -442,6 +453,7 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	pipe->ops.set_event = intel_dsi_set_events;
 	pipe->ops.get_events = intel_dsi_get_events;
 	pipe->ops.handle_events = intel_dsi_handle_events;
+	pipe->dpms_state = DRM_MODE_DPMS_OFF;
 
 	pipe->panel = panel;
 

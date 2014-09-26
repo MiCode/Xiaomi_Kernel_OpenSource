@@ -411,9 +411,6 @@ int intel_dsi_pre_enable(struct dsi_pipe *dsi_pipe)
 	 * recommendation, port should be enabled befor plane & pipe */
 	intel_dsi_enable(dsi_pipe);
 
-	/* enable pipe */
-	pipe_mode_set(&dsi_pipe->base, &mode);
-
 	return 0;
 }
 
