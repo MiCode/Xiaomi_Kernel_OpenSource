@@ -28,6 +28,9 @@
 
 #define BAM_HANDLE_INVALID         0
 
+#define to_sps_bam_dev(x) \
+	container_of((x), struct sps_bam, base)
+
 enum bam_irq {
 	BAM_DEV_IRQ_RDY_TO_SLEEP = 0x00000001,
 	BAM_DEV_IRQ_HRESP_ERROR = 0x00000002,
@@ -215,9 +218,14 @@ struct sps_bam {
 	u32 irq_from_disabled_pipe;
 	u32 event_trigger_failures;
 
+	void *ipc_log0;
+	void *ipc_log1;
+	void *ipc_log2;
+	void *ipc_log3;
+	void *ipc_log4;
+
 	/* Desc cache pointers */
 	u8 *desc_cache_pointers[BAM_MAX_PIPES];
-
 };
 
 /**
