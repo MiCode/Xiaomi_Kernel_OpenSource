@@ -943,14 +943,18 @@ static void msm_vfe46_update_camif_state(struct vfe_device *vfe_dev,
 	if (update_state == NO_UPDATE)
 		return;
 
-	val = msm_camera_io_r(vfe_dev->vfe_base + 0x3AC);
 	if (update_state == ENABLE_CAMIF) {
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x5C);
+		val |= 0xF3;
+		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x5C);
+
 		bus_en =
 			((vfe_dev->axi_data.
 			src_info[VFE_PIX_0].raw_stream_count > 0) ? 1 : 0);
 		vfe_en =
 			((vfe_dev->axi_data.
 			src_info[VFE_PIX_0].pix_stream_count > 0) ? 1 : 0);
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x3AC);
 		val &= 0xFFFFFF3F;
 		val = val | bus_en << 7 | vfe_en << 6;
 		msm_camera_io_w(val, vfe_dev->vfe_base + 0x3AC);

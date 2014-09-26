@@ -701,8 +701,12 @@ static void msm_vfe32_update_camif_state(
 	if (update_state == NO_UPDATE)
 		return;
 
-	val = msm_camera_io_r(vfe_dev->vfe_base + 0x1E4);
 	if (update_state == ENABLE_CAMIF) {
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x1C);
+		val |= 0x5;
+		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x1C);
+
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x1E4);
 		bus_en =
 		((vfe_dev->axi_data.src_info[
 			VFE_PIX_0].raw_stream_count > 0) ? 1 : 0);
