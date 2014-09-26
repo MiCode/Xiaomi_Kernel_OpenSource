@@ -80,6 +80,8 @@ struct panel_ops {
 	int (*disable_panel_power)(struct dsi_pipe *intf);
 	int (*enable_backlight)(struct dsi_pipe *intf);
 	int (*disable_backlight)(struct dsi_pipe *intf);
+	int (*panel_power_on)(struct dsi_pipe *intf);
+	int (*panel_power_off)(struct dsi_pipe *intf);
 };
 
 struct dsi_panel {

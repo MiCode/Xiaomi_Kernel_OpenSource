@@ -481,9 +481,12 @@ static const char * const seq_name[] = {
 	"MIPI_SEQ_DISPLAY_ON",
 	"MIPI_SEQ_DISPLAY_OFF",
 	"MIPI_SEQ_DEASSERT_RESET",
-	"MIPI_BACKLIGHT_ON",
-	"MIPI_BACKLIGHT_OFF",
-	"MIPI_TEAR_ON",
+	"MIPI_SEQ_BACKLIGHT_ON",
+	"MIPI_SEQ_BACKLIGHT_OFF",
+	"MIPI_SEQ_TEAR_ON",
+	"MIPI_SEQ_TEAR_OFF",
+	"MIPI_SEQ_PANEL_ON",
+	"MIPI_SEQ_PANEL_OFF"
 };
 
 static void generic_exec_sequence(struct dsi_pipe *dsi_pipe, char *sequence)
@@ -495,7 +498,8 @@ static void generic_exec_sequence(struct dsi_pipe *dsi_pipe, char *sequence)
 	if (!sequence)
 		return;
 
-	pr_err("Starting MIPI sequence - %s\n", seq_name[*data]);
+	pr_debug("%s: Starting MIPI sequence - %s\n",
+		__func__, seq_name[*data]);
 
 	/* go to the first element of the sequence */
 	data++;
@@ -509,7 +513,8 @@ static void generic_exec_sequence(struct dsi_pipe *dsi_pipe, char *sequence)
 		pr_debug("ADF: %s: Element Type = %d\n", __func__, index);
 		mipi_elem_exec = exec_elem[index];
 		if (!mipi_elem_exec) {
-			pr_err("Unsupported MIPI element, skipping sequence execution\n");
+			pr_err("ADF: %s: Unsupported MIPI element, skipping\n",
+			__func__);
 			return;
 		}
 
@@ -890,7 +895,7 @@ int generic_enable_bklt(struct dsi_pipe *interface)
 {
 	struct dsi_vbt *dsi = interface->config.dsi;
 	char *sequence = dsi->sequence[MIPI_SEQ_BACKLIGHT_ON];
-	pr_err("ADF: %s\n", __func__);
+	pr_debug("ADF: %s\n", __func__);
 
 	generic_exec_sequence(interface, sequence);
 	return 0;
@@ -900,7 +905,27 @@ int generic_disable_bklt(struct dsi_pipe *interface)
 {
 	struct dsi_vbt *dsi = interface->config.dsi;
 	char *sequence = dsi->sequence[MIPI_SEQ_BACKLIGHT_OFF];
-	pr_err("ADF: %s\n", __func__);
+	pr_debug("ADF: %s\n", __func__);
+
+	generic_exec_sequence(interface, sequence);
+	return 0;
+}
+
+int generic_power_on(struct dsi_pipe *interface)
+{
+	struct dsi_vbt *dsi = interface->config.dsi;
+	char *sequence = dsi->sequence[MIPI_SEQ_PANEL_ON];
+	pr_debug("ADF: %s\n", __func__);
+
+	generic_exec_sequence(interface, sequence);
+	return 0;
+}
+
+int generic_power_off(struct dsi_pipe *interface)
+{
+	struct dsi_vbt *dsi = interface->config.dsi;
+	char *sequence = dsi->sequence[MIPI_SEQ_PANEL_OFF];
+	pr_debug("ADF: %s\n", __func__);
 
 	generic_exec_sequence(interface, sequence);
 	return 0;
@@ -924,7 +949,7 @@ static int generic_get_modes(struct dsi_config *config,
 {
 	struct drm_display_mode *mode = &config->vbt_mode;
 
-	pr_err("ADF: %s\n", __func__);
+	pr_debug("ADF: %s\n", __func__);
 
 	modeinfo->clock = mode->clock;
 	modeinfo->hdisplay = (u16) mode->hdisplay;
@@ -955,7 +980,7 @@ int generic_get_panel_info(struct dsi_config *config, struct panel_info *info)
 	struct dsi_context *ctx = &config->ctx;
 	int bpp = 24;
 
-	pr_err("ADF: %s\n", __func__);
+	pr_debug("ADF: %s\n", __func__);
 
 	info->width_mm = mode->width_mm;
 	info->height_mm = mode->height_mm;
@@ -1006,6 +1031,8 @@ struct panel_ops generic_ops = {
 		.drv_ic_init = generic_send_otp_cmds,
 		.drv_set_panel_mode = generic_set_mode,
 		.disable_panel_power = generic_disable_panel_power,
+		.panel_power_on = generic_power_on,
+		.panel_power_off = generic_power_off,
 /*
  * Might need to add these hooks in panel_ops
 		.mode_valid = generic_mode_valid,
