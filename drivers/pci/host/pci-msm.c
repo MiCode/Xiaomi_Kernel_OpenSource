@@ -140,6 +140,8 @@
 #define PCIE_PHY_POWER_STATE_CONFIG1	0x650
 #define PCIE_PHY_POWER_STATE_CONFIG2	0x654
 
+#define PCIE_PHY_TEST_CONTROL		0x6E8
+
 #define PCIE_PHY_BIST_CHK_ERR_CNT_L	0x718
 #define PCIE_PHY_BIST_CHK_ERR_CNT_H	0x71C
 #define PCIE_PHY_BIST_CHK_STATUS	0x720
@@ -163,6 +165,7 @@
 #define PCIE20_PARF_PHY_CTRL	     0x40
 #define PCIE20_PARF_PHY_REFCLK	   0x4C
 #define PCIE20_PARF_CONFIG_BITS	  0x50
+#define PCIE20_PARF_TEST_BUS		0xE4
 #define PCIE20_PARF_DBI_BASE_ADDR	0x168
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x16C
 #define PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT   0x178
@@ -299,6 +302,12 @@
 		ipc_log_string((dev)->ipc_log, "DBG3:%s: " fmt, __func__, arg);\
 	if (msm_pcie_debug_mask)   \
 		pr_alert("%s: " fmt, __func__, arg);              \
+	} while (0)
+
+#define PCIE_DUMP(dev, fmt, arg...) do {			\
+	if ((dev) && (dev)->ipc_log_dump) \
+		ipc_log_string((dev)->ipc_log_dump, \
+			"DUMP:%s: " fmt, __func__, arg); \
 	} while (0)
 
 #define PCIE_INFO(dev, fmt, arg...) do {			 \
@@ -490,6 +499,7 @@ struct msm_pcie_dev_t {
 	bool				 power_on;
 	void				 *ipc_log;
 	void				*ipc_log_long;
+	void				*ipc_log_dump;
 	struct msm_pcie_device_info   pcidev_table[MAX_DEVICE_NUM];
 };
 
@@ -615,123 +625,147 @@ static inline void msm_pcie_write_reg_field(void *base, u32 offset,
 
 static void pcie_phy_dump(struct msm_pcie_dev_t *dev)
 {
-	PCIE_ERR(dev, "PCIe: RC%d PHY register dump\n", dev->rc_idx);
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_COM_PLL_VCO_HIGH: 0x%x\n",
+	int i;
+	int control_offset[2] = {0x60, 0x70};
+
+	PCIE_DUMP(dev, "PCIe: RC%d PHY testbus\n", dev->rc_idx);
+
+	for (i = 0; i < 2; i++) {
+		msm_pcie_write_reg(dev->phy,
+			PCIE_PHY_TEST_CONTROL,
+			control_offset[i]);
+		PCIE_DUMP(dev,
+			"PCIe: RC%d PCIE_PHY_TEST_CONTROL: 0x%x\n",
+			dev->rc_idx,
+			readl_relaxed(dev->phy + PCIE_PHY_TEST_CONTROL));
+		PCIE_DUMP(dev,
+			"PCIe: RC%d PCIE_PHY_DEBUG_BUS_0_STATUS: 0x%x\n",
+			dev->rc_idx,
+			readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_0_STATUS));
+		PCIE_DUMP(dev,
+			"PCIe: RC%d PCIE_PHY_DEBUG_BUS_1_STATUS: 0x%x\n",
+			dev->rc_idx,
+			readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_1_STATUS));
+		PCIE_DUMP(dev,
+			"PCIe: RC%d PCIE_PHY_DEBUG_BUS_2_STATUS: 0x%x\n",
+			dev->rc_idx,
+			readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_2_STATUS));
+		PCIE_DUMP(dev,
+			"PCIe: RC%d PCIE_PHY_DEBUG_BUS_3_STATUS: 0x%x\n",
+			dev->rc_idx,
+			readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_3_STATUS));
+	}
+
+	PCIE_DUMP(dev, "PCIe: RC%d PHY register dump\n", dev->rc_idx);
+
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_COM_PLL_VCO_HIGH: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_COM_PLL_VCO_HIGH));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_COM_RESET_SM: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_COM_RESET_SM: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_COM_RESET_SM));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_COM_MUXVAL: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_COM_MUXVAL: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_COM_MUXVAL));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_COM_CORE_RES_CODE_DN: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_COM_CORE_RES_CODE_DN: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_COM_CORE_RES_CODE_DN));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_COM_CORE_RES_CODE_UP: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_COM_CORE_RES_CODE_UP: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_COM_CORE_RES_CODE_UP));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_COM_CORE_VCO_TUNE: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_COM_CORE_VCO_TUNE: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_COM_CORE_VCO_TUNE));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_COM_CORE_VCO_TAIL: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_COM_CORE_VCO_TAIL: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_COM_CORE_VCO_TAIL));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_COM_CORE_KVCO_CODE: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_COM_CORE_KVCO_CODE: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_COM_CORE_KVCO_CODE));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_PI_CTRL1: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_PI_CTRL1: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_PI_CTRL1));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_PI_CTRL2: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_PI_CTRL2: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_PI_CTRL2));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_PI_QUAD: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_PI_QUAD: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_PI_QUAD));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_IDATA1: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_IDATA1: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_IDATA1));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_IDATA2: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_IDATA2: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_IDATA2));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_AUX_DATA1: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_AUX_DATA1: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_AUX_DATA1));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_AUX_DATA2: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_AUX_DATA2: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_AUX_DATA2));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_AC_JTAG_OUTP: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_AC_JTAG_OUTP: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_AC_JTAG_OUTP));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_AC_JTAG_OUTN: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_AC_JTAG_OUTN: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_AC_JTAG_OUTN));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_RX_SIGDET: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_RX_SIGDET: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_RX_SIGDET));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_RX_VDCOFF: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_RX_VDCOFF: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_RX_VDCOFF));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_IDAC_CAL_ON: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_IDAC_CAL_ON: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_IDAC_CAL_ON));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_IDAC_STATUS_I: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_IDAC_STATUS_I: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_IDAC_STATUS_I));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_IDAC_STATUS_Q: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_IDAC_STATUS_Q: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_IDAC_STATUS_Q));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_IDAC_STATUS_A: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_IDAC_STATUS_A: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_IDAC_STATUS_A));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_CALST_STATUS_I: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_CALST_STATUS_I: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_CALST_STATUS_I));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_CALST_STATUS_Q: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_CALST_STATUS_Q: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_CALST_STATUS_Q));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_CALST_STATUS_A: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_CALST_STATUS_A: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_CALST_STATUS_A));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS0: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS0: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_EOM_STATUS0));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS1: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS1: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_EOM_STATUS1));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS2: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS2: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_EOM_STATUS2));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS3: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS3: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_EOM_STATUS3));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS4: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS4: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_EOM_STATUS4));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS5: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS5: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_EOM_STATUS5));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS6: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS6: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_EOM_STATUS6));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS7: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS7: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_EOM_STATUS7));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS8: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS8: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_EOM_STATUS8));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS9: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_EOM_STATUS9: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_EOM_STATUS9));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_RX_ALOG_INTF_OBSV: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_RX_ALOG_INTF_OBSV: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_RX_ALOG_INTF_OBSV));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_READ_EQCODE: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_READ_EQCODE: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_READ_EQCODE));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_RX_READ_OFFSETCODE: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_RX_READ_OFFSETCODE: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_RX_READ_OFFSETCODE));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_TX_BIST_STATUS: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_TX_BIST_STATUS: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_TX_BIST_STATUS));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_TX_BIST_ERROR_COUNT1: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_TX_BIST_ERROR_COUNT1: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_TX_BIST_ERROR_COUNT1));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_TX_BIST_ERROR_COUNT2: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_TX_BIST_ERROR_COUNT2: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_TX_BIST_ERROR_COUNT2));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_TX_TX_ALOG_INTF_OBSV: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_TX_TX_ALOG_INTF_OBSV: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_TX_TX_ALOG_INTF_OBSV));
-	PCIE_ERR(dev, "PCIe: RC%d QSERDES_TX_PWM_DEC_STATUS: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d QSERDES_TX_PWM_DEC_STATUS: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + QSERDES_TX_PWM_DEC_STATUS));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_BIST_CHK_ERR_CNT_L: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d PCIE_PHY_BIST_CHK_ERR_CNT_L: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_BIST_CHK_ERR_CNT_L));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_BIST_CHK_ERR_CNT_H: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d PCIE_PHY_BIST_CHK_ERR_CNT_H: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_BIST_CHK_ERR_CNT_H));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_BIST_CHK_STATUS: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d PCIE_PHY_BIST_CHK_STATUS: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_BIST_CHK_STATUS));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_LFPS_RXTERM_IRQ_SOURCE: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d PCIE_PHY_LFPS_RXTERM_IRQ_SOURCE: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_LFPS_RXTERM_IRQ_SOURCE));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_PCS_STATUS: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d PCIE_PHY_PCS_STATUS: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_PCS_STATUS));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_PCS_STATUS2: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d PCIE_PHY_PCS_STATUS2: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_PCS_STATUS2));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_REVISION_ID0: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d PCIE_PHY_REVISION_ID0: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_REVISION_ID0));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_REVISION_ID1: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d PCIE_PHY_REVISION_ID1: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_REVISION_ID1));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_REVISION_ID2: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d PCIE_PHY_REVISION_ID2: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_REVISION_ID2));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_REVISION_ID3: 0x%x\n",
+	PCIE_DUMP(dev, "PCIe: RC%d PCIE_PHY_REVISION_ID3: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_REVISION_ID3));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_DEBUG_BUS_0_STATUS: 0x%x\n",
-	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_0_STATUS));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_DEBUG_BUS_1_STATUS: 0x%x\n",
-	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_1_STATUS));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_DEBUG_BUS_2_STATUS: 0x%x\n",
-	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_2_STATUS));
-	PCIE_ERR(dev, "PCIe: RC%d PCIE_PHY_DEBUG_BUS_3_STATUS: 0x%x\n",
-	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_DEBUG_BUS_3_STATUS));
 }
 
 static void pcie_phy_init(struct msm_pcie_dev_t *dev)
@@ -919,6 +953,43 @@ static void msm_pcie_write_mask(void __iomem *addr,
 	val = (readl_relaxed(addr) & ~clear_mask) | set_mask;
 	writel_relaxed(val, addr);
 	wmb();  /* ensure data is written to hardware register */
+}
+
+static void pcie_parf_dump(struct msm_pcie_dev_t *dev)
+{
+	int i, size;
+	u32 original;
+
+	PCIE_DUMP(dev, "PCIe: RC%d PARF testbus\n", dev->rc_idx);
+
+	original = readl_relaxed(dev->parf + PCIE20_PARF_SYS_CTRL);
+	for (i = 1; i <= 0x1A; i++) {
+		msm_pcie_write_mask(dev->parf + PCIE20_PARF_SYS_CTRL,
+				0xFF0000, i << 16);
+		PCIE_DUMP(dev,
+			"RC%d: PARF_SYS_CTRL: 0%08x PARF_TEST_BUS: 0%08x\n",
+			dev->rc_idx,
+			readl_relaxed(dev->parf + PCIE20_PARF_SYS_CTRL),
+			readl_relaxed(dev->parf + PCIE20_PARF_TEST_BUS));
+	}
+	writel_relaxed(original, dev->parf + PCIE20_PARF_SYS_CTRL);
+
+	PCIE_DUMP(dev, "PCIe: RC%d PARF register dump\n", dev->rc_idx);
+
+	size = resource_size(dev->res[MSM_PCIE_RES_PARF].resource);
+	for (i = 0; i < size; i += 32) {
+		PCIE_DUMP(dev,
+			"RC%d: 0x%04x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+			dev->rc_idx, i,
+			readl_relaxed(dev->parf + i),
+			readl_relaxed(dev->parf + (i + 4)),
+			readl_relaxed(dev->parf + (i + 8)),
+			readl_relaxed(dev->parf + (i + 12)),
+			readl_relaxed(dev->parf + (i + 16)),
+			readl_relaxed(dev->parf + (i + 20)),
+			readl_relaxed(dev->parf + (i + 24)),
+			readl_relaxed(dev->parf + (i + 28)));
+	}
 }
 
 static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
@@ -3374,6 +3445,10 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 	} else {
 		dev->link_status = MSM_PCIE_LINK_DISABLED;
 		dev->shadow_en = false;
+
+		pcie_phy_dump(dev);
+		pcie_parf_dump(dev);
+
 		/* assert PERST */
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				dev->gpio[MSM_PCIE_GPIO_PERST].on);
@@ -4067,6 +4142,16 @@ int __init pcie_init(void)
 		msm_pcie_dev[i].ipc_log_long =
 			ipc_log_context_create(PCIE_LOG_PAGES, rc_name, 0);
 		if (msm_pcie_dev[i].ipc_log_long == NULL)
+			pr_err("%s: unable to create IPC log context for %s\n",
+				__func__, rc_name);
+		else
+			PCIE_DBG(&msm_pcie_dev[i],
+				"PCIe IPC logging %s is enable for RC%d\n",
+				rc_name, i);
+		snprintf(rc_name, MAX_RC_NAME_LEN, "pcie%d-dump", i);
+		msm_pcie_dev[i].ipc_log_dump =
+			ipc_log_context_create(PCIE_LOG_PAGES, rc_name, 0);
+		if (msm_pcie_dev[i].ipc_log_dump == NULL)
 			pr_err("%s: unable to create IPC log context for %s\n",
 				__func__, rc_name);
 		else
