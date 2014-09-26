@@ -78,6 +78,8 @@ struct panel_ops {
 	int (*drv_ic_init)(struct dsi_pipe *intf);
 	int (*drv_set_panel_mode)(struct dsi_pipe *intf);
 	int (*disable_panel_power)(struct dsi_pipe *intf);
+	int (*enable_backlight)(struct dsi_pipe *intf);
+	int (*disable_backlight)(struct dsi_pipe *intf);
 };
 
 struct dsi_panel {
