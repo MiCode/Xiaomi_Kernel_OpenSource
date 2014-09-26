@@ -747,7 +747,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 
 	if ((pdata) && (pdata->set_backlight)) {
-		if (mfd->mdp.ad_attenuate_bl && is_bl_changed) {
+		if (mfd->mdp.ad_attenuate_bl) {
 			ret = (*mfd->mdp.ad_attenuate_bl)(bkl_lvl, &temp, mfd);
 			if (ret)
 				pr_err("Failed to attenuate BL\n");
