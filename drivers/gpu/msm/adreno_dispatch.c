@@ -466,7 +466,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	mutex_lock(&device->mutex);
 	if (adreno_gpu_halt(adreno_dev) != 0) {
 		mutex_unlock(&device->mutex);
-		return -EINVAL;
+		return -EBUSY;
 	}
 
 	dispatcher->inflight++;
@@ -629,8 +629,9 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 		 * conditions improve
 		 */
 		if (ret) {
-			ret = adreno_dispatcher_requeue_cmdbatch(drawctxt,
-				cmdbatch);
+			if (adreno_dispatcher_requeue_cmdbatch(drawctxt,
+				cmdbatch))
+				ret = -EINVAL;
 			break;
 		}
 
