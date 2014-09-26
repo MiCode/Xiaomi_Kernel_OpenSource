@@ -1076,7 +1076,10 @@ int adf_format_validate_yuv(struct adf_device *dev, struct adf_buffer *buf,
 
 	for (i = 0; i < num_planes; i++) {
 		u32 width = buf->w / (i != 0 ? hsub : 1);
+/* FIXME: */
+#ifndef CONFIG_ADF_INTEL_VLV
 		u32 height = buf->h / (i != 0 ? vsub : 1);
+#endif
 		u8 cpp = adf_format_plane_cpp(buf->format, i);
 		u32 last_line_size;
 
@@ -1099,6 +1102,7 @@ int adf_format_validate_yuv(struct adf_device *dev, struct adf_buffer *buf,
 			BUG();
 		}
 
+#ifndef CONFIG_ADF_INTEL_VLV
 		if ((u64) (height - 1) * buf->pitch[i] + last_line_size +
 				buf->offset[i] > buf->dma_bufs[i]->size) {
 			dev_err(&dev->base.dev, "plane %u buffer too small (height = %u, pitch = %u, offset = %u, size = %zu)\n",
@@ -1106,6 +1110,7 @@ int adf_format_validate_yuv(struct adf_device *dev, struct adf_buffer *buf,
 					buf->offset[i], buf->dma_bufs[i]->size);
 			return -EINVAL;
 		}
+#endif
 	}
 
 	return 0;
