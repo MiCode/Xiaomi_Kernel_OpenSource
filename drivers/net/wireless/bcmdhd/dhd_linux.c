@@ -833,10 +833,10 @@ static int dhd_sar_callback(struct notifier_block *nfb, unsigned long action, vo
 				iovbuf, sizeof(iovbuf), TRUE, 0)) < 0)
 			DHD_ERROR(("%s wl qtxpower failed %d\n", __FUNCTION__, ret));
 	} else {
-		/* '0' means activate sarlimit and '-1' means back to normal
+		/* '1' means activate sarlimit and '0' means back to normal
 		 *  state (deactivate sarlimit)
 		 */
-		sar_enable = action ? 0 : -1;
+		sar_enable = action ? 1 : 0;
 		if (dhd->sar_enable == sar_enable)
 			return NOTIFY_DONE;
 		bcm_mkiovar("sar_enable", (char *)&sar_enable, 4, iovbuf, sizeof(iovbuf));
