@@ -111,12 +111,6 @@ static struct saw2_data saw2_info[] = {
 
 static uint32_t num_pmic_data;
 
-static inline uint32_t msm_spm_drv_get_num_spm_entry(
-		struct msm_spm_driver_data *dev)
-{
-	return 32;
-}
-
 static void msm_spm_drv_flush_shadow(struct msm_spm_driver_data *dev,
 		unsigned int reg_index)
 {
@@ -130,6 +124,14 @@ static void msm_spm_drv_load_shadow(struct msm_spm_driver_data *dev,
 	dev->reg_shadow[reg_index] =
 		__raw_readl(dev->reg_base_addr +
 				dev->reg_offsets[reg_index]);
+}
+
+static inline uint32_t msm_spm_drv_get_num_spm_entry(
+		struct msm_spm_driver_data *dev)
+{
+	BUG_ON(!dev);
+	msm_spm_drv_load_shadow(dev, MSM_SPM_REG_SAW2_ID);
+	return (dev->reg_shadow[MSM_SPM_REG_SAW2_ID] >> 24) & 0xFF;
 }
 
 static inline void msm_spm_drv_set_start_addr(
