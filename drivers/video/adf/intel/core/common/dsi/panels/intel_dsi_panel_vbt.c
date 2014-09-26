@@ -34,6 +34,7 @@
 #include <core/common/dsi/dsi_panel.h>
 #include <core/vlv/vlv_dc_regs.h>
 #include <linux/i2c.h>
+#include <linux/mfd/intel_soc_pmic.h>
 #include "intel_dsi.h"
 #include "intel_dsi_cmd.h"
 #include "dsi_vbt.h"
@@ -254,6 +255,47 @@ out:
 	return data;
 }
 
+static u8 *mipi_exec_spi(struct dsi_pipe *dsi_pipe, u8 *data)
+{
+	u8 payload_size;
+
+	/*
+	 * SPI block is not used in linux, but if at all the
+	 * VBT contains the SPI block we have to skip to the
+	 * next block, hence reading the size of the SPI block
+	 * and skipping the same.
+	 */
+	data = data + 5;
+	payload_size = *data;
+	data = data + payload_size + 1;
+
+	return data;
+}
+
+static u8 *mipi_exec_pmic(struct dsi_pipe *dsi_pipe, u8 *data)
+{
+	u8 pmic_page;
+	u32 register_address, register_data;
+	u32 data_mask, tmp;
+
+	data++;
+	pmic_page = *data++;
+	register_address = *((u32 *)data);
+	data += 4;
+	register_data = *((u32 *)data);
+	data += 4;
+	data_mask = *((u32 *)data);
+	data += 4;
+
+	tmp = intel_soc_pmic_readb(register_address);
+	tmp &= ~data_mask;
+	register_data &= data_mask;
+	register_data |= tmp;
+	intel_soc_pmic_writeb(register_address, register_data);
+
+	return data;
+}
+
 typedef u8 * (*fn_mipi_elem_exec)(struct dsi_pipe *dsi_pipe, u8 *data);
 static const fn_mipi_elem_exec exec_elem[] = {
 	NULL, /* reserved */
@@ -261,6 +303,8 @@ static const fn_mipi_elem_exec exec_elem[] = {
 	mipi_exec_delay,
 	mipi_exec_gpio,
 	mipi_exec_i2c,
+	mipi_exec_spi,
+	mipi_exec_pmic,
 	NULL, /* status read; later */
 };
 
