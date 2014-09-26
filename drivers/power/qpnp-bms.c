@@ -3095,8 +3095,10 @@ static int backup_new_fcc(struct qpnp_bms_chip *chip, int fcc_mah,
 		min_cycle = chip->fcc_learning_samples[0].chargecycles;
 		for (i = 1; i < chip->min_fcc_learning_samples; i++) {
 			if (min_cycle >
-				chip->fcc_learning_samples[i].chargecycles)
+				chip->fcc_learning_samples[i].chargecycles) {
 				pos = i;
+				break;
+			}
 		}
 	} else {
 		/* find an empty location */
