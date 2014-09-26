@@ -1489,7 +1489,7 @@ static int handle_qmi_response(struct qmi_handle *handle,
 	if (!txn_handle) {
 		pr_err("%s Response received for non-existent txn_id %d\n",
 			__func__, txn_id);
-		return -EINVAL;
+		return 0;
 	}
 
 	/* Decode the message */
