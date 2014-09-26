@@ -34,6 +34,8 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 
+volatile bool g_adf_ready = false;
+
 #ifdef CONFIG_ADF_INTEL
 
 /* Standard MMIO read, non-posted */
@@ -44,7 +46,6 @@
 #define SB_CRRDDA_NP	0x06
 /* Private register write, double-word addressing, non-posted */
 #define SB_CRWRDA_NP	0x07
-
 
 /* Global for adf driver to get at the current i915 device. */
 static struct drm_i915_private *i915_adf_dev;
@@ -57,6 +58,11 @@ void i915_adf_wrapper_init(struct drm_i915_private *dev_priv)
 void i915_adf_wrapper_teardown(void)
 {
 	i915_adf_dev = NULL;
+}
+
+void set_adf_ready(void)
+{
+	g_adf_ready = true;
 }
 
 struct pci_dev *i915_adf_get_pci_dev(void)
