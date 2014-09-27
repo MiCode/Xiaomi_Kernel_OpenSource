@@ -1076,28 +1076,23 @@ out:
 	return rc;
 }
 
-#define USBIN_INPUT_STS_MASK		SMB_MASK(5, 3)
-#define USBIN_INPUT_STS_OFFSET		3
-#define USBIN_INPUT_9V			0x4
-#define USBIN_INPUT_UNREG		0x2
-#define USBIN_INPUT_5V			0x1
+#define USBIN_HVDCP_STS			0x0C
+#define USBIN_HVDCP_SEL_BIT		BIT(4)
+#define USBIN_HVDCP_SEL_9V_BIT		BIT(1)
 static int smbchg_get_min_parallel_current_ma(struct smbchg_chip *chip)
 {
 	int rc;
-	u8 vbus_sel, reg;
+	u8 reg;
 
-	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + INPUT_STS, 1);
+	rc = smbchg_read(chip, &reg,
+			chip->usb_chgpth_base + USBIN_HVDCP_STS, 1);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't read usb status rc = %d\n", rc);
 		return 0;
 	}
-	vbus_sel = (reg & USBIN_INPUT_STS_MASK) >> USBIN_INPUT_STS_OFFSET;
-	if (vbus_sel == USBIN_INPUT_5V || vbus_sel == USBIN_INPUT_UNREG)
-		return chip->parallel.min_current_thr_ma;
-	else if (vbus_sel == USBIN_INPUT_9V)
+	if ((reg & USBIN_HVDCP_SEL_BIT) && (reg & USBIN_HVDCP_SEL_9V_BIT))
 		return chip->parallel.min_9v_current_thr_ma;
-	else
-		return 0;
+	return chip->parallel.min_current_thr_ma;
 }
 
 #define ICL_STS_1_REG			0x7
