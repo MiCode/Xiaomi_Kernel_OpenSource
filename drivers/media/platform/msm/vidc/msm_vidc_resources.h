@@ -41,19 +41,14 @@ struct addr_range {
 	u32 size;
 };
 
-struct iommu_info {
+struct context_bank_info {
+	struct list_head list;
 	const char *name;
-	u32 buffer_type[MAX_BUFFER_TYPES];
-	struct iommu_group *group;
-	int domain;
+	u32 buffer_type;
 	bool is_secure;
-	struct addr_range addr_range[MAX_BUFFER_TYPES];
-	int npartitions;
-};
-
-struct iommu_set {
-	struct iommu_info *iommu_maps;
-	u32 count;
+	struct addr_range addr_range;
+	struct device *dev;
+	struct dma_iommu_mapping *mapping;
 };
 
 struct buffer_usage_table {
@@ -116,7 +111,6 @@ struct msm_vidc_platform_resources {
 	struct load_freq_table *load_freq_tbl;
 	uint32_t load_freq_tbl_size;
 	struct reg_set reg_set;
-	struct iommu_set iommu_group_set;
 	struct buffer_usage_set buffer_usage_set;
 	uint32_t imem_size;
 	enum imem_type imem_type;
@@ -130,14 +124,12 @@ struct msm_vidc_platform_resources {
 	bool use_non_secure_pil;
 	bool sw_power_collapsible;
 	bool sys_idle_indicator;
+	struct list_head context_banks;
 };
 
-static inline int is_iommu_present(struct msm_vidc_platform_resources *res)
+static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)
 {
-	if (res)
-		return (res->iommu_group_set.count > 0 &&
-				res->iommu_group_set.iommu_maps != NULL);
-	return 0;
+	return !list_empty(&res->context_banks);
 }
 
 extern uint32_t msm_vidc_pwr_collapse_delay;

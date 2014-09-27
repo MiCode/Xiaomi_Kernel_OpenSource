@@ -23,4 +23,7 @@ int read_hfi_type(struct platform_device *pdev);
 
 int read_platform_resources_from_dt(
 		struct msm_vidc_platform_resources *res);
+
+int msm_vidc_populate_context_bank(struct device *dev,
+		struct msm_vidc_platform_resources *res);
 #endif

@@ -102,6 +102,12 @@ struct hfi_mem_map {
 #define QUEUE_SIZE (VIDC_IFACEQ_TABLE_SIZE + \
 	(VIDC_IFACEQ_QUEUE_SIZE * VIDC_IFACEQ_NUMQ))
 
+#define ALIGNED_QDSS_SIZE ALIGN(QDSS_SIZE, SZ_4K)
+#define ALIGNED_SFR_SIZE ALIGN(SFR_SIZE, SZ_4K)
+#define ALIGNED_QUEUE_SIZE ALIGN(QUEUE_SIZE, SZ_4K)
+#define SHARED_QSIZE ALIGN(ALIGNED_SFR_SIZE + ALIGNED_QUEUE_SIZE + \
+			ALIGNED_QDSS_SIZE, SZ_1M)
+
 enum vidc_hw_reg {
 	VIDC_HWREG_CTRL_STATUS =  0x1,
 	VIDC_HWREG_QTBL_INFO =  0x2,
@@ -209,6 +215,7 @@ struct venus_hfi_device {
 };
 
 void venus_hfi_delete_device(void *device);
+
 int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
 		struct msm_vidc_platform_resources *res,
 		hfi_cmd_response_callback callback);

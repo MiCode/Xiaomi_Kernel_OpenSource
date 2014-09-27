@@ -194,105 +194,16 @@ static void q6_hfi_core_work_handler(struct work_struct *work)
 		dprintk(VIDC_ERR, "Failed to read from event queue\n");
 }
 
-static int q6_hfi_register_iommu_domains(struct q6_hfi_device *device)
-{
-	struct iommu_domain *domain;
-	int rc = 0, i = 0;
-	struct iommu_set *iommu_group_set;
-	struct iommu_info *iommu_map;
-
-	if (!device || !device->res) {
-		dprintk(VIDC_ERR, "Invalid parameter: %p\n", device);
-		return -EINVAL;
-	}
-
-	iommu_group_set = &device->res->iommu_group_set;
-
-	for (i = 0; i < iommu_group_set->count; i++) {
-		iommu_map = &iommu_group_set->iommu_maps[i];
-		iommu_map->group = iommu_group_find(iommu_map->name);
-		if (!iommu_map->group) {
-			dprintk(VIDC_DBG, "Failed to find group :%s\n",
-					iommu_map->name);
-			rc = -EPROBE_DEFER;
-			goto fail_group;
-		}
-		domain = iommu_group_get_iommudata(iommu_map->group);
-		if (IS_ERR_OR_NULL(domain)) {
-			dprintk(VIDC_ERR,
-					"Failed to get domain data for group %p\n",
-					iommu_map->group);
-			rc = -EINVAL;
-			goto fail_group;
-		}
-		iommu_map->domain = msm_find_domain_no(domain);
-		if (iommu_map->domain < 0) {
-			dprintk(VIDC_ERR,
-					"Failed to get domain index for domain %p\n",
-					domain);
-			rc = -EINVAL;
-			goto fail_group;
-		}
-	}
-	return rc;
-
-fail_group:
-	for (--i; i >= 0; i--) {
-		iommu_map = &iommu_group_set->iommu_maps[i];
-		if (iommu_map->group)
-			iommu_group_put(iommu_map->group);
-		iommu_map->group = NULL;
-		iommu_map->domain = -1;
-	}
-	return rc;
-}
-
-static void q6_hfi_deregister_iommu_domains(struct q6_hfi_device *device)
-{
-	struct iommu_set *iommu_group_set;
-	struct iommu_info *iommu_map;
-	int i = 0;
-
-	if (!device || !device->res) {
-		dprintk(VIDC_ERR, "Invalid parameter: %p\n", device);
-		return;
-	}
-
-	iommu_group_set = &device->res->iommu_group_set;
-	for (i = 0; i < iommu_group_set->count; i++) {
-		iommu_map = &iommu_group_set->iommu_maps[i];
-		if (iommu_map->group)
-			iommu_group_put(iommu_map->group);
-		iommu_map->group = NULL;
-		iommu_map->domain = -1;
-	}
-}
-
 static int q6_hfi_init_resources(struct q6_hfi_device *device,
 		struct msm_vidc_platform_resources *res)
 {
-	int rc = 0;
-
 	if (!device || !res) {
 		dprintk(VIDC_ERR, "Invalid device or resources\n");
 		return -EINVAL;
 	}
 
 	device->res = res;
-	rc = q6_hfi_register_iommu_domains(device);
-	if (rc) {
-		if (rc != -EPROBE_DEFER) {
-			dprintk(VIDC_ERR,
-				"Failed to register iommu domains: %d\n", rc);
-		}
-	}
-
-	return rc;
-}
-
-static void q6_hfi_deinit_resources(struct q6_hfi_device *device)
-{
-	q6_hfi_deregister_iommu_domains(device);
+	return 0;
 }
 
 static void *q6_hfi_add_device(u32 device_id,
@@ -376,7 +287,6 @@ void q6_hfi_delete_device(void *device)
 	struct q6_hfi_device *close, *tmp, *dev;
 
 	if (device) {
-		q6_hfi_deinit_resources(device);
 		dev = (struct q6_hfi_device *) device;
 		list_for_each_entry_safe(close, tmp, &hal_ctxt.dev_head, list) {
 			if (close->device_id == dev->device_id) {
@@ -1175,86 +1085,6 @@ static int q6_hfi_session_get_property(void *sess,
 	return 0;
 }
 
-static int q6_hfi_iommu_get_domain_partition(void *dev, u32 flags,
-	u32 buffer_type, int *domain, int *partition)
-{
-	(void)dev;
-
-	dprintk(VIDC_ERR, "Not implemented: %s\n", __func__);
-
-	return -ENOTSUPP;
-}
-
-static int q6_hfi_iommu_attach(struct q6_hfi_device *device)
-{
-	int rc = 0;
-	struct iommu_domain *domain;
-	int i;
-	struct iommu_set *iommu_group_set;
-	struct iommu_group *group;
-	struct iommu_info *iommu_map;
-
-	if (!device || !device->res) {
-		dprintk(VIDC_ERR, "Invalid parameter: %p\n", device);
-		return -EINVAL;
-	}
-
-	iommu_group_set = &device->res->iommu_group_set;
-	for (i = 0; i < iommu_group_set->count; i++) {
-		iommu_map = &iommu_group_set->iommu_maps[i];
-		group = iommu_map->group;
-		domain = msm_get_iommu_domain(iommu_map->domain);
-		if (IS_ERR_OR_NULL(domain)) {
-			dprintk(VIDC_ERR, "Failed to get domain: %s\n",
-					iommu_map->name);
-			rc = PTR_ERR(domain) ?: -EINVAL;
-			break;
-		}
-		dprintk(VIDC_DBG, "Attaching domain(id:%d) %p to group %p\n",
-				iommu_map->domain, domain, group);
-		rc = iommu_attach_group(domain, group);
-		if (rc) {
-			dprintk(VIDC_ERR, "IOMMU attach failed: %s\n",
-					iommu_map->name);
-			break;
-		}
-	}
-	if (i < iommu_group_set->count) {
-		i--;
-		for (; i >= 0; i--) {
-			iommu_map = &iommu_group_set->iommu_maps[i];
-			group = iommu_map->group;
-			domain = msm_get_iommu_domain(iommu_map->domain);
-			if (group && domain)
-				iommu_detach_group(domain, group);
-		}
-	}
-	return rc;
-}
-
-static void q6_hfi_iommu_detach(struct q6_hfi_device *device)
-{
-	struct iommu_group *group;
-	struct iommu_domain *domain;
-	struct iommu_set *iommu_group_set;
-	struct iommu_info *iommu_map;
-	int i;
-
-	if (!device || !device->res) {
-		dprintk(VIDC_ERR, "Invalid parameter: %p\n", device);
-		return;
-	}
-
-	iommu_group_set = &device->res->iommu_group_set;
-	for (i = 0; i < iommu_group_set->count; i++) {
-		iommu_map = &iommu_group_set->iommu_maps[i];
-		group = iommu_map->group;
-		domain = msm_get_iommu_domain(iommu_map->domain);
-		if (group && domain)
-			iommu_detach_group(domain, group);
-	}
-}
-
 static int q6_hfi_load_fw(void *dev)
 {
 	int rc = 0;
@@ -1286,19 +1116,8 @@ static int q6_hfi_load_fw(void *dev)
 		rc = -EINVAL;
 		goto fail_apr_register;
 	}
-
-	rc = q6_hfi_iommu_attach(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to attach iommu\n");
-		goto fail_iommu_attach;
-	}
-
 	trace_msm_v4l2_vidc_fw_load_end("msm_v4l2_vidc adsp_fw load end");
 	return rc;
-
-fail_iommu_attach:
-	apr_deregister(device->apr);
-	device->apr = NULL;
 fail_apr_register:
 	subsystem_put(device->resources.fw.cookie);
 	device->resources.fw.cookie = NULL;
@@ -1315,7 +1134,6 @@ static void q6_hfi_unload_fw(void *hfi_device_data)
 		return;
 
 	if (device->resources.fw.cookie) {
-		q6_hfi_iommu_detach(device);
 		subsystem_put(device->resources.fw.cookie);
 		device->resources.fw.cookie = NULL;
 	}
@@ -1356,7 +1174,6 @@ static void q6_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_flush = q6_hfi_session_flush;
 	hdev->session_set_property = q6_hfi_session_set_property;
 	hdev->session_get_property = q6_hfi_session_get_property;
-	hdev->iommu_get_domain_partition = q6_hfi_iommu_get_domain_partition;
 	hdev->load_fw = q6_hfi_load_fw;
 	hdev->unload_fw = q6_hfi_unload_fw;
 	hdev->get_stride_scanline = q6_hfi_get_stride_scanline;

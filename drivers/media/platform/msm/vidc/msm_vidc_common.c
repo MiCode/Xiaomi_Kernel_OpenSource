@@ -4236,41 +4236,6 @@ enum hal_buffer_layout_type msm_comm_get_hal_buffer_layout(
 	return ret;
 }
 
-int msm_comm_get_domain_partition(struct msm_vidc_inst *inst, u32 flags,
-	enum v4l2_buf_type buf_type, int *domain, int *partition)
-{
-	struct hfi_device *hdev;
-	u32 hal_buffer_type = 0;
-	if (!inst || !inst->core || !inst->core->device)
-		return -EINVAL;
-
-	hdev = inst->core->device;
-
-	/*
-	 * TODO: Due to the way in which the underlying smem mechanism
-	 * maps buffer types to corresponding IOMMU domains, we need to
-	 * pass in HAL_BUFFER_OUTPUT for input buffers (and vice versa)
-	 * so that buffers are mapped into the correct domains. In the
-	 * future, we should try to remove this workaround.
-	 */
-	switch (buf_type) {
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		hal_buffer_type = (inst->session_type == MSM_VIDC_ENCODER) ?
-			HAL_BUFFER_INPUT : HAL_BUFFER_OUTPUT;
-		break;
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-		hal_buffer_type = (inst->session_type == MSM_VIDC_ENCODER) ?
-			HAL_BUFFER_OUTPUT : HAL_BUFFER_INPUT;
-		break;
-	default:
-		dprintk(VIDC_ERR, "v4l2 buf type not found %d\n", buf_type);
-		return -ENOTSUPP;
-	}
-	return call_hfi_op(hdev, iommu_get_domain_partition,
-		hdev->hfi_device_data, flags, hal_buffer_type, domain,
-		partition);
-};
-
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type)
 {
@@ -4677,19 +4642,6 @@ struct msm_smem *msm_comm_smem_user_to_kernel(struct msm_vidc_inst *inst,
 err_power_on:
 	mutex_unlock(&inst->core->lock);
 	return m;
-}
-
-int msm_comm_smem_get_domain_partition(struct msm_vidc_inst *inst,
-			u32 flags, enum hal_buffer buffer_type,
-			int *domain_num, int *partition_num)
-{
-	if (!inst || !domain_num || !partition_num) {
-		dprintk(VIDC_ERR, "%s: invalid params: %p %p %p\n",
-			__func__, inst, domain_num, partition_num);
-		return -EINVAL;
-	}
-	return msm_smem_get_domain_partition(inst->mem_client, flags,
-			buffer_type, domain_num, partition_num);
 }
 
 void msm_vidc_fw_unload_handler(struct work_struct *work)

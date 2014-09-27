@@ -11,12 +11,18 @@
  *
  */
 
-#include <linux/slab.h>
-#include <linux/msm_ion.h>
-#include <linux/types.h>
+#include <asm/dma-iommu.h>
+#include <linux/dma-attrs.h>
+#include <linux/dma-buf.h>
+#include <linux/dma-direction.h>
+#include <linux/iommu.h>
 #include <linux/msm_iommu_domains.h>
-#include "msm_vidc_resources.h"
+#include <linux/msm_ion.h>
+#include <linux/slab.h>
+#include <linux/types.h>
+#include "media/msm_vidc.h"
 #include "msm_vidc_debug.h"
+#include "msm_vidc_resources.h"
 
 struct smem_client {
 	int mem_type;
@@ -27,13 +33,17 @@ struct smem_client {
 static int get_device_address(struct smem_client *smem_client,
 		struct ion_handle *hndl, unsigned long align,
 		ion_phys_addr_t *iova, unsigned long *buffer_size,
-		unsigned long flags, enum hal_buffer buffer_type)
+		unsigned long flags, enum hal_buffer buffer_type,
+		struct dma_mapping_info *mapping_info)
 {
 	int rc = 0;
-	int domain, partition;
 	struct ion_client *clnt = NULL;
+	struct dma_buf *buf = NULL;
+	struct dma_buf_attachment *attach;
+	struct sg_table *table = NULL;
+	struct context_bank_info *cb = NULL;
 
-	if (!iova || !buffer_size || !hndl || !smem_client) {
+	if (!iova || !buffer_size || !hndl || !smem_client || !mapping_info) {
 		dprintk(VIDC_ERR, "Invalid params: %p, %p, %p, %p\n",
 				smem_client, hndl, iova, buffer_size);
 		return -EINVAL;
@@ -46,49 +56,129 @@ static int get_device_address(struct smem_client *smem_client,
 	}
 
 	if (is_iommu_present(smem_client->res)) {
-		rc = msm_smem_get_domain_partition(smem_client, flags,
-				buffer_type, &domain, &partition);
-		if (rc) {
+		cb = msm_smem_get_context_bank(smem_client, flags & SMEM_SECURE,
+				buffer_type);
+		if (!cb) {
 			dprintk(VIDC_ERR,
-					"Failed to get domain and partition: %d\n",
-					rc);
-			goto mem_domain_get_failed;
+				"%s: Failed to get context bank device\n",
+				 __func__);
+			goto mem_map_failed;
 		}
 	}
 
 	if (is_iommu_present(smem_client->res)) {
-		dprintk(VIDC_DBG,
-				"Calling ion_map_iommu - domain: %d, partition: %d\n",
-				domain, partition);
-		trace_msm_smem_buffer_iommu_op_start("MAP", domain, partition,
+		phys_addr_t phys, orig_phys;
+
+		/* Convert an Ion handle to a dma buf */
+		buf = ion_share_dma_buf(clnt, hndl);
+		if (IS_ERR_OR_NULL(buf)) {
+			rc = PTR_ERR(buf) ?: -ENOMEM;
+			dprintk(VIDC_ERR, "Share ION buf to DMA failed\n");
+			goto mem_map_failed;
+		}
+
+		/* Prepare a dma buf for dma on the given device */
+		attach = dma_buf_attach(buf, cb->dev);
+		if (IS_ERR_OR_NULL(attach)) {
+			rc = PTR_ERR(attach) ?: -ENOMEM;
+			dprintk(VIDC_ERR, "Failed to attach dmabuf\n");
+			goto mem_buf_attach_failed;
+		}
+
+		/* Get the scatterlist for the given attachment */
+		table = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+		if (IS_ERR_OR_NULL(table)) {
+			rc = PTR_ERR(table) ?: -ENOMEM;
+			dprintk(VIDC_ERR, "Failed to map table\n");
+			goto mem_map_table_failed;
+		}
+
+		/* debug trace's need to be updated later */
+		trace_msm_smem_buffer_iommu_op_start("MAP", 0, 0,
 			align, *iova, *buffer_size);
-		rc = ion_map_iommu(clnt, hndl, domain, partition, align,
-				0, iova, buffer_size, 0, 0);
-		trace_msm_smem_buffer_iommu_op_end("MAP", domain, partition,
+
+		/* Map a scatterlist into an SMMU */
+		rc = dma_map_sg(cb->dev, table->sgl, table->nents,
+				DMA_BIDIRECTIONAL);
+		if (!rc) {
+			dprintk(VIDC_ERR, "dma_map_sg failed! (%d != %d)\n",
+				rc, table->nents);
+			goto mem_map_sg_failed;
+		}
+		if (table->sgl) {
+			dprintk(VIDC_DBG,
+				"%s: DMA buf: %p, device: %p, attach: %p, table: %p, table sgl: %p, rc: %d, dma_address: %pa\n",
+				__func__, buf, cb->dev, attach,
+				table, table->sgl, rc,
+				&table->sgl->dma_address);
+
+			*iova = table->sgl->dma_address;
+			*buffer_size = table->sgl->dma_length;
+		} else {
+			dprintk(VIDC_ERR, "sgl is NULL\n");
+			rc = -ENOMEM;
+			goto mem_map_sg_failed;
+		}
+
+		/* Translation check for debugging */
+		orig_phys = sg_phys(table->sgl);
+		phys = iommu_iova_to_phys(cb->mapping->domain, *iova);
+		if (phys != orig_phys) {
+			dprintk(VIDC_ERR,
+				"%s iova_to_phys failed!!! mapped: %pa, got: %pa\n",
+				__func__, &orig_phys, &phys);
+			rc = -EIO;
+			goto mem_iova_to_phys_failed;
+		}
+
+		mapping_info->dev = cb->dev;
+		mapping_info->mapping = cb->mapping;
+		mapping_info->table = table;
+		mapping_info->attach = attach;
+		mapping_info->buf = buf;
+
+		trace_msm_smem_buffer_iommu_op_end("MAP", 0, 0,
 			align, *iova, *buffer_size);
 	} else {
 		dprintk(VIDC_DBG, "Using physical memory address\n");
 		rc = ion_phys(clnt, hndl, iova, (size_t *)buffer_size);
-	}
-	if (rc) {
-		dprintk(VIDC_ERR, "ion memory map failed - %d\n", rc);
-		goto mem_domain_get_failed;
+		if (rc) {
+			dprintk(VIDC_ERR, "ion memory map failed - %d\n", rc);
+			goto mem_map_failed;
+		}
 	}
 
+	dprintk(VIDC_DBG, "mapped ion handle %p to %pa\n", hndl, iova);
 	return 0;
-mem_domain_get_failed:
+mem_iova_to_phys_failed:
+	dma_unmap_sg(cb->dev, table->sgl, table->nents, DMA_BIDIRECTIONAL);
+mem_map_sg_failed:
+	dma_buf_unmap_attachment(attach, table, DMA_BIDIRECTIONAL);
+mem_map_table_failed:
+	dma_buf_detach(buf, attach);
+mem_buf_attach_failed:
+	dma_buf_put(buf);
+mem_map_failed:
 	return rc;
 }
 
 static void put_device_address(struct smem_client *smem_client,
-	struct ion_handle *hndl, int domain_num, int partition_num, u32 flags)
+	struct ion_handle *hndl, u32 flags,
+	struct dma_mapping_info *mapping_info,
+	enum hal_buffer buffer_type)
 {
 	struct ion_client *clnt = NULL;
 
-	if (!hndl || !smem_client) {
+	if (!hndl || !smem_client || !mapping_info) {
 		dprintk(VIDC_WARN, "Invalid params: %p, %p\n",
 				smem_client, hndl);
 		return;
+	}
+
+	if (!mapping_info->dev || !mapping_info->table ||
+		!mapping_info->buf || !mapping_info->attach) {
+			dprintk(VIDC_WARN, "Invalid params:\n");
+			return;
 	}
 
 	clnt = smem_client->clnt;
@@ -98,14 +188,20 @@ static void put_device_address(struct smem_client *smem_client,
 	}
 	if (is_iommu_present(smem_client->res)) {
 		dprintk(VIDC_DBG,
-				"Calling ion_unmap_iommu - domain: %d, parition: %d\n",
-				domain_num, partition_num);
+			"Calling dma_unmap_sg - device: %p, address: %pa, buf: %p, table: %p, attach: %p\n",
+			mapping_info->dev,
+			&mapping_info->table->sgl->dma_address,
+			mapping_info->buf, mapping_info->table,
+			mapping_info->attach);
 
-		trace_msm_smem_buffer_iommu_op_start("UNMAP", domain_num,
-				partition_num, 0, 0, 0);
-		ion_unmap_iommu(clnt, hndl, domain_num, partition_num);
-		trace_msm_smem_buffer_iommu_op_end("UNMAP", domain_num,
-				partition_num, 0, 0, 0);
+		trace_msm_smem_buffer_iommu_op_start("UNMAP", 0, 0, 0, 0, 0);
+		dma_unmap_sg(mapping_info->dev, mapping_info->table->sgl,
+			mapping_info->table->nents, DMA_BIDIRECTIONAL);
+		dma_buf_unmap_attachment(mapping_info->attach,
+			mapping_info->table, DMA_BIDIRECTIONAL);
+		dma_buf_detach(mapping_info->buf, mapping_info->attach);
+		dma_buf_put(mapping_info->buf);
+		trace_msm_smem_buffer_iommu_op_end("UNMAP", 0, 0, 0, 0, 0);
 	}
 }
 
@@ -119,6 +215,7 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 	unsigned long align = SZ_4K;
 
 	hndl = ion_import_dma_buf(client->clnt, fd);
+	dprintk(VIDC_DBG, "%s ion handle: %p\n", __func__, hndl);
 	if (IS_ERR_OR_NULL(hndl)) {
 		dprintk(VIDC_ERR, "Failed to get handle: %p, %d, %d, %p\n",
 				client, fd, offset, hndl);
@@ -137,7 +234,7 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 		align = ALIGN(align, SZ_1M);
 
 	rc = get_device_address(client, hndl, align, &iova, &buffer_size,
-					mem->flags, buffer_type);
+				mem->flags, buffer_type, &mem->mapping_info);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get device address: %d\n", rc);
 		goto fail_device_address;
@@ -211,7 +308,7 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	mem->buffer_type = buffer_type;
 	if (map_kernel) {
 		mem->kvaddr = ion_map_kernel(client->clnt, hndl);
-		if (IS_ERR(mem->kvaddr) || !mem->kvaddr) {
+		if (IS_ERR_OR_NULL(mem->kvaddr)) {
 			dprintk(VIDC_ERR,
 				"Failed to map shared mem in kernel\n");
 			rc = -EIO;
@@ -222,7 +319,7 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	}
 
 	rc = get_device_address(client, hndl, align, &iova, &buffer_size,
-				flags, buffer_type);
+				flags, buffer_type, &mem->mapping_info);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get device address: %d\n",
 			rc);
@@ -238,11 +335,11 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	dprintk(VIDC_DBG,
 		"%s: ion_handle = 0x%p, device_addr = 0x%pa, size = 0x%zx, kvaddr = 0x%p, buffer_type = 0x%x, flags = 0x%lx\n",
 		__func__, mem->smem_priv, &mem->device_addr,
-		mem->size, mem->kvaddr,
-		mem->buffer_type, mem->flags);
+		mem->size, mem->kvaddr, mem->buffer_type, mem->flags);
 	return rc;
 fail_device_address:
-	ion_unmap_kernel(client->clnt, hndl);
+	if (mem->kvaddr)
+		ion_unmap_kernel(client->clnt, hndl);
 fail_map:
 	ion_free(client->clnt, hndl);
 fail_shared_mem_alloc:
@@ -251,28 +348,24 @@ fail_shared_mem_alloc:
 
 static void free_ion_mem(struct smem_client *client, struct msm_smem *mem)
 {
-	int domain, partition, rc;
-
 	dprintk(VIDC_DBG,
 		"%s: ion_handle = 0x%p, device_addr = 0x%pa, size = 0x%zx, kvaddr = 0x%p, buffer_type = 0x%x\n",
 		__func__, mem->smem_priv, &mem->device_addr,
 		mem->size, mem->kvaddr, mem->buffer_type);
-	rc = msm_smem_get_domain_partition((void *)client, mem->flags,
-			mem->buffer_type, &domain, &partition);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to get domain, partition: %d\n", rc);
-		return;
-	}
 
 	if (mem->device_addr)
-		put_device_address(client,
-			mem->smem_priv, domain, partition, mem->flags);
+		put_device_address(client, mem->smem_priv, mem->flags,
+			&mem->mapping_info, mem->buffer_type);
+
 	if (mem->kvaddr)
 		ion_unmap_kernel(client->clnt, mem->smem_priv);
 	if (mem->smem_priv) {
 		trace_msm_smem_buffer_ion_op_start("FREE",
 				(u32)mem->buffer_type, -1, mem->size, -1,
 				mem->flags, -1);
+		dprintk(VIDC_DBG,
+			"%s: Freeing handle %p, client: %p\n",
+			__func__, mem->smem_priv, client->clnt);
 		ion_free(client->clnt, mem->smem_priv);
 		trace_msm_smem_buffer_ion_op_end("FREE", (u32)mem->buffer_type,
 			-1, mem->size, -1, mem->flags, -1);
@@ -500,41 +593,27 @@ void msm_smem_delete_client(void *clt)
 	kfree(client);
 }
 
-int msm_smem_get_domain_partition(void *clt, u32 flags, enum hal_buffer
-		buffer_type, int *domain_num, int *partition_num)
+struct context_bank_info *msm_smem_get_context_bank(void *clt,
+			bool is_secure, enum hal_buffer buffer_type)
 {
 	struct smem_client *client = clt;
-	struct iommu_set *iommu_group_set = &client->res->iommu_group_set;
-	int i;
-	int j;
-	bool is_secure = (flags & SMEM_SECURE);
-	struct iommu_info *iommu_map;
-	if (!domain_num || !partition_num) {
-		dprintk(VIDC_DBG, "passed null to get domain partition!\n");
-		return -EINVAL;
+	struct context_bank_info *cb = NULL, *match = NULL;
+
+	if (!clt) {
+		dprintk(VIDC_ERR, "%s - invalid params\n", __func__);
+		return NULL;
 	}
 
-	*domain_num = -1;
-	*partition_num = -1;
-	if (!iommu_group_set) {
-		dprintk(VIDC_DBG, "no iommu group set present!\n");
-		return -ENOENT;
-	}
-
-	for (i = 0; i < iommu_group_set->count; i++) {
-		iommu_map = &iommu_group_set->iommu_maps[i];
-		if (iommu_map->is_secure == is_secure) {
-			for (j = 0; j < iommu_map->npartitions; j++) {
-				if (iommu_map->buffer_type[j] & buffer_type) {
-					*domain_num = iommu_map->domain;
-					*partition_num = j;
-					break;
-				}
-			}
+	list_for_each_entry(cb, &client->res->context_banks, list) {
+		if (cb->is_secure == is_secure &&
+				cb->buffer_type & buffer_type) {
+			match = cb;
+			dprintk(VIDC_DBG,
+				"context bank found for device: %p mapping: %p\n",
+				match->dev, match->mapping);
+			break;
 		}
 	}
-	dprintk(VIDC_DBG, "domain: %d, partition: %d found!\n",
-			*domain_num, *partition_num);
-	return 0;
-}
 
+	return match;
+}

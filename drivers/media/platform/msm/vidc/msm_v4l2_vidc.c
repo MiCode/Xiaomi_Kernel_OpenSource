@@ -11,25 +11,26 @@
  *
  */
 
-#include <linux/module.h>
-#include <linux/types.h>
-#include <linux/list.h>
-#include <linux/ioctl.h>
-#include <linux/init.h>
-#include <linux/platform_device.h>
 #include <linux/debugfs.h>
-#include <linux/version.h>
-#include <linux/slab.h>
-#include <linux/qcom_iommu.h>
+#include <linux/dma-mapping.h>
+#include <linux/init.h>
+#include <linux/ioctl.h>
+#include <linux/list.h>
+#include <linux/module.h>
 #include <linux/msm_iommu_domains.h>
+#include <linux/of_platform.h>
+#include <linux/platform_device.h>
+#include <linux/qcom_iommu.h>
+#include <linux/slab.h>
+#include <linux/types.h>
+#include <linux/version.h>
 #include <media/msm_vidc.h>
-#include "msm_vidc_internal.h"
 #include "msm_vidc_debug.h"
-#include "vidc_hfi_api.h"
-#include "vidc_hfi_api.h"
-#include "msm_vidc_resources.h"
+#include "msm_vidc_internal.h"
 #include "msm_vidc_res_parse.h"
+#include "msm_vidc_resources.h"
 #include "venus_boot.h"
+#include "vidc_hfi_api.h"
 
 #define BASE_DEVICE_NUMBER 32
 
@@ -432,12 +433,33 @@ static struct attribute_group msm_vidc_core_attr_group = {
 		.attrs = msm_vidc_core_attrs,
 };
 
+static const struct of_device_id msm_vidc_dt_match[] = {
+	{.compatible = "qcom,msm-vidc"},
+	{.compatible = "qcom,msm-vidc,context-bank"},
+	{}
+};
+
 static int msm_vidc_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct msm_vidc_core *core;
 	struct device *dev;
 	int nr = BASE_DEVICE_NUMBER;
+
+	if (of_device_is_compatible(pdev->dev.of_node,
+		"qcom,msm-vidc,context-bank")) {
+		/* Extracting the parent device pointer for sub devices */
+		dev = pdev->dev.parent;
+		core = dev->platform_data;
+		rc = msm_vidc_populate_context_bank(&pdev->dev,
+				&core->resources);
+		if (rc)
+			dprintk(VIDC_ERR, "Failed to probe context bank\n");
+		else
+			dprintk(VIDC_DBG, "Successfully probed context bank\n");
+		/* get out of here! */
+		return rc;
+	}
 
 	core = kzalloc(sizeof(*core), GFP_KERNEL);
 	if (!core || !vidc_driver) {
@@ -553,6 +575,22 @@ static int msm_vidc_probe(struct platform_device *pdev)
 	core->debugfs_root = msm_vidc_debugfs_init_core(
 		core, vidc_driver->debugfs_root);
 	pdev->dev.platform_data = core;
+
+	dprintk(VIDC_DBG, "populating sub devices\n");
+	/*
+	 * Trigger probe for each sub-device i.e. qcom,msm-vidc,context-bank.
+	 * When msm_vidc_probe is called for each sub-device, parse the
+	 * context-bank details and store it in core->resources.context_banks
+	 * list.
+	 */
+	rc = of_platform_populate(
+		pdev->dev.of_node, msm_vidc_dt_match, NULL,
+		&pdev->dev);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to trigger probe for sub-devices\n");
+		goto err_cores_exceeded;
+	}
+
 	return rc;
 err_non_sec_pil_init:
 	vidc_hfi_deinitialize(core->hfi_type, core->device);
@@ -609,10 +647,6 @@ static int msm_vidc_remove(struct platform_device *pdev)
 	kfree(core);
 	return rc;
 }
-static const struct of_device_id msm_vidc_dt_match[] = {
-	{.compatible = "qcom,msm-vidc"},
-	{}
-};
 
 static int msm_vidc_pm_suspend(struct device *pdev)
 {

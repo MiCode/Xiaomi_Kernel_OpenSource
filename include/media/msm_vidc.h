@@ -51,6 +51,14 @@ enum hal_buffer {
 	HAL_BUFFER_INTERNAL_CMD_QUEUE = 0x800,
 };
 
+struct dma_mapping_info {
+	struct device *dev;
+	struct dma_iommu_mapping *mapping;
+	struct sg_table *table;
+	struct dma_buf_attachment *attach;
+	struct dma_buf *buf;
+};
+
 struct msm_smem {
 	int mem_type;
 	size_t size;
@@ -59,6 +67,7 @@ struct msm_smem {
 	unsigned long flags;
 	void *smem_priv;
 	enum hal_buffer buffer_type;
+	struct dma_mapping_info mapping_info;
 };
 
 enum smem_cache_ops {
@@ -98,8 +107,6 @@ int msm_vidc_decoder_cmd(void *instance, struct v4l2_decoder_cmd *dec);
 int msm_vidc_encoder_cmd(void *instance, struct v4l2_encoder_cmd *enc);
 int msm_vidc_poll(void *instance, struct file *filp,
 		struct poll_table_struct *pt);
-int msm_vidc_get_iommu_domain_partition(void *instance, u32 flags,
-		enum v4l2_buf_type, int *domain, int *partition);
 int msm_vidc_subscribe_event(void *instance,
 		const struct v4l2_event_subscription *sub);
 int msm_vidc_unsubscribe_event(void *instance,
@@ -116,8 +123,5 @@ int msm_vidc_smem_cache_operations(void *instance,
 		struct msm_smem *mem, enum smem_cache_ops);
 struct msm_smem *msm_vidc_smem_user_to_kernel(void *instance,
 			int fd, u32 offset, enum hal_buffer buffer_type);
-int msm_vidc_smem_get_domain_partition(void *instance,
-		u32 flags, enum hal_buffer buffer_type,
-		int *domain_num, int *partition_num);
 void *msm_vidc_smem_get_client(void *instance);
 #endif

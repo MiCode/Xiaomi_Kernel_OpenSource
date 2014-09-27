@@ -1,5 +1,6 @@
 * Qualcomm MSM VIDC
 
+[Root level node]
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
@@ -61,27 +62,6 @@ Optional properties:
   as "enum cp_mem_usage" in include/linux/msm_ion.h
 - qcom,imem-size: imem size required by hardware for optimum performance.
   If imem is not present then there is no need to specify this property.
-- qcom,vidc-iommu-domains: node containing individual domain nodes, each with:
-        - a unique domain name for the domain node (e.g vidc,domain-ns)
-        - qcom,vidc-domain-phandle: phandle for the domain as defined in
-          <target>-iommu-domains.dtsi (e.g msm8974-v1-iommu-domains.dtsi)
-        - qcom,vidc-partition-buffer-types: bitmap of buffer types that can
-          be mapped into each IOMMU domain partition.  There must be exactly
-          one buffer bitmap per partition in the domain, with order of the
-          bitmaps to be the same as the order of the respective partitions.
-        - Buffer types are defined as the following:
-          input = 0x1
-          output = 0x2
-          output2 = 0x4
-          extradata input = 0x8
-          extradata output = 0x10
-          extradata output2 = 0x20
-          internal scratch = 0x40
-          internal scratch1 = 0x80
-          internal scratch2 = 0x100
-          internal persist = 0x200
-          internal persist1 = 0x400
-          internal cmd queue = 0x800
 - *-supply: A phandle pointing to the appropriate regulator. Number of
   regulators vary across targets.
 - qcom,clock-names: an array of clocks that the driver is supposed to be
@@ -109,6 +89,33 @@ Optional properties:
   idle message when it is in idle state.
 - qcom,enable-minimum-voting = A bool to limit the bandwidth vote to the
   lowest vector over an active session.
+
+[Second level nodes]
+Required properties:
+- compatible : one of:
+	- "qcom,msm-vidc,context-bank"
+- iommus : A phandle parsed by smmu driver. Number of entries will vary
+  across targets.
+
+Optional properties:
+- label - string describing iommu domain usage.
+- buffer-types : bitmap of buffer types that can be mapped into the current
+	IOMMU domain.
+        - Buffer types are defined as the following:
+          input = 0x1
+          output = 0x2
+          output2 = 0x4
+          extradata input = 0x8
+          extradata output = 0x10
+          extradata output2 = 0x20
+          internal scratch = 0x40
+          internal scratch1 = 0x80
+          internal scratch2 = 0x100
+          internal persist = 0x200
+          internal persist1 = 0x400
+          internal cmd queue = 0x800
+- virtual-addr-pool : offset and length of virtual address pool.
+- qcom,fw-context-bank : bool indicating firmware context bank.
 
 Example:
 
@@ -161,20 +168,22 @@ Example:
 				qcom,bus-configs = <0xf>;
 			};
 		};
-		qcom,vidc-iommu-domains {
-			qcom,domain-ns {
-				qcom,vidc-domain-phandle = <&venus_domain_ns>;
-				qcom,vidc-partition-buffer-types = <0x7ff>,
-							<0x800>;
-			};
-
-			qcom,domain-cp {
-				qcom,vidc-domain-phandle = <&venus_domain_cp>;
-				qcom,vidc-partition-buffer-types = <0x6>,
-							<0x7c1>;
-			};
-		};
 		qcom,use-non-secure-pil;
 		qcom,use_dynamic_bw_update;
 		qcom,fw-bias = <0xe000000>;
+		msm_vidc_cb1: msm_vidc_cb1 {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_ns";
+			iommus = <&venus_smmu 0x0a>,
+				<&venus_smmu 0x0b>,
+				<&venus_smmu 0x0c>;
+			buffer-types = <0xfff>;
+			virtual-addr-pool = <0x5dc00000 0x80000000>;
+		};
+		msm_vidc_cb2: msm_vidc_cb2 {
+			compatible = "qcom,msm-vidc,context-bank";
+			qcom,fw-context-bank;
+			iommus = <&venus_smmu 0x100>,
+				<&venus_smmu 0x106>;
+		};
 	};

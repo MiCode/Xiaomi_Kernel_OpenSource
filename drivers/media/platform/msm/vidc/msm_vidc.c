@@ -92,19 +92,6 @@ int msm_vidc_wait(void *instance)
 }
 EXPORT_SYMBOL(msm_vidc_wait);
 
-int msm_vidc_get_iommu_domain_partition(void *instance, u32 flags,
-		enum v4l2_buf_type buf_type, int *domain, int *partition)
-{
-	struct msm_vidc_inst *inst = instance;
-
-	if (!inst || !inst->core || !inst->core->device)
-		return -EINVAL;
-
-	return msm_comm_get_domain_partition(inst, flags, buf_type, domain,
-		partition);
-}
-EXPORT_SYMBOL(msm_vidc_get_iommu_domain_partition);
-
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -1119,16 +1106,6 @@ struct msm_smem *msm_vidc_smem_user_to_kernel(void *instance, int fd,
 			fd, offset, buffer_type);
 }
 EXPORT_SYMBOL(msm_vidc_smem_user_to_kernel);
-
-int msm_vidc_smem_get_domain_partition(void *instance, u32 flags,
-		enum hal_buffer buffer_type, int *domain_num,
-		int *partition_num)
-{
-	return msm_comm_smem_get_domain_partition(
-		(struct msm_vidc_inst *)instance,
-		flags, buffer_type, domain_num, partition_num);
-}
-EXPORT_SYMBOL(msm_vidc_smem_get_domain_partition);
 
 void *msm_vidc_smem_get_client(void *instance)
 {

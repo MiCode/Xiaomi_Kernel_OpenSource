@@ -1340,8 +1340,6 @@ struct hfi_device {
 	int (*vote_bus)(void *dev, struct vidc_bus_vote_data *data,
 			int num_data, int requested_level);
 	int (*unvote_bus)(void *dev);
-	int (*iommu_get_domain_partition)(void *dev, u32 flags, u32 buffer_type,
-			int *domain_num, int *partition_num);
 	int (*load_fw)(void *dev);
 	void (*unload_fw)(void *dev);
 	int (*resurrect_fw)(void *dev);
