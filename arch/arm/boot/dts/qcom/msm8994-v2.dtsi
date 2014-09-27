@@ -48,6 +48,12 @@
 				  "cci-irq",
 				  "sbe-irq";
 	};
+
+	cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <1 7 0xff00>;
+	};
 };
 
 /* Clock driver overrides */

@@ -14,6 +14,7 @@ Optional:
 
 - qcom,irq-is-percpu: 	Define this if the IRQ of the PMU is a PPI. This will tell perf to use
 			the per_cpu IRQ API for request and free.
+- qcom,apply-cti-pmu-wa: Indicates if the driver needs to apply the CTI PMU Workaround. Relevant for 8994V1.
 
 Example:
 
