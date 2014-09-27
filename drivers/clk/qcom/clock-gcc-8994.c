@@ -303,6 +303,8 @@ static struct clk_freq_tbl ftbl_ufs_axi_clk_src[] = {
 static struct clk_freq_tbl ftbl_ufs_axi_clk_src_v2[] = {
 	F(  50000000, gpll0_out_main,   12,    0,     0),
 	F( 100000000, gpll0_out_main,    6,    0,     0),
+	F( 150000000, gpll0_out_main,    4,    0,     0),
+	F( 171430000, gpll0_out_main,  3.5,    0,     0),
 	F( 200000000, gpll0_out_main,    3,    0,     0),
 	F( 240000000, gpll0_out_main,  2.5,    0,     0),
 	F_END
@@ -369,7 +371,9 @@ static struct clk_freq_tbl ftbl_blspqup_spi_apps_clk_src_v2[] = {
 	F(   9600000,         gcc_xo,    2,    0,     0),
 	F(  15000000, gpll0_out_main,   10,    1,     4),
 	F(  19200000,         gcc_xo,    1,    0,     0),
+	F(  24000000, gpll0_out_main, 12.5,    1,     2),
 	F(  25000000, gpll0_out_main,   12,    1,     2),
+	F(  48000000, gpll0_out_main, 12.5,    0,     0),
 	F(  50000000, gpll0_out_main,   12,    0,     0),
 	F_END
 };
