@@ -113,8 +113,6 @@
 /* clock_gcc controlled clocks */
 #define clk_gcc_xo 0x7503042f
 #define clk_gcc_xo_a_clk 0x344f46f4
-#define clk_debug_mmss_clk 0x977c99b6
-#define clk_debug_rpm_clk 0x8e2b07ca
 #define clk_gpll0 0x1ebe3bc4
 #define clk_gpll0_ao 0xa1368304
 #define clk_gpll0_out_main 0xe9374de7
@@ -455,6 +453,9 @@
 #define clk_a53_div_clk 0x6006022b
 
 /* clock_debug controlled clocks */
+#define clk_debug_mmss_clk 0x977c99b6
+#define clk_debug_rpm_clk 0x8e2b07ca
+#define clk_debug_cpu_clk 0x0e696b2b
 #define clk_gcc_debug_mux 0x8121ac15
 
 #endif
