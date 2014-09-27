@@ -2693,8 +2693,8 @@ static int slim_master_read_enable(void *core_handle,
 		goto exit;
 	}
 
-	if (core->cpe_cdc_cb->slimtx_lab_en)
-		core->cpe_cdc_cb->slimtx_lab_en(codec, 1);
+	if (core->cpe_cdc_cb->lab_cdc_ch_ctl)
+		core->cpe_cdc_cb->lab_cdc_ch_ctl(codec, 1);
 	else {
 		pr_err("%s: Failed to enable codec slave port\n",
 			__func__);
@@ -2730,7 +2730,7 @@ static int slim_master_read_enable(void *core_handle,
 	return 0;
 
 fail_slim_open:
-	core->cpe_cdc_cb->slimtx_lab_en(codec, 0);
+	core->cpe_cdc_cb->lab_cdc_ch_ctl(codec, 0);
 fail_mclk:
 	core->cpe_cdc_cb->cdc_ext_clk(codec, false, false);
 exit:
@@ -2785,8 +2785,8 @@ static int wcd_cpe_lsm_stop_lab(void *core_handle,
 	lab_s = &session->lab;
 	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
 	/* This seqeunce should be followed strictly for closing sequence */
-	if (core->cpe_cdc_cb->slimtx_lab_en)
-		core->cpe_cdc_cb->slimtx_lab_en(codec, 0);
+	if (core->cpe_cdc_cb->lab_cdc_ch_ctl)
+		core->cpe_cdc_cb->lab_cdc_ch_ctl(codec, 0);
 	else
 		pr_err("%s: Failed to disable codec slave port\n",
 			__func__);

@@ -51,7 +51,6 @@ enum {
 #define TOMTOM_VALIDATE_RX_SBPORT_RANGE(port) ((port >= 16) && (port <= 23))
 #define TOMTOM_CONVERT_RX_SBPORT_ID(port) (port - 16) /* RX1 port ID = 0 */
 
-#define TOMTOM_MAD_MASTER_SLIM_TX 140
 #define TOMTOM_HPH_PA_SETTLE_COMP_ON 3000
 #define TOMTOM_HPH_PA_SETTLE_COMP_OFF 13000
 #define TOMTOM_HPH_PA_RAMP_DELAY 30000
@@ -5272,6 +5271,7 @@ static int tomtom_set_channel_map(struct snd_soc_dai *dai,
 				unsigned int rx_num, unsigned int *rx_slot)
 
 {
+	struct wcd9xxx_codec_dai_data *dai_data = NULL;
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(dai->codec);
 	struct wcd9xxx *core = dev_get_drvdata(dai->codec->dev->parent);
 	if (!tx_slot || !rx_slot) {
@@ -5287,6 +5287,12 @@ static int tomtom_set_channel_map(struct snd_soc_dai *dai,
 	if (tomtom->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		wcd9xxx_init_slimslave(core, core->slim->laddr,
 					   tx_num, tx_slot, rx_num, rx_slot);
+		/* Reserve TX13 for MAD data channel */
+		dai_data = &tomtom->dai[AIF4_MAD_TX];
+		if (dai_data) {
+			list_add_tail(&core->tx_chs[TOMTOM_TX13].list,
+				      &dai_data->wcd9xxx_ch_list);
+		}
 	}
 	return 0;
 }
@@ -5632,7 +5638,8 @@ static int tomtom_hw_params(struct snd_pcm_substream *substream,
 
 	switch (substream->stream) {
 	case SNDRV_PCM_STREAM_CAPTURE:
-		if (dai->id != AIF4_VIFEED) {
+		if (dai->id != AIF4_VIFEED &&
+		    dai->id != AIF4_MAD_TX) {
 			ret = tomtom_set_decimator_rate(dai, tx_fs_rate,
 							   params_rate(params));
 			if (ret < 0) {
@@ -6121,100 +6128,105 @@ out_vi:
 	return ret;
 }
 
-static int tomtom_codec_enable_slimtx_mad(struct snd_soc_codec *codec,
-					  int event)
+/* __tomtom_codec_enable_slimtx: Enable the slimbus slave port
+ *				 for TX path
+ * @codec: Handle to the codec for which the slave port is to be
+ *	   enabled.
+ * @dai_data: The dai specific data for dai which is enabled.
+ */
+static int __tomtom_codec_enable_slimtx(struct snd_soc_codec *codec,
+		int event, struct wcd9xxx_codec_dai_data *dai_data)
 {
 	struct wcd9xxx *core;
-	struct tomtom_priv *tomtom_p = snd_soc_codec_get_drvdata(codec);
-	struct wcd9xxx_codec_dai_data *dai;
 	int ret = 0;
-	struct wcd9xxx_ch *ch;
 
-	dai = &tomtom_p->dai[AIF4_MAD_TX];
 	core = dev_get_drvdata(codec->dev->parent);
-	pr_debug("%s: Set MAD Channel MAP to TX12\n", __func__);
-	if (event) {
-		list_add_tail(&core->tx_chs[TOMTOM_TX13].list,
-			      &dai->wcd9xxx_ch_list);
-		tomtom_codec_enable_int_port(dai, codec);
-		(void) tomtom_codec_enable_slim_chmask(dai, true);
-		dai->rate = 16000;
-		dai->bit_width = 16;
-		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
-					      16000, 16,
-					      &dai->grph);
-	} else {
-		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
-						dai->grph);
-		pr_debug("%s: wcd9xxx_close_slim_sch_tx rc = 0x%x\n",
-			 __func__, ret);
-		ret = tomtom_codec_enable_slim_chmask(dai, false);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		dai_data->bus_down_in_recovery = false;
+		tomtom_codec_enable_int_port(dai_data, codec);
+		(void) tomtom_codec_enable_slim_chmask(dai_data, true);
+		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai_data->wcd9xxx_ch_list,
+					      dai_data->rate,
+					      dai_data->bit_width,
+					      &dai_data->grph);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		ret = wcd9xxx_close_slim_sch_tx(core,
+						&dai_data->wcd9xxx_ch_list,
+						dai_data->grph);
+		if (!dai_data->bus_down_in_recovery)
+			ret = tomtom_codec_enable_slim_chmask(dai_data, false);
 		if (ret < 0) {
 			ret = wcd9xxx_disconnect_port(core,
-						      &dai->wcd9xxx_ch_list,
-						      dai->grph);
-			pr_debug("%s: Disconnect RX port, ret = %d\n",
+					&dai_data->wcd9xxx_ch_list,
+					dai_data->grph);
+			dev_dbg(codec->dev,
+				"%s: Disconnect TX port, ret = %d\n",
 				 __func__, ret);
 		}
-		list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
-			if (ch->ch_num == TOMTOM_MAD_MASTER_SLIM_TX) {
-				list_del_init(&core->tx_chs[TOMTOM_TX13].list);
-				break;
-			}
-		}
+
+		dai_data->bus_down_in_recovery = false;
+		break;
 	}
-return ret;
+
+	return ret;
 }
 
+/*
+ * tomtom_codec_enable_slimtx_mad: Callback function that will be invoked
+ *	to setup the slave port for MAD.
+ * @codec: Handle to the codec
+ * @event: Indicates whether to enable or disable the slave port
+ */
+static int tomtom_codec_enable_slimtx_mad(struct snd_soc_codec *codec,
+					  u8 event)
+{
+	struct tomtom_priv *tomtom_p = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_codec_dai_data *dai;
+	int dapm_event = SND_SOC_DAPM_POST_PMU;
+
+	dai = &tomtom_p->dai[AIF4_MAD_TX];
+
+	if (event == 0)
+		dapm_event = SND_SOC_DAPM_POST_PMD;
+
+	dev_dbg(codec->dev,
+		"%s: mad_channel, event = 0x%x\n",
+		 __func__, event);
+	return __tomtom_codec_enable_slimtx(codec, dapm_event, dai);
+}
+
+/*
+ * tomtom_codec_enable_slimtx: DAPM widget allback for TX widgets
+ * @w: widget for which this callback is invoked
+ * @kcontrol: kcontrol associated with this widget
+ * @event: DAPM supplied event indicating enable/disable
+ */
 static int tomtom_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *kcontrol,
 				     int event)
 {
-	struct wcd9xxx *core;
 	struct snd_soc_codec *codec = w->codec;
 	struct tomtom_priv *tomtom_p = snd_soc_codec_get_drvdata(codec);
-	u32  ret = 0;
 	struct wcd9xxx_codec_dai_data *dai;
 
-	core = dev_get_drvdata(codec->dev->parent);
-
-	pr_debug("%s: event called! codec name %s num_dai %d stream name %s\n",
-		__func__, w->codec->name, w->codec->num_dai, w->sname);
+	dev_dbg(codec->dev,
+	       "%s: codec name %s num_dai %d stream name %s\n",
+	       __func__, w->codec->name,
+	       w->codec->num_dai, w->sname);
 
 	/* Execute the callback only if interface type is slimbus */
 	if (tomtom_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
 		return 0;
 
-	pr_debug("%s(): w->name %s event %d w->shift %d\n",
+	dev_dbg(codec->dev,
+		"%s(): w->name %s event %d w->shift %d\n",
 		__func__, w->name, event, w->shift);
 
 	dai = &tomtom_p->dai[w->shift];
-	switch (event) {
-	case SND_SOC_DAPM_POST_PMU:
-		dai->bus_down_in_recovery = false;
-		tomtom_codec_enable_int_port(dai, codec);
-		(void) tomtom_codec_enable_slim_chmask(dai, true);
-		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
-					      dai->rate, dai->bit_width,
-					      &dai->grph);
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
-						dai->grph);
-		if (!dai->bus_down_in_recovery)
-			ret = tomtom_codec_enable_slim_chmask(dai, false);
-		if (ret < 0) {
-			ret = wcd9xxx_disconnect_port(core,
-						      &dai->wcd9xxx_ch_list,
-						      dai->grph);
-			pr_debug("%s: Disconnect RX port, ret = %d\n",
-				 __func__, ret);
-		}
-
-		dai->bus_down_in_recovery = false;
-		break;
-	}
-	return ret;
+	return __tomtom_codec_enable_slimtx(codec, event, dai);
 }
 
 static int tomtom_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
@@ -8284,7 +8296,7 @@ static int tomtom_codec_fll_enable(struct snd_soc_codec *codec,
 static const struct wcd_cpe_cdc_cb cpe_cb = {
 	.cdc_clk_en = tomtom_codec_internal_rco_ctrl,
 	.cpe_clk_en = tomtom_codec_fll_enable,
-	.slimtx_lab_en = tomtom_codec_enable_slimtx_mad,
+	.lab_cdc_ch_ctl = tomtom_codec_enable_slimtx_mad,
 	.cdc_ext_clk = tomtom_codec_ext_clk_en,
 };
 
