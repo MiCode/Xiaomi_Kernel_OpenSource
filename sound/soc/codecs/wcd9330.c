@@ -3149,7 +3149,7 @@ static int tomtom_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	case 4:
 		dmic_clk_en = 0x02;
 		dmic_clk_cnt = &(tomtom->dmic_3_4_clk_cnt);
-		dmic_clk_reg = TOMTOM_A_DMIC_B1_CTL;
+		dmic_clk_reg = TOMTOM_A_DMIC_B2_CTL;
 		dmic_rate_shift = 1;
 		pr_debug("%s() event %d DMIC%d dmic_3_4_clk_cnt %d\n",
 			__func__, event,  dmic, *dmic_clk_cnt);
@@ -3159,7 +3159,7 @@ static int tomtom_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	case 6:
 		dmic_clk_en = 0x04;
 		dmic_clk_cnt = &(tomtom->dmic_5_6_clk_cnt);
-		dmic_clk_reg = TOMTOM_A_DMIC_B1_CTL;
+		dmic_clk_reg = TOMTOM_A_DMIC_B2_CTL;
 		dmic_rate_shift = 4;
 		pr_debug("%s() event %d DMIC%d dmic_5_6_clk_cnt %d\n",
 			__func__, event,  dmic, *dmic_clk_cnt);
@@ -3184,7 +3184,7 @@ static int tomtom_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, dmic_clk_reg,
 				0x07 << dmic_rate_shift,
 				dmic_rate_val << dmic_rate_shift);
-			snd_soc_update_bits(codec, dmic_clk_reg,
+			snd_soc_update_bits(codec, TOMTOM_A_DMIC_B1_CTL,
 					dmic_clk_en, dmic_clk_en);
 		}
 
@@ -3197,7 +3197,7 @@ static int tomtom_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 					pdata->mad_dmic_sample_rate);
 		(*dmic_clk_cnt)--;
 		if (*dmic_clk_cnt  == 0) {
-			snd_soc_update_bits(codec, dmic_clk_reg,
+			snd_soc_update_bits(codec, TOMTOM_A_DMIC_B1_CTL,
 					dmic_clk_en, 0);
 			snd_soc_update_bits(codec, dmic_clk_reg,
 				0x07 << dmic_rate_shift,
