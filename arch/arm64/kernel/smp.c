@@ -49,6 +49,7 @@
 #include <asm/sections.h>
 #include <asm/tlbflush.h>
 #include <asm/ptrace.h>
+#include <asm/edac.h>
 
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
@@ -556,6 +557,7 @@ static void ipi_cpu_stop(unsigned int cpu, struct pt_regs *regs)
 		pr_crit("CPU%u: stopping\n", cpu);
 		show_regs(regs);
 		dump_stack();
+		arm64_check_cache_ecc();
 		raw_spin_unlock(&stop_lock);
 	}
 

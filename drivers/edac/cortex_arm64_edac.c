@@ -113,11 +113,12 @@ struct erp_drvdata {
 	u32 mem_perf_counter;
 	struct notifier_block nb_pm;
 	struct notifier_block nb_cpu;
+	struct notifier_block nb_panic;
 	struct work_struct work;
 	int apply_cti_pmu_wa;
 };
 
-static struct erp_drvdata *abort_handler_drvdata;
+static struct erp_drvdata *abort_handler_drvdata, *panic_handler_drvdata;
 
 struct erp_local_data {
 	struct erp_drvdata *drv;
@@ -785,6 +786,20 @@ static int msm_cti_pmu_wa_cpu_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
+void arm64_check_cache_ecc(void)
+{
+	if (panic_handler_drvdata)
+		check_sbe_event(panic_handler_drvdata);
+}
+
+static int arm64_erp_panic_notify(struct notifier_block *this,
+			      unsigned long event, void *ptr)
+{
+	arm64_check_cache_ecc();
+
+	return NOTIFY_OK;
+}
+
 static int arm64_cpu_erp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -879,6 +894,9 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 	cpu_pm_register_notifier(&(drv->nb_pm));
 	drv->nb_cpu.notifier_call = msm_cti_pmu_wa_cpu_notify;
 	register_cpu_notifier(&drv->nb_cpu);
+	drv->nb_panic.notifier_call = arm64_erp_panic_notify;
+	atomic_notifier_chain_register(&panic_notifier_list,
+				       &drv->nb_panic);
 	arm64_pmu_irq_handled_externally();
 	if (drv->apply_cti_pmu_wa) {
 		schedule_on_each_cpu(msm_enable_cti_pmu_workaround);
@@ -902,6 +920,7 @@ out_irq:
 	WARN_ON(abort_handler_drvdata);
 
 	abort_handler_drvdata = drv;
+	panic_handler_drvdata = drv;
 	return 0;
 
 out_dev:
