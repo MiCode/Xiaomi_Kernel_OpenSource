@@ -267,6 +267,8 @@ int avcs_core_query_timer(uint64_t *avtimer_tick)
 {
 	int ret = 0;
 	uint32_t avtimer_msw = 0, avtimer_lsw = 0;
+	uint32_t res = 0;
+	uint64_t avtimer_tick_temp;
 
 	if (!atomic_read(&avtimer.adsp_ready)) {
 		if (q6core_is_adsp_ready()) {
@@ -277,13 +279,16 @@ int avcs_core_query_timer(uint64_t *avtimer_tick)
 			return -ENETRESET;
 		}
 	}
-	avtimer_msw = ioread32(avtimer.p_avtimer_msw);
 	avtimer_lsw = ioread32(avtimer.p_avtimer_lsw);
+	avtimer_msw = ioread32(avtimer.p_avtimer_msw);
 
-	avtimer_lsw = avtimer_lsw/avtimer.clk_div;
-	*avtimer_tick =
+	avtimer_tick_temp =
 		(uint64_t)((uint64_t)avtimer_msw << 32)
 			| avtimer_lsw;
+	res = do_div(avtimer_tick_temp, avtimer.clk_div);
+	*avtimer_tick = avtimer_tick_temp;
+	pr_debug("%s:Avtimer: msw: %u, lsw: %u, tick: %llu\n", __func__,
+			avtimer_msw, avtimer_lsw, *avtimer_tick);
 	return 0;
 }
 EXPORT_SYMBOL(avcs_core_query_timer);
