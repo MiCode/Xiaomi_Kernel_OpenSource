@@ -2037,3 +2037,91 @@ static void *measure_clk_dt_parser(struct device *dev,
 	return &mux->c;
 };
 MSMCLK_PARSER(measure_clk_dt_parser, "qcom,measure-mux", 0);
+
+static void *div_clk_dt_parser(struct device *dev,
+					struct device_node *np)
+{
+	struct div_clk *div_clk;
+	struct msmclk_data *drv;
+	int rc;
+
+	div_clk = devm_kzalloc(dev, sizeof(*div_clk), GFP_KERNEL);
+	if (!div_clk) {
+		dt_err(np, "memory alloc failed\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	rc = of_property_read_u32(np, "qcom,max-div", &div_clk->data.max_div);
+	if (rc) {
+		dt_err(np, "missing qcom,max-div\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,min-div", &div_clk->data.min_div);
+	if (rc) {
+		dt_err(np, "missing qcom,min-div\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,base-offset", &div_clk->offset);
+	if (rc) {
+		dt_err(np, "missing qcom,base-offset\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,mask", &div_clk->mask);
+	if (rc) {
+		dt_err(np, "missing qcom,mask\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,shift", &div_clk->shift);
+	if (rc) {
+		dt_err(np, "missing qcom,shift\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (of_property_read_bool(np, "qcom,slave-div"))
+		div_clk->c.ops = &clk_ops_slave_div;
+	else
+		div_clk->c.ops = &clk_ops_div;
+	div_clk->ops = &div_reg_ops;
+
+	drv = msmclk_parse_phandle(dev, np->parent->phandle);
+	if (IS_ERR_OR_NULL(drv))
+		return ERR_CAST(drv);
+	div_clk->base = &drv->base;
+
+	return msmclk_generic_clk_init(dev, np, &div_clk->c);
+};
+MSMCLK_PARSER(div_clk_dt_parser, "qcom,div-clk", 0);
+
+static void *fixed_div_clk_dt_parser(struct device *dev,
+						struct device_node *np)
+{
+	struct div_clk *div_clk;
+	int rc;
+
+	div_clk = devm_kzalloc(dev, sizeof(*div_clk), GFP_KERNEL);
+	if (!div_clk) {
+		dt_err(np, "memory alloc failed\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	rc = of_property_read_u32(np, "qcom,div", &div_clk->data.div);
+	if (rc) {
+		dt_err(np, "missing qcom,div\n");
+		return ERR_PTR(-EINVAL);
+	}
+	div_clk->data.min_div = div_clk->data.div;
+	div_clk->data.max_div = div_clk->data.div;
+
+	if (of_property_read_bool(np, "qcom,slave-div"))
+		div_clk->c.ops = &clk_ops_slave_div;
+	else
+		div_clk->c.ops = &clk_ops_div;
+	div_clk->ops = &div_reg_ops;
+
+	return msmclk_generic_clk_init(dev, np, &div_clk->c);
+}
+MSMCLK_PARSER(fixed_div_clk_dt_parser, "qcom,fixed-div-clk", 0);
