@@ -1262,6 +1262,37 @@ static bool mux_reg_is_enabled(struct mux_clk *clk)
 	return !!(regval & clk->en_mask);
 }
 
+static int div_reg_set_div(struct div_clk *clk, int div)
+{
+	u32 regval;
+	unsigned long flags;
+
+	/* Divider is not configurable */
+	if (!clk->mask)
+		return 0;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	regval = readl_relaxed(*clk->base + clk->offset);
+	regval &= ~(clk->mask << clk->shift);
+	regval |= (div & clk->mask) << clk->shift;
+	/* Ensure switch request goes through before returning */
+	mb();
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+
+	return 0;
+}
+
+static int div_reg_get_div(struct div_clk *clk)
+{
+	u32 regval;
+	/* Divider is not configurable */
+	if (!clk->mask)
+		return clk->data.div;
+
+	regval = readl_relaxed(*clk->base + clk->offset);
+	return (regval >> clk->shift) & clk->mask;
+}
+
 /* =================Half-integer RCG without MN counter================= */
 #define RCGR_CMD_REG(x) ((x)->base + (x)->div_offset)
 #define RCGR_DIV_REG(x) ((x)->base + (x)->div_offset + 4)
@@ -1498,6 +1529,11 @@ struct clk_mux_ops mux_reg_ops = {
 	.set_mux_sel = mux_reg_set_mux_sel,
 	.get_mux_sel = mux_reg_get_mux_sel,
 	.is_enabled = mux_reg_is_enabled,
+};
+
+struct clk_div_ops div_reg_ops = {
+	.set_div = div_reg_set_div,
+	.get_div = div_reg_get_div,
 };
 
 struct mux_div_ops rcg_mux_div_ops = {
