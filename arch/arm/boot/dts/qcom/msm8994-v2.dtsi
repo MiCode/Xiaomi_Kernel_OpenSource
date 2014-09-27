@@ -50,6 +50,15 @@
 	};
 };
 
+/* Clock driver overrides */
+&clock_gcc {
+	compatible = "qcom,gcc-8994v2";
+};
+
+&clock_mmss {
+	compatible = "qcom,mmsscc-8994v2";
+};
+
 /* GPU overrides */
 &msm_gpu {
 	/* Updated chip ID */
