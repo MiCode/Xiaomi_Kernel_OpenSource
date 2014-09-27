@@ -519,6 +519,13 @@ enum ipa_sys_pipe_policy {
 	IPA_POLICY_INTR_POLL_MODE,
 };
 
+struct ipa_repl_ctx {
+	struct ipa_rx_pkt_wrapper **cache;
+	atomic_t head_idx;
+	atomic_t tail_idx;
+	u32 capacity;
+};
+
 /**
  * struct ipa_sys_context - IPA endpoint context for system to BAM pipes
  * @head_desc_list: header descriptors list
@@ -548,12 +555,16 @@ struct ipa_sys_context {
 	void (*sps_callback)(struct sps_event_notify *notify);
 	enum sps_option sps_option;
 	struct delayed_work replenish_rx_work;
+	struct work_struct repl_work;
+	void (*repl_hdlr)(struct ipa_sys_context *sys);
+	struct ipa_repl_ctx repl;
 
 	/* ordering is important - mutable fields go above */
 	struct ipa_ep_context *ep;
 	struct list_head head_desc_list;
 	spinlock_t spinlock;
 	struct workqueue_struct *wq;
+	struct workqueue_struct *repl_wq;
 	/* ordering is important - other immutable fields go below */
 };
 
@@ -720,6 +731,10 @@ struct ipa_stats {
 	u32 stat_compl;
 	u32 aggr_close;
 	u32 wan_aggr_close;
+	u32 wan_rx_empty;
+	u32 wan_repl_rx_empty;
+	u32 lan_rx_empty;
+	u32 lan_repl_rx_empty;
 };
 
 struct ipa_active_clients {
