@@ -24,7 +24,8 @@ int msm_fw_low_power_mode = 0x1;
 int msm_vidc_hw_rsp_timeout = 1000;
 u32 msm_fw_coverage = 0x0;
 int msm_vidc_vpe_csc_601_to_709 = 0x0;
-int msm_vidc_dcvs_mode = 0x1;
+int msm_vidc_dec_dcvs_mode = 0x1;
+int msm_vidc_enc_dcvs_mode = 0x0;
 int msm_vidc_sys_idle_indicator = 0x0;
 u32 msm_vidc_firmware_unload_delay = 15000;
 int msm_vidc_thermal_mitigation_disabled = 0x0;
@@ -161,9 +162,14 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 		dprintk(VIDC_WARN, "debugfs_create_file fw_coverage: fail\n");
 		goto failed_create_dir;
 	}
-	if (!debugfs_create_u32("dcvs_mode", S_IRUGO | S_IWUSR,
-			dir, &msm_vidc_dcvs_mode)) {
-		dprintk(VIDC_WARN, "debugfs_create_file dcvs_mode: fail\n");
+	if (!debugfs_create_u32("dcvs_dec_mode", S_IRUGO | S_IWUSR,
+			dir, &msm_vidc_dec_dcvs_mode)) {
+		dprintk(VIDC_WARN, "debugfs_create_file dcvs_dec_mode: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("dcvs_enc_mode", S_IRUGO | S_IWUSR,
+			dir, &msm_vidc_enc_dcvs_mode)) {
+		dprintk(VIDC_WARN, "debugfs_create_file dcvs_enc_mode: fail\n");
 		goto failed_create_dir;
 	}
 	if (!debugfs_create_u32("fw_low_power_mode", S_IRUGO | S_IWUSR,
@@ -383,14 +389,18 @@ void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 	char a[64] = "Frame processing";
 	switch (e) {
 	case MSM_VIDC_DEBUGFS_EVENT_ETB:
+		mutex_lock(&inst->lock);
 		inst->count.etb++;
+		mutex_unlock(&inst->lock);
 		if (inst->count.ebd && inst->count.ftb > inst->count.fbd) {
 			d->pdata[FRAME_PROCESSING].name[0] = '\0';
 			tic(inst, FRAME_PROCESSING, a);
 		}
 	break;
 	case MSM_VIDC_DEBUGFS_EVENT_EBD:
+		mutex_lock(&inst->lock);
 		inst->count.ebd++;
+		mutex_unlock(&inst->lock);
 		if (inst->count.ebd && inst->count.ebd == inst->count.etb) {
 			toc(inst, FRAME_PROCESSING);
 			dprintk(VIDC_PROF, "EBD: FW needs input buffers\n");

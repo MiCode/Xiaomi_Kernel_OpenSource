@@ -45,6 +45,9 @@
 #define MIN_SUPPORTED_WIDTH 32
 #define MIN_SUPPORTED_HEIGHT 32
 
+/* Maintains the number of FTB's between each FBD over a window */
+#define DCVS_FTB_WINDOW 32
+
 #define V4L2_EVENT_VIDC_BASE  10
 
 #define SYS_MSG_START VIDC_EVENT_CHANGE
@@ -63,21 +66,6 @@
 
 #define NUM_MBS_PER_FRAME(__height, __width) \
 	((ALIGN(__height, 16) / 16) * (ALIGN(__width, 16) / 16))
-
-/* Minimum number of display buffers */
-#define DCVS_MIN_DISPLAY_BUFF 4
-/* Default threshold to reduce the core frequency */
-#define DCVS_NOMINAL_THRESHOLD 8
-/* Default threshold to increase the core frequency */
-#define DCVS_TURBO_THRESHOLD 4
-/* Instance max load above which DCVS kicks in */
-#define DCVS_NOMINAL_LOAD NUM_MBS_PER_SEC(1088, 1920, 60)
-/* Considering one safeguard buffer */
-#define DCVS_BUFFER_SAFEGUARD 1
-/* Maintains the number of FTB's between each FBD over a window */
-#define DCVS_FTB_WINDOW 32
-/* Supported DCVS MBs per frame */
-#define DCVS_MIN_SUPPORTED_MBPERFRAME NUM_MBS_PER_FRAME(2160, 3840)
 
 enum vidc_ports {
 	OUTPUT_PORT,
@@ -210,6 +198,11 @@ struct dcvs_stats {
 	int min_threshold;
 	int max_threshold;
 	bool is_clock_scaled;
+	int etb_counter;
+	bool is_power_save_mode;
+	bool is_output_buff_added;
+	bool is_input_buff_added;
+	bool is_additional_buff_added;
 };
 
 struct profile_data {
