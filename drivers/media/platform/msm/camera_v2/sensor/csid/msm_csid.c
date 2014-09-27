@@ -616,6 +616,7 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 		csid_params.lane_cnt = csid_params32.lane_cnt;
 		csid_params.lane_assign = csid_params32.lane_assign;
 		csid_params.phy_sel = csid_params32.phy_sel;
+		csid_params.csi_clk = csid_params32.csi_clk;
 
 		lut_par32 = csid_params32.lut_params;
 		csid_params.lut_params.num_cid = lut_par32.num_cid;
