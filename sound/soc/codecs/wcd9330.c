@@ -5585,7 +5585,7 @@ static int tomtom_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(dai->codec);
-	u8 tx_fs_rate, rx_fs_rate;
+	u8 tx_fs_rate, rx_fs_rate, i2s_bit_mode;
 	u32 compander_fs;
 	int ret;
 
@@ -5642,27 +5642,35 @@ static int tomtom_hw_params(struct snd_pcm_substream *substream,
 			}
 		}
 
+		tomtom->dai[dai->id].rate   = params_rate(params);
+
+		switch (params_format(params)) {
+		case SNDRV_PCM_FORMAT_S16_LE:
+			i2s_bit_mode = 0x01;
+			tomtom->dai[dai->id].bit_width = 16;
+			break;
+		case SNDRV_PCM_FORMAT_S24_LE:
+			tomtom->dai[dai->id].bit_width = 24;
+			i2s_bit_mode = 0x00;
+			break;
+		case SNDRV_PCM_FORMAT_S32_LE:
+			tomtom->dai[dai->id].bit_width = 32;
+			i2s_bit_mode = 0x00;
+			break;
+		default:
+			dev_err(codec->dev,
+				"%s: Invalid format 0x%x\n",
+				 __func__, params_format(params));
+			return -EINVAL;
+		}
+
 		if (tomtom->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
-			switch (params_format(params)) {
-			case SNDRV_PCM_FORMAT_S16_LE:
-				snd_soc_update_bits(codec,
-					TOMTOM_A_CDC_CLK_TX_I2S_CTL,
-					0x20, 0x20);
-				break;
-			case SNDRV_PCM_FORMAT_S32_LE:
-				snd_soc_update_bits(codec,
-					TOMTOM_A_CDC_CLK_TX_I2S_CTL,
-					0x20, 0x00);
-				break;
-			default:
-				pr_err("invalid format\n");
-				break;
-			}
+			snd_soc_update_bits(codec, TOMTOM_A_CDC_CLK_TX_I2S_CTL,
+					    0x20, i2s_bit_mode << 5);
 			snd_soc_update_bits(codec, TOMTOM_A_CDC_CLK_TX_I2S_CTL,
 					    0x07, tx_fs_rate);
-		} else {
-			tomtom->dai[dai->id].rate   = params_rate(params);
 		}
+
 		break;
 
 	case SNDRV_PCM_STREAM_PLAYBACK:
