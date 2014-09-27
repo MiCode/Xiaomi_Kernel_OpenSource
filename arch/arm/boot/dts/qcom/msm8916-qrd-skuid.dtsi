@@ -11,10 +11,24 @@
  */
 
 #include "msm8916-qrd-skui.dtsi"
+#include "dsi-panel-hx8379a-fwvga-video.dtsi"
 
 / {
        model = "Qualcomm Technologies, Inc. MSM 8916 QRD SKUID";
        compatible = "qcom,msm8916-qrd-skuid", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8379a_fwvga_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active>;
+	pinctrl-1 = <&mdss_dsi_suspend>;
+
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+};
+
+&dsi_hx8379a_fwvga_video {
+	qcom,cont-splash-enabled;
 };
 
 &soc {
