@@ -44,6 +44,9 @@
 		qcom,batt-id-rpullup-kohm = <100>;
 		qcom,profile-a-rid-kohm = <33>;
 		qcom,profile-b-rid-kohm = <91>;
+		qcom,config-hard-thresholds;
+		qcom,hot-bat-decidegc = <550>;
+		qcom,cold-bat-decidegc = <(-150)>;
 	};
 };
 
