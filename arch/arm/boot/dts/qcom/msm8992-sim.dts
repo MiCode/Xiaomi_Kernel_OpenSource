@@ -70,6 +70,10 @@
 	status = "ok";
 };
 
+&pcie0 {
+	status = "disabled";
+};
+
 #include "dsi-panel-sim-video.dtsi"
 
 &mdss_mdp {
