@@ -12,7 +12,7 @@
 
 &soc {
 	tlmm_pinmux: pinctrl@1000000 {
-		compatible = "qcom,msm-tlmm-8909", "qcom,msm-tlmm-8916";
+		compatible = "qcom,msm-tlmm-8916";
 		reg = <0x1000000 0x300000>;
 		interrupts = <0 208 0>;
 
