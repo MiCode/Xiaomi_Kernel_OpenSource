@@ -10,13 +10,17 @@ Required properties :
 	"core": USB controller register space. (Required)
 	"tcsr": TCSR register for routing USB Controller signals to
 	either picoPHY0 or picoPHY1. (Optional)
+	"phy_csr": PHY Wrapper CSR register space. Provides register level
+	interface through AHB2PHY for performing PHY related operations
+	like retention and HV interrupts management.
 - interrupts: IRQ line
 - interrupt-names: OTG interrupt name(s) referenced in interrupts above
             HSUSB OTG expects "core_irq" which is IRQ line from CORE and
             optional ones are described in next section.
 - qcom,hsusb-otg-phy-type: PHY type can be one of
-            1 - Chipidea 45nm PHY (obsolete)
-	    2 - Synopsis 28nm PHY
+	    1 - Chipidea PHY (obsolete)
+	    2 - Synopsis Pico PHY
+	    3 - Synopsis Femto PHY
 - qcom,hsusb-otg-mode: Operational mode. Can be one of
             1 - Peripheral only mode
 	    2 - Host only mode
@@ -35,6 +39,28 @@ Required properties :
 - qcom,vdd-voltage-level: This property must be a list of three integer
 	values (no, min, max) where each value represents either a voltage
 	in microvolts or a value corresponding to voltage corner.
+- clocks: a list of phandles to the USB clocks. Usage is as per
+	Documentation/devicetree/bindings/clock/clock-bindings.txt
+- clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+	property.
+
+	Required clocks:
+	"core_clk": USB core clock that is required for data transfers.
+	"iface_clk": USB core clock that is required for register access.
+
+	Optional clocks:
+	"sleep_clk": PHY sleep clock. Required for interrupts.
+	"phy_reset_clk": PHY blocks asynchronous reset clock. Required
+		for the USB block reset. It is a reset only clock.
+	"phy_por_clk": Reset only clock for asserting/de-asserting
+		PHY POR signal. Required for overriding PHY parameters.
+	"phy_csr_clk": Required for accessing PHY CSR registers through
+		AHB2PHY interface.
+	"xo": XO clock. The source clock that is used as a reference clock
+		to the PHY.
+	"bimc_clk", "snoc_clk", "pcnoc_clk": bus voting clocks. Used to
+		keep buses at a nominal frequency during USB peripheral
+		mode for achieving max throughput.
 
 Optional properties :
 - interrupt-names : Optional interrupt resource entries are:
@@ -126,6 +152,10 @@ Optional properties :
 	bimc/snoc/pcnoc clock with usb cable connected. If AHB2AHB bypass is enabled,
 	pcnoc value should be defined to very large number so that PNOC runs at max
 	frequency.
+- qcom,phy-dvdd-always-on: If present PHY DVDD is supplied by a always-on
+	regulator unlike vddcx/vddmx. PHY can keep D+ pull-up and D+/D-
+	pull-down resistors during peripheral and host bus suspend without
+	any re-work.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
