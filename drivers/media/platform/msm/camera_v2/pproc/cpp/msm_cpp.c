@@ -229,7 +229,7 @@ static struct msm_cpp_buff_queue_info_t *msm_cpp_get_buff_queue_entry(
 	}
 
 	if (buff_queue_info == NULL) {
-		pr_err("error buffer queue entry for sess:%d strm:%d not found\n",
+		CPP_DBG("buffer queue entry for sess:%d strm:%d not found\n",
 			session_id, stream_id);
 	}
 	return buff_queue_info;
