@@ -171,6 +171,11 @@ module_param_named(
 	debug_mask, smbchg_debug_mask, int, S_IRUSR | S_IWUSR
 );
 
+static int smbchg_parallel_en;
+module_param_named(
+	parallel_en, smbchg_parallel_en, int, S_IRUSR | S_IWUSR
+);
+
 #define pr_smb(reason, fmt, ...)				\
 	do {							\
 		if (smbchg_debug_mask & (reason))		\
@@ -1056,6 +1061,11 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip)
 {
 	int min_current_thr_ma, rc;
 	u8 reg;
+
+	if (!smbchg_parallel_en) {
+		pr_smb(PR_STATUS, "Parallel charging not enabled\n");
+		return false;
+	}
 
 	if (get_prop_charge_type(chip) != POWER_SUPPLY_CHARGE_TYPE_FAST) {
 		pr_smb(PR_STATUS, "Not in fast charge, skipping\n");
