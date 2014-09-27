@@ -394,10 +394,13 @@ static void hci_uart_tty_receive(struct tty_struct *tty, const u8 *data, char *f
 {
 	struct hci_uart *hu = (void *)tty->disc_data;
 
-	if (!hu || tty != hu->tty)
+	if (!hu || tty != hu->tty || !data)
 		return;
 
 	if (!test_bit(HCI_UART_PROTO_SET, &hu->flags))
+		return;
+
+	if (!hu->proto)
 		return;
 
 	spin_lock(&hu->rx_lock);
