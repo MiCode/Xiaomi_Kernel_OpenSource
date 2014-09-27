@@ -635,3 +635,22 @@ ahb_div_clk: ahb_div_clk {
 	qcom,parent = <&ahb_clk_src>;
 	qcom,div = <16>;
 };
+
+*****************************************************************************
+
+"qcom,reset-clk"
+
+We have not yet been able to move our current reset implementation to the linux
+reset framework. As a result, this clock type is not actually a clock, but
+rather just a random register containing a reset signal. The clock APIs are
+reused to match reset consumers with reset providers.
+
+Required Properties:
+- compatible:		Must be "qcom,reset-clk"
+- qcom,base-offset:	Offset from the register region described in the parent
+			clock controller.
+
+pcie0_reset_clk: pcie0_reset_clk {
+	compatible = "qcom,reset-clk";
+	qcom,base-offset = <GCC_PCIE0_BCR>;
+};
