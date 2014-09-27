@@ -326,6 +326,8 @@
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,cont-splash-enabled;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode";
 };
 
 &dsi_nt35590_720_vid {
@@ -335,6 +337,8 @@
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,cont-splash-enabled;
 	qcom,esd-check-enabled;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode";
 };
 
 &dsi_nt35590_720_cmd {

@@ -310,4 +310,6 @@
 &dsi_nt35596_1080p_skuk_video {
 	qcom,cont-splash-enabled;
 	qcom,esd-check-enabled;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode";
 };
