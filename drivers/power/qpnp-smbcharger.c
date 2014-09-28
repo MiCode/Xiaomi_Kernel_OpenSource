@@ -418,36 +418,30 @@ static bool is_usb_present(struct smbchg_chip *chip)
 }
 
 static char *usb_type_str[] = {
-	"ACA_DOCK",	/* bit 0 */
-	"ACA_C",	/* bit 1 */
-	"ACA_B",	/* bit 2 */
-	"ACA_A",	/* bit 3 */
-	"SDP",		/* bit 4 */
-	"OTHER",	/* bit 5 */
-	"DCP",		/* bit 6 */
-	"CDP",		/* bit 7 */
-	"NONE",		/* bit 8 error case */
+	"SDP",		/* bit 0 */
+	"OTHER",	/* bit 1 */
+	"DCP",		/* bit 2 */
+	"CDP",		/* bit 3 */
+	"NONE",		/* bit 4 error case */
 };
 
-#define BITS_PER_REG	8
+#define N_TYPE_BITS		4
+#define TYPE_BITS_OFFSET	4
 /* helper to return the string of USB type */
 static char *get_usb_type_name(u8 type_reg)
 {
 	unsigned long type = type_reg;
 
-	return usb_type_str[find_first_bit(&type, BITS_PER_REG)];
+	type >>= TYPE_BITS_OFFSET;
+	return usb_type_str[find_first_bit(&type, N_TYPE_BITS)];
 }
 
 static enum power_supply_type usb_type_enum[] = {
-	POWER_SUPPLY_TYPE_USB_ACA,	/* bit 0 */
-	POWER_SUPPLY_TYPE_USB_ACA,	/* bit 1 */
-	POWER_SUPPLY_TYPE_USB_ACA,	/* bit 2 */
-	POWER_SUPPLY_TYPE_USB_ACA,	/* bit 3 */
-	POWER_SUPPLY_TYPE_USB,		/* bit 4 */
-	POWER_SUPPLY_TYPE_UNKNOWN,	/* bit 5 */
-	POWER_SUPPLY_TYPE_USB_DCP,	/* bit 6 */
-	POWER_SUPPLY_TYPE_USB_CDP,	/* bit 7 */
-	POWER_SUPPLY_TYPE_USB,		/* bit 8 error case, report SDP */
+	POWER_SUPPLY_TYPE_USB,		/* bit 0 */
+	POWER_SUPPLY_TYPE_UNKNOWN,	/* bit 1 */
+	POWER_SUPPLY_TYPE_USB_DCP,	/* bit 2 */
+	POWER_SUPPLY_TYPE_USB_CDP,	/* bit 3 */
+	POWER_SUPPLY_TYPE_USB,		/* bit 4 error case, report SDP */
 };
 
 /* helper to return enum power_supply_type of USB type */
@@ -455,7 +449,8 @@ static enum power_supply_type get_usb_supply_type(u8 type_reg)
 {
 	unsigned long type = type_reg;
 
-	return usb_type_enum[find_first_bit(&type, BITS_PER_REG)];
+	type >>= TYPE_BITS_OFFSET;
+	return usb_type_enum[find_first_bit(&type, N_TYPE_BITS)];
 }
 
 static enum power_supply_property smbchg_battery_properties[] = {
