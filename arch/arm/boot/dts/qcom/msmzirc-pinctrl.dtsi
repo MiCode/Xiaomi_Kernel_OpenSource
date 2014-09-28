@@ -167,7 +167,7 @@
 		};
 
 		pcie0_perst {
-			qcom,pins = <&gp 65>;
+			qcom,pins = <&gp 61>;
 			qcom,num-grp-pins = <1>;
 			label = "pcie0-perst";
 			/* default state */
@@ -178,7 +178,7 @@
 		};
 
 		pcie0_wake {
-			qcom,pins = <&gp 61>;
+			qcom,pins = <&gp 65>;
 			qcom,num-grp-pins = <1>;
 			label = "pcie0-wake";
 			/* default state */
