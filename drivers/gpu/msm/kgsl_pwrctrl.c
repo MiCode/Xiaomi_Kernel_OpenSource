@@ -20,11 +20,13 @@
 #include <linux/ktime.h>
 #include <linux/delay.h>
 #include <linux/msm_adreno_devfreq.h>
+#include <linux/of_device.h>
 
 #include "kgsl.h"
 #include "kgsl_pwrscale.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
+#include <soc/qcom/devfreq_devbw.h>
 
 #define KGSL_PWRFLAGS_POWER_ON 0
 #define KGSL_PWRFLAGS_CLK_ON   1
@@ -1062,12 +1064,18 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 			&pwr->power_flags)) {
 			trace_kgsl_bus(device, state);
 			kgsl_pwrctrl_buslevel_update(device, false);
+
+			if (pwr->devbw)
+				devfreq_suspend_devbw(pwr->devbw);
 		}
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_AXI_ON,
 			&pwr->power_flags)) {
 			trace_kgsl_bus(device, state);
 			kgsl_pwrctrl_buslevel_update(device, true);
+
+			if (pwr->devbw)
+				devfreq_resume_devbw(pwr->devbw);
 		}
 	}
 }
@@ -1210,6 +1218,8 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	struct kgsl_device_platform_data *pdata = dev_get_platdata(&pdev->dev);
 	struct device_node *ocmem_bus_node;
 	struct msm_bus_scale_pdata *ocmem_scale_table = NULL;
+	struct device_node *gpubw_dev_node;
+	struct platform_device *p2dev;
 
 	/*acquire clocks */
 	for (i = 0; i < KGSL_MAX_CLKS; i++) {
@@ -1323,6 +1333,15 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	/* Set if independent bus BW voting is supported */
 	pwr->bus_control = pdata->bus_control;
+
+	/* Check if gpu bandwidth vote device is defined in dts */
+	gpubw_dev_node = of_parse_phandle(pdev->dev.of_node,
+					"qcom,gpubw-dev", 0);
+	if (gpubw_dev_node) {
+		p2dev = of_find_device_by_node(gpubw_dev_node);
+		if (p2dev)
+			pwr->devbw = &p2dev->dev;
+	}
 
 	/*
 	 * Set the range permitted for BIMC votes per-GPU frequency.
