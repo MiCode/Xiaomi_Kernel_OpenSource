@@ -145,8 +145,6 @@
 		<0xE0024 0x0>;
 	qcom,iommu-groups = <&venus_domain_ns &venus_domain_cp>;
 	qcom,iommu-group-buffer-types = <0xfff 0x1ff>;
-	qcom,buffer-type-tz-usage-table = <0x1 0x1>,
-					<0x7fe 0x2>;
 	qcom,msm-bus-clients {
 		qcom,msm-bus-client@0 {
 			qcom,msm-bus,name = "venc-ddr";

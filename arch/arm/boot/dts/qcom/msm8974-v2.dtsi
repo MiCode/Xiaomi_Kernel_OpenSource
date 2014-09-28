@@ -177,9 +177,6 @@
 		<0x80124 0x3>,
 		<0xE0020 0x5555556>,
 		<0xE0024 0x0>;
-	qcom,buffer-type-tz-usage-table = <0x241 0x1>,
-					<0x106 0x2>,
-					<0x480 0x3>;
 	qcom,vidc-iommu-domains {
 		qcom,domain-ns {
 			qcom,vidc-domain-phandle = <&venus_domain_ns>;

@@ -1804,9 +1804,6 @@
 	 * above that specification is best effort and might even be rejected.
 	 */
 	qcom,max-hw-load = <1281600>; /* max(4k X 2304 @ 24, 4k X 2160 @ 30) + 1080p @ 30 */
-	qcom,buffer-type-tz-usage-table = <0x241 0x1>,
-					<0x106 0x2>,
-					<0x480 0x3>;
 	qcom,vidc-iommu-domains {
 		qcom,domain-ns {
 			qcom,vidc-domain-phandle = <&venus_domain_ns>;

@@ -1958,10 +1958,6 @@
 			<244800 133330000 0x01000414>,
 			<244800 133330000 0x030fcfff>,
 			<244800 133330000 0x04000000>;
-
-		qcom,buffer-type-tz-usage-table = <0x241 0x1>,
-			<0x106 0x2>,
-			<0x480 0x3>;
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
 				qcom,vidc-domain-phandle = <&venus_domain_ns>;
