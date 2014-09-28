@@ -20,8 +20,7 @@ enum MHI_STATUS mhi_test_for_device_ready(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_log(MHI_MSG_INFO, "Waiting for MMIO Ready bit to be set\n");
 
 	/* Read MMIO and poll for READY bit to be set */
-	pcie_word_val = readl_relaxed((void *)(mhi_dev_ctxt->mmio_addr +
-						MHISTATUS));
+	pcie_word_val = mhi_reg_read(mhi_dev_ctxt->mmio_addr, MHISTATUS);
 	MHI_READ_FIELD(pcie_word_val,
 			MHISTATUS_READY_MASK,
 			MHISTATUS_READY_SHIFT);
@@ -34,8 +33,8 @@ enum MHI_STATUS mhi_test_for_device_ready(struct mhi_device_ctxt *mhi_dev_ctxt)
 		mhi_log(MHI_MSG_ERROR,
 			"Device is not ready, sleeping and retrying.\n");
 		msleep(MHI_READY_STATUS_TIMEOUT_MS);
-		pcie_word_val = readl_relaxed((void *)(mhi_dev_ctxt->mmio_addr +
-					      MHISTATUS));
+		pcie_word_val = mhi_reg_read(mhi_dev_ctxt->mmio_addr,
+					     MHISTATUS);
 		MHI_READ_FIELD(pcie_word_val,
 				MHISTATUS_READY_MASK, MHISTATUS_READY_SHIFT);
 	}
@@ -58,8 +57,8 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_log(MHI_MSG_INFO, "Bar 0 address is at: 0x%p\n",
 			mhi_dev_ctxt->mmio_addr);
 
-	mhi_dev_ctxt->mmio_len = readl_relaxed((void *)(mhi_dev_ctxt->mmio_addr
-							 + MHIREGLEN));
+	mhi_dev_ctxt->mmio_len = mhi_reg_read(mhi_dev_ctxt->mmio_addr,
+							 MHIREGLEN);
 
 	if (0 == mhi_dev_ctxt->mmio_len) {
 		mhi_log(MHI_MSG_ERROR, "Received mmio length as zero\n");
@@ -67,8 +66,8 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 	}
 
 	mhi_log(MHI_MSG_INFO, "Testing MHI Ver\n");
-	mhi_dev_ctxt->dev_props->mhi_ver = readl_relaxed(
-				(void *)(mhi_dev_ctxt->mmio_addr + MHIVER));
+	mhi_dev_ctxt->dev_props->mhi_ver = mhi_reg_read(
+				mhi_dev_ctxt->mmio_addr, MHIVER);
 	if (MHI_VERSION != mhi_dev_ctxt->dev_props->mhi_ver) {
 		mhi_log(MHI_MSG_CRITICAL, "Bad MMIO version, 0x%x\n",
 					mhi_dev_ctxt->dev_props->mhi_ver);
@@ -91,29 +90,32 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 			"Read back MMIO Ready bit successfully. Moving on..\n");
 	mhi_log(MHI_MSG_INFO, "Reading channel doorbell offset\n");
 
-	MHI_REG_READ_FIELD(mhi_dev_ctxt->mmio_addr,
-			CHDBOFF, CHDBOFF_CHDBOFF_MASK,
-			CHDBOFF_CHDBOFF_SHIFT, mhi_dev_ctxt->channel_db_addr);
+	mhi_dev_ctxt->channel_db_addr = mhi_dev_ctxt->mmio_addr;
+	mhi_dev_ctxt->event_db_addr = mhi_dev_ctxt->mmio_addr;
+
+	mhi_dev_ctxt->channel_db_addr += mhi_reg_read_field(
+					mhi_dev_ctxt->mmio_addr,
+					CHDBOFF, CHDBOFF_CHDBOFF_MASK,
+					CHDBOFF_CHDBOFF_SHIFT);
 
 	mhi_log(MHI_MSG_INFO, "Reading event doorbell offset\n");
-	MHI_REG_READ_FIELD(mhi_dev_ctxt->mmio_addr,
-			ERDBOFF, ERDBOFF_ERDBOFF_MASK,
-			ERDBOFF_ERDBOFF_SHIFT, mhi_dev_ctxt->event_db_addr);
-
-	mhi_dev_ctxt->channel_db_addr += (uintptr_t)mhi_dev_ctxt->mmio_addr;
-	mhi_dev_ctxt->event_db_addr += (uintptr_t)mhi_dev_ctxt->mmio_addr;
+	mhi_dev_ctxt->event_db_addr += mhi_reg_read_field(
+						mhi_dev_ctxt->mmio_addr,
+						ERDBOFF, ERDBOFF_ERDBOFF_MASK,
+						ERDBOFF_ERDBOFF_SHIFT);
 
 	mhi_log(MHI_MSG_INFO, "Setting all MMIO values.\n");
 
 	pcie_dword_val = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 			(uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list);
 	pcie_word_val = HIGH_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, CCABAP_HIGHER,
-			CCABAP_HIGHER_CCABAP_HIGHER_MASK,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			    mhi_dev_ctxt->mmio_addr, CCABAP_HIGHER,
+			    CCABAP_HIGHER_CCABAP_HIGHER_MASK,
 			CCABAP_HIGHER_CCABAP_HIGHER_SHIFT, pcie_word_val);
 	pcie_word_val = LOW_WORD(pcie_dword_val);
 
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, CCABAP_LOWER,
+	mhi_reg_write_field(mhi_dev_ctxt, mhi_dev_ctxt->mmio_addr, CCABAP_LOWER,
 				CCABAP_LOWER_CCABAP_LOWER_MASK,
 				CCABAP_LOWER_CCABAP_LOWER_SHIFT,
 				pcie_word_val);
@@ -122,12 +124,13 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 	pcie_dword_val = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 			(uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list);
 	pcie_word_val = HIGH_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, ECABAP_HIGHER,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, ECABAP_HIGHER,
 			ECABAP_HIGHER_ECABAP_HIGHER_MASK,
 			ECABAP_HIGHER_ECABAP_HIGHER_SHIFT, pcie_word_val);
 	pcie_word_val = LOW_WORD(pcie_dword_val);
 
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, ECABAP_LOWER,
+	mhi_reg_write_field(mhi_dev_ctxt, mhi_dev_ctxt->mmio_addr, ECABAP_LOWER,
 			ECABAP_LOWER_ECABAP_LOWER_MASK,
 			ECABAP_LOWER_ECABAP_LOWER_SHIFT, pcie_word_val);
 
@@ -136,29 +139,32 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 	pcie_dword_val = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 		(uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg->mhi_cmd_ctxt_list);
 	pcie_word_val = HIGH_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, CRCBAP_HIGHER,
+	mhi_reg_write_field(mhi_dev_ctxt,
+				mhi_dev_ctxt->mmio_addr, CRCBAP_HIGHER,
 				CRCBAP_HIGHER_CRCBAP_HIGHER_MASK,
 				CRCBAP_HIGHER_CRCBAP_HIGHER_SHIFT,
 				pcie_word_val);
 	pcie_word_val = LOW_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, CRCBAP_LOWER,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, CRCBAP_LOWER,
 			CRCBAP_LOWER_CRCBAP_LOWER_MASK,
 			CRCBAP_LOWER_CRCBAP_LOWER_SHIFT,
 			pcie_word_val);
 
-	mhi_dev_ctxt->cmd_db_addr = (uintptr_t)mhi_dev_ctxt->mmio_addr +
-								CRDB_LOWER;
+	mhi_dev_ctxt->cmd_db_addr = mhi_dev_ctxt->mmio_addr + CRDB_LOWER;
 	/* Set the control segment in the MMIO */
 	pcie_dword_val = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 				(uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg);
 	pcie_word_val = HIGH_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, MHICTRLBASE_HIGHER,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, MHICTRLBASE_HIGHER,
 			MHICTRLBASE_HIGHER_MHICTRLBASE_HIGHER_MASK,
 			MHICTRLBASE_HIGHER_MHICTRLBASE_HIGHER_SHIFT,
 			pcie_word_val);
 
 	pcie_word_val = LOW_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, MHICTRLBASE_LOWER,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, MHICTRLBASE_LOWER,
 			MHICTRLBASE_LOWER_MHICTRLBASE_LOWER_MASK,
 			MHICTRLBASE_LOWER_MHICTRLBASE_LOWER_SHIFT,
 			pcie_word_val);
@@ -168,12 +174,14 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 		mhi_get_memregion_len(mhi_dev_ctxt->mhi_ctrl_seg_info) - 1;
 
 	pcie_word_val = HIGH_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, MHICTRLLIMIT_HIGHER,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, MHICTRLLIMIT_HIGHER,
 			MHICTRLLIMIT_HIGHER_MHICTRLLIMIT_HIGHER_MASK,
 			MHICTRLLIMIT_HIGHER_MHICTRLLIMIT_HIGHER_SHIFT,
 			pcie_word_val);
 	pcie_word_val = LOW_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, MHICTRLLIMIT_LOWER,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, MHICTRLLIMIT_LOWER,
 			MHICTRLLIMIT_LOWER_MHICTRLLIMIT_LOWER_MASK,
 			MHICTRLLIMIT_LOWER_MHICTRLLIMIT_LOWER_SHIFT,
 			pcie_word_val);
@@ -181,13 +189,15 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 	/* Set the data segment in the MMIO */
 	pcie_dword_val = MHI_DATA_SEG_WINDOW_START_ADDR;
 	pcie_word_val = HIGH_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, MHIDATABASE_HIGHER,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, MHIDATABASE_HIGHER,
 			MHIDATABASE_HIGHER_MHIDATABASE_HIGHER_MASK,
 			MHIDATABASE_HIGHER_MHIDATABASE_HIGHER_SHIFT,
 			pcie_word_val);
 
 	pcie_word_val = LOW_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, MHIDATABASE_LOWER,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, MHIDATABASE_LOWER,
 			MHIDATABASE_LOWER_MHIDATABASE_LOWER_MASK,
 			MHIDATABASE_LOWER_MHIDATABASE_LOWER_SHIFT,
 			pcie_word_val);
@@ -195,15 +205,17 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 	pcie_dword_val = MHI_DATA_SEG_WINDOW_END_ADDR;
 
 	pcie_word_val = HIGH_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, MHIDATALIMIT_HIGHER,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, MHIDATALIMIT_HIGHER,
 			MHIDATALIMIT_HIGHER_MHIDATALIMIT_HIGHER_MASK,
 			MHIDATALIMIT_HIGHER_MHIDATALIMIT_HIGHER_SHIFT,
-			(pcie_word_val));
+			pcie_word_val);
 	pcie_word_val = LOW_WORD(pcie_dword_val);
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, MHIDATALIMIT_LOWER,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			    mhi_dev_ctxt->mmio_addr, MHIDATALIMIT_LOWER,
 			MHIDATALIMIT_LOWER_MHIDATALIMIT_LOWER_MASK,
 			MHIDATALIMIT_LOWER_MHIDATALIMIT_LOWER_SHIFT,
-			(pcie_word_val));
+			pcie_word_val);
 
 	mhi_log(MHI_MSG_INFO, "Done..\n");
 	return MHI_STATUS_SUCCESS;
