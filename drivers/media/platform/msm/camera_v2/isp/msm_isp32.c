@@ -167,7 +167,7 @@ static void msm_vfe32_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_camera_io_w(0x07FFFFFF, vfe_dev->vfe_base + 0xC);
 	/* BUS_CFG */
 	msm_camera_io_w(0x00000009, vfe_dev->vfe_base + 0x3C);
-	msm_camera_io_w(0x01000025, vfe_dev->vfe_base + 0x1C);
+	msm_camera_io_w(0x01000021, vfe_dev->vfe_base + 0x1C);
 	msm_camera_io_w_mb(0x1CFFFFFF, vfe_dev->vfe_base + 0x20);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x24);
 	msm_camera_io_w_mb(0x1FFFFFFF, vfe_dev->vfe_base + 0x28);
@@ -703,7 +703,7 @@ static void msm_vfe32_update_camif_state(
 
 	if (update_state == ENABLE_CAMIF) {
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x1C);
-		val |= 0x5;
+		val |= 0x1;
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x1C);
 
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x1E4);

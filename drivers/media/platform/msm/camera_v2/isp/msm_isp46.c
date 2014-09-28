@@ -289,7 +289,7 @@ static void msm_vfe46_init_hardware_reg(struct vfe_device *vfe_dev)
 	/* BUS_CFG */
 	msm_camera_io_w(0x00000001, vfe_dev->vfe_base + 0x84);
 	/* IRQ_MASK/CLEAR */
-	msm_camera_io_w(0xE00000F3, vfe_dev->vfe_base + 0x5C);
+	msm_camera_io_w(0xE00000F1, vfe_dev->vfe_base + 0x5C);
 	msm_camera_io_w_mb(0xE1FFFFFF, vfe_dev->vfe_base + 0x60);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x64);
 	msm_camera_io_w_mb(0xFFFFFFFF, vfe_dev->vfe_base + 0x68);
@@ -945,7 +945,7 @@ static void msm_vfe46_update_camif_state(struct vfe_device *vfe_dev,
 
 	if (update_state == ENABLE_CAMIF) {
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x5C);
-		val |= 0xF3;
+		val |= 0xF1;
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x5C);
 
 		bus_en =
