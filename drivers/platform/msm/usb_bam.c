@@ -2732,6 +2732,18 @@ int usb_bam_disconnect_pipe(u8 idx)
 	return 0;
 }
 
+/**
+ * is_ipa_hanlde_valid: Check if ipa_handle is valid or not
+ * @ipa_handle: IPA Handle for producer or consumer
+ *
+ * Returns true is ipa handle is valid.
+ */
+static bool is_ipa_handle_valid(u32 ipa_handle)
+{
+
+	return (ipa_handle != -1);
+}
+
 int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 {
 	int ret;
@@ -2740,16 +2752,18 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	enum usb_ctrl cur_bam;
 	enum usb_bam_mode bam_mode;
 
-	if (!ipa_params->prod_clnt_hdl && !ipa_params->cons_clnt_hdl) {
-		pr_err("%s: Both of the handles is missing\n", __func__);
+	if (!is_ipa_handle_valid(ipa_params->prod_clnt_hdl) &&
+			!is_ipa_handle_valid(ipa_params->cons_clnt_hdl)) {
+		pr_err("%s: Both IPA handles are invalid.\n", __func__);
 		return -EINVAL;
 	}
 
 	pr_debug("%s: Starting disconnect sequence\n", __func__);
-
-	if (ipa_params->prod_clnt_hdl)
+	pr_debug("%s(): prod_clnt_hdl:%d cons_clnt_hdl:%d\n", __func__,
+			ipa_params->prod_clnt_hdl, ipa_params->cons_clnt_hdl);
+	if (is_ipa_handle_valid(ipa_params->prod_clnt_hdl))
 		idx = ipa_params->dst_idx;
-	if (ipa_params->cons_clnt_hdl)
+	if (is_ipa_handle_valid(ipa_params->cons_clnt_hdl))
 		idx = ipa_params->src_idx;
 	pipe_connect = &usb_bam_connections[idx];
 	cur_bam = pipe_connect->bam_type;
@@ -2757,7 +2771,7 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 
 	mutex_lock(&info[cur_bam].suspend_resume_mutex);
 	/* Delay USB core to go into lpm before we finish our handshake */
-	if (ipa_params->prod_clnt_hdl) {
+	if (is_ipa_handle_valid(ipa_params->prod_clnt_hdl)) {
 		ret = usb_bam_disconnect_ipa_prod(ipa_params,
 				cur_bam, bam_mode);
 		if (ret) {
@@ -2766,7 +2780,7 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		}
 	}
 
-	if (ipa_params->cons_clnt_hdl) {
+	if (is_ipa_handle_valid(ipa_params->cons_clnt_hdl)) {
 		ret = usb_bam_disconnect_ipa_cons(ipa_params, cur_bam);
 		if (ret) {
 			mutex_unlock(&info[cur_bam].suspend_resume_mutex);
