@@ -340,10 +340,27 @@ out:
 
 #define RID_STS				0xB
 #define RID_MASK			0xF
+#define RT_STS				0x10
+#define USBIN_UV_BIT			0x0
+#define USBIN_OV_BIT			0x1
 static bool is_otg_present(struct smbchg_chip *chip)
 {
 	int rc;
 	u8 reg;
+
+	/*
+	 * There is a problem with USBID conversions on PMI8994 revisions
+	 * 2.0.0. As a workaround, check that the UV status is set before
+	 * checking RID status.
+	 */
+	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't read usb rt status rc = %d\n", rc);
+		return false;
+	}
+	if ((reg & USBIN_UV_BIT) == 0)
+		return false;
 
 	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RID_STS, 1);
 	if (rc < 0) {
@@ -378,9 +395,6 @@ static bool is_dc_present(struct smbchg_chip *chip)
 	return !!(reg & (DCIN_9V | DCIN_UNREG | DCIN_LV));
 }
 
-#define RT_STS			0x10
-#define USBIN_UV_BIT		0x0
-#define USBIN_OV_BIT		0x1
 static bool is_usb_present(struct smbchg_chip *chip)
 {
 	int rc;
