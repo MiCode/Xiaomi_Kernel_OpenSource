@@ -570,6 +570,12 @@ struct ufs_hba {
 #define UFSHCD_CAP_CLK_SCALING	(1 << 2)
 	/* Allow auto bkops to enabled during runtime suspend */
 #define UFSHCD_CAP_AUTO_BKOPS_SUSPEND (1 << 3)
+	/*
+	 * This capability allows host controller driver to use the UFS HCI's
+	 * interrupt aggregation capability.
+	 * CAUTION: Enabling this might reduce overall UFS throughput.
+	 */
+#define UFSHCD_CAP_INTR_AGGR (1 << 4)
 
 	struct devfreq *devfreq;
 	struct ufs_clk_scaling clk_scaling;
