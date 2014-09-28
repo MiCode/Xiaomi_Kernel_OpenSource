@@ -1633,7 +1633,7 @@ static int intel_runtime_suspend(struct device *device)
 	struct pci_dev *pdev = to_pci_dev(device);
 	struct drm_device *dev = pci_get_drvdata(pdev);
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	int ret;
+	int ret, i;
 
 	if (WARN_ON_ONCE(!(dev_priv->rps.enabled && intel_enable_rc6(dev))))
 		return -ENODEV;
@@ -1688,6 +1688,11 @@ static int intel_runtime_suspend(struct device *device)
 		intel_runtime_pm_restore_interrupts(dev);
 
 		return ret;
+	}
+
+	for (i = 0; i < I915_NUM_RINGS; i++) {
+		del_timer_sync(&dev_priv->ring[i].hangcheck.timer);
+		atomic_set(&dev_priv->ring[i].hangcheck.active, 0);
 	}
 
 	dev_priv->pm.suspended = true;
