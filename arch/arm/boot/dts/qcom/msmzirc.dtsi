@@ -142,6 +142,11 @@
 		qcom,client-id = <0x011013ed>;
 	};
 
+	restart@4ab000 {
+		compatible = "qcom,pshold";
+		reg = <0x4ab000 0x4>;
+	};
+
 	timer@b020000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
