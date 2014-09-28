@@ -1075,23 +1075,6 @@ static int usb_bam_disconnect_ipa_cons(
 
 	pipe_connect->ipa_clnt_hdl = -1;
 
-	/* Notify CONS release on the last cons pipe released */
-	if (ctx.pipes_enabled_per_bam[cur_bam] == 0) {
-		if (info[cur_bam].cur_cons_state ==
-				IPA_RM_RESOURCE_RELEASED) {
-			pr_debug("%s: Notify CONS_RELEASED\n",
-				 __func__);
-			ipa_rm_notify_completion(
-				IPA_RM_RESOURCE_RELEASED,
-				ipa_rm_resource_cons[cur_bam]);
-		}
-		if (pipe_connect->bam_mode == USB_BAM_DEVICE) {
-			pr_debug("%s Ended disconnect sequence\n", __func__);
-			usb_bam_suspend_core(cur_bam,
-				USB_BAM_DEVICE, 1);
-		}
-	}
-
 	return 0;
 }
 
@@ -2785,6 +2768,22 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 		if (ret) {
 			mutex_unlock(&info[cur_bam].suspend_resume_mutex);
 			return ret;
+		}
+	}
+
+	/* Notify CONS release on the last cons pipe released */
+	if (ctx.pipes_enabled_per_bam[cur_bam] == 0) {
+		if (info[cur_bam].cur_cons_state ==
+				IPA_RM_RESOURCE_RELEASED) {
+			pr_debug("%s: Notify CONS_RELEASED\n", __func__);
+			ipa_rm_notify_completion(
+				IPA_RM_RESOURCE_RELEASED,
+				ipa_rm_resource_cons[cur_bam]);
+		}
+
+		if (pipe_connect->bam_mode == USB_BAM_DEVICE) {
+			pr_debug("%s Ended disconnect sequence\n", __func__);
+			usb_bam_suspend_core(cur_bam, USB_BAM_DEVICE, 1);
 		}
 	}
 
