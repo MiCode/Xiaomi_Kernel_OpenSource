@@ -333,7 +333,18 @@ static void qmi_event_notify(unsigned event, void *oob_data,
 		return;
 	}
 	notify_work->event = event;
-	notify_work->oob_data = oob_data;
+	if (oob_data) {
+		notify_work->oob_data = kmalloc(oob_data_len, GFP_KERNEL);
+		if (!notify_work->oob_data) {
+			pr_err("%s: Couldn't allocate oob_data @ %d to %p\n",
+				__func__, event, priv);
+			kfree(notify_work);
+			return;
+		}
+		memcpy(notify_work->oob_data, oob_data, oob_data_len);
+	} else {
+		notify_work->oob_data = NULL;
+	}
 	notify_work->oob_data_len = oob_data_len;
 	notify_work->priv = priv;
 	INIT_WORK(&notify_work->work, qmi_notify_event_worker);
@@ -348,6 +359,7 @@ static void qmi_event_notify(unsigned event, void *oob_data,
 		}
 	}
 	mutex_unlock(&handle_hash_tbl_lock);
+	kfree(notify_work->oob_data);
 	kfree(notify_work);
 }
 
@@ -364,6 +376,7 @@ static void qmi_notify_event_worker(struct work_struct *work)
 	mutex_lock(&handle->handle_lock);
 	if (handle->handle_reset) {
 		mutex_unlock(&handle->handle_lock);
+		kfree(notify_work->oob_data);
 		kfree(notify_work);
 		return;
 	}
@@ -381,7 +394,7 @@ static void qmi_notify_event_worker(struct work_struct *work)
 					   &handle->resume_tx_work,
 					   msecs_to_jiffies(0));
 		} else if (handle->handle_type == QMI_SERVICE_HANDLE) {
-			struct msm_ipc_addr rtx_addr;
+			struct msm_ipc_addr rtx_addr = {0};
 			struct qmi_svc_clnt_conn *conn_h;
 			union rr_control_msg *msg;
 
@@ -408,6 +421,7 @@ static void qmi_notify_event_worker(struct work_struct *work)
 		break;
 	}
 	mutex_unlock(&handle->handle_lock);
+	kfree(notify_work->oob_data);
 	kfree(notify_work);
 }
 
