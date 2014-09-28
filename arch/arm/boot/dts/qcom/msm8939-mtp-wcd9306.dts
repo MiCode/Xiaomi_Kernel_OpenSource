@@ -36,6 +36,7 @@
 		qcom,float-voltage-mv = <4200>;
 		qcom,iterm-ma = <200>;
 		qcom,recharge-thresh-mv = <100>;
+		qcom,fg-auto-recharge-soc = <99>;
 		qcom,thermal-mitigation = <1500 700 600 0>;
 		regulator-name = "smb1360_otg_vreg";
 	};
