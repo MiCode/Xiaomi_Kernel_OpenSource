@@ -74,6 +74,7 @@ const char *ipa_hdr_proc_type_name[] = {
 static struct dentry *dent;
 static struct dentry *dfile_gen_reg;
 static struct dentry *dfile_ep_reg;
+static struct dentry *dfile_keep_awake;
 static struct dentry *dfile_ep_holb;
 static struct dentry *dfile_hdr;
 static struct dentry *dfile_proc_ctx;
@@ -366,6 +367,50 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 
 	*ppos = pos + size;
 	return size;
+}
+
+static ssize_t ipa_write_keep_awake(struct file *file, const char __user *buf,
+	size_t count, loff_t *ppos)
+{
+	unsigned long missing;
+	s8 option = 0;
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, buf, count);
+	if (missing)
+		return -EFAULT;
+
+	dbg_buff[count] = '\0';
+	if (kstrtos8(dbg_buff, 0, &option))
+		return -EFAULT;
+
+	if (option == 1)
+		ipa_inc_client_enable_clks();
+	else if (option == 0)
+		ipa_dec_client_disable_clks();
+	else
+		return -EFAULT;
+
+	return count;
+}
+
+static ssize_t ipa_read_keep_awake(struct file *file, char __user *ubuf,
+	size_t count, loff_t *ppos)
+{
+	int nbytes;
+
+	ipa_active_clients_lock();
+	if (ipa_ctx->ipa_active_clients.cnt)
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"IPA APPS power state is ON\n");
+	else
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"IPA APPS power state is OFF\n");
+	ipa_active_clients_unlock();
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
 static ssize_t ipa_read_hdr(struct file *file, char __user *ubuf, size_t count,
@@ -1430,6 +1475,11 @@ const struct file_operations ipa_ep_reg_ops = {
 	.write = ipa_write_ep_reg,
 };
 
+const struct file_operations ipa_keep_awake_ops = {
+	.read = ipa_read_keep_awake,
+	.write = ipa_write_keep_awake,
+};
+
 const struct file_operations ipa_ep_holb_ops = {
 	.write = ipa_write_ep_holb,
 };
@@ -1514,6 +1564,13 @@ void ipa_debugfs_init(void)
 			&ipa_ep_reg_ops);
 	if (!dfile_ep_reg || IS_ERR(dfile_ep_reg)) {
 		IPAERR("fail to create file for debug_fs ep_reg\n");
+		goto fail;
+	}
+
+	dfile_keep_awake = debugfs_create_file("keep_awake", read_write_mode,
+			dent, 0, &ipa_keep_awake_ops);
+	if (!dfile_keep_awake || IS_ERR(dfile_keep_awake)) {
+		IPAERR("fail to create file for debug_fs dfile_keep_awake\n");
 		goto fail;
 	}
 
