@@ -101,8 +101,9 @@ static struct rt5640_init_reg init_list[] = {
 /*	{RT5640_SPO_R_MIXER	, 0x1800},//DAC -> SPORMIX*/
 /*	{RT5640_I2S1_SDP	, 0xD000},//change IIS1 and IIS2*/
 	/*record */
-	{RT5640_IN1_IN2, 0x5080},	/*IN1 boost 40db and differential mode */
-	{RT5640_IN3_IN4, 0x0000},	/*IN2 boost 40db and signal ended mode */
+	{RT5640_IN1_IN2, 0x51C0},	/*IN1 boost 40db, IN3 20db
+					and differential mode */
+	{RT5640_IN3_IN4, 0x0000},	/*IN2 boost 0db and single ended mode */
 /*	{RT5640_REC_L2_MIXER	, 0x007d},//Mic1 -> RECMIXL*/
 /*	{RT5640_REC_R2_MIXER	, 0x007d},//Mic1 -> RECMIXR*/
 	{RT5640_REC_L2_MIXER, 0x006f},	/*Mic2 -> RECMIXL */
@@ -753,6 +754,9 @@ static const SOC_ENUM_SINGLE_DECL(rt5640_in1_mode_enum, RT5640_IN1_IN2,
 static const SOC_ENUM_SINGLE_DECL(rt5640_in2_mode_enum, RT5640_IN3_IN4,
 				  RT5640_IN_SFT2, rt5640_input_mode);
 
+static const SOC_ENUM_SINGLE_DECL(rt5640_in3_mode_enum, RT5640_IN1_IN2,
+				  RT5640_IN_SFT2, rt5640_input_mode);
+
 /* Interface data select */
 static const char * const rt5640_data_select[] = {
 	"Normal", "Swap", "left copy to right", "right copy to left"
@@ -896,6 +900,9 @@ static const struct snd_kcontrol_new rt5640_snd_controls[] = {
 		       RT5640_BST_SFT1, 8, 0, bst_tlv),
 	SOC_ENUM("IN2 Mode Control", rt5640_in2_mode_enum),
 	SOC_SINGLE_TLV("IN2 Boost", RT5640_IN3_IN4,
+		       RT5640_BST_SFT2, 8, 0, bst_tlv),
+	SOC_ENUM("IN3 Mode Control", rt5640_in3_mode_enum),
+	SOC_SINGLE_TLV("IN3 Boost", RT5640_IN1_IN2,
 		       RT5640_BST_SFT2, 8, 0, bst_tlv),
 	SOC_SINGLE_TLV("Speaker Boost", RT5640_SPO_CLSD_RATIO,
 		       0, 7, 0, speaker_boost_tlv),
