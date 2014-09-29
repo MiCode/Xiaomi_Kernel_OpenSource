@@ -758,23 +758,23 @@
 		qcom,not-wakeup; /* Needed until MPM is fully configured. */
 	};
 
-	qcom,rmtfs_sharedmem@86700000 {
+	qcom,rmtfs_sharedmem@87c00000 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x86700000 0xe0000>;
+		reg = <0x87c00000 0xe0000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
 	};
 
-	qcom,dsp_sharedmem@867f0000 {
+	qcom,dsp_sharedmem@87ce0000 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x867f0000 0x10000>;
+		reg = <0x87ce0000 0x10000>;
 		reg-names = "rfsa_dsp";
 		qcom,client-id = <0x011013ec>;
 	};
 
-	qcom,mdm_sharedmem@867e0000 {
+	qcom,mdm_sharedmem@87cf0000 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x867e0000 0x10000>;
+		reg = <0x87cf0000 0x10000>;
 		reg-names = "rfsa_mdm";
 		qcom,client-id = <0x011013ed>;
 	};
