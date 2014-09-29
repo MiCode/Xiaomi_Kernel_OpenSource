@@ -578,6 +578,7 @@
 		qcom,vin-sel = <2>;	/* 1.8v */
 		qcom,src-sel = <0>;	/* Constant */
 		qcom,master-en = <1>;	/* Enable GPIO */
+		status = "okay";
 	};
 
 	gpio@c100 { /* GPIO 2 */
@@ -585,6 +586,7 @@
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		status = "okay";
 	};
 
 	gpio@c200 { /* GPIO 3 */
@@ -592,6 +594,7 @@
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		status = "okay";
 	};
 
 	gpio@c300 { /* GPIO 4 SMB_SUSP */
@@ -599,6 +602,7 @@
 		qcom,pull = <5>;	/* No PULL */
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		status = "okay";
 	};
 
 	gpio@c400 { /* GPIO 5  DOCK DET*/
@@ -607,6 +611,7 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
 		qcom,master-en = <1>;	/* ENABLE GPIO */
+		status = "okay";
 	};
 
 	gpio@c500 { /* GPIO 6 SMB STAT */
@@ -615,6 +620,7 @@
 		qcom,vin-sel = <0>;	/* VPH */
 		qcom,src-sel = <0>;	/* CONSTANT */
 		qcom,master-en = <1>;	/* ENABLE GPIO */
+		status = "okay";
 	};
 
 	gpio@c600 { /* GPIO 7 - NFC_PWR_REQ */
@@ -623,6 +629,7 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
 		qcom,master-en = <1>;	/* ENABLE GPIO */
+		status = "okay";
 	};
 
 	gpio@c700 { /* GPIO 8 */
@@ -634,6 +641,7 @@
 		qcom,src-sel = <0>;             /* Constant */
 		qcom,out-strength = <1>;        /* Low drive strength */
 		qcom,master-en = <1>;           /* Enable GPIO */
+		status = "okay";
 	};
 
 	gpio@c800 { /* GPIO 9 */
@@ -644,6 +652,7 @@
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,out-strength = <1>;	/* High drive strength */
 		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
 	};
 
 	gpio@c900 { /* GPIO 10 - NFC_CLK_REQ */
@@ -652,6 +661,7 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <2>;	/* QPNP_PIN_SEL_FUNC_1 */
 		qcom,master-en = <1>;	/* ENABLE GPIO */
+		status = "okay";
 	};
 
 	gpio@cc00 { /* GPIO 13 docking station jack detect */
@@ -660,6 +670,7 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
 		qcom,master-en = <1>;	/* ENABLE GPIO */
+		status = "okay";
 	};
 
 	gpio@ce00 { /* GPIO 15 */
@@ -670,6 +681,7 @@
 		qcom,out-strength = <1>;
 		qcom,src-sel = <2>;
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	gpio@d200 { /* GPIO 19 */
@@ -679,6 +691,7 @@
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,invert = <0>;       /* Invert */
 		qcom,master-en = <1>;    /* Enable GPIO */
+		status = "okay";
 	};
 
 	gpio@d300 { /* GPIO 20 */
@@ -694,6 +707,7 @@
 		qcom,src-sel = <0>;	/* Constant */
 		qcom,invert = <0>;	/* Invert */
 		qcom,master-en = <1>;	/* Enable GPIO */
+		status = "okay";
 	};
 
 	mpp@a400 { /* MPP 5  Ext Speaker Boost enable*/
@@ -703,6 +717,7 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* Constant */
 		qcom,master-en = <1>;	/* Enable GPIO */
+		status = "okay";
 	};
 
 	mpp@a500 { /* MPP 6 Ethernet RESET */
@@ -711,6 +726,7 @@
 		qcom,vin-sel = <2>;	/* 1.8 V */
 		qcom,src-sel = <0>;	/* Constant */
 		qcom,master-en = <1>;	/* Enable GPIO */
+		status = "okay";
 	};
 };
 
@@ -721,6 +737,7 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
 		qcom,master-en = <1>; 	/* ENABLE GPIO */
+		status = "okay";
 	};
 
 	gpio@c100 { /* GPIO 2 */
@@ -730,6 +747,7 @@
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 };
 
@@ -741,6 +759,7 @@
 		qcom,src-sel = <7>;	/* DTEST4 */
 		qcom,vin-sel = <0>;	/* VPH_PWR */
 		qcom,master-en = <1>;	/* Enable MPP */
+		status = "okay";
 	};
 
 	mpp@a100 { /* MPP 2 */

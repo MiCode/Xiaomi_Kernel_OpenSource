@@ -405,6 +405,7 @@
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		status = "okay";
 	};
 
 	gpio@c300 { /* GPIO 4 */
@@ -412,6 +413,7 @@
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		status = "okay";
 	};
 
 	gpio@c400 { /* GPIO 5 */
@@ -419,6 +421,7 @@
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		status = "okay";
 	};
 
 	gpio@c600 { /* GPIO 7 */
@@ -428,6 +431,7 @@
 		qcom,vin-sel = <2>;             /* QPNP_PIN_VIN2 */
 		qcom,src-sel = <2>;             /* QPNP_PIN_SEL_FUNC_1 */
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	gpio@c900 { /* GPIO 10 */
@@ -437,6 +441,7 @@
 		qcom,vin-sel = <2>;             /* QPNP_PIN_VIN2 */
 		qcom,src-sel = <2>;             /* QPNP_PIN_SEL_FUNC_1 */
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	gpio@c700 { /* GPIO 8 */
@@ -448,6 +453,7 @@
 		qcom,src-sel = <0>;             /* Constant */
 		qcom,out-strength = <1>;        /* Low drive strength */
 		qcom,master-en = <1>;           /* Enable GPIO */
+		status = "okay";
 	};
 
 	gpio@c800 { /* GPIO 9 */
@@ -458,6 +464,7 @@
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,out-strength = <1>;	/* High drive strength */
 		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
 	};
 
 	gpio@ce00 { /* GPIO 15 */
@@ -468,6 +475,7 @@
 		qcom,out-strength = <1>;
 		qcom,src-sel = <2>;
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	gpio@d100 { /* GPIO 18 */
@@ -478,6 +486,7 @@
 		qcom,src-sel = <3>;		/* Function 2 */
 		qcom,out-strength = <2>;	/* Medium */
 		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
 	};
 
 	gpio@d200 { /* GPIO 19 */
@@ -487,6 +496,7 @@
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,invert = <0>;       /* Invert */
 		qcom,master-en = <1>;    /* Enable GPIO */
+		status = "okay";
 	};
 };
 
@@ -500,6 +510,7 @@
 		qcom,vin-sel = <2>;		/* S4 1.8V */
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
 	};
 
 	mpp@a300 { /* MPP 4 */
@@ -509,6 +520,7 @@
 		qcom,vin-sel = <2>;		/* S4 1.8V */
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
 	};
 };
 
@@ -532,6 +544,7 @@
 		/* WLED FET */
 		qcom,mode = <1>;
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 };
 
