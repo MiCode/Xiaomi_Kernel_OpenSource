@@ -513,21 +513,25 @@
 			qcom,cdc-vdda-cp-voltage = <1800000 2200000>;
 			qcom,cdc-vdda-cp-current = <500000>;
 
-			cdc-vdda-h-supply = <&pm8909_l6>;
+			cdc-vdda-h-supply = <&pm8909_l5>;
 			qcom,cdc-vdda-h-voltage = <1800000 1800000>;
 			qcom,cdc-vdda-h-current = <10000>;
 
-			cdc-vdd-px-supply = <&pm8909_l6>;
+			cdc-vdd-px-supply = <&pm8909_l5>;
 			qcom,cdc-vdd-px-voltage = <1800000 1800000>;
 			qcom,cdc-vdd-px-current = <5000>;
 
 			cdc-vdd-pa-supply = <&pm8909_s2>;
 			qcom,cdc-vdd-pa-voltage = <1800000 2200000>;
-			qcom,cdc-vdd-pa-current = <130000>;
+			qcom,cdc-vdd-pa-current = <260000>;
 
 			cdc-vdd-mic-bias-supply = <&pm8909_l13>;
 			qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
 			qcom,cdc-vdd-mic-bias-current = <5000>;
+
+			cdc-vdd-spkdrv-supply = <&spk_vreg>;
+			qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
+			qcom,cdc-vdd-spkdrv-current = <20000>;
 
 			qcom,cdc-mclk-clk-rate = <9600000>;
 
@@ -536,7 +540,8 @@
 						   "cdc-vdd-pa",
 						   "cdc-vdda-cp";
 
-			qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
+			qcom,cdc-on-demand-supplies = "cdc-vddi-mic-bias",
+						      "cdc-vdd-spkdrv";
 		};
 
 		pm8909_conga_analog: 8909_wcd_codec@f100 {

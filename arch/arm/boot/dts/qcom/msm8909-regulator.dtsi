@@ -200,3 +200,13 @@
 	};
 
 };
+
+&soc {
+	spk_vreg: regulator_spk {
+		compatible = "regulator-fixed";
+		regulator-name = "spk_vreg";
+		startup-delay-us = <0>;
+		enable-active-high;
+		gpio = <&msm_gpio 4 0>;
+	};
+};
