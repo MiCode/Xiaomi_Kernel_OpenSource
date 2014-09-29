@@ -36,6 +36,9 @@
 #include "intel_dsi_cmd.h"
 
 #define PMIC_PANEL_EN		0x52
+#define PMIC_PWM_EN		0x51
+#define PMIC_BKL_EN		0x4B
+#define PMIC_PWM_LEVEL		0x4E
 
 static void band_gap_reset(void)
 {
@@ -103,6 +106,59 @@ int intel_dsi_pmic_power_off(struct dsi_pipe *dsi_pipe)
 	pr_err("ADF: %s\n", __func__);
 
 	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x00);
+	return 0;
+}
+
+int intel_dsi_pmic_backlight_on(struct dsi_pipe *dsi_pipe)
+{
+	intel_soc_pmic_writeb(PMIC_BKL_EN, 0xFF);
+	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x01);
+
+	/*
+	 * I2C based control if any was already there
+	 * in seq version < 3, so call that sequence
+	 * here as well
+	 *
+	 * Mainly needed for CHV
+	 */
+	generic_enable_bklt(dsi_pipe);
+
+	return 0;
+}
+
+int intel_dsi_soc_backlight_on(struct dsi_pipe *dsi_pipe)
+{
+	vlv_gpio_write(PANEL1_BKLTEN_GPIONC_10_PCONF0, 0x2000CC00,
+		       IOSF_PORT_GPIO_NC);
+	vlv_gpio_write(PANEL1_BKLTEN_GPIONC_10_PAD, 0x00000005,
+		       IOSF_PORT_GPIO_NC);
+	udelay(500);
+	return 0;
+}
+
+int intel_dsi_pmic_backlight_off(struct dsi_pipe *dsi_pipe)
+{
+	/*
+	 * I2C based control if any was already there
+	 * in seq version < 3, so call that sequence
+	 * here as well
+	 *
+	 * Mainly needed for CHV
+	 */
+	generic_disable_bklt(dsi_pipe);
+
+	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x00);
+	intel_soc_pmic_writeb(PMIC_BKL_EN, 0x7F);
+	return 0;
+}
+
+int intel_dsi_soc_backlight_off(struct dsi_pipe *dsi_pipe)
+{
+	vlv_gpio_write(PANEL1_BKLTEN_GPIONC_10_PCONF0, 0x2000CC00,
+		       IOSF_PORT_GPIO_NC);
+	vlv_gpio_write(PANEL1_BKLTEN_GPIONC_10_PAD, 0x00000004,
+		       IOSF_PORT_GPIO_NC);
+	udelay(500);
 	return 0;
 }
 

@@ -454,7 +454,7 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	if (vbt->seq_version < 3) {
 		/*
 		 * We have device with older version of VBT which
-		 * needs static panel enabling routines
+		 * needs static panel and backlight enabling routines
 		 *
 		 * Overwrite the panel ops function with static
 		 * functions
@@ -463,10 +463,18 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 			/* using SOC PWM */
 			panel->ops->panel_power_on = intel_dsi_soc_power_on;
 			panel->ops->panel_power_off = intel_dsi_soc_power_off;
+			panel->ops->enable_backlight =
+						intel_dsi_soc_backlight_on;
+			panel->ops->disable_backlight =
+						intel_dsi_soc_backlight_off;
 		} else {
 			/* Using PMIC */
 			panel->ops->panel_power_on = intel_dsi_pmic_power_on;
 			panel->ops->panel_power_off = intel_dsi_pmic_power_off;
+			panel->ops->enable_backlight =
+						intel_dsi_pmic_backlight_on;
+			panel->ops->disable_backlight =
+						intel_dsi_pmic_backlight_off;
 		}
 	}
 

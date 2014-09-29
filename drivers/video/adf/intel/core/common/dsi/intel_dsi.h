@@ -48,4 +48,10 @@ extern int intel_dsi_soc_power_on(struct dsi_pipe *dsi_pipe);
 extern int intel_dsi_pmic_power_on(struct dsi_pipe *dsi_pipe);
 extern int intel_dsi_soc_power_off(struct dsi_pipe *dsi_pipe);
 extern int intel_dsi_pmic_power_off(struct dsi_pipe *dsi_pipe);
+extern int intel_dsi_pmic_backlight_on(struct dsi_pipe *dsi_pipe);
+extern int intel_dsi_soc_backlight_on(struct dsi_pipe *dsi_pipe);
+extern int intel_dsi_pmic_backlight_off(struct dsi_pipe *dsi_pipe);
+extern int intel_dsi_soc_backlight_off(struct dsi_pipe *dsi_pipe);
+extern int generic_enable_bklt(struct dsi_pipe *interface);
+extern int generic_disable_bklt(struct dsi_pipe *interface);
 #endif /* _INTEL_DSI_H */
