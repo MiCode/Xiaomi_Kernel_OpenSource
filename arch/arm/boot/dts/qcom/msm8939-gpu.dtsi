@@ -31,7 +31,7 @@
 		compatible = "qcom,bimc-bwmon";
 		reg = <0x00410000 0x300>, <0x00401000 0x200>;
 		reg-names = "base", "global_base";
-		interrupts = <0 183 1>;
+		interrupts = <0 183 4>;
 		qcom,mport = <2>;
 		qcom,target-dev = <&gpubw>;
 	};
