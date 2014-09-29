@@ -2630,6 +2630,31 @@ int ufshcd_dme_get_attr(struct ufs_hba *hba, u32 attr_sel,
 	const char *get = action[!!peer];
 	int ret;
 	int retries = UFS_UIC_COMMAND_RETRIES;
+	struct ufs_pa_layer_attr orig_pwr_info;
+	struct ufs_pa_layer_attr temp_pwr_info;
+	bool pwr_mode_change = false;
+
+	if (peer && (hba->quirks & UFSHCD_QUIRK_DME_PEER_ACCESS_AUTO_MODE)) {
+		orig_pwr_info = hba->pwr_info;
+		temp_pwr_info = orig_pwr_info;
+
+		if (orig_pwr_info.pwr_tx == FAST_MODE ||
+		    orig_pwr_info.pwr_rx == FAST_MODE) {
+			temp_pwr_info.pwr_tx = FASTAUTO_MODE;
+			temp_pwr_info.pwr_rx = FASTAUTO_MODE;
+			pwr_mode_change = true;
+		} else if (orig_pwr_info.pwr_tx == SLOW_MODE ||
+		    orig_pwr_info.pwr_rx == SLOW_MODE) {
+			temp_pwr_info.pwr_tx = SLOWAUTO_MODE;
+			temp_pwr_info.pwr_rx = SLOWAUTO_MODE;
+			pwr_mode_change = true;
+		}
+		if (pwr_mode_change) {
+			ret = ufshcd_change_power_mode(hba, &temp_pwr_info);
+			if (ret)
+				goto out;
+		}
+	}
 
 	uic_cmd.command = peer ?
 		UIC_CMD_DME_PEER_GET : UIC_CMD_DME_GET;
@@ -2654,6 +2679,10 @@ int ufshcd_dme_get_attr(struct ufs_hba *hba, u32 attr_sel,
 	if (mib_val && !ret)
 		*mib_val = uic_cmd.argument3;
 
+	if (peer && (hba->quirks & UFSHCD_QUIRK_DME_PEER_ACCESS_AUTO_MODE)
+	    && pwr_mode_change)
+		ufshcd_change_power_mode(hba, &orig_pwr_info);
+out:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(ufshcd_dme_get_attr);

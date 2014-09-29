@@ -764,7 +764,7 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP
 			      | UFSHCD_QUIRK_BROKEN_LCC
-			      | UFSHCD_QUIRK_DME_PEER_GET_FAST_MODE);
+			      | UFSHCD_QUIRK_DME_PEER_ACCESS_AUTO_MODE);
 
 		if ((minor == 0x001) && (step == 0x0001))
 			hba->quirks |= UFSHCD_QUIRK_BROKEN_INTR_AGGR;
