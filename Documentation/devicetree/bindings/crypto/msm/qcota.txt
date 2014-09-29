@@ -11,6 +11,7 @@ Required properties:
 			instance, 1 for second instance, n-1 for n-th instance.
 
 Optional properties:
+  - qcom,support-core-clk-only : optional, indicates if the HW supports single crypto core clk.
 
 Example:
 
