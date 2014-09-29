@@ -23,6 +23,10 @@
 	model = "Qualcomm Technologies, Inc. MSM 8994v2";
 	compatible = "qcom,msm8994";
 	qcom,msm-id = <207 0x20000>;
+
+	chosen {
+		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1 maxcpus=4";
+	};
 };
 
 &soc {
