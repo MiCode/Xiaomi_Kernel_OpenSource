@@ -612,6 +612,11 @@ static struct dsi_cmd_desc dsi_tear_off_cmd = {
 void mdss_dsi_set_tear_on(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct dcs_cmd_req cmdreq;
+	struct mdss_panel_info *pinfo;
+
+	pinfo = &(ctrl->panel_data.panel_info);
+	if (pinfo->dcs_cmd_by_left && ctrl->ndx != DSI_CTRL_LEFT)
+		return;
 
 	cmdreq.cmds = &dsi_tear_on_cmd;
 	cmdreq.cmds_cnt = 1;
@@ -625,6 +630,11 @@ void mdss_dsi_set_tear_on(struct mdss_dsi_ctrl_pdata *ctrl)
 void mdss_dsi_set_tear_off(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct dcs_cmd_req cmdreq;
+	struct mdss_panel_info *pinfo;
+
+	pinfo = &(ctrl->panel_data.panel_info);
+	if (pinfo->dcs_cmd_by_left && ctrl->ndx != DSI_CTRL_LEFT)
+		return;
 
 	cmdreq.cmds = &dsi_tear_off_cmd;
 	cmdreq.cmds_cnt = 1;
