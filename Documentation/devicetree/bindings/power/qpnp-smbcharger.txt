@@ -125,7 +125,7 @@ Optional Properties:
 				the qcom,charging-timeout-mins property must
 				be specified in order for this to take effect.
 - qcom,dc-psy-type		The type of charger connected to the DC path.
-				Can be "Mains" or "Wireless"
+				Can be "Mains", "Wireless" or "Wipower"
 - qcom,dc-psy-ma		The current in mA dc path can support. Must be
 				specified if dc-psy-type is specified. Valid
 				range 300mA to 2000mA.
