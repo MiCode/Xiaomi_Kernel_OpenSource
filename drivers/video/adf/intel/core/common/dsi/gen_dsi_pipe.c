@@ -416,6 +416,7 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	struct intel_plane *primary_plane, u8 idx)
 {
 	struct dsi_panel *panel;
+	struct dsi_vbt *vbt;
 	int err, i;
 
 	pr_debug("ADF:%s:\n", __func__);
@@ -447,6 +448,26 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 		       __func__);
 		err = -ENODEV;
 		goto err;
+	}
+
+	vbt = pipe->config.dsi;
+	if (vbt->seq_version < 3) {
+		/*
+		 * We have device with older version of VBT which
+		 * needs static panel enabling routines
+		 *
+		 * Overwrite the panel ops function with static
+		 * functions
+		 */
+		if (vbt->config->pwm_blc) {
+			/* using SOC PWM */
+			panel->ops->panel_power_on = intel_dsi_soc_power_on;
+			panel->ops->panel_power_off = intel_dsi_soc_power_off;
+		} else {
+			/* Using PMIC */
+			panel->ops->panel_power_on = intel_dsi_pmic_power_on;
+			panel->ops->panel_power_off = intel_dsi_pmic_power_off;
+		}
 	}
 
 	/*init config*/

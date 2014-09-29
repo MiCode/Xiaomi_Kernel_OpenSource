@@ -35,6 +35,8 @@
 #include "intel_dsi.h"
 #include "intel_dsi_cmd.h"
 
+#define PMIC_PANEL_EN		0x52
+
 static void band_gap_reset(void)
 {
 	pr_err("ADF: %s\n", __func__);
@@ -55,6 +57,53 @@ static inline bool is_vid_mode(struct dsi_config *config)
 static inline bool is_cmd_mode(struct dsi_config *config)
 {
 	return config->ctx.operation_mode == DSI_DBI;
+}
+
+int intel_dsi_soc_power_on(struct dsi_pipe *dsi_pipe)
+{
+	pr_err("ADF: %s\n", __func__);
+
+	/*  cabc disable */
+	vlv_gpio_write(PANEL1_VDDEN_GPIONC_9_PCONF0, 0x2000CC00,
+		       IOSF_PORT_GPIO_NC);
+	vlv_gpio_write(PANEL1_VDDEN_GPIONC_9_PAD, 0x00000004,
+		       IOSF_PORT_GPIO_NC);
+
+	/* panel enable */
+	vlv_gpio_write(PANEL1_BKLTCTL_GPIONC_11_PCONF0, 0x2000CC00,
+		       IOSF_PORT_GPIO_NC);
+	vlv_gpio_write(PANEL1_BKLTCTL_GPIONC_11_PAD, 0x00000005,
+		       IOSF_PORT_GPIO_NC);
+	udelay(500);
+	return 0;
+}
+
+int intel_dsi_pmic_power_on(struct dsi_pipe *dsi_pipe)
+{
+	pr_err("ADF: %s\n", __func__);
+
+	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x01);
+	return 0;
+}
+
+int intel_dsi_soc_power_off(struct dsi_pipe *dsi_pipe)
+{
+	pr_err("ADF: %s\n", __func__);
+
+	vlv_gpio_write(PANEL1_BKLTCTL_GPIONC_11_PCONF0, 0x2000CC00,
+		       IOSF_PORT_GPIO_NC);
+	vlv_gpio_write(PANEL1_BKLTCTL_GPIONC_11_PAD, 0x00000004,
+		       IOSF_PORT_GPIO_NC);
+	udelay(500);
+	return 0;
+}
+
+int intel_dsi_pmic_power_off(struct dsi_pipe *dsi_pipe)
+{
+	pr_err("ADF: %s\n", __func__);
+
+	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x00);
+	return 0;
 }
 
 static void intel_dsi_device_ready(struct dsi_pipe *dsi_pipe)
@@ -366,9 +415,11 @@ int intel_dsi_pre_enable(struct dsi_pipe *dsi_pipe)
 	band_gap_reset();
 
 	/*
-	 * FIXME:
-	 * Add panel power on using PMIC/I2C
+	 * Panel power control using PMIC/LPIO
 	 */
+	if (panel->ops->panel_power_on)
+		panel->ops->panel_power_on(dsi_pipe);
+
 	msleep(intel_dsi->panel_on_delay);
 
 	if (panel->ops->reset)
@@ -535,6 +586,10 @@ int intel_dsi_post_disable(struct dsi_pipe *dsi_pipe)
 
 	if (panel->ops->disable_panel_power)
 		panel->ops->disable_panel_power(dsi_pipe);
+
+	/* Panel power off control using PMIC/LPIO */
+	if (panel->ops->panel_power_off)
+		panel->ops->panel_power_off(dsi_pipe);
 
 	msleep(intel_dsi->panel_off_delay);
 	msleep(intel_dsi->panel_pwr_cycle_delay);

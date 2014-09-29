@@ -44,4 +44,8 @@ extern void intel_dsi_pre_disable(struct dsi_pipe *dsi_pipe);
 extern int intel_dsi_modeset(struct dsi_pipe *dsi_pipe,
 						struct drm_mode_modeinfo *mode);
 
+extern int intel_dsi_soc_power_on(struct dsi_pipe *dsi_pipe);
+extern int intel_dsi_pmic_power_on(struct dsi_pipe *dsi_pipe);
+extern int intel_dsi_soc_power_off(struct dsi_pipe *dsi_pipe);
+extern int intel_dsi_pmic_power_off(struct dsi_pipe *dsi_pipe);
 #endif /* _INTEL_DSI_H */
