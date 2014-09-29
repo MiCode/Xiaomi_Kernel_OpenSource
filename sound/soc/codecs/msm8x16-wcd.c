@@ -185,6 +185,8 @@ static int msm8x16_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
 static void msm8x16_trim_btn_reg(struct snd_soc_codec *codec);
 static void msm8x16_wcd_set_micb_v(struct snd_soc_codec *codec);
 static void msm8x16_wcd_set_boost_v(struct snd_soc_codec *codec);
+static void msm8x16_wcd_set_auto_zeroing(struct snd_soc_codec *codec,
+		bool enable);
 
 struct msm8x16_wcd_spmi msm8x16_wcd_modules[MAX_MSM8X16_WCD_DEVICE];
 
@@ -218,6 +220,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.trim_btn_reg = msm8x16_trim_btn_reg,
 	.compute_impedance = msm8x16_wcd_compute_impedance,
 	.set_micbias_value = msm8x16_wcd_set_micb_v,
+	.set_auto_zeroing = msm8x16_wcd_set_auto_zeroing,
 };
 
 int msm8x16_unregister_notifier(struct snd_soc_codec *codec,
@@ -2009,6 +2012,32 @@ static int msm8x16_wcd_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 		break;
 	}
 	return 0;
+}
+
+
+static void msm8x16_wcd_set_auto_zeroing(struct snd_soc_codec *codec,
+					bool enable)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	if (get_codec_version(msm8x16_wcd) < CONGA) {
+		if (enable)
+			/*
+			 * Set autozeroing for special headset detection and
+			 * buttons to work.
+			 */
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				0x18, 0x10);
+		else
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				0x18, 0x00);
+
+	} else {
+		pr_debug("%s: Auto Zeroing is not required from CONGA\n",
+				__func__);
+	}
 }
 
 static void msm8x16_trim_btn_reg(struct snd_soc_codec *codec)
