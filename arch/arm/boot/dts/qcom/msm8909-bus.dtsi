@@ -241,7 +241,7 @@
 		};
 
 		mas_crypto: mas-crypto {
-			cell-id = <MSM_BUS_MASTER_CRYPTO>;
+			cell-id = <MSM_BUS_MASTER_CRYPTO_CORE0>;
 			label = "mas-crypto";
 			qcom,buswidth = <8>;
 			qcom,ap-owned;
@@ -303,7 +303,7 @@
 			qcom,buswidth = <8>;
 			qcom,qport = <9>;
 			qcom,qos-mode = "fixed";
-			qcom,connections = <&pcnoc_int_0 &slv_usb_phy &slv_qpic>;
+			qcom,connections = <&pcnoc_int_0>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_PCNOC>;
 		};
