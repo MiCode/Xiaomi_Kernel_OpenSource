@@ -807,7 +807,7 @@ static int ibs_recv(struct hci_uart *hu, void *data, int count)
 		}
 
 		/* HCI_IBS_W4_PACKET_TYPE */
-		switch (*ptr) {
+		switch ((unsigned char) *ptr) {
 		case HCI_EVENT_PKT:
 			BT_DBG("Event packet");
 			ibs->rx_state = HCI_IBS_W4_EVENT_HDR;
