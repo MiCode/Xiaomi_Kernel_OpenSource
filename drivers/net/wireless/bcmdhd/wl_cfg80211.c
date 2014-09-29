@@ -4123,7 +4123,7 @@ wl_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *dev,
 	RETURN_EIO_IF_NOT_UP(cfg);
 	act = *(bool *) wl_read_prof(cfg, dev, WL_PROF_ACT);
 	curbssid = wl_read_prof(cfg, dev, WL_PROF_BSSID);
-	if (act) {
+	if (act || wl_get_drv_status(cfg, CONNECTING, dev)) {
 		/*
 		* Cancel ongoing scan to sync up with sme state machine of cfg80211.
 		*/
@@ -4133,6 +4133,7 @@ wl_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *dev,
 			wl_notify_escan_complete(cfg, dev, true, true);
 		}
 #endif /* ESCAN_RESULT_PATCH */
+		wl_clr_drv_status(cfg, CONNECTING, dev);
 		wl_set_drv_status(cfg, DISCONNECTING, dev);
 		scbval.val = reason_code;
 		memcpy(&scbval.ea, curbssid, ETHER_ADDR_LEN);
