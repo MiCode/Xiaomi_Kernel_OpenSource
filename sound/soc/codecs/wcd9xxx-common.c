@@ -546,7 +546,7 @@ static void wcd9xxx_chargepump_request(struct snd_soc_codec *codec, bool on)
 
 void wcd9xxx_enable_high_perf_mode(struct snd_soc_codec *codec,
 				struct wcd9xxx_clsh_cdc_data *clsh_d,
-				u8 req_state, bool req_type)
+				u8 uhqa_mode, u8 req_state, bool req_type)
 {
 	dev_dbg(codec->dev, "%s: users fclk8 %d, fclk5 %d", __func__,
 			clsh_d->ncp_users[NCP_FCLK_LEVEL_8],
@@ -558,8 +558,9 @@ void wcd9xxx_enable_high_perf_mode(struct snd_soc_codec *codec,
 					WCD9XXX_A_RX_HPH_BIAS_PA__POR);
 		snd_soc_write(codec, WCD9XXX_A_RX_HPH_L_PA_CTL, 0x48);
 		snd_soc_write(codec, WCD9XXX_A_RX_HPH_R_PA_CTL, 0x48);
-		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_CHOP_CTL,
-					0x20, 0x00);
+		if (uhqa_mode)
+			snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_CHOP_CTL,
+						0x20, 0x00);
 		wcd9xxx_chargepump_request(codec, true);
 		wcd9xxx_enable_anc_delay(codec, true);
 		wcd9xxx_enable_buck(codec, clsh_d, false);
