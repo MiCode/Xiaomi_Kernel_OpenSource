@@ -1015,6 +1015,10 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		goto ctr_exit;
 	}
 	err = 0;
+
+	DMINFO("%s: Mapping block_device %s to dm-req-crypt ok!\n",
+	       __func__, argv[3]);
+
 ctr_exit:
 	if (err)
 		req_crypt_dtr(ti);
