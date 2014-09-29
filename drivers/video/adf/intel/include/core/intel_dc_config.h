@@ -268,6 +268,9 @@ struct intel_pipe_ops {
 
 #ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 	int (*set_brightness)(struct intel_pipe *pipe, int level);
+	int (*get_brightness)(struct intel_pipe *pipe);
+	void (*enable_backlight)(struct intel_pipe *pipe);
+	void (*disable_backlight)(struct intel_pipe *pipe);
 #endif
 };
 

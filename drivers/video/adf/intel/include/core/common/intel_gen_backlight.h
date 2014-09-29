@@ -12,21 +12,13 @@
  *
  */
 
-#ifndef BACKLIGHT_DEV_H_
-#define BACKLIGHT_DEV_H_
+#ifndef _INTEL_GEN_BACKLIGHT_H_
+#define _INTEL_GEN_BACKLIGHT_H_
 
-#include <linux/backlight.h>
 #include <core/intel_dc_config.h>
 
-#define BRIGHTNESS_MIN_LEVEL 1
-#define BRIGHTNESS_INIT_LEVEL 50
-#define BRIGHTNESS_MAX_LEVEL 100
+extern int intel_backlight_init(struct intel_pipe *pipe);
+extern void intel_disable_backlight(struct intel_pipe *pipe);
+extern void intel_enable_backlight(struct intel_pipe *pipe);
 
-struct intel_adf_context;
-
-int backlight_init(struct intel_adf_context *adf_ctx);
-extern void backlight_exit(struct backlight_device *bl_dev);
-
-extern void intel_adf_disable_backlight(struct intel_pipe *pipe);
-extern void intel_adf_enable_backlight(struct intel_pipe *pipe);
-#endif /* BACKLIGHT_DEV_H_ */
+#endif /* _INTEL_GEN_BACKLIGHT_H_ */

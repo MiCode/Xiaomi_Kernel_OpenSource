@@ -98,9 +98,14 @@ int backlight_init(struct intel_adf_context *adf_ctx)
 	props.max_brightness = BRIGHTNESS_MAX_LEVEL;
 	props.type = BACKLIGHT_RAW;
 
+#ifdef CONFIG_ADF_INTEL_VLV
+	adf_ctx->bl_dev = backlight_device_register("intel_backlight",
+			NULL, (void *)adf_ctx, &bl_ops, &props);
+#else
 	/* Use the legacy backlight device name 'psb-bl'... */
 	adf_ctx->bl_dev = backlight_device_register("psb-bl",
 			NULL, (void *)adf_ctx, &bl_ops, &props);
+#endif
 	if (IS_ERR(adf_ctx->bl_dev))
 		return PTR_ERR(adf_ctx->bl_dev);
 

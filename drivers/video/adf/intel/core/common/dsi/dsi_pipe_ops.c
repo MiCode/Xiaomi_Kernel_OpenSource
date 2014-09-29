@@ -29,6 +29,9 @@
 #include <core/common/dsi/dsi_config.h>
 #include <core/vlv/vlv_dc_regs.h>
 #include <core/vlv/vlv_dc_config.h>
+#include <core/vlv/vlv_dc_gpio.h>
+#include <core/common/intel_gen_backlight.h>
+#include <linux/mfd/intel_soc_pmic.h>
 #include "intel_dsi.h"
 #include "intel_dsi_cmd.h"
 
@@ -405,6 +408,9 @@ int intel_dsi_pre_enable(struct dsi_pipe *dsi_pipe)
 	 * recommendation, port should be enabled befor plane & pipe */
 	intel_dsi_enable(dsi_pipe);
 
+	/* Enabling the backlight */
+	intel_enable_backlight(&dsi_pipe->base);
+
 	return 0;
 }
 
@@ -413,6 +419,8 @@ void intel_dsi_pre_disable(struct dsi_pipe *dsi_pipe)
 	struct dsi_config *config = &dsi_pipe->config;
 
 	pr_debug("ADF: %s\n", __func__);
+
+	intel_disable_backlight(&dsi_pipe->base);
 
 	if (is_vid_mode(config)) {
 		/* Send Shutdown command to the panel in LP mode */

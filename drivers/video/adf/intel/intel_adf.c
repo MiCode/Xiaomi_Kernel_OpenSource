@@ -237,6 +237,12 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 		goto err;
 	}
 
+#ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
+	err = backlight_init(ctx);
+	if (err)
+		goto err;
+#endif
+
 	/*create ADF device*/
 	dev = intel_adf_device_create(pdev, config->memory);
 	if (IS_ERR(dev)) {
@@ -297,12 +303,6 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 		err = PTR_ERR(fbdevs);
 		goto err;
 	}
-#endif
-
-#ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
-	err = backlight_init(ctx);
-	if (err)
-		goto err;
 #endif
 
 	return ctx;

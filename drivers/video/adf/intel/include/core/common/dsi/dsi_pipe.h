@@ -55,6 +55,8 @@ struct dsi_pipe_ops {
 	int (*set_event)(struct dsi_pipe *pipe, u8 event, bool enabled);
 	void (*get_events)(struct dsi_pipe *pipe, u32 *events);
 	void (*handle_events)(struct dsi_pipe *pipe, u32 events);
+	void (*set_brightness)(u32 level);
+	u32 (*get_brightness)(void);
 };
 
 struct dsi_pipe {

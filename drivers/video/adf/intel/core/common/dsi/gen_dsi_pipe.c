@@ -1,8 +1,8 @@
 /*
- * ann_dsi_pipe.c
+ * gen_dsi_pipe.c
  *
- *  Created on: May 23, 2014
- *      Author: root
+ *  Created on: September 1, 2014
+ *      Author: Shobhit Kumar <shobhit.kumar@intel.com>
  */
 
 #include <drm/drm_mode.h>
@@ -14,6 +14,7 @@
 #include <core/vlv/vlv_dc_config.h>
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/dsi/dsi_config.h>
+#include <core/common/intel_gen_backlight.h>
 #include <core/vlv/vlv_dc_config.h>
 #include <intel_adf_device.h>
 #include "dsi_vbt.h"
@@ -43,16 +44,13 @@ static int dsi_set_brightness(struct intel_pipe *pipe, int level)
 	struct dsi_panel *panel = NULL;
 	struct dsi_config *config = NULL;
 	struct dsi_context *ctx = NULL;
+	struct dsi_vbt *vbt;
 	int err = 0;
+
+	vbt = dsi_pipe->config.dsi;
 
 	if (!dsi_pipe) {
 		pr_err("%s: invalid DSI interface", __func__);
-		return -EINVAL;
-	}
-
-	panel = dsi_pipe->panel;
-	if (!panel || !panel->ops || !panel->ops->set_brightness) {
-		pr_err("%s: invalid panel\n", __func__);
 		return -EINVAL;
 	}
 
@@ -60,6 +58,17 @@ static int dsi_set_brightness(struct intel_pipe *pipe, int level)
 	ctx = &config->ctx;
 
 	mutex_lock(&config->ctx_lock);
+	level = (level * 0xFF / BRIGHTNESS_MAX_LEVEL);
+
+	if (dsi_pipe->ops.set_brightness)
+		dsi_pipe->ops.set_brightness(level);
+
+	panel = dsi_pipe->panel;
+	if (!panel || !panel->ops || !panel->ops->set_brightness) {
+		pr_err("%s: invalid panel\n", __func__);
+		mutex_unlock(&config->ctx_lock);
+		return -EINVAL;
+	}
 
 	ctx->backlight_level = level;
 	err = panel->ops->set_brightness(dsi_pipe, level);
@@ -471,6 +480,9 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	}
 
 	pipe->config.pixel_multiplier = 1;
+
+	/* initialize the backlight ops */
+	intel_backlight_init(&pipe->base);
 
 	return 0;
 err:
