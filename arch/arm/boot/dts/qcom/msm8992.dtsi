@@ -183,6 +183,8 @@
 #include "msm8994-smp2p.dtsi"
 #include "msm8992-mdss.dtsi"
 #include "msm8992-gpu.dtsi"
+#include "msm8992-bus.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
