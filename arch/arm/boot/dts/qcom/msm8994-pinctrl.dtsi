@@ -430,6 +430,30 @@
 			};
 		};
 
+		pmx_fm_status_int_active {
+			qcom,pins = <&gp 11>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_fm_status_int_active";
+
+			fm_status_int_active: fm_status_int_active {
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_fm_status_int_suspend {
+			qcom,pins = <&gp 11>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_fm_status_int_suspend";
+
+			fm_status_int_suspend: fm_status_int_suspend {
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+
 		pmx_fm_rst_active {
 			qcom,pins = <&gp 62>;
 			qcom,pin-func = <0>;

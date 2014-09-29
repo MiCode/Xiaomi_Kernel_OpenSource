@@ -738,14 +738,20 @@
 		va-supply = <&bt_vreg>;
 		silabs,va-supply-voltage = <3300000 3300000>;
 		pinctrl-names = "pmx_fm_active","pmx_fm_suspend";
-		pinctrl-0 = <&fm_int_active &fm_rst_active>;
-		pinctrl-1 = <&fm_int_suspend &fm_rst_suspend>;
+		pinctrl-0 = <&fm_int_active &fm_status_int_active &fm_rst_active>;
+		pinctrl-1 = <&fm_int_suspend &fm_status_int_suspend &fm_rst_suspend>;
 		silabs,reset-gpio = <&msm_gpio 62 0>;
 		silabs,int-gpio = <&msm_gpio 9 0>;
 		silabs,status-gpio = <&msm_gpio 11 0>;
-		interrupt-parent = <&msm_gpio>;
-		interrupts = <9 2>;
-		interrupt-names = "silabs_fm_int";
+		#address-cells = <0>;
+		interrupts = <0 1>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <
+				  0 &msm_gpio 9 2
+				  1 &msm_gpio 11 1
+				>;
+		interrupt-names = "silabs_fm_int", "silabs_fm_status_int";
 	};
 };
 
