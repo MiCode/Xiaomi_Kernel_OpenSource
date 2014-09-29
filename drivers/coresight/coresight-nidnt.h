@@ -27,6 +27,7 @@ extern void coresight_nidnt_writel(unsigned int val, unsigned int off);
 
 extern int coresight_nidnt_config_swoverride(enum nidnt_debug_mode mode);
 
+extern int coresight_nidnt_config_qdsd_enable(bool enable);
 extern void coresight_nidnt_set_hwdetect_param(bool val);
 
 extern ssize_t coresight_nidnt_show_timeout_value(struct device *dev,
@@ -53,6 +54,11 @@ static inline void coresight_nidnt_writel(unsigned int val,
 						unsigned int off) {}
 
 static inline int coresight_nidnt_config_swoverride(enum nidnt_debug_mode mode)
+{
+	return -ENOSYS;
+}
+
+static inline int coresight_nidnt_config_qdsd_enable(bool enable)
 {
 	return -ENOSYS;
 }
