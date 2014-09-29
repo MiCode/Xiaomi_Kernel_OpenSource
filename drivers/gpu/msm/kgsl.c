@@ -796,15 +796,6 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	struct kgsl_process_private *private = container_of(kref,
 			struct kgsl_process_private, refcount);
 
-	mutex_lock(&kgsl_driver.process_mutex);
-	list_del(&private->list);
-	mutex_unlock(&kgsl_driver.process_mutex);
-
-	if (private->kobj.state_in_sysfs)
-		kgsl_process_uninit_sysfs(private);
-	if (private->debug_root)
-		debugfs_remove_recursive(private->debug_root);
-
 	idr_destroy(&private->mem_idr);
 	idr_destroy(&private->syncsource_idr);
 	kgsl_mmu_putpagetable(private->pagetable);
@@ -878,6 +869,24 @@ done:
 }
 
 /**
+ * kgsl_detach_process_private() - Remove a process private from the process
+ * private list and free things in the process private that relate to
+ * the process id in order to allow next open from same process create
+ * a new process private
+ * @private: Pointer to process private to detach
+ */
+static void kgsl_detach_process_private(struct kgsl_process_private *private)
+{
+	mutex_lock(&kgsl_driver.process_mutex);
+	list_del(&private->list);
+	mutex_unlock(&kgsl_driver.process_mutex);
+
+	if (private->kobj.state_in_sysfs)
+		kgsl_process_uninit_sysfs(private);
+	debugfs_remove_recursive(private->debug_root);
+}
+
+/**
  * kgsl_get_process_private() - Used to find the process private structure
  * @cur_dev_priv: Current device pointer
  * Finds or creates a new porcess private structire and initializes its members
@@ -929,6 +938,7 @@ done:
 
 error:
 	mutex_unlock(&private->process_private_mutex);
+	kgsl_detach_process_private(private);
 	kgsl_process_private_put(private);
 	return NULL;
 }
@@ -1028,6 +1038,8 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	result = kgsl_close_device(device);
 
 	kfree(dev_priv);
+
+	kgsl_detach_process_private(private);
 
 	kgsl_process_private_put(private);
 
