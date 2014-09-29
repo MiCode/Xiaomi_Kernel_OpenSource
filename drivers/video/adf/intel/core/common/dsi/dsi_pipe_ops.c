@@ -32,12 +32,6 @@
 #include "intel_dsi.h"
 #include "intel_dsi_cmd.h"
 
-static void vlv_flisdsi_write(u32 reg, u32 val)
-{
-	intel_dpio_sideband_rw(INTEL_SIDEBAND_REG_WRITE, IOSF_PORT_FLISDSI,
-			      reg, &val);
-}
-
 static void band_gap_reset(void)
 {
 	pr_err("ADF: %s\n", __func__);

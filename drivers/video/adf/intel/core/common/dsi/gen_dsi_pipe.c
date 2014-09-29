@@ -14,6 +14,7 @@
 #include <core/vlv/vlv_dc_config.h>
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/dsi/dsi_config.h>
+#include <core/vlv/vlv_dc_config.h>
 #include <intel_adf_device.h>
 #include "dsi_vbt.h"
 #include "intel_dsi.h"

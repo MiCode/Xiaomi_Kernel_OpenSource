@@ -34,6 +34,7 @@
 #include <core/common/dsi/dsi_panel.h>
 #include <core/vlv/vlv_dc_regs.h>
 #include <core/vlv/vlv_dc_gpio.h>
+#include <core/vlv/vlv_dc_config.h>
 #include <linux/i2c.h>
 #include <linux/mfd/intel_soc_pmic.h>
 #include "intel_dsi.h"
@@ -50,11 +51,6 @@
 #define TRAIL_CNT_MAX		0x1F
 
 #define NS_KHZ_RATIO 1000000
-
-static void vlv_gpio_write(u32 reg, u32 val, u32 port)
-{
-	intel_dpio_sideband_rw(INTEL_SIDEBAND_REG_WRITE, port, reg, &val);
-}
 
 struct gpio_table {
 	u16 function_reg;

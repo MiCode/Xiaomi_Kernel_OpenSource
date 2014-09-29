@@ -33,6 +33,7 @@
 #include <intel_adf_device.h>
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/dsi/dsi_config.h>
+#include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_dc_regs.h>
 #include "intel_dsi.h"
 
@@ -55,20 +56,6 @@ static const u32 lfsr_converts[] = {
 	106, 53, 282, 397, 354, 227, 113, 56, 284, 142,		/* 81 - 90 */
 	71, 35							/* 91 - 92 */
 };
-
-static u32 vlv_cck_read(u32 reg)
-{
-	u32 val;
-	intel_dpio_sideband_rw(INTEL_SIDEBAND_REG_READ, IOSF_PORT_CCK,
-			       reg, &val);
-	return val;
-}
-
-static void vlv_cck_write(u32 reg, u32 val)
-{
-	intel_dpio_sideband_rw(INTEL_SIDEBAND_REG_WRITE, IOSF_PORT_CCK,
-			       reg, &val);
-}
 
 /* Get DSI clock from pixel clock */
 static u32 dsi_clk_from_pclk(u32 pclk, int pixel_format, int lane_count)

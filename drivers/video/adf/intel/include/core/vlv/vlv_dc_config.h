@@ -16,6 +16,9 @@
 #define VLV_DC_CONFIG_H
 
 #include "core/intel_dc_config.h"
+#include "core/vlv/vlv_dc_regs.h"
+#include <drm/i915_drm.h>
+#include <drm/i915_adf.h>
 
 #define VLV_N_PLANES	6
 #define VLV_N_PIPES	2
@@ -44,6 +47,51 @@ enum vlv_disp_plane {
 	VLV_SPRITE2,
 	VLV_MAX_PLANES,
 };
+
+static inline void vlv_gpio_write(u32 reg, u32 val, u32 port)
+{
+	intel_adf_pci_sideband_rw(INTEL_SIDEBAND_REG_WRITE, port, reg, &val);
+}
+
+static inline void vlv_flisdsi_write(u32 reg, u32 val)
+{
+	intel_adf_dpio_sideband_rw(INTEL_SIDEBAND_REG_WRITE, IOSF_PORT_FLISDSI,
+			      reg, &val);
+}
+
+static inline void vlv_gpio_nc_write(u32 reg, u32 val)
+{
+	intel_adf_dpio_sideband_rw(INTEL_SIDEBAND_REG_WRITE,
+					IOSF_PORT_GPIO_NC, reg, &val);
+}
+
+static inline u32 vlv_gps_core_read(u32 reg)
+{
+	u32 val;
+	intel_adf_pci_sideband_rw(INTEL_SIDEBAND_REG_READ,
+					IOSF_PORT_GPS_CORE, reg, &val);
+	return val;
+}
+
+static inline void vlv_gps_core_write(u32 reg, u32 val)
+{
+	intel_adf_pci_sideband_rw(INTEL_SIDEBAND_REG_WRITE,
+					IOSF_PORT_GPS_CORE, reg, &val);
+}
+
+static inline u32 vlv_cck_read(u32 reg)
+{
+	u32 val;
+	intel_adf_pci_sideband_rw(INTEL_SIDEBAND_REG_READ, IOSF_PORT_CCK,
+			       reg, &val);
+	return val;
+}
+
+static inline void vlv_cck_write(u32 reg, u32 val)
+{
+	intel_adf_pci_sideband_rw(INTEL_SIDEBAND_REG_WRITE, IOSF_PORT_CCK,
+			       reg, &val);
+}
 
 bool vlv_intf_screen_connected(struct intel_pipe *pipe);
 u32 vlv_intf_vsync_counter(struct intel_pipe *pipe, u32 interval);
