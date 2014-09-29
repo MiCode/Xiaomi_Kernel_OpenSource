@@ -219,12 +219,19 @@ int set_bypass_lp_div_mux_sel(struct mux_clk *clk, int sel)
 	pr_debug("bypass_lp_div mux set to %s mode\n",
 				sel ? "indirect" : "direct");
 
+	pr_debug("POST_DIVIDER_CONTROL = 0x%x\n",
+		MDSS_PLL_REG_R(dsi_pll_res->pll_base,
+			MMSS_DSI_PHY_PLL_POST_DIVIDER_CONTROL));
+
 	reg_data = MDSS_PLL_REG_R(dsi_pll_res->pll_base,
 			MMSS_DSI_PHY_PLL_POST_DIVIDER_CONTROL);
 	reg_data |= BIT(7);
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 			MMSS_DSI_PHY_PLL_POST_DIVIDER_CONTROL,
-				reg_data | (sel << 5));
+			reg_data | (sel << 5));
+	pr_debug("POST_DIVIDER_CONTROL = 0x%x\n",
+		MDSS_PLL_REG_R(dsi_pll_res->pll_base,
+			MMSS_DSI_PHY_PLL_POST_DIVIDER_CONTROL));
 
 	return 0;
 }
@@ -282,8 +289,6 @@ int ndiv_set_div(struct div_clk *clk, int div)
 	int rc, reg_data;
 	struct mdss_pll_resources *dsi_pll_res = clk->priv;
 
-	pr_debug("%d div=%i\n", __LINE__, div);
-
 	rc = mdss_pll_resource_enable(dsi_pll_res, true);
 	if (rc) {
 		pr_err("Failed to enable mdss dsi pll resources\n");
@@ -295,6 +300,10 @@ int ndiv_set_div(struct div_clk *clk, int div)
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 				MMSS_DSI_PHY_PLL_POST_DIVIDER_CONTROL,
 				reg_data | div);
+
+	pr_debug("POST_DIVIDER_CONTROL = 0x%x\n",
+		MDSS_PLL_REG_R(dsi_pll_res->pll_base,
+			MMSS_DSI_PHY_PLL_POST_DIVIDER_CONTROL));
 
 	mdss_pll_resource_enable(dsi_pll_res, false);
 	return rc;
@@ -406,9 +415,13 @@ int hr_oclk3_set_div(struct div_clk *clk, int div)
 		return rc;
 	}
 
+	pr_debug("%d div = %d\n", __LINE__, div);
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 				MMSS_DSI_PHY_PLL_HR_OCLK3_DIVIDER,
 				(div - 1));
+	pr_debug("%s: HR_OCLK3_DIVIDER = 0x%x\n", __func__,
+		MDSS_PLL_REG_R(dsi_pll_res->pll_base,
+			MMSS_DSI_PHY_PLL_HR_OCLK3_DIVIDER));
 
 	mdss_pll_resource_enable(dsi_pll_res, false);
 	return rc;
@@ -621,7 +634,7 @@ static void pll_20nm_phy_loop_bw_config(struct mdss_pll_resources *dsi_pll_res)
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 				MMSS_DSI_PHY_PLL_PLL_CP_SETP, 0x1F);
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-				MMSS_DSI_PHY_PLL_PLL_CRCTRL, 0x77);
+				MMSS_DSI_PHY_PLL_PLL_CRCTRL, 0xbb);
 }
 
 static void pll_20nm_phy_config(struct dsi_pll_vco_clk *vco)
@@ -697,7 +710,7 @@ static void pll_20nm_vco_rate_calc(struct dsi_pll_vco_clk *vco,
 		struct mdss_pll_vco_calc *vco_calc, s64 vco_clk_rate)
 {
 	s64 multiplier = (1 << 20);
-	s64 duration = 128, pll_comp_val;
+	s64 duration = 1024, pll_comp_val;
 	s64 dec_start_multiple, dec_start;
 	s32 div_frac_start;
 	s64 dec_start1, dec_start2;
@@ -716,8 +729,8 @@ static void pll_20nm_vco_rate_calc(struct dsi_pll_vco_clk *vco,
 	div_frac_start1 = (div_frac_start & 0x7f) | BIT(7);
 	div_frac_start2 = ((div_frac_start >> 7) & 0x7f) | BIT(7);
 	div_frac_start3 = ((div_frac_start >> 14) & 0x3f) | BIT(6);
-	pll_comp_val = div_s64(dec_start_multiple * 2 * (duration - 1),
-				10 * multiplier);
+	pll_comp_val = (div_s64(dec_start_multiple * 2 * duration,
+				10 * multiplier)) - 1;
 	pll_plllock_cmp1 = pll_comp_val & 0xff;
 	pll_plllock_cmp2 = (pll_comp_val >> 8) & 0xff;
 	pll_plllock_cmp3 = (pll_comp_val >> 16) & 0xff;
@@ -751,6 +764,7 @@ int pll_20nm_vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate)
 	s64 vco_clk_rate = rate;
 	struct mdss_pll_resources *dsi_pll_res = vco->priv;
 	struct mdss_pll_vco_calc vco_calc;
+	u32 dec_start1, dec_start2;
 
 	pr_debug("vco set rate: %lld\n", vco_clk_rate);
 	pll_20nm_phy_config(vco);
@@ -758,6 +772,10 @@ int pll_20nm_vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate)
 	/* div fraction, start and comp calculations */
 	pll_20nm_vco_rate_calc(vco, &vco_calc, vco_clk_rate);
 
+	pr_debug("dec_start1 = 0x%llx, dec_start2 = 0x%llx\n",
+			vco_calc.dec_start1, vco_calc.dec_start2);
+	pr_debug("div_frac_start1 = 0x%x, div_frac_start2 = 0x%x\n",
+			vco_calc.div_frac_start1, vco_calc.div_frac_start2);
 	/* register programming*/
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 			MMSS_DSI_PHY_PLL_DIV_FRAC_START1,
@@ -797,6 +815,13 @@ int pll_20nm_vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate)
 	 */
 	udelay(1000);
 	wmb();
+	dec_start2 = (MDSS_PLL_REG_R(dsi_pll_res->pll_base,
+			MMSS_DSI_PHY_PLL_DEC_START2));
+	dec_start1 = (MDSS_PLL_REG_R(dsi_pll_res->pll_base,
+			MMSS_DSI_PHY_PLL_DEC_START1));
+	pr_debug("dec_start1 = 0x%x, dec_start2 = 0x%x\n",
+				dec_start1, dec_start2);
+
 	if (dsi_pll_res->pll_1_base)
 		__dsi_pll_disable(dsi_pll_res->pll_1_base);
 	return 0;
