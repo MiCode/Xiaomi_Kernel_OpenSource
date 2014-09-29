@@ -135,8 +135,6 @@ Optional properties:
 - qcom,cti-save : boolean, indicating cti context needs to be saved and restored
 - qcom,cti-hwclk : boolean, indicating support of hardware clock to access cti
 		   registers to be saved and restored
-- qcom,cti-ack-atomic : boolean, indicating cti interrupt acknowledgement needs
-			to be done in atomic context
 - qcom,cti-gpio-trigin : cti trigger input driven by gpio
 - qcom,cti-gpio-trigout : cti trigger output sent to gpio
 - qcom,pc-save : program counter save implemented
