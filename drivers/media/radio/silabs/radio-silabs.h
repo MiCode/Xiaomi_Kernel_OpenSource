@@ -190,6 +190,8 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define RDS_INT_DISABLE_MASK	    0x9
 #define RSQ_INT_DISABLE_MASK	    0x5
 #define HARD_MUTE_MASK		    0x3
+#define GPIO1_OUTPUT_ENABLE_MASK   (1 << 1)
+#define GPIO_OUTPUT_LOW_MASK        0
 
 #define DCLK_FALLING_EDGE_MASK     (1 << 7)
 
@@ -203,6 +205,8 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define SEEK_CMD_LEN 2
 #define TUNE_STATUS_CMD_LEN 2
 #define RSQ_STATUS_CMD_LEN 2
+#define GPIO_CTL_CMD_LEN 2
+#define GPIO_SET_CMD_LEN 2
 
 #define HIGH_BYTE_16BIT(x)         (x >> 8)
 #define LOW_BYTE_16BIT(x)          (x & 0xFF)
