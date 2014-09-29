@@ -201,6 +201,8 @@ static struct security_operations pft_security_ops = {
 	.file_open		= pft_file_open,
 	.file_permission	= pft_file_permission,
 	.file_close		= pft_file_close,
+
+	.allow_merge_bio	= pft_allow_merge_bio,
 };
 
 static int __init pft_lsm_init(struct pft_device *dev)
