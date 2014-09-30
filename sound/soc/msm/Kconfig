@@ -183,6 +183,7 @@ config SND_SOC_MSM8974
 	select SND_DYNAMIC_MINORS
 	select AUDIO_OCMEM
 	select DOLBY_DAP
+	select SND_HWDEP
 	help
 	 To add support for SoC audio on MSM8974.
 	 This will enable sound soc drivers which
