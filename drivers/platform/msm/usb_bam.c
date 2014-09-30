@@ -927,6 +927,18 @@ static bool usb_bam_resume_core(enum usb_ctrl bam_type,
 	}
 }
 
+/**
+ * usb_bam_disconnect_ipa_prod() - disconnects the USB consumer i.e. IPA producer.
+ * @ipa_params: USB IPA related parameters
+ * @cur_bam: USB controller used for BAM functionality
+ * @bam_mode: USB controller based BAM used in Device or Host Mode
+
+ * It performs disconnect with IPA driver for IPA producer pipe and
+ * with SPS driver for USB BAM consumer pipe. This API also takes care
+ * of SYS2BAM and BAM2BAM IPA disconnect functionality.
+ *
+ * Return: 0 in case of success, errno otherwise.
+ */
 static int usb_bam_disconnect_ipa_prod(
 		struct usb_bam_connect_ipa_params *ipa_params,
 		enum usb_ctrl cur_bam, enum usb_bam_mode bam_mode)
@@ -994,11 +1006,21 @@ static int usb_bam_disconnect_ipa_prod(
 			ctx.pipes_enabled_per_bam[pipe_connect->bam_type] -= 1;
 		spin_unlock(&usb_bam_lock);
 	}
-	info[cur_bam].prod_pipes_enabled_per_bam -= 1;
 
 	return 0;
 }
 
+/**
+ * usb_bam_disconnect_ipa_cons() - disconnects the USB producer i.e. IPA consumer.
+ * @ipa_params: USB IPA related parameters
+ * @cur_bam: USB controller used for BAM functionality
+ *
+ * It performs disconnect with IPA driver for IPA consumer pipe and
+ * with SPS driver for USB BAM producer pipe. This API also takes care
+ * of SYS2BAM and BAM2BAM IPA disconnect functionality.
+ *
+ * Return: 0 in case of success, errno otherwise.
+ */
 static int usb_bam_disconnect_ipa_cons(
 		struct usb_bam_connect_ipa_params *ipa_params,
 		enum usb_ctrl cur_bam)
@@ -1074,6 +1096,7 @@ static int usb_bam_disconnect_ipa_cons(
 	}
 
 	pipe_connect->ipa_clnt_hdl = -1;
+	info[cur_bam].prod_pipes_enabled_per_bam -= 1;
 
 	return 0;
 }
