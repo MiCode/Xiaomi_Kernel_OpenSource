@@ -151,6 +151,24 @@ struct qpnp_iadc_chip;
 struct qpnp_adc_tm_chip;
 
 /**
+ * enum qpnp_adc_clk_type - Clock rate supported.
+ * %CLK_TYPE1: 2P4MHZ
+ * %CLK_TYPE2: 4P8MHZ
+ * %CLK_TYPE3: 9P6MHZ
+ * %CLK_TYPE4: 19P2MHZ
+ * %CLK_NONE: Do not use this Clk type.
+ *
+ * The Clock rate is specific to each channel of the QPNP ADC arbiter.
+ */
+enum qpnp_adc_clk_type {
+	CLK_TYPE1 = 0,
+	CLK_TYPE2,
+	CLK_TYPE3,
+	CLK_TYPE4,
+	CLK_NONE,
+};
+
+/**
  * enum qpnp_adc_decimation_type - Sampling rate supported.
  * %DECIMATION_TYPE1: 512
  * %DECIMATION_TYPE2: 1K
