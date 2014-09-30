@@ -735,7 +735,7 @@ static u32 run_measurement(unsigned ticks, void __iomem *ctl_reg,
 unsigned long measure_get_rate(struct clk *c)
 {
 	unsigned long flags;
-	u32 gcc_xo4_reg_backup;
+	u32 gcc_xo4_reg;
 	u64 raw_count_short, raw_count_full;
 	unsigned ret;
 	u32 sample_ticks = 0x10000;
@@ -751,8 +751,9 @@ unsigned long measure_get_rate(struct clk *c)
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 
 	/* Enable CXO/4 and RINGOSC branch. */
-	gcc_xo4_reg_backup = readl_relaxed(*data->base + data->xo_div4_cbcr);
-	writel_relaxed(0x1, *data->base + data->xo_div4_cbcr);
+	gcc_xo4_reg = readl_relaxed(*data->base + data->xo_div4_cbcr);
+	gcc_xo4_reg |= CBCR_BRANCH_ENABLE_BIT;
+	writel_relaxed(gcc_xo4_reg, *data->base + data->xo_div4_cbcr);
 
 	/*
 	 * The ring oscillator counter will not reset if the measured clock
@@ -768,7 +769,9 @@ unsigned long measure_get_rate(struct clk *c)
 	raw_count_full = run_measurement(sample_ticks,
 					 *data->base + data->ctl_reg,
 					 *data->base + data->status_reg);
-	writel_relaxed(gcc_xo4_reg_backup, *data->base + data->xo_div4_cbcr);
+
+	gcc_xo4_reg &= ~CBCR_BRANCH_ENABLE_BIT;
+	writel_relaxed(gcc_xo4_reg, *data->base + data->xo_div4_cbcr);
 
 	/* Return 0 if the clock is off. */
 	if (raw_count_full == raw_count_short) {
