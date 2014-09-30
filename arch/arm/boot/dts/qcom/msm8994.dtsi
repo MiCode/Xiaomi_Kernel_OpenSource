@@ -1750,7 +1750,7 @@
 		qcom,target-dev = <&cpubw>;
 	};
 
-	devfreq-cpufreq {
+	devfreq_cpufreq: devfreq-cpufreq {
 		cpubw-cpufreq {
 			target-dev = <&cpubw>;
 			cpu-to-dev-map-0 =
@@ -1823,10 +1823,7 @@
 			<  768000 >,
 			<  844800 >,
 			<  921600 >,
-			<  940800 >,
-			< 1248000 >,
-			< 1344000 >,
-			< 1440000 >;
+			<  940800 >;
 
 		qcom,cpufreq-table-4 =
 			<  199200 >,
