@@ -706,3 +706,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&cnss_default &pcie0_clkreq_default>;
 };
+
+&i2c_11 {
+	smb1357-charger@1c {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x1c>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-thresh-mv = <100>;
+	};
+};
