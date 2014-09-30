@@ -637,6 +637,9 @@
 		qcom,cpr-init-voltage-ref = <900000 1000000 1225000>;
 		qcom,cpr-init-voltage-step = <10000>;
 		qcom,cpr-corner-map = <1 2 2 3 3 3 3 3 3>;
+		qcom,cpr-voltage-floor-override =
+				<0xFFFFFFFF 0 725000 800000 840000 860000 860000
+					      900000 900000 940000 940000>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <2000>;
 		qcom,cpr-corner-frequency-map =
 				<1 199200000>,
@@ -705,6 +708,9 @@
 		qcom,cpr-init-voltage-ref = <900000 1000000 1225000>;
 		qcom,cpr-init-voltage-step = <10000>;
 		qcom,cpr-corner-map = <1 2 2 3 3 3 3 3>;
+		qcom,cpr-voltage-floor-override =
+				<0xFFFFFFFF 0 725000 790000 840000 840000 860000
+					      890000 920000 940000>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <2000>;
 		qcom,cpr-corner-frequency-map =
 				<1 199200000>,
