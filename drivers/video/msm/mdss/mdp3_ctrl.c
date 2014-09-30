@@ -994,6 +994,20 @@ static int mdp3_overlay_play(struct msm_fb_data_type *mfd,
 	return rc;
 }
 
+bool update_roi(struct mdp3_rect oldROI, struct mdp_rect newROI)
+{
+	return ((newROI.x != oldROI.x) || (newROI.y != oldROI.y) ||
+		(newROI.w != oldROI.w) || (newROI.h != oldROI.h));
+}
+
+bool is_roi_valid(struct mdp3_dma_source source_config, struct mdp_rect roi)
+{
+	return  ((roi.x >= source_config.x) &&
+		((roi.x + roi.w) <= source_config.width) &&
+		(roi.y >= source_config.y) &&
+		((roi.y + roi.h) <= source_config.height));
+}
+
 static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 					struct mdp_display_commit *cmt_data)
 {
@@ -1015,6 +1029,15 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 	if (mdp3_bufq_count(&mdp3_session->bufq_in) == 0) {
 		pr_debug("no buffer in queue yet\n");
 		return -EPERM;
+	}
+	if (panel_info->partial_update_enabled &&
+		is_roi_valid(mdp3_session->dma->source_config, cmt_data->l_roi)
+		&& update_roi(mdp3_session->dma->roi, cmt_data->l_roi)) {
+			mdp3_session->dma->roi.x = cmt_data->l_roi.x;
+			mdp3_session->dma->roi.y = cmt_data->l_roi.y;
+			mdp3_session->dma->roi.w = cmt_data->l_roi.w;
+			mdp3_session->dma->roi.h = cmt_data->l_roi.h;
+			mdp3_session->dma->update_src_cfg = true;
 	}
 
 	panel = mdp3_session->panel;
@@ -1041,9 +1064,20 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 	if (data) {
 		mdp3_ctrl_reset_countdown(mdp3_session, mfd);
 		mdp3_ctrl_clk_enable(mfd, 1);
-		rc = mdp3_session->dma->update(mdp3_session->dma,
-			(void *)(int)data->addr,
-			mdp3_session->intf);
+		if (mdp3_session->dma->update_src_cfg &&
+				panel_info->partial_update_enabled) {
+			panel->panel_info.roi.x = mdp3_session->dma->roi.x;
+			panel->panel_info.roi.y = mdp3_session->dma->roi.y;
+			panel->panel_info.roi.w = mdp3_session->dma->roi.w;
+			panel->panel_info.roi.h = mdp3_session->dma->roi.h;
+			rc = mdp3_session->dma->update(mdp3_session->dma,
+					(void *)(int)data->addr,
+					mdp3_session->intf, (void *)panel);
+		} else {
+			rc = mdp3_session->dma->update(mdp3_session->dma,
+					(void *)(int)data->addr,
+					mdp3_session->intf, NULL);
+		}
 		/* This is for the previous frame */
 		if (rc < 0) {
 			mdp3_ctrl_notify(mdp3_session,
@@ -1137,7 +1171,7 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 		mdp3_ctrl_clk_enable(mfd, 1);
 		rc = mdp3_session->dma->update(mdp3_session->dma,
 				(void *)(int)(mfd->iova + offset),
-				mdp3_session->intf);
+				mdp3_session->intf, NULL);
 		/* This is for the previous frame */
 		if (rc < 0) {
 			mdp3_ctrl_notify(mdp3_session,
