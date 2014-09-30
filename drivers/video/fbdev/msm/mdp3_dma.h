@@ -246,6 +246,13 @@ struct mdp3_tear_check {
 	u32 refx100;
 };
 
+struct mdp3_rect {
+	u32 x;
+	u32 y;
+	u32 w;
+	u32 h;
+};
+
 struct mdp3_intf;
 
 struct mdp3_dma {
@@ -274,6 +281,7 @@ struct mdp3_dma {
 	unsigned int vsync_status;
 	bool update_src_cfg;
 	bool has_panic_ctrl;
+	struct mdp3_rect roi;
 
 	int (*dma_config)(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
@@ -299,7 +307,8 @@ struct mdp3_dma {
 			struct mdp3_dma_lut_config *config,
 			struct mdp3_dma_lut *lut);
 
-	int (*update)(struct mdp3_dma *dma, void *buf, struct mdp3_intf *intf);
+	int (*update)(struct mdp3_dma *dma,
+			void *buf, struct mdp3_intf *intf, void *data);
 
 	int (*update_cursor)(struct mdp3_dma *dma, int x, int y);
 
