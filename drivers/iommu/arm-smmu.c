@@ -1823,12 +1823,12 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 
 	if (smmu->version == 1) {
-		u32 reg = iova & ~0xFFF;
+		u32 reg = iova & ~0xfff;
 		writel_relaxed(reg, cb_base + ARM_SMMU_CB_ATS1PR_LO);
 	} else {
-		u32 reg = iova & ~0xFFF;
+		u32 reg = iova & ~0xfff;
 		writel_relaxed(reg, cb_base + ARM_SMMU_CB_ATS1PR_LO);
-		reg = (iova & ~0xFFF) >> 32;
+		reg = (iova & ~0xfff) >> 32;
 		writel_relaxed(reg, cb_base + ARM_SMMU_CB_ATS1PR_HI);
 	}
 
@@ -1847,8 +1847,10 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	if (phys & CB_PAR_F) {
 		dev_err(dev, "translation fault on %s!\n", dev_name(dev));
 		dev_err(dev, "PAR = 0x%llx\n", phys);
+		phys = 0;
+	} else {
+		phys = (phys & 0xfffffff000ULL) | (iova & 0x00000fff);
 	}
-	phys = (phys & 0xFFFFFFF000ULL) | (iova & 0x00000FFF);
 
 	arm_smmu_disable_clocks(smmu);
 	return phys;
