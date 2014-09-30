@@ -246,7 +246,6 @@
 #define ARM_SMMU_CB_ATS1PR_LO		0x800
 #define ARM_SMMU_CB_ATS1PR_HI		0x804
 #define ARM_SMMU_CB_ATSR		0x8f0
-#define ATSR_LOOP_TIMEOUT		1000000	/* 1s! */
 
 #define SCTLR_S1_ASIDPNE		(1 << 12)
 #define SCTLR_CFCFG			(1 << 7)
@@ -1817,10 +1816,13 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	void __iomem *cb_base;
 	u32 tmp;
 	u64 phys;
+	unsigned long flags;
 
 	arm_smmu_enable_clocks(smmu);
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+
+	spin_lock_irqsave(&smmu_domain->lock, flags);
 
 	if (smmu->version == 1) {
 		u32 reg = iova & ~0xfff;
@@ -1832,8 +1834,9 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		writel_relaxed(reg, cb_base + ARM_SMMU_CB_ATS1PR_HI);
 	}
 
-	if (readl_poll_timeout(cb_base + ARM_SMMU_CB_ATSR, tmp,
-				!(tmp & ATSR_ACTIVE), 10, ATSR_LOOP_TIMEOUT)) {
+	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
+				!(tmp & ATSR_ACTIVE), 10, 5)) {
+		spin_unlock_irqrestore(&smmu_domain->lock, flags);
 		dev_err(dev,
 			"iova to phys timed out on 0x%pa for %s. Falling back to software table walk.\n",
 			&iova, dev_name(dev));
@@ -1843,6 +1846,8 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 
 	phys = readl_relaxed(cb_base + ARM_SMMU_CB_PAR_LO);
 	phys |= ((u64) readl_relaxed(cb_base + ARM_SMMU_CB_PAR_HI)) << 32;
+
+	spin_unlock_irqrestore(&smmu_domain->lock, flags);
 
 	if (phys & CB_PAR_F) {
 		dev_err(dev, "translation fault on %s!\n", dev_name(dev));
