@@ -529,6 +529,17 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 			rate = (rate * src_h) / dst.h;
 
 		rate *= v_total * fps;
+		/* pipes decoding BWC content have different clk requirement */
+		if (pipe->bwc_mode && !pipe->src_fmt->is_yuv &&
+		    pipe->src_fmt->bpp == 4) {
+			u32 bwc_rate =
+			mult_frac((src.w * src_h * fps), v_total, dst.h << 1);
+			pr_debug("src: w:%d h:%d fps:%d vtotal:%d dst h:%d\n",
+				src.w, src_h, fps, v_total, dst.h);
+			pr_debug("pipe%d: bwc_rate=%d normal_rate=%d\n",
+				pipe->num, bwc_rate, rate);
+			rate = max(bwc_rate, rate);
+		}
 
 		quota = mult_frac(quota, v_total, dst.h);
 		if (!mixer->ctl->is_video_mode)
