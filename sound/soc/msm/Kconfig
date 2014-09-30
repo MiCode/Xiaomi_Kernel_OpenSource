@@ -190,6 +190,7 @@ config SND_SOC_MSM8226
 	select DOLBY_DAP
 	select DTS_SRS_TM
 	select QTI_PP
+	select SND_HWDEP
 	help
 	 To add support for SoC audio on MSM8226.
 	 This will enable sound soc drivers which
