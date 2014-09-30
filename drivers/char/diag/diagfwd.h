@@ -26,11 +26,6 @@ void diagfwd_init(void);
 void diagfwd_exit(void);
 void diag_process_hdlc(void *data, unsigned len);
 void diag_smd_send_req(struct diag_smd_info *smd_info);
-void process_lock_enabling(struct diag_nrt_wake_lock *lock, int real_time);
-void process_lock_on_notify(struct diag_nrt_wake_lock *lock);
-void process_lock_on_read(struct diag_nrt_wake_lock *lock, int pkt_len);
-void process_lock_on_copy(struct diag_nrt_wake_lock *lock);
-void process_lock_on_copy_complete(struct diag_nrt_wake_lock *lock);
 void diag_usb_legacy_notifier(void *, unsigned, struct diag_request *);
 long diagchar_ioctl(struct file *, unsigned int, unsigned long);
 int diag_device_write(void *, int, struct diag_request *);
@@ -56,6 +51,12 @@ void diag_reset_smd_data(int queue);
 int diag_apps_responds(void);
 void diag_update_pkt_buffer(unsigned char *buf, int type);
 int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf);
+void diag_ws_on_notify(void);
+void diag_ws_on_read(int pkt_len);
+void diag_ws_on_copy(void);
+void diag_ws_on_copy_complete(void);
+void diag_ws_reset(void);
+void diag_smd_queue_read(struct diag_smd_info *smd_info);
 /* State for diag forwarding */
 #ifdef CONFIG_DIAG_OVER_USB
 int diagfwd_connect(void);
