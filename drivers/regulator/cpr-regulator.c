@@ -246,6 +246,8 @@ struct cpr_regulator {
 
 	int		*ceiling_volt;
 	int		*floor_volt;
+	int		*fuse_ceiling_volt;
+	int		*fuse_floor_volt;
 	int		*last_volt;
 	int		step_volt;
 
@@ -472,7 +474,6 @@ static void cpr_ctl_modify(struct cpr_regulator *cpr_vreg, u32 mask, u32 value)
 static void cpr_ctl_enable(struct cpr_regulator *cpr_vreg, int corner)
 {
 	u32 val;
-	int fuse_corner = cpr_vreg->corner_map[corner];
 
 	if (cpr_vreg->is_cpr_suspended)
 		return;
@@ -491,8 +492,8 @@ static void cpr_ctl_enable(struct cpr_regulator *cpr_vreg, int corner)
 	cpr_irq_set(cpr_vreg, cpr_vreg->save_irq[corner]);
 
 	if (cpr_is_allowed(cpr_vreg) && cpr_vreg->vreg_enabled &&
-	    (cpr_vreg->ceiling_volt[fuse_corner] >
-		cpr_vreg->floor_volt[fuse_corner]))
+	    (cpr_vreg->ceiling_volt[corner] >
+		cpr_vreg->floor_volt[corner]))
 		val = RBCPR_CTL_LOOP_EN;
 	else
 		val = 0;
@@ -588,10 +589,10 @@ static int cpr_mx_get(struct cpr_regulator *cpr_vreg, int corner, int apc_volt)
 		vdd_mx = apc_volt;
 		break;
 	case VDD_MX_VMIN_APC_CORNER_CEILING:
-		vdd_mx = cpr_vreg->ceiling_volt[fuse_corner];
+		vdd_mx = cpr_vreg->fuse_ceiling_volt[fuse_corner];
 		break;
 	case VDD_MX_VMIN_APC_SLOW_CORNER_CEILING:
-		vdd_mx = cpr_vreg->ceiling_volt[highest_fuse_corner];
+		vdd_mx = cpr_vreg->fuse_ceiling_volt[highest_fuse_corner];
 		break;
 	case VDD_MX_VMIN_MX_VMAX:
 		vdd_mx = cpr_vreg->vdd_mx_vmax;
@@ -700,11 +701,11 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 				"Up: cpr status = 0x%08x (error_steps=%d)\n",
 				reg_val, error_steps);
 
-		if (last_volt >= cpr_vreg->ceiling_volt[fuse_corner]) {
+		if (last_volt >= cpr_vreg->ceiling_volt[corner]) {
 			cpr_debug_irq(cpr_vreg,
 			"[corn:%d, fuse_corn:%d] @ ceiling: %d >= %d: NACK\n",
 				corner, fuse_corner, last_volt,
-				cpr_vreg->ceiling_volt[fuse_corner]);
+				cpr_vreg->ceiling_volt[corner]);
 			cpr_irq_clr_nack(cpr_vreg);
 
 			cpr_debug_irq(cpr_vreg, "gcnt = 0x%08x (quot = %d)\n",
@@ -732,13 +733,13 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 
 		/* Calculate new voltage */
 		new_volt = last_volt + (error_steps * cpr_vreg->step_volt);
-		if (new_volt > cpr_vreg->ceiling_volt[fuse_corner]) {
+		if (new_volt > cpr_vreg->ceiling_volt[corner]) {
 			cpr_debug_irq(cpr_vreg,
 				      "new_volt(%d) >= ceiling(%d): Clamp\n",
 				      new_volt,
-				      cpr_vreg->ceiling_volt[fuse_corner]);
+				      cpr_vreg->ceiling_volt[corner]);
 
-			new_volt = cpr_vreg->ceiling_volt[fuse_corner];
+			new_volt = cpr_vreg->ceiling_volt[corner];
 		}
 
 		if (cpr_scale_voltage(cpr_vreg, corner, new_volt, dir)) {
@@ -777,11 +778,11 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 			      "Down: cpr status = 0x%08x (error_steps=%d)\n",
 			      reg_val, error_steps);
 
-		if (last_volt <= cpr_vreg->floor_volt[fuse_corner]) {
+		if (last_volt <= cpr_vreg->floor_volt[corner]) {
 			cpr_debug_irq(cpr_vreg,
 			"[corn:%d, fuse_corner:%d] @ floor: %d <= %d: NACK\n",
 				corner, fuse_corner, last_volt,
-				cpr_vreg->floor_volt[fuse_corner]);
+				cpr_vreg->floor_volt[corner]);
 			cpr_irq_clr_nack(cpr_vreg);
 
 			cpr_debug_irq(cpr_vreg, "gcnt = 0x%08x (quot = %d)\n",
@@ -809,12 +810,12 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 
 		/* Calculte new voltage */
 		new_volt = last_volt - (error_steps * cpr_vreg->step_volt);
-		if (new_volt < cpr_vreg->floor_volt[fuse_corner]) {
+		if (new_volt < cpr_vreg->floor_volt[corner]) {
 			cpr_debug_irq(cpr_vreg,
 				      "new_volt(%d) < floor(%d): Clamp\n",
 				      new_volt,
-				      cpr_vreg->floor_volt[fuse_corner]);
-			new_volt = cpr_vreg->floor_volt[fuse_corner];
+				      cpr_vreg->floor_volt[corner]);
+			new_volt = cpr_vreg->floor_volt[corner];
 		}
 
 		if (cpr_scale_voltage(cpr_vreg, corner, new_volt, dir)) {
@@ -978,6 +979,10 @@ static int cpr_regulator_set_voltage(struct regulator_dev *rdev,
 		new_volt = cpr_vreg->last_volt[corner];
 	} else {
 		new_volt = cpr_vreg->pvs_corner_v[fuse_corner];
+		if (new_volt > cpr_vreg->ceiling_volt[corner])
+			new_volt = cpr_vreg->ceiling_volt[corner];
+		else if (new_volt < cpr_vreg->floor_volt[corner])
+			new_volt = cpr_vreg->floor_volt[corner];
 	}
 
 	cpr_debug(cpr_vreg, "[corner:%d, fuse_corner:%d] = %d uV\n",
@@ -1298,17 +1303,20 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 				cpr_vreg->pvs_corner_v[i],
 				cpr_vreg->step_volt) *
 				cpr_vreg->step_volt;
-		if (cpr_vreg->pvs_corner_v[i] > cpr_vreg->ceiling_volt[i]) {
+		if (cpr_vreg->pvs_corner_v[i]
+		    > cpr_vreg->fuse_ceiling_volt[i]) {
 			cpr_info(cpr_vreg, "Warning: initial voltage[%d] %d above ceiling %d\n",
 						i, cpr_vreg->pvs_corner_v[i],
-						cpr_vreg->ceiling_volt[i]);
-			cpr_vreg->pvs_corner_v[i] = cpr_vreg->ceiling_volt[i];
+						cpr_vreg->fuse_ceiling_volt[i]);
+			cpr_vreg->pvs_corner_v[i]
+				= cpr_vreg->fuse_ceiling_volt[i];
 		} else if (cpr_vreg->pvs_corner_v[i] <
-				cpr_vreg->floor_volt[i]) {
+				cpr_vreg->fuse_floor_volt[i]) {
 			cpr_info(cpr_vreg, "Warning: initial voltage[%d] %d below floor %d\n",
 						i, cpr_vreg->pvs_corner_v[i],
-						cpr_vreg->floor_volt[i]);
-			cpr_vreg->pvs_corner_v[i] = cpr_vreg->floor_volt[i];
+						cpr_vreg->fuse_floor_volt[i]);
+			cpr_vreg->pvs_corner_v[i]
+				= cpr_vreg->fuse_floor_volt[i];
 		}
 		fuse_sel += 4;
 	}
@@ -1450,8 +1458,8 @@ static int cpr_pvs_init(struct platform_device *pdev,
 	 * ceiling values are required.
 	 */
 	if (cpr_vreg->pvs_corner_v[highest_fuse_corner] >
-		cpr_vreg->ceiling_volt[highest_fuse_corner])
-		cpr_vreg->ceiling_volt[highest_fuse_corner] =
+		cpr_vreg->fuse_ceiling_volt[highest_fuse_corner])
+		cpr_vreg->fuse_ceiling_volt[highest_fuse_corner] =
 			cpr_vreg->pvs_corner_v[highest_fuse_corner];
 
 	/*
@@ -1459,12 +1467,16 @@ static int cpr_pvs_init(struct platform_device *pdev,
 	 * ceiling and floor voltages.
 	 */
 	for (i = CPR_FUSE_CORNER_MIN; i <= highest_fuse_corner; i++)
-		if (cpr_vreg->pvs_corner_v[i] > cpr_vreg->ceiling_volt[i])
-			cpr_vreg->pvs_corner_v[i] = cpr_vreg->ceiling_volt[i];
-		else if (cpr_vreg->pvs_corner_v[i] < cpr_vreg->floor_volt[i])
-			cpr_vreg->pvs_corner_v[i] = cpr_vreg->floor_volt[i];
+		if (cpr_vreg->pvs_corner_v[i] > cpr_vreg->fuse_ceiling_volt[i])
+			cpr_vreg->pvs_corner_v[i]
+				= cpr_vreg->fuse_ceiling_volt[i];
+		else if (cpr_vreg->pvs_corner_v[i]
+				< cpr_vreg->fuse_floor_volt[i])
+			cpr_vreg->pvs_corner_v[i]
+				= cpr_vreg->fuse_floor_volt[i];
 
-	cpr_vreg->ceiling_max = cpr_vreg->ceiling_volt[highest_fuse_corner];
+	cpr_vreg->ceiling_max
+		= cpr_vreg->fuse_ceiling_volt[highest_fuse_corner];
 
 	/*
 	 * Log ceiling, floor, and inital voltages since they are critical for
@@ -1486,13 +1498,13 @@ static int cpr_pvs_init(struct platform_device *pdev,
 
 	for (i = CPR_FUSE_CORNER_MIN, pos = 0; i <= highest_fuse_corner; i++)
 		pos += scnprintf(buf + pos, buflen - pos, "%d%s",
-				cpr_vreg->ceiling_volt[i],
+				cpr_vreg->fuse_ceiling_volt[i],
 				i < highest_fuse_corner ? " " : "");
 	cpr_info(cpr_vreg, "ceiling voltage: [%s] uV\n", buf);
 
 	for (i = CPR_FUSE_CORNER_MIN, pos = 0; i <= highest_fuse_corner; i++)
 		pos += scnprintf(buf + pos, buflen - pos, "%d%s",
-				cpr_vreg->floor_volt[i],
+				cpr_vreg->fuse_floor_volt[i],
 				i < highest_fuse_corner ? " " : "");
 	cpr_info(cpr_vreg, "floor voltage: [%s] uV\n", buf);
 
@@ -2236,9 +2248,154 @@ static int cpr_init_cpr_voltages(struct cpr_regulator *cpr_vreg,
 	for (i = 1; i < size; i++) {
 		cpr_vreg->last_volt[i] = cpr_vreg->pvs_corner_v
 						[cpr_vreg->corner_map[i]];
+		/*
+		 * Restrict per-virtual-corner initial voltages according to
+		 * per-virtual-corner ceiling and floor voltages.  This is
+		 * necessary in case per-virtual-corner ceiling or floor values
+		 * are more restrictive than the corresponding per-fuse-corner
+		 * ceiling or floor values.
+		 */
+		if (cpr_vreg->last_volt[i] > cpr_vreg->ceiling_volt[i])
+			cpr_vreg->last_volt[i] = cpr_vreg->ceiling_volt[i];
+		else if (cpr_vreg->last_volt[i] < cpr_vreg->floor_volt[i])
+			cpr_vreg->last_volt[i] = cpr_vreg->floor_volt[i];
 	}
 
 	return 0;
+}
+
+/*
+ * This function fills the virtual_limit array with voltages read from the
+ * prop_name device tree property if a given tuple in the property matches
+ * the speedbin and PVS version fuses found on the chip.  Otherwise,
+ * it fills the virtual_limit_array with corresponding values from the
+ * fuse_limit_array.
+ */
+static int cpr_fill_override_voltage(struct cpr_regulator *cpr_vreg,
+		struct device *dev, const char *prop_name, const char *label,
+		int *virtual_limit, int *fuse_limit)
+{
+	int rc = 0;
+	int i, j, size, pos;
+	struct property *prop;
+	bool match_found = false;
+	size_t buflen;
+	char *buf;
+	u32 *tmp;
+
+	prop = of_find_property(dev->of_node, prop_name, NULL);
+	if (!prop)
+		goto use_fuse_corner_limits;
+
+	size = prop->length / sizeof(u32);
+	if (size == 0 || size % (cpr_vreg->num_corners + 2)) {
+		cpr_err(cpr_vreg, "%s property format is invalid; reusing per-fuse-corner limits\n",
+			prop_name);
+		goto use_fuse_corner_limits;
+	}
+
+	tmp = kzalloc(size * sizeof(u32), GFP_KERNEL);
+	if (!tmp) {
+		cpr_err(cpr_vreg, "memory alloc failed\n");
+		return -ENOMEM;
+	}
+	rc = of_property_read_u32_array(dev->of_node, prop_name, tmp, size);
+	if (rc < 0) {
+		kfree(tmp);
+		cpr_err(cpr_vreg, "%s reading failed, rc = %d\n", prop_name,
+			rc);
+		return rc;
+	}
+
+	/*
+	 * Get limit voltage for each virtual corner based upon the speed_bin
+	 * and pvs_version values.
+	 */
+	for (i = 0; i < size; i += cpr_vreg->num_corners + 2) {
+		if (tmp[i] == cpr_vreg->speed_bin &&
+		    tmp[i + 1] == cpr_vreg->pvs_version) {
+			for (j = CPR_CORNER_MIN;
+			     j <= cpr_vreg->num_corners; j++)
+				virtual_limit[j]
+					= tmp[i + 2 + j - CPR_FUSE_CORNER_MIN];
+			match_found = true;
+			break;
+		}
+	}
+	kfree(tmp);
+
+	if (!match_found)
+		goto use_fuse_corner_limits;
+
+	/*
+	 * Log per-virtual-corner voltage limits since they are useful for
+	 * baseline CPR debugging.
+	 */
+	buflen = cpr_vreg->num_corners * (MAX_CHARS_PER_INT + 2) * sizeof(*buf);
+	buf = kzalloc(buflen, GFP_KERNEL);
+	if (buf == NULL) {
+		cpr_err(cpr_vreg, "Could not allocate memory for corner limit voltage logging\n");
+		return 0;
+	}
+
+	for (i = CPR_CORNER_MIN, pos = 0; i <= cpr_vreg->num_corners; i++)
+		pos += scnprintf(buf + pos, buflen - pos, "%d%s",
+			virtual_limit[i], i < cpr_vreg->num_corners ? " " : "");
+	cpr_info(cpr_vreg, "%s override voltage: [%s] uV\n", label, buf);
+	kfree(buf);
+
+	return rc;
+
+use_fuse_corner_limits:
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++)
+		virtual_limit[i] = fuse_limit[cpr_vreg->corner_map[i]];
+	return rc;
+}
+
+/*
+ * This function loads per-virtual-corner ceiling and floor voltages from device
+ * tree if their respective device tree properties are present.  These limits
+ * override those found in the per-fuse-corner arrays fuse_ceiling_volt and
+ * fuse_floor_volt.
+ */
+static int cpr_init_ceiling_floor_override_voltages(
+	struct cpr_regulator *cpr_vreg, struct device *dev)
+{
+	int rc, i;
+	int size = cpr_vreg->num_corners + 1;
+
+	cpr_vreg->ceiling_volt = devm_kzalloc(dev, sizeof(int) * size,
+						GFP_KERNEL);
+	cpr_vreg->floor_volt = devm_kzalloc(dev, sizeof(int) * size,
+						GFP_KERNEL);
+	if (!cpr_vreg->ceiling_volt || !cpr_vreg->floor_volt)
+		return -ENOMEM;
+
+	rc = cpr_fill_override_voltage(cpr_vreg, dev,
+		"qcom,cpr-voltage-ceiling-override", "ceiling",
+		cpr_vreg->ceiling_volt, cpr_vreg->fuse_ceiling_volt);
+	if (rc)
+		return rc;
+
+	rc = cpr_fill_override_voltage(cpr_vreg, dev,
+		"qcom,cpr-voltage-floor-override", "floor",
+		cpr_vreg->floor_volt, cpr_vreg->fuse_floor_volt);
+	if (rc)
+		return rc;
+
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++) {
+		if (cpr_vreg->floor_volt[i] > cpr_vreg->ceiling_volt[i]) {
+			cpr_err(cpr_vreg, "virtual corner %d floor=%d uV > ceiling=%d uV\n",
+				i, cpr_vreg->floor_volt[i],
+				cpr_vreg->ceiling_volt[i]);
+			return -EINVAL;
+		}
+
+		if (cpr_vreg->ceiling_max < cpr_vreg->ceiling_volt[i])
+			cpr_vreg->ceiling_max = cpr_vreg->ceiling_volt[i];
+	}
+
+	return rc;
 }
 
 static int cpr_init_cpr_parameters(struct platform_device *pdev,
@@ -2344,6 +2501,11 @@ static int cpr_init_cpr(struct platform_device *pdev,
 	}
 	cpr_vreg->rbcpr_base = devm_ioremap(&pdev->dev, res->start,
 					    resource_size(res));
+
+	/* Load per corner ceiling and floor voltages if they exist. */
+	rc = cpr_init_ceiling_floor_override_voltages(cpr_vreg, &pdev->dev);
+	if (rc)
+		return rc;
 
 	/* Init all voltage set points of APC regulator for CPR */
 	rc = cpr_init_cpr_voltages(cpr_vreg, &pdev->dev);
@@ -2520,13 +2682,14 @@ static int cpr_fuse_corner_array_alloc(struct device *dev,
 		len * sizeof(*cpr_vreg->cpr_fuse_target_quot), GFP_KERNEL);
 	cpr_vreg->cpr_fuse_ro_sel = devm_kzalloc(dev,
 			len * sizeof(*cpr_vreg->cpr_fuse_ro_sel), GFP_KERNEL);
-	cpr_vreg->ceiling_volt = devm_kzalloc(dev,
-			len * sizeof(*cpr_vreg->ceiling_volt), GFP_KERNEL);
-	cpr_vreg->floor_volt = devm_kzalloc(dev,
-			len * sizeof(*cpr_vreg->floor_volt), GFP_KERNEL);
+	cpr_vreg->fuse_ceiling_volt = devm_kzalloc(dev,
+		len * (sizeof(*cpr_vreg->fuse_ceiling_volt)), GFP_KERNEL);
+	cpr_vreg->fuse_floor_volt = devm_kzalloc(dev,
+		len * (sizeof(*cpr_vreg->fuse_floor_volt)), GFP_KERNEL);
 
 	if (cpr_vreg->pvs_corner_v == NULL || cpr_vreg->cpr_fuse_ro_sel == NULL
-	    || cpr_vreg->ceiling_volt == NULL || cpr_vreg->floor_volt == NULL
+	    || cpr_vreg->fuse_ceiling_volt == NULL
+	    || cpr_vreg->fuse_floor_volt == NULL
 	    || cpr_vreg->vdd_mx_corner_map == NULL
 	    || cpr_vreg->cpr_fuse_target_quot == NULL) {
 		cpr_err(cpr_vreg, "Could not allocate memory for CPR arrays\n");
@@ -2544,7 +2707,7 @@ static int cpr_voltage_plan_init(struct platform_device *pdev,
 	u32 min_uv = 0;
 
 	rc = of_property_read_u32_array(of_node, "qcom,cpr-voltage-ceiling",
-		&cpr_vreg->ceiling_volt[CPR_FUSE_CORNER_MIN],
+		&cpr_vreg->fuse_ceiling_volt[CPR_FUSE_CORNER_MIN],
 		cpr_vreg->num_fuse_corners);
 	if (rc < 0) {
 		cpr_err(cpr_vreg, "cpr-voltage-ceiling missing: rc=%d\n", rc);
@@ -2552,7 +2715,7 @@ static int cpr_voltage_plan_init(struct platform_device *pdev,
 	}
 
 	rc = of_property_read_u32_array(of_node, "qcom,cpr-voltage-floor",
-		&cpr_vreg->floor_volt[CPR_FUSE_CORNER_MIN],
+		&cpr_vreg->fuse_floor_volt[CPR_FUSE_CORNER_MIN],
 		cpr_vreg->num_fuse_corners);
 	if (rc < 0) {
 		cpr_err(cpr_vreg, "cpr-voltage-floor missing: rc=%d\n", rc);
@@ -2572,11 +2735,11 @@ static int cpr_voltage_plan_init(struct platform_device *pdev,
 					&min_uv);
 		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
 		     i++)
-			if (cpr_vreg->ceiling_volt[i] < min_uv) {
-				cpr_vreg->ceiling_volt[i] = min_uv;
-				cpr_vreg->floor_volt[i] = min_uv;
-			} else if (cpr_vreg->floor_volt[i] < min_uv) {
-				cpr_vreg->floor_volt[i] = min_uv;
+			if (cpr_vreg->fuse_ceiling_volt[i] < min_uv) {
+				cpr_vreg->fuse_ceiling_volt[i] = min_uv;
+				cpr_vreg->fuse_floor_volt[i] = min_uv;
+			} else if (cpr_vreg->fuse_floor_volt[i] < min_uv) {
+				cpr_vreg->fuse_floor_volt[i] = min_uv;
 			}
 	}
 
