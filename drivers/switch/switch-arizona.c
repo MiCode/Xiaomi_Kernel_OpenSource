@@ -244,6 +244,7 @@ static void arizona_extcon_hp_clamp(struct arizona_extcon_info *info,
 {
 	struct arizona *arizona = info->arizona;
 	unsigned int mask, val = 0;
+	unsigned int cap_sel = 0;
 	int ret;
 
 	switch (arizona->type) {
@@ -255,10 +256,22 @@ static void arizona_extcon_hp_clamp(struct arizona_extcon_info *info,
 	case WM5110:
 		mask = ARIZONA_HP1L_SHRTO | ARIZONA_HP1L_FLWR |
 		       ARIZONA_HP1L_SHRTI;
-		if (clamp)
+		if (clamp) {
 			val = ARIZONA_HP1L_SHRTO;
-		else
+			cap_sel = 1;
+		} else {
 			val = ARIZONA_HP1L_FLWR | ARIZONA_HP1L_SHRTI;
+			cap_sel = 3;
+		}
+
+		ret = regmap_update_bits(arizona->regmap,
+					 ARIZONA_HP_TEST_CTRL_1,
+					 ARIZONA_HP1_TST_CAP_SEL_MASK,
+					 cap_sel);
+		if (ret != 0)
+			dev_warn(arizona->dev,
+				"Failed to set TST_CAP_SEL: %d\n",
+				 ret);
 		break;
 	default:
 		mask = ARIZONA_RMV_SHRT_HP1L;
