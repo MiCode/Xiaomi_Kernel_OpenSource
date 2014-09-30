@@ -1388,8 +1388,20 @@ alloc_new_skb:
 			 *	Fill in the control structures
 			 */
 			skb->protocol = htons(ETH_P_IPV6);
-			skb->ip_summed = CHECKSUM_NONE;
-			skb->csum = 0;
+
+			/* offload UDP checksum in case the packet is not
+			 * a fragment (length <= mtu && transhdrlen) and the
+			 * device supports it in its features.
+			 */
+			if ((rt->dst.dev->features &
+				NETIF_F_IPV6_UDP_CSUM) &&
+				(length <= mtu) && transhdrlen &&
+				(sk->sk_protocol == IPPROTO_UDP)) {
+				skb->ip_summed = CHECKSUM_PARTIAL;
+			} else {
+				skb->ip_summed = CHECKSUM_NONE;
+				skb->csum = 0;
+			}
 			/* reserve for fragmentation and ipsec header */
 			skb_reserve(skb, hh_len + sizeof(struct frag_hdr) +
 				    dst_exthdrlen);

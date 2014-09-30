@@ -66,6 +66,7 @@ enum {
 	NETIF_F_HW_VLAN_STAG_FILTER_BIT,/* Receive filtering on VLAN STAGs */
 	NETIF_F_HW_L2FW_DOFFLOAD_BIT,	/* Allow L2 Forwarding in Hardware */
 	NETIF_F_BUSY_POLL_BIT,		/* Busy poll */
+	NETIF_F_IPV6_UDP_CSUM_BIT,	/* Can checksum UDP over IPV6 */
 
 	/*
 	 * Add your fresh new feature above and remember to update
@@ -124,6 +125,7 @@ enum {
 #define NETIF_F_HW_VLAN_STAG_TX	__NETIF_F(HW_VLAN_STAG_TX)
 #define NETIF_F_HW_L2FW_DOFFLOAD	__NETIF_F(HW_L2FW_DOFFLOAD)
 #define NETIF_F_BUSY_POLL	__NETIF_F(BUSY_POLL)
+#define NETIF_F_IPV6_UDP_CSUM	__NETIF_F(IPV6_UDP_CSUM)
 
 /* Features valid for ethtool to change */
 /* = all defined minus driver/device-class-related */
