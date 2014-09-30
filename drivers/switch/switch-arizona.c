@@ -1573,6 +1573,7 @@ static irqreturn_t arizona_micdet(int irq, void *data)
 		debounce = 0;
 
 	switch (arizona->type) {
+	case WM8280:
 	case WM5110:
 		info->first_clear = true;
 		schedule_delayed_work(&info->micd_clear_work,
