@@ -318,6 +318,15 @@ config MSM_FORCE_WDOG_BITE_ON_PANIC
 	  kernel panic. On certain MSM SoCs, this provides us
 	  additional debugging information.
 
+config MSM_HVC
+	bool "MSM Hypervisor Call Support"
+	help
+	  This enables the Hypervisor Call module. It provides apis to call
+	  into the hypervisor thereby allowing access to services exposed by
+	  the hypervisor. It is primarily intended to be used for Silicon
+	  Partner/Manufacturer function identifier subrange but supports other
+	  service call subranges as well.
+
 config MSM_SUBSYSTEM_RESTART
 	bool "MSM Subsystem Restart"
 	help
