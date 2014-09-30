@@ -28,6 +28,7 @@ static char *descriptions =
 	" 6 Perf: arm64: Add debugfs node to clear PMU\n"
 	" 7 Perf: arm64: Update PMU force reset\n"
 	" 9 Perf: arm64: make request irq pmu-dependent\n"
+	"10 Perf: arm64: tracectr: initialize counts after hotplug\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
