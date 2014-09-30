@@ -892,13 +892,13 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 	drv->nb_pm.notifier_call = arm64_pmu_cpu_pm_notify;
 	drv->mem_perf_counter = arm64_pmu_get_last_counter();
 	cpu_pm_register_notifier(&(drv->nb_pm));
-	drv->nb_cpu.notifier_call = msm_cti_pmu_wa_cpu_notify;
-	register_cpu_notifier(&drv->nb_cpu);
 	drv->nb_panic.notifier_call = arm64_erp_panic_notify;
 	atomic_notifier_chain_register(&panic_notifier_list,
 				       &drv->nb_panic);
 	arm64_pmu_irq_handled_externally();
 	if (drv->apply_cti_pmu_wa) {
+		drv->nb_cpu.notifier_call = msm_cti_pmu_wa_cpu_notify;
+		register_cpu_notifier(&drv->nb_cpu);
 		schedule_on_each_cpu(msm_enable_cti_pmu_workaround);
 		INIT_WORK(&drv->work, msm_enable_cti_pmu_workaround);
 	}
