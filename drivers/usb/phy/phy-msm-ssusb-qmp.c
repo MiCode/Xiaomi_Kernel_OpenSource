@@ -341,8 +341,10 @@ static int msm_ssphy_qmp_init_clocks(struct msm_ssphy_qmp *phy)
 	} /* otherwise pipe_clk must be enabled after initialization */
 
 	phy->phy_com_reset = devm_clk_get(phy->phy.dev, "phy_com_reset");
-	if (IS_ERR(phy->phy_com_reset))
+	if (IS_ERR(phy->phy_com_reset)) {
+		phy->phy_com_reset = NULL;
 		dev_dbg(phy->phy.dev, "failed to get phy_com_reset\n");
+	}
 
 	phy->phy_reset = devm_clk_get(phy->phy.dev, "phy_reset");
 	if (IS_ERR(phy->phy_reset)) {
@@ -485,10 +487,12 @@ static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
 	}
 
 	/* Assert USB3 PHY reset */
-	ret = clk_reset(phy->phy_com_reset, CLK_RESET_ASSERT);
-	if (ret && ret != -EINVAL) {
-		dev_err(uphy->dev, "phy_com_reset clk assert failed\n");
-		return ret;
+	if (phy->phy_com_reset) {
+		ret = clk_reset(phy->phy_com_reset, CLK_RESET_ASSERT);
+		if (ret) {
+			dev_err(uphy->dev, "phy_com_reset clk assert failed\n");
+			return ret;
+		}
 	}
 
 	/* Assert USB3 PHY reset */
@@ -513,7 +517,7 @@ static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
 		goto deassert_phy_phy_reset;
 	}
 
-	/* Clear USB3 PHY CSR reset */
+	/* Deassert USB3 PHY CSR reset */
 	ret = clk_reset(phy->phy_reset, CLK_RESET_DEASSERT);
 	if (ret) {
 		dev_err(uphy->dev, "phy_reset clk deassert failed\n");
@@ -535,12 +539,13 @@ static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
 		}
 	}
 
-	ret = clk_reset(phy->phy_com_reset, CLK_RESET_DEASSERT);
-	if (ret && ret != -EINVAL) {
-		dev_err(uphy->dev, "phy_com_reset clk deassert failed\n");
-		return ret;
+	if (phy->phy_com_reset) {
+		ret = clk_reset(phy->phy_com_reset, CLK_RESET_DEASSERT);
+		if (ret) {
+			dev_err(uphy->dev, "phy_com_reset clk deassert failed\n");
+			return ret;
+		}
 	}
-
 	return 0;
 
 deassert_phy_phy_reset:
@@ -549,7 +554,8 @@ deassert_phy_phy_reset:
 	else
 		clk_reset(phy->pipe_clk, CLK_RESET_DEASSERT);
 deassert_phy_com_reset:
-	clk_reset(phy->phy_com_reset, CLK_RESET_DEASSERT);
+	if (phy->phy_com_reset)
+		clk_reset(phy->phy_com_reset, CLK_RESET_DEASSERT);
 
 	phy->in_suspend = false;
 
