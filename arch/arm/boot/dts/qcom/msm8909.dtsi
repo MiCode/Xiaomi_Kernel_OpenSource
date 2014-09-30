@@ -122,6 +122,7 @@
 #include "msm8909-gpu.dtsi"
 #include "msm8909-coresight.dtsi"
 #include "msm8909-bus.dtsi"
+#include "msm8909-pm.dtsi"
 #include "msm8909-mdss.dtsi"
 #include "msm8909-mdss-pll.dtsi"
 
