@@ -1847,6 +1847,16 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
+	case HAL_PARAM_VENC_HIER_P_HYBRID_MODE:
+	{
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_HIER_P_HYBRID_MODE;
+		pkt->rg_property_data[1] =
+			((struct hfi_hybrid_hierp *)pdata)->layers;
+		pkt->size += sizeof(u32) +
+			sizeof(struct hfi_hybrid_hierp);
+		break;
+	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:

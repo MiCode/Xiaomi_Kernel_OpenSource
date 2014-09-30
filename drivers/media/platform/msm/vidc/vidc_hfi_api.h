@@ -213,6 +213,7 @@ enum hal_property {
 	HAL_CONFIG_VENC_PERF_MODE,
 	HAL_PARAM_VENC_HIER_B_MAX_ENH_LAYERS,
 	HAL_PARAM_VDEC_NON_SECURE_OUTPUT2,
+	HAL_PARAM_VENC_HIER_P_HYBRID_MODE,
 };
 
 enum hal_domain {
@@ -1036,6 +1037,10 @@ struct hal_ltr_mark {
 
 struct hal_venc_perf_mode {
 	u32 mode;
+};
+
+struct hal_hybrid_hierp {
+	u32 layers;
 };
 
 struct hfi_scs_threshold {

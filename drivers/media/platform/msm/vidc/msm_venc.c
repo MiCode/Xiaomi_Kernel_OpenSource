@@ -1053,6 +1053,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 		.qmenu = NULL,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE,
+		.name = "Set Hybrid Hier P mode",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 5,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1803,6 +1813,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_mpeg4_time_resolution time_res;
 	struct hal_ltr_use use_ltr;
 	struct hal_ltr_mark mark_ltr;
+	struct hal_hybrid_hierp hyb_hierp;
 	u32 hier_p_layers = 0, hier_b_layers = 0;
 	struct hal_venc_perf_mode venc_mode;
 
@@ -2654,7 +2665,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		hier_b_layers = ctrl->val;
 		pdata = &hier_b_layers;
 		break;
-
+	case V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE:
+		property_id = HAL_PARAM_VENC_HIER_P_HYBRID_MODE;
+		hyb_hierp.layers = ctrl->val;
+		pdata = &hyb_hierp;
+		break;
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);
 		rc = -ENOTSUPP;
