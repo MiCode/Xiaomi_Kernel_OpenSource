@@ -880,6 +880,7 @@ static int arizona_update_input(struct arizona* arizona, bool enable)
 	unsigned int val;
 
 	switch (arizona->type) {
+	case WM8280:
 	case WM5110:
 		break;
 	default:
