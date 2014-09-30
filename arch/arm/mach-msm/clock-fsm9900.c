@@ -2721,8 +2721,10 @@ static struct clk_lookup fsm_clocks_9900[] = {
 
 	/* BLSP1  clocks. Only the valid configs are present in the table */
 	CLK_LOOKUP("iface_clk",	gcc_blsp1_ahb_clk.c,	"f991f000.serial"),
+	CLK_LOOKUP("iface_clk",	gcc_blsp1_ahb_clk.c,	"f9921000.serial"),
 	CLK_LOOKUP("iface_clk",	gcc_blsp1_ahb_clk.c,	"f9924000.i2c"),
 	CLK_LOOKUP("core_clk",	gcc_blsp1_uart3_apps_clk.c, "f991f000.serial"),
+	CLK_LOOKUP("core_clk",	gcc_blsp1_uart5_apps_clk.c, "f9921000.serial"),
 	CLK_LOOKUP("core_clk",	gcc_blsp1_qup2_i2c_apps_clk.c, "f9924000.i2c"),
 
 	/* BLSP2  clocks. Only the valid configs are present in the table */

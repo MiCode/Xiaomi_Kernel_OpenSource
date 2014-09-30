@@ -66,6 +66,20 @@ static struct msm_gpiomux_config fsm_blsp_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &blsp_i2c_config,
 		},
 	},
+#ifdef CONFIG_FSM9900_GSM_NL
+	{
+		.gpio      = 16,       /* BLSP UART5 TX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &blsp_uart_no_pull_config,
+		},
+	},
+	{
+		.gpio      = 17,       /* BLSP UART5 RX */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &blsp_uart_pull_up_config,
+		},
+	},
+#endif
 	{
 		.gpio      = 36,       /* BLSP UART10 TX */
 		.settings = {
@@ -169,18 +183,6 @@ static struct msm_gpiomux_config fsm_geni_configs[] __initdata = {
 
 };
 
-static struct gpiomux_setting dan_spi_func4_config = {
-	.func = GPIOMUX_FUNC_4,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-
-static struct gpiomux_setting dan_spi_func1_config = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_8MA,
-	.pull = GPIOMUX_PULL_UP,
-};
-
 static struct gpiomux_setting mdm_grfc_config = {
 	.func = GPIOMUX_FUNC_2,
 	.drv = GPIOMUX_DRV_6MA,
@@ -206,6 +208,19 @@ static struct gpiomux_setting mdm_gpio_config = {
 };
 
 static struct gpiomux_setting pdm_func1_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+#ifndef CONFIG_FSM9900_GSM_NL
+static struct gpiomux_setting dan_spi_func4_config = {
+	.func = GPIOMUX_FUNC_4,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting dan_spi_func1_config = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_UP,
@@ -273,6 +288,7 @@ static struct msm_gpiomux_config fsm_dan_spi_configs[] __initdata = {
 		},
 	},
 };
+#endif
 
 struct msm_gpiomux_config fsm_gluon_grfc_configs[] = {
 	{
@@ -979,8 +995,10 @@ void __init fsm9900_init_gpiomux(void)
 
 	msm_gpiomux_install(fsm_blsp_configs, ARRAY_SIZE(fsm_blsp_configs));
 	msm_gpiomux_install(fsm_geni_configs, ARRAY_SIZE(fsm_geni_configs));
+#ifndef CONFIG_FSM9900_GSM_NL
 	msm_gpiomux_install(fsm_dan_spi_configs,
-			ARRAY_SIZE(fsm_dan_spi_configs));
+			    ARRAY_SIZE(fsm_dan_spi_configs));
+#endif
 	msm_gpiomux_install(fsm_uim_configs, ARRAY_SIZE(fsm_uim_configs));
 	msm_gpiomux_install(fsm_pcie_configs, ARRAY_SIZE(fsm_pcie_configs));
 	msm_gpiomux_install(fsm_gps_configs, ARRAY_SIZE(fsm_gps_configs));

@@ -1020,4 +1020,15 @@ config MSM_PP2S_FEMTO
 	  Support for being notified relative to a PP2S pulse
 	  Select Y if you want this notification to manifest.
 	  If unsure, select N.
+
+config FSM9900_GSM_NL
+	bool "FSM9900 GSM NL Hardware Support"
+	depends on ARCH_FSM9900
+	help
+	  Enables the support for GSM NL hardware module. When this option
+	  is enabled, the GPIO pins for DIQ interface are configured differently.
+	  The DIQ functionality is disabled and the UART functionality is enabled.
+	  The serial port connection can be established to communicate with the
+	  GSM NL module.
+
 endif
