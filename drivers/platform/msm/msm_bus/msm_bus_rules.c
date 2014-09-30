@@ -89,6 +89,11 @@ static struct rule_node_info *gen_node(u32 id, void *data)
 
 	if (!node_match) {
 		node_match = kzalloc(sizeof(struct rule_node_info), GFP_KERNEL);
+		if (!node_match) {
+			pr_err("%s: Cannot allocate memory", __func__);
+			goto exit_node_match;
+		}
+
 		node_match->id = id;
 		node_match->cur_rule = -1;
 		node_match->num_rules = 0;
@@ -98,6 +103,7 @@ static struct rule_node_info *gen_node(u32 id, void *data)
 		RAW_INIT_NOTIFIER_HEAD(&node_match->rule_notify_list);
 		pr_debug("Added new node %d to list\n", id);
 	}
+exit_node_match:
 	return node_match;
 }
 
@@ -567,8 +573,10 @@ void msm_rule_unregister(int num_rules, struct bus_rule_type *rule,
 	mutex_lock(&msm_bus_rules_lock);
 	if (nb) {
 		node = get_node(NB_ID, nb);
-		if (!node)
+		if (!node) {
 			pr_err("%s: Can't find node", __func__);
+			goto exit_unregister_rule;
+		}
 
 		list_for_each_entry_safe(node_rule, node_rule_tmp,
 					&node->node_rules, link) {
@@ -608,6 +616,7 @@ void msm_rule_unregister(int num_rules, struct bus_rule_type *rule,
 			kfree(node);
 		}
 	}
+exit_unregister_rule:
 	mutex_unlock(&msm_bus_rules_lock);
 }
 
