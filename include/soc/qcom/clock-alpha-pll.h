@@ -44,11 +44,11 @@ struct alpha_pll_vco_tbl {
 struct alpha_pll_clk {
 	struct alpha_pll_masks *masks;
 	void *const __iomem *base;
-	const u32 offset;
+	u32 offset;
 
 	/* if fsm_en_mask is set, config PLL to FSM mode */
-	const u32 fsm_reg_offset;
-	const u32 fsm_en_mask;
+	u32 fsm_reg_offset;
+	u32 fsm_en_mask;
 
 	u32 enable_config;	/* bitmask of outputs to be enabled */
 	u32 post_div_config;	/* masked post divider setting */

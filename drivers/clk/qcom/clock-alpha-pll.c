@@ -12,12 +12,15 @@
  *
  */
 
+#define pr_fmt(fmt) "%s: " fmt, __func__
+
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <soc/qcom/clock-alpha-pll.h>
+#include <soc/qcom/msm-clock-controller.h>
 
 #include "clock.h"
 
@@ -454,3 +457,140 @@ struct clk_ops clk_ops_fixed_alpha_pll = {
 	.handoff = alpha_pll_handoff,
 };
 
+static struct alpha_pll_masks masks_20nm_p = {
+	.lock_mask = BIT(31),
+	.active_mask = BIT(30),
+	.vco_mask = BM(21, 20) >> 20,
+	.vco_shift = 20,
+	.alpha_en_mask = BIT(24),
+	.output_mask = 0xF,
+	.post_div_mask = 0xF00,
+};
+
+static struct alpha_pll_vco_tbl vco_20nm_p[] = {
+	VCO(3,  250000000,  500000000),
+	VCO(2,  500000000, 1000000000),
+	VCO(1, 1000000000, 1500000000),
+	VCO(0, 1500000000, 2000000000),
+};
+
+static struct alpha_pll_masks masks_20nm_t = {
+	.lock_mask = BIT(31),
+	.alpha_en_mask = BIT(24),
+	.output_mask = 0xf,
+};
+
+static struct alpha_pll_vco_tbl vco_20nm_t[] = {
+	VCO(0, 500000000, 1250000000),
+};
+
+static struct alpha_pll_clk *alpha_pll_dt_parser(struct device *dev,
+						struct device_node *np)
+{
+	struct alpha_pll_clk *pll;
+	struct msmclk_data *drv;
+
+	pll = devm_kzalloc(dev, sizeof(*pll), GFP_KERNEL);
+	if (!pll) {
+		dt_err(np, "memory alloc failure\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	if (of_property_read_u32(np, "qcom,base-offset", &pll->offset)) {
+		dt_err(np, "missing qcom,base-offset\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	/* Optional property */
+	of_property_read_u32(np, "qcom,post-div-config",
+					&pll->post_div_config);
+
+	pll->masks = devm_kzalloc(dev, sizeof(*pll->masks), GFP_KERNEL);
+	if (!pll->masks) {
+		dt_err(np, "memory alloc failure\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	if (of_device_is_compatible(np, "qcom,fixed-alpha-pll-20p") ||
+		of_device_is_compatible(np, "qcom,alpha-pll-20p")) {
+		*pll->masks = masks_20nm_p;
+		pll->vco_tbl = vco_20nm_p;
+		pll->num_vco = ARRAY_SIZE(vco_20nm_p);
+	} else if (of_device_is_compatible(np, "qcom,fixed-alpha-pll-20t") ||
+		of_device_is_compatible(np, "qcom,alpha-pll-20t")) {
+		*pll->masks = masks_20nm_t;
+		pll->vco_tbl = vco_20nm_t;
+		pll->num_vco = ARRAY_SIZE(vco_20nm_t);
+	} else {
+		dt_err(np, "unexpected compatible string\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	drv = msmclk_parse_phandle(dev, np->parent->phandle);
+	if (IS_ERR_OR_NULL(drv))
+		return ERR_CAST(drv);
+	pll->base = &drv->base;
+	return pll;
+}
+
+static void *variable_rate_alpha_pll_dt_parser(struct device *dev,
+					struct device_node *np)
+{
+	struct alpha_pll_clk *pll;
+
+	pll = alpha_pll_dt_parser(dev, np);
+	if (IS_ERR(pll))
+		return pll;
+
+	/* Optional Property */
+	of_property_read_u32(np, "qcom,output-enable", &pll->enable_config);
+
+	pll->c.ops = &clk_ops_alpha_pll;
+	return msmclk_generic_clk_init(dev, np, &pll->c);
+}
+
+static void *fixed_rate_alpha_pll_dt_parser(struct device *dev,
+						struct device_node *np)
+{
+	struct alpha_pll_clk *pll;
+	int rc;
+	u32 val;
+
+	pll = alpha_pll_dt_parser(dev, np);
+	if (IS_ERR(pll))
+		return pll;
+
+	rc = of_property_read_u32(np, "qcom,pll-config-rate", &val);
+	if (rc) {
+		dt_err(np, "missing qcom,pll-config-rate\n");
+		return ERR_PTR(-EINVAL);
+	}
+	pll->c.rate = val;
+
+	rc = of_property_read_u32(np, "qcom,output-enable",
+						&pll->enable_config);
+	if (rc) {
+		dt_err(np, "missing qcom,output-enable\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	/* Optional Property */
+	rc = of_property_read_u32(np, "qcom,fsm-en-bit", &val);
+	if (!rc) {
+		rc = of_property_read_u32(np, "qcom,fsm-en-offset",
+						&pll->fsm_reg_offset);
+		if (rc) {
+			dt_err(np, "missing qcom,fsm-en-offset\n");
+			return ERR_PTR(-EINVAL);
+		}
+		pll->fsm_en_mask = BIT(val);
+	}
+
+	pll->c.ops = &clk_ops_fixed_alpha_pll;
+	return msmclk_generic_clk_init(dev, np, &pll->c);
+}
+
+MSMCLK_PARSER(fixed_rate_alpha_pll_dt_parser, "qcom,fixed-alpha-pll-20p", 0);
+MSMCLK_PARSER(fixed_rate_alpha_pll_dt_parser, "qcom,fixed-alpha-pll-20t", 1);
+MSMCLK_PARSER(variable_rate_alpha_pll_dt_parser, "qcom,alpha-pll-20p", 0);
+MSMCLK_PARSER(variable_rate_alpha_pll_dt_parser, "qcom,alpha-pll-20t", 1);

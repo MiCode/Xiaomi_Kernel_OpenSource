@@ -654,3 +654,74 @@ pcie0_reset_clk: pcie0_reset_clk {
 	compatible = "qcom,reset-clk";
 	qcom,base-offset = <GCC_PCIE0_BCR>;
 };
+
+*****************************************************************************
+
+"qcom,alpha-pll"
+
+Alpha PLL clocks are a type of PLL which produces an output rate of
+output = input * ( L + a * 2 ^-40).
+
+Required Properties:
+- compatible:		"qcom,alpha-pll-20t", "qcom,alpha-pll-20p"
+- qcom,base-offset:	Register offset from top level clock controller.
+
+Recommended Properties:
+- qcom,clk-fmax:	See "General Optional Properties"
+- qcom,supply-group:	See "General Optional Properties"
+- qcom,parent:		See "General Optional Properties"
+
+Optional Properties:
+- qcom,output-enable:	Masked PLL output setting.
+- qcom,post-div-config:	Masked post divider setting.
+
+cci_pll: cci_pll {
+	compatible = "qcom,alpha-pll-20p";
+	qcom,base-offset = <CCI_PLL_MODE>;
+	qcom,parent = <&ao_xo>;
+	qcom,supply-group = <&mmss_vdd_dig>;
+	qcom,clk-fmax =
+		<FMAX_LOW 1000000000>;
+	qcom,output-enable = <0x9>;
+	qcom,post-div-config = <0x100>;
+};
+
+*****************************************************************************
+
+"qcom,fixed-alpha-pll"
+
+This particular instance of alpha-pll allows setting a rate once at bootup, after
+which the rate is immutable.
+
+Required Properties:
+- compatible:		"qcom,fixed-alpha-pll-20t", "qcom,fixed-alpha-pll-20p"
+- qcom,base-offset:	Register offset from top level clock controller.
+- qcom,pll-config-rate:	Indicates that the pll should be configured to a fixed rate
+			at initialization.
+- qcom,output-enable:	Masked PLL output setting.
+
+Recommended Properties:
+- qcom,clk-fmax:	See "General Optional Properties"
+- qcom,supply-group:	See "General Optional Properties"
+- qcom,parent:		See "General Optional Properties"
+
+Optional Properties:
+- qcom,fsm-en-bit:	Indicates that the pll is votable; the timing between
+			the steps to enable the pll is handled by a fsm.
+- qcom,fsm-en-offset:	Register offset for the vote register.
+			If fsm-en-bit is defined, this property is required.
+- qcom,post-div-config:	Masked post divider setting.
+
+mmpll8: mmpll8 {
+	compatible = "qcom,fixed-alpha-pll-20p";
+	qcom,base-offset = <MMSS_MMPLL8_MODE>;
+	qcom,pll-config-rate = <1050000000>;
+	qcom,parent = <&mmsscc_xo>;
+	qcom,supply-group = <&mmss_vdd_dig>;
+	qcom,clk-fmax =
+		<FMAX_LOWER 650000000>,
+		<FMAX_LOW 650000000>,
+		<FMAX_NOM 1300000000>,
+		<FMAX_TURBO 1300000000>;
+	qcom,output-enable = <0x1>;
+};
