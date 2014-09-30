@@ -793,7 +793,9 @@ void cfg80211_process_wdev_events(struct wireless_dev *wdev)
 		case EVENT_AUTHORIZATION:
 			__cfg80211_authorization_event(wdev->netdev,
 						       ev->au.auth_status,
-						       ev->au.key_replay_ctr);
+						       ev->au.key_replay_ctr,
+						       ev->au.ptk_kck,
+						       ev->au.ptk_kek);
 			break;
 		}
 		wdev_unlock(wdev);

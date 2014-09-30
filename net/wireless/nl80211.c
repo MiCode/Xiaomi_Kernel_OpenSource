@@ -400,6 +400,10 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 	[NL80211_ATTR_PMK] = { .type = NLA_BINARY,
 				   .len = NL80211_KEY_LEN_PMK },
 	[NL80211_ATTR_PMK_LEN] = { .type = NLA_U32 },
+	[NL80211_ATTR_PTK_KCK] = { .type = NLA_BINARY,
+				   .len = NL80211_KEY_LEN_PTK_KCK },
+	[NL80211_ATTR_PTK_KEK] = { .type = NLA_BINARY,
+				   .len = NL80211_KEY_LEN_PTK_KEK },
 };
 
 /* policy for the key attributes */
@@ -11274,7 +11278,8 @@ EXPORT_SYMBOL(cfg80211_ap_stopped);
 
 void __cfg80211_authorization_event(struct net_device *dev,
 			    enum nl80211_authorization_status auth_status,
-			    const u8 *key_replay_ctr)
+			    const u8 *key_replay_ctr, const u8 *ptk_kck,
+			    const u8 *ptk_kek)
 {
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
 	struct cfg80211_registered_device *rdev = wiphy_to_dev(wdev->wiphy);
@@ -11296,7 +11301,11 @@ void __cfg80211_authorization_event(struct net_device *dev,
 	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
 	    nla_put_u8(msg, NL80211_ATTR_AUTHORIZATION_STATUS, auth_status) ||
 	    nla_put(msg, NL80211_ATTR_KEY_REPLAY_CTR,
-			  NL80211_KEY_REPLAY_CTR_LEN, key_replay_ctr))
+			  NL80211_KEY_REPLAY_CTR_LEN, key_replay_ctr) ||
+	    nla_put(msg, NL80211_ATTR_PTK_KCK, NL80211_KEY_LEN_PTK_KCK,
+			  ptk_kck) ||
+	    nla_put(msg, NL80211_ATTR_PTK_KEK, NL80211_KEY_LEN_PTK_KEK,
+			  ptk_kek))
 		goto nla_put_failure;
 
 	err = genlmsg_end(msg, hdr);
@@ -11345,6 +11354,48 @@ void cfg80211_authorization_event(struct net_device *dev,
 	queue_work(cfg80211_wq, &rdev->event_work);
 }
 EXPORT_SYMBOL(cfg80211_authorization_event);
+
+void cfg80211_key_mgmt_auth(struct net_device *dev,
+			    struct cfg80211_auth_params *auth_params,
+			    gfp_t gfp)
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct cfg80211_registered_device *rdev = wiphy_to_dev(wdev->wiphy);
+	struct cfg80211_event *ev;
+	unsigned long flags;
+
+	/* Valid only in SME_CONNECTED state */
+	if (wdev->sme_state != CFG80211_SME_CONNECTED)
+		return;
+
+	ev = kzalloc(sizeof(*ev), gfp);
+	if (!ev)
+		return;
+
+	trace_cfg80211_authorization_event(wdev->wiphy, dev,
+					   auth_params->status);
+
+	ev->type = EVENT_AUTHORIZATION;
+	ev->au.auth_status = auth_params->status;
+	if (auth_params->key_replay_ctr) {
+		memcpy(ev->au.key_replay_ctr, auth_params->key_replay_ctr,
+		       NL80211_KEY_REPLAY_CTR_LEN);
+	}
+	if (auth_params->ptk_kck) {
+		memcpy(ev->au.ptk_kck, auth_params->ptk_kck,
+		       NL80211_KEY_LEN_PTK_KCK);
+	}
+	if (auth_params->ptk_kek) {
+		memcpy(ev->au.ptk_kek, auth_params->ptk_kek,
+		       NL80211_KEY_LEN_PTK_KEK);
+	}
+
+	spin_lock_irqsave(&wdev->event_lock, flags);
+	list_add_tail(&ev->list, &wdev->event_list);
+	spin_unlock_irqrestore(&wdev->event_lock, flags);
+	queue_work(cfg80211_wq, &rdev->event_work);
+}
+EXPORT_SYMBOL(cfg80211_key_mgmt_auth);
 
 /* initialisation/exit functions */
 
