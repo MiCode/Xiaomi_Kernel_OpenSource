@@ -1575,9 +1575,11 @@ static irqreturn_t arizona_micdet(int irq, void *data)
 	switch (arizona->type) {
 	case WM8280:
 	case WM5110:
-		info->first_clear = true;
-		schedule_delayed_work(&info->micd_clear_work,
-				      msecs_to_jiffies(80));
+		if (arizona->rev < 6) {
+			info->first_clear = true;
+			schedule_delayed_work(&info->micd_clear_work,
+					      msecs_to_jiffies(80));
+		}
 		break;
 	default:
 		break;
