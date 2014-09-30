@@ -22,19 +22,68 @@ static unsigned int tp_pid_state;
 DEFINE_PER_CPU(u32, previous_ccnt);
 DEFINE_PER_CPU(u32[NUM_L1_CTRS], previous_l1_cnts);
 DEFINE_PER_CPU(u32, old_pid);
+DEFINE_PER_CPU(u32, hotplug_flag);
+
+static int tracectr_cpu_hotplug_notifier(struct notifier_block *self,
+					 unsigned long action, void *hcpu)
+{
+	unsigned long cpu = (unsigned long)hcpu;
+
+	if ((action & (~CPU_TASKS_FROZEN)) == CPU_STARTING)
+		per_cpu(hotplug_flag, cpu) = 1;
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block tracectr_cpu_hotplug_notifier_block = {
+	.notifier_call = tracectr_cpu_hotplug_notifier,
+};
+
+static void setup_prev_cnts(u32 cpu)
+{
+	int i;
+	u32 cnten_val;
+
+	asm volatile("mrs %0, pmcntenset_el0" : "=r" (cnten_val));
+	/* Disable all the counters that were enabled */
+	asm volatile("msr pmcntenclr_el0, %0" : : "r" (cnten_val));
+	if (cnten_val & CC)
+		asm volatile("mrs %0, pmccntr_el0"
+			: "=r"(per_cpu(previous_ccnt, cpu)));
+
+	for (i = 0; i < NUM_L1_CTRS; i++) {
+		if (cnten_val & (1 << i)) {
+			/* Select */
+			asm volatile("msr pmselr_el0, %0" : : "r"(i));
+			isb();
+			/* Read value */
+			asm volatile("mrs %0, pmxevcntr_el0"
+				: "=r"(per_cpu(previous_l1_cnts[i], cpu)));
+		}
+	}
+	/* Enable all the counters that were disabled */
+	asm volatile("msr pmcntenset_el0, %0" : : "r" (cnten_val));
+}
 
 void tracectr_notifier(void *ignore, struct task_struct *prev,
 					struct task_struct *next)
 {
 	int current_pid;
-	u32 cpu = next->on_cpu;
+	u32 cpu = task_thread_info(next)->cpu;
 
 	if (tp_pid_state != 1)
 		return;
 	current_pid = next->pid;
-	if (per_cpu(old_pid, cpu) != -1)
-		trace_sched_switch_with_ctrs(per_cpu(old_pid, cpu),
-				current_pid);
+	if (per_cpu(old_pid, cpu) != -1) {
+
+		if (per_cpu(hotplug_flag, cpu) == 1) {
+			per_cpu(hotplug_flag, cpu) = 0;
+			setup_prev_cnts(cpu);
+		} else {
+			trace_sched_switch_with_ctrs(per_cpu(old_pid, cpu),
+						     current_pid);
+		}
+	}
 	per_cpu(old_pid, cpu) = current_pid;
 }
 
@@ -115,11 +164,13 @@ int __init init_tracecounters(void)
 	}
 	for_each_possible_cpu(cpu)
 		per_cpu(old_pid, cpu) = -1;
+	register_cpu_notifier(&tracectr_cpu_hotplug_notifier_block);
 	return 0;
 }
 
 int __exit exit_tracecounters(void)
 {
+	unregister_cpu_notifier(&tracectr_cpu_hotplug_notifier_block);
 	return 0;
 }
 late_initcall(init_tracecounters);
