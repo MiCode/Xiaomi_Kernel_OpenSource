@@ -79,6 +79,7 @@
 #include "msm-gdsc.dtsi"
 #include "msmzirc-bus.dtsi"
 #include "msmzirc-ion.dtsi"
+#include "msmzirc-cc.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -211,16 +212,6 @@
 			reg = <0xb029000 0x1000>;
 			status = "disabled";
 		};
-	};
-
-	clock_gcc: qcom,gcc@1800000 {
-		compatible = "qcom,dummycc";
-		#clock-cells = <1>;
-	};
-
-	clock_rpm: qcom,rpmcc@1800000 {
-		compatible = "qcom,dummycc";
-		#clock-cells = <1>;
 	};
 
 	blsp1_uart1: serial@78af000 {
