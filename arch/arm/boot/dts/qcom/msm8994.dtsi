@@ -1838,8 +1838,9 @@
 		      <0xf9011000 0x1000>,
 		      <0xf900d000 0x1000>,
 		      <0xf900f000 0x1000>,
-		      <0xf9112000 0x1000>;
-		reg-names = "c0_pll", "c1_pll", "cci_pll", "c0_mux", "c1_mux", "cci_mux";
+		      <0xf9112000 0x1000>,
+		      <0xfc4b80b0 0x8>;
+		reg-names = "c0_pll", "c1_pll", "cci_pll", "c0_mux", "c1_mux", "cci_mux", "efuse";
 		vdd-a53-supply = <&apc0_vreg_corner>;
 		vdd-a57-supply = <&apc1_vreg_corner>;
 		vdd-cci-supply = <&apc0_vreg_corner>;

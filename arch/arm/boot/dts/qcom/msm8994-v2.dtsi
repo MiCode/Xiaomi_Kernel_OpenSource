@@ -26,10 +26,6 @@
 };
 
 &soc {
-	qcom,cpu-clock-8994@f9015000 {
-		compatible = "qcom,cpu-clock-8994-v2";
-		status = "disabled";
-	};
 
 	arm64-cpu-erp@f9100000 {
 		compatible = "arm,arm64-cpu-erp";
@@ -63,6 +59,30 @@
 
 &clock_mmss {
 	compatible = "qcom,mmsscc-8994v2";
+};
+
+&clock_cpu {
+	compatible = "qcom,cpu-clock-8994-v2";
+	qcom,a53-speedbin0-v0 =
+			<	 0 0>,
+			<300000000 2>,
+			<384000000 3>,
+			<460800000 4>,
+			<600000000 5>,
+			<672000000 6>,
+			<768000000 7>,
+			<864000000 8>,
+			<960000000 9>;
+	qcom,a57-speedbin0-v0 =
+			<	   0 0>,
+			<  300000000 2>,
+			<  384000000 3>,
+			<  480000000 4>;
+	qcom,cci-speedbin0-v0 =
+			<	   0 0>,
+			<  300000000 4>,
+			<  384000000 5>,
+			<  600000000 9>;
 };
 
 /* GPU overrides */
