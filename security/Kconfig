@@ -70,6 +70,16 @@ config SECURITY_PATH
 	  implement pathname based access controls.
 	  If you are unsure how to answer this question, answer N.
 
+config SECURITY_PFT
+	bool "Security hooks for Per File Encryption"
+	depends on SECURITY
+	depends on PFT
+	help
+	  This enables the security hooks for Per File Encryption.
+	  If enabled, a security module can use these hooks to
+	  implement file based access controls and encryption.
+	  If you are unsure how to answer this question, answer N.
+
 config INTEL_TXT
 	bool "Enable Intel(R) Trusted Execution Technology (Intel(R) TXT)"
 	depends on HAVE_INTEL_TXT
@@ -132,6 +142,7 @@ choice
 	default DEFAULT_SECURITY_TOMOYO if SECURITY_TOMOYO
 	default DEFAULT_SECURITY_APPARMOR if SECURITY_APPARMOR
 	default DEFAULT_SECURITY_YAMA if SECURITY_YAMA
+	default DEFAULT_SECURITY_PFT if SECURITY_PFT
 	default DEFAULT_SECURITY_DAC
 
 	help
@@ -153,6 +164,9 @@ choice
 	config DEFAULT_SECURITY_YAMA
 		bool "Yama" if SECURITY_YAMA=y
 
+	config DEFAULT_SECURITY_PFT
+		bool "PFT" if SECURITY_PFT=y
+
 	config DEFAULT_SECURITY_DAC
 		bool "Unix Discretionary Access Controls"
 
@@ -165,6 +179,7 @@ config DEFAULT_SECURITY
 	default "tomoyo" if DEFAULT_SECURITY_TOMOYO
 	default "apparmor" if DEFAULT_SECURITY_APPARMOR
 	default "yama" if DEFAULT_SECURITY_YAMA
+	default "pft" if DEFAULT_SECURITY_PFT
 	default "" if DEFAULT_SECURITY_DAC
 
 endmenu
