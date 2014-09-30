@@ -2813,7 +2813,8 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 		head[i].num = i;
 		head[i].base = (mdata->mdss_io.base) + ctl_offsets[i];
 		if (i >= offset && wb_offsets[i - offset])
-			head[i].wb_base = (mdata->mdss_io.base) + wb_offsets[i];
+			head[i].wb_base = (mdata->mdss_io.base) +
+				wb_offsets[i - offset];
 		head[i].ref_cnt = 0;
 	}
 
