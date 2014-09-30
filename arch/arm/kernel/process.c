@@ -169,8 +169,7 @@ EXPORT_SYMBOL_GPL(arm_pm_restart);
  * This is our default idle handler.
  */
 
-extern void arch_idle(void);
-void (*arm_pm_idle)(void) = arch_idle;
+void (*arm_pm_idle)(void);
 
 static void default_idle(void)
 {

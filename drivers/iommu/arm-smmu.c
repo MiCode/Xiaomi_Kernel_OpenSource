@@ -623,7 +623,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 	if (fsr & FSR_IGN)
 		dev_err_ratelimited(smmu->dev,
-				    "Unexpected context fault (fsr 0x%u)\n",
+				    "Unexpected context fault (fsr 0x%x)\n",
 				    fsr);
 
 	fsynr = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR0);
@@ -752,6 +752,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 			reg = (TTBCR2_ADDR_36 << TTBCR2_SEP_SHIFT);
 			break;
 		case 39:
+		case 40:
 			reg = (TTBCR2_ADDR_40 << TTBCR2_SEP_SHIFT);
 			break;
 		case 42:
@@ -773,6 +774,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 			reg |= (TTBCR2_ADDR_36 << TTBCR2_PASIZE_SHIFT);
 			break;
 		case 39:
+		case 40:
 			reg |= (TTBCR2_ADDR_40 << TTBCR2_PASIZE_SHIFT);
 			break;
 		case 42:
@@ -843,8 +845,11 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 	reg |= TTBCR_EAE |
 	      (TTBCR_SH_IS << TTBCR_SH0_SHIFT) |
 	      (TTBCR_RGN_WBWA << TTBCR_ORGN0_SHIFT) |
-	      (TTBCR_RGN_WBWA << TTBCR_IRGN0_SHIFT) |
-	      (TTBCR_SL0_LVL_1 << TTBCR_SL0_SHIFT);
+	      (TTBCR_RGN_WBWA << TTBCR_IRGN0_SHIFT);
+
+	if (!stage1)
+		reg |= (TTBCR_SL0_LVL_1 << TTBCR_SL0_SHIFT);
+
 	writel_relaxed(reg, cb_base + ARM_SMMU_CB_TTBCR);
 
 	/* MAIR0 (stage-1 only) */
@@ -981,7 +986,6 @@ static void arm_smmu_free_ptes(pmd_t *pmd)
 {
 	pgtable_t table = pmd_pgtable(*pmd);
 
-	pgtable_page_dtor(table);
 	__free_page(table);
 }
 
@@ -1114,6 +1118,9 @@ static void arm_smmu_master_free_smrs(struct arm_smmu_device *smmu,
 	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
 	struct arm_smmu_smr *smrs = cfg->smrs;
 
+	if (!smrs)
+		return;
+
 	/* Invalidate the SMRs before freeing back to the allocator */
 	for (i = 0; i < cfg->num_streamids; ++i) {
 		u8 idx = smrs[i].idx;
@@ -1124,20 +1131,6 @@ static void arm_smmu_master_free_smrs(struct arm_smmu_device *smmu,
 
 	cfg->smrs = NULL;
 	kfree(smrs);
-}
-
-static void arm_smmu_bypass_stream_mapping(struct arm_smmu_device *smmu,
-					   struct arm_smmu_master_cfg *cfg)
-{
-	int i;
-	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
-
-	for (i = 0; i < cfg->num_streamids; ++i) {
-		u16 sid = cfg->streamids[i];
-
-		writel_relaxed(S2CR_TYPE_BYPASS,
-			       gr0_base + ARM_SMMU_GR0_S2CR(sid));
-	}
 }
 
 static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
@@ -1166,13 +1159,21 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 					  struct arm_smmu_master_cfg *cfg)
 {
+	int i;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
 
 	/*
 	 * We *must* clear the S2CR first, because freeing the SMR means
 	 * that it can be re-allocated immediately.
 	 */
-	arm_smmu_bypass_stream_mapping(smmu, cfg);
+	for (i = 0; i < cfg->num_streamids; ++i) {
+		u32 idx = cfg->smrs ? cfg->smrs[i].idx : cfg->streamids[i];
+
+		writel_relaxed(S2CR_TYPE_BYPASS,
+			       gr0_base + ARM_SMMU_GR0_S2CR(idx));
+	}
+
 	arm_smmu_master_free_smrs(smmu, cfg);
 }
 
@@ -1250,10 +1251,6 @@ static int arm_smmu_alloc_init_pte(struct arm_smmu_device *smmu, pmd_t *pmd,
 			return -ENOMEM;
 
 		arm_smmu_flush_pgtable(smmu, page_address(table), PAGE_SIZE);
-		if (!pgtable_page_ctor(table)) {
-			__free_page(table);
-			return -ENOMEM;
-		}
 		pmd_populate(NULL, pmd, table);
 		arm_smmu_flush_pgtable(smmu, pmd, sizeof(*pmd));
 	}
@@ -1797,11 +1794,16 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	 * Stage-1 output limited by stage-2 input size due to pgd
 	 * allocation (PTRS_PER_PGD).
 	 */
+	if (smmu->features & ARM_SMMU_FEAT_TRANS_NESTED) {
 #ifdef CONFIG_64BIT
-	smmu->s1_output_size = min_t(unsigned long, VA_BITS, size);
+		smmu->s1_output_size = min_t(unsigned long, VA_BITS, size);
 #else
-	smmu->s1_output_size = min(32UL, size);
+		smmu->s1_output_size = min(32UL, size);
 #endif
+	} else {
+		smmu->s1_output_size = min_t(unsigned long, PHYS_MASK_SHIFT,
+					     size);
+	}
 
 	/* The stage-2 output mask is also applied for bypass */
 	size = arm_smmu_id_size_to_bits((id >> ID2_OAS_SHIFT) & ID2_OAS_MASK);

@@ -36,6 +36,7 @@
 #include <asm/suspend.h>
 #include <asm/cacheflush.h>
 #include <asm/cputype.h>
+#include <asm/system_misc.h>
 #ifdef CONFIG_VFP
 #include <asm/vfp.h>
 #endif
@@ -900,3 +901,12 @@ int __init msm_pm_sleep_status_init(void)
 	return platform_driver_register(&msm_cpu_status_driver);
 }
 arch_initcall(msm_pm_sleep_status_init);
+
+#ifdef CONFIG_ARM
+static int idle_initialize(void)
+{
+	arm_pm_idle = arch_idle;
+	return 0;
+}
+early_initcall(idle_initialize);
+#endif
