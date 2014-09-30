@@ -64,6 +64,7 @@ struct qusb_phy {
 	bool			cable_connected;
 	bool			suspended;
 	bool			emulation;
+	bool			ulpi_mode;
 };
 
 static int qusb_phy_reset(struct usb_phy *phy)
@@ -168,8 +169,10 @@ static int qusb_phy_init(struct usb_phy *phy)
 		writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
 				qphy->base + QUSB2PHY_PORT_POWERDOWN);
 
-		/* configure for ULPI mode */
-		writel_relaxed(0x0, qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+		/* configure for ULPI mode if requested */
+		if (qphy->ulpi_mode)
+			writel_relaxed(0x0,
+					qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
 
 		/* ensure above writes are completed before re-enabling PHY */
 		wmb();
@@ -272,6 +275,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int ret = 0;
+	const char *phy_type;
 
 	qphy = devm_kzalloc(dev, sizeof(*qphy), GFP_KERNEL);
 	if (!qphy)
@@ -306,6 +310,17 @@ static int qusb_phy_probe(struct platform_device *pdev)
 
 	qphy->emulation = of_property_read_bool(dev->of_node,
 						"qcom,emulation");
+
+	qphy->ulpi_mode = false;
+	ret = of_property_read_string(dev->of_node, "phy_type", &phy_type);
+
+	if (!ret) {
+		if (!strcasecmp(phy_type, "ulpi"))
+			qphy->ulpi_mode = true;
+	} else {
+		dev_err(dev, "error reading phy_type property\n");
+		return ret;
+	}
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) qphy->vdd_levels,
