@@ -560,6 +560,191 @@ unlock_dev:
 	return ret;
 }
 
+static void *emit_dword(void *mem, __u32 cmd)
+{
+	iowrite32(cmd, mem);
+	return ((__u32 *)mem) + 1;
+}
+
+static void *emit_load_register_imm(void *mem, __u32 reg, __u32 val)
+{
+	mem = emit_dword(mem, MI_NOOP);
+	mem = emit_dword(mem, MI_LOAD_REGISTER_IMM(1));
+	mem = emit_dword(mem, reg);
+	mem = emit_dword(mem, val);
+	return mem;
+}
+
+static void *emit_cs_stall_pipe_control(void *mem)
+{
+	mem = emit_dword(mem, GFX_OP_PIPE_CONTROL(6));
+	mem = emit_dword(mem, PIPE_CONTROL_CS_STALL);
+	mem = emit_dword(mem, 0);
+	mem = emit_dword(mem, 0);
+	mem = emit_dword(mem, 0);
+	mem = emit_dword(mem, 0);
+	return mem;
+}
+
+int i915_perfmon_update_workaround_bb(struct drm_i915_private *dev_priv,
+				      struct drm_i915_perfmon_config *config)
+{
+	const size_t commands_size = 6 + /* pipe control */
+				     config->size * 4 + /* NOOP + LRI */
+				     6 + /* pipe control */
+				     1;  /* BB end */
+	void *buffer_tail;
+	unsigned int i = 0;
+	int ret = 0;
+
+	if (commands_size > PAGE_SIZE) {
+		DRM_ERROR("OA cfg too long to fit into workarond BB\n");
+		return -ENOSPC;
+	}
+
+	BUG_ON(!mutex_is_locked(&dev_priv->perfmon.config.lock));
+
+	if (atomic_read(&dev_priv->perfmon.config.enable) == 0 ||
+	    !dev_priv->rc6_wa_bb.obj) {
+		DRM_ERROR("not ready to write WA BB commands\n");
+		return -EINVAL;
+	}
+
+	ret = mutex_lock_interruptible(&dev_priv->rc6_wa_bb.lock);
+	if (ret)
+		return ret;
+
+	if (!dev_priv->rc6_wa_bb.obj) {
+		mutex_unlock(&dev_priv->rc6_wa_bb.lock);
+		return 0;
+	}
+
+	/* diable RC6 WA BB */
+	I915_WRITE(GEN8_RC6_WA_BB, 0x0);
+
+	buffer_tail = dev_priv->rc6_wa_bb.address;
+	buffer_tail = emit_cs_stall_pipe_control(buffer_tail);
+
+	/* OA/NOA config */
+	for (i = 0; i < config->size; i++)
+		buffer_tail = emit_load_register_imm(
+			buffer_tail,
+			config->entries[i].offset,
+			config->entries[i].value);
+
+	buffer_tail = emit_cs_stall_pipe_control(buffer_tail);
+
+	/* BB END */
+	buffer_tail = emit_dword(buffer_tail, MI_BATCH_BUFFER_END);
+
+	/* enable WA BB */
+	I915_WRITE(GEN8_RC6_WA_BB, dev_priv->rc6_wa_bb.offset | 0x1);
+
+	mutex_unlock(&dev_priv->rc6_wa_bb.lock);
+	return 0;
+}
+
+static int allocate_wa_bb(struct drm_i915_private *dev_priv)
+{
+	int ret = 0;
+
+	BUG_ON(!mutex_is_locked(&dev_priv->dev->struct_mutex));
+
+	ret = mutex_lock_interruptible(&dev_priv->rc6_wa_bb.lock);
+	if (ret)
+		return ret;
+
+	if (atomic_inc_return(&dev_priv->rc6_wa_bb.enable) > 1) {
+		mutex_unlock(&dev_priv->rc6_wa_bb.lock);
+		return 0;
+	}
+
+	BUG_ON(dev_priv->rc6_wa_bb.obj != NULL);
+
+	dev_priv->rc6_wa_bb.obj = i915_gem_alloc_object(
+						dev_priv->dev,
+						PAGE_SIZE);
+	if (!dev_priv->rc6_wa_bb.obj) {
+		ret = -ENOMEM;
+		goto unlock;
+	}
+
+	ret = i915_gem_obj_ggtt_pin(
+			dev_priv->rc6_wa_bb.obj,
+			PAGE_SIZE, PIN_MAPPABLE);
+
+	if (ret) {
+		drm_gem_object_unreference_unlocked(
+			&dev_priv->rc6_wa_bb.obj->base);
+		goto unlock;
+	}
+
+	ret = i915_gem_object_set_to_gtt_domain(dev_priv->rc6_wa_bb.obj,
+						true);
+	if (ret) {
+		i915_gem_object_ggtt_unpin(dev_priv->rc6_wa_bb.obj);
+		drm_gem_object_unreference_unlocked(
+			&dev_priv->rc6_wa_bb.obj->base);
+		goto unlock;
+	}
+
+	dev_priv->rc6_wa_bb.offset = i915_gem_obj_ggtt_offset(
+						dev_priv->rc6_wa_bb.obj);
+
+	dev_priv->rc6_wa_bb.address = ioremap_wc(
+		dev_priv->gtt.mappable_base + dev_priv->rc6_wa_bb.offset,
+		PAGE_SIZE);
+
+	if (!dev_priv->rc6_wa_bb.address) {
+		i915_gem_object_ggtt_unpin(dev_priv->rc6_wa_bb.obj);
+		drm_gem_object_unreference_unlocked(
+			&dev_priv->rc6_wa_bb.obj->base);
+		ret =  -ENOMEM;
+		goto unlock;
+	}
+
+	DRM_DEBUG("RC6 WA BB, offset %lx address %p, GGTT mapping: %s\n",
+		  dev_priv->rc6_wa_bb.offset,
+		  dev_priv->rc6_wa_bb.address,
+		  dev_priv->rc6_wa_bb.obj->has_global_gtt_mapping ?
+			"yes" : "no");
+
+	memset(dev_priv->rc6_wa_bb.address, 0, PAGE_SIZE);
+
+unlock:
+	if (ret) {
+		dev_priv->rc6_wa_bb.obj = NULL;
+		dev_priv->rc6_wa_bb.offset = 0;
+	}
+	mutex_unlock(&dev_priv->rc6_wa_bb.lock);
+	return ret;
+}
+
+static void deallocate_wa_bb(struct drm_i915_private *dev_priv)
+{
+	BUG_ON(!mutex_is_locked(&dev_priv->dev->struct_mutex));
+
+	mutex_lock(&dev_priv->rc6_wa_bb.lock);
+
+	if (atomic_read(&dev_priv->rc6_wa_bb.enable) == 0)
+		goto unlock;
+
+	if (atomic_dec_return(&dev_priv->rc6_wa_bb.enable) > 1)
+		goto unlock;
+
+	I915_WRITE(GEN8_RC6_WA_BB, 0);
+
+	if (dev_priv->rc6_wa_bb.obj != NULL) {
+		iounmap(dev_priv->rc6_wa_bb.address);
+		i915_gem_object_ggtt_unpin(dev_priv->rc6_wa_bb.obj);
+		drm_gem_object_unreference(&dev_priv->rc6_wa_bb.obj->base);
+		dev_priv->rc6_wa_bb.obj = NULL;
+		dev_priv->rc6_wa_bb.offset = 0;
+	}
+unlock:
+	mutex_unlock(&dev_priv->rc6_wa_bb.lock);
+}
+
 /**
 * i915_perfmon_config_enable_disable
 *
@@ -576,23 +761,34 @@ static int i915_perfmon_config_enable_disable(
 	if (!(IS_GEN8(dev)))
 		return -EINVAL;
 
-	ret = mutex_lock_interruptible(&dev_priv->perfmon.config.lock);
+	ret = i915_mutex_lock_interruptible(dev_priv->dev);
 	if (ret)
 		return ret;
 
+	ret = mutex_lock_interruptible(&dev_priv->perfmon.config.lock);
+	if (ret) {
+		mutex_unlock(&dev->struct_mutex);
+		return ret;
+	}
+
 	if (enable) {
-		if (atomic_inc_return(&dev_priv->perfmon.config.enable) == 1) {
+		ret = allocate_wa_bb(dev_priv);
+		if (!ret &&
+		    atomic_inc_return(&dev_priv->perfmon.config.enable) == 1) {
 			dev_priv->perfmon.config.target =
 				I915_PERFMON_CONFIG_TARGET_ALL;
 			dev_priv->perfmon.config.oa.id = 0;
 			dev_priv->perfmon.config.gp.id = 0;
 		}
-	} else if (atomic_read(&dev_priv->perfmon.config.enable))
+	} else if (atomic_read(&dev_priv->perfmon.config.enable)) {
 		atomic_dec(&dev_priv->perfmon.config.enable);
+		deallocate_wa_bb(dev_priv);
+	}
 
 	mutex_unlock(&dev_priv->perfmon.config.lock);
+	mutex_unlock(&dev->struct_mutex);
 
-	return 0;
+	return ret;
 }
 
 

@@ -476,6 +476,8 @@ i915_program_perfmon(struct drm_device *dev,
 			ringbuf,
 			config_oa);
 		ctx->perfmon.config.oa.submitted_id = config_oa->id;
+
+		i915_perfmon_update_workaround_bb(dev_priv, config_oa);
 	}
 
 

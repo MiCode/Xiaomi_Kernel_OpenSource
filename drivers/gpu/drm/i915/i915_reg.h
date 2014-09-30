@@ -6782,4 +6782,6 @@ enum punit_power_well {
 
 #define GEN8_OA_CTX_CONTROL 0x2360
 
+#define GEN8_RC6_WA_BB	    0x2058
+
 #endif /* _I915_REG_H_ */

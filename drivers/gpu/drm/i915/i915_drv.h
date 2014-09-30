@@ -1724,6 +1724,14 @@ struct drm_i915_private {
 
 	struct drm_i915_perfmon_device perfmon;
 
+	struct {
+		struct drm_i915_gem_object *obj;
+		unsigned long offset;
+		void *address;
+		atomic_t enable;
+		struct mutex lock;
+	} rc6_wa_bb;
+
 	/*
 	 * workarounds are currently applied at different places and
 	 * changes are being done to consolidate them so exact count is
@@ -3030,6 +3038,8 @@ void i915_perfmon_setup(struct drm_i915_private *dev_priv);
 void i915_perfmon_cleanup(struct drm_i915_private *dev_priv);
 void i915_perfmon_ctx_setup(struct intel_context *ctx);
 void i915_perfmon_ctx_cleanup(struct intel_context *ctx);
+int i915_perfmon_update_workaround_bb(struct drm_i915_private *dev_priv,
+	struct drm_i915_perfmon_config *config);
 
 extern void i915_write_bits32(struct drm_i915_private *dev_priv,
 	u32 reg, u32 val, u32 mask, bool trace);
