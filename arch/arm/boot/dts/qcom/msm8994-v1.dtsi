@@ -53,3 +53,130 @@
 		qcom,apply-cti-pmu-wa;
 	};
 };
+
+&pm8994_s8 {
+	regulator-min-microvolt = <725000>;
+	regulator-max-microvolt = <1115000>;
+};
+
+&pm8994_s11 {
+	regulator-min-microvolt = <725000>;
+	regulator-max-microvolt = <1225000>;
+};
+
+&mem_acc0_vreg_corner {
+	regulator-min-microvolt = <1>;
+	regulator-max-microvolt = <3>;
+	qcom,corner-acc-map = <1 0 0>;
+};
+
+&mem_acc1_vreg_corner {
+	regulator-min-microvolt = <1>;
+	regulator-max-microvolt = <3>;
+	qcom,corner-acc-map = <1 0 0>;
+};
+
+&apc0_vreg_corner {
+	qcom,cpr-fuse-corners = <3>;
+	regulator-min-microvolt = <1>;
+	regulator-max-microvolt = <9>;
+	qcom,vdd-mx-corner-map = <4 5 7>;
+
+	qcom,cpr-voltage-ceiling = <900000 1000000 1115000>;
+	qcom,cpr-voltage-floor =   <725000  840000  940000>;
+
+	qcom,cpr-step-quotient = <16>;
+	qcom,cpr-timer-cons-up = <0>;
+	qcom,cpr-timer-cons-down = <2>;
+	qcom,cpr-up-threshold = <2>;
+	qcom,cpr-down-threshold = <4>;
+
+	qcom,cpr-fuse-row = <137 0>;
+	qcom,cpr-fuse-target-quot = <39 47 55>;
+	qcom,cpr-fuse-target-quot-size = <8 8 8>;
+	qcom,cpr-fuse-target-quot-scale =
+				<0 10>,
+				<0 10>,
+				<0 10>;
+	qcom,cpr-quotient-adjustment = <116 0 73>;
+	qcom,cpr-fuse-ro-sel = <82 82 82>;
+	qcom,cpr-fuse-init-voltage =
+				<138  0 6 0>,
+				<138  6 6 0>,
+				<138 12 6 0>;
+	qcom,cpr-init-voltage-ref = <900000 1000000 1225000>;
+	qcom,cpr-init-voltage-step = <10000>;
+
+	qcom,cpr-corner-map = <1 2 2 3 3 3 3 3 3>;
+	/delete-property/ qcom,cpr-voltage-ceiling-override;
+	qcom,cpr-voltage-floor-override =
+			<0xFFFFFFFF 0 725000 800000 840000 860000 860000
+				      900000 900000 940000 940000>;
+
+	qcom,cpr-quot-adjust-scaling-factor-max = <2000>;
+	qcom,cpr-corner-frequency-map =
+			<1 199200000>,
+			<2 302400000>,
+			<3 384000000>,
+			<4 600000000>,
+			<5 691200000>,
+			<6 768000000>,
+			<7 844800000>,
+			<8 921600000>,
+			<9 940800000>;
+	qcom,cpr-speed-bin-max-corners =
+			<0xFFFFFFFF 0 1 3 9>;
+	qcom,cpr-enable;
+};
+
+&apc1_vreg_corner {
+	qcom,cpr-fuse-corners = <3>;
+	regulator-min-microvolt = <1>;
+	regulator-max-microvolt = <8>;
+	qcom,vdd-mx-corner-map = <4 5 7>;
+
+	qcom,cpr-voltage-ceiling = <900000 1000000 1225000>;
+	qcom,cpr-voltage-floor =   <725000  840000  940000>;
+
+	qcom,cpr-step-quotient = <10>;
+	qcom,cpr-timer-cons-up = <0>;
+	qcom,cpr-timer-cons-down = <2>;
+	qcom,cpr-up-threshold = <2>;
+	qcom,cpr-down-threshold = <4>;
+
+	qcom,cpr-fuse-row = <138 0>;
+	qcom,cpr-fuse-target-quot = <29 37 45>;
+	qcom,cpr-fuse-target-quot-size = <8 8 8>;
+	qcom,cpr-fuse-target-quot-scale =
+				<0 10>,
+				<0 10>,
+				<0 10>;
+	qcom,cpr-quotient-adjustment = <36 45 0>;
+	qcom,cpr-fuse-ro-sel = <72 72 72>;
+	qcom,cpr-fuse-init-voltage =
+				<138 54 6 0>,
+				<138 60 6 0>,
+				<139  2 6 0>;
+	qcom,cpr-init-voltage-ref = <900000 1000000 1225000>;
+	qcom,cpr-init-voltage-step = <10000>;
+
+	qcom,cpr-corner-map = <1 2 2 3 3 3 3 3>;
+	/delete-property/ qcom,cpr-voltage-ceiling-override;
+	qcom,cpr-voltage-floor-override =
+			<0xFFFFFFFF 0 725000 790000 840000 840000 860000
+				      890000 920000 940000>;
+
+	qcom,cpr-quot-adjust-scaling-factor-max = <2000>;
+	qcom,cpr-corner-frequency-map =
+			<1 199200000>,
+			<2 302400000>,
+			<3 384000000>,
+			<4 600000000>,
+			<5 691200000>,
+			<6 768000000>,
+			<7 844800000>,
+			<8 921600000>;
+	qcom,cpr-speed-bin-max-corners =
+			<0xFFFFFFFF 0 1 3 8>;
+	qcom,cpr-enable;
+};
