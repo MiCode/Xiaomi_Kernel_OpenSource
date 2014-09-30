@@ -328,6 +328,7 @@ struct mdss_panel_info {
 	u32 mode_gpio_state;
 	bool dynamic_fps;
 	bool ulps_feature_enabled;
+	bool esd_check_enabled;
 	char dfps_update;
 	int new_fps;
 	int panel_max_fps;
