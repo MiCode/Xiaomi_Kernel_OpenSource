@@ -345,6 +345,10 @@ static int mdp3_dmap_config(struct mdp3_dma *dma,
 
 	dma->source_config = *source_config;
 	dma->output_config = *output_config;
+	dma->roi.w = dma->source_config.width;
+	dma->roi.h = dma->source_config.height;
+	dma->roi.x = dma->source_config.x;
+	dma->roi.y = dma->source_config.y;
 	mdp3_irq_enable(MDP3_INTR_LCDC_UNDERFLOW);
 	mdp3_dma_callback_setup(dma);
 	return 0;
@@ -361,7 +365,7 @@ static void mdp3_dmap_config_source(struct mdp3_dma *dma)
 	dma_p_cfg_reg &= ~MDP3_DMA_PACK_PATTERN_MASK;
 	dma_p_cfg_reg |= dma->output_config.pack_pattern << 8;
 
-	dma_p_size = source_config->width | (source_config->height << 16);
+	dma_p_size = dma->roi.w | (dma->roi.h << 16);
 
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_CONFIG, dma_p_cfg_reg);
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_SIZE, dma_p_size);
@@ -603,11 +607,31 @@ static int mdp3_dmap_histo_config(struct mdp3_dma *dma,
 	return 0;
 }
 
+int dma_bpp(int format)
+{
+	int bpp;
+	switch (format) {
+	case MDP3_DMA_IBUF_FORMAT_RGB888:
+		bpp = 3;
+		break;
+	case MDP3_DMA_IBUF_FORMAT_RGB565:
+		bpp = 2;
+		break;
+	case MDP3_DMA_IBUF_FORMAT_XRGB8888:
+		bpp = 4;
+		break;
+	default:
+		bpp = 0;
+	}
+	return bpp;
+}
+
 static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
-				struct mdp3_intf *intf)
+				struct mdp3_intf *intf, void *data)
 {
 	unsigned long flag;
 	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
+	struct mdss_panel_data *panel;
 	int rc = 0;
 
 	pr_debug("mdp3_dmap_update\n");
@@ -628,10 +652,18 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 				 MDP3_DMA_OUTPUT_SEL_DSI_VIDEO && intf->active)
 			pr_err("configuring dma source while dma is active\n");
 		dma->dma_config_source(dma);
+		if (data) {
+			panel = (struct mdss_panel_data *)data;
+			if (panel->event_handler)
+				panel->event_handler(panel,
+					MDSS_EVENT_ENABLE_PARTIAL_ROI, NULL);
+		}
 		dma->update_src_cfg = false;
 	}
 	spin_lock_irqsave(&dma->dma_lock, flag);
-	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR, (u32)buf);
+	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR, (u32)(buf +
+			dma->roi.y * dma->source_config.stride +
+			dma->roi.x * dma_bpp(dma->source_config.format)));
 	dma->source_config.buf = (int)buf;
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
 		mdp3_ccs_update(dma);
@@ -662,7 +694,7 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 }
 
 static int mdp3_dmas_update(struct mdp3_dma *dma, void *buf,
-				struct mdp3_intf *intf)
+				struct mdp3_intf *intf, void *data)
 {
 	unsigned long flag;
 	int cb_type = MDP3_DMA_CALLBACK_TYPE_VSYNC;
