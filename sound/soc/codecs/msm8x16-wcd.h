@@ -47,6 +47,7 @@
 #define MCLK_SUS_NO_ACT	3
 
 #define NUM_DECIMATORS	2
+#define MSM89XX_VDD_SPKDRV_NAME "cdc-vdd-spkdrv"
 
 extern const u8 msm8x16_wcd_reg_readable[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reg_readonly[MSM8X16_WCD_CACHE_SIZE];
@@ -131,6 +132,7 @@ enum wcd_notify_event {
 
 enum {
 	ON_DEMAND_MICBIAS = 0,
+	ON_DEMAND_SPKDRV,
 	ON_DEMAND_SUPPLIES_MAX,
 };
 
@@ -223,8 +225,10 @@ struct msm8x16_wcd_priv {
 	bool config_mode_active;
 	bool spk_boost_set;
 	bool ear_pa_boost_set;
+	bool ext_spk_boost_set;
 	bool dec_active[NUM_DECIMATORS];
 	struct on_demand_supply on_demand_list[ON_DEMAND_SUPPLIES_MAX];
+	struct regulator *spkdrv_reg;
 	/* mbhc module */
 	struct wcd_mbhc mbhc;
 	struct blocking_notifier_head notifier;
