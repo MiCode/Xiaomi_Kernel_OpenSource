@@ -958,6 +958,21 @@ static enum cpe_svc_result cpe_mt_validate_cmd(
 		break;
 
 	case CPE_STATE_IDLE:
+		switch (command) {
+		case CPE_CMD_SEND_MSG:
+		case CPE_CMD_SEND_MSG_COMPLETE:
+		case CPE_CMD_PROCESS_IRQ:
+		case CPE_CMD_RESET:
+		case CPE_CMD_SHUTDOWN:
+		case CPE_CMD_KILL_THREAD:
+			rc = CPE_SVC_SUCCESS;
+			break;
+		default:
+			rc = CPE_SVC_FAILED;
+			break;
+		}
+		break;
+
 	case CPE_STATE_SENDING_MSG:
 		switch (command) {
 		case CPE_CMD_SEND_MSG:
@@ -965,6 +980,7 @@ static enum cpe_svc_result cpe_mt_validate_cmd(
 		case CPE_CMD_PROCESS_IRQ:
 		case CPE_CMD_SHUTDOWN:
 		case CPE_CMD_KILL_THREAD:
+			rc = CPE_SVC_SUCCESS;
 			break;
 		default:
 			rc = CPE_SVC_FAILED;
