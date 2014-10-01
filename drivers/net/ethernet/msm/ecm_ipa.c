@@ -904,6 +904,7 @@ static int ecm_ipa_rules_cfg(struct ecm_ipa_dev *ecm_ipa_ctx,
 	ipv4_hdr->is_partial = 0;
 	ipv4_hdr->is_eth2_ofst_valid = true;
 	ipv4_hdr->eth2_ofst = 0;
+	ipv4_hdr->type = IPA_HDR_L2_ETHERNET_II;
 	strlcpy(ipv6_hdr->name, ECM_IPA_IPV6_HDR_NAME, IPA_RESOURCE_NAME_MAX);
 	memcpy(eth_ipv6->h_dest, dst_mac, ETH_ALEN);
 	memcpy(eth_ipv6->h_source, src_mac, ETH_ALEN);
@@ -912,6 +913,7 @@ static int ecm_ipa_rules_cfg(struct ecm_ipa_dev *ecm_ipa_ctx,
 	ipv6_hdr->is_partial = 0;
 	ipv6_hdr->is_eth2_ofst_valid = true;
 	ipv6_hdr->eth2_ofst = 0;
+	ipv6_hdr->type = IPA_HDR_L2_ETHERNET_II;
 	hdrs->commit = 1;
 	hdrs->num_hdrs = 2;
 	result = ipa_add_hdr(hdrs);
@@ -998,9 +1000,11 @@ static int ecm_ipa_register_properties(struct ecm_ipa_dev *ecm_ipa_ctx)
 	ipv4_property->dst_pipe = ecm_ipa_ctx->ipa_to_usb_client;
 	strlcpy(ipv4_property->hdr_name, ECM_IPA_IPV4_HDR_NAME,
 			IPA_RESOURCE_NAME_MAX);
+	ipv4_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	ipv6_property = &tx_properties.prop[1];
 	ipv6_property->ip = IPA_IP_v6;
 	ipv6_property->dst_pipe = ecm_ipa_ctx->ipa_to_usb_client;
+	ipv6_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	strlcpy(ipv6_property->hdr_name, ECM_IPA_IPV6_HDR_NAME,
 			IPA_RESOURCE_NAME_MAX);
 	tx_properties.num_props = 2;
@@ -1010,10 +1014,12 @@ static int ecm_ipa_register_properties(struct ecm_ipa_dev *ecm_ipa_ctx)
 	rx_ipv4_property->ip = IPA_IP_v4;
 	rx_ipv4_property->attrib.attrib_mask = 0;
 	rx_ipv4_property->src_pipe = ecm_ipa_ctx->usb_to_ipa_client;
+	rx_ipv4_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	rx_ipv6_property = &rx_properties.prop[1];
 	rx_ipv6_property->ip = IPA_IP_v6;
 	rx_ipv6_property->attrib.attrib_mask = 0;
 	rx_ipv6_property->src_pipe = ecm_ipa_ctx->usb_to_ipa_client;
+	rx_ipv6_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	rx_properties.num_props = 2;
 
 	result = ipa_register_intf("ecm0", &tx_properties, &rx_properties);
