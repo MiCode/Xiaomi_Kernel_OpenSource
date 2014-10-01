@@ -380,7 +380,7 @@ static int edp_pll_lock_status(struct mdss_pll_resources *edp_pll_res)
 	}
 
 	/* poll for PLL ready status */
-	if (readl_poll_timeout_noirq((edp_pll_res->pll_base + 0xc0),
+	if (readl_poll_timeout_atomic((edp_pll_res->pll_base + 0xc0),
 			status, ((status & BIT(0)) == 1),
 			EDP_PLL_POLL_MAX_READS,
 			EDP_PLL_POLL_TIMEOUT_US)) {
