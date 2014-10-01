@@ -1838,8 +1838,8 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 				!(tmp & ATSR_ACTIVE), 10, 5)) {
 		spin_unlock_irqrestore(&smmu_domain->lock, flags);
 		dev_err(dev,
-			"iova to phys timed out on 0x%pa for %s. Falling back to software table walk.\n",
-			&iova, dev_name(dev));
+			"iova to phys timed out on 0x%pa. Falling back to software table walk.\n",
+			&iova);
 		arm_smmu_disable_clocks(smmu);
 		return arm_smmu_iova_to_phys_soft(domain, iova);
 	}
