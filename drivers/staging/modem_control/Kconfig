@@ -5,6 +5,7 @@
 
 config MDM_CTRL
 	tristate "Modem control driver"
+	depends on INTEL_SOC_PMIC
 	default y
 	---help---
 	  The modem control driver for IMC modems. This driver will perform any
