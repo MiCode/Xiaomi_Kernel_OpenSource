@@ -1204,7 +1204,7 @@
 		      <0x04020000 0x040>,
 		      <0x01810000 0x004>;
 		reg-names = "qdsp6_base", "halt_q6", "halt_modem", "halt_nc",
-				 "rmb_base", "restart_reg";
+				 "rmb_base", "restart_reg_sec";
 
 		interrupts = <0 24 1>;
 		vdd_cx-supply = <&pm8916_s1_corner>;
