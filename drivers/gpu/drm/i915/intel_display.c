@@ -2697,7 +2697,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 			I915_WRITE(DSPLINOFF(plane),
 				   linear_offset +
 				   (fb->height - 1) * fb->pitches[0] +
-				   fb->width * pixel_size);
+				   (fb->width - 1) * pixel_size);
 		} else {
 			I915_WRITE(DSPTILEOFF(plane), (y << 16) | x);
 			I915_WRITE(DSPLINOFF(plane), linear_offset);
