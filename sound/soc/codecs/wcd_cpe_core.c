@@ -94,32 +94,6 @@ static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param);
 static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core);
 static void wcd_cpe_cleanup_irqs(struct wcd_cpe_core *core);
 
-struct cpe_load_priv {
-	void *cdc_handle;
-	int cpe_load;
-	struct kobject *cpe_load_kobj;
-	struct attribute_group *attr_group;
-};
-
-static ssize_t wcd_cpe_load_store(struct kobject *kobj,
-	struct kobj_attribute *attr,
-	const char *buf,
-	size_t count);
-
-static struct kobj_attribute cpe_load_attr =
-	__ATTR(load, 0600, NULL, wcd_cpe_load_store);
-
-static struct attribute *attrs[] = {
-	&cpe_load_attr.attr,
-	NULL,
-};
-
-static struct attribute_group attr_grp = {
-	.attrs = attrs,
-};
-
-static struct cpe_load_priv cpe_priv;
-
 /* wcd_cpe_lsm_session_active: check if any session is active
  * return true if any session is active.
  */
@@ -294,13 +268,16 @@ static int wcd_cpe_enable_cpe_clks(struct wcd_cpe_core *core, bool enable)
 }
 
 /*
- * wcd_cpe_load_fw_image: Function to load the fw image
+ * wcd_cpe_load_fw: Function to load the fw image
  * @core: cpe core pointer
+ * @load_type: indicates whether to load to data section
+ *	       or the instruction section
  *
  * Parse the mdt file to look for program headers, load each
  * split file corresponding to the program headers.
  */
-static int wcd_cpe_load_fw(struct wcd_cpe_core *core)
+static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
+	unsigned int load_type)
 {
 
 	int ret, phdr_idx;
@@ -312,6 +289,7 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core)
 	const u8 *elf_ptr;
 	char mdt_name[64];
 	bool img_dload_fail = false;
+	bool load_segment;
 
 	if (!core || !core->cpe_handle) {
 		pr_err("%s: Error CPE core %p\n", __func__,
@@ -337,53 +315,104 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core)
 
 	elf_ptr = fw->data + sizeof(*ehdr);
 
-	/* Reset CPE first */
-	ret = cpe_svc_reset(core->cpe_handle);
-	if (IS_ERR_VALUE(ret)) {
-		dev_err(core->dev,
-			"%s: Failed to reset CPE with error %d\n",
-			__func__, ret);
-		goto done;
+	if (load_type == ELF_FLAG_EXECUTE) {
+		/* Reset CPE first */
+		ret = cpe_svc_reset(core->cpe_handle);
+		if (IS_ERR_VALUE(ret)) {
+			dev_err(core->dev,
+				"%s: Failed to reset CPE with error %d\n",
+				__func__, ret);
+			goto done;
+		}
 	}
 
-	dev_dbg(core->dev, "%s: starting image download, image = %s\n",
-		__func__, core->fname);
+	dev_dbg(core->dev, "%s: start image dload, name = %s, load_type = 0x%x\n",
+		__func__, core->fname, load_type);
 
 	/* parse every program header and request corresponding firmware */
 	for (phdr_idx = 0; phdr_idx < ehdr->e_phnum; phdr_idx++) {
 		phdr = (struct elf32_phdr *)elf_ptr;
+		load_segment = false;
 
 		dev_dbg(core->dev,
-			"index = %d, vaddr = 0x%x, paddr = 0x%x,\n"
+			"index = %d, vaddr = 0x%x, paddr = 0x%x, "
 			"filesz = 0x%x, memsz = 0x%x, flags = 0x%x\n"
 			, phdr_idx, phdr->p_vaddr, phdr->p_paddr,
 			phdr->p_filesz, phdr->p_memsz, phdr->p_flags);
 
-		ret = wcd_cpe_load_each_segment(core, phdr_idx, phdr);
-		if (IS_ERR_VALUE(ret)) {
-			dev_err(core->dev,
-				"Failed to load segment %d .. aborting img dload\n",
-				phdr_idx);
-			img_dload_fail = true;
+		switch (load_type) {
+		case ELF_FLAG_EXECUTE:
+			if (phdr->p_flags & load_type)
+				load_segment = true;
+			break;
+		case ELF_FLAG_RW:
+			if (!(phdr->p_flags & ELF_FLAG_EXECUTE) &&
+			    (phdr->p_flags & load_type))
+				load_segment = true;
+			break;
+		default:
+			pr_err("%s: Invalid load_type 0x%x\n",
+				__func__, load_type);
+			ret = -EINVAL;
 			goto done;
 		}
 
+		if (load_segment) {
+			ret = wcd_cpe_load_each_segment(core,
+						phdr_idx, phdr);
+			if (IS_ERR_VALUE(ret)) {
+				dev_err(core->dev,
+					"Failed to load segment %d, aborting img dload\n",
+					phdr_idx);
+				img_dload_fail = true;
+				goto done;
+			}
+		} else {
+			dev_dbg(core->dev,
+				"%s: skipped segment with index %d\n",
+				__func__, phdr_idx);
+		}
+
 		elf_ptr = elf_ptr + sizeof(*phdr);
-
 	}
-
-	if (!img_dload_fail) {
-		wcd_cpe_enable_cpe_clks(core, true);
-		ret = cpe_svc_boot(core->cpe_handle, core->cpe_debug_mode);
-		if (IS_ERR_VALUE(ret))
-			dev_err(core->dev,
-				"%s: Failed to boot CPE\n",
-				__func__);
-	}
+	if (load_type == ELF_FLAG_EXECUTE)
+		core->ssr_type = WCD_CPE_IMEM_DOWNLOADED;
 
 done:
 	release_firmware(fw);
 	return ret;
+}
+
+/*
+ * wcd_cpe_change_online_state - mark cpe online/offline state
+ * @core: core session to mark
+ * @online: whether online of offline
+ *
+ */
+static void wcd_cpe_change_online_state(struct wcd_cpe_core *core,
+			int online)
+{
+	struct wcd_cpe_ssr_entry *ssr_entry = NULL;
+	unsigned long ret;
+
+	if (!core) {
+		pr_err("%s: Invalid core handle\n",
+			__func__);
+		return;
+	}
+
+	ssr_entry = &core->ssr_entry;
+	WCD_CPE_GRAB_LOCK(&core->ssr_lock, "SSR");
+	ssr_entry->offline = !online;
+	wmb();
+	ret = xchg(&ssr_entry->offline_change, 1);
+	wake_up_interruptible(&ssr_entry->offline_poll_wait);
+	WCD_CPE_REL_LOCK(&core->ssr_lock, "SSR");
+	pr_debug("%s: change state 0x%x offline_change 0x%x\n"
+		 " core->offline 0x%x, ret = %ld\n",
+		 __func__, online,
+		 ssr_entry->offline_change,
+		 core->ssr_entry.offline, ret);
 }
 
 /*
@@ -398,7 +427,12 @@ static void wcd_cpe_load_fw_image(struct work_struct *work)
 	struct wcd_cpe_core *core;
 	int ret = 0;
 	core = container_of(work, struct wcd_cpe_core, load_fw_work);
-	ret = wcd_cpe_load_fw(core);
+	ret = wcd_cpe_load_fw(core, ELF_FLAG_EXECUTE);
+	if (!ret)
+		wcd_cpe_change_online_state(core, 1);
+	else
+		pr_err("%s: failed to load instruction section, err = %d\n",
+			__func__, ret);
 	return;
 }
 
@@ -535,37 +569,6 @@ static unsigned int wcd_cpe_state_poll(struct snd_info_entry *entry,
 }
 
 /*
- * wcd_cpe_change_online_state - mark cpe online/offline state
- * @core: core session to mark
- * @online: whether online of offline
- *
- */
-void wcd_cpe_change_online_state(struct wcd_cpe_core *core, int online)
-{
-	struct wcd_cpe_ssr_entry *ssr_entry = NULL;
-	unsigned long ret;
-
-	if (!core) {
-		pr_err("%s: Invalid core handle\n",
-			__func__);
-		return;
-	}
-
-	ssr_entry = &core->ssr_entry;
-	WCD_CPE_GRAB_LOCK(&core->ssr_lock, "SSR");
-	ssr_entry->offline = !online;
-	wmb();
-	ret = xchg(&ssr_entry->offline_change, 1);
-	wake_up_interruptible(&ssr_entry->offline_poll_wait);
-	WCD_CPE_REL_LOCK(&core->ssr_lock, "SSR");
-	pr_debug("%s: change state 0x%x offline_change 0x%x\n"
-		 " core->offline 0x%x, ret = %ld\n",
-		 __func__, online,
-		 ssr_entry->offline_change,
-		 core->ssr_entry.offline, ret);
-}
-
-/*
  * wcd_cpe_is_online_state - return true if card is online state
  * @core: core offline to query
  */
@@ -586,6 +589,74 @@ static struct snd_info_entry_ops wcd_cpe_state_proc_ops = {
 	.poll = wcd_cpe_state_poll,
 };
 
+static int wcd_cpe_enable(struct wcd_cpe_core *core,
+		bool enable)
+{
+	int ret = 0;
+
+	if (enable) {
+		ret = wcd_cpe_setup_irqs(core);
+		if (ret) {
+			dev_err(core->dev,
+				"%s: CPE IRQs setup failed, error = %d\n",
+				__func__, ret);
+			goto done;
+		}
+		/* Dload data section */
+		ret = wcd_cpe_load_fw(core, ELF_FLAG_RW);
+		if (ret) {
+			dev_err(core->dev,
+				"%s: Failed to dload data section, err = %d\n",
+				__func__, ret);
+			goto fail_boot;
+		}
+
+		wcd_cpe_enable_cpe_clks(core, true);
+		ret = cpe_svc_boot(core->cpe_handle,
+				   core->cpe_debug_mode);
+		if (IS_ERR_VALUE(ret)) {
+			dev_err(core->dev,
+				"%s: Failed to boot CPE\n",
+				__func__);
+			goto fail_boot;
+		}
+
+		/* wait for CPE to be online */
+		dev_dbg(core->dev,
+			"%s: waiting for CPE bootup\n",
+			__func__);
+
+		wait_for_completion(&core->online_compl);
+
+		dev_dbg(core->dev,
+			"%s: CPE bootup done\n",
+			__func__);
+
+		core->ssr_type = WCD_CPE_ENABLED;
+	} else {
+		/* Reset CPE first */
+		ret = cpe_svc_reset(core->cpe_handle);
+		if (IS_ERR_VALUE(ret)) {
+			dev_err(core->dev,
+				"%s: Failed to reset CPE with error %d\n",
+				__func__, ret);
+			goto done;
+		}
+
+		wcd_cpe_enable_cpe_clks(core, false);
+		wcd_cpe_cleanup_irqs(core);
+		core->ssr_type = WCD_CPE_IMEM_DOWNLOADED;
+	}
+
+	return ret;
+
+fail_boot:
+	wcd_cpe_cleanup_irqs(core);
+
+done:
+	return ret;
+}
+
 /*
  * wcd_cpe_boot_ssr: Load the images to CPE after ssr and bootup cpe
  * @core: handle to the core
@@ -599,7 +670,17 @@ static int wcd_cpe_boot_ssr(struct wcd_cpe_core *core)
 		rc = -EINVAL;
 		goto fail;
 	}
-	rc = wcd_cpe_load_fw(core);
+	/* Load the instruction section and mark CPE as online */
+	rc = wcd_cpe_load_fw(core, ELF_FLAG_EXECUTE);
+	if (rc) {
+		dev_err(core->dev,
+			"%s: Failed to load instruction, err = %d\n",
+			__func__, rc);
+		goto fail;
+	} else {
+		wcd_cpe_change_online_state(core, 1);
+	}
+
 fail:
 	return rc;
 }
@@ -692,23 +773,30 @@ void wcd_cpe_ssr_work(struct work_struct *work)
 		irq = CPE_IRQ_WDOG_BITE;
 	}
 
-	rc = cpe_svc_process_irq(core->cpe_handle, irq);
-	if (IS_ERR_VALUE(rc))
-		/*
-		 * Even if process_irq fails,
-		 * wait for cpe to move to offline state
-		 */
-		dev_err(core->dev,
-			"%s: irq processing failed, error = %d\n",
-			__func__, rc);
+	if (core->cpe_users > 0) {
+		rc = cpe_svc_process_irq(core->cpe_handle, irq);
+		if (IS_ERR_VALUE(rc))
+			/*
+			 * Even if process_irq fails,
+			 * wait for cpe to move to offline state
+			 */
+			dev_err(core->dev,
+				"%s: irq processing failed, error = %d\n",
+				__func__, rc);
 
-	rc = wait_for_completion_timeout(&core->offline_compl,
-					 CPE_OFFLINE_WAIT_TIMEOUT);
-	if (!rc) {
-		dev_err(core->dev,
-			"%s: wait for cpe offline timed out\n",
-			__func__);
-		goto err_ret;
+		rc = wait_for_completion_timeout(&core->offline_compl,
+						 CPE_OFFLINE_WAIT_TIMEOUT);
+		if (!rc) {
+			dev_err(core->dev,
+				"%s: wait for cpe offline timed out\n",
+				__func__);
+			goto err_ret;
+		}
+	} else {
+		pr_err("%s: no cpe users, mark as offline\n", __func__);
+		wcd_cpe_change_online_state(core, 0);
+		wcd_cpe_set_and_complete(core,
+					 WCD_CPE_BLK_READY);
 	}
 
 	rc = wait_for_completion_timeout(&core->ready_compl,
@@ -785,8 +873,6 @@ int wcd_cpe_ssr_event(void *core_handle,
 		break;
 
 	case WCD_CPE_BUS_UP_EVENT:
-		wcd_cpe_cleanup_irqs(core);
-		wcd_cpe_setup_irqs(core);
 		wcd_cpe_set_and_complete(core, WCD_CPE_BUS_READY);
 		/*
 		 * In case of bus up event ssr_type will be changed
@@ -976,10 +1062,10 @@ static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param)
 
 	switch (param->event) {
 	case CPE_SVC_ONLINE:
-		wcd_cpe_change_online_state(core, 1);
 		core->ssr_type = WCD_CPE_ACTIVE;
-		dev_err(core->dev, "%s CPE is now online\n",
+		dev_dbg(core->dev, "%s CPE is now online\n",
 			 __func__);
+		complete(&core->online_compl);
 		break;
 	case CPE_SVC_OFFLINE:
 		active_sessions = wcd_cpe_lsm_session_active();
@@ -987,18 +1073,10 @@ static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param)
 		complete(&core->offline_compl);
 		dev_err(core->dev, "%s: CPE is now offline\n",
 			 __func__);
-		if (!active_sessions) {
-			dev_dbg(core->dev,
-				"%s: No active sessions, ready for online",
-				__func__);
-			wcd_cpe_set_and_complete(core,
-						 WCD_CPE_BLK_READY);
-		}
-
 		break;
 	case CPE_SVC_CMI_CLIENTS_DEREG:
 
-		if (core->ssr_type != WCD_CPE_ACTIVE)
+		if (core->ssr_type == WCD_CPE_SSR_EVENT)
 			wcd_cpe_set_and_complete(core,
 						 WCD_CPE_BLK_READY);
 		break;
@@ -1189,7 +1267,8 @@ static int wcd_cpe_cal_init(struct wcd_cpe_core *core)
  *	the work to download image and bootup the CPE.
  * core: handle to cpe core structure
  */
-static int wcd_cpe_enable(struct wcd_cpe_core *core)
+static int wcd_cpe_vote(struct wcd_cpe_core *core,
+		bool enable)
 {
 	int ret = 0;
 
@@ -1200,72 +1279,52 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core)
 		goto done;
 	}
 
-	if (core->ssr_type != WCD_CPE_INITIALIZED) {
-		dev_err(core->dev,
-			"%s: CPE not initialized, state = 0x%x\n",
-			__func__, core->ssr_type);
-		ret = -EINVAL;
-		goto done;
+	dev_dbg(core->dev,
+		"%s: enter, enable = %s, cpe_users = %u\n",
+		__func__, (enable ? "true" : "false"),
+		core->cpe_users);
+
+	if (enable) {
+		if (core->cpe_users == 0) {
+			ret = wcd_cpe_enable(core, enable);
+			if (ret) {
+				dev_err(core->dev,
+					"%s: CPE enable failed, err = %d\n",
+					__func__, ret);
+				goto done;
+			}
+			core->cpe_users++;
+		} else {
+			dev_dbg(core->dev,
+				"%s: cpe already enabled, users = %u\n",
+				__func__, core->cpe_users);
+			goto done;
+		}
+	} else {
+		if (core->cpe_users == 1) {
+			ret = wcd_cpe_enable(core, enable);
+			if (ret) {
+				dev_err(core->dev,
+					"%s: CPE disable failed, err = %d\n",
+					__func__, ret);
+				goto done;
+			}
+			core->cpe_users--;
+		} else {
+			dev_dbg(core->dev,
+				"%s: %u valid users on cpe\n",
+				__func__, core->cpe_users);
+			goto done;
+		}
 	}
 
-	ret = wcd_cpe_setup_irqs(core);
-	if (ret) {
-		dev_err(core->dev,
-			"%s: CPE IRQs setup failed, error = %d\n",
-			__func__, ret);
-		goto done;
-	}
-
-	core->ssr_type = WCD_CPE_ENABLED;
-	schedule_work(&core->load_fw_work);
+	dev_dbg(core->dev,
+		"%s: leave, enable = %s, cpe_users = %u\n",
+		__func__, (enable ? "true" : "false"),
+		core->cpe_users);
 
 done:
 	return ret;
-}
-
-/*
- * wcd_cpe_load_store: Function invoked with sysfs property
- *	is written to. Enable CPE if value of the cpe_load
- *	property is non-zero.
- * kobj: Kobject associated with the sysfs property
- * attr: The attribute that is written to
- * buf: holds the data that is written
- * count: number of data bytes in the buffer
- */
-static ssize_t wcd_cpe_load_store(struct kobject *kobj,
-	struct kobj_attribute *attr,
-	const char *buf,
-	size_t count)
-{
-	struct wcd_cpe_core *core;
-	int ret = 0;
-
-	if (cpe_priv.cpe_load) {
-		pr_err("%s: CPE already loaded\n",
-			__func__);
-		goto done;
-	}
-
-	core = wcd_cpe_get_core_handle(cpe_priv.cdc_handle);
-	if (!core) {
-		pr_err("%s: Invalid core handle\n",
-			__func__);
-		goto done;
-	}
-
-	sscanf(buf, "%du", &cpe_priv.cpe_load);
-
-	if (cpe_priv.cpe_load) {
-		ret = wcd_cpe_enable(core);
-		if (IS_ERR_VALUE(ret))
-			cpe_priv.cpe_load = 0;
-		else
-			pr_info("%s: CPE enabled for tomtom_codec\n",
-				__func__);
-	}
-
-done:
-	return count;
 }
 
 /*
@@ -1336,8 +1395,10 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 	INIT_WORK(&core->ssr_work, wcd_cpe_ssr_work);
 	init_completion(&core->offline_compl);
 	init_completion(&core->ready_compl);
+	init_completion(&core->online_compl);
 	init_waitqueue_head(&core->ssr_entry.offline_poll_wait);
 	mutex_init(&core->ssr_lock);
+	core->cpe_users = 0;
 
 	/*
 	 * By default, during probe, it is assumed that
@@ -1366,7 +1427,6 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 			__func__);
 		goto fail_cpe_register;
 	}
-
 
 	card = codec->card->snd_card;
 	snprintf(proc_name, (sizeof("cpe") + sizeof("_state") +
@@ -1398,34 +1458,21 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 		 */
 	}
 
-	cpe_priv.cdc_handle = codec;
-	cpe_priv.attr_group = &attr_grp;
-	cpe_priv.cpe_load_kobj = kobject_create_and_add("wcd_cpe",
-					       kernel_kobj);
-	if (!cpe_priv.cpe_load_kobj) {
-		pr_err("%s: cpe_load: sysfs create_add failed\n",
-			__func__);
-		goto fail_cpe_register;
-	} else if (sysfs_create_group(cpe_priv.cpe_load_kobj,
-				      cpe_priv.attr_group)) {
-		pr_err("%s: sysfs_create_group failed\n", __func__);
-		kobject_del(cpe_priv.cpe_load_kobj);
-		goto fail_cpe_register;
-	}
-
-	core->ssr_type = WCD_CPE_INITIALIZED;
-
 	core_d = core;
 	ret = wcd_cpe_cal_init(core);
 	if (IS_ERR_VALUE(ret)) {
 		dev_err(core->dev,
 			"%s: CPE calibration init failed, err = %d\n",
 			__func__, ret);
-		goto fail_cpe_register;
+		goto fail_cpe_reset;
 	}
 
 	core->ssr_type = WCD_CPE_INITIALIZED;
+	schedule_work(&core->load_fw_work);
 	return core;
+
+fail_cpe_reset:
+	cpe_svc_deregister(core->cpe_handle, core->cpe_reg_handle);
 
 fail_cpe_register:
 	cpe_svc_deinitialize(core->cpe_handle);
@@ -2256,6 +2303,7 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 	int i, session_id = -1;
 	struct wcd_cpe_core *core = core_handle;
 	bool afe_register_service = false;
+	int ret = 0;
 
 	/*
 	 * Even if multiple listen sessions can be
@@ -2280,12 +2328,20 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 		return NULL;
 	}
 
+	ret = wcd_cpe_vote(core, true);
+	if (ret) {
+		dev_err(core->dev,
+			"%s: Failed to enable cpe, err = %d\n",
+			__func__, ret);
+		return NULL;
+	}
+
 	session = kzalloc(sizeof(struct cpe_lsm_session), GFP_KERNEL);
 	if (!session) {
 		dev_err(core->dev,
 			"%s: failed to allocate session, no memory\n",
 			__func__);
-		return NULL;
+		goto err_session_alloc;
 	}
 
 	session->id = session_id;
@@ -2322,8 +2378,12 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 err_afe_svc_reg:
 	cmi_deregister(session->cmi_reg_handle);
 	mutex_destroy(&session->lsm_lock);
+
 err_ret:
 	kfree(session);
+
+err_session_alloc:
+	wcd_cpe_vote(core, false);
 	return NULL;
 }
 
@@ -2637,6 +2697,7 @@ static int wcd_cpe_dealloc_lsm_session(void *core_handle,
 			struct cpe_lsm_session *session)
 {
 	struct wcd_cpe_core *core = core_handle;
+	int ret = 0;
 
 	if (!session) {
 		dev_err(core->dev,
@@ -2665,7 +2726,12 @@ static int wcd_cpe_dealloc_lsm_session(void *core_handle,
 		wcd_cpe_deinitialize_afe_port_data();
 	}
 
-	return 0;
+	ret = wcd_cpe_vote(core, false);
+	if (ret)
+		dev_dbg(core->dev,
+			"%s: Failed to un-vote cpe, err = %d\n",
+			__func__, ret);
+	return ret;
 }
 
 static int slim_master_read_enable(void *core_handle,
