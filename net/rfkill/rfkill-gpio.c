@@ -321,6 +321,14 @@ static struct rfkill_gpio_desc acpi_bluetooth_wake = {
 	.host_wake_idx = 2,
 };
 
+static struct rfkill_gpio_desc acpi_gps_wake = {
+	.type = RFKILL_TYPE_GPS,
+	.reset_idx = -1,
+	.shutdown_idx = 1,
+	.wake_idx = -1,
+	.host_wake_idx = 0,
+};
+
 static const struct acpi_device_id rfkill_acpi_match[] = {
 	{ "BCM2E1A", (kernel_ulong_t)&acpi_default_bluetooth },
 	{ "BCM2E39", (kernel_ulong_t)&acpi_default_bluetooth },
@@ -329,6 +337,7 @@ static const struct acpi_device_id rfkill_acpi_match[] = {
 	{ "BCM4752", (kernel_ulong_t)&acpi_default_gps },
 	{ "LNV4752", (kernel_ulong_t)&acpi_default_gps },
 	{ "BCM4752E", (kernel_ulong_t)&acpi_default_gps },
+	{ "BCM47521", (kernel_ulong_t)&acpi_gps_wake },
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, rfkill_acpi_match);
