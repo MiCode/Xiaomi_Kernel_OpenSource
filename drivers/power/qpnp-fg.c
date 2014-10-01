@@ -112,6 +112,7 @@ enum fg_mem_setting_index {
 	FG_MEM_SOFT_HOT,
 	FG_MEM_HARD_COLD,
 	FG_MEM_HARD_HOT,
+	FG_MEM_RESUME_SOC,
 	FG_MEM_SETTING_MAX,
 };
 
@@ -140,6 +141,7 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(SOFT_HOT,        0x454,   1,      400),
 	SETTING(HARD_COLD,       0x454,   2,      50),
 	SETTING(HARD_HOT,        0x454,   3,      450),
+	SETTING(RESUME_SOC,      0x45C,   1,      0),
 };
 
 #define DATA(_idx, _address, _offset, _length,  _value)	\
@@ -1120,6 +1122,43 @@ static void update_jeita_setting(struct work_struct *work)
 		pr_err("failed to update JEITA setting rc=%d\n", rc);
 }
 
+#define FG_ALG_SYSCTL_1	0x4B0
+#define SYSCTL_OFFSET		1
+#define AUTO_RCHG_BIT		BIT(1)
+
+static int fg_set_auto_recharge(struct fg_chip *chip)
+{
+	int rc;
+
+	rc = fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, AUTO_RCHG_BIT,
+			AUTO_RCHG_BIT, SYSCTL_OFFSET);
+
+	if (rc)
+		pr_err("write failed rc=%d\n", rc);
+	else
+		pr_info("setting auto recharge\n");
+
+	return rc;
+}
+
+static int fg_set_resume_soc(struct fg_chip *chip, u8 threshold)
+{
+	u16 address;
+	int offset, rc;
+
+	address = settings[FG_MEM_RESUME_SOC].address;
+	offset = settings[FG_MEM_RESUME_SOC].offset;
+
+	rc = fg_mem_masked_write(chip, address, 0xFF, threshold, offset);
+
+	if (rc)
+		pr_err("write failed rc=%d\n", rc);
+	else
+		pr_info("setting resume-soc to %x\n", threshold);
+
+	return rc;
+}
+
 static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
@@ -1653,6 +1692,7 @@ static int fg_of_init(struct fg_chip *chip)
 		memcpy(chip->thermal_coefficients, data, len);
 		chip->use_thermal_coefficients = true;
 	}
+	OF_READ_SETTING(FG_MEM_RESUME_SOC, "resume-soc", rc, 1);
 
 	/* Get the use-otp-profile property */
 	chip->use_otp_profile = of_property_read_bool(
@@ -2269,7 +2309,26 @@ static int soc_to_setpoint(int soc)
 #define THERMAL_COEFF_OFFSET	0x2
 static int fg_hw_init(struct fg_chip *chip)
 {
+	u8 resume_soc;
 	int rc = 0;
+
+	rc = fg_set_auto_recharge(chip);
+	if (rc) {
+		pr_err("Couldn't set auto recharge in FG\n");
+		return rc;
+	}
+
+	resume_soc = settings[FG_MEM_RESUME_SOC].value;
+	if (resume_soc > 0) {
+		resume_soc = resume_soc * 255 / 100;
+		rc = fg_set_resume_soc(chip, resume_soc);
+		if (rc) {
+			pr_err("Couldn't set resume SOC for FG\n");
+			return rc;
+		}
+	} else {
+		pr_info("FG auto recharge threshold not specified in DT\n");
+	}
 
 	if (fg_sense_type >= 0) {
 		rc = set_prop_sense_type(chip, fg_sense_type);
