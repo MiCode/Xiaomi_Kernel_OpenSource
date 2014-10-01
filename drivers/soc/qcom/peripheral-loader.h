@@ -52,6 +52,18 @@ struct pil_desc {
 };
 
 /**
+ * struct pil_image_info - info in IMEM about image and where it is loaded
+ * @name: name of image (may or may not be NULL terminated)
+ * @start: indicates physical address where image starts (little endian)
+ * @size: size of image (little endian)
+ */
+struct pil_image_info {
+	char name[8];
+	__le64 start;
+	__le32 size;
+} __attribute__((__packed__));
+
+/**
  * struct pil_reset_ops - PIL operations
  * @init_image: prepare an image for authentication
  * @mem_setup: prepare the image memory region

@@ -97,18 +97,6 @@ struct pil_seg {
 };
 
 /**
- * struct pil_image_info - information in IMEM about image and where it is loaded
- * @name: name of image (may or may not be NULL terminated)
- * @start: indicates physical address where image starts (little endian)
- * @size: size of image (little endian)
- */
-struct pil_image_info {
-	char name[8];
-	__le64 start;
-	__le32 size;
-} __attribute__((__packed__));
-
-/**
  * struct pil_priv - Private state for a pil_desc
  * @proxy: work item used to run the proxy unvoting routine
  * @wlock: wakelock to prevent suspend during pil_boot
@@ -919,16 +907,27 @@ static struct notifier_block pil_pm_notifier = {
 static int __init msm_pil_init(void)
 {
 	struct device_node *np;
+	struct resource res;
+	int i;
 
 	np = of_find_compatible_node(NULL, NULL, "qcom,msm-imem-pil");
-	if (np) {
-		pil_info_base = of_iomap(np, 0);
-		if (!pil_info_base)
-			pr_warn("pil: could not map imem region\n");
-	} else {
+	if (!np) {
 		pr_warn("pil: failed to find qcom,msm-imem-pil node\n");
+		goto out;
 	}
+	if (of_address_to_resource(np, 0, &res)) {
+		pr_warn("pil: address to resource on imem region failed\n");
+		goto out;
+	}
+	pil_info_base = ioremap(res.start, resource_size(&res));
+	if (!pil_info_base) {
+		pr_warn("pil: could not map imem region\n");
+		goto out;
+	}
+	for (i = 0; i < resource_size(&res)/sizeof(u32); i++)
+		writel_relaxed(0, pil_info_base + (i * sizeof(u32)));
 
+out:
 	return register_pm_notifier(&pil_pm_notifier);
 }
 device_initcall(msm_pil_init);
