@@ -85,6 +85,7 @@ enum sensor_sub_module_t {
 	SUB_MODULE_CSIPHY,
 	SUB_MODULE_CSIPHY_3D,
 	SUB_MODULE_OIS,
+	SUB_MODULE_EXT,
 	SUB_MODULE_MAX,
 };
 
