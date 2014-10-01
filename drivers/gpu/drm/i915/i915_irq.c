@@ -3310,11 +3310,11 @@ static void gen8_disable_vblank(struct drm_device *dev, int pipe)
 	spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
 }
 
-static u32
-ring_last_seqno(struct intel_engine_cs *ring)
+static struct drm_i915_gem_request *
+ring_last_request(struct intel_engine_cs *ring)
 {
 	return list_entry(ring->request_list.prev,
-			  struct drm_i915_gem_request, list)->seqno;
+			  struct drm_i915_gem_request, list);
 }
 
 static bool kick_ring(struct intel_engine_cs *ring)
@@ -3402,7 +3402,7 @@ void i915_hangcheck_sample(unsigned long data)
 	int pending_work = 1;
 	int resched_timer = 1;
 	uint32_t cur_seqno = 0;
-	uint32_t last_seqno = 0;
+	struct drm_i915_gem_request *last_req = NULL;
 	uint32_t head, tail, acthd, instdone[I915_NUM_INSTDONE_REG];
 	struct drm_device *dev;
 	struct drm_i915_private *dev_priv;
@@ -3434,13 +3434,13 @@ void i915_hangcheck_sample(unsigned long data)
 		instdone, sizeof(instdone)) == 0) ? 1 : 0;
 
 	if (!empty) {
-		/* Examine the seqno's to see where the HW has got to
-		* (Only call ring_last_seqno when the list is non-empty)*/
+		/* Examine the request list to see where the HW has got to
+		* (Only call ring_last_request when the list is non-empty)*/
 		cur_seqno = ring->get_seqno(ring, false);
-		last_seqno = ring_last_seqno(ring);
+		last_req = ring_last_request(ring);
 	}
 
-	if (empty || i915_seqno_passed(cur_seqno, last_seqno)) {
+	if (empty || i915_seqno_passed(cur_seqno, i915_gem_request_get_seqno(last_req))) {
 		/* If the request list is empty or the HW has passed the
 		* last seqno of the last item in the request list then the
 		* HW is considered idle.
@@ -3454,7 +3454,7 @@ void i915_hangcheck_sample(unsigned long data)
 		ring->id, head, hc->last_hd, acthd, hc->last_acthd,
 		instdone_cmp);
 	DRM_DEBUG_TDR("E:%d PW:%d TL:0x%08x Csq:0x%08x Lsq:0x%08x Idle: %d\n",
-		empty, pending_work, tail, cur_seqno, last_seqno, idle);
+		empty, pending_work, tail, cur_seqno, i915_gem_request_get_seqno(last_req), idle);
 
 	/* Check both head and active head.
 	* Neither is enough on its own - acthd can be pointing within the
