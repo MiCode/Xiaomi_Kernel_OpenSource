@@ -265,6 +265,9 @@ static int bmg160_set_power_state(struct bmg160_data *data, bool on)
 	if (ret < 0) {
 		dev_err(&data->client->dev,
 			"Failed: bmg160_set_power_state for %d\n", on);
+		if (on)
+			pm_runtime_put_noidle(&data->client->dev);
+
 		return ret;
 	}
 
@@ -1175,8 +1178,15 @@ static int bmg160_runtime_suspend(struct device *dev)
 {
 	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
 	struct bmg160_data *data = iio_priv(indio_dev);
+	int ret;
 
-	return bmg160_set_mode(data, BMG160_MODE_SUSPEND);
+	ret = bmg160_set_mode(data, BMG160_MODE_SUSPEND);
+	if (ret < 0) {
+		dev_err(&data->client->dev, "set mode failed\n");
+		return -EAGAIN;
+	}
+
+	return 0;
 }
 
 static int bmg160_runtime_resume(struct device *dev)
