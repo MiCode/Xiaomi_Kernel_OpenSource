@@ -29,6 +29,7 @@
 #include <linux/cpumask.h>
 #include <linux/tracepoint.h>
 
+DECLARE_PER_CPU(u32, cntenset_val);
 DECLARE_PER_CPU(u32, previous_ccnt);
 DECLARE_PER_CPU(u32[NUM_L1_CTRS], previous_l1_cnts);
 TRACE_EVENT(sched_switch_with_ctrs,
@@ -59,13 +60,8 @@ TRACE_EVENT(sched_switch_with_ctrs,
 			__entry->old_pid	= prev;
 			__entry->new_pid	= next;
 
+			cnten_val = per_cpu(cntenset_val, cpu);
 
-			/* Read PMCNTENSET */
-			asm volatile("mrs %0, pmcntenset_el0"
-							: "=r" (cnten_val));
-			/* Disable all the counters that were enabled */
-			asm volatile("msr pmcntenclr_el0, %0"
-							: : "r" (cnten_val));
 			if (cnten_val & CC) {
 				asm volatile("mrs %0, pmccntr_el0"
 							: "=r" (total_ccnt));
@@ -90,9 +86,6 @@ TRACE_EVENT(sched_switch_with_ctrs,
 				} else
 					delta_l1_cnts[i] = 0;
 			}
-			/* Enable all the counters that were disabled */
-			asm volatile("msr pmcntenset_el0, %0"
-							: : "r" (cnten_val));
 
 			__entry->ctr0 = delta_l1_cnts[0];
 			__entry->ctr1 = delta_l1_cnts[1];
