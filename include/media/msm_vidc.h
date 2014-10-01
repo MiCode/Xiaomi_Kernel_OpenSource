@@ -59,8 +59,6 @@ struct msm_smem {
 	unsigned long flags;
 	void *smem_priv;
 	enum hal_buffer buffer_type;
-	struct sg_table* sgt;
-	struct dma_buf* dbuf;
 };
 
 enum smem_cache_ops {

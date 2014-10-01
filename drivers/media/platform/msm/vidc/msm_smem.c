@@ -24,7 +24,7 @@ struct smem_client {
 	struct msm_vidc_platform_resources *res;
 };
 
-static int get_device_address(struct smem_client *smem_client, struct msm_smem* mem,
+static int get_device_address(struct smem_client *smem_client,
 		struct ion_handle *hndl, unsigned long align,
 		ion_phys_addr_t *iova, unsigned long *buffer_size,
 		unsigned long flags, enum hal_buffer buffer_type)
@@ -62,7 +62,7 @@ static int get_device_address(struct smem_client *smem_client, struct msm_smem* 
 				domain, partition);
 		trace_msm_smem_buffer_iommu_op_start("MAP", domain, partition,
 			align, *iova, *buffer_size);
-		rc = msm_map_dma_buf(mem->dbuf, mem->sgt, domain, partition, align,
+		rc = ion_map_iommu(clnt, hndl, domain, partition, align,
 				0, iova, buffer_size, 0, 0);
 		trace_msm_smem_buffer_iommu_op_end("MAP", domain, partition,
 			align, *iova, *buffer_size);
@@ -80,7 +80,7 @@ mem_domain_get_failed:
 	return rc;
 }
 
-static void put_device_address(struct smem_client *smem_client, struct msm_smem* mem,
+static void put_device_address(struct smem_client *smem_client,
 	struct ion_handle *hndl, int domain_num, int partition_num, u32 flags)
 {
 	struct ion_client *clnt = NULL;
@@ -103,7 +103,7 @@ static void put_device_address(struct smem_client *smem_client, struct msm_smem*
 
 		trace_msm_smem_buffer_iommu_op_start("UNMAP", domain_num,
 				partition_num, 0, 0, 0);
-		msm_unmap_dma_buf(mem->sgt, domain_num, partition_num);
+		ion_unmap_iommu(clnt, hndl, domain_num, partition_num);
 		trace_msm_smem_buffer_iommu_op_end("UNMAP", domain_num,
 				partition_num, 0, 0, 0);
 	}
@@ -117,7 +117,6 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 	unsigned long buffer_size = 0;
 	int rc = 0;
 	unsigned long align = SZ_4K;
-	struct dma_buf_attachment* db_attach;
 
 	hndl = ion_import_dma_buf(client->clnt, fd);
 	if (IS_ERR_OR_NULL(hndl)) {
@@ -137,21 +136,7 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 	if (mem->flags & SMEM_SECURE)
 		align = ALIGN(align, SZ_1M);
 
-	mem->dbuf = ion_share_dma_buf(client->clnt, hndl);
-	if (IS_ERR(mem->dbuf)) {
-		dprintk(VIDC_ERR, "share error %d", rc);
-		rc = PTR_ERR(mem->dbuf);
-		goto fail_device_address;
-	}
-	db_attach = dma_buf_attach(mem->dbuf, &client->res->pdev->dev);
-	if (IS_ERR(db_attach)) {
-		rc = PTR_ERR(db_attach);
-		dprintk(VIDC_ERR, "attach error %d", rc);
-		goto fail_device_address;
-	}
-	mem->sgt = dma_buf_map_attachment(db_attach, DMA_BIDIRECTIONAL);
-
-	rc = get_device_address(client, mem, hndl, align, &iova, &buffer_size,
+	rc = get_device_address(client, hndl, align, &iova, &buffer_size,
 					mem->flags, buffer_type);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get device address: %d\n", rc);
@@ -187,7 +172,6 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	unsigned long buffer_size = 0;
 	unsigned long heap_mask = 0;
 	int rc = 0;
-	struct dma_buf_attachment* db_attach;
 
 	align = ALIGN(align, SZ_4K);
 	size = ALIGN(size, SZ_4K);
@@ -236,21 +220,8 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	} else {
 		mem->kvaddr = NULL;
 	}
-	mem->dbuf = ion_share_dma_buf(client->clnt, hndl);
-	if (IS_ERR(mem->dbuf)) {
-		dprintk(VIDC_ERR, "share error %d", rc);
-		rc = PTR_ERR(mem->dbuf);
-		goto fail_map;
-	}
-	db_attach = dma_buf_attach(mem->dbuf, &client->res->pdev->dev);
-	if (IS_ERR(db_attach)) {
-		dprintk(VIDC_ERR, "attach error %d", rc);
-		rc = PTR_ERR(db_attach);
-		goto fail_map;
-	}
-	mem->sgt = dma_buf_map_attachment(db_attach, DMA_BIDIRECTIONAL);
 
-	rc = get_device_address(client, mem, hndl, align, &iova, &buffer_size,
+	rc = get_device_address(client, hndl, align, &iova, &buffer_size,
 				flags, buffer_type);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get device address: %d\n",
@@ -294,7 +265,7 @@ static void free_ion_mem(struct smem_client *client, struct msm_smem *mem)
 	}
 
 	if (mem->device_addr)
-		put_device_address(client, mem,
+		put_device_address(client,
 			mem->smem_priv, domain, partition, mem->flags);
 	if (mem->kvaddr)
 		ion_unmap_kernel(client->clnt, mem->smem_priv);

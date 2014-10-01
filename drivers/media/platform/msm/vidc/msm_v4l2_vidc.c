@@ -476,6 +476,7 @@ static int msm_vidc_probe(struct platform_device *pdev)
 	core->vdev[MSM_VIDC_DECODER].vdev.ioctl_ops = &msm_v4l2_ioctl_ops;
 	core->vdev[MSM_VIDC_DECODER].vdev.vfl_dir = VFL_DIR_M2M;
 	core->vdev[MSM_VIDC_DECODER].type = MSM_VIDC_DECODER;
+	core->vdev[MSM_VIDC_DECODER].vdev.v4l2_dev = &core->v4l2_dev;
 	rc = video_register_device(&core->vdev[MSM_VIDC_DECODER].vdev,
 					VFL_TYPE_GRABBER, nr);
 	if (rc) {
@@ -497,6 +498,7 @@ static int msm_vidc_probe(struct platform_device *pdev)
 	core->vdev[MSM_VIDC_ENCODER].vdev.ioctl_ops = &msm_v4l2_ioctl_ops;
 	core->vdev[MSM_VIDC_ENCODER].vdev.vfl_dir = VFL_DIR_M2M;
 	core->vdev[MSM_VIDC_ENCODER].type = MSM_VIDC_ENCODER;
+	core->vdev[MSM_VIDC_ENCODER].vdev.v4l2_dev = &core->v4l2_dev;
 	rc = video_register_device(&core->vdev[MSM_VIDC_ENCODER].vdev,
 				VFL_TYPE_GRABBER, nr + 1);
 	if (rc) {
