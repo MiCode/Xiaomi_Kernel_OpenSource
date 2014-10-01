@@ -39,7 +39,7 @@
 		reg = <0>;
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <13 0>;
-		spi-max-frequency = <5000000>;
+		spi-max-frequency = <18000000>;
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
 				"afe_pwr_active", "afe_pwr_suspend",
 				"disp_vsn_active", "disp_vsn_suspend";
