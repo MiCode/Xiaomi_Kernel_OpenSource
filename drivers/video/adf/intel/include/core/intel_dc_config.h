@@ -107,6 +107,7 @@ struct intel_buffer {
 	u32 format;
 	unsigned long gtt_offset_in_pages;
 	u32 stride;
+	u32 tiling_mode;
 };
 
 struct intel_dc_buffer {

@@ -174,12 +174,14 @@ static int adf_buffer_to_intel_buffer(struct adf_buffer *adf_buf,
 	struct adf_buffer_mapping *mapping, struct intel_buffer *intel_buf)
 {
 	u32 gtt_in_pages = 0;
+	u32 tiling_mode = 0;
 #ifdef CONFIG_ADF_INTEL_VLV
 	struct dma_buf_attachment *buf_attach = mapping->attachments[0];
 	struct i915_drm_dmabuf_attachment *i915_buf_attach =
 		(struct i915_drm_dmabuf_attachment *)buf_attach->priv;
 
 	gtt_in_pages = i915_buf_attach->gtt_offset;
+	tiling_mode = i915_buf_attach->tiling_mode;
 #else
 	struct dma_buf *dma_buf = adf_buf->dma_bufs[0];
 	int err;
@@ -193,6 +195,7 @@ static int adf_buffer_to_intel_buffer(struct adf_buffer *adf_buf,
 	intel_buf->h = adf_buf->h;
 	intel_buf->gtt_offset_in_pages = gtt_in_pages;
 	intel_buf->stride = adf_buf->pitch[0];
+	intel_buf->tiling_mode = tiling_mode;
 
 	return 0;
 }

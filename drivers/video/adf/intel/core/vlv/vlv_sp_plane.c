@@ -239,9 +239,6 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 	bool visible = false;
 	struct rectangle clip;
 
-	/* TODO need to add tiling support */
-	u32 tiling_mode = I915_TILING_NONE;
-
 	struct rectangle src = {
 		/* sample coordinates in 16.16 fixed point */
 		.x1 = config->src_x,
@@ -283,7 +280,8 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 	}
 
 	/* sprite planes can be linear or x-tiled surfaces */
-	if (tiling_mode != I915_TILING_NONE && tiling_mode != I915_TILING_X) {
+	if (buf->tiling_mode != I915_TILING_NONE &&
+		buf->tiling_mode != I915_TILING_X) {
 		pr_err("ADF: unsupported tiling mode %s\n", __func__);
 		return -EINVAL;
 	}
@@ -353,14 +351,15 @@ static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 	sprctl |= hw_format;
 	sprctl |= SP_GAMMA_ENABLE;
 
-	/* tile mode need to be supported */
+	if (buf->tiling_mode != I915_TILING_NONE)
+		sprctl |= SP_TILED;
 
 	sprctl |= SP_ENABLE;
 	regs->dspcntr = sprctl;
 
 	linear_offset = src_y * buf->stride + src_x * bpp;
 	sprsurf_offset = vlv_compute_page_offset(&src_x, &src_y,
-			I915_TILING_NONE, bpp, buf->stride);
+			buf->tiling_mode, bpp, buf->stride);
 	regs->linearoff = linear_offset - sprsurf_offset;
 
 	regs->stride = buf->stride;

@@ -214,15 +214,17 @@ static void vlv_pri_flip(struct intel_plane *plane,
 	regs->dspcntr &= ~DISPPLANE_PIXFORMAT_MASK;
 	regs->dspcntr |= format_config;
 
-	/* TODO tile support should be add as apart of the buf param*/
-	regs->dspcntr &= ~DISPPLANE_TILED;
+	if (buf->tiling_mode != I915_TILING_NONE)
+		regs->dspcntr |= DISPPLANE_TILED;
+	else
+		regs->dspcntr &= ~DISPPLANE_TILED;
 
 	regs->stride = buf->stride;
 
 	regs->linearoff = src_y * regs->stride + src_x * bpp;
 
 	dspaddr_offset = vlv_compute_page_offset(&src_x, &src_y,
-				I915_TILING_NONE, bpp, regs->stride);
+				buf->tiling_mode, bpp, regs->stride);
 
 	regs->linearoff -= dspaddr_offset;
 
