@@ -401,6 +401,36 @@
                                 bias-disable = <0>;
                         };
                 };
+		pmx_mdss: pmx_mdss {
+			label = "mdss-pins";
+			qcom,pin-func = <0>;
+
+			mdss_dsi_active: active {
+				drive-strength = <8>; /* 8 mA */
+				bias-disable = <0>; /* no pull */
+				output-high;
+			};
+			mdss_dsi_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-pull-down; /* pull down */
+				output-low;
+			};
+		};
+
+		pmx_mdss_te: pmx_mdss_te {
+			label = "mdss-te-pin";
+			qcom,pin-func = <1>;
+			mdss_te_active: active {
+				drive-strength = <2>; /* 2 mA */
+				bias-pull-down; /* pull down */
+				input-debounce = <0>;
+			};
+			mdss_te_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-pull-down; /* pull down */
+				input-debounce = <0>;
+			};
+		};
 
 		pmx_i2c_5 {
                         /* CLK, DATA */
