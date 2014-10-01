@@ -19,6 +19,7 @@
 
 static unsigned int tp_pid_state;
 
+DEFINE_PER_CPU(u32, cntenset_val);
 DEFINE_PER_CPU(u32, previous_ccnt);
 DEFINE_PER_CPU(u32[NUM_L1_CTRS], previous_l1_cnts);
 DEFINE_PER_CPU(u32, old_pid);
@@ -39,14 +40,10 @@ static struct notifier_block tracectr_cpu_hotplug_notifier_block = {
 	.notifier_call = tracectr_cpu_hotplug_notifier,
 };
 
-static void setup_prev_cnts(u32 cpu)
+static void setup_prev_cnts(u32 cpu, u32 cnten_val)
 {
 	int i;
-	u32 cnten_val;
 
-	asm volatile("mrs %0, pmcntenset_el0" : "=r" (cnten_val));
-	/* Disable all the counters that were enabled */
-	asm volatile("msr pmcntenclr_el0, %0" : : "r" (cnten_val));
 	if (cnten_val & CC)
 		asm volatile("mrs %0, pmccntr_el0"
 			: "=r"(per_cpu(previous_ccnt, cpu)));
@@ -61,13 +58,12 @@ static void setup_prev_cnts(u32 cpu)
 				: "=r"(per_cpu(previous_l1_cnts[i], cpu)));
 		}
 	}
-	/* Enable all the counters that were disabled */
-	asm volatile("msr pmcntenset_el0, %0" : : "r" (cnten_val));
 }
 
 void tracectr_notifier(void *ignore, struct task_struct *prev,
 					struct task_struct *next)
 {
+	u32 cnten_val;
 	int current_pid;
 	u32 cpu = task_thread_info(next)->cpu;
 
@@ -75,14 +71,21 @@ void tracectr_notifier(void *ignore, struct task_struct *prev,
 		return;
 	current_pid = next->pid;
 	if (per_cpu(old_pid, cpu) != -1) {
+		asm volatile("mrs %0, pmcntenset_el0" : "=r" (cnten_val));
+		per_cpu(cntenset_val, cpu) = cnten_val;
+		/* Disable all the counters that were enabled */
+		asm volatile("msr pmcntenclr_el0, %0" : : "r" (cnten_val));
 
 		if (per_cpu(hotplug_flag, cpu) == 1) {
 			per_cpu(hotplug_flag, cpu) = 0;
-			setup_prev_cnts(cpu);
+			setup_prev_cnts(cpu, cnten_val);
 		} else {
 			trace_sched_switch_with_ctrs(per_cpu(old_pid, cpu),
 						     current_pid);
 		}
+
+		/* Enable all the counters that were disabled */
+		asm volatile("msr pmcntenset_el0, %0" : : "r" (cnten_val));
 	}
 	per_cpu(old_pid, cpu) = current_pid;
 }
