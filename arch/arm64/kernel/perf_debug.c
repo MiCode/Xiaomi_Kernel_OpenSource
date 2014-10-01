@@ -33,6 +33,7 @@ static char *descriptions =
 	" 8 Perf: arm64: Use device tree property for CTI PMU workaround\n"
 	" 9 Perf: arm64: make request irq pmu-dependent\n"
 	"10 Perf: arm64: tracectr: initialize counts after hotplug\n"
+	"11 Perf: arm64: Refine disable/enable in tracecounters\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
