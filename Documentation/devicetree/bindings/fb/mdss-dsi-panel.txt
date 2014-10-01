@@ -344,6 +344,7 @@ Optional properties:
 - qcom,mdss-dsi-panel-status-check-mode:Specifies the panel status check method for ESD recovery.
 					"bta_check" = Uses BTA to check the panel status
 					"reg_read" = Reads panel status register to check the panel status
+					"te_signal_check" = Uses TE signal behaviour to check the panel status
 - qcom,mdss-dsi-panel-status-value:	Specifies the value of the panel status register when the panel is
 					in good state.
 - qcom,dynamic-mode-switch-enabled:		Boolean used to mention whether panel supports

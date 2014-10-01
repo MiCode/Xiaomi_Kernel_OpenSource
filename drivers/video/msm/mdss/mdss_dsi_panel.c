@@ -1595,6 +1595,11 @@ static int mdss_panel_parse_dt(struct device_node *np,
 			ctrl_pdata->status_cmds_rlen = 8;
 			ctrl_pdata->check_read_status =
 						mdss_dsi_nt35596_read_status;
+		} else if (!strcmp(data, "te_signal_check")) {
+			if (pinfo->mipi.mode == DSI_CMD_MODE)
+				ctrl_pdata->status_mode = ESD_TE;
+			else
+				pr_err("TE-ESD not valid for video mode\n");
 		}
 	}
 
