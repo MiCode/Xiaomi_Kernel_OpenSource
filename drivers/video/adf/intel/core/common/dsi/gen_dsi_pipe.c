@@ -280,8 +280,13 @@ int dsi_set_event(struct intel_pipe *pipe, u16 event, bool enabled)
 
 	if (enabled)
 		pipestat = 0;
-	else
-		pipestat = 0xFFFFFFFF;
+	else {
+		if (event == INTEL_PIPE_EVENT_VSYNC) {
+			pr_debug("ADF: %s: Not allowing VSYNC OFF\n", __func__);
+			return 0;
+		} else
+			pipestat = 0xFFFFFFFF;
+	}
 
 	switch (event) {
 	case INTEL_PIPE_EVENT_SPRITE2_FLIP:
