@@ -77,6 +77,19 @@ config MTD_UBI_FASTMAP
 
 	   If in doubt, say "N".
 
+config MTD_UBI_ENABLE_RD_AT_ATTACH
+	bool "UBI handle read disturb at attach. (Experimental feature)"
+	help
+	   Important: this feature is experimental so far and may be removed
+	   entirely in the future.
+
+	   Handle the read disturb errors that can happen in NAND devices
+	   by checking the last erased timestamp and the read count of the
+	   PEB's at attach time in addition to runtime. This can cause
+	   significant overhead during attach and must be used with caution.
+
+	   If in doubt, say "N".
+
 config MTD_UBI_GLUEBI
 	tristate "MTD devices emulation driver (gluebi)"
 	help

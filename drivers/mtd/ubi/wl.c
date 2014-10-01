@@ -2075,6 +2075,21 @@ static void cancel_pending(struct ubi_device *ubi)
 }
 
 /**
+ * enable_check_rd_at_attach - Enable the check read disturb at attach.
+ */
+#ifdef CONFIG_MTD_UBI_ENABLE_RD_AT_ATTACH
+static bool enable_check_rd_at_attach(void)
+{
+	return true;
+}
+#else
+static bool enable_check_rd_at_attach(void)
+{
+	return false;
+}
+#endif
+
+/**
  * ubi_wl_init - initialize the WL sub-system using attaching information.
  * @ubi: UBI device description object
  * @ai: attaching information
@@ -2090,6 +2105,13 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	struct ubi_ainf_peb *aeb, *tmp;
 	struct ubi_wl_entry *e;
 	struct timeval tv;
+	bool check_rd_at_attach;
+
+	check_rd_at_attach = enable_check_rd_at_attach();
+	if (check_rd_at_attach)
+		ubi_msg(ubi->ubi_num, "Read disturb check ENABLED at attach");
+	else
+		ubi_msg(ubi->ubi_num, "Read disturb check DISABLED at attach");
 
 	do_gettimeofday(&tv);
 	ubi->used = ubi->erroneous = ubi->free = ubi->scrub = RB_ROOT;
@@ -2176,9 +2198,11 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 		ubi_assert(e->ec >= 0);
 		ubi_assert(!ubi_is_fm_block(ubi, e->pnum));
 		ubi->lookuptbl[e->pnum] = e;
-		/* Check last erase timestamp (in days) */
-		if (e->last_erase_time + ubi->dt_threshold <
-			(tv.tv_sec / NUM_SEC_IN_DAY)) {
+
+		/* Check last erase time stamp (in days) */
+		if (check_rd_at_attach &&
+			(e->last_erase_time + ubi->dt_threshold <
+			(tv.tv_sec / NUM_SEC_IN_DAY))) {
 			if (schedule_erase(ubi, e, aeb->vol_id, aeb->lnum, 0)) {
 				kmem_cache_free(ubi_wl_entry_slab, e);
 				goto out_free;
@@ -2222,14 +2246,16 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 			 * Verify last erase timestamp
 			 * (in days) and read counter
 			 */
-			if (e->last_erase_time + ubi->dt_threshold <
+			if (check_rd_at_attach &&
+				(e->last_erase_time + ubi->dt_threshold <
 				(tv.tv_sec / NUM_SEC_IN_DAY) ||
-				e->rc > ubi->rd_threshold) {
+				e->rc > ubi->rd_threshold)) {
 				ubi_msg(ubi->ubi_num,
 					"scrub PEB %d rc = %d",
 				       e->pnum, e->rc);
 				aeb->scrub = 1;
 			}
+
 			if (!aeb->scrub) {
 				dbg_wl("add PEB %d EC %d to the used tree",
 				       e->pnum, e->ec);
