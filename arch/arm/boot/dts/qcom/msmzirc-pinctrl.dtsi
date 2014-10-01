@@ -54,6 +54,28 @@
 			};
 		};
 
+		blsp1_uart2_active {
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 6>, <&gp 7>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <2>;
+		        label = "blsp1_uart2_active";
+			hsuart_active: default {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart2_sleep {
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 6>, <&gp 7>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <0>;
+		        label = "blsp1_uart2_sleep";
+			hsuart_sleep: sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		spi0_active {
 			/* MOSI, MISO, CLK */
 			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;

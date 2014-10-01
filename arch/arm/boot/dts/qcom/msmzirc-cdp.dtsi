@@ -28,6 +28,10 @@
 	pinctrl-0 = <&uart3_console_active>;
 };
 
+&blsp1_uart2 {
+	status = "ok";
+};
+
 &spi_1 {
 	status = "ok";
 	ethernet-switch@0 {
