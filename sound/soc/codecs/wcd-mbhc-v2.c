@@ -253,9 +253,8 @@ static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 			 * 50 msec for the MICBIAS to reach 2.7 volts.
 			 */
 			msleep(50);
-			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_MICB_2_EN,
-					0x18, 0x10);
+			if (mbhc->mbhc_cb && mbhc->mbhc_cb->set_auto_zeroing)
+				mbhc->mbhc_cb->set_auto_zeroing(codec, true);
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_MICB_1_CTL,
 					0x60, 0x00);
@@ -270,10 +269,10 @@ static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 		break;
 	/* MICBIAS usage change */
 	case WCD_EVENT_PRE_MICBIAS_2_OFF:
-		snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_ANALOG_MICB_2_EN,
-				0x18, 0x00);
-		mbhc->mbhc_cb->set_micbias_value(codec);
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->set_auto_zeroing)
+			mbhc->mbhc_cb->set_auto_zeroing(codec, false);
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->set_micbias_value)
+			mbhc->mbhc_cb->set_micbias_value(codec);
 		/* Enable current source again for polling */
 		wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
 		mbhc->is_hs_recording = false;
@@ -615,7 +614,8 @@ exit:
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN2_ZDETH_CTL, reg1);
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DBNC_TIMER, reg0);
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2, reg2);
-	mbhc->mbhc_cb->compute_impedance(impedance_l, impedance_r,
+	if (mbhc->mbhc_cb && mbhc->mbhc_cb->compute_impedance)
+		mbhc->mbhc_cb->compute_impedance(impedance_l, impedance_r,
 					 zl, zr, high);
 
 	pr_debug("%s: RL %d milliohm, RR %d milliohm\n", __func__, *zl, *zr);
@@ -855,8 +855,8 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 			      0xC0);
 		/* Wait for 50msec for MICBIAS to settle down */
 		msleep(50);
-		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN,
-					0x18, 0x10);
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->set_auto_zeroing)
+			mbhc->mbhc_cb->set_auto_zeroing(codec, true);
 		/* Wait for 50msec for FSM to update result values */
 		msleep(50);
 		result2 = snd_soc_read(codec,
@@ -876,8 +876,10 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 		ret = true;
 	}
 	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_CTL, 0x60, 0x00);
-	mbhc->mbhc_cb->set_micbias_value(codec);
-	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN, 0x18, 0x00);
+	if (mbhc->mbhc_cb && mbhc->mbhc_cb->set_micbias_value)
+		mbhc->mbhc_cb->set_micbias_value(codec);
+	if (mbhc->mbhc_cb && mbhc->mbhc_cb->set_auto_zeroing)
+		mbhc->mbhc_cb->set_auto_zeroing(codec, false);
 
 	pr_debug("%s: leave\n", __func__);
 	return ret;
