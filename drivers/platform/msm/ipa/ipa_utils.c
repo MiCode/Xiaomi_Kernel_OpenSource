@@ -760,9 +760,15 @@ int ipa_init_hw(void)
 	if (ipa_version == 0)
 		return -EFAULT;
 
-	/* set ipa_bcr to 0xFFFFFFFF for using new IPA behavior */
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5)
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+		/* set ipa_bcr to 0xFFFFFFFF for using new IPA behavior */
 		ipa_write_reg(ipa_ctx->mmio, IPA_BCR_OFST, IPA_BCR_REG_VAL);
+
+		/* Disable HW error generation on zero trailing byte issue */
+		ipa_write_reg(ipa_ctx->mmio,
+			IPA_SPARE_REG_1_OFST,
+			BIT(IPA_SPARE_REG_1_IGNORE_TRAILING_ZERO_ERR_SHFT));
+	}
 
 	return 0;
 }
