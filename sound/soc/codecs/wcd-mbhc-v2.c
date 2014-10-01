@@ -844,8 +844,9 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 	result2 = snd_soc_read(codec,
 			MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
 	while (result2 & 0x01)  {
-		if (wcd_swch_level_remove(mbhc)) {
-			pr_debug("%s: Switch level is low\n", __func__);
+		if (mbhc->hs_detect_work_stop) {
+			pr_debug("%s: stop requested: %d\n", __func__,
+					mbhc->hs_detect_work_stop);
 			break;
 		}
 		delay = delay + 50;
@@ -904,14 +905,14 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 	timeout = jiffies + msecs_to_jiffies(HS_DETECT_PLUG_TIME_MS);
 	while (!time_after(jiffies, timeout)) {
-		if (mbhc->hs_detect_work_stop || wcd_swch_level_remove(mbhc)) {
+		if (mbhc->hs_detect_work_stop) {
 			pr_debug("%s: stop requested: %d\n", __func__,
 					mbhc->hs_detect_work_stop);
 			goto exit;
 		}
 		/* allow sometime and re-check stop requested again */
 		msleep(200);
-		if (mbhc->hs_detect_work_stop || wcd_swch_level_remove(mbhc)) {
+		if (mbhc->hs_detect_work_stop) {
 			pr_debug("%s: stop requested: %d\n", __func__,
 					mbhc->hs_detect_work_stop);
 			goto exit;
@@ -1205,6 +1206,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		/* Enable external voltage source to micbias if present */
 		if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
 			mbhc->mbhc_cb->enable_mb_source(codec, true);
+		mbhc->btn_press_intr = false;
 		wcd_mbhc_detect_plug_type(mbhc);
 	} else if ((mbhc->current_plug != MBHC_PLUG_TYPE_NONE)
 			&& !detection_type) {
