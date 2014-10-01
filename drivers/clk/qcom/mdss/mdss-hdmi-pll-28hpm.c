@@ -152,7 +152,7 @@ static int hdmi_vco_enable(struct clk *c)
 	/* poll for PLL ready status */
 	max_reads = 20;
 	timeout_us = 100;
-	if (readl_poll_timeout_noirq(
+	if (readl_poll_timeout_atomic(
 		(hdmi_pll_res->pll_base + HDMI_UNI_PLL_STATUS),
 		status, ((status & BIT(0)) == 1), max_reads, timeout_us)) {
 		pr_err("hdmi phy pll status=%x failed to Lock\n", status);
@@ -166,7 +166,7 @@ static int hdmi_vco_enable(struct clk *c)
 	/* poll for PHY ready status */
 	max_reads = 20;
 	timeout_us = 100;
-	if (readl_poll_timeout_noirq(
+	if (readl_poll_timeout_atomic(
 		(hdmi_pll_res->phy_base + HDMI_PHY_STATUS),
 		status, ((status & BIT(0)) == 1), max_reads, timeout_us)) {
 		pr_err("hdmi phy status=%x failed to Lock\n", status);
@@ -847,7 +847,7 @@ static int hdmi_pll_lock_status(struct mdss_pll_resources *hdmi_pll_res)
 	}
 
 	/* poll for PLL ready status */
-	if (readl_poll_timeout_noirq(
+	if (readl_poll_timeout_atomic(
 			(hdmi_pll_res->phy_base + HDMI_PHY_STATUS),
 			status, ((status & BIT(0)) == 1),
 			HDMI_PLL_POLL_MAX_READS,

@@ -772,7 +772,7 @@ static int hdmi_20nm_pll_lock_status(struct mdss_pll_resources *io)
 	pr_debug("%s: Waiting for PHY Ready\n", __func__);
 
 	/* poll for PLL ready status */
-	if (!readl_poll_timeout_noirq(
+	if (!readl_poll_timeout_atomic(
 		(io->pll_base + QSERDES_COM_RESET_SM),
 		status, ((status & BIT(6)) == 1),
 		HDMI_PLL_POLL_MAX_READS,
@@ -785,7 +785,7 @@ static int hdmi_20nm_pll_lock_status(struct mdss_pll_resources *io)
 	}
 
 	/* poll for PHY ready status */
-	if (pll_locked && !readl_poll_timeout_noirq(
+	if (pll_locked && !readl_poll_timeout_atomic(
 		(io->phy_base + HDMI_PHY_STATUS),
 		status, ((status & BIT(0)) == 1),
 		HDMI_PLL_POLL_MAX_READS,
