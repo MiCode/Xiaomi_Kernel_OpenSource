@@ -1084,6 +1084,11 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 	pinfo->esd_check_enabled = of_property_read_bool(np,
 		"qcom,esd-check-enabled");
 
+	pinfo->ulps_suspend_enabled = of_property_read_bool(np,
+		"qcom,suspend-ulps-enabled");
+	pr_info("%s: ulps during suspend feature %s", __func__,
+		(pinfo->ulps_suspend_enabled ? "enabled" : "disabled"));
+
 	pinfo->mipi.dynamic_switch_enabled = of_property_read_bool(np,
 		"qcom,dynamic-mode-switch-enabled");
 
