@@ -917,9 +917,8 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 	if (stage1) {
 		reg |= (CBAR_S1_BPSHCFG_NSH << CBAR_S1_BPSHCFG_SHIFT) |
 			(CBAR_S1_MEMATTR_WB << CBAR_S1_MEMATTR_SHIFT);
-	} else {
-		reg |= ARM_SMMU_CB_VMID(cfg) << CBAR_VMID_SHIFT;
 	}
+	reg |= ARM_SMMU_CB_VMID(cfg) << CBAR_VMID_SHIFT;
 	writel_relaxed(reg, gr1_base + ARM_SMMU_GR1_CBAR(cfg->cbndx));
 
 	if (smmu->version > ARM_SMMU_V1) {
