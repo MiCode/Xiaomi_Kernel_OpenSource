@@ -1003,8 +1003,10 @@ static void i915_gem_capture_vm(struct drm_i915_private *dev_priv,
 			capture_pinned_bo(pinned_bo,
 					  error->pinned_bo_count[ndx],
 					  &dev_priv->mm.bound_list);
-	error->active_bo[ndx] = active_bo;
-	error->pinned_bo[ndx] = pinned_bo;
+	if (error->active_bo)
+		error->active_bo[ndx] = active_bo;
+	if (error->pinned_bo)
+		error->pinned_bo[ndx] = pinned_bo;
 }
 
 static void i915_gem_capture_buffers(struct drm_i915_private *dev_priv,
