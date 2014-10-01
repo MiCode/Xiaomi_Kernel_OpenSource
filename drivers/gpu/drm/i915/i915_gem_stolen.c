@@ -549,7 +549,9 @@ i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 
 	/* Set up the object to use the stolen memory,
 	 * backing store no longer managed by shmem layer */
-	drm_gem_object_release(&(obj->base));
+	if (obj->base.filp)
+		fput(obj->base.filp);
+
 	obj->base.filp = NULL;
 	obj->ops = &i915_gem_object_stolen_ops;
 
