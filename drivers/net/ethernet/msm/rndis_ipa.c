@@ -1416,6 +1416,7 @@ static void rndis_ipa_prepare_header_insertion(int eth_type,
 	add_hdr->hdr_len += ETH_HLEN;
 	add_hdr->is_eth2_ofst_valid = true;
 	add_hdr->eth2_ofst = sizeof(rndis_template_hdr);
+	add_hdr->type = IPA_HDR_L2_ETHERNET_II;
 }
 
 /**
@@ -1576,11 +1577,13 @@ static int rndis_ipa_register_properties(char *netdev_name)
 	ipv4_property->dst_pipe = IPA_TO_USB_CLIENT;
 	strlcpy(ipv4_property->hdr_name, IPV4_HDR_NAME,
 			IPA_RESOURCE_NAME_MAX);
+	ipv4_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	ipv6_property = &tx_properties.prop[1];
 	ipv6_property->ip = IPA_IP_v6;
 	ipv6_property->dst_pipe = IPA_TO_USB_CLIENT;
 	strlcpy(ipv6_property->hdr_name, IPV6_HDR_NAME,
 			IPA_RESOURCE_NAME_MAX);
+	ipv6_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	tx_properties.num_props = 2;
 
 	rx_properties.prop = rx_ioc_properties;
@@ -1588,10 +1591,12 @@ static int rndis_ipa_register_properties(char *netdev_name)
 	rx_ipv4_property->ip = IPA_IP_v4;
 	rx_ipv4_property->attrib.attrib_mask = 0;
 	rx_ipv4_property->src_pipe = IPA_CLIENT_USB_PROD;
+	rx_ipv4_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	rx_ipv6_property = &rx_properties.prop[1];
 	rx_ipv6_property->ip = IPA_IP_v6;
 	rx_ipv6_property->attrib.attrib_mask = 0;
 	rx_ipv6_property->src_pipe = IPA_CLIENT_USB_PROD;
+	rx_ipv6_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	rx_properties.num_props = 2;
 
 	result = ipa_register_intf("rndis0", &tx_properties, &rx_properties);
