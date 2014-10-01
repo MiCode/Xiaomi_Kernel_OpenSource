@@ -740,6 +740,27 @@ static int execlists_move_to_gpu(struct intel_ringbuffer *ringbuf,
 	return logical_ring_invalidate_all_caches(ringbuf);
 }
 
+static int
+gen8_logical_disable_protected_mem(struct intel_ringbuffer *ringbuf)
+{
+	int ret;
+
+	ret = intel_logical_ring_begin(ringbuf, 6);
+	if (ret)
+		return ret;
+
+	/* Pipe Control */
+	intel_logical_ring_emit(ringbuf, GFX_OP_PIPE_CONTROL(5));
+	intel_logical_ring_emit(ringbuf, 0x81010a0);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, MI_NOOP);
+	intel_logical_ring_advance(ringbuf);
+
+	return 0;
+}
+
 /**
  * execlists_submission() - submit a batchbuffer for execution, Execlists style
  * @dev: DRM device.
@@ -772,6 +793,7 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	int ret;
 	u32 seqno;
 	int fd_fence_complete = -1;
+	u32 priv_data = 0;
 
 	instp_mode = args->flags & I915_EXEC_CONSTANTS_MASK;
 	instp_mask = I915_EXEC_CONSTANTS_MASK;
@@ -800,8 +822,21 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	}
 
 	if (args->num_cliprects != 0) {
-		DRM_DEBUG("clip rectangles are only valid on pre-gen5\n");
-		return -EINVAL;
+		/*
+		 * num_cliprects is only used by the userland to pass in private
+		 * handshake data for gen8+.
+		 *
+		 * Future users of this communication method will have to add
+		 * a function to sanitize the private length for all known
+		 * values.
+		 */
+		if (args->num_cliprects != sizeof(u32))
+			return -EINVAL;
+
+		if (copy_from_user((void *)&priv_data,
+			to_user_ptr(args->cliprects_ptr), sizeof(u32))) {
+			return -EFAULT;
+		}
 	} else {
 		if (args->DR4 == 0xffffffff) {
 			DRM_DEBUG("UXA submitting garbage DR4, fixing up\n");
@@ -903,6 +938,13 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	ret = ring->emit_bb_start(ringbuf, exec_start, flags);
 	if (ret)
 		goto error;
+
+	/* Send pipe control with protected memory disable if requested */
+	if (priv_data == 0xffffffff) {
+		ret = gen8_logical_disable_protected_mem(ringbuf);
+		if (ret)
+			goto error;
+	}
 
 	/* Clear the active seqno again */
 	ret = logical_ring_write_active_seqno(ringbuf, 0);
