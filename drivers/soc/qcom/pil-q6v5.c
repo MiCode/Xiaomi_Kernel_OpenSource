@@ -300,7 +300,8 @@ static int q6v55_branch_clk_enable(struct q6v5_data *drv)
 static int __pil_q6v55_reset(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
-	u32 val, i;
+	u32 val;
+	int i;
 
 	/* Override the ACC value if required */
 	if (drv->override_acc)
@@ -326,15 +327,29 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 	val |= QDSP6v55_LDO_BYP;
 	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
 
-	/* Turn on memories. */
-	val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
-	val |= 0xFFF00;
-	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
-
-	/* Turn on L2 banks 1 at a time */
-	for (i = 0; i <= 7; i++) {
-		val |= BIT(i);
+	if (drv->qdsp6v56_1_3) {
+		/* Deassert memory peripheral sleep and L2 memory standby */
+		val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
+		val |= (Q6SS_L2DATA_STBY_N | Q6SS_SLP_RET_N);
 		writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+
+		/* Turn on L1, L2 and ETB memories 1 at a time */
+		for (i = 17; i >= 0; i--) {
+			val |= BIT(i);
+			writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+			udelay(1);
+		}
+	} else {
+		/* Turn on memories. */
+		val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
+		val |= 0xFFF00;
+		writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+
+		/* Turn on L2 banks 1 at a time */
+		for (i = 0; i <= 7; i++) {
+			val |= BIT(i);
+			writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+		}
 	}
 
 	/* Remove word line clamp */
@@ -453,6 +468,9 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 						"qcom,pil-q6v55-mss");
 	drv->qdsp6v56 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,pil-q6v56-mss");
+
+	drv->qdsp6v56_1_3 = of_property_read_bool(pdev->dev.of_node,
+						"qcom,qdsp6v56-1-3");
 
 	drv->non_elf_image = of_property_read_bool(pdev->dev.of_node,
 						"qcom,mba-image-is-not-elf");
