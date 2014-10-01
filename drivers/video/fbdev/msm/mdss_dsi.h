@@ -18,6 +18,7 @@
 #include <linux/mdss_io_util.h>
 #include <linux/irqreturn.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/gpio.h>
 
 #include "mdss_panel.h"
 #include "mdss_dsi_cmd.h"
@@ -96,6 +97,7 @@ enum dsi_panel_status_mode {
 	ESD_BTA,
 	ESD_REG,
 	ESD_REG_NT35596,
+	ESD_TE,
 	ESD_MAX,
 };
 
@@ -315,6 +317,7 @@ struct mdss_dsi_ctrl_pdata {
 	u8 ctrl_state;
 	int panel_mode;
 	int irq_cnt;
+	int disp_te_gpio;
 	int rst_gpio;
 	int disp_en_gpio;
 	int bklt_en_gpio;
@@ -329,6 +332,7 @@ struct mdss_dsi_ctrl_pdata {
 	int pwm_enabled;
 	bool panel_bias_vreg;
 	bool dsi_irq_line;
+	atomic_t te_irq_ready;
 
 	bool cmd_sync_wait_broadcast;
 	bool cmd_sync_wait_trigger;
@@ -420,6 +424,7 @@ void mdss_dsi_controller_cfg(int enable,
 void mdss_dsi_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl_pdata, bool restore);
 
 irqreturn_t mdss_dsi_isr(int irq, void *ptr);
+irqreturn_t hw_vsync_handler(int irq, void *data);
 void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 
 void mdss_dsi_set_tx_power_mode(int mode, struct mdss_panel_data *pdata);
@@ -537,6 +542,13 @@ static inline bool mdss_dsi_is_ctrl_clk_slave(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	return mdss_dsi_split_display_enabled() &&
 		(ctrl->ndx == DSI_CTRL_CLK_SLAVE);
+}
+
+static inline bool mdss_dsi_is_te_based_esd(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	return (ctrl->status_mode == ESD_TE) &&
+		gpio_is_valid(ctrl->disp_te_gpio) &&
+		mdss_dsi_is_left_ctrl(ctrl);
 }
 
 static inline struct mdss_dsi_ctrl_pdata *mdss_dsi_get_ctrl_clk_master(void)
