@@ -105,3 +105,11 @@
 &qcom_tzlog {
 	status = "okay";
 };
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_sim_vid>;
+};
