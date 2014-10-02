@@ -74,7 +74,7 @@
 /**
  * max size of the name of the resource (routing table, header)
  */
-#define IPA_RESOURCE_NAME_MAX 20
+#define IPA_RESOURCE_NAME_MAX 32
 
 /**
  * max number of interface properties
