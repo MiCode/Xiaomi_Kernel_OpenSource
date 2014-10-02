@@ -77,3 +77,11 @@
 		qcom,master-en = <1>;		/* Enable MPP */
 	};
 };
+
+&spi_0 {
+	status = "disabled";
+};
+
+&i2c_6 {
+	status = "disabled";
+};
