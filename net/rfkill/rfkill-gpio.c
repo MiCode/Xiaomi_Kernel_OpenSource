@@ -34,6 +34,7 @@ struct rfkill_gpio_data {
 	enum rfkill_type	type;
 	struct gpio_desc	*reset_gpio;
 	struct gpio_desc	*shutdown_gpio;
+	struct gpio_desc	*wake_gpio;
 
 	struct rfkill		*rfkill_dev;
 	struct clk		*clk;
@@ -46,6 +47,7 @@ struct rfkill_gpio_desc {
 
 	int			reset_idx;
 	int			shutdown_idx;
+	int			wake_idx;
 };
 
 static void rfkill_set_gpio(struct gpio_desc *desc, int value)
@@ -63,6 +65,7 @@ static int rfkill_gpio_set_power(void *data, bool blocked)
 	if (blocked) {
 		rfkill_set_gpio(rfkill->shutdown_gpio, 0);
 		rfkill_set_gpio(rfkill->reset_gpio, 0);
+		rfkill_set_gpio(rfkill->wake_gpio, 0);
 		if (!IS_ERR(rfkill->clk) && rfkill->clk_enabled)
 			clk_disable(rfkill->clk);
 	} else {
@@ -70,6 +73,7 @@ static int rfkill_gpio_set_power(void *data, bool blocked)
 			clk_enable(rfkill->clk);
 		rfkill_set_gpio(rfkill->reset_gpio, 1);
 		rfkill_set_gpio(rfkill->shutdown_gpio, 1);
+		rfkill_set_gpio(rfkill->wake_gpio, 1);
 	}
 
 	rfkill->clk_enabled = !blocked;
@@ -121,6 +125,16 @@ static int rfkill_gpio_init(struct device *dev, struct rfkill_gpio_desc *desc)
 		if (ret)
 			return ret;
 		rfkill->shutdown_gpio = gpio;
+	}
+
+	if (desc && (desc->wake_idx >= 0)) {
+		gpio = devm_gpiod_get_index(dev, "wake", desc->wake_idx);
+		if (!IS_ERR(gpio)) {
+			ret = gpiod_direction_output(gpio, 0);
+			if (ret)
+				return ret;
+			rfkill->wake_gpio = gpio;
+		}
 	}
 
 	/* Make sure at-least one of the GPIO is defined */
@@ -193,6 +207,38 @@ static int rfkill_gpio_probe(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int rfkill_gpio_suspend(struct device *dev)
+{
+	struct rfkill_gpio_data *rfkill = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "Suspend\n");
+
+	if (!rfkill->clk_enabled)
+		return 0;
+
+	gpiod_set_value_cansleep(rfkill->wake_gpio, 0);
+
+	return 0;
+}
+
+static int rfkill_gpio_resume(struct device *dev)
+{
+	struct rfkill_gpio_data *rfkill = dev_get_drvdata(dev);
+
+	dev_dbg(dev, "Resume\n");
+
+	if (!rfkill->clk_enabled)
+		return 0;
+
+	gpiod_set_value_cansleep(rfkill->wake_gpio, 1);
+
+	return 0;
+}
+#endif
+static SIMPLE_DEV_PM_OPS(rfkill_gpio_pm, rfkill_gpio_suspend,
+			 rfkill_gpio_resume);
+
 static int rfkill_gpio_remove(struct platform_device *pdev)
 {
 	struct rfkill_gpio_data *rfkill = platform_get_drvdata(pdev);
@@ -208,12 +254,14 @@ static struct rfkill_gpio_desc acpi_default_bluetooth = {
 	.type = RFKILL_TYPE_BLUETOOTH,
 	.reset_idx = 0,
 	.shutdown_idx = 1,
+	.wake_idx = -1,
 };
 
 static struct rfkill_gpio_desc acpi_default_gps = {
 	.type = RFKILL_TYPE_GPS,
 	.reset_idx = 0,
 	.shutdown_idx = 1,
+	.wake_idx = -1,
 };
 
 static const struct acpi_device_id rfkill_acpi_match[] = {
@@ -235,6 +283,7 @@ static struct platform_driver rfkill_gpio_driver = {
 	.driver = {
 		.name = "rfkill_gpio",
 		.owner = THIS_MODULE,
+		.pm = &rfkill_gpio_pm,
 		.acpi_match_table = ACPI_PTR(rfkill_acpi_match),
 	},
 };
