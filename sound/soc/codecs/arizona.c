@@ -1056,6 +1056,7 @@ static int florida_hp_pre_enable(struct snd_soc_dapm_widget *w)
 					       florida_no_dre_left_enable,
 					       ARRAY_SIZE(florida_no_dre_left_enable));
 		}
+		udelay(1000);
 		break;
 	case ARIZONA_OUT1R_ENA_SHIFT:
 		if (val & ARIZONA_DRE1R_ENA_MASK) {
@@ -1067,6 +1068,7 @@ static int florida_hp_pre_enable(struct snd_soc_dapm_widget *w)
 					       florida_no_dre_right_enable,
 					       ARRAY_SIZE(florida_no_dre_right_enable));
 		}
+		udelay(1000);
 		break;
 
 	default:
