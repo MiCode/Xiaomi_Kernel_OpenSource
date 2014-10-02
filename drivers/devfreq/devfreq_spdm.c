@@ -21,8 +21,6 @@
 #include <linux/msm-bus.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <linux/slab.h>
-#include <linux/uaccess.h>
 #include <soc/qcom/hvc.h>
 
 #include "governor.h"
@@ -281,6 +279,8 @@ static int probe(struct platform_device *pdev)
 		goto no_profile;
 	}
 
+	spdm_init_debugfs(&pdev->dev);
+
 	return 0;
 
 no_profile:
@@ -298,6 +298,8 @@ static int remove(struct platform_device *pdev)
 	struct spdm_data *data = 0;
 
 	data = platform_get_drvdata(pdev);
+
+	spdm_remove_debugfs(data);
 
 	if (data->devfreq)
 		devfreq_remove_device(data->devfreq);

@@ -79,6 +79,9 @@ struct spdm_data {
 	struct dentry *debugfs_dir;
 };
 
+extern void spdm_init_debugfs(struct device *dev);
+extern void spdm_remove_debugfs(struct spdm_data *data);
+
 #define SPDM_HYP_FNID 5
 /* CMD ID's for hypervisor */
 #define SPDM_CMD_GET_BW_ALL 1
