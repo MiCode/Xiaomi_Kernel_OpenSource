@@ -25,7 +25,6 @@
 #include <sound/initval.h>
 #include <sound/tlv.h>
 #include <linux/gpio/consumer.h>
-#include <linux/mfd/intel_soc_pmic.h>
 
 #define RTK_IOCTL
 #ifdef RTK_IOCTL
@@ -1164,24 +1163,6 @@ static int rt5651_hp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-/* power_up:
-	power on V5V_SPEAKER_EN(GPIO1P3) for ALC105
-	power up CODEC_RESET_N (GPIO1P2) for ALC105 */
-static void ALC105_power_up(void)
-{
-	intel_soc_pmic_writeb((GPIO1P0CTLO + 3), (CTLO_OUTPUT_DEF | 0x01));
-	intel_soc_pmic_writeb((GPIO1P0CTLO + 2), (CTLO_OUTPUT_DEF | 0x01));
-}
-
-/* power_down:
-	power down CODEC_RESET_N (GPIO1P2) for ALC105
-	power off V5V_SPEAKER_EN(GPIO1P3) for ALC105 */
-static void ALC105_power_down(void)
-{
-	intel_soc_pmic_writeb((GPIO1P0CTLO + 2), (CTLO_OUTPUT_DEF & 0x0));
-	intel_soc_pmic_writeb((GPIO1P0CTLO + 3), (CTLO_OUTPUT_DEF & 0x0));
-}
-
 static int rt5651_lout_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -1191,11 +1172,9 @@ static int rt5651_lout_event(struct snd_soc_dapm_widget *w,
 		hp_amp_power(codec, 1);
 		snd_soc_update_bits(codec, RT5651_LOUT_CTRL1,
 			RT5651_L_MUTE | RT5651_R_MUTE, 0);
-		ALC105_power_up();
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
-		ALC105_power_down();
 		snd_soc_update_bits(codec, RT5651_LOUT_CTRL1,
 			RT5651_L_MUTE | RT5651_R_MUTE,
 			RT5651_L_MUTE | RT5651_R_MUTE);

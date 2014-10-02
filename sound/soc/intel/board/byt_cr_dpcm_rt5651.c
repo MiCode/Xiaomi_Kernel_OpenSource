@@ -29,6 +29,7 @@
 #include <linux/slab.h>
 #include <linux/vlv2_plat_clock.h>
 #include <linux/input.h>
+#include <linux/mfd/intel_soc_pmic.h>
 #include <asm/intel-mid.h>
 #include <asm/platform_byt_audio.h>
 #include <sound/pcm.h>
@@ -346,7 +347,37 @@ static inline struct snd_soc_codec *byt_get_codec(struct snd_soc_card *card)
 	return codec;
 }
 
-static int platform_clock_control(struct snd_soc_dapm_widget *w,
+static int byt_set_alc105(struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *k, int  event)
+{
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
+	struct byt_drvdata *drvdata = snd_soc_card_get_drvdata(dapm->card);
+	struct snd_soc_codec *codec;
+	struct gpio_desc *desc;
+
+	pr_debug("%s: Enter.\n", __func__);
+
+	codec = byt_get_codec(card);
+	if (!codec) {
+		pr_err("%s: Codec not found; Unable to set platform clock\n",
+			__func__);
+		return -EIO;
+	}
+
+	desc = gpio_to_desc(drvdata->gpios.alc105_reset_gpio);
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		pr_debug("%s: ALC105 ON.\n", __func__);
+		gpiod_set_value(desc, 0);
+	} else {
+		pr_debug("%s: ALC105 OFF.\n", __func__);
+		gpiod_set_value(desc, 1);
+	}
+
+	return 0;
+}
+
+static int byt_set_platform_clock(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *k, int  event)
 {
 	struct snd_soc_dapm_context *dapm = w->dapm;
@@ -366,7 +397,7 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 				PLAT_CLK_FORCE_ON);
 
 		pr_debug("%s: Platform clk turned ON\n", __func__);
-	snd_soc_write(codec, RT5651_ADDA_CLK1, 0x0014);
+		snd_soc_write(codec, RT5651_ADDA_CLK1, 0x0014);
 	} else {
 		/* Set codec clock source to internal clock before
 		   turning off the platform clock. Codec needs clock
@@ -387,9 +418,9 @@ static const struct snd_soc_dapm_widget byt_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Int Mic", NULL),
-	SND_SOC_DAPM_SPK("Ext Spk", NULL),
+	SND_SOC_DAPM_SPK("Ext Spk", byt_set_alc105),
 	SND_SOC_DAPM_SUPPLY("Platform Clock", SND_SOC_NOPM, 0, 0,
-			platform_clock_control, SND_SOC_DAPM_PRE_PMU |
+			byt_set_platform_clock, SND_SOC_DAPM_PRE_PMU |
 			SND_SOC_DAPM_POST_PMD),
 };
 
