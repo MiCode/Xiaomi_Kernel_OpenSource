@@ -447,7 +447,7 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 			ret = -ENOMEM;
 			goto disable_memclk;
 		}
-		memset(data_buf->base, 0, data_buf->size);
+		memset_io(data_buf->base, 0, data_buf->size);
 
 		desc_buf->phys_base =
 			pipe_connect->desc_fifo_base_offset +
@@ -462,7 +462,7 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 			ret = -ENOMEM;
 			goto disable_memclk;
 		}
-		memset(desc_buf->base, 0, desc_buf->size);
+		memset_io(desc_buf->base, 0, desc_buf->size);
 		break;
 	case SYSTEM_MEM:
 		pr_debug("%s: USB BAM using system memory\n", __func__);
