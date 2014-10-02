@@ -3828,7 +3828,7 @@ static int ufshcd_disable_ee(struct ufs_hba *hba, u16 mask)
 
 	val = hba->ee_ctrl_mask & ~mask;
 	val &= 0xFFFF; /* 2 bytes */
-	err = ufshcd_query_attr(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
+	err = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
 			QUERY_ATTR_IDN_EE_CONTROL, 0, 0, &val);
 	if (!err)
 		hba->ee_ctrl_mask &= ~mask;
@@ -3856,7 +3856,7 @@ static int ufshcd_enable_ee(struct ufs_hba *hba, u16 mask)
 
 	val = hba->ee_ctrl_mask | mask;
 	val &= 0xFFFF; /* 2 bytes */
-	err = ufshcd_query_attr(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
+	err = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
 			QUERY_ATTR_IDN_EE_CONTROL, 0, 0, &val);
 	if (!err)
 		hba->ee_ctrl_mask |= mask;
@@ -3964,7 +3964,7 @@ static void  ufshcd_force_reset_auto_bkops(struct ufs_hba *hba)
 
 static inline int ufshcd_get_bkops_status(struct ufs_hba *hba, u32 *status)
 {
-	return ufshcd_query_attr(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+	return ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
 			QUERY_ATTR_IDN_BKOPS_STATUS, 0, 0, status);
 }
 
@@ -4027,7 +4027,7 @@ static int ufshcd_urgent_bkops(struct ufs_hba *hba)
 
 static inline int ufshcd_get_ee_status(struct ufs_hba *hba, u32 *status)
 {
-	return ufshcd_query_attr(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+	return ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
 			QUERY_ATTR_IDN_EE_STATUS, 0, 0, status);
 }
 
@@ -4046,6 +4046,7 @@ static void ufshcd_exception_event_handler(struct work_struct *work)
 	hba = container_of(work, struct ufs_hba, eeh_work);
 
 	pm_runtime_get_sync(hba->dev);
+	scsi_block_requests(hba->host);
 	err = ufshcd_get_ee_status(hba, &status);
 	if (err) {
 		dev_err(hba->dev, "%s: failed to get exception status %d\n",
@@ -4061,6 +4062,7 @@ static void ufshcd_exception_event_handler(struct work_struct *work)
 					__func__, err);
 	}
 out:
+	scsi_unblock_requests(hba->host);
 	pm_runtime_put_sync(hba->dev);
 	return;
 }
