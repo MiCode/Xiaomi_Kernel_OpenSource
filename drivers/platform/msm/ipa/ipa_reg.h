@@ -328,6 +328,7 @@ Common Registers
 #define IPA_IRQ_EE_UC_n_INT_SHFT 0x0
 
 #define IPA_UC_MAILBOX_m_n_OFFS(m, n) (0x0003a000 + 0x80 * (m) + 0x4 * (n))
+#define IPA_UC_MAILBOX_m_n_OFFS_v2_5(m, n) (0x00062000 + 0x80 * (m) + 0x4 * (n))
 
 #define IPA_SYS_PKT_PROC_CNTXT_BASE_OFST (0x000005d8)
 #define IPA_LOCAL_PKT_PROC_CNTXT_BASE_OFST (0x000005e0)
