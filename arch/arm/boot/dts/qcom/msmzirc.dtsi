@@ -293,20 +293,34 @@
 		clocks = <&clock_rpm 0xeeec2919>;
 	};
 
-	qcom,clock-a7@0b011050 {
+	qcom,clock-a7@0b010008 {
 		compatible = "qcom,clock-a7-zirc";
-		reg = <0x0b011050 0x8>;
+		reg = <0x0B010008 0x8>;
 		reg-names = "rcg-base";
 
 		clock-names = "clk-1", "clk-5";
+		clocks = <&clock_gcc clk_gpll0_ao>,
+			 <&clock_a7pll clk_a7pll_clk>;
+
 		qcom,speed0-bin-v0 =
 			<         0 0>,
 			< 400000000 4>,
-			< 793000000 5>,
-			<1160000000 7>;
+			< 787200000 5>,
+			<1190400000 7>;
 
-		status = "disabled";
+		cpu-vdd-supply = <&pmd9635_s5_corner_ao>;
 	};
+
+        qcom,msm-cpufreq@0 {
+                reg = <0 4>;
+                compatible = "qcom,msm-cpufreq";
+                qcom,cpufreq-table =
+                        <  300000 >,
+                        <  600000 >,
+                        <  787200 >,
+                        <  998400 >,
+                        < 1190400 >;
+        };
 
 	spi_0: spi@78b5000 { /* BLSP1 QUP1 */
 		compatible = "qcom,spi-qup-v2";

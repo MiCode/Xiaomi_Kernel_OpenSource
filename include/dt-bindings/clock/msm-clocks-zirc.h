@@ -116,4 +116,8 @@
 #define clk_gcc_mss_q6_bimc_axi_clk		&gcc_mss_q6_bimc_axi_clk
 #define clk_gcc_boot_rom_ahb_clk		&gcc_boot_rom_ahb_clk
 
+/* a7pll */
+#define clk_a7pll_clk				&a7pll_clk
+#define clk_a7_debug_mux			&a7_debug_mux
+
 #endif
