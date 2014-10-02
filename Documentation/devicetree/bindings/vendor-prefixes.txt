@@ -56,6 +56,8 @@ eukrea  Eukréa Electromatique
 everest	Everest Semiconductor Co. Ltd.
 excito	Excito
 fcs	Fairchild Semiconductor
+fairchild	Fairchild Semiconductor International, Inc.
+focaltech	Focaltech systems
 fsl	Freescale Semiconductor
 GEFanuc	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
 gef	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
@@ -63,6 +65,7 @@ geniatech	Geniatech, Inc.
 globalscale	Globalscale Technologies, Inc.
 gmt	Global Mixed-mode Technology, Inc.
 google	Google, Inc.
+goodix	Goodix. Ltd
 gumstix	Gumstix, Inc.
 gw	Gateworks Corporation
 haoyu	Haoyu Microelectronic Co. Ltd.
@@ -84,6 +87,11 @@ keymile	Keymile GmbH
 lacie	LaCie
 lantiq	Lantiq Semiconductor
 lenovo	Lenovo Group Ltd.
+invn	InvenSense Inc.
+isl	Intersil
+karo	Ka-Ro electronics GmbH
+kionix	Kionix Inc.
+lattice	Lattice Semiconductor.
 lg	LG Corporation
 linux	Linux-specific binding
 lsi	LSI Corp. (LSI Logic)
@@ -92,6 +100,7 @@ marvell	Marvell Technology Group Ltd.
 maxim	Maxim Integrated Products
 mediatek	MediaTek Inc.
 micrel	Micrel Inc.
+memsic	MEMSIC, Inc
 microchip	Microchip Technology Inc.
 micron	Micron Technology Inc.
 mitsubishi	Mitsubishi Electric Corporation
@@ -101,6 +110,7 @@ mpl	MPL AG
 mundoreader	Mundo Reader S.L.
 murata	Murata Manufacturing Co., Ltd.
 mxicy	Macronix International Co., Ltd.
+mstar		MStar Semiconductor, Inc.
 national	National Semiconductor
 neonode		Neonode Inc.
 netgear	NETGEAR
@@ -111,6 +121,7 @@ nvidia	NVIDIA
 nxp	NXP Semiconductors
 onnn	ON Semiconductor Corp.
 opencores	OpenCores.org
+ovti	OmniVision Technologies, Inc.
 panasonic	Panasonic Corporation
 phytec	PHYTEC Messtechnik GmbH
 picochip	Picochip Ltd
@@ -133,6 +144,9 @@ sandisk	Sandisk Corporation
 sbs	Smart Battery System
 schindler	Schindler
 seagate	Seagate Technology PLC
+smartv	SmartV Ltd
+stk	Sensortek Technology Corporation.(formerly Sitronix Technology Co., Ltd.)
+shinetech	Shine Tech Corporation, Ltd.
 sil	Silicon Image
 silabs	Silicon Laboratories
 simtek
@@ -144,6 +158,8 @@ smsc	Standard Microsystems Corporation
 snps	Synopsys, Inc.
 solidrun	SolidRun
 sony	Sony Corporation
+sne	Sony
+snps 	Synopsys, Inc.
 spansion	Spansion Inc.
 st	STMicroelectronics
 ste	ST-Ericsson
