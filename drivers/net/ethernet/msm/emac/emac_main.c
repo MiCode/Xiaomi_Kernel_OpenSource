@@ -623,7 +623,7 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 		count++;
 
 		if (srrd.genr.res || srrd.genr.lene) {
-			dev_kfree_skb(rfbuf->skb);
+			dev_kfree_skb(skb);
 			continue;
 		}
 
