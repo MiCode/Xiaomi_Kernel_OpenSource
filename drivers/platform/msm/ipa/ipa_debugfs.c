@@ -65,6 +65,12 @@ const char *ipa_event_name[] = {
 	__stringify(ECM_DISCONNECT),
 };
 
+const char *ipa_hdr_l2_type_name[] = {
+	__stringify(IPA_HDR_L2_NONE),
+	__stringify(IPA_HDR_L2_ETHERNET_II),
+	__stringify(IPA_HDR_L2_802_3),
+};
+
 const char *ipa_hdr_proc_type_name[] = {
 	__stringify(IPA_HDR_PROC_NONE),
 	__stringify(IPA_HDR_PROC_ETHII_TO_ETHII),
@@ -431,26 +437,27 @@ static ssize_t ipa_read_hdr(struct file *file, char __user *ubuf, size_t count,
 
 	list_for_each_entry(entry, &ipa_ctx->hdr_tbl.head_hdr_entry_list,
 			link) {
+		nbytes = scnprintf(
+			dbg_buff,
+			IPA_MAX_MSG_LEN,
+			"name:%s len=%d ref=%d partial=%d type=%s ",
+			entry->name,
+			entry->hdr_len,
+			entry->ref_cnt,
+			entry->is_partial,
+			ipa_hdr_l2_type_name[entry->type]);
+
 		if (entry->is_hdr_proc_ctx) {
-			nbytes = scnprintf(
-				dbg_buff,
-				IPA_MAX_MSG_LEN,
-				"name:%s len=%d ref=%d partial=%d "
+			nbytes += scnprintf(
+				dbg_buff + nbytes,
+				IPA_MAX_MSG_LEN - nbytes,
 				"phys_base=0x%pa ",
-				entry->name,
-				entry->hdr_len,
-				entry->ref_cnt,
-				entry->is_partial,
 				&entry->phys_base);
 		} else {
-			nbytes = scnprintf(
-				dbg_buff,
-				IPA_MAX_MSG_LEN,
-				"name:%s len=%d ref=%d partial=%d ofst=%u ",
-				entry->name,
-				entry->hdr_len,
-				entry->ref_cnt,
-				entry->is_partial,
+			nbytes += scnprintf(
+				dbg_buff + nbytes,
+				IPA_MAX_MSG_LEN - nbytes,
+				"ofst=%u ",
 				entry->offset_entry->offset >> 2);
 		}
 		for (i = 0; i < entry->hdr_len; i++) {
