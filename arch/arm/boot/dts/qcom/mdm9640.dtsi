@@ -461,7 +461,7 @@
 			"pcie_0_cfg_ahb_clk", "pcie_0_mstr_axi_clk",
 			"pcie_0_slv_axi_clk", "pcie_0_ldo", "pcie_0_phy_reset";
 
-		max-clock-frequency-hz = <125000000>, <0>, <1000000>, <0>, <0>, <0>, <0>, <0>, <0>;
+		max-clock-frequency-hz = <125000000>, <0>, <1010000>, <0>, <0>, <0>, <0>, <0>, <0>;
 	};
 
 	i2c_3: i2c@78b7000 { /* BLSP1 QUP3 */
