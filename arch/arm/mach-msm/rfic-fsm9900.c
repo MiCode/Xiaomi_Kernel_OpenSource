@@ -53,6 +53,7 @@
 #define SSBI_ARB_PRI	0x3100
 #define PVC_ADDR1	0x3400
 #define PVC_ADDR2	0x3404
+#define PVC_INDEX_MAX   9
 
 #define FTR_RXGAIN_REG1  0xB8
 #define FTR_RXGAIN_REG2  0xB9
@@ -108,6 +109,7 @@ struct mutex rficlock;
 static struct ftr_dev_node_info {
 	void *grfcctrladdr;
 	void *grfcmaskaddr;
+	void *pvcaddr;
 	unsigned int busselect[4];
 	int maskvalue;
 	struct device *dev;
@@ -306,9 +308,77 @@ static long ftr_ioctl(struct file *file,
 				RFIC_FTR_GET_ADDR(rficaddr), &value, 1);
 
 			mutex_unlock(&pdev->lock);
+		}
+		break;
 
-			if (ret)
-				return ret;
+	case RFIC_IOCTL_WRITE_PVC_REGISTER:
+		{
+		    struct rfic_write_register_param param;
+		    unsigned int ssbiaddr;
+		    u8 pvc_index;
+
+		    if (copy_from_user(&param, argp, sizeof(param)))
+			return -EFAULT;
+
+		    ssbiaddr = param.rficaddr;
+		    pvc_index = (u8) param.value;
+
+		    if (pvc_index > PVC_INDEX_MAX) {
+			pr_err("%s: %d PVC index exceeds max (10)\n",
+				__func__, pvc_index);
+			return -EINVAL;
+		    }
+
+		    mutex_lock(&pdev->lock);
+
+		    writel_relaxed(PVC_INTF_EN, pdev->pvcaddr + PVC_INTF_CTL);
+		    writel_relaxed(PVC_PORT_EN, pdev->pvcaddr + PVC_PORT_CTL);
+		    writel_relaxed(ARB_PRI_VAL, pdev->pvcaddr + SSBI_ARB_PRI);
+		    writel_relaxed(ssbiaddr, pdev->pvcaddr + PVC_ADDR1 +
+			    pvc_index * 4);
+
+		    mutex_unlock(&pdev->lock);
+
+		    return 0;
+		}
+		break;
+
+	case RFIC_IOCTL_WRITE_PVC_REGISTER_WITH_BUS:
+		{
+		    struct rfic_write_register_param param;
+		    unsigned int ssbiaddr;
+		    u8 pvc_index;
+
+		    if (copy_from_user(&param, argp, sizeof(param)))
+			return -EFAULT;
+
+		    ssbiaddr = param.rficaddr;
+		    pvc_index = (u8) param.value;
+
+		    if (pvc_index > PVC_INDEX_MAX) {
+			pr_err("%s: %d PVC index exceeds max (10)\n",
+				__func__, pvc_index);
+			return -EINVAL;
+		    }
+
+		    mutex_lock(&pdev->lock);
+
+		    if (((pdfi->ftrid == 1) || (pdfi->ftrid == 2))
+				&& (rfbid < RF_TYPE_48)) {
+			__raw_writel(
+				pdev->busselect[RFIC_FTR_GET_BUS(ssbiaddr)],
+				pdev->grfcctrladdr);
+			mb();
+		    }
+		    writel_relaxed(PVC_INTF_EN, pdev->pvcaddr + PVC_INTF_CTL);
+		    writel_relaxed(PVC_PORT_EN, pdev->pvcaddr + PVC_PORT_CTL);
+		    writel_relaxed(ARB_PRI_VAL, pdev->pvcaddr + SSBI_ARB_PRI);
+		    writel_relaxed(ssbiaddr, pdev->pvcaddr + PVC_ADDR1 +
+			    pvc_index * 4);
+
+		    mutex_unlock(&pdev->lock);
+
+		    return 0;
 		}
 		break;
 
@@ -958,6 +1028,7 @@ static int ftr_probe(struct platform_device *pdev)
 	if ((n_dev >= 1)  && (n_dev <= 7)) {
 		struct ssbi *ssbi =
 		platform_get_drvdata(to_platform_device(pdev->dev.parent));
+		ptr->pvcaddr = ssbi->base;
 		if ((rfbid > RF_TYPE_48) && (n_dev <= 4)) {
 			ssbi->controller_type =
 				FSM_SBI_CTRL_GENI_SSBI2_ARBITER;
