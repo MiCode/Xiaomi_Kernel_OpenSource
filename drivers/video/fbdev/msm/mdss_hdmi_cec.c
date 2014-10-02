@@ -804,17 +804,13 @@ int hdmi_cec_isr(void *input)
 	io = cec_ctrl->init_data.io;
 
 	cec_intr = DSS_REG_R_ND(io, HDMI_CEC_INT);
-	DEV_DBG("%s: cec interrupt status is [0x%x]\n", __func__, cec_intr);
 
 	if (!cec_ctrl->cec_enabled) {
-		DEV_DBG("%s: cec is not enabled. Just clear int and return.\n",
-			__func__);
 		DSS_REG_W(io, HDMI_CEC_INT, cec_intr);
 		return 0;
 	}
 
 	cec_status = DSS_REG_R_ND(io, HDMI_CEC_STATUS);
-	DEV_DBG("%s: cec status is [0x%x]\n", __func__, cec_status);
 
 	if ((cec_intr & BIT(0)) && (cec_intr & BIT(1))) {
 		DEV_DBG("%s: CEC_IRQ_FRAME_WR_DONE\n", __func__);
