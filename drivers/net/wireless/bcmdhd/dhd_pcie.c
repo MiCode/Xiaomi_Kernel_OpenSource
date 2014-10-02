@@ -1182,9 +1182,12 @@ int dhd_bus_rxctl(struct dhd_bus *bus, uchar *msg, uint msglen)
 	else
 		bus->dhd->rx_ctlerrs++;
 
-	if (bus->dhd->rxcnt_timeout >= MAX_CNTL_TX_TIMEOUT)
+	if (bus->dhd->rxcnt_timeout >= MAX_CNTL_TX_TIMEOUT) {
+#ifdef MSM_PCIE_LINKDOWN_RECOVERY
+		bus->islinkdown = TRUE;
+#endif /* SUPPORT_LINKDOWN_RECOVERY */
 		return -ETIMEDOUT;
-
+	}
 	if (bus->dhd->dongle_trap_occured)
 		return -EREMOTEIO;
 
