@@ -106,10 +106,13 @@ static void dsi_get_preferred_mode(struct intel_pipe *pipe,
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
 	struct dsi_config *config = &dsi_pipe->config;
+	bool lock;
 
-	mutex_lock(&config->ctx_lock);
+	lock = mutex_trylock(&config->ctx_lock);
 	*mode = &config->perferred_mode;
-	mutex_unlock(&config->ctx_lock);
+
+	if (lock)
+		mutex_unlock(&config->ctx_lock);
 
 	pr_err("ADF: %s: Preferred Mode = %dx%d @%d\n", __func__,
 	       (*mode)->hdisplay, (*mode)->vdisplay, (*mode)->vrefresh);

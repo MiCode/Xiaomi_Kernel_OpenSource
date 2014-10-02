@@ -280,6 +280,7 @@ struct intel_pipe {
 	enum intel_pipe_type type;
 	const struct intel_plane *primary_plane;
 	const struct intel_pipe_ops *ops;
+	bool dpst_enabled;
 };
 
 struct intel_dc_attachment {

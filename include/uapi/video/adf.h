@@ -293,6 +293,7 @@ struct adf_overlay_engine_data {
 	size_t custom_data_size;
 	void __user *custom_data;
 };
+
 #define ADF_MAX_SUPPORTED_FORMATS (4096 / sizeof(__u32))
 
 #define ADF_IOCTL_TYPE		'D'

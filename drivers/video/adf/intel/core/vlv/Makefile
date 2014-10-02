@@ -5,4 +5,5 @@ ccflags-y := -Idrivers/staging/ -Iinclude/adf -Iinclude/uapi/adf -Idrivers/video
 obj-y := vlv_dc_config.o \
 	vlv_pri_plane.o \
 	vlv_sp_plane.o \
-	vlv_mode_set.o
+	vlv_mode_set.o \
+	vlv_dpst.o

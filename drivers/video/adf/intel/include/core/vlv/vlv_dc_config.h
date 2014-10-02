@@ -23,6 +23,7 @@
 #include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_pri_plane.h>
 #include <core/vlv/vlv_sp_plane.h>
+#include <core/vlv/vlv_dpst.h>
 
 #define VLV_N_PLANES	6
 #define VLV_N_PIPES	2
@@ -99,6 +100,7 @@ static inline void vlv_cck_write(u32 reg, u32 val)
 
 struct vlv_dc_config {
 	struct intel_dc_config base;
+	struct vlv_dpst dpst;
 	struct vlv_disp {
 		struct vlv_pri_plane pplane;
 		struct vlv_sp_plane splane[2];

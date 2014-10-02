@@ -16,10 +16,24 @@
 #include <video/adf_client.h>
 #include "intel_adf.h"
 
+#ifdef CONFIG_ADF_INTEL_VLV
+#include <core/vlv/vlv_dpst.h>
+#endif
+
+/* Custom IOCTL */
 static long intel_interface_obj_ioctl(struct adf_obj *obj,
 	unsigned int cmd, unsigned long arg)
 {
-	return -EOPNOTSUPP;
+
+	/* Custom IOCTL commands */
+	switch (cmd) {
+	case INTEL_ADF_DPST_CONTEXT:
+		return vlv_dpst_context(arg);
+	default:
+		pr_debug("%s: Error: Invalid custom IOCTL\n", __func__);
+	}
+
+	return -EINVAL;
 }
 
 static u32 to_intel_pipe_event(enum adf_event_type event)
@@ -334,6 +348,9 @@ int intel_adf_interface_handle_event(struct intel_adf_interface *intf)
 		handle_hotplug_disconnected(intf);
 		events &= ~INTEL_PIPE_EVENT_HOTPLUG_DISCONNECTED;
 	}
+
+	if (events && INTEL_PIPE_EVENT_DPST)
+		vlv_dpst_irq_handler(pipe);
 
 	if (events && pipe->ops->handle_events)
 		pipe->ops->handle_events(pipe, events);

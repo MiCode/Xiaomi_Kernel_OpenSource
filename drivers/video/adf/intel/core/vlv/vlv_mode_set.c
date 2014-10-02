@@ -134,6 +134,9 @@ int vlv_display_on(struct intel_pipe *pipe)
 	/* enable vsyncs */
 	pipe->ops->set_event(pipe, INTEL_PIPE_EVENT_VSYNC, true);
 
+	/* Enable DPST */
+	vlv_dpst_display_on();
+
 	return 0;
 }
 
@@ -151,6 +154,9 @@ int vlv_display_off(struct intel_pipe *pipe)
 		return -EINVAL;
 
 	index = pipe->base.idx;
+
+	/* Disable DPST */
+	vlv_dpst_display_off();
 
 	/* disable vsyncs */
 	pipe->ops->set_event(pipe, INTEL_PIPE_EVENT_VSYNC, false);

@@ -27,6 +27,9 @@
 #endif
 #include "uapi/intel_adf.h"
 
+/* Custom IOCTL for Intel platforms */
+#define INTEL_ADF_DPST_CONTEXT		ADF_IOCTL_NR_CUSTOM
+
 struct intel_adf_context {
 	struct intel_dc_config *dc_config;
 	struct intel_adf_device *dev;
@@ -46,5 +49,7 @@ struct intel_adf_context {
 extern struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev);
 extern void intel_adf_context_destroy(struct intel_adf_context *ctx);
 extern int intel_adf_context_on_event(void);
-
+extern int intel_adf_map_dma_to_flip(unsigned long args);
+extern int intel_adf_unmap_dma_to_flip(unsigned long args);
+extern int vlv_dpst_context(unsigned long args);
 #endif /* INTEL_ADF_H_ */
