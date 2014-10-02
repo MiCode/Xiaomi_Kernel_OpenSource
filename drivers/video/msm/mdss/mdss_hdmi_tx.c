@@ -494,12 +494,13 @@ static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
 static inline void hdmi_tx_send_cable_notification(
 	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
 {
-	int state = hdmi_ctrl->sdev.state;
+	int state = 0;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
+	state = hdmi_ctrl->sdev.state;
 
 	switch_set_state(&hdmi_ctrl->sdev, val);
 
@@ -515,12 +516,13 @@ static inline void hdmi_tx_send_cable_notification(
 static inline void hdmi_tx_set_audio_switch_node(
 	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
 {
-	int state = hdmi_ctrl->audio_sdev.state;
+	int state = 0;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
+	state = hdmi_ctrl->audio_sdev.state;
 
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl) &&
 	    hdmi_tx_is_cea_format(hdmi_ctrl->video_resolution)) {
