@@ -7497,6 +7497,7 @@ group_type group_classify(struct sched_group *group,
 	 * seen a busy group yet. We want to prioritize spreading
 	 * work over power optimization. */
 	if (group->group_weight == 1 && sgs->sum_nr_running &&
+	    (env->idle != CPU_NOT_IDLE) &&
 	    power_cost_at_freq(env->dst_cpu, 0) <
 	    power_cost_at_freq(cpumask_first(sched_group_cpus(group)), 0)) {
 		env->flags |= LBF_PWR_ACTIVE_BALANCE;
