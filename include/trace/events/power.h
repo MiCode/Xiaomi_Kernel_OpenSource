@@ -83,6 +83,32 @@ TRACE_EVENT(pstate_sample,
 
 );
 
+TRACE_EVENT(pstate_byt_set,
+
+	TP_PROTO(u32 pstate,
+		u32 vid
+		),
+
+	TP_ARGS(pstate,
+		vid
+		),
+
+	TP_STRUCT__entry(
+		__field(u32, pstate)
+		__field(u32, vid)
+		),
+
+	TP_fast_assign(
+		__entry->pstate = pstate;
+		__entry->vid = vid;
+		),
+
+	TP_printk("pstate=%lu vid=%lu  ",
+		(unsigned long)__entry->pstate,
+		(unsigned long)__entry->vid
+		)
+);
+
 /* This file can get included multiple times, TRACE_HEADER_MULTI_READ at top */
 #ifndef _PWR_EVENT_AVOID_DOUBLE_DEFINING
 #define _PWR_EVENT_AVOID_DOUBLE_DEFINING
