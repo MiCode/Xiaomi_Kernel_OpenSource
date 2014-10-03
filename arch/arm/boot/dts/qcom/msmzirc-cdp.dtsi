@@ -12,6 +12,8 @@
 
 #include "msmzirc.dtsi"
 #include "msmzirc-pinctrl.dtsi"
+#include "msmzirc-display.dtsi"
+#include "qpic-panel-ili-hvga.dtsi"
 
 &soc {
 	usb_detect {
@@ -274,3 +276,13 @@
 	pinctrl-7 = <&qdsd_clk_spmi &qdsd_cmd_spmi
 		    &qdsd_data0_spmi &qdsd_data3_spmi>;
 };
+
+/* Display */
+&mdss_qpic {
+        pinctrl-names= "mdss_default", "mdss_sleep";
+        pinctrl-0 = <&mdss_cs_active &mdss_te_active &mdss_rs_active
+                        &mdss_ad_active &mdss_bl_active>;
+        pinctrl-1 = <&mdss_cs_suspend &mdss_te_suspend
+                &mdss_rs_suspend &mdss_ad_suspend &mdss_bl_suspend>;
+};
+
