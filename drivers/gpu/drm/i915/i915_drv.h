@@ -3115,4 +3115,6 @@ wait_remaining_ms_from_jiffies(unsigned long timestamp_jiffies, int to_wait_ms)
 	}
 }
 
+void intel_chv_huc_load(struct drm_device *dev);
+
 #endif

@@ -4962,6 +4962,9 @@ i915_gem_init_hw(struct drm_device *dev)
 		i915_gem_cleanup_ringbuffer(dev);
 	}
 
+	if (ret == 0)
+		intel_chv_huc_load(dev);
+
 	return ret;
 }
 
