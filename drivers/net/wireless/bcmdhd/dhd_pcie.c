@@ -2256,6 +2256,152 @@ done:
 	return BCME_OK;
 }
 #endif /* BCM_BUZZZ */
+int
+dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
+{
+	dhd_bus_t *bus = dhdp->bus;
+	int ret = 0;
+#ifdef CONFIG_ARCH_MSM
+	int retry = POWERUP_MAX_RETRY;
+#endif /* CONFIG_ARCH_MSM */
+
+	if (dhd_download_fw_on_driverload) {
+		ret = dhd_bus_start(dhdp);
+	} else {
+		if (flag == TRUE) {
+			 /* Turn off WLAN */
+			DHD_ERROR(("%s: == Power OFF ==\n", __FUNCTION__));
+			bus->dhd->up = FALSE;
+			if (bus->dhd->busstate != DHD_BUS_DOWN) {
+				if (bus->intr) {
+					dhdpcie_bus_intr_disable(bus);
+					dhdpcie_free_irq(bus);
+				}
+
+				dhd_os_wd_timer(dhdp, 0);
+				dhd_bus_stop(bus, TRUE);
+				dhd_prot_clear(dhdp);
+				dhd_clear(dhdp);
+				dhd_bus_release_dongle(bus);
+				dhdpcie_bus_free_resource(bus);
+				ret = dhdpcie_bus_disable_device(bus);
+				if (ret) {
+					DHD_ERROR(("%s: dhdpcie_bus_disable_device: %d\n",
+						__FUNCTION__, ret));
+					goto done;
+				}
+
+#ifdef CONFIG_ARCH_MSM
+				ret = dhdpcie_bus_clock_stop(bus);
+				if (ret) {
+					DHD_ERROR(("%s: host clock stop failed: %d\n",
+						__FUNCTION__, ret));
+					goto done;
+				}
+#endif /* CONFIG_ARCH_MSM */
+				bus->dhd->busstate = DHD_BUS_DOWN;
+			} else {
+				if (bus->intr) {
+					dhdpcie_bus_intr_disable(bus);
+					dhdpcie_free_irq(bus);
+				}
+
+				dhd_prot_clear(dhdp);
+				dhd_clear(dhdp);
+				dhd_bus_release_dongle(bus);
+				dhdpcie_bus_free_resource(bus);
+				ret = dhdpcie_bus_disable_device(bus);
+				if (ret) {
+					DHD_ERROR(("%s: dhdpcie_bus_disable_device: %d\n",
+						__FUNCTION__, ret));
+					goto done;
+				}
+#ifdef CONFIG_ARCH_MSM
+				ret = dhdpcie_bus_clock_stop(bus);
+				if (ret) {
+					DHD_ERROR(("%s: host clock stop failed: %d\n",
+						__FUNCTION__, ret));
+					goto done;
+				}
+#endif  /* CONFIG_ARCH_MSM */
+			}
+
+			bus->dhd->dongle_reset = TRUE;
+			DHD_ERROR(("%s:  WLAN OFF Done\n", __FUNCTION__));
+
+		} else {
+			if (bus->dhd->busstate == DHD_BUS_DOWN) {
+				/* Turn on WLAN */
+				DHD_ERROR(("%s: == Power ON ==\n", __FUNCTION__));
+#ifdef CONFIG_ARCH_MSM
+				while (retry--) {
+					ret = dhdpcie_bus_clock_start(bus);
+					if (!ret) {
+						DHD_ERROR(("%s: dhdpcie_bus_clock_start OK\n",
+							__FUNCTION__));
+						break;
+					}
+					else
+						OSL_SLEEP(10);
+				}
+
+				if (ret && !retry) {
+					DHD_ERROR(("%s: host pcie clock enable failed: %d\n",
+						__FUNCTION__, ret));
+					goto done;
+				}
+#endif /* CONFIG_ARCH_MSM */
+				ret = dhdpcie_bus_enable_device(bus);
+				if (ret) {
+					DHD_ERROR(("%s: host configuration restore failed: %d\n",
+						__FUNCTION__, ret));
+					goto done;
+				}
+
+				ret = dhdpcie_bus_alloc_resource(bus);
+				if (ret) {
+					DHD_ERROR(("%s: dhdpcie_bus_resource_alloc failed: %d\n",
+						__FUNCTION__, ret));
+					goto done;
+				}
+
+				ret = dhdpcie_bus_dongle_attach(bus);
+				if (ret) {
+					DHD_ERROR(("%s: dhdpcie_bus_dongle_attach failed: %d\n",
+						__FUNCTION__, ret));
+					goto done;
+				}
+
+				ret = dhd_bus_request_irq(bus);
+				if (ret) {
+					DHD_ERROR(("%s: dhd_bus_request_irq failed: %d\n",
+						__FUNCTION__, ret));
+					goto done;
+				}
+
+				bus->dhd->dongle_reset = FALSE;
+
+				ret = dhd_bus_start(dhdp);
+				if (ret) {
+					DHD_ERROR(("%s: dhd_bus_start: %d\n",
+						__FUNCTION__, ret));
+					goto done;
+				}
+
+				bus->dhd->up = TRUE;
+				DHD_ERROR(("%s: WLAN Power On Done\n", __FUNCTION__));
+			} else {
+				DHD_ERROR(("%s: what should we do here\n", __FUNCTION__));
+				goto done;
+			}
+		}
+	}
+done:
+	if (ret)
+		bus->dhd->busstate = DHD_BUS_DOWN;
+
+	return ret;
+}
 
 static int
 dhdpcie_bus_doiovar(dhd_bus_t *bus, const bcm_iovar_t *vi, uint32 actionid, const char *name,
@@ -4072,6 +4218,24 @@ int
 dhdpcie_bus_enable_device(struct dhd_bus *bus)
 {
 	return dhdpcie_enable_device(bus);
+}
+
+int
+dhdpcie_bus_alloc_resource(struct dhd_bus *bus)
+{
+	return dhdpcie_alloc_resource(bus);
+}
+
+void
+dhdpcie_bus_free_resource(struct dhd_bus *bus)
+{
+	dhdpcie_free_resource(bus);
+}
+
+int
+dhd_bus_request_irq(struct dhd_bus *bus)
+{
+	return dhdpcie_bus_request_irq(bus);
 }
 
 bool

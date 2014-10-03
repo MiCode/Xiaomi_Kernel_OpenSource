@@ -180,8 +180,11 @@ extern int dhdpcie_bus_clock_start(struct dhd_bus *bus);
 extern int dhdpcie_bus_clock_stop(struct dhd_bus *bus);
 extern int dhdpcie_bus_enable_device(struct dhd_bus *bus);
 extern int dhdpcie_bus_disable_device(struct dhd_bus *bus);
+extern int dhdpcie_bus_alloc_resource(struct dhd_bus *bus);
+extern void dhdpcie_bus_free_resource(struct dhd_bus *bus);
 extern bool dhdpcie_bus_dongle_attach(struct dhd_bus *bus);
 extern int dhd_bus_release_dongle(struct dhd_bus *bus);
+extern int dhd_bus_request_irq(struct dhd_bus *bus);
 
 #endif /* BCMPCIE */
 #endif /* _dhd_bus_h_ */

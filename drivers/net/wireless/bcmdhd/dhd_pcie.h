@@ -186,6 +186,8 @@ extern int dhdpcie_start_host_pcieclock(dhd_bus_t *bus);
 extern int dhdpcie_stop_host_pcieclock(dhd_bus_t *bus);
 extern int dhdpcie_disable_device(dhd_bus_t *bus);
 extern int dhdpcie_enable_device(dhd_bus_t *bus);
-
+extern int dhdpcie_alloc_resource(dhd_bus_t *bus);
+extern void dhdpcie_free_resource(dhd_bus_t *bus);
+extern int dhdpcie_bus_request_irq(struct dhd_bus *bus);
 extern int dhd_buzzz_dump_dngl(dhd_bus_t *bus);
 #endif /* dhd_pcie_h */
