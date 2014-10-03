@@ -358,6 +358,10 @@
 			synaptics,reset-gpio = <&msm_gpio 60 0x00>;
 			synaptics,irq-gpio = <&msm_gpio 61 0x2008>;
 			synaptics,disable-gpios;
+			/* Underlying clocks used by secure touch */
+			clock-names = "iface_clk", "core_clk";
+			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+				 <&clock_gcc clk_gcc_blsp1_qup2_i2c_apps_clk>;
 		};
 	};
 
