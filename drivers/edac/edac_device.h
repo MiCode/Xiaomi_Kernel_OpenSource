@@ -163,6 +163,7 @@ struct edac_device_ctl_info {
 	int panic_on_ue;	/* boolean for panic'ing on an UE */
 	unsigned poll_msec;	/* number of milliseconds to poll interval */
 	unsigned long delay;	/* number of jiffies for poll_msec */
+	bool defer_work;	/* Create a deferrable work for polling */
 
 	/* Additional top controller level attributes, but specified
 	 * by the low level driver.
