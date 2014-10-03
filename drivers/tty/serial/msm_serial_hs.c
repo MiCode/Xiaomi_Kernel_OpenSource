@@ -2988,9 +2988,19 @@ static void msm_hs_pm_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct msm_hs_port *msm_uport = get_matching_hs_port(pdev);
+	int ret;
 
 	if (!msm_uport)
 		goto err_suspend;
+
+	/* For OBS, don't use wakeup interrupt, set gpio to suspended state */
+	if (msm_uport->obs) {
+		ret = pinctrl_select_state(msm_uport->pinctrl,
+			msm_uport->gpio_state_suspend);
+		if (ret)
+			MSM_HS_ERR("%s(): Error selecting suspend state",
+				__func__);
+	}
 
 	msm_uport->pm_state = MSM_HS_PM_SUSPENDED;
 	msm_hs_resource_off(msm_uport);
@@ -3008,6 +3018,7 @@ static int msm_hs_pm_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct msm_hs_port *msm_uport = get_matching_hs_port(pdev);
+	int ret;
 
 	if (!msm_uport)
 		goto err_resume;
@@ -3016,6 +3027,16 @@ static int msm_hs_pm_resume(struct device *dev)
 	msm_hs_clk_bus_vote(msm_uport);
 	msm_uport->pm_state = MSM_HS_PM_ACTIVE;
 	msm_hs_resource_on(msm_uport);
+
+	/* For OBS, don't use wakeup interrupt, set gpio to active state */
+	if (msm_uport->obs) {
+		ret = pinctrl_select_state(msm_uport->pinctrl,
+			msm_uport->gpio_state_active);
+		if (ret)
+			MSM_HS_ERR("%s(): Error selecting active state",
+				__func__);
+	}
+
 	MSM_HS_DBG("%s(): return resume\n", __func__);
 	return 0;
 err_resume:
