@@ -711,6 +711,207 @@ struct ipa_fltr_installed_notif_resp_msg_v01 {
 	/*	Standard response type.*/
 };  /* Message */
 
+enum ipa_peripheral_speed_enum_v01 {
+	IPA_PERIPHERAL_SPEED_ENUM_MIN_ENUM_VAL_V01 = -2147483647,
+	/* To force a 32 bit signed enum.  Do not change or use */
+	QMI_IPA_PER_USB_FS_V01 = 1,
+	/*  Full-speed USB connection */
+	QMI_IPA_PER_USB_HS_V01 = 2,
+	/*  High-speed USB connection */
+	QMI_IPA_PER_USB_SS_V01 = 3,
+	/*  Super-speed USB connection */
+	IPA_PERIPHERAL_SPEED_ENUM_MAX_ENUM_VAL_V01 = 2147483647
+	/* To force a 32 bit signed enum.  Do not change or use*/
+};
+
+enum ipa_pipe_mode_enum_v01 {
+	IPA_PIPE_MODE_ENUM_MIN_ENUM_VAL_V01 = -2147483647,
+	/* To force a 32 bit signed enum.  Do not change or use */
+	QMI_IPA_PIPE_MODE_HW_V01 = 1,
+	/*  Pipe is connected with a hardware block */
+	QMI_IPA_PIPE_MODE_SW_V01 = 2,
+	/*  Pipe is controlled by the software */
+	IPA_PIPE_MODE_ENUM_MAX_ENUM_VAL_V01 = 2147483647
+	/* To force a 32 bit signed enum.  Do not change or use */
+};
+
+enum ipa_peripheral_type_enum_v01 {
+	IPA_PERIPHERAL_TYPE_ENUM_MIN_ENUM_VAL_V01 = -2147483647,
+	/* To force a 32 bit signed enum.  Do not change or use */
+	QMI_IPA_PERIPHERAL_USB_V01 = 1,
+	/*  Specifies a USB peripheral */
+	QMI_IPA_PERIPHERAL_HSIC_V01 = 2,
+	/*  Specifies an HSIC peripheral */
+	QMI_IPA_PERIPHERAL_PCIE_V01 = 3,
+	/*  Specifies a PCIe	peripheral */
+	IPA_PERIPHERAL_TYPE_ENUM_MAX_ENUM_VAL_V01 = 2147483647
+	/* To force a 32 bit signed enum.  Do not change or use */
+};
+
+struct ipa_config_req_msg_v01 {
+	/* Optional */
+	/*  Peripheral Type */
+	uint8_t peripheral_type_valid;
+	/* Must be set to true if peripheral_type is being passed */
+	enum ipa_peripheral_type_enum_v01 peripheral_type;
+	/* Informs the remote driver about the perhipheral for
+	 * which this configuration information is relevant. Values:
+	 *	- QMI_IPA_PERIPHERAL_USB (1) -- Specifies a USB peripheral
+	 *	- QMI_IPA_PERIPHERAL_HSIC(2) -- Specifies an HSIC peripheral
+	 *	- QMI_IPA_PERIPHERAL_PCIE(3) -- Specifies a PCIe peripheral
+	 */
+
+	/* Optional */
+	/*  HW Deaggregation Support */
+	uint8_t hw_deaggr_supported_valid;
+	/* Must be set to true if hw_deaggr_supported is being passed */
+	uint8_t hw_deaggr_supported;
+	/* Informs the remote driver whether the local IPA driver
+	 * allows de-aggregation to be performed in the hardware
+	 */
+
+	/* Optional */
+	/*  Maximum Aggregation Frame Size */
+	uint8_t max_aggr_frame_size_valid;
+	/* Must be set to true if max_aggr_frame_size is being passed */
+	uint32_t max_aggr_frame_size;
+	/* Specifies the maximum size of the aggregated frame that
+	 * the remote driver can expect from this execution environment
+	 *	- Valid range: 128 bytes to 32768 bytes
+	 */
+
+	/* Optional */
+	/*  IPA Ingress Pipe Mode */
+	uint8_t ipa_ingress_pipe_mode_valid;
+	/* Must be set to true if ipa_ingress_pipe_mode is being passed */
+
+	enum ipa_pipe_mode_enum_v01 ipa_ingress_pipe_mode;
+	/* Indicates to the remote driver if the ingress pipe into the
+	 *	IPA is in direct connection with another hardware block or
+	 *	if the producer of data to this ingress pipe is a software
+	 *  module. Values:
+	 *	-QMI_IPA_PIPE_MODE_HW(1) --Pipe is connected with hardware block
+	 *	-QMI_IPA_PIPE_MODE_SW(2) --Pipe is controlled by the software
+	 */
+
+	/* Optional */
+	/*  Peripheral Speed Info */
+	uint8_t peripheral_speed_info_valid;
+	/* Must be set to true if peripheral_speed_info is being passed */
+
+	enum ipa_peripheral_speed_enum_v01 peripheral_speed_info;
+	/* Indicates the speed that the peripheral connected to the IPA supports
+	 * Values:
+	 *	- QMI_IPA_PER_USB_FS (1) --  Full-speed USB connection
+	 *	- QMI_IPA_PER_USB_HS (2) --  High-speed USB connection
+	 *	- QMI_IPA_PER_USB_SS (3) --  Super-speed USB connection
+	 */
+
+	/* Optional */
+	/*  Downlink Accumulation Time limit */
+	uint8_t dl_accumulation_time_limit_valid;
+	/* Must be set to true if dl_accumulation_time_limit is being passed */
+	uint32_t dl_accumulation_time_limit;
+	/* Informs the remote driver about the time for which data
+	 * is accumulated in the downlink direction before it is pushed into the
+	 * IPA (downlink is with respect to the WWAN air interface)
+	 * - Units: milliseconds
+	 * - Maximum value: 255
+	 */
+
+	/* Optional */
+	/*  Downlink Accumulation Packet limit */
+	uint8_t dl_accumulation_pkt_limit_valid;
+	/* Must be set to true if dl_accumulation_pkt_limit is being passed */
+	uint32_t dl_accumulation_pkt_limit;
+	/* Informs the remote driver about the number of packets
+	 * that are to be accumulated in the downlink direction before it is
+	 * pushed into the IPA - Maximum value: 1023
+	 */
+
+	/* Optional */
+	/*  Downlink Accumulation Byte Limit */
+	uint8_t dl_accumulation_byte_limit_valid;
+	/* Must be set to true if dl_accumulation_byte_limit is being passed */
+	uint32_t dl_accumulation_byte_limit;
+	/* Inform the remote driver about the number of bytes
+	 * that are to be accumulated in the downlink direction before it
+	 * is pushed into the IPA - Maximum value: TBD
+	 */
+
+	/* Optional */
+	/*  Uplink Accumulation Time Limit */
+	uint8_t ul_accumulation_time_limit_valid;
+	/* Must be set to true if ul_accumulation_time_limit is being passed */
+	uint32_t ul_accumulation_time_limit;
+	/* Inform thes remote driver about the time for which data
+	 * is to be accumulated in the uplink direction before it is pushed into
+	 * the IPA (downlink is with respect to the WWAN air interface).
+	 * - Units: milliseconds
+	 * - Maximum value: 255
+	 */
+
+	/* Optional */
+	/*  HW Control Flags */
+	uint8_t hw_control_flags_valid;
+	/* Must be set to true if hw_control_flags is being passed */
+	uint32_t hw_control_flags;
+	/* Informs the remote driver about the hardware control flags:
+	 *	- Bit 0: IPA_HW_FLAG_HALT_SYSTEM_ON_NON_TERMINAL_FAILURE --
+	 *	Indicates to the hardware that it must not continue with
+	 *	any subsequent operation even if the failure is not terminal
+	 *	- Bit 1: IPA_HW_FLAG_NO_REPORT_MHI_CHANNEL_ERORR --
+	 *	Indicates to the hardware that it is not required to report
+	 *	channel errors to the host.
+	 *	- Bit 2: IPA_HW_FLAG_NO_REPORT_MHI_CHANNEL_WAKE_UP --
+	 *	Indicates to the hardware that it is not required to generate
+	 *	wake-up events to the host.
+	 *	- Bit 4: IPA_HW_FLAG_WORK_OVER_DDR --
+	 *	Indicates to the hardware that it is accessing addresses in
+	 *  the DDR and not over PCIe
+	 *	- Bit 5: IPA_HW_FLAG_INTERRUPT_MODE_CTRL_FLAG --
+	 *	Indicates whether the device must
+	 *	raise an event to let the host know that it is going into an
+	 *	interrupt mode (no longer polling for data/buffer availability)
+	 */
+
+	/* Optional */
+	/*  Uplink MSI Event Threshold */
+	uint8_t ul_msi_event_threshold_valid;
+	/* Must be set to true if ul_msi_event_threshold is being passed */
+	uint32_t ul_msi_event_threshold;
+	/* Informs the remote driver about the threshold that will
+	 * cause an interrupt (MSI) to be fired to the host. This ensures
+	 * that the remote driver does not accumulate an excesive number of
+	 * events before firing an interrupt.
+	 * This threshold is applicable for data moved in the UL direction.
+	 * - Maximum value: 65535
+	 */
+
+	/* Optional */
+	/*  Downlink MSI Event Threshold */
+	uint8_t dl_msi_event_threshold_valid;
+	/* Must be set to true if dl_msi_event_threshold is being passed */
+	uint32_t dl_msi_event_threshold;
+	/* Informs the remote driver about the threshold that will
+	 * cause an interrupt (MSI) to be fired to the host. This ensures
+	 * that the remote driver does not accumulate an excesive number of
+	 * events before firing an interrupt
+	 * This threshold is applicable for data that is moved in the
+	 * DL direction - Maximum value: 65535
+	 */
+};  /* Message */
+
+/* Response Message; Notifies the remote driver of the configuration
+ * information
+ */
+struct ipa_config_resp_msg_v01 {
+	/* Mandatory */
+	/*  Result Code */
+	struct ipa_qmi_response_type_v01 resp;
+	/**<   Standard response type.*/
+}; /* Message */
+
 /*Service Message Definition*/
 #define QMI_IPA_INDICATION_REGISTER_REQ_V01 0x0020
 #define QMI_IPA_INDICATION_REGISTER_RESP_V01 0x0020
@@ -721,6 +922,8 @@ struct ipa_fltr_installed_notif_resp_msg_v01 {
 #define QMI_IPA_INSTALL_FILTER_RULE_RESP_V01 0x0023
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_V01 0x0024
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_V01 0x0024
+#define QMI_IPA_CONFIG_REQ_V01 0x0027
+#define QMI_IPA_CONFIG_RESP_V01 0x0027
 
 /* add for max length*/
 #define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 76
@@ -732,6 +935,9 @@ struct ipa_fltr_installed_notif_resp_msg_v01 {
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01 546
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_MAX_MSG_LEN_V01 7
 #define QMI_IPA_MASTER_DRIVER_INIT_COMPLETE_IND_MAX_MSG_LEN_V01 7
+
+#define QMI_IPA_CONFIG_REQ_MAX_MSG_LEN_V01 81
+#define QMI_IPA_CONFIG_RESP_MAX_MSG_LEN_V01 7
 /* Service Object Accessor */
 
 #endif/* IPA_QMI_SERVICE_V01_H */

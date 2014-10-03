@@ -72,6 +72,8 @@ extern struct elem_info ipa_install_fltr_rule_req_msg_data_v01_ei[];
 extern struct elem_info ipa_install_fltr_rule_resp_msg_data_v01_ei[];
 extern struct elem_info ipa_fltr_installed_notif_req_msg_data_v01_ei[];
 extern struct elem_info ipa_fltr_installed_notif_resp_msg_data_v01_ei[];
+extern struct elem_info ipa_config_req_msg_data_v01_ei[];
+extern struct elem_info ipa_config_resp_msg_data_v01_ei[];
 
 /**
  * struct ipa_rmnet_context - IPA rmnet context
