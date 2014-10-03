@@ -500,10 +500,14 @@ static inline bool is_unused_smp_allowed(void)
 
 int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 num_blks = 0, reserved = 0;
 	struct mdss_mdp_plane_sizes ps;
 	int i, rc = 0;
 	bool force_alloc = 0;
+
+	if (mdata->has_pixel_ram)
+		return 0;
 
 	rc = mdss_mdp_calc_stride(pipe, &ps);
 	if (rc)
