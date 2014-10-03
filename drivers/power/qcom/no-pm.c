@@ -14,6 +14,7 @@
 
 #include <linux/module.h>
 #include <asm/proc-fns.h>
+#include <asm/system_misc.h>
 #include <soc/qcom/pm.h>
 
 void arch_idle(void)
@@ -27,3 +28,12 @@ bool msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
 }
 
 void msm_pm_enable_retention(bool enable) {}
+
+#ifdef CONFIG_ARM
+static int idle_initialize(void)
+{
+	arm_pm_idle = arch_idle;
+	return 0;
+}
+early_initcall(idle_initialize);
+#endif

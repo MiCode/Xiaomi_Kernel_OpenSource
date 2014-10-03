@@ -381,6 +381,7 @@ config ARM_SMMU
 	depends on ARM64 || (ARM_LPAE && OF)
 	select IOMMU_API
 	select ARM_DMA_USE_IOMMU if ARM
+	select ARM64_DMA_USE_IOMMU if ARM64
 	help
 	  Support for implementations of the ARM System MMU architecture
 	  versions 1 and 2. The driver supports both v7l and v8l table
