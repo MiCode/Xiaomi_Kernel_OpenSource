@@ -340,27 +340,46 @@ out:
 
 #define RID_STS				0xB
 #define RID_MASK			0xF
+#define IDEV_STS			0x8
 #define RT_STS				0x10
+#define USBID_MSB			0xE
 #define USBIN_UV_BIT			0x0
 #define USBIN_OV_BIT			0x1
+#define FMB_STS_MASK			SMB_MASK(3, 0)
+#define USBID_GND_THRESHOLD		0x495
 static bool is_otg_present(struct smbchg_chip *chip)
 {
 	int rc;
 	u8 reg;
+	u8 usbid[2];
 
 	/*
 	 * There is a problem with USBID conversions on PMI8994 revisions
-	 * 2.0.0. As a workaround, check that the UV status is set before
-	 * checking RID status.
+	 * 2.0.0. As a workaround, check that the cable is not
+	 * detected as factory test before enabling OTG.
 	 */
-	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
+	rc = smbchg_read(chip, &reg, chip->misc_base + IDEV_STS, 1);
 	if (rc < 0) {
-		dev_err(chip->dev,
-			"Couldn't read usb rt status rc = %d\n", rc);
+		dev_err(chip->dev, "Couldn't read IDEV_STS rc = %d\n", rc);
 		return false;
 	}
-	if ((reg & USBIN_UV_BIT) == 0)
+
+	if ((reg & FMB_STS_MASK) != 0) {
+		pr_smb(PR_STATUS, "IDEV_STS = %02x, not ground\n", reg);
 		return false;
+	}
+
+	rc = smbchg_read(chip, usbid, chip->usb_chgpth_base + USBID_MSB, 2);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read USBID rc = %d\n", rc);
+		return false;
+	}
+
+	if (*((u16 *)usbid) > USBID_GND_THRESHOLD) {
+		pr_smb(PR_STATUS, "USBID = 0x%04x, too high to be ground\n",
+				*((u16 *)usbid));
+		return false;
+	}
 
 	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RID_STS, 1);
 	if (rc < 0) {
@@ -1077,7 +1096,6 @@ static int smbchg_get_min_parallel_current_ma(struct smbchg_chip *chip)
 		return 0;
 }
 
-#define IDEV_STS			0x8
 #define ICL_STS_1_REG			0x7
 #define ICL_STS_2_REG			0x9
 #define ICL_STS_MASK			0x1F
