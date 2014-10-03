@@ -19,9 +19,11 @@
 #include "diagfwd_bridge.h"
 #include "diagfwd_hsic.h"
 #include "diagfwd_smux.h"
+#include "diagfwd_mhi.h"
 #include "diagmem.h"
 #include "diag_dci.h"
 #include "diag_usb.h"
+#include "diag_debugfs.h"
 
 #define DEBUG_BUF_SIZE	4096
 static struct dentry *diag_dbgfs_dent;
@@ -29,6 +31,7 @@ static int diag_dbgfs_table_index;
 static int diag_dbgfs_mempool_index;
 static int diag_dbgfs_usbinfo_index;
 static int diag_dbgfs_hsicinfo_index;
+static int diag_dbgfs_mhiinfo_index;
 static int diag_dbgfs_bridgeinfo_index;
 static int diag_dbgfs_finished;
 static int diag_dbgfs_dci_data_index;
@@ -828,6 +831,75 @@ static ssize_t diag_dbgfs_read_hsicinfo(struct file *file, char __user *ubuf,
 	return ret;
 }
 
+static ssize_t diag_dbgfs_read_mhiinfo(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *ppos)
+{
+	char *buf = NULL;
+	int ret = 0;
+	int i = 0;
+	unsigned int buf_size;
+	unsigned int bytes_remaining = 0;
+	unsigned int bytes_written = 0;
+	unsigned int bytes_in_buffer = 0;
+	struct diag_mhi_info *mhi_info = NULL;
+
+	if (diag_dbgfs_mhiinfo_index >= NUM_MHI_DEV) {
+		/* Done. Reset to prepare for future requests */
+		diag_dbgfs_mhiinfo_index = 0;
+		return 0;
+	}
+
+	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(buf)) {
+		pr_err("diag: %s, Error allocating memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	buf_size = ksize(buf);
+	bytes_remaining = buf_size;
+	for (i = diag_dbgfs_mhiinfo_index; i < NUM_MHI_DEV; i++) {
+		mhi_info = &diag_mhi[i];
+		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
+			"id: %d\n"
+			"name: %s\n"
+			"bridge index: %s\n"
+			"mempool: %s\n"
+			"read ch opened: %d\n"
+			"read ch hdl: %p\n"
+			"write ch opened: %d\n"
+			"write ch hdl: %p\n"
+			"read work pending: %d\n"
+			"read done work pending: %d\n"
+			"open work pending: %d\n"
+			"close work pending: %d\n\n",
+			mhi_info->id,
+			mhi_info->name,
+			DIAG_BRIDGE_GET_NAME(mhi_info->dev_id),
+			DIAG_MEMPOOL_GET_NAME(mhi_info->mempool),
+			mhi_info->read_ch.opened,
+			mhi_info->read_ch.hdl,
+			mhi_info->write_ch.opened,
+			mhi_info->write_ch.hdl,
+			work_pending(&mhi_info->read_work),
+			work_pending(&mhi_info->read_done_work),
+			work_pending(&mhi_info->open_work),
+			work_pending(&mhi_info->close_work));
+		bytes_in_buffer += bytes_written;
+
+		/* Check if there is room to add another table entry */
+		bytes_remaining = buf_size - bytes_in_buffer;
+
+		if (bytes_remaining < bytes_written)
+			break;
+	}
+	diag_dbgfs_mhiinfo_index = i+1;
+	*ppos = 0;
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
+
+	kfree(buf);
+	return ret;
+}
+
 static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 				      size_t count, loff_t *ppos)
 {
@@ -892,6 +964,10 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 	kfree(buf);
 	return ret;
 }
+
+const struct file_operations diag_dbgfs_mhiinfo_ops = {
+	.read = diag_dbgfs_read_mhiinfo,
+};
 
 const struct file_operations diag_dbgfs_hsicinfo_ops = {
 	.read = diag_dbgfs_read_hsicinfo,
@@ -984,6 +1060,11 @@ int diag_debugfs_init(void)
 				    &diag_dbgfs_hsicinfo_ops);
 	if (!entry)
 		goto err;
+
+	entry = debugfs_create_file("mhiinfo", 0444, diag_dbgfs_dent, 0,
+				    &diag_dbgfs_mhiinfo_ops);
+	if (!entry)
+		goto err;
 #endif
 
 	diag_dbgfs_table_index = 0;
@@ -991,6 +1072,7 @@ int diag_debugfs_init(void)
 	diag_dbgfs_usbinfo_index = 0;
 	diag_dbgfs_hsicinfo_index = 0;
 	diag_dbgfs_bridgeinfo_index = 0;
+	diag_dbgfs_mhiinfo_index = 0;
 	diag_dbgfs_finished = 0;
 	diag_dbgfs_dci_data_index = 0;
 	diag_dbgfs_dci_finished = 0;
