@@ -160,6 +160,9 @@
 #define IPA_IOC_DEL_HDR_PROC_CTX32 _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_DEL_HDR_PROC_CTX, \
 				compat_uptr_t)
+#define IPA_IOC_MDFY_RT_RULE32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_MDFY_RT_RULE, \
+				compat_uptr_t)
 
 /**
  * struct ipa_ioc_nat_alloc_mem32 - nat table memory allocation
@@ -434,6 +437,35 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		if (ipa_add_rt_rule((struct ipa_ioc_add_rt_rule *)param)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case IPA_IOC_MDFY_RT_RULE:
+		if (copy_from_user(header, (u8 *)arg,
+					sizeof(struct ipa_ioc_mdfy_rt_rule))) {
+			retval = -EFAULT;
+			break;
+		}
+		pyld_sz =
+		   sizeof(struct ipa_ioc_mdfy_rt_rule) +
+		   ((struct ipa_ioc_mdfy_rt_rule *)header)->num_rules *
+		   sizeof(struct ipa_rt_rule_mdfy);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (u8 *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa_mdfy_rt_rule((struct ipa_ioc_mdfy_rt_rule *)param)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -2191,6 +2223,9 @@ ret:
 		break;
 	case IPA_IOC_NOTIFY_WAN_EMBMS_CONNECTED32:
 		cmd = IPA_IOC_NOTIFY_WAN_EMBMS_CONNECTED;
+		break;
+	case IPA_IOC_MDFY_RT_RULE32:
+		cmd = IPA_IOC_MDFY_RT_RULE;
 		break;
 	case IPA_IOC_COMMIT_HDR:
 	case IPA_IOC_RESET_HDR:
