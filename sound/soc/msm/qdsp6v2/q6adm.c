@@ -1554,7 +1554,7 @@ static struct cal_block_data *adm_find_cal_by_path(int cal_index, int path)
 				return cal_block;
 		}
 	}
-	pr_debug("%s: Can't find topology for cal_index %d, path %d\n",
+	pr_debug("%s: Can't find ADM cal for cal_index %d, path %d\n",
 		__func__, cal_index, path);
 	return NULL;
 }
@@ -1586,7 +1586,7 @@ static struct cal_block_data *adm_find_cal_by_app_type(int cal_index, int path,
 				return cal_block;
 		}
 	}
-	pr_debug("%s: Can't find topology for cal_index %d, path %d, app %d, defaulting to search by path\n",
+	pr_debug("%s: Can't find ADM cali for cal_index %d, path %d, app %d, defaulting to search by path\n",
 		__func__, cal_index, path, app_type);
 	return adm_find_cal_by_path(cal_index, path);
 }
@@ -1623,7 +1623,7 @@ static struct cal_block_data *adm_find_cal(int cal_index, int path,
 				return cal_block;
 		}
 	}
-	pr_debug("%s: Can't find topology for cal_index %d, path %d, app %d, acdb_id %d sample_rate %d defaulting to search by app type\n",
+	pr_debug("%s: Can't find ADM cal for cal_index %d, path %d, app %d, acdb_id %d sample_rate %d defaulting to search by app type\n",
 		__func__, cal_index, path, app_type, acdb_id, sample_rate);
 	return adm_find_cal_by_app_type(cal_index, path, app_type);
 }
