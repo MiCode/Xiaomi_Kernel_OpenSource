@@ -244,6 +244,18 @@ static void kgsl_sync_pt_value_str(struct sync_pt *sync_pt,
 	snprintf(str, size, "%u", kpt->timestamp);
 }
 
+static int kgsl_sync_fill_driver_data(struct sync_pt *sync_pt, void *data,
+					int size)
+{
+	struct kgsl_sync_pt *kpt = (struct kgsl_sync_pt *) sync_pt;
+
+	if (size < sizeof(kpt->timestamp))
+		return -ENOMEM;
+
+	memcpy(data, &kpt->timestamp, sizeof(kpt->timestamp));
+	return sizeof(kpt->timestamp);
+}
+
 static void kgsl_sync_timeline_release_obj(struct sync_timeline *sync_timeline)
 {
 	/*
@@ -260,6 +272,7 @@ static const struct sync_timeline_ops kgsl_sync_timeline_ops = {
 	.compare = kgsl_sync_pt_compare,
 	.timeline_value_str = kgsl_sync_timeline_value_str,
 	.pt_value_str = kgsl_sync_pt_value_str,
+	.fill_driver_data = kgsl_sync_fill_driver_data,
 	.release_obj = kgsl_sync_timeline_release_obj,
 };
 
