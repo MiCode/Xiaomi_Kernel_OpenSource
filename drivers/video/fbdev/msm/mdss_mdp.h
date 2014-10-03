@@ -134,6 +134,11 @@ enum mdss_mdp_panic_signal_type {
 	MDSS_MDP_PANIC_PER_PIPE_CFG,
 };
 
+enum mdss_mdp_fetch_type {
+	MDSS_MDP_FETCH_LINEAR,
+	MDSS_MDP_FETCH_TILE,
+};
+
 /**
  * enum mdp_commit_stage_type - Indicate different commit stages
  *
@@ -280,7 +285,7 @@ struct mdss_mdp_format_params {
 	u8 unpack_count;	/* 0 = 1 component, 1 = 2 component ... */
 	u8 bpp;
 	u8 alpha_enable;	/*  source has alpha */
-	u8 tile;
+	u8 fetch_mode;
 	u8 bits[MAX_PLANES];
 	u8 element[MAX_PLANES];
 };
@@ -698,6 +703,11 @@ static inline u32 left_lm_w_from_mfd(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	return (ctl && ctl->mixer_left) ? ctl->mixer_left->width : 0;
+}
+
+static inline bool mdss_mdp_is_tile_format(struct mdss_mdp_format_params *fmt)
+{
+	return fmt && (fmt->fetch_mode == MDSS_MDP_FETCH_TILE);
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
