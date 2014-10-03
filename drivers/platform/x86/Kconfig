@@ -827,4 +827,12 @@ config INTEL_BAYTRAIL_MBI
 	  Interface. This is a requirement for systems that need to configure
 	  the PUNIT for power management features such as RAPL.
 
+config INTEL_GPIO_HSIC
+	tristate "Intel HSIC GPIO support"
+	depends on ACPI && USB && GPIOLIB
+	---help---
+	  On some Intel USB controllers, some USB ports are connected to HSIC
+	  PHYs. And HSIC PHY disconnect and remote wakeup are supported by two
+	  gpios.
+
 endif # X86_PLATFORM_DEVICES
