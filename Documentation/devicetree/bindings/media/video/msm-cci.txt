@@ -23,13 +23,19 @@ Required properties:
 
 Optional properties:
 - qcom,gdscr-vdd-supply : should contain regulator used for cci clocks
-- i2c_freq_100Khz: qcom,i2c_standard_mode - node should contain clock settings for
-    100Khz
-- i2c_freq_400Khz: qcom,i2c_fast_mode - node should contain clock settings for
-    400Khz
-- i2c_freq_custom: qcom,i2c_custom_mode - node can contain clock settings for
-    frequencies other than 100Khz and 400Khz which is specific to usecase.
-    Currently it has settings for 375Khz.
+
+- I2c speed settings (*)
+	- i2c_freq_100Khz: qcom,i2c_standard_mode - node should contain clock settings for
+	    100Khz
+	- i2c_freq_400Khz: qcom,i2c_fast_mode - node should contain clock settings for
+	    400Khz
+	- i2c_freq_custom: qcom,i2c_custom_mode - node can contain clock settings for
+	    frequencies other than 100Khz and 400Khz which is specific to usecase.
+	    Currently it has settings for 375Khz.
+	- i2c_freq_1Mhz: qcom,i2c_fast_plus_mode - node should contain clock
+	    settings for 1Mhz
+	* if speed settings is not defined the low level driver can use "i2c_freq_custom"
+	  like default
 
 [Second level nodes]
 * Qualcomm CCI clock settings
@@ -348,5 +354,20 @@ Example:
 	qcom,hw-scl-stretch-en = <1>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
+	status = "ok";
+};
+
+&i2c_freq_1Mhz {
+	qcom,hw-thigh = <16>;
+	qcom,hw-tlow = <22>;
+	qcom,hw-tsu-sto = <17>;
+	qcom,hw-tsu-sta = <18>;
+	qcom,hw-thd-dat = <16>;
+	qcom,hw-thd-sta = <15>;
+	qcom,hw-tbuf = <19>;
+	qcom,hw-scl-stretch-en = <1>;
+	qcom,hw-trdhld = <3>;
+	qcom,hw-tsp = <3>;
+	qcom,cci-clk-src = <37500000>;
 	status = "ok";
 };
