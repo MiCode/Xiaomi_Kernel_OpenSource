@@ -445,8 +445,8 @@
 			qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
 			qcom,cdc-vddpx-1-current = <10000>;
 
-			cdc-vdd-a-1p2v-supply = <&pmd9635_l2>;
-			qcom,cdc-vdd-a-1p2v-voltage = <1200000 1200000>;
+			cdc-vdd-a-1p2v-supply = <&pmd9635_l1>;
+			qcom,cdc-vdd-a-1p2v-voltage = <1225000 1225000>;
 			qcom,cdc-vdd-a-1p2v-current = <20000>;
 
 			cdc-vddcx-1-supply = <&pmd9635_l2>;
@@ -985,6 +985,13 @@
 
 	qcom,msm-pcm-routing {
 		compatible = "qcom,msm-pcm-routing";
+	};
+
+	qcom,msm-pcm-low-latency {
+		compatible = "qcom,msm-pcm-dsp";
+		qcom,msm-pcm-dsp-id = <1>;
+		qcom,msm-pcm-low-latency;
+		qcom,latency-level = "ultra";
 	};
 
 	qcom,msm-compr-dsp {
