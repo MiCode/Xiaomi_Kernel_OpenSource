@@ -390,7 +390,6 @@ struct mhi_flags {
 	u32 pending_M0;
 	u32 link_up;
 	u32 kill_threads;
-	atomic_t mhi_link_off;
 	atomic_t data_pending;
 	atomic_t events_pending;
 	atomic_t m0_work_enabled;
@@ -447,7 +446,6 @@ struct mhi_device_ctxt {
 	struct mhi_state_work_queue state_change_work_item_list;
 	enum MHI_CMD_STATUS mhi_chan_pend_cmd_ack[MHI_MAX_CHANNELS];
 
-	atomic_t start_cmd_pending_ack;
 	u32 cmd_ring_order;
 	u32 alloced_ev_rings[EVENT_RINGS_ALLOCATED];
 	u32 ev_ring_props[EVENT_RINGS_ALLOCATED];
