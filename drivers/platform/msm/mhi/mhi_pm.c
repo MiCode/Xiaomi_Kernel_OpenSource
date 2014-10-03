@@ -246,8 +246,6 @@ enum MHI_STATUS mhi_turn_on_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
 		goto exit;
 	}
 
-	atomic_dec(&mhi_dev_ctxt->flags.mhi_link_off);
-
 	r = pci_set_power_state(mhi_dev_ctxt->dev_info->pcie_device,
 				PCI_D0);
 	if (r) {

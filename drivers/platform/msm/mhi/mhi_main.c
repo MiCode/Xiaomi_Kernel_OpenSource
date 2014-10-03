@@ -1256,7 +1256,6 @@ enum MHI_STATUS parse_cmd_event(struct mhi_device_ctxt *mhi_dev_ctxt,
 								cmd_pkt))
 				mhi_log(MHI_MSG_INFO,
 					"Failed to process reset cmd\n");
-			atomic_dec(&mhi_dev_ctxt->start_cmd_pending_ack);
 			wake_up_interruptible(
 				mhi_dev_ctxt->chan_start_complete);
 			break;
