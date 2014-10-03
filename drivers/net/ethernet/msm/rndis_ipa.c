@@ -52,6 +52,9 @@
 		(BAM_DMA_MAX_PKT_NUMBER*(sizeof(struct sps_iovec)))
 #define TX_TIMEOUT (5 * HZ)
 #define MIN_TX_ERROR_SLEEP_PERIOD 500
+#define DEFAULT_AGGR_TIME_LIMIT 1
+#define DEFAULT_AGGR_PKT_LIMIT 0
+
 
 #define RNDIS_IPA_ERROR(fmt, args...) \
 		pr_err(DRV_NAME "@%s@%d@ctx:%s: "\
@@ -369,8 +372,8 @@ static struct ipa_ep_cfg ipa_to_usb_ep_cfg = {
 		.aggr_en = IPA_ENABLE_AGGR,
 		.aggr = IPA_GENERIC,
 		.aggr_byte_limit = 4,
-		.aggr_time_limit = 1,
-		.aggr_pkt_limit = 10,
+		.aggr_time_limit = DEFAULT_AGGR_TIME_LIMIT,
+		.aggr_pkt_limit = DEFAULT_AGGR_PKT_LIMIT
 	},
 	.deaggr = {
 		.deaggr_hdr_len = 0,
@@ -1930,9 +1933,29 @@ static int rndis_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl,
 	}
 	RNDIS_IPA_DEBUG("IPA<-USB end-point configured\n");
 
-	ipa_to_usb_ep_cfg.aggr.aggr_pkt_limit = 0;
 	ipa_to_usb_ep_cfg.aggr.aggr_byte_limit =
 		(max_xfer_size_bytes_to_host - mtu)/1024;
+
+	if (ipa_to_usb_ep_cfg.aggr.aggr_byte_limit == 0) {
+		ipa_to_usb_ep_cfg.aggr.aggr_time_limit = 0;
+		ipa_to_usb_ep_cfg.aggr.aggr_pkt_limit = 1;
+	} else {
+		ipa_to_usb_ep_cfg.aggr.aggr_time_limit =
+			DEFAULT_AGGR_TIME_LIMIT;
+		ipa_to_usb_ep_cfg.aggr.aggr_pkt_limit =
+			DEFAULT_AGGR_PKT_LIMIT;
+	}
+
+	RNDIS_IPA_DEBUG("RNDIS aggregation param:"
+			" en=%d"
+			" byte_limit=%d"
+			" time_limit=%d"
+			" pkt_limit=%d\n",
+			ipa_to_usb_ep_cfg.aggr.aggr_en,
+			ipa_to_usb_ep_cfg.aggr.aggr_byte_limit,
+			ipa_to_usb_ep_cfg.aggr.aggr_time_limit,
+			ipa_to_usb_ep_cfg.aggr.aggr_pkt_limit);
+
 	result = ipa_cfg_ep(ipa_to_usb_hdl, &ipa_to_usb_ep_cfg);
 	if (result) {
 		pr_err("failed to configure IPA to USB end-point\n");
