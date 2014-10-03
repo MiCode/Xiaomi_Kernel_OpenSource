@@ -309,4 +309,13 @@ struct soft_volume_params {
 	uint32_t right_gain;
 };
 
+struct msm_nt_eff_all_config {
+	struct bass_boost_params bass_boost;
+	struct virtualizer_params virtualizer;
+	struct reverb_params reverb;
+	struct eq_params equalizer;
+	struct soft_volume_params saplus_vol;
+	struct soft_volume_params topo_switch_vol;
+};
+
 #endif /*_MSM_AUDIO_EFFECTS_H*/

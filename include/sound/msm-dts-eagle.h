@@ -51,6 +51,7 @@ int msm_dts_eagle_handle_asm(struct dts_eagle_param_desc *depd, char *buf,
 int msm_dts_eagle_handle_adm(struct dts_eagle_param_desc *depd, char *buf,
 			     bool for_pre, bool get);
 int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg);
+int msm_dts_eagle_is_hpx_on(void);
 int msm_dts_eagle_init_pre(struct audio_client *ac);
 int msm_dts_eagle_deinit_pre(struct audio_client *ac);
 int msm_dts_eagle_init_post(int port_id, int copp_id);
@@ -99,6 +100,10 @@ static inline int msm_dts_eagle_handle_adm(struct dts_eagle_param_desc *depd,
 static inline int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 {
 	return -EPERM;
+}
+static inline int msm_dts_eagle_is_hpx_on(void)
+{
+	return 0;
 }
 static inline int msm_dts_eagle_init_pre(struct audio_client *ac)
 {

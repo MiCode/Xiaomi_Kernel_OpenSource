@@ -19,6 +19,10 @@
 bool msm_audio_effects_is_effmodule_supp_in_top(int effect_module,
 						int topology);
 
+int msm_audio_effects_enable_extn(struct audio_client *ac,
+			     struct msm_nt_eff_all_config *effects,
+			     bool flag);
+
 int msm_audio_effects_reverb_handler(struct audio_client *ac,
 				     struct reverb_params *reverb,
 				     long *values);
