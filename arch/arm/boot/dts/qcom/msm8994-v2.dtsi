@@ -47,6 +47,7 @@
 				  "sec-ext-irq",
 				  "cci-irq",
 				  "sbe-irq";
+		poll-delay-ms = <5000>;
 	};
 
 	cpu-pmu {
