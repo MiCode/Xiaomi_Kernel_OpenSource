@@ -53,6 +53,7 @@ struct diagfwd_bridge_info {
 extern struct diagfwd_bridge_info bridge_info[NUM_REMOTE_DEV];
 int diagfwd_bridge_init(void);
 void diagfwd_bridge_exit(void);
+int diagfwd_bridge_close(int id);
 int diagfwd_bridge_write(int id, unsigned char *buf, int len);
 uint16_t diag_get_remote_device_mask(void);
 
