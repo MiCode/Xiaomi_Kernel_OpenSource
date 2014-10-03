@@ -282,7 +282,7 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		} else if (req->flags & MDP_BWC_EN) {
 			pr_err("Decimation can't be enabled with BWC\n");
 			return -EINVAL;
-		} else if (fmt->tile) {
+		} else if (fmt->fetch_mode != MDSS_MDP_FETCH_LINEAR) {
 			pr_err("Decimation can't be enabled with MacroTile format\n");
 			return -EINVAL;
 		}
@@ -415,8 +415,8 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
 		 * mdp clock requirement
 		 */
 		if (mdata->has_decimation && (pipe->vert_deci < MAX_DECIMATION)
-			&& !pipe->bwc_mode && !pipe->src_fmt->tile &&
-			!pipe->scale.enable_pxl_ext)
+			&& !pipe->bwc_mode && !pipe->scale.enable_pxl_ext &&
+			(pipe->src_fmt == MDSS_MDP_FETCH_LINEAR))
 			pipe->vert_deci++;
 		else
 			return -E2BIG;

@@ -562,7 +562,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.is_caf = mdss_mdp_perf_is_caf(pipe);
 	prefill_params.is_fbc = is_fbc;
 	prefill_params.is_bwc = pipe->bwc_mode;
-	prefill_params.is_tile = pipe->src_fmt->tile;
+	prefill_params.is_tile = mdss_mdp_is_tile_format(pipe->src_fmt);
 	prefill_params.is_hflip = pipe->flags & MDP_FLIP_LR;
 	prefill_params.is_cmd = !mixer->ctl->is_video_mode;
 	prefill_params.pnum = pipe->num;

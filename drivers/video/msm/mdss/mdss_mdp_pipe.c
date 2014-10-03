@@ -280,11 +280,11 @@ static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
 	 */
 
 	latency_bytes = mdss_mdp_calc_latency_buf_bytes(pipe->src_fmt->is_yuv,
-		pipe->bwc_mode, pipe->src_fmt->tile, pipe->src.w,
-		pipe->src_fmt->bpp,
-		false, useable_space);
+		pipe->bwc_mode, mdss_mdp_is_tile_format(pipe->src_fmt),
+		pipe->src.w, pipe->src_fmt->bpp, false, useable_space);
 
-	if ((pipe->flags & MDP_FLIP_LR) && !pipe->src_fmt->tile) {
+	if ((pipe->flags & MDP_FLIP_LR) &&
+		!mdss_mdp_is_tile_format(pipe->src_fmt)) {
 		/*
 		 * when doing hflip, one line is reserved to be consumed down
 		 * the pipeline. This line will always be marked as full even
@@ -298,7 +298,7 @@ static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
 	}
 
 	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103) &&
-		(pipe->src_fmt->tile)) {
+		mdss_mdp_is_tile_format(pipe->src_fmt)) {
 		val = latency_bytes / SMP_MB_ENTRY_SIZE;
 
 		wm[0] = (val * 5) / 8;
@@ -456,12 +456,12 @@ static u32 mdss_mdp_calc_per_plane_num_blks(u32 ystride,
 
 	if (pipe->mixer_left && (pipe->mixer_left->rotator_mode ||
 		(pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_WRITEBACK))) {
-		if (pipe->src_fmt->tile)
+		if (mdss_mdp_is_tile_format(pipe->src_fmt))
 			num_blks = 4;
 		else
 			num_blks = 1;
 	} else {
-		if (pipe->src_fmt->tile)
+		if (mdss_mdp_is_tile_format(pipe->src_fmt))
 			nlines = 8;
 		else
 			nlines = pipe->bwc_mode ? 1 : 2;
@@ -479,8 +479,8 @@ static u32 mdss_mdp_calc_per_plane_num_blks(u32 ystride,
 	}
 
 	pr_debug("pipenum:%d tile:%d bwc:%d ystride%d pipeblks:%d blks:%d\n",
-		pipe->num, pipe->src_fmt->tile, pipe->bwc_mode, ystride,
-		mdata->smp_mb_per_pipe, num_blks);
+		pipe->num, mdss_mdp_is_tile_format(pipe->src_fmt),
+		pipe->bwc_mode, ystride, mdata->smp_mb_per_pipe, num_blks);
 
 	return num_blks;
 }
@@ -1474,7 +1474,7 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 		     (fmt->bits[C1_B_Cb] << 2) |
 		     (fmt->bits[C0_G_Y] << 0);
 
-	if (fmt->tile)
+	if (mdss_mdp_is_tile_format(fmt))
 		src_format |= BIT(30);
 
 	if (pipe->flags & MDP_ROT_90)
@@ -1493,7 +1493,7 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 
 	mdss_mdp_pipe_sspp_setup(pipe, &opmode);
 
-	if (fmt->tile && mdata->highest_bank_bit) {
+	if (mdss_mdp_is_tile_format(fmt) && mdata->highest_bank_bit) {
 		mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_FETCH_CONFIG,
 			MDSS_MDP_FETCH_CONFIG_RESET_VALUE |
 				 mdata->highest_bank_bit << 18);
