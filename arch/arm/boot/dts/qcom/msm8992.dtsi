@@ -370,9 +370,16 @@
 		compatible = "qcom,cc-debug-8992";
 		reg = <0xfc401880 0x4>;
 		reg-names = "cc_base";
-		clock-names = "debug_mmss_clk", "debug_rpm_clk";
+		clock-names = "debug_mmss_clk", "debug_rpm_clk",
+			      "debug_cpu_clk";
 		clocks = <&clock_mmss clk_mmss_debug_mux>,
-		         <&clock_rpm clk_rpm_debug_mux>;
+		         <&clock_rpm clk_rpm_debug_mux>,
+		         <&clock_cpu clk_cpu_debug_mux>;
+		#clock-cells = <1>;
+	};
+
+	clock_cpu: qcom,cpu-clock-8992@f9015000 {
+		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 	};
 
