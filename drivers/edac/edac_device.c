@@ -414,7 +414,11 @@ void edac_device_workq_setup(struct edac_device_ctl_info *edac_dev,
 	edac_dev->poll_msec = msec;
 	edac_dev->delay = msecs_to_jiffies(msec);
 
-	INIT_DELAYED_WORK(&edac_dev->work, edac_device_workq_function);
+	if (edac_dev->defer_work)
+		INIT_DEFERRABLE_WORK(&edac_dev->work,
+					edac_device_workq_function);
+	else
+		INIT_DELAYED_WORK(&edac_dev->work, edac_device_workq_function);
 
 	/* optimize here for the 1 second case, which will be normal value, to
 	 * fire ON the 1 second time event. This helps reduce all sorts of
