@@ -687,14 +687,15 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 				msm_unmap_dma_buf(data->srcp_table,
 					mdss_get_iommu_domain(domain), 0);
 
-				dma_buf_unmap_attachment(data->srcp_attachment,
-					data->srcp_table,
-					DMA_BIDIRECTIONAL);
-
-				dma_buf_detach(data->srcp_dma_buf,
-					data->srcp_attachment);
-				dma_buf_put(data->srcp_dma_buf);
 			}
+
+			dma_buf_unmap_attachment(data->srcp_attachment,
+				data->srcp_table, DMA_BIDIRECTIONAL);
+
+			dma_buf_detach(data->srcp_dma_buf,
+					data->srcp_attachment);
+			dma_buf_put(data->srcp_dma_buf);
+
 			data->srcp_dma_buf = NULL;
 		}
 
@@ -774,6 +775,7 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data,
 		} else {
 			*start = sg_phys(data->srcp_table->sgl);
 			*len = data->srcp_table->sgl->length;
+			ret = 0;
 		}
 
 		if (IS_ERR_VALUE(ret)) {
