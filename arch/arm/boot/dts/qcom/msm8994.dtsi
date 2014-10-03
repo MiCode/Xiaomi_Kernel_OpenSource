@@ -1403,9 +1403,10 @@
 			 <&clock_gcc clk_gcc_usb3_phy_pipe_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			 <&clock_gcc clk_gcc_usb3_phy_reset>,
+			 <&clock_gcc clk_gcc_usb3phy_phy_reset>,
 			 <&clock_gcc clk_usb_ss_phy_ldo>;
 		clock-names = "aux_clk", "pipe_clk", "cfg_ahb_clk", "phy_reset",
-				"ldo_clk";
+				"phy_phy_reset", "ldo_clk";
 	};
 
 	dbm_1p5: dbm@f92f8000 {
