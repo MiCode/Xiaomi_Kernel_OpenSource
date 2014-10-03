@@ -622,13 +622,21 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 	mem_size = (ipa_ctx->hdr_tbl_lcl) ? IPA_MEM_PART(apps_hdr_size) :
 		IPA_MEM_PART(apps_hdr_size_ddr);
 
-	/* if header does not fit to table, place it in DDR */
+	/*
+	 * if header does not fit to table, place it in DDR
+	 * This is valid for IPA 2.5 and above
+	 */
 	if (htbl->end + ipa_hdr_bin_sz[bin] > mem_size) {
-		entry->is_hdr_proc_ctx = true;
-		entry->phys_base = dma_map_single(ipa_ctx->pdev,
-			entry->hdr,
-			entry->hdr_len,
-			DMA_TO_DEVICE);
+		if (ipa_ctx->ipa_hw_type < IPA_HW_v2_5) {
+			IPAERR("not enough room for header\n");
+			goto bad_hdr_len;
+		} else {
+			entry->is_hdr_proc_ctx = true;
+			entry->phys_base = dma_map_single(ipa_ctx->pdev,
+				entry->hdr,
+				entry->hdr_len,
+				DMA_TO_DEVICE);
+		}
 	} else {
 		entry->is_hdr_proc_ctx = false;
 		if (list_empty(&htbl->head_free_offset_list[bin])) {
