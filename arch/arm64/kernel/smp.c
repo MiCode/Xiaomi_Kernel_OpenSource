@@ -557,7 +557,7 @@ static void ipi_cpu_stop(unsigned int cpu, struct pt_regs *regs)
 		pr_crit("CPU%u: stopping\n", cpu);
 		show_regs(regs);
 		dump_stack();
-		arm64_check_cache_ecc();
+		arm64_check_cache_ecc(NULL);
 		raw_spin_unlock(&stop_lock);
 	}
 

@@ -22,6 +22,7 @@ Optional properties:
 - reg: Should contain physical address of the CCI register space
 - reg-names: Should contain 'cci'. Must be present if 'reg' property is present
 - qcom,apply-cti-pmu-wa: Indicates if the driver needs to apply the CTI PMU Workaround. Relevant for 8994V1.
+- poll-delay-msec: Indicates how often the edac check callback should be called. Time in msec.
 
 Example:
 	cpu_cache_erp {
