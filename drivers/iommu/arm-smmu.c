@@ -651,8 +651,13 @@ static int arm_smmu_parse_iommus_properties(struct arm_smmu_device *smmu,
 		}
 
 		list_for_each_entry_safe(entry, n, &iommus, list) {
-			register_smmu_master(smmu, entry);
-			(*num_masters)++;
+			int rc = register_smmu_master(smmu, entry);
+			if (rc) {
+				dev_err(smmu->dev, "Couldn't register %s\n",
+					entry->node->name);
+			} else {
+				(*num_masters)++;
+			}
 			list_del(&entry->list);
 			devm_kfree(smmu->dev, entry);
 		}
