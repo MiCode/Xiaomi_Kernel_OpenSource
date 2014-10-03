@@ -85,3 +85,7 @@
 &i2c_6 {
 	status = "disabled";
 };
+
+&sdhc_2 {
+	cd-gpios = <&msm_gpio 38 0x1>;
+};
