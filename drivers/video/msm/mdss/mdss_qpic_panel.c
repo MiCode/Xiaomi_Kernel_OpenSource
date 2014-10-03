@@ -232,7 +232,7 @@ static int mdss_qpic_panel_probe(struct platform_device *pdev)
 		return rc;
 
 	/* select panel according to label */
-	if (!strcmp(panel_name, "ili qvga lcdc panel")) {
+	if (panel_name && !strcmp(panel_name, "ili qvga lcdc panel")) {
 		qpic_panel_on = ili9341_on;
 		qpic_panel_off = ili9341_off;
 	} else {
