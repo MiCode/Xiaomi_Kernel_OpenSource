@@ -840,7 +840,7 @@ static ssize_t uim_dev_write(struct file *file, const char __user *buf,
 
 	uim_hsl_start_tx(port);
 
-	return 0;
+	return count;
 }
 
 static unsigned int uim_dev_poll(struct file *file, poll_table *wait)
