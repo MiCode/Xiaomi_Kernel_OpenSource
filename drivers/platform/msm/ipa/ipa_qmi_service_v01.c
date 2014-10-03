@@ -1194,6 +1194,110 @@ struct elem_info ipa_fltr_installed_notif_resp_msg_data_v01_ei[] = {
 	},
 };
 
+struct elem_info ipa_enable_force_clear_datapath_req_msg_data_v01_ei[] = {
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x01,
+		.offset		= offsetof(
+			struct ipa_enable_force_clear_datapath_req_msg_v01,
+			source_pipe_bitmask),
+	},
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x02,
+		.offset		= offsetof(
+			struct ipa_enable_force_clear_datapath_req_msg_v01,
+			request_id),
+	},
+	{
+		.data_type	= QMI_OPT_FLAG,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint8_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x10,
+		.offset		= offsetof(
+			struct ipa_enable_force_clear_datapath_req_msg_v01,
+			throttle_source_valid),
+	},
+	{
+		.data_type	= QMI_UNSIGNED_1_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint8_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x10,
+		.offset		= offsetof(
+			struct ipa_enable_force_clear_datapath_req_msg_v01,
+			throttle_source),
+	},
+	{
+		.data_type	= QMI_EOTI,
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct elem_info ipa_enable_force_clear_datapath_resp_msg_data_v01_ei[] = {
+	{
+		.data_type	= QMI_STRUCT,
+		.elem_len	= 1,
+		.elem_size	= sizeof(struct qmi_response_type_v01),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x02,
+		.offset		= offsetof(
+			struct ipa_enable_force_clear_datapath_resp_msg_v01,
+			resp),
+		.ei_array	= get_qmi_response_type_v01_ei(),
+	},
+	{
+		.data_type	= QMI_EOTI,
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct elem_info ipa_disable_force_clear_datapath_req_msg_data_v01_ei[] = {
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x01,
+		.offset		= offsetof(
+			struct ipa_disable_force_clear_datapath_req_msg_v01,
+			request_id),
+	},
+	{
+		.data_type	= QMI_EOTI,
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+	},
+};
+
+struct elem_info ipa_disable_force_clear_datapath_resp_msg_data_v01_ei[] = {
+	{
+		.data_type	= QMI_STRUCT,
+		.elem_len	= 1,
+		.elem_size	= sizeof(struct qmi_response_type_v01),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x02,
+		.offset		= offsetof(
+			struct ipa_disable_force_clear_datapath_resp_msg_v01,
+			resp),
+		.ei_array	= get_qmi_response_type_v01_ei(),
+	},
+	{
+		.data_type	= QMI_EOTI,
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+	},
+};
+
 struct elem_info ipa_config_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_OPT_FLAG,

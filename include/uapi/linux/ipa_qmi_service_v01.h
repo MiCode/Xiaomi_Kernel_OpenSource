@@ -708,7 +708,75 @@ struct ipa_fltr_installed_notif_resp_msg_v01 {
 	/* Mandatory */
 	/*  Result Code */
 	struct ipa_qmi_response_type_v01 resp;
-	/*	Standard response type.*/
+	/*	Standard response type */
+};  /* Message */
+
+/* Request Message; Notifies the remote driver of the need to clear the data
+ * path to prevent the IPA from being blocked at the head of the processing
+ * pipeline
+ */
+struct ipa_enable_force_clear_datapath_req_msg_v01 {
+	/* Mandatory */
+	/*  Pipe Mask */
+	uint32_t source_pipe_bitmask;
+	/* Set of consumer (source) pipes that must be clear of
+	 * active data transfers.
+	 */
+
+	/* Mandatory */
+	/* Request ID */
+	uint32_t request_id;
+	/* Identifies the ID of the request that is sent to the server
+	 * The same request ID is used in the message to remove the force_clear
+	 * request. The server is expected to keep track of the request ID and
+	 * the source_pipe_bitmask so that it can revert as needed
+	 */
+
+	/* Optional */
+	/*  Source Throttle State */
+	uint8_t throttle_source_valid;
+	/* Must be set to true if throttle_source is being passed */
+	uint8_t throttle_source;
+	/*  Specifies whether the server is to throttle the data from
+	 *	these consumer (source) pipes after clearing the exisiting
+	 *	data present in the IPA that were pulled from these pipes
+	 *	The server is expected to put all the source pipes in the
+	 *	source_pipe_bitmask in the same state
+	 */
+};  /* Message */
+
+/* Response Message; Notifies the remote driver of the need to clear the
+ * data path to prevent the IPA from being blocked at the head of the
+ * processing pipeline
+ */
+struct ipa_enable_force_clear_datapath_resp_msg_v01 {
+	/* Mandatory */
+	/*  Result Code */
+	struct ipa_qmi_response_type_v01 resp;
+	/* Standard response type */
+};  /* Message */
+
+/* Request Message; Notifies the remote driver that the forceful clearing
+ * of the data path can be lifted
+ */
+struct ipa_disable_force_clear_datapath_req_msg_v01 {
+	/* Mandatory */
+	/* Request ID */
+	uint32_t request_id;
+	/* Identifies the request that was sent to the server to
+	 * forcibly clear the data path. This request simply undoes
+	 * the operation done in that request
+	 */
+};  /* Message */
+
+/* Response Message; Notifies the remote driver that the forceful clearing
+ * of the data path can be lifted
+ */
+struct ipa_disable_force_clear_datapath_resp_msg_v01 {
+	/* Mandatory */
+	/*  Result Code */
+	struct ipa_qmi_response_type_v01 resp;
+	/* Standard response type */
 };  /* Message */
 
 enum ipa_peripheral_speed_enum_v01 {
@@ -922,6 +990,10 @@ struct ipa_config_resp_msg_v01 {
 #define QMI_IPA_INSTALL_FILTER_RULE_RESP_V01 0x0023
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_V01 0x0024
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_V01 0x0024
+#define QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_REQ_V01 0x0025
+#define QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_RESP_V01 0x0025
+#define QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_REQ_V01 0x0026
+#define QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_RESP_V01 0x0026
 #define QMI_IPA_CONFIG_REQ_V01 0x0027
 #define QMI_IPA_CONFIG_RESP_V01 0x0027
 
@@ -935,6 +1007,12 @@ struct ipa_config_resp_msg_v01 {
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01 546
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_MAX_MSG_LEN_V01 7
 #define QMI_IPA_MASTER_DRIVER_INIT_COMPLETE_IND_MAX_MSG_LEN_V01 7
+
+#define QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_REQ_MAX_MSG_LEN_V01 18
+#define QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_REQ_MAX_MSG_LEN_V01 7
+#define QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_RESP_MAX_MSG_LEN_V01 7
+#define QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_RESP_MAX_MSG_LEN_V01 7
+
 
 #define QMI_IPA_CONFIG_REQ_MAX_MSG_LEN_V01 81
 #define QMI_IPA_CONFIG_RESP_MAX_MSG_LEN_V01 7
