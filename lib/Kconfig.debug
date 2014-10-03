@@ -1034,6 +1034,28 @@ config DEBUG_SPINLOCK
 	  and certain other kinds of spinlock errors commonly made.  This is
 	  best used in conjunction with the NMI watchdog so that spinlock
 	  deadlocks are also debuggable.
+choice
+        prompt "Perform Action on spinlock bug"
+        depends on DEBUG_SPINLOCK
+
+        default DEBUG_SPINLOCK_BITE_ON_BUG
+
+        config DEBUG_SPINLOCK_BITE_ON_BUG
+                bool "Cause a Watchdog Bite on Spinlock bug"
+                depends on QCOM_WATCHDOG_V2
+                help
+                  On a spinlock bug, cause a watchdog bite so that we can get
+                  the precise state of the system captured at the time of spin
+                  dump. This is mutually exclusive with the below
+                  DEBUG_SPINLOCK_PANIC_ON_BUG config.
+
+        config DEBUG_SPINLOCK_PANIC_ON_BUG
+                bool "Cause a Kernel Panic on Spinlock bug"
+                help
+                  On a spinlock bug, cause a kernel panic so that we can get the complete
+                  information about the system at the time of spin dump in the dmesg.
+                  This is mutually exclusive with the above DEBUG_SPINLOCK_BITE_ON_BUG.
+endchoice
 
 config DEBUG_MUTEXES
 	bool "Mutex debugging: basic checks"
@@ -1211,7 +1233,7 @@ config DEBUG_KOBJECT
 	depends on DEBUG_KERNEL
 	help
 	  If you say Y here, some extra kobject debugging messages will be sent
-	  to the syslog. 
+	  to the syslog.
 
 config DEBUG_KOBJECT_RELEASE
 	bool "kobject release debugging"
