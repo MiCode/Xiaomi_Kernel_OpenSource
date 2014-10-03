@@ -1971,6 +1971,11 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 	struct smd_channel *ch;
 	unsigned long flags;
 
+	if (edge >= SMD_NUM_TYPE) {
+		pr_err("%s: edge:%d is invalid\n", __func__, edge);
+		return -EINVAL;
+	}
+
 	if (!smd_edge_inited(edge)) {
 		SMD_INFO("smd_open() before smd_init()\n");
 		return -EPROBE_DEFER;
