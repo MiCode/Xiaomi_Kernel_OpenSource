@@ -2271,7 +2271,7 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
 		schedule_work(&chip->usb_set_online_work);
 	}
-	if (chip->parallel.avail) {
+	if (parallel_psy) {
 		power_supply_set_present(parallel_psy, false);
 		disable_irq_wake(chip->aicl_done_irq);
 	}
@@ -2302,7 +2302,7 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
 		schedule_work(&chip->usb_set_online_work);
 	}
-	if (chip->parallel.avail) {
+	if (parallel_psy) {
 		power_supply_set_present(parallel_psy, true);
 		enable_irq_wake(chip->aicl_done_irq);
 	}
