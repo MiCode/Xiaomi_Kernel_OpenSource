@@ -1185,6 +1185,7 @@ int dhd_bus_rxctl(struct dhd_bus *bus, uchar *msg, uint msglen)
 	if (bus->dhd->rxcnt_timeout >= MAX_CNTL_TX_TIMEOUT) {
 #ifdef MSM_PCIE_LINKDOWN_RECOVERY
 		bus->islinkdown = TRUE;
+		DHD_ERROR(("PCIe link down\n"));
 #endif /* SUPPORT_LINKDOWN_RECOVERY */
 		return -ETIMEDOUT;
 	}
