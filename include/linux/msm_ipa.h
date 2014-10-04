@@ -51,7 +51,15 @@
 #define IPA_IOCTL_GET_NAT_OFFSET 28
 #define IPA_IOCTL_RM_ADD_DEPENDENCY 29
 #define IPA_IOCTL_RM_DEL_DEPENDENCY 30
-#define IPA_IOCTL_MAX            31
+#define IPA_IOCTL_GENERATE_FLT_EQ 31
+#define IPA_IOCTL_QUERY_INTF_EXT_PROPS 32
+#define IPA_IOCTL_QUERY_EP_MAPPING 33
+#define IPA_IOCTL_QUERY_RT_TBL_INDEX 34
+#define IPA_IOCTL_WRITE_QMAPID 35
+#define IPA_IOCTL_MDFY_FLT_RULE 36
+#define IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_ADD 37
+#define IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_DEL 38
+#define IPA_IOCTL_MAX 39
 
 /**
  * max size of the header to be inserted
@@ -179,7 +187,38 @@ enum ipa_wlan_event {
 	WLAN_AP_DISCONNECT,
 	WLAN_STA_CONNECT,
 	WLAN_STA_DISCONNECT,
-	IPA_EVENT_MAX
+	IPA_WLAN_EVENT_MAX
+};
+
+/**
+ * enum ipa_wan_event - Events for wan client
+ *
+ * wan default route add/del
+ */
+enum ipa_wan_event {
+	WAN_UPSTREAM_ROUTE_ADD = IPA_WLAN_EVENT_MAX,
+	WAN_UPSTREAM_ROUTE_DEL,
+	IPA_WAN_EVENT_MAX
+};
+
+enum ipa_ecm_event {
+	ECM_CONNECT = IPA_WAN_EVENT_MAX,
+	ECM_DISCONNECT,
+	IPA_EVENT_MAX_NUM
+};
+
+#define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
+
+/**
+ * struct ipa_wan_msg - To hold information about wan client
+ * @name: name of the wan interface
+ *
+ * CnE need to pass the name of default wan iface when connected/disconnected.
+ */
+struct ipa_wan_msg {
+	char upstream_ifname[IPA_RESOURCE_NAME_MAX];
+	char tethered_ifname[IPA_RESOURCE_NAME_MAX];
+	enum ipa_ip_type ip;
 };
 
 /**
@@ -823,6 +862,14 @@ struct ipa_ioc_rm_dependency {
 #define IPA_IOC_RM_DEL_DEPENDENCY _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_RM_DEL_DEPENDENCY, \
 				struct ipa_ioc_rm_dependency *)
+
+#define IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_ADD _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_ADD, \
+				struct ipa_wan_msg *)
+
+#define IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_DEL _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_DEL, \
+				struct ipa_wan_msg *)
 
 /*
  * unique magic number of the Tethering bridge ioctls
