@@ -49,6 +49,7 @@
 #define QPNP_VADC_STATUS1_REQ_STS_EOC_MASK			0x3
 #define QPNP_VADC_STATUS1_OP_MODE_MASK				0x18
 #define QPNP_VADC_MEAS_INT_MODE					0x2
+#define QPNP_VADC_MEAS_INT_MODE_MASK				0x10
 
 #define QPNP_VADC_STATUS2					0x9
 #define QPNP_VADC_STATUS2_CONV_SEQ_STATE				6
@@ -74,6 +75,9 @@
 #define QPNP_VADC_CONV_SEQ_HOLDOFF_SHIFT				4
 #define QPNP_VADC_CONV_SEQ_TRIG_CTL				0x55
 #define QPNP_VADC_MEAS_INTERVAL_CTL				0x57
+#define QPNP_VADC_MEAS_INTERVAL_OP_CTL				0x59
+#define QPNP_VADC_MEAS_INTERVAL_OP_SET				BIT(7)
+
 #define QPNP_VADC_CONV_SEQ_FALLING_EDGE				0x0
 #define QPNP_VADC_CONV_SEQ_RISING_EDGE				0x1
 #define QPNP_VADC_CONV_SEQ_EDGE_SHIFT				7
@@ -326,7 +330,7 @@ static int32_t qpnp_vadc_configure(struct qpnp_vadc_chip *vadc,
 			struct qpnp_adc_amux_properties *chan_prop)
 {
 	u8 decimation = 0, conv_sequence = 0, conv_sequence_trig = 0;
-	u8 mode_ctrl = 0;
+	u8 mode_ctrl = 0, meas_int_op_ctl_data = 0;
 	int rc = 0;
 
 	/* Mode selection */
@@ -376,6 +380,13 @@ static int32_t qpnp_vadc_configure(struct qpnp_vadc_chip *vadc,
 			pr_err("Fast averaging configure error\n");
 			return rc;
 		}
+		/* Ensure MEAS_INTERVAL_OP_CTL is set to 0 */
+		rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_MEAS_INTERVAL_OP_CTL,
+						meas_int_op_ctl_data);
+		if (rc < 0) {
+			pr_err("Measurement interval OP configure error\n");
+			return rc;
+		}
 	} else if (chan_prop->mode_sel == (ADC_OP_CONVERSION_SEQUENCER <<
 					QPNP_VADC_OP_MODE_SHIFT)) {
 		/* Conversion sequence mode */
@@ -396,6 +407,13 @@ static int32_t qpnp_vadc_configure(struct qpnp_vadc_chip *vadc,
 							conv_sequence_trig);
 		if (rc < 0) {
 			pr_err("Conversion trigger error\n");
+			return rc;
+		}
+	} else if (chan_prop->mode_sel == ADC_OP_MEASUREMENT_INTERVAL) {
+		rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_MEAS_INTERVAL_OP_CTL,
+					QPNP_VADC_MEAS_INTERVAL_OP_SET);
+		if (rc < 0) {
+			pr_err("Measurement interval OP configure error\n");
 			return rc;
 		}
 	}
@@ -557,7 +575,19 @@ static irqreturn_t qpnp_vadc_isr(int irq, void *dev_id)
 static irqreturn_t qpnp_vadc_low_thr_isr(int irq, void *data)
 {
 	struct qpnp_vadc_chip *vadc = data;
-	u8 mode_ctl = 0;
+	u8 mode_ctl = 0, mode = 0;
+	int rc = 0;
+
+	rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_MODE_CTL, &mode);
+	if (rc < 0) {
+		pr_err("mode ctl register read failed with %d\n", rc);
+		return rc;
+	}
+
+	if (!(mode & QPNP_VADC_MEAS_INT_MODE_MASK)) {
+		pr_debug("Spurious VADC threshold 0x%x\n", mode);
+		return IRQ_HANDLED;
+	}
 
 	mode_ctl = ADC_OP_NORMAL_MODE;
 	/* Set measurement in single measurement mode */
@@ -571,7 +601,19 @@ static irqreturn_t qpnp_vadc_low_thr_isr(int irq, void *data)
 static irqreturn_t qpnp_vadc_high_thr_isr(int irq, void *data)
 {
 	struct qpnp_vadc_chip *vadc = data;
-	u8 mode_ctl = 0;
+	u8 mode_ctl = 0, mode = 0;
+	int rc = 0;
+
+	rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_MODE_CTL, &mode);
+	if (rc < 0) {
+		pr_err("mode ctl register read failed with %d\n", rc);
+		return rc;
+	}
+
+	if (!(mode & QPNP_VADC_MEAS_INT_MODE_MASK)) {
+		pr_debug("Spurious VADC threshold 0x%x\n", mode);
+		return IRQ_HANDLED;
+	}
 
 	mode_ctl = ADC_OP_NORMAL_MODE;
 	/* Set measurement in single measurement mode */
