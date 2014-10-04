@@ -35,6 +35,7 @@
 #include <crypto/hash.h>
 #include <crypto/md5.h>
 #include <crypto/algapi.h>
+#include <crypto/ice.h>
 
 #define DM_MSG_PREFIX "req-crypt"
 
@@ -45,9 +46,23 @@
 #define MIN_POOL_PAGES 32
 #define KEY_SIZE_XTS 64
 #define AES_XTS_IV_LEN 16
+#define MAX_MSM_ICE_KEY_LUT_SIZE 32
 
 #define DM_REQ_CRYPT_ERROR -1
 #define DM_REQ_CRYPT_ERROR_AFTER_PAGE_MALLOC -2
+
+/*
+ * ENCRYPTION_MODE_CRYPTO means dm-req-crypt would invoke crypto operations
+ * for all of the requests. Crypto operations are performed by crypto engine
+ * plugged with Linux Kernel Crypto APIs
+ */
+#define DM_REQ_CRYPT_ENCRYPTION_MODE_CRYPTO 0
+/*
+ * ENCRYPTION_MODE_TRANSPARENT means dm-req-crypt would not invoke crypto
+ * operations for any of the requests. Data would be encrypted or decrypted
+ * using Inline Crypto Engine(ICE) embedded in storage hardware
+ */
+#define DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT 1
 
 struct req_crypt_result {
 	struct completion completion;
@@ -65,6 +80,8 @@ static mempool_t *req_io_pool;
 static mempool_t *req_page_pool;
 static bool is_fde_enabled;
 static struct crypto_ablkcipher *tfm;
+static unsigned int encryption_mode;
+static struct ice_crypto_setting *ice_settings;
 
 unsigned int num_engines;
 unsigned int num_engines_fde, fde_cursor;
@@ -73,6 +90,7 @@ struct crypto_engine_entry *fde_eng, *pfe_eng;
 DEFINE_MUTEX(engine_list_mutex);
 
 struct req_dm_crypt_io {
+	struct ice_crypto_setting ice_settings;
 	struct work_struct work;
 	struct request *cloned_request;
 	int error;
@@ -99,6 +117,8 @@ static  bool req_crypt_should_encrypt(struct req_dm_crypt_io *req)
 	if (!req || !req->cloned_request || !req->cloned_request->bio)
 		return false;
 
+	if (encryption_mode == DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT)
+		return false;
 	bio = req->cloned_request->bio;
 
 	ret = pft_get_key_index(bio, &key_id, &is_encrypted, &is_inplace);
@@ -124,6 +144,8 @@ static  bool req_crypt_should_deccrypt(struct req_dm_crypt_io *req)
 	bool is_inplace = false;
 
 	if (!req || !req->cloned_request || !req->cloned_request->bio)
+		return false;
+	if (encryption_mode == DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT)
 		return false;
 
 	bio = req->cloned_request->bio;
@@ -831,6 +853,21 @@ static int req_crypt_map(struct dm_target *ti, struct request *clone,
 		blk_queue_bounce(clone->q, &bio_src);
 	}
 
+	if (encryption_mode == DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT) {
+		/* Set all crypto parameters for inline crypto engine */
+		memcpy(&req_io->ice_settings, ice_settings,
+					sizeof(struct ice_crypto_setting));
+	} else {
+		/* ICE checks for key_index which could be >= 0. If a chip has
+		 * both ICE and GPCE and wanted to use GPCE, there could be
+		 * issue. Storage driver send all requests to ICE driver. If
+		 * it sees key_index as 0, it would assume it is for ICE while
+		 * it is not. Hence set invalid key index by default.
+		 */
+		req_io->ice_settings.key_index = -1;
+
+	}
+
 	if (rq_data_dir(clone) == READ) {
 		error = DM_MAPIO_REMAPPED;
 		goto submit_request;
@@ -857,6 +894,9 @@ static void req_crypt_dtr(struct dm_target *ti)
 		mempool_destroy(req_io_pool);
 		req_io_pool = NULL;
 	}
+	kfree(ice_settings);
+	ice_settings = NULL;
+
 	mutex_lock(&engine_list_mutex);
 	kfree(pfe_eng);
 	pfe_eng = NULL;
@@ -947,6 +987,34 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	if (!_req_crypt_io_pool) {
 		err =  DM_REQ_CRYPT_ERROR;
 		goto ctr_exit;
+	}
+
+	encryption_mode = DM_REQ_CRYPT_ENCRYPTION_MODE_CRYPTO;
+	if (argc >= 7 && argv[6]) {
+		if (!strcmp(argv[6], "ice")) {
+			encryption_mode =
+				DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT;
+			ice_settings =
+				kzalloc(sizeof(struct ice_crypto_setting),
+								GFP_KERNEL);
+			if (!ice_settings) {
+				err = -ENOMEM;
+				goto ctr_exit;
+			}
+			ice_settings->key_size = ICE_CRYPTO_KEY_SIZE_256;
+			ice_settings->algo_mode = ICE_CRYPTO_ALGO_MODE_AES_XTS;
+			ice_settings->key_mode = ICE_CRYPTO_USE_LUT_SW_KEY;
+			if (sscanf(argv[1], "%hu",
+				&ice_settings->key_index) != 1 ||
+				ice_settings->key_index < 0 ||
+				ice_settings->key_index >
+				MAX_MSM_ICE_KEY_LUT_SIZE) {
+				DMERR("%s Err: key index %d received for ICE\n",
+					__func__, ice_settings->key_index);
+				err = DM_REQ_CRYPT_ERROR;
+				goto ctr_exit;
+			}
+		}
 	}
 
 	req_crypt_queue = alloc_workqueue("req_cryptd",
