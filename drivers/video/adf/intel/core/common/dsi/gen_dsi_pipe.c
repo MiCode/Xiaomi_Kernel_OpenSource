@@ -16,6 +16,7 @@
 #include <core/common/dsi/dsi_config.h>
 #include <core/common/intel_gen_backlight.h>
 #include <core/vlv/vlv_dc_config.h>
+#include <core/vlv/vlv_dpst.h>
 #include <intel_adf_device.h>
 #include "dsi_vbt.h"
 #include "intel_dsi.h"
@@ -60,8 +61,12 @@ static int dsi_set_brightness(struct intel_pipe *pipe, int level)
 	mutex_lock(&config->ctx_lock);
 	level = (level * 0xFF / BRIGHTNESS_MAX_LEVEL);
 
-	if (dsi_pipe->ops.set_brightness)
-		dsi_pipe->ops.set_brightness(level);
+	if (pipe->dpst_enabled)
+		vlv_dpst_set_brightness(pipe, level);
+	else {
+		if (dsi_pipe->ops.set_brightness)
+			dsi_pipe->ops.set_brightness(level);
+	}
 
 	panel = dsi_pipe->panel;
 	if (!panel || !panel->ops || !panel->ops->set_brightness) {

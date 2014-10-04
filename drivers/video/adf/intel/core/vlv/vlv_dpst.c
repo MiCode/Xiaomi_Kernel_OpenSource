@@ -57,13 +57,24 @@ static struct intel_dc_config *g_config;
 static u32
 vlv_get_backlight(struct intel_pipe *pipe)
 {
-	return 100;
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct dsi_config *config = NULL;
+	struct dsi_context *ctx = NULL;
+
+	config = &dsi_pipe->config;
+	ctx = &config->ctx;
+
+	return ctx->backlight_level;
 }
 
 static void
 vlv_panel_set_backlight(struct intel_pipe *pipe, int level)
 {
-	pipe->ops->set_brightness(pipe, level);
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct dsi_panel *panel = dsi_pipe->panel;
+
+	dsi_pipe->ops.set_brightness(level);
+	panel->ops->set_brightness(dsi_pipe, level);
 }
 
 static bool
