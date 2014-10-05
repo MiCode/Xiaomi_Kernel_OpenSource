@@ -25,7 +25,7 @@
 	};
 
 	uart1: serial@f9921000 {
-		status = "disabled";
+		status = "ok";
 	};
 
 	uim0: qcom,uim@f995d000 {

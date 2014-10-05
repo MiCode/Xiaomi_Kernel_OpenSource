@@ -613,11 +613,11 @@ static int emac_ptp_sysfs_mtnp_show(
 	if (ret)
 		return ret;
 
-	return scnprintf(buf, count, "%ld %ld %ld %ld\n",
+	return scnprintf(buf, count, "%ld %ld %d %ld\n",
 			 ts.tv_sec,
 			 ts.tv_nsec,
-			 (ts.tv_nsec != 0) ? ts.tv_sec : ts.tv_sec + 1,
-			 NSEC_PER_SEC - ts.tv_nsec);
+			 (ts.tv_nsec == 0) ? 1 : 0,
+			 (ts.tv_nsec == 0) ? 0 : (NSEC_PER_SEC - ts.tv_nsec));
 }
 
 /* Do a "slam" of a very particular time into the time registers... */
