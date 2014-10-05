@@ -52,7 +52,7 @@ enum vlv_disp_plane {
 	VLV_MAX_PLANES,
 };
 
-static inline void vlv_gpio_write(u32 reg, u32 val, u32 port)
+static inline void vlv_gpio_write(u32 port, u32 reg, u32 val)
 {
 	intel_adf_pci_sideband_rw(INTEL_SIDEBAND_REG_WRITE, port, reg, &val);
 }

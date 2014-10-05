@@ -41,13 +41,23 @@ void vlv_dc_config_destroy(struct intel_dc_config *config)
 	struct vlv_dc_config *vlv_config = to_vlv_dc_config(config);
 	struct vlv_pri_plane *pplane;
 	struct vlv_sp_plane *splane;
+	struct dsi_pipe *dsi_pipe;
 	int pipe;
 
 	if (!config)
 		return;
 
 	for (pipe = 0; pipe < MAX_PIPES; pipe++) {
-		/* Do pipe deinit here one pipe init code is ready for DSI */
+		if (vlv_config->vdisp[pipe].type == INTEL_PIPE_DSI) {
+			dsi_pipe = &vlv_config->vdisp[pipe].pipe.dsi;
+			dsi_pipe_destroy(dsi_pipe);
+		} else if (vlv_config->vdisp[pipe].type == INTEL_PIPE_HDMI) {
+			/* FIXME:
+			 * HDMI Pipe deinit
+			 */
+		} else
+			pr_err("ADF: %s: Unknown pipe type\n", __func__);
+
 		pplane = &vlv_config->vdisp[pipe].pplane;
 		vlv_pri_plane_destroy(pplane);
 		splane = &vlv_config->vdisp[pipe].splane[0];
@@ -67,12 +77,14 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config, int pipe,
 {
 	struct vlv_pri_plane *pplane;
 	struct vlv_sp_plane *splane;
+	struct dsi_pipe *dsi_pipe;
 	int err;
 
 	if (pipe > MAX_PIPES) {
 		dev_err(vlv_config->base.dev, "%s:invalid pipe", __func__);
 		return -EINVAL;
 	}
+
 	/* Initialize the plane */
 	pplane = &vlv_config->vdisp[pipe].pplane;
 	err = vlv_pri_plane_init(pplane, vlv_config->base.dev, PRIMARY_PLANE);
@@ -109,7 +121,23 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config, int pipe,
 	intel_dc_config_add_plane(&vlv_config->base, &splane->base,
 				  VLV_ID(pipe, VLV_SPRITE2));
 
-	/* TBD: Initialize interface PIPE */
+	/* Initialize interface PIPE */
+	if (type == INTEL_PIPE_DSI) {
+		dsi_pipe = &vlv_config->vdisp[pipe].pipe.dsi;
+		err = dsi_pipe_init(dsi_pipe, vlv_config->base.dev,
+				   &pplane->base, pipe);
+		if (err) {
+			dev_err(vlv_config->base.dev,
+				"%s: failed to init pipe(%d)\n", __func__, err);
+			return err;
+		}
+		intel_dc_config_add_pipe(&vlv_config->base,
+					 &dsi_pipe->base, pipe);
+		vlv_config->vdisp[pipe].type = type;
+	} else {
+		pr_err("ADF: %s: unsupported pipe type = %d\n", __func__, type);
+		err = -EINVAL;
+	}
 
 	return err;
 }

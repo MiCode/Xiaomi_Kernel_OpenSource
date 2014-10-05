@@ -29,7 +29,7 @@
 #include <linux/delay.h>
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
-#include <drm/i915_adf_wrapper.h>
+#include <drm/i915_adf.h>
 #include <intel_adf_device.h>
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/dsi/dsi_config.h>
@@ -172,7 +172,7 @@ static void vlv_configure_dsi_pll(struct dsi_config *config)
 	vlv_cck_write(CCK_REG_DSI_PLL_CONTROL, dsi_mnp.dsi_pll_ctrl);
 }
 
-void vlv_enable_dsi_pll(struct dsi_config *config)
+void adf_vlv_enable_dsi_pll(struct dsi_config *config)
 {
 	u32 tmp;
 	int pipe = config->pipe;
@@ -194,7 +194,7 @@ void vlv_enable_dsi_pll(struct dsi_config *config)
 	pr_info("DSI PLL locked\n");
 }
 
-void vlv_disable_dsi_pll(struct dsi_config *config)
+void adf_vlv_disable_dsi_pll(struct dsi_config *config)
 {
 	u32 tmp;
 	tmp = vlv_cck_read(CCK_REG_DSI_PLL_CONTROL);

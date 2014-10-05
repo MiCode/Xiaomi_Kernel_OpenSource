@@ -28,7 +28,7 @@
 #include <video/mipi_display.h>
 #include <asm/intel-mid.h>
 #include <drm/i915_drm.h>
-#include <drm/i915_adf_wrapper.h>
+#include <drm/i915_adf.h>
 #include <core/common/dsi/dsi_config.h>
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/dsi/dsi_panel.h>
@@ -258,13 +258,13 @@ static u8 *mipi_exec_send_packet(struct dsi_pipe *dsi_pipe, u8 *data)
 
 	switch (type) {
 	case MIPI_DSI_GENERIC_SHORT_WRITE_0_PARAM:
-		dsi_vc_generic_write_0(dsi_pipe, vc);
+		adf_dsi_vc_generic_write_0(dsi_pipe, vc);
 		break;
 	case MIPI_DSI_GENERIC_SHORT_WRITE_1_PARAM:
-		dsi_vc_generic_write_1(dsi_pipe, vc, *data);
+		adf_dsi_vc_generic_write_1(dsi_pipe, vc, *data);
 		break;
 	case MIPI_DSI_GENERIC_SHORT_WRITE_2_PARAM:
-		dsi_vc_generic_write_2(dsi_pipe, vc, *data, *(data + 1));
+		adf_dsi_vc_generic_write_2(dsi_pipe, vc, *data, *(data + 1));
 		break;
 	case MIPI_DSI_GENERIC_READ_REQUEST_0_PARAM:
 	case MIPI_DSI_GENERIC_READ_REQUEST_1_PARAM:
@@ -272,19 +272,19 @@ static u8 *mipi_exec_send_packet(struct dsi_pipe *dsi_pipe, u8 *data)
 		pr_debug("Generic Read not yet implemented or used\n");
 		break;
 	case MIPI_DSI_GENERIC_LONG_WRITE:
-		dsi_vc_generic_write(dsi_pipe, vc, data, len);
+		adf_dsi_vc_generic_write(dsi_pipe, vc, data, len);
 		break;
 	case MIPI_DSI_DCS_SHORT_WRITE:
-		dsi_vc_dcs_write_0(dsi_pipe, vc, *data);
+		adf_dsi_vc_dcs_write_0(dsi_pipe, vc, *data);
 		break;
 	case MIPI_DSI_DCS_SHORT_WRITE_PARAM:
-		dsi_vc_dcs_write_1(dsi_pipe, vc, *data, *(data + 1));
+		adf_dsi_vc_dcs_write_1(dsi_pipe, vc, *data, *(data + 1));
 		break;
 	case MIPI_DSI_DCS_READ:
 		pr_debug("DCS Read not yet implemented or used\n");
 		break;
 	case MIPI_DSI_DCS_LONG_WRITE:
-		dsi_vc_dcs_write(dsi_pipe, vc, data, len);
+		adf_dsi_vc_dcs_write(dsi_pipe, vc, data, len);
 		break;
 	}
 
@@ -342,14 +342,14 @@ static u8 *mipi_exec_gpio(struct dsi_pipe *dsi_pipe, u8 *data)
 	if (!gtable[gpio].init) {
 		/* program the function */
 		/* FIXME: remove constant below */
-		vlv_gpio_write(function, 0x2000CC00, port);
+		vlv_gpio_write(port, function, 0x2000CC00);
 		gtable[gpio].init = 1;
 	}
 
 	val = 0x4 | action;
 
 	/* pull up/down */
-	vlv_gpio_write(pad, val, port);
+	vlv_gpio_write(port, pad, val);
 
 	return data;
 }
@@ -485,7 +485,8 @@ static const char * const seq_name[] = {
 	"MIPI_SEQ_PANEL_OFF"
 };
 
-static void generic_exec_sequence(struct dsi_pipe *dsi_pipe, char *sequence)
+static void panel_generic_exec_sequence(struct dsi_pipe *dsi_pipe,
+					char *sequence)
 {
 	u8 *data = sequence;
 	fn_mipi_elem_exec mipi_elem_exec;
@@ -533,7 +534,7 @@ static void generic_exec_sequence(struct dsi_pipe *dsi_pipe, char *sequence)
 	}
 }
 
-static int generic_init(struct dsi_pipe *pipe)
+static int panel_generic_init(struct dsi_pipe *pipe)
 {
 	struct dsi_config *dsi_config = &pipe->config;
 	struct dsi_context *intel_dsi = &dsi_config->ctx;
@@ -555,7 +556,7 @@ static int generic_init(struct dsi_pipe *pipe)
 	pr_debug("ADF: %s\n", __func__);
 
 	/* get the VBT parsed MIPI data and support mode from i915 wrapper */
-	intel_get_dsi_vbt_data((void **)&dsi_vbt, &mode);
+	intel_adf_get_dsi_vbt_data((void **)&dsi_vbt, &mode);
 	if (!dsi_vbt || !mode) {
 		pr_err("ADF: %s: No VBT data from i915\n", __func__);
 		return -1;
@@ -820,127 +821,127 @@ static int generic_init(struct dsi_pipe *pipe)
 }
 
 #if 0
-static int generic_mode_valid(struct intel_dsi_device *dsi,
+static int panel_generic_mode_valid(struct intel_dsi_device *dsi,
 		   struct drm_display_mode *mode)
 {
 	return MODE_OK;
 }
 
-static bool generic_mode_fixup(struct intel_dsi_device *dsi,
+static bool panel_generic_mode_fixup(struct intel_dsi_device *dsi,
 		    const struct drm_display_mode *mode,
 		    struct drm_display_mode *adjusted_mode) {
 	return true;
 }
 #endif
 
-static int generic_panel_reset(struct dsi_pipe *interface)
+static int panel_generic_panel_reset(struct dsi_pipe *interface)
 {
 	struct dsi_vbt *dsi = interface->config.dsi;
 	char *sequence = dsi->sequence[MIPI_SEQ_ASSERT_RESET];
 	pr_debug("ADF: %s\n", __func__);
 
-	generic_exec_sequence(interface, sequence);
+	panel_generic_exec_sequence(interface, sequence);
 
 	return 0;
 }
 
-static int generic_disable_panel_power(struct dsi_pipe *interface)
+static int panel_generic_disable_panel_power(struct dsi_pipe *interface)
 {
 	struct dsi_vbt *dsi = interface->config.dsi;
 	char *sequence = dsi->sequence[MIPI_SEQ_DEASSERT_RESET];
 	pr_debug("ADF: %s\n", __func__);
 
-	generic_exec_sequence(interface, sequence);
+	panel_generic_exec_sequence(interface, sequence);
 	return 0;
 }
 
-static int generic_send_otp_cmds(struct dsi_pipe *interface)
+static int panel_generic_send_otp_cmds(struct dsi_pipe *interface)
 {
 	struct dsi_vbt *dsi = interface->config.dsi;
 	char *sequence = dsi->sequence[MIPI_SEQ_INIT_OTP];
 	pr_debug("ADF: %s\n", __func__);
 
-	generic_exec_sequence(interface, sequence);
+	panel_generic_exec_sequence(interface, sequence);
 
 	return 0;
 }
 
-static int generic_enable(struct dsi_pipe *interface)
+static int panel_generic_enable(struct dsi_pipe *interface)
 {
 	struct dsi_vbt *dsi = interface->config.dsi;
 	char *sequence = dsi->sequence[MIPI_SEQ_DISPLAY_ON];
 	pr_debug("ADF: %s\n", __func__);
 
-	generic_exec_sequence(interface, sequence);
+	panel_generic_exec_sequence(interface, sequence);
 
 	return 0;
 }
 
-static int generic_disable(struct dsi_pipe *interface)
+static int panel_generic_disable(struct dsi_pipe *interface)
 {
 	struct dsi_vbt *dsi = interface->config.dsi;
 	char *sequence = dsi->sequence[MIPI_SEQ_DISPLAY_OFF];
 	pr_debug("ADF: %s\n", __func__);
 
-	generic_exec_sequence(interface, sequence);
+	panel_generic_exec_sequence(interface, sequence);
 
 	return 0;
 }
 
-int generic_enable_bklt(struct dsi_pipe *interface)
+int panel_generic_enable_bklt(struct dsi_pipe *interface)
 {
 	struct dsi_vbt *dsi = interface->config.dsi;
 	char *sequence = dsi->sequence[MIPI_SEQ_BACKLIGHT_ON];
 	pr_debug("ADF: %s\n", __func__);
 
-	generic_exec_sequence(interface, sequence);
+	panel_generic_exec_sequence(interface, sequence);
 	return 0;
 }
 
-int generic_disable_bklt(struct dsi_pipe *interface)
+int panel_generic_disable_bklt(struct dsi_pipe *interface)
 {
 	struct dsi_vbt *dsi = interface->config.dsi;
 	char *sequence = dsi->sequence[MIPI_SEQ_BACKLIGHT_OFF];
 	pr_debug("ADF: %s\n", __func__);
 
-	generic_exec_sequence(interface, sequence);
+	panel_generic_exec_sequence(interface, sequence);
 	return 0;
 }
 
-int generic_power_on(struct dsi_pipe *interface)
+int panel_generic_power_on(struct dsi_pipe *interface)
 {
 	struct dsi_vbt *dsi = interface->config.dsi;
 	char *sequence = dsi->sequence[MIPI_SEQ_PANEL_ON];
 	pr_debug("ADF: %s\n", __func__);
 
-	generic_exec_sequence(interface, sequence);
+	panel_generic_exec_sequence(interface, sequence);
 	return 0;
 }
 
-int generic_power_off(struct dsi_pipe *interface)
+int panel_generic_power_off(struct dsi_pipe *interface)
 {
 	struct dsi_vbt *dsi = interface->config.dsi;
 	char *sequence = dsi->sequence[MIPI_SEQ_PANEL_OFF];
 	pr_debug("ADF: %s\n", __func__);
 
-	generic_exec_sequence(interface, sequence);
+	panel_generic_exec_sequence(interface, sequence);
 	return 0;
 }
 
-static int generic_detect(struct dsi_pipe *interface)
+static int panel_generic_detect(struct dsi_pipe *interface)
 {
 	pr_debug("ADF: %s\n", __func__);
 	return 1;
 }
 
 #if 0
-static bool generic_get_hw_state(struct intel_dsi_device *dev)
+static bool panel_generic_get_hw_state(struct intel_dsi_device *dev)
 {
 	return true;
 }
 #endif
 
-static int generic_get_modes(struct dsi_config *config,
+static int panel_generic_get_modes(struct dsi_config *config,
 			     struct drm_mode_modeinfo *modeinfo)
 {
 	struct drm_display_mode *mode = &config->vbt_mode;
@@ -967,10 +968,11 @@ static int generic_get_modes(struct dsi_config *config,
 }
 
 #if 0
-static void generic_destroy(struct intel_dsi_device *dsi) { }
+static void panel_generic_destroy(struct intel_dsi_device *dsi) { }
 #endif
 
-int generic_get_panel_info(struct dsi_config *config, struct panel_info *info)
+int panel_generic_get_panel_info(struct dsi_config *config,
+				 struct panel_info *info)
 {
 	struct drm_display_mode *mode = &config->vbt_mode;
 	struct dsi_context *ctx = &config->ctx;
@@ -994,53 +996,53 @@ int generic_get_panel_info(struct dsi_config *config, struct panel_info *info)
 	return 0;
 }
 
-static int generic_exit_standby(struct dsi_pipe *interface)
+static int panel_generic_exit_standby(struct dsi_pipe *interface)
 {
 	pr_debug("ADF: %s\n", __func__);
 	return 0;
 }
 
-static int generic_set_brightness(struct dsi_pipe *interface, int level)
+static int panel_generic_set_brightness(struct dsi_pipe *interface, int level)
 {
 	pr_debug("ADF: %s\n", __func__);
 	return 0;
 }
 
-static int generic_set_mode(struct dsi_pipe *interface)
+static int panel_generic_set_mode(struct dsi_pipe *interface)
 {
 	pr_debug("ADF: %s\n", __func__);
 	return 0;
 }
 
-struct panel_ops generic_ops = {
-		.get_config_mode = generic_get_modes,
-		.dsi_controller_init = generic_init,
-		.get_panel_info = generic_get_panel_info,
-		.reset = generic_panel_reset,
-		.exit_deep_standby = generic_exit_standby,
-		.detect = generic_detect,
-		.power_on = generic_enable,
-		.power_off = generic_disable,
-		.enable_backlight = generic_enable_bklt,
-		.disable_backlight = generic_disable_bklt,
-		.set_brightness = generic_set_brightness,
-		.drv_ic_init = generic_send_otp_cmds,
-		.drv_set_panel_mode = generic_set_mode,
-		.disable_panel_power = generic_disable_panel_power,
-		.panel_power_on = generic_power_on,
-		.panel_power_off = generic_power_off,
+struct panel_ops panel_generic_ops = {
+		.get_config_mode = panel_generic_get_modes,
+		.dsi_controller_init = panel_generic_init,
+		.get_panel_info = panel_generic_get_panel_info,
+		.reset = panel_generic_panel_reset,
+		.exit_deep_standby = panel_generic_exit_standby,
+		.detect = panel_generic_detect,
+		.power_on = panel_generic_enable,
+		.power_off = panel_generic_disable,
+		.enable_backlight = panel_generic_enable_bklt,
+		.disable_backlight = panel_generic_disable_bklt,
+		.set_brightness = panel_generic_set_brightness,
+		.drv_ic_init = panel_generic_send_otp_cmds,
+		.drv_set_panel_mode = panel_generic_set_mode,
+		.disable_panel_power = panel_generic_disable_panel_power,
+		.panel_power_on = panel_generic_power_on,
+		.panel_power_off = panel_generic_power_off,
 /*
  * Might need to add these hooks in panel_ops
-		.mode_valid = generic_mode_valid,
-		.mode_fixup = generic_mode_fixup,
-		.get_hw_state = generic_get_hw_state,
-		.destroy = generic_destroy,
+		.mode_valid = panel_generic_mode_valid,
+		.mode_fixup = panel_generic_mode_fixup,
+		.get_hw_state = panel_generic_get_hw_state,
+		.destroy = panel_generic_destroy,
 */
 };
 
 struct dsi_panel generic_panel = {
 	.panel_id = MIPI_DSI_GENERIC_PANEL_ID,
-	.ops = &generic_ops,
+	.ops = &panel_generic_ops,
 };
 
 const struct dsi_panel *get_generic_panel(void)

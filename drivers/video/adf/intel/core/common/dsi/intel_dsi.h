@@ -27,31 +27,32 @@
 #define INTEL_SIDEBAND_REG_READ		0
 #define INTEL_SIDEBAND_REG_WRITE	1
 
-extern void vlv_enable_dsi_pll(struct dsi_config *);
-extern void vlv_disable_dsi_pll(struct dsi_config *);
-extern u32 vlv_get_dsi_pclk(struct dsi_config *, int pipe_bpp);
+extern void adf_vlv_enable_dsi_pll(struct dsi_config *);
+extern void adf_vlv_disable_dsi_pll(struct dsi_config *);
+extern u32 adf_vlv_get_dsi_pclk(struct dsi_config *, int pipe_bpp);
 
-extern int intel_dsi_pre_enable(struct dsi_pipe *dsi_pipe);
-extern void intel_dsi_pre_post(struct dsi_pipe *dsi_pipe);
-extern int intel_dsi_post_disable(struct dsi_pipe *dsi_pipe);
-extern int intel_dsi_prepare(struct dsi_pipe *dsi_pipe,
+extern int intel_adf_dsi_pre_pll_enable(struct dsi_pipe *dsi_pipe);
+extern int intel_adf_dsi_pre_enable(struct dsi_pipe *dsi_pipe);
+extern void intel_adf_dsi_pre_post(struct dsi_pipe *dsi_pipe);
+extern int intel_adf_dsi_post_disable(struct dsi_pipe *dsi_pipe);
+extern int intel_adf_dsi_prepare(struct dsi_pipe *dsi_pipe,
 						struct drm_mode_modeinfo *mode);
-extern int intel_dsi_set_events(struct dsi_pipe *dsi_pipe, u8 event,
+extern int intel_adf_dsi_set_events(struct dsi_pipe *dsi_pipe, u8 event,
 						bool enabled);
-extern void intel_dsi_get_events(struct dsi_pipe *dsi_pipe, u32 *events);
-extern void intel_dsi_handle_events(struct dsi_pipe *dsi_pipe, u32 events);
-extern void intel_dsi_pre_disable(struct dsi_pipe *dsi_pipe);
-extern int intel_dsi_modeset(struct dsi_pipe *dsi_pipe,
+extern void intel_adf_dsi_get_events(struct dsi_pipe *dsi_pipe, u32 *events);
+extern void intel_adf_dsi_handle_events(struct dsi_pipe *dsi_pipe, u32 events);
+extern void intel_adf_dsi_pre_disable(struct dsi_pipe *dsi_pipe);
+extern int intel_adf_dsi_modeset(struct dsi_pipe *dsi_pipe,
 						struct drm_mode_modeinfo *mode);
 
-extern int intel_dsi_soc_power_on(struct dsi_pipe *dsi_pipe);
-extern int intel_dsi_pmic_power_on(struct dsi_pipe *dsi_pipe);
-extern int intel_dsi_soc_power_off(struct dsi_pipe *dsi_pipe);
-extern int intel_dsi_pmic_power_off(struct dsi_pipe *dsi_pipe);
-extern int intel_dsi_pmic_backlight_on(struct dsi_pipe *dsi_pipe);
-extern int intel_dsi_soc_backlight_on(struct dsi_pipe *dsi_pipe);
-extern int intel_dsi_pmic_backlight_off(struct dsi_pipe *dsi_pipe);
-extern int intel_dsi_soc_backlight_off(struct dsi_pipe *dsi_pipe);
-extern int generic_enable_bklt(struct dsi_pipe *interface);
-extern int generic_disable_bklt(struct dsi_pipe *interface);
+extern int intel_adf_dsi_soc_power_on(struct dsi_pipe *dsi_pipe);
+extern int intel_adf_dsi_pmic_power_on(struct dsi_pipe *dsi_pipe);
+extern int intel_adf_dsi_soc_power_off(struct dsi_pipe *dsi_pipe);
+extern int intel_adf_dsi_pmic_power_off(struct dsi_pipe *dsi_pipe);
+extern int intel_adf_dsi_pmic_backlight_on(struct dsi_pipe *dsi_pipe);
+extern int intel_adf_dsi_soc_backlight_on(struct dsi_pipe *dsi_pipe);
+extern int intel_adf_dsi_pmic_backlight_off(struct dsi_pipe *dsi_pipe);
+extern int intel_adf_dsi_soc_backlight_off(struct dsi_pipe *dsi_pipe);
+extern int panel_generic_enable_bklt(struct dsi_pipe *interface);
+extern int panel_generic_disable_bklt(struct dsi_pipe *interface);
 #endif /* _INTEL_DSI_H */

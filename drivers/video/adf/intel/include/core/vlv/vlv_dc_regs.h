@@ -1237,6 +1237,7 @@
 #define   DPLL_LOCK_VLV			(1<<15)
 #define   DPLL_INTEGRATED_CRI_CLK_VLV	(1<<14)
 #define   DPLL_INTEGRATED_CLOCK_VLV	(1<<13)
+#define   DPLL_RESERVED_BIT		(1<<11)
 #define   DPLL_PORTC_READY_MASK		(0xf << 4)
 #define   DPLL_PORTB_READY_MASK		(0xf)
 

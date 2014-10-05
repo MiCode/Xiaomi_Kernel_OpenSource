@@ -99,7 +99,7 @@ enum dsi_type {
 };
 
 /* enable or disable command mode hs transmissions */
-void dsi_hs_mode_enable(struct dsi_pipe *dsi_pipe, bool enable)
+void adf_dsi_hs_mode_enable(struct dsi_pipe *dsi_pipe, bool enable)
 {
 	struct dsi_config *config = &dsi_pipe->config;
 	struct dsi_context *intel_dsi = &dsi_pipe->config.ctx;
@@ -118,7 +118,7 @@ void dsi_hs_mode_enable(struct dsi_pipe *dsi_pipe, bool enable)
 	intel_dsi->hs = enable;
 }
 
-static int dsi_vc_send_short(struct dsi_pipe *dsi_pipe, int channel,
+static int adf_dsi_vc_send_short(struct dsi_pipe *dsi_pipe, int channel,
 			     u8 data_type, u16 data)
 {
 	struct dsi_config *config = &dsi_pipe->config;
@@ -158,7 +158,7 @@ static int dsi_vc_send_short(struct dsi_pipe *dsi_pipe, int channel,
 	return 0;
 }
 
-static int dsi_vc_send_long(struct dsi_pipe *dsi_pipe, int channel,
+static int adf_dsi_vc_send_long(struct dsi_pipe *dsi_pipe, int channel,
 			    u8 data_type, const u8 *data, int len)
 {
 	struct dsi_config *config = &dsi_pipe->config;
@@ -194,10 +194,10 @@ static int dsi_vc_send_long(struct dsi_pipe *dsi_pipe, int channel,
 		 * dwords, then wait for not set, then continue. */
 	}
 
-	return dsi_vc_send_short(dsi_pipe, channel, data_type, len);
+	return adf_dsi_vc_send_short(dsi_pipe, channel, data_type, len);
 }
 
-static int dsi_vc_write_common(struct dsi_pipe *dsi_pipe,
+static int adf_dsi_vc_write_common(struct dsi_pipe *dsi_pipe,
 			       int channel, const u8 *data, int len,
 			       enum dsi_type type)
 {
@@ -205,22 +205,22 @@ static int dsi_vc_write_common(struct dsi_pipe *dsi_pipe,
 
 	if (len == 0) {
 		BUG_ON(type == DSI_GENERIC);
-		ret = dsi_vc_send_short(dsi_pipe, channel,
+		ret = adf_dsi_vc_send_short(dsi_pipe, channel,
 					MIPI_DSI_GENERIC_SHORT_WRITE_0_PARAM,
 					0);
 	} else if (len == 1) {
-		ret = dsi_vc_send_short(dsi_pipe, channel,
+		ret = adf_dsi_vc_send_short(dsi_pipe, channel,
 					type == DSI_GENERIC ?
 					MIPI_DSI_GENERIC_SHORT_WRITE_1_PARAM :
 					MIPI_DSI_DCS_SHORT_WRITE, data[0]);
 	} else if (len == 2) {
-		ret = dsi_vc_send_short(dsi_pipe, channel,
+		ret = adf_dsi_vc_send_short(dsi_pipe, channel,
 					type == DSI_GENERIC ?
 					MIPI_DSI_GENERIC_SHORT_WRITE_2_PARAM :
 					MIPI_DSI_DCS_SHORT_WRITE_PARAM,
 					(data[1] << 8) | data[0]);
 	} else {
-		ret = dsi_vc_send_long(dsi_pipe, channel,
+		ret = adf_dsi_vc_send_long(dsi_pipe, channel,
 				       type == DSI_GENERIC ?
 				       MIPI_DSI_GENERIC_LONG_WRITE :
 				       MIPI_DSI_DCS_LONG_WRITE, data, len);
@@ -229,26 +229,27 @@ static int dsi_vc_write_common(struct dsi_pipe *dsi_pipe,
 	return ret;
 }
 
-int dsi_vc_dcs_write(struct dsi_pipe *dsi_pipe, int channel,
+int adf_dsi_vc_dcs_write(struct dsi_pipe *dsi_pipe, int channel,
 		     const u8 *data, int len)
 {
-	return dsi_vc_write_common(dsi_pipe, channel, data, len, DSI_DCS);
+	return adf_dsi_vc_write_common(dsi_pipe, channel, data, len, DSI_DCS);
 }
 
-int dsi_vc_generic_write(struct dsi_pipe *dsi_pipe, int channel,
+int adf_dsi_vc_generic_write(struct dsi_pipe *dsi_pipe, int channel,
 			 const u8 *data, int len)
 {
-	return dsi_vc_write_common(dsi_pipe, channel, data, len, DSI_GENERIC);
+	return adf_dsi_vc_write_common(dsi_pipe, channel, data,
+				       len, DSI_GENERIC);
 }
 
-static int dsi_vc_dcs_send_read_request(struct dsi_pipe *dsi_pipe,
+static int adf_dsi_vc_dcs_send_read_request(struct dsi_pipe *dsi_pipe,
 					int channel, u8 dcs_cmd)
 {
-	return dsi_vc_send_short(dsi_pipe, channel, MIPI_DSI_DCS_READ,
+	return adf_dsi_vc_send_short(dsi_pipe, channel, MIPI_DSI_DCS_READ,
 				 dcs_cmd);
 }
 
-static int dsi_vc_generic_send_read_request(struct dsi_pipe *dsi_pipe,
+static int adf_dsi_vc_generic_send_read_request(struct dsi_pipe *dsi_pipe,
 					    int channel, u8 *reqdata,
 					    int reqlen)
 {
@@ -272,10 +273,10 @@ static int dsi_vc_generic_send_read_request(struct dsi_pipe *dsi_pipe,
 		BUG();
 	}
 
-	return dsi_vc_send_short(dsi_pipe, channel, data_type, data);
+	return adf_dsi_vc_send_short(dsi_pipe, channel, data_type, data);
 }
 
-static int dsi_read_data_return(struct dsi_pipe *dsi_pipe,
+static int adf_dsi_read_data_return(struct dsi_pipe *dsi_pipe,
 				u8 *buf, int buflen)
 {
 	struct dsi_config *config = &dsi_pipe->config;
@@ -298,7 +299,7 @@ static int dsi_read_data_return(struct dsi_pipe *dsi_pipe,
 	return len;
 }
 
-int dsi_vc_dcs_read(struct dsi_pipe *dsi_pipe, int channel, u8 dcs_cmd,
+int adf_dsi_vc_dcs_read(struct dsi_pipe *dsi_pipe, int channel, u8 dcs_cmd,
 		    u8 *buf, int buflen)
 {
 	struct dsi_config *config = &dsi_pipe->config;
@@ -313,7 +314,7 @@ int dsi_vc_dcs_read(struct dsi_pipe *dsi_pipe, int channel, u8 dcs_cmd,
 
 	REG_WRITE(MIPI_INTR_STAT(pipe), GEN_READ_DATA_AVAIL);
 
-	ret = dsi_vc_dcs_send_read_request(dsi_pipe, channel, dcs_cmd);
+	ret = adf_dsi_vc_dcs_send_read_request(dsi_pipe, channel, dcs_cmd);
 	if (ret)
 		return ret;
 
@@ -321,7 +322,7 @@ int dsi_vc_dcs_read(struct dsi_pipe *dsi_pipe, int channel, u8 dcs_cmd,
 	if (wait_for((REG_READ(MIPI_INTR_STAT(pipe)) & mask) == mask, 50))
 		DRM_ERROR("Timeout waiting for read data.\n");
 
-	ret = dsi_read_data_return(dsi_pipe, buf, buflen);
+	ret = adf_dsi_read_data_return(dsi_pipe, buf, buflen);
 	if (ret < 0)
 		return ret;
 
@@ -331,7 +332,7 @@ int dsi_vc_dcs_read(struct dsi_pipe *dsi_pipe, int channel, u8 dcs_cmd,
 	return 0;
 }
 
-int dsi_vc_generic_read(struct dsi_pipe *dsi_pipe, int channel,
+int adf_dsi_vc_generic_read(struct dsi_pipe *dsi_pipe, int channel,
 			u8 *reqdata, int reqlen, u8 *buf, int buflen)
 {
 	struct dsi_config *config = &dsi_pipe->config;
@@ -346,7 +347,7 @@ int dsi_vc_generic_read(struct dsi_pipe *dsi_pipe, int channel,
 
 	REG_WRITE(MIPI_INTR_STAT(pipe), GEN_READ_DATA_AVAIL);
 
-	ret = dsi_vc_generic_send_read_request(dsi_pipe, channel, reqdata,
+	ret = adf_dsi_vc_generic_send_read_request(dsi_pipe, channel, reqdata,
 					       reqlen);
 	if (ret)
 		return ret;
@@ -355,7 +356,7 @@ int dsi_vc_generic_read(struct dsi_pipe *dsi_pipe, int channel,
 	if (wait_for((REG_READ(MIPI_INTR_STAT(pipe)) & mask) == mask, 50))
 		pr_err("Timeout waiting for read data.\n");
 
-	ret = dsi_read_data_return(dsi_pipe, buf, buflen);
+	ret = adf_dsi_read_data_return(dsi_pipe, buf, buflen);
 	if (ret < 0)
 		return ret;
 
@@ -370,7 +371,7 @@ int dsi_vc_generic_read(struct dsi_pipe *dsi_pipe, int channel,
  *
  * XXX: commands with data in MIPI_DPI_DATA?
  */
-int dpi_send_cmd(struct dsi_pipe *dsi_pipe, u32 cmd, bool hs)
+int adf_dpi_send_cmd(struct dsi_pipe *dsi_pipe, u32 cmd, bool hs)
 {
 	struct dsi_config *config = &dsi_pipe->config;
 	int pipe = config->pipe;
@@ -398,7 +399,7 @@ int dpi_send_cmd(struct dsi_pipe *dsi_pipe, u32 cmd, bool hs)
 	return 0;
 }
 
-void wait_for_dsi_fifo_empty(struct dsi_pipe *dsi_pipe)
+void adf_wait_for_dsi_fifo_empty(struct dsi_pipe *dsi_pipe)
 {
 	struct dsi_config *config = &dsi_pipe->config;
 	int pipe = config->pipe;

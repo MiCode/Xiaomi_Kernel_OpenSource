@@ -20,10 +20,11 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  *
+ * Author: Jani Nikula <jani.nikula@intel.com>
  */
 
 #include <drm/i915_drm.h>
-#include <drm/i915_adf_wrapper.h>
+#include <drm/i915_adf.h>
 #include <intel_adf_device.h>
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/dsi/dsi_config.h>
@@ -40,11 +41,11 @@
 #define PMIC_BKL_EN		0x4B
 #define PMIC_PWM_LEVEL		0x4E
 
-static void band_gap_reset(void)
+static void band_gap_reset(struct dsi_pipe *dsi_pipe)
 {
 	pr_err("ADF: %s\n", __func__);
 
-	vlv_flisdsi_write(0x0F, 0x0001);
+	vlv_flisdsi_write(0x08, 0x0001);
 	vlv_flisdsi_write(0x0F, 0x0005);
 	vlv_flisdsi_write(0x0F, 0x0025);
 	udelay(150);
@@ -62,128 +63,27 @@ static inline bool is_cmd_mode(struct dsi_config *config)
 	return config->ctx.operation_mode == DSI_DBI;
 }
 
-int intel_dsi_soc_power_on(struct dsi_pipe *dsi_pipe)
-{
-	pr_err("ADF: %s\n", __func__);
-
-	/*  cabc disable */
-	vlv_gpio_write(PANEL1_VDDEN_GPIONC_9_PCONF0, 0x2000CC00,
-		       IOSF_PORT_GPIO_NC);
-	vlv_gpio_write(PANEL1_VDDEN_GPIONC_9_PAD, 0x00000004,
-		       IOSF_PORT_GPIO_NC);
-
-	/* panel enable */
-	vlv_gpio_write(PANEL1_BKLTCTL_GPIONC_11_PCONF0, 0x2000CC00,
-		       IOSF_PORT_GPIO_NC);
-	vlv_gpio_write(PANEL1_BKLTCTL_GPIONC_11_PAD, 0x00000005,
-		       IOSF_PORT_GPIO_NC);
-	udelay(500);
-	return 0;
-}
-
-int intel_dsi_pmic_power_on(struct dsi_pipe *dsi_pipe)
-{
-	pr_err("ADF: %s\n", __func__);
-
-	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x01);
-	return 0;
-}
-
-int intel_dsi_soc_power_off(struct dsi_pipe *dsi_pipe)
-{
-	pr_err("ADF: %s\n", __func__);
-
-	vlv_gpio_write(PANEL1_BKLTCTL_GPIONC_11_PCONF0, 0x2000CC00,
-		       IOSF_PORT_GPIO_NC);
-	vlv_gpio_write(PANEL1_BKLTCTL_GPIONC_11_PAD, 0x00000004,
-		       IOSF_PORT_GPIO_NC);
-	udelay(500);
-	return 0;
-}
-
-int intel_dsi_pmic_power_off(struct dsi_pipe *dsi_pipe)
-{
-	pr_err("ADF: %s\n", __func__);
-
-	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x00);
-	return 0;
-}
-
-int intel_dsi_pmic_backlight_on(struct dsi_pipe *dsi_pipe)
-{
-	intel_soc_pmic_writeb(PMIC_BKL_EN, 0xFF);
-	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x01);
-
-	/*
-	 * I2C based control if any was already there
-	 * in seq version < 3, so call that sequence
-	 * here as well
-	 *
-	 * Mainly needed for CHV
-	 */
-	generic_enable_bklt(dsi_pipe);
-
-	return 0;
-}
-
-int intel_dsi_soc_backlight_on(struct dsi_pipe *dsi_pipe)
-{
-	vlv_gpio_write(PANEL1_BKLTEN_GPIONC_10_PCONF0, 0x2000CC00,
-		       IOSF_PORT_GPIO_NC);
-	vlv_gpio_write(PANEL1_BKLTEN_GPIONC_10_PAD, 0x00000005,
-		       IOSF_PORT_GPIO_NC);
-	udelay(500);
-	return 0;
-}
-
-int intel_dsi_pmic_backlight_off(struct dsi_pipe *dsi_pipe)
-{
-	/*
-	 * I2C based control if any was already there
-	 * in seq version < 3, so call that sequence
-	 * here as well
-	 *
-	 * Mainly needed for CHV
-	 */
-	generic_disable_bklt(dsi_pipe);
-
-	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x00);
-	intel_soc_pmic_writeb(PMIC_BKL_EN, 0x7F);
-	return 0;
-}
-
-int intel_dsi_soc_backlight_off(struct dsi_pipe *dsi_pipe)
-{
-	vlv_gpio_write(PANEL1_BKLTEN_GPIONC_10_PCONF0, 0x2000CC00,
-		       IOSF_PORT_GPIO_NC);
-	vlv_gpio_write(PANEL1_BKLTEN_GPIONC_10_PAD, 0x00000004,
-		       IOSF_PORT_GPIO_NC);
-	udelay(500);
-	return 0;
-}
-
-static void intel_dsi_device_ready(struct dsi_pipe *dsi_pipe)
+static void intel_adf_dsi_device_ready(struct dsi_pipe *dsi_pipe)
 {
 	int pipe = dsi_pipe->config.pipe;
 	u32 val;
 
 	pr_err("ADF: %s\n", __func__);
 
-	REG_WRITE(MIPI_DEVICE_READY(pipe), ULPS_STATE_ENTER);
-	usleep_range(2500, 3000);
-
 	val = REG_READ(MIPI_PORT_CTRL(pipe));
 	REG_WRITE(MIPI_PORT_CTRL(pipe), val | LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
-
-	REG_WRITE(MIPI_DEVICE_READY(pipe), ULPS_STATE_EXIT);
-	usleep_range(2500, 3000);
-
+	REG_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_EXIT);
+	usleep_range(2000, 2500);
 	REG_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY);
-	usleep_range(2500, 3000);
+	usleep_range(2000, 2500);
+	REG_WRITE(MIPI_DEVICE_READY(pipe), 0x00);
+	usleep_range(2000, 2500);
+	REG_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY);
+	usleep_range(2000, 2500);
 }
 
-static void intel_dsi_enable(struct dsi_pipe *dsi_pipe)
+static void intel_adf_dsi_enable(struct dsi_pipe *dsi_pipe)
 {
 	struct dsi_config *config = &dsi_pipe->config;
 	struct dsi_context *intel_dsi = &dsi_pipe->config.ctx;
@@ -191,18 +91,17 @@ static void intel_dsi_enable(struct dsi_pipe *dsi_pipe)
 	struct dsi_panel *panel = dsi_pipe->panel;
 	u32 temp;
 
-	pr_debug("ADF: %s\n", __func__);
+	pr_err("ADF: %s\n", __func__);
+
 	if (is_cmd_mode(config))
 		REG_WRITE(MIPI_MAX_RETURN_PKT_SIZE(pipe), 8 * 4);
 	else {
 		msleep(20); /* XXX */
-		dpi_send_cmd(dsi_pipe, TURN_ON, DPI_LP_MODE_EN);
+		adf_dpi_send_cmd(dsi_pipe, TURN_ON, DPI_LP_MODE_EN);
 		msleep(100);
 
 		if (panel->ops->power_on)
 			panel->ops->power_on(dsi_pipe);
-
-		wait_for_dsi_fifo_empty(dsi_pipe);
 
 		/* assert ip_tg_enable signal */
 		temp = REG_READ(MIPI_PORT_CTRL(pipe)) &
@@ -211,6 +110,254 @@ static void intel_dsi_enable(struct dsi_pipe *dsi_pipe)
 		REG_WRITE(MIPI_PORT_CTRL(pipe), temp | DPI_ENABLE);
 		REG_POSTING_READ(MIPI_PORT_CTRL(pipe));
 	}
+
+	if (intel_dsi->backlight_on_delay >= 20)
+		msleep(intel_dsi->backlight_on_delay);
+	else
+		usleep_range(intel_dsi->backlight_on_delay * 1000,
+				(intel_dsi->backlight_on_delay * 1000) + 500);
+
+	intel_enable_backlight(&dsi_pipe->base);
+}
+
+int intel_adf_dsi_soc_power_on(struct dsi_pipe *dsi_pipe)
+{
+	pr_err("ADF: %s\n", __func__);
+
+	/*  cabc disable */
+	vlv_gpio_write(IOSF_PORT_GPIO_NC,
+			PANEL1_VDDEN_GPIONC_9_PCONF0, 0x2000CC00);
+	vlv_gpio_write(IOSF_PORT_GPIO_NC,
+			PANEL1_VDDEN_GPIONC_9_PAD, 0x00000004);
+
+	/* panel enable */
+	vlv_gpio_write(IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTCTL_GPIONC_11_PCONF0, 0x2000CC00);
+	vlv_gpio_write(IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTCTL_GPIONC_11_PAD, 0x00000005);
+	udelay(500);
+	return 0;
+}
+
+int intel_adf_dsi_pmic_power_on(struct dsi_pipe *dsi_pipe)
+{
+	pr_err("ADF: %s\n", __func__);
+	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x01);
+	return 0;
+}
+
+int intel_adf_dsi_pre_enable(struct dsi_pipe *dsi_pipe)
+{
+	struct dsi_context *intel_dsi = &dsi_pipe->config.ctx;
+	struct dsi_config *config = &dsi_pipe->config;
+	struct dsi_panel *panel = dsi_pipe->panel;
+	int pipe = config->pipe;
+	u32 tmp;
+
+	pr_err("ADF: %s\n", __func__);
+
+	/* Panel Enable */
+	if (panel->ops->panel_power_on)
+		panel->ops->panel_power_on(dsi_pipe);
+
+	msleep(intel_dsi->panel_on_delay);
+
+	/* Disable DPOunit clock gating, can stall pipe
+	* and we need DPLL REFA always enabled */
+	tmp = REG_READ(DPLL(pipe));
+	tmp |= DPLL_REFA_CLK_ENABLE_VLV;
+	REG_WRITE(DPLL(pipe), tmp);
+
+	tmp = REG_READ(DSPCLK_GATE_D);
+	tmp |= DPOUNIT_CLOCK_GATE_DISABLE;
+	REG_WRITE(DSPCLK_GATE_D, tmp);
+
+	if (panel->ops->reset)
+		panel->ops->reset(dsi_pipe);
+
+	/* put device in ready state */
+	intel_adf_dsi_device_ready(dsi_pipe);
+
+	msleep(intel_dsi->panel_on_delay);
+
+	if (panel->ops->drv_ic_init)
+		panel->ops->drv_ic_init(dsi_pipe);
+
+	/* Enable port in pre-enable phase itself because as per hw team
+	 * recommendation, port should be enabled befor plane & pipe */
+	intel_adf_dsi_enable(dsi_pipe);
+
+	return 0;
+}
+
+void intel_adf_dsi_pre_disable(struct dsi_pipe *dsi_pipe)
+{
+	struct dsi_config *config = &dsi_pipe->config;
+
+	pr_err("ADF: %s\n", __func__);
+
+	if (is_vid_mode(config)) {
+		/* Send Shutdown command to the panel in LP mode */
+		adf_dpi_send_cmd(dsi_pipe, SHUTDOWN, DPI_LP_MODE_EN);
+		usleep_range(10000, 10500);
+		pr_err("ADF: %s: Sent DPI_SHUTDOWN\n", __func__);
+	}
+}
+
+int intel_adf_dsi_disable(struct dsi_pipe *dsi_pipe)
+{
+	struct dsi_config *config = &dsi_pipe->config;
+	struct dsi_context *intel_dsi = &dsi_pipe->config.ctx;
+	struct dsi_panel *panel = dsi_pipe->panel;
+	int pipe = dsi_pipe->config.pipe;
+	u32 temp;
+
+	pr_err("ADF: %s\n", __func__);
+
+	intel_disable_backlight(&dsi_pipe->base);
+
+	if (intel_dsi->backlight_off_delay >= 20)
+		msleep(intel_dsi->backlight_off_delay);
+	else
+		usleep_range(intel_dsi->backlight_off_delay * 1000,
+				(intel_dsi->backlight_off_delay * 1000) + 500);
+
+	if (is_vid_mode(config)) {
+		/* de-assert ip_tg_enable signal */
+		temp = REG_READ(MIPI_PORT_CTRL(pipe));
+		REG_WRITE(MIPI_PORT_CTRL(pipe), temp & ~DPI_ENABLE);
+		REG_POSTING_READ(MIPI_PORT_CTRL(pipe));
+
+		usleep_range(2000, 2500);
+	}
+
+	/* Panel commands can be sent when clock is in LP11 */
+	REG_WRITE(MIPI_DEVICE_READY(pipe), 0x0);
+
+	temp = REG_READ(MIPI_CTRL(pipe));
+	temp &= ~ESCAPE_CLOCK_DIVIDER_MASK;
+	REG_WRITE(MIPI_CTRL(pipe), temp |
+			intel_dsi->escape_clk_div <<
+			ESCAPE_CLOCK_DIVIDER_SHIFT);
+
+	REG_WRITE(MIPI_EOT_DISABLE(pipe), CLOCKSTOP);
+
+	temp = REG_READ(MIPI_DSI_FUNC_PRG(pipe));
+	temp &= ~VID_MODE_FORMAT_MASK;
+	REG_WRITE(MIPI_DSI_FUNC_PRG(pipe), temp);
+
+	REG_WRITE(MIPI_DEVICE_READY(pipe), 0x1);
+
+	/* if disable packets are sent before sending shutdown packet then in
+	 * some next enable sequence send turn on packet error is observed */
+	if (panel->ops->power_off)
+		panel->ops->power_off(dsi_pipe);
+
+	return 0;
+}
+
+static void intel_adf_dsi_clear_device_ready(struct dsi_pipe *dsi_pipe)
+{
+	int pipe = dsi_pipe->config.pipe;
+	u32 val;
+
+	pr_err("ADF: %s\n", __func__);
+
+	REG_WRITE(MIPI_DEVICE_READY(pipe), ULPS_STATE_ENTER);
+	usleep_range(2000, 2500);
+
+	REG_WRITE(MIPI_DEVICE_READY(pipe), ULPS_STATE_EXIT);
+	usleep_range(2000, 2500);
+
+	REG_WRITE(MIPI_DEVICE_READY(pipe), ULPS_STATE_ENTER);
+	usleep_range(2000, 2500);
+
+	val = REG_READ(MIPI_PORT_CTRL(pipe));
+	REG_WRITE(MIPI_PORT_CTRL(pipe), val & ~LP_OUTPUT_HOLD);
+	usleep_range(1000, 1500);
+
+	if (wait_for(((REG_READ(MIPI_PORT_CTRL(pipe)) & AFE_LATCHOUT)
+					== 0x00000), 30))
+		DRM_ERROR("DSI LP not going Low\n");
+
+	REG_WRITE(MIPI_DEVICE_READY(pipe), 0x00);
+	usleep_range(2000, 2500);
+
+	adf_vlv_disable_dsi_pll(&dsi_pipe->config);
+}
+
+int intel_adf_dsi_soc_power_off(struct dsi_pipe *dsi_pipe)
+{
+	pr_err("ADF: %s\n", __func__);
+	vlv_gpio_write(IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTCTL_GPIONC_11_PCONF0, 0x2000CC00);
+	vlv_gpio_write(IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTCTL_GPIONC_11_PAD, 0x00000004);
+	udelay(500);
+	return 0;
+}
+
+int intel_adf_dsi_pmic_power_off(struct dsi_pipe *dsi_pipe)
+{
+	pr_err("ADF: %s\n", __func__);
+	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x00);
+	return 0;
+}
+
+int intel_adf_dsi_post_disable(struct dsi_pipe *dsi_pipe)
+{
+	struct dsi_context *intel_dsi = &dsi_pipe->config.ctx;
+	struct dsi_panel *panel = dsi_pipe->panel;
+	u32 val;
+
+	pr_debug("ADF: %s\n", __func__);
+
+	intel_adf_dsi_disable(dsi_pipe);
+
+	intel_adf_dsi_clear_device_ready(dsi_pipe);
+
+	val = REG_READ(DSPCLK_GATE_D);
+	val &= ~DPOUNIT_CLOCK_GATE_DISABLE;
+	REG_WRITE(DSPCLK_GATE_D, val);
+
+	if (panel->ops->disable_panel_power)
+		panel->ops->disable_panel_power(dsi_pipe);
+
+	/* Disable Panel */
+	if (panel->ops->panel_power_off)
+		panel->ops->panel_power_off(dsi_pipe);
+
+	msleep(intel_dsi->panel_off_delay);
+	msleep(intel_dsi->panel_pwr_cycle_delay);
+
+	return 0;
+}
+
+int intel_adf_dsi_modeset(struct dsi_pipe *dsi_pipe,
+			  struct drm_mode_modeinfo *mode)
+{
+	pr_err("ADF: %s\n", __func__);
+	return 0;
+}
+
+int intel_adf_dsi_set_events(struct dsi_pipe *dsi_pipe, u8 event, bool enabled)
+{
+	return 0;
+}
+
+void intel_adf_dsi_get_events(struct dsi_pipe *dsi_pipe, u32 *events)
+{
+	return;
+}
+
+void intel_adf_dsi_handle_events(struct dsi_pipe *dsi_pipe, u32 events)
+{
+	return;
+}
+
+void intel_adf_dsi_pre_post(struct dsi_pipe *dsi_pipe)
+{
+	return;
 }
 
 /* return txclkesc cycles in terms of divider and duration in us */
@@ -243,16 +390,7 @@ static void set_dsi_timings(struct dsi_pipe *dsi_pipe,
 	int pipe = config->pipe;
 	unsigned int bpp = config->bpp;
 	unsigned int lane_count = intel_dsi->lane_count;
-	u32 val;
-
 	u16 hactive, hfp, hsync, hbp, vfp, vsync, vbp;
-
-	pr_err("ADF: %s\n", __func__);
-
-	/* DEVICE_READY[0] = 0 */
-	val = REG_READ(MIPI_DEVICE_READY(pipe));
-	val &= ~0x1;
-	REG_WRITE(MIPI_DEVICE_READY(pipe), val);
 
 	hactive = mode->hdisplay;
 	hfp = mode->hsync_start - mode->hdisplay;
@@ -283,49 +421,10 @@ static void set_dsi_timings(struct dsi_pipe *dsi_pipe,
 	REG_WRITE(MIPI_VFP_COUNT(pipe), vfp);
 	REG_WRITE(MIPI_VSYNC_PADDING_COUNT(pipe), vsync);
 	REG_WRITE(MIPI_VBP_COUNT(pipe), vbp);
-
-	val = intel_dsi->lane_count << DATA_LANES_PRG_REG_SHIFT;
-	if (is_cmd_mode(config)) {
-		val |= intel_dsi->channel << CMD_MODE_CHANNEL_NUMBER_SHIFT;
-		val |= CMD_MODE_DATA_WIDTH_8_BIT; /* XXX */
-	} else {
-		val |= intel_dsi->channel << VID_MODE_CHANNEL_NUMBER_SHIFT;
-
-		/* XXX: cross-check bpp vs. pixel format? */
-		val |= intel_dsi->pixel_format;
-	}
-	REG_WRITE(MIPI_DSI_FUNC_PRG(pipe), val);
-
-	val = 0;
-	if (intel_dsi->eotp_pkt == 0)
-		val |= EOT_DISABLE;
-
-	if (intel_dsi->clock_stop)
-		val |= CLOCKSTOP;
-
-	/* recovery disables */
-	REG_WRITE(MIPI_EOT_DISABLE(pipe), val);
-
-	/* DEVICE_READY[0] = 1 */
-	val = REG_READ(MIPI_DEVICE_READY(pipe));
-	val |= 0x1;
-	REG_WRITE(MIPI_DEVICE_READY(pipe), val);
-
-	/* XXX: why here, why like this? handling in irq handler?! */
-	REG_WRITE(MIPI_INTR_STAT(pipe), 0xffffffff);
-	REG_WRITE(MIPI_INTR_EN(pipe), 0xffffffff);
 }
 
-int intel_dsi_modeset(struct dsi_pipe *dsi_pipe, struct drm_mode_modeinfo *mode)
-{
-	pr_err("ADF: %s\n", __func__);
-
-	vlv_display_off(&dsi_pipe->base);
-
-	return 0;
-}
-
-int intel_dsi_prepare(struct dsi_pipe *dsi_pipe, struct drm_mode_modeinfo *mode)
+int intel_adf_dsi_prepare(struct dsi_pipe *dsi_pipe,
+			  struct drm_mode_modeinfo *mode)
 {
 	struct dsi_config *config = &dsi_pipe->config;
 	struct dsi_context *intel_dsi = &dsi_pipe->config.ctx;
@@ -333,11 +432,7 @@ int intel_dsi_prepare(struct dsi_pipe *dsi_pipe, struct drm_mode_modeinfo *mode)
 	unsigned int bpp = config->bpp;
 	u32 val, tmp;
 
-	pr_err("ADF: %s\n", __func__);
-
-	val = REG_READ(MIPI_DEVICE_READY(pipe));
-	val &= ~0x1;
-	REG_WRITE(MIPI_DEVICE_READY(pipe), val);
+	pr_err("ADF: %s: pipe %d\n", __func__, pipe);
 
 	/* escape clock divider, 20MHz, shared for A and C. device ready must be
 	 * off when doing this! txclkesc? */
@@ -350,11 +445,29 @@ int intel_dsi_prepare(struct dsi_pipe *dsi_pipe, struct drm_mode_modeinfo *mode)
 	tmp &= ~READ_REQUEST_PRIORITY_MASK;
 	REG_WRITE(MIPI_CTRL(pipe), tmp | READ_REQUEST_PRIORITY_HIGH);
 
+	/* XXX: why here, why like this? handling in irq handler?! */
+	REG_WRITE(MIPI_INTR_STAT(pipe), 0xffffffff);
+	REG_WRITE(MIPI_INTR_EN(pipe), 0xffffffff);
+
 	REG_WRITE(MIPI_DPHY_PARAM(pipe), intel_dsi->dphy_reg);
 
 	REG_WRITE(MIPI_DPI_RESOLUTION(pipe),
 		   mode->vdisplay << VERTICAL_ADDRESS_SHIFT |
 		   mode->hdisplay << HORIZONTAL_ADDRESS_SHIFT);
+
+	set_dsi_timings(dsi_pipe, mode);
+
+	val = intel_dsi->lane_count << DATA_LANES_PRG_REG_SHIFT;
+	if (is_cmd_mode(config)) {
+		val |= intel_dsi->channel << CMD_MODE_CHANNEL_NUMBER_SHIFT;
+		val |= CMD_MODE_DATA_WIDTH_8_BIT; /* XXX */
+	} else {
+		val |= intel_dsi->channel << VID_MODE_CHANNEL_NUMBER_SHIFT;
+
+		/* XXX: cross-check bpp vs. pixel format? */
+		val |= intel_dsi->pixel_format;
+	}
+	REG_WRITE(MIPI_DSI_FUNC_PRG(pipe), val);
 
 	/* timeouts for recovery. one frame IIUC. if counter expires, EOT and
 	 * stop state. */
@@ -386,8 +499,6 @@ int intel_dsi_prepare(struct dsi_pipe *dsi_pipe, struct drm_mode_modeinfo *mode)
 				       bpp, intel_dsi->lane_count,
 				       intel_dsi->burst_mode_ratio) + 1);
 	}
-
-	REG_WRITE(MIPI_HS_TX_TIMEOUT(pipe), 0x3FFFFF);
 	REG_WRITE(MIPI_LP_RX_TIMEOUT(pipe), intel_dsi->lp_rx_timeout);
 	REG_WRITE(MIPI_TURN_AROUND_TIMEOUT(pipe), intel_dsi->turn_arnd_val);
 	REG_WRITE(MIPI_DEVICE_RESET_TIMER(pipe), intel_dsi->rst_timer_val);
@@ -395,8 +506,18 @@ int intel_dsi_prepare(struct dsi_pipe *dsi_pipe, struct drm_mode_modeinfo *mode)
 	/* dphy stuff */
 
 	/* in terms of low power clock */
-	REG_WRITE(MIPI_INIT_COUNT(pipe),
-				 txclkesc(intel_dsi->escape_clk_div, 100));
+	REG_WRITE(MIPI_INIT_COUNT(pipe), txclkesc(intel_dsi->escape_clk_div,
+						  100));
+
+	val = 0;
+	if (intel_dsi->eotp_pkt == 0)
+		val |= EOT_DISABLE;
+
+	if (intel_dsi->clock_stop)
+		val |= CLOCKSTOP;
+
+	/* recovery disables */
+	REG_WRITE(MIPI_EOT_DISABLE(pipe), val);
 
 	/* in terms of low power clock */
 	REG_WRITE(MIPI_INIT_COUNT(pipe), intel_dsi->init_count);
@@ -407,7 +528,7 @@ int intel_dsi_prepare(struct dsi_pipe *dsi_pipe, struct drm_mode_modeinfo *mode)
 	 * XXX: write MIPI_STOP_STATE_STALL?
 	 */
 	REG_WRITE(MIPI_HIGH_LOW_SWITCH_COUNT(pipe),
-		   intel_dsi->hs_to_lp_count);
+						intel_dsi->hs_to_lp_count);
 
 	/* XXX: low power clock equivalence in terms of byte clock. the number
 	 * of byte clocks occupied in one low power clock. based on txbyteclkhs
@@ -432,243 +553,90 @@ int intel_dsi_prepare(struct dsi_pipe *dsi_pipe, struct drm_mode_modeinfo *mode)
 		 * 64 like 1366 x 768. Enable RANDOM resolution support for such
 		 * panels by default */
 		REG_WRITE(MIPI_VIDEO_MODE_FORMAT(pipe),
-			   intel_dsi->video_frmt_cfg_bits |
-			   intel_dsi->video_mode_format |
-			   IP_TG_CONFIG |
-			   RANDOM_DPI_DISPLAY_RESOLUTION);
-
-	REG_WRITE(MIPI_DSI_FUNC_PRG(pipe), 0);
-	REG_WRITE(MIPI_EOT_DISABLE(pipe), CLOCKSTOP);
-
-	val = REG_READ(MIPI_DEVICE_READY(pipe));
-	val |= 0x1;
-	REG_WRITE(MIPI_DEVICE_READY(pipe), val);
+				intel_dsi->video_frmt_cfg_bits |
+				intel_dsi->video_mode_format |
+				IP_TG_CONFIG |
+				RANDOM_DPI_DISPLAY_RESOLUTION);
 
 	return 0;
 }
 
-static void intel_dsi_pre_pll_enable(struct dsi_pipe *dsi_pipe)
+int intel_adf_dsi_pre_pll_enable(struct dsi_pipe *dsi_pipe)
 {
-	pr_debug("ADF: %s\n", __func__);
-	vlv_enable_dsi_pll(&dsi_pipe->config);
-}
-
-int intel_dsi_pre_enable(struct dsi_pipe *dsi_pipe)
-{
-	struct dsi_context *intel_dsi = &dsi_pipe->config.ctx;
+	struct dsi_config *config = &dsi_pipe->config;
 	struct dsi_panel *panel = dsi_pipe->panel;
-	int pipe = dsi_pipe->config.pipe;
-	u32 tmp;
 	struct drm_mode_modeinfo mode;
+	int pipe = config->pipe;
+	u32 tmp;
 
 	pr_err("ADF: %s\n", __func__);
-
-	/* program rcomp for compliance, reduce from 50 ohms to 45 ohms
-	 * needed everytime after power gate */
-	vlv_flisdsi_write(0x04, 0x0004);
-
-	/* bandgap reset is needed after everytime we do power gate */
-	band_gap_reset();
-
-	/*
-	 * Panel power control using PMIC/LPIO
-	 */
-	if (panel->ops->panel_power_on)
-		panel->ops->panel_power_on(dsi_pipe);
-
-	msleep(intel_dsi->panel_on_delay);
-
-	if (panel->ops->reset)
-		panel->ops->reset(dsi_pipe);
-
-	/* Disable DPOunit clock gating, can stall pipe
-	 * and we need DPLL REFA always enabled */
-	tmp = REG_READ(DPLL(pipe));
-	tmp |= DPLL_REFA_CLK_ENABLE_VLV;
-	REG_WRITE(DPLL(pipe), tmp);
-
-	tmp = REG_READ(DSPCLK_GATE_D);
-	tmp |= DPOUNIT_CLOCK_GATE_DISABLE;
-	REG_WRITE(DSPCLK_GATE_D, tmp);
-
-	intel_dsi_pre_pll_enable(dsi_pipe);
-
-	/* put device in ready state */
-	intel_dsi_device_ready(dsi_pipe);
 
 	/*
 	 * FIXME:
 	 * get the mode; works for DSI as only one mode
 	 */
 	panel->ops->get_config_mode(&dsi_pipe->config, &mode);
+	intel_adf_dsi_prepare(dsi_pipe, &mode);
 
-	intel_dsi_prepare(dsi_pipe, &mode);
+	/* program rcomp for compliance, reduce from 50 ohms to 45 ohms
+	 * needed everytime after power gate */
+	vlv_flisdsi_write(0x04, 0x0004);
 
-	if (panel->ops->drv_ic_init)
-		panel->ops->drv_ic_init(dsi_pipe);
+	/* bandgap reset is needed after everytime we do power gate */
+	band_gap_reset(dsi_pipe);
 
-	wait_for_dsi_fifo_empty(dsi_pipe);
+	/* Disable DPOunit clock gating, can stall pipe */
+	tmp = REG_READ(DPLL(pipe));
+	tmp |= DPLL_RESERVED_BIT;
+	REG_WRITE(DPLL(pipe), tmp);
 
-	set_dsi_timings(dsi_pipe, &mode);
+	tmp = REG_READ(DSPCLK_GATE_D);
+	tmp |= VSUNIT_CLOCK_GATE_DISABLE;
+	REG_WRITE(DSPCLK_GATE_D, tmp);
 
-	/* Enable port in pre-enable phase itself because as per hw team
-	 * recommendation, port should be enabled befor plane & pipe */
-	intel_dsi_enable(dsi_pipe);
+	adf_vlv_enable_dsi_pll(&dsi_pipe->config);
 
-	/* Enabling the backlight */
-	intel_enable_backlight(&dsi_pipe->base);
-
-	return 0;
-}
-
-void intel_dsi_pre_disable(struct dsi_pipe *dsi_pipe)
-{
-	struct dsi_config *config = &dsi_pipe->config;
-
-	pr_debug("ADF: %s\n", __func__);
-
-	intel_disable_backlight(&dsi_pipe->base);
-
-	if (is_vid_mode(config)) {
-		/* Send Shutdown command to the panel in LP mode */
-		dpi_send_cmd(dsi_pipe, SHUTDOWN, DPI_LP_MODE_EN);
-		usleep_range(10000, 10500);
-		pr_err("ADF: %s: Sent DPI_SHUTDOWN\n", __func__);
-	}
-}
-
-int intel_dsi_disable(struct dsi_pipe *dsi_pipe)
-{
-	struct dsi_config *config = &dsi_pipe->config;
-	struct dsi_context *intel_dsi = &dsi_pipe->config.ctx;
-	struct dsi_panel *panel = dsi_pipe->panel;
-	int pipe = dsi_pipe->config.pipe;
-	u32 temp;
-
-	pr_err("ADF: %s\n", __func__);
-
-	if (is_vid_mode(config)) {
-		wait_for_dsi_fifo_empty(dsi_pipe);
-
-		/* de-assert ip_tg_enable signal */
-		temp = REG_READ(MIPI_PORT_CTRL(pipe));
-		REG_WRITE(MIPI_PORT_CTRL(pipe), temp & ~DPI_ENABLE);
-		REG_POSTING_READ(MIPI_PORT_CTRL(pipe));
-
-		usleep_range(2000, 2500);
-	}
-
-	/* Panel commands can be sent when clock is in LP11 */
-	temp = REG_READ(MIPI_DEVICE_READY(pipe));
-	temp &= ~0x1;
-	REG_WRITE(MIPI_DEVICE_READY(pipe), temp);
-
-	temp = REG_READ(MIPI_CTRL(pipe));
-	temp &= ~ESCAPE_CLOCK_DIVIDER_MASK;
-	REG_WRITE(MIPI_CTRL(pipe), temp |
-		   intel_dsi->escape_clk_div <<
-		   ESCAPE_CLOCK_DIVIDER_SHIFT);
-
-	/*
-	 * FIXME:
-	 * Writing 0 here works but we get LP not going low error
-	temp = REG_READ(MIPI_DSI_FUNC_PRG(pipe));
-	temp &= ~VID_MODE_FORMAT_MASK;
-	REG_WRITE(MIPI_DSI_FUNC_PRG(pipe), temp);
-	*/
-	REG_WRITE(MIPI_DSI_FUNC_PRG(pipe), 0);
-
-	REG_WRITE(MIPI_EOT_DISABLE(pipe), CLOCKSTOP);
-
-	temp = REG_READ(MIPI_DEVICE_READY(pipe));
-	temp |= 0x1;
-	REG_WRITE(MIPI_DEVICE_READY(pipe), temp);
-
-	/* if disable packets are sent before sending shutdown packet then in
-	 * some next enable sequence send turn on packet error is observed */
-	if (panel->ops->power_off)
-		panel->ops->power_off(dsi_pipe);
-
-	wait_for_dsi_fifo_empty(dsi_pipe);
+	intel_adf_dsi_pre_enable(dsi_pipe);
 
 	return 0;
 }
 
-static void intel_dsi_clear_device_ready(struct dsi_pipe *dsi_pipe)
+int intel_adf_dsi_pmic_backlight_on(struct dsi_pipe *dsi_pipe)
 {
-	int pipe = dsi_pipe->config.pipe;
-	u32 val;
-	pr_debug("ADF: %s\n", __func__);
+	intel_soc_pmic_writeb(PMIC_BKL_EN, 0xFF);
+	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x01);
 
-	REG_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_ENTER);
-	usleep_range(2000, 2500);
-
-	REG_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_EXIT);
-	usleep_range(2000, 2500);
-
-	REG_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_ENTER);
-	usleep_range(2000, 2500);
-
-	if (wait_for(((REG_READ(MIPI_PORT_CTRL(pipe)) & AFE_LATCHOUT)
-		      == 0x00000), 30))
-		DRM_ERROR("DSI LP not going Low\n");
-
-	val = REG_READ(MIPI_PORT_CTRL(pipe));
-	REG_WRITE(MIPI_PORT_CTRL(pipe), val & ~LP_OUTPUT_HOLD);
-	usleep_range(1000, 1500);
-
-	val = REG_READ(MIPI_DEVICE_READY(pipe));
-	val &= ~0x1;
-	REG_WRITE(MIPI_DEVICE_READY(pipe), val);
-	usleep_range(2000, 2500);
-
-	vlv_disable_dsi_pll(&dsi_pipe->config);
+	panel_generic_enable_bklt(dsi_pipe);
+	return 0;
 }
 
-int intel_dsi_post_disable(struct dsi_pipe *dsi_pipe)
+int intel_adf_dsi_soc_backlight_on(struct dsi_pipe *dsi_pipe)
 {
-	struct dsi_context *intel_dsi = &dsi_pipe->config.ctx;
-	struct dsi_panel *panel = dsi_pipe->panel;
-	u32 val;
-
-	pr_debug("ADF: %s\n", __func__);
-	intel_dsi_disable(dsi_pipe);
-
-	intel_dsi_clear_device_ready(dsi_pipe);
-
-	val = REG_READ(DSPCLK_GATE_D);
-	val &= ~DPOUNIT_CLOCK_GATE_DISABLE;
-	REG_WRITE(DSPCLK_GATE_D, val);
-
-	if (panel->ops->disable_panel_power)
-		panel->ops->disable_panel_power(dsi_pipe);
-
-	/* Panel power off control using PMIC/LPIO */
-	if (panel->ops->panel_power_off)
-		panel->ops->panel_power_off(dsi_pipe);
-
-	msleep(intel_dsi->panel_off_delay);
-	msleep(intel_dsi->panel_pwr_cycle_delay);
+	vlv_gpio_write(IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTEN_GPIONC_10_PCONF0, 0x2000CC00);
+	vlv_gpio_write(IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTEN_GPIONC_10_PAD, 0x00000005);
+	udelay(500);
 
 	return 0;
 }
 
-int intel_dsi_set_events(struct dsi_pipe *dsi_pipe, u8 event, bool enabled)
+int intel_adf_dsi_pmic_backlight_off(struct dsi_pipe *dsi_pipe)
 {
+	panel_generic_disable_bklt(dsi_pipe);
+
+	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x00);
+	intel_soc_pmic_writeb(PMIC_BKL_EN, 0x7F);
+
 	return 0;
 }
 
-void intel_dsi_get_events(struct dsi_pipe *dsi_pipe, u32 *events)
+int intel_adf_dsi_soc_backlight_off(struct dsi_pipe *dsi_pipe)
 {
-	return;
-}
-
-void intel_dsi_handle_events(struct dsi_pipe *dsi_pipe, u32 events)
-{
-	return;
-}
-
-void intel_dsi_pre_post(struct dsi_pipe *dsi_pipe)
-{
-	return;
+	vlv_gpio_write(IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTEN_GPIONC_10_PCONF0, 0x2000CC00);
+	vlv_gpio_write(IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTEN_GPIONC_10_PAD, 0x00000004);
+	udelay(500);
+	return 0;
 }

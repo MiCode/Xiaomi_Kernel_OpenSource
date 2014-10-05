@@ -461,20 +461,24 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 		 */
 		if (vbt->config->pwm_blc) {
 			/* using SOC PWM */
-			panel->ops->panel_power_on = intel_dsi_soc_power_on;
-			panel->ops->panel_power_off = intel_dsi_soc_power_off;
+			panel->ops->panel_power_on =
+					intel_adf_dsi_soc_power_on;
+			panel->ops->panel_power_off =
+					intel_adf_dsi_soc_power_off;
 			panel->ops->enable_backlight =
-						intel_dsi_soc_backlight_on;
+					intel_adf_dsi_soc_backlight_on;
 			panel->ops->disable_backlight =
-						intel_dsi_soc_backlight_off;
+					intel_adf_dsi_soc_backlight_off;
 		} else {
 			/* Using PMIC */
-			panel->ops->panel_power_on = intel_dsi_pmic_power_on;
-			panel->ops->panel_power_off = intel_dsi_pmic_power_off;
+			panel->ops->panel_power_on =
+					intel_adf_dsi_pmic_power_on;
+			panel->ops->panel_power_off =
+					intel_adf_dsi_pmic_power_off;
 			panel->ops->enable_backlight =
-						intel_dsi_pmic_backlight_on;
+					intel_adf_dsi_pmic_backlight_on;
 			panel->ops->disable_backlight =
-						intel_dsi_pmic_backlight_off;
+					intel_adf_dsi_pmic_backlight_off;
 		}
 	}
 
@@ -484,14 +488,14 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 		goto err;
 
 	/*init dsi interface ops*/
-	pipe->ops.power_on = intel_dsi_pre_enable;
-	pipe->ops.pre_power_off = intel_dsi_pre_disable;
-	pipe->ops.power_off = intel_dsi_post_disable;
-	pipe->ops.mode_set = intel_dsi_modeset;
-	pipe->ops.pre_post = intel_dsi_pre_post;
-	pipe->ops.set_event = intel_dsi_set_events;
-	pipe->ops.get_events = intel_dsi_get_events;
-	pipe->ops.handle_events = intel_dsi_handle_events;
+	pipe->ops.power_on = intel_adf_dsi_pre_pll_enable;
+	pipe->ops.pre_power_off = intel_adf_dsi_pre_disable;
+	pipe->ops.power_off = intel_adf_dsi_post_disable;
+	pipe->ops.mode_set = intel_adf_dsi_modeset;
+	pipe->ops.pre_post = intel_adf_dsi_pre_post;
+	pipe->ops.set_event = intel_adf_dsi_set_events;
+	pipe->ops.get_events = intel_adf_dsi_get_events;
+	pipe->ops.handle_events = intel_adf_dsi_handle_events;
 	pipe->dpms_state = DRM_MODE_DPMS_OFF;
 
 	pipe->panel = panel;
