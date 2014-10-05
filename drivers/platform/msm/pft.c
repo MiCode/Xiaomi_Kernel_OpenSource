@@ -805,6 +805,13 @@ bool pft_allow_merge_bio(struct bio *bio1, struct bio *bio2)
 	if (!pft_is_ready())
 		return true;
 
+	/*
+	 * Encrypted BIOs are created only when file encryption is enabled,
+	 * which happens only when key is loaded.
+	 */
+	if (pft_dev->state != PFT_STATE_KEY_LOADED)
+		return true;
+
 	ret = pft_get_key_index(bio1, &key_index1,
 				&is_encrypted1, &is_inplace);
 	if (ret)
