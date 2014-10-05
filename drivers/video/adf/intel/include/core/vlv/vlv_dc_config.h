@@ -101,6 +101,9 @@ static inline void vlv_cck_write(u32 reg, u32 val)
 struct vlv_dc_config {
 	struct intel_dc_config base;
 	struct vlv_dpst dpst;
+#ifdef CONFIG_DEBUG_FS
+	struct dentry	*debugfs_root;
+#endif
 	struct vlv_disp {
 		struct vlv_pri_plane pplane;
 		struct vlv_sp_plane splane[2];
@@ -126,4 +129,8 @@ extern int pipe_mode_set(struct intel_pipe *pipe,
 			 struct drm_mode_modeinfo *mode);
 extern int vlv_display_on(struct intel_pipe *pipe);
 extern int vlv_display_off(struct intel_pipe *pipe);
+
+/* vlv_debugfs */
+extern int vlv_debugfs_init(struct vlv_dc_config *vlv_config);
+extern void vlv_debugfs_teardown(struct vlv_dc_config *vlv_config);
 #endif

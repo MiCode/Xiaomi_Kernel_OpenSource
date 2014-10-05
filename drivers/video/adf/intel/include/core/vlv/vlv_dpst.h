@@ -93,6 +93,7 @@ void vlv_dpst_irq_handler(struct intel_pipe *pipe);
 void vlv_dpst_display_on(void);
 void vlv_dpst_display_off(void);
 void vlv_dpst_set_brightness(struct intel_pipe *pipe, u32 brightness_val);
+
+int vlv_dpst_set_kernel_disable(struct vlv_dc_config *vlv_config,
+				bool disable);
 #endif
-
-
