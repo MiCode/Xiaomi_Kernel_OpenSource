@@ -357,6 +357,7 @@ static int adreno_soft_reset(struct kgsl_device *device);
  */
 void _soft_reset(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int reg;
 
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
@@ -366,6 +367,10 @@ void _soft_reset(struct adreno_device *adreno_dev)
 	 */
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
+
+	/* The SP/TP regulator gets turned off after a soft reset */
+	if (device->ftbl->regulator_enable)
+		device->ftbl->regulator_enable(device);
 }
 
 
@@ -2219,8 +2224,6 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
-
-	_soft_reset(adreno_dev);
 
 	adreno_set_active_ctx_null(adreno_dev);
 
