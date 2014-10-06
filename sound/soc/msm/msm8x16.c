@@ -1021,12 +1021,15 @@ static void *def_msm8x16_wcd_mbhc_cal(void)
 	struct wcd_mbhc_btn_detect_cfg *btn_cfg;
 	u16 *btn_low, *btn_high;
 
-	msm8x16_wcd_cal = kzalloc(sizeof(struct wcd_mbhc_btn_detect_cfg),
-					GFP_KERNEL);
+	msm8x16_wcd_cal = kzalloc(WCD_MBHC_CAL_SIZE, GFP_KERNEL);
 	if (!msm8x16_wcd_cal) {
 		pr_err("%s: out of memory\n", __func__);
 		return NULL;
 	}
+
+#define S(X, Y) ((WCD_MBHC_CAL_PLUG_DET_PTR(msm8x16_wcd_cal)->X) = (Y))
+	S(v_hs_max, 1500);
+#undef S
 
 	btn_cfg = WCD_MBHC_CAL_BTN_DET_PTR(msm8x16_wcd_cal);
 	btn_cfg->num_btn = WCD_MBHC_DEF_BUTTONS;

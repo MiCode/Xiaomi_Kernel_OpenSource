@@ -42,6 +42,19 @@ enum wcd_mbhc_event_state {
 	WCD_MBHC_EVENT_PA_HPHR,
 };
 
+struct wcd_mbhc_plug_type_cfg {
+	u8 av_detect;
+	u8 mono_detect;
+	u8 num_ins_tries;
+	u8 reserved0;
+	s16 v_no_mic;
+	s16 v_av_min;
+	s16 v_av_max;
+	s16 v_hs_min;
+	s16 v_hs_max;
+	u16 reserved1;
+} __packed;
+
 struct wcd_mbhc_btn_detect_cfg {
 	u8 num_btn;
 	s16 _v_btn_low[WCD_MBHC_DEF_BUTTONS];
@@ -122,8 +135,16 @@ struct wcd_mbhc {
 	struct notifier_block nblock;
 };
 
+#define WCD_MBHC_CAL_SIZE ( \
+	    sizeof(struct wcd_mbhc_plug_type_cfg) + \
+	    sizeof(struct wcd_mbhc_btn_detect_cfg) \
+	)
+
+#define WCD_MBHC_CAL_PLUG_DET_PTR(cali) ( \
+	    (struct wcd_mbhc_plug_type_cfg *) cali)
 #define WCD_MBHC_CAL_BTN_DET_PTR(cali) ( \
-	    (struct wcd_mbhc_btn_detect_cfg *) cali)
+	    (struct wcd_mbhc_btn_detect_cfg *) \
+	    &(WCD_MBHC_CAL_PLUG_DET_PTR(cali)[1]))
 
 int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 		       struct wcd_mbhc_config *mbhc_cfg);

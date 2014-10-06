@@ -48,6 +48,7 @@
 #define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
 #define GND_MIC_SWAP_THRESHOLD 4
 #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 100
+#define HS_VREF_MIN_VAL 1400
 
 static int det_extn_cable_en;
 module_param(det_extn_cable_en, int,
@@ -153,6 +154,21 @@ static void hphlocp_off_report(struct wcd_mbhc *mbhc, u32 jack_status)
 {
 	__hphocp_off_report(mbhc, SND_JACK_OC_HPHL,
 			    mbhc->intr_ids->hph_left_ocp);
+}
+
+static void wcd_program_hs_vref(const struct wcd_mbhc *mbhc)
+{
+	struct wcd_mbhc_plug_type_cfg *plug_type_cfg;
+	struct snd_soc_codec *codec = mbhc->codec;
+	struct snd_soc_card *card = codec->card;
+	u32 reg_val;
+
+	plug_type_cfg = WCD_MBHC_CAL_PLUG_DET_PTR(mbhc->mbhc_cfg->calibration);
+	reg_val = ((plug_type_cfg->v_hs_max - HS_VREF_MIN_VAL) / 100);
+
+	dev_dbg(card->dev, "%s: reg_val  = %x\n", __func__, reg_val);
+	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN3_CTL,
+			0x03, reg_val);
 }
 
 static void wcd_program_btn_threshold(const struct wcd_mbhc *mbhc, bool micbias)
@@ -1726,6 +1742,9 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
 			0x08, 0x08);
+	/* program HS_VREF value */
+	wcd_program_hs_vref(mbhc);
+
 	/* Program Button threshold registers */
 	wcd_program_btn_threshold(mbhc, false);
 
