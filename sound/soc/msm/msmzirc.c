@@ -41,13 +41,17 @@
 #define MDM_MCLK_CLK_9P6HZ 9600000
 #define MDM_MI2S_RATE 48000
 
-#define LPAIF_OFFSET 0xFE000000
-#define LPAIF_PRI_MODE_MUXSEL (LPAIF_OFFSET + 0x34000)
-#define LPAIF_SEC_MODE_MUXSEL (LPAIF_OFFSET + 0x35000)
+#define LPAIF_OFFSET 0x07700000
+#define LPAIF_PRI_MODE_MUXSEL (LPAIF_OFFSET + 0x2008)
+#define LPAIF_SEC_MODE_MUXSEL (LPAIF_OFFSET + 0x200c)
+
+#define LPASS_CSR_GP_IO_MUX_SPKR_CTL (LPAIF_OFFSET + 0x2004)
 
 #define I2S_SEL 0
 #define I2S_PCM_SEL 1
 #define I2S_PCM_SEL_OFFSET 1
+
+#define TLMM_SCLK_EN 0x4
 
 /* Machine driver Name*/
 #define DRV_NAME "msmzirc-asoc-tomtom"
@@ -101,6 +105,7 @@ static const struct afe_clk_cfg lpass_default = {
 
 static int msmzirc_auxpcm_rate = 8000;
 static void *lpaif_pri_muxsel_virt_addr;
+static void *lpass_gpio_mux_spkr_ctl_virt_addr;
 
 static struct mutex cdc_mclk_mutex;
 static int msmzirc_mi2s_rx_ch = 1;
@@ -240,7 +245,12 @@ static int msmzirc_mi2s_startup(struct snd_pcm_substream *substream)
 		else
 			pr_err("%s lpaif_pri_muxsel_virt_addr is NULL\n",
 				__func__);
-
+		if (lpass_gpio_mux_spkr_ctl_virt_addr != NULL)
+			iowrite32(TLMM_SCLK_EN,
+				  lpass_gpio_mux_spkr_ctl_virt_addr);
+		else
+			pr_err("%s lpass_spkr_ctl_virt_addr is NULL\n",
+			       __func__);
 		ret = msm_set_pinctrl(pinctrl_info);
 		if (ret) {
 			pr_err("%s MI2S TLMM pinctrl set failed with %d\n",
@@ -1382,8 +1392,18 @@ static int msmzirc_asoc_machine_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err1;
 	}
+	lpass_gpio_mux_spkr_ctl_virt_addr =
+				ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL, 4);
+	if (lpass_gpio_mux_spkr_ctl_virt_addr == NULL) {
+		pr_err("%s lpass spkr ctl virt addr is null\n", __func__);
+
+		ret = -EINVAL;
+		goto err2;
+	}
 
 	return 0;
+err2:
+	iounmap(lpaif_pri_muxsel_virt_addr);
 err1:
 	msm_mi2s_release_pinctrl(pdev, PRI_MI2S_PCM);
 err:
@@ -1398,6 +1418,7 @@ static int msmzirc_asoc_machine_remove(struct platform_device *pdev)
 
 	pdata->mclk_freq = 0;
 	iounmap(lpaif_pri_muxsel_virt_addr);
+	iounmap(lpass_gpio_mux_spkr_ctl_virt_addr);
 	msm_mi2s_release_pinctrl(pdev, PRI_MI2S_PCM);
 	snd_soc_unregister_card(card);
 	return 0;
