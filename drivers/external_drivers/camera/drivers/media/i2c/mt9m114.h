@@ -216,6 +216,9 @@ enum {
 
 #define MT9M114_BIN_FACTOR_MAX			3
 
+#define MT9M114_DEFAULT_FIRST_EXP 0x10
+#define MT9M114_MAX_FIRST_EXP 0x302
+
 /* completion status polling requirements, usage based on Aptina .INI Rev2 */
 enum poll_reg {
 	NO_POLLING,
@@ -306,9 +309,14 @@ struct mt9m114_device {
 
 	/*Number of MIPI lanes*/
 	unsigned int mipi_lanes;
+	/*WA for low light AE*/
+	unsigned int first_exp;
+	unsigned int first_gain;
+	unsigned int first_diggain;
 	char name[32];
 
 	u8 lightfreq;
+	u8 streamon;
 };
 
 struct mt9m114_format_struct {

@@ -904,6 +904,10 @@ static int mt9m114_set_mbus_fmt(struct v4l2_subdev *sd,
 	struct camera_mipi_info *mt9m114_info = NULL;
 #endif
 	int ret;
+
+	dev->streamon = 0;
+	dev->first_exp = MT9M114_DEFAULT_FIRST_EXP;
+
 #ifdef CONFIG_GMIN_INTEL_MID /* FIXME! */
 	mt9m114_info = v4l2_get_subdev_hostdata(sd);
 	if (mt9m114_info == NULL)
@@ -1186,6 +1190,12 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
     FLines = mt9m114_res[dev->res].lines_per_frame;
     AnalogGain = exposure->gain[0];
     DigitalGain = exposure->gain[1];
+	if (!dev->streamon) {
+		/*Save the first exposure values while stream is off*/
+		dev->first_exp = coarse_integration;
+		dev->first_gain = AnalogGain;
+		dev->first_diggain = DigitalGain;
+	}
     //DigitalGain = 0x400 * (((u16) DigitalGain) >> 8) + ((unsigned int)(0x400 * (((u16) DigitalGain) & 0xFF)) >>8);
 
     //Hindden Register usage in REG_SW_RESET bit 15. set REG_SW_RESET bit 15 as 1 for group apply.
@@ -1824,16 +1834,28 @@ static int mt9m114_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	int ret;
 	struct i2c_client *c = v4l2_get_subdevdata(sd);
+	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
+	struct atomisp_exposure exposure;
 
 	if (enable) {
 		ret = mt9m114_write_reg_array(c, mt9m114_chgstat_reg,
 					POST_POLLING);
 		if (ret < 0)
 			return ret;
+
+		if (dev->first_exp > MT9M114_MAX_FIRST_EXP) {
+			exposure.integration_time[0] = dev->first_exp;
+			exposure.gain[0] = dev->first_gain;
+			exposure.gain[1] = dev->first_diggain;
+			mt9m114_s_exposure(sd, &exposure);
+		}
+		dev->streamon = 1;
+
 #ifndef CONFIG_GMIN_INTEL_MID /* FIXME! for irrational!*/
 		ret = mt9m114_set_streaming(sd);
 #endif
 	} else {
+		dev->streamon = 0;
 		ret = mt9m114_set_suspend(sd);
 	}
 
