@@ -497,7 +497,7 @@ static int msm_spi_calculate_size(int *fifo_size,
 	return 0;
 }
 
-static void __init msm_spi_calculate_fifo_size(struct msm_spi *dd)
+static void msm_spi_calculate_fifo_size(struct msm_spi *dd)
 {
 	u32 spi_iom;
 	int block;
@@ -2289,7 +2289,7 @@ struct msm_spi_dt_to_pdata_map {
 	int                          default_val;
 };
 
-static int __init msm_spi_dt_to_pdata_populate(struct platform_device *pdev,
+static int msm_spi_dt_to_pdata_populate(struct platform_device *pdev,
 					struct msm_spi_platform_data *pdata,
 					struct msm_spi_dt_to_pdata_map  *itr)
 {
@@ -2343,7 +2343,7 @@ static int __init msm_spi_dt_to_pdata_populate(struct platform_device *pdev,
 /**
  * msm_spi_dt_to_pdata: create pdata and read gpio config from device tree
  */
-struct msm_spi_platform_data * __init msm_spi_dt_to_pdata(
+struct msm_spi_platform_data *msm_spi_dt_to_pdata(
 			struct platform_device *pdev, struct msm_spi *dd)
 {
 	struct msm_spi_platform_data *pdata;
@@ -2413,14 +2413,14 @@ struct msm_spi_platform_data * __init msm_spi_dt_to_pdata(
 	return pdata;
 }
 
-static int __init msm_spi_get_qup_hw_ver(struct device *dev, struct msm_spi *dd)
+static int msm_spi_get_qup_hw_ver(struct device *dev, struct msm_spi *dd)
 {
 	u32 data = readl_relaxed(dd->base + QUP_HARDWARE_VER);
 	return (data >= QUP_HARDWARE_VER_2_1_1) ? SPI_QUP_VERSION_BFAM
 						: SPI_QUP_VERSION_NONE;
 }
 
-static int __init msm_spi_bam_get_resources(struct msm_spi *dd,
+static int msm_spi_bam_get_resources(struct msm_spi *dd,
 	struct platform_device *pdev, struct spi_master *master)
 {
 	struct resource *resource;
@@ -2458,7 +2458,7 @@ static int __init msm_spi_bam_get_resources(struct msm_spi *dd,
 	return 0;
 }
 
-static int __init msm_spi_probe(struct platform_device *pdev)
+static int msm_spi_probe(struct platform_device *pdev)
 {
 	struct spi_master      *master;
 	struct msm_spi	       *dd;
@@ -2876,11 +2876,12 @@ static struct platform_driver msm_spi_driver = {
 		.of_match_table = msm_spi_dt_match,
 	},
 	.remove		= msm_spi_remove,
+	.probe		= msm_spi_probe,
 };
 
 static int __init msm_spi_init(void)
 {
-	return platform_driver_probe(&msm_spi_driver, msm_spi_probe);
+	return platform_driver_register(&msm_spi_driver);
 }
 module_init(msm_spi_init);
 
