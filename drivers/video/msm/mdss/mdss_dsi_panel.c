@@ -386,6 +386,35 @@ static struct dsi_cmd_desc set_col_page_addr_cmd[] = {
 	{{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(paset)}, paset},
 };
 
+static void mdss_dsi_send_col_page_addr(struct mdss_dsi_ctrl_pdata *ctrl,
+					struct mdss_rect *roi)
+{
+	struct dcs_cmd_req cmdreq;
+
+	roi = &ctrl->roi;
+
+	caset[1] = (((roi->x) & 0xFF00) >> 8);
+	caset[2] = (((roi->x) & 0xFF));
+	caset[3] = (((roi->x - 1 + roi->w) & 0xFF00) >> 8);
+	caset[4] = (((roi->x - 1 + roi->w) & 0xFF));
+	set_col_page_addr_cmd[0].payload = caset;
+
+	paset[1] = (((roi->y) & 0xFF00) >> 8);
+	paset[2] = (((roi->y) & 0xFF));
+	paset[3] = (((roi->y - 1 + roi->h) & 0xFF00) >> 8);
+	paset[4] = (((roi->y - 1 + roi->h) & 0xFF));
+	set_col_page_addr_cmd[1].payload = paset;
+
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds_cnt = 2;
+	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL | CMD_REQ_UNICAST;
+	cmdreq.rlen = 0;
+	cmdreq.cb = NULL;
+
+	cmdreq.cmds = set_col_page_addr_cmd;
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+}
+
 static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
 {
 	struct mdss_panel_info *pinfo;
@@ -394,7 +423,6 @@ static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
 	struct mdss_rect *c_roi;
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 	struct mdss_dsi_ctrl_pdata *other = NULL;
-	struct dcs_cmd_req cmdreq;
 	int left_or_both = 0;
 
 	if (pdata == NULL) {
@@ -426,8 +454,7 @@ static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
 	}
 
 	/* roi had changed, do col_page update */
-	if (mdss_dsi_sync_wait_enable(ctrl) ||
-				!mdss_rect_cmp(c_roi, &roi)) {
+	if (!mdss_rect_cmp(c_roi, &roi)) {
 		pr_debug("%s: ndx=%d x=%d y=%d w=%d h=%d\n",
 				__func__, ctrl->ndx, p_roi->x,
 				p_roi->y, p_roi->w, p_roi->h);
@@ -437,8 +464,7 @@ static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
 			/* no new frame update */
 			pr_debug("%s: ctrl=%d, no partial roi set\n",
 						__func__, ctrl->ndx);
-			if (!mdss_dsi_sync_wait_enable(ctrl))
-				return 0;
+			return 0;
 		}
 
 		if (pinfo->dcs_cmd_by_left) {
@@ -448,31 +474,32 @@ static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
 			}
 		}
 
-		caset[1] = (((roi.x) & 0xFF00) >> 8);
-		caset[2] = (((roi.x) & 0xFF));
-		caset[3] = (((roi.x - 1 + roi.w) & 0xFF00) >> 8);
-		caset[4] = (((roi.x - 1 + roi.w) & 0xFF));
-		set_col_page_addr_cmd[0].payload = caset;
+		if (!mdss_dsi_sync_wait_enable(ctrl)) {
+			if (pinfo->dcs_cmd_by_left)
+				ctrl = mdss_dsi_get_ctrl_by_index(
+							DSI_CTRL_LEFT);
+			mdss_dsi_send_col_page_addr(ctrl, &roi);
+		} else {
+			/*
+			 * when sync_wait_broadcast enabled,
+			 * need trigger at right ctrl to
+			 * start both dcs cmd transmission
+			 */
+			other = mdss_dsi_get_other_ctrl(ctrl);
+			if (!other)
+				goto end;
 
-		paset[1] = (((roi.y) & 0xFF00) >> 8);
-		paset[2] = (((roi.y) & 0xFF));
-		paset[3] = (((roi.y - 1 + roi.h) & 0xFF00) >> 8);
-		paset[4] = (((roi.y - 1 + roi.h) & 0xFF));
-		set_col_page_addr_cmd[1].payload = paset;
-
-		memset(&cmdreq, 0, sizeof(cmdreq));
-		cmdreq.cmds = set_col_page_addr_cmd;
-		cmdreq.cmds_cnt = 2;
-		cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL | CMD_REQ_UNICAST;
-		cmdreq.rlen = 0;
-		cmdreq.cb = NULL;
-
-		if (pinfo->dcs_cmd_by_left)
-			ctrl = mdss_dsi_get_ctrl_by_index(DSI_CTRL_LEFT);
-
-		mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+			if (mdss_dsi_is_left_ctrl(ctrl)) {
+				mdss_dsi_send_col_page_addr(ctrl, &ctrl->roi);
+				mdss_dsi_send_col_page_addr(other, &other->roi);
+			} else {
+				mdss_dsi_send_col_page_addr(other, &other->roi);
+				mdss_dsi_send_col_page_addr(ctrl, &ctrl->roi);
+			}
+		}
 	}
 
+end:
 	return 0;
 }
 
