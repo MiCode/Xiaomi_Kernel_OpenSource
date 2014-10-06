@@ -50,7 +50,7 @@ static void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (ctrl->ndx == DSI_CTRL_1) {
 		ctrl_rev = MIPI_INP(ctrl->ctrl_base);
 		if (ctrl_rev == MDSS_DSI_HW_REV_103) {
-			pr_err("Turn off PLL 1 registers\n");
+			pr_debug("Turn off PLL 1 registers\n");
 			clk_set_rate(ctrl->vco_clk, 1);
 		}
 	}
