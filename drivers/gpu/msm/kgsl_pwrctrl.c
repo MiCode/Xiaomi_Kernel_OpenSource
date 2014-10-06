@@ -194,6 +194,36 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
 
 /**
+ * kgsl_pwrctrl_pwrlevel_change_settings() - Program h/w during powerlevel
+ * transitions
+ * @device: Pointer to the kgsl_device struct
+ * @post: flag to check if the call is before/after the clk_rate change
+ * @wake_up: flag to check if device is active or waking up
+ */
+void kgsl_pwrctrl_pwrlevel_change_settings(struct kgsl_device *device,
+						bool post, bool wake_up)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	unsigned int old = pwr->previous_pwrlevel;
+	unsigned int new = pwr->active_pwrlevel;
+
+	if (device->state != KGSL_STATE_ACTIVE)
+		return;
+	if (old == new)
+		return;
+	if (!device->ftbl->pwrlevel_change_settings)
+		return;
+
+	if (((old == 0) && !post) || ((old == 0) && wake_up)) {
+		/* Going to Non-Turbo mode - mask the throttle and reset */
+		device->ftbl->pwrlevel_change_settings(device, 1);
+	} else if (((new == 0) && post) || ((new == 0) && wake_up)) {
+		/* Going to Turbo mode - unmask the throttle and reset */
+		device->ftbl->pwrlevel_change_settings(device, 0);
+	}
+}
+
+/**
  * kgsl_pwrctrl_pwrlevel_change() - Validate and change power levels
  * @device: Pointer to the kgsl_device struct
  * @new_level: Requested powerlevel, an index into the pwrlevel array
@@ -244,11 +274,12 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 		return;
 
 	/*
-	 * Set the active powerlevel first in case the clocks are off - if we
-	 * don't do this then the pwrlevel change won't take effect when the
-	 * clocks come back
+	 * Set the active and previous powerlevel first in case the clocks are
+	 * off - if we don't do this then the pwrlevel change won't take effect
+	 * when the clocks come back
 	 */
 	pwr->active_pwrlevel = new_level;
+	pwr->previous_pwrlevel = old_level;
 
 	/*
 	 * Update the bus before the GPU clock to prevent underrun during
@@ -258,9 +289,13 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	kgsl_pwrctrl_buslevel_update(device, true);
 
 	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
+	/* Change register settings if any  BEFORE pwrlevel change*/
+	kgsl_pwrctrl_pwrlevel_change_settings(device, 0, 0);
 	clk_set_rate(pwr->grp_clks[0], pwrlevel->gpu_freq);
 	trace_kgsl_pwrlevel(device, pwr->active_pwrlevel,
 			pwrlevel->gpu_freq);
+	/* Change register settings if any AFTER pwrlevel change*/
+	kgsl_pwrctrl_pwrlevel_change_settings(device, 1, 0);
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_pwrlevel_change);
 
@@ -1555,6 +1590,7 @@ static int _init(struct kgsl_device *device)
  */
 static int _wake(struct kgsl_device *device)
 {
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int status = 0;
 
 	switch (device->state) {
@@ -1583,6 +1619,11 @@ static int _wake(struct kgsl_device *device)
 		/* Enable state before turning on irq */
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 		kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
+		/* Change register settings if any after pwrlevel change*/
+		kgsl_pwrctrl_pwrlevel_change_settings(device, 1, 1);
+		/* All settings for power level transitions are complete*/
+		pwr->previous_pwrlevel = pwr->active_pwrlevel;
+
 		mod_timer(&device->idle_timer, jiffies +
 				device->pwrctrl.interval_timeout);
 		pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,

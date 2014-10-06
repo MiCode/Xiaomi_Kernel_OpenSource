@@ -406,6 +406,12 @@ void a4xx_snapshot(struct adreno_device *adreno_dev,
 		_snapshot_a3xx_regs(regs, &list, a4xx_xpu_registers,
 				a4xx_xpu_reg_cnt, 1);
 	}
+
+	if (adreno_is_a430v2(adreno_dev)) {
+		_snapshot_a3xx_regs(regs, &list, a4xx_ppd_registers,
+				a4xx_ppd_registers_count, 1);
+	}
+
 	a4xx_snapshot_vbif_registers(device, regs, &list);
 
 	/* Turn on MMU clocks since we read MMU registers */
