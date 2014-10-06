@@ -286,6 +286,14 @@ Required properties:
 
  - compatible : "qcom,msm-cpe-lsm"
 
+* msm-dai-slim
+
+Required properties:
+
+ - compatible :                            "qcom,msm-dai-slim"
+
+ - elemental-addr:                         slimbus slave enumeration address.
+
 Example:
 
 	qcom,msm-pcm {
@@ -518,6 +526,10 @@ Example:
 		elemental-addr = [ff ff ff ff 17 02];
 	};
 
+	msm_dai_slim {
+		compatible = "qcom,msm_dai_slim";
+		elemental-addr = [ff ff ff fe 17 02];
+	};
 * MSM8916 ASoC Machine driver
 
 Required properties:
