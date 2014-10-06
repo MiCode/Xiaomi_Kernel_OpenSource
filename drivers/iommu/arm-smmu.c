@@ -1690,6 +1690,10 @@ static int arm_smmu_alloc_init_pte(struct arm_smmu_domain *smmu_domain,
 		if (prot & IOMMU_CACHE)
 			pteval |= (MAIR_ATTR_IDX_CACHE <<
 				   ARM_SMMU_PTE_ATTRINDX_SHIFT);
+
+		if (prot & IOMMU_DEVICE)
+			pteval |= (MAIR_ATTR_IDX_DEV <<
+					ARM_SMMU_PTE_ATTRINDX_SHIFT);
 	} else {
 		pteval |= ARM_SMMU_PTE_HAP_FAULT;
 		if (prot & IOMMU_READ && !(prot & IOMMU_PRIV))
@@ -1700,6 +1704,9 @@ static int arm_smmu_alloc_init_pte(struct arm_smmu_domain *smmu_domain,
 			pteval |= ARM_SMMU_PTE_MEMATTR_OIWB;
 		else
 			pteval |= ARM_SMMU_PTE_MEMATTR_NC;
+
+		if (prot & IOMMU_DEVICE)
+			pteval |= ARM_SMMU_PTE_MEMATTR_DEV;
 	}
 
 	/* If no access, create a faulting entry to avoid TLB fills */
