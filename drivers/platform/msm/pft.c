@@ -1191,6 +1191,28 @@ int pft_file_close(struct file *filp)
 		pft_dev->inplace_file = NULL;
 	}
 
+	switch (pft_dev->state) {
+	case PFT_STATE_DEACTIVATING:
+	case PFT_STATE_REMOVING_KEY:
+		/*
+		 * Do not allow apps to close file when
+		 * pft_close_opened_enc_files() is closing files.
+		 * Normally, all enterprise apps are closed by PFM
+		 * before getting to this state, so the apps files are
+		 * norammly closed by now.
+		 * pft_close_opened_enc_files() is running in PFM context.
+		 */
+		if (current_pid() != pft_dev->pfm_pid)
+			return -EACCES;
+	case PFT_STATE_DEACTIVATED:
+	case PFT_STATE_KEY_LOADED:
+	case PFT_STATE_KEY_REMOVED:
+		break;
+	default:
+		BUG(); /* State is set by "set state" command */
+		break;
+	}
+
 	pft_sync_file(filp);
 	pft_remove_file(filp);
 
