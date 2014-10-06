@@ -101,7 +101,7 @@ static void ath_hci_uart_work(struct work_struct *work)
 	}
 
 	/* Ready to send Data */
-	clear_bit(HCI_UART_SENDING, &hu->tx_state);
+	clear_bit(HCI_UART_TX_INHIBIT, &hu->tx_state);
 	hci_uart_tx_wakeup(hu);
 }
 
@@ -184,7 +184,7 @@ static int ath_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 	memcpy(skb_push(skb, 1), &bt_cb(skb)->pkt_type, 1);
 
 	skb_queue_tail(&ath->txq, skb);
-	set_bit(HCI_UART_SENDING, &hu->tx_state);
+	set_bit(HCI_UART_TX_INHIBIT, &hu->tx_state);
 
 	schedule_work(&ath->ctxtsw);
 

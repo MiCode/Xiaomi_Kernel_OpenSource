@@ -118,10 +118,8 @@ static inline struct sk_buff *hci_uart_dequeue(struct hci_uart *hu)
 
 int hci_uart_tx_wakeup(struct hci_uart *hu)
 {
-	if (test_and_set_bit(HCI_UART_SENDING, &hu->tx_state)) {
-		set_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
+	if (test_bit(HCI_UART_TX_INHIBIT, &hu->hdev_flags))
 		return 0;
-	}
 
 	BT_DBG("");
 
@@ -141,9 +139,6 @@ static void hci_uart_write_work(struct work_struct *work)
 	 * and error value ?
 	 */
 
-restart:
-	clear_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
-
 	while ((skb = hci_uart_dequeue(hu))) {
 		int len;
 
@@ -160,11 +155,6 @@ restart:
 		hci_uart_tx_complete(hu, bt_cb(skb)->pkt_type);
 		kfree_skb(skb);
 	}
-
-	if (test_bit(HCI_UART_TX_WAKEUP, &hu->tx_state))
-		goto restart;
-
-	clear_bit(HCI_UART_SENDING, &hu->tx_state);
 }
 
 static void hci_uart_init_work(struct work_struct *work)

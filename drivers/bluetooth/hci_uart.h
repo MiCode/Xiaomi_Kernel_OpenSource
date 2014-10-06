@@ -83,8 +83,7 @@ struct hci_uart {
 #define HCI_UART_REGISTERED	1
 
 /* TX states  */
-#define HCI_UART_SENDING	1
-#define HCI_UART_TX_WAKEUP	2
+#define HCI_UART_TX_INHIBIT	1
 
 int hci_uart_register_proto(struct hci_uart_proto *p);
 int hci_uart_unregister_proto(struct hci_uart_proto *p);
