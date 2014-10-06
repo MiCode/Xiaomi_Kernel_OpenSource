@@ -440,6 +440,9 @@ static int mdp3_clk_update(u32 clk_idx, u32 enable)
 			return ret;
 		}
 		ret = clk_enable(clk);
+		if (ret)
+			pr_err("%s: clock enable failed %d\n", __func__,
+					clk_idx);
 	} else if (count == 0) {
 		pr_debug("clk=%d disable\n", clk_idx);
 		clk_disable(clk);
@@ -469,7 +472,7 @@ int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate,
 			mutex_unlock(&mdp3_res->res_mutex);
 			return -EINVAL;
 		}
-		if (clk_type == MDP3_CLK_MDP_CORE) {
+		if (clk_type == MDP3_CLK_MDP_SRC) {
 			if (client == MDP3_CLIENT_DMA_P) {
 				mdp3_res->dma_core_clk_request = rounded_rate;
 			} else if (client == MDP3_CLIENT_PPP) {
@@ -559,6 +562,10 @@ static int mdp3_clk_setup(void)
 	if (rc)
 		return rc;
 
+	rc = mdp3_clk_set_rate(MDP3_CLK_MDP_SRC, MDP_CORE_CLK_RATE,
+			MDP3_CLIENT_DMA_P);
+	if (rc)
+		pr_err("%s: Error setting max clock during probe\n", __func__);
 	return rc;
 }
 
@@ -868,6 +875,7 @@ static int mdp3_check_version(void)
 	int rc;
 
 	rc = mdp3_clk_update(MDP3_CLK_AHB, 1);
+	rc |= mdp3_clk_update(MDP3_CLK_AXI, 1);
 	rc |= mdp3_clk_update(MDP3_CLK_MDP_CORE, 1);
 	if (rc)
 		return rc;
@@ -875,6 +883,7 @@ static int mdp3_check_version(void)
 	mdp3_res->mdp_rev = MDP3_REG_READ(MDP3_REG_HW_VERSION);
 
 	rc = mdp3_clk_update(MDP3_CLK_AHB, 0);
+	rc |= mdp3_clk_update(MDP3_CLK_AXI, 0);
 	rc |= mdp3_clk_update(MDP3_CLK_MDP_CORE, 0);
 	if (rc)
 		pr_err("fail to turn off the MDP3_CLK_AHB clk\n");
@@ -1603,6 +1612,7 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 	u32 status;
 
 	mdp3_clk_update(MDP3_CLK_AHB, 1);
+	mdp3_clk_update(MDP3_CLK_AXI, 1);
 	mdp3_clk_update(MDP3_CLK_MDP_CORE, 1);
 
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
@@ -1617,6 +1627,7 @@ static int mdp3_is_display_on(struct mdss_panel_data *pdata)
 	mdp3_res->splash_mem_addr = MDP3_REG_READ(MDP3_REG_DMA_P_IBUF_ADDR);
 
 	mdp3_clk_update(MDP3_CLK_AHB, 0);
+	mdp3_clk_update(MDP3_CLK_AXI, 0);
 	mdp3_clk_update(MDP3_CLK_MDP_CORE, 0);
 	return rc;
 }
@@ -1633,7 +1644,7 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 	mdp3_clk_set_rate(MDP3_CLK_VSYNC, MDP_VSYNC_CLK_RATE,
 			MDP3_CLIENT_DMA_P);
 
-	mdp3_clk_set_rate(MDP3_CLK_MDP_CORE, MDP_CORE_CLK_RATE,
+	mdp3_clk_set_rate(MDP3_CLK_MDP_SRC, MDP_CORE_CLK_RATE,
 			MDP3_CLIENT_DMA_P);
 
 	bus_handle = &mdp3_res->bus_handle[MDP3_BUS_HANDLE];
