@@ -27,6 +27,11 @@
 #define WCD_CPE_READY_TO_DLOAD	\
 	(WCD_CPE_BLK_READY | WCD_CPE_BUS_READY)
 
+#define WCD_CPE_LOAD_IMEM (1 << 0)
+#define WCD_CPE_LOAD_DATA (1 << 1)
+#define WCD_CPE_LOAD_ALL \
+	(WCD_CPE_LOAD_IMEM | WCD_CPE_LOAD_DATA)
+
 enum {
 	WCD_CPE_LSM_CAL_AFE = 0,
 	WCD_CPE_LSM_CAL_LSM,
@@ -46,6 +51,8 @@ struct wcd_cpe_cdc_cb {
 enum wcd_cpe_ssr_state_event {
 	/* Indicates CPE is initialized */
 	WCD_CPE_INITIALIZED = 0,
+	/* Indicates that IMEM is downloaded to CPE */
+	WCD_CPE_IMEM_DOWNLOADED,
 	/* Indicates CPE is enabled */
 	WCD_CPE_ENABLED,
 	/* Indicates that CPE is currently active */
@@ -125,6 +132,12 @@ struct wcd_cpe_core {
 
 	/* Store the calibration data needed for cpe */
 	struct cal_type_data *cal_data[WCD_CPE_LSM_CAL_MAX];
+
+	/* completion event to signal CPE is online */
+	struct completion online_compl;
+
+	/* reference counter for cpe usage */
+	u8 cpe_users;
 };
 
 struct wcd_cpe_params {
