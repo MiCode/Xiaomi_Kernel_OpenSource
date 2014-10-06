@@ -629,43 +629,46 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 		addr = sg_dma_address(sg);
 		len = sg_dma_len(sg);
 
-		/*
-		 * The SDHCI specification states that ADMA addresses must be
-		 * 32-bit aligned for 32-bit ADMA or 64-bit aligned for 64-bit
-		 * ADMA. If they aren't, then we use a bounce buffer for the
-		 * (up to three for 32-bit and up to seven for 64-bit) bytes
-		 * that screw up the alignment.
-		 *
-		 */
-		offset = (host->align_bytes - (addr & (host->align_bytes - 1)))
+		if (!(host->quirks2 & SDHCI_QUIRK2_ADMA_SKIP_DATA_ALIGNMENT)) {
+			/*
+			 * The SDHCI specification states that ADMA addresses
+			 * must be 32-bit aligned for 32-bit ADMA or 64-bit
+			 * aligned for 64-bit ADMA. If they aren't, then we use
+			 * a bounce buffer for the (up to three for 32-bit and
+			 * up to seven for 64-bit) bytes that screw up the
+			 * alignment.
+			 */
+			offset = (host->align_bytes
+				- (addr & (host->align_bytes - 1)))
 				& (host->align_bytes - 1);
-		if (offset) {
-			if (data->flags & MMC_DATA_WRITE) {
-				buffer = sdhci_kmap_atomic(sg, &flags);
-				/*
-				 * This check is intended here to verify if the
-				 * page offset plus alignment bytes is indeed
-				 * within the same page.
-				 */
+			if (offset) {
+				if (data->flags & MMC_DATA_WRITE) {
+					buffer = sdhci_kmap_atomic(sg, &flags);
+					/*
+					 * This check is intended here to verify
+					 * if the page offset plus alignment
+					 * bytes is indeed within the same page.
+					 */
 				WARN_ON(((long)buffer & (PAGE_SIZE - 1)) >
 					(PAGE_SIZE - (host->align_bytes - 1)));
-				memcpy(align, buffer, offset);
-				sdhci_kunmap_atomic(buffer, &flags);
-			}
+					memcpy(align, buffer, offset);
+					sdhci_kunmap_atomic(buffer, &flags);
+				}
 
-			/* tran, valid */
-			sdhci_set_adma_desc(host, desc, align_addr,
+				/* tran, valid */
+				sdhci_set_adma_desc(host, desc, align_addr,
 						offset, 0x21);
 
-			BUG_ON(offset > 65536);
+				BUG_ON(offset > 65536);
 
-			align += host->align_bytes;
-			align_addr += host->align_bytes;
+				align += host->align_bytes;
+				align_addr += host->align_bytes;
 
-			desc += host->adma_desc_line_sz;
+				desc += host->adma_desc_line_sz;
 
-			addr += offset;
-			len -= offset;
+				addr += offset;
+				len -= offset;
+			}
 		}
 
 		BUG_ON(len > 65536);
@@ -710,7 +713,8 @@ fail:
 static void sdhci_adma_table_post(struct sdhci_host *host,
 	struct mmc_data *data)
 {
-	int direction;
+	int direction = (data->flags & MMC_DATA_WRITE)
+				     ? DMA_TO_DEVICE : DMA_FROM_DEVICE;
 	struct scatterlist *sg;
 	int i, size;
 	u8 *align;
@@ -721,8 +725,9 @@ static void sdhci_adma_table_post(struct sdhci_host *host,
 
 	trace_mmc_adma_table_post(command, data->sg_len);
 
-	if (data->flags & MMC_DATA_READ) {
-		direction = DMA_FROM_DEVICE;
+	if (!(host->quirks2 & SDHCI_QUIRK2_ADMA_SKIP_DATA_ALIGNMENT)
+			&& (data->flags & MMC_DATA_READ)) {
+
 		/* Do a quick scan of the SG list for any unaligned mappings */
 		for_each_sg(data->sg, sg, host->sg_count, i) {
 			if (sg_dma_address(sg) & (host->align_bytes - 1)) {
@@ -730,11 +735,10 @@ static void sdhci_adma_table_post(struct sdhci_host *host,
 				break;
 			}
 		}
-	} else {
-		direction = DMA_TO_DEVICE;
 	}
 
-	if (has_unaligned) {
+	if (!(host->quirks2 & SDHCI_QUIRK2_ADMA_SKIP_DATA_ALIGNMENT)
+	     && has_unaligned) {
 		dma_sync_sg_for_cpu(mmc_dev(host->mmc), data->sg,
 			data->sg_len, direction);
 
