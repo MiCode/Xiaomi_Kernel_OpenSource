@@ -57,7 +57,6 @@ typedef enum sensor_stats_type {
 	YRGB,
 	YYYY,
 } sensor_stats_type_t;
-#define MAX_LED_TRIGGERS 3
 
 enum flash_type {
 	LED_FLASH = 1,
@@ -641,7 +640,7 @@ enum msm_camera_led_config_t {
 struct msm_camera_led_cfg_t {
 	enum msm_camera_led_config_t cfgtype;
 	uint32_t torch_current;
-	uint32_t flash_current[MAX_LED_TRIGGERS];
+	uint32_t flash_current[2];
 };
 
 /* sensor init structures and enums */
