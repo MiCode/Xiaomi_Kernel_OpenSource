@@ -102,6 +102,7 @@ struct silabs_fm_device {
 	/* wait queue for raw rds read */
 	wait_queue_head_t read_queue;
 	int irq;
+	int status_irq;
 	int tuned_freq_khz;
 	int dwell_time_sec;
 	u16 pi; /* PI of tuned channel */
@@ -294,6 +295,21 @@ static int fm_configure_gpios(struct silabs_fm_device *radio, bool on)
 						fm_int_gpio, rc);
 			return rc;
 		}
+		/* Wait for the value to take effect on gpio. */
+		msleep(100);
+
+		if (fm_status_gpio > 0) {
+			FMDERR("setting status gpio as input\n");
+			rc = gpio_direction_input(fm_status_gpio);
+			if (rc) {
+				FMDERR("unable to set gpio %d direction(%d)\n",
+				fm_status_gpio, rc);
+				return rc;
+			}
+			/* Wait for the value to take effect on gpio. */
+			msleep(100);
+		}
+
 
 	} else {
 		/*Turn OFF sequence */
@@ -304,7 +320,6 @@ static int fm_configure_gpios(struct silabs_fm_device *radio, bool on)
 			FMDERR("Unable to set direction\n");
 		/* Wait for some time for the value to take effect. */
 		msleep(100);
-
 		if (fm_status_gpio > 0) {
 			rc = gpio_direction_input(fm_status_gpio);
 			if (rc)
@@ -1852,6 +1867,49 @@ set_prop_fail:
 
 }
 
+static void init_ssr(struct silabs_fm_device *radio)
+{
+	int retval = 0;
+
+	mutex_lock(&radio->lock);
+
+	memset(radio->write_buf, 0, WRITE_REG_NUM);
+	/*
+	 * Configure status gpio to low in active state. When chip is reset for
+	 * some reason, status gpio becomes high since pull-up resistor is
+	 * installed. No need to return error even if it fails, since normal
+	 * FM functionality can still work fine.
+	 */
+
+	radio->cmd = GPIO_CTL_CMD;
+	radio->write_buf[0] = GPIO_CTL_CMD;
+	radio->write_buf[1] = GPIO1_OUTPUT_ENABLE_MASK;
+
+	retval = send_cmd(radio, GPIO_CTL_CMD_LEN);
+
+	if (retval < 0) {
+		FMDERR("%s: setting Silabs gpio1 as op to chip fail, err %d\n",
+			__func__, retval);
+		goto end;
+	}
+
+	memset(radio->write_buf, 0, WRITE_REG_NUM);
+
+	/* track command that is being sent to chip.*/
+	radio->cmd = GPIO_SET_CMD;
+	radio->write_buf[0] = GPIO_SET_CMD;
+	radio->write_buf[1] = GPIO_OUTPUT_LOW_MASK;
+
+	retval = send_cmd(radio, GPIO_SET_CMD_LEN);
+
+	if (retval < 0)
+		FMDERR("%s: setting gpios to low failed, error %d\n",
+			__func__, retval);
+
+end:
+	mutex_unlock(&radio->lock);
+}
+
 static int enable(struct silabs_fm_device *radio)
 {
 	int retval = 0;
@@ -1891,6 +1949,7 @@ static int enable(struct silabs_fm_device *radio)
 	/* initialize with default configuration */
 	retval = initialize_recv(radio);
 	reset_rds(radio); /* Clear the existing RDS data */
+	init_ssr(radio);
 	if (retval >= 0) {
 		if (radio->mode == FM_RECV_TURNING_ON) {
 			FMDBG("In %s, posting SILABS_EVT_RADIO_READY event\n",
@@ -2244,6 +2303,11 @@ static void silabs_fm_disable_irq(struct silabs_fm_device *radio)
 	irq = radio->irq;
 	disable_irq_wake(irq);
 	free_irq(irq, radio);
+
+	irq = radio->status_irq;
+	disable_irq_wake(irq);
+	free_irq(irq, radio);
+
 	cancel_work_sync(&radio->rds_worker);
 	flush_workqueue(radio->wqueue_rds);
 	cancel_delayed_work_sync(&radio->work);
@@ -2271,6 +2335,20 @@ static irqreturn_t silabs_fm_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t silabs_fm_status_isr(int irq, void *dev_id)
+{
+	struct silabs_fm_device *radio = dev_id;
+
+	if (radio->mode == FM_TURNING_OFF || radio->mode == FM_RECV) {
+		FMDERR("%s: chip in bad state, posting DISABLED event\n",
+			__func__);
+		silabs_fm_q_event(radio, SILABS_EVT_RADIO_DISABLED);
+		radio->mode = FM_OFF;
+	}
+
+	return IRQ_HANDLED;
+}
+
 static int silabs_fm_request_irq(struct silabs_fm_device *radio)
 {
 	int retval;
@@ -2294,7 +2372,29 @@ static int silabs_fm_request_irq(struct silabs_fm_device *radio)
 	if (retval < 0) {
 		FMDERR("Could not enable FM interrupt\n ");
 		free_irq(irq , radio);
+		return retval;
 	}
+
+	irq = radio->status_irq;
+
+	retval = request_any_context_irq(irq, silabs_fm_status_isr,
+				IRQ_TYPE_EDGE_RISING, "fm status interrupt",
+				radio);
+	if (retval < 0) {
+		FMDERR("Couldn't acquire FM status gpio %d\n", irq);
+		/* Do not error out for status int. FM can work without it. */
+		return 0;
+	} else {
+		FMDBG("FM status GPIO %d registered\n", irq);
+	}
+	retval = enable_irq_wake(irq);
+	if (retval < 0) {
+		FMDERR("Could not enable FM status interrupt\n ");
+		free_irq(irq , radio);
+		/* Do not error out for status int. FM can work without it. */
+		return 0;
+	}
+
 	return retval;
 }
 
@@ -2334,6 +2434,19 @@ static int silabs_fm_fops_open(struct file *file)
 	}
 
 	FMDBG("irq number is = %d\n", radio->irq);
+
+	if (radio->status_gpio > 0) {
+		radio->status_irq = gpio_to_irq(radio->status_gpio);
+
+		if (radio->status_irq < 0) {
+			FMDERR("%s: gpio_to_irq returned %d for status gpio\n",
+				__func__, radio->irq);
+			goto open_err_req_irq;
+		}
+
+		FMDBG("status irq number is = %d\n", radio->status_irq);
+	}
+
 	/* enable irq */
 	retval = silabs_fm_request_irq(radio);
 	if (retval < 0) {
