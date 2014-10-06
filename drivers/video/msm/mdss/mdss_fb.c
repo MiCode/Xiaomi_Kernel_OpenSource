@@ -2851,6 +2851,11 @@ int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
 	case DCM_UNBLANK:
 		if (mfd->dcm_state == DCM_UNINIT &&
 			mdss_fb_is_power_off(mfd) && mfd->mdp.on_fnc) {
+			if (mfd->disp_thread == NULL) {
+				ret = mdss_fb_start_disp_thread(mfd);
+				if (ret < 0)
+					return ret;
+			}
 			ret = mfd->mdp.on_fnc(mfd);
 			if (ret == 0) {
 				mfd->panel_power_state = MDSS_PANEL_POWER_ON;
@@ -2885,6 +2890,9 @@ int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
 				mfd->dcm_state = DCM_UNINIT;
 			else
 				pr_err("DCM_BLANK failed\n");
+
+			if (mfd->disp_thread)
+				mdss_fb_stop_disp_thread(mfd);
 		}
 		break;
 	case DTM_ENTER:
