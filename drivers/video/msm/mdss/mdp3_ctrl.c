@@ -366,7 +366,7 @@ static int mdp3_ctrl_res_req_clk(struct msm_fb_data_type *mfd, int status)
 	int rc = 0;
 	if (status) {
 
-		mdp3_clk_set_rate(MDP3_CLK_MDP_CORE, MDP_CORE_CLK_RATE,
+		mdp3_clk_set_rate(MDP3_CLK_MDP_SRC, MDP_CORE_CLK_RATE,
 				MDP3_CLIENT_DMA_P);
 		mdp3_clk_set_rate(MDP3_CLK_VSYNC, MDP_VSYNC_CLK_RATE,
 				MDP3_CLIENT_DMA_P);

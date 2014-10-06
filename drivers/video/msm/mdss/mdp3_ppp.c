@@ -375,7 +375,7 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 		else
 			ab = req_bw;
 	}
-	mdp3_clk_set_rate(MDP3_CLK_MDP_CORE, rate, MDP3_CLIENT_PPP);
+	mdp3_clk_set_rate(MDP3_CLK_MDP_SRC, rate, MDP3_CLIENT_PPP);
 	rc = mdp3_res_update(on_off, 0, MDP3_CLIENT_PPP);
 	if (rc < 0) {
 		pr_err("%s: mdp3_clk_enable failed\n", __func__);
