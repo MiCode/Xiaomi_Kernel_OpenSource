@@ -11,12 +11,12 @@ Required properties:
 	       also supported but deprecated.
  - qcom,dock-detect-gpio: phandle to a GPIO node corresponding to the input
                          signal indicating when the dock is connected
- - qcom,dock-hub-reset-gpio: phandle to a GPIO node corresponding to the output
-                            signal that resets the USB ports
- - qcom,dock-eth-reset-gpio: phandle to a GPIO node corresponding to the output
-                            signal that resets the Ethernet ports
  - qcom,usb-host: phandle to the USB host controller connected to the dock port
 
 Optional properties:
  - qcom,dock-enable-gpio: phandle to a GPIO node corresponding to the output
                          signal that turns on/off power to the ports
+ - qcom,dock-hub-reset-gpio: phandle to a GPIO node corresponding to the output
+                            signal that resets the USB ports
+ - qcom,dock-eth-reset-gpio: phandle to a GPIO node corresponding to the output
+                            signal that resets the Ethernet ports
