@@ -25,6 +25,7 @@
 #include "mdss_mdp_hwio.h"
 #include "mdss_mdp.h"
 
+#define MSMFB_CURSOR32 _IOW(MSMFB_IOCTL_MAGIC, 130, struct fb_cursor32)
 #define MSMFB_SET_LUT32 _IOW(MSMFB_IOCTL_MAGIC, 131, struct fb_cmap32)
 #define MSMFB_HISTOGRAM32 _IOWR(MSMFB_IOCTL_MAGIC, 132,\
 					struct mdp_histogram_data32)
@@ -55,6 +56,9 @@ static unsigned int __do_compat_ioctl_nr(unsigned int cmd32)
 	unsigned int cmd;
 
 	switch (cmd32) {
+	case MSMFB_CURSOR32:
+		cmd = MSMFB_CURSOR;
+		break;
 	case MSMFB_SET_LUT32:
 		cmd = MSMFB_SET_LUT;
 		break;
@@ -147,6 +151,79 @@ static int mdss_fb_compat_buf_sync(struct fb_info *info, unsigned int cmd,
 				__func__);
 	}
 
+	return ret;
+}
+
+static int __from_user_fb_cmap(struct fb_cmap __user *cmap,
+				struct fb_cmap32 __user *cmap32)
+{
+	__u32 data;
+
+	if (copy_in_user(&cmap->start, &cmap32->start, 2 * sizeof(__u32)))
+		return -EFAULT;
+
+	if (get_user(data, &cmap32->red) ||
+	    put_user(compat_ptr(data), &cmap->red) ||
+	    get_user(data, &cmap32->green) ||
+	    put_user(compat_ptr(data), &cmap->green) ||
+	    get_user(data, &cmap32->blue) ||
+	    put_user(compat_ptr(data), &cmap->blue) ||
+	    get_user(data, &cmap32->transp) ||
+	    put_user(compat_ptr(data), &cmap->transp))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int __from_user_fb_image(struct fb_image __user *image,
+				struct fb_image32 __user *image32)
+{
+	__u32 data;
+
+	if (copy_in_user(&image->dx, &image32->dx, 6 * sizeof(u32)) ||
+		copy_in_user(&image->depth, &image32->depth, sizeof(u8)))
+		return -EFAULT;
+
+	if (get_user(data, &image32->data) ||
+		put_user(compat_ptr(data), &image->data))
+		return -EFAULT;
+
+	if (__from_user_fb_cmap(&image->cmap, &image32->cmap))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int mdss_fb_compat_cursor(struct fb_info *info, unsigned int cmd,
+			unsigned long arg)
+{
+	struct fb_cursor32 __user *cursor32;
+	struct fb_cursor __user *cursor;
+	__u32 data;
+	int ret;
+
+	cursor = compat_alloc_user_space(sizeof(*cursor));
+	if (!cursor) {
+		pr_err("%s:%u: compat alloc error [%zu] bytes\n",
+			 __func__, __LINE__, sizeof(*cursor));
+		return -EINVAL;
+	}
+	cursor32 = compat_ptr(arg);
+
+	if (copy_in_user(&cursor->set, &cursor32->set, 3 * sizeof(u16)))
+		return -EFAULT;
+
+	if (get_user(data, &cursor32->mask) ||
+			put_user(compat_ptr(data), &cursor->mask))
+		return -EFAULT;
+
+	if (copy_in_user(&cursor->hot, &cursor32->hot, sizeof(struct fbcurpos)))
+		return -EFAULT;
+
+	if (__from_user_fb_image(&cursor->image, &cursor32->image))
+		return -EFAULT;
+
+	ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) cursor);
 	return ret;
 }
 
@@ -2618,8 +2695,7 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 	cmd = __do_compat_ioctl_nr(cmd);
 	switch (cmd) {
 	case MSMFB_CURSOR:
-		pr_debug("%s: MSMFB_CURSOR not supported\n", __func__);
-		ret = -ENOSYS;
+		ret = mdss_fb_compat_cursor(info, cmd, arg);
 		break;
 	case MSMFB_SET_LUT:
 		ret = mdss_fb_compat_set_lut(info, arg);
