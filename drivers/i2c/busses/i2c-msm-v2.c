@@ -2934,8 +2934,11 @@ static void i2c_msm_qup_teardown(struct i2c_msm_ctrl *ctrl)
 	int i;
 	i2c_msm_dbg(ctrl, MSM_PROF, "Teardown the QUP and BAM");
 
-	for (i = 0; i < I2C_MSM_XFER_MODE_NONE ; ++i)
-		(*ctrl->ver.xfer_mode[i]->teardown)(ctrl);
+	for (i = 0; i < I2C_MSM_XFER_MODE_NONE; ++i) {
+		/* teardown the xfer mode structure if they exist */
+		if (ctrl->ver.xfer_mode[i])
+			(*ctrl->ver.xfer_mode[i]->teardown)(ctrl);
+	}
 }
 
 static int i2c_msm_qup_post_xfer(struct i2c_msm_ctrl *ctrl, int err)
@@ -3547,7 +3550,7 @@ static int i2c_msm_rsrcs_irq_init(struct platform_device *pdev,
 
 static void i2c_msm_rsrcs_irq_teardown(struct i2c_msm_ctrl *ctrl)
 {
-	free_irq(ctrl->rsrcs.irq, ctrl->dev);
+	free_irq(ctrl->rsrcs.irq, ctrl);
 }
 
 
@@ -4095,6 +4098,7 @@ static int i2c_msm_remove(struct platform_device *pdev)
 	/* Grab mutex to ensure ongoing transaction is over */
 	mutex_lock(&ctrl->xfer.mtx);
 	ctrl->pwr_state = MSM_I2C_PM_SYS_SUSPENDED;
+	pm_runtime_disable(ctrl->dev);
 	/* no one can call a xfer after the next line */
 	i2c_msm_frmwrk_unreg(ctrl);
 	mutex_unlock(&ctrl->xfer.mtx);
