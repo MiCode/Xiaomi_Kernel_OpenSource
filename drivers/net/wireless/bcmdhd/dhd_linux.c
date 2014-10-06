@@ -6565,6 +6565,7 @@ dhd_clear(dhd_pub_t *dhdp)
 {
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
+#ifdef PCIE_FULL_DONGLE
 	if (dhdp) {
 		int i;
 		for (i = 0; i < ARRAYSIZE(dhdp->reorder_bufs); i++) {
@@ -6582,6 +6583,7 @@ dhd_clear(dhd_pub_t *dhdp)
 		}
 		dhd_sta_pool_clear(dhdp, DHD_MAX_STA);
 	}
+#endif
 }
 
 static void
