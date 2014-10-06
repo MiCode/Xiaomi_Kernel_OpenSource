@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#define VIDC_DBG_LABEL "venus_boot"
+
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/io.h>
@@ -31,61 +33,57 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 
+#include "msm_vidc_debug.h"
+#include "vidc_hfi_io.h"
+#include "venus_boot.h"
+
 /* VENUS WRAPPER registers */
-#define VENUS_WRAPPER_HW_VERSION			0x0
+#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v1 \
+				(VIDC_WRAPPER_BASE_OFFS + 0x1018)
+#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v1 \
+				(VIDC_WRAPPER_BASE_OFFS + 0x101C)
+#define VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v1 \
+				(VIDC_WRAPPER_BASE_OFFS + 0x1020)
+#define VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v1 \
+				(VIDC_WRAPPER_BASE_OFFS + 0x1024)
 
-#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v1	0x1018
-#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v1	0x101C
-#define VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v1	0x1020
-#define VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v1	0x1024
+#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v2 \
+				(VIDC_WRAPPER_BASE_OFFS + 0x1020)
+#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v2 \
+				(VIDC_WRAPPER_BASE_OFFS + 0x1024)
+#define VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v2 \
+				(VIDC_WRAPPER_BASE_OFFS + 0x1028)
+#define VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v2 \
+				(VIDC_WRAPPER_BASE_OFFS + 0x102C)
 
-#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v2	0x1020
-#define VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v2	0x1024
-#define VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v2	0x1028
-#define VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v2	0x102C
-
-#define VENUS_WRAPPER_SW_RESET				0x3000
+#define VENUS_WRAPPER_SW_RESET	(VIDC_WRAPPER_BASE_OFFS + 0x3000)
 
 /* VENUS VBIF registers */
-#define VENUS_VBIF_CLKON				0x4
 #define VENUS_VBIF_CLKON_FORCE_ON			BIT(0)
 
-#define VENUS_VBIF_AXI_HALT_CTRL0			0x208
-#define VENUS_VBIF_AXI_HALT_CTRL0_HALT_REQ		BIT(0)
+#define VENUS_VBIF_ADDR_TRANS_EN  (VIDC_VBIF_BASE_OFFS + 0x1000)
+#define VENUS_VBIF_AT_OLD_BASE    (VIDC_VBIF_BASE_OFFS + 0x1004)
+#define VENUS_VBIF_AT_OLD_HIGH    (VIDC_VBIF_BASE_OFFS + 0x1008)
+#define VENUS_VBIF_AT_NEW_BASE    (VIDC_VBIF_BASE_OFFS + 0x1010)
+#define VENUS_VBIF_AT_NEW_HIGH    (VIDC_VBIF_BASE_OFFS + 0x1018)
 
-#define VENUS_VBIF_AXI_HALT_CTRL1			0x20C
-#define VENUS_VBIF_AXI_HALT_CTRL1_HALT_ACK		BIT(0)
-#define VENUS_VBIF_AXI_HALT_ACK_TIMEOUT_US		500000
 
 /* Poll interval in uS */
 #define POLL_INTERVAL_US				50
 
-#define VENUS_REGION_START				0x0C800000
 #define VENUS_REGION_SIZE				0x00500000
 
-static const char * const clk_names[] = {
-	"core_clk",
-	"iface_clk",
-	"bus_clk",
-	"mem_clk",
-};
-
 static struct {
+	struct msm_vidc_platform_resources *resources;
 	struct regulator *gdsc;
 	const char *reg_name;
-	struct clk *clks[ARRAY_SIZE(clk_names)];
-	void __iomem *venus_wrapper_base;
-	void __iomem *venus_vbif_base;
+	void __iomem *reg_base;
 	struct device *iommu_fw_ctx;
 	struct iommu_domain *iommu_fw_domain;
 	int venus_domain_num;
 	bool is_booted;
 	bool hw_ver_checked;
-	void *ramdump_dev;
 	u32 fw_sz;
-	u32 fw_min_paddr;
-	u32 fw_max_paddr;
-	u32 bus_perf_client;
 	u32 hw_ver_major;
 	u32 hw_ver_minor;
 	void *venus_notif_hdle;
@@ -94,46 +92,61 @@ static struct {
 /* Get venus clocks and set rates for rate-settable clocks */
 static int venus_clock_setup(struct device *dev)
 {
-	int i;
+	int i, rc = 0;
+	unsigned long rate;
+	struct msm_vidc_platform_resources *res = venus_data->resources;
+	struct clock_info *cl;
 
-	for (i = 0; i < ARRAY_SIZE(clk_names); i++) {
-		venus_data->clks[i] = devm_clk_get(dev, clk_names[i]);
-		if (IS_ERR(venus_data->clks[i])) {
-			dev_err(dev, "failed to get %s\n", clk_names[i]);
-			return PTR_ERR(venus_data->clks[i]);
-		}
+	for (i = 0; i < res->clock_set.count; i++) {
+		cl = &res->clock_set.clock_tbl[i];
 		/* Make sure rate-settable clocks' rates are set */
-		if (clk_get_rate(venus_data->clks[i]) == 0)
-			clk_set_rate(venus_data->clks[i],
-				clk_round_rate(venus_data->clks[i], 0));
+		if (clk_get_rate(cl->clk) == 0) {
+			rate = clk_round_rate(cl->clk, 0);
+			rc = clk_set_rate(cl->clk, rate);
+			if (rc) {
+				dprintk(VIDC_ERR,
+						"Failed to set clock rate %lu %s: %d\n",
+						rate, cl->name, rc);
+				break;
+			}
+		}
 	}
 
-	return 0;
+	return rc;
 }
 
 static int venus_clock_prepare_enable(struct device *dev)
 {
-	int rc, i;
+	int i, rc = 0;
+	struct msm_vidc_platform_resources *res = venus_data->resources;
+	struct clock_info *cl;
 
-	for (i = 0; i < ARRAY_SIZE(venus_data->clks); i++) {
-		rc = clk_prepare_enable(venus_data->clks[i]);
+	for (i = 0; i < res->clock_set.count; i++) {
+		cl = &res->clock_set.clock_tbl[i];
+		rc = clk_prepare_enable(cl->clk);
 		if (rc) {
-			dev_err(dev, "failed to enable %s\n", clk_names[i]);
-			for (i--; i >= 0; i--)
-				clk_disable_unprepare(venus_data->clks[i]);
+			dprintk(VIDC_ERR, "failed to enable %s\n", cl->name);
+			for (i--; i >= 0; i--) {
+				cl = &res->clock_set.clock_tbl[i];
+				clk_disable_unprepare(cl->clk);
+			}
 			return rc;
 		}
 	}
 
-	return 0;
+	return rc;
 }
 
 static void venus_clock_disable_unprepare(struct device *dev)
 {
 	int i;
+	struct msm_vidc_platform_resources *res = venus_data->resources;
+	struct clock_info *cl;
 
-	for (i = 0; i < ARRAY_SIZE(venus_data->clks); i++)
-		clk_disable_unprepare(venus_data->clks[i]);
+	for (i = 0; i < res->clock_set.count; i++) {
+		cl = &res->clock_set.clock_tbl[i];
+		clk_disable_unprepare(cl->clk);
+	}
 }
 
 static int venus_register_domain(u32 fw_max_sz)
@@ -152,14 +165,13 @@ static int venus_register_domain(u32 fw_max_sz)
 	return msm_register_domain(&venus_fw_layout);
 }
 
-int pil_venus_mem_setup(struct platform_device *pdev, phys_addr_t addr,
-							size_t size)
+static int pil_venus_mem_setup(struct platform_device *pdev, size_t size)
 {
 	int domain;
 
 	venus_data->iommu_fw_ctx  = msm_iommu_get_ctx("venus_fw");
 	if (!venus_data->iommu_fw_ctx) {
-		dev_err(&pdev->dev, "No iommu fw context found\n");
+		dprintk(VIDC_ERR, "No iommu fw context found\n");
 		return -ENODEV;
 	}
 
@@ -167,13 +179,13 @@ int pil_venus_mem_setup(struct platform_device *pdev, phys_addr_t addr,
 		size = round_up(size, SZ_4K);
 		domain = venus_register_domain(size);
 		if (domain < 0) {
-			dev_err(&pdev->dev,
+			dprintk(VIDC_ERR,
 				"Venus fw iommu domain register failed\n");
 			return -ENODEV;
 		}
 		venus_data->iommu_fw_domain = msm_get_iommu_domain(domain);
 		if (!venus_data->iommu_fw_domain) {
-			dev_err(&pdev->dev, "No iommu fw domain found\n");
+			dprintk(VIDC_ERR, "No iommu fw domain found\n");
 			return -ENODEV;
 		}
 		venus_data->venus_domain_num = domain;
@@ -182,43 +194,81 @@ int pil_venus_mem_setup(struct platform_device *pdev, phys_addr_t addr,
 	return 0;
 }
 
-int pil_venus_auth_and_reset(struct platform_device *pdev)
+static int pil_venus_auth_and_reset(struct platform_device *pdev)
 {
 	int rc;
-	void __iomem *wrapper_base = venus_data->venus_wrapper_base;
-	phys_addr_t pa = VENUS_REGION_START;
-	dma_addr_t iova;
-	u32 ver, cpa_start_addr, cpa_end_addr, fw_start_addr, fw_end_addr;
+	phys_addr_t fw_bias = venus_data->resources->firmware_base;
+	void __iomem *reg_base = venus_data->reg_base;
+	u32 ver;
+	bool iommu_present = is_iommu_present(venus_data->resources);
 
+	if (!fw_bias) {
+		dprintk(VIDC_ERR, "FW bias is not valid\n");
+		return -EINVAL;
+	}
 	/* Get Venus version number */
 	if (!venus_data->hw_ver_checked) {
-		ver = readl_relaxed(wrapper_base + VENUS_WRAPPER_HW_VERSION);
+		ver = readl_relaxed(reg_base + VIDC_WRAPPER_HW_VERSION);
 		venus_data->hw_ver_minor = (ver & 0x0FFF0000) >> 16;
 		venus_data->hw_ver_major = (ver & 0xF0000000) >> 28;
 		venus_data->hw_ver_checked = 1;
 	}
 
-	/* Get the cpa and fw start/end addr based on Venus version */
-	if (venus_data->hw_ver_major == 0x1 && venus_data->hw_ver_minor <= 1) {
-		cpa_start_addr = VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v1;
-		cpa_end_addr = VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v1;
-		fw_start_addr = VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v1;
-		fw_end_addr = VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v1;
+	if (iommu_present) {
+		u32 cpa_start_addr, cpa_end_addr, fw_start_addr, fw_end_addr;
+		/* Get the cpa and fw start/end addr based on Venus version */
+		if (venus_data->hw_ver_major == 0x1 &&
+				venus_data->hw_ver_minor <= 1) {
+			cpa_start_addr =
+				VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v1;
+			cpa_end_addr =
+				VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v1;
+			fw_start_addr =
+				VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v1;
+			fw_end_addr =
+				VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v1;
+		} else {
+			cpa_start_addr =
+				VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v2;
+			cpa_end_addr =
+				VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v2;
+			fw_start_addr =
+				VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v2;
+			fw_end_addr =
+				VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v2;
+		}
+
+		/* Program CPA start and end address */
+		writel_relaxed(0, reg_base + cpa_start_addr);
+		writel_relaxed(venus_data->fw_sz, reg_base + cpa_end_addr);
+
+		/* Program FW start and end address */
+		writel_relaxed(0, reg_base + fw_start_addr);
+		writel_relaxed(venus_data->fw_sz, reg_base + fw_end_addr);
 	} else {
-		cpa_start_addr = VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v2;
-		cpa_end_addr = VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v2;
-		fw_start_addr = VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v2;
-		fw_end_addr = VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v2;
+		rc = regulator_enable(venus_data->gdsc);
+		if (rc) {
+			dprintk(VIDC_ERR, "GDSC enable failed\n");
+			goto err;
+		}
+
+		rc = venus_clock_prepare_enable(&pdev->dev);
+		if (rc) {
+			dprintk(VIDC_ERR, "Clock prepare and enable failed\n");
+			regulator_disable(venus_data->gdsc);
+			goto err;
+		}
+
+		writel_relaxed(0, reg_base + VENUS_VBIF_AT_OLD_BASE);
+		writel_relaxed(VENUS_REGION_SIZE,
+				reg_base + VENUS_VBIF_AT_OLD_HIGH);
+		writel_relaxed(fw_bias, reg_base + VENUS_VBIF_AT_NEW_BASE);
+		writel_relaxed(fw_bias + VENUS_REGION_SIZE,
+				reg_base + VENUS_VBIF_AT_NEW_HIGH);
+		writel_relaxed(0x7F007F, reg_base + VENUS_VBIF_ADDR_TRANS_EN);
+		venus_clock_disable_unprepare(&pdev->dev);
+		regulator_disable(venus_data->gdsc);
 	}
-
-	/* Program CPA start and end address */
-	writel_relaxed(0, wrapper_base + cpa_start_addr);
-	writel_relaxed(venus_data->fw_sz, wrapper_base + cpa_end_addr);
-
-	/* Program FW start and end address */
-	writel_relaxed(0, wrapper_base + fw_start_addr);
-	writel_relaxed(venus_data->fw_sz, wrapper_base + fw_end_addr);
-
 	/* Make sure all register writes are committed. */
 	mb();
 
@@ -228,39 +278,46 @@ int pil_venus_auth_and_reset(struct platform_device *pdev)
 	 */
 	udelay(1);
 
-	rc = iommu_attach_device(venus_data->iommu_fw_domain,
-						venus_data->iommu_fw_ctx);
-	if (rc) {
-		dev_err(&pdev->dev, "venus fw iommu attach failed\n");
-		return rc;
+	if (iommu_present) {
+		phys_addr_t pa = fw_bias;
+		dma_addr_t iova;
+
+		rc = iommu_attach_device(venus_data->iommu_fw_domain,
+				venus_data->iommu_fw_ctx);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"venus fw iommu attach failed %d\n", rc);
+			goto err;
+		}
+
+		/*
+		 * Map virtual addr space 0 - fw_sz to firmware physical
+		 * addr space
+		 */
+		rc = msm_iommu_map_contig_buffer(pa,
+				venus_data->venus_domain_num, 0,
+				venus_data->fw_sz, SZ_4K, 0, &iova);
+
+		if (rc || (iova != 0)) {
+			dprintk(VIDC_ERR, "Failed to setup IOMMU\n");
+			iommu_detach_device(venus_data->iommu_fw_domain,
+					venus_data->iommu_fw_ctx);
+			goto err;
+		}
 	}
-
-	/* Map virtual addr space 0 - fw_sz to firmware physical addr space */
-	rc = msm_iommu_map_contig_buffer(pa, venus_data->venus_domain_num, 0,
-					venus_data->fw_sz, SZ_4K, 0, &iova);
-
-	if (rc || (iova != 0)) {
-		dev_err(&pdev->dev, "Failed to setup IOMMU\n");
-		goto err_iommu_map;
-	}
-
 	/* Bring Arm9 out of reset */
-	writel_relaxed(0, wrapper_base + VENUS_WRAPPER_SW_RESET);
+	writel_relaxed(0, reg_base + VENUS_WRAPPER_SW_RESET);
 
 	venus_data->is_booted = 1;
 	return 0;
 
-err_iommu_map:
-	iommu_detach_device(venus_data->iommu_fw_domain,
-					venus_data->iommu_fw_ctx);
-
+err:
 	return rc;
 }
 
-int pil_venus_shutdown(struct platform_device *pdev)
+static int pil_venus_shutdown(struct platform_device *pdev)
 {
-	void __iomem *vbif_base = venus_data->venus_vbif_base;
-	void __iomem *wrapper_base = venus_data->venus_wrapper_base;
+	void __iomem *reg_base = venus_data->reg_base;
 	u32 reg;
 	int rc;
 
@@ -268,18 +325,20 @@ int pil_venus_shutdown(struct platform_device *pdev)
 		return 0;
 
 	/* Assert the reset to ARM9 */
-	reg = readl_relaxed(wrapper_base + VENUS_WRAPPER_SW_RESET);
+	reg = readl_relaxed(reg_base + VENUS_WRAPPER_SW_RESET);
 	reg |= BIT(4);
-	writel_relaxed(reg, wrapper_base + VENUS_WRAPPER_SW_RESET);
+	writel_relaxed(reg, reg_base + VENUS_WRAPPER_SW_RESET);
 
 	/* Make sure reset is asserted before the mapping is removed */
 	mb();
 
-	msm_iommu_unmap_contig_buffer(0, venus_data->venus_domain_num,
-				      0, venus_data->fw_sz);
+	if (is_iommu_present(venus_data->resources)) {
+		msm_iommu_unmap_contig_buffer(0, venus_data->venus_domain_num,
+				0, venus_data->fw_sz);
 
-	iommu_detach_device(venus_data->iommu_fw_domain,
-						venus_data->iommu_fw_ctx);
+		iommu_detach_device(venus_data->iommu_fw_domain,
+				venus_data->iommu_fw_ctx);
+	}
 	/*
 	 * Force the VBIF clk to be on to avoid AXI bridge halt ack failure
 	 * for certain Venus version.
@@ -287,23 +346,23 @@ int pil_venus_shutdown(struct platform_device *pdev)
 	if (venus_data->hw_ver_major == 0x1 &&
 				(venus_data->hw_ver_minor == 0x2 ||
 				venus_data->hw_ver_minor == 0x3)) {
-		reg = readl_relaxed(vbif_base + VENUS_VBIF_CLKON);
+		reg = readl_relaxed(reg_base + VIDC_VENUS_VBIF_CLK_ON);
 		reg |= VENUS_VBIF_CLKON_FORCE_ON;
-		writel_relaxed(reg, vbif_base + VENUS_VBIF_CLKON);
+		writel_relaxed(reg, reg_base + VIDC_VENUS_VBIF_CLK_ON);
 	}
 
 	/* Halt AXI and AXI OCMEM VBIF Access */
-	reg = readl_relaxed(vbif_base + VENUS_VBIF_AXI_HALT_CTRL0);
+	reg = readl_relaxed(reg_base + VENUS_VBIF_AXI_HALT_CTRL0);
 	reg |= VENUS_VBIF_AXI_HALT_CTRL0_HALT_REQ;
-	writel_relaxed(reg, vbif_base + VENUS_VBIF_AXI_HALT_CTRL0);
+	writel_relaxed(reg, reg_base + VENUS_VBIF_AXI_HALT_CTRL0);
 
 	/* Request for AXI bus port halt */
-	rc = readl_poll_timeout(vbif_base + VENUS_VBIF_AXI_HALT_CTRL1,
+	rc = readl_poll_timeout(reg_base + VENUS_VBIF_AXI_HALT_CTRL1,
 			reg, reg & VENUS_VBIF_AXI_HALT_CTRL1_HALT_ACK,
 			POLL_INTERVAL_US,
 			VENUS_VBIF_AXI_HALT_ACK_TIMEOUT_US);
 	if (rc)
-		dev_err(&pdev->dev, "Port halt timeout\n");
+		dprintk(VIDC_ERR, "Port halt timeout\n");
 
 	venus_data->is_booted = 0;
 
@@ -315,7 +374,6 @@ static int venus_notifier_cb(struct notifier_block *this, unsigned long code,
 {
 	struct notif_data *data = (struct notif_data *)ss_handle;
 	static bool venus_data_set;
-	struct resource *res;
 	int ret;
 
 	if (!data->no_auth)
@@ -334,23 +392,9 @@ static int venus_notifier_cb(struct notifier_block *this, unsigned long code,
 		venus_data->gdsc = devm_regulator_get(
 				&data->pdev->dev, venus_data->reg_name);
 		if (IS_ERR(venus_data->gdsc)) {
-			dev_err(&data->pdev->dev, "Failed to get Venus GDSC\n");
+			dprintk(VIDC_ERR, "Failed to get Venus GDSC\n");
 			return -ENODEV;
 		}
-
-		res = platform_get_resource_byname(data->pdev, IORESOURCE_MEM,
-							"wrapper_base");
-		venus_data->venus_wrapper_base = devm_request_and_ioremap(
-							&data->pdev->dev, res);
-		if (!venus_data->venus_wrapper_base)
-			return -ENOMEM;
-
-		res = platform_get_resource_byname(data->pdev, IORESOURCE_MEM,
-							"vbif_base");
-		venus_data->venus_vbif_base = devm_request_and_ioremap(
-							&data->pdev->dev, res);
-		if (!venus_data->venus_vbif_base)
-			return -ENOMEM;
 
 		venus_data_set = true;
 	}
@@ -360,19 +404,19 @@ static int venus_notifier_cb(struct notifier_block *this, unsigned long code,
 
 	ret = regulator_enable(venus_data->gdsc);
 	if (ret) {
-		dev_err(&data->pdev->dev, "GDSC enable failed\n");
+		dprintk(VIDC_ERR, "GDSC enable failed\n");
 		return ret;
 	}
 
 	ret = venus_clock_prepare_enable(&data->pdev->dev);
 	if (ret) {
-		dev_err(&data->pdev->dev, "Clock prepare and enable failed\n");
+		dprintk(VIDC_ERR, "Clock prepare and enable failed\n");
 		goto err_clks;
 	}
 
 	if (code == SUBSYS_AFTER_POWERUP) {
-		pil_venus_mem_setup(data->pdev,
-				VENUS_REGION_START, VENUS_REGION_SIZE);
+		if (is_iommu_present(venus_data->resources))
+			pil_venus_mem_setup(data->pdev, VENUS_REGION_SIZE);
 		pil_venus_auth_and_reset(data->pdev);
 	 } else if (code == SUBSYS_AFTER_SHUTDOWN)
 		pil_venus_shutdown(data->pdev);
@@ -390,31 +434,48 @@ static struct notifier_block venus_notifier = {
 	.notifier_call = venus_notifier_cb,
 };
 
-static int __init venus_boot_init(void)
+int venus_boot_init(struct msm_vidc_platform_resources *res)
 {
+	int rc = 0;
+
+	if (!res) {
+		dprintk(VIDC_ERR, "Invalid platform resource handle\n");
+		return -EINVAL;
+	}
 	venus_data = kzalloc(sizeof(*venus_data), GFP_KERNEL);
 	if (!venus_data)
 		return -ENOMEM;
 
+	venus_data->resources = res;
+	venus_data->reg_base = ioremap_nocache(res->register_base,
+			(unsigned long)res->register_size);
+	if (!venus_data->reg_base) {
+		dprintk(VIDC_ERR,
+				"could not map reg addr 0x%pa of size %d\n",
+				&res->register_base, res->register_size);
+		rc = -ENOMEM;
+		goto err_ioremap_fail;
+	}
 	venus_data->venus_notif_hdle = subsys_notif_register_notifier("venus",
 							&venus_notifier);
 	if (IS_ERR(venus_data->venus_notif_hdle)) {
-		pr_err("venus_boot: register event notification failed\n");
-		return PTR_ERR(venus_data->venus_notif_hdle);
+		dprintk(VIDC_ERR, "register event notification failed\n");
+		rc = PTR_ERR(venus_data->venus_notif_hdle);
+		goto err_subsys_notif;
 	}
 
-	return 0;
+	return rc;
+
+err_subsys_notif:
+err_ioremap_fail:
+	kfree(venus_data);
+	return rc;
 }
 
-static void __exit venus_boot_exit(void)
+void venus_boot_deinit(void)
 {
+	venus_data->resources = NULL;
 	subsys_notif_unregister_notifier(venus_data->venus_notif_hdle,
 			&venus_notifier);
 	kfree(venus_data);
 }
-
-module_init(venus_boot_init);
-module_exit(venus_boot_exit);
-
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Venus self boot driver");

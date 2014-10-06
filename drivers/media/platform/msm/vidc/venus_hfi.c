@@ -132,7 +132,8 @@ static void venus_hfi_sim_modify_cmd_packet(u8 *packet,
 	if (!device || !packet) {
 		dprintk(VIDC_ERR, "Invalid Param\n");
 		return;
-	} else if (device->hal_data->firmware_base == 0) {
+	} else if (device->hal_data->firmware_base == 0
+			|| is_iommu_present(device->res)) {
 		return;
 	}
 
@@ -426,7 +427,8 @@ static void venus_hfi_hal_sim_modify_msg_packet(u8 *packet,
 	if (!device || !packet) {
 		dprintk(VIDC_ERR, "Invalid Param\n");
 		return;
-	} else if (device->hal_data->firmware_base == 0) {
+	} else if (device->hal_data->firmware_base == 0
+			|| is_iommu_present(device->res)) {
 		return;
 	}
 
@@ -1979,7 +1981,8 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev)
 	phys_addr_t fw_bias = 0;
 
 	mem_addr = &dev->mem_addr;
-	fw_bias = dev->hal_data->firmware_base;
+	if (!is_iommu_present(dev->res))
+		fw_bias = dev->hal_data->firmware_base;
 	rc = venus_hfi_alloc(dev, (void *) mem_addr,
 			QUEUE_SIZE, 1, 0,
 			HAL_BUFFER_INTERNAL_CMD_QUEUE);
