@@ -79,6 +79,7 @@ enum msm_pc_count_offsets {
 };
 
 static bool msm_pm_ldo_retention_enabled = true;
+static bool msm_pm_tz_flushes_cache;
 static bool msm_no_ramp_down_pc;
 static struct msm_pm_sleep_status_data *msm_pm_slp_sts;
 DEFINE_PER_CPU(struct clk *, cpu_clks);
@@ -183,10 +184,12 @@ static bool msm_pm_pc_hotplug(void)
 
 	flag = lpm_cpu_pre_pc_cb(cpu);
 
-	if (flag == MSM_SCM_L2_OFF)
-		flush_cache_all();
-	else if (msm_pm_is_L1_writeback())
-		flush_cache_louis();
+	if (!msm_pm_tz_flushes_cache) {
+		if (flag == MSM_SCM_L2_OFF)
+			flush_cache_all();
+		else if (msm_pm_is_L1_writeback())
+			flush_cache_louis();
+	}
 
 	msm_pc_inc_debug_count(cpu, MSM_PC_ENTRY_COUNTER);
 
@@ -214,11 +217,12 @@ int msm_pm_collapse(unsigned long unused)
 
 	flag = lpm_cpu_pre_pc_cb(cpu);
 
-	if (flag == MSM_SCM_L2_OFF)
-		flush_cache_all();
-	else if (msm_pm_is_L1_writeback())
-		flush_cache_louis();
-
+	if (!msm_pm_tz_flushes_cache) {
+		if (flag == MSM_SCM_L2_OFF)
+			flush_cache_all();
+		else if (msm_pm_is_L1_writeback())
+			flush_cache_louis();
+	}
 	msm_pc_inc_debug_count(cpu, MSM_PC_ENTRY_COUNTER);
 
 	if (is_scm_armv8()) {
@@ -812,6 +816,7 @@ static int msm_cpu_pm_probe(struct platform_device *pdev)
 	struct resource *res = NULL;
 	int ret = 0;
 	void __iomem *msm_pc_debug_counters_imem;
+	char *key;
 	int alloc_size = (MAX_NUM_CLUSTER * MAX_CPUS_PER_CLUSTER
 					* MSM_PC_NUM_COUNTERS
 					* sizeof(*msm_pc_debug_counters));
@@ -845,6 +850,10 @@ static int msm_cpu_pm_probe(struct platform_device *pdev)
 	}
 skip_save_imem:
 	if (pdev->dev.of_node) {
+		key = "qcom,tz-flushes-cache";
+		msm_pm_tz_flushes_cache =
+				of_property_read_bool(pdev->dev.of_node, key);
+
 		ret = msm_pm_clk_init(pdev);
 		if (ret) {
 			pr_info("msm_pm_clk_init returned error\n");
