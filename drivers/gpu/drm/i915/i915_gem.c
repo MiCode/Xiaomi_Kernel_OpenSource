@@ -2042,6 +2042,12 @@ __i915_gem_shrink(struct drm_i915_private *dev_priv, long target,
 	}
 	list_splice(&still_in_list, &dev_priv->mm.unbound_list);
 
+	/*
+	 * Making sure device is resumed with rpm get, since fence registers
+	 * are accessed for bound_list.
+	 */
+	intel_runtime_pm_get(dev_priv);
+
 	INIT_LIST_HEAD(&still_in_list);
 	while (count < target && !list_empty(&dev_priv->mm.bound_list)) {
 		struct i915_vma *vma, *v;
@@ -2065,6 +2071,8 @@ __i915_gem_shrink(struct drm_i915_private *dev_priv, long target,
 		drm_gem_object_unreference(&obj->base);
 	}
 	list_splice(&still_in_list, &dev_priv->mm.bound_list);
+
+	intel_runtime_pm_put(dev_priv);
 
 	return count;
 }
@@ -2396,7 +2404,7 @@ int __i915_add_request(struct intel_engine_cs *ring,
 	struct drm_i915_gem_request *request;
 	struct intel_ringbuffer *ringbuf;
 	u32 request_ring_position, request_start;
-	int ret;
+	int ret = 0;
 
 	request = ring->preallocated_lazy_request;
 	if (WARN_ON(request == NULL))
@@ -2409,6 +2417,9 @@ int __i915_add_request(struct intel_engine_cs *ring,
 		ringbuf = ring->buffer;
 
 	request_start = intel_ring_get_tail(ringbuf);
+
+	intel_runtime_pm_get(dev_priv);
+
 	/*
 	 * Emit any outstanding flushes - execbuf can fail to emit the flush
 	 * after having emitted the batchbuffer command. Hence we need to fix
@@ -2419,11 +2430,11 @@ int __i915_add_request(struct intel_engine_cs *ring,
 	if (i915.enable_execlists) {
 		ret = logical_ring_flush_all_caches(ringbuf);
 		if (ret)
-			return ret;
+			goto end;
 	} else {
 		ret = intel_ring_flush_all_caches(ring);
 		if (ret)
-			return ret;
+			goto end;
 	}
 
 	/* Record the position of the start of the request so that
@@ -2436,11 +2447,11 @@ int __i915_add_request(struct intel_engine_cs *ring,
 	if (i915.enable_execlists) {
 		ret = ring->emit_request(ringbuf);
 		if (ret)
-			return ret;
+			goto end;
 	} else {
 		ret = ring->add_request(ring);
 		if (ret)
-			return ret;
+			goto end;
 	}
 
 	request->seqno = intel_ring_get_seqno(ring);
@@ -2493,7 +2504,11 @@ int __i915_add_request(struct intel_engine_cs *ring,
 
 	if (out_seqno)
 		*out_seqno = request->seqno;
-	return 0;
+
+end:
+	intel_runtime_pm_put(dev_priv);
+
+	return ret;
 }
 
 static inline void
