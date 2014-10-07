@@ -827,10 +827,22 @@ int adm_get_params(int port_id, int copp_idx, uint32_t module_id,
 		rc = -EINVAL;
 		goto adm_get_param_return;
 	}
-	if (params_data) {
+	if ((params_data) &&
+		(ARRAY_SIZE(adm_get_parameters) >
+		idx) &&
+		(ARRAY_SIZE(adm_get_parameters) >=
+		1+adm_get_parameters[idx]+idx) &&
+		(params_length/sizeof(int) >=
+		adm_get_parameters[idx])) {
 		for (i = 0; i < adm_get_parameters[idx]; i++)
 			params_data[i] = adm_get_parameters[1+i+idx];
 
+	} else {
+		pr_err("%s: Get param data not copied! get_param array size %zd, index %d, params array size %zd, index %d\n",
+		__func__, ARRAY_SIZE(adm_get_parameters),
+		(1+adm_get_parameters[idx]+idx),
+		params_length/sizeof(int),
+		adm_get_parameters[idx]);
 	}
 	rc = 0;
 adm_get_param_return:
@@ -1152,17 +1164,21 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 				break;
 
 			idx = ADM_GET_PARAMETER_LENGTH * copp_idx;
-			if (payload[0] == 0) {
-				if (data->payload_size >
-				    (4 * sizeof(uint32_t))) {
-					adm_get_parameters[idx] = payload[3];
-					pr_debug("GET_PP PARAM:received parameter length: 0x%x\n",
-						adm_get_parameters[idx]);
-					/* storing param size then params */
-					for (i = 0; i < payload[3]; i++)
-						adm_get_parameters[idx+1+i] =
-								payload[4+i];
-				}
+			if ((payload[0] == 0) && (data->payload_size >
+				(4 * sizeof(*payload))) &&
+				(data->payload_size/sizeof(*payload)-4 >=
+				payload[3]) &&
+				(ARRAY_SIZE(adm_get_parameters) >
+				idx) &&
+				(ARRAY_SIZE(adm_get_parameters)-idx-1 >=
+				payload[3])) {
+				adm_get_parameters[idx] = payload[3];
+				pr_debug("%s: GET_PP PARAM:received parameter length: 0x%x\n",
+					__func__, adm_get_parameters[idx]);
+				/* storing param size then params */
+				for (i = 0; i < payload[3]; i++)
+					adm_get_parameters[idx+1+i] =
+							payload[4+i];
 			} else {
 				adm_get_parameters[idx] = -1;
 				pr_err("%s: GET_PP_PARAMS failed, setting size to %d\n",
