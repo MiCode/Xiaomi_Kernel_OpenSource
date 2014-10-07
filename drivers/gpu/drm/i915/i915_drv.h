@@ -2162,11 +2162,6 @@ static inline void i915_gem_request_assign(struct drm_i915_gem_request **pdst,
 static inline bool i915_gem_request_completed(struct drm_i915_gem_request *req,
 					      bool lazy_coherency)
 {
-	if (req->complete)
-		return true;
-
-	i915_gem_complete_requests_ring(req->ring, lazy_coherency);
-
 	return req->complete;
 }
 

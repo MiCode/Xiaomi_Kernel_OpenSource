@@ -1270,6 +1270,8 @@ static void notify_ring(struct drm_device *dev,
 	ring->last_irq_seqno = ring->get_seqno(ring, false);
 	trace_i915_gem_request_notify(ring);
 
+	i915_gem_complete_requests_ring(ring, false);
+
 	if (drm_core_check_feature(dev, DRIVER_MODESET))
 		intel_notify_mmio_flip(ring);
 

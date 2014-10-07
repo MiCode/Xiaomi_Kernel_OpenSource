@@ -1248,6 +1248,11 @@ static int __wait_request(struct drm_i915_gem_request *req,
 	if (!irq_test_in_progress && WARN_ON(!ring->irq_get(ring)))
 		return -ENODEV;
 
+	/* Completion status should be interrupt driven but it is possible
+	 * the request popped out before the interrupt was enabled. So do an
+	 * explicit check now... */
+	i915_gem_complete_requests_ring(req->ring, false);
+
 	/* Record current time in case interrupted by signal, or wedged */
 	trace_i915_gem_request_wait_begin(req);
 	getrawmonotonic(&before);
@@ -2537,6 +2542,10 @@ int __i915_add_request(struct intel_engine_cs *ring,
 	list_add_tail(&request->list, &ring->request_list);
 	request->file_priv = NULL;
 
+	/* Avoid race condition where the request completes before it has
+	 * been added to the list. */
+	ring->last_read_seqno = 0;
+
 	if (file) {
 		struct drm_i915_file_private *file_priv = file->driver_priv;
 
@@ -2926,6 +2935,7 @@ i915_gem_retire_requests(struct drm_device *dev)
 	int i;
 
 	for_each_ring(ring, dev_priv, i) {
+		i915_gem_complete_requests_ring(ring, false);
 		i915_gem_retire_requests_ring(ring);
 		idle &= list_empty(&ring->request_list);
 		if (i915.enable_execlists) {
