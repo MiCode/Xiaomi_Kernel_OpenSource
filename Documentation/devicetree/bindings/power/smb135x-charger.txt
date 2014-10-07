@@ -63,6 +63,9 @@ Optional Properties:
 				property should be used with 'qcom,iterm-disabled'
 				to ensure EOC detection in charger is
 				disabled.
+- qcom,fastchg-ma:		Specifies the maximum fastcharge current.
+				The possible range for fastcharge current is
+				from 300mA to 3000mA.
 
 Example:
 	i2c@f9967000 {
@@ -79,5 +82,6 @@ Example:
 			qcom,recharge-thresh-mv = <100>;
 			regulator-name = "smb1357-otg";
 			qcom,thermal-mitigation = <1500 700 600 325>;
+			qcom,fastchg-ma = <3000>;
 		};
 	};
