@@ -20,6 +20,8 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/pm_opp.h>
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/clock-voter.h>
@@ -2493,12 +2495,67 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_qusb2_phy_clk),
 };
 
+static int add_dev_opp(struct clk *c, struct device *dev,
+				unsigned long max_rate)
+{
+	unsigned long rate = 0;
+	int level;
+	long ret;
+
+	while (1) {
+		ret = clk_round_rate(c, rate + 1);
+		if (ret < 0) {
+			pr_warn("round_rate failed at %lu\n", rate);
+			return ret;
+		}
+		rate = ret;
+		level = find_vdd_level(c, rate);
+		if (level <= 0) {
+			pr_warn("no uv for %lu.\n", rate);
+			return -EINVAL;
+		}
+		ret = dev_pm_opp_add(dev, rate, c->vdd_class->vdd_uv[level]);
+		if (ret) {
+			pr_warn("failed to add OPP for %lu\n", rate);
+			return ret;
+		}
+		if (rate >= max_rate)
+			break;
+	}
+	return 0;
+}
+
+static void register_opp_for_dev(struct platform_device *pdev)
+{
+	struct clk *opp_clk, *opp_clk_src;
+	unsigned long dev_fmax;
+
+	opp_clk = clk_get(&pdev->dev, "core_clk");
+	if (IS_ERR(opp_clk)) {
+		pr_err("Error getting core clk: %lu\n", PTR_ERR(opp_clk));
+		return;
+	}
+	opp_clk_src = opp_clk;
+	if (opp_clk->num_fmax <= 0) {
+		if (opp_clk->parent && opp_clk->parent->num_fmax > 0)
+			opp_clk_src = opp_clk->parent;
+		else
+			return;
+	}
+
+	dev_fmax = opp_clk_src->fmax[opp_clk_src->num_fmax - 1];
+	WARN(add_dev_opp(opp_clk_src, &pdev->dev, dev_fmax),
+		"Failed to add OPP levels for dev\n");
+}
+
 static int msm_gcc_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct clk *xo_gcc;
-	int ret;
+	int ret, node = 0;
 	u32 regval;
+	struct device_node *opp_dev_node = NULL;
+	struct platform_device *opp_dev = NULL;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -2579,6 +2636,20 @@ static int msm_gcc_probe(struct platform_device *pdev)
 
 	clk_set_rate(&apss_ahb_clk_src.c, 19200000);
 	clk_prepare_enable(&apss_ahb_clk_src.c);
+
+	opp_dev_node = of_parse_phandle(pdev->dev.of_node, "qcom,dev-opp-list",
+					node);
+	while (opp_dev_node) {
+		opp_dev = of_find_device_by_node(opp_dev_node);
+		if (!opp_dev) {
+			pr_err("cant find device for node\n");
+			return -EINVAL;
+		}
+		register_opp_for_dev(opp_dev);
+		node++;
+		opp_dev_node = of_parse_phandle(pdev->dev.of_node,
+					"qcom,dev-opp-list", node);
+	}
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
