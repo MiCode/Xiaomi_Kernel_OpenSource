@@ -451,6 +451,24 @@ Subnode properties:
 - qcom,mdss-idle-power-collapse-enabled: Boolean property that enables support
 					for mdss power collapse in idle
 					screen use cases with smart panels.
+- qcom,mdss-pp-offets: A node that lists the offsets of post processing blocks
+		       from base module.
+		       -- qcom,mdss-mdss-sspp-igc-lut-off: This 32 bit value provides the
+		              offset to the IGC lut rams from mdp_phys base.
+		       -- qcom,mdss-sspp-vig-pcc-off: This 32 bit value provides the offset
+		              to PCC block from the VIG pipe base address.
+		       -- qcom,mdss-sspp-rgb-pcc-off: This 32 bit value provides the offset
+		              to PCC block from the RGB pipe base address.
+		       -- qcom,mdss-sspp-dma-pcc-off: This 32 bit value provides the offset
+		              to PCC block from the DMA pipe base address.
+		       -- qcom,mdss-dspp-pcc-off: This 32 bit value provides the offset
+		              to PCC block from the DSPP pipe base address.
+		       -- qcom,mdss-lm-pgc-off: This 32 bit value provides the offset
+		               to PGC block from the layer mixer base address.
+		       -- qcom,mdss-dspp-gamut-off: This 32 bit value provides the offset
+		               to gamut block from DSPP base address.
+		       -- qcom,mdss-dspp-pgc-off: This 32 bit value provides the offset to
+		               PGC block from the DSPP base address.
 
 Example:
 	mdss_mdp: qcom,mdss_mdp@fd900000 {
@@ -591,6 +609,17 @@ Example:
 			qcom,cont-splash-memory {
 				linux,contiguous-region = <&cont_splash_mem>;
 			};
+		};
+
+		qcom,mdss-pp-offsets {
+			qcom,mdss-sspp-mdss-igc-lut-off = <0x3000>;
+			qcom,mdss-sspp-vig-pcc-off = <0x1580>;
+			qcom,mdss-sspp-rgb-pcc-off = <0x180>;
+			qcom,mdss-sspp-dma-pcc-off = <0x180>;
+			qcom,mdss-lm-pgc-off = <0x3C0>;
+			qcom,mdss-dspp-gamut-off = <0x1600>;
+			qcom,mdss-dspp-pcc-off = <0x1700>;
+			qcom,mdss-dspp-pgc-off = <0x17C0>;
 		};
 	};
 
