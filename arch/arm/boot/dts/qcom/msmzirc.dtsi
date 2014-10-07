@@ -290,7 +290,7 @@
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
 		clock-names = "core_clk";
-		clocks = <&clock_rpm 0xeeec2919>;
+		clocks = <&clock_rpm clk_ipa_clk>;
 	};
 
 	qcom,rmnet-ipa {
