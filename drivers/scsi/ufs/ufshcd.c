@@ -3721,6 +3721,7 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	int result = 0;
 	int scsi_status;
 	int ocs;
+	bool print_prdt;
 
 	/* overall command status of utrd */
 	ocs = ufshcd_get_tr_ocs(lrbp);
@@ -3780,8 +3781,11 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		break;
 	} /* end of switch */
 
-	if (host_byte(result) != DID_OK)
-		ufshcd_print_trs(hba, 1 << lrbp->task_tag, true);
+	if (host_byte(result) != DID_OK) {
+		print_prdt = (ocs == OCS_INVALID_PRDT_ATTR ||
+			ocs == OCS_MISMATCH_DATA_BUF_SIZE);
+		ufshcd_print_trs(hba, 1 << lrbp->task_tag, print_prdt);
+	}
 	return result;
 }
 
@@ -4147,6 +4151,18 @@ static void ufshcd_err_handler(struct work_struct *work)
 	hba->ufshcd_state = UFSHCD_STATE_RESET;
 	ufshcd_set_eh_in_progress(hba);
 
+	/*
+	 * Dump controller state before resetting. Transfer requests state
+	 * will be dump as part of the request completion.
+	 */
+	if (hba->saved_err & (INT_FATAL_ERRORS | UIC_ERROR)) {
+		dev_err(hba->dev, "%s: saved_err 0x%x saved_uic_err 0x%x",
+			__func__, hba->errors, hba->uic_error);
+		ufshcd_print_host_regs(hba);
+		ufshcd_print_pwr_info(hba);
+		ufshcd_print_tmrs(hba, hba->outstanding_tasks);
+	}
+
 	/* Complete requests that have door-bell cleared by h/w */
 	ufshcd_transfer_req_compl(hba);
 	ufshcd_tmc_handler(hba);
@@ -4278,19 +4294,6 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 
 			hba->ufshcd_state = UFSHCD_STATE_ERROR;
 
-			/* dump controller state before resetting */
-			if (hba->saved_err & (INT_FATAL_ERRORS | UIC_ERROR)) {
-				bool pr_prdt = !!(hba->saved_err &
-						SYSTEM_BUS_FATAL_ERROR);
-
-				dev_err(hba->dev, "%s: saved_err 0x%x saved_uic_err 0x%x",
-					__func__, hba->errors, hba->uic_error);
-				ufshcd_print_host_regs(hba);
-				ufshcd_print_pwr_info(hba);
-				ufshcd_print_tmrs(hba, hba->outstanding_tasks);
-				ufshcd_print_trs(hba, hba->outstanding_reqs,
-							pr_prdt);
-			}
 			schedule_work(&hba->eh_work);
 		}
 	}
