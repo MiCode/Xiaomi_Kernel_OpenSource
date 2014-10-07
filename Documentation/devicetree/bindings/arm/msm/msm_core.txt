@@ -31,8 +31,6 @@ Optional properties:
 [Second level nodes]
 Required properties to define per core characteristics:
 - qcom,cpu-name: CPU phandle to read the mpidr value
-- qcom,apc-rail: CPU rail phandle to get frequency and voltage
-                 information.
 
 Optional properties to define per core characteristics:
 - qcom,sensor:  Sensor phandle to map a particular sensor to the core.
@@ -52,25 +50,21 @@ qcom,msm-core {
 		qcom,cpu0-chars {
 			qcom,sensor = <&sensor_information0>;
 			qcom,cpu-name = <&CPU0>;
-			qcom,apc-rail = <&apc0_vreg_corner>;
 		};
 
 		qcom,cpu1-chars {
 			qcom,sensor = <&sensor_information1>;
 			qcom,cpu-name = <&CPU1>;
-			qcom,apc-rail = <&apc0_vreg_corner>;
 		};
 
 		qcom,cpu2-chars {
 			qcom,sensor = <&sensor_information2>;
 			qcom,cpu-name = <&CPU2>;
-			qcom,apc-rail = <&apc0_vreg_corner>;
 		};
 
 		qcom,cpu3-chars {
 			qcom,sensor = <&sensor_information3>;
 			qcom,cpu-name = <&CPU3>;
-			qcom,apc-rail = <&apc0_vreg_corner>;
 		};
 	};
 };

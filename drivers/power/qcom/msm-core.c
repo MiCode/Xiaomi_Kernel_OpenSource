@@ -82,7 +82,6 @@ struct cpu_activity_info {
 	int sensor_id;
 	struct sensor_threshold hi_threshold;
 	struct sensor_threshold low_threshold;
-	struct device_node *apc_node;
 	struct cpu_static_info *sp;
 };
 
@@ -553,14 +552,16 @@ static int msm_get_voltage_levels(struct device *dev, int cpu,
 	int i;
 	int corner;
 	struct opp *opp;
-	struct platform_device *pdev =
-		of_find_device_by_node(activity[cpu].apc_node);
+	struct device *cpu_dev = get_cpu_device(cpu);
 	/*
 	 * Convert cpr corner voltage to average voltage of both
 	 * a53 and a57 votlage value
 	 */
 	int average_voltage[NUM_OF_CORNERS] = {0, 746, 841, 843, 940, 953, 976,
 			1024, 1090, 1100};
+
+	if (!cpu_dev)
+		return -ENODEV;
 
 	voltage = devm_kzalloc(dev,
 			sizeof(*voltage) * sp->num_of_freqs, GFP_KERNEL);
@@ -570,11 +571,17 @@ static int msm_get_voltage_levels(struct device *dev, int cpu,
 
 	rcu_read_lock();
 	for (i = 0; i < sp->num_of_freqs; i++) {
-		opp = dev_pm_opp_find_freq_exact(&pdev->dev,
+		opp = dev_pm_opp_find_freq_exact(cpu_dev,
 				sp->table[i].frequency * 1000, true);
 		corner = dev_pm_opp_get_voltage(opp);
-		if (corner > 0 && corner < ARRAY_SIZE(average_voltage))
+
+		if (corner > 400000)
+			voltage[i] = corner / 1000;
+		else if (corner > 0 && corner < ARRAY_SIZE(average_voltage))
 			voltage[i] = average_voltage[corner];
+		else
+			voltage[i]
+			     = average_voltage[ARRAY_SIZE(average_voltage) - 1];
 	}
 	rcu_read_unlock();
 
@@ -751,7 +758,6 @@ static int msm_core_params_init(struct platform_device *pdev)
 	struct device_node *node = NULL;
 	struct device_node *child_node = NULL;
 	int mpidr;
-	char *key = NULL;
 
 	node = of_find_node_by_name(pdev->dev.of_node,
 				"qcom,core-mapping");
@@ -773,15 +779,6 @@ static int msm_core_params_init(struct platform_device *pdev)
 			continue;
 
 		activity[cpu].mpidr = mpidr;
-
-		key = "qcom,apc-rail";
-
-		activity[cpu].apc_node = of_parse_phandle(child_node, key, 0);
-		if (!activity[cpu].apc_node) {
-			pr_err("%s: Couldn't find the opp apcrail\n",
-					__func__);
-			return -ENODEV;
-		}
 
 		ret = msm_core_tsens_init(child_node, cpu);
 		if (ret)
