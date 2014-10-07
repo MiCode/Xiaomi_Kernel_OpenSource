@@ -2101,6 +2101,24 @@ static struct branch_clk gcc_usb_hs_system_clk = {
 	},
 };
 
+static struct branch_clk gcc_bimc_ddr_ch0_clk = {
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_bimc_ddr_ch0_clk",
+		.ops = &clk_ops_dummy,
+		CLK_INIT(gcc_bimc_ddr_ch0_clk.c),
+	},
+};
+
+static struct branch_clk gcc_bimc_ddr_ch1_clk = {
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_bimc_ddr_ch1_clk",
+		.ops = &clk_ops_dummy,
+		CLK_INIT(gcc_bimc_ddr_ch1_clk.c),
+	},
+};
+
 static struct gate_clk pcie_0_phy_ldo = {
 	.en_reg = PCIE_0_PHY_LDO_EN,
 	.en_mask = BIT(0),
@@ -2471,6 +2489,8 @@ struct measure_mux_entry measure_mux[] = {
 	{&gcc_ce2_clk.c,			GCC_BASE, 0x0140},
 	{&gcc_ce2_axi_clk.c,			GCC_BASE, 0x0141},
 	{&gcc_ce2_ahb_clk.c,			GCC_BASE, 0x0142},
+	{&gcc_bimc_ddr_ch0_clk.c,		GCC_BASE, 0x0164},
+	{&gcc_bimc_ddr_ch1_clk.c,		GCC_BASE, 0x0165},
 	{&gcc_pcie_0_slv_axi_clk.c,		GCC_BASE, 0x01f8},
 	{&gcc_pcie_0_mstr_axi_clk.c,		GCC_BASE, 0x01f9},
 	{&gcc_pcie_0_cfg_ahb_clk.c,		GCC_BASE, 0x01fa},
@@ -2742,6 +2762,9 @@ static struct clk_lookup fsm_clocks_9900[] = {
 	CLK_LOOKUP("iface_clk", gcc_prng_ahb_clk.c, "f9bff000.qcom,msm-rng"),
 
 	CLK_LOOKUP("",	gcc_boot_rom_ahb_clk.c,	""),
+
+	CLK_LOOKUP("",	gcc_bimc_ddr_ch0_clk.c,	""),
+	CLK_LOOKUP("",	gcc_bimc_ddr_ch1_clk.c,	""),
 
 	CLK_LOOKUP("pdm2_clk",  gcc_pdm2_clk.c, "fd4a4090.qcom,rfic"),
 	CLK_LOOKUP("ahb_clk",   gcc_pdm_ahb_clk.c, "fd4a4090.qcom,rfic"),
