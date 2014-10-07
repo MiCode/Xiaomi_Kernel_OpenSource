@@ -2792,6 +2792,30 @@ void i915_gem_request_unreference_irq(struct drm_i915_gem_request *req)
 	spin_unlock_irqrestore(&ring->reqlist_lock, flags);
 }
 
+void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
+				     bool lazy_coherency)
+{
+	struct drm_i915_gem_request *req;
+	u32 seqno;
+
+	seqno = ring->get_seqno(ring, lazy_coherency);
+	if (!seqno)
+		return;
+
+	if (seqno == ring->last_read_seqno)
+		return;
+
+	list_for_each_entry(req, &ring->request_list, list) {
+		if (req->complete)
+			continue;
+
+		if (i915_seqno_passed(seqno, req->seqno))
+			req->complete = true;
+	}
+
+	ring->last_read_seqno = seqno;
+}
+
 /**
  * This function clears the request list as sequence numbers are passed.
  */

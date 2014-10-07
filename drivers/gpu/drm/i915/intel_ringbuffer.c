@@ -2488,6 +2488,7 @@ void intel_ring_init_seqno(struct intel_engine_cs *ring, u32 seqno)
 			I915_WRITE(RING_SYNC_2(ring->mmio_base), 0);
 	}
 
+	ring->last_read_seqno = 0;
 	ring->set_seqno(ring, seqno);
 }
 

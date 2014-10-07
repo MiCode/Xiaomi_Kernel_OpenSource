@@ -282,6 +282,9 @@ struct intel_engine_cs {
 	bool gpu_caches_dirty;
 	bool fbc_dirty;
 
+	/* For optimising request completion events */
+	u32 last_read_seqno;
+
 	wait_queue_head_t irq_queue;
 
 	struct intel_context *default_context;
