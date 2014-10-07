@@ -622,14 +622,15 @@ static void ipa_qmi_service_init_worker(struct work_struct *work)
 	qmi_indication_fin = false;
 
 	ipa_svc_workqueue = create_singlethread_workqueue("ipa_A7_svc");
-	if (!ipa_svc_workqueue)
+	if (!ipa_svc_workqueue) {
+		IPAWANERR("Creating ipa_A7_svc workqueue failed\n");
 		return;
+	}
 
 	ipa_svc_handle = qmi_handle_create(qmi_ipa_a5_svc_ntfy, NULL);
 	if (!ipa_svc_handle) {
 		IPAWANERR("Creating ipa_A7_svc qmi handle failed\n");
-		destroy_workqueue(ipa_svc_workqueue);
-		return;
+		goto destroy_ipa_A7_svc_wq;
 	}
 
 	/*
@@ -643,33 +644,45 @@ static void ipa_qmi_service_init_worker(struct work_struct *work)
 	if (rc < 0) {
 		IPAWANERR("Registering ipa_a5 svc failed %d\n",
 				rc);
-		qmi_handle_destroy(ipa_svc_handle);
-		destroy_workqueue(ipa_svc_workqueue);
-		return;
+		goto destroy_qmi_handle;
 	}
 
 	/* Initialize QMI-client */
 
 	ipa_clnt_req_workqueue = create_singlethread_workqueue("clnt_req");
-	if (!ipa_clnt_req_workqueue)
-		return;
+	if (!ipa_clnt_req_workqueue) {
+		IPAWANERR("Creating clnt_req workqueue failed\n");
+		goto deregister_qmi_srv;
+	}
 
 	ipa_clnt_resp_workqueue = create_singlethread_workqueue("clnt_resp");
-	if (!ipa_clnt_resp_workqueue)
-		return;
+	if (!ipa_clnt_resp_workqueue) {
+		IPAWANERR("Creating clnt_resp workqueue failed\n");
+		goto destroy_clnt_req_wq;
+	}
 
 	rc = qmi_svc_event_notifier_register(IPA_Q6_SERVICE_SVC_ID,
 				IPA_Q6_SVC_VERS,
 				IPA_Q6_SERVICE_INS_ID, &ipa_q6_clnt_nb);
 	if (rc < 0) {
 		IPAWANERR("notifier register failed\n");
-		destroy_workqueue(ipa_clnt_req_workqueue);
-		destroy_workqueue(ipa_clnt_resp_workqueue);
-		return;
+		goto destroy_clnt_resp_wq;
 	}
 
 	/* get Q6 service and start send modem-initial to Q6 */
 	IPAWANDBG("wait service available\n");
+	return;
+
+destroy_clnt_resp_wq:
+	destroy_workqueue(ipa_clnt_resp_workqueue);
+destroy_clnt_req_wq:
+	destroy_workqueue(ipa_clnt_req_workqueue);
+deregister_qmi_srv:
+	qmi_svc_unregister(ipa_svc_handle);
+destroy_qmi_handle:
+	qmi_handle_destroy(ipa_svc_handle);
+destroy_ipa_A7_svc_wq:
+	destroy_workqueue(ipa_svc_workqueue);
 	return;
 }
 
@@ -689,16 +702,23 @@ void ipa_qmi_service_exit(void)
 {
 	int ret = 0;
 	/* qmi-service */
-	ret = qmi_svc_unregister(ipa_svc_handle);
-	if (ret < 0)
-		IPAWANERR("Error unregistering qmi service handle %p, ret=%d\n",
-		ipa_svc_handle, ret);
-	flush_workqueue(ipa_svc_workqueue);
-	ret = qmi_handle_destroy(ipa_svc_handle);
-	if (ret < 0)
-		IPAWANERR("Error destroying qmi handle %p, ret=%d\n",
-		ipa_svc_handle, ret);
-	destroy_workqueue(ipa_svc_workqueue);
+	if (ipa_svc_handle) {
+		ret = qmi_svc_unregister(ipa_svc_handle);
+		if (ret < 0)
+			IPAWANERR("unregister qmi handle %p failed, ret=%d\n",
+			ipa_svc_handle, ret);
+	}
+	if (ipa_svc_workqueue) {
+		flush_workqueue(ipa_svc_workqueue);
+		destroy_workqueue(ipa_svc_workqueue);
+	}
+	if (ipa_svc_handle) {
+		ret = qmi_handle_destroy(ipa_svc_handle);
+		if (ret < 0)
+			IPAWANERR("Error destroying qmi handle %p, ret=%d\n",
+			ipa_svc_handle, ret);
+	}
+
 
 	/* qmi-client */
 	ret = qmi_svc_event_notifier_unregister(IPA_Q6_SERVICE_SVC_ID,
@@ -708,8 +728,10 @@ void ipa_qmi_service_exit(void)
 		IPAWANERR(
 		"Error qmi_svc_event_notifier_unregister service %d, ret=%d\n",
 		IPA_Q6_SERVICE_SVC_ID, ret);
-	destroy_workqueue(ipa_clnt_req_workqueue);
-	destroy_workqueue(ipa_clnt_resp_workqueue);
+	if (ipa_clnt_req_workqueue)
+		destroy_workqueue(ipa_clnt_req_workqueue);
+	if (ipa_clnt_resp_workqueue)
+		destroy_workqueue(ipa_clnt_resp_workqueue);
 
 	ipa_svc_handle = 0;
 }
