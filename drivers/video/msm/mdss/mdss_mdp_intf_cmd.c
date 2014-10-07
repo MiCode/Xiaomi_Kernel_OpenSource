@@ -59,9 +59,9 @@ struct mdss_mdp_cmd_ctx mdss_mdp_cmd_ctx_list[MAX_SESSIONS];
 
 static int mdss_mdp_cmd_do_notifier(struct mdss_mdp_cmd_ctx *ctx);
 
-static bool __mdss_mdp_cmd_panel_power_on(struct mdss_mdp_cmd_ctx *ctx)
+static bool __mdss_mdp_cmd_panel_power_off(struct mdss_mdp_cmd_ctx *ctx)
 {
-	return (ctx->panel_power_state == MDSS_PANEL_POWER_ON);
+	return mdss_panel_is_power_off(ctx->panel_power_state);
 }
 
 static inline u32 mdss_mdp_cmd_line_count(struct mdss_mdp_ctl *ctl)
@@ -216,7 +216,7 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int irq_en, rc;
 
-	if (!__mdss_mdp_cmd_panel_power_on(ctx))
+	if (__mdss_mdp_cmd_panel_power_off(ctx))
 		return;
 
 	mutex_lock(&ctx->clk_mtx);
@@ -737,7 +737,7 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 			PERF_HW_MDP_STATE, PERF_STATUS_BUSY);
 	}
 
-	if (!__mdss_mdp_cmd_panel_power_on(ctx)) {
+	if (__mdss_mdp_cmd_panel_power_off(ctx)) {
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL);
 		WARN(rc, "intf %d unblank error (%d)\n", ctl->intf_num, rc);
 
@@ -948,7 +948,8 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 				(void *) (long int) panel_power_state);
 		WARN(ret, "intf %d unblank error (%d)\n", ctl->intf_num, ret);
 
-		mdss_mdp_cmd_tearcheck_setup(ctl, false);
+		if (panel_power_state != MDSS_PANEL_POWER_DOZE)
+			mdss_mdp_cmd_tearcheck_setup(ctl, false);
 	}
 
 	if (panel_power_state != MDSS_PANEL_POWER_OFF) {
