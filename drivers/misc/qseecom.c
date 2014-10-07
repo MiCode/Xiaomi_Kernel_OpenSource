@@ -3486,9 +3486,15 @@ static int __qseecom_generate_and_save_key(struct qseecom_dev_handle *data,
 				ireq, sizeof(struct qseecom_key_generate_ireq),
 				&resp, sizeof(resp));
 	if (ret) {
-		pr_err("scm call to generate key failed : %d\n", ret);
-		__qseecom_disable_clk(CLK_QSEE);
-		return -EFAULT;
+		if (ret == -EINVAL &&
+			resp.result == QSEOS_RESULT_FAIL_KEY_ID_EXISTS) {
+			pr_debug("Key ID exists.\n");
+			ret = 0;
+		} else {
+			pr_err("scm call to generate key failed : %d\n", ret);
+			ret = -EFAULT;
+		}
+		goto generate_key_exit;
 	}
 
 	switch (resp.result) {
@@ -3515,6 +3521,7 @@ static int __qseecom_generate_and_save_key(struct qseecom_dev_handle *data,
 		ret = -EINVAL;
 		break;
 	}
+generate_key_exit:
 	__qseecom_disable_clk(CLK_QSEE);
 	return ret;
 }
@@ -3537,9 +3544,15 @@ static int __qseecom_delete_saved_key(struct qseecom_dev_handle *data,
 				ireq, sizeof(struct qseecom_key_delete_ireq),
 				&resp, sizeof(struct qseecom_command_scm_resp));
 	if (ret) {
-		pr_err("scm call to delete key failed : %d\n", ret);
-		__qseecom_disable_clk(CLK_QSEE);
-		return -EFAULT;
+		if (ret == -EINVAL &&
+			resp.result == QSEOS_RESULT_FAIL_MAX_ATTEMPT) {
+			pr_debug("Max attempts to input password reached.\n");
+			ret = -ERANGE;
+		} else {
+			pr_err("scm call to delete key failed : %d\n", ret);
+			ret = -EFAULT;
+		}
+		goto del_key_exit;
 	}
 
 	switch (resp.result) {
@@ -3567,6 +3580,7 @@ static int __qseecom_delete_saved_key(struct qseecom_dev_handle *data,
 		ret = -EINVAL;
 		break;
 	}
+del_key_exit:
 	__qseecom_disable_clk(CLK_QSEE);
 	return ret;
 }
@@ -3592,11 +3606,16 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 				ireq, sizeof(struct qseecom_key_select_ireq),
 				&resp, sizeof(struct qseecom_command_scm_resp));
 	if (ret) {
-		pr_err("scm call to set QSEOS_PIPE_ENC key failed : %d\n", ret);
-		__qseecom_disable_clk(CLK_QSEE);
-		if (qseecom.qsee.instance != qseecom.ce_drv.instance)
-			__qseecom_disable_clk(CLK_CE_DRV);
-		return -EFAULT;
+		if (ret == -EINVAL &&
+			resp.result == QSEOS_RESULT_FAIL_MAX_ATTEMPT) {
+			pr_debug("Max attempts to input password reached.\n");
+			ret = -ERANGE;
+		} else {
+			pr_err("scm call to set QSEOS_PIPE_ENC key failed : %d\n",
+				ret);
+			ret = -EFAULT;
+		}
+		goto set_key_exit;
 	}
 
 	switch (resp.result) {
@@ -3623,11 +3642,10 @@ static int __qseecom_set_clear_ce_key(struct qseecom_dev_handle *data,
 		ret = -EINVAL;
 		break;
 	}
-
+set_key_exit:
 	__qseecom_disable_clk(CLK_QSEE);
 	if (qseecom.qsee.instance != qseecom.ce_drv.instance)
 		__qseecom_disable_clk(CLK_CE_DRV);
-
 	return ret;
 }
 
