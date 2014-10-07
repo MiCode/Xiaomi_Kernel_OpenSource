@@ -830,9 +830,10 @@ static void ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result)
 	if (!lanes)
 		lanes = 1;
 
-	if (!p->pwr_rx && !p->pwr_tx)
+	if (!p->pwr_rx && !p->pwr_tx) {
 		pwr = SLOWAUTO_MODE;
-	else if (p->pwr_rx == FAST_MODE || p->pwr_rx == FASTAUTO_MODE ||
+		snprintf(result, BUS_VECTOR_NAME_LEN, "MIN");
+	} else if (p->pwr_rx == FAST_MODE || p->pwr_rx == FASTAUTO_MODE ||
 		 p->pwr_tx == FAST_MODE || p->pwr_tx == FASTAUTO_MODE) {
 		pwr = FAST_MODE;
 		snprintf(result, BUS_VECTOR_NAME_LEN, "%s_R%s_G%d_L%d", "HS",
