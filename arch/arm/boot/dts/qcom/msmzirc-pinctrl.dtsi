@@ -672,5 +672,16 @@
 				bias-pull-down;	        /* PULL DOWN */
 			};
                 };
+
+		pmx_smb_stat {
+			qcom,pins = <&gp 83>;
+			qcom,num-grp-pins = <1>;
+			label = "smb_stat";
+
+			smb_stat_active: smb-stat-active {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 	};
 };
