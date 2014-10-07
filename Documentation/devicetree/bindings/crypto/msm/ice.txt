@@ -1,0 +1,18 @@
+* Inline Crypto Engine (ICE)
+
+Required properties:
+  - compatible : should be "qcom,ice"
+  - reg : <register mapping>
+
+Optional properties:
+  - interrupt-names : name describing the interrupts for ICE IRQ
+  - interrupts : <interrupt mapping for ICE IRQ>
+
+Example:
+	ufs_ice: ufsice@fc5a0000 {
+		compatible = "qcom,ice";
+		reg = <0xfc5a0000 0x8000>;
+		interrupt-names = "ufs_ice_nonsec_level_irq", "ufs_ice_sec_level_irq";
+		interrupts = <0 258 0>, <0 257 0>;
+		status = "disabled";
+	};
