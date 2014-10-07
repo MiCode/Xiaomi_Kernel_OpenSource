@@ -916,13 +916,20 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	}
 	start_sector_orig = tmpll;
 
-	if (argv[5]) {
-		if (!strcmp(argv[5], "fde_enabled"))
-			is_fde_enabled = true;
-		else
-			is_fde_enabled = false;
+	/* Allow backward compatible */
+	if (argc >= 6) {
+		if (argv[5]) {
+			if (!strcmp(argv[5], "fde_enabled"))
+				is_fde_enabled = true;
+			else
+				is_fde_enabled = false;
+		} else {
+			DMERR(" %s Arg[5] invalid\n", __func__);
+			err =  DM_REQ_CRYPT_ERROR;
+			goto ctr_exit;
+		}
 	} else {
-		DMERR(" %s Arg[5] invalid, set FDE eanbled.\n", __func__);
+		DMERR(" %s Arg[5] missing, set FDE enabled.\n", __func__);
 		is_fde_enabled = true; /* backward compatible */
 	}
 
