@@ -40,8 +40,10 @@ extern unsigned int sysctl_sched_wakeup_load_threshold;
 extern unsigned int sysctl_sched_window_stats_policy;
 extern unsigned int sysctl_sched_account_wait_time;
 extern unsigned int sysctl_sched_ravg_hist_size;
-extern unsigned int sysctl_sched_freq_legacy_mode;
 extern unsigned int sysctl_sched_gov_response_time;
+extern unsigned int sysctl_sched_freq_account_wait_time;
+extern unsigned int sysctl_sched_migration_fixup;
+extern unsigned int sysctl_sched_heavy_task_pct;
 
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 extern unsigned int sysctl_sched_init_task_load_pct;
