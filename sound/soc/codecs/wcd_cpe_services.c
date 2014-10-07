@@ -933,6 +933,7 @@ static enum cpe_svc_result cpe_mt_validate_cmd(
 		switch (command) {
 		case CPE_CMD_RESET:
 		case CPE_CMD_DL_SEGMENT:
+		case CPE_CMD_RAMDUMP:
 		case CPE_CMD_PROCESS_IRQ:
 		case CPE_CMD_KILL_THREAD:
 		case CPE_CMD_DEINITIALIZE:

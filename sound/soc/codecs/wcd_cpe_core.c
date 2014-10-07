@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/elf.h>
 #include <linux/wait.h>
+#include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/pm_qos.h>
 #include <linux/dma-mapping.h>
@@ -36,6 +37,8 @@
 #define CMI_CMD_TIMEOUT (10 * HZ)
 #define WCD_CPE_LSM_MAX_SESSIONS 1
 #define WCD_CPE_AFE_MAX_PORTS 1
+#define WCD_CPE_DRAM_SIZE 0x30000
+#define WCD_CPE_DRAM_OFFSET 0x50000
 
 #define ELF_FLAG_EXECUTE (1 << 0)
 #define ELF_FLAG_WRITE (1 << 1)
@@ -93,6 +96,7 @@ static struct wcd_cmi_afe_port_data afe_ports[WCD_CPE_AFE_MAX_PORTS + 1];
 static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param);
 static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core);
 static void wcd_cpe_cleanup_irqs(struct wcd_cpe_core *core);
+static u32 ramdump_enable;
 
 /* wcd_cpe_lsm_session_active: check if any session is active
  * return true if any session is active.
@@ -112,6 +116,45 @@ static bool wcd_cpe_lsm_session_active(void)
 		}
 	}
 	return lsm_active;
+}
+
+static int wcd_cpe_collect_ramdump(struct wcd_cpe_core *core)
+{
+	struct cpe_svc_mem_segment dump_seg;
+	int rc;
+
+	dump_seg.type = CPE_SVC_DATA_MEM;
+	dump_seg.cpe_addr = WCD_CPE_DRAM_OFFSET;
+	dump_seg.size = WCD_CPE_DRAM_SIZE;
+	dump_seg.data = core->cpe_dump_v_addr;
+
+	dev_dbg(core->dev,
+		"%s: Reading ramdump from CPE\n",
+		__func__);
+
+	rc = cpe_svc_ramdump(core->cpe_handle, &dump_seg);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(core->dev,
+			"%s: Failed to read CPE ramdump, err = %d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	dev_dbg(core->dev,
+		"%s: completed reading ramdump from CPE\n",
+		__func__);
+
+	core->cpe_ramdump_seg.address = (unsigned long) core->cpe_dump_addr;
+	core->cpe_ramdump_seg.size = WCD_CPE_DRAM_SIZE;
+	core->cpe_ramdump_seg.v_address = core->cpe_dump_v_addr;
+
+	rc = do_ramdump(core->cpe_ramdump_dev,
+			&core->cpe_ramdump_seg, 1);
+	if (rc)
+		dev_err(core->dev,
+			"%s: fail to dump cpe ram to device, err = %d\n",
+			__func__, rc);
+	return rc;
 }
 
 /* wcd_cpe_is_valid_elf_hdr: check if the ELF header is valid
@@ -634,6 +677,18 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 
 		core->ssr_type = WCD_CPE_ENABLED;
 	} else {
+		if (core->ssr_type == WCD_CPE_BUS_DOWN_EVENT ||
+		    core->ssr_type == WCD_CPE_SSR_EVENT) {
+			/*
+			 * If this disable vote is when
+			 * SSR is in progress, do not disable CPE here,
+			 * instead SSR handler will control CPE.
+			 */
+			wcd_cpe_enable_cpe_clks(core, false);
+			wcd_cpe_cleanup_irqs(core);
+			goto done;
+		}
+
 		/* Reset CPE first */
 		ret = cpe_svc_reset(core->cpe_handle);
 		if (IS_ERR_VALUE(ret)) {
@@ -791,6 +846,15 @@ void wcd_cpe_ssr_work(struct work_struct *work)
 				"%s: wait for cpe offline timed out\n",
 				__func__);
 			goto err_ret;
+		}
+		if (core->ssr_type != WCD_CPE_BUS_DOWN_EVENT &&
+		    ramdump_enable) {
+			/*
+			 * Ramdump has to be explicitly enabled
+			 * through debugfs and cannot be collected
+			 * when bus is down.
+			 */
+			wcd_cpe_collect_ramdump(core);
 		}
 	} else {
 		pr_err("%s: no cpe users, mark as offline\n", __func__);
@@ -1331,6 +1395,32 @@ done:
 	return ret;
 }
 
+static int wcd_cpe_debugfs_init(struct wcd_cpe_core *core)
+{
+	int rc;
+
+	struct dentry *dir = debugfs_create_dir("wcd_cpe", NULL);
+	if (IS_ERR_OR_NULL(dir)) {
+		dir = NULL;
+		rc = -ENODEV;
+		goto err_create_dir;
+	}
+
+	if (!debugfs_create_u32("ramdump_enable", S_IRUGO | S_IWUSR,
+				dir, &ramdump_enable)) {
+		dev_err(core->dev, "%s: Failed to create debugfs node %s\n",
+			__func__, "ramdump_enable");
+		rc = -ENODEV;
+		goto err_create_entry;
+	}
+
+err_create_entry:
+	debugfs_remove(dir);
+
+err_create_dir:
+	return rc;
+}
+
 /*
  * wcd_cpe_init: Initialize CPE related structures
  * @img_fname: filename for firmware image
@@ -1471,6 +1561,32 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 		goto fail_cpe_reset;
 	}
 
+	wcd_cpe_debugfs_init(core);
+
+	/* Setup the ramdump device and buffer */
+	core->cpe_ramdump_dev = create_ramdump_device("cpe",
+						      core->dev);
+	if (!core->cpe_ramdump_dev) {
+		dev_err(core->dev,
+			"%s: Failed to create ramdump device\n",
+			__func__);
+		goto schedule_dload_work;
+	}
+
+	core->cpe_dump_v_addr = dma_alloc_coherent(core->dev,
+						   WCD_CPE_DRAM_SIZE,
+						   &core->cpe_dump_addr,
+						   GFP_KERNEL);
+	if (!core->cpe_dump_v_addr) {
+		dev_err(core->dev,
+			"%s: Failed to alloc memory for cpe dump, size = %d\n",
+			__func__, WCD_CPE_DRAM_SIZE);
+		goto schedule_dload_work;
+	} else {
+		memset(core->cpe_dump_v_addr, 0, WCD_CPE_DRAM_SIZE);
+	}
+
+schedule_dload_work:
 	core->ssr_type = WCD_CPE_INITIALIZED;
 	schedule_work(&core->load_fw_work);
 	return core;
@@ -2724,17 +2840,18 @@ static int wcd_cpe_dealloc_lsm_session(void *core_handle,
 	lsm_sessions[session->id] = NULL;
 	kfree(session);
 
+	ret = wcd_cpe_vote(core, false);
+	if (ret)
+		dev_dbg(core->dev,
+			"%s: Failed to un-vote cpe, err = %d\n",
+			__func__, ret);
+
 	if (!wcd_cpe_lsm_session_active()) {
 		cmi_deregister(core->cmi_afe_handle);
 		core->cmi_afe_handle = NULL;
 		wcd_cpe_deinitialize_afe_port_data();
 	}
 
-	ret = wcd_cpe_vote(core, false);
-	if (ret)
-		dev_dbg(core->dev,
-			"%s: Failed to un-vote cpe, err = %d\n",
-			__func__, ret);
 	return ret;
 }
 

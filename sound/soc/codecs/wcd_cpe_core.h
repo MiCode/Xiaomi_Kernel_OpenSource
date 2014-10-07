@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <soc/qcom/ramdump.h>
+#include <linux/dma-mapping.h>
 #include "wcd_cpe_services.h"
 
 #define WCD_CPE_LAB_MAX_LATENCY 250
@@ -138,6 +140,12 @@ struct wcd_cpe_core {
 
 	/* reference counter for cpe usage */
 	u8 cpe_users;
+
+	/* Ramdump support */
+	void *cpe_ramdump_dev;
+	struct ramdump_segment cpe_ramdump_seg;
+	dma_addr_t cpe_dump_addr;
+	void *cpe_dump_v_addr;
 };
 
 struct wcd_cpe_params {
