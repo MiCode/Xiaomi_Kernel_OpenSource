@@ -2851,6 +2851,7 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 
 	if (seqno == ring->last_read_seqno)
 		return;
+	ring->last_read_seqno = seqno;
 
 	spin_lock_irqsave(&ring->reqlist_lock, flags);
 	list_for_each_entry(req, &ring->request_list, list) {
@@ -2864,7 +2865,7 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 	}
 	spin_unlock_irqrestore(&ring->reqlist_lock, flags);
 
-	ring->last_read_seqno = seqno;
+	wake_up_all(&ring->irq_queue);
 }
 
 /**
