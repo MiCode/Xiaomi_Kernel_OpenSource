@@ -268,11 +268,16 @@ static enum handoff rpm_clk_handoff(struct clk *clk)
 int enable_rpm_scaling(void)
 {
 	int rc, value = 0x1;
+	static int is_inited;
+
 	struct msm_rpm_kvp kvp = {
 		.key = RPM_SMD_KEY_ENABLE,
 		.data = (void *)&value,
 		.length = sizeof(value),
 	};
+
+	if (is_inited)
+		return 0;
 
 	rc = msm_rpm_send_message_noirq(MSM_RPM_CTX_SLEEP_SET,
 			RPM_MISC_CLK_TYPE, RPM_SCALING_ENABLE_ID, &kvp, 1);
@@ -290,6 +295,7 @@ int enable_rpm_scaling(void)
 		return rc;
 	}
 
+	is_inited++;
 	return 0;
 }
 
