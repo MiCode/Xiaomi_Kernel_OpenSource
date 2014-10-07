@@ -88,6 +88,19 @@ Sub node required properties:
 			 - power-ok:		Triggers when the charger
 						switcher turns on or off.
 
+Regulator Subnodes:
+- qcom,smbcharger-boost-otg	A subnode for a regulator device that turns on
+				the charger boost for OTG operation.
+- qcom,smbcharger-external-otg	A subnode for a regulator device that switches
+				off charging and the USB input charge path
+				in order to allow an external regulator to
+				operate. This can be used in place of the
+				qcom,smbcharger-boost-otg if an external boost
+				is available.
+
+Regulator Sub node required properties:
+- regulator-name		A name string for the regulator in question
+
 Optional Properties:
 - qcom,battery-psy-name		The name of the main battery power supply that
 				the charger will register. Failing to define
@@ -154,8 +167,8 @@ Optional Properties:
 				50, 100, 150, 200, 250, 300, 500, 600.
 - qcom,iterm-disabled		Disables the termination current feature. This
 				is a boolean property.
-- regulator-name		A string used as a descriptive name for OTG
-				regulator.
+- otg-parent-supply		A phandle to an external boost regulator for
+				OTG if it exists.
 - qcom,thermal-mitigation:	Array of input current limit values for
 				different system thermal mitigation levels.
 				This should be a flat array that denotates the

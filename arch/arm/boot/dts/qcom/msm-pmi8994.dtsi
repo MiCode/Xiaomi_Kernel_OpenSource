@@ -167,7 +167,7 @@
 			qcom,vadc-meas-int-mode;
 		};
 
-		pmi8994_charger: pmi8994_otg_supply: qcom,qpnp-smbcharger {
+		pmi8994_charger: qcom,qpnp-smbcharger {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-smbcharger";
 			#address-cells = <1>;
@@ -186,7 +186,6 @@
 			qcom,parallel-usb-min-current-ma = <1400>;
 			qcom,parallel-9v-usb-min-current-ma = <900>;
 			qcom,parallel-allowed-lowering-ma = <500>;
-			regulator-name = "pmi8994_otg_vreg";
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
