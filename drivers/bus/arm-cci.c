@@ -1133,6 +1133,8 @@ static int cci_probe(void)
 	if (!np)
 		return -ENODEV;
 
+	of_property_read_u32(np, "hw-version", &cci_version);
+
 	ret = of_address_to_resource(np, 0, &res);
 	if (!ret) {
 		cci_ctrl_base = ioremap(res.start, resource_size(&res));

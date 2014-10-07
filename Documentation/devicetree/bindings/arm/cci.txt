@@ -52,6 +52,12 @@ specific to ARM.
 			    hierarchical bus addressing. CCI interfaces
 			    addresses refer to the parent node addressing
 			    scheme to declare their register bases.
+        - hw-version
+		Usage: optional
+		Value type: <u32>
+		Definition: Hardware version. This value will be used when
+			    the device id register cannot be accessed with
+			    a non-secure read.
 
 	CCI interconnect node can define the following child nodes:
 
