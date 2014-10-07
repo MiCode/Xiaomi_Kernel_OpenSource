@@ -565,6 +565,7 @@ int msm_fd_hw_get_clocks(struct msm_fd_device *fd)
 {
 	const char *clk_name;
 	size_t cnt;
+	int clk_rates;
 	int i;
 	int ret;
 
@@ -574,6 +575,7 @@ int msm_fd_hw_get_clocks(struct msm_fd_device *fd)
 		return -EINVAL;
 	}
 
+	clk_rates = 0;
 	for (i = 0; i < cnt; i++) {
 		ret = of_property_read_string_index(fd->dev->of_node,
 			"clock-names", i, &clk_name);
@@ -592,13 +594,27 @@ int msm_fd_hw_get_clocks(struct msm_fd_device *fd)
 	}
 	fd->clk_num = cnt;
 
-	ret = of_property_read_u32_array(fd->dev->of_node, "clock-rates",
-		fd->clk_rates[0], fd->clk_num);
-	if (ret < 0) {
+	cnt = 0;
+	for (clk_rates = 0; clk_rates < MSM_FD_MAX_CLK_RATES; clk_rates++) {
+		for (i = 0; i < fd->clk_num; i++) {
+			ret = of_property_read_u32_index(fd->dev->of_node,
+				"clock-rates", cnt++,
+				&fd->clk_rates[clk_rates][i]);
+			if (ret < 0)
+				break;
+			dev_dbg(fd->dev, "Clock rate idx %d idx %d value %d\n",
+				clk_rates, i, fd->clk_rates[clk_rates][i]);
+
+		}
+		if (ret < 0)
+			break;
+	}
+	fd->clk_rates_num = clk_rates;
+	if (fd->clk_rates_num == 0) {
+		ret = -ENOENT;
 		dev_err(fd->dev, "Can not get clock rates\n");
 		goto error;
 	}
-	fd->clk_rates_num = 1;
 
 	return 0;
 error:
