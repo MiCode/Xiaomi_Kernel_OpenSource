@@ -3072,6 +3072,26 @@
 		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
 		qcom,clk_div = <27>;
 	};
+
+	cci@f9100000 {
+		compatible = "arm,cci-400";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xf9100000 0x1000>;
+		ranges = <0x0 0xf9100000 0x10000>;
+		hw-version = <8>;
+
+		pmu@a000 {
+			compatible = "arm,cci-400-pmu";
+			reg = <0x9000 0x5000>;
+			interrupts = <0 7 0>,
+				     <0 7 0>,
+				     <0 7 0>,
+				     <0 7 0>,
+				     <0 7 0>;
+		};
+
+	};
 };
 
 &gdsc_usb30 {
