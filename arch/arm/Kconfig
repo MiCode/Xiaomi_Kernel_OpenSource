@@ -653,6 +653,7 @@ config ARCH_MSM
 	select GENERIC_ALLOCATOR
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
+	select ARCH_HAS_OPP
 	select NEED_MACH_MEMORY_H
 	select NEED_MACH_IO_H
 	select NEED_MACH_GPIO_H
