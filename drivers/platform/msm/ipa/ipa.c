@@ -2484,8 +2484,9 @@ void ipa_inc_client_enable_clks(void)
 int ipa_inc_client_enable_clks_no_block(void)
 {
 	int res = 0;
+	unsigned long flags;
 
-	if (ipa_active_clients_trylock() == 0)
+	if (ipa_active_clients_trylock(&flags) == 0)
 		return -EPERM;
 
 	if (ipa_ctx->ipa_active_clients.cnt == 0) {
@@ -2496,7 +2497,7 @@ int ipa_inc_client_enable_clks_no_block(void)
 	ipa_ctx->ipa_active_clients.cnt++;
 	IPADBG("active clients = %d\n", ipa_ctx->ipa_active_clients.cnt);
 bail:
-	ipa_active_clients_unlock();
+	ipa_active_clients_trylock_unlock(&flags);
 
 	return res;
 }

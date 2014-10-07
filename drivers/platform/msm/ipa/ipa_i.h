@@ -1234,8 +1234,9 @@ bool ipa_should_pipe_be_suspended(enum ipa_client_type client);
 int ipa_tag_aggr_force_close(int pipe_num);
 
 void ipa_active_clients_lock(void);
-int ipa_active_clients_trylock(void);
+int ipa_active_clients_trylock(unsigned long *flags);
 void ipa_active_clients_unlock(void);
+void ipa_active_clients_trylock_unlock(unsigned long *flags);
 int ipa_wdi_init(void);
 int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa_tag_process(struct ipa_desc *desc, int num_descs,

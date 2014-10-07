@@ -260,33 +260,39 @@ static struct msm_bus_scale_pdata ipa_bus_client_pdata_v2_0 = {
 
 void ipa_active_clients_lock(void)
 {
+	unsigned long flags;
+
 	mutex_lock(&ipa_ctx->ipa_active_clients.mutex);
-	spin_lock(&ipa_ctx->ipa_active_clients.spinlock);
+	spin_lock_irqsave(&ipa_ctx->ipa_active_clients.spinlock, flags);
 	ipa_ctx->ipa_active_clients.mutex_locked = true;
-	spin_unlock(&ipa_ctx->ipa_active_clients.spinlock);
+	spin_unlock_irqrestore(&ipa_ctx->ipa_active_clients.spinlock, flags);
 }
 
-int ipa_active_clients_trylock(void)
+int ipa_active_clients_trylock(unsigned long *flags)
 {
-	spin_lock(&ipa_ctx->ipa_active_clients.spinlock);
+	spin_lock_irqsave(&ipa_ctx->ipa_active_clients.spinlock, *flags);
 	if (ipa_ctx->ipa_active_clients.mutex_locked) {
-		spin_unlock(&ipa_ctx->ipa_active_clients.spinlock);
+		spin_unlock_irqrestore(&ipa_ctx->ipa_active_clients.spinlock,
+					 *flags);
 		return 0;
 	}
 
 	return 1;
 }
 
+void ipa_active_clients_trylock_unlock(unsigned long *flags)
+{
+	spin_unlock_irqrestore(&ipa_ctx->ipa_active_clients.spinlock, *flags);
+}
+
 void ipa_active_clients_unlock(void)
 {
-	if (ipa_ctx->ipa_active_clients.mutex_locked) {
-		spin_lock(&ipa_ctx->ipa_active_clients.spinlock);
-		ipa_ctx->ipa_active_clients.mutex_locked = false;
-		spin_unlock(&ipa_ctx->ipa_active_clients.spinlock);
-		mutex_unlock(&ipa_ctx->ipa_active_clients.mutex);
-		return;
-	}
-	spin_unlock(&ipa_ctx->ipa_active_clients.spinlock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&ipa_ctx->ipa_active_clients.spinlock, flags);
+	ipa_ctx->ipa_active_clients.mutex_locked = false;
+	spin_unlock_irqrestore(&ipa_ctx->ipa_active_clients.spinlock, flags);
+	mutex_unlock(&ipa_ctx->ipa_active_clients.mutex);
 }
 
 /**
@@ -445,8 +451,9 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	enum ipa_client_type client;
 	struct ipa_ep_cfg_ctrl suspend;
 	int ipa_ep_idx;
+	unsigned long flags;
 
-	if (ipa_active_clients_trylock() == 0)
+	if (ipa_active_clients_trylock(&flags) == 0)
 		return -EPERM;
 	if (ipa_ctx->ipa_active_clients.cnt == 1) {
 		res = -EPERM;
@@ -485,7 +492,7 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 		       ipa_ctx->ipa_active_clients.cnt);
 	}
 bail:
-	ipa_active_clients_unlock();
+	ipa_active_clients_trylock_unlock(&flags);
 
 	return res;
 }
