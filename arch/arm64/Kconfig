@@ -188,6 +188,7 @@ config ARCH_MSM
 	select PCI
 	select ARCH_HAS_CPUFREQ
 	select CPU_FREQ_MSM
+	select PM_OPP
 	select PM_DEVFREQ
 	select MSM_DEVFREQ_DEVBW
 	select MSM_BIMC_BWMON
