@@ -90,6 +90,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		dev_dbg(otg->phy->dev, "%s: turn on host\n", __func__);
 
 		dwc3_otg_notify_host_mode(otg, on);
+		usb_phy_notify_connect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
 		ret = regulator_enable(dotg->vbus_otg);
 		if (ret) {
 			dev_err(otg->phy->dev, "unable to enable vbus_otg\n");
@@ -136,6 +137,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 
 		dbg_event(0xFF, "StHost get", 0);
 		pm_runtime_get(dwc->dev);
+		usb_phy_notify_disconnect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
 		dwc3_otg_notify_host_mode(otg, on);
 		dwc3_otg_set_host(otg, NULL);
 		platform_device_del(dwc->xhci);
