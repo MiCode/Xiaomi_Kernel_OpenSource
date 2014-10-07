@@ -539,6 +539,7 @@
 			reg-names = "qpnp-lpg-channel-base";
 			qcom,channel-id = <0>;
 			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
 		};
 
 		pm8916_vib: qcom,vibrator@c000 {

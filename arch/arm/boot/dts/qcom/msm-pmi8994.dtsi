@@ -350,6 +350,7 @@
 			qcom,channel-id = <0>;
 			qcom,supported-sizes = <6>, <7>, <9>;
 			qcom,ramp-index = <0>;
+			#pwm-cells = <2>;
 		};
 
 		pwm@b200 {
@@ -360,6 +361,7 @@
 			qcom,channel-id = <1>;
 			qcom,supported-sizes = <6>, <7>, <9>;
 			qcom,ramp-index = <1>;
+			#pwm-cells = <2>;
 		};
 
 		pwm@b300 {
@@ -370,6 +372,7 @@
 			qcom,channel-id = <2>;
 			qcom,supported-sizes = <6>, <7>, <9>;
 			qcom,ramp-index = <2>;
+			#pwm-cells = <2>;
 		};
 
 		pmi8994_pwm_4: pwm@b400 {
