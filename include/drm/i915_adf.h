@@ -53,6 +53,8 @@ extern u32 intel_adf_get_pwm_vbt_data(void);
 extern void set_adf_ready(void);
 extern volatile bool g_adf_ready;
 extern int intel_adf_context_on_event(void);
+extern void intel_adf_display_rpm_get(void);
+extern void intel_adf_display_rpm_put(void);
 #endif
 
 

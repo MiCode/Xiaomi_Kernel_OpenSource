@@ -74,6 +74,30 @@ struct pci_dev *i915_adf_get_pci_dev(void)
 }
 EXPORT_SYMBOL(i915_adf_get_pci_dev);
 
+void intel_adf_display_rpm_get(void)
+{
+	struct drm_i915_private *dev_priv;
+
+	if (!i915_adf_dev)
+		return;
+
+	dev_priv = i915_adf_dev;
+	intel_display_set_init_power(dev_priv, true);
+}
+EXPORT_SYMBOL(intel_adf_display_rpm_get);
+
+void intel_adf_display_rpm_put(void)
+{
+	struct drm_i915_private *dev_priv;
+
+	if (!i915_adf_dev)
+		return;
+
+	dev_priv = i915_adf_dev;
+	intel_display_set_init_power(dev_priv, false);
+}
+EXPORT_SYMBOL(intel_adf_display_rpm_put);
+
 /**
  * intel_adf_pci_sideband_rw - Interface to allow ADF driver read/write to intel sideband.
  */
