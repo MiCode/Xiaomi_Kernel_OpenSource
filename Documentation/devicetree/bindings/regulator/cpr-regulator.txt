@@ -334,6 +334,15 @@ Optional properties:
 				voltages will be used in place of the per-fuse-corner floor voltages defined in the
 				qcom,cpr-voltage-floor property.  If this property is not specified, then the
 				per-fuse-corner floor voltages will always be used.
+- qcom,cpr-voltage-scaling-factor-max: Array of values which define the maximum allowed scaling factor to apply
+				when calculating per-corner initial voltage values for each fuse corner.  The
+				array must be of length equal to the value of the qcom,cpr-fuse-corners property.
+				Each element in the array maps to the fuse corners in increasing order.
+				The elements have units of uV/MHz.  Each element corresponds to 'max_factor' in
+				the following equation:
+				init_voltage_min(f) = fuse_init_voltage(f) - (fuse_f_max - f) * max_factor
+				If this property is not specified, then the initial voltage for each virtual
+				corner will be set to the initial voltage of the associated fuse corner.
 - qcom,cpr-quot-adjust-scaling-factor-max: The maximum allowed CPR target quotient scaling factor to use when
 				calculating the quotient adjustment for a given virtual voltage corner. It
 				corresponds to 'scaling' in this equation:

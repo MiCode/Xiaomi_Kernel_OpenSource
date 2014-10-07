@@ -25,6 +25,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/pm_opp.h>
 #include <linux/interrupt.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
@@ -249,6 +250,7 @@ struct cpr_regulator {
 	int		*fuse_ceiling_volt;
 	int		*fuse_floor_volt;
 	int		*last_volt;
+	int		*open_loop_volt;
 	int		step_volt;
 
 	int		*save_ctl;
@@ -978,11 +980,7 @@ static int cpr_regulator_set_voltage(struct regulator_dev *rdev,
 		cpr_ctl_disable(cpr_vreg);
 		new_volt = cpr_vreg->last_volt[corner];
 	} else {
-		new_volt = cpr_vreg->pvs_corner_v[fuse_corner];
-		if (new_volt > cpr_vreg->ceiling_volt[corner])
-			new_volt = cpr_vreg->ceiling_volt[corner];
-		else if (new_volt < cpr_vreg->floor_volt[corner])
-			new_volt = cpr_vreg->floor_volt[corner];
+		new_volt = cpr_vreg->open_loop_volt[corner];
 	}
 
 	cpr_debug(cpr_vreg, "[corner:%d, fuse_corner:%d] = %d uV\n",
@@ -1644,6 +1642,144 @@ static void cpr_parse_pvs_version_fuse(struct cpr_regulator *cpr_vreg,
 	}
 }
 
+/**
+ * cpr_get_open_loop_voltage() - fill the open_loop_volt array with linearly
+ *				 interpolated open-loop CPR voltage values.
+ * @cpr_vreg:	Handle to the cpr-regulator device
+ * @dev:	Device pointer for the cpr-regulator device
+ * @corner_max:	Array of length (cpr_vreg->num_fuse_corners + 1) which maps from
+ *		fuse corners to the highest virtual corner corresponding to a
+ *		given fuse corner
+ * @freq_map:	Array of length (cpr_vreg->num_corners + 1) which maps from
+ *		virtual corners to frequencies in Hz.
+ * @maps_valid:	Boolean which indicates if the values in corner_max and freq_map
+ *		are valid.  If they are not valid, then the open_loop_volt
+ *		values are not interpolated.
+ */
+static int cpr_get_open_loop_voltage(struct cpr_regulator *cpr_vreg,
+		struct device *dev, const u32 *corner_max, const u32 *freq_map,
+		bool maps_valid)
+{
+	int rc = 0;
+	int i, j;
+	u64 volt_high, volt_low, freq_high, freq_low, freq, temp, temp_limit;
+	u32 *max_factor = NULL;
+
+	cpr_vreg->open_loop_volt = devm_kzalloc(dev,
+			sizeof(int) * (cpr_vreg->num_corners + 1), GFP_KERNEL);
+	if (!cpr_vreg->open_loop_volt) {
+		cpr_err(cpr_vreg,
+			"Can't allocate memory for cpr_vreg->open_loop_volt\n");
+		return -ENOMEM;
+	}
+
+	/*
+	 * Set open loop voltage to be equal to per-fuse-corner initial voltage
+	 * by default.  This ensures that the open loop voltage is valid for
+	 * all virtual corners even if some virtual corner to frequency mappings
+	 * are missing.  It also ensures that the voltage is valid for the
+	 * higher corners not utilized by a given speed-bin.
+	 */
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++)
+		cpr_vreg->open_loop_volt[i]
+			= cpr_vreg->pvs_corner_v[cpr_vreg->corner_map[i]];
+
+	if (!maps_valid || !corner_max || !freq_map
+	    || !of_find_property(dev->of_node,
+				 "qcom,cpr-voltage-scaling-factor-max", NULL)) {
+		/* Not using interpolation */
+		return 0;
+	}
+
+	max_factor
+	       = kzalloc(sizeof(*max_factor) * (cpr_vreg->num_fuse_corners + 1),
+			 GFP_KERNEL);
+	if (!max_factor) {
+		cpr_err(cpr_vreg, "Could not allocate memory for max_factor array\n");
+		return -ENOMEM;
+	}
+
+	rc = of_property_read_u32_array(dev->of_node,
+			"qcom,cpr-voltage-scaling-factor-max",
+			&max_factor[CPR_FUSE_CORNER_MIN],
+			cpr_vreg->num_fuse_corners);
+	if (rc) {
+		cpr_debug(cpr_vreg, "failed to read qcom,cpr-voltage-scaling-factor-max; initial voltage interpolation not possible\n");
+		kfree(max_factor);
+		return 0;
+	}
+
+	for (j = CPR_FUSE_CORNER_MIN + 1; j <= cpr_vreg->num_fuse_corners;
+	    j++) {
+		freq_high = freq_map[corner_max[j]];
+		freq_low = freq_map[corner_max[j - 1]];
+		volt_high = cpr_vreg->pvs_corner_v[j];
+		volt_low = cpr_vreg->pvs_corner_v[j - 1];
+		if (freq_high <= freq_low || volt_high <= volt_low)
+			continue;
+
+		for (i = corner_max[j - 1] + 1; i < corner_max[j]; i++) {
+			freq = freq_map[i];
+			if (freq_high <= freq)
+				continue;
+
+			temp = (freq_high - freq) * (volt_high - volt_low);
+			do_div(temp, (u32)(freq_high - freq_low));
+
+			/*
+			 * max_factor[j] has units of uV/MHz while freq values
+			 * have units of Hz.  Divide by 1000000 to convert.
+			 */
+			temp_limit = (freq_high - freq) * max_factor[j];
+			do_div(temp_limit, 1000000);
+
+			cpr_vreg->open_loop_volt[i]
+				= volt_high - min(temp, temp_limit);
+		}
+	}
+
+	kfree(max_factor);
+	return 0;
+}
+
+/*
+ * Limit the per-virtual-corner open-loop voltages using the per-virtual-corner
+ * ceiling and floor voltage values.  This must be called only after the
+ * open_loop_volt, ceiling, and floor arrays have all been initialized.
+ */
+static int cpr_limit_open_loop_voltage(struct cpr_regulator *cpr_vreg)
+{
+	int i;
+
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++) {
+		if (cpr_vreg->open_loop_volt[i] > cpr_vreg->ceiling_volt[i])
+			cpr_vreg->open_loop_volt[i] = cpr_vreg->ceiling_volt[i];
+		else if (cpr_vreg->open_loop_volt[i] < cpr_vreg->floor_volt[i])
+			cpr_vreg->open_loop_volt[i] = cpr_vreg->floor_volt[i];
+	}
+
+	return 0;
+}
+
+/*
+ * Fill an OPP table for the cpr-regulator device struct with pairs of
+ * <virtual voltage corner number, open loop voltage> tuples.
+ */
+static int cpr_populate_opp_table(struct cpr_regulator *cpr_vreg,
+				struct device *dev)
+{
+	int i, rc;
+
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++) {
+		rc = dev_pm_opp_add(dev, i, cpr_vreg->open_loop_volt[i]);
+		if (rc)
+			cpr_err(cpr_vreg, "could not add OPP entry <%d, %d>, rc=%d\n",
+				i, cpr_vreg->open_loop_volt[i], rc);
+	}
+
+	return 0;
+}
+
 /*
  * cpr_get_corner_quot_adjustment() -- get the quot_adjust for each corner.
  *
@@ -1666,6 +1802,7 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	u32 scaling, max_factor, corner, freq_corner;
 	u32 *freq_max = NULL;
 	u32 *corner_max = NULL;
+	bool maps_valid = false;
 
 	prop = of_find_property(dev->of_node, "qcom,cpr-corner-map", NULL);
 
@@ -1699,7 +1836,7 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
 		     i++)
 			cpr_vreg->corner_map[i] = i;
-		return 0;
+		goto free_arrays;
 	} else {
 		rc = of_property_read_u32_array(dev->of_node,
 			"qcom,cpr-corner-map", &cpr_vreg->corner_map[1], size);
@@ -1730,7 +1867,7 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 			"qcom,cpr-speed-bin-max-corners", NULL);
 	if (!prop) {
 		cpr_debug(cpr_vreg, "qcom,cpr-speed-bin-max-corner missing\n");
-		return 0;
+		goto free_arrays;
 	}
 
 	size = prop->length / sizeof(u32);
@@ -1920,8 +2057,17 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 			(cpr_vreg->cpr_fuse_target_quot[cpr_vreg->corner_map[i]]
 				- cpr_vreg->quot_adjust[i]));
 	}
+	maps_valid = true;
 
 free_arrays:
+	if (!rc) {
+		rc = cpr_get_open_loop_voltage(cpr_vreg, dev, corner_max,
+						freq_mappings, maps_valid);
+		if (rc)
+			cpr_err(cpr_vreg, "could not fill open loop voltage array, rc=%d\n",
+				rc);
+	}
+
 	kfree(freq_mappings);
 	kfree(corner_max);
 	kfree(freq_max);
@@ -2245,21 +2391,8 @@ static int cpr_init_cpr_voltages(struct cpr_regulator *cpr_vreg,
 	if (!cpr_vreg->last_volt)
 		return -EINVAL;
 
-	for (i = 1; i < size; i++) {
-		cpr_vreg->last_volt[i] = cpr_vreg->pvs_corner_v
-						[cpr_vreg->corner_map[i]];
-		/*
-		 * Restrict per-virtual-corner initial voltages according to
-		 * per-virtual-corner ceiling and floor voltages.  This is
-		 * necessary in case per-virtual-corner ceiling or floor values
-		 * are more restrictive than the corresponding per-fuse-corner
-		 * ceiling or floor values.
-		 */
-		if (cpr_vreg->last_volt[i] > cpr_vreg->ceiling_volt[i])
-			cpr_vreg->last_volt[i] = cpr_vreg->ceiling_volt[i];
-		else if (cpr_vreg->last_volt[i] < cpr_vreg->floor_volt[i])
-			cpr_vreg->last_volt[i] = cpr_vreg->floor_volt[i];
-	}
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++)
+		cpr_vreg->last_volt[i] = cpr_vreg->open_loop_volt[i];
 
 	return 0;
 }
@@ -2504,6 +2637,22 @@ static int cpr_init_cpr(struct platform_device *pdev,
 
 	/* Load per corner ceiling and floor voltages if they exist. */
 	rc = cpr_init_ceiling_floor_override_voltages(cpr_vreg, &pdev->dev);
+	if (rc)
+		return rc;
+
+	/*
+	 * Limit open loop voltages based upon per corner ceiling and floor
+	 * voltages.
+	 */
+	rc = cpr_limit_open_loop_voltage(cpr_vreg);
+	if (rc)
+		return rc;
+
+	/*
+	 * Fill the OPP table for this device with virtual voltage corner to
+	 * open-loop voltage pairs.
+	 */
+	rc = cpr_populate_opp_table(cpr_vreg, &pdev->dev);
 	if (rc)
 		return rc;
 
