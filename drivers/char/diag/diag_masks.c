@@ -1023,6 +1023,7 @@ int diag_create_msg_mask_table_entry(struct diag_msg_mask_t *msg_mask,
 					GFP_KERNEL);
 		if (!msg_mask->ptr)
 			return -ENOMEM;
+		kmemleak_not_leak(msg_mask->ptr);
 	}
 	return 0;
 }
@@ -1193,6 +1194,7 @@ static int diag_create_log_mask_table(void)
 			err = -ENOMEM;
 			break;
 		}
+		kmemleak_not_leak(mask->ptr);
 	}
 	mutex_unlock(&log_mask.lock);
 	return err;
