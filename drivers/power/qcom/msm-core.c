@@ -29,6 +29,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 #include <linux/thermal.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
@@ -724,6 +725,57 @@ struct notifier_block cpu_policy = {
 	.notifier_call = msm_core_cpu_policy_handler
 };
 
+static int system_suspend_handler(struct notifier_block *nb,
+				unsigned long val, void *data)
+{
+	int cpu;
+
+	switch (val) {
+	case PM_POST_HIBERNATION:
+	case PM_POST_SUSPEND:
+	case PM_POST_RESTORE:
+		/* Restart the kthread to start sampling */
+		sampling_task = kthread_run(do_sampling, NULL,
+					"msm-core:sampling");
+		if (IS_ERR(sampling_task)) {
+			pr_err("Failed to create do_sampling err: %ld\n",
+				PTR_ERR(sampling_task));
+		}
+		complete(&sampling_completion);
+		break;
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		/*
+		 * cancel delayed work to be able to restart immediately
+		 * after system resume
+		 */
+		cancel_delayed_work(&sampling_work);
+		/*
+		 * Stop the kthread to prevent race condition between threshold
+		 * resets and cancellation
+		 */
+		kthread_stop(sampling_task);
+		/*
+		 * cancel TSENS interrupts as we do not want to wake up from
+		 * suspend to take care of repopulate stats while the system is
+		 * in suspend
+		 */
+		for_each_possible_cpu(cpu) {
+			if (activity[cpu].sensor_id < 0)
+				continue;
+
+			sensor_cancel_trip(activity[cpu].sensor_id,
+				&activity[cpu].hi_threshold);
+			sensor_cancel_trip(activity[cpu].sensor_id,
+				&activity[cpu].low_threshold);
+		}
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_OK;
+}
+
 static int msm_core_freq_init(void)
 {
 	int cpu;
@@ -886,6 +938,7 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 	INIT_DEFERRABLE_WORK(&sampling_work, samplequeue_handle);
 	schedule_delayed_work(&sampling_work, msecs_to_jiffies(0));
 	cpufreq_register_notifier(&cpu_policy, CPUFREQ_POLICY_NOTIFIER);
+	pm_notifier(system_suspend_handler, 0);
 	return 0;
 failed:
 	free_dyn_memory();
