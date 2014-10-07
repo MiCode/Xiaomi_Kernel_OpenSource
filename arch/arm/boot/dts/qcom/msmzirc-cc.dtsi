@@ -1162,10 +1162,11 @@
 	};
 
 	gcc_usb3_pipe_clk: gcc_usb3_pipe_clk {
-		compatible = "qcom,cbc";
-		qcom,base-offset = <GCC_USB3_PIPE_CBCR>;
+		compatible = "qcom,gate-clk";
+		qcom,en-offset = <GCC_USB3_PIPE_CBCR>;
+		qcom,en-bit = <0>;
 		qcom,parent = <&usb3_pipe_clk_src>;
-		qcom,bcr-offset = <GCC_USB3PHY_PHY_BCR>;
+		qcom,delay = <50>;
 	};
 
 	gcc_usb_phy_cfg_ahb_clk: gcc_usb_phy_cfg_ahb_clk {
