@@ -9573,6 +9573,7 @@ static void do_intel_finish_page_flip(struct drm_device *dev,
 
 	if (work == NULL || atomic_read(&work->pending) < INTEL_FLIP_COMPLETE) {
 		spin_unlock_irqrestore(&dev->event_lock, flags);
+		DRM_ERROR("invalid or inactive unpin_work!\n");
 		return;
 	}
 

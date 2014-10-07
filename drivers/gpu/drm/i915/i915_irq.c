@@ -2012,6 +2012,8 @@ static bool intel_pipe_handle_vblank(struct drm_device *dev, enum pipe pipe)
 static void valleyview_pipestat_irq_handler(struct drm_device *dev, u32 iir)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_crtc *crtc;
+	struct intel_crtc *intel_crtc;
 	u32 pipe_stats[I915_MAX_PIPES] = { };
 	int pipe;
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
@@ -2086,19 +2088,20 @@ static void valleyview_pipestat_irq_handler(struct drm_device *dev, u32 iir)
 		}
 
 		if (pipe_stats[pipe] & PLANE_FLIP_DONE_INT_STATUS_VLV) {
-			/* Primary flips only when primary plane enabled */
-			if (I915_READ(DSPCNTR(pipe)) & DISPLAY_PLANE_ENABLE) {
+			crtc = intel_get_crtc_for_pipe(dev, pipe);
+			intel_crtc = to_intel_crtc(crtc);
+			if (intel_crtc->unpin_work) {
 				intel_prepare_page_flip(dev, pipe);
 				intel_finish_page_flip(dev, pipe);
 			}
 		}
 		if (pipe_stats[pipe] & SPRITE0_FLIP_DONE_INT_STATUS_VLV) {
-				intel_prepare_sprite_page_flip(dev, pipe);
-				intel_finish_sprite_page_flip(dev, pipe);
+			intel_prepare_sprite_page_flip(dev, pipe);
+			intel_finish_sprite_page_flip(dev, pipe);
 		}
 		if (pipe_stats[pipe] & SPRITE1_FLIP_DONE_INT_STATUS_VLV) {
-				intel_prepare_sprite_page_flip(dev, pipe);
-				intel_finish_sprite_page_flip(dev, pipe);
+			intel_prepare_sprite_page_flip(dev, pipe);
+			intel_finish_sprite_page_flip(dev, pipe);
 		}
 		if (pipe_stats[pipe] & PIPE_CRC_DONE_INTERRUPT_STATUS)
 			i9xx_pipe_crc_irq_handler(dev, pipe);
