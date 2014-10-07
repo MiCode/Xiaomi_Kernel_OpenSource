@@ -2031,6 +2031,122 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 	return 0;
 }
 
+static int mdss_mdp_pp_dt_parse(struct device *dev)
+{
+	int ret = -EINVAL;
+	struct device_node *node;
+	struct mdss_data_type *mdata;
+	u32 prop_val;
+
+	mdata = mdss_mdp_get_mdata();
+	if (dev && mdata) {
+		/* initialize offsets to U32_MAX */
+		memset(&mdata->pp_block_off, U8_MAX,
+			sizeof(mdata->pp_block_off));
+		node = of_get_child_by_name(dev->of_node,
+					    "qcom,mdss-pp-offsets");
+		if (node) {
+			ret = of_property_read_u32(node,
+					"qcom,mdss-sspp-mdss-igc-lut-off",
+					&prop_val);
+			if (ret) {
+				pr_err("read property %s failed ret %d\n",
+				       "qcom,mdss-sspp-mdss-igc-lut-off", ret);
+				goto bail_out;
+			} else {
+				mdata->pp_block_off.sspp_igc_lut_off =
+				prop_val;
+			}
+
+			ret = of_property_read_u32(node,
+						"qcom,mdss-sspp-vig-pcc-off",
+						&prop_val);
+			if (ret) {
+				pr_err("read property %s failed ret %d\n",
+				       "qcom,mdss-sspp-vig-pcc-off", ret);
+				goto bail_out;
+			} else {
+				mdata->pp_block_off.vig_pcc_off = prop_val;
+			}
+
+			ret = of_property_read_u32(node,
+						"qcom,mdss-sspp-rgb-pcc-off",
+						&prop_val);
+			if (ret) {
+				pr_err("read property %s failed ret %d\n",
+				       "qcom,mdss-sspp-rgb-pcc-off", ret);
+				goto bail_out;
+			} else {
+				mdata->pp_block_off.rgb_pcc_off = prop_val;
+			}
+
+			ret = of_property_read_u32(node,
+						   "qcom,mdss-sspp-dma-pcc-off",
+						   &prop_val);
+			if (ret) {
+				pr_err("read property %s failed ret %d\n",
+				       "qcom,mdss-sspp-dma-pcc-off", ret);
+				goto bail_out;
+			} else {
+				mdata->pp_block_off.dma_pcc_off = prop_val;
+			}
+
+			ret = of_property_read_u32(node,
+						   "qcom,mdss-lm-pgc-off",
+						   &prop_val);
+
+			if (ret) {
+				pr_err("read property %s failed ret %d\n",
+				       "qcom,mdss-lm-pgc-off", ret);
+				goto bail_out;
+			} else {
+				mdata->pp_block_off.lm_pgc_off = prop_val;
+			}
+
+			ret = of_property_read_u32(node,
+						   "qcom,mdss-dspp-gamut-off",
+						   &prop_val);
+			if (ret) {
+				pr_err("read property %s failed ret %d\n",
+				       "qcom,mdss-dspp-gamut-off", ret);
+				goto bail_out;
+			} else {
+				mdata->pp_block_off.dspp_gamut_off = prop_val;
+			}
+
+			ret = of_property_read_u32(node,
+						   "qcom,mdss-dspp-pcc-off",
+						   &prop_val);
+			if (ret) {
+				pr_err("read property %s failed ret %d\n",
+				       "qcom,mdss-dspp-pcc-off", ret);
+				goto bail_out;
+			} else {
+				mdata->pp_block_off.dspp_pcc_off = prop_val;
+			}
+
+			ret = of_property_read_u32(node,
+						   "qcom,mdss-dspp-pgc-off",
+						   &prop_val);
+			if (ret) {
+				pr_err("read property %s failed ret %d\n",
+				       "qcom,mdss-dspp-pgc-off", ret);
+				goto bail_out;
+			} else {
+				mdata->pp_block_off.dspp_pgc_off = prop_val;
+			}
+		} else {
+			pr_debug("offsets are not supported\n");
+			ret = 0;
+		}
+	} else {
+		pr_err("invalid dev %p mdata %p\n", dev, mdata);
+		ret = -EINVAL;
+	}
+bail_out:
+	return ret;
+}
+
 int mdss_mdp_pp_init(struct device *dev)
 {
 	int i, ret = 0;
@@ -2049,6 +2165,9 @@ int mdss_mdp_pp_init(struct device *dev)
 			pr_err("%s mdss_pp_res allocation failed!\n", __func__);
 			ret = -ENOMEM;
 		} else {
+			if (mdss_mdp_pp_dt_parse(dev))
+				pr_info("No PP info in device tree\n");
+
 			hist = devm_kzalloc(dev,
 					sizeof(struct pp_hist_col_info) *
 					mdata->nmixers_intf,

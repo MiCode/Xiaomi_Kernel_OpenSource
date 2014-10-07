@@ -107,6 +107,17 @@ enum mdss_hw_index {
 	MDSS_MAX_HW_BLK
 };
 
+struct mdss_pp_block_off {
+	u32 sspp_igc_lut_off;
+	u32 vig_pcc_off;
+	u32 rgb_pcc_off;
+	u32 dma_pcc_off;
+	u32 lm_pgc_off;
+	u32 dspp_gamut_off;
+	u32 dspp_pcc_off;
+	u32 dspp_pgc_off;
+};
+
 struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
@@ -248,6 +259,7 @@ struct mdss_data_type {
 	u64 ab_rt[MDSS_MAX_HW_BLK];
 	u64 ab_nrt[MDSS_MAX_HW_BLK];
 	u64 ib[MDSS_MAX_HW_BLK];
+	struct mdss_pp_block_off pp_block_off;
 };
 extern struct mdss_data_type *mdss_res;
 
