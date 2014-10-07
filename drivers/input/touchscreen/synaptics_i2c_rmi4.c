@@ -34,7 +34,6 @@
 #if defined(CONFIG_SECURE_TOUCH)
 #include <linux/pm_runtime.h>
 #include <linux/errno.h>
-#include <asm/system.h>
 #endif
 
 #include "synaptics_i2c_rmi4.h"

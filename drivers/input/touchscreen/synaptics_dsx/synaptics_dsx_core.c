@@ -34,7 +34,6 @@
 #endif
 #if defined(CONFIG_SECURE_TOUCH)
 #include <linux/errno.h>
-#include <asm/system.h>
 #endif
 
 #define INPUT_PHYS_NAME "synaptics_dsx/input0"
