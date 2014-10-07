@@ -293,6 +293,10 @@
 		clocks = <&clock_rpm 0xeeec2919>;
 	};
 
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa";
+	};
+
 	qcom,clock-a7@0b010008 {
 		compatible = "qcom,clock-a7-zirc";
 		reg = <0x0B010008 0x8>;
