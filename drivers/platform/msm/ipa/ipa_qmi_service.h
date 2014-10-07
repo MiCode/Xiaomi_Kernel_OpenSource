@@ -39,6 +39,7 @@ struct rmnet_mux_val {
 	bool mux_channel_set;
 	bool ul_flt_reg;
 	bool mux_hdr_set;
+	uint32_t  hdr_hdl;
 };
 
 int ipa_qmi_service_init(bool load_uc, uint32_t wan_platform_type);
