@@ -50,6 +50,7 @@ static char *descriptions =
 	"25 msm: perf: reset perf cycle counter on krait\n"
 	"26 Perf: interrupt disable without bringing cpus up\n"
 	"27 Perf: stop counters when going into hotplug\n"
+	"28 ARM: dts: msm: add perf-events support for msm8909\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,

@@ -779,6 +779,12 @@
 		qcom,client-id = <0x011013ed>;
 	};
 
+	cpu-pmu {
+		compatible = "arm,cortex-a7-pmu";
+		qcom,irq-is-percpu;
+		interrupts = <1 7 0xf00>;
+	};
+
 	jtag_fuse: jtagfuse@5e01c {
 		compatible = "qcom,jtag-fuse";
 		reg = <0x5e01c 0x8>;
