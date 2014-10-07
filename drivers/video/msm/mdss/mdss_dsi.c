@@ -1821,7 +1821,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		if (!res || res->start == 0) {
 			pr_err("%s:%d unable to get the MDSS irq resources\n",
 							__func__, __LINE__);
-			rc = -ENODEV;
+			return -ENODEV;
 		}
 		rc = mdss_dsi_irq_init(&ctrl_pdev->dev, res->start, ctrl_pdata);
 		if (rc) {
