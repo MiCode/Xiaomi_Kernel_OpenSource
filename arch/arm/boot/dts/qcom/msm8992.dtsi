@@ -366,6 +366,16 @@
 		#clock-cells = <1>;
 	};
 
+	clock_debug: qcom,cc-debug@fc401880 {
+		compatible = "qcom,cc-debug-8992";
+		reg = <0xfc401880 0x4>;
+		reg-names = "cc_base";
+		clock-names = "debug_mmss_clk", "debug_rpm_clk";
+		clocks = <&clock_mmss clk_mmss_debug_mux>,
+		         <&clock_rpm clk_rpm_debug_mux>;
+		#clock-cells = <1>;
+	};
+
 	dummy_vreg: dummy_vreg {
 		compatible = "regulator-fixed";
 		status = "ok";
