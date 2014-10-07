@@ -525,8 +525,10 @@ static int qpic_send_pkt_sw(u32 cmd, u32 len, u8 *param)
 	if (len <= 4) {
 		len = (len + 3) / 4; /* len in dwords */
 		data = 0;
-		for (i = 0; i < len; i++)
-			data |= (u32)param[i] << (8 * i);
+		if (param) {
+			for (i = 0; i < len; i++)
+				data |= (u32)param[i] << (8 * i);
+		}
 		QPIC_OUTP(QPIC_REG_QPIC_LCDC_CMD_DATA_CYCLE_CNT, len);
 		QPIC_OUTP(QPIC_REG_LCD_DEVICE_CMD0 + (4 * cmd), data);
 		return 0;
