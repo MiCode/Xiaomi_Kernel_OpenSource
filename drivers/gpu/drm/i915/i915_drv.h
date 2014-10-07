@@ -1496,6 +1496,20 @@ struct i915_dpst_registers {
 		| VLV_UPDATEPLANE_STAT_SP_PER_PIPE(2, 0) \
 		| VLV_UPDATEPLANE_STAT_SP_PER_PIPE(2, 1))
 
+struct i915_wa_reg {
+	u32 addr;
+	u32 value;
+	/* bitmask representing WA bits */
+	u32 mask;
+};
+
+#define I915_MAX_WA_REGS 16
+
+struct i915_workarounds {
+	struct i915_wa_reg reg[I915_MAX_WA_REGS];
+	u32 count;
+};
+
 struct drm_i915_private {
 	struct drm_device *dev;
 	struct kmem_cache *slab;
@@ -1700,22 +1714,12 @@ struct drm_i915_private {
 	struct intel_ddi_plls ddi_plls;
 	int dpio_phy_iosf_port[I915_NUM_PHYS_VLV];
 
+	struct i915_workarounds workarounds;
+
 	/* perfmon interrupt support */
 	wait_queue_head_t perfmon_buffer_queue;
 	atomic_t perfmon_buffer_interrupts;
 
-	/*
-	 * workarounds are currently applied at different places and
-	 * changes are being done to consolidate them so exact count is
-	 * not clear at this point, use a max value for now.
-	 */
-#define I915_MAX_WA_REGS  16
-	struct {
-		u32 addr;
-		u32 value;
-		/* bitmask representing WA bits */
-		u32 mask;
-	} intel_wa_regs[I915_MAX_WA_REGS];
 	u32 num_wa_regs;
 
 	/* Reclocking support */
