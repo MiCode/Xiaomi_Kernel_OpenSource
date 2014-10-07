@@ -74,6 +74,13 @@ struct codeswap_codeseg_info {
 	void *codeseg_busaddr[CODESWAP_MAX_CODESEGS];
 };
 
+struct image_desc_info {
+	dma_addr_t fw_addr;
+	u32 fw_size;
+	dma_addr_t bdata_addr;
+	u32 bdata_size;
+};
+
 /* platform capabilities */
 enum cnss_platform_cap_flag {
 	CNSS_HAS_EXTERNAL_SWREG = 0x01,
@@ -91,7 +98,8 @@ enum cnss_driver_status {
 	CNSS_LOAD_UNLOAD
 };
 
-extern int cnss_get_fw_image(dma_addr_t *fw_image, u32 *image_size);
+extern int cnss_get_fw_image(struct image_desc_info *image_desc_info);
+
 extern void cnss_device_crashed(void);
 extern void cnss_device_self_recovery(void);
 extern int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size);
