@@ -753,11 +753,6 @@ static int get_sram_prop_now(struct fg_chip *chip, unsigned int type)
 			fg_data[type].address, fg_data[type].offset,
 			fg_data[type].value);
 
-	cancel_delayed_work_sync(
-		&chip->update_sram_data);
-	schedule_delayed_work(
-		&chip->update_sram_data, msecs_to_jiffies(SRAM_DATA_DELAY_MS));
-
 	if (type == FG_DATA_BATT_ID)
 		return get_batt_id(fg_data[type].value,
 				fg_data[FG_DATA_BATT_ID_INFO].value);
