@@ -115,15 +115,7 @@ int mhi_init_pcie_device(struct mhi_pcie_dev_info *mhi_pcie_dev)
 
 	mhi_pcie_dev->core.manufact_id = pcie_device->vendor;
 	mhi_pcie_dev->core.dev_id = pcie_device->device;
-
-	if (mhi_pcie_dev->core.manufact_id != MHI_PCIE_VENDOR_ID ||
-			mhi_pcie_dev->core.dev_id != MHI_PCIE_DEVICE_ID) {
-		mhi_log(MHI_MSG_ERROR, "Incorrect device/manufacturer ID\n");
-		goto cfg_err;
-	}
 	return 0;
-cfg_err:
-	iounmap((void *)mhi_pcie_dev->core.bar2_base);
 io_map_err:
 	iounmap((void *)mhi_pcie_dev->core.bar0_base);
 mhi_device_list_error:
