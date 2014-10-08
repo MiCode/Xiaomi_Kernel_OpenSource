@@ -25,6 +25,7 @@
 #include <core/vlv/vlv_dc_regs.h>
 #include <core/common/dsi/dsi_pipe.h>
 #include <drm/drmP.h>
+#include <drm/i915_drm.h>
 
 void vlv_vblank_on(int pipe)
 {
@@ -72,33 +73,23 @@ void vlv_wait_for_pipe_off(int pipe)
 
 int vlv_display_on(struct intel_pipe *pipe)
 {
-	struct dsi_pipe *dsi_pipe;
+	struct dsi_pipe *dsi_pipe = NULL;
 	struct drm_mode_modeinfo mode;
 	int reg, i;
 	u32 val = 0;
 	u8 index;
+	bool is_dsi = pipe->type == INTEL_PIPE_DSI ? true : false;
 
 	if (!pipe)
 		return -EINVAL;
 
 	index = pipe->base.idx;
 
-	/* Enable VBLANK on ?*/
-
-	reg = PALETTE(0);
-
-	if (pipe->type == INTEL_PIPE_DSI) {
+	if (is_dsi) {
 		dsi_pipe = to_dsi_pipe(pipe);
 
 		/* encoder enable */
 		dsi_pipe->ops.power_on(dsi_pipe);
-
-		for (i = 0; i < 256; i++) {
-			REG_WRITE(reg + 4 * i,
-				(dsi_pipe->config.lut_r[i] << 16) |
-				(dsi_pipe->config.lut_g[i] << 8) |
-				(dsi_pipe->config.lut_b[i]));
-		}
 
 		/* get the configured mode */
 		dsi_pipe->panel->ops->get_config_mode(&dsi_pipe->config, &mode);
@@ -106,6 +97,17 @@ int vlv_display_on(struct intel_pipe *pipe)
 	}
 
 	pipe_mode_set(pipe, &mode);
+
+	/* FIXME: Enable PF here if needed */
+
+	/* Load default gamma LUT */
+	reg = PALETTE(0);
+	for (i = 0; i < 256; i++) {
+		REG_WRITE(reg + 4 * i,
+			(dsi_pipe->config.lut_r[i] << 16) |
+			(dsi_pipe->config.lut_g[i] << 8) |
+			(dsi_pipe->config.lut_b[i]));
+	}
 
 	/* Enable pipe */
 	reg = PIPECONF(index);
@@ -117,19 +119,15 @@ int vlv_display_on(struct intel_pipe *pipe)
 		REG_POSTING_READ(reg);
 	}
 
-	/* Enable plane */
-	reg = DSPCNTR(index);
-	val = REG_READ(reg);
-	if (val & DISPLAY_PLANE_ENABLE)
-		pr_err("ADF: %s: Plane already enabled\n", __func__);
+	/* program Gamma enable */
+	val = REG_READ(DSPCNTR(index)) | DISPPLANE_GAMMA_ENABLE;
 
 	/* disable rotation for now */
 	val &= ~(1 << 15);
-	val |= (1 << 30);
+	REG_WRITE(DSPCNTR(index), val);
+	REG_POSTING_READ(DSPCNTR(index));
 
-	REG_WRITE(reg, val | DISPLAY_PLANE_ENABLE);
-	REG_WRITE(DSPSURF(index), REG_READ(DSPSURF(index)));
-	REG_POSTING_READ(DSPSURF(index));
+	vlv_vblank_on(index);
 
 	/* enable vsyncs */
 	pipe->ops->set_event(pipe, INTEL_PIPE_EVENT_VSYNC, true);
@@ -181,14 +179,14 @@ int vlv_display_off(struct intel_pipe *pipe)
 		REG_POSTING_READ(SPSURF(index, i));
 	}
 
+	vlv_vblank_off(index);
+
 	/* Disable primary plane */
 	reg = DSPCNTR(index);
 	val = REG_READ(reg);
 	if (val & DISPLAY_PLANE_ENABLE) {
 		REG_WRITE(reg, val & ~DISPLAY_PLANE_ENABLE);
 		REG_WRITE(DSPSURF(index), REG_READ(DSPSURF(index)));
-		vlv_wait_for_vblank(index);
-		mdelay(1);
 	} else
 		pr_info("ADF:%s: primary plane already disabled on pipe = %d\n",
 			__func__, index);
