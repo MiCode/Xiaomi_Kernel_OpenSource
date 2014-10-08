@@ -15,9 +15,20 @@ config BCMDHD_PCIE
 	bool "PCIe bus interface support"
 	depends on BCMDHD && PCI && !BCMDHD_SDIO
 
+config BCM4324
+	tristate "BCM4324 support"
+	depends on BCMDHD
+	default y
+
+config BCM4339
+	tristate "BCM4339 support"
+	depends on BCMDHD
+	default n
+
 config BCM4354
 	tristate "BCM4354 support"
 	depends on BCMDHD
+	default n
 
 config BCM4356
 	tristate "BCM4356 support"
