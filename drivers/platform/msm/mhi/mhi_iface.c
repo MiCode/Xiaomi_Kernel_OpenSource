@@ -32,7 +32,9 @@ static int __exit mhi_plat_remove(struct platform_device *pdev);
 void *mhi_ipc_log;
 
 static DEFINE_PCI_DEVICE_TABLE(mhi_pcie_device_id) = {
-	{ MHI_PCIE_VENDOR_ID, MHI_PCIE_DEVICE_ID,
+	{ MHI_PCIE_VENDOR_ID, MHI_PCIE_DEVICE_ID_9x35,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+	{ MHI_PCIE_VENDOR_ID, MHI_PCIE_DEVICE_ID_ZIRC,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{ 0, },
 };
@@ -286,8 +288,13 @@ error:
 }
 
 DECLARE_PCI_FIXUP_HEADER(MHI_PCIE_VENDOR_ID,
-		MHI_PCIE_DEVICE_ID,
+		MHI_PCIE_DEVICE_ID_9x35,
 		mhi_msm_fixup);
+
+DECLARE_PCI_FIXUP_HEADER(MHI_PCIE_VENDOR_ID,
+		MHI_PCIE_DEVICE_ID_ZIRC,
+		mhi_msm_fixup);
+
 
 module_exit(mhi_exit);
 module_init(mhi_init);
