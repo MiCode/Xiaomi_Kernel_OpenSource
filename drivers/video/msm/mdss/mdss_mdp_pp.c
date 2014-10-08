@@ -73,6 +73,24 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 	},
 };
 
+/*
+ * To program a linear LUT we need to make the slope to be 1/16 to enable
+ * conversion from 12bit to 8bit. Also in cases where post blend values might
+ * cross 255, we need to cap them now to 255. The offset of the final segment
+ * would be programmed in such a case and we set the value to 32460 which is
+ * 255 in U8.7.
+ */
+static struct mdp_ar_gc_lut_data lin_gc_data[GC_LUT_SEGMENTS] = {
+	{   0, 256, 0}, {4095, 0,     0},
+	{4095,   0, 0}, {4095, 0,     0},
+	{4095,   0, 0}, {4095, 0,     0},
+	{4095,   0, 0}, {4095, 0,     0},
+	{4095,   0, 0}, {4095, 0,     0},
+	{4095,   0, 0}, {4095, 0,     0},
+	{4095,   0, 0}, {4095, 0,     0},
+	{4095,   0, 0}, {4095, 0, 32640}
+};
+
 #define CSC_MV_OFF	0x0
 #define CSC_BV_OFF	0x2C
 #define CSC_LV_OFF	0x14
@@ -1345,22 +1363,29 @@ static int pp_mixer_setup(u32 disp_num,
 	/* GC_LUT is in layer mixer */
 	if (flags & PP_FLAGS_DIRTY_ARGC) {
 		pgc_config = &mdss_pp_res->argc_disp_cfg[disp_num];
-		if (pgc_config->flags & MDP_PP_OPS_WRITE) {
-			addr = mixer->base +
-				MDSS_MDP_REG_LM_GC_LUT_BASE;
+		addr = mixer->base + MDSS_MDP_REG_LM_GC_LUT_BASE;
+		/*
+		 * ARGC will always be enabled. When user setting is
+		 * disabled we program the linear ARGC data to enable
+		 * rounding in HW.
+		 */
+		pp_sts->argc_sts |= PP_STS_ENABLE;
+		if (pgc_config->flags & MDP_PP_OPS_WRITE)
+			pp_update_argc_lut(addr, pgc_config);
+		if (pgc_config->flags & MDP_PP_OPS_DISABLE) {
+			pgc_config->r_data = &lin_gc_data[0];
+			pgc_config->g_data = &lin_gc_data[0];
+			pgc_config->b_data = &lin_gc_data[0];
+			pgc_config->num_r_stages = GC_LUT_SEGMENTS;
+			pgc_config->num_g_stages = GC_LUT_SEGMENTS;
+			pgc_config->num_b_stages = GC_LUT_SEGMENTS;
 			pp_update_argc_lut(addr, pgc_config);
 		}
-		if (pgc_config->flags & MDP_PP_OPS_DISABLE)
-			pp_sts->argc_sts &= ~PP_STS_ENABLE;
-		else if (pgc_config->flags & MDP_PP_OPS_ENABLE)
-			pp_sts->argc_sts |= PP_STS_ENABLE;
-
 		ctl->flush_bits |= lm_bitmask;
 	}
 
 	/* update LM opmode if LM needs flush */
-	if ((pp_sts->argc_sts & PP_STS_ENABLE) &&
-		(flags & PP_FLAGS_DIRTY_ARGC)) {
+	if (flags & PP_FLAGS_DIRTY_ARGC) {
 		addr = mixer->base + MDSS_MDP_REG_LM_OP_MODE;
 		opmode = readl_relaxed(addr);
 		opmode |= (1 << 0); /* GC_LUT_EN */
@@ -1895,6 +1920,10 @@ int mdss_mdp_pp_init(struct device *dev)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_pipe *vig;
 	struct msm_bus_scale_pdata *pp_bus_pdata;
+	struct mdp_pgc_lut_data *gc_cfg;
+
+	if (!mdata)
+		return -EPERM;
 
 	mutex_lock(&mdss_pp_mutex);
 	if (!mdss_pp_res) {
@@ -1913,6 +1942,17 @@ int mdss_mdp_pp_init(struct device *dev)
 					&mdss_pp_res->dspp_hist[i].comp);
 				init_completion(
 					&mdss_pp_res->dspp_hist[i].first_kick);
+			}
+
+			/*
+			 * Set LM ARGC flags to disable. This would program
+			 * default GC which would allow for rounding in HW.
+			 */
+			for (i = 0; i < MDSS_MAX_MIXER_DISP_NUM; i++) {
+				gc_cfg = &mdss_pp_res->argc_disp_cfg[i];
+				gc_cfg->flags = MDP_PP_OPS_DISABLE;
+				mdss_pp_res->pp_disp_flags[i] |=
+					PP_FLAGS_DIRTY_ARGC;
 			}
 		}
 	}
