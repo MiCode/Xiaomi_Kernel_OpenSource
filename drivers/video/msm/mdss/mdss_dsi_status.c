@@ -61,66 +61,6 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 	}
 
 	pdsi_status->mfd->mdp.check_dsi_status(work, interval);
-	mdp5_data = mfd_to_mdp5_data(pdsi_status->mfd);
-	ctl = mfd_to_ctl(pdsi_status->mfd);
-
-	if (!ctl->power_on) {
-		schedule_delayed_work(&pstatus_data->check_status,
-				msecs_to_jiffies(interval));
-		pr_err("%s: ctl not powered on\n", __func__);
-		return;
-        }
-
-	if (ctl->shared_lock)
-		mutex_lock(ctl->shared_lock);
-	mutex_lock(&mdp5_data->ov_lock);
-
-	if (pdsi_status->mfd->shutdown_pending) {
-		mutex_unlock(&mdp5_data->ov_lock);
-		if (ctl->shared_lock)
-			mutex_unlock(ctl->shared_lock);
-		pr_err("%s: DSI turning off, avoiding BTA status check\n",
-							__func__);
-		return;
-	}
-
-	/*
-	 * For the command mode panels, we return pan display
-	 * IOCTL on vsync interrupt. So, after vsync interrupt comes
-	 * and when DMA_P is in progress, if the panel stops responding
-	 * and if we trigger BTA before DMA_P finishes, then the DSI
-	 * FIFO will not be cleared since the DSI data bus control
-	 * doesn't come back to the host after BTA. This may cause the
-	 * display reset not to be proper. Hence, wait for DMA_P done
-	 * for command mode panels before triggering BTA.
-	 */
-	if (ctl->wait_pingpong)
-		ctl->wait_pingpong(ctl, NULL);
-
-	pr_debug("%s: DSI ctrl wait for ping pong done\n", __func__);
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	ret = ctrl_pdata->check_status(ctrl_pdata);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
-
-	mutex_unlock(&mdp5_data->ov_lock);
-	if (ctl->shared_lock)
-		mutex_unlock(ctl->shared_lock);
-
-	if ((pdsi_status->mfd->panel_power_on)) {
-		if (ret > 0) {
-			schedule_delayed_work(&pdsi_status->check_status,
-				msecs_to_jiffies(pdsi_status->check_interval));
-		} else {
-			char *envp[2] = {"PANEL_ALIVE=0", NULL};
-			pdata->panel_info.panel_dead = true;
-			ret = kobject_uevent_env(
-				&pdsi_status->mfd->fbi->dev->kobj,
-							KOBJ_CHANGE, envp);
-			pr_err("%s: Panel has gone bad, sending uevent - %s\n",
-							__func__, envp[0]);
-		}
-	}
 }
 
 /*
