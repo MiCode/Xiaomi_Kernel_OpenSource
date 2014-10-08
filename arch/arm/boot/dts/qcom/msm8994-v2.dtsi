@@ -337,6 +337,11 @@
 	};
 };
 
+&ufs1 {
+	freq-table-hz =
+	<100000000 200000000>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>;
+};
+
 /* MDSS driver overrides */
 &mdss_mdp {
 	qcom,mdp-settings = <0x0117c 0x0000ffff>,

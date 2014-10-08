@@ -64,6 +64,11 @@
 	regulator-max-microvolt = <1225000>;
 };
 
+&ufs1 {
+	freq-table-hz =
+	<100000000 171430000>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>;
+};
+
 &mem_acc0_vreg_corner {
 	regulator-min-microvolt = <1>;
 	regulator-max-microvolt = <3>;

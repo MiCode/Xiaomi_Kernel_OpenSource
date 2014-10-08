@@ -1090,8 +1090,6 @@
 			<&clock_gcc clk_gcc_ufs_tx_symbol_0_clk>,
 			<&clock_gcc clk_gcc_ufs_rx_symbol_1_clk>,
 			<&clock_gcc clk_gcc_ufs_tx_symbol_1_clk>;
-			freq-table-hz =
-			<100000000 171430000>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>, <0 0>;
 			qcom,msm-bus,name = "ufs1";
 			qcom,msm-bus,num-cases = <22>;
 			qcom,msm-bus,num-paths = <2>;
