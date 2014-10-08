@@ -1735,6 +1735,10 @@ static int cpr_get_open_loop_voltage(struct cpr_regulator *cpr_vreg,
 
 			cpr_vreg->open_loop_volt[i]
 				= volt_high - min(temp, temp_limit);
+			cpr_vreg->open_loop_volt[i]
+				= DIV_ROUND_UP(cpr_vreg->open_loop_volt[i],
+						cpr_vreg->step_volt)
+					* cpr_vreg->step_volt;
 		}
 	}
 
