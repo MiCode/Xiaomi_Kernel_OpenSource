@@ -321,6 +321,7 @@ enum msm_vfe_reg_cfg_type {
 	VFE_READ_DMI_32BIT,
 	VFE_READ_DMI_64BIT,
 	GET_MAX_CLK_RATE,
+	GET_CLK_RATES,
 	GET_ISP_ID,
 	VFE_HW_UPDATE_LOCK,
 	VFE_HW_UPDATE_UNLOCK,
@@ -400,6 +401,11 @@ struct msm_isp_qbuf_info {
 	struct msm_isp_qbuf_buffer buffer;
 	/*Only used for diverted buffer*/
 	uint32_t dirty_buf;
+};
+
+struct msm_isp_clk_rates {
+	uint32_t nominal_rate;
+	uint32_t high_rate;
 };
 
 struct msm_vfe_axi_src_state {

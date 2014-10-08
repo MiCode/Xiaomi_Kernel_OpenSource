@@ -32,6 +32,8 @@ Required properties:
   different SoC can have same hardware version and still different QOS, VBIF,
   and DS parameters. In this case they are exported if separate SoC version
   specific dts files.
+- max-nominal-clk: nominal rate of the VFE clock in Hertz.
+- max-turbo-clk: turbo/high rate of the VFE clock in Hertz.
 
 Example:
 
@@ -82,6 +84,8 @@ Example:
                 0x44441111 0x44441111 0x44441111
                 0x44441111 0x44441111 0x44441111
                 0x44441111 0x00000103>;
+       max-clk-nominal = <465000000>;
+       max-clk-turbo = <600000000>;
    };
 
 In version specific file one needs to move only entries that differ between
@@ -123,4 +127,6 @@ SoC versions with same VFE HW version:
 			0x44441111
 			0x44441111
 			0x00000103>;
+               max-clk-nominal = <465000000>;
+               max-clk-turbo = <600000000>;
 	};

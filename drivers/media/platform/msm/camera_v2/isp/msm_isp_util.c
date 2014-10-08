@@ -415,6 +415,49 @@ static int msm_isp_get_max_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	return 0;
 }
 
+static int msm_isp_get_clk_rates(struct vfe_device *vfe_dev,
+	struct msm_isp_clk_rates *rates)
+{
+	struct device_node *of_node;
+	int32_t  rc = 0;
+	uint32_t nominal = 0, turbo = 0;
+	if (!vfe_dev || !rates) {
+		pr_err("%s:%d failed: vfe_dev %p rates %p\n", __func__,
+			__LINE__, vfe_dev, rates);
+		return -EINVAL;
+	}
+
+	if (!vfe_dev->pdev) {
+		pr_err("%s:%d failed: vfe_dev->pdev %p\n", __func__,
+			__LINE__, vfe_dev->pdev);
+		return -EINVAL;
+	}
+
+	of_node = vfe_dev->pdev->dev.of_node;
+
+	if (!of_node) {
+		pr_err("%s %d failed: of_node = %p\n", __func__,
+		 __LINE__, of_node);
+		return -EINVAL;
+	}
+	rc = of_property_read_u32(of_node, "max-clk-nominal",
+		&nominal);
+	if (rc < 0 || !nominal) {
+		pr_err("%s: nominal rate error\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32(of_node, "max-clk-turbo",
+		&turbo);
+	if (rc < 0 || !turbo) {
+		pr_err("%s: turbo rate error\n", __func__);
+			return -EINVAL;
+	}
+	rates->nominal_rate = nominal;
+	rates->high_rate = turbo;
+	return 0;
+}
+
 static int msm_isp_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 {
 	int rc = 0;
@@ -1066,6 +1109,26 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 
 		*(__u32 *)cfg_data = (__u32)rate;
 
+		break;
+	}
+	case GET_CLK_RATES: {
+		int rc = 0;
+		struct msm_isp_clk_rates rates;
+		struct msm_isp_clk_rates *user_data =
+			(struct msm_isp_clk_rates *)cfg_data;
+		if (cmd_len != sizeof(struct msm_isp_clk_rates)) {
+			pr_err("%s:%d failed: invalid cmd len %u exp %zu\n",
+				__func__, __LINE__, cmd_len,
+				sizeof(struct msm_isp_clk_rates));
+			return -EINVAL;
+		}
+		rc = msm_isp_get_clk_rates(vfe_dev, &rates);
+		if (rc < 0) {
+			pr_err("%s:%d failed: rc %d\n", __func__, __LINE__, rc);
+			return -EINVAL;
+		}
+		user_data->nominal_rate = rates.nominal_rate;
+		user_data->high_rate = rates.high_rate;
 		break;
 	}
 	case GET_ISP_ID: {
