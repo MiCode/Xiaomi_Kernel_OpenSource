@@ -95,6 +95,7 @@ struct cpu_static_info {
 };
 
 static DEFINE_MUTEX(policy_update_mutex);
+static DEFINE_MUTEX(kthread_update_mutex);
 static struct delayed_work sampling_work;
 static struct completion sampling_completion;
 static struct task_struct *sampling_task;
@@ -113,7 +114,7 @@ module_param_named(polling_interval, poll_ms, int,
 static int disabled;
 module_param_named(disabled, disabled, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
-
+static bool in_suspend;
 static bool activate_power_table;
 /*
  * Cannot be called from an interrupt context
@@ -254,12 +255,17 @@ static __ref int do_sampling(void *data)
 	while (!kthread_should_stop()) {
 		wait_for_completion(&sampling_completion);
 		cancel_delayed_work(&sampling_work);
+
+		mutex_lock(&kthread_update_mutex);
+		if (in_suspend)
+			goto unlock;
+
 		trigger_cpu_pwr_stats_calc();
 
 		for_each_online_cpu(cpu) {
 			cpu_node = &activity[cpu];
 			if (prev_temp[cpu] == cpu_node->temp)
-				continue;
+				goto unlock;
 
 			prev_temp[cpu] = cpu_node->temp;
 			cpu_node->low_threshold.temp = cpu_node->temp
@@ -272,10 +278,12 @@ static __ref int do_sampling(void *data)
 				cpu_node->low_threshold.temp);
 		}
 		if (!poll_ms)
-			continue;
+			goto unlock;
 
 		schedule_delayed_work(&sampling_work,
 			msecs_to_jiffies(poll_ms));
+unlock:
+		mutex_unlock(&kthread_update_mutex);
 	}
 	return 0;
 }
@@ -730,17 +738,16 @@ static int system_suspend_handler(struct notifier_block *nb,
 {
 	int cpu;
 
+	mutex_lock(&kthread_update_mutex);
 	switch (val) {
 	case PM_POST_HIBERNATION:
 	case PM_POST_SUSPEND:
 	case PM_POST_RESTORE:
-		/* Restart the kthread to start sampling */
-		sampling_task = kthread_run(do_sampling, NULL,
-					"msm-core:sampling");
-		if (IS_ERR(sampling_task)) {
-			pr_err("Failed to create do_sampling err: %ld\n",
-				PTR_ERR(sampling_task));
-		}
+		/*
+		 * Set completion event to read temperature and repopulate
+		 * stats
+		 */
+		in_suspend = 0;
 		complete(&sampling_completion);
 		break;
 	case PM_HIBERNATION_PREPARE:
@@ -749,12 +756,8 @@ static int system_suspend_handler(struct notifier_block *nb,
 		 * cancel delayed work to be able to restart immediately
 		 * after system resume
 		 */
+		in_suspend = 1;
 		cancel_delayed_work(&sampling_work);
-		/*
-		 * Stop the kthread to prevent race condition between threshold
-		 * resets and cancellation
-		 */
-		kthread_stop(sampling_task);
 		/*
 		 * cancel TSENS interrupts as we do not want to wake up from
 		 * suspend to take care of repopulate stats while the system is
@@ -773,6 +776,8 @@ static int system_suspend_handler(struct notifier_block *nb,
 	default:
 		break;
 	}
+	mutex_unlock(&kthread_update_mutex);
+
 	return NOTIFY_OK;
 }
 
