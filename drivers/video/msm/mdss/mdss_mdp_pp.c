@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+#include <linux/vmalloc.h>
 
 struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 	[MDSS_MDP_CSC_RGB2RGB] = {
@@ -79,7 +80,6 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 #define CSC_LV_OFF	0x14
 #define CSC_POST_OFF	0xC
 
-#define MDSS_BLOCK_DISP_NUM	(MDP_BLOCK_MAX - MDP_LOGICAL_BLOCK_DISP_0)
 
 #define HIST_INTR_DSPP_MASK		0xFFF000
 #define HIST_V2_INTR_BIT_MASK		0xF33000
@@ -1602,6 +1602,12 @@ static void pp_dspp_opmode_config(struct mdss_mdp_ctl *ctl, u32 num,
 	if (side < 0)
 		return;
 
+	if (pp_driver_ops.pp_opmode_config) {
+		pp_driver_ops.pp_opmode_config(PP_OPMODE_DSPP,
+					       pp_sts, opmode, side);
+		return;
+	}
+
 	if (pp_sts_is_enabled(pp_sts->pa_sts, side)) {
 		*opmode |= MDSS_MDP_DSPP_OP_PA_EN; /* PA_EN */
 		pa_side_enabled = true;
@@ -1744,9 +1750,22 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		pp_dither_config(addr, pp_sts,
 				&mdss_pp_res->dither_disp_cfg[disp_num]);
 	}
-	if (flags & PP_FLAGS_DIRTY_GAMUT)
-		pp_gamut_config(&mdss_pp_res->gamut_disp_cfg[disp_num], base,
-				pp_sts);
+	if (flags & PP_FLAGS_DIRTY_GAMUT) {
+		if (!pp_ops[GAMUT].pp_set_config) {
+			pp_gamut_config(&mdss_pp_res->gamut_disp_cfg[disp_num],
+					 base, pp_sts);
+		} else {
+			if (mdata->pp_block_off.dspp_gamut_off == U32_MAX) {
+				pr_err("invalid gamut off %d\n", U32_MAX);
+			} else {
+				addr = base +
+				       mdata->pp_block_off.dspp_gamut_off;
+				pp_ops[GAMUT].pp_set_config(addr, pp_sts,
+				      &mdss_pp_res->gamut_disp_cfg[disp_num],
+				      DSPP);
+			}
+		}
+	}
 
 	if (flags & PP_FLAGS_DIRTY_PGC) {
 		pgc_config = &mdss_pp_res->pgc_disp_cfg[disp_num];
@@ -3317,15 +3336,190 @@ static int pp_gm_has_invalid_lut_size(struct mdp_gamut_cfg_data *config)
 		return -EINVAL;
 	if (config->tbl_size[7] != GAMUT_T7_SIZE)
 		return -EINVAL;
-
 	return 0;
+}
+
+static int pp_gamut_cache_params_v1_7(struct mdp_gamut_cfg_data *config)
+{
+	u32 disp_num, tbl_sz;
+	struct mdss_pp_res_type_v1_7 *res_cache;
+	struct mdp_gamut_data_v1_7 *v17_data, v17_config;
+	u32 gamut_size = 0, scal_coff_size = 0, sz = 0, index = 0;
+	u32 *tbl_gamut = NULL;
+	int ret = 0, i = 0;
+
+	if (!config) {
+		pr_err("invalid param config %p\n", config);
+		return -EINVAL;
+	}
+
+	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(config->block >= MDP_BLOCK_MAX)) {
+		pr_err("invalid config block %d\n", config->block);
+		return -EINVAL;
+	}
+	if (!mdss_pp_res->pp_data_res) {
+		pr_err("invalid pp_data_res %p\n", mdss_pp_res->pp_data_res);
+		return -EINVAL;
+	}
+	res_cache = mdss_pp_res->pp_data_res;
+	if (config->flags & MDP_PP_OPS_READ) {
+		pr_err("read op is not supported\n");
+		return -EINVAL;
+	} else {
+		disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+		mdss_pp_res->gamut_disp_cfg[disp_num] = *config;
+		v17_data = &res_cache->gamut_v17_data[disp_num];
+		mdss_pp_res->gamut_disp_cfg[disp_num].cfg_payload =
+		(void *) v17_data;
+		tbl_gamut = v17_data->c0_data[0];
+
+		if (copy_from_user(&v17_config, config->cfg_payload,
+				   sizeof(v17_config))) {
+			pr_err("failed to copy v17 gamut\n");
+			ret = -EFAULT;
+			goto gamut_config_exit;
+		}
+		if ((config->flags & MDP_PP_OPS_DISABLE)) {
+			pr_debug("disable gamut\n");
+			ret = 0;
+			goto gamut_memory_free_exit;
+		}
+		if (v17_config.mode != mdp_gamut_coarse_mode &&
+		   v17_config.mode != mdp_gamut_fine_mode) {
+			pr_err("invalid gamut mode %d\n", v17_config.mode);
+			return -EINVAL;
+		}
+		if (!(config->flags & MDP_PP_OPS_WRITE)) {
+			pr_debug("op for gamut %d\n", config->flags);
+			goto gamut_config_exit;
+		}
+		tbl_sz = (v17_config.mode == mdp_gamut_fine_mode) ?
+			MDP_GAMUT_TABLE_V1_7_SZ :
+			 MDP_GAMUT_TABLE_V1_7_COARSE_SZ;
+		memcpy(v17_data, &v17_config, sizeof(v17_config));
+
+		/* sanity check for sizes */
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
+			if (v17_config.tbl_size[i] != tbl_sz) {
+				pr_err("invalid tbl_sz %d exp %d for mode %d\n",
+				       v17_config.tbl_size[i], tbl_sz,
+				       v17_config.mode);
+				goto gamut_config_exit;
+			}
+			gamut_size += v17_config.tbl_size[i];
+			if (i >= MDP_GAMUT_SCALE_OFF_TABLE_NUM)
+				continue;
+			if (v17_config.tbl_scale_off_sz[i] !=
+			    MDP_GAMUT_SCALE_OFF_SZ) {
+				pr_err("invalid scale_sz %d exp %d for mode %d\n",
+				       v17_config.tbl_scale_off_sz[i],
+				       MDP_GAMUT_SCALE_OFF_SZ,
+				       v17_config.mode);
+				goto gamut_config_exit;
+			}
+			scal_coff_size += v17_config.tbl_scale_off_sz[i];
+
+		}
+		/* gamut size should be accounted for c0, c1c2 table */
+		sz = gamut_size * 2 + scal_coff_size;
+		if (sz > GAMUT_TOTAL_TABLE_SIZE_V1_7) {
+			pr_err("Invalid table size act %d max %d\n",
+			      sz, GAMUT_TOTAL_TABLE_SIZE_V1_7);
+			ret = -EINVAL;
+			goto gamut_config_exit;
+		}
+		/* Allocate for fine mode other modes will fit */
+		if (!tbl_gamut)
+			tbl_gamut = vmalloc(GAMUT_TOTAL_TABLE_SIZE_V1_7 *
+					    sizeof(u32));
+		if (!tbl_gamut) {
+			pr_err("failed to allocate buffer for gamut size %zd",
+				(GAMUT_TOTAL_TABLE_SIZE_V1_7 * sizeof(u32)));
+			ret = -ENOMEM;
+			goto gamut_config_exit;
+		}
+		index = 0;
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
+			ret = copy_from_user(&tbl_gamut[index],
+				v17_config.c0_data[i],
+				(sizeof(u32) * v17_config.tbl_size[i]));
+			if (ret) {
+				pr_err("copying c0 table %d from userspace failed size %zd ret %d\n",
+				       i, (sizeof(u32) *
+					v17_config.tbl_size[i]), ret);
+				ret = -EINVAL;
+				goto gamut_memory_free_exit;
+			}
+			v17_data->c0_data[i] = &tbl_gamut[index];
+			index += v17_config.tbl_size[i];
+			ret = copy_from_user(&tbl_gamut[index],
+				v17_config.c1_c2_data[i],
+				(sizeof(u32) * v17_config.tbl_size[i]));
+			if (ret) {
+				pr_err("copying c1_c2 table %d from userspace failed size %zd ret %d\n",
+					i, (sizeof(u32) *
+					v17_config.tbl_size[i]), ret);
+				ret = -EINVAL;
+				goto gamut_memory_free_exit;
+			}
+			v17_data->c1_c2_data[i] = &tbl_gamut[index];
+			index += v17_config.tbl_size[i];
+		}
+		for (i = 0; i < MDP_GAMUT_SCALE_OFF_TABLE_NUM; i++) {
+			ret = copy_from_user(&tbl_gamut[index],
+				v17_config.scale_off_data[i],
+				(sizeof(u32) *
+				v17_config.tbl_scale_off_sz[i]));
+			if (ret) {
+				pr_err("copying scale offset table %d from userspace failed size %zd ret %d\n",
+				       i, (sizeof(u32) *
+					v17_config.tbl_scale_off_sz[i]), ret);
+				ret = -EINVAL;
+				goto gamut_memory_free_exit;
+			}
+			v17_data->scale_off_data[i] = &tbl_gamut[index];
+			index += v17_config.tbl_scale_off_sz[i];
+		}
+	}
+gamut_config_exit:
+	return ret;
+gamut_memory_free_exit:
+	vfree(tbl_gamut);
+	for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
+		v17_data->c0_data[i] = NULL;
+		v17_data->c1_c2_data[i] = NULL;
+		if (i < MDP_GAMUT_SCALE_OFF_TABLE_NUM)
+			v17_data->scale_off_data[i] = NULL;
+	}
+	return ret;
+}
+
+static int pp_gamut_cache_params(struct mdp_gamut_cfg_data *config)
+{
+	int ret = 0;
+	if (!config) {
+		pr_err("invalid param config %p\n", config);
+		return -EINVAL;
+	}
+	switch (config->version) {
+	case mdp_gamut_v1_7:
+		ret = pp_gamut_cache_params_v1_7(config);
+		break;
+	default:
+		pr_err("unsupported gamut version %d\n",
+			config->version);
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
 }
 
 int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 					u32 *copyback)
 {
 	int i, j, ret = 0;
-
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 disp_num, dspp_num = 0;
 	uint16_t *tbl_off;
 	struct mdp_gamut_cfg_data local_cfg;
@@ -3337,9 +3531,6 @@ int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(config->block >= MDP_BLOCK_MAX))
-		return -EINVAL;
-
-	if (pp_gm_has_invalid_lut_size(config))
 		return -EINVAL;
 
 	if ((config->flags & MDSS_PP_SPLIT_MASK) == MDSS_PP_SPLIT_MASK) {
@@ -3358,7 +3549,32 @@ int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 			goto gamut_config_exit;
 		}
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-
+		if (pp_ops[GAMUT].pp_get_config) {
+			addr = mdss_mdp_get_dspp_addr_off(disp_num);
+			if (IS_ERR_OR_NULL(addr)) {
+				pr_err("invalid dspp base addr %p\n",
+				       addr);
+				ret = -EINVAL;
+				goto gamut_clk_off;
+			}
+			if (mdata->pp_block_off.dspp_gamut_off == U32_MAX) {
+				pr_err("invalid gamut parmas off %d\n",
+				       mdata->pp_block_off.dspp_gamut_off);
+				ret = -EINVAL;
+				goto gamut_clk_off;
+			}
+			addr += mdata->pp_block_off.dspp_gamut_off;
+			ret = pp_ops[GAMUT].pp_get_config(addr, config, DSPP,
+						  disp_num);
+			if (ret)
+				pr_err("gamut get config failed %d\n", ret);
+			goto gamut_clk_off;
+		}
+		if (pp_gm_has_invalid_lut_size(config)) {
+			pr_err("invalid lut size for gamut\n");
+			ret = -EINVAL;
+			goto gamut_clk_off;
+		}
 		addr = mdss_mdp_get_dspp_addr_off(dspp_num) +
 			  MDSS_MDP_REG_DSPP_GAMUT_BASE;
 		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
@@ -3367,7 +3583,8 @@ int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 				GFP_KERNEL);
 			if (!r_tbl[i]) {
 				pr_err("%s: alloc failed\n", __func__);
-				goto gamut_config_exit;
+				ret = -ENOMEM;
+				goto gamut_clk_off;
 			}
 			/* Reset gamut LUT index to 0 */
 			writel_relaxed(data, addr);
@@ -3380,7 +3597,8 @@ int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 			if (ret) {
 				pr_err("%s: copy tbl to usr failed\n",
 					__func__);
-				goto gamut_config_exit;
+				ret = -EFAULT;
+				goto gamut_clk_off;
 			}
 		}
 		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
@@ -3389,7 +3607,8 @@ int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 				GFP_KERNEL);
 			if (!g_tbl[i]) {
 				pr_err("%s: alloc failed\n", __func__);
-				goto gamut_config_exit;
+				ret = -ENOMEM;
+				goto gamut_clk_off;
 			}
 			/* Reset gamut LUT index to 0 */
 			writel_relaxed(data, addr);
@@ -3402,7 +3621,8 @@ int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 			if (ret) {
 				pr_err("%s: copy tbl to usr failed\n",
 					__func__);
-				goto gamut_config_exit;
+				ret = -EFAULT;
+				goto gamut_clk_off;
 			}
 		}
 		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
@@ -3411,7 +3631,8 @@ int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 				GFP_KERNEL);
 			if (!b_tbl[i]) {
 				pr_err("%s: alloc failed\n", __func__);
-				goto gamut_config_exit;
+				ret = -ENOMEM;
+				goto gamut_clk_off;
 			}
 			/* Reset gamut LUT index to 0 */
 			writel_relaxed(data, addr);
@@ -3424,12 +3645,26 @@ int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 			if (ret) {
 				pr_err("%s: copy tbl to usr failed\n",
 					__func__);
-				goto gamut_config_exit;
+				ret = -EFAULT;
+				goto gamut_clk_off;
 			}
 		}
 		*copyback = 1;
+gamut_clk_off:
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	} else {
+		if (pp_ops[GAMUT].pp_set_config) {
+			pr_debug("version of gamut is %d\n", config->version);
+			ret = pp_gamut_cache_params(config);
+			if (ret) {
+				pr_err("gamut config failed version %d ret %d\n",
+					config->version, ret);
+				ret = -EFAULT;
+				goto gamut_config_exit;
+			} else {
+				goto gamut_set_dirty;
+			}
+		}
 		local_cfg = *config;
 		tbl_off = mdss_pp_res->gamut_tbl[disp_num];
 		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
@@ -3460,6 +3695,7 @@ int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config,
 			tbl_off += local_cfg.tbl_size[i];
 		}
 		mdss_pp_res->gamut_disp_cfg[disp_num] = local_cfg;
+gamut_set_dirty:
 		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_GAMUT;
 	}
 gamut_config_exit:
