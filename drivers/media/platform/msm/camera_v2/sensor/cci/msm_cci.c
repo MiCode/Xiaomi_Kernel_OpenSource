@@ -26,7 +26,7 @@
 #define V4L2_IDENT_CCI 50005
 #define CCI_I2C_QUEUE_0_SIZE 64
 #define CCI_I2C_QUEUE_1_SIZE 16
-#define CYCLES_PER_MICRO_SEC 4915
+#define CYCLES_PER_MICRO_SEC_DEFAULT 4915
 #define CCI_MAX_DELAY 1000000
 
 #define CCI_TIMEOUT msecs_to_jiffies(100)
@@ -263,7 +263,7 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 				master * 0x200 + queue * 0x100);
 		}
 		if ((delay > 0) && (delay < CCI_MAX_DELAY)) {
-			cmd = (uint32_t)((delay * CYCLES_PER_MICRO_SEC) /
+			cmd = (uint32_t)((delay * cci_dev->cycles_per_us) /
 				0x100);
 			cmd <<= 4;
 			cmd |= CCI_I2C_WAIT_CMD;
@@ -1241,6 +1241,21 @@ static int msm_cci_get_clk_info(struct cci_device *cci_dev,
 	return 0;
 }
 
+static uint32_t msm_get_cycles_per_ms(void)
+{
+	int i = 0;
+	for (i = 0; i < CCI_NUM_CLK_MAX; i++) {
+		if (!strcmp(cci_clk_info[i].clk_name, "cci_src_clk")) {
+			CDBG("%s:%d i %d cci_src_clk\n",
+				__func__, __LINE__, i);
+			return ((cci_clk_info[i].clk_rate/1000)*256)/1000;
+		}
+	}
+	pr_err("%s:%d, failed: Can use default: %d",
+		__func__, __LINE__, CYCLES_PER_MICRO_SEC_DEFAULT);
+	return CYCLES_PER_MICRO_SEC_DEFAULT;
+}
+
 static int msm_cci_probe(struct platform_device *pdev)
 {
 	struct cci_device *new_cci_dev;
@@ -1269,6 +1284,7 @@ static int msm_cci_probe(struct platform_device *pdev)
 		return -EFAULT;
 	}
 
+	new_cci_dev->cycles_per_us = msm_get_cycles_per_ms();
 	new_cci_dev->ref_count = 0;
 	new_cci_dev->mem = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "cci");
