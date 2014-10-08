@@ -21,6 +21,7 @@
 		governor = "bw_vbif";
 		qcom,src-dst-ports = <26 512>;
 		qcom,bw-tbl =
+			<     0 /*  off     */ >,
 			<   762 /*  100 MHz */ >,
 			<  1144 /*  150 MHz */ >,
 			<  1525 /*  200 MHz */ >,
