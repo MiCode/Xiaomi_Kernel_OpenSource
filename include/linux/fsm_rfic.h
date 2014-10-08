@@ -121,6 +121,12 @@ struct rfic_wfm_param {
 #define RFIC_IOCTL_WRITE_REGISTER_WITH_MASK \
 	_IOC(_IOC_WRITE, RFIC_IOCTL_MAGIC, 0x03, \
 		sizeof(struct rfic_write_register_mask_param *))
+#define RFIC_IOCTL_WRITE_PVC_REGISTER \
+	_IOC(_IOC_WRITE, RFIC_IOCTL_MAGIC, 0x04, \
+		sizeof(struct rfic_write_register_param *))
+#define RFIC_IOCTL_WRITE_PVC_REGISTER_WITH_BUS \
+	_IOC(_IOC_WRITE, RFIC_IOCTL_MAGIC, 0x05, \
+		sizeof(struct rfic_write_register_param *))
 #define RFIC_IOCTL_GET_GRFC \
 	_IOC(_IOC_WRITE, RFIC_IOCTL_MAGIC, 0x10, \
 		sizeof(struct rfic_grfc_param *))
