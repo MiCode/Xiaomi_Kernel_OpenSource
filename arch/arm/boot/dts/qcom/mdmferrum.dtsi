@@ -25,3 +25,20 @@
 &pm8909_adc_tm {
 	/delete-node/ chan@30;
 };
+
+&external_image_mem {
+	reg = <0x0 0x87c00000 0x0 0x0400000>;
+};
+
+&venus_qseecom_mem {
+	status = "disabled";
+};
+
+&system_contig_heap {
+	status = "disabled";
+};
+
+&qsecom_heap {
+	status = "disabled";
+};
+
