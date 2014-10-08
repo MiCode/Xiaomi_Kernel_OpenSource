@@ -37,6 +37,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/sdio_ids.h>
+#include <linux/mmc/sdhci.h>
 #include <dhd_linux.h>
 #include <bcmsdh_sdmmc.h>
 #include <dhd_dbg.h>
@@ -229,7 +230,7 @@ static int bcmsdh_sdmmc_suspend(struct device *pdev)
 
 	sdio_flags = sdio_get_host_pm_caps(func);
 	if (!(sdio_flags & MMC_PM_KEEP_POWER)) {
-		sd_err(("%s: can't keep power while host is suspended\n", __FUNCTION__));
+		pr_err("%s: can't keep power while host is suspended\n", __FUNCTION__);
 		return  -EINVAL;
 	}
 
@@ -262,6 +263,8 @@ static int bcmsdh_sdmmc_resume(struct device *pdev)
 #if defined(OOB_INTR_ONLY)
 	bcmsdh_resume(sdioh->bcmsdh);
 #endif 
+	if (func->card && func->card->host)
+		func->card->host->pm_flags &= ~MMC_PM_KEEP_POWER;
 
 	smp_mb();
 	return 0;
