@@ -34,7 +34,11 @@
 			pinctrl-0 = <&ts_int_active &ts_reset_active>;
 			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 			pinctrl-2 = <&ts_release>;
-			mstar,button-map= <172 139 158>;
+			mstar,button-map = <172 139 158>;
+			mstar,ic-type = <2>;
+			mstar,num-max-touches = <2>;
+			mstar,hard-reset-delay-ms = <100>;
+			mstar,post-hard-reset-delay-ms = <100>;
 		};
 	};
 };
@@ -59,6 +63,7 @@
 	qcom,batt-hot-percentage = <35>;
 	qcom,batt-cold-percentage = <70>;
 	qcom,tchg-mins = <360>;
+	qcom,disable-vbatdet-based-recharge;
 	status = "okay";
 };
 
@@ -73,6 +78,7 @@
 
 &pm8916_bms {
 	status = "okay";
+	qcom,force-bms-active-on-charger;
 	qcom,battery-data = <&qrd_batterydata>;
 };
 
