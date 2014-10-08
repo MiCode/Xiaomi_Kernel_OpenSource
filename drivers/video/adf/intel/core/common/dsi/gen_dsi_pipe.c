@@ -154,10 +154,12 @@ static int dsi_dpms(struct intel_pipe *pipe, u8 state)
 
 	switch (state) {
 	case DRM_MODE_DPMS_ON:
+		intel_adf_display_rpm_get();
 		err = vlv_display_on(pipe);
 		break;
 	case DRM_MODE_DPMS_OFF:
 		err = vlv_display_off(pipe);
+		intel_adf_display_rpm_put();
 		break;
 	case DRM_MODE_DPMS_STANDBY:
 	case DRM_MODE_DPMS_SUSPEND:
