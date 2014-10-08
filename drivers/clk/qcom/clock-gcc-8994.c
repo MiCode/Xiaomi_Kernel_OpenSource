@@ -2484,15 +2484,25 @@ static struct branch_clk gcc_usb3_phy_aux_clk = {
 	},
 };
 
-static struct branch_clk gcc_usb3_phy_pipe_clk = {
-	.cbcr_reg = USB3_PHY_PIPE_CBCR,
-	.bcr_reg = USB3PHY_PHY_BCR,
-	.has_sibling = 1,
+static struct gate_clk gcc_usb3_phy_pipe_clk = {
+	.en_reg = USB3_PHY_PIPE_CBCR,
+	.en_mask = BIT(0),
+	.delay_us = 50,
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "gcc_usb3_phy_pipe_clk",
-		.ops = &clk_ops_branch,
+		.ops = &clk_ops_gate,
 		CLK_INIT(gcc_usb3_phy_pipe_clk.c),
+	},
+};
+
+static struct reset_clk gcc_usb3phy_phy_reset = {
+	.reset_reg = USB3PHY_PHY_BCR,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_usb3phy_phy_reset",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_usb3phy_phy_reset.c),
 	},
 };
 
@@ -2832,6 +2842,7 @@ static struct clk_lookup gcc_clocks_8994_common[] = {
 	CLK_LIST(gcc_usb30_sleep_clk),
 	CLK_LIST(gcc_usb3_phy_aux_clk),
 	CLK_LIST(gcc_usb3_phy_pipe_clk),
+	CLK_LIST(gcc_usb3phy_phy_reset),
 	CLK_LIST(gcc_usb_hs_ahb_clk),
 	CLK_LIST(gcc_usb_hs_system_clk),
 	CLK_LIST(gcc_usb_phy_cfg_ahb2phy_clk),
