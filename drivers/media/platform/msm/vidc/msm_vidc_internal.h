@@ -64,30 +64,20 @@
 #define NUM_MBS_PER_FRAME(__height, __width) \
 	((ALIGN(__height, 16) / 16) * (ALIGN(__width, 16) / 16))
 
+/* Minimum number of display buffers */
+#define DCVS_MIN_DISPLAY_BUFF 4
 /* Default threshold to reduce the core frequency */
 #define DCVS_NOMINAL_THRESHOLD 8
 /* Default threshold to increase the core frequency */
 #define DCVS_TURBO_THRESHOLD 4
 /* Instance max load above which DCVS kicks in */
 #define DCVS_NOMINAL_LOAD NUM_MBS_PER_SEC(1088, 1920, 60)
-/* Considering one output buffer with core */
-#define DCVS_BUFFER_WITH_DEC 1
 /* Considering one safeguard buffer */
 #define DCVS_BUFFER_SAFEGUARD 1
-/* Considering one output buffer in transition after decode */
-#define DCVS_BUFFER_RELEASED_DEC 1
-/* Considering at least two FTB's between each FBD */
-#define DCVS_MIN_DRAIN_RATE 2
-/* Ensures difference of 4 between min and max threshold always*/
-#define DCVS_MIN_THRESHOLD_DIFF 4
 /* Maintains the number of FTB's between each FBD over a window */
-#define DCVS_FTB_WINDOW 16
-/* Empirical number arrived at to calculate the high threshold*/
-#define DCVS_EMP_THRESHOLD_HIGH 8
+#define DCVS_FTB_WINDOW 32
 /* Supported DCVS MBs per frame */
 #define DCVS_MIN_SUPPORTED_MBPERFRAME NUM_MBS_PER_FRAME(2160, 3840)
-/* Window size used to calculate the low threshold */
-#define DCVS_FTB_STAT_SAMPLES 4
 
 enum vidc_ports {
 	OUTPUT_PORT,
@@ -207,12 +197,11 @@ struct buf_count {
 
 struct dcvs_stats {
 	int num_ftb[DCVS_FTB_WINDOW];
+	bool transition_turbo;
 	int ftb_index;
 	int ftb_counter;
-	int prev_ftb_count;
 	bool prev_freq_lowered;
 	bool prev_freq_increased;
-	bool change_initial_freq;
 	int threshold_disp_buf_high;
 	int threshold_disp_buf_low;
 	int load;
