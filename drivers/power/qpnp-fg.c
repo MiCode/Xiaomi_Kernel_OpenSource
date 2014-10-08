@@ -27,6 +27,7 @@
 #include <linux/bitops.h>
 #include <linux/types.h>
 #include <linux/module.h>
+#include <linux/ktime.h>
 #include <linux/power_supply.h>
 #include <linux/of_batterydata.h>
 #include <linux/string_helpers.h>
@@ -224,7 +225,6 @@ struct fg_chip {
 	struct work_struct	batt_profile_init;
 	struct work_struct	dump_sram;
 	struct power_supply	*batt_psy;
-	bool			wake_on_delta_soc;
 	bool			profile_loaded;
 	bool			use_otp_profile;
 	struct delayed_work	update_jeita_setting;
@@ -1433,6 +1433,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 				return rc;
 			}
 
+			enable_irq_wake(chip->soc_irq[DELTA_SOC].irq);
 			enable_irq_wake(chip->soc_irq[FULL_SOC].irq);
 			enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
 			break;
@@ -1868,6 +1869,18 @@ err_remove_fs:
 	return -ENOMEM;
 }
 
+static int soc_to_setpoint(int soc)
+{
+	return DIV_ROUND_CLOSEST(soc * 255, 100);
+}
+
+#define SOC_CNFG	0x450
+#define SOC_DELTA_OFFSET	3
+#define DELTA_SOC_PERCENT	1
+#define BATT_TEMP_OFFSET	3
+#define BATT_TEMP_CNTRL_MASK	0x0F
+#define BATT_TEMP_ON		0x0E
+#define BATT_TEMP_OFF		0x01
 static int fg_hw_init(struct fg_chip *chip)
 {
 	int rc = 0;
@@ -1881,7 +1894,25 @@ static int fg_hw_init(struct fg_chip *chip)
 		}
 	}
 
-	return rc;
+	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
+			BATT_TEMP_CNTRL_MASK,
+			BATT_TEMP_ON,
+			BATT_TEMP_OFFSET);
+	if (rc) {
+		pr_err("failed to write to memif rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_mem_masked_write(chip, SOC_CNFG,
+			0xFF,
+			soc_to_setpoint(DELTA_SOC_PERCENT),
+			SOC_DELTA_OFFSET);
+	if (rc) {
+		pr_err("failed to write to memif rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
 }
 
 #define INIT_JEITA_DELAY_MS 1000
@@ -2042,35 +2073,54 @@ of_init_fail:
 static int fg_suspend(struct device *dev)
 {
 	struct fg_chip *chip = dev_get_drvdata(dev);
-	union power_supply_propval propval;
+	ktime_t  enter_time;
+	ktime_t  total_time;
+	int total_time_ms;
 	int rc;
 
-	if (chip->batt_psy == NULL)
-		chip->batt_psy = power_supply_get_by_name("battery");
-	if (chip->batt_psy) {
-		rc = chip->batt_psy->get_property(chip->batt_psy,
-				POWER_SUPPLY_PROP_STATUS, &propval);
-		if (rc) {
-			pr_err("Unable to read battery status: %d\n", rc);
-			goto done;
-		}
-		if (propval.intval == POWER_SUPPLY_STATUS_FULL
-				&& !chip->wake_on_delta_soc) {
-			enable_irq_wake(chip->soc_irq[DELTA_SOC].irq);
-			chip->wake_on_delta_soc = true;
-		}
-		if (propval.intval != POWER_SUPPLY_STATUS_FULL
-				&& chip->wake_on_delta_soc) {
-			disable_irq_wake(chip->soc_irq[DELTA_SOC].irq);
-			chip->wake_on_delta_soc = false;
-		}
-	}
-done:
+	enter_time = ktime_get();
+	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
+			BATT_TEMP_CNTRL_MASK,
+			BATT_TEMP_OFF,
+			BATT_TEMP_OFFSET);
+	if (rc)
+		pr_err("failed to write to memif rc=%d\n", rc);
+
+	total_time = ktime_sub(ktime_get(), enter_time);
+	total_time_ms = ktime_to_ms(total_time);
+
+	if ((total_time_ms > 1500) && (fg_debug_mask & FG_STATUS))
+		pr_info("spent %dms configuring rbias\n", total_time_ms);
+
+	return 0;
+}
+
+static int fg_resume(struct device *dev)
+{
+	struct fg_chip *chip = dev_get_drvdata(dev);
+	ktime_t  enter_time;
+	ktime_t  total_time;
+	int total_time_ms;
+	int rc;
+
+	enter_time = ktime_get();
+	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
+			BATT_TEMP_CNTRL_MASK,
+			BATT_TEMP_ON,
+			BATT_TEMP_OFFSET);
+	if (rc)
+		pr_err("failed to write to memif rc=%d\n", rc);
+	total_time = ktime_sub(ktime_get(), enter_time);
+	total_time_ms = ktime_to_ms(total_time);
+
+	if ((total_time_ms > 1500) && (fg_debug_mask & FG_STATUS))
+		pr_info("spent %dms configuring rbias\n", total_time_ms);
 	return 0;
 }
 
 static const struct dev_pm_ops qpnp_fg_pm_ops = {
 	.suspend	= fg_suspend,
+	.resume		= fg_resume,
 };
 
 static int fg_sense_type_set(const char *val, const struct kernel_param *kp)
