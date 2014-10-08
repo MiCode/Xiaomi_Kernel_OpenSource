@@ -1784,12 +1784,13 @@ static void msm_thermal_bite(int tsens_id, long temp)
 	pr_err("TSENS:%d reached temperature:%ld. System reset\n",
 		tsens_id, temp);
 	if (!is_scm_armv8()) {
-		scm_call_atomic1(SCM_SVC_BOOT, THERM_SECURE_BITE_CMD, 0);
+		scm_call(SCM_SVC_BOOT, THERM_SECURE_BITE_CMD,
+			NULL, 0, NULL, 0);
 	} else {
 		desc.args[0] = 0;
 		desc.arginfo = SCM_ARGS(1);
-		scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
-				 THERM_SECURE_BITE_CMD), &desc);
+		scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT,
+			 THERM_SECURE_BITE_CMD), &desc);
 	}
 }
 
