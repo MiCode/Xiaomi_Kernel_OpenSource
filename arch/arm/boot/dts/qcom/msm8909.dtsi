@@ -414,7 +414,7 @@
 		qcom,sw-power-collapse;
 		qcom,load-freq-tbl =
 			<244800 266670000 0xffffffff>, /* 1080p@30 Decode */
-			<244800 300000000 0x55555555>, /* 1080p@30 Encode */
+			<244800 307200000 0x55555555>, /* 1080p@30 Encode */
 			<144000 266670000 0x55555555>, /* VGA@60 X 2 */
 			<108000 133330000 0xffffffff>, /* 720p@30 Decode */
 			<54000 133330000 0x55555555>; /* HVGA@90 Encode */
@@ -441,6 +441,35 @@
 			qcom,domain-sec-np {
 				qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
 				qcom,vidc-partition-buffer-types = <0x480>;
+			};
+		};
+		qcom,msm-bus-clients {
+			qcom,msm-bus-client@0 {
+				qcom,msm-bus,name = "venc-ddr";
+				qcom,msm-bus,num-cases = <6>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 117200 0>, /* VGA 30 fps */
+					<63 512 234400 0>, /* VGA 60 fps */
+					<63 512 351700 0>, /* 720p 30 fps */
+					<63 512 698000 0>, /* 720p 60 fps */
+					<63 512 698000 0>; /* 1080p 30 fps */
+				qcom,bus-configs = <0x00000004>;
+			};
+
+			qcom,msm-bus-client@1 {
+				qcom,msm-bus,name = "vdec-ddr";
+				qcom,msm-bus,num-cases = <6>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 112400 0>, /* VGA 30 fps */
+					<63 512 224800 0>, /* VGA 60 fps */
+					<63 512 337200 0>, /* 720p 30 fps */
+					<63 512 758800 0>, /* 720p 60 fps */
+					<63 512 758800 0>; /* 1080p 30 fps */
+				qcom,bus-configs = <0x0f00000c>;
 			};
 		};
 	};
