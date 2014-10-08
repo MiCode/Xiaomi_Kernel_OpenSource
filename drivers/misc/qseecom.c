@@ -2802,6 +2802,20 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 			return ret;
 		}
 	}
+	/*
+	* On targets where crypto clock is handled by HLOS,
+	* if clk_access_cnt is zero and perf_enabled is false,
+	* then the crypto clock was not enabled before sending cmd
+	* to tz, qseecom will release mutex lock and return error.
+	*/
+	if (!qseecom.no_clock_support &&
+		!qseecom.qsee.clk_access_cnt && !data->perf_enabled) {
+		pr_err("ce clock is not enabled!\n");
+		atomic_dec(&data->ioctl_count);
+		mutex_unlock(&app_access_lock);
+		return -EINVAL;
+	}
+
 	ret = __qseecom_send_cmd(data, &req);
 	if (qseecom.support_bus_scaling)
 		__qseecom_add_bw_scale_down_timer(
@@ -4274,6 +4288,19 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 				break;
 			}
 		}
+		/*
+		* On targets where crypto clock is handled by HLOS,
+		* if clk_access_cnt is zero and perf_enabled is false,
+		* then the crypto clock was not enabled before sending cmd
+		* to tz, qseecom will release mutex lock and return error.
+		*/
+		if (!qseecom.no_clock_support &&
+			!qseecom.qsee.clk_access_cnt && !data->perf_enabled) {
+			pr_err("ce clock is not enabled!\n");
+			ret = -EINVAL;
+			mutex_unlock(&app_access_lock);
+			break;
+		}
 		atomic_inc(&data->ioctl_count);
 		ret = qseecom_send_cmd(data, argp);
 		if (qseecom.support_bus_scaling)
@@ -4310,6 +4337,19 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 				ret = -EINVAL;
 				break;
 			}
+		}
+		/*
+		* On targets where crypto clock is handled by HLOS,
+		* if clk_access_cnt is zero and perf_enabled is false,
+		* then the crypto clock was not enabled before sending cmd
+		* to tz, qseecom will release mutex lock and return error.
+		*/
+		if (!qseecom.no_clock_support &&
+			!qseecom.qsee.clk_access_cnt && !data->perf_enabled) {
+			pr_err("ce clock is not enabled!\n");
+			ret = -EINVAL;
+			mutex_unlock(&app_access_lock);
+			break;
 		}
 		atomic_inc(&data->ioctl_count);
 		ret = qseecom_send_modfd_cmd(data, argp);
@@ -4484,6 +4524,21 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	}
 
 	case QSEECOM_IOCTL_SET_BUS_SCALING_REQ: {
+		/*
+		* If crypto clock is not handled by HLOS, return directly.
+		* If crypto clock need to be handled by HLOS but qseecom
+		* bus scaling flag is not enabled, then return error.
+		*/
+		if (qseecom.no_clock_support) {
+			pr_debug("crypto clock is not handled by HLOS\n");
+			break;
+		} else {
+			if (!qseecom.support_bus_scaling) {
+				pr_err("Bus scaling feature is NOT enabled\n");
+				ret = -EINVAL;
+				break;
+			}
+		}
 		if ((data->client.app_id == 0) ||
 			(data->type != QSEECOM_CLIENT_APP)) {
 			pr_err("set bus scale: invalid handle (%d) appid(%d)\n",
@@ -5158,6 +5213,15 @@ static int qseecom_probe(struct platform_device *pdev)
 		} else {
 			pr_info("no-clock-support=0x%x",
 			qseecom.no_clock_support);
+		}
+		/*
+		 * The qseecom bus scaling flag can not be enabled when
+		 * crypto clock is not handled by HLOS.
+		 */
+		if (qseecom.no_clock_support && qseecom.support_bus_scaling) {
+			pr_err("support_bus_scaling flag can not be enabled.\n");
+			rc = -EINVAL;
+			goto exit_destroy_hw_instance_list;
 		}
 
 		qseecom.qsee.instance = qseecom.ce_info.qsee_ce_hw_instance;
