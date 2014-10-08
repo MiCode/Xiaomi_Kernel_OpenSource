@@ -283,9 +283,9 @@ static void msm_vfe46_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_vfe46_init_danger_safe_parms(vfe_dev);
 	/* CGC_OVERRIDE */
 	/* MODULE_LENS_CGC_OVERRIDE */
-	msm_camera_io_w(0x00000383, vfe_dev->vfe_base + 0x2C);
+	msm_camera_io_w(0x00000182, vfe_dev->vfe_base + 0x2C);
 	/* MODULE_COLOR_CGC_OVERRIDE */
-	msm_camera_io_w(0x0000001C, vfe_dev->vfe_base + 0x34);
+	msm_camera_io_w(0x00000018, vfe_dev->vfe_base + 0x34);
 	/* BUS_CFG */
 	msm_camera_io_w(0x00000001, vfe_dev->vfe_base + 0x84);
 	/* IRQ_MASK/CLEAR */
