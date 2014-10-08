@@ -39,51 +39,61 @@
 			gpio@c000 {
 				reg = <0xc000 0x100>;
 				qcom,pin-num = <1>;
+				status = "disabled";
 			};
 
 			gpio@c100 {
 				reg = <0xc100 0x100>;
 				qcom,pin-num = <2>;
+				status = "disabled";
 			};
 
 			gpio@c200 {
 				reg = <0xc200 0x100>;
 				qcom,pin-num = <3>;
+				status = "disabled";
 			};
 
 			gpio@c300 {
 				reg = <0xc300 0x100>;
 				qcom,pin-num = <4>;
+				status = "disabled";
 			};
 
 			gpio@c400 {
 				reg = <0xc400 0x100>;
 				qcom,pin-num = <5>;
+				status = "disabled";
 			};
 
 			gpio@c500 {
 				reg = <0xc500 0x100>;
 				qcom,pin-num = <6>;
+				status = "disabled";
 			};
 
 			gpio@c600 {
 				reg = <0xc600 0x100>;
 				qcom,pin-num = <7>;
+				status = "disabled";
 			};
 
 			gpio@c700 {
 				reg = <0xc700 0x100>;
 				qcom,pin-num = <8>;
+				status = "disabled";
 			};
 
 			gpio@c800 {
 				reg = <0xc800 0x100>;
 				qcom,pin-num = <9>;
+				status = "disabled";
 			};
 
 			gpio@c900 {
 				reg = <0xc900 0x100>;
 				qcom,pin-num = <10>;
+				status = "disabled";
 			};
 		};
 
@@ -99,21 +109,25 @@
 			mpp@a000 {
 				reg = <0xa000 0x100>;
 				qcom,pin-num = <1>;
+				status = "disabled";
 			};
 
 			mpp@a100 {
 				reg = <0xa100 0x100>;
 				qcom,pin-num = <2>;
+				status = "disabled";
 			};
 
 			mpp@a200 {
 				reg = <0xa200 0x100>;
 				qcom,pin-num = <3>;
+				status = "disabled";
 			};
 
 			mpp@a300 {
 				reg = <0xa300 0x100>;
 				qcom,pin-num = <4>;
+				status = "disabled";
 			};
 		};
 
