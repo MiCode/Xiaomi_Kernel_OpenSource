@@ -1251,4 +1251,5 @@ int ipa_uc_interface_init(void);
 int ipa_uc_reset_pipe(enum ipa_client_type ipa_client);
 void ipa_register_panic_hdlr(void);
 int create_nat_device(void);
+int ipa_uc_notify_clk_state(bool enabled);
 #endif /* _IPA_I_H_ */
