@@ -151,6 +151,16 @@ int vlv_display_off(struct intel_pipe *pipe)
 	if (!pipe)
 		return -EINVAL;
 
+	if (is_dsi) {
+		dsi = to_dsi_pipe(pipe);
+
+		/* check harwdare state before disabling */
+		if (!dsi->ops.get_hw_state(dsi)) {
+			pr_err("%s: DSI device already disabled\n", __func__);
+			return 0;
+		}
+	}
+
 	index = pipe->base.idx;
 
 	/* Disable DPST */
@@ -160,12 +170,9 @@ int vlv_display_off(struct intel_pipe *pipe)
 	pipe->ops->set_event(pipe, INTEL_PIPE_EVENT_VSYNC, false);
 
 	 /* encoder specifific disabling if needed */
-	if (is_dsi) {
-		dsi = to_dsi_pipe(pipe);
-
+	if (is_dsi)
 		/* DSI Shutdown command */
 		dsi->ops.pre_power_off(dsi);
-	}
 
 	/* Also check for pending flip and the vblank off  */
 

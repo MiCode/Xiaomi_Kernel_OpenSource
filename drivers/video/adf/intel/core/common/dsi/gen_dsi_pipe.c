@@ -504,6 +504,7 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	pipe->ops.set_event = intel_adf_dsi_set_events;
 	pipe->ops.get_events = intel_adf_dsi_get_events;
 	pipe->ops.handle_events = intel_adf_dsi_handle_events;
+	pipe->ops.get_hw_state = intel_adf_dsi_get_hw_state;
 	pipe->dpms_state = DRM_MODE_DPMS_OFF;
 
 	pipe->panel = panel;

@@ -640,3 +640,20 @@ int intel_adf_dsi_soc_backlight_off(struct dsi_pipe *dsi_pipe)
 	udelay(500);
 	return 0;
 }
+
+bool intel_adf_dsi_get_hw_state(struct dsi_pipe *dsi_pipe)
+{
+	struct dsi_config *config = &dsi_pipe->config;
+	int pipe = config->pipe;
+	u32 port = REG_READ(MIPI_PORT_CTRL(pipe));
+	u32 func = REG_READ(MIPI_DSI_FUNC_PRG(pipe));
+
+	if ((port & DPI_ENABLE) || (func & CMD_MODE_DATA_WIDTH_MASK)) {
+		if (REG_READ(MIPI_DEVICE_READY(pipe)) & DEVICE_READY)
+			return true;
+		else
+			return false;
+	}
+
+	return false;
+}

@@ -44,6 +44,7 @@ extern void intel_adf_dsi_handle_events(struct dsi_pipe *dsi_pipe, u32 events);
 extern void intel_adf_dsi_pre_disable(struct dsi_pipe *dsi_pipe);
 extern int intel_adf_dsi_modeset(struct dsi_pipe *dsi_pipe,
 						struct drm_mode_modeinfo *mode);
+extern bool intel_adf_dsi_get_hw_state(struct dsi_pipe *dsi_pipe);
 
 extern int intel_adf_dsi_soc_power_on(struct dsi_pipe *dsi_pipe);
 extern int intel_adf_dsi_pmic_power_on(struct dsi_pipe *dsi_pipe);
