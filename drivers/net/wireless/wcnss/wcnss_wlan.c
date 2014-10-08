@@ -144,6 +144,11 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define CCU_PRONTO_LAST_ADDR1_OFFSET		0x10
 #define CCU_PRONTO_LAST_ADDR2_OFFSET		0x14
 
+#define CCU_PRONTO_AOWBR_ERR_ADDR_OFFSET	0x28
+#define CCU_PRONTO_AOWBR_TIMEOUT_REG_OFFSET	0xcc
+#define CCU_PRONTO_AOWBR_ERR_TIMEOUT_OFFSET	0xd0
+#define CCU_PRONTO_A2AB_ERR_ADDR_OFFSET		0x18
+
 #define PRONTO_SAW2_SPM_STS_OFFSET		0x0c
 
 #define PRONTO_PLL_STATUS_OFFSET		0x1c
@@ -692,6 +697,22 @@ void wcnss_pronto_log_debug_regs(void)
 	reg_addr = penv->pronto_ccpu_base + CCU_PRONTO_LAST_ADDR2_OFFSET;
 	reg = readl_relaxed(reg_addr);
 	pr_err("CCU_CCPU_LAST_ADDR2 %08x\n", reg);
+
+	reg_addr = penv->pronto_ccpu_base + CCU_PRONTO_AOWBR_ERR_ADDR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("CCU_PRONTO_AOWBR_ERR_ADDR_OFFSET %08x\n", reg);
+
+	reg_addr = penv->pronto_ccpu_base + CCU_PRONTO_AOWBR_TIMEOUT_REG_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("CCU_PRONTO_AOWBR_TIMEOUT_REG_OFFSET %08x\n", reg);
+
+	reg_addr = penv->pronto_ccpu_base + CCU_PRONTO_AOWBR_ERR_TIMEOUT_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("CCU_PRONTO_AOWBR_ERR_TIMEOUT_OFFSET %08x\n", reg);
+
+	reg_addr = penv->pronto_ccpu_base + CCU_PRONTO_A2AB_ERR_ADDR_OFFSET;
+	reg = readl_relaxed(reg_addr);
+	pr_err("CCU_PRONTO_A2AB_ERR_ADDR_OFFSET %08x\n", reg);
 
 	tst_addr = penv->pronto_a2xb_base + A2XB_TSTBUS_OFFSET;
 	tst_ctrl_addr = penv->pronto_a2xb_base + A2XB_TSTBUS_CTRL_OFFSET;
