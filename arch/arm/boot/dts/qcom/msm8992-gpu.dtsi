@@ -1,0 +1,107 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	msm_gpu: qcom,kgsl-3d0@fdb00000 {
+		label = "kgsl-3d0";
+		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
+		reg = <0xfdb00000 0x40000>;
+		reg-names = "kgsl_3d0_reg_memory";
+		interrupts = <0 33 0>;
+		interrupt-names = "kgsl_3d0_irq";
+		qcom,id = <0>;
+
+		qcom,chipid = <0x04010800>;
+
+		qcom,initial-pwrlevel = <2>;
+
+		qcom,idle-timeout = <8>; //<HZ/12>
+		qcom,strtstp-sleepwake;
+
+		/*
+		 * Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE
+		 * KGSL_CLK_RBBMTIMER
+		 */
+		qcom,clk-map = <0x00000086>;
+
+		clocks = <&clock_mmss clk_oxili_gfx3d_clk>,
+			<&clock_mmss clk_oxilicx_ahb_clk>,
+			<&clock_mmss clk_oxili_rbbmtimer_clk>;
+		clock-names = "core_clk", "iface_clk", "rbbmtimer_clk";
+
+		/* Bus Scale Settings */
+		qcom,bus-control;
+		qcom,msm-bus,name = "grp3d";
+		qcom,msm-bus,num-cases = <9>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+				<26 512 0 0>, <89 662 0 0>,
+
+				<26 512 0 1600000>,  <89 662 0 3200000>,     // gpu=200 bus=100
+				<26 512 0 2400000>,  <89 662 0 3200000>,     // gpu=200 bus=150
+
+				<26 512 0 3200000>,  <89 662 0 5200000>,     // gpu=325 bus=200
+				<26 512 0 4800000>,  <89 662 0 5200000>,     // gpu=325 bus=300
+
+				<26 512 0 7748000>,  <89 662 0 7600000>,     // gpu=475 bus=466.5
+				<26 512 0 9952000>,  <89 662 0 7600000>,     // gpu=475 bus=622
+				<26 512 0 11200000>, <89 662 0 7600000>,     // gpu=475 bus=700
+
+				<26 512 0 14928000>, <89 662 0 10000000>;    // gpu=625 bus=933
+
+		/* GDSC oxili regulators */
+		vddcx-supply = <&gdsc_oxili_cx>;
+		vdd-supply = <&gdsc_oxili_gx>;
+
+		/* IOMMU Data */
+		iommu = <&kgsl_iommu>;
+
+		/* Power levels  */
+		qcom,gpu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			compatible = "qcom,gpu-pwrlevels";
+
+			qcom,gpu-pwrlevel@0 {
+				reg = <0>;
+				qcom,gpu-freq = <625000000>;
+				qcom,bus-freq = <8>;
+			};
+
+			qcom,gpu-pwrlevel@1 {
+				reg = <1>;
+				qcom,gpu-freq = <475000000>;
+				qcom,bus-freq = <6>;
+			};
+
+			qcom,gpu-pwrlevel@2 {
+				reg = <2>;
+				qcom,gpu-freq = <325000000>;
+				qcom,bus-freq = <4>;
+			};
+
+			qcom,gpu-pwrlevel@3 {
+				reg = <3>;
+				qcom,gpu-freq = <200000000>;
+				qcom,bus-freq = <2>;
+			};
+
+			qcom,gpu-pwrlevel@4 {
+				reg = <4>;
+				qcom,gpu-freq = <27000000>;
+				qcom,bus-freq = <0>;
+			};
+		};
+
+	};
+};
