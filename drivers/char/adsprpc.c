@@ -30,6 +30,9 @@
 #include <linux/uaccess.h>
 #include <linux/device.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_platform.h>
+#include <linux/dma-contiguous.h>
 #include <linux/iommu.h>
 #include <linux/kref.h>
 #include <linux/sort.h>
@@ -89,13 +92,13 @@ static inline uint32_t buf_page_size(uint32_t size)
 
 static inline int buf_get_pages(void *addr, ssize_t sz, int nr_pages,
 				int access, struct smq_phy_page *pages,
-				int nr_elems)
+				int nr_elems, struct smq_phy_page *range)
 {
 	struct vm_area_struct *vma, *vmaend;
 	uintptr_t start = buf_page_start(addr);
 	uintptr_t end = buf_page_start((void *)((uintptr_t)addr + sz - 1));
 	uint32_t len = nr_pages << PAGE_SHIFT;
-	unsigned long pfn, pfnend;
+	unsigned long pfn, pfnend, paddr;
 	int n = -1, err = 0;
 
 	VERIFY(err, 0 != access_ok(access ? VERIFY_WRITE : VERIFY_READ,
@@ -122,7 +125,12 @@ static inline int buf_get_pages(void *addr, ssize_t sz, int nr_pages,
 	VERIFY(err, __pfn_to_phys(pfnend) <= UINT_MAX);
 	if (err)
 		goto bail;
-	pages->addr = __pfn_to_phys(pfn);
+	paddr = __pfn_to_phys(pfn);
+	if (range->size && (paddr < range->addr))
+		goto bail;
+	if (range->size && ((paddr - range->addr + len) > range->size))
+		goto bail;
+	pages->addr = paddr;
 	pages->size = len;
 	n++;
  bail:
@@ -201,6 +209,7 @@ struct fastrpc_apps {
 	struct cdev cdev;
 	struct class *class;
 	struct mutex smd_mutex;
+	struct smq_phy_page range;
 	dev_t dev_no;
 	int compat;
 	spinlock_t wrlock;
@@ -511,6 +520,8 @@ static int context_alloc(struct fastrpc_apps *me, uint32_t kernel,
 		goto bail;
 
 	INIT_HLIST_NODE(&ctx->hn);
+	ctx->apps = me;
+	ctx->fdata = fdata;
 	ctx->pra = (remote_arg_t *)(&ctx[1]);
 	ctx->fds = invokefd->fds == 0 ? 0 : (int *)(&ctx->pra[bufs]);
 	ctx->handles = invokefd->fds == 0 ? 0 :
@@ -542,10 +553,8 @@ static int context_alloc(struct fastrpc_apps *me, uint32_t kernel,
 			goto bail;
 	}
 	ctx->retval = -1;
-	ctx->fdata = fdata;
 	ctx->pid = current->pid;
 	ctx->tgid = current->tgid;
-	ctx->apps = me;
 	init_completion(&ctx->work);
 	spin_lock(&clst->hlock);
 	hlist_add_head(&ctx->hn, &clst->pending);
@@ -732,8 +741,8 @@ static int get_page_list(uint32_t kernel, struct smq_invoke_ctx *ctx)
 					list[i].num = 1;
 			} else {
 				list[i].num = buf_get_pages(buf, len, num,
-						i >= inbufs, pages,
-						rlen / sizeof(*pages));
+					i >= inbufs, pages,
+					rlen / sizeof(*pages), &me->range);
 			}
 		}
 		VERIFY(err, list[i].num >= 0);
@@ -1542,7 +1551,7 @@ static int map_buffer(struct fastrpc_apps *me, struct file_data *fdata,
 		num = 1;
 	} else {
 		VERIFY(err, 0 < (num = buf_get_pages(buf, len, num, 1,
-							pages, num)));
+						pages, num, &me->range)));
 		if (err)
 			goto bail;
 	}
@@ -1861,6 +1870,11 @@ static const struct file_operations fops = {
 static int __init fastrpc_device_init(void)
 {
 	struct fastrpc_apps *me = &gfa;
+	struct device_node *ion_node, *node, *pnode;
+	struct platform_device *pdev;
+	const u32 *addr;
+	uint64_t size;
+	uint32_t val;
 	int i, err = 0;
 
 	memset(me, 0, sizeof(*me));
@@ -1882,6 +1896,29 @@ static int __init fastrpc_device_init(void)
 	if (err)
 		goto class_create_bail;
 	me->compat = (NULL == fops.compat_ioctl) ? 0 : 1;
+	ion_node = of_find_compatible_node(NULL, NULL, "qcom,msm-ion");
+	if (ion_node) {
+		for_each_available_child_of_node(ion_node, node) {
+			if (of_property_read_u32(node, "reg", &val))
+				continue;
+			if (val != ION_ADSP_HEAP_ID)
+				continue;
+			pdev = of_find_device_by_node(node);
+			if (!pdev)
+				break;
+			pnode = of_parse_phandle(node,
+					"linux,contiguous-region", 0);
+			if (!pnode)
+				break;
+			addr = of_get_address(pnode, 0, &size, NULL);
+			of_node_put(pnode);
+			if (!addr)
+				break;
+			me->range.addr = cma_get_base(&pdev->dev);
+			me->range.size = (size_t)size;
+			break;
+		}
+	}
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		me->channel[i].dev = device_create(me->class, NULL,
 					MKDEV(MAJOR(me->dev_no), i),
