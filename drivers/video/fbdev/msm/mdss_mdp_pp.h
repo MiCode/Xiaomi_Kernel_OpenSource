@@ -17,6 +17,8 @@
 
 #include <linux/msm_mdp.h>
 
+#define MDSS_BLOCK_DISP_NUM (MDP_BLOCK_MAX - MDP_LOGICAL_BLOCK_DISP_0)
+
 /* PP STS related flags */
 #define PP_STS_ENABLE	0x1
 
@@ -24,6 +26,12 @@
 #define MDSS_SIDE_NONE	0
 #define MDSS_SIDE_LEFT	1
 #define MDSS_SIDE_RIGHT	2
+/* size calculated for c0,c1_c2 for 4 tables */
+#define GAMUT_COLOR_COEFF_SIZE_V1_7 (2 * MDP_GAMUT_TABLE_V1_7_SZ * 4)
+/* 16 entries for c0,c1,c2 */
+#define GAMUT_SCALE_OFFSET_SIZE_V1_7 (3 * MDP_GAMUT_SCALE_OFF_SZ)
+#define GAMUT_TOTAL_TABLE_SIZE_V1_7 (GAMUT_COLOR_COEFF_SIZE_V1_7 + \
+				  GAMUT_SCALE_OFFSET_SIZE_V1_7)
 
 /* PP Feature Operations */
 enum pp_features {
@@ -40,9 +48,17 @@ enum pp_features {
 };
 
 enum pp_block_opmodes {
-	PP_OPMODE_VIG,
+	PP_OPMODE_VIG = 1,
 	PP_OPMODE_DSPP,
 	PP_OPMODE_MAX
+};
+
+enum pp_config_block {
+	SSPP_RGB = 1,
+	SSPP_DMA,
+	SSPP_VIG,
+	DSPP,
+	LM
 };
 
 struct mdp_pp_feature_ops {
@@ -58,6 +74,10 @@ struct mdp_pp_driver_ops {
 	struct mdp_pp_feature_ops pp_ops[PP_FEATURE_MAX];
 	void (*pp_opmode_config)(int location, struct pp_sts_type *pp_sts,
 			u32 *opmode, int side);
+};
+
+struct mdss_pp_res_type_v1_7 {
+	struct mdp_gamut_data_v1_7 gamut_v17_data[MDSS_BLOCK_DISP_NUM];
 };
 
 #ifdef CONFIG_ARCH_MSMTHULIUM
