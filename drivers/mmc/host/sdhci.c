@@ -1087,10 +1087,9 @@ static void sdhci_finish_command(struct sdhci_host *host)
 		}
 	}
 
-	host->cmd->error = 0;
-
 	/* Finished CMD23, now send actual command. */
 	if (host->cmd == host->mrq->sbc) {
+		host->cmd->error = 0;
 		host->cmd = NULL;
 		sdhci_send_command(host, host->mrq->cmd);
 	} else {
