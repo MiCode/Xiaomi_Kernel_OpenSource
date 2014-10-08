@@ -25,6 +25,7 @@
 #define SCM_SVC_DCVS			0xD
 #define SCM_SVC_ES			0x10
 #define SCM_SVC_HDCP			0x11
+#define SCM_SVC_LMH			0x13
 #define SCM_SVC_TZSCHEDULER		0xFC
 
 #define SCM_FUSE_READ			0x7
