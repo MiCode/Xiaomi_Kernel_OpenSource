@@ -417,11 +417,23 @@ static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 	int ret;
 
 	if (!list_empty(&wb->register_queue)) {
+		struct ion_client *iclient = mdss_get_ionclient();
+		struct ion_handle *ihdl;
+
+		ihdl = ion_import_dma_buf(iclient, data->memory_id);
+		if (IS_ERR_OR_NULL(ihdl)) {
+			pr_err("unable to import fd %d\n", data->memory_id);
+			return NULL;
+		}
+		/* only interested in ptr address, so we can free handle */
+		ion_free(iclient, ihdl);
+
 		list_for_each_entry(node, &wb->register_queue, registered_entry)
-			if ((node->buf_info.memory_id == data->memory_id) &&
+			if ((node->buf_data.p[0].srcp_ihdl == ihdl) &&
 				    (node->buf_info.offset == data->offset)) {
-				pr_debug("found node fd=%x off=%x addr=%pa\n",
-						data->memory_id, data->offset,
+				pr_debug("found fd=%d hdl=%p off=%x addr=%pa\n",
+						data->memory_id, ihdl,
+						data->offset,
 						&node->buf_data.p[0].addr);
 				return node;
 			}
@@ -485,8 +497,10 @@ static void mdss_mdp_wb_free_node(struct mdss_mdp_wb_data *node)
 
 	if (node->user_alloc) {
 		buf = &node->buf_data.p[0];
-		pr_debug("free user node mem_id=%d offset=%u addr=0x%pa\n",
+
+		pr_debug("free user mem_id=%d ihdl=%p, offset=%u addr=0x%pa\n",
 				node->buf_info.memory_id,
+				buf->srcp_ihdl,
 				node->buf_info.offset,
 				&buf->addr);
 
