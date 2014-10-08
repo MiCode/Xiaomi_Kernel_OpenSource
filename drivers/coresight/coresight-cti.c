@@ -94,7 +94,6 @@ struct cti_drvdata {
 	int				cpu;
 	bool				cti_save;
 	bool				cti_hwclk;
-	bool				cti_ack_atomic;
 	bool				l2_off;
 	struct cti_state		*state;
 	struct cti_pctrl		*gpio_trigin;
@@ -702,12 +701,6 @@ int coresight_cti_ack_trig(struct coresight_cti *cti, int trig)
 
 	drvdata = to_cti_drvdata(cti);
 
-	if (!drvdata->cti_ack_atomic) {
-		ret = clk_prepare_enable(drvdata->clk);
-		if (ret)
-			return ret;
-	}
-
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 	ret = cti_cpu_verify_access(drvdata);
 	if (ret)
@@ -716,9 +709,6 @@ int coresight_cti_ack_trig(struct coresight_cti *cti, int trig)
 	ret = __cti_ack_trig(drvdata, trig);
 err:
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
-
-	if (!drvdata->cti_ack_atomic)
-		clk_disable_unprepare(drvdata->clk);
 	return ret;
 }
 EXPORT_SYMBOL(coresight_cti_ack_trig);
@@ -1291,21 +1281,13 @@ static int cti_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-	if (pdev->dev.of_node) {
-		drvdata->cti_ack_atomic =
-			 of_property_read_bool(pdev->dev.of_node,
-					       "qcom,cti-ack-atomic");
-
+	if (pdev->dev.of_node)
 		drvdata->cti_save = of_property_read_bool(pdev->dev.of_node,
 							  "qcom,cti-save");
-	}
-
 	if (drvdata->cti_save)
 		drvdata->cti_hwclk = of_property_read_bool(pdev->dev.of_node,
 							   "qcom,cti-hwclk");
-
-	if ((drvdata->cti_save && !drvdata->cti_hwclk) ||
-	    drvdata->cti_ack_atomic) {
+	if (drvdata->cti_save && !drvdata->cti_hwclk) {
 		ret = clk_prepare_enable(drvdata->clk);
 		if (ret)
 			return ret;
@@ -1368,8 +1350,7 @@ static int cti_probe(struct platform_device *pdev)
 	dev_info(dev, "CTI initialized\n");
 	return 0;
 err:
-	if ((drvdata->cti_save && !drvdata->cti_hwclk) ||
-	    drvdata->cti_ack_atomic)
+	if (drvdata->cti_save && !drvdata->cti_hwclk)
 		clk_disable_unprepare(drvdata->clk);
 	return ret;
 }
@@ -1378,8 +1359,7 @@ static int cti_remove(struct platform_device *pdev)
 {
 	struct cti_drvdata *drvdata = platform_get_drvdata(pdev);
 
-	if ((drvdata->cti_save && !drvdata->cti_hwclk) ||
-	    drvdata->cti_ack_atomic)
+	if (drvdata->cti_save && !drvdata->cti_hwclk)
 		clk_disable_unprepare(drvdata->clk);
 	coresight_unregister(drvdata->csdev);
 	return 0;
