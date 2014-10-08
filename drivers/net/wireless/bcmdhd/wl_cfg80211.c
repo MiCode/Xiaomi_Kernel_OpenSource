@@ -4027,8 +4027,10 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	ext_join_params->assoc.chanspec_num = chan_cnt;
 	if (chan_cnt) {
 		if (use_chan_cache) {
+#ifdef ROAM_CHANNEL_CACHE
 			memcpy(ext_join_params->assoc.chanspec_list, chanspec_list,
 				sizeof(chanspec_t) * chan_cnt);
+#endif
 		} else {
 			u16 channel, band, bw, ctl_sb;
 			chanspec_t chspec;
