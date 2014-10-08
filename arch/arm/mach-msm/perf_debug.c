@@ -51,6 +51,7 @@ static char *descriptions =
 	"26 Perf: interrupt disable without bringing cpus up\n"
 	"27 Perf: stop counters when going into hotplug\n"
 	"28 ARM: dts: msm: add perf-events support for msm8909\n"
+	"29 msm: perf: Refine disable/enable in tracecounters\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
