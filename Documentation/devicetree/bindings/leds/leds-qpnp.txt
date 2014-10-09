@@ -19,7 +19,7 @@ Required properties for each child node, WLED, Flash and RGB:
 - qcom,max-current	: maximum current that the LED can sustain in mA
 - linux,name		: name of the led that is used in led framework
 
-Optional properties for each child node, WLED, Flash, MPP and RGB:
+Optional properties for each child node, WLED, Flash, MPP, RGB and KPDBL:
 - qcom,in-order-command-processing : specify if user space requests leds in order
 
 WLED is primarily used as display backlight. Display subsystem uses
@@ -127,6 +127,7 @@ Optional properties for keypad backlight:
 			for vph_pwr.
 - qcom,row-src-en: specify to enable row source
 - qcom,always-on: specify if the module has to be always on
+- qcom,use-blink: Use blink sysfs entry for switching into lpg mode.  For optimal use, set default mode to pwm.  All required lpg parameters must be supplied.
 
 Required properties for PWM mode only:
 - pwms: Use the phandle of pwm device
