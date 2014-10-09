@@ -119,3 +119,7 @@
 &sdhc_2 {
 	cd-gpios = <&msm_gpio 38 0x1>;
 };
+
+&pm8916_l6 {
+	regulator-always-on;
+};
