@@ -87,7 +87,7 @@ static int update_vdd(struct clk_vdd_class *vdd_class)
 	new_base = level * n_reg;
 	for (i = 0; i < vdd_class->num_regulators; i++) {
 		rc = regulator_set_voltage(r[i], uv[new_base + i],
-					   uv[max_lvl + i]);
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 		if (rc)
 			goto set_voltage_fail;
 
@@ -118,16 +118,19 @@ enable_disable_fail:
 	 * previous voltage setting for r[i] first.
 	 */
 	if (ua) {
-		regulator_set_voltage(r[i], uv[cur_base + i], uv[max_lvl + i]);
+		regulator_set_voltage(r[i], uv[cur_base + i],
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 		regulator_set_optimum_mode(r[i], ua[cur_base + i]);
 	}
 
 set_mode_fail:
-	regulator_set_voltage(r[i], uv[cur_base + i], uv[max_lvl + i]);
+	regulator_set_voltage(r[i], uv[cur_base + i],
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 
 set_voltage_fail:
 	for (i--; i >= 0; i--) {
-		regulator_set_voltage(r[i], uv[cur_base + i], uv[max_lvl + i]);
+		regulator_set_voltage(r[i], uv[cur_base + i],
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
 		if (ua)
 			regulator_set_optimum_mode(r[i], ua[cur_base + i]);
 		if (cur_lvl == 0 || cur_lvl == vdd_class->num_levels)
