@@ -170,25 +170,6 @@ static inline int set_window_helper(
 			 usecs_to_jiffies(tunables->timer_rate));
 }
 
-/*
- * Scheduler holds various locks when sending load change notification.
- * Attempting to wake up a thread or schedule a work could result in a
- * deadlock. Therefore we schedule the timer to fire immediately.
- * Since we are just re-evaluating previous window's load, we
- * should not push back slack timer.
- */
-static void cpufreq_interactive_timer_resched_now(unsigned long cpu)
-{
-	unsigned long flags;
-	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
-
-	spin_lock_irqsave(&pcpu->load_lock, flags);
-	del_timer(&pcpu->cpu_timer);
-	pcpu->cpu_timer.expires = jiffies;
-	add_timer_on(&pcpu->cpu_timer, cpu);
-	spin_unlock_irqrestore(&pcpu->load_lock, flags);
-}
-
 static void cpufreq_interactive_timer_resched(unsigned long cpu)
 {
 	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
@@ -431,10 +412,9 @@ static void cpufreq_interactive_timer(unsigned long data)
 		/*
 		 * Unlock early to avoid deadlock.
 		 *
-		 * cpufreq_interactive_timer_resched_now() is called
-		 * in thread migration notification which already holds
-		 * rq lock. Then it locks load_lock to avoid racing with
-		 * cpufreq_interactive_timer_resched/start().
+		 * load_change_callback() for thread migration already
+		 * holds rq lock. Then it locks load_lock to avoid racing
+		 * with cpufreq_interactive_timer_resched/start().
 		 * sched_get_busy() will also acquire rq lock. Thus we
 		 * can't hold load_lock when calling sched_get_busy().
 		 *
@@ -752,18 +732,27 @@ static int load_change_callback(struct notifier_block *nb, unsigned long val,
 	struct cpufreq_interactive_cpuinfo *pcpu = &per_cpu(cpuinfo, cpu);
 	struct cpufreq_interactive_tunables *tunables;
 
-	/*
-	 * We can't acquire enable_sem here. However, this doesn't matter
-	 * because timer function will grab it and check if governor is
-	 * enabled before doing anything. Therefore the execution is
-	 * still correct.
-	 */
-	if (pcpu->governor_enabled) {
-		tunables = per_cpu(cpuinfo, pcpu->first_cpu).cached_tunables;
-		if (tunables->use_sched_load && tunables->use_migration_notif)
-			cpufreq_interactive_timer_resched_now(cpu);
+	if (speedchange_task == current)
+		return 0;
+
+	if (!down_read_trylock(&pcpu->enable_sem))
+		return 0;
+	if (!pcpu->governor_enabled) {
+		up_read(&pcpu->enable_sem);
+		return 0;
+	}
+	tunables = pcpu->policy->governor_data;
+	if (!tunables->use_sched_load || !tunables->use_migration_notif) {
+		up_read(&pcpu->enable_sem);
+		return 0;
 	}
 
+	trace_cpufreq_interactive_load_change(cpu);
+	del_timer(&pcpu->cpu_timer);
+	del_timer(&pcpu->cpu_slack_timer);
+	cpufreq_interactive_timer(cpu);
+
+	up_read(&pcpu->enable_sem);
 	return 0;
 }
 
