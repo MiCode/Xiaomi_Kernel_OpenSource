@@ -68,7 +68,6 @@ void __weak arch_cpu_idle(void)
 static void cpu_idle_loop(void)
 {
 	while (1) {
-		arch_cpu_idle_enter();
 		tick_nohz_idle_enter();
 
 		while (!need_resched()) {
@@ -76,6 +75,7 @@ static void cpu_idle_loop(void)
 			rmb();
 
 			local_irq_disable();
+			arch_cpu_idle_enter();
 
 			/*
 			 * In poll mode we reenable interrupts and spin.
@@ -101,9 +101,9 @@ static void cpu_idle_loop(void)
 				}
 				__current_set_polling();
 			}
+			arch_cpu_idle_exit();
 		}
 		tick_nohz_idle_exit();
-		arch_cpu_idle_exit();
 		schedule_preempt_disabled();
 		if (cpu_is_offline(smp_processor_id()))
 			arch_cpu_idle_dead();
