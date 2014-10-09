@@ -19,6 +19,7 @@
  * of the Materials, either expressly, by implication, inducement, estoppel
  * or otherwise. Any license under such intellectual property rights must be
  * express and approved by Intel in writing.
+ *
  */
 
 #ifndef _VIDEO_INTEL_ADF_H_
@@ -31,7 +32,7 @@
  * to match compatible versions should result in the user mode falling back to
  * the baseline simple post.
  */
-#define INTEL_ADF_VERSION 1
+#define INTEL_ADF_VERSION 2
 
 enum intel_adf_compression {
 	INTEL_ADF_UNCOMPRESSED,
@@ -72,6 +73,14 @@ struct intel_adf_color {
 	__u32	color;
 };
 
+enum intel_adf_colorspace {
+	INTEL_ADF_COLORSPACE_ARBITRARY,
+	INTEL_ADF_COLORSPACE_JFIF,
+	INTEL_ADF_COLORSPACE_BT601_625,
+	INTEL_ADF_COLORSPACE_BT601_525,
+	INTEL_ADF_COLORSPACE_BT709,
+};
+
 enum intel_adf_plane_flags {
 	INTEL_ADF_PLANE_DISABLE		= 0x0001,
 	/* User indication that this plane is unchanged since the last post */
@@ -110,9 +119,9 @@ struct intel_adf_plane {
 	 * overlay engine assigned to adf_buffer
 	 **/
 	__u8	overlay_id;
-	__u8	inteface_id;
+	__u8	interface_id;
 	__u8	buffer_id;
-	__u16	flags;
+	__u8	alpha;
 	__s16	dst_x;
 	__s16	dst_y;
 	__u16	dst_w;
@@ -121,10 +130,11 @@ struct intel_adf_plane {
 	__s32	src_y;
 	__u32	src_w;
 	__u32	src_h;
-	__u8	alpha;
-	enum intel_adf_compression	compression:4;
-	enum intel_adf_blending		blending:4;
-	enum intel_adf_transform	transform:4;
+	__u16	flags;
+	enum intel_adf_blending		blending:2;
+	enum intel_adf_transform	transform:3;
+	enum intel_adf_compression	compression:3;
+	enum intel_adf_colorspace       colorspace:4;   /* Buffer Colorspace */
 	__u8	pad:4;
 };
 
@@ -155,7 +165,8 @@ enum intel_adf_pfitter_flags {
  * src_h:	source height
  */
 struct intel_adf_panelfitter {
-	__u8	verlay_id;
+	__u8	interface_id;
+	__u8	overlay_id;
 	__u8	pad;
 	__u16	flags;
 	__s16	dst_x;
@@ -175,7 +186,14 @@ struct intel_adf_panelfitter {
  */
 struct intel_adf_overlay {
 	union {
-		__u8	overlay_id;
+		/* Common overlay header for all overlay types */
+		struct {
+			/* index of the interface for this plane */
+			__u8	interface_id;
+			/* index of the overlay engine for this panel fitter */
+			__u8    overlay_id;
+		};
+
 		struct intel_adf_color		color;
 		struct intel_adf_plane		plane;
 		struct intel_adf_panelfitter	panelfitter;
@@ -205,8 +223,9 @@ enum intel_adf_post_flags {
  */
 struct intel_adf_post_custom_data {
 	__u32				version;
-	enum intel_adf_post_flags	flags;
+	__u32				flags;
 	__u32				num_overlays;
+	__u32				zorder;
 
 	/* Z order (on hardware that supports it) is defined by the order of
 	 * these planes entry [0] is backmost, entry [num_overlays-1] is

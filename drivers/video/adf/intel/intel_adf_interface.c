@@ -162,7 +162,7 @@ static int intel_interface_describe_simple_post(
 	custom_data->flags = 0;
 	custom_data->num_overlays = 1;
 	custom_data->overlays[0].plane.overlay_id = -1;
-	custom_data->overlays[0].plane.inteface_id = intf->idx;
+	custom_data->overlays[0].plane.interface_id = intf->idx;
 	custom_data->overlays[0].plane.buffer_id = 0;
 	custom_data->overlays[0].plane.flags = 0;
 	custom_data->overlays[0].plane.dst_x = 0;

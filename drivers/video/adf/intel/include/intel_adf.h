@@ -25,7 +25,7 @@
 #if defined(CONFIG_ADF_FBDEV)
 #include "intel_adf_fbdev.h"
 #endif
-#include "uapi/intel_adf.h"
+#include <video/intel_adf.h>
 
 /* Custom IOCTL for Intel platforms */
 #define INTEL_ADF_DPST_CONTEXT		ADF_IOCTL_NR_CUSTOM

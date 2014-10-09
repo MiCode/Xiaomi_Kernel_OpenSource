@@ -355,10 +355,10 @@ static int intel_adf_device_validate(struct adf_device *dev,
 		}
 		/*verify interface id set in plane*/
 		intf = idr_find(&dev->interfaces,
-			custom_overlay->plane.inteface_id);
+			custom_overlay->plane.interface_id);
 		if (!intf) {
 			dev_err(dev->dev, "%s: invalid interface id %d\n",
-				__func__, custom_overlay->plane.inteface_id);
+				__func__, custom_overlay->plane.interface_id);
 			err = -EINVAL;
 			goto err;
 		}
