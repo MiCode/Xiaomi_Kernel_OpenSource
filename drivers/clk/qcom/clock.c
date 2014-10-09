@@ -777,7 +777,7 @@ static int __handoff_clk(struct clk *clk)
 	if (clk->init_rate && clk_set_rate(clk, clk->init_rate))
 		pr_err("failed to set an init rate of %lu on %s\n",
 			clk->init_rate, clk->dbg_name);
-	if (clk->always_on && clk->init_rate && clk_prepare_enable(clk))
+	if (clk->always_on && clk_prepare_enable(clk))
 		pr_err("failed to enable always-on clock %s\n",
 			clk->dbg_name);
 

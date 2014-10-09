@@ -147,7 +147,6 @@ General Optional Properties available to any Clock Subnode
 
 - qcom,always-on:	Boolean.
 			Enable a clock at boot, and leave it on all the time.
-			Requires qcom,config-rate to be set.
 
 mmssnoc_axi: mmssnoc_axi {
 	qcom,clk-flags = <0x1000>;
