@@ -157,17 +157,10 @@ static void vlv_pri_resume(struct intel_dc_component *comp)
 	return;
 }
 
-static int vlv_pri_validate(struct intel_plane *plane,
-		struct intel_buffer *buf,
-		struct intel_plane_config *config)
-{
-	u32 format_config;
-	u8 bpp;
-	return get_format_config(buf->format, &format_config, &bpp);
-}
-
-/* Computes the linear offset to the base tile and adjusts x, y. bytes per pixel
-* is assumed to be a power-of-two. */
+/*
+ * Computes the linear offset to the base tile and adjusts x, y.
+ * bytes per pixel is assumed to be a power-of-two.
+ */
 unsigned long vlv_compute_page_offset(int *x, int *y,
 					unsigned int tiling_mode,
 					unsigned int cpp,
@@ -192,16 +185,16 @@ unsigned long vlv_compute_page_offset(int *x, int *y,
 	}
 }
 
-static void vlv_pri_flip(struct intel_plane *plane,
+static int vlv_pri_calculate(struct intel_plane *plane,
 		struct intel_buffer *buf,
 		struct intel_plane_config *config)
 {
 	struct vlv_pri_plane *pri_plane = to_vlv_pri_plane(plane);
 	struct pri_plane_regs_value *regs = &pri_plane->ctx.regs;
 	int src_x, src_y;
+	u32 pidx = pri_plane->ctx.plane;
 	u32 format_config = 0;
 	u8 bpp = 0;
-	u32 pidx = pri_plane->ctx.plane;
 	unsigned long dspaddr_offset;
 
 	get_format_config(buf->format, &format_config, &bpp);
@@ -213,24 +206,35 @@ static void vlv_pri_flip(struct intel_plane *plane,
 	regs->dspcntr |= DISPLAY_PLANE_ENABLE;
 	regs->dspcntr &= ~DISPPLANE_PIXFORMAT_MASK;
 	regs->dspcntr |= format_config;
-
 	if (buf->tiling_mode != I915_TILING_NONE)
 		regs->dspcntr |= DISPPLANE_TILED;
 	else
 		regs->dspcntr &= ~DISPPLANE_TILED;
-
 	regs->stride = buf->stride;
-
 	regs->linearoff = src_y * regs->stride + src_x * bpp;
-
 	dspaddr_offset = vlv_compute_page_offset(&src_x, &src_y,
 				buf->tiling_mode, bpp, regs->stride);
-
 	regs->linearoff -= dspaddr_offset;
-
 	regs->tileoff = (src_y << 16) | src_x;
-
 	regs->surfaddr = (buf->gtt_offset_in_pages + dspaddr_offset);
+
+	return 0;
+}
+
+static int vlv_pri_validate(struct intel_plane *plane,
+		struct intel_buffer *buf,
+		struct intel_plane_config *config)
+{
+	return vlv_pri_calculate(plane, buf, config);
+}
+
+static void vlv_pri_flip(struct intel_plane *plane,
+		struct intel_buffer *buf,
+		struct intel_plane_config *config)
+{
+	struct vlv_pri_plane *pri_plane = to_vlv_pri_plane(plane);
+	struct pri_plane_regs_value *regs = &pri_plane->ctx.regs;
+	u32 pidx = pri_plane->ctx.plane;
 
 	REG_WRITE(DSPCNTR(pidx), regs->dspcntr);
 	REG_WRITE(DSPSTRIDE(pidx), regs->stride);

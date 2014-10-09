@@ -230,6 +230,85 @@ static bool format_is_yuv(uint32_t format)
 	}
 }
 
+static int vlv_sp_calculate(struct intel_plane *planeptr,
+			    struct intel_buffer *buf,
+			    struct intel_plane_config *config)
+{
+	struct vlv_sp_plane *splane = to_vlv_sp_plane(planeptr);
+	int plane = splane->ctx.plane;
+	int pipe = splane->ctx.pipe;
+	int s1_zorder, s1_bottom, s2_zorder, s2_bottom;
+	int order = config->zorder & 0x000F;
+	struct sp_plane_regs_value *regs = &splane->ctx.regs;
+	u32 hw_format = 0;
+	u32 bpp = 0;
+	u32 sprctl;
+	u32 dst_w = (config->dst_w & VLV_SP_12BIT_MASK) - 1;
+	u32 dst_h = (config->dst_h & VLV_SP_12BIT_MASK) - 1;
+	u32 src_x = config->src_x & VLV_SP_12BIT_MASK;
+	u32 src_y = config->src_y & VLV_SP_12BIT_MASK;
+	u32 dst_x = config->dst_x & VLV_SP_12BIT_MASK;
+	u32 dst_y = config->dst_y & VLV_SP_12BIT_MASK;
+	unsigned long sprsurf_offset, linear_offset;
+
+	/* Z-order */
+	s1_zorder = (order >> 3) & 0x1;
+	s1_bottom = (order >> 2) & 0x1;
+	s2_zorder = (order >> 1) & 0x1;
+	s2_bottom = (order >> 0) & 0x1;
+
+	get_format_config(buf->format, &hw_format, &bpp);
+	sprctl = REG_READ(SPCNTR(pipe, plane));
+
+	if (plane == 0) {
+		if (s1_zorder)
+			sprctl |= SPRITE_ZORDER_ENABLE;
+		else
+			sprctl &= ~SPRITE_ZORDER_ENABLE;
+
+		if (s1_bottom)
+			sprctl |= SPRITE_FORCE_BOTTOM;
+		else
+			sprctl &= ~SPRITE_FORCE_BOTTOM;
+	} else {
+		if (s2_zorder)
+			sprctl |= SPRITE_ZORDER_ENABLE;
+		else
+			sprctl &= ~SPRITE_ZORDER_ENABLE;
+		if (s2_bottom)
+			sprctl |= SPRITE_FORCE_BOTTOM;
+		else
+			sprctl &= ~SPRITE_FORCE_BOTTOM;
+	}
+
+	/* Mask out pixel format bits in case we change it */
+	sprctl &= ~SP_PIXFORMAT_MASK;
+	sprctl &= ~SP_YUV_BYTE_ORDER_MASK;
+	sprctl &= ~SP_TILED;
+
+	sprctl |= hw_format;
+	sprctl |= SP_GAMMA_ENABLE;
+
+	if (buf->tiling_mode != I915_TILING_NONE)
+		sprctl |= SP_TILED;
+
+	sprctl |= SP_ENABLE;
+	regs->dspcntr = sprctl;
+
+	linear_offset = src_y * buf->stride + src_x * bpp;
+	sprsurf_offset = vlv_compute_page_offset(&src_x, &src_y,
+			buf->tiling_mode, bpp, buf->stride);
+	regs->linearoff = linear_offset - sprsurf_offset;
+
+	regs->stride = buf->stride;
+	regs->pos = ((dst_y << 16) | dst_x);
+	regs->tileoff = (src_y << 16) | src_x;
+	regs->size = (dst_h << 16) | dst_w;
+	regs->surfaddr = (buf->gtt_offset_in_pages + sprsurf_offset);
+
+	return 0;
+}
+
 static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 		struct intel_plane_config *config)
 {
@@ -319,82 +398,16 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 		return -EINVAL;
 	}
 
-	return 0;
+	return vlv_sp_calculate(plane, buf, config);
 }
 
 static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 			struct intel_plane_config *config)
 {
 	struct vlv_sp_plane *splane = to_vlv_sp_plane(planeptr);
+	struct sp_plane_regs_value *regs = &splane->ctx.regs;
 	int plane = splane->ctx.plane;
 	int pipe = splane->ctx.pipe;
-	struct sp_plane_regs_value *regs = &splane->ctx.regs;
-	int s1_zorder, s1_bottom, s2_zorder, s2_bottom;
-	int order = config->zorder & 0x000F;
-	u32 hw_format = 0;
-	u32 bpp = 0;
-	u32 sprctl;
-	u32 dst_w = (config->dst_w & VLV_SP_12BIT_MASK) - 1;
-	u32 dst_h = (config->dst_h & VLV_SP_12BIT_MASK) - 1;
-	u32 src_x = config->src_x & VLV_SP_12BIT_MASK;
-	u32 src_y = config->src_y & VLV_SP_12BIT_MASK;
-	u32 dst_x = config->dst_x & VLV_SP_12BIT_MASK;
-	u32 dst_y = config->dst_y & VLV_SP_12BIT_MASK;
-	unsigned long sprsurf_offset, linear_offset;
-
-	s1_zorder = (order >> 3) & 0x1;
-	s1_bottom = (order >> 2) & 0x1;
-	s2_zorder = (order >> 1) & 0x1;
-	s2_bottom = (order >> 0) & 0x1;
-
-	get_format_config(buf->format, &hw_format, &bpp);
-	sprctl = REG_READ(SPCNTR(pipe, plane));
-
-	if (plane == 0) {
-		if (s1_zorder)
-			sprctl |= SPRITE_ZORDER_ENABLE;
-		else
-			sprctl &= ~SPRITE_ZORDER_ENABLE;
-
-		if (s1_bottom)
-			sprctl |= SPRITE_FORCE_BOTTOM;
-		else
-			sprctl &= ~SPRITE_FORCE_BOTTOM;
-	} else {
-		if (s2_zorder)
-			sprctl |= SPRITE_ZORDER_ENABLE;
-		else
-			sprctl &= ~SPRITE_ZORDER_ENABLE;
-		if (s2_bottom)
-			sprctl |= SPRITE_FORCE_BOTTOM;
-		else
-			sprctl &= ~SPRITE_FORCE_BOTTOM;
-	}
-
-	/* Mask out pixel format bits in case we change it */
-	sprctl &= ~SP_PIXFORMAT_MASK;
-	sprctl &= ~SP_YUV_BYTE_ORDER_MASK;
-	sprctl &= ~SP_TILED;
-
-	sprctl |= hw_format;
-	sprctl |= SP_GAMMA_ENABLE;
-
-	if (buf->tiling_mode != I915_TILING_NONE)
-		sprctl |= SP_TILED;
-
-	sprctl |= SP_ENABLE;
-	regs->dspcntr = sprctl;
-
-	linear_offset = src_y * buf->stride + src_x * bpp;
-	sprsurf_offset = vlv_compute_page_offset(&src_x, &src_y,
-			buf->tiling_mode, bpp, buf->stride);
-	regs->linearoff = linear_offset - sprsurf_offset;
-
-	regs->stride = buf->stride;
-	regs->pos = ((dst_y << 16) | dst_x);
-	regs->tileoff = (src_y << 16) | src_x;
-	regs->size = (dst_h << 16) | dst_w;
-	regs->surfaddr = (buf->gtt_offset_in_pages + sprsurf_offset);
 
 	REG_WRITE(SPSTRIDE(pipe, plane), regs->stride);
 	REG_WRITE(SPPOS(pipe, plane), regs->pos);
