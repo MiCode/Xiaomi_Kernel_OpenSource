@@ -36,9 +36,21 @@ enum mdss_dbg_reg_dump_flag {
 	MDSS_REG_DUMP_IN_MEM = BIT(1),
 };
 
-#define MDSS_XLOG(...) mdss_xlog(__func__, ##__VA_ARGS__, DATA_LIMITER)
+enum mdss_dbg_xlog_flag {
+	MDSS_XLOG_DEFAULT = BIT(0),
+	MDSS_XLOG_ALL = BIT(7),
+};
+
+#define MDSS_XLOG(...) mdss_xlog(__func__, MDSS_XLOG_DEFAULT, ##__VA_ARGS__, \
+		DATA_LIMITER)
+
 #define MDSS_XLOG_TOUT_HANDLER(...)	\
-	mdss_xlog_tout_handler(__func__, ##__VA_ARGS__, XLOG_TOUT_DATA_LIMITER)
+	mdss_xlog_tout_handler_default(__func__, ##__VA_ARGS__, \
+		XLOG_TOUT_DATA_LIMITER)
+
+#define MDSS_XLOG_ALL(...) mdss_xlog(__func__, MDSS_XLOG_ALL, \
+		##__VA_ARGS__, DATA_LIMITER)
+
 
 #define ATRACE_END(name) trace_tracing_mark_write(current->tgid, name, 0)
 #define ATRACE_BEGIN(name) trace_tracing_mark_write(current->tgid, name, 1)
@@ -91,10 +103,9 @@ int mdss_misr_get(struct mdss_data_type *mdata, struct mdp_misr *resp,
 void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id);
 
 int mdss_create_xlog_debug(struct mdss_debug_data *mdd);
-void mdss_xlog(const char *name, ...);
-void mdss_xlog_dump(void);
+void mdss_xlog(const char *name, int flag, ...);
 void mdss_dump_reg(struct mdss_debug_base *dbg, u32 reg_dump_flag);
-void mdss_xlog_tout_handler(const char *name, ...);
+void mdss_xlog_tout_handler_default(const char *name, ...);
 #else
 static inline int mdss_debugfs_init(struct mdss_data_type *mdata) { return 0; }
 static inline int mdss_debugfs_remove(struct mdss_data_type *mdata)
@@ -119,8 +130,9 @@ static inline void mdss_xlog(const char *name, ...) { }
 static inline void mdss_xlog_dump(void) { }
 static inline void mdss_dump_reg(struct mdss_debug_base *dbg,
 	u32 reg_dump_flag) { }
+static inline void mdss_xlog(const char *name, int flag...) { }
 static inline void mdss_dsi_debug_check_te(struct mdss_panel_data *pdata) { }
-static inline void mdss_xlog_tout_handler(const char *name, ...) { }
+static inline void mdss_xlog_tout_handler_default(const char *name, ...) { }
 #endif
 
 static inline int mdss_debug_register_io(const char *name,
