@@ -439,27 +439,12 @@ static const struct of_device_id msm_vidc_dt_match[] = {
 	{}
 };
 
-static int msm_vidc_probe(struct platform_device *pdev)
+static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct msm_vidc_core *core;
 	struct device *dev;
 	int nr = BASE_DEVICE_NUMBER;
-
-	if (of_device_is_compatible(pdev->dev.of_node,
-		"qcom,msm-vidc,context-bank")) {
-		/* Extracting the parent device pointer for sub devices */
-		dev = pdev->dev.parent;
-		core = dev->platform_data;
-		rc = msm_vidc_populate_context_bank(&pdev->dev,
-				&core->resources);
-		if (rc)
-			dprintk(VIDC_ERR, "Failed to probe context bank\n");
-		else
-			dprintk(VIDC_DBG, "Successfully probed context bank\n");
-		/* get out of here! */
-		return rc;
-	}
 
 	core = kzalloc(sizeof(*core), GFP_KERNEL);
 	if (!core || !vidc_driver) {
@@ -560,15 +545,6 @@ static int msm_vidc_probe(struct platform_device *pdev)
 		goto err_cores_exceeded;
 	}
 
-	if (core->resources.use_non_secure_pil) {
-		rc = venus_boot_init(&core->resources);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to init non-secure PIL %d\n", rc);
-			goto err_non_sec_pil_init;
-		}
-	}
-
 	mutex_lock(&vidc_driver->lock);
 	list_add_tail(&core->list, &vidc_driver->cores);
 	mutex_unlock(&vidc_driver->lock);
@@ -588,11 +564,12 @@ static int msm_vidc_probe(struct platform_device *pdev)
 		&pdev->dev);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to trigger probe for sub-devices\n");
-		goto err_cores_exceeded;
+		goto err_fail_sub_device_probe;
 	}
 
 	return rc;
-err_non_sec_pil_init:
+
+err_fail_sub_device_probe:
 	vidc_hfi_deinitialize(core->hfi_type, core->device);
 err_cores_exceeded:
 	device_remove_file(&core->vdev[MSM_VIDC_ENCODER].vdev.dev,
@@ -612,6 +589,27 @@ err_core_init:
 	kfree(core);
 err_no_mem:
 	return rc;
+}
+
+static int msm_vidc_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	/*
+	 * Sub devices probe will be triggered by of_platform_populate()
+	 * towards the end of the probe function after msm-vidc device
+	 * probe is completed. Return immediately after completing sub-device
+	 * probe.
+	 */
+	if (of_device_is_compatible(pdev->dev.of_node,
+		"qcom,msm-vidc,context-bank")) {
+		rc = msm_vidc_probe_sub_devices(pdev);
+		if (rc)
+			dprintk(VIDC_ERR, "sub-devices probe failed\n");
+		return rc;
+	}
+
+	return msm_vidc_probe_vidc_device(pdev);
 }
 
 static int msm_vidc_remove(struct platform_device *pdev)

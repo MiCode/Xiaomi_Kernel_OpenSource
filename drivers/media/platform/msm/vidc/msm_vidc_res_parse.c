@@ -18,6 +18,7 @@
 #include "msm_vidc_debug.h"
 #include "msm_vidc_resources.h"
 #include "msm_vidc_res_parse.h"
+#include "venus_boot.h"
 
 enum clock_properties {
 	CLOCK_PROP_HAS_SCALING = 1 << 0,
@@ -684,7 +685,7 @@ release_mapping:
 	return rc;
 }
 
-int msm_vidc_populate_context_bank(struct device *dev,
+static int msm_vidc_populate_context_bank(struct device *dev,
 		struct msm_vidc_platform_resources *res)
 {
 	int rc = 0;
@@ -747,5 +748,53 @@ int msm_vidc_populate_context_bank(struct device *dev,
 		dprintk(VIDC_ERR, "Cannot setup context bank %d\n", rc);
 
 err_populate_cb:
+	return rc;
+}
+
+int msm_vidc_probe_sub_devices(struct platform_device *pdev)
+{
+	struct msm_vidc_core *core;
+	struct device *dev;
+	int rc = 0;
+
+	if (!pdev) {
+		dprintk(VIDC_ERR, "Invalid platform device\n");
+		return -EINVAL;
+	}
+
+	dev = pdev->dev.parent;
+	core = dev->platform_data;
+
+	if (!dev || !core) {
+		dprintk(VIDC_ERR, "%s - invalid dev (%p) or core(%p)\n",
+				__func__, dev, core);
+		return -EINVAL;
+	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,fw-context-bank")) {
+		if (core->resources.use_non_secure_pil) {
+			struct context_bank_info *cb;
+
+			cb = devm_kzalloc(dev, sizeof(*cb), GFP_KERNEL);
+			if (!cb) {
+				dprintk(VIDC_ERR, "alloc venus cb failed\n");
+				return -ENOMEM;
+			}
+			cb->dev = &pdev->dev;
+
+			rc = venus_boot_init(&core->resources, cb);
+			if (rc) {
+				dprintk(VIDC_ERR,
+				"Failed to init non-secure PIL %d\n", rc);
+			}
+		}
+	} else {
+		rc = msm_vidc_populate_context_bank(&pdev->dev,
+					&core->resources);
+		if (rc)
+			dprintk(VIDC_ERR, "Failed to probe context bank\n");
+		else
+			dprintk(VIDC_DBG, "Successfully probed context bank\n");
+	}
 	return rc;
 }
