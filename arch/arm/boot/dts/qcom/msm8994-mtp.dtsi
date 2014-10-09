@@ -744,3 +744,12 @@
 		qcom,recharge-thresh-mv = <100>;
 	};
 };
+
+&usb_ehci {
+	status = "ok";
+	qcom,usb2-enable-uicc;
+};
+
+&qusb_phy {
+	status = "ok";
+};
