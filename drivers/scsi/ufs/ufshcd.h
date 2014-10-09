@@ -389,6 +389,35 @@ struct ufs_saved_pwr_info {
 	bool is_valid;
 };
 
+/* Hibern8 state  */
+enum ufshcd_hibern8_on_idle_state {
+	HIBERN8_ENTERED,
+	HIBERN8_EXITED,
+	REQ_HIBERN8_ENTER,
+	REQ_HIBERN8_EXIT,
+};
+
+/**
+ * struct ufs_hibern8_on_idle - UFS Hibern8 on idle related data
+ * @enter_work: worker to put UFS link in hibern8 after some delay as
+ * specified in delay_ms
+ * @exit_work: worker to bring UFS link out of hibern8
+ * @state: the current hibern8 state
+ * @delay_ms: hibern8 enter delay in ms
+ * @is_suspended: hibern8 enter is suspended when set to 1 which can be used
+ * during suspend/resume
+ * @active_reqs: number of requests that are pending and should be waited for
+ * completion before scheduling delayed "enter_work".
+ */
+struct ufs_hibern8_on_idle {
+	struct delayed_work enter_work;
+	struct work_struct exit_work;
+	enum ufshcd_hibern8_on_idle_state state;
+	unsigned long delay_ms;
+	bool is_suspended;
+	int active_reqs;
+};
+
 /**
  * struct ufs_clk_scaling - UFS clock scaling related data
  * @active_reqs: number of requests that are pending. If this is zero when
@@ -552,6 +581,7 @@ struct ufs_stats {
  * @clk_list_head: UFS host controller clocks list node head
  * @pwr_info: holds current power mode
  * @max_pwr_info: keeps the device max valid pwm
+ * @hibern8_on_idle: UFS Hibern8 on idle related data
  * @desc_size: descriptor sizes reported by device
  * @urgent_bkops_lvl: keeps track of urgent bkops level for device
  * @is_urgent_bkops_lvl_checked: keeps track if the urgent bkops level for
@@ -741,6 +771,8 @@ struct ufs_hba {
 	struct ufs_pwr_mode_info max_pwr_info;
 
 	struct ufs_clk_gating clk_gating;
+	struct ufs_hibern8_on_idle hibern8_on_idle;
+
 	/* Control to enable/disable host capabilities */
 	u32 caps;
 	/* Allow dynamic clk gating */
@@ -757,6 +789,9 @@ struct ufs_hba {
 	 * CAUTION: Enabling this might reduce overall UFS throughput.
 	 */
 #define UFSHCD_CAP_INTR_AGGR (1 << 4)
+	/* Allow standalone Hibern8 enter on idle */
+#define UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE (1 << 5)
+
 	/*
 	 * This capability allows the device auto-bkops to be always enabled
 	 * except during suspend (both runtime and suspend).
@@ -793,6 +828,10 @@ static inline int ufshcd_is_clkscaling_supported(struct ufs_hba *hba)
 static inline bool ufshcd_can_autobkops_during_suspend(struct ufs_hba *hba)
 {
 	return hba->caps & UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
+}
+static inline bool ufshcd_is_hibern8_on_idle_allowed(struct ufs_hba *hba)
+{
+	return hba->caps & UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
 }
 
 static inline bool ufshcd_is_intr_aggr_allowed(struct ufs_hba *hba)
