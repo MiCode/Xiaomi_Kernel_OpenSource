@@ -127,6 +127,13 @@ Optional Properties:
 - qcom,cool-bat-mv		Maximum cool battery target voltage in milli-volts.
 - qcom,warm-bat-ma		Maximum warm battery charge current in milli-amps.
 - qcom,cool-bat-ma		Maximum cool battery charge current in milli-amps.
+- qcom,fg-reset-at-pon		This is a bool property which indicates if the
+				FG reset at power-on is enabled.
+- qcom,fg-reset-thresold-mv	This value indicates the volatge threshold to
+				reset the FG. This value is compared against
+				the difference between in predicted voltage and
+				current voltage. If this value is not specified
+				a default value of 50mV is used. Unit is in milli-volts.
 
 Example:
 	i2c@f9967000 {
@@ -176,5 +183,6 @@ Example:
 			qcom,cool-bat-ma = <750>;
 
 			qcom,otg-batt-curr-limit = <950>;
+			qcom,fg-reset-at-pon;
 		};
 	};

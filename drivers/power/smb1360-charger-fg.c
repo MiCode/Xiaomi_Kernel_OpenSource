@@ -211,6 +211,7 @@
 #define SHDW_FG_CURR_NOW		0x6B
 #define SHDW_FG_BATT_TEMP		0x6D
 
+#define VOLTAGE_PREDICTED_REG		0x80
 #define CC_TO_SOC_COEFF			0xBA
 #define NOMINAL_CAPACITY_REG		0xBC
 #define ACTUAL_CAPACITY_REG		0xBE
@@ -232,6 +233,7 @@
 #define MAX_8_BITS			255
 #define JEITA_WORK_MS			3000
 
+#define FG_RESET_THRESHOLD_MV		15
 #define SMB1360_REV_1			0x01
 
 enum {
@@ -321,6 +323,8 @@ struct smb1360_chip {
 	int				fg_cc_to_cv_mv;
 	int				fg_auto_recharge_soc;
 	bool				empty_soc_disabled;
+	int				fg_reset_threshold_mv;
+	bool				fg_reset_at_pon;
 
 	/* status tracking */
 	bool				usb_present;
@@ -2711,6 +2715,65 @@ static int smb1360_fg_config(struct smb1360_chip *chip)
 	int rc = 0, temp, fcc_mah;
 	u8 reg = 0, reg2[2];
 
+	if (chip->fg_reset_at_pon) {
+		int v_predicted, v_now;
+
+		rc = smb1360_enable_fg_access(chip);
+		if (rc) {
+			pr_err("Couldn't enable FG access rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smb1360_read_bytes(chip, VOLTAGE_PREDICTED_REG, reg2, 2);
+		if (rc) {
+			pr_err("Failed to read VOLTAGE_PREDICTED rc=%d\n", rc);
+			goto disable_fg_reset;
+		}
+		v_predicted = (reg2[1] << 8) | reg2[0];
+		v_predicted = div_u64(v_predicted * 5000, 0x7FFF);
+
+		rc = smb1360_read_bytes(chip, SHDW_FG_VTG_NOW, reg2, 2);
+		if (rc) {
+			pr_err("Failed to read SHDW_FG_VTG_NOW rc=%d\n", rc);
+			goto disable_fg_reset;
+		}
+		v_now = (reg2[1] << 8) | reg2[0];
+		v_now = div_u64(v_now * 5000, 0x7FFF);
+
+		pr_debug("v_predicted=%d v_now=%d reset_threshold=%d\n",
+			v_predicted, v_now, chip->fg_reset_threshold_mv);
+
+		/*
+		 * Reset FG if the predicted voltage is off wrt
+		 * the real-time voltage.
+		 */
+		temp = abs(v_predicted - v_now);
+		if (temp >= chip->fg_reset_threshold_mv) {
+			pr_info("Reseting FG - v_delta=%d threshold=%d\n",
+					temp, chip->fg_reset_threshold_mv);
+			/* delay for the FG access to settle */
+			msleep(1500);
+
+			/* reset FG */
+			rc = smb1360_masked_write(chip, CMD_I2C_REG,
+					FG_RESET_BIT, FG_RESET_BIT);
+			if (rc) {
+				pr_err("Couldn't reset FG rc=%d\n", rc);
+				goto disable_fg_reset;
+			}
+
+			/* un-reset FG */
+			rc = smb1360_masked_write(chip, CMD_I2C_REG,
+						FG_RESET_BIT, 0);
+			if (rc) {
+				pr_err("Couldn't un-reset FG rc=%d\n", rc);
+				goto disable_fg_reset;
+			}
+		}
+disable_fg_reset:
+		smb1360_disable_fg_access(chip);
+	}
+
 	/*
 	 * The below IRQ thresholds are not accessible in REV_1
 	 * of SMB1360.
@@ -3702,6 +3765,16 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 					&chip->fg_auto_recharge_soc);
 	if (rc < 0)
 		chip->fg_auto_recharge_soc = -EINVAL;
+
+	if (of_property_read_bool(node, "qcom,fg-reset-at-pon")) {
+		chip->fg_reset_at_pon = true;
+		rc = of_property_read_u32(node, "qcom,fg-reset-thresold-mv",
+						&chip->fg_reset_threshold_mv);
+		if (rc) {
+			pr_debug("FG reset voltage threshold not specified using 50mV\n");
+			chip->fg_reset_threshold_mv = FG_RESET_THRESHOLD_MV;
+		}
+	}
 
 	return 0;
 }
