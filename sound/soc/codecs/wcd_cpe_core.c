@@ -1048,14 +1048,18 @@ static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param)
 	}
 
 	codec = param->private_data;
-
-	if (!codec || !wcd_cpe_get_core_handle(codec)) {
-		pr_err("%s: Invalid handle to codec/core\n",
+	if (!codec) {
+		pr_err("%s: Invalid handle to codec\n",
 			__func__);
 		return;
 	}
 
 	core = wcd_cpe_get_core_handle(codec);
+	if (!core) {
+		pr_err("%s: Invalid handle to core\n",
+			__func__);
+		return;
+	}
 
 	dev_dbg(core->dev,
 		"%s: event = 0x%x\n", __func__, param->event);
