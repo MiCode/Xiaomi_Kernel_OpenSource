@@ -173,6 +173,11 @@ Optional Properties:
 					charger if one exists. Do not define
 					this property if no parallel chargers
 					exist.
+- qcom,parallel-allowed-lowering-ma	Acceptable current drop from the initial limit
+					to keep parallel charger activated. If the
+					charger current reduces beyond this threshold
+					parallel charger is disabled. Must be specified
+					if parallel charger is used.
 
 Example:
 	qcom,qpnp-smbcharger {
