@@ -118,7 +118,7 @@
 #define MPU6050_LPA_5HZ		0x40
 
 /* initial configure */
-#define INIT_FIFO_RATE		50
+#define INIT_FIFO_RATE		200
 #define DEFAULT_MOT_THR		1
 #define DEFAULT_MOT_DET_DUR	1
 #define DEFAULT_MOT_DET_DELAY	0
