@@ -1020,7 +1020,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	hba->caps |= UFSHCD_CAP_CLK_GATING |
 			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
 	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
-	hba->caps |= UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
+	hba->caps |= UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
 	ufs_qcom_setup_clocks(hba, true);
 	goto out;
 
