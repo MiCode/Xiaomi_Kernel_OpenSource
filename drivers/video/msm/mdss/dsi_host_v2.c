@@ -1358,8 +1358,8 @@ int msm_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		dsi_set_tx_power_mode(1);
 
 	if (ret == 0) {
-		if (ctrl_pdata->status_buf.data[0] !=
-						ctrl_pdata->status_value) {
+		if (!mdss_dsi_cmp_panel_reg(ctrl_pdata->status_buf,
+			ctrl_pdata->status_value, 0)) {
 			pr_err("%s: Read back value from panel is incorrect\n",
 								__func__);
 			ret = -EINVAL;
