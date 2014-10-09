@@ -36,6 +36,12 @@ Optional property:
 			config defined in pin groups of interrupt, i2cmode and reset gpio.
 			"pmx_ts_suspend" : Disabled configuration of pins, this should specify sleep
 			config defined in pin groups of interrupt, i2cmode and reset gpio.
+ - clocks		: specify the clocks associated with the underlying bus when secure touch
+			is enabled.
+			This property is required only if secure touch is enabled and used with
+			this driver.
+ - clock-names:		: clock names used for secure touch. The names are:
+			"iface_clk", "core_clk".
 
 Example:
 	i2c@f9966000 {
@@ -56,5 +62,9 @@ Example:
 			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
 			pinctrl-0 = <&ts_int_active &ts_reset_active &ts_i2cmode_active>;
 			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend &ts_i2cmode_suspend>;
+			/* Underlying clocks used by secure touch */
+			clock-names = "iface_clk", "core_clk";
+			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+				 <&clock_gcc clk_gcc_blsp1_qup2_i2c_apps_clk>;
 		};
 	};
