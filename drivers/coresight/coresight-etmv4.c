@@ -2917,8 +2917,6 @@ int coresight_etm_get_funnel_port(int cpu)
 {
 	struct coresight_platform_data *pdata;
 
-	if (cpu > num_possible_cpus())
-		return -EINVAL;
 	if (!etmdrvdata[cpu])
 		return -ENODEV;
 
