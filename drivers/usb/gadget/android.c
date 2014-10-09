@@ -50,7 +50,7 @@
 #include "u_smd.c"
 #include "u_bam.c"
 #include "u_rmnet_ctrl_smd.c"
-#include "u_rmnet_ctrl_qti.c"
+#include "u_ctrl_qti.c"
 #include "u_ctrl_hsic.c"
 #include "u_data_hsic.c"
 #include "u_ctrl_hsuart.c"
