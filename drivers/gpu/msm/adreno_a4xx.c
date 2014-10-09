@@ -370,7 +370,7 @@ static void a4xx_regulator_enable(struct adreno_device *adreno_dev)
 {
 	unsigned int reg;
 	struct kgsl_device *device = &adreno_dev->dev;
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+	if (!adreno_is_a430(adreno_dev))
 		return;
 
 	/* Set the default register values; set SW_COLLAPSE to 0 */
@@ -379,7 +379,6 @@ static void a4xx_regulator_enable(struct adreno_device *adreno_dev)
 		udelay(5);
 		kgsl_regread(device, A4XX_RBBM_POWER_STATUS, &reg);
 	} while (!(reg & SP_TP_PWR_ON));
-	trace_adreno_sp_tp((unsigned long) __builtin_return_address(0));
 }
 
 /*
@@ -393,12 +392,11 @@ static void a4xx_regulator_enable(struct adreno_device *adreno_dev)
 static void a4xx_regulator_disable(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+	if (!adreno_is_a430(adreno_dev))
 		return;
 
 	/* Set the default register values; set SW_COLLAPSE to 1 */
 	kgsl_regwrite(device, A4XX_RBBM_POWER_CNTL_IP, 0x778001);
-	trace_adreno_sp_tp((unsigned long) __builtin_return_address(0));
 }
 
 /*
