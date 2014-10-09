@@ -19,6 +19,7 @@
 #include <linux/debugfs.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
+#include <linux/delay.h>
 #include <asm/cpu_device_id.h>
 #include <asm/iosf_mbi.h>
 #include <linux/thermal.h>
@@ -248,9 +249,12 @@ static int sys_get_curr_temp(struct thermal_zone_device *tzd,
 	int status;
 	u32 out;
 	struct byt_aux_sensor_entry *aux_entry;
+	int retry_count = 0;
+	unsigned long last_temp = 0;
 
 	aux_entry = tzd->devdata;
 
+read_temp_again:
 	status = iosf_mbi_read(BT_MBI_UNIT_PMC, BT_MBI_BUNIT_READ,
 					BYT_AUX_DTS_OFFSET_TEMP, &out);
 	if (status)
@@ -259,6 +263,23 @@ static int sys_get_curr_temp(struct thermal_zone_device *tzd,
 	out = (out & aux_entry->temp_mask) >> aux_entry->temp_shift;
 	out -= 0x7F;
 	*temp = aux_entry->tj_max - out * 1000;
+
+	if (*temp > aux_entry->tj_max) {
+		pr_err("Ignore junk temp %lu \n", *temp);
+		return -EAGAIN; /* Let user space retry if required */
+	}
+
+	if ((*temp >= (aux_entry->tj_max - crit_offset)) &&
+						retry_count++ < 2) {
+		if (!last_temp)
+			last_temp = *temp;
+		else {
+			if (abs(last_temp - *temp) > 2000)
+				return -EINVAL;
+		}
+		udelay(100);
+		goto read_temp_again;
+	}
 
 	return 0;
 }
