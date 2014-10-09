@@ -133,6 +133,7 @@ struct mpu6050_sensor {
 	u32 gyro_poll_ms;
 	u32 accel_poll_ms;
 	bool use_poll;
+	bool wakeup_en;
 
 	/* power control */
 	struct regulator *vlogic;
@@ -1542,6 +1543,21 @@ static int mpu6050_accel_cdev_poll_delay(struct sensors_classdev *sensors_cdev,
 	return mpu6050_accel_set_poll_delay(sensor, delay_ms);
 }
 
+static int mpu6050_accel_cdev_enable_wakeup(
+			struct sensors_classdev *sensors_cdev,
+			unsigned int enable)
+{
+	struct mpu6050_sensor *sensor = container_of(sensors_cdev,
+			struct mpu6050_sensor, accel_cdev);
+
+	if (sensor->use_poll)
+		return -ENODEV;
+
+	sensor->wakeup_en = enable;
+	return 0;
+}
+
+
 /**
  * mpu6050_accel_attr_get_polling_delay - get the sampling rate
  */
@@ -2228,6 +2244,8 @@ static int mpu6050_probe(struct i2c_client *client,
 	sensor->accel_cdev.delay_msec = sensor->accel_poll_ms;
 	sensor->accel_cdev.sensors_enable = mpu6050_accel_cdev_enable;
 	sensor->accel_cdev.sensors_poll_delay = mpu6050_accel_cdev_poll_delay;
+	sensor->accel_cdev.sensors_enable_wakeup =
+					mpu6050_accel_cdev_enable_wakeup;
 	ret = sensors_classdev_register(&client->dev, &sensor->accel_cdev);
 	if (ret) {
 		dev_err(&client->dev,
@@ -2338,7 +2356,7 @@ static int mpu6050_suspend(struct device *dev)
 	int ret = 0;
 
 	mutex_lock(&sensor->op_lock);
-	if (sensor->cfg.accel_enable && !sensor->use_poll) {
+	if (sensor->cfg.accel_enable && sensor->wakeup_en) {
 		/* keep accel on and config motion detection wakeup */
 		ret = mpu6050_set_interrupt(sensor,
 				BIT_DATA_RDY_EN, false);
