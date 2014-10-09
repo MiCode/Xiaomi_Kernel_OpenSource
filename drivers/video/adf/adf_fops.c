@@ -187,7 +187,7 @@ static int adf_buffer_import(struct adf_device *dev,
 		buf->dma_bufs[i] = dma_buf_get(user_buf.fd[i]);
 		if (IS_ERR(buf->dma_bufs[i])) {
 			ret = PTR_ERR(buf->dma_bufs[i]);
-			dev_err(&dev->base.dev, "importing dma_buf fd %d failed: %d\n",
+			dev_err(&dev->base.dev, "importing dma_buf fd %u failed: %d\n",
 					user_buf.fd[i], ret);
 			buf->dma_bufs[i] = NULL;
 			goto done;
