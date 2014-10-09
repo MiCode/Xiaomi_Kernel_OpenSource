@@ -430,7 +430,8 @@ int adm_get_params(int port_id, uint32_t module_id, uint32_t param_id,
 		rc = -EINVAL;
 		goto adm_get_param_return;
 	}
-	if (params_data) {
+	if ((params_data) && (adm_get_parameters[0] <
+		ARRAY_SIZE(adm_get_parameters))) {
 		for (i = 0; i < adm_get_parameters[0]; i++)
 			params_data[i] = adm_get_parameters[1+i];
 	}
@@ -627,7 +628,12 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 					data->payload_size))
 				break;
 
-			if (data->payload_size > (4 * sizeof(uint32_t))) {
+			/* payload[3] is the param size, check if payload */
+			/* is big enough and has a valid param size */
+			if ((data->payload_size > (4 * sizeof(uint32_t))) &&
+				(payload[3] <= ADM_GET_PARAMETER_LENGTH) &&
+				(adm_get_parameters[0] <
+				ARRAY_SIZE(adm_get_parameters))) {
 				adm_get_parameters[0] = payload[3];
 				pr_debug("GET_PP PARAM:received parameter length: %x\n",
 						adm_get_parameters[0]);
