@@ -934,6 +934,20 @@
 		qcom,en-bit = <0>;
 	};
 
+	apss_axi_clk_sleep: apss_axi_clk_sleep {
+		compatible = "qcom,gate-clk";
+		qcom,en-offset = <GCC_APCS_CLOCK_SLEEP_ENA_VOTE>;
+		qcom,en-bit = <13>;
+		qcom,always-on;
+	};
+
+	bimc_apss_axi_clk_sleep: bimc_apss_axi_clk_sleep {
+		compatible = "qcom,gate-clk";
+		qcom,en-offset = <GCC_APCS_CLOCK_SLEEP_ENA_VOTE>;
+		qcom,en-bit = <15>;
+		qcom,always-on;
+	};
+
 	gcc_blsp1_ahb_clk: gcc_blsp1_ahb_clk {
 		compatible = "qcom,local-vote-clk";
 		qcom,base-offset = <GCC_BLSP1_AHB_CBCR>;
