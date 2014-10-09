@@ -274,6 +274,7 @@ static inline bool ufshcd_is_valid_pm_lvl(int lvl)
 		return false;
 }
 
+static irqreturn_t ufshcd_intr(int irq, void *__hba);
 static void ufshcd_tmc_handler(struct ufs_hba *hba);
 static void ufshcd_async_scan(void *data, async_cookie_t cookie);
 static int ufshcd_reset_and_restore(struct ufs_hba *hba);
@@ -289,7 +290,7 @@ static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
 static void ufshcd_resume_clkscaling(struct ufs_hba *hba);
 static void ufshcd_suspend_clkscaling(struct ufs_hba *hba);
-static irqreturn_t ufshcd_intr(int irq, void *__hba);
+static void ufshcd_release_all(struct ufs_hba *hba);
 
 static inline int ufshcd_enable_irq(struct ufs_hba *hba)
 {
@@ -916,7 +917,8 @@ static void ufshcd_gate_work(struct work_struct *work)
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-	if (ufshcd_is_hibern8_on_idle_allowed(hba))
+	if (ufshcd_is_hibern8_on_idle_allowed(hba) &&
+	    hba->hibern8_on_idle.is_enabled)
 		/*
 		 * Hibern8 enter work (on Idle) needs clocks to be ON hence
 		 * make sure that it is flushed before turning off the clocks.
@@ -1300,6 +1302,70 @@ unblock_reqs:
 	scsi_unblock_requests(hba->host);
 }
 
+static ssize_t ufshcd_hibern8_on_idle_delay_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n", hba->hibern8_on_idle.delay_ms);
+}
+
+static ssize_t ufshcd_hibern8_on_idle_delay_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	unsigned long flags, value;
+
+	if (kstrtoul(buf, 0, &value))
+		return -EINVAL;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->hibern8_on_idle.delay_ms = value;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	return count;
+}
+
+static ssize_t ufshcd_hibern8_on_idle_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			hba->hibern8_on_idle.is_enabled);
+}
+
+static ssize_t ufshcd_hibern8_on_idle_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	unsigned long flags;
+	u32 value;
+
+	if (kstrtou32(buf, 0, &value))
+		return -EINVAL;
+
+	value = !!value;
+	if (value == hba->hibern8_on_idle.is_enabled)
+		goto out;
+
+	if (value) {
+		/*
+		 * As clock gating work would wait for the hibern8 enter work
+		 * to finish, clocks would remain on during hibern8 enter work.
+		 */
+		ufshcd_hold(hba, false);
+		ufshcd_release_all(hba);
+	} else {
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		hba->hibern8_on_idle.active_reqs++;
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+	}
+
+	hba->hibern8_on_idle.is_enabled = value;
+out:
+	return count;
+}
+
 static void ufshcd_init_hibern8_on_idle(struct ufs_hba *hba)
 {
 	if (!ufshcd_is_hibern8_on_idle_allowed(hba))
@@ -1311,13 +1377,35 @@ static void ufshcd_init_hibern8_on_idle(struct ufs_hba *hba)
 
 	hba->hibern8_on_idle.delay_ms = 10;
 	hba->hibern8_on_idle.state = HIBERN8_EXITED;
+	hba->hibern8_on_idle.is_enabled = true;
+
+	hba->hibern8_on_idle.delay_attr.show =
+					ufshcd_hibern8_on_idle_delay_show;
+	hba->hibern8_on_idle.delay_attr.store =
+					ufshcd_hibern8_on_idle_delay_store;
+	sysfs_attr_init(&hba->hibern8_on_idle.delay_attr.attr);
+	hba->hibern8_on_idle.delay_attr.attr.name = "hibern8_on_idle_delay_ms";
+	hba->hibern8_on_idle.delay_attr.attr.mode = S_IRUGO | S_IWUSR;
+	if (device_create_file(hba->dev, &hba->hibern8_on_idle.delay_attr))
+		dev_err(hba->dev, "Failed to create sysfs for hibern8_on_idle_delay\n");
+
+	hba->hibern8_on_idle.enable_attr.show =
+					ufshcd_hibern8_on_idle_enable_show;
+	hba->hibern8_on_idle.enable_attr.store =
+					ufshcd_hibern8_on_idle_enable_store;
+	sysfs_attr_init(&hba->hibern8_on_idle.enable_attr.attr);
+	hba->hibern8_on_idle.enable_attr.attr.name = "hibern8_on_idle_enable";
+	hba->hibern8_on_idle.enable_attr.attr.mode = S_IRUGO | S_IWUSR;
+	if (device_create_file(hba->dev, &hba->hibern8_on_idle.enable_attr))
+		dev_err(hba->dev, "Failed to create sysfs for hibern8_on_idle_enable\n");
 }
 
 static void ufshcd_exit_hibern8_on_idle(struct ufs_hba *hba)
 {
 	if (!ufshcd_is_hibern8_on_idle_allowed(hba))
 		return;
-	/* Don't have anything to do for now */
+	device_remove_file(hba->dev, &hba->hibern8_on_idle.delay_attr);
+	device_remove_file(hba->dev, &hba->hibern8_on_idle.enable_attr);
 }
 
 static void ufshcd_hold_all(struct ufs_hba *hba)
@@ -6332,7 +6420,8 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	 * If we can't transition into any of the low power modes
 	 * just gate the clocks.
 	 */
-	WARN_ON(hba->hibern8_on_idle.active_reqs);
+	WARN_ON(hba->hibern8_on_idle.is_enabled &&
+		hba->hibern8_on_idle.active_reqs);
 	ufshcd_hold_all(hba);
 	hba->clk_gating.is_suspended = true;
 	hba->hibern8_on_idle.is_suspended = true;
