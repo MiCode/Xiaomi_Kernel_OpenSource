@@ -20,7 +20,7 @@
 #include "rt5640-dsp.h"
 #endif
 
-hweq_t hweq_param[] = {
+static hweq_t hweq_param[] = {
 	{			/* NORMAL */
 	 {0}
 	 ,

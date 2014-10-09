@@ -1582,7 +1582,7 @@ static int rt5640_set_dmic2_event(struct snd_soc_dapm_widget *w,
 }
 
 #if USE_ONEBIT_DEPOP
-void hp_amp_power(struct snd_soc_codec *codec, int on)
+static void hp_amp_power(struct snd_soc_codec *codec, int on)
 {
 	static int hp_amp_power_count;
 
@@ -1688,7 +1688,7 @@ static void rt5640_pmd_depop(struct snd_soc_codec *codec)
 }
 
 #else
-void hp_amp_power(struct snd_soc_codec *codec, int on)
+static void hp_amp_power(struct snd_soc_codec *codec, int on)
 {
 	static int hp_amp_power_count;
 
