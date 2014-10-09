@@ -373,6 +373,27 @@ int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
 }
 EXPORT_SYMBOL(wcd9xxx_slim_write_repeat);
 
+/*
+ * wcd9xxx_slim_reserve_bw: API to reserve the slimbus bandwidth
+ * @wcd9xxx: Handle to the wcd9xxx core
+ * @bw_ops: value of the bandwidth that is requested
+ * @commit: Flag to indicate if bandwidth change is to be commited
+ *	    right away
+ */
+int wcd9xxx_slim_reserve_bw(struct wcd9xxx *wcd9xxx,
+		u32 bw_ops, bool commit)
+{
+	if (!wcd9xxx || !wcd9xxx->slim) {
+		pr_err("%s: Invalid handle to %s\n",
+			__func__,
+			(!wcd9xxx) ? "wcd9xxx" : "slim_device");
+		return -EINVAL;
+	}
+
+	return slim_reservemsg_bw(wcd9xxx->slim, bw_ops, commit);
+}
+EXPORT_SYMBOL(wcd9xxx_slim_reserve_bw);
+
 /* Interface specifies whether the write is to the interface or general
  * registers.
  */
