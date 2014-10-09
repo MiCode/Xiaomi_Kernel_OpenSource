@@ -101,8 +101,9 @@ module_param(bam_mux_rx_req_size, ulong, S_IRUGO);
 static unsigned int dl_intr_threshold = DL_INTR_THRESHOLD;
 module_param(dl_intr_threshold, uint, S_IRUGO | S_IWUSR);
 
-#define BAM_CH_OPENED	BIT(0)
-#define BAM_CH_READY	BIT(1)
+#define BAM_CH_OPENED			BIT(0)
+#define BAM_CH_READY			BIT(1)
+#define BAM_CH_WRITE_INPROGRESS		BIT(2)
 
 enum u_bam_event_type {
 	U_BAM_DISCONNECT_E = 0,
@@ -556,6 +557,13 @@ static void gbam_data_write_tobam(struct work_struct *w)
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		return;
 	}
+	/* Bail out if already in progress */
+	if (test_bit(BAM_CH_WRITE_INPROGRESS, &d->flags)) {
+		spin_unlock_irqrestore(&port->port_lock_ul, flags);
+		return;
+	}
+
+	set_bit(BAM_CH_WRITE_INPROGRESS, &d->flags);
 
 	while (!gbam_ul_bam_limit_reached(d) &&
 			(d->trans != USB_GADGET_XPORT_BAM2BAM_IPA ||
@@ -611,6 +619,7 @@ static void gbam_data_write_tobam(struct work_struct *w)
 
 	qlen = d->rx_skb_q.qlen;
 
+	clear_bit(BAM_CH_WRITE_INPROGRESS, &d->flags);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
 	if (qlen < bam_mux_rx_fctrl_dis_thld) {
