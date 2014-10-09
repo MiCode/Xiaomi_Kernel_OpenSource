@@ -610,10 +610,12 @@ static void mpu6050_accel_work_fn(struct work_struct *work)
 {
 	struct mpu6050_sensor *sensor;
 	u32 shift;
+	ktime_t timestamp;
 
 	sensor = container_of((struct delayed_work *)work,
 				struct mpu6050_sensor, accel_poll_work);
 
+	timestamp = ktime_get();
 	mpu6050_read_accel_data(sensor, &sensor->axis);
 	mpu6050_remap_accel_data(&sensor->axis, sensor->pdata->place);
 
@@ -624,6 +626,12 @@ static void mpu6050_accel_work_fn(struct work_struct *work)
 		(sensor->axis.y >> shift));
 	input_report_abs(sensor->accel_dev, ABS_Z,
 		(sensor->axis.z >> shift));
+	input_event(sensor->accel_dev,
+			EV_SYN, SYN_TIME_SEC,
+			ktime_to_timespec(timestamp).tv_sec);
+	input_event(sensor->accel_dev, EV_SYN,
+		SYN_TIME_NSEC,
+		ktime_to_timespec(timestamp).tv_nsec);
 	input_sync(sensor->accel_dev);
 
 	if (sensor->use_poll)
@@ -642,10 +650,12 @@ static void mpu6050_gyro_work_fn(struct work_struct *work)
 {
 	struct mpu6050_sensor *sensor;
 	u32 shift;
+	ktime_t timestamp;
 
 	sensor = container_of((struct delayed_work *)work,
 				struct mpu6050_sensor, gyro_poll_work);
 
+	timestamp = ktime_get();
 	mpu6050_read_gyro_data(sensor, &sensor->axis);
 	mpu6050_remap_gyro_data(&sensor->axis, sensor->pdata->place);
 
@@ -656,6 +666,12 @@ static void mpu6050_gyro_work_fn(struct work_struct *work)
 		(sensor->axis.ry >> shift));
 	input_report_abs(sensor->gyro_dev, ABS_RZ,
 		(sensor->axis.rz >> shift));
+	input_event(sensor->gyro_dev,
+			EV_SYN, SYN_TIME_SEC,
+			ktime_to_timespec(timestamp).tv_sec);
+	input_event(sensor->gyro_dev, EV_SYN,
+		SYN_TIME_NSEC,
+		ktime_to_timespec(timestamp).tv_nsec);
 	input_sync(sensor->gyro_dev);
 
 	if (sensor->use_poll)
