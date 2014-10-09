@@ -2871,7 +2871,7 @@ int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len)
 	struct diag_smd_info *smd_info = NULL;
 	int err = 0;
 
-	if (!buf || (peripheral < 0 || peripheral > NUM_SMD_DCI_CHANNELS)
+	if (!buf || (peripheral < 0 || peripheral >= NUM_SMD_DCI_CHANNELS)
 		|| !driver->rcvd_feature_mask[peripheral] || len < 0) {
 		pr_err("diag: In %s, invalid data 0x%p, peripheral: %d, len: %d\n",
 				__func__, buf, peripheral, len);
