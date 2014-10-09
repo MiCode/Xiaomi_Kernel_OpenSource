@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 #include <linux/delay.h>
+#include <linux/dma-buf.h>
 
 #include "mdp3_ctrl.h"
 #include "mdp3.h"
@@ -1264,6 +1265,15 @@ static int mdp3_get_metadata(struct msm_fb_data_type *mfd,
 		if (ret) {
 			pr_err("failed to release mdp clks\n");
 			return ret;
+		}
+		break;
+	case metadata_op_get_ion_fd:
+		if (mfd->fb_ion_handle) {
+			metadata->data.fbmem_ionfd =
+					dma_buf_fd(mfd->fbmem_buf, 0);
+			if (metadata->data.fbmem_ionfd < 0)
+				pr_err("fd allocation failed. fd = %d\n",
+						metadata->data.fbmem_ionfd);
 		}
 		break;
 	default:
