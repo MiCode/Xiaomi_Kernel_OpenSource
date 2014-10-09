@@ -109,12 +109,18 @@ static int msm_fd_get_format_index(struct v4l2_format *f)
 static int msm_fd_get_idx_from_value(int value, int *array, int array_size)
 {
 	int index;
+	int i;
 
-	for (index = 0; index < array_size; index++) {
-		if (value <=  array[index])
-			return index;
+	index = 0;
+	for (i = 1; i < array_size; i++) {
+		if (value == array[i]) {
+			index = i;
+			break;
+		}
+		if (abs(value - array[i]) < abs(value - array[index]))
+			index = i;
 	}
-	return index - 1;
+	return index;
 }
 
 /*
