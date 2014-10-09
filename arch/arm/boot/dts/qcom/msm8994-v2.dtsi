@@ -54,6 +54,13 @@
 		qcom,irq-is-percpu;
 		interrupts = <1 7 0xff00>;
 	};
+
+	qcom,lmh {
+		compatible = "qcom,lmh";
+		interrupts = <0 332 4>;
+		reg = <0xF9117000 0x4>;
+		qcom,lmh-trim-err-offset = <18>;
+	};
 };
 
 /* Clock driver overrides */
