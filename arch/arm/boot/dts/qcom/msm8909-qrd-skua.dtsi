@@ -71,6 +71,32 @@
 		qcom,key-codes = <139 172 158>;
 		qcom,y-offset = <0>;
 	};
+
+	sound {
+		compatible = "qcom,msm8x16-audio-codec";
+		qcom,model = "msm8909-skua-snd-card";
+		qcom,msm-snd-card-id = <0>;
+		qcom,msm-codec-type = "internal";
+		qcom,msm-ext-pa = "primary";
+		qcom,msm-mclk-freq = <9600000>;
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-hs-micbias-type = "internal";
+		qcom,msm-micbias1-ext-cap;
+		qcom,msm-micbias2-ext-cap;
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"SPK_RX_BIAS", "MCLK",
+			"INT_LDO_H", "MCLK",
+			"MIC BIAS Internal1", "Handset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
+			"AMIC1", "MIC BIAS Internal1",
+			"AMIC2", "MIC BIAS Internal2";
+		pinctrl-names = "cdc_lines_act",
+				"cdc_lines_sus";
+		pinctrl-0 = <&cdc_pdm_lines_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus>;
+	};
 };
 
 &tlmm_pinmux {
