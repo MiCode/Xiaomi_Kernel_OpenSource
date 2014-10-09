@@ -352,9 +352,16 @@ Optional properties:
 - qcom,mdss-dsi-panel-status-check-mode:Specifies the panel status check method for ESD recovery.
 					"bta_check" = Uses BTA to check the panel status
 					"reg_read" = Reads panel status register to check the panel status
+					"reg_read_nt35596" = Reads panel status register to check the panel
+							     status for NT35596 panel.
 					"te_signal_check" = Uses TE signal behaviour to check the panel status
-- qcom,mdss-dsi-panel-status-value:	Specifies the value of the panel status register when the panel is
-					in good state.
+- qcom,mdss-dsi-panel-status-read-length: Integer value that specifies the expected read-back length of the
+					  panel register.
+- qcom,mdss-dsi-panel-status-value:	An integer array that specifies the values of the panel status register
+					which is used to check the panel status. The size of this array
+					is specified by	qcom,mdss-dsi-panel-status-read-length.
+- qcom,mdss-dsi-panel-max-error-count:  Integer value that specifies the maximum number of errors from register
+					read that can be ignored before treating that the panel has gone bad.
 - qcom,dynamic-mode-switch-enabled:		Boolean used to mention whether panel supports
 					dynamic switching from video mode to command mode
 					and vice versa.
@@ -490,7 +497,9 @@ Example:
 		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 02 0A 08];
 		qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-panel-status-check-mode = "reg_read";
-		qcom,mdss-dsi-panel-status-value = <0x9c>;
+		qcom,mdss-dsi-panel-status-read-length = <8>;
+		qcom,mdss-dsi-panel-max-error-count = <3>;
+		qcom,mdss-dsi-panel-status-value = <0x1c 0x00 0x05 0x02 0x40 0x84 0x06 0x01>;
 		qcom,dynamic-mode-switch-enabled;
 		qcom,video-to-cmd-mode-switch-commands = [15 01 00 00 00 00 02 C2 0B
 						15 01 00 00 00 00 02 C2 08];
