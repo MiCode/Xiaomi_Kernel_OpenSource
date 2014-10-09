@@ -2486,6 +2486,9 @@ i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
 
 	/* reserve 0 for non-seqno */
 	if (dev_priv->next_seqno == 0) {
+		/* Why is the full re-initialisation required? Is it only for
+		 * hardware semaphores? If so, could skip it in the case where
+		 * semaphores are disabled? */
 		int ret = i915_gem_init_seqno(dev, 0);
 		if (ret)
 			return ret;
@@ -2566,6 +2569,11 @@ int __i915_add_request(struct intel_engine_cs *ring,
 		if (ret)
 			goto end;
 	}
+
+	/* Assign an identifier to track this request through the hardware: */
+	ret = i915_gem_get_seqno(ring->dev, &request->seqno);
+	if (ret)
+		goto end;
 
 	/* Record the position of the start of the request so that
 	 * should we detect the updated seqno part-way through the
@@ -2887,6 +2895,9 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 	spin_lock_irqsave(&ring->reqlist_lock, flags);
 	list_for_each_entry(req, &ring->request_list, list) {
 		if (req->complete)
+			continue;
+
+		if (req->seqno == 0)
 			continue;
 
 		if (i915_scheduler_is_request_tracked(req, &req->complete, NULL)) {

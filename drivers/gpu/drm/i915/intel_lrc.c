@@ -1707,13 +1707,6 @@ int intel_logical_ring_alloc_request(struct intel_engine_cs *ring,
 	request->ring = ring;
 	request->uniq = dev_private->request_uniq++;
 
-	ret = i915_gem_get_seqno(ring->dev, &request->seqno);
-	if (ret) {
-		intel_lr_context_unpin(ring, ctx);
-		kfree(request);
-		return ret;
-	}
-
 	/*
 	 * Hold a reference to the context this request belongs to
 	 * (we will need it when the time comes to emit/retire the

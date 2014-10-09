@@ -2501,7 +2501,6 @@ int intel_ring_idle(struct intel_engine_cs *ring, bool flush)
 int
 intel_ring_alloc_request(struct intel_engine_cs *ring, struct intel_context *ctx)
 {
-	int ret;
 	struct drm_i915_gem_request *request;
 	struct drm_i915_private *dev_private = ring->dev->dev_private;
 
@@ -2516,12 +2515,6 @@ intel_ring_alloc_request(struct intel_engine_cs *ring, struct intel_context *ctx
 	request->ring = ring;
 	request->ringbuf = ring->buffer;
 	request->uniq = dev_private->request_uniq++;
-
-	ret = i915_gem_get_seqno(ring->dev, &request->seqno);
-	if (ret) {
-		kfree(request);
-		return ret;
-	}
 
 	ring->outstanding_lazy_request = request;
 	return 0;
