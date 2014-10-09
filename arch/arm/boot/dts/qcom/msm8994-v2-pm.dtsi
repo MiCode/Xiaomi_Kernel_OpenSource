@@ -485,7 +485,8 @@
 			<0xff 270>, /* bam_irq[0] */
 			<0xff 271>, /* bam_irq[0] */
 			<0xff 332>, /* sps */
-			<0xff 333>; /* ipa */
+			<0xff 333>, /* ipa */
+			<0xff 364>; /* lmh_interrupt */
 
 		qcom,gpio-parent = <&msm_gpio>;
 		qcom,gpio-map = <3  101>,
