@@ -3764,9 +3764,11 @@ void vlv_set_rps_mode(struct drm_device *dev, bool disable)
 			gen6_disable_rps_interrupts(dev);
 	} else {
 		I915_WRITE(GEN6_RP_CONTROL, dev_priv->rps.rps_mask);
-		if (IS_CHERRYVIEW(dev))
+		if (IS_CHERRYVIEW(dev)) {
 			gen8_enable_rps_interrupts(dev);
-		else
+			valleyview_set_rps(dev_priv->dev,
+					   dev_priv->rps.efficient_freq);
+		} else
 			gen6_enable_rps_interrupts(dev);
 	}
 }
@@ -3880,7 +3882,6 @@ void valleyview_set_rps(struct drm_device *dev, u8 val)
 		vlv_punit_write(dev_priv, PUNIT_REG_GPU_FREQ_REQ, val);
 
 	I915_WRITE(GEN6_PMINTRMSK, gen6_rps_pm_mask(dev_priv, val));
-
 	dev_priv->rps.cur_freq = val;
 	trace_intel_gpu_freq_change(vlv_gpu_freq(dev_priv, val));
 }
@@ -4037,6 +4038,7 @@ static void gen8_enable_rps_interrupts(struct drm_device *dev)
 	bdw_enable_pm_irq(dev_priv, dev_priv->pm_rps_events);
 	I915_WRITE(GEN8_GT_IIR(2), dev_priv->pm_rps_events);
 	spin_unlock_irq(&dev_priv->irq_lock);
+	I915_WRITE(GEN8_GT_IER(2), dev_priv->pm_rps_events);
 }
 
 static void gen6_enable_rps_interrupts(struct drm_device *dev)
