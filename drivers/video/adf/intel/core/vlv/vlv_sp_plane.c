@@ -329,6 +329,8 @@ static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 	int plane = splane->ctx.plane;
 	int pipe = splane->ctx.pipe;
 	struct sp_plane_regs_value *regs = &splane->ctx.regs;
+	int s1_zorder, s1_bottom, s2_zorder, s2_bottom;
+	int order = config->zorder & 0x000F;
 	u32 hw_format = 0;
 	u32 bpp = 0;
 	u32 sprctl;
@@ -340,8 +342,34 @@ static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 	u32 dst_y = config->dst_y & VLV_SP_12BIT_MASK;
 	unsigned long sprsurf_offset, linear_offset;
 
+	s1_zorder = (order >> 3) & 0x1;
+	s1_bottom = (order >> 2) & 0x1;
+	s2_zorder = (order >> 1) & 0x1;
+	s2_bottom = (order >> 0) & 0x1;
+
 	get_format_config(buf->format, &hw_format, &bpp);
 	sprctl = REG_READ(SPCNTR(pipe, plane));
+
+	if (plane == 0) {
+		if (s1_zorder)
+			sprctl |= SPRITE_ZORDER_ENABLE;
+		else
+			sprctl &= ~SPRITE_ZORDER_ENABLE;
+
+		if (s1_bottom)
+			sprctl |= SPRITE_FORCE_BOTTOM;
+		else
+			sprctl &= ~SPRITE_FORCE_BOTTOM;
+	} else {
+		if (s2_zorder)
+			sprctl |= SPRITE_ZORDER_ENABLE;
+		else
+			sprctl &= ~SPRITE_ZORDER_ENABLE;
+		if (s2_bottom)
+			sprctl |= SPRITE_FORCE_BOTTOM;
+		else
+			sprctl &= ~SPRITE_FORCE_BOTTOM;
+	}
 
 	/* Mask out pixel format bits in case we change it */
 	sprctl &= ~SP_PIXFORMAT_MASK;

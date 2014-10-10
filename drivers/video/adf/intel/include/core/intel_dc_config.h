@@ -155,6 +155,7 @@ struct intel_plane_config {
 	s32 src_y;
 	u32 src_w;
 	u32 src_h;
+	u32 zorder;
 	u8 alpha;
 	enum intel_plane_compression compression:4;
 	enum intel_plane_blending blending:4;

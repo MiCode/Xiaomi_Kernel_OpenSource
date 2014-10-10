@@ -3823,6 +3823,9 @@
 #define SPCONSTALPHA(pipe, plane) _PIPE(pipe * 2 + plane, _SPACONSTALPHA, _SPBCONSTALPHA)
 #define SPGAMC(pipe, plane) _PIPE(pipe * 2 + plane, _SPAGAMC, _SPBGAMC)
 
+#define	SPRITE_FORCE_BOTTOM	(1<<2)
+#define	SPRITE_ZORDER_ENABLE	(1<<0)
+
 /* VBIOS regs */
 #define VGACNTRL		0x71400
 # define VGA_DISP_DISABLE			(1 << 31)

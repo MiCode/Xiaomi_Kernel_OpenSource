@@ -202,7 +202,7 @@ static int adf_buffer_to_intel_buffer(struct adf_buffer *adf_buf,
 
 static void adf_plane_to_intel_plane_config(
 	struct intel_adf_plane *adf_plane, struct intel_adf_interface *intf,
-	struct intel_plane_config *config)
+	struct intel_plane_config *config, u32 zorder)
 {
 	config->dst_x = adf_plane->dst_x;
 	config->dst_y = adf_plane->dst_y;
@@ -218,6 +218,7 @@ static void adf_plane_to_intel_plane_config(
 	config->blending = adf_plane->blending;
 	config->transform = adf_plane->transform;
 	config->pipe = intf->pipe;
+	config->zorder = zorder;
 }
 
 static struct driver_state *driver_state_create_and_init(void)
@@ -266,7 +267,8 @@ static void driver_state_add_overlay_engine(struct driver_state *state,
 static struct flip *driver_state_create_add_flip(
 	struct driver_state *state, struct intel_adf_overlay_engine *eng,
 	struct intel_adf_interface *intf, struct adf_buffer *buf,
-	struct adf_buffer_mapping *mapping, struct intel_adf_plane *plane)
+	struct adf_buffer_mapping *mapping, struct intel_adf_plane *plane,
+	u32 zorder)
 {
 	struct flip *f = NULL;
 	int err;
@@ -275,7 +277,8 @@ static struct flip *driver_state_create_add_flip(
 	if (f) {
 		f->eng = eng;
 		adf_buffer_to_intel_buffer(buf, mapping, &f->buf);
-		adf_plane_to_intel_plane_config(plane, intf, &f->config);
+		adf_plane_to_intel_plane_config(plane, intf,
+						&f->config, zorder);
 
 		/*validate the buffer and config before adding it*/
 		if (eng->plane && eng->plane->ops &&
@@ -373,7 +376,7 @@ static int intel_adf_device_validate(struct adf_device *dev,
 		/*create and queue a flip for this overlay*/
 		f = driver_state_create_add_flip(state, eng,
 			to_intel_intf(intf), buf, mapping,
-				&custom_overlay->plane);
+				&custom_overlay->plane, custom->zorder);
 		if (!f) {
 			dev_err(dev->dev, "%s: failed to create flip\n",
 				__func__);
