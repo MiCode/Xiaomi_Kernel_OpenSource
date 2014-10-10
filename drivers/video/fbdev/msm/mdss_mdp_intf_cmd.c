@@ -734,6 +734,9 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	if (__mdss_mdp_cmd_panel_power_off(ctx)) {
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_LINK_READY, NULL);
+		WARN(rc, "intf %d link ready error (%d)\n", ctl->intf_num, rc);
+
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL);
 		WARN(rc, "intf %d unblank error (%d)\n", ctl->intf_num, rc);
 
