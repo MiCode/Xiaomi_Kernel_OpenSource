@@ -2412,7 +2412,7 @@ static void mdss_mdp_parse_dt_fudge_factors(struct platform_device *pdev,
 
 	rc = mdss_mdp_parse_dt_handler(pdev, prop_name, data, 2);
 	if (rc) {
-		pr_err("err reading %s\n", prop_name);
+		pr_debug("err reading %s\n", prop_name);
 	} else {
 		ff->numer = data[0];
 		ff->denom = data[1];
