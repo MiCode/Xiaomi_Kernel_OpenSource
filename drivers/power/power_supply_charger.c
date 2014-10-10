@@ -162,11 +162,11 @@ static int handle_cable_notification(struct notifier_block *nb,
 {
 	struct power_supply_cable_props cap;
 
-	memcpy(&cap, data, sizeof(struct power_supply_cable_props));
-
 	if (event != USB_EVENT_CHARGER && event != PSY_CABLE_EVENT)
 		return NOTIFY_DONE;
 
+	if (data)
+		memcpy(&cap, data, sizeof(struct power_supply_cable_props));
 	process_cable_props(&cap);
 
 	return NOTIFY_OK;
