@@ -25,7 +25,7 @@
 	qcom,msm-id = <207 0x20000>;
 
 	chosen {
-		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1 maxcpus=4";
+		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
 	};
 };
 
@@ -83,8 +83,7 @@
 	qcom,a57-speedbin0-v0 =
 			<	   0 0>,
 			<  300000000 2>,
-			<  384000000 3>,
-			<  480000000 4>;
+			<  384000000 3>;
 	qcom,cci-speedbin0-v0 =
 			<	   0 0>,
 			<  300000000 4>,
