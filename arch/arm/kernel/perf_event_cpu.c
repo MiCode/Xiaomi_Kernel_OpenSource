@@ -326,9 +326,13 @@ static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 		void *v)
 {
 	struct pmu *pmu;
+
+	if (!cpu_pmu)
+		return NOTIFY_OK;
+
 	switch (cmd) {
 	case CPU_PM_ENTER:
-		if (cpu_pmu && cpu_pmu->save_pm_registers)
+		if (cpu_pmu->save_pm_registers)
 			cpu_pmu->save_pm_registers((void *)smp_processor_id());
 		if (cpu_has_active_perf((int)v)) {
 			armpmu_update_counters();
@@ -339,12 +343,15 @@ static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 
 	case CPU_PM_ENTER_FAILED:
 	case CPU_PM_EXIT:
-		if (cpu_has_active_perf((int)v) && cpu_pmu->reset)
-			cpu_pmu->reset(NULL);
-		if (cpu_pmu && cpu_pmu->restore_pm_registers)
+		/* Reset PMU to clear counters for ftrace buffer */
+		if ((cpu_pmu->pmu_state == ARM_PMU_STATE_RUNNING) &&
+		    cpu_pmu->reset)
+			cpu_pmu->reset(cpu_pmu);
+
+		if (cpu_pmu->restore_pm_registers)
 			cpu_pmu->restore_pm_registers(
 				(void *)smp_processor_id());
-		if (cpu_pmu && cpu_has_active_perf((int)v)) {
+		if (cpu_has_active_perf((int)v)) {
 			/*
 			 * Flip this bit so armpmu_enable knows it needs
 			 * to re-enable active counters.

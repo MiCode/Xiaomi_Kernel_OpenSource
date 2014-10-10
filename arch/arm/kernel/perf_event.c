@@ -368,6 +368,7 @@ static int
 armpmu_reserve_hardware(struct arm_pmu *armpmu)
 {
 	int err;
+	int cpu;
 	struct arm_pmu_platdata *plat;
 	struct platform_device *pmu_device = armpmu->plat_device;
 
@@ -393,6 +394,9 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 		return err;
 	}
 	armpmu->pmu_state = ARM_PMU_STATE_RUNNING;
+	if (armpmu->reset)
+		for_each_cpu(cpu, cpu_online_mask)
+			smp_call_function_single(cpu, armpmu->reset, armpmu, 1);
 
 	return 0;
 }
