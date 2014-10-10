@@ -209,13 +209,13 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 	struct msm_camera_sensor_board_info *flashdata = NULL;
 	struct msm_camera_power_ctrl_t *power_info = NULL;
 
-	flashdata = fctrl->flashdata;
-	power_info = &flashdata->power_info;
 	CDBG("%s:%d called\n", __func__, __LINE__);
 	if (!fctrl) {
 		pr_err("%s:%d fctrl NULL\n", __func__, __LINE__);
 		return -EINVAL;
 	}
+	flashdata = fctrl->flashdata;
+	power_info = &flashdata->power_info;
 
 	if (fctrl->led_state != MSM_CAMERA_LED_INIT) {
 		pr_err("%s:%d invalid led state\n", __func__, __LINE__);
