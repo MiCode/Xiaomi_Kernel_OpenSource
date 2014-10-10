@@ -445,8 +445,7 @@ inline int linear_map(int in, int *out, int in_max, int out_max)
 
 }
 
-int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
-				   struct mdp_csc_cfg *data)
+int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 {
 	int i, ret = 0;
 	char __iomem *base, *addr;
@@ -471,11 +470,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 			break;
 		}
 		if (mdss_mdp_pipe_is_yuv(pipe)) {
-			base = pipe->base;
-			if (tbl_idx == 1)
-				base += MDSS_MDP_REG_VIG_CSC_1_BASE;
-			else
-				base += MDSS_MDP_REG_VIG_CSC_0_BASE;
+			base = pipe->base + MDSS_MDP_REG_VIG_CSC_1_BASE;
 		} else {
 			pr_err("non ViG pipe %d for CSC is not allowed\n",
 				blk_idx);
@@ -534,7 +529,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 	return ret;
 }
 
-int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 tbl_idx, u32 csc_type)
+int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 csc_type)
 {
 	struct mdp_csc_cfg *data;
 
@@ -543,11 +538,11 @@ int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 tbl_idx, u32 csc_type)
 		return -ERANGE;
 	}
 
-	pr_debug("csc type=%d blk=%d idx=%d tbl=%d\n", csc_type,
-		 block, blk_idx, tbl_idx);
+	pr_debug("csc type=%d blk=%d idx=%d\n", csc_type,
+		 block, blk_idx);
 
 	data = &mdp_csc_convert[csc_type];
-	return mdss_mdp_csc_setup_data(block, blk_idx, tbl_idx, data);
+	return mdss_mdp_csc_setup_data(block, blk_idx, data);
 }
 
 static void pp_gamut_config(struct mdp_gamut_cfg_data *gamut_cfg,
@@ -858,7 +853,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 			 * applied (i.e. dirty bit)
 			 */
 			mdss_mdp_csc_setup_data(MDSS_MDP_BLOCK_SSPP, pipe->num,
-					1, &pipe->pp_cfg.csc_cfg);
+					&pipe->pp_cfg.csc_cfg);
 	} else {
 		if (pipe->src_fmt->is_yuv) {
 			opmode |= (0 << 19) |	/* DST_DATA=RGB */
@@ -869,7 +864,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 			 * is a previously configured pipe need to re-configure
 			 * CSC matrix
 			 */
-			mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num, 1,
+			mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num,
 					   MDSS_MDP_CSC_YUV2RGB);
 		}
 	}
