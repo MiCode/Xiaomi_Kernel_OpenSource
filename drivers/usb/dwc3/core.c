@@ -546,21 +546,21 @@ static int dwc3_handle_otg_notification(struct notifier_block *nb,
 	unsigned long flags;
 	int state = NOTIFY_DONE;
 	static int last_value = -1;
-	int val;
 
-	val = *(int *)data;
-
-	if (last_value == val)
+	if (last_value == event)
 		goto out;
-
-	last_value = val;
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	switch (event) {
 	case USB_EVENT_VBUS:
-		dev_info(dwc->dev, "DWC3 OTG Notify USB_EVENT_VBUS, val = %d\n", val);
-		if (val)
-			pm_runtime_get(dwc->dev);
+		dev_info(dwc->dev, "DWC3 OTG Notify USB_EVENT_VBUS\n");
+		last_value = event;
+		pm_runtime_get(dwc->dev);
+		state = NOTIFY_OK;
+		break;
+	case USB_EVENT_NONE:
+		dev_info(dwc->dev, "DWC3 OTG Notify USB_EVENT_NONE\n");
+		last_value = event;
 		state = NOTIFY_OK;
 		break;
 	default:
