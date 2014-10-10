@@ -60,6 +60,7 @@ struct devicemode {
 #define SET_RX_BLOCK	_IOW(0xE9, 0x04, unsigned int)
 #define SET_EMULATOR_TEST_POINT		_IOW(0xE9, 0x05, unsigned int)
 #define NFCC_VERSION				_IOW(0xE9, 0x08, unsigned int)
+#define NFCC_INITIAL_CORE_RESET_NTF		_IOW(0xE9, 0x10, unsigned int)
 
 #define NFC_MAX_I2C_TRANSFER	(0x0400)
 #define NFC_MSG_MAX_SIZE	(0x21)
@@ -195,6 +196,11 @@ enum nfcc_irq {
 	NFCC_INT,
 };
 
+enum nfcc_initial_core_reset_ntf {
+	TIMEDOUT_INITIAL_CORE_RESET_NTF = 0, /* 0*/
+	ARRIVED_INITIAL_CORE_RESET_NTF, /* 1 */
+	DEFAULT_INITIAL_CORE_RESET_NTF, /*2*/
+};
 
 struct nfc_info {
 	struct	miscdevice			miscdev;
