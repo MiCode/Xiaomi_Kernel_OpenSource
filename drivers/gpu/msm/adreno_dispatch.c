@@ -529,6 +529,8 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	trace_adreno_cmdbatch_submitted(cmdbatch, (int) dispatcher->inflight,
 		time.ticks, (unsigned long) secs, nsecs / 1000);
 
+	cmdbatch->submit_ticks = time.ticks;
+
 	dispatch_q->cmd_q[dispatch_q->tail] = cmdbatch;
 	dispatch_q->tail = (dispatch_q->tail + 1) %
 		ADRENO_DISPATCH_CMDQUEUE_SIZE;
@@ -1795,6 +1797,13 @@ static int adreno_dispatch_process_cmdqueue(struct adreno_device *adreno_dev,
 			trace_adreno_cmdbatch_retired(cmdbatch,
 				(int) dispatcher->inflight, start_ticks,
 				retire_ticks);
+
+			/* Record the delta between submit and retire ticks */
+			drawctxt->submit_retire_ticks[drawctxt->ticks_index] =
+				retire_ticks - cmdbatch->submit_ticks;
+
+			drawctxt->ticks_index = (drawctxt->ticks_index + 1)
+				% SUBMIT_RETIRE_TICKS_SIZE;
 
 			/* Zero the old entry*/
 			dispatch_q->cmd_q[dispatch_q->head] = NULL;
