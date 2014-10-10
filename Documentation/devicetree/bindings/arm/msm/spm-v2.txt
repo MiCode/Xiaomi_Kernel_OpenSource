@@ -54,6 +54,9 @@ Optional properties
 	Depricated: Replaced with cpu-vctl-list when cpu phandles are available.
 - qcom,cpu-vctl-list: List of cpu node phandles, whose voltage the spm device
 	can control.
+- qcom,use-qchannel-for-pc: Boolean property to specify if qchannel should be
+	ignored when entering power collapse. If this property is set qchannel
+	will not be ignored in power collapse.
 
 Example 1:
 	qcom,spm@f9089000 {

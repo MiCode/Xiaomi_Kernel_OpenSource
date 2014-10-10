@@ -43,6 +43,7 @@ struct msm_spm_device {
 	uint32_t cpu_vdd;
 	struct cpumask mask;
 	void __iomem *q2s_reg;
+	bool qchannel_ignore;
 };
 
 struct msm_spm_vdd_info {
@@ -169,7 +170,7 @@ static void msm_spm_config_q2s(struct msm_spm_device *dev, unsigned int mode)
 		break;
 	case MSM_SPM_MODE_GDHS:
 	case MSM_SPM_MODE_POWER_COLLAPSE:
-		qchannel_ignore = 0;
+		qchannel_ignore = dev->qchannel_ignore;
 		spm_legacy_mode = 1;
 		break;
 	default:
@@ -623,6 +624,10 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 			goto fail;
 		}
 	}
+
+	key = "qcom,use-qchannel-for-pc";
+	dev->qchannel_ignore = !of_property_read_bool(node, key);
+
 	/*
 	 * At system boot, cpus and or clusters can remain in reset. CCI SPM
 	 * will not be triggered unless SPM_LEGACY_MODE bit is set for the
