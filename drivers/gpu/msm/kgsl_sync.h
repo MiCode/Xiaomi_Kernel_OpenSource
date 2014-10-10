@@ -26,6 +26,7 @@ struct kgsl_sync_timeline {
 
 struct kgsl_sync_pt {
 	struct sync_pt pt;
+	struct kgsl_context *context;
 	unsigned int timestamp;
 };
 
