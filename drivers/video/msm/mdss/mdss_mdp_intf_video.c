@@ -926,14 +926,17 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 	MDSS_XLOG(ctl->num, ctl->underrun_cnt);
 
 	if (!ctx->timegen_en) {
-		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL);
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_LINK_READY, NULL);
 		if (rc) {
-			pr_warn("intf #%d unblank error (%d)\n",
+			pr_warn("intf #%d link ready error (%d)\n",
 					ctl->intf_num, rc);
 			video_vsync_irq_disable(ctl);
 			ctx->wait_pending = 0;
 			return rc;
 		}
+
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL);
+		WARN(rc, "intf %d unblank error (%d)\n", ctl->intf_num, rc);
 
 		pr_debug("enabling timing gen for intf=%d\n", ctl->intf_num);
 
