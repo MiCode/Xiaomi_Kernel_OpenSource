@@ -45,3 +45,22 @@
 		pinctrl-0 = <&eth_irq_default &spi0_unused_cs_default>;
 	};
 };
+
+&clock_gcc {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_rpm {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_mmss {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_debug {
+	status = "disabled";
+};
