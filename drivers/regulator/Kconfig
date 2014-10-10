@@ -588,6 +588,18 @@ config REGULATOR_QPNP
 	  chips provide several different varieties of LDO and switching
 	  regulators.  They also provide voltage switches and boost regulators.
 
+config REGULATOR_QPNP_LABIBB
+	depends on SPMI
+	depends on OF_SPMI
+	tristate "Qualcomm Technologies, Inc QPNP LAB/IBB regulator support"
+	help
+	  This driver supports voltage regulators in Qualcomm Technologies, Inc
+	  PMIC chips which comply with QPNP LAB/IBB regulators. QPNP LAB and IBB
+	  are SPMI based PMIC implementation. LAB regulator can be used as a
+	  regular positive boost regulator. IBB can be used as a regular
+	  negative boost regulator. LAB/IBB regulators can also be used
+	  together for LCD or AMOLED.
+
 config REGULATOR_SPM
 	bool "SPM regulator driver"
 	depends on SPMI && OF_SPMI
