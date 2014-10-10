@@ -246,3 +246,7 @@
 		qcom,thermal-node;
 	};
 };
+
+&qnand_1 {
+	status = "ok";
+};
