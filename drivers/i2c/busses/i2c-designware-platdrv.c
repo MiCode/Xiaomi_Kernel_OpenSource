@@ -47,6 +47,8 @@
 
 #include <asm/intel_mid_pcihelpers.h>
 
+#define I2C_TRAN_HDR_SIZE	2
+
 static struct i2c_algorithm i2c_dw_algo = {
 	.master_xfer	= i2c_dw_xfer,
 	.functionality	= i2c_dw_func,
@@ -115,6 +117,9 @@ dw_i2c_acpi_space_handler(u32 function, acpi_physical_address address,
 	if (!value64)
 		return AE_BAD_PARAMETER;
 
+	if (length <= I2C_TRAN_HDR_SIZE)
+		return AE_OK;
+
 	function &= ACPI_IO_MASK; 
 	if (function == ACPI_READ) {
 		buffer = kzalloc(length, GFP_KERNEL);
@@ -135,7 +140,7 @@ dw_i2c_acpi_space_handler(u32 function, acpi_physical_address address,
 			return AE_ERROR;		
 		}
 	
-		memcpy(value + 2, buffer, length - 2);
+		memcpy(value + 2, buffer, length - I2C_TRAN_HDR_SIZE);
 		value[0] = value[1] = 0;
 		kfree(buffer);
 	} else if (function == ACPI_WRITE) {
