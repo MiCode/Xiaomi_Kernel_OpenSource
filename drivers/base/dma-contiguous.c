@@ -563,6 +563,13 @@ phys_addr_t cma_get_base(struct device *dev)
 	return cma->base_pfn << PAGE_SHIFT;
 }
 
+unsigned long cma_get_size(struct device *dev)
+{
+	struct cma *cma = dev_get_cma_area(dev);
+
+	return cma->count << PAGE_SHIFT;
+}
+
 static void clear_cma_bitmap(struct cma *cma, unsigned long pfn, int count)
 {
 	mutex_lock(&cma->lock);
