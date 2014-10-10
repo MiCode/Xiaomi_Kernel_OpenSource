@@ -2918,7 +2918,7 @@ int wm_adsp_stream_read(struct wm_adsp *adsp, char __user *buf, size_t count)
 	if (avail < count)
 		count = avail;
 
-	adsp_dbg(adsp, "%s: avail=%d toend=%d count=%d\n",
+	adsp_dbg(adsp, "%s: avail=%d toend=%d count=%zo\n",
 		 __func__, avail, to_end, count);
 
 	if (count > to_end) {
