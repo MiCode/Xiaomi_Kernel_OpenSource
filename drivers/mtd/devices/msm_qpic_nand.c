@@ -2319,6 +2319,7 @@ int msm_nand_scan(struct mtd_info *mtd)
 	uint32_t i, mtd_writesize;
 	uint8_t dev_found = 0, wide_bus;
 	uint32_t manid, devid, devcfg;
+	uint8_t id_byte0, id_byte1, id_byte2, id_byte3;
 	uint32_t bad_block_byte;
 	struct nand_flash_dev *flashdev = NULL;
 	struct nand_manufacturers  *flashman = NULL;
@@ -2333,16 +2334,33 @@ int msm_nand_scan(struct mtd_info *mtd)
 			err = -EINVAL;
 			goto out;
 		}
-		manid = flash_id & 0xFF;
-		devid = (flash_id >> 8) & 0xFF;
-		devcfg = (flash_id >> 24) & 0xFF;
+		manid  = id_byte0 = flash_id & 0xFF;
+		devid  = id_byte1 = (flash_id >> 8) & 0xFF;
+		devcfg = id_byte3 = (flash_id >> 24) & 0xFF;
+		id_byte2 = (flash_id >> 16) & 0xFF;
 
 		for (i = 0; !flashman && nand_manuf_ids[i].id; ++i)
 			if (nand_manuf_ids[i].id == manid)
 				flashman = &nand_manuf_ids[i];
-		for (i = 0; !flashdev && nand_flash_ids[i].id; ++i)
-			if (nand_flash_ids[i].dev_id == devid)
+		for (i = 0; !flashdev && nand_flash_ids[i].id; ++i) {
+			/*
+			 * If id_len is specified for an entry in the nand ids
+			 * array, then at least 4 bytes of the nand id is
+			 * present in the nand ids array - use that to identify
+			 * the nand device first. If that is not present, only
+			 * then fall back to searching the legacy or extended
+			 * ids in the nand ids array.
+			 */
+			if (nand_flash_ids[i].id_len &&
+			   (nand_flash_ids[i].id[0] == id_byte0) &&
+			   (nand_flash_ids[i].id[1] == id_byte1) &&
+			   (nand_flash_ids[i].id[2] == id_byte2) &&
+			   (nand_flash_ids[i].id[3] == id_byte3))
 				flashdev = &nand_flash_ids[i];
+			else if (!nand_flash_ids[i].id_len &&
+					nand_flash_ids[i].dev_id == devid)
+				flashdev = &nand_flash_ids[i];
+		}
 		if (!flashdev || !flashman) {
 			pr_err("unknown nand flashid=%x manuf=%x devid=%x\n",
 				flash_id, manid, devid);
