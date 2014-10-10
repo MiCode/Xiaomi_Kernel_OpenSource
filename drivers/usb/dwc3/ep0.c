@@ -554,9 +554,11 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 			 * USB_GADGET_DELAYED_STATUS, we will wait
 			 * to change the state on the next usb_ep_queue()
 			 */
-			if (ret == 0)
+			if (ret == 0) {
+				dwc3_gadget_pet_dog(dwc);
 				usb_gadget_set_state(&dwc->gadget,
 						USB_STATE_CONFIGURED);
+			}
 
 			/*
 			 * Enable transition to U1/U2 state when
@@ -573,9 +575,11 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 
 	case USB_STATE_CONFIGURED:
 		ret = dwc3_ep0_delegate_req(dwc, ctrl);
-		if (!cfg && !ret)
+		if (!cfg && !ret) {
+			dwc3_gadget_pet_dog(dwc);
 			usb_gadget_set_state(&dwc->gadget,
 					USB_STATE_ADDRESS);
+		}
 		break;
 	default:
 		ret = -EINVAL;

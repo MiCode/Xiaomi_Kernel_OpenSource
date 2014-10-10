@@ -878,8 +878,13 @@ static int dwc3_suspend_common(struct device *dev)
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	unsigned long	flags;
 
-	if (atomic_inc_return(&dwc->suspend_depth) > 1)
+	if (atomic_inc_return(&dwc->suspend_depth) > 1) {
+		dev_info(dev, "%s: skipping suspend. suspend_depth = %d\n",
+			 __func__, atomic_read(&dwc->suspend_depth));
 		return 0;
+	}
+
+	dev_info(dev, "%s\n", __func__);
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
@@ -914,8 +919,13 @@ static int dwc3_resume_common(struct device *dev)
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	unsigned long	flags;
 
-	if (atomic_dec_return(&dwc->suspend_depth) > 0)
+	if (atomic_dec_return(&dwc->suspend_depth) > 0) {
+		dev_info(dev, "%s: skipping resume. suspend_depth = %d\n",
+			 __func__, atomic_read(&dwc->suspend_depth));
 		return 0;
+	}
+
+	dev_info(dev, "%s\n", __func__);
 
 	usb_phy_init(dwc->usb3_phy);
 	usb_phy_init(dwc->usb2_phy);

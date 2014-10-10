@@ -26,6 +26,7 @@
 #include <linux/io.h>
 #include <linux/list.h>
 #include <linux/dma-mapping.h>
+#include <linux/workqueue.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -1346,6 +1347,42 @@ static const struct usb_ep_ops dwc3_gadget_ep_ops = {
 
 /* -------------------------------------------------------------------------- */
 
+static void dwc3_gadget_watchdog(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct dwc3 *dwc = container_of(dwork, struct dwc3, watchdog);
+	int ret;
+
+	dev_info(dwc->dev, "%s: controller in bad state. reset via watchdog.\n",
+		__func__);
+
+	ret = pm_runtime_put_sync(dwc->dev);
+	if (ret)
+		dev_err(dwc->dev, "%s: sw watchdog failed to suspend controller: err = %d\n",
+			__func__, ret);
+
+	ret = pm_runtime_get(dwc->dev);
+	if (ret < 0)
+		dev_err(dwc->dev, "%s: sw watchdog failed to restart controller: err = %d\n",
+			__func__, ret);
+	else if (ret)
+		dev_info(dwc->dev, "%s: controller was already enabled\n", __func__);
+}
+
+void dwc3_gadget_pet_dog(struct dwc3 *dwc)
+{
+	if (cancel_delayed_work(&dwc->watchdog))
+		dev_info(dwc->dev, "%s: dog going to sleep\n", __func__);
+}
+
+static void dwc3_gadget_kick_dog(struct dwc3 *dwc)
+{
+	if (schedule_delayed_work(&dwc->watchdog, msecs_to_jiffies(1000)))
+		dev_info(dwc->dev, "%s: the dog has been awakened\n", __func__);
+	else
+		dev_info(dwc->dev, "%s: the dog was already awake\n", __func__);
+}
+
 static int dwc3_gadget_get_frame(struct usb_gadget *g)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
@@ -2276,6 +2313,22 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	reg = dwc3_readl(dwc->regs, DWC3_DCFG);
 	reg &= ~(DWC3_DCFG_DEVADDR_MASK);
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
+
+	/*
+	 * HACK: When coming from USB RESET EVENT from host, TUSB121x phy may
+	 * become unstable and hang. The current way to know when we reach this
+	 * hw issue is by raising a time out if it takes too long to receive
+	 * first ep0 interrupt afterwards.
+	 *
+	 * In order to do that, we start a sw watchdog from here. It will be
+	 * disabled after usb gadget enters into configured state. If it times
+	 * out, we'll soft reset the OTG controller, which makes usb phy stable
+	 * again.
+	 *
+	 * In case TUSB121x phy is not used, this watchdog will create no harm
+	 * since we're not expecting it to be ever triggered.
+	 */
+	dwc3_gadget_kick_dog(dwc);
 }
 
 static void dwc3_update_ram_clk_sel(struct dwc3 *dwc, u32 speed)
@@ -2664,6 +2717,7 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 	return ret;
 }
 
+
 /**
  * dwc3_gadget_init - Initializes gadget related registers
  * @dwc: pointer to our controller context structure
@@ -2732,6 +2786,8 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		dev_err(dwc->dev, "failed to register udc\n");
 		goto err4;
 	}
+
+	INIT_DELAYED_WORK(&dwc->watchdog, dwc3_gadget_watchdog);
 
 	return 0;
 

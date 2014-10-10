@@ -26,6 +26,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/mm.h>
 #include <linux/debugfs.h>
+#include <linux/workqueue.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -736,6 +737,8 @@ struct dwc3 {
 	bool			runtime_suspend;
 	struct notifier_block	nb;
 	atomic_t		suspend_depth;
+
+	struct delayed_work	watchdog;
 };
 
 /* -------------------------------------------------------------------------- */

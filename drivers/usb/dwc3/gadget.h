@@ -95,6 +95,8 @@ int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 		gfp_t gfp_flags);
 int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol);
 
+void dwc3_gadget_pet_dog(struct dwc3 *dwc);
+
 /**
  * dwc3_gadget_ep_get_transfer_index - Gets transfer index from HW
  * @dwc: DesignWare USB3 Pointer
