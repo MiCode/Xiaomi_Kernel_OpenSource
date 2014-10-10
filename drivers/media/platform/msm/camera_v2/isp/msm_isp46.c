@@ -53,6 +53,7 @@
 	(VFE46_WM_BASE(wm) + 0x4 * (1 + (~(ping_pong >> wm) & 0x1)))
 #define SHIFT_BF_SCALE_BIT 1
 #define VFE46_NUM_STATS_COMP 2
+#define VFE46_BUS_RD_CGC_OVERRIDE_BIT 16
 
 static uint32_t stats_base_addr[] = {
 	0x1E4, /* BF_SCALE */
@@ -854,6 +855,9 @@ static void msm_vfe46_cfg_fetch_engine(struct vfe_device *vfe_dev,
 		/* need to use formulae to calculate MAIN_UNPACK_PATTERN*/
 		msm_camera_io_w(0xF6543210, vfe_dev->vfe_base + 0x288);
 		msm_camera_io_w(0xF, vfe_dev->vfe_base + 0x2A4);
+
+		vfe_dev->hw_info->vfe_ops.axi_ops.update_cgc_override(vfe_dev,
+			VFE46_BUS_RD_CGC_OVERRIDE_BIT, 1);
 
 		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
 		temp |= 2 << 5;

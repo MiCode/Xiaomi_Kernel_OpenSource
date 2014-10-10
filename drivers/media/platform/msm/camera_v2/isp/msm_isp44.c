@@ -49,6 +49,8 @@
 #define VFE44_PING_PONG_BASE(wm, ping_pong) \
 	(VFE44_WM_BASE(wm) + 0x4 * (1 + (~(ping_pong >> wm) & 0x1)))
 
+#define VFE44_BUS_RD_CGC_OVERRIDE_BIT 16
+
 static uint8_t stats_pingpong_offset_map[] = {
 	7, 8, 9, 10, 11, 12, 13, 14, 15};
 
@@ -870,6 +872,9 @@ static void msm_vfe44_cfg_fetch_engine(struct vfe_device *vfe_dev,
 		pr_debug("%s: fetch_dbg wd x ht buf = %d x %d, fe = %d x %d\n",
 			__func__, fe_cfg->buf_width, fe_cfg->buf_height,
 			fe_cfg->fetch_width, fe_cfg->fetch_height);
+
+		vfe_dev->hw_info->vfe_ops.axi_ops.update_cgc_override(vfe_dev,
+			VFE44_BUS_RD_CGC_OVERRIDE_BIT, 1);
 
 		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
 		temp &= 0xFFFFFFFD;
