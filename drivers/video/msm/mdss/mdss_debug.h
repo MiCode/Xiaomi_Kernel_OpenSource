@@ -31,6 +31,11 @@
 #define XLOG_FUNC_EXIT	0x2222
 #define MDSS_REG_BLOCK_NAME_LEN (5)
 
+enum mdss_dbg_reg_dump_flag {
+	MDSS_REG_DUMP_IN_LOG = BIT(0),
+	MDSS_REG_DUMP_IN_MEM = BIT(1),
+};
+
 #define MDSS_XLOG(...) mdss_xlog(__func__, ##__VA_ARGS__, DATA_LIMITER)
 #define MDSS_XLOG_TOUT_HANDLER(...)	\
 	mdss_xlog_tout_handler(__func__, ##__VA_ARGS__, XLOG_TOUT_DATA_LIMITER)
@@ -53,6 +58,7 @@ struct mdss_debug_base {
 	char *buf;
 	size_t buf_len;
 	struct list_head head;
+	u32 *reg_dump;
 };
 
 struct mdss_debug_data {
@@ -87,7 +93,7 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id);
 int mdss_create_xlog_debug(struct mdss_debug_data *mdd);
 void mdss_xlog(const char *name, ...);
 void mdss_xlog_dump(void);
-void mdss_dump_reg(char __iomem *base, int len);
+void mdss_dump_reg(struct mdss_debug_base *dbg, u32 reg_dump_flag);
 void mdss_xlog_tout_handler(const char *name, ...);
 #else
 static inline int mdss_debugfs_init(struct mdss_data_type *mdata) { return 0; }
@@ -111,7 +117,8 @@ static inline void mdss_misr_crc_collect(struct mdss_data_type *mdata,
 static inline int create_xlog_debug(struct mdss_data_type *mdata) { return 0; }
 static inline void mdss_xlog(const char *name, ...) { }
 static inline void mdss_xlog_dump(void) { }
-static inline void mdss_dump_reg(char __iomem *base, int len) { }
+static inline void mdss_dump_reg(struct mdss_debug_base *dbg,
+	u32 reg_dump_flag) { }
 static inline void mdss_dsi_debug_check_te(struct mdss_panel_data *pdata) { }
 static inline void mdss_xlog_tout_handler(const char *name, ...) { }
 #endif

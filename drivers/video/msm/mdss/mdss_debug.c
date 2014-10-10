@@ -257,6 +257,7 @@ int mdss_debug_register_base(const char *name, void __iomem *base,
 	dbg->max_offset = max_offset;
 	dbg->off = 0;
 	dbg->cnt = DEFAULT_BASE_REG_CNT;
+	dbg->reg_dump = NULL;
 
 	if (name && strcmp(name, "mdp"))
 		prefix_len = snprintf(dn, sizeof(dn), "%s_", name);
@@ -662,24 +663,68 @@ int mdss_debugfs_remove(struct mdss_data_type *mdata)
 	return 0;
 }
 
-void mdss_dump_reg(char __iomem *base, int len)
+void mdss_dump_reg(struct mdss_debug_base *dbg, u32 reg_dump_flag)
 {
 	char *addr;
-	u32 x0, x4, x8, xc;
+	u32 *dump_addr = NULL;
+	int len;
 	int i;
+	bool in_log, in_mem;
 
-	addr = base;
+	if (!dbg || !dbg->base) {
+		pr_err("dbg base is null!\n");
+		return;
+	}
+
+	in_log = (reg_dump_flag & MDSS_REG_DUMP_IN_LOG);
+	in_mem = (reg_dump_flag & MDSS_REG_DUMP_IN_MEM);
+
+	addr = dbg->base;
+	len = dbg->max_offset;
+
 	if (len % 16)
 		len += 16;
 	len /= 16;
 
+	pr_info("reg_dump_flag=%d in_log=%d in_mem=%d\n", reg_dump_flag, in_log,
+		in_mem);
+	pr_info("=========%s DUMP=========\n", dbg->name);
+
+	if (in_mem) {
+		if (!dbg->reg_dump)
+			dbg->reg_dump = kzalloc(len * 16, GFP_KERNEL);
+
+		if (dbg->reg_dump) {
+			dump_addr = dbg->reg_dump;
+			pr_info("start_addr:%p end_addr:%p reg_addr=%p\n",
+				dump_addr, dump_addr + (u32)len * 16,
+				addr);
+		} else {
+			in_mem = false;
+			pr_err("reg_dump: kzalloc fails!\n");
+		}
+	}
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	for (i = 0; i < len; i++) {
+		u32 x0, x4, x8, xc;
+
 		x0 = readl_relaxed(addr+0x0);
 		x4 = readl_relaxed(addr+0x4);
 		x8 = readl_relaxed(addr+0x8);
 		xc = readl_relaxed(addr+0xc);
-		pr_info("%p : %08x %08x %08x %08x\n", addr, x0, x4, x8, xc);
+
+		if (in_log)
+			pr_info("%p : %08x %08x %08x %08x\n", addr, x0, x4, x8,
+				xc);
+
+		if (dump_addr && in_mem) {
+			dump_addr[i*4] = x0;
+			dump_addr[i*4 + 1] = x4;
+			dump_addr[i*4 + 2] = x8;
+			dump_addr[i*4 + 3] = xc;
+		}
+
 		addr += 16;
 	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);

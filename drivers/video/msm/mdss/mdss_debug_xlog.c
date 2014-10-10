@@ -79,7 +79,7 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 			    &mdss_dbg_xlog.xlog_enable);
 	debugfs_create_bool("panic", 0644, mdss_dbg_xlog.xlog,
 			    &mdss_dbg_xlog.panic_on_err);
-	debugfs_create_bool("reg_dump_in_log", 0644, mdss_dbg_xlog.xlog,
+	debugfs_create_u32("reg_dump", 0644, mdss_dbg_xlog.xlog,
 			    &mdss_dbg_xlog.enable_reg_dump);
 	return 0;
 }
@@ -178,13 +178,10 @@ void mdss_xlog_tout_handler(const char *name, ...)
 		list_for_each_entry_safe(blk_base, tmp, &mdd->base_list, head) {
 
 			if (blk_base->name &&
-				!strcmp(blk_base->name, blk_name) &&
-				mdss_dbg_xlog.enable_reg_dump) {
-				pr_info("\n%s  :   =========%s DUMP=========\n",
-						__func__, blk_base->name);
-				mdss_dump_reg(blk_base->base,
-						blk_base->max_offset);
-			}
+				!strcmp(blk_base->name, blk_name))
+
+				mdss_dump_reg(blk_base,
+					mdss_dbg_xlog.enable_reg_dump);
 		}
 		if (!strcmp(blk_name, "panic"))
 			dead = 1;
