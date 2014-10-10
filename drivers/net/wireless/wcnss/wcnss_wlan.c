@@ -35,6 +35,7 @@
 #include <linux/rwsem.h>
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/qpnp/qpnp-adc.h>
+#include <linux/pm_qos.h>
 
 #include <mach/board.h>
 #include <mach/msm_smd.h>
@@ -50,6 +51,10 @@
 #define CTRL_DEVICE "wcnss_ctrl"
 #define VERSION "1.01"
 #define WCNSS_PIL_DEVICE "wcnss"
+
+#define WCNSS_DISABLE_PC_LATENCY	100
+#define WCNSS_ENABLE_PC_LATENCY	PM_QOS_DEFAULT_VALUE
+#define WCNSS_PM_QOS_TIMEOUT	15000
 
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
@@ -426,6 +431,9 @@ static struct {
 	u16 unsafe_ch_list[WCNSS_MAX_CH_NUM];
 	void *wcnss_notif_hdle;
 	u8 is_shutdown;
+	struct pm_qos_request wcnss_pm_qos_request;
+	int pc_disabled;
+	struct delayed_work wcnss_pm_qos_del_req;
 } *penv = NULL;
 
 static ssize_t wcnss_wlan_macaddr_store(struct device *dev,
@@ -970,6 +978,46 @@ static void wcnss_remove_sysfs(struct device *dev)
 		device_remove_file(dev, &dev_attr_wcnss_mac_addr);
 	}
 }
+
+static void wcnss_pm_qos_add_request(void)
+{
+	pr_info("%s: add request", __func__);
+	pm_qos_add_request(&penv->wcnss_pm_qos_request, PM_QOS_CPU_DMA_LATENCY,
+			PM_QOS_DEFAULT_VALUE);
+}
+
+static void wcnss_pm_qos_remove_request(void)
+{
+	pr_info("%s: remove request", __func__);
+	pm_qos_remove_request(&penv->wcnss_pm_qos_request);
+}
+
+void wcnss_pm_qos_update_request(int val)
+{
+	pr_info("%s: update request %d", __func__, val);
+	pm_qos_update_request(&penv->wcnss_pm_qos_request, val);
+}
+
+void wcnss_disable_pc_remove_req(void)
+{
+	if (penv->pc_disabled) {
+		wcnss_pm_qos_update_request(WCNSS_ENABLE_PC_LATENCY);
+		wcnss_pm_qos_remove_request();
+		wcnss_allow_suspend();
+		penv->pc_disabled = 0;
+	}
+}
+
+void wcnss_disable_pc_add_req(void)
+{
+	if (!penv->pc_disabled) {
+		wcnss_pm_qos_add_request();
+		wcnss_prevent_suspend();
+		wcnss_pm_qos_update_request(WCNSS_DISABLE_PC_LATENCY);
+		penv->pc_disabled = 1;
+	}
+}
+
 static void wcnss_smd_notify_event(void *data, unsigned int event)
 {
 	int len = 0;
@@ -993,6 +1041,8 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 				WCNSS_CTRL_CHANNEL);
 		schedule_work(&penv->wcnssctrl_version_work);
 		schedule_work(&penv->wcnss_pm_config_work);
+		__cancel_delayed_work(&penv->wcnss_pm_qos_del_req);
+		schedule_delayed_work(&penv->wcnss_pm_qos_del_req, 0);
 
 		break;
 
@@ -2028,6 +2078,11 @@ out:
 	return;
 }
 
+static void wcnss_pm_qos_enable_pc(struct work_struct *worker)
+{
+	wcnss_disable_pc_remove_req();
+	return;
+}
 
 static void wcnss_caldata_dnld(const void *cal_data,
 		unsigned int cal_data_size, bool msg_to_follow)
@@ -2342,8 +2397,11 @@ wcnss_trigger_config(struct platform_device *pdev)
 	INIT_WORK(&penv->wcnssctrl_version_work, wcnss_send_version_req);
 	INIT_WORK(&penv->wcnss_pm_config_work, wcnss_send_pm_config);
 	INIT_WORK(&penv->wcnssctrl_nvbin_dnld_work, wcnss_nvbin_dnld_main);
+	INIT_DELAYED_WORK(&penv->wcnss_pm_qos_del_req, wcnss_pm_qos_enable_pc);
 
 	wake_lock_init(&penv->wcnss_wake_lock, WAKE_LOCK_SUSPEND, "wcnss");
+	/* Add pm_qos request to disable power collapse for DDR */
+	wcnss_disable_pc_add_req();
 
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
 		size = 0x3000;
@@ -2467,6 +2525,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 		if (IS_ERR(penv->pil)) {
 			dev_err(&pdev->dev, "Peripheral Loader failed on WCNSS.\n");
 			ret = PTR_ERR(penv->pil);
+			wcnss_disable_pc_add_req();
 			wcnss_pronto_log_debug_regs();
 		}
 	} while (pil_retry++ < WCNSS_MAX_PIL_RETRY && IS_ERR(penv->pil));
@@ -2479,6 +2538,8 @@ wcnss_trigger_config(struct platform_device *pdev)
 		penv->pil = NULL;
 		goto fail_pil;
 	}
+	/* Remove pm_qos request */
+	wcnss_disable_pc_remove_req();
 
 	return 0;
 
@@ -2531,6 +2592,7 @@ fail_power:
 	else
 		wcnss_gpios_config(penv->gpios_5wire, false);
 fail_gpio_res:
+	wcnss_disable_pc_remove_req();
 	penv = NULL;
 	return ret;
 }
@@ -2657,14 +2719,18 @@ exit:
 static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 				void *ss_handle)
 {
-	pr_debug("%s: wcnss notification event: %lu\n", __func__, code);
+	pr_info("%s: wcnss notification event: %lu\n", __func__, code);
 
-	if (SUBSYS_POWERUP_FAILURE == code)
-		wcnss_pronto_log_debug_regs();
-	else if (SUBSYS_BEFORE_SHUTDOWN == code)
-		penv->is_shutdown = 1;
-	else if (SUBSYS_AFTER_POWERUP == code)
-		penv->is_shutdown = 0;
+         if (code == SUBSYS_BEFORE_SHUTDOWN) {
+                 penv->is_shutdown = 1;
+                 wcnss_disable_pc_add_req();
+                 schedule_delayed_work(&penv->wcnss_pm_qos_del_req,
+                                 msecs_to_jiffies(WCNSS_PM_QOS_TIMEOUT));
+         } else if (code == SUBSYS_POWERUP_FAILURE) {
+                 wcnss_pronto_log_debug_regs();
+                 wcnss_disable_pc_remove_req();
+         } else if (SUBSYS_AFTER_POWERUP == code)
+                 penv->is_shutdown = 0;
 
 	return NOTIFY_DONE;
 }
