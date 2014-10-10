@@ -111,6 +111,8 @@ static struct intel_dp *intel_attached_dp(struct drm_connector *connector)
 static void intel_dp_link_down(struct intel_dp *intel_dp);
 static bool _edp_panel_vdd_on(struct intel_dp *intel_dp);
 static void edp_panel_vdd_off(struct intel_dp *intel_dp, bool sync);
+static struct edid *
+intel_dp_get_edid(struct drm_connector *connector, struct i2c_adapter *adapter);
 
 static int
 intel_dp_max_link_bw(struct intel_dp *intel_dp)
@@ -927,6 +929,8 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	int bpp, mode_rate;
 	static int bws[] = { DP_LINK_BW_1_62, DP_LINK_BW_2_7, DP_LINK_BW_5_4 };
 	int link_avail, link_clock;
+	struct drm_connector *drm_connector = &intel_connector->base;
+	struct edid *edid = NULL;
 
 	if (HAS_PCH_SPLIT(dev) && !HAS_DDI(dev) && port != PORT_A)
 		pipe_config->has_pch_encoder = true;
@@ -957,7 +961,11 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	 * bpc in between. */
 	bpp = pipe_config->pipe_bpp;
 	if (is_edp(intel_dp)) {
-		if (dev_priv->vbt.edp_bpp && dev_priv->vbt.edp_bpp < bpp) {
+		edid = intel_dp_get_edid(drm_connector, &intel_dp->aux.ddc);
+
+		/* Get bpp from vbt only for panels with edid 1.3 or older */
+		if (edid && edid->version == 1 && edid->revision <= 3  &&
+			dev_priv->vbt.edp_bpp && dev_priv->vbt.edp_bpp < bpp) {
 			DRM_DEBUG_KMS("clamping bpp for eDP panel to BIOS-provided %i\n",
 				      dev_priv->vbt.edp_bpp);
 			bpp = dev_priv->vbt.edp_bpp;
@@ -1709,25 +1717,6 @@ static void intel_dp_get_config(struct intel_encoder *encoder,
 
 	pipe_config->adjusted_mode.crtc_clock = dotclock;
 
-	if (is_edp(intel_dp) && dev_priv->vbt.edp_bpp &&
-	    pipe_config->pipe_bpp > dev_priv->vbt.edp_bpp) {
-		/*
-		 * This is a big fat ugly hack.
-		 *
-		 * Some machines in UEFI boot mode provide us a VBT that has 18
-		 * bpp and 1.62 GHz link bandwidth for eDP, which for reasons
-		 * unknown we fail to light up. Yet the same BIOS boots up with
-		 * 24 bpp and 2.7 GHz link. Use the same bpp as the BIOS uses as
-		 * max, not what it tells us to use.
-		 *
-		 * Note: This will still be broken if the eDP panel is not lit
-		 * up by the BIOS, and thus we can't get the mode at module
-		 * load.
-		 */
-		DRM_DEBUG_KMS("pipe has %d bpp for eDP panel, overriding BIOS-provided max %d bpp\n",
-			      pipe_config->pipe_bpp, dev_priv->vbt.edp_bpp);
-		dev_priv->vbt.edp_bpp = pipe_config->pipe_bpp;
-	}
 }
 
 static bool is_edp_psr(struct drm_device *dev)
