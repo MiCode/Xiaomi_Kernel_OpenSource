@@ -31,6 +31,15 @@ struct nand_flash_dev nand_flash_ids[] = {
 	 * listed by full ID. We list them first so that we can easily identify
 	 * the most specific match.
 	 */
+	{"TC58NYG1S3H 2G 1.8V 8-bit",
+		{ .id = {0x98, 0xaa, 0x90, 0x15, 0x00, 0x00, 0x00, 0x00} },
+		  SZ_2K, SZ_256, SZ_128K, 0, 4, 128},
+	{"MT29F4G08ABBDAHC 4G 3.3V 8-bit",
+		{ .id = {0x2c, 0xac, 0x90, 0x15, 0x00, 0x00, 0x00, 0x00} },
+		  SZ_2K, SZ_512, SZ_128K, 0, 4, 64},
+	{"MT29RZ4B2DZZHGSK 4G 3.3V 8-bit",
+		{ .id = {0x2c, 0xac, 0x90, 0x26, 0x00, 0x00, 0x00, 0x00} },
+		  SZ_4K, SZ_512, SZ_256K, 0, 4, 224},
 	{"TC58NVG2S0F 4G 3.3V 8-bit",
 		{ .id = {0x98, 0xdc, 0x90, 0x26, 0x76, 0x15, 0x01, 0x08} },
 		  SZ_4K, SZ_512, SZ_256K, 0, 8, 224},
