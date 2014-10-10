@@ -2887,6 +2887,11 @@ static int i2c_msm_qup_init(struct i2c_msm_ctrl *ctrl)
 	if (ret)
 		return ret;
 
+	/* Initialize the xfer mode structures */
+	i2c_msm_fifo_get_struct(ctrl);
+	i2c_msm_blk_get_struct(ctrl);
+	i2c_msm_bam_get_struct(ctrl);
+
 	i2c_msm_qup_fifo_calc_size(ctrl);
 	/*
 	 * Ensure that QUP configuration is written and that fifo size if read
