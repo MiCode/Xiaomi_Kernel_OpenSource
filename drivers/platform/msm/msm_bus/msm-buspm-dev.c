@@ -347,6 +347,10 @@ static int __init msm_buspm_dev_init(void)
 	if (ret < 0)
 		pr_err("%s: Cannot register misc device\n", __func__);
 
+	if (msm_buspm_misc.this_device->coherent_dma_mask == 0)
+		msm_buspm_misc.this_device->coherent_dma_mask =
+							DMA_BIT_MASK(32);
+
 	return ret;
 }
 
