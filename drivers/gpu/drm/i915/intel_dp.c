@@ -4505,7 +4505,8 @@ void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
 		return;
 	}
 
-	if (INTEL_INFO(dev)->gen < 8 && intel_edp_is_psr_enabled(dev)) {
+	if ((IS_CHERRYVIEW(dev) || INTEL_INFO(dev)->gen < 8)
+		&& intel_edp_is_psr_enabled(dev)) {
 		DRM_DEBUG_KMS("DRRS is disabled as PSR is enabled\n");
 		return;
 	}
@@ -4540,7 +4541,8 @@ void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
 		return;
 	}
 
-	if (INTEL_INFO(dev)->gen > 6 && INTEL_INFO(dev)->gen < 8) {
+	if (IS_CHERRYVIEW(dev) ||
+		(INTEL_INFO(dev)->gen > 6 && INTEL_INFO(dev)->gen < 8)) {
 		reg = PIPECONF(intel_crtc->config.cpu_transcoder);
 		val = I915_READ(reg);
 		if (index > DRRS_HIGH_RR) {
