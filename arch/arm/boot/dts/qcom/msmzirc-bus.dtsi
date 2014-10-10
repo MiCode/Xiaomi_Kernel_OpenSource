@@ -32,6 +32,13 @@
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpm  clk_bimc_msmbus_clk>,
 				<&clock_rpm  clk_bimc_msmbus_a_clk>;
+
+			coresight-id = <55>;
+			coresight-name = "coresight-bimc";
+			coresight-nr-inports = <0>;
+			coresight-outports = <0>;
+			coresight-child-list = <&funnel_in0>;
+			coresight-child-ports = <3>;
 		};
 
 		fab_pcnoc: fab-pcnoc {
@@ -60,6 +67,13 @@
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpm  clk_pcnoc_msmbus_clk>,
 				<&clock_rpm  clk_pcnoc_msmbus_a_clk>;
+
+			coresight-id = <50>;
+			coresight-name = "coresight-snoc";
+			coresight-nr-inports = <0>;
+			coresight-outports = <0>;
+			coresight-child-list = <&funnel_in0>;
+			coresight-child-ports = <5>;
 		};
 
 		/*Masters*/
