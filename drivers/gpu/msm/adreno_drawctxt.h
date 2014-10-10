@@ -43,8 +43,9 @@ struct kgsl_context;
  * @queued: Number of commands queued in the cmdqueue
  * @fault_policy: GFT fault policy set in cmdbatch_skip_cmd();
  * @debug_root: debugfs entry for this context.
- * @inflight_timestamp: The last timestamp that was queued on this context
+ * @queued_timestamp: The last timestamp that was queued on this context
  * @rb: The ringbuffer in which this context submits commands.
+ * @submitted_timestamp: The last timestamp that was submitted for this context
  */
 struct adreno_context {
 	struct kgsl_context base;
@@ -65,8 +66,9 @@ struct adreno_context {
 	int queued;
 	unsigned int fault_policy;
 	struct dentry *debug_root;
-	unsigned int inflight_timestamp;
+	unsigned int queued_timestamp;
 	struct adreno_ringbuffer *rb;
+	unsigned int submitted_timestamp;
 };
 
 /**
