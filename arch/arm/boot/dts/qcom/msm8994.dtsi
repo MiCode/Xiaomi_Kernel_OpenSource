@@ -3199,7 +3199,6 @@
 #include "msm8994-iommu-domains.dtsi"
 #include "msm8994-camera.dtsi"
 #include "msm8994-gpu.dtsi"
-#include "msm8994-pm.dtsi"
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-sim-dualmipi0-video.dtsi"
 #include "dsi-panel-sim-dualmipi1-video.dtsi"
