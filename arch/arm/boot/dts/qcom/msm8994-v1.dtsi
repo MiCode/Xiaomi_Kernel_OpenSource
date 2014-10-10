@@ -18,7 +18,7 @@
 
 #include "msm8994.dtsi"
 #include "msm8994-coresight-v1.dtsi"
-#include "msm8994-pm.dtsi"
+#include "msm8994-v1-pm.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8994";
