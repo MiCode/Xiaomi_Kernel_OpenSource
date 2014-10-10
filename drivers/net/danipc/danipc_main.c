@@ -192,19 +192,19 @@ static int parse_resources(struct platform_device *pdev,
 				struct danipc_priv *priv)
 {
 	const char		*regs[PLATFORM_MAX_NUM_OF_NODES] = {
-		"cpu0_ipc", "cpu1_ipc", "cpu2_ipc", "cpu3_ipc",
-		"dsp0_ipc", "dsp1_ipc", "dsp2_ipc", NULL,
-		"krait_ipc", "qdsp6_0_ipc", "qdsp6_1_ipc", "qdsp6_2_ipc",
+		"phycpu0_ipc", "phycpu1_ipc", "phycpu2_ipc", "phycpu3_ipc",
+		"phydsp0_ipc", "phydsp1_ipc", "phydsp2_ipc", NULL,
+		"apps_ipc", "qdsp6_0_ipc", "qdsp6_1_ipc", "qdsp6_2_ipc",
 		"qdsp6_3_ipc", NULL, NULL, NULL
 	};
 	const char		*resource[RESOURCE_NUM] = {
-		"ipc_bufs", "agent_table", "krait_ipc_intr_en"
+		"ipc_bufs", "agent_table", "apps_ipc_intr_en"
 	};
 	const char		*shm_sizes[PLATFORM_MAX_NUM_OF_NODES] = {
-		"qcom,cpu0-shm-size", "qcom,cpu1-shm-size",
-		"qcom,cpu2-shm-size", "qcom,cpu3-shm-size",
-		"qcom,dsp0-shm-size", "qcom,dsp1-shm-size",
-		"qcom,dsp2-shm-size", NULL, "qcom,krait-shm-size",
+		"qcom,phycpu0-shm-size", "qcom,phycpu1-shm-size",
+		"qcom,phycpu2-shm-size", "qcom,phycpu3-shm-size",
+		"qcom,phydsp0-shm-size", "qcom,phydsp1-shm-size",
+		"qcom,phydsp2-shm-size", NULL, "qcom,apps-shm-size",
 		"qcom,qdsp6-0-shm-size", "qcom,qdsp6-1-shm-size",
 		"qcom,qdsp6-2-shm-size", "qcom,qdsp6-3-shm-size",
 		NULL, NULL, NULL
@@ -245,9 +245,6 @@ static int parse_resources(struct platform_device *pdev,
 			if (res) {
 				ipc_regs_phys[r] = res->start;
 				ipc_regs_len[r] = resource_size(res);
-			} else {
-				pr_err("cannot get resource %s\n", regs[r]);
-				parse_err = true;
 			}
 
 			if (of_property_read_u32((&pdev->dev)->of_node,
@@ -256,6 +253,11 @@ static int parse_resources(struct platform_device *pdev,
 				ipc_shared_mem_sizes[r] = 0;
 			else
 				ipc_shared_mem_sizes[r] = shm_size;
+		}
+
+		if (ipc_regs_len[LOCAL_IPC_ID] == 0) {
+			pr_err("cannot get fifo resource for %s\n", regs[r]);
+			parse_err = true;
 		}
 
 		rc = (!parse_err) ? 0 : -ENOMEM;

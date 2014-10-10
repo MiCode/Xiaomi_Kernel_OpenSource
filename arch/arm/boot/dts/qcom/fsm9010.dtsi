@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -362,6 +362,27 @@
 			qcom,max-num-images = <1>;
 			qcom,pil-skip-entry-check;
 		};
+	};
+
+	qcom,danipc@21000000 {
+		compatible = "qcom,danipc";
+		reg-names = "ipc_bufs", "agent_table", "apps_ipc_intr_en",
+			"phycpu0_ipc", "phycpu1_ipc", "phycpu2_ipc",
+			"phydsp0_ipc", "phydsp1_ipc", "apps_ipc",
+			"qdsp6_0_ipc", "qdsp6_1_ipc";
+		reg = <0x21000000 0x80000>, /* ipc_bufs */
+			<0x13e60000 0x2000>, /* agent_table */
+			<0xfd4a3500 0x100>, /* apps_ipc_intr_en */
+			<0xf683a000 0x100>, /* phycpu0_ipc */
+			<0xf683a000 0x100>, /* phycpu1_ipc */
+			<0xf683c000 0x100>, /* phycpu2_ipc */
+			<0xf6862000 0x100>, /* phydsp0_ipc */
+			<0xf6862000 0x100>, /* phydsp1_ipc */
+			<0xfd490000 0x100>, /* apps_ipc */
+			<0xfd495000 0x100>, /* qdsp6_0_ipc */
+			<0xfd496000 0x100>; /* qdsp6_1_ipc */
+		qcom,qdsp6-1-shm-size = <0x4000000>;
+		interrupts = <0 202 0>;
 	};
 
 	qcom,msm-imem@fe805000 {
