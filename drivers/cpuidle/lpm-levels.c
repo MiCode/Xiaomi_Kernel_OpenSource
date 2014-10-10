@@ -245,7 +245,7 @@ int set_l2_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
 	return rc;
 }
 
-int set_cci_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
+int set_system_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
 {
 	if (mode == MSM_SPM_MODE_CLOCK_GATING)
 		mode = MSM_SPM_MODE_DISABLED;
