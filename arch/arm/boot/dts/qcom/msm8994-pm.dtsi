@@ -28,6 +28,7 @@
 		qcom,saw2-pmic-data0 = <0x00030000>; /* VDD_APC0 off */
 		qcom,saw2-pmic-data1 = <0x02030080>; /* VDD_APC0 on  */
 		qcom,pfm-port = <0x2>;
+		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-ret = [00 03 00 0f];
 		qcom,saw2-spm-cmd-pc = [00 60 70 50 01 07 11 3f 3f 3f 3f 50 00
 			60 70 0f];
@@ -44,6 +45,7 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0x3c100c1c>;
 		qcom,saw2-spm-ctl = <0x0>;
+		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-ret = [03 2f 1b 0f];
 		qcom,saw2-spm-cmd-pc = [08 00 30 50 18 7b 26 6b 16 6b c0 e0 d0
 			1f 18 03 2f 1b 18 7b d0 2b e0 3b c0 16 6b 26 6b 18 00
@@ -68,6 +70,7 @@
 		qcom,saw2-pmic-data0 = <0x00030000>; /* VDD_APC1 off */
 		qcom,saw2-pmic-data1 = <0x02030080>; /* VDD_APC1 on  */
 		qcom,pfm-port = <0x2>;
+		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-ret = [03 2f 1b 0f];
 		qcom,saw2-spm-cmd-pc = [08 00 30 50 18 7b 26 6b 16 6b c0 e0 d0
 			18 b0 01 03 2f 1b 11 b0 3f 3f 3f 3f 18 7b d0 2b e0 3b
@@ -86,6 +89,7 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x0>;
+		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
 		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
 			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
@@ -107,6 +111,7 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x0>;
+		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
 		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
 			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
@@ -128,6 +133,7 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x0>;
+		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
 		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
 			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
@@ -149,6 +155,7 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x0>;
+		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
 		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
 			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
@@ -170,6 +177,7 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x0>;
+		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
 		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
 			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
@@ -191,6 +199,7 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x0>;
+		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
 		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
 			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
@@ -212,6 +221,7 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x0>;
+		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
 		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
 			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
@@ -233,6 +243,7 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x0>;
+		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
 		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
 			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
