@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/sort.h>
 #include <linux/clk.h>
+#include <linux/bitmap.h>
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
@@ -421,6 +422,34 @@ u32 mdss_mdp_perf_calc_smp_size(struct mdss_mdp_pipe *pipe,
 	return smp_bytes;
 }
 
+static void mdss_mdp_get_bw_vote_mode(struct mdss_mdp_mixer *mixer,
+	u32 mdp_rev, struct mdss_mdp_perf_params *perf, u32 flags)
+{
+	bitmap_zero(perf->bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
+
+	if (!mixer)
+		goto exit;
+
+	switch (mdp_rev) {
+	case MDSS_MDP_HW_REV_105:
+	case MDSS_MDP_HW_REV_109:
+		if ((flags & PERF_CALC_PIPE_SINGLE_LAYER) &&
+			!mixer->rotator_mode &&
+			(mixer->type == MDSS_MDP_MIXER_TYPE_INTF)) {
+				set_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
+					perf->bw_vote_mode);
+		}
+		break;
+	default:
+		break;
+	};
+
+	pr_debug("mode=0x%lx\n", *(perf->bw_vote_mode));
+
+exit:
+	return;
+}
+
 /**
  * mdss_mdp_perf_calc_pipe() - calculate performance numbers required by pipe
  * @pipe:	Source pipe struct containing updated pipe params
@@ -578,6 +607,8 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.is_cmd = !mixer->ctl->is_video_mode;
 	prefill_params.pnum = pipe->num;
 
+	mdss_mdp_get_bw_vote_mode(mixer, mdata->mdp_rev, perf, flags);
+
 	if (flags & PERF_CALC_PIPE_SINGLE_LAYER)
 		perf->prefill_bytes =
 			mdss_mdp_perf_calc_pipe_prefill_single(&prefill_params);
@@ -695,6 +726,9 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 
 	for (i = 0; i < num_pipes; i++) {
 		struct mdss_mdp_perf_params tmp;
+
+		memset(&tmp, 0, sizeof(tmp));
+
 		pipe = pipe_list[i];
 		if (pipe == NULL)
 			continue;
@@ -710,6 +744,9 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 		if (mdss_mdp_perf_calc_pipe(pipe, &tmp, &mixer->roi,
 			flags))
 			continue;
+
+		bitmap_or(perf->bw_vote_mode, perf->bw_vote_mode,
+			tmp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
 		prefill_bytes += tmp.prefill_bytes;
 		bw_overlap[i] = tmp.bw_overlap;
@@ -757,9 +794,10 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 		perf->mdp_clk_rate = max_clk_rate;
 
 exit:
-	pr_debug("final mixer=%d video=%d clk_rate=%u bw=%llu prefill=%d\n",
+	pr_debug("final mixer=%d video=%d clk_rate=%u bw=%llu prefill=%d mode=0x%lx\n",
 		mixer->num, mixer->ctl->is_video_mode, perf->mdp_clk_rate,
-		perf->bw_overlap, perf->prefill_bytes);
+		perf->bw_overlap, perf->prefill_bytes,
+		*(perf->bw_vote_mode));
 }
 
 static u32 mdss_mdp_get_vbp_factor(struct mdss_mdp_ctl *ctl)
@@ -841,6 +879,10 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 	if (ctl->mixer_left) {
 		mdss_mdp_perf_calc_mixer(ctl->mixer_left, &tmp,
 				left_plist, left_cnt, flags);
+
+		bitmap_or(perf->bw_vote_mode, perf->bw_vote_mode,
+			tmp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
+
 		perf->bw_overlap += tmp.bw_overlap;
 		perf->prefill_bytes += tmp.prefill_bytes;
 		perf->mdp_clk_rate = tmp.mdp_clk_rate;
@@ -849,6 +891,10 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 	if (ctl->mixer_right) {
 		mdss_mdp_perf_calc_mixer(ctl->mixer_right, &tmp,
 				right_plist, right_cnt, flags);
+
+		bitmap_or(perf->bw_vote_mode, perf->bw_vote_mode,
+			tmp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
+
 		perf->bw_overlap += tmp.bw_overlap;
 		perf->prefill_bytes += tmp.prefill_bytes;
 		if (tmp.mdp_clk_rate > perf->mdp_clk_rate)
@@ -882,8 +928,9 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 	}
 
 	perf->bw_ctl = max(perf->bw_prefill, perf->bw_overlap);
-	pr_debug("ctl=%d, prefill bw=%llu, overlap bw=%llu\n",
-			ctl->num, perf->bw_prefill, perf->bw_overlap);
+	pr_debug("ctl=%d prefill bw=%llu overlap bw=%llu mode=0x%lx\n",
+			ctl->num, perf->bw_prefill, perf->bw_overlap,
+			*(perf->bw_vote_mode));
 }
 
 int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
@@ -1125,6 +1172,8 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 	u64 bw_sum_of_intfs_rt = 0, bw_sum_of_intfs_nrt = 0;
 	u64 bus_ab_quota_rt, bus_ab_quota_nrt, bus_ib_quota;
 	int i;
+	struct mdss_mdp_perf_params perf_temp;
+	bitmap_zero(perf_temp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
 	ATRACE_BEGIN(__func__);
 	for (i = 0; i < mdata->nctl; i++) {
@@ -1139,6 +1188,13 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 			if (ctl->traffic_shaper_enabled)
 				mdss_mdp_ctl_perf_update_traffic_shaper_bw
 					(ctl, mdp_clk);
+
+			if (ctl->cur_perf.bw_vote_mode)
+				bitmap_or(perf_temp.bw_vote_mode,
+					perf_temp.bw_vote_mode,
+					ctl->cur_perf.bw_vote_mode,
+					MDSS_MDP_BW_MODE_MAX);
+
 			mixer = ctl->mixer_left;
 			if (ctl->intf_num ==  MDSS_MDP_NO_INTF ||
 					mixer->rotator_mode)
@@ -1146,19 +1202,31 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 			else
 				bw_sum_of_intfs_rt += ctl->cur_perf.bw_ctl;
 
-			pr_debug("ctl_num=%d bw=%llu\n", ctl->num,
-				ctl->cur_perf.bw_ctl);
+			pr_debug("ctl_num=%d bw=%llu mode=0x%lx\n", ctl->num,
+				ctl->cur_perf.bw_ctl,
+				*(ctl->cur_perf.bw_vote_mode));
 		}
 	}
 	bw_sum_of_intfs_rt = max(bw_sum_of_intfs_rt,
 			mdata->perf_tune.min_bus_vote);
+
 	bus_ib_quota = bw_sum_of_intfs_rt + bw_sum_of_intfs_nrt;
+	if (test_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
+		perf_temp.bw_vote_mode) &&
+		(bus_ib_quota >= PERF_SINGLE_PIPE_BW_FLOOR)) {
+		struct mdss_fudge_factor ib_factor_vscaling;
+		ib_factor_vscaling.numer = 2;
+		ib_factor_vscaling.denom = 1;
+		bus_ib_quota = apply_fudge_factor(bus_ib_quota,
+			&ib_factor_vscaling);
+	}
+
 	bus_ab_quota_rt = apply_fudge_factor(bw_sum_of_intfs_rt,
 		&mdss_res->ab_factor);
 	bus_ab_quota_nrt = apply_fudge_factor(bw_sum_of_intfs_nrt,
 		&mdss_res->ab_factor);
-	trace_mdp_perf_update_bus(bus_ab_quota_rt, bus_ab_quota_nrt
-			, bus_ib_quota);
+	trace_mdp_perf_update_bus(bus_ab_quota_rt, bus_ab_quota_nrt,
+			bus_ib_quota, *(perf_temp.bw_vote_mode));
 	ATRACE_INT("bus_quota", bus_ib_quota);
 	mdss_bus_scale_set_quota(MDSS_HW_MDP, bus_ab_quota_rt, bus_ab_quota_nrt
 			, bus_ib_quota);
@@ -1322,6 +1390,8 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 				ctl->num, params_changed, new->bw_ctl,
 				old->bw_ctl);
 			old->bw_ctl = new->bw_ctl;
+			bitmap_copy(old->bw_vote_mode, new->bw_vote_mode,
+				MDSS_MDP_BW_MODE_MAX);
 			update_bus = 1;
 		}
 

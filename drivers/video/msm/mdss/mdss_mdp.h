@@ -69,6 +69,8 @@
 #define PERF_CALC_PIPE_SINGLE_LAYER	BIT(1)
 #define PERF_CALC_PIPE_CALC_SMP_SIZE	BIT(2)
 
+#define PERF_SINGLE_PIPE_BW_FLOOR 1200000000
+
 enum mdss_mdp_perf_state_type {
 	PERF_SW_COMMIT_STATE = 0,
 	PERF_HW_MDP_STATE,
@@ -162,12 +164,18 @@ enum mdss_mdp_wb_ctl_type {
 	MDSS_MDP_WB_CTL_TYPE_LINE
 };
 
+enum mdss_mdp_bw_vote_mode {
+	MDSS_MDP_BW_MODE_SINGLE_LAYER,
+	MDSS_MDP_BW_MODE_MAX
+};
+
 struct mdss_mdp_perf_params {
 	u64 bw_overlap;
 	u64 bw_prefill;
 	u32 prefill_bytes;
 	u64 bw_ctl;
 	u32 mdp_clk_rate;
+	DECLARE_BITMAP(bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 };
 
 struct mdss_mdp_ctl {
