@@ -2734,13 +2734,14 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 
 	case ATOMISP_IOC_G_MOTOR_PRIV_INT_DATA:
 		if (isp->inputs[asd->input_curr].motor)
-			return v4l2_subdev_call(
+			err = v4l2_subdev_call(
 					isp->inputs[asd->input_curr].motor,
 					core, ioctl, cmd, arg);
 		else
-			return v4l2_subdev_call(
+			err = v4l2_subdev_call(
 					isp->inputs[asd->input_curr].camera,
 					core, ioctl, cmd, arg);
+		break;
 
 	case ATOMISP_IOC_S_EXPOSURE:
 	case ATOMISP_IOC_G_SENSOR_CALIBRATION_GROUP:
@@ -2749,8 +2750,9 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 	case ATOMISP_IOC_S_SENSOR_AE_BRACKETING_MODE:
 	case ATOMISP_IOC_G_SENSOR_AE_BRACKETING_MODE:
 	case ATOMISP_IOC_S_SENSOR_AE_BRACKETING_LUT:
-		return v4l2_subdev_call(isp->inputs[asd->input_curr].camera,
+		err = v4l2_subdev_call(isp->inputs[asd->input_curr].camera,
 					core, ioctl, cmd, arg);
+		break;
 
 	case ATOMISP_IOC_ACC_LOAD:
 		err = atomisp_acc_load(isp, arg);
@@ -2810,8 +2812,9 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 		err = atomisp_get_metadata_by_type(asd, 0, arg);
 		break;
 	case ATOMISP_IOC_EXT_ISP_CTRL:
-		return v4l2_subdev_call(isp->inputs[asd->input_curr].camera,
+		err = v4l2_subdev_call(isp->inputs[asd->input_curr].camera,
 					core, ioctl, cmd, arg);
+		break;
 	case ATOMISP_IOC_EXP_ID_UNLOCK:
 		err = atomisp_exp_id_unlock(asd, arg);
 		break;
@@ -2847,8 +2850,8 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 		err = atomisp_get_effective_res(asd, arg);
 		break;
 	default:
-		rt_mutex_unlock(&isp->mutex);
-		return -EINVAL;
+		err = -EINVAL;
+		break;
 	}
 
 	switch (cmd) {
