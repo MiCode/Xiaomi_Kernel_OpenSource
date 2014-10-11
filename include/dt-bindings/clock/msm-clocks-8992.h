@@ -384,31 +384,33 @@
 #define clk_dsi_vco_clk_8994 0x976ed967
 
 /* clock_cpu controlled clocks */
+#define clk_a57_clk 0x6c7dc3ea
 #define clk_a57_pll0 0xd01177bc
 #define clk_a57_pll1 0x546813fa
-#define clk_a53_pll0 0xa24d446b
-#define clk_a53_pll1 0xdc2957a1
-#define clk_a53_hf_mux 0xae9fcd1a
-#define clk_a53_lf_mux 0x541f1e40
+#define clk_a57_pll0_main 0xe2f766a8
+#define clk_a57_pll1_main 0xe231d575
 #define clk_a57_hf_mux 0x11a12cf4
 #define clk_a57_lf_mux 0xc4923785
-#define clk_sys_apcsaux_clk 0x5ac5f5db
-#define clk_a53_lf_mux_pll0_div 0xdd845061
-#define clk_a53_lf_mux_pll1_div 0xd8218380
+#define clk_a57_lf_mux_div 0xac0c1150
+#define clk_a57_div_clk 0x4fdce8aa
+#define clk_a53_clk 0x5c9f8836
+#define clk_a53_pll0 0xa24d446b
+#define clk_a53_pll1 0xdc2957a1
 #define clk_a53_pll0_main 0xb2cc34c0
 #define clk_a53_pll1_main 0x4fea3e81
-#define clk_a53_clk 0x5c9f8836
-#define clk_a57_clk 0x6c7dc3ea
+#define clk_a53_hf_mux 0xae9fcd1a
+#define clk_a53_lf_mux 0x541f1e40
+#define clk_a53_lf_mux_div 0x6ae626e5
+#define clk_a53_div_clk 0x6006022b
 #define clk_cci_clk 0x96854074
 #define clk_cci_pll 0x9f1ea9a6
 #define clk_cci_hf_mux 0x1e4a0b42
 #define clk_cci_lf_mux 0x78b92bfd
 #define clk_xo_ao 0x480207b3
+#define clk_sys_apcsaux_clk 0x5ac5f5db
 #define clk_a57_debug_mux 0x0a9d77c3
 #define clk_a53_debug_mux 0x034d8e87
 #define clk_cpu_debug_mux 0x3ae8bcb2
-#define clk_a57_div_clk 0x4fdce8aa
-#define clk_a53_div_clk 0x6006022b
 
 /* clock_debug controlled clocks */
 #define clk_debug_mmss_clk 0x977c99b6
