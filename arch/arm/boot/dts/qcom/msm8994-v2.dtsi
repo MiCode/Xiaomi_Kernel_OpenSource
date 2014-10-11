@@ -54,6 +54,10 @@
 		qcom,irq-is-percpu;
 		interrupts = <1 7 0xff00>;
 	};
+
+	qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon2";
+	};
 };
 
 /* Clock driver overrides */
