@@ -786,7 +786,7 @@ static int msm_cti_pmu_wa_cpu_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
-void arm64_check_cache_ecc(void)
+void arm64_check_cache_ecc(void *info)
 {
 	if (panic_handler_drvdata)
 		check_sbe_event(panic_handler_drvdata);
@@ -795,9 +795,27 @@ void arm64_check_cache_ecc(void)
 static int arm64_erp_panic_notify(struct notifier_block *this,
 			      unsigned long event, void *ptr)
 {
-	arm64_check_cache_ecc();
+	arm64_check_cache_ecc(NULL);
 
 	return NOTIFY_OK;
+}
+
+static void arm64_monitor_cache_errors(struct edac_device_ctl_info *edev)
+{
+	struct cpumask cluster_mask, old_mask;
+	int cpu;
+
+	cpumask_clear(&cluster_mask);
+	cpumask_clear(&old_mask);
+
+	for_each_possible_cpu(cpu) {
+		cpumask_copy(&cluster_mask, topology_core_cpumask(cpu));
+		if (cpumask_equal(&cluster_mask, &old_mask))
+			continue;
+		cpumask_copy(&old_mask, &cluster_mask);
+		smp_call_function_any(&cluster_mask,
+				arm64_check_cache_ecc, NULL, 0);
+	}
 }
 
 static int arm64_cpu_erp_probe(struct platform_device *pdev)
@@ -806,6 +824,7 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 	struct erp_drvdata *drv;
 	struct resource *r;
 	int cpu;
+	u32 poll_msec;
 	struct erp_drvdata * __percpu *drv_cpu =
 					alloc_percpu(struct erp_drvdata *);
 
@@ -823,17 +842,23 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 	if (!drv->edev_ctl)
 		return -ENOMEM;
 
+	rc = of_property_read_u32(pdev->dev.of_node, "poll-delay-ms",
+							&poll_msec);
+	if (!rc) {
+		drv->edev_ctl->edac_check = arm64_monitor_cache_errors;
+		drv->edev_ctl->poll_msec = poll_msec;
+		drv->edev_ctl->defer_work = 1;
+	}
 	drv->edev_ctl->dev = dev;
 	drv->edev_ctl->mod_name = dev_name(dev);
 	drv->edev_ctl->dev_name = dev_name(dev);
 	drv->edev_ctl->ctl_name = "cache";
+	drv->edev_ctl->panic_on_ce = panic_on_ce;
+	drv->edev_ctl->panic_on_ue = ARM64_ERP_PANIC_ON_UE;
 
 	rc = edac_device_add_device(drv->edev_ctl);
 	if (rc)
 		goto out_mem;
-
-	drv->edev_ctl->panic_on_ce = panic_on_ce;
-	drv->edev_ctl->panic_on_ue = ARM64_ERP_PANIC_ON_UE;
 
 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cci");
 	if (r)
@@ -921,6 +946,7 @@ out_irq:
 
 	abort_handler_drvdata = drv;
 	panic_handler_drvdata = drv;
+
 	return 0;
 
 out_dev:

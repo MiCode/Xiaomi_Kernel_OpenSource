@@ -15,10 +15,10 @@
 
 #ifdef CONFIG_EDAC_CORTEX_ARM64
 void arm64_erp_local_dbe_handler(void);
-void arm64_check_cache_ecc(void);
+void arm64_check_cache_ecc(void *info);
 #else
 static inline void arm64_erp_local_dbe_handler(void) { }
-static inline void arm64_check_cache_ecc(void) { }
+static inline void arm64_check_cache_ecc(void *info) { }
 #endif
 
 static inline void atomic_scrub(void *addr, int size)
