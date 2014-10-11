@@ -836,18 +836,38 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		tx->ce_ring_doorbell_pa = in->u.dl.ce_door_bell_pa;
 		tx->num_tx_buffers = in->u.dl.num_tx_buffers;
 		tx->ipa_pipe_number = ipa_ep_idx;
-		out->uc_door_bell_pa = ipa_ctx->ipa_wrapper_base +
-		IPA_UC_MAILBOX_m_n_OFFS(IPA_HW_WDI_TX_MBOX_START_INDEX/32,
-					IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
+		if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+				out->uc_door_bell_pa =
+				 ipa_ctx->ipa_wrapper_base +
+				   IPA_UC_MAILBOX_m_n_OFFS_v2_5(
+				    IPA_HW_WDI_TX_MBOX_START_INDEX/32,
+				    IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
+		} else {
+				out->uc_door_bell_pa =
+				 ipa_ctx->ipa_wrapper_base +
+				   IPA_UC_MAILBOX_m_n_OFFS(
+				    IPA_HW_WDI_TX_MBOX_START_INDEX/32,
+				    IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
+		}
 	} else {
 		rx = (struct IpaHwWdiRxSetUpCmdData_t *)cmd.base;
 		rx->rx_ring_base_pa = in->u.ul.rdy_ring_base_pa;
 		rx->rx_ring_size = in->u.ul.rdy_ring_size;
 		rx->rx_ring_rp_pa = in->u.ul.rdy_ring_rp_pa;
 		rx->ipa_pipe_number = ipa_ep_idx;
-		out->uc_door_bell_pa = ipa_ctx->ipa_wrapper_base +
-		IPA_UC_MAILBOX_m_n_OFFS(IPA_HW_WDI_RX_MBOX_START_INDEX/32,
-					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
+		if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+				out->uc_door_bell_pa =
+				 ipa_ctx->ipa_wrapper_base +
+				   IPA_UC_MAILBOX_m_n_OFFS_v2_5(
+				    IPA_HW_WDI_RX_MBOX_START_INDEX/32,
+				    IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
+		} else {
+				out->uc_door_bell_pa =
+				 ipa_ctx->ipa_wrapper_base +
+				   IPA_UC_MAILBOX_m_n_OFFS(
+				    IPA_HW_WDI_RX_MBOX_START_INDEX/32,
+				    IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
+		}
 	}
 
 	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
