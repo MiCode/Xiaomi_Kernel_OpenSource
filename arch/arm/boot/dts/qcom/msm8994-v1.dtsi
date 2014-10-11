@@ -45,6 +45,7 @@
 				  "cci-irq",
 				  "sbe-irq";
 		qcom,apply-cti-pmu-wa;
+		poll-delay-ms = <5000>;
 	};
 
 	cpu-pmu {
