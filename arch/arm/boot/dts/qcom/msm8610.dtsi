@@ -1162,6 +1162,7 @@
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
 				<55 512 393600 3936000>;
+		qcom,ce-opp-freq = <100000000>;
 	};
 
         qcom,qcedev@fd400000 {
@@ -1181,6 +1182,7 @@
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
 				<55 512 393600 3936000>;
+		qcom,ce-opp-freq = <100000000>;
 	};
 
 	cpu-pmu {

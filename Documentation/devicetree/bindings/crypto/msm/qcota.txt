@@ -9,6 +9,7 @@ Required properties:
   - qcom,ce-hw-instance : should contain crypto HW instance.
   - qcom,ce-device: Unique QCOTA device identifier. 0 for first
 			instance, 1 for second instance, n-1 for n-th instance.
+  - qcom,ce-opp-freq: indicates the CE operating frequency in Hz, changes from target to target.
 
 Optional properties:
   - qcom,support-core-clk-only : optional, indicates if the HW supports single crypto core clk.
@@ -24,6 +25,7 @@ Example:
 		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <2>;
 		qcom,ce-device = <0>;
+		qcom,ce-opp-freq = <100000000>;
 	};
 
 	qcom,qcota@fe0c0000 {
@@ -35,4 +37,5 @@ Example:
 		qcom,bam-pipe-pair = <1>;
 		qcom,ce-hw-instance = <4>;
 		qcom,ce-device = <1>;
+		qcom,ce-opp-freq = <100000000>;
 	};
