@@ -72,12 +72,10 @@
 			mdss_dsi_active: active {
 				drive-strength = <8>; /* 8 mA */
 				bias-disable = <0>; /* no pull */
-				output-high;
 			};
 			mdss_dsi_suspend: suspend {
 				drive-strength = <2>; /* 2 mA */
 				bias-pull-down; /* pull down */
-				output-low;
 			};
 		};
 
