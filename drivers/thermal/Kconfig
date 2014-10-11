@@ -109,6 +109,15 @@ config LIMITS_MONITOR
 	  Limits hardware's monitoring entities as sensors with the thermal
 	  framework.
 
+config LIMITS_LITE_HW
+	bool "LMH Lite hardware driver"
+	depends on LIMITS_MONITOR
+	help
+	 Enable this option for interacting with LMH Lite hardware. This
+	 implements the APIs required for getting the details about sensors
+	 supported by LMH Lite, their throttling intensity and the operating
+	 profiles.
+
 config THERMAL_MONITOR
 	bool "Monitor thermal state and limit CPU Frequency"
 	depends on THERMAL_TSENS8960 || THERMAL_TSENS8974
