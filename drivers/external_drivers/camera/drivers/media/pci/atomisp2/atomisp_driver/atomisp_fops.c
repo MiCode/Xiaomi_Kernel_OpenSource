@@ -959,7 +959,6 @@ static int atomisp_release(struct file *file)
 		isp->css_env.isp_css_fw.bytes = 0;
 	}
 
-	hmm_cleanup_mmu_l2();
 	hmm_pool_unregister(HMM_POOL_TYPE_DYNAMIC);
 
 	ret = v4l2_subdev_call(isp->flash, core, s_power, 0);

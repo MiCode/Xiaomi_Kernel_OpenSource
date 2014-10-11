@@ -41,7 +41,6 @@ void hmm_pool_unregister(enum hmm_pool_type pool_type);
 
 int hmm_init(void);
 void hmm_cleanup(void);
-void hmm_cleanup_mmu_l2(void);
 
 ia_css_ptr hmm_alloc(size_t bytes, enum hmm_bo_type type,
 		int from_highmem, void *userptr, bool cached);

@@ -127,13 +127,6 @@ void hmm_bo_device_exit(struct hmm_bo_device *bdev)
 #endif
 }
 
-void hmm_bo_device_cleanup_mmu_l2(struct hmm_bo_device *bdev)
-{
-	check_bodev_null_return_void(bdev);
-
-	isp_mmu_clean_l2(&bdev->mmu);
-}
-
 int hmm_bo_device_inited(struct hmm_bo_device *bdev)
 {
 	check_bodev_null_return(bdev, -EINVAL);

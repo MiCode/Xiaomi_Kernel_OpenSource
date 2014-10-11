@@ -77,11 +77,6 @@ int hmm_bo_device_init(struct hmm_bo_device *bdev,
 void hmm_bo_device_exit(struct hmm_bo_device *bdev);
 
 /*
- * only clean up empty MMU L2 tables.
- */
-void hmm_bo_device_cleanup_mmu_l2(struct hmm_bo_device *bdev);
-
-/*
  * whether the bo device is inited or not.
  */
 int hmm_bo_device_inited(struct hmm_bo_device *bdev);

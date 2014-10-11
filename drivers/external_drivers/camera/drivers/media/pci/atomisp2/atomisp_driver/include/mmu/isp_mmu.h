@@ -115,6 +115,7 @@ struct isp_mmu_client {
 struct isp_mmu {
 	struct isp_mmu_client *driver;
 	unsigned int l1_pte;
+	int l2_pgt_refcount[ISP_L1PT_PTES];
 	phys_addr_t base_address;
 
 	struct mutex pt_mutex;
@@ -141,10 +142,6 @@ int isp_mmu_init(struct isp_mmu *mmu, struct isp_mmu_client *driver);
  * cleanup all mmu related things.
  */
 void isp_mmu_exit(struct isp_mmu *mmu);
-/*
- * just cleanup empty L2 page tables.
- */
-void isp_mmu_clean_l2(struct isp_mmu *mmu);
 
 /*
  * setup/remove address mapping for pgnr continous physical pages

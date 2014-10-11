@@ -81,11 +81,6 @@ void hmm_cleanup(void)
 	hmm_bo_device_exit(&bo_device);
 }
 
-void hmm_cleanup_mmu_l2(void)
-{
-	hmm_bo_device_cleanup_mmu_l2(&bo_device);
-}
-
 ia_css_ptr hmm_alloc(size_t bytes, enum hmm_bo_type type,
 		int from_highmem, void *userptr, bool cached)
 {
