@@ -61,6 +61,8 @@ Optional Properties:
 - qcom,shdn-after-pwroff:	A bool property to configure smb1360 for shutdown at power-off.
 - qcom,empty-soc-disabled:	A bool property to indicate whether stop updating empty_soc flag.
 				System reports 0% SOC when empty_soc being set.
+- qcom,awake-min-soc		A bool property to indicate whether the system is prevented from
+				sleeping when SOC is under the min_soc threshold.
 - qcom,batt-profile-select	A boolean flag to indicate of battery-profile
 				selection is enabled.
 - qcom,profile-a-rid-kohm	The battery-ID resistor (RID) in Kohm supported by
