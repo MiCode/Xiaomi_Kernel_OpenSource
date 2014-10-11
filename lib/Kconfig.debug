@@ -1509,6 +1509,15 @@ config OOPS_LOG_BUFFER
 	  allow wrap around but preserve the first oops and onward kernel
 	  messages until buffer becomes full.
 
+config LOG_BUF_MAGIC
+	bool "Recovery of partially corrupted dmesg from ramdumps"
+	depends on PRINTK
+	help
+	  Select this option to add a magic number to the log buf record. In the
+	  event that a log buf record is corrupted, post-mortem crash analysis
+	  tools may use this magic number to search for the next noncorrupted
+	  log record.
+
 config OOPS_LOG_BUF_SHIFT
 	int "Oops log buffer size (16 => 64KB, 17 => 128KB)"
 	depends on OOPS_LOG_BUFFER
