@@ -452,6 +452,7 @@ struct mdss_mdp_pipe {
 
 	struct mdp_overlay req_data;
 	u32 params_changed;
+	bool dirty;
 
 	struct mdss_mdp_pipe_smp_map smp_map[MAX_PLANES];
 
