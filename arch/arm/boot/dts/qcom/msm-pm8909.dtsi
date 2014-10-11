@@ -540,7 +540,7 @@
 						   "cdc-vdd-pa",
 						   "cdc-vdda-cp";
 
-			qcom,cdc-on-demand-supplies = "cdc-vddi-mic-bias",
+			qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias",
 						      "cdc-vdd-spkdrv";
 		};
 
