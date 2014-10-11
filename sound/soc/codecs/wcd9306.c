@@ -2051,9 +2051,10 @@ static int tapan_codec_enable_adc(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (w->reg == TAPAN_A_TX_3_EN)
+		if (w->reg == TAPAN_A_TX_3_EN ||
+		    w->reg == TAPAN_A_TX_1_EN)
 			wcd9xxx_resmgr_notifier_call(&tapan->resmgr,
-						WCD9XXX_EVENT_PRE_TX_3_ON);
+						WCD9XXX_EVENT_PRE_TX_1_3_ON);
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift,
 				1 << init_bit_shift);
 		break;
@@ -2063,9 +2064,10 @@ static int tapan_codec_enable_adc(struct snd_soc_dapm_widget *w,
 
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		if (w->reg == TAPAN_A_TX_3_EN)
+		if (w->reg == TAPAN_A_TX_3_EN ||
+		    w->reg == TAPAN_A_TX_1_EN)
 			wcd9xxx_resmgr_notifier_call(&tapan->resmgr,
-						WCD9XXX_EVENT_POST_TX_3_OFF);
+						WCD9XXX_EVENT_POST_TX_1_3_OFF);
 		break;
 	}
 	return 0;
