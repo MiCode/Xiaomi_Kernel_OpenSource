@@ -43,6 +43,11 @@ struct msm_cpp_frame_strip_info {
 	int32_t src_start_y;
 	uint32_t src_end_y;
 
+	uint32_t temporal_pad_bottom;
+	uint32_t temporal_pad_top;
+	uint32_t temporal_pad_right;
+	uint32_t temporal_pad_left;
+
 	int32_t temporal_src_start_x;
 	uint32_t temporal_src_end_x;
 	int32_t temporal_src_start_y;
