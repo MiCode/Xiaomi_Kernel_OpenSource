@@ -16,6 +16,7 @@
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
+#include <linux/rtc.h>
 #include <linux/err.h>
 #include <linux/debugfs.h>
 #include <linux/slab.h>
@@ -235,6 +236,7 @@ struct fg_chip {
 	char			*batt_profile;
 	unsigned int		batt_profile_len;
 	const char		*batt_type;
+	unsigned long		last_sram_update_time;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -794,6 +796,39 @@ static int fg_mem_masked_write(struct fg_chip *chip, u16 addr,
 	return rc;
 }
 
+static int get_current_time(unsigned long *now_tm_sec)
+{
+	struct rtc_time tm;
+	struct rtc_device *rtc;
+	int rc;
+
+	rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+	if (rtc == NULL) {
+		pr_err("%s: unable to open rtc device (%s)\n",
+			__FILE__, CONFIG_RTC_HCTOSYS_DEVICE);
+		return -EINVAL;
+	}
+
+	rc = rtc_read_time(rtc, &tm);
+	if (rc) {
+		pr_err("Error reading rtc device (%s) : %d\n",
+			CONFIG_RTC_HCTOSYS_DEVICE, rc);
+		goto close_time;
+	}
+
+	rc = rtc_valid_tm(&tm);
+	if (rc) {
+		pr_err("Invalid RTC time (%s): %d\n",
+			CONFIG_RTC_HCTOSYS_DEVICE, rc);
+		goto close_time;
+	}
+	rtc_tm_to_time(&tm, now_tm_sec);
+
+close_time:
+	rtc_class_close(rtc);
+	return rc;
+}
+
 #define DEFAULT_CAPACITY 50
 static int get_prop_capacity(struct fg_chip *chip)
 {
@@ -856,7 +891,6 @@ static int64_t get_batt_id(unsigned int battery_id_uv, u8 bid_info)
 }
 
 #define DEFAULT_TEMP_DEGC	250
-#define SRAM_DATA_DELAY_MS	1000
 static int get_sram_prop_now(struct fg_chip *chip, unsigned int type)
 {
 	if (fg_debug_mask & FG_POWER_SUPPLY)
@@ -1038,6 +1072,7 @@ static void update_sram_data(struct work_struct *work)
 
 	if (battid_valid)
 		complete_all(&chip->batt_id_avail);
+	get_current_time(&chip->last_sram_update_time);
 	schedule_delayed_work(
 		&chip->update_sram_data,
 		msecs_to_jiffies(SRAM_PERIOD_UPDATE_MS));
@@ -2173,7 +2208,9 @@ static int fg_probe(struct spmi_device *spmi)
 		&chip->update_jeita_setting,
 		msecs_to_jiffies(INIT_JEITA_DELAY_MS));
 
-	update_sram_data(&chip->update_sram_data.work);
+	if (chip->last_sram_update_time == 0)
+		update_sram_data(&chip->update_sram_data.work);
+
 
 	rc = fg_hw_init(chip);
 	if (rc) {
@@ -2234,6 +2271,7 @@ static int fg_resume(struct device *dev)
 	ktime_t  enter_time;
 	ktime_t  total_time;
 	int total_time_ms;
+	unsigned long current_time = 0, next_update_time, time_left;
 	int rc;
 
 	enter_time = ktime_get();
@@ -2254,6 +2292,23 @@ static int fg_resume(struct device *dev)
 	if (rc)
 		pr_err("Unable to reenable ESR measurements\n");
 
+	/*
+	 * this may fail, but current time should be still 0,
+	 * triggering an immediate update.
+	 */
+	get_current_time(&current_time);
+
+	next_update_time = chip->last_sram_update_time
+		+ (SRAM_PERIOD_UPDATE_MS / 1000);
+	if (next_update_time > current_time)
+		time_left = next_update_time - current_time;
+	else
+		time_left = 0;
+
+	cancel_delayed_work_sync(
+		&chip->update_sram_data);
+	schedule_delayed_work(
+		&chip->update_sram_data, msecs_to_jiffies(time_left * 1000));
 	return 0;
 }
 
