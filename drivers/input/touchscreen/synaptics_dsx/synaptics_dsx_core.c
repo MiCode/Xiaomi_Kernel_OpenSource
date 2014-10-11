@@ -2604,9 +2604,33 @@ static int synaptics_rmi4_parse_dt_children(struct device *dev,
 				rmi4_pdata->package_id, rmi->package_id);
 				/*
 				 * Iterate over next child if package
-				 * does not match
+				 * id does not match
 				 */
 				continue;
+			} else if (of_property_read_bool(child,
+				"synaptics,bypass-sensor-coords-check")) {
+				/*
+				 * Some unprogrammed panels from touch vendor
+				 * and wrongly programmed panels from factory
+				 * may return incorrect sensor coordinate range
+				 * when their query registers are read, but
+				 * they normally work fine in field. In such
+				 * a scenario, driver can bypass the comparison
+				 * of coordinate range read from sensor and read
+				 * from DT and continue normal operation.
+				 */
+				dev_info(dev,
+					"%s Synaptics package id matches %d %d,"
+					"but bypassing the comparison of sensor"
+					"coordinates.\n", __func__,
+					rmi4_pdata->package_id,
+					rmi->package_id);
+				dev_info(dev, "Pmax_x Pmax_y = %d:%d\n",
+					rmi4_pdata->panel_maxx,
+					rmi4_pdata->panel_maxy);
+				dev_info(dev, "Smax_x Smax_y = %d:%d\n",
+					rmi4_data->sensor_max_x,
+					rmi4_data->sensor_max_y);
 			} else {
 				/*
 				 * If package id read from DT matches the

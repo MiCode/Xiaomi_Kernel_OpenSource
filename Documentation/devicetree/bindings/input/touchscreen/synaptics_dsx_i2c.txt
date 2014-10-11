@@ -61,6 +61,9 @@ These properties are defined only when synaptics,detect-device property is defin
  - synaptics,key-codes		: Virtual key code mappings to be used when device
 				supports 2D buttons and sends coordinates instead of
 				key codes.
+ - synaptics,bypass-sensor-coords-check : Bypass the comparison of sensor coordinates
+				range read from DT and touch controller. Used when some
+				touch panels in the field are unprogrammed and misprogrammed.
 
 Example:
 	i2c@f9927000 {
