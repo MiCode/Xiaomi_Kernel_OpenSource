@@ -128,6 +128,15 @@ config DEVFREQ_GOV_MSM_CACHE_HWMON
 	  conflict with existing profiling tools.  This governor is unlikely
 	  to be useful for other devices.
 
+config DEVFREQ_GOV_SPDM_HYP
+	bool "MSM SPDM Hypervisor Governor"
+	depends on ARCH_MSM
+	help
+	  Hypervisor based governor for CPU bandwidth voting
+	  for MSM chipsets.
+	  Sets the frequency using a "on-demand" algorithm.
+	  This governor is unlikely to be useful for other devices.
+
 comment "DEVFREQ Drivers"
 
 config ARM_EXYNOS4_BUS_DEVFREQ
@@ -166,5 +175,14 @@ config MSM_DEVFREQ_DEVBW
 	  DDR IB/AB bandwidth votes. This driver provides a SoC topology
 	  agnostic interface to so that some of the devfreq governors can be
 	  shared across SoCs.
+
+config DEVFREQ_SPDM
+	bool "MSM SPDM based bandwidth voting"
+	depends on ARCH_MSM
+	select DEVFREQ_GOV_SPDM_HYP
+	help
+	  This adds the support for SPDM based bandwidth voting on MSM chipsets.
+	  This driver allows any SPDM based client to vote for bandwidth.
+	  Used with the MSM SPDM Hypervisor Governor.
 
 endif # PM_DEVFREQ
