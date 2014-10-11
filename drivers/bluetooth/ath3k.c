@@ -33,7 +33,7 @@
 #define VERSION "1.0"
 #define ATH3K_FIRMWARE	"ath3k-1.fw"
 
-#define ROME2_1_USB_RAMPATCH_FILE	"ar3k/rampatch_2.1.tlv"
+#define ROME2_1_USB_RAMPATCH_FILE	"ar3k/rampatch_tlv_usb_2.1.tlv"
 #define ROME2_1_USB_NVM_FILE		"ar3k/nvm_tlv_usb_2.1.bin"
 
 #define ROME1_1_USB_RAMPATCH_FILE	"ar3k/rampatch_1.1.img"
