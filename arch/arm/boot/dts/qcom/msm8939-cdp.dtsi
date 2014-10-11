@@ -32,6 +32,7 @@
 			synaptics,disable-gpios;
 			synaptics,detect-device;
 			synaptics,device1 {
+				synaptics,bypass-sensor-coords-check;
 				synaptics,package-id = <3202>;
 				synaptics,button-map = <139 172 158>;
 			};
@@ -42,6 +43,7 @@
 				synaptics,key-codes = <158 139 172 217>;
 			};
 			synaptics,device3 {
+				synaptics,bypass-sensor-coords-check;
 				synaptics,package-id = <3528>;
 				synaptics,display-coords = <0 0 1599 2559>;
 				synaptics,panel-coords = <0 0 1599 2703>;
