@@ -38,6 +38,7 @@
 		qcom,fg-auto-recharge-soc = <99>;
 		qcom,empty-soc-disabled;
 		regulator-name = "smb1360_otg_vreg";
+		qcom,awake-min-soc;
 		qcom,batt-profile-select;
 		qcom,smb1360-vadc = <&pm8916_vadc>;
 		qcom,batt-id-vref-uv = <1800000>;
