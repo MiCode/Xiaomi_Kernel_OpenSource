@@ -178,7 +178,52 @@ static void ipa_del_a7_qmap_hdr(void)
 	kfree(del_hdr);
 }
 
-static int ipa_add_qmap_hdr(uint32_t mux_id)
+static void ipa_del_qmap_hdr(uint32_t hdr_hdl)
+{
+	struct ipa_ioc_del_hdr *del_hdr;
+	struct ipa_hdr_del *hdl_entry;
+	u32 pyld_sz;
+	int ret;
+
+	if (hdr_hdl == 0) {
+		IPAWANERR("Invalid hdr_hdl provided\n");
+		return;
+	}
+
+	pyld_sz = sizeof(struct ipa_ioc_del_hdr) + 1 *
+		sizeof(struct ipa_hdr_del);
+	del_hdr = kzalloc(pyld_sz, GFP_KERNEL);
+	if (!del_hdr) {
+		IPAWANERR("fail to alloc exception hdr_del\n");
+		return;
+	}
+
+	del_hdr->commit = 1;
+	del_hdr->num_hdls = 1;
+	hdl_entry = &del_hdr->hdl[0];
+	hdl_entry->hdl = hdr_hdl;
+
+	ret = ipa_del_hdr(del_hdr);
+	if (ret || hdl_entry->status)
+		IPAWANERR("ipa_del_hdr failed\n");
+	else
+		IPAWANERR("header deletion done\n");
+
+	qmap_hdr_hdl = 0;
+	kfree(del_hdr);
+}
+
+static void ipa_del_mux_qmap_hdrs(void)
+{
+	int index;
+
+	for (index = 0; index < rmnet_index; index++) {
+		ipa_del_qmap_hdr(mux_channel[index].hdr_hdl);
+		mux_channel[index].hdr_hdl = 0;
+	}
+}
+
+static int ipa_add_qmap_hdr(uint32_t mux_id, uint32_t *hdr_hdl)
 {
 	struct ipa_ioc_add_hdr *hdr;
 	struct ipa_hdr_add *hdr_entry;
@@ -221,6 +266,7 @@ static int ipa_add_qmap_hdr(uint32_t mux_id)
 	}
 
 	ret = 0;
+	*hdr_hdl = hdr_entry->hdr_hdl;
 bail:
 	kfree(hdr);
 	return ret;
@@ -627,7 +673,8 @@ static int wwan_register_to_ipa(int index)
 	IPAWANDBG("index(%d) device[%s]:\n", index,
 		mux_channel[index].vchannel_name);
 	if (!mux_channel[index].mux_hdr_set) {
-		ret = ipa_add_qmap_hdr(mux_channel[index].mux_id);
+		ret = ipa_add_qmap_hdr(mux_channel[index].mux_id,
+		      &mux_channel[index].hdr_hdl);
 		if (ret) {
 			IPAWANERR("ipa_add_mux_hdr failed (%d)\n", index);
 			return ret;
@@ -1826,6 +1873,7 @@ static int ipa_wwan_remove(struct platform_device *pdev)
 		wan_ioctl_deinit();
 	ipa_del_dflt_wan_rt_tables();
 	ipa_del_a7_qmap_hdr();
+	ipa_del_mux_qmap_hdrs();
 	ipa_qmi_service_exit();
 	wwan_del_ul_flt_rule_to_ipa();
 	ipa_cleanup_deregister_intf();
