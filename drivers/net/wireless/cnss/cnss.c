@@ -1244,7 +1244,7 @@ int cnss_get_codeswap_struct(struct codeswap_codeseg_info *swap_seg)
 		return -ENOENT;
 	}
 	if (!penv->fw_available) {
-		pr_err("%s: fw is not availabe\n", __func__);
+		pr_debug("%s: fw is not available\n", __func__);
 		return -ENOENT;
 	}
 
@@ -1272,7 +1272,7 @@ static void cnss_wlan_memory_expansion(void)
 	cnss_seg_info = penv->cnss_seg_info;
 
 	if (!cnss_seg_info) {
-		pr_err("cnss: cnss_seg_info is NULL\n");
+		pr_debug("cnss: cnss_seg_info is NULL\n");
 		goto end;
 	}
 
