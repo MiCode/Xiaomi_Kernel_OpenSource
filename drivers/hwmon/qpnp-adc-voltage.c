@@ -1804,7 +1804,9 @@ int32_t qpnp_vadc_channel_monitor(struct qpnp_vadc_chip *chip,
 	}
 
 	scale_type = vadc->adc->adc_channels[idx].adc_scale_fn;
-	if (scale_type >= SCALE_RSCALE_NONE) {
+	if ((scale_type >= SCALE_RVADC_SCALE_NONE) ||
+		((scale_type != SCALE_RVADC_ABSOLUTE) &&
+		(scale_type != SCALE_RVADC_PMIC_THERM))) {
 		rc = -EBADF;
 		goto fail_unlock;
 	}
