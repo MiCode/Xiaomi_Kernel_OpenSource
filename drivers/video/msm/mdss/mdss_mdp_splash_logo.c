@@ -21,6 +21,8 @@
 #include <linux/iommu.h>
 #include <linux/of_address.h>
 #include <linux/fb.h>
+#include <linux/mm.h>
+#include <asm/page.h>
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
@@ -190,6 +192,22 @@ void mdss_mdp_release_splash_pipe(struct msm_fb_data_type *mfd)
 	sinfo->splash_pipe_allocated = false;
 }
 
+/*
+ * In order to free reseved memory from bootup we are not
+ * able to call the __init free functions, as we could be
+ * passed the init boot sequence. As a reult we need to
+ * free this memory ourselves using the
+ * free_reeserved_page() function.
+ */
+void mdss_free_bootmem(u32 mem_addr, u32 size)
+{
+	unsigned long pfn_start, pfn_end, pfn_idx;
+	pfn_start = mem_addr >> PAGE_SHIFT;
+	pfn_end = (mem_addr + size) >> PAGE_SHIFT;
+	for (pfn_idx = pfn_start; pfn_idx < pfn_end; pfn_idx++)
+		free_reserved_page(pfn_to_page(pfn_idx));
+}
+
 int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 					bool use_borderfill)
 {
@@ -252,8 +270,8 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 		/* Give back the reserved memory to the system */
 		memblock_free(mdp5_data->splash_mem_addr,
 					mdp5_data->splash_mem_size);
-		free_bootmem_late(mdp5_data->splash_mem_addr,
-				 mdp5_data->splash_mem_size);
+		mdss_free_bootmem(mdp5_data->splash_mem_addr,
+					mdp5_data->splash_mem_size);
 	}
 
 	mdss_mdp_footswitch_ctrl_splash(0);
@@ -618,8 +636,8 @@ error:
 		pr_debug("mem reservation not reqd if cont splash disabled\n");
 		memblock_free(mdp5_mdata->splash_mem_addr,
 					mdp5_mdata->splash_mem_size);
-		free_bootmem_late(mdp5_mdata->splash_mem_addr,
-				 mdp5_mdata->splash_mem_size);
+		mdss_free_bootmem(mdp5_mdata->splash_mem_addr,
+					mdp5_mdata->splash_mem_size);
 	} else if (rc && mfd->panel_info->cont_splash_enabled) {
 		pr_err("no rsvd mem found in DT for splash screen\n");
 	} else {
