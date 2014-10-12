@@ -44,6 +44,14 @@
 #define MXT_SUSPEND_LEVEL 1
 #endif
 
+#if defined(CONFIG_SECURE_TOUCH)
+#include <linux/completion.h>
+#include <linux/pm_runtime.h>
+#include <linux/errno.h>
+#include <linux/atomic.h>
+#include <linux/clk.h>
+#endif
+
 /* Configuration file */
 #define MXT_CFG_MAGIC		"OBP_RAW V1"
 
@@ -348,6 +356,15 @@ struct mxt_data {
 
 	/* Indicates whether device is in suspend */
 	bool suspended;
+
+#if defined(CONFIG_SECURE_TOUCH)
+	atomic_t st_enabled;
+	atomic_t st_pending_irqs;
+	bool st_initialized;
+	struct completion st_powerdown;
+	struct clk *core_clk;
+	struct clk *iface_clk;
+#endif
 };
 
 static inline unsigned int mxt_obj_size(const struct mxt_object *obj)
@@ -1392,6 +1409,28 @@ update_count:
 	return IRQ_HANDLED;
 }
 
+#if defined(CONFIG_SECURE_TOUCH)
+static void mxt_secure_touch_notify(struct mxt_data *data)
+{
+	sysfs_notify(&data->client->dev.kobj, NULL, "secure_touch");
+}
+
+static irqreturn_t mxt_filter_interrupt(struct mxt_data *data)
+{
+	if (atomic_read(&data->st_enabled)) {
+		if (atomic_cmpxchg(&data->st_pending_irqs, 0, 1) == 0)
+			mxt_secure_touch_notify(data);
+		return IRQ_HANDLED;
+	}
+	return IRQ_NONE;
+}
+#else
+static irqreturn_t mxt_filter_interrupt(struct mxt_data *data)
+{
+	return IRQ_NONE;
+}
+#endif
+
 static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 {
 	struct mxt_data *data = dev_id;
@@ -1401,6 +1440,9 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 		complete(&data->bl_completion);
 		return IRQ_HANDLED;
 	}
+
+	if (IRQ_HANDLED == mxt_filter_interrupt(data))
+		return IRQ_HANDLED;
 
 	if (!data->object_table)
 		return IRQ_NONE;
@@ -2563,10 +2605,28 @@ static int mxt_read_t100_config(struct mxt_data *data)
 	return 0;
 }
 
+#if defined(CONFIG_SECURE_TOUCH)
+static void mxt_secure_touch_stop(struct mxt_data *data, int blocking)
+{
+	if (atomic_read(&data->st_enabled)) {
+		atomic_set(&data->st_pending_irqs, -1);
+		mxt_secure_touch_notify(data);
+		if (blocking)
+			wait_for_completion_interruptible(&data->st_powerdown);
+	}
+}
+#else
+static void mxt_secure_touch_stop(struct mxt_data *data, int blocking)
+{
+}
+#endif
+
 static void mxt_start(struct mxt_data *data)
 {
 	if (!data->suspended || data->in_bootloader)
 		return;
+
+	mxt_secure_touch_stop(data, 1);
 
 	/* enable gpios */
 	mxt_gpio_enable(data, true);
@@ -2608,6 +2668,8 @@ static void mxt_stop(struct mxt_data *data)
 {
 	if (data->suspended || data->in_bootloader)
 		return;
+
+	mxt_secure_touch_stop(data, 1);
 
 	data->enable_reporting = false;
 	disable_irq(data->irq);
@@ -3363,6 +3425,140 @@ static ssize_t mxt_mem_access_write(struct file *filp, struct kobject *kobj,
 	return ret == 0 ? count : 0;
 }
 
+#if defined(CONFIG_SECURE_TOUCH)
+
+static int mxt_secure_touch_clk_prepare_enable(
+		struct mxt_data *data)
+{
+	int ret;
+	ret = clk_prepare_enable(data->iface_clk);
+	if (ret) {
+		dev_err(&data->client->dev,
+			"error on clk_prepare_enable(iface_clk):%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(data->core_clk);
+	if (ret) {
+		clk_disable_unprepare(data->iface_clk);
+		dev_err(&data->client->dev,
+			"error clk_prepare_enable(core_clk):%d\n", ret);
+	}
+	return ret;
+}
+
+static void mxt_secure_touch_clk_disable_unprepare(
+		struct mxt_data *data)
+{
+	clk_disable_unprepare(data->core_clk);
+	clk_disable_unprepare(data->iface_clk);
+}
+
+static ssize_t mxt_secure_touch_enable_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	return scnprintf(buf, PAGE_SIZE, "%d", atomic_read(&data->st_enabled));
+}
+/*
+ * Accept only "0" and "1" valid values.
+ * "0" will reset the st_enabled flag, then wake up the reading process.
+ * The bus driver is notified via pm_runtime that it is not required to stay
+ * awake anymore.
+ * It will also make sure the queue of events is emptied in the controller,
+ * in case a touch happened in between the secure touch being disabled and
+ * the local ISR being ungated.
+ * "1" will set the st_enabled flag and clear the st_pending_irqs flag.
+ * The bus driver is requested via pm_runtime to stay awake.
+ */
+static ssize_t mxt_secure_touch_enable_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	struct device *adapter = data->client->adapter->dev.parent;
+	unsigned long value;
+	int err = 0;
+
+	if (count > 2)
+		return -EINVAL;
+
+	err = kstrtoul(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	if (!data->st_initialized)
+		return -EIO;
+
+	err = count;
+
+	switch (value) {
+	case 0:
+		if (atomic_read(&data->st_enabled) == 0)
+			break;
+
+		mxt_secure_touch_clk_disable_unprepare(data);
+		pm_runtime_put_sync(adapter);
+		atomic_set(&data->st_enabled, 0);
+		mxt_secure_touch_notify(data);
+		mxt_interrupt(data->client->irq, data);
+		complete(&data->st_powerdown);
+		break;
+	case 1:
+		if (atomic_read(&data->st_enabled)) {
+			err = -EBUSY;
+			break;
+		}
+
+		if (pm_runtime_get_sync(adapter) < 0) {
+			dev_err(&data->client->dev, "pm_runtime_get failed\n");
+			err = -EIO;
+			break;
+		}
+
+		if (mxt_secure_touch_clk_prepare_enable(data) < 0) {
+			pm_runtime_put_sync(adapter);
+			err = -EIO;
+			break;
+		}
+		INIT_COMPLETION(data->st_powerdown);
+		atomic_set(&data->st_enabled, 1);
+		synchronize_irq(data->client->irq);
+		atomic_set(&data->st_pending_irqs, 0);
+		break;
+	default:
+		dev_err(&data->client->dev, "unsupported value: %lu\n", value);
+		err = -EINVAL;
+		break;
+	}
+
+	return err;
+}
+
+static ssize_t mxt_secure_touch_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	int val = 0;
+
+	if (atomic_read(&data->st_enabled) == 0)
+		return -EBADF;
+
+	if (atomic_cmpxchg(&data->st_pending_irqs, -1, 0) == -1)
+		return -EINVAL;
+
+	if (atomic_cmpxchg(&data->st_pending_irqs, 1, 0) == 1)
+		val = 1;
+
+	return scnprintf(buf, PAGE_SIZE, "%u", val);
+}
+
+static DEVICE_ATTR(secure_touch_enable, S_IRUGO | S_IWUSR | S_IWGRP ,
+			 mxt_secure_touch_enable_show,
+			 mxt_secure_touch_enable_store);
+static DEVICE_ATTR(secure_touch, S_IRUGO, mxt_secure_touch_show, NULL);
+#endif
+
 static DEVICE_ATTR(fw_version, S_IRUGO, mxt_fw_version_show, NULL);
 static DEVICE_ATTR(hw_version, S_IRUGO, mxt_hw_version_show, NULL);
 static DEVICE_ATTR(object, S_IRUGO, mxt_object_show, NULL);
@@ -3382,6 +3578,10 @@ static struct attribute *mxt_attrs[] = {
 	&dev_attr_debug_enable.attr,
 	&dev_attr_debug_v2_enable.attr,
 	&dev_attr_debug_notify.attr,
+#if defined(CONFIG_SECURE_TOUCH)
+	&dev_attr_secure_touch_enable.attr,
+	&dev_attr_secure_touch.attr,
+#endif
 	NULL
 };
 
@@ -3456,6 +3656,8 @@ static int mxt_resume(struct device *dev)
 	struct mxt_data *data = dev_get_drvdata(dev);
 	struct input_dev *input_dev = data->input_dev;
 
+	mxt_secure_touch_stop(data, 1);
+
 	mutex_lock(&input_dev->mutex);
 
 	if (input_dev->users)
@@ -3476,11 +3678,15 @@ static int fb_notifier_callback(struct notifier_block *self,
 		container_of(self, struct mxt_data, fb_notif);
 
 	if (evdata && evdata->data && mxt_dev_data && mxt_dev_data->client) {
+		if (event == FB_EARLY_EVENT_BLANK)
+			mxt_secure_touch_stop(mxt_dev_data, 0);
+		else if (event == FB_EVENT_BLANK) {
 			blank = evdata->data;
 			if (*blank == FB_BLANK_UNBLANK)
 				mxt_resume(&mxt_dev_data->client->dev);
 			else if (*blank == FB_BLANK_POWERDOWN)
 				mxt_suspend(&mxt_dev_data->client->dev);
+		}
 	}
 
 	return 0;
@@ -3568,6 +3774,42 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 {
 	return -ENODEV;
+}
+#endif
+
+#if defined(CONFIG_SECURE_TOUCH)
+static void mxt_secure_touch_init(struct mxt_data *data)
+{
+	int ret = 0;
+	data->st_initialized = 0;
+	init_completion(&data->st_powerdown);
+	/* Get clocks */
+	data->core_clk = clk_get(&data->client->dev, "core_clk");
+	if (IS_ERR(data->core_clk)) {
+		ret = PTR_ERR(data->core_clk);
+		dev_err(&data->client->dev,
+			"%s: error on clk_get(core_clk):%d\n", __func__, ret);
+		return;
+	}
+
+	data->iface_clk = clk_get(&data->client->dev, "iface_clk");
+	if (IS_ERR(data->iface_clk)) {
+		ret = PTR_ERR(data->iface_clk);
+		dev_err(&data->client->dev,
+			"%s: error on clk_get(iface_clk):%d\n", __func__, ret);
+		goto err_iface_clk;
+	}
+
+	data->st_initialized = 1;
+	return;
+
+err_iface_clk:
+	clk_put(data->core_clk);
+	data->core_clk = NULL;
+}
+#else
+static void mxt_secure_touch_init(struct mxt_data *data)
+{
 }
 #endif
 
@@ -3688,6 +3930,8 @@ static int mxt_probe(struct i2c_client *client,
 	data->early_suspend.resume = mxt_late_resume;
 	register_early_suspend(&data->early_suspend);
 #endif
+
+	mxt_secure_touch_init(data);
 
 	return 0;
 
