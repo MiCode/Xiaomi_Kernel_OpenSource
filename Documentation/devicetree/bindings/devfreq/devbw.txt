@@ -20,6 +20,9 @@ Optional properties:
 			enforced only when the CPU subsystem is active.
 - governor:		Initial governor to use for the device.
 			Default: "performance"
+- qcom,ab-percent:	Indicates a value in percent of instantaneous
+			bandwidth which will be used to calculate the
+			absolute/average bandwidth.
 
 Example:
 

@@ -45,6 +45,7 @@ struct dev_data {
 	int cur_ab;
 	int cur_ib;
 	long gov_ab;
+	unsigned int ab_percent;
 	struct devfreq *df;
 	struct devfreq_dev_profile dp;
 };
@@ -78,6 +79,11 @@ static int set_bw(struct device *dev, int new_ib, int new_ab)
 	return ret;
 }
 
+static unsigned int find_ab(struct dev_data *d, unsigned long *freq)
+{
+	return (d->ab_percent * (*freq)) / 100;
+}
+
 static void find_freq(struct devfreq_dev_profile *p, unsigned long *freq,
 			u32 flags)
 {
@@ -105,7 +111,11 @@ static int devbw_target(struct device *dev, unsigned long *freq, u32 flags)
 	struct dev_data *d = dev_get_drvdata(dev);
 
 	find_freq(&d->dp, freq, flags);
-	return set_bw(dev, *freq, d->gov_ab);
+
+	if (!d->gov_ab)
+		return set_bw(dev, *freq, find_ab(d, freq));
+	else
+		return set_bw(dev, *freq, d->gov_ab);
 }
 
 static int devbw_get_dev_status(struct device *dev,
@@ -119,6 +129,7 @@ static int devbw_get_dev_status(struct device *dev,
 
 #define PROP_PORTS "qcom,src-dst-ports"
 #define PROP_TBL "qcom,bw-tbl"
+#define PROP_AB_PER "qcom,ab-percent"
 #define PROP_ACTIVE "qcom,active-only"
 
 int devfreq_add_devbw(struct device *dev)
@@ -194,6 +205,15 @@ int devfreq_add_devbw(struct device *dev)
 		for (i = 0; i < len; i++)
 			p->freq_table[i] = data[i];
 		p->max_state = len;
+	}
+
+	if (of_find_property(dev->of_node, PROP_AB_PER, &len)) {
+		ret = of_property_read_u32(dev->of_node, PROP_AB_PER,
+							&d->ab_percent);
+		if (ret)
+			return ret;
+
+		dev_dbg(dev, "ab-percent used %u\n", d->ab_percent);
 	}
 
 	d->bus_client = msm_bus_scale_register_client(&d->bw_data);
