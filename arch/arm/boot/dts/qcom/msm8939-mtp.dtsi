@@ -112,12 +112,13 @@
 			pinctrl-0 = <&mpu6050_default>;
 			pinctrl-1 = <&mpu6050_sleep>;
 			interrupt-parent = <&msm_gpio>;
-			interrupts = <115 0x2>;
+			interrupts = <115 0x1>;
 			vdd-supply = <&pm8916_l17>;
 			vlogic-supply = <&pm8916_l16>;
 			vi2c-supply = <&pm8916_l6>;
-			invn,gpio-int = <&msm_gpio 115 0x2>;
+			invn,gpio-int = <&msm_gpio 115 0x1>;
 			invn,place = "Portrait Down Back Side";
+			invn,use-interrupt;
 		};
 
 		avago@39 { /* Ambient light and proximity sensor */
