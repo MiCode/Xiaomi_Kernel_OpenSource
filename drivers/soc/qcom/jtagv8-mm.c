@@ -616,6 +616,8 @@ static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 	etm[cpu] = etmdata;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "etm-base");
+	if (!res)
+		return -ENODEV;
 
 	etmdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!etmdata->base)
