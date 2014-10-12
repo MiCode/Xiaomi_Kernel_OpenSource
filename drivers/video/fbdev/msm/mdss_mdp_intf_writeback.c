@@ -161,7 +161,7 @@ static int mdss_mdp_writeback_cdm_setup(struct mdss_mdp_writeback_ctx *ctx,
 	}
 
 	if (fmt->is_yuv)
-		setup.csc_type = MDSS_MDP_CSC_RGB2YUV;
+		setup.csc_type = MDSS_MDP_CSC_RGB2YUV_601L;
 	else
 		setup.csc_type = MDSS_MDP_CSC_RGB2RGB;
 
@@ -258,7 +258,7 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	if (ctx->type != MDSS_MDP_WRITEBACK_TYPE_ROTATOR &&
 		fmt->is_yuv && !ctl->cdm) {
 		mdss_mdp_csc_setup(MDSS_MDP_BLOCK_WB, ctx->wb_num,
-				   MDSS_MDP_CSC_RGB2YUV);
+				   MDSS_MDP_CSC_RGB2YUV_601L);
 		opmode |= (1 << 8) |	/* CSC_EN */
 			  (0 << 9) |	/* SRC_DATA=RGB */
 			  (1 << 10);	/* DST_DATA=YCBCR */
