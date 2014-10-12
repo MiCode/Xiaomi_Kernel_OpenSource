@@ -327,6 +327,14 @@ config MSM_HVC
 	  Partner/Manufacturer function identifier subrange but supports other
 	  service call subranges as well.
 
+config MSM_HYP_DEBUG
+	bool "MSM Hypervisor Debug Driver"
+	help
+	  This enables the Hypervisor Debug driver. It allows the mapping and
+	  and unmapping of user defined memory range from stage 2. It also
+	  supports mapping and unmapping PIL image load memory range from
+	  stage 2 depending upon the PIL image state.
+
 config MSM_SUBSYSTEM_RESTART
 	bool "MSM Subsystem Restart"
 	help
