@@ -4,6 +4,8 @@
 #include <linux/input.h>
 
 #define HBTP_MAX_FINGER		20
+#define HBTP_ABS_MT_FIRST	ABS_MT_TOUCH_MAJOR
+#define HBTP_ABS_MT_LAST	ABS_MT_TOOL_Y
 
 struct hbtp_input_touch {
 	bool active;
