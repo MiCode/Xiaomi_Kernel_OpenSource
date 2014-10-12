@@ -351,7 +351,8 @@ static bool is_otg_present(struct smbchg_chip *chip)
 {
 	int rc;
 	u8 reg;
-	u8 usbid[2];
+	u8 usbid_reg[2];
+	u16 usbid_val;
 
 	/*
 	 * There is a problem with USBID conversions on PMI8994 revisions
@@ -369,15 +370,16 @@ static bool is_otg_present(struct smbchg_chip *chip)
 		return false;
 	}
 
-	rc = smbchg_read(chip, usbid, chip->usb_chgpth_base + USBID_MSB, 2);
+	rc = smbchg_read(chip, usbid_reg, chip->usb_chgpth_base + USBID_MSB, 2);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't read USBID rc = %d\n", rc);
 		return false;
 	}
+	usbid_val = (usbid_reg[0] << 8) | usbid_reg[1];
 
-	if (*((u16 *)usbid) > USBID_GND_THRESHOLD) {
+	if (usbid_val > USBID_GND_THRESHOLD) {
 		pr_smb(PR_STATUS, "USBID = 0x%04x, too high to be ground\n",
-				*((u16 *)usbid));
+				usbid_val);
 		return false;
 	}
 
