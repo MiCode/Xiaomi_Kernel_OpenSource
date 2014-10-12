@@ -6718,6 +6718,7 @@ static int active_load_balance_cpu_stop(void *data)
 		.flags		= 0,
 		.loop		= 0,
 	};
+	bool moved = false;
 
 	raw_spin_lock_irq(&busiest_rq->lock);
 
@@ -6747,8 +6748,10 @@ static int active_load_balance_cpu_stop(void *data)
 	if (push_task) {
 		if (push_task->on_rq && push_task->state == TASK_RUNNING &&
 		    task_cpu(push_task) == busiest_cpu &&
-		    cpu_online(target_cpu))
+		    cpu_online(target_cpu)) {
 			move_task(push_task, &env);
+			moved = true;
+		}
 		goto out_unlock_balance;
 	}
 
@@ -6764,10 +6767,12 @@ static int active_load_balance_cpu_stop(void *data)
 		env.sd = sd;
 		schedstat_inc(sd, alb_count);
 
-		if (move_one_task(&env))
+		if (move_one_task(&env)) {
 			schedstat_inc(sd, alb_pushed);
-		else
+			moved = true;
+		} else {
 			schedstat_inc(sd, alb_failed);
+		}
 	}
 	rcu_read_unlock();
 out_unlock_balance:
@@ -6782,6 +6787,12 @@ out_unlock:
 		busiest_rq->push_task = NULL;
 	}
 	raw_spin_unlock_irq(&busiest_rq->lock);
+
+	if (moved && !same_freq_domain(busiest_cpu, target_cpu)) {
+		check_for_freq_change(busiest_rq);
+		check_for_freq_change(target_rq);
+	}
+
 	if (per_cpu(dbs_boost_needed, target_cpu)) {
 		struct migration_notify_data mnd;
 
