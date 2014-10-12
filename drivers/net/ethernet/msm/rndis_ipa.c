@@ -251,7 +251,7 @@ static void rndis_ipa_tx_complete_notify(void *private,
 static void rndis_ipa_tx_timeout(struct net_device *net);
 static int rndis_ipa_stop(struct net_device *net);
 static void rndis_ipa_enable_data_path(struct rndis_ipa_dev *rndis_ipa_ctx);
-static void rndis_encapsulate_skb(struct sk_buff *skb);
+static struct sk_buff *rndis_encapsulate_skb(struct sk_buff *skb);
 static void rndis_ipa_xmit_error(struct sk_buff *skb);
 static void rndis_ipa_xmit_error_aftercare_wq(struct work_struct *work);
 static void rndis_ipa_prepare_header_insertion(int eth_type,
@@ -908,7 +908,7 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 		goto out;
 	}
 
-	rndis_encapsulate_skb(skb);
+	skb = rndis_encapsulate_skb(skb);
 	ret = ipa_tx_dp(IPA_TO_USB_CLIENT, skb, NULL);
 	if (ret) {
 		RNDIS_IPA_ERROR("ipa transmit failed (%d)\n", ret);
@@ -1817,10 +1817,23 @@ out:
  * skb values.
  * Ethernet is expected to be already encapsulate the packet.
  */
-static void rndis_encapsulate_skb(struct sk_buff *skb)
+static struct sk_buff *rndis_encapsulate_skb(struct sk_buff *skb)
 {
 	struct rndis_pkt_hdr *rndis_hdr;
 	int payload_byte_len = skb->len;
+
+	/* if there is no room in this skb, allocate a new one */
+	if (unlikely(skb_headroom(skb) < sizeof(rndis_template_hdr))) {
+		struct sk_buff *new_skb = skb_copy_expand(skb,
+			sizeof(rndis_template_hdr), 0, GFP_ATOMIC);
+		if (!new_skb) {
+			RNDIS_IPA_ERROR("no memory for skb expand\n");
+			return skb;
+		}
+		RNDIS_IPA_DEBUG("skb expanded. old %p new %p\n", skb, new_skb);
+		dev_kfree_skb_any(skb);
+		skb = new_skb;
+	}
 
 	/* make room at the head of the SKB to put the RNDIS header */
 	rndis_hdr = (struct rndis_pkt_hdr *)skb_push(skb,
@@ -1829,6 +1842,8 @@ static void rndis_encapsulate_skb(struct sk_buff *skb)
 	memcpy(rndis_hdr, &rndis_template_hdr, sizeof(*rndis_hdr));
 	rndis_hdr->msg_len +=  payload_byte_len;
 	rndis_hdr->data_len +=  payload_byte_len;
+
+	return skb;
 }
 
 /**
