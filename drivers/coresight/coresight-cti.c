@@ -102,6 +102,11 @@ struct cti_drvdata {
 
 static LIST_HEAD(cti_list);
 static DEFINE_MUTEX(cti_lock);
+#ifdef CONFIG_CORESIGHT_CTI_SAVE_DISABLE
+static int cti_save_disable = 1;
+#else
+static int cti_save_disable;
+#endif
 
 static int cti_verify_trigger_bound(int trig)
 {
@@ -133,6 +138,14 @@ void coresight_cti_ctx_save(void)
 	struct coresight_cti *cti;
 	int trig, cpuid, cpu;
 	unsigned long flag;
+
+	/*
+	 * Explicitly check and return to avoid latency associated with
+	 * traversing the linked list of all CTIs and checking for their
+	 * respective cti_save flag.
+	 */
+	if (cti_save_disable)
+		return;
 
 	cpu = raw_smp_processor_id();
 
@@ -169,6 +182,14 @@ void coresight_cti_ctx_restore(void)
 	struct coresight_cti *cti;
 	int trig, cpuid, cpu;
 	unsigned long flag;
+
+	/*
+	 * Explicitly check and return to avoid latency associated with
+	 * traversing the linked list of all CTIs and checking for their
+	 * respective cti_save flag.
+	 */
+	if (cti_save_disable)
+		return;
 
 	cpu = raw_smp_processor_id();
 
@@ -1378,7 +1399,7 @@ static int cti_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (pdev->dev.of_node)
+	if (pdev->dev.of_node && !cti_save_disable)
 		drvdata->cti_save = of_property_read_bool(pdev->dev.of_node,
 							  "qcom,cti-save");
 	if (drvdata->cti_save) {
