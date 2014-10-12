@@ -101,7 +101,7 @@ module_param(poolsize_dci, uint, 0);
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 /* Used for reading data from the remote device. */
 static unsigned int itemsize_mdm = DIAG_MDM_BUF_SIZE;
-static unsigned int poolsize_mdm = 8;
+static unsigned int poolsize_mdm = 9;
 module_param(itemsize_mdm, uint, 0);
 module_param(poolsize_mdm, uint, 0);
 
@@ -118,7 +118,7 @@ module_param(itemsize_mdm_dci, uint, 0);
  * Don't expose the itemsize since it is constant.
  */
 static unsigned int itemsize_mdm_usb = sizeof(struct diag_request);
-static unsigned int poolsize_mdm_usb = 8;
+static unsigned int poolsize_mdm_usb = 9;
 module_param(poolsize_mdm_usb, uint, 0);
 
 /*

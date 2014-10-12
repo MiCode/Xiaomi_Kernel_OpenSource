@@ -23,7 +23,14 @@
 #include "diagfwd_bridge.h"
 #include "diagfwd_hsic.h"
 #include "diagfwd_smux.h"
+#include "diagfwd_mhi.h"
 #include "diag_dci.h"
+
+#ifdef CONFIG_MSM_MHI
+#define diag_mdm_init		diag_mhi_init
+#else
+#define diag_mdm_init		diag_hsic_init
+#endif
 
 #define BRIDGE_TO_MUX(x)	(x + DIAG_MUX_BRIDGE_BASE)
 
@@ -232,7 +239,7 @@ int diagfwd_bridge_init()
 {
 	int err = 0;
 
-	err = diag_hsic_init();
+	err = diag_mdm_init();
 	if (err)
 		goto fail;
 	err = diag_smux_init();
