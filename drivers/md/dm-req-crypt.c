@@ -867,7 +867,10 @@ static void req_crypt_dtr(struct dm_target *ti)
 		destroy_workqueue(req_crypt_queue);
 		req_crypt_queue = NULL;
 	}
-	dm_put_device(ti, dev);
+	if (dev) {
+		dm_put_device(ti, dev);
+		dev = NULL;
+	}
 }
 
 

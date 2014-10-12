@@ -558,8 +558,19 @@ EXPORT_SYMBOL_GPL(dm_set_device_limits);
  */
 void dm_put_device(struct dm_target *ti, struct dm_dev *d)
 {
-	struct dm_dev_internal *dd = container_of(d, struct dm_dev_internal,
-						  dm_dev);
+	struct dm_dev_internal *dd;
+
+	if (!ti) {
+		DMERR("%s: dm_target pointer is NULL", __func__);
+		return;
+	}
+
+	if (!d) {
+		DMERR("%s: dm_dev pointer is NULL", __func__);
+		return;
+	}
+
+	dd = container_of(d, struct dm_dev_internal, dm_dev);
 
 	if (atomic_dec_and_test(&dd->count)) {
 		close_dev(dd, ti->table->md);
