@@ -71,6 +71,7 @@
 #define AR6320_REV1_3_VERSION           0x5000003
 #define AR6320_REV2_1_VERSION           0x5010000
 #define AR6320_REV3_VERSION             0x5020000
+#define AR6320_REV3_2_VERSION           0x5030000
 #define AR900B_DEV_VERSION              0x1000000
 
 static struct cnss_fw_files FW_FILES_QCA6174_FW_1_1 = {
@@ -694,6 +695,7 @@ int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 		memcpy(pfw_files, &FW_FILES_QCA6174_FW_2_0, sizeof(*pfw_files));
 		break;
 	case AR6320_REV3_VERSION:
+	case AR6320_REV3_2_VERSION:
 		memcpy(pfw_files, &FW_FILES_QCA6174_FW_3_0, sizeof(*pfw_files));
 		break;
 	default:
