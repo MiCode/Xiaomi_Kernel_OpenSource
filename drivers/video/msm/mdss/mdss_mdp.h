@@ -115,10 +115,14 @@ enum mdss_mdp_block_type {
 };
 
 enum mdss_mdp_csc_type {
-	MDSS_MDP_CSC_RGB2RGB,
-	MDSS_MDP_CSC_YUV2RGB,
-	MDSS_MDP_CSC_RGB2YUV,
+	MDSS_MDP_CSC_YUV2RGB_601L,
+	MDSS_MDP_CSC_YUV2RGB_601FR,
+	MDSS_MDP_CSC_YUV2RGB_709L,
+	MDSS_MDP_CSC_RGB2YUV_601L,
+	MDSS_MDP_CSC_RGB2YUV_601FR,
+	MDSS_MDP_CSC_RGB2YUV_709L,
 	MDSS_MDP_CSC_YUV2YUV,
+	MDSS_MDP_CSC_RGB2RGB,
 	MDSS_MDP_MAX_CSC
 };
 
@@ -526,6 +530,7 @@ struct mdss_mdp_pipe {
 	wait_queue_head_t free_waitq;
 
 	u32 frame_rate;
+	u8 csc_coeff_set;
 };
 
 struct mdss_mdp_writeback_arg {
@@ -878,6 +883,19 @@ static inline u32 left_lm_w_from_mfd(struct msm_fb_data_type *mfd)
 static inline u32 mdss_mdp_get_cursor_frame_size(struct mdss_data_type *mdata)
 {
 	return mdata->max_cursor_size *  mdata->max_cursor_size * 4;
+}
+
+static inline uint8_t pp_vig_csc_pipe_val(struct mdss_mdp_pipe *pipe)
+{
+	switch (pipe->csc_coeff_set) {
+	case MDP_CSC_ITU_R_601:
+		return MDSS_MDP_CSC_YUV2RGB_601L;
+	case MDP_CSC_ITU_R_601_FR:
+		return MDSS_MDP_CSC_YUV2RGB_601FR;
+	case MDP_CSC_ITU_R_709:
+	default:
+		return  MDSS_MDP_CSC_YUV2RGB_709L;
+	}
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
