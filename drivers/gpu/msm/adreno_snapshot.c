@@ -305,6 +305,7 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	header->start = rb->wptr;
 	header->end = rb->wptr;
 	header->wptr = rb->wptr;
+	header->rptr = rptr;
 	header->rbsize = KGSL_RB_DWORDS;
 	header->count = KGSL_RB_DWORDS;
 	adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_QUEUED,
