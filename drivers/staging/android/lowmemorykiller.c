@@ -380,6 +380,9 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				"   Total reserve is %ldkB\n" \
 				"   Total free pages is %ldkB\n" \
 				"   Total file cache is %ldkB\n" \
+				"   Slab Reclaimable is %ldkB\n" \
+				"   Slab UnReclaimable is %ldkB\n" \
+				"   Total Slab is %ldkB\n" \
 				"   GFP mask is 0x%x\n",
 			     selected->comm, selected->pid,
 			     selected_oom_score_adj,
@@ -395,6 +398,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     global_page_state(NR_FREE_PAGES) *
 				(long)(PAGE_SIZE / 1024),
 			     global_page_state(NR_FILE_PAGES) *
+				(long)(PAGE_SIZE / 1024),
+			     global_page_state(NR_SLAB_RECLAIMABLE) *
+				(long)(PAGE_SIZE / 1024),
+			     global_page_state(NR_SLAB_UNRECLAIMABLE) *
+				(long)(PAGE_SIZE / 1024),
+			     global_page_state(NR_SLAB_RECLAIMABLE) *
+				(long)(PAGE_SIZE / 1024) +
+			     global_page_state(NR_SLAB_UNRECLAIMABLE) *
 				(long)(PAGE_SIZE / 1024),
 			     sc->gfp_mask);
 
