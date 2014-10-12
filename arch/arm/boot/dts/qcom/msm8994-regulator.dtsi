@@ -649,7 +649,7 @@
 					      935000 940000 965000 990000>;
 
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;
-		qcom,cpr-quot-adjust-scaling-factor-max = <2000>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <0 2000 2000 2000>;
 		qcom,cpr-corner-frequency-map =
 				<1   300000000>, /* SVS Fmin for SVS2 */
 				<2   300000000>,
@@ -736,7 +736,7 @@
 					      990000>;
 
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;
-		qcom,cpr-quot-adjust-scaling-factor-max = <2000>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <0 2000 2000 2000>;
 		qcom,cpr-corner-frequency-map =
 				<1   300000000>, /* SVS Fmin for "SVS2" */
 				<2   300000000>,
