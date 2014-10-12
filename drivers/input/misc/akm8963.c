@@ -48,10 +48,7 @@
 #define AKM8963_VDD_MAX_UV	3300000
 #define AKM8963_VIO_MIN_UV	1750000
 #define AKM8963_VIO_MAX_UV	1950000
-#define STATUS_ERROR(st)	(((st) & (AKM8963_ST1_DRDY | \
-				AKM8963_ST1_DOR  | \
-				AKM8963_ST2_HOLF)) \
-				!= AKM8963_ST1_DRDY)
+#define STATUS_ERROR(st)	(((st)&0x08) != 0x0)
 #define REG_CNTL1_MODE(reg_cntl1)	(reg_cntl1 & 0x0F)
 
 /* Save last device state for power down */
@@ -1753,7 +1750,7 @@ static void akm_dev_poll(struct work_struct *work)
 		goto exit;
 	}
 
-	tmp = 0xFF & (dat_buf[7] + dat_buf[0]);
+	tmp = 0xF & (dat_buf[7] + dat_buf[0]);
 	if (STATUS_ERROR(tmp)) {
 		dev_warn(&akm->i2c->dev, "Status error(0x%x). Reset...\n",
 				tmp);
