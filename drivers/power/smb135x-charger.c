@@ -27,6 +27,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
+#include <linux/pinctrl/consumer.h>
 
 #define SMB135X_BITS_PER_REG	8
 
@@ -382,6 +383,9 @@ struct smb135x_chg {
 	unsigned int			therm_lvl_sel;
 	unsigned int			*thermal_mitigation;
 	struct mutex			current_change_lock;
+
+	const char			*pinctrl_state_name;
+	struct pinctrl			*smb_pinctrl;
 };
 
 #define RETRY_COUNT 5
@@ -3246,6 +3250,17 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 	int i;
 	u8 reg, mask;
 
+	if (chip->pinctrl_state_name) {
+		chip->smb_pinctrl = pinctrl_get_select(chip->dev,
+						chip->pinctrl_state_name);
+		if (IS_ERR(chip->smb_pinctrl)) {
+			pr_err("Could not get/set %s pinctrl state rc = %ld\n",
+						chip->pinctrl_state_name,
+						PTR_ERR(chip->smb_pinctrl));
+			return PTR_ERR(chip->smb_pinctrl);
+		}
+	}
+
 	if (chip->therm_bias_vreg) {
 		rc = regulator_enable(chip->therm_bias_vreg);
 		if (rc) {
@@ -3637,6 +3652,8 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 			return rc;
 		}
 	}
+
+	chip->pinctrl_state_name = of_get_property(node, "pinctrl-names", NULL);
 
 	return 0;
 }
