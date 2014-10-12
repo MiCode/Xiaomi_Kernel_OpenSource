@@ -390,30 +390,56 @@ static int ion_system_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	struct ion_system_heap *sys_heap = container_of(heap,
 							struct ion_system_heap,
 							heap);
+	bool use_seq = s != NULL;
+	unsigned long uncached_total = 0;
+	unsigned long cached_total = 0;
+
 	int i;
 	for (i = 0; i < num_orders; i++) {
 		struct ion_page_pool *pool = sys_heap->uncached_pools[i];
-		seq_printf(s,
-			"%d order %u highmem pages in uncached pool = %lu total\n",
-			pool->high_count, pool->order,
-			(1 << pool->order) * PAGE_SIZE * pool->high_count);
-		seq_printf(s,
-			"%d order %u lowmem pages in uncached pool = %lu total\n",
-			pool->low_count, pool->order,
-			(1 << pool->order) * PAGE_SIZE * pool->low_count);
+		if (use_seq) {
+			seq_printf(s,
+				"%d order %u highmem pages in uncached pool = %lu total\n",
+				pool->high_count, pool->order,
+				(1 << pool->order) * PAGE_SIZE *
+					pool->high_count);
+			seq_printf(s,
+				"%d order %u lowmem pages in uncached pool = %lu total\n",
+				pool->low_count, pool->order,
+				(1 << pool->order) * PAGE_SIZE *
+					pool->low_count);
+		} else {
+			uncached_total += (1 << pool->order) * PAGE_SIZE *
+						pool->high_count;
+			uncached_total += (1 << pool->order) * PAGE_SIZE *
+						pool->low_count;
+		}
+
 	}
 
 	for (i = 0; i < num_orders; i++) {
 		struct ion_page_pool *pool = sys_heap->cached_pools[i];
-		seq_printf(s,
-			"%d order %u highmem pages in cached pool = %lu total\n",
-			pool->high_count, pool->order,
-			(1 << pool->order) * PAGE_SIZE * pool->high_count);
-		seq_printf(s,
-			"%d order %u lowmem pages in cached pool = %lu total\n",
-			pool->low_count, pool->order,
-			(1 << pool->order) * PAGE_SIZE * pool->low_count);
+		if (use_seq) {
+			seq_printf(s,
+				"%d order %u highmem pages in cached pool = %lu total\n",
+				pool->high_count, pool->order,
+				(1 << pool->order) * PAGE_SIZE * pool->high_count);
+			seq_printf(s,
+				"%d order %u lowmem pages in cached pool = %lu total\n",
+				pool->low_count, pool->order,
+				(1 << pool->order) * PAGE_SIZE *
+					pool->low_count);
+		} else {
+			cached_total += (1 << pool->order) * PAGE_SIZE *
+						pool->high_count;
+			cached_total += (1 << pool->order) * PAGE_SIZE *
+						pool->low_count;
+		}
 	}
+
+	if (!use_seq)
+		pr_info("uncached pool total = %lu cached pool total %lu\n",
+				uncached_total, cached_total);
 
 	return 0;
 }
