@@ -53,6 +53,7 @@ static struct drm_i915_private *i915_adf_dev;
 void i915_adf_wrapper_init(struct drm_i915_private *dev_priv)
 {
 	i915_adf_dev = dev_priv;
+	intel_runtime_pm_get(dev_priv);
 }
 
 void i915_adf_wrapper_teardown(void)
@@ -82,6 +83,7 @@ void intel_adf_display_rpm_get(void)
 		return;
 
 	dev_priv = i915_adf_dev;
+	intel_runtime_pm_get(dev_priv);
 	intel_display_set_init_power(dev_priv, true);
 }
 EXPORT_SYMBOL(intel_adf_display_rpm_get);
@@ -94,7 +96,7 @@ void intel_adf_display_rpm_put(void)
 		return;
 
 	dev_priv = i915_adf_dev;
-	intel_display_set_init_power(dev_priv, false);
+	intel_runtime_pm_put(dev_priv);
 }
 EXPORT_SYMBOL(intel_adf_display_rpm_put);
 
