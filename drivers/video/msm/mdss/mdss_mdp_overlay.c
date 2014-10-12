@@ -917,6 +917,11 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	}
 
 	/*
+	 * Populate Color Space.
+	 */
+	if (pipe->src_fmt->is_yuv && (pipe->type == MDSS_MDP_PIPE_TYPE_VIG))
+		pipe->csc_coeff_set = req->color_space;
+	/*
 	 * When scaling is enabled src crop and image
 	 * width and height is modified by user
 	 */

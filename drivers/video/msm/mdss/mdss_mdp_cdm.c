@@ -129,7 +129,7 @@ static int mdss_mdp_cdm_csc_setup(struct mdss_mdp_cdm *cdm,
 	int rc = 0;
 	u32 op_mode = 0;
 
-	if (data->csc_type == MDSS_MDP_CSC_RGB2YUV) {
+	if (data->csc_type == MDSS_MDP_CSC_RGB2YUV_601L) {
 		op_mode |= BIT(2);  /* DST_DATA_FORMAT = YUV */
 		op_mode &= ~BIT(1); /* SRC_DATA_FORMAT = RGB */
 		op_mode |= BIT(0);  /* EN = 1 */
