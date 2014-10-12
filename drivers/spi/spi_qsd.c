@@ -1825,7 +1825,6 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 			status_error = -EINVAL;
 			msg->status = status_error;
 			spi_finalize_current_message(master);
-			put_local_resources(dd);
 			return 0;
 		}
 	}
