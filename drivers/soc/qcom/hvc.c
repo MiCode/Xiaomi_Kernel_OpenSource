@@ -80,7 +80,7 @@ static int __hvc(u64 x0, u64 x1, u64 x2, u64 x3, u64 x4, u64 x5,
 }
 #else
 static int __hvc(u64 x0, u64 x1, u64 x2, u64 x3, u64 x4, u64 x5,
-		 u64 x6, u64 *ret1, u64 *ret2, u64 *ret3)
+		 u64 x6, u64 x7, u64 *ret1, u64 *ret2, u64 *ret3)
 {
 	return 0;
 }
