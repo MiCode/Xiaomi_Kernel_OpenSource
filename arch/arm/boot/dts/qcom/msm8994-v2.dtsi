@@ -59,6 +59,13 @@
 	qcom,cpu-bwmon {
 		compatible = "qcom,bimc-bwmon2";
 	};
+
+	qcom,lmh {
+		compatible = "qcom,lmh";
+		interrupts = <0 332 4>;
+		reg = <0xF9117000 0x4>;
+		qcom,lmh-trim-err-offset = <18>;
+	};
 };
 
 /* Clock driver overrides */
