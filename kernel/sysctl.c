@@ -337,13 +337,6 @@ static struct ctl_table kern_table[] = {
 		.mode           = 0644,
 		.proc_handler   = sched_hmp_proc_update_handler,
 	},
-	{
-		.procname	= "sched_gov_response_time",
-		.data		= &sysctl_sched_gov_response_time,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
 #endif
 #ifdef CONFIG_SCHED_HMP
 	{
