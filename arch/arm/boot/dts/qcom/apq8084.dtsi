@@ -910,7 +910,7 @@
 		qcom,noise-rjct-scl = <1>;
 		qcom,noise-rjct-sda = <1>;
 		qcom,i2c-bus-freq = <400000>;
-		qcom,i2c-src-freq = <50000000>;
+		qcom,i2c-src-freq = <19200000>;
 		qcom,sda-gpio = <&msmgpio 10 0>;
 		qcom,scl-gpio = <&msmgpio 11 0>;
 		qcom,master-id = <86>;
@@ -966,7 +966,7 @@
 		qcom,noise-rjct-scl = <0>;
 		qcom,noise-rjct-sda = <0>;
 		qcom,i2c-bus-freq = <100000>;
-		qcom,i2c-src-freq = <50000000>;
+		qcom,i2c-src-freq = <19200000>;
 		qcom,sda-gpio = <&msmgpio 61 0>;
 		qcom,scl-gpio = <&msmgpio 62 0>;
 		qcom,master-id = <84>;
