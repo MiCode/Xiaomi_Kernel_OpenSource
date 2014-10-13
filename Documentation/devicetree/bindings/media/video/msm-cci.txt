@@ -87,7 +87,7 @@ Required properties:
 
 Optional properties:
 - qcom,slave-id : should contain i2c slave address, device id address
-    and expected id read value
+    ,expected id read value and device id mask
 - qcom,sensor-name : should contain unique sensor name to differentiate from
     other sensor
     - "s5k3l1yx"

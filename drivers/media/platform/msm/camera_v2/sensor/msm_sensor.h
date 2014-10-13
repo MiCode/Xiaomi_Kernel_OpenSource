@@ -38,6 +38,14 @@
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
 
+enum msm_sensor_sensor_slave_info_type {
+	MSM_SENSOR_SLAVEADDR_DATA,
+	MSM_SENSOR_IDREGADDR_DATA,
+	MSM_SENSOR_SENSOR_ID_DATA,
+	MSM_SENSOR_SENIDMASK_DATA,
+	MSM_SENSOR_NUM_ID_INFO_DATA,
+};
+
 struct msm_sensor_ctrl_t;
 
 enum msm_sensor_state_t {

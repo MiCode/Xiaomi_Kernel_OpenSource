@@ -195,6 +195,7 @@ struct msm_sensor_init_params {
 struct msm_sensor_id_info_t {
 	uint16_t sensor_id_reg_addr;
 	uint16_t sensor_id;
+	uint16_t sensor_id_mask;
 };
 
 struct msm_camera_sensor_slave_info {
