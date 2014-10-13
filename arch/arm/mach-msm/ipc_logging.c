@@ -90,6 +90,30 @@ static int is_read_empty(struct ipc_log_context *ilctxt)
 		 ilctxt->write_page->hdr.write_offset));
 }
 
+/**
+ * is_nd_read_equal_read - Return true if the non-destructive read is equal to
+ * the destructive read
+ *
+ * @ilctxt: logging context
+ * @returns: true if nd read is equal to read; false otherwise
+ */
+static bool is_nd_read_equal_read(struct ipc_log_context *ilctxt)
+{
+	uint16_t read_offset;
+	uint16_t nd_read_offset;
+
+	if (ilctxt->nd_read_page == ilctxt->read_page) {
+		read_offset = ilctxt->read_page->hdr.read_offset;
+		nd_read_offset = ilctxt->nd_read_page->hdr.nd_read_offset;
+
+		if (read_offset == nd_read_offset)
+			return true;
+	}
+
+	return false;
+}
+
+
 static struct ipc_log_page *get_next_page(struct ipc_log_context *ilctxt,
 					  struct ipc_log_page *cur_pg)
 {
@@ -159,6 +183,7 @@ static void ipc_log_drop(struct ipc_log_context *ilctxt, void *data,
 		int data_size)
 {
 	int bytes_to_read;
+	bool push_nd_read;
 
 	bytes_to_read = MIN(LOG_PAGE_DATA_SIZE
 				- ilctxt->read_page->hdr.read_offset,
@@ -169,10 +194,10 @@ static void ipc_log_drop(struct ipc_log_context *ilctxt, void *data,
 
 	if (bytes_to_read != data_size) {
 		/* not enough space, wrap read to next page */
-		ilctxt->read_page->hdr.read_offset = 0;
+		push_nd_read = is_nd_read_equal_read(ilctxt);
 
-		if (ilctxt->nd_read_page == ilctxt->read_page) {
-			/* app reading from the same page */
+		ilctxt->read_page->hdr.read_offset = 0;
+		if (push_nd_read) {
 			ilctxt->read_page->hdr.nd_read_offset = 0;
 			ilctxt->read_page = get_next_page(ilctxt,
 				ilctxt->read_page);
@@ -190,19 +215,14 @@ static void ipc_log_drop(struct ipc_log_context *ilctxt, void *data,
 
 		bytes_to_read = (data_size - bytes_to_read);
 	}
+
+	/* update non-destructive read pointer if necessary */
+	push_nd_read = is_nd_read_equal_read(ilctxt);
 	ilctxt->read_page->hdr.read_offset += bytes_to_read;
 	ilctxt->write_avail += data_size;
 
-	/* update non-destructive read pointer if necessary */
-	if (ilctxt->nd_read_page == ilctxt->read_page) {
-		uint16_t read_offset, nd_read_offset;
-
-		read_offset = ilctxt->read_page->hdr.read_offset;
-		nd_read_offset = ilctxt->nd_read_page->hdr.nd_read_offset;
-
-		if (read_offset > nd_read_offset)
-			ilctxt->nd_read_page->hdr.nd_read_offset = read_offset;
-	}
+	if (push_nd_read)
+		ilctxt->nd_read_page->hdr.nd_read_offset += bytes_to_read;
 }
 
 /**
