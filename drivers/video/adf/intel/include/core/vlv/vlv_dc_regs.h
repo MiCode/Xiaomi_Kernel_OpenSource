@@ -1470,6 +1470,8 @@
 #define   CZCLK_FREQ_MASK	0xf
 #define GMBUSFREQ_VLV		(VLV_DISPLAY_BASE + 0x6510)
 
+#define GCI_CONTROL		(VLV_DISPLAY_BASE + 0x650c)
+
 /*
  * Palette regs
  */

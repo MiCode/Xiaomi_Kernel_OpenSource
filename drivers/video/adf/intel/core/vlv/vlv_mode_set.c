@@ -168,6 +168,11 @@ int vlv_display_on(struct intel_pipe *pipe)
 	vlv_program_wm();
 	/* Trickle feed is disabled by default */
 	REG_WRITE(MI_ARB_VLV, 0x00);
+	/* program the pfi credits, first disable and then program */
+	if (REG_READ(GCI_CONTROL) != 0x78004000) {
+		REG_WRITE(GCI_CONTROL, 0x00004000);
+		REG_WRITE(GCI_CONTROL, 0x78004000);
+	}
 
 	return 0;
 }
