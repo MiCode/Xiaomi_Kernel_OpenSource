@@ -2564,6 +2564,16 @@ static int register_sched_callback(void)
  */
 core_initcall(register_sched_callback);
 
+static u64 orig_mark_start(struct task_struct *p)
+{
+	return p->ravg.mark_start;
+}
+
+static void restore_orig_mark_start(struct task_struct *p, u64 mark_start)
+{
+	p->ravg.mark_start = mark_start;
+}
+
 #else	/* CONFIG_SCHED_HMP */
 
 static inline void fixup_busy_time(struct task_struct *p, int new_cpu) { }
@@ -2587,6 +2597,13 @@ static inline void mark_task_starting(struct task_struct *p) {}
 static inline void set_window_start(struct rq *rq) {}
 
 static inline void migrate_sync_cpu(int cpu) {}
+
+static inline u64 orig_mark_start(struct task_struct *p) { return 0; }
+
+static inline void
+restore_orig_mark_start(struct task_struct *p, u64 mark_start)
+{
+}
 
 #endif	/* CONFIG_SCHED_HMP */
 
@@ -6244,10 +6261,16 @@ void init_idle(struct task_struct *idle, int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long flags;
+	u64 mark_start = orig_mark_start(idle);
 
 	raw_spin_lock_irqsave(&rq->lock, flags);
 
 	__sched_fork(0, idle);
+	/*
+	 * Restore idle thread's original mark_start as we rely on it being
+	 * correct for maintaining per-cpu counters, curr/prev_runnable_sum.
+	 */
+	restore_orig_mark_start(idle, mark_start);
 	idle->state = TASK_RUNNING;
 	idle->se.exec_start = sched_clock();
 
