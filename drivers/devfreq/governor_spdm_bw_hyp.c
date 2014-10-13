@@ -282,6 +282,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[0] = SPDM_CMD_ENABLE;
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = 0;
+		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status) {
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -300,6 +301,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		/* call hypvervisor to disable */
 		desc.arg[0] = SPDM_CMD_DISABLE;
 		desc.arg[1] = spdm_data->spdm_client;
+		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
