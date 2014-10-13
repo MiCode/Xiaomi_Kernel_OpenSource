@@ -222,20 +222,13 @@ out:
 }
 EXPORT_SYMBOL(coresight_cti_ctx_restore);
 
-static int cti_enable(struct cti_drvdata *drvdata)
+static void cti_enable(struct cti_drvdata *drvdata)
 {
-	int ret;
-
-	ret = clk_prepare_enable(drvdata->clk);
-	if (ret)
-		return ret;
-
 	CTI_UNLOCK(drvdata);
 
 	cti_writel(drvdata, 0x1, CTICONTROL);
 
 	CTI_LOCK(drvdata);
-	return 0;
 }
 
 int cti_trigin_gpio_enable(struct cti_drvdata *drvdata)
@@ -330,16 +323,12 @@ void cti_trigout_gpio_disable(struct cti_drvdata *drvdata)
 	drvdata->gpio_trigout->pctrl = NULL;
 }
 
-static int __cti_map_trigin(struct cti_drvdata *drvdata, int trig, int ch)
+static void __cti_map_trigin(struct cti_drvdata *drvdata, int trig, int ch)
 {
 	uint32_t ctien;
-	int ret;
 
-	if (drvdata->refcnt == 0) {
-		ret = cti_enable(drvdata);
-		if (ret)
-			return ret;
-	}
+	if (drvdata->refcnt == 0)
+		cti_enable(drvdata);
 
 	CTI_UNLOCK(drvdata);
 
@@ -351,10 +340,9 @@ static int __cti_map_trigin(struct cti_drvdata *drvdata, int trig, int ch)
 	CTI_LOCK(drvdata);
 
 	drvdata->refcnt++;
-	return 0;
+	return;
 out:
 	CTI_LOCK(drvdata);
-	return 0;
 }
 
 int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
@@ -382,18 +370,36 @@ int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 			goto err0;
 	}
 
+	/*
+	 * refcnt can be used here since in all cases its value is modified only
+	 * within the mutex lock region in addition to within the spinlock.
+	 */
+	if (drvdata->refcnt == 0) {
+		ret = clk_prepare_enable(drvdata->clk);
+		if (ret)
+			goto err1;
+	}
+
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 	ret = cti_cpu_verify_access(drvdata);
 	if (ret)
-		goto err1;
+		goto err2;
 
-	ret = __cti_map_trigin(drvdata, trig, ch);
+	__cti_map_trigin(drvdata, trig, ch);
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
 	mutex_unlock(&drvdata->mutex);
 	return 0;
-err1:
+err2:
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+	/*
+	 * We come here before refcnt is potentially modified in
+	 * __cti_map_trigin so it is safe to check it against 0 without
+	 * adjusting its value.
+	 */
+	if (drvdata->refcnt == 0)
+		clk_disable_unprepare(drvdata->clk);
+err1:
 	cti_trigin_gpio_disable(drvdata);
 err0:
 	mutex_unlock(&drvdata->mutex);
@@ -401,16 +407,12 @@ err0:
 }
 EXPORT_SYMBOL(coresight_cti_map_trigin);
 
-static int __cti_map_trigout(struct cti_drvdata *drvdata, int trig, int ch)
+static void __cti_map_trigout(struct cti_drvdata *drvdata, int trig, int ch)
 {
 	uint32_t ctien;
-	int ret;
 
-	if (drvdata->refcnt == 0) {
-		ret = cti_enable(drvdata);
-		if (ret)
-			return ret;
-	}
+	if (drvdata->refcnt == 0)
+		cti_enable(drvdata);
 
 	CTI_UNLOCK(drvdata);
 
@@ -422,10 +424,9 @@ static int __cti_map_trigout(struct cti_drvdata *drvdata, int trig, int ch)
 	CTI_LOCK(drvdata);
 
 	drvdata->refcnt++;
-	return 0;
+	return;
 out:
 	CTI_LOCK(drvdata);
-	return 0;
 }
 
 int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
@@ -453,18 +454,35 @@ int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 			goto err0;
 	}
 
+	/*
+	 * refcnt can be used here since in all cases its value is modified only
+	 * within the mutex lock region in addition to within the spinlock.
+	 */
+	if (drvdata->refcnt == 0) {
+		ret = clk_prepare_enable(drvdata->clk);
+		if (ret)
+			goto err1;
+	}
+
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 	ret = cti_cpu_verify_access(drvdata);
 	if (ret)
-		goto err1;
+		goto err2;
 
-	ret = __cti_map_trigout(drvdata, trig, ch);
+	__cti_map_trigout(drvdata, trig, ch);
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
 	mutex_unlock(&drvdata->mutex);
 	return 0;
-err1:
+err2:
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+	/*
+	 * We come here before refcnt is potentially incremented in
+	 * __cti_map_trigout so it is safe to check it against 0.
+	 */
+	if (drvdata->refcnt == 0)
+		clk_disable_unprepare(drvdata->clk);
+err1:
 	cti_trigout_gpio_disable(drvdata);
 err0:
 	mutex_unlock(&drvdata->mutex);
@@ -483,8 +501,6 @@ static void cti_disable(struct cti_drvdata *drvdata)
 	cti_writel(drvdata, 0x0, CTICONTROL);
 
 	CTI_LOCK(drvdata);
-
-	clk_disable_unprepare(drvdata->clk);
 }
 
 static void __cti_unmap_trigin(struct cti_drvdata *drvdata, int trig, int ch)
@@ -500,13 +516,13 @@ static void __cti_unmap_trigin(struct cti_drvdata *drvdata, int trig, int ch)
 
 	CTI_LOCK(drvdata);
 
-	if (drvdata->refcnt == 1)
-		cti_disable(drvdata);
 	drvdata->refcnt--;
+
+	if (drvdata->refcnt == 0)
+		cti_disable(drvdata);
 	return;
 out:
 	CTI_LOCK(drvdata);
-	return;
 }
 
 void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
@@ -528,9 +544,22 @@ void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 	if (cti_cpu_verify_access(drvdata))
 		goto err;
+	/*
+	 * This is required to avoid clk_disable_unprepare call from being made
+	 * when unmap is called without the corresponding map function call.
+	 */
+	if (!drvdata->refcnt)
+		goto err;
 
 	__cti_unmap_trigin(drvdata, trig, ch);
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+
+	/*
+	 * refcnt can be used here since in all cases its value is modified only
+	 * within the mutex lock region in addition to within the spinlock.
+	 */
+	if (drvdata->refcnt == 0)
+		clk_disable_unprepare(drvdata->clk);
 
 	if (drvdata->gpio_trigin->trig == trig)
 		cti_trigin_gpio_disable(drvdata);
@@ -556,13 +585,13 @@ static void __cti_unmap_trigout(struct cti_drvdata *drvdata, int trig, int ch)
 
 	CTI_LOCK(drvdata);
 
-	if (drvdata->refcnt == 1)
-		cti_disable(drvdata);
 	drvdata->refcnt--;
+
+	if (drvdata->refcnt == 0)
+		cti_disable(drvdata);
 	return;
 out:
 	CTI_LOCK(drvdata);
-	return;
 }
 
 void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
@@ -584,9 +613,22 @@ void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 	if (cti_cpu_verify_access(drvdata))
 		goto err;
+	/*
+	 * This is required to avoid clk_disable_unprepare call from being made
+	 * when unmap is called without the corresponding map function call.
+	 */
+	if (!drvdata->refcnt)
+		goto err;
 
 	__cti_unmap_trigout(drvdata, trig, ch);
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+
+	/*
+	 * refcnt can be used here since in all cases its value is modified only
+	 * within the mutex lock region in addition to within the spinlock.
+	 */
+	if (drvdata->refcnt == 0)
+		clk_disable_unprepare(drvdata->clk);
 
 	if (drvdata->gpio_trigout->trig == trig)
 		cti_trigout_gpio_disable(drvdata);
