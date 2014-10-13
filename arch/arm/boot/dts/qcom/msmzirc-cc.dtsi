@@ -279,6 +279,18 @@
 		qcom,key = "KHz";
 		qcom,rpm-peer = <&ce_clk>;
 	};
+
+	qcedev_ce_clk: qcedev_ce_clk {
+		compatible = "qcom,sw-vote-clk";
+		qcom,parent = <&ce_clk>;
+		qcom,config-rate = <85710000>;
+	};
+
+	qcrypto_ce_clk: qcrypto_ce_clk {
+		compatible = "qcom,sw-vote-clk";
+		qcom,parent = <&ce_clk>;
+		qcom,config-rate = <85710000>;
+	};
 };
 
 &clock_gcc {

@@ -36,6 +36,10 @@
 #define clk_qpic_a_clk			&qpic_a_clk
 #define clk_ln_bb_clk			&ln_bb_clk
 #define clk_cxo_dwc3_clk		&cxo_dwc3_clk
+#define clk_ce_clk			&ce_clk
+#define clk_ce_a_clk			&ce_a_clk
+#define clk_qcedev_ce_clk		&qcedev_ce_clk
+#define clk_qcrypto_ce_clk		&qcrypto_ce_clk
 
 /* clock_gcc controlled clocks */
 #define clk_gpll0				&gpll0
