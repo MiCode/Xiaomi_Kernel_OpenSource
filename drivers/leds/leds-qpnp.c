@@ -247,6 +247,8 @@
 #define KPDBL_MODULE_EN			0x80
 #define KPDBL_MODULE_DIS		0x00
 #define KPDBL_MODULE_EN_MASK		0x80
+#define NUM_KPDBL_LEDS			4
+#define KPDBL_MASTER_BIT_INDEX		0
 
 /**
  * enum qpnp_leds - QPNP supported led ids
@@ -554,8 +556,11 @@ struct qpnp_led_data {
 	int			turn_off_delay_ms;
 };
 
-static int num_kpbl_leds_on;
 static DEFINE_MUTEX(flash_lock);
+static struct pwm_device *kpdbl_master;
+static u32 kpdbl_master_period_us;
+DECLARE_BITMAP(kpdbl_leds_in_use, NUM_KPDBL_LEDS);
+static bool is_kpdbl_master_turn_on;
 
 static int
 qpnp_led_masked_write(struct qpnp_led_data *led, u16 addr, u8 mask, u8 val)
@@ -1572,7 +1577,8 @@ static int qpnp_kpdbl_set(struct qpnp_led_data *led)
 		if (!led->kpdbl_cfg->pwm_cfg->blinking)
 			led->kpdbl_cfg->pwm_cfg->mode =
 				led->kpdbl_cfg->pwm_cfg->default_mode;
-		if (!num_kpbl_leds_on) {
+
+		if (bitmap_empty(kpdbl_leds_in_use, NUM_KPDBL_LEDS)) {
 			rc = qpnp_led_masked_write(led, KPDBL_ENABLE(led->base),
 					KPDBL_MODULE_EN_MASK, KPDBL_MODULE_EN);
 			if (rc) {
@@ -1580,6 +1586,33 @@ static int qpnp_kpdbl_set(struct qpnp_led_data *led)
 					"Enable reg write failed(%d)\n", rc);
 				return rc;
 			}
+		}
+
+		/* On some platforms, GPLED1 channel should always be enabled
+		 * for the other GPLEDs 2/3/4 to glow. Before enabling GPLED
+		 * 2/3/4, first check if GPLED1 is already enabled. If GPLED1
+		 * channel is not enabled, then enable the GPLED1 channel but
+		 * with a 0 brightness
+		 */
+		if (!led->kpdbl_cfg->always_on &&
+			!test_bit(KPDBL_MASTER_BIT_INDEX, kpdbl_leds_in_use) &&
+						kpdbl_master) {
+			rc = pwm_config_us(kpdbl_master, 0,
+					kpdbl_master_period_us);
+			if (rc < 0) {
+				dev_err(&led->spmi_dev->dev,
+					"pwm config failed\n");
+				return rc;
+			}
+
+			rc = pwm_enable(kpdbl_master);
+			if (rc < 0) {
+				dev_err(&led->spmi_dev->dev,
+					"pwm enable failed\n");
+				return rc;
+			}
+			set_bit(KPDBL_MASTER_BIT_INDEX,
+						kpdbl_leds_in_use);
 		}
 
 		if (led->kpdbl_cfg->pwm_cfg->mode == PWM_MODE) {
@@ -1611,39 +1644,77 @@ static int qpnp_kpdbl_set(struct qpnp_led_data *led)
 			return rc;
 		}
 
-		num_kpbl_leds_on++;
+		set_bit(led->kpdbl_cfg->row_id, kpdbl_leds_in_use);
+
+		/* is_kpdbl_master_turn_on will be set to true when GPLED1
+		 * channel is enabled and has a valid brightness value
+		 */
+		if (led->kpdbl_cfg->always_on)
+			is_kpdbl_master_turn_on = true;
 
 	} else {
 		led->kpdbl_cfg->pwm_cfg->mode =
 			led->kpdbl_cfg->pwm_cfg->default_mode;
 
+		/* Before disabling GPLED1, check if any other GPLED 2/3/4 is
+		 * on. If any of the other GPLED 2/3/4 is on, then have the
+		 * GPLED1 channel enabled with 0 brightness.
+		 */
 		if (led->kpdbl_cfg->always_on) {
-			rc = pwm_config_us(led->kpdbl_cfg->pwm_cfg->pwm_dev, 0,
-				led->kpdbl_cfg->pwm_cfg->pwm_period_us);
-			if (rc < 0) {
-				dev_err(&led->spmi_dev->dev,
+			if (bitmap_weight(kpdbl_leds_in_use,
+						NUM_KPDBL_LEDS) > 1) {
+				rc = pwm_config_us(
+					led->kpdbl_cfg->pwm_cfg->pwm_dev, 0,
+					led->kpdbl_cfg->pwm_cfg->pwm_period_us);
+				if (rc < 0) {
+					dev_err(&led->spmi_dev->dev,
 						"pwm config failed\n");
-				return rc;
-			}
+					return rc;
+				}
 
-			rc = pwm_enable(led->kpdbl_cfg->pwm_cfg->pwm_dev);
-			if (rc < 0) {
-				dev_err(&led->spmi_dev->dev, "pwm enable failed\n");
-				return rc;
+				rc = pwm_enable(led->kpdbl_cfg->pwm_cfg->
+							pwm_dev);
+				if (rc < 0) {
+					dev_err(&led->spmi_dev->dev,
+						"pwm enable failed\n");
+					return rc;
+				}
+			} else {
+				if (kpdbl_master) {
+					pwm_disable(kpdbl_master);
+					clear_bit(KPDBL_MASTER_BIT_INDEX,
+						kpdbl_leds_in_use);
+					rc = qpnp_led_masked_write(
+						led, KPDBL_ENABLE(led->base),
+						KPDBL_MODULE_EN_MASK,
+						KPDBL_MODULE_DIS);
+					if (rc) {
+						dev_err(&led->spmi_dev->dev,
+						"Failed to write led"
+						" enable reg\n");
+						return rc;
+					}
+				}
 			}
-		} else
+			is_kpdbl_master_turn_on = false;
+		} else {
 			pwm_disable(led->kpdbl_cfg->pwm_cfg->pwm_dev);
-
-		if (num_kpbl_leds_on > 0)
-			num_kpbl_leds_on--;
-
-		if (!num_kpbl_leds_on) {
-			rc = qpnp_led_masked_write(led, KPDBL_ENABLE(led->base),
+			clear_bit(led->kpdbl_cfg->row_id, kpdbl_leds_in_use);
+			if (bitmap_weight(kpdbl_leds_in_use,
+				NUM_KPDBL_LEDS) == 1 && kpdbl_master &&
+						!is_kpdbl_master_turn_on) {
+				pwm_disable(kpdbl_master);
+				clear_bit(KPDBL_MASTER_BIT_INDEX,
+					kpdbl_leds_in_use);
+				rc = qpnp_led_masked_write(
+					led, KPDBL_ENABLE(led->base),
 					KPDBL_MODULE_EN_MASK, KPDBL_MODULE_DIS);
-			if (rc) {
-				dev_err(&led->spmi_dev->dev,
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
 					"Failed to write led enable reg\n");
-				return rc;
+					return rc;
+				}
+				is_kpdbl_master_turn_on = false;
 			}
 		}
 	}
@@ -2824,6 +2895,11 @@ static int qpnp_kpdbl_init(struct qpnp_led_data *led)
 		return rc;
 	}
 
+	if (led->kpdbl_cfg->always_on) {
+		kpdbl_master = led->kpdbl_cfg->pwm_cfg->pwm_dev;
+		kpdbl_master_period_us = led->kpdbl_cfg->pwm_cfg->pwm_period_us;
+	}
+
 	/* dump kpdbl registers */
 	qpnp_dump_regs(led, kpdbl_debug_regs, ARRAY_SIZE(kpdbl_debug_regs));
 
@@ -3854,7 +3930,8 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 				goto fail_id_check;
 			}
 		} else if (strncmp(led_label, "kpdbl", sizeof("kpdbl")) == 0) {
-			num_kpbl_leds_on = 0;
+			bitmap_zero(kpdbl_leds_in_use, NUM_KPDBL_LEDS);
+			is_kpdbl_master_turn_on = false;
 			rc = qpnp_get_config_kpdbl(led, temp);
 			if (rc < 0) {
 				dev_err(&led->spmi_dev->dev,
