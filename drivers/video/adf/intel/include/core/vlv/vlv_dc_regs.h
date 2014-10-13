@@ -3348,20 +3348,33 @@
 #define DSPFW7			(VLV_DISPLAY_BASE + 0x7007c)
 
 /* drain latency register values*/
+#define VLV_DDL(pipe)	_PIPE(pipe, VLV_DDL1, VLV_DDL2)
+#define DRAIN_LATENCY_PRECISION_64	64
 #define DRAIN_LATENCY_PRECISION_32	32
 #define DRAIN_LATENCY_PRECISION_16	16
 #define VLV_DDL1			(VLV_DISPLAY_BASE + 0x70050)
 #define DDL_CURSORA_PRECISION_32	(1<<31)
 #define DDL_CURSORA_PRECISION_16	(0<<31)
 #define DDL_CURSORA_SHIFT		24
-#define DDL_PLANEA_PRECISION_32		(1<<7)
-#define DDL_PLANEA_PRECISION_16		(0<<7)
+#define DDL_PLANEA_PRECISION_64		(1<<7)
+#define DDL_PLANEA_PRECISION_32		(0<<7)
+#define DDL_PLANEA_MASK				0xFF
+#define DDL_SPRITEA_PRECISION_64	(1<<15)
+#define DDL_SPRITEA_PRECISION_32	(0<<15)
+#define DDL_SPRITEA_SHIFT	8
+#define DDL_SPRITEA_MASK			(0xFF << DDL_SPRITEA_SHIFT)
+#define DDL_SPRITEB_PRECISION_64	(1<<23)
+#define DDL_SPRITEB_PRECISION_32	(0<<23)
+#define DDL_SPRITEB_SHIFT	16
+#define DDL_SPRITEB_MASK			(0xFF << DDL_SPRITEB_SHIFT)
 #define VLV_DDL2			(VLV_DISPLAY_BASE + 0x70054)
 #define DDL_CURSORB_PRECISION_32	(1<<31)
 #define DDL_CURSORB_PRECISION_16	(0<<31)
 #define DDL_CURSORB_SHIFT		24
 #define DDL_PLANEB_PRECISION_32		(1<<7)
 #define DDL_PLANEB_PRECISION_16		(0<<7)
+#define DDL_PLANE_PRECISION_64		(1<<7)
+#define DDL_PLANE_PRECISION_32		(0<<7)
 
 /* FIFO watermark sizes etc */
 #define G4X_FIFO_LINE_SIZE	64
@@ -5895,4 +5908,16 @@
 #define wait_for_atomic(COND, MS) _wait_for(COND, MS, 0)
 #define wait_for_atomic_us(COND, US) _wait_for((COND), \
 					       DIV_ROUND_UP((US), 1000), 0)
+#define vlv_calculate_ddl(clock, pixel_size, prec_multi, ddl) (	\
+{									\
+	int entries;							\
+	bool latencyprogrammed = false;					\
+									\
+	entries = DIV_ROUND_UP(clock, 1000) * pixel_size;		\
+	*prec_multi = (entries > 256) ?					\
+		DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;\
+	*ddl = (64 * (*prec_multi) * 4) / entries;			\
+	latencyprogrammed = true;					\
+})
+
 #endif /* _VLV_DC_REGS_H_ */

@@ -66,5 +66,6 @@ extern void intel_adf_device_destroy(struct intel_adf_device *dev);
 extern u32 REG_READ(u32 reg);
 extern u32 REG_POSTING_READ(u32 reg);
 extern void REG_WRITE(u32 reg, u32 val);
+extern void REG_WRITE_BITS(u32 reg, u32 val, u32 mask);
 
 #endif /* INTEL_ADF_DEVICE_H_ */

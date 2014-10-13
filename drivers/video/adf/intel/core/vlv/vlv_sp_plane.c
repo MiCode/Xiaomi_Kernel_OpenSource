@@ -235,21 +235,27 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 			    struct intel_plane_config *config)
 {
 	struct vlv_sp_plane *splane = to_vlv_sp_plane(planeptr);
+	struct sp_plane_regs_value *regs = &splane->ctx.regs;
+	struct intel_pipe *intel_pipe = config->pipe;
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(intel_pipe);
+	struct drm_mode_modeinfo mode;
+	unsigned long sprsurf_offset, linear_offset;
+	int sprite_ddl, prec_multi, sp_prec_multi;
 	int plane = splane->ctx.plane;
 	int pipe = splane->ctx.pipe;
 	int s1_zorder, s1_bottom, s2_zorder, s2_bottom;
 	int order = config->zorder & 0x000F;
-	struct sp_plane_regs_value *regs = &splane->ctx.regs;
 	u32 hw_format = 0;
-	u32 bpp = 0;
-	u32 sprctl;
+	u32 bpp = 0, prev_bpp = 0;
+	u32 sprctl, prev_sprctl;
+	u32 mask, shift;
 	u32 dst_w = (config->dst_w & VLV_SP_12BIT_MASK) - 1;
 	u32 dst_h = (config->dst_h & VLV_SP_12BIT_MASK) - 1;
 	u32 src_x = config->src_x & VLV_SP_12BIT_MASK;
 	u32 src_y = config->src_y & VLV_SP_12BIT_MASK;
 	u32 dst_x = config->dst_x & VLV_SP_12BIT_MASK;
 	u32 dst_y = config->dst_y & VLV_SP_12BIT_MASK;
-	unsigned long sprsurf_offset, linear_offset;
+	u8 i = 0;
 
 	/* Z-order */
 	s1_zorder = (order >> 3) & 0x1;
@@ -259,6 +265,7 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 
 	get_format_config(buf->format, &hw_format, &bpp);
 	sprctl = REG_READ(SPCNTR(pipe, plane));
+	prev_sprctl = sprctl;
 
 	if (plane == 0) {
 		if (s1_zorder)
@@ -288,6 +295,40 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 
 	sprctl |= hw_format;
 	sprctl |= SP_GAMMA_ENABLE;
+	/* Calculate the ddl if there is a change in bpp */
+	for (i = 0; i < ARRAY_SIZE(format_mappings); i++) {
+		if (format_mappings[i].hw_config ==
+				(prev_sprctl & SP_PIXFORMAT_MASK)) {
+			prev_bpp = format_mappings[i].bpp;
+			break;
+		}
+	}
+	if (plane == 0) {
+		mask = DDL_SPRITEA_MASK;
+		shift = DDL_SPRITEA_SHIFT;
+	} else {
+		mask = DDL_SPRITEB_MASK;
+		shift = DDL_SPRITEB_SHIFT;
+	}
+	if (bpp != prev_bpp || !(REG_READ(VLV_DDL(pipe)) & mask)) {
+		dsi_pipe->panel->ops->get_config_mode(&dsi_pipe->config,
+				&mode);
+		vlv_calculate_ddl(mode.clock, bpp, &prec_multi,
+				&sprite_ddl);
+		sp_prec_multi = (prec_multi ==
+					DRAIN_LATENCY_PRECISION_32) ?
+					DDL_PLANE_PRECISION_32 :
+					DDL_PLANE_PRECISION_64;
+		sprite_ddl = (sp_prec_multi | sprite_ddl) << shift;
+		if (plane == 0) {
+			intel_pipe->regs.sp1_ddl = sprite_ddl;
+			intel_pipe->regs.sp1_ddl_mask = mask;
+		} else {
+			intel_pipe->regs.sp2_ddl = sprite_ddl;
+			intel_pipe->regs.sp2_ddl_mask = mask;
+		}
+		REG_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
+	}
 
 	if (buf->tiling_mode != I915_TILING_NONE)
 		sprctl |= SP_TILED;
@@ -448,12 +489,11 @@ static int vlv_sp_enable(struct intel_plane *planeptr)
 
 static int vlv_sp_disable(struct intel_plane *planeptr)
 {
-	u32 reg, value;
+	u32 reg, value, mask;
 	struct vlv_sp_plane *splane = to_vlv_sp_plane(planeptr);
 	int plane = splane->ctx.plane;
 	int pipe = splane->ctx.pipe;
 
-	reg = SPCNTR(pipe, plane);
 	reg = SPCNTR(pipe, plane);
 	value = REG_READ(reg);
 	if ((value & DISPLAY_PLANE_ENABLE) == 0) {
@@ -464,6 +504,13 @@ static int vlv_sp_disable(struct intel_plane *planeptr)
 
 	REG_WRITE(reg, value & ~DISPLAY_PLANE_ENABLE);
 	vlv_adf_flush_sp_plane(pipe, plane);
+	/* While disabling plane reset the plane DDL value */
+	if (plane == 0)
+		mask = DDL_SPRITEA_MASK;
+	else
+		mask = DDL_SPRITEB_MASK;
+
+	REG_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
 
 	return 0;
 }

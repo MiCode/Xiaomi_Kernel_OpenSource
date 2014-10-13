@@ -276,6 +276,20 @@ struct intel_pipe_ops {
 #endif
 };
 
+struct pri_plane_regs {
+	u32 dspcntr;
+	u32 stride;
+	u32 pri_ddl;
+	u32 pri_ddl_mask;
+	u32 sp1_ddl;
+	u32 sp1_ddl_mask;
+	u32 sp2_ddl;
+	u32 sp2_ddl_mask;
+	unsigned long linearoff;
+	unsigned long tileoff;
+	unsigned long surfaddr;
+};
+
 struct intel_pipe {
 	struct intel_dc_component base;
 	bool primary;
@@ -283,6 +297,12 @@ struct intel_pipe {
 	const struct intel_plane *primary_plane;
 	const struct intel_pipe_ops *ops;
 	bool dpst_enabled;
+
+	/*
+	 * Store the computed reg values in this to apply in
+	 * one shot later in flip calls
+	 */
+	struct pri_plane_regs regs;
 };
 
 struct intel_dc_attachment {

@@ -191,11 +191,19 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 {
 	struct vlv_pri_plane *pri_plane = to_vlv_pri_plane(plane);
 	struct pri_plane_regs_value *regs = &pri_plane->ctx.regs;
+	struct intel_pipe *intel_pipe = config->pipe;
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(intel_pipe);
+	struct drm_mode_modeinfo mode;
+	unsigned long dspaddr_offset;
+	int plane_ddl, prec_multi, plane_prec_multi;
 	int src_x, src_y;
+	int pipe = intel_pipe->base.idx;
+	u32 dspcntr;
+	u32 mask;
 	u32 pidx = pri_plane->ctx.plane;
 	u32 format_config = 0;
-	u8 bpp = 0;
-	unsigned long dspaddr_offset;
+	u8 bpp = 0, prev_bpp = 0;
+	u8 i = 0;
 
 	get_format_config(buf->format, &format_config, &bpp);
 
@@ -204,8 +212,33 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 
 	regs->dspcntr = REG_READ(DSPCNTR(pidx));
 	regs->dspcntr |= DISPLAY_PLANE_ENABLE;
+	dspcntr = regs->dspcntr;
+
 	regs->dspcntr &= ~DISPPLANE_PIXFORMAT_MASK;
 	regs->dspcntr |= format_config;
+	/* Calculate the ddl if there is a change in bpp */
+	for (i = 0; i < ARRAY_SIZE(format_mapping); i++) {
+		if (format_mapping[i].hw_config ==
+				(dspcntr & DISPPLANE_PIXFORMAT_MASK)) {
+			prev_bpp = format_mapping[i].bpp;
+			break;
+		}
+	}
+	mask = DDL_PLANEA_MASK;
+	if (bpp != prev_bpp || !(REG_READ(VLV_DDL(pipe)) & mask)) {
+		dsi_pipe->panel->ops->get_config_mode(&dsi_pipe->config,
+				&mode);
+		vlv_calculate_ddl(mode.clock, bpp, &prec_multi,
+				&plane_ddl);
+		plane_prec_multi = (prec_multi ==
+					DRAIN_LATENCY_PRECISION_32) ?
+					DDL_PLANE_PRECISION_32 :
+					DDL_PLANE_PRECISION_64;
+		plane_ddl = plane_prec_multi | (plane_ddl);
+		intel_pipe->regs.pri_ddl = plane_ddl;
+		intel_pipe->regs.pri_ddl_mask = mask;
+		REG_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
+	}
 	if (buf->tiling_mode != I915_TILING_NONE)
 		regs->dspcntr |= DISPPLANE_TILED;
 	else
@@ -279,6 +312,7 @@ static int vlv_pri_enable(struct intel_plane *plane)
 static int vlv_pri_disable(struct intel_plane *plane)
 {
 	u32 reg, value;
+	u32 mask = DDL_PLANEA_MASK;
 
 	reg = DSPCNTR(plane->base.idx);
 	value = REG_READ(reg);
@@ -290,6 +324,7 @@ static int vlv_pri_disable(struct intel_plane *plane)
 
 	REG_WRITE(reg, value & ~DISPLAY_PLANE_ENABLE);
 	vlv_adf_flush_disp_plane(plane->base.idx);
+	REG_WRITE_BITS(VLV_DDL(plane->base.idx), 0x00, mask);
 	return 0;
 }
 

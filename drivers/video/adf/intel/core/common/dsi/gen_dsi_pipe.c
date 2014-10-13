@@ -326,18 +326,36 @@ static void dsi_get_events(struct intel_pipe *pipe, u32 *events)
 	if (pipestat & SPRITE2_FLIP_DONE_STAT) {
 		*events |= INTEL_PIPE_EVENT_SPRITE2_FLIP;
 		value |= SPRITE2_FLIP_DONE_STAT;
+		/* program the pre-calculated ddl value */
+		if (pipe->regs.sp2_ddl) {
+			REG_WRITE_BITS(VLV_DDL(idx), pipe->regs.sp2_ddl,
+					pipe->regs.sp2_ddl_mask);
+			pipe->regs.sp2_ddl = 0;
+		}
 	}
 
 	/* Sprite A Flip done interrupt */
 	if (pipestat & SPRITE1_FLIP_DONE_STAT) {
 		*events |= INTEL_PIPE_EVENT_SPRITE1_FLIP;
 		value |= SPRITE2_FLIP_DONE_STAT;
+		/* program the pre-calculated ddl value */
+		if (pipe->regs.sp1_ddl) {
+			REG_WRITE_BITS(VLV_DDL(idx), pipe->regs.sp1_ddl,
+					pipe->regs.sp1_ddl_mask);
+			pipe->regs.sp1_ddl = 0;
+		}
 	}
 
 	/* Plane A Flip done interrupt */
 	if (pipestat & PLANE_FLIP_DONE_STAT) {
 		*events |= INTEL_PIPE_EVENT_PRIMARY_FLIP;
 		value |= PLANE_FLIP_DONE_STAT;
+		/* program the pre-calculated ddl value */
+		if (pipe->regs.pri_ddl) {
+			REG_WRITE_BITS(VLV_DDL(idx), pipe->regs.pri_ddl,
+					pipe->regs.pri_ddl_mask);
+			pipe->regs.pri_ddl = 0;
+		}
 	}
 
 	/* Vsync interrupt */

@@ -43,6 +43,16 @@ void REG_WRITE(u32 reg, u32 val)
 	iowrite32(val, g_intel_adf_dev->mmio + reg);
 }
 
+void REG_WRITE_BITS(u32 reg, u32 val, u32 mask)
+{
+	u32 tmp;
+	tmp = REG_READ(reg);
+	tmp &= ~mask;
+	val &= mask;
+	val |= tmp;
+	REG_WRITE(reg, val);
+}
+
 u32 REG_POSTING_READ(u32 reg)
 {
 	return ioread32(g_intel_adf_dev->mmio + (reg));
