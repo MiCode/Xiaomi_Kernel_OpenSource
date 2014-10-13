@@ -1289,6 +1289,7 @@ static int smb1360_battery_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		smb1360_charging_disable(chip, USER, !val->intval);
 		power_supply_changed(&chip->batt_psy);
+		power_supply_changed(chip->usb_psy);
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		chip->fake_battery_soc = val->intval;
