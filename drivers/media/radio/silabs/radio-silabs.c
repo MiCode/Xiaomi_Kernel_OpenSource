@@ -128,6 +128,8 @@ struct silabs_fm_device {
 	u8 formatting_dir;
 	bool is_af_jump_enabled;
 	bool is_af_tune_in_progress;
+	u16 af_avg_th;
+	u8 af_wait_timer;
 	u8 af_rssi_th; /* allowed rssi is 0-127 */
 	u8 rssi_th; /* 0 - 127 */
 	u8 sinr_th; /* 0 - 127 */
@@ -1395,12 +1397,7 @@ static void update_af_list(struct silabs_fm_device *radio)
 				__func__, radio->tuned_freq_khz, radio->pi);
 			radio->af_info2.inval_freq_cnt = 0;
 			radio->af_info2.cnt = 0;
-			radio->af_info2.index = 0;
-			radio->af_info2.size = 0;
 			radio->af_info2.orig_freq_khz = 0;
-			memset(radio->af_info2.af_list,
-				0,
-				sizeof(radio->af_info2.af_list));
 
 			/* AF count. */
 			radio->af_info2.cnt = af_data - NO_AF_CNT_CODE;
@@ -1484,17 +1481,31 @@ static void update_af_list(struct silabs_fm_device *radio)
 static void silabs_af_tune(struct work_struct *work)
 {
 	struct silabs_fm_device *radio;
-	int retval = 0;
+	int retval = 0, i = 0;
 	u8 rssi = 0;
 	u32 freq = 0;
 
 	radio = container_of(work, struct silabs_fm_device, work_af.work);
 
-	if (radio->af_info1.size == 0) {
+	if (radio->af_info2.size == 0) {
 		FMDBG("%s: Empty AF list\n", __func__);
 		radio->is_af_tune_in_progress = false;
 		return;
 	}
+	radio->af_avg_th = 0;
+	for (i = 0; i < radio->af_wait_timer; i++) {
+		retval = get_rssi(radio, &rssi);
+		if (retval < 0)
+			FMDERR("%s: getting rssi failed\n", __func__);
+		radio->af_avg_th += rssi;
+		msleep(1000);
+	}
+	radio->af_avg_th = radio->af_avg_th/radio->af_wait_timer;
+	if (radio->af_avg_th >= radio->af_rssi_th) {
+		FMDBG("Not required to do Af jump\n");
+		return;
+	}
+
 
 	/* Disable all other interrupts except STC */
 	retval = configure_interrupts(radio, ENABLE_STC_INTERRUPTS);
@@ -1519,11 +1530,11 @@ static void silabs_af_tune(struct work_struct *work)
 		}
 
 		/* If no more AFs left, tune to original frequency and break */
-		if (radio->af_info1.index >= radio->af_info1.size) {
+		if (radio->af_info2.index >= radio->af_info2.size) {
 			FMDBG("%s: No more AFs, tuning to original freq %u\n",
-				__func__, radio->af_info1.orig_freq_khz);
+				__func__, radio->af_info2.orig_freq_khz);
 
-			freq = radio->af_info1.orig_freq_khz;
+			freq = radio->af_info2.orig_freq_khz;
 
 			retval = tune(radio, freq);
 			if (retval < 0) {
@@ -1545,7 +1556,7 @@ static void silabs_af_tune(struct work_struct *work)
 			goto err_tune_fail;
 		}
 
-		freq = radio->af_info1.af_list[radio->af_info1.index++];
+		freq = radio->af_info2.af_list[radio->af_info2.index++];
 
 		FMDBG("%s: tuning to freq %u\n", __func__, freq);
 
@@ -1588,7 +1599,10 @@ err_tune_fail:
 	 * At this point, we are tuned to either original freq or AF with >=
 	 * AF rssi threshold
 	 */
-	reset_af_info(radio);
+	if (freq != radio->af_info2.orig_freq_khz) {
+		FMDBG("tuned freq different than original,reset af info\n");
+		reset_af_info(radio);
+	}
 
 	radio->is_af_tune_in_progress = false;
 
@@ -1678,9 +1692,9 @@ static void rds_handler(struct work_struct *worker)
 	}
 	FMDBG("rt_plus_carrier = %x\n", radio->rt_plus_carrier);
 	FMDBG("ert_carrier = %x\n", radio->ert_carrier);
-	if (grp_type == radio->rt_plus_carrier)
+	if (radio->rt_plus_carrier && (grp_type == radio->rt_plus_carrier))
 		silabs_rt_plus(radio);
-	else if (grp_type == radio->ert_carrier)
+	else if (radio->ert_carrier && (grp_type == radio->ert_carrier))
 		silabs_buff_ert(radio);
 	return;
 }
@@ -2261,7 +2275,7 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 			return;
 
 		if (radio->is_af_jump_enabled &&
-			radio->af_info1.size != 0 &&
+			radio->af_info2.size != 0 &&
 			rssi <= radio->af_rssi_th) {
 
 			radio->is_af_tune_in_progress = true;
@@ -2772,6 +2786,11 @@ static int silabs_fm_vidioc_g_ctrl(struct file *file, void *priv,
 
 		ctrl->value = radio->rds_fifo_cnt;
 		break;
+	case V4L2_CID_PRIVATE_SILABS_AF_RMSSI_SAMPLES:
+		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_AF_RMSSI_SAMPLES, val %d\n",
+			__func__, ctrl->value);
+		ctrl->value = radio->af_wait_timer;
+		break;
 	default:
 		retval = -EINVAL;
 		break;
@@ -3048,6 +3067,12 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 			FMDERR("%s: Invalid sinr\n", __func__);
 		}
 
+		break;
+	case V4L2_CID_PRIVATE_SILABS_AF_RMSSI_SAMPLES:
+		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_AF_RMSSI_SAMPLES, val %d\n",
+			__func__, ctrl->value);
+		if ((ctrl->value >= 0) || (ctrl->value <= MAX_AF_WAIT_SEC))
+			radio->af_wait_timer = ctrl->value;
 		break;
 	default:
 		retval = -EINVAL;
@@ -3684,6 +3709,7 @@ static int silabs_fm_probe(struct i2c_client *client,
 	/* radio initializes to normal mode */
 	radio->lp_mode = 0;
 	radio->handle_irq = 1;
+	radio->af_wait_timer = AF_WAIT_SEC;
 	/* init lock */
 	mutex_init(&radio->lock);
 	radio->tune_req = 0;
