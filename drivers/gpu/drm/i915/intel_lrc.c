@@ -1420,6 +1420,13 @@ int intel_execlists_submission_final(struct i915_execbuffer_params *params)
 
 	/* The mutex must be acquired before calling this function */
 	BUG_ON(!mutex_is_locked(&params->dev->struct_mutex));
+
+	/* Assign an identifier to track this request through the hardware: */
+	WARN_ON(params->request->seqno != 0);
+	ret = i915_gem_get_seqno(ring->dev, &params->request->seqno);
+	if (ret)
+		goto error;
+
 	/* Ensure the correct request gets assigned to the correct buffer: */
 	WARN_ON(ring->outstanding_lazy_request != NULL);
 	WARN_ON(params->request == NULL);

@@ -2571,9 +2571,11 @@ int __i915_add_request(struct intel_engine_cs *ring,
 	}
 
 	/* Assign an identifier to track this request through the hardware: */
-	ret = i915_gem_get_seqno(ring->dev, &request->seqno);
-	if (ret)
-		goto end;
+	if (!request->seqno) {
+		ret = i915_gem_get_seqno(ring->dev, &request->seqno);
+		if (ret)
+			goto end;
+	}
 
 	/* Record the position of the start of the request so that
 	 * should we detect the updated seqno part-way through the
