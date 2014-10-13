@@ -44,6 +44,8 @@
 #define DIV_ROUND_CLOSEST_ULL(ll, d)	\
 	({ unsigned long long _tmp = (ll)+(d)/2; do_div(_tmp, d); _tmp; })
 
+void intel_save_clr_mgr_status(struct drm_device *dev);
+bool intel_restore_clr_mgr_status(struct drm_device *dev);
 static void intel_increase_pllclock(struct drm_crtc *crtc);
 static void intel_crtc_update_cursor(struct drm_crtc *crtc, bool on);
 static void i9xx_update_primary_plane(struct drm_crtc *crtc, struct drm_framebuffer *fb,
@@ -5568,12 +5570,19 @@ void intel_encoder_destroy(struct drm_encoder *encoder)
  * state of the entire output pipe. */
 static void intel_encoder_dpms(struct intel_encoder *encoder, int mode)
 {
+	struct drm_device *dev = encoder->base.dev;
 	if (mode == DRM_MODE_DPMS_ON) {
 		encoder->connectors_active = true;
-
 		intel_crtc_update_dpms(encoder->base.crtc);
+
+		/* Restore Gamma/Csc/Hue/Saturation/Brightness/Contrast */
+		if (!intel_restore_clr_mgr_status(dev))
+			DRM_ERROR("Restore Color manager status failed");
 	} else {
 		encoder->connectors_active = false;
+
+		/* Save Hue/Saturation/Brightness/Contrast status */
+		intel_save_clr_mgr_status(dev);
 
 		intel_crtc_update_dpms(encoder->base.crtc);
 	}

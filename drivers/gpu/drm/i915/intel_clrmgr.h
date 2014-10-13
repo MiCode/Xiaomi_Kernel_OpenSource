@@ -101,5 +101,6 @@ int intel_sprite_cb_adjust(struct drm_i915_private *dev_priv,
 		struct cont_brightlut *cb_ptr);
 int intel_sprite_hs_adjust(struct drm_i915_private *dev_priv,
 		struct hue_saturationlut *hs_ptr);
-
+void intel_save_clr_mgr_status(struct drm_device *dev);
+bool intel_restore_clr_mgr_status(struct drm_device *dev);
 #endif

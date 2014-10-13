@@ -28,6 +28,7 @@
 #include <drm/i915_drm.h>
 #include "intel_drv.h"
 #include "i915_reg.h"
+#include "intel_clrmgr.h"
 
 static u8 i915_read_indexed(struct drm_device *dev, u16 index_port, u16 data_port, u8 reg)
 {
@@ -218,6 +219,9 @@ static void i915_save_display(struct drm_device *dev)
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		i915_save_display_reg(dev);
 
+	/* Save Hue/Saturation/Brightness/Contrast status */
+	intel_save_clr_mgr_status(dev);
+
 	/* LVDS state */
 	if (HAS_PCH_SPLIT(dev)) {
 		dev_priv->regfile.savePP_CONTROL = I915_READ(PCH_PP_CONTROL);
@@ -325,6 +329,10 @@ static void i915_restore_display(struct drm_device *dev)
 		i915_restore_vga(dev);
 	else
 		i915_redisable_vga(dev);
+
+	/* Restore Gamma/Csc/Hue/Saturation/Brightness/Contrast */
+	if (!intel_restore_clr_mgr_status(dev))
+		DRM_ERROR("Restore Color manager status failed");
 }
 
 int i915_save_state(struct drm_device *dev)

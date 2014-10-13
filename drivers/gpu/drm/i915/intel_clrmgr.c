@@ -78,6 +78,22 @@ u32 gcmax_softlut[GC_MAX_COUNT] =  {
 	0xFF00, 0xFF00, 0xFF00
 };
 
+/* Hue Saturation defaults */
+struct hue_saturationlut savedhsvalues[NO_SPRITE_REG] = {
+	{SPRITEA, 0x1000000},
+	{SPRITEB, 0x1000000},
+	{SPRITEC, 0x1000000},
+	{SPRITED, 0x1000000}
+};
+
+/* Contrast brightness defaults */
+struct cont_brightlut savedcbvalues[NO_SPRITE_REG] = {
+	{SPRITEA, 0x80},
+	{SPRITEB, 0x80},
+	{SPRITEC, 0x80},
+	{SPRITED, 0x80}
+};
+
 /* Color space conversion coff's */
 u32 csc_softlut[CSC_MAX_COEFF_COUNT] = {
 	1024,	 0, 67108864, 0, 0, 1024
@@ -614,3 +630,113 @@ int intel_sprite_hs_adjust(struct drm_i915_private *dev_priv,
 	}
 	return 0;
 }
+
+static bool intel_restore_cb(struct drm_device *dev)
+{
+	int count = 0;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	while (count < NO_SPRITE_REG) {
+		if (intel_sprite_cb_adjust(dev_priv, &savedcbvalues[count++])) {
+			DRM_ERROR("Color Restore: Error restoring CB\n");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool intel_restore_hs(struct drm_device *dev)
+{
+	int count = 0;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	while (count < NO_SPRITE_REG) {
+		if (intel_sprite_hs_adjust(dev_priv, &savedhsvalues[count++])) {
+			DRM_ERROR("Color Restore: Error restoring HS\n");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool intel_restore_clr_mgr_status(struct drm_device *dev)
+{
+	struct drm_crtc *crtc = NULL;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/* Validate input */
+	if (!dev_priv) {
+		DRM_ERROR("Color Restore: Invalid input\n");
+		return false;
+	}
+
+	/* Search for a CRTC */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		if (intel_pipe_has_type(crtc, dev_priv->vbt.has_mipi ?
+					INTEL_OUTPUT_DSI : INTEL_OUTPUT_EDP))
+			break;
+	}
+
+	if (!crtc) {
+		DRM_ERROR("Color Restore: No local panel found\n");
+		return false;
+	}
+
+	/* If gamma enabled, restore gamma */
+	if (dev_priv->gamma_enabled) {
+		if (intel_crtc_enable_gamma(crtc, PIPEA)) {
+			DRM_ERROR("Color Restore: gamma failed\n");
+			return false;
+		}
+	}
+
+	/* If csc enabled, restore csc */
+	if (dev_priv->csc_enabled) {
+		if (do_intel_enable_csc(dev, (void *) csc_softlut, crtc)) {
+			DRM_ERROR("Color Restore: CSC failed\n");
+			return false;
+		}
+	}
+
+	if (!intel_restore_hs(dev)) {
+		DRM_ERROR("Color Restore: Restore hue/sat failed\n");
+		return false;
+	}
+
+	if (!intel_restore_cb(dev)) {
+		DRM_ERROR("Color Restore: Restore CB failed\n");
+		return false;
+	}
+
+	DRM_DEBUG("Color Restore: Restore success\n");
+	return true;
+}
+EXPORT_SYMBOL(intel_restore_clr_mgr_status);
+
+void intel_save_cb_status(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	savedcbvalues[0].val = I915_READ(SPRITEA_CB_REG);
+	savedcbvalues[1].val = I915_READ(SPRITEB_CB_REG);
+	savedcbvalues[2].val = I915_READ(SPRITEC_CB_REG);
+	savedcbvalues[3].val = I915_READ(SPRITED_CB_REG);
+}
+
+void intel_save_hs_status(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	savedhsvalues[0].val = I915_READ(SPRITEA_HS_REG);
+	savedhsvalues[1].val = I915_READ(SPRITEB_HS_REG);
+	savedhsvalues[2].val = I915_READ(SPRITEC_HS_REG);
+	savedhsvalues[3].val = I915_READ(SPRITED_HS_REG);
+}
+
+void intel_save_clr_mgr_status(struct drm_device *dev)
+{
+	intel_save_hs_status(dev);
+	intel_save_cb_status(dev);
+}
+EXPORT_SYMBOL(intel_save_clr_mgr_status);
