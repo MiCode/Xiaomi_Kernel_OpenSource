@@ -1677,6 +1677,7 @@ static enum power_supply_property smb135x_parallel_properties[] = {
 static int smb135x_parallel_set_chg_present(struct smb135x_chg *chip,
 						int present)
 {
+	u8 val;
 	int rc;
 
 	if (present == chip->parallel_charger_present) {
@@ -1775,12 +1776,33 @@ static int smb135x_parallel_set_chg_present(struct smb135x_chg *chip,
 	 */
 	chip->usb_psy_ma = SUSPEND_CURRENT_MA;
 	rc = smb135x_path_suspend(chip, USB, CURRENT, true);
-	if (present && rc < 0) {
-		dev_err(chip->dev,
-			"Couldn't set usb suspend to true rc = %d\n",
-			rc);
-		return rc;
-	} else if (!present) {
+
+	if (present) {
+		if (rc) {
+			dev_err(chip->dev,
+				"Couldn't set usb suspend to true rc = %d\n",
+				rc);
+			return rc;
+		}
+		/* Check if the USB is configured for suspend. If not, do it */
+		mutex_lock(&chip->path_suspend_lock);
+		rc = smb135x_read(chip, CMD_INPUT_LIMIT, &val);
+		if (rc) {
+			dev_err(chip->dev,
+				"Couldn't read 0x%02x rc:%d\n", CMD_INPUT_LIMIT,
+				rc);
+			mutex_unlock(&chip->path_suspend_lock);
+			return rc;
+		} else if (!(val & BIT(6))) {
+			rc = __smb135x_usb_suspend(chip, 1);
+		}
+		mutex_unlock(&chip->path_suspend_lock);
+		if (rc) {
+			dev_err(chip->dev,
+				"Couldn't set usb to suspend rc:%d\n", rc);
+			return rc;
+		}
+	} else {
 		chip->real_usb_psy_ma = SUSPEND_CURRENT_MA;
 	}
 	return 0;
