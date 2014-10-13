@@ -1554,6 +1554,7 @@
 	};
 };
 
+#include "msm-pm8909-rpm-regulator.dtsi"
 #include "msm-pm8909.dtsi"
 #include "msm8909-regulator.dtsi"
 
