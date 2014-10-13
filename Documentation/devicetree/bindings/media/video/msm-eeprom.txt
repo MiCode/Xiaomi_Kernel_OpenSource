@@ -59,6 +59,8 @@ Optional properties:
 - cam_vdig-supply : should contain regulator to be used for the digital vdd.
 - qcom,saddr%d : property should specify the slave address for block (%d).
 - qcom,i2c-freq-mode : property should specify the I2C speed mode.
+- qcom,gpio-custom1 : should specify the custom non standard gpio1 index.
+- qcom,gpio-custom2 : should specify the custom non standard gpio2 index.
 
 Optional properties -EEPROM Camera Multimodule
 - qcom,cmm-data-support - Camera MultiModule data capability flag.

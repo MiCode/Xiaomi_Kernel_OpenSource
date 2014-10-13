@@ -74,8 +74,8 @@ struct v4l2_subdev_info {
 };
 
 struct msm_camera_gpio_num_info {
-	uint16_t gpio_num[10];
-	uint8_t valid[10];
+	uint16_t gpio_num[SENSOR_GPIO_MAX];
+	uint8_t valid[SENSOR_GPIO_MAX];
 };
 
 struct msm_camera_gpio_conf {

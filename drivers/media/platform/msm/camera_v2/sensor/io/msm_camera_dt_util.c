@@ -466,6 +466,10 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 				ps[i].seq_val = SENSOR_GPIO_VAF;
 			else if (!strcmp(seq_name, "sensor_gpio_vio"))
 				ps[i].seq_val = SENSOR_GPIO_VIO;
+			else if (!strcmp(seq_name, "sensor_gpio_custom1"))
+				ps[i].seq_val = SENSOR_GPIO_CUSTOM1;
+			else if (!strcmp(seq_name, "sensor_gpio_custom2"))
+				ps[i].seq_val = SENSOR_GPIO_CUSTOM2;
 			else
 				rc = -EILSEQ;
 			break;
@@ -963,6 +967,48 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_RESET]);
 	} else
 		rc = 0;
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-custom1", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-custom1 failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-custom1 invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_CUSTOM1] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_CUSTOM1] = 1;
+		CDBG("%s qcom,gpio-custom1 %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_CUSTOM1]);
+	} else {
+		rc = 0;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-custom2", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-custom2 failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-custom2 invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_CUSTOM2] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_CUSTOM2] = 1;
+		CDBG("%s qcom,gpio-custom2 %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_CUSTOM2]);
+	} else {
+		rc = 0;
+	}
 
 	return rc;
 
