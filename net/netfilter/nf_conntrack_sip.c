@@ -1535,9 +1535,6 @@ static int process_sip_msg(struct sk_buff *skb, struct nf_conn *ct,
 	typeof(nf_nat_sip_hook) nf_nat_sip;
 	int ret;
 
-	if (nf_ct_disable_sip_alg)
-		return NF_ACCEPT;
-
 	if (strnicmp(*dptr, "SIP/2.0 ", strlen("SIP/2.0 ")) != 0)
 		ret = process_sip_request(skb, protoff, dataoff, dptr, datalen);
 	else
@@ -1567,6 +1564,9 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	int ret = NF_ACCEPT;
 	bool term;
 	typeof(nf_nat_sip_seq_adjust_hook) nf_nat_sip_seq_adjust;
+
+	if (nf_ct_disable_sip_alg)
+		return NF_ACCEPT;
 
 	if (ctinfo != IP_CT_ESTABLISHED &&
 	    ctinfo != IP_CT_ESTABLISHED_REPLY)
@@ -1643,6 +1643,9 @@ static int sip_help_udp(struct sk_buff *skb, unsigned int protoff,
 {
 	unsigned int dataoff, datalen;
 	const char *dptr;
+
+	if (nf_ct_disable_sip_alg)
+		return NF_ACCEPT;
 
 	/* No Data ? */
 	dataoff = protoff + sizeof(struct udphdr);
