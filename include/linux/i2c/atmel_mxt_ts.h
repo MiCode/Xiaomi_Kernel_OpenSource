@@ -27,6 +27,7 @@ struct mxt_platform_data {
 	unsigned long gpio_switch;
 	const char *cfg_name;
 	const char *input_name;
+	int regulator_dis;
 };
 
 #endif /* __LINUX_ATMEL_MXT_TS_H */

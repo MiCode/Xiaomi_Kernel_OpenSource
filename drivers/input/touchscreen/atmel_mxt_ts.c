@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
+#include <linux/debugfs.h>
 
 #ifdef CONFIG_OF
 #include <linux/of_gpio.h>
@@ -82,6 +83,10 @@
 #define MXT_COMMAND_CALIBRATE	2
 #define MXT_COMMAND_REPORTALL	3
 #define MXT_COMMAND_DIAGNOSTIC	5
+
+#define MXT_DEBUG_DELTA_MODE	0x10
+#define MXT_DEBUG_PAGE_UP	0x01
+#define MXT_DEBUG_PAGE_DOWN	0x02
 
 /* Define for T6 status byte */
 #define MXT_T6_STATUS_RESET	(1 << 7)
@@ -167,6 +172,11 @@ struct t9_range {
 #define MXT_T100_DETECT		(1 << 7)
 #define MXT_T100_TYPE_MASK	0x70
 #define MXT_T100_TYPE_STYLUS	0x20
+
+/*T37 fields*/
+#define MXT_T37_PAGE_SIZE	128
+#define MXT_T37_PAGE_NUM	28
+#define MXT_T37_DATA_OFFSET	2
 
 /* Delay times */
 #define MXT_BACKUP_TIME		50	/* msec */
@@ -298,6 +308,17 @@ struct mxt_data {
 
 	/* Indicates whether device is updating configuration */
 	bool updating_config;
+
+	/*debugfs interfaces for factory test*/
+#ifdef CONFIG_DEBUG_FS
+	char *debugfs_name;
+	struct dentry *debugfs_root;
+	u32 present;
+	u32 correct;
+	u32 reset;
+	u32 irqcnt;
+	u8 *buf_raw_data;
+#endif
 };
 
 static size_t mxt_obj_size(const struct mxt_object *obj)
@@ -313,6 +334,7 @@ static size_t mxt_obj_instances(const struct mxt_object *obj)
 static bool mxt_object_readable(unsigned int type)
 {
 	switch (type) {
+	case MXT_GEN_MESSAGE_T5:
 	case MXT_GEN_COMMAND_T6:
 	case MXT_GEN_POWER_T7:
 	case MXT_GEN_ACQUIRE_T8:
@@ -336,6 +358,7 @@ static bool mxt_object_readable(unsigned int type)
 	case MXT_SPT_CTECONFIG_T28:
 	case MXT_SPT_USERDATA_T38:
 	case MXT_SPT_DIGITIZER_T43:
+	case MXT_SPT_MESSAGECOUNT_T44:
 	case MXT_SPT_CTECONFIG_T46:
 	case MXT_TOUCH_MULTITOUCHSCREEN_T100:
 		return true;
@@ -1343,6 +1366,10 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 {
 	struct mxt_data *data = dev_id;
 
+#ifdef CONFIG_DEBUG_FS
+	data->irqcnt++;
+#endif
+
 	if (data->in_bootloader) {
 		/* bootloader state transition completion */
 		complete(&data->bl_completion);
@@ -1396,7 +1423,9 @@ static int mxt_soft_reset(struct mxt_data *data)
 	int ret = 0;
 
 	dev_info(dev, "Resetting chip\n");
-
+#ifdef CONFIG_DEBUG_FS
+	data->reset++;
+#endif
 	reinit_completion(&data->reset_completion);
 
 	ret = mxt_t6_command(data, MXT_COMMAND_RESET, MXT_RESET_VALUE, false);
@@ -2130,6 +2159,9 @@ static void mxt_probe_regulators(struct mxt_data *data)
 	struct device *dev = &data->client->dev;
 	int error;
 
+	if (data->pdata->regulator_dis)
+		return;
+
 	/*
 	 * According to maXTouch power sequencing specification, RESET line
 	 * must be kept low until some time after regulators come up to
@@ -2649,6 +2681,10 @@ static int mxt_configure_objects(struct mxt_data *data,
 		dev_warn(dev, "No touch object detected\n");
 	}
 
+#ifdef CONFIG_DEBUG_FS
+	data->present++;
+	data->correct++;
+#endif
 	return 0;
 
 err_free_object_table:
@@ -2724,7 +2760,8 @@ static ssize_t mxt_object_show(struct device *dev,
 			continue;
 
 		count += scnprintf(buf + count, PAGE_SIZE - count,
-				"T%u:\n", object->type);
+				"T%u: Addr:%u\n",
+				object->type, object->start_address);
 
 		for (j = 0; j < mxt_obj_instances(object); j++) {
 			u16 size = mxt_obj_size(object);
@@ -3274,6 +3311,299 @@ static struct mxt_platform_data *mxt_parse_dt(struct i2c_client *client)
 }
 #endif
 
+#ifdef CONFIG_DEBUG_FS
+static int mxt_debugfs_raw_sensor_data_show(struct seq_file *seq, void *unused)
+{
+	return 0;
+}
+
+static int mxt_debugfs_raw_sensor_data_open(struct inode *inode,
+		struct file *file)
+{
+	return single_open(file, mxt_debugfs_raw_sensor_data_show,
+			inode->i_private);
+}
+
+static ssize_t mxt_debugfs_raw_sensor_data_read(struct file *file,
+			char __user *buf, size_t count, loff_t *ppos)
+{
+	struct seq_file *seq;
+	struct mxt_data *data;
+	struct mxt_object *object;
+	char *retbuf;
+	int ret, i, debug_cmd, debug_mode, debug_page;
+	size_t size = 0;
+	static int page;
+
+	seq = (struct seq_file *)file->private_data;
+	if (!seq) {
+		pr_err("mxt_ts: Failed to get seq_file\n");
+		return -EFAULT;
+	}
+
+	data = (struct mxt_data *)seq->private;
+	if (!data) {
+		pr_err("mxt_ts: Failed to get private data\n");
+		return -EFAULT;
+	}
+
+	object = mxt_get_object(data, MXT_DEBUG_DIAGNOSTIC_T37);
+	if (!object) {
+		dev_err(&data->client->dev, "Can't get object T37\n");
+		return  -EINVAL;
+	}
+	dev_dbg(&data->client->dev, "T37 object info: %u %u %u %u\n",
+				object->start_address,
+				object->size_minus_one,
+				object->instances_minus_one,
+				object->num_report_ids);
+
+	retbuf = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!retbuf) {
+		dev_err(&data->client->dev, "%s: Failed to alloc buffer\n",
+			__func__);
+		return  -ENOMEM;
+	}
+
+	if (page >= MXT_T37_PAGE_NUM) {
+		page = 0;
+		ret = 0;
+		goto out;
+	}
+
+	/*Don't use page here in case of short read*/
+	if (!*ppos)
+		debug_cmd = MXT_DEBUG_DELTA_MODE;
+	else
+		debug_cmd = MXT_DEBUG_PAGE_UP;
+	ret = mxt_t6_command(data, MXT_COMMAND_DIAGNOSTIC, debug_cmd, true);
+	if (ret) {
+		dev_err(&data->client->dev, "%s: Failed T37 cmd %d(%d)\n",
+			__func__, debug_cmd, ret);
+		ret = -EFAULT;
+		goto out;
+	}
+
+	ret = __mxt_read_reg(data->client, object->start_address,
+		       object->size_minus_one + 1, data->buf_raw_data);
+	if (ret) {
+		dev_err(&data->client->dev, "%s: Failed to read T37 (%d)\n",
+			__func__, ret);
+		ret = -EFAULT;
+		goto out;
+	}
+
+	debug_mode = data->buf_raw_data[0];
+	debug_page = data->buf_raw_data[1];
+	dev_dbg(&data->client->dev, "mode:%d page:%d\n",
+				debug_mode, debug_page);
+
+	for (i = 0; i < MXT_T37_PAGE_SIZE; i++) {
+		size += sprintf(retbuf + size, "%02x ",
+			 data->buf_raw_data[i + MXT_T37_DATA_OFFSET]);
+		if (0 == (i + 1) % 32)
+			size += sprintf(retbuf + size, "\n");
+	}
+
+	if (count < size)
+		size = count;
+	if (copy_to_user(buf, retbuf, size)) {
+		dev_err(&data->client->dev, "%s: copy_to_user failed\n",
+			__func__);
+		ret = -EFAULT;
+		goto out;
+	}
+	page++;
+	*ppos = *ppos + size;
+	ret = size;
+out:
+	kfree(retbuf);
+	return ret;
+}
+
+static const struct file_operations mxt_debugfs_raw_senor_data_fops = {
+	.owner			= THIS_MODULE,
+	.open			= mxt_debugfs_raw_sensor_data_open,
+	.read			= mxt_debugfs_raw_sensor_data_read,
+	.release		= single_release,
+};
+
+static int mxt_debugfs_coverage_show(struct seq_file *seq, void *unused)
+{
+	return 0;
+}
+
+static ssize_t mxt_debugfs_coverage_read(struct file *file, char __user *usrbuf,
+		size_t count, loff_t *ppos)
+{
+	struct seq_file *seq;
+	struct mxt_data *data;
+	char buf[1024];
+	size_t size;
+
+	if (*ppos > 0)
+		return 0;
+
+	seq = (struct seq_file *)file->private_data;
+	if (!seq) {
+		pr_err("mxt_ts:%s Failed to get seq_file\n", __func__);
+		return -EFAULT;
+	}
+
+	data = (struct mxt_data *)seq->private;
+	if (!data) {
+		pr_err("mxt_ts:%s Failed to get private data\n", __func__);
+		return -EFAULT;
+	}
+
+	size = sprintf(buf, "%s.present %d\n",
+			data->debugfs_name, data->present);
+	size += sprintf(buf + size, "%s.correct %d\n",
+			data->debugfs_name, data->correct);
+	size += sprintf(buf + size, "%s.reset %d\n",
+			data->debugfs_name, data->reset);
+	size += sprintf(buf + size, "%s.irq %d\n",
+			data->debugfs_name, data->irqcnt);
+	if (copy_to_user(usrbuf, buf, size)) {
+		dev_err(&data->client->dev, "%s: copy_to_user failed\n",
+			__func__);
+		return -EFAULT;
+	}
+	*ppos = *ppos + size;
+	return size;
+}
+
+static int mxt_debugfs_coverage_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mxt_debugfs_coverage_show,
+			inode->i_private);
+}
+
+static const struct file_operations mxt_debugfs_coverage_fops = {
+	.owner		= THIS_MODULE,
+	.open		= mxt_debugfs_coverage_open,
+	.read		= mxt_debugfs_coverage_read,
+	.release	= single_release,
+};
+
+static ssize_t mxt_debugfs_exercise_coverage_write(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	struct seq_file *seq;
+	struct mxt_data *data;
+	int ret;
+
+	if (count > sizeof(buf) || count > 2)
+		return -EINVAL;
+
+	if (buf[0] != '1')
+		return -EFAULT;
+
+	seq = (struct seq_file *)file->private_data;
+	if (!seq) {
+		pr_err("mxt_ts:%s Failed to get seq_file\n", __func__);
+		return -EFAULT;
+	}
+
+	data = (struct mxt_data *)seq->private;
+	if (!data) {
+		pr_err("mxt_ts: Failed to get private data\n");
+		return -EFAULT;
+	}
+
+	/*reset the touch controller*/
+	ret = mxt_soft_reset(data);
+	if (ret)
+		dev_warn(&data->client->dev, "reset %s\n", __func__);
+
+	return count;
+}
+static int mxt_debugfs_exercise_coverage_show(struct seq_file *seq,
+				void *unused)
+{
+	return 0;
+}
+
+static int mxt_debugfs_exercise_coverage_open(struct inode *inode,
+				struct file *file)
+{
+	return single_open(file, mxt_debugfs_exercise_coverage_show,
+			inode->i_private);
+}
+
+static const struct file_operations mxt_debugfs_exercise_coverage_fops = {
+	.owner		= THIS_MODULE,
+	.open		= mxt_debugfs_exercise_coverage_open,
+	.write		= mxt_debugfs_exercise_coverage_write,
+	.release	= single_release,
+};
+
+static void mxt_debugfs_remove(struct mxt_data *data)
+{
+	kfree(data->buf_raw_data);
+	debugfs_remove_recursive(data->debugfs_root);
+}
+
+static int mxt_debugfs_create(struct mxt_data *data)
+{
+	struct mxt_object *object;
+	struct dentry *entry;
+
+	object = mxt_get_object(data, MXT_DEBUG_DIAGNOSTIC_T37);
+	if (!object) {
+		dev_err(&data->client->dev, "Can't get object T37\n");
+		return  -EINVAL;
+	}
+
+	data->debugfs_name = "atmel_mxt_ts";
+	data->buf_raw_data = kzalloc(object->size_minus_one + 1, GFP_KERNEL);
+	if (!data->buf_raw_data) {
+		dev_err(&data->client->dev, "%d %s\n", __LINE__, __func__);
+		return -ENOMEM;
+	}
+	data->debugfs_root = debugfs_create_dir(data->debugfs_name, NULL);
+	if (!data->debugfs_root) {
+		dev_warn(&data->client->dev,
+			"%s: debugfs_create_dir failed\n",
+			data->debugfs_name);
+		return -ENOMEM;
+	} else {
+		entry = debugfs_create_file("raw_sensor_data",
+				S_IRUGO, data->debugfs_root,
+				(void *)data,
+				&mxt_debugfs_raw_senor_data_fops);
+
+		if (!entry)
+			goto err;
+
+		entry = debugfs_create_file("exercise_coverage",
+				S_IRUGO, data->debugfs_root,
+				(void *)data,
+				&mxt_debugfs_coverage_fops);
+
+		if (!entry)
+			goto err;
+
+		entry = debugfs_create_file("exercise",
+				S_IWUSR, data->debugfs_root,
+				(void *)data,
+				&mxt_debugfs_exercise_coverage_fops);
+
+		if (!entry)
+			goto err;
+	}
+
+	return 0;
+err:
+	dev_warn(&data->client->dev,
+		"%s: Creating debugfs entries failed !\n",
+		data->debugfs_name);
+	mxt_debugfs_remove(data);
+	kfree(data->buf_raw_data);
+	return -ENOMEM;
+}
+#endif /*CONFIG_DEBUG_FS*/
+
 static int mxt_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -3343,6 +3673,7 @@ static int mxt_probe(struct i2c_client *client,
 		} else
 			dev_err(&client->dev, "Failed to get gpio interrupt\n");
 
+		pdata->regulator_dis = 1;
 		pdata->input_name = "atmel_mxt_ts";
 		data->fw_name = "maxtouch.fw";
 		data->cfg_name = "maxtouch.cfg";
@@ -3401,6 +3732,9 @@ static int mxt_probe(struct i2c_client *client,
 		goto err_remove_sysfs_group;
 	}
 
+#ifdef CONFIG_DEBUG_FS
+	mxt_debugfs_create(data);
+#endif
 	return 0;
 
 err_remove_sysfs_group:
@@ -3418,6 +3752,9 @@ static int mxt_remove(struct i2c_client *client)
 {
 	struct mxt_data *data = i2c_get_clientdata(client);
 
+#ifdef CONFIG_DEBUG_FS
+	mxt_debugfs_remove(data);
+#endif
 	if (data->mem_access_attr.attr.name)
 		sysfs_remove_bin_file(&client->dev.kobj,
 				      &data->mem_access_attr);
