@@ -71,6 +71,35 @@ void vlv_wait_for_pipe_off(int pipe)
 		pr_err("ADF: %s: pipe_off wait timed out\n", __func__);
 }
 
+void vlv_program_wm(void)
+{
+	REG_WRITE(DSPFW1,
+		   (DSPFW_SR_VAL << DSPFW_SR_SHIFT) |
+		   (DSPFW_CURSORB_VAL << DSPFW_CURSORB_SHIFT) |
+		   (DSPFW_PLANEB_VAL << DSPFW_PLANEB_SHIFT) |
+		   DSPFW_PLANEA_VAL);
+	REG_WRITE(DSPFW2,
+		   (DSPFW2_RESERVED) |
+		   (DSPFW_CURSORA_VAL << DSPFW_CURSORA_SHIFT) |
+		   DSPFW_PLANEC_VAL);
+	REG_WRITE(DSPFW3,
+		   (REG_READ(DSPFW3) & ~DSPFW_CURSOR_SR_MASK) |
+		   (DSPFW3_VLV));
+	REG_WRITE(DSPFW4, (DSPFW4_SPRITEB_VAL << DSPFW4_SPRITEB_SHIFT) |
+			(DSPFW4_CURSORA_VAL << DSPFW4_CURSORA_SHIFT) |
+			DSPFW4_SPRITEA_VAL);
+	REG_WRITE(DSPFW5, (DSPFW5_DISPLAYB_VAL << DSPFW5_DISPLAYB_SHIFT) |
+			(DSPFW5_DISPLAYA_VAL << DSPFW5_DISPLAYA_SHIFT) |
+			(DSPFW5_CURSORB_VAL << DSPFW5_CURSORB_SHIFT) |
+			DSPFW5_CURSORSR_VAL);
+	REG_WRITE(DSPFW6, DSPFW6_DISPLAYSR_VAL);
+	REG_WRITE(DSPFW7, (DSPFW7_SPRITED1_VAL << DSPFW7_SPRITED1_SHIFT) |
+			(DSPFW7_SPRITED_VAL << DSPFW7_SPRITED_SHIFT) |
+			(DSPFW7_SPRITEC1_VAL << DSPFW7_SPRITEC1_SHIFT) |
+			DSPFW7_SPRITEC_VAL);
+	REG_WRITE(DSPARB, VLV_DEFAULT_DSPARB);
+}
+
 int vlv_display_on(struct intel_pipe *pipe)
 {
 	struct dsi_pipe *dsi_pipe = NULL;
@@ -134,6 +163,11 @@ int vlv_display_on(struct intel_pipe *pipe)
 
 	/* Enable DPST */
 	vlv_dpst_display_on();
+
+	/* Program the watermarks */
+	vlv_program_wm();
+	/* Trickle feed is disabled by default */
+	REG_WRITE(MI_ARB_VLV, 0x00);
 
 	return 0;
 }
