@@ -144,7 +144,8 @@ struct host_driver {
 
 enum {
 	IRIS_3660, /* also 3660A and 3680 */
-	IRIS_3620
+	IRIS_3620,
+	IRIS_3610
 };
 
 
@@ -157,6 +158,9 @@ int xo_auto_detect(u32 reg)
 		return WCNSS_XO_48MHZ;
 
 	case IRIS_3620:
+		return WCNSS_XO_19MHZ;
+
+	case IRIS_3610:
 		return WCNSS_XO_19MHZ;
 
 	default:
