@@ -568,8 +568,18 @@ static void *get_deserialization_func(struct ipc_log_context *ilctxt,
 	return NULL;
 }
 
+/**
+ * ipc_log_context_create: Create a debug log context
+ *                         Should not be called from atomic context
+ *
+ * @max_num_pages: Number of pages of logging space required (max. 10)
+ * @mod_name     : Name of the directory entry under DEBUGFS
+ * @user_version : Version number of user-defined message formats
+ *
+ * returns context id on success, NULL on failure
+ */
 void *ipc_log_context_create(int max_num_pages,
-			     const char *mod_name)
+			     const char *mod_name, uint16_t user_version)
 {
 	struct ipc_log_context *ctxt;
 	struct ipc_log_page *pg = NULL;
@@ -603,6 +613,7 @@ void *ipc_log_context_create(int max_num_pages,
 		list_add_tail(&pg->hdr.list, &ctxt->page_list);
 		spin_unlock_irqrestore(&ctxt->ipc_log_context_lock, flags);
 	}
+	ctxt->user_version = user_version;
 	ctxt->first_page = get_first_page(ctxt);
 	ctxt->last_page = pg;
 	ctxt->write_page = ctxt->first_page;

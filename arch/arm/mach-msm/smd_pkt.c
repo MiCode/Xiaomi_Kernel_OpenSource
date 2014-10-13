@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1123,7 +1123,7 @@ static int __init smd_pkt_init(void)
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
 
 	smd_pkt_ilctxt = ipc_log_context_create(SMD_PKT_IPC_LOG_PAGE_CNT,
-						"smd_pkt");
+						"smd_pkt", 0);
 
 	D_STATUS("SMD Packet Port Driver Initialized.\n");
 	return 0;
