@@ -1198,6 +1198,12 @@ int msm_isp_cal_word_per_line(uint32_t output_format,
 	case V4L2_PIX_FMT_SRGGB12:
 		val = CAL_WORD(pixel_per_line, 3, 16);
 		break;
+	case V4L2_PIX_FMT_SBGGR14:
+	case V4L2_PIX_FMT_SGBRG14:
+	case V4L2_PIX_FMT_SGRBG14:
+	case V4L2_PIX_FMT_SRGGB14:
+		val = CAL_WORD(pixel_per_line, 7, 32);
+		break;
 	case V4L2_PIX_FMT_QBGGR10:
 	case V4L2_PIX_FMT_QGBRG10:
 	case V4L2_PIX_FMT_QGRBG10:
@@ -1209,6 +1215,12 @@ int msm_isp_cal_word_per_line(uint32_t output_format,
 	case V4L2_PIX_FMT_QGRBG12:
 	case V4L2_PIX_FMT_QRGGB12:
 		val = CAL_WORD(pixel_per_line, 1, 5);
+		break;
+	case V4L2_PIX_FMT_QBGGR14:
+	case V4L2_PIX_FMT_QGBRG14:
+	case V4L2_PIX_FMT_QGRBG14:
+	case V4L2_PIX_FMT_QRGGB14:
+		val = CAL_WORD(pixel_per_line, 1, 4);
 		break;
 	case V4L2_PIX_FMT_NV12:
 	case V4L2_PIX_FMT_NV21:
@@ -1247,6 +1259,10 @@ enum msm_isp_pack_fmt msm_isp_get_pack_format(uint32_t output_format)
 	case V4L2_PIX_FMT_SGBRG12:
 	case V4L2_PIX_FMT_SGRBG12:
 	case V4L2_PIX_FMT_SRGGB12:
+	case V4L2_PIX_FMT_SBGGR14:
+	case V4L2_PIX_FMT_SGBRG14:
+	case V4L2_PIX_FMT_SGRBG14:
+	case V4L2_PIX_FMT_SRGGB14:
 		return MIPI;
 	case V4L2_PIX_FMT_QBGGR8:
 	case V4L2_PIX_FMT_QGBRG8:
@@ -1260,6 +1276,10 @@ enum msm_isp_pack_fmt msm_isp_get_pack_format(uint32_t output_format)
 	case V4L2_PIX_FMT_QGBRG12:
 	case V4L2_PIX_FMT_QGRBG12:
 	case V4L2_PIX_FMT_QRGGB12:
+	case V4L2_PIX_FMT_QBGGR14:
+	case V4L2_PIX_FMT_QGBRG14:
+	case V4L2_PIX_FMT_QGRBG14:
+	case V4L2_PIX_FMT_QRGGB14:
 		return QCOM;
 	default:
 		msm_isp_print_fourcc_error(__func__, output_format);
@@ -1331,6 +1351,15 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 	case V4L2_PIX_FMT_QRGGB12:
 	case V4L2_PIX_FMT_Y12:
 		return 12;
+	case V4L2_PIX_FMT_SBGGR14:
+	case V4L2_PIX_FMT_SGBRG14:
+	case V4L2_PIX_FMT_SGRBG14:
+	case V4L2_PIX_FMT_SRGGB14:
+	case V4L2_PIX_FMT_QBGGR14:
+	case V4L2_PIX_FMT_QGBRG14:
+	case V4L2_PIX_FMT_QGRBG14:
+	case V4L2_PIX_FMT_QRGGB14:
+		return 14;
 	case V4L2_PIX_FMT_NV16:
 	case V4L2_PIX_FMT_NV61:
 	case V4L2_PIX_FMT_Y16:
