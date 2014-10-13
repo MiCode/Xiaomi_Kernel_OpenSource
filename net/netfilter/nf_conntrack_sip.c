@@ -1570,6 +1570,9 @@ static int sip_help_udp(struct sk_buff *skb, unsigned int protoff,
 	unsigned int dataoff, datalen;
 	const char *dptr;
 
+	if (nf_ct_disable_sip_alg)
+		return NF_ACCEPT;
+
 	/* No Data ? */
 	dataoff = protoff + sizeof(struct udphdr);
 	if (dataoff >= skb->len)
