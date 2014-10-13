@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +32,7 @@
 #include "ipc_logging.h"
 
 static LIST_HEAD(ipc_log_context_list);
-DEFINE_RWLOCK(ipc_log_context_list_lock);
+static DEFINE_RWLOCK(ipc_log_context_list_lock);
 static atomic_t next_log_id = ATOMIC_INIT(0);
 static void *get_deserialization_func(struct ipc_log_context *ilctxt,
 				      int type);
@@ -48,6 +48,22 @@ static struct ipc_log_page *get_first_page(struct ipc_log_context *ilctxt)
 				   struct ipc_log_page_header, list);
 	pg = container_of(p_pghdr, struct ipc_log_page, hdr);
 	return pg;
+}
+
+/**
+ * is_ilctxt_empty - Returns true if no data is available to read in log
+ *
+ * @ilctxt: logging context
+ * @returns: > 1 if context is empty; 0 if not empty; <0 for failure
+ */
+static int is_ilctxt_empty(struct ipc_log_context *ilctxt)
+{
+	if (!ilctxt)
+		return -EINVAL;
+
+	return ((ilctxt->read_page == ilctxt->write_page) &&
+		(ilctxt->read_page->hdr.read_offset ==
+		 ilctxt->write_page->hdr.write_offset));
 }
 
 static struct ipc_log_page *get_next_page(struct ipc_log_context *ilctxt,

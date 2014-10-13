@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,21 +67,6 @@ enum {
 #define IS_MSG_TYPE(x) (((x) > TSV_TYPE_MSG_START) && \
 			((x) < TSV_TYPE_MSG_END))
 #define MAX_MSG_DECODED_SIZE (MAX_MSG_SIZE*4)
-
-extern rwlock_t ipc_log_context_list_lock;
-
-extern int msg_read(struct ipc_log_context *ilctxt,
-		    struct encode_context *ectxt);
-
-static inline int is_ilctxt_empty(struct ipc_log_context *ilctxt)
-{
-	if (!ilctxt)
-		return -EINVAL;
-
-	return ((ilctxt->read_page == ilctxt->write_page) &&
-		(ilctxt->read_page->hdr.read_offset ==
-		 ilctxt->write_page->hdr.write_offset));
-}
 
 #if (defined(CONFIG_DEBUG_FS))
 void check_and_create_debugfs(void);
