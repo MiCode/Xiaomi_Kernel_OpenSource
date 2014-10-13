@@ -310,7 +310,6 @@ static int32_t qpnp_vadc_configure(struct qpnp_vadc_chip *vadc,
 	/* Digital parameter setup */
 	decimation = chan_prop->decimation <<
 				QPNP_VADC_ADC_DIG_DEC_RATIO_SEL_SHIFT;
-	decimation |= CLK_TYPE2;
 	rc = qpnp_vadc_write_reg(vadc, QPNP_VADC_ADC_DIG_PARAM, decimation);
 	if (rc < 0) {
 		pr_err("Digital parameter configure write error\n");
@@ -1058,17 +1057,16 @@ calib_fail:
 	return rc;
 }
 
-static int32_t qpnp_vadc_calib_device(struct qpnp_vadc_chip *vadc,
-					enum qpnp_adc_calib_type calib_type)
+static int32_t qpnp_vadc_calib_device(struct qpnp_vadc_chip *vadc)
 {
 	int rc, calib_read_1 = 0, calib_read_2 = 0;
 
-	rc = qpnp_vadc_calib_vref(vadc, calib_type, &calib_read_1);
+	rc = qpnp_vadc_calib_vref(vadc, CALIB_ABSOLUTE, &calib_read_1);
 	if (rc) {
 		pr_err("qpnp adc absolute vref calib failed with %d\n", rc);
 		goto calib_fail;
 	}
-	rc = qpnp_vadc_calib_gnd(vadc, calib_type, &calib_read_2);
+	rc = qpnp_vadc_calib_gnd(vadc, CALIB_ABSOLUTE, &calib_read_2);
 	if (rc) {
 		pr_err("qpnp adc absolute gnd calib failed with %d\n", rc);
 		goto calib_fail;
@@ -1095,12 +1093,12 @@ static int32_t qpnp_vadc_calib_device(struct qpnp_vadc_chip *vadc,
 
 	calib_read_1 = 0;
 	calib_read_2 = 0;
-	rc = qpnp_vadc_calib_vref(vadc, calib_type, &calib_read_1);
+	rc = qpnp_vadc_calib_vref(vadc, CALIB_RATIOMETRIC, &calib_read_1);
 	if (rc) {
 		pr_err("qpnp adc ratiometric vref calib failed with %d\n", rc);
 		goto calib_fail;
 	}
-	rc = qpnp_vadc_calib_gnd(vadc, calib_type, &calib_read_2);
+	rc = qpnp_vadc_calib_gnd(vadc, CALIB_RATIOMETRIC, &calib_read_2);
 	if (rc) {
 		pr_err("qpnp adc ratiometric gnd calib failed with %d\n", rc);
 		goto calib_fail;
@@ -1226,19 +1224,20 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *vadc,
 	rc = qpnp_vadc_version_check(vadc);
 	if (rc)
 		goto fail_unlock;
-	if (!vadc->vadc_recalib_check && !vadc->vadc_init_calib) {
-		rc = qpnp_vadc_calib_device(vadc, calib_type);
-		if (rc) {
-			pr_err("Calibration failed\n");
-			goto fail_unlock;
-		} else
-			vadc->vadc_init_calib = true;
-	} else {
+
+	if (vadc->vadc_recalib_check) {
 		rc = qpnp_vadc_calib_vref(vadc, calib_type, &vref_calib);
 		if (rc) {
 			pr_err("Calibration failed\n");
 			goto fail_unlock;
 		}
+	} else if (!vadc->vadc_init_calib) {
+		rc = qpnp_vadc_calib_device(vadc);
+		if (rc) {
+			pr_err("Calibration failed\n");
+			goto fail_unlock;
+		} else
+			vadc->vadc_init_calib = true;
 	}
 
 recalibrate:
@@ -1406,6 +1405,11 @@ recalibrate:
 	vadc_scale_fn[scale_type].chan(vadc, result->adc_code,
 		vadc->adc->adc_prop, vadc->adc->amux_prop->chan_prop, result);
 
+	pr_debug("channel=%d, adc_code=%d, result=%lld\n",
+			channel,
+			result->adc_code,
+			result->physical);
+
 fail_unlock:
 	mutex_unlock(&vadc->adc->adc_lock);
 
@@ -1486,7 +1490,7 @@ int32_t qpnp_vadc_iadc_sync_request(struct qpnp_vadc_chip *vadc,
 		if (rc)
 			goto fail;
 
-		rc = qpnp_vadc_calib_device(vadc, calib_type);
+		rc = qpnp_vadc_calib_device(vadc);
 		if (rc) {
 			pr_err("Calibration failed\n");
 			goto fail;
