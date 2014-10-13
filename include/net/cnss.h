@@ -121,6 +121,7 @@ extern int cnss_get_sha_hash(const u8 *data, u32 data_len,
 extern void *cnss_get_fw_ptr(void);
 
 extern int cnss_get_codeswap_struct(struct codeswap_codeseg_info *swap_seg);
+extern int cnss_get_bmi_setup(void);
 
 extern void cnss_pm_wake_lock_init(struct wakeup_source *ws, const char *name);
 extern void cnss_pm_wake_lock(struct wakeup_source *ws);
