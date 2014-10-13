@@ -194,13 +194,13 @@ static int ib_save_mip_addresses(unsigned int *pkt,
 		ent = kgsl_sharedmem_find_region(process, pkt[2] & 0xFFFFFFFC,
 					(num_levels * unitsize) << 2);
 		if (!ent)
-			return -EINVAL;
+			return 0;
 
 		hostptr = kgsl_gpuaddr_to_vaddr(&ent->memdesc,
 				pkt[2] & 0xFFFFFFFC);
 		if (!hostptr) {
 			kgsl_mem_entry_put(ent);
-			return -EINVAL;
+			return 0;
 		}
 		for (i = 0; i < num_levels; i++) {
 			ret = adreno_ib_add_range(process, hostptr[i],
@@ -230,9 +230,8 @@ static int ib_parse_load_state(unsigned int *pkt,
 	struct adreno_ib_object_list *ib_obj_list,
 	struct ib_parser_variables *ib_parse_vars)
 {
-	unsigned int block, source, type;
 	int ret = 0;
-	int unitsize = 0;
+	int i;
 
 	/*
 	 * The object here is to find indirect shaders i.e - shaders loaded from
@@ -247,30 +246,14 @@ static int ib_parse_load_state(unsigned int *pkt,
 		return 0;
 
 	/*
-	 * pkt[1] 18:16 - source
-	 * pkt[1] 21:19 - state block
-	 * pkt[1] 31:22 - size in units
-	 * pkt[2] 0:1 - type
-	 * pkt[2] 31:2 - GPU memory address
+	 * Anything from 3rd ordinal onwards of packet can be a memory object,
+	 * no need to be fancy about parsing it, just save it if it looks
+	 * like memory
 	 */
-
-	block = (pkt[1] >> 19) & 0x07;
-	source = (pkt[1] >> 16) & 0x07;
-	type = pkt[2] & 0x03;
-
-	if (source == 4) {
-		if (type == 0)
-			unitsize = load_state_unit_sizes[block][0];
-		else
-			unitsize = load_state_unit_sizes[block][1];
-
-		/* Freeze the GPU buffer containing the shader */
-
-		ret = adreno_ib_add_range(process, pkt[2] & 0xFFFFFFFC,
-				0, SNAPSHOT_GPU_OBJECT_SHADER,
+	for (i = 0; i <= (type3_pkt_size(pkt[0] - 2)); i++) {
+		ret |= adreno_ib_add_range(process, pkt[2 + i] & 0xFFFFFFFC, 0,
+				SNAPSHOT_GPU_OBJECT_GENERIC,
 				ib_obj_list);
-		if (ret < 0)
-			return ret;
 	}
 	/* get the mip addresses */
 	ret = ib_save_mip_addresses(pkt, process, ib_obj_list);

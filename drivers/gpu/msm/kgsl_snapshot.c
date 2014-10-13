@@ -298,10 +298,8 @@ int kgsl_snapshot_get_object(struct kgsl_snapshot *snapshot,
 	}
 
 	/* We can't freeze external memory, because we don't own it */
-	if (entry->memdesc.flags & KGSL_MEMFLAGS_USERMEM_MASK) {
-		KGSL_CORE_ERR("Only internal GPU buffers can be frozen\n");
+	if (entry->memdesc.flags & KGSL_MEMFLAGS_USERMEM_MASK)
 		goto err_put;
-	}
 	/*
 	 * Do not save texture and render targets in snapshot,
 	 * they can be just too big
