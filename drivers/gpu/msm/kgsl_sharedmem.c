@@ -486,9 +486,9 @@ static int kgsl_contiguous_vmfault(struct kgsl_memdesc *memdesc,
 static void kgsl_cma_coherent_free(struct kgsl_memdesc *memdesc)
 {
 	if (memdesc->hostptr) {
-		if (memdesc->priv | KGSL_MEMDESC_SECURE) {
+		if (memdesc->priv & KGSL_MEMDESC_SECURE) {
 			kgsl_driver.stats.secure -= memdesc->size;
-			if (memdesc->priv | KGSL_MEMDESC_TZ_LOCKED)
+			if (memdesc->priv & KGSL_MEMDESC_TZ_LOCKED)
 				kgsl_cma_unlock_secure(
 				memdesc->pagetable->mmu->device, memdesc);
 		} else
