@@ -322,7 +322,7 @@ static int mmu_l1_map(struct isp_mmu *mmu, phys_addr_t l1_pt,
 
 			return -EINVAL;
 		}
-	} while (ptr < end && idx < ISP_L1PT_PTES - 1);
+	} while (ptr < end && idx < ISP_L1PT_PTES);
 
 	return 0;
 }
@@ -463,7 +463,7 @@ static void mmu_l1_unmap(struct isp_mmu *mmu, phys_addr_t l1_pt,
 		 * need to invalidate and free this PT.
 		 */
 		/*      atomisp_set_pte(l1_pt, idx, NULL_PTE); */
-	} while (ptr < end && idx < ISP_L1PT_PTES - 1);
+	} while (ptr < end && idx < ISP_L1PT_PTES);
 }
 
 /*
