@@ -35,8 +35,8 @@
 #define nidnt_readl(drvdata, off)	__raw_readl(drvdata->base + off)
 
 #define NIDNT_MAX_PINS				6
-#define NIDNT_BOOT_FROM_SD			0
-#define NIDNT_SDCARD_ONLY			1
+#define NIDNT_BOOT_FROM_SD			BIT(0)
+#define NIDNT_SDCARD_ONLY			BIT(1)
 #define NIDNT_CARD_DETECT_GPIO_POLARITY		BIT(8)
 #define NIDNT_CARD_DETECT_GPIO_SHIFT		0
 #define NIDNT_DEBOUNCE_MASK			0xfffff000UL
@@ -315,9 +315,9 @@ static bool coresight_nidnt_is_boot_from_sd(struct nidnt_drvdata *nidnt_drvdata)
 	pr_info("nidnt boot config: %x\n",
 		(unsigned int)nidnt_boot_config);
 
-	if (BVAL(nidnt_boot_config, NIDNT_BOOT_FROM_SD))
+	if (nidnt_boot_config & NIDNT_BOOT_FROM_SD)
 		ret = true;
-	else if (BVAL(nidnt_boot_config, NIDNT_SDCARD_ONLY))
+	else if (nidnt_boot_config & NIDNT_SDCARD_ONLY)
 		ret = true;
 	else
 		ret = false;
@@ -326,6 +326,23 @@ static bool coresight_nidnt_is_boot_from_sd(struct nidnt_drvdata *nidnt_drvdata)
 		pr_err("NIDnT disabled, only sd mode supported.\n");
 
 	return ret;
+}
+
+int coresight_nidnt_config_qdsd_enable(bool enable)
+{
+	unsigned long val;
+
+	if (!nidnt_drvdata)
+		return -EINVAL;
+
+	val = nidnt_readl(nidnt_drvdata, TLMM_QDSD_BOOT_CTL);
+	if (enable)
+		val &= ~NIDNT_SDCARD_ONLY;
+	else
+		val |= NIDNT_SDCARD_ONLY;
+	nidnt_writel(nidnt_drvdata, val, TLMM_QDSD_BOOT_CTL);
+
+	return 0;
 }
 
 static int coresight_nidnt_parse_pinctrl_info(struct device *dev,
