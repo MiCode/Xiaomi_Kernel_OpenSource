@@ -1975,6 +1975,18 @@ static struct local_vote_clk gcc_vfe_tbu_clk = {
 	},
 };
 
+static struct local_vote_clk gcc_gtcu_ahb_clk = {
+	.cbcr_reg = GTCU_AHB_CBCR,
+	.vote_reg = APCS_SMMU_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(13),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_gtcu_ahb_clk",
+		.ops = &clk_ops_vote,
+		CLK_INIT(gcc_gtcu_ahb_clk.c),
+	},
+};
+
 static struct branch_clk gcc_usb2a_phy_sleep_clk = {
 	.cbcr_reg = USB2A_PHY_SLEEP_CBCR,
 	.has_sibling = 1,
@@ -2240,6 +2252,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_gfx_tbu_clk.c, 0x0052 },
 		{ &gcc_gfx_tcu_clk.c, 0x0053 },
 		{ &gcc_venus_tbu_clk.c, 0x0054 },
+		{ &gcc_gtcu_ahb_clk.c, 0x0058 },
 		{ &gcc_vfe_tbu_clk.c, 0x005a },
 		{ &gcc_smmu_cfg_clk.c, 0x005b },
 		{ &gcc_usb_hs_system_clk.c, 0x0060 },
@@ -2371,6 +2384,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_gfx_tbu_clk),
 	CLK_LIST(gcc_gfx_tcu_clk),
 	CLK_LIST(gcc_mdp_tbu_clk),
+	CLK_LIST(gcc_gtcu_ahb_clk),
 	CLK_LIST(gcc_smmu_cfg_clk),
 	CLK_LIST(gcc_venus_tbu_clk),
 	CLK_LIST(gcc_vfe_tbu_clk),
