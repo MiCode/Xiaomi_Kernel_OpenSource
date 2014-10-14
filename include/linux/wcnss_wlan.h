@@ -29,6 +29,7 @@ enum wcnss_hw_type {
 struct wcnss_wlan_config {
 	int	use_48mhz_xo;
 	int	is_pronto_vt;
+	int	is_pronto_v3;
 	void __iomem	*msm_wcnss_base;
 };
 
@@ -101,6 +102,7 @@ void wcnss_suspend_notify(void);
 void wcnss_resume_notify(void);
 void wcnss_riva_log_debug_regs(void);
 void wcnss_pronto_log_debug_regs(void);
+int wcnss_is_hw_pronto_ver3(void);
 int wcnss_device_ready(void);
 int wcnss_cbc_complete(void);
 int wcnss_device_is_shutdown(void);

@@ -39,6 +39,9 @@ using a smaller count for this buffer will reduce the memory usage.
 - qcom,is-pronto-vt: boolean flag to determine the pronto hardware version
 in use. subsequently Pronto and IRIS voltage regulator range is configured
 according to the ponto HW version
+- qcom,is-pronto-v3: boolean flag to determine the pronto hardware version
+in use. subsequently correct workqueue will be used by DXE engine to push frames
+in TX data path.
 - qcom,wcnss-pm : <Core rail LDO#, PA rail LDO#, XO settling time,
 		   RPM power collapse enabled, standalone power collapse enabled>
 	Power manager related parameter for LDO configuration.
