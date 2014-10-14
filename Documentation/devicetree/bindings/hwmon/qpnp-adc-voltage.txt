@@ -25,6 +25,7 @@ Optional properties:
 - qcom,pmic-revid : Phandle pointing to the revision peripheral node. Use it to query the
 		    PMIC type and revision for applying the appropriate temperature
 		    compensation parameters.
+- qcom,vadc-recalib-check: Add this property to check if recalibration required due to inaccuracy.
 
 Client required property:
 - qcom,<consumer name>-vadc : The phandle to the corresponding vadc device.
