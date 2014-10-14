@@ -288,6 +288,7 @@ void cpu_startup_entry(enum cpuhp_state state);
 void cpu_idle(void);
 
 void cpu_idle_poll_ctrl(bool enable);
+void per_cpu_idle_poll_ctrl(int cpu, bool enable);
 
 void arch_cpu_idle(void);
 void arch_cpu_idle_prepare(void);
