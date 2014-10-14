@@ -1703,7 +1703,10 @@ static void msm_serial_hs_rx_tlet(unsigned long tlet_ptr)
 		rx_count = msm_uport->rx.iovec[msm_uport->rx.rx_inx].size;
 
 		MSM_HS_INFO("%s():[UART_RX]<%d>\n", __func__, rx_count);
-		hex_dump_ipc("HSUART Read: ", msm_uport->rx.buffer, rx_count);
+		hex_dump_ipc("HSUART Read: ",
+			(msm_uport->rx.buffer +
+			(msm_uport->rx.rx_inx * UARTDM_RX_BUF_SIZE)),
+			rx_count);
 
 		 /*
 		  * We are in a spin locked context, spin lock taken at
