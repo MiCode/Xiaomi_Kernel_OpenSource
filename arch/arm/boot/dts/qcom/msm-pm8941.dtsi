@@ -1401,7 +1401,7 @@
 		#pwm-cells = <2>;
 	};
 
-	pwm@b500 {
+	pm8941_pwm_5: pwm@b500 {
 		compatible = "qcom,qpnp-pwm";
 		reg = <0xb500 0x100>,
 		      <0xb042 0x7e>;
@@ -1412,7 +1412,7 @@
 		#pwm-cells = <2>;
 	};
 
-	pwm@b600 {
+	pm8941_pwm_6: pwm@b600 {
 		compatible = "qcom,qpnp-pwm";
 		reg = <0xb600 0x100>,
 		      <0xb042 0x7e>;
@@ -1423,7 +1423,7 @@
 		#pwm-cells = <2>;
 	};
 
-	pwm@b700 {
+	pm8941_pwm_7: pwm@b700 {
 		compatible = "qcom,qpnp-pwm";
 		reg = <0xb700 0x100>,
 		      <0xb042 0x7e>;
@@ -1445,7 +1445,7 @@
 		#pwm-cells = <2>;
 	};
 
-	pwm@e400 {
+	pm8941_pwm_9: pwm@e400 {
 		compatible = "qcom,qpnp-pwm";
 		reg = <0xe400 0x100>,
 		      <0xe342 0x1e>;
@@ -1456,7 +1456,7 @@
 		#pwm-cells = <2>;
 	};
 
-	pwm@e500 {
+	pm8941_pwm_10: pwm@e500 {
 		compatible = "qcom,qpnp-pwm";
 		reg = <0xe500 0x100>,
 		      <0xe342 0x1e>;
@@ -1467,7 +1467,7 @@
 		#pwm-cells = <2>;
 	};
 
-	pwm@e600 {
+	pm8941_pwm_11: pwm@e600 {
 		compatible = "qcom,qpnp-pwm";
 		reg = <0xe600 0x100>,
 		      <0xe342 0x1e>;
@@ -1478,7 +1478,7 @@
 		#pwm-cells = <2>;
 	};
 
-	pwm@e700 {
+	pm8941_pwm_12: pwm@e700 {
 		compatible = "qcom,qpnp-pwm";
 		reg = <0xe700 0x100>,
 		      <0xe342 0x1e>;

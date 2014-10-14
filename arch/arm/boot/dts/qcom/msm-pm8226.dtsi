@@ -781,7 +781,7 @@
 			label = "wled";
 		};
 
-		pwm@b100 {
+		pm8226_pwm_1: pwm@b100 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb100 0x100>,
 			      <0xb042 0x7e>;
@@ -836,7 +836,7 @@
 			#pwm-cells = <2>;
 		};
 
-		pwm@b600 {
+		pm8226_pwm_6: pwm@b600 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb600 0x100>,
 			      <0xb042 0x7e>;
