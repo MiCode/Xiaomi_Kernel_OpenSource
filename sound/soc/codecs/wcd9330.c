@@ -3377,6 +3377,10 @@ static int tomtom_codec_enable_mad(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/* Undo reset for MAD */
+		snd_soc_update_bits(codec, TOMTOM_A_SVASS_CLKRST_CTL,
+				    0x02, 0x00);
+
 		ret = tomtom_codec_config_mad(codec);
 		if (ret) {
 			pr_err("%s: Failed to config MAD\n", __func__);
@@ -3388,6 +3392,10 @@ static int tomtom_codec_enable_mad(struct snd_soc_dapm_widget *w,
 				    0x02, 0x02);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		/* Reset the MAD block */
+		snd_soc_update_bits(codec, TOMTOM_A_SVASS_CLKRST_CTL,
+				    0x02, 0x02);
+
 		/* Undo setup of MAD micbias to VDDIO */
 		snd_soc_update_bits(codec, mad_cfilt_reg,
 				    0x02, 0x00);
