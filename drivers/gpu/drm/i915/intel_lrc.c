@@ -1999,6 +1999,7 @@ int intel_lr_context_deferred_create(struct intel_context *ctx,
 	uint32_t context_size;
 	struct intel_ringbuffer *ringbuf;
 	int ret;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	WARN_ON(ctx->legacy_hw_ctx.rcs_state != NULL);
 	if (ctx->engine[ring->id].state)
@@ -2071,6 +2072,9 @@ int intel_lr_context_deferred_create(struct intel_context *ctx,
 		if (ring->status_page.page_addr == NULL)
 			return -ENOMEM;
 		ring->status_page.obj = ctx_obj;
+
+		I915_WRITE(RING_HWS_PGA(ring->mmio_base), (u32)ring->status_page.gfx_addr);
+		POSTING_READ(RING_HWS_PGA(ring->mmio_base));
 	}
 
 	if (ring->id == RCS && !ctx->rcs_initialized) {
