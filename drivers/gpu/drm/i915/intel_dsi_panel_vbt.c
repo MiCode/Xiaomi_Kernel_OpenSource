@@ -577,6 +577,8 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	intel_dsi->clock_stop = mipi_config->enable_clk_stop ? 1 : 0;
 	intel_dsi->lane_count = mipi_config->lane_cnt + 1;
 	intel_dsi->pixel_format = mipi_config->videomode_color_format << 7;
+	intel_dsi->dual_link = mipi_config->dual_link;
+	intel_dsi->pixel_overlap = mipi_config->pixel_overlap;
 
 	if (intel_dsi->pixel_format == VID_MODE_FORMAT_RGB666)
 		bits_per_pixel = 18;

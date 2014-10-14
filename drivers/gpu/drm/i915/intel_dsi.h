@@ -385,6 +385,11 @@
 #define PMIC_PWM_LEVEL		0x4E
 
 
+/* Dual Link support */
+#define MIPI_DUAL_LINK_NONE		0
+#define MIPI_DUAL_LINK_FRONT_BACK	1
+#define MIPI_DUAL_LINK_PIXEL_ALT	2
+
 struct intel_dsi_device {
 	unsigned int panel_id;
 	const char *name;
@@ -488,6 +493,9 @@ struct intel_dsi {
 	u16 panel_on_delay;
 	u16 panel_off_delay;
 	u16 panel_pwr_cycle_delay;
+
+	u8 dual_link;
+	u8 pixel_overlap;
 };
 
 static inline struct intel_dsi *enc_to_intel_dsi(struct drm_encoder *encoder)

@@ -138,19 +138,45 @@ static void intel_dsi_port_enable(struct intel_encoder *encoder)
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	int pipe = intel_crtc->pipe;
-	u32 temp;
+	u32 temp, port_control = 0;
 
-	if (IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3) &&
-					pipe == PIPE_B)
-		I915_WRITE(MIPI_PORT_CTRL(pipe), DPI_ENABLE);
-	else {
-		/* assert ip_tg_enable signal */
-		temp = I915_READ(MIPI_PORT_CTRL(pipe)) &
+	if (intel_dsi->dual_link) {
+		port_control = (intel_dsi->dual_link - 1)
+					<< DUAL_LINK_MODE_SHIFT;
+		port_control |= pipe ? LANE_CONFIGURATION_DUAL_LINK_B :
+					LANE_CONFIGURATION_DUAL_LINK_A;
+
+		if ((intel_dsi->dual_link & MIPI_DUAL_LINK_FRONT_BACK) &&
+							IS_VALLEYVIEW(dev))
+			I915_WRITE_BITS(VLV_CHICKEN_3, intel_dsi->pixel_overlap
+					<< PIXEL_OVERLAP_CNT_SHIFT,
+					PIXEL_OVERLAP_CNT_MASK);
+
+		temp = I915_READ(MIPI_PORT_CTRL(0));
+		temp = temp | port_control;
+		I915_WRITE(MIPI_PORT_CTRL(0), temp | DPI_ENABLE);
+		POSTING_READ(MIPI_PORT_CTRL(0));
+
+		if (IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3))
+			I915_WRITE(MIPI_PORT_CTRL(1), DPI_ENABLE);
+		else
+			I915_WRITE_BITS(MIPI_PORT_CTRL(1), DPI_ENABLE,
+								DPI_ENABLE);
+		POSTING_READ(MIPI_PORT_CTRL(1));
+
+	} else {
+		if (IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3) &&
+						pipe == PIPE_B)
+			I915_WRITE(MIPI_PORT_CTRL(pipe), DPI_ENABLE);
+		else {
+			/* assert ip_tg_enable signal */
+			temp = I915_READ(MIPI_PORT_CTRL(pipe)) &
 					~LANE_CONFIGURATION_MASK;
-		temp = temp | intel_dsi->port_bits;
-		I915_WRITE(MIPI_PORT_CTRL(pipe), temp | DPI_ENABLE);
+			temp = temp | intel_dsi->port_bits;
+			I915_WRITE(MIPI_PORT_CTRL(pipe), temp | DPI_ENABLE);
+		}
+		POSTING_READ(MIPI_PORT_CTRL(pipe));
 	}
-	POSTING_READ(MIPI_PORT_CTRL(pipe));
 }
 
 static void intel_dsi_enable(struct intel_encoder *encoder)
@@ -281,20 +307,29 @@ static void intel_dsi_port_disable(struct intel_encoder *encoder)
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	int pipe = intel_crtc->pipe;
-	u32 temp;
 
 	wait_for_dsi_fifo_empty(intel_dsi);
 
-	if (IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3) &&
-					pipe == PIPE_B)
-		I915_WRITE(MIPI_PORT_CTRL(pipe), ~DPI_ENABLE);
-	else {
+	if (intel_dsi->dual_link) {
+		I915_WRITE_BITS(MIPI_PORT_CTRL(0), 0, DPI_ENABLE);
+		POSTING_READ(MIPI_PORT_CTRL(0));
+
+		if (IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3))
+			I915_WRITE(MIPI_PORT_CTRL(1), ~DPI_ENABLE);
+		else
+			I915_WRITE_BITS(MIPI_PORT_CTRL(1), 0, DPI_ENABLE);
+		POSTING_READ(MIPI_PORT_CTRL(1));
+	} else {
 		/* de-assert ip_tg_enable signal */
-		temp = I915_READ(MIPI_PORT_CTRL(pipe));
-		I915_WRITE(MIPI_PORT_CTRL(pipe), temp & ~DPI_ENABLE);
+		if (IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3) &&
+						pipe == PIPE_B)
+			I915_WRITE(MIPI_PORT_CTRL(pipe), ~DPI_ENABLE);
+		else
+			I915_WRITE_BITS(MIPI_PORT_CTRL(pipe), 0, DPI_ENABLE);
+		POSTING_READ(MIPI_PORT_CTRL(pipe));
 	}
-	POSTING_READ(MIPI_PORT_CTRL(pipe));
 }
 
 static void intel_dsi_disable(struct intel_encoder *encoder)
