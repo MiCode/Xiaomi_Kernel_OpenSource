@@ -63,6 +63,7 @@
 
 /*clock control*/
 #define MDP3_REG_CGC_EN					0x0100
+#define MDP3_VBIF_REG_FORCE_EN				0x0004
 
 /*danger safe*/
 #define MDP3_PANIC_ROBUST_CTRL				0x900A0

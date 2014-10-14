@@ -600,6 +600,12 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		goto on_error;
 	}
 
+	rc = mdp3_dynamic_clock_gating_ctrl(0);
+	if (rc) {
+		pr_err("fail to disable dynamic clock gating\n");
+		goto on_error;
+	}
+
 	panel = mdp3_session->panel;
 	if (panel->event_handler) {
 		rc = panel->event_handler(panel, MDSS_EVENT_UNBLANK, NULL);

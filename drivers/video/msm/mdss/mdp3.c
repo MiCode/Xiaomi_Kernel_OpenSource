@@ -920,6 +920,35 @@ static int mdp3_hw_init(void)
 	return 0;
 }
 
+int mdp3_dynamic_clock_gating_ctrl(int enable)
+{
+	int rc = 0;
+	/*Disable dynamic auto clock gating*/
+	rc = mdp3_clk_update(MDP3_CLK_AHB, 1);
+	rc |= mdp3_clk_update(MDP3_CLK_AXI, 1);
+	rc |= mdp3_clk_update(MDP3_CLK_MDP_CORE, 1);
+	if (rc) {
+		pr_err("fail to turn on MDP core clks\n");
+		return rc;
+	}
+
+	if (enable) {
+		MDP3_REG_WRITE(MDP3_REG_CGC_EN, 0x7FFFF);
+		VBIF_REG_WRITE(MDP3_VBIF_REG_FORCE_EN, 0x0);
+	} else {
+		MDP3_REG_WRITE(MDP3_REG_CGC_EN, 0x3FFFF);
+		VBIF_REG_WRITE(MDP3_VBIF_REG_FORCE_EN, 0x3);
+	}
+
+	rc = mdp3_clk_update(MDP3_CLK_AHB, 0);
+	rc |= mdp3_clk_update(MDP3_CLK_AXI, 0);
+	rc |= mdp3_clk_update(MDP3_CLK_MDP_CORE, 0);
+	if (rc)
+		pr_warn("fail to turn off MDP core clks\n");
+
+	return rc;
+}
+
 static int mdp3_res_init(void)
 {
 	int rc = 0;
@@ -1150,6 +1179,24 @@ static int mdp3_parse_dt(struct platform_device *pdev)
 	pr_debug("MDP HW Base phy_Address=0x%x virt=0x%x\n",
 		(int) res->start,
 		(int) mdp3_res->mdp_base);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vbif_phys");
+	if (!res) {
+		pr_err("unable to get VBIF base address\n");
+		return -EINVAL;
+	}
+
+	mdp3_res->vbif_reg_size = resource_size(res);
+	mdp3_res->vbif_base = devm_ioremap(&pdev->dev, res->start,
+					mdp3_res->vbif_reg_size);
+	if (unlikely(!mdp3_res->vbif_base)) {
+		pr_err("unable to map VBIF base\n");
+		return -ENOMEM;
+	}
+
+	pr_debug("VBIF HW Base phy_Address=0x%x virt=0x%x\n",
+		(int) res->start,
+		(int) mdp3_res->vbif_base);
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
