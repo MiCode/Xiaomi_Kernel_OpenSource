@@ -946,6 +946,18 @@ int cnss_get_fw_image(dma_addr_t *fw_image, u32 *image_size)
 }
 EXPORT_SYMBOL(cnss_get_fw_image);
 
+static ssize_t wlan_setup_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	if (!penv)
+		return -ENODEV;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", penv->revision_id);
+}
+
+static DEVICE_ATTR(wlan_setup, S_IRUSR,
+			wlan_setup_show, NULL);
+
 static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 			       const struct pci_device_id *id)
 {
@@ -1011,6 +1023,13 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 
 	cnss_wlan_fw_mem_alloc(pdev);
 
+	ret = device_create_file(&penv->pldev->dev, &dev_attr_wlan_setup);
+
+	if (ret) {
+		pr_err("Can't Create Device file\n");
+		goto err_pcie_suspend;
+	}
+
 	if (penv->revision_id != QCA6174_FW_3_0 ||
 		penv->revision_id != QCA6174_FW_3_2) {
 		pr_debug("Code-swap not enabled: %d\n", penv->revision_id);
@@ -1053,7 +1072,13 @@ err_pcie_suspend:
 
 static void cnss_wlan_pci_remove(struct pci_dev *pdev)
 {
+	struct device *dev;
 
+	if (!penv)
+		return;
+
+	dev = &penv->pldev->dev;
+	device_remove_file(dev, &dev_attr_wlan_setup);
 }
 
 static int cnss_wlan_pci_suspend(struct pci_dev *pdev, pm_message_t state)
