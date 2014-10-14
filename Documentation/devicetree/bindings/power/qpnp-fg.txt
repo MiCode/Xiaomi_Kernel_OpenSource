@@ -33,6 +33,8 @@ Parent node optional properties:
 - qcom,cool-bat-decidegc:		Cool battery temperature in decidegC.
 - qcom,hot-bat-decidegc:		Hot battery temperature in decidegC.
 - qcom,cold-bat-decidegc:		Cold battery temperature in decidegC.
+- qcom,ext-sense-type:			Current sense channel used by the FG.
+					Set this to use external rsense.
 - qcom,use-otp-profile:			Specify this flag to avoid RAM loading
 					any battery profile.
 
