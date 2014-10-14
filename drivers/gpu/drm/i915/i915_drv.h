@@ -61,6 +61,23 @@
 #define DRIVER_DESC		"Intel Graphics"
 #define DRIVER_DATE		"20080730"
 
+#define ASCII_0				0x30
+#define ASCII_A				0x41
+#define ASCII_K				0x4B
+
+#define STEP_A0				0x4130
+#define STEP_A1				0x4131
+#define STEP_A2				0x4132
+#define STEP_A3				0x4133
+#define STEP_B0				0x4230
+#define STEP_B1				0x4231
+#define STEP_B2				0x4232
+#define STEP_B3				0x4233
+#define STEP_C0				0x4330
+#define STEP_C1				0x4331
+#define STEP_C2				0x4332
+#define STEP_C3				0x4333
+
 enum planes {
 	DISPLAY_PLANE = 0,
 	SPRITE_PLANE,
@@ -1576,6 +1593,7 @@ struct drm_i915_private {
 
 	unsigned int fsb_freq, mem_freq, is_ddr3;
 	unsigned int vlv_cdclk_freq;
+	u16 stepping_id;
 
 	/**
 	 * wq - Driver workqueue for GEM.
@@ -3003,6 +3021,8 @@ int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 extern void i915_write_bits32(struct drm_i915_private *dev_priv,
 	u32 reg, u32 val, u32 mask, bool trace);
 
+void intel_detect_stepping(struct drm_device *dev);
+
 #define I915_READ8(reg)		dev_priv->uncore.funcs.mmio_readb(dev_priv, (reg), true)
 #define I915_WRITE8(reg, val)	dev_priv->uncore.funcs.mmio_writeb(dev_priv, (reg), (val), true)
 
@@ -3059,6 +3079,18 @@ void i915_init_watchdog(struct drm_device *dev);
 #define INTEL_BROADCAST_RGB_AUTO 0
 #define INTEL_BROADCAST_RGB_FULL 1
 #define INTEL_BROADCAST_RGB_LIMITED 2
+
+#define STEP_BETWEEN_INCLUSIVE(from, to) ((dev_priv->stepping_id >= from \
+			&& dev_priv->stepping_id <= to) ? true : false)
+
+#define STEP_ABOVE(above) (dev_priv->stepping_id > above ? true : false)
+#define STEP_BELOW(below) (dev_priv->stepping_id < below ? true : false)
+
+#define STEP_BETWEEN(below, above) ((dev_priv->stepping_id > below \
+		&& dev_priv->stepping_id < above) ? true : false)
+
+#define STEP_FROM(from)  (dev_priv->stepping_id >= from ? true : false)
+#define STEP_TO(to) (dev_priv->stepping_id <= to ? true : false)
 
 static inline uint32_t i915_vgacntrl_reg(struct drm_device *dev)
 {

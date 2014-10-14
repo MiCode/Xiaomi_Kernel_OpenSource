@@ -39,6 +39,19 @@
 #include <linux/pm_runtime.h>
 #include <drm/drm_crtc_helper.h>
 
+#define CHV_PCI_MINOR_STEP_MASK		0x0C
+#define CHV_PCI_MINOR_STEP_SHIFT	0x02
+#define CHV_PCI_MAJOR_STEP_MASK		0x30
+#define CHV_PCI_MAJOR_STEP_SHIFT	0x04
+#define CHV_PCI_STEP_SEL_MASK		0x40
+#define CHV_PCI_STEP_SEL_SHIFT		0x06
+#define CHV_PCI_OVERFLOW_MASK		0x80
+#define CHV_PCI_OVERFLOW_SHIFT		0x07
+
+#define CHV_MAX_STEP_SEL	1
+#define CHV_MAX_MAJ_STEP	1
+#define CHV_MAX_MIN_STEP	3
+
 static struct drm_driver driver;
 
 #define GEN_DEFAULT_PIPEOFFSETS \
@@ -470,6 +483,32 @@ void intel_detect_pch(struct drm_device *dev)
 		DRM_DEBUG_KMS("No PCH found.\n");
 
 	pci_dev_put(pch);
+}
+
+void intel_detect_stepping(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u16 stepping_id;
+	u16 rev_id;
+
+	pci_read_config_word(dev->pdev, PCI_REVISION_ID, &rev_id);
+
+	if (IS_CHERRYVIEW(dev)) {
+		stepping_id = ((rev_id & CHV_PCI_MINOR_STEP_MASK)
+				>> CHV_PCI_MINOR_STEP_SHIFT) + ASCII_0;
+
+		if ((rev_id & CHV_PCI_STEP_SEL_MASK) >> CHV_PCI_STEP_SEL_SHIFT)
+			stepping_id = stepping_id + (ASCII_K << 8);
+		else
+			stepping_id = stepping_id + (ASCII_A << 8);
+
+		stepping_id = stepping_id + (((rev_id & CHV_PCI_MAJOR_STEP_MASK)
+				>> CHV_PCI_MAJOR_STEP_SHIFT) << 8);
+
+		dev_priv->stepping_id = stepping_id;
+
+		DRM_DEBUG_KMS("stepping id = 0x%x\n", dev_priv->stepping_id);
+	}
 }
 
 bool i915_semaphore_is_enabled(struct drm_device *dev)
