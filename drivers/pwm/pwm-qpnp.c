@@ -31,7 +31,8 @@
 #define QPNP_LPG_LUT_BASE	"qpnp-lpg-lut-base"
 
 #define QPNP_PWM_MODE_ONLY_SUB_TYPE	0x0B
-#define QPNP_PWM_SUB_TYPE2		0x11
+#define QPNP_LPG_CHAN_SUB_TYPE		0x2
+#define QPNP_LPG_S_CHAN_SUB_TYPE	0x11
 
 /* LPG Control for LPG_PATTERN_CONFIG */
 #define QPNP_RAMP_DIRECTION_SHIFT	4
@@ -525,7 +526,7 @@ static void qpnp_lpg_calc_period(enum time_level tm_lvl,
 				best_m -= 3;
 			} else if (best_m >= 1 && (
 				chip->sub_type != QPNP_PWM_MODE_ONLY_SUB_TYPE &&
-				chip->sub_type != QPNP_PWM_SUB_TYPE2)) {
+				chip->sub_type != QPNP_LPG_S_CHAN_SUB_TYPE)) {
 				n += 1;
 				best_m -= 1;
 			}
@@ -694,7 +695,7 @@ static int qpnp_lpg_save_pwm_value(struct qpnp_pwm_chip *chip)
 		return rc;
 
 	if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE ||
-		chip->sub_type == QPNP_PWM_SUB_TYPE2) {
+		chip->sub_type == QPNP_LPG_S_CHAN_SUB_TYPE) {
 		value = QPNP_PWM_SYNC_VALUE & QPNP_PWM_SYNC_MASK;
 		rc = spmi_ext_register_writel(chip->spmi_dev->ctrl,
 			chip->spmi_dev->sid,
@@ -1047,8 +1048,8 @@ static int qpnp_lpg_configure_lut_state(struct qpnp_pwm_chip *chip,
 		QPNP_EN_PWM_OUTPUT_MASK | QPNP_PWM_SRC_SELECT_MASK |
 					QPNP_PWM_EN_RAMP_GEN_MASK;
 
-	switch (chip->revision) {
-	case QPNP_LPG_REVISION_0:
+	if (chip->sub_type == QPNP_LPG_CHAN_SUB_TYPE
+		&& chip->revision == QPNP_LPG_REVISION_0) {
 		if (state == QPNP_LUT_ENABLE) {
 			QPNP_ENABLE_LUT_V0(value1);
 			value2 = QPNP_ENABLE_LPG_MODE;
@@ -1059,8 +1060,9 @@ static int qpnp_lpg_configure_lut_state(struct qpnp_pwm_chip *chip,
 		mask1 = QPNP_RAMP_START_MASK;
 		addr1 = SPMI_LPG_REG_ADDR(lpg_config->base_addr,
 					QPNP_RAMP_CONTROL);
-		break;
-	case QPNP_LPG_REVISION_1:
+	} else if ((chip->sub_type == QPNP_LPG_CHAN_SUB_TYPE
+			&& chip->revision == QPNP_LPG_REVISION_1)
+			|| chip->sub_type == QPNP_LPG_S_CHAN_SUB_TYPE) {
 		if (state == QPNP_LUT_ENABLE) {
 			QPNP_ENABLE_LUT_V1(value1,
 					lpg_config->lut_config.ramp_index);
@@ -1071,9 +1073,9 @@ static int qpnp_lpg_configure_lut_state(struct qpnp_pwm_chip *chip,
 		mask1 = value1;
 		addr1 = lpg_config->lut_base_addr +
 			SPMI_LPG_REV1_RAMP_CONTROL_OFFSET;
-		break;
-	default:
-		pr_err("Invalid LPG revision\n");
+	} else {
+		pr_err("Unsupported LPG subtype 0x%02x, revision 0x%02x\n",
+			chip->sub_type, chip->revision);
 		return -EINVAL;
 	}
 
@@ -1092,7 +1094,9 @@ static int qpnp_lpg_configure_lut_state(struct qpnp_pwm_chip *chip,
 	if (rc)
 		return rc;
 
-	if (state == QPNP_LUT_ENABLE || chip->revision == QPNP_LPG_REVISION_0)
+	if (state == QPNP_LUT_ENABLE
+		|| (chip->sub_type == QPNP_LPG_CHAN_SUB_TYPE
+		&& chip->revision == QPNP_LPG_REVISION_0))
 		rc = qpnp_lpg_save_and_write(value1, mask1, reg1,
 					addr1, 1, chip);
 	return rc;
@@ -1763,6 +1767,51 @@ out:
 	return rc;
 }
 
+static int qpnp_lpg_get_rev_subtype(struct qpnp_pwm_chip *chip)
+{
+	int rc;
+
+	rc = spmi_ext_register_readl(chip->spmi_dev->ctrl,
+		chip->spmi_dev->sid,
+		chip->lpg_config.base_addr + SPMI_LPG_SUB_TYPE_OFFSET,
+		&chip->sub_type, 1);
+
+	if (rc) {
+		pr_err("Couldn't read subtype rc: %d\n", rc);
+		goto out;
+	}
+
+	rc = spmi_ext_register_readl(chip->spmi_dev->ctrl,
+		chip->spmi_dev->sid,
+		chip->lpg_config.base_addr + SPMI_LPG_REVISION2_OFFSET,
+		(u8 *) &chip->revision, 1);
+
+	if (rc) {
+		pr_err("Couldn't read revision2 rc: %d\n", rc);
+		goto out;
+	}
+
+	if (chip->revision < QPNP_LPG_REVISION_0 ||
+		chip->revision > QPNP_LPG_REVISION_1) {
+		pr_err("Unknown LPG revision detected, rev:%d\n",
+						chip->revision);
+		rc = -EINVAL;
+		goto out;
+	}
+
+	if (chip->sub_type != QPNP_PWM_MODE_ONLY_SUB_TYPE
+		&& chip->sub_type != QPNP_LPG_CHAN_SUB_TYPE
+		&& chip->sub_type != QPNP_LPG_S_CHAN_SUB_TYPE) {
+		pr_err("Unknown LPG/PWM subtype detected, subtype:%d\n",
+						chip->sub_type);
+		rc = -EINVAL;
+	}
+out:
+	pr_debug("LPG rev 0x%02x subtype 0x%02x rc: %d\n", chip->revision,
+		chip->sub_type, rc);
+	return rc;
+}
+
 /* Fill in lpg device elements based on values found in device tree. */
 static int qpnp_parse_dt_config(struct spmi_device *spmi,
 					struct qpnp_pwm_chip *chip)
@@ -1852,6 +1901,10 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 
 	lpg_config->base_addr = res->start;
 
+	rc = qpnp_lpg_get_rev_subtype(chip);
+	if (rc)
+		return rc;
+
 	res = spmi_get_resource_byname(spmi, NULL, IORESOURCE_MEM,
 						QPNP_LPG_LUT_BASE);
 	if (!res) {
@@ -1913,7 +1966,7 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 			found_pwm_subnode = 1;
 		} else if (!strncmp(lable, "lpg", 3) &&
 				!(chip->flags & QPNP_PWM_LUT_NOT_SUPPORTED)) {
-			qpnp_parse_lpg_dt_config(node, of_node, chip);
+			rc = qpnp_parse_lpg_dt_config(node, of_node, chip);
 			if (rc)
 				goto out;
 			found_lpg_subnode = 1;
@@ -1977,24 +2030,6 @@ static int qpnp_pwm_probe(struct spmi_device *spmi)
 
 	if (rc)
 		goto failed_config;
-
-	spmi_ext_register_readl(pwm_chip->spmi_dev->ctrl,
-		pwm_chip->spmi_dev->sid,
-		pwm_chip->lpg_config.base_addr + SPMI_LPG_REVISION2_OFFSET,
-		(u8 *) &pwm_chip->revision, 1);
-
-	if (pwm_chip->revision < QPNP_LPG_REVISION_0 ||
-		pwm_chip->revision > QPNP_LPG_REVISION_1) {
-		pr_err("Unknown LPG revision detected, rev:%d\n",
-						pwm_chip->revision);
-		rc = -EINVAL;
-		goto failed_insert;
-	}
-
-	spmi_ext_register_readl(pwm_chip->spmi_dev->ctrl,
-		pwm_chip->spmi_dev->sid,
-		pwm_chip->lpg_config.base_addr + SPMI_LPG_SUB_TYPE_OFFSET,
-		&pwm_chip->sub_type, 1);
 
 	pwm_chip->chip.dev = &spmi->dev;
 	pwm_chip->chip.ops = &qpnp_pwm_ops;
