@@ -953,7 +953,7 @@ int config_ppp_scale(struct ppp_blit_op *blit_op, uint32_t *pppop_reg_ptr)
 			PPP_WRITEL(phase_step_y, MDP3_PPP_SCALE_PHASEY_STEP);
 
 
-			if (dstW > src->roi.width || dstW > src->roi.height)
+			if (dstW > src->roi.width || dstH > src->roi.height)
 				ppp_load_up_lut();
 
 			if (mdp_blur)
