@@ -689,6 +689,7 @@
 
 		qcom,wlan-rx-buff-count = <512>;
 		qcom,is-pronto-vt;
+		qcom,is-pronto-v3;
 		qcom,has-pronto-hw;
 		qcom,wcnss-adc_tm = <&pm8909_adc_tm>;
 	};
