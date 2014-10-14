@@ -953,6 +953,7 @@
 
 		qcom,bus-width = <8>;
 		qcom,cpu-dma-latency-us = <301>;
+		qcom,cpu-affinity = "affine_cores";
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
@@ -990,6 +991,7 @@
 
 		qcom,bus-width = <4>;
 		qcom,cpu-dma-latency-us = <301>;
+		qcom,cpu-affinity = "affine_cores";
 
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
@@ -1022,6 +1024,7 @@
 
 		qcom,bus-width = <4>;
 		qcom,cpu-dma-latency-us = <301>;
+		qcom,cpu-affinity = "affine_cores";
 
 		qcom,msm-bus,name = "sdhc3";
 		qcom,msm-bus,num-cases = <8>;
