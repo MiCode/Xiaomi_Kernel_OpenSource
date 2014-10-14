@@ -33,6 +33,7 @@
 #define REG_ACCEL_MOT_DUR	0x20
 
 #define REG_FIFO_EN		0x23
+#define FIFO_DISABLE_ALL	0x00
 #define BIT_ACCEL_OUT		0x08
 #define BITS_GYRO_OUT		0x70
 
@@ -47,14 +48,17 @@
 #define REG_INT_ENABLE		0x38
 #define BIT_DATA_RDY_EN		0x01
 #define BIT_DMP_INT_EN		0x02
+#define BIT_FIFO_OVERFLOW	0x10
 #define BIT_ZMOT_EN		0x20
 #define BIT_MOT_EN		0x40
 #define BIT_6500_WOM_EN		0x40
 
 #define REG_DMP_INT_STATUS	0x39
+
 #define REG_INT_STATUS		0x3A
 #define BIT_DATA_RDY_INT	0x01
 #define BIT_DMP_INT_INT		0x02
+#define BIT_FIFO_OVERFLOW	0x10
 #define BIT_ZMOT_INT		0x20
 #define BIT_MOT_INT		0x40
 #define BIT_6500_WOM_INT	0x40
@@ -74,6 +78,10 @@
 
 #define REG_DETECT_CTRL		0x69
 #define MOT_DET_DELAY_SHIFT	4
+
+#define REG_USER_CTRL		0x6A
+#define BIT_FIFO_EN		0x40
+#define	BIT_FIFO_RESET		0x04
 
 #define REG_PWR_MGMT_1		0x6B
 #define BIT_H_RESET		0x80
@@ -119,6 +127,7 @@
 
 /* initial configure */
 #define INIT_FIFO_RATE		200
+
 #define DEFAULT_MOT_THR		1
 #define DEFAULT_MOT_DET_DUR	1
 #define DEFAULT_MOT_DET_DELAY	0
@@ -126,6 +135,10 @@
 /* chip reset wait */
 #define MPU6050_RESET_RETRY_CNT	10
 #define MPU6050_RESET_WAIT_MS	20
+
+/* FIFO related constant */
+#define MPU6050_FIFO_SIZE_BYTE	1024
+#define	MPU6050_FIFO_CNT_SIZE	2
 
 enum mpu_device_id {
 	MPU6050_ID = 0x68,
@@ -206,13 +219,13 @@ enum inv_devices {
  *  @int_pin_cfg:	Interrupt pin and I2C bypass configuration.
  *  @int_enable:	Interrupt enable register.
  *  @int_status:	Interrupt flags.
+ *  @user_ctrl:	User control.
  *  @pwr_mgmt_1:	Controls chip's power state and clock source.
  *  @pwr_mgmt_2:	Controls power state of individual sensors.
  */
 struct mpu_reg_map {
 	u8 sample_rate_div;
 	u8 lpf;
-	u8 user_ctrl;
 	u8 fifo_en;
 	u8 gyro_config;
 	u8 accel_config;
@@ -226,6 +239,7 @@ struct mpu_reg_map {
 	u8 int_pin_cfg;
 	u8 int_enable;
 	u8 int_status;
+	u8 user_ctrl;
 	u8 pwr_mgmt_1;
 	u8 pwr_mgmt_2;
 };
@@ -236,16 +250,19 @@ struct mpu_reg_map {
  *  @lpf:		Digital low pass filter frequency.
  *  @accl_fs:		accel full scale range.
  *  @enable:		master enable to enable output
- *  @accel_enable:	enable accel functionality
+ *  @accel_enable:		enable accel functionality
  *  @accel_fifo_enable:	enable accel data output
- *  @gyro_enable:	enable gyro functionality
+ *  @gyro_enable:		enable gyro functionality
  *  @gyro_fifo_enable:	enable gyro data output
  *  @is_asleep:		1 if chip is powered down.
- *  @lpa_mod:		low power mode.
+ *  @lpa_mode:		low power mode.
  *  @tap_on:		tap on/off.
  *  @flick_int_on:		flick interrupt on/off.
  *  @int_enabled:		interrupt is enabled.
- *  @lpa_freq:		low power frequency
+ *  @mot_det_on:		motion detection wakeup enabled.
+ *  @cfg_fifo_en:		FIFO R/W is enabled in USER_CTRL register.
+ *  @int_pin_cfg:		interrupt pin configuration.
+ *  @lpa_freq:		frequency of low power accelerometer.
  *  @rate_div:		Sampling rate divider.
  */
 struct mpu_chip_config {
@@ -263,6 +280,7 @@ struct mpu_chip_config {
 	u32 flick_int_on:1;
 	u32 int_enabled:1;
 	u32 mot_det_on:1;
+	u32 cfg_fifo_en:1;
 	u8 int_pin_cfg;
 	u16 lpa_freq;
 	u16 rate_div;
