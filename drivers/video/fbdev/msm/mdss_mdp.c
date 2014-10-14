@@ -2471,10 +2471,8 @@ static int mdss_mdp_parse_dt_prefill(struct platform_device *pdev)
 
 	rc = of_property_read_u32(pdev->dev.of_node,
 		"qcom,mdss-prefill-fbc-lines", &prefill->fbc_lines);
-	if (rc) {
-		pr_err("prefill FBC lines not specified\n");
-		return rc;
-	}
+	if (rc)
+		pr_debug("prefill FBC lines not specified\n");
 
 	return 0;
 }
