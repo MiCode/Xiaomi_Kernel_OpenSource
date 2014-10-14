@@ -553,7 +553,7 @@ struct snd_intelhad {
 	struct device *dev;
 	struct snd_kcontrol *kctl;
 	struct snd_pcm_chmap *chmap;
-	unsigned int	audio_reg_base;
+	uint32_t	audio_reg_base;
 	bool		hw_silence;
 	struct had_ops	*ops;
 };

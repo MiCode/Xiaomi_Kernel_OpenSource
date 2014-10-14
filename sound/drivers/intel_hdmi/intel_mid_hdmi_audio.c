@@ -1840,8 +1840,14 @@ static int hdmi_audio_probe(struct platform_device *devptr)
 		goto err;
 	}
 	intelhaddata->hw_silence = 1;
-	/* PIPE B is used for HDMI*/
-	intelhaddata->audio_reg_base = 0x65800;
+
+	/* Query display driver for audio register base */
+	if (intelhaddata->reg_ops.hdmi_audio_get_register_base
+			(&intelhaddata->audio_reg_base)) {
+		pr_err("Unable to get audio reg base from Display driver\n");
+		goto err;
+	}
+
 	intelhaddata->ops = &had_ops_v2;
 	return retval;
 
