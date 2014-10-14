@@ -97,6 +97,9 @@ Optional properties:
   gate-able = 0x2 (if the driver should disable the clock if no load)
 - qcom,sw-power-collapse = A bool indicating if video hardware core can be
   power collapsed in idle state.
+- qcom,early-fw-load = A bool indicating if video firmware should be loaded
+  during probe. When no video session is active, the video hardware will be
+  power collapsed.
 - qcom,use-non-secure-pil = A bool indicating which type of pil to use to load
   the fw.
 - qcom,use-dynamic-bw-update = A bool indicating whether dynamic bandwidth
@@ -133,6 +136,7 @@ Example:
 		clock-names = "foo_clk", "bar_clk", "baz_clk";
 		qcom,clock-configs = <0x3 0x1 0x0>;
 		qcom,sw-power-collapse;
+		qcom,early-fw-load;
 		qcom,enable-idle-indicator;
 		qcom,msm-bus-clients {
 			qcom,msm-bus-client@0 {

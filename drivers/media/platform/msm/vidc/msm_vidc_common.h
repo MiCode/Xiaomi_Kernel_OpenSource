@@ -73,4 +73,6 @@ int msm_comm_smem_get_domain_partition(struct msm_vidc_inst *inst,
 			u32 flags, enum hal_buffer buffer_type,
 			int *domain_num, int *partition_num);
 enum hal_video_codec get_hal_codec_type(int fourcc);
+int msm_comm_load_fw(struct msm_vidc_core *core);
+int msm_comm_check_core_init(struct msm_vidc_core *core);
 #endif

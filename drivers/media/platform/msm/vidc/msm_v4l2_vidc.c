@@ -23,15 +23,17 @@
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
 #include <media/msm_vidc.h>
-#include "msm_vidc_internal.h"
+#include "msm_vidc_common.h"
 #include "msm_vidc_debug.h"
-#include "vidc_hfi_api.h"
-#include "vidc_hfi_api.h"
+#include "msm_vidc_internal.h"
 #include "msm_vidc_resources.h"
 #include "msm_vidc_res_parse.h"
 #include "venus_boot.h"
+#include "vidc_hfi_api.h"
+
 
 #define BASE_DEVICE_NUMBER 32
+#define EARLY_FIRMWARE_LOAD_DELAY 1000
 
 struct msm_vidc_drv *vidc_driver;
 
@@ -432,6 +434,62 @@ static struct attribute_group msm_vidc_core_attr_group = {
 		.attrs = msm_vidc_core_attrs,
 };
 
+struct fw_load_handler_data {
+	struct msm_vidc_core *core;
+	struct delayed_work work;
+};
+
+
+static void fw_load_handler(struct work_struct *work)
+{
+	struct msm_vidc_core *core = NULL;
+	struct fw_load_handler_data *handler = NULL;
+	int rc = 0;
+
+	handler = container_of(work, struct fw_load_handler_data,
+			work.work);
+	if (!handler || !handler->core) {
+		dprintk(VIDC_ERR, "%s - invalid work or core handle\n",
+				__func__);
+		goto exit;
+	}
+	core = handler->core;
+
+	rc = msm_comm_load_fw(core);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s - failed to load fw\n", __func__);
+		goto exit;
+	}
+
+	rc = msm_comm_check_core_init(core);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s - failed to init core\n", __func__);
+		goto exit;
+	}
+	dprintk(VIDC_DBG, "%s - firmware loaded successfully\n", __func__);
+
+	msm_vidc_suspend(core->id);
+exit:
+	kfree(handler);
+}
+
+static void load_firmware(struct msm_vidc_core *core)
+{
+	struct fw_load_handler_data *handler = NULL;
+
+	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
+	if (!handler) {
+		dprintk(VIDC_ERR,
+			"%s - failed to allocate sys error handler\n",
+			__func__);
+		return;
+	}
+	handler->core = core;
+	INIT_DELAYED_WORK(&handler->work, fw_load_handler);
+	schedule_delayed_work(&handler->work,
+			msecs_to_jiffies(EARLY_FIRMWARE_LOAD_DELAY));
+}
+
 static int msm_vidc_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -551,6 +609,9 @@ static int msm_vidc_probe(struct platform_device *pdev)
 	core->debugfs_root = msm_vidc_debugfs_init_core(
 		core, vidc_driver->debugfs_root);
 	pdev->dev.platform_data = core;
+
+	load_firmware(core);
+
 	return rc;
 err_non_sec_pil_init:
 	vidc_hfi_deinitialize(core->hfi_type, core->device);
