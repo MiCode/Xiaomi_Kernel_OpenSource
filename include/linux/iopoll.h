@@ -47,7 +47,7 @@
 			break; \
 		} \
 		if (sleep_us) \
-			usleep_range(DIV_ROUND_UP(sleep_us, 4), sleep_us); \
+			usleep_range((sleep_us >> 2) + 1, sleep_us); \
 	} \
 	(cond) ? 0 : -ETIMEDOUT; \
 })
