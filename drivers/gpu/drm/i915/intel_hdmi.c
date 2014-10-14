@@ -1115,6 +1115,8 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		}
 #endif
 	}
+	if (&dev_priv->hdmi_audio_wq)
+		schedule_work(&dev_priv->hdmi_audio_wq);
 
 #ifdef CONFIG_EXTCON
 	if (strlen(intel_connector->hotplug_switch.name) != 0) {
@@ -1839,7 +1841,13 @@ void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 		pr_err("failed to allocate memory");
 	} else {
 		hdmi_priv->dev = dev;
-		hdmi_priv->hdmib_reg = HDMIB;
+		hdmi_priv->hdmi_reg = hdmi_reg;
+		if (IS_CHERRYVIEW(dev))
+			hdmi_priv->hdmi_lpe_audio_reg =
+					I915_HDMI_AUDIO_LPE_C_CONFIG;
+		else
+			hdmi_priv->hdmi_lpe_audio_reg =
+					I915_HDMI_AUDIO_LPE_B_CONFIG;
 		hdmi_priv->monitor_type = MONITOR_TYPE_HDMI;
 		hdmi_priv->is_hdcp_supported = true;
 		i915_hdmi_audio_init(hdmi_priv);

@@ -5223,6 +5223,15 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	intel_crtc_load_lut(crtc);
 
 	intel_update_watermarks(crtc);
+
+	if (IS_VALLEYVIEW(dev) &&
+			intel_pipe_has_type(crtc, INTEL_OUTPUT_HDMI)) {
+		dev_priv->tmds_clock_speed =
+				intel_crtc->config.port_clock;
+		mid_hdmi_audio_signal_event
+				(dev_priv->dev, HAD_EVENT_MODE_CHANGING);
+	}
+
 	intel_enable_pipe(intel_crtc);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder) {

@@ -75,6 +75,7 @@ typedef int (*had_event_call_back) (enum had_event_type event_type,
 		void *ctxt_info);
 
 struct hdmi_audio_registers_ops {
+	int (*hdmi_audio_get_register_base)(uint32_t *reg_base);
 	int (*hdmi_audio_read_register)(uint32_t reg_addr, uint32_t *data);
 	int (*hdmi_audio_write_register)(uint32_t reg_addr, uint32_t data);
 	int (*hdmi_audio_read_modify)(uint32_t reg_addr, uint32_t data,
@@ -101,8 +102,8 @@ struct snd_intel_had_interface {
 
 struct hdmi_audio_priv {
 	struct drm_device *dev;
-	u32 hdmib_reg;
-
+	u32 hdmi_reg;
+	u32 hdmi_lpe_audio_reg;
 	bool is_hdcp_supported;
 	bool hdmi_hpd_connected;
 	int monitor_type;

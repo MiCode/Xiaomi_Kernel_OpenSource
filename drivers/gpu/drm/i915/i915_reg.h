@@ -1519,7 +1519,6 @@ enum punit_power_well {
 #define I915_GMCH_THERMAL_SENSOR_EVENT_INTERRUPT	(1<<14) /* p-state */
 #define I915_DISPLAY_PIPE_A_HBLANK_INTERRUPT		(1<<13)
 #define I915_HWB_OOM_INTERRUPT				(1<<13)
-#define I915_LPE_PIPE_C_INTERRUPT			(1<<12)
 #define I915_SYNC_STATUS_INTERRUPT			(1<<12)
 #define I915_MISC_INTERRUPT				(1<<11)
 #define I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT	(1<<11)
@@ -1546,12 +1545,16 @@ enum punit_power_well {
 	(dev_priv->info.display_mmio_offset + 0x65064)
 #define I915_LPE_AUDIO_HDMI_STATUS_B \
 	(dev_priv->info.display_mmio_offset + 0x65864)
+#define I915_LPE_AUDIO_HDMI_STATUS_C \
+	(dev_priv->info.display_mmio_offset + 0x65964)
 #define I915_LPE_PIPE_B_INTERRUPT	(1<<20)
 #define I915_LPE_PIPE_A_INTERRUPT	(1<<21)
+#define I915_LPE_PIPE_C_INTERRUPT			(1<<12)
 #define I915_HDMI_AUDIO_UNDERRUN	(1UL<<31)
 #define I915_HDMI_AUDIO_BUFFER_DONE	(1UL<<29)
 #define I915_HDMI_AUDIO_UNDERRUN_ENABLE	(1UL<<15)
-
+#define I915_HDMI_AUDIO_LPE_C_CONFIG	0x65900
+#define I915_HDMI_AUDIO_LPE_B_CONFIG	0x65800
 #define GEN6_BSD_RNCID			0x12198
 
 #define GEN7_FF_THREAD_MODE		0x20a0
