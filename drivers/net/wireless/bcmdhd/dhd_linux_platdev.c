@@ -38,6 +38,10 @@
 #include <dhd_bus.h>
 #include <dhd_linux.h>
 #include <wl_android.h>
+#include <linux/mmc/core.h>
+#include <linux/mmc/card.h>
+#include <linux/mmc/host.h>
+#include <linux/mmc/sdio_func.h>
 
 #define WIFI_PLAT_NAME		"bcmdhd_wlan"
 #define WIFI_PLAT_NAME2		"bcm4329_wlan"
@@ -129,43 +133,6 @@ int wifi_platform_get_irq_number(wifi_adapter_info_t *adapter, unsigned long *ir
 	return adapter->irq_num;
 }
 
-int wifi_platform_set_power(wifi_adapter_info_t *adapter, bool on, unsigned long msec)
-{
-	int err = 0;
-	struct wifi_platform_data *plat_data;
-
-	if (!adapter || !adapter->wifi_plat_data)
-		return -EINVAL;
-	plat_data = adapter->wifi_plat_data;
-
-	DHD_ERROR(("%s = %d\n", __FUNCTION__, on));
-	if (plat_data->set_power) {
-#ifdef ENABLE_4335BT_WAR
-		if (on) {
-			printk("WiFi: trying to acquire BT lock\n");
-			if (bcm_bt_lock(lock_cookie_wifi) != 0)
-				printk("** WiFi: timeout in acquiring bt lock**\n");
-			printk("%s: btlock acquired\n", __FUNCTION__);
-		}
-		else {
-			/* For a exceptional case, release btlock */
-			bcm_bt_unlock(lock_cookie_wifi);
-		}
-#endif /* ENABLE_4335BT_WAR */
-
-		err = plat_data->set_power(on);
-	}
-
-	if (msec && !err)
-		OSL_SLEEP(msec);
-
-	if (on && !err)
-		is_power_on = TRUE;
-	else
-		is_power_on = FALSE;
-
-	return err;
-}
 
 int wifi_platform_bus_enumerate(wifi_adapter_info_t *adapter, bool device_present)
 {
@@ -263,12 +230,18 @@ static int wifi_plat_dev_drv_probe_acpi(struct platform_device *pdev)
 	if (ACPI_HANDLE(&pdev->dev)) {
 		handle = ACPI_HANDLE(&pdev->dev);
 
-		/* Dont try to do acpi pm for the wifi module */
 		if (!handle || acpi_bus_get_device(handle, &adev))
 			DHD_ERROR(("%s: could not get acpi pointer!\n", __FUNCTION__));
-		else
+		else {
+			/* Ignore SDIO ACPI power states and
+			 * prevent ACPI PM at probing stage.
+			 * power_manageable is reenabled when
+			 * setting power for the first time
+			 */
 			adev->flags.power_manageable = 0;
-
+			/* Ignore SDH SDIO controller ACPI PM state */
+			adev->power.flags.ignore_parent = 1;
+		}
 		gpio_num = desc_to_gpio(gpiod_get_index(&pdev->dev, NULL, 0));
 		pr_err("%s: Using ACPI table to get GPIO number: %d\n", __FUNCTION__, gpio_num);
 		if (gpio_num > 0) {
@@ -386,6 +359,78 @@ static int wifi_acpi_match(struct device *dev, void *data)
 }
 #endif /* CONFIG_ACPI */
 
+
+int wifi_platform_set_power(wifi_adapter_info_t *adapter, bool on, unsigned long msec)
+{
+	int err = 0;
+	struct wifi_platform_data *plat_data;
+#ifdef CONFIG_ACPI
+	struct device *dev;
+	struct acpi_device *adev;
+	acpi_handle handle;
+	struct platform_device *pdev;
+	struct sdio_func *func = NULL;
+#endif
+	if (!adapter || !adapter->wifi_plat_data)
+		return -EINVAL;
+	plat_data = adapter->wifi_plat_data;
+
+	DHD_ERROR(("%s = %d\n", __FUNCTION__, on));
+
+	if (plat_data->set_power) {
+#ifdef ENABLE_4335BT_WAR
+		if (on) {
+			printk("WiFi: trying to acquire BT lock\n");
+			if (bcm_bt_lock(lock_cookie_wifi) != 0)
+				printk("** WiFi: timeout in acquiring bt lock**\n");
+			printk("%s: btlock acquired\n", __FUNCTION__);
+		} else {
+			/* For a exceptional case, release btlock */
+			bcm_bt_unlock(lock_cookie_wifi);
+		}
+#endif /* ENABLE_4335BT_WAR */
+
+		err = plat_data->set_power(on);
+	}
+
+#ifdef CONFIG_ACPI
+	dev = bus_find_device(&platform_bus_type, NULL, bcm_acpi_id, wifi_acpi_match);
+	pdev = to_platform_device(dev);
+	if (ACPI_HANDLE(&pdev->dev)) {
+		handle = ACPI_HANDLE(&pdev->dev);
+		if (acpi_bus_get_device(handle, &adev) == 0) {
+			func = adapter->sdio_func;
+
+			if (on) {
+				acpi_device_set_power(adev, ACPI_STATE_D0);
+				if (func && func->card && func->card->host)
+					mmc_power_restore_host(func->card->host);
+			} else {
+				/* Only handle power after probe is completed */
+				if (!adev->flags.power_manageable) {
+					DHD_ERROR(("%s Now enabling ACPI PM in driver\n", __FUNCTION__));
+					adev->flags.power_manageable = 1;
+				}
+
+				if (func && func->card && func->card->host)
+					mmc_power_save_host(func->card->host);
+				acpi_device_set_power(adev, ACPI_STATE_D3_COLD);
+			}
+		}
+	}
+#endif /* CONFIG_ACPI */
+
+	if (msec && !err)
+		OSL_SLEEP(msec);
+
+	if (on && !err)
+		is_power_on = TRUE;
+	else
+		is_power_on = FALSE;
+
+	return err;
+}
+
 static int wifi_platdev_match(struct device *dev, void *data)
 {
 	char *name = (char*)data;
@@ -427,6 +472,7 @@ static int wifi_ctrlfunc_register_drv(void)
 	adapter->bus_num = -1;
 	adapter->slot_num = -1;
 	adapter->irq_num = -1;
+	adapter->sdio_func = NULL;
 	is_power_on = FALSE;
 	wifi_plat_dev_probe_ret = 0;
 	dhd_wifi_platdata = kzalloc(sizeof(bcmdhd_wifi_platdata_t), GFP_KERNEL);
