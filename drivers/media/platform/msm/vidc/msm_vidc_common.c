@@ -2230,15 +2230,15 @@ void msm_comm_handle_thermal_event()
 	}
 }
 
-static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
+int msm_comm_check_core_init(struct msm_vidc_core *core)
 {
-	struct msm_vidc_core *core = inst->core;
 	int rc = 0;
+
 	mutex_lock(&core->lock);
 	if (core->state >= VIDC_CORE_INIT_DONE) {
 		dprintk(VIDC_INFO, "Video core: %d is already in state: %d\n",
 				core->id, core->state);
-		goto core_already_inited;
+		goto exit;
 	}
 	dprintk(VIDC_DBG, "Waiting for SYS_INIT_DONE\n");
 	rc = wait_for_completion_timeout(
@@ -2251,20 +2251,30 @@ static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
 		goto exit;
 	} else {
 		core->state = VIDC_CORE_INIT_DONE;
+		rc = 0;
 	}
 	dprintk(VIDC_DBG, "SYS_INIT_DONE!!!\n");
-core_already_inited:
-	change_inst_state(inst, MSM_VIDC_CORE_INIT_DONE);
-	rc = 0;
 exit:
 	mutex_unlock(&core->lock);
 	return rc;
 }
 
-static int msm_comm_init_core(struct msm_vidc_inst *inst)
+static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	struct msm_vidc_core *core = inst->core;
+
+	rc = msm_comm_check_core_init(inst->core);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s - failed to initialize core\n", __func__);
+		return rc;
+	}
+	change_inst_state(inst, MSM_VIDC_CORE_INIT_DONE);
+	return rc;
+}
+
+int msm_comm_load_fw(struct msm_vidc_core *core)
+{
+	int rc = 0;
 	struct hfi_device *hdev;
 
 	if (!core || !core->device)
@@ -2319,7 +2329,6 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 	}
 
 core_already_inited:
-	change_inst_state(inst, MSM_VIDC_CORE_INIT);
 	mutex_unlock(&core->lock);
 	return rc;
 
@@ -2331,6 +2340,23 @@ fail_core_init:
 fail_load_fw:
 	msm_comm_unvote_buses(core);
 fail_vote_bus:
+	return rc;
+}
+
+static int msm_comm_init_core(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+
+	if (!inst || !inst->core)
+		return -EINVAL;
+
+	rc = msm_comm_load_fw(inst->core);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s - firmware loading failed\n", __func__);
+		return rc;
+	}
+
+	change_inst_state(inst, MSM_VIDC_CORE_INIT);
 	return rc;
 }
 
@@ -2358,15 +2384,25 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 	msm_comm_scale_clocks_and_bus(inst);
 
 	mutex_lock(&core->lock);
+
+	/*
+	 * If firmware is configured to be always loaded in memory,
+	 * then unload it only if the core has gone in to bad state.
+	 */
+	if (core->resources.early_fw_load &&
+		core->state != VIDC_CORE_INVALID) {
+			goto core_already_uninited;
+	}
+
 	if (list_empty(&core->instances)) {
 		cancel_delayed_work(&core->fw_unload_work);
 
 		/*
-		* Delay unloading of firmware. This is useful
-		* in avoiding firmware download delays in cases where we
-		* will have a burst of back to back video playback sessions
-		* e.g. thumbnail generation.
-		*/
+		 * Delay unloading of firmware. This is useful
+		 * in avoiding firmware download delays in cases where we
+		 * will have a burst of back to back video playback sessions
+		 * e.g. thumbnail generation.
+		 */
 		schedule_delayed_work(&core->fw_unload_work,
 			msecs_to_jiffies(core->state == VIDC_CORE_INVALID ?
 					0 : msm_vidc_firmware_unload_delay));

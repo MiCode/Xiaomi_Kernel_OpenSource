@@ -68,4 +68,6 @@ int msm_comm_smem_cache_operations(struct msm_vidc_inst *inst,
 struct msm_smem *msm_comm_smem_user_to_kernel(struct msm_vidc_inst *inst,
 			int fd, u32 offset, enum hal_buffer buffer_type);
 enum hal_video_codec get_hal_codec_type(int fourcc);
+int msm_comm_load_fw(struct msm_vidc_core *core);
+int msm_comm_check_core_init(struct msm_vidc_core *core);
 #endif

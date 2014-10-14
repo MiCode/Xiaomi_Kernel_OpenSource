@@ -125,6 +125,7 @@ struct msm_vidc_platform_resources {
 	bool sw_power_collapsible;
 	bool sys_idle_indicator;
 	struct list_head context_banks;
+	bool early_fw_load;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)
