@@ -27,6 +27,8 @@ static inline void tick_handover_do_timer(void) { }
 static inline void tick_cleanup_dead_cpu(int cpu) { }
 #endif /* !CONFIG_GENERIC_CLOCKEVENTS */
 
+extern u64 jiffy_to_sched_clock(u64 *now, u64 *jiffy_sched_clock);
+
 #if defined(CONFIG_GENERIC_CLOCKEVENTS) && defined(CONFIG_SUSPEND)
 extern void tick_freeze(void);
 extern void tick_unfreeze(void);
