@@ -154,10 +154,16 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 
 		wait_for_dsi_fifo_empty(intel_dsi);
 
-		/* assert ip_tg_enable signal */
-		temp = I915_READ(MIPI_PORT_CTRL(pipe)) & ~LANE_CONFIGURATION_MASK;
-		temp = temp | intel_dsi->port_bits;
-		I915_WRITE(MIPI_PORT_CTRL(pipe), temp | DPI_ENABLE);
+		if (IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3) &&
+						pipe == PIPE_B)
+			I915_WRITE(MIPI_PORT_CTRL(pipe), DPI_ENABLE);
+		else {
+			/* assert ip_tg_enable signal */
+			temp = I915_READ(MIPI_PORT_CTRL(pipe)) &
+						~LANE_CONFIGURATION_MASK;
+			temp = temp | intel_dsi->port_bits;
+			I915_WRITE(MIPI_PORT_CTRL(pipe), temp | DPI_ENABLE);
+		}
 		POSTING_READ(MIPI_PORT_CTRL(pipe));
 	}
 
@@ -283,9 +289,14 @@ static void intel_dsi_disable(struct intel_encoder *encoder)
 	if (is_vid_mode(intel_dsi)) {
 		wait_for_dsi_fifo_empty(intel_dsi);
 
-		/* de-assert ip_tg_enable signal */
-		temp = I915_READ(MIPI_PORT_CTRL(pipe));
-		I915_WRITE(MIPI_PORT_CTRL(pipe), temp & ~DPI_ENABLE);
+		if (IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3) &&
+						pipe == PIPE_B)
+			I915_WRITE(MIPI_PORT_CTRL(pipe), ~DPI_ENABLE);
+		else {
+			/* de-assert ip_tg_enable signal */
+			temp = I915_READ(MIPI_PORT_CTRL(pipe));
+			I915_WRITE(MIPI_PORT_CTRL(pipe), temp & ~DPI_ENABLE);
+		}
 		POSTING_READ(MIPI_PORT_CTRL(pipe));
 
 		msleep(2);
@@ -396,9 +407,10 @@ static void intel_dsi_post_disable(struct intel_encoder *encoder)
 static bool intel_dsi_get_hw_state(struct intel_encoder *encoder,
 				   enum pipe *pipe)
 {
+	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	enum intel_display_power_domain power_domain;
-	u32 port, func;
+	u32 dsi_status, func;
 	enum pipe p;
 
 	DRM_DEBUG_KMS("\n");
@@ -409,10 +421,16 @@ static bool intel_dsi_get_hw_state(struct intel_encoder *encoder,
 
 	/* XXX: this only works for one DSI output */
 	for (p = PIPE_A; p <= PIPE_B; p++) {
-		port = I915_READ(MIPI_PORT_CTRL(p));
+		if (IS_CHERRYVIEW(dev) &&
+				STEP_BETWEEN_INCLUSIVE(STEP_A0, STEP_B3) &&
+				(MIPI_PORT_CTRL(p) == _MIPIB_PORT_CTRL))
+			dsi_status = I915_READ(PIPECONF(PIPE_B)) &
+							PIPECONF_ENABLE;
+		else
+			dsi_status = I915_READ(MIPI_PORT_CTRL(p)) & DPI_ENABLE;
 		func = I915_READ(MIPI_DSI_FUNC_PRG(p));
 
-		if ((port & DPI_ENABLE) || (func & CMD_MODE_DATA_WIDTH_MASK)) {
+		if (dsi_status || (func & CMD_MODE_DATA_WIDTH_MASK)) {
 			if (I915_READ(MIPI_DEVICE_READY(p)) & DEVICE_READY) {
 				*pipe = p;
 				return true;
