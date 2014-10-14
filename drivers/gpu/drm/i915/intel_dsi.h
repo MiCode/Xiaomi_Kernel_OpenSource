@@ -484,7 +484,7 @@ struct intel_dsi {
 	u16 hs_to_lp_count;
 	u16 clk_lp_to_hs_count;
 	u16 clk_hs_to_lp_count;
-
+	u16 port;
 	u16 init_count;
 
 	/* all delays in ms */

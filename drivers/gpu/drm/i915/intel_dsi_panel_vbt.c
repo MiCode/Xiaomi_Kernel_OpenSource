@@ -247,6 +247,9 @@ static u8 *mipi_exec_send_packet(struct intel_dsi *intel_dsi, u8 *data)
 	/* LP or HS mode */
 	intel_dsi->hs = mode;
 
+	/* MIPI Port A or MIPI Port C */
+	intel_dsi->port = port;
+
 	/* get packet type and increment the pointer */
 	type = *data++;
 
@@ -579,6 +582,7 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	intel_dsi->pixel_format = mipi_config->videomode_color_format << 7;
 	intel_dsi->dual_link = mipi_config->dual_link;
 	intel_dsi->pixel_overlap = mipi_config->pixel_overlap;
+	intel_dsi->port = 0;
 
 	if (intel_dsi->pixel_format == VID_MODE_FORMAT_RGB666)
 		bits_per_pixel = 18;
