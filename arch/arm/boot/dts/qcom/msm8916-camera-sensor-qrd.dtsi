@@ -29,7 +29,6 @@
 		qcom,actuator-src = <&actuator0>;
 		cam_vaf-supply = <&pm8916_l10>;
 		qcom,cam-vreg-name = "cam_vaf";
-		qcom,cam-vreg-type = <0>;
 		qcom,cam-vreg-min-voltage = <2800000>;
 		qcom,cam-vreg-max-voltage = <2800000>;
 		qcom,cam-vreg-op-mode = <100000>;
@@ -72,7 +71,6 @@
 		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <270>;
 		qcom,cam-vreg-name = "cam_vio", "cam_vana";
-		qcom,cam-vreg-type = <1 0>;
 		qcom,cam-vreg-min-voltage = <0 2850000>;
 		qcom,cam-vreg-max-voltage = <0 2850000>;
 		qcom,cam-vreg-op-mode = <0 80000>;
