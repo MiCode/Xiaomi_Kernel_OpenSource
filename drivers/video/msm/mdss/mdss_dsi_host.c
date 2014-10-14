@@ -434,6 +434,109 @@ void mdss_dsi_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl, bool restore)
 	}
 }
 
+void mdss_dsi_ctrl_phy_restore(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl0, *ctrl1;
+	u32 ln0, ln1, ln_ctrl0, ln_ctrl1, i;
+	/*
+	 * Add delay suggested by HW team.
+	 */
+	u32 loop = 10;
+
+	if (ctrl->ndx == DSI_CTRL_1)
+		return;
+
+	pr_debug("MDSS DSI CTRL PHY restore. ctrl-num = %d\n", ctrl->ndx);
+
+	ctrl0 = mdss_dsi_get_ctrl_by_index(DSI_CTRL_0);
+	if (mdss_dsi_split_display_enabled()) {
+		ctrl1 = mdss_dsi_get_ctrl_by_index(DSI_CTRL_1);
+		if (!ctrl1)
+			return;
+
+		ln_ctrl0 = MIPI_INP(ctrl0->ctrl_base + 0x00ac);
+		ln_ctrl1 = MIPI_INP(ctrl1->ctrl_base + 0x00ac);
+		MIPI_OUTP(ctrl0->ctrl_base + 0x0ac, ln_ctrl0 & ~BIT(28));
+		MIPI_OUTP(ctrl1->ctrl_base + 0x0ac, ln_ctrl1 & ~BIT(28));
+
+		/*
+		 * Toggle Clk lane Force TX stop so that
+		 * clk lane status is no more in stop state
+		 */
+		ln0 = MIPI_INP(ctrl0->ctrl_base + 0x00a8);
+		ln1 = MIPI_INP(ctrl1->ctrl_base + 0x00a8);
+
+		pr_debug("%s: lane status, ctrl0 = 0x%x, ctrl1 = 0x%x\n",
+				__func__, ln0, ln1);
+
+		if ((ln0 == 0x1f0f) || (ln1 == 0x1f0f)) {
+			ln_ctrl0 = MIPI_INP(ctrl0->ctrl_base + 0x00ac);
+			ln_ctrl1 = MIPI_INP(ctrl1->ctrl_base + 0x00ac);
+			MIPI_OUTP(ctrl0->ctrl_base + 0x0ac, ln_ctrl0 | BIT(20));
+			MIPI_OUTP(ctrl1->ctrl_base + 0x0ac, ln_ctrl1 | BIT(20));
+
+			for (i = 0; i < loop; i++) {
+				ln0 = MIPI_INP(ctrl0->ctrl_base + 0x00a8);
+				ln1 = MIPI_INP(ctrl1->ctrl_base + 0x00a8);
+				if ((ln0 == 0x1f1f) && (ln1 == 0x1f1f))
+					break;
+				else
+					/*
+					 * check clk lane status for every 1
+					 * milli second
+					 */
+					udelay(1000);
+			}
+			pr_debug("%s: lane ctrl, ctrl0 = 0x%x, ctrl1 = 0x%x\n",
+					__func__, ln0, ln1);
+			MIPI_OUTP(ctrl0->ctrl_base + 0x0ac,
+					ln_ctrl0 & ~BIT(20));
+			MIPI_OUTP(ctrl1->ctrl_base + 0x0ac,
+					ln_ctrl1 & ~BIT(20));
+		}
+
+		ln_ctrl0 = MIPI_INP(ctrl0->ctrl_base + 0x00ac);
+		ln_ctrl1 = MIPI_INP(ctrl1->ctrl_base + 0x00ac);
+		MIPI_OUTP(ctrl0->ctrl_base + 0x0ac, ln_ctrl0 | BIT(28));
+		MIPI_OUTP(ctrl1->ctrl_base + 0x0ac, ln_ctrl1 | BIT(28));
+	} else {
+		ln_ctrl0 = MIPI_INP(ctrl0->ctrl_base + 0x00ac);
+		MIPI_OUTP(ctrl0->ctrl_base + 0x0ac, ln_ctrl0 & ~BIT(28));
+
+		/*
+		 * Toggle Clk lane Force TX stop so that
+		 * clk lane status is no more in stop state
+		 */
+		ln0 = MIPI_INP(ctrl0->ctrl_base + 0x00a8);
+
+		pr_debug("%s: lane status, ctrl0 = 0x%x\n", __func__, ln0);
+
+		if (ln0 == 0x1f0f) {
+			ln_ctrl0 = MIPI_INP(ctrl0->ctrl_base + 0x00ac);
+			MIPI_OUTP(ctrl0->ctrl_base + 0x0ac, ln_ctrl0 | BIT(20));
+
+			for (i = 0; i < loop; i++) {
+				ln0 = MIPI_INP(ctrl0->ctrl_base + 0x00a8);
+				if (ln0 == 0x1f1f)
+					break;
+				else
+					/*
+					 * check clk lane status for every 1
+					 * milli second
+					 */
+					udelay(1000);
+			}
+			pr_debug("%s: lane ctrl, ctrl0 = 0x%x\n",
+					__func__, ln0);
+			MIPI_OUTP(ctrl0->ctrl_base + 0x0ac,
+					ln_ctrl0 & ~BIT(20));
+		}
+
+		ln_ctrl0 = MIPI_INP(ctrl0->ctrl_base + 0x00ac);
+		MIPI_OUTP(ctrl0->ctrl_base + 0x0ac, ln_ctrl0 | BIT(28));
+	}
+}
+
 static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	u32 data0, data1;
