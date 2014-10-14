@@ -39,6 +39,26 @@ TRACE_EVENT(ufshcd_clk_gating,
 		__get_str(dev_name), __get_str(state))
 );
 
+TRACE_EVENT(ufshcd_hibern8_on_idle,
+
+	TP_PROTO(const char *dev_name, const char *state),
+
+	TP_ARGS(dev_name, state),
+
+	TP_STRUCT__entry(
+		__string(dev_name, dev_name)
+		__string(state, state)
+	),
+
+	TP_fast_assign(
+		__assign_str(dev_name, dev_name);
+		__assign_str(state, state);
+	),
+
+	TP_printk("%s: state changed to %s",
+		__get_str(dev_name), __get_str(state))
+);
+
 TRACE_EVENT(ufshcd_clk_scaling,
 
 	TP_PROTO(const char *dev_name, const char *state, const char *clk,
