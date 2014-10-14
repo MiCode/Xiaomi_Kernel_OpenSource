@@ -2718,7 +2718,7 @@
 
 	qcom,qseecom@6500000 {
 		compatible = "qcom,qseecom";
-		reg = <0x6500000 0x300000>;
+		reg = <0x6500000 0x500000>;
 		reg-names = "secapp-region";
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,file-encrypt-pipe-pair = <0>;
