@@ -1247,7 +1247,9 @@ osl_dma_alloc_consistent(osl_t *osh, uint size, uint16 align_bits, uint *alloced
 #else
 	{
 		dma_addr_t pap_lin;
-		va = pci_alloc_consistent(osh->pdev, size, &pap_lin);
+		struct pci_dev *hwdev = osh->pdev;
+
+		va = dma_alloc_coherent(&hwdev->dev, size, &pap_lin, GFP_ATOMIC);
 		*pap = (dmaaddr_t)pap_lin;
 	}
 #endif

@@ -93,7 +93,6 @@ typedef struct flow_queue {
 	uint16 max;                 /* maximum number of packets, queue may hold */
 	uint32 failures;            /* enqueue failures due to queue overflow */
 	flow_queue_cb_t cb;         /* callback invoked on threshold crossing */
-	void * lock;		/* OS specific lock handle for Q access protection */
 } flow_queue_t;
 
 #define flow_queue_len(queue)   ((int)(queue)->len)
@@ -117,6 +116,7 @@ typedef struct flow_ring_node {
 	uint16		flowid;
 	flow_info_t	flow_info;
 	void		*prot_info;
+	void		*lock; /* lock for flowring access protection */
 } flow_ring_node_t;
 typedef flow_ring_node_t flow_ring_table_t;
 

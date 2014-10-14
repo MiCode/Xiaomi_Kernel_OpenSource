@@ -384,6 +384,7 @@ typedef struct dhd_pub {
 	void    *flowid_allocator;  /* unique flowid allocator */
 	void	*flow_ring_table;   /* flow ring table, include prot and bus info */
 	void	*if_flow_lkup;      /* per interface flowid lkup hash table */
+	void	*flowid_lock;		/* per os lock for flowid info protection */
 	uint32  num_flow_rings;
 	uint8  flow_prio_map[NUMPRIO];
 	uint8	flow_prio_map_type;
@@ -1052,9 +1053,13 @@ extern void dhd_os_general_spin_unlock(dhd_pub_t *pub, unsigned long flags);
 #define DHD_GENERAL_UNLOCK(dhdp, flags) \
 	dhd_os_general_spin_unlock((dhdp), (flags))
 
-/* Enable DHD flowring queue spin lock/unlock */
-#define DHD_QUEUE_LOCK(lock, flags)       (flags) = dhd_os_spin_lock(lock)
-#define DHD_QUEUE_UNLOCK(lock, flags)     dhd_os_spin_unlock((lock), (flags))
+/* Enable DHD flowring spin lock/unlock */
+#define DHD_FLOWRING_LOCK(lock, flags)     (flags) = dhd_os_spin_lock(lock)
+#define DHD_FLOWRING_UNLOCK(lock, flags)   dhd_os_spin_unlock((lock), (flags))
+
+/* Enable DHD common flowring info spin lock/unlock */
+#define DHD_FLOWID_LOCK(lock, flags)       (flags) = dhd_os_spin_lock(lock)
+#define DHD_FLOWID_UNLOCK(lock, flags)     dhd_os_spin_unlock((lock), (flags))
 
 
 
