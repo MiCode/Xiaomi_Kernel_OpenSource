@@ -89,11 +89,20 @@ int msm_jpeg_platform_set_clk_rate(struct msm_jpeg_device *pgmn_dev,
 	if (IS_ERR(jpeg_clk)) {
 		JPEG_PR_ERR("%s get failed\n", "core_clk");
 		rc = PTR_ERR(jpeg_clk);
-		return rc;
+		goto error;
 	}
+
+	clk_rate = clk_round_rate(jpeg_clk, clk_rate);
+	if (clk_rate < 0) {
+		JPEG_PR_ERR("%s:%d] round rate failed", __func__, __LINE__);
+		rc = -EINVAL;
+		goto error;
+	}
+	JPEG_DBG("%s:%d] jpeg clk rate %ld", __func__, __LINE__, clk_rate);
 
 	rc = clk_set_rate(jpeg_clk, clk_rate);
 
+error:
 	return rc;
 }
 
