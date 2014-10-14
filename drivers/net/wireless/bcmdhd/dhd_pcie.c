@@ -74,6 +74,7 @@ int dhd_dongle_ramsize;
 static int dhdpcie_checkdied(dhd_bus_t *bus, char *data, uint size);
 static int dhdpcie_bus_readconsole(dhd_bus_t *bus);
 #endif
+static void dhdpcie_bus_report_pcie_linkdown(dhd_bus_t *bus);
 static int dhdpcie_bus_membytes(dhd_bus_t *bus, bool write, ulong address, uint8 *data, uint size);
 static int dhdpcie_bus_doiovar(dhd_bus_t *bus, const bcm_iovar_t *vi, uint32 actionid,
 	const char *name, void *params,
@@ -1450,6 +1451,18 @@ done:
 	return bcmerror;
 }
 #endif /* DHD_DEBUG */
+static void
+dhdpcie_bus_report_pcie_linkdown(dhd_bus_t *bus)
+{
+	if (bus == NULL)
+		return;
+#ifdef MSM_PCIE_LINKDOWN_RECOVERY
+	bus->islinkdown = TRUE;
+	DHD_ERROR(("PCIe link down, Device ID and Vendor ID are 0x%x\n",
+			dhdpcie_bus_cfg_read_dword(bus, PCI_VENDOR_ID, 4)));
+	dhd_os_send_hang_message(bus->dhd);
+#endif /* SUPPORT_LINKDOWN_RECOVERY */
+}
 
 /**
  * Transfers bytes from host to dongle using pio mode.
@@ -2878,7 +2891,7 @@ dhdpcie_bus_suspend(struct  dhd_bus *bus, bool state)
 		timeleft = dhd_os_d3ack_wait(bus->dhd, &bus->wait_for_d3_ack, &pending);
 		dhd_os_set_ioctl_resp_timeout(IOCTL_RESP_TIMEOUT);
 		DHD_OS_WAKE_LOCK_RESTORE(bus->dhd);
-		if (bus->wait_for_d3_ack) {
+		if (bus->wait_for_d3_ack == 1) {
 			/* Got D3 Ack. Suspend the bus */
 			if (dhd_os_check_wakelock_all(bus->dhd)) {
 				DHD_ERROR(("Suspend failed because of wakelock\n"));
@@ -2902,6 +2915,12 @@ dhdpcie_bus_suspend(struct  dhd_bus *bus, bool state)
 			bus->suspended = FALSE;
 			bus->dhd->busstate = DHD_BUS_DATA;
 			rc = -ETIMEDOUT;
+		} else if (bus->wait_for_d3_ack == DHD_INVALID) {
+			DHD_ERROR(("PCIe link down during suspend"));
+			bus->suspended = FALSE;
+			bus->dhd->busstate = DHD_BUS_DOWN;
+			rc = -ETIMEDOUT;
+			dhdpcie_bus_report_pcie_linkdown(bus);
 		}
 		bus->wait_for_d3_ack = 1;
 	} else {
@@ -2909,8 +2928,15 @@ dhdpcie_bus_suspend(struct  dhd_bus *bus, bool state)
 		DHD_ERROR(("dhdpcie_bus_suspend resume\n"));
 		rc = dhdpcie_pci_suspend_resume(bus->dev, state);
 		bus->suspended = FALSE;
-		bus->dhd->busstate = DHD_BUS_DATA;
-		dhdpcie_bus_intr_enable(bus);
+		if (dhdpcie_bus_cfg_read_dword(bus, PCI_VENDOR_ID, 4) == PCIE_LINK_DOWN) {
+			DHD_ERROR(("PCIe link down during resume"));
+			rc = -ETIMEDOUT;
+			bus->dhd->busstate = DHD_BUS_DOWN;
+			dhdpcie_bus_report_pcie_linkdown(bus);
+		} else {
+			bus->dhd->busstate = DHD_BUS_DATA;
+			dhdpcie_bus_intr_enable(bus);
+		}
 	}
 	return rc;
 }
@@ -3399,7 +3425,11 @@ dhdpcie_handle_mb_data(dhd_bus_t *bus)
 		return;
 
 	dhd_bus_cmn_writeshared(bus, &zero, sizeof(uint32), DTOH_MB_DATA, 0);
-
+	if (d2h_mb_data == PCIE_LINK_DOWN) {
+		DHD_ERROR(("%s pcie linkdown, 0x%08x\n", __FUNCTION__, d2h_mb_data));
+		bus->wait_for_d3_ack = DHD_INVALID;
+		dhd_os_d3ack_wake(bus->dhd);
+	}
 	DHD_INFO(("D2H_MB_DATA: 0x%04x\n", d2h_mb_data));
 	if (d2h_mb_data & D2H_DEV_DS_ENTER_REQ)  {
 		/* what should we do */
@@ -4119,7 +4149,7 @@ dhd_bus_flow_ring_delete_response(dhd_bus_t *bus, uint16 flowid, uint32 status)
 {
 	flow_ring_node_t *flow_ring_node;
 
-	DHD_INFO(("%s :Flow Delete Response %d \n", __FUNCTION__, flowid));
+	DHD_ERROR(("%s :Flow Delete Response %d \n", __FUNCTION__, flowid));
 
 	flow_ring_node = DHD_FLOW_RING(bus->dhd, flowid);
 	ASSERT(flow_ring_node->flowid == flowid);

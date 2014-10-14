@@ -1773,7 +1773,7 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata,
 		if (type != WLC_E_LINK) {
 			uint8 ifindex = (uint8)hostidx;
 			uint8 role = dhd_flow_rings_ifindex2role(dhd_pub, ifindex);
-			if (role == WLC_E_IF_ROLE_STA) {
+			if (DHD_IF_ROLE_STA(role)) {
 				dhd_flow_rings_delete(dhd_pub, ifindex);
 			} else {
 				dhd_flow_rings_delete_for_peer(dhd_pub, ifindex,

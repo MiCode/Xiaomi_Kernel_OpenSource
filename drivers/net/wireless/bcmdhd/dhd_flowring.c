@@ -355,7 +355,7 @@ dhd_flowid_find(dhd_pub_t *dhdp, uint8 ifindex, uint8 prio, char *sa, char *da)
 	DHD_FLOWID_LOCK(dhdp->flowid_lock, flags);
 	if_flow_lkup = (if_flow_lkup_t *)dhdp->if_flow_lkup;
 
-	if (if_flow_lkup[ifindex].role == WLC_E_IF_ROLE_STA) {
+	if (DHD_IF_ROLE_STA(if_flow_lkup[ifindex].role)) {
 #ifdef WLTDLS
 		if (dhdp->peer_tbl.tdls_peer_count && !(ETHER_ISMULTI(da)) &&
 			is_tdls_destination(dhdp, da)) {
@@ -439,7 +439,7 @@ dhd_flowid_alloc(dhd_pub_t *dhdp, uint8 ifindex, uint8 prio, char *sa, char *da)
 
 	DHD_FLOWID_LOCK(dhdp->flowid_lock, flags);
 	if_flow_lkup = (if_flow_lkup_t *)dhdp->if_flow_lkup;
-	if (if_flow_lkup[ifindex].role == WLC_E_IF_ROLE_STA) {
+	if (DHD_IF_ROLE_STA(if_flow_lkup[ifindex].role)) {
 		/* For STA non TDLS dest we allocate entry based on prio only */
 #ifdef WLTDLS
 		if (dhdp->peer_tbl.tdls_peer_count &&
@@ -721,7 +721,7 @@ dhd_update_interface_flow_info(dhd_pub_t *dhdp, uint8 ifindex,
 
 		if_flow_lkup[ifindex].role = role;
 
-		if (role != WLC_E_IF_ROLE_STA) {
+		if (!(DHD_IF_ROLE_STA(role))) {
 			if_flow_lkup[ifindex].status = TRUE;
 			DHD_INFO(("%s: Mcast Flow ring for ifindex %d role is %d \n",
 			          __FUNCTION__, ifindex, role));
@@ -751,7 +751,7 @@ dhd_update_interface_link_status(dhd_pub_t *dhdp, uint8 ifindex, uint8 status)
 	DHD_FLOWID_LOCK(dhdp->flowid_lock, flags);
 	if_flow_lkup = (if_flow_lkup_t *)dhdp->if_flow_lkup;
 
-	if (if_flow_lkup[ifindex].role == WLC_E_IF_ROLE_STA) {
+	if (DHD_IF_ROLE_STA(if_flow_lkup[ifindex].role)) {
 		if (status)
 			if_flow_lkup[ifindex].status = TRUE;
 		else

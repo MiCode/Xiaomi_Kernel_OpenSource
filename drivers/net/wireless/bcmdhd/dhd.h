@@ -90,6 +90,8 @@ enum dhd_bus_state {
 	DHD_BUS_SUSPEND,	/* Bus has been suspended */
 };
 
+#define DHD_IF_ROLE_STA(role)	(role == WLC_E_IF_ROLE_STA ||\
+				role == WLC_E_IF_ROLE_P2P_CLIENT)
 
 /* For supporting multiple interfaces */
 #define DHD_MAX_IFS	16

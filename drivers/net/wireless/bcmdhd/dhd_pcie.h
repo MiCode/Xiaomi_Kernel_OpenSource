@@ -48,7 +48,8 @@
 #define	REMAP_ISADDR(bus, a)		(((a) >= ((bus)->orig_ramsize)) && ((a) < ((bus)->ramsize)))
 
 #define MAX_DHD_TX_FLOWS	256
-
+#define PCIE_LINK_DOWN		0xFFFFFFFF
+#define DHD_INVALID 		-1
 /* user defined data structures */
 #ifdef DHD_DEBUG
 /* Device console log buffer state */
