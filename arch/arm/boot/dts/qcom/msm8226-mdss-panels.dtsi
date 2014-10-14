@@ -19,3 +19,4 @@
 #include "dsi-panel-jdi-1080p-video.dtsi"
 #include "dsi-panel-nt35590-qvga-cmd.dtsi"
 #include "dsi-panel-sim-video.dtsi"
+#include "dsi-panel-sim-cmd.dtsi"
