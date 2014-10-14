@@ -26,12 +26,13 @@ static void kgsl_sync_timeline_signal(struct sync_timeline *timeline,
 	unsigned int timestamp);
 
 static struct sync_pt *kgsl_sync_pt_create(struct sync_timeline *timeline,
-	unsigned int timestamp)
+	struct kgsl_context *context, unsigned int timestamp)
 {
 	struct sync_pt *pt;
 	pt = sync_pt_create(timeline, (int) sizeof(struct kgsl_sync_pt));
 	if (pt) {
 		struct kgsl_sync_pt *kpt = (struct kgsl_sync_pt *) pt;
+		kpt->context = context;
 		kpt->timestamp = timestamp;
 	}
 	return pt;
@@ -49,7 +50,7 @@ static void kgsl_sync_pt_destroy(struct sync_pt *pt)
 static struct sync_pt *kgsl_sync_pt_dup(struct sync_pt *pt)
 {
 	struct kgsl_sync_pt *kpt = (struct kgsl_sync_pt *) pt;
-	return kgsl_sync_pt_create(pt->parent, kpt->timestamp);
+	return kgsl_sync_pt_create(pt->parent, kpt->context, kpt->timestamp);
 }
 
 static int kgsl_sync_pt_has_signaled(struct sync_pt *pt)
@@ -119,6 +120,7 @@ static int _add_fence_event(struct kgsl_device *device,
 
 	event->context = context;
 	event->timestamp = timestamp;
+	event->context = context;
 
 	ret = kgsl_add_event(device, &context->events, timestamp,
 		kgsl_fence_event_cb, event);
@@ -168,7 +170,7 @@ int kgsl_add_fence_event(struct kgsl_device *device,
 	if (context == NULL)
 		goto unlock;
 
-	pt = kgsl_sync_pt_create(context->timeline, timestamp);
+	pt = kgsl_sync_pt_create(context->timeline, context, timestamp);
 	if (pt == NULL) {
 		KGSL_DRV_ERR(device, "kgsl_sync_pt_create failed\n");
 		ret = -ENOMEM;
@@ -291,6 +293,14 @@ static int kgsl_sync_fill_driver_data(struct sync_pt *sync_pt, void *data,
 	return sizeof(kpt->timestamp);
 }
 
+static void kgsl_sync_pt_log(struct sync_pt *sync_pt)
+{
+	struct kgsl_sync_pt *kpt = (struct kgsl_sync_pt *) sync_pt;
+	pr_info("-----\n");
+	kgsl_context_dump(kpt->context);
+	pr_info("-----\n");
+}
+
 static void kgsl_sync_timeline_release_obj(struct sync_timeline *sync_timeline)
 {
 	/*
@@ -309,6 +319,7 @@ static const struct sync_timeline_ops kgsl_sync_timeline_ops = {
 	.pt_value_str = kgsl_sync_pt_value_str,
 	.fill_driver_data = kgsl_sync_fill_driver_data,
 	.release_obj = kgsl_sync_timeline_release_obj,
+	.pt_log = kgsl_sync_pt_log,
 };
 
 int kgsl_sync_timeline_create(struct kgsl_context *context)
