@@ -35,6 +35,10 @@ Parent node optional properties:
 - qcom,cold-bat-decidegc:		Cold battery temperature in decidegC.
 - qcom,ext-sense-type:			Current sense channel used by the FG.
 					Set this to use external rsense.
+- qcom,thermal-coefficients:		Byte array of thermal coefficients for
+					reading battery thermistor. This should
+					be exactly 6 bytes in length.
+					Example: [01 02 03 04 05 06]
 - qcom,use-otp-profile:			Specify this flag to avoid RAM loading
 					any battery profile.
 
