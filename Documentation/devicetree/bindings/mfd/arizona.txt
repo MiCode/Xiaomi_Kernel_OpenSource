@@ -11,6 +11,9 @@ Required properties:
         "wlf,wm8280"
         "wlf,wm8281"
         "wlf,wm8997"
+        "wlf,wm8998"
+        "wlf,wm1814"
+
   - reg : I2C slave address when connected using I2C, chip select number when
     using SPI.
 
