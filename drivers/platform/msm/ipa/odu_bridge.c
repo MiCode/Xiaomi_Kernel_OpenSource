@@ -119,6 +119,7 @@ struct odu_bridge_ctx {
 	u32 odu_prod_hdl;
 	u32 odu_emb_cons_hdl;
 	u32 odu_teth_cons_hdl;
+	u32 ipa_sys_desc_size;
 };
 static struct odu_bridge_ctx *odu_bridge_ctx;
 
@@ -190,7 +191,7 @@ static int odu_bridge_connect_router(void)
 	odu_prod_params.client = IPA_CLIENT_ODU_PROD;
 	odu_prod_params.ipa_ep_cfg.hdr.hdr_len = ETH_HLEN;
 	odu_prod_params.ipa_ep_cfg.nat.nat_en = IPA_SRC_NAT;
-	odu_prod_params.desc_fifo_sz = IPA_ODU_SYS_DESC_FIFO_SZ;
+	odu_prod_params.desc_fifo_sz = odu_bridge_ctx->ipa_sys_desc_size;
 	odu_prod_params.priv = odu_bridge_ctx->priv;
 	odu_prod_params.notify = odu_bridge_ctx->tx_dp_notify;
 	odu_prod_params.keep_ipa_awake = true;
@@ -205,7 +206,7 @@ static int odu_bridge_connect_router(void)
 	odu_emb_cons_params.client = IPA_CLIENT_ODU_EMB_CONS;
 	odu_emb_cons_params.ipa_ep_cfg.hdr.hdr_len = ETH_HLEN;
 	odu_emb_cons_params.ipa_ep_cfg.nat.nat_en = IPA_BYPASS_NAT;
-	odu_emb_cons_params.desc_fifo_sz = IPA_ODU_SYS_DESC_FIFO_SZ;
+	odu_emb_cons_params.desc_fifo_sz = odu_bridge_ctx->ipa_sys_desc_size;
 	odu_emb_cons_params.priv = odu_bridge_ctx->priv;
 	odu_emb_cons_params.notify = odu_bridge_emb_cons_cb;
 	odu_emb_cons_params.keep_ipa_awake = true;
@@ -1129,6 +1130,7 @@ int odu_bridge_init(struct odu_bridge_params *params)
 	odu_bridge_ctx->send_dl_skb = params->send_dl_skb;
 	memcpy(odu_bridge_ctx->device_ethaddr, params->device_ethaddr,
 		ETH_ALEN);
+	odu_bridge_ctx->ipa_sys_desc_size = params->ipa_desc_size;
 	odu_bridge_ctx->mode = ODU_BRIDGE_MODE_ROUTER;
 
 	mutex_init(&odu_bridge_ctx->lock);
