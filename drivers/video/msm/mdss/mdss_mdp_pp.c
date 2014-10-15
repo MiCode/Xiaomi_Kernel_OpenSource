@@ -233,7 +233,6 @@ static int mdss_mdp_hscl_filter[] = {
 #define PP_SSPP		0
 #define PP_DSPP		1
 
-#define PP_STS_ENABLE	0x1
 #define PP_STS_GAMUT_FIRST	0x2
 
 #define PP_STS_PA_HUE_MASK		0x2
@@ -250,10 +249,6 @@ static int mdss_mdp_hscl_filter[] = {
 #define PP_STS_PA_SAT_ZERO_EXP_EN	0x1000
 
 #define PP_AD_BAD_HW_NUM 255
-
-#define MDSS_SIDE_NONE	0
-#define MDSS_SIDE_LEFT	1
-#define MDSS_SIDE_RIGHT	2
 
 #define PP_AD_STATE_INIT	0x2
 #define PP_AD_STATE_CFG		0x4
@@ -326,7 +321,17 @@ struct mdss_pp_res_type {
 	struct pp_sts_type pp_disp_sts[MDSS_BLOCK_DISP_NUM];
 	/* physical info */
 	struct pp_hist_col_info *dspp_hist;
+
+	/*
+	 * The pp_data_res will be a pointer to newer MDP revisions of the
+	 * pp_res, which will hold the cfg_payloads of each feature in a single
+	 * struct.
+	 */
+	void *pp_data_res;
 };
+
+static struct mdp_pp_driver_ops pp_driver_ops;
+static struct mdp_pp_feature_ops *pp_ops;
 
 static DEFINE_MUTEX(mdss_pp_mutex);
 static struct mdss_pp_res_type *mdss_pp_res;
@@ -420,8 +425,6 @@ static int pp_ad_linearize_bl(struct mdss_ad_info *ad, u32 bl, u32 *bl_out,
 static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 		int *ad_bl_out);
 static int pp_num_to_side(struct mdss_mdp_ctl *ctl, u32 num);
-static inline bool pp_sts_is_enabled(u32 sts, int side);
-static inline void pp_sts_set_split_bits(u32 *sts, u32 bits);
 
 static u32 last_sts, last_state;
 
@@ -2156,6 +2159,7 @@ int mdss_mdp_pp_init(struct device *dev)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_pipe *vig;
 	struct pp_hist_col_info *hist;
+	void *ret_ptr = NULL;
 
 	if (!mdata)
 		return -EPERM;
@@ -2195,6 +2199,15 @@ int mdss_mdp_pp_init(struct device *dev)
 					hist[3].intr_shift = 22;
 
 				mdss_pp_res->dspp_hist = hist;
+			}
+			ret_ptr = pp_get_driver_ops(&pp_driver_ops);
+			if (IS_ERR(ret_ptr)) {
+				pr_err("pp_get_driver_ops failed, ret=%d\n",
+						(int) PTR_ERR(ret_ptr));
+				ret = PTR_ERR(ret_ptr);
+			} else {
+				mdss_pp_res->pp_data_res = ret_ptr;
+				pp_ops = pp_driver_ops.pp_ops;
 			}
 		}
 	}
@@ -4388,34 +4401,6 @@ static int pp_num_to_side(struct mdss_mdp_ctl *ctl, u32 num)
 	else
 		pr_err("invalid, not on any side\n");
 	return -EINVAL;
-}
-
-static inline void pp_sts_set_split_bits(u32 *sts, u32 bits)
-{
-	u32 tmp = *sts;
-	tmp &= ~MDSS_PP_SPLIT_MASK;
-	tmp |= bits & MDSS_PP_SPLIT_MASK;
-	*sts = tmp;
-}
-
-static inline bool pp_sts_is_enabled(u32 sts, int side)
-{
-	bool ret = false;
-	/*
-	 * If there are no sides, or if there are no split mode bits set, the
-	 * side can't be disabled via split mode.
-	 *
-	 * Otherwise, if the side being checked opposes the split mode
-	 * configuration, the side is disabled.
-	 */
-	if ((side == MDSS_SIDE_NONE) || !(sts & MDSS_PP_SPLIT_MASK))
-		ret = true;
-	else if ((sts & MDSS_PP_SPLIT_RIGHT_ONLY) && (side == MDSS_SIDE_RIGHT))
-		ret = true;
-	else if ((sts & MDSS_PP_SPLIT_LEFT_ONLY) && (side == MDSS_SIDE_LEFT))
-		ret = true;
-
-	return ret && (sts & PP_STS_ENABLE);
 }
 
 static int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
