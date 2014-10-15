@@ -27,6 +27,12 @@ struct dolby_param_data32 {
 	compat_uptr_t data;
 };
 
+struct dolby_param_license32 {
+	compat_uptr_t dmid;
+	compat_uptr_t license_key;
+};
+
+
 #define SNDRV_DEVDEP_DAP_IOCTL_SET_PARAM32\
 		_IOWR('U', 0x10, struct dolby_param_data32)
 #define SNDRV_DEVDEP_DAP_IOCTL_GET_PARAM32\
@@ -34,7 +40,7 @@ struct dolby_param_data32 {
 #define SNDRV_DEVDEP_DAP_IOCTL_DAP_COMMAND32\
 		_IOWR('U', 0x13, struct dolby_param_data32)
 #define SNDRV_DEVDEP_DAP_IOCTL_DAP_LICENSE32\
-		_IOWR('U', 0x14, compat_uptr_t)
+		_IOWR('U', 0x14, struct dolby_param_license32)
 #define SNDRV_DEVDEP_DAP_IOCTL_GET_VISUALIZER32\
 		_IOR('U', 0x15, struct dolby_param_data32)
 #endif
