@@ -114,7 +114,6 @@ static struct mux_clk rpm_debug_mux = {
 	 * the BIMC Clock. measure the gcc_bimc_apss_axi_clk.
 	 */
 	{&bimc_clk.c,  0x0155},
-	{&qpic_clk.c, 0x0078},
 	),
 	.c = {
 		.dbg_name = "rpm_debug_mux",
