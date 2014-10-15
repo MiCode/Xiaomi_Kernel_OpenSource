@@ -395,6 +395,9 @@ u32 mdss_mdp_perf_calc_smp_size(struct mdss_mdp_pipe *pipe,
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 smp_bytes;
 
+	if (pipe->type == PIPE_TYPE_CURSOR)
+		return 0;
+
 	/* Get allocated or fixed smp bytes */
 	smp_bytes = mdss_mdp_smp_get_size(pipe);
 
