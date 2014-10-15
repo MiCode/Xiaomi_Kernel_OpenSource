@@ -103,9 +103,11 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 static void intel_dsi_device_ready(struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	int pipe = intel_crtc->pipe;
 	u32 val;
+	int count = 1;
 
 	DRM_DEBUG_KMS("\n");
 
@@ -121,14 +123,26 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 	I915_WRITE(MIPI_PORT_CTRL(0), val | LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
 
-	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_EXIT);
-	usleep_range(2000, 2500);
-	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY);
-	usleep_range(2000, 2500);
-	I915_WRITE(MIPI_DEVICE_READY(pipe), 0x00);
-	usleep_range(2000, 2500);
-	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY);
-	usleep_range(2000, 2500);
+	if (intel_dsi->dual_link) {
+		count = 2;
+		pipe = PIPE_A;
+	}
+
+	do {
+		I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY |
+							ULPS_STATE_EXIT);
+		usleep_range(2000, 2500);
+		I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY);
+		usleep_range(2000, 2500);
+		I915_WRITE(MIPI_DEVICE_READY(pipe), 0x00);
+		usleep_range(2000, 2500);
+		I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY);
+		usleep_range(2000, 2500);
+
+		/* For Port C for dual link */
+		if (intel_dsi->dual_link)
+			pipe = PIPE_B;
+	} while (--count > 0);
 }
 
 static void intel_dsi_port_enable(struct intel_encoder *encoder)
@@ -342,6 +356,7 @@ static void intel_dsi_disable(struct intel_encoder *encoder)
 	struct intel_connector *intel_connector = intel_dsi->attached_connector;
 	int pipe = intel_crtc->pipe;
 	u32 temp;
+	int count = 1;
 
 	DRM_DEBUG_KMS("\n");
 
@@ -359,25 +374,39 @@ static void intel_dsi_disable(struct intel_encoder *encoder)
 		msleep(2);
 	}
 
-	/* Panel commands can be sent when clock is in LP11 */
-	I915_WRITE(MIPI_DEVICE_READY(pipe), 0x0);
+	if (intel_dsi->dual_link) {
+		count = 2;
+		pipe = PIPE_A;
+	}
 
-	temp = I915_READ(MIPI_CTRL(pipe));
-	temp &= ~ESCAPE_CLOCK_DIVIDER_MASK;
-	I915_WRITE(MIPI_CTRL(pipe), temp |
-			intel_dsi->escape_clk_div <<
-			ESCAPE_CLOCK_DIVIDER_SHIFT);
+	do {
+		/* Panel commands can be sent when clock is in LP11 */
+		I915_WRITE(MIPI_DEVICE_READY(pipe), 0x0);
 
-	I915_WRITE(MIPI_EOT_DISABLE(pipe), CLOCKSTOP);
+		temp = I915_READ(MIPI_CTRL(pipe));
+		temp &= ~ESCAPE_CLOCK_DIVIDER_MASK;
+		I915_WRITE(MIPI_CTRL(pipe), temp |
+				intel_dsi->escape_clk_div <<
+				ESCAPE_CLOCK_DIVIDER_SHIFT);
 
-	temp = I915_READ(MIPI_DSI_FUNC_PRG(pipe));
-	temp &= ~VID_MODE_FORMAT_MASK;
-	I915_WRITE(MIPI_DSI_FUNC_PRG(pipe), temp);
+		I915_WRITE(MIPI_EOT_DISABLE(pipe), CLOCKSTOP);
 
-	I915_WRITE(MIPI_DEVICE_READY(pipe), 0x1);
+		temp = I915_READ(MIPI_DSI_FUNC_PRG(pipe));
+		temp &= ~VID_MODE_FORMAT_MASK;
+		I915_WRITE(MIPI_DSI_FUNC_PRG(pipe), temp);
 
-	/* if disable packets are sent before sending shutdown packet then in
-	 * some next enable sequence send turn on packet error is observed */
+		I915_WRITE(MIPI_DEVICE_READY(pipe), 0x1);
+
+		/* For Port C for dual link */
+		if (intel_dsi->dual_link)
+			pipe = PIPE_B;
+	} while (--count > 0);
+
+	/*
+	 * if disable packets are sent before sending shutdown packet
+	 * then in some next enable sequence send turn on packet error
+	 * is observed
+	 */
 	if (intel_dsi->dev.dev_ops->disable)
 		intel_dsi->dev.dev_ops->disable(&intel_dsi->dev);
 
@@ -573,6 +602,8 @@ static void set_dsi_timings(struct drm_encoder *encoder,
 	int pipe = intel_crtc->pipe;
 	unsigned int bpp = intel_crtc->config.pipe_bpp;
 	unsigned int lane_count = intel_dsi->lane_count;
+	int count = 1;
+	u16 mode_hactive;
 
 	u16 hactive, hfp, hsync, hbp, vfp, vsync, vbp;
 
@@ -581,6 +612,21 @@ static void set_dsi_timings(struct drm_encoder *encoder,
 	hsync = mode->hsync_end - mode->hsync_start;
 	hbp = mode->htotal - mode->hsync_end;
 
+	if (intel_dsi->dual_link) {
+		hactive /= 2;
+		if ((IS_CHERRYVIEW(dev_priv->dev) &&
+			STEP_FROM(STEP_B0)) &&
+			(intel_dsi->dual_link & MIPI_DUAL_LINK_FRONT_BACK))
+			hactive += intel_dsi->pixel_overlap;
+		hfp /= 2;
+		hsync /= 2;
+		hbp /= 2;
+
+		count = 2;
+		pipe = PIPE_A;
+	}
+
+	mode_hactive = hactive;
 	vfp = mode->vsync_start - mode->vdisplay;
 	vsync = mode->vsync_end - mode->vsync_start;
 	vbp = mode->vtotal - mode->vsync_end;
@@ -591,18 +637,30 @@ static void set_dsi_timings(struct drm_encoder *encoder,
 	hsync = txbyteclkhs(hsync, bpp, lane_count);
 	hbp = txbyteclkhs(hbp, bpp, lane_count);
 
-	I915_WRITE(MIPI_HACTIVE_AREA_COUNT(pipe), hactive);
-	I915_WRITE(MIPI_HFP_COUNT(pipe), hfp);
+	do {
+		I915_WRITE(MIPI_HACTIVE_AREA_COUNT(pipe), hactive);
+		I915_WRITE(MIPI_HFP_COUNT(pipe), hfp);
 
-	/* meaningful for video mode non-burst sync pulse mode only, can be zero
-	 * for non-burst sync events and burst modes */
-	I915_WRITE(MIPI_HSYNC_PADDING_COUNT(pipe), hsync);
-	I915_WRITE(MIPI_HBP_COUNT(pipe), hbp);
+		/*
+		 * meaningful for video mode non-burst sync pulse mode only,
+		 * can be zero for non-burst sync events and burst modes
+		 */
+		I915_WRITE(MIPI_HSYNC_PADDING_COUNT(pipe), hsync);
+		I915_WRITE(MIPI_HBP_COUNT(pipe), hbp);
 
-	/* vertical values are in terms of lines */
-	I915_WRITE(MIPI_VFP_COUNT(pipe), vfp);
-	I915_WRITE(MIPI_VSYNC_PADDING_COUNT(pipe), vsync);
-	I915_WRITE(MIPI_VBP_COUNT(pipe), vbp);
+		/* vertical values are in terms of lines */
+		I915_WRITE(MIPI_VFP_COUNT(pipe), vfp);
+		I915_WRITE(MIPI_VSYNC_PADDING_COUNT(pipe), vsync);
+		I915_WRITE(MIPI_VBP_COUNT(pipe), vbp);
+
+		I915_WRITE(MIPI_DPI_RESOLUTION(pipe),
+			   mode->vdisplay << VERTICAL_ADDRESS_SHIFT |
+			   mode_hactive << HORIZONTAL_ADDRESS_SHIFT);
+
+		/* For Port C for dual link */
+		if (intel_dsi->dual_link)
+			pipe = PIPE_B;
+	} while (--count > 0);
 }
 
 static void intel_dsi_prepare(struct intel_encoder *intel_encoder)
@@ -614,132 +672,166 @@ static void intel_dsi_prepare(struct intel_encoder *intel_encoder)
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(encoder);
 	struct drm_display_mode *adjusted_mode =
 		&intel_crtc->config.adjusted_mode;
-	int pipe = intel_crtc->pipe;
+	int pipe = intel_crtc->pipe, count = 1;
 	unsigned int bpp = intel_crtc->config.pipe_bpp;
 	u32 val, tmp;
 
 	DRM_DEBUG_KMS("pipe %c\n", pipe_name(pipe));
 
-	/* escape clock divider, 20MHz, shared for A and C. device ready must be
-	 * off when doing this! txclkesc? */
-	tmp = I915_READ(MIPI_CTRL(0));
-	tmp &= ~ESCAPE_CLOCK_DIVIDER_MASK;
-	I915_WRITE(MIPI_CTRL(0), tmp | ESCAPE_CLOCK_DIVIDER_1);
+	if (intel_dsi->dual_link) {
+		count = 2;
+		pipe = PIPE_A;
+	}
 
-	/* read request priority is per pipe */
-	tmp = I915_READ(MIPI_CTRL(pipe));
-	tmp &= ~READ_REQUEST_PRIORITY_MASK;
-	I915_WRITE(MIPI_CTRL(pipe), tmp | READ_REQUEST_PRIORITY_HIGH);
+	do {
+		/*
+		 * escape clock divider, 20MHz, shared for A and C.
+		 * device ready must be off when doing this! txclkesc?
+		 */
+		tmp = I915_READ(MIPI_CTRL(0));
+		tmp &= ~ESCAPE_CLOCK_DIVIDER_MASK;
+		I915_WRITE(MIPI_CTRL(0), tmp | ESCAPE_CLOCK_DIVIDER_1);
 
-	/* XXX: why here, why like this? handling in irq handler?! */
-	I915_WRITE(MIPI_INTR_STAT(pipe), 0xffffffff);
-	I915_WRITE(MIPI_INTR_EN(pipe), 0xffffffff);
+		/* read request priority is per pipe */
+		tmp = I915_READ(MIPI_CTRL(pipe));
+		tmp &= ~READ_REQUEST_PRIORITY_MASK;
+		I915_WRITE(MIPI_CTRL(pipe), tmp | READ_REQUEST_PRIORITY_HIGH);
 
-	I915_WRITE(MIPI_DPHY_PARAM(pipe), intel_dsi->dphy_reg);
+		/* XXX: why here, why like this? handling in irq handler?! */
+		I915_WRITE(MIPI_INTR_STAT(pipe), 0xffffffff);
+		I915_WRITE(MIPI_INTR_EN(pipe), 0xffffffff);
 
-	I915_WRITE(MIPI_DPI_RESOLUTION(pipe),
-		   adjusted_mode->vdisplay << VERTICAL_ADDRESS_SHIFT |
-		   adjusted_mode->hdisplay << HORIZONTAL_ADDRESS_SHIFT);
+		I915_WRITE(MIPI_DPHY_PARAM(pipe), intel_dsi->dphy_reg);
+
+		/* For Port C for dual link */
+		if (intel_dsi->dual_link)
+			pipe = PIPE_B;
+	} while (--count > 0);
 
 	set_dsi_timings(encoder, adjusted_mode);
 
-	val = intel_dsi->lane_count << DATA_LANES_PRG_REG_SHIFT;
-	if (is_cmd_mode(intel_dsi)) {
-		val |= intel_dsi->channel << CMD_MODE_CHANNEL_NUMBER_SHIFT;
-		val |= CMD_MODE_DATA_WIDTH_8_BIT; /* XXX */
-	} else {
-		val |= intel_dsi->channel << VID_MODE_CHANNEL_NUMBER_SHIFT;
+	if (intel_dsi->dual_link) {
+		pipe = PIPE_A;
+		count = 2;
+	} else
+		count = 1;
 
-		/* XXX: cross-check bpp vs. pixel format? */
-		val |= intel_dsi->pixel_format;
-	}
-	I915_WRITE(MIPI_DSI_FUNC_PRG(pipe), val);
+	do {
+		val = intel_dsi->lane_count << DATA_LANES_PRG_REG_SHIFT;
+		if (is_cmd_mode(intel_dsi)) {
+			val |= intel_dsi->channel <<
+					CMD_MODE_CHANNEL_NUMBER_SHIFT;
+			val |= CMD_MODE_DATA_WIDTH_8_BIT; /* XXX */
+		} else {
+			val |= intel_dsi->channel <<
+					VID_MODE_CHANNEL_NUMBER_SHIFT;
 
-	/* timeouts for recovery. one frame IIUC. if counter expires, EOT and
-	 * stop state. */
+			/* XXX: cross-check bpp vs. pixel format? */
+			val |= intel_dsi->pixel_format;
+		}
+		I915_WRITE(MIPI_DSI_FUNC_PRG(pipe), val);
 
-	/*
-	 * In burst mode, value greater than one DPI line Time in byte clock
-	 * (txbyteclkhs) To timeout this timer 1+ of the above said value is
-	 * recommended.
-	 *
-	 * In non-burst mode, Value greater than one DPI frame time in byte
-	 * clock(txbyteclkhs) To timeout this timer 1+ of the above said value
-	 * is recommended.
-	 *
-	 * In DBI only mode, value greater than one DBI frame time in byte
-	 * clock(txbyteclkhs) To timeout this timer 1+ of the above said value
-	 * is recommended.
-	 */
+		/*
+		 * timeouts for recovery. one frame IIUC. if counter expires,
+		 * EOT and stop state.
+		 */
 
-	if (is_vid_mode(intel_dsi) &&
-	    intel_dsi->video_mode_format == VIDEO_MODE_BURST) {
-		I915_WRITE(MIPI_HS_TX_TIMEOUT(pipe),
+		/*
+		 * In burst mode, value greater than one DPI line Time in byte
+		 * clock (txbyteclkhs) To timeout this timer 1+ of the above
+		 * said value is recommended.
+		 *
+		 * In non-burst mode, Value greater than one DPI frame time in
+		 * byte clock(txbyteclkhs) To timeout this timer 1+ of the above
+		 * said value is recommended.
+		 *
+		 * In DBI only mode, value greater than one DBI frame time in
+		 * byte clock(txbyteclkhs) To timeout this timer 1+ of the above
+		 * said value is recommended.
+		 */
+
+		if (is_vid_mode(intel_dsi) &&
+			intel_dsi->video_mode_format == VIDEO_MODE_BURST) {
+			I915_WRITE(MIPI_HS_TX_TIMEOUT(pipe),
 			   txbyteclkhs(adjusted_mode->htotal, bpp,
 				       intel_dsi->lane_count) + 1);
-	} else {
-		I915_WRITE(MIPI_HS_TX_TIMEOUT(pipe),
+		} else {
+			I915_WRITE(MIPI_HS_TX_TIMEOUT(pipe),
 			   txbyteclkhs(adjusted_mode->vtotal *
 				       adjusted_mode->htotal,
 				       bpp, intel_dsi->lane_count) + 1);
-	}
-	I915_WRITE(MIPI_LP_RX_TIMEOUT(pipe), intel_dsi->lp_rx_timeout);
-	I915_WRITE(MIPI_TURN_AROUND_TIMEOUT(pipe), intel_dsi->turn_arnd_val);
-	I915_WRITE(MIPI_DEVICE_RESET_TIMER(pipe), intel_dsi->rst_timer_val);
+		}
 
-	/* dphy stuff */
+		I915_WRITE(MIPI_LP_RX_TIMEOUT(pipe), intel_dsi->lp_rx_timeout);
+		I915_WRITE(MIPI_TURN_AROUND_TIMEOUT(pipe),
+					intel_dsi->turn_arnd_val);
+		I915_WRITE(MIPI_DEVICE_RESET_TIMER(pipe),
+						intel_dsi->rst_timer_val);
 
-	/* in terms of low power clock */
-	I915_WRITE(MIPI_INIT_COUNT(pipe), txclkesc(intel_dsi->escape_clk_div, 100));
+		/* dphy stuff */
 
-	val = 0;
-	if (intel_dsi->eotp_pkt == 0)
-		val |= EOT_DISABLE;
+		/* in terms of low power clock */
+		I915_WRITE(MIPI_INIT_COUNT(pipe),
+				txclkesc(intel_dsi->escape_clk_div, 100));
 
-	if (intel_dsi->clock_stop)
-		val |= CLOCKSTOP;
+		val = 0;
+		if (intel_dsi->eotp_pkt == 0)
+			val |= EOT_DISABLE;
 
-	/* recovery disables */
-	I915_WRITE(MIPI_EOT_DISABLE(pipe), val);
+		if (intel_dsi->clock_stop)
+			val |= CLOCKSTOP;
 
-	/* in terms of low power clock */
-	I915_WRITE(MIPI_INIT_COUNT(pipe), intel_dsi->init_count);
+		/* recovery disables */
+		I915_WRITE(MIPI_EOT_DISABLE(pipe), val);
 
-	/* in terms of txbyteclkhs. actual high to low switch +
-	 * MIPI_STOP_STATE_STALL * MIPI_LP_BYTECLK.
-	 *
-	 * XXX: write MIPI_STOP_STATE_STALL?
-	 */
-	I915_WRITE(MIPI_HIGH_LOW_SWITCH_COUNT(pipe),
-						intel_dsi->hs_to_lp_count);
+		/*
+		 * in terms of txbyteclkhs. actual high to low switch +
+		 * MIPI_STOP_STATE_STALL * MIPI_LP_BYTECLK.
+		 *
+		 * XXX: write MIPI_STOP_STATE_STALL?
+		 */
+		I915_WRITE(MIPI_HIGH_LOW_SWITCH_COUNT(pipe),
+				intel_dsi->hs_to_lp_count);
 
-	/* XXX: low power clock equivalence in terms of byte clock. the number
-	 * of byte clocks occupied in one low power clock. based on txbyteclkhs
-	 * and txclkesc. txclkesc time / txbyteclk time * (105 +
-	 * MIPI_STOP_STATE_STALL) / 105.???
-	 */
-	I915_WRITE(MIPI_LP_BYTECLK(pipe), intel_dsi->lp_byte_clk);
+		/*
+		 * XXX: low power clock equivalence in terms of byte clock.
+		 * the number of byte clocks occupied in one low power clock.
+		 * based on txbyteclkhs and txclkesc. txclkesc time / txbyteclk
+		 * time * (105 + MIPI_STOP_STATE_STALL) / 105.???
+		 */
+		I915_WRITE(MIPI_LP_BYTECLK(pipe), intel_dsi->lp_byte_clk);
 
-	/* the bw essential for transmitting 16 long packets containing 252
-	 * bytes meant for dcs write memory command is programmed in this
-	 * register in terms of byte clocks. based on dsi transfer rate and the
-	 * number of lanes configured the time taken to transmit 16 long packets
-	 * in a dsi stream varies. */
-	I915_WRITE(MIPI_DBI_BW_CTRL(pipe), intel_dsi->bw_timer);
+		/*
+		 * the bw essential for transmitting 16 long packets containing
+		 * 252 bytes meant for dcs write memory command is programmed
+		 * in this register in terms of byte clocks. based on dsi
+		 * transfer rate and the number of lanes configured the time
+		 * taken to transmit 16 long packets in a dsi stream varies.
+		 */
+		I915_WRITE(MIPI_DBI_BW_CTRL(pipe), intel_dsi->bw_timer);
 
-	I915_WRITE(MIPI_CLK_LANE_SWITCH_TIME_CNT(pipe),
+		I915_WRITE(MIPI_CLK_LANE_SWITCH_TIME_CNT(pipe),
 		   intel_dsi->clk_lp_to_hs_count << LP_HS_SSW_CNT_SHIFT |
 		   intel_dsi->clk_hs_to_lp_count << HS_LP_PWR_SW_CNT_SHIFT);
 
-	if (is_vid_mode(intel_dsi))
-		/* Some panels might have resolution which is not a multiple of
-		 * 64 like 1366 x 768. Enable RANDOM resolution support for such
-		 * panels by default */
-		I915_WRITE(MIPI_VIDEO_MODE_FORMAT(pipe),
+		if (is_vid_mode(intel_dsi)) {
+			/*
+			 * Some panels might have resolution which is not a
+			 * multiple of 64 like 1366 x 768. Enable RANDOM
+			 * resolution support for such panels by default
+			  */
+			I915_WRITE(MIPI_VIDEO_MODE_FORMAT(pipe),
 				intel_dsi->video_frmt_cfg_bits |
 				intel_dsi->video_mode_format |
 				IP_TG_CONFIG |
 				RANDOM_DPI_DISPLAY_RESOLUTION);
+		}
+
+		/* For Port C for dual link */
+		if (intel_dsi->dual_link)
+			pipe = PIPE_B;
+
+	} while (--count > 0);
 }
 
 static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
