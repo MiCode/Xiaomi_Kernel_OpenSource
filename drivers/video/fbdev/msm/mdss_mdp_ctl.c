@@ -2153,10 +2153,19 @@ static void mdss_mdp_ctl_split_display_enable(int enable,
 
 	if ((main_ctl->mdata->mdp_rev >= MDSS_MDP_HW_REV_103)
 		&& main_ctl->is_video_mode) {
-		main_ctl->split_flush_en = true;
-		writel_relaxed(enable ? 0x1 : 0x0,
-			main_ctl->mdata->mdp_base +
-			MMSS_MDP_MDP_SSPP_SPARE_0);
+		struct mdss_overlay_private *mdp5_data;
+		bool mixer_swap = false;
+
+		if (main_ctl->mfd) {
+			mdp5_data = mfd_to_mdp5_data(main_ctl->mfd);
+			mixer_swap = mdp5_data->mixer_swap;
+		}
+
+		main_ctl->split_flush_en = !mixer_swap;
+		if (main_ctl->split_flush_en)
+			writel_relaxed(enable ? 0x1 : 0x0,
+				main_ctl->mdata->mdp_base +
+				MMSS_MDP_MDP_SSPP_SPARE_0);
 	}
 }
 
