@@ -4810,6 +4810,13 @@ static void cherryview_enable_rps(struct drm_device *dev)
 			 vlv_gpu_freq(dev_priv, dev_priv->rps.efficient_freq),
 			 dev_priv->rps.efficient_freq);
 
+	/* Setting Fixed Power Bias */
+	val = VLV_OVERRIDE_RPS_REG
+		| VLV_ENABLE_TDP_SHARE
+		| VLV_BIAS_VAL;
+
+	vlv_punit_write(dev_priv, VLV_IOSFB_RPS_OVERRIDE, val);
+
 	valleyview_set_rps(dev_priv->dev, dev_priv->rps.efficient_freq);
 
 	vlv_set_rps_mode(dev, false);

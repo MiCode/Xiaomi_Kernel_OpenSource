@@ -611,6 +611,11 @@ enum punit_power_well {
 #define   FB_FMAX_VMIN_FREQ_LO_SHIFT		27
 #define   FB_FMAX_VMIN_FREQ_LO_MASK		0xf8000000
 
+#define VLV_IOSFB_RPS_OVERRIDE                  0x04
+#define VLV_OVERRIDE_RPS_REG                    1
+#define VLV_ENABLE_TDP_SHARE			(1 << 1)
+#define VLV_BIAS_VAL				(6 << 2)
+
 #define VLV_CZ_CLOCK_TO_MILLI_SEC		100000
 #define VLV_RP_UP_EI_THRESHOLD			90
 #define VLV_RP_DOWN_EI_THRESHOLD		70
