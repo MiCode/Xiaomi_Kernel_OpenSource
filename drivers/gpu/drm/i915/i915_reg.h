@@ -6385,6 +6385,9 @@ enum punit_power_well {
 #define  TEARING_EFFECT_DELAY_SHIFT			0
 #define  TEARING_EFFECT_DELAY_MASK			(0xffff << 0)
 
+#define DELAY_180_PHASE_SHIFT_MIPIA			0x682C0000
+#define DELAY_180_PHASE_SHIFT_MIPIC			0xF0E0
+
 /* XXX: all bits reserved */
 #define _MIPIA_AUTOPWG				(VLV_DISPLAY_BASE + 0x611a0)
 

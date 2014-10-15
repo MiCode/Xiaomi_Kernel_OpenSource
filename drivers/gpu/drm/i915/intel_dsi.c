@@ -110,8 +110,17 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 	DRM_DEBUG_KMS("\n");
 
 	val = I915_READ(MIPI_PORT_CTRL(0));
+
+	/*
+	 * Putting delay of 180 phase shift for MIPI Port A & Port C
+	 * Values given by SV team
+	 */
+	if (IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_A2))
+		val |= pipe ? DELAY_180_PHASE_SHIFT_MIPIC :
+				DELAY_180_PHASE_SHIFT_MIPIA;
 	I915_WRITE(MIPI_PORT_CTRL(0), val | LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
+
 	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_EXIT);
 	usleep_range(2000, 2500);
 	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY);
@@ -148,8 +157,6 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 		/* assert ip_tg_enable signal */
 		temp = I915_READ(MIPI_PORT_CTRL(pipe)) & ~LANE_CONFIGURATION_MASK;
 		temp = temp | intel_dsi->port_bits;
-		if (IS_CHERRYVIEW(dev))
-			temp |= 0xe82d0000;
 		I915_WRITE(MIPI_PORT_CTRL(pipe), temp | DPI_ENABLE);
 		POSTING_READ(MIPI_PORT_CTRL(pipe));
 	}
