@@ -2,5 +2,7 @@
 header-y += fc/
 header-y += ufs/
 header-y += scsi_bsg_fc.h
+header-y += sg.h
+header-y += scsi_ioctl.h
 header-y += scsi_netlink.h
 header-y += scsi_netlink_fc.h
