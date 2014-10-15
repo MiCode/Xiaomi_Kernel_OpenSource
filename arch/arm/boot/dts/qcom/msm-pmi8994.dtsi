@@ -286,6 +286,7 @@
 			#size-cells = <1>;
 			qcom,resume-soc = <95>;
 			status = "okay";
+			qcom,bcl-lm-threshold-ma = <127>;
 
 			qcom,fg-soc@4000 {
 				status = "okay";
