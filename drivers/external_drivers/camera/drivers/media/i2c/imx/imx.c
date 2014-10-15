@@ -38,7 +38,6 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/acpi.h>
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <linux/atomisp_gmin_platform.h>
@@ -708,19 +707,6 @@ static int imx_s_power(struct v4l2_subdev *sd, int on)
 	mutex_unlock(&dev->input_lock);
 
 	return ret;
-}
-
-static int imx_g_chip_ident(struct v4l2_subdev *sd,
-				struct v4l2_dbg_chip_ident *chip)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-
-	if (!chip)
-		return -EINVAL;
-
-	v4l2_chip_ident_i2c_client(client, chip, V4L2_IDENT_IMX, 0);
-
-	return 0;
 }
 
 static int imx_get_intg_factor(struct i2c_client *client,
@@ -2193,7 +2179,6 @@ static const struct v4l2_subdev_video_ops imx_video_ops = {
 };
 
 static const struct v4l2_subdev_core_ops imx_core_ops = {
-	.g_chip_ident = imx_g_chip_ident,
 	.queryctrl = imx_queryctrl,
 	.g_ctrl = imx_g_ctrl,
 	.s_ctrl = imx_s_ctrl,

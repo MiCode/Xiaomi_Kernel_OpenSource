@@ -83,7 +83,6 @@ static struct intel_v4l2_subdev_table pdata_subdevs[MAX_SUBDEVS+1];
 
 static const struct atomisp_platform_data pdata = {
 	.subdevs = pdata_subdevs,
-	.spid = &spid,
 };
 
 /*
@@ -149,9 +148,9 @@ const struct camera_af_platform_data *camera_get_af_platform_data(void)
 }
 EXPORT_SYMBOL_GPL(camera_get_af_platform_data);
 
-int atomisp_register_i2c_module(struct i2c_client *client,
-                                enum intel_v4l2_subdev_type type,
-                                enum atomisp_camera_port port)
+int atomisp_register_i2c_module(struct v4l2_subdev *subdev,
+                                struct camera_sensor_platform_data *plat_data,
+                                enum intel_v4l2_subdev_type type)
 {
 	int i;
 	struct i2c_board_info *bi;
@@ -176,6 +175,7 @@ int atomisp_register_i2c_module(struct i2c_client *client,
 
 	pdata.subdevs[i].type = type;
 	pdata.subdevs[i].port = gs->csi_port;
+	pdata.subdevs[i].subdev = subdev;
 	pdata.subdevs[i].v4l2_subdev.i2c_adapter_id = client->adapter->nr;
 
 	/* Convert i2c_client to i2c_board_info */
@@ -192,6 +192,21 @@ int atomisp_register_i2c_module(struct i2c_client *client,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(atomisp_register_i2c_module);
+
+struct v4l2_subdev *atomisp_gmin_find_subdev(struct i2c_adapter *adapter,
+					     struct i2c_board_info *board_info)
+{
+	int i;
+	for (i=0; i < MAX_SUBDEVS && pdata.subdevs[i].type; i++) {
+		struct intel_v4l2_subdev_table *sd = &pdata.subdevs[i];
+		if (sd->v4l2_subdev.i2c_adapter_id == adapter->nr &&
+		    sd->v4l2_subdev.board_info.addr == board_info->addr)
+			return sd->subdev;
+	}
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(atomisp_gmin_find_subdev);
+
 
 struct gmin_cfg_var {
 	const char *name, *val;
@@ -551,7 +566,6 @@ EXPORT_SYMBOL_GPL(gmin_camera_platform_data);
  * configuration is based on firmware ID. */
 int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *out_len)
 {
-	struct device *adev;
 	char var8[CFG_VAR_NAME_MAX];
 	efi_char16_t var16[CFG_VAR_NAME_MAX];
 	struct efivar_entry *ev;
@@ -559,12 +573,14 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 	int i, j, ret;
 	unsigned long efilen;
 
-	if (!ACPI_COMPANION(dev))
-		return -ENODEV;
+        if (dev && ACPI_COMPANION(dev))
+                dev = &ACPI_COMPANION(dev)->dev;
 
-	adev = &ACPI_COMPANION(dev)->dev;
+        if (dev)
+                ret = snprintf(var8, sizeof(var8), "%s_%s", dev_name(dev), var);
+        else
+                ret = snprintf(var8, sizeof(var8), "gmin_%s", var);
 
-	ret = snprintf(var8, sizeof(var8), "%s_%s", dev_name(adev), var);
 	if (ret < 0 || ret >= sizeof(var8)-1)
 		return -EINVAL;
 

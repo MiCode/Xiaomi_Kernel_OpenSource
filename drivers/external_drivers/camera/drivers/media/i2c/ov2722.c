@@ -34,7 +34,6 @@
 #include <linux/gpio.h>
 #include <linux/moduleparam.h>
 #include <media/v4l2-device.h>
-#include <media/v4l2-chip-ident.h>
 #include <linux/io.h>
 #include <linux/acpi.h>
 #include <linux/atomisp_gmin_platform.h>

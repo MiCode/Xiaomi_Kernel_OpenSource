@@ -902,6 +902,29 @@ struct v4l2_private_int_data {
 	__u32 reserved[2];
 };
 
+enum atomisp_sensor_ae_bracketing_mode {
+	SENSOR_AE_BRACKETING_MODE_OFF = 0,
+	SENSOR_AE_BRACKETING_MODE_SINGLE, /* back to SW standby after bracketing */
+	SENSOR_AE_BRACKETING_MODE_SINGLE_TO_STREAMING, /* back to normal streaming after bracketing */
+	SENSOR_AE_BRACKETING_MODE_LOOP, /* continue AE bracketing in loop mode */
+};
+
+struct atomisp_sensor_ae_bracketing_info {
+	unsigned int modes; /* bit mask to indicate supported modes  */
+	unsigned int lut_depth;
+};
+
+struct atomisp_sensor_ae_bracketing_lut_entry {
+	__u16 coarse_integration_time;
+	__u16 analog_gain;
+	__u16 digital_gain;
+};
+
+struct atomisp_sensor_ae_bracketing_lut {
+	struct atomisp_sensor_ae_bracketing_lut_entry *lut;
+	unsigned int lut_size;
+};
+
 /*Private IOCTLs for ISP */
 #define ATOMISP_IOC_G_XNR \
 	_IOR('v', BASE_VIDIOC_PRIVATE + 0, int)
@@ -1120,6 +1143,22 @@ struct v4l2_private_int_data {
 
 #define ATOMISP_IOC_G_ACC_STATE \
 	_IOR('v', BASE_VIDIOC_PRIVATE + 41, struct atomisp_acc_state)
+
+#define ATOMISP_IOC_INJECT_A_FAKE_EVENT \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 42, int)
+
+#define ATOMISP_IOC_G_SENSOR_AE_BRACKETING_INFO \
+	_IOR('v', BASE_VIDIOC_PRIVATE + 43, struct atomisp_sensor_ae_bracketing_info)
+
+#define ATOMISP_IOC_S_SENSOR_AE_BRACKETING_MODE \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 43, unsigned int)
+
+#define ATOMISP_IOC_G_SENSOR_AE_BRACKETING_MODE \
+	_IOR('v', BASE_VIDIOC_PRIVATE + 43, unsigned int)
+
+#define ATOMISP_IOC_S_SENSOR_AE_BRACKETING_LUT \
+	_IOW('v', BASE_VIDIOC_PRIVATE + 43, struct atomisp_sensor_ae_bracketing_lut)
+
 
 /*
  * Reserved ioctls. We have customer implementing it internally.

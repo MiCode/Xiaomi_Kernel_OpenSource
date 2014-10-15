@@ -31,7 +31,6 @@
 #include <linux/videodev2.h>
 #include <linux/v4l2-mediabus.h>
 #include <media/media-entity.h>
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>

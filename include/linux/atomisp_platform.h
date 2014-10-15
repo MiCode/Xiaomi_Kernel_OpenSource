@@ -18,9 +18,6 @@
  * 02110-1301, USA.
  *
  */
-#ifdef CSS15
-#include <linux/atomisp_platform_css15.h>
-#else
 #ifndef ATOMISP_PLATFORM_H_
 #define ATOMISP_PLATFORM_H_
 
@@ -134,11 +131,16 @@ struct intel_v4l2_subdev_table {
 	struct intel_v4l2_subdev_i2c_board_info v4l2_subdev;
 	enum intel_v4l2_subdev_type type;
 	enum atomisp_camera_port port;
+#ifdef CONFIG_GMIN_INTEL_MID
+	struct v4l2_subdev *subdev;
+#endif
 };
 
 struct atomisp_platform_data {
 	struct intel_v4l2_subdev_table *subdevs;
+#ifndef CONFIG_GMIN_INTEL_MID
 	const struct soft_platform_id *spid;
+#endif
 };
 
 /* Describe the capacities of one single sensor. */
@@ -230,12 +232,14 @@ struct camera_mipi_info {
 extern const struct atomisp_platform_data *atomisp_get_platform_data(void);
 extern const struct atomisp_camera_caps *atomisp_get_default_camera_caps(void);
 
-/* G-Min API */
-extern int atomisp_register_i2c_module(struct i2c_client *client,
-				       enum intel_v4l2_subdev_type type,
-				       enum atomisp_camera_port port);
-int gmin_get_config_var(struct device *dev, const char *var,
-			char *out, size_t *out_len);
+/* API from old platform_camera.h, new CPUID implementation */
+#define __IS_SOC(x) (boot_cpu_data.x86_vendor == X86_VENDOR_INTEL && \
+		     boot_cpu_data.x86 == 6 &&                       \
+		     boot_cpu_data.x86_model == x)
+
+#define IS_MFLD	__IS_SOC(0x27)
+#define IS_BYT	__IS_SOC(0x37)
+#define IS_CHT	__IS_SOC(0x4C)
+#define IS_MOFD	__IS_SOC(0x5A)
 
 #endif /* ATOMISP_PLATFORM_H_ */
-#endif

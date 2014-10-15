@@ -28,7 +28,6 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/types.h>
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-device.h>
 #include "common.h"
 
