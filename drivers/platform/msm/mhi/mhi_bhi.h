@@ -36,6 +36,11 @@
 #define BHI_MSMHWID(n)                                     (0x4C + 0x4 * (n))
 #define BHI_OEMPKHASH(n)                                   (0x64 + 0x4 * (n))
 #define BHI_RSVD5                                          (0xC4)
+#define BHI_STATUS_MASK					   (0xC0000000)
+#define BHI_STATUS_SHIFT				   (30)
+#define BHI_STATUS_ERROR				   (3)
+#define BHI_STATUS_SUCCESS				   (2)
+#define BHI_STATUS_RESET				   (0)
 
 #define BHI_MAJOR_VERSION 0x0
 #define BHI_MINOR_VERSION 0x1
@@ -48,7 +53,7 @@
 #define BHI_MAX_IMAGE_SIZE (256 * 1024)
 
 #define BHI_POLL_SLEEP_TIME 1000
-#define BHI_POLL_NR_RETRIES 1
+#define BHI_POLL_NR_RETRIES 10
 
 int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device);
 

@@ -73,6 +73,7 @@ static ssize_t bhi_write(struct file *file,
 		goto bhi_copy_error;
 	}
 	amount_copied = count;
+	wmb();
 	mhi_log(MHI_MSG_INFO,
 		"Copied image from user at addr: %p\n", bhi_ctxt->image_loc);
 	bhi_ctxt->phy_image_loc = dma_map_single(NULL,
@@ -114,13 +115,20 @@ static ssize_t bhi_write(struct file *file,
 	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base,
 			BHI_IMGTXDB, 0xFFFFFFFF, 0, ++pcie_word_val);
 
+	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHI_INTVEC, 0);
+
 	for (i = 0; i < BHI_POLL_NR_RETRIES; ++i) {
-		tx_db_val = mhi_reg_read(bhi_ctxt->bhi_base, BHI_STATUS);
-		if ((0x80000000 | tx_db_val) == pcie_word_val)
-			break;
-		else
+		tx_db_val = mhi_reg_read_field(bhi_ctxt->bhi_base,
+						BHI_STATUS,
+						BHI_STATUS_MASK,
+						BHI_STATUS_SHIFT);
+		mhi_log(MHI_MSG_CRITICAL, "BHI STATUS 0x%x\n", tx_db_val);
+		if (BHI_STATUS_SUCCESS != tx_db_val)
 			mhi_log(MHI_MSG_CRITICAL,
-				"BHI STATUS 0x%x\n", pcie_word_val);
+				"Incorrect BHI status: %d retry: %d\n",
+				tx_db_val, i);
+		else
+			break;
 		usleep_range(20000, 25000);
 	}
 	dma_unmap_single(NULL, bhi_ctxt->phy_image_loc,
@@ -157,6 +165,14 @@ int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device)
 	    || 0 == mhi_pcie_device->core.bar0_end)
 		return -EIO;
 
+	bhi_ctxt->bhi_base = mhi_pcie_device->core.bar0_base;
+	pcie_word_val = mhi_reg_read(bhi_ctxt->bhi_base, BHIOFF);
+	bhi_ctxt->bhi_base += pcie_word_val;
+	wmb();
+
+	mhi_log(MHI_MSG_INFO,
+		"Successfully registered char dev. bhi base is: 0x%p.\n",
+		bhi_ctxt->bhi_base);
 	ret_val = alloc_chrdev_region(&bhi_ctxt->bhi_dev, 0, 1, "bhi");
 	if (IS_ERR_VALUE(ret_val)) {
 		mhi_log(MHI_MSG_CRITICAL,
@@ -184,14 +200,6 @@ int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device)
 		r = (int)bhi_ctxt->dev;
 		goto err_dev_create;
 	}
-
-	bhi_ctxt->bhi_base = mhi_pcie_device->core.bar0_base;
-	pcie_word_val = mhi_reg_read(bhi_ctxt->bhi_base, BHIOFF);
-	bhi_ctxt->bhi_base += pcie_word_val;
-
-	mhi_log(MHI_MSG_INFO,
-		"Successfully registered char dev. bhi base is: 0x%p.\n",
-		bhi_ctxt->bhi_base);
 	return 0;
 err_dev_create:
 	cdev_del(&bhi_ctxt->cdev);
