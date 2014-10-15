@@ -1741,7 +1741,7 @@ static int mdss_mdp_ctl_fbc_enable(int enable,
 		struct mdss_mdp_mixer *mixer, struct mdss_panel_info *pdata)
 {
 	struct fbc_panel_info *fbc;
-	u32 mode = 0, budget_ctl = 0, lossy_mode = 0;
+	u32 mode = 0, budget_ctl = 0, lossy_mode = 0, width;
 
 	if (!pdata) {
 		pr_err("Invalid pdata\n");
@@ -1764,10 +1764,21 @@ static int mdss_mdp_ctl_fbc_enable(int enable,
 	}
 
 	if (enable) {
-		mode = ((pdata->xres) << 16) | ((fbc->comp_mode) << 8) |
-			((fbc->qerr_enable) << 7) | ((fbc->cd_bias) << 4) |
-			((fbc->pat_enable) << 3) | ((fbc->vlc_enable) << 2) |
-			((fbc->bflc_enable) << 1) | enable;
+		if (fbc->enc_mode && pdata->bpp) {
+			/* width is the compressed width */
+			width = mult_frac(pdata->xres, fbc->target_bpp,
+					pdata->bpp);
+		} else {
+			/* width is the source width */
+			width = pdata->xres;
+		}
+
+		mode = ((width) << 16) | ((fbc->slice_height) << 11) |
+			((fbc->pred_mode) << 10) | ((fbc->enc_mode) << 9) |
+			((fbc->comp_mode) << 8) | ((fbc->qerr_enable) << 7) |
+			((fbc->cd_bias) << 4) | ((fbc->pat_enable) << 3) |
+			((fbc->vlc_enable) << 2) | ((fbc->bflc_enable) << 1) |
+			enable;
 
 		budget_ctl = ((fbc->line_x_budget) << 12) |
 			((fbc->block_x_budget) << 8) | fbc->block_budget;

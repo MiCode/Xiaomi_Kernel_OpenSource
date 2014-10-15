@@ -85,6 +85,12 @@ Optional properties:
 					configuration will be used to trigger the DCS commands.
 					This flag should be set only for one of the two panels.
 - qcom,mdss-dsi-fbc-enable:		Boolean used to enable frame buffer compression mode.
+- qcom,mdss-dsi-fbc-slice-height:	Slice height(in lines) of compressed block.
+					Expressed as power of 2. To set as 128 lines,
+					this should be set to 7.
+- qcom,mdss-dsi-fbc-2d-pred-mode:	Boolean to enable 2D map prediction.
+- qcom,mdss-dsi-fbc-ver2-mode:		Boolean to enable FBC 2.0 that supports 1/3
+					compression.
 - qcom,mdss-dsi-fbc-bpp:		Compressed bpp supported by the panel.
 					Specified color order is used as default value.
 - qcom,mdss-dsi-fbc-packing:		Component packing.
@@ -379,6 +385,9 @@ Example:
 		qcom,cmd-sync-wait-broadcast;
 		qcom,cmd-sync-wait-trigger;
 		qcom,mdss-dsi-fbc-enable;
+		qcom,mdss-dsi-fbc-slice-height = <5>;
+		qcom,mdss-dsi-fbc-2d-pred-mode;
+		qcom,mdss-dsi-fbc-ver2-mode;
 		qcom,mdss-dsi-fbc-bpp = <0>;
 		qcom,mdss-dsi-fbc-packing = <0>;
 		qcom,mdss-dsi-fbc-quant-error;
