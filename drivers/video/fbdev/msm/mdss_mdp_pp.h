@@ -17,6 +17,88 @@
 
 #include <linux/msm_mdp.h>
 
+/* PP STS related flags */
+#define PP_STS_ENABLE	0x1
+
+/* Demo mode macros */
+#define MDSS_SIDE_NONE	0
+#define MDSS_SIDE_LEFT	1
+#define MDSS_SIDE_RIGHT	2
+
+/* PP Feature Operations */
+enum pp_features {
+	IGC,
+	PCC,
+	GC,
+	PA,
+	GAMUT,
+	CSC,
+	DITHER,
+	QSEED,
+	HIST_LUT,
+	PP_FEATURE_MAX
+};
+
+enum pp_block_opmodes {
+	PP_OPMODE_VIG,
+	PP_OPMODE_DSPP,
+	PP_OPMODE_MAX
+};
+
+struct mdp_pp_feature_ops {
+	u32 feature;
+	int (*pp_get_config)(char __iomem *base_addr, void *cfg_data,
+			u32 block_type, u32 disp_num);
+	int (*pp_set_config)(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
+};
+
+struct mdp_pp_driver_ops {
+	struct mdp_pp_feature_ops pp_ops[PP_FEATURE_MAX];
+	void (*pp_opmode_config)(int location, struct pp_sts_type *pp_sts,
+			u32 *opmode, int side);
+};
+
+#ifdef CONFIG_ARCH_MSMTHULIUM
+void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
+#else
+static inline void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
+{
+	memset(ops, 0, sizeof(struct mdp_pp_driver_ops));
+	return NULL;
+}
+#endif
+
+static inline void pp_sts_set_split_bits(u32 *sts, u32 bits)
+{
+	u32 tmp = *sts;
+	tmp &= ~MDSS_PP_SPLIT_MASK;
+	tmp |= bits & MDSS_PP_SPLIT_MASK;
+	*sts = tmp;
+}
+
+static inline bool pp_sts_is_enabled(u32 sts, int side)
+{
+	bool ret = false;
+	/*
+	 * If there are no sides, or if there are no split mode bits set, the
+	 * side can't be disabled via split mode.
+	 *
+	 * Otherwise, if the side being checked opposes the split mode
+	 * configuration, the side is disabled.
+	 */
+	if ((side == MDSS_SIDE_NONE) || !(sts & MDSS_PP_SPLIT_MASK))
+		ret = true;
+	else if ((sts & MDSS_PP_SPLIT_RIGHT_ONLY) && (side == MDSS_SIDE_RIGHT))
+		ret = true;
+	else if ((sts & MDSS_PP_SPLIT_LEFT_ONLY) && (side == MDSS_SIDE_LEFT))
+		ret = true;
+
+	return ret && (sts & PP_STS_ENABLE);
+}
+
+/* Debug related functions */
 void pp_print_lut(void *data, int size, char *tab, uint32_t type);
 void pp_print_uint16_lut(uint16_t *data, int size, char *tab);
 void pp_print_pcc_coeff(struct mdp_pcc_coeff *pcc_coeff, int tab_depth);
