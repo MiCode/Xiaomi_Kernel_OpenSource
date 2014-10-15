@@ -126,6 +126,20 @@ static int __init msm_cpu_prepare(unsigned int cpu)
 	return 0;
 }
 
+
+static int __init msm8994_cpu_prepare(unsigned int cpu)
+{
+	int ret;
+
+	if (per_cpu(cold_boot_done, 0) == false) {
+		ret = msm8994_cpu_ldo_config(0);
+		if (ret)
+			return ret;
+	}
+
+	return msm_cpu_prepare(cpu);
+}
+
 static int msm_cpu_boot(unsigned int cpu)
 {
 	int ret = 0;
@@ -159,6 +173,9 @@ static int msm8994_cpu_boot(unsigned int cpu)
 			if (ret)
 				return ret;
 		}
+		ret = msm8994_cpu_ldo_config(cpu);
+		if (ret)
+			return ret;
 		per_cpu(cold_boot_done, cpu) = true;
 	}
 	return secondary_pen_release(cpu);
@@ -217,7 +234,7 @@ CPU_METHOD_OF_DECLARE(msm_cortex_a_ops, &msm_cortex_a_ops);
 static const struct cpu_operations msm8994_cortex_a_ops = {
 	.name		= "qcom,8994-arm-cortex-acc",
 	.cpu_init	= msm_cpu_init,
-	.cpu_prepare	= msm_cpu_prepare,
+	.cpu_prepare	= msm8994_cpu_prepare,
 	.cpu_boot	= msm8994_cpu_boot,
 	.cpu_postboot	= msm_cpu_postboot,
 #ifdef CONFIG_HOTPLUG_CPU
