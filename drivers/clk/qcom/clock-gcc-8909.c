@@ -431,7 +431,7 @@ static struct pll_vote_clk gpll2_clk_src = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &xo_clk_src.c,
-		.rate = 600000000,
+		.rate = 792000000,
 		.dbg_name = "gpll2_clk_src",
 		.ops = &clk_ops_pll_vote,
 		CLK_INIT(gpll2_clk_src.c),
@@ -809,7 +809,7 @@ static struct rcg_clk camss_gp1_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_camss_mclk0_1_clk[] = {
-	F( 24000000,	gpll2,	1,	1,	25),
+	F( 24000000,	gpll2,	1,	1,	33),
 	F( 66670000,	gpll0,	12,	0,	0),
 	F_END
 };
@@ -2308,7 +2308,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_crypto_clk.c, 0x0138 },
 		{ &gcc_crypto_axi_clk.c, 0x0139 },
 		{ &gcc_crypto_ahb_clk.c, 0x013a },
-		{ &gcc_bimc_gpu_clk.c, 0x015C },
+		{ &gcc_bimc_gpu_clk.c, 0x0157 },
 		{ &gcc_oxili_gfx3d_clk.c, 0x01ea },
 		{ &gcc_oxili_ahb_clk.c, 0x01eb },
 		{ &gcc_venus0_vcodec0_clk.c, 0x01f1 },
