@@ -138,6 +138,8 @@ static DEFINE_SPINLOCK(pci_link_down_lock);
 #define SEG_UNLOCKED_PAGE	(0x04)
 #define SEG_NON_SECURE_DATA	(0x05)
 
+#define BMI_TEST_SETUP		(0x09)
+
 struct cnss_wlan_gpio_info {
 	char *name;
 	u32 num;
@@ -241,6 +243,7 @@ static struct cnss_data {
 	dma_addr_t dma_fw_image;
 	u32 dma_fw_size;
 	u32 seg_count;
+	uint32_t bmi_test;
 	struct segment_memory seg_mem[MAX_NUM_OF_SEGMENTS];
 } *penv;
 
@@ -1199,8 +1202,11 @@ static ssize_t fw_image_setup_store(struct device *dev,
 			return -EINVAL;
 		}
 		penv->fw_image_setup = val;
-	} else if (val == FW_IMAGE_PRINT)
+	} else if (val == FW_IMAGE_PRINT) {
 		print_allocated_image_table();
+	} else if (val == BMI_TEST_SETUP) {
+		penv->bmi_test = val;
+	}
 
 	return count;
 }
@@ -2182,7 +2188,10 @@ static int cnss_probe(struct platform_device *pdev)
 #endif
 
 	ret = device_create_file(dev, &dev_attr_fw_image_setup);
-
+	if (ret) {
+		pr_err("cnss: fw_image_setup sys file creation failed\n");
+		goto err_bus_reg;
+	}
 	pr_info("cnss: Platform driver probed successfully.\n");
 	return ret;
 
@@ -2342,6 +2351,16 @@ void cnss_set_driver_status(enum cnss_driver_status driver_status)
 	penv->driver_status = driver_status;
 }
 EXPORT_SYMBOL(cnss_set_driver_status);
+
+int cnss_get_bmi_setup(void)
+{
+	if (!penv)
+		return -ENODEV;
+
+	return penv->bmi_test;
+
+}
+EXPORT_SYMBOL(cnss_get_bmi_setup);
 
 #ifdef CONFIG_CNSS_SECURE_FW
 int cnss_get_sha_hash(const u8 *data, u32 data_len, u8 *hash_idx, u8 *out)
