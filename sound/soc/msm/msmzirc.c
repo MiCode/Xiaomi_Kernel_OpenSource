@@ -52,6 +52,8 @@
 #define I2S_PCM_SEL_OFFSET 1
 
 #define TLMM_SCLK_EN 0x4
+#define CLOCK_ON  1
+#define CLOCK_OFF 0
 
 /* Machine driver Name*/
 #define DRV_NAME "msmzirc-asoc-tomtom"
@@ -239,18 +241,37 @@ static int msmzirc_mi2s_startup(struct snd_pcm_substream *substream)
 	}
 
 	if (atomic_inc_return(&mi2s_ref_count) == 1) {
-		if (lpaif_pri_muxsel_virt_addr != NULL)
+		if (lpaif_pri_muxsel_virt_addr != NULL) {
+			ret = afe_enable_lpass_core_shared_clock(MI2S_RX,
+								 CLOCK_ON);
+			if (ret < 0) {
+				ret = -EINVAL;
+				goto done;
+			}
 			iowrite32(I2S_SEL << I2S_PCM_SEL_OFFSET,
 				  lpaif_pri_muxsel_virt_addr);
-		else
+			if (lpass_gpio_mux_spkr_ctl_virt_addr != NULL) {
+				iowrite32(TLMM_SCLK_EN,
+					  lpass_gpio_mux_spkr_ctl_virt_addr);
+				afe_enable_lpass_core_shared_clock(MI2S_RX,
+								   CLOCK_OFF);
+			} else {
+				pr_err("%s: mux spkr ctl virt addr is NULL\n",
+				       __func__);
+
+				afe_enable_lpass_core_shared_clock(MI2S_RX,
+								   CLOCK_OFF);
+				ret = -EINVAL;
+				goto done;
+			}
+
+		} else {
 			pr_err("%s lpaif_pri_muxsel_virt_addr is NULL\n",
 				__func__);
-		if (lpass_gpio_mux_spkr_ctl_virt_addr != NULL)
-			iowrite32(TLMM_SCLK_EN,
-				  lpass_gpio_mux_spkr_ctl_virt_addr);
-		else
-			pr_err("%s lpass_spkr_ctl_virt_addr is NULL\n",
-			       __func__);
+
+			ret = -EINVAL;
+			goto done;
+		}
 		ret = msm_set_pinctrl(pinctrl_info);
 		if (ret) {
 			pr_err("%s MI2S TLMM pinctrl set failed with %d\n",
@@ -491,12 +512,24 @@ static int msmzirc_auxpcm_startup(struct snd_pcm_substream *substream)
 	}
 
 	if (atomic_inc_return(&aux_ref_count) == 1) {
-		if (lpaif_pri_muxsel_virt_addr != NULL)
+		if (lpaif_pri_muxsel_virt_addr != NULL) {
+			ret = afe_enable_lpass_core_shared_clock(MI2S_RX,
+								 CLOCK_ON);
+			if (ret < 0) {
+				ret = -EINVAL;
+				goto done;
+			}
 			iowrite32(I2S_PCM_SEL << I2S_PCM_SEL_OFFSET,
 				  lpaif_pri_muxsel_virt_addr);
-		else
+			afe_enable_lpass_core_shared_clock(MI2S_RX,
+							   CLOCK_OFF);
+		} else {
 			pr_err("%s lpaif_pri_muxsel_virt_addr is NULL\n",
 			       __func__);
+
+			ret = -EINVAL;
+			goto done;
+		}
 
 		ret = msm_set_pinctrl(pinctrl_info);
 		if (ret < 0)

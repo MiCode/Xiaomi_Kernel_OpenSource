@@ -202,6 +202,8 @@ int afe_set_digital_codec_core_clock(u16 port_id,
 			struct afe_digital_clk_cfg *cfg);
 int afe_set_lpass_internal_digital_codec_clock(u16 port_id,
 				struct afe_digital_clk_cfg *cfg);
+int afe_enable_lpass_core_shared_clock(u16 port_id, u32 enable);
+
 int q6afe_check_osr_clk_freq(u32 freq);
 
 int afe_send_spdif_clk_cfg(struct afe_param_id_spdif_clk_cfg *cfg,

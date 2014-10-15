@@ -2441,6 +2441,32 @@ struct afe_port_cmdrsp_get_param_v2 {
 	u32                  status;
 } __packed;
 
+#define AFE_PARAM_ID_LPASS_CORE_SHARED_CLOCK_CONFIG	0x0001028C
+#define AFE_API_VERSION_LPASS_CORE_SHARED_CLK_CONFIG	0x1
+/*
+ * Payload of the AFE_PARAM_ID_LPASS_CORE_SHARED_CLOCK_CONFIG parameter used by
+ * AFE_MODULE_AUDIO_DEV_INTERFACE.
+*/
+struct afe_param_id_lpass_core_shared_clk_cfg {
+	u32	lpass_core_shared_clk_cfg_minor_version;
+/*
+ * Minor version used for lpass core shared clock configuration
+ * Supported value: AFE_API_VERSION_LPASS_CORE_SHARED_CLK_CONFIG
+ */
+	u32	enable;
+/*
+ * Specifies whether the lpass core shared clock is
+ * enabled (1) or disabled (0).
+ */
+} __packed;
+
+struct afe_lpass_core_shared_clk_config_command {
+	struct apr_hdr		   hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2    pdata;
+	struct afe_param_id_lpass_core_shared_clk_cfg clk_cfg;
+} __packed;
+
 /* adsp_afe_service_commands.h */
 
 #define ADSP_MEMORY_MAP_EBI_POOL      0
