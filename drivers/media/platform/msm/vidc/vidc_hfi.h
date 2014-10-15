@@ -867,7 +867,7 @@ struct hfi_extradata_recovery_point_sei_payload {
 struct hal_session {
 	struct list_head list;
 	void *session_id;
-	u32 is_decoder;
+	bool is_decoder;
 	void *device;
 };
 

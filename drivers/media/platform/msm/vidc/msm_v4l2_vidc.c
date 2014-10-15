@@ -140,7 +140,7 @@ int msm_v4l2_reqbufs(struct file *file, void *fh,
 {
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
 	int rc = 0;
-	if (b->count == 0)
+	if (!b->count)
 		rc = msm_vidc_release_buffers(vidc_inst, b->type);
 	if (rc)
 		dprintk(VIDC_WARN,
@@ -376,7 +376,7 @@ static ssize_t store_pwr_collapse_delay(struct device *dev,
 	rc = kstrtoul(buf, 0, &val);
 	if (rc)
 		return rc;
-	else if (val == 0)
+	else if (!val)
 		return -EINVAL;
 	msm_vidc_pwr_collapse_delay = val;
 	return count;

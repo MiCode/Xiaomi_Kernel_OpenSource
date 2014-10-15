@@ -82,7 +82,7 @@ static int nal_type[] = {
 
 static inline int hal_to_hfi_type(int property, int hal_type)
 {
-	if (hal_type && (roundup_pow_of_two(hal_type) != hal_type)) {
+	if (hal_type && roundup_pow_of_two(hal_type) != hal_type) {
 		/* Not a power of 2, it's not going
 		 * to be in any of the tables anyway */
 		return -EINVAL;
@@ -585,8 +585,8 @@ int create_pkt_cmd_session_set_buffers(
 	pkt->min_buffer_size = buffer_info->buffer_size;
 	pkt->num_buffers = buffer_info->num_buffers;
 
-	if ((buffer_info->buffer_type == HAL_BUFFER_OUTPUT) ||
-		(buffer_info->buffer_type == HAL_BUFFER_OUTPUT2)) {
+	if (buffer_info->buffer_type == HAL_BUFFER_OUTPUT ||
+		buffer_info->buffer_type == HAL_BUFFER_OUTPUT2) {
 		struct hfi_buffer_info *buff;
 		pkt->extra_data_size = buffer_info->extradata_size;
 		pkt->size = sizeof(struct hfi_cmd_session_set_buffers_packet) -
@@ -631,8 +631,8 @@ int create_pkt_cmd_session_release_buffers(
 	pkt->buffer_size = buffer_info->buffer_size;
 	pkt->num_buffers = buffer_info->num_buffers;
 
-	if ((buffer_info->buffer_type == HAL_BUFFER_OUTPUT) ||
-		(buffer_info->buffer_type == HAL_BUFFER_OUTPUT2)) {
+	if (buffer_info->buffer_type == HAL_BUFFER_OUTPUT ||
+		buffer_info->buffer_type == HAL_BUFFER_OUTPUT2) {
 		struct hfi_buffer_info *buff;
 		buff = (struct hfi_buffer_info *) pkt->rg_buffer_info;
 		for (i = 0; i < pkt->num_buffers; i++) {
@@ -672,8 +672,8 @@ int create_pkt_cmd_session_etb_decoder(
 		sizeof(struct hfi_cmd_session_empty_buffer_compressed_packet);
 	pkt->packet_type = HFI_CMD_SESSION_EMPTY_BUFFER;
 	pkt->session_id = hash32_ptr(session);
-	pkt->time_stamp_hi = (int) (((u64)input_frame->timestamp) >> 32);
-	pkt->time_stamp_lo = (int) input_frame->timestamp;
+	pkt->time_stamp_hi = upper_32_bits(input_frame->timestamp);
+	pkt->time_stamp_lo = lower_32_bits(input_frame->timestamp);
 	pkt->flags = input_frame->flags;
 	pkt->mark_target = input_frame->mark_target;
 	pkt->mark_data = input_frame->mark_data;
@@ -706,8 +706,8 @@ int create_pkt_cmd_session_etb_encoder(
 	pkt->packet_type = HFI_CMD_SESSION_EMPTY_BUFFER;
 	pkt->session_id = hash32_ptr(session);
 	pkt->view_id = 0;
-	pkt->time_stamp_hi = (u32)(((u64)input_frame->timestamp) >> 32);
-	pkt->time_stamp_lo = (u32)input_frame->timestamp;
+	pkt->time_stamp_hi = upper_32_bits(input_frame->timestamp);
+	pkt->time_stamp_lo = lower_32_bits(input_frame->timestamp);
 	pkt->flags = input_frame->flags;
 	pkt->mark_target = input_frame->mark_target;
 	pkt->mark_data = input_frame->mark_data;

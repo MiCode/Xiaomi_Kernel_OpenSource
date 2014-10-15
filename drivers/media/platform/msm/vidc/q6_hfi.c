@@ -41,7 +41,7 @@ static int write_queue(void *info, u8 *packet)
 
 	packet_size_in_words = (*(u32 *)packet) >> 2;
 
-	if (packet_size_in_words == 0) {
+	if (!packet_size_in_words) {
 		dprintk(VIDC_ERR, "Zero packet size\n");
 		return -ENODATA;
 	}
@@ -91,7 +91,7 @@ static int read_queue(void *info, u8 *packet)
 
 	read_ptr = (u32 *)(qinfo->buffer + (qinfo->read_idx << 2));
 	packet_size_in_words = (*read_ptr) >> 2;
-	if (packet_size_in_words == 0) {
+	if (!packet_size_in_words) {
 		dprintk(VIDC_ERR, "Zero packet size\n");
 		return -ENODATA;
 	}
@@ -236,7 +236,7 @@ static void *q6_hfi_add_device(u32 device_id,
 		goto error_createq;
 	}
 
-	if (hal_ctxt.dev_count == 0)
+	if (!hal_ctxt.dev_count)
 		INIT_LIST_HEAD(&hal_ctxt.dev_head);
 
 	INIT_LIST_HEAD(&hdevice->list);
@@ -478,10 +478,7 @@ static void *q6_hfi_session_init(void *device, void *session_id,
 		return NULL;
 	}
 	new_session->session_id = session_id;
-	if (session_type == 1)
-		new_session->is_decoder = 0;
-	else if (session_type == 2)
-		new_session->is_decoder = 1;
+	new_session->is_decoder = (session_type == HAL_VIDEO_DOMAIN_DECODER);
 	new_session->device = dev;
 
 	q6_hfi_add_apr_hdr(dev, &apr.hdr, sizeof(apr));

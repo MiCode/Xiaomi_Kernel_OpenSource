@@ -123,7 +123,7 @@ static void venus_hfi_sim_modify_cmd_packet(u8 *packet,
 	if (!device || !packet) {
 		dprintk(VIDC_ERR, "Invalid Param\n");
 		return;
-	} else if (device->hal_data->firmware_base == 0
+	} else if (!device->hal_data->firmware_base
 			|| is_iommu_present(device->res)) {
 		return;
 	}
@@ -174,8 +174,8 @@ static void venus_hfi_sim_modify_cmd_packet(u8 *packet,
 	{
 		struct hfi_cmd_session_set_buffers_packet *pkt =
 			(struct hfi_cmd_session_set_buffers_packet *)packet;
-		if ((pkt->buffer_type == HFI_BUFFER_OUTPUT) ||
-			(pkt->buffer_type == HFI_BUFFER_OUTPUT2)) {
+		if (pkt->buffer_type == HFI_BUFFER_OUTPUT ||
+			pkt->buffer_type == HFI_BUFFER_OUTPUT2) {
 			struct hfi_buffer_info *buff;
 			buff = (struct hfi_buffer_info *) pkt->rg_buffer_info;
 			buff->buffer_addr -= fw_bias;
@@ -191,8 +191,8 @@ static void venus_hfi_sim_modify_cmd_packet(u8 *packet,
 	{
 		struct hfi_cmd_session_release_buffer_packet *pkt =
 			(struct hfi_cmd_session_release_buffer_packet *)packet;
-		if ((pkt->buffer_type == HFI_BUFFER_OUTPUT) ||
-			(pkt->buffer_type == HFI_BUFFER_OUTPUT2)) {
+		if (pkt->buffer_type == HFI_BUFFER_OUTPUT ||
+			pkt->buffer_type == HFI_BUFFER_OUTPUT2) {
 			struct hfi_buffer_info *buff;
 			buff = (struct hfi_buffer_info *) pkt->rg_buffer_info;
 			buff->buffer_addr -= fw_bias;
@@ -355,7 +355,7 @@ static int venus_hfi_write_queue(void *info, u8 *packet, u32 *rx_req_is_set)
 	}
 
 	packet_size_in_words = (*(u32 *)packet) >> 2;
-	if (packet_size_in_words == 0) {
+	if (!packet_size_in_words) {
 		dprintk(VIDC_ERR, "Zero packet size\n");
 		return -ENODATA;
 	}
@@ -408,7 +408,7 @@ static void venus_hfi_hal_sim_modify_msg_packet(u8 *packet,
 	if (!device || !packet) {
 		dprintk(VIDC_ERR, "Invalid Param\n");
 		return;
-	} else if (device->hal_data->firmware_base == 0
+	} else if (!device->hal_data->firmware_base
 			|| is_iommu_present(device->res)) {
 		return;
 	}
@@ -520,7 +520,7 @@ static int venus_hfi_read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 	read_ptr = (u32 *)((qinfo->q_array.align_virtual_addr) +
 				(queue->qhdr_read_idx << 2));
 	packet_size_in_words = (*read_ptr) >> 2;
-	if (packet_size_in_words == 0) {
+	if (!packet_size_in_words) {
 		dprintk(VIDC_ERR, "Zero packet size\n");
 		return -ENODATA;
 	}
@@ -2473,10 +2473,10 @@ static void venus_hfi_core_clear_interrupt(struct venus_hfi_device *device)
 			device,
 			VIDC_WRAPPER_INTR_STATUS);
 
-	if ((intr_status & VIDC_WRAPPER_INTR_STATUS_A2H_BMSK) ||
-		(intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK) ||
-		(intr_status &
-			VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_INIT_IDLE_MSG_BMSK)) {
+	if (intr_status & VIDC_WRAPPER_INTR_STATUS_A2H_BMSK ||
+		intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK ||
+		intr_status &
+			VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_INIT_IDLE_MSG_BMSK) {
 		device->intr_status |= intr_status;
 		device->reg_count++;
 		dprintk(VIDC_DBG,
@@ -2662,10 +2662,7 @@ static void *venus_hfi_session_init(void *device, void *session_id,
 		return NULL;
 	}
 	new_session->session_id = session_id;
-	if (session_type == 1)
-		new_session->is_decoder = 0;
-	else if (session_type == 2)
-		new_session->is_decoder = 1;
+	new_session->is_decoder = (session_type == HAL_VIDEO_DOMAIN_DECODER);
 	new_session->device = dev;
 
 	mutex_lock(&dev->session_lock);
@@ -3319,8 +3316,8 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 	}
 	dprintk(VIDC_INFO, "#####venus_hfi_response_handler#####\n");
 	if (device) {
-		if ((device->intr_status &
-			VIDC_WRAPPER_INTR_CLEAR_A2HWD_BMSK)) {
+		if (device->intr_status &
+			VIDC_WRAPPER_INTR_CLEAR_A2HWD_BMSK) {
 			dprintk(VIDC_ERR, "Received: Watchdog timeout %s\n",
 				__func__);
 			vsfr = (struct hfi_sfr_struct *)
@@ -3949,7 +3946,7 @@ static int venus_hfi_load_fw(void *dev)
 	}
 
 	if ((!device->res->use_non_secure_pil && !device->res->firmware_base)
-			|| (device->res->use_non_secure_pil)) {
+			|| device->res->use_non_secure_pil) {
 
 		if (!device->resources.fw.cookie)
 			device->resources.fw.cookie =
@@ -4225,7 +4222,7 @@ static void *venus_hfi_add_device(u32 device_id,
 	mutex_init(&hdevice->session_lock);
 	mutex_init(&hdevice->resource_lock);
 
-	if (hal_ctxt.dev_count == 0)
+	if (!hal_ctxt.dev_count)
 		INIT_LIST_HEAD(&hal_ctxt.dev_head);
 
 	INIT_LIST_HEAD(&hdevice->list);

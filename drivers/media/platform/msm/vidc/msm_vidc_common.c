@@ -1053,8 +1053,7 @@ void hw_sys_error_handler(struct work_struct *work)
 	/*
 	* Restart the firmware to bring out of bad state.
 	*/
-	if ((core->state == VIDC_CORE_INVALID) &&
-		hdev->resurrect_fw) {
+	if (core->state == VIDC_CORE_INVALID && hdev->resurrect_fw) {
 		rc = call_hfi_op(hdev, resurrect_fw,
 				hdev->hfi_device_data);
 		if (rc) {
@@ -1287,7 +1286,7 @@ int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 	atomic_dec(&binfo->ref_count);
 	cnt = atomic_read(&binfo->ref_count);
 	dprintk(VIDC_DBG, "REF_PUT[%d] fd[0] = %d\n", cnt, binfo->fd[0]);
-	if (cnt == 0)
+	if (!cnt)
 		release_buf = true;
 	else if (cnt == 1)
 		qbuf_again = true;
@@ -1473,7 +1472,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 		vb->v4l2_buf.flags = 0;
 		extra_idx =
 			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT]->num_planes);
-		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
 			vb->v4l2_planes[extra_idx].m.userptr =
 				(unsigned long)fill_buf_done->extra_data_buffer;
 			vb->v4l2_planes[extra_idx].bytesused =
@@ -1533,7 +1532,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 			msm_vidc_debugfs_update(inst,
 				MSM_VIDC_DEBUGFS_EVENT_FBD);
 
-		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
 			dprintk(VIDC_DBG,
 				"extradata: userptr = %p;"
 				" bytesused = %d; length = %d\n",
@@ -2969,7 +2968,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			extra_idx =
 				EXTRADATA_IDX(inst->fmts[OUTPUT_PORT]->
 					num_planes);
-			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES) &&
+			if (extra_idx && extra_idx < VIDEO_MAX_PLANES &&
 					vb->v4l2_planes[extra_idx].m.userptr) {
 				frame_data.extradata_addr =
 					vb->v4l2_planes[extra_idx].m.userptr;
@@ -3000,7 +2999,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 
 			extra_idx =
 			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT]->num_planes);
-			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES) &&
+			if (extra_idx && extra_idx < VIDEO_MAX_PLANES &&
 				vb->v4l2_planes[extra_idx].m.userptr) {
 				frame_data.extradata_addr =
 					vb->v4l2_planes[extra_idx].m.userptr;
@@ -3585,9 +3584,8 @@ void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst)
 		u32 *ptr = NULL;
 
 		list_for_each_entry(binfo, &inst->registeredbufs.list, list) {
-			if ((binfo->type ==
-				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
-				(atomic_read(&binfo->ref_count) == 2)) {
+			if (binfo->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
+				atomic_read(&binfo->ref_count) == 2) {
 
 				atomic_dec(&binfo->ref_count);
 				buf_event.type =
@@ -3705,8 +3703,8 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		mutex_unlock(&inst->pendingq.lock);
 		rc = call_hfi_op(hdev, session_flush, inst->session,
 				HAL_FLUSH_OUTPUT);
-		if (!rc && (msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_SECONDARY))
+		if (!rc && msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY)
 			rc = call_hfi_op(hdev, session_flush, inst->session,
 				HAL_FLUSH_OUTPUT2);
 
@@ -3903,8 +3901,8 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 		!inst->capability.scale_y.min ||
 		!inst->capability.scale_y.max) {
 
-		if ((input_width * input_height) !=
-			(output_width * output_height)) {
+		if (input_width * input_height !=
+			output_width * output_height) {
 			dprintk(VIDC_ERR,
 				"%s: scaling is not supported (%dx%d != %dx%d)\n",
 				__func__, input_width, input_height,
@@ -3995,8 +3993,8 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 				capability->height.min);
 			rc = -ENOTSUPP;
 		}
-		if (!rc && (inst->prop.width[CAPTURE_PORT] >
-			capability->width.max)) {
+		if (!rc && inst->prop.width[CAPTURE_PORT] >
+			capability->width.max) {
 			dprintk(VIDC_ERR,
 				"Unsupported width = %u supported max width = %u",
 				inst->prop.width[CAPTURE_PORT],
@@ -4004,9 +4002,9 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 				rc = -ENOTSUPP;
 		}
 
-		if (!rc && (inst->prop.height[CAPTURE_PORT]
+		if (!rc && inst->prop.height[CAPTURE_PORT]
 			* inst->prop.width[CAPTURE_PORT] >
-			capability->width.max * capability->height.max)) {
+			capability->width.max * capability->height.max) {
 			dprintk(VIDC_ERR,
 			"Unsupported WxH = (%u)x(%u), max supported is - (%u)x(%u)\n",
 			inst->prop.width[CAPTURE_PORT],

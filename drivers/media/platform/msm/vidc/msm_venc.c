@@ -47,7 +47,7 @@
 
 /*
  * Default 601 to 709 conversion coefficients for resolution: 176x144 negative
- * coeffs are converted to s4.9 format (e.g. -22 converted to ((1<<13) - 22)
+ * coeffs are converted to s4.9 format (e.g. -22 converted to ((1 << 13) - 22)
  * 3x3 transformation matrix coefficients in s4.9 fixed point format
  */
 static u32 vpe_csc_601_to_709_matrix_coeff[HAL_MAX_MATRIX_COEFFS] = {
@@ -1085,9 +1085,8 @@ static u32 get_frame_size_nv21(int plane, u32 height, u32 width)
 
 static u32 get_frame_size_compressed(int plane, u32 height, u32 width)
 {
-	int sz = ((height + 31) & (~31)) * ((width + 31) & (~31)) * 3/2;
-	sz = (sz + 4095) & (~4095);
-	return sz;
+	int sz = ALIGN(height, 32) * ALIGN(width, 32) * 3 / 2;
+	return ALIGN(sz, SZ_4K);
 }
 
 static struct msm_vidc_format venc_formats[] = {
@@ -1330,8 +1329,8 @@ static int msm_venc_toggle_hier_p(struct msm_vidc_inst *inst, int layers)
 		return -EINVAL;
 	}
 
-	if ((inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_VP8) &&
-		(inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_H264))
+	if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_VP8 &&
+		inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_H264)
 		return 0;
 
 	num_enh_layers = layers ? : 0;
@@ -1354,14 +1353,14 @@ static int set_bitrate_for_each_layer(struct msm_vidc_inst *inst,
 				u32 num_enh_layers, u32 total_bitrate)
 {
 	u32 property_id = 0;
-	int i = 0;
+	int i = 0, rc = 0;
 	struct hfi_device *hdev = NULL;
 	struct hal_bitrate bitrate;
-	int rc = 0;
 	int bitrate_table[3][4] = {
 		{50, 50, 0, 0},
 		{34, 33, 33, 0},
-		{25, 25, 25, 25} };
+		{25, 25, 25, 25}
+	};
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s - invalid input\n", __func__);
@@ -1375,7 +1374,7 @@ static int set_bitrate_for_each_layer(struct msm_vidc_inst *inst,
 	}
 	hdev = inst->core->device;
 
-	for (i = 0; !rc && (i <= num_enh_layers); i++) {
+	for (i = 0; !rc && i <= num_enh_layers; i++) {
 		property_id = HAL_CONFIG_VENC_TARGET_BITRATE;
 		bitrate.bit_rate = (u32)((total_bitrate *
 			bitrate_table[num_enh_layers - 1][i]) / 100);
@@ -2330,13 +2329,14 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &multi_slice_control;
 		break;
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_DELIVERY_MODE: {
-		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
-		if ((temp_ctrl->val ==
-				V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) &&
-			(inst->fmts[CAPTURE_PORT]->fourcc ==
-				V4L2_PIX_FMT_H264 ||
+		bool codec_avc =
+			inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264 ||
 			inst->fmts[CAPTURE_PORT]->fourcc ==
-				V4L2_PIX_FMT_H264_NO_SC)) {
+							V4L2_PIX_FMT_H264_NO_SC;
+
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
+		if (codec_avc && temp_ctrl->val ==
+				V4L2_MPEG_VIDEO_MULTI_SICE_MODE_MAX_MB) {
 			property_id = HAL_PARAM_VENC_SLICE_DELIVERY_MODE;
 			enable.enable = true;
 		} else {
@@ -3067,9 +3067,9 @@ int msm_venc_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	fps = USEC_PER_SEC;
 	do_div(fps, us_per_frame);
 
-	if ((fps % 15 == 14) || (fps % 24 == 23))
+	if (fps % 15 == 14 || fps % 24 == 23)
 		fps = fps + 1;
-	else if ((fps % 24 == 1) || (fps % 15 == 1))
+	else if (fps % 24 == 1 || fps % 15 == 1)
 		fps = fps - 1;
 
 	if (inst->prop.fps != fps) {
@@ -3388,7 +3388,7 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 			break;
 		}
 
-		for (i = 0; (i < b->length) && (i < VIDEO_MAX_PLANES); i++) {
+		for (i = 0; i < min_t(int, b->length, VIDEO_MAX_PLANES); i++) {
 			dprintk(VIDC_DBG, "device_addr = 0x%lx, size = %d\n",
 				b->m.planes[i].m.userptr,
 				b->m.planes[i].length);
