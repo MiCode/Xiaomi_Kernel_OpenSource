@@ -59,7 +59,7 @@ struct getprop_buf {
 static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum command_response cmd, void *data);
-static void msm_comm_monitor_ftb(struct msm_vidc_inst *inst);
+static void msm_comm_dcvs_monitor_buffer(struct msm_vidc_inst *inst);
 static int msm_comm_scale_clocks_dcvs(struct msm_vidc_inst *inst, bool fbd);
 static int msm_comm_check_dcvs_supported(struct msm_vidc_inst *inst);
 
@@ -1491,7 +1491,6 @@ static void handle_fbd(enum command_response cmd, void *data)
 	enum hal_buffer buffer_type;
 	int extra_idx = 0;
 	int64_t time_usec = 0;
-	int rc = 0;
 
 	if (!response) {
 		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
@@ -1606,15 +1605,6 @@ static void handle_fbd(enum command_response cmd, void *data)
 			break;
 		default:
 			break;
-		}
-		if (msm_vidc_dcvs_mode && inst->dcvs_mode &&
-			fill_buf_done->filled_len1) {
-			msm_comm_monitor_ftb(inst);
-			rc = msm_comm_scale_clocks_dcvs(inst, true);
-			if (rc)
-				dprintk(VIDC_WARN,
-					"%s: Failed to scale clocks in DCVS: %d\n",
-					__func__, rc);
 		}
 		inst->count.fbd++;
 		if (fill_buf_done->filled_len1)
@@ -1813,46 +1803,17 @@ void msm_comm_init_dcvs_load(struct msm_vidc_inst *inst)
 		return;
 	}
 
+	dcvs->transition_turbo = false;
+
 	/* calculating the min and max threshold */
 	if (output_buf_req->buffer_count_actual) {
-		dcvs->min_threshold = DCVS_MIN_DRAIN_RATE;
-		dcvs->max_threshold =
-			output_buf_req->buffer_count_actual -
-			(DCVS_BUFFER_WITH_DEC + DCVS_BUFFER_SAFEGUARD +
-			DCVS_BUFFER_RELEASED_DEC);
-
-	if (dcvs->max_threshold - dcvs->min_threshold <
-		DCVS_BUFFER_SAFEGUARD)
-		dcvs->max_threshold =
-			dcvs->min_threshold + DCVS_BUFFER_SAFEGUARD;
-
-	dcvs->threshold_disp_buf_low =
-		clamp(dcvs->threshold_disp_buf_low,
-				dcvs->min_threshold,
-				dcvs->max_threshold);
-
-	dcvs->threshold_disp_buf_high =
-		clamp(dcvs->threshold_disp_buf_high,
-				dcvs->min_threshold,
-				dcvs->max_threshold);
-	}
-
-	if (dcvs->threshold_disp_buf_high - dcvs->threshold_disp_buf_low
-		< DCVS_MIN_THRESHOLD_DIFF) {
-		if (dcvs->max_threshold - dcvs->min_threshold <=
-			DCVS_MIN_THRESHOLD_DIFF) {
-			dcvs->threshold_disp_buf_low = dcvs->min_threshold;
-			dcvs->threshold_disp_buf_high = dcvs->max_threshold;
-		} else if (dcvs->threshold_disp_buf_low ==
-			dcvs->min_threshold) {
-			dcvs->threshold_disp_buf_high =
-				dcvs->threshold_disp_buf_low +
-				DCVS_MIN_THRESHOLD_DIFF;
-		} else {
-			dcvs->threshold_disp_buf_high = dcvs->max_threshold;
-			dcvs->threshold_disp_buf_low =
-				dcvs->max_threshold - DCVS_MIN_THRESHOLD_DIFF;
-		}
+		dcvs->min_threshold = DCVS_MIN_DISPLAY_BUFF;
+		dcvs->max_threshold = output_buf_req->buffer_count_actual;
+		if (dcvs->max_threshold <= dcvs->min_threshold)
+			dcvs->max_threshold =
+				dcvs->min_threshold + DCVS_BUFFER_SAFEGUARD;
+		dcvs->threshold_disp_buf_low = dcvs->min_threshold;
+		dcvs->threshold_disp_buf_high = dcvs->max_threshold;
 	}
 	msm_comm_print_dcvs_stats(dcvs);
 }
@@ -1871,12 +1832,12 @@ void msm_comm_init_dcvs(struct msm_vidc_inst *inst)
 	inst->dcvs.threshold_disp_buf_low = DCVS_TURBO_THRESHOLD;
 }
 
-static void msm_comm_monitor_ftb(struct msm_vidc_inst *inst)
+static void msm_comm_dcvs_monitor_buffer(struct msm_vidc_inst *inst)
 {
-	int new_ftb = 0;
-	int new_ftb_temp = 0;
-	int i;
+	int new_ftb, i, prev_buf_count;
+	int fw_pending_bufs, total_output_buf, buffers_outside_fw;
 	struct dcvs_stats *dcvs;
+	struct hal_buffer_requirements *output_buf_req;
 
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
@@ -1884,90 +1845,67 @@ static void msm_comm_monitor_ftb(struct msm_vidc_inst *inst)
 	}
 
 	dcvs = &inst->dcvs;
-	/* update FTB stats only in nominal mode */
-	if (dcvs->load == dcvs->load_low) {
-		dcvs->num_ftb[dcvs->ftb_index] =
-			inst->count.ftb - dcvs->prev_ftb_count;
-		dcvs->ftb_index =
-			(dcvs->ftb_index + 1) % DCVS_FTB_WINDOW;
-		if (dcvs->ftb_counter < DCVS_FTB_WINDOW)
-			dcvs->ftb_counter++;
+	mutex_lock(&inst->lock);
+	output_buf_req = get_buff_req_buffer(inst,
+	msm_comm_get_hal_output_buffer(inst));
+
+	if (!output_buf_req) {
+		dprintk(VIDC_ERR, "%s : Get output buffer req failed %p\n",
+			__func__, inst);
+		mutex_unlock(&inst->lock);
+		return;
 	}
-	dcvs->prev_ftb_count = inst->count.ftb;
 
-	if (dcvs->load == dcvs->load_low
-		&& dcvs->change_initial_freq
-		&& dcvs->ftb_counter == DCVS_FTB_WINDOW) {
+	total_output_buf = output_buf_req->buffer_count_actual;
+	fw_pending_bufs = get_pending_bufs_fw(inst) + 1;
+	mutex_unlock(&inst->lock);
+	buffers_outside_fw = total_output_buf - fw_pending_bufs;
+	dcvs->num_ftb[dcvs->ftb_index] = buffers_outside_fw;
+	dcvs->ftb_index = (dcvs->ftb_index + 1) % DCVS_FTB_WINDOW;
 
-		/*
-		* Low threshold =
-		* min( max(avg of 4 FTB in stats window), max threshold)
-		*/
-		for (i = 0; i <= dcvs->ftb_counter - DCVS_FTB_STAT_SAMPLES;
-			i++) {
-			new_ftb_temp = SUM_ARRAY(dcvs->num_ftb, i,
-				i + DCVS_FTB_STAT_SAMPLES - 1);
-			new_ftb_temp = DIV_ROUND_UP(new_ftb_temp,
-				DCVS_FTB_STAT_SAMPLES);
-			new_ftb = max(new_ftb_temp, new_ftb);
-		}
-		dprintk(VIDC_PROF,
-			"DCVS: Max FTB_count for Low_thr %d\n", new_ftb);
+	if (dcvs->ftb_counter < DCVS_FTB_WINDOW)
+		dcvs->ftb_counter++;
 
-		new_ftb = min(new_ftb, dcvs->max_threshold);
-		dcvs->threshold_disp_buf_low = new_ftb;
+	dprintk(VIDC_PROF,
+		"DCVS: ftb_counter %d\n", dcvs->ftb_counter);
 
-		/*
-		* High Threshold =
-		* max(max(8, Low threshold + 4),
-		* round( (sumof(num_ftb[])*8)/DCVS_FTB_WINDOW)
-		*/
+	if (dcvs->ftb_counter == DCVS_FTB_WINDOW) {
 		new_ftb = 0;
-		for (i = 0; i < dcvs->ftb_counter; i++)
-			new_ftb += dcvs->num_ftb[i];
-
-		new_ftb = ((new_ftb * DCVS_EMP_THRESHOLD_HIGH) /
-			DCVS_FTB_WINDOW);
-		dprintk(VIDC_PROF,
-			"DCVS: Avg FTB_count for High_Thr %d\n",
-			new_ftb);
-
-		if (dcvs->threshold_disp_buf_low +
-			DCVS_TURBO_THRESHOLD > DCVS_NOMINAL_THRESHOLD) {
-			dcvs->threshold_disp_buf_high =
-				dcvs->threshold_disp_buf_low +
-				DCVS_TURBO_THRESHOLD;
-		} else {
-			dcvs->threshold_disp_buf_high =
-				DCVS_NOMINAL_THRESHOLD;
+		for (i = 0; i < dcvs->ftb_counter; i++) {
+			if (dcvs->num_ftb[i] > new_ftb)
+				new_ftb = dcvs->num_ftb[i];
 		}
-
-		if (new_ftb > dcvs->threshold_disp_buf_high)
-			dcvs->threshold_disp_buf_high = new_ftb;
-
-		dcvs->threshold_disp_buf_high =
-			clamp(dcvs->threshold_disp_buf_high,
-				dcvs->min_threshold,
-				dcvs->max_threshold);
-
-		/*
-		* Ensure that high threshold is
-		* always greater than low threshold
-		*/
-
-		if (dcvs->threshold_disp_buf_high <
-				dcvs->threshold_disp_buf_low) {
+		dcvs->threshold_disp_buf_high = new_ftb;
+		if (dcvs->threshold_disp_buf_high <=
+			dcvs->threshold_disp_buf_low) {
 			dcvs->threshold_disp_buf_high =
 				dcvs->threshold_disp_buf_low +
 				DCVS_BUFFER_SAFEGUARD;
 		}
+		dcvs->threshold_disp_buf_high =
+			clamp(dcvs->threshold_disp_buf_high,
+				dcvs->min_threshold,
+				dcvs->max_threshold);
 	}
-
-	dprintk(VIDC_DBG,
-		"DCVS: threshold_low %d, threshold_high %d, load %d\n",
-		dcvs->threshold_disp_buf_low,
-		dcvs->threshold_disp_buf_high,
-		dcvs->load);
+	if (dcvs->ftb_counter == DCVS_FTB_WINDOW &&
+			dcvs->load == dcvs->load_low) {
+		prev_buf_count =
+			dcvs->num_ftb[((dcvs->ftb_index - 2 +
+				DCVS_FTB_WINDOW) % DCVS_FTB_WINDOW)];
+		if (prev_buf_count == DCVS_MIN_DISPLAY_BUFF &&
+			buffers_outside_fw == DCVS_MIN_DISPLAY_BUFF) {
+			dcvs->transition_turbo = true;
+		} else if (buffers_outside_fw > DCVS_MIN_DISPLAY_BUFF &&
+			(buffers_outside_fw -
+			 (prev_buf_count - buffers_outside_fw))
+			< DCVS_MIN_DISPLAY_BUFF){
+			dcvs->transition_turbo = true;
+		}
+	}
+	dprintk(VIDC_PROF,
+		"DCVS: total_output_buf %d buffers_outside_fw %d load %d transition_turbo %d\n",
+		total_output_buf, buffers_outside_fw, dcvs->load_low,
+		dcvs->transition_turbo);
 }
 
 /*
@@ -1976,6 +1914,7 @@ static void msm_comm_monitor_ftb(struct msm_vidc_inst *inst)
 * 0 indicates call made from qbuf that increases clock
 * based on DCVS algorithm
 */
+
 static int msm_comm_scale_clocks_dcvs(struct msm_vidc_inst *inst, bool fbd)
 {
 	int rc = 0;
@@ -1995,12 +1934,13 @@ static int msm_comm_scale_clocks_dcvs(struct msm_vidc_inst *inst, bool fbd)
 	core = inst->core;
 	hdev = core->device;
 	dcvs = &inst->dcvs;
+	mutex_lock(&inst->lock);
 	fw_pending_bufs = get_pending_bufs_fw(inst) +
 		(fbd ? 0 : 1);
 
 	output_buf_req = get_buff_req_buffer(inst,
 		msm_comm_get_hal_output_buffer(inst));
-
+	mutex_unlock(&inst->lock);
 	if (!output_buf_req) {
 		dprintk(VIDC_ERR,
 			"%s: No buffer requirement for buffer type %x\n",
@@ -2018,65 +1958,44 @@ static int msm_comm_scale_clocks_dcvs(struct msm_vidc_inst *inst, bool fbd)
 	/* Buffers outside FW are with display */
 	buffers_outside_fw = total_output_buf - fw_pending_bufs;
 
-	if (fbd) {
-		/*
-		* scale clock only after display has buffers
-		* more than high threshold
-		*/
-		if (!dcvs->change_initial_freq &&
-			buffers_outside_fw >= dcvs->threshold_disp_buf_high)
-			dcvs->change_initial_freq = true;
-
-		if (buffers_outside_fw >= dcvs->threshold_disp_buf_high &&
-			!dcvs->prev_freq_increased) {
+	if (buffers_outside_fw >= dcvs->threshold_disp_buf_high &&
+			!dcvs->prev_freq_increased &&
+			dcvs->load > dcvs->load_low) {
 			dcvs->load = dcvs->load_low;
 			dcvs->prev_freq_lowered = true;
-		} else
-			dcvs->prev_freq_lowered = false;
-
-		if (dcvs->prev_freq_lowered) {
-			dprintk(VIDC_PROF,
-				"DCVS: fbd clock set = %d tot_output_buf = %d buffers_outside_fw %d threshold_high %d\n",
-				dcvs->load,
-				total_output_buf,
-				buffers_outside_fw,
-				dcvs->threshold_disp_buf_high);
-
-			/* HFI call to scale clock */
-			rc = call_hfi_op(hdev, scale_clocks,
-				hdev->hfi_device_data, dcvs->load,
-				codecs_enabled);
-			if (rc)
-				dprintk(VIDC_ERR,
-					"Failed to set clock rate in FBD: %d\n",
-					rc);
-		}
-	} else {
-		if (buffers_outside_fw <= dcvs->threshold_disp_buf_low &&
-			!dcvs->prev_freq_lowered) {
+			dcvs->prev_freq_increased = false;
+	} else if (dcvs->transition_turbo && dcvs->load == dcvs->load_low) {
 			dcvs->load = dcvs->load_high;
 			dcvs->prev_freq_increased = true;
-		} else
+			dcvs->prev_freq_lowered = false;
+			dcvs->transition_turbo = false;
+	} else {
 			dcvs->prev_freq_increased = false;
-
-		if (dcvs->prev_freq_increased) {
-			dprintk(VIDC_PROF,
-				"DCVS: ftb clock set = %d tot_output_buf = %d buffers_outside_fw %d, threshold_low %d\n",
-				dcvs->load,
-				total_output_buf,
-				buffers_outside_fw,
-				dcvs->threshold_disp_buf_low);
-
-			/* HFI call to scale clock */
-			rc = call_hfi_op(hdev, scale_clocks,
-				hdev->hfi_device_data, dcvs->load,
-				codecs_enabled);
-			if (rc)
-				dprintk(VIDC_ERR,
-				"Failed to set clock rate in FTB %d\n",
-				rc);
-		}
+			dcvs->prev_freq_lowered = false;
 	}
+
+	if (dcvs->prev_freq_lowered || dcvs->prev_freq_increased) {
+		dprintk(VIDC_PROF,
+			"DCVS: clock set = %d tot_output_buf = %d buffers_outside_fw %d threshold_high %d transition_turbo %d\n",
+			dcvs->load,
+			total_output_buf,
+			buffers_outside_fw,
+			dcvs->threshold_disp_buf_high,
+			dcvs->transition_turbo);
+
+		/* HFI call to scale clock */
+		rc = call_hfi_op(hdev, scale_clocks,
+			hdev->hfi_device_data, dcvs->load,
+			codecs_enabled);
+		if (rc)
+			dprintk(VIDC_ERR,
+				"Failed to set clock rate in FBD: %d\n",
+				rc);
+	} else
+		dprintk(VIDC_PROF,
+			"DCVS: clock old = %d tot_output_buf = %d buffers_outside_fw %d threshold_high %d transition_turbo %d\n",
+			dcvs->load, total_output_buf, buffers_outside_fw,
+			dcvs->threshold_disp_buf_high, dcvs->transition_turbo);
 	return rc;
 }
 
@@ -3481,6 +3400,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 						__func__, inst->dcvs_mode);
 				}
 				if (msm_vidc_dcvs_mode && inst->dcvs_mode) {
+					msm_comm_dcvs_monitor_buffer(inst);
 					rc = msm_comm_scale_clocks_dcvs(
 							inst, false);
 					if (rc)
@@ -4505,9 +4425,6 @@ static int msm_comm_check_dcvs_supported(struct msm_vidc_inst *inst)
 				__func__, HAL_BUFFER_OUTPUT);
 			return -EINVAL;
 		}
-		if (inst->count.ftb - dcvs->prev_ftb_count >
-			output_buf_req->buffer_count_actual)
-				dcvs->prev_ftb_count = inst->count.ftb;
 	} else {
 		rc = -ENOTSUPP;
 		/*
