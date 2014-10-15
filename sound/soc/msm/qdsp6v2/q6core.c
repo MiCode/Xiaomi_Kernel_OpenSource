@@ -221,6 +221,9 @@ int32_t core_set_license(uint32_t key, uint32_t module_id)
 				__func__, metainfo->nKey, key);
 		rc = -EINVAL;
 		goto unlock2;
+	} else if (key == 0) {
+		pr_err("%s: metainfo key is %d a invalid key", __func__, key);
+		goto unlock2;
 	}
 
 	paycket_size = sizeof(struct avcs_cmd_set_license) +
