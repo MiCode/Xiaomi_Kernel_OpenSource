@@ -1026,9 +1026,9 @@ static int _gbam_start_io(struct gbam_port *port, bool in)
 	void		(*ep_complete)(struct usb_ep *, struct usb_request *);
 
 	if (in)
-		spinlock = &port->port_lock_ul;
-	else
 		spinlock = &port->port_lock_dl;
+	else
+		spinlock = &port->port_lock_ul;
 
 	spin_lock_irqsave(spinlock, flags);
 	if (!port->port_usb) {
