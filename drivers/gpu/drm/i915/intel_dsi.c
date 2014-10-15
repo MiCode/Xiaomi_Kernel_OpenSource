@@ -109,8 +109,8 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 
 	DRM_DEBUG_KMS("\n");
 
-	val = I915_READ(MIPI_PORT_CTRL(pipe));
-	I915_WRITE(MIPI_PORT_CTRL(pipe), val | LP_OUTPUT_HOLD);
+	val = I915_READ(MIPI_PORT_CTRL(0));
+	I915_WRITE(MIPI_PORT_CTRL(0), val | LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
 	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_EXIT);
 	usleep_range(2000, 2500);
@@ -327,11 +327,11 @@ static void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
 	I915_WRITE(MIPI_DEVICE_READY(pipe), ULPS_STATE_ENTER);
 	usleep_range(2000, 2500);
 
-	val = I915_READ(MIPI_PORT_CTRL(pipe));
-	I915_WRITE(MIPI_PORT_CTRL(pipe), val & ~LP_OUTPUT_HOLD);
+	val = I915_READ(MIPI_PORT_CTRL(0));
+	I915_WRITE(MIPI_PORT_CTRL(0), val & ~LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
 
-	if (wait_for(((I915_READ(MIPI_PORT_CTRL(pipe)) & AFE_LATCHOUT)
+	if (wait_for(((I915_READ(MIPI_PORT_CTRL(0)) & AFE_LATCHOUT)
 					== 0x00000), 30))
 		DRM_ERROR("DSI LP not going Low\n");
 
@@ -879,7 +879,11 @@ bool intel_dsi_init(struct drm_device *dev)
 	}
 
 	intel_encoder->type = INTEL_OUTPUT_DSI;
-	intel_encoder->crtc_mask = (1 << 0); /* XXX */
+
+	if (dev_priv->vbt.dsi.port == DVO_PORT_MIPIA)
+		intel_encoder->crtc_mask = (1 << 0);
+	else if (dev_priv->vbt.dsi.port == DVO_PORT_MIPIC)
+		intel_encoder->crtc_mask = (1 << 1);
 
 	intel_encoder->cloneable = 0;
 	drm_connector_init(dev, connector, &intel_dsi_connector_funcs,

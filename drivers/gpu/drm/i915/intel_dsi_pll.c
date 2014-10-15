@@ -262,6 +262,7 @@ static void vlv_configure_dsi_pll(struct intel_encoder *encoder)
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	const struct drm_display_mode *mode = &intel_crtc->config.adjusted_mode;
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	enum pipe pipe = intel_crtc->pipe;
 	int ret;
 	u32 dsi_clk;
 
@@ -275,6 +276,10 @@ static void vlv_configure_dsi_pll(struct intel_encoder *encoder)
 	}
 
 	dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI0_DSIPLL;
+
+	/* For MIPI Port C */
+	if (pipe == PIPE_B)
+		dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI1_DSIPLL;
 
 	DRM_DEBUG_KMS("dsi pll div %08x, ctrl %08x\n",
 		      dsi_mnp.dsi_pll_div, dsi_mnp.dsi_pll_ctrl);
