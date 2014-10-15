@@ -217,7 +217,6 @@ struct fg_chip {
 	u16			vbat_adc_addr;
 	u16			ibat_adc_addr;
 	atomic_t		memif_user_cnt;
-	bool			fast_access;
 	struct fg_irq		soc_irq[FG_SOC_IRQ_COUNT];
 	struct fg_irq		batt_irq[FG_BATT_IRQ_COUNT];
 	struct fg_irq		mem_irq[FG_MEM_IF_IRQ_COUNT];
@@ -231,6 +230,7 @@ struct fg_chip {
 	spinlock_t		sec_access_lock;
 	bool			profile_loaded;
 	bool			use_otp_profile;
+	bool			power_supply_registered;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	char			*batt_profile;
@@ -249,6 +249,7 @@ struct fg_chip {
 static const char *DFS_ROOT_NAME	= "fg_memif";
 static const mode_t DFS_MODE = S_IRUSR | S_IWUSR;
 static const char *default_batt_type	= "Unknown Battery";
+static const char *loading_batt_type	= "Loading Battery Data";
 
 /* Log buffer */
 struct fg_log_buffer {
@@ -572,6 +573,17 @@ wait:
 	return rc;
 }
 
+static void fg_release_access_if_necessary(struct fg_chip *chip)
+{
+	mutex_lock(&chip->rw_lock);
+	if (atomic_sub_return(1, &chip->memif_user_cnt) <= 0) {
+		fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
+				RIF_MEM_ACCESS_REQ, 0);
+		INIT_COMPLETION(chip->sram_access);
+	}
+	mutex_unlock(&chip->rw_lock);
+}
+
 static int fg_set_ram_addr(struct fg_chip *chip, u16 *address)
 {
 	int rc;
@@ -697,7 +709,7 @@ static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	offset = (orig_address + offset) % 4;
 
 	user_cnt = atomic_add_return(1, &chip->memif_user_cnt);
-	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
 		pr_info("user_cnt %d\n", user_cnt);
 	mutex_lock(&chip->rw_lock);
 	if (!fg_check_sram_access(chip)) {
@@ -748,7 +760,7 @@ static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 
 out:
 	user_cnt = atomic_sub_return(1, &chip->memif_user_cnt);
-	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
 		pr_info("user_cnt %d\n", user_cnt);
 
 	fg_assert_sram_access(chip);
@@ -1034,7 +1046,7 @@ static void update_sram_data(struct work_struct *work)
 			fg_data[i].len, fg_data[i].offset,
 			(i+1 == FG_DATA_MAX) ? 0 : 1);
 		if (rc) {
-			pr_err("Failed ro update sram data\n");
+			pr_err("Failed to update sram data\n");
 			break;
 		}
 
@@ -1223,7 +1235,7 @@ static void dump_sram(struct work_struct *work)
 static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
-	u8 mem_if_sts, reg;
+	u8 mem_if_sts;
 	int rc;
 
 	rc = fg_read(chip, &mem_if_sts, INT_RT_STS(chip->mem_base), 1);
@@ -1235,13 +1247,6 @@ static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 	if (fg_check_sram_access(chip)) {
 		if (fg_debug_mask & FG_IRQS)
 			pr_info("sram access granted\n");
-		if (chip->fast_access) {
-			reg = REDO_FIRST_ESTIMATE | RESTART_GO;
-			rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
-				       reg, reg);
-			if (rc)
-				pr_err("failed to set low latency bit\n");
-		}
 		complete_all(&chip->sram_access);
 	} else {
 		if (fg_debug_mask & FG_IRQS)
@@ -1269,7 +1274,8 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("triggered 0x%x\n", soc_rt_sts);
 
-	power_supply_changed(&chip->bms_psy);
+	if (chip->power_supply_registered)
+		power_supply_changed(&chip->bms_psy);
 	return IRQ_HANDLED;
 }
 
@@ -1283,7 +1289,8 @@ static irqreturn_t fg_first_soc_irq_handler(int irq, void *_chip)
 	if (fg_est_dump)
 		schedule_work(&chip->dump_sram);
 
-	power_supply_changed(&chip->bms_psy);
+	if (chip->power_supply_registered)
+		power_supply_changed(&chip->bms_psy);
 	return IRQ_HANDLED;
 }
 
@@ -1306,13 +1313,18 @@ do {									\
 #define LOW_LATENCY	BIT(6)
 #define PROFILE_LOAD_TIMEOUT_MS		5000
 #define BATT_PROFILE_OFFSET		0x4C0
+#define PROFILE_INTEGRITY_REG		0x53C
+#define PROFILE_INTEGRITY_BIT		BIT(0)
+#define FIRST_EST_DONE_BIT		BIT(5)
+#define MAX_TRIES_FIRST_EST		3
+#define FIRST_EST_WAIT_MS		2000
 static int fg_batt_profile_init(struct fg_chip *chip)
 {
 	int rc = 0, ret;
-	int len;
+	int len, tries;
 	struct device_node *node = chip->spmi->dev.of_node;
 	struct device_node *batt_node, *profile_node;
-	const char *data;
+	const char *data, *batt_type_str, *old_batt_type;
 	bool tried_again = false;
 	u8 reg = 0;
 
@@ -1348,79 +1360,203 @@ wait:
 		return 0;
 	}
 
-	chip->batt_profile = devm_kzalloc(chip->dev,
-			sizeof(char) * len, GFP_KERNEL);
-
 	rc = of_property_read_string(profile_node, "qcom,battery-type",
-					&chip->batt_type);
+					&batt_type_str);
 	if (rc) {
 		pr_err("Could not find battery data type: %d\n", rc);
 		return 0;
 	}
 
-	chip->batt_profile = devm_kzalloc(chip->dev,
-			sizeof(char) * len, GFP_KERNEL);
 	if (!chip->batt_profile)
+		chip->batt_profile = devm_kzalloc(chip->dev,
+				sizeof(char) * len, GFP_KERNEL);
+
+	if (!chip->batt_profile) {
+		pr_err("out of memory\n");
 		return -ENOMEM;
+	}
+
+	rc = fg_mem_read(chip, &reg, PROFILE_INTEGRITY_REG, 1, 0, 1);
+	if (rc) {
+		pr_err("failed to read profile integrity rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_mem_read(chip, chip->batt_profile, BATT_PROFILE_OFFSET,
+			len, 0, 1);
+	if (rc) {
+		pr_err("failed to read profile rc=%d\n", rc);
+		return rc;
+	}
+
+	if ((reg & PROFILE_INTEGRITY_BIT)
+			&& memcmp(chip->batt_profile, data, len - 4) == 0) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("Battery profiles same, using default\n");
+		if (fg_est_dump)
+			schedule_work(&chip->dump_sram);
+		goto done;
+	} else {
+		if (fg_debug_mask & FG_STATUS) {
+			pr_info("Battery profiles differ, using new profile\n");
+			print_hex_dump(KERN_INFO, "FG: loaded profile: ",
+					DUMP_PREFIX_NONE, 16, 1,
+					chip->batt_profile, len, false);
+		}
+		old_batt_type = chip->batt_type;
+		chip->batt_type = loading_batt_type;
+		if (chip->power_supply_registered)
+			power_supply_changed(&chip->bms_psy);
+	}
 
 	memcpy(chip->batt_profile, data, len);
 
 	chip->batt_profile_len = len;
 
 	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
-		print_hex_dump(KERN_ERR, "profile: ", DUMP_PREFIX_NONE, 16, 1,
-			chip->batt_profile, chip->batt_profile_len, false);
+		print_hex_dump(KERN_INFO, "FG: new profile: ",
+				DUMP_PREFIX_NONE, 16, 1, chip->batt_profile,
+				chip->batt_profile_len, false);
 
-	reg = NO_OTP_PROF_RELOAD;
-	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD, reg, reg);
+	/*
+	 * release the sram access and configure the correct settings
+	 * before re-requesting access.
+	 */
+	mutex_lock(&chip->rw_lock);
+	fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
+			RIF_MEM_ACCESS_REQ, 0);
+	INIT_COMPLETION(chip->sram_access);
+
+	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD,
+			NO_OTP_PROF_RELOAD, 0);
 	if (rc) {
-		pr_err("failed to set low latency access bit\n");
-		return -EIO;
+		pr_err("failed to set no otp reload bit\n");
+		goto unlock_and_fail;
 	}
 
-	reg = LOW_LATENCY;
-	rc = fg_write(chip, &reg, chip->mem_base + MEM_INTF_CTL, 1);
+	/* unset the restart bits so the fg doesn't continuously restart */
+	reg = REDO_FIRST_ESTIMATE | RESTART_GO;
+	rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
+			reg, 0);
+	if (rc) {
+		pr_err("failed to unset fg restart: %d\n", rc);
+		goto unlock_and_fail;
+	}
+
+	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
+				LOW_LATENCY, LOW_LATENCY);
 	if (rc) {
 		pr_err("failed to set low latency access bit\n");
-		return -EIO;
+		goto unlock_and_fail;
 	}
-	chip->fast_access = true;
+	mutex_unlock(&chip->rw_lock);
 
+	/* read once to get a fg cycle in */
+	rc = fg_mem_read(chip, &reg, PROFILE_INTEGRITY_REG, 1, 0, 1);
+	if (rc) {
+		pr_err("failed to read profile integrity rc=%d\n", rc);
+		goto fail;
+	}
+
+	mutex_lock(&chip->rw_lock);
+	fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
+			RIF_MEM_ACCESS_REQ, 0);
+	INIT_COMPLETION(chip->sram_access);
+	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
+				LOW_LATENCY, 0);
+	if (rc) {
+		pr_err("failed to set low latency access bit\n");
+		goto unlock_and_fail;
+	}
+
+	atomic_add_return(1, &chip->memif_user_cnt);
+	mutex_unlock(&chip->rw_lock);
+
+	/* write the battery profile */
 	rc = fg_mem_write(chip, chip->batt_profile, BATT_PROFILE_OFFSET,
 			chip->batt_profile_len, 0, 1);
-	if (rc)
+	if (rc) {
 		pr_err("failed to write profile rc=%d\n", rc);
+		goto sub_and_fail;
+	}
 
-	rc = fg_mem_masked_write(chip, 0x53C, 0x1, 0x1, 0);
-	if (rc)
+	/* write the integrity bits and release access */
+	rc = fg_mem_masked_write(chip, PROFILE_INTEGRITY_REG,
+			PROFILE_INTEGRITY_BIT, PROFILE_INTEGRITY_BIT, 0);
+	if (rc) {
 		pr_err("failed to write profile rc=%d\n", rc);
-
-	reg = 0;
-	rc = fg_write(chip, &reg, chip->mem_base + MEM_INTF_CTL, 1);
-	if (rc) {
-		pr_err("failed to set low latency access bit\n");
-		return -EIO;
+		goto sub_and_fail;
 	}
 
-	reg = 0;
-	rc = fg_write(chip, &reg, chip->soc_base + SOC_RESTART, 1);
+	/* decrement the user count so that memory access can be released */
+	fg_release_access_if_necessary(chip);
+	/*
+	 * set the restart bits so that the next fg cycle will reload
+	 * the profile
+	 */
+	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD,
+			NO_OTP_PROF_RELOAD, NO_OTP_PROF_RELOAD);
 	if (rc) {
-		pr_err("failed to set low latency access bit\n");
-		return -EIO;
+		pr_err("failed to set no otp reload bit\n");
+		goto fail;
 	}
 
-	chip->fast_access = false;
-
-	/* wait for 2 seconds prior to restart the fuel gauge */
-	msleep(2000);
-	reg = 0x19;
-	rc = fg_write(chip, &reg, chip->soc_base + SOC_RESTART, 1);
+	reg = REDO_FIRST_ESTIMATE | RESTART_GO;
+	rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
+			reg, reg);
 	if (rc) {
-		pr_err("failed to set low latency access bit\n");
-		return -EIO;
+		pr_err("failed to set fg restart: %d\n", rc);
+		goto fail;
 	}
 
+	/* wait for the first estimate to complete */
+	for (tries = 0; tries < MAX_TRIES_FIRST_EST; tries++) {
+		msleep(FIRST_EST_WAIT_MS);
+
+		rc = fg_read(chip, &reg, INT_RT_STS(chip->soc_base), 1);
+		if (rc) {
+			pr_err("spmi read failed: addr=%03X, rc=%d\n",
+					INT_RT_STS(chip->soc_base), rc);
+		}
+		if (reg & FIRST_EST_DONE_BIT)
+			break;
+		else
+			if (fg_debug_mask & FG_STATUS)
+				pr_info("waiting for est, tries = %d\n", tries);
+	}
+	if ((reg & FIRST_EST_DONE_BIT) == 0)
+		pr_err("Battery profile reloading failed, no first estimate\n");
+
+	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD,
+			NO_OTP_PROF_RELOAD, 0);
+	if (rc) {
+		pr_err("failed to set no otp reload bit\n");
+		goto fail;
+	}
+	/* unset the restart bits so the fg doesn't continuously restart */
+	reg = REDO_FIRST_ESTIMATE | RESTART_GO;
+	rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
+			reg, 0);
+	if (rc) {
+		pr_err("failed to unset fg restart: %d\n", rc);
+		goto fail;
+	}
+done:
+	chip->batt_type = batt_type_str;
 	chip->profile_loaded = true;
+	if (chip->power_supply_registered)
+		power_supply_changed(&chip->bms_psy);
+	return rc;
+unlock_and_fail:
+	mutex_unlock(&chip->rw_lock);
+	goto fail;
+sub_and_fail:
+	fg_release_access_if_necessary(chip);
+	goto fail;
+fail:
+	chip->batt_type = old_batt_type;
+	if (chip->power_supply_registered)
+		power_supply_changed(&chip->bms_psy);
 	return rc;
 }
 
@@ -2172,6 +2308,15 @@ static int fg_probe(struct spmi_device *spmi)
 		goto of_init_fail;
 	}
 
+	/* hold memory access until initialization finishes */
+	atomic_add_return(1, &chip->memif_user_cnt);
+
+	rc = fg_init_irqs(chip);
+	if (rc) {
+		pr_err("failed to request interrupts %d\n", rc);
+		goto power_supply_unregister;
+	}
+
 	chip->batt_type = default_batt_type;
 
 	chip->bms_psy.name = "bms";
@@ -2189,12 +2334,7 @@ static int fg_probe(struct spmi_device *spmi)
 		pr_err("batt failed to register rc = %d\n", rc);
 		goto of_init_fail;
 	}
-
-	rc = fg_init_irqs(chip);
-	if (rc) {
-		pr_err("failed to request interrupts %d\n", rc);
-		goto power_supply_unregister;
-	}
+	chip->power_supply_registered = true;
 
 	if (chip->mem_base) {
 		rc = fg_dfs_create(chip);
@@ -2211,6 +2351,8 @@ static int fg_probe(struct spmi_device *spmi)
 	if (chip->last_sram_update_time == 0)
 		update_sram_data(&chip->update_sram_data.work);
 
+	/* release memory access if necessary */
+	fg_release_access_if_necessary(chip);
 
 	rc = fg_hw_init(chip);
 	if (rc) {
