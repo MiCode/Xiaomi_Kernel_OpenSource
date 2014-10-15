@@ -1309,7 +1309,7 @@ struct msm_usb_host_platform_data *ehci_msm2_dt_to_pdata(
 	return pdata;
 }
 
-static u64 ehci_msm_dma_mask = DMA_BIT_MASK(64);
+static u64 ehci_msm_dma_mask = DMA_BIT_MASK(32);
 static int ehci_msm2_probe(struct platform_device *pdev)
 {
 	struct usb_hcd *hcd;
