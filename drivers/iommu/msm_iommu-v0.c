@@ -424,6 +424,12 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	msm_iommu_remote_spin_unlock(iommu_drvdata->needs_rem_spinlock);
 }
 
+#ifdef CONFIG_IOMMU_PGTABLES_L2
+#define INITIAL_REDIRECT_VAL 1
+#else
+#define INITIAL_REDIRECT_VAL 0
+#endif
+
 static int msm_iommu_domain_init(struct iommu_domain *domain)
 {
 	struct msm_iommu_priv *priv = kzalloc(sizeof(*priv), GFP_KERNEL);
@@ -438,7 +444,7 @@ static int msm_iommu_domain_init(struct iommu_domain *domain)
 	if (!priv->pt.fl_table)
 		goto fail_nomem;
 
-	priv->pt.redirect = 1;
+	priv->pt.redirect = INITIAL_REDIRECT_VAL;
 
 	memset(priv->pt.fl_table, 0, SZ_16K);
 	domain->priv = priv;
