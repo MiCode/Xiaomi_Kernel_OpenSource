@@ -1700,16 +1700,16 @@ static void mdss_mdp_parse_dt_pipe_sw_reset(struct platform_device *pdev,
 	u32 reg_off, char *prop_name, struct mdss_mdp_pipe *pipe_list,
 	u32 npipes)
 {
-	size_t len;
+	int len;
 	const u32 *arr;
 
-	arr = of_get_property(pdev->dev.of_node, prop_name, (int *) &len);
+	arr = of_get_property(pdev->dev.of_node, prop_name, &len);
 	if (arr) {
 		int i;
 
 		len /= sizeof(u32);
 		if (len != npipes) {
-			pr_err("%s: invalid sw_reset entries req:%zu found:%d\n",
+			pr_err("%s: invalid sw_reset entries req:%d found:%d\n",
 				prop_name, len, npipes);
 			return;
 		}
@@ -1727,14 +1727,12 @@ static void mdss_mdp_parse_dt_pipe_sw_reset(struct platform_device *pdev,
 static int  mdss_mdp_parse_dt_pipe_clk_ctrl(struct platform_device *pdev,
 	char *prop_name, struct mdss_mdp_pipe *pipe_list, u32 npipes)
 {
-	int rc = 0, temp;
-	size_t len;
+	int rc = 0, len;
 	const u32 *arr;
 
-	arr = of_get_property(pdev->dev.of_node, prop_name, &temp);
+	arr = of_get_property(pdev->dev.of_node, prop_name, &len);
 	if (arr) {
 		int i, j;
-		len = (size_t) temp;
 		len /= sizeof(u32);
 		for (i = 0, j = 0; i < len; j++) {
 			struct mdss_mdp_pipe *pipe = NULL;
@@ -1784,11 +1782,11 @@ static void mdss_mdp_parse_dt_pipe_panic_ctrl(struct platform_device *pdev,
 	char *prop_name, struct mdss_mdp_pipe *pipe_list, u32 npipes)
 {
 	int i, j;
-	size_t len;
+	int len;
 	const u32 *arr;
 	struct mdss_mdp_pipe *pipe = NULL;
 
-	arr = of_get_property(pdev->dev.of_node, prop_name, (int *) &len);
+	arr = of_get_property(pdev->dev.of_node, prop_name, &len);
 	if (arr) {
 		len /= sizeof(u32);
 		for (i = 0, j = 0; i < len; j++) {
