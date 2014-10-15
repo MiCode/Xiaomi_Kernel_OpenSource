@@ -29,6 +29,7 @@
 #include <sound/q6afe-v2.h>
 #include <sound/q6core.h>
 #include <sound/pcm_params.h>
+#include <soc/qcom/liquid_dock.h>
 #include "device_event.h"
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "../codecs/wcd9xxx-common.h"
@@ -223,35 +224,20 @@ static void msm8994_liquid_docking_irq_work(struct work_struct *work)
 static irqreturn_t msm8994_liquid_docking_irq_handler(int irq, void *dev)
 {
 	struct msm8994_liquid_dock_dev *dock_dev = dev;
-
 	/* switch speakers should not run in interrupt context */
 	schedule_work(&dock_dev->irq_work);
 	return IRQ_HANDLED;
 }
 
-static int msm8994_liquid_init_docking(void)
+static int msm8994_liquid_dock_notify_handler(struct notifier_block *this,
+					unsigned long dock_event,
+					void *unused)
 {
 	int ret = 0;
-	int dock_plug_gpio = 0;
-
 	/* plug in docking speaker+plug in device OR unplug one of them */
 	u32 dock_plug_irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
 					IRQF_SHARED;
-
-	dock_plug_gpio = of_get_named_gpio(spdev->dev.of_node,
-					   "qcom,dock-plug-det-irq", 0);
-
-	if (dock_plug_gpio >= 0) {
-		msm8994_liquid_dock_dev =
-		 kzalloc(sizeof(*msm8994_liquid_dock_dev), GFP_KERNEL);
-		if (!msm8994_liquid_dock_dev) {
-			pr_err("msm8994_liquid_dock_dev alloc fail.\n");
-			ret = -ENOMEM;
-			goto exit;
-		}
-
-		msm8994_liquid_dock_dev->dock_plug_gpio = dock_plug_gpio;
-
+	if (dock_event) {
 		ret = gpio_request(msm8994_liquid_dock_dev->dock_plug_gpio,
 					   "dock-plug-det-irq");
 		if (ret) {
@@ -277,6 +263,51 @@ static int msm8994_liquid_init_docking(void)
 			goto fail_dock_gpio;
 		}
 
+		switch_set_state(&msm8994_liquid_dock_dev->audio_sdev,
+					msm8994_liquid_dock_dev->dock_plug_det);
+		/*notify to audio deamon*/
+		sysfs_notify(&msm8994_liquid_dock_dev->audio_sdev.dev->kobj,
+					NULL, "state");
+
+	} else {
+		if (msm8994_liquid_dock_dev->dock_plug_irq)
+			free_irq(msm8994_liquid_dock_dev->dock_plug_irq,
+				 msm8994_liquid_dock_dev);
+
+		if (msm8994_liquid_dock_dev->dock_plug_gpio)
+			gpio_free(msm8994_liquid_dock_dev->dock_plug_gpio);
+	}
+	return NOTIFY_OK;
+
+fail_dock_gpio:
+	gpio_free(msm8994_liquid_dock_dev->dock_plug_gpio);
+
+	return NOTIFY_DONE;
+}
+
+
+static struct notifier_block msm8994_liquid_docking_notifier = {
+	.notifier_call  = msm8994_liquid_dock_notify_handler,
+};
+
+static int msm8994_liquid_init_docking(void)
+{
+	int ret = 0;
+	int dock_plug_gpio = 0;
+
+	dock_plug_gpio = of_get_named_gpio(spdev->dev.of_node,
+					   "qcom,dock-plug-det-irq", 0);
+
+	if (dock_plug_gpio >= 0) {
+		msm8994_liquid_dock_dev =
+		 kzalloc(sizeof(*msm8994_liquid_dock_dev), GFP_KERNEL);
+		if (!msm8994_liquid_dock_dev) {
+			pr_err("msm8994_liquid_dock_dev alloc fail.\n");
+			ret = -ENOMEM;
+			goto exit;
+		}
+
+		msm8994_liquid_dock_dev->dock_plug_gpio = dock_plug_gpio;
 		msm8994_liquid_dock_dev->audio_sdev.name =
 						QC_AUDIO_EXTERNAL_SPK_1_EVENT;
 
@@ -284,22 +315,17 @@ static int msm8994_liquid_init_docking(void)
 			 &msm8994_liquid_dock_dev->audio_sdev) < 0) {
 			pr_err("%s: dock device register in switch diretory failed\n",
 				__func__);
-			goto fail_switch_dev;
+			goto exit;
 		}
 
 		INIT_WORK(
 			&msm8994_liquid_dock_dev->irq_work,
 			msm8994_liquid_docking_irq_work);
+
+		register_liquid_dock_notify(&msm8994_liquid_docking_notifier);
 	}
 	return 0;
-
-fail_switch_dev:
-	free_irq(msm8994_liquid_dock_dev->dock_plug_irq,
-				msm8994_liquid_dock_dev);
-fail_dock_gpio:
-	gpio_free(msm8994_liquid_dock_dev->dock_plug_gpio);
 exit:
-	kfree(msm8994_liquid_dock_dev);
 	msm8994_liquid_dock_dev = NULL;
 	return ret;
 }
