@@ -34,6 +34,7 @@
 		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
 		qcom,max-bandwidth-low-kbps = <2000000>;
 		qcom,max-bandwidth-high-kbps = <2000000>;
+		qcom,max-bandwidth-per-pipe-kbps = <1500000>;
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <2 2 2 2>;
