@@ -2769,8 +2769,13 @@ static void adreno_regulator_enable(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
-	if (gpudev->regulator_enable)
+	if (gpudev->regulator_enable &&
+		!test_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED,
+			&adreno_dev->priv)) {
 		gpudev->regulator_enable(adreno_dev);
+		set_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED,
+			&adreno_dev->priv);
+	}
 }
 
 static bool adreno_is_hw_collapsible(struct kgsl_device *device)
@@ -2786,8 +2791,13 @@ static void adreno_regulator_disable(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
-	if (gpudev->regulator_disable)
+	if (gpudev->regulator_disable &&
+		test_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED,
+			&adreno_dev->priv)) {
 		gpudev->regulator_disable(adreno_dev);
+		clear_bit(ADRENO_DEVICE_GPU_REGULATOR_ENABLED,
+			&adreno_dev->priv);
+	}
 }
 
 static const struct kgsl_functable adreno_functable = {
