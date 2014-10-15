@@ -46,8 +46,8 @@ struct dsi_mnp {
 static const u32 lfsr_converts[] = {
 	426, 469, 234, 373, 442, 221, 110, 311, 411,		/* 62 - 70 */
 	461, 486, 243, 377, 188, 350, 175, 343, 427, 213,	/* 71 - 80 */
-	106, 53, 282, 397, 354, 227, 113, 56, 284, 142,		/* 81 - 90 */
-	71, 35							/* 91 - 92 */
+	106, 53, 282, 397, 454, 227, 113, 56, 284, 142,		/* 81 - 90 */
+	71, 35, 273, 136, 324, 418, 465, 488, 500, 506		/* 91 - 100 */
 };
 
 #ifdef DSI_CLK_FROM_RR
@@ -163,7 +163,8 @@ static u32 dsi_clk_from_pclk(const struct drm_display_mode *mode,
 
 #endif
 
-static int dsi_calc_mnp(u32 dsi_clk, struct dsi_mnp *dsi_mnp)
+static int dsi_calc_mnp(struct drm_i915_private *dev_priv,
+				u32 dsi_clk, struct dsi_mnp *dsi_mnp)
 {
 	u32 m, n, p;
 	u32 ref_clk;
@@ -174,6 +175,10 @@ static int dsi_calc_mnp(u32 dsi_clk, struct dsi_mnp *dsi_mnp)
 	u32 calc_m;
 	u32 calc_p;
 	u32 m_seed;
+	u32 m_start, m_limit;
+	u32 n_limit;
+	u32 p_limit;
+
 
 	/* dsi_clk is expected in KHZ */
 	if (dsi_clk < 300000 || dsi_clk > 1150000) {
@@ -181,18 +186,34 @@ static int dsi_calc_mnp(u32 dsi_clk, struct dsi_mnp *dsi_mnp)
 		return -ECHRNG;
 	}
 
-	ref_clk = 25000;
+	if (IS_CHERRYVIEW(dev_priv->dev)) {
+		ref_clk = 100000;
+		m_start = 70;
+		m_limit = 96;
+		n_limit = 4;
+		p_limit = 6;
+	} else if (IS_VALLEYVIEW(dev_priv->dev)) {
+		ref_clk = 25000;
+		m_start = 62;
+		m_limit = 92;
+		n_limit = 1;
+		p_limit = 6;
+	} else {
+		DRM_ERROR("Unsupported device\n");
+		return -ENODEV;
+	}
+
 	target_dsi_clk = dsi_clk;
 	error = 0xFFFFFFFF;
 	tmp_error = 0xFFFFFFFF;
 	calc_m = 0;
 	calc_p = 0;
 
-	for (m = 62; m <= 92; m++) {
-		for (p = 2; p <= 6; p++) {
+	for (m = m_start; m <= m_limit; m++) {
+		for (p = 2; p <= p_limit; p++) {
 			/* Find the optimal m and p divisors
 			with minimal error +/- the required clock */
-			calc_dsi_clk = (m * ref_clk) / p;
+			calc_dsi_clk = (m * ref_clk) / (p * n_limit);
 			if (calc_dsi_clk == target_dsi_clk) {
 				calc_m = m;
 				calc_p = p;
@@ -213,10 +234,18 @@ static int dsi_calc_mnp(u32 dsi_clk, struct dsi_mnp *dsi_mnp)
 	}
 
 	m_seed = lfsr_converts[calc_m - 62];
-	n = 1;
+	n = n_limit;
 	dsi_mnp->dsi_pll_ctrl = 1 << (DSI_PLL_P1_POST_DIV_SHIFT + calc_p - 2);
-	dsi_mnp->dsi_pll_div = (n - 1) << DSI_PLL_N1_DIV_SHIFT |
-		m_seed << DSI_PLL_M1_DIV_SHIFT;
+
+	if (IS_CHERRYVIEW(dev_priv->dev))
+		dsi_mnp->dsi_pll_div = (n/2) << DSI_PLL_N1_DIV_SHIFT |
+			m_seed << DSI_PLL_M1_DIV_SHIFT;
+	else
+		dsi_mnp->dsi_pll_div = (n - 1) << DSI_PLL_N1_DIV_SHIFT |
+			m_seed << DSI_PLL_M1_DIV_SHIFT;
+
+	DRM_DEBUG_KMS("calc_m %u, calc_p %u, m_seed %u\n", (unsigned int)calc_m,
+				(unsigned int)calc_p, (unsigned int)m_seed);
 
 	return 0;
 }
@@ -238,7 +267,7 @@ static void vlv_configure_dsi_pll(struct intel_encoder *encoder)
 	dsi_clk = dsi_clk_from_pclk(mode, intel_dsi->pixel_format,
 						intel_dsi->lane_count);
 
-	ret = dsi_calc_mnp(dsi_clk, &dsi_mnp);
+	ret = dsi_calc_mnp(dev_priv, dsi_clk, &dsi_mnp);
 	if (ret) {
 		DRM_DEBUG_KMS("dsi_calc_mnp failed\n");
 		return;
