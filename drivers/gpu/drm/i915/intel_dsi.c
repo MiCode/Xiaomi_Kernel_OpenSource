@@ -147,7 +147,8 @@ static void intel_dsi_port_enable(struct intel_encoder *encoder)
 					LANE_CONFIGURATION_DUAL_LINK_A;
 
 		if ((intel_dsi->dual_link & MIPI_DUAL_LINK_FRONT_BACK) &&
-							IS_VALLEYVIEW(dev))
+			((IS_CHERRYVIEW(dev_priv->dev) && STEP_FROM(STEP_B0)) ||
+			IS_VALLEYVIEW(dev)))
 			I915_WRITE_BITS(VLV_CHICKEN_3, intel_dsi->pixel_overlap
 					<< PIXEL_OVERLAP_CNT_SHIFT,
 					PIXEL_OVERLAP_CNT_MASK);
