@@ -20,6 +20,8 @@
 #include "mdss_debug.h"
 #include "mdss_mdp_debug.h"
 
+#define BUF_DUMP_LAST_N 10
+
 static void __print_time(char *buf, u32 size, u64 ts)
 {
 	unsigned long rem_ns = do_div(ts, NSEC_PER_SEC);
@@ -43,7 +45,8 @@ static void __print_buf(struct seq_file *s, struct mdss_mdp_data *buf,
 		seq_printf(s, "pnum=%d ", buf->last_pipe->num);
 
 	seq_printf(s, "state=%s addr=%pa size=%lu ",
-		buf->state < ARRAY_SIZE(stmap) ? stmap[buf->state] : "?",
+		buf->state < ARRAY_SIZE(stmap) && stmap[buf->state] ?
+			stmap[buf->state] : "?",
 		&buf->p[0].addr, buf->p[0].len);
 
 	__print_time(tmpbuf, sizeof(tmpbuf), buf->last_alloc);
@@ -120,6 +123,41 @@ static void __dump_mixer(struct seq_file *s, struct mdss_mdp_mixer *mixer)
 	seq_printf(s, "\nTotal pipes=%d\n", cnt);
 }
 
+static void __dump_buf_data(struct seq_file *s, struct msm_fb_data_type *mfd)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_data *buf;
+	int i = 0;
+
+	seq_printf(s, "List of buffers for fb%d\n", mfd->index);
+
+	mutex_lock(&mdp5_data->list_lock);
+	if (!list_empty(&mdp5_data->bufs_used)) {
+		seq_puts(s, " Buffers used:\n");
+		list_for_each_entry(buf, &mdp5_data->bufs_used, buf_list)
+			__print_buf(s, buf, true);
+	}
+
+	if (!list_empty(&mdp5_data->bufs_freelist)) {
+		seq_puts(s, " Buffers in free list:\n");
+		list_for_each_entry(buf, &mdp5_data->bufs_freelist, buf_list)
+			__print_buf(s, buf, true);
+	}
+
+	if (!list_empty(&mdp5_data->bufs_pool)) {
+		seq_printf(s, " Last %d buffers used:\n", BUF_DUMP_LAST_N);
+
+		list_for_each_entry_reverse(buf, &mdp5_data->bufs_pool,
+				buf_list) {
+			if (buf->last_freed == 0 || i == BUF_DUMP_LAST_N)
+				break;
+			__print_buf(s, buf, true);
+			i++;
+		}
+	}
+	mutex_unlock(&mdp5_data->list_lock);
+}
+
 static void __dump_ctl(struct seq_file *s, struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_perf_params *perf;
@@ -170,6 +208,25 @@ static int __dump_mdp(struct seq_file *s, struct mdss_data_type *mdata)
 	return 0;
 }
 
+static int __dump_buffers(struct seq_file *s, struct mdss_data_type *mdata)
+{
+	struct mdss_mdp_ctl *ctl;
+	int i, ignore_ndx = -1;
+
+	for (i = 0; i < mdata->nctl; i++) {
+		ctl = mdata->ctl_off + i;
+		/* ignore slave ctl in split display case */
+		if (ctl->num == ignore_ndx)
+			continue;
+		if (ctl->mixer_right && (ctl->mixer_right->ctl != ctl))
+			ignore_ndx = ctl->mixer_right->ctl->num;
+
+		if (ctl->mfd)
+			__dump_buf_data(s, ctl->mfd);
+	}
+	return 0;
+}
+
 #define DUMP_CHUNK 256
 #define DUMP_SIZE SZ_32K
 void mdss_mdp_dump(struct mdss_data_type *mdata)
@@ -210,6 +267,14 @@ static int mdss_debugfs_dump_show(struct seq_file *s, void *v)
 	return __dump_mdp(s, mdata);
 }
 DEFINE_MDSS_DEBUGFS_SEQ_FOPS(mdss_debugfs_dump);
+
+static int mdss_debugfs_buffers_show(struct seq_file *s, void *v)
+{
+	struct mdss_data_type *mdata = (struct mdss_data_type *)s->private;
+
+	return __dump_buffers(s, mdata);
+}
+DEFINE_MDSS_DEBUGFS_SEQ_FOPS(mdss_debugfs_buffers);
 
 static void __stats_ctl_dump(struct mdss_mdp_ctl *ctl, struct seq_file *s)
 {
@@ -274,6 +339,8 @@ int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 
 	debugfs_create_file("dump", 0644, mdd->root, mdata,
 			&mdss_debugfs_dump_fops);
+	debugfs_create_file("buffers", 0644, mdd->root, mdata,
+			&mdss_debugfs_buffers_fops);
 	debugfs_create_file("stat", 0644, mdd->root, mdata,
 			&mdss_debugfs_stats_fops);
 
