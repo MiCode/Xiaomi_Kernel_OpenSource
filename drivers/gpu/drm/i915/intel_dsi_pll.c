@@ -43,8 +43,6 @@ struct dsi_mnp {
 	u32 dsi_pll_div;
 };
 
-u32 chv_dsi_pll_ctrl;
-
 static const u32 lfsr_converts[] = {
 	426, 469, 234, 373, 442, 221, 110, 311, 411,		/* 62 - 70 */
 	461, 486, 243, 377, 188, 350, 175, 343, 427, 213,	/* 71 - 80 */
@@ -246,12 +244,6 @@ static void vlv_configure_dsi_pll(struct intel_encoder *encoder)
 		return;
 	}
 
-	/* For CHV hardcode PLL for 900MHz till algorithm is implemented */
-	if (IS_CHERRYVIEW(dev_priv->dev)) {
-		chv_dsi_pll_ctrl = dsi_mnp.dsi_pll_ctrl = 0x20180;
-		dsi_mnp.dsi_pll_div = 0x201E6;
-	}
-
 	dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI0_DSIPLL;
 
 	DRM_DEBUG_KMS("dsi pll div %08x, ctrl %08x\n",
@@ -289,11 +281,7 @@ void vlv_enable_dsi_pll(struct intel_encoder *encoder)
 	 */
 	udelay(1000);
 
-	if (IS_CHERRYVIEW(dev_priv->dev))
-		tmp = chv_dsi_pll_ctrl;
-	else
-		tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
-
+	tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
 	tmp |= DSI_PLL_VCO_EN;
 	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, tmp);
 
@@ -310,17 +298,15 @@ void vlv_enable_dsi_pll(struct intel_encoder *encoder)
 void vlv_disable_dsi_pll(struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
-	u32 tmp = 0;
+	u32 tmp;
 
 	DRM_DEBUG_KMS("\n");
 
 	mutex_lock(&dev_priv->dpio_lock);
 
-	if (!IS_CHERRYVIEW(dev_priv->dev)) {
-		tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
-		tmp &= ~DSI_PLL_VCO_EN;
-		tmp |= DSI_PLL_LDO_GATE;
-	}
+	tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
+	tmp &= ~DSI_PLL_VCO_EN;
+	tmp |= DSI_PLL_LDO_GATE;
 	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, tmp);
 
 	mutex_unlock(&dev_priv->dpio_lock);
