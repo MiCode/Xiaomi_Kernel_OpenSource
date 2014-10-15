@@ -67,6 +67,7 @@ struct device;
 
 
 phys_addr_t cma_get_base(struct device *dev);
+unsigned long cma_get_size(struct device *dev);
 
 extern struct cma *dma_contiguous_def_area;
 
@@ -150,6 +151,11 @@ bool dma_release_from_contiguous(struct device *dev, unsigned long pfn,
 
 
 static inline phys_addr_t cma_get_base(struct device *dev)
+{
+	return 0;
+}
+
+static inline unsigned long cma_get_size(struct device *dev)
 {
 	return 0;
 }

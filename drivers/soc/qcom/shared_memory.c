@@ -66,13 +66,14 @@ static int msm_shared_heap_populate_base_and_size
 	if (pnode != NULL) {
 		const u32 *addr;
 		u64 len;
+
 		addr = of_get_address(pnode, 0, &len, NULL);
 		if (!addr) {
 			of_node_put(pnode);
 			ret = -EINVAL;
 			goto out;
 		}
-		*size = (size_t)len;
+		*size = cma_get_size(priv);
 		*base = cma_get_base(priv);
 		of_node_put(pnode);
 	} else {
