@@ -102,7 +102,7 @@ void __memset_io(volatile void __iomem *dst, int c, size_t count)
 	}
 
 	while (count >= 8) {
-		writeq_relaxed_no_log(c, p);
+		writeq_relaxed_no_log(qc, p);
 		p += 8;
 		count -= 8;
 	}
