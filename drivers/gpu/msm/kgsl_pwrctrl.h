@@ -94,7 +94,8 @@ struct kgsl_pwr_constraint {
  * @irq_name - resource name for the IRQ
  * @clk_stats - structure of clock statistics
  * @pm_qos_req_dma - the power management quality of service structure
- * @pm_qos_latency - allowed CPU latency in microseconds
+ * @pm_qos_active_latency - allowed CPU latency in microseconds when active
+ * @pm_qos_wakeup_latency - allowed CPU latency in microseconds during wakeup
  * @bus_control - true if the bus calculation is independent
  * @bus_mod - modifier from the current power level for the bus vote
  * @bus_index - default bus index into the bus_ib table
@@ -126,7 +127,8 @@ struct kgsl_pwrctrl {
 	const char *irq_name;
 	struct kgsl_clk_stats clk_stats;
 	struct pm_qos_request pm_qos_req_dma;
-	unsigned int pm_qos_latency;
+	unsigned int pm_qos_active_latency;
+	unsigned int pm_qos_wakeup_latency;
 	bool bus_control;
 	int bus_mod;
 	struct device *devbw;
