@@ -928,6 +928,13 @@ static int mdss_dsi_parse_fbc_params(struct device_node *np,
 		rc = of_property_read_u32(np,
 				"qcom,mdss-dsi-fbc-lossy-mode-idx", &tmp);
 		panel_info->fbc.lossy_mode_idx = (!rc ? tmp : 0);
+		rc = of_property_read_u32(np,
+				"qcom,mdss-dsi-fbc-slice-height", &tmp);
+		panel_info->fbc.slice_height = (!rc ? tmp : 0);
+		panel_info->fbc.pred_mode = of_property_read_bool(np,
+				"qcom,mdss-dsi-fbc-2d-pred-mode");
+		panel_info->fbc.enc_mode = of_property_read_bool(np,
+				"qcom,mdss-dsi-fbc-ver2-mode");
 	} else {
 		pr_debug("%s:%d Panel does not support FBC.\n",
 				__func__, __LINE__);
