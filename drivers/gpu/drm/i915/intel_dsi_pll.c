@@ -250,6 +250,8 @@ static int dsi_calc_mnp(struct drm_i915_private *dev_priv,
 	return 0;
 }
 
+struct dsi_mnp dsi_mnp;
+
 /*
  * XXX: The muxing and gating is hard coded for now. Need to add support for
  * sharing PLLs with two DSI outputs.
@@ -261,7 +263,6 @@ static void vlv_configure_dsi_pll(struct intel_encoder *encoder)
 	const struct drm_display_mode *mode = &intel_crtc->config.adjusted_mode;
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	int ret;
-	struct dsi_mnp dsi_mnp;
 	u32 dsi_clk;
 
 	dsi_clk = dsi_clk_from_pclk(mode, intel_dsi->pixel_format,
@@ -310,7 +311,12 @@ void vlv_enable_dsi_pll(struct intel_encoder *encoder)
 	 */
 	udelay(1000);
 
-	tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
+
+	if (IS_CHERRYVIEW(dev_priv->dev) && STEP_BELOW(STEP_B1))
+		tmp = dsi_mnp.dsi_pll_ctrl;
+	else
+		tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
+
 	tmp |= DSI_PLL_VCO_EN;
 	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, tmp);
 
@@ -333,7 +339,11 @@ void vlv_disable_dsi_pll(struct intel_encoder *encoder)
 
 	mutex_lock(&dev_priv->dpio_lock);
 
-	tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
+	if (IS_CHERRYVIEW(dev_priv->dev) && STEP_BELOW(STEP_B1))
+		tmp = dsi_mnp.dsi_pll_ctrl;
+	else
+		tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
+
 	tmp &= ~DSI_PLL_VCO_EN;
 	tmp |= DSI_PLL_LDO_GATE;
 	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, tmp);
