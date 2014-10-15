@@ -1639,18 +1639,22 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv)
 			&& !dev_priv->maxfifo_enabled) {
 			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 			if (IS_CHERRYVIEW(dev_priv->dev)) {
+				mutex_lock(&dev_priv->rps.hw_lock);
 				val = vlv_punit_read(dev_priv, CHV_DPASSC);
 				vlv_punit_write(dev_priv, CHV_DPASSC,
 						(val | CHV_PW_MAXFIFO_MASK));
+				mutex_unlock(&dev_priv->rps.hw_lock);
 			}
 			dev_priv->maxfifo_enabled = true;
 		} else if (dev_priv->maxfifo_enabled &&
 				!single_plane_enabled(dev_priv->plane_stat)) {
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
 			if (IS_CHERRYVIEW(dev_priv->dev)) {
+				mutex_lock(&dev_priv->rps.hw_lock);
 				val = vlv_punit_read(dev_priv, CHV_DPASSC);
 				vlv_punit_write(dev_priv, CHV_DPASSC,
 					(val & ~(CHV_PW_MAXFIFO_MASK)));
+				mutex_unlock(&dev_priv->rps.hw_lock);
 			}
 			dev_priv->maxfifo_enabled = false;
 		}
