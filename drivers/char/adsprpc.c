@@ -1663,7 +1663,8 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 		ctxfree = 0;
 		spin_lock(&clst->hlock);
 		hlist_for_each_entry_safe(ictx, n, &clst->interrupted, hn) {
-			if (ictx->tgid == current->tgid) {
+			if ((ictx->tgid == current->tgid) &&
+				(ictx->fdata->cid == cid)) {
 				hlist_del(&ictx->hn);
 				ctxfree = ictx;
 				break;
