@@ -98,7 +98,7 @@ static int venus_clock_setup(void)
 	for (i = 0; i < res->clock_set.count; i++) {
 		cl = &res->clock_set.clock_tbl[i];
 		/* Make sure rate-settable clocks' rates are set */
-		if (clk_get_rate(cl->clk) == 0) {
+		if (clk_get_rate(cl->clk) == 0 && cl->count) {
 			rate = clk_round_rate(cl->clk, 0);
 			rc = clk_set_rate(cl->clk, rate);
 			if (rc) {
