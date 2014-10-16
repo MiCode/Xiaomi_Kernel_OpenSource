@@ -595,7 +595,13 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	if (intel_dsi->dual_link) {
 		pclk = pclk / 2;
 
-		if (intel_dsi->dual_link & MIPI_DUAL_LINK_FRONT_BACK) {
+		/*
+		 * in case of CHT B0 and above stepping we can enable
+		 * pixel_overlap if needed by panel. In this case
+		 * we need to increase the pixelclock for extra pixels
+		 */
+		if ((IS_CHERRYVIEW(dev_priv->dev) && STEP_FROM(STEP_B0)) &&
+			(intel_dsi->dual_link & MIPI_DUAL_LINK_FRONT_BACK)) {
 			pclk += DIV_ROUND_UP(mode->vtotal *
 					intel_dsi->pixel_overlap * 60, 1000);
 		}
