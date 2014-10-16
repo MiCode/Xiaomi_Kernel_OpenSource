@@ -514,7 +514,7 @@ static struct rcg_clk vfe0_clk_src = {
 	.c = {
 		.dbg_name = "vfe0_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOW, 133333333.3, NOMINAL, 266666666.7, HIGH,
+		VDD_DIG_FMAX_MAP3(LOW, 133330000, NOMINAL, 266670000, HIGH,
 					320000000),
 		CLK_INIT(vfe0_clk_src.c),
 	},
@@ -522,8 +522,8 @@ static struct rcg_clk vfe0_clk_src = {
 
 static struct clk_freq_tbl ftbl_gcc_venus0_vcodec0_clk[] = {
 	F( 133330000,	gpll0,	6,	0,	0),
-	F( 320000000,	gpll0,	2.5,	0,	0),
-	F( 400000000,	gpll0,	2,	0,	0),
+	F( 266670000,	gpll0,	3,	0,	0),
+	F( 307200000, gpll1_e,	4,	0,	0),
 	F_END
 };
 
@@ -536,8 +536,8 @@ static struct rcg_clk vcodec0_clk_src = {
 	.c = {
 		.dbg_name = "vcodec0_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP3(LOW, 133333333.3, NOMINAL, 320000000, HIGH,
-					400000000),
+		VDD_DIG_FMAX_MAP3(LOW, 133330000, NOMINAL, 266670000, HIGH,
+					307200000),
 		CLK_INIT(vcodec0_clk_src.c),
 	},
 };
@@ -1056,7 +1056,7 @@ static struct rcg_clk gfx3d_clk_src = {
 		.dbg_name = "gfx3d_clk_src",
 		.ops = &clk_ops_rcg,
 		VDD_DIG_FMAX_MAP3(LOW, 200000000, NOMINAL, 307200000, HIGH,
-					400000000),
+					409600000),
 		CLK_INIT(gfx3d_clk_src.c),
 	},
 };
@@ -2089,7 +2089,7 @@ static struct branch_clk gcc_venus0_core0_vcodec0_clk = {
 
 static struct branch_clk gcc_venus0_vcodec0_clk = {
 	.cbcr_reg = VENUS0_VCODEC0_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_venus0_vcodec0_clk",
