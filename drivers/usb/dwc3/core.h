@@ -712,6 +712,8 @@ struct dwc3_scratchpad_array {
 #define DWC3_CONTROLLER_POST_RESET_EVENT		2
 #define DWC3_CORE_PM_SUSPEND_EVENT			3
 #define DWC3_CORE_PM_RESUME_EVENT			4
+
+#define MAX_INTR_STATS					10
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0
@@ -803,6 +805,10 @@ struct dwc3_scratchpad_array {
  * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
  * @in_lpm: indicates if controller is in low power mode (no clocks)
  * @tx_fifo_size: Available RAM size for TX fifo allocation
+ * @irq_cnt: total irq count
+ * @bh_completion_time: time taken for taklet completion
+ * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
+ * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -957,6 +963,16 @@ struct dwc3 {
 
 	atomic_t		in_lpm;
 	int			tx_fifo_size;
+
+	/* IRQ timing statistics */
+	unsigned long		irq_cnt;
+	unsigned                bh_completion_time[MAX_INTR_STATS];
+	unsigned                bh_handled_evt_cnt[MAX_INTR_STATS];
+	unsigned                bh_dbg_index;
+	ktime_t			irq_start_time[MAX_INTR_STATS];
+	unsigned                irq_completion_time[MAX_INTR_STATS];
+	unsigned                irq_event_count[MAX_INTR_STATS];
+	unsigned                irq_dbg_index;
 };
 
 /* -------------------------------------------------------------------------- */
