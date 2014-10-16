@@ -993,10 +993,10 @@ static int mt9m114_set_mbus_fmt(struct v4l2_subdev *sd,
 	ret = mt9m114_write_reg_array(c, mt9m114_chgstat_reg, POST_POLLING);
 	if (ret < 0)
 		return ret;
-#ifndef CONFIG_GMIN_INTEL_MID /* FIXME! */
+
 	if (mt9m114_set_suspend(sd))
 		return -EINVAL;
-#endif
+
 	if (dev->res != res_index->res) {
 		int index;
 
