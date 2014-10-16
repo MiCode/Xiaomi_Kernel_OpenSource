@@ -2180,6 +2180,8 @@ int ipa_uc_notify_clk_state(bool enabled)
 	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
 
 	/* Write to shared memory */
+	ipa_ctx->uc_ctx.uc_sram_mmio->responseOp = 0;
+	ipa_ctx->uc_ctx.uc_sram_mmio->responseParams = 0;
 	ipa_ctx->uc_ctx.uc_sram_mmio->cmdParams = 0;
 	ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp = (enabled) ?
 						IPA_CPU_2_HW_CMD_CLK_UNGATE :
@@ -2195,8 +2197,6 @@ int ipa_uc_notify_clk_state(bool enabled)
 	 * for GATING / UNGATING notification no interrupt is generated form uC
 	 * Need to poll on the response
 	 */
-	ipa_ctx->uc_ctx.uc_sram_mmio->responseOp = 0;
-	ipa_ctx->uc_ctx.uc_sram_mmio->responseParams = 0;
 	for (i = 0; i < IPA_UC_POLL_MAX_RETRY; i++) {
 		if (ipa_ctx->uc_ctx.uc_sram_mmio->responseOp ==
 		    IPA_HW_2_CPU_RESPONSE_CMD_COMPLETED) {
