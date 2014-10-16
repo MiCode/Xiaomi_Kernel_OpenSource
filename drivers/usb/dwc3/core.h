@@ -723,6 +723,8 @@ struct dwc3_scratchpad_array {
 #define DWC3_CORE_PM_RESUME_EVENT			6
 #define DWC3_CONTROLLER_POST_INITIALIZATION_EVENT	7
 #define DWC3_CONTROLLER_CONNDONE_EVENT			8
+
+#define MAX_INTR_STATS					10
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0
@@ -788,6 +790,9 @@ struct dwc3_scratchpad_array {
  * @hird_thresh: value to configure in DCTL[HIRD_Thresh]
  * @in_lpm: if 1, indicates that the controller is in low power mode (no clocks)
  * @tx_fifo_size: Available RAM size for TX fifo allocation
+ * @bh_completion_time: time taken for taklet completion
+ * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
+ * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -916,6 +921,15 @@ struct dwc3 {
 	atomic_t		in_lpm;
 	int			tx_fifo_size;
 	bool			tx_fifo_reduced;
+
+	/* IRQ timing statistics */
+	unsigned                bh_completion_time[MAX_INTR_STATS];
+	unsigned                bh_handled_evt_cnt[MAX_INTR_STATS];
+	unsigned                bh_dbg_index;
+	ktime_t			irq_start_time[MAX_INTR_STATS];
+	unsigned                irq_completion_time[MAX_INTR_STATS];
+	unsigned                irq_event_count[MAX_INTR_STATS];
+	unsigned                irq_dbg_index;
 };
 
 /* -------------------------------------------------------------------------- */
