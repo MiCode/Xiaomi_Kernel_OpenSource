@@ -3051,6 +3051,7 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3_event_buffer *evt)
 		left -= 4;
 	}
 
+	dwc->bh_handled_evt_cnt[dwc->irq_dbg_index] += (evt->count / 4);
 	evt->count = 0;
 	evt->flags &= ~DWC3_EVENT_PENDING;
 	ret = IRQ_HANDLED;
@@ -3074,10 +3075,18 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_evt)
 	struct dwc3 *dwc = evt->dwc;
 	unsigned long flags;
 	irqreturn_t ret = IRQ_NONE;
+	ktime_t start_time;
+
+	start_time = ktime_get();
 
 	spin_lock_irqsave(&dwc->lock, flags);
+	dwc->bh_handled_evt_cnt[dwc->irq_dbg_index] = 0;
 	ret = dwc3_process_event_buf(evt);
 	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	dwc->bh_completion_time[dwc->irq_dbg_index] =
+		ktime_to_us(ktime_sub(ktime_get(), start_time));
+	dwc->irq_dbg_index = (dwc->irq_dbg_index + 1) % MAX_INTR_STATS;
 
 	return ret;
 }
@@ -3088,6 +3097,10 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
 	u32 amount;
 	u32 count;
 	u32 reg;
+	ktime_t start_time;
+
+	start_time = ktime_get();
+	dwc->irq_cnt++;
 
 	if (pm_runtime_suspended(dwc->dev)) {
 		pm_runtime_get(dwc->dev);
@@ -3125,6 +3138,12 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3_event_buffer *evt)
 		memcpy(evt->cache, evt->buf, count - amount);
 
 	dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), count);
+
+	dwc->irq_start_time[dwc->irq_dbg_index] = start_time;
+	dwc->irq_completion_time[dwc->irq_dbg_index] =
+		ktime_us_delta(ktime_get(), start_time);
+	dwc->irq_event_count[dwc->irq_dbg_index] = count / 4;
+	dwc->irq_dbg_index = (dwc->irq_dbg_index + 1) % MAX_INTR_STATS;
 
 	return IRQ_WAKE_THREAD;
 }
