@@ -1653,7 +1653,7 @@ static int qpnp_lbc_chg_init(struct qpnp_lbc_chip *chip)
 		return rc;
 	}
 
-	if (of_property_read_bool(chip->spmi->dev.of_node, "qcom,tchg-mins")) {
+	if (of_find_property(chip->spmi->dev.of_node, "qcom,tchg-mins", NULL)) {
 		rc = qpnp_lbc_tchg_max_set(chip, chip->cfg_tchg_mins);
 		if (rc) {
 			pr_err("Failed to set tchg_mins rc=%d\n", rc);
