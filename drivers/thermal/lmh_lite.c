@@ -189,15 +189,18 @@ static int lmh_reset(struct lmh_sensor_ops *ops)
 		goto reset_exit;
 	}
 
-	if (!lmh_data->intr_status_val) {
-		pr_info("Zero throttling. Re-enabling interrupt\n");
-		cancel_delayed_work_sync(&lmh_data->poll_work);
+	if (!lmh_data->intr_status_val)
 		lmh_data->intr_state = LMH_ISR_MONITOR;
-		enable_irq(lmh_data->irq_num);
-	}
 
 reset_exit:
 	up_write(&lmh_sensor_access);
+	if (!lmh_data->intr_status_val) {
+		/* cancel the poll work after releasing the lock to avoid
+		** deadlock situation */
+		pr_info("Zero throttling. Re-enabling interrupt\n");
+		cancel_delayed_work_sync(&lmh_data->poll_work);
+		enable_irq(lmh_data->irq_num);
+	}
 	return ret;
 }
 
@@ -282,14 +285,15 @@ static void lmh_poll(struct work_struct *work)
 	struct lmh_driver_data *lmh_dat = container_of(work,
 		       struct lmh_driver_data, poll_work.work);
 
-	if (lmh_dat->intr_state != LMH_ISR_POLLING)
-		return;
-
 	down_write(&lmh_sensor_access);
+	if (lmh_dat->intr_state != LMH_ISR_POLLING)
+		goto poll_exit;
 	lmh_read_and_notify(lmh_dat);
-	up_write(&lmh_sensor_access);
 	schedule_delayed_work(&lmh_dat->poll_work,
 			msecs_to_jiffies(lmh_poll_interval));
+
+poll_exit:
+	up_write(&lmh_sensor_access);
 	return;
 }
 
