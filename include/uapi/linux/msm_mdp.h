@@ -824,6 +824,11 @@ struct mdp_histogram_data {
 	uint32_t *extra_info;
 };
 
+enum {
+	mdp_pcc_v1_7 = 0x1,
+	mdp_pcc_vmax,
+};
+
 struct mdp_pcc_coeff {
 	uint32_t c, r, g, b, rr, gg, bb, rg, gb, rb, rgb_0, rgb_1;
 };

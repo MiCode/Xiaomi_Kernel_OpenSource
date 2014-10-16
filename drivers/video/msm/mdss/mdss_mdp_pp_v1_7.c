@@ -19,8 +19,22 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_pp.h"
 
-static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
-		u32 *opmode, int side);
+
+/* MDP v1.7 specific macros */
+
+/* PCC_EN for PCC opmode*/
+#define PCC_ENABLE	BIT(0)
+#define PCC_OP_MODE_OFF 0
+#define PCC_CONST_COEFF_OFF 4
+#define PCC_R_COEFF_OFF 0x10
+#define PCC_G_COEFF_OFF 0x1C
+#define PCC_B_COEFF_OFF 0x28
+#define PCC_RG_COEFF_OFF 0x34
+#define PCC_RB_COEFF_OFF 0x40
+#define PCC_GB_COEFF_OFF 0x4C
+#define PCC_RGB_COEFF_OFF 0x58
+#define PCC_CONST_COEFF_MASK 0xFFFF
+#define PCC_COEFF_MASK 0x3FFFF
 
 #define GAMUT_OP_MODE_OFF 0
 #define GAMUT_TABLE_INDEX 4
@@ -38,11 +52,21 @@ static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 
 static struct mdss_pp_res_type_v1_7 config_data;
 
+static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
+		u32 *opmode, int side);
+
+/* Gamut prototypes */
 static int pp_gamut_get_config(char __iomem *base_addr, void *cfg_data,
 			   u32 block_type, u32 disp_num);
 static int pp_gamut_set_config(char __iomem *base_addr,
 		struct pp_sts_type *pp_sts, void *cfg_data,
 		u32 block_type);
+/* PCC prototypes */
+static int pp_pcc_set_config(char __iomem *base_addr,
+			struct pp_sts_type *pp_sts, void *cfg_data,
+			u32 block_type);
+static int pp_pcc_get_config(char __iomem *base_addr, void *cfg_data,
+				u32 block_type, u32 disp_num);
 
 void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 {
@@ -56,8 +80,8 @@ void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	ops->pp_ops[IGC].pp_get_config = NULL;
 
 	/* PCC ops */
-	ops->pp_ops[PCC].pp_set_config = NULL;
-	ops->pp_ops[PCC].pp_get_config = NULL;
+	ops->pp_ops[PCC].pp_set_config = pp_pcc_set_config;
+	ops->pp_ops[PCC].pp_get_config = pp_pcc_get_config;
 
 	/* GC ops */
 	ops->pp_ops[GC].pp_set_config = NULL;
@@ -339,3 +363,157 @@ bail_out:
 	return ret;
 }
 
+static int pp_pcc_set_config(char __iomem *base_addr,
+			struct pp_sts_type *pp_sts, void *cfg_data,
+			u32 block_type)
+{
+	struct mdp_pcc_cfg_data *pcc_cfg_data = NULL;
+	struct mdp_pcc_data_v1_7 *pcc_data = NULL;
+	char __iomem *addr = NULL;
+	u32 opmode = 0;
+
+	if (!base_addr || !cfg_data || !pp_sts) {
+		pr_err("invalid params base_addr %p cfg_data %p pp_sts %p\n",
+			base_addr, cfg_data, pp_sts);
+		return -EINVAL;
+	}
+	pcc_cfg_data = (struct mdp_pcc_cfg_data *) cfg_data;
+	if (pcc_cfg_data->version != mdp_pcc_v1_7) {
+		pr_err("invalid pcc version %d\n", pcc_cfg_data->version);
+		return -EINVAL;
+	}
+	if (!(pcc_cfg_data->ops & ~(MDP_PP_OPS_READ))) {
+		pr_info("only read ops is set %d", pcc_cfg_data->ops);
+		return 0;
+	}
+	pcc_data = pcc_cfg_data->cfg_payload;
+	if (!pcc_data) {
+		pr_err("invalid payload for pcc %p\n", pcc_data);
+		return -EINVAL;
+	}
+
+	if (!(pcc_cfg_data->ops & MDP_PP_OPS_WRITE))
+		goto bail_out;
+
+	addr = base_addr + PCC_CONST_COEFF_OFF;
+	writel_relaxed(pcc_data->r.c & PCC_CONST_COEFF_MASK, addr);
+	writel_relaxed(pcc_data->g.c & PCC_CONST_COEFF_MASK, addr + 4);
+	writel_relaxed(pcc_data->b.c & PCC_CONST_COEFF_MASK, addr + 8);
+
+	addr = base_addr + PCC_R_COEFF_OFF;
+	writel_relaxed(pcc_data->r.r & PCC_COEFF_MASK, addr);
+	writel_relaxed(pcc_data->g.r & PCC_COEFF_MASK, addr + 4);
+	writel_relaxed(pcc_data->b.r & PCC_COEFF_MASK, addr + 8);
+
+	addr = base_addr + PCC_G_COEFF_OFF;
+	writel_relaxed(pcc_data->r.g & PCC_COEFF_MASK, addr);
+	writel_relaxed(pcc_data->g.g & PCC_COEFF_MASK, addr + 4);
+	writel_relaxed(pcc_data->b.g & PCC_COEFF_MASK, addr + 8);
+
+	addr = base_addr + PCC_B_COEFF_OFF;
+	writel_relaxed(pcc_data->r.b & PCC_COEFF_MASK, addr);
+	writel_relaxed(pcc_data->g.b & PCC_COEFF_MASK, addr + 4);
+	writel_relaxed(pcc_data->b.b & PCC_COEFF_MASK, addr + 8);
+
+	addr = base_addr + PCC_RG_COEFF_OFF;
+	writel_relaxed(pcc_data->r.rg & PCC_COEFF_MASK, addr);
+	writel_relaxed(pcc_data->g.rg & PCC_COEFF_MASK, addr + 4);
+	writel_relaxed(pcc_data->b.rg & PCC_COEFF_MASK, addr + 8);
+
+	addr = base_addr + PCC_RB_COEFF_OFF;
+	writel_relaxed(pcc_data->r.rb & PCC_COEFF_MASK, addr);
+	writel_relaxed(pcc_data->g.rb & PCC_COEFF_MASK, addr + 4);
+	writel_relaxed(pcc_data->b.rb & PCC_COEFF_MASK, addr + 8);
+
+	addr = base_addr + PCC_GB_COEFF_OFF;
+	writel_relaxed(pcc_data->r.gb & PCC_COEFF_MASK, addr);
+	writel_relaxed(pcc_data->g.gb & PCC_COEFF_MASK, addr + 4);
+	writel_relaxed(pcc_data->b.gb & PCC_COEFF_MASK, addr + 8);
+
+	addr = base_addr + PCC_RGB_COEFF_OFF;
+	writel_relaxed(pcc_data->r.rgb & PCC_COEFF_MASK, addr);
+	writel_relaxed(pcc_data->g.rgb & PCC_COEFF_MASK, addr + 4);
+	writel_relaxed(pcc_data->b.rgb & PCC_COEFF_MASK, addr + 8);
+
+bail_out:
+	if (pcc_cfg_data->ops & MDP_PP_OPS_DISABLE) {
+		writel_relaxed(opmode, base_addr + PCC_OP_MODE_OFF);
+		pp_sts->pcc_sts &= ~PP_STS_ENABLE;
+	} else if (pcc_cfg_data->ops & MDP_PP_OPS_ENABLE) {
+		opmode |= PCC_ENABLE;
+		writel_relaxed(opmode, base_addr + PCC_OP_MODE_OFF);
+		pp_sts->pcc_sts |= PP_STS_ENABLE;
+	}
+	pp_sts_set_split_bits(&pp_sts->pcc_sts, pcc_cfg_data->ops);
+
+	return 0;
+}
+
+static int pp_pcc_get_config(char __iomem *base_addr, void *cfg_data,
+				u32 block_type, u32 disp_num)
+{
+	char __iomem *addr;
+	struct mdp_pcc_cfg_data *pcc_cfg = NULL;
+	struct mdp_pcc_data_v1_7 pcc_data;
+
+	if (!base_addr || !cfg_data) {
+		pr_err("invalid params base_addr %p cfg_data %p\n",
+		       base_addr, cfg_data);
+		return -EINVAL;
+	}
+
+	pcc_cfg = (struct mdp_pcc_cfg_data *) cfg_data;
+	if (pcc_cfg->version != mdp_pcc_v1_7) {
+		pr_err("unsupported version of pcc %d\n",
+		       pcc_cfg->version);
+		return -EINVAL;
+	}
+
+	addr = base_addr + PCC_CONST_COEFF_OFF;
+	pcc_data.r.c = readl_relaxed(addr) & PCC_CONST_COEFF_MASK;
+	pcc_data.g.c = readl_relaxed(addr + 4) & PCC_CONST_COEFF_MASK;
+	pcc_data.b.c = readl_relaxed(addr + 8) & PCC_CONST_COEFF_MASK;
+
+	addr = base_addr + PCC_R_COEFF_OFF;
+	pcc_data.r.r = readl_relaxed(addr) & PCC_COEFF_MASK;
+	pcc_data.g.r = readl_relaxed(addr + 4) & PCC_COEFF_MASK;
+	pcc_data.b.r = readl_relaxed(addr + 8) & PCC_COEFF_MASK;
+
+	addr = base_addr + PCC_G_COEFF_OFF;
+	pcc_data.r.g = readl_relaxed(addr) & PCC_COEFF_MASK;
+	pcc_data.g.g = readl_relaxed(addr + 4) & PCC_COEFF_MASK;
+	pcc_data.b.g = readl_relaxed(addr + 8) & PCC_COEFF_MASK;
+
+	addr = base_addr + PCC_B_COEFF_OFF;
+	pcc_data.r.b = readl_relaxed(addr) & PCC_COEFF_MASK;
+	pcc_data.g.b = readl_relaxed(addr + 4) & PCC_COEFF_MASK;
+	pcc_data.b.b = readl_relaxed(addr + 8) & PCC_COEFF_MASK;
+
+	addr = base_addr + PCC_RG_COEFF_OFF;
+	pcc_data.r.rg = readl_relaxed(addr) & PCC_COEFF_MASK;
+	pcc_data.g.rg = readl_relaxed(addr + 4) & PCC_COEFF_MASK;
+	pcc_data.b.rg = readl_relaxed(addr + 8) & PCC_COEFF_MASK;
+
+	addr = base_addr + PCC_RB_COEFF_OFF;
+	pcc_data.r.rb = readl_relaxed(addr) & PCC_COEFF_MASK;
+	pcc_data.g.rb = readl_relaxed(addr + 4) & PCC_COEFF_MASK;
+	pcc_data.b.rb = readl_relaxed(addr + 8) & PCC_COEFF_MASK;
+
+	addr = base_addr + PCC_GB_COEFF_OFF;
+	pcc_data.r.gb = readl_relaxed(addr) & PCC_COEFF_MASK;
+	pcc_data.g.gb = readl_relaxed(addr + 4) & PCC_COEFF_MASK;
+	pcc_data.b.gb = readl_relaxed(addr + 8) & PCC_COEFF_MASK;
+
+	addr = base_addr + PCC_RGB_COEFF_OFF;
+	pcc_data.r.rgb = readl_relaxed(addr) & PCC_COEFF_MASK;
+	pcc_data.g.rgb = readl_relaxed(addr + 4) & PCC_COEFF_MASK;
+	pcc_data.b.rgb = readl_relaxed(addr + 8) & PCC_COEFF_MASK;
+
+	if (copy_to_user(pcc_cfg->cfg_payload, &pcc_data,
+			 sizeof(pcc_data))) {
+		pr_err("failed to copy the pcc info into payload\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}

@@ -208,3 +208,80 @@ int pp_gamut_cache_params(struct mdp_gamut_cfg_data *config,
 	}
 	return ret;
 }
+
+static int pp_pcc_cache_params_v1_7(struct mdp_pcc_cfg_data *config,
+				      struct mdss_pp_res_type *mdss_pp_res)
+{
+	u32 disp_num;
+	int ret = 0;
+	struct mdss_pp_res_type_v1_7 *res_cache;
+	struct mdp_pcc_data_v1_7 *v17_cache_data, v17_usr_config;
+
+	if (!config || !mdss_pp_res) {
+		pr_err("invalid param config %p pp_res %p\n",
+			config, mdss_pp_res);
+		return -EINVAL;
+	}
+
+	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(config->block >= MDP_BLOCK_MAX)) {
+		pr_err("invalid config block %d\n", config->block);
+		return -EINVAL;
+	}
+	if (!mdss_pp_res->pp_data_res) {
+		pr_err("invalid pp_data_res %p\n", mdss_pp_res->pp_data_res);
+		return -EINVAL;
+	}
+
+	res_cache = mdss_pp_res->pp_data_res;
+	if (config->ops & MDP_PP_OPS_READ) {
+		pr_err("read op is not supported\n");
+		return -EINVAL;
+	} else {
+		disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+		mdss_pp_res->pcc_disp_cfg[disp_num] = *config;
+		v17_cache_data = &res_cache->pcc_v17_data[disp_num];
+		mdss_pp_res->pcc_disp_cfg[disp_num].cfg_payload =
+			(void *) v17_cache_data;
+		if (copy_from_user(&v17_usr_config, config->cfg_payload,
+				   sizeof(v17_usr_config))) {
+			pr_err("failed to copy v17 pcc\n");
+			ret = -EFAULT;
+			goto pcc_config_exit;
+		}
+		if ((config->ops & MDP_PP_OPS_DISABLE)) {
+			pr_debug("disable pcc\n");
+			ret = 0;
+			goto pcc_config_exit;
+		}
+		if (!(config->ops & MDP_PP_OPS_WRITE)) {
+			pr_debug("op for pcc %d\n", config->ops);
+			goto pcc_config_exit;
+		}
+		memcpy(v17_cache_data, &v17_usr_config, sizeof(v17_usr_config));
+	}
+pcc_config_exit:
+	return ret;
+}
+
+int pp_pcc_cache_params(struct mdp_pcc_cfg_data *config,
+			  struct mdss_pp_res_type *mdss_pp_res)
+{
+	int ret = 0;
+	if (!config || !mdss_pp_res) {
+		pr_err("invalid param config %p pp_res %p\n",
+			config, mdss_pp_res);
+		return -EINVAL;
+	}
+	switch (config->version) {
+	case mdp_pcc_v1_7:
+		ret = pp_pcc_cache_params_v1_7(config, mdss_pp_res);
+		break;
+	default:
+		pr_err("unsupported pcc version %d\n",
+			config->version);
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
