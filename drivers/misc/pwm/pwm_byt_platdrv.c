@@ -102,7 +102,7 @@ static int __init pwm_byt_init_driver(void)
 {
 	return platform_driver_probe(&pwm_byt_plat_driver, pwm_byt_plat_probe);
 }
-module_init(pwm_byt_init_driver);
+subsys_initcall(pwm_byt_init_driver);
 
 static void __exit pwm_byt_exit_driver(void)
 {
