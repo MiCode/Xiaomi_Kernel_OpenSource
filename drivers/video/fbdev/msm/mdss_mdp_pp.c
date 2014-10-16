@@ -1679,8 +1679,22 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		pp_pa_config(flags, base + MDSS_MDP_REG_DSPP_PA_BASE, pp_sts,
 				&mdss_pp_res->pa_disp_cfg[disp_num]);
 
-	pp_pcc_config(flags, base + MDSS_MDP_REG_DSPP_PCC_BASE, pp_sts,
+	if (flags & PP_FLAGS_DIRTY_PCC) {
+		if (!pp_ops[PCC].pp_set_config)
+			pp_pcc_config(flags, base + MDSS_MDP_REG_DSPP_PCC_BASE,
+					pp_sts,
 					&mdss_pp_res->pcc_disp_cfg[disp_num]);
+		else {
+			if (mdata->pp_block_off.dspp_pcc_off == U32_MAX) {
+				pr_err("invalid pcc off %d\n", U32_MAX);
+			} else {
+				addr = base + mdata->pp_block_off.dspp_pcc_off;
+				pp_ops[PCC].pp_set_config(addr, pp_sts,
+					&mdss_pp_res->pcc_disp_cfg[disp_num],
+					DSPP);
+			}
+		}
+	}
 
 	pp_igc_config(flags, mdata->mdp_base + MDSS_MDP_REG_IGC_DSPP_BASE,
 				pp_sts, &mdss_pp_res->igc_disp_cfg[disp_num],
@@ -2677,6 +2691,7 @@ int mdss_mdp_pcc_config(struct mdp_pcc_cfg_data *config,
 	int ret = 0;
 	u32 disp_num, dspp_num = 0;
 	char __iomem *addr;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(config->block >= MDP_BLOCK_MAX))
@@ -2699,14 +2714,48 @@ int mdss_mdp_pcc_config(struct mdp_pcc_cfg_data *config,
 		}
 
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+		if (pp_ops[PCC].pp_get_config) {
+			addr = mdss_mdp_get_dspp_addr_off(disp_num);
+			if (IS_ERR_OR_NULL(addr)) {
+				pr_err("invalid dspp base_addr %p\n",
+					addr);
+				ret = -EINVAL;
+				goto pcc_clk_off;
+			}
+			if (mdata->pp_block_off.dspp_pcc_off == U32_MAX) {
+				pr_err("invalid pcc params off %d\n",
+					mdata->pp_block_off.dspp_pcc_off);
+				ret = -EINVAL;
+				goto pcc_clk_off;
+			}
+			addr += mdata->pp_block_off.dspp_pcc_off;
+			ret = pp_ops[PCC].pp_get_config(addr, config,
+					DSPP, disp_num);
+			if (ret)
+				pr_err("pcc get config failed %d\n", ret);
+			goto pcc_clk_off;
+		}
 
 		addr = mdss_mdp_get_dspp_addr_off(dspp_num) +
 			  MDSS_MDP_REG_DSPP_PCC_BASE;
 		pp_read_pcc_regs(addr, config);
 		*copyback = 1;
+pcc_clk_off:
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	} else {
+		if (pp_ops[PCC].pp_set_config) {
+			pr_debug("version of pcc is %d\n", config->version);
+			ret = pp_pcc_cache_params(config, mdss_pp_res);
+			if (ret) {
+				pr_err("pcc config failed version %d ret %d\n",
+					config->version, ret);
+				ret = -EFAULT;
+				goto pcc_config_exit;
+			} else
+				goto pcc_set_dirty;
+		}
 		mdss_pp_res->pcc_disp_cfg[disp_num] = *config;
+pcc_set_dirty:
 		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PCC;
 	}
 

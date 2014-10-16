@@ -18,5 +18,7 @@
 
 int pp_gamut_cache_params(struct mdp_gamut_cfg_data *config,
 			  struct mdss_pp_res_type *mdss_pp_res);
+int pp_pcc_cache_params(struct mdp_pcc_cfg_data *config,
+			  struct mdss_pp_res_type *mdss_pp_res);
 
 #endif
