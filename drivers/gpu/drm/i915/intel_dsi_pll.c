@@ -134,11 +134,12 @@ static u32 dsi_rr_formula(const struct drm_display_mode *mode,
 #else
 
 /* Get DSI clock from pixel clock */
-static u32 dsi_clk_from_pclk(const struct drm_display_mode *mode,
+static u32 dsi_clk_from_pclk(struct intel_dsi *intel_dsi,
 			  int pixel_format, int lane_count)
 {
 	u32 dsi_clk_khz;
 	u32 bpp;
+	int pclk;
 
 	switch (pixel_format) {
 	default:
@@ -153,10 +154,11 @@ static u32 dsi_clk_from_pclk(const struct drm_display_mode *mode,
 		bpp = 16;
 		break;
 	}
+	pclk = intel_dsi->pclk;
 
 	/* DSI data rate = pixel clock * bits per pixel / lane count
 	   pixel clock is converted from KHz to Hz */
-	dsi_clk_khz = DIV_ROUND_CLOSEST(mode->clock * bpp, lane_count);
+	dsi_clk_khz = DIV_ROUND_CLOSEST(pclk * bpp, lane_count);
 
 	return dsi_clk_khz;
 }
@@ -266,7 +268,7 @@ static void vlv_configure_dsi_pll(struct intel_encoder *encoder)
 	int ret;
 	u32 dsi_clk;
 
-	dsi_clk = dsi_clk_from_pclk(mode, intel_dsi->pixel_format,
+	dsi_clk = dsi_clk_from_pclk(intel_dsi, intel_dsi->pixel_format,
 						intel_dsi->lane_count);
 
 	ret = dsi_calc_mnp(dev_priv, dsi_clk, &dsi_mnp);
@@ -277,8 +279,8 @@ static void vlv_configure_dsi_pll(struct intel_encoder *encoder)
 
 	dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI0_DSIPLL;
 
-	/* For MIPI Port C */
-	if (pipe == PIPE_B)
+	/* For MIPI Port C or for dual link */
+	if ((pipe == PIPE_B) || intel_dsi->dual_link)
 		dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI1_DSIPLL;
 
 	DRM_DEBUG_KMS("dsi pll div %08x, ctrl %08x\n",
@@ -327,12 +329,11 @@ void vlv_enable_dsi_pll(struct intel_encoder *encoder)
 
 	mutex_unlock(&dev_priv->dpio_lock);
 
-	if (wait_for(I915_READ(PIPECONF(PIPE_A)) & PIPECONF_DSI_PLL_LOCKED, 20)) {
-		DRM_ERROR("DSI PLL lock failed\n");
-		return;
-	}
-
-	DRM_DEBUG_KMS("DSI PLL locked\n");
+	tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
+	if (tmp & 0x1)
+		DRM_DEBUG_KMS("DSI PLL Locked\n");
+	else
+		DRM_DEBUG_KMS("DSI PLL lock failed\n");
 }
 
 void vlv_disable_dsi_pll(struct intel_encoder *encoder)
