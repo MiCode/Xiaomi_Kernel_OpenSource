@@ -1364,9 +1364,6 @@ static void uart_close(struct tty_struct *tty, struct file *filp)
 
 	mutex_lock(&port->mutex);
 	uart_shutdown(tty, state);
-
-	tty_ldisc_flush(tty);
-
 	tty_port_tty_set(port, NULL);
 	tty->closing = 0;
 	spin_lock_irqsave(&port->lock, flags);
@@ -1393,6 +1390,8 @@ static void uart_close(struct tty_struct *tty, struct file *filp)
 	wake_up_interruptible(&port->close_wait);
 
 	mutex_unlock(&port->mutex);
+
+	tty_ldisc_flush(tty);
 }
 
 static void uart_wait_until_sent(struct tty_struct *tty, int timeout)
