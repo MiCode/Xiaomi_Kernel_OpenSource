@@ -33,6 +33,7 @@
 #define SW_OVERRIDE_MASK	BIT(2)
 #define HW_CONTROL_MASK		BIT(1)
 #define SW_COLLAPSE_MASK	BIT(0)
+#define GMEM_CLAMP_IO_MASK	BIT(0)
 
 /* Wait 2^n CXO cycles between all states. Here, n=2 (4 cycles). */
 #define EN_REST_WAIT_VAL	(0x2 << 20)
@@ -53,6 +54,7 @@ struct gdsc {
 	bool			resets_asserted;
 	bool			root_en;
 	int			root_clk_idx;
+	void __iomem		*domain_addr;
 };
 
 static int gdsc_is_enabled(struct regulator_dev *rdev)
@@ -75,6 +77,16 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
 
 	if (sc->toggle_logic) {
+		if (sc->domain_addr) {
+			regval = readl_relaxed(sc->domain_addr);
+			regval &= ~GMEM_CLAMP_IO_MASK;
+			writel_relaxed(regval, sc->domain_addr);
+			/*
+			 * Make sure CLAMP_IO is de-asserted before continuing.
+			 */
+			wmb();
+		}
+
 		regval = readl_relaxed(sc->gdscr);
 		if (regval & HW_CONTROL_MASK) {
 			dev_warn(&rdev->dev, "Invalid enable while %s is under HW control\n",
@@ -155,6 +167,12 @@ static int gdsc_disable(struct regulator_dev *rdev)
 		if (ret)
 			dev_err(&rdev->dev, "%s disable timed out: 0x%x\n",
 				sc->rdesc.name, regval);
+
+		if (sc->domain_addr) {
+			regval = readl_relaxed(sc->domain_addr);
+			regval |= GMEM_CLAMP_IO_MASK;
+			writel_relaxed(regval, sc->domain_addr);
+		}
 	} else {
 		for (i = sc->clock_count-1; i >= 0; i--)
 			if (likely(i != sc->root_clk_idx))
@@ -283,6 +301,15 @@ static int gdsc_probe(struct platform_device *pdev)
 	sc->gdscr = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (sc->gdscr == NULL)
 		return -ENOMEM;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"domain_addr");
+	if (res) {
+		sc->domain_addr = devm_ioremap(&pdev->dev, res->start,
+							resource_size(res));
+		if (sc->domain_addr == NULL)
+			return -ENOMEM;
+	}
 
 	sc->clock_count = of_property_count_strings(pdev->dev.of_node,
 					    "clock-names");
