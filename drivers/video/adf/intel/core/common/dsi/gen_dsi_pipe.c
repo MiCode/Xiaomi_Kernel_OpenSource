@@ -230,14 +230,37 @@ static void dsi_on_post(struct intel_pipe *pipe)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
 
+	/* Enable maxfifo if required */
+	if (!pipe->status.maxfifo_enabled &&
+				(vlv_num_planes_enabled(pipe) == 1)) {
+		REG_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
+		pipe->status.maxfifo_enabled = true;
+	}
 	if (dsi_pipe->ops.on_post)
 		dsi_pipe->ops.on_post(dsi_pipe);
+}
+
+static void dsi_pre_validate(struct intel_pipe *pipe,
+		struct intel_adf_post_custom_data *custom)
+{
+	if (custom->num_overlays > 1 && pipe->status.maxfifo_enabled) {
+		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		pipe->status.maxfifo_enabled = false;
+		pipe->status.wait_vblank = true;
+		pipe->status.vsync_counter =
+				pipe->ops->get_vsync_counter(pipe, 0);
+	}
 }
 
 static void dsi_pre_post(struct intel_pipe *pipe)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
 
+	if (pipe->status.wait_vblank && pipe->status.vsync_counter ==
+			pipe->ops->get_vsync_counter(pipe, 0)) {
+		vlv_wait_for_vblank(pipe->base.idx);
+		pipe->status.wait_vblank = false;
+	}
 	if (dsi_pipe->ops.pre_post)
 		dsi_pipe->ops.pre_post(dsi_pipe);
 }
@@ -422,6 +445,7 @@ static struct intel_pipe_ops dsi_base_ops = {
 	.dpms = dsi_dpms,
 	.modeset = dsi_modeset,
 	.get_screen_size = dsi_get_screen_size,
+	.pre_validate = dsi_pre_validate,
 	.pre_post = dsi_pre_post,
 	.on_post = dsi_on_post,
 	.get_supported_events = dsi_get_supported_events,

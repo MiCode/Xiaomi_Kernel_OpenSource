@@ -129,6 +129,8 @@ extern int pipe_mode_set(struct intel_pipe *pipe,
 			 struct drm_mode_modeinfo *mode);
 extern int vlv_display_on(struct intel_pipe *pipe);
 extern int vlv_display_off(struct intel_pipe *pipe);
+int vlv_num_planes_enabled(struct intel_pipe *pipe);
+void vlv_update_plane_status(struct intel_pipe *pipe, int plane, bool enabled);
 
 /* vlv_debugfs */
 extern int vlv_debugfs_init(struct vlv_dc_config *vlv_config);

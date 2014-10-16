@@ -244,6 +244,15 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 		regs->dspcntr |= DISPPLANE_TILED;
 	else
 		regs->dspcntr &= ~DISPPLANE_TILED;
+	/* when in maxfifo display control register cannot be modified */
+	if (intel_pipe->status.maxfifo_enabled && regs->dspcntr != dspcntr) {
+		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		intel_pipe->status.maxfifo_enabled = false;
+		intel_pipe->status.wait_vblank = true;
+		intel_pipe->status.vsync_counter =
+				intel_pipe->ops->get_vsync_counter(intel_pipe,
+								   0);
+	}
 	regs->stride = buf->stride;
 	regs->linearoff = src_y * regs->stride + src_x * bpp;
 	dspaddr_offset = vlv_compute_page_offset(&src_x, &src_y,
@@ -294,6 +303,7 @@ static void vlv_pri_flip(struct intel_plane *plane,
 	REG_WRITE(DSPLINOFF(pidx), regs->linearoff);
 	I915_MODIFY_DISPBASE(DSPSURF(pidx), regs->surfaddr);
 	REG_POSTING_READ(DSPSURF(pidx));
+	vlv_update_plane_status(config->pipe, VLV_PLANE, true);
 
 	return;
 }
@@ -316,6 +326,7 @@ static int vlv_pri_enable(struct intel_plane *plane)
 	}
 
 	REG_WRITE(reg, value | DISPLAY_PLANE_ENABLE);
+	vlv_update_plane_status(plane->pipe, VLV_PLANE, true);
 	vlv_adf_flush_disp_plane(plane->base.idx);
 
 	/*
@@ -342,6 +353,7 @@ static int vlv_pri_disable(struct intel_plane *plane)
 	}
 
 	REG_WRITE(reg, value & ~DISPLAY_PLANE_ENABLE);
+	vlv_update_plane_status(plane->pipe, VLV_PLANE, false);
 	vlv_adf_flush_disp_plane(plane->base.idx);
 	REG_WRITE_BITS(VLV_DDL(plane->base.idx), 0x00, mask);
 	return 0;

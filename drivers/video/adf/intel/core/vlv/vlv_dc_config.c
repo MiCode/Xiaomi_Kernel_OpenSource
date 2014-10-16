@@ -36,6 +36,24 @@ static const struct intel_dc_attachment vlv_allowed_attachments[] = {
 	}
 };
 
+void vlv_update_plane_status(struct intel_pipe *pipe, int plane, bool enabled)
+{
+	pipe->status.plane_status[pipe->base.idx][plane] = enabled;
+}
+
+int vlv_num_planes_enabled(struct intel_pipe *pipe)
+{
+	int cnt = 0;
+	int i, j;
+
+	for (i = 0; i < MAX_PIPES; i++)
+		for (j = 0; j < VLV_MAX_PLANES; j++)
+			if (pipe->status.plane_status[i][j])
+				cnt++;
+
+	return cnt;
+}
+
 void vlv_dc_config_destroy(struct intel_dc_config *config)
 {
 	struct vlv_dc_config *vlv_config = to_vlv_dc_config(config);

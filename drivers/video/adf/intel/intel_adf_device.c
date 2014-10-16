@@ -496,10 +496,6 @@ static void intel_adf_device_post(struct adf_device *dev,
 	struct post_obj *po;
 	struct flip *f;
 
-	/*disable unused overlay engines*/
-	disable_unused_overlay_engines(&i_dev->active_engs,
-		&state->post_engs);
-
 	/* To forbid DSR */
 	for_each_post_obj(po, &state->post_intfs) {
 		intf = po->obj;
@@ -516,6 +512,10 @@ static void intel_adf_device_post(struct adf_device *dev,
 		}
 		eng->plane->ops->flip(eng->plane, &f->buf, &f->config);
 	}
+
+	/*disable unused overlay engines*/
+	disable_unused_overlay_engines(&i_dev->active_engs,
+		&state->post_engs);
 
 	/*trigger pipe processing, if necessary*/
 	for_each_post_obj(po, &state->post_intfs) {

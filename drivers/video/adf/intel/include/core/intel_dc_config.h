@@ -260,6 +260,8 @@ struct intel_pipe_ops {
 	u32 (*get_vsync_counter)(struct intel_pipe *pipe, u32 interval);
 	void (*handle_events)(struct intel_pipe *pipe, u32 events);
 
+	void (*pre_validate)(struct intel_pipe *pipe,
+			struct intel_adf_post_custom_data *custom);
 	void (*pre_post)(struct intel_pipe *pipe);
 	void (*on_post)(struct intel_pipe *pipe);
 
@@ -285,6 +287,13 @@ struct pri_plane_regs {
 	unsigned long surfaddr;
 };
 
+struct intel_global_status {
+	bool maxfifo_enabled;
+	bool wait_vblank;
+	u32 vsync_counter;
+	bool plane_status[2][6];
+};
+
 struct intel_pipe {
 	struct intel_dc_component base;
 	bool primary;
@@ -297,7 +306,9 @@ struct intel_pipe {
 	 * Store the computed reg values in this to apply in
 	 * one shot later in flip calls
 	 */
-	struct pri_plane_regs regs;
+	 struct pri_plane_regs regs;
+
+	 struct intel_global_status status;
 };
 
 struct intel_dc_attachment {
