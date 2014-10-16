@@ -170,6 +170,13 @@ int kgsl_add_fence_event(struct kgsl_device *device,
 	if (context == NULL)
 		goto unlock;
 
+	if (test_bit(KGSL_CONTEXT_PRIV_INVALID, &context->priv)) {
+		KGSL_DRV_ERR(device,
+			"Cannot create a fence: context %d is invalid\n",
+			context->id);
+		goto unlock;
+	}
+
 	pt = kgsl_sync_pt_create(context->timeline, context, timestamp);
 	if (pt == NULL) {
 		KGSL_DRV_ERR(device, "kgsl_sync_pt_create failed\n");
