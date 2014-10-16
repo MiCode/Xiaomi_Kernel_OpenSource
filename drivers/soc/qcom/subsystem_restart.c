@@ -226,6 +226,38 @@ static ssize_t restart_level_store(struct device *dev,
 	return -EPERM;
 }
 
+static ssize_t system_debug_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct subsys_device *subsys = to_subsys(dev);
+	char p[6] = "set";
+
+	if (!subsys->desc->system_debug)
+		strlcpy(p, "reset", sizeof(p));
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", p);
+}
+
+static ssize_t system_debug_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t count)
+{
+	struct subsys_device *subsys = to_subsys(dev);
+	const char *p;
+
+	p = memchr(buf, '\n', count);
+	if (p)
+		count = p - buf;
+
+	if (!strncasecmp(buf, "set", count))
+		subsys->desc->system_debug = true;
+	else if (!strncasecmp(buf, "reset", count))
+		subsys->desc->system_debug = false;
+	else
+		return -EPERM;
+	return count;
+}
+
 int subsys_get_restart_level(struct subsys_device *dev)
 {
 	return dev->restart_level;
@@ -266,6 +298,7 @@ static struct device_attribute subsys_attrs[] = {
 	__ATTR_RO(state),
 	__ATTR_RO(crash_count),
 	__ATTR(restart_level, 0644, restart_level_show, restart_level_store),
+	__ATTR(system_debug, 0644, system_debug_show, system_debug_store),
 	__ATTR_NULL,
 };
 

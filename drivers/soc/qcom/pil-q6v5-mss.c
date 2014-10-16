@@ -186,7 +186,12 @@ static irqreturn_t modem_wdog_bite_intr_handler(int irq, void *dev_id)
 	struct modem_data *drv = subsys_to_drv(dev_id);
 	if (drv->ignore_errors)
 		return IRQ_HANDLED;
+
 	pr_err("Watchdog bite received from modem software!\n");
+	if (drv->subsys_desc.system_debug &&
+			!gpio_get_value(drv->subsys_desc.err_fatal_gpio))
+		panic("%s: System ramdump requested. Triggering device restart!\n",
+							__func__);
 	subsys_set_crash_status(drv->subsys, true);
 	restart_modem(drv);
 	return IRQ_HANDLED;
