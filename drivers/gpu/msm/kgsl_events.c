@@ -56,13 +56,8 @@ static void _kgsl_event_worker(struct work_struct *work)
 	kmem_cache_free(events_cache, event);
 }
 
-/**
- * retire_events() - Handle all the retired events in a group
- * @device: Pointer to a KGSL device
- * @group: Pointer to a GPU events group to process
- */
-void kgsl_process_event_group(struct kgsl_device *device,
-		struct kgsl_event_group *group)
+static void _process_event_group(struct kgsl_device *device,
+		struct kgsl_event_group *group, bool flush)
 {
 	struct kgsl_event *event, *tmp;
 	unsigned int timestamp;
@@ -84,12 +79,15 @@ void kgsl_process_event_group(struct kgsl_device *device,
 	 * If no timestamps have been retired since the last time we were here
 	 * then we can avoid going through this loop
 	 */
-	if (timestamp_cmp(timestamp, group->processed) <= 0)
+	if (!flush && timestamp_cmp(timestamp, group->processed) <= 0)
 		goto out;
 
 	list_for_each_entry_safe(event, tmp, &group->events, node) {
 		if (timestamp_cmp(event->timestamp, timestamp) <= 0)
 			signal_event(device, event, KGSL_EVENT_RETIRED);
+		else if (flush)
+			signal_event(device, event, KGSL_EVENT_CANCELLED);
+
 	}
 
 	group->processed = timestamp;
@@ -98,7 +96,32 @@ out:
 	spin_unlock(&group->lock);
 	kgsl_context_put(context);
 }
+
+/**
+ * kgsl_process_event_group() - Handle all the retired events in a group
+ * @device: Pointer to a KGSL device
+ * @group: Pointer to a GPU events group to process
+ */
+
+void kgsl_process_event_group(struct kgsl_device *device,
+		struct kgsl_event_group *group)
+{
+	_process_event_group(device, group, false);
+}
 EXPORT_SYMBOL(kgsl_process_event_group);
+
+/**
+ * kgsl_flush_event_group() - flush all the events in a group by retiring the
+ * ones can be retired and cancelling the ones that are pending
+ * @device: Pointer to a KGSL device
+ * @group: Pointer to a GPU events group to process
+ */
+void kgsl_flush_event_group(struct kgsl_device *device,
+		struct kgsl_event_group *group)
+{
+	_process_event_group(device, group, true);
+}
+EXPORT_SYMBOL(kgsl_flush_event_group);
 
 /**
  * kgsl_cancel_events_timestamp() - Cancel pending events for a given timestamp
@@ -282,7 +305,7 @@ void kgsl_process_events(struct work_struct *work)
 
 	read_lock(&group_lock);
 	list_for_each_entry(group, &group_list, group)
-		kgsl_process_event_group(device, group);
+		_process_event_group(device, group, false);
 	read_unlock(&group_lock);
 }
 EXPORT_SYMBOL(kgsl_process_events);
