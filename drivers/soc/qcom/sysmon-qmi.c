@@ -357,7 +357,7 @@ int sysmon_send_event(struct subsys_desc *dest_desc,
 
 	/* Check the response */
 	if (QMI_RESP_BIT_SHIFT(resp.resp.result) != QMI_RESULT_SUCCESS_V01) {
-		pr_err("QMI request failed 0x%x\n",
+		pr_debug("QMI request failed 0x%x\n",
 					QMI_RESP_BIT_SHIFT(resp.resp.error));
 		ret = -EREMOTEIO;
 	}
