@@ -176,6 +176,8 @@ source "drivers/gud/Kconfig"
 
 source "drivers/reset/Kconfig"
 
+source "drivers/android/Kconfig"
+
 source "drivers/coresight/Kconfig"
 
 source "drivers/bif/Kconfig"
