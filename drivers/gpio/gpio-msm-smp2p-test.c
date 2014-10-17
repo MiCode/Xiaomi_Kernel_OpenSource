@@ -87,6 +87,10 @@ static int smp2p_gpio_test_probe(struct platform_device *pdev)
 		gpio_info_ptr = &gpio_info[SMP2P_AUDIO_PROC].in;
 	} else if (strcmp("qcom,smp2pgpio_test_smp2p_2_out", node->name) == 0) {
 		gpio_info_ptr = &gpio_info[SMP2P_AUDIO_PROC].out;
+	} else if (strcmp("qcom,smp2pgpio_test_smp2p_3_in", node->name) == 0) {
+		gpio_info_ptr = &gpio_info[SMP2P_SENSOR_PROC].in;
+	} else if (strcmp("qcom,smp2pgpio_test_smp2p_3_out", node->name) == 0) {
+		gpio_info_ptr = &gpio_info[SMP2P_SENSOR_PROC].out;
 	} else if (strcmp("qcom,smp2pgpio_test_smp2p_4_in", node->name) == 0) {
 		gpio_info_ptr = &gpio_info[SMP2P_WIRELESS_PROC].in;
 	} else if (strcmp("qcom,smp2pgpio_test_smp2p_4_out", node->name) == 0) {
@@ -130,6 +134,10 @@ static struct of_device_id msm_smp2p_match_table[] = {
 	/* audio (adsp) */
 	{.compatible = "qcom,smp2pgpio_test_smp2p_2_out", },
 	{.compatible = "qcom,smp2pgpio_test_smp2p_2_in", },
+
+	/* sensor */
+	{.compatible = "qcom,smp2pgpio_test_smp2p_3_out", },
+	{.compatible = "qcom,smp2pgpio_test_smp2p_3_in", },
 
 	/* wcnss */
 	{.compatible = "qcom,smp2pgpio_test_smp2p_4_out", },
