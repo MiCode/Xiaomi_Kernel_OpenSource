@@ -4061,8 +4061,10 @@ static int synaptics_rmi4_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops synaptics_rmi4_dev_pm_ops = {
+#if (!defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND))
 	.suspend = synaptics_rmi4_suspend,
 	.resume  = synaptics_rmi4_resume,
+#endif
 };
 #else
 static int synaptics_rmi4_suspend(struct device *dev)
