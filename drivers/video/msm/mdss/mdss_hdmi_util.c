@@ -15,8 +15,53 @@
 #include <linux/delay.h>
 #include "mdss_hdmi_util.h"
 
+#define RESOLUTION_NAME_STR_LEN 30
+
 static struct msm_hdmi_mode_timing_info
 	hdmi_supported_video_mode_lut[HDMI_VFRMT_MAX];
+
+static char res_buf[RESOLUTION_NAME_STR_LEN];
+
+const char *msm_hdmi_mode_2string(u32 mode)
+{
+	static struct msm_hdmi_mode_timing_info *ri;
+	char *aspect_ratio;
+
+	if (mode >= HDMI_VFRMT_MAX)
+		return "???";
+
+	ri = &hdmi_supported_video_mode_lut[mode];
+
+	memset(res_buf, 0, sizeof(res_buf));
+
+	if (!ri->supported) {
+		snprintf(res_buf, RESOLUTION_NAME_STR_LEN, "%d", mode);
+		return res_buf;
+	}
+
+	switch (ri->ar) {
+	case HDMI_RES_AR_4_3:
+		aspect_ratio = "4/3";
+		break;
+	case HDMI_RES_AR_5_4:
+		aspect_ratio = "5/4";
+		break;
+	case HDMI_RES_AR_16_9:
+		aspect_ratio = "16/9";
+		break;
+	case HDMI_RES_AR_16_10:
+		aspect_ratio = "16/10";
+		break;
+	default:
+		aspect_ratio = "???";
+	};
+
+	snprintf(res_buf, RESOLUTION_NAME_STR_LEN, "%dx%d %s%dHz %s",
+		ri->active_h, ri->active_v, ri->interlaced ? "i" : "p",
+		ri->refresh_rate / 1000, aspect_ratio);
+
+	return res_buf;
+}
 
 void hdmi_del_supported_mode(u32 mode)
 {
