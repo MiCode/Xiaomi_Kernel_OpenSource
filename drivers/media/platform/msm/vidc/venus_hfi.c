@@ -1115,12 +1115,29 @@ static int venus_hfi_alloc_imem(void *dev, unsigned long size)
 		imem->ocmem.buf = ocmem_buffer;
 		break;
 	}
+	case IMEM_VMEM:
+	{
+		phys_addr_t vmem_buffer = 0;
+
+		rc = vmem_allocate(size, &vmem_buffer);
+		if (rc) {
+			goto imem_alloc_failed;
+		} else if (!vmem_buffer) {
+			rc = -ENOMEM;
+			goto imem_alloc_failed;
+		}
+
+		imem->vmem = vmem_buffer;
+		break;
+	}
 	default:
 		rc = -ENOTSUPP;
 		goto imem_alloc_failed;
 	}
 
 	imem->type = device->res->imem_type;
+	dprintk(VIDC_DBG, "Allocated %ld bytes of IMEM of type %d\n", size,
+			imem->type);
 	return 0;
 imem_alloc_failed:
 	imem->type = IMEM_NONE;
@@ -1148,6 +1165,9 @@ static int venus_hfi_free_imem(struct venus_hfi_device *device)
 			goto imem_free_failed;
 		}
 
+		break;
+	case IMEM_VMEM:
+		vmem_free(imem->vmem);
 		break;
 	default:
 		rc = -ENOTSUPP;
@@ -1191,6 +1211,10 @@ static int venus_hfi_set_imem(struct venus_hfi_device *device,
 			goto imem_set_failed;
 		}
 
+		break;
+	case IMEM_VMEM:
+		rhdr.resource_id = VIDC_RESOURCE_VMEM;
+		addr = imem->vmem;
 		break;
 	default:
 		dprintk(VIDC_ERR, "IMEM of type %d unsupported\n", imem->type);
@@ -1252,6 +1276,10 @@ static int venus_hfi_unset_imem(struct venus_hfi_device *device)
 	case IMEM_OCMEM:
 		rhdr.resource_id = VIDC_RESOURCE_OCMEM;
 		addr = imem->ocmem.buf->addr;
+		break;
+	case IMEM_VMEM:
+		rhdr.resource_id = VIDC_RESOURCE_VMEM;
+		addr = imem->vmem;
 		break;
 	default:
 		dprintk(VIDC_ERR, "IMEM of type %d unsupported\n", imem->type);
@@ -3212,7 +3240,7 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 					"Received HFI_MSG_SYS_INIT_DONE\n");
 				if (venus_hfi_alloc_set_imem(device, true))
 					dprintk(VIDC_WARN,
-						"Failed to allocate OCMEM. Performance will be impacted\n");
+						"Failed to allocate IMEM. Performance will be impacted\n");
 			}
 		}
 		while (!venus_hfi_iface_dbgq_read(device, packet)) {
@@ -3371,7 +3399,7 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 	}
 
 	venus_hfi_for_each_clock(device, cl) {
-		if (!strcmp(cl->name, "mem_clk") && !res->imem_size) {
+		if (!strcmp(cl->name, "mem_clk") && !res->imem_type) {
 			dprintk(VIDC_ERR,
 				"Found %s on a target that doesn't support ocmem\n",
 				cl->name);
@@ -3586,7 +3614,7 @@ static int venus_hfi_init_bus(struct venus_hfi_device *device)
 	venus_hfi_for_each_bus(device, bus) {
 		const char *name = bus->pdata->name;
 
-		if (!device->res->imem_size &&
+		if (!device->res->imem_type &&
 			strnstr(name, "ocmem", strlen(name))) {
 			dprintk(VIDC_ERR,
 				"%s found when target doesn't support ocmem\n",

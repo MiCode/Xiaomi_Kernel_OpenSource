@@ -21,12 +21,12 @@ void vmem_free(phys_addr_t to_free);
 
 #else
 
-int vmem_allocate(size_t size, phys_addr_t *addr)
+static inline int vmem_allocate(size_t size, phys_addr_t *addr)
 {
 	return -ENODEV;
 }
 
-void vmem_free(phys_addr_t to_free)
+static inline void vmem_free(phys_addr_t to_free)
 {
 }
 

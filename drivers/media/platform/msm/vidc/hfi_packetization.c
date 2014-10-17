@@ -274,10 +274,12 @@ int create_pkt_set_cmd_sys_resource(
 
 	switch (resource_hdr->resource_id) {
 	case VIDC_RESOURCE_OCMEM:
+	case VIDC_RESOURCE_VMEM:
 	{
 		struct hfi_resource_ocmem *hfioc_mem =
 			(struct hfi_resource_ocmem *)
 			&pkt->rg_resource_data[0];
+
 		phys_addr_t imem_addr = (phys_addr_t)resource_value;
 
 		pkt->resource_type = HFI_RESOURCE_OCMEM;

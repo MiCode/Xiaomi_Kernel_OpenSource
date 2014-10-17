@@ -20,6 +20,7 @@
 #include <linux/spinlock.h>
 #include <linux/msm_iommu_domains.h>
 #include <soc/qcom/ocmem.h>
+#include "vmem/vmem.h"
 #include "vidc_hfi_api.h"
 #include "vidc_hfi_helper.h"
 #include "vidc_hfi_api.h"
@@ -158,6 +159,7 @@ struct imem {
 	enum vidc_resource_id type;
 	union {
 		struct on_chip_mem ocmem;
+		phys_addr_t vmem;
 	};
 };
 
