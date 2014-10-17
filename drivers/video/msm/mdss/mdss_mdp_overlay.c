@@ -3571,7 +3571,7 @@ static int __mdss_mdp_ctl_handoff(struct mdss_mdp_ctl *ctl,
 		pr_debug("for lm%d mixercfg = 0x%09x\n", i, mixercfg);
 
 		j = MDSS_MDP_SSPP_VIG0;
-		for (; j < MDSS_MDP_MAX_SSPP && mixercfg; j++) {
+		for (; j < MDSS_MDP_SSPP_CURSOR0 && mixercfg; j++) {
 			u32 cfg = j * 3;
 			if ((j == MDSS_MDP_SSPP_VIG3) ||
 			    (j == MDSS_MDP_SSPP_RGB3)) {
