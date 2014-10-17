@@ -1772,14 +1772,17 @@ static int cpr_limit_open_loop_voltage(struct cpr_regulator *cpr_vreg)
 static int cpr_populate_opp_table(struct cpr_regulator *cpr_vreg,
 				struct device *dev)
 {
-	int i, rc;
+	int i, rc = 0;
 
 	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++) {
-		rc = dev_pm_opp_add(dev, i, cpr_vreg->open_loop_volt[i]);
+		rc |= dev_pm_opp_add(dev, i, cpr_vreg->open_loop_volt[i]);
 		if (rc)
-			cpr_err(cpr_vreg, "could not add OPP entry <%d, %d>, rc=%d\n",
+			cpr_debug(cpr_vreg, "could not add OPP entry <%d, %d>, rc=%d\n",
 				i, cpr_vreg->open_loop_volt[i], rc);
 	}
+	if (rc)
+		cpr_err(cpr_vreg, "adding OPP entry failed - OPP may not be enabled, rc=%d\n",
+				rc);
 
 	return 0;
 }
