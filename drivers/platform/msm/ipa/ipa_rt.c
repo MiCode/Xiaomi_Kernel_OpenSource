@@ -1269,7 +1269,7 @@ int ipa_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 		return -EINVAL;
 	}
 	mutex_lock(&ipa_ctx->lock);
-	entry = __ipa_add_rt_tbl(lookup->ip, lookup->name);
+	entry = __ipa_find_rt_tbl(lookup->ip, lookup->name);
 	if (entry && entry->cookie == IPA_COOKIE) {
 		entry->ref_cnt++;
 		lookup->hdl = entry->id;
