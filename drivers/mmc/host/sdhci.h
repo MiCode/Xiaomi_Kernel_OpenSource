@@ -157,6 +157,8 @@
 		SDHCI_INT_DATA_TIMEOUT | SDHCI_INT_DATA_CRC | \
 		SDHCI_INT_DATA_END_BIT | SDHCI_INT_ADMA_ERROR | \
 		SDHCI_INT_BLK_GAP)
+
+#define SDHCI_INT_CMDQ_EN	(0x1 << 14)
 #define SDHCI_INT_ALL_MASK	((unsigned int)-1)
 
 #define SDHCI_AUTO_CMD_ERR		0x3C
@@ -525,6 +527,7 @@ struct sdhci_host {
 #define SDHCI_PV_ENABLED	(1<<8)	/* Preset value enabled */
 #define SDHCI_SDIO_IRQ_ENABLED	(1<<9)	/* SDIO irq enabled */
 #define SDHCI_USE_64_BIT_DMA	(1<<12)	/* Use 64-bit DMA */
+#define SDHCI_USE_ADMA_64BIT	(1<<12)	/* Host is 64-bit ADMA capable */
 #define SDHCI_HS400_TUNING	(1<<13)	/* Tuning for HS400 */
 #define SDHCI_SIGNALING_330	(1<<14)	/* Host is capable of 3.3V signaling */
 #define SDHCI_SIGNALING_180	(1<<15)	/* Host is capable of 1.8V signaling */
@@ -612,6 +615,8 @@ struct sdhci_host {
 
 	u32 auto_cmd_err_sts;
 	struct ratelimit_state dbg_dump_rs;
+	struct cmdq_host *cq_host;
+
 	unsigned long private[0] ____cacheline_aligned;
 };
 
@@ -658,6 +663,7 @@ struct sdhci_ops {
 					  bool enable,
 					  u32 type);
 	int	(*enable_controller_clock)(struct sdhci_host *host);
+	void	(*clear_set_dumpregs)(struct sdhci_host *host, bool set);
 	void	(*dump_vendor_regs)(struct sdhci_host *host);
 	void	(*voltage_switch)(struct sdhci_host *host);
 	int	(*select_drive_strength)(struct sdhci_host *host,
