@@ -76,6 +76,7 @@
 	soc: soc { };
 };
 
+#include "msmtellurium-ion.dtsi"
 #include "msm8939-cpu.dtsi"
 #include "msmtellurium-pinctrl.dtsi"
 
