@@ -1562,7 +1562,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	if (mdwc->otg_xceiv && mdwc->otg_xceiv->state == OTG_STATE_B_PERIPHERAL)
 		device_bus_suspend = true;
 
-	if (device_bus_suspend) {
+	host_bus_suspend = (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM);
+
+	if (!host_bus_suspend) {
 		/* pending device events unprocessed */
 		for (i = 0; i < dwc->num_event_buffers; i++) {
 			struct dwc3_event_buffer *evt = dwc->ev_buffs[i];
@@ -1622,7 +1624,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		mdwc->ss_phy->flags &= ~PHY_CHARGER_CONNECTED;
 	}
 
-	host_bus_suspend = (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM);
 	can_suspend_ssphy = !(host_bus_suspend && host_ss_active);
 
 	if (host_bus_suspend || device_bus_suspend) {
