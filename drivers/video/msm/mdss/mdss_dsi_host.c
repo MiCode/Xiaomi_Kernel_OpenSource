@@ -923,7 +923,8 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 	struct mipi_panel_info *mipi;
 	u32 clk_rate;
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
-	u32 ystride, bpp, data, dst_bpp;
+	u32 ystride, bpp, dst_bpp;
+	u32 stream_ctrl, stream_total;
 	u32 dummy_xres = 0, dummy_yres = 0;
 	u32 hsync_period, vsync_period;
 
@@ -987,15 +988,25 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 
 		ystride = width * bpp + 1;
 
+		if (pinfo->partial_update_enabled &&
+			mdss_dsi_is_panel_on(pdata) && pinfo->roi.w &&
+			pinfo->roi.h) {
+			stream_ctrl = (((pinfo->roi.w * bpp) + 1) << 16) |
+					(mipi->vc << 8) | DTYPE_DCS_LWRITE;
+			stream_total = pinfo->roi.h << 16 | pinfo->roi.w;
+		} else {
+			stream_ctrl = (ystride << 16) | (mipi->vc << 8) |
+					DTYPE_DCS_LWRITE;
+			stream_total = height << 16 | width;
+		}
+
 		/* DSI_COMMAND_MODE_MDP_STREAM_CTRL */
-		data = (ystride << 16) | (mipi->vc << 8) | DTYPE_DCS_LWRITE;
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x60, data);
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x58, data);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x60, stream_ctrl);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x58, stream_ctrl);
 
 		/* DSI_COMMAND_MODE_MDP_STREAM_TOTAL */
-		data = height << 16 | width;
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x64, data);
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, data);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x64, stream_total);
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, stream_total);
 	}
 }
 
