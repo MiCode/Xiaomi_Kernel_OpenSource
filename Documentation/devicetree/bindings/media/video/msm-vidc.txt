@@ -59,8 +59,8 @@ Optional properties:
 - qcom,buffer-type-tz-usage-table : a key-value pair, mapping a buffer type
   (enum hal_buffer) to its corresponding TZ usage. The TZ usages are defined
   as "enum cp_mem_usage" in include/linux/msm_ion.h
-- qcom,ocmem-size: ocmem size required by hardware for optimum performance.
-  If ocmem is not present then there is no need to specify this property.
+- qcom,imem-size: imem size required by hardware for optimum performance.
+  If imem is not present then there is no need to specify this property.
 - qcom,vidc-iommu-domains: node containing individual domain nodes, each with:
         - a unique domain name for the domain node (e.g vidc,domain-ns)
         - qcom,vidc-domain-phandle: phandle for the domain as defined in
@@ -127,7 +127,7 @@ Example:
 			<72000 133330000 0x0c000000>, /* HEVC decoder VGA 60fps   */
 			<36000 133330000 0x0c000000>, /* HEVC VGA 30 fps  */
 			<36000 133330000 0x01000414>; /* Legacy encoder VGA 30 fps   */
-		qcom,ocmem-size = <4096>;
+		qcom,imem-size = <4096>;
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;

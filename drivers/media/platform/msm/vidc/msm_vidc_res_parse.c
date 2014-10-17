@@ -620,7 +620,7 @@ int read_platform_resources_from_dt(
 	res->irq = kres ? kres->start : -1;
 
 	of_property_read_u32(pdev->dev.of_node,
-			"qcom,ocmem-size", &res->imem_size);
+			"qcom,imem-size", &res->imem_size);
 	res->imem_type = read_imem_type(pdev);
 
 	res->dynamic_bw_update = of_property_read_bool(pdev->dev.of_node,
