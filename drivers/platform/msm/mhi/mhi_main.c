@@ -1123,6 +1123,8 @@ static enum MHI_STATUS reset_chan_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	struct mhi_chan_ctxt *chan_ctxt;
 	struct mhi_client_handle *client_handle = NULL;
 	struct mutex *chan_mutex;
+	int pending_el = 0;
+	struct mhi_ring *ring;
 
 	MHI_TRB_GET_INFO(CMD_TRB_CHID, cmd_pkt, chan);
 
@@ -1138,6 +1140,19 @@ static enum MHI_STATUS reset_chan_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	local_chan_ctxt = &mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
 	chan_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan];
 	mhi_log(MHI_MSG_INFO, "Processed cmd reset event\n");
+
+	/*
+	 * If outbound elements are pending, they must be cleared since
+	 * they will never be acked after a channel reset.
+	 */
+	ring = &mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
+	if (chan % 2 == 0)
+		get_nr_enclosed_el(ring, ring->rp, ring->wp, &pending_el);
+
+	mhi_log(MHI_MSG_INFO, "Decrementing chan %d out acks by %d.\n",
+				chan, pending_el);
+
+	atomic_sub(pending_el, &mhi_dev_ctxt->counters.outbound_acks);
 
 	/* Reset the local channel context */
 	local_chan_ctxt->rp = local_chan_ctxt->base;
