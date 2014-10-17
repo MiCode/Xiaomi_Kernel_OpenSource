@@ -806,6 +806,11 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->dst.w = req->dst_rect.w;
 	pipe->dst.h = req->dst_rect.h;
 
+	if (mixer->ctl) {
+		pipe->dst.x += mixer->ctl->border_x_off;
+		pipe->dst.y += mixer->ctl->border_y_off;
+	}
+
 	if (mfd->panel_orientation & MDP_FLIP_LR)
 		pipe->dst.x = pipe->mixer_left->width
 			- pipe->dst.x - pipe->dst.w;

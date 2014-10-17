@@ -633,9 +633,6 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 	if (ctrl_pdata->refresh_clk_rate || (frame_rate !=
 	     panel_info->mipi.frame_rate) ||
 	    (!panel_info->clk_rate)) {
-		h_period += panel_info->lcdc.xres_pad;
-		v_period += panel_info->lcdc.yres_pad;
-
 		if (lanes > 0) {
 			panel_info->clk_rate =
 			((h_period * v_period *
