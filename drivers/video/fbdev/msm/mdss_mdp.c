@@ -1128,8 +1128,9 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 
 	mdss_hw_rev_init(mdata);
 
-	/* disable hw underrun recovery */
-	writel_relaxed(0x0, mdata->mdp_base +
+	/* Disable hw underrun recovery only for older mdp reversions. */
+	if (mdata->mdp_rev < MDSS_MDP_HW_REV_105)
+		writel_relaxed(0x0, mdata->mdp_base +
 			MDSS_MDP_REG_VIDEO_INTF_UNDERFLOW_CTL);
 
 	if (mdata->hw_settings) {
