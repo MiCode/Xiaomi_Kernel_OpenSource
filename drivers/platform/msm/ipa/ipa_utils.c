@@ -4612,3 +4612,14 @@ enum ipa_hw_type ipa_get_hw_type(void)
 		return IPA_HW_None;
 }
 EXPORT_SYMBOL(ipa_get_hw_type);
+
+u16 ipa_get_smem_restr_bytes(void)
+{
+	if (ipa_ctx) {
+		return ipa_ctx->smem_restricted_bytes;
+	} else {
+		IPAERR("IPA Driver not initialized\n");
+		return 0;
+	}
+}
+EXPORT_SYMBOL(ipa_get_smem_restr_bytes);

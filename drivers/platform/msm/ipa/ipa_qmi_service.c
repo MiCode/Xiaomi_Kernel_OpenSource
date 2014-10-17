@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/uaccess.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <linux/ipa.h>
 
 #include "ipa_qmi_service.h"
 #include "ipa_ram_mmap.h"
@@ -338,6 +339,7 @@ static int qmi_init_modem_send_sync_msg(void)
 	struct ipa_init_modem_driver_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 	int rc;
+	u16 smem_restr_bytes = ipa_get_smem_restr_bytes();
 
 	memset(&req, 0, sizeof(struct ipa_init_modem_driver_req_msg_v01));
 	memset(&resp, 0, sizeof(struct ipa_init_modem_driver_resp_msg_v01));
@@ -345,23 +347,26 @@ static int qmi_init_modem_send_sync_msg(void)
 	req.platform_type = ipa_wan_platform;
 	req.hdr_tbl_info_valid = true;
 	req.hdr_tbl_info.modem_offset_start =
-		IPA_MEM_PART(modem_hdr_ofst) + 256;
+		IPA_MEM_PART(modem_hdr_ofst) + smem_restr_bytes;
 	req.hdr_tbl_info.modem_offset_end = IPA_MEM_PART(modem_hdr_ofst) +
-		256 + IPA_MEM_PART(modem_hdr_size) - 1;
+		smem_restr_bytes + IPA_MEM_PART(modem_hdr_size) - 1;
 	req.v4_route_tbl_info_valid = true;
 	req.v4_route_tbl_info.route_tbl_start_addr = IPA_MEM_PART(v4_rt_ofst) +
-		256;
+		smem_restr_bytes;
 	req.v4_route_tbl_info.num_indices = IPA_MEM_PART(v4_modem_rt_index_hi);
 	req.v6_route_tbl_info_valid = true;
 	req.v6_route_tbl_info.route_tbl_start_addr = IPA_MEM_PART(v6_rt_ofst) +
-		256;
+		smem_restr_bytes;
 	req.v6_route_tbl_info.num_indices = IPA_MEM_PART(v6_modem_rt_index_hi);
 	req.v4_filter_tbl_start_addr_valid = true;
-	req.v4_filter_tbl_start_addr = IPA_MEM_PART(v4_flt_ofst) + 256;
+	req.v4_filter_tbl_start_addr =
+		IPA_MEM_PART(v4_flt_ofst) + smem_restr_bytes;
 	req.v6_filter_tbl_start_addr_valid = true;
-	req.v6_filter_tbl_start_addr = IPA_MEM_PART(v6_flt_ofst) + 256;
+	req.v6_filter_tbl_start_addr =
+		IPA_MEM_PART(v6_flt_ofst) + smem_restr_bytes;
 	req.modem_mem_info_valid = true;
-	req.modem_mem_info.block_start_addr = IPA_MEM_PART(modem_ofst) + 256;
+	req.modem_mem_info.block_start_addr =
+		IPA_MEM_PART(modem_ofst) + smem_restr_bytes;
 	req.modem_mem_info.size = IPA_MEM_PART(modem_size);
 	req.ctrl_comm_dest_end_pt_valid = true;
 	req.ctrl_comm_dest_end_pt =
