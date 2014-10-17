@@ -58,8 +58,12 @@
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
 	qcom,mdss-dsi-bl-pmic-bank-select = <3>;
 	qcom,mdss-dsi-pwm-gpio = <&pmi8994_mpps 1 0>;
+	qcom,cont-splash-enabled;
 };
 
+&dsi_dual_jdi_4k_video_1 {
+	qcom,cont-splash-enabled;
+};
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_dual_jdi_4k_video_0>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
