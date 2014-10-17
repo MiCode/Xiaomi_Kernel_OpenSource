@@ -783,6 +783,10 @@ static int msm_pm_clk_init(struct platform_device *pdev)
 	char clk_name[] = "cpu??_clk";
 	char *key;
 
+	key = "qcom,saw-turns-off-pll";
+	if (of_property_read_bool(pdev->dev.of_node, key))
+		return 0;
+
 	key = "qcom,synced-clocks";
 	synced_clocks = of_property_read_bool(pdev->dev.of_node, key);
 
