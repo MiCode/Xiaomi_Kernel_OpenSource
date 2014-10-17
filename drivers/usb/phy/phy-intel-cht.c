@@ -365,15 +365,15 @@ static ssize_t store_otg_id(struct device *_dev,
 	case 'a':
 	case 'A':
 		dev_info(cht_otg_dev->phy.dev, "ID = 0\n");
-		fsm->id = 0;
-		otg_statemachine(fsm);
+		atomic_notifier_call_chain(&cht_otg_dev->phy.notifier,
+			USB_EVENT_ID, NULL);
 		return count;
 	case '1':
 	case 'b':
 	case 'B':
 		dev_info(cht_otg_dev->phy.dev, "ID = 1\n");
-		fsm->id = 1;
-		otg_statemachine(fsm);
+		atomic_notifier_call_chain(&cht_otg_dev->phy.notifier,
+			USB_EVENT_NONE, NULL);
 		return count;
 	default:
 		return -EINVAL;
@@ -416,10 +416,6 @@ static int cht_otg_probe(struct platform_device *pdev)
 	cht_otg->phy.otg->start_hnp = NULL;
 	cht_otg->phy.otg->start_srp = NULL;
 
-	ATOMIC_INIT_NOTIFIER_HEAD(&cht_otg->phy.notifier);
-
-	cht_otg->nb.notifier_call = cht_otg_handle_notification;
-	usb_register_notifier(&cht_otg->phy, &cht_otg->nb);
 
 	INIT_WORK(&cht_otg->fsm_work, cht_otg_fsm_work);
 
@@ -430,6 +426,9 @@ static int cht_otg_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to add cht otg usb phy\n");
 		goto err1;
 	}
+
+	cht_otg_dev->nb.notifier_call = cht_otg_handle_notification;
+	usb_register_notifier(&cht_otg_dev->phy, &cht_otg_dev->nb);
 
 	/* init otg-fsm */
 	status = cht_otg_start(pdev);
