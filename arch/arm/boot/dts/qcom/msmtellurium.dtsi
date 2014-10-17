@@ -19,6 +19,60 @@
 	qcom,msm-id = <264 0x0>;
 	interrupt-parent = <&intc>;
 
+	memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		modem_mem: modem_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x86800000 0x0 0x03a00000>;
+			label = "modem_mem";
+		};
+
+		reloc_mem: reloc_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x8a200000 0x0 0x1500000>;
+			label = "reloc_mem";
+		};
+
+		other_ext_mem: other_ext_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x86000000 0x0 0x0800000>;
+			label = "other_ext_mem";
+		};
+
+		venus_mem: venus_region@0 {
+			linux,reserve-contiguous-region;
+			linux,memory-limit = <0x90000000>;
+			reg = <0 0 0 0x0500000>;
+			label = "venus_mem";
+		};
+
+		secure_mem: secure_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0 0 0x6D00000>;
+			label = "secure_mem";
+		};
+
+		qseecom_mem: qseecom_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0 0 0x1000000>;
+			label = "qseecom_mem";
+		};
+
+		audio_mem: audio_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0 0 0x314000>;
+			label = "audio_mem";
+		};
+	};
+
 	soc: soc { };
 };
 
