@@ -292,14 +292,14 @@ struct intel_pmic_irqregmap dollar_cove_irqregmap[] = {
 };
 
 
+static struct ps_batt_chg_prof ps_batt_chrg_prof;
+static struct ps_pse_mod_prof *pse_mod_prof;
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
 
 #define DC_CHRG_CHRG_CUR_NOLIMIT	1800
 #define DC_CHRG_CHRG_CUR_MEDIUM		1400
 #define DC_CHRG_CHRG_CUR_LOW		1000
 
-static struct ps_batt_chg_prof ps_batt_chrg_prof;
-static struct ps_pse_mod_prof *pse_mod_prof;
 static struct power_supply_throttle dc_chrg_throttle_states[] = {
 	{
 		.throttle_action = PSY_THROTTLE_CC_LIMIT,

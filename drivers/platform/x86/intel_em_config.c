@@ -15,7 +15,9 @@
 #define EM_CONFIG_OEM0_NAME "OEM0"
 #define EM_CONFIG_OEM1_NAME "OEM1"
 
+#ifdef DEBUG
 static void dump_chrg_profile(const struct ps_pse_mod_prof *chrg_prof);
+#endif
 
 
 static struct ps_pse_mod_prof chrg_prof;
@@ -32,7 +34,7 @@ static int em_config_get_acpi_table(char *name, void *data, int data_size)
 	status = acpi_get_table_with_size(name , 0,
 					&acpi_tbl, &tbl_size);
 	if (ACPI_SUCCESS(status)) {
-		pr_info("EM:%s  table found, size=%d\n", name, tbl_size);
+		pr_info("EM:%s  table found, size=%d\n", name, (int)tbl_size);
 		if (tbl_size < (data_size + hdr_size)) {
 			pr_err("EM:%s table incomplete!!\n", name);
 		} else {
@@ -125,14 +127,18 @@ static int __init em_config_init(void)
 
 	batt_chrg_prof.batt_prof = &chrg_prof;
 
+#ifdef CONFIG_POWER_SUPPLY_BATTID
 	battery_prop_changed(POWER_SUPPLY_BATTERY_INSERTED, &batt_chrg_prof);
+#endif
 	return 0;
 }
 early_initcall(em_config_init);
 
 static void __exit em_config_exit(void)
 {
+#ifdef CONFIG_POWER_SUPPLY_BATTID
 	batt_chrg_prof.chrg_prof_type = CHRG_PROF_NONE;
 	battery_prop_changed(POWER_SUPPLY_BATTERY_INSERTED, &batt_chrg_prof);
+#endif
 }
 module_exit(em_config_exit);
