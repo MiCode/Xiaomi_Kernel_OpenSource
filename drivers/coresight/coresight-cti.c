@@ -960,7 +960,11 @@ static ssize_t cti_show_trigin(struct device *dev,
 	uint32_t ctien;
 	ssize_t size = 0;
 
-	mutex_lock(&cti_lock);
+	mutex_lock(&drvdata->mutex);
+	/*
+	 * refcnt can be used here since in all cases its value is modified only
+	 * within the mutex lock region in addition to within the spinlock.
+	 */
 	if (!drvdata->refcnt)
 		goto err;
 
@@ -971,6 +975,7 @@ static ssize_t cti_show_trigin(struct device *dev,
 		else
 			ctien = drvdata->state->ctiinen[trig];
 		spin_unlock_irqrestore(&drvdata->spinlock, flag);
+
 		for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
 			if (ctien & (1 << ch)) {
 				/* Ensure we do not write more than PAGE_SIZE
@@ -989,7 +994,7 @@ static ssize_t cti_show_trigin(struct device *dev,
 	}
 err:
 	size += scnprintf(&buf[size], 2, "\n");
-	mutex_unlock(&cti_lock);
+	mutex_unlock(&drvdata->mutex);
 	return size;
 }
 static DEVICE_ATTR(show_trigin, S_IRUGO, cti_show_trigin, NULL);
@@ -1002,7 +1007,11 @@ static ssize_t cti_show_trigout(struct device *dev,
 	uint32_t ctien;
 	ssize_t size = 0;
 
-	mutex_lock(&cti_lock);
+	mutex_lock(&drvdata->mutex);
+	/*
+	 * refcnt can be used here since in all cases its value is modified only
+	 * within the mutex lock region in addition to within the spinlock.
+	 */
 	if (!drvdata->refcnt)
 		goto err;
 
@@ -1013,6 +1022,7 @@ static ssize_t cti_show_trigout(struct device *dev,
 		else
 			ctien = drvdata->state->ctiouten[trig];
 		spin_unlock_irqrestore(&drvdata->spinlock, flag);
+
 		for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
 			if (ctien & (1 << ch)) {
 				/* Ensure we do not write more than PAGE_SIZE
@@ -1031,7 +1041,7 @@ static ssize_t cti_show_trigout(struct device *dev,
 	}
 err:
 	size += scnprintf(&buf[size], 2, "\n");
-	mutex_unlock(&cti_lock);
+	mutex_unlock(&drvdata->mutex);
 	return size;
 }
 static DEVICE_ATTR(show_trigout, S_IRUGO, cti_show_trigout, NULL);
@@ -1132,7 +1142,11 @@ static ssize_t cti_show_trig(struct device *dev, struct device_attribute *attr,
 	uint32_t ctiset;
 	ssize_t size = 0;
 
-	mutex_lock(&cti_lock);
+	mutex_lock(&drvdata->mutex);
+	/*
+	 * refcnt can be used here since in all cases its value is modified only
+	 * within the mutex lock region in addition to within the spinlock.
+	 */
 	if (!drvdata->refcnt)
 		goto err;
 
@@ -1142,6 +1156,7 @@ static ssize_t cti_show_trig(struct device *dev, struct device_attribute *attr,
 	else
 		ctiset = drvdata->state->ctiappset;
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+
 	for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
 		if (ctiset & (1 << ch)) {
 			/* Ensure we do not write more than PAGE_SIZE
@@ -1159,7 +1174,7 @@ static ssize_t cti_show_trig(struct device *dev, struct device_attribute *attr,
 	}
 err:
 	size += scnprintf(&buf[size], 2, "\n");
-	mutex_unlock(&cti_lock);
+	mutex_unlock(&drvdata->mutex);
 	return size;
 }
 static DEVICE_ATTR(show_trig, S_IRUGO, cti_show_trig, NULL);
@@ -1245,7 +1260,11 @@ static ssize_t cti_show_gate(struct device *dev, struct device_attribute *attr,
 	uint32_t ctigate;
 	ssize_t size = 0;
 
-	mutex_lock(&cti_lock);
+	mutex_lock(&drvdata->mutex);
+	/*
+	 * refcnt can be used here since in all cases its value is modified only
+	 * within the mutex lock region in addition to within the spinlock.
+	 */
 	if (!drvdata->refcnt)
 		goto err;
 
@@ -1255,6 +1274,7 @@ static ssize_t cti_show_gate(struct device *dev, struct device_attribute *attr,
 	else
 		ctigate = drvdata->state->ctigate;
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+
 	for (ch = 0; ch < CTI_MAX_CHANNELS; ch++) {
 		if (ctigate & (1 << ch)) {
 			/* Ensure we do not write more than PAGE_SIZE
@@ -1272,7 +1292,7 @@ static ssize_t cti_show_gate(struct device *dev, struct device_attribute *attr,
 	}
 err:
 	size += scnprintf(&buf[size], 2, "\n");
-	mutex_unlock(&cti_lock);
+	mutex_unlock(&drvdata->mutex);
 	return size;
 }
 static DEVICE_ATTR(show_gate, S_IRUGO, cti_show_gate, NULL);
