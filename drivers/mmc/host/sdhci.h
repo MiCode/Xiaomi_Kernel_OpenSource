@@ -152,6 +152,8 @@
 		SDHCI_INT_DATA_TIMEOUT | SDHCI_INT_DATA_CRC | \
 		SDHCI_INT_DATA_END_BIT | SDHCI_INT_ADMA_ERROR | \
 		SDHCI_INT_BLK_GAP)
+
+#define SDHCI_INT_CMDQ_EN	(0x1 << 14)
 #define SDHCI_INT_ALL_MASK	((unsigned int)-1)
 
 #define SDHCI_AUTO_CMD_ERR		0x3C
@@ -324,6 +326,7 @@ struct sdhci_ops {
 					  bool enable,
 					  u32 type);
 	int	(*enable_controller_clock)(struct sdhci_host *host);
+	void	(*clear_set_dumpregs)(struct sdhci_host *host, bool set);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS

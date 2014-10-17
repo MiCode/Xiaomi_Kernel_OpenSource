@@ -293,6 +293,8 @@ struct sdhci_host {
 
 	u32 auto_cmd_err_sts;
 	struct ratelimit_state dbg_dump_rs;
+	struct cmdq_host *cq_host;
+
 	unsigned long private[0] ____cacheline_aligned;
 };
 #endif /* LINUX_MMC_SDHCI_H */
