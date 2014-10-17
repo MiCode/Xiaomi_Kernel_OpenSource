@@ -653,7 +653,7 @@ static int bu21150_release(struct inode *inode, struct file *filp)
 	if (g_io_opened < 0)
 		g_io_opened = 0;
 
-	disable_irq(client->irq);
+	free_irq(client->irq, ts);
 
 	return 0;
 }
