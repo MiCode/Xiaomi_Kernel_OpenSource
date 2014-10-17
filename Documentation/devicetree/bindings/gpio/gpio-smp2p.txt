@@ -21,6 +21,20 @@ between clients, it is recommended that the DT nodes should be named using the
 format:
 	smp2pgpio_<ENTRY_NAME>_<REMOTE PID>_<in|out>
 
+Unit test devices ("smp2p" entries):
+-compatible : should be one of
+		"qcom,smp2pgpio_test_smp2p_1_out"
+		"qcom,smp2pgpio_test_smp2p_1_in"
+		"qcom,smp2pgpio_test_smp2p_2_out"
+		"qcom,smp2pgpio_test_smp2p_2_in"
+		"qcom,smp2pgpio_test_smp2p_3_out"
+		"qcom,smp2pgpio_test_smp2p_3_in"
+		"qcom,smp2pgpio_test_smp2p_4_out"
+		"qcom,smp2pgpio_test_smp2p_4_in"
+		"qcom,smp2pgpio_test_smp2p_7_out"
+		"qcom,smp2pgpio_test_smp2p_7_in"
+-gpios : the relevant gpio pins of the entry
+
 Example:
 	/* Maps inbound "smp2p" entry on remote PID 7 to GPIO controller. */
 	smp2pgpio_smp2p_7_in: qcom,smp2pgpio-smp2p-7-in {
