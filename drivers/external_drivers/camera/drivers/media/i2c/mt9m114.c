@@ -1173,7 +1173,6 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
     unsigned int AnalogGain, DigitalGain;
     u32 AnalogGainToWrite = 0;
     u16 exposure_local[3];
-    u32 RegSwResetData = 0;
 
     dev_dbg(&client->dev, "%s(0x%X 0x%X 0x%X)\n", __func__,
 		    exposure->integration_time[0], exposure->gain[0],
@@ -1193,12 +1192,6 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
 	}
     //DigitalGain = 0x400 * (((u16) DigitalGain) >> 8) + ((unsigned int)(0x400 * (((u16) DigitalGain) & 0xFF)) >>8);
 
-    //Hindden Register usage in REG_SW_RESET bit 15. set REG_SW_RESET bit 15 as 1 for group apply.
-    // sequence as below, set bit 15 as--> set gain line --> set bit 15 -->0
-    ret = mt9m114_read_reg(client, MISENSOR_16BIT, REG_SW_RESET, &RegSwResetData);
-    RegSwResetData |= 0x8000;
-    ret = mt9m114_write_reg(client, MISENSOR_16BIT, REG_SW_RESET, RegSwResetData);
-
     //set frame length
     if (FLines < coarse_integration + 6)
         FLines = coarse_integration + 6;
@@ -1210,9 +1203,6 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	// Reset group apply as it will be cleared in bayer mode
-	ret = mt9m114_write_reg(client, MISENSOR_16BIT, REG_SW_RESET, RegSwResetData);
-
     //set coarse/fine integration
     exposure_local[0] = REG_EXPO_COARSE;
     exposure_local[1] = (u16)coarse_integration;
@@ -1223,9 +1213,6 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
 		 v4l2_err(client, "%s: fail to set exposure time\n", __func__);
 		 return -EINVAL;
     }
-
-	 // Reset group apply as it will be cleared in bayer mode
-	 ret = mt9m114_write_reg(client, MISENSOR_16BIT, REG_SW_RESET, RegSwResetData);
 
      /*
     // set analog/digital gain
@@ -1260,13 +1247,6 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
 		v4l2_err(client, "%s: fail to set AnalogGainToWrite\n", __func__);
 		return -EINVAL;
    }
-
-   // Reset group apply as it will be cleared in bayer mode
-   ret = mt9m114_write_reg(client, MISENSOR_16BIT, REG_SW_RESET, RegSwResetData);
-
-   ret = mt9m114_read_reg(client, MISENSOR_16BIT, REG_SW_RESET, &RegSwResetData);
-   RegSwResetData &= 0x7FFF;
-   ret = mt9m114_write_reg(client, MISENSOR_16BIT, REG_SW_RESET, RegSwResetData);
 
     return ret;
 }
