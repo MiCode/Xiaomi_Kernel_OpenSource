@@ -3221,6 +3221,7 @@ static int tomtom_codec_config_mad(struct snd_soc_codec *codec)
 	const char *filename = TOMTOM_MAD_AUDIO_FIRMWARE_PATH;
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	size_t cal_size;
+	int idx;
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -3287,6 +3288,16 @@ static int tomtom_codec_config_mad(struct snd_soc_codec *codec)
 	snd_soc_write(codec, TOMTOM_A_CDC_MAD_AUDIO_CTL_6,
 		      mad_cal->audio_info.rms_threshold_msb);
 
+	for (idx = 0; idx < ARRAY_SIZE(mad_cal->audio_info.iir_coefficients);
+	     idx++) {
+		snd_soc_update_bits(codec, TOMTOM_A_CDC_MAD_AUDIO_IIR_CTL_PTR,
+				    0x3F, idx);
+		snd_soc_write(codec, TOMTOM_A_CDC_MAD_AUDIO_IIR_CTL_VAL,
+			      mad_cal->audio_info.iir_coefficients[idx]);
+		dev_dbg(codec->dev, "%s:MAD Audio IIR Coef[%d] = 0X%x",
+			__func__, idx,
+			mad_cal->audio_info.iir_coefficients[idx]);
+	}
 
 	/* Beacon */
 	snd_soc_write(codec, TOMTOM_A_CDC_MAD_BEACON_CTL_8,
