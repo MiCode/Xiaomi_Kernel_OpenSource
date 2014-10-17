@@ -196,12 +196,12 @@ static int ctx_print(struct seq_file *s, void *unused)
 
 	seq_puts(s, "cmdqueue:\n");
 
-	mutex_lock(&drawctxt->mutex);
+	spin_lock(&drawctxt->lock);
 	for (i = drawctxt->cmdqueue_head;
 		i != drawctxt->cmdqueue_tail;
 		i = CMDQUEUE_NEXT(i, ADRENO_CONTEXT_CMDQUEUE_SIZE))
 		cmdbatch_print(s, drawctxt->cmdqueue[i]);
-	mutex_unlock(&drawctxt->mutex);
+	spin_unlock(&drawctxt->lock);
 
 	seq_puts(s, "events:\n");
 	spin_lock(&drawctxt->base.events.lock);

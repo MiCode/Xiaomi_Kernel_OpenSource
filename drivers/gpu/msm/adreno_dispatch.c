@@ -364,9 +364,9 @@ static struct kgsl_cmdbatch *adreno_dispatcher_get_cmdbatch(
 {
 	struct kgsl_cmdbatch *cmdbatch;
 
-	mutex_lock(&drawctxt->mutex);
+	spin_lock(&drawctxt->lock);
 	cmdbatch = _get_cmdbatch(drawctxt);
-	mutex_unlock(&drawctxt->mutex);
+	spin_unlock(&drawctxt->lock);
 
 	return cmdbatch;
 }
@@ -385,11 +385,11 @@ static inline int adreno_dispatcher_requeue_cmdbatch(
 		struct adreno_context *drawctxt, struct kgsl_cmdbatch *cmdbatch)
 {
 	unsigned int prev;
-	mutex_lock(&drawctxt->mutex);
+	spin_lock(&drawctxt->lock);
 
 	if (kgsl_context_detached(&drawctxt->base) ||
 		kgsl_context_invalid(&drawctxt->base)) {
-		mutex_unlock(&drawctxt->mutex);
+		spin_unlock(&drawctxt->lock);
 		/* get rid of this cmdbatch since the context is bad */
 		kgsl_cmdbatch_destroy(cmdbatch);
 		return -EINVAL;
@@ -411,7 +411,7 @@ static inline int adreno_dispatcher_requeue_cmdbatch(
 
 	/* Reset the command queue head to reflect the newly requeued change */
 	drawctxt->cmdqueue_head = prev;
-	mutex_unlock(&drawctxt->mutex);
+	spin_unlock(&drawctxt->lock);
 	return 0;
 }
 
@@ -792,7 +792,7 @@ static int _check_context_queue(struct adreno_context *drawctxt)
 {
 	int ret;
 
-	mutex_lock(&drawctxt->mutex);
+	spin_lock(&drawctxt->lock);
 
 	/*
 	 * Wake up if there is room in the context or if the whole thing got
@@ -804,7 +804,7 @@ static int _check_context_queue(struct adreno_context *drawctxt)
 	else
 		ret = drawctxt->queued < _context_cmdqueue_size ? 1 : 0;
 
-	mutex_unlock(&drawctxt->mutex);
+	spin_unlock(&drawctxt->lock);
 
 	return ret;
 }
@@ -861,10 +861,10 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 				ADRENO_CMDBATCH_DISPATCH_CMDQUEUE(cmdbatch);
 	int ret;
 
-	mutex_lock(&drawctxt->mutex);
+	spin_lock(&drawctxt->lock);
 
 	if (kgsl_context_detached(&drawctxt->base)) {
-		mutex_unlock(&drawctxt->mutex);
+		spin_unlock(&drawctxt->lock);
 		return -EINVAL;
 	}
 
@@ -921,17 +921,17 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 
 	while (drawctxt->queued >= _context_cmdqueue_size) {
 		trace_adreno_drawctxt_sleep(drawctxt);
-		mutex_unlock(&drawctxt->mutex);
+		spin_unlock(&drawctxt->lock);
 
 		ret = wait_event_interruptible_timeout(drawctxt->wq,
 			_check_context_queue(drawctxt),
 			msecs_to_jiffies(_context_queue_wait));
 
-		mutex_lock(&drawctxt->mutex);
+		spin_lock(&drawctxt->lock);
 		trace_adreno_drawctxt_wake(drawctxt);
 
 		if (ret <= 0) {
-			mutex_unlock(&drawctxt->mutex);
+			spin_unlock(&drawctxt->lock);
 			return (ret == 0) ? -ETIMEDOUT : (int) ret;
 		}
 	}
@@ -941,17 +941,17 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 	 */
 
 	if (kgsl_context_invalid(&drawctxt->base)) {
-		mutex_unlock(&drawctxt->mutex);
+		spin_unlock(&drawctxt->lock);
 		return -EDEADLK;
 	}
 	if (kgsl_context_detached(&drawctxt->base)) {
-		mutex_unlock(&drawctxt->mutex);
+		spin_unlock(&drawctxt->lock);
 		return -EINVAL;
 	}
 
 	ret = get_timestamp(drawctxt, cmdbatch, timestamp);
 	if (ret) {
-		mutex_unlock(&drawctxt->mutex);
+		spin_unlock(&drawctxt->lock);
 		return ret;
 	}
 
@@ -970,7 +970,7 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 				drawctxt->queued);
 
 			_retire_marker(cmdbatch);
-			mutex_unlock(&drawctxt->mutex);
+			spin_unlock(&drawctxt->lock);
 			return 0;
 		}
 
@@ -1025,7 +1025,7 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 
 	_track_context(dispatch_q, drawctxt->base.id);
 
-	mutex_unlock(&drawctxt->mutex);
+	spin_unlock(&drawctxt->lock);
 
 	/* Add the context to the dispatcher pending list */
 	dispatcher_queue_context(adreno_dev, drawctxt);
