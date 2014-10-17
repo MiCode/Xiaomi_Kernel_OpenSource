@@ -87,6 +87,7 @@ struct afe_ctl {
 	struct audio_cal_info_spk_prot_cfg	prot_cfg;
 	struct afe_spkr_prot_calib_get_resp	calib_data;
 	int vi_tx_port;
+	int vi_rx_port;
 	uint32_t afe_sample_rates[AFE_MAX_PORTS];
 	struct aanc_data aanc_info;
 	struct mutex afe_cmd_lock;
@@ -524,9 +525,10 @@ static int afe_spk_ramp_dn_cfg(int port)
 		pr_debug("%s: port doesn't match 0x%x\n", __func__, port);
 		return 0;
 	}
-	if (this_afe.prot_cfg.mode == MSM_SPKR_PROT_DISABLED) {
-		pr_debug("%s: spkr protection disabled port 0x%x %d\n",
-				__func__, port, ret);
+	if (this_afe.prot_cfg.mode == MSM_SPKR_PROT_DISABLED ||
+		(this_afe.vi_rx_port != port)) {
+		pr_debug("%s: spkr protection disabled port 0x%x %d 0x%x\n",
+				__func__, port, ret, this_afe.vi_rx_port);
 		return 0;
 	}
 	memset(&config, 0 , sizeof(config));
@@ -581,7 +583,7 @@ fail_cmd:
 return ret;
 }
 
-static int afe_spk_prot_prepare(int port, int param_id,
+static int afe_spk_prot_prepare(int src_port, int dst_port, int param_id,
 		union afe_spkr_prot_config *prot_config)
 {
 	int ret = -EINVAL;
@@ -593,19 +595,28 @@ static int afe_spk_prot_prepare(int port, int param_id,
 		pr_err("%s: Invalid params\n", __func__);
 		goto fail_cmd;
 	}
-	ret = q6audio_validate_port(port);
+	ret = q6audio_validate_port(src_port);
 	if (ret < 0) {
-		pr_err("%s: Invalid port 0x%x ret %d", __func__, port, ret);
+		pr_err("%s: Invalid src port 0x%x ret %d",
+				__func__, src_port, ret);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	index = q6audio_get_port_index(port);
+	ret = q6audio_validate_port(dst_port);
+	if (ret < 0) {
+		pr_err("%s: Invalid dst port 0x%x ret %d", __func__,
+				dst_port, ret);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	index = q6audio_get_port_index(src_port);
 	switch (param_id) {
 	case AFE_PARAM_ID_FBSP_MODE_RX_CFG:
 		config.pdata.module_id = AFE_MODULE_FB_SPKR_PROT_V2_RX;
 		break;
 	case AFE_PARAM_ID_FEEDBACK_PATH_CFG:
-		this_afe.vi_tx_port = port;
+		this_afe.vi_tx_port = src_port;
+		this_afe.vi_rx_port = dst_port;
 		config.pdata.module_id = AFE_MODULE_FEEDBACK;
 		break;
 	case AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG_V2:
@@ -625,7 +636,7 @@ static int afe_spk_prot_prepare(int port, int param_id,
 	config.hdr.token = index;
 
 	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
-	config.param.port_id = q6audio_get_port_id(port);
+	config.param.port_id = q6audio_get_port_id(src_port);
 	config.param.payload_size = sizeof(config) - sizeof(config.hdr)
 		- sizeof(config.param);
 	config.pdata.param_id = param_id;
@@ -635,7 +646,7 @@ static int afe_spk_prot_prepare(int port, int param_id,
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
 	if (ret < 0) {
 		pr_err("%s: port = 0x%x param = 0x%x failed %d\n",
-		__func__, port, param_id, ret);
+		__func__, src_port, param_id, ret);
 		goto fail_cmd;
 	}
 	ret = wait_event_timeout(this_afe.wait[index],
@@ -653,8 +664,8 @@ static int afe_spk_prot_prepare(int port, int param_id,
 	}
 	ret = 0;
 fail_cmd:
-	pr_debug("%s: config.pdata.param_id 0x%x status %d\n",
-	__func__, config.pdata.param_id, ret);
+	pr_debug("%s: config.pdata.param_id 0x%x status %d 0x%x\n",
+	__func__, config.pdata.param_id, ret, src_port);
 	return ret;
 }
 
@@ -704,7 +715,7 @@ static void afe_send_cal_spkr_prot_tx(int port_id)
 			vi_proc_cfg->r0_t0_selection_flag[SP_V2_SPKR_2] =
 							    USE_SAFE_R0TO;
 		}
-		if (afe_spk_prot_prepare(port_id,
+		if (afe_spk_prot_prepare(port_id, 0,
 			AFE_PARAM_ID_SPKR_CALIB_VI_PROC_CFG_V2,
 						    &afe_spk_config))
 				pr_err("%s: SPKR_CALIB_VI_PROC_CFG failed\n",
@@ -724,7 +735,8 @@ static void afe_send_cal_spkr_prot_rx(int port_id)
 
 	mutex_lock(&this_afe.cal_data[AFE_FB_SPKR_PROT_CAL]->lock);
 
-	if (this_afe.prot_cfg.mode != MSM_SPKR_PROT_DISABLED) {
+	if (this_afe.prot_cfg.mode != MSM_SPKR_PROT_DISABLED &&
+		(this_afe.vi_rx_port == port_id)) {
 		if (this_afe.prot_cfg.mode ==
 			MSM_SPKR_PROT_CALIBRATION_IN_PROGRESS)
 			afe_spk_config.mode_rx_cfg.mode =
@@ -733,7 +745,7 @@ static void afe_send_cal_spkr_prot_rx(int port_id)
 			afe_spk_config.mode_rx_cfg.mode =
 				Q6AFE_MSM_SPKR_PROCESSING;
 		afe_spk_config.mode_rx_cfg.minor_version = 1;
-		if (afe_spk_prot_prepare(port_id,
+		if (afe_spk_prot_prepare(port_id, 0,
 			AFE_PARAM_ID_FBSP_MODE_RX_CFG,
 			&afe_spk_config))
 			pr_err("%s: RX MODE_VI_PROC_CFG failed\n",
@@ -872,7 +884,7 @@ done:
 
 void afe_send_cal(u16 port_id)
 {
-	pr_debug("%s:\n", __func__);
+	pr_debug("%s: port_id=0x%x\n", __func__, port_id);
 
 	if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_TX) {
 		afe_send_cal_spkr_prot_tx(port_id);
@@ -3935,6 +3947,7 @@ int afe_spk_prot_feed_back_cfg(int src_port, int dst_port,
 	if (!enable) {
 		pr_debug("%s: Disable Feedback tx path", __func__);
 		this_afe.vi_tx_port = -1;
+		this_afe.vi_rx_port = -1;
 		return 0;
 	}
 
@@ -3964,7 +3977,7 @@ int afe_spk_prot_feed_back_cfg(int src_port, int dst_port,
 	prot_config.feedback_path_cfg.num_channels = index;
 	pr_debug("%s no of channels: %d\n", __func__, index);
 	prot_config.feedback_path_cfg.minor_version = 1;
-	ret = afe_spk_prot_prepare(src_port,
+	ret = afe_spk_prot_prepare(src_port, dst_port,
 			AFE_PARAM_ID_FEEDBACK_PATH_CFG, &prot_config);
 fail_cmd:
 	return ret;
@@ -4456,6 +4469,7 @@ static int __init afe_init(void)
 	this_afe.dtmf_gen_rx_portid = -1;
 	this_afe.mmap_handle = 0;
 	this_afe.vi_tx_port = -1;
+	this_afe.vi_rx_port = -1;
 	this_afe.prot_cfg.mode = MSM_SPKR_PROT_DISABLED;
 	mutex_init(&this_afe.afe_cmd_lock);
 	for (i = 0; i < AFE_MAX_PORTS; i++)
