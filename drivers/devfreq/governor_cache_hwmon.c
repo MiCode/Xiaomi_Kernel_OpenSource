@@ -31,11 +31,36 @@
 #include "governor.h"
 #include "governor_cache_hwmon.h"
 
+struct cache_hwmon_node {
+	unsigned int cycles_per_low_req;
+	unsigned int cycles_per_med_req;
+	unsigned int cycles_per_high_req;
+	unsigned int min_busy;
+	unsigned int max_busy;
+	unsigned int tolerance_mrps;
+	unsigned int guard_band_mhz;
+	unsigned int decay_rate;
+	unsigned long prev_mhz;
+	ktime_t prev_ts;
+	struct list_head list;
+	void *orig_data;
+	struct cache_hwmon *hw;
+	struct attribute_group *attr_grp;
+};
+
+static LIST_HEAD(cache_hwmon_list);
+static DEFINE_MUTEX(list_lock);
+
+static int use_cnt;
+static DEFINE_MUTEX(state_lock);
+
 #define show_attr(name) \
 static ssize_t show_##name(struct device *dev,				\
 			struct device_attribute *attr, char *buf)	\
 {									\
-	return snprintf(buf, PAGE_SIZE, "%u\n", name);			\
+	struct devfreq *df = to_devfreq(dev);				\
+	struct cache_hwmon_node *hw = df->data;				\
+	return snprintf(buf, PAGE_SIZE, "%u\n", hw->name);		\
 }
 
 #define store_attr(name, _min, _max) \
@@ -45,12 +70,14 @@ static ssize_t store_##name(struct device *dev,				\
 {									\
 	int ret;							\
 	unsigned int val;						\
+	struct devfreq *df = to_devfreq(dev);				\
+	struct cache_hwmon_node *hw = df->data;				\
 	ret = kstrtoint(buf, 10, &val);					\
 	if (ret)							\
 		return ret;						\
 	val = max(val, _min);						\
 	val = min(val, _max);						\
-	name = val;							\
+	hw->name = val;							\
 	return count;							\
 }
 
@@ -59,28 +86,31 @@ show_attr(__attr)			\
 store_attr(__attr, (min), (max))	\
 static DEVICE_ATTR(__attr, 0644, show_##__attr, store_##__attr)
 
-
-static struct cache_hwmon *hw;
-static unsigned int cycles_per_low_req;
-static unsigned int cycles_per_med_req = 20;
-static unsigned int cycles_per_high_req = 35;
-static unsigned int min_busy = 100;
-static unsigned int max_busy = 100;
-static unsigned int tolerance_mrps = 5;
-static unsigned int guard_band_mhz = 100;
-static unsigned int decay_rate = 90;
-
 #define MIN_MS	10U
 #define MAX_MS	500U
-static unsigned int sample_ms = 50;
-static unsigned long prev_mhz;
-static ktime_t prev_ts;
 
-static unsigned long measure_mrps_and_set_irq(struct devfreq *df,
+static struct cache_hwmon_node *find_hwmon_node(struct devfreq *df)
+{
+	struct cache_hwmon_node *node, *found = NULL;
+
+	mutex_lock(&list_lock);
+	list_for_each_entry(node, &cache_hwmon_list, list)
+		if (node->hw->dev == df->dev.parent ||
+		    node->hw->of_node == df->dev.parent->of_node) {
+			found = node;
+			break;
+		}
+	mutex_unlock(&list_lock);
+
+	return found;
+}
+
+static unsigned long measure_mrps_and_set_irq(struct cache_hwmon_node *node,
 			struct mrps_stats *stat)
 {
 	ktime_t ts;
 	unsigned int us;
+	struct cache_hwmon *hw = node->hw;
 
 	/*
 	 * Since we are stopping the counters, we don't want this short work
@@ -92,59 +122,63 @@ static unsigned long measure_mrps_and_set_irq(struct devfreq *df,
 	preempt_disable();
 
 	ts = ktime_get();
-	us = ktime_to_us(ktime_sub(ts, prev_ts));
+	us = ktime_to_us(ktime_sub(ts, node->prev_ts));
 	if (!us)
 		us = 1;
 
-	hw->meas_mrps_and_set_irq(df, tolerance_mrps, us, stat);
-	prev_ts = ts;
+	hw->meas_mrps_and_set_irq(hw, node->tolerance_mrps, us, stat);
+	node->prev_ts = ts;
 
 	preempt_enable();
 
-	pr_debug("stat H=%3lu, M=%3lu, T=%3lu, b=%3u, f=%4lu, us=%d\n",
+	dev_dbg(hw->df->dev.parent,
+		"stat H=%3lu, M=%3lu, T=%3lu, b=%3u, f=%4lu, us=%d\n",
 		 stat->high, stat->med, stat->high + stat->med,
-		 stat->busy_percent, df->previous_freq / 1000, us);
+		 stat->busy_percent, hw->df->previous_freq / 1000, us);
 
 	return 0;
 }
 
-static void compute_cache_freq(struct mrps_stats *mrps, unsigned long *freq)
+static void compute_cache_freq(struct cache_hwmon_node *node,
+		struct mrps_stats *mrps, unsigned long *freq)
 {
 	unsigned long new_mhz;
 	unsigned int busy;
 
-	new_mhz = mrps->high * cycles_per_high_req
-		+ mrps->med * cycles_per_med_req
-		+ mrps->low * cycles_per_low_req;
+	new_mhz = mrps->high * node->cycles_per_high_req
+		+ mrps->med * node->cycles_per_med_req
+		+ mrps->low * node->cycles_per_low_req;
 
-	busy = max(min_busy, mrps->busy_percent);
-	busy = min(max_busy, busy);
+	busy = max(node->min_busy, mrps->busy_percent);
+	busy = min(node->max_busy, busy);
 
 	new_mhz *= 100;
 	new_mhz /= busy;
 
-	if (new_mhz < prev_mhz) {
-		new_mhz = new_mhz * decay_rate + prev_mhz * (100 - decay_rate);
+	if (new_mhz < node->prev_mhz) {
+		new_mhz = new_mhz * node->decay_rate + node->prev_mhz
+				* (100 - node->decay_rate);
 		new_mhz /= 100;
 	}
-	prev_mhz = new_mhz;
+	node->prev_mhz = new_mhz;
 
-	new_mhz += guard_band_mhz;
+	new_mhz += node->guard_band_mhz;
 	*freq = new_mhz * 1000;
 }
 
 #define TOO_SOON_US	(1 * USEC_PER_MSEC)
 static irqreturn_t mon_intr_handler(int irq, void *dev)
 {
-	struct devfreq *df = dev;
+	struct cache_hwmon_node *node = dev;
+	struct devfreq *df = node->hw->df;
 	ktime_t ts;
 	unsigned int us;
 	int ret;
 
-	if (!hw->is_valid_irq(df))
+	if (!node->hw->is_valid_irq(node->hw))
 		return IRQ_NONE;
 
-	pr_debug("Got interrupt\n");
+	dev_dbg(df->dev.parent, "Got interrupt\n");
 	devfreq_monitor_stop(df);
 
 	/*
@@ -160,12 +194,13 @@ static irqreturn_t mon_intr_handler(int irq, void *dev)
 	 *    readjusted.
 	 */
 	ts = ktime_get();
-	us = ktime_to_us(ktime_sub(ts, prev_ts));
+	us = ktime_to_us(ktime_sub(ts, node->prev_ts));
 	if (us > TOO_SOON_US) {
 		mutex_lock(&df->lock);
 		ret = update_devfreq(df);
 		if (ret)
-			pr_err("Unable to update freq on IRQ!\n");
+			dev_err(df->dev.parent,
+				"Unable to update freq on IRQ!\n");
 		mutex_unlock(&df->lock);
 	}
 
@@ -178,9 +213,11 @@ static int devfreq_cache_hwmon_get_freq(struct devfreq *df,
 					unsigned long *freq)
 {
 	struct mrps_stats stat;
+	struct cache_hwmon_node *node = df->data;
 
-	measure_mrps_and_set_irq(df, &stat);
-	compute_cache_freq(&stat, freq);
+	memset(&stat, 0, sizeof(stat));
+	measure_mrps_and_set_irq(node, &stat);
+	compute_cache_freq(node, &stat, freq);
 
 	return 0;
 }
@@ -215,58 +252,88 @@ static int start_monitoring(struct devfreq *df)
 {
 	int ret;
 	struct mrps_stats mrps;
+	struct device *dev = df->dev.parent;
+	struct cache_hwmon_node *node;
+	struct cache_hwmon *hw;
 
-	prev_ts = ktime_get();
-	prev_mhz = 0;
-	mrps.high = (df->previous_freq / 1000) - guard_band_mhz;
-	mrps.high /= cycles_per_high_req;
+	node = find_hwmon_node(df);
+	if (!node) {
+		dev_err(dev, "Unable to find HW monitor!\n");
+		return -ENODEV;
+	}
+	hw = node->hw;
+	hw->df = df;
+	node->orig_data = df->data;
+	df->data = node;
 
-	ret = hw->start_hwmon(df, &mrps);
+	node->prev_ts = ktime_get();
+	node->prev_mhz = 0;
+	mrps.high = (df->previous_freq / 1000) - node->guard_band_mhz;
+	mrps.high /= node->cycles_per_high_req;
+	mrps.med = mrps.low = 0;
+
+	ret = hw->start_hwmon(hw, &mrps);
 	if (ret) {
-		pr_err("Unable to start HW monitor!\n");
-		return ret;
+		dev_err(dev, "Unable to start HW monitor!\n");
+		goto err_start;
 	}
 
 	devfreq_monitor_start(df);
 
-	ret = request_threaded_irq(hw->irq, NULL, mon_intr_handler,
+	if (hw->irq)
+		ret = request_threaded_irq(hw->irq, NULL, mon_intr_handler,
 			  IRQF_ONESHOT | IRQF_SHARED,
-			  "cache_hwmon", df);
+			  "cache_hwmon", node);
 	if (ret) {
-		pr_err("Unable to register interrupt handler!\n");
+		dev_err(dev, "Unable to register interrupt handler!\n");
 		goto req_irq_fail;
 	}
 
 	ret = sysfs_create_group(&df->dev.kobj, &dev_attr_group);
 	if (ret) {
-		pr_err("Error creating sys entries!\n");
+		dev_err(dev, "Error creating sys entries!\n");
 		goto sysfs_fail;
 	}
 
 	return 0;
 
 sysfs_fail:
-	disable_irq(hw->irq);
-	free_irq(hw->irq, df);
+	if (hw->irq) {
+		disable_irq(hw->irq);
+		free_irq(hw->irq, node);
+	}
 req_irq_fail:
 	devfreq_monitor_stop(df);
-	hw->stop_hwmon(df);
+	hw->stop_hwmon(hw);
+err_start:
+	df->data = node->orig_data;
+	node->orig_data = NULL;
+	hw->df = NULL;
 	return ret;
 }
 
 static void stop_monitoring(struct devfreq *df)
 {
+	struct cache_hwmon_node *node = df->data;
+	struct cache_hwmon *hw = node->hw;
+
 	sysfs_remove_group(&df->dev.kobj, &dev_attr_group);
-	disable_irq(hw->irq);
-	free_irq(hw->irq, df);
+	if (hw->irq) {
+		disable_irq(hw->irq);
+		free_irq(hw->irq, node);
+	}
 	devfreq_monitor_stop(df);
-	hw->stop_hwmon(df);
+	hw->stop_hwmon(hw);
+	df->data = node->orig_data;
+	node->orig_data = NULL;
+	hw->df = NULL;
 }
 
 static int devfreq_cache_hwmon_ev_handler(struct devfreq *df,
 					unsigned int event, void *data)
 {
 	int ret;
+	unsigned int sample_ms;
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
@@ -279,12 +346,12 @@ static int devfreq_cache_hwmon_ev_handler(struct devfreq *df,
 		if (ret)
 			return ret;
 
-		pr_debug("Enabled Cache HW monitor governor\n");
+		dev_dbg(df->dev.parent, "Enabled Cache HW monitor governor\n");
 		break;
 
 	case DEVFREQ_GOV_STOP:
 		stop_monitoring(df);
-		pr_debug("Disabled Cache HW monitor governor\n");
+		dev_dbg(df->dev.parent, "Disabled Cache HW monitor governor\n");
 		break;
 
 	case DEVFREQ_GOV_INTERVAL:
@@ -304,18 +371,48 @@ static struct devfreq_governor devfreq_cache_hwmon = {
 	.event_handler = devfreq_cache_hwmon_ev_handler,
 };
 
-int register_cache_hwmon(struct cache_hwmon *hwmon)
+int register_cache_hwmon(struct device *dev, struct cache_hwmon *hwmon)
 {
-	int ret;
+	int ret = 0;
+	struct cache_hwmon_node *node;
 
-	hw = hwmon;
-	ret = devfreq_add_governor(&devfreq_cache_hwmon);
-	if (ret) {
-		pr_err("devfreq governor registration failed\n");
+	if (!hwmon->dev && !hwmon->of_node)
+		return -EINVAL;
+
+	node = devm_kzalloc(dev, sizeof(*node), GFP_KERNEL);
+	if (!node)
+		return -ENOMEM;
+
+	node->cycles_per_med_req = 20;
+	node->cycles_per_high_req = 35;
+	node->min_busy = 100;
+	node->max_busy = 100;
+	node->tolerance_mrps = 5;
+	node->guard_band_mhz = 100;
+	node->decay_rate = 90;
+	node->hw = hwmon;
+	node->attr_grp = &dev_attr_group;
+
+	mutex_lock(&state_lock);
+	if (!use_cnt) {
+		ret = devfreq_add_governor(&devfreq_cache_hwmon);
+		if (!ret)
+			use_cnt++;
+	}
+	mutex_unlock(&state_lock);
+
+	if (!ret) {
+		dev_info(dev, "Cache HWmon governor registered.\n");
+	} else {
+		dev_err(dev, "Failed to add Cache HWmon governor\n");
 		return ret;
 	}
 
-	return 0;
+	mutex_lock(&list_lock);
+	list_add_tail(&node->list, &cache_hwmon_list);
+	mutex_unlock(&list_lock);
+
+	return ret;
 }
 
 MODULE_DESCRIPTION("HW monitor based cache freq driver");
