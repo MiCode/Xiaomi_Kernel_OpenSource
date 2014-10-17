@@ -106,4 +106,9 @@
 			status = "disabled";
 		};
 	};
+
+	qcom,sps {
+		compatible = "qcom,msm_sps_4k";
+		qcom,pipe-attr-ee;
+	};
 };
