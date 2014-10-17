@@ -42,4 +42,5 @@ int pil_mss_reset_load_mba(struct pil_desc *pil);
 int pil_mss_make_proxy_votes(struct pil_desc *pil);
 void pil_mss_remove_proxy_votes(struct pil_desc *pil);
 int pil_mss_shutdown(struct pil_desc *pil);
+int pil_mss_deinit_image(struct pil_desc *pil);
 #endif
