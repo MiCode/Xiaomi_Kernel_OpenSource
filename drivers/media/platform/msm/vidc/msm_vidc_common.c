@@ -1552,58 +1552,12 @@ void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 		dprintk(VIDC_WARN,
 				"Failed to scale DDR bus. Performance might be impacted\n");
 	}
-	if (core->resources.has_ocmem) {
+	if (core->resources.ocmem_size) {
 		if (msm_comm_scale_bus(core, inst->session_type,
 					OCMEM_MEM))
 			dprintk(VIDC_WARN,
 					"Failed to scale OCMEM bus. Performance might be impacted\n");
 	}
-}
-
-static inline unsigned long get_ocmem_requirement(u32 height, u32 width)
-{
-	int num_mbs = 0;
-	num_mbs = GET_NUM_MBS(height, width);
-	/*TODO: This should be changes once the numbers are
-	 * available from firmware*/
-	return 512 * 1024;
-}
-
-static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-
-	if (!core || !core->device) {
-		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
-		return -EINVAL;
-	}
-	hdev = core->device;
-
-	if (core->state == VIDC_CORE_INVALID) {
-		dprintk(VIDC_ERR,
-				"Core is in bad state. Cannot unset ocmem\n");
-		return -EIO;
-	}
-
-	init_completion(
-		&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)]);
-
-	rc = call_hfi_op(hdev, unset_ocmem, hdev->hfi_device_data);
-	if (rc) {
-		dprintk(VIDC_INFO, "Failed to unset OCMEM on driver\n");
-		goto release_ocmem_failed;
-	}
-	rc = wait_for_completion_timeout(
-		&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)],
-		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
-	if (!rc) {
-		dprintk(VIDC_ERR, "%s: Wait interrupted or timeout: %d\n",
-			__func__, SYS_MSG_INDEX(RELEASE_RESOURCE_DONE));
-		rc = -EIO;
-	}
-release_ocmem_failed:
-	return rc;
 }
 
 static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
@@ -1899,10 +1853,8 @@ static int msm_vidc_load_resources(int flipped_state,
 	struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	u32 ocmem_sz = 0;
 	struct hfi_device *hdev;
 	int num_mbs_per_sec = 0;
-	int height, width;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
@@ -1939,31 +1891,7 @@ static int msm_vidc_load_resources(int flipped_state,
 						inst, inst->state);
 		goto exit;
 	}
-	if (inst->core->resources.has_ocmem) {
-		height = max(inst->prop.height[CAPTURE_PORT],
-			inst->prop.height[OUTPUT_PORT]);
-		width = max(inst->prop.width[CAPTURE_PORT],
-			inst->prop.width[OUTPUT_PORT]);
-		ocmem_sz = get_ocmem_requirement(
-			height, width);
-		rc = msm_comm_scale_bus(inst->core, inst->session_type,
-					OCMEM_MEM);
-		if (!rc) {
-			mutex_lock(&inst->core->lock);
-			rc = call_hfi_op(hdev, alloc_ocmem,
-					hdev->hfi_device_data,
-					ocmem_sz);
-			mutex_unlock(&inst->core->lock);
-			if (rc) {
-				dprintk(VIDC_WARN,
-				"Failed to allocate OCMEM. Performance will be impacted\n");
-				msm_comm_unvote_buses(inst->core, OCMEM_MEM);
-			}
-		} else {
-			dprintk(VIDC_WARN,
-			"Failed to vote for OCMEM BW. Performance will be impacted\n");
-		}
-	}
+
 	rc = call_hfi_op(hdev, session_load_res, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -3711,12 +3639,6 @@ void msm_vidc_fw_unload_handler(struct work_struct *work)
 	if (list_empty(&core->instances) &&
 		core->state != VIDC_CORE_UNINIT) {
 		if (core->state > VIDC_CORE_INIT) {
-			if (core->resources.has_ocmem) {
-				if (core->state != VIDC_CORE_INVALID)
-					msm_comm_unset_ocmem(core);
-				call_hfi_op(hdev, free_ocmem,
-						hdev->hfi_device_data);
-			}
 			dprintk(VIDC_DBG, "Calling vidc_hal_core_release\n");
 			rc = call_hfi_op(hdev, core_release,
 					hdev->hfi_device_data);
@@ -3732,7 +3654,7 @@ void msm_vidc_fw_unload_handler(struct work_struct *work)
 
 		call_hfi_op(hdev, unload_fw, hdev->hfi_device_data);
 		dprintk(VIDC_DBG, "Firmware unloaded\n");
-		if (core->resources.has_ocmem)
+		if (core->resources.ocmem_size)
 			msm_comm_unvote_buses(core, DDR_MEM|OCMEM_MEM);
 		else
 			msm_comm_unvote_buses(core, DDR_MEM);

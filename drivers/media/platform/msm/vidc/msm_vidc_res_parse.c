@@ -348,7 +348,7 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 		goto err_mem_alloc;
 	}
 	for (i = 0; i < num_bus_pdata; i++) {
-		if (!res->has_ocmem &&
+		if (!res->ocmem_size &&
 			(!strcmp(bus_pdata_config_vector[i].name,
 				"qcom,enc-ocmem-ab-ib")
 			|| !strcmp(bus_pdata_config_vector[i].name,
@@ -567,9 +567,11 @@ int read_platform_resources_from_dt(
 	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	res->irq = kres ? kres->start : -1;
 
-	res->has_ocmem = of_property_read_bool(pdev->dev.of_node,
-						"qcom,has-ocmem");
-
+	rc = of_property_read_u32(pdev->dev.of_node,
+						"qcom,ocmem-size", &res->ocmem_size);
+	if (rc) {
+		dprintk(VIDC_INFO, "Failed to read ocmem size: %d\n", rc);
+	}
 	rc = msm_vidc_load_freq_table(res);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load freq table: %d\n", rc);
