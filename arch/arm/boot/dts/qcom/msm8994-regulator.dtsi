@@ -648,6 +648,7 @@
 					      790000 815000 835000 900000
 					      935000 940000 965000 990000>;
 
+		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <0 2000 2000 2000>;
 		qcom,cpr-corner-frequency-map =
@@ -735,6 +736,7 @@
 					      935000 940000 960000 970000
 					      990000>;
 
+		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <0 2000 2000 2000>;
 		qcom,cpr-corner-frequency-map =
