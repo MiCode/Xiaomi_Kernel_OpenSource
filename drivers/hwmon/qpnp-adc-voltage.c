@@ -159,9 +159,8 @@ static struct qpnp_vadc_scale_fn vadc_scale_fn[] = {
 	[SCALE_NCP_03WF683_THERM] = {qpnp_adc_scale_therm_ncp03},
 };
 
-static struct qpnp_adc_tm_reverse_scale_fn adc_vadc_rscale_fn[] = {
-	[SCALE_RVADC_ABSOLUTE] = {qpnp_adc_absolute_rthr},
-	[SCALE_RVADC_PMIC_THERM] = {qpnp_adc_scale_millidegc_pmic_voltage_thr},
+static struct qpnp_vadc_rscale_fn adc_vadc_rscale_fn[] = {
+	[SCALE_RVADC_ABSOLUTE] = {qpnp_vadc_absolute_rthr},
 };
 
 static int32_t qpnp_vadc_read_reg(struct qpnp_vadc_chip *vadc, int16_t reg,
@@ -1843,7 +1842,7 @@ int32_t qpnp_vadc_channel_monitor(struct qpnp_vadc_chip *chip,
 {
 	uint32_t channel, scale_type = 0;
 	uint32_t low_thr = 0, high_thr = 0;
-	int rc = 0, idx = 0;
+	int rc = 0, idx = 0, amux_prescaling = 0;
 	struct qpnp_vadc_chip *vadc = dev_get_drvdata(chip->dev);
 
 	if (qpnp_vadc_is_valid(vadc))
@@ -1876,12 +1875,25 @@ int32_t qpnp_vadc_channel_monitor(struct qpnp_vadc_chip *chip,
 	}
 
 	scale_type = vadc->adc->adc_channels[idx].adc_scale_fn;
-	if ((scale_type >= SCALE_RVADC_SCALE_NONE) ||
-		((scale_type != SCALE_RVADC_ABSOLUTE) &&
-		(scale_type != SCALE_RVADC_PMIC_THERM))) {
+	if (scale_type >= SCALE_RVADC_SCALE_NONE) {
 		rc = -EBADF;
 		goto fail_unlock;
 	}
+
+	amux_prescaling =
+		vadc->adc->adc_channels[idx].chan_path_prescaling;
+
+	if (amux_prescaling >= PATH_SCALING_NONE) {
+		rc = -EINVAL;
+		goto fail_unlock;
+	}
+
+	vadc->adc->amux_prop->chan_prop->offset_gain_numerator =
+		qpnp_vadc_amux_scaling_ratio[amux_prescaling].num;
+	vadc->adc->amux_prop->chan_prop->offset_gain_denominator =
+		 qpnp_vadc_amux_scaling_ratio[amux_prescaling].den;
+	vadc->adc->amux_prop->chan_prop->calib_type =
+		vadc->adc->adc_channels[idx].calib_type;
 
 	pr_debug("channel:%d, scale_type:%d, dt_idx:%d",
 					channel, scale_type, idx);
@@ -1893,7 +1905,8 @@ int32_t qpnp_vadc_channel_monitor(struct qpnp_vadc_chip *chip,
 	vadc->adc->amux_prop->fast_avg_setup =
 			vadc->adc->adc_channels[idx].fast_avg_setup;
 	vadc->adc->amux_prop->mode_sel = ADC_OP_MEASUREMENT_INTERVAL;
-	adc_vadc_rscale_fn[scale_type].chan(vadc, param,
+	adc_vadc_rscale_fn[scale_type].chan(vadc,
+			vadc->adc->amux_prop->chan_prop, param,
 			&low_thr, &high_thr);
 
 	if (param->timer_interval >= ADC_MEAS1_INTERVAL_NONE) {

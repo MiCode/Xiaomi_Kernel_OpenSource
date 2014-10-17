@@ -301,7 +301,6 @@ enum qpnp_adc_tm_rscale_fn_type {
  */
 enum qpnp_vadc_rscale_fn_type {
 	SCALE_RVADC_ABSOLUTE = 0,
-	SCALE_RVADC_PMIC_THERM = 3,
 	SCALE_RVADC_SCALE_NONE,
 };
 
@@ -975,6 +974,19 @@ struct qpnp_adc_tm_reverse_scale_fn {
 };
 
 /**
+ * struct qpnp_vadc_rscale_fn - Scaling function prototype
+ * @chan: Function pointer to one of the scaling functions
+ *	which takes the adc properties, channel properties,
+ *	and returns the physical result
+ */
+struct qpnp_vadc_rscale_fn {
+	int32_t (*chan) (struct qpnp_vadc_chip *,
+		const struct qpnp_vadc_chan_properties *,
+		struct qpnp_adc_tm_btm_param *,
+		uint32_t *, uint32_t *);
+};
+
+/**
  * struct qpnp_iadc_calib - IADC channel calibration structure.
  * @channel - Channel for which the historical offset and gain is
  *	      calculated. Available channels are internal rsense,
@@ -1477,6 +1489,25 @@ int32_t qpnp_adc_vbatt_rscaler(struct qpnp_vadc_chip *dev,
 		struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold);
 /**
+ * qpnp_vadc_absolute_rthr() - Performs reverse calibration on the low/high
+ *		voltage threshold values passed by the client.
+ *		The function applies absolute calibration on the
+ *		voltage values.
+ * @dev:	Structure device for qpnp vadc
+ * @chan_prop:	Individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @param:	The input parameters that contain the low/high voltage
+ *		threshold values.
+ * @low_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ * @high_threshold: The low threshold value that needs to be updated with
+ *		the above calibrated voltage value.
+ */
+int32_t qpnp_vadc_absolute_rthr(struct qpnp_vadc_chip *dev,
+		const struct qpnp_vadc_chan_properties *chan_prop,
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold);
+/**
  * qpnp_adc_absolute_rthr() - Performs reverse calibration on the low/high
  *		voltage threshold values passed by the client.
  *		The function applies absolute calibration on the
@@ -1679,6 +1710,11 @@ static inline int32_t qpnp_adc_usb_scaler(struct qpnp_vadc_chip *dev,
 		uint32_t *low_threshold, uint32_t *high_threshold)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_vbatt_rscaler(struct qpnp_vadc_chip *dev,
+		struct qpnp_adc_tm_btm_param *param,
+		uint32_t *low_threshold, uint32_t *high_threshold)
+{ return -ENXIO; }
+static inline int32_t qpnp_vadc_absolute_rthr(struct qpnp_vadc_chip *dev,
+		const struct qpnp_vadc_chan_properties *chan_prop,
 		struct qpnp_adc_tm_btm_param *param,
 		uint32_t *low_threshold, uint32_t *high_threshold)
 { return -ENXIO; }
