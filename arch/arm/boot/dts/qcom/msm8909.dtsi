@@ -332,7 +332,7 @@
 		interrupts = <0 184 0>;
 		interrupt-names = "tsens-upper-lower";
 		qcom,sensors = <5>;
-		qcom,slope = <3200 3200 3200 3200 3200>;
+		qcom,slope = <3000 3000 3000 3000 3000>;
 		qcom,sensor-id = <0 1 2 3 4>;
 	};
 
