@@ -788,7 +788,6 @@ static int mt9m114_get_intg_factor(struct i2c_client *client,
 	struct atomisp_sensor_mode_data *buf = &info->data;
 	u32 reg_val;
 	int ret;
-	dev_err(&client->dev, "%s\n", __func__);
 
 	if (info == NULL)
 		return -EINVAL;
@@ -962,25 +961,21 @@ static int mt9m114_set_mbus_fmt(struct v4l2_subdev *sd,
 		break;
 #else
 	case MT9M114_RES_720_480p_768:
-		v4l2_err(sd, "set resolution: MT9M114_RES_720_480p_768\n");
 		ret = mt9m114_write_reg_array(c, mt9m114_720_480P_init, NO_POLLING);
 		ret += misensor_rmw_reg(c, MISENSOR_16BIT, MISENSOR_READ_MODE,
 				MISENSOR_R_MODE_MASK, MISENSOR_NORMAL_SET);
 		break;
 	case MT9M114_RES_736P:
-		v4l2_err(sd, "set resolution: MT9M114_RES_736P\n");
 		ret = mt9m114_write_reg_array(c, mt9m114_736P_init, NO_POLLING);
 		ret += misensor_rmw_reg(c, MISENSOR_16BIT, MISENSOR_READ_MODE,
 				MISENSOR_R_MODE_MASK, MISENSOR_NORMAL_SET);
 		break;
 	case MT9M114_RES_864P:
-		v4l2_err(sd, "set resolution: MT9M114_RES_864P\n");
 		ret = mt9m114_write_reg_array(c, mt9m114_864P_init, NO_POLLING);
 		ret += misensor_rmw_reg(c, MISENSOR_16BIT, MISENSOR_READ_MODE,
 				MISENSOR_R_MODE_MASK, MISENSOR_NORMAL_SET);
 		break;
 	case MT9M114_RES_960P:
-		v4l2_err(sd, "set resolution: MT9M114_RES_976P\n");
 		ret = mt9m114_write_reg_array(c, mt9m114_976P_init, NO_POLLING);
 		/* set sensor read_mode to Normal */
 		ret += misensor_rmw_reg(c, MISENSOR_16BIT, MISENSOR_READ_MODE,
