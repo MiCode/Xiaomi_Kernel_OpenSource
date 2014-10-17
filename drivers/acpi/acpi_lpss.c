@@ -195,8 +195,8 @@ static const struct acpi_device_id acpi_lpss_device_ids[] = {
 	/* Cherrytrail LPSS devices */
 	{ "808622C1", (unsigned long)&cht_i2c_dev_desc },
 	{ "8086228A", (unsigned long)&byt_uart_dev_desc },
-	{ "80862286", }, /* CHT DMA1 */
-	{ "808622C0", }, /* CHT DMA2 */
+	{ "80862286", (unsigned long)&lpss_dma_desc },
+	{ "808622C0", (unsigned long)&lpss_dma_desc },
 	{ "8086228E", (unsigned long)&byt_spi_dev_desc },
 	{ "80862288", }, /* CHT PWM */
 
