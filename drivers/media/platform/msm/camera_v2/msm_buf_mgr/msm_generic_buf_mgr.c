@@ -100,20 +100,27 @@ static int32_t msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	return ret;
 }
 
-static void msm_buf_mngr_sd_shutdown(struct msm_buf_mngr_device *buf_mngr_dev)
+static void msm_buf_mngr_sd_shutdown(struct msm_buf_mngr_device *buf_mngr_dev,
+				     struct msm_sd_close_ioctl *session)
 {
 	unsigned long flags;
 	struct msm_get_bufs *bufs, *save;
+
+	BUG_ON(!buf_mngr_dev);
+	BUG_ON(!session);
 
 	spin_lock_irqsave(&buf_mngr_dev->buf_q_spinlock, flags);
 	if (!list_empty(&buf_mngr_dev->buf_qhead)) {
 		list_for_each_entry_safe(bufs,
 			save, &buf_mngr_dev->buf_qhead, entry) {
-			pr_err("%s: Error delete invalid bufs =%lx, ses_id=%d, str_id=%d, idx=%d\n",
-				__func__, (unsigned long)bufs, bufs->session_id,
-				bufs->stream_id, bufs->vb2_buf->v4l2_buf.index);
-			list_del_init(&bufs->entry);
-			kfree(bufs);
+			pr_info("%s: Delete invalid bufs =%lx, session_id=%u, bufs->ses_id=%d, str_id=%d, idx=%d\n",
+				__func__, (unsigned long)bufs, session->session,
+				bufs->session_id, bufs->stream_id,
+				bufs->vb2_buf->v4l2_buf.index);
+			if (session->session == bufs->session_id) {
+				list_del_init(&bufs->entry);
+				kfree(bufs);
+			}
 		}
 	}
 	spin_unlock_irqrestore(&buf_mngr_dev->buf_q_spinlock, flags);
@@ -175,7 +182,7 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = msm_generic_buf_mngr_close(sd, NULL);
 		break;
 	case MSM_SD_SHUTDOWN:
-		msm_buf_mngr_sd_shutdown(buf_mngr_dev);
+		msm_buf_mngr_sd_shutdown(buf_mngr_dev, argp);
 		break;
 	default:
 		return -ENOIOCTLCMD;
