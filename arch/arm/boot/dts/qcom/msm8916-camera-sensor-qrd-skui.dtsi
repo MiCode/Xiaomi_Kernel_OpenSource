@@ -11,11 +11,40 @@
  * GNU General Public License for more details.
  */
 
+&tlmm_pinmux {
+	OCP8110_pins {
+		qcom,pins = <&gp 31>, <&gp 32>;
+		qcom,num-grp-pins = <2>;
+		qcom,pin-func = <0>;
+		label = "OCP8110_pins";
+		OCP8110_default: en_default {
+			  drive-strength = <2>;
+			  bias-pull-down;
+		};
+	};
+};
+
 &soc {
+	flash_OCP8110:flashlight {
+		compatible = "qcom,leds-gpio-flash";
+		status = "okay";
+		pinctrl-names = "flash_default";
+		pinctrl-0 = <&OCP8110_default>;
+		qcom,flash-en = <&msm_gpio 31 0>;
+		qcom,flash-now = <&msm_gpio 32 0>;
+		qcom,op-seq = "flash_en", "flash_now";
+		qcom,torch-seq-val = <1 0>;
+		qcom,flash-seq-val = <1 1>;
+		linux,name = "flashlight";
+		linux,default-trigger = "flashlight-trigger";
+	};
+
 	led_flash0: qcom,camera-led-flash {
 		cell-index = <0>;
 		compatible = "qcom,camera-led-flash";
 		qcom,flash-type = <3>;
+		qcom,flash-source = <&flash_OCP8110>;
+		qcom,torch-source = <&flash_OCP8110>;
 	};
 };
 
@@ -109,6 +138,7 @@
 		qcom,mount-angle = <90>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,eeprom-src = <&eeprom0>;
+		qcom,led-flash-src = <&led_flash0>;
 		cam_vdig-supply = <&pm8916_l2>;
 		cam_vana-supply = <&pm8916_l17>;
 		cam_vio-supply = <&pm8916_l6>;
