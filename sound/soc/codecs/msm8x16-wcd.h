@@ -17,6 +17,7 @@
 #include <sound/q6afe-v2.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #include "wcd-mbhc-v2.h"
+#include "wcdcal-hwdep.h"
 
 #define MSM8X16_WCD_NUM_REGISTERS	0x6FF
 #define MSM8X16_WCD_MAX_REGISTER	(MSM8X16_WCD_NUM_REGISTERS-1)
@@ -231,6 +232,8 @@ struct msm8x16_wcd_priv {
 	struct regulator *spkdrv_reg;
 	/* mbhc module */
 	struct wcd_mbhc mbhc;
+	/* cal info for codec */
+	struct fw_info *fw_data;
 	struct blocking_notifier_head notifier;
 
 };

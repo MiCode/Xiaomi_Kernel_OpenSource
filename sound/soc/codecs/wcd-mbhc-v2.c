@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/input.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
+#include <linux/firmware.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
@@ -35,6 +36,7 @@
 #include "msm8x16_wcd_registers.h"
 #include "msm8916-wcd-irq.h"
 #include "msm8x16-wcd.h"
+#include "wcdcal-hwdep.h"
 
 #define WCD_MBHC_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
 			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
@@ -49,6 +51,8 @@
 #define GND_MIC_SWAP_THRESHOLD 4
 #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 100
 #define HS_VREF_MIN_VAL 1400
+#define FW_READ_ATTEMPTS 15
+#define FW_READ_TIMEOUT 4000000
 
 static int det_extn_cable_en;
 module_param(det_extn_cable_en, int,
@@ -164,7 +168,7 @@ static void wcd_program_hs_vref(const struct wcd_mbhc *mbhc)
 	struct snd_soc_card *card = codec->card;
 	u32 reg_val;
 
-	plug_type_cfg = WCD_MBHC_CAL_PLUG_DET_PTR(mbhc->mbhc_cfg->calibration);
+	plug_type_cfg = WCD_MBHC_CAL_PLUG_TYPE_PTR(mbhc->mbhc_cfg->calibration);
 	reg_val = ((plug_type_cfg->v_hs_max - HS_VREF_MIN_VAL) / 100);
 
 	dev_dbg(card->dev, "%s: reg_val  = %x\n", __func__, reg_val);
@@ -190,7 +194,8 @@ static void wcd_program_btn_threshold(const struct wcd_mbhc *mbhc, bool micbias)
 	btn_det = WCD_MBHC_CAL_BTN_DET_PTR(mbhc->mbhc_cfg->calibration);
 
 	if (micbias)
-		btn_voltage = btn_det->_v_btn_high;
+		btn_voltage = ((void *)&btn_det->_v_btn_low) +
+			(sizeof(btn_det->_v_btn_low[0]) * btn_det->num_btn);
 	else
 		btn_voltage = btn_det->_v_btn_low;
 	for (i = 0; i <  btn_det->num_btn; i++) {
@@ -1582,6 +1587,30 @@ static void wcd_btn_lpress_fn(struct work_struct *work)
 	wcd9xxx_spmi_unlock_sleep();
 }
 
+static bool wcd_mbhc_fw_validate(const void *data, size_t size)
+{
+	u32 cfg_offset;
+	struct wcd_mbhc_btn_detect_cfg *btn_cfg;
+	struct firmware_cal fw;
+
+	fw.data = (void *)data;
+	fw.size = size;
+
+	if (fw.size < WCD_MBHC_CAL_MIN_SIZE)
+		return false;
+
+	/*
+	 * Previous check guarantees that there is enough fw data up
+	 * to num_btn
+	 */
+	btn_cfg = WCD_MBHC_CAL_BTN_DET_PTR(fw.data);
+	cfg_offset = (u32) ((void *) btn_cfg - (void *) fw.data);
+	if (fw.size < (cfg_offset + WCD_MBHC_CAL_BTN_SZ(btn_cfg)))
+		return false;
+
+	return true;
+}
+
 irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 {
 	struct wcd_mbhc *mbhc = data;
@@ -1801,6 +1830,87 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	return ret;
 }
 
+static void wcd_mbhc_fw_read(struct work_struct *work)
+{
+	struct delayed_work *dwork;
+	struct wcd_mbhc *mbhc;
+	struct snd_soc_codec *codec;
+	const struct firmware *fw;
+	struct firmware_cal *fw_data = NULL;
+	int ret = -1, retry = 0;
+	bool use_default_cal = false;
+
+	dwork = to_delayed_work(work);
+	mbhc = container_of(dwork, struct wcd_mbhc, mbhc_firmware_dwork);
+	codec = mbhc->codec;
+
+	while (retry < FW_READ_ATTEMPTS) {
+		retry++;
+		pr_debug("%s:Attempt %d to request MBHC firmware\n",
+			__func__, retry);
+		if (mbhc->mbhc_cb->get_hwdep_fw_cal)
+			fw_data = mbhc->mbhc_cb->get_hwdep_fw_cal(codec,
+					WCD9XXX_MBHC_CAL);
+		if (!fw_data)
+			ret = request_firmware(&fw, "wcd9320/wcd9320_mbhc.bin",
+				       codec->dev);
+		/*
+		 * if request_firmware and hwdep cal both fail then
+		 * sleep for 4sec for the userspace to send data to kernel
+		 * retry for few times before bailing out
+		 */
+		if ((ret != 0) && !fw_data) {
+			usleep_range(FW_READ_TIMEOUT, FW_READ_TIMEOUT +
+						WCD9XXX_USLEEP_RANGE_MARGIN_US);
+		} else {
+			pr_debug("%s: MBHC Firmware read succesful\n",
+					__func__);
+			break;
+		}
+	}
+	if (!fw_data)
+		pr_debug("%s: using request_firmware\n", __func__);
+	else
+		pr_debug("%s: using hwdep cal\n", __func__);
+
+	if (ret != 0 && !fw_data) {
+		pr_err("%s: Cannot load MBHC firmware use default cal\n",
+		       __func__);
+		use_default_cal = true;
+	}
+	if (!use_default_cal) {
+		const void *data;
+		size_t size;
+
+		if (fw_data) {
+			data = fw_data->data;
+			size = fw_data->size;
+		} else {
+			data = fw->data;
+			size = fw->size;
+		}
+		if (wcd_mbhc_fw_validate(data, size) == false) {
+			pr_err("%s: Invalid MBHC cal data size use default cal\n",
+				__func__);
+			if (!fw_data)
+				release_firmware(fw);
+		} else {
+			if (fw_data) {
+				mbhc->mbhc_cfg->calibration =
+					(void *)fw_data->data;
+				mbhc->mbhc_cal = fw_data;
+			} else {
+				mbhc->mbhc_cfg->calibration =
+					(void *)fw->data;
+				mbhc->mbhc_fw = fw;
+			}
+		}
+
+	}
+
+	(void) wcd_mbhc_initialise(mbhc);
+}
+
 int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 		       struct wcd_mbhc_config *mbhc_cfg)
 {
@@ -1809,7 +1919,19 @@ int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 	pr_debug("%s: enter\n", __func__);
 	/* update the mbhc config */
 	mbhc->mbhc_cfg = mbhc_cfg;
-	rc = wcd_mbhc_initialise(mbhc);
+
+	if (!mbhc->mbhc_cfg->read_fw_bin ||
+	    (mbhc->mbhc_cfg->read_fw_bin && mbhc->mbhc_fw) ||
+	    (mbhc->mbhc_cfg->read_fw_bin && mbhc->mbhc_cal)) {
+		rc = wcd_mbhc_initialise(mbhc);
+	} else {
+		if (!mbhc->mbhc_fw || !mbhc->mbhc_cal)
+			schedule_delayed_work(&mbhc->mbhc_firmware_dwork,
+				      usecs_to_jiffies(FW_READ_TIMEOUT));
+		else
+			pr_err("%s: Skipping to read mbhc fw, 0x%p %p\n",
+				 __func__, mbhc->mbhc_fw, mbhc->mbhc_cal);
+	}
 	pr_debug("%s: leave %d\n", __func__, rc);
 	return rc;
 }
@@ -1820,6 +1942,14 @@ void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 	pr_debug("%s: enter\n", __func__);
 	wcd9xxx_spmi_disable_irq(mbhc->intr_ids->hph_left_ocp);
 	wcd9xxx_spmi_disable_irq(mbhc->intr_ids->hph_right_ocp);
+
+	if (mbhc->mbhc_fw || mbhc->mbhc_cal) {
+		cancel_delayed_work_sync(&mbhc->mbhc_firmware_dwork);
+		if (!mbhc->mbhc_cal)
+			release_firmware(mbhc->mbhc_fw);
+		mbhc->mbhc_fw = NULL;
+		mbhc->mbhc_cal = NULL;
+	}
 	pr_debug("%s: leave\n", __func__);
 }
 EXPORT_SYMBOL(wcd_mbhc_stop);
@@ -1909,6 +2039,8 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 			return ret;
 		}
 
+		INIT_DELAYED_WORK(&mbhc->mbhc_firmware_dwork,
+				  wcd_mbhc_fw_read);
 		INIT_DELAYED_WORK(&mbhc->mbhc_btn_dwork, wcd_btn_lpress_fn);
 	}
 
