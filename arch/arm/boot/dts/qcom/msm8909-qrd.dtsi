@@ -110,3 +110,13 @@
 
 	status = "ok";
 };
+
+&spmi_bus {
+	qcom,pm8909@1 {
+		qcom,vibrator@c000 {
+			status = "okay";
+			qcom,vib-timeout-ms = <15000>;
+			qcom,vib-vtg-level-mV = <3100>;
+		};
+	};
+};
