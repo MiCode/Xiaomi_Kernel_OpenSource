@@ -57,6 +57,7 @@ struct i915_params i915 __read_mostly = {
 	.ring_reset_min_alive_period = 0,
 	.gpu_reset_min_alive_period = 0,
 	.memtrack_debug = 1,
+	.enable_intel_adf = 0,
 };
 module_param_named(limitbw, i915.limitbw, int, 0400);
 MODULE_PARM_DESC(limitbw,
@@ -171,6 +172,10 @@ MODULE_PARM_DESC(invert_brightness,
 
 module_param_named(disable_display, i915.disable_display, bool, 0600);
 MODULE_PARM_DESC(disable_display, "Disable display (default: false)");
+
+module_param_named(enable_intel_adf, i915.enable_intel_adf, bool, 0600);
+MODULE_PARM_DESC(enable_intel_adf,
+		"Override intel adf (default: 0) (0=disabled, 1=enabled)");
 
 module_param_named(disable_vtd_wa, i915.disable_vtd_wa, bool, 0600);
 MODULE_PARM_DESC(disable_vtd_wa, "Disable all VT-d workarounds (default: false)");

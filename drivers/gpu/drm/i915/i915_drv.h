@@ -2363,6 +2363,7 @@ struct i915_params {
 	bool prefault_disable;
 	bool reset;
 	bool disable_display;
+	bool enable_intel_adf;
 	bool disable_vtd_wa;
 	int drrs_interval;
 	int use_mmio_flip;
