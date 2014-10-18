@@ -31,6 +31,9 @@
 #define MAX_ACTUATOR_INIT_SET     12
 #define MAX_I2C_REG_SET           12
 
+#define MAX_NAME_SIZE             32
+#define MAX_FLASH_NUM             8
+
 enum msm_sensor_camera_id_t {
 	CAMERA_0,
 	CAMERA_1,
@@ -57,6 +60,7 @@ enum msm_sensor_power_seq_type_t {
 	SENSOR_GPIO,
 	SENSOR_VREG,
 	SENSOR_I2C_MUX,
+	SENSOR_I2C,
 };
 
 enum msm_camera_i2c_reg_addr_type {
@@ -145,6 +149,21 @@ enum actuator_type {
 	ACTUATOR_HVCM,
 };
 
+enum msm_flash_driver_type {
+	FLASH_DRIVER_PMIC,
+	FLASH_DRIVER_I2C,
+	FLASH_DRIVER_GPIO,
+	FLASH_DRIVER_DEFAULT
+};
+
+enum msm_flash_cfg_type_t {
+	CFG_FLASH_INIT,
+	CFG_FLASH_RELEASE,
+	CFG_FLASH_OFF,
+	CFG_FLASH_LOW,
+	CFG_FLASH_HIGH,
+};
+
 struct msm_sensor_power_setting {
 	enum msm_sensor_power_seq_type_t seq_type;
 	uint16_t seq_val;
@@ -181,6 +200,7 @@ struct msm_camera_sensor_slave_info {
 	char eeprom_name[32];
 	char actuator_name[32];
 	char ois_name[32];
+	char flash_name[32];
 	enum msm_sensor_camera_id_t camera_id;
 	uint16_t slave_addr;
 	enum i2c_freq_mode_t i2c_freq_mode;

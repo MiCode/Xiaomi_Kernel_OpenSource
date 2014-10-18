@@ -7,6 +7,7 @@ Required properties:
     - 0, 1, 2, 3
 - compatible :
     - "qcom,camera-led-flash"
+    - "qcom,camera-flash"
     - "qcom,led-flash"
     - "qcom,led-flash1"
 - reg : offset and length of the register set for the device.
