@@ -4573,8 +4573,19 @@ static int probe_cc(struct device_node *node, struct msm_thermal_data *data,
 
 	key = "qcom,core-control-mask";
 	ret = of_property_read_u32(node, key, &data->core_control_mask);
-	if (ret)
-		goto read_node_fail;
+	if (ret) {
+		/*
+		 * Set default mask for all cores except CPU0.
+		 * E.g. 0xE for 4 cores and 0xFE for 8 cores.
+		 */
+		data->core_control_mask = (~1) & (BIT(num_possible_cpus()) - 1);
+	}
+	/*
+	 * Keep core_control_mask coincident with boot_cpu_mask.
+	 * cpu_online_mask is the same as boot_cpu_mask until thermal driver
+	 * initialization.
+	 */
+	data->core_control_mask &= *(uint32_t *)cpu_online_mask;
 
 	key = "qcom,hotplug-temp";
 	ret = of_property_read_u32(node, key, &data->hotplug_temp_degC);
