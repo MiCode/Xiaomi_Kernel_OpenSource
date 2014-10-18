@@ -343,8 +343,9 @@ static void msm_vfe46_process_input_irq(struct vfe_device *vfe_dev,
 			pix_stream_count == 0) {
 			msm_isp_sof_notify(vfe_dev, VFE_PIX_0, ts);
 			if (vfe_dev->axi_data.stream_update)
-				msm_isp_axi_stream_update(vfe_dev);
-			msm_isp_update_framedrop_reg(vfe_dev);
+				msm_isp_axi_stream_update(vfe_dev,
+					(1 << VFE_PIX_0));
+			msm_isp_update_framedrop_reg(vfe_dev, (1 << VFE_PIX_0));
 		}
 	}
 	if (irq_status0 & (1 << 1))
@@ -450,25 +451,34 @@ static void msm_vfe46_process_reg_update(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts)
 {
+	uint8_t input_src = 0x0;
 	if (!(irq_status0 & 0xF0))
 		return;
 
-	if (irq_status0 & BIT(4))
+	if (irq_status0 & BIT(4)) {
 		msm_isp_sof_notify(vfe_dev, VFE_PIX_0, ts);
-	if (irq_status0 & BIT(5))
+		input_src |= (1 << VFE_PIX_0);
+	}
+	if (irq_status0 & BIT(5)) {
 		msm_isp_sof_notify(vfe_dev, VFE_RAW_0, ts);
-	if (irq_status0 & BIT(6))
+		input_src |= (1 << VFE_RAW_0);
+	}
+	if (irq_status0 & BIT(6)) {
 		msm_isp_sof_notify(vfe_dev, VFE_RAW_1, ts);
-	if (irq_status0 & BIT(7))
+		input_src |= (1 << VFE_RAW_1);
+	}
+	if (irq_status0 & BIT(7)) {
 		msm_isp_sof_notify(vfe_dev, VFE_RAW_2, ts);
+		input_src |= (1 << VFE_RAW_2);
+	}
 
 	if (vfe_dev->axi_data.stream_update)
-		msm_isp_axi_stream_update(vfe_dev);
+		msm_isp_axi_stream_update(vfe_dev, input_src);
 	if (atomic_read(&vfe_dev->stats_data.stats_update))
 		msm_isp_stats_stream_update(vfe_dev);
 	if (atomic_read(&vfe_dev->axi_data.axi_cfg_update))
 		msm_isp_axi_cfg_update(vfe_dev);
-	msm_isp_update_framedrop_reg(vfe_dev);
+	msm_isp_update_framedrop_reg(vfe_dev, input_src);
 	msm_isp_update_stats_framedrop_reg(vfe_dev);
 	msm_isp_update_error_frame_count(vfe_dev);
 
@@ -1245,9 +1255,9 @@ static int msm_vfe46_axi_halt(struct vfe_device *vfe_dev,
 	/* if any stream is waiting for update, signal complete */
 	if (vfe_dev->axi_data.stream_update) {
 		ISP_DBG("%s: complete stream update\n", __func__);
-		msm_isp_axi_stream_update(vfe_dev);
+		msm_isp_axi_stream_update(vfe_dev, 0xF);
 		if (vfe_dev->axi_data.stream_update)
-			msm_isp_axi_stream_update(vfe_dev);
+			msm_isp_axi_stream_update(vfe_dev, 0xF);
 	}
 
 	if (atomic_read(&vfe_dev->stats_data.stats_update)) {
