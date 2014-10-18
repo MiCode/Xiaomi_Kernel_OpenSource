@@ -215,12 +215,34 @@ static void msm8x16_wcd_compute_impedance(s16 l, s16 r, uint32_t *zl,
 	*zr = rr;
 }
 
+static struct firmware_cal *msm8x16_wcd_get_hwdep_fw_cal(
+		struct snd_soc_codec *codec,
+		enum wcd_cal_type type)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd;
+	struct firmware_cal *hwdep_cal;
+
+	if (!codec) {
+		pr_err("%s: NULL codec pointer\n", __func__);
+		return NULL;
+	}
+	msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+	hwdep_cal = wcdcal_get_fw_cal(msm8x16_wcd->fw_data, type);
+	if (!hwdep_cal) {
+		dev_err(codec->dev, "%s: cal not sent by %d\n",
+				__func__, type);
+		return NULL;
+	}
+	return hwdep_cal;
+}
+
 static const struct wcd_mbhc_cb mbhc_cb = {
 	.enable_mb_source = msm8x16_wcd_enable_ext_mb_source,
 	.trim_btn_reg = msm8x16_trim_btn_reg,
 	.compute_impedance = msm8x16_wcd_compute_impedance,
 	.set_micbias_value = msm8x16_wcd_set_micb_v,
 	.set_auto_zeroing = msm8x16_wcd_set_auto_zeroing,
+	.get_hwdep_fw_cal = msm8x16_wcd_get_hwdep_fw_cal,
 };
 
 int msm8x16_unregister_notifier(struct snd_soc_codec *codec,
@@ -3675,7 +3697,7 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x16_wcd_priv *msm8x16_wcd_priv;
 	struct msm8x16_wcd *msm8x16_wcd;
-	int i;
+	int i, ret;
 
 	dev_dbg(codec->dev, "%s()\n", __func__);
 
@@ -3737,6 +3759,28 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 
 	BLOCKING_INIT_NOTIFIER_HEAD(&msm8x16_wcd_priv->notifier);
 
+	msm8x16_wcd_priv->fw_data = kzalloc(sizeof(*(msm8x16_wcd_priv->fw_data))
+			, GFP_KERNEL);
+	if (!msm8x16_wcd_priv->fw_data) {
+		dev_err(codec->dev, "Failed to allocate fw_data\n");
+		iounmap(msm8x16_wcd->dig_base);
+		kfree(msm8x16_wcd_priv);
+		return -ENOMEM;
+	}
+
+	set_bit(WCD9XXX_ANC_CAL, msm8x16_wcd_priv->fw_data->cal_bit);
+	set_bit(WCD9XXX_MAD_CAL, msm8x16_wcd_priv->fw_data->cal_bit);
+	set_bit(WCD9XXX_MBHC_CAL, msm8x16_wcd_priv->fw_data->cal_bit);
+	ret = wcd_cal_create_hwdep(msm8x16_wcd_priv->fw_data,
+			WCD9XXX_CODEC_HWDEP_NODE, codec);
+	if (ret < 0) {
+		dev_err(codec->dev, "%s hwdep failed %d\n", __func__, ret);
+		iounmap(msm8x16_wcd->dig_base);
+		kfree(msm8x16_wcd_priv->fw_data);
+		kfree(msm8x16_wcd_priv);
+		return ret;
+	}
+
 	wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &mbhc_cb, &intr_ids,
 			true);
 
@@ -3755,6 +3799,7 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 		dev_err(codec->dev, "Failed to register modem state notifier\n"
 			);
 		iounmap(msm8x16_wcd->dig_base);
+		kfree(msm8x16_wcd_priv->fw_data);
 		kfree(msm8x16_wcd_priv);
 		registered_codec = NULL;
 		return -ENOMEM;
@@ -3773,6 +3818,8 @@ static int msm8x16_wcd_codec_remove(struct snd_soc_codec *codec)
 	msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].supply = NULL;
 	atomic_set(&msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
 	iounmap(msm8x16_wcd->dig_base);
+	kfree(msm8x16_wcd_priv->fw_data);
+	kfree(msm8x16_wcd_priv);
 
 	return 0;
 }
