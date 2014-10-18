@@ -23,9 +23,9 @@
 		qcom,saw2-spm-dly= <0x3c102800>;
 		qcom,saw2-spm-ctl = <0xe>;
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
-		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 76 76
 				0b 94 5b 80 10 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 76 76
 				0b 94 5b 80 10 26 30 0f];
 
 	};
@@ -43,9 +43,9 @@
 		qcom,saw2-spm-dly= <0x3c102800>;
 		qcom,saw2-spm-ctl = <0xe>;
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
-		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 76 76
 				0b 94 5b 80 10 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 76 76
 				0b 94 5b 80 10 26 30 0f];
 	};
 
@@ -62,9 +62,9 @@
 		qcom,saw2-spm-dly= <0x3c102800>;
 		qcom,saw2-spm-ctl = <0xe>;
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
-		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 76 76
 				0b 94 5b 80 10 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 76 76
 				0b 94 5b 80 10 26 30 0f];
 	};
 
@@ -81,9 +81,9 @@
 		qcom,saw2-spm-dly= <0x3c102800>;
 		qcom,saw2-spm-ctl = <0xe>;
 		qcom,saw2-spm-cmd-wfi = [60 03 60 0b 0f];
-		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-spc = [20 10 80 30 90 5b 60 03 60 76 76
 				0b 94 5b 80 10 26 30 0f];
-		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 3b 76 76
+		qcom,saw2-spm-cmd-pc = [20 10 80 30 90 5b 60 03 60 76 76
 				0b 94 5b 80 10 26 30 0f];
 	};
 
@@ -324,7 +324,7 @@
 		compatible = "qcom,cpu-sleep-status";
 		reg = <0xb088008 0x100>;
 		qcom,cpu-alias-addr = <0x10000>;
-		qcom,sleep-status-mask= <0x40000>;
+		qcom,sleep-status-mask= <0x80000>;
 	};
 
 	qcom,rpm-log@29dc00 {
