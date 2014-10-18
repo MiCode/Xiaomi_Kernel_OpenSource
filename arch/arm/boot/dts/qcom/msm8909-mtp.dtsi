@@ -108,6 +108,11 @@
 	pinctrl-0 = <&uart_console_sleep>;
 };
 
+&pm8909_chg {
+	status = "ok";
+	qcom,charging-disabled;
+};
+
 &spmi_bus {
 	qcom,pm8909@0 {
 		qcom,leds@a300 {
