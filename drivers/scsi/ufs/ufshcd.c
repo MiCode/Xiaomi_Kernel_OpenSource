@@ -4502,7 +4502,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 	 */
 	if (hba->saved_err & (INT_FATAL_ERRORS | UIC_ERROR)) {
 		dev_err(hba->dev, "%s: saved_err 0x%x saved_uic_err 0x%x",
-			__func__, hba->errors, hba->uic_error);
+			__func__, hba->saved_err, hba->saved_uic_err);
 		ufshcd_print_host_regs(hba);
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_tmrs(hba, hba->outstanding_tasks);
