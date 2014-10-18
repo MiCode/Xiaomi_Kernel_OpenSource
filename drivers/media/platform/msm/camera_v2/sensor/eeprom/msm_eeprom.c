@@ -570,8 +570,8 @@ static int msm_eeprom_spi_parse_of(struct msm_camera_spi_client *spic)
 		pr_err("%s: Failed to get eeprom id\n", __func__);
 		return rc;
 	}
-	spic->mfr_id = tmp[0];
-	spic->device_id = tmp[1];
+	spic->mfr_id0 = tmp[0];
+	spic->device_id0 = tmp[1];
 
 	return 0;
 }
@@ -586,9 +586,10 @@ static int msm_eeprom_match_id(struct msm_eeprom_ctrl_t *e_ctrl)
 	if (rc < 0)
 		return rc;
 	CDBG("%s: read 0x%x 0x%x, check 0x%x 0x%x\n", __func__, id[0],
-	     id[1], client->spi_client->mfr_id, client->spi_client->device_id);
-	if (id[0] != client->spi_client->mfr_id
-		    || id[1] != client->spi_client->device_id)
+		id[1], client->spi_client->mfr_id0,
+			client->spi_client->device_id0);
+	if (id[0] != client->spi_client->mfr_id0
+		    || id[1] != client->spi_client->device_id0)
 		return -ENODEV;
 
 	return 0;
