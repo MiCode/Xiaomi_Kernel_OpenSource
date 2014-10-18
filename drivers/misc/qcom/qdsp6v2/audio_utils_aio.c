@@ -873,9 +873,8 @@ static long audio_aio_process_event_req_compat(struct q6audio_aio *audio,
 			usr_evt.event_payload.error_info.err_type;
 		break;
 	default:
-		pr_err("%s: unknown audio event type = %d",
-			__func__, usr_evt_32.event_type);
-		rc = -EINVAL;
+		pr_debug("%s: unknown audio event type = %d rc = %ld",
+			 __func__, usr_evt_32.event_type, rc);
 		return rc;
 	}
 	if (copy_to_user(arg, &usr_evt_32, sizeof(usr_evt_32))) {
