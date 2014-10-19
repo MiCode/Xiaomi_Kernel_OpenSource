@@ -482,6 +482,27 @@ static int msm_bus_apply_rules(struct list_head *list, bool after_clk_commit)
 	return ret;
 }
 
+static uint64_t get_node_aggab(struct msm_bus_node_device_type *bus_dev)
+{
+	int i;
+	int ctx;
+	uint64_t max_agg_ab = 0;
+	uint64_t agg_ab = 0;
+
+	for (ctx = 0; ctx < NUM_CTX; ctx++) {
+		for (i = 0; i < bus_dev->num_lnodes; i++)
+			agg_ab += bus_dev->lnode_list[i].lnode_ab[ctx];
+
+		if (bus_dev->node_info->num_qports > 1)
+			agg_ab = msm_bus_div64(bus_dev->node_info->num_qports,
+							agg_ab);
+
+		max_agg_ab = max(max_agg_ab, agg_ab);
+	}
+
+	return max_agg_ab;
+}
+
 static uint64_t get_node_ib(struct msm_bus_node_device_type *bus_dev)
 {
 	int i;
@@ -573,8 +594,10 @@ static int update_path(int src, int dest, uint64_t req_ib, uint64_t req_bw,
 		if (rules_registered) {
 			rule_node = &dev_info->node_info->rule;
 			rule_node->id = dev_info->node_info->id;
-			rule_node->ib =  get_node_ib(dev_info);
-			rule_node->ab = dev_info->node_ab.ab[ACTIVE_CTX];
+			rule_node->ib = get_node_ib(dev_info);
+			rule_node->ab = get_node_aggab(dev_info);
+			rule_node->clk = max(dev_info->cur_clk_hz[ACTIVE_CTX],
+						dev_info->cur_clk_hz[DUAL_CTX]);
 			list_add_tail(&rule_node->link, &input_list);
 		}
 
