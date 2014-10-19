@@ -31,7 +31,7 @@
 #include "mdss_mdp.h"
 
 #define STATUS_CHECK_INTERVAL_MS 5000
-#define STATUS_CHECK_INTERVAL_MIN_MS 200
+#define STATUS_CHECK_INTERVAL_MIN_MS 50
 #define DSI_STATUS_CHECK_DISABLE 0
 
 static uint32_t interval = STATUS_CHECK_INTERVAL_MS;
@@ -66,6 +66,36 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 	}
 
 	pdsi_status->mfd->mdp.check_dsi_status(work, interval);
+}
+
+/*
+ * hw_vsync_handler() - Interrupt handler for HW VSYNC signal.
+ * @irq		: irq line number
+ * @data	: Pointer to the device structure.
+ *
+ * This function is called whenever a HW vsync signal is received from the
+ * panel. This resets the timer of ESD delayed workqueue back to initial
+ * value.
+ */
+irqreturn_t hw_vsync_handler(int irq, void *data)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata =
+			(struct mdss_dsi_ctrl_pdata *)data;
+	if (!ctrl_pdata) {
+		pr_err("%s: DSI ctrl not available\n", __func__);
+		return IRQ_HANDLED;
+	}
+
+	if (pstatus_data)
+		mod_delayed_work(system_wq, &pstatus_data->check_status,
+			msecs_to_jiffies(interval));
+	else
+		pr_err("Pstatus data is NULL\n");
+
+	if (!atomic_read(&ctrl_pdata->te_irq_ready))
+		atomic_inc(&ctrl_pdata->te_irq_ready);
+
+	return IRQ_HANDLED;
 }
 
 /*
