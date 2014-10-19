@@ -261,6 +261,9 @@ void diagmem_init(struct diagchar_dev *driver, int index)
 						    mempool->itemsize);
 	if (!mempool->pool)
 		pr_err("diag: cannot allocate %s mempool\n", mempool->name);
+	else
+		kmemleak_not_leak(mempool->pool);
+
 	spin_lock_init(&mempool->lock);
 }
 
