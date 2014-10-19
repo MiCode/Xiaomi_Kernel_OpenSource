@@ -166,7 +166,7 @@ int sysmon_send_event_no_qmi(struct subsys_desc *dest_desc,
 	}
 
 	if (strcmp(ss->rx_buf, "ssr:ack")) {
-		pr_err("Unexpected response %s\n", ss->rx_buf);
+		pr_debug("Unexpected response %s\n", ss->rx_buf);
 		ret = -ENOSYS;
 	}
 out:
