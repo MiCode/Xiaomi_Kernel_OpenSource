@@ -3120,6 +3120,7 @@ static const struct snd_soc_dapm_route wcd9306_map[] = {
 	{"DEC3 MUX", "DMIC2", "DMIC2"},
 	{"DEC3 MUX", "DMIC3", "DMIC3"},
 	{"DEC3 MUX", "DMIC4", "DMIC4"},
+	{"DEC3 MUX", "ANCFBTUNE1", "ANC1 MUX"},
 	{"DEC3 MUX", NULL, "CDC_CONN"},
 
 	{"DEC4 MUX", "ADC1", "ADC1"},
@@ -3131,6 +3132,7 @@ static const struct snd_soc_dapm_route wcd9306_map[] = {
 	{"DEC4 MUX", "DMIC2", "DMIC2"},
 	{"DEC4 MUX", "DMIC3", "DMIC3"},
 	{"DEC4 MUX", "DMIC4", "DMIC4"},
+	{"DEC4 MUX", "ANCFBTUNE2", "ANC2 MUX"},
 	{"DEC4 MUX", NULL, "CDC_CONN"},
 
 	{"ADC5", NULL, "AMIC5"},
@@ -5421,6 +5423,8 @@ static int tapan_handle_pdata(struct tapan_priv *tapan)
 	snd_soc_update_bits(codec, TAPAN_A_CDC_CLK_DMIC_B1_CTL,
 		0xEE, dmic_b1_ctl_value);
 	snd_soc_update_bits(codec, TAPAN_A_CDC_ANC1_B2_CTL,
+		0x1, anc_ctl_value);
+	snd_soc_update_bits(codec, TAPAN_A_CDC_ANC2_B2_CTL,
 		0x1, anc_ctl_value);
 
 done:
