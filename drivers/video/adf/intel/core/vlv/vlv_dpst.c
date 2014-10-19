@@ -625,6 +625,7 @@ int
 vlv_dpst_set_kernel_disable(struct vlv_dc_config *vlv_config, bool disable)
 {
 	struct intel_dc_config *config = g_config;
+	struct intel_pipe *pipe = g_config->pipes[vlv_config->dpst.pipe];
 	int ret = 0;
 
 	mutex_lock(&vlv_config->dpst.ioctl_lock);
@@ -641,6 +642,11 @@ vlv_dpst_set_kernel_disable(struct vlv_dc_config *vlv_config, bool disable)
 	}
 
 	mutex_unlock(&vlv_config->dpst.ioctl_lock);
+
+	/* Send a fake signal to user, so that the user can be notified
+	 * to reset the dpst context, to avoid any mismatch of blc_adjusment
+	 * between user and kernel on resume. */
+	vlv_dpst_irq_handler(pipe);
 
 	return ret;
 }
