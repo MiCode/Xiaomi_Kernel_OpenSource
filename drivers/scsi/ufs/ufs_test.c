@@ -316,6 +316,33 @@ static void ufs_test_pseudo_rnd_size(unsigned int *seed,
 		*num_of_bios = DEFAULT_NUM_OF_BIOS;
 }
 
+static inline int ufs_test_pm_runtime_cfg_sync(struct test_data *td,
+						bool enable)
+{
+	struct scsi_device *sdev;
+	struct ufs_hba *hba;
+	int ret;
+
+	BUG_ON(!td || !td->req_q || !td->req_q->queuedata);
+	sdev = (struct scsi_device *)td->req_q->queuedata;
+	BUG_ON(!sdev->host);
+	hba = shost_priv(sdev->host);
+	BUG_ON(!hba);
+
+	if (enable) {
+		ret = pm_runtime_get_sync(hba->dev);
+		/* Positive non-zero return values are not errors */
+		if (ret < 0) {
+			pr_err("%s: pm_runtime_get_sync failed, ret=%d\n",
+				__func__, ret);
+			return ret;
+		}
+		return 0;
+	}
+	pm_runtime_put_sync(hba->dev);
+	return 0;
+}
+
 static int ufs_test_show(struct seq_file *file, int test_case)
 {
 	char *test_description;
@@ -469,6 +496,22 @@ exit:
 	return ret;
 }
 
+static int ufs_test_prepare(struct test_data *td)
+{
+	return ufs_test_pm_runtime_cfg_sync(td, true);
+}
+
+static int ufs_test_post(struct test_data *td)
+{
+	int ret;
+
+	ret = ufs_test_pm_runtime_cfg_sync(td, false);
+	if (!ret)
+		ret = ufs_test_put_gendisk(td);
+
+	return ret;
+}
+
 static int ufs_test_check_result(struct test_data *td)
 {
 	if (utd->test_stage == UFS_TEST_ERROR) {
@@ -502,7 +545,6 @@ static int ufs_test_run_write_read_test(struct test_data *td)
 	unsigned int num_bios;
 	struct request_queue *q = td->req_q;
 
-
 	start_sec = td->start_sector + sizeof(int) * BIO_U32_SIZE
 			* td->num_of_write_bios;
 	if (utd->random_test_seed != 0)
@@ -525,7 +567,7 @@ static int ufs_test_run_write_read_test(struct test_data *td)
 	}
 
 	/* waiting for the write request to finish */
-	blk_run_queue(q);
+	blk_post_runtime_resume(q, 0);
 	wait_event(utd->wait_q, utd->queue_complete);
 
 	/* Adding a read request*/
@@ -539,7 +581,7 @@ static int ufs_test_run_write_read_test(struct test_data *td)
 		return ret;
 	}
 
-	blk_run_queue(q);
+	blk_post_runtime_resume(q, 0);
 	return ret;
 }
 
@@ -733,10 +775,10 @@ static void ufs_test_run_scenario(void *data, async_cookie_t cookie)
 
 		if (ts->td->dispatched_count >= QUEUE_MAX_REQUESTS ||
 				(ts->run_q && !(i % ts->run_q)))
-			blk_run_queue(ts->td->req_q);
+			blk_post_runtime_resume(ts->td->req_q, 0);
 	}
 
-	blk_run_queue(ts->td->req_q);
+	blk_post_runtime_resume(ts->td->req_q, 0);
 	ufs_test_thread_complete(ret);
 }
 
@@ -993,7 +1035,7 @@ static int run_long_test(struct test_data *td)
 		* to fetch them
 		*/
 		if (td->test_count >= QUEUE_MAX_REQUESTS) {
-			blk_run_queue(td->req_q);
+			blk_post_runtime_resume(td->req_q, 0);
 			continue;
 		}
 
@@ -1037,7 +1079,7 @@ static int run_long_test(struct test_data *td)
 
 	/* in this case the queue will not run in the above loop */
 	if (long_test_num_requests < QUEUE_MAX_REQUESTS)
-		blk_run_queue(td->req_q);
+		blk_post_runtime_resume(td->req_q, 0);
 
 	return ret;
 }
@@ -1076,7 +1118,7 @@ static int long_rand_test_calc_iops(struct test_data *td)
 
 	pr_info("%s: IOPS: %lu IOP/sec\n", __func__, iops);
 
-	return ufs_test_put_gendisk(td);
+	return ufs_test_post(td);
 }
 
 static int long_seq_test_calc_throughput(struct test_data *td)
@@ -1104,7 +1146,7 @@ static int long_seq_test_calc_throughput(struct test_data *td)
 	pr_info("%s: Throughput: %lu.%lu MiB/sec\n", __func__, integer,
 				fraction);
 
-	return 0;
+	return ufs_test_post(td);
 }
 
 static bool ufs_data_integrity_completion(void)
@@ -1177,7 +1219,7 @@ static int ufs_test_run_data_integrity_test(struct test_data *td)
 	}
 
 	/* waiting for the write request to finish */
-	blk_run_queue(q);
+	blk_post_runtime_resume(q, 0);
 	wait_event(utd->wait_q, utd->queue_complete);
 
 	/* Adding read requests */
@@ -1194,8 +1236,7 @@ static int ufs_test_run_data_integrity_test(struct test_data *td)
 		}
 	}
 
-	blk_run_queue(q);
-
+	blk_post_runtime_resume(q, 0);
 	return ret;
 }
 
@@ -1225,7 +1266,8 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 	utd->test_info.testcase = test_case;
 	utd->test_info.get_rq_disk_fn = ufs_test_get_rq_disk;
 	utd->test_info.check_test_result_fn = ufs_test_check_result;
-	utd->test_info.post_test_fn = ufs_test_put_gendisk;
+	utd->test_info.post_test_fn = ufs_test_post;
+	utd->test_info.prepare_test_fn = ufs_test_prepare;
 	utd->test_stage = DEFAULT;
 
 	switch (test_case) {
