@@ -55,6 +55,7 @@
 #define OTP_CFG1		0xE2
 #define SOC_BOOT_MOD		0x50
 #define SOC_RESTART		0x51
+#define ESR_MEAS_EN		0xF5
 
 #define REG_OFFSET_PERP_SUBTYPE	0x05
 
@@ -226,6 +227,7 @@ struct fg_chip {
 	struct work_struct	batt_profile_init;
 	struct work_struct	dump_sram;
 	struct power_supply	*batt_psy;
+	spinlock_t		sec_access_lock;
 	bool			profile_loaded;
 	bool			use_otp_profile;
 	struct delayed_work	update_jeita_setting;
@@ -310,7 +312,7 @@ static void fill_string(char *str, size_t str_len, u8 *buf, int buf_len)
 	}
 }
 
-static int fg_write(struct fg_chip *chip, u8 *val, u16 addr, int len)
+static int fg_write_raw(struct fg_chip *chip, u8 *val, u16 addr, int len)
 {
 	int rc = 0;
 	struct spmi_device *spmi = chip->spmi;
@@ -368,13 +370,13 @@ static int fg_read(struct fg_chip *chip, u8 *val, u16 addr, int len)
 	return rc;
 }
 
-static int fg_masked_write(struct fg_chip *chip, u16 addr,
-		u8 mask, u8 val, int len)
+static int fg_masked_write_raw(struct fg_chip *chip, u16 addr,
+		u8 mask, u8 val)
 {
 	int rc;
 	u8 reg;
 
-	rc = fg_read(chip, &reg, addr, len);
+	rc = fg_read(chip, &reg, addr, 1);
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n", addr, rc);
 		return rc;
@@ -386,12 +388,66 @@ static int fg_masked_write(struct fg_chip *chip, u16 addr,
 
 	pr_debug("Writing 0x%x\n", reg);
 
-	rc = fg_write(chip, &reg, addr, len);
+	rc = fg_write_raw(chip, &reg, addr, 1);
 	if (rc) {
 		pr_err("spmi write failed: addr=%03X, rc=%d\n", addr, rc);
 		return rc;
 	}
 
+	return rc;
+}
+
+static int fg_write(struct fg_chip *chip, u8 *val, u16 addr, int len)
+{
+	unsigned long flags;
+	int rc;
+
+	spin_lock_irqsave(&chip->sec_access_lock, flags);
+	rc = fg_write_raw(chip, val, addr, len);
+	spin_unlock_irqrestore(&chip->sec_access_lock, flags);
+	return rc;
+}
+
+static int fg_masked_write(struct fg_chip *chip, u16 addr,
+		u8 mask, u8 val)
+{
+	unsigned long flags;
+	int rc;
+
+	spin_lock_irqsave(&chip->sec_access_lock, flags);
+	rc = fg_masked_write_raw(chip, addr, mask, val);
+	spin_unlock_irqrestore(&chip->sec_access_lock, flags);
+	return rc;
+}
+
+/*
+ * Unlocks sec access and writes to the register specified.
+ *
+ * This function holds a spin lock to exclude other register writes while
+ * the two writes are taking place.
+ */
+#define SEC_ACCESS_OFFSET	0xD0
+#define SEC_ACCESS_VALUE	0xA5
+#define PERIPHERAL_MASK		0xFF
+static int fg_sec_masked_write(struct fg_chip *chip, u16 base, u8 mask, u8 val)
+{
+	unsigned long flags;
+	int rc;
+	u16 peripheral_base = base & (~PERIPHERAL_MASK);
+
+	spin_lock_irqsave(&chip->sec_access_lock, flags);
+
+	rc = fg_masked_write_raw(chip, peripheral_base + SEC_ACCESS_OFFSET,
+				SEC_ACCESS_VALUE, SEC_ACCESS_VALUE);
+	if (rc) {
+		dev_err(chip->dev, "Unable to unlock sec_access: %d", rc);
+		goto out;
+	}
+
+	rc = fg_masked_write_raw(chip, base, mask, val);
+
+out:
+	spin_unlock_irqrestore(&chip->sec_access_lock, flags);
 	return rc;
 }
 
@@ -464,7 +520,7 @@ static int fg_config_access(struct fg_chip *chip, bool write,
 	if (otp) {
 		/* Configure OTP access */
 		rc = fg_masked_write(chip, chip->mem_base + OTP_CFG1,
-				0xFF, 0x00, 1);
+				0xFF, 0x00);
 		if (rc) {
 			pr_err("failed to set OTP cfg\n");
 			return -EIO;
@@ -489,7 +545,7 @@ static int fg_req_and_wait_access(struct fg_chip *chip, int timeout)
 
 	if (!fg_check_sram_access(chip)) {
 		rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
-				RIF_MEM_ACCESS_REQ, RIF_MEM_ACCESS_REQ, 1);
+				RIF_MEM_ACCESS_REQ, RIF_MEM_ACCESS_REQ);
 		if (rc) {
 			pr_err("failed to set mem access bit\n");
 			return -EIO;
@@ -612,7 +668,7 @@ out:
 
 	if (!keep_access && (user_cnt == 0) && !rc) {
 		rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
-				RIF_MEM_ACCESS_REQ, 0, 1);
+				RIF_MEM_ACCESS_REQ, 0);
 		if (rc)
 			pr_err("failed to set mem access bit\n");
 		INIT_COMPLETION(chip->sram_access);
@@ -696,7 +752,7 @@ out:
 
 	if (!keep_access && (user_cnt == 0) && !rc) {
 		rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
-				RIF_MEM_ACCESS_REQ, 0, 1);
+				RIF_MEM_ACCESS_REQ, 0);
 		if (rc) {
 			pr_err("failed to set mem access bit\n");
 			rc = -EIO;
@@ -1156,7 +1212,7 @@ static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 		if (chip->fast_access) {
 			reg = REDO_FIRST_ESTIMATE | RESTART_GO;
 			rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
-				       reg, reg, 1);
+				       reg, reg);
 			if (rc)
 				pr_err("failed to set low latency bit\n");
 		}
@@ -1289,7 +1345,7 @@ wait:
 			chip->batt_profile, chip->batt_profile_len, false);
 
 	reg = NO_OTP_PROF_RELOAD;
-	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD, reg, reg, 1);
+	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD, reg, reg);
 	if (rc) {
 		pr_err("failed to set low latency access bit\n");
 		return -EIO;
@@ -1995,6 +2051,7 @@ static int fg_probe(struct spmi_device *spmi)
 	chip->dev = &(spmi->dev);
 
 	mutex_init(&chip->rw_lock);
+	spin_lock_init(&chip->sec_access_lock);
 	INIT_DELAYED_WORK(&chip->update_jeita_setting,
 			update_jeita_setting);
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data);
@@ -2127,6 +2184,7 @@ of_init_fail:
 	return rc;
 }
 
+#define ESR_MEAS_EN_BIT		BIT(0)
 static int fg_suspend(struct device *dev)
 {
 	struct fg_chip *chip = dev_get_drvdata(dev);
@@ -2148,6 +2206,11 @@ static int fg_suspend(struct device *dev)
 
 	if ((total_time_ms > 1500) && (fg_debug_mask & FG_STATUS))
 		pr_info("spent %dms configuring rbias\n", total_time_ms);
+
+	rc = fg_sec_masked_write(chip, chip->batt_base + ESR_MEAS_EN,
+			ESR_MEAS_EN_BIT, 0);
+	if (rc)
+		pr_err("Unable to disable ESR measurements\n");
 
 	return 0;
 }
@@ -2172,6 +2235,12 @@ static int fg_resume(struct device *dev)
 
 	if ((total_time_ms > 1500) && (fg_debug_mask & FG_STATUS))
 		pr_info("spent %dms configuring rbias\n", total_time_ms);
+
+	rc = fg_sec_masked_write(chip, chip->batt_base + ESR_MEAS_EN,
+			ESR_MEAS_EN_BIT, ESR_MEAS_EN_BIT);
+	if (rc)
+		pr_err("Unable to reenable ESR measurements\n");
+
 	return 0;
 }
 
