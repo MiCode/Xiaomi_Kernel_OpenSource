@@ -3079,19 +3079,6 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 		}
 	}
 
-	/*
-	 * Allow the smb charger to enable charging based on the command
-	 * register rather than the enable pin.
-	 */
-	rc = smbchg_sec_masked_write(chip, chip->chgr_base + CHGR_CFG2,
-			CHG_EN_SRC_BIT,
-			CHG_EN_SRC_BIT);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't switch to cmd register for enable = %d\n",
-				rc);
-		return rc;
-	}
-
 	rc = smbchg_set_fastchg_current(chip, chip->target_fastchg_current_ma);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set fastchg current = %d\n", rc);
