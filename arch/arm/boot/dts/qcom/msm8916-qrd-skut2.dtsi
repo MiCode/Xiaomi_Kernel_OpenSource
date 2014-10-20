@@ -12,3 +12,9 @@
  */
 
 #include "msm8916-qrd-skut1.dtsi"
+
+&soc {
+	gpio-leds {
+		status = "disabled";
+	};
+};
