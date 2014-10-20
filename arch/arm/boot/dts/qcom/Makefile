@@ -56,6 +56,7 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8916-sim.dtb \
 	msm8916-512mb-qrd-skuh.dtb \
 	msm8916-qrd-skut1.dtb \
 	msm8916-qrd-skut2.dtb \
+	msm8916-qrd-skut3.dtb \
 	apq8016-mtp.dtb \
 	apq8016-mtp-smb1360.dtb \
 	msm8939-sim.dtb \
