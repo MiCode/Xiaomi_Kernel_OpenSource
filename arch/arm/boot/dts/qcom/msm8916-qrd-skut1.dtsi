@@ -130,3 +130,8 @@
 		status = "disabled";
 	};
 };
+
+&pm8916_pon {
+	qcom,s3-debounce = <32>;
+	qcom,s3-src = "kpdpwr-and-resin";
+};
