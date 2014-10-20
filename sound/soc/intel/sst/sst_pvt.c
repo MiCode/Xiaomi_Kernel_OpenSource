@@ -429,6 +429,10 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 		pr_err("Clearing the cached FW copy...\n");
 		kfree(sst_drv_ctx->fw_in_mem);
 		sst_drv_ctx->fw_in_mem = NULL;
+		sst_memcpy_free_resources();
+		kfree(sst_drv_ctx->fw_sg_list.src);
+		kfree(sst_drv_ctx->fw_sg_list.dst);
+		sst_drv_ctx->fw_sg_list.list_len = 0;
 	}
 
 	mutex_lock(&sst->sst_lock);
