@@ -456,7 +456,7 @@ static int msm_vidc_load_clock_table(
 	struct clock_set *clocks = &res->clock_set;
 
 	num_clocks = of_property_count_strings(pdev->dev.of_node,
-				"qcom,clock-names");
+				"clock-names");
 	if (num_clocks <= 0) {
 		/* Devices such as Q6 might not have any control over clocks
 		 * hence have none specified, which is ok. */
@@ -497,7 +497,7 @@ static int msm_vidc_load_clock_table(
 		struct clock_info *vc = &res->clock_set.clock_tbl[c];
 
 		of_property_read_string_index(pdev->dev.of_node,
-				"qcom,clock-names", c, &vc->name);
+				"clock-names", c, &vc->name);
 
 		if (clock_props[c] & CLOCK_PROP_HAS_SCALING) {
 			vc->count = res->load_freq_tbl_size;
