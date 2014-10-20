@@ -4554,6 +4554,20 @@ int atomisp_css_isr_thread(struct atomisp_device *isp,
 	struct atomisp_sub_device *asd = &isp->asd[0];
 
 	while (!atomisp_css_dequeue_event(&current_event)) {
+		if (current_event.event.type == IA_CSS_EVENT_TYPE_FW_ERROR) {
+			/* Received FW error signal, trigger WDT to recover */
+			dev_err(isp->dev, "%s: ISP reports FW_ERROR event, error code %d!!!!",
+			        __func__, current_event.event.fw_error);
+			atomisp_wdt_stop(isp, 0);
+			atomisp_wdt((unsigned long)isp);
+			return -EINVAL;
+		} else if (current_event.event.type == IA_CSS_EVENT_TYPE_FW_WARNING) {
+			dev_warn(isp->dev, "%s: ISP reports warning, code is %d, exp_id %d\n",
+			        __func__, current_event.event.fw_warning,
+			        current_event.event.exp_id);
+			continue;
+		}
+
 		asd = __get_atomisp_subdev(current_event.event.pipe,
 					isp, &stream_id);
 		if (!asd) {
