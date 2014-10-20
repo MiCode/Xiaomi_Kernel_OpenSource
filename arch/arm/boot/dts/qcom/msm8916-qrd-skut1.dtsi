@@ -123,3 +123,10 @@
 &pm8916_l6 {
 	regulator-always-on;
 };
+
+&pm8916_gpios {
+	gpio@c100 { /* GPIO 2 */
+		/* NFC_CLK_REQ */
+		status = "disabled";
+	};
+};
