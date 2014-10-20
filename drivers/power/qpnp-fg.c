@@ -263,6 +263,7 @@ struct fg_trans {
 	u32 offset;	/* Offset of last read data + byte offset */
 	struct fg_chip *chip;
 	struct fg_log_buffer *log; /* log buffer */
+	u8 *data;	/* fg data that is read */
 };
 
 struct fg_dbgfs {
@@ -1153,45 +1154,35 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	return 0;
 }
 
-#define SCRATCHPAD_OFFSET	0x540
-#define BATT_PROFILE_OFFSET	0x4C0
-#define SCRATCHPAD_LEN		192
+#define SRAM_DUMP_START		0x400
+#define SRAM_DUMP_LEN		0x200
 static void dump_sram(struct work_struct *work)
 {
 	int i, rc;
-	u8 buffer[4];
-	u16 addr = BATT_PROFILE_OFFSET;
+	u8 *buffer;
 	char str[16];
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				dump_sram);
 
-	for (i = 0; i < chip->batt_profile_len; i += 4) {
-		rc = fg_mem_read(chip, buffer, addr, 4, 0,
-				i >= chip->batt_profile_len ? 0 : 1);
-		if (rc) {
-			pr_err("read failed: addr=%03X, rc=%d\n", addr, rc);
-			break;
-		}
-		str[0] = '\0';
-		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, buffer, 4);
-		pr_info("%03X %s\n", addr, str);
-		addr += 4;
+	buffer = devm_kzalloc(chip->dev, SRAM_DUMP_LEN, GFP_KERNEL);
+	if (buffer == NULL) {
+		pr_err("Can't allocate buffer\n");
+		return;
 	}
 
-	addr = SCRATCHPAD_OFFSET;
-	for (i = 0; i < SCRATCHPAD_LEN; i += 4) {
-		rc = fg_mem_read(chip, buffer, addr, 4, 0,
-				i >= SCRATCHPAD_LEN ? 0 : 1);
-		if (rc) {
-			pr_err("read failed: addr=%03X, rc=%d\n", addr, rc);
-			break;
-		}
-		str[0] = '\0';
-		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, buffer, 4);
-		pr_info("%03X %s\n", addr, str);
-		addr += 4;
+	rc = fg_mem_read(chip, buffer, SRAM_DUMP_START, SRAM_DUMP_LEN, 0, 0);
+	if (rc) {
+		pr_err("dump failed: rc = %d\n", rc);
+		return;
 	}
+
+	for (i = 0; i < SRAM_DUMP_LEN; i += 4) {
+		str[0] = '\0';
+		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, buffer + i, 4);
+		pr_info("%03X %s\n", SRAM_DUMP_START + i, str);
+	}
+	devm_kfree(chip->dev, buffer);
 }
 
 static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
@@ -1279,6 +1270,7 @@ do {									\
 
 #define LOW_LATENCY	BIT(6)
 #define PROFILE_LOAD_TIMEOUT_MS		5000
+#define BATT_PROFILE_OFFSET		0x4C0
 static int fg_batt_profile_init(struct fg_chip *chip)
 {
 	int rc = 0, ret;
@@ -1591,8 +1583,10 @@ static int fg_memif_data_open(struct inode *inode, struct file *file)
 {
 	struct fg_log_buffer *log;
 	struct fg_trans *trans;
+	u8 *data_buf;
 
 	size_t logbufsize = SZ_4K;
+	size_t databufsize = SZ_4K;
 
 	if (!dbgfs_data.chip) {
 		pr_err("Not initialized data\n");
@@ -1619,7 +1613,18 @@ static int fg_memif_data_open(struct inode *inode, struct file *file)
 	log->wpos = 0;
 	log->len = logbufsize - sizeof(*log);
 
+	/* Allocate data buffer */
+	data_buf = kzalloc(databufsize, GFP_KERNEL);
+
+	if (!data_buf) {
+		kfree(trans);
+		kfree(log);
+		pr_err("Unable to allocate memory for data buffer\n");
+		return -ENOMEM;
+	}
+
 	trans->log = log;
+	trans->data = data_buf;
 	trans->cnt = dbgfs_data.cnt;
 	trans->addr = dbgfs_data.addr;
 	trans->chip = dbgfs_data.chip;
@@ -1633,9 +1638,10 @@ static int fg_memif_dfs_close(struct inode *inode, struct file *file)
 {
 	struct fg_trans *trans = file->private_data;
 
-	if (trans && trans->log) {
+	if (trans && trans->log && trans->data) {
 		file->private_data = NULL;
 		kfree(trans->log);
+		kfree(trans->data);
 		kfree(trans);
 	}
 
@@ -1681,7 +1687,7 @@ static int print_to_log(struct fg_log_buffer *log, const char *fmt, ...)
 static int
 write_next_line_to_log(struct fg_trans *trans, int offset, size_t *pcnt)
 {
-	int i, j, rc = 0;
+	int i, j;
 	u8 data[ITEMS_PER_LINE];
 	struct fg_log_buffer *log = trans->log;
 
@@ -1694,11 +1700,7 @@ write_next_line_to_log(struct fg_trans *trans, int offset, size_t *pcnt)
 	if ((log->len - log->wpos) < MAX_LINE_LENGTH)
 		goto done;
 
-	/* Read the desired number of "items" */
-	rc = fg_mem_read(trans->chip, data, offset, items_to_read, 0,
-				*pcnt > items_to_read ? 1 : 0);
-	if (rc)
-		return -EINVAL;
+	memcpy(data, trans->data + (offset - trans->addr), items_to_read);
 
 	*pcnt -= items_to_read;
 
@@ -1737,7 +1739,7 @@ done:
  */
 static int get_log_data(struct fg_trans *trans)
 {
-	int cnt;
+	int cnt, rc;
 	int last_cnt;
 	int items_read;
 	int total_items_read = 0;
@@ -1748,6 +1750,17 @@ static int get_log_data(struct fg_trans *trans)
 	if (item_cnt == 0)
 		return 0;
 
+	if (item_cnt > SZ_4K) {
+		pr_err("Reading too many bytes\n");
+		return -EINVAL;
+	}
+
+	rc = fg_mem_read(trans->chip, trans->data,
+			trans->addr, trans->cnt, 0, 0);
+	if (rc) {
+		pr_err("dump failed: rc = %d\n", rc);
+		return rc;
+	}
 	/* Reset the log buffer 'pointers' */
 	log->wpos = log->rpos = 0;
 
@@ -1794,7 +1807,7 @@ static ssize_t fg_memif_dfs_reg_read(struct file *file, char __user *buf,
 
 	ret = copy_to_user(buf, &log->data[log->rpos], len);
 	if (ret == len) {
-		pr_err("error copy SPMI register values to user\n");
+		pr_err("error copy sram register values to user\n");
 		return -EFAULT;
 	}
 
