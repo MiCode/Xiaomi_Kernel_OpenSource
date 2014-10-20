@@ -1187,8 +1187,13 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip)
 		return false;
 	}
 
-	if (get_usb_supply_type(reg) != POWER_SUPPLY_TYPE_USB_DCP) {
-		pr_smb(PR_STATUS, "not a DCP, skipping\n");
+	if (get_usb_supply_type(reg) == POWER_SUPPLY_TYPE_USB_CDP) {
+		pr_smb(PR_STATUS, "CDP adapter, skipping\n");
+		return false;
+	}
+
+	if (get_usb_supply_type(reg) == POWER_SUPPLY_TYPE_USB) {
+		pr_smb(PR_STATUS, "SDP adapter, skipping\n");
 		return false;
 	}
 
