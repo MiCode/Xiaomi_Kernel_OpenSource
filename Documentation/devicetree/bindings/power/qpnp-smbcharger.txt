@@ -186,6 +186,10 @@ Optional Properties:
 					charger if one exists. Do not define
 					this property if no parallel chargers
 					exist.
+- qcom,parallel-usb-9v-min-current-ma	Minimum current drawn by the primary
+					charger before enabling the parallel
+					charger if one exists. This property
+					applies only for 9V chargers.
 - qcom,parallel-allowed-lowering-ma	Acceptable current drop from the initial limit
 					to keep parallel charger activated. If the
 					charger current reduces beyond this threshold
