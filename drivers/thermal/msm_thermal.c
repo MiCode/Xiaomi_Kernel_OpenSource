@@ -39,6 +39,7 @@
 #include <linux/msm_thermal_ioctl.h>
 #include <soc/qcom/rpm-smd.h>
 #include <soc/qcom/scm.h>
+#include <linux/debugfs.h>
 
 #define CREATE_TRACE_POINTS
 #define TRACE_MSM_THERMAL
@@ -52,6 +53,18 @@
 #define TSENS_NAME_FORMAT "tsens_tz_sensor%d"
 #define THERM_SECURE_BITE_CMD 8
 #define SENSOR_SCALING_FACTOR 1
+#define MSM_THERMAL_NAME "msm_thermal"
+#define MSM_TSENS_PRINT  "log_tsens_temperature"
+
+#define THERM_CREATE_DEBUGFS_DIR(_node, _name, _parent, _ret) \
+	do { \
+		_node = debugfs_create_dir(_name, _parent); \
+		if (IS_ERR(_node)) { \
+			_ret = PTR_ERR(_node); \
+			pr_err("Error creating debugfs dir:%s. err:%d\n", \
+					_name, _ret); \
+		} \
+	} while (0)
 
 #define UPDATE_THRESHOLD_SET(_val, _trip) do {		\
 	if (_trip == THERMAL_TRIP_CONFIGURABLE_HI)	\
@@ -134,6 +147,7 @@ static struct regulator *vdd_mx;
 static struct cpufreq_frequency_table *pending_freq_table_ptr;
 static int pending_cpu_freq = -1;
 static long *tsens_temp_at_panic;
+static u32 tsens_temp_print;
 
 enum thermal_threshold {
 	HOTPLUG_THRESHOLD_HIGH,
@@ -256,6 +270,11 @@ enum msm_temp_band {
 	MSM_TEMP_MAX_NR,
 };
 
+struct msm_thermal_debugfs_entry {
+	struct dentry *parent;
+	struct dentry *tsens_print;
+};
+
 static struct psm_rail *psm_rails;
 static struct psm_rail *ocr_rails;
 static struct rail *rails;
@@ -264,6 +283,7 @@ static struct cpu_info cpus[NR_CPUS];
 static struct threshold_info *thresh;
 static bool mx_restr_applied;
 static struct cluster_info *core_ptr;
+static struct msm_thermal_debugfs_entry *msm_therm_debugfs;
 
 struct vdd_rstr_enable {
 	struct kobj_attribute ko_attr;
@@ -487,6 +507,43 @@ static ssize_t cluster_info_show(
 	}
 
 	return tot_size;
+}
+
+static int create_thermal_debugfs(void)
+{
+	int ret = 0;
+
+	if (msm_therm_debugfs)
+		return ret;
+
+	msm_therm_debugfs = devm_kzalloc(&msm_thermal_info.pdev->dev,
+			sizeof(struct msm_thermal_debugfs_entry), GFP_KERNEL);
+	if (!msm_therm_debugfs) {
+		ret = -ENOMEM;
+		pr_err("Memory alloc failed. err:%d\n", ret);
+		return ret;
+	}
+
+	THERM_CREATE_DEBUGFS_DIR(msm_therm_debugfs->parent, MSM_THERMAL_NAME,
+		NULL, ret);
+	if (ret)
+		goto create_exit;
+
+	msm_therm_debugfs->tsens_print = debugfs_create_bool(MSM_TSENS_PRINT,
+			0600, msm_therm_debugfs->parent, &tsens_temp_print);
+	if (IS_ERR(msm_therm_debugfs->tsens_print)) {
+		ret = PTR_ERR(msm_therm_debugfs->tsens_print);
+		pr_err("Error creating debugfs:[%s]. err:%d\n",
+			MSM_TSENS_PRINT, ret);
+		goto create_exit;
+	}
+
+create_exit:
+	if (ret) {
+		debugfs_remove_recursive(msm_therm_debugfs->parent);
+		devm_kfree(&msm_thermal_info.pdev->dev, msm_therm_debugfs);
+	}
+	return ret;
 }
 
 static struct kobj_attribute cluster_info_attr = __ATTR_RO(cluster_info);
@@ -1611,10 +1668,14 @@ static int msm_thermal_panic_callback(struct notifier_block *nfb,
 {
 	int i;
 
-	for (i = 0; i < max_tsens_num; i++)
+	for (i = 0; i < max_tsens_num; i++) {
 		therm_get_temp(tsens_id_map[i],
 				THERM_TSENS_ID,
 				&tsens_temp_at_panic[i]);
+		if (tsens_temp_print)
+			pr_err("tsens%d temperature:%ldC\n",
+				tsens_id_map[i], tsens_temp_at_panic[i]);
+	}
 
 	return NOTIFY_OK;
 }
@@ -5039,6 +5100,8 @@ static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 {
 	int i = 0;
 
+	if (msm_therm_debugfs && msm_therm_debugfs->parent)
+		debugfs_remove_recursive(msm_therm_debugfs->parent);
 	msm_thermal_ioctl_cleanup();
 	if (thresh) {
 		if (vdd_rstr_enabled)
@@ -5104,6 +5167,7 @@ int __init msm_thermal_late_init(void)
 	msm_thermal_add_mx_nodes();
 	interrupt_mode_init();
 	create_cpu_topology_sysfs();
+	create_thermal_debugfs();
 	return 0;
 }
 late_initcall(msm_thermal_late_init);
