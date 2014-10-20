@@ -379,6 +379,12 @@ Optional properties:
 				highest voltage fuse corner.
 				A given cpr-regulator device must have either qcom,cpr-fuse-init-voltage
 				specified or qcom,pvs-voltage-table (and its associated properties).
+- qcom,cpr-fuse-redun-init-voltage: Array of quadruples in which each quadruple specifies a fuse location
+				to read in order to get the redundant initial voltage for a fuse corner.
+				This property is the same as qcom,cpr-fuse-init-voltage except that it is
+				only utilized if a chip is configured to use the redundant set of fuse
+				values.  This property is required if qcom,cpr-fuse-redun-sel and
+				qcom,cpr-fuse-init-voltage are specified.
 - qcom,cpr-init-voltage-ref:	Array of reference voltages in microvolts used when decoding the initial
 				voltage fuse values.  The elements in the array are ordered from lowest
 				voltage corner to highest voltage corner.  This property must be of length
@@ -509,6 +515,10 @@ Example:
 				<27 36 6 0>,
 				<27 18 6 0>,
 				<27 0 6 0>;
+		qcom,cpr-fuse-redun-init-voltage =
+				<140 36 6 0>,
+				<140 18 6 0>,
+				<140 0 6 0>;
 		qcom,cpr-init-voltage-ref = <1050000 1150000 1280000>;
 		qcom,cpr-init-voltage-step = <10000>;
 		qcom,cpr-voltage-ceiling-override =
