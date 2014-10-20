@@ -173,6 +173,7 @@ enum print_reason {
 	PR_STATUS = BIT(2),
 	PR_DUMP = BIT(3),
 	PR_PM = BIT(4),
+	PR_MISC = BIT(5),
 };
 
 enum wake_reason {
@@ -573,7 +574,7 @@ static int get_prop_batt_status(struct smbchg_chip *chip)
 	else
 		status = POWER_SUPPLY_STATUS_CHARGING;
 out:
-	pr_smb_rt(PR_STATUS, "CHGR_STS = 0x%02x\n", reg);
+	pr_smb_rt(PR_MISC, "CHGR_STS = 0x%02x\n", reg);
 	return status;
 }
 
@@ -1679,7 +1680,7 @@ static int smbchg_calc_max_flash_current(struct smbchg_chip *chip)
 	total_flash_power_fw = FLASH_V_THRESHOLD * ibat_flash_ua
 			* BUCK_EFFICIENCY;
 	total_flash_ua = div64_s64(total_flash_power_fw, VIN_FLASH_UV * 1000LL);
-	pr_smb(PR_STATUS,
+	pr_smb(PR_MISC,
 		"ibat_flash=%lld\n, ocv=%d, ibat=%d, rbatt=%d t_flash=%lld\n",
 		ibat_flash_ua, ocv_uv, ibat_ua, rbatt_uohm, total_flash_ua);
 	return (int)total_flash_ua;
@@ -1934,7 +1935,7 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 					== POWER_SUPPLY_STATUS_NOT_CHARGING))
 			smbchg_restart_charging(chip);
 		else if (chip->resume_soc_threshold >= 0)
-			pr_smb(PR_STATUS,
+			pr_smb(PR_MISC,
 				"not resuming, soc: %d - %d, status = %d\n",
 				get_prop_batt_capacity(chip),
 				chip->resume_soc_threshold,
@@ -1944,7 +1945,7 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CHARGING_ENABLED, &prop);
 	if (rc < 0)
-		pr_smb(PR_STATUS, "could not read USB charge_en, rc=%d\n",
+		pr_smb(PR_MISC, "could not read USB charge_en, rc=%d\n",
 				rc);
 	else
 		smbchg_usb_en(chip, prop.intval, REASON_POWER_SUPPLY);
@@ -1956,10 +1957,12 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 			"could not read USB current_max property, rc=%d\n", rc);
 	else
 		current_limit = prop.intval / 1000;
-	pr_smb(PR_STATUS, "current_limit = %d\n", current_limit);
 
+	pr_smb(PR_MISC, "current_limit = %d\n", current_limit);
 	mutex_lock(&chip->current_change_lock);
 	if (current_limit != chip->usb_target_current_ma) {
+		pr_smb(PR_STATUS, "changed current_limit = %d\n",
+				current_limit);
 		chip->usb_target_current_ma = current_limit;
 		rc = smbchg_set_thermal_limited_usb_current_max(chip,
 				current_limit);
@@ -2515,9 +2518,9 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
 
 	if (chip->usb_psy) {
-		pr_smb(PR_STATUS, "setting usb psy type = %d\n",
+		pr_smb(PR_MISC, "setting usb psy type = %d\n",
 				POWER_SUPPLY_TYPE_UNKNOWN);
-		pr_smb(PR_STATUS, "setting usb psy present = %d\n",
+		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
 		power_supply_set_supply_type(chip->usb_psy,
 				POWER_SUPPLY_TYPE_UNKNOWN);
@@ -2547,10 +2550,10 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	pr_smb(PR_STATUS, "inserted %s, usb psy type = %d stat_5 = 0x%02x\n",
 			usb_type_name, usb_supply_type, reg);
 	if (chip->usb_psy) {
-		pr_smb(PR_STATUS, "setting usb psy type = %d\n",
+		pr_smb(PR_MISC, "setting usb psy type = %d\n",
 				usb_supply_type);
 		power_supply_set_supply_type(chip->usb_psy, usb_supply_type);
-		pr_smb(PR_STATUS, "setting usb psy present = %d\n",
+		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
 		schedule_work(&chip->usb_set_online_work);
