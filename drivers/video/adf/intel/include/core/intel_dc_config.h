@@ -17,6 +17,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <video/intel_adf.h>
 
 #if defined(CONFIG_ADF)
 #include <video/adf.h>
@@ -40,15 +41,6 @@ enum intel_plane_blending {
 enum intel_plane_scaling {
 	INTEL_PLANE_SCALING_DOWNSCALING,
 	INTEL_PLANE_SCALING_UPSCALING,
-};
-
-enum intel_plane_transform {
-	INTEL_PLANE_TRANSFORM_NONE,
-	INTEL_PLANE_TRANSFORM_FLIPH,
-	INTEL_PLANE_TRANSFORM_FLIPV,
-	INTEL_PLANE_TRANSFORM_ROT90,
-	INTEL_PLANE_TRANSFORM_ROT180,
-	INTEL_PLANE_TRANSFORM_ROT270,
 };
 
 enum intel_plane_compression {
@@ -159,7 +151,7 @@ struct intel_plane_config {
 	u8 alpha;
 	enum intel_plane_compression compression:4;
 	enum intel_plane_blending blending:4;
-	enum intel_plane_transform transform:4;
+	enum intel_adf_transform transform:4;
 	struct intel_pipe *pipe;
 };
 

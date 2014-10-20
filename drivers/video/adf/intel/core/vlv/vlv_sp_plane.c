@@ -13,6 +13,7 @@
  */
 
 #include <drm/i915_drm.h>
+#include <video/intel_adf.h>
 
 #include "intel_adf_device.h"
 #include "core/common/intel_dc_regs.h"
@@ -330,23 +331,39 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 		REG_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
 	}
 
-	if (buf->tiling_mode != I915_TILING_NONE)
-		sprctl |= SP_TILED;
-
 	sprctl |= SP_ENABLE;
 	regs->dspcntr = sprctl;
 
 	linear_offset = src_y * buf->stride + src_x * bpp;
 	sprsurf_offset = vlv_compute_page_offset(&src_x, &src_y,
 			buf->tiling_mode, bpp, buf->stride);
-	regs->linearoff = linear_offset - sprsurf_offset;
+	linear_offset -= sprsurf_offset;
 
 	regs->stride = buf->stride;
 	regs->pos = ((dst_y << 16) | dst_x);
-	regs->tileoff = (src_y << 16) | src_x;
 	regs->size = (dst_h << 16) | dst_w;
 	regs->surfaddr = (buf->gtt_offset_in_pages + sprsurf_offset);
 
+	if (buf->tiling_mode != I915_TILING_NONE) {
+		regs->dspcntr |= SP_TILED;
+		if (config->transform & INTEL_ADF_TRANSFORM_ROT180) {
+			regs->dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
+			regs->tileoff = ((src_y + dst_h) << 16) |
+							(src_x + dst_w);
+		} else {
+			regs->dspcntr &= ~DISPPLANE_180_ROTATION_ENABLE;
+			regs->tileoff = (src_y << 16) | src_x;
+		}
+	} else {
+		if (config->transform & INTEL_ADF_TRANSFORM_ROT180) {
+			regs->dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
+			regs->linearoff = linear_offset + dst_h *
+					regs->stride + (dst_w + 1) * bpp;
+		} else {
+			regs->dspcntr &= ~DISPPLANE_180_ROTATION_ENABLE;
+			regs->linearoff = linear_offset;
+		}
+	}
 	return 0;
 }
 
@@ -531,7 +548,7 @@ static const u32 sprite_supported_formats[] = {
 };
 
 static const u32 sprite_supported_transforms[] = {
-	INTEL_PLANE_TRANSFORM_ROT180,
+	INTEL_ADF_TRANSFORM_ROT180,
 };
 
 static const u32 sprite_supported_blendings[] = {

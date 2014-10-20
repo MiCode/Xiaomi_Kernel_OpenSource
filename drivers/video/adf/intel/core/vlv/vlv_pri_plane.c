@@ -19,6 +19,7 @@
 #include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_dc_regs.h>
 #include <drm/i915_drm.h>
+#include <video/intel_adf.h>
 
 #define SEC_PLANE_OFFSET 0x1000
 
@@ -104,7 +105,7 @@ static const u32 pri_supported_formats[] = {
 };
 
 static const u32 pri_supported_transforms[] = {
-	INTEL_PLANE_TRANSFORM_ROT180,
+	INTEL_ADF_TRANSFORM_ROT180,
 };
 
 static const u32 pri_supported_blendings[] = {
@@ -248,7 +249,17 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 	dspaddr_offset = vlv_compute_page_offset(&src_x, &src_y,
 				buf->tiling_mode, bpp, regs->stride);
 	regs->linearoff -= dspaddr_offset;
-	regs->tileoff = (src_y << 16) | src_x;
+	if (config->transform & INTEL_ADF_TRANSFORM_ROT180) {
+		regs->dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
+		regs->linearoff =  regs->linearoff + (buf->h - 1) *
+						regs->stride + buf->w * bpp;
+		regs->tileoff = (((src_y + buf->h - 1) << 16) |
+							(src_x + buf->w - 1));
+	} else {
+		regs->dspcntr &= ~DISPPLANE_180_ROTATION_ENABLE;
+		regs->tileoff = (src_y << 16) | src_x;
+	}
+
 	regs->surfaddr = (buf->gtt_offset_in_pages + dspaddr_offset);
 
 	return 0;
