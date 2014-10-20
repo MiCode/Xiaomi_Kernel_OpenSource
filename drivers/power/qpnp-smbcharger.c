@@ -1907,7 +1907,16 @@ static void smbchg_restart_charging(struct smbchg_chip *chip)
 	}
 }
 
+#define CMD_CHG_REG	0x42
+#define EN_BAT_CHG_BIT		BIT(1)
+static int smbchg_charging_en(struct smbchg_chip *chip, bool en)
+{
+	return smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
+			EN_BAT_CHG_BIT, en ? 0 : EN_BAT_CHG_BIT);
+}
+
 #define UNKNOWN_BATT_TYPE	"Unknown Battery"
+#define LOADING_BATT_TYPE	"Loading Battery Data"
 static void smbchg_external_power_changed(struct power_supply *psy)
 {
 	struct smbchg_chip *chip = container_of(psy,
@@ -1925,6 +1934,8 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 				POWER_SUPPLY_PROP_BATTERY_TYPE, &prop);
 		en = strcmp(prop.strval, UNKNOWN_BATT_TYPE) != 0;
 		smbchg_unknown_battery_en(chip, en);
+		en = strcmp(prop.strval, LOADING_BATT_TYPE) != 0;
+		smbchg_charging_en(chip, en);
 
 		if (get_prop_batt_capacity(chip) <= chip->resume_soc_threshold
 				&& chip->resume_soc_threshold >= 0
@@ -2022,7 +2033,6 @@ static int smbchg_float_voltage_set(struct smbchg_chip *chip, int vfloat_mv)
 			VFLOAT_MASK, temp);
 }
 
-#define CMD_CHG_REG	0x42
 #define OTG_EN		BIT(0)
 static int smbchg_otg_regulator_enable(struct regulator_dev *rdev)
 {
