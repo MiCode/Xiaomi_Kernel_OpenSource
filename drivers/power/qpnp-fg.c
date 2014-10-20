@@ -208,6 +208,7 @@ enum fg_mem_if_irq {
 	FG_MEM_IF_IRQ_COUNT,
 };
 
+#define THERMAL_COEFF_N_BYTES		6
 struct fg_chip {
 	struct device		*dev;
 	struct spmi_device	*spmi;
@@ -235,6 +236,8 @@ struct fg_chip {
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	char			*batt_profile;
+	u8			thermal_coefficients[THERMAL_COEFF_N_BYTES];
+	bool			use_thermal_coefficients;
 	unsigned int		batt_profile_len;
 	const char		*batt_type;
 	unsigned long		last_sram_update_time;
@@ -1637,12 +1640,19 @@ static void batt_profile_init(struct work_struct *work)
 
 static int fg_of_init(struct fg_chip *chip)
 {
-	int rc = 0, sense_type;
+	int rc = 0, sense_type, len = 0;
+	const char *data;
 
 	OF_READ_SETTING(FG_MEM_SOFT_HOT, "warm-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_SOFT_COLD, "cool-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_HARD_HOT, "hot-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_HARD_COLD, "cold-bat-decidegc", rc, 1);
+	data = of_get_property(chip->spmi->dev.of_node,
+			"qcom,thermal-coefficients", &len);
+	if (data && len == THERMAL_COEFF_N_BYTES) {
+		memcpy(chip->thermal_coefficients, data, len);
+		chip->use_thermal_coefficients = true;
+	}
 
 	/* Get the use-otp-profile property */
 	chip->use_otp_profile = of_property_read_bool(
@@ -2255,6 +2265,8 @@ static int soc_to_setpoint(int soc)
 #define BATT_TEMP_CNTRL_MASK	0x0F
 #define BATT_TEMP_ON		0x0E
 #define BATT_TEMP_OFF		0x01
+#define THERMAL_COEFF_ADDR	0x444
+#define THERMAL_COEFF_OFFSET	0x2
 static int fg_hw_init(struct fg_chip *chip)
 {
 	int rc = 0;
@@ -2284,6 +2296,14 @@ static int fg_hw_init(struct fg_chip *chip)
 	if (rc) {
 		pr_err("failed to write to memif rc=%d\n", rc);
 		return rc;
+	}
+
+	if (chip->use_thermal_coefficients) {
+		fg_mem_write(chip, chip->thermal_coefficients,
+			THERMAL_COEFF_ADDR, 2,
+			THERMAL_COEFF_OFFSET, 0);
+		fg_mem_write(chip, chip->thermal_coefficients + 2,
+			THERMAL_COEFF_ADDR + 4, 4, 0, 0);
 	}
 
 	return 0;
@@ -2435,14 +2455,14 @@ static int fg_probe(struct spmi_device *spmi)
 	if (chip->last_sram_update_time == 0)
 		update_sram_data(&chip->update_sram_data.work);
 
-	/* release memory access if necessary */
-	fg_release_access_if_necessary(chip);
-
 	rc = fg_hw_init(chip);
 	if (rc) {
 		pr_err("failed to hw init rc = %d\n", rc);
 		goto cancel_jeita_work;
 	}
+
+	/* release memory access if necessary */
+	fg_release_access_if_necessary(chip);
 
 	if (!chip->use_otp_profile)
 		schedule_work(&chip->batt_profile_init);
