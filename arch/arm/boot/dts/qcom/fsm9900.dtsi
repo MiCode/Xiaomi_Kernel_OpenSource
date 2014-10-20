@@ -732,6 +732,13 @@
 		qcom,cpu-sensors = "tsens_tz_sensor3", "tsens_tz_sensor4",
 				"tsens_tz_sensor5", "tsens_tz_sensor6";
 		qcom,online-hotplug-core;
+		qcom,disable-vdd-mx;
+		qcom,disable-vdd-rstr;
+		qcom,disable-sensor-info;
+		qcom,disable-ocr;
+		qcom,disable-psm;
+		qcom,disable-gfx-phase-ctrl;
+		qcom,disable-cx-phase-ctrl;
 	};
 
 	cache: qcom,cache {
