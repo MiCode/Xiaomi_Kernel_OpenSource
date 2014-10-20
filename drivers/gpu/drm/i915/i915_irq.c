@@ -2096,7 +2096,7 @@ static void valleyview_pipestat_irq_handler(struct drm_device *dev, u32 iir)
 	spin_unlock(&dev_priv->irq_lock);
 
 	for_each_pipe(pipe) {
-		if (pipe_stats[pipe] & PIPE_VBLANK_INTERRUPT_STATUS) {
+		if (pipe_stats[pipe] & PIPE_START_VBLANK_INTERRUPT_STATUS) {
 			if (dev_priv->pf_change_status[pipe] &
 					BPP_CHANGED_PRIMARY)
 				I915_WRITE_BITS(VLV_DDL(pipe),
