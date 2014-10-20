@@ -481,6 +481,7 @@ struct flash_config_data {
  *  @always_on - always on row
  *  @lut_params - lut parameters to be used by pwm driver
  *  @duty_cycles - duty cycles for lut
+ *  @pwm_mode - pwm mode in use
  */
 struct kpdbl_config_data {
 	struct pwm_config_data	*pwm_cfg;
@@ -490,6 +491,7 @@ struct kpdbl_config_data {
 	bool	always_on;
 	struct pwm_duty_cycles  *duty_cycles;
 	struct lut_params	lut_params;
+	u8	pwm_mode;
 };
 
 /**
@@ -2141,7 +2143,7 @@ static int qpnp_pwm_init(struct pwm_config_data *pwm_cfg,
 					struct spmi_device *spmi_dev,
 					const char *name)
 {
-	int rc, start_idx, idx_len;
+	int rc, start_idx, idx_len, lut_max_size;
 
 	if (pwm_cfg->pwm_dev) {
 		if (pwm_cfg->mode == LPG_MODE) {
@@ -2150,14 +2152,18 @@ static int qpnp_pwm_init(struct pwm_config_data *pwm_cfg,
 			idx_len =
 			pwm_cfg->duty_cycles->num_duty_pcts;
 
-			if (idx_len >= PWM_LUT_MAX_SIZE &&
-					start_idx) {
+			if (strnstr(name, "kpdbl", sizeof("kpdbl")))
+				lut_max_size = PWM_GPLED_LUT_MAX_SIZE;
+			else
+				lut_max_size = PWM_LUT_MAX_SIZE;
+
+			if (idx_len >= lut_max_size && start_idx) {
 				dev_err(&spmi_dev->dev,
 					"Wrong LUT size or index\n");
 				return -EINVAL;
 			}
-			if ((start_idx + idx_len) >
-					PWM_LUT_MAX_SIZE) {
+
+			if ((start_idx + idx_len) > lut_max_size) {
 				dev_err(&spmi_dev->dev,
 					"Exceed LUT limit\n");
 				return -EINVAL;
@@ -2206,6 +2212,9 @@ static ssize_t pwm_us_store(struct device *dev,
 	case QPNP_ID_RGB_GREEN:
 	case QPNP_ID_RGB_BLUE:
 		pwm_cfg = led->rgb_cfg->pwm_cfg;
+		break;
+	case QPNP_ID_KPDBL:
+		pwm_cfg = led->kpdbl_cfg->pwm_cfg;
 		break;
 	default:
 		dev_err(&led->spmi_dev->dev,
@@ -2259,6 +2268,9 @@ static ssize_t pause_lo_store(struct device *dev,
 	case QPNP_ID_RGB_BLUE:
 		pwm_cfg = led->rgb_cfg->pwm_cfg;
 		break;
+	case QPNP_ID_KPDBL:
+		pwm_cfg = led->kpdbl_cfg->pwm_cfg;
+		break;
 	default:
 		dev_err(&led->spmi_dev->dev,
 			"Invalid LED id type for pause lo\n");
@@ -2311,6 +2323,9 @@ static ssize_t pause_hi_store(struct device *dev,
 	case QPNP_ID_RGB_BLUE:
 		pwm_cfg = led->rgb_cfg->pwm_cfg;
 		break;
+	case QPNP_ID_KPDBL:
+		pwm_cfg = led->kpdbl_cfg->pwm_cfg;
+		break;
 	default:
 		dev_err(&led->spmi_dev->dev,
 			"Invalid LED id type for pause hi\n");
@@ -2362,6 +2377,9 @@ static ssize_t start_idx_store(struct device *dev,
 	case QPNP_ID_RGB_GREEN:
 	case QPNP_ID_RGB_BLUE:
 		pwm_cfg = led->rgb_cfg->pwm_cfg;
+		break;
+	case QPNP_ID_KPDBL:
+		pwm_cfg = led->kpdbl_cfg->pwm_cfg;
 		break;
 	default:
 		dev_err(&led->spmi_dev->dev,
@@ -2416,6 +2434,9 @@ static ssize_t ramp_step_ms_store(struct device *dev,
 	case QPNP_ID_RGB_BLUE:
 		pwm_cfg = led->rgb_cfg->pwm_cfg;
 		break;
+	case QPNP_ID_KPDBL:
+		pwm_cfg = led->kpdbl_cfg->pwm_cfg;
+		break;
 	default:
 		dev_err(&led->spmi_dev->dev,
 			"Invalid LED id type for ramp step\n");
@@ -2467,6 +2488,9 @@ static ssize_t lut_flags_store(struct device *dev,
 	case QPNP_ID_RGB_GREEN:
 	case QPNP_ID_RGB_BLUE:
 		pwm_cfg = led->rgb_cfg->pwm_cfg;
+		break;
+	case QPNP_ID_KPDBL:
+		pwm_cfg = led->kpdbl_cfg->pwm_cfg;
 		break;
 	default:
 		dev_err(&led->spmi_dev->dev,
@@ -2523,6 +2547,10 @@ static ssize_t duty_pcts_store(struct device *dev,
 	case QPNP_ID_RGB_BLUE:
 		pwm_cfg = led->rgb_cfg->pwm_cfg;
 		max_duty_pcts = PWM_LUT_MAX_SIZE;
+		break;
+	case QPNP_ID_KPDBL:
+		pwm_cfg = led->kpdbl_cfg->pwm_cfg;
+		max_duty_pcts = PWM_GPLED_LUT_MAX_SIZE;
 		break;
 	default:
 		dev_err(&led->spmi_dev->dev,
@@ -2593,12 +2621,17 @@ static void led_blink(struct qpnp_led_data *led,
 			pwm_cfg->blinking = true;
 			if (led->id == QPNP_ID_LED_MPP)
 				led->mpp_cfg->pwm_mode = LPG_MODE;
+			else if (led->id == QPNP_ID_KPDBL)
+				led->kpdbl_cfg->pwm_mode = LPG_MODE;
 			pwm_cfg->mode = LPG_MODE;
 		} else {
 			pwm_cfg->blinking = false;
 			pwm_cfg->mode = pwm_cfg->default_mode;
 			if (led->id == QPNP_ID_LED_MPP)
 				led->mpp_cfg->pwm_mode = pwm_cfg->default_mode;
+			else if (led->id == QPNP_ID_KPDBL)
+				led->kpdbl_cfg->pwm_mode =
+						pwm_cfg->default_mode;
 		}
 		pwm_free(pwm_cfg->pwm_dev);
 		qpnp_pwm_init(pwm_cfg, led->spmi_dev, led->cdev.name);
@@ -2613,6 +2646,11 @@ static void led_blink(struct qpnp_led_data *led,
 			if (rc < 0)
 				dev_err(&led->spmi_dev->dev,
 				"MPP set brightness failed (%d)\n", rc);
+		} else if (led->id == QPNP_ID_KPDBL) {
+			rc = qpnp_kpdbl_set(led);
+			if (rc < 0)
+				dev_err(&led->spmi_dev->dev,
+				"KPDBL set brightness failed (%d)\n", rc);
 		}
 	}
 	mutex_unlock(&led->lock);
@@ -2641,6 +2679,9 @@ static ssize_t blink_store(struct device *dev,
 	case QPNP_ID_RGB_GREEN:
 	case QPNP_ID_RGB_BLUE:
 		led_blink(led, led->rgb_cfg->pwm_cfg);
+		break;
+	case QPNP_ID_KPDBL:
+		led_blink(led, led->kpdbl_cfg->pwm_cfg);
 		break;
 	default:
 		dev_err(&led->spmi_dev->dev, "Invalid LED id type for blink\n");
@@ -3364,9 +3405,10 @@ static int qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 				struct device_node *node)
 {
 	struct property *prop;
-	int rc, i;
+	int rc, i, lut_max_size;
 	u32 val;
 	u8 *temp_cfg;
+	const char *led_label;
 
 	pwm_cfg->pwm_dev = of_pwm_get(node, NULL);
 
@@ -3413,9 +3455,22 @@ static int qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 			goto bad_lpg_params;
 		}
 
+		rc = of_property_read_string(node, "label", &led_label);
+
+		if (rc < 0) {
+			dev_err(&spmi_dev->dev,
+				"Failure reading label, rc = %d\n", rc);
+			return rc;
+		}
+
+		if (strcmp(led_label, "kpdbl") == 0)
+			lut_max_size = PWM_GPLED_LUT_MAX_SIZE;
+		else
+			lut_max_size = PWM_LUT_MAX_SIZE;
+
 		pwm_cfg->duty_cycles->duty_pcts =
 			devm_kzalloc(&spmi_dev->dev,
-			sizeof(int) * PWM_LUT_MAX_SIZE,
+			sizeof(int) * lut_max_size,
 			GFP_KERNEL);
 		if (!pwm_cfg->duty_cycles->duty_pcts) {
 			dev_err(&spmi_dev->dev,
@@ -3426,7 +3481,7 @@ static int qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 
 		pwm_cfg->old_duty_pcts =
 			devm_kzalloc(&spmi_dev->dev,
-			sizeof(int) * PWM_LUT_MAX_SIZE,
+			sizeof(int) * lut_max_size,
 			GFP_KERNEL);
 		if (!pwm_cfg->old_duty_pcts) {
 			dev_err(&spmi_dev->dev,
@@ -4029,6 +4084,29 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 				if (rc)
 					goto fail_id_check;
 			}
+		} else if (led->id == QPNP_ID_KPDBL) {
+			if (led->kpdbl_cfg->pwm_cfg->mode == PWM_MODE) {
+				rc = sysfs_create_group(&led->cdev.dev->kobj,
+					&pwm_attr_group);
+				if (rc)
+					goto fail_id_check;
+			}
+			if (led->kpdbl_cfg->pwm_cfg->use_blink) {
+				rc = sysfs_create_group(&led->cdev.dev->kobj,
+					&blink_attr_group);
+				if (rc)
+					goto fail_id_check;
+
+				rc = sysfs_create_group(&led->cdev.dev->kobj,
+					&lpg_attr_group);
+				if (rc)
+					goto fail_id_check;
+			} else if (led->kpdbl_cfg->pwm_cfg->mode == LPG_MODE) {
+				rc = sysfs_create_group(&led->cdev.dev->kobj,
+					&lpg_attr_group);
+				if (rc)
+					goto fail_id_check;
+			}
 		}
 
 		/* configure default state */
@@ -4120,6 +4198,20 @@ static int qpnp_leds_remove(struct spmi_device *spmi)
 					kobj, &lpg_attr_group);
 			if (led_array[i].mpp_cfg->mpp_reg)
 				regulator_put(led_array[i].mpp_cfg->mpp_reg);
+			break;
+		case QPNP_ID_KPDBL:
+			if (led_array[i].kpdbl_cfg->pwm_cfg->mode == PWM_MODE)
+				sysfs_remove_group(&led_array[i].cdev.dev->
+					kobj, &pwm_attr_group);
+			if (led_array[i].kpdbl_cfg->pwm_cfg->use_blink) {
+				sysfs_remove_group(&led_array[i].cdev.dev->
+					kobj, &blink_attr_group);
+				sysfs_remove_group(&led_array[i].cdev.dev->
+					kobj, &lpg_attr_group);
+			} else if (led_array[i].kpdbl_cfg->pwm_cfg->mode
+					== LPG_MODE)
+				sysfs_remove_group(&led_array[i].cdev.dev->
+					kobj, &lpg_attr_group);
 			break;
 		default:
 			dev_err(&led_array[i].spmi_dev->dev,
