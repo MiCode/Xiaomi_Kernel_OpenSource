@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4200,6 +4200,7 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 
 		hdmi_ctrl->pdata.primary = true;
 		hdmi_ctrl->vid_cfg.vic = vic;
+		hdmi_ctrl->panel_data.panel_info.is_prim_panel = true;
 	}
 
 	hdmi_ctrl->mdss_util = mdss_get_util_intf();
