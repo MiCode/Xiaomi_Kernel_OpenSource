@@ -32,6 +32,7 @@ struct kgsl_sync_pt {
 struct kgsl_sync_fence_waiter {
 	struct sync_fence_waiter waiter;
 	struct sync_fence *fence;
+	char name[32];
 	void (*func)(void *priv);
 	void *priv;
 };
