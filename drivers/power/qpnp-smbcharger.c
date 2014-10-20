@@ -145,6 +145,7 @@ struct smbchg_chip {
 	int				usbid_change_irq;
 	int				chg_inhibit_irq;
 	int				chg_error_irq;
+	bool				enable_aicl_wake;
 
 	/* psy */
 	struct power_supply		*usb_psy;
@@ -2537,9 +2538,11 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
 		schedule_work(&chip->usb_set_online_work);
 	}
-	if (parallel_psy) {
+	if (parallel_psy)
 		power_supply_set_present(parallel_psy, false);
+	if (chip->parallel.avail && chip->enable_aicl_wake) {
 		disable_irq_wake(chip->aicl_done_irq);
+		chip->enable_aicl_wake = false;
 	}
 }
 
@@ -2568,9 +2571,11 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
 		schedule_work(&chip->usb_set_online_work);
 	}
-	if (parallel_psy) {
+	if (parallel_psy)
 		power_supply_set_present(parallel_psy, true);
+	if (chip->parallel.avail && !chip->enable_aicl_wake) {
 		enable_irq_wake(chip->aicl_done_irq);
+		chip->enable_aicl_wake = true;
 	}
 }
 
