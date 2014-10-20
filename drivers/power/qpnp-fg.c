@@ -36,6 +36,7 @@
 
 /* Interrupt offsets */
 #define INT_RT_STS(base)			(base + 0x10)
+#define INT_EN_CLR(base)			(base + 0x16)
 
 /* SPMI Register offsets */
 #define SOC_MONOTONIC_SOC	0x09
@@ -1922,7 +1923,7 @@ static int fg_probe(struct spmi_device *spmi)
 	struct fg_chip *chip;
 	struct spmi_resource *spmi_resource;
 	struct resource *resource;
-	u8 subtype;
+	u8 subtype, reg;
 	int rc = 0;
 
 	if (!spmi) {
@@ -2007,6 +2008,13 @@ static int fg_probe(struct spmi_device *spmi)
 	rc = fg_of_init(chip);
 	if (rc) {
 		pr_err("failed to parse devicetree rc%d\n", rc);
+		goto of_init_fail;
+	}
+
+	reg = 0xFF;
+	rc = fg_write(chip, &reg, INT_EN_CLR(chip->mem_base), 1);
+	if (rc) {
+		pr_err("failed to clear interrupts %d\n", rc);
 		goto of_init_fail;
 	}
 
