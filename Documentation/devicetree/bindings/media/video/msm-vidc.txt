@@ -89,6 +89,8 @@ Optional properties:
   idle message when it is in idle state.
 - qcom,enable-minimum-voting = A bool to limit the bandwidth vote to the
   lowest vector over an active session.
+- qcom,enable-thermal-mitigation = A bool to enable thermal mitigation when
+  thermal run away occurs.
 
 [Second level nodes]
 Required properties:
@@ -146,6 +148,7 @@ Example:
 		qcom,enable-idle-indicator;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 						<0x1fe 0x2>;
+		qcom,enable-thermal-mitigation;
 		qcom,msm-bus-clients {
 			qcom,msm-bus-client@0 {
 				qcom,msm-bus,name = "venc-ddr";

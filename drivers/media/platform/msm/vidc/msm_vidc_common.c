@@ -2116,6 +2116,16 @@ static bool is_thermal_permissible(struct msm_vidc_core *core)
 	unsigned long freq = 0;
 	bool is_turbo = false;
 
+	if (!core->resources.thermal_mitigable)
+		return true;
+
+	if (msm_vidc_thermal_mitigation_disabled) {
+		dprintk(VIDC_DBG,
+			"Thermal mitigation not enabled. debugfs %d\n",
+			msm_vidc_thermal_mitigation_disabled);
+		return true;
+	}
+
 	tl = msm_comm_vidc_thermal_level(vidc_driver->thermal_level);
 	freq = msm_comm_get_clock_rate(core);
 
