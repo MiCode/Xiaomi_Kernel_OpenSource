@@ -535,6 +535,7 @@
 &slim_msm {
 	tomtom_codec {
 		qcom,cdc-micbias1-ext-cap;
+		qcom,cdc-micbias2-ext-cap;
 		qcom,cdc-micbias3-ext-cap;
 		qcom,cdc-micbias4-ext-cap;
 		cdc-vdd-spkdrv-supply = <&pmi8994_boost_pin_ctrl>;
