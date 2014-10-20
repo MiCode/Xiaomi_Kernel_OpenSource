@@ -24,7 +24,7 @@
 			qcom,thresh = <2668800>;
 			qcom,mode = <THROTTLE_ON>;
 			qcom,dest-node = <&mas_apss>;
-			qcom,dest-bw = <600000>;
+			qcom,dest-bw = <1000000>;
 		};
 
 		rule1 {
@@ -34,7 +34,7 @@
 			qcom,thresh = <5337600>;
 			qcom,mode = <THROTTLE_ON>;
 			qcom,dest-node = <&mas_apss>;
-			qcom,dest-bw = <1200000>;
+			qcom,dest-bw = <1400000>;
 		};
 
 		rule2 {
@@ -53,7 +53,7 @@
 			qcom,thresh = <2668800>;
 			qcom,mode = <THROTTLE_ON>;
 			qcom,dest-node = <&mas_gfx>;
-			qcom,dest-bw = <600000>;
+			qcom,dest-bw = <1000000>;
 		};
 
 		rule4 {
@@ -63,7 +63,7 @@
 			qcom,thresh = <5337600>;
 			qcom,mode = <THROTTLE_ON>;
 			qcom,dest-node = <&mas_gfx>;
-			qcom,dest-bw = <1200000>;
+			qcom,dest-bw = <2000000>;
 		};
 
 		rule5 {
