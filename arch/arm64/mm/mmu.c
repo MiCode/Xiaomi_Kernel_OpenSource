@@ -263,9 +263,9 @@ static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 	} while (pte++, addr += PAGE_SIZE, addr != end);
 }
 
-static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
-				  unsigned long end, phys_addr_t phys,
-				  int map_io, bool pages)
+static void __init alloc_init_pmd(struct mm_struct *mm, pud_t *pud,
+				  unsigned long addr, unsigned long end,
+				  phys_addr_t phys, int map_io, bool pages)
 {
 	pmd_t *pmd;
 	unsigned long next;
@@ -285,7 +285,7 @@ static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
 	 */
 	if (pud_none(*pud) || pud_bad(*pud)) {
 		pmd = early_alloc(PTRS_PER_PMD * sizeof(pmd_t));
-		pud_populate(&init_mm, pud, pmd);
+		pud_populate(mm, pud, pmd);
 	}
 
 	pmd = pmd_offset(pud, addr);
@@ -309,16 +309,16 @@ static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
 	} while (pmd++, addr = next, addr != end);
 }
 
-static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
-				  unsigned long end, phys_addr_t phys,
-				  int map_io, bool force_pages)
+static void __init alloc_init_pud(struct mm_struct *mm, pgd_t *pgd,
+				  unsigned long addr, unsigned long end,
+				  phys_addr_t phys, int map_io, bool force_pages)
 {
 	pud_t *pud;
 	unsigned long next;
 
 	if (pgd_none(*pgd)) {
 		pud = early_alloc(PTRS_PER_PUD * sizeof(pud_t));
-		pgd_populate(&init_mm, pgd, pud);
+		pgd_populate(mm, pgd, pud);
 	}
 	BUG_ON(pgd_bad(*pgd));
 
@@ -348,7 +348,7 @@ static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
 				flush_tlb_all();
 			}
 		} else {
-			alloc_init_pmd(pud, addr, next, phys, map_io, force_pages);
+			alloc_init_pmd(mm, pud, addr, next, phys, map_io, force_pages);
 		}
 		phys += next - addr;
 	} while (pud++, addr = next, addr != end);
@@ -358,9 +358,10 @@ static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
  * Create the page directory entries and any necessary page tables for the
  * mapping specified by 'md'.
  */
-static void __init __create_mapping(pgd_t *pgd, phys_addr_t phys,
-				    unsigned long virt, phys_addr_t size,
-				    int map_io, bool force_pages)
+
+static void __init __create_mapping(struct mm_struct *mm, pgd_t *pgd,
+				    phys_addr_t phys, unsigned long virt,
+				    phys_addr_t size, int map_io, bool force_pages)
 {
 	unsigned long addr, length, end, next;
 
@@ -370,7 +371,7 @@ static void __init __create_mapping(pgd_t *pgd, phys_addr_t phys,
 	end = addr + length;
 	do {
 		next = pgd_addr_end(addr, end);
-		alloc_init_pud(pgd, addr, next, phys, map_io, force_pages);
+		alloc_init_pud(mm, pgd, addr, next, phys, map_io, force_pages);
 		phys += next - addr;
 	} while (pgd++, addr = next, addr != end);
 }
@@ -383,7 +384,8 @@ static void __init create_mapping(phys_addr_t phys, unsigned long virt,
 			&phys, virt);
 		return;
 	}
-	__create_mapping(pgd_offset_k(virt & PAGE_MASK), phys, virt, size, 0, force_pages);
+	__create_mapping(&init_mm, pgd_offset_k(virt & PAGE_MASK), phys, virt,
+			 size, 0, force_pages);
 }
 
 static inline pmd_t *pmd_off_k(unsigned long virt)
@@ -451,7 +453,7 @@ void __init create_id_mapping(phys_addr_t addr, phys_addr_t size, int map_io)
 		pr_warn("BUG: not creating id mapping for %pa\n", &addr);
 		return;
 	}
-	__create_mapping(&idmap_pg_dir[pgd_index(addr)],
+	__create_mapping(&init_mm, &idmap_pg_dir[pgd_index(addr)],
 			 addr, addr, size, map_io, false);
 }
 
