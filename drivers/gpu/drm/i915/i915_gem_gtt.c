@@ -40,8 +40,6 @@ static int sanitize_enable_ppgtt(struct drm_device *dev, int enable_ppgtt)
 
 	has_aliasing_ppgtt = INTEL_INFO(dev)->gen >= 6;
 	has_full_ppgtt = INTEL_INFO(dev)->gen >= 7;
-	if (IS_GEN8(dev))
-		has_full_ppgtt = false; /* XXX why? */
 
 	if (enable_ppgtt == 0 || !has_aliasing_ppgtt)
 		return 0;
