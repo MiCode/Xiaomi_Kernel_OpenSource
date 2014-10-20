@@ -23,6 +23,10 @@
 #include <linux/delay.h>
 #include <linux/leds-qpnp-wled.h>
 
+#define QPNP_IRQ_FLAGS	(IRQF_TRIGGER_RISING | \
+			IRQF_TRIGGER_FALLING | \
+			IRQF_ONESHOT)
+
 /* base addresses */
 #define QPNP_WLED_CTRL_BASE		"qpnp-wled-ctrl-base"
 #define QPNP_WLED_SINK_BASE		"qpnp-wled-sink-base"
@@ -152,6 +156,7 @@
 #define QPNP_WLED_TRIGGER_NONE		"none"
 #define QPNP_WLED_STR_SIZE		20
 #define QPNP_WLED_MIN_MSLEEP		20
+#define QPNP_WLED_SC_DLY_MS		20
 
 /* output feedback mode */
 enum qpnp_wled_fdbk_op {
@@ -242,6 +247,9 @@ struct qpnp_wled {
 	enum qpnp_wled_fdbk_op fdbk_op;
 	enum qpnp_wled_dim_mode dim_mode;
 	enum qpnp_wled_dim_shape dim_shape;
+	int ovp_irq;
+	int sc_irq;
+	u32 sc_cnt;
 	u16 ctrl_base;
 	u16 sink_base;
 	u16 ibb_base;
@@ -867,6 +875,32 @@ static int qpnp_wled_mod_rdy(struct qpnp_wled *wled, u16 base_addr, bool state)
 	return 0;
 }
 
+/* ovp irq handler */
+static irqreturn_t qpnp_wled_ovp_irq(int irq, void *_wled)
+{
+	struct qpnp_wled *wled = _wled;
+
+	dev_dbg(&wled->spmi->dev, "ovp detected\n");
+
+	return IRQ_HANDLED;
+}
+
+
+/* short circuit irq handler */
+static irqreturn_t qpnp_wled_sc_irq(int irq, void *_wled)
+{
+	struct qpnp_wled *wled = _wled;
+
+	dev_err(&wled->spmi->dev,
+			"Short circuit detected %d times\n", ++wled->sc_cnt);
+
+	qpnp_wled_module_en(wled, wled->ctrl_base, false);
+	msleep(QPNP_WLED_SC_DLY_MS);
+	qpnp_wled_module_en(wled, wled->ctrl_base, true);
+
+	return IRQ_HANDLED;
+}
+
 /* Configure WLED registers */
 static int qpnp_wled_config(struct qpnp_wled *wled)
 {
@@ -1190,6 +1224,34 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc < 0)
 		return rc;
 
+	/* setup ovp and sc irqs */
+	if (wled->ovp_irq >= 0) {
+		rc = devm_request_threaded_irq(&wled->spmi->dev, wled->ovp_irq,
+			NULL, qpnp_wled_ovp_irq,
+			QPNP_IRQ_FLAGS,
+			"qpnp_wled_ovp_irq", wled);
+		if (rc < 0) {
+			dev_err(&wled->spmi->dev,
+				"Unable to request ovp(%d) IRQ(err:%d)\n",
+				wled->ovp_irq, rc);
+			return rc;
+		}
+	}
+
+	if (wled->sc_irq >= 0) {
+		wled->sc_cnt = 0;
+		rc = devm_request_threaded_irq(&wled->spmi->dev, wled->sc_irq,
+			NULL, qpnp_wled_sc_irq,
+			QPNP_IRQ_FLAGS,
+			"qpnp_wled_sc_irq", wled);
+		if (rc < 0) {
+			dev_err(&wled->spmi->dev,
+				"Unable to request sc(%d) IRQ(err:%d)\n",
+				wled->sc_irq, rc);
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -1396,6 +1458,15 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 
 	wled->lab_fast_precharge = of_property_read_bool(spmi->dev.of_node,
 				"qcom,lab-fast-precharge");
+
+	wled->ovp_irq = spmi_get_irq_byname(spmi, NULL, "ovp-irq");
+	if (wled->ovp_irq < 0)
+		dev_dbg(&spmi->dev, "ovp irq is not used\n");
+
+	wled->sc_irq = spmi_get_irq_byname(spmi, NULL, "sc-irq");
+	if (wled->sc_irq < 0)
+		dev_dbg(&spmi->dev, "sc irq is not used\n");
+
 	return 0;
 }
 
