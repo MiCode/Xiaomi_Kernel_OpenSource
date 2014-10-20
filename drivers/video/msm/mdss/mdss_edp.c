@@ -1121,6 +1121,7 @@ static int mdss_edp_probe(struct platform_device *pdev)
 		pr_err("Failed to get mdss utility functions\n");
 		return -ENODEV;
 	}
+	edp_drv->panel_data.panel_info.is_prim_panel = true;
 
 	mdss_edp_hw.irq_info = mdss_intr_line();
 	if (mdss_edp_hw.irq_info == NULL) {

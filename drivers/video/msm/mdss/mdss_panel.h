@@ -396,6 +396,8 @@ struct mdss_panel_info {
 	bool is_lpm_mode;
 	bool is_split_display;
 
+	bool is_prim_panel;
+
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
 
