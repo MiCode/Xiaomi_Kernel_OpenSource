@@ -99,6 +99,27 @@ Optional properties
 			in targets where the kernel topology module is not present.
 			In the older kernel version, where the kernel topology module is
 			not available, KTM gets the mapping information from this property.
+- qcom,disable-vdd-mx:  If this property is defined, the feature VDD MX
+			restriction will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-vdd-rstr: If this property is defined, the feature VDD
+			restriction will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-sensor-info: If this property is defined, the feature sensor
+			alias info will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-ocr:     If this property is defined, the feature optimum current
+			request will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-psm:     If this property is defined, the feature PMIC software
+			mode will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-gfx-phase-ctrl: If this property is defined, the feature graphics
+			phase control will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-cx-phase-ctrl: If this property is defined, the feature
+			cx phase control will be disabled. All other properties
+			corresponding to this feature will be ignored.
 
 Optional child nodes
 - qcom,pmic-opt-curr-temp: Threshold temperature for requesting optimum current (request
