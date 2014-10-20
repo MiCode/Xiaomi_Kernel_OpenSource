@@ -1507,8 +1507,8 @@ static void silabs_af_tune(struct work_struct *work)
 	}
 
 
-	/* Disable all other interrupts except STC */
-	retval = configure_interrupts(radio, ENABLE_STC_INTERRUPTS);
+	/* Disable all other interrupts except STC, RDS */
+	retval = configure_interrupts(radio, ENABLE_STC_RDS_INTERRUPTS);
 
 	/* Mute until AF tuning finishes */
 	retval = set_hard_mute(radio, true);
@@ -1584,13 +1584,32 @@ static void silabs_af_tune(struct work_struct *work)
 		}
 
 		if (rssi >= radio->af_rssi_th) {
-			FMDBG("%s: found AF freq(%u) >= AF threshold\n",
-				__func__, freq);
+			u8 j = 0;
+			/* clear stale RDS interrupt */
+			get_rds_status(radio);
+			for (; j < AF_PI_WAIT_TIME && radio->pi == 0; j++) {
+				/* Wait for PI to be received. */
+				msleep(100);
+				FMDBG("%s: sleeping for 100ms for PI\n",
+					__func__);
+			}
+
+			if (radio->pi == 0 || radio->pi != radio->af_info2.pi) {
+				FMDBG("%s: pi %d, af freq pi %d not equal\n",
+				__func__, radio->pi, radio->af_info2.pi);
+				continue;
+			}
+
+			FMDBG("%s: found AF freq(%u) >= AF th with pi %d\n",
+				__func__, freq, radio->pi);
 			/* Notify FM UI about the new freq */
 			FMDBG("%s: posting TUNE_SUCC event\n", __func__);
 			silabs_fm_q_event(radio, SILABS_EVT_TUNE_SUCC);
 
 			break;
+		} else {
+			FMDBG("%s: rssi: %u, af_rssi_th: %u not eq contnuing\n",
+				__func__, rssi, radio->af_rssi_th);
 		}
 	}
 
@@ -1807,6 +1826,7 @@ static int get_int_status(struct silabs_fm_device *radio)
 
 static void reset_rds(struct silabs_fm_device *radio)
 {
+	radio->pi = 0;
 	/* reset PS bufferes */
 	memset(radio->ps_display, 0, sizeof(radio->ps_display));
 	memset(radio->ps_tmp0, 0, sizeof(radio->ps_tmp0));
@@ -2267,9 +2287,8 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 	if (radio->read_buf[0] & RSQ_INT_BIT_MASK) {
 		FMDBG("RSQ interrupt received, clearing the RSQ int bit\n");
 
-		/* clear RSQ, RDS interrupt bits until AF tune is complete. */
+		/* clear RSQ interrupt bits until AF tune is complete. */
 		(void)get_rssi(radio, &rssi);
-		(void)get_rds_status(radio);
 		/* Don't process RSQ until AF tune is complete. */
 		if (radio->is_af_tune_in_progress == true)
 			return;
@@ -2291,8 +2310,9 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 		FMDBG("RDS interrupt received\n");
 		/* Don't process RDS until AF tune is complete. */
 		if (radio->is_af_tune_in_progress == true) {
-			/* clear RDS int bit and return */
+			/* get PI only */
 			get_rds_status(radio);
+			pi_handler(radio, radio->block[0]);
 			return;
 		}
 		schedule_work(&radio->rds_worker);
