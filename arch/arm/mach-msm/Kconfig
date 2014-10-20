@@ -91,6 +91,8 @@ config ARCH_MSM8909
 	select USE_PINCTRL_IRQ
 	select MSM_PM if PM
 	select MSM_RPM_SMD
+	select MSM_RPM_STATS_LOG
+	select MSM_RPM_LOG
 	select CPU_FREQ
 	select MSM_CORTEX_A7
 	select MSM_IRQ
