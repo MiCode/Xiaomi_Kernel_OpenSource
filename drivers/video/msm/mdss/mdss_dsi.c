@@ -516,6 +516,7 @@ static int mdss_dsi_get_panel_cfg(char *panel_cfg,
 
 	pr_debug("%s:%d: cfg:[%s]\n", __func__, __LINE__,
 		 pan_cfg->arg_cfg);
+	ctrl->panel_data.panel_info.is_prim_panel = true;
 	rc = strlcpy(panel_cfg, pan_cfg->arg_cfg,
 		     sizeof(pan_cfg->arg_cfg));
 	return rc;

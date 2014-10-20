@@ -2,7 +2,7 @@
  * Core MDSS framebuffer driver.
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -518,13 +518,14 @@ static ssize_t mdss_fb_get_panel_info(struct device *dev,
 	ret = scnprintf(buf, PAGE_SIZE,
 			"pu_en=%d\nxstart=%d\nwalign=%d\nystart=%d\nhalign=%d\n"
 			"min_w=%d\nmin_h=%d\nroi_merge=%d\ndyn_fps_en=%d\n"
-			"min_fps=%d\nmax_fps=%d\npanel_name=%s\n",
+			"min_fps=%d\nmax_fps=%d\npanel_name=%s\n"
+			"primary_panel=%d\n",
 			pinfo->partial_update_enabled, pinfo->xstart_pix_align,
 			pinfo->width_pix_align, pinfo->ystart_pix_align,
 			pinfo->height_pix_align, pinfo->min_width,
 			pinfo->min_height, pinfo->partial_update_roi_merge,
 			pinfo->dynamic_fps, pinfo->min_fps, pinfo->max_fps,
-			pinfo->panel_name);
+			pinfo->panel_name, pinfo->is_prim_panel);
 
 	return ret;
 }
