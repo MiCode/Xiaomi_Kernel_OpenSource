@@ -94,6 +94,7 @@ struct smbchg_chip {
 	bool				charge_unknown_battery;
 	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
+	struct delayed_work		parallel_en_work;
 
 	/* flash current prediction */
 	int				rpara_uohm;
@@ -102,6 +103,7 @@ struct smbchg_chip {
 	/* status variables */
 	int				usb_suspended;
 	int				dc_suspended;
+	int				wake_reasons;
 	bool				usb_online;
 	bool				dc_present;
 	bool				usb_present;
@@ -162,6 +164,7 @@ struct smbchg_chip {
 	struct mutex			usb_set_online_lock;
 	struct mutex			usb_en_lock;
 	struct mutex			dc_en_lock;
+	struct mutex			pm_lock;
 };
 
 enum print_reason {
@@ -169,6 +172,11 @@ enum print_reason {
 	PR_INTERRUPT = BIT(1),
 	PR_STATUS = BIT(2),
 	PR_DUMP = BIT(3),
+	PR_PM = BIT(4),
+};
+
+enum wake_reason {
+	PM_PARALLEL_CHECK = BIT(0),
 };
 
 static int smbchg_debug_mask;
@@ -341,6 +349,36 @@ static int smbchg_sec_masked_write(struct smbchg_chip *chip, u16 base, u8 mask,
 out:
 	spin_unlock_irqrestore(&chip->sec_access_lock, flags);
 	return rc;
+}
+
+static void smbchg_stay_awake(struct smbchg_chip *chip, int reason)
+{
+	int reasons;
+
+	mutex_lock(&chip->pm_lock);
+	reasons = chip->wake_reasons | reason;
+	if (reasons != 0 && chip->wake_reasons == 0) {
+		pr_smb(PR_PM, "staying awake: 0x%02x (bit %d)\n",
+				reasons, reason);
+		pm_stay_awake(chip->dev);
+	}
+	chip->wake_reasons = reasons;
+	mutex_unlock(&chip->pm_lock);
+}
+
+static void smbchg_relax(struct smbchg_chip *chip, int reason)
+{
+	int reasons;
+
+	mutex_lock(&chip->pm_lock);
+	reasons = chip->wake_reasons & (~reason);
+	if (reasons == 0 && chip->wake_reasons != 0) {
+		pr_smb(PR_PM, "relaxing: 0x%02x (bit %d)\n",
+				reasons, reason);
+		pm_relax(chip->dev);
+	}
+	chip->wake_reasons = reasons;
+	mutex_unlock(&chip->pm_lock);
 }
 
 #define RID_STS				0xB
@@ -1234,6 +1272,8 @@ static void smbchg_rerun_aicl(struct smbchg_chip *chip)
 {
 	smbchg_sec_masked_write(chip, chip->usb_chgpth_base + USB_AICL_CFG,
 			AICL_EN_BIT, 0);
+	/* Add a delay so that AICL successfully clears */
+	msleep(50);
 	smbchg_sec_masked_write(chip, chip->usb_chgpth_base + USB_AICL_CFG,
 			AICL_EN_BIT, AICL_EN_BIT);
 }
@@ -1325,8 +1365,10 @@ try_again:
 		goto done;
 	}
 	smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
-	if (reg & BAT_TAPER_MODE_BIT)
+	if (reg & BAT_TAPER_MODE_BIT) {
+		mutex_unlock(&chip->parallel.lock);
 		goto try_again;
+	}
 	taper_irq_en(chip, true);
 done:
 	mutex_unlock(&chip->parallel.lock);
@@ -1438,6 +1480,20 @@ disable_parallel:
 	}
 }
 
+static void smbchg_parallel_usb_en_work(struct work_struct *work)
+{
+	struct smbchg_chip *chip = container_of(work,
+				struct smbchg_chip,
+				parallel_en_work.work);
+
+	smbchg_relax(chip, PM_PARALLEL_CHECK);
+	mutex_lock(&chip->parallel.lock);
+	if (smbchg_is_parallel_usb_ok(chip))
+		smbchg_parallel_usb_enable(chip);
+	mutex_unlock(&chip->parallel.lock);
+}
+
+#define PARALLEL_CHARGER_EN_DELAY_MS	3500
 static void smbchg_parallel_usb_check_ok(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
@@ -1446,7 +1502,10 @@ static void smbchg_parallel_usb_check_ok(struct smbchg_chip *chip)
 		return;
 	mutex_lock(&chip->parallel.lock);
 	if (smbchg_is_parallel_usb_ok(chip)) {
-		smbchg_parallel_usb_enable(chip);
+		smbchg_stay_awake(chip, PM_PARALLEL_CHECK);
+		schedule_delayed_work(
+			&chip->parallel_en_work,
+			msecs_to_jiffies(PARALLEL_CHARGER_EN_DELAY_MS));
 	} else if (chip->parallel.current_max_ma != 0) {
 		pr_smb(PR_STATUS, "parallel charging unavailable\n");
 		smbchg_parallel_usb_disable(chip);
@@ -3113,7 +3172,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 			"parallel-usb-9v-min-current-ma", rc, 1);
 	OF_PROP_READ(chip, chip->parallel.allowed_lowering_ma,
 			"parallel-allowed-lowering-ma", rc, 1);
-	if (chip->parallel.min_current_thr_ma != -EINVAL)
+	if (chip->parallel.min_current_thr_ma != -EINVAL
+			&& chip->parallel.min_9v_current_thr_ma != -EINVAL)
 		chip->parallel.avail = true;
 	pr_smb(PR_STATUS, "parallel usb thr: %d, 9v thr: %d\n",
 			chip->parallel.min_current_thr_ma,
@@ -3483,6 +3543,8 @@ static int smbchg_probe(struct spmi_device *spmi)
 	}
 
 	INIT_WORK(&chip->usb_set_online_work, smbchg_usb_update_online_work);
+	INIT_DELAYED_WORK(&chip->parallel_en_work,
+			smbchg_parallel_usb_en_work);
 	chip->spmi = spmi;
 	chip->dev = &spmi->dev;
 	chip->usb_psy = usb_psy;
@@ -3497,6 +3559,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	mutex_init(&chip->dc_en_lock);
 	mutex_init(&chip->parallel.lock);
 	mutex_init(&chip->taper_irq_lock);
+	mutex_init(&chip->pm_lock);
 
 	rc = smbchg_parse_peripherals(chip);
 	if (rc) {
