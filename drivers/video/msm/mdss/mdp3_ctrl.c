@@ -590,6 +590,11 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	}
 
 	mdp3_enable_regulator(true);
+	rc = mdp3_footswitch_ctrl(1);
+	if (rc) {
+		pr_err("fail to enable mdp footswitch ctrl\n");
+		goto on_error;
+	}
 	mdp3_ctrl_notifier_register(mdp3_session,
 		&mdp3_session->mfd->mdp_sync_pt_data.notifier);
 
@@ -702,6 +707,7 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	mdp3_ctrl_notifier_unregister(mdp3_session,
 		&mdp3_session->mfd->mdp_sync_pt_data.notifier);
 	mdp3_enable_regulator(false);
+	mdp3_footswitch_ctrl(0);
 	mdp3_session->vsync_enabled = 0;
 	atomic_set(&mdp3_session->vsync_countdown, 0);
 	atomic_set(&mdp3_session->dma_done_cnt, 0);
