@@ -505,20 +505,6 @@ static void __init dma_contiguous_remap(void)
 			       dma_mmu_remap[i].size);
 }
 
-void __init create_id_mapping(phys_addr_t addr, phys_addr_t size, int map_io)
-{
-	if ((addr >> PGDIR_SHIFT) >= ARRAY_SIZE(idmap_pg_dir)) {
-		pr_warn("BUG: not creating id mapping for %pa\n", &addr);
-		return;
-	}
-	__create_mapping(&init_mm, &idmap_pg_dir[pgd_index(addr)],
-			 addr, addr, size,
-			 map_io ? __pgprot(PROT_DEVICE_nGnRE)
-				: PAGE_KERNEL_EXEC,
-			 early_alloc,
-			 false);
-}
-
 void __init create_pgd_mapping(struct mm_struct *mm, phys_addr_t phys,
 			       unsigned long virt, phys_addr_t size,
 			       pgprot_t prot)
