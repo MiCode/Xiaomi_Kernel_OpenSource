@@ -82,8 +82,10 @@ static void dock_detected_work(struct work_struct *w)
 
 	if (docked) {
 		/* assert RESETs before turning on power */
-		gpio_direction_output(dock->dock_hub_reset, 1);
-		gpio_direction_output(dock->dock_eth_reset, 1);
+		if (dock->dock_hub_reset >= 0)
+			gpio_direction_output(dock->dock_hub_reset, 1);
+		if (dock->dock_eth_reset >= 0)
+			gpio_direction_output(dock->dock_eth_reset, 1);
 
 		if (device_attach(&dock->usb3_pdev->dev) != 1) {
 			dev_err(dock->dev, "Could not add USB driver 0x%p\n",
@@ -95,8 +97,10 @@ static void dock_detected_work(struct work_struct *w)
 			gpio_direction_output(dock->dock_enable, 1);
 
 		msleep(20); /* short delay before de-asserting RESETs */
-		gpio_direction_output(dock->dock_hub_reset, 0);
-		gpio_direction_output(dock->dock_eth_reset, 0);
+		if (dock->dock_hub_reset >= 0)
+			gpio_direction_output(dock->dock_hub_reset, 0);
+		if (dock->dock_eth_reset >= 0)
+			gpio_direction_output(dock->dock_eth_reset, 0);
 	} else {
 		device_release_driver(&dock->usb3_pdev->dev);
 	}
@@ -153,25 +157,25 @@ static int liquid_dock_probe(struct platform_device *pdev)
 						 "qcom,dock-hub-reset-gpio", 0);
 	if (dock->dock_hub_reset < 0) {
 		dev_err(dock->dev, "unable to get dock-hub-reset-gpio\n");
-		return dock->dock_hub_reset;
+	} else {
+	    ret = devm_gpio_request(dock->dev, dock->dock_hub_reset,
+				    "dock_hub_reset");
+	    if (ret)
+			return ret;
 	}
-
-	ret = devm_gpio_request(dock->dev, dock->dock_hub_reset,
-				"dock_hub_reset");
-	if (ret)
-		return ret;
 
 	dock->dock_eth_reset = of_get_named_gpio(node,
 						 "qcom,dock-eth-reset-gpio", 0);
 	if (dock->dock_eth_reset < 0) {
 		dev_err(dock->dev, "unable to get dock-eth-reset-gpio\n");
-		return dock->dock_eth_reset;
+	} else {
+	    ret = devm_gpio_request(dock->dev, dock->dock_eth_reset,
+				    "dock_eth_reset");
+	    if (ret)
+			return ret;
 	}
 
-	ret = devm_gpio_request(dock->dev, dock->dock_eth_reset,
-				"dock_eth_reset");
-	if (ret)
-		return ret;
+
 
 	dock->dock_enable = of_get_named_gpio(node, "qcom,dock-enable-gpio", 0);
 	if (dock->dock_enable < 0) { /* optional */
