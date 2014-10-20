@@ -47,7 +47,8 @@
 #define PLAT_CLK_FORCE_ON	1
 #define PLAT_CLK_FORCE_OFF	2
 
-#define BYT_T_JACK_RECHECK	1500 /* ms */
+#define BYT_T_JACK_RECHECK	300 /* ms */
+#define BYT_N_JACK_RECHECK	5
 #define BYT_T_BUTTONS_RECHECK	25 /* ms */
 
 enum {
@@ -74,6 +75,7 @@ struct byt_drvdata {
 	struct delayed_work hs_buttons_recheck;
 	int t_jack_recheck;
 	int t_buttons_recheck;
+	int jack_hp_count;
 	struct mutex jack_mlock;
 	struct rt5640_gpios gpios;
 };
@@ -219,39 +221,31 @@ static int byt_hs_jack_check(struct byt_drvdata *drvdata, bool is_recheck)
 		if (!(jack->status & SND_JACK_HEADPHONE)) {
 			status = rt5640_detect_hs_type(codec, true);
 			if (status == RT5640_HEADPHO_DET) {
-				if (!is_recheck) {
-					pr_debug("%s: Headphones detected (preliminary).\n",
-						__func__);
-					jack->status |= SND_JACK_HEADPHONE;
+				if (drvdata->jack_hp_count > 0) {
+					pr_debug("%s: Headphones detected (preliminary, %d).\n",
+						__func__,
+						drvdata->jack_hp_count);
+					drvdata->jack_hp_count--;
 					schedule_delayed_work(
 						&drvdata->hs_jack_recheck,
 						drvdata->t_jack_recheck);
-				} else
-					BUG_ON(true);
+				} else {
+					pr_info("%s: Headphones present.\n",
+						__func__);
+					jack->status |= SND_JACK_HEADPHONE;
+					drvdata->jack_hp_count =
+						BYT_N_JACK_RECHECK;
+				}
 			} else if (status == RT5640_HEADSET_DET) {
 				pr_info("%s: Headset present.\n", __func__);
 				byt_set_mic_bias_ldo(codec, true,
 					&drvdata->jack_mlock);
 				jack->status |= SND_JACK_HEADSET;
+				drvdata->jack_hp_count = BYT_N_JACK_RECHECK;
 			} else
 				pr_warn("%s: No valid accessory present!\n",
 					__func__);
-		} else if (!(jack->status & SND_JACK_MICROPHONE)) {
-			status = rt5640_detect_hs_type(codec, true);
-			if (status == RT5640_HEADPHO_DET) {
-				pr_info("%s: Headphones present.\n", __func__);
-			} else if (status == RT5640_HEADSET_DET) {
-				pr_info("%s: Headset present (changed from Headphone).\n",
-					__func__);
-				byt_set_mic_bias_ldo(codec, true,
-					&drvdata->jack_mlock);
-				jack->status |= SND_JACK_HEADSET;
-			} else
-				pr_warn("%s: No valid accessory present!\n",
-					__func__);
-		} else
-			pr_warn("%s: Insert-interrupt while Headset present!\n",
-					__func__);
+		}
 	} else {
 		if (jack->status & SND_JACK_HEADPHONE) {
 			if (jack->status & SND_JACK_MICROPHONE) {
@@ -667,6 +661,7 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	INIT_DELAYED_WORK(&drvdata->hs_jack_recheck, byt_hs_jack_recheck);
 	drvdata->t_buttons_recheck = msecs_to_jiffies(BYT_T_BUTTONS_RECHECK);
 	INIT_DELAYED_WORK(&drvdata->hs_buttons_recheck, byt_hs_buttons_recheck);
+	drvdata->jack_hp_count = 5;
 
 	ret = snd_soc_jack_new(codec, "BYT-CR Audio Jack",
 			SND_JACK_HEADSET | SND_JACK_BTN_0,
