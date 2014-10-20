@@ -202,7 +202,7 @@ static void __iomem *virt_bases[N_BASES];
 #define GFX3D_CMD_RCGR					0x59000
 #define OXILI_GFX3D_CBCR				0x59020
 #define OXILI_AHB_CBCR					0x59028
-#define CAMSS_AHB_CMD_RCGR				0x5A000
+#define CAMSS_TOP_AHB_CMD_RCGR				0x5A000
 #define BIMC_GFX_CBCR					0x31024
 #define BIMC_GPU_CBCR					0x31040
 
@@ -439,7 +439,7 @@ static struct pll_vote_clk gpll2_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_apss_ahb_clk[] = {
-	F( 19200000,	xo,	1,	0,	0),
+	F( 19200000,	xo_a,	1,	0,	0),
 	F( 50000000,	gpll0,	16,	0,	0),
 	F( 100000000,	gpll0,	8,	0,	0),
 	F_END
@@ -455,6 +455,26 @@ static struct rcg_clk apss_ahb_clk_src = {
 		.dbg_name = "apss_ahb_clk_src",
 		.ops = &clk_ops_rcg,
 		CLK_INIT(apss_ahb_clk_src.c),
+	},
+};
+
+static struct clk_freq_tbl ftbl_gcc_camss_top_ahb_clk[] = {
+	F(  40000000,	   gpll0,  10,	  1,	2),
+	F(  80000000,	   gpll0,  10,	  0,	0),
+	F_END
+};
+
+static struct rcg_clk camss_top_ahb_clk_src = {
+	.cmd_rcgr_reg = CAMSS_TOP_AHB_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.freq_tbl = ftbl_gcc_camss_top_ahb_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "camss_top_ahb_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+		VDD_DIG_FMAX_MAP2(LOW, 40000000, NOMINAL, 80000000),
+		CLK_INIT(camss_top_ahb_clk_src.c),
 	},
 };
 
@@ -1349,6 +1369,7 @@ static struct branch_clk gcc_camss_csi0_ahb_clk = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_csi0_ahb_clk",
+		.parent = &camss_top_ahb_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_camss_csi0_ahb_clk.c),
 	},
@@ -1356,7 +1377,7 @@ static struct branch_clk gcc_camss_csi0_ahb_clk = {
 
 static struct branch_clk gcc_camss_csi0_clk = {
 	.cbcr_reg = CAMSS_CSI0_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_csi0_clk",
@@ -1408,6 +1429,7 @@ static struct branch_clk gcc_camss_csi1_ahb_clk = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_csi1_ahb_clk",
+		.parent = &camss_top_ahb_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_camss_csi1_ahb_clk.c),
 	},
@@ -1499,10 +1521,11 @@ static struct branch_clk gcc_camss_gp1_clk = {
 
 static struct branch_clk gcc_camss_ispif_ahb_clk = {
 	.cbcr_reg = CAMSS_ISPIF_AHB_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_ispif_ahb_clk",
+		.parent = &camss_top_ahb_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_camss_ispif_ahb_clk.c),
 	},
@@ -1561,6 +1584,7 @@ static struct branch_clk gcc_camss_top_ahb_clk = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_top_ahb_clk",
+		.parent = &camss_top_ahb_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_camss_top_ahb_clk.c),
 	},
@@ -1584,6 +1608,7 @@ static struct branch_clk gcc_camss_vfe_ahb_clk = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_vfe_ahb_clk",
+		.parent = &camss_top_ahb_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_camss_vfe_ahb_clk.c),
 	},
@@ -2341,6 +2366,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 
 	/* RCGs */
 	CLK_LIST(apss_ahb_clk_src),
+	CLK_LIST(camss_top_ahb_clk_src),
 	CLK_LIST(csi0_clk_src),
 	CLK_LIST(csi1_clk_src),
 	CLK_LIST(vfe0_clk_src),
