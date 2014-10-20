@@ -3643,10 +3643,12 @@ static int s3c_hsotg_suspend(struct platform_device *pdev, pm_message_t state)
 			 hsotg->driver->driver.name);
 
 	spin_lock_irqsave(&hsotg->lock, flags);
+	s3c_hsotg_core_disconnect(hsotg);
 	s3c_hsotg_disconnect(hsotg);
-	s3c_hsotg_phy_disable(hsotg);
 	hsotg->gadget.speed = USB_SPEED_UNKNOWN;
 	spin_unlock_irqrestore(&hsotg->lock, flags);
+
+	s3c_hsotg_phy_disable(hsotg);
 
 	if (hsotg->driver) {
 		int ep;
@@ -3676,8 +3678,9 @@ static int s3c_hsotg_resume(struct platform_device *pdev)
 				      hsotg->supplies);
 	}
 
-	spin_lock_irqsave(&hsotg->lock, flags);
 	s3c_hsotg_phy_enable(hsotg);
+
+	spin_lock_irqsave(&hsotg->lock, flags);
 	s3c_hsotg_core_init_disconnected(hsotg);
 	s3c_hsotg_core_connect(hsotg);
 	spin_unlock_irqrestore(&hsotg->lock, flags);
