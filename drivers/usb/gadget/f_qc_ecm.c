@@ -652,8 +652,17 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			 * we can disconnect the port from the network layer.
 			 */
 			ecm_qc_bam_disconnect(ecm);
-			if (ecm->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
+			if (ecm->xport != USB_GADGET_XPORT_BAM2BAM_IPA) {
 				gether_qc_disconnect_name(&ecm->port, "ecm0");
+			} else if (alt == 1 && gadget_is_dwc3(cdev->gadget)) {
+				if (msm_ep_unconfig(ecm->port.in_ep) ||
+				    msm_ep_unconfig(ecm->port.out_ep)) {
+					pr_err("%s: ep_unconfig failed\n",
+						__func__);
+					goto fail;
+				}
+
+			}
 		}
 
 		if (!ecm->port.in_ep->desc ||
