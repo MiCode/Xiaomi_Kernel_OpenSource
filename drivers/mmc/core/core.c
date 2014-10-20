@@ -621,8 +621,10 @@ static bool mmc_should_stop_curr_req(struct mmc_host *host)
 	    (host->areq->cmd_flags & REQ_FUA))
 		return false;
 
+	mmc_host_clk_hold(host);
 	remainder = (host->ops->get_xfer_remain) ?
 		host->ops->get_xfer_remain(host) : -1;
+	mmc_host_clk_release(host);
 	return (remainder > 0);
 }
 
@@ -647,6 +649,7 @@ static int mmc_stop_request(struct mmc_host *host)
 				mmc_hostname(host));
 		return -ENOTSUPP;
 	}
+	mmc_host_clk_hold(host);
 	err = host->ops->stop_request(host);
 	if (err) {
 		pr_debug("%s: Call to host->ops->stop_request() failed (%d)\n",
@@ -681,6 +684,7 @@ static int mmc_stop_request(struct mmc_host *host)
 		goto out;
 	}
 out:
+	mmc_host_clk_release(host);
 	return err;
 }
 
