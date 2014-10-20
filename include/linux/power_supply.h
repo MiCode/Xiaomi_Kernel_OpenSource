@@ -220,6 +220,7 @@ enum power_supply_charger_cable_type {
 };
 
 enum power_supply_notifier_events {
+	PSY_EVENT_NONE,
 	PSY_EVENT_PROP_CHANGED,
 	PSY_BATTERY_EVENT,
 	PSY_CABLE_EVENT,
