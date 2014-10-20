@@ -84,6 +84,7 @@ struct smbchg_chip {
 	int				prechg_safety_time;
 	int				bmd_pin_src;
 	int				resume_soc_threshold;
+	bool				use_vfloat_adjustments;
 	bool				iterm_disabled;
 	bool				bmd_algo_disabled;
 	bool				soft_vfloat_comp_disabled;
@@ -91,6 +92,7 @@ struct smbchg_chip {
 	bool				low_icl_wa_on;
 	bool				battery_unknown;
 	bool				charge_unknown_battery;
+	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
 
 	/* flash current prediction */
@@ -153,6 +155,7 @@ struct smbchg_chip {
 	bool				psy_registered;
 
 	struct smbchg_regulator		otg_vreg;
+	struct smbchg_regulator		ext_otg_vreg;
 	struct work_struct		usb_set_online_work;
 	spinlock_t			sec_access_lock;
 	struct mutex			current_change_lock;
@@ -827,6 +830,11 @@ enum enable_reason {
 	 * temperature levels rise
 	 */
 	REASON_THERMAL = BIT(4),
+	/*
+	 * an external OTG supply is being used, suspend charge path so the
+	 * charger does not accidentally try to charge from the external supply.
+	 */
+	REASON_OTG = BIT(5),
 };
 
 static struct power_supply *get_parallel_psy(struct smbchg_chip *chip)
@@ -855,6 +863,18 @@ static void smbchg_usb_update_online_work(struct work_struct *work)
 		chip->usb_online = online;
 	}
 	mutex_unlock(&chip->usb_set_online_lock);
+}
+
+static bool smbchg_primary_usb_is_en(struct smbchg_chip *chip,
+		enum enable_reason reason)
+{
+	bool enabled;
+
+	mutex_lock(&chip->usb_en_lock);
+	enabled = (chip->usb_suspended & reason) == 0;
+	mutex_unlock(&chip->usb_en_lock);
+
+	return enabled;
 }
 
 static int smbchg_primary_usb_en(struct smbchg_chip *chip, bool enable,
@@ -1991,13 +2011,114 @@ struct regulator_ops smbchg_otg_reg_ops = {
 	.is_enabled	= smbchg_otg_regulator_is_enable,
 };
 
+#define USBIN_CHGR_CFG			0xF1
+#define USBIN_ADAPTER_9V		0x3
+#define HVDCP_EN_BIT			BIT(3)
+static int smbchg_external_otg_regulator_enable(struct regulator_dev *rdev)
+{
+	bool changed;
+	int rc = 0;
+	struct smbchg_chip *chip = rdev_get_drvdata(rdev);
+
+	rc = smbchg_primary_usb_en(chip, false, REASON_OTG, &changed);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't suspend charger rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smbchg_read(chip, &chip->original_usbin_allowance,
+			chip->usb_chgpth_base + USBIN_CHGR_CFG, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read usb allowance rc=%d\n", rc);
+		return rc;
+	}
+
+	/*
+	 * To disallow source detect and usbin_uv interrupts, set the adapter
+	 * allowance to 9V, so that the audio boost operating in reverse never
+	 * gets detected as a valid input
+	 */
+	rc = smbchg_sec_masked_write(chip,
+				chip->usb_chgpth_base + CHGPTH_CFG,
+				HVDCP_EN_BIT, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't disable HVDCP rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smbchg_sec_masked_write(chip,
+				chip->usb_chgpth_base + USBIN_CHGR_CFG,
+				0xFF, USBIN_ADAPTER_9V);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't write usb allowance rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_smb(PR_STATUS, "Enabling OTG Boost\n");
+	return rc;
+}
+
+static int smbchg_external_otg_regulator_disable(struct regulator_dev *rdev)
+{
+	bool changed;
+	int rc = 0;
+	struct smbchg_chip *chip = rdev_get_drvdata(rdev);
+
+	rc = smbchg_primary_usb_en(chip, true, REASON_OTG, &changed);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't unsuspend charger rc=%d\n", rc);
+		return rc;
+	}
+
+	/*
+	 * Reenable HVDCP and set the adapter allowance back to the original
+	 * value in order to allow normal USBs to be recognized as a valid
+	 * input.
+	 */
+	rc = smbchg_sec_masked_write(chip,
+				chip->usb_chgpth_base + CHGPTH_CFG,
+				HVDCP_EN_BIT, HVDCP_EN_BIT);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't enable HVDCP rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smbchg_sec_masked_write(chip,
+				chip->usb_chgpth_base + USBIN_CHGR_CFG,
+				0xFF, chip->original_usbin_allowance);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't write usb allowance rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_smb(PR_STATUS, "Disabling OTG Boost\n");
+	return rc;
+}
+
+static int smbchg_external_otg_regulator_is_enable(struct regulator_dev *rdev)
+{
+	struct smbchg_chip *chip = rdev_get_drvdata(rdev);
+
+	return !smbchg_primary_usb_is_en(chip, REASON_OTG);
+}
+
+struct regulator_ops smbchg_external_otg_reg_ops = {
+	.enable		= smbchg_external_otg_regulator_enable,
+	.disable	= smbchg_external_otg_regulator_disable,
+	.is_enabled	= smbchg_external_otg_regulator_is_enable,
+};
+
 static int smbchg_regulator_init(struct smbchg_chip *chip)
 {
 	int rc = 0;
 	struct regulator_init_data *init_data;
 	struct regulator_config cfg = {};
+	struct device_node *regulator_node;
 
-	init_data = of_get_regulator_init_data(chip->dev, chip->dev->of_node);
+	regulator_node = of_get_child_by_name(chip->dev->of_node,
+			"qcom,smbcharger-boost-otg");
+
+	init_data = of_get_regulator_init_data(chip->dev, regulator_node);
 	if (!init_data) {
 		dev_err(chip->dev, "Unable to allocate memory\n");
 		return -ENOMEM;
@@ -2012,7 +2133,7 @@ static int smbchg_regulator_init(struct smbchg_chip *chip)
 		cfg.dev = chip->dev;
 		cfg.init_data = init_data;
 		cfg.driver_data = chip;
-		cfg.of_node = chip->dev->of_node;
+		cfg.of_node = regulator_node;
 
 		init_data->constraints.valid_ops_mask
 			|= REGULATOR_CHANGE_STATUS;
@@ -2028,6 +2149,45 @@ static int smbchg_regulator_init(struct smbchg_chip *chip)
 		}
 	}
 
+	if (rc)
+		return rc;
+
+	regulator_node = of_get_child_by_name(chip->dev->of_node,
+			"qcom,smbcharger-external-otg");
+	init_data = of_get_regulator_init_data(chip->dev, regulator_node);
+	if (!init_data) {
+		dev_err(chip->dev, "Unable to allocate memory\n");
+		return -ENOMEM;
+	}
+
+	if (init_data->constraints.name) {
+		if (of_get_property(chip->dev->of_node,
+					"otg-parent-supply", NULL))
+			init_data->supply_regulator = "otg-parent";
+		chip->ext_otg_vreg.rdesc.owner = THIS_MODULE;
+		chip->ext_otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
+		chip->ext_otg_vreg.rdesc.ops = &smbchg_external_otg_reg_ops;
+		chip->ext_otg_vreg.rdesc.name = init_data->constraints.name;
+
+		cfg.dev = chip->dev;
+		cfg.init_data = init_data;
+		cfg.driver_data = chip;
+		cfg.of_node = regulator_node;
+
+		init_data->constraints.valid_ops_mask
+			|= REGULATOR_CHANGE_STATUS;
+
+		chip->ext_otg_vreg.rdev = regulator_register(
+					&chip->ext_otg_vreg.rdesc, &cfg);
+		if (IS_ERR(chip->ext_otg_vreg.rdev)) {
+			rc = PTR_ERR(chip->ext_otg_vreg.rdev);
+			chip->ext_otg_vreg.rdev = NULL;
+			if (rc != -EPROBE_DEFER)
+				dev_err(chip->dev,
+					"external OTG reg failed, rc=%d\n", rc);
+		}
+	}
+
 	return rc;
 }
 
@@ -2035,6 +2195,8 @@ static void smbchg_regulator_deinit(struct smbchg_chip *chip)
 {
 	if (chip->otg_vreg.rdev)
 		regulator_unregister(chip->otg_vreg.rdev);
+	if (chip->ext_otg_vreg.rdev)
+		regulator_unregister(chip->ext_otg_vreg.rdev);
 }
 
 #define REVISION1_REG			0x0
@@ -2873,6 +3035,11 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 		dev_err(chip->dev, "Couldn't set fastchg current = %d\n", rc);
 		return rc;
 	}
+
+	rc = smbchg_read(chip, &chip->original_usbin_allowance,
+			chip->usb_chgpth_base + USBIN_CHGR_CFG, 1);
+	if (rc < 0)
+		dev_err(chip->dev, "Couldn't read usb allowance rc=%d\n", rc);
 
 	return rc;
 }

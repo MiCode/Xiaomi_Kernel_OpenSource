@@ -769,4 +769,23 @@
 		enable-active-high;
 		gpio = <&pm8994_gpios 9 0>;
 	};
+
+	usb_otg_switch: usb-otg-switch {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_otg_vreg";
+		vin-supply = <&smbcharger_external_otg>;
+		enable-active-high;
+		gpio = <&pmi8994_gpios 5 0>;
+	};
+};
+
+&pmi8994_charger {
+	otg-parent-supply = <&pmi8994_boost_5v>;
+	smbcharger_charger_otg: qcom,smbcharger-boost-otg {
+		regulator-name = "smbcharger_charger_otg";
+	};
+
+	smbcharger_external_otg: qcom,smbcharger-external-otg {
+		regulator-name = "smbcharger_external_otg";
+	};
 };
