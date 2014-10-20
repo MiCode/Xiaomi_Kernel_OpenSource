@@ -26,7 +26,7 @@
 #include "mdss.h"
 
 #define MDP_VSYNC_CLK_RATE	19200000
-#define MDP_CORE_CLK_RATE	100000000
+#define MDP_CORE_CLK_RATE	307200000
 #define KOFF_TIMEOUT msecs_to_jiffies(84)
 
 enum  {
