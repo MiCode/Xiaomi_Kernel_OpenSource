@@ -13,6 +13,7 @@
 
 #include "msm8916-qrd.dtsi"
 #include "dsi-panel-nt35521-wxga-video.dtsi"
+#include "msm8916-camera-sensor-qrd-skui.dtsi"
 
 &soc {
 	sound {
