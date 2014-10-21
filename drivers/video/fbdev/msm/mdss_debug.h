@@ -39,6 +39,7 @@ enum mdss_dbg_reg_dump_flag {
 enum mdss_dbg_xlog_flag {
 	MDSS_XLOG_DEFAULT = BIT(0),
 	MDSS_XLOG_IOMMU = BIT(1),
+	MDSS_XLOG_DBG = BIT(6),
 	MDSS_XLOG_ALL = BIT(7)
 };
 
@@ -48,6 +49,9 @@ enum mdss_dbg_xlog_flag {
 #define MDSS_XLOG_TOUT_HANDLER(...)	\
 	mdss_xlog_tout_handler_default(__func__, ##__VA_ARGS__, \
 		XLOG_TOUT_DATA_LIMITER)
+
+#define MDSS_XLOG_DBG(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_DBG, \
+		##__VA_ARGS__, DATA_LIMITER)
 
 #define MDSS_XLOG_ALL(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_ALL,	\
 		##__VA_ARGS__, DATA_LIMITER)
