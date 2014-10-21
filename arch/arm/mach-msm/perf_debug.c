@@ -53,6 +53,7 @@ static char *descriptions =
 	"28 ARM: dts: msm: add perf-events support for msm8909\n"
 	"29 msm: perf: Refine disable/enable in tracecounters\n"
 	"30 Perf: reset pmu enables when starting perf\n"
+	"31 Perf: make debug dir handle exportable\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
