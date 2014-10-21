@@ -73,16 +73,10 @@ acpi_map_lookup_virt(void __iomem *virt, acpi_size size)
 	return NULL;
 }
 
-static void __iomem *
-acpi_map_vaddr_lookup(acpi_physical_address phys, unsigned int size)
+static inline void __iomem *
+acpi_map2virt(struct acpi_ioremap *map, acpi_physical_address phys)
 {
-	struct acpi_ioremap *map;
-
-	map = acpi_map_lookup_phys(phys, size);
-	if (map)
-		return map->virt + (phys - map->phys);
-
-	return NULL;
+	return map ? map->virt + (phys - map->phys) : NULL;
 }
 
 #ifndef CONFIG_IA64
@@ -128,17 +122,14 @@ static void acpi_map_cleanup(struct acpi_ioremap *map)
 void __iomem *acpi_os_get_iomem(acpi_physical_address phys, unsigned int size)
 {
 	struct acpi_ioremap *map;
-	void __iomem *virt = NULL;
 
 	mutex_lock(&acpi_ioremap_lock);
 	map = acpi_map_lookup_phys(phys, size);
-	if (map) {
-		virt = map->virt + (phys - map->phys);
+	if (map)
 		acpi_map_get(map);
-	}
 	mutex_unlock(&acpi_ioremap_lock);
 
-	return virt;
+	return acpi_map2virt(map, phys);
 }
 EXPORT_SYMBOL_GPL(acpi_os_get_iomem);
 
@@ -167,18 +158,16 @@ acpi_os_map_memory(acpi_physical_address phys, acpi_size size)
 	}
 
 	map = kzalloc(sizeof(*map), GFP_KERNEL);
-	if (!map) {
-		mutex_unlock(&acpi_ioremap_lock);
-		return NULL;
-	}
+	if (!map)
+		goto out;
 
 	pg_off = round_down(phys, PAGE_SIZE);
 	pg_sz = round_up(phys + size, PAGE_SIZE) - pg_off;
 	virt = acpi_map(pg_off, pg_sz);
 	if (!virt) {
-		mutex_unlock(&acpi_ioremap_lock);
 		kfree(map);
-		return NULL;
+		map = NULL;
+		goto out;
 	}
 
 	INIT_LIST_HEAD(&map->list);
@@ -189,7 +178,7 @@ acpi_os_map_memory(acpi_physical_address phys, acpi_size size)
 	list_add_tail_rcu(&map->list, &acpi_ioremaps);
 out:
 	mutex_unlock(&acpi_ioremap_lock);
-	return map->virt + (phys - map->phys);
+	return acpi_map2virt(map, phys);
 }
 EXPORT_SYMBOL_GPL(acpi_os_map_memory);
 
@@ -296,10 +285,13 @@ acpi_os_read_memory(acpi_physical_address phys_addr, u64 *value, u32 width)
 	unsigned int size = width / 8;
 	bool unmap = false;
 	u64 dummy;
+	struct acpi_ioremap *map;
 
 	rcu_read_lock();
-	virt_addr = acpi_map_vaddr_lookup(phys_addr, size);
-	if (!virt_addr) {
+	map = acpi_map_lookup_phys(phys_addr, size);
+	if (map)
+		virt_addr = acpi_map2virt(map, phys_addr);
+	else {
 		rcu_read_unlock();
 		virt_addr = acpi_os_ioremap(phys_addr, size);
 		if (!virt_addr)
@@ -341,10 +333,13 @@ acpi_os_write_memory(acpi_physical_address phys_addr, u64 value, u32 width)
 	void __iomem *virt_addr;
 	unsigned int size = width / 8;
 	bool unmap = false;
+	struct acpi_ioremap *map;
 
 	rcu_read_lock();
-	virt_addr = acpi_map_vaddr_lookup(phys_addr, size);
-	if (!virt_addr) {
+	map = acpi_map_lookup_phys(phys_addr, size);
+	if (map)
+		virt_addr = acpi_map2virt(map, phys_addr);
+	else {
 		rcu_read_unlock();
 		virt_addr = acpi_os_ioremap(phys_addr, size);
 		if (!virt_addr)
