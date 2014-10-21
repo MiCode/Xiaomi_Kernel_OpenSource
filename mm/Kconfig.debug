@@ -17,6 +17,16 @@ config DEBUG_PAGEALLOC
 	  that would result in incorrect warnings of memory corruption after
 	  a resume because free pages are not saved to the suspend image.
 
+config SLUB_DEBUG_PANIC_ON
+	bool "Enable to Panic on SLUB corruption detection"
+	depends on SLUB_DEBUG
+	help
+	  SLUB has a resiliency feature enabled which restores bytes in
+	  order for production environments to continue to operate. IN
+	  debug options this may not be desirable as it prevents from
+	  investigating the root cause which may be rooted within cache
+	  or memory.
+
 config WANT_PAGE_DEBUG_FLAGS
 	bool
 
