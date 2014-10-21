@@ -53,6 +53,7 @@
 #define QSERDES_COM_PLL_CP_SETI	0x034
 #define QSERDES_COM_PLL_IP_SETP	0x038
 #define QSERDES_COM_PLL_CP_SETP	0x03C
+#define QSERDES_COM_ATB_SEL2	0x044
 #define QSERDES_COM_SYSCLK_EN_SEL_TXBAND	0x048
 #define QSERDES_COM_RESETSM_CNTRL	0x04C
 #define QSERDES_COM_RESETSM_CNTRL2	0x050
@@ -129,6 +130,7 @@
 
 #define QSERDES_TX_RCV_DETECT_LVL	0x268
 
+#define QSERDES_TX_BYP_EN_OUT		0x228
 #define QSERDES_TX_BIST_STATUS	0x2B4
 #define QSERDES_TX_BIST_ERROR_COUNT1	0x2B8
 #define QSERDES_TX_BIST_ERROR_COUNT2	0x2BC
@@ -628,15 +630,36 @@ static inline void msm_pcie_write_reg_field(void *base, u32 offset,
 
 static void pcie_phy_dump(struct msm_pcie_dev_t *dev)
 {
-	int i;
-	int control_offset[2] = {0x60, 0x70};
+	int i, size;
+	int control_offset[6] = {0x60, 0x70, 0x80, 0xA0, 0xB0, 0xB0};
 
 	PCIE_DUMP(dev, "PCIe: RC%d PHY testbus\n", dev->rc_idx);
 
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < 6; i++) {
+		switch (i) {
+		case 3:
+			msm_pcie_write_reg(dev->phy,
+					QSERDES_COM_ATB_SEL2,
+					0x10);
+			break;
+		case 4:
+			msm_pcie_write_reg(dev->phy,
+					QSERDES_TX_BYP_EN_OUT,
+					0x10);
+			break;
+		case 5:
+			msm_pcie_write_reg(dev->phy,
+					QSERDES_TX_BYP_EN_OUT,
+					0x30);
+			break;
+		default:
+			break;
+		}
+
 		msm_pcie_write_reg(dev->phy,
 			PCIE_PHY_TEST_CONTROL,
 			control_offset[i]);
+
 		PCIE_DUMP(dev,
 			"PCIe: RC%d PCIE_PHY_TEST_CONTROL: 0x%x\n",
 			dev->rc_idx,
@@ -769,6 +792,21 @@ static void pcie_phy_dump(struct msm_pcie_dev_t *dev)
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_REVISION_ID2));
 	PCIE_DUMP(dev, "PCIe: RC%d PCIE_PHY_REVISION_ID3: 0x%x\n",
 	dev->rc_idx, readl_relaxed(dev->phy + PCIE_PHY_REVISION_ID3));
+
+	size = resource_size(dev->res[MSM_PCIE_RES_PHY].resource);
+	for (i = 0; i < size; i += 32) {
+		PCIE_DUMP(dev,
+			"PCIe PHY of RC%d: 0x%04x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+			dev->rc_idx, i,
+			readl_relaxed(dev->phy + i),
+			readl_relaxed(dev->phy + (i + 4)),
+			readl_relaxed(dev->phy + (i + 8)),
+			readl_relaxed(dev->phy + (i + 12)),
+			readl_relaxed(dev->phy + (i + 16)),
+			readl_relaxed(dev->phy + (i + 20)),
+			readl_relaxed(dev->phy + (i + 24)),
+			readl_relaxed(dev->phy + (i + 28)));
+	}
 }
 
 static void pcie_phy_init(struct msm_pcie_dev_t *dev)
