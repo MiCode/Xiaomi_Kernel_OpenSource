@@ -193,12 +193,10 @@ void __ref acpi_os_unmap_memory(void __iomem *virt, acpi_size size)
 
 	mutex_lock(&acpi_ioremap_lock);
 	map = acpi_map_lookup_virt(virt, size);
-	if (!map) {
-		mutex_unlock(&acpi_ioremap_lock);
+	if (map)
+		acpi_map_put(map);
+	else
 		WARN(true, PREFIX "%s: bad address %p\n", __func__, virt);
-		return;
-	}
-	acpi_map_put(map);
 	mutex_unlock(&acpi_ioremap_lock);
 
 	acpi_map_cleanup(map);
