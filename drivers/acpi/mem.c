@@ -32,15 +32,23 @@ struct acpi_ioremap {
 static LIST_HEAD(acpi_ioremaps);
 static DEFINE_MUTEX(acpi_ioremap_lock);
 
-static void acpi_os_drop_map_ref(struct acpi_ioremap *map)
+/*
+ * The following functions must be called with 'acpi_ioremap_lock' or RCU
+ * read lock held.
+ */
+static inline void acpi_map_get(struct acpi_ioremap *map)
+{
+	map->refcount++;
+}
+
+static inline void acpi_map_put(struct acpi_ioremap *map)
 {
 	if (!--map->refcount)
 		list_del_rcu(&map->list);
 }
 
-/* Must be called with 'acpi_ioremap_lock' or RCU read lock held. */
 static struct acpi_ioremap *
-acpi_map_lookup(acpi_physical_address phys, acpi_size size)
+acpi_map_lookup_phys(acpi_physical_address phys, acpi_size size)
 {
 	struct acpi_ioremap *map;
 
@@ -52,7 +60,6 @@ acpi_map_lookup(acpi_physical_address phys, acpi_size size)
 	return NULL;
 }
 
-/* Must be called with 'acpi_ioremap_lock' or RCU read lock held. */
 static struct acpi_ioremap *
 acpi_map_lookup_virt(void __iomem *virt, acpi_size size)
 {
@@ -66,13 +73,12 @@ acpi_map_lookup_virt(void __iomem *virt, acpi_size size)
 	return NULL;
 }
 
-/* Must be called with 'acpi_ioremap_lock' or RCU read lock held. */
 static void __iomem *
 acpi_map_vaddr_lookup(acpi_physical_address phys, unsigned int size)
 {
 	struct acpi_ioremap *map;
 
-	map = acpi_map_lookup(phys, size);
+	map = acpi_map_lookup_phys(phys, size);
 	if (map)
 		return map->virt + (phys - map->phys);
 
@@ -110,7 +116,7 @@ static void acpi_unmap(acpi_physical_address pg_off, void __iomem *vaddr)
 		iounmap(vaddr);
 }
 
-static void acpi_os_map_cleanup(struct acpi_ioremap *map)
+static void acpi_map_cleanup(struct acpi_ioremap *map)
 {
 	if (!map->refcount) {
 		synchronize_rcu();
@@ -125,10 +131,10 @@ void __iomem *acpi_os_get_iomem(acpi_physical_address phys, unsigned int size)
 	void __iomem *virt = NULL;
 
 	mutex_lock(&acpi_ioremap_lock);
-	map = acpi_map_lookup(phys, size);
+	map = acpi_map_lookup_phys(phys, size);
 	if (map) {
 		virt = map->virt + (phys - map->phys);
-		map->refcount++;
+		acpi_map_get(map);
 	}
 	mutex_unlock(&acpi_ioremap_lock);
 
@@ -154,9 +160,9 @@ acpi_os_map_memory(acpi_physical_address phys, acpi_size size)
 
 	mutex_lock(&acpi_ioremap_lock);
 	/* Check if there's a suitable mapping already. */
-	map = acpi_map_lookup(phys, size);
+	map = acpi_map_lookup_phys(phys, size);
 	if (map) {
-		map->refcount++;
+		acpi_map_get(map);
 		goto out;
 	}
 
@@ -203,10 +209,10 @@ void __ref acpi_os_unmap_memory(void __iomem *virt, acpi_size size)
 		WARN(true, PREFIX "%s: bad address %p\n", __func__, virt);
 		return;
 	}
-	acpi_os_drop_map_ref(map);
+	acpi_map_put(map);
 	mutex_unlock(&acpi_ioremap_lock);
 
-	acpi_os_map_cleanup(map);
+	acpi_map_cleanup(map);
 }
 EXPORT_SYMBOL_GPL(acpi_os_unmap_memory);
 
@@ -251,15 +257,15 @@ void acpi_os_unmap_generic_address(struct acpi_generic_address *gas)
 		return;
 
 	mutex_lock(&acpi_ioremap_lock);
-	map = acpi_map_lookup(addr, gas->bit_width / 8);
+	map = acpi_map_lookup_phys(addr, gas->bit_width / 8);
 	if (!map) {
 		mutex_unlock(&acpi_ioremap_lock);
 		return;
 	}
-	acpi_os_drop_map_ref(map);
+	acpi_map_put(map);
 	mutex_unlock(&acpi_ioremap_lock);
 
-	acpi_os_map_cleanup(map);
+	acpi_map_cleanup(map);
 }
 EXPORT_SYMBOL(acpi_os_unmap_generic_address);
 
