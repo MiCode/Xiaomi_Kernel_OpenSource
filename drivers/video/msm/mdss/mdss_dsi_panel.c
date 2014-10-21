@@ -935,6 +935,9 @@ static int mdss_dsi_parse_fbc_params(struct device_node *np,
 				"qcom,mdss-dsi-fbc-2d-pred-mode");
 		panel_info->fbc.enc_mode = of_property_read_bool(np,
 				"qcom,mdss-dsi-fbc-ver2-mode");
+		rc = of_property_read_u32(np,
+				"qcom,mdss-dsi-fbc-max-pred-err", &tmp);
+		panel_info->fbc.max_pred_err = (!rc ? tmp : 0);
 	} else {
 		pr_debug("%s:%d Panel does not support FBC.\n",
 				__func__, __LINE__);
