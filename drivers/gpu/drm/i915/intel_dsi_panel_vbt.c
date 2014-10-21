@@ -48,6 +48,11 @@
 #define CLK_ZERO_CNT_MAX	0xFF
 #define TRAIL_CNT_MAX		0x1F
 
+#define LP_HDR_FOOT_SIZE	6
+#define BW_LP_NUM_OF_PKT	16
+#define BW_LP_LOAD_SIZE		252
+#define EXTRA_ONE_BYTE		1
+
 #define NS_KHZ_RATIO 1000000
 
 struct gpio_table {
@@ -722,7 +727,6 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	intel_dsi->turn_arnd_val = mipi_config->turn_around_timeout;
 	intel_dsi->rst_timer_val = mipi_config->device_reset_timer;
 	intel_dsi->init_count = mipi_config->master_init_timer;
-	intel_dsi->bw_timer = mipi_config->dbi_bw_timer;
 	intel_dsi->video_frmt_cfg_bits = mipi_config->bta_enabled ? DISABLE_VIDEO_BTA : 0;
 
 	intel_dsi->pclk = pclk;
@@ -865,6 +869,24 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	/* B080 */
 	intel_dsi->dphy_reg = exit_zero_cnt << 24 | trail_cnt << 16 |
 						clk_zero_cnt << 8 | prepare_cnt;
+
+	if (mipi_config->dbi_bw_timer)
+		intel_dsi->bw_timer = mipi_config->dbi_bw_timer;
+	else {
+		/*
+		 * bw timer should be more than 16 longs packets containing
+		 * 252 bytes + 2 blanking packets.
+		 * bw timer = 16 long packets * (252 bytes payload for each
+		 *            long packet + 6 bytes for long packet header and
+		 *            footer) + 12 bytes for 2 blanking packets + 1
+		 *            byte for having more of the above.
+		 */
+		intel_dsi->bw_timer = DIV_ROUND_UP(BW_LP_NUM_OF_PKT *
+					(BW_LP_LOAD_SIZE + LP_HDR_FOOT_SIZE),
+					intel_dsi->lane_count);
+
+		intel_dsi->bw_timer += (extra_byte_count + EXTRA_ONE_BYTE);
+	}
 
 	/*
 	 * LP to HS switch count = 4TLPX + PREP_COUNT * 2 + EXIT_ZERO_COUNT * 2
