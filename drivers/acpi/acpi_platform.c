@@ -35,6 +35,7 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 	{ "BCM2E1A" },
 	{ "BCM2E39" },
 	{ "BCM2E3D" },
+	{ "BCM2E3A" },
 	{ "RTL8723" },
 	{ "OBDA8723" },
 	{ "BCM4752E" },
