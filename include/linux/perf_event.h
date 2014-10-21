@@ -552,6 +552,7 @@ extern void perf_pmu_migrate_context(struct pmu *pmu,
 extern u64 perf_event_read_value(struct perf_event *event,
 				 u64 *enabled, u64 *running);
 
+extern struct dentry *perf_create_debug_dir(void);
 
 struct perf_sample_data {
 	u64				type;
