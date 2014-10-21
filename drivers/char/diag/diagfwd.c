@@ -654,7 +654,9 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 			}
 		}
 
-		if (smd_info->type != SMD_CNTL_TYPE || buf_full)
+		if ((smd_info->type != SMD_CNTL_TYPE &&
+				smd_info->type != SMD_CMD_TYPE)
+					|| buf_full)
 			break;
 
 		}
