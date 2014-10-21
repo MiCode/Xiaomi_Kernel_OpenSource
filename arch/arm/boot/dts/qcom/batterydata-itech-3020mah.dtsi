@@ -10,12 +10,12 @@
  * GNU General Public License for more details.
  */
 
-qcom,mtp-3020mah {
+qcom,itech-3020mah {
 	qcom,max-voltage-uv = <4350000>;
 	qcom,v-cutoff-uv = <3400000>;
 	qcom,chg-term-ua = <100000>;
 	qcom,batt-id-kohm = <100>;
-	qcom,battery-type = "mtp_3020mah";
+	qcom,battery-type = "itech_3020mah";
 	qcom,fg-profile-data = [
 		 E8 83 0C 7D
 		 E9 80 B2 76
