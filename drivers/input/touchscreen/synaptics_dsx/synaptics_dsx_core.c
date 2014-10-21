@@ -2701,8 +2701,11 @@ static int synaptics_rmi4_parse_dt_children(struct device *dev,
 			rc = synaptics_dsx_get_virtual_keys(dev, prop,
 				"synaptics,key-codes", rmi4_pdata, child);
 			if (!rc) {
-				synaptics_dsx_virtual_keys_init(dev,
+				rc = synaptics_dsx_virtual_keys_init(dev,
 					rmi4_pdata);
+				if (!rc)
+					rmi4_data->support_vkeys = true;
+
 			} else {
 				dev_err(dev,
 					"Unable to read virtual key codes\n");
@@ -2784,6 +2787,10 @@ static int synaptics_rmi4_set_input_dev(struct synaptics_rmi4_data *rmi4_data)
 	return 0;
 
 err_register_input:
+	if (rmi4_data->support_vkeys) {
+		sysfs_remove_group(vkey_kobj, &vkey_grp);
+		kobject_put(vkey_kobj);
+	}
 err_query_device:
 	synaptics_rmi4_empty_fn_list(rmi4_data);
 	input_free_device(rmi4_data->input_dev);
@@ -3611,8 +3618,10 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 			rmi4_data->hw_if->board_data;
 	int err;
 
-	sysfs_remove_group(vkey_kobj, &vkey_grp);
-	kobject_put(vkey_kobj);
+	if (rmi4_data->support_vkeys) {
+		sysfs_remove_group(vkey_kobj, &vkey_grp);
+		kobject_put(vkey_kobj);
+	}
 
 	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
 		sysfs_remove_file(&rmi4_data->input_dev->dev.kobj,
