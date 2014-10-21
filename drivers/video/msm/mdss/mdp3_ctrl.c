@@ -673,7 +673,7 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	mdp3_histogram_stop(mdp3_session, MDP_BLOCK_DMA_P);
 
 	if (panel->event_handler)
-		rc = panel->event_handler(panel, MDSS_EVENT_PANEL_OFF, NULL);
+		rc = panel->event_handler(panel, MDSS_EVENT_BLANK, NULL);
 	if (rc)
 		pr_err("fail to turn off the panel\n");
 
@@ -687,16 +687,15 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 
 	pr_debug("mdp3_ctrl_off stop clock\n");
 	if (mdp3_session->clk_on) {
-		rc = mdp3_res_update(0, 1, MDP3_CLIENT_DMA_P);
-		if (rc)
-			pr_err("mdp clock resource release failed\n");
-
 		pr_debug("mdp3_ctrl_off stop dsi controller\n");
 		if (panel->event_handler)
 			rc = panel->event_handler(panel,
-				MDSS_EVENT_BLANK, NULL);
+				MDSS_EVENT_PANEL_OFF, NULL);
 		if (rc)
 			pr_err("fail to turn off the panel\n");
+		rc = mdp3_res_update(0, 1, MDP3_CLIENT_DMA_P);
+		if (rc)
+			pr_err("mdp clock resource release failed\n");
 	}
 
 	mdp3_ctrl_notifier_unregister(mdp3_session,
