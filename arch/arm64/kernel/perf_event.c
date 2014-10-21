@@ -1899,6 +1899,15 @@ unsigned long perf_misc_flags(struct pt_regs *regs)
 	return misc;
 }
 
+static struct dentry *perf_debug_dir;
+
+struct dentry *perf_create_debug_dir(void)
+{
+	if (!perf_debug_dir)
+		perf_debug_dir = debugfs_create_dir("msm_perf", NULL);
+	return perf_debug_dir;
+}
+
 #ifdef CONFIG_PERF_EVENTS_RESET_PMU_DEBUGFS
 static __ref void reset_pmu_force(void)
 {
@@ -1944,15 +1953,13 @@ int __init init_pmu_actions(void)
 	struct dentry *file;
 	unsigned int value = 1;
 
-	dir = debugfs_create_dir("msm_perf", NULL);
+	dir = perf_create_debug_dir();
 	if (!dir)
 		return -ENOMEM;
 	file = debugfs_create_file("resetpmu", 0220, dir,
 		&value, &fops_pmuaction);
-	if (!file) {
-		debugfs_remove(dir);
+	if (!file)
 		return -ENOMEM;
-	}
 	return 0;
 }
 #else

@@ -37,6 +37,7 @@ static char *descriptions =
 	"12 Perf: arm64: fix disable of pmu irq during hotplug\n"
 	"13 Perf: arm64: restore registers after reset\n"
 	"14 Perf: arm64: stop counters when going into hotplug\n"
+	"15 Perf: arm64: make debug dir handle exportable\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
