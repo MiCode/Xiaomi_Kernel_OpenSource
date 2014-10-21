@@ -2687,6 +2687,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
 	if (mdwc->pmic_id_irq > 0) {
+		irq_set_status_flags(mdwc->pmic_id_irq, IRQ_NOAUTOEN);
 		ret = devm_request_irq(&pdev->dev,
 				       mdwc->pmic_id_irq,
 				       dwc3_pmic_id_irq,
@@ -2939,6 +2940,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	/* Update initial ID state */
 	if (mdwc->pmic_id_irq) {
+		enable_irq(mdwc->pmic_id_irq);
 		local_irq_save(flags);
 		mdwc->id_state = !!irq_read_line(mdwc->pmic_id_irq);
 		if (mdwc->id_state == DWC3_ID_GROUND)
