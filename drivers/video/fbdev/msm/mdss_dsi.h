@@ -374,6 +374,7 @@ struct mdss_dsi_ctrl_pdata {
 	bool ulps;
 	bool core_power;
 	bool mmss_clamp;
+	bool timing_db_mode;
 
 	struct dsi_buf tx_buf;
 	struct dsi_buf rx_buf;
