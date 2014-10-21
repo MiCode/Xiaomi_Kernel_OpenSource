@@ -333,6 +333,7 @@ static const struct acpi_device_id rfkill_acpi_match[] = {
 	{ "BCM2E1A", (kernel_ulong_t)&acpi_default_bluetooth },
 	{ "BCM2E39", (kernel_ulong_t)&acpi_default_bluetooth },
 	{ "BCM2E3D", (kernel_ulong_t)&acpi_default_bluetooth },
+	{ "BCM2E3A", (kernel_ulong_t)&acpi_bluetooth_wake },
 	{ "OBDA8723", (kernel_ulong_t)&acpi_bluetooth_wake },
 	{ "BCM4752", (kernel_ulong_t)&acpi_default_gps },
 	{ "LNV4752", (kernel_ulong_t)&acpi_default_gps },
