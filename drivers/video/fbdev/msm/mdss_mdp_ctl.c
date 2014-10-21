@@ -1783,7 +1783,8 @@ static int mdss_mdp_ctl_fbc_enable(int enable,
 		budget_ctl = ((fbc->line_x_budget) << 12) |
 			((fbc->block_x_budget) << 8) | fbc->block_budget;
 
-		lossy_mode = ((fbc->lossless_mode_thd) << 16) |
+		lossy_mode = ((fbc->max_pred_err) << 28) |
+			((fbc->lossless_mode_thd) << 16) |
 			((fbc->lossy_mode_thd) << 8) |
 			((fbc->lossy_rgb_thd) << 4) | fbc->lossy_mode_idx;
 	}
