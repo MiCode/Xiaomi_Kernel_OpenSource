@@ -758,6 +758,9 @@ static struct inode *pft_bio_get_inode(struct bio *bio)
 {
 	if (!bio)
 		return NULL;
+	/* check bio vec count > 0 before using the bio->bi_io_vec[] array */
+	if (!bio->bi_vcnt)
+		return NULL;
 	if (!bio->bi_io_vec)
 		return NULL;
 	if (!bio->bi_io_vec->bv_page)
