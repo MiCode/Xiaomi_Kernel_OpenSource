@@ -235,6 +235,21 @@ void mdss_xlog_tout_handler_default(const char *name, ...)
 	if (dead && mdss_dbg_xlog.panic_on_err)
 		panic(name);
 }
+
+int mdss_xlog_tout_handler_iommu(struct iommu_domain *domain,
+	struct device *dev, unsigned long iova, int flags, void *token)
+{
+	if (!mdss_xlog_is_enabled(MDSS_XLOG_IOMMU))
+		return 0;
+
+	mdss_dump_reg_by_blk("mdp");
+	mdss_dump_reg_by_blk("vbif");
+	mdss_xlog_dump_all();
+	panic("mdp iommu");
+
+	return 0;
+}
+
 static int mdss_xlog_dump_open(struct inode *inode, struct file *file)
 {
 	/* non-seekable */
@@ -299,4 +314,3 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 			    &mdss_dbg_xlog.enable_reg_dump);
 	return 0;
 }
-

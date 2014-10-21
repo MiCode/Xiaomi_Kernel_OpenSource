@@ -38,7 +38,8 @@ enum mdss_dbg_reg_dump_flag {
 
 enum mdss_dbg_xlog_flag {
 	MDSS_XLOG_DEFAULT = BIT(0),
-	MDSS_XLOG_ALL = BIT(7),
+	MDSS_XLOG_IOMMU = BIT(1),
+	MDSS_XLOG_ALL = BIT(7)
 };
 
 #define MDSS_XLOG(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_DEFAULT, \
@@ -51,6 +52,8 @@ enum mdss_dbg_xlog_flag {
 #define MDSS_XLOG_ALL(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_ALL,	\
 		##__VA_ARGS__, DATA_LIMITER)
 
+#define MDSS_XLOG_IOMMU(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_IOMMU, \
+		##__VA_ARGS__, DATA_LIMITER)
 
 #define ATRACE_END(name) trace_tracing_mark_write(current->tgid, name, 0)
 #define ATRACE_BEGIN(name) trace_tracing_mark_write(current->tgid, name, 1)
@@ -106,6 +109,8 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd);
 void mdss_xlog(const char *name, int line, int flag, ...);
 void mdss_dump_reg(struct mdss_debug_base *dbg, u32 reg_dump_flag);
 void mdss_xlog_tout_handler_default(const char *name, ...);
+int mdss_xlog_tout_handler_iommu(struct iommu_domain *domain,
+	struct device *dev, unsigned long iova, int flags, void *token);
 #else
 static inline int mdss_debugfs_init(struct mdss_data_type *mdata) { return 0; }
 static inline int mdss_debugfs_remove(struct mdss_data_type *mdata)
@@ -132,6 +137,8 @@ static inline void mdss_dump_reg(struct mdss_debug_base *dbg,
 static inline void mdss_xlog(const char *name, int line, int flag...) { }
 static inline void mdss_dsi_debug_check_te(struct mdss_panel_data *pdata) { }
 static inline void mdss_xlog_tout_handler_default(const char *name, ...) { }
+static inline int  mdss_xlog_tout_handler_iommu(struct iommu_domain *domain,
+	struct device *dev, unsigned long iova, int flags, void *token) { }
 #endif
 
 static inline int mdss_debug_register_io(const char *name,
