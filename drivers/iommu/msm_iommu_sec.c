@@ -511,8 +511,7 @@ static int msm_iommu_sec_ptbl_map(struct msm_iommu_drvdata *iommu_drvdata,
 			unsigned long va, phys_addr_t pa, size_t len)
 {
 	struct msm_scm_map2_req map;
-	void *flush_va;
-	phys_addr_t flush_pa;
+	void *flush_va, *flush_va_end;
 	int ret = 0;
 
 	map.plist.list = virt_to_phys(&pa);
@@ -524,19 +523,17 @@ static int msm_iommu_sec_ptbl_map(struct msm_iommu_drvdata *iommu_drvdata,
 	map.info.size = len;
 
 	flush_va = &pa;
-	flush_pa = virt_to_phys(&pa);
+	flush_va_end = (void *)
+		(((unsigned long) flush_va) + sizeof(phys_addr_t));
 
 	/*
 	 * Ensure that the buffer is in RAM by the time it gets to TZ
 	 */
-	dmac_clean_range(flush_va, flush_va + len);
+	dmac_clean_range(flush_va, flush_va_end);
 
 	ret = msm_iommu_sec_map2(&map);
 	if (ret)
 		return -EINVAL;
-
-	/* Invalidate cache since TZ touched this address range */
-	dmac_inv_range(flush_va, flush_va + len);
 
 	return 0;
 }
@@ -616,8 +613,7 @@ static int msm_iommu_sec_ptbl_map_range(struct msm_iommu_drvdata *iommu_drvdata,
 	/*
 	 * Ensure that the buffer is in RAM by the time it gets to TZ
 	 */
-	dmac_clean_range(flush_va,
-		flush_va + sizeof(unsigned long) * map.plist.list_size);
+	dmac_clean_range(flush_va, flush_va + map.plist.list_size);
 
 	ret = msm_iommu_sec_map2(&map);
 	kfree(pa_list);
