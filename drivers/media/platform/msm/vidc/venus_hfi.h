@@ -156,7 +156,7 @@ struct on_chip_mem {
 };
 
 struct imem {
-	enum vidc_resource_id type;
+	enum imem_type type;
 	union {
 		struct on_chip_mem ocmem;
 		phys_addr_t vmem;
