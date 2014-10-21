@@ -157,3 +157,7 @@ obj-$(CONFIG_NTB)		+= ntb/
 obj-$(CONFIG_FMC)		+= fmc/
 obj-$(CONFIG_POWERCAP)		+= powercap/
 obj-$(CONFIG_EXTERNAL_DRIVERS)+= external_drivers/
+
+
+# Silent Lake drivers
+obj-$(CONFIG_VIDT)		+= sldriver/

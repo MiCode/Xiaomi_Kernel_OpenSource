@@ -1,0 +1,6 @@
+menu "Silent Lake drivers"
+config VIDT
+    tristate "Virtual Interrupt Descriptor Table"
+    help
+    VIDT driver
+endmenu
