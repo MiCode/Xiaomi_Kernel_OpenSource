@@ -16,6 +16,7 @@ enum {
 	_IRQ_PER_CPU_DEVID	= IRQ_PER_CPU_DEVID,
 	_IRQ_IS_POLLED		= IRQ_IS_POLLED,
 	_IRQF_MODIFY_MASK	= IRQF_MODIFY_MASK,
+	_IRQ_CHAINED		= IRQ_CHAINED,
 };
 
 #define IRQ_PER_CPU		GOT_YOU_MORON
@@ -30,6 +31,7 @@ enum {
 #define IRQ_IS_POLLED		GOT_YOU_MORON
 #undef IRQF_MODIFY_MASK
 #define IRQF_MODIFY_MASK	GOT_YOU_MORON
+#define IRQ_CHAINED		GOT_YOU_MORON
 
 static inline void
 irq_settings_clr_and_set(struct irq_desc *desc, u32 clr, u32 set)
@@ -153,4 +155,9 @@ static inline bool irq_settings_is_nested_thread(struct irq_desc *desc)
 static inline bool irq_settings_is_polled(struct irq_desc *desc)
 {
 	return desc->status_use_accessors & _IRQ_IS_POLLED;
+}
+
+static inline bool irq_settings_set_chained(struct irq_desc *desc)
+{
+	return desc->status_use_accessors |= _IRQ_CHAINED;
 }
