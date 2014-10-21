@@ -1299,6 +1299,12 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 	for (i = 0, j = 0; j < axi_data->num_active_stream &&
 		i < MAX_NUM_STREAM; i++, j++) {
 		stream_info = &axi_data->stream_info[i];
+		if (stream_info->stream_src >= VFE_AXI_SRC_MAX) {
+			rc = -1;
+			pr_err("%s invalid  stream src = %d\n", __func__,
+				stream_info->stream_src);
+			break;
+		}
 		if (stream_info->state != ACTIVE) {
 			j--;
 			continue;
