@@ -2860,10 +2860,10 @@ int arizona_disable_force_bypass(struct snd_soc_codec *codec)
 				   ARIZONA_MICB1_BYPASS, 0);
 	if (!micbias[1].bypass && micbias[1].mV)
 		regmap_update_bits(arizona->regmap, ARIZONA_MIC_BIAS_CTRL_2,
-				   ARIZONA_MICB1_BYPASS, 0);
+				   ARIZONA_MICB2_BYPASS, 0);
 	if (!micbias[2].bypass && micbias[2].mV)
 		regmap_update_bits(arizona->regmap, ARIZONA_MIC_BIAS_CTRL_3,
-				   ARIZONA_MICB1_BYPASS, 0);
+				   ARIZONA_MICB3_BYPASS, 0);
 
 	return 0;
 }
