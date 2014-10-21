@@ -113,7 +113,7 @@ static int mux_set_rate(struct clk *c, unsigned long rate)
 	if (new_parent == c->parent && rate == c->rate)
 		return 0;
 
-	for (i = 0; i < mux->num_parents && !new_parent; i++) {
+	for (i = 0; i < mux->num_parents && !(!i && new_parent); i++) {
 		if (clk_round_rate(mux->parents[i].src, rate) == rate) {
 			new_parent = mux->parents[i].src;
 			if (!mux->try_new_parent)
