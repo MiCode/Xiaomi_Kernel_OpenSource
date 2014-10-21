@@ -977,6 +977,27 @@ static void generic_panel_reset(struct intel_dsi_device *dsi)
 	char *sequence = dev_priv->vbt.dsi.sequence[MIPI_SEQ_ASSERT_RESET];
 
 	generic_exec_sequence(intel_dsi, sequence);
+
+	if (is_cmd_mode(intel_dsi) && IS_CHERRYVIEW(dev)) {
+
+		/* this code should be in BIOS */
+
+		mutex_lock(&dev_priv->dpio_lock);
+
+		vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+			CHV_GPIO_NC_PNL1_BKLTCTL_CFG1, CHV_GPIO_CFG_UNLOCK);
+
+		vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+				CHV_GPIO_NC_PNL1_BKLTCTL_CFG1,
+				CHV_GPIO_CFG1_INT_RISING);
+
+		vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+				CHV_GPIO_NC_PNL1_BKLTCTL_CFG0,
+				CHV_GPIO_CFG0_EDGE_DETECT | CHV_GPIO_CFG0_5K |
+				CHV_GPIO_CFG0_TE_PAD);
+
+		mutex_unlock(&dev_priv->dpio_lock);
+	}
 }
 
 static void generic_disable_panel_power(struct intel_dsi_device *dsi)
