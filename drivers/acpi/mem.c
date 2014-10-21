@@ -29,13 +29,13 @@ struct acpi_ioremap {
 	unsigned long refcount;
 };
 
-static LIST_HEAD(acpi_ioremaps);
-static DEFINE_MUTEX(acpi_ioremap_lock);
+/* ioremap() serialization, no need to serialize iounmap() operations */
+static DEFINE_MUTEX(acpi_serial_map_mutex);
 
-/*
- * The following functions must be called with 'acpi_ioremap_lock' or RCU
- * read lock held.
- */
+static LIST_HEAD(acpi_ioremaps);
+static DEFINE_SPINLOCK(acpi_map_lock);
+
+/* The following functions must be called with 'acpi_map_lock' held. */
 static inline void acpi_map_get(struct acpi_ioremap *map)
 {
 	map->refcount++;
@@ -44,7 +44,7 @@ static inline void acpi_map_get(struct acpi_ioremap *map)
 static inline void acpi_map_put(struct acpi_ioremap *map)
 {
 	if (!--map->refcount)
-		list_del_rcu(&map->list);
+		list_del(&map->list);
 }
 
 static struct acpi_ioremap *
@@ -52,7 +52,7 @@ acpi_map_lookup_phys(acpi_physical_address phys, acpi_size size)
 {
 	struct acpi_ioremap *map;
 
-	list_for_each_entry_rcu(map, &acpi_ioremaps, list)
+	list_for_each_entry(map, &acpi_ioremaps, list)
 		if (map->phys <= phys &&
 		    phys + size <= map->phys + map->size)
 			return map;
@@ -65,7 +65,7 @@ acpi_map_lookup_virt(void __iomem *virt, acpi_size size)
 {
 	struct acpi_ioremap *map;
 
-	list_for_each_entry_rcu(map, &acpi_ioremaps, list)
+	list_for_each_entry(map, &acpi_ioremaps, list)
 		if (map->virt <= virt &&
 		    virt + size <= map->virt + map->size)
 			return map;
@@ -79,6 +79,7 @@ acpi_map2virt(struct acpi_ioremap *map, acpi_physical_address phys)
 	return map ? map->virt + (phys - map->phys) : NULL;
 }
 
+/* The following functions must be called without 'acpi_map_lock' held. */
 #ifndef CONFIG_IA64
 #define should_use_kmap(pfn)	page_is_ram(pfn)
 #else
@@ -112,22 +113,33 @@ static void acpi_unmap(acpi_physical_address pg_off, void __iomem *vaddr)
 
 static void acpi_map_cleanup(struct acpi_ioremap *map)
 {
-	if (!map->refcount) {
-		synchronize_rcu();
+	if (map && !map->refcount) {
 		acpi_unmap(map->phys, map->virt);
 		kfree(map);
 	}
 }
 
+static void acpi_map_relinquish(void *ctx)
+{
+	struct acpi_ioremap *map = ctx;
+	unsigned long flags;
+
+	spin_lock_irqsave(&acpi_map_lock, flags);
+	acpi_map_put(map);
+	spin_unlock_irqrestore(&acpi_map_lock, flags);
+	acpi_map_cleanup(map);
+}
+
 void __iomem *acpi_os_get_iomem(acpi_physical_address phys, unsigned int size)
 {
 	struct acpi_ioremap *map;
+	unsigned long flags;
 
-	mutex_lock(&acpi_ioremap_lock);
+	spin_lock_irqsave(&acpi_map_lock, flags);
 	map = acpi_map_lookup_phys(phys, size);
 	if (map)
 		acpi_map_get(map);
-	mutex_unlock(&acpi_ioremap_lock);
+	spin_unlock_irqrestore(&acpi_map_lock, flags);
 
 	return acpi_map2virt(map, phys);
 }
@@ -140,6 +152,7 @@ acpi_os_map_memory(acpi_physical_address phys, acpi_size size)
 	void __iomem *virt;
 	acpi_physical_address pg_off;
 	acpi_size pg_sz;
+	unsigned long flags;
 
 	if (phys > ULONG_MAX) {
 		printk(KERN_ERR PREFIX "Cannot map memory that high\n");
@@ -149,17 +162,20 @@ acpi_os_map_memory(acpi_physical_address phys, acpi_size size)
 	if (!acpi_gbl_permanent_mmap)
 		return __acpi_map_table((unsigned long)phys, size);
 
-	mutex_lock(&acpi_ioremap_lock);
+	mutex_lock(&acpi_serial_map_mutex);
+
+	spin_lock_irqsave(&acpi_map_lock, flags);
 	/* Check if there's a suitable mapping already. */
 	map = acpi_map_lookup_phys(phys, size);
 	if (map) {
 		acpi_map_get(map);
 		goto out;
 	}
+	spin_unlock_irqrestore(&acpi_map_lock, flags);
 
 	map = kzalloc(sizeof(*map), GFP_KERNEL);
 	if (!map)
-		goto out;
+		goto err_exit;
 
 	pg_off = round_down(phys, PAGE_SIZE);
 	pg_sz = round_up(phys + size, PAGE_SIZE) - pg_off;
@@ -167,17 +183,21 @@ acpi_os_map_memory(acpi_physical_address phys, acpi_size size)
 	if (!virt) {
 		kfree(map);
 		map = NULL;
-		goto out;
+		goto err_exit;
 	}
 
+	spin_lock_irqsave(&acpi_map_lock, flags);
 	INIT_LIST_HEAD(&map->list);
 	map->virt = virt;
 	map->phys = pg_off;
 	map->size = pg_sz;
 	map->refcount = 1;
-	list_add_tail_rcu(&map->list, &acpi_ioremaps);
+	list_add_tail(&map->list, &acpi_ioremaps);
 out:
-	mutex_unlock(&acpi_ioremap_lock);
+	spin_unlock_irqrestore(&acpi_map_lock, flags);
+
+err_exit:
+	mutex_unlock(&acpi_serial_map_mutex);
 	return acpi_map2virt(map, phys);
 }
 EXPORT_SYMBOL_GPL(acpi_os_map_memory);
@@ -185,19 +205,20 @@ EXPORT_SYMBOL_GPL(acpi_os_map_memory);
 void __ref acpi_os_unmap_memory(void __iomem *virt, acpi_size size)
 {
 	struct acpi_ioremap *map;
+	unsigned long flags;
 
 	if (!acpi_gbl_permanent_mmap) {
 		__acpi_unmap_table(virt, size);
 		return;
 	}
 
-	mutex_lock(&acpi_ioremap_lock);
+	spin_lock_irqsave(&acpi_map_lock, flags);
 	map = acpi_map_lookup_virt(virt, size);
 	if (map)
 		acpi_map_put(map);
 	else
 		WARN(true, PREFIX "%s: bad address %p\n", __func__, virt);
-	mutex_unlock(&acpi_ioremap_lock);
+	spin_unlock_irqrestore(&acpi_map_lock, flags);
 
 	acpi_map_cleanup(map);
 }
@@ -284,13 +305,16 @@ acpi_os_read_memory(acpi_physical_address phys_addr, u64 *value, u32 width)
 	bool unmap = false;
 	u64 dummy;
 	struct acpi_ioremap *map;
+	unsigned long flags;
 
-	rcu_read_lock();
+	spin_lock_irqsave(&acpi_map_lock, flags);
 	map = acpi_map_lookup_phys(phys_addr, size);
-	if (map)
+	if (map) {
+		acpi_map_get(map);
+		spin_unlock_irqrestore(&acpi_map_lock, flags);
 		virt_addr = acpi_map2virt(map, phys_addr);
-	else {
-		rcu_read_unlock();
+	} else {
+		spin_unlock_irqrestore(&acpi_map_lock, flags);
 		virt_addr = acpi_os_ioremap(phys_addr, size);
 		if (!virt_addr)
 			return AE_BAD_ADDRESS;
@@ -320,7 +344,8 @@ acpi_os_read_memory(acpi_physical_address phys_addr, u64 *value, u32 width)
 	if (unmap)
 		iounmap(virt_addr);
 	else
-		rcu_read_unlock();
+		acpi_os_execute(OSL_GPE_HANDLER,
+				acpi_map_relinquish, map);
 
 	return AE_OK;
 }
@@ -332,13 +357,16 @@ acpi_os_write_memory(acpi_physical_address phys_addr, u64 value, u32 width)
 	unsigned int size = width / 8;
 	bool unmap = false;
 	struct acpi_ioremap *map;
+	unsigned long flags;
 
-	rcu_read_lock();
+	spin_lock_irqsave(&acpi_map_lock, flags);
 	map = acpi_map_lookup_phys(phys_addr, size);
-	if (map)
+	if (map) {
+		acpi_map_get(map);
+		spin_unlock_irqrestore(&acpi_map_lock, flags);
 		virt_addr = acpi_map2virt(map, phys_addr);
-	else {
-		rcu_read_unlock();
+	} else {
+		spin_unlock_irqrestore(&acpi_map_lock, flags);
 		virt_addr = acpi_os_ioremap(phys_addr, size);
 		if (!virt_addr)
 			return AE_BAD_ADDRESS;
@@ -365,7 +393,8 @@ acpi_os_write_memory(acpi_physical_address phys_addr, u64 value, u32 width)
 	if (unmap)
 		iounmap(virt_addr);
 	else
-		rcu_read_unlock();
+		acpi_os_execute(OSL_GPE_HANDLER,
+				acpi_map_relinquish, map);
 
 	return AE_OK;
 }
