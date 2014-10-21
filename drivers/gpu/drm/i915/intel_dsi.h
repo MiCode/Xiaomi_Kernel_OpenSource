@@ -418,6 +418,8 @@ struct intel_dsi_dev_ops {
 	/* This callback must be able to assume DSI commands can be sent */
 	void (*enable)(struct intel_dsi_device *dsi);
 
+	void (*tear_on)(struct intel_dsi_device *dsi);
+
 	/* This callback must be able to assume DSI commands can be sent */
 	void (*disable)(struct intel_dsi_device *dsi);
 

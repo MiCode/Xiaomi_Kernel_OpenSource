@@ -325,6 +325,9 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 	if (intel_dsi->dev.dev_ops->send_otp_cmds)
 		intel_dsi->dev.dev_ops->send_otp_cmds(&intel_dsi->dev);
 
+	if (is_cmd_mode(intel_dsi) && intel_dsi->dev.dev_ops->tear_on)
+		intel_dsi->dev.dev_ops->tear_on(&intel_dsi->dev);
+
 	wait_for_dsi_fifo_empty(intel_dsi);
 
 	/* Enable port in pre-enable phase itself because as per hw team

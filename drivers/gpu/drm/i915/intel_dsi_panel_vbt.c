@@ -653,6 +653,17 @@ static void generic_get_panel_info(int pipe, struct drm_connector *connector)
 	return;
 }
 
+void generic_tear_on(struct intel_dsi_device *dsi)
+{
+	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	char *sequence = dev_priv->vbt.dsi.sequence[MIPI_SEQ_TEAR_ON];
+
+	generic_exec_sequence(intel_dsi, sequence);
+}
+
 static bool generic_init(struct intel_dsi_device *dsi)
 {
 	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
@@ -1084,6 +1095,7 @@ struct intel_dsi_dev_ops vbt_generic_dsi_display_ops = {
 	.disable_panel_power = generic_disable_panel_power,
 	.send_otp_cmds = generic_send_otp_cmds,
 	.enable = generic_enable,
+	.tear_on = generic_tear_on,
 	.disable = generic_disable,
 	.enable_backlight = generic_enable_bklt,
 	.disable_backlight = generic_disable_bklt,
