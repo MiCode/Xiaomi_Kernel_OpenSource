@@ -291,6 +291,8 @@
 #include "dsi-panel-jdi-dualmipi1-video.dtsi"
 #include "dsi-panel-jdi-dualmipi0-cmd.dtsi"
 #include "dsi-panel-jdi-dualmipi1-cmd.dtsi"
+#include "dsi-panel-nt35597-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-wqxga-cmd.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
