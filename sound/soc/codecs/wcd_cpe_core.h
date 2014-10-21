@@ -48,6 +48,8 @@ struct wcd_cpe_cdc_cb {
 	int (*cpe_clk_en) (struct snd_soc_codec *, bool);
 	int (*cdc_ext_clk)(struct snd_soc_codec *codec, int enable, bool dapm);
 	int (*lab_cdc_ch_ctl)(struct snd_soc_codec *codec, u8 event);
+	int (*bus_vote_bw)(struct snd_soc_codec *codec,
+			   bool vote);
 };
 
 enum wcd_cpe_ssr_state_event {
