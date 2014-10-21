@@ -81,6 +81,7 @@ struct mux_clk {
 	u32		mask;
 	u32		shift;
 	u32		en_mask;
+	int		low_power_sel;
 	void		*priv;
 
 	struct clk	c;
