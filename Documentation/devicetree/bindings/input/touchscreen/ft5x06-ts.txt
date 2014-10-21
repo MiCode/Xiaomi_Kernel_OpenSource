@@ -65,6 +65,11 @@ Optional properties:
  - focaltech,fw-auto-cal	: specify whether calibration is needed after firmware upgrade
  - focaltech,fw-vkey-support	: specify if virtual keys are supported through firmware
  - focaltech,ignore-id-check : specify ignore family-id check
+ - focaltech,panel-coords : panel coordinates for the chip in pixels.
+				It is a four tuple consisting of min x,
+				min y, max x and max y values
+ - focaltech,fw-name	: specify the firmware file name
+ - focaltech,psensor-support	: specify whether support the proximity sensor
 
 Example:
 	i2c@f9923000{
@@ -100,5 +105,6 @@ Example:
 			focaltech,fw-delay-readid-ms = <10>;
 			focaltech,fw-delay-era-flsh-ms = <2000>;
 			focaltech,fw-auto-cal;
+			focaltech,psensor-support;
 		};
 	};

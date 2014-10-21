@@ -29,6 +29,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/firmware.h>
 #include <linux/debugfs.h>
+#include <linux/sensors.h>
 #include <linux/input/ft5x06_ts.h>
 
 #if defined(CONFIG_FB)
@@ -73,7 +74,20 @@
 #define FT_REG_FW_MIN_VER	0xB2
 #define FT_REG_FW_SUB_MIN_VER	0xB3
 
-/* power register bits */
+/* psensor register address*/
+#define FT_REG_PSENSOR_ENABLE	0xB0
+#define FT_REG_PSENSOR_STATUS	0x01
+
+/* psensor register bits*/
+#define FT_PSENSOR_ENABLE_MASK	0x01
+#define FT_PSENSOR_STATUS_NEAR	0xC0
+#define FT_PSENSOR_STATUS_FAR	0xE0
+#define FT_PSENSOR_FAR_TO_NEAR	0
+#define FT_PSENSOR_NEAR_TO_FAR	1
+#define FT_PSENSOR_ORIGINAL_STATE_FAR	1
+#define FT_PSENSOR_WAKEUP_TIMEOUT	100
+
+/* power register bits*/
 #define FT_PMODE_ACTIVE		0x00
 #define FT_PMODE_MONITOR	0x01
 #define FT_PMODE_STANDBY	0x02
@@ -207,6 +221,7 @@ struct ft5x06_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
 	const struct ft5x06_ts_platform_data *pdata;
+	struct ft5x06_psensor_platform_data *psensor_pdata;
 	struct regulator *vdd;
 	struct regulator *vcc_i2c;
 	char fw_name[FT_FW_NAME_MAX_LEN];
@@ -230,6 +245,29 @@ struct ft5x06_ts_data {
 	struct pinctrl_state *pinctrl_state_suspend;
 	struct pinctrl_state *pinctrl_state_release;
 };
+
+static struct sensors_classdev __maybe_unused sensors_proximity_cdev = {
+	.name = "ft5x06-proximity",
+	.vendor = "FocalTech",
+	.version = 1,
+	.handle = SENSORS_PROXIMITY_HANDLE,
+	.type = SENSOR_TYPE_PROXIMITY,
+	.max_range = "5.0",
+	.resolution = "5.0",
+	.sensor_power = "0.1",
+	.min_delay = 0,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+	.enabled = 0,
+	.delay_msec = 200,
+	.sensors_enable = NULL,
+	.sensors_poll_delay = NULL,
+};
+
+static inline bool ft5x06_psensor_support_enabled(void)
+{
+	return config_enabled(CONFIG_TOUCHSCREEN_FT5X06_PSENSOR);
+}
 
 static int ft5x06_i2c_read(struct i2c_client *client, char *writebuf,
 			   int writelen, char *readbuf, int readlen)
@@ -306,6 +344,84 @@ static int ft5x0x_read_reg(struct i2c_client *client, u8 addr, u8 *val)
 	return ft5x06_i2c_read(client, &addr, 1, val, 1);
 }
 
+#ifdef CONFIG_TOUCHSCREEN_FT5X06_PSENSOR
+static void ft5x06_psensor_enable(struct ft5x06_ts_data *data, int enable)
+{
+	u8 state;
+	int ret = -1;
+
+	if (data->client == NULL)
+		return;
+
+	ft5x0x_read_reg(data->client, FT_REG_PSENSOR_ENABLE, &state);
+	if (enable)
+		state |= FT_PSENSOR_ENABLE_MASK;
+	else
+		state &= ~FT_PSENSOR_ENABLE_MASK;
+
+	ret = ft5x0x_write_reg(data->client, FT_REG_PSENSOR_ENABLE, state);
+	if (ret < 0)
+		dev_err(&data->client->dev,
+			"write psensor switch command failed\n");
+}
+
+static int ft5x06_psensor_enable_set(struct sensors_classdev *sensors_cdev,
+		unsigned int enable)
+{
+	struct ft5x06_psensor_platform_data *psensor_pdata =
+		container_of(sensors_cdev,
+			struct ft5x06_psensor_platform_data, ps_cdev);
+	struct ft5x06_ts_data *data = psensor_pdata->data;
+	struct input_dev *input_dev = data->psensor_pdata->input_psensor_dev;
+
+	mutex_lock(&input_dev->mutex);
+	ft5x06_psensor_enable(data, enable);
+	psensor_pdata->tp_psensor_data = FT_PSENSOR_ORIGINAL_STATE_FAR;
+	if (enable)
+		psensor_pdata->tp_psensor_opened = 1;
+	else
+		psensor_pdata->tp_psensor_opened = 0;
+	mutex_unlock(&input_dev->mutex);
+	return enable;
+}
+
+static int ft5x06_read_tp_psensor_data(struct ft5x06_ts_data *data)
+{
+	u8 psensor_status;
+	char tmp;
+	int ret = 0;
+
+	ft5x0x_read_reg(data->client,
+			FT_REG_PSENSOR_STATUS, &psensor_status);
+
+	tmp = data->psensor_pdata->tp_psensor_data;
+	if (psensor_status == FT_PSENSOR_STATUS_NEAR)
+		data->psensor_pdata->tp_psensor_data =
+						FT_PSENSOR_FAR_TO_NEAR;
+	else if (psensor_status == FT_PSENSOR_STATUS_FAR)
+		data->psensor_pdata->tp_psensor_data =
+						FT_PSENSOR_NEAR_TO_FAR;
+
+	if (tmp != data->psensor_pdata->tp_psensor_data) {
+		dev_info(&data->client->dev,
+				"%s sensor data changed\n", __func__);
+		ret = 1;
+	}
+	return ret;
+}
+#else
+static int ft5x06_psensor_enable_set(struct sensors_classdev *sensors_cdev,
+		unsigned int enable)
+{
+	return enable;
+}
+
+static int ft5x06_read_tp_psensor_data(struct ft5x06_ts_data *data)
+{
+	return 0;
+}
+#endif
+
 static void ft5x06_update_fw_vendor_id(struct ft5x06_ts_data *data)
 {
 	struct i2c_client *client = data->client;
@@ -349,7 +465,7 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	struct input_dev *ip_dev;
 	int rc, i;
 	u32 id, x, y, status, num_touches;
-	u8 reg = 0x00, *buf;
+	u8 reg, *buf;
 	bool update_input = false;
 
 	if (!data) {
@@ -360,8 +476,31 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	ip_dev = data->input_dev;
 	buf = data->tch_data;
 
-	rc = ft5x06_i2c_read(data->client, &reg, 1,
-			buf, data->tch_data_len);
+	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support &&
+		data->psensor_pdata->tp_psensor_opened) {
+		rc = ft5x06_read_tp_psensor_data(data);
+		if (rc) {
+			if (data->suspended)
+				pm_wakeup_event(&data->client->dev,
+					FT_PSENSOR_WAKEUP_TIMEOUT);
+			input_report_abs(data->psensor_pdata->input_psensor_dev,
+					ABS_DISTANCE,
+					data->psensor_pdata->tp_psensor_data);
+			input_sync(data->psensor_pdata->input_psensor_dev);
+			if (data->suspended)
+				return IRQ_HANDLED;
+		}
+		if (data->suspended)
+			return IRQ_HANDLED;
+	}
+
+	/**
+	 * Read touch data start from register FT_REG_DEV_MODE.
+	 * The touch x/y value start from FT_TOUCH_X_H/L_POS and
+	 * FT_TOUCH_Y_H/L_POS in buf.
+	 */
+	reg = FT_REG_DEV_MODE;
+	rc = ft5x06_i2c_read(data->client, &reg, 1, buf, data->tch_data_len);
 	if (rc < 0) {
 		dev_err(&data->client->dev, "%s: read data fail\n", __func__);
 		return IRQ_HANDLED;
@@ -661,6 +800,16 @@ static int ft5x06_ts_suspend(struct device *dev)
 		return 0;
 	}
 
+	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support &&
+		device_may_wakeup(dev) &&
+		data->psensor_pdata->tp_psensor_opened) {
+		err = enable_irq_wake(data->client->irq);
+		if (err)
+			dev_err(&data->client->dev,
+				"%s: set_irq_wake failed\n", __func__);
+		data->suspended = true;
+		return err;
+	}
 	disable_irq(data->client->irq);
 
 	/* release all touches */
@@ -743,6 +892,18 @@ static int ft5x06_ts_resume(struct device *dev)
 	if (!data->suspended) {
 		dev_dbg(dev, "Already in awake state\n");
 		return 0;
+	}
+
+	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support &&
+		device_may_wakeup(dev) &&
+		data->psensor_pdata->tp_psensor_opened) {
+		err = disable_irq_wake(data->client->irq);
+		if (err)
+			dev_err(&data->client->dev,
+				"%s: disable_irq_wake failed\n",
+				__func__);
+		data->suspended = false;
+		return err;
 	}
 
 	if (data->pdata->power_on) {
@@ -1588,6 +1749,8 @@ static int ft5x06_parse_dt(struct device *dev,
 	pdata->ignore_id_check = of_property_read_bool(np,
 						"focaltech,ignore-id-check");
 
+	pdata->psensor_support = of_property_read_bool(np,
+						"focaltech,psensor-support");
 	rc = of_property_read_u32(np, "focaltech,family-id", &temp_val);
 	if (!rc)
 		pdata->family_id = temp_val;
@@ -1623,8 +1786,10 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
 {
 	struct ft5x06_ts_platform_data *pdata;
+	struct ft5x06_psensor_platform_data *psensor_pdata;
 	struct ft5x06_ts_data *data;
 	struct input_dev *input_dev;
+	struct input_dev *psensor_input_dev;
 	struct dentry *temp;
 	u8 reg_value;
 	u8 reg_addr;
@@ -1781,17 +1946,61 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 
 	err = request_threaded_irq(client->irq, NULL,
 				ft5x06_ts_interrupt,
-				pdata->irqflags | IRQF_ONESHOT,
+				IRQF_ONESHOT,
 				client->dev.driver->name, data);
 	if (err) {
 		dev_err(&client->dev, "request irq failed\n");
 		goto free_gpio;
 	}
 
+	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support) {
+		device_init_wakeup(&client->dev, 1);
+		psensor_pdata = devm_kzalloc(&client->dev,
+				sizeof(struct ft5x06_psensor_platform_data),
+				GFP_KERNEL);
+		if (!psensor_pdata) {
+			dev_err(&client->dev, "Failed to allocate memory\n");
+			goto irq_free;
+		}
+		data->psensor_pdata = psensor_pdata;
+
+		psensor_input_dev = input_allocate_device();
+		if (!psensor_input_dev) {
+			dev_err(&data->client->dev,
+				"Failed to allocate device\n");
+			goto free_psensor_pdata;
+		}
+
+		__set_bit(EV_ABS, psensor_input_dev->evbit);
+		input_set_abs_params(psensor_input_dev,
+					ABS_DISTANCE, 0, 1, 0, 0);
+		psensor_input_dev->name = "proximity";
+		psensor_input_dev->id.bustype = BUS_I2C;
+		psensor_input_dev->dev.parent = &data->client->dev;
+		data->psensor_pdata->input_psensor_dev = psensor_input_dev;
+
+		err = input_register_device(psensor_input_dev);
+		if (err) {
+			dev_err(&data->client->dev,
+				"Unable to register device, err=%d\n", err);
+			goto free_psensor_input_dev;
+		}
+
+		psensor_pdata->ps_cdev = sensors_proximity_cdev;
+		psensor_pdata->ps_cdev.sensors_enable =
+					ft5x06_psensor_enable_set;
+		psensor_pdata->data = data;
+
+		err = sensors_classdev_register(&client->dev,
+						&psensor_pdata->ps_cdev);
+		if (err)
+			goto unregister_psensor_input_device;
+	}
+
 	err = device_create_file(&client->dev, &dev_attr_fw_name);
 	if (err) {
 		dev_err(&client->dev, "sys file creation failed\n");
-		goto irq_free;
+		goto free_psensor_class_sysfs;
 	}
 
 	err = device_create_file(&client->dev, &dev_attr_update_fw);
@@ -1900,7 +2109,23 @@ free_update_fw_sys:
 	device_remove_file(&client->dev, &dev_attr_update_fw);
 free_fw_name_sys:
 	device_remove_file(&client->dev, &dev_attr_fw_name);
+free_psensor_class_sysfs:
+	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support)
+		sensors_classdev_unregister(&psensor_pdata->ps_cdev);
+unregister_psensor_input_device:
+	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support)
+		input_unregister_device(data->psensor_pdata->input_psensor_dev);
+free_psensor_input_dev:
+	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support)
+		input_free_device(data->psensor_pdata->input_psensor_dev);
+free_psensor_pdata:
+	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support) {
+		devm_kfree(&client->dev, psensor_pdata);
+		data->psensor_pdata = NULL;
+	}
 irq_free:
+	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support)
+		device_init_wakeup(&client->dev, 0);
 	free_irq(client->irq, data);
 free_gpio:
 	if (gpio_is_valid(pdata->reset_gpio))
@@ -1930,9 +2155,9 @@ pwr_deinit:
 		ft5x06_power_init(data, false);
 unreg_inputdev:
 	input_unregister_device(input_dev);
-	input_dev = NULL;
 free_inputdev:
 	input_free_device(input_dev);
+	input_dev = NULL;
 	return err;
 }
 
@@ -1940,6 +2165,16 @@ static int ft5x06_ts_remove(struct i2c_client *client)
 {
 	struct ft5x06_ts_data *data = i2c_get_clientdata(client);
 	int retval;
+
+	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support) {
+
+		device_init_wakeup(&client->dev, 0);
+		sensors_classdev_unregister(&data->psensor_pdata->ps_cdev);
+		input_unregister_device(data->psensor_pdata->input_psensor_dev);
+		input_free_device(data->psensor_pdata->input_psensor_dev);
+		devm_kfree(&client->dev, data->psensor_pdata);
+		data->psensor_pdata = NULL;
+	}
 
 	debugfs_remove_recursive(data->dir);
 	device_remove_file(&client->dev, &dev_attr_force_update_fw);

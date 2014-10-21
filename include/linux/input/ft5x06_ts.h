@@ -34,6 +34,14 @@ struct fw_upgrade_info {
 	u16 delay_erase_flash;
 };
 
+struct ft5x06_psensor_platform_data {
+	struct input_dev *input_psensor_dev;
+	struct sensors_classdev ps_cdev;
+	int tp_psensor_opened;
+	char tp_psensor_data; /* 0 near, 1 far */
+	struct ft5x06_ts_data *data;
+};
+
 struct ft5x06_ts_platform_data {
 	struct fw_upgrade_info info;
 	const char *name;
@@ -60,6 +68,7 @@ struct ft5x06_ts_platform_data {
 	bool no_force_update;
 	bool i2c_pull_up;
 	bool ignore_id_check;
+	bool psensor_support;
 	int (*power_init)(bool);
 	int (*power_on)(bool);
 };
