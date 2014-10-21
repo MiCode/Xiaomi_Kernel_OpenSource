@@ -144,7 +144,7 @@ struct bms_wakeup_source {
 };
 
 struct temp_curr_comp_map {
-	int temp_deg;
+	int temp_decideg;
 	int current_ma;
 };
 
@@ -269,9 +269,9 @@ static struct qpnp_bms_chip *the_chip;
  * update table.
  */
 static struct temp_curr_comp_map temp_curr_comp_lut[] = {
-			{-20, 40},
-			{25, 40},
-			{60, 40},
+			{-300, 15},
+			{250, 17},
+			{850, 28},
 };
 
 static void disable_bms_irq(struct bms_irq *irq)
@@ -1142,9 +1142,6 @@ static int get_rbatt(struct qpnp_bms_chip *chip, int soc, int batt_temp)
 
 	if (chip->dt.cfg_r_conn_mohm > 0)
 		rbatt_mohm += chip->dt.cfg_r_conn_mohm;
-
-	if (chip->batt_data->rbatt_capacitive_mohm > 0)
-		rbatt_mohm += chip->batt_data->rbatt_capacitive_mohm;
 
 	return rbatt_mohm;
 }
@@ -2448,24 +2445,24 @@ static int interpolate_current_comp(int die_temp)
 	int i;
 	int num_rows = ARRAY_SIZE(temp_curr_comp_lut);
 
-	if (die_temp <= (temp_curr_comp_lut[0].temp_deg * 10))
+	if (die_temp <= (temp_curr_comp_lut[0].temp_decideg))
 		return temp_curr_comp_lut[0].current_ma;
 
-	if (die_temp >= (temp_curr_comp_lut[num_rows - 1].temp_deg * 10))
+	if (die_temp >= (temp_curr_comp_lut[num_rows - 1].temp_decideg))
 		return temp_curr_comp_lut[num_rows - 1].current_ma;
 
 	for (i = 0; i < num_rows - 1; i++)
-		if (die_temp  <= (temp_curr_comp_lut[i].temp_deg * 10))
+		if (die_temp  <= (temp_curr_comp_lut[i].temp_decideg))
 			break;
 
-	if (die_temp == (temp_curr_comp_lut[i].temp_deg * 10))
+	if (die_temp == (temp_curr_comp_lut[i].temp_decideg))
 		return temp_curr_comp_lut[i].current_ma;
 
 	return linear_interpolate(
 				temp_curr_comp_lut[i - 1].current_ma,
-				temp_curr_comp_lut[i - 1].temp_deg * 10,
+				temp_curr_comp_lut[i - 1].temp_decideg,
 				temp_curr_comp_lut[i].current_ma,
-				temp_curr_comp_lut[i].temp_deg * 10,
+				temp_curr_comp_lut[i].temp_decideg,
 				die_temp);
 }
 
