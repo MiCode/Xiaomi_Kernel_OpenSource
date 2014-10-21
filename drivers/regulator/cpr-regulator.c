@@ -355,6 +355,9 @@ static u64 cpr_read_efuse_row(struct cpr_regulator *cpr_vreg, u32 row_num,
 	if (cpr_vreg->remapped_row && row_num >= cpr_vreg->remapped_row_base)
 		return cpr_read_remapped_efuse_row(cpr_vreg, row_num);
 
+	if (cpr_vreg->remapped_row && row_num >= cpr_vreg->remapped_row_base)
+		return cpr_read_remapped_efuse_row(cpr_vreg, row_num);
+
 	if (!use_tz_api) {
 		efuse_bits = readq_relaxed(cpr_vreg->efuse_base
 			+ row_num * BYTES_PER_FUSE_ROW);
