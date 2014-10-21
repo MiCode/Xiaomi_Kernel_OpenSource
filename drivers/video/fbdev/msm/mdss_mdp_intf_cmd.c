@@ -41,6 +41,7 @@ struct mdss_mdp_cmd_ctx {
 	struct list_head vsync_handlers;
 	int panel_power_state;
 	atomic_t koff_cnt;
+	u32 intf_stopped;
 	int clk_enabled;
 	int vsync_enabled;
 	int rdptr_enabled;
@@ -760,6 +761,11 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 		return -ENODEV;
 	}
 
+	if (ctx->intf_stopped) {
+		pr_err("ctx=%d stopped already\n", ctx->pp_num);
+		return -EPERM;
+	}
+
 	/* sctl will be null for right only in the case of Partial update */
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
@@ -845,6 +851,8 @@ int mdss_mdp_cmd_restore(struct mdss_mdp_ctl *ctl)
 int mdss_mdp_cmd_intfs_stop(struct mdss_mdp_ctl *ctl, int session,
 	int panel_power_state)
 {
+	struct mdss_mdp_ctl *sctl = NULL;
+	struct mdss_mdp_cmd_ctx *sctx = NULL;
 	struct mdss_mdp_cmd_ctx *ctx;
 	unsigned long flags;
 	int need_wait = 0;
@@ -861,6 +869,10 @@ int mdss_mdp_cmd_intfs_stop(struct mdss_mdp_ctl *ctl, int session,
 			return ret;
 	}
 
+	sctl = mdss_mdp_get_split_ctl(ctl);
+	if (sctl)
+		sctx = (struct mdss_mdp_cmd_ctx *) sctl->priv_data;
+
 	ctx = &mdss_mdp_cmd_ctx_list[session];
 	if (!ctx->ref_cnt) {
 		pr_err("invalid ctx session: %d\n", session);
@@ -868,10 +880,19 @@ int mdss_mdp_cmd_intfs_stop(struct mdss_mdp_ctl *ctl, int session,
 	}
 	ctx->ref_cnt--;
 
+	/* intf stopped,  no more kickoff */
+	ctx->intf_stopped = 1;
 	spin_lock_irqsave(&ctx->clk_lock, flags);
 	if (ctx->rdptr_enabled) {
 		reinit_completion(&ctx->stop_comp);
 		need_wait = 1;
+		/*
+		 * clk off at next vsync after pp_done  OR
+		 * next vsync if there has no kickoff pending
+		 */
+		ctx->rdptr_enabled = 1;
+		if (sctx)
+			sctx->rdptr_enabled = 1;
 	}
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 
@@ -1072,6 +1093,8 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 
 	ctx->intf_recovery.fxn = mdss_mdp_cmd_intf_recovery;
 	ctx->intf_recovery.data = ctx;
+
+	ctx->intf_stopped = 0;
 
 	pr_debug("%s: ctx=%p num=%d mixer=%d\n", __func__,
 				ctx, ctx->pp_num, mixer->num);
