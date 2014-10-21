@@ -825,7 +825,7 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 				0x67);
 	msm_pcie_write_reg(dev->phy, QSERDES_RX_RX_OFFSET_ADAPTOR_CNTRL2, 0x80);
 	msm_pcie_write_reg(dev->phy, QSERDES_RX_SIGDET_ENABLES, 0x40);
-	msm_pcie_write_reg(dev->phy, QSERDES_RX_SIGDET_CNTRL, 0x90);
+	msm_pcie_write_reg(dev->phy, QSERDES_RX_SIGDET_CNTRL, 0xB0);
 	msm_pcie_write_reg(dev->phy, QSERDES_RX_SIGDET_DEGLITCH_CNTRL, 0x06);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_RXTXEPCLK_EN, 0x10);
 	msm_pcie_write_reg(dev->phy, PCIE_PHY_ENDPOINT_REFCLK_DRIVE, 0x10);
