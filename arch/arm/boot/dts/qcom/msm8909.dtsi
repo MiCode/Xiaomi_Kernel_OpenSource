@@ -116,6 +116,7 @@
 
 #include "msm8909-ion.dtsi"
 #include "msm8909-smp2p.dtsi"
+#include "msm8909-camera.dtsi"
 #include "msm8909-ipcrouter.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msm8909-iommu.dtsi"
