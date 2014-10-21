@@ -628,6 +628,14 @@ static void intel_dsi_get_config(struct intel_encoder *encoder,
 	pipe_config->port_clock = dev_priv->vbt.lfp_lvds_vbt_mode->clock;
 }
 
+void intel_dsi_update_panel_fb(struct intel_encoder *encoder)
+{
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	unsigned char uc_data[] = {MIPI_DCS_WRITE_MEMORY_START};
+
+	dsi_send_dcs_cmd(intel_dsi, 0, uc_data, sizeof(uc_data), true);
+}
+
 static enum drm_mode_status
 intel_dsi_mode_valid(struct drm_connector *connector,
 		     struct drm_display_mode *mode)
