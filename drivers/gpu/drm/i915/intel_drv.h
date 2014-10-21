@@ -849,6 +849,7 @@ void intel_ddi_get_config(struct intel_encoder *encoder,
 
 /* intel_display.c */
 const char *intel_output_name(int output);
+int intel_sanitize_enable_adf(struct drm_device *dev, int enable_intel_adf);
 bool intel_has_pending_fb_unpin(struct drm_device *dev);
 int intel_pch_rawclk(struct drm_device *dev);
 int valleyview_cur_cdclk(struct drm_i915_private *dev_priv);

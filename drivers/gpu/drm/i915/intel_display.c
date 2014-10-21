@@ -73,6 +73,34 @@ static void haswell_set_pipeconf(struct drm_crtc *crtc);
 static void intel_set_pipe_csc(struct drm_crtc *crtc);
 static void vlv_prepare_pll(struct intel_crtc *crtc);
 
+/**
+ * intel_sanitize_enable_adf() - sanitize i915.enable_intel_adf
+ * @dev: DRM device.
+ * @enable_intel_adf: value of i915.enable_intel_adf module parameter.
+ *
+ * Only certain configuration support adf(the prerequisites being
+ * i915.disable_display & CONFIG_ADF_INTEL),
+ * and only when enabled via module parameter.
+ *
+ * Return: 1 if ADF is supported and has to be enabled.
+ */
+
+int intel_sanitize_enable_adf(struct drm_device *dev, int enable_intel_adf)
+{
+	if (enable_intel_adf == 0)
+		return 0;
+
+#ifndef CONFIG_ADF_INTEL
+	return 0;
+#endif
+
+	/* Current ADF support only for VLV */
+	if (IS_VALLEYVIEW(dev) && IS_GEN7(dev))
+		return 1;
+
+	return 0;
+}
+
 typedef struct {
 	int	min, max;
 } intel_range_t;

@@ -1553,6 +1553,16 @@ static void intel_device_info_runtime_init(struct drm_device *dev)
 		for_each_pipe(pipe)
 			info->num_sprites[pipe] = 1;
 
+	/* Sanitize i915.enable_intel_adf module parameter */
+	i915.enable_intel_adf = intel_sanitize_enable_adf(dev,
+						i915.enable_intel_adf);
+
+	/* Let's use one kernel paramter to handle ADF enable/disable_display
+	 * If ADF is enabled, force disable_display to skip display in i915
+	 */
+	if (i915.enable_intel_adf)
+		i915.disable_display = 1;
+
 	if (i915.disable_display) {
 		DRM_INFO("Display disabled (module parameter)\n");
 		info->num_pipes = 0;
