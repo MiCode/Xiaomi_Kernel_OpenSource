@@ -215,7 +215,6 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define	WCNSS_BUILD_VER_REQ           (WCNSS_CTRL_MSG_START + 9)
 #define	WCNSS_BUILD_VER_RSP           (WCNSS_CTRL_MSG_START + 10)
 #define	WCNSS_PM_CONFIG_REQ           (WCNSS_CTRL_MSG_START + 11)
-#define WCNSS_CBC_COMPLETE_IND		(WCNSS_CTRL_MSG_START + 12)
 
 /* max 20mhz channel count */
 #define WCNSS_MAX_CH_NUM			45
@@ -408,7 +407,6 @@ static struct {
 	void __iomem *alarms_tactl;
 	void __iomem *fiq_reg;
 	int	nv_downloaded;
-	int	is_cbc_done;
 	unsigned char *fw_cal_data;
 	unsigned char *user_cal_data;
 	int	fw_cal_rcvd;
@@ -1052,7 +1050,6 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 		pr_debug("wcnss: closing WCNSS SMD channel :%s",
 				WCNSS_CTRL_CHANNEL);
 		penv->nv_downloaded = 0;
-		penv->is_cbc_done = 0;
 		break;
 
 	default:
@@ -1260,15 +1257,6 @@ int wcnss_device_ready(void)
 	return 0;
 }
 EXPORT_SYMBOL(wcnss_device_ready);
-
-int wcnss_cbc_complete(void)
-{
-	if (penv && penv->pdev && penv->is_cbc_done &&
-		!wcnss_device_is_shutdown())
-		return 1;
-	return 0;
-}
-EXPORT_SYMBOL(wcnss_cbc_complete);
 
 int wcnss_device_is_shutdown(void)
 {
@@ -1904,10 +1892,6 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 		fw_status = wcnss_fw_status();
 		pr_debug("wcnss: received WCNSS_CALDATA_DNLD_RSP from ccpu %u\n",
 			fw_status);
-		break;
-	case WCNSS_CBC_COMPLETE_IND:
-		penv->is_cbc_done = 1;
-		pr_info("wcnss: received WCNSS_CBC_COMPLETE_IND from FW\n");
 		break;
 
 	case WCNSS_CALDATA_UPLD_REQ:
