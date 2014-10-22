@@ -282,7 +282,6 @@ static void msm_vfe46_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_vfe46_init_qos_parms(vfe_dev);
 	msm_vfe46_init_vbif_parms(vfe_dev);
 	msm_vfe46_init_danger_safe_parms(vfe_dev);
-	/* CGC_OVERRIDE */
 	/* MODULE_LENS_CGC_OVERRIDE */
 	msm_camera_io_w(0x00000182, vfe_dev->vfe_base + 0x2C);
 	/* MODULE_COLOR_CGC_OVERRIDE */
@@ -895,24 +894,6 @@ static void msm_vfe46_cfg_camif(struct vfe_device *vfe_dev,
 	msm_camera_io_w(pix_cfg->input_mux << 5 | pix_cfg->pixel_pattern,
 		vfe_dev->vfe_base + 0x50);
 
-
-	switch (pix_cfg->input_mux) {
-	case CAMIF:
-		val = 0x01;
-		msm_camera_io_w(val, vfe_dev->vfe_base + 0x3A8);
-		break;
-	case TESTGEN:
-		val = 0x01;
-		msm_camera_io_w(val, vfe_dev->vfe_base + 0xAF4);
-		break;
-	case EXTERNAL_READ:
-		return;
-	default:
-		pr_err("%s: not supported input_mux %d\n",
-			__func__, pix_cfg->input_mux);
-		break;
-	}
-
 	first_pixel = camif_cfg->first_pixel;
 	last_pixel = camif_cfg->last_pixel;
 	first_line = camif_cfg->first_line;
@@ -937,16 +918,38 @@ static void msm_vfe46_cfg_camif(struct vfe_device *vfe_dev,
 static void msm_vfe46_cfg_input_mux(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
+	uint32_t core_cfg = 0;
+	uint32_t val = 0;
+
+	core_cfg =  msm_camera_io_r(vfe_dev->vfe_base + 0x50);
+	core_cfg &= 0xFFFFFF9F;
+
 	switch (pix_cfg->input_mux) {
 	case CAMIF:
+		core_cfg |= 0x0 << 5;
+		msm_camera_io_w_mb(core_cfg, vfe_dev->vfe_base + 0x50);
+		msm_vfe46_cfg_camif(vfe_dev, pix_cfg);
+		break;
+	case TESTGEN:
+		/* Change CGC override */
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x3C);
+		val |= (1 << 31);
+		msm_camera_io_w(val, vfe_dev->vfe_base + 0x3C);
+
+		/* CAMIF and TESTGEN will both go thorugh CAMIF*/
+		core_cfg |= 0x1 << 5;
+		msm_camera_io_w_mb(core_cfg, vfe_dev->vfe_base + 0x50);
 		msm_vfe46_cfg_camif(vfe_dev, pix_cfg);
 		break;
 	case EXTERNAL_READ:
+		core_cfg |= 0x2 << 5;
+		msm_camera_io_w_mb(core_cfg, vfe_dev->vfe_base + 0x50);
 		msm_vfe46_cfg_fetch_engine(vfe_dev, pix_cfg);
 		break;
 	default:
 		pr_err("%s: Unsupported input mux %d\n",
 			__func__, pix_cfg->input_mux);
+		break;
 	}
 	return;
 }
@@ -978,12 +981,20 @@ static void msm_vfe46_update_camif_state(struct vfe_device *vfe_dev,
 		msm_camera_io_w_mb(0x4, vfe_dev->vfe_base + 0x3A8);
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x3A8);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 1;
+		/* testgen GO*/
+		if (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux == TESTGEN)
+			msm_camera_io_w(1, vfe_dev->vfe_base + 0xAF4);
 	} else if (update_state == DISABLE_CAMIF) {
 		msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x3A8);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 0;
+		/* testgen OFF*/
+		if (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux == TESTGEN)
+			msm_camera_io_w(1 << 1, vfe_dev->vfe_base + 0xAF4);
 	} else if (update_state == DISABLE_CAMIF_IMMEDIATELY) {
 		msm_camera_io_w_mb(0x6, vfe_dev->vfe_base + 0x3A8);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 0;
+		if (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux == TESTGEN)
+			msm_camera_io_w(1 << 1, vfe_dev->vfe_base + 0xAF4);
 	}
 }
 
