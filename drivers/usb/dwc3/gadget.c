@@ -2156,11 +2156,6 @@ static int __dwc3_gadget_start(struct dwc3 *dwc)
 /* Required gadget re-initialization before switching to gadget in OTG mode */
 void dwc3_gadget_restart(struct dwc3 *dwc)
 {
-	/* automatic phy suspend only on recent versions */
-	if (dwc->revision >= DWC3_REVISION_194A &&
-			!dwc->ssphy_clear_auto_suspend_on_disconnect)
-		dwc3_gadget_usb3_phy_suspend(dwc, true);
-
 	__dwc3_gadget_start(dwc);
 }
 
@@ -2922,9 +2917,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	/* after reset -> Default State */
 	usb_gadget_set_state(&dwc->gadget, USB_STATE_DEFAULT);
 
-	if (dwc->revision < DWC3_REVISION_194A ||
-			dwc->ssphy_clear_auto_suspend_on_disconnect)
-		dwc3_gadget_usb3_phy_suspend(dwc, false);
+	dwc3_gadget_usb3_phy_suspend(dwc, false);
 
 	if (dotg && dotg->otg.phy)
 		usb_phy_set_power(dotg->otg.phy, 0);
@@ -3042,9 +3035,7 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 	}
 
-	/* Recent versions support automatic phy suspend and don't need this */
-	if (dwc->revision < DWC3_REVISION_194A &&
-			dwc->gadget.speed != USB_SPEED_SUPER)
+	if (dwc->gadget.speed != USB_SPEED_SUPER)
 		/* Suspend unneeded PHY */
 		dwc3_gadget_usb3_phy_suspend(dwc, true);
 
@@ -3590,11 +3581,6 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	reg = dwc3_readl(dwc->regs, DWC3_DCFG);
 	reg |= DWC3_DCFG_LPM_CAP;
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
-
-	/* Enable automatic phy suspend only on recent versions */
-	if (dwc->revision >= DWC3_REVISION_194A &&
-			!dwc->ssphy_clear_auto_suspend_on_disconnect)
-		dwc3_gadget_usb3_phy_suspend(dwc, true);
 
 	ret = usb_add_gadget_udc(dwc->dev, &dwc->gadget);
 	if (ret) {
