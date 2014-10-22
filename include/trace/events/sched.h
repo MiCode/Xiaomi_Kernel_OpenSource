@@ -409,24 +409,24 @@ TRACE_EVENT(sched_get_busy,
 
 TRACE_EVENT(sched_freq_alert,
 
-	TP_PROTO(int cpu, unsigned int cur_freq, unsigned int freq_required),
+	TP_PROTO(int cpu, u64 old_load, u64 new_load),
 
-	TP_ARGS(cpu, cur_freq, freq_required),
+	TP_ARGS(cpu, old_load, new_load),
 
 	TP_STRUCT__entry(
 		__field(	int,	cpu			)
-		__field(unsigned int,	cur_freq		)
-		__field(unsigned int,	freq_required		)
+		__field(	u64,	old_load		)
+		__field(	u64,	new_load		)
 	),
 
 	TP_fast_assign(
 		__entry->cpu		= cpu;
-		__entry->cur_freq	= cur_freq;
-		__entry->freq_required	= freq_required;
+		__entry->old_load	= old_load;
+		__entry->new_load	= new_load;
 	),
 
-	TP_printk("cpu %d cur_freq=%u freq_required=%u",
-		__entry->cpu, __entry->cur_freq, __entry->freq_required)
+	TP_printk("cpu %d old_load=%llu new_load=%llu",
+		__entry->cpu, __entry->old_load, __entry->new_load)
 );
 
 #endif	/* CONFIG_SCHED_FREQ_INPUT */
