@@ -333,13 +333,13 @@ static void debugfs_init(void)
 		return;
 	}
 
-	f_ent = debugfs_create_file("rfsa", 0222, dir_ent, NULL, &rfsa_fops);
+	f_ent = debugfs_create_file("rfsa", 0200, dir_ent, NULL, &rfsa_fops);
 	if (IS_ERR(f_ent)) {
 		pr_err("Failed to create debug_fs rfsa file");
 		return;
 	}
 
-	f_ent = debugfs_create_file("rmts", 0222, dir_ent, NULL, &rmts_fops);
+	f_ent = debugfs_create_file("rmts", 0200, dir_ent, NULL, &rmts_fops);
 	if (IS_ERR(f_ent)) {
 		pr_err("Failed to create debug_fs rmts file");
 		return;
