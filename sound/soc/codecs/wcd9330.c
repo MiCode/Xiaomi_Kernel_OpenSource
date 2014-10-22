@@ -7662,9 +7662,20 @@ int tomtom_hs_detect(struct snd_soc_codec *codec,
 {
 	int rc;
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
-	rc = wcd9xxx_mbhc_start(&tomtom->mbhc, mbhc_cfg);
-	if (!rc)
-		tomtom->mbhc_started = true;
+
+	if (mbhc_cfg->insert_detect) {
+		rc = wcd9xxx_mbhc_start(&tomtom->mbhc, mbhc_cfg);
+		if (!rc)
+			tomtom->mbhc_started = true;
+	} else {
+		/* MBHC is disabled, so disable Auto pulldown */
+		snd_soc_update_bits(codec, TOMTOM_A_MBHC_INSERT_DETECT2, 0xC0,
+				    0x00);
+		snd_soc_update_bits(codec, TOMTOM_A_MICB_CFILT_2_CTL, 0x01,
+				    0x00);
+		tomtom->mbhc.mbhc_cfg = NULL;
+		rc = 0;
+	}
 	return rc;
 }
 EXPORT_SYMBOL(tomtom_hs_detect);

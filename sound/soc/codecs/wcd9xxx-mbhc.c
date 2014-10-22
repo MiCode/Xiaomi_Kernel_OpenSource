@@ -1146,15 +1146,17 @@ static s32 __wcd9xxx_codec_sta_dce_v(struct wcd9xxx_mbhc *mbhc, s8 dce,
 				     u16 bias_value, s16 z, u32 micb_mv)
 {
 	s16 value, mb;
-	s32 mv;
+	s32 mv = 0;
 
 	value = bias_value;
 	if (dce) {
 		mb = (mbhc->mbhc_data.dce_mb);
-		mv = (value - z) * (s32)micb_mv / (mb - z);
+		if (mb - z)
+			mv = (value - z) * (s32)micb_mv / (mb - z);
 	} else {
 		mb = (mbhc->mbhc_data.sta_mb);
-		mv = (value - z) * (s32)micb_mv / (mb - z);
+		if (mb - z)
+			mv = (value - z) * (s32)micb_mv / (mb - z);
 	}
 
 	return mv;
@@ -4736,12 +4738,17 @@ static int wcd9xxx_event_notify(struct notifier_block *self, unsigned long val,
 {
 	int ret = 0;
 	struct wcd9xxx_mbhc *mbhc = ((struct wcd9xxx_resmgr *)data)->mbhc;
-	struct snd_soc_codec *codec = mbhc->codec;
+	struct snd_soc_codec *codec;
 	enum wcd9xxx_notify_event event = (enum wcd9xxx_notify_event)val;
 
 	pr_debug("%s: enter event %s(%d)\n", __func__,
 		 wcd9xxx_get_event_string(event), event);
 
+	if (!mbhc || !mbhc->mbhc_cfg) {
+		pr_debug("mbhc not initialized\n");
+		return 0;
+	}
+	codec = mbhc->codec;
 	mutex_lock(&mbhc->mbhc_lock);
 	switch (event) {
 	/* MICBIAS usage change */
