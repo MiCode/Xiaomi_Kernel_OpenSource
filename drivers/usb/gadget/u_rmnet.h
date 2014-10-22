@@ -47,8 +47,9 @@ struct grmnet {
 	void (*connect)(struct grmnet *g);
 };
 
-#define NR_QTI_PORTS	4
+#define NR_QTI_PORTS	(NR_RMNET_PORTS + NR_DPL_PORTS)
 #define NR_RMNET_PORTS	4
+#define NR_DPL_PORTS	1
 
 enum ctrl_client {
 	FRMNET_CTRL_CLIENT,

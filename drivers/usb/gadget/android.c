@@ -1473,6 +1473,7 @@ static int qdss_init_transports(int *portnum)
 {
 	char *ts_port;
 	char *tname = NULL;
+	char *ctrl_name = NULL;
 	char buf[MAX_XPORT_STR_LEN], *type;
 	char xport_name_buf[MAX_XPORT_STR_LEN], *tn;
 	int err = 0;
@@ -1487,13 +1488,28 @@ static int qdss_init_transports(int *portnum)
 	pr_debug("%s: qdss_debug_intf = %d\n",
 		__func__, qdss_debug_intf);
 
+	/*
+	 * QDSS function driver is being used for QDSS and DPL
+	 * functionality. ctrl_name (i.e. ctrl xport) is optional
+	 * whereas data transport name is mandatory to provide
+	 * while using QDSS/DPL as part of USB composition.
+	 */
 	while (type) {
+		ctrl_name = strsep(&type, ",");
 		ts_port = strsep(&type, ",");
+		if (!ts_port) {
+			pr_debug("%s:ctrl transport is not provided.\n",
+								__func__);
+			ts_port = ctrl_name;
+			ctrl_name = NULL;
+		}
+
 		if (ts_port) {
 			if (tn)
 				tname = strsep(&tn, ",");
 
 			err = qdss_init_port(
+				ctrl_name,
 				ts_port,
 				tname,
 				qdss_debug_intf);
@@ -1504,6 +1520,10 @@ static int qdss_init_transports(int *portnum)
 				return err;
 			}
 			(*portnum)++;
+		} else {
+			pr_err("%s: No data transport name for QDSS port.\n",
+								__func__);
+			err = -ENODEV;
 		}
 	}
 	return err;

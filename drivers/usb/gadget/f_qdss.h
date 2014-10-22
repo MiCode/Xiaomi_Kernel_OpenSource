@@ -25,11 +25,12 @@ struct gqdss {
 	struct usb_ep *ctrl_out;
 	struct usb_ep *ctrl_in;
 	struct usb_ep *data;
+	int (*send_encap_cmd)(u8 port_num, void *buf, size_t len);
+	void (*notify_modem)(void *g, u8 port_num, int cbits);
 };
 
 /* struct f_qdss - USB qdss function driver private structure */
 struct f_qdss {
-
 	struct gqdss port;
 	struct usb_composite_dev *cdev;
 	u8 port_num;
