@@ -12071,6 +12071,17 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 			 * Now enable the clocks, plane, pipe, and connectors that we 
 			 * set up.
 			*/
+			if (!connector->encoder->crtc->primary->fb) {
+
+				/*
+				 * as Primary plane FB is null, this connector
+				 * should not be enabled here. This happens
+				 * possibly if this is CHV or VLV and there are
+				 * multiple pipes during boot.
+				 */
+				DRM_DEBUG_KMS("Primary plane FB is null");
+				continue;
+			}
 			update_scanline_offset(intel_crtc);
 			to_intel_encoder(connector->encoder)->connectors_active = true;
 			dev_priv->display.crtc_enable(&intel_crtc->base);
