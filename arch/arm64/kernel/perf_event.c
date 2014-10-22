@@ -440,6 +440,9 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 		armpmu_release_hardware(armpmu);
 		return err;
 	}
+
+	armpmu->pmu_state = ARM_PMU_STATE_RUNNING;
+
 	return 0;
 }
 
@@ -1146,6 +1149,12 @@ static void armv8pmu_free_irq(struct arm_pmu *cpu_pmu)
 	if (irq <= 0)
 		return;
 
+	/*
+	 * If a cpu comes online during this function, do not enable its irq.
+	 * If a cpu goes offline, it should disable its irq.
+	 */
+	cpu_pmu->pmu_state = ARM_PMU_STATE_GOING_DOWN;
+
 	if (irq_is_percpu(irq)) {
 		if (msm_pmu_use_irq) {
 			on_each_cpu(armpmu_disable_percpu_irq, &irq, 1);
@@ -1161,6 +1170,7 @@ static void armv8pmu_free_irq(struct arm_pmu *cpu_pmu)
 				free_irq(irq, cpu_pmu);
 		}
 	}
+	cpu_pmu->pmu_state = ARM_PMU_STATE_OFF;
 }
 
 irqreturn_t armv8pmu_handle_irq(int irq_num, void *dev)
@@ -1465,7 +1475,6 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 	struct pmu *pmu;
 	u64 lcpu = (u64)hcpu;
 	int cpu = (int)lcpu;
-	int perf_running;
 	unsigned long masked_action = action & ~CPU_TASKS_FROZEN;
 	int ret = NOTIFY_DONE;
 
@@ -1479,13 +1488,12 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 	if (!cpu_pmu)
 		return ret;
 
-	perf_running = atomic_read(&cpu_pmu->active_events);
 	switch (masked_action) {
 	case CPU_DOWN_PREPARE:
 		if (cpu_pmu->save_pm_registers)
 			smp_call_function_single(cpu,
 				cpu_pmu->save_pm_registers, hcpu, 1);
-		if (perf_running) {
+		if (cpu_pmu->pmu_state != ARM_PMU_STATE_OFF) {
 			if (cpu_has_active_perf(cpu))
 				smp_call_function_single(cpu,
 					armpmu_update_counters, NULL, 1);
@@ -1504,7 +1512,7 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 			cpu_pmu->reset(NULL);
 		if (cpu_pmu->restore_pm_registers)
 			cpu_pmu->restore_pm_registers(hcpu);
-		if (perf_running) {
+		if (cpu_pmu->pmu_state == ARM_PMU_STATE_RUNNING) {
 			/* Arm the PMU IRQ before appearing. */
 			if (msm_pmu_use_irq && cpu_pmu->plat_device) {
 				irq = platform_get_irq(cpu_pmu->plat_device, 0);

@@ -34,6 +34,7 @@ static char *descriptions =
 	" 9 Perf: arm64: make request irq pmu-dependent\n"
 	"10 Perf: arm64: tracectr: initialize counts after hotplug\n"
 	"11 Perf: arm64: Refine disable/enable in tracecounters\n"
+	"12 Perf: arm64: fix disable of pmu irq during hotplug\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
