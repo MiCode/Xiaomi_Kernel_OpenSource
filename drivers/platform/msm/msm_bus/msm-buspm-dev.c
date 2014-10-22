@@ -250,13 +250,13 @@ msm_buspm_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case MSM_BUSPM_IOC_RDBUF:
-		pr_debug("Read Buffer: 0x%x%x%x%x\n",
-				dbgbuf[0], dbgbuf[1], dbgbuf[2], dbgbuf[3]);
-
 		if (!buf) {
 			retval = -EINVAL;
 			break;
 		}
+
+		pr_debug("Read Buffer: 0x%x%x%x%x\n",
+				dbgbuf[0], dbgbuf[1], dbgbuf[2], dbgbuf[3]);
 
 		if (copy_from_user(&xfer, (void __user *)arg, sizeof(xfer))) {
 			retval = -EFAULT;
