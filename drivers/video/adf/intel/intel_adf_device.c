@@ -230,14 +230,14 @@ static void adf_plane_to_intel_plane_config(
 	struct intel_adf_plane *adf_plane, struct intel_adf_interface *intf,
 	struct intel_plane_config *config, u32 zorder)
 {
-	config->dst_x = adf_plane->dst_x;
-	config->dst_y = adf_plane->dst_y;
-	config->dst_w = adf_plane->dst_w;
-	config->dst_h = adf_plane->dst_h;
-	config->src_x = adf_plane->src_x;
-	config->src_y = adf_plane->src_y;
-	config->src_w = adf_plane->src_w;
-	config->src_h = adf_plane->src_h;
+	config->dst_x = adf_plane->dst.x;
+	config->dst_y = adf_plane->dst.y;
+	config->dst_w = adf_plane->dst.w;
+	config->dst_h = adf_plane->dst.h;
+	config->src_x = adf_plane->src.x;
+	config->src_y = adf_plane->src.y;
+	config->src_w = adf_plane->src.w;
+	config->src_h = adf_plane->src.h;
 	config->alpha = adf_plane->alpha;
 	/*TODO: map adf_plane to plane_config*/
 	config->compression = adf_plane->compression;
@@ -329,7 +329,7 @@ static int intel_adf_device_validate(struct adf_device *dev,
 				void **driver_state)
 {
 	struct intel_adf_post_custom_data *custom = cfg->custom_data;
-	struct intel_adf_overlay *custom_overlay;
+	struct intel_adf_config *custom_config;
 	struct intel_adf_overlay_engine *eng;
 	struct driver_state *state;
 	struct adf_interface *intf;
@@ -338,7 +338,7 @@ static int intel_adf_device_validate(struct adf_device *dev,
 	struct flip *f;
 
 	size_t n_bufs = cfg->n_bufs;
-	u32 n_overlays;
+	u32 n_configs;
 	size_t custom_size;
 	int err;
 	int i;
@@ -354,11 +354,11 @@ static int intel_adf_device_validate(struct adf_device *dev,
 		return -EINVAL;
 	}
 
-	n_overlays = custom->num_overlays;
+	n_configs = custom->n_configs;
 
 	/*verify custom size*/
 	custom_size = sizeof(struct intel_adf_post_custom_data) +
-		n_overlays * sizeof(struct intel_adf_overlay);
+		n_configs * sizeof(struct intel_adf_config);
 	if (custom_size != cfg->custom_data_size) {
 		dev_err(dev->dev, "%s: invalid custom size\n", __func__);
 		return -EINVAL;
@@ -372,37 +372,37 @@ static int intel_adf_device_validate(struct adf_device *dev,
 		return -ENOMEM;
 	}
 
-	/*verify custom overlays*/
-	for (i = 0; i < n_overlays; i++) {
-		custom_overlay = &custom->overlays[i];
+	/*verify custom configs*/
+	for (i = 0; i < n_configs; i++) {
+		custom_config = &custom->configs[i];
 		/*verify buffer id set in plane*/
-		if (custom_overlay->plane.buffer_id > n_bufs) {
+		if (custom_config->plane.buffer_id > n_bufs) {
 			dev_err(dev->dev, "%s: invalid custom buffer id %d\n",
-				__func__, custom_overlay->plane.buffer_id);
+				__func__, custom_config->plane.buffer_id);
 			err = -EINVAL;
 			goto err;
 		}
 		/*verify interface id set in plane*/
 		intf = idr_find(&dev->interfaces,
-			custom_overlay->plane.interface_id);
+			custom_config->interface_id);
 		if (!intf) {
 			dev_err(dev->dev, "%s: invalid interface id %d\n",
-				__func__, custom_overlay->plane.interface_id);
+				__func__, custom_config->interface_id);
 			err = -EINVAL;
 			goto err;
 		}
 		driver_state_add_interface(state, to_intel_intf(intf));
 
 		/*get adf_buffer for this overlay*/
-		buf = &cfg->bufs[custom_overlay->plane.buffer_id];
-		mapping = &cfg->mappings[custom_overlay->plane.buffer_id];
+		buf = &cfg->bufs[custom_config->plane.buffer_id];
+		mapping = &cfg->mappings[custom_config->plane.buffer_id];
 		eng = to_intel_eng(buf->overlay_engine);
 		driver_state_add_overlay_engine(state, eng);
 
 		/*create and queue a flip for this overlay*/
 		f = driver_state_create_add_flip(state, eng,
 			to_intel_intf(intf), buf, mapping,
-				&custom_overlay->plane, custom->zorder);
+				&custom_config->plane, custom->zorder);
 		if (!f) {
 			dev_err(dev->dev, "%s: failed to create flip\n",
 				__func__);

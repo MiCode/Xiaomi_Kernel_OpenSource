@@ -151,7 +151,7 @@ struct intel_plane_config {
 	u8 alpha;
 	enum intel_plane_compression compression:4;
 	enum intel_plane_blending blending:4;
-	enum intel_adf_transform transform:4;
+	enum intel_adf_transform_mode transform:4;
 	struct intel_pipe *pipe;
 };
 

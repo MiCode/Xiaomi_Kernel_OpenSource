@@ -22,8 +22,10 @@
  *
  */
 
-#ifndef _VIDEO_INTEL_ADF_H_
-#define _VIDEO_INTEL_ADF_H_
+#ifndef _UAPI_VIDEO_INTEL_ADF_H_
+#define _UAPI_VIDEO_INTEL_ADF_H_
+
+#include <linux/types.h>
 
 /*
  * This identifier should be increased every time the contents of the this file
@@ -32,26 +34,42 @@
  * to match compatible versions should result in the user mode falling back to
  * the baseline simple post.
  */
-#define INTEL_ADF_VERSION 2
+#define INTEL_ADF_VERSION 3
 
-enum intel_adf_compression {
+struct intel_adf_rect {
+	__s16 x;
+	__s16 y;
+	__u16 w;
+	__u16 h;
+};
+
+struct intel_adf_rect_fixedpoint {
+	__s32 x;
+	__s32 y;
+	__u32 w;
+	__u32 h;
+};
+
+enum intel_adf_compression_mode {
 	INTEL_ADF_UNCOMPRESSED,
 	INTEL_ADF_COMPRESSED,
 };
 
-enum intel_adf_blending {
+enum intel_adf_blending_type {
 	INTEL_ADF_BLENDING_NONE,
 	INTEL_ADF_BLENDING_PREMULT,
 	INTEL_ADF_BLENDING_COVERAGE,
 };
 
-enum intel_adf_transform {
+enum intel_adf_transform_mode {
 	INTEL_ADF_TRANSFORM_NONE	= 0,
 	INTEL_ADF_TRANSFORM_FLIPH	= 1,
 	INTEL_ADF_TRANSFORM_FLIPV	= 2,
 	INTEL_ADF_TRANSFORM_ROT90	= 4,
+
 	/* INTEL_ADF_TRANSFORM_FLIPH | INTEL_ADF_TRANSFORM_FLIPV; */
 	INTEL_ADF_TRANSFORM_ROT180	= 3,
+
 	/*
 	 * INTEL_ADF_TRANSFORM_FLIPH | INTEL_ADF_TRANSFORM_FLIPV |
 	 * INTEL_ADF_TRANSFORM_ROT90;
@@ -59,179 +77,155 @@ enum intel_adf_transform {
 	INTEL_ADF_TRANSFORM_ROT270	= 7,
 };
 
-/**
- * intel_adf_color
- * overlay_id:	index of the overlay engine
- * zorder:	depth of the layer ion screen, lower is further back
- * reserved:	set reserved bit
- * color:	color
- */
-struct intel_adf_color {
-	__u8	overlay_id;
-	__u8	zorder;
-	__u16	reserved;
-	__u32	color;
-};
-
 enum intel_adf_colorspace {
-	INTEL_ADF_COLORSPACE_ARBITRARY,
+	INTEL_ADF_COLORSPACE_UNSPECIFIED,
 	INTEL_ADF_COLORSPACE_JFIF,
 	INTEL_ADF_COLORSPACE_BT601_625,
 	INTEL_ADF_COLORSPACE_BT601_525,
 	INTEL_ADF_COLORSPACE_BT709,
+	INTEL_ADF_COLORSPACE_BT2020,
 };
 
 enum intel_adf_plane_flags {
-	INTEL_ADF_PLANE_DISABLE		= 0x0001,
-	/* User indication that this plane is unchanged since the last post */
-	INTEL_ADF_PLANE_UNCHANGED	= 0x0002,
-	/* Flags for any undefined HW specific usage */
-	INTEL_ADF_PLANE_HWSPECIFIC1	= 0x1000,
-	INTEL_ADF_PLANE_HWSPECIFIC2	= 0x2000,
-	INTEL_ADF_PLANE_HWSPECIFIC3	= 0x4000,
-	INTEL_ADF_PLANE_HWSPECIFIC4	= 0x8000,
+	INTEL_ADF_PLANE_DISABLE		= 0x00000000,
+	INTEL_ADF_PLANE_ENABLE		= 0x00000001,
+
+	/* User hint that this plane is unchanged since the last post */
+	INTEL_ADF_PLANE_HINT_UNCHANGED	= 0x00000002,
+
+	/* Flags reserved for any future hardware usage */
+	INTEL_ADF_PLANE_HW_PRIVATE_1	= 0x10000000,
+	INTEL_ADF_PLANE_HW_PRIVATE_2	= 0x20000000,
+	INTEL_ADF_PLANE_HW_PRIVATE_3	= 0x40000000,
+	INTEL_ADF_PLANE_HW_PRIVATE_4	= 0x80000000,
 };
 
-/**
- * struct intel_adf_plane - intel plane structure for adf
- * overlay_id:	index of the overlay engine for this plane
- * interface_id:index of interface
- * buffer_id:	Index of the buffer to put on this plane
- *		(within adf_post_config.bufs array)
- * flags:	flags
- * dst_x:	destination left
- * dst_y:	destination top
- * dst_w:	destination width
- * dst_h:	destination_height
- * src_x:	16.16 fixed point source left
- * src_y:	16.16 fixed point source top
- * src_w:	16.16 fixed point source width
- * src_h:	16.16 fixed point source height
- * alpha:	constant alpha value
- * compression:	compiression mode
- * blending:	blending mode
- * transform:	transform mode
- * pad:		struct padding, value is always zero.
- */
+/* Configuration for describing an overlay plane displaying a buffer */
 struct intel_adf_plane {
+	/* Combination of flags from the intel_adf_plane_flags enum */
+	__u32 flags;
+
+	/* index of the overlay engine for this config */
+	__u8 overlay_id;
+
 	/*
-	 * NOTE: this field might be useless, already have
-	 * overlay engine assigned to adf_buffer
-	 **/
-	__u8	overlay_id;
-	__u8	interface_id;
-	__u8	buffer_id;
-	__u8	alpha;
-	__s16	dst_x;
-	__s16	dst_y;
-	__u16	dst_w;
-	__u16	dst_h;
-	__s32	src_x;
-	__s32	src_y;
-	__u32	src_w;
-	__u32	src_h;
-	__u16	flags;
-	enum intel_adf_blending		blending:2;
-	enum intel_adf_transform	transform:3;
-	enum intel_adf_compression	compression:3;
-	enum intel_adf_colorspace       colorspace:4;   /* Buffer Colorspace */
-	__u8	pad:4;
+	 * Index of the buffer to put on this plane
+	 * (within adf_post_config.bufs array)
+	 */
+	__u8 buffer_id;
+
+	/* Constant Alpha value */
+	__u16 alpha;
+
+	struct intel_adf_rect dst;
+	struct intel_adf_rect_fixedpoint src;
+	enum intel_adf_blending_type blending:8;
+	enum intel_adf_transform_mode transform:8;
+	enum intel_adf_compression_mode compression:8;
+	enum intel_adf_colorspace colorspace:8;
 };
 
-enum intel_adf_pfitter_flags {
-	INTEL_ADF_PFIT_DISABLE		= 0x0001,
-	INTEL_ADF_PFIT_AUTO		= 0x0002,
-	INTEL_ADF_PFIT_LETTERBOX	= 0x0004,
-	INTEL_ADF_PFIT_PILLARBOX	= 0x0008,
-	/* Flags for any undefined HW specific usage */
-	INTEL_ADF_PFIT_HWSPECIFIC1	= 0x1000,
-	INTEL_ADF_PFIT_HWSPECIFIC2	= 0x2000,
-	INTEL_ADF_PFIT_HWSPECIFIC3	= 0x4000,
-	INTEL_ADF_PFIT_HWSPECIFIC4	= 0x8000,
+/* Configuration for describing a constant color plane */
+struct intel_adf_color {
+	/* Placeholder for future flags. Set to 0 */
+	__u32 flags;
+
+	/* device specific color format */
+	__u32 color;
+
+	struct intel_adf_rect dst;
 };
 
-/**
- * struct intel_adf_panelfitter
- * overlay_id:	index of the overlay engine for panel fitter
- * pad:		for structure padding, should be zero
- * flags:	flags
- * dst_x:	destination left
- * dst_y:	destination top
- * dst_w:	destination width
- * dst_h:	destination height
- * src_x:	source left
- * src_y:	source top
- * src_w:	source width
- * src_h:	source height
- */
+enum intel_adf_panelfitter_flags {
+	/* Panel fitter fill modes */
+	INTEL_ADF_PANELFITTER_DISABLE		= 0x00000000,
+	INTEL_ADF_PANELFITTER_AUTO		= 0x00000001,
+	INTEL_ADF_PANELFITTER_LETTERBOX		= 0x00000002,
+	INTEL_ADF_PANELFITTER_PILLARBOX		= 0x00000003,
+
+	/* Hint that the panel fitter state is unchanged since the last post */
+	INTEL_ADF_PANELFITTER_HINT_UNCHANGED	= 0x08000000,
+
+	/* Flags reserved for any future hardware usage */
+	INTEL_ADF_PANELFITTER_HW_PRIVATE_1	= 0x10000000,
+	INTEL_ADF_PANELFITTER_HW_PRIVATE_2	= 0x20000000,
+	INTEL_ADF_PANELFITTER_HW_PRIVATE_3	= 0x40000000,
+	INTEL_ADF_PANELFITTER_HW_PRIVATE_4	= 0x80000000,
+};
+
+/* Configuration for describing a panel fitter */
 struct intel_adf_panelfitter {
-	__u8	interface_id;
-	__u8	overlay_id;
-	__u8	pad;
-	__u16	flags;
-	__s16	dst_x;
-	__s16	dst_y;
-	__u16	dst_w;
-	__u16	dst_h;
-	__s16	src_x;
-	__s16	src_y;
-	__u16	src_w;
-	__u16	src_h;
+	/* Combination of flags from the intel_adf_panelfitter_flags enum */
+	__u32 flags;
+
+	struct intel_adf_rect dst;
+	struct intel_adf_rect src;
 };
 
-/*
- * All the overlay structures begin with a _u8 overlay_id element.
- * The type of the specified overlay_engine will determine the type
- * of this union
- */
-struct intel_adf_overlay {
-	union {
-		/* Common overlay header for all overlay types */
-		struct {
-			/* index of the interface for this plane */
-			__u8	interface_id;
-			/* index of the overlay engine for this panel fitter */
-			__u8    overlay_id;
-		};
+enum intel_adf_config_type {
+	INTEL_ADF_CONFIG_PLANE,
+	INTEL_ADF_CONFIG_COLOR,
+	INTEL_ADF_CONFIG_PANELFITTER,
+};
 
-		struct intel_adf_color		color;
-		struct intel_adf_plane		plane;
-		struct intel_adf_panelfitter	panelfitter;
+struct intel_adf_config {
+	/* Type of this config entry */
+	enum intel_adf_config_type type:8;
+
+	/* index of the interface being updated by this config */
+	__u8 interface_id;
+
+	/* Reserved for future. Initialise to 0 */
+	__u16 pad;
+
+	union {
+		struct intel_adf_color color;
+		struct intel_adf_plane plane;
+		struct intel_adf_panelfitter panelfitter;
 	};
 };
 
 enum intel_adf_post_flags {
-	/* Call the custom page flip handler when this flip has completed */
-	INTEL_ADF_POST_FLIPCALLBACK	= 0x0001,
-	/* Apply this immediately, without waiting for vsyn c*/
-	INTEL_ADF_POST_IMMEDIATE	= 0x0002,
+	INTEL_ADF_POST_NO_FLAGS		= 0x00000000,
+
+	/* Call the custom page flip handler when this flip is completed. */
+	INTEL_ADF_POST_FLIPCALLBACK	= 0x00000001,
+
+	/* Apply this immediately, without waiting for vsync */
+	INTEL_ADF_POST_IMMEDIATE	= 0x00000002,
+
+	/* Discard anything currently queued and make this flip on next vsync */
+	INTEL_ADF_POST_DISCARDQUEUE	= 0x00000004,
+
 	/*
-	 * Discard anything currently queued and make this flip happen on
-	 * the next vsync
+	 * If set, this is a partial update specifying only a subset of planes,
+	 * the unspecified planes should remain unchanged.
+	 * If not set, any plane not specified should be turned off.
 	 */
-	INTEL_ADF_POST_DISCARDQUEUE	= 0x0004,
-	/* Flags for any undefined HW specific usage */
-	INTEL_ADF_POST_HWSPECIFIC	= 0xF000,
+	INTEL_ADF_POST_PARTIAL		= 0x00000008,
+
+	/* Flags reserved for any future hardware usage */
+	INTEL_ADF_POST_HW_PRIVATE_1	= 0x10000000,
+	INTEL_ADF_POST_HW_PRIVATE_2	= 0x20000000,
+	INTEL_ADF_POST_HW_PRIVATE_3	= 0x40000000,
+	INTEL_ADF_POST_HW_PRIVATE_4	= 0x80000000,
 };
 
-/**
- * intel_adf_post_custom_data
- * version:	INTEL_ADF_VERSION for backward compatibility support
- * flags:	adf post flags
- * num_overlays:number of overlays
- * overlays:	overlay entried will follow this structure in memory
- */
 struct intel_adf_post_custom_data {
-	__u32				version;
-	__u32				flags;
-	__u32				num_overlays;
-	__u32				zorder;
+	/* INTEL_ADF_VERSION for backwards compatibility support. */
+	__u32 version;
 
-	/* Z order (on hardware that supports it) is defined by the order of
-	 * these planes entry [0] is backmost, entry [num_overlays-1] is
-	 * frontmost
-	 */
-	struct intel_adf_overlay	overlays[0];
+	/* Combination of flags from the intel_adf_post_flags enum */
+	__u32 flags;
+
+	/* Device specific number that describe how the layers are ordered. */
+	__u32 zorder;
+
+	/* Number of configuration entries */
+	__u32 n_configs;
+
+	/* configuration entries will follow this structure in memory */
+	struct intel_adf_config configs[0];
 };
 
-#endif /* _VIDEO_INTEL_ADF_H_ */
+#endif /* _UAPI_VIDEO_INTEL_ADF_H_ */

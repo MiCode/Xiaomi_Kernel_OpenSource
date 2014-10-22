@@ -156,27 +156,27 @@ static int intel_interface_describe_simple_post(
 	dev_info(dev, "%s: buffer %dx%d\n", __func__, fb->w, fb->h);
 
 	custom_size = sizeof(struct intel_adf_post_custom_data) +
-			sizeof(struct intel_adf_overlay);
+			sizeof(struct intel_adf_config);
 
 	custom_data->version = INTEL_ADF_VERSION;
 	custom_data->flags = 0;
-	custom_data->num_overlays = 1;
-	custom_data->overlays[0].plane.overlay_id = -1;
-	custom_data->overlays[0].plane.interface_id = intf->idx;
-	custom_data->overlays[0].plane.buffer_id = 0;
-	custom_data->overlays[0].plane.flags = 0;
-	custom_data->overlays[0].plane.dst_x = 0;
-	custom_data->overlays[0].plane.dst_y = 0;
-	custom_data->overlays[0].plane.dst_w = fb->w;
-	custom_data->overlays[0].plane.dst_h = fb->h;
-	custom_data->overlays[0].plane.src_x = 0;
-	custom_data->overlays[0].plane.src_y = 0;
-	custom_data->overlays[0].plane.src_w = fb->w;
-	custom_data->overlays[0].plane.src_h = fb->h;
-	custom_data->overlays[0].plane.alpha = 0xff;
-	custom_data->overlays[0].plane.compression = INTEL_ADF_UNCOMPRESSED;
-	custom_data->overlays[0].plane.blending = INTEL_ADF_BLENDING_NONE;
-	custom_data->overlays[0].plane.transform = INTEL_ADF_TRANSFORM_NONE;
+	custom_data->n_configs = 1;
+	custom_data->configs[0].plane.overlay_id = -1;
+	custom_data->configs[0].interface_id = intf->idx;
+	custom_data->configs[0].plane.buffer_id = 0;
+	custom_data->configs[0].plane.flags = 0;
+	custom_data->configs[0].plane.dst.x = 0;
+	custom_data->configs[0].plane.dst.y = 0;
+	custom_data->configs[0].plane.dst.w = fb->w;
+	custom_data->configs[0].plane.dst.h = fb->h;
+	custom_data->configs[0].plane.src.x = 0;
+	custom_data->configs[0].plane.src.y = 0;
+	custom_data->configs[0].plane.src.w = fb->w;
+	custom_data->configs[0].plane.src.h = fb->h;
+	custom_data->configs[0].plane.alpha = 0xff;
+	custom_data->configs[0].plane.compression = INTEL_ADF_UNCOMPRESSED;
+	custom_data->configs[0].plane.blending = INTEL_ADF_BLENDING_NONE;
+	custom_data->configs[0].plane.transform = INTEL_ADF_TRANSFORM_NONE;
 
 	*size = custom_size;
 
