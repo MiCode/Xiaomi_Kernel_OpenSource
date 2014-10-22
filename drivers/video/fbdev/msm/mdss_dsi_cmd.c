@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@
 
 #include "mdss_dsi_cmd.h"
 #include "mdss_dsi.h"
+#include "mdss_smmu.h"
 
 /*
  * mipi dsi buf mechanism
@@ -72,8 +73,8 @@ char *mdss_dsi_buf_init(struct dsi_buf *dp)
 
 int mdss_dsi_buf_alloc(struct device *ctrl_dev, struct dsi_buf *dp, int size)
 {
-	dp->start = dma_alloc_writecombine(ctrl_dev, size, &dp->dmap,
-					   GFP_KERNEL);
+	dp->start = mdss_smmu_dsi_alloc_buf(ctrl_dev, size, &dp->dmap,
+			GFP_KERNEL);
 	if (dp->start == NULL) {
 		pr_err("%s:%u\n", __func__, __LINE__);
 		return -ENOMEM;

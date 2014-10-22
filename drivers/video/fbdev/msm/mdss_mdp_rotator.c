@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -946,8 +946,8 @@ int mdss_mdp_rotator_release(struct mdss_mdp_rotator_session *rot)
 	int rc;
 
 	rc = mdss_mdp_rotator_finish(rot);
-	mdss_mdp_data_free(&rot->src_buf);
-	mdss_mdp_data_free(&rot->dst_buf);
+	mdss_mdp_data_free(&rot->src_buf, true, DMA_TO_DEVICE);
+	mdss_mdp_data_free(&rot->dst_buf, true, DMA_FROM_DEVICE);
 	mdss_mdp_rotator_session_free(rot);
 
 	return rc;
@@ -997,35 +997,35 @@ int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 	mutex_lock(&rot->lock);
 
 	ret = mdss_mdp_data_get(&src_buf, &req->data, 1, flgs,
-		&mfd->pdev->dev);
+		&mfd->pdev->dev, true, DMA_TO_DEVICE);
 	if (ret) {
 		pr_err("src_data pmem error\n");
 		goto dst_buf_fail;
 	}
 
-	ret = mdss_mdp_data_map(&src_buf);
+	ret = mdss_mdp_data_map(&src_buf, true, DMA_TO_DEVICE);
 	if (ret) {
 		pr_err("unable to map source buffer\n");
-		mdss_mdp_data_free(&src_buf);
+		mdss_mdp_data_free(&src_buf, true, DMA_TO_DEVICE);
 		goto dst_buf_fail;
 	}
-	mdss_mdp_data_free(&rot->src_buf);
+	mdss_mdp_data_free(&rot->src_buf, true, DMA_TO_DEVICE);
 	memcpy(&rot->src_buf, &src_buf, sizeof(struct mdss_mdp_data));
 
-	mdss_mdp_data_free(&rot->dst_buf);
+	mdss_mdp_data_free(&rot->dst_buf, true, DMA_FROM_DEVICE);
 	ret = mdss_mdp_data_get(&rot->dst_buf, &req->dst_data, 1, flgs,
-		&mfd->pdev->dev);
+		&mfd->pdev->dev, true, DMA_FROM_DEVICE);
 	if (ret) {
 		pr_err("dst_data pmem error\n");
-		mdss_mdp_data_free(&rot->src_buf);
+		mdss_mdp_data_free(&rot->src_buf, true, DMA_TO_DEVICE);
 		goto dst_buf_fail;
 	}
 
-	ret = mdss_mdp_data_map(&rot->dst_buf);
+	ret = mdss_mdp_data_map(&rot->dst_buf, true, DMA_FROM_DEVICE);
 	if (ret) {
 		pr_err("unable to map destination buffer\n");
-		mdss_mdp_data_free(&rot->dst_buf);
-		mdss_mdp_data_free(&rot->src_buf);
+		mdss_mdp_data_free(&rot->dst_buf, true, DMA_FROM_DEVICE);
+		mdss_mdp_data_free(&rot->src_buf, true, DMA_TO_DEVICE);
 		goto dst_buf_fail;
 	}
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_formats.h"
 #include "mdss_debug.h"
+#include "mdss_smmu.h"
 
 enum {
 	MDP_INTR_VSYNC_INTF_0,
@@ -660,9 +661,12 @@ void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	}
 }
 
-static int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
+static int mdss_mdp_put_img(struct mdss_mdp_img_data *data, bool rotator,
+		int dir)
 {
 	struct ion_client *iclient = mdss_get_ionclient();
+	u32 domain;
+
 	if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
 		pr_debug("fb mem buf=0x%pa\n", &data->addr);
 		fdput(data->srcp_f);
@@ -678,25 +682,17 @@ static int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 			return -ENOMEM;
 		} else {
 			if (data->mapped) {
-				int domain;
-				if (data->flags & MDP_SECURE_OVERLAY_SESSION)
-					domain = MDSS_IOMMU_DOMAIN_SECURE;
-				else
-					domain = MDSS_IOMMU_DOMAIN_UNSECURE;
-
-				msm_unmap_dma_buf(data->srcp_table,
-					mdss_get_iommu_domain(domain), 0);
-
+				domain = mdss_smmu_get_domain_type(data->flags,
+					rotator);
+				mdss_smmu_unmap_dma_buf(data->srcp_table,
+						domain, dir);
 				data->mapped = false;
 			}
-
 			dma_buf_unmap_attachment(data->srcp_attachment,
-				data->srcp_table, DMA_BIDIRECTIONAL);
-
+				data->srcp_table, dir);
 			dma_buf_detach(data->srcp_dma_buf,
 					data->srcp_attachment);
 			dma_buf_put(data->srcp_dma_buf);
-
 			data->srcp_dma_buf = NULL;
 		}
 
@@ -708,12 +704,14 @@ static int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 }
 
 static int mdss_mdp_get_img(struct msmfb_data *img,
-		struct mdss_mdp_img_data *data, struct device *dev)
+		struct mdss_mdp_img_data *data, struct device *dev,
+		bool rotator, int dir)
 {
 	struct fd f;
 	int ret = -EINVAL;
 	int fb_num;
 	unsigned long *len;
+	u32 domain;
 	dma_addr_t *start;
 	struct ion_client *iclient = mdss_get_ionclient();
 
@@ -747,16 +745,18 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 			data->srcp_dma_buf = NULL;
 			return ret;
 		}
+		domain = mdss_smmu_get_domain_type(data->flags, rotator);
 
-		data->srcp_attachment = dma_buf_attach(data->srcp_dma_buf, dev);
-
+		data->srcp_attachment =
+			mdss_smmu_dma_buf_attach(data->srcp_dma_buf, dev,
+					domain);
 		if (IS_ERR(data->srcp_attachment)) {
 			ret = PTR_ERR(data->srcp_attachment);
 			goto err_put;
 		}
 
-		data->srcp_table = dma_buf_map_attachment(data->srcp_attachment,
-							DMA_BIDIRECTIONAL);
+		data->srcp_table =
+			dma_buf_map_attachment(data->srcp_attachment, dir);
 		if (IS_ERR(data->srcp_table)) {
 			ret = PTR_ERR(data->srcp_table);
 			goto err_detach;
@@ -772,7 +772,7 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 
 	if (!*start) {
 		pr_err("start address is zero!\n");
-		mdss_mdp_put_img(data);
+		mdss_mdp_put_img(data, rotator, dir);
 		return -ENOMEM;
 	}
 
@@ -783,7 +783,7 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 		pr_debug("mem=%d ihdl=%p buf=0x%pa len=0x%lu\n", img->memory_id,
 			 data->srcp_dma_buf, &data->addr, data->len);
 	} else {
-		mdss_mdp_put_img(data);
+		mdss_mdp_put_img(data, rotator, dir);
 		return ret ? : -EOVERFLOW;
 	}
 
@@ -795,42 +795,37 @@ err_put:
 	return ret;
 }
 
-static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data)
+static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
+		int dir)
 {
 	int ret = -EINVAL;
+	int domain;
 
 	if (data->addr && data->len)
 		return 0;
 
 	if (!IS_ERR_OR_NULL(data->srcp_dma_buf)) {
 		if (mdss_res->mdss_util->iommu_attached()) {
-			int domain;
-			if (data->flags & MDP_SECURE_OVERLAY_SESSION)
-				domain = MDSS_IOMMU_DOMAIN_SECURE;
-			else
-				domain = MDSS_IOMMU_DOMAIN_UNSECURE;
-
-			ret = msm_map_dma_buf(data->srcp_dma_buf,
-					    data->srcp_table,
-					    mdss_get_iommu_domain(domain),
-					    0, SZ_4K, 0, &data->addr,
-					    &data->len, 0, 0);
+			domain = mdss_smmu_get_domain_type(data->flags,
+					rotator);
+			ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,
+					data->srcp_table, domain,
+					&data->addr, &data->len, dir);
+			if (IS_ERR_VALUE(ret)) {
+				pr_err("smmu map dma buf failed: (%d)\n", ret);
+				goto err_unmap;
+			}
 			data->mapped = true;
 		} else {
 			data->addr = sg_phys(data->srcp_table->sgl);
 			data->len = data->srcp_table->sgl->length;
 			ret = 0;
 		}
-
-		if (IS_ERR_VALUE(ret)) {
-			pr_err("failed to map ion handle (%d)\n", ret);
-			goto err_unmap;
-		}
 	}
 
 	if (!data->addr) {
 		pr_err("start address is zero!\n");
-		mdss_mdp_put_img(data);
+		mdss_mdp_put_img(data, rotator, dir);
 		return -ENOMEM;
 	}
 
@@ -841,22 +836,22 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data)
 		pr_debug("ihdl=%p buf=0x%pa len=0x%lu\n",
 			 data->srcp_dma_buf, &data->addr, data->len);
 	} else {
-		mdss_mdp_put_img(data);
+		mdss_mdp_put_img(data, rotator, dir);
 		return ret ? : -EOVERFLOW;
 	}
 
 	return ret;
 
 err_unmap:
-	dma_buf_unmap_attachment(data->srcp_attachment, data->srcp_table,
-				DMA_BIDIRECTIONAL);
+	dma_buf_unmap_attachment(data->srcp_attachment, data->srcp_table, dir);
 	dma_buf_detach(data->srcp_dma_buf, data->srcp_attachment);
 	dma_buf_put(data->srcp_dma_buf);
 	return ret;
 }
 
 int mdss_mdp_data_get(struct mdss_mdp_data *data, struct msmfb_data *planes,
-		int num_planes, u32 flags, struct device *dev)
+		int num_planes, u32 flags, struct device *dev, bool rotator,
+		int dir)
 {
 	int i, rc = 0;
 
@@ -865,12 +860,13 @@ int mdss_mdp_data_get(struct mdss_mdp_data *data, struct msmfb_data *planes,
 
 	for (i = 0; i < num_planes; i++) {
 		data->p[i].flags = flags;
-		rc = mdss_mdp_get_img(&planes[i], &data->p[i], dev);
+		rc = mdss_mdp_get_img(&planes[i], &data->p[i], dev, rotator,
+				dir);
 		if (rc) {
 			pr_err("failed to get buf p=%d flags=%x\n", i, flags);
 			while (i > 0) {
 				i--;
-				mdss_mdp_put_img(&data->p[i]);
+				mdss_mdp_put_img(&data->p[i], rotator, dir);
 			}
 			break;
 		}
@@ -881,7 +877,7 @@ int mdss_mdp_data_get(struct mdss_mdp_data *data, struct msmfb_data *planes,
 	return rc;
 }
 
-int mdss_mdp_data_map(struct mdss_mdp_data *data)
+int mdss_mdp_data_map(struct mdss_mdp_data *data, bool rotator, int dir)
 {
 	int i, rc = 0;
 
@@ -889,12 +885,12 @@ int mdss_mdp_data_map(struct mdss_mdp_data *data)
 		return -EINVAL;
 
 	for (i = 0; i < data->num_planes; i++) {
-		rc = mdss_mdp_map_buffer(&data->p[i]);
+		rc = mdss_mdp_map_buffer(&data->p[i], rotator, dir);
 		if (rc) {
 			pr_err("failed to map buf p=%d\n", i);
 			while (i > 0) {
 				i--;
-				mdss_mdp_put_img(&data->p[i]);
+				mdss_mdp_put_img(&data->p[i], rotator, dir);
 			}
 			break;
 		}
@@ -903,14 +899,15 @@ int mdss_mdp_data_map(struct mdss_mdp_data *data)
 	return rc;
 }
 
-void mdss_mdp_data_free(struct mdss_mdp_data *data)
+void mdss_mdp_data_free(struct mdss_mdp_data *data, bool rotator, int dir)
 {
 	int i;
 
 	mdss_iommu_ctrl(1);
 	for (i = 0; i < data->num_planes && data->p[i].len; i++)
-		mdss_mdp_put_img(&data->p[i]);
+		mdss_mdp_put_img(&data->p[i], rotator, dir);
 	mdss_iommu_ctrl(0);
+
 	data->num_planes = 0;
 }
 

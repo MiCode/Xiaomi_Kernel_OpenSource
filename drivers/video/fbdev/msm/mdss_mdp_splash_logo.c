@@ -22,13 +22,12 @@
 #include <linux/of_address.h>
 #include <linux/fb.h>
 #include <linux/dma-buf.h>
-#include <linux/mm.h>
-#include <asm/page.h>
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "splash.h"
 #include "mdss_mdp_splash_logo.h"
+#include "mdss_smmu.h"
 
 #define INVALID_PIPE_INDEX 0xFFFF
 #define MAX_FRAME_DONE_COUNT_WAIT 2
@@ -66,27 +65,28 @@ static int mdss_mdp_splash_alloc_memory(struct msm_fb_data_type *mfd,
 		goto imap_err;
 	}
 
-	sinfo->attachment = dma_buf_attach(sinfo->dma_buf,
-					&mfd->pdev->dev);
+	sinfo->attachment = mdss_smmu_dma_buf_attach(sinfo->dma_buf,
+			&mfd->pdev->dev, MDSS_IOMMU_DOMAIN_UNSECURE);
 	if (IS_ERR(sinfo->attachment)) {
 		rc = PTR_ERR(sinfo->attachment);
 		goto err_put;
 	}
 
 	sinfo->table = dma_buf_map_attachment(sinfo->attachment,
-					DMA_BIDIRECTIONAL);
+			DMA_BIDIRECTIONAL);
 	if (IS_ERR(sinfo->table)) {
 		rc = PTR_ERR(sinfo->table);
 		goto err_detach;
 	}
 
-	rc = msm_map_dma_buf(sinfo->dma_buf, sinfo->table,
-			mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE),
-			0, SZ_4K, 0, &sinfo->iova, &buf_size, 0, 0);
+	rc = mdss_smmu_map_dma_buf(sinfo->dma_buf, sinfo->table,
+			MDSS_IOMMU_DOMAIN_UNSECURE, &sinfo->iova,
+			&buf_size, DMA_BIDIRECTIONAL);
 	if (rc) {
-		pr_err("ion memory map failed\n");
+		pr_err("mdss smmu map dma buf failed!\n");
 		goto err_unmap;
 	}
+	sinfo->size = buf_size;
 
 	dma_buf_begin_cpu_access(sinfo->dma_buf, 0, size, DMA_FROM_DEVICE);
 	sinfo->splash_buffer = dma_buf_kmap(sinfo->dma_buf, 0);
@@ -96,18 +96,18 @@ static int mdss_mdp_splash_alloc_memory(struct msm_fb_data_type *mfd,
 		goto kmap_err;
 	}
 
-	/*
+	/**
 	 * dma_buf has the reference
 	 */
 	ion_free(mdata->iclient, handle);
 
 	return rc;
 kmap_err:
-	msm_unmap_dma_buf(sinfo->table,
-		mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE), 0);
+	mdss_smmu_unmap_dma_buf(sinfo->table, MDSS_IOMMU_DOMAIN_UNSECURE,
+			DMA_BIDIRECTIONAL);
 err_unmap:
 	dma_buf_unmap_attachment(sinfo->attachment, sinfo->table,
-					DMA_BIDIRECTIONAL);
+			DMA_BIDIRECTIONAL);
 err_detach:
 	dma_buf_detach(sinfo->dma_buf, sinfo->attachment);
 err_put:
@@ -135,10 +135,9 @@ static void mdss_mdp_splash_free_memory(struct msm_fb_data_type *mfd)
 	dma_buf_end_cpu_access(sinfo->dma_buf, 0, sinfo->size, DMA_FROM_DEVICE);
 	dma_buf_kunmap(sinfo->dma_buf, 0, sinfo->splash_buffer);
 
-	msm_unmap_dma_buf(sinfo->table,
-		mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE), 0);
+	mdss_smmu_unmap_dma_buf(sinfo->table, MDSS_IOMMU_DOMAIN_UNSECURE, 0);
 	dma_buf_unmap_attachment(sinfo->attachment, sinfo->table,
-					DMA_BIDIRECTIONAL);
+			DMA_BIDIRECTIONAL);
 	dma_buf_detach(sinfo->dma_buf, sinfo->attachment);
 	dma_buf_put(sinfo->dma_buf);
 
@@ -147,7 +146,6 @@ static void mdss_mdp_splash_free_memory(struct msm_fb_data_type *mfd)
 
 static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 {
-	struct iommu_domain *domain;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int rc, ret;
@@ -167,14 +165,8 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 		return -EPERM;
 	}
 
-	domain = msm_get_iommu_domain(mdss_get_iommu_domain(
-						MDSS_IOMMU_DOMAIN_UNSECURE));
-	if (!domain) {
-		pr_debug("mdss iommu domain get failed\n");
-		return -EINVAL;
-	}
-
-	rc = iommu_map(domain, mdp5_data->splash_mem_addr,
+	rc = mdss_smmu_map(MDSS_IOMMU_DOMAIN_UNSECURE,
+				mdp5_data->splash_mem_addr,
 				mdp5_data->splash_mem_addr,
 				mdp5_data->splash_mem_size, IOMMU_READ);
 	if (rc) {
@@ -183,8 +175,9 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 		ret = mdss_iommu_ctrl(1);
 		if (IS_ERR_VALUE(ret)) {
 			pr_err("mdss iommu attach failed\n");
-			iommu_unmap(domain, mdp5_data->splash_mem_addr,
-						mdp5_data->splash_mem_size);
+			mdss_smmu_unmap(MDSS_IOMMU_DOMAIN_UNSECURE,
+					mdp5_data->splash_mem_addr,
+					mdp5_data->splash_mem_size);
 		} else {
 			mfd->splash_info.iommu_dynamic_attached = true;
 		}
@@ -195,19 +188,13 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 
 static void mdss_mdp_splash_unmap_splash_mem(struct msm_fb_data_type *mfd)
 {
-	struct iommu_domain *domain;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 
 	if (mfd->splash_info.iommu_dynamic_attached) {
-		domain = msm_get_iommu_domain(mdss_get_iommu_domain(
-						MDSS_IOMMU_DOMAIN_UNSECURE));
-		if (!domain) {
-			pr_err("mdss iommu domain get failed\n");
-			return;
-		}
 
-		iommu_unmap(domain, mdp5_data->splash_mem_addr,
-						mdp5_data->splash_mem_size);
+		mdss_smmu_unmap(MDSS_IOMMU_DOMAIN_UNSECURE,
+				mdp5_data->splash_mem_addr,
+				mdp5_data->splash_mem_size);
 		mdss_iommu_ctrl(0);
 
 		mfd->splash_info.iommu_dynamic_attached = false;
