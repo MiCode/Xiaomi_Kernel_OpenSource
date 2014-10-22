@@ -2,6 +2,7 @@
 #include <linux/i2c.h>
 #include <linux/dmi.h>
 #include <linux/efi.h>
+#include <linux/pci.h>
 #include <linux/acpi.h>
 #include <linux/delay.h>
 #include <media/v4l2-subdev.h>
@@ -691,3 +692,16 @@ int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
         return 0;
 }
 EXPORT_SYMBOL_GPL(camera_sensor_csi);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+/* PCI quirk: The BYT ISP advertises PCI runtime PM but it doesn't
+ * work.  Disable so the kernel framework doesn't hang the device
+ * trying.  The driver itself does direct calls to the PUNIT to manage
+ * ISP power. */
+static void isp_pm_cap_fixup(struct pci_dev *dev)
+{
+	dev_info(&dev->dev, "Disabling PCI power management on camera ISP\n");
+	dev->pm_cap = 0;
+}
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x0f38, isp_pm_cap_fixup);
+#endif
