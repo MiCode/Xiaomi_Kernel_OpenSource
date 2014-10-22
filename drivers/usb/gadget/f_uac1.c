@@ -950,6 +950,13 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	pr_debug("intf %d, alt %d\n", intf, alt);
 
 	if (intf == ac_header_desc.baInterfaceNr[0]) {
+		if (audio->alt_intf[0] == alt) {
+			pr_debug("Alt interface is already set to %d. Do nothing.\n",
+				alt);
+
+			return 0;
+		}
+
 		if (alt == 1) {
 			err = usb_ep_enable(in_ep);
 			if (err) {
@@ -997,6 +1004,13 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		}
 		audio->alt_intf[0] = alt;
 	} else if (intf == ac_header_desc.baInterfaceNr[1]) {
+		if (audio->alt_intf[1] == alt) {
+			pr_debug("Alt interface is already set to %d. Do nothing.\n",
+				alt);
+
+			return 0;
+		}
+
 		if (alt == 1) {
 			err = usb_ep_enable(out_ep);
 			if (err) {
