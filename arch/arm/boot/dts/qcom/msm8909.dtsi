@@ -1371,39 +1371,6 @@
 		qcom,clk_div = <27>;
 	};
 
-	sound {
-		compatible = "qcom,msm8x16-audio-codec";
-		qcom,model = "msm8909-snd-card";
-		qcom,msm-snd-card-id = <0>;
-		qcom,msm-codec-type = "internal";
-		qcom,msm-ext-pa = "primary";
-		qcom,msm-mclk-freq = <9600000>;
-		qcom,msm-mbhc-hphl-swh = <0>;
-		qcom,msm-mbhc-gnd-swh = <0>;
-		qcom,msm-hs-micbias-type = "internal";
-		qcom,msm-micbias1-ext-cap;
-		qcom,msm-micbias2-ext-cap;
-		qcom,audio-routing =
-			"RX_BIAS", "MCLK",
-			"SPK_RX_BIAS", "MCLK",
-			"INT_LDO_H", "MCLK",
-			"MIC BIAS External", "Handset Mic",
-			"MIC BIAS Internal2", "Headset Mic",
-			"MIC BIAS External", "Secondary Mic",
-			"AMIC1", "MIC BIAS External",
-			"AMIC2", "MIC BIAS Internal2",
-			"AMIC3", "MIC BIAS External";
-		pinctrl-names = "cdc_lines_act",
-				"cdc_lines_sus",
-				"cross_conn_det_act",
-				"cross_conn_det_sus";
-		pinctrl-0 = <&cdc_pdm_lines_act>;
-		pinctrl-1 = <&cdc_pdm_lines_sus>;
-		pinctrl-2 = <&cross_conn_det_act>;
-		pinctrl-3 = <&cross_conn_det_sus>;
-		qcom,cdc-us-euro-gpios = <&msm_gpio 97 0>;
-	};
-
 	qcom_tzlog: tz-log@8600720 {
 		compatible = "qcom,tz-log";
 		reg = <0x08600720 0x1000>;
