@@ -57,6 +57,7 @@
 #include "mdss_mdp_splash_logo.h"
 #define CREATE_TRACE_POINTS
 #include "mdss_debug.h"
+#include "mdss_smmu.h"
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -1480,10 +1481,11 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 	ion_unmap_kernel(mfd->fb_ion_client, mfd->fb_ion_handle);
 
 	if (mfd->mdp.fb_mem_get_iommu_domain) {
-		msm_unmap_dma_buf(mfd->fb_table,
-				mfd->mdp.fb_mem_get_iommu_domain(), 0);
+		mdss_smmu_unmap_dma_buf(mfd->fb_table,
+				mfd->mdp.fb_mem_get_iommu_domain(),
+				DMA_BIDIRECTIONAL);
 		dma_buf_unmap_attachment(mfd->fb_attachment, mfd->fb_table,
-					DMA_BIDIRECTIONAL);
+				DMA_BIDIRECTIONAL);
 		dma_buf_detach(mfd->fbmem_buf, mfd->fb_attachment);
 		dma_buf_put(mfd->fbmem_buf);
 	}
@@ -1497,6 +1499,7 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 	unsigned long buf_size;
 	int rc;
 	void *vaddr;
+	int domain;
 
 	if (!mfd) {
 		pr_err("Invalid input param - no mfd\n");
@@ -1528,23 +1531,25 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 			goto fb_mmap_failed;
 		}
 
-		mfd->fb_attachment = dma_buf_attach(mfd->fbmem_buf,
-							&mfd->pdev->dev);
+		domain = mfd->mdp.fb_mem_get_iommu_domain();
+
+		mfd->fb_attachment = mdss_smmu_dma_buf_attach(mfd->fbmem_buf,
+				&mfd->pdev->dev, domain);
 		if (IS_ERR(mfd->fb_attachment)) {
 			rc = PTR_ERR(mfd->fb_attachment);
 			goto err_put;
 		}
 
 		mfd->fb_table = dma_buf_map_attachment(mfd->fb_attachment,
-							DMA_BIDIRECTIONAL);
+				DMA_BIDIRECTIONAL);
 		if (IS_ERR(mfd->fb_table)) {
 			rc = PTR_ERR(mfd->fb_table);
 			goto err_detach;
 		}
 
-		rc = msm_map_dma_buf(mfd->fbmem_buf, mfd->fb_table,
-				mfd->mdp.fb_mem_get_iommu_domain(), 0, SZ_4K, 0,
-				&mfd->iova, &buf_size, 0, 0);
+		rc = mdss_smmu_map_dma_buf(mfd->fbmem_buf, mfd->fb_table,
+				domain, &mfd->iova, &buf_size,
+				DMA_BIDIRECTIONAL);
 		if (rc) {
 			pr_err("Cannot map fb_mem to IOMMU. rc=%d\n", rc);
 			goto err_unmap;
@@ -1558,10 +1563,7 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 	if (IS_ERR_OR_NULL(vaddr)) {
 		pr_err("ION memory mapping failed - %ld\n", PTR_ERR(vaddr));
 		rc = PTR_ERR(vaddr);
-		if (mfd->mdp.fb_mem_get_iommu_domain) {
-			goto err_unmap;
-		}
-		goto fb_mmap_failed;
+		goto err_unmap;
 	}
 
 	pr_debug("alloc 0x%zuB vaddr = %p (%pa iova) for fb%d\n", fb_size,
@@ -1809,22 +1811,19 @@ static int mdss_fb_alloc_fbmem_iommu(struct msm_fb_data_type *mfd, int dom)
 			      mfd->fbi->var.yres_virtual))
 		pr_warn("reserve size is smaller than framebuffer size\n");
 
-	virt = dma_alloc_coherent(&pdev->dev, size, &phys, GFP_KERNEL);
-	if (!virt) {
+	rc = mdss_smmu_dma_alloc_coherent(&pdev->dev, size, &phys, &mfd->iova,
+			&virt, GFP_KERNEL, dom);
+	if (rc) {
 		pr_err("unable to alloc fbmem size=%zx\n", size);
 		return -ENOMEM;
 	}
 
 	if (MDSS_LPAE_CHECK(phys)) {
 		pr_warn("fb mem phys %pa > 4GB is not supported.\n", &phys);
-		dma_free_coherent(&pdev->dev, size, &virt, GFP_KERNEL);
+		mdss_smmu_dma_free_coherent(&pdev->dev, size, &virt,
+				phys, mfd->iova, dom);
 		return -ERANGE;
 	}
-
-	rc = msm_iommu_map_contig_buffer(phys, dom, 0, size, SZ_4K, 0,
-					    &mfd->iova);
-	if (rc)
-		pr_warn("Cannot map fb_mem %pa to IOMMU. rc=%d\n", &phys, rc);
 
 	pr_debug("alloc 0x%zxB @ (%pa phys) (0x%p virt) (%pa iova) for fb%d\n",
 		 size, &phys, virt, &mfd->iova, mfd->index);

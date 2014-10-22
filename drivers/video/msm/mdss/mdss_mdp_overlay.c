@@ -35,6 +35,7 @@
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
+#include "mdss_smmu.h"
 
 #define VSYNC_PERIOD 16
 #define BORDERFILL_NDX	0x0BF000BF
@@ -1075,7 +1076,7 @@ void mdss_mdp_overlay_buf_free(struct msm_fb_data_type *mfd,
 	if (!list_empty(&buf->pipe_list))
 		list_del_init(&buf->pipe_list);
 
-	mdss_mdp_data_free(buf);
+	mdss_mdp_data_free(buf, false, DMA_TO_DEVICE);
 
 	buf->last_freed = local_clock();
 	buf->state = MDP_BUF_STATE_UNUSED;
@@ -1430,7 +1431,7 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 
 		if (buf && (buf->state == MDP_BUF_STATE_READY)) {
 			buf->state = MDP_BUF_STATE_ACTIVE;
-			ret = mdss_mdp_data_map(buf);
+			ret = mdss_mdp_data_map(buf, false, DMA_TO_DEVICE);
 		} else if (!pipe->params_changed) {
 			/* nothing to update so continue with next */
 			continue;
@@ -1927,7 +1928,7 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 		ret = -ENOMEM;
 	} else {
 		ret = mdss_mdp_data_get(src_data, &req->data, 1, flags,
-			&mfd->pdev->dev);
+			&mfd->pdev->dev, false, DMA_TO_DEVICE);
 		if (IS_ERR_VALUE(ret)) {
 			mdss_mdp_overlay_buf_free(mfd, src_data);
 			pr_err("src_data pmem error\n");
@@ -2789,6 +2790,7 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 	u32 start_x = img->dx;
 	u32 start_y = img->dy;
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
+	struct platform_device *pdev = mfd->pdev;
 
 	ret = mutex_lock_interruptible(&mdp5_data->ov_lock);
 	if (ret)
@@ -2812,25 +2814,13 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 	}
 
 	if (!mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
-		mfd->cursor_buf = dma_alloc_coherent(&mfd->pdev->dev,
-			MDSS_MDP_CURSOR_SIZE, (dma_addr_t *)
-			&mfd->cursor_buf_phys, GFP_KERNEL);
-		if (!mfd->cursor_buf) {
-			pr_err("can't allocate cursor buffer\n");
-			ret = -ENOMEM;
-			goto done;
-		}
-
-		ret = msm_iommu_map_contig_buffer(mfd->cursor_buf_phys,
-			mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE),
-			0, MDSS_MDP_CURSOR_SIZE, SZ_4K, 0,
-			&(mfd->cursor_buf_iova));
-		if (IS_ERR_VALUE(ret)) {
-			dma_free_coherent(&mfd->pdev->dev, MDSS_MDP_CURSOR_SIZE,
-					  mfd->cursor_buf,
-					  (dma_addr_t) mfd->cursor_buf_phys);
-			pr_err("unable to map cursor buffer to iommu(%d)\n",
-			       ret);
+		ret = mdss_smmu_dma_alloc_coherent(&pdev->dev,
+			MDSS_MDP_CURSOR_SIZE,
+			(dma_addr_t *) &mfd->cursor_buf_phys,
+			&mfd->cursor_buf_iova, mfd->cursor_buf,
+			GFP_KERNEL, MDSS_IOMMU_DOMAIN_UNSECURE);
+		if (ret) {
+			pr_err("can't allocate cursor buffer rc:%d\n", ret);
 			goto done;
 		}
 
@@ -2975,6 +2965,7 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 	u32 start_x = img->dx;
 	u32 start_y = img->dy;
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
+	struct platform_device *pdev = mfd->pdev;
 
 	mixer_left = mdss_mdp_mixer_get(mdp5_data->ctl,
 			MDSS_MDP_MIXER_MUX_DEFAULT);
@@ -2988,24 +2979,13 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 	}
 
 	if (!mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
-		mfd->cursor_buf = dma_alloc_coherent(NULL, MDSS_MDP_CURSOR_SIZE,
-					(dma_addr_t *) &mfd->cursor_buf_phys,
-					GFP_KERNEL);
-		if (!mfd->cursor_buf) {
-			pr_err("can't allocate cursor buffer\n");
-			return -ENOMEM;
-		}
-
-		ret = msm_iommu_map_contig_buffer(mfd->cursor_buf_phys,
-			mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE),
-			0, MDSS_MDP_CURSOR_SIZE, SZ_4K, 0,
-			&(mfd->cursor_buf_iova));
-		if (IS_ERR_VALUE(ret)) {
-			dma_free_coherent(NULL, MDSS_MDP_CURSOR_SIZE,
-					  mfd->cursor_buf,
-					  (dma_addr_t) mfd->cursor_buf_phys);
-			pr_err("unable to map cursor buffer to iommu(%d)\n",
-			       ret);
+		ret = mdss_smmu_dma_alloc_coherent(&pdev->dev,
+			MDSS_MDP_CURSOR_SIZE,
+			(dma_addr_t *) &mfd->cursor_buf_phys,
+			&mfd->cursor_buf_iova, mfd->cursor_buf,
+			GFP_KERNEL, MDSS_IOMMU_DOMAIN_UNSECURE);
+		if (ret) {
+			pr_err("can't allocate cursor buffer rc:%d\n", ret);
 			return ret;
 		}
 	}

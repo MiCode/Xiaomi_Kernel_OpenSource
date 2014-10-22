@@ -54,6 +54,7 @@
 #include "mdss_debug.h"
 #include "mdss_mdp_debug.h"
 #include "mdss_mdp_rotator.h"
+#include "mdss_smmu.h"
 
 #include "mdss_mdp_trace.h"
 
@@ -65,7 +66,7 @@ struct mdss_data_type *mdss_res;
 
 static int mdss_fb_mem_get_iommu_domain(void)
 {
-	return mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE);
+	return mdss_smmu_get_domain_id(MDSS_IOMMU_DOMAIN_UNSECURE);
 }
 
 struct msm_mdp_interface mdp5 = {
@@ -99,31 +100,6 @@ static struct mdss_panel_intf pan_types[] = {
 	{"hdmi", MDSS_PANEL_INTF_HDMI},
 };
 static char mdss_mdp_panel[MDSS_MAX_PANEL_LEN];
-
-struct mdss_iommu_map_type mdss_iommu_map[MDSS_IOMMU_MAX_DOMAIN] = {
-	[MDSS_IOMMU_DOMAIN_UNSECURE] = {
-		.client_name = "mdp_ns",
-		.ctx_name = "mdp_0",
-		.partitions = {
-			{
-				.start = SZ_128K,
-				.size = SZ_1G - SZ_128K,
-			},
-		},
-		.npartitions = 1,
-	},
-	[MDSS_IOMMU_DOMAIN_SECURE] = {
-		.client_name = "mdp_secure",
-		.ctx_name = "mdp_1",
-		.partitions = {
-			{
-				.start = SZ_1G,
-				.size = SZ_1G,
-			},
-		},
-		.npartitions = 1,
-	},
-};
 
 struct mdss_hw mdss_mdp_hw = {
 	.hw_ndx = MDSS_HW_MDP,
@@ -652,13 +628,6 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx)
 	return clk_rate;
 }
 
-static inline int is_mdss_iommu_attached(void)
-{
-	if (!mdss_res)
-		return false;
-	return mdss_res->iommu_attached;
-}
-
 int mdss_iommu_ctrl(int enable)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -674,13 +643,13 @@ int mdss_iommu_ctrl(int enable)
 		 * finished handoff, as it may still be working with phys addr
 		 */
 		if (!mdata->iommu_attached && !mdata->handoff_pending)
-			rc = mdss_iommu_attach(mdata);
+			rc = mdss_smmu_attach(mdata);
 		mdata->iommu_ref_cnt++;
 	} else {
 		if (mdata->iommu_ref_cnt) {
 			mdata->iommu_ref_cnt--;
 			if (mdata->iommu_ref_cnt == 0)
-				rc = mdss_iommu_dettach(mdata);
+				rc = mdss_smmu_detach(mdata);
 		} else {
 			pr_err("unbalanced iommu ref\n");
 		}
@@ -947,119 +916,6 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	return 0;
 }
 
-int mdss_iommu_attach(struct mdss_data_type *mdata)
-{
-	struct iommu_domain *domain;
-	struct mdss_iommu_map_type *iomap;
-	int i, rc = 0;
-
-	MDSS_XLOG(mdata->iommu_attached);
-
-	if (mdata->iommu_attached) {
-		pr_debug("mdp iommu already attached\n");
-		goto end;
-	}
-
-	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
-		iomap = mdata->iommu_map + i;
-
-		domain = msm_get_iommu_domain(iomap->domain_idx);
-		if (!domain) {
-			WARN(1, "could not attach iommu client %s to ctx %s\n",
-				iomap->client_name, iomap->ctx_name);
-			continue;
-		}
-
-		rc = iommu_attach_device(domain, iomap->ctx);
-		if (rc) {
-			WARN(1, "mdp::iommu device attach failed rc:%d\n", rc);
-			for (i--; i >= 0; i--) {
-				iomap = mdata->iommu_map + i;
-				iommu_detach_device(domain, iomap->ctx);
-			}
-			goto end;
-		}
-	}
-
-	mdata->iommu_attached = true;
-end:
-	return rc;
-}
-
-int mdss_iommu_dettach(struct mdss_data_type *mdata)
-{
-	struct iommu_domain *domain;
-	struct mdss_iommu_map_type *iomap;
-	int i;
-
-	MDSS_XLOG(mdata->iommu_attached);
-
-	if (!mdata->iommu_attached) {
-		pr_debug("mdp iommu already dettached\n");
-		return 0;
-	}
-
-	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
-		iomap = mdata->iommu_map + i;
-
-		domain = msm_get_iommu_domain(iomap->domain_idx);
-		if (!domain) {
-			pr_err("unable to get iommu domain(%d)\n",
-				iomap->domain_idx);
-			continue;
-		}
-		iommu_detach_device(domain, iomap->ctx);
-	}
-
-	mdata->iommu_attached = false;
-
-	return 0;
-}
-
-int mdss_iommu_init(struct mdss_data_type *mdata)
-{
-	struct msm_iova_layout layout;
-	struct iommu_domain *domain;
-	struct mdss_iommu_map_type *iomap;
-	int i;
-
-	if (mdata->iommu_map) {
-		pr_warn("iommu already initialized\n");
-		return 0;
-	}
-
-	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
-		iomap = &mdss_iommu_map[i];
-
-		layout.client_name = iomap->client_name;
-		layout.partitions = iomap->partitions;
-		layout.npartitions = iomap->npartitions;
-		layout.is_secure = (i == MDSS_IOMMU_DOMAIN_SECURE);
-
-		iomap->domain_idx = msm_register_domain(&layout);
-		if (IS_ERR_VALUE(iomap->domain_idx))
-			return -EINVAL;
-
-		domain = msm_get_iommu_domain(iomap->domain_idx);
-		if (!domain) {
-			pr_err("unable to get iommu domain(%d)\n",
-				iomap->domain_idx);
-			return -EINVAL;
-		}
-
-		iomap->ctx = msm_iommu_get_ctx(iomap->ctx_name);
-		if (!iomap->ctx) {
-			pr_warn("unable to get iommu ctx(%s)\n",
-				iomap->ctx_name);
-			return -EINVAL;
-		}
-	}
-
-	mdata->iommu_map = mdss_iommu_map;
-
-	return 0;
-}
-
 static void mdss_debug_enable_clock(int on)
 {
 	if (on)
@@ -1205,8 +1061,6 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 				mdata->iclient);
 		mdata->iclient = NULL;
 	}
-
-	rc = mdss_iommu_init(mdata);
 
 	return rc;
 }
@@ -1480,7 +1334,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	mdss_res->mdss_util->get_iommu_domain = mdss_get_iommu_domain;
+	mdss_res->mdss_util->get_iommu_domain = mdss_smmu_get_domain_id;
 	mdss_res->mdss_util->iommu_attached = is_mdss_iommu_attached;
 	mdss_res->mdss_util->iommu_ctrl = mdss_iommu_ctrl;
 	mdss_res->mdss_util->bus_scale_set_quota = mdss_bus_scale_set_quota;
@@ -1586,6 +1440,11 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	rc = mdss_res->mdss_util->register_irq(&mdss_mdp_hw);
 	if (rc)
 		pr_err("mdss_register_irq failed.\n");
+
+	rc = mdss_smmu_init(mdata, &pdev->dev);
+	if (rc)
+		pr_err("mdss smmu init failed\n");
+
 	mdss_res->mdss_util->mdp_probe_done = true;
 
 	/*

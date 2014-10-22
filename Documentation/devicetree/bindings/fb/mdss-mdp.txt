@@ -426,7 +426,7 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				of 2048 will be applied.
 
 Optional subnodes:
-Child nodes representing the frame buffer virtual devices.
+- mdss_fb:		Child nodes representing the frame buffer virtual devices.
 
 Subnode properties:
 - compatible :		Must be "qcom,mdss-fb"
@@ -495,6 +495,24 @@ Subnode properties:
 		               to gamut block from DSPP base address.
 		       -- qcom,mdss-dspp-pgc-off: This 32 bit value provides the offset to
 		               PGC block from the DSPP base address.
+
+- smmu_mdp_***:	Child nodes representing the mdss smmu virtual devices.
+		Mandatory smmu v2 and not required for smmu v1.
+
+Subnode properties:
+- compatible :		Compatible name used in smmu v2.
+			smmu_v2 names should be:
+			"qcom,smmu_mdp_unsec" 	- smmu context bank device for
+						unsecure mdp domain.
+			"qcom,smmu_rot_unsec"	- smmu context bank device for
+						unsecure rotation domain.
+			"qcom,smmu_mdp_sec" 	- smmu context bank device for
+						secure mdp domain.
+			"qcom,smmu_rot_sec"	- smmu context bank device for
+						secure rotation domain.
+- clocks:		List of Phandles for clock device nodes
+			needed by the device.
+- clock-names:		List of clock names needed by the device.
 
 Example:
 	mdss_mdp: qcom,mdss_mdp@fd900000 {
@@ -650,6 +668,14 @@ Example:
 			qcom,mdss-dspp-gamut-off = <0x1600>;
 			qcom,mdss-dspp-pcc-off = <0x1700>;
 			qcom,mdss-dspp-pgc-off = <0x17C0>;
+		};
+
+		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
+			compatible = "qcom,smmu_mdp_sec";
+			iommus = <&mdp_smmu 1>;
+			clocks = <&clock_mmss clk_smmu_mdp_ahb_clk>,
+				<&clock_mmss clk_smmu_mdp_axi_clk>;
+			clock-names = "dummy_clk", "dummy_clk";
 		};
 	};
 

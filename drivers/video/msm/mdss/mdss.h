@@ -42,8 +42,10 @@ enum mdss_mdp_clk_type {
 };
 
 enum mdss_iommu_domain_type {
-	MDSS_IOMMU_DOMAIN_SECURE,
 	MDSS_IOMMU_DOMAIN_UNSECURE,
+	MDSS_IOMMU_DOMAIN_ROT_UNSECURE,
+	MDSS_IOMMU_DOMAIN_SECURE,
+	MDSS_IOMMU_DOMAIN_ROT_SECURE,
 	MDSS_IOMMU_MAX_DOMAIN
 };
 
@@ -136,6 +138,46 @@ enum mdss_hw_quirk {
 	MDSS_QUIRK_MAX,
 };
 
+struct mdss_smmu_client {
+	struct device *dev;
+	struct dma_iommu_mapping *mmu_mapping;
+	struct dss_module_power mp;
+	bool domain_attached;
+};
+
+struct mdss_data_type;
+
+struct mdss_smmu_ops {
+	int (*smmu_attach)(struct mdss_data_type *mdata);
+	int (*smmu_detach)(struct mdss_data_type *mdata);
+	int (*smmu_get_domain_id)(u32 type);
+	struct dma_buf_attachment  * (*smmu_dma_buf_attach)(
+			struct dma_buf *dma_buf, struct device *devce,
+			int domain);
+	int (*smmu_map_dma_buf)(struct dma_buf *dma_buf,
+			struct sg_table *table, int domain,
+			dma_addr_t *iova, unsigned long *size, int dir);
+	void (*smmu_unmap_dma_buf)(struct sg_table *table, int domain,
+			int dir);
+	int (*smmu_dma_alloc_coherent)(struct device *dev, size_t size,
+			dma_addr_t *phys, dma_addr_t *iova, void *cpu_addr,
+			gfp_t gfp, int domain);
+	void (*smmu_dma_free_coherent)(struct device *dev, size_t size,
+			void *cpu_addr, dma_addr_t phys, dma_addr_t iova,
+			int domain);
+	int (*smmu_map)(int domain, phys_addr_t iova, phys_addr_t phys, int
+			gfp_order, int prot);
+	void (*smmu_unmap)(int domain, unsigned long iova, int gfp_order);
+	char * (*smmu_dsi_alloc_buf)(struct device *dev, int size,
+			dma_addr_t *dmap, gfp_t gfp);
+	int (*smmu_dsi_map_buffer)(phys_addr_t phys, unsigned int domain,
+			unsigned long size, dma_addr_t *dma_addr,
+			void *cpu_addr, int dir);
+	void (*smmu_dsi_unmap_buffer)(dma_addr_t dma_addr, int domain,
+			unsigned long size, int dir);
+	void (*smmu_deinit)(struct mdss_data_type *mdata);
+};
+
 struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
@@ -152,6 +194,8 @@ struct mdss_data_type {
 	struct dss_io_data vbif_nrt_io;
 	char __iomem *mdp_base;
 
+	struct mdss_smmu_client mdss_smmu[MDSS_IOMMU_MAX_DOMAIN];
+	struct mdss_smmu_ops smmu_ops;
 	struct mutex reg_lock;
 
 	/* bitmap to track pipes that have BWC enabled */
@@ -334,24 +378,6 @@ struct mdss_util_intf {
 };
 
 struct mdss_util_intf *mdss_get_util_intf(void);
-
-static inline struct ion_client *mdss_get_ionclient(void)
-{
-	if (!mdss_res)
-		return NULL;
-	return mdss_res->iclient;
-}
-
-static inline int mdss_get_iommu_domain(u32 type)
-{
-	if (type >= MDSS_IOMMU_MAX_DOMAIN)
-		return -EINVAL;
-
-	if (!mdss_res)
-		return -ENODEV;
-
-	return mdss_res->iommu_map[type].domain_idx;
-}
 
 static inline int mdss_get_sd_client_cnt(void)
 {

@@ -27,6 +27,7 @@
 #include "mdss_dsi.h"
 #include "mdss_panel.h"
 #include "mdss_debug.h"
+#include "mdss_smmu.h"
 
 #define VSYNC_PERIOD 17
 
@@ -1519,11 +1520,9 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	len = ALIGN(tp->len, 4);
 	ctrl->dma_size = ALIGN(tp->len, SZ_4K);
 
-
 	if (ctrl->mdss_util->iommu_attached()) {
-		int ret = msm_iommu_map_contig_buffer(tp->dmap,
-				ctrl->mdss_util->get_iommu_domain(domain), 0,
-				ctrl->dma_size, SZ_4K, 0, &(ctrl->dma_addr));
+		ret = mdss_smmu_dsi_map_buffer(tp->dmap, domain, ctrl->dma_size,
+			&(ctrl->dma_addr), tp->start, DMA_TO_DEVICE);
 		if (IS_ERR_VALUE(ret)) {
 			pr_err("unable to map dma memory to iommu(%d)\n", ret);
 			return -ENOMEM;
@@ -1570,9 +1569,8 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	if (mctrl && mctrl->dma_addr) {
 		if (mctrl->dmap_iommu_map) {
-			msm_iommu_unmap_contig_buffer(mctrl->dma_addr,
-				mctrl->mdss_util->get_iommu_domain(domain),
-							0, mctrl->dma_size);
+			mdss_smmu_dsi_unmap_buffer(mctrl->dma_addr, domain,
+				mctrl->dma_size, DMA_TO_DEVICE);
 			mctrl->dmap_iommu_map = false;
 		}
 		mctrl->dma_addr = 0;
@@ -1580,9 +1578,8 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 
 	if (ctrl->dmap_iommu_map) {
-		msm_iommu_unmap_contig_buffer(ctrl->dma_addr,
-			ctrl->mdss_util->get_iommu_domain(domain),
-							0, ctrl->dma_size);
+		mdss_smmu_dsi_unmap_buffer(ctrl->dma_addr, domain,
+			ctrl->dma_size, DMA_TO_DEVICE);
 		ctrl->dmap_iommu_map = false;
 	}
 

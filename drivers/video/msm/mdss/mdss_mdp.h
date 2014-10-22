@@ -756,6 +756,12 @@ static inline bool mdss_mdp_is_nrt_ctl_path(struct mdss_mdp_ctl *ctl)
 		(ctl->mixer_left && ctl->mixer_left->rotator_mode);
 }
 
+static inline bool mdss_mdp_is_nrt_vbif_base_defined(
+		struct mdss_data_type *mdata)
+{
+	return mdata->vbif_nrt_io.base ? true : false;
+}
+
 static inline bool mdss_mdp_ctl_is_power_off(struct mdss_mdp_ctl *ctl)
 {
 	return mdss_panel_is_power_off(ctl->power_state);
@@ -825,8 +831,6 @@ static inline int mdss_mdp_is_cdm_supported(struct mdss_data_type *mdata,
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
-int mdss_iommu_attach(struct mdss_data_type *mdata);
-int mdss_iommu_dettach(struct mdss_data_type *mdata);
 void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num);
 int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num);
@@ -1021,10 +1025,10 @@ void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt);
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
 int mdss_mdp_data_get(struct mdss_mdp_data *data, struct msmfb_data *planes,
-		int num_planes, u32 flags, struct device *dev);
-int mdss_mdp_data_map(struct mdss_mdp_data *data);
-void mdss_mdp_data_free(struct mdss_mdp_data *data);
-
+		int num_planes, u32 flags, struct device *dev, bool rotator,
+		int dir);
+int mdss_mdp_data_map(struct mdss_mdp_data *data, bool rotator, int dir);
+void mdss_mdp_data_free(struct mdss_mdp_data *data, bool rotator, int dir);
 u32 mdss_get_panel_framerate(struct msm_fb_data_type *mfd);
 int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase);
 void mdss_mdp_intersect_rect(struct mdss_rect *res_rect,
