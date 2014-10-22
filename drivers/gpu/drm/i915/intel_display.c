@@ -5573,6 +5573,25 @@ static void i9xx_crtc_enable(struct drm_crtc *crtc)
 	i9xx_check_fifo_underruns(dev);
 }
 
+/* Disable the VGA plane that we never use */
+static void i915_disable_vga(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u8 sr1;
+	u32 vga_reg = i915_vgacntrl_reg(dev);
+
+	/* WaEnableVGAAccessThroughIOPort:ctg,elk,ilk,snb,ivb,vlv,hsw */
+	vga_get_uninterruptible(dev->pdev, VGA_RSRC_LEGACY_IO);
+	outb(SR01, VGA_SR_INDEX);
+	sr1 = inb(VGA_SR_DATA);
+	outb(sr1 | 1<<5, VGA_SR_DATA);
+	vga_put(dev->pdev, VGA_RSRC_LEGACY_IO);
+	udelay(300);
+
+	I915_WRITE(vga_reg, VGA_DISP_DISABLE);
+	POSTING_READ(vga_reg);
+}
+
 static void i9xx_pfit_disable(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
@@ -5597,6 +5616,8 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_encoder *encoder;
 	int pipe = intel_crtc->pipe;
+	bool all_pipe_disabled;
+	u32 val;
 
 	if (!intel_crtc->active)
 		return;
@@ -5667,6 +5688,47 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	intel_edp_psr_update(dev);
 	intel_update_drrs(dev);
 	mutex_unlock(&dev->struct_mutex);
+
+	all_pipe_disabled = true;
+	for_each_pipe(pipe) {
+		if ((I915_READ(PIPECONF(pipe)) &
+				PIPECONF_ENABLE) == PIPECONF_ENABLE)
+			all_pipe_disabled = false;
+	}
+
+	if ((all_pipe_disabled == true) &&
+				(dev_priv->video_disabled == true)) {
+
+		/*
+		 * to switch from video mode to command mode, need to reset
+		 * the display.
+		 * FIXME: Even after resetting the display, the first modeset
+		 * works sporadically(2 out of 3 times). Need to fix this.
+		 * FIXME: Need to find a better way of doing this, because
+		 * resetting the display resets all the registers in the
+		 * display controller. Need to save and restore some of these
+		 * required registers.
+		 */
+		DRM_DEBUG_KMS("vid mode to cmd mode, reset display\n");
+		if (IS_CHERRYVIEW(dev)) {
+			val = vlv_punit_read(dev_priv, PUNIT_REG_DSPFREQ);
+			val = val | DP_SSC_PWR_GATE(0);
+			vlv_punit_write(dev_priv, PUNIT_REG_DSPFREQ, val);
+
+			/* delay to power gate display controller */
+			udelay(5000);
+
+			val = vlv_punit_read(dev_priv, PUNIT_REG_DSPFREQ);
+			val = val & ~((u32)DP_SSC_MASK(0));
+			vlv_punit_write(dev_priv, PUNIT_REG_DSPFREQ, val);
+
+			/* delay to power on display controller */
+			udelay(10000);
+		} else
+			DRM_ERROR("vid mode to cmd mode reset is not done.\n");
+
+		i915_disable_vga(dev_priv->dev);
+	}
 }
 
 static void i9xx_crtc_off(struct drm_crtc *crtc)
@@ -13442,25 +13504,6 @@ static void intel_init_quirks(struct drm_device *dev)
 		if (dmi_check_system(*intel_dmi_quirks[i].dmi_id_list) != 0)
 			intel_dmi_quirks[i].hook(dev);
 	}
-}
-
-/* Disable the VGA plane that we never use */
-static void i915_disable_vga(struct drm_device *dev)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	u8 sr1;
-	u32 vga_reg = i915_vgacntrl_reg(dev);
-
-	/* WaEnableVGAAccessThroughIOPort:ctg,elk,ilk,snb,ivb,vlv,hsw */
-	vga_get_uninterruptible(dev->pdev, VGA_RSRC_LEGACY_IO);
-	outb(SR01, VGA_SR_INDEX);
-	sr1 = inb(VGA_SR_DATA);
-	outb(sr1 | 1<<5, VGA_SR_DATA);
-	vga_put(dev->pdev, VGA_RSRC_LEGACY_IO);
-	udelay(300);
-
-	I915_WRITE(vga_reg, VGA_DISP_DISABLE);
-	POSTING_READ(vga_reg);
 }
 
 void intel_modeset_init_hw(struct drm_device *dev)

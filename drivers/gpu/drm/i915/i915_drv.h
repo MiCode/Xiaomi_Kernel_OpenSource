@@ -1879,6 +1879,9 @@ struct drm_i915_private {
 		void (*stop_ring)(struct intel_engine_cs *ring);
 	} gt;
 
+
+	bool video_disabled;
+
 	/*
 	 * NOTE: This is the dri1/ums dungeon, don't add stuff here. Your patch
 	 * will be rejected. Instead look for a better place.

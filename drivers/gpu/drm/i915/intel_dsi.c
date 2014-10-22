@@ -438,6 +438,12 @@ static void intel_dsi_port_disable(struct intel_encoder *encoder)
 
 	wait_for_dsi_fifo_empty(intel_dsi);
 
+	dev_priv->video_disabled = false;
+
+	if (is_cmd_mode(intel_dsi) &&
+			(I915_READ(MIPI_PORT_CTRL(pipe)) & DPI_ENABLE))
+		dev_priv->video_disabled = true;
+
 	if (pipe && IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3)) {
 		/* cht hw issue that MIPI port C reg cannot be read */
 		I915_WRITE(MIPI_PORT_CTRL(pipe), 0);
