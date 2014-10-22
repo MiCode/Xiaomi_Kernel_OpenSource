@@ -416,6 +416,9 @@ static struct mfd_cell whiskey_cove_dev[] = {
 		.num_resources = 0,
 		.resources = NULL,
 	},
+	{
+		.name = "whiskey_cove_region",
+	},
 	{NULL, },
 };
 

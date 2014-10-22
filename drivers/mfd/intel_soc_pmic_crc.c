@@ -130,6 +130,9 @@ static struct mfd_cell crystal_cove_dev[] = {
 		.num_resources = 0,
 		.resources = NULL,
 	},
+	{
+		.name = "crystal_cove_region",
+	},
 
 	{NULL, },
 };
@@ -167,7 +170,6 @@ static int crystal_cove_init(void)
 {
 	pr_debug("Crystal Cove: ID 0x%02X, VERSION 0x%02X\n",
 		 intel_soc_pmic_readb(CHIPID), intel_soc_pmic_readb(CHIPVER));
-	intel_pmic_install_handlers(&crystal_cove_pmic);
 
 	crc_set_gpio_pdata();
 	return 0;

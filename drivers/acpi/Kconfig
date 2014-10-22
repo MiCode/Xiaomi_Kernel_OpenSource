@@ -389,4 +389,26 @@ config ACPI_EXTLOG
 	  information to system software, synchronous with MCE or CMCI. This
 	  driver adds support for that functionality.
 
+menuconfig PMIC_OPREGION
+	bool "PMIC (Power Management Integrated Circuit) operation region support"
+	help
+	  Select this option to enable support for ACPI operation
+	  region of the PMIC chip. The operation region can be used
+	  to control power rails and sensor reading/writing on the
+	  PMIC chip.
+
+if PMIC_OPREGION
+config CRC_PMIC_OPREGION
+	bool "ACPI operation region support for CrystalCove PMIC"
+	depends on INTEL_SOC_PMIC
+	help
+	  This config adds ACPI operation region support for CrystalCove PMIC.
+
+config WC_PMIC_OPREGION
+	bool "ACPI operation region support for Whiskey Cove PMIC"
+	depends on INTEL_SOC_PMIC
+	help
+	  This config adds ACPI operation region support for WhiskeyCove PMIC.
+endif
+
 endif	# ACPI
