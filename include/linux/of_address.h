@@ -14,6 +14,8 @@ extern struct device_node *of_find_matching_node_by_address(
 					const struct of_device_id *matches,
 					u64 base_address);
 extern void __iomem *of_iomap(struct device_node *device, int index);
+extern void __iomem *of_iomap_by_name(struct device_node *device,
+					const char *name);
 
 /* Extract an address from a device, returns the region size and
  * the address space flags too. The PCI version uses a BAR number
@@ -21,6 +23,8 @@ extern void __iomem *of_iomap(struct device_node *device, int index);
  */
 extern const __be32 *of_get_address(struct device_node *dev, int index,
 			   u64 *size, unsigned int *flags);
+extern const __be32 *of_get_address_by_name(struct device_node *dev,
+			   const char *name, u64 *size, unsigned int *flags);
 
 #ifndef pci_address_to_pio
 static inline unsigned long pci_address_to_pio(phys_addr_t addr) { return -1; }
