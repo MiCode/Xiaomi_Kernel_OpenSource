@@ -470,6 +470,7 @@ struct intel_dsi {
 
 	/* video mode pixel format for MIPI_DSI_FUNC_PRG register */
 	u32 pixel_format;
+	u32 dsi_bpp;
 
 	/* video mode format for MIPI_VIDEO_MODE_FORMAT register */
 	u32 video_mode_format;

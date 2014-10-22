@@ -704,7 +704,7 @@ static void set_dsi_timings(struct drm_encoder *encoder,
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(encoder);
 	int pipe = intel_crtc->pipe;
-	unsigned int bpp = intel_crtc->config.pipe_bpp;
+	unsigned int bpp = intel_dsi->dsi_bpp;
 	unsigned int lane_count = intel_dsi->lane_count;
 	int count = 1;
 	u16 mode_hactive;
@@ -779,7 +779,7 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 	struct drm_display_mode *adjusted_mode =
 		&intel_crtc->config.adjusted_mode;
 	int pipe = intel_crtc->pipe, count = 1;
-	unsigned int bpp = intel_crtc->config.pipe_bpp;
+	unsigned int bpp = intel_dsi->dsi_bpp;
 	u32 val, tmp;
 
 	DRM_DEBUG_KMS("pipe %c\n", pipe_name(pipe));

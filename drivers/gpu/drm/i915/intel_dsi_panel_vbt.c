@@ -728,6 +728,7 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	intel_dsi->rst_timer_val = mipi_config->device_reset_timer;
 	intel_dsi->init_count = mipi_config->master_init_timer;
 	intel_dsi->video_frmt_cfg_bits = mipi_config->bta_enabled ? DISABLE_VIDEO_BTA : 0;
+	intel_dsi->dsi_bpp = bits_per_pixel;
 
 	intel_dsi->pclk = pclk;
 
