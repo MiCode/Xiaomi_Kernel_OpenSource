@@ -121,6 +121,7 @@ static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *c)
  * @masks: masks used for settings in config_reg
  * @vals: configuration values to be written to PLL registers
  * @freq_tbl: pll freq table
+ * @no_prepared_reconfig: Fail round_rate if pll is prepared
  * @c: clk
  * @base: pointer to base address of ioremapped registers.
  */
@@ -148,6 +149,7 @@ struct pll_clk {
 	unsigned long max_rate;
 
 	bool inited;
+	bool no_prepared_reconfig;
 
 	struct clk c;
 	void *const __iomem *base;

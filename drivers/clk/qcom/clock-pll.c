@@ -496,6 +496,9 @@ static long variable_rate_pll_round_rate(struct clk *c, unsigned long rate)
 	if (!pll->src_rate)
 		return 0;
 
+	if (pll->no_prepared_reconfig && c->prepare_count && c->rate != rate)
+		return -EINVAL;
+
 	if (rate < pll->min_rate)
 		rate = pll->min_rate;
 	if (rate > pll->max_rate)
