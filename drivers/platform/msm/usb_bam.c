@@ -947,27 +947,37 @@ static int usb_bam_disconnect_ipa_prod(
 	u8 idx = 0;
 	struct usb_bam_pipe_connect *pipe_connect;
 	struct sps_connect *sps_connection;
+	bool is_dpl;
 
 	idx = ipa_params->dst_idx;
+	/*
+	 * Check for dpl client and if it is, then make adjustment
+	 * to make decision about IPA Handshake.
+	 */
+	if (ipa_params->dst_client == IPA_CLIENT_USB_DPL_CONS)
+		is_dpl = true;
+	else
+		is_dpl = false;
+
 	pipe_connect = &usb_bam_connections[idx];
 
 	pipe_connect->activity_notify = NULL;
 	pipe_connect->inactivity_notify = NULL;
 	pipe_connect->priv = NULL;
 
-	/* Do the release handshake with the IPA via RM */
+	/* Do the release handshake with the IPA via RM for non-DPL case*/
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
-	if (bam_mode == USB_BAM_DEVICE) {
+	if (bam_mode == USB_BAM_DEVICE && !is_dpl) {
 		info[cur_bam].connect_complete = 0;
 		info[cur_bam].lpm_wait_pipes = 1;
 		info[cur_bam].disconnected = 1;
 	}
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
 
-	/* Start release handshake on the last producer pipe */
-	if (info[cur_bam].prod_pipes_enabled_per_bam == 1)
+	/* Start release handshake on the last producer pipe for non-DPL case*/
+	if (info[cur_bam].prod_pipes_enabled_per_bam == 1 && !is_dpl)
 		wait_for_prod_release(cur_bam);
-	if (pipe_connect->bam_mode == USB_BAM_DEVICE)
+	if (pipe_connect->bam_mode == USB_BAM_DEVICE && !is_dpl)
 		usb_bam_resume_core(cur_bam, pipe_connect->bam_mode);
 
 	/* close IPA -> USB pipe */
@@ -2171,6 +2181,7 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	struct msm_usb_bam_platform_data *pdata =
 					ctx.usb_bam_pdev->dev.platform_data;
 	bool bam2bam;
+	bool is_dpl;
 
 	pr_debug("%s: start\n", __func__);
 
@@ -2212,6 +2223,11 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	cur_mode = pipe_connect->bam_mode;
 	bam2bam = (pdata->connections[idx].pipe_type ==
 			USB_BAM_PIPE_BAM2BAM);
+
+	if (ipa_params->dst_client == IPA_CLIENT_USB_DPL_CONS)
+		is_dpl = true;
+	else
+		is_dpl = false;
 
 	/* Set the BAM mode (host/device) according to connected pipe */
 	info[cur_bam].cur_bam_mode = pipe_connect->bam_mode;
@@ -2292,9 +2308,17 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 
 	ctx.pipes_enabled_per_bam[cur_bam] += 1;
 
-	/* Notify connected on the first two pipes connected */
-	if (ctx.pipes_enabled_per_bam[cur_bam] == 2
-	     &&	ipa_params->dir == PEER_PERIPHERAL_TO_USB)
+	/*
+	 * Notify USB connected on the first two pipes connected for
+	 * tethered function's producer and consumer only. Current
+	 * understanding is that there won't be more than 3 pipes used
+	 * in USB BAM2BAM IPA mode i.e. 2 consumers and 1 producer.
+	 * If more producer and consumer pipe are being used, this
+	 * logic is required to be revisited here.
+	 */
+	if (ctx.pipes_enabled_per_bam[cur_bam] >= 2
+	     &&	ipa_params->dir == PEER_PERIPHERAL_TO_USB
+		&& !is_dpl)
 		notify_usb_connected(cur_bam);
 	spin_unlock(&usb_bam_lock);
 
