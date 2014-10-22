@@ -113,7 +113,8 @@ struct bam_data_ch_info {
 	unsigned int		rx_flow_control_disable;
 	unsigned int		rx_flow_control_enable;
 	unsigned int		rx_flow_control_triggered;
-	atomic_t		is_ipa_usb_connected;
+	/* used for RNDIS/ECM network inteface based design */
+	atomic_t		is_net_interface_up;
 };
 
 static struct work_struct *rndis_conn_w;
@@ -1154,7 +1155,6 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			}
 			is_ipa_rndis_net_on = true;
 		}
-		atomic_set(&d->is_ipa_usb_connected, 1);
 	} else { /* transport type is USB_GADGET_XPORT_BAM2BAM */
 		/* Upadate BAM specific attributes in usb_request */
 		usb_bam_reset_complete();
@@ -1231,12 +1231,20 @@ void bam_data_start_rx_tx(u8 port_num)
 	}
 
 	spin_lock_irqsave(&port->port_lock, flags);
+	d = &port->data_ch;
+	/*
+	 * As this API is being called once network interface is up for
+	 * RNDIS/ECM i.e. USB driver has already notified USB cable connect
+	 * notification. Hence set this here and only clear as part of USB
+	 * cable disconnect i.e. bam_data_disconnect() API even not as part
+	 * of any error happen in this API further.
+	 */
+	atomic_set(&d->is_net_interface_up, 1);
 	if (!port->port_usb || !port->port_usb->in->driver_data
 		|| !port->port_usb->out->driver_data) {
 		pr_err("%s: Can't start tx, rx, ep not enabled", __func__);
 		goto out;
 	}
-	d = &port->data_ch;
 
 	if (!d->rx_req || !d->tx_req) {
 		pr_err("%s: No request d->rx_req=%p, d->tx_req=%p", __func__,
@@ -1500,9 +1508,16 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 	/*
 	 * Make sure to call IPA rndis/ecm/mbim related disconnect APIs() only
 	 * if those APIs init counterpart is already performed.
+	 * MBIM: teth_bridge_connect() is NO_OPS and teth_bridge_init() is
+	 * being called with atomic context on cable connect, hence there is no
+	 * need to consider for this check. is_net_interface_up is being used
+	 * for RNDIS/ECM driver due to its different design with usage of
+	 * network interface created by IPA driver.
 	 */
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		if (atomic_read(&d->is_ipa_usb_connected)) {
+		pr_debug("%s(): is_net_interface_up:%d\n",
+			__func__, atomic_read(&d->is_net_interface_up));
+		if (atomic_read(&d->is_net_interface_up)) {
 			void *priv;
 
 			if (d->func_type == USB_FUNC_ECM) {
@@ -1512,13 +1527,16 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 				priv = rndis_qc_get_ipa_priv();
 				rndis_ipa_pipe_disconnect_notify(priv);
 				is_ipa_rndis_net_on = false;
-			} else if (d->func_type == USB_FUNC_MBIM) {
-				teth_bridge_disconnect(
-						d->ipa_params.src_client);
 			}
+			pr_debug("%s(): net interface is disconnected.\n",
+								__func__);
+			atomic_set(&d->is_net_interface_up, 0);
+		}
+
+		if (d->func_type == USB_FUNC_MBIM) {
 			pr_debug("%s(): teth_bridge() disconnected\n",
 								__func__);
-			atomic_set(&d->is_ipa_usb_connected, 0);
+			teth_bridge_disconnect(d->ipa_params.src_client);
 		}
 		port->last_event = U_BAM_DATA_DISCONNECT_E;
 		queue_work(bam_data_wq, &port->disconnect_w);
@@ -1636,7 +1654,6 @@ int bam_data_connect(struct data_port *gr, u8 port_num,
 	}
 
 	gr->out->driver_data = port;
-	atomic_set(&d->is_ipa_usb_connected, 0);
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA && d->func_type ==
 		USB_FUNC_RNDIS) {
 			rndis_conn_w = &port->connect_w;
