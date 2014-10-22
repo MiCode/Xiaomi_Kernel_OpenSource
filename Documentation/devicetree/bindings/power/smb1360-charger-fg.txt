@@ -136,6 +136,9 @@ Optional Properties:
 				the difference between in predicted voltage and
 				current voltage. If this value is not specified
 				a default value of 50mV is used. Unit is in milli-volts.
+- qcom,rsense-10mhom		A bool property to indicate the Rsense resistor
+				configuraton. If set, the Rsense is 10mOhm else
+				its 20mOhm.
 
 Example:
 	i2c@f9967000 {
