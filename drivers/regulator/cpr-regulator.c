@@ -404,14 +404,14 @@ static u64 cpr_read_efuse_param(struct cpr_regulator *cpr_vreg, int row_start,
 	if (bit_start == 0 && bit_len == 64) {
 		param = fuse[0];
 	} else if (bit_start + bit_len <= 64) {
-		param = (fuse[0] >> bit_start) & ((1 << bit_len) - 1);
+		param = (fuse[0] >> bit_start) & ((1ULL << bit_len) - 1);
 	} else {
 		fuse[1] = cpr_read_efuse_row(cpr_vreg, row_start + 1,
 						use_tz_api);
 		bits_first = 64 - bit_start;
 		bits_second = bit_len - bits_first;
-		param = (fuse[0] >> bit_start) & ((1 << bits_first) - 1);
-		param |= (fuse[1] & ((1 << bits_second) - 1)) << bits_first;
+		param = (fuse[0] >> bit_start) & ((1ULL << bits_first) - 1);
+		param |= (fuse[1] & ((1ULL << bits_second) - 1)) << bits_first;
 	}
 
 	return param;
