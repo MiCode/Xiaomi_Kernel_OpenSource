@@ -197,6 +197,7 @@
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
 			qcom,adc_tm-vadc = <&pm8916_vadc>;
+			qcom,pmic-revid = <&pm8916_revid>;
 		};
 
 		pm8916_chg: qcom,charger {
