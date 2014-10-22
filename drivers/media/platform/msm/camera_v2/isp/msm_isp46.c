@@ -898,6 +898,112 @@ static void msm_vfe46_cfg_fetch_engine(struct vfe_device *vfe_dev,
 	}
 }
 
+static void msm_vfe46_cfg_testgen(struct vfe_device *vfe_dev,
+	struct msm_vfe_testgen_cfg *testgen_cfg)
+{
+	uint32_t temp;
+	uint32_t bit_per_pixel = 0;
+	uint32_t bpp_reg = 0;
+	uint32_t bayer_pix_pattern_reg = 0;
+	uint32_t unicolorbar_reg = 0;
+	uint32_t unicolor_enb = 0;
+
+	bit_per_pixel = msm_isp_get_bit_per_pixel(
+		vfe_dev->axi_data.src_info[VFE_PIX_0].input_format);
+
+	switch (bit_per_pixel) {
+	case 8:
+		bpp_reg = 0x0;
+		break;
+	case 10:
+		bpp_reg = 0x1;
+		break;
+	case 12:
+		bpp_reg = 0x10;
+		break;
+	case 14:
+		bpp_reg = 0x11;
+		break;
+	default:
+		pr_err("%s: invalid bpp %d\n", __func__, bit_per_pixel);
+		break;
+	}
+
+	msm_camera_io_w(bpp_reg << 16 | testgen_cfg->burst_num_frame,
+		vfe_dev->vfe_base + 0xAF8);
+
+	msm_camera_io_w(((testgen_cfg->lines_per_frame - 1) << 16) |
+		(testgen_cfg->pixels_per_line - 1), vfe_dev->vfe_base + 0xAFC);
+
+	temp = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
+	temp |= (((testgen_cfg->h_blank) & 0x3FFF) << 8);
+	temp |= (1 << 24);
+	msm_camera_io_w(temp, vfe_dev->vfe_base + 0x50);
+
+	msm_camera_io_w((1 << 16) | testgen_cfg->v_blank,
+		vfe_dev->vfe_base + 0xB0C);
+
+	switch (testgen_cfg->pixel_bayer_pattern) {
+	case ISP_BAYER_RGRGRG:
+		bayer_pix_pattern_reg = 0x0;
+		break;
+	case ISP_BAYER_GRGRGR:
+		bayer_pix_pattern_reg = 0x1;
+		break;
+	case ISP_BAYER_BGBGBG:
+		bayer_pix_pattern_reg = 0x10;
+		break;
+	case ISP_BAYER_GBGBGB:
+		bayer_pix_pattern_reg = 0x11;
+		break;
+	default:
+		pr_err("%s: invalid pix pattern %d\n",
+			__func__, bit_per_pixel);
+		break;
+	}
+
+	if (testgen_cfg->color_bar_pattern == COLOR_BAR_8_COLOR) {
+		unicolor_enb = 0x0;
+	} else {
+		unicolor_enb = 0x1;
+		switch (testgen_cfg->color_bar_pattern) {
+		case UNICOLOR_WHITE:
+			unicolorbar_reg = 0x0;
+			break;
+		case UNICOLOR_YELLOW:
+			unicolorbar_reg = 0x1;
+			break;
+		case UNICOLOR_CYAN:
+			unicolorbar_reg = 0x10;
+			break;
+		case UNICOLOR_GREEN:
+			unicolorbar_reg = 0x11;
+			break;
+		case UNICOLOR_MAGENTA:
+			unicolorbar_reg = 0x100;
+			break;
+		case UNICOLOR_RED:
+			unicolorbar_reg = 0x101;
+			break;
+		case UNICOLOR_BLUE:
+			unicolorbar_reg = 0x110;
+			break;
+		case UNICOLOR_BLACK:
+			unicolorbar_reg = 0x111;
+			break;
+		default:
+			pr_err("%s: invalid colorbar %d\n",
+				__func__, testgen_cfg->color_bar_pattern);
+			break;
+		}
+	}
+
+	msm_camera_io_w((testgen_cfg->rotate_period << 8) |
+		(bayer_pix_pattern_reg << 6) | (unicolor_enb << 4) |
+		(unicolorbar_reg), vfe_dev->vfe_base + 0xB14);
+	return;
+}
+
 static void msm_vfe46_cfg_camif(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
@@ -954,6 +1060,7 @@ static void msm_vfe46_cfg_input_mux(struct vfe_device *vfe_dev,
 		core_cfg |= 0x1 << 5;
 		msm_camera_io_w_mb(core_cfg, vfe_dev->vfe_base + 0x50);
 		msm_vfe46_cfg_camif(vfe_dev, pix_cfg);
+		msm_vfe46_cfg_testgen(vfe_dev, &pix_cfg->testgen_cfg);
 		break;
 	case EXTERNAL_READ:
 		core_cfg |= 0x2 << 5;
