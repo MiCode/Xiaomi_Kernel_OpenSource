@@ -2624,7 +2624,12 @@ void i915_set_reset_status(struct drm_i915_private *dev_priv,
 
 static void i915_gem_free_request(struct drm_i915_gem_request *request)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(&request->ring->reqlist_lock, flags);
 	list_del(&request->list);
+	spin_unlock_irqrestore(&request->ring->reqlist_lock, flags);
+
 	i915_gem_request_remove_from_client(request);
 
 	i915_gem_request_unreference(request);
@@ -2796,6 +2801,7 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 				     bool lazy_coherency)
 {
 	struct drm_i915_gem_request *req;
+	unsigned long flags;
 	u32 seqno;
 
 	seqno = ring->get_seqno(ring, lazy_coherency);
@@ -2805,6 +2811,7 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 	if (seqno == ring->last_read_seqno)
 		return;
 
+	spin_lock_irqsave(&ring->reqlist_lock, flags);
 	list_for_each_entry(req, &ring->request_list, list) {
 		if (req->complete)
 			continue;
@@ -2814,6 +2821,7 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 			trace_i915_gem_request_complete(req);
 		}
 	}
+	spin_unlock_irqrestore(&ring->reqlist_lock, flags);
 
 	ring->last_read_seqno = seqno;
 }
