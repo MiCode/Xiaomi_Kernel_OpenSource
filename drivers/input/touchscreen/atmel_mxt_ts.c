@@ -380,6 +380,10 @@ struct mxt_data {
 	struct regulator *vcc_ana;
 	struct regulator *vcc_dig;
 	struct regulator *vcc_i2c;
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *pinctrl_state_active;
+	struct pinctrl_state *pinctrl_state_suspend;
+	struct pinctrl_state *pinctrl_state_release;
 	struct mxt_address_pair addr_pair;
 #if defined(CONFIG_FB)
 	struct notifier_block fb_notif;
@@ -2355,6 +2359,146 @@ power_off:
 	return 0;
 }
 
+static int mxt_pinctrl_select(struct mxt_data *data, bool on)
+{
+	struct pinctrl_state *pins_state;
+	int error;
+
+	pins_state = on ? data->pinctrl_state_active :
+		data->pinctrl_state_suspend;
+	if (!IS_ERR_OR_NULL(pins_state)) {
+		error = pinctrl_select_state(data->ts_pinctrl, pins_state);
+		if (error) {
+			dev_err(&data->client->dev, "can not set %s pins\n",
+				on ? PINCTRL_STATE_ACTIVE :
+					PINCTRL_STATE_SUSPEND);
+			return error;
+		}
+	} else {
+		dev_err(&data->client->dev,
+			"not a valid '%s' pinstate\n",
+			on ? PINCTRL_STATE_ACTIVE : PINCTRL_STATE_SUSPEND);
+	}
+
+	return 0;
+
+}
+
+static int mxt_configure_gpio(struct mxt_data *data, bool enable)
+{
+	int error;
+
+	if (data->ts_pinctrl) {
+		error = mxt_pinctrl_select(data, enable);
+		if (error < 0)
+			return error;
+	}
+
+	if (enable) {
+		if (gpio_is_valid(data->pdata->reset_gpio)) {
+			/* configure touchscreen reset out gpio */
+			error = gpio_request(data->pdata->reset_gpio,
+						"mxt_reset_gpio");
+			if (error) {
+				dev_err(&data->client->dev,
+					"unable to request gpio [%d]\n",
+					data->pdata->reset_gpio);
+				return error;
+			}
+
+			error = gpio_direction_output(
+					data->pdata->reset_gpio, 0);
+			if (error) {
+				dev_err(&data->client->dev,
+				"unable to set direction for gpio [%d]\n",
+				data->pdata->reset_gpio);
+				goto err_free_reset_gpio;
+			}
+
+			mxt_reset_delay(data);
+
+			error = gpio_direction_output(
+					data->pdata->reset_gpio, 1);
+			if (error) {
+				dev_err(&data->client->dev,
+				"unable to set direction for gpio [%d]\n",
+				data->pdata->reset_gpio);
+				goto err_free_reset_gpio;
+			}
+		} else {
+			dev_err(&data->client->dev,
+				"reset gpio not provided\n");
+			return -EINVAL;
+		}
+
+		if (gpio_is_valid(data->pdata->irq_gpio)) {
+			/* configure touchscreen irq gpio */
+			error = gpio_request(data->pdata->irq_gpio,
+						"mxt_irq_gpio");
+			if (error) {
+				dev_err(&data->client->dev,
+					"unable to request gpio [%d]\n",
+					data->pdata->irq_gpio);
+				goto err_free_reset_gpio;
+			}
+
+			error = gpio_direction_input(data->pdata->irq_gpio);
+			if (error) {
+				dev_err(&data->client->dev,
+				"unable to set direction for gpio [%d]\n",
+				data->pdata->irq_gpio);
+				goto err_free_irq_gpio;
+			}
+		} else {
+			dev_err(&data->client->dev,
+				"irq gpio not provided\n");
+			goto err_free_reset_gpio;
+		}
+	} else {
+		if (gpio_is_valid(data->pdata->irq_gpio))
+			gpio_free(data->pdata->irq_gpio);
+		if (gpio_is_valid(data->pdata->reset_gpio)) {
+			/*
+			 * This is intended to save leakage current only.
+			 * Even if the call(gpio_direction_input) fails,
+			 * only leakage current will be more but functionality
+			 * will not be affected.
+			 */
+			error = gpio_direction_input(data->pdata->reset_gpio);
+			if (error) {
+				dev_err(&data->client->dev,
+				"unable to set direction for gpio [%d]\n",
+				data->pdata->reset_gpio);
+			}
+			gpio_free(data->pdata->reset_gpio);
+		}
+	}
+
+	return 0;
+
+err_free_irq_gpio:
+	if (gpio_is_valid(data->pdata->irq_gpio))
+		gpio_free(data->pdata->irq_gpio);
+err_free_reset_gpio:
+	if (gpio_is_valid(data->pdata->reset_gpio)) {
+		/*
+		 * This is intended to save leakage current only.
+		 * Even if the call(gpio_direction_input) fails,
+		 * only leakage current will be more but functionality
+		 * will not be affected.
+		 */
+		error = gpio_direction_input(data->pdata->reset_gpio);
+		if (error) {
+			dev_err(&data->client->dev,
+			"unable to set direction for gpio [%d]\n",
+			data->pdata->reset_gpio);
+		}
+		gpio_free(data->pdata->reset_gpio);
+	}
+
+	return error;
+}
+
 static int mxt_regulator_configure(struct mxt_data *data, bool on)
 {
 	int rc;
@@ -2585,9 +2729,27 @@ static int mxt_suspend(struct device *dev)
 		}
 	}
 
+	/* disable gpios */
+	error = mxt_configure_gpio(data, false);
+	if (error) {
+		dev_err(dev, "failed to disable gpios\n");
+		goto err_configure_gpio;
+	}
+
 	data->dev_sleep = true;
 	return 0;
 
+err_configure_gpio:
+	/* put regulators in low power mode */
+	if (data->lpm_support) {
+		error = mxt_regulator_lpm(data, false);
+		if (error < 0)
+			dev_err(dev, "failed to enter low power mode\n");
+	} else {
+		error = mxt_power_on(data, true);
+		if (error < 0)
+			dev_err(dev, "failed to disable regulators\n");
+	}
 err_reg_lpm:
 	mutex_lock(&input_dev->mutex);
 	if (input_dev->users)
@@ -2612,18 +2774,25 @@ static int mxt_resume(struct device *dev)
 		return 0;
 	}
 
+	/* enable gpios */
+	error = mxt_configure_gpio(data, true);
+	if (error) {
+		dev_err(dev, "failed to enable gpios\n");
+		return error;
+	}
+
 	/* put regulators back in active power mode */
 	if (data->lpm_support) {
 		error = mxt_regulator_lpm(data, false);
 		if (error < 0) {
 			dev_err(dev, "failed to enter high power mode\n");
-			return error;
+			goto err_configure_gpio;
 		}
 	} else {
 		error = mxt_power_on(data, true);
 		if (error < 0) {
 			dev_err(dev, "failed to enable regulators\n");
-			return error;
+			goto err_configure_gpio;
 		}
 		mxt_power_on_delay(data);
 	}
@@ -2658,6 +2827,10 @@ static int mxt_resume(struct device *dev)
 	data->dev_sleep = false;
 	return 0;
 
+err_configure_gpio:
+	error = mxt_configure_gpio(data, false);
+	if (error)
+		dev_err(dev, "failed to disable gpios\n");
 err_mxt_start:
 	/* put regulators in low power mode */
 	if (data->lpm_support) {
@@ -3058,6 +3231,60 @@ static void mxt_secure_touch_init(struct mxt_data *data)
 }
 #endif
 
+static int mxt_pinctrl_init(struct mxt_data *data)
+{
+	int retval;
+
+	/* Get pinctrl if target uses pinctrl */
+	data->ts_pinctrl = devm_pinctrl_get(&(data->client->dev));
+	if (IS_ERR_OR_NULL(data->ts_pinctrl)) {
+		retval = PTR_ERR(data->ts_pinctrl);
+		dev_dbg(&data->client->dev,
+			"Target does not use pinctrl %d\n", retval);
+		goto err_pinctrl_get;
+	}
+
+	data->pinctrl_state_active
+		= pinctrl_lookup_state(data->ts_pinctrl,
+				PINCTRL_STATE_ACTIVE);
+	if (IS_ERR_OR_NULL(data->pinctrl_state_active)) {
+		retval = PTR_ERR(data->pinctrl_state_active);
+		dev_err(&data->client->dev,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_ACTIVE, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	data->pinctrl_state_suspend
+		= pinctrl_lookup_state(data->ts_pinctrl,
+				PINCTRL_STATE_SUSPEND);
+	if (IS_ERR_OR_NULL(data->pinctrl_state_suspend)) {
+		retval = PTR_ERR(data->pinctrl_state_suspend);
+		dev_err(&data->client->dev,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_SUSPEND, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	data->pinctrl_state_release
+		= pinctrl_lookup_state(data->ts_pinctrl,
+				PINCTRL_STATE_RELEASE);
+	if (IS_ERR_OR_NULL(data->pinctrl_state_release)) {
+		retval = PTR_ERR(data->pinctrl_state_release);
+		dev_dbg(&data->client->dev,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_RELEASE, retval);
+	}
+
+	return 0;
+
+err_pinctrl_lookup:
+	devm_pinctrl_put(data->ts_pinctrl);
+err_pinctrl_get:
+	data->ts_pinctrl = NULL;
+	return retval;
+}
+
 static int mxt_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -3150,64 +3377,36 @@ static int mxt_probe(struct i2c_client *client,
 		goto err_free_mem;
 	}
 
-	if (gpio_is_valid(pdata->reset_gpio)) {
-		/* configure touchscreen reset out gpio */
-		error = gpio_request(pdata->reset_gpio, "mxt_reset_gpio");
-		if (error) {
-			dev_err(&client->dev, "unable to request gpio [%d]\n",
-						pdata->reset_gpio);
-			goto err_regulator_on;
-		}
-
-		error = gpio_direction_output(pdata->reset_gpio, 0);
-		if (error) {
-			dev_err(&client->dev,
-				"unable to set direction for gpio [%d]\n",
-				pdata->reset_gpio);
-			goto err_reset_gpio_req;
-		}
-		mxt_reset_delay(data);
-	}
-
 	if (pdata->power_on)
 		error = pdata->power_on(true);
 	else
 		error = mxt_power_on(data, true);
 	if (error) {
 		dev_err(&client->dev, "Failed to power on hardware\n");
-		goto err_reset_gpio_req;
+		goto err_regulator_on;
 	}
 
-	if (gpio_is_valid(pdata->irq_gpio)) {
-		/* configure touchscreen irq gpio */
-		error = gpio_request(pdata->irq_gpio, "mxt_irq_gpio");
-		if (error) {
-			dev_err(&client->dev, "unable to request gpio [%d]\n",
-						pdata->irq_gpio);
-			goto err_power_on;
-		}
-		error = gpio_direction_input(pdata->irq_gpio);
-		if (error) {
+	error = mxt_pinctrl_init(data);
+	if (!error && data->ts_pinctrl) {
+		/*
+		* Pinctrl handle is optional. If pinctrl handle is found
+		* let pins to be configured in active state. If not found
+		* continue further without error
+		*/
+		if (pinctrl_select_state(data->ts_pinctrl,
+				data->pinctrl_state_active))
 			dev_err(&client->dev,
-				"unable to set direction for gpio [%d]\n",
-				pdata->irq_gpio);
-			goto err_irq_gpio_req;
-		}
-		data->irq = client->irq = gpio_to_irq(pdata->irq_gpio);
-	} else {
-		dev_err(&client->dev, "irq gpio not provided\n");
+				"Can not select %s pinstate\n",
+				PINCTRL_STATE_ACTIVE);
+	}
+
+	error = mxt_configure_gpio(data, true);
+	if (error) {
+		dev_err(&client->dev, "Failed to configure gpios\n");
 		goto err_power_on;
 	}
 
-	if (gpio_is_valid(pdata->reset_gpio)) {
-		error = gpio_direction_output(pdata->reset_gpio, 1);
-		if (error) {
-			dev_err(&client->dev,
-				"unable to set direction for gpio [%d]\n",
-				pdata->reset_gpio);
-				goto err_irq_gpio_req;
-		}
-	}
+	data->irq = client->irq = gpio_to_irq(pdata->irq_gpio);
 
 	mxt_power_on_delay(data);
 
@@ -3220,11 +3419,11 @@ static int mxt_probe(struct i2c_client *client,
 
 	error = mxt_initialize(data);
 	if (error)
-		goto err_irq_gpio_req;
+		goto err_configure_gpio;
 
 	error = irq_of_parse_and_map(client->dev.of_node, 0);
 	if (!error)
-		goto err_irq_gpio_req;
+		goto err_configure_gpio;
 
 	error = request_threaded_irq(client->irq, NULL, mxt_interrupt,
 			pdata->irqflags | IRQF_ONESHOT,
@@ -3279,17 +3478,27 @@ err_free_irq:
 	free_irq(client->irq, data);
 err_free_object:
 	kfree(data->object_table);
-err_irq_gpio_req:
+err_configure_gpio:
 	if (gpio_is_valid(pdata->irq_gpio))
 		gpio_free(pdata->irq_gpio);
+	if (gpio_is_valid(pdata->reset_gpio))
+		gpio_free(pdata->reset_gpio);
 err_power_on:
+	if (data->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(data->pinctrl_state_release)) {
+			devm_pinctrl_put(data->ts_pinctrl);
+			data->ts_pinctrl = NULL;
+		} else {
+			error = pinctrl_select_state(data->ts_pinctrl,
+				data->pinctrl_state_release);
+			if (error)
+				pr_err("failed to select release pinctrl state\n");
+		}
+	}
 	if (pdata->power_on)
 		pdata->power_on(false);
 	else
 		mxt_power_on(data, false);
-err_reset_gpio_req:
-	if (gpio_is_valid(pdata->reset_gpio))
-		gpio_free(pdata->reset_gpio);
 err_regulator_on:
 	if (pdata->init_hw)
 		pdata->init_hw(false);
@@ -3303,6 +3512,7 @@ err_free_mem:
 
 static int mxt_remove(struct i2c_client *client)
 {
+	int retval;
 	struct mxt_data *data = i2c_get_clientdata(client);
 
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
@@ -3314,6 +3524,17 @@ static int mxt_remove(struct i2c_client *client)
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&data->early_suspend);
 #endif
+	if (data->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(data->pinctrl_state_release)) {
+			devm_pinctrl_put(data->ts_pinctrl);
+			data->ts_pinctrl = NULL;
+		} else {
+			retval = pinctrl_select_state(data->ts_pinctrl,
+					data->pinctrl_state_release);
+			if (retval < 0)
+				pr_err("failed to select release pinctrl state\n");
+		}
+	}
 
 	if (data->pdata->power_on)
 		data->pdata->power_on(false);
