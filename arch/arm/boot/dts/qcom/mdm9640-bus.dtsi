@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,8 +30,8 @@
 			qcom,bus-type = <2>;
 			qcom,bypass-qos-prg;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_rpm  clk_bimc_msmbus_clk>,
-				<&clock_rpm  clk_bimc_msmbus_a_clk>;
+			clocks = <&clock_gcc  clk_bimc_msmbus_clk>,
+				<&clock_gcc  clk_bimc_msmbus_a_clk>;
 
 			coresight-id = <55>;
 			coresight-name = "coresight-bimc";
@@ -51,8 +51,8 @@
 			qcom,base-offset = <0x7000>;
 			qcom,qos-delta = <0x1000>;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_rpm  clk_snoc_msmbus_clk>,
-				<&clock_rpm  clk_snoc_msmbus_a_clk>;
+			clocks = <&clock_gcc  clk_snoc_msmbus_clk>,
+				<&clock_gcc  clk_snoc_msmbus_a_clk>;
 		};
 
 		fab_snoc: fab-snoc {
@@ -65,8 +65,8 @@
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_rpm  clk_pcnoc_msmbus_clk>,
-				<&clock_rpm  clk_pcnoc_msmbus_a_clk>;
+			clocks = <&clock_gcc  clk_pcnoc_msmbus_clk>,
+				<&clock_gcc  clk_pcnoc_msmbus_a_clk>;
 
 			coresight-id = <50>;
 			coresight-name = "coresight-snoc";

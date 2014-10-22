@@ -282,7 +282,7 @@
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
 		clock-names = "core_clk";
-		clocks = <&clock_rpm clk_ipa_clk>;
+		clocks = <&clock_gcc clk_ipa_clk>;
 	};
 
 	qcom,rmnet-ipa {
@@ -448,7 +448,7 @@
 				<45 512 500 800>;
 
 		clocks = <&clock_gcc clk_gcc_pcie_pipe_clk>,
-			<&clock_rpm clk_ln_bb_clk>,
+			<&clock_gcc clk_ln_bb_clk>,
 			<&clock_gcc clk_gcc_pcie_sleep_clk>,
 			<&clock_gcc clk_gcc_pcie_cfg_ahb_clk>,
 			<&clock_gcc clk_gcc_pcie_axi_mstr_clk>,
@@ -774,8 +774,8 @@
 
 		qcom,coresight-jtagmm-cpu = <&CPU0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -798,7 +798,7 @@
 			<91 512 400000 800000>;
 
 		clock-names = "core_clk";
-		clocks = <&clock_rpm clk_qpic_clk>;
+		clocks = <&clock_gcc clk_qpic_clk>;
 		status = "disabled";
 	};
 
@@ -858,8 +858,8 @@
 			 <&clock_gcc clk_gcc_sys_noc_usb3_axi_clk>,
 			 <&clock_gcc clk_gcc_usb30_mock_utmi_clk>,
 			 <&clock_gcc clk_gcc_usb30_sleep_clk>,
-			 <&clock_rpm clk_ln_bb_clk>,
-			 <&clock_rpm clk_cxo_dwc3_clk>;
+			 <&clock_gcc clk_ln_bb_clk>,
+			 <&clock_gcc clk_cxo_dwc3_clk>;
 
 		clock-names = "core_clk", "iface_clk", "utmi_clk", "sleep_clk",
 			      "ref_clk", "xo";
@@ -900,7 +900,7 @@
 		qcom,qusb-tune = <0xa08391d5>;
 		phy_type = "utmi";
 
-		clocks = <&clock_rpm clk_ln_bb_clk>,
+		clocks = <&clock_gcc clk_ln_bb_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
 			 <&clock_gcc clk_gcc_qusb2a_phy_reset>;
 
@@ -1331,10 +1331,10 @@
 			<47 512 0 0>,
 			<47 512 3936000 393600>;
 		clocks =
-			<&clock_rpm clk_qcedev_ce_clk>,
-			<&clock_rpm clk_qcedev_ce_clk>,
-			<&clock_rpm clk_qcedev_ce_clk>,
-			<&clock_rpm clk_qcedev_ce_clk>;
+			<&clock_gcc clk_qcedev_ce_clk>,
+			<&clock_gcc clk_qcedev_ce_clk>,
+			<&clock_gcc clk_qcedev_ce_clk>,
+			<&clock_gcc clk_qcedev_ce_clk>;
 		clock-names = "core_clk", "iface_clk",
 			"bus_clk","core_clk_src";
 	};
@@ -1356,10 +1356,10 @@
 			<47 512 0 0>,
 			<47 512 3936000 393600>;
 		clocks =
-			<&clock_rpm clk_qcedev_ce_clk>,
-			<&clock_rpm clk_qcedev_ce_clk>,
-			<&clock_rpm clk_qcedev_ce_clk>,
-			<&clock_rpm clk_qcedev_ce_clk>;
+			<&clock_gcc clk_qcedev_ce_clk>,
+			<&clock_gcc clk_qcedev_ce_clk>,
+			<&clock_gcc clk_qcedev_ce_clk>,
+			<&clock_gcc clk_qcedev_ce_clk>;
 		clock-names = "core_clk", "iface_clk",
 			"bus_clk","core_clk_src";
 	};
@@ -1373,7 +1373,7 @@
 		reg-names = "qdsp6_base", "halt_base", "rmb_base",
 			    "restart_reg";
 
-		clocks = <&clock_rpm clk_xo_clk_src>,
+		clocks = <&clock_gcc clk_xo>,
 			 <&clock_gcc clk_gcc_mss_cfg_ahb_clk>,
 			 <&clock_gcc clk_gcc_mss_q6_bimc_axi_clk>,
 			 <&clock_gcc clk_gcc_boot_rom_ahb_clk>,

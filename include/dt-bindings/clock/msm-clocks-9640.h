@@ -13,9 +13,9 @@
 #ifndef __MSM_CLOCKS_9640_H
 #define __MSM_CLOCKS_9640_H
 
-/* clock_rpm controlled clocks */
-#define clk_xo_clk_src			&xo_clk_src
-#define clk_xo_a_clk_src		&xo_a_clk_src
+/* clock_gcc controlled clocks */
+#define clk_xo				&xo
+#define clk_xo_a			&xo_a
 #define clk_bimc_clk			&bimc_clk
 #define clk_bimc_a_clk			&bimc_a_clk
 #define clk_bimc_msmbus_clk		&bimc_msmbus_clk
@@ -41,7 +41,6 @@
 #define clk_qcedev_ce_clk		&qcedev_ce_clk
 #define clk_qcrypto_ce_clk		&qcrypto_ce_clk
 
-/* clock_gcc controlled clocks */
 #define clk_gpll0				&gpll0
 #define clk_gpll0_ao				&gpll0_ao
 #define clk_gpll0_out_main			&gpll0_out_main

@@ -14,13 +14,6 @@
 #include <dt-bindings/clock/msm-clocks-hwio-9640.h>
 
 &soc {
-	clock_rpm: qcom,rpmcc@1800000 {
-		compatible = "qcom,msm-clock-controller";
-		reg = <0x1800000 0x80000>;
-		reg-names = "cc-base";
-		#clock-cells = <1>;
-	};
-
 	clock_a7pll: qcom,a7pll@0xB008018 {
 		compatible = "qcom,msm-clock-controller";
 		reg = <0xB008018 0x9020>;
@@ -28,7 +21,7 @@
 		#clock-cells = <1>;
 
 		clock-names = "a7_xo_a";
-		clocks = <&clock_rpm clk_xo_a_clk_src>;
+		clocks = <&clock_gcc clk_xo_a>;
 
 		qcom,regulator-names = "a7pll_vdd_dig";
 		a7pll_vdd_dig-supply = <&pmd9635_s5_corner_ao>;
@@ -49,10 +42,8 @@
 		reg = <0x1800000 0x80000>;
 		reg-names = "cc-base";
 		#clock-cells = <1>;
-		clock-names = "xo", "xo_a", "a7_debug_clk";
-		clocks = <&clock_rpm clk_xo_clk_src>,
-		         <&clock_rpm clk_xo_a_clk_src>,
-		         <&clock_a7pll clk_a7_debug_mux>;
+		clock-names = "a7_debug_clk";
+		clocks = <&clock_a7pll clk_a7_debug_mux>;
 
 		qcom,regulator-names = "gcc_vdd_dig";
 		gcc_vdd_dig-supply = <&pmd9635_s5_corner>;
@@ -70,22 +61,22 @@
 	};
 };
 
-&clock_rpm {
-	xo_clk_src: xo_clk_src {
+&clock_gcc {
+	xo: xo {
 		compatible = "qcom,rpm-branch-clk";
 		qcom,res-type = "clk0";
 		qcom,res-id = <0>;
 		qcom,key = "Enable";
-		qcom,rpm-peer = <&xo_a_clk_src>;
+		qcom,rpm-peer = <&xo_a>;
 		qcom,rcg-init-rate = <19200000>;
 	};
 
-	xo_a_clk_src: xo_a_clk_src {
+	xo_a: xo_a {
 		compatible = "qcom,rpm-branch-a-clk";
 		qcom,res-type = "clk0";
 		qcom,res-id = <0>;
 		qcom,key = "Enable";
-		qcom,rpm-peer = <&xo_clk_src>;
+		qcom,rpm-peer = <&xo>;
 		qcom,rcg-init-rate = <19200000>;
 	};
 
@@ -120,7 +111,7 @@
 
 	cxo_dwc3_clk: cxo_dwc3_clk {
 		compatible = "qcom,dummy-clk";
-		qcom,parent = <&xo_clk_src>;
+		qcom,parent = <&xo>;
 	};
 
 	ipa_clk: ipa_clk {
@@ -290,18 +281,6 @@
 		compatible = "qcom,sw-vote-clk";
 		qcom,parent = <&ce_clk>;
 		qcom,config-rate = <85710000>;
-	};
-};
-
-&clock_gcc {
-	xo: xo {
-		compatible = "qcom,ext-clk";
-		qcom,clock-names = "xo";
-	};
-
-	xo_a: xo_a {
-		compatible = "qcom,ext-clk";
-		qcom,clock-names = "xo_a";
 	};
 
 	gcc_a7_debug_clk: gcc_a7_debug_clk {
@@ -1215,7 +1194,10 @@
 		qcom,en-offset = <GCC_GCC_DEBUG_CLK_CTL>;
 		qcom,en-mask = <0x10000>;
 		qcom,parents =
+			<0x0000 &snoc_clk>,
 			<0x0001 &gcc_sys_noc_usb3_axi_clk>,
+			<0x0008 &pcnoc_clk>,
+			<0x0042 &qdss_clk>,
 			<0x0050 &gcc_apss_tcu_clk>,
 			<0x005b &gcc_smmu_cfg_clk>,
 			<0x0068 &gcc_sdcc1_apps_clk>,
@@ -1237,11 +1219,15 @@
 			<0x00d2 &gcc_pdm2_clk>,
 			<0x00d8 &gcc_prng_ahb_clk>,
 			<0x00f8 &gcc_boot_rom_ahb_clk>,
+			<0x0138 &ce_clk>,
+			<0x0155 &bimc_clk>,
 			<0x016A &gcc_a7_debug_clk>,
 			<0x0203 &gcc_usb3_axi_tbu_clk>,
 			<0x0204 &gcc_pcie_axi_tbu_clk>,
 			<0x0208 &pcie_pipe_clk>,
 			<0x0210 &usb3_phy_wrapper_gcc_usb3_pipe_clk>,
+			<0x0218 &ipa_clk>,
+			<0x0220 &qpic_clk>,
 			<0x0230 &gcc_usb30_master_clk>,
 			<0x0231 &gcc_usb30_sleep_clk>,
 			<0x0232 &gcc_usb30_mock_utmi_clk>,
