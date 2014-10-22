@@ -150,11 +150,26 @@ struct intel_pmic_irqregmap crystal_cove_irqregmap[] = {
 	[VHDMIOCP_IRQ]	= CRC_IRQREGMAP_VALUE(VHDMIOCP_IRQ),
 };
 
+static struct pmic_gpio_data crystal_cove_gpio_data = {
+	.type = CRYSTAL_COVE,
+	.num_gpio = 16,
+	.num_vgpio = 0x5e,
+};
+
+static void crc_set_gpio_pdata(void)
+{
+	intel_soc_pmic_set_pdata("crystal_cove_gpio",
+				(void *)&crystal_cove_gpio_data,
+				sizeof(crystal_cove_gpio_data), 0);
+}
+
 static int crystal_cove_init(void)
 {
 	pr_debug("Crystal Cove: ID 0x%02X, VERSION 0x%02X\n",
 		 intel_soc_pmic_readb(CHIPID), intel_soc_pmic_readb(CHIPVER));
 	intel_pmic_install_handlers(&crystal_cove_pmic);
+
+	crc_set_gpio_pdata();
 	return 0;
 }
 

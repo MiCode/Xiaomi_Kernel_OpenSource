@@ -507,6 +507,19 @@ struct intel_pmic_irqregmap whiskey_cove_irqregmap[] = {
 	},
 };
 
+static struct pmic_gpio_data whiskey_cove_gpio_data = {
+	.type = WHISKEY_COVE,
+	.num_gpio = 10,
+	.num_vgpio = 0x5e,
+};
+
+static void wc_set_gpio_pdata(void)
+{
+	intel_soc_pmic_set_pdata("whiskey_cove_gpio",
+				(void *)&whiskey_cove_gpio_data,
+				sizeof(whiskey_cove_gpio_data), 0);
+}
+
 static void wc_set_adc_pdata(void)
 {
 	static struct intel_wcove_gpadc_platform_data wc_adc_pdata;
@@ -549,6 +562,7 @@ static int whiskey_cove_init(void)
 	wcove_set_ccsm_config();
 	wcove_set_bcu_pdata();
 	wc_set_adc_pdata();
+	wc_set_gpio_pdata();
 	wcove_init_done = true;
 
 	return 0;

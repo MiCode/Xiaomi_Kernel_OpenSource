@@ -18,12 +18,11 @@
 #ifndef __INTEL_SOC_PMIC_H__
 #define __INTEL_SOC_PMIC_H__
 
+#include <linux/gpio.h>
+
 #define	INTEL_PMIC_IRQBASE	456
 #define INTEL_NGPIO_SCORE	102
 #define INTEL_NGPIO_NCORE	28
-
-#define NUM_GPIO		16
-#define NUM_VGPIO		0x5e
 
 #define UPDATE_TYPE		(1 << 0)
 #define UPDATE_MASK		(1 << 1)
@@ -54,6 +53,26 @@
 
 #define CTLO_INPUT_DEF	(CTLO_DRV_CMOS | CTLO_DRV_REN | CTLO_RVAL_2KUP)
 #define CTLO_OUTPUT_DEF	(CTLO_DIR_OUT | CTLO_INPUT_DEF)
+
+#define CRYSTAL_COVE 0x0
+#define WHISKEY_COVE 0x1
+
+struct pmic_gpio_data {
+	int type;
+	int num_gpio;
+	int num_vgpio;
+};
+
+struct pmic_gpio {
+	struct mutex		buslock; /* irq_bus_lock */
+	struct gpio_chip	chip;
+	int			irq;
+	int			irq_base;
+	int			update;
+	int			trigger_type;
+	int			irq_mask;
+	struct pmic_gpio_data	*gpio_data;
+};
 
 int intel_soc_pmic_readb(int reg);
 int intel_soc_pmic_writeb(int reg, u8 val);

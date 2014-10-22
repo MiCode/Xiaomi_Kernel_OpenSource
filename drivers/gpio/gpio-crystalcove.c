@@ -28,16 +28,7 @@
 #include <linux/mfd/intel_soc_pmic.h>
 #include <linux/gpio.h>
 
-struct crystalcove_gpio {
-	struct mutex		buslock; /* irq_bus_lock */
-	struct gpio_chip	chip;
-	int			irq;
-	int			irq_base;
-	int			update;
-	int			trigger_type;
-	int			irq_mask;
-};
-static struct crystalcove_gpio gpio_info;
+static struct pmic_gpio gpio_info;
 
 static void __crystalcove_irq_mask(int gpio, int mask)
 {
@@ -70,7 +61,7 @@ static int crystalcove_gpio_direction_input(struct gpio_chip *chip,
 {
 	u8 ctlo;
 
-	if (gpio > NUM_GPIO)
+	if (gpio > gpio_info.gpio_data->num_gpio)
 		return 0;
 
 	ctlo = gpio < 8 ? GPIO0P0CTLO + gpio : GPIO1P0CTLO + (gpio - 8);
@@ -84,7 +75,7 @@ static int crystalcove_gpio_direction_output(struct gpio_chip *chip,
 {
 	u8 ctlo;
 
-	if (gpio > NUM_GPIO)
+	if (gpio > gpio_info.gpio_data->num_gpio)
 		return 0;
 
 	ctlo = gpio < 8 ? GPIO0P0CTLO + gpio : GPIO1P0CTLO + (gpio - 8);
@@ -97,7 +88,7 @@ static int crystalcove_gpio_get(struct gpio_chip *chip, unsigned gpio)
 {
 	u8 ctli;
 
-	if (gpio > NUM_GPIO)
+	if (gpio > gpio_info.gpio_data->num_gpio)
 		return 0;
 
 	ctli = gpio < 8 ? GPIO0P0CTLI + gpio : GPIO1P0CTLI + (gpio - 8);
@@ -110,7 +101,7 @@ static void crystalcove_gpio_set(struct gpio_chip *chip,
 {
 	u8 ctlo;
 
-	if (gpio > NUM_GPIO)
+	if (gpio > gpio_info.gpio_data->num_gpio)
 		return;
 
 	ctlo = gpio < 8 ? GPIO0P0CTLO + gpio : GPIO1P0CTLO + (gpio - 8);
@@ -123,7 +114,7 @@ static void crystalcove_gpio_set(struct gpio_chip *chip,
 
 static int crystalcove_irq_type(struct irq_data *data, unsigned type)
 {
-	struct crystalcove_gpio *cg = irq_data_get_irq_chip_data(data);
+	struct pmic_gpio *cg = irq_data_get_irq_chip_data(data);
 
 	cg->trigger_type = type;
 	cg->update |= UPDATE_TYPE;
@@ -133,10 +124,10 @@ static int crystalcove_irq_type(struct irq_data *data, unsigned type)
 
 static int crystalcove_gpio_to_irq(struct gpio_chip *chip, unsigned gpio)
 {
-	struct crystalcove_gpio *cg =
-		container_of(chip, struct crystalcove_gpio, chip);
+	struct pmic_gpio *cg =
+		container_of(chip, struct pmic_gpio, chip);
 
-	if (gpio > NUM_GPIO)
+	if (gpio > cg->gpio_data->num_gpio)
 		return -1;
 
 	return cg->irq_base + gpio;
@@ -144,14 +135,14 @@ static int crystalcove_gpio_to_irq(struct gpio_chip *chip, unsigned gpio)
 
 static void crystalcove_bus_lock(struct irq_data *data)
 {
-	struct crystalcove_gpio *cg = irq_data_get_irq_chip_data(data);
+	struct pmic_gpio *cg = irq_data_get_irq_chip_data(data);
 
 	mutex_lock(&cg->buslock);
 }
 
 static void crystalcove_bus_sync_unlock(struct irq_data *data)
 {
-	struct crystalcove_gpio *cg = irq_data_get_irq_chip_data(data);
+	struct pmic_gpio *cg = irq_data_get_irq_chip_data(data);
 	int gpio = data->irq - cg->irq_base;
 
 	if (cg->update & UPDATE_TYPE)
@@ -165,7 +156,7 @@ static void crystalcove_bus_sync_unlock(struct irq_data *data)
 
 static void crystalcove_irq_unmask(struct irq_data *data)
 {
-	struct crystalcove_gpio *cg = irq_data_get_irq_chip_data(data);
+	struct pmic_gpio *cg = irq_data_get_irq_chip_data(data);
 
 	cg->irq_mask = 0;
 	cg->update |= UPDATE_MASK;
@@ -173,7 +164,7 @@ static void crystalcove_irq_unmask(struct irq_data *data)
 
 static void crystalcove_irq_mask(struct irq_data *data)
 {
-	struct crystalcove_gpio *cg = irq_data_get_irq_chip_data(data);
+	struct pmic_gpio *cg = irq_data_get_irq_chip_data(data);
 
 	cg->irq_mask = 1;
 	cg->update |= UPDATE_MASK;
@@ -190,7 +181,7 @@ static struct irq_chip crystalcove_irqchip = {
 
 static irqreturn_t crystalcove_gpio_irq_handler(int irq, void *data)
 {
-	struct crystalcove_gpio *cg = data;
+	struct pmic_gpio *cg = data;
 	int pending;
 	int gpio;
 
@@ -200,7 +191,7 @@ static irqreturn_t crystalcove_gpio_irq_handler(int irq, void *data)
 	intel_soc_pmic_writeb(GPIO1IRQ, (pending >> 8) & 0xff);
 
 	local_irq_disable();
-	for (gpio = 0; gpio < NUM_GPIO; gpio++)
+	for (gpio = 0; gpio < cg->gpio_data->num_gpio; gpio++)
 		if (pending & (1 << gpio))
 			generic_handle_irq(cg->irq_base + gpio);
 	local_irq_enable();
@@ -214,7 +205,7 @@ static void crystalcove_gpio_dbg_show(struct seq_file *s,
 	int gpio, offset;
 	u8 ctlo, ctli, mirqs0, mirqsx, irq;
 
-	for (gpio = 0; gpio < NUM_GPIO; gpio++) {
+	for (gpio = 0; gpio < gpio_info.gpio_data->num_gpio; gpio++) {
 		offset = gpio < 8 ? gpio : gpio - 8;
 		ctlo = intel_soc_pmic_readb(
 			(gpio < 8 ? GPIO0P0CTLO : GPIO1P0CTLO) + offset);
@@ -222,29 +213,40 @@ static void crystalcove_gpio_dbg_show(struct seq_file *s,
 			(gpio < 8 ? GPIO0P0CTLI : GPIO1P0CTLI) + offset);
 		mirqs0 = intel_soc_pmic_readb(
 			gpio < 8 ? MGPIO0IRQS0 : MGPIO1IRQS0);
-		mirqsx = intel_soc_pmic_readb(
-			gpio < 8 ? MGPIO0IRQSX : MGPIO1IRQSX);
 		irq = intel_soc_pmic_readb(
 			gpio < 8 ? GPIO0IRQ : GPIO1IRQ);
-		seq_printf(s, " gpio-%-2d %s %s %s %s ctlo=%2x,%s %s %s\n",
+		seq_printf(s, " gpio-%-2d %s %s %s %s ctlo=%2x,%s %s",
 			   gpio, ctlo & CTLO_DIR_OUT ? "out" : "in ",
 			   ctli & 0x1 ? "hi" : "lo",
 			   ctli & CTLI_INTCNT_NE ? "fall" : "    ",
 			   ctli & CTLI_INTCNT_PE ? "rise" : "    ",
 			   ctlo,
 			   mirqs0 & (1 << offset) ? "s0 mask  " : "s0 unmask",
-			   mirqsx & (1 << offset) ? "sx mask  " : "sx unmask",
 			   irq & (1 << offset) ? "pending" : "       ");
+		switch (gpio_info.gpio_data->type) {
+		case CRYSTAL_COVE:
+			mirqsx = intel_soc_pmic_readb(
+				gpio < 8 ? MGPIO0IRQSX : MGPIO1IRQSX);
+			seq_printf(s, " %s\n", mirqsx & (1 << offset) ?
+				"sx mask  " : "sx unmask");
+			break;
+		default:
+			seq_printf(s, "\n");
+			break;
+		}
 	}
 }
 
 static int crystalcove_gpio_probe(struct platform_device *pdev)
 {
 	int irq = platform_get_irq(pdev, 0);
-	struct crystalcove_gpio *cg = &gpio_info;
+	struct pmic_gpio *cg = &gpio_info;
 	int retval;
 	int i;
 	struct device *dev = intel_soc_pmic_dev();
+	struct pmic_gpio_data *gpio_data;
+
+	gpio_data = (struct pmic_gpio_data *)pdev->dev.platform_data;
 
 	mutex_init(&cg->buslock);
 	cg->chip.label = "intel_crystalcove";
@@ -254,7 +256,8 @@ static int crystalcove_gpio_probe(struct platform_device *pdev)
 	cg->chip.set = crystalcove_gpio_set;
 	cg->chip.to_irq = crystalcove_gpio_to_irq;
 	cg->chip.base = -1;
-	cg->chip.ngpio = NUM_VGPIO;
+	cg->gpio_data = gpio_data;
+	cg->chip.ngpio = cg->gpio_data->num_vgpio;
 	cg->chip.can_sleep = 1;
 	cg->chip.dev = dev;
 	cg->chip.dbg_show = crystalcove_gpio_dbg_show;
@@ -265,9 +268,10 @@ static int crystalcove_gpio_probe(struct platform_device *pdev)
 		return retval;
 	}
 
-	cg->irq_base = irq_alloc_descs(-1, INTEL_PMIC_IRQBASE, NUM_GPIO, 0);
+	cg->irq_base = irq_alloc_descs(-1, INTEL_PMIC_IRQBASE,
+					cg->gpio_data->num_gpio, 0);
 
-	for (i = 0; i < NUM_GPIO; i++) {
+	for (i = 0; i < cg->gpio_data->num_gpio; i++) {
 		irq_set_chip_data(i + cg->irq_base, cg);
 		irq_set_chip_and_handler_name(i + cg->irq_base,
 					      &crystalcove_irqchip,
@@ -286,11 +290,16 @@ static int crystalcove_gpio_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct platform_device_id pmic_gpio_id_table[] = {
+	{ "crystal_cove_gpio", },
+	{ "whiskey_cove_gpio", },
+};
 static struct platform_driver crystalcove_gpio_driver = {
 	.probe = crystalcove_gpio_probe,
 	.driver = {
 		.name = "crystal_cove_gpio",
 	},
+	.id_table = pmic_gpio_id_table,
 };
 
 module_platform_driver(crystalcove_gpio_driver);
