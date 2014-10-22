@@ -147,7 +147,7 @@ failed:
 static int create_cpu_lvl_nodes(struct lpm_cluster *p, struct kobject *parent)
 {
 	int cpu;
-	int i, j;
+	int i, j, cpu_idx;
 	struct kobject **cpu_kobj = NULL;
 	struct lpm_level_avail *level_list = NULL;
 	char cpu_name[20] = {0};
@@ -158,17 +158,22 @@ static int create_cpu_lvl_nodes(struct lpm_cluster *p, struct kobject *parent)
 	if (!cpu_kobj)
 		return -ENOMEM;
 
+	cpu_idx = 0;
 	for_each_cpu(cpu, &p->child_cpus) {
 		snprintf(cpu_name, sizeof(cpu_name), "cpu%d", cpu);
-		cpu_kobj[cpu] = kobject_create_and_add(cpu_name, parent);
-		if (!cpu_kobj[cpu])
-			return -ENOMEM;
+		cpu_kobj[cpu_idx] = kobject_create_and_add(cpu_name, parent);
+		if (!cpu_kobj[cpu_idx]) {
+			ret = -ENOMEM;
+			goto release_kobj;
+		}
 
 		level_list = devm_kzalloc(&lpm_pdev->dev,
 				MSM_PM_SLEEP_MODE_NR * sizeof(*level_list),
 				GFP_KERNEL);
-		if (!level_list)
-			return -ENOMEM;
+		if (!level_list) {
+			ret = -ENOMEM;
+			goto release_kobj;
+		}
 
 		for (i = 0; i < MSM_PM_SLEEP_MODE_NR; i++) {
 			for (j = 0; j < p->cpu->nlevels; j++)
@@ -182,16 +187,23 @@ static int create_cpu_lvl_nodes(struct lpm_cluster *p, struct kobject *parent)
 			}
 
 			ret = create_lvl_avail_nodes(p->cpu->levels[j].name,
-						cpu_kobj[cpu], &level_list[i]);
+					cpu_kobj[cpu_idx], &level_list[i]);
 			if (ret)
-				return ret;
+				goto release_kobj;
 		}
 
 		cpu_level_available[cpu] = level_list;
+		cpu_idx++;
 	}
 
-	return 0;
+	return ret;
 
+release_kobj:
+	j = cpumask_weight(&p->child_cpus);
+	for (i = 0; i < j; i++)
+		kobject_put(cpu_kobj[i]);
+
+	return ret;
 }
 
 int create_cluster_lvl_nodes(struct lpm_cluster *p, struct kobject *kobj)
