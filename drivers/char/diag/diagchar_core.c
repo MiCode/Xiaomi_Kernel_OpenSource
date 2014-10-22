@@ -1412,6 +1412,364 @@ long diagchar_ioctl(struct file *filp,
 	return result;
 }
 
+static int diag_user_process_dci_data(const char __user *buf, int len)
+{
+	int err = 0;
+	const int mempool = POOL_TYPE_USER;
+	unsigned char *user_space_data = NULL;
+
+	if (!buf || len <= 0 || len > diag_mempools[mempool].itemsize) {
+		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
+				   __func__, buf, len);
+		return -EBADMSG;
+	}
+
+	user_space_data = diagmem_alloc(driver, len, mempool);
+	if (!user_space_data)
+		return -ENOMEM;
+
+	err = copy_from_user(user_space_data, buf, len);
+	if (err) {
+		pr_err_ratelimited("diag: In %s, unable to copy data from userspace, err: %d\n",
+				   __func__, err);
+		err = DIAG_DCI_SEND_DATA_FAIL;
+		goto fail;
+	}
+
+	err = diag_process_dci_transaction(user_space_data, len);
+fail:
+	diagmem_free(driver, user_space_data, mempool);
+	user_space_data = NULL;
+	return err;
+}
+
+static int diag_user_process_dci_apps_data(const char __user *buf, int len,
+					   int pkt_type)
+{
+	int err = 0;
+	const int mempool = POOL_TYPE_COPY;
+	unsigned char *user_space_data = NULL;
+
+	if (!buf || len <= 0 || len > diag_mempools[mempool].itemsize) {
+		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
+				   __func__, buf, len);
+		return -EBADMSG;
+	}
+
+	switch (pkt_type) {
+	case DCI_PKT_TYPE:
+	case DATA_TYPE_DCI_LOG:
+	case DATA_TYPE_DCI_EVENT:
+		break;
+	default:
+		pr_err_ratelimited("diag: In %s, invalid pkt_type: %d\n",
+				   __func__, pkt_type);
+		return -EBADMSG;
+	}
+
+	user_space_data = diagmem_alloc(driver, len, mempool);
+	if (!user_space_data)
+		return -ENOMEM;
+
+	err = copy_from_user(user_space_data, buf, len);
+	if (err) {
+		pr_alert("diag: In %s, unable to copy data from userspace, err: %d\n",
+			 __func__, err);
+		diagmem_free(driver, user_space_data, mempool);
+		user_space_data = NULL;
+		return err;
+	}
+
+	diag_process_apps_dci_read_data(pkt_type, user_space_data, len);
+
+	return 0;
+}
+
+static int diag_user_process_callback_data(const char __user *buf, int len)
+{
+	int err = 0;
+	int ret = 0;
+	int token_offset = 0;
+	int remote_proc = 0;
+	const int mempool = POOL_TYPE_COPY;
+	unsigned char *user_space_data = NULL;
+
+	if (!buf || len <= 0 || len > diag_mempools[mempool].itemsize) {
+		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
+				   __func__, buf, len);
+		return -EBADMSG;
+	}
+
+	user_space_data = diagmem_alloc(driver, len, mempool);
+	if (!user_space_data)
+		return -ENOMEM;
+
+	err = copy_from_user(user_space_data, buf, len);
+	if (err) {
+		pr_err("diag: copy failed for user space data\n");
+		goto fail;
+	}
+
+	/* Check for proc_type */
+	remote_proc = diag_get_remote(*(int *)user_space_data);
+	if (!remote_proc) {
+		wait_event_interruptible(driver->wait_q,
+					 (driver->in_busy_pktdata == 0));
+		ret = diag_process_apps_pkt(user_space_data, len);
+		diagmem_free(driver, user_space_data, mempool);
+		user_space_data = NULL;
+		return ret;
+	}
+
+	token_offset = sizeof(int);
+	if (len <= MIN_SIZ_ALLOW) {
+		pr_err("diag: In %s, possible integer underflow, payload size: %d\n",
+		       __func__, len);
+		return -EBADMSG;
+	}
+
+	len -= sizeof(int);
+	ret = diag_cb_send_data_remote(remote_proc - 1,
+				(void *)(user_space_data + token_offset),
+				len);
+fail:
+	diagmem_free(driver, user_space_data, mempool);
+	user_space_data = NULL;
+	return ret;
+}
+
+static int diag_user_process_userspace_data(const char __user *buf, int len)
+{
+	int err = 0;
+	int max_retries = 3;
+	int retry_count = 0;
+	int remote_proc = 0;
+	int token_offset = 0;
+
+	if (!buf || len <= 0 || len > USER_SPACE_DATA) {
+		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
+				   __func__, buf, len);
+		return -EBADMSG;
+	}
+
+	do {
+		if (!driver->user_space_data_busy)
+			break;
+		retry_count++;
+		usleep_range(10000, 10100);
+	} while (retry_count < max_retries);
+
+	if (driver->user_space_data_busy)
+		return -EAGAIN;
+
+	err = copy_from_user(driver->user_space_data_buf, buf, len);
+	if (err) {
+		pr_err("diag: In %s, failed to copy data from userspace, err: %d\n",
+		       __func__, err);
+		return -EIO;
+	}
+
+	/* Check for proc_type */
+	remote_proc = diag_get_remote(*(int *)driver->user_space_data_buf);
+	if (remote_proc) {
+		if (len <= MIN_SIZ_ALLOW) {
+			pr_err("diag: Integer underflow in %s, payload size: %d",
+			       __func__, len);
+			return -EBADMSG;
+		}
+		token_offset = sizeof(int);
+		len -= sizeof(int);
+	}
+
+	/* Check masks for On-Device logging */
+	if (driver->mask_check) {
+		if (!mask_request_validate(driver->user_space_data_buf +
+					   token_offset)) {
+			pr_alert("diag: mask request Invalid\n");
+			return -EFAULT;
+		}
+	}
+
+	err = diag_process_userspace_remote(remote_proc,
+					    driver->user_space_data_buf +
+					    token_offset, len);
+	if (err) {
+		driver->user_space_data_busy = 0;
+		pr_err("diag: Error sending mask to remote proc %d, err: %d\n",
+		       remote_proc, err);
+		return err;
+	}
+
+	/* send masks to local processor now */
+	if (!remote_proc)
+		diag_process_hdlc((void *)(driver->user_space_data_buf), len);
+
+	return 0;
+}
+
+static int diag_user_process_apps_data(const char __user *buf, int len,
+				       int pkt_type)
+{
+	int err = 0;
+	int ret = 0;
+	int stm_size = 0;
+	const int mempool = POOL_TYPE_COPY;
+	unsigned char *user_space_data = NULL;
+	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
+	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
+	/*
+	 * The maximum encoded size of the buffer can be atmost twice the length
+	 * of the packet. Add three bytes foe footer - 16 bit CRC (2 bytes) +
+	 * delimiter (1 byte).
+	 */
+	const uint32_t max_encoded_size = ((2 * len) + 3);
+
+	if (!buf || len <= 0 || len > diag_mempools[mempool].itemsize) {
+		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
+				   __func__, buf, len);
+		return -EBADMSG;
+	}
+
+	if (HDLC_OUT_BUF_SIZE < max_encoded_size) {
+		pr_err("diag: In %s, encoded data is larger %d than the buffer size %d\n",
+		       __func__, max_encoded_size, HDLC_OUT_BUF_SIZE);
+		return -EBADMSG;
+	}
+
+	switch (pkt_type) {
+	case DATA_TYPE_EVENT:
+	case DATA_TYPE_F3:
+	case DATA_TYPE_LOG:
+	case DATA_TYPE_RESPONSE:
+		break;
+	default:
+		pr_err_ratelimited("diag: In %s, invalid pkt_type: %d\n",
+				   __func__, pkt_type);
+		return -EBADMSG;
+	}
+
+	user_space_data = diagmem_alloc(driver, len, mempool);
+	if (!user_space_data)
+		return -ENOMEM;
+
+	mutex_lock(&driver->diagchar_mutex);
+	err = copy_from_user(user_space_data, buf, len);
+	if (err) {
+		pr_alert("diag: In %s, unable to copy data from userspace, err: %d\n",
+			 __func__, err);
+		goto fail_free_copy;
+	}
+
+	if (driver->stm_state[APPS_DATA] &&
+	    (pkt_type >= DATA_TYPE_EVENT) && (pkt_type <= DATA_TYPE_LOG)) {
+		stm_size = stm_log_inv_ts(OST_ENTITY_DIAG, 0, user_space_data,
+					  len);
+		if (stm_size == 0) {
+			pr_debug("diag: In %s, stm_log_inv_ts returned size of 0\n",
+				 __func__);
+		}
+		diagmem_free(driver, user_space_data, mempool);
+		user_space_data = NULL;
+		mutex_unlock(&driver->diagchar_mutex);
+		return 0;
+	}
+
+	send.state = DIAG_STATE_START;
+	send.pkt = user_space_data;
+	send.last = (void *)(user_space_data + len - 1);
+	send.terminate = 1;
+
+	if (!buf_hdlc)
+		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
+					 POOL_TYPE_HDLC);
+	if (!buf_hdlc) {
+		ret = -ENOMEM;
+		driver->used = 0;
+		goto fail_free_copy;
+	}
+
+	if (HDLC_OUT_BUF_SIZE - driver->used <= max_encoded_size) {
+		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
+				     buf_hdlc_ctxt);
+		if (err) {
+			ret = -EIO;
+			goto fail_free_hdlc;
+		}
+		buf_hdlc = NULL;
+		driver->used = 0;
+		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
+					 POOL_TYPE_HDLC);
+		if (!buf_hdlc) {
+			ret = -ENOMEM;
+			goto fail_free_copy;
+		}
+	}
+
+	enc.dest = buf_hdlc + driver->used;
+	enc.dest_last = (void *)(buf_hdlc + driver->used + max_encoded_size);
+	diag_hdlc_encode(&send, &enc);
+
+	/*
+	 * This is to check if after HDLC encoding, we are still within
+	 * the limits of aggregation buffer. If not, we write out the
+	 * current buffer and start aggregation in a newly allocated
+	 * buffer.
+	 */
+	if ((uintptr_t)enc.dest >= (uintptr_t)(buf_hdlc + HDLC_OUT_BUF_SIZE)) {
+		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
+				     buf_hdlc_ctxt);
+		if (err) {
+			ret = -EIO;
+			goto fail_free_hdlc;
+		}
+		buf_hdlc = NULL;
+		driver->used = 0;
+		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
+					 POOL_TYPE_HDLC);
+		if (!buf_hdlc) {
+			ret = -ENOMEM;
+			goto fail_free_copy;
+		}
+		enc.dest = buf_hdlc + driver->used;
+		enc.dest_last = (void *)(buf_hdlc + driver->used +
+					 max_encoded_size);
+		diag_hdlc_encode(&send, &enc);
+	}
+
+	driver->used = (((uintptr_t)enc.dest - (uintptr_t)buf_hdlc) <
+						HDLC_OUT_BUF_SIZE) ?
+			((uintptr_t)enc.dest - (uintptr_t)buf_hdlc) :
+						HDLC_OUT_BUF_SIZE;
+	if (pkt_type == DATA_TYPE_RESPONSE) {
+		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
+				     buf_hdlc_ctxt);
+		if (err) {
+			ret = -EIO;
+			goto fail_free_hdlc;
+		}
+		buf_hdlc = NULL;
+		driver->used = 0;
+	}
+
+	diagmem_free(driver, user_space_data, mempool);
+	user_space_data = NULL;
+	mutex_unlock(&driver->diagchar_mutex);
+
+	check_drain_timer();
+
+	return 0;
+
+fail_free_hdlc:
+	diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
+	buf_hdlc = NULL;
+	driver->used = 0;
+fail_free_copy:
+	diagmem_free(driver, user_space_data, mempool);
+	user_space_data = NULL;
+	mutex_unlock(&driver->diagchar_mutex);
+	return ret;
+}
+
 static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 			  loff_t *ppos)
 {
@@ -1594,365 +1952,87 @@ exit:
 }
 
 static ssize_t diagchar_write(struct file *file, const char __user *buf,
-				size_t count, loff_t *ppos)
+			      size_t count, loff_t *ppos)
 {
-	int err, ret = 0, pkt_type, token_offset = 0;
-	int remote_proc = 0, data_type;
-	uint8_t index;
-	uint8_t retry_count = 0;
-	uint8_t max_retries = 3;
-#ifdef DIAG_DEBUG
-	int length = 0, i;
-#endif
-	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
-	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
-	void *buf_copy = NULL;
-	void *user_space_data = NULL;
-	unsigned int payload_size;
+	int err = 0;
+	int pkt_type = 0;
+	int payload_len = 0;
+	const char __user *payload_buf = NULL;
 
-	index = 0;
-	/* Get the packet type F3/log/event/Pkt response */
-	err = copy_from_user((&pkt_type), buf, 4);
+	/*
+	 * The data coming from the user sapce should at least have the
+	 * packet type heeader.
+	 */
+	if (count < sizeof(int)) {
+		pr_err("diag: In %s, client is sending short data, len: %d\n",
+		       __func__, (int)count);
+		return -EBADMSG;
+	}
+
+	err = copy_from_user((&pkt_type), buf, sizeof(int));
 	if (err) {
-		pr_alert("diag: copy failed for pkt_type\n");
-		return -EAGAIN;
-	}
-	/* First 4 bytes indicate the type of payload - ignore these */
-	if (count < 4) {
-		pr_err("diag: Client sending short data\n");
-		return -EBADMSG;
-	}
-	payload_size = count - 4;
-	if (payload_size > USER_SPACE_DATA) {
-		pr_err("diag: Dropping packet, packet payload size crosses 8KB limit. Current payload size %d\n",
-				payload_size);
-		driver->dropped_count++;
-		return -EBADMSG;
-	}
-#ifdef CONFIG_DIAG_OVER_USB
-	if (driver->logging_mode == NO_LOGGING_MODE ||
-	    (!((pkt_type == DCI_DATA_TYPE) ||
-	       ((pkt_type & (DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT)) == 0))
-		&& (driver->logging_mode == USB_MODE) &&
-		(!driver->usb_connected))) {
-		/*Drop the diag payload */
+		pr_err_ratelimited("diag: In %s, unable to copy pkt_type from userspace, err: %d\n",
+				   __func__, err);
 		return -EIO;
 	}
-#endif /* DIAG over USB */
-	if (pkt_type == DCI_DATA_TYPE) {
-		user_space_data = diagmem_alloc(driver, payload_size,
-								POOL_TYPE_USER);
-		if (!user_space_data) {
-			driver->dropped_count++;
-			return -ENOMEM;
-		}
-		err = copy_from_user(user_space_data, buf + 4, payload_size);
-		if (err) {
-			pr_alert("diag: copy failed for DCI data\n");
-			diagmem_free(driver, user_space_data, POOL_TYPE_USER);
-			user_space_data = NULL;
-			return DIAG_DCI_SEND_DATA_FAIL;
-		}
-		err = diag_process_dci_transaction(user_space_data,
-							payload_size);
-		diagmem_free(driver, user_space_data, POOL_TYPE_USER);
-		user_space_data = NULL;
-		return err;
-	}
-	if (pkt_type == CALLBACK_DATA_TYPE) {
-		if (payload_size > driver->itemsize) {
-			pr_err("diag: Dropping packet, invalid packet size. Current payload size %d\n",
-				payload_size);
-			driver->dropped_count++;
-			return -EBADMSG;
-		}
 
-		buf_copy = diagmem_alloc(driver, payload_size, POOL_TYPE_COPY);
-		if (!buf_copy) {
-			driver->dropped_count++;
-			return -ENOMEM;
-		}
-
-		err = copy_from_user(buf_copy, buf + 4, payload_size);
-		if (err) {
-			pr_err("diag: copy failed for user space data\n");
-			diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-			buf_copy = NULL;
+	if (driver->logging_mode == USB_MODE && !driver->usb_connected) {
+		if (!((pkt_type == DCI_DATA_TYPE) ||
+		    (pkt_type == DCI_PKT_TYPE) ||
+		    (pkt_type & DATA_TYPE_DCI_LOG) ||
+		    (pkt_type & DATA_TYPE_DCI_EVENT))) {
+			pr_debug("diag: In %s, Dropping non DCI packet type\n",
+				 __func__);
 			return -EIO;
 		}
-		/* Check for proc_type */
-		remote_proc = diag_get_remote(*(int *)buf_copy);
-
-		if (!remote_proc) {
-			wait_event_interruptible(driver->wait_q,
-				 (driver->in_busy_pktdata == 0));
-			ret = diag_process_apps_pkt(buf_copy, payload_size);
-			diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-			buf_copy = NULL;
-			return ret;
-		}
-
-		token_offset = sizeof(int);
-		if (payload_size <= MIN_SIZ_ALLOW) {
-			pr_err("diag: In %s, possible integer underflow, payload size: %d\n",
-			       __func__, payload_size);
-			return -EBADMSG;
-		}
-		payload_size -= sizeof(int);
-		ret = diag_cb_send_data_remote(remote_proc - 1,
-				(void *)(buf_copy + token_offset),
-				payload_size);
-		diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-		buf_copy = NULL;
-		return ret;
-	}
-	if (pkt_type == USER_SPACE_DATA_TYPE) {
-		do {
-			if (!driver->user_space_data_busy)
-				break;
-			retry_count++;
-			usleep_range(10000, 10100);
-		} while (retry_count < max_retries);
-
-		if (driver->user_space_data_busy)
-			return -EAGAIN;
-
-		err = copy_from_user(driver->user_space_data_buf, buf + 4,
-							 payload_size);
-		if (err) {
-			pr_err("diag: copy failed for user space data\n");
-			return -EIO;
-		}
-		/* Check for proc_type */
-		remote_proc =
-			diag_get_remote(*(int *)driver->user_space_data_buf);
-
-		if (remote_proc) {
-			if (payload_size <= MIN_SIZ_ALLOW) {
-				pr_err("diag: Integer underflow in %s, payload size: %d",
-							__func__, payload_size);
-				return -EBADMSG;
-			}
-			token_offset = 4;
-			payload_size -= 4;
-			buf += 4;
-		}
-
-		/* Check masks for On-Device logging */
-		if (driver->mask_check) {
-			if (!mask_request_validate(driver->user_space_data_buf +
-							 token_offset)) {
-				pr_alert("diag: mask request Invalid\n");
-				return -EFAULT;
-			}
-		}
-		buf = buf + 4;
-#ifdef DIAG_DEBUG
-		pr_debug("diag: user space data %d\n", payload_size);
-		for (i = 0; i < payload_size; i++)
-			pr_debug("\t %x", *((driver->user_space_data_buf
-						+ token_offset)+i));
-#endif
-		err = diag_process_userspace_remote(remote_proc,
-						    driver->user_space_data_buf
-						    + token_offset,
-						    payload_size);
-		if (err) {
-			driver->user_space_data_busy = 0;
-			pr_err("diag: Error sending mask to remote proc %d, err: %d\n",
-			       remote_proc, err);
-			return err;
-		}
-		/* send masks to local processor now */
-		if (!remote_proc)
-			diag_process_hdlc((void *)
-				(driver->user_space_data_buf + token_offset),
-					payload_size);
-		return 0;
 	}
 
-	if (payload_size > itemsize) {
-		pr_err("diag: Dropping packet, packet payload size crosses"
-				"4KB limit. Current payload size %d\n",
-				payload_size);
-		driver->dropped_count++;
-		return -EBADMSG;
-	}
+	payload_buf = buf + sizeof(int);
+	payload_len = count - sizeof(int);
 
-	buf_copy = diagmem_alloc(driver, payload_size, POOL_TYPE_COPY);
-	if (!buf_copy) {
-		driver->dropped_count++;
-		return -ENOMEM;
-	}
-
-	err = copy_from_user(buf_copy, buf + 4, payload_size);
-	if (err) {
-		printk(KERN_INFO "diagchar : copy_from_user failed\n");
-		diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-		buf_copy = NULL;
-		return -EFAULT;
-	}
-
-	data_type = pkt_type &
-		    (DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT | DCI_PKT_TYPE);
-	if (data_type) {
-		diag_process_apps_dci_read_data(data_type, buf_copy,
-						payload_size);
+	if (pkt_type == DCI_PKT_TYPE)
+		return diag_user_process_dci_apps_data(payload_buf,
+						       payload_len,
+						       pkt_type);
+	else if (pkt_type == DCI_DATA_TYPE)
+		return diag_user_process_dci_data(payload_buf, payload_len);
+	else if (pkt_type == CALLBACK_DATA_TYPE)
+		return diag_user_process_callback_data(payload_buf,
+						       payload_len);
+	else if (pkt_type == USER_SPACE_DATA_TYPE)
+		return diag_user_process_userspace_data(payload_buf,
+							payload_len);
+	if (pkt_type & (DATA_TYPE_DCI_LOG | DATA_TYPE_DCI_EVENT)) {
+		err = diag_user_process_dci_apps_data(payload_buf, payload_len,
+						      pkt_type);
 		if (pkt_type & DATA_TYPE_DCI_LOG)
 			pkt_type ^= DATA_TYPE_DCI_LOG;
-		else if (pkt_type & DATA_TYPE_DCI_EVENT) {
+		if (pkt_type & DATA_TYPE_DCI_EVENT)
 			pkt_type ^= DATA_TYPE_DCI_EVENT;
-		} else {
-			pkt_type ^= DCI_PKT_TYPE;
-			diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-			return 0;
-		}
-
 		/*
-		 * If the data is not headed for normal processing or the usb
-		 * is unplugged and we are in usb mode
+		 * Check if the log or event is selected even on the regular
+		 * stream. If USB is not connected and we are not in memory
+		 * device mode, we should not process these logs/events.
 		 */
-		if ((pkt_type != DATA_TYPE_LOG && pkt_type != DATA_TYPE_EVENT)
-			|| ((driver->logging_mode == USB_MODE) &&
-			(!driver->usb_connected))) {
-			diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-			return 0;
-		}
+		if (pkt_type && driver->logging_mode == USB_MODE &&
+		    !driver->usb_connected)
+			return err;
 	}
 
-	if (driver->stm_state[APPS_DATA] &&
-		(pkt_type >= DATA_TYPE_EVENT && pkt_type <= DATA_TYPE_LOG)) {
-		int stm_size = 0;
-
-		stm_size = stm_log_inv_ts(OST_ENTITY_DIAG, 0, buf_copy,
-			payload_size);
-
-		if (stm_size == 0)
-			pr_debug("diag: In %s, stm_log_inv_ts returned size of 0\n",
-				__func__);
-
-		diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-		return 0;
+	switch (pkt_type) {
+	case DATA_TYPE_EVENT:
+	case DATA_TYPE_F3:
+	case DATA_TYPE_LOG:
+	case DATA_TYPE_RESPONSE:
+		return diag_user_process_apps_data(payload_buf, payload_len,
+						   pkt_type);
+	default:
+		pr_err_ratelimited("diag: In %s, invalid pkt_type: %d\n",
+				   __func__, pkt_type);
+		return -EINVAL;
 	}
 
-#ifdef DIAG_DEBUG
-	printk(KERN_DEBUG "data is -->\n");
-	for (i = 0; i < payload_size; i++)
-		printk(KERN_DEBUG "\t %x \t", *(((unsigned char *)buf_copy)+i));
-#endif
-	send.state = DIAG_STATE_START;
-	send.pkt = buf_copy;
-	send.last = (void *)(buf_copy + payload_size - 1);
-	send.terminate = 1;
-#ifdef DIAG_DEBUG
-	pr_debug("diag: Already used bytes in buffer %d, and"
-	" incoming payload size is %d\n", driver->used, payload_size);
-	printk(KERN_DEBUG "hdlc encoded data is -->\n");
-	for (i = 0; i < payload_size + 8; i++) {
-		printk(KERN_DEBUG "\t %x \t", *(((unsigned char *)buf_hdlc)+i));
-		if (*(((unsigned char *)buf_hdlc)+i) != 0x7e)
-			length++;
-	}
-#endif
-	mutex_lock(&driver->diagchar_mutex);
-	if (!buf_hdlc)
-		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
-						 POOL_TYPE_HDLC);
-	if (!buf_hdlc) {
-		ret = -ENOMEM;
-		driver->used = 0;
-		goto fail_free_copy;
-	}
-	if (HDLC_OUT_BUF_SIZE < (2*payload_size) + 3) {
-		pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
-				((2*payload_size) + 3));
-		driver->dropped_count++;
-		ret = -EBADMSG;
-		goto fail_free_hdlc;
-	}
-	if (HDLC_OUT_BUF_SIZE - driver->used <= (2*payload_size) + 3) {
-		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
-				     buf_hdlc_ctxt);
-		if (err) {
-			ret = -EIO;
-			goto fail_free_hdlc;
-		}
-		buf_hdlc = NULL;
-		driver->used = 0;
-		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
-							 POOL_TYPE_HDLC);
-		if (!buf_hdlc) {
-			ret = -ENOMEM;
-			goto fail_free_copy;
-		}
-	}
-
-	enc.dest = buf_hdlc + driver->used;
-	enc.dest_last = (void *)(buf_hdlc + driver->used + 2*payload_size + 3);
-	diag_hdlc_encode(&send, &enc);
-
-	/* This is to check if after HDLC encoding, we are still within the
-	 limits of aggregation buffer. If not, we write out the current buffer
-	and start aggregation in a newly allocated buffer */
-	if ((uintptr_t)enc.dest >=
-		 (uintptr_t)(buf_hdlc + HDLC_OUT_BUF_SIZE)) {
-		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
-				     buf_hdlc_ctxt);
-		if (err) {
-			ret = -EIO;
-			goto fail_free_hdlc;
-		}
-		buf_hdlc = NULL;
-		driver->used = 0;
-		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
-							 POOL_TYPE_HDLC);
-		if (!buf_hdlc) {
-			ret = -ENOMEM;
-			goto fail_free_copy;
-		}
-		enc.dest = buf_hdlc + driver->used;
-		enc.dest_last = (void *)(buf_hdlc + driver->used +
-							 (2*payload_size) + 3);
-		diag_hdlc_encode(&send, &enc);
-	}
-
-	driver->used = ((uintptr_t)enc.dest - (uintptr_t)buf_hdlc <
-						HDLC_OUT_BUF_SIZE) ?
-			((uintptr_t)enc.dest - (uintptr_t)buf_hdlc) :
-						HDLC_OUT_BUF_SIZE;
-	if (pkt_type == DATA_TYPE_RESPONSE) {
-		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
-				     buf_hdlc_ctxt);
-		if (err) {
-			ret = -EIO;
-			goto fail_free_hdlc;
-		}
-		buf_hdlc = NULL;
-		driver->used = 0;
-	}
-
-	diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-	buf_copy = NULL;
-	mutex_unlock(&driver->diagchar_mutex);
-
-	check_drain_timer();
-
-	return 0;
-
-fail_free_hdlc:
-	diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
-	buf_hdlc = NULL;
-	driver->used = 0;
-	diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-	buf_copy = NULL;
-	mutex_unlock(&driver->diagchar_mutex);
-	return ret;
-
-fail_free_copy:
-	diagmem_free(driver, buf_copy, POOL_TYPE_COPY);
-	buf_copy = NULL;
-	mutex_unlock(&driver->diagchar_mutex);
-	return ret;
+	return err;
 }
 
 void diag_ws_init()
