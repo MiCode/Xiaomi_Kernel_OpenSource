@@ -931,6 +931,8 @@ enum punit_power_well {
 #define _VLV_TX_DW3_CH1			0x848c
 /* The following bit for CHV phy */
 #define   DPIO_TX_UNIQ_TRANS_SCALE_EN	(1<<27)
+#define   DPIO_TX_UNIQ_TRANS_SCALE_CH1  (1 << 3)
+#define   DPIO_TX_UNIQ_TRANS_SCALE_CH0  (1 << 2)
 #define   DPIO_SWING_MARGIN101_SHIFT	16
 #define   DPIO_SWING_MARGIN101_MASK	(0xff << DPIO_SWING_MARGIN101_SHIFT)
 #define VLV_TX_DW3(ch) _PORT(ch, _VLV_TX_DW3_CH0, _VLV_TX_DW3_CH1)
@@ -6106,6 +6108,8 @@ enum punit_power_well {
 #define   AUD_CONFIG_PIXEL_CLOCK_HDMI_74250	(7 << 16)
 #define   AUD_CONFIG_PIXEL_CLOCK_HDMI_148352	(8 << 16)
 #define   AUD_CONFIG_PIXEL_CLOCK_HDMI_148500	(9 << 16)
+#define   AUD_CONFIG_PIXEL_CLOCK_HDMI_296703	(0xA << 16)
+#define   AUD_CONFIG_PIXEL_CLOCK_HDMI_297000	(0xB << 16)
 #define   AUD_CONFIG_DISABLE_NCTS		(1 << 3)
 
 /* HSW Audio */
