@@ -620,7 +620,8 @@ static void sync_pt_log(struct sync_pt *pt)
 
 	pr_cont("\n");
 
-	if (pt->parent->ops->pt_log)
+	/* Show additional details for active fences */
+	if (pt->status == 0 && pt->parent->ops->pt_log)
 		pt->parent->ops->pt_log(pt);
 }
 
