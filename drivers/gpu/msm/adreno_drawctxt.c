@@ -206,6 +206,13 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 		struct kgsl_cmdbatch *cmdbatch =
 			drawctxt->cmdqueue[drawctxt->cmdqueue_head];
 
+		if (test_bit(CMDBATCH_FLAG_FENCE_LOG, &cmdbatch->priv)) {
+			dev_err(device->dev,
+				"  possible deadlock. Context %d might be blocked for itself\n",
+				context->id);
+			goto done;
+		}
+
 		spin_lock(&cmdbatch->lock);
 
 		if (!list_empty(&cmdbatch->synclist)) {
@@ -217,7 +224,7 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 		}
 		spin_unlock(&cmdbatch->lock);
 	}
-
+done:
 	mutex_unlock(&drawctxt->mutex);
 }
 

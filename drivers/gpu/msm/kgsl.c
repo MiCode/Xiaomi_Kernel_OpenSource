@@ -1649,9 +1649,13 @@ static void _kgsl_cmdbatch_timer(unsigned long data)
 			break;
 		}
 		case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
-			if (event->handle && event->handle->fence)
+			if (event->handle && event->handle->fence) {
+				set_bit(CMDBATCH_FLAG_FENCE_LOG,
+					&cmdbatch->priv);
 				sync_fence_log(event->handle->fence);
-			else
+				clear_bit(CMDBATCH_FLAG_FENCE_LOG,
+					&cmdbatch->priv);
+			} else
 				dev_err(device->dev, "  fence: invalid\n");
 			break;
 		}
