@@ -563,6 +563,7 @@ static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_FLASH_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
@@ -770,6 +771,20 @@ static int get_prop_batt_voltage_now(struct smbchg_chip *chip)
 	if (rc) {
 		pr_smb(PR_STATUS, "Couldn't get voltage rc = %d\n", rc);
 		uv = DEFAULT_BATT_VOLTAGE_NOW;
+	}
+	return uv;
+}
+
+#define DEFAULT_BATT_VOLTAGE_MAX_DESIGN	4200000
+static int get_prop_batt_voltage_max_design(struct smbchg_chip *chip)
+{
+	int uv, rc;
+
+	rc = get_property_from_fg(chip,
+			POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN, &uv);
+	if (rc) {
+		pr_smb(PR_STATUS, "Couldn't get voltage rc = %d\n", rc);
+		uv = DEFAULT_BATT_VOLTAGE_MAX_DESIGN;
 	}
 	return uv;
 }
@@ -1929,6 +1944,9 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = get_prop_batt_temp(chip);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
+		val->intval = get_prop_batt_voltage_max_design(chip);
 		break;
 	default:
 		return -EINVAL;
