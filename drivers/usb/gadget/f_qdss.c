@@ -22,16 +22,19 @@
 #include "f_qdss.h"
 #include "u_qdss.c"
 #include "usb_gadget_xport.h"
+#include "u_data_ipa.h"
 
 static unsigned int nr_qdss_ports;
 static unsigned int no_data_bam_ports;
 static unsigned int data_hsic_ports_no;
+static unsigned int no_ipa_ports;
 
 static struct qdss_ports {
 	enum transport_type		data_xport;
 	unsigned char			data_xport_num;
 	unsigned	char		port_num;
 	struct f_qdss			*port;
+	struct gadget_ipa_port		ipa_port;
 } qdss_ports[NR_QDSS_PORTS];
 
 
@@ -490,6 +493,7 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 	int status;
 	unsigned char portno;
 	enum transport_type	dxport;
+	struct gadget_ipa_port *gp;
 
 	qdss = container_of(work, struct f_qdss, disconnect_w);
 	dxport = qdss_ports[qdss->port_num].data_xport;
@@ -527,6 +531,10 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 				pr_err("qdss_disconnect error");
 		}
 		break;
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
+		gp = &qdss_ports[qdss->port_num].ipa_port;
+		ipa_data_disconnect(gp, qdss->port_num);
+		break;
 	case USB_GADGET_XPORT_HSIC:
 		pr_debug("usb_qdss_disconnect_work: HSIC transport\n");
 		ghsic_data_disconnect(&qdss->port, portno);
@@ -545,6 +553,8 @@ static void qdss_disable(struct usb_function *f)
 	struct f_qdss	*qdss = func_to_qdss(f);
 	unsigned long flags;
 	unsigned char portno;
+	enum transport_type dxport;
+
 	portno = qdss->port_num;
 	if (portno >= nr_qdss_ports) {
 		pr_err("%s: supporting ports#%u port_id:%u", __func__,
@@ -557,11 +567,66 @@ static void qdss_disable(struct usb_function *f)
 		spin_unlock_irqrestore(&qdss->lock, flags);
 		return;
 	}
+
+	dxport = qdss_ports[qdss->port_num].data_xport;
 	qdss->usb_connected = 0;
+	switch (dxport) {
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
+		spin_unlock_irqrestore(&qdss->lock, flags);
+		usb_qdss_disconnect_work(&qdss->disconnect_w);
+		return;
+	default:
+		pr_debug("%s: Un-supported transport: %s\n", __func__,
+						xport_to_str(dxport));
+	}
+
 	spin_unlock_irqrestore(&qdss->lock, flags);
 	/*cancell all active xfers*/
 	qdss_eps_disable(f);
 	queue_work(qdss->wq, &qdss->disconnect_w);
+}
+
+static int qdss_dpl_ipa_connect(int port_num)
+{
+	int ret;
+	u8 dst_connection_idx;
+	struct f_qdss *qdss;
+	struct gqdss *g_qdss;
+	struct gadget_ipa_port *gp;
+	struct usb_gadget *gadget;
+	enum peer_bam bam_name = IPA_P_BAM;
+	unsigned long flags;
+
+	ipa_data_port_select(port_num, USB_GADGET_DPL);
+	qdss = qdss_ports[port_num].port;
+
+	spin_lock_irqsave(&qdss->lock, flags);
+	g_qdss = &qdss->port;
+	gp = &qdss_ports[port_num].ipa_port;
+	gp->cdev = qdss->cdev;
+	gp->in = g_qdss->data;
+	/* For DPL, there is no BULK OUT data transfer. */
+	gp->out = NULL;
+	gp->func = &g_qdss->function;
+	gadget = qdss->cdev->gadget;
+
+	spin_unlock_irqrestore(&qdss->lock, flags);
+
+	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, bam_name,
+				PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE, 1);
+	if (dst_connection_idx < 0) {
+		pr_err("usb_bam_get_connection_idx failed\n");
+		return ret;
+	}
+
+	ret = ipa_data_connect(gp, port_num, 0, dst_connection_idx);
+	if (ret) {
+		pr_err("ipa_data_connect failed: err:%d\n", ret);
+		return ret;
+	}
+
+	pr_info("dpl_ipa connected\n");
+	return 0;
 }
 
 static void usb_qdss_connect_work(struct work_struct *work)
@@ -618,6 +683,15 @@ static void usb_qdss_connect_work(struct work_struct *work)
 			break;
 		}
 		break;
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
+		status = qdss_dpl_ipa_connect(qdss->port_num);
+		if (status) {
+			pr_err("DPL IPA connect failed with %d\n", status);
+			return;
+		}
+		qdss->data_enabled = 1;
+		qdss->usb_connected = 1;
+		break;
 	case USB_GADGET_XPORT_HSIC:
 		pr_debug("usb_qdss_connect_work: HSIC transport\n");
 		status = ghsic_data_connect(&qdss->port, port_num);
@@ -664,6 +738,12 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 		if (config_ep_by_speed(gadget, f, qdss->port.data))
 			return -EINVAL;
+
+		if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA) {
+			usb_qdss_connect_work(&qdss->connect_w);
+			return 0;
+		}
+
 		ret = usb_ep_enable(qdss->port.data);
 		if (ret)
 			goto fail;
@@ -1067,6 +1147,11 @@ static int qdss_init_port(const char *data_name,
 		no_data_bam_ports++;
 		pr_debug("USB_GADGET_XPORT_BAM %d\n", no_data_bam_ports);
 		break;
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
+		qdss_port->data_xport_num = no_ipa_ports;
+		no_ipa_ports++;
+		pr_debug("USB_GADGET_XPORT_BAM2BAM_IPA %d\n", no_ipa_ports);
+		break;
 	case USB_GADGET_XPORT_HSIC:
 	    pr_debug("%s USB_GADGET_XPORT_HSIC\n", __func__);
 		ghsic_data_set_port_name(port_name, data_name);
@@ -1091,6 +1176,7 @@ fail_probe:
 	nr_qdss_ports = 0;
 	no_data_bam_ports = 0;
 	data_hsic_ports_no = 0;
+	no_ipa_ports = 0;
 	return ret;
 }
 
@@ -1099,9 +1185,9 @@ static int qdss_gport_setup(void)
 	int	port_idx;
 	int	i;
 
-	pr_debug("%s: bam ports: %u data hsic ports: %u nr_qdss_ports: %u\n",
+	pr_debug("%s: bam ports: %u data hsic ports: %u nr_qdss_ports: %u ipa_ports:%u\n",
 			__func__, no_data_bam_ports, data_hsic_ports_no,
-			nr_qdss_ports);
+			nr_qdss_ports, no_ipa_ports);
 
 	if (data_hsic_ports_no) {
 		pr_debug("%s: go to setup hsic data\n", __func__);
@@ -1114,6 +1200,26 @@ static int qdss_gport_setup(void)
 					USB_GADGET_XPORT_HSIC) {
 				qdss_ports[i].data_xport_num = port_idx;
 				pr_debug("%s: qdss data_xport_num = %d\n",
+					__func__, qdss_ports[i].data_xport_num);
+				port_idx++;
+			}
+		}
+	}
+
+	if (no_ipa_ports) {
+		pr_debug("Inside initializaing ipa data port\n");
+		port_idx = ipa_data_setup(no_ipa_ports);
+		if (port_idx < 0) {
+			pr_err("%s(): error with initializing IPA data setup\n",
+								__func__);
+			return port_idx;
+		}
+
+		for (i = 0; i < no_ipa_ports; i++) {
+			if (qdss_ports[i].data_xport ==
+					USB_GADGET_XPORT_BAM2BAM_IPA) {
+				qdss_ports[i].data_xport_num = port_idx;
+				pr_debug("%s: DPL data_xport_num = %d\n",
 					__func__, qdss_ports[i].data_xport_num);
 				port_idx++;
 			}

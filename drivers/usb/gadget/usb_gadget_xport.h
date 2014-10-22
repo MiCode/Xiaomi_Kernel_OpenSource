@@ -91,6 +91,7 @@ enum gadget_type {
 	USB_GADGET_SERIAL,
 	USB_GADGET_RMNET,
 	USB_GADGET_QDSS,
+	USB_GADGET_DPL,
 };
 #define NUM_QDSS_HSIC_PORTS 1
 #define NUM_RMNET_HSIC_PORTS 2
@@ -103,6 +104,7 @@ enum gadget_type {
 #define NUM_DUN_HSUART_PORTS 1
 #define NUM_HSUART_PORTS (NUM_RMNET_HSUART_PORTS \
 	+ NUM_DUN_HSUART_PORTS)
+#define DPL_QTI_CTRL_PORT_NO 4
 
 int ghsic_ctrl_connect(void *, int);
 void ghsic_ctrl_disconnect(void *, int);
