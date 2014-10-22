@@ -727,8 +727,16 @@ static u8 *goto_next_sequence(u8 *data, int *size)
 			break;
 		case MIPI_SEQ_ELEM_I2C:
 			/* skip by this element payload size */
+			tmp -= 8;
+			if (tmp < 0)
+				return NULL;
 			data += 7;
 			len = *data;
+
+			tmp -= len;
+			if (tmp < 0)
+				return NULL;
+
 			data += len + 1;
 			break;
 		default:
