@@ -286,6 +286,14 @@ enum msm_vfe_axi_stream_type {
 	BURST_STREAM,
 };
 
+struct msm_vfe_frame_request_queue {
+	struct list_head list;
+	enum msm_vfe_buff_queue_id buff_queue_id;
+	uint8_t cmd_used;
+};
+
+#define MSM_VFE_REQUESTQ_SIZE 8
+
 struct msm_vfe_axi_stream {
 	uint32_t frame_id;
 	enum msm_vfe_axi_state state;
@@ -298,11 +306,15 @@ struct msm_vfe_axi_stream {
 	struct msm_isp_buffer *buf[2];
 	uint32_t session_id;
 	uint32_t stream_id;
-	uint32_t bufq_handle;
-	uint32_t bufq_scratch_handle;
-	uint32_t controllable_output;
+	uint32_t bufq_handle[VFE_BUF_QUEUE_MAX];
+	uint8_t controllable_output;
+	uint8_t undelivered_request_cnt;
+	uint8_t request_q_idx;
+	uint32_t request_q_cnt;
+	struct list_head request_q;
+	struct msm_vfe_frame_request_queue
+			request_queue_cmd[MSM_VFE_REQUESTQ_SIZE];
 	uint32_t stream_handle;
-	uint32_t request_frm_num;
 	uint8_t buf_divert;
 	enum msm_vfe_axi_stream_type stream_type;
 	uint32_t vt_enable;
