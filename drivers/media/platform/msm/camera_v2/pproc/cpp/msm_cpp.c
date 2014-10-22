@@ -2332,6 +2332,13 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 	/* Convert the 32 bit pointer to 64 bit pointer */
 	new_frame->cookie = compat_ptr(new_frame32->cookie);
 	cpp_cmd_msg_64bit = compat_ptr(new_frame32->cpp_cmd_msg);
+	if ((new_frame->msg_len == 0) ||
+		(new_frame->msg_len > MSM_CPP_MAX_FRAME_LENGTH)) {
+		pr_err("%s:%d: Invalid frame len:%d\n", __func__,
+			__LINE__, new_frame->msg_len);
+		goto strip_err;
+	}
+
 	cpp_frame_msg = kzalloc(sizeof(uint32_t)*new_frame->msg_len,
 		GFP_KERNEL);
 	if (!cpp_frame_msg) {
