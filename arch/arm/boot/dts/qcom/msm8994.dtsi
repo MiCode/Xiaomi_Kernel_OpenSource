@@ -35,6 +35,7 @@
 		i2c2 = &i2c_2;
 		i2c5 = &i2c_5;
 		spi0 = &spi_0;
+		qup2 = &i2c_2;
 	};
 
 	cpus {
@@ -1150,6 +1151,10 @@
 
 	qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
+	};
+
+	qcom,msm-pacman {
+		compatible = "qcom,msm-pacman";
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
