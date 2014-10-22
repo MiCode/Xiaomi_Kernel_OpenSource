@@ -6587,10 +6587,12 @@ void init_idle(struct task_struct *idle, int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long flags;
-	u64 mark_start = orig_mark_start(idle);
+	u64 mark_start;
 
 	raw_spin_lock_irqsave(&idle->pi_lock, flags);
 	raw_spin_lock(&rq->lock);
+
+	mark_start = orig_mark_start(idle);
 
 	__sched_fork(0, idle);
 	/*
