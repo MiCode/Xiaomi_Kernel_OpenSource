@@ -440,7 +440,14 @@ static void intel_dsi_port_disable(struct intel_encoder *encoder)
 
 	dev_priv->video_disabled = false;
 
-	if (is_cmd_mode(intel_dsi) &&
+	if (is_cmd_mode(intel_dsi) && pipe && IS_CHERRYVIEW(dev_priv->dev)
+						&& STEP_TO(STEP_B3)) {
+		static int once_done;
+		if (once_done == false) {
+			once_done = true;
+			dev_priv->video_disabled = true;
+		}
+	} else if (is_cmd_mode(intel_dsi) &&
 			(I915_READ(MIPI_PORT_CTRL(pipe)) & DPI_ENABLE))
 		dev_priv->video_disabled = true;
 
