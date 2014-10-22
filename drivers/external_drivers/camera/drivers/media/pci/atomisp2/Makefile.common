@@ -164,6 +164,7 @@ atomisp-$(postfix)-objs := \
 		css/isp/kernels/macc/macc_1.0/ia_css_macc_table.host.o \
 		css/isp/kernels/ctc/ctc_1.0/ia_css_ctc.host.o \
 		css/isp/kernels/ctc/ctc_1.0/ia_css_ctc_table.host.o \
+                css/isp/kernels/ctc/ctc1_5/ia_css_ctc1_5.host.o \
 		css/isp/kernels/xnr/xnr_1.0/ia_css_xnr.host.o \
 		css/isp/kernels/xnr/xnr_1.0/ia_css_xnr_table.host.o \
 		css/isp/kernels/xnr/xnr_3.0/ia_css_xnr3.host.o \
