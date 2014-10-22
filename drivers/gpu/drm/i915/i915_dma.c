@@ -1028,6 +1028,7 @@ static int i915_getparam(struct drm_device *dev, void *data,
 		value = INTEL_INFO(dev)->eu_total;
 		if (!value)
 			return -ENODEV;
+		break;
 	case I915_PARAM_HAS_DPST:
 		value = I915_HAS_DPST(dev);
 		break;
