@@ -1915,7 +1915,7 @@ static int arizona_hw_params(struct snd_pcm_substream *substream,
 	int tdm_slots = arizona->tdm_slots[dai->id - 1];
 	int bclk, lrclk, wl, frame, bclk_target;
 	bool reconfig;
-	unsigned int aif_tx_state, aif_rx_state;
+	unsigned int aif_tx_state = 0, aif_rx_state = 0;
 
 	if (params_rate(params) % 8000)
 		rates = &arizona_44k1_bclk_rates[0];
