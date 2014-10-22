@@ -132,6 +132,25 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 
+		adsp_mem: adsp_region@0 {
+                        linux,reserve-contiguous-region;
+			reg = <0 0 0 0x300000>;
+			label = "adsp_mem";
+		};
+
+		qsecom_mem: qsecom_region@0 {
+                        linux,reserve-contiguous-region;
+			reg = <0 0 0 0x300000>;
+			label = "qseecom_mem";
+		};
+
+		audio_mem: audio_region@0 {
+                        linux,reserve-contiguous-region;
+			linux,reserve-region;
+			reg = <0 0 0 0x400000>;
+			label = "audio_mem";
+		};
+
 		removed_regions: removed_regions@0 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
