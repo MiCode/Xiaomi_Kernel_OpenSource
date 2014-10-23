@@ -621,6 +621,7 @@ struct gendisk *scsi_gendisk_get_from_dev(struct device *dev)
 	mutex_unlock(&sd_ref_mutex);
 	return !sdkp ? NULL : sdkp->disk;
 }
+EXPORT_SYMBOL(scsi_gendisk_get_from_dev);
 
 void scsi_gendisk_put(struct device *dev)
 {
@@ -632,6 +633,7 @@ void scsi_gendisk_put(struct device *dev)
 	scsi_device_put(sdev);
 	mutex_unlock(&sd_ref_mutex);
 }
+EXPORT_SYMBOL(scsi_gendisk_put);
 
 static unsigned char sd_setup_protect_cmnd(struct scsi_cmnd *scmd,
 					   unsigned int dix, unsigned int dif)
