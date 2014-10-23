@@ -140,6 +140,9 @@ Optional Properties:
 				should resume charging. If this is not defined,
 				the only way to resume charging is through the
 				voltage drop specified by qcom,resume-delta-mv.
+- qcom,chg-inhibit-fg		Indicates if the recharge threshold source has
+				to be Fuel gauge ADC. If this is not set, it
+				will be analog sensor by default.
 - qcom,bmd-algo-disabled	Indicates if the battery missing detection
 				algorithm is disabled. If this node is present
 				SMB uses the THERM pin for battery missing

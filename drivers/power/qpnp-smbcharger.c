@@ -92,6 +92,7 @@ struct smbchg_chip {
 	bool				low_icl_wa_on;
 	bool				battery_unknown;
 	bool				charge_unknown_battery;
+	bool				chg_inhibit_source_fg;
 	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
 	struct delayed_work		parallel_en_work;
@@ -2906,11 +2907,18 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	}
 
 	/*
-	 * use the analog sensors instead of the fuelgauge adcs so that
-	 * tcc detection works without trimmed parts
+	 * Based on the configuration, use the analog sensors or the fuelgauge
+	 * adc for recharge threshold source.
 	 */
-	rc = smbchg_sec_masked_write(chip, chip->chgr_base + CHGR_CFG1,
+
+	if (chip->chg_inhibit_source_fg)
+		rc = smbchg_sec_masked_write(chip, chip->chgr_base + CHGR_CFG1,
+			TERM_I_SRC_BIT | RECHG_THRESHOLD_SRC_BIT,
+			RECHG_THRESHOLD_SRC_BIT);
+	else
+		rc = smbchg_sec_masked_write(chip, chip->chgr_base + CHGR_CFG1,
 			TERM_I_SRC_BIT | RECHG_THRESHOLD_SRC_BIT, 0);
+
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set chgr_cfg2 rc=%d\n", rc);
 		return rc;
@@ -3042,22 +3050,29 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	smbchg_dc_en(chip, chip->chg_enabled, REASON_USER);
 	/* resume threshold */
 	if (chip->resume_delta_mv != -EINVAL) {
-		if (chip->resume_delta_mv < 100)
-			reg = CHG_INHIBIT_50MV_VAL;
-		else if (chip->resume_delta_mv < 200)
-			reg = CHG_INHIBIT_100MV_VAL;
-		else if (chip->resume_delta_mv < 300)
-			reg = CHG_INHIBIT_200MV_VAL;
-		else
-			reg = CHG_INHIBIT_300MV_VAL;
 
-		rc = smbchg_sec_masked_write(chip,
-				chip->chgr_base + CHG_INHIB_CFG_REG,
-				CHG_INHIBIT_MASK, reg);
-		if (rc < 0) {
-			dev_err(chip->dev, "Couldn't set inhibit val rc = %d\n",
-					rc);
-			return rc;
+		/*
+		 * Configure only if the recharge threshold source is not
+		 * fuel gauge ADC.
+		 */
+		if (!chip->chg_inhibit_source_fg) {
+			if (chip->resume_delta_mv < 100)
+				reg = CHG_INHIBIT_50MV_VAL;
+			else if (chip->resume_delta_mv < 200)
+				reg = CHG_INHIBIT_100MV_VAL;
+			else if (chip->resume_delta_mv < 300)
+				reg = CHG_INHIBIT_200MV_VAL;
+			else
+				reg = CHG_INHIBIT_300MV_VAL;
+
+			rc = smbchg_sec_masked_write(chip,
+					chip->chgr_base + CHG_INHIB_CFG_REG,
+					CHG_INHIBIT_MASK, reg);
+			if (rc < 0) {
+				dev_err(chip->dev, "Couldn't set inhibit val rc = %d\n",
+						rc);
+				return rc;
+			}
 		}
 
 		rc = smbchg_sec_masked_write(chip,
@@ -3200,6 +3215,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 						"qcom,charging-disabled"));
 	chip->charge_unknown_battery = of_property_read_bool(node,
 						"qcom,charge-unknown-battery");
+	chip->chg_inhibit_source_fg = of_property_read_bool(node,
+						"qcom,chg-inhibit-fg");
 
 	/* parse the battery missing detection pin source */
 	rc = of_property_read_string(chip->spmi->dev.of_node,
