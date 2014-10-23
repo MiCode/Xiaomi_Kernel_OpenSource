@@ -1272,7 +1272,7 @@ static int mt9m114_g_exposure(struct v4l2_subdev *sd, s32 *value)
 
 	/* the fine integration time is currently not calculated */
 	ret = mt9m114_read_reg(client, MISENSOR_16BIT,
-			       MISENSOR_COARSE_INTEGRATION_TIME, &coarse);
+			       REG_EXPO_COARSE, &coarse);
 	if (ret)
 		return ret;
 
