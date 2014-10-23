@@ -1544,8 +1544,8 @@ void ipa_debugfs_init(void)
 {
 	const mode_t read_only_mode = S_IRUSR | S_IRGRP | S_IROTH;
 	const mode_t read_write_mode = S_IRUSR | S_IRGRP | S_IROTH |
-			S_IWUSR | S_IWGRP | S_IWOTH;
-	const mode_t write_only_mode = S_IWUSR | S_IWGRP | S_IWOTH;
+			S_IWUSR | S_IWGRP;
+	const mode_t write_only_mode = S_IWUSR | S_IWGRP;
 	struct dentry *file;
 
 	dent = debugfs_create_dir("ipa", 0);
