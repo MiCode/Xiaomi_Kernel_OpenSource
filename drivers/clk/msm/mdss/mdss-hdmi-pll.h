@@ -13,11 +13,21 @@
 #ifndef __MDSS_HDMI_PLL_H
 #define __MDSS_HDMI_PLL_H
 
+struct hdmi_pll_cfg {
+	unsigned long vco_rate;
+	u32 reg;
+};
+
 struct hdmi_pll_vco_clk {
 	unsigned long	rate;	/* current vco rate */
 	unsigned long	min_rate;	/* min vco rate */
 	unsigned long	max_rate;	/* max vco rate */
 	bool		rate_set;
+	struct hdmi_pll_cfg *ip_seti;
+	struct hdmi_pll_cfg *cp_seti;
+	struct hdmi_pll_cfg *ip_setp;
+	struct hdmi_pll_cfg *cp_setp;
+	struct hdmi_pll_cfg *crctrl;
 	void		*priv;
 
 	struct clk	c;
