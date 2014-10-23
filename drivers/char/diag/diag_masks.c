@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1537,7 +1537,7 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 	}
 
 	if (hdlr)
-		size = hdlr(buf, len, driver->apps_rsp_buf, APPS_BUF_SIZE);
+		size = hdlr(buf, len, driver->apps_rsp_buf, DIAG_MAX_RSP_SIZE);
 
 	return (size > 0) ? size : 0;
 }

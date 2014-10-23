@@ -1,4 +1,5 @@
-/* Copyright (c) 2008-2009, 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2009, 2012-2013, 2015 The Linux Foundation.
+ * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,4 +59,8 @@ int crc_check(uint8_t *buf, uint16_t len);
 #define ESC_CHAR     0x7D
 #define ESC_MASK     0x20
 
+#define HDLC_INCOMPLETE		0
+#define HDLC_COMPLETE		1
+
+#define HDLC_FOOTER_LEN		3
 #endif

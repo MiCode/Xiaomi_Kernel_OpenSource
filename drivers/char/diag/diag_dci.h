@@ -25,7 +25,6 @@
 #define DISABLE_LOG_MASK	0
 #define MAX_EVENT_SIZE		512
 #define DCI_CLIENT_INDEX_INVALID -1
-#define DCI_PKT_REQ_MIN_LEN		9
 #define DCI_LOG_CON_MIN_LEN		14
 #define DCI_EVENT_CON_MIN_LEN		16
 
@@ -78,6 +77,18 @@ extern unsigned int dci_max_clients;
 #define TOKEN_TO_BRIDGE(x)	(dci_ops_tbl[x].ctx)
 
 #define DCI_MAGIC		(0xAABB1122)
+
+struct dci_pkt_req_t {
+	int uid;
+	int client_id;
+} __packed;
+
+struct dci_stream_req_t {
+	int type;
+	int client_id;
+	int set_flag;
+	int count;
+} __packed;
 
 struct dci_pkt_req_entry_t {
 	int client_id;
@@ -218,6 +229,22 @@ enum {
 	DIAG_DCI_SEND_DATA_FAIL,/* writing to kernel or peripheral fails */
 	DIAG_DCI_TABLE_ERR	/* Error dealing with registration tables */
 };
+
+#define DCI_HDR_SIZE					\
+	((sizeof(struct diag_dci_pkt_header_t) >	\
+	  sizeof(struct diag_dci_header_t)) ?		\
+	(sizeof(struct diag_dci_pkt_header_t) + 1) :	\
+	(sizeof(struct diag_dci_header_t) + 1))		\
+
+#define DCI_BUF_SIZE (uint32_t)(DIAG_MAX_REQ_SIZE + DCI_HDR_SIZE)
+
+#define DCI_REQ_HDR_SIZE				\
+	((sizeof(struct dci_pkt_req_t) >		\
+	  sizeof(struct dci_stream_req_t)) ?		\
+	(sizeof(struct dci_pkt_req_t)) :		\
+	(sizeof(struct dci_stream_req_t)))		\
+
+#define DCI_REQ_BUF_SIZE (uint32_t)(DIAG_MAX_REQ_SIZE + DCI_REQ_HDR_SIZE)
 
 #ifdef CONFIG_DEBUG_FS
 /* To collect debug information during each smd read */

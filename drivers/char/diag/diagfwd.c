@@ -57,6 +57,7 @@ unsigned char diag_debug_buf[1024];
 struct diag_master_table entry;
 int wrap_enabled;
 uint16_t wrap_count;
+static struct diag_hdlc_decode_type *hdlc_decode;
 
 #define DIAG_NUM_COMMON_CMD	1
 static uint8_t common_cmds[DIAG_NUM_COMMON_CMD] = {
@@ -722,9 +723,9 @@ void encode_rsp_and_send(int buf_length)
 	if (!rsp_ptr)
 		return;
 
-	if (buf_length > APPS_BUF_SIZE || buf_length < 0) {
+	if (buf_length > DIAG_MAX_RSP_SIZE || buf_length < 0) {
 		pr_err("diag: In %s, invalid len %d, permissible len %d\n",
-					__func__, buf_length, APPS_BUF_SIZE);
+		       __func__, buf_length, DIAG_MAX_RSP_SIZE);
 		return;
 	}
 
@@ -765,7 +766,7 @@ void encode_rsp_and_send(int buf_length)
 	send.last = (void *)(driver->apps_rsp_buf + buf_length);
 	send.terminate = 1;
 	enc.dest = rsp_ptr;
-	enc.dest_last = (void *)(rsp_ptr + HDLC_OUT_BUF_SIZE - 1);
+	enc.dest_last = (void *)(rsp_ptr + DIAG_MAX_HDLC_BUF_SIZE - 1);
 	diag_hdlc_encode(&send, &enc);
 	driver->encoded_rsp_len = (int)(enc.dest - (void *)rsp_ptr);
 	err = diag_mux_write(DIAG_LOCAL_PROC, rsp_ptr, driver->encoded_rsp_len,
@@ -777,31 +778,34 @@ void encode_rsp_and_send(int buf_length)
 		driver->rsp_buf_busy = 0;
 		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
 	}
-	memset(driver->apps_rsp_buf, '\0', APPS_BUF_SIZE);
-
+	memset(driver->apps_rsp_buf, '\0', DIAG_MAX_RSP_SIZE);
 }
 
-void diag_update_pkt_buffer(unsigned char *buf, int type)
+void diag_update_pkt_buffer(unsigned char *buf, uint32_t len, int type)
 {
 	unsigned char *ptr = NULL;
 	unsigned char *temp = buf;
-	unsigned int length;
 	int *in_busy = NULL;
+	uint32_t *length = NULL;
+	uint32_t max_len = 0;
 
-	if (!buf) {
-		pr_err("diag: Invalid buffer in %s\n", __func__);
+	if (!buf || len == 0) {
+		pr_err("diag: In %s, Invalid ptr %p and length %d\n",
+		       __func__, buf, len);
 		return;
 	}
 
 	switch (type) {
 	case PKT_TYPE:
-		ptr = driver->pkt_buf;
-		length = driver->pkt_length;
+		ptr = driver->apps_req_buf;
+		length = &driver->apps_req_buf_len;
+		max_len = DIAG_MAX_REQ_SIZE;
 		in_busy = &driver->in_busy_pktdata;
 		break;
 	case DCI_PKT_TYPE:
 		ptr = driver->dci_pkt_buf;
-		length = driver->dci_pkt_length;
+		length = &driver->dci_pkt_length;
+		max_len = DCI_BUF_SIZE;
 		in_busy = &driver->in_busy_dcipktdata;
 		break;
 	default:
@@ -809,17 +813,14 @@ void diag_update_pkt_buffer(unsigned char *buf, int type)
 		return;
 	}
 
-	if (!ptr || length == 0) {
-		pr_err("diag: Invalid ptr %p and length %d in %s",
-						ptr, length, __func__);
-		return;
-	}
 	mutex_lock(&driver->diagchar_mutex);
-	if (CHK_OVERFLOW(ptr, ptr, ptr + PKT_SIZE, length)) {
-		memcpy(ptr, temp , length);
+	if (CHK_OVERFLOW(ptr, ptr, ptr + max_len, len)) {
+		memcpy(ptr, temp , len);
+		*length = len;
 		*in_busy = 1;
 	} else {
-		printk(KERN_CRIT " Not enough buffer space for PKT_RESP\n");
+		pr_alert("diag: In %s, no space for response packet, len: %d, type: %d\n",
+			 __func__, len, type);
 	}
 	mutex_unlock(&driver->diagchar_mutex);
 }
@@ -855,13 +856,12 @@ int diag_send_data(struct diag_master_table entry, unsigned char *buf,
 {
 	int success = 1;
 	int err = 0;
-	driver->pkt_length = len;
 
 	/* If the process_id corresponds to an apps process */
 	if (entry.process_id != NON_APPS_PROC) {
 		/* If the message is to be sent to the apps process */
 		if (type != MODEM_DATA) {
-			diag_update_pkt_buffer(buf, PKT_TYPE);
+			diag_update_pkt_buffer(buf, len, PKT_TYPE);
 			diag_update_sleeping_process(entry.process_id,
 							PKT_TYPE);
 		}
@@ -1149,7 +1149,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		(*(uint16_t *)(buf+2) == 0x0055)) {
 		for (i = 0; i < 4; i++)
 			*(driver->apps_rsp_buf+i) = *(buf+i);
-		*(uint32_t *)(driver->apps_rsp_buf+4) = PKT_SIZE;
+		*(uint32_t *)(driver->apps_rsp_buf+4) = DIAG_MAX_REQ_SIZE;
 		encode_rsp_and_send(7);
 		return 0;
 	} else if ((*buf == 0x4b) && (*(buf+1) == 0x12) &&
@@ -1210,7 +1210,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 	else if (*buf == DIAG_CMD_LOG_ON_DMND) {
 		write_len = diag_cmd_log_on_demand(buf, len,
 						   driver->apps_rsp_buf,
-						   APPS_BUF_SIZE);
+						   DIAG_MAX_RSP_SIZE);
 		if (write_len > 0)
 			encode_rsp_and_send(write_len - 1);
 		return 0;
@@ -1264,127 +1264,91 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 	return packet_type;
 }
 
-#ifdef CONFIG_DIAG_OVER_USB
-void diag_send_error_rsp(int index)
+static void diag_send_error_rsp(int len)
 {
-	int i;
-
 	/* -1 to accomodate the first byte 0x13 */
-	if (index > APPS_BUF_SIZE-1) {
-		pr_err("diag: cannot send err rsp, huge length: %d\n", index);
+	if (len > (DIAG_MAX_RSP_SIZE - 1)) {
+		pr_err("diag: cannot send err rsp, huge length: %d\n", len);
 		return;
 	}
 
-	driver->apps_rsp_buf[0] = 0x13; /* error code 13 */
-	for (i = 0; i < index; i++)
-		driver->apps_rsp_buf[i+1] = *(driver->hdlc_buf+i);
-	encode_rsp_and_send(index - 3);
+	*(uint8_t *)driver->apps_rsp_buf = DIAG_CMD_ERROR;
+	memcpy((driver->apps_rsp_buf + sizeof(uint8_t)), driver->hdlc_buf, len);
+	encode_rsp_and_send(len);
 }
-#else
-static inline void diag_send_error_rsp(int index) {}
-#endif
 
 void diag_process_hdlc(void *data, unsigned len)
 {
-	struct diag_hdlc_decode_type hdlc;
-	int ret, type = 0, crc_chk = 0;
 	int err = 0;
+	int ret = 0;
 
-	mutex_lock(&driver->diag_hdlc_mutex);
-
-	pr_debug("diag: HDLC decode fn, len of data  %d\n", len);
-	hdlc.dest_ptr = driver->hdlc_buf;
-	hdlc.dest_size = USB_MAX_OUT_BUF;
-	hdlc.src_ptr = data;
-	hdlc.src_size = len;
-	hdlc.src_idx = 0;
-	hdlc.dest_idx = 0;
-	hdlc.escaping = 0;
-
-	ret = diag_hdlc_decode(&hdlc);
-	if (ret) {
-		crc_chk = crc_check(hdlc.dest_ptr, hdlc.dest_idx);
-		if (crc_chk) {
-			/* CRC check failed. */
-			pr_err_ratelimited("diag: In %s, bad CRC. Dropping packet\n",
-								__func__);
-			mutex_unlock(&driver->diag_hdlc_mutex);
-			return;
-		}
-	}
-
-	/*
-	 * If the message is 3 bytes or less in length then the message is
-	 * too short. A message will need 4 bytes minimum, since there are
-	 * 2 bytes for the CRC and 1 byte for the ending 0x7e for the hdlc
-	 * encoding
-	 */
-	if (hdlc.dest_idx < 4) {
-		pr_err_ratelimited("diag: In %s, message is too short, len: %d, dest len: %d\n",
-			__func__, len, hdlc.dest_idx);
-		mutex_unlock(&driver->diag_hdlc_mutex);
+	if (len > DIAG_MAX_HDLC_BUF_SIZE) {
+		pr_err("diag: In %s, invalid length: %d\n", __func__, len);
 		return;
 	}
 
-	if (ret) {
-		type = diag_process_apps_pkt(driver->hdlc_buf,
-							  hdlc.dest_idx - 3);
-		if (type < 0) {
-			mutex_unlock(&driver->diag_hdlc_mutex);
-			return;
-		}
-	} else if (driver->debug_flag) {
-		pr_err("diag: In %s, partial packet received, dropping packet, len: %d\n",
-								__func__, len);
-		print_hex_dump(KERN_DEBUG, "Dropped Packet Data: ", 16, 1,
-					   DUMP_PREFIX_ADDRESS, data, len, 1);
-		driver->debug_flag = 0;
-	}
-	/* send error responses from APPS for Central Routing */
-	if (type == 1 && chk_apps_only()) {
-		diag_send_error_rsp(hdlc.dest_idx);
-		type = 0;
-	}
-	/* implies this packet is NOT meant for apps */
-	if (!(driver->smd_data[MODEM_DATA].ch) && type == 1) {
-		if (chk_apps_only()) {
-			diag_send_error_rsp(hdlc.dest_idx);
-		} else { /* APQ 8060, Let Q6 respond */
-			err = diag_smd_write(&driver->smd_data[LPASS_DATA],
-					     driver->hdlc_buf,
-					     hdlc.dest_idx - 3);
-			if (err) {
-				pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, err: %d\n",
-				       __func__, LPASS_DATA, SMD_DATA_TYPE,
-				       err);
-			}
-		}
-		type = 0;
+	mutex_lock(&driver->diag_hdlc_mutex);
+	pr_debug("diag: In %s, received packet of length: %d, req_buf_len: %d\n",
+		 __func__, len, driver->hdlc_buf_len);
+
+	if (driver->hdlc_buf_len >= DIAG_MAX_REQ_SIZE) {
+		pr_err("diag: In %s, request length is more than supported len. Dropping packet.\n",
+		       __func__);
+		goto fail;
 	}
 
-#ifdef DIAG_DEBUG
-	pr_debug("diag: hdlc.dest_idx = %d", hdlc.dest_idx);
-	for (i = 0; i < hdlc.dest_idx; i++)
-		printk(KERN_DEBUG "\t%x", *(((unsigned char *)
-							driver->hdlc_buf)+i));
-#endif /* DIAG DEBUG */
-	/* ignore 2 bytes for CRC, one for 7E and send */
-	if ((driver->smd_data[MODEM_DATA].ch) && (ret) && (type) &&
-						(hdlc.dest_idx > 3)) {
-		APPEND_DEBUG('g');
-		err = diag_smd_write(&driver->smd_data[MODEM_DATA],
-				     driver->hdlc_buf, hdlc.dest_idx - 3);
-		if (err) {
-			pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, err: %d\n",
-			       __func__, MODEM_DATA, SMD_DATA_TYPE, err);
-		}
-		APPEND_DEBUG('h');
-#ifdef DIAG_DEBUG
-		printk(KERN_INFO "writing data to SMD, pkt length %d\n", len);
-		print_hex_dump(KERN_DEBUG, "Written Packet Data to SMD: ", 16,
-			       1, DUMP_PREFIX_ADDRESS, data, len, 1);
-#endif /* DIAG DEBUG */
+	hdlc_decode->dest_ptr = driver->hdlc_buf + driver->hdlc_buf_len;
+	hdlc_decode->dest_size = DIAG_MAX_HDLC_BUF_SIZE - driver->hdlc_buf_len;
+	hdlc_decode->src_ptr = data;
+	hdlc_decode->src_size = len;
+	hdlc_decode->src_idx = 0;
+	hdlc_decode->dest_idx = 0;
+
+	ret = diag_hdlc_decode(hdlc_decode);
+	/*
+	 * driver->hdlc_buf is of size DIAG_MAX_HDLC_BUF_SIZE. But the decoded
+	 * packet should be within DIAG_MAX_REQ_SIZE.
+	 */
+	if (driver->hdlc_buf_len + hdlc_decode->dest_idx <= DIAG_MAX_REQ_SIZE) {
+		driver->hdlc_buf_len += hdlc_decode->dest_idx;
+	} else {
+		pr_err_ratelimited("diag: In %s, Dropping packet. pkt_size: %d, max: %d\n",
+				   __func__,
+				   driver->hdlc_buf_len + hdlc_decode->dest_idx,
+				   DIAG_MAX_REQ_SIZE);
+		goto fail;
 	}
+
+	if (ret == HDLC_COMPLETE) {
+		err = crc_check(driver->hdlc_buf, driver->hdlc_buf_len);
+		if (err) {
+			/* CRC check failed. */
+			pr_err_ratelimited("diag: In %s, bad CRC. Dropping packet\n",
+					   __func__);
+			goto fail;
+		}
+		driver->hdlc_buf_len -= HDLC_FOOTER_LEN;
+
+		if (driver->hdlc_buf_len < 1) {
+			pr_err_ratelimited("diag: In %s, message is too short, len: %d, dest len: %d\n",
+					   __func__, driver->hdlc_buf_len,
+					   hdlc_decode->dest_idx);
+			goto fail;
+		}
+
+		err = diag_process_apps_pkt(driver->hdlc_buf,
+					    driver->hdlc_buf_len);
+		if (err < 0)
+			goto fail;
+		else if (err == 1 && chk_apps_only())
+			diag_send_error_rsp(driver->hdlc_buf_len);
+	} else {
+		goto end;
+	}
+
+fail:
+	driver->hdlc_buf_len = 0;
+end:
 	mutex_unlock(&driver->diag_hdlc_mutex);
 }
 
@@ -1885,6 +1849,7 @@ void diag_smd_buffer_init(struct diag_smd_info *smd_info)
 			kmemleak_not_leak(smd_info->buf_in_1_raw);
 		}
 	}
+	smd_info->fifo_size = smd_write_avail(smd_info->ch);
 	smd_info->inited = 1;
 	return;
 err:
@@ -2030,6 +1995,73 @@ err:
 	return -ENOMEM;
 }
 
+static int diag_smd_write_ext(struct diag_smd_info *smd_info, void *buf,
+			      int len)
+{
+	int err = 0;
+	int offset = 0;
+	int write_len = 0;
+	int retry_count = 0;
+	int max_retries = 3;
+	uint8_t avail = 0;
+
+	if (!smd_info || !buf || len <= 0) {
+		pr_err_ratelimited("diag: In %s, invalid params, smd_info: %p, buf: %p, len: %d\n",
+				   __func__, smd_info, buf, len);
+		return -EINVAL;
+	}
+
+	if (!smd_info->ch)
+		return -ENODEV;
+
+	mutex_lock(&smd_info->smd_ch_mutex);
+	err = smd_write_start(smd_info->ch, len);
+	if (err) {
+		pr_err("diag: In %s, error calling smd_write_start, peripheral: %d, err: %d\n",
+		       __func__, smd_info->peripheral, err);
+		goto fail;
+	}
+
+	while (offset < len) {
+		retry_count = 0;
+		do {
+			if (smd_write_segment_avail(smd_info->ch)) {
+				avail = 1;
+				break;
+			}
+			/*
+			 * The channel maybe busy - the FIFO can be full. Retry
+			 * after sometime. The value of 10000 was chosen
+			 * emprically as the optimal value for the peripherals
+			 * to read data from the SMD channel.
+			 */
+			usleep_range(10000, 10100);
+			retry_count++;
+		} while (retry_count < max_retries);
+
+		if (!avail) {
+			err = -EAGAIN;
+			goto fail;
+		}
+
+		write_len = smd_write_segment(smd_info->ch, buf + offset,
+					      (len - offset));
+		offset += write_len;
+		write_len = 0;
+	}
+
+	err = smd_write_end(smd_info->ch);
+	if (err) {
+		pr_err("diag: In %s, error calling smd_write_end, peripheral: %d, err: %d\n",
+		       __func__, smd_info->peripheral, err);
+		goto fail;
+	}
+
+fail:
+	mutex_unlock(&smd_info->smd_ch_mutex);
+	return err;
+}
+
 int diag_smd_write(struct diag_smd_info *smd_info, void *buf, int len)
 {
 	int write_len = 0;
@@ -2044,6 +2076,9 @@ int diag_smd_write(struct diag_smd_info *smd_info, void *buf, int len)
 
 	if (!smd_info->ch)
 		return -ENODEV;
+
+	if (len > smd_info->fifo_size)
+		return diag_smd_write_ext(smd_info, buf, len);
 
 	do {
 		mutex_lock(&smd_info->smd_ch_mutex);
@@ -2083,14 +2118,20 @@ int diagfwd_init(void)
 	mutex_init(&driver->diag_hdlc_mutex);
 	mutex_init(&driver->diag_cntl_mutex);
 	mutex_init(&driver->mode_lock);
-	driver->encoded_rsp_buf = kzalloc(HDLC_OUT_BUF_SIZE, GFP_KERNEL);
+	driver->encoded_rsp_buf = kzalloc(DIAG_MAX_HDLC_BUF_SIZE, GFP_KERNEL);
 	if (!driver->encoded_rsp_buf)
 		goto err;
 	kmemleak_not_leak(driver->encoded_rsp_buf);
+	hdlc_decode = kzalloc(sizeof(struct diag_hdlc_decode_type),
+			      GFP_KERNEL);
+	if (!hdlc_decode)
+		goto err;
+	kmemleak_not_leak(hdlc_decode);
 	driver->encoded_rsp_len = 0;
 	driver->rsp_buf_busy = 0;
 	spin_lock_init(&driver->rsp_buf_busy_lock);
 	driver->user_space_data_busy = 0;
+	driver->hdlc_buf_len = 0;
 
 	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
 		driver->separate_cmdrsp[i] = 0;
@@ -2124,10 +2165,12 @@ int diagfwd_init(void)
 		}
 	}
 
-	if (driver->hdlc_buf == NULL
-	    && (driver->hdlc_buf = kzalloc(HDLC_MAX, GFP_KERNEL)) == NULL)
-		goto err;
-	kmemleak_not_leak(driver->hdlc_buf);
+	if (driver->hdlc_buf == NULL) {
+		driver->hdlc_buf = kzalloc(DIAG_MAX_HDLC_BUF_SIZE, GFP_KERNEL);
+		if (!driver->hdlc_buf)
+			goto err;
+		kmemleak_not_leak(driver->hdlc_buf);
+	}
 	if (driver->user_space_data_buf == NULL)
 		driver->user_space_data_buf = kzalloc(USER_SPACE_DATA,
 							GFP_KERNEL);
@@ -2151,20 +2194,20 @@ int diagfwd_init(void)
 		       GFP_KERNEL)) == NULL)
 		goto err;
 	kmemleak_not_leak(driver->table);
-
-	if (driver->pkt_buf == NULL &&
-	     (driver->pkt_buf = kzalloc(PKT_SIZE,
-			 GFP_KERNEL)) == NULL)
-		goto err;
-	kmemleak_not_leak(driver->pkt_buf);
+	if (driver->apps_req_buf == NULL) {
+		driver->apps_req_buf = kzalloc(DIAG_MAX_REQ_SIZE, GFP_KERNEL);
+		if (!driver->apps_req_buf)
+			goto err;
+		kmemleak_not_leak(driver->apps_req_buf);
+	}
 	if (driver->dci_pkt_buf == NULL) {
-		driver->dci_pkt_buf = kzalloc(PKT_SIZE, GFP_KERNEL);
+		driver->dci_pkt_buf = kzalloc(DCI_BUF_SIZE, GFP_KERNEL);
 		if (!driver->dci_pkt_buf)
 			goto err;
+		kmemleak_not_leak(driver->dci_pkt_buf);
 	}
-	kmemleak_not_leak(driver->dci_pkt_buf);
 	if (driver->apps_rsp_buf == NULL) {
-		driver->apps_rsp_buf = kzalloc(APPS_BUF_SIZE, GFP_KERNEL);
+		driver->apps_rsp_buf = kzalloc(DIAG_MAX_RSP_SIZE, GFP_KERNEL);
 		if (driver->apps_rsp_buf == NULL)
 			goto err;
 		kmemleak_not_leak(driver->apps_rsp_buf);
@@ -2200,9 +2243,10 @@ err:
 	kfree(driver->client_map);
 	kfree(driver->data_ready);
 	kfree(driver->table);
-	kfree(driver->pkt_buf);
+	kfree(driver->apps_req_buf);
 	kfree(driver->dci_pkt_buf);
 	kfree(driver->apps_rsp_buf);
+	kfree(hdlc_decode);
 	kfree(driver->user_space_data_buf);
 	if (driver->diag_wq)
 		destroy_workqueue(driver->diag_wq);
@@ -2228,10 +2272,11 @@ void diagfwd_exit(void)
 
 	kfree(driver->encoded_rsp_buf);
 	kfree(driver->hdlc_buf);
+	kfree(hdlc_decode);
 	kfree(driver->client_map);
 	kfree(driver->data_ready);
 	kfree(driver->table);
-	kfree(driver->pkt_buf);
+	kfree(driver->apps_req_buf);
 	kfree(driver->dci_pkt_buf);
 	kfree(driver->apps_rsp_buf);
 	kfree(driver->user_space_data_buf);

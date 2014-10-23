@@ -226,20 +226,20 @@ static int diag_dci_init_buffer(struct diag_dci_buffer_t *buffer, int type)
 
 	switch (type) {
 	case DCI_BUF_PRIMARY:
-		buffer->data = kzalloc(IN_BUF_SIZE, GFP_KERNEL);
+		buffer->capacity = IN_BUF_SIZE;
+		buffer->data = kzalloc(buffer->capacity, GFP_KERNEL);
 		if (!buffer->data)
 			return -ENOMEM;
-		buffer->capacity = IN_BUF_SIZE;
 		break;
 	case DCI_BUF_SECONDARY:
 		buffer->data = NULL;
 		buffer->capacity = IN_BUF_SIZE;
 		break;
 	case DCI_BUF_CMD:
-		buffer->data = kzalloc(PKT_SIZE, GFP_KERNEL);
+		buffer->capacity = DIAG_MAX_REQ_SIZE + DCI_BUF_SIZE;
+		buffer->data = kzalloc(buffer->capacity, GFP_KERNEL);
 		if (!buffer->data)
 			return -ENOMEM;
-		buffer->capacity = PKT_SIZE;
 		break;
 	default:
 		pr_err("diag: In %s, unknown type %d", __func__, type);
@@ -321,7 +321,7 @@ static int diag_dci_get_buffer(struct diag_dci_client_tbl *client,
 		return -EIO;
 
 	if (!diag_dci_init_buffer(buf_temp, DCI_BUF_SECONDARY)) {
-		buf_temp->data = diagmem_alloc(driver, driver->itemsize_dci,
+		buf_temp->data = diagmem_alloc(driver, IN_BUF_SIZE,
 					       POOL_TYPE_DCI);
 		if (!buf_temp->data) {
 			kfree(buf_temp);
@@ -1383,38 +1383,39 @@ static int diag_send_dci_pkt(struct diag_master_table entry,
 			     unsigned char *buf, int len, int tag)
 {
 	int i, status = DIAG_DCI_NO_ERROR;
-	unsigned int read_len = 0;
+	uint32_t write_len = 0;
+	struct diag_dci_pkt_header_t header;
 
-	/* Check if the request is atleast 1 byte */
-	if (len < 1) {
-		pr_err("diag: dci: Invalid pkt len %d in %s\n", len, __func__);
+	if (len < 1 || len > DIAG_MAX_REQ_SIZE) {
+		pr_err("diag: dci: In %s, invalid length %d, max_length: %d\n",
+		       __func__, len, (int)(DCI_REQ_BUF_SIZE - sizeof(header)));
 		return -EIO;
 	}
-	if (len > APPS_BUF_SIZE - 10) {
-		pr_err("diag: dci: Invalid payload length in %s\n", __func__);
+
+	if ((len + sizeof(header) + sizeof(uint8_t)) > DCI_BUF_SIZE) {
+		pr_err("diag: dci: In %s, invalid length %d for apps_dci_buf, max_length: %d\n",
+		       __func__, len, DIAG_MAX_REQ_SIZE);
 		return -EIO;
 	}
+
 	mutex_lock(&driver->dci_mutex);
 	/* prepare DCI packet */
-	driver->apps_dci_buf[0] = CONTROL_CHAR; /* start */
-	driver->apps_dci_buf[1] = 1; /* version */
-	*(uint16_t *)(driver->apps_dci_buf + 2) = len + 4 + 1; /* length */
-	driver->apps_dci_buf[4] = DCI_PKT_RSP_CODE;
-	*(int *)(driver->apps_dci_buf + 5) = tag;
-	for (i = 0; i < len; i++)
-		driver->apps_dci_buf[i+9] = *(buf+i);
-	read_len += len;
-	driver->apps_dci_buf[9+len] = CONTROL_CHAR; /* end */
-	if ((read_len + 9) >= USER_SPACE_DATA) {
-		pr_err("diag: dci: Invalid length while forming dci pkt in %s",
-								__func__);
-		mutex_unlock(&driver->dci_mutex);
-		return -EIO;
-	}
+	header.start = CONTROL_CHAR;
+	header.version = 1;
+	header.len = len + sizeof(int) + sizeof(uint8_t);
+	header.pkt_code = DCI_PKT_RSP_CODE;
+	header.tag = tag;
+	memcpy(driver->apps_dci_buf, &header, sizeof(header));
+	write_len += sizeof(header);
+	memcpy(driver->apps_dci_buf + write_len , buf, len);
+	write_len += len;
+	*(uint8_t *)(driver->apps_dci_buf + write_len) = CONTROL_CHAR;
+	write_len += sizeof(uint8_t);
+
 	/* This command is registered locally on the Apps */
 	if (entry.client_id == APPS_DATA) {
-		driver->dci_pkt_length = len + 10;
-		diag_update_pkt_buffer(driver->apps_dci_buf, DCI_PKT_TYPE);
+		diag_update_pkt_buffer(driver->apps_dci_buf, write_len,
+				       DCI_PKT_TYPE);
 		diag_update_sleeping_process(entry.process_id, DCI_PKT_TYPE);
 		mutex_unlock(&driver->dci_mutex);
 		return DIAG_DCI_NO_ERROR;
@@ -1430,7 +1431,7 @@ static int diag_send_dci_pkt(struct diag_master_table entry,
 		status = diag_dci_write_proc(entry.client_id,
 					     DIAG_DATA_TYPE,
 					     driver->apps_dci_buf,
-					     len + 10);
+					     write_len);
 	} else {
 		pr_err("diag: Cannot send packet to peripheral %d",
 		       entry.client_id);
@@ -1652,7 +1653,8 @@ static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
 			memcpy(payload_ptr, pkt_header,
 					sizeof(struct diag_pkt_header_t));
 			write_len = sizeof(struct diag_pkt_header_t);
-			*(uint32_t *)(payload_ptr + write_len) = PKT_SIZE;
+			*(uint32_t *)(payload_ptr + write_len) =
+							DIAG_MAX_REQ_SIZE;
 			write_len += sizeof(uint32_t);
 		} else if (ss_cmd_code == DIAG_DIAG_STM) {
 			write_len = diag_process_stm_cmd(req_buf, payload_ptr);
@@ -1692,7 +1694,7 @@ static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
 fill_buffer:
 	if (write_len > 0) {
 		/* Check if we are within the range of the buffer*/
-		if (write_len + header_len > PKT_SIZE) {
+		if (write_len + header_len > DIAG_MAX_REQ_SIZE) {
 			pr_err("diag: In %s, invalid length %d\n", __func__,
 						write_len + header_len);
 			return -ENOMEM;
@@ -1732,7 +1734,7 @@ fill_buffer:
 
 static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 {
-	int req_uid, ret = DIAG_DCI_TABLE_ERR, i, client_id;
+	int ret = DIAG_DCI_TABLE_ERR, i;
 	int common_cmd = 0;
 	struct diag_pkt_header_t *header = NULL;
 	unsigned char *temp = buf;
@@ -1742,35 +1744,34 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	struct diag_master_table entry;
 	struct dci_pkt_req_entry_t *req_entry = NULL;
 	struct diag_dci_client_tbl *dci_entry = NULL;
+	struct dci_pkt_req_t req_hdr;
 
 	if (!buf)
 		return -EIO;
 
-	if (len < DCI_PKT_REQ_MIN_LEN || len > USER_SPACE_DATA) {
+	if (len <= sizeof(struct dci_pkt_req_t) || len > DCI_REQ_BUF_SIZE) {
 		pr_err("diag: dci: Invalid length %d len in %s", len, __func__);
 		return -EIO;
 	}
 
-	req_uid = *(int *)temp; /* UID of the request */
-	temp += sizeof(int);
-	read_len += sizeof(int);
-	req_len -= sizeof(int);
-	client_id = *(int *)temp;
-	temp += sizeof(int);
-	read_len += sizeof(int);
-	req_len -= sizeof(int);
+	req_hdr = *(struct dci_pkt_req_t *)temp;
+	temp += sizeof(struct dci_pkt_req_t);
+	read_len += sizeof(struct dci_pkt_req_t);
+	req_len -= sizeof(struct dci_pkt_req_t);
 	req_buf = temp; /* Start of the Request */
 	header = (struct diag_pkt_header_t *)temp;
 	temp += sizeof(struct diag_pkt_header_t);
 	read_len += sizeof(struct diag_pkt_header_t);
-	if (read_len >= USER_SPACE_DATA) {
-		pr_err("diag: dci: Invalid length in %s\n", __func__);
+	if (read_len >= DCI_REQ_BUF_SIZE) {
+		pr_err("diag: dci: In %s, invalid read_len: %d\n", __func__,
+		       read_len);
 		return -EIO;
 	}
 
-	dci_entry = diag_dci_get_client_entry(client_id);
+	dci_entry = diag_dci_get_client_entry(req_hdr.client_id);
 	if (!dci_entry) {
-		pr_err("diag: Invalid client %d in %s\n", client_id, __func__);
+		pr_err("diag: Invalid client %d in %s\n",
+		       req_hdr.client_id, __func__);
 		return DIAG_DCI_NO_REG;
 	}
 
@@ -1808,7 +1809,8 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	}
 
 	/* Register this new DCI packet */
-	req_entry = diag_register_dci_transaction(req_uid, client_id);
+	req_entry = diag_register_dci_transaction(req_hdr.uid,
+						  req_hdr.client_id);
 	if (!req_entry) {
 		pr_alert("diag: registering new DCI transaction failed\n");
 		return DIAG_DCI_NO_REG;
@@ -2661,7 +2663,7 @@ int diag_dci_init(void)
 	}
 
 	if (driver->apps_dci_buf == NULL) {
-		driver->apps_dci_buf = kzalloc(APPS_BUF_SIZE, GFP_KERNEL);
+		driver->apps_dci_buf = kzalloc(DCI_BUF_SIZE, GFP_KERNEL);
 		if (driver->apps_dci_buf == NULL)
 			goto err;
 	}
