@@ -4575,6 +4575,8 @@ void cfg80211_key_mgmt_auth(struct net_device *dev,
 			    struct cfg80211_auth_params *auth_params,
 			    gfp_t gfp);
 
+void cfg80211_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info);
+
 /* Logging, debugging and troubleshooting/diagnostic helpers. */
 
 /* wiphy_printk helpers, similar to dev_printk */
