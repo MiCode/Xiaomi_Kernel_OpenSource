@@ -143,7 +143,6 @@ struct smbchg_chip {
 	int				otg_oc_irq;
 	int				aicl_done_irq;
 	int				usbid_change_irq;
-	int				chg_inhibit_irq;
 	int				chg_error_irq;
 	bool				enable_aicl_wake;
 
@@ -2660,24 +2659,6 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t chg_inhibit_handler(int irq, void *_chip)
-{
-	/*
-	 * charger is inserted when the battery voltage is high
-	 * so h/w won't start charging just yet. Treat this as
-	 * battery full
-	 */
-	struct smbchg_chip *chip = _chip;
-	u8 reg = 0;
-
-	smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
-	chip->chg_done_batt_full = !!(reg & CHG_INHIBIT_BIT);
-	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
-	if (chip->psy_registered)
-		power_supply_changed(&chip->batt_psy);
-	return IRQ_HANDLED;
-}
-
 static int determine_initial_status(struct smbchg_chip *chip)
 {
 	/*
@@ -3310,8 +3291,6 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			disable_irq_nosync(chip->taper_irq);
 			REQUEST_IRQ(chip, spmi_resource, chip->chg_term_irq,
 				"chg-tcc-thr", chg_term_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->chg_inhibit_irq,
-				"chg-inhibit", chg_inhibit_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->recharge_irq,
 				"chg-rechg-thr", recharge_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->fastchg_irq,
