@@ -5451,8 +5451,7 @@ static int qseecom_suspend(struct platform_device *pdev, pm_message_t state)
 	mutex_lock(&qsee_bw_mutex);
 	mutex_lock(&clk_access_lock);
 
-	if (qseecom.cumulative_mode != INACTIVE &&
-		qseecom.current_mode != INACTIVE) {
+	if (qseecom.current_mode != INACTIVE) {
 		ret = msm_bus_scale_client_update_request(
 			qseecom.qsee_perf_client, INACTIVE);
 		if (ret)
