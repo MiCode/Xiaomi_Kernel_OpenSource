@@ -158,7 +158,7 @@ static int32_t msm_cci_validate_queue(struct cci_device *cci_dev,
 		CDBG("%s:%d CCI_QUEUE_START_ADDR\n", __func__, __LINE__);
 		msm_camera_io_w_mb(reg_val, cci_dev->base +
 			CCI_QUEUE_START_ADDR);
-		CDBG("%s line %d wait_for_completion_interruptible\n",
+		CDBG("%s line %d wait_for_completion_timeout\n",
 			__func__, __LINE__);
 		rc = wait_for_completion_timeout(&cci_dev->
 			cci_master_info[master].reset_complete, CCI_TIMEOUT);
@@ -403,7 +403,7 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 
 	val = 1 << ((master * 2) + queue);
 	msm_camera_io_w_mb(val, cci_dev->base + CCI_QUEUE_START_ADDR);
-	CDBG("%s:%d E wait_for_completion_interruptible_timeout\n", __func__,
+	CDBG("%s:%d E wait_for_completion_timeout\n", __func__,
 		__LINE__);
 	rc = wait_for_completion_timeout(&cci_dev->
 		cci_master_info[master].reset_complete, CCI_TIMEOUT);
@@ -417,7 +417,7 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	} else {
 		rc = 0;
 	}
-	CDBG("%s:%d E wait_for_completion_interruptible_timeout\n", __func__,
+	CDBG("%s:%d E wait_for_completion_timeout\n", __func__,
 		__LINE__);
 
 	read_words = msm_camera_io_r_mb(cci_dev->base +
@@ -608,7 +608,7 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 	CDBG("%s:%d CCI_QUEUE_START_ADDR\n", __func__, __LINE__);
 	msm_camera_io_w_mb(val, cci_dev->base + CCI_QUEUE_START_ADDR);
 
-	CDBG("%s:%d E wait_for_completion_interruptible\n",
+	CDBG("%s:%d E wait_for_completion_timeout\n",
 		__func__, __LINE__);
 	rc = wait_for_completion_timeout(&cci_dev->
 		cci_master_info[master].reset_complete, CCI_TIMEOUT);
@@ -622,7 +622,7 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 	} else {
 		rc = cci_dev->cci_master_info[master].status;
 	}
-	CDBG("%s:%d X wait_for_completion_interruptible\n", __func__,
+	CDBG("%s:%d X wait_for_completion_timeout\n", __func__,
 		__LINE__);
 
 ERROR:
@@ -705,7 +705,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 				msm_camera_io_w_mb(CCI_M1_RESET_RMSK,
 					cci_dev->base + CCI_RESET_CMD_ADDR);
 			/* wait for reset done irq */
-			rc = wait_for_completion_interruptible_timeout(
+			rc = wait_for_completion_timeout(
 				&cci_dev->cci_master_info[master].
 				reset_complete,
 				CCI_TIMEOUT);
@@ -765,11 +765,11 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	msm_camera_io_w_mb(CCI_RESET_CMD_RMSK, cci_dev->base +
 			CCI_RESET_CMD_ADDR);
 	msm_camera_io_w_mb(0x1, cci_dev->base + CCI_RESET_CMD_ADDR);
-	rc = wait_for_completion_interruptible_timeout(
+	rc = wait_for_completion_timeout(
 		&cci_dev->cci_master_info[MASTER_0].reset_complete,
 		CCI_TIMEOUT);
 	if (rc <= 0) {
-		pr_err("%s: wait_for_completion_interruptible_timeout %d\n",
+		pr_err("%s: wait_for_completion_timeout %d\n",
 			 __func__, __LINE__);
 		if (rc == 0)
 			rc = -ETIMEDOUT;

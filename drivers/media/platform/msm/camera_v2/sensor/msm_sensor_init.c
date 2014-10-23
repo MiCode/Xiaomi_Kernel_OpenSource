@@ -47,11 +47,9 @@ static int msm_sensor_wait_for_probe_done(struct msm_sensor_init_t *s_init)
 		CDBG("msm_cam_get_module_init_status -2\n");
 		return 0;
 	}
-	rc = wait_event_interruptible_timeout(s_init->state_wait,
+	rc = wait_event_timeout(s_init->state_wait,
 		(s_init->module_init_status == 1), msecs_to_jiffies(tm));
-	if (rc < 0)
-		pr_err("%s:%d wait failed\n", __func__, __LINE__);
-	else if (rc == 0)
+	if (rc == 0)
 		pr_err("%s:%d wait timeout\n", __func__, __LINE__);
 
 	return rc;

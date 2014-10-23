@@ -197,7 +197,7 @@ inline int msm_jpeg_q_wait(struct msm_jpeg_q *q_p)
 	int rc;
 
 	JPEG_DBG("%s:%d] %s wait\n", __func__, __LINE__, q_p->name);
-	rc = wait_event_interruptible_timeout(q_p->wait,
+	rc = wait_event_timeout(q_p->wait,
 		(!list_empty_careful(&q_p->q) || q_p->unblck),
 		msecs_to_jiffies(tm));
 	JPEG_DBG("%s:%d] %s wait done\n", __func__, __LINE__, q_p->name);
@@ -211,9 +211,6 @@ inline int msm_jpeg_q_wait(struct msm_jpeg_q *q_p)
 				__LINE__, q_p->name);
 			q_p->unblck = 0;
 			rc = -ECANCELED;
-		} else if (rc < 0) {
-			JPEG_PR_ERR("%s:%d] %s rc %d\n", __func__, __LINE__,
-				q_p->name, rc);
 		}
 	}
 	return rc;
