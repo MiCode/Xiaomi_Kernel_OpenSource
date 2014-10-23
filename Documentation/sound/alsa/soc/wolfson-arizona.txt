@@ -147,3 +147,17 @@ To change from a digital IN1A to an analogue IN1B follow this sequence:
 2) Change the IN1MUXL and IN1MUXR to IN1B
 3) Connect IN1 as an input to codec blocks
 
+The input mode pdata for WM8998 is defined as:
+
+ pdata      affects  legal values            behaviour
+ inmode[0]  IN1      ARIZONA_INMODE_DIFF (0) IN1A and IN1B analogue differential
+                     ARIZONA_INMODE_SE   (1) IN1A and IN1B analogue single-ended
+                     ARIZONA_INMODE_DMIC (2) IN1A digital, IN1B analogue differential
+                     ARIZONA_INMODE_DMIC |
+                       ARIZONA_INMODE_SE (3) IN1A digital, IN1B analogue single-ended
+
+ inmode[1]  IN2      ARIZONA_INMODE_DIFF (0) IN2A and IN2B analogue differential
+                     ARIZONA_INMODE_SE   (1) IN2A and IN2B analogue single-ended
+                     ARIZONA_INMODE_DMIC (2) IN2A digital, IN2B analogue differential
+                     ARIZONA_INMODE_DMIC |
+                       ARIZONA_INMODE_SE (3) IN2A digital, IN2B analogue single-ended
