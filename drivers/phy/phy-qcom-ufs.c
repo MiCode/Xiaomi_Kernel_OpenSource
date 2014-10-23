@@ -131,10 +131,9 @@ int ufs_qcom_phy_base_init(struct platform_device *pdev,
 	struct resource *res;
 	int err = 0;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "phy_mem");
 	if (!res) {
-		dev_err(dev, "%s: platform_get_resource() failed. returned NULL\n",
-			__func__);
+		dev_err(dev, "%s: phy_mem resource not found\n", __func__);
 		err = -ENOMEM;
 		goto out;
 	}
@@ -444,6 +443,38 @@ void ufs_qcom_phy_disable_ref_clk(struct phy *generic_phy)
 		clk_disable_unprepare(phy->ref_clk_src);
 		phy->is_ref_clk_enabled = false;
 	}
+}
+
+#define UFS_REF_CLK_EN	(1 << 5)
+
+static void ufs_qcom_phy_dev_ref_clk_ctrl(struct phy *generic_phy, bool enable)
+{
+	struct ufs_qcom_phy *phy = get_ufs_qcom_phy(generic_phy);
+
+	if (phy->dev_ref_clk_ctrl_mmio &&
+	    (enable ^ phy->is_dev_ref_clk_enabled)) {
+		u32 temp = readl_relaxed(phy->dev_ref_clk_ctrl_mmio);
+
+		if (enable)
+			temp |= UFS_REF_CLK_EN;
+		else
+			temp &= ~UFS_REF_CLK_EN;
+
+		writel_relaxed(temp, phy->dev_ref_clk_ctrl_mmio);
+		/* ensure that ref_clk is enabled/disabled before we return */
+		wmb();
+		phy->is_dev_ref_clk_enabled = enable;
+	}
+}
+
+void ufs_qcom_phy_enable_dev_ref_clk(struct phy *generic_phy)
+{
+	ufs_qcom_phy_dev_ref_clk_ctrl(generic_phy, true);
+}
+
+void ufs_qcom_phy_disable_dev_ref_clk(struct phy *generic_phy)
+{
+	ufs_qcom_phy_dev_ref_clk_ctrl(generic_phy, false);
 }
 
 void ufs_qcom_phy_restore_swi_regs(struct phy *generic_phy)
