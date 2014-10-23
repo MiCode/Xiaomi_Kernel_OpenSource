@@ -1173,17 +1173,20 @@ static int wm8998_in1mux_ev(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/* Validate the mux configuration */
 		left_mux = snd_soc_read(codec, ARIZONA_ADC_DIGITAL_VOLUME_1L) &
 				  ARIZONA_IN1L_SRC_MASK;
 		right_mux = snd_soc_read(codec, ARIZONA_ADC_DIGITAL_VOLUME_1R) &
 				  ARIZONA_IN1R_SRC_MASK;
 
+		/* Only IN1A can be digital, IN1B is always analogue */
 		in1mode = (arizona->pdata.inmode[0] & 2)
 				<< (ARIZONA_IN1_MODE_SHIFT - 1);
 
 		if (in1mode != 0) {
-			/* IN1A is digital, check whether IN1A is selected */
-
+			/* if IN1A is digital, the only valid mux configs
+			 * are both channels A or both channels B.
+			 */
 			if (left_mux != right_mux) {
 				dev_err(arizona->dev,
 					"IN1=DMIC and 'IN1MUXL Input'"
@@ -1191,8 +1194,11 @@ static int wm8998_in1mux_ev(struct snd_soc_dapm_widget *w,
 				return -EINVAL;
 			}
 
+			/* IN1A is digital so need to ensure mode is set back
+			 * to analogue if IN1B is selected
+			 */
 			if (left_mux != 0)
-				in1mode = 0; /* IN1B selected, set analogue */
+				in1mode = 0;
 		}
 
 		old = snd_soc_read(codec, ARIZONA_IN1L_CONTROL) &
