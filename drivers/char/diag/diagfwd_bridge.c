@@ -179,6 +179,9 @@ int diag_remote_dev_open(int id)
 	bridge_info[id].inited = 1;
 	if (bridge_info[id].type == DIAG_DATA_TYPE)
 		return diag_mux_queue_read(BRIDGE_TO_MUX(id));
+	else if (bridge_info[id].type == DIAG_DCI_TYPE)
+		return diag_dci_send_handshake_pkt(bridge_info[id].id);
+
 	return 0;
 }
 
@@ -256,6 +259,13 @@ void diagfwd_bridge_exit()
 {
 	diag_hsic_exit();
 	diag_smux_exit();
+}
+
+int diagfwd_bridge_close(int id)
+{
+	if (id < 0 || id >= NUM_REMOTE_DEV)
+		return -EINVAL;
+	return bridge_info[id].dev_ops->close(bridge_info[id].ctxt);
 }
 
 int diagfwd_bridge_write(int id, unsigned char *buf, int len)

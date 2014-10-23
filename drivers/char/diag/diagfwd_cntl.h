@@ -42,6 +42,7 @@
 #define DIAG_CTRL_MSG_LOG_RANGE_REPORT		23
 #define DIAG_CTRL_MSG_SSID_RANGE_REPORT		24
 #define DIAG_CTRL_MSG_BUILD_MASK_REPORT		25
+#define DIAG_CTRL_MSG_DCI_HANDSHAKE_PKT		29
 
 /*
  * Feature Mask Definitions: Feature mask is used to sepcify Diag features
@@ -164,6 +165,13 @@ struct diag_ctrl_dci_status {
 	uint32_t ctrl_pkt_data_len;
 	uint32_t version;
 	uint8_t count;
+} __packed;
+
+struct diag_ctrl_dci_handshake_pkt {
+	uint32_t ctrl_pkt_id;
+	uint32_t ctrl_pkt_data_len;
+	uint32_t version;
+	uint32_t magic;
 } __packed;
 
 struct diag_ctrl_last_event_report {

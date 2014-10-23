@@ -49,6 +49,16 @@ unsigned int dci_max_clients = 10;
 struct mutex dci_log_mask_mutex;
 struct mutex dci_event_mask_mutex;
 
+/*
+ * DCI_HANDSHAKE_RETRY_TIME: Time to wait (in microseconds) before checking the
+ * connection status again.
+ *
+ * DCI_HANDSHAKE_WAIT_TIME: Timeout (in milliseconds) to check for dci
+ * connection status
+ */
+#define DCI_HANDSHAKE_RETRY_TIME	500000
+#define DCI_HANDSHAKE_WAIT_TIME		200
+
 spinlock_t ws_lock;
 unsigned long ws_lock_flags;
 
@@ -67,6 +77,21 @@ struct dci_ops_tbl_t dci_ops_tbl[NUM_DCI_PROC] = {
 		.send_event_mask = diag_send_dci_event_mask_remote,
 		.peripheral_status = 0,
 		.mempool = POOL_TYPE_MDM_DCI_WRITE,
+	}
+#endif
+};
+
+struct dci_channel_status_t dci_channel_status[NUM_DCI_PROC] = {
+	{
+		.id = 0,
+		.open = 0,
+		.retry_count = 0
+	},
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+	{
+		.id = DIAGFWD_MDM_DCI,
+		.open = 0,
+		.retry_count = 0
 	}
 #endif
 };
@@ -140,9 +165,59 @@ static void dci_check_drain_timer(void)
 {
 	if (!dci_timer_in_progress) {
 		dci_timer_in_progress = 1;
-		 mod_timer(&dci_drain_timer, jiffies + msecs_to_jiffies(200));
+		mod_timer(&dci_drain_timer, jiffies + msecs_to_jiffies(200));
 	}
 }
+
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+static void dci_handshake_work_fn(struct work_struct *work)
+{
+	int err = 0;
+	int max_retries = 5;
+
+	struct dci_channel_status_t *status = container_of(work,
+						struct dci_channel_status_t,
+						handshake_work);
+
+	if (status->open) {
+		pr_debug("diag: In %s, remote dci channel is open, index: %d\n",
+			 __func__, status->id);
+		return;
+	}
+
+	if (status->retry_count == max_retries) {
+		status->retry_count = 0;
+		pr_info("diag: dci channel connection handshake timed out, id: %d\n",
+			status->id);
+		err = diagfwd_bridge_close(TOKEN_TO_BRIDGE(status->id));
+		if (err) {
+			pr_err("diag: In %s, unable to close dci channel id: %d, err: %d\n",
+			       __func__, status->id, err);
+		}
+		return;
+	}
+	status->retry_count++;
+	/*
+	 * Sleep for sometime to check for the connection status again. The
+	 * value should be optimum to include a roundabout time for a small
+	 * packet to the remote processor.
+	 */
+	usleep_range(DCI_HANDSHAKE_RETRY_TIME, DCI_HANDSHAKE_RETRY_TIME + 100);
+	mod_timer(&status->wait_time,
+		  jiffies + msecs_to_jiffies(DCI_HANDSHAKE_WAIT_TIME));
+}
+
+static void dci_chk_handshake(unsigned long data)
+{
+	int index = (int)data;
+
+	if (index < 0 || index > NUM_DCI_PROC)
+		return;
+
+	queue_work(driver->diag_dci_wq,
+		   &dci_channel_status[index].handshake_work);
+}
+#endif
 
 static int diag_dci_init_buffer(struct diag_dci_buffer_t *buffer, int type)
 {
@@ -719,39 +794,34 @@ static int diag_dci_remove_req_entry(unsigned char *buf, int len,
 	return 0;
 }
 
-void extract_dci_ctrl_pkt(unsigned char *buf, int len, int token)
+static void dci_process_ctrl_status(unsigned char *buf, int len, int token)
 {
-
 	struct diag_ctrl_dci_status *header = NULL;
 	unsigned char *temp = buf;
-	uint32_t ctrl_pkt_id = 0, read_len = 0;
+	uint32_t read_len = 0;
 	uint8_t i;
 	int peripheral_mask, status;
 
-	if (!buf) {
-		pr_err("diag: Invalid buffer in %s\n", __func__);
+	if (!buf || (len < sizeof(struct diag_ctrl_dci_status))) {
+		pr_err("diag: In %s, invalid buf %p or length: %d\n",
+		       __func__, buf, len);
 		return;
 	}
 
-	/* Skip the Control packet command code */
-	temp += sizeof(uint8_t);
-	ctrl_pkt_id = *(uint32_t *)temp;
-	if (ctrl_pkt_id != DIAG_CTRL_MSG_DCI_CONNECTION_STATUS) {
-		pr_alert("diag: Unknown control packet through DCI channel : %d\n",
-								ctrl_pkt_id);
+	if (!VALID_DCI_TOKEN(token)) {
+		pr_err("diag: In %s, invalid DCI token %d\n", __func__, token);
 		return;
 	}
 
-	diag_ws_on_read(DIAG_WS_DCI, len);
 	header = (struct diag_ctrl_dci_status *)temp;
 	temp += sizeof(struct diag_ctrl_dci_status);
 	read_len += sizeof(struct diag_ctrl_dci_status);
 
 	for (i = 0; i < header->count; i++) {
 		if (read_len > len) {
-			pr_err("diag: Invalid length len: %d in %s\n", len,
-								__func__);
-			goto err;
+			pr_err("diag: In %s, Invalid length len: %d\n",
+			       __func__, len);
+			return;
 		}
 
 		switch (*(uint8_t *)temp) {
@@ -770,7 +840,7 @@ void extract_dci_ctrl_pkt(unsigned char *buf, int len, int token)
 		default:
 			pr_err("diag: In %s, unknown peripheral, peripheral: %d\n",
 				__func__, *(uint8_t *)temp);
-			goto err;
+			return;
 		}
 		temp += sizeof(uint8_t);
 		read_len += sizeof(uint8_t);
@@ -781,6 +851,70 @@ void extract_dci_ctrl_pkt(unsigned char *buf, int len, int token)
 		read_len += sizeof(uint8_t);
 		diag_dci_notify_client(peripheral_mask, status, token);
 	}
+}
+
+static void dci_process_ctrl_handshake_pkt(unsigned char *buf, int len,
+					   int token)
+{
+	struct diag_ctrl_dci_handshake_pkt *header = NULL;
+	unsigned char *temp = buf;
+	int err = 0;
+
+	if (!buf || (len < sizeof(struct diag_ctrl_dci_handshake_pkt)))
+		return;
+
+	if (!VALID_DCI_TOKEN(token))
+		return;
+
+	header = (struct diag_ctrl_dci_handshake_pkt *)temp;
+	if (header->magic == DCI_MAGIC) {
+		dci_channel_status[token].open = 1;
+		err = dci_ops_tbl[token].send_log_mask(token);
+		if (err) {
+			pr_err("diag: In %s, unable to send log mask to token: %d, err: %d\n",
+			       __func__, token, err);
+		}
+		err = dci_ops_tbl[token].send_event_mask(token);
+		if (err) {
+			pr_err("diag: In %s, unable to send event mask to token: %d, err: %d\n",
+			       __func__, token, err);
+		}
+	}
+}
+
+void extract_dci_ctrl_pkt(unsigned char *buf, int len, int token)
+{
+	unsigned char *temp = buf;
+	uint32_t ctrl_pkt_id;
+
+	diag_ws_on_read(DIAG_WS_DCI, len);
+	if (!buf) {
+		pr_err("diag: Invalid buffer in %s\n", __func__);
+		goto err;
+	}
+
+	if (len < (sizeof(uint8_t) + sizeof(uint32_t))) {
+		pr_err("diag: In %s, invalid length %d\n", __func__, len);
+		goto err;
+	}
+
+	/* Skip the Control packet command code */
+	temp += sizeof(uint8_t);
+	len -= sizeof(uint8_t);
+	ctrl_pkt_id = *(uint32_t *)temp;
+	switch (ctrl_pkt_id) {
+	case DIAG_CTRL_MSG_DCI_CONNECTION_STATUS:
+		dci_process_ctrl_status(temp, len, token);
+		break;
+	case DIAG_CTRL_MSG_DCI_HANDSHAKE_PKT:
+		dci_process_ctrl_handshake_pkt(temp, len, token);
+		break;
+	default:
+		pr_debug("diag: In %s, unknown control pkt %d\n",
+			 __func__, ctrl_pkt_id);
+		break;
+	}
+
 err:
 	/*
 	 * DCI control packets are not consumed by the clients. Mimic client
@@ -1392,6 +1526,70 @@ static int diag_send_dci_pkt_remote(unsigned char *data, int len, int tag,
 				    int token)
 {
 	return DIAG_DCI_NO_ERROR;
+}
+#endif
+
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+int diag_dci_send_handshake_pkt(int index)
+{
+	int err = 0;
+	int token = BRIDGE_TO_TOKEN(index);
+	int write_len = 0;
+	struct diag_ctrl_dci_handshake_pkt ctrl_pkt;
+	unsigned char *buf = NULL;
+	struct diag_dci_header_t dci_header;
+
+	if (!VALID_DCI_TOKEN(token)) {
+		pr_err("diag: In %s, invalid DCI token %d\n", __func__, token);
+		return -EINVAL;
+	}
+
+	buf = dci_get_buffer_from_bridge(token);
+	if (!buf) {
+		pr_err("diag: In %s, unable to get dci buffers to write data\n",
+			__func__);
+		return -EAGAIN;
+	}
+
+	dci_header.start = CONTROL_CHAR;
+	dci_header.version = 1;
+	/* Include the cmd code (uint8_t) in the length */
+	dci_header.length = sizeof(ctrl_pkt) + sizeof(uint8_t);
+	dci_header.cmd_code = DCI_CONTROL_PKT_CODE;
+	memcpy(buf, &dci_header, sizeof(dci_header));
+	write_len += sizeof(dci_header);
+
+	ctrl_pkt.ctrl_pkt_id = DIAG_CTRL_MSG_DCI_HANDSHAKE_PKT;
+	/*
+	 *  The control packet data length accounts for the version (uint32_t)
+	 *  of the packet and the magic number (uint32_t).
+	 */
+	ctrl_pkt.ctrl_pkt_data_len = 2 * sizeof(uint32_t);
+	ctrl_pkt.version = 1;
+	ctrl_pkt.magic = DCI_MAGIC;
+	memcpy(buf + write_len, &ctrl_pkt, sizeof(ctrl_pkt));
+	write_len += sizeof(ctrl_pkt);
+
+	*(uint8_t *)(buf + write_len) = CONTROL_CHAR;
+	write_len += sizeof(uint8_t);
+
+	err = diag_dci_write_bridge(token, buf, write_len);
+	if (err) {
+		pr_err("diag: error writing ack packet to remote proc, token: %d, err: %d\n",
+		       token, err);
+		diagmem_free(driver, buf, dci_ops_tbl[token].mempool);
+		return err;
+	}
+
+	mod_timer(&(dci_channel_status[token].wait_time),
+		  jiffies + msecs_to_jiffies(DCI_HANDSHAKE_WAIT_TIME));
+
+	return 0;
+}
+#else
+int diag_dci_send_handshake_pkt(int index)
+{
+	return 0;
 }
 #endif
 
@@ -2355,10 +2553,25 @@ static int diag_dci_init_local(void)
 }
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+static void diag_dci_init_handshake_remote(void)
+{
+	int i;
+	struct dci_channel_status_t *temp = NULL;
+
+	for (i = DCI_REMOTE_BASE; i < NUM_DCI_PROC; i++) {
+		temp = &dci_channel_status[i];
+		temp->id = i;
+		setup_timer(&temp->wait_time, dci_chk_handshake, i);
+		INIT_WORK(&temp->handshake_work, dci_handshake_work_fn);
+	}
+}
+
 static int diag_dci_init_remote(void)
 {
 	int i;
 	struct dci_ops_tbl_t *temp = NULL;
+
+	diagmem_init(driver, POOL_TYPE_MDM_DCI_WRITE);
 
 	for (i = DCI_REMOTE_BASE; i < DCI_REMOTE_LAST; i++) {
 		temp = &dci_ops_tbl[i];
@@ -2377,6 +2590,9 @@ static int diag_dci_init_remote(void)
 	partial_pkt.read_len = 0;
 	partial_pkt.remaining = 0;
 	partial_pkt.processing = 0;
+
+	diag_dci_init_handshake_remote();
+
 	return 0;
 }
 #else
@@ -2635,7 +2851,6 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 		break;
 	case DCI_MDM_PROC:
 		new_entry->num_buffers = 1;
-		diagmem_init(driver, POOL_TYPE_MDM_DCI_WRITE);
 		break;
 	}
 	new_entry->real_time = MODE_REALTIME;

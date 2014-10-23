@@ -550,9 +550,6 @@ static void mhi_notifier(struct mhi_cb_info *cb_info)
 				       __func__, diag_mhi[index].num_read);
 				break;
 			}
-			diagmem_setsize(diag_mhi[index].mempool,
-					DIAG_MDM_BUF_SIZE,
-					diag_mhi[index].num_read);
 			diagmem_init(driver, diag_mhi[index].mempool);
 		}
 		queue_work(diag_mhi[index].mhi_wq,

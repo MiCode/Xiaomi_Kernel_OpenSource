@@ -77,6 +77,8 @@ extern unsigned int dci_max_clients;
 #define BRIDGE_TO_TOKEN(x)	(x - DIAGFWD_MDM_DCI + DCI_REMOTE_BASE)
 #define TOKEN_TO_BRIDGE(x)	(dci_ops_tbl[x].ctx)
 
+#define DCI_MAGIC		(0xAABB1122)
+
 struct dci_pkt_req_entry_t {
 	int client_id;
 	int uid;
@@ -197,6 +199,14 @@ struct dci_ops_tbl_t {
 	uint16_t peripheral_status;
 } __packed;
 
+struct dci_channel_status_t {
+	int id;
+	int open;
+	int retry_count;
+	struct timer_list wait_time;
+	struct work_struct handshake_work;
+} __packed;
+
 extern struct dci_ops_tbl_t dci_ops_tbl[NUM_DCI_PROC];
 
 enum {
@@ -274,6 +284,7 @@ int diag_send_dci_event_mask_remote(int token);
 unsigned char *dci_get_buffer_from_bridge(int token);
 int diag_dci_write_bridge(int token, unsigned char *buf, int len);
 int diag_dci_write_done_bridge(int index, unsigned char *buf, int len);
+int diag_dci_send_handshake_pkt(int index);
 #endif
 
 #endif
