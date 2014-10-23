@@ -996,11 +996,12 @@ static void gbam_stop(void *param, enum usb_bam_pipe_dir dir)
 	struct gbam_port *port = param;
 
 	if (dir == USB_TO_PEER_PERIPHERAL) {
+		/*
+		 * Only handling BAM2BAM, as there is no equivelant to
+		 * gbam_stop_endless_rx() for the SYS2BAM use case
+		 */
 		if (port->data_ch.src_pipe_type == USB_BAM_PIPE_BAM2BAM)
 			gbam_stop_endless_rx(port);
-		else
-			pr_warn("%s: no function equivalent to gbam_stop_endless_rx for sys2bam pipe\n",
-					__func__);
 	} else {
 		gbam_stop_endless_tx(port);
 	}
