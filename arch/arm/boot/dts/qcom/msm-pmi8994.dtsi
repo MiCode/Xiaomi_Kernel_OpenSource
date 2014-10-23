@@ -177,10 +177,10 @@
 			qcom,fastchg-current-ma = <2000>;
 			qcom,float-voltage-mv = <4350>;
 			qcom,resume-delta-mv = <200>;
+			qcom,chg-inhibit-fg;
 			qcom,dc-psy-type = "Mains";
 			qcom,dc-psy-ma = <1500>;
 			qcom,rparasitic-uohm = <100000>;
-			qcom,resume-soc = <95>;
 			qcom,bms-psy-name = "bms";
 			qcom,thermal-mitigation = <1500 700 600 0>;
 			qcom,parallel-usb-min-current-ma = <1400>;
@@ -284,6 +284,7 @@
 			compatible = "qcom,qpnp-fg";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			qcom,resume-soc = <95>;
 			status = "okay";
 
 			qcom,fg-soc@4000 {
