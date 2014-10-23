@@ -108,7 +108,6 @@ struct smbchg_chip {
 	bool				dc_present;
 	bool				usb_present;
 	bool				batt_present;
-	bool				chg_done_batt_full;
 	bool				otg_retries;
 
 	/* jeita and temperature */
@@ -544,12 +543,29 @@ static enum power_supply_property smbchg_battery_properties[] = {
 #define BATT_FAST_CHG_VAL		0x2
 #define BATT_TAPER_CHG_VAL		0x3
 #define CHG_EN_BIT			BIT(0)
+#define CHG_INHIBIT_BIT		BIT(1)
+#define BAT_TCC_REACHED_BIT		BIT(7)
 static int get_prop_batt_status(struct smbchg_chip *chip)
 {
 	int rc, status = POWER_SUPPLY_STATUS_DISCHARGING;
 	u8 reg = 0, chg_type;
+	bool charger_present, chg_inhibit;
 
-	if (chip->chg_done_batt_full)
+	rc = smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Unable to read RT_STS rc = %d\n", rc);
+		return POWER_SUPPLY_STATUS_UNKNOWN;
+	}
+
+	if (reg & BAT_TCC_REACHED_BIT)
+		return POWER_SUPPLY_STATUS_FULL;
+
+	charger_present = is_usb_present(chip) | is_dc_present(chip);
+	if (!charger_present)
+		return POWER_SUPPLY_STATUS_DISCHARGING;
+
+	chg_inhibit = reg & CHG_INHIBIT_BIT;
+	if (chg_inhibit)
 		return POWER_SUPPLY_STATUS_FULL;
 
 	rc = smbchg_read(chip, &reg, chip->chgr_base + CHGR_STS, 1);
@@ -1324,9 +1340,7 @@ static void smbchg_parallel_usb_disable(struct smbchg_chip *chip)
 #define PARALLEL_FCC_PERCENT_REDUCTION		75
 #define MINIMUM_PARALLEL_FCC_MA			500
 #define CHG_ERROR_BIT		BIT(0)
-#define CHG_INHIBIT_BIT		BIT(1)
 #define BAT_TAPER_MODE_BIT	BIT(6)
-#define BAT_TCC_REACHED_BIT	BIT(7)
 static void smbchg_parallel_usb_taper(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
@@ -2391,7 +2405,6 @@ static irqreturn_t chg_term_handler(int irq, void *_chip)
 	u8 reg = 0;
 
 	smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
-	chip->chg_done_batt_full = !!(reg & BAT_TCC_REACHED_BIT);
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
