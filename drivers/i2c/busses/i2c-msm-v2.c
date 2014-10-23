@@ -1915,6 +1915,14 @@ static int i2c_msm_bam_xfer_process(struct i2c_msm_ctrl *ctrl)
 	i2c_msm_dbg(ctrl, MSM_DBG, "Going to enqueue %zu buffers in BAM",
 							bam->buf_arr_cnt);
 
+	/* Set the QUP State to pause while BAM completes the txn */
+	ret = i2c_msm_qup_state_set(ctrl, QUP_STATE_PAUSE);
+	if (ret) {
+		dev_err(ctrl->dev, "transition to pause state failed before BAM transaction :%d\n",
+									ret);
+		return ret;
+	}
+
 	cons = &bam->pipe[I2C_MSM_BAM_CONS];
 	prod = &bam->pipe[I2C_MSM_BAM_PROD];
 	if (!cons->is_init) {
@@ -1999,6 +2007,14 @@ static int i2c_msm_bam_xfer_process(struct i2c_msm_ctrl *ctrl)
 			"error on queuing EOT+FLUSH_STOP tags to cons EOT:1 NWD:1\n");
 			goto bam_xfer_end;
 		}
+	}
+
+	/* Set the QUP State to Run when completes the txn */
+	ret = i2c_msm_qup_state_set(ctrl, QUP_STATE_RUN);
+	if (ret) {
+		dev_err(ctrl->dev, "transition to run state failed before BAM transaction :%d\n",
+									ret);
+		return ret;
 	}
 
 	ret = i2c_msm_xfer_wait_for_completion(ctrl, &ctrl->xfer.complete);
