@@ -1048,6 +1048,7 @@
 	ufsphy1: ufsphy@fc597000 {
 			compatible = "qcom,ufs-phy-qmp-20nm";
 			reg = <0xfc597000 0xda8>;
+			reg-names = "phy_mem";
 			#phy-cells = <0>;
 			vdda-phy-supply = <&pm8994_l28>;
 			vdda-pll-supply = <&pm8994_l12>;

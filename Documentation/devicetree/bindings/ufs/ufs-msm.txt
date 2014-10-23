@@ -10,7 +10,10 @@ Required properties:
 - compatible        : compatible list, contains "qcom,ufs-phy-qmp-28nm"
                       or "qcom,ufs-phy-qmp-20nm" according to the relevant
                       phy in use
-- reg               : <registers mapping>
+- reg               : should contain PHY register address space (mandatory),
+                      device PHY control register map (optional).
+- reg-names         : indicates various resources passed to driver (via reg proptery) by name.
+                      Required "reg-names" is "phy_mem" and "dev_ref_clk_ctrl_mem" is optional.
 - #phy-cells        : This property shall be set to 0
 - vdda-phy-supply   : phandle to main PHY supply for analog domain
 - vdda-pll-supply   : phandle to PHY PLL and Power-Gen block power supply
@@ -28,7 +31,8 @@ Example:
 
 	ufsphy1: ufsphy@0xfc597000 {
 		compatible = "qcom,ufs-phy-qmp-28nm";
-		reg = <0xfc597000 0x800>;
+		reg = <0xfc597000 0x800>, <0xfd512074 0x4>;
+		reg-names = "phy_mem", "dev_ref_clk_ctrl_mem";
 		#phy-cells = <0>;
 		vdda-phy-supply = <&pma8084_l4>;
 		vdda-pll-supply = <&pma8084_l12>;
