@@ -130,7 +130,8 @@ static DEFINE_SPINLOCK(pci_link_down_lock);
 #define MAX_IMAGE_SIZE		(2*1024*1024)
 #define FW_IMAGE_FTM		(0x01)
 #define FW_IMAGE_MISSION	(0x02)
-#define FW_IMAGE_PRINT		(0x03)
+#define FW_IMAGE_BDATA		(0x03)
+#define FW_IMAGE_PRINT		(0x04)
 
 #define SEG_METADATA		(0x01)
 #define SEG_NON_PAGED		(0x02)
@@ -238,13 +239,18 @@ static struct cnss_data {
 	void *fw_mem;
 #endif
 	u32 device_id;
-	void *fw_image_cpu;
 	int fw_image_setup;
-	dma_addr_t dma_fw_image;
-	u32 dma_fw_size;
-	u32 seg_count;
 	uint32_t bmi_test;
-	struct segment_memory seg_mem[MAX_NUM_OF_SEGMENTS];
+	void *fw_cpu;
+	dma_addr_t fw_dma;
+	u32 fw_dma_size;
+	u32 fw_seg_count;
+	struct segment_memory fw_seg_mem[MAX_NUM_OF_SEGMENTS];
+	void *bdata_cpu;
+	dma_addr_t bdata_dma;
+	u32 bdata_dma_size;
+	u32 bdata_seg_count;
+	struct segment_memory bdata_seg_mem[MAX_NUM_OF_SEGMENTS];
 } *penv;
 
 static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
@@ -746,9 +752,11 @@ static void print_allocated_image_table(void)
 {
 	u32 seg = 0, count = 0;
 	u8 *dump_addr;
-	struct segment_memory *pseg_mem = penv->seg_mem;
+	struct segment_memory *pseg_mem = penv->fw_seg_mem;
+	struct segment_memory *p_bdata_seg_mem = penv->bdata_seg_mem;
 
-	while (seg++ < penv->seg_count) {
+	pr_debug("%s: Dumping FW IMAGE\n", __func__);
+	while (seg++ < penv->fw_seg_count) {
 		dump_addr = (u8 *)pseg_mem->cpu_region +
 			sizeof(struct region_desc);
 		for (count = 0; count < pseg_mem->size -
@@ -757,25 +765,58 @@ static void print_allocated_image_table(void)
 
 		pseg_mem++;
 	}
+
+	seg = 0;
+	pr_debug("%s: Dumping BOARD DATA\n", __func__);
+	while (seg++ < penv->bdata_seg_count) {
+		dump_addr = (u8 *)p_bdata_seg_mem->cpu_region +
+			sizeof(struct region_desc);
+		for (count = 0; count < p_bdata_seg_mem->size -
+			     sizeof(struct region_desc); count++)
+			pr_debug("%02x ", dump_addr[count]);
+
+		p_bdata_seg_mem++;
+	}
 }
 
 static void free_allocated_image_table(void)
 {
 	struct device *dev = &penv->pdev->dev;
-	struct segment_memory *pseg_mem = penv->seg_mem;
+	struct segment_memory *pseg_mem;
 	u32 seg = 0;
 
-	while (seg++ < penv->seg_count) {
+	/* free fw memroy */
+	pseg_mem = penv->fw_seg_mem;
+	while (seg++ < penv->fw_seg_count) {
 		dma_free_coherent(dev, pseg_mem->size,
-		  pseg_mem->cpu_region, pseg_mem->dma_region);
+			pseg_mem->cpu_region, pseg_mem->dma_region);
 		pseg_mem++;
 	}
-	dma_free_coherent(dev,
-		sizeof(struct segment_desc) * MAX_NUM_OF_SEGMENTS,
-		    penv->fw_image_cpu, penv->dma_fw_image);
-	penv->seg_count = 0;
-	penv->dma_fw_image = 0;
-	penv->dma_fw_size = 0;
+	if (penv->fw_cpu)
+		dma_free_coherent(dev,
+			sizeof(struct segment_desc) * MAX_NUM_OF_SEGMENTS,
+			penv->fw_cpu, penv->fw_dma);
+	penv->fw_seg_count = 0;
+	penv->fw_dma = 0;
+	penv->fw_cpu = NULL;
+	penv->fw_dma_size = 0;
+
+	/* free bdata memory */
+	seg = 0;
+	pseg_mem = penv->bdata_seg_mem;
+	while (seg++ < penv->bdata_seg_count) {
+		dma_free_coherent(dev, pseg_mem->size,
+			pseg_mem->cpu_region, pseg_mem->dma_region);
+		pseg_mem++;
+	}
+	if (penv->bdata_cpu)
+		dma_free_coherent(dev,
+			sizeof(struct segment_desc) * MAX_NUM_OF_SEGMENTS,
+			penv->bdata_cpu, penv->bdata_dma);
+	penv->bdata_seg_count = 0;
+	penv->bdata_dma = 0;
+	penv->bdata_cpu = NULL;
+	penv->bdata_dma_size = 0;
 }
 
 static int cnss_setup_fw_image_table(int mode)
@@ -796,6 +837,10 @@ static int cnss_setup_fw_image_table(int mode)
 	uintptr_t address;
 	int ret = 0;
 	dma_addr_t dma_addr;
+	void *vaddr = NULL;
+	dma_addr_t paddr;
+	struct segment_memory *pseg_mem;
+	u32 *pseg_count;
 
 	if (!penv || !penv->pdev) {
 		pr_err("cnss: invalid penv or pdev or dev\n");
@@ -804,28 +849,48 @@ static int cnss_setup_fw_image_table(int mode)
 	}
 	dev = &penv->pdev->dev;
 
+	/*  meta data file has image details */
+	switch (mode) {
+	case FW_IMAGE_FTM:
+		ret = scnprintf(index_file, FW_FILENAME_LENGTH, "qftm.bin");
+		pseg_mem = penv->fw_seg_mem;
+		pseg_count = &penv->fw_seg_count;
+		break;
+	case FW_IMAGE_MISSION:
+		ret = scnprintf(index_file, FW_FILENAME_LENGTH, "qwlan.bin");
+		pseg_mem = penv->fw_seg_mem;
+		pseg_count = &penv->fw_seg_count;
+		break;
+	case FW_IMAGE_BDATA:
+		ret = scnprintf(index_file, FW_FILENAME_LENGTH, "bdwlan.bin");
+		pseg_mem = penv->bdata_seg_mem;
+		pseg_count = &penv->bdata_seg_count;
+		break;
+	default:
+		pr_err("%s: Unknown meta data file type 0x%x\n",
+		       __func__, mode);
+		ret = -EINVAL;
+	}
+	if (ret < 0)
+		goto err;
+
 	image_desc_size = sizeof(struct image_desc_hdr) +
 		sizeof(struct segment_desc) * MAX_NUM_OF_SEGMENTS;
 
-	penv->fw_image_cpu = dma_alloc_coherent(dev, image_desc_size,
-			&penv->dma_fw_image, GFP_KERNEL);
+	vaddr = dma_alloc_coherent(dev, image_desc_size,
+			&paddr, GFP_KERNEL);
 
-	if (!penv->fw_image_cpu) {
+	if (!vaddr) {
 		pr_err("cnss: image desc allocation failure\n");
 		ret = -ENOMEM;
 		goto err;
 	}
 
-	memset(penv->fw_image_cpu, 0, image_desc_size);
+	memset(vaddr, 0, image_desc_size);
 
-	image_hdr = (struct image_desc_hdr *)penv->fw_image_cpu;
+	image_hdr = (struct image_desc_hdr *)vaddr;
 	image_hdr->image_id = mode;
 	memcpy(image_hdr->reserved, reserved, 3);
-
-	/*  meta data file has image details */
-	ret = scnprintf(index_file, FW_FILENAME_LENGTH, "qwlan.bin");
-	if (ret < 0)
-		goto err_free;
 
 	pr_err("cnss: request meta data file %s\n", index_file);
 	ret = request_firmware(&fw_index, index_file, dev);
@@ -855,7 +920,7 @@ static int cnss_setup_fw_image_table(int mode)
 
 		file_size -= ret;
 		index_pos += ret;
-		pseg = penv->fw_image_cpu + image_pos +
+		pseg = vaddr + image_pos +
 				sizeof(struct image_desc_hdr);
 
 		switch (type) {
@@ -906,13 +971,13 @@ static int cnss_setup_fw_image_table(int mode)
 			reg_desc->reserved = 0;
 			reg_desc->size = fw_image->size;
 
-			penv->seg_mem[penv->seg_count].dma_region = dma_addr;
-			penv->seg_mem[penv->seg_count].cpu_region = reg_desc;
-			penv->seg_mem[penv->seg_count].size =
+			pseg_mem[*pseg_count].dma_region = dma_addr;
+			pseg_mem[*pseg_count].cpu_region = reg_desc;
+			pseg_mem[*pseg_count].size =
 				sizeof(struct region_desc) + fw_image->size;
 
 			release_firmware(fw_image);
-			penv->seg_count++;
+			(*pseg_count)++;
 			break;
 
 		default:
@@ -922,10 +987,18 @@ static int cnss_setup_fw_image_table(int mode)
 	    }
 	    image_pos += sizeof(struct segment_desc);
 	}
-	penv->dma_fw_size = sizeof(struct image_desc_hdr) +
-	  sizeof(struct segment_desc) * image_hdr->segments_cnt;
-
-	pr_info("Image setup table built on host");
+	if (mode != FW_IMAGE_BDATA) {
+		penv->fw_cpu = vaddr;
+		penv->fw_dma = paddr;
+		penv->fw_dma_size = sizeof(struct image_desc_hdr) +
+			sizeof(struct segment_desc) * image_hdr->segments_cnt;
+	} else {
+		penv->bdata_cpu = vaddr;
+		penv->bdata_dma = paddr;
+		penv->bdata_dma_size = sizeof(struct image_desc_hdr) +
+			sizeof(struct segment_desc) * image_hdr->segments_cnt;
+	}
+	pr_info("%s: Mode %d: Image setup table built on host", __func__, mode);
 
 	return file_size;
 
@@ -937,13 +1010,16 @@ err:
 	return ret;
 }
 
-int cnss_get_fw_image(dma_addr_t *fw_image, u32 *image_size)
+int cnss_get_fw_image(struct image_desc_info *image_desc_info)
 {
-	if (!fw_image || !penv || !penv->seg_count)
+	if (!image_desc_info || !penv ||
+	    !penv->fw_seg_count || !penv->bdata_seg_count)
 		return -EINVAL;
 
-	*fw_image = penv->dma_fw_image;
-	*image_size = penv->dma_fw_size;
+	image_desc_info->fw_addr = penv->fw_dma;
+	image_desc_info->fw_size = penv->fw_dma_size;
+	image_desc_info->bdata_addr = penv->bdata_dma;
+	image_desc_info->bdata_size = penv->bdata_dma_size;
 
 	return 0;
 }
@@ -1194,11 +1270,13 @@ static ssize_t fw_image_setup_store(struct device *dev,
 	if (sscanf(buf, "%d", &val) != 1)
 		return -EINVAL;
 
-	if (val == FW_IMAGE_FTM || val == FW_IMAGE_MISSION) {
-		pr_err("fw image setup triggered %d\n", val);
+	if (val == FW_IMAGE_FTM || val == FW_IMAGE_MISSION
+	    || val == FW_IMAGE_BDATA) {
+		pr_info("%s: fw image setup triggered %d\n", __func__, val);
 		ret = cnss_setup_fw_image_table(val);
 		if (ret != 0) {
-			pr_err("Invalid parsing of FW image files %d", ret);
+			pr_err("%s: Invalid parsing of FW image files %d",
+			       __func__, ret);
 			return -EINVAL;
 		}
 		penv->fw_image_setup = val;
