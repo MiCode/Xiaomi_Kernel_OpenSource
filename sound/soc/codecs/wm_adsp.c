@@ -2170,9 +2170,15 @@ int wm_adsp2_event(struct snd_soc_dapm_widget *w,
 		break;
 
 	case SND_SOC_DAPM_PRE_PMD:
-		if (dsp->fw_id == 0x40019 || dsp->fw_id == 0x5001f ||
-		    dsp->fw_id == 0x4001f) {
+		switch (dsp->fw_id) {
+		case 0x40019:
+		case 0x4001f:
+		case 0x5001f:
+		case 0x7001f:
 			wm_adsp_edac_shutdown(dsp);
+			break;
+		default:
+			break;
 		}
 
 		dsp->running = false;

@@ -37,6 +37,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_CS42L73 if I2C
 	select SND_SOC_CS4270 if I2C
 	select SND_SOC_CS4271 if SND_SOC_I2C_AND_SPI
+	select SND_SOC_CS47L24 if MFD_CS47L24
 	select SND_SOC_CX20442 if TTY
 	select SND_SOC_DA7210 if I2C
 	select SND_SOC_DA7213 if I2C
@@ -154,10 +155,12 @@ config SND_SOC_ARIZONA
 	default y if SND_SOC_FLORIDA=y
 	default y if SND_SOC_WM8997=y
 	default y if SND_SOC_WM8998=y
+	default y if SND_SOC_CS47L24=y
 	default m if SND_SOC_WM5102=m
 	default m if SND_SOC_FLORIDA=m
 	default m if SND_SOC_WM8997=m
 	default m if SND_SOC_WM8998=m
+	default m if SND_SOC_CS47L24=m
 
 config SND_SOC_WM_HUBS
 	tristate
@@ -169,9 +172,11 @@ config SND_SOC_WM_ADSP
 	default y if SND_SOC_WM5102=y
 	default y if SND_SOC_FLORIDA=y
 	default y if SND_SOC_WM2200=y
+	default y if SND_SOC_CS47L24=y
 	default m if SND_SOC_WM5102=m
 	default m if SND_SOC_FLORIDA=m
 	default m if SND_SOC_WM2200=m
+	default m if SND_SOC_CS47L24=m
 
 config SND_SOC_AB8500_CODEC
 	tristate
@@ -256,6 +261,9 @@ config SND_SOC_CS4270_VD33_ERRATA
 	depends on SND_SOC_CS4270
 
 config SND_SOC_CS4271
+	tristate
+
+config SND_SOC_CS47L24
 	tristate
 
 config SND_SOC_CX20442
