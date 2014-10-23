@@ -136,10 +136,6 @@ Optional Properties:
 				required in order to initiate a new charging
 				cycle. Supported values are: 50, 100, 200 and
 				300mV.
-- qcom,resume-soc		Indictates at what state of charge the device
-				should resume charging. If this is not defined,
-				the only way to resume charging is through the
-				voltage drop specified by qcom,resume-delta-mv.
 - qcom,chg-inhibit-fg		Indicates if the recharge threshold source has
 				to be Fuel gauge ADC. If this is not set, it
 				will be analog sensor by default.
