@@ -855,6 +855,7 @@
 			snps,ssphy-auto-suspend-disable;
 			snps,hird_thresh = <0x7>;
 			snps,lpm-nyet-thresh = <0x8>;
+			snps,bus-suspend-enable;
 		};
 	};
 
