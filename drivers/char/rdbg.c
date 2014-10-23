@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,27 +12,25 @@
  *
  */
 
-#include <linux/types.h>
 #include <linux/cdev.h>
-#include <linux/gfp.h>
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-#include <linux/completion.h>
 #include <linux/of_gpio.h>
-#include <linux/mutex.h>
 #include <soc/qcom/smsm.h>
 #include <linux/uaccess.h>
+#include <linux/interrupt.h>
 
-#define SMP2P_NUM_PROCS 8
+#define SMP2P_NUM_PROCS				8
+#define MAX_RETRIES				20
 
-#define SM_VERSION          1
-#define SM_BLOCKSIZE        128
+#define SM_VERSION				1
+#define SM_BLOCKSIZE				128
 
-#define SMQ_MAGIC_INIT              0xFF00FF00
-#define SMQ_MAGIC_PRODUCER          (SMQ_MAGIC_INIT | 0x1)
-#define SMQ_MAGIC_CONSUMER          (SMQ_MAGIC_INIT | 0x2)
+#define SMQ_MAGIC_INIT				0xFF00FF00
+#define SMQ_MAGIC_PRODUCER			(SMQ_MAGIC_INIT | 0x1)
+#define SMQ_MAGIC_CONSUMER			(SMQ_MAGIC_INIT | 0x2)
 
 enum SMQ_STATUS {
 	SMQ_SUCCESS    =  0,
@@ -733,6 +731,9 @@ static int initialize_smq(struct rdbg_data *rdbgdata)
 {
 	int err = 0;
 
+	unsigned char *smem_consumer_buffer = rdbgdata->smem_addr;
+	smem_consumer_buffer += (rdbgdata->smem_size/2);
+
 	if (smq_ctor(&(rdbgdata->producer_smrb), (void *)(rdbgdata->smem_addr),
 		((rdbgdata->smem_size)/2), PRODUCER, &rdbgdata->write_mutex)) {
 		dev_err(rdbgdata->device, "%s: smq producer allocation failed",
@@ -741,8 +742,7 @@ static int initialize_smq(struct rdbg_data *rdbgdata)
 		goto bail;
 	}
 
-	if (smq_ctor(&(rdbgdata->consumer_smrb), (void *)((uint32_t)
-		(rdbgdata->smem_addr) + ((rdbgdata->smem_size)/2)),
+	if (smq_ctor(&(rdbgdata->consumer_smrb), (void *)smem_consumer_buffer,
 		((rdbgdata->smem_size)/2), CONSUMER, NULL)) {
 		dev_err(rdbgdata->device, "%s: smq conmsumer allocation failed",
 			__func__);
@@ -784,20 +784,17 @@ static int rdbg_open(struct inode *inode, struct file *filp)
 		goto bail;
 	}
 
-	rdbgdata->smem_addr = smem_find(
-		proc_info[device_id].smem_buffer_addr,
-		rdbgdata->smem_size,
-		0,
-		SMEM_ANY_HOST_FLAG);
+	rdbgdata->smem_addr = smem_find(proc_info[device_id].smem_buffer_addr,
+		rdbgdata->smem_size, 0, SMEM_ANY_HOST_FLAG);
 	if (!rdbgdata->smem_addr) {
 		dev_err(rdbgdata->device, "%s: Could not allocate smem memory",
 			__func__);
 		err = -ENOMEM;
 		goto bail;
 	}
-	dev_dbg(rdbgdata->device, "%s: SMEM address=0x%x smem_size=%d",
-		__func__, (unsigned int)rdbgdata->smem_addr,
-		rdbgdata->smem_size);
+	dev_dbg(rdbgdata->device, "%s: SMEM address=0x%lx smem_size=%d",
+		__func__, (unsigned long)rdbgdata->smem_addr,
+		(unsigned int)rdbgdata->smem_size);
 
 	if (check_subsystem_debug_enabled(rdbgdata->smem_addr,
 		rdbgdata->smem_size/2)) {
@@ -934,8 +931,8 @@ static ssize_t rdbg_read(struct file *filp, char __user *buf, size_t size,
 
 	smq_free(&(rdbgdata->consumer_smrb), p_sent_buffer);
 	err = size;
-	dev_dbg(rdbgdata->device, "%s: Read data to buffer with address 0x%x",
-		__func__, (unsigned int) buf);
+	dev_dbg(rdbgdata->device, "%s: Read data to buffer with address 0x%lx",
+		__func__, (unsigned long) buf);
 
 bail:
 	dev_dbg(rdbgdata->device, "%s: Returning from receive", __func__);
@@ -946,6 +943,7 @@ static ssize_t rdbg_write(struct file *filp, const char __user *buf,
 	size_t size, loff_t *offset)
 {
 	int err = 0;
+	int num_retries = 0;
 	struct rdbg_data *rdbgdata = filp->private_data;
 
 	if (!rdbgdata) {
@@ -954,11 +952,17 @@ static ssize_t rdbg_write(struct file *filp, const char __user *buf,
 		goto bail;
 	}
 
-	if (smq_alloc_send(&(rdbgdata->producer_smrb), buf, size)) {
-		dev_err(rdbgdata->device, "%s, Error sending", __func__);
+	do {
+		err = smq_alloc_send(&(rdbgdata->producer_smrb), buf, size);
+		dev_dbg(rdbgdata->device, "%s, smq_alloc_send returned %d.",
+			__func__, err);
+	} while (err != 0 && num_retries++ < MAX_RETRIES);
+
+	if (err != 0) {
 		err = -ECOMM;
 		goto bail;
 	}
+
 	send_interrupt_to_subsystem(rdbgdata);
 
 	err = size;
