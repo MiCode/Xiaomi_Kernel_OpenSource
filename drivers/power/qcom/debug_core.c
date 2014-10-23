@@ -281,12 +281,14 @@ int msm_core_debug_init(void)
 	if (IS_ERR_OR_NULL(dir))
 		return PTR_ERR(dir);
 
-	file = debugfs_create_file("enable", S_IRWXUGO, dir, NULL,
+	file = debugfs_create_file("enable",
+			S_IRUSR|S_IRGRP|S_IWUSR|S_IWGRP, dir, NULL,
 			&msm_core_enable_ops);
 	if (IS_ERR_OR_NULL(file))
 		goto fail;
 
-	file = debugfs_create_file("ptable", S_IRWXUGO, dir, NULL,
+	file = debugfs_create_file("ptable",
+			S_IRUSR|S_IRGRP|S_IWUSR|S_IWGRP, dir, NULL,
 			&msm_core_ptable_ops);
 	if (IS_ERR_OR_NULL(file))
 		goto fail;
