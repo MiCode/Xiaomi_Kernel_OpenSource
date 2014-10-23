@@ -179,7 +179,6 @@ enum {
 	MT9M114_RES_576P,
 	MT9M114_RES_720P,
 #else
-	MT9M114_RES_720_480p_768,
 	MT9M114_RES_736P,
 	MT9M114_RES_864P,
 #endif
@@ -436,22 +435,6 @@ static struct mt9m114_res_struct mt9m114_res[] = {
 	.skip_frames = 1,
 	},
 #else
-	{
-	.desc	= "480P",
-	.res	= MT9M114_RES_720_480p_768,
-	.width	= 736,
-	.height = 496,
-	.fps	= 30,
-	.used	= 0,
-	.regs	= NULL,
-	.skip_frames = 1,
-
-	.pixels_per_line = 0x0644,
-	.lines_per_frame = 0x03E5,
-	.bin_factor_x = 1,
-	.bin_factor_y = 1,
-	.bin_mode = 0,
-	},
 	{
 	.desc	= "720P",
 	.res	= MT9M114_RES_736P,
