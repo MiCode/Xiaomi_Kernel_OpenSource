@@ -11,6 +11,7 @@
  */
 
 /memreserve/ 0x00000000 0x00001000;
+/memreserve/ 0xac1c0000 0x00001000;
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/msm-clocks-8994.h>
