@@ -32,7 +32,9 @@ static int msm_thermal_major;
 static struct class *thermal_class;
 static struct msm_thermal_ioctl_dev *msm_thermal_dev;
 static unsigned int freq_table_len[NR_CPUS], freq_table_set[NR_CPUS];
+static unsigned int voltage_table_set[NR_CPUS];
 static unsigned int *freq_table_ptr[NR_CPUS];
+static uint32_t *voltage_table_ptr[NR_CPUS];
 
 static int msm_thermal_ioctl_open(struct inode *node, struct file *filep)
 {
@@ -189,6 +191,89 @@ process_freq_exit:
 	return ret;
 }
 
+static long msm_thermal_process_voltage_table_req(
+		struct msm_thermal_ioctl *query,
+		unsigned long *arg)
+{
+	long ret = 0;
+	uint32_t table_idx = 0, idx = 0;
+	uint32_t cluster_id = query->voltage.cluster_num;
+	struct voltage_plan_arg *voltage = &(query->voltage);
+
+	if (!voltage_table_ptr[cluster_id]) {
+		if (!freq_table_len[cluster_id]) {
+			ret = msm_thermal_get_freq_plan_size(cluster_id,
+				&freq_table_len[cluster_id]);
+			if (ret) {
+				pr_err(
+				"%s: Cluster%d freq table len err:%ld\n",
+				KBUILD_MODNAME, cluster_id, ret);
+				goto process_volt_exit;
+			}
+			if (!freq_table_len[cluster_id]) {
+				pr_err("%s: Cluster%d freq table empty\n",
+					KBUILD_MODNAME, cluster_id);
+				ret = -EAGAIN;
+				goto process_volt_exit;
+			}
+		}
+		voltage_table_ptr[cluster_id] = kzalloc(
+			sizeof(uint32_t) *
+			freq_table_len[cluster_id], GFP_KERNEL);
+		if (!voltage_table_ptr[cluster_id]) {
+			pr_err("%s: memory alloc failed\n",
+				KBUILD_MODNAME);
+			ret = -ENOMEM;
+			goto process_volt_exit;
+		}
+		ret = msm_thermal_get_cluster_voltage_plan(cluster_id,
+			voltage_table_ptr[cluster_id]);
+		if (ret) {
+			pr_err("%s: Error getting voltage table. err:%ld\n",
+				KBUILD_MODNAME, ret);
+			kfree(voltage_table_ptr[cluster_id]);
+			voltage_table_ptr[cluster_id] = NULL;
+			goto process_volt_exit;
+		}
+	}
+
+	if (!voltage->voltage_table_len) {
+		voltage->voltage_table_len = freq_table_len[cluster_id];
+		goto copy_and_return;
+	}
+
+	voltage_table_set[cluster_id] = freq_table_len[cluster_id]
+					/ MSM_IOCTL_FREQ_SIZE;
+	if (freq_table_len[cluster_id] % MSM_IOCTL_FREQ_SIZE)
+		voltage_table_set[cluster_id]++;
+
+	if (voltage->set_idx >= voltage_table_set[cluster_id]) {
+		pr_err("%s: Invalid voltage table set%d for cluster%d\n",
+			KBUILD_MODNAME, voltage->set_idx,
+			cluster_id);
+		ret = -EINVAL;
+		goto process_volt_exit;
+	}
+
+	table_idx = MSM_IOCTL_FREQ_SIZE * voltage->set_idx;
+	for (; table_idx < freq_table_len[cluster_id]
+		&& idx < MSM_IOCTL_FREQ_SIZE; idx++, table_idx++) {
+		voltage->voltage_table[idx] =
+			voltage_table_ptr[cluster_id][table_idx];
+	}
+
+copy_and_return:
+	ret = copy_to_user((void __user *)(*arg), query,
+		sizeof(struct msm_thermal_ioctl));
+	if (ret) {
+		pr_err("%s: copy_to_user error:%ld.\n", KBUILD_MODNAME, ret);
+		goto process_volt_exit;
+	}
+
+process_volt_exit:
+	return ret;
+}
+
 static long msm_thermal_ioctl_process(struct file *filep, unsigned int cmd,
 	unsigned long arg)
 {
@@ -220,6 +305,9 @@ static long msm_thermal_ioctl_process(struct file *filep, unsigned int cmd,
 		break;
 	case MSM_THERMAL_GET_CLUSTER_FREQUENCY_PLAN:
 		ret = msm_thermal_process_freq_table_req(&query, &arg);
+		break;
+	case MSM_THERMAL_GET_CLUSTER_VOLTAGE_PLAN:
+		ret = msm_thermal_process_voltage_table_req(&query, &arg);
 		break;
 	default:
 		ret = -ENOTTY;
@@ -322,8 +410,10 @@ void msm_thermal_ioctl_cleanup()
 		return;
 	}
 
-	for (; idx < num_possible_cpus(); idx++)
+	for (; idx < num_possible_cpus(); idx++) {
 		kfree(freq_table_ptr[idx]);
+		kfree(voltage_table_ptr[idx]);
+	}
 	device_destroy(thermal_class, thermal_dev);
 	class_destroy(thermal_class);
 	cdev_del(&msm_thermal_dev->char_dev);

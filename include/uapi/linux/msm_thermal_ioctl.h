@@ -40,11 +40,19 @@ struct __attribute__((__packed__)) clock_plan_arg {
 	unsigned int freq_table[MSM_IOCTL_FREQ_SIZE];
 };
 
+struct __attribute__((__packed__)) voltage_plan_arg {
+	uint32_t cluster_num;
+	uint32_t voltage_table_len;
+	uint32_t set_idx;
+	uint32_t voltage_table[MSM_IOCTL_FREQ_SIZE];
+};
+
 struct __attribute__((__packed__)) msm_thermal_ioctl {
 	uint32_t size;
 	union {
 		struct cpu_freq_arg cpu_freq;
 		struct clock_plan_arg clock_freq;
+		struct voltage_plan_arg voltage;
 	};
 };
 
@@ -57,7 +65,8 @@ enum {
 	MSM_SET_CLUSTER_MIN_FREQ = 0x03,
 	/*Get cluster frequency plan*/
 	MSM_GET_CLUSTER_FREQ_PLAN = 0x04,
-
+	/*Get cluster voltage plan */
+	MSM_GET_CLUSTER_VOLTAGE_PLAN = 0x05,
 	MSM_CMD_MAX_NR,
 };
 
@@ -78,6 +87,8 @@ enum {
 #define MSM_THERMAL_GET_CLUSTER_FREQUENCY_PLAN _IOR(MSM_THERMAL_MAGIC_NUM,\
 		MSM_GET_CLUSTER_FREQ_PLAN, struct msm_thermal_ioctl)
 
+#define MSM_THERMAL_GET_CLUSTER_VOLTAGE_PLAN _IOR(MSM_THERMAL_MAGIC_NUM,\
+		MSM_GET_CLUSTER_VOLTAGE_PLAN, struct msm_thermal_ioctl)
 #ifdef __KERNEL__
 extern int msm_thermal_ioctl_init(void);
 extern void msm_thermal_ioctl_cleanup(void);
