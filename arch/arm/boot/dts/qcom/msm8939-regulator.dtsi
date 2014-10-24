@@ -150,7 +150,8 @@
 		qcom,cpr-speed-bin-max-corners =
 					<0 0 3 12 17>,
 					<2 0 3 12 20>,
-					<4 0 3 12 26>;
+					<4 0 3 12 26>,
+					<5 0 3 12 24>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <900>;
 		qcom,cpr-enable;
 	};
