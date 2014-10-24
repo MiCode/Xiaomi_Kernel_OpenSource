@@ -352,6 +352,8 @@ static struct acpi_device_id bcm_acpi_id[] = {
 /* ACPI IDs here */
 	{ "BCM43241" },
 	{ "BCM4321" },
+	{ "BCM43341" },
+	{ "BCM4334" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, bcm_acpi_id);
