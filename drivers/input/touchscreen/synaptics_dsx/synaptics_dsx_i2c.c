@@ -215,7 +215,7 @@ static int synaptics_rmi4_i2c_get(struct synaptics_rmi4_data *rmi4_data)
 
 	mutex_lock(&rmi4_data->rmi4_io_ctrl_mutex);
 	retval = pm_runtime_get_sync(i2c->adapter->dev.parent);
-	if (retval == 0) {
+	if (retval >= 0) {
 		retval = synaptics_rmi4_clk_prepare_enable(rmi4_data);
 		if (retval)
 			pm_runtime_put_sync(i2c->adapter->dev.parent);
