@@ -75,6 +75,7 @@ Optional properties:
 - qcom,mmss-ulp-clamp-ctrl-offset:	Specifies the offset for dsi ulps clamp control register.
 - qcom,mmss-phyreset-ctrl-offset:	Specifies the offset for dsi phy reset control register.
 - qcom,dsi-irq-line:			Boolean specifies if DSI has a different irq line than mdp.
+- qcom,timing-db-mode:			Boolean specifies dsi timing mode registers are supported or not.
 
 Example:
         mdss_dsi0: qcom,mdss_dsi@fd922800 {
@@ -113,6 +114,7 @@ Example:
 		qcom,platform-mode-gpio = <&msmgpio 7 0>;
 		qcom,dsi-panel-bias-vreg;
 		qcom,dsi-irq-line;
+		qcom,timing-db-mode;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
