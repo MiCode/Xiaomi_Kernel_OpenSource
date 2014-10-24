@@ -33,10 +33,23 @@ int ufs_qcom_phy_qmp_20nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy)
 	struct ufs_qcom_phy_calibration *tbl_A, *tbl_B;
 	int tbl_size_A, tbl_size_B;
 	int rate = UFS_QCOM_LIMIT_HS_RATE;
+	u8 major = ufs_qcom_phy->host_ctrl_rev_major;
+	u16 minor = ufs_qcom_phy->host_ctrl_rev_minor;
+	u16 step = ufs_qcom_phy->host_ctrl_rev_step;
 	int err;
 
-	tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
-	tbl_A = phy_cal_table_rate_A;
+	if ((major == 0x1) && (minor == 0x002) && (step == 0x0000)) {
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_1_2_0);
+		tbl_A = phy_cal_table_rate_A_1_2_0;
+	} else if ((major == 0x1) && (minor == 0x003) && (step == 0x0000)) {
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_1_3_0);
+		tbl_A = phy_cal_table_rate_A_1_3_0;
+	} else {
+		dev_err(ufs_qcom_phy->dev, "%s: Unknown UFS-PHY version, no calibration values\n",
+			__func__);
+		err = -ENODEV;
+		goto out;
+	}
 
 	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
 	tbl_B = phy_cal_table_rate_B;
@@ -48,6 +61,7 @@ int ufs_qcom_phy_qmp_20nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy)
 		dev_err(ufs_qcom_phy->dev, "%s: ufs_qcom_phy_calibrate() failed %d\n",
 			__func__, err);
 
+out:
 	return err;
 }
 
