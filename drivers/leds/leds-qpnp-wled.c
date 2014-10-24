@@ -41,6 +41,8 @@
 #define QPNP_WLED_SWITCH_FREQ_REG(b)	(b + 0x4C)
 #define QPNP_WLED_OVP_REG(b)		(b + 0x4D)
 #define QPNP_WLED_ILIM_REG(b)		(b + 0x4E)
+#define QPNP_WLED_SC_PRO_REG(b)		(b + 0x5E)
+#define QPNP_WLED_TEST_REG(b)		(b + 0xE2)
 
 #define QPNP_WLED_EN_MASK		0x7F
 #define QPNP_WLED_EN_SHIFT		7
@@ -87,6 +89,8 @@
 #define QPNP_WLED_MOD_FREQ_19200_KHZ	19200
 #define QPNP_WLED_MOD_FREQ_MASK		0x3F
 #define QPNP_WLED_MOD_FREQ_SHIFT	6
+#define QPNP_WLED_ACC_CLK_FREQ_MASK	0xE7
+#define QPNP_WLED_ACC_CLK_FREQ_SHIFT	3
 #define QPNP_WLED_PHASE_STAG_MASK	0xDF
 #define QPNP_WLED_PHASE_STAG_SHIFT	5
 #define QPNP_WLED_DIM_RES_MASK		0xFD
@@ -131,6 +135,9 @@
 #define QPNP_WLED_MODULE_EN_SHIFT	7
 #define QPNP_WLED_DISP_SEL_MASK		0x7F
 #define QPNP_WLED_DISP_SEL_SHIFT	7
+#define QPNP_WLED_EN_SC_MASK		0x7F
+#define QPNP_WLED_EN_SC_SHIFT		7
+#define QPNP_WLED_EXT_FET_DTEST2	0x09
 
 #define QPNP_WLED_IBB_BIAS_REG(b)	(b + 0x58)
 #define QPNP_WLED_IBB_BIAS_MASK		0x7F
@@ -174,17 +181,10 @@ enum qpnp_wled_dim_mode {
 	QPNP_WLED_DIM_HYBRID,
 };
 
-/* dimming curve shapes */
-enum qpnp_wled_dim_shape {
-	QPNP_WLED_DIM_SHAPE_LOG,
-	QPNP_WLED_DIM_SHAPE_LINEAR,
-	QPNP_WLED_DIM_SHAPE_SQUARE,
-};
-
 /* wled ctrl debug registers */
 static u8 qpnp_wled_ctrl_dbg_regs[] = {
 	0x44, 0x46, 0x48, 0x49, 0x4b, 0x4c, 0x4d, 0x4e, 0x50, 0x51, 0x52, 0x53,
-	0x54, 0x55, 0x56, 0x57, 0x58, 0x5a, 0x5b, 0x5d, 0x5e
+	0x54, 0x55, 0x56, 0x57, 0x58, 0x5a, 0x5b, 0x5d, 0x5e, 0xe2
 };
 
 /* wled sink debug registers */
@@ -214,7 +214,9 @@ static u8 qpnp_wled_lab_dbg_regs[] = {
  *  @ lock - mutex lock for exclusive access
  *  @ fdbk_op - output feedback mode
  *  @ dim_mode - dimming mode
- *  @ dim_shape - dimming curve shape
+ *  @ ovp_irq - over voltage protection irq
+ *  @ sc_irq - short circuit irq
+ *  @ sc_cnt - short circuit irq count
  *  @ ctrl_base - base address for wled ctrl
  *  @ sink_base - base address for wled sink
  *  @ ibb_base - base address for IBB(Inverting Buck Boost)
@@ -238,6 +240,7 @@ static u8 qpnp_wled_lab_dbg_regs[] = {
  *  @ disp_type_amoled - type of display: LCD/AMOLED
  *  @ ibb_bias_active - activate display bias
  *  @ lab_fast_precharge - fast/slow precharge
+ *  @ en_ext_pfet_sc_pro - enable sc protection on external pfet
  */
 struct qpnp_wled {
 	struct led_classdev	cdev;
@@ -246,7 +249,6 @@ struct qpnp_wled {
 	struct mutex lock;
 	enum qpnp_wled_fdbk_op fdbk_op;
 	enum qpnp_wled_dim_mode dim_mode;
-	enum qpnp_wled_dim_shape dim_shape;
 	int ovp_irq;
 	int sc_irq;
 	u32 sc_cnt;
@@ -274,6 +276,7 @@ struct qpnp_wled {
 	bool disp_type_amoled;
 	bool ibb_bias_active;
 	bool lab_fast_precharge;
+	bool en_ext_pfet_sc_pro;
 };
 
 static struct qpnp_wled *gwled;
@@ -632,43 +635,6 @@ static ssize_t qpnp_wled_dim_mode_store(struct device *dev,
 	return count;
 }
 
-/* sysfs show function for dimming curve shape*/
-static ssize_t qpnp_wled_dim_shape_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct qpnp_wled *wled = dev_get_drvdata(dev);
-	char *str;
-
-	if (wled->dim_shape == QPNP_WLED_DIM_SHAPE_SQUARE)
-		str = "square";
-	else if (wled->dim_shape == QPNP_WLED_DIM_SHAPE_LOG)
-		str = "log";
-	else
-		str = "linear";
-
-	return snprintf(buf, PAGE_SIZE, "%s\n", str);
-}
-
-/* sysfs store function for dimming curve shape*/
-static ssize_t qpnp_wled_dim_shape_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	struct qpnp_wled *wled = dev_get_drvdata(dev);
-	char str[QPNP_WLED_STR_SIZE + 1];
-
-	if (snprintf(str, QPNP_WLED_STR_SIZE, "%s", buf) > QPNP_WLED_STR_SIZE)
-		return -EINVAL;
-
-	if (strcmp(str, "log") == 0)
-		wled->dim_shape = QPNP_WLED_DIM_SHAPE_LOG;
-	else if (strcmp(str, "square") == 0)
-		wled->dim_shape = QPNP_WLED_DIM_SHAPE_SQUARE;
-	else
-		wled->dim_shape = QPNP_WLED_DIM_SHAPE_LINEAR;
-
-	return count;
-}
-
 /* sysfs show function for full scale current in ua*/
 static ssize_t qpnp_wled_fs_curr_ua_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -761,9 +727,6 @@ static struct device_attribute qpnp_wled_attrs[] = {
 	__ATTR(dim_mode, (S_IRUGO | S_IWUSR | S_IWGRP),
 			qpnp_wled_dim_mode_show,
 			qpnp_wled_dim_mode_store),
-	__ATTR(dim_shape, (S_IRUGO | S_IWUSR | S_IWGRP),
-			qpnp_wled_dim_shape_show,
-			qpnp_wled_dim_shape_store),
 	__ATTR(fs_curr_ua, (S_IRUGO | S_IWUSR | S_IWGRP),
 			qpnp_wled_fs_curr_ua_show,
 			qpnp_wled_fs_curr_ua_store),
@@ -1029,10 +992,14 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	} else if (wled->mod_freq_khz <= QPNP_WLED_MOD_FREQ_9600_KHZ) {
 		wled->mod_freq_khz = QPNP_WLED_MOD_FREQ_9600_KHZ;
 		temp = 1;
-	} else {
+	} else if (wled->mod_freq_khz <= QPNP_WLED_MOD_FREQ_19200_KHZ) {
 		wled->mod_freq_khz = QPNP_WLED_MOD_FREQ_19200_KHZ;
 		temp = 0;
+	} else {
+		wled->mod_freq_khz = QPNP_WLED_MOD_FREQ_9600_KHZ;
+		temp = 1;
 	}
+
 	rc = qpnp_wled_read_reg(wled, &reg,
 			QPNP_WLED_MOD_REG(wled->sink_base));
 	if (rc < 0)
@@ -1042,6 +1009,9 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 
 	reg &= QPNP_WLED_PHASE_STAG_MASK;
 	reg |= (wled->en_phase_stag << QPNP_WLED_PHASE_STAG_SHIFT);
+
+	reg &= QPNP_WLED_ACC_CLK_FREQ_MASK;
+	reg |= (temp << QPNP_WLED_ACC_CLK_FREQ_SHIFT);
 
 	reg &= QPNP_WLED_DIM_RES_MASK;
 	reg |= (wled->en_9b_dim_res << QPNP_WLED_DIM_RES_SHIFT);
@@ -1250,6 +1220,29 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 				wled->sc_irq, rc);
 			return rc;
 		}
+
+		rc = qpnp_wled_read_reg(wled, &reg,
+				QPNP_WLED_SC_PRO_REG(wled->ctrl_base));
+		if (rc < 0)
+			return rc;
+		reg &= QPNP_WLED_EN_SC_MASK;
+		reg |= 1 << QPNP_WLED_EN_SC_SHIFT;
+		rc = qpnp_wled_write_reg(wled, &reg,
+				QPNP_WLED_SC_PRO_REG(wled->ctrl_base));
+		if (rc)
+			return rc;
+
+		if (wled->en_ext_pfet_sc_pro) {
+			rc = qpnp_wled_sec_access(wled, wled->ctrl_base);
+			if (rc)
+				return rc;
+
+			reg = QPNP_WLED_EXT_FET_DTEST2;
+			rc = qpnp_wled_write_reg(wled, &reg,
+					QPNP_WLED_TEST_REG(wled->ctrl_base));
+			if (rc)
+				return rc;
+		}
 	}
 
 	return 0;
@@ -1352,7 +1345,7 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 		return rc;
 	}
 
-	wled->mod_freq_khz = QPNP_WLED_MOD_FREQ_19200_KHZ;
+	wled->mod_freq_khz = QPNP_WLED_MOD_FREQ_9600_KHZ;
 	rc = of_property_read_u32(spmi->dev.of_node,
 			"qcom,mod-freq-khz", &temp_val);
 	if (!rc) {
@@ -1374,21 +1367,6 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 			wled->dim_mode = QPNP_WLED_DIM_HYBRID;
 	} else if (rc != -EINVAL) {
 		dev_err(&spmi->dev, "Unable to read dim mode\n");
-		return rc;
-	}
-
-	wled->dim_shape = QPNP_WLED_DIM_SHAPE_LINEAR;
-	rc = of_property_read_string(spmi->dev.of_node,
-			"qcom,dim-method", &temp_str);
-	if (!rc) {
-		if (strcmp(temp_str, "log") == 0)
-			wled->dim_shape = QPNP_WLED_DIM_SHAPE_LOG;
-		else if (strcmp(temp_str, "square") == 0)
-			wled->dim_shape = QPNP_WLED_DIM_SHAPE_SQUARE;
-		else
-			wled->dim_shape = QPNP_WLED_DIM_SHAPE_LINEAR;
-	} else if (rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read dim method\n");
 		return rc;
 	}
 
@@ -1466,6 +1444,9 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 	wled->sc_irq = spmi_get_irq_byname(spmi, NULL, "sc-irq");
 	if (wled->sc_irq < 0)
 		dev_dbg(&spmi->dev, "sc irq is not used\n");
+
+	wled->en_ext_pfet_sc_pro = of_property_read_bool(spmi->dev.of_node,
+					"qcom,en-ext-pfet-sc-pro");
 
 	return 0;
 }
