@@ -1056,6 +1056,7 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 	void *priv_data = NULL;
 	u32 priv_length = 0;
 	int fd_fence_complete = -1;
+	bool watchdog_running = 0;
 
 	if (args->num_cliprects != 0) {
 		if (INTEL_INFO(dev)->gen <= 4) {
@@ -1117,13 +1118,19 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 	}
 
 	/* Start watchdog timer */
-	if ((args->flags & I915_EXEC_ENABLE_WATCHDOG) &&
-	    i915.enable_watchdog &&
-	    intel_ring_supports_watchdog(ring)) {
+	if (args->flags & I915_EXEC_ENABLE_WATCHDOG) {
+		if (!intel_ring_supports_watchdog(ring)) {
+			DRM_ERROR("%s does NOT support watchdog timeout!\n",
+					ring->name);
+			ret = -EINVAL;
+			goto error;
+		}
 
 		ret = intel_ring_start_watchdog(ring);
 		if (ret)
 			goto error;
+
+		watchdog_running = 1;
 	}
 
 	ret = intel_ring_alloc_request(ring);
@@ -1275,10 +1282,7 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 		goto error;
 
 	/* Cancel watchdog timer */
-	if ((args->flags & I915_EXEC_ENABLE_WATCHDOG) &&
-		i915.enable_watchdog &&
-		intel_ring_supports_watchdog(ring)) {
-
+	if (watchdog_running) {
 		ret = intel_ring_stop_watchdog(ring);
 		if (ret)
 			goto error;

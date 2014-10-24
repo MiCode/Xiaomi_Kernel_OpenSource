@@ -1328,6 +1328,7 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	int ret;
 	int fd_fence_complete = -1;
 	u32 priv_data = 0;
+	bool watchdog_running = 0;
 
 	instp_mode = args->flags & I915_EXEC_CONSTANTS_MASK;
 	instp_mask = I915_EXEC_CONSTANTS_MASK;
@@ -1435,12 +1436,19 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 		goto error;
 
 	/* Start watchdog timer */
-	if ((args->flags & I915_EXEC_ENABLE_WATCHDOG) &&
-	    i915.enable_watchdog &&
-	    intel_ring_supports_watchdog(ring)) {
+	if (args->flags & I915_EXEC_ENABLE_WATCHDOG) {
+		if (!intel_ring_supports_watchdog(ring)) {
+			DRM_ERROR("%s does NOT support watchdog timeout!\n",
+					ring->name);
+			ret = -EINVAL;
+			goto error;
+		}
+
 		ret = gen8_ring_start_watchdog(ringbuf);
 		if (ret)
 			goto error;
+
+		watchdog_running = 1;
 	}
 
 	if (ring == &dev_priv->ring[RCS] &&
@@ -1488,10 +1496,7 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 		goto error;
 
 	/* Cancel watchdog timer */
-	if ((args->flags & I915_EXEC_ENABLE_WATCHDOG) &&
-		i915.enable_watchdog &&
-		intel_ring_supports_watchdog(ring)) {
-
+	if (watchdog_running) {
 		ret = gen8_ring_stop_watchdog(ringbuf);
 		if (ret)
 			return ret;
@@ -2485,6 +2490,9 @@ static int logical_render_ring_init(struct drm_device *dev)
 	if (HAS_L3_DPF(dev))
 		ring->irq_keep_mask |= GT_RENDER_L3_PARITY_ERROR_INTERRUPT;
 
+	ring->irq_keep_mask |=
+		(GT_GEN8_RCS_WATCHDOG_INTERRUPT << GEN8_RCS_IRQ_SHIFT);
+
 	ring->init = gen8_init_render_ring;
 	ring->init_context = intel_logical_ring_workarounds_emit;
 	ring->cleanup = intel_fini_pipe_control;
@@ -2515,6 +2523,8 @@ static int logical_bsd_ring_init(struct drm_device *dev)
 		GT_RENDER_USER_INTERRUPT << GEN8_VCS1_IRQ_SHIFT;
 	ring->irq_keep_mask =
 		GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VCS1_IRQ_SHIFT;
+	ring->irq_keep_mask |=
+		(GT_GEN8_VCS_WATCHDOG_INTERRUPT << GEN8_VCS1_IRQ_SHIFT);
 
 	ring->init = gen8_init_common_ring;
 	ring->get_seqno = gen8_get_seqno;
@@ -2544,6 +2554,8 @@ static int logical_bsd2_ring_init(struct drm_device *dev)
 		GT_RENDER_USER_INTERRUPT << GEN8_VCS2_IRQ_SHIFT;
 	ring->irq_keep_mask =
 		GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VCS2_IRQ_SHIFT;
+	ring->irq_keep_mask |=
+		(GT_GEN8_VCS_WATCHDOG_INTERRUPT << GEN8_VCS2_IRQ_SHIFT);
 
 	ring->init = gen8_init_common_ring;
 	ring->get_seqno = gen8_get_seqno;
