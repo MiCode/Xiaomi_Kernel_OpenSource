@@ -1482,6 +1482,11 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *vadc,
 	}
 
 	calib_type = vadc->adc->adc_channels[dt_index].calib_type;
+	if (calib_type >= CALIB_NONE) {
+		pr_err("not a valid calib_type\n");
+		rc = -EINVAL;
+		goto fail_unlock;
+	}
 	calib_offset = (calib_type == CALIB_ABSOLUTE) ?
 		QPNP_VADC_ABSOLUTE_RECALIB_OFFSET :
 		QPNP_VADC_RATIOMETRIC_RECALIB_OFFSET;
@@ -1505,6 +1510,7 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *vadc,
 	}
 
 recalibrate:
+	status1 = 0;
 	vadc->adc->amux_prop->decimation =
 			vadc->adc->adc_channels[dt_index].adc_decimation;
 	vadc->adc->amux_prop->hw_settle_time =
@@ -1629,7 +1635,6 @@ recalibrate:
 		vadc->adc->amux_prop->chan_prop->adc_graph[calib_type].adc_gnd
 								= gnd_calib;
 		} else {
-			offset = 0;
 			vref_calib = new_vref_calib;
 			local_idx = local_idx + 1;
 			if (local_idx >= QPNP_VADC_RECALIB_MAXCNT) {
@@ -1640,6 +1645,7 @@ recalibrate:
 				pr_debug(
 				"qpnp vadc recalibration requested,offset:%d\n",
 								offset);
+				offset = 0;
 				goto recalibrate;
 			}
 		}
