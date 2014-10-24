@@ -40,6 +40,7 @@
 #include <soc/qcom/rpm-smd.h>
 #include <soc/qcom/scm.h>
 #include <linux/debugfs.h>
+#include <linux/pm_opp.h>
 
 #define CREATE_TRACE_POINTS
 #define TRACE_MSM_THERMAL
@@ -2793,6 +2794,67 @@ int msm_thermal_get_freq_plan_size(uint32_t cluster, unsigned int *table_len)
 
 	pr_err("Invalid cluster ID:%d\n", cluster);
 	return -EINVAL;
+}
+
+int msm_thermal_get_cluster_voltage_plan(uint32_t cluster, uint32_t *table_ptr)
+{
+	int i = 0, corner = 0;
+	struct dev_pm_opp *opp = NULL;
+	unsigned int table_len = 0;
+	struct device *cpu_dev = NULL;
+	struct cluster_info *cluster_ptr = NULL;
+
+	if (!core_ptr) {
+		pr_err("Topology ptr not initialized\n");
+		return -ENODEV;
+	}
+	if (!table_ptr) {
+		pr_err("Invalid input\n");
+		return -EINVAL;
+	}
+	if (!freq_table_get)
+		check_freq_table();
+
+	for (i = 0; i < core_ptr->entity_count; i++) {
+		cluster_ptr = &core_ptr->child_entity_ptr[i];
+		if (cluster_ptr->cluster_id == cluster)
+			break;
+	}
+	if (i == core_ptr->entity_count) {
+		pr_err("Invalid cluster ID:%d\n", cluster);
+		return -EINVAL;
+	}
+	if (!cluster_ptr->freq_table) {
+		pr_err("Cluster%d clock plan not initialized\n", cluster);
+		return -EINVAL;
+	}
+
+	cpu_dev = get_cpu_device(first_cpu(cluster_ptr->cluster_cores));
+	table_len =  cluster_ptr->freq_idx_high + 1;
+
+	rcu_read_lock();
+	for (i = 0; i < table_len; i++) {
+		opp = dev_pm_opp_find_freq_exact(cpu_dev,
+			cluster_ptr->freq_table[i].frequency * 1000, true);
+		if (IS_ERR(opp)) {
+			pr_err("Error on OPP freq :%d\n",
+				cluster_ptr->freq_table[i].frequency);
+			return -EINVAL;
+		}
+		corner = dev_pm_opp_get_voltage(opp);
+		if (corner == 0) {
+			pr_err("Bad voltage corner for OPP freq :%d\n",
+				cluster_ptr->freq_table[i].frequency);
+			return -EINVAL;
+		}
+		table_ptr[i] = corner / 1000;
+		pr_debug("Cluster:%d freq:%d Khz voltage:%d mV\n",
+			cluster, cluster_ptr->freq_table[i].frequency,
+			table_ptr[i]);
+	}
+	rcu_read_unlock();
+
+	return 0;
 }
 
 int msm_thermal_get_cluster_freq_plan(uint32_t cluster, unsigned int *table_ptr)
