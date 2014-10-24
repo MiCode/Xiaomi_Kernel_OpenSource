@@ -2365,6 +2365,7 @@ out_unlock:
 	ufshcd_release_all(hba);
 	return err;
 }
+EXPORT_SYMBOL(ufshcd_query_flag);
 
 /**
  * ufshcd_query_attr - API function for sending attribute requests
@@ -2429,6 +2430,7 @@ out:
 	ufshcd_release_all(hba);
 	return err;
 }
+EXPORT_SYMBOL(ufshcd_query_attr);
 
 /**
  * ufshcd_query_attr_retry() - API function for sending query
@@ -2544,6 +2546,7 @@ out:
 	ufshcd_release_all(hba);
 	return err;
 }
+EXPORT_SYMBOL(ufshcd_query_descriptor);
 
 /**
  * ufshcd_read_desc_param - read the specified descriptor parameter
