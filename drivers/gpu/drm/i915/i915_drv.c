@@ -33,6 +33,7 @@
 #include "i915_drv.h"
 #include "i915_trace.h"
 #include "intel_drv.h"
+#include "intel_lrc_tdr.h"
 
 #include <linux/console.h>
 #include <linux/module.h>
@@ -892,11 +893,14 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 	struct intel_crtc *intel_crtc;
 	struct drm_i915_gem_request *request;
 	struct intel_unpin_work *unpin_work;
+	struct intel_context *current_context = NULL;
+	uint32_t hw_context_id1 = ~0u;
+	uint32_t hw_context_id2 = ~0u;
 
 	acthd = intel_ring_get_active_head(ring);
 	completed_seqno = ring->get_seqno(ring, false);
 
-	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
+	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
 	/* Take wake lock to prevent power saving mode */
 	gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
@@ -906,6 +910,24 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 	list_for_each_entry(request, &ring->request_list, list) {
 		if (request && (request->seqno > completed_seqno))
 			i915_set_reset_status(dev_priv, request->ctx, false);
+	}
+
+	if (i915.enable_execlists) {
+		enum context_submission_status status =
+			i915_gem_context_get_current_context(ring,
+					&current_context);
+
+		/*
+		 * If the hardware and driver states do not coincide
+		 * or if there for some reason is no current context
+		 * in the process of being submitted then bail out and
+		 * try again. Do not proceed unless we have reliable
+		 * current context state information.
+		 */
+		if (status != CONTEXT_SUBMISSION_STATUS_OK) {
+			ret = -EAGAIN;
+			goto handle_hung_ring_error;
+		}
 	}
 
 	/*
@@ -928,14 +950,45 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 		dev_priv->gpu_error.stop_rings &= ~(0x1 << ringid);
 	}
 
-	ret = intel_ring_disable(ring);
+	ret = intel_ring_disable(ring, current_context);
 	if (ret != 0) {
 		DRM_ERROR("Failed to disable ring %d\n", ringid);
 			goto handle_hung_ring_error;
 	}
 
-	/* Sample the current ring head position */
-	head = I915_READ(RING_HEAD(ring->mmio_base)) & HEAD_ADDR;
+	if (!i915.enable_execlists) {
+		/* Sample the current ring head position */
+		head = I915_READ_HEAD(ring) & HEAD_ADDR;
+
+	} else {
+		hw_context_id1 = I915_READ(RING_EXECLIST_STATUS_CTX_ID(ring));
+
+		/* Sample the current ring head position */
+		head = I915_READ_HEAD(ring) & HEAD_ADDR;
+
+		/*
+		 * Make sure that the current context state is stable. If the
+		 * context is changing then the MMIO head value might not be
+		 * reliable. This is not a likely scenario but we have seen
+		 * issues like this in the past.
+		 */
+		hw_context_id2 = I915_READ(RING_EXECLIST_STATUS_CTX_ID(ring));
+
+		if (hw_context_id1 != hw_context_id2) {
+			WARN(1, "Somehow the currently running context has " \
+				"changed (%x != %x)! Bailing and retrying!\n",
+				hw_context_id1, hw_context_id2);
+
+			ret = intel_ring_enable(ring, current_context);
+			if (ret != 0)
+				DRM_ERROR("Failed to re-enable %s\n",
+						ring->name);
+
+			ret = -EAGAIN;
+			goto handle_hung_ring_error;
+		}
+	}
+
 	DRM_DEBUG_TDR("head 0x%08X, last_head 0x%08X\n",
 		head, dev_priv->ring[ringid].hangcheck.last_head);
 	if (head == dev_priv->ring[ringid].hangcheck.last_head) {
@@ -958,41 +1011,50 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 	}
 	dev_priv->ring[ringid].hangcheck.last_head = head;
 
-	ret = intel_ring_save(ring, ring_flags);
-	if (ret != 0) {
+	ret = intel_ring_save(ring, current_context, ring_flags);
+	if (ret == -EAGAIN) {
+		if (intel_ring_enable(ring, current_context))
+			DRM_ERROR("Failed to re-enable %s after " \
+				  "deciding to retry\n", ring->name);
+
+		goto handle_hung_ring_error;
+	} else if (ret != 0) {
 		DRM_ERROR("Failed to save ring state\n");
 		goto handle_hung_ring_error;
 	}
 
 	ret = intel_gpu_engine_reset(dev, ringid);
 	if (ret != 0) {
-		DRM_ERROR("Failed to reset ring\n");
+		DRM_ERROR("Failed to reset %s\n", ring->name);
 		goto handle_hung_ring_error;
 	}
 	DRM_DEBUG_TDR("%s reset (GPU Hang)\n", ring->name);
 
-	ret = intel_ring_invalidate_tlb(ring);
-	if (ret != 0) {
-		DRM_ERROR("Failed to invalidate tlb for %s\n", ring->name);
-		goto handle_hung_ring_error;
+	if (!i915.enable_execlists) {
+		ret = intel_ring_invalidate_tlb(ring);
+		if (ret != 0) {
+			DRM_ERROR("Failed to invalidate tlb for %s\n",
+					ring->name);
+			goto handle_hung_ring_error;
+		}
 	}
 
-	/* Clear last_acthd in hangcheck timer for this ring */
+	/* Clear last_acthd for the next hang check on this ring */
 	dev_priv->ring[ringid].hangcheck.last_acthd = 0;
 
 	/* Clear reset flags to allow future hangchecks */
 	atomic_set(&dev_priv->ring[ringid].hangcheck.flags, 0);
 
-	ret = intel_ring_restore(ring);
+	ret = intel_ring_restore(ring, current_context);
 	if (ret != 0) {
 		DRM_ERROR("Failed to restore ring state\n");
 		goto handle_hung_ring_error;
 	}
 
 	/* Correct driver state */
-	intel_ring_resample(ring);
+	intel_gpu_engine_reset_resample(ring, current_context);
 
-	ret = intel_ring_enable(ring);
+	ret = intel_ring_enable(ring, current_context);
 	if (ret != 0) {
 		DRM_ERROR("Failed to enable ring\n");
 		goto handle_hung_ring_error;
@@ -1008,7 +1070,7 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 	 */
 	if (pipe &&
 		((pipe - 1) < ARRAY_SIZE(dev_priv->pipe_to_crtc_mapping))) {
-		/* The pipe value in the status page if offset by 1 */
+		/* The pipe value in the status page is offset by 1 */
 		pipe -= 1;
 
 		/* The ring hung on a page flip command so we
@@ -1026,10 +1088,52 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 	}
 
 handle_hung_ring_error:
+	if (i915.enable_execlists)
+		i915_gem_context_unreference(current_context);
+
 	/* Release power lock */
 	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 
 	return ret;
+}
+
+static int i915_reset_resubmit_contexts(struct drm_i915_private *dev_priv,
+		struct intel_context **current_contexts)
+{
+	struct intel_engine_cs *ring;
+	u32 i;
+
+	for_each_ring(ring, dev_priv, i) {
+		int ret = 0;
+		u32 tail = 0;
+
+		if (!current_contexts[i])
+			continue;
+
+		ret = I915_READ_TAIL_CTX(ring, current_contexts[i], tail);
+		if (ret)
+			return ret;
+
+		intel_execlists_TDR_context_queue(ring, current_contexts[i],
+					tail);
+	}
+
+	return 0;
+}
+
+static inline void i915_reset_unreference_contexts(struct drm_device *dev,
+			struct intel_context **current_contexts)
+{
+	struct intel_engine_cs *ring;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 i;
+
+	for_each_ring(ring, dev_priv, i) {
+		if (!current_contexts[i])
+			continue;
+
+		i915_gem_context_unreference(current_contexts[i]);
+	}
 }
 
 /**
@@ -1051,22 +1155,47 @@ int i915_reset(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	bool simulated;
-	int ret;
+	int ret = 0;
+	struct intel_engine_cs *ring;
+	u32 i;
+	struct intel_context *current_contexts[I915_NUM_RINGS];
 
 	if (!i915.reset)
 		return 0;
 
 	mutex_lock(&dev->struct_mutex);
+	memset(current_contexts, 0, sizeof(current_contexts));
 
 	DRM_ERROR("Reset GPU (GPU Hang)\n");
 
+	if (i915.enable_execlists) {
+		/*
+		 * Store local reference to the current ring contexts before
+		 * reset so that we can restore them after the reset breaks them
+		 * (EXECLIST_STATUS register is clobbered by GPU reset and we
+		 * use that register to fetch the current context, which is
+		 * needed for final TDR context resubmission to kick off the
+		 * hardware again post-reset)
+		 */
+		for_each_ring(ring, dev_priv, i) {
+			enum context_submission_status status =
+				i915_gem_context_get_current_context(ring,
+					&current_contexts[i]);
+
+			if (status == CONTEXT_SUBMISSION_STATUS_NONE_SUBMITTED) {
+				i915_gem_context_unreference(current_contexts[i]);
+				current_contexts[i] = NULL;
+			}
+
+		}
+	}
 	i915_gem_reset(dev);
 
 	simulated = dev_priv->gpu_error.stop_rings != 0;
 
 	if (!simulated && (get_seconds() - dev_priv->gpu_error.last_reset)
 		< i915.gpu_reset_min_alive_period) {
-		DRM_ERROR("GPU hanging too fast, declaring wedged!\n");
+		DRM_ERROR("GPU hanging too fast!\n");
 		ret = -ENODEV;
 	} else {
 		ret = intel_gpu_reset(dev);
@@ -1086,8 +1215,7 @@ int i915_reset(struct drm_device *dev)
 
 	if (ret) {
 		DRM_ERROR("Failed to reset chip: %i\n", ret);
-		mutex_unlock(&dev->struct_mutex);
-		return ret;
+		goto exit_locked;
 	}
 
 	/* Ok, now get things going again... */
@@ -1096,9 +1224,6 @@ int i915_reset(struct drm_device *dev)
 	 * Everything depends on having the GTT running, so we need to start
 	 * there.  Fortunately we don't need to do this unless we reset the
 	 * chip at a PCI level.
-	 *
-	 * Next we need to restore the context, but we don't use those
-	 * yet either...
 	 *
 	 * Ring buffer needs to be re-initialized in the KMS case, or if X
 	 * was running at the time of the reset (i.e. we weren't VT
@@ -1109,11 +1234,24 @@ int i915_reset(struct drm_device *dev)
 		dev_priv->ums.mm_suspended = 0;
 
 		ret = i915_gem_init_hw(dev);
-		mutex_unlock(&dev->struct_mutex);
 		if (ret) {
 			DRM_ERROR("Failed hw init on reset %d\n", ret);
-			return ret;
+			goto exit_locked;
 		}
+
+		if (i915.enable_execlists)
+			for_each_ring(ring, dev_priv, i) {
+				if (current_contexts[i]) {
+					/*
+					 * Init context state based
+					 * on engine state
+					 */
+					intel_gpu_reset_resample(ring,
+						current_contexts[i]);
+				}
+			}
+
+		mutex_unlock(&dev->struct_mutex);
 
 		/*
 		 * FIXME: This races pretty badly against concurrent holders of
@@ -1135,7 +1273,25 @@ int i915_reset(struct drm_device *dev)
 		mutex_unlock(&dev->struct_mutex);
 	}
 
-	return 0;
+	if (i915.enable_execlists) {
+		i915_reset_resubmit_contexts(dev_priv, current_contexts);
+
+		mutex_lock(&dev->struct_mutex);
+		i915_reset_unreference_contexts(dev, current_contexts);
+		mutex_unlock(&dev->struct_mutex);
+	}
+
+	return ret;
+
+exit_locked:
+	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
+
+	if (i915.enable_execlists)
+		i915_reset_unreference_contexts(dev, current_contexts);
+
+	mutex_unlock(&dev->struct_mutex);
+
+	return ret;
 }
 
 void i915_init_watchdog(struct drm_device *dev)
@@ -1762,10 +1918,8 @@ static int intel_runtime_suspend(struct device *device)
 		return ret;
 	}
 
-	for (i = 0; i < I915_NUM_RINGS; i++) {
-		del_timer_sync(&dev_priv->ring[i].hangcheck.timer);
-		atomic_set(&dev_priv->ring[i].hangcheck.active, 0);
-	}
+	for (i = 0; i < I915_NUM_RINGS; i++)
+		cancel_delayed_work_sync(&dev_priv->ring[i].hangcheck.work);
 
 	dev_priv->pm.suspended = true;
 

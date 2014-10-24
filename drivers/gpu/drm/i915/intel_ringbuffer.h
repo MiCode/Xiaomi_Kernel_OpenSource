@@ -30,21 +30,39 @@ struct  intel_hw_status_page {
 };
 
 /*
+ * Gen7:
  * These values must match the requirements of the ring save/restore functions
  * which may need to change for different versions of the chip
  */
-#define COMMON_RING_CTX_SIZE 6
-#define RCS_RING_CTX_SIZE 14
-#define VCS_RING_CTX_SIZE 10
-#define BCS_RING_CTX_SIZE 11
-#define VECS_RING_CTX_SIZE 8
+#define GEN7_COMMON_RING_CTX_SIZE 6
+#define GEN7_RCS_RING_CTX_SIZE 14
+#define GEN7_VCS_RING_CTX_SIZE 10
+#define GEN7_BCS_RING_CTX_SIZE 11
+#define GEN7_VECS_RING_CTX_SIZE 8
 #define MAX_CTX(a, b) (((a) > (b)) ? (a) : (b))
 
 /* Largest of individual rings + common */
-#define I915_RING_CONTEXT_SIZE (COMMON_RING_CTX_SIZE +		    \
-				MAX_CTX(MAX_CTX(RCS_RING_CTX_SIZE,  \
-						VCS_RING_CTX_SIZE), \
-						BCS_RING_CTX_SIZE))
+#define GEN7_RING_CONTEXT_SIZE (GEN7_COMMON_RING_CTX_SIZE +	 \
+			MAX_CTX(MAX_CTX(GEN7_RCS_RING_CTX_SIZE,	 \
+					GEN7_VCS_RING_CTX_SIZE), \
+				GEN7_BCS_RING_CTX_SIZE))
+
+
+/*
+ * Gen8:
+ * Ring state maintained throughout ring reset contains
+ * the following registers:
+ *     Head
+ *     Tail
+ *     Ring buffer control
+ *
+ * The remaining registers are reinitialized, not restored.
+ */
+#define GEN8_RING_CONTEXT_SIZE 3
+
+#define I915_RING_CONTEXT_SIZE \
+		MAX_CTX(GEN7_RING_CONTEXT_SIZE, \
+			GEN8_RING_CONTEXT_SIZE)
 
 #define WATCHDOG_ENABLE 0
 #define RCS_WATCHDOG_DISABLE 1
@@ -68,6 +86,97 @@ struct  intel_hw_status_page {
 #define I915_READ_MODE(ring) I915_READ(RING_MI_MODE((ring)->mmio_base))
 #define I915_WRITE_MODE(ring, val) I915_WRITE(RING_MI_MODE((ring)->mmio_base), val)
 
+
+
+#define __INTEL_READ_CTX_OR_MMIO__(engine, ctx, outval, ctxreg, mmioreg) \
+({ \
+	int __ret = 0; \
+	if (i915.enable_execlists) \
+		__ret = intel_execlists_read_##ctxreg((engine), \
+						      (ctx), \
+						      &(outval)); \
+	else \
+		((outval) = I915_READ_##mmioreg(engine)); \
+	__ret; \
+})
+
+#define __INTEL_WRITE_CTX_OR_MMIO__(engine, ctx, val, ctxreg, mmioreg) \
+({ \
+	int __ret = 0; \
+	if (i915.enable_execlists) \
+		__ret = intel_execlists_write_##ctxreg((engine), \
+						       (ctx), \
+						       (val)); \
+	else \
+		(I915_WRITE_##mmioreg((engine), (val))); \
+	__ret; \
+})
+
+#define __INTEL_WRITE_CTX_AND_MMIO__(engine, ctx, val, ctxreg, mmioreg) \
+({ \
+	int __ret = 0; \
+	(I915_WRITE_##mmioreg((engine), (val))); \
+	if (i915.enable_execlists) \
+		__ret = intel_execlists_write_##ctxreg((engine), \
+						       (ctx), \
+						       (val)); \
+	__ret; \
+})
+
+/*
+ * Unified context/MMIO register access macros
+ *
+ * Macros for accessing context registers or MMIO registers depending on mode.
+ * The macros depend on the global i915.execlists_enabled flag to determine
+ * which macro/function to use.
+ *
+ * engine: Engine that context belongs to
+ * ctx: Context to access value from
+ * val/outval: Name of scalar variable to be written/read
+ *
+ * WARNING! These macros are semantically different from their
+ * legacy MMIO-register counterparts above in that these macros return
+ * error codes (0 for OK or otherwise various kernel error codes) instead
+ * of returning the read value as the return value.
+ */
+#define I915_READ_TAIL_CTX(engine, ctx, outval) \
+	__INTEL_READ_CTX_OR_MMIO__((engine), (ctx), (outval), tail, TAIL)
+
+#define I915_WRITE_TAIL_CTX(engine, ctx, val) \
+	__INTEL_WRITE_CTX_OR_MMIO__((engine), (ctx), (val), tail, TAIL)
+
+#define I915_READ_HEAD_CTX(engine, ctx, outval) \
+	__INTEL_READ_CTX_OR_MMIO__((engine), (ctx), (outval), head, HEAD)
+
+#define I915_WRITE_HEAD_CTX(engine, ctx, val) \
+	__INTEL_WRITE_CTX_OR_MMIO__((engine), (ctx), (val), head, HEAD)
+
+#define I915_READ_CTL_CTX(engine, ctx, outval) \
+	__INTEL_READ_CTX_OR_MMIO__((engine), (ctx), (outval), buffer_ctl, CTL)
+
+#define I915_WRITE_CTL_CTX(engine, ctx, val) \
+	__INTEL_WRITE_CTX_OR_MMIO__((engine), (ctx), (val), buffer_ctl, CTL)
+
+/*
+ * Coordinated context/MMIO register write macros
+ *
+ * We need to do coordinated writes to both a context register and a MMIO
+ * register in a number of places. These macros will write to both sets of
+ * registers.
+ *
+ * engine: The engine to write to
+ * ctx: Context to write to
+ * val: Value to write
+ */
+#define I915_WRITE_TAIL_CTX_MMIO(engine, ctx, val) \
+	__INTEL_WRITE_CTX_AND_MMIO__((engine), (ctx), (val), tail, TAIL)
+
+#define I915_WRITE_HEAD_CTX_MMIO(engine, ctx, val) \
+	__INTEL_WRITE_CTX_AND_MMIO__((engine), (ctx), (val), head, HEAD)
+
+#define I915_WRITE_CTL_CTX_MMIO(engine, ctx, val) \
+	__INTEL_WRITE_CTX_AND_MMIO__((engine), (ctx), (val), buffer_ctl, CTL)
+
 enum intel_ring_hangcheck_action {
 	HANGCHECK_IDLE = 0,
 	HANGCHECK_WAIT,
@@ -88,8 +197,9 @@ struct intel_ring_hangcheck {
 	/* Parent drm_device */
 	struct drm_device *dev;
 
-	/* Timer for this ring only */
-	struct timer_list timer;
+	/* Work queue for this ring only */
+	struct delayed_work work;
+	struct workqueue_struct *wq;
 
 	/* Count of consecutive hang detections
 	 * (reset flag set once count exceeds threshold) */
@@ -127,7 +237,12 @@ struct intel_ring_hangcheck {
 	/* Number of watchdog hang detections for this ring */
 	u32 watchdog_count;
 
-	atomic_t active;
+	/*
+	 * Ring seqno recorded by the most recent hang check.
+	 * Used as a first, coarse step to determine ring
+	 * idleness
+	 */
+	u32 last_seqno;
 };
 
 struct intel_ringbuffer {
@@ -213,14 +328,14 @@ struct intel_engine_cs {
 #define I915_DISPATCH_SECURE 0x1
 #define I915_DISPATCH_PINNED 0x2
 	void		(*cleanup)(struct intel_engine_cs *ring);
-	int (*enable)(struct intel_engine_cs *ring);
-	int (*disable)(struct intel_engine_cs *ring);
+	int (*enable)(struct intel_engine_cs *ring, struct intel_context *ctx);
+	int (*disable)(struct intel_engine_cs *ring, struct intel_context *ctx);
 	int (*start)(struct intel_engine_cs *ring);
 	int (*stop)(struct intel_engine_cs *ring);
-	int (*save)(struct intel_engine_cs *ring,
-		    uint32_t *data, uint32_t max, u32 flags);
-	int (*restore)(struct intel_engine_cs *ring,
-		       uint32_t *data, uint32_t max);
+	int (*save)(struct intel_engine_cs *ring, struct intel_context *ctx,
+		    uint32_t *data, uint32_t data_size, u32 flags);
+	int (*restore)(struct intel_engine_cs *ring, struct intel_context *ctx,
+		       uint32_t *data, uint32_t data_size);
 	int (*invalidate_tlb)(struct intel_engine_cs *ring);
 
 	struct {
@@ -444,11 +559,18 @@ void intel_ring_update_space(struct intel_ringbuffer *ringbuf);
 int intel_ring_space(struct intel_ringbuffer *ringbuf);
 bool intel_ring_stopped(struct intel_engine_cs *ring);
 void __intel_ring_advance(struct intel_engine_cs *ring);
-void intel_ring_resample(struct intel_engine_cs *ring);
-int intel_ring_disable(struct intel_engine_cs *ring);
-int intel_ring_enable(struct intel_engine_cs *ring);
-int intel_ring_save(struct intel_engine_cs *ring, u32 flags);
-int intel_ring_restore(struct intel_engine_cs *ring);
+void intel_gpu_engine_reset_resample(struct intel_engine_cs *ring,
+		struct intel_context *ctx);
+void intel_gpu_reset_resample(struct intel_engine_cs *ring,
+		struct intel_context *ctx);
+int intel_ring_disable(struct intel_engine_cs *ring,
+		struct intel_context *ctx);
+int intel_ring_enable(struct intel_engine_cs *ring,
+		struct intel_context *ctx);
+int intel_ring_save(struct intel_engine_cs *ring,
+		struct intel_context *ctx, u32 flags);
+int intel_ring_restore(struct intel_engine_cs *ring,
+		struct intel_context *ctx);
 int intel_ring_invalidate_tlb(struct intel_engine_cs *ring);
 
 static inline int intel_ring_supports_watchdog(struct intel_engine_cs *ring)

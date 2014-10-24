@@ -2460,6 +2460,35 @@ i915_gem_get_seqno(struct drm_device *dev, u32 *seqno)
 	return 0;
 }
 
+static void queue_retire_work(struct drm_i915_private *dev_priv,
+			  unsigned long delay)
+{
+	/*
+	 * The retire work timer needs to take the hang check period
+	 * into account since the hang check is piggy-backed on top
+	 * of the retire work handler. That means that if the hang
+	 * checks are meant to happen more frequently the retire
+	 * work timer needs to fire at least as frequently as that.
+	 */
+	unsigned long time = min(delay, DRM_I915_HANGCHECK_JIFFIES);
+
+	if (queue_delayed_work(dev_priv->wq,
+			   &dev_priv->mm.retire_work,
+			   time)) {
+		/*
+		 * If we successfully scheduled the retire work
+		 * handler then time stamp this point in time so
+		 * that we can figure out later how much more
+		 * time we need to wait for the hang check
+		 * that might follow. If the queue call was not
+		 * successful it means that work is already
+		 * pending - let that work expire first before
+		 * scheduling more.
+		 */
+		dev_priv->mm.retire_work_timestamp = jiffies;
+	}
+}
+
 int __i915_add_request(struct intel_engine_cs *ring,
 		       struct drm_file *file,
 		       struct drm_i915_gem_object *obj)
@@ -2561,9 +2590,7 @@ int __i915_add_request(struct intel_engine_cs *ring,
 
 	if (!dev_priv->ums.mm_suspended) {
 		cancel_delayed_work_sync(&dev_priv->mm.idle_work);
-		queue_delayed_work(dev_priv->wq,
-				   &dev_priv->mm.retire_work,
-				   round_jiffies_up_relative(HZ));
+		queue_retire_work(dev_priv, round_jiffies_up_relative(HZ));
 		intel_mark_busy(dev_priv->dev);
 	}
 
@@ -2964,6 +2991,7 @@ i915_gem_retire_work_handler(struct work_struct *work)
 		container_of(work, typeof(*dev_priv), mm.retire_work.work);
 	struct drm_device *dev = dev_priv->dev;
 	bool idle;
+	unsigned long ts = dev_priv->mm.retire_work_timestamp;
 
 	/* Come back later if the device is busy... */
 	idle = false;
@@ -2971,9 +2999,18 @@ i915_gem_retire_work_handler(struct work_struct *work)
 		idle = i915_gem_retire_requests(dev);
 		mutex_unlock(&dev->struct_mutex);
 	}
-	if (!idle)
-		queue_delayed_work(dev_priv->wq, &dev_priv->mm.retire_work,
-				   round_jiffies_up_relative(HZ));
+
+	if (!idle) {
+		struct intel_engine_cs *ring;
+		unsigned i;
+
+		queue_retire_work(dev_priv, round_jiffies_up_relative(HZ));
+
+		for_each_ring(ring, dev_priv, i) {
+			if (!list_empty(&ring->request_list))
+				i915_queue_hangcheck(dev, i, ts);
+		}
+	}
 }
 
 static void
@@ -4288,8 +4325,7 @@ i915_gem_ring_throttle(struct drm_device *dev, struct drm_file *file)
 
 	ret = __wait_request(target, reset_counter, true, NULL, NULL);
 	if (ret == 0)
-		queue_delayed_work(dev_priv->wq,
-			&dev_priv->mm.retire_work, 0);
+		queue_retire_work(dev_priv, 0);
 
 	mutex_lock(&dev->struct_mutex);
 	i915_gem_request_unreference(target);
@@ -4902,10 +4938,9 @@ i915_gem_suspend(struct drm_device *dev)
 							     DRIVER_MODESET);
 	mutex_unlock(&dev->struct_mutex);
 
-	for (i = 0; i < I915_NUM_RINGS; i++) {
-		del_timer_sync(&dev_priv->ring[i].hangcheck.timer);
-		atomic_set(&dev_priv->ring[i].hangcheck.active, 0);
-	}
+	for (i = 0; i < I915_NUM_RINGS; i++)
+		cancel_delayed_work_sync(&dev_priv->ring[i].hangcheck.work);
+
 	cancel_delayed_work_sync(&dev_priv->mm.retire_work);
 	cancel_delayed_work_sync(&dev_priv->mm.idle_work);
 
