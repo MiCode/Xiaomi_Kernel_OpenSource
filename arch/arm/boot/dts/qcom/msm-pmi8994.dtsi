@@ -422,7 +422,7 @@
 			qcom,ovp-mv = <29500>;
 			qcom,ilim-ma = <980>;
 			qcom,boost-duty-ns = <26>;
-			qcom,mod-freq-khz = <19200>;
+			qcom,mod-freq-khz = <9600>;
 			qcom,dim-mode = "hybrid";
 			qcom,dim-method = "linear";
 			qcom,hyb-thres = <625>;
@@ -431,6 +431,7 @@
 			qcom,en-phase-stag;
 			qcom,ibb-pwrup-dly = <8>;
 			qcom,led-strings-list = [00 01 02 03];
+			qcom,en-ext-pfet-sc-pro;
 		};
 
 		pmi8994_haptics: qcom,haptic@c000 {

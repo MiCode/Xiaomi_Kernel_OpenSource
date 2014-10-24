@@ -545,7 +545,9 @@
 &pmi8994_mpps {
 	mpp@a300 { /* MPP 4 */
 		/* WLED FET */
-		qcom,mode = <1>;
+		qcom,mode = <1>;	/* DIGITAL OUT */
+		qcom,vin-sel = <0>;	/* VIN0 */
+		qcom,src-sel = <5>;	/* DTEST2 */
 		qcom,master-en = <1>;
 		status = "okay";
 	};
