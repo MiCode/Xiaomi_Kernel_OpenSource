@@ -1241,7 +1241,7 @@ static int mdp3_get_metadata(struct msm_fb_data_type *mfd,
 			mfd->panel_info->mipi.frame_rate;
 		break;
 	case metadata_op_get_caps:
-		metadata->data.caps.mdp_rev = 304;
+		metadata->data.caps.mdp_rev = 305;
 		metadata->data.caps.rgb_pipes = 0;
 		metadata->data.caps.vig_pipes = 0;
 		metadata->data.caps.dma_pipes = 1;

@@ -59,7 +59,7 @@
 #define MISR_POLL_TIMEOUT               32000
 #define MDP3_REG_CAPTURED_DSI_PCLK_MASK 1
 
-#define MDP_CORE_HW_VERSION	0x03050305
+#define MDP_CORE_HW_VERSION	0x03050306
 struct mdp3_hw_resource *mdp3_res;
 
 #define MDP_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
@@ -1798,7 +1798,7 @@ static ssize_t mdp3_show_capabilities(struct device *dev,
 		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
 
 	SPRINT("mdp_version=3\n");
-	SPRINT("hw_rev=%d\n", 304);
+	SPRINT("hw_rev=%d\n", 305);
 	SPRINT("dma_pipes=%d\n", 1);
 	SPRINT("\n");
 
