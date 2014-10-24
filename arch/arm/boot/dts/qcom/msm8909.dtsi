@@ -1521,7 +1521,7 @@
 		      <0x01950000 0x008>,
 		      <0x01951000 0x008>,
 		      <0x04020000 0x040>,
-		      <0x01810000 0x004>;
+		      <0x0183e000 0x004>;
 		reg-names = "qdsp6_base", "halt_q6", "halt_modem", "halt_nc",
 				 "rmb_base", "restart_reg";
 
