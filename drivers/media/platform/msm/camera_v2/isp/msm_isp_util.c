@@ -1546,8 +1546,8 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 		msm_isp_update_error_info(vfe_dev, error_mask0, error_mask1);
 
 	if ((irq_status0 == 0) && (irq_status1 == 0) &&
-		(!((error_mask0 != 0) || (error_mask1 != 0)) &&
-		 vfe_dev->error_info.error_count == 1)) {
+		(!(((error_mask0 != 0) || (error_mask1 != 0)) &&
+		 vfe_dev->error_info.error_count == 1))) {
 		ISP_DBG("%s: error_mask0/1 & error_count are set!\n", __func__);
 		return IRQ_HANDLED;
 	}
@@ -1609,6 +1609,7 @@ void msm_isp_do_tasklet(unsigned long data)
 				__func__);
 			continue;
 		}
+		msm_isp_process_error_info(vfe_dev);
 		irq_ops->process_camif_irq(vfe_dev,
 			irq_status0, irq_status1, &ts);
 		irq_ops->process_axi_irq(vfe_dev,
@@ -1617,7 +1618,6 @@ void msm_isp_do_tasklet(unsigned long data)
 			irq_status0, irq_status1, &ts);
 		irq_ops->process_reg_update(vfe_dev,
 			irq_status0, irq_status1, &ts);
-		msm_isp_process_error_info(vfe_dev);
 	}
 }
 
