@@ -1724,7 +1724,7 @@ fail_skb_alloc:
 fail_kmem_cache_alloc:
 	if (rx_len_cached == 0)
 		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
-				msecs_to_jiffies(10));
+				msecs_to_jiffies(1));
 }
 
 static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys)
@@ -1780,7 +1780,9 @@ static void replenish_rx_work_func(struct work_struct *work)
 	struct ipa_sys_context *sys;
 	dwork = container_of(work, struct delayed_work, work);
 	sys = container_of(dwork, struct ipa_sys_context, replenish_rx_work);
+	ipa_inc_client_enable_clks();
 	sys->repl_hdlr(sys);
+	ipa_dec_client_disable_clks();
 }
 
 /**
