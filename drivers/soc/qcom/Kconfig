@@ -468,6 +468,13 @@ config MSM_ADSP_LOADER
 	  for the platforms that use APRv2.
 	  Say M if you want to enable this module.
 
+config MSM_PERFORMANCE
+	tristate "Core control driver to support userspace hotplug requests"
+	help
+	  This driver is used to provide CPU hotplug support to userspace.
+	  It ensures that no more than a user specified number of CPUs stay
+	  online at any given point in time.
+
 endif # ARCH_QCOM
 
 config MSM_SUBSYSTEM_RESTART
