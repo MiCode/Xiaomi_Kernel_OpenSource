@@ -2588,7 +2588,7 @@ static int i915_execlists(struct seq_file *m, void *data)
 		seq_printf(m, "%s\n", ring->name);
 
 		status = I915_READ(RING_EXECLIST_STATUS(ring));
-		ctx_id = I915_READ(RING_EXECLIST_STATUS(ring) + 4);
+		ctx_id = I915_READ(RING_EXECLIST_STATUS_CTX_ID(ring));
 		seq_printf(m, "\tExeclist status: 0x%08X, context: %u\n",
 			   status, ctx_id);
 
@@ -4404,6 +4404,12 @@ i915_wedged_set(void *data, u64 val)
 					  &dev_priv->ring[VECS].hangcheck, 0,
 					  "Manual VECS reset");
 			break;
+		case VCS2:
+			DRM_INFO("Manual VCS2 reset\n");
+			i915_handle_error(dev,
+					  &dev_priv->ring[VCS2].hangcheck, 0,
+					  "Manual VCS2 reset");
+			break;
 		default:
 			DRM_INFO("Manual global reset\n");
 			i915_handle_error(dev, NULL, 0, "Manual global reset");
@@ -4480,37 +4486,10 @@ i915_ring_hangcheck_read(struct file *filp, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, max, ppos, buf, len);
 }
 
-static ssize_t
-i915_ring_hangcheck_write(struct file *filp,
-			const char __user *ubuf,
-			size_t cnt, loff_t *ppos)
-{
-	int ret;
-	int i;
-	struct drm_device *dev = filp->private_data;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-
-	ret = mutex_lock_interruptible(&dev->struct_mutex);
-	if (ret)
-		return ret;
-
-	for (i = 0; i < I915_NUM_RINGS; i++) {
-		/* Reset the hangcheck counters */
-		dev_priv->ring[i].hangcheck.total = 0;
-		dev_priv->ring[i].hangcheck.tdr_count = 0;
-		dev_priv->ring[i].hangcheck.watchdog_count = 0;
-	}
-	dev_priv->gpu_error.total_resets = 0;
-	mutex_unlock(&dev->struct_mutex);
-
-	return cnt;
-}
-
 static const struct file_operations i915_ring_hangcheck_fops = {
 	.owner = THIS_MODULE,
 	.open = simple_open,
 	.read = i915_ring_hangcheck_read,
-	.write = i915_ring_hangcheck_write,
 	.llseek = default_llseek,
 };
 

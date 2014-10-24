@@ -1592,10 +1592,11 @@ static void intel_device_info_runtime_init(struct drm_device *dev)
 	}
 }
 
-static void
+static int
 i915_hangcheck_init(struct drm_device *dev)
 {
 	int i;
+	int ret = 0;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	for (i = 0; i < I915_NUM_RINGS; i++) {
@@ -1606,12 +1607,27 @@ i915_hangcheck_init(struct drm_device *dev)
 		dev_priv->ring[i].hangcheck.last_acthd = 0;
 		dev_priv->ring[i].hangcheck.ringid = i;
 		dev_priv->ring[i].hangcheck.dev = dev;
-		atomic_set(&dev_priv->ring[i].hangcheck.active, 0);
 
-		setup_timer(&dev_priv->ring[i].hangcheck.timer,
-			i915_hangcheck_sample,
-			(unsigned long) &dev_priv->ring[i].hangcheck);
+		INIT_DELAYED_WORK(&dev_priv->ring[i].hangcheck.work,
+			i915_hangcheck_sample);
+
+		dev_priv->ring[i].hangcheck.wq = alloc_ordered_workqueue(
+			"i915_ring_%d_hangcheck_queue", 0, i);
+
+		if (dev_priv->ring[i].hangcheck.wq == NULL) {
+			DRM_ERROR("Failed to create workqueue for %s.\n",
+				dev_priv->ring[i].name);
+			goto hangcheck_init_error;
+		}
 	}
+
+	return ret;
+
+hangcheck_init_error:
+	while (--i >= 0)
+		destroy_workqueue(dev_priv->ring[i].hangcheck.wq);
+
+	return -ENOMEM;
 }
 
 static void
@@ -1620,8 +1636,8 @@ i915_hangcheck_cleanup(struct drm_i915_private *dev_priv)
 	int i;
 
 	for (i = 0; i < I915_NUM_RINGS; i++) {
-		del_timer_sync(&dev_priv->ring[i].hangcheck.timer);
-		atomic_set(&dev_priv->ring[i].hangcheck.active, 0);
+		cancel_delayed_work_sync(&dev_priv->ring[i].hangcheck.work);
+		destroy_workqueue(dev_priv->ring[i].hangcheck.wq);
 	}
 }
 
@@ -1810,7 +1826,9 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 
 	i915_gem_load(dev);
 
-	i915_hangcheck_init(dev);
+	ret = i915_hangcheck_init(dev);
+	if (ret)
+		goto out_mtrrfree;
 
 	/* On the 945G/GM, the chipset reports the MSI capability on the
 	 * integrated graphics even though the support isn't actually there

@@ -222,7 +222,7 @@ static const struct kernel_param_ops hangcheck_ops = {
 module_param_cb(hangcheck_period, &hangcheck_ops,
 		&i915.hangcheck_period, 0644);
 MODULE_PARM_DESC(hangcheck_period,
-		"The hangcheck timer period in milliseconds. "
+		"The hangcheck period in milliseconds. "
 		"The actual time to detect a hang may be 3 - 4 times "
 		"this value (default = 1000ms)");
 

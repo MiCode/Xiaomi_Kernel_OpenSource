@@ -37,6 +37,7 @@
 #include "i915_trace.h"
 #include "intel_sync.h"
 #include "intel_drv.h"
+#include "intel_lrc_tdr.h"
 
 static const u32 hpd_ibx[] = {
 	[HPD_CRT] = SDE_CRT_HOTPLUG,
@@ -2727,6 +2728,7 @@ static void i915_error_work_func(struct work_struct *work)
 	struct drm_i915_private *dev_priv =
 		container_of(error, struct drm_i915_private, gpu_error);
 	struct drm_device *dev = dev_priv->dev;
+	struct intel_engine_cs *ring;
 	char *error_event[] = { I915_ERROR_UEVENT "=1", NULL };
 	char *reset_event[] = { I915_RESET_UEVENT "=1", NULL };
 	char *reset_done_event[] = { I915_ERROR_UEVENT "=0", NULL };
@@ -2738,21 +2740,43 @@ static void i915_error_work_func(struct work_struct *work)
 	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE, error_event);
 
 	/* Check each ring for a pending reset condition */
-	for (i = 0; i < I915_NUM_RINGS; i++) {
+	for_each_ring(ring, dev_priv, i) {
 		/* Skip individual ring reset requests if full_reset requested*/
 		if (i915_reset_in_progress(error))
 			break;
 
 		if (atomic_read(&dev_priv->ring[i].hangcheck.flags)
 		    & DRM_I915_HANGCHECK_RESET) {
+			DRM_DEBUG_TDR("resetting %s\n", ring->name);
 
-			if (i915_handle_hung_ring(dev, i) != 0) {
+			ret = i915_handle_hung_ring(dev, i);
+
+			/*
+			 * -EAGAIN means that between detecting a hang (and
+			 * also determining that the currently submitted
+			 * context is stable and valid) and trying to recover
+			 * from the hang the current context changed state.
+			 * This means that we are probably not completely hung
+			 * after all. Just fail and retry by exiting all the
+			 * way back and wait for the next hang detection. If we
+			 * have a true hang on our hands then we will detect it
+			 * again, otherwise we will continue like nothing
+			 * happened.
+			 */
+			if (ret == -EAGAIN) {
+				DRM_ERROR("Reset of %s aborted due to " \
+					  "change in context submission " \
+					  "state - retrying!", ring->name);
+				ret = 0;
+			}
+
+			if (ret != 0) {
 				DRM_ERROR("ring %d reset failed", i);
 
 				/* Force global reset instead */
 				atomic_set_mask(
-				I915_RESET_IN_PROGRESS_FLAG,
-				&dev_priv->gpu_error.reset_counter);
+					I915_RESET_IN_PROGRESS_FLAG,
+					&dev_priv->gpu_error.reset_counter);
 				break;
 			}
 		}
@@ -2797,7 +2821,7 @@ static void i915_error_work_func(struct work_struct *work)
 		intel_runtime_pm_put(dev_priv);
 
 		if (ret == 0) {
-			for (i = 0; i < I915_NUM_RINGS; i++)
+			for_each_ring(ring, dev_priv, i)
 				atomic_set(&dev_priv->ring[i].hangcheck.flags,
 					   0);
 
@@ -2815,6 +2839,7 @@ static void i915_error_work_func(struct work_struct *work)
 			atomic_inc(&dev_priv->gpu_error.reset_counter);
 		} else {
 			/* Terminal wedge condition */
+			WARN(1, "i915_reset failed, declaring GPU as wedged!\n");
 			atomic_set_mask(I915_WEDGED, &error->reset_counter);
 		}
 	}
@@ -3008,6 +3033,8 @@ void i915_handle_error(struct drm_device *dev, struct intel_ring_hangcheck *hc,
 		 */
 		atomic_set_mask(I915_RESET_IN_PROGRESS_FLAG,
 			&dev_priv->gpu_error.reset_counter);
+
+		DRM_DEBUG_TDR("Full reset of GPU requested\n");
 	}
 
 	/*
@@ -3320,13 +3347,19 @@ static bool i915_hangcheck_hung(struct intel_ring_hangcheck *hc)
 	 * ring which has actually hung. Give the other ring chance to
 	 * reset and clear the hang.
 	 */
-	mbox_wait = ((I915_READ(RING_CTL(ring->mmio_base)) >> 10) & 0x1);
-	threshold = mbox_wait ? DRM_I915_MBOX_HANGCHECK_THRESHOLD :
-				DRM_I915_HANGCHECK_THRESHOLD;
+	mbox_wait = I915_READ_CTL(ring);
+
+	threshold = (mbox_wait & RING_WAIT_SEMAPHORE) ?
+		DRM_I915_MBOX_HANGCHECK_THRESHOLD :
+		DRM_I915_HANGCHECK_THRESHOLD;
+
 	DRM_DEBUG_TDR("mbox_wait = %u threshold = %u", mbox_wait, threshold);
 
 	if (hc->count++ > threshold) {
 		bool hung = true;
+
+		DRM_DEBUG_TDR("Hang check period expired... %s hung\n",
+				ring->name);
 
 		/* Reset the counter */
 		hc->count = 0;
@@ -3356,11 +3389,11 @@ static bool i915_hangcheck_hung(struct intel_ring_hangcheck *hc)
 }
 
 /*
- * This is called from the hangcheck timer for each ring.
+ * This is called from the hangcheck work queue for each ring.
  * It samples the current state of the hardware to make
  * sure that it is progressing.
  */
-void i915_hangcheck_sample(unsigned long data)
+void i915_hangcheck_sample(struct work_struct *work)
 {
 	bool idle;
 	int empty;
@@ -3373,23 +3406,18 @@ void i915_hangcheck_sample(unsigned long data)
 	struct drm_device *dev;
 	struct drm_i915_private *dev_priv;
 	struct intel_engine_cs *ring;
-	struct intel_ring_hangcheck *hc = (struct intel_ring_hangcheck *)data;
+	struct intel_ring_hangcheck *hc =
+		container_of(work, typeof(*hc), work.work);
 
 	if (!i915.enable_hangcheck || !hc)
 		return;
 
 	dev = hc->dev;
 	dev_priv = dev->dev_private;
-
-	/* Clear the active flag *before* assessing the ring state
-	* in case new work is added just after we sample the rings.
-	* This will allow new work to re-trigger the timer even
-	* though we may see the rings as idle on this occasion.*/
-	atomic_set(&hc->active, 0);
-
 	ring = &dev_priv->ring[hc->ringid];
 
 	/* Sample the current state */
+
 	head = I915_READ_HEAD(ring) & HEAD_ADDR;
 	tail = I915_READ_TAIL(ring) & TAIL_ADDR;
 	acthd = intel_ring_get_active_head(ring);
@@ -3416,11 +3444,15 @@ void i915_hangcheck_sample(unsigned long data)
 
 	idle = ((head == tail) && (pending_work == 0));
 
-	DRM_DEBUG_TDR("[%d] HD: 0x%08x 0x%08x, ACTHD: 0x%08x 0x%08x IC: %d\n",
-		ring->id, head, hc->last_hd, acthd, hc->last_acthd,
-		instdone_cmp);
-	DRM_DEBUG_TDR("E:%d PW:%d TL:0x%08x Csq:0x%08x Lsq:0x%08x Idle: %d\n",
-		empty, pending_work, tail, cur_seqno, last_seqno, idle);
+	DRM_DEBUG_TDR("[%u] HD: 0x%08x 0x%08x, ACTHD: 0x%08x 0x%08x IC: %d\n",
+		      ring->id, (unsigned int) head, (unsigned int) hc->last_hd,
+		      (unsigned int) acthd, (unsigned int) hc->last_acthd,
+		      instdone_cmp);
+	DRM_DEBUG_TDR("[%u] E:%d PW:%d TL:0x%08x Csq:0x%08x (%ld) Lsq:0x%08x " \
+		      "(%ld) Idle: %s\n", ring->id, empty, pending_work,
+		      (unsigned int) tail, (unsigned int) cur_seqno,
+		      (long int) cur_seqno, (unsigned int) last_seqno,
+		      (long int) last_seqno, (idle ? "true" : "false"));
 
 	/* Check both head and active head.
 	* Neither is enough on its own - acthd can be pointing within the
@@ -3476,26 +3508,82 @@ void i915_hangcheck_sample(unsigned long data)
 	hc->last_acthd = acthd;
 	memcpy(hc->prev_instdone, instdone, sizeof(instdone));
 
-	if (resched_timer)
-		i915_queue_hangcheck(dev, hc->ringid);
+	if (resched_timer) {
+		/*
+		 * Work is still pending! Reschedule hang check to come back
+		 * later and do another round of hang checking.
+		 */
+		mod_delayed_work(dev_priv->ring[hc->ringid].hangcheck.wq,
+				&dev_priv->ring[hc->ringid].hangcheck.work,
+				round_jiffies_up_relative(DRM_I915_HANGCHECK_JIFFIES));
+	}
 }
 
-void i915_queue_hangcheck(struct drm_device *dev, u32 ringid)
+void i915_queue_hangcheck(struct drm_device *dev, u32 ringid,
+		unsigned long retire_work_timestamp)
 {
-	int resched = 0;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_engine_cs *ring = &dev_priv->ring[ringid];
+	uint32_t seqno;
 
-	if (!i915.enable_hangcheck)
+	if (!ring) {
+		WARN(1, "Ring is null! Could not queue hang check for %s!", \
+			ring->name);
 		return;
+	}
 
-	/* Only re-schedule the timer if it is not currently active */
-	if (atomic_add_unless(&dev_priv->ring[ringid].hangcheck.active,
-			      1, 1) != 0)
-		resched = 1;
+	if (!ring->get_seqno) {
+		WARN(1, "get_seqno function not set up! " \
+			"Could not queue hang check for %s!", ring->name);
+		return;
+	}
 
-	if (resched)
-		mod_timer(&dev_priv->ring[ringid].hangcheck.timer,
-			  jiffies + DRM_I915_HANGCHECK_JIFFIES);
+	seqno = ring->get_seqno(ring, false);
+
+	if (!i915.enable_hangcheck) {
+		dev_priv->ring[ringid].hangcheck.last_seqno = seqno;
+		return;
+	}
+
+	if (dev_priv->ring[ringid].hangcheck.last_seqno == seqno) {
+		/*
+		 * The seqno on this ring has not progressed since
+		 * we last checked! Schedule a more detailed hang check.
+		 *
+		 * We are piggy-backing the hang check on top of the retire
+		 * work timer so the amount of time we need to wait between
+		 * expired retire work timer and the actual hangcheck is:
+		 *
+		 *	 wait_time = hangcheck_period - retire_work_period
+		 *
+		 * retire_work_period is the time difference between now
+		 * and when the retire_work_timer was scheduled.
+		 * If we have already waited the hangcheck period or more
+		 * then simply schedule the hang check immediately.
+		 *
+		 * If a hang check was already rescheduled by a previous
+		 * hang check (because there are still pending work that
+		 * needs to be checked) and is now pending, this schedule
+		 * call will not affect anything and the pending hang check
+		 * will be carried out without being postponed.
+		 */
+		unsigned long jiffies_now = jiffies;
+		long timediff = jiffies_now - retire_work_timestamp;
+		unsigned long time = 0;
+		const unsigned long zero = 0L;
+
+		WARN(time_after(retire_work_timestamp, jiffies_now),
+				"Timestamp of scheduled retire work handler " \
+				"happened in the future? (%lu > %lu)",
+				retire_work_timestamp, jiffies_now);
+
+		time = max(zero, (DRM_I915_HANGCHECK_JIFFIES - timediff));
+
+		queue_delayed_work(dev_priv->ring[ringid].hangcheck.wq,
+				&dev_priv->ring[ringid].hangcheck.work, time);
+	}
+
+	dev_priv->ring[ringid].hangcheck.last_seqno = seqno;
 }
 
 static void ibx_irq_reset(struct drm_device *dev)

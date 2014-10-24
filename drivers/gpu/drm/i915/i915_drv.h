@@ -1213,6 +1213,15 @@ struct i915_gem_mm {
 	struct delayed_work retire_work;
 
 	/**
+	 * The hang check is piggy-backed on the retire work
+	 * timer. In order to couple the hang check period to
+	 * the retire timer period we need to keep track of when
+	 * the retire work timer was scheduled so that we can
+	 * derive the hang check period from that timestamp.
+	 */
+	unsigned long retire_work_timestamp;
+
+	/**
 	 * When we detect an idle GPU, we want to turn on
 	 * powersaving features. So once we see that there
 	 * are no more requests outstanding and no more
@@ -1266,7 +1275,7 @@ struct i915_error_state_file_priv {
 };
 
 struct i915_gpu_error {
-	/* For hangcheck timer */
+	/* Limits for hangcheck period */
 #define DRM_I915_MIN_HANGCHECK_PERIOD 100 /* 100ms */
 #define DRM_I915_MAX_HANGCHECK_PERIOD 30000 /* 30s */
 #define DRM_I915_HANGCHECK_JIFFIES msecs_to_jiffies(i915.hangcheck_period)
@@ -2131,6 +2140,39 @@ struct drm_i915_cmd_table {
 	int count;
 };
 
+/*
+ * Context submission status
+ *
+ * CONTEXT_SUBMISSION_STATUS_OK:
+ *	Context submitted to ELSP and state of execlist queue
+ *	is the same as the state of EXECLIST_STATUS. Software
+ *	and hardware states are stable and in sync.
+ *
+ * CONTEXT_SUBMISSION_STATUS_SUBMITTED:
+ *	Context submitted to execlist queue but the
+ *	EXECLIST_STATUS state is different from the state of
+ *	the queue. This means that the context has not been
+ *	submitted to ELSP yet or that the hardware just finished
+ *	but the request is pending removal from the execlist
+ *	queue. State not stable and is currently in transition
+ *	and cannot be trusted.
+ *
+ * CONTEXT_SUBMISSION_STATUS_NONE_SUBMITTED:
+ *	No context submitted to the execlist queue and the
+ *	EXECLIST_STATUS register shows no context being processed.
+ *
+ * CONTEXT_SUBMISSION_STATUS_NONE_UNDEFINED:
+ *	Initial state before submission status has been determined.
+ *
+ */
+enum context_submission_status {
+	CONTEXT_SUBMISSION_STATUS_OK = 0,
+	CONTEXT_SUBMISSION_STATUS_SUBMITTED,
+	CONTEXT_SUBMISSION_STATUS_NONE_SUBMITTED,
+	CONTEXT_SUBMISSION_STATUS_UNDEFINED
+};
+
+
 #define INTEL_INFO(dev)	(&to_i915(dev)->info)
 
 #define IS_I830(dev)		((dev)->pdev->device == 0x3577)
@@ -2357,12 +2399,13 @@ int vlv_force_gfx_clock(struct drm_i915_private *dev_priv, bool on);
 extern void intel_console_resume(struct work_struct *work);
 
 /* i915_irq.c */
-void i915_queue_hangcheck(struct drm_device *dev, u32 ringid);
+void i915_queue_hangcheck(struct drm_device *dev, u32 ringid,
+		unsigned long retire_work_timestamp);
+
 __printf(4, 5)
 void i915_handle_error(struct drm_device *dev, struct intel_ring_hangcheck *hc,
 		       bool watchdog, const char *fmt, ...);
-void i915_hangcheck_sample(unsigned long data);
-
+void i915_hangcheck_sample(struct work_struct *work);
 void gen6_set_pm_mask(struct drm_i915_private *dev_priv, u32 pm_iir,
 							int new_delay);
 extern void intel_irq_init(struct drm_device *dev);
@@ -2747,6 +2790,10 @@ int i915_gem_context_create_ioctl(struct drm_device *dev, void *data,
 int i915_gem_context_destroy_ioctl(struct drm_device *dev, void *data,
 				   struct drm_file *file);
 
+enum context_submission_status
+i915_gem_context_get_current_context(struct intel_engine_cs *ring,
+				   struct intel_context **current_context);
+
 /* i915_gem_evict.c */
 int __must_check i915_gem_evict_something(struct drm_device *dev,
 					  struct i915_address_space *vm,
@@ -3007,6 +3054,15 @@ void assert_force_wake_inactive(struct drm_i915_private *dev_priv);
 
 int sandybridge_pcode_read(struct drm_i915_private *dev_priv, u8 mbox, u32 *val);
 int sandybridge_pcode_write(struct drm_i915_private *dev_priv, u8 mbox, u32 val);
+
+/*
+ * On gen8 it is sometimes needed to prevent GT from powering down during
+ * register access sequences. Sometimes the users also need to hold spinlocks
+ * during these sequences, which means that the gen6 implementations of these
+ * functions cannot be used since they call potentially sleeping functions.
+ */
+void gen8_gt_force_wake_get(struct drm_i915_private *dev_priv);
+void gen8_gt_force_wake_put(struct drm_i915_private *dev_priv);
 
 /* intel_sideband.c */
 u32 vlv_punit_read(struct drm_i915_private *dev_priv, u8 addr);
