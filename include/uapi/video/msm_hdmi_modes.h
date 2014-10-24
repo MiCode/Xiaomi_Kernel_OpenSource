@@ -188,83 +188,83 @@ struct msm_hdmi_mode_timing_info {
 	 480, 9, 6, 30, true, 27027, 60000, false, true, HDMI_RES_AR_4_3}
 #define HDMI_VFRMT_720x480p60_16_9_TIMING				\
 	{HDMI_VFRMT_720x480p60_16_9, 720, 16, 62, 60, true,		\
-	 480, 9, 6, 30, true, 27027, 60000, false, HDMI_RES_AR_16_9}
+	 480, 9, 6, 30, true, 27027, 60000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1280x720p60_16_9_TIMING				\
 	{HDMI_VFRMT_1280x720p60_16_9, 1280, 110, 40, 220, false,	\
-	 720, 5, 5, 20, false, 74250, 60000, false, HDMI_RES_AR_16_9}
+	 720, 5, 5, 20, false, 74250, 60000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1920x1080i60_16_9_TIMING				\
 	{HDMI_VFRMT_1920x1080i60_16_9, 1920, 88, 44, 148, false,	\
-	 540, 2, 5, 5, false, 74250, 60000, false, HDMI_RES_AR_16_9}
+	 540, 2, 5, 5, false, 74250, 60000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1440x480i60_4_3_TIMING				\
 	{HDMI_VFRMT_1440x480i60_4_3, 1440, 38, 124, 114, true,		\
 	 240, 4, 3, 15, true, 27000, 60000, true, true, HDMI_RES_AR_4_3}
 #define HDMI_VFRMT_1440x480i60_16_9_TIMING				\
 	{HDMI_VFRMT_1440x480i60_16_9, 1440, 38, 124, 114, true,		\
-	 240, 4, 3, 15, true, 27000, 60000, true, HDMI_RES_AR_16_9}
+	 240, 4, 3, 15, true, 27000, 60000, true, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1920x1080p60_16_9_TIMING				\
 	{HDMI_VFRMT_1920x1080p60_16_9, 1920, 88, 44, 148, false,	\
-	 1080, 4, 5, 36, false, 148500, 60000, false, HDMI_RES_AR_16_9}
+	 1080, 4, 5, 36, false, 148500, 60000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_720x576p50_4_3_TIMING				\
 	{HDMI_VFRMT_720x576p50_4_3, 720, 12, 64, 68, true,		\
 	 576,  5, 5, 39, true, 27000, 50000, false, true, HDMI_RES_AR_4_3}
 #define HDMI_VFRMT_720x576p50_16_9_TIMING				\
 	{HDMI_VFRMT_720x576p50_16_9, 720, 12, 64, 68, true,		\
-	 576,  5, 5, 39, true, 27000, 50000, false, HDMI_RES_AR_16_9}
+	 576,  5, 5, 39, true, 27000, 50000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1280x720p50_16_9_TIMING				\
 	{HDMI_VFRMT_1280x720p50_16_9, 1280, 440, 40, 220, false,	\
-	 720,  5, 5, 20, false, 74250, 50000, false, HDMI_RES_AR_16_9}
+	 720,  5, 5, 20, false, 74250, 50000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1440x576i50_4_3_TIMING				\
 	{HDMI_VFRMT_1440x576i50_4_3, 1440, 24, 126, 138, true,		\
 	 288,  2, 3, 19, true, 27000, 50000, true, true, HDMI_RES_AR_4_3}
 #define HDMI_VFRMT_1440x576i50_16_9_TIMING				\
 	{HDMI_VFRMT_1440x576i50_16_9, 1440, 24, 126, 138, true,		\
-	 288,  2, 3, 19, true, 27000, 50000, true, HDMI_RES_AR_16_9}
+	 288,  2, 3, 19, true, 27000, 50000, true, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1920x1080p50_16_9_TIMING				\
 	{HDMI_VFRMT_1920x1080p50_16_9, 1920, 528, 44, 148, false,	\
-	 1080, 4, 5, 36, false, 148500, 50000, false, HDMI_RES_AR_16_9}
+	 1080, 4, 5, 36, false, 148500, 50000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1920x1080p24_16_9_TIMING				\
 	{HDMI_VFRMT_1920x1080p24_16_9, 1920, 638, 44, 148, false,	\
-	 1080, 4, 5, 36, false, 74250, 24000, false, HDMI_RES_AR_16_9}
+	 1080, 4, 5, 36, false, 74250, 24000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1920x1080p25_16_9_TIMING				\
 	{HDMI_VFRMT_1920x1080p25_16_9, 1920, 528, 44, 148, false,	\
-	 1080, 4, 5, 36, false, 74250, 25000, false, HDMI_RES_AR_16_9}
+	 1080, 4, 5, 36, false, 74250, 25000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1920x1080p30_16_9_TIMING				\
 	{HDMI_VFRMT_1920x1080p30_16_9, 1920, 88, 44, 148, false,	\
-	 1080, 4, 5, 36, false, 74250, 30000, false, HDMI_RES_AR_16_9}
+	 1080, 4, 5, 36, false, 74250, 30000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1024x768p60_4_3_TIMING                               \
 	{HDMI_VFRMT_1024x768p60_4_3, 1024, 24, 136, 160, false,         \
 	768, 2, 6, 29, false, 65000, 60000, false, true, HDMI_RES_AR_4_3}
 #define HDMI_VFRMT_1280x1024p60_5_4_TIMING				\
 	{HDMI_VFRMT_1280x1024p60_5_4, 1280, 48, 112, 248, false,	\
-	1024, 1, 3, 38, false, 108000, 60000, false, HDMI_RES_AR_5_4}
+	1024, 1, 3, 38, false, 108000, 60000, false, true, HDMI_RES_AR_5_4}
 #define HDMI_VFRMT_2560x1600p60_16_9_TIMING				\
 	{HDMI_VFRMT_2560x1600p60_16_9, 2560, 48, 32, 80, false,		\
-	 1600, 3, 6, 37, false, 268500, 60000, false, HDMI_RES_AR_16_9}
+	 1600, 3, 6, 37, false, 268500, 60000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_3840x2160p30_16_9_TIMING				\
 	{HDMI_VFRMT_3840x2160p30_16_9, 3840, 176, 88, 296, false,	\
-	 2160, 8, 10, 72, false, 297000, 30000, false, HDMI_RES_AR_16_9}
+	 2160, 8, 10, 72, false, 297000, 30000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_3840x2160p25_16_9_TIMING				\
 	{HDMI_VFRMT_3840x2160p25_16_9, 3840, 1056, 88, 296, false,	\
-	 2160, 8, 10, 72, false, 297000, 25000, false, HDMI_RES_AR_16_9}
+	 2160, 8, 10, 72, false, 297000, 25000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_3840x2160p24_16_9_TIMING				\
 	{HDMI_VFRMT_3840x2160p24_16_9, 3840, 1276, 88, 296, false,	\
-	 2160, 8, 10, 72, false, 297000, 24000, false, HDMI_RES_AR_16_9}
+	 2160, 8, 10, 72, false, 297000, 24000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_4096x2160p24_16_9_TIMING				\
 	{HDMI_VFRMT_4096x2160p24_16_9, 4096, 1020, 88, 296, false,	\
-	 2160, 8, 10, 72, false, 297000, 24000, false, HDMI_RES_AR_16_9}
+	 2160, 8, 10, 72, false, 297000, 24000, false, true, HDMI_RES_AR_16_9}
 
 #define HDMI_VFRMT_800x600p60_4_3_TIMING				\
 	{HDMI_VFRMT_800x600p60_4_3, 800, 40, 128, 88, false,	\
 	 600, 1, 4, 23, false, 40000, 60000, false, true, HDMI_RES_AR_4_3}
 #define HDMI_VFRMT_848x480p60_16_9_TIMING				\
 	{HDMI_VFRMT_848x480p60_16_9, 848, 16, 112, 112, false,	\
-	 480, 6, 8, 23, false, 33750, 60000, false, HDMI_RES_AR_16_9}
+	 480, 6, 8, 23, false, 33750, 60000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1280x960p60_4_3_TIMING\
 	{HDMI_VFRMT_1280x960p60_4_3, 1280, 96, 112, 312, false,	\
 	 960, 1, 3, 36, false, 108000, 60000, false, true, HDMI_RES_AR_4_3}
 #define HDMI_VFRMT_1360x768p60_16_9_TIMING\
 	{HDMI_VFRMT_1360x768p60_16_9, 1360, 64, 112, 256, false,	\
-	 768, 3, 6, 18, false, 85500, 60000, false, HDMI_RES_AR_16_9}
+	 768, 3, 6, 18, false, 85500, 60000, false, true, HDMI_RES_AR_16_9}
 #define HDMI_VFRMT_1440x900p60_16_10_TIMING\
 	{HDMI_VFRMT_1440x900p60_16_10, 1440, 48, 32, 80, false,	\
 	 900, 3, 6, 17, true, 88750, 60000, false, true, HDMI_RES_AR_16_10}
