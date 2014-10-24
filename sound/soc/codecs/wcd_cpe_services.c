@@ -47,6 +47,20 @@
 #define TOMTOM_A_SVASS_SPE_OUTBOX(N)	(TOMTOM_A_SVASS_SPE_OUTBOX_0 + (N))
 #define CHUNK_SIZE 16
 
+#define CPE_SVC_GRAB_LOCK(lock, name)		\
+{						\
+	pr_debug("%s: %s lock acquire\n",	\
+		 __func__, name);		\
+	mutex_lock(lock);			\
+}
+
+#define CPE_SVC_REL_LOCK(lock, name)		\
+{						\
+	pr_debug("%s: %s lock release\n",	\
+		 __func__, name);		\
+	mutex_unlock(lock);			\
+}
+
 static const struct cpe_svc_hw_cfg cpe_svc_tomtom_info = {
 	TOMTOM_A_SVASS_SPE_DRAM_SIZE,
 	TOMTOM_A_SVASS_SPE_DRAM_OFFSET,
@@ -628,7 +642,7 @@ static void cpe_process_irq_int(u32 irq,
 		return;
 	}
 
-	mutex_lock(&cpe_api_mutex);
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	switch (irq) {
 	case CPE_IRQ_OUTBOX_IRQ:
 		size = t_info->tgt->tgt_get_cpe_info()->outbox_size;
@@ -644,9 +658,9 @@ static void cpe_process_irq_int(u32 irq,
 	case CPE_IRQ_WDOG_BITE:
 	case CPE_IRQ_RCO_WDOG_INT:
 		err_irq = true;
-		mutex_unlock(&cpe_api_mutex);
+		CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 		cpe_svc_shutdown(t_info);
-		mutex_lock(&cpe_api_mutex);
+		CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 		break;
 
 	case CPE_IRQ_FLL_LOCK_LOST:
@@ -658,7 +672,7 @@ static void cpe_process_irq_int(u32 irq,
 	if (err_irq) {
 		pr_err("%s: CPE error IRQ %u occured\n",
 			__func__, irq);
-		mutex_unlock(&cpe_api_mutex);
+		CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 		return;
 	}
 
@@ -725,7 +739,7 @@ static void cpe_process_irq_int(u32 irq,
 		break;
 	}
 
-	mutex_unlock(&cpe_api_mutex);
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 }
 
 
@@ -1118,12 +1132,16 @@ void *cpe_svc_register(void *cpe_handle,
 			(const struct cpe_svc_notification *parameter),
 		u32 mask, const char *name)
 {
+	void *reg_handle;
+
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	if (!cpe_default_handle) {
 		cpe_default_handle = kzalloc(sizeof(struct cpe_info),
 					     GFP_KERNEL);
 		if (!cpe_default_handle) {
 			pr_err("%s: no_mem for cpe handle, sz = %zu\n",
 				__func__, sizeof(struct cpe_info));
+			CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 			return NULL;
 		}
 
@@ -1134,19 +1152,28 @@ void *cpe_svc_register(void *cpe_handle,
 	if (!cpe_handle)
 		cpe_handle = cpe_default_handle;
 
-	return cpe_register_generic((struct cpe_info *)cpe_handle,
-		notification_callback,
-		NULL,
-		mask, CPE_NO_SERVICE, name);
+	reg_handle = cpe_register_generic((struct cpe_info *)cpe_handle,
+					   notification_callback,
+					   NULL,
+					   mask, CPE_NO_SERVICE, name);
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
+
+	return reg_handle;
 }
 
 enum cpe_svc_result cpe_svc_deregister(void *cpe_handle, void *reg_handle)
 {
+	enum cpe_svc_result rc;
+
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	if (!cpe_handle)
 		cpe_handle = cpe_default_handle;
 
-	return cpe_deregister_generic((struct cpe_info *)cpe_handle,
-		reg_handle);
+	rc = cpe_deregister_generic((struct cpe_info *)cpe_handle,
+				    reg_handle);
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
+
+	return rc;
 }
 
 enum cpe_svc_result cpe_svc_download_segment(void *cpe_handle,
@@ -1155,6 +1182,7 @@ enum cpe_svc_result cpe_svc_download_segment(void *cpe_handle,
 	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
 	struct cpe_info *t_info = (struct cpe_info *)cpe_handle;
 
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	if (!t_info)
 		t_info = cpe_default_handle;
 
@@ -1163,16 +1191,16 @@ enum cpe_svc_result cpe_svc_download_segment(void *cpe_handle,
 	if (rc != CPE_SVC_SUCCESS) {
 		pr_err("%s: cmd validation fail, cmd = %d\n",
 			__func__, CPE_CMD_DL_SEGMENT);
+		CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 		return rc;
 	}
 
-	mutex_lock(&cpe_api_mutex);
 	cpe_toggle_irq_notification(t_info, false);
 	t_info->state = CPE_STATE_DOWNLOADING;
 	t_info->substate = CPE_SS_DL_DOWNLOADING;
 	rc = t_info->tgt->tgt_write_ram(t_info, segment);
 	cpe_toggle_irq_notification(t_info, true);
-	mutex_unlock(&cpe_api_mutex);
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 
 	return rc;
 }
@@ -1182,6 +1210,7 @@ enum cpe_svc_result cpe_svc_boot(void *cpe_handle, int debug_mode)
 	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
 	struct cpe_info *t_info = (struct cpe_info *)cpe_handle;
 
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	if (!t_info)
 		t_info = cpe_default_handle;
 
@@ -1190,10 +1219,9 @@ enum cpe_svc_result cpe_svc_boot(void *cpe_handle, int debug_mode)
 	if (rc != CPE_SVC_SUCCESS) {
 		pr_err("%s: cmd validation fail, cmd = %d\n",
 			__func__, CPE_CMD_BOOT);
+		CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 		return rc;
 	}
-
-	mutex_lock(&cpe_api_mutex);
 
 	if (rc == CPE_SVC_SUCCESS) {
 		t_info->tgt->tgt_boot(debug_mode);
@@ -1203,7 +1231,7 @@ enum cpe_svc_result cpe_svc_boot(void *cpe_handle, int debug_mode)
 			 __func__);
 	}
 
-	mutex_unlock(&cpe_api_mutex);
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 	return rc;
 }
 
@@ -1226,14 +1254,17 @@ enum cpe_svc_result cpe_svc_route_notification(void *cpe_handle,
 		enum cpe_svc_module module, enum cpe_svc_route_dest dest)
 {
 	struct cpe_info *t_info = (struct cpe_info *)cpe_handle;
+	enum cpe_svc_result rc = CPE_SVC_NOT_READY;
 
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	if (!t_info)
 		t_info = cpe_default_handle;
 
 	if (t_info->tgt)
-		return t_info->tgt->tgt_route_notification(module, dest);
+		rc = t_info->tgt->tgt_route_notification(module, dest);
 
-	return CPE_SVC_NOT_READY;
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
+	return rc;
 }
 
 enum cpe_svc_result cpe_svc_shutdown(void *cpe_handle)
@@ -1242,6 +1273,7 @@ enum cpe_svc_result cpe_svc_shutdown(void *cpe_handle)
 	struct cpe_info *t_info = (struct cpe_info *)cpe_handle;
 	struct cpe_command_node *n = NULL;
 
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	if (!t_info)
 		t_info = cpe_default_handle;
 
@@ -1250,10 +1282,9 @@ enum cpe_svc_result cpe_svc_shutdown(void *cpe_handle)
 	if (rc != CPE_SVC_SUCCESS) {
 		pr_err("%s: cmd validation fail, cmd = %d\n",
 			__func__, CPE_CMD_SHUTDOWN);
+		CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 		return rc;
 	}
-
-	mutex_lock(&cpe_api_mutex);
 
 	while (!list_empty(&t_info->main_queue)) {
 		n = list_first_entry(&t_info->main_queue,
@@ -1274,7 +1305,7 @@ enum cpe_svc_result cpe_svc_shutdown(void *cpe_handle)
 	t_info->substate = CPE_SS_IDLE;
 
 	rc = cpe_send_cmd_to_thread(t_info, CPE_CMD_KILL_THREAD, NULL);
-	mutex_unlock(&cpe_api_mutex);
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 
 	return rc;
 }
@@ -1284,6 +1315,7 @@ enum cpe_svc_result cpe_svc_reset(void *cpe_handle)
 	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
 	struct cpe_info *t_info = (struct cpe_info *)cpe_handle;
 
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	if (!t_info)
 		t_info = cpe_default_handle;
 
@@ -1292,18 +1324,18 @@ enum cpe_svc_result cpe_svc_reset(void *cpe_handle)
 	if (rc != CPE_SVC_SUCCESS) {
 		pr_err("%s: cmd validation fail, cmd = %d\n",
 			__func__, CPE_CMD_RESET);
+		CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 		return rc;
 	}
 
 	if (t_info && t_info->tgt) {
-		mutex_lock(&cpe_api_mutex);
 		rc = t_info->tgt->tgt_reset();
 		pr_debug("%s: cpe services in INITIALIZED state\n",
 			 __func__);
 		t_info->state = CPE_STATE_INITIALIZED;
 		t_info->substate = CPE_SS_IDLE;
-		mutex_unlock(&cpe_api_mutex);
 	}
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 
 	return rc;
 }
@@ -1314,6 +1346,7 @@ enum cpe_svc_result cpe_svc_ramdump(void *cpe_handle,
 	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
 	struct cpe_info *t_info = (struct cpe_info *)cpe_handle;
 
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	if (!t_info)
 		t_info = cpe_default_handle;
 
@@ -1321,6 +1354,7 @@ enum cpe_svc_result cpe_svc_ramdump(void *cpe_handle,
 	if (rc != CPE_SVC_SUCCESS) {
 		pr_err("%s: cmd validation fail, cmd = %d\n",
 			__func__, CPE_CMD_RAMDUMP);
+		CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 		return rc;
 	}
 
@@ -1328,8 +1362,9 @@ enum cpe_svc_result cpe_svc_ramdump(void *cpe_handle,
 		rc = t_info->tgt->tgt_read_ram(t_info, buffer);
 	} else {
 		pr_err("%s: cpe service not ready\n", __func__);
-		return CPE_SVC_NOT_READY;
+		rc = CPE_SVC_NOT_READY;
 	}
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 
 	return rc;
 }
@@ -1337,15 +1372,17 @@ enum cpe_svc_result cpe_svc_ramdump(void *cpe_handle,
 enum cpe_svc_result cpe_svc_set_debug_mode(void *cpe_handle, u32 mode)
 {
 	struct cpe_info *t_info = (struct cpe_info *)cpe_handle;
+	enum cpe_svc_result rc = CPE_SVC_INVALID_HANDLE;
 
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	if (!t_info)
 		t_info = cpe_default_handle;
 
 	if (t_info->tgt)
-		return t_info->tgt->tgt_set_debug_mode(mode);
+		rc = t_info->tgt->tgt_set_debug_mode(mode);
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 
-	else
-		return CPE_SVC_INVALID_HANDLE;
+	return rc;
 }
 
 const struct cpe_svc_hw_cfg *cpe_svc_get_hw_cfg(void *cpe_handle)
@@ -1357,8 +1394,8 @@ const struct cpe_svc_hw_cfg *cpe_svc_get_hw_cfg(void *cpe_handle)
 
 	if (t_info->tgt)
 		return t_info->tgt->tgt_get_cpe_info();
-	else
-		return NULL;
+
+	return NULL;
 }
 
 void *cmi_register(
@@ -1366,12 +1403,19 @@ void *cmi_register(
 			const struct cmi_api_notification *parameter),
 		u32 service)
 {
-	return cpe_register_generic(cpe_default_handle,
-		NULL,
-		notification_callback,
-		CPE_SVC_CMI_MSG | CPE_SVC_OFFLINE | CPE_SVC_ONLINE,
-		service,
-		"CMI_CLIENT");
+	void *reg_handle = NULL;
+
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
+	reg_handle = cpe_register_generic(cpe_default_handle,
+			NULL,
+			notification_callback,
+			(CPE_SVC_CMI_MSG | CPE_SVC_OFFLINE |
+			 CPE_SVC_ONLINE),
+			service,
+			"CMI_CLIENT");
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
+
+	return reg_handle;
 }
 
 enum cmi_api_result cmi_deregister(void *reg_handle)
@@ -1381,6 +1425,7 @@ enum cmi_api_result cmi_deregister(void *reg_handle)
 	enum cmi_api_result rc = CMI_API_SUCCESS;
 	struct cpe_svc_notification payload;
 
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	rc = (enum cmi_api_result) cpe_deregister_generic(
 		cpe_default_handle, reg_handle);
 
@@ -1396,6 +1441,7 @@ enum cmi_api_result cmi_deregister(void *reg_handle)
 		cpe_broadcast_notification(cpe_default_handle, &payload);
 	}
 
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 	return rc;
 }
 
@@ -1405,12 +1451,14 @@ enum cmi_api_result cmi_send_msg(void *message)
 	struct cpe_send_msg *msg = NULL;
 	struct cmi_hdr *hdr;
 
+	CPE_SVC_GRAB_LOCK(&cpe_api_mutex, "cpe_api");
 	hdr = CMI_GET_HEADER(message);
 	msg = kzalloc(sizeof(struct cpe_send_msg),
 		      GFP_ATOMIC);
 	if (!msg) {
 		pr_err("%s: no memory for cmi msg, sz = %zu\n",
 			__func__, sizeof(struct cpe_send_msg));
+		CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 		return CPE_SVC_NO_MEMORY;
 	}
 
@@ -1427,6 +1475,7 @@ enum cmi_api_result cmi_send_msg(void *message)
 		pr_err("%s: no memory for cmi payload, sz = %zd\n",
 			__func__, msg->size);
 		kfree(msg);
+		CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 		return CPE_SVC_NO_MEMORY;
 	}
 
@@ -1442,6 +1491,7 @@ enum cmi_api_result cmi_send_msg(void *message)
 		kfree(msg);
 	}
 
+	CPE_SVC_REL_LOCK(&cpe_api_mutex, "cpe_api");
 	return rc;
 }
 
