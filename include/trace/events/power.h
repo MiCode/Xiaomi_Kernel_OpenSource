@@ -272,6 +272,36 @@ DEFINE_EVENT(power_domain, power_domain_target,
 
 	TP_ARGS(name, state, cpu_id)
 );
+
+DECLARE_EVENT_CLASS(kpm_module,
+
+	TP_PROTO(unsigned int managed_cpus, unsigned int max_cpus),
+
+	TP_ARGS(managed_cpus, max_cpus),
+
+	TP_STRUCT__entry(
+		__field(u32, managed_cpus)
+		__field(u32, max_cpus)
+	),
+
+	TP_fast_assign(
+		__entry->managed_cpus = managed_cpus;
+		__entry->max_cpus = max_cpus;
+	),
+
+	TP_printk("managed:%x max_cpus=%u", (unsigned int)__entry->managed_cpus,
+					(unsigned int)__entry->max_cpus)
+);
+
+DEFINE_EVENT(kpm_module, set_max_cpus,
+	TP_PROTO(unsigned int managed_cpus, unsigned int max_cpus),
+	TP_ARGS(managed_cpus, max_cpus)
+);
+
+DEFINE_EVENT(kpm_module, reevaluate_hotplug,
+	TP_PROTO(unsigned int managed_cpus, unsigned int max_cpus),
+	TP_ARGS(managed_cpus, max_cpus)
+);
 #endif /* _TRACE_POWER_H */
 
 /* This part must be outside protection */
