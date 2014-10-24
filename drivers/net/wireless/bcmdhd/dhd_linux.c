@@ -4699,12 +4699,9 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 
 	/* Update firmware and nvram path. The path may be from adapter info or module parameter
 	 * The path from adapter info is used for initialization only (as it won't change).
-	 *
-	 * The firmware_path/nvram_path module parameter may be changed by the system at run
-	 * time. When it changes we need to copy it to dhdinfo->fw_path. Also Android private
-	 * command may change dhdinfo->fw_path. As such we need to clear the path info in
-	 * module parameter after it is copied. We won't update the path until the module parameter
-	 * is changed again (first character is not '\0')
+	 * ability to change the fw path from the private cmds is disabled in
+	 * order to keep module parameter available when
+	 * ENABLE_INSMOD_NO_FW_LOAD is set.
 	 */
 
 	/* set default firmware and nvram path for built-in type driver */
@@ -4757,9 +4754,6 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 		if (dhdinfo->nv_path[nv_len-1] == '\n')
 		       dhdinfo->nv_path[nv_len-1] = '\0';
 	}
-
-	/* clear the path in module parameter */
-	firmware_path[0] = '\0';
 
 #ifndef BCMEMBEDIMAGE
 	/* fw_path and nv_path are not mandatory for BCMEMBEDIMAGE */

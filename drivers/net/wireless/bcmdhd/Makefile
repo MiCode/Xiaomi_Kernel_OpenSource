@@ -205,8 +205,11 @@ endif
 
 #EXTRA_LDFLAGS += --strip-debug
 
-ifeq ($(CONFIG_BCMDHD),y)
+ifneq ($(CONFIG_BCMDHD),)
   DHDCFLAGS += -DENABLE_INSMOD_NO_FW_LOAD
+endif
+
+ifeq ($(CONFIG_BCMDHD),y)
   DHDCFLAGS += -DUSE_LATE_INITCALL_SYNC
 endif
 
