@@ -1186,10 +1186,11 @@ static void hfi_process_session_rel_buf_done(msm_vidc_callback callback,
 {
 	struct msm_vidc_cb_cmd_done cmd_done = {0};
 
-	if (!pkt || pkt->size !=
+	if (!pkt || pkt->size <
 		sizeof(struct
 			   hfi_msg_session_release_buffers_done_packet)) {
-		dprintk(VIDC_ERR, "bad packet/packet size\n");
+		dprintk(VIDC_ERR, "bad packet/packet size %d\n",
+			pkt ? pkt->size : 0);
 		return;
 	}
 	dprintk(VIDC_DBG, "RECEIVED:SESSION_RELEASE_BUFFER_DONE[%p]\n",
