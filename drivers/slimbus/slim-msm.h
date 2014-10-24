@@ -215,7 +215,7 @@ struct msm_slim_qmi {
 	struct work_struct		ssr_up;
 };
 
-struct msm_slim_mdm {
+struct msm_slim_ss {
 	struct notifier_block nb;
 	void *ssr;
 	enum msm_ctrl_state state;
@@ -270,7 +270,8 @@ struct msm_slim_ctrl {
 	u32			ver;
 	struct msm_slim_qmi	qmi;
 	struct msm_slim_pdata	pdata;
-	struct msm_slim_mdm	mdm;
+	struct msm_slim_ss	ext_mdm;
+	struct msm_slim_ss	dsp;
 	int			default_ipc_log_mask;
 	int			ipc_log_mask;
 	bool			sysfs_created;
