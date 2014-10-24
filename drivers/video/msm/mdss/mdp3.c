@@ -704,7 +704,7 @@ static int mdp3_irq_setup(void)
 		pr_err("mdp request_irq() failed!\n");
 		return ret;
 	}
-	mdp3_res->mdss_util->disable_irq_nosync(&mdp3_res->mdp3_hw);
+	disable_irq_nosync(mdp3_hw->irq_info->irq);
 	mdp3_res->irq_registered = true;
 	return 0;
 }
