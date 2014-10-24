@@ -79,6 +79,7 @@
 #include "msmzirc-bus.dtsi"
 #include "msmzirc-ion.dtsi"
 #include "msmzirc-cc.dtsi"
+#include "msmzirc-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
