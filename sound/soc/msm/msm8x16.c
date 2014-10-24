@@ -63,6 +63,8 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 static int msm8x16_enable_extcodec_ext_clk(struct snd_soc_codec *codec,
 					int enable,	bool dapm);
 
+static int conf_int_codec_mux(struct msm8916_asoc_mach_data *pdata);
+
 static struct wcd_mbhc_config mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
@@ -335,31 +337,65 @@ static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 
 	pdata = snd_soc_card_get_drvdata(codec->card);
-
+	conf_int_codec_mux(pdata);
+	pr_debug("%s: mclk_rsc_ref %d enable %ld\n",
+			__func__, atomic_read(&pdata->mclk_rsc_ref),
+			ucontrol->value.integer.value[0]);
 	switch (ucontrol->value.integer.value[0]) {
 	case 1:
-		pdata->digital_cdc_clk.clk_val = 9600000;
-		ret = afe_set_digital_codec_core_clock(
-				AFE_PORT_ID_PRIMARY_MI2S_RX,
-				&pdata->digital_cdc_clk);
+		ret = pinctrl_select_state(pinctrl_info.pinctrl,
+				pinctrl_info.cdc_lines_act);
 		if (ret < 0) {
-			pr_err("%s: failed to enable the MCLK: %d\n",
+			pr_err("%s: failed to configure the gpio; ret=%d\n",
 					__func__, ret);
 			break;
 		}
+		mutex_lock(&pdata->cdc_mclk_mutex);
+		if ((!atomic_read(&pdata->mclk_rsc_ref)) &&
+				(!atomic_read(&pdata->mclk_enabled))) {
+			pdata->digital_cdc_clk.clk_val = 9600000;
+			ret = afe_set_digital_codec_core_clock(
+					AFE_PORT_ID_PRIMARY_MI2S_RX,
+					&pdata->digital_cdc_clk);
+			if (ret < 0) {
+				pr_err("%s: failed to enable the MCLK: %d\n",
+						__func__, ret);
+				mutex_unlock(&pdata->cdc_mclk_mutex);
+				pinctrl_select_state(pinctrl_info.pinctrl,
+						pinctrl_info.cdc_lines_sus);
+				break;
+			}
+			atomic_set(&pdata->mclk_enabled, true);
+		}
+		mutex_unlock(&pdata->cdc_mclk_mutex);
+		atomic_inc(&pdata->mclk_rsc_ref);
 		msm8x16_wcd_mclk_enable(codec, 1, true);
 		break;
 	case 0:
-		pdata->digital_cdc_clk.clk_val = 0;
-		ret = afe_set_digital_codec_core_clock(
-				AFE_PORT_ID_PRIMARY_MI2S_RX,
-				&pdata->digital_cdc_clk);
-		if (ret < 0) {
-			pr_err("%s: failed to disable the MCLK: %d\n",
-					__func__, ret);
+		if (atomic_read(&pdata->mclk_rsc_ref) <= 0)
 			break;
-		}
 		msm8x16_wcd_mclk_enable(codec, 0, true);
+		mutex_lock(&pdata->cdc_mclk_mutex);
+		if ((!atomic_dec_return(&pdata->mclk_rsc_ref)) &&
+				(atomic_read(&pdata->mclk_enabled))) {
+			pdata->digital_cdc_clk.clk_val = 0;
+			ret = afe_set_digital_codec_core_clock(
+					AFE_PORT_ID_PRIMARY_MI2S_RX,
+					&pdata->digital_cdc_clk);
+			if (ret < 0) {
+				pr_err("%s: failed to disable the MCLK: %d\n",
+						__func__, ret);
+				mutex_unlock(&pdata->cdc_mclk_mutex);
+				break;
+			}
+			atomic_set(&pdata->mclk_enabled, false);
+		}
+		mutex_unlock(&pdata->cdc_mclk_mutex);
+		ret = pinctrl_select_state(pinctrl_info.pinctrl,
+				pinctrl_info.cdc_lines_sus);
+		if (ret < 0)
+			pr_err("%s: failed to configure the gpio; ret=%d\n",
+					__func__, ret);
 		break;
 	default:
 		pr_err("%s: Unexpected input value\n", __func__);
