@@ -36,7 +36,10 @@
 #include <media/v4l2-device.h>
 #ifndef CONFIG_GMIN_INTEL_MID /* FIXME! for non-gmin*/
 #include <media/v4l2-chip-ident.h>
+#else
+#include <linux/atomisp_gmin_platform.h>
 #endif
+#include <linux/acpi.h>
 #include <linux/io.h>
 
 #include "ov2722.h"
@@ -705,6 +708,58 @@ static int ov2722_init(struct v4l2_subdev *sd)
 	return 0;
 }
 
+static int power_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret = -1;
+	struct ov2722_device *dev = to_ov2722_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (flag) {
+		ret = dev->platform_data->v2p8_ctrl(sd, 1);
+		if (ret == 0) {
+			ret = dev->platform_data->v1p8_ctrl(sd, 1);
+			if (ret)
+			   dev->platform_data->v2p8_ctrl(sd, 0);
+		}
+	} else {
+		ret = dev->platform_data->v1p8_ctrl(sd, 0);
+		ret |= dev->platform_data->v2p8_ctrl(sd, 0);
+	}
+#endif
+
+	return ret;
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	struct ov2722_device *dev = to_ov2722_sensor(sd);
+	int ret = -1;
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	/* Note: the GPIO order is asymmetric: always RESET#
+	 * before PWDN# when turning it on or off. */
+	ret = dev->platform_data->gpio0_ctrl(sd, flag);
+	/*
+	 *ov2722 PWDN# active high when pull down,opposite to the convention
+	 */
+	ret |= dev->platform_data->gpio1_ctrl(sd, !flag);
+#endif
+	return ret;
+}
 
 static int power_up(struct v4l2_subdev *sd)
 {
@@ -719,7 +774,7 @@ static int power_up(struct v4l2_subdev *sd)
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
@@ -727,9 +782,9 @@ static int power_up(struct v4l2_subdev *sd)
 	usleep_range(5000, 6000);
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 1);
+		ret = gpio_ctrl(sd, 0);
 		if (ret)
 			goto fail_power;
 	}
@@ -770,15 +825,15 @@ static int power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "flisclk failed\n");
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 0);
+		ret = gpio_ctrl(sd, 0);
 		if (ret)
 			dev_err(&client->dev, "gpio failed 2\n");
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
@@ -1383,10 +1438,12 @@ static int __ov2722_init_ctrl_handler(struct ov2722_device *dev)
 
 	return 0;
 }
+
 static int ov2722_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct ov2722_device *dev;
+	void *ovpdev;
 	int ret;
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -1400,12 +1457,16 @@ static int ov2722_probe(struct i2c_client *client,
 	dev->fmt_idx = 0;
 	v4l2_i2c_subdev_init(&(dev->sd), client, &ov2722_ops);
 
-	if (client->dev.platform_data) {
-		ret = ov2722_s_config(&dev->sd, client->irq,
-				       client->dev.platform_data);
-		if (ret)
-			goto out_free;
-	}
+	ovpdev = client->dev.platform_data;
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (ACPI_COMPANION(&client->dev))
+		ovpdev = gmin_camera_platform_data(&dev->sd,
+						   ATOMISP_INPUT_FORMAT_RAW_10,
+						   atomisp_bayer_order_grbg);
+#endif
+	ret = ov2722_s_config(&dev->sd, client->irq, ovpdev);
+	if (ret)
+		goto out_free;
 
 	ret = __ov2722_init_ctrl_handler(dev);
 	if (ret)
@@ -1420,6 +1481,11 @@ static int ov2722_probe(struct i2c_client *client,
 	if (ret)
 		ov2722_remove(client);
 
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (ACPI_HANDLE(&client->dev))
+		ret = atomisp_register_i2c_module(&dev->sd, ovpdev, RAW_CAMERA);
+#endif
+
 	return ret;
 
 out_ctrl_handler_free:
@@ -1432,10 +1498,19 @@ out_free:
 }
 
 MODULE_DEVICE_TABLE(i2c, ov2722_id);
+
+static struct acpi_device_id ov2722_acpi_match[] = {
+	{ "INT33FB" },
+	{},
+};
+
+MODULE_DEVICE_TABLE(acpi, ov2722_acpi_match);
+
 static struct i2c_driver ov2722_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = OV2722_NAME,
+		.acpi_match_table = ACPI_PTR(ov2722_acpi_match),
 	},
 	.probe = ov2722_probe,
 	.remove = ov2722_remove,
