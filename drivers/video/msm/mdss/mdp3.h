@@ -118,6 +118,9 @@ struct mdp3_hw_resource {
 	char __iomem *mdp_base;
 	size_t mdp_reg_size;
 
+	char __iomem *vbif_base;
+	size_t vbif_reg_size;
+
 	struct mdp3_bus_handle_map *bus_handle;
 
 	struct ion_client *ion_client;
@@ -194,8 +197,11 @@ int mdp3_misr_get(struct mdp_misr *misr_resp);
 void mdp3_enable_regulator(int enable);
 void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 				uint32_t interval);
+int mdp3_dynamic_clock_gating_ctrl(int enable);
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)
+#define VBIF_REG_WRITE(off, val) writel_relaxed(val, mdp3_res->vbif_base + off)
+#define VBIF_REG_READ(off) readl_relaxed(mdp3_res->vbif_base + off)
 
 #endif /* MDP3_H */
