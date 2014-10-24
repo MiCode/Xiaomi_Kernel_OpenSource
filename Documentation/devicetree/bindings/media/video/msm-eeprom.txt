@@ -32,8 +32,6 @@ Required properties:
 - cam_vio-supply : should contain regulator to be used for the IO vdd.
 - qcom,cam-vreg-name : should specify the regulator name to be used for
     this eeprom.
-- qcom,cam-vreg-type : should specify the regulator type to be used for
-    this eeprom.
 - qcom,cam-vreg-min-voltage : should specify minimum voltage level
     for eeprom in uV.
 - qcom,cam-vreg-max-voltage : should specify maximum voltage level
@@ -61,6 +59,8 @@ Optional properties:
 - qcom,i2c-freq-mode : property should specify the I2C speed mode.
 - qcom,gpio-custom1 : should specify the custom non standard gpio1 index.
 - qcom,gpio-custom2 : should specify the custom non standard gpio2 index.
+- qcom,cam-vreg-type : should specify the regulator type to be used for
+    this eeprom. 0 for Default VREG and 1 for custom.
 
 Optional properties -EEPROM Camera Multimodule
 - qcom,cmm-data-support - Camera MultiModule data capability flag.

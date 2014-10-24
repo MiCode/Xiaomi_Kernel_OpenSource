@@ -148,9 +148,8 @@ enum csiphy_cfg_type_t {
 };
 
 enum camera_vreg_type {
-	REG_LDO,
-	REG_VS,
-	REG_GPIO,
+	VREG_TYPE_DEFAULT,
+	VREG_TYPE_CUSTOM,
 };
 
 enum sensor_af_t {
@@ -212,6 +211,8 @@ struct camera_vreg_t {
 	int max_voltage;
 	int op_mode;
 	uint32_t delay;
+	const char *custom_vreg_name;
+	enum camera_vreg_type type;
 };
 
 struct sensorb_cfg_data {
