@@ -1287,9 +1287,15 @@ void i915_init_watchdog(struct drm_device *dev)
 		((KM_BSD_ENGINE_TIMEOUT_VALUE_IN_MS) *
 		(freq / KM_TIMER_MILLISECOND));
 
-	DRM_DEBUG_TDR("Watchdog Timeout Threshold, RCS: 0x%08X, VCS: 0x%08X\n",
-		      dev_priv->ring[RCS].watchdog_threshold,
-		      dev_priv->ring[VCS].watchdog_threshold);
+	dev_priv->ring[VCS2].watchdog_threshold =
+		((KM_BSD_ENGINE_TIMEOUT_VALUE_IN_MS) *
+		(freq / KM_TIMER_MILLISECOND));
+
+	DRM_DEBUG_TDR("Watchdog Timeout Threshold, " \
+			"RCS: 0x%08X, VCS: 0x%08X, VCS2: 0x%08X\n", \
+			dev_priv->ring[RCS].watchdog_threshold,
+			dev_priv->ring[VCS].watchdog_threshold,
+			dev_priv->ring[VCS2].watchdog_threshold);
 }
 
 static int i915_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)

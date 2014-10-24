@@ -1719,6 +1719,16 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 				notify_ring(dev, ring);
 			if (rcs & GT_CONTEXT_SWITCH_INTERRUPT)
 				intel_execlists_handle_ctx_events(ring);
+			if (rcs & GT_GEN8_RCS_WATCHDOG_INTERRUPT) {
+				struct intel_engine_cs *ring;
+
+				/* Stop the counter to prevent further interrupts */
+				ring = &dev_priv->ring[RCS];
+				I915_WRITE(RING_CNTR(ring->mmio_base), RCS_WATCHDOG_DISABLE);
+				dev_priv->ring[RCS].hangcheck.watchdog_count++;
+				i915_handle_error(dev, &dev_priv->ring[RCS].hangcheck, 1,
+						  "Render ring timeout counter exceeded");
+			}
 
 			bcs = tmp >> GEN8_BCS_IRQ_SHIFT;
 			ring = &dev_priv->ring[BCS];
@@ -1742,6 +1752,16 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 				notify_ring(dev, ring);
 			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
 				intel_execlists_handle_ctx_events(ring);
+			if (vcs & GT_GEN8_VCS_WATCHDOG_INTERRUPT) {
+				struct intel_engine_cs *ring;
+
+				/* Stop the counter to prevent further interrupts */
+				ring = &dev_priv->ring[VCS];
+				I915_WRITE(RING_CNTR(ring->mmio_base), VCS_WATCHDOG_DISABLE);
+				dev_priv->ring[VCS].hangcheck.watchdog_count++;
+				i915_handle_error(dev, &dev_priv->ring[VCS].hangcheck, 1,
+						  "Video ring timeout counter exceeded");
+			}
 
 			vcs = tmp >> GEN8_VCS2_IRQ_SHIFT;
 			ring = &dev_priv->ring[VCS2];
@@ -1749,6 +1769,16 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 				notify_ring(dev, ring);
 			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
 				intel_execlists_handle_ctx_events(ring);
+			if (vcs & GT_GEN8_VCS_WATCHDOG_INTERRUPT) {
+				struct intel_engine_cs *ring;
+
+				/* Stop the counter to prevent further interrupts */
+				ring = &dev_priv->ring[VCS2];
+				I915_WRITE(RING_CNTR(ring->mmio_base), VCS2_WATCHDOG_DISABLE);
+				dev_priv->ring[VCS2].hangcheck.watchdog_count++;
+				i915_handle_error(dev, &dev_priv->ring[VCS2].hangcheck, 1,
+						  "Video ring 2 timeout counter exceeded");
+			}
 		} else
 			DRM_ERROR("The master control interrupt lied (GT1)!\n");
 	}
@@ -2965,7 +2995,7 @@ i915_report_and_clear_eir_exit:
  * of a ring dump etc.).
  */
 void i915_handle_error(struct drm_device *dev, struct intel_ring_hangcheck *hc,
-		       bool watchdog, const char *fmt, ...)
+		       int watchdog, const char *fmt, ...)
 {
 	int full_reset = 0;
 	unsigned long cur_time;
@@ -4041,11 +4071,14 @@ static void gen8_gt_irq_postinstall(struct drm_i915_private *dev_priv)
 {
 	/* These are interrupts we'll toggle with the ring mask register */
 	uint32_t gt_interrupts[] = {
+		GT_GEN8_RCS_WATCHDOG_INTERRUPT << GEN8_RCS_IRQ_SHIFT |
 		GT_RENDER_USER_INTERRUPT << GEN8_RCS_IRQ_SHIFT |
 			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_RCS_IRQ_SHIFT |
 			GT_RENDER_L3_PARITY_ERROR_INTERRUPT |
 			GT_RENDER_USER_INTERRUPT << GEN8_BCS_IRQ_SHIFT |
 			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_BCS_IRQ_SHIFT,
+		GT_GEN8_VCS_WATCHDOG_INTERRUPT << GEN8_VCS1_IRQ_SHIFT |
+		GT_GEN8_VCS_WATCHDOG_INTERRUPT << GEN8_VCS2_IRQ_SHIFT |
 		GT_RENDER_USER_INTERRUPT << GEN8_VCS1_IRQ_SHIFT |
 			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VCS1_IRQ_SHIFT |
 			GT_RENDER_USER_INTERRUPT << GEN8_VCS2_IRQ_SHIFT |

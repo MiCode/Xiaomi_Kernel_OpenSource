@@ -2351,7 +2351,6 @@ struct i915_params {
 	unsigned int hangcheck_period;
 	unsigned int ring_reset_min_alive_period;
 	unsigned int gpu_reset_min_alive_period;
-	unsigned int enable_watchdog;
 	/* leave bools at the end to not create holes */
 	bool enable_hangcheck;
 	bool fastboot;
@@ -2404,7 +2403,7 @@ void i915_queue_hangcheck(struct drm_device *dev, u32 ringid,
 
 __printf(4, 5)
 void i915_handle_error(struct drm_device *dev, struct intel_ring_hangcheck *hc,
-		       bool watchdog, const char *fmt, ...);
+		       int watchdog, const char *fmt, ...);
 void i915_hangcheck_sample(struct work_struct *work);
 void gen6_set_pm_mask(struct drm_i915_private *dev_priv, u32 pm_iir,
 							int new_delay);
