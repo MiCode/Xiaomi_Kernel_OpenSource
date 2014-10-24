@@ -26,8 +26,10 @@
 #define MDSS_XLOG_BUF_MAX 512
 #define MDSS_XLOG_BUF_ALIGN 32
 
+DEFINE_SPINLOCK(xlock);
+
 struct tlog {
-	u32 tick;
+	s64 time;
 	const char *name;
 	int line;
 	u32 data[MDSS_XLOG_MAX_DATA];
@@ -39,7 +41,6 @@ struct mdss_dbg_xlog {
 	struct tlog logs[MDSS_XLOG_ENTRY];
 	u32 first;
 	u32 last;
-	spinlock_t xlock;
 	struct dentry *xlog;
 	u32 xlog_enable;
 	u32 panic_on_err;
@@ -58,17 +59,15 @@ void mdss_xlog(const char *name, int line, int flag, ...)
 	int i, val = 0;
 	va_list args;
 	struct tlog *log;
-	ktime_t time;
+
 
 	if (!mdss_xlog_is_enabled(flag))
 		return;
 
-	spin_lock_irqsave(&mdss_dbg_xlog.xlock, flags);
-
-	time = ktime_get();
+	spin_lock_irqsave(&xlock, flags);
 
 	log = &mdss_dbg_xlog.logs[mdss_dbg_xlog.last % MDSS_XLOG_ENTRY];
-	log->tick = local_clock();
+	log->time = ktime_to_us(ktime_get());
 	log->name = name;
 	log->line = line;
 	log->data_cnt = 0;
@@ -88,7 +87,7 @@ void mdss_xlog(const char *name, int line, int flag, ...)
 
 	mdss_dbg_xlog.last++;
 
-	spin_unlock_irqrestore(&mdss_dbg_xlog.xlock, flags);
+	spin_unlock_irqrestore(&xlock, flags);
 }
 
 /* always dump the last entries which are not dumped yet */
@@ -99,7 +98,7 @@ static bool __mdss_xlog_dump_calc_range(void)
 	unsigned long flags;
 	struct mdss_dbg_xlog *xlog = &mdss_dbg_xlog;
 
-	spin_lock_irqsave(&mdss_dbg_xlog.xlock, flags);
+	spin_lock_irqsave(&xlock, flags);
 
 	xlog->first = next;
 
@@ -123,7 +122,7 @@ static bool __mdss_xlog_dump_calc_range(void)
 	next = xlog->first + 1;
 
 dump_exit:
-	spin_unlock_irqrestore(&mdss_dbg_xlog.xlock, flags);
+	spin_unlock_irqrestore(&xlock, flags);
 
 	return need_dump;
 }
@@ -135,7 +134,7 @@ static ssize_t mdss_xlog_dump_entry(char *xlog_buf, ssize_t xlog_buf_size)
 	struct tlog *log, *prev_log;
 	unsigned long flags;
 
-	spin_lock_irqsave(&mdss_dbg_xlog.xlock, flags);
+	spin_lock_irqsave(&xlock, flags);
 
 	log = &mdss_dbg_xlog.logs[mdss_dbg_xlog.first %
 		MDSS_XLOG_ENTRY];
@@ -152,9 +151,8 @@ static ssize_t mdss_xlog_dump_entry(char *xlog_buf, ssize_t xlog_buf_size)
 	}
 
 	off += snprintf((xlog_buf + off), (xlog_buf_size - off),
-		"=>[%-8d:%-11u:%9u][%-4d]:", mdss_dbg_xlog.first,
-		log->tick / 1000, (log->tick - prev_log->tick) / 1000,
-		log->pid);
+		"=>[%-8d:%-11llu:%9llu][%-4d]:", mdss_dbg_xlog.first,
+		log->time, (log->time - prev_log->time), log->pid);
 
 	for (i = 0; i < log->data_cnt; i++)
 		off += snprintf((xlog_buf + off), (xlog_buf_size - off),
@@ -162,7 +160,7 @@ static ssize_t mdss_xlog_dump_entry(char *xlog_buf, ssize_t xlog_buf_size)
 
 	off += snprintf((xlog_buf + off), (xlog_buf_size - off), "\n");
 
-	spin_unlock_irqrestore(&mdss_dbg_xlog.xlock, flags);
+	spin_unlock_irqrestore(&xlock, flags);
 
 	return off;
 }
@@ -283,8 +281,6 @@ static const struct file_operations mdss_xlog_fops = {
 
 int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 {
-	spin_lock_init(&mdss_dbg_xlog.xlock);
-
 	mdss_dbg_xlog.xlog = debugfs_create_dir("xlog", mdd->root);
 	if (IS_ERR_OR_NULL(mdss_dbg_xlog.xlog)) {
 		pr_err("debugfs_create_dir fail, error %ld\n",
@@ -292,6 +288,7 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 		mdss_dbg_xlog.xlog = NULL;
 		return -ENODEV;
 	}
+
 	debugfs_create_file("dump", 0644, mdss_dbg_xlog.xlog, NULL,
 						&mdss_xlog_fops);
 	debugfs_create_u32("enable", 0644, mdss_dbg_xlog.xlog,
