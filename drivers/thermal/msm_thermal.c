@@ -149,6 +149,7 @@ static struct cpufreq_frequency_table *pending_freq_table_ptr;
 static int pending_cpu_freq = -1;
 static long *tsens_temp_at_panic;
 static u32 tsens_temp_print;
+static uint32_t bucket;
 
 enum thermal_threshold {
 	HOTPLUG_THRESHOLD_HIGH,
@@ -4042,6 +4043,56 @@ psm_reg_exit:
 	return ret;
 }
 
+static ssize_t bucket_info_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+	uint32_t val = 0;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret) {
+		pr_err("Invalid input:%s. ret:%d", buf, ret);
+		goto done_store;
+	}
+
+	bucket = val & 0xff;
+	pr_debug("\"%s\"(PID:%i) request cluster:%d bucket:%d\n",
+		current->comm, current->pid, (bucket & 0xf0) >> 4,
+		bucket & 0xf);
+
+done_store:
+	return count;
+}
+
+static ssize_t bucket_info_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", bucket);
+}
+
+static struct kobj_attribute bucket_info_attr =
+		__ATTR_RW(bucket_info);
+static int msm_thermal_add_bucket_info_nodes(void)
+{
+	struct kobject *module_kobj = NULL;
+	int ret = 0;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("cannot find kobject\n");
+		return -ENOENT;
+	}
+	sysfs_attr_init(&bucket_info_attr.attr);
+	ret = sysfs_create_file(module_kobj, &bucket_info_attr.attr);
+	if (ret) {
+		pr_err(
+		"cannot create bucket info kobject attribute. err:%d\n", ret);
+		return ret;
+	}
+
+	return ret;
+}
+
 static struct kobj_attribute sensor_info_attr =
 		__ATTR_RO(sensor_info);
 static int msm_thermal_add_sensor_info_nodes(void)
@@ -5230,6 +5281,7 @@ int __init msm_thermal_late_init(void)
 	interrupt_mode_init();
 	create_cpu_topology_sysfs();
 	create_thermal_debugfs();
+	msm_thermal_add_bucket_info_nodes();
 	return 0;
 }
 late_initcall(msm_thermal_late_init);
