@@ -1277,17 +1277,9 @@ static inline enum dwc3_link_state dwc3_get_link_state(struct dwc3 *dwc)
 
 static bool dwc3_gadget_is_suspended(struct dwc3 *dwc)
 {
-	enum dwc3_link_state		link_state;
-
-	if (atomic_read(&dwc->in_lpm)) {
+	if (atomic_read(&dwc->in_lpm) ||
+		dwc->link_state == DWC3_LINK_STATE_U3)
 		return true;
-	} else {
-		link_state = dwc3_get_link_state(dwc);
-		if (link_state == DWC3_LINK_STATE_RX_DET ||
-			link_state == DWC3_LINK_STATE_U3)
-			return true;
-	}
-
 	return false;
 }
 
@@ -2531,6 +2523,7 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;
 	dwc->setup_packet_pending = false;
+	dwc->link_state = DWC3_LINK_STATE_SS_DIS;
 	usb_gadget_set_state(&dwc->gadget, USB_STATE_NOTATTACHED);
 }
 
@@ -2594,6 +2587,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	reg = dwc3_readl(dwc->regs, DWC3_DCFG);
 	reg &= ~(DWC3_DCFG_DEVADDR_MASK);
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
+	dwc->link_state = DWC3_LINK_STATE_U0;
 }
 
 static void dwc3_update_ram_clk_sel(struct dwc3 *dwc, u32 speed)
@@ -2742,13 +2736,31 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 
 static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 {
-	dbg_event(0xFF, "WAKEUP", 0);
+	dev_dbg(dwc->dev, "%s\n", __func__);
 
-	dev_dbg(dwc->dev, "Notify OTG from %s\n", __func__);
-	dwc->b_suspend = false;
-	dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_OTG_EVENT);
+	/* Only perform resume from L2 or Early Suspend states */
+	if (dwc->link_state == DWC3_LINK_STATE_U3) {
+		dbg_event(0xFF, "WAKEUP", 0);
 
-	dwc3_resume_gadget(dwc);
+		/*
+		 * In case of remote wake up dwc3_gadget_wakeup_work()
+		 * is doing pm_runtime_get_sync().
+		 */
+		dev_dbg(dwc->dev, "Notify OTG from %s\n", __func__);
+		dwc->b_suspend = false;
+		dwc3_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_OTG_EVENT);
+
+		/*
+		 * set state to U0 as function level resume is trying to queue
+		 * notification over USB interrupt endpoint which would fail
+		 * due to state is not being updated.
+		 */
+		dwc->link_state = DWC3_LINK_STATE_U0;
+		dwc3_resume_gadget(dwc);
+		return;
+	}
+
+	dwc->link_state = DWC3_LINK_STATE_U0;
 }
 
 static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
