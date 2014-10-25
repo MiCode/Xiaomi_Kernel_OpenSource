@@ -1041,8 +1041,8 @@ int arm_iommu_map_sg(struct device *dev, struct scatterlist *sg,
 		total_length += s->length;
 
 	iova = __alloc_iova(mapping, total_length);
-	ret = iommu_map_range(mapping->domain, iova, sg, total_length, prot);
-	if (ret) {
+	ret = iommu_map_sg(mapping->domain, iova, sg, nents, prot);
+	if (ret != total_length) {
 		__free_iova(mapping, iova, total_length);
 		return 0;
 	}
@@ -1110,7 +1110,7 @@ void arm_iommu_unmap_sg(struct device *dev, struct scatterlist *sg, int nents,
 	total_length = PAGE_ALIGN((iova & ~PAGE_MASK) + total_length);
 	iova &= PAGE_MASK;
 
-	iommu_unmap_range(mapping->domain, iova, total_length);
+	iommu_unmap(mapping->domain, iova, total_length);
 	__free_iova(mapping, iova, total_length);
 }
 
