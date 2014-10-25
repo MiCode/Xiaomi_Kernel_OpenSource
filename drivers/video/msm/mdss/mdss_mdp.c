@@ -79,8 +79,8 @@ struct msm_mdp_interface mdp5 = {
 #define DEFAULT_TOTAL_VIG_PIPES 3
 #define DEFAULT_TOTAL_DMA_PIPES 2
 
-#define IB_QUOTA 800000000
-#define AB_QUOTA 800000000
+#define IB_QUOTA 2000000000
+#define AB_QUOTA 2000000000
 
 #define MEM_PROTECT_SD_CTRL 0xF
 #define MEM_PROTECT_SD_CTRL_FLAT 0x14
