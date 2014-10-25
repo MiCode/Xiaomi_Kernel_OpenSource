@@ -655,6 +655,7 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 						uci_handle->in_buf_list[i]));
 			}
 		}
+		atomic_set(&uci_handle->avail_pkts, 0);
 	} else {
 		uci_log(UCI_DBG_ERROR,
 			"Client close chan %d, ref count 0x%x\n",
