@@ -126,4 +126,7 @@ int adm_wait_timeout(int port_id, int copp_idx, int wait_time);
 int adm_store_cal_data(int port_id, int copp_idx, int path, int perf_mode,
 		       int cal_type, char *params, int *size);
 
+int adm_send_compressed_device_mute(int port_id, int copp_idx, bool mute_on);
+
+int adm_send_compressed_device_latency(int port_id, int copp_idx, int latency);
 #endif /* __Q6_ADM_V2_H__ */

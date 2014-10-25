@@ -7724,4 +7724,22 @@ enum {
 	COMPRESSED_PASSTHROUGH,
 	COMPRESSED_PASSTHROUGH_CONVERT,
 };
+
+#define AUDPROC_MODULE_ID_COMPRESSED_MUTE                0x00010770
+#define AUDPROC_PARAM_ID_COMPRESSED_MUTE                 0x00010771
+
+struct adm_set_compressed_device_mute {
+	struct adm_cmd_set_pp_params_v5 command;
+	struct adm_param_data_v5 params;
+	u32    mute_on;
+} __packed;
+
+#define AUDPROC_MODULE_ID_COMPRESSED_LATENCY             0x0001076E
+#define AUDPROC_PARAM_ID_COMPRESSED_LATENCY              0x0001076F
+
+struct adm_set_compressed_device_latency {
+	struct adm_cmd_set_pp_params_v5 command;
+	struct adm_param_data_v5 params;
+	u32    latency;
+} __packed;
 #endif /*_APR_AUDIO_V2_H_ */
