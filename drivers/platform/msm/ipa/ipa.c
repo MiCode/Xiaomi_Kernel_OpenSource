@@ -1542,19 +1542,25 @@ int ipa_q6_cleanup(void)
 		BUG();
 	}
 
+	/*
+	 * Q6 relies on the AP to reset all Q6 IPA pipes.
+	 * In case the uC is not loaded, or upon any failure in the pipe reset
+	 * sequence, we have to assert.
+	 */
+	if (!ipa_ctx->uc_ctx.uc_loaded) {
+		IPAERR("uC is not loaded, can't reset Q6 pipes\n");
+		BUG();
+	}
+
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
 		if (IPA_CLIENT_IS_Q6_CONS(client_idx) ||
 		    IPA_CLIENT_IS_Q6_PROD(client_idx)) {
 			res = ipa_uc_reset_pipe(client_idx);
-			/*
-			 * In case of a failure we have to assert, because
-			 * Q6 relies on the AP to reset all the pipes.
-			 */
 			if (res)
 				BUG();
 		}
 
-	ipa_dec_client_disable_clks();
+	ipa_ctx->q6_proxy_clk_vote_valid = true;
 	return 0;
 }
 
