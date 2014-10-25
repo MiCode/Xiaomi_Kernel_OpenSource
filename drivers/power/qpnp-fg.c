@@ -175,6 +175,11 @@ module_param_named(
 	first_est_dump, fg_est_dump, int, S_IRUSR | S_IWUSR
 );
 
+static char *fg_batt_type;
+module_param_named(
+	battery_type, fg_batt_type, charp, S_IRUSR | S_IWUSR
+);
+
 struct fg_irq {
 	int			irq;
 	unsigned long		disabled;
@@ -1447,7 +1452,8 @@ wait:
 		return 0;
 	}
 
-	profile_node = of_batterydata_get_best_profile(batt_node, "bms");
+	profile_node = of_batterydata_get_best_profile(batt_node, "bms",
+							fg_batt_type);
 	if (!profile_node) {
 		pr_err("couldn't find profile handle\n");
 		return -ENODATA;
@@ -1648,7 +1654,10 @@ wait:
 		goto fail;
 	}
 done:
-	chip->batt_type = batt_type_str;
+	if (fg_batt_type)
+		chip->batt_type = fg_batt_type;
+	else
+		chip->batt_type = batt_type_str;
 	chip->profile_loaded = true;
 	chip->battery_missing = is_battery_missing(chip);
 	if (chip->power_supply_registered)

@@ -308,7 +308,7 @@ static int64_t of_batterydata_convert_battery_id_kohm(int batt_id_uv,
 
 struct device_node *of_batterydata_get_best_profile(
 		const struct device_node *batterydata_container_node,
-		const char *psy_name)
+		const char *psy_name,  const char  *batt_type)
 {
 	struct batt_ids batt_ids;
 	struct device_node *node, *best_node = NULL;
@@ -336,17 +336,27 @@ struct device_node *of_batterydata_get_best_profile(
 	 * Find the battery data with a battery id resistor closest to this one
 	 */
 	for_each_child_of_node(batterydata_container_node, node) {
-		rc = of_batterydata_read_batt_id_kohm(node,
-						"qcom,batt-id-kohm",
-						&batt_ids);
-		if (rc)
-			continue;
-		for (i = 0; i < batt_ids.num; i++) {
-			delta = abs(batt_ids.kohm[i] - batt_id_kohm);
-			if (delta < best_delta || !best_node) {
+		if (batt_type != NULL) {
+			rc = of_property_read_string(node, "qcom,battery-type",
+							&battery_type);
+			if (!rc && strcmp(battery_type, batt_type) == 0) {
 				best_node = node;
-				best_delta = delta;
-				best_id_kohm = batt_ids.kohm[i];
+				best_id_kohm = batt_id_kohm;
+				break;
+			}
+		} else {
+			rc = of_batterydata_read_batt_id_kohm(node,
+							"qcom,batt-id-kohm",
+							&batt_ids);
+			if (rc)
+				continue;
+			for (i = 0; i < batt_ids.num; i++) {
+				delta = abs(batt_ids.kohm[i] - batt_id_kohm);
+				if (delta < best_delta || !best_node) {
+					best_node = node;
+					best_delta = delta;
+					best_id_kohm = batt_ids.kohm[i];
+				}
 			}
 		}
 	}
