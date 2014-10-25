@@ -107,6 +107,7 @@ struct msm_compr_audio {
 	struct audio_client *audio_client;
 
 	uint32_t codec;
+	uint32_t compr_passthr;
 	void    *buffer; /* virtual address */
 	phys_addr_t buffer_paddr; /* physical address */
 	uint32_t app_pointer;
@@ -159,6 +160,8 @@ struct msm_compr_audio {
 	spinlock_t lock;
 };
 
+const u32 compr_codecs[] = {SND_AUDIOCODEC_AC3, SND_AUDIOCODEC_EAC3};
+
 struct msm_compr_audio_effects {
 	struct bass_boost_params bass_boost;
 	struct virtualizer_params virtualizer;
@@ -189,6 +192,11 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 	}
 	prtd = cstream->runtime->private_data;
 	if (prtd && prtd->audio_client) {
+		if (prtd->compr_passthr != LEGACY_PCM) {
+			pr_debug("%s: No volume config for passthrough %d\n",
+				 __func__, prtd->compr_passthr);
+			return rc;
+		}
 		if (volume_l != volume_r) {
 			pr_debug("%s: call q6asm_set_lrgain\n", __func__);
 			rc = q6asm_set_lrgain(prtd->audio_client,
@@ -276,7 +284,8 @@ static int msm_compr_send_buffer(struct msm_compr_audio *prtd)
 
 	pr_debug("%s: bytes_received = %d copied_total = %d\n",
 		__func__, prtd->bytes_received, prtd->copied_total);
-	if (prtd->first_buffer &&  prtd->gapless_state.use_dsp_gapless_mode)
+	if (prtd->first_buffer &&  prtd->gapless_state.use_dsp_gapless_mode &&
+		prtd->compr_passthr == LEGACY_PCM)
 		q6asm_stream_send_meta_data(prtd->audio_client,
 				prtd->audio_client->stream_id,
 				prtd->gapless_state.initial_samples_drop,
@@ -768,15 +777,56 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 		bits_per_sample = 24;
 	if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S32_LE)
 		bits_per_sample = 32;
-	ret = q6asm_stream_open_write_v2(ac,
+
+	if (prtd->compr_passthr != LEGACY_PCM) {
+		ret = q6asm_open_write_compressed(ac, prtd->codec,
+						  prtd->compr_passthr);
+		if (ret < 0) {
+			pr_err("%s:ASM open write err[%d] for compr_type[%d]\n",
+				__func__, ret, prtd->compr_passthr);
+			return ret;
+		}
+		ret = msm_pcm_routing_reg_phy_compr_stream(
+				soc_prtd->dai_link->be_id,
+				ac->perf_mode,
+				prtd->session_id,
+				SNDRV_PCM_STREAM_PLAYBACK,
+				prtd->compr_passthr);
+		if (ret) {
+			pr_err("%s: compr stream reg failed:%d\n", __func__,
+				ret);
+			return ret;
+		}
+	} else {
+		pr_debug("%s: stream_id %d\n", __func__, ac->stream_id);
+		ret = q6asm_stream_open_write_v2(ac,
 				prtd->codec, bits_per_sample,
 				ac->stream_id,
 				prtd->gapless_state.use_dsp_gapless_mode);
-	if (ret < 0) {
-		pr_err("%s: Session out open failed\n", __func__);
-		 return -ENOMEM;
+		if (ret < 0) {
+			pr_err("%s:ASM open write err[%d] for compr type[%d]\n",
+				__func__, ret, prtd->compr_passthr);
+			 return -ENOMEM;
+		}
+
+		pr_debug("%s: be_id %d\n", __func__, soc_prtd->dai_link->be_id);
+		ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+				ac->perf_mode,
+				prtd->session_id,
+				SNDRV_PCM_STREAM_PLAYBACK);
+		if (ret) {
+			pr_err("%s: stream reg failed:%d\n", __func__, ret);
+			return ret;
+		}
+
+		msm_compr_init_pp_params(cstream, ac);
 	}
 
+	ret = q6asm_set_io_mode(ac, (COMPRESSED_STREAM_IO | ASYNC_IO_MODE));
+	if (ret < 0) {
+		pr_err("%s: Set IO mode failed\n", __func__);
+		return -EINVAL;
+	}
 	stream_index = STREAM_ARRAY_INDEX(ac->stream_id);
 	if (stream_index >= MAX_NUMBER_OF_STREAMS || stream_index < 0) {
 		pr_err("%s: Invalid stream index:%d", __func__, stream_index);
@@ -784,24 +834,6 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	}
 
 	prtd->gapless_state.stream_opened[stream_index] = 1;
-	pr_debug("%s be_id %d\n", __func__, soc_prtd->dai_link->be_id);
-	ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
-				ac->perf_mode,
-				prtd->session_id,
-				SNDRV_PCM_STREAM_PLAYBACK);
-	if (ret) {
-		pr_err("%s: stream reg failed:%d\n", __func__, ret);
-		return ret;
-	}
-
-	msm_compr_init_pp_params(cstream, ac);
-
-	ret = q6asm_set_io_mode(ac, (COMPRESSED_STREAM_IO | ASYNC_IO_MODE));
-	if (ret < 0) {
-		pr_err("%s: Set IO mode failed\n", __func__);
-		return -EINVAL;
-	}
-
 	runtime->fragments = prtd->codec_param.buffer.fragments;
 	runtime->fragment_size = prtd->codec_param.buffer.fragment_size;
 	pr_debug("allocate %d buffers each of size %d\n",
@@ -1033,6 +1065,17 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 	return 0;
 }
 
+static bool msm_compr_validate_codec_compr(__u32 codec_id)
+{
+	int32_t i;
+
+	for (i = 0; i < ARRAY_SIZE(compr_codecs); i++) {
+		if (compr_codecs[i] == codec_id)
+			return true;
+	}
+	return false;
+}
+
 /* compress stream operations */
 static int msm_compr_set_params(struct snd_compr_stream *cstream,
 				struct snd_compr_params *params)
@@ -1089,6 +1132,19 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	}
 
 	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
+
+	prtd->compr_passthr = prtd->codec_param.codec.compr_passthr;
+	pr_debug("%s: compr_passthr = %d", __func__, prtd->compr_passthr);
+	if (prtd->compr_passthr != LEGACY_PCM) {
+		pr_debug("%s: Reset gapless mode playback for compr_type[%d]\n",
+			__func__, prtd->compr_passthr);
+		prtd->gapless_state.use_dsp_gapless_mode = 0;
+		if (!msm_compr_validate_codec_compr(params->codec.id)) {
+			pr_err("%s codec not supported in passthrough,id =%d\n",
+				 __func__, params->codec.id);
+			return -EINVAL;
+		}
+	}
 
 	switch (params->codec.id) {
 	case SND_AUDIOCODEC_PCM: {
@@ -1877,6 +1933,12 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 		pr_err("%s: prtd or audio client is NULL\n", __func__);
 		return -EINVAL;
 	}
+
+	if (prtd->compr_passthr != LEGACY_PCM) {
+		pr_debug("%s: No trailing silence for compress_type[%d]\n",
+			__func__, prtd->compr_passthr);
+		return 0;
+	}
 	ac = prtd->audio_client;
 	if (metadata->key == SNDRV_COMPRESS_ENCODER_PADDING) {
 		pr_debug("%s, got encoder padding %u", __func__, metadata->value[0]);
@@ -1970,6 +2032,14 @@ static int msm_compr_audio_effects_config_put(struct snd_kcontrol *kcontrol,
 		pr_err("%s: cannot set audio effects\n", __func__);
 		return -EINVAL;
 	}
+	if (prtd->compr_passthr != LEGACY_PCM) {
+		pr_debug("%s: No effects for compr_type[%d]\n",
+			__func__, prtd->compr_passthr);
+		return 0;
+	} else {
+		pr_debug("%s: Effects supported for compr_type[%d]\n",
+			 __func__, prtd->compr_passthr);
+	}
 	effects_module = *values++;
 	switch (effects_module) {
 	case VIRTUALIZER_MODULE:
@@ -2061,6 +2131,11 @@ static int msm_compr_send_dec_params(struct snd_compr_stream *cstream,
 		break;
 	case FORMAT_AC3:
 	case FORMAT_EAC3:
+		if (prtd->compr_passthr != LEGACY_PCM) {
+			pr_debug("%s: No DDP param for compr_type[%d]\n",
+				 __func__, prtd->compr_passthr);
+			break;
+		}
 		rc = msm_compr_send_ddp_cfg(prtd->audio_client, ddp, stream_id);
 		if (rc < 0)
 			pr_err("%s: DDP CMD CFG failed %d\n", __func__, rc);
@@ -2119,6 +2194,12 @@ static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
 	case FORMAT_EAC3: {
 		struct snd_dec_ddp *ddp = &dec_params->ddp_params;
 		int cnt;
+		 if (prtd->compr_passthr != LEGACY_PCM) {
+			pr_debug("%s: No DDP param for compr_type[%d]\n",
+				__func__, prtd->compr_passthr);
+			break;
+		 }
+
 		ddp->params_length = (*values++);
 		if (ddp->params_length > DDP_DEC_MAX_NUM_PARAM) {
 			pr_err("%s: invalid num of params:: %d\n", __func__,

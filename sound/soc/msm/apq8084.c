@@ -48,9 +48,14 @@ static int mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 
 #define SAMPLING_RATE_8KHZ 8000
 #define SAMPLING_RATE_16KHZ 16000
+#define SAMPLING_RATE_32KHZ   32000
+#define SAMPLING_RATE_44DOT1KHZ 44100
 #define SAMPLING_RATE_48KHZ 48000
 #define SAMPLING_RATE_96KHZ 96000
+#define SAMPLING_RATE_128KHZ   128000
+#define SAMPLING_RATE_176DOT4KHZ  176400
 #define SAMPLING_RATE_192KHZ 192000
+
 
 static int apq8084_auxpcm_rate = 8000;
 #define LO_1_SPK_AMP	0x1
@@ -821,12 +826,23 @@ static char const *slim0_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
 static const char *const proxy_rx_ch_text[] = {"One", "Two", "Three", "Four",
 					      "Five", "Six", "Seven", "Eight"};
 
-static char const *hdmi_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
-						 "KHZ_192"};
+static char const *hdmi_rx_sample_rate_text[] = {"KHZ_32", "KHZ_44_1", "KHZ_48",
+						 "KHZ_96", "KHZ_128",
+						 "KHZ_176_4", "KHZ_192"};
 
 static const char * const slim1_tx_ch_text[] = {"One", "Two"};
 static const char * const slim3_rx_ch_text[] = {"One", "Two"};
 static const char *const slim1_rate_text[] = {"8000", "16000", "48000"};
+
+enum {
+	HDMI_RATE_32KHZ = 0,
+	HDMI_RATE_44DOT1KHZ,
+	HDMI_RATE_48KHZ,
+	HDMI_RATE_96KHZ,
+	HDMI_RATE_128KHZ,
+	HDMI_RATE_176DOT4KHZ,
+	HDMI_RATE_192KHZ
+};
 
 static int slim0_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
@@ -1084,21 +1100,31 @@ static int hdmi_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
 
 	switch (hdmi_rx_sample_rate) {
 	case SAMPLING_RATE_192KHZ:
-		sample_rate_val = 2;
+		sample_rate_val = HDMI_RATE_192KHZ;
 		break;
-
+	case SAMPLING_RATE_176DOT4KHZ:
+		sample_rate_val = HDMI_RATE_176DOT4KHZ;
+		break;
+	case SAMPLING_RATE_128KHZ:
+		sample_rate_val = HDMI_RATE_128KHZ;
+		break;
 	case SAMPLING_RATE_96KHZ:
-		sample_rate_val = 1;
+		sample_rate_val = HDMI_RATE_96KHZ;
 		break;
-
+	case SAMPLING_RATE_44DOT1KHZ:
+		sample_rate_val = HDMI_RATE_44DOT1KHZ;
+		break;
+	case SAMPLING_RATE_32KHZ:
+		sample_rate_val = HDMI_RATE_32KHZ;
+		break;
 	case SAMPLING_RATE_48KHZ:
 	default:
-		sample_rate_val = 0;
+		sample_rate_val = HDMI_RATE_48KHZ;
 		break;
 	}
 	ucontrol->value.integer.value[0] = sample_rate_val;
 	pr_debug("%s: hdmi_rx_sample_rate = %d\n", __func__,
-				hdmi_rx_sample_rate);
+		  hdmi_rx_sample_rate);
 	return 0;
 }
 
@@ -1106,20 +1132,32 @@ static int hdmi_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	pr_debug("%s: ucontrol value = %ld\n", __func__,
-			ucontrol->value.integer.value[0]);
+		 ucontrol->value.integer.value[0]);
 	switch (ucontrol->value.integer.value[0]) {
-	case 2:
+	case HDMI_RATE_192KHZ:
 		hdmi_rx_sample_rate = SAMPLING_RATE_192KHZ;
 		break;
-	case 1:
+	case HDMI_RATE_176DOT4KHZ:
+		hdmi_rx_sample_rate = SAMPLING_RATE_176DOT4KHZ;
+		break;
+	case HDMI_RATE_128KHZ:
+		hdmi_rx_sample_rate = SAMPLING_RATE_128KHZ;
+		break;
+	case HDMI_RATE_96KHZ:
 		hdmi_rx_sample_rate = SAMPLING_RATE_96KHZ;
 		break;
-	case 0:
+	case HDMI_RATE_44DOT1KHZ:
+		hdmi_rx_sample_rate = SAMPLING_RATE_44DOT1KHZ;
+		break;
+	case HDMI_RATE_32KHZ:
+		hdmi_rx_sample_rate = SAMPLING_RATE_32KHZ;
+		break;
+	case HDMI_RATE_48KHZ:
 	default:
 		hdmi_rx_sample_rate = SAMPLING_RATE_48KHZ;
 	}
 	pr_debug("%s: hdmi_rx_sample_rate = %d\n", __func__,
-			hdmi_rx_sample_rate);
+		 hdmi_rx_sample_rate);
 	return 0;
 }
 
@@ -1924,7 +1962,7 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, rx_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(3, slim0_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(8, proxy_rx_ch_text),
-	SOC_ENUM_SINGLE_EXT(3, hdmi_rx_sample_rate_text),
+	SOC_ENUM_SINGLE_EXT(7, hdmi_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(2, slim1_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(3, slim1_rate_text),
 	SOC_ENUM_SINGLE_EXT(3, slim3_rx_ch_text),

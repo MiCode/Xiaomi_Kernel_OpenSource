@@ -1058,6 +1058,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 				wake_up(&this_adm.adm_wait);
 				break;
 			case ADM_CMD_MATRIX_MAP_ROUTINGS_V5:
+			case ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5:
 				pr_debug("%s: Basic callback received, wake up.\n",
 					__func__);
 				atomic_set(&this_adm.matrix_map_stat, 1);
@@ -1792,8 +1793,12 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		    (topology == DS2_ADM_COPP_TOPOLOGY_ID) ||
 		    (topology == SRS_TRUMEDIA_TOPOLOGY_ID))
 			topology = DEFAULT_COPP_TOPOLOGY;
-	} else
-		flags = ADM_LEGACY_DEVICE_SESSION;
+	} else {
+		if (path == ADM_PATH_COMPRESSED_RX)
+			flags = 0;
+		else
+			flags = ADM_LEGACY_DEVICE_SESSION;
+	}
 
 	if ((topology == VPM_TX_SM_ECNS_COPP_TOPOLOGY) ||
 	    (topology == VPM_TX_DM_FLUENCE_COPP_TOPOLOGY) ||
@@ -1822,7 +1827,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 				   app_type);
 			atomic_set(&this_adm.copp.acdb_id[port_idx][copp_idx],
 				   acdb_id);
-			send_adm_custom_topology();
+			if (path != ADM_PATH_COMPRESSED_RX)
+				send_adm_custom_topology();
 		}
 	}
 
@@ -1987,7 +1993,15 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
 	route->hdr.dest_domain = APR_DOMAIN_ADSP;
 	route->hdr.dest_port = 0; /* Ignored */;
 	route->hdr.token = 0;
-	route->hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS_V5;
+	if (path == ADM_PATH_COMPRESSED_RX) {
+		pr_debug("%s: ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5 0x%x\n",
+			 __func__, ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5);
+		route->hdr.opcode = ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5;
+	} else {
+		pr_debug("%s: DM_CMD_MATRIX_MAP_ROUTINGS_V5 0x%x\n",
+			 __func__, ADM_CMD_MATRIX_MAP_ROUTINGS_V5);
+		route->hdr.opcode = ADM_CMD_MATRIX_MAP_ROUTINGS_V5;
+	}
 	route->num_sessions = 1;
 
 	switch (path) {
@@ -1997,6 +2011,9 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
 	case ADM_PATH_LIVE_REC:
 	case ADM_PATH_NONLIVE_REC:
 		route->matrix_id = ADM_MATRIX_ID_AUDIO_TX;
+		break;
+	case ADM_PATH_COMPRESSED_RX:
+		route->matrix_id = ADM_MATRIX_ID_COMPRESSED_AUDIO_RX;
 		break;
 	default:
 		pr_err("%s: Wrong path set[%d]\n", __func__, path);
@@ -2041,7 +2058,8 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
 		goto fail_cmd;
 	}
 
-	if (perf_mode != ULTRA_LOW_LATENCY_PCM_MODE) {
+	if ((perf_mode != ULTRA_LOW_LATENCY_PCM_MODE) &&
+		 (path != ADM_PATH_COMPRESSED_RX)) {
 		for (i = 0; i < payload_map.num_copps; i++) {
 			port_idx = afe_get_port_index(payload_map.port_id[i]);
 			copp_idx = payload_map.copp_idx[i];
