@@ -1061,6 +1061,7 @@ static struct iommu_ops exynos_iommu_ops = {
 	.detach_dev = &exynos_iommu_detach_device,
 	.map = &exynos_iommu_map,
 	.unmap = &exynos_iommu_unmap,
+	.map_sg = default_iommu_map_sg,
 	.iova_to_phys = &exynos_iommu_iova_to_phys,
 	.pgsize_bitmap = SECT_SIZE | LPAGE_SIZE | SPAGE_SIZE,
 };
