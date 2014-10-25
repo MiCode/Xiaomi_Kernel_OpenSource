@@ -344,6 +344,12 @@ config SCHED_SMT
 	  MultiThreading at a cost of slightly increased overhead in some
 	  places. If unsure say N here.
 
+config ARCH_WANTS_CTXSW_LOGGING
+	bool "Enable logging in context switch"
+	depends on SMP
+	help
+	  Logs critical context switch latencies. If unsure say N here.
+
 config NR_CPUS
 	int "Maximum number of CPUs (2-32)"
 	range 2 32
