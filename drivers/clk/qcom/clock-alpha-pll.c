@@ -155,11 +155,16 @@ static int __alpha_pll_enable(struct alpha_pll_clk *pll)
 	return 0;
 }
 
+static void __init_alpha_pll(struct clk *c);
+
 static int alpha_pll_enable(struct clk *c)
 {
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
 	unsigned long flags;
 	int rc;
+
+	if (unlikely(!pll->inited))
+		__init_alpha_pll(c);
 
 	spin_lock_irqsave(&alpha_pll_reg_lock, flags);
 	if (pll->fsm_en_mask)
@@ -394,33 +399,45 @@ static bool is_fsm_mode(void __iomem *mode_reg)
 	return !!(readl_relaxed(mode_reg) & BIT(20));
 }
 
+static void __init_alpha_pll(struct clk *c)
+{
+	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
+	struct alpha_pll_masks *masks = pll->masks;
+	u32 output_en, userval;
+
+	if (masks->output_mask && pll->enable_config) {
+		output_en = readl_relaxed(OUTPUT_REG(pll));
+		output_en &= ~masks->output_mask;
+		output_en |= pll->enable_config;
+		writel_relaxed(output_en, OUTPUT_REG(pll));
+	}
+
+	if (masks->post_div_mask) {
+		userval = readl_relaxed(USER_CTL_LO_REG(pll));
+		userval &= ~masks->post_div_mask;
+		userval |= pll->post_div_config;
+		writel_relaxed(userval, USER_CTL_LO_REG(pll));
+	}
+
+	if (pll->fsm_en_mask)
+		__set_fsm_mode(MODE_REG(pll));
+
+	pll->inited = true;
+}
+
 static enum handoff alpha_pll_handoff(struct clk *c)
 {
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
 	struct alpha_pll_masks *masks = pll->masks;
 	u64 a_val;
 	u32 alpha_en, l_val;
-	u32 output_en, userval;
 
 	update_vco_tbl(pll);
 
 	if (!is_locked(pll)) {
 		if (c->rate && alpha_pll_set_rate(c, c->rate))
 			WARN(1, "%s: Failed to configure rate\n", c->dbg_name);
-		if (masks->output_mask && pll->enable_config) {
-			output_en = readl_relaxed(OUTPUT_REG(pll));
-			output_en &= ~masks->output_mask;
-			output_en |= pll->enable_config;
-			writel_relaxed(output_en, OUTPUT_REG(pll));
-		}
-		if (masks->post_div_mask) {
-			userval = readl_relaxed(USER_CTL_LO_REG(pll));
-			userval &= ~masks->post_div_mask;
-			userval |= pll->post_div_config;
-			writel_relaxed(userval, USER_CTL_LO_REG(pll));
-		}
-		if (pll->fsm_en_mask)
-			__set_fsm_mode(MODE_REG(pll));
+		__init_alpha_pll(c);
 		return HANDOFF_DISABLED_CLK;
 	} else if (pll->fsm_en_mask && !is_fsm_mode(MODE_REG(pll))) {
 		WARN(1, "%s should be in FSM mode but is not\n", c->dbg_name);

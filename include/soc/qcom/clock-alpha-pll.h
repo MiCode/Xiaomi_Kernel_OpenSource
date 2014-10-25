@@ -56,6 +56,8 @@ struct alpha_pll_clk {
 	struct alpha_pll_vco_tbl *vco_tbl;
 	u32 num_vco;
 
+	bool inited;
+
 	struct clk c;
 };
 
