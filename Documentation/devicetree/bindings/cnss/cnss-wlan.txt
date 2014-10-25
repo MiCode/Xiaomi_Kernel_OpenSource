@@ -31,6 +31,8 @@ Optional properties:
     by providing the size of CNSS DUMP
   - reg: Memory regions defined as starting address and size
   - reg-names: Names of the memory regions defined in reg entry
+  - wlan-bootstrap-gpio: WLAN_BOOTSTRAP GPIO signal specified by QCA6174
+                         which should be drived depending on platforms
 
 Example:
 
