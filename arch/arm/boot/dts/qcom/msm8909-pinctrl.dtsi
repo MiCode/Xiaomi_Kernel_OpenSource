@@ -262,7 +262,7 @@
 			};
 			qdsd_data0_trace: data0_trace {
 				bias-pull-down; /* pull down */
-				drive-strength = <0>; /* 0 MA */
+				drive-strength = <3>; /* 3 MA */
 			};
 			qdsd_data0_swduart: data0_uart {
 				bias-pull-down; /* pull down */
@@ -292,7 +292,7 @@
 			};
 			qdsd_data1_trace: data1_trace {
 				bias-pull-down; /* pull down */
-				drive-strength = <0>; /* 0 MA */
+				drive-strength = <3>; /* 3 MA */
 			};
 			qdsd_data1_swduart: data1_uart {
 				bias-pull-down; /* pull down */
@@ -318,7 +318,7 @@
 			};
 			qdsd_data2_trace: data2_trace {
 				bias-pull-down; /* pull down */
-				drive-strength = <0>; /* 0 MA */
+				drive-strength = <3>; /* 3 MA */
 			};
 			qdsd_data2_swduart: data2_uart {
 				bias-pull-down; /* pull down */
@@ -344,7 +344,7 @@
 			};
 			qdsd_data3_trace: data3_trace {
 				bias-pull-down; /* pull down */
-				drive-strength = <0>; /* 0 MA */
+				drive-strength = <3>; /* 3 MA */
 			};
 			qdsd_data3_swduart: data3_uart {
 				bias-pull-up; /* pull up */
