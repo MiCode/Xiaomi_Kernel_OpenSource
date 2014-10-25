@@ -505,7 +505,6 @@ struct ipa_ep_context {
 	u32 dflt_flt6_rule_hdl;
 	bool skip_ep_cfg;
 	bool keep_ipa_awake;
-	bool resume_on_connect;
 	struct ipa_wlan_stats wstats;
 	u32 wdi_state;
 
@@ -801,6 +800,7 @@ struct ipa_sps_pm {
  * @ep: list of all end points
  * @skip_ep_cfg_shadow: state to update filter table correctly across
   power-save
+ * @resume_on_connect: resume ep on ipa_connect
  * @flt_tbl: list of all IPA filter tables
  * @mode: IPA operating mode
  * @mmio: iomem
@@ -867,6 +867,7 @@ struct ipa_context {
 	unsigned long bam_handle;
 	struct ipa_ep_context ep[IPA_NUM_PIPES];
 	bool skip_ep_cfg_shadow[IPA_NUM_PIPES];
+	bool resume_on_connect[IPA_CLIENT_MAX];
 	struct ipa_flt_tbl flt_tbl[IPA_NUM_PIPES][IPA_IP_MAX];
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;
