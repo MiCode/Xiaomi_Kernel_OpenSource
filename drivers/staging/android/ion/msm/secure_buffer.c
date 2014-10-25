@@ -37,6 +37,19 @@ struct cp2_lock_req {
 	u32 lock;
 } __attribute__ ((__packed__));
 
+
+struct mem_prot_info {
+	phys_addr_t addr;
+	u64 size;
+};
+
+struct info_list {
+	struct mem_prot_info *list_head;
+	u64 list_size;
+};
+
+
+#define MEM_PROT_ASSIGN_ID		0x16
 #define MEM_PROTECT_LOCK_ID2		0x0A
 #define MEM_PROTECT_LOCK_ID2_FLAT	0x11
 #define V2_CHUNK_SIZE		SZ_1M
@@ -159,6 +172,69 @@ int msm_ion_unsecure_table(struct sg_table *table)
 	mutex_unlock(&secure_buffer_mutex);
 	return ret;
 
+}
+
+static struct info_list *get_info_list(struct sg_table *table)
+{
+	int i;
+	struct scatterlist *sg;
+	struct mem_prot_info *info;
+	struct info_list *list;
+
+	info = kmalloc_array(table->nents, (sizeof(struct mem_prot_info)),
+					GFP_KERNEL | __GFP_ZERO);
+	if (!info)
+		return NULL;
+
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		info[i].addr = page_to_phys(sg_page(sg));
+		info[i].size = sg->length;
+	}
+
+	list = kzalloc(sizeof(struct info_list), GFP_KERNEL);
+	if (!list) {
+		kfree(info);
+		return NULL;
+	}
+
+	list->list_head = info;
+	list->list_size = table->nents * sizeof(struct mem_prot_info);
+	return list;
+}
+
+static void destroy_info_list(struct info_list *info_list)
+{
+	kfree(info_list->list_head);
+	kfree(info_list);
+}
+
+int msm_ion_hyp_assign_call(struct sg_table *table,
+			u64 *source_vm_list, u32 source_list_size,
+			u64 *dest_vm_list, u32 dest_list_size)
+{
+	struct info_list *info_list = NULL;
+	int ret;
+	struct scm_desc desc = {0};
+
+	info_list = get_info_list(table);
+
+	desc.args[0] = virt_to_phys(info_list->list_head);
+	desc.args[1] = info_list->list_size;
+	desc.args[2] = virt_to_phys(source_vm_list);
+	desc.args[3] = source_list_size;
+	desc.args[4] = virt_to_phys(dest_vm_list);
+	desc.args[5] = dest_list_size;
+	desc.args[6] = 0;
+	desc.arginfo = SCM_ARGS(7, SCM_RO, SCM_VAL, SCM_RO, SCM_VAL, SCM_RO,
+				SCM_VAL, SCM_VAL);
+
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+			MEM_PROT_ASSIGN_ID), &desc);
+	if (ret)
+		pr_info("%s: Failed to assign memory protection, ret = %d\n",
+			__func__, ret);
+	destroy_info_list(info_list);
+	return ret;
 }
 
 #define MAKE_CP_VERSION(major, minor, patch) \
