@@ -1399,17 +1399,9 @@ static inline enum dwc3_link_state dwc3_get_link_state(struct dwc3 *dwc)
 
 static bool dwc3_gadget_is_suspended(struct dwc3 *dwc)
 {
-	enum dwc3_link_state		link_state;
-
-	if (atomic_read(&dwc->in_lpm)) {
+	if (atomic_read(&dwc->in_lpm) ||
+		dwc->link_state == DWC3_LINK_STATE_U3)
 		return true;
-	} else {
-		link_state = dwc3_get_link_state(dwc);
-		if (link_state == DWC3_LINK_STATE_RX_DET ||
-			link_state == DWC3_LINK_STATE_U3)
-			return true;
-	}
-
 	return false;
 }
 
@@ -2919,13 +2911,21 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 
 static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 {
-	dbg_event(0xFF, "WAKEUP", 0);
+	dev_dbg(dwc->dev, "%s\n", __func__);
 
-	/* Clear OTG suspend state */
-	if (dwc->enable_bus_suspend)
-		usb_phy_set_suspend(dwc->dotg->otg.phy, 0);
+	/* Only perform resume from L2 or Early Suspend states */
+	if (dwc->link_state == DWC3_LINK_STATE_U3) {
+		dbg_event(0xFF, "WAKEUP", 0);
 
-	dwc3_resume_gadget(dwc);
+		/* Clear OTG suspend state */
+		if (dwc->enable_bus_suspend)
+			usb_phy_set_suspend(dwc->dotg->otg.phy, 0);
+
+		dwc->link_state = dwc3_get_link_state(dwc);
+		dwc3_resume_gadget(dwc);
+	} else {
+		dwc->link_state = dwc3_get_link_state(dwc);
+	}
 }
 
 static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
