@@ -115,6 +115,8 @@ Optional properties:
 					0 = default value.
 - qcom,mdss-dsi-fbc-lossy-mode-idx:	Lossy mode index value.
 					0 = default value.
+- qcom,mdss-dsi-fbc-max-pred-err:	Max quantization prediction error.
+					0 = default value
 - qcom,mdss-dsi-h-back-porch:		Horizontal back porch value in pixel.
 					6 = default value.
 - qcom,mdss-dsi-h-front-porch:		Horizontal front porch value in pixel.
@@ -402,6 +404,7 @@ Example:
 		qcom,mdss-dsi-fbc-lossy-threshold = <0>;
 		qcom,mdss-dsi-fbc-rgb-threshold = <0>;
 		qcom,mdss-dsi-fbc-lossy-mode-idx = <0>;
+		qcom,mdss-dsi-fbc-max-pred-err = <2>;
 		qcom,mdss-dsi-h-front-porch = <140>;
 		qcom,mdss-dsi-h-back-porch = <164>;
 		qcom,mdss-dsi-h-pulse-width = <8>;
