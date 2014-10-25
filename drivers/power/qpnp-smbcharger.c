@@ -379,6 +379,29 @@ static void smbchg_relax(struct smbchg_chip *chip, int reason)
 	}
 	chip->wake_reasons = reasons;
 	mutex_unlock(&chip->pm_lock);
+};
+
+enum pwr_path_type {
+	UNKNOWN = 0,
+	PWR_PATH_BATTERY = 1,
+	PWR_PATH_USB = 2,
+	PWR_PATH_DC = 3,
+};
+
+#define PWR_PATH		0x08
+#define PWR_PATH_MASK		0x03
+static enum pwr_path_type smbchg_get_pwr_path(struct smbchg_chip *chip)
+{
+	int rc;
+	u8 reg;
+
+	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + PWR_PATH, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read PWR_PATH rc = %d\n", rc);
+		return PWR_PATH_BATTERY;
+	}
+
+	return reg & PWR_PATH_MASK;
 }
 
 #define RID_STS				0xB
@@ -445,18 +468,23 @@ static bool is_otg_present(struct smbchg_chip *chip)
 #define DCIN_UNREG			BIT(1)
 #define DCIN_LV				BIT(0)
 #define INPUT_STS			0x0D
+#define DCIN_UV_BIT			0x0
+#define DCIN_OV_BIT			0x1
 static bool is_dc_present(struct smbchg_chip *chip)
 {
 	int rc;
 	u8 reg;
 
-	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + INPUT_STS, 1);
+	rc = smbchg_read(chip, &reg, chip->dc_chgpth_base + RT_STS, 1);
 	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't read usb status rc = %d\n", rc);
+		dev_err(chip->dev, "Couldn't read dc status rc = %d\n", rc);
 		return false;
 	}
 
-	return !!(reg & (DCIN_9V | DCIN_UNREG | DCIN_LV));
+	if ((reg & DCIN_UV_BIT) || (reg & DCIN_OV_BIT))
+		return false;
+
+	return true;
 }
 
 static bool is_usb_present(struct smbchg_chip *chip)
@@ -1834,7 +1862,6 @@ static int smbchg_dc_get_property(struct power_supply *psy,
 {
 	struct smbchg_chip *chip = container_of(psy,
 				struct smbchg_chip, dc_psy);
-	bool user_enabled = (chip->dc_suspended & REASON_USER) == 0;
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -1845,7 +1872,9 @@ static int smbchg_dc_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		/* return if dc is charging the battery */
-		val->intval = user_enabled && chip->dc_present;
+		val->intval = (smbchg_get_pwr_path(chip) == PWR_PATH_DC)
+				&& (get_prop_batt_status(chip)
+					== POWER_SUPPLY_STATUS_CHARGING);
 		break;
 	default:
 		return -EINVAL;
