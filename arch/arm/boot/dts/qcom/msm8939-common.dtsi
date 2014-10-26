@@ -1458,7 +1458,6 @@
 			<&clock_gcc clk_gcc_venus0_ahb_clk>,
 			<&clock_gcc clk_gcc_venus0_axi_clk>;
 		clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk";
-		qcom,clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x0 0x0>;
 		qcom,sw-power-collapse;
 		qcom,enable-minimum-voting;
