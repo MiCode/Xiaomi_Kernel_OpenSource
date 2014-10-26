@@ -4161,6 +4161,12 @@ static int probe_vdd_mx(struct device_node *node,
 	int ret = 0;
 	char *key = NULL;
 
+	key = "qcom,disable-vdd-mx";
+	if (of_property_read_bool(node, key)) {
+		vdd_mx_enabled = false;
+		return ret;
+	}
+
 	key = "qcom,mx-restriction-temp";
 	ret = of_property_read_u32(node, key, &data->vdd_mx_temp_degC);
 	if (ret)
@@ -4211,6 +4217,14 @@ static int probe_vdd_rstr(struct device_node *node,
 	struct device_node *child_node = NULL;
 
 	rails = NULL;
+
+	key = "qcom,disable-vdd-rstr";
+	if (of_property_read_bool(node, key)) {
+		vdd_rstr_probed = true;
+		vdd_rstr_enabled = false;
+		rails_cnt = 0;
+		return ret;
+	}
 
 	key = "qcom,vdd-restriction-temp";
 	ret = of_property_read_u32(node, key, &data->vdd_rstr_temp_degC);
@@ -4319,6 +4333,12 @@ static void probe_sensor_info(struct device_node *node,
 	struct device_node *child_node = NULL;
 	struct device_node *np = NULL;
 
+	key = "qcom,disable-sensor-info";
+	if (of_property_read_bool(node, key)) {
+		sensor_info_probed = true;
+		return;
+	}
+
 	np = of_find_compatible_node(NULL, NULL, "qcom,sensor-information");
 	if (!np) {
 		dev_info(&pdev->dev,
@@ -4391,6 +4411,14 @@ static int probe_ocr(struct device_node *node, struct msm_thermal_data *data,
 		goto read_ocr_exit;
 	}
 	ocr_rails = NULL;
+
+	key = "qcom,disable-ocr";
+	if (of_property_read_bool(node, key)) {
+		ocr_probed = true;
+		ocr_enabled = false;
+		ocr_rail_cnt = 0;
+		goto read_ocr_exit;
+	}
 
 	key = "qcom,pmic-opt-curr-temp";
 	ret = of_property_read_u32(node, key, &data->ocr_temp_degC);
@@ -4496,6 +4524,14 @@ static int probe_psm(struct device_node *node, struct msm_thermal_data *data,
 	char *key = NULL;
 
 	psm_rails = NULL;
+
+	key = "qcom,disable-psm";
+	if (of_property_read_bool(node, key)) {
+		psm_probed = true;
+		psm_enabled = false;
+		psm_rails_cnt = 0;
+		return ret;
+	}
 
 	key = "qcom,pmic-sw-mode-temp";
 	ret = of_property_read_u32(node, key, &data->psm_temp_degC);
@@ -4642,6 +4678,13 @@ static int probe_gfx_phase_ctrl(struct device_node *node,
 	const char *tmp_str = NULL;
 	int ret = 0;
 
+	key = "qcom,disable-gfx-phase-ctrl";
+	if (of_property_read_bool(node, key)) {
+		gfx_crit_phase_ctrl_enabled = false;
+		gfx_warm_phase_ctrl_enabled = false;
+		return ret;
+	}
+
 	key = "qcom,gfx-sensor-id";
 	ret = of_property_read_u32(node, key,
 		&data->gfx_sensor);
@@ -4728,6 +4771,12 @@ static int probe_cx_phase_ctrl(struct device_node *node,
 	char *key = NULL;
 	const char *tmp_str;
 	int ret = 0;
+
+	key = "qcom,disable-cx-phase-ctrl";
+	if (of_property_read_bool(node, key)) {
+		cx_phase_ctrl_enabled = false;
+		return ret;
+	}
 
 	key = "qcom,rpm-phase-resource-type";
 	ret = of_property_read_string(node, key,
