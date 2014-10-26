@@ -54,6 +54,7 @@
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pm_qos.h>
 
 #include <asm/irq.h>
 #include <asm/byteorder.h>
@@ -438,6 +439,38 @@ enum ts_types {
 };
 #endif
 
+/* PM QoS voting state  */
+enum ufshcd_pm_qos_state {
+	PM_QOS_UNVOTED,
+	PM_QOS_VOTED,
+	PM_QOS_REQ_VOTE,
+	PM_QOS_REQ_UNVOTE,
+};
+
+/* Default latency for PM QOS */
+#define UFS_DEFAULT_CPU_DMA_LATENCY_US	200	/* microseconds */
+
+/**
+ * struct ufshcd_pm_qos - data related to PM QoS voting logic
+ * @vote_work: work object for voting procedure
+ * @unvote_work: work object for un-voting procedure
+ * @req: request object for PM QoS
+ * @cpu_dma_latency_us: requested latency value used for voting in microseconds
+ * @state: voting state machine current state
+ * @active_reqs: number of active requests requiring PM QoS voting
+ * @is_suspended: flag specifying whether voting logic is suspended.
+ * When set, voting will not occur for pending requests.
+ */
+struct ufshcd_pm_qos {
+	struct work_struct vote_work;
+	struct work_struct unvote_work;
+	struct pm_qos_request req;
+	u32 cpu_dma_latency_us;
+	enum ufshcd_pm_qos_state state;
+	int active_reqs;
+	bool is_suspended;
+};
+
 /**
  * struct ufs_hba - per adapter private structure
  * @mmio_base: UFSHCI base register address
@@ -617,6 +650,9 @@ struct ufs_hba {
 
 	bool wlun_dev_clr_ua;
 
+	/* PM Quality-of-Service (QoS) data */
+	struct ufshcd_pm_qos pm_qos;
+
 	struct ufs_pa_layer_attr pwr_info;
 	struct ufs_pwr_mode_info max_pwr_info;
 
@@ -783,6 +819,41 @@ static const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.name = "qcom",
 };
 #endif
+
+#ifndef CONFIG_SMP
+static inline int ufshcd_pm_qos_init(struct ufs_hba *hba)
+{
+	return 0;
+}
+
+static inline int ufshcd_pm_qos_hold(struct ufs_hba *hba, bool async)
+{
+	return 0;
+}
+
+static inline int __ufshcd_pm_qos_hold(struct ufs_hba *hba, bool async)
+{
+	return 0;
+}
+
+static inline int ufshcd_pm_qos_release(struct ufs_hba *hba)
+{
+	return 0;
+}
+
+static inline int __ufshcd_pm_qos_release(struct ufs_hba *hba)
+{
+	return 0;
+}
+
+static inline void ufshcd_pm_qos_remove(struct ufs_hba *hba)
+{
+}
+
+static inline void ufshcd_parse_pm_qos(struct ufs_hba *hba)
+{
+}
+#endif /* CONFIG_SMP */
 
 /* Expose Query-Request API */
 int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
