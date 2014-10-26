@@ -3089,14 +3089,6 @@ static int synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data)
 
 	synaptics_rmi4_set_configured(rmi4_data);
 
-	retval = synaptics_rmi4_query_device(rmi4_data);
-	if (retval < 0) {
-		dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Failed to query device\n",
-				__func__);
-	}
-
-
 	retval = 0;
 
 exit:
