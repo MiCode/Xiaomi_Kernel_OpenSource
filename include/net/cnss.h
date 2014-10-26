@@ -103,6 +103,7 @@ extern int cnss_get_fw_image(struct image_desc_info *image_desc_info);
 extern void cnss_device_crashed(void);
 extern void cnss_device_self_recovery(void);
 extern int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size);
+extern void *cnss_get_virt_ramdump_mem(unsigned long *size);
 extern int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count);
 extern int cnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list,
 		u16 *ch_count, u16 buf_len);

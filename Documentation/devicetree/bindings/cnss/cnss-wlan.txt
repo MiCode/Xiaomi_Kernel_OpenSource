@@ -12,8 +12,6 @@ provides the reserved RAM dump memory location and size.
 
 Required properties:
   - compatible: "qcom,cnss"
-  - reg: Memory regions defined as starting address and size
-  - reg-names: Names of the memory regions defined in reg entry
   - wlan-en-gpio: WLAN_EN GPIO signal specified by QCA6174 specifications
   - vdd-wlan-supply: phandle to the regulator device tree node
   - pinctrl-names: Names corresponding to the numbered pinctrl states
@@ -29,6 +27,10 @@ Optional properties:
     has exclusive access to UART.
   - vdd-wlan-io-supply: phandle to the 1.8V IO regulator for QCA6174
   - vdd-wlan-xtal-supply: phandle to the 1.8V XTAL regulator for QCA6174
+  - qcom,wlan-ramdump-dynamic: To enable CNSS RAMDUMP collection
+    by providing the size of CNSS DUMP
+  - reg: Memory regions defined as starting address and size
+  - reg-names: Names of the memory regions defined in reg entry
 
 Example:
 
@@ -36,6 +38,7 @@ Example:
         compatible = "qcom,cnss";
         reg = <0x0d400000 0x200000>;
         reg-names = "ramdump";
+        qcom,wlan-ramdump-dynamic = <0x200000>;
         wlan-en-gpio = <&msmgpio 82 0>;
         vdd-wlan-supply = <&wlan_vreg>;
         qcom,notify-modem-status;
