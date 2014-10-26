@@ -1520,6 +1520,7 @@ struct clk_ops clk_ops_vote = {
 struct clk_ops clk_ops_gate = {
 	.enable = gate_clk_enable,
 	.disable = gate_clk_disable,
+	.set_rate = parent_set_rate,
 	.get_rate = parent_get_rate,
 	.round_rate = parent_round_rate,
 	.handoff = gate_clk_handoff,
