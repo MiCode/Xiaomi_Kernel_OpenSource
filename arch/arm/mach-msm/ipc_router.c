@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3330,7 +3330,7 @@ static int __init msm_ipc_router_init(void)
 
 	msm_ipc_router_debug_mask |= SMEM_LOG;
 	ipc_rtr_log_ctxt = ipc_log_context_create(IPC_RTR_LOG_PAGES,
-						  "ipc_router");
+						  "ipc_router", 0);
 	if (!ipc_rtr_log_ctxt)
 		pr_err("%s: Unable to create IPC logging for IPC RTR",
 			__func__);

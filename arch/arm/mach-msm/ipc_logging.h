@@ -30,7 +30,26 @@ struct ipc_log_page {
 	char data[PAGE_SIZE - sizeof(struct ipc_log_page_header)];
 };
 
+/**
+ * struct ipc_log_context - main logging context
+ *
+ * @user_version:  Version number for user-defined messages
+ * @list:  List of log contexts (struct ipc_log_context)
+ * @page_list:  List of log pages (struct ipc_log_page)
+ * @first_page:  First page in list of logging pages
+ * @last_page:  Last page in list of logging pages
+ * @write_page:  Current write page
+ * @read_page:  Current read page (for internal reads)
+ * @write_avail:  Number of bytes available to write in all pages
+ * @dent:  Debugfs node for run-time log extraction
+ * @dfunc_info_list:  List of deserialization functions
+ * @ipc_log_context_lock:  Lock for entire structure
+ * @read_avail:  Completed when new data is added to the log
+ */
 struct ipc_log_context {
+	uint16_t user_version;
+
+	/* add local data structures after this point */
 	struct list_head list;
 	struct list_head page_list;
 	struct ipc_log_page *first_page;

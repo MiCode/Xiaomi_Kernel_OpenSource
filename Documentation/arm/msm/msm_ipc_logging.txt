@@ -149,6 +149,7 @@ Kernel-Space Interface APIs
  *
  * @max_num_pages: Number of pages of logging space required (max. 10)
  * @mod_name     : Name of the directory entry under DEBUGFS
+ * @user_version : Version number of user-defined message formats
  *
  * returns reference to context on success, NULL on failure
  */
