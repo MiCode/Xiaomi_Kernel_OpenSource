@@ -1175,7 +1175,16 @@ static int dwc3_gadget_int_events_show(struct seq_file *s, void *unused)
 	seq_printf(s, "unknown_event:%u\n", dbg_gadget_events->unknown_event);
 
 	seq_printf(s, "\n\t== Last %d interrupts stats ==\t\n", MAX_INTR_STATS);
-	seq_puts(s, "events count:\t");
+	seq_puts(s, "@ time (us):\t");
+	for (i = 0; i < MAX_INTR_STATS; i++)
+		seq_printf(s, "%lld\t", ktime_to_us(dwc->irq_start_time[i]));
+	seq_puts(s, "\nhard irq time (us):\t");
+	for (i = 0; i < MAX_INTR_STATS; i++)
+		seq_printf(s, "%d\t", dwc->irq_completion_time[i]);
+	seq_puts(s, "\nevents count:\t");
+	for (i = 0; i < MAX_INTR_STATS; i++)
+		seq_printf(s, "%d\t", dwc->irq_event_count[i]);
+	seq_puts(s, "\nbh handled count:\t");
 	for (i = 0; i < MAX_INTR_STATS; i++)
 		seq_printf(s, "%d\t", dwc->bh_handled_evt_cnt[i]);
 	seq_puts(s, "\ntasklet time:\t");
