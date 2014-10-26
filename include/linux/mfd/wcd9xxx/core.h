@@ -224,6 +224,8 @@ int wcd9xxx_interface_reg_write(struct wcd9xxx *wcd9xxx, unsigned short reg,
 int wcd9xxx_get_logical_addresses(u8 *pgd_la, u8 *inf_la);
 int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
 			     int bytes, void *src);
+int wcd9xxx_slim_reserve_bw(struct wcd9xxx *wcd9xxx,
+			    u32 bw_ops, bool commit);
 
 #if defined(CONFIG_WCD9310_CODEC) || \
 	defined(CONFIG_WCD9304_CODEC) || \
