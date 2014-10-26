@@ -2311,8 +2311,8 @@ static int soc_to_setpoint(int soc)
 #define SOC_DELTA_OFFSET	3
 #define DELTA_SOC_PERCENT	1
 #define BATT_TEMP_OFFSET	3
-#define BATT_TEMP_CNTRL_MASK	0x0F
-#define BATT_TEMP_ON		0x0E
+#define BATT_TEMP_CNTRL_MASK	0x17
+#define BATT_TEMP_ON		0x16
 #define BATT_TEMP_OFF		0x01
 #define THERMAL_COEFF_ADDR	0x444
 #define THERMAL_COEFF_OFFSET	0x2
