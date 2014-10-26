@@ -236,6 +236,7 @@ struct cpr_regulator {
 	u64		cpr_fuse_bits;
 	bool		cpr_fuse_disable;
 	bool		cpr_fuse_local;
+	bool		cpr_fuse_redundant;
 	int		*cpr_fuse_target_quot;
 	int		*cpr_fuse_ro_sel;
 	int		gcnt;
@@ -1234,10 +1235,15 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 	int i, size, sign, steps, step_size_uv, rc;
 	u32 *fuse_sel, *tmp, *ref_uv;
 	struct property *prop;
+	char *init_volt_str;
 
-	prop = of_find_property(of_node, "qcom,cpr-fuse-init-voltage", NULL);
+	init_volt_str = cpr_vreg->cpr_fuse_redundant
+			? "qcom,cpr-fuse-redun-init-voltage"
+			: "qcom,cpr-fuse-init-voltage";
+
+	prop = of_find_property(of_node, init_volt_str, NULL);
 	if (!prop) {
-		cpr_err(cpr_vreg, "qcom,cpr-fuse-init-voltage is missing\n");
+		cpr_err(cpr_vreg, "%s is missing\n", init_volt_str);
 		return -EINVAL;
 	}
 	size = prop->length / sizeof(u32);
@@ -1251,7 +1257,7 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 		cpr_err(cpr_vreg, "memory alloc failed.\n");
 		return -ENOMEM;
 	}
-	rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-init-voltage",
+	rc = of_property_read_u32_array(of_node, init_volt_str,
 							fuse_sel, size);
 	if (rc < 0) {
 		cpr_err(cpr_vreg,
@@ -2165,14 +2171,45 @@ struct cpr_quot_scale {
 	u32 multiplier;
 };
 
+/*
+ * Check if the redundant set of CPR fuses should be used in place of the
+ * primary set and configure the cpr_fuse_redundant element accordingly.
+ */
+static int cpr_check_redundant(struct platform_device *pdev,
+		     struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	u32 cpr_fuse_redun_sel[5];
+	int rc;
+
+	if (of_find_property(of_node, "qcom,cpr-fuse-redun-sel", NULL)) {
+		rc = of_property_read_u32_array(of_node,
+			"qcom,cpr-fuse-redun-sel", cpr_fuse_redun_sel, 5);
+		if (rc < 0) {
+			cpr_err(cpr_vreg, "qcom,cpr-fuse-redun-sel missing: rc=%d\n",
+				rc);
+			return rc;
+		}
+		cpr_vreg->cpr_fuse_redundant
+			= cpr_fuse_is_setting_expected(cpr_vreg,
+						cpr_fuse_redun_sel);
+	} else {
+		cpr_vreg->cpr_fuse_redundant = false;
+	}
+
+	if (cpr_vreg->cpr_fuse_redundant)
+		cpr_info(cpr_vreg, "using redundant fuse parameters\n");
+
+	return 0;
+}
+
 static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				     struct cpr_regulator *cpr_vreg)
 {
 	struct device_node *of_node = pdev->dev.of_node;
 	int i, rc = 0;
-	bool redundant = false, scheme_fuse_valid = false;
+	bool scheme_fuse_valid = false;
 	bool disable_fuse_valid = false;
-	u32 cpr_fuse_redun_sel[5];
 	char *targ_quot_str, *ro_sel_str;
 	u32 cpr_fuse_row[2];
 	u32 bp_cpr_disable, bp_scheme;
@@ -2200,20 +2237,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		goto error;
 	}
 
-	if (of_find_property(of_node, "qcom,cpr-fuse-redun-sel", NULL)) {
-		rc = of_property_read_u32_array(of_node,
-					"qcom,cpr-fuse-redun-sel",
-					cpr_fuse_redun_sel, 5);
-		if (rc < 0) {
-			cpr_err(cpr_vreg, "cpr-fuse-redun-sel missing: rc=%d\n",
-				rc);
-			goto error;
-		}
-		redundant = cpr_fuse_is_setting_expected(cpr_vreg,
-						cpr_fuse_redun_sel);
-	}
-
-	if (redundant) {
+	if (cpr_vreg->cpr_fuse_redundant) {
 		rc = of_property_read_u32_array(of_node,
 				"qcom,cpr-fuse-redun-row",
 				cpr_fuse_row, 2);
@@ -2301,7 +2325,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 					cpr_fuse_row[1]);
 	cpr_info(cpr_vreg, "[row:%d] = 0x%llx\n", cpr_fuse_row[0], fuse_bits);
 
-	if (redundant) {
+	if (cpr_vreg->cpr_fuse_redundant) {
 		if (of_find_property(of_node,
 				"qcom,cpr-fuse-redun-bp-cpr-disable", NULL)) {
 			CPR_PROP_READ_U32(cpr_vreg, of_node,
@@ -3275,6 +3299,13 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	if (rc) {
 		cpr_err(cpr_vreg, "Wrong eFuse address specified: rc=%d\n", rc);
 		return rc;
+	}
+
+	rc = cpr_check_redundant(pdev, cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "Could not check redundant fuse: rc=%d\n",
+			rc);
+		goto err_out;
 	}
 
 	rc = cpr_voltage_plan_init(pdev, cpr_vreg);
