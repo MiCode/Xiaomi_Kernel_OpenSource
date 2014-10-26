@@ -35,7 +35,7 @@
  */
 #define NUM_PP2S_SYSFS_REG_NODES 1
 
-#define NUM_WC_SYSFS_REG_NODES 7
+#define NUM_WC_SYSFS_REG_NODES 8
 
 #define ATTR_PTR_SIZE sizeof(struct attribute *)
 
@@ -49,12 +49,13 @@
 #define BASEADDR_PLUS(base, off)                        \
 	((void *) ((u32) (base) + (u32) (off)))
 
-#define WC_SECS_ADDR       BASEADDR_PLUS(time_bank,  0x00000014)
-#define WC_NSECS_ADDR      BASEADDR_PLUS(time_bank,  0x00000018)
-#define WC_CONTROL_ADDR    BASEADDR_PLUS(cntrl_bank, 0x00000020)
-#define WC_PULSECNT_ADDR   BASEADDR_PLUS(cntrl_bank, 0x00000024)
-#define WC_CLOCKCNT_ADDR   BASEADDR_PLUS(cntrl_bank, 0x0000002C)
-#define WC_SNAPSHOT_ADDR   BASEADDR_PLUS(cntrl_bank, 0x00000028)
+#define WC_SECS_ADDR       BASEADDR_PLUS(time_bank,   0x00000014)
+#define WC_NSECS_ADDR      BASEADDR_PLUS(time_bank,   0x00000018)
+#define WC_CONTROL_ADDR    BASEADDR_PLUS(cntrl_bank1, 0x00000020)
+#define WC_PULSECNT_ADDR   BASEADDR_PLUS(cntrl_bank1, 0x00000024)
+#define WC_CLOCKCNT_ADDR   BASEADDR_PLUS(cntrl_bank1, 0x0000002C)
+#define WC_SNAPSHOT_ADDR   BASEADDR_PLUS(cntrl_bank1, 0x00000028)
+#define WC_SFN_ADDR        BASEADDR_PLUS(cntrl_bank2, 0x00000000)
 
 /*
  * Number of bits in the nanosecond register to be used for the
@@ -129,6 +130,8 @@ struct wc_sysfs_t {
 	u32                    snapshot_reg;
 	struct kobj_attribute  kobj_attr_reset_time;
 	u32                    reset_time;
+	struct kobj_attribute  kobj_attr_sfn_reg;
+	u32                    sfn_reg;
 };
 
 /*
@@ -151,11 +154,14 @@ static int                      time_is_set = -1;
  *                time registers (ie. the base time or "epoch" when
  *                the time was set), and
  *
- *   *cntrl_bank : A set of registers used to make current wall clock
- *                 time calculations relative to the base time...
+ *   *cntrl_bank1 : A set of registers used to make current wall clock
+ *                  time calculations relative to the base time...
+ *
+ *   *cntrl_bank2 : Similar to cntrl_bank1
  */
 static void *time_bank;
-static void *cntrl_bank;
+static void *cntrl_bank1;
+static void *cntrl_bank2;
 
 /*
  * The following function takes GPS time from the FTM and converts it
@@ -302,21 +308,6 @@ static ssize_t read_cntrl_reg(
 }
 
 /*
- * The sysfs routine which is called when an application issues a
- * write on the cntrl_reg sysfs node...
- */
-static ssize_t write_cntrl_reg(
-	struct kobject        *kobj,
-	struct kobj_attribute *attr,
-	const char            *buf,
-	size_t                 count)
-{
-	LOG_DRVR_DEBUG("Entering %s\n", __func__);
-
-	return register_write(__func__, WC_CONTROL_ADDR, buf);
-}
-
-/*
  * The sysfs routine which is called when an application issues a read
  * on the secs_reg sysfs node...
  */
@@ -389,21 +380,6 @@ static ssize_t read_pulsecnt_reg(
 }
 
 /*
- * The sysfs routine which is called when an application issues a
- * write on the pulsecnt_reg sysfs node...
- */
-static ssize_t write_pulsecnt_reg(
-	struct kobject        *kobj,
-	struct kobj_attribute *attr,
-	const char            *buf,
-	size_t                 count)
-{
-	LOG_DRVR_DEBUG("Entering %s\n", __func__);
-
-	return register_write(__func__, WC_PULSECNT_ADDR, buf);
-}
-
-/*
  * The sysfs routine which is called when an application issues a read
  * on the clockcnt_reg sysfs node...
  */
@@ -418,21 +394,6 @@ static ssize_t read_clockcnt_reg(
 }
 
 /*
- * The sysfs routine which is called when an application issues a
- * write on the clockcnt_reg sysfs node...
- */
-static ssize_t write_clockcnt_reg(
-	struct kobject        *kobj,
-	struct kobj_attribute *attr,
-	const char            *buf,
-	size_t                 count)
-{
-	LOG_DRVR_DEBUG("Entering %s\n", __func__);
-
-	return register_write(__func__, WC_CLOCKCNT_ADDR, buf);
-}
-
-/*
  * The sysfs routine which is called when an application issues a read
  * on the snapshot_reg sysfs node...
  */
@@ -444,21 +405,6 @@ static ssize_t read_snapshot_reg(
 	LOG_DRVR_DEBUG("Entering %s\n", __func__);
 
 	return register_read(__func__, WC_SNAPSHOT_ADDR, buf);
-}
-
-/*
- * The sysfs routine which is called when an application issues a
- * write on the snapshot_reg sysfs node...
- */
-static ssize_t write_snapshot_reg(
-	struct kobject        *kobj,
-	struct kobj_attribute *attr,
-	const char            *buf,
-	size_t                 count)
-{
-	LOG_DRVR_DEBUG("Entering %s\n", __func__);
-
-	return register_write(__func__, WC_SNAPSHOT_ADDR, buf);
 }
 
 /*
@@ -493,6 +439,35 @@ static ssize_t write_reset_time(
 	time_is_set = -1;
 
 	return 1;
+}
+
+/*
+ * The sysfs routine which is called when an application issues a read
+ * on the sfn_reg sysfs node...
+ */
+static ssize_t read_sfn_reg(
+	struct kobject        *kobj,
+	struct kobj_attribute *attr,
+	char                  *buf)
+{
+	LOG_DRVR_DEBUG("Entering %s\n", __func__);
+
+	return register_read(__func__, WC_SFN_ADDR, buf);
+}
+
+/*
+ * The sysfs routine which is called when an application issues a
+ * write on the sfn_reg sysfs node...
+ */
+static ssize_t write_sfn_reg(
+	struct kobject        *kobj,
+	struct kobj_attribute *attr,
+	const char            *buf,
+	size_t                 count)
+{
+	LOG_DRVR_DEBUG("Entering %s\n", __func__);
+
+	return register_write(__func__, WC_SFN_ADDR, buf);
 }
 
 /*
@@ -688,31 +663,59 @@ static int wc_probe(
 	}
 
 	/*
-	 * Find the address of the control bank and map it in...
+	 * Find the address of the 1st control bank and map it in...
 	 */
 	r = platform_get_resource_byname(
-		pdev, IORESOURCE_MEM, "wallclock_cntrl_bank");
+		pdev, IORESOURCE_MEM, "wallclock_cntrl_bank1");
 
 	if (r == 0) {
 		LOG_DRVR_ERR(
-			"%s: platform_get_resource_byname(cntrl_bank) failed\n",
+			"%s: platform_get_resource_byname(cntrl_bank1) failed\n",
 			__func__);
 		ret = -ENODEV;
 		goto werr1;
 	}
 
 	LOG_DRVR_DEBUG(
-		"%s: cntrl_bank start(%d) size(%d)\n",
+		"%s: cntrl_bank1 start(%d) size(%d)\n",
 		__func__, r->start, resource_size(r));
 
-	cntrl_bank = ioremap_nocache(r->start, resource_size(r));
+	cntrl_bank1 = ioremap_nocache(r->start, resource_size(r));
 
-	if (cntrl_bank == 0) {
+	if (cntrl_bank1 == 0) {
 		LOG_DRVR_ERR(
-			"%s: ioremap(cntrl_bank) failed\n",
+			"%s: ioremap(cntrl_bank1) failed\n",
 			__func__);
 		ret = -ENOMEM;
 		goto werr1;
+	}
+
+	/*
+	 * Find the address of the 2nd control bank and map it in...
+	 */
+	r = platform_get_resource_byname(
+		pdev, IORESOURCE_MEM, "wallclock_cntrl_bank2");
+
+	if (r == 0) {
+		LOG_DRVR_ERR(
+			"%s: platform_get_resource_byname(cntrl_bank2) failed\n",
+			__func__);
+		ret = -ENODEV;
+		goto werr2;
+	}
+
+	LOG_DRVR_DEBUG(
+		"%s: cntrl_bank2 start(%d) size(%d)\n",
+		__func__, r->start, resource_size(r));
+
+	cntrl_bank2 = ioremap_nocache(r->start, resource_size(r));
+
+	if (cntrl_bank2 == 0) {
+		LOG_DRVR_ERR(
+			"%s: ioremap(cntrl_bank2) failed\n",
+			__func__);
+		ret = -ENOMEM;
+		goto werr2;
 	}
 
 	/*
@@ -722,7 +725,7 @@ static int wc_probe(
 
 	if (wc_sysfs.kobj == 0) {
 		ret = -ENOMEM;
-		goto werr2;
+		goto werr3;
 	}
 
 	/*
@@ -733,19 +736,21 @@ static int wc_probe(
 
 	if (wc_sysfs.attr_grp.attrs == 0) {
 		ret = -ENOMEM;
-		goto werr3;
+		goto werr4;
 	}
 
 	/*
 	 * Add sysfs attrs...
 	 */
-	MAKE_RW_ATTR(cntrl_reg,    &wc_sysfs, 0);
-	MAKE_RW_ATTR(secs_reg,     &wc_sysfs, 1);
-	MAKE_RW_ATTR(nsecs_reg,    &wc_sysfs, 2);
-	MAKE_RW_ATTR(pulsecnt_reg, &wc_sysfs, 3);
-	MAKE_RW_ATTR(clockcnt_reg, &wc_sysfs, 4);
-	MAKE_RW_ATTR(snapshot_reg, &wc_sysfs, 5);
+	MAKE_RO_ATTR(clockcnt_reg, &wc_sysfs, 0);
+	MAKE_RO_ATTR(cntrl_reg,    &wc_sysfs, 1);
+	MAKE_RO_ATTR(pulsecnt_reg, &wc_sysfs, 2);
+	MAKE_RO_ATTR(snapshot_reg, &wc_sysfs, 3);
+
+	MAKE_RW_ATTR(secs_reg,     &wc_sysfs, 4);
+	MAKE_RW_ATTR(nsecs_reg,    &wc_sysfs, 5);
 	MAKE_RW_ATTR(reset_time,   &wc_sysfs, 6);
+	MAKE_RW_ATTR(sfn_reg,      &wc_sysfs, 7);
 
 	/*
 	 * Create sysfs group...
@@ -753,19 +758,22 @@ static int wc_probe(
 	ret = sysfs_create_group(wc_sysfs.kobj, &wc_sysfs.attr_grp);
 
 	if (ret != 0)
-		goto werr4;
+		goto werr5;
 
 	return ret;
 
-werr4:
+werr5:
 	kzfree(wc_sysfs.attr_grp.attrs);
 	wc_sysfs.attr_grp.attrs = 0;
-werr3:
+werr4:
 	kobject_put(wc_sysfs.kobj);
 	wc_sysfs.kobj = 0;
+werr3:
+	iounmap(cntrl_bank2);
+	cntrl_bank2 = 0;
 werr2:
-	iounmap(cntrl_bank);
-	cntrl_bank = 0;
+	iounmap(cntrl_bank1);
+	cntrl_bank1 = 0;
 werr1:
 	iounmap(time_bank);
 	time_bank = 0;
@@ -810,8 +818,11 @@ static int wc_remove(
 	iounmap(time_bank);
 	time_bank = 0;
 
-	iounmap(cntrl_bank);
-	cntrl_bank = 0;
+	iounmap(cntrl_bank1);
+	cntrl_bank1 = 0;
+
+	iounmap(cntrl_bank2);
+	cntrl_bank2 = 0;
 
 	return 0;
 }
