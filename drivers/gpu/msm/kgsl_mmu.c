@@ -642,7 +642,7 @@ struct kgsl_pagetable *kgsl_mmu_getpagetable(struct kgsl_mmu *mmu,
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return (void *)(-1);
 
-	if (!kgsl_mmu_is_perprocess(mmu))
+	if (!kgsl_mmu_is_perprocess(mmu) && (KGSL_MMU_SECURE_PT != name))
 		name = KGSL_MMU_GLOBAL_PT;
 
 	pt = kgsl_get_pagetable(name);
