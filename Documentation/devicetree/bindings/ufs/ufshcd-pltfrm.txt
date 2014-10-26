@@ -106,6 +106,20 @@ Note: The instantaneous bandwidth (IB) value in the vectors-KBps field should
 - qcom,bus-vector-names: specifies string IDs for the corresponding
 bus vectors in the same order as qcom,msm-bus,vectors-KBps property.
 
+- qcom,cpu-dma-latency-us: optional parameter specifying the allowed CPU-DMA
+  latency parameter for PM QOS, in units of microseconds. If this parameter is
+  not specified a default of 200us is used.
+- qcom,cpu-affinity: this is a string that specifies the pm QoS request type.
+  The supported cpu affinity modes are:
+  "all_cores" - PM_QOS_REQ_ALL_CORES is applicable to all CPU cores that are
+  online and this would have a power impact when there are more number of CPUs.
+  "affine_irq" - PM_QOS_REQ_AFFINE_IRQ request type shall update/apply the vote
+  only to that CPU to which this IRQ's affinity is set to.
+  "affine_cores" - PM_QOS_REQ_AFFINE_CORES request type is used for targets that
+  have little cluster and will update/apply the vote to all the cores in the
+  little cluster.
+  The default CPU affinity mode is PM_QOS_REQ_AFFINE_IRQ.
+
 Example:
 	ufshc@0xfc598000 {
 		...
