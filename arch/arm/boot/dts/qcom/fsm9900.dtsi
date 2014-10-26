@@ -1802,8 +1802,8 @@
 
 	qcom,wallclock@fd4aa000 {
 		compatible = "qcom,wallclock";
-		reg-names = "wallclock_time_bank", "wallclock_cntrl_bank";
-		reg = <0xfd4aa000 0x20>, <0xfd4a9000 0x40>;
+		reg-names = "wallclock_time_bank", "wallclock_cntrl_bank1", "wallclock_cntrl_bank2";
+		reg = <0xfd4aa000 0x20>, <0xfd4a9000 0x40>, <0xfd4a3200 0x04>;
 	};
 
 	qcom,danipc@24200000 {
