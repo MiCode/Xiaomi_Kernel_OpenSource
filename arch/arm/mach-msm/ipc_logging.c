@@ -162,6 +162,7 @@ static void ipc_log_read(struct ipc_log_context *ilctxt,
 		ilctxt->nd_read_page->hdr.nd_read_offset = 0;
 		ilctxt->nd_read_page = get_next_page(ilctxt,
 			ilctxt->nd_read_page);
+		BUG_ON(ilctxt->nd_read_page == NULL);
 
 		memcpy((data + bytes_to_read),
 			   (ilctxt->nd_read_page->data +
@@ -201,10 +202,12 @@ static void ipc_log_drop(struct ipc_log_context *ilctxt, void *data,
 			ilctxt->read_page->hdr.nd_read_offset = 0;
 			ilctxt->read_page = get_next_page(ilctxt,
 				ilctxt->read_page);
+			BUG_ON(ilctxt->read_page == NULL);
 			ilctxt->nd_read_page = ilctxt->read_page;
 		} else {
 			ilctxt->read_page = get_next_page(ilctxt,
 				ilctxt->read_page);
+			BUG_ON(ilctxt->read_page == NULL);
 		}
 
 		if (data)
@@ -308,6 +311,7 @@ void ipc_log_write(void *ctxt, struct encode_context *ectxt)
 		ilctxt->write_page->hdr.end_time = t_now;
 
 		ilctxt->write_page = get_next_page(ilctxt, ilctxt->write_page);
+		BUG_ON(ilctxt->write_page == NULL);
 		ilctxt->write_page->hdr.write_offset = 0;
 		ilctxt->write_page->hdr.start_time = t_now;
 		memcpy((ilctxt->write_page->data +
