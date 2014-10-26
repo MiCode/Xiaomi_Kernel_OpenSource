@@ -363,7 +363,7 @@
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <0>;
-			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <0>;
 			#pwm-cells = <2>;
 		};
@@ -374,7 +374,7 @@
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <1>;
-			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <1>;
 			#pwm-cells = <2>;
 		};
@@ -385,7 +385,7 @@
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <2>;
-			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <2>;
 			#pwm-cells = <2>;
 		};
@@ -396,7 +396,7 @@
 			      <0xb042 0x7e>;
 			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
 			qcom,channel-id = <3>;
-			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,supported-sizes = <6>, <9>;
 			qcom,ramp-index = <3>;
 			#pwm-cells = <2>;
 		};
