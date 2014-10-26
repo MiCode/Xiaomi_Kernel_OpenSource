@@ -6,7 +6,8 @@ the battery and power the system via the USB and AC adapter input.
 The smb135x interface is via I2C bus.
 
 Required Properties:
-- compatible:			Must be "qcom,smb1357-charger" or  "qcom,smb1359-charger".
+- compatible:			Must be "qcom,smb1357-charger", "qcom,smb1358-charger"
+				or  "qcom,smb1359-charger".
 - reg:				The device 7-bit I2C address.
 
 Optional Properties:
