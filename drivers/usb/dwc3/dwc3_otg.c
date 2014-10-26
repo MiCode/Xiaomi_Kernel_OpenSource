@@ -98,8 +98,6 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			return ret;
 		}
 
-		if (dwc->ssphy_clear_auto_suspend_on_disconnect)
-			dwc3_gadget_usb3_phy_suspend(dwc, true);
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
 
 		/*
@@ -126,6 +124,8 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		/* re-init OTG EVTEN register as XHCI reset clears it */
 		if (ext_xceiv && !ext_xceiv->otg_capability)
 			dwc3_otg_reset(dotg);
+
+		dwc3_gadget_usb3_phy_suspend(dwc, true);
 	} else {
 		dev_dbg(otg->phy->dev, "%s: turn off host\n", __func__);
 
@@ -151,8 +151,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 						ext_xceiv->ext_block_reset)
 			ext_xceiv->ext_block_reset(ext_xceiv, true);
 
-		if (dwc->ssphy_clear_auto_suspend_on_disconnect)
-			dwc3_gadget_usb3_phy_suspend(dwc, false);
+		dwc3_gadget_usb3_phy_suspend(dwc, false);
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 
 		/* re-init core and OTG registers as block reset clears these */
@@ -233,8 +232,7 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 		usb_gadget_vbus_disconnect(otg->gadget);
 		usb_phy_notify_disconnect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(dotg->dwc->usb3_phy, USB_SPEED_SUPER);
-		if (dotg->dwc->ssphy_clear_auto_suspend_on_disconnect)
-			dwc3_gadget_usb3_phy_suspend(dotg->dwc, false);
+		dwc3_gadget_usb3_phy_suspend(dotg->dwc, false);
 	}
 
 	return 0;
