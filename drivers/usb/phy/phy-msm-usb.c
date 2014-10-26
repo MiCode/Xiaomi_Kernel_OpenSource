@@ -4373,7 +4373,7 @@ static void msm_otg_pnoc_errata_fix(struct msm_otg *motg)
 		dev_err(motg->phy.dev, "scm command failed to update VMIDMT\n");
 }
 
-static u64 msm_otg_dma_mask = DMA_BIT_MASK(64);
+static u64 msm_otg_dma_mask = DMA_BIT_MASK(32);
 static struct platform_device *msm_otg_add_pdev(
 		struct platform_device *ofdev, const char *name)
 {
@@ -4390,7 +4390,7 @@ static struct platform_device *msm_otg_add_pdev(
 		goto error;
 	}
 
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 	pdev->dev.dma_mask = &msm_otg_dma_mask;
 
 	if (num) {
