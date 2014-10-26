@@ -1836,8 +1836,7 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		ctrl->mdss_util->bus_bandwidth_ctrl(1);
 
 	if (ctrl->mdss_util->bus_scale_set_quota)
-		ctrl->mdss_util->bus_scale_set_quota(MDSS_HW_DSI0,
-							SZ_1M, 0, SZ_1M);
+		ctrl->mdss_util->bus_scale_set_quota(MDSS_DSI_RT, SZ_1M, SZ_1M);
 
 	pr_debug("%s:  from_mdp=%d pid=%d\n", __func__, from_mdp, current->pid);
 	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
@@ -1867,7 +1866,7 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 
 	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
 	if (ctrl->mdss_util->bus_scale_set_quota)
-		ctrl->mdss_util->bus_scale_set_quota(MDSS_HW_DSI0, 0, 0, 0);
+		ctrl->mdss_util->bus_scale_set_quota(MDSS_DSI_RT, 0, 0);
 	if (ctrl->mdss_util->bus_bandwidth_ctrl)
 		ctrl->mdss_util->bus_bandwidth_ctrl(0);
 need_lock:
