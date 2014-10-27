@@ -448,7 +448,6 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 
 	if (c->use_runtime_pm) {
 		pm_runtime_set_active(dev);
-		pm_suspend_ignore_children(dev, 1);
 		if (c->autosuspend_delay)
 			pm_runtime_set_autosuspend_delay(dev, c->autosuspend_delay);
 		else

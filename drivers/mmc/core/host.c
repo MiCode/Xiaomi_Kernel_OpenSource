@@ -22,6 +22,7 @@
 #include <linux/leds.h>
 #include <linux/slab.h>
 #include <linux/suspend.h>
+#include <linux/pm_runtime.h>
 
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
@@ -39,9 +40,15 @@ static void mmc_host_classdev_release(struct device *dev)
 	kfree(host);
 }
 
+static const struct dev_pm_ops mmc_host_class_pm_ops = {
+	SET_RUNTIME_PM_OPS(pm_generic_runtime_suspend,
+			pm_generic_runtime_resume, NULL)
+};
+
 static struct class mmc_host_class = {
 	.name		= "mmc_host",
 	.dev_release	= mmc_host_classdev_release,
+	.pm		= &mmc_host_class_pm_ops,
 };
 
 int mmc_register_host_class(void)
@@ -496,6 +503,13 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	host->max_req_size = PAGE_CACHE_SIZE;
 	host->max_blk_size = 512;
 	host->max_blk_count = PAGE_CACHE_SIZE / 512;
+
+	pm_runtime_set_active(&host->class_dev);
+	pm_runtime_enable(&host->class_dev);
+	/*
+	 * ignore the children by default
+	 */
+	pm_suspend_ignore_children(&host->class_dev, true);
 
 	return host;
 

@@ -1442,7 +1442,6 @@ static void sdhci_pci_runtime_pm_allow(struct device *dev)
 	pm_runtime_allow(dev);
 	pm_runtime_set_autosuspend_delay(dev, 50);
 	pm_runtime_use_autosuspend(dev);
-	pm_suspend_ignore_children(dev, 1);
 }
 
 static void sdhci_pci_runtime_pm_forbid(struct device *dev)
