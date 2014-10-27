@@ -956,6 +956,8 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		goto ctr_exit;
 	}
 
+	num_engines_fde = num_engines_pfe = 0;
+
 	mutex_lock(&engine_list_mutex);
 	num_engines = qcrypto_get_num_engines();
 	if (!num_engines) {
