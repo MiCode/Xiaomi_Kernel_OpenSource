@@ -177,6 +177,7 @@ enum mdss_mdp_bw_vote_mode {
 
 struct mdss_mdp_perf_params {
 	u64 bw_overlap;
+	u64 bw_writeback;
 	u64 bw_prefill;
 	u32 prefill_bytes;
 	u64 bw_ctl;

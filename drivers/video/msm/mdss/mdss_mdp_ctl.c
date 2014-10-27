@@ -28,6 +28,8 @@
 #include "mdss_mdp_trace.h"
 #include "mdss_debug.h"
 
+#define MDSS_MDP_WB_OUTPUT_BPP	3
+
 static void mdss_mdp_xlog_mixer_reg(struct mdss_mdp_ctl *ctl);
 static inline u64 fudge_factor(u64 val, u32 numer, u32 denom)
 {
@@ -646,7 +648,7 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_panel_info *pinfo = NULL;
 	int fps = DEFAULT_FRAME_RATE;
-	u32 v_total = 0;
+	u32 v_total = 0, bpp = MDSS_MDP_WB_OUTPUT_BPP;
 	int i;
 	u32 max_clk_rate = 0;
 	u64 bw_overlap_max = 0;
@@ -655,6 +657,7 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 	u32 prefill_bytes = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool apply_fudge = true;
+	struct mdss_mdp_format_params *fmt;
 
 	BUG_ON(num_pipes > MAX_PIPES_PER_LM);
 
@@ -671,8 +674,13 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 				v_total = mdss_panel_get_vtotal(pinfo);
 			}
 
-			if (pinfo->type == WRITEBACK_PANEL)
+			if (pinfo->type == WRITEBACK_PANEL) {
+				fmt = mdss_mdp_get_format_params(
+					pinfo->out_format);
+				if (fmt)
+					bpp = fmt->bpp;
 				pinfo = NULL;
+			}
 		} else {
 			v_total = mixer->height;
 		}
@@ -682,8 +690,8 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 			mdss_mdp_clk_fudge_factor(mixer, perf->mdp_clk_rate);
 
 		if (!pinfo)	/* perf for bus writeback */
-			perf->bw_overlap =
-				fps * mixer->width * mixer->height * 3;
+			perf->bw_writeback =
+				fps * mixer->width * mixer->height * bpp;
 		/* for command mode, run as fast as the link allows us */
 		else if ((pinfo->type == MIPI_CMD_PANEL) &&
 			 (pinfo->mipi.dsi_pclk_rate > perf->mdp_clk_rate))
@@ -890,6 +898,7 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 		perf->bw_overlap += tmp.bw_overlap;
 		perf->prefill_bytes += tmp.prefill_bytes;
 		perf->mdp_clk_rate = tmp.mdp_clk_rate;
+		perf->bw_writeback += tmp.bw_writeback;
 	}
 
 	if (ctl->mixer_right) {
@@ -901,6 +910,7 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 
 		perf->bw_overlap += tmp.bw_overlap;
 		perf->prefill_bytes += tmp.prefill_bytes;
+		perf->bw_writeback += tmp.bw_writeback;
 		if (tmp.mdp_clk_rate > perf->mdp_clk_rate)
 			perf->mdp_clk_rate = tmp.mdp_clk_rate;
 
@@ -1029,6 +1039,8 @@ static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 				&mdss_res->ib_factor_overlap),
 			apply_fudge_factor(perf->bw_prefill,
 				&mdss_res->ib_factor));
+		perf->bw_writeback = apply_fudge_factor(perf->bw_writeback,
+				&mdss_res->ib_factor);
 	}
 	pr_debug("ctl=%d clk_rate=%u\n", ctl->num, perf->mdp_clk_rate);
 	pr_debug("bw_overlap=%llu bw_prefill=%llu prefill_bytes=%d\n",
@@ -1170,23 +1182,21 @@ static void mdss_mdp_ctl_perf_update_traffic_shaper_bw(struct mdss_mdp_ctl *ctl,
 	}
 }
 
-static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
-	bool nrt_client, u32 mdp_clk)
+static u64 mdss_mdp_ctl_calc_client_vote(struct mdss_data_type *mdata,
+	struct mdss_mdp_perf_params *perf, bool nrt_client, u32 mdp_clk)
 {
-	u64 bw_sum_of_intfs = 0, bus_ab_quota, bus_ib_quota;
+	u64 bw_sum_of_intfs = 0;
+	int i;
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_mixer *mixer;
-	int i;
-	struct mdss_mdp_perf_params perf_temp;
-	bitmap_zero(perf_temp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
-	ATRACE_BEGIN(__func__);
 	for (i = 0; i < mdata->nctl; i++) {
 		ctl = mdata->ctl_off + i;
 		mixer = ctl->mixer_left;
 		if (mdss_mdp_ctl_is_power_on(ctl) &&
 		    /* RealTime clients */
-		    ((!nrt_client && !mdss_mdp_is_nrt_ctl_path(ctl)) ||
+		    ((!nrt_client && ctl->mixer_left &&
+			!ctl->mixer_left->rotator_mode) ||
 		    /* Non-RealTime clients */
 		    (nrt_client && mdss_mdp_is_nrt_ctl_path(ctl)))) {
 			/*
@@ -1198,10 +1208,15 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 					(ctl, mdp_clk);
 
 			if (ctl->cur_perf.bw_vote_mode)
-				bitmap_or(perf_temp.bw_vote_mode,
-					perf_temp.bw_vote_mode,
+				bitmap_or(perf->bw_vote_mode,
+					perf->bw_vote_mode,
 					ctl->cur_perf.bw_vote_mode,
 					MDSS_MDP_BW_MODE_MAX);
+
+			if (nrt_client && ctl->intf_num == MDSS_MDP_NO_INTF) {
+				bw_sum_of_intfs += ctl->cur_perf.bw_writeback;
+				continue;
+			}
 
 			bw_sum_of_intfs += ctl->cur_perf.bw_ctl;
 
@@ -1211,11 +1226,19 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 		}
 	}
 
-	bw_sum_of_intfs = max(bw_sum_of_intfs, mdata->perf_tune.min_bus_vote);
-	bus_ib_quota = bw_sum_of_intfs;
+	return bw_sum_of_intfs;
+}
+
+static void mdss_mdp_ctl_update_client_vote(struct mdss_data_type *mdata,
+	struct mdss_mdp_perf_params *perf, bool nrt_client, u64 bw_vote)
+{
+	u64 bus_ab_quota, bus_ib_quota;
+
+	bw_vote = max(bw_vote, mdata->perf_tune.min_bus_vote);
+	bus_ib_quota = bw_vote;
 
 	if (test_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
-		perf_temp.bw_vote_mode) &&
+		perf->bw_vote_mode) &&
 		(bus_ib_quota >= PERF_SINGLE_PIPE_BW_FLOOR)) {
 		struct mdss_fudge_factor ib_factor_vscaling;
 		ib_factor_vscaling.numer = 2;
@@ -1224,14 +1247,49 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 			&ib_factor_vscaling);
 	}
 
-	bus_ab_quota = apply_fudge_factor(bw_sum_of_intfs,
-		&mdss_res->ab_factor);
+	bus_ab_quota = apply_fudge_factor(bw_vote, &mdss_res->ab_factor);
 	ATRACE_INT("bus_quota", bus_ib_quota);
 
 	mdss_bus_scale_set_quota(nrt_client ? MDSS_MDP_NRT : MDSS_MDP_RT,
 		bus_ab_quota, bus_ib_quota);
 	pr_debug("client:%s ab=%llu ib=%llu\n", nrt_client ? "nrt" : "rt",
 		bus_ab_quota, bus_ib_quota);
+}
+
+static void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
+	struct mdss_mdp_ctl *ctl, u32 mdp_clk)
+{
+	u64 bw_sum_of_rt_intfs = 0, bw_sum_of_nrt_intfs = 0;
+	struct mdss_mdp_perf_params perf;
+
+	ATRACE_BEGIN(__func__);
+
+	/*
+	 * non-real time client
+	 * 1. rotator path
+	 * 2. writeback output path
+	 */
+	if (mdss_mdp_is_nrt_ctl_path(ctl)) {
+		bitmap_zero(perf.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
+		bw_sum_of_nrt_intfs = mdss_mdp_ctl_calc_client_vote(mdata,
+			&perf, true, mdp_clk);
+		mdss_mdp_ctl_update_client_vote(mdata, &perf, true,
+			bw_sum_of_nrt_intfs);
+	}
+
+	/*
+	 * real time client
+	 * 1. any realtime interface - primary or secondary interface
+	 * 2. writeback input path
+	 */
+	if (!mdss_mdp_is_nrt_ctl_path(ctl) ||
+		(ctl->intf_num ==  MDSS_MDP_NO_INTF)) {
+		bitmap_zero(perf.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
+		bw_sum_of_rt_intfs = mdss_mdp_ctl_calc_client_vote(mdata,
+			&perf, false, mdp_clk);
+		mdss_mdp_ctl_update_client_vote(mdata, &perf, false,
+			bw_sum_of_rt_intfs);
+	}
 
 	ATRACE_END(__func__);
 }
@@ -1286,8 +1344,7 @@ void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl)
 		ctl_local->cur_perf.bw_ctl = 0;
 		ctl_local->new_perf.bw_ctl = 0;
 		pr_debug("Release BW ctl=%d\n", ctl_local->num);
-		mdss_mdp_ctl_perf_update_bus(mdata,
-			mdss_mdp_is_nrt_ctl_path(ctl), 0);
+		mdss_mdp_ctl_perf_update_bus(mdata, ctl, 0);
 	}
 exit:
 	mutex_unlock(&mdss_mdp_ctl_lock);
@@ -1425,8 +1482,7 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 		clk_rate = mdss_mdp_get_mdp_clk_rate(mdata);
 
 	if (update_bus)
-		mdss_mdp_ctl_perf_update_bus(mdata,
-			mdss_mdp_is_nrt_ctl_path(ctl), clk_rate);
+		mdss_mdp_ctl_perf_update_bus(mdata, ctl, clk_rate);
 
 	/*
 	 * Update the clock after bandwidth vote to ensure
