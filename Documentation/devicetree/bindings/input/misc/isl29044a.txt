@@ -1,0 +1,25 @@
+Intersil isl29044a L/P sensor
+
+Required properties:
+
+ - compatible			: Should be "intersil,isl29044a".
+ - reg				: i2c slave address of the device.
+ - vdd-supply			: Power supply needed to power up the device.
+ - vio-supply			: IO power supply needed for IO and I2C.
+ - intersil,als-range		: Light Sensor als range, 0: 0-125 Lux, 1: 0-2000Lux
+ - intersil,ps-lt		: proximity low threshold. The proximity interrupt
+				event is governed by the high and low thresholds.
+ - intersil,ps-ht		: proximity high threshold.
+
+Example:
+i2c@f9925000 { /* BLSP-1 QUP-3 */
+	intersil@44 {
+		compatible = "intersil,isl29044a";
+		reg = <0x44>;
+		vdd-supply = <&pm8110_l19>;
+		vio-supply = <&pm8110_l14>;
+		intersil,als-range = <1>;
+		intersil,ps-lt = <30>;
+		intersil,ps-ht = <50>;
+	};
+};
