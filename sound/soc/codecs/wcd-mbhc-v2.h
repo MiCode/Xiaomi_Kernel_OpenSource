@@ -146,6 +146,7 @@ struct wcd_mbhc_cb {
 	void (*set_auto_zeroing) (struct snd_soc_codec *, bool);
 	struct firmware_cal * (*get_hwdep_fw_cal)(struct snd_soc_codec *,
 			enum wcd_cal_type);
+	void (*set_cap_mode)(struct snd_soc_codec *, bool, bool);
 };
 
 struct wcd_mbhc {

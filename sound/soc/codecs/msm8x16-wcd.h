@@ -162,6 +162,8 @@ struct msm8916_asoc_mach_data {
 	int us_euro_gpio;
 	int mclk_freq;
 	int lb_mode;
+	u8 micbias1_cap_mode;
+	u8 micbias2_cap_mode;
 	atomic_t mclk_rsc_ref;
 	atomic_t mclk_enabled;
 	struct mutex cdc_mclk_mutex;
