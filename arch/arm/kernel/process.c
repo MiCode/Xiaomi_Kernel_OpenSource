@@ -319,6 +319,7 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 	int	i, j;
 	int	nlines;
 	u32	*p;
+	bool	is_cma = 0;
 
 	/*
 	 * don't attempt to dump non-kernel addresses or
@@ -348,15 +349,23 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 			u32	data;
 			/*
 			 * vmalloc addresses may point to
-			 * memory-mapped peripherals
+			 * memory-mapped peripherals. CMA
+			 * addresses may be locked down.
 			 */
-			if (is_vmalloc_addr(p) ||
-			    probe_kernel_address(p, data)) {
-				printk(" ********");
-			} else {
-				printk(" %08x", data);
+			if (virt_addr_valid(p) &&
+				pfn_valid(__pa(p) >> PAGE_SHIFT)) {
+
+				is_cma = is_cma_pageblock(virt_to_page(p));
+				if (is_cma || probe_kernel_address(p, data)) {
+					printk(" ********");
+				} else {
+					printk(" %08x", data);
+				}
+				++p;
 			}
-			++p;
+			else {
+				printk(" ********");
+			}
 		}
 		printk("\n");
 	}
