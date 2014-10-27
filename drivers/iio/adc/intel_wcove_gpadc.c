@@ -127,8 +127,9 @@ static irqreturn_t gpadc_threaded_isr(int irq, void *data)
 {
 	struct gpadc_info *info = iio_priv(data);
 	struct gpadc_regs_t *regs = info->gpadc_regs;
-	/* Clear IRQLVL1MASK */
-	intel_soc_pmic_clearb(regs->mirqlvl1, regs->mirqlvl1_adc);
+
+	info->sample_done = 1;
+	wake_up(&info->wait);
 
 	return IRQ_HANDLED;
 }
