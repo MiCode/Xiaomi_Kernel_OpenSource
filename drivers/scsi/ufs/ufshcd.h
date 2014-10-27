@@ -316,6 +316,16 @@ struct ufs_pwr_mode_info {
  * @resume: called during host controller PM callback
  * @update_sec_cfg: called to restore host controller secure configuration
  * @dbg_register_dump: used to dump controller debug information
+ * @crypto_engine_cfg: configure cryptographic engine according to tag parameter
+ * @crypto_engine_eh: cryptographic engine error handling.
+ *                Return true is it detects an error, false on
+ *                success
+ * @crypto_engine_get_err: returns the saved error status of the
+ *                         cryptographic engine.If a positive
+ *                         value is returned, host controller
+ *                         should be reset.
+ * @crypto_engine_reset_err: resets the saved error status of
+ *                         the cryptographic engine
  * @phy_initialization: used to initialize phys
  */
 struct ufs_hba_variant_ops {
@@ -345,6 +355,10 @@ struct ufs_hba_variant_ops {
 	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
+	int	(*crypto_engine_cfg)(struct ufs_hba *, unsigned int);
+	int	(*crypto_engine_eh)(struct ufs_hba *);
+	int	(*crypto_engine_get_err)(struct ufs_hba *);
+	void	(*crypto_engine_reset_err)(struct ufs_hba *);
 	int	(*phy_initialization)(struct ufs_hba *);
 };
 
@@ -1003,6 +1017,8 @@ void ufshcd_release(struct ufs_hba *hba);
 int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us);
 int ufshcd_change_power_mode(struct ufs_hba *hba,
 			     struct ufs_pa_layer_attr *pwr_mode);
+void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba,
+		int result);
 
 int ufshcd_map_desc_id_to_length(struct ufs_hba *hba, enum desc_idn desc_id,
 	int *desc_length);

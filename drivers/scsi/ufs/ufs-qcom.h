@@ -206,6 +206,33 @@ struct ufs_qcom_testbus {
 	u8 select_minor;
 };
 
+/**
+ * struct ufs_qcom_ice_data - ICE related information
+ * @vops:	pointer to variant operations of ICE
+ * @async_done:	completion for supporting ICE's driver asynchronous nature
+ * @pdev:	pointer to the proper ICE platform device
+ * @state:      UFS-ICE interface's internal state (see
+ *       ufs-qcom-ice.h for possible internal states)
+ * @quirks:     UFS-ICE interface related quirks
+ * @crypto_engine_err: crypto engine errors
+ */
+struct ufs_qcom_ice_data {
+	struct qcom_ice_variant_ops *vops;
+	struct completion async_done;
+	struct platform_device *pdev;
+	int state;
+
+	/*
+	 * If UFS host controller should handle cryptographic engine's
+	 * errors, enables this quirk.
+	 */
+	#define UFS_QCOM_ICE_QUIRK_HANDLE_CRYPTO_ENGINE_ERRORS	UFS_BIT(0)
+
+	u16 quirks;
+
+	bool crypto_engine_err;
+};
+
 struct ufs_qcom_host {
 	/*
 	 * Set this capability if host controller supports the QUniPro mode
@@ -232,6 +259,7 @@ struct ufs_qcom_host {
 	struct clk *tx_l1_sync_clk;
 	bool is_lane_clks_enabled;
 	bool sec_cfg_updated;
+	struct ufs_qcom_ice_data ice;
 
 	void __iomem *dev_ref_clk_ctrl_mmio;
 	bool is_dev_ref_clk_enabled;

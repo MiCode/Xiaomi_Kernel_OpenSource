@@ -23,6 +23,7 @@
 #include "unipro.h"
 #include "ufs-qcom.h"
 #include "ufshci.h"
+#include "ufs-qcom-ice.h"
 #include "ufs_quirks.h"
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
@@ -352,6 +353,13 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		/* check if UFS PHY moved from DISABLED to HIBERN8 */
 		err = ufs_qcom_check_hibern8(hba);
 		ufs_qcom_enable_hw_clk_gating(hba);
+		if (!err) {
+			err = ufs_qcom_ice_reset(host);
+			if (err)
+				dev_err(hba->dev,
+					"%s: ufs_qcom_ice_reset() failed %d\n",
+					__func__, err);
+		}
 
 		break;
 	default:
@@ -571,6 +579,10 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		 */
 		ufs_qcom_disable_lane_clks(host);
 		phy_power_off(phy);
+		ret = ufs_qcom_ice_suspend(host);
+		if (ret)
+			dev_err(hba->dev, "%s: failed ufs_qcom_ice_suspend %d\n",
+					__func__, ret);
 
 		/* Assert PHY soft reset */
 		ufs_qcom_assert_reset(hba);
@@ -584,6 +596,7 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (!ufs_qcom_is_link_active(hba)) {
 		ufs_qcom_disable_lane_clks(host);
 		phy_power_off(phy);
+		ufs_qcom_ice_suspend(host);
 	}
 
 out:
@@ -607,10 +620,82 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (err)
 		goto out;
 
+	err = ufs_qcom_ice_resume(host);
+	if (err) {
+		dev_err(hba->dev, "%s: ufs_qcom_ice_resume failed, err = %d\n",
+			__func__, err);
+		goto out;
+	}
+
 	hba->is_sys_suspended = false;
 
 out:
 	return err;
+}
+
+static
+int ufs_qcom_crytpo_engine_cfg(struct ufs_hba *hba, unsigned int task_tag)
+{
+	struct ufs_qcom_host *host = hba->priv;
+	struct ufshcd_lrb *lrbp = &hba->lrb[task_tag];
+	int err = 0;
+
+	if (!host->ice.pdev ||
+	    !lrbp->cmd || lrbp->command_type != UTP_CMD_TYPE_SCSI)
+		goto out;
+
+	err = ufs_qcom_ice_cfg(host, lrbp->cmd);
+out:
+	return err;
+}
+
+static int ufs_qcom_crypto_engine_eh(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = hba->priv;
+	int ice_status = 0;
+	int err = 0;
+
+	host->ice.crypto_engine_err = 0;
+
+	if (host->ice.quirks &
+	    UFS_QCOM_ICE_QUIRK_HANDLE_CRYPTO_ENGINE_ERRORS) {
+		err = ufs_qcom_ice_get_status(host, &ice_status);
+		if (!err)
+			host->ice.crypto_engine_err = ice_status;
+
+		if (host->ice.crypto_engine_err) {
+			dev_err(hba->dev, "%s handling crypto engine error\n",
+					__func__);
+			/*
+			 * block commands from scsi mid-layer.
+			 * As crypto error is a fatal error and will result in
+			 * a host reset we should leave scsi mid layer blocked
+			 * until host reset is completed.
+			 * Host reset will be handled in a separate workqueue
+			 * and will be triggered from ufshcd_check_errors.
+			 */
+			scsi_block_requests(hba->host);
+
+			ufshcd_abort_outstanding_transfer_requests(hba,
+					DID_TARGET_FAILURE);
+		}
+	}
+
+	return host->ice.crypto_engine_err;
+}
+
+static int ufs_qcom_crypto_engine_get_err(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = hba->priv;
+
+	return host->ice.crypto_engine_err;
+}
+
+static void ufs_qcom_crypto_engine_reset_err(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = hba->priv;
+
+	host->ice.crypto_engine_err = 0;
 }
 
 struct ufs_qcom_dev_params {
@@ -1218,6 +1303,30 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	host->hba = hba;
 	ufshcd_set_variant(hba, host);
 
+	err = ufs_qcom_ice_get_dev(host);
+	if (err == -EPROBE_DEFER) {
+		/*
+		 * UFS driver might be probed before ICE driver does.
+		 * In that case we would like to return EPROBE_DEFER code
+		 * in order to delay its probing.
+		 */
+		dev_err(dev, "%s: required ICE device not probed yet err = %d\n",
+			__func__, err);
+		goto out_variant_clear;
+
+	} else if (err == -ENODEV) {
+		/*
+		 * ICE device is not enabled in DTS file. No need for further
+		 * initialization of ICE driver.
+		 */
+		dev_warn(dev, "%s: ICE device is not enabled",
+			__func__);
+	} else if (err) {
+		dev_err(dev, "%s: ufs_qcom_ice_get_dev failed %d\n",
+			__func__, err);
+		goto out_variant_clear;
+	}
+
 	/*
 	 * voting/devoting device ref_clk source is time consuming hence
 	 * skip devoting it during aggressive clock gating. This clock
@@ -1291,6 +1400,15 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_advertise_quirks(hba);
 
 	ufs_qcom_setup_clocks(hba, true, POST_CHANGE);
+	if (host->ice.pdev) {
+		err = ufs_qcom_ice_init(host);
+		if (err) {
+			dev_err(dev, "%s: ICE driver initialization failed (%d)\n",
+				__func__, err);
+			device_remove_file(dev, &host->bus_vote.max_bus_bw);
+			goto out_disable_phy;
+		}
+	}
 
 	if (hba->dev->id < MAX_UFS_QCOM_HOSTS)
 		ufs_qcom_hosts[hba->dev->id] = host;
@@ -1695,6 +1813,10 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.resume			= ufs_qcom_resume,
 	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
+	.crypto_engine_cfg	= ufs_qcom_crytpo_engine_cfg,
+	.crypto_engine_eh	= ufs_qcom_crypto_engine_eh,
+	.crypto_engine_get_err	= ufs_qcom_crypto_engine_get_err,
+	.crypto_engine_reset_err = ufs_qcom_crypto_engine_reset_err,
 };
 
 /**
