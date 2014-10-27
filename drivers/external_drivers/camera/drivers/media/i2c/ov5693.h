@@ -947,6 +947,20 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.bin_mode = 0,
 		.regs = ov5693_2592x1456_30fps,
 	},
+	{
+		.desc = "ov5693_5M_30fps",
+		.width = 2592,
+		.height = 1944,
+		.pix_clk_freq = 160,
+		.fps = 30,
+		.used = 0,
+		.pixels_per_line = 2688,
+		.lines_per_frame = 1984,
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.bin_mode = 0,
+		.regs = ov5693_2592x1944_30fps,
+	},
 };
 #define N_RES_VIDEO (ARRAY_SIZE(ov5693_res_video))
 
