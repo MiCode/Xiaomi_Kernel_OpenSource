@@ -86,6 +86,8 @@ struct qpic_data_type {
 	struct qpic_panel_io_desc panel_io;
 	u32 bus_handle;
 	struct completion fifo_eof_comp;
+	u32 qpic_is_on;
+	struct clk *qpic_a_clk;
 };
 
 u32 qpic_send_frame(
