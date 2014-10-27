@@ -263,6 +263,7 @@ struct mdss_data_type {
 	u32 latency_buff_per;
 	atomic_t active_intf_cnt;
 	bool has_rot_dwnscale;
+	bool regulator_notif_register;
 
 	u64 ab[MDSS_MAX_BUS_CLIENTS];
 	u64 ib[MDSS_MAX_BUS_CLIENTS];
