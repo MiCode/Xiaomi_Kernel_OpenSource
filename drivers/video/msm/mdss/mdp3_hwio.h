@@ -65,6 +65,15 @@
 #define MDP3_REG_CGC_EN					0x0100
 #define MDP3_VBIF_REG_FORCE_EN				0x0004
 
+/* QOS Remapper */
+#define MDP3_DMA_P_QOS_REMAPPER				0x90090
+#define MDP3_DMA_P_WATERMARK_0				0x90094
+#define MDP3_DMA_P_WATERMARK_1				0x90098
+#define MDP3_DMA_P_WATERMARK_2				0x9009C
+#define MDP3_PANIC_ROBUST_CTRL				0x900A0
+#define MDP3_PANIC_LUT0					0x900A4
+#define MDP3_ROBUST_LUT					0x900AC
+
 /*danger safe*/
 #define MDP3_PANIC_ROBUST_CTRL				0x900A0
 

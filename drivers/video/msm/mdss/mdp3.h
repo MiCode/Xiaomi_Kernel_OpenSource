@@ -205,6 +205,7 @@ void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 				uint32_t interval);
 int mdp3_dynamic_clock_gating_ctrl(int enable);
 int mdp3_footswitch_ctrl(int enable);
+int mdp3_qos_remapper_setup(void);
 
 #define MDP3_REG_WRITE(addr, val) writel_relaxed(val, mdp3_res->mdp_base + addr)
 #define MDP3_REG_READ(addr) readl_relaxed(mdp3_res->mdp_base + addr)
