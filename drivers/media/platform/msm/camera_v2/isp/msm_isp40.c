@@ -1198,14 +1198,19 @@ static long msm_vfe40_axi_halt(struct vfe_device *vfe_dev,
 	msm_camera_io_w(BIT(31), vfe_dev->vfe_base + 0x28);
 	msm_camera_io_w(BIT(8), vfe_dev->vfe_base + 0x2C);
 	/* Clear IRQ Status*/
-	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x30);
-	msm_camera_io_w(0xFEFFFFFF, vfe_dev->vfe_base + 0x34);
-	init_completion(&vfe_dev->halt_complete);
-	msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);
+	msm_camera_io_w(0x7FFFFFFF, vfe_dev->vfe_base + 0x30);
+	msm_camera_io_w(0xFEFFFEFF, vfe_dev->vfe_base + 0x34);
+	msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x24);
 	if (blocking) {
+		init_completion(&vfe_dev->halt_complete);
+		/* Halt AXI Bus Bridge */
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);
 		atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
 		rc = wait_for_completion_interruptible_timeout(
 			&vfe_dev->halt_complete, msecs_to_jiffies(500));
+	} else {
+		/* Halt AXI Bus Bridge */
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);
 	}
 	return rc;
 }
