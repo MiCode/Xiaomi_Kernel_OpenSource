@@ -83,6 +83,19 @@ config SCSI_UFS_QCOM
 	  Select this if you have UFS controller on QCOM chipset.
 	  If unsure, say N.
 
+config SCSI_UFS_QCOM_ICE
+	bool "QCOM specific hooks to Inline Crypto Engine for UFS driver"
+	depends on SCSI_UFS_QCOM && CRYPTO_DEV_QCOM_ICE
+	help
+	  This selects the QCOM specific additions to support Inline Crypto
+	  Engine (ICE).
+	  ICE accelerates the crypto operations and maintains the high UFS
+	  performance.
+
+	  Select this if you have ICE supported for UFS on QCOM chipset.
+	  If unsure, say N.
+
+
 config SCSI_UFS_TEST
 	tristate "Universal Flash Storage host controller driver unit-tests"
 	depends on SCSI_UFSHCD && IOSCHED_TEST
