@@ -2106,24 +2106,29 @@ static int bq24192_probe(struct i2c_client *client,
 	}
 
 	chip->client = client;
+	if (id) {
+		chip->pdata = (struct bq24192_platform_data *)id->driver_data;
+	} else {
 #ifdef CONFIG_ACPI
-	dev = &client->dev;
-	if (!ACPI_HANDLE(dev)) {
-		i2c_set_clientdata(client, NULL);
-		kfree(chip);
-		return -ENODEV;
-	}
-	acpi_id = acpi_match_device(dev->driver->acpi_match_table, dev);
-	if (!acpi_id) {
-		i2c_set_clientdata(client, NULL);
-		kfree(chip);
-		return -ENODEV;
-	}
+		dev = &client->dev;
+		if (!ACPI_HANDLE(dev)) {
+			i2c_set_clientdata(client, NULL);
+			kfree(chip);
+			return -ENODEV;
+		}
+		acpi_id = acpi_match_device(dev->driver->acpi_match_table, dev);
+		if (!acpi_id) {
+			i2c_set_clientdata(client, NULL);
+			kfree(chip);
+			return -ENODEV;
+		}
 
-	chip->pdata = (struct bq24192_platform_data *)acpi_id->driver_data;
+		chip->pdata = (struct bq24192_platform_data *)
+						acpi_id->driver_data;
 #else
-	chip->pdata = client->dev.platform_data;
+		chip->pdata = client->dev.platform_data;
 #endif
+	}
 	if (!chip->pdata) {
 		dev_err(&client->dev, "pdata NULL!!\n");
 		kfree(chip);
@@ -2169,20 +2174,24 @@ static int bq24192_probe(struct i2c_client *client,
 	 * register for an interrupt handler for servicing charger
 	 * interrupts
 	 */
+	if (client->irq) {
+		chip->irq = client->irq;
+	} else {
 #ifdef CONFIG_ACPI
-	gpio = devm_gpiod_get_index(dev, "bq24192_int", 0);
-	if (IS_ERR(gpio)) {
-		dev_err(dev, "acpi gpio get index failed\n");
-		i2c_set_clientdata(client, NULL);
-		kfree(chip);
-		return PTR_ERR(gpio);
-	}
+		gpio = devm_gpiod_get_index(dev, "bq24192_int", 0);
+		if (IS_ERR(gpio)) {
+			dev_err(dev, "acpi gpio get index failed\n");
+			i2c_set_clientdata(client, NULL);
+			kfree(chip);
+			return PTR_ERR(gpio);
+		}
 
-	chip->irq = gpiod_to_irq(gpio);
+		chip->irq = gpiod_to_irq(gpio);
 #else
-	if (chip->pdata->get_irq_number)
-		chip->irq = chip->pdata->get_irq_number();
+		if (chip->pdata->get_irq_number)
+			chip->irq = chip->pdata->get_irq_number();
 #endif
+	}
 	if (chip->irq < 0) {
 		dev_err(&chip->client->dev,
 			"chgr_int_n GPIO is not available\n");
@@ -2381,6 +2390,7 @@ struct bq24192_platform_data tbg24296_drvdata = {
 static const struct i2c_device_id bq24192_id[] = {
 	{ "bq24192", },
 	{ "TBQ24296", (kernel_ulong_t)&tbg24296_drvdata},
+	{ "ext-charger", (kernel_ulong_t)&tbg24296_drvdata},
 	{ },
 };
 MODULE_DEVICE_TABLE(i2c, bq24192_id);

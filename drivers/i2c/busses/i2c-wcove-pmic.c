@@ -77,6 +77,8 @@ enum I2C_STATUS {
 };
 
 static struct pmic_i2c_dev *pmic_dev;
+struct i2c_adapter *wcove_pmic_i2c_adapter;
+EXPORT_SYMBOL(wcove_pmic_i2c_adapter);
 
 static irqreturn_t pmic_thread_handler(int id, void *data)
 {
@@ -248,7 +250,6 @@ static const struct i2c_algorithm pmic_i2c_algo = {
 
 static int pmic_i2c_probe(struct platform_device *pdev)
 {
-	struct i2c_adapter *adap;
 	int ret;
 
 	pmic_dev = kzalloc(sizeof(struct pmic_i2c_dev), GFP_KERNEL);
@@ -272,13 +273,13 @@ static int pmic_i2c_probe(struct platform_device *pdev)
 	if (unlikely(ret))
 		goto unmask_irq_failed;
 
-	adap = &pmic_dev->adapter;
-	adap->owner = THIS_MODULE;
-	adap->class = I2C_CLASS_HWMON;
-	adap->algo = &pmic_i2c_algo;
-	strcpy(adap->name, "PMIC I2C Adapter");
-	adap->nr = pdev->id;
-	ret = i2c_add_numbered_adapter(adap);
+	wcove_pmic_i2c_adapter = &pmic_dev->adapter;
+	wcove_pmic_i2c_adapter->owner = THIS_MODULE;
+	wcove_pmic_i2c_adapter->class = I2C_CLASS_HWMON;
+	wcove_pmic_i2c_adapter->algo = &pmic_i2c_algo;
+	strcpy(wcove_pmic_i2c_adapter->name, "PMIC I2C Adapter");
+	wcove_pmic_i2c_adapter->nr = pdev->id;
+	ret = i2c_add_numbered_adapter(wcove_pmic_i2c_adapter);
 
 	if (ret) {
 		dev_err(&pdev->dev, "Error adding the adapter\n");

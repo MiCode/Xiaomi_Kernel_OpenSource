@@ -18,6 +18,8 @@
 #ifndef __INTEL_PMIC_WCOVE_H__
 #define __INTEL_PMIC_WCOVE_H__
 
+extern struct i2c_adapter *wcove_pmic_i2c_adapter;
+
 #define WC_IRQLVL1_ADDR		0x6E02
 #define WC_IRQLVL1_MASK_ADDR	0x6E0E
 #define WC_PWRSRC_ADDR		0x6E03

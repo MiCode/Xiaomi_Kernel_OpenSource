@@ -58,7 +58,7 @@
 #define MTHRMIRQ3	0xDA
 #define MCHGRIRQ	0x17
 
-#define WCOVE_PMIC_I2C_ID 21
+static bool wcove_init_done;
 
 static struct gpadc_regmap_t whiskeycove_gpadc_regmaps[GPADC_NUM_CHANNELS] = {
 	{"VBAT",	5,	0x4F03, 0x4F04, 0xFF, 0xFF, 0xFF, 0xFF},
@@ -382,12 +382,12 @@ static struct mfd_cell whiskey_cove_dev[] = {
 	},
 	{
 		.name = "wcove_pmic_i2c",
-		.id = WCOVE_PMIC_I2C_ID,
+		.id = 0,
 		.num_resources = ARRAY_SIZE(pmic_i2c_resources),
 		.resources = pmic_i2c_resources,
 	},
 	{
-		.name = "bd71621",
+		.name = "ext-charger",
 		.id = 0,
 		.num_resources = ARRAY_SIZE(charger_resources),
 		.resources = charger_resources,
@@ -549,6 +549,7 @@ static int whiskey_cove_init(void)
 	wcove_set_ccsm_config();
 	wcove_set_bcu_pdata();
 	wc_set_adc_pdata();
+	wcove_init_done = true;
 
 	return 0;
 }
@@ -561,6 +562,37 @@ struct intel_soc_pmic whiskey_cove_pmic = {
 	.irq_regmap	= whiskey_cove_irqregmap,
 	.irq_num	= WHISKEY_COVE_IRQ_NUM,
 };
+
+#define TT_I2CDADDR_ADDR		0x00
+static u8 pmic_read_tt(u8 addr)
+{
+	int ret;
+
+	ret = intel_soc_pmic_writeb(pmic_wcove_regmap.pmic_chrttaddr,
+			addr);
+
+	/* Delay the TT read by 2ms to ensure that the data is populated
+	 * in data register
+	 */
+	usleep_range(2000, 3000);
+
+	return intel_soc_pmic_readb(pmic_wcove_regmap.pmic_chrttdata);
+}
+
+
+static void __init register_external_charger(void)
+{
+	static struct i2c_board_info i2c_info;
+
+	if (!wcove_init_done)
+		return;
+
+	strncpy(i2c_info.type, "ext-charger", I2C_NAME_SIZE);
+	i2c_info.addr = pmic_read_tt(TT_I2CDADDR_ADDR);
+	i2c_info.irq = INTEL_PMIC_IRQBASE + CHGR_IRQ;
+	i2c_new_device(wcove_pmic_i2c_adapter, &i2c_info);
+}
+late_initcall(register_external_charger);
 
 MODULE_LICENSE("GPL V2");
 MODULE_AUTHOR("Yang Bin <bin.yang@intel.com");
