@@ -1157,6 +1157,7 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
     struct i2c_client *client = v4l2_get_subdevdata(sd);
     struct mt9m114_device *dev = to_mt9m114_sensor(sd);
     int ret = 0;
+    int max_itg;
     unsigned int coarse_integration = 0;
     unsigned int fine_integration = 0;
     unsigned int FLines = 0;
@@ -1175,12 +1176,18 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
     FLines = mt9m114_res[dev->res].lines_per_frame;
     AnalogGain = exposure->gain[0];
     DigitalGain = exposure->gain[1];
-	if (!dev->streamon) {
-		/*Save the first exposure values while stream is off*/
-		dev->first_exp = coarse_integration;
-		dev->first_gain = AnalogGain;
-		dev->first_diggain = DigitalGain;
-	}
+
+    /* Clamp integration time in video mode so as not to reduce FPS */
+    max_itg = FLines - 6;
+    if (coarse_integration > max_itg && dev->run_mode == CI_MODE_VIDEO)
+	    coarse_integration = max_itg;
+
+    if (!dev->streamon) {
+	    /*Save the first exposure values while stream is off*/
+	    dev->first_exp = coarse_integration;
+	    dev->first_gain = AnalogGain;
+	    dev->first_diggain = DigitalGain;
+    }
     //DigitalGain = 0x400 * (((u16) DigitalGain) >> 8) + ((unsigned int)(0x400 * (((u16) DigitalGain) & 0xFF)) >>8);
 
     //set frame length
@@ -1752,6 +1759,8 @@ static int mt9m114_t_vflip(struct v4l2_subdev *sd, int value)
 static int mt9m114_s_parm(struct v4l2_subdev *sd,
 			struct v4l2_streamparm *param)
 {
+	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
+	dev->run_mode = param->parm.capture.capturemode;
 	return 0;
 }
 

@@ -434,10 +434,21 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov5693_device *dev = to_ov5693_sensor(sd);
 	u16 vts,hts;
-	int ret,exp_val;
+	int ret,exp_val,max_itg;
 
 	hts = ov5693_res[dev->fmt_idx].pixels_per_line;
 	vts = ov5693_res[dev->fmt_idx].lines_per_frame;
+
+	max_itg = vts - OV5693_INTEGRATION_TIME_MARGIN;
+	if (coarse_itg > max_itg) {
+		if(dev->run_mode == CI_MODE_VIDEO) {
+			/* Don't reduce FPS in video mode */
+			coarse_itg = max_itg;
+		} else {
+			/* Increase the VTS to match exposure + MARGIN */
+			vts = (u16) coarse_itg + OV5693_INTEGRATION_TIME_MARGIN;
+		}
+	}
 
 	/* group hold */
 	ret = ov5693_write_reg(client, OV5693_8BIT,
@@ -447,10 +458,6 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 			__func__, OV5693_GROUP_ACCESS);
 		return ret;
 	}
-
-	/* Increase the VTS to match exposure + MARGIN */
-	if (coarse_itg > vts - OV5693_INTEGRATION_TIME_MARGIN)
-		vts = (u16) coarse_itg + OV5693_INTEGRATION_TIME_MARGIN;
 
 	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_TIMING_VTS_H, (vts >> 8) & 0xFF);
 	if (ret) {

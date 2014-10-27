@@ -273,6 +273,7 @@ struct mt9m114_device {
 	int real_model_id;
 	int nctx;
 	int power;
+	int run_mode;
 
 	unsigned int bus_width;
 	unsigned int mode;
