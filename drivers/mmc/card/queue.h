@@ -8,8 +8,9 @@ struct task_struct;
 
 struct mmc_blk_request {
 	struct mmc_request	mrq;
-	struct mmc_command	sbc;
+	struct mmc_command	precmd;
 	struct mmc_command	cmd;
+	struct mmc_command	postcmd;
 	struct mmc_command	stop;
 	struct mmc_data		data;
 };

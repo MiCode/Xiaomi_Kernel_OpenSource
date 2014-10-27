@@ -916,11 +916,13 @@ static void sdhci_set_transfer_mode(struct sdhci_host *host,
 		 * If we are sending CMD23, CMD12 never gets sent
 		 * on successful completion (so no Auto-CMD12).
 		 */
-		if (!host->mrq->sbc && (host->flags & SDHCI_AUTO_CMD12))
+		if (!host->mrq->precmd && (host->flags & SDHCI_AUTO_CMD12))
 			mode |= SDHCI_TRNS_AUTO_CMD12;
-		else if (host->mrq->sbc && (host->flags & SDHCI_AUTO_CMD23)) {
+		else if (host->mrq->precmd && (host->flags &
+					SDHCI_AUTO_CMD23)) {
 			mode |= SDHCI_TRNS_AUTO_CMD23;
-			sdhci_writel(host, host->mrq->sbc->arg, SDHCI_ARGUMENT2);
+			sdhci_writel(host, host->mrq->precmd->arg,
+					SDHCI_ARGUMENT2);
 		}
 	}
 
@@ -970,7 +972,7 @@ static void sdhci_finish_data(struct sdhci_host *host)
 	 */
 	if (data->stop &&
 	    (data->error ||
-	     !host->mrq->sbc)) {
+	     !host->mrq->precmd)) {
 
 		/*
 		 * The controller needs a reset of internal state machines
@@ -1091,7 +1093,7 @@ static void sdhci_finish_command(struct sdhci_host *host)
 	host->cmd->error = 0;
 
 	/* Finished CMD23, now send actual command. */
-	if (host->cmd == host->mrq->sbc) {
+	if (host->cmd == host->mrq->precmd) {
 		host->cmd = NULL;
 		sdhci_send_command(host, host->mrq->cmd);
 	} else {
@@ -1366,7 +1368,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	 * Ensure we don't send the STOP for non-SET_BLOCK_COUNTED
 	 * requests if Auto-CMD12 is enabled.
 	 */
-	if (!mrq->sbc && (host->flags & SDHCI_AUTO_CMD12)) {
+	if (!mrq->precmd && (host->flags & SDHCI_AUTO_CMD12)) {
 		if (mrq->stop) {
 			mrq->data->stop = NULL;
 			mrq->stop = NULL;
@@ -1451,8 +1453,8 @@ end_tuning:
 			goto out;
 		}
 
-		if (mrq->sbc && !(host->flags & SDHCI_AUTO_CMD23))
-			sdhci_send_command(host, mrq->sbc);
+		if (mrq->precmd && !(host->flags & SDHCI_AUTO_CMD23))
+			sdhci_send_command(host, mrq->precmd);
 		else
 			sdhci_send_command(host, mrq->cmd);
 	}

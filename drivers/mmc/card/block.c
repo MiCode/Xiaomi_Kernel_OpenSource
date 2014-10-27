@@ -894,8 +894,9 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 	}
 
 	/* Check for set block count errors */
-	if (brq->sbc.error)
-		return mmc_blk_cmd_error(req, "SET_BLOCK_COUNT", brq->sbc.error,
+	if (brq->precmd.error)
+		return mmc_blk_cmd_error(req, "SET_BLOCK_COUNT",
+				brq->precmd.error,
 				prev_cmd_status_valid, status);
 
 	/* Check for r/w command errors */
@@ -1132,7 +1133,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	int ecc_err = 0, gen_err = 0;
 
 	/*
-	 * sbc.error indicates a problem with the set block count
+	 * precmd.error indicates a problem with the set block count
 	 * command.  No data will have been transferred.
 	 *
 	 * cmd.error indicates a problem with the r/w command.  No
@@ -1141,7 +1142,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	 * stop.error indicates a problem with the stop command.  Data
 	 * may have been transferred, or may still be transferring.
 	 */
-	if (brq->sbc.error || brq->cmd.error || brq->stop.error ||
+	if (brq->precmd.error || brq->cmd.error || brq->stop.error ||
 	    brq->data.error) {
 		switch (mmc_blk_cmd_recovery(card, req, brq, &ecc_err, &gen_err)) {
 		case ERR_RETRY:
@@ -1420,7 +1421,7 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	 * with Auto-CMD23 enhancements provided by some
 	 * hosts, means that the complexity of dealing
 	 * with this is best left to the host. If CMD23 is
-	 * supported by card and host, we'll fill sbc in and let
+	 * supported by card and host, we'll fill precmd in and let
 	 * the host deal with handling it correctly. This means
 	 * that for hosts that don't expose MMC_CAP_CMD23, no
 	 * change of behavior will be observed.
@@ -1432,12 +1433,12 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	if ((md->flags & MMC_BLK_CMD23) && mmc_op_multi(brq->cmd.opcode) &&
 	    (do_rel_wr || !(card->quirks & MMC_QUIRK_BLK_NO_CMD23) ||
 	     do_data_tag)) {
-		brq->sbc.opcode = MMC_SET_BLOCK_COUNT;
-		brq->sbc.arg = brq->data.blocks |
+		brq->precmd.opcode = MMC_SET_BLOCK_COUNT;
+		brq->precmd.arg = brq->data.blocks |
 			(do_rel_wr ? (1 << 31) : 0) |
 			(do_data_tag ? (1 << 29) : 0);
-		brq->sbc.flags = MMC_RSP_R1 | MMC_CMD_AC;
-		brq->mrq.sbc = &brq->sbc;
+		brq->precmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
+		brq->mrq.precmd = &brq->precmd;
 	}
 
 	mmc_set_data_timeout(&brq->data, card);
@@ -1646,12 +1647,12 @@ static void mmc_blk_packed_hdr_wrq_prep(struct mmc_queue_req *mqrq,
 	memset(brq, 0, sizeof(struct mmc_blk_request));
 	brq->mrq.cmd = &brq->cmd;
 	brq->mrq.data = &brq->data;
-	brq->mrq.sbc = &brq->sbc;
+	brq->mrq.precmd = &brq->precmd;
 	brq->mrq.stop = &brq->stop;
 
-	brq->sbc.opcode = MMC_SET_BLOCK_COUNT;
-	brq->sbc.arg = MMC_CMD23_ARG_PACKED | (packed->blocks + hdr_blocks);
-	brq->sbc.flags = MMC_RSP_R1 | MMC_CMD_AC;
+	brq->precmd.opcode = MMC_SET_BLOCK_COUNT;
+	brq->precmd.arg = MMC_CMD23_ARG_PACKED | (packed->blocks + hdr_blocks);
+	brq->precmd.flags = MMC_RSP_R1 | MMC_CMD_AC;
 
 	brq->cmd.opcode = MMC_WRITE_MULTIPLE_BLOCK;
 	brq->cmd.arg = blk_rq_pos(req);

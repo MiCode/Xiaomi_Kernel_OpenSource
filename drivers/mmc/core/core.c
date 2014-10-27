@@ -265,10 +265,10 @@ mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 	struct scatterlist *sg;
 #endif
 
-	if (mrq->sbc) {
+	if (mrq->precmd) {
 		pr_debug("<%s: starting CMD%u arg %08x flags %08x>\n",
-			 mmc_hostname(host), mrq->sbc->opcode,
-			 mrq->sbc->arg, mrq->sbc->flags);
+			 mmc_hostname(host), mrq->precmd->opcode,
+			 mrq->precmd->arg, mrq->precmd->flags);
 	}
 
 	pr_debug("%s: starting CMD%u arg %08x flags %08x\n",

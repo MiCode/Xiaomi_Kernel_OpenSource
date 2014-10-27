@@ -901,7 +901,7 @@ static void dw_mci_start_request(struct dw_mci *host,
 	struct mmc_request *mrq = slot->mrq;
 	struct mmc_command *cmd;
 
-	cmd = mrq->sbc ? mrq->sbc : mrq->cmd;
+	cmd = mrq->precmd ? mrq->precmd : mrq->cmd;
 	__dw_mci_start_request(host, slot, cmd);
 }
 
@@ -1302,7 +1302,7 @@ static void dw_mci_tasklet_func(unsigned long priv)
 			host->cmd = NULL;
 			set_bit(EVENT_CMD_COMPLETE, &host->completed_events);
 			err = dw_mci_command_complete(host, cmd);
-			if (cmd == mrq->sbc && !err) {
+			if (cmd == mrq->precmd && !err) {
 				prev_state = state = STATE_SENDING_CMD;
 				__dw_mci_start_request(host, host->cur_slot,
 						       mrq->cmd);
@@ -1351,8 +1351,8 @@ static void dw_mci_tasklet_func(unsigned long priv)
 			err = dw_mci_data_complete(host, data);
 
 			if (!err) {
-				if (!data->stop || mrq->sbc) {
-					if (mrq->sbc)
+				if (!data->stop || mrq->precmd) {
+					if (mrq->precmd)
 						data->stop->error = 0;
 					dw_mci_request_end(host, mrq);
 					goto unlock;

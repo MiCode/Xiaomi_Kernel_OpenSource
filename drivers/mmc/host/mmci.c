@@ -907,7 +907,7 @@ mmci_data_irq(struct mmci_host *host, struct mmc_data *data,
 			/* The error clause is handled above, success! */
 			data->bytes_xfered = data->blksz * data->blocks;
 
-		if (!data->stop || host->mrq->sbc) {
+		if (!data->stop || host->mrq->precmd) {
 			mmci_request_end(host, data->mrq);
 		} else {
 			mmci_start_command(host, data->stop, 0);
@@ -920,7 +920,7 @@ mmci_cmd_irq(struct mmci_host *host, struct mmc_command *cmd,
 	     unsigned int status)
 {
 	void __iomem *base = host->base;
-	bool sbc = (cmd == host->mrq->sbc);
+	bool precmd = (cmd == host->mrq->precmd);
 
 	host->cmd = NULL;
 
@@ -935,7 +935,7 @@ mmci_cmd_irq(struct mmci_host *host, struct mmc_command *cmd,
 		cmd->resp[3] = readl(base + MMCIRESPONSE3);
 	}
 
-	if ((!sbc && !cmd->data) || cmd->error) {
+	if ((!precmd && !cmd->data) || cmd->error) {
 		if (host->data) {
 			/* Terminate the DMA transfer */
 			if (dma_inprogress(host)) {
@@ -945,7 +945,7 @@ mmci_cmd_irq(struct mmci_host *host, struct mmc_command *cmd,
 			mmci_stop_data(host);
 		}
 		mmci_request_end(host, host->mrq);
-	} else if (sbc) {
+	} else if (precmd) {
 		mmci_start_command(host, host->mrq->cmd, 0);
 	} else if (!(cmd->data->flags & MMC_DATA_READ)) {
 		mmci_start_data(host, cmd->data);
@@ -1187,8 +1187,8 @@ static void mmci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (mrq->data && mrq->data->flags & MMC_DATA_READ)
 		mmci_start_data(host, mrq->data);
 
-	if (mrq->sbc)
-		mmci_start_command(host, mrq->sbc, 0);
+	if (mrq->precmd)
+		mmci_start_command(host, mrq->precmd, 0);
 	else
 		mmci_start_command(host, mrq->cmd, 0);
 
