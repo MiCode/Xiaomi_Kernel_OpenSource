@@ -912,6 +912,8 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	mdata->gdsc_cb.priority = 5;
 	if (regulator_register_notifier(mdata->fs, &(mdata->gdsc_cb)))
 		pr_warn("GDSC notification registration failed!\n");
+	else
+		mdata->regulator_notif_register = true;
 
 	mdata->vdd_cx = devm_regulator_get(&mdata->pdev->dev,
 				"vdd-cx");
@@ -1571,6 +1573,9 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdss_res->mdss_util->mdp_probe_done = true;
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
+		if (mdata->regulator_notif_register)
+			regulator_unregister_notifier(mdata->fs,
+						&(mdata->gdsc_cb));
 		mdss_mdp_hw.ptr = NULL;
 		mdss_mdp_pp_term(&pdev->dev);
 		mutex_destroy(&mdata->reg_lock);
@@ -3186,6 +3191,8 @@ static int mdss_mdp_remove(struct platform_device *pdev)
 	mdss_mdp_pp_term(&pdev->dev);
 	mdss_mdp_bus_scale_unregister(mdata);
 	mdss_debugfs_remove(mdata);
+	if (mdata->regulator_notif_register)
+		regulator_unregister_notifier(mdata->fs, &(mdata->gdsc_cb));
 	return 0;
 }
 
