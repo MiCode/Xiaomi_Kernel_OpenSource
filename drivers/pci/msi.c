@@ -23,6 +23,7 @@
 #include "pci.h"
 
 static int pci_msi_enable = 1;
+int pci_msi_ignore_mask;
 
 #define msix_table_size(flags)	((flags & PCI_MSIX_FLAGS_QSIZE) + 1)
 
@@ -176,7 +177,7 @@ u32 default_msi_mask_irq(struct msi_desc *desc, u32 mask, u32 flag)
 {
 	u32 mask_bits = desc->masked;
 
-	if (!desc->msi_attrib.maskbit)
+	if (pci_msi_ignore_mask || !desc->msi_attrib.maskbit)
 		return 0;
 
 	mask_bits &= ~mask;
@@ -208,6 +209,10 @@ u32 default_msix_mask_irq(struct msi_desc *desc, u32 flag)
 	u32 mask_bits = desc->masked;
 	unsigned offset = desc->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE +
 						PCI_MSIX_ENTRY_VECTOR_CTRL;
+
+	if (pci_msi_ignore_mask)
+		return 0;
+
 	mask_bits &= ~PCI_MSIX_ENTRY_CTRL_MASKBIT;
 	if (flag)
 		mask_bits |= PCI_MSIX_ENTRY_CTRL_MASKBIT;
