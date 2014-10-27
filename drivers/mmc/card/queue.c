@@ -46,6 +46,27 @@ static int mmc_prep_request(struct request_queue *q, struct request *req)
 	return BLKPREP_OK;
 }
 
+static bool mmc_queue_get_free_slot(struct mmc_queue *mq,
+		unsigned long *free_slot)
+{
+	unsigned long slot;
+	int i;
+
+	if (!mq || !free_slot)
+		return false;
+
+	do {
+		slot = find_first_zero_bit(&mq->cmdqslot, mq->qdepth);
+		if (slot >= mq->qdepth)
+			return false;
+
+		i = test_and_set_bit_lock(slot, &mq->cmdqslot);
+	} while (i);
+
+	*free_slot = slot;
+	return true;
+}
+
 static int mmc_queue_thread(void *d)
 {
 	struct mmc_queue *mq = d;
@@ -56,39 +77,23 @@ static int mmc_queue_thread(void *d)
 	down(&mq->thread_sem);
 	do {
 		struct request *req = NULL;
-		struct mmc_queue_req *tmp;
-		unsigned int cmd_flags = 0;
+		unsigned long i;
 
 		spin_lock_irq(q->queue_lock);
 		set_current_state(TASK_INTERRUPTIBLE);
 		req = blk_fetch_request(q);
-		mq->mqrq_cur->req = req;
 		spin_unlock_irq(q->queue_lock);
 
-		if (req || mq->mqrq_prev->req) {
+		if (req && !(req->cmd_flags & (REQ_DISCARD | REQ_FLUSH))) {
+			while (!mmc_queue_get_free_slot(mq, &i))
+				mq->issue_fn(mq, NULL);
+			mq->mqrq_cur = &mq->mqrq[i];
+			mq->mqrq_cur->req = req;
+		}
+
+		if (req || atomic_read(&mq->active_slots)) {
 			set_current_state(TASK_RUNNING);
-			cmd_flags = req ? req->cmd_flags : 0;
 			mq->issue_fn(mq, req);
-			if (mq->flags & MMC_QUEUE_NEW_REQUEST) {
-				mq->flags &= ~MMC_QUEUE_NEW_REQUEST;
-				continue; /* fetch again */
-			}
-
-			/*
-			 * Current request becomes previous request
-			 * and vice versa.
-			 * In case of special requests, current request
-			 * has been finished. Do not assign it to previous
-			 * request.
-			 */
-			if (cmd_flags & MMC_REQ_SPECIAL_MASK)
-				mq->mqrq_cur->req = NULL;
-
-			mq->mqrq_prev->brq.mrq.data = NULL;
-			mq->mqrq_prev->req = NULL;
-			tmp = mq->mqrq_prev;
-			mq->mqrq_prev = mq->mqrq_cur;
-			mq->mqrq_cur = tmp;
 		} else {
 			if (kthread_should_stop()) {
 				set_current_state(TASK_RUNNING);
@@ -126,7 +131,7 @@ static void mmc_request_fn(struct request_queue *q)
 	}
 
 	cntx = &mq->card->host->context_info;
-	if (!mq->mqrq_cur->req && mq->mqrq_prev->req) {
+	if (atomic_read(&mq->active_slots)) {
 		/*
 		 * New MMC request arrived when MMC thread may be
 		 * blocked on the previous request to be complete
@@ -138,7 +143,7 @@ static void mmc_request_fn(struct request_queue *q)
 			wake_up_interruptible(&cntx->wait);
 		}
 		spin_unlock_irqrestore(&cntx->lock, flags);
-	} else if (!mq->mqrq_cur->req && !mq->mqrq_prev->req)
+	} else
 		wake_up_process(mq->thread);
 }
 
@@ -192,9 +197,8 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 {
 	struct mmc_host *host = card->host;
 	u64 limit = BLK_BOUNCE_HIGH;
-	int ret;
-	struct mmc_queue_req *mqrq_cur = &mq->mqrq[0];
-	struct mmc_queue_req *mqrq_prev = &mq->mqrq[1];
+	int ret, i = 0;
+	struct mmc_queue_req *mqrq = mq->mqrq;
 
 	if (mmc_dev(host)->dma_mask && *mmc_dev(host)->dma_mask)
 		limit = (u64)dma_max_pfn(mmc_dev(host)) << PAGE_SHIFT;
@@ -204,8 +208,16 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 	if (!mq->queue)
 		return -ENOMEM;
 
-	mq->mqrq_cur = mqrq_cur;
-	mq->mqrq_prev = mqrq_prev;
+	mq->qdepth = 2;
+	mq->mqrq = kzalloc(mq->qdepth * sizeof(struct mmc_queue_req),
+			GFP_KERNEL);
+	if (!mq->mqrq)
+		return -ENOMEM;
+
+	mqrq = mq->mqrq;
+	for (i = mq->qdepth; i > 0; i--)
+		mqrq[i - 1].task_id = i - 1;
+
 	mq->queue->queuedata = mq;
 
 	blk_queue_prep_rq(mq->queue, mmc_prep_request);
@@ -227,64 +239,50 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 			bouncesz = host->max_blk_count * 512;
 
 		if (bouncesz > 512) {
-			mqrq_cur->bounce_buf = kmalloc(bouncesz, GFP_KERNEL);
-			if (!mqrq_cur->bounce_buf) {
-				pr_warning("%s: unable to "
-					"allocate bounce cur buffer\n",
-					mmc_card_name(card));
-			}
-			mqrq_prev->bounce_buf = kmalloc(bouncesz, GFP_KERNEL);
-			if (!mqrq_prev->bounce_buf) {
-				pr_warning("%s: unable to "
-					"allocate bounce prev buffer\n",
-					mmc_card_name(card));
-				kfree(mqrq_cur->bounce_buf);
-				mqrq_cur->bounce_buf = NULL;
+			for (i = 0; i < mq->qdepth; i++) {
+				mqrq[i].bounce_buf =
+					kmalloc(bouncesz, GFP_KERNEL);
+				if (!mqrq[i].bounce_buf)
+					break;
 			}
 		}
 
-		if (mqrq_cur->bounce_buf && mqrq_prev->bounce_buf) {
+		if (i != mq->qdepth) {
+			for (; i >= 0; i--) {
+				kfree(mqrq[i].bounce_buf);
+				mqrq[i].bounce_buf = NULL;
+			}
+		} else {
 			blk_queue_bounce_limit(mq->queue, BLK_BOUNCE_ANY);
 			blk_queue_max_hw_sectors(mq->queue, bouncesz / 512);
 			blk_queue_max_segments(mq->queue, bouncesz / 512);
 			blk_queue_max_segment_size(mq->queue, bouncesz);
 
-			mqrq_cur->sg = mmc_alloc_sg(1, &ret);
-			if (ret)
-				goto cleanup_queue;
-
-			mqrq_cur->bounce_sg =
-				mmc_alloc_sg(bouncesz / 512, &ret);
-			if (ret)
-				goto cleanup_queue;
-
-			mqrq_prev->sg = mmc_alloc_sg(1, &ret);
-			if (ret)
-				goto cleanup_queue;
-
-			mqrq_prev->bounce_sg =
-				mmc_alloc_sg(bouncesz / 512, &ret);
-			if (ret)
-				goto cleanup_queue;
+			for (i = 0; i < mq->qdepth; i++) {
+				mqrq[i].sg = mmc_alloc_sg(1, &ret);
+				if (ret)
+					goto cleanup_queue;
+				mqrq[i].bounce_sg =
+					mmc_alloc_sg(bouncesz / 512, &ret);
+				if (ret)
+					goto cleanup_queue;
+			}
 		}
 	}
 #endif
 
-	if (!mqrq_cur->bounce_buf && !mqrq_prev->bounce_buf) {
+	if (i == 0) {
 		blk_queue_bounce_limit(mq->queue, limit);
 		blk_queue_max_hw_sectors(mq->queue,
 			min(host->max_blk_count, host->max_req_size / 512));
 		blk_queue_max_segments(mq->queue, host->max_segs);
 		blk_queue_max_segment_size(mq->queue, host->max_seg_size);
 
-		mqrq_cur->sg = mmc_alloc_sg(host->max_segs, &ret);
-		if (ret)
-			goto cleanup_queue;
-
-
-		mqrq_prev->sg = mmc_alloc_sg(host->max_segs, &ret);
-		if (ret)
-			goto cleanup_queue;
+		for (i = 0; i < mq->qdepth; i++) {
+			mqrq[i].sg = mmc_alloc_sg(host->max_segs, &ret);
+			if (ret)
+				goto cleanup_queue;
+		}
 	}
 
 	sema_init(&mq->thread_sem, 1);
@@ -299,21 +297,17 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 
 	return 0;
  free_bounce_sg:
-	kfree(mqrq_cur->bounce_sg);
-	mqrq_cur->bounce_sg = NULL;
-	kfree(mqrq_prev->bounce_sg);
-	mqrq_prev->bounce_sg = NULL;
-
+	for (i = 0; i < mq->qdepth; i++) {
+		kfree(mqrq[i].bounce_sg);
+		mqrq[i].bounce_sg = NULL;
+	}
  cleanup_queue:
-	kfree(mqrq_cur->sg);
-	mqrq_cur->sg = NULL;
-	kfree(mqrq_cur->bounce_buf);
-	mqrq_cur->bounce_buf = NULL;
-
-	kfree(mqrq_prev->sg);
-	mqrq_prev->sg = NULL;
-	kfree(mqrq_prev->bounce_buf);
-	mqrq_prev->bounce_buf = NULL;
+	for (i = 0; i < mq->qdepth; i++) {
+		kfree(mqrq[i].sg);
+		mqrq[i].sg = NULL;
+		kfree(mqrq[i].bounce_buf);
+		mqrq[i].bounce_buf = NULL;
+	}
 
 	blk_cleanup_queue(mq->queue);
 	return ret;
@@ -323,8 +317,7 @@ void mmc_cleanup_queue(struct mmc_queue *mq)
 {
 	struct request_queue *q = mq->queue;
 	unsigned long flags;
-	struct mmc_queue_req *mqrq_cur = mq->mqrq_cur;
-	struct mmc_queue_req *mqrq_prev = mq->mqrq_prev;
+	int i;
 
 	/* Make sure the queue isn't suspended, as that will deadlock */
 	mmc_queue_resume(mq);
@@ -338,23 +331,14 @@ void mmc_cleanup_queue(struct mmc_queue *mq)
 	blk_start_queue(q);
 	spin_unlock_irqrestore(q->queue_lock, flags);
 
-	kfree(mqrq_cur->bounce_sg);
-	mqrq_cur->bounce_sg = NULL;
-
-	kfree(mqrq_cur->sg);
-	mqrq_cur->sg = NULL;
-
-	kfree(mqrq_cur->bounce_buf);
-	mqrq_cur->bounce_buf = NULL;
-
-	kfree(mqrq_prev->bounce_sg);
-	mqrq_prev->bounce_sg = NULL;
-
-	kfree(mqrq_prev->sg);
-	mqrq_prev->sg = NULL;
-
-	kfree(mqrq_prev->bounce_buf);
-	mqrq_prev->bounce_buf = NULL;
+	for (i = 0; i < mq->qdepth; i++) {
+		kfree(mq->mqrq[i].bounce_sg);
+		mq->mqrq[i].bounce_sg = NULL;
+		kfree(mq->mqrq[i].sg);
+		mq->mqrq[i].sg = NULL;
+		kfree(mq->mqrq[i].bounce_buf);
+		mq->mqrq[i].bounce_buf = NULL;
+	}
 
 	mq->card = NULL;
 }
@@ -366,7 +350,9 @@ int mmc_packed_init(struct mmc_queue *mq, struct mmc_card *card)
 	struct mmc_queue_req *mqrq_prev = &mq->mqrq[1];
 	int ret = 0;
 
-
+	/*
+	 * the qdepth for PACK CMD is 2
+	 */
 	mqrq_cur->packed = kzalloc(sizeof(struct mmc_packed), GFP_KERNEL);
 	if (!mqrq_cur->packed) {
 		pr_warn("%s: unable to allocate packed cmd for mqrq_cur\n",

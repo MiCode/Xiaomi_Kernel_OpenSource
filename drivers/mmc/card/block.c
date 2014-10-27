@@ -122,6 +122,7 @@ struct mmc_blk_data {
 	struct device_attribute force_ro;
 	struct device_attribute power_ro_lock;
 	int	area_type;
+	struct mmc_queue	*mq_curr;
 };
 
 static DEFINE_MUTEX(open_lock);
@@ -138,6 +139,7 @@ MODULE_PARM_DESC(perdev_minors, "Minors numbers to allocate per device");
 static inline int mmc_blk_part_switch(struct mmc_card *card,
 				      struct mmc_blk_data *md);
 static int get_card_status(struct mmc_card *card, u32 *status, int retries);
+static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc);
 
 static inline void mmc_blk_clear_packed(struct mmc_queue_req *mqrq)
 {
@@ -652,6 +654,13 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 	if (mmc_card_mmc(card)) {
 		u8 part_config = card->ext_csd.part_config;
 
+		/*
+		 * before switching partition, needs to make
+		 * sure there is no active transferring in previous
+		 * queue
+		 */
+		mmc_blk_issue_rw_rq(main_md->mq_curr, NULL);
+
 		part_config &= ~EXT_CSD_PART_CONFIG_ACC_MASK;
 		part_config |= md->part_type;
 
@@ -665,6 +674,7 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 	}
 
 	main_md->part_curr = md->part_type;
+	main_md->mq_curr = &md->queue;
 	return 0;
 }
 
@@ -995,6 +1005,7 @@ out:
 		goto retry;
 	if (!err)
 		mmc_blk_reset_success(md, type);
+
 	blk_end_request(req, err, blk_rq_bytes(req));
 
 	return err ? 0 : 1;
@@ -1793,11 +1804,13 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 	const u8 packed_nr = 2;
 	u8 reqs = 0;
 
-	if (!rqc && !mq->mqrq_prev->req)
+	if (!rqc && !atomic_read(&mq->active_slots))
 		return 0;
 
-	if (rqc)
+	if (rqc) {
 		reqs = mmc_blk_prep_packed_list(mq, rqc);
+		atomic_inc(&mq->active_slots);
+	}
 
 	do {
 		if (rqc) {
@@ -1822,11 +1835,8 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		} else
 			areq = NULL;
 		areq = mmc_start_req(card->host, areq, (int *) &status);
-		if (!areq) {
-			if (status == MMC_BLK_NEW_REQUEST)
-				mq->flags |= MMC_QUEUE_NEW_REQUEST;
+		if (!areq)
 			return 0;
-		}
 
 		mq_rq = container_of(areq, struct mmc_queue_req, mmc_active);
 		brq = &mq_rq->brq;
@@ -1934,6 +1944,9 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		}
 	} while (ret);
 
+	clear_bit_unlock(mq_rq->task_id, &mq->cmdqslot);
+	atomic_dec(&mq->active_slots);
+
 	return 1;
 
  cmd_abort:
@@ -1946,12 +1959,16 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			ret = blk_end_request(req, -EIO,
 					blk_rq_cur_bytes(req));
 	}
+	clear_bit_unlock(mq_rq->task_id, &mq->cmdqslot);
+	atomic_dec(&mq->active_slots);
 
  start_new_req:
 	if (rqc) {
 		if (mmc_card_removed(card)) {
 			rqc->cmd_flags |= REQ_QUIET;
 			blk_end_request_all(rqc, -EIO);
+			clear_bit_unlock(mq->mqrq_cur->task_id, &mq->cmdqslot);
+			atomic_dec(&mq->active_slots);
 		} else {
 			/*
 			 * If current request is packed, it needs to put back.
@@ -1981,8 +1998,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	if (mmc_bus_needs_resume(card->host))
 		mmc_resume_bus(card->host);
 #endif
-
-	if (req && !mq->mqrq_prev->req)
+	if (!atomic_read(&mq->active_slots))
 		/* claim host only for the first request */
 		mmc_get_card(card);
 
@@ -1995,10 +2011,9 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		goto out;
 	}
 
-	mq->flags &= ~MMC_QUEUE_NEW_REQUEST;
 	if (cmd_flags & REQ_DISCARD) {
 		/* complete ongoing async transfer before issuing discard */
-		if (card->host->areq)
+		if (atomic_read(&mq->active_slots))
 			mmc_blk_issue_rw_rq(mq, NULL);
 		if (req->cmd_flags & REQ_SECURE &&
 			!(card->quirks & MMC_QUIRK_SEC_ERASE_TRIM_BROKEN))
@@ -2007,11 +2022,11 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			ret = mmc_blk_issue_discard_rq(mq, req);
 	} else if (cmd_flags & REQ_FLUSH) {
 		/* complete ongoing async transfer before issuing flush */
-		if (card->host->areq)
+		if (atomic_read(&mq->active_slots))
 			mmc_blk_issue_rw_rq(mq, NULL);
 		ret = mmc_blk_issue_flush(mq, req);
 	} else {
-		if (!req && host->areq) {
+		if (!req && (atomic_read(&mq->active_slots) == 1)) {
 			spin_lock_irqsave(&host->context_info.lock, flags);
 			host->context_info.is_waiting_last_req = true;
 			spin_unlock_irqrestore(&host->context_info.lock, flags);
@@ -2020,13 +2035,12 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	}
 
 out:
-	if ((!req && !(mq->flags & MMC_QUEUE_NEW_REQUEST)) ||
-	     (cmd_flags & MMC_REQ_SPECIAL_MASK))
+	if (!atomic_read(&mq->active_slots))
 		/*
 		 * Release host when there are no more requests
 		 * and after special request(discard, flush) is done.
 		 * In case sepecial request, there is no reentry to
-		 * the 'mmc_blk_issue_rq' with 'mqrq_prev->req'.
+		 * the 'mmc_blk_issue_rq'.
 		 */
 		mmc_put_card(card);
 	return ret;
@@ -2185,6 +2199,8 @@ static struct mmc_blk_data *mmc_blk_alloc(struct mmc_card *card)
 
 	md = mmc_blk_alloc_req(card, &card->dev, size, false, NULL,
 					MMC_BLK_DATA_AREA_MAIN);
+	md->mq_curr = &md->queue;
+
 	return md;
 }
 
