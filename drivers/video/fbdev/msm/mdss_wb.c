@@ -49,6 +49,11 @@ static int mdss_wb_check_params(struct mdss_panel_data *pdata,
 		return -EINVAL;
 	}
 
+	if (new->xres >= 4096 || new->yres >= 4096) {
+		pr_err("%s: Invalid resolutions\n", __func__);
+		return -EINVAL;
+	}
+
 	old = &pdata->panel_info;
 
 	if ((old->xres != new->xres) || (old->yres != new->yres))
