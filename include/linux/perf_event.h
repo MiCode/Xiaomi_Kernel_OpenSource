@@ -193,6 +193,8 @@ struct pmu {
 	struct perf_cpu_context * __percpu pmu_cpu_context;
 	int				task_ctx_nr;
 	int				hrtimer_interval_ms;
+	u32                             events_across_hotplug:1,
+					reserved:31;
 
 	/*
 	 * Fully disable/enable this PMU, can be used to protect from the PMI
