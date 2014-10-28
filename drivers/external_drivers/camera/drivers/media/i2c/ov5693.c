@@ -586,12 +586,179 @@ static long ov5693_s_exposure(struct v4l2_subdev *sd,
 	return ov5693_set_exposure(sd, coarse_itg, analog_gain, digital_gain);
 }
 
+static int ov5693_read_otp_reg_array(struct i2c_client *client, u16 size,
+				     u16 addr, u8 * buf)
+{
+	u16 index;
+	int ret;
+	u16 *pVal = 0;
+
+	for (index = 0; index <= size; index++) {
+		pVal = (u16 *) (buf + index);
+		ret =
+			ov5693_read_reg(client, OV5693_8BIT, addr + index,
+				    pVal);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int __ov5693_otp_read(struct v4l2_subdev *sd, u8 * buf)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov5693_device *dev = to_ov5693_sensor(sd);
+	int ret;
+	int i;
+	u8 *b = buf;
+	dev->otp_size = 0;
+	for (i = 1; i < OV5693_OTP_BANK_MAX; i++) {
+		/*set bank NO and OTP read mode. */
+		ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_OTP_BANK_REG, (i | 0xc0));	//[7:6] 2'b11 [5:0] bank no
+		if (ret) {
+			dev_err(&client->dev, "failed to prepare OTP page\n");
+			return ret;
+		}
+		//pr_debug("write 0x%x->0x%x\n",OV5693_OTP_BANK_REG,(i|0xc0));
+
+		/*enable read */
+		ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_OTP_READ_REG, OV5693_OTP_MODE_READ);	// enable :1
+		if (ret) {
+			dev_err(&client->dev,
+				"failed to set OTP reading mode page");
+			return ret;
+		}
+		//pr_debug("write 0x%x->0x%x\n",OV5693_OTP_READ_REG,OV5693_OTP_MODE_READ);
+
+		/* Reading the OTP data array */
+		ret = ov5693_read_otp_reg_array(client, OV5693_OTP_BANK_SIZE,
+						OV5693_OTP_START_ADDR,
+						b);
+		if (ret) {
+			dev_err(&client->dev, "failed to read OTP data\n");
+			return ret;
+		}
+
+		//pr_debug("BANK[%2d] %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n", i, *b, *(b+1), *(b+2), *(b+3), *(b+4), *(b+5), *(b+6), *(b+7), *(b+8), *(b+9), *(b+10), *(b+11), *(b+12), *(b+13), *(b+14), *(b+15));
+
+		//Intel OTP map, try to read 320byts first.
+		if (21 == i) {
+			if ((*b) == 0) {
+				dev->otp_size = 320;
+				break;
+			} else {
+				b = buf;
+				continue;
+			}
+		} else if (24 == i) {		//if the first 320bytes data doesn't not exist, try to read the next 32bytes data.
+			if ((*b) == 0) {
+				dev->otp_size = 32;
+				break;
+		} else {
+				b = buf;
+				continue;
+			}
+		} else if (27 == i) {		//if the prvious 32bytes data doesn't exist, try to read the next 32bytes data again.
+			if ((*b) == 0) {
+				dev->otp_size = 32;
+				break;
+			} else {
+				dev->otp_size = 0;	// no OTP data.
+				break;
+			}
+		}
+
+		b = b + OV5693_OTP_BANK_SIZE;
+	}
+	return 0;
+}
+
+/*
+ * Read otp data and store it into a kmalloced buffer.
+ * The caller must kfree the buffer when no more needed.
+ * @size: set to the size of the returned otp data.
+ */
+static void *ov5693_otp_read(struct v4l2_subdev *sd)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u8 *buf;
+	int ret;
+
+	buf = devm_kzalloc(&client->dev, (OV5693_OTP_DATA_SIZE + 16), GFP_KERNEL);
+	if (!buf)
+		return ERR_PTR(-ENOMEM);
+
+	//otp valid after mipi on and sw stream on
+	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_FRAME_OFF_NUM, 0x00);
+
+	ret = ov5693_write_reg(client, OV5693_8BIT,
+			       OV5693_SW_STREAM, OV5693_START_STREAMING);
+
+	ret = __ov5693_otp_read(sd, buf);
+
+	//mipi off and sw stream off after otp read
+	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_FRAME_OFF_NUM, 0x0f);
+
+	ret = ov5693_write_reg(client, OV5693_8BIT,
+			       OV5693_SW_STREAM, OV5693_STOP_STREAMING);
+
+	/* Driver has failed to find valid data */
+	if (ret) {
+		dev_err(&client->dev, "sensor found no valid OTP data\n");
+		return ERR_PTR(ret);
+	}
+
+	return buf;
+}
+
+static int ov5693_g_priv_int_data(struct v4l2_subdev *sd,
+				  struct v4l2_private_int_data *priv)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov5693_device *dev = to_ov5693_sensor(sd);
+	u8 __user *to = priv->data;
+	u32 read_size = priv->size;
+	int ret;
+
+	/* No need to copy data if size is 0 */
+	if (!read_size)
+		goto out;
+
+	if (IS_ERR(dev->otp_data)) {
+		dev_err(&client->dev, "OTP data not available");
+		return PTR_ERR(dev->otp_data);
+	}
+
+	/* Correct read_size value only if bigger than maximum */
+	if (read_size > OV5693_OTP_DATA_SIZE)
+		read_size = OV5693_OTP_DATA_SIZE;
+
+	ret = copy_to_user(to, dev->otp_data, read_size);
+	if (ret) {
+		dev_err(&client->dev, "%s: failed to copy OTP data to user\n",
+			__func__);
+		return -EFAULT;
+	}
+
+	pr_debug("%s read_size:%d\n", __func__, read_size);
+
+out:
+	/* Return correct size */
+	priv->size = dev->otp_size;
+
+	return 0;
+
+}
+
 static long ov5693_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 
 	switch (cmd) {
 	case ATOMISP_IOC_S_EXPOSURE:
 		return ov5693_s_exposure(sd, arg);
+	case ATOMISP_IOC_G_SENSOR_PRIV_INT_DATA:
+		return ov5693_g_priv_int_data(sd, arg);
 	default:
 		return -EINVAL;
 	}
@@ -1413,6 +1580,8 @@ static int ov5693_s_config(struct v4l2_subdev *sd,
 		dev_err(&client->dev, "ov5693_detect err s_config.\n");
 		goto fail_csi_cfg;
 	}
+
+	dev->otp_data = ov5693_otp_read(sd);
 
 	/* turn off sensor, after probed */
 	ret = power_down(sd);

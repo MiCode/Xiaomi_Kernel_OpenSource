@@ -144,6 +144,22 @@
 #define OV5693_VCM_MAX_FOCUS_NEG       -1023
 #define OV5693_VCM_MAX_FOCUS_POS       1023
 
+/* Defines for OTP Data Registers */
+#define OV5693_FRAME_OFF_NUM		0x4202
+#define OV5693_OTP_BYTE_MAX		32	//change to 32 as needed by otpdata
+#define OV5693_OTP_SHORT_MAX		16
+#define OV5693_OTP_START_ADDR		0x3D00
+#define OV5693_OTP_END_ADDR		0x3D0F
+#define OV5693_OTP_DATA_SIZE		320
+#define OV5693_OTP_PROGRAM_REG      	0x3D80
+#define OV5693_OTP_READ_REG		0x3D81	// 1:Enable 0:disable
+#define OV5693_OTP_BANK_REG		0x3D84	//otp bank and mode
+#define OV5693_OTP_READY_REG_DONE	1
+#define OV5693_OTP_BANK_MAX		28
+#define OV5693_OTP_BANK_SIZE		16	//16 bytes per bank
+#define OV5693_OTP_READ_ONETIME		16
+#define OV5693_OTP_MODE_READ		1
+
 struct regval_list {
 	u16 reg_num;
 	u8 value;
@@ -191,6 +207,8 @@ struct ov5693_device {
 	int vt_pix_clk_freq_mhz;
 	int fmt_idx;
 	int run_mode;
+	int otp_size;
+	u8 *otp_data;
 	u32 focus;
 	s16 number_of_steps;
 	u8 res;
