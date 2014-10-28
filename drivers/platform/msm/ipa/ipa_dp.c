@@ -30,9 +30,13 @@
 #define IPA_GENERIC_AGGR_TIME_LIMIT 1
 #define IPA_GENERIC_AGGR_PKT_LIMIT 0
 #define IPA_GENERIC_RX_POOL_SZ 32
-/* 8K less the headroom (NET_SKB_PAD) and skb_shared_info which are implicitly
- * part of the data buffer */
-#define IPA_LAN_RX_BUFF_SZ 7936
+
+#define IPA_GENERIC_RX_BUFF_BASE_SZ 8192
+#define IPA_REAL_GENERIC_RX_BUFF_SZ (SKB_DATA_ALIGN(\
+		IPA_GENERIC_RX_BUFF_BASE_SZ + NET_SKB_PAD) +\
+		SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+#define IPA_GENERIC_RX_BUFF_SZ (IPA_GENERIC_RX_BUFF_BASE_SZ -\
+		(IPA_REAL_GENERIC_RX_BUFF_SZ - IPA_GENERIC_RX_BUFF_BASE_SZ))
 
 #define IPA_WLAN_RX_POOL_SZ 100
 #define IPA_WLAN_RX_POOL_SZ_LOW_WM 5
@@ -1428,7 +1432,7 @@ static void ipa_wq_repl_rx(struct work_struct *work)
 	struct ipa_sys_context *sys;
 	void *ptr;
 	struct ipa_rx_pkt_wrapper *rx_pkt;
-	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN;
+	gfp_t flag = GFP_KERNEL;
 	u32 next;
 	u32 curr;
 
@@ -1444,7 +1448,8 @@ begin:
 		rx_pkt = kmem_cache_zalloc(ipa_ctx->rx_pkt_wrapper_cache,
 					   flag);
 		if (!rx_pkt) {
-			IPAERR("failed to alloc rx wrapper\n");
+			pr_err_ratelimited("%s fail alloc rx wrapper sys=%p\n",
+					__func__, sys);
 			goto fail_kmem_cache_alloc;
 		}
 
@@ -1454,7 +1459,8 @@ begin:
 
 		rx_pkt->data.skb = sys->get_skb(sys->rx_buff_sz, flag);
 		if (rx_pkt->data.skb == NULL) {
-			IPAERR("failed to alloc skb\n");
+			pr_err_ratelimited("%s fail alloc skb sys=%p\n",
+					__func__, sys);
 			goto fail_skb_alloc;
 		}
 		ptr = skb_put(rx_pkt->data.skb, sys->rx_buff_sz);
@@ -1463,8 +1469,9 @@ begin:
 						     DMA_FROM_DEVICE);
 		if (rx_pkt->data.dma_addr == 0 ||
 				rx_pkt->data.dma_addr == ~0) {
-			IPAERR("dma_map_single failure %p for %p\n",
-			       (void *)rx_pkt->data.dma_addr, ptr);
+			pr_err_ratelimited("%s dma map fail %p for %p sys=%p\n",
+			       __func__, (void *)rx_pkt->data.dma_addr,
+			       ptr, sys);
 			goto fail_dma_mapping;
 		}
 
@@ -1489,6 +1496,8 @@ fail_kmem_cache_alloc:
 			IPA_STATS_INC_CNT(ipa_ctx->stats.lan_repl_rx_empty);
 		else
 			WARN_ON(1);
+		pr_err_ratelimited("%s sys=%p repl ring empty\n",
+				__func__, sys);
 		goto begin;
 	}
 }
@@ -2494,7 +2503,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						replenish_rx_work_func);
 				INIT_WORK(&sys->repl_work, ipa_wq_repl_rx);
 				atomic_set(&sys->curr_polling_state, 0);
-				sys->rx_buff_sz = IPA_LAN_RX_BUFF_SZ;
+				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ;
 				sys->rx_pool_sz = IPA_GENERIC_RX_POOL_SZ;
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
