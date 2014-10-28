@@ -4210,11 +4210,9 @@ static void ironlake_pfit_enable(struct intel_crtc *crtc)
 static void intel_enable_planes(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
 	enum pipe pipe = to_intel_crtc(crtc)->pipe;
 	struct drm_plane *plane;
 	struct intel_plane *intel_plane;
-	unsigned val = 0;
 
 	drm_for_each_legacy_plane(plane, &dev->mode_config.plane_list) {
 		intel_plane = to_intel_plane(plane);

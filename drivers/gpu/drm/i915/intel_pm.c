@@ -1684,7 +1684,7 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv)
 	 * No need of a check on pipec in disable path
 	 * as it is doens't get enabled
 	 */
-	if (IS_VALLEYVIEW(dev_priv->dev))
+	if (IS_VALLEYVIEW(dev_priv->dev)) {
 		if (single_plane_enabled(dev_priv->plane_stat)
 			&& !(dev_priv->plane_stat & PIPE_C_MASK)
 			&& !dev_priv->maxfifo_enabled) {
@@ -1709,6 +1709,7 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv)
 			}
 			dev_priv->maxfifo_enabled = false;
 		}
+	}
 }
 
 static void valleyview_update_wm(struct drm_crtc *crtc)
@@ -1718,7 +1719,6 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 	int planea_wm, planeb_wm, cursora_wm, cursorb_wm;
 	unsigned int enabled = 0;
 	vlv_update_drain_latency(dev);
-	unsigned int val = 0;
 
 	if (g4x_compute_wm0(dev, PIPE_A,
 			    &valleyview_wm_info, latency_ns,
@@ -3233,7 +3233,6 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 	int sprite_prec = 0, sprite_dl = 0;
 	int sprite_prec_mult = 0;
 	u32 mask, shift;
-	u32 val = 0;
 	struct vlv_MA_component_enabled enable;
 
 	enable.plane_enabled = false;
