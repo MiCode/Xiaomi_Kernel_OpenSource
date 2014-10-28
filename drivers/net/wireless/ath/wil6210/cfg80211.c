@@ -968,15 +968,17 @@ static int wil_cfg80211_stop_ap(struct wiphy *wiphy,
 }
 
 static int wil_cfg80211_del_station(struct wiphy *wiphy,
-				    struct net_device *dev, const u8 *mac)
+				    struct net_device *dev,
+				    struct station_del_parameters *params)
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 
-	wil_dbg_misc(wil, "%s(%pM, reason=%d)\n", __func__, mac,
+	wil_dbg_misc(wil, "%s(%pM, reason=%d)\n", __func__, (u8 *)params->mac,
 		     WLAN_REASON_UNSPECIFIED);
 
 	mutex_lock(&wil->mutex);
-	wil6210_disconnect(wil, mac, WLAN_REASON_UNSPECIFIED, false);
+	wil6210_disconnect(wil, (u8 *)params->mac, WLAN_REASON_UNSPECIFIED,
+			   false);
 	mutex_unlock(&wil->mutex);
 
 	return 0;
