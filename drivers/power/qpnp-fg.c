@@ -238,6 +238,7 @@ struct fg_chip {
 	bool			use_otp_profile;
 	bool			battery_missing;
 	bool			power_supply_registered;
+	bool			sw_rbias_ctrl;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	char			*batt_profile;
@@ -1670,6 +1671,8 @@ static int fg_of_init(struct fg_chip *chip)
 		rc = 0;
 	}
 
+	chip->sw_rbias_ctrl = of_property_read_bool(chip->spmi->dev.of_node,
+				"qcom,sw-rbias-control");
 	return rc;
 }
 
@@ -2292,22 +2295,24 @@ static int fg_hw_init(struct fg_chip *chip)
 		}
 	}
 
-	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
-			BATT_TEMP_CNTRL_MASK,
-			BATT_TEMP_ON,
-			BATT_TEMP_OFFSET);
-	if (rc) {
-		pr_err("failed to write to memif rc=%d\n", rc);
-		return rc;
-	}
+	if (chip->sw_rbias_ctrl) {
+		rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
+				BATT_TEMP_CNTRL_MASK,
+				BATT_TEMP_ON,
+				BATT_TEMP_OFFSET);
+		if (rc) {
+			pr_err("failed to write to memif rc=%d\n", rc);
+			return rc;
+		}
 
-	rc = fg_mem_masked_write(chip, SOC_CNFG,
-			0xFF,
-			soc_to_setpoint(DELTA_SOC_PERCENT),
-			SOC_DELTA_OFFSET);
-	if (rc) {
-		pr_err("failed to write to memif rc=%d\n", rc);
-		return rc;
+		rc = fg_mem_masked_write(chip, SOC_CNFG,
+				0xFF,
+				soc_to_setpoint(DELTA_SOC_PERCENT),
+				SOC_DELTA_OFFSET);
+		if (rc) {
+			pr_err("failed to write to memif rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	if (chip->use_thermal_coefficients) {
@@ -2499,6 +2504,9 @@ static int fg_suspend(struct device *dev)
 	int total_time_ms;
 	int rc;
 
+	if (!chip->sw_rbias_ctrl)
+		return 0;
+
 	enter_time = ktime_get();
 	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
 			BATT_TEMP_CNTRL_MASK,
@@ -2511,7 +2519,8 @@ static int fg_suspend(struct device *dev)
 	total_time_ms = ktime_to_ms(total_time);
 
 	if ((total_time_ms > 1500) && (fg_debug_mask & FG_STATUS))
-		pr_info("spent %dms configuring rbias\n", total_time_ms);
+		pr_info("spent %dms configuring rbias\n",
+			total_time_ms);
 
 	return 0;
 }
@@ -2524,6 +2533,9 @@ static int fg_resume(struct device *dev)
 	int total_time_ms;
 	unsigned long current_time = 0, next_update_time, time_left;
 	int rc;
+
+	if (!chip->sw_rbias_ctrl)
+		return 0;
 
 	enter_time = ktime_get();
 	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,

@@ -42,6 +42,10 @@ Parent node optional properties:
 - qcom,resume-soc:			soc to resume charging in percentage.
 - qcom,use-otp-profile:			Specify this flag to avoid RAM loading
 					any battery profile.
+- qcom,sw-rbias-control:		Boolean property which defines whether
+					the Rbias needs to be controlled by
+					software. If this is not set, it will
+					be controlled by hardware (default).
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
