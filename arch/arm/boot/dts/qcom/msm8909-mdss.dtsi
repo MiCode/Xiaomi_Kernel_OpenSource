@@ -20,8 +20,6 @@
 		interrupts = <0 72 0>;
 
 		vdd-supply = <&gdsc_mdss>;
-
-		vdd-cx-supply = <&pm8909_s1_corner>;
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
 			 <&clock_gcc clk_gcc_mdss_axi_clk>,
 			 <&clock_gcc clk_mdp_clk_src>,
