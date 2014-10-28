@@ -10017,13 +10017,8 @@ static void intel_do_mmio_flip(struct intel_crtc *intel_crtc)
 {
 	struct drm_device *dev = intel_crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_framebuffer *intel_fb =
-		to_intel_framebuffer(intel_crtc->base.primary->fb);
-	struct drm_i915_gem_object *obj = intel_fb->obj;
 	struct drm_crtc *crtc =
 		dev_priv->pipe_to_crtc_mapping[intel_crtc->pipe];
-	u32 dspcntr;
-	u32 reg;
 
 	intel_mark_page_flip_active(intel_crtc);
 	dev_priv->display.update_primary_plane(crtc,
