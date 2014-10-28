@@ -595,6 +595,7 @@
 		qcom,vin-sel = <2>;	/* 1.8v */
 		qcom,src-sel = <0>;	/* Constant */
 		qcom,master-en = <1>;	/* Enable GPIO */
+		status = "okay";
 	};
 
 	gpio@c200 { /* GPIO 3 - KEY_VOLP_N */
@@ -603,6 +604,7 @@
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	gpio@c300 { /* GPIO 4 - EDU_GPIO2 */
@@ -610,6 +612,7 @@
 		qcom,pull = <1>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		status = "okay";
 	};
 
 	gpio@c400 { /* GPIO 5 - BL1_PWM */
@@ -617,6 +620,7 @@
 		qcom,pull = <1>;	/* PULL DOWN */
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <4>;	/*  */
+		status = "okay";
 	};
 
 	gpio@c500 { /* GPIO 6 - EXT_CHARGER_INT */
@@ -624,6 +628,7 @@
 		qcom,pull = <1>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		status = "okay";
 	};
 
 	gpio@c600 { /* GPIO 7 - NFC_PWR_REQ */
@@ -632,6 +637,7 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
 		qcom,master-en = <1>;	/* ENABLE GPIO */
+		status = "okay";
 	};
 
 	gpio@c700 { /* GPIO 8 - SD_CARD_DET_N */
@@ -640,6 +646,7 @@
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	gpio@c900 { /* GPIO 10 - NFC_CLK_REQ */
@@ -648,6 +655,7 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <2>;	/* QPNP_PIN_SEL_FUNC_1 */
 		qcom,master-en = <1>;	/* ENABLE GPIO */
+		status = "okay";
 	};
 
 	gpio@ca00 { /* GPIO 11 - FP_LINEOUT_PLUG_DET_N */
@@ -655,6 +663,7 @@
 		qcom,pull = <5>; /* No Pull */
 		qcom,vin-sel = <2>; /* 1.8 */
 		qcom,src-sel = <0>; /* CONSTANT */
+		status = "okay";
 	};
 
 	gpio@cc00 { /* GPIO 13 - RP_LINEOUT_PLUG_DETCT */
@@ -662,6 +671,7 @@
 		qcom,pull = <5>;	/* No Pull */
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
+		status = "okay";
 	};
 
 	gpio@cd00 { /* GPIO 14 - BL1_EN */
@@ -670,6 +680,7 @@
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	gpio@ce00 { /* GPIO 15 - DIVCLK1 */
@@ -680,6 +691,7 @@
 		qcom,out-strength = <1>;
 		qcom,src-sel = <2>;
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	gpio@cf00 { /* GPIO 16 - DIVCLK2 */
@@ -690,6 +702,7 @@
 		qcom,out-strength = <1>;
 		qcom,src-sel = <2>;
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	gpio@d100 { /* GPIO 18 - DIVCLK4 */
@@ -700,6 +713,7 @@
 		qcom,out-strength = <1>;
 		qcom,src-sel = <2>;
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	gpio@d200 { /* GPIO 19 - BT_EN */
@@ -708,9 +722,11 @@
 		qcom,vin-sel = <2>;      /* VIN2 */
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,master-en = <1>;    /* Enable GPIO */
+		status = "okay";
 	};
 
 	gpio@d300 { /* GPIO 20 - PMI_SPON */
+		status = "okay";
 	};
 };
 
@@ -720,6 +736,7 @@
 		qcom,pull = <1>;	/* PULL DOWN */
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
+		status = "okay";
 	};
 
 	mpp@a300 { /* MPP 4 - EDU_MPP4 */
@@ -727,6 +744,7 @@
 		qcom,pull = <1>;	/* PULL DOWN */
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
+		status = "okay";
 	};
 
 	mpp@a400 { /* MPP 5 - EDU_MPP2 */
@@ -734,6 +752,7 @@
 		qcom,pull = <1>;	/* PULL DOWN */
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
+		status = "okay";
 	};
 
 	mpp@a500 { /* MPP 6 - EDU_MPP3 */
@@ -741,6 +760,7 @@
 		qcom,pull = <1>;	/* PULL DOWN */
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
+		status = "okay";
 	};
 
 	mpp@a600 { /* MPP 7 - DBU1_EN */
@@ -749,6 +769,7 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	mpp@a700 { /* MPP 8 - EXP_LED_SINK */
@@ -757,6 +778,7 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 };
 
@@ -767,6 +789,7 @@
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
 		qcom,master-en = <1>;
+		status = "okay";
 	};
 
 	gpio@c200 { /* GPIO 3 - EDU_GPIO1 */
@@ -774,6 +797,7 @@
 		qcom,pull = <1>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		status = "okay";
 	};
 
 
@@ -783,6 +807,7 @@
 		qcom,vin-sel = <2>;/*  1.8 */
 		qcom,src-sel = <0>;
 		qcom,master-en = <1>;	/* ENABLE GPIO */
+		status = "okay";
 	};
 
 	gpio@c600 { /* GPIO 7 - EDU_GPIO3 */
@@ -790,6 +815,7 @@
 		qcom,pull = <1>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		status = "okay";
 	};
 };
 
@@ -800,12 +826,15 @@
 		qcom,src-sel = <7>;	/* DTEST4 */
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,master-en = <1>;	/* Enable MPP */
+		status = "okay";
 	};
 
 	mpp@a100 { /* MPP 2 - FLASH_STROBE (DNI) */
+		status = "okay";
 	};
 
 	mpp@a200 { /* MPP 3 - PMI_SPON */
+		status = "okay";
 	};
 
 	mpp@a300 { /* MPP 4 - EXT_FET_WLED_PWR_EN */
@@ -813,6 +842,7 @@
 		qcom,src-sel = <0>;	/* FUNC GPIO */
 		qcom,vin-sel = <0>;	/* VPH_PWR */
 		qcom,master-en = <1>;	/* Enable MPP */
+		status = "okay";
 	};
 };
 
