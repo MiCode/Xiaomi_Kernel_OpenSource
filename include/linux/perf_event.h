@@ -234,6 +234,8 @@ struct pmu {
 	atomic_t			exclusive_cnt; /* < 0: cpu; > 0: tsk */
 	int				task_ctx_nr;
 	int				hrtimer_interval_ms;
+	u32                             events_across_hotplug:1,
+					reserved:31;
 
 	/*
 	 * Fully disable/enable this PMU, can be used to protect from the PMI
