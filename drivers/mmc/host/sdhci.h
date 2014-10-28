@@ -431,4 +431,5 @@ extern int sdhci_runtime_suspend_host(struct sdhci_host *host);
 extern int sdhci_runtime_resume_host(struct sdhci_host *host);
 #endif
 
+void sdhci_cfg_irq(struct sdhci_host *host, bool enable, bool sync);
 #endif /* __SDHCI_HW_H */

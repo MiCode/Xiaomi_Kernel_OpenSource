@@ -3523,7 +3523,7 @@ static int sdhci_msm_runtime_suspend(struct device *dev)
 	if (!ret)
 		goto skip_disable_host_irq;
 
-	disable_irq(host->irq);
+	sdhci_cfg_irq(host, false, true);
 
 skip_disable_host_irq:
 	disable_irq(msm_host->pwr_irq);
@@ -3552,7 +3552,7 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 	if (!ret)
 		goto skip_enable_host_irq;
 
-	enable_irq(host->irq);
+	sdhci_cfg_irq(host, true, true);
 
 skip_enable_host_irq:
 	enable_irq(msm_host->pwr_irq);

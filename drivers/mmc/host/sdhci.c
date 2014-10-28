@@ -1633,6 +1633,21 @@ static int sdhci_get_tuning_cmd(struct sdhci_host *host)
 		return MMC_SEND_TUNING_BLOCK;
 }
 
+void sdhci_cfg_irq(struct sdhci_host *host, bool enable, bool sync)
+{
+	if (enable && !host->irq_enabled) {
+		enable_irq(host->irq);
+		host->irq_enabled = true;
+	} else if (!enable && host->irq_enabled) {
+		if (sync)
+			disable_irq(host->irq);
+		else
+			disable_irq_nosync(host->irq);
+		host->irq_enabled = false;
+	}
+}
+EXPORT_SYMBOL(sdhci_cfg_irq);
+
 static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct sdhci_host *host;
@@ -1761,17 +1776,6 @@ static void sdhci_cfg_async_intr(struct sdhci_host *host, bool enable)
 			     SDHCI_HOST_CONTROL2);
 }
 
-static void sdhci_cfg_irq(struct sdhci_host *host, bool enable)
-{
-	if (enable && !host->irq_enabled) {
-		enable_irq(host->irq);
-		host->irq_enabled = true;
-	} else if (!enable && host->irq_enabled) {
-		disable_irq_nosync(host->irq);
-		host->irq_enabled = false;
-	}
-}
-
 static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 {
 	unsigned long flags;
@@ -1789,7 +1793,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 
 	spin_lock_irqsave(&host->lock, flags);
 	/* lock is being released intermittently below, hence disable irq */
-	sdhci_cfg_irq(host, false);
+	sdhci_cfg_irq(host, false, false);
 	spin_unlock_irqrestore(&host->lock, flags);
 	if (ios->clock) {
 		sdhci_set_clock(host, ios->clock);
@@ -1829,10 +1833,21 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 							      vdd_bit);
 			}
 		}
+		/*
+		 * make sure interrupts are enabled, these are the same
+		 * interrupts which get enabled in sdhci_init().
+		 */
+		sdhci_clear_set_irqs(host, 0,
+			SDHCI_INT_BUS_POWER | SDHCI_INT_DATA_END_BIT |
+			SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_TIMEOUT |
+			SDHCI_INT_INDEX |
+			SDHCI_INT_END_BIT | SDHCI_INT_CRC | SDHCI_INT_TIMEOUT |
+			SDHCI_INT_DATA_END | SDHCI_INT_RESPONSE |
+			SDHCI_INT_AUTO_CMD_ERR);
 	}
 	spin_lock_irqsave(&host->lock, flags);
 	if (!host->clock) {
-		sdhci_cfg_irq(host, true);
+		sdhci_cfg_irq(host, true, false);
 		spin_unlock_irqrestore(&host->lock, flags);
 		mutex_unlock(&host->ios_mutex);
 		return;
@@ -2002,6 +2017,13 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		vdd_bit = sdhci_set_power(host, -1);
 		if (host->vmmc && vdd_bit != -1)
 			mmc_regulator_set_ocr(host->mmc, host->vmmc, vdd_bit);
+		if ((host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION) ||
+		    (host->mmc->caps & MMC_CAP_NONREMOVABLE)) {
+			/* clear all the pending interrupts */
+			sdhci_writel(host, sdhci_readl(host, SDHCI_INT_STATUS),
+				     SDHCI_INT_STATUS);
+			sdhci_mask_irqs(host, SDHCI_INT_ALL_MASK);
+		}
 	}
 	if (!ios->clock) {
 		if (host->async_int_supp && host->mmc->card &&
@@ -2012,9 +2034,18 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		}
 		sdhci_set_clock(host, ios->clock);
 	}
+
+	if (ios->power_mode == MMC_POWER_OFF) {
+		/* Keep interrupt line disabled as card is anyway powered off */
+		if ((host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION) ||
+		    (host->mmc->caps & MMC_CAP_NONREMOVABLE))
+			goto out;
+	}
+
 	spin_lock_irqsave(&host->lock, flags);
-	sdhci_cfg_irq(host, true);
+	sdhci_cfg_irq(host, true, false);
 	spin_unlock_irqrestore(&host->lock, flags);
+out:
 	mmiowb();
 	mutex_unlock(&host->ios_mutex);
 }
@@ -3000,7 +3031,7 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 	if (!host->clock && host->mmc->card &&
 	    mmc_card_sdio(host->mmc->card)) {
 		/* SDIO async. interrupt is level-sensitive */
-		sdhci_cfg_irq(host, false);
+		sdhci_cfg_irq(host, false, false);
 		pr_debug("%s: got async-irq: clocks: %d gated: %d host-irq[en:1/dis:0]: %d\n",
 			mmc_hostname(host->mmc), host->clock,
 			host->mmc->clk_gated, host->irq_enabled);
@@ -3012,6 +3043,15 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 					SDHCI_SUSPEND_TIMEOUT);
 		else
 			mmc_signal_sdio_irq(host->mmc);
+		return IRQ_HANDLED;
+	} else if (!host->clock) {
+		/*
+		 * As clocks are disabled, controller registers might not be
+		 * accessible hence return from here.
+		 */
+		pr_err_ratelimited("%s: %s: clocks are disabled !!!\n",
+				   mmc_hostname(host->mmc), __func__);
+		spin_unlock(&host->lock);
 		return IRQ_HANDLED;
 	}
 	intmask = sdhci_readl(host, SDHCI_INT_STATUS);
