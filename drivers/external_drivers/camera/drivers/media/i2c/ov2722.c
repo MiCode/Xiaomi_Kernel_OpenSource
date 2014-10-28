@@ -34,13 +34,12 @@
 #include <linux/gpio.h>
 #include <linux/moduleparam.h>
 #include <media/v4l2-device.h>
+#ifndef CONFIG_GMIN_INTEL_MID /* FIXME! for non-gmin*/
+#include <media/v4l2-chip-ident.h>
+#endif
 #include <linux/io.h>
-#include <linux/acpi.h>
-#include <linux/atomisp_gmin_platform.h>
 
 #include "ov2722.h"
-
-void *ov2722_platform_data(void *info);
 
 /* i2c read/write stuff */
 static int ov2722_read_reg(struct i2c_client *client,
@@ -396,19 +395,21 @@ static long __ov2722_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	u16 vts;
-	int frame_length;
+	struct ov2722_device *dev = to_ov2722_sensor(sd);
+	u16 hts, vts;
 	int ret;
 
-	ret = ov2722_read_reg(client, OV2722_16BIT,
-					OV2722_VTS_DIFF_H, &vts);
+	/* clear VTS_DIFF on manual mode */
+	ret = ov2722_write_reg(client, OV2722_16BIT, OV2722_VTS_DIFF_H, 0);
 	if (ret)
 		return ret;
 
-	if ((coarse_itg + 6) >= vts)
-		frame_length = (coarse_itg + 6) - vts;
-	else
-		frame_length = 0;
+	hts = dev->pixels_per_line;
+	vts = dev->lines_per_frame;;
+
+	if ((coarse_itg + OV2722_COARSE_INTG_TIME_MAX_MARGIN) > vts)
+		vts = coarse_itg + OV2722_COARSE_INTG_TIME_MAX_MARGIN;
+
 	coarse_itg <<= 4;
 	digitgain <<= 2;
 
@@ -418,7 +419,12 @@ static long __ov2722_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 		return ret;
 
 	ret = ov2722_write_reg(client, OV2722_16BIT,
-				OV2722_VTS_DIFF_H, frame_length >> 8);
+				OV2722_VTS_H, vts);
+	if (ret)
+		return ret;
+
+	ret = ov2722_write_reg(client, OV2722_16BIT,
+				OV2722_HTS_H, hts);
 	if (ret)
 		return ret;
 
@@ -934,6 +940,9 @@ static int ov2722_s_mbus_fmt(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
+	dev->pixels_per_line = ov2722_res[dev->fmt_idx].pixels_per_line;
+	dev->lines_per_frame = ov2722_res[dev->fmt_idx].lines_per_frame;
+
 	ret = startup(sd);
 	if (ret) {
 		dev_err(&client->dev, "ov2722 startup err\n");
@@ -1374,15 +1383,11 @@ static int __ov2722_init_ctrl_handler(struct ov2722_device *dev)
 
 	return 0;
 }
-
 static int ov2722_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct ov2722_device *dev;
-	void *ovpdev;
 	int ret;
-
-	printk("\0010ANDY %s:%d\n", __func__, __LINE__);
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -1395,16 +1400,12 @@ static int ov2722_probe(struct i2c_client *client,
 	dev->fmt_idx = 0;
 	v4l2_i2c_subdev_init(&(dev->sd), client, &ov2722_ops);
 
-	ovpdev = client->dev.platform_data;
-	if (config_enabled(CONFIG_GMIN_INTEL_MID) &&
-	    ACPI_COMPANION(&client->dev))
-		ovpdev = gmin_camera_platform_data(&dev->sd,
-						   ATOMISP_INPUT_FORMAT_RAW_10,
-						   atomisp_bayer_order_grbg);
-
-	ret = ov2722_s_config(&dev->sd, client->irq, ovpdev);
-	if (ret)
-		goto out_free;
+	if (client->dev.platform_data) {
+		ret = ov2722_s_config(&dev->sd, client->irq,
+				       client->dev.platform_data);
+		if (ret)
+			goto out_free;
+	}
 
 	ret = __ov2722_init_ctrl_handler(dev);
 	if (ret)
@@ -1419,8 +1420,6 @@ static int ov2722_probe(struct i2c_client *client,
 	if (ret)
 		ov2722_remove(client);
 
-	ret = atomisp_register_i2c_module(&dev->sd, ovpdev, RAW_CAMERA);
-
 	return ret;
 
 out_ctrl_handler_free:
@@ -1433,20 +1432,10 @@ out_free:
 }
 
 MODULE_DEVICE_TABLE(i2c, ov2722_id);
-
-static struct acpi_device_id ov2722_acpi_match[] = {
-	{ "INT33FB" },
-	{},
-};
-
-MODULE_DEVICE_TABLE(acpi, ov2722_acpi_match);
-
-
 static struct i2c_driver ov2722_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = OV2722_NAME,
-		.acpi_match_table = ACPI_PTR(ov2722_acpi_match),
 	},
 	.probe = ov2722_probe,
 	.remove = ov2722_remove,
