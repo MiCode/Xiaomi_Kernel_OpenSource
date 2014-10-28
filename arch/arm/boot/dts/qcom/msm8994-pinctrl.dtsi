@@ -1174,14 +1174,14 @@
 		};
 
 		cnss_lpass: cnss_lpass {
-			qcom,pins = <&gp 111>;
+			qcom,pins = <&gp 112>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <2>;
+			qcom,pin-func = <0>;
 			label = "cnss-lpass";
 			/* default state */
 			cnss_lpass_default: cnss_lpass_default {
-				drive-strength = <2>;
-				bias-pull-up;
+				drive-strength = <16>;
+				bias-pull-down;
 			};
 		};
 
