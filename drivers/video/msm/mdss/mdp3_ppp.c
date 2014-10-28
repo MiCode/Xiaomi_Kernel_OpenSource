@@ -39,6 +39,8 @@
 #define ENABLE_SOLID_FILL	0x2
 #define DISABLE_SOLID_FILL	0x0
 
+struct ppp_resource ppp_res;
+
 static const bool valid_fmt[MDP_IMGTYPE_LIMIT] = {
 	[MDP_RGB_565] = true,
 	[MDP_BGR_565] = true,
@@ -98,8 +100,8 @@ struct ppp_status {
 
 	struct timer_list free_bw_timer;
 	struct work_struct free_bw_work;
+	bool bw_update;
 	bool bw_on;
-	bool bw_optimal;
 	u32 mdp_clk;
 };
 
@@ -351,52 +353,149 @@ u32 mdp3_clk_calc(struct msm_fb_data_type *mfd, struct blit_req_list *lreq)
 	return mdp_clk_rate;
 }
 
-int mdp3_ppp_vote_update(struct msm_fb_data_type *mfd)
+struct bpp_info {
+	int bpp_num;
+	int bpp_den;
+	int bpp_pln;
+};
+
+int mdp3_get_bpp_info(int format, struct bpp_info *bpp)
 {
-	struct mdss_panel_info *panel_info = mfd->panel_info;
-	uint64_t req_bw = 0, ab = 0, ib = 0;
 	int rc = 0;
-	if (!ppp_stat->bw_on)
-		pr_err("%s: PPP vote update in wrong state\n", __func__);
 
-	req_bw = panel_info->xres * panel_info->yres *
-		panel_info->mipi.frame_rate *
-		MDP_PPP_MAX_BPP *
-		MDP_PPP_DYNAMIC_FACTOR *
-		MDP_PPP_MAX_READ_WRITE;
-	ib = (req_bw * 3) / 2;
-
-	if (ppp_stat->bw_optimal)
-		ab = ib / 2;
-	else
-		ab = req_bw;
-	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP, ab, ib);
-	if (rc < 0) {
-		pr_err("%s: scale_set_quota failed\n", __func__);
-		return rc;
+	switch (format) {
+	case MDP_RGB_565:
+	case MDP_BGR_565:
+		bpp->bpp_num = 2;
+		bpp->bpp_den = 1;
+		bpp->bpp_pln = 2;
+		break;
+	case MDP_RGB_888:
+	case MDP_BGR_888:
+		bpp->bpp_num = 3;
+		bpp->bpp_den = 1;
+		bpp->bpp_pln = 3;
+		break;
+	case MDP_BGRA_8888:
+	case MDP_RGBA_8888:
+	case MDP_ARGB_8888:
+	case MDP_XRGB_8888:
+	case MDP_RGBX_8888:
+	case MDP_BGRX_8888:
+		bpp->bpp_num = 4;
+		bpp->bpp_den = 1;
+		bpp->bpp_pln = 4;
+		break;
+	case MDP_Y_CRCB_H2V2:
+	case MDP_Y_CBCR_H2V2:
+	case MDP_Y_CBCR_H2V2_ADRENO:
+	case MDP_Y_CBCR_H2V2_VENUS:
+		bpp->bpp_num = 3;
+		bpp->bpp_den = 2;
+		bpp->bpp_pln = 1;
+		break;
+	case MDP_Y_CBCR_H2V1:
+	case MDP_Y_CRCB_H2V1:
+		bpp->bpp_num = 2;
+		bpp->bpp_den = 1;
+		bpp->bpp_pln = 1;
+		break;
+	case MDP_YCRYCB_H2V1:
+		bpp->bpp_num = 2;
+		bpp->bpp_den = 1;
+		bpp->bpp_pln = 2;
+		break;
+	default:
+		rc = -EINVAL;
 	}
 	return rc;
 }
 
-int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
+u64 mdp3_adjust_scale_factor(struct mdp_blit_req *req, u32 bw_req, int bpp)
+{
+	int src_h, src_w;
+	int dst_h, dst_w;
+
+	src_h = req->src_rect.h;
+	src_w = req->src_rect.w;
+
+	dst_h = req->dst_rect.h;
+	dst_w = req->dst_rect.w;
+
+	if ((!(req->flags & MDP_ROT_90) && src_h == dst_h && src_w == dst_w) ||
+		((req->flags & MDP_ROT_90) && src_h == dst_w && src_w == dst_h))
+		return bw_req;
+
+	bw_req = (bw_req + (bw_req * dst_h) / (4 * src_h));
+	bw_req = (bw_req + (bw_req * dst_w) / (4 * src_w) +
+			(bw_req * dst_w) / (bpp * src_w));
+
+	return bw_req;
+}
+
+int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 {
 	struct mdss_panel_info *panel_info = mfd->panel_info;
-	uint64_t req_bw = 0, ab = 0, ib = 0;
+	int i, lcount = 0;
+	struct mdp_blit_req *req;
+	struct bpp_info bpp;
+	u32 src_read_bw = 0;
+	u32 dst_read_bw = 0;
+	u32 dst_write_bw = 0;
+	u64 honest_ppp_ab = 0;
+	u32 fps;
+
+	lcount = lreq->count;
+	if (lcount == 0) {
+		pr_err("Blit with request count 0, continue to recover!!!\n");
+		return 0;
+	}
+
+	/* Set FPS to mipi rate as currently there is no way to get this */
+	fps = panel_info->mipi.frame_rate;
+
+	for (i = 0; i < lcount; i++) {
+		req = &(lreq->req_list[i]);
+
+		mdp3_get_bpp_info(req->src.format, &bpp);
+		src_read_bw = req->src_rect.w * req->src_rect.h *
+						bpp.bpp_num / bpp.bpp_den;
+		src_read_bw = mdp3_adjust_scale_factor(req,
+						src_read_bw, bpp.bpp_pln);
+
+		mdp3_get_bpp_info(req->dst.format, &bpp);
+		dst_read_bw = req->dst_rect.w * req->dst_rect.h *
+						bpp.bpp_num / bpp.bpp_den;
+		dst_read_bw = mdp3_adjust_scale_factor(req,
+						dst_read_bw, bpp.bpp_pln);
+
+		dst_write_bw = req->dst_rect.w * req->dst_rect.h *
+						bpp.bpp_num / bpp.bpp_den;
+		honest_ppp_ab += (src_read_bw + dst_read_bw + dst_write_bw);
+	}
+	honest_ppp_ab = honest_ppp_ab * fps;
+
+	if (honest_ppp_ab != ppp_res.next_ab) {
+		pr_debug("bandwidth vote update for ppp: ab = %llx\n",
+								honest_ppp_ab);
+		ppp_res.next_ab = honest_ppp_ab;
+		ppp_res.next_ib = honest_ppp_ab;
+		ppp_stat->bw_update = true;
+	}
+	ppp_res.clk_rate = mdp3_clk_calc(mfd, lreq);
+	return 0;
+}
+
+int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
+{
+	uint64_t ab = 0, ib = 0;
 	int rate = 0;
 	int rc;
 
 	if (on_off) {
-		rate = MDP_CORE_CLK_RATE_SVS;
-		req_bw = panel_info->xres * panel_info->yres *
-			panel_info->mipi.frame_rate *
-			MDP_PPP_MAX_BPP *
-			MDP_PPP_DYNAMIC_FACTOR *
-			MDP_PPP_MAX_READ_WRITE;
-		ib = (req_bw * 3) / 2;
-		if (ppp_stat->bw_optimal)
-			ab = ib / 2;
-		else
-			ab = req_bw;
+		rate = ppp_res.clk_rate;
+		ab = ppp_res.next_ab;
+		ib = ppp_res.next_ib;
 	}
 	mdp3_clk_set_rate(MDP3_CLK_MDP_SRC, rate, MDP3_CLIENT_PPP);
 	rc = mdp3_res_update(on_off, 0, MDP3_CLIENT_PPP);
@@ -412,23 +511,8 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 	}
 	ppp_stat->bw_on = on_off;
 	ppp_stat->mdp_clk = MDP_CORE_CLK_RATE_SVS;
+	ppp_stat->bw_update = false;
 	return 0;
-}
-
-bool mdp3_optimal_bw(struct blit_req_list *req)
-{
-	int i, solid_fill = 0;
-
-	if (!req || (ppp_stat->req_q.count > 1))
-		return false;
-
-	for (i = 0; i < req->count; i++) {
-		if (req->req_list[i].flags & MDP_SOLID_FILL)
-			solid_fill++;
-	}
-	if ((req->count - solid_fill) <= 1)
-		return true;
-	return false;
 }
 
 void mdp3_start_ppp(struct ppp_blit_op *blit_op)
@@ -1057,7 +1141,6 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 	struct msm_fb_data_type *mfd = ppp_stat->mfd;
 	struct blit_req_list *req;
 	int i, rc = 0;
-	u32 new_clk_rate;
 
 	mutex_lock(&ppp_stat->config_ppp_mutex);
 	req = mdp3_ppp_next_req(&ppp_stat->req_q);
@@ -1067,7 +1150,6 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 	}
 
 	if (!ppp_stat->bw_on) {
-		ppp_stat->bw_optimal = mdp3_optimal_bw(req);
 		mdp3_ppp_turnon(mfd, 1);
 		if (rc < 0) {
 			mutex_unlock(&ppp_stat->config_ppp_mutex);
@@ -1077,11 +1159,20 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 	}
 	while (req) {
 		mdp3_ppp_wait_for_fence(req);
-		new_clk_rate = mdp3_clk_calc(mfd, req);
-		if (new_clk_rate != ppp_stat->mdp_clk) {
-			ppp_stat->mdp_clk = new_clk_rate;
-			mdp3_clk_set_rate(MDP3_CLK_MDP_SRC, new_clk_rate,
-							MDP3_CLIENT_PPP);
+		mdp3_calc_ppp_res(mfd, req);
+		if (ppp_res.clk_rate != ppp_stat->mdp_clk) {
+			ppp_stat->mdp_clk = ppp_res.clk_rate;
+			mdp3_clk_set_rate(MDP3_CLK_MDP_SRC,
+					ppp_stat->mdp_clk, MDP3_CLIENT_PPP);
+		}
+		if (ppp_stat->bw_update) {
+			rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP,
+					ppp_res.next_ab, ppp_res.next_ib);
+			if (rc < 0) {
+				pr_err("%s: bw set quota failed\n", __func__);
+				return;
+			}
+			ppp_stat->bw_update = false;
 		}
 		for (i = 0; i < req->count; i++) {
 			if (!(req->req_list[i].flags & MDP_NO_BLIT)) {
@@ -1104,10 +1195,6 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 		if (ppp_stat->wait_for_pop)
 			complete(&ppp_stat->pop_q_comp);
 		mutex_unlock(&ppp_stat->req_mutex);
-		if (req && (ppp_stat->bw_optimal != mdp3_optimal_bw(req))) {
-			ppp_stat->bw_optimal = !ppp_stat->bw_optimal;
-			mdp3_ppp_vote_update(mfd);
-		}
 	}
 	mod_timer(&ppp_stat->free_bw_timer, jiffies +
 		msecs_to_jiffies(MDP_RELEASE_BW_TIMEOUT));
