@@ -7895,7 +7895,7 @@ start_window:
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
 static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
 	.upthreshold = 35,
-	.downdifferential = 5,
+	.downdifferential = 30,
 	.simple_scaling = 1,
 };
 
