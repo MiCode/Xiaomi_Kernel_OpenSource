@@ -207,7 +207,9 @@ struct page {
 					   not kmapped, ie. highmem) */
 #endif /* WANT_PAGE_VIRTUAL */
 
+#ifdef CONFIG_BLK_DEV_IO_TRACE
 	struct task_struct *tsk_dirty;	/* task that sets this page dirty */
+#endif
 
 #ifdef CONFIG_KMEMCHECK
 	/*
