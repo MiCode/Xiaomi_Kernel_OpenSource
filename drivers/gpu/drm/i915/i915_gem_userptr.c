@@ -681,7 +681,6 @@ i915_gem_userptr_get_pages(struct drm_i915_gem_object *obj)
 static void
 i915_gem_userptr_put_pages(struct drm_i915_gem_object *obj)
 {
-	struct scatterlist *sg;
 	struct sg_page_iter sg_iter;
 
 	BUG_ON(obj->userptr.work != NULL);
