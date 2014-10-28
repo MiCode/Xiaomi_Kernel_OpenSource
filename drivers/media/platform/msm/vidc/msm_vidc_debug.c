@@ -27,6 +27,7 @@ int msm_vidc_vpe_csc_601_to_709 = 0x0;
 int msm_vidc_dcvs_mode = 0x1;
 int msm_vidc_sys_idle_indicator = 0x0;
 u32 msm_vidc_firmware_unload_delay = 15000;
+int msm_vidc_thermal_mitigation_disabled = 0x0;
 
 struct debug_buffer {
 	char ptr[MAX_DBG_BUF_SIZE];
@@ -195,6 +196,12 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 			dir, &msm_vidc_firmware_unload_delay)) {
 		dprintk(VIDC_ERR,
 			"debugfs_create_file: firmware_unload_delay fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("disable_thermal_mitigation", S_IRUGO | S_IWUSR,
+			dir, &msm_vidc_thermal_mitigation_disabled)) {
+		dprintk(VIDC_ERR,
+			"debugfs_create_file: disable_thermal_mitigation fail\n");
 		goto failed_create_dir;
 	}
 	return dir;
