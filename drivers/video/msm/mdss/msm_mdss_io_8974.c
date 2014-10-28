@@ -149,29 +149,48 @@ static void mdss_dsi_28nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		}
 	}
 
-	/* Regulator ctrl 0 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, 0x0);
-	/* Regulator ctrl - CAL_PWR_CFG */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x298, pd->regulator[6]);
-
-	/* Regulator ctrl - TEST */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x294, pd->regulator[5]);
-	/* Regulator ctrl 3 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x28c, pd->regulator[3]);
-	/* Regulator ctrl 2 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x288, pd->regulator[2]);
-	/* Regulator ctrl 1 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x284, pd->regulator[1]);
-	/* Regulator ctrl 0 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, pd->regulator[0]);
-	/* Regulator ctrl 4 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x290, pd->regulator[4]);
-
-	/* LDO ctrl */
-	if (pd->reg_ldo_mode)
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x25);
-	else
+	if (pd->reg_ldo_mode) {
+		/* Regulator ctrl 0 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, 0x0);
+		/* Regulator ctrl - CAL_PWR_CFG */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x298, pd->regulator[6]);
+		/* Add H/w recommended delay */
+		udelay(1000);
+		/* Regulator ctrl - TEST */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x294, pd->regulator[5]);
+		/* Regulator ctrl 3 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x28c, pd->regulator[3]);
+		/* Regulator ctrl 2 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x288, pd->regulator[2]);
+		/* Regulator ctrl 1 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x284, pd->regulator[1]);
+		/* Regulator ctrl 4 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x290, pd->regulator[4]);
+		/* LDO ctrl */
+		if (MIPI_INP(ctrl_pdata->ctrl_base) == MDSS_DSI_HW_REV_103_1)
+			MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x05);
+		else
+			MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x0d);
+	} else {
+		/* Regulator ctrl 0 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, 0x0);
+		/* Regulator ctrl - CAL_PWR_CFG */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x298, pd->regulator[6]);
+		/* Add H/w recommended delay */
+		udelay(1000);
+		/* Regulator ctrl 1 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x284, pd->regulator[1]);
+		/* Regulator ctrl 2 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x288, pd->regulator[2]);
+		/* Regulator ctrl 3 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x28c, pd->regulator[3]);
+		/* Regulator ctrl 4 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x290, pd->regulator[4]);
+		/* LDO ctrl */
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x00);
+		/* Regulator ctrl 0 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, pd->regulator[0]);
+	}
 
 	off = 0x0140;	/* phy timing ctrl 0 - 11 */
 	for (i = 0; i < 12; i++) {
