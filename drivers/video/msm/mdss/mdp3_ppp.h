@@ -294,6 +294,12 @@ struct ppp_table {
 	uint32_t val;
 };
 
+struct ppp_resource {
+	u64 next_ab;
+	u64 next_ib;
+	u64 clk_rate;
+};
+
 struct ppp_csc_table {
 	int direction;			/* MDP_CCS_RGB2YUV or YUV2RGB */
 	uint16_t fwd_matrix[MDP_CCS_SIZE];	/* 3x3 color coefficients */
