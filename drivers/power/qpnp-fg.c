@@ -227,7 +227,8 @@ struct fg_chip {
 	struct fg_irq		soc_irq[FG_SOC_IRQ_COUNT];
 	struct fg_irq		batt_irq[FG_BATT_IRQ_COUNT];
 	struct fg_irq		mem_irq[FG_MEM_IF_IRQ_COUNT];
-	struct completion	sram_access;
+	struct completion	sram_access_granted;
+	struct completion	sram_access_revoked;
 	struct completion	batt_id_avail;
 	struct power_supply	bms_psy;
 	struct mutex		rw_lock;
@@ -241,12 +242,14 @@ struct fg_chip {
 	bool			sw_rbias_ctrl;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
+	struct delayed_work	update_temp_work;
 	char			*batt_profile;
 	u8			thermal_coefficients[THERMAL_COEFF_N_BYTES];
 	bool			use_thermal_coefficients;
 	unsigned int		batt_profile_len;
 	const char		*batt_type;
 	unsigned long		last_sram_update_time;
+	unsigned long		last_temp_update_time;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -515,7 +518,8 @@ static int fg_req_and_wait_access(struct fg_chip *chip, int timeout)
 
 wait:
 	/* Wait for MEM_AVAIL IRQ. */
-	ret = wait_for_completion_interruptible_timeout(&chip->sram_access,
+	ret = wait_for_completion_interruptible_timeout(
+			&chip->sram_access_granted,
 			msecs_to_jiffies(timeout));
 	/* If we were interrupted wait again one more time. */
 	if (ret == -ERESTARTSYS && !tried_again) {
@@ -536,7 +540,7 @@ static void fg_release_access_if_necessary(struct fg_chip *chip)
 	if (atomic_sub_return(1, &chip->memif_user_cnt) <= 0) {
 		fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
 				RIF_MEM_ACCESS_REQ, 0, 1);
-		INIT_COMPLETION(chip->sram_access);
+		INIT_COMPLETION(chip->sram_access_granted);
 	}
 	mutex_unlock(&chip->rw_lock);
 }
@@ -643,7 +647,7 @@ out:
 				RIF_MEM_ACCESS_REQ, 0, 1);
 		if (rc)
 			pr_err("failed to set mem access bit\n");
-		INIT_COMPLETION(chip->sram_access);
+		INIT_COMPLETION(chip->sram_access_granted);
 	}
 
 	mutex_unlock(&chip->rw_lock);
@@ -729,7 +733,7 @@ out:
 			pr_err("failed to set mem access bit\n");
 			rc = -EIO;
 		}
-		INIT_COMPLETION(chip->sram_access);
+		INIT_COMPLETION(chip->sram_access_granted);
 	}
 
 	mutex_unlock(&chip->rw_lock);
@@ -1002,7 +1006,7 @@ static void update_sram_data(struct work_struct *work)
 	s16 temp;
 	int battid_valid = fg_is_batt_id_valid(chip);
 
-	for (i = 0; i < FG_DATA_MAX; i++) {
+	for (i = 1; i < FG_DATA_MAX; i++) {
 		rc = fg_mem_read(chip, reg, fg_data[i].address,
 			fg_data[i].len, fg_data[i].offset,
 			(i+1 == FG_DATA_MAX) ? 0 : 1);
@@ -1015,10 +1019,6 @@ static void update_sram_data(struct work_struct *work)
 			temp = reg[0] | (reg[1] << 8);
 
 		switch (i) {
-		case FG_DATA_BATT_TEMP:
-			fg_data[i].value = (temp * TEMP_LSB_16B / 1000)
-				- DECIKELVIN;
-			break;
 		case FG_DATA_OCV:
 		case FG_DATA_VOLTAGE:
 			fg_data[i].value = ((u16) temp) * LSB_16B;
@@ -1053,6 +1053,81 @@ static void update_sram_data(struct work_struct *work)
 	schedule_delayed_work(
 		&chip->update_sram_data,
 		msecs_to_jiffies(resched_ms));
+}
+
+#define BATT_TEMP_OFFSET	3
+#define BATT_TEMP_CNTRL_MASK	0x17
+#define BATT_TEMP_ON		0x16
+#define BATT_TEMP_OFF		0x01
+#define TEMP_PERIOD_UPDATE_MS		10000
+static void update_temp_data(struct work_struct *work)
+{
+	s16 temp;
+	u8 reg[2];
+	bool tried_again = false;
+	int rc, ret, timeout = MEM_IF_TIMEOUT_MS;
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				update_temp_work.work);
+
+	if (chip->sw_rbias_ctrl) {
+		INIT_COMPLETION(chip->sram_access_revoked);
+		rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
+				BATT_TEMP_CNTRL_MASK,
+				BATT_TEMP_ON,
+				BATT_TEMP_OFFSET);
+		if (rc) {
+			pr_err("failed to write BATT_TEMP_ON rc=%d\n", rc);
+			goto out;
+		}
+
+wait:
+		/* Wait for MEMIF access revoked */
+		ret = wait_for_completion_interruptible_timeout(
+				&chip->sram_access_revoked,
+				msecs_to_jiffies(timeout));
+
+		/* If we were interrupted wait again one more time. */
+		if (ret == -ERESTARTSYS && !tried_again) {
+			tried_again = true;
+			goto wait;
+		} else if (ret <= 0) {
+			rc = -ETIMEDOUT;
+			pr_err("transaction timed out ret=%d\n", ret);
+			goto out;
+		}
+	}
+
+	/* Read FG_DATA_BATT_TEMP now */
+	rc = fg_mem_read(chip, reg, fg_data[0].address,
+		fg_data[0].len, fg_data[0].offset,
+		chip->sw_rbias_ctrl ? 1 : 0);
+	if (rc) {
+		pr_err("Failed to update temp data\n");
+		goto out;
+	}
+
+	temp = reg[0] | (reg[1] << 8);
+	fg_data[0].value = (temp * TEMP_LSB_16B / 1000)
+		- DECIKELVIN;
+
+	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+		pr_info("BATT_TEMP %d %d\n", temp, fg_data[0].value);
+
+	get_current_time(&chip->last_temp_update_time);
+
+	if (chip->sw_rbias_ctrl) {
+		rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
+				BATT_TEMP_CNTRL_MASK,
+				BATT_TEMP_OFF,
+				BATT_TEMP_OFFSET);
+		if (rc)
+			pr_err("failed to write BATT_TEMP_OFF rc=%d\n", rc);
+	}
+out:
+	schedule_delayed_work(
+		&chip->update_temp_work,
+		msecs_to_jiffies(TEMP_PERIOD_UPDATE_MS));
 }
 
 static void update_jeita_setting(struct work_struct *work)
@@ -1296,10 +1371,11 @@ static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 	if (fg_check_sram_access(chip)) {
 		if (fg_debug_mask & FG_IRQS)
 			pr_info("sram access granted\n");
-		complete_all(&chip->sram_access);
+		complete_all(&chip->sram_access_granted);
 	} else {
 		if (fg_debug_mask & FG_IRQS)
 			pr_info("sram access revoked\n");
+		complete_all(&chip->sram_access_revoked);
 	}
 
 	if (!rc && (fg_debug_mask & FG_IRQS))
@@ -1475,7 +1551,7 @@ wait:
 	mutex_lock(&chip->rw_lock);
 	fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
 			RIF_MEM_ACCESS_REQ, 0, 1);
-	INIT_COMPLETION(chip->sram_access);
+	INIT_COMPLETION(chip->sram_access_granted);
 
 	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD,
 			NO_OTP_PROF_RELOAD, 0, 1);
@@ -1518,7 +1594,7 @@ wait:
 	mutex_lock(&chip->rw_lock);
 	fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
 			RIF_MEM_ACCESS_REQ, 0, 1);
-	INIT_COMPLETION(chip->sram_access);
+	INIT_COMPLETION(chip->sram_access_granted);
 	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
 				LOW_LATENCY, 0, 1);
 	if (rc) {
@@ -2257,10 +2333,6 @@ static int soc_to_setpoint(int soc)
 #define SOC_CNFG	0x450
 #define SOC_DELTA_OFFSET	3
 #define DELTA_SOC_PERCENT	1
-#define BATT_TEMP_OFFSET	3
-#define BATT_TEMP_CNTRL_MASK	0x17
-#define BATT_TEMP_ON		0x16
-#define BATT_TEMP_OFF		0x01
 #define THERMAL_COEFF_ADDR	0x444
 #define THERMAL_COEFF_OFFSET	0x2
 static int fg_hw_init(struct fg_chip *chip)
@@ -2296,15 +2368,6 @@ static int fg_hw_init(struct fg_chip *chip)
 	}
 
 	if (chip->sw_rbias_ctrl) {
-		rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
-				BATT_TEMP_CNTRL_MASK,
-				BATT_TEMP_ON,
-				BATT_TEMP_OFFSET);
-		if (rc) {
-			pr_err("failed to write to memif rc=%d\n", rc);
-			return rc;
-		}
-
 		rc = fg_mem_masked_write(chip, SOC_CNFG,
 				0xFF,
 				soc_to_setpoint(DELTA_SOC_PERCENT),
@@ -2359,10 +2422,12 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->update_jeita_setting,
 			update_jeita_setting);
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data);
+	INIT_DELAYED_WORK(&chip->update_temp_work, update_temp_data);
 	INIT_WORK(&chip->batt_profile_init,
 			batt_profile_init);
 	INIT_WORK(&chip->dump_sram, dump_sram);
-	init_completion(&chip->sram_access);
+	init_completion(&chip->sram_access_granted);
+	init_completion(&chip->sram_access_revoked);
 	init_completion(&chip->batt_id_avail);
 	dev_set_drvdata(&spmi->dev, chip);
 
@@ -2471,6 +2536,9 @@ static int fg_probe(struct spmi_device *spmi)
 	if (chip->last_sram_update_time == 0)
 		update_sram_data(&chip->update_sram_data.work);
 
+	if (chip->last_temp_update_time == 0)
+		update_temp_data(&chip->update_temp_work.work);
+
 	rc = fg_hw_init(chip);
 	if (rc) {
 		pr_err("failed to hw init rc = %d\n", rc);
@@ -2494,6 +2562,37 @@ power_supply_unregister:
 of_init_fail:
 	mutex_destroy(&chip->rw_lock);
 	return rc;
+}
+
+static void check_and_update_sram_data(struct fg_chip *chip)
+{
+	unsigned long current_time = 0, next_update_time, time_left;
+
+	get_current_time(&current_time);
+
+	next_update_time = chip->last_temp_update_time
+		+ (TEMP_PERIOD_UPDATE_MS / 1000);
+
+	if (next_update_time > current_time)
+		time_left = next_update_time - current_time;
+	else
+		time_left = 0;
+
+	cancel_delayed_work_sync(&chip->update_temp_work);
+	schedule_delayed_work(
+		&chip->update_temp_work, msecs_to_jiffies(time_left * 1000));
+
+	next_update_time = chip->last_sram_update_time
+		+ (SRAM_PERIOD_UPDATE_MS / 1000);
+
+	if (next_update_time > current_time)
+		time_left = next_update_time - current_time;
+	else
+		time_left = 0;
+
+	cancel_delayed_work_sync(&chip->update_sram_data);
+	schedule_delayed_work(
+		&chip->update_sram_data, msecs_to_jiffies(time_left * 1000));
 }
 
 static int fg_suspend(struct device *dev)
@@ -2528,45 +2627,15 @@ static int fg_suspend(struct device *dev)
 static int fg_resume(struct device *dev)
 {
 	struct fg_chip *chip = dev_get_drvdata(dev);
-	ktime_t  enter_time;
-	ktime_t  total_time;
-	int total_time_ms;
-	unsigned long current_time = 0, next_update_time, time_left;
-	int rc;
 
 	if (!chip->sw_rbias_ctrl)
 		return 0;
-
-	enter_time = ktime_get();
-	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
-			BATT_TEMP_CNTRL_MASK,
-			BATT_TEMP_ON,
-			BATT_TEMP_OFFSET);
-	if (rc)
-		pr_err("failed to write to memif rc=%d\n", rc);
-	total_time = ktime_sub(ktime_get(), enter_time);
-	total_time_ms = ktime_to_ms(total_time);
-
-	if ((total_time_ms > 1500) && (fg_debug_mask & FG_STATUS))
-		pr_info("spent %dms configuring rbias\n", total_time_ms);
 
 	/*
 	 * this may fail, but current time should be still 0,
 	 * triggering an immediate update.
 	 */
-	get_current_time(&current_time);
-
-	next_update_time = chip->last_sram_update_time
-		+ (SRAM_PERIOD_UPDATE_MS / 1000);
-	if (next_update_time > current_time)
-		time_left = next_update_time - current_time;
-	else
-		time_left = 0;
-
-	cancel_delayed_work_sync(
-		&chip->update_sram_data);
-	schedule_delayed_work(
-		&chip->update_sram_data, msecs_to_jiffies(time_left * 1000));
+	check_and_update_sram_data(chip);
 	return 0;
 }
 
