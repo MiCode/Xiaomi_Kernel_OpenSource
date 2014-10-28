@@ -24,4 +24,8 @@ struct dwc3_platform_data {
 	enum usb_device_speed maximum_speed;
 	enum usb_dr_mode dr_mode;
 	bool tx_fifo_resize;
+
+	u8 lpm_nyet_threshold;
+
+	unsigned has_lpm_erratum:1;
 };
