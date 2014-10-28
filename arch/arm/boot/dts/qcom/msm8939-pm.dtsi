@@ -229,6 +229,7 @@
 		#size-cells = <1>;
 		reg = <0xb1d2000 0x1000>;
 		qcom,name = "system-cci";
+		qcom,supports-rpm-hs;
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,saw2-cfg = <0x14>;
 		qcom,saw2-spm-dly= <0x3C102800>;
@@ -236,7 +237,7 @@
 		qcom,saw2-pmic-data0 = <0x07030011>;
 		qcom,saw2-pmic-data1 = <0x00030010>;
                 qcom,saw2-spm-cmd-ret = [00 03 00 0f];
-                qcom,saw2-spm-cmd-pc = [00 60 50 11 07 70 01 50
+                qcom,saw2-spm-cmd-pc = [00 60 50 11 03 70 01 50
                                 02 62 72 0f];
 	};
 
