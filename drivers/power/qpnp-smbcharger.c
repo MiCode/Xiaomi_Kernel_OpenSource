@@ -1994,8 +1994,8 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 #define HIGH_RANGE_FLOAT_MIN_VAL	0x2A
 #define HIGH_RANGE_FLOAT_STEP_MV	10
 
-#define VHIGH_RANGE_FLOAT_MIN_MV	4400
-#define VHIGH_RANGE_FLOAT_MIN_VAL	0x2E
+#define VHIGH_RANGE_FLOAT_MIN_MV	4360
+#define VHIGH_RANGE_FLOAT_MIN_VAL	0x2C
 #define VHIGH_RANGE_FLOAT_STEP_MV	20
 static int smbchg_float_voltage_set(struct smbchg_chip *chip, int vfloat_mv)
 {
