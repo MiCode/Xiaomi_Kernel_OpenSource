@@ -96,6 +96,18 @@
 	};
 };
 
+&i2c_0 { /* BLSP1 QUP2 */
+	intersil@44 { /* Ambient light and proximity sensor */
+		compatible = "intersil,isl29044a";
+		reg = <0x44>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		intersil,als-range = <1>;
+		intersil,ps-lt = <30>;
+		intersil,ps-ht = <50>;
+	};
+};
+
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
