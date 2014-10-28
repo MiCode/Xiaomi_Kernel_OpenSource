@@ -851,7 +851,7 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 
 	if (args->flags & I915_EXEC_GEN7_SOL_RESET) {
 		DRM_DEBUG("sol reset is gen7 only\n");
-                return ret;
+		return -EINVAL;
 	}
 
 	ret = logical_ring_alloc_seqno(ring, ringbuf->FIXME_lrc_ctx);
