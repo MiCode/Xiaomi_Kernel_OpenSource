@@ -558,7 +558,7 @@ static int mdp3_clk_setup(void)
 	if (rc)
 		return rc;
 
-	rc = mdp3_clk_set_rate(MDP3_CLK_MDP_SRC, MDP_CORE_CLK_RATE,
+	rc = mdp3_clk_set_rate(MDP3_CLK_MDP_SRC, MDP_CORE_CLK_RATE_SVS,
 			MDP3_CLIENT_DMA_P);
 	if (rc)
 		pr_err("%s: Error setting max clock during probe\n", __func__);
@@ -1632,7 +1632,7 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 	mdp3_clk_set_rate(MDP3_CLK_VSYNC, MDP_VSYNC_CLK_RATE,
 			MDP3_CLIENT_DMA_P);
 
-	mdp3_clk_set_rate(MDP3_CLK_MDP_SRC, MDP_CORE_CLK_RATE,
+	mdp3_clk_set_rate(MDP3_CLK_MDP_SRC, MDP_CORE_CLK_RATE_SVS,
 			MDP3_CLIENT_DMA_P);
 
 	bus_handle = &mdp3_res->bus_handle[MDP3_BUS_HANDLE];
