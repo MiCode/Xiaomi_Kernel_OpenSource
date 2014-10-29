@@ -705,15 +705,9 @@ static int LuxCalculation(struct i2c_client *client, int ch0data, int ch1data)
 		return -1; 	/* don't report first, change gain may help */
 	}
 
-	if (data->als_reduce) {
-		luxValue = ((IAC * apds993x_ga * APDS993X_DF) / 100) * 65 / 10 /
-			((apds993x_als_integration_tb[data->als_atime_index] /
-			  100) * apds993x_als_again_tb[data->als_again_index]);
-	} else {
-		luxValue = ((IAC * apds993x_ga * APDS993X_DF) /100) /
-			((apds993x_als_integration_tb[data->als_atime_index] /
-			  100) * apds993x_als_again_tb[data->als_again_index]);
-	}
+	luxValue = ((IAC * apds993x_ga * APDS993X_DF) / 100) * 65 / 10 /
+		((apds993x_als_integration_tb[data->als_atime_index] /
+		  100) * apds993x_als_again_tb[data->als_again_index]);
 
 	return luxValue;
 }
