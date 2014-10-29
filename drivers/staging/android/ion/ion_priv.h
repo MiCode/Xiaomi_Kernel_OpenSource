@@ -257,10 +257,9 @@ int ion_heap_map_user(struct ion_heap *, struct ion_buffer *,
 int ion_heap_buffer_zero(struct ion_buffer *buffer);
 int ion_heap_pages_zero(struct page *page, size_t size, pgprot_t pgprot);
 
-int msm_ion_heap_high_order_page_zero(struct page *page, int order,
-					bool cached);
+int msm_ion_heap_high_order_page_zero(struct page *page, int order);
 int msm_ion_heap_buffer_zero(struct ion_buffer *buffer);
-int msm_ion_heap_pages_zero(struct page **pages, int num_pages, pgprot_t prot);
+int msm_ion_heap_pages_zero(struct page **pages, int num_pages);
 int msm_ion_heap_alloc_pages_mem(struct pages_mem *pages_mem);
 void msm_ion_heap_free_pages_mem(struct pages_mem *pages_mem);
 
@@ -414,7 +413,6 @@ struct ion_page_pool {
 	gfp_t gfp_mask;
 	unsigned int order;
 	struct plist_node list;
-	bool cached;
 };
 
 struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order);
