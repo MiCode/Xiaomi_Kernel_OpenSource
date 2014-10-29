@@ -20,6 +20,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
 #include <linux/msm_audio_ion.h>
+#include <linux/freezer.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -521,11 +522,11 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 	case SNDRV_LSM_EVENT_STATUS:
 		pr_debug("%s: Get event status\n", __func__);
 		atomic_set(&prtd->event_wait_stop, 0);
-		rc = wait_event_interruptible(prtd->event_wait,
+		rc = wait_event_freezable(prtd->event_wait,
 				(cmpxchg(&prtd->event_avail, 1, 0) ||
 				 (xchg = atomic_cmpxchg(&prtd->event_wait_stop,
 							1, 0))));
-		pr_debug("%s: wait_event_interruptible %d event_wait_stop %d\n",
+		pr_debug("%s: wait_event_freezable %d event_wait_stop %d\n",
 			 __func__, rc, xchg);
 		if (!rc && !xchg) {
 			pr_debug("%s: New event available %ld\n", __func__,
