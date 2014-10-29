@@ -50,6 +50,7 @@
 #define MSMFB_BUFFER_SYNC32  _IOW(MSMFB_IOCTL_MAGIC, 162, struct mdp_buf_sync32)
 #define MSMFB_OVERLAY_PREPARE32		_IOWR(MSMFB_IOCTL_MAGIC, 169, \
 						struct mdp_overlay_list32)
+#define MSMFB_ATOMIC_COMMIT32	_IOWR(MDP_IOCTL_MAGIC, 128, compat_caddr_t)
 
 static unsigned int __do_compat_ioctl_nr(unsigned int cmd32)
 {
@@ -95,12 +96,239 @@ static unsigned int __do_compat_ioctl_nr(unsigned int cmd32)
 	case MSMFB_OVERLAY_PREPARE32:
 		cmd = MSMFB_OVERLAY_PREPARE;
 		break;
+	case MSMFB_ATOMIC_COMMIT32:
+		cmd = MSMFB_ATOMIC_COMMIT;
+		break;
 	default:
 		cmd = cmd32;
 		break;
 	}
 
 	return cmd;
+}
+
+static void  __copy_atomic_commit_struct(struct mdp_layer_commit  *commit,
+	struct mdp_layer_commit32 *commit32)
+{
+	commit->version = commit32->version;
+	commit->commit_v1.flags = commit32->commit_v1.flags;
+	commit->commit_v1.input_layer_cnt =
+		commit32->commit_v1.input_layer_cnt;
+	commit->commit_v1.left_roi = commit32->commit_v1.left_roi;
+	commit->commit_v1.right_roi = commit32->commit_v1.right_roi;
+	memcpy(&commit->commit_v1.reserved, &commit32->commit_v1.reserved,
+		sizeof(commit32->commit_v1.reserved));
+}
+
+static struct mdp_input_layer32 *__create_layer_list32(
+	struct mdp_layer_commit32 *commit32,
+	u32 layer_count)
+{
+	u32 buffer_size32;
+	struct mdp_input_layer32 *layer_list32;
+	int ret;
+
+	buffer_size32 = sizeof(struct mdp_input_layer32) * layer_count;
+	buffer_size32 += sizeof(struct mdp_output_layer32);
+
+	layer_list32 = kmalloc(buffer_size32, GFP_KERNEL);
+	if (!layer_list32) {
+		pr_err("unable to allocate memory for layers32\n");
+		layer_list32 = ERR_PTR(-ENOMEM);
+		goto end;
+	}
+
+	ret = copy_from_user(layer_list32,
+			commit32->commit_v1.input_layers,
+			sizeof(struct mdp_input_layer32) * layer_count);
+	if (ret) {
+		pr_err("layer list32 copy from user failed\n");
+		kfree(layer_list32);
+		layer_list32 = ERR_PTR(ret);
+	}
+
+end:
+	return layer_list32;
+}
+
+static int __copy_scale_params(struct mdp_input_layer *layer,
+	struct mdp_input_layer32 *layer32)
+{
+	struct mdp_scale_data *scale;
+	int ret;
+
+	if (!(layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT))
+		return 0;
+
+	scale = kmalloc(sizeof(struct mdp_scale_data), GFP_KERNEL);
+	if (!scale) {
+		pr_err("unable to allocate memory for scale param\n");
+		ret = -ENOMEM;
+		goto end;
+	}
+
+	/* scale structure size is same for compat and 64bit version */
+	ret = copy_from_user(scale, layer32->scale,
+			sizeof(struct mdp_scale_data));
+	if (ret) {
+		kfree(scale);
+		pr_err("scale param copy from user failed\n");
+	} else {
+		layer->scale = scale;
+	}
+end:
+	return ret;
+}
+
+static struct mdp_input_layer *__create_layer_list(
+	struct mdp_layer_commit *commit,
+	struct mdp_input_layer32 *layer_list32,
+	u32 layer_count)
+{
+	int i, ret;
+	u32 buffer_size;
+	struct mdp_input_layer *layer, *layer_list;
+	struct mdp_input_layer32 *layer32;
+
+	buffer_size = sizeof(struct mdp_input_layer) * layer_count;
+	buffer_size += sizeof(struct mdp_output_layer);
+
+	layer_list = kmalloc(buffer_size, GFP_KERNEL);
+	if (!layer_list) {
+		pr_err("unable to allocate memory for layers32\n");
+		layer_list = ERR_PTR(-ENOMEM);
+		goto end;
+	}
+
+	commit->commit_v1.input_layers = layer_list;
+
+	for (i = 0; i < layer_count; i++) {
+		layer = &layer_list[i];
+		layer32 = &layer_list32[i];
+
+		layer->flags = layer32->flags;
+		layer->pipe_ndx = layer32->pipe_ndx;
+		layer->horz_deci = layer32->horz_deci;
+		layer->vert_deci = layer32->vert_deci;
+		layer->z_order = layer32->z_order;
+		layer->transp_mask = layer32->transp_mask;
+		layer->bg_color = layer32->bg_color;
+		layer->blend_op = layer32->blend_op;
+		layer->src_rect = layer32->src_rect;
+		layer->dst_rect = layer32->dst_rect;
+		layer->buffer = layer32->buffer;
+		layer->pp_info = (void *)layer32->pp_info;
+		memcpy(&layer->reserved, &layer32->reserved,
+			sizeof(layer->reserved));
+
+		layer->scale = NULL;
+		ret = __copy_scale_params(layer, layer32);
+		if (ret)
+			break;
+	}
+
+	if (ret) {
+		for (i--; i >= 0; i--)
+			kfree(layer_list[i].scale);
+		kfree(layer_list);
+		layer_list = ERR_PTR(ret);
+	}
+
+end:
+	return layer_list;
+}
+
+static int __copy_to_user_atomic_commit(struct mdp_layer_commit  *commit,
+	struct mdp_layer_commit32 *commit32,
+	struct mdp_input_layer32 *layer_list32,
+	unsigned long argp, u32 layer_count)
+{
+	int i, ret;
+	struct mdp_input_layer *layer_list;
+
+	layer_list = commit->commit_v1.input_layers;
+
+	for (i = 0; i < layer_count; i++)
+		layer_list32[i].error_code = layer_list[i].error_code;
+
+	ret = copy_to_user(commit32->commit_v1.input_layers,
+		layer_list32,
+		sizeof(struct mdp_input_layer32) * layer_count);
+	if (ret)
+		goto end;
+
+	commit32->commit_v1.release_fence =
+		commit->commit_v1.release_fence;
+	commit32->commit_v1.retire_fence =
+		commit->commit_v1.retire_fence;
+
+	ret = copy_to_user((void __user *)argp, commit32,
+		sizeof(struct mdp_layer_commit32));
+
+end:
+	return ret;
+}
+
+static int __compat_atomic_commit(struct fb_info *info, unsigned int cmd,
+			 unsigned long argp)
+{
+	int ret, i;
+	struct mdp_layer_commit  commit;
+	struct mdp_layer_commit32 commit32;
+	u32 layer_count;
+	struct mdp_input_layer *layer_list = NULL, *layer;
+	struct mdp_input_layer32 *layer_list32 = NULL;
+
+	/* copy top level memory from 32 bit structure to kernel memory */
+	ret = copy_from_user(&commit32, (void __user *)argp,
+		sizeof(struct mdp_layer_commit32));
+	if (ret) {
+		pr_err("%s:copy_from_user failed\n", __func__);
+		return ret;
+	}
+	__copy_atomic_commit_struct(&commit, &commit32);
+
+	layer_count = commit32.commit_v1.input_layer_cnt;
+	if (layer_count > MAX_LAYER_COUNT) {
+		return -EINVAL;
+	} else if (layer_count) {
+		/*
+		 * allocate memory for layer list in 32bit domain and copy it
+		 * from user
+		 */
+		layer_list32 = __create_layer_list32(&commit32, layer_count);
+		if (IS_ERR_OR_NULL(layer_list32)) {
+			ret = PTR_ERR(layer_list32);
+			goto end;
+		}
+
+		/*
+		 * allocate memory for layer list in kernel memory domain and
+		 * copy layer info from 32bit structures to kernel memory
+		 */
+		layer_list = __create_layer_list(&commit, layer_list32,
+			layer_count);
+		if (IS_ERR_OR_NULL(layer_list)) {
+			ret = PTR_ERR(layer_list);
+			goto layer_list_err;
+		}
+	}
+
+	ret = mdss_fb_atomic_commit(info, &commit);
+	if (ret)
+		pr_err("atomic commit failed ret:%d\n", ret);
+
+	if (layer_count)
+		__copy_to_user_atomic_commit(&commit, &commit32, layer_list32,
+			argp, layer_count);
+
+	for (i = 0; i < layer_count; i++)
+		kfree(layer[i].scale);
+	kfree(layer_list);
+layer_list_err:
+	kfree(layer_list32);
+end:
+	return ret;
 }
 
 static int mdss_fb_compat_buf_sync(struct fb_info *info, unsigned int cmd,
@@ -3270,6 +3498,9 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	case MSMFB_BUFFER_SYNC:
 		ret = mdss_fb_compat_buf_sync(info, cmd, arg);
+		break;
+	case MSMFB_ATOMIC_COMMIT:
+		ret = __compat_atomic_commit(info, cmd, arg);
 		break;
 	case MSMFB_MDP_PP:
 	case MSMFB_HISTOGRAM_START:

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 
 #include <linux/msm_ion.h>
 #include <linux/list.h>
-#include <linux/msm_mdp.h>
+#include <linux/msm_mdp_ext.h>
 #include <linux/types.h>
 #include <linux/notifier.h>
 
@@ -49,6 +49,7 @@
 
 #define MDP_PP_AD_BL_LINEAR	0x0
 #define MDP_PP_AD_BL_LINEAR_INV	0x1
+#define MAX_LAYER_COUNT		0xC
 
 /**
  * enum mdp_notify_event - Different frame events to indicate frame update state
@@ -156,6 +157,10 @@ struct msm_mdp_interface {
 				uint32_t pid);
 	int (*kickoff_fnc)(struct msm_fb_data_type *mfd,
 					struct mdp_display_commit *data);
+	int (*atomic_validate)(struct msm_fb_data_type *mfd,
+				struct mdp_layer_commit_v1 *commit);
+	int (*pre_commit)(struct msm_fb_data_type *mfd,
+				struct mdp_layer_commit_v1 *commit);
 	int (*ioctl_handler)(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
 	void (*dma_fnc)(struct msm_fb_data_type *mfd);
 	int (*cursor_update)(struct msm_fb_data_type *mfd,
@@ -197,6 +202,7 @@ struct mdss_fb_proc_info {
 struct msm_fb_backup_type {
 	struct fb_info info;
 	struct mdp_display_commit disp_commit;
+	bool   atomic_commit;
 };
 
 struct msm_fb_data_type {
@@ -370,4 +376,6 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 		     unsigned long arg);
 int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg);
+int mdss_fb_atomic_commit(struct fb_info *info,
+	struct mdp_layer_commit  *commit);
 #endif /* MDSS_FB_H */

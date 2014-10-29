@@ -476,4 +476,50 @@ struct mdp_overlay_list32 {
 	uint32_t processed_overlays;
 };
 
+struct mdp_input_layer32 {
+	uint32_t		flags;
+	uint32_t		pipe_ndx;
+	uint8_t			horz_deci;
+	uint8_t			vert_deci;
+	uint8_t			alpha;
+	uint16_t		z_order;
+	uint32_t		transp_mask;
+	uint32_t		bg_color;
+	enum mdss_mdp_blend_op		blend_op;
+	struct mdp_rect		src_rect;
+	struct mdp_rect		dst_rect;
+	compat_caddr_t __user	*scale;
+	struct mdp_layer_buffer	buffer;
+	compat_caddr_t __user	*pp_info;
+	int			error_code;
+	uint32_t		reserved[6];
+};
+
+struct mdp_output_layer32 {
+	uint32_t			flags;
+	uint32_t			writeback_ndx;
+	struct mdp_layer_buffer		buffer;
+	uint32_t			reserved[6];
+};
+struct mdp_layer_commit_v1_32 {
+	uint32_t		flags;
+	int			release_fence;
+	struct mdp_rect		left_roi;
+	struct mdp_rect		right_roi;
+	compat_caddr_t __user	*input_layers;
+	uint32_t		input_layer_cnt;
+	union {
+		compat_caddr_t __user *output_layer;
+		int			retire_fence;
+	};
+	uint32_t		reserved[6];
+};
+
+struct mdp_layer_commit32 {
+	uint32_t version;
+	union {
+		struct mdp_layer_commit_v1_32 commit_v1;
+	};
+};
+
 #endif

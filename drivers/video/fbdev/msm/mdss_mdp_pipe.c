@@ -810,6 +810,74 @@ static void mdss_mdp_fixed_qos_arbiter_setup(struct mdss_data_type *mdata,
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
+static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_mixer *mixer, bool pipe_share)
+{
+	u32 reg_val, force_off_mask;
+	bool is_realtime;
+	int rc = 0;
+	struct mdss_data_type *mdata;
+
+	if (pipe) {
+		rc = mdss_mdp_pipe_fetch_halt(pipe);
+		if (rc) {
+			pr_err("%d failed because pipe is in bad state\n",
+				pipe->num);
+			goto end;
+		}
+	}
+
+	mdata = mixer->ctl->mdata;
+
+	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
+
+	if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata)) {
+		force_off_mask =
+			BIT(pipe->clk_ctrl.bit_off + CLK_FORCE_OFF_OFFSET);
+
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+		mutex_lock(&mdata->reg_lock);
+		reg_val = readl_relaxed(mdata->mdp_base +
+			pipe->clk_ctrl.reg_off);
+		if (reg_val & force_off_mask) {
+			reg_val &= ~force_off_mask;
+			writel_relaxed(reg_val,
+				mdata->mdp_base + pipe->clk_ctrl.reg_off);
+		}
+		mutex_unlock(&mdata->reg_lock);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+	}
+
+	if (pipe) {
+		pr_debug("type=%x   pnum=%d\n", pipe->type, pipe->num);
+		mutex_init(&pipe->pp_res.hist.hist_mutex);
+		spin_lock_init(&pipe->pp_res.hist.hist_lock);
+		kref_init(&pipe->kref);
+		INIT_LIST_HEAD(&pipe->buf_queue);
+
+		is_realtime = !((mixer->ctl->intf_num == MDSS_MDP_NO_INTF)
+				|| mixer->rotator_mode);
+		mdss_mdp_qos_vbif_remapper_setup(mdata, pipe, is_realtime);
+		mdss_mdp_fixed_qos_arbiter_setup(mdata, pipe, is_realtime);
+
+		if (mdata->vbif_nrt_io.base)
+			mdss_mdp_pipe_nrt_vbif_setup(mdata, pipe);
+	} else if (pipe_share) {
+		/*
+		 * when there is no dedicated wfd blk, DMA pipe can be
+		 * shared as long as its attached to a writeback mixer
+		 */
+		pipe = mdata->dma_pipes + mixer->num;
+		if (pipe->mixer_left->type != MDSS_MDP_MIXER_TYPE_WRITEBACK)
+			return -EINVAL;
+		kref_get(&pipe->kref);
+		pr_debug("pipe sharing for pipe=%d\n", pipe->num);
+	}
+
+end:
+	return rc;
+}
+
 static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	u32 type, u32 off, struct mdss_mdp_pipe *left_blend_pipe)
 {
@@ -818,8 +886,8 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	struct mdss_mdp_pipe *pipe_pool = NULL;
 	u32 npipes;
 	bool pipe_share = false;
-	bool is_realtime;
-	u32 i, reg_val, force_off_mask;
+	u32 i;
+	int rc;
 
 	if (!mixer || !mixer->ctl || !mixer->ctl->mdata)
 		return NULL;
@@ -877,53 +945,9 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		return ERR_PTR(-EINVAL);
 	}
 
-	if (pipe && mdss_mdp_pipe_fetch_halt(pipe)) {
-		pr_err("%d failed because pipe is in bad state\n",
-			pipe->num);
-		return NULL;
-	}
-
-	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
-
-	if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata)) {
-		force_off_mask =
-			BIT(pipe->clk_ctrl.bit_off + CLK_FORCE_OFF_OFFSET);
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-		mutex_lock(&mdata->reg_lock);
-		reg_val = readl_relaxed(mdata->mdp_base +
-			pipe->clk_ctrl.reg_off);
-		if (reg_val & force_off_mask) {
-			reg_val &= ~force_off_mask;
-			writel_relaxed(reg_val,
-				mdata->mdp_base + pipe->clk_ctrl.reg_off);
-		}
-		mutex_unlock(&mdata->reg_lock);
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-	}
-
-	if (pipe) {
-		pr_debug("type=%x   pnum=%d\n", pipe->type, pipe->num);
-		mutex_init(&pipe->pp_res.hist.hist_mutex);
-		spin_lock_init(&pipe->pp_res.hist.hist_lock);
-		kref_init(&pipe->kref);
-		INIT_LIST_HEAD(&pipe->buf_queue);
-		is_realtime = !((mixer->ctl->intf_num == MDSS_MDP_NO_INTF)
-				|| mixer->rotator_mode);
-		mdss_mdp_qos_vbif_remapper_setup(mdata, pipe, is_realtime);
-		mdss_mdp_fixed_qos_arbiter_setup(mdata, pipe, is_realtime);
-		if (mdata->vbif_nrt_io.base)
-			mdss_mdp_pipe_nrt_vbif_setup(mdata, pipe);
-	} else if (pipe_share) {
-		/*
-		 * when there is no dedicated wfd blk, DMA pipe can be
-		 * shared as long as its attached to a writeback mixer
-		 */
-		pipe = mdata->dma_pipes + mixer->num;
-		if (pipe->mixer_left->type != MDSS_MDP_MIXER_TYPE_WRITEBACK)
-			return NULL;
-		kref_get(&pipe->kref);
-		pr_debug("pipe sharing for pipe=%d\n", pipe->num);
-	}
+	rc = mdss_mdp_pipe_init_config(pipe, mixer, pipe_share);
+	if (rc)
+		return ERR_PTR(-EINVAL);
 
 cursor_done:
 	if (!pipe)
@@ -983,6 +1007,38 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_get(struct mdss_data_type *mdata, u32 ndx)
 
 	if (mdss_mdp_pipe_map(pipe))
 		pipe = ERR_PTR(-EACCES);
+
+error:
+	mutex_unlock(&mdss_mdp_sspp_lock);
+	return pipe;
+}
+
+struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
+	struct mdss_mdp_mixer *mixer, u32 ndx)
+{
+	struct mdss_mdp_pipe *pipe = NULL;
+	int rc;
+
+	if (!ndx)
+		return ERR_PTR(-EINVAL);
+
+	mutex_lock(&mdss_mdp_sspp_lock);
+	pipe = mdss_mdp_pipe_search(mdata, ndx);
+	if (!pipe) {
+		pr_err("pipe search failed\n");
+		pipe = ERR_PTR(-EINVAL);
+		goto error;
+	}
+
+	if (atomic_read(&pipe->kref.refcount) != 0) {
+		pr_err("pipe is in use\n");
+		pipe = ERR_PTR(-EBUSY);
+		goto error;
+	}
+
+	rc = mdss_mdp_pipe_init_config(pipe, mixer, false);
+	if (rc)
+		pipe = ERR_PTR(rc);
 
 error:
 	mutex_unlock(&mdss_mdp_sspp_lock);

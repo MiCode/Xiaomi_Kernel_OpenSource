@@ -2655,6 +2655,78 @@ static int mdss_fb_pan_display_ex(struct fb_info *info,
 	return ret;
 }
 
+int mdss_fb_atomic_commit(struct fb_info *info,
+	struct mdp_layer_commit  *commit)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct mdp_layer_commit_v1 *commit_v1;
+	bool wait_for_finish;
+	int ret = -EPERM;
+
+	if (!mfd || (!mfd->op_enable)) {
+		pr_err("mfd is NULL or operation not permitted\n");
+		goto end;
+	}
+
+	if ((mdss_fb_is_power_off(mfd)) &&
+		!((mfd->dcm_state == DCM_ENTER) &&
+		(mfd->panel.type == MIPI_CMD_PANEL))) {
+		pr_err("commit is not supported when interface is in off state\n");
+		goto end;
+	}
+
+	/* only supports version 1.0 */
+	if (commit->version != MDP_COMMIT_VERSION_1_0) {
+		pr_err("commit version is not supported\n");
+		goto end;
+	}
+
+	if (!mfd->mdp.pre_commit || !mfd->mdp.atomic_validate) {
+		pr_err("commit callback is not registered\n");
+		goto end;
+	}
+
+	commit_v1 = &commit->commit_v1;
+	if (commit_v1->flags & MDP_VALIDATE_LAYER) {
+		ret = mdss_fb_wait_for_kickoff(mfd);
+		if (ret)
+			pr_err("wait for kickoff failed\n");
+		else
+			ret = mfd->mdp.atomic_validate(mfd, commit_v1);
+		goto end;
+	} else {
+		ret = mdss_fb_pan_idle(mfd);
+		if (ret) {
+			pr_err("pan display idle call failed\n");
+			goto end;
+		}
+
+		ret = mfd->mdp.pre_commit(mfd, commit_v1);
+		if (ret) {
+			pr_err("atomic pre commit failed\n");
+			goto end;
+		}
+	}
+
+	wait_for_finish = commit_v1->flags & MDP_COMMIT_WAIT_FOR_FINISH;
+	mfd->msm_fb_backup.atomic_commit = true;
+	mfd->msm_fb_backup.disp_commit.l_roi =  commit_v1->left_roi;
+	mfd->msm_fb_backup.disp_commit.r_roi =  commit_v1->right_roi;
+
+	mutex_lock(&mfd->mdp_sync_pt_data.sync_mutex);
+	atomic_inc(&mfd->mdp_sync_pt_data.commit_cnt);
+	atomic_inc(&mfd->commits_pending);
+	atomic_inc(&mfd->kickoff_pending);
+	wake_up_all(&mfd->commit_wait_q);
+	mutex_unlock(&mfd->mdp_sync_pt_data.sync_mutex);
+
+	if (wait_for_finish)
+		ret = mdss_fb_pan_idle(mfd);
+
+end:
+	return ret;
+}
+
 static int mdss_fb_pan_display(struct fb_var_screeninfo *var,
 		struct fb_info *info)
 {
@@ -2756,6 +2828,14 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 		else
 			pr_warn("no kickoff function setup for fb%d\n",
 					mfd->index);
+	} else if (fb_backup->atomic_commit) {
+		if (mfd->mdp.kickoff_fnc)
+			ret = mfd->mdp.kickoff_fnc(mfd,
+					&fb_backup->disp_commit);
+		else
+			pr_warn("no kickoff function setup for fb%d\n",
+				mfd->index);
+		fb_backup->atomic_commit = false;
 	} else {
 		ret = mdss_fb_pan_display_sub(&fb_backup->disp_commit.var,
 				&fb_backup->info);
@@ -3283,6 +3363,94 @@ static int mdss_fb_display_commit(struct fb_info *info,
 	return ret;
 }
 
+static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
+						unsigned long *argp)
+{
+	int ret, i = 0, rc;
+	struct mdp_layer_commit  commit;
+	u32 buffer_size, layer_count;
+	struct mdp_input_layer *layer, *layer_list = NULL;
+	struct mdp_input_layer __user *input_layer_list;
+	struct mdp_scale_data *scale;
+
+	ret = copy_from_user(&commit, argp, sizeof(struct mdp_layer_commit));
+	if (ret) {
+		pr_err("%s:copy_from_user failed\n", __func__);
+		return ret;
+	}
+
+	layer_count = commit.commit_v1.input_layer_cnt;
+	input_layer_list = commit.commit_v1.input_layers;
+
+	if (layer_count > MAX_LAYER_COUNT) {
+		return -EINVAL;
+	} else if (layer_count) {
+		buffer_size = sizeof(struct mdp_input_layer) * layer_count;
+		layer_list = kmalloc(buffer_size, GFP_KERNEL);
+		if (!layer_list) {
+			pr_err("unable to allocate memory for layers\n");
+			ret = -ENOMEM;
+			goto err;
+		}
+
+		ret = copy_from_user(layer_list, input_layer_list, buffer_size);
+		if (ret) {
+			pr_err("layer list copy from user failed\n");
+			goto err;
+		}
+
+		commit.commit_v1.input_layers = layer_list;
+
+		for (i = 0; i < layer_count; i++) {
+			layer = &layer_list[i];
+
+			if (!(layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT)) {
+				layer->scale = NULL;
+				continue;
+			}
+
+			scale = kmalloc(sizeof(struct mdp_scale_data),
+				GFP_KERNEL);
+			if (!scale) {
+				pr_err("unable to allocate memory for overlays\n");
+				ret = -ENOMEM;
+				goto err;
+			}
+
+			ret = copy_from_user(scale, layer->scale,
+					sizeof(struct mdp_scale_data));
+			if (ret) {
+				pr_err("layer list copy from user failed\n");
+				kfree(scale);
+				goto err;
+			}
+			layer->scale = scale;
+		}
+	}
+
+	ret = mdss_fb_atomic_commit(info, &commit);
+	if (ret)
+		pr_err("atomic commit failed ret:%d\n", ret);
+
+	if (layer_count) {
+		rc = copy_to_user(input_layer_list, layer_list, buffer_size);
+		if (rc)
+			pr_err("layer error code copy to user failed\n");
+
+		commit.commit_v1.input_layers = input_layer_list;
+		rc = copy_to_user(argp, &commit,
+			sizeof(struct mdp_layer_commit));
+		if (rc)
+			pr_err("copy to user for release & retire fence failed\n");
+	}
+
+err:
+	for (i--; i >= 0; i--)
+		kfree(layer_list[i].scale);
+	kfree(layer_list);
+	return ret;
+}
+
 static int __ioctl_wait_idle(struct msm_fb_data_type *mfd, u32 cmd)
 {
 	int ret = 0;
@@ -3300,6 +3468,7 @@ static int __ioctl_wait_idle(struct msm_fb_data_type *mfd, u32 cmd)
 		(cmd != MSMFB_BLIT) &&
 		(cmd != MSMFB_DISPLAY_COMMIT) &&
 		(cmd != MSMFB_NOTIFY_UPDATE) &&
+		(cmd != MSMFB_ATOMIC_COMMIT) &&
 		(cmd != MSMFB_OVERLAY_PREPARE)) {
 		ret = mdss_fb_pan_idle(mfd);
 	}
@@ -3408,6 +3577,9 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 		}
 
 		ret = mdss_fb_lpm_enable(mfd, dsi_mode);
+		break;
+	case MSMFB_ATOMIC_COMMIT:
+		ret = mdss_fb_atomic_commit_ioctl(info, argp);
 		break;
 
 	default:
