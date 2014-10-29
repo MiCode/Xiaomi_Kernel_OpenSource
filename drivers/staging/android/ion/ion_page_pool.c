@@ -41,8 +41,7 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 						DMA_BIDIRECTIONAL);
 
 	if (pool->gfp_mask & __GFP_ZERO) {
-		if (msm_ion_heap_high_order_page_zero(page, pool->order,
-							pool->cached))
+		if (msm_ion_heap_high_order_page_zero(page, pool->order))
 			goto error_free_pages;
 	}
 
@@ -142,11 +141,7 @@ static int ion_page_pool_total(struct ion_page_pool *pool, bool high)
 int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 				int nr_to_scan)
 {
-<<<<<<< HEAD
 	int freed = 0;
-=======
-	int i;
->>>>>>> 9cf42e3... ion: add snapshot of ion support for MSM
 	bool high;
 
 	if (current_is_kswapd())
@@ -154,14 +149,10 @@ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 	else
 		high = !!(gfp_mask & __GFP_HIGHMEM);
 
-<<<<<<< HEAD
 	if (nr_to_scan == 0)
 		return ion_page_pool_total(pool, high);
 
 	while (freed < nr_to_scan) {
-=======
-	for (i = 0; i < nr_to_scan; i++) {
->>>>>>> 9cf42e3... ion: add snapshot of ion support for MSM
 		struct page *page;
 
 		mutex_lock(&pool->mutex);
