@@ -475,7 +475,6 @@ static void fw_load_handler(struct work_struct *work)
 	}
 	dprintk(VIDC_DBG, "%s - firmware loaded successfully\n", __func__);
 
-	msm_vidc_suspend(core->id);
 exit:
 	kfree(handler);
 }
@@ -625,7 +624,8 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 		goto err_fail_sub_device_probe;
 	}
 
-	load_firmware(core);
+	if (core->resources.early_fw_load)
+		load_firmware(core);
 
 	return rc;
 
