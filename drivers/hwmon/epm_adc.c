@@ -172,12 +172,6 @@ static int epm_psoc_generic_request(struct epm_adc_drv *epm_adc,
 	if (rc)
 		return rc;
 
-	memset(tx_buf, 0, sizeof(tx_buf));
-
-	rc = spi_sync(epm_adc->epm_spi_client, &m);
-	if (rc)
-		return rc;
-
 	for (data_loop = 0; data_loop < 64; data_loop++)
 		psoc_get_data->buf[data_loop] = rx_buf[data_loop];
 
