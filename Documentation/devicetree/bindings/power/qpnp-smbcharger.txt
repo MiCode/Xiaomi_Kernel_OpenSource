@@ -177,6 +177,10 @@ Optional Properties:
 				the line from the battery connectors through
 				vph_power. This is used to calculate maximum
 				available current of the battery.
+- qcom,autoadjust-vfloat	A boolean property that when set, makes the
+				driver automatically readjust vfloat using the
+				fuel gauge ADC readings to make charging more
+				accurate.
 - qcom,soft-vfloat-comp-disabled	Set this property when the battery is
 					powered via external source and could
 					go above the float voltage.
