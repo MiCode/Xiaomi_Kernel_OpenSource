@@ -34,7 +34,7 @@
 
 #define MDP_IS_IMGTYPE_BAD(x) ((x) >= MDP_IMGTYPE_LIMIT)
 #define MDP_RELEASE_BW_TIMEOUT 50
-#define MDP_BLIT_CLK_RATE	200000000
+
 #define MDP_PPP_MAX_BPP 4
 #define MDP_PPP_DYNAMIC_FACTOR 3
 #define MDP_PPP_MAX_READ_WRITE 3
@@ -102,6 +102,7 @@ struct ppp_status {
 	struct work_struct free_bw_work;
 	bool bw_on;
 	bool bw_optimal;
+	u32 mdp_clk;
 };
 
 static struct ppp_status *ppp_stat;
@@ -328,16 +329,38 @@ void mdp3_ppp_kickoff(void)
 	mdp3_irq_disable(MDP3_PPP_DONE);
 }
 
+u32 mdp3_clk_calc(struct msm_fb_data_type *mfd, struct blit_req_list *lreq)
+{
+	struct mdss_panel_info *panel_info = mfd->panel_info;
+	int i, lcount = 0;
+	struct mdp_blit_req *req;
+	u32 total_pixel;
+	u32 mdp_clk_rate = MDP_CORE_CLK_RATE_SVS;
+
+	total_pixel = panel_info->xres * panel_info->yres;
+	if (total_pixel > SVS_MAX_PIXEL)
+		return MDP_CORE_CLK_RATE_MAX;
+
+	for (i = 0; i < lcount; i++) {
+		req = &(lreq->req_list[i]);
+
+		if (req->src_rect.h != req->dst_rect.h ||
+				req->src_rect.w != req->dst_rect.w) {
+			mdp_clk_rate = MDP_CORE_CLK_RATE_MAX;
+			break;
+		}
+	}
+	return mdp_clk_rate;
+}
+
 int mdp3_ppp_vote_update(struct msm_fb_data_type *mfd)
 {
 	struct mdss_panel_info *panel_info = mfd->panel_info;
 	uint64_t req_bw = 0, ab = 0, ib = 0;
-	int rate = 0;
 	int rc = 0;
 	if (!ppp_stat->bw_on)
 		pr_err("%s: PPP vote update in wrong state\n", __func__);
 
-	rate = MDP_BLIT_CLK_RATE;
 	req_bw = panel_info->xres * panel_info->yres *
 		panel_info->mipi.frame_rate *
 		MDP_PPP_MAX_BPP *
@@ -365,7 +388,7 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 	int rc;
 
 	if (on_off) {
-		rate = MDP_BLIT_CLK_RATE;
+		rate = MDP_CORE_CLK_RATE_SVS;
 		req_bw = panel_info->xres * panel_info->yres *
 			panel_info->mipi.frame_rate *
 			MDP_PPP_MAX_BPP *
@@ -390,6 +413,7 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 		return rc;
 	}
 	ppp_stat->bw_on = on_off;
+	ppp_stat->mdp_clk = MDP_CORE_CLK_RATE_SVS;
 	return 0;
 }
 
@@ -1035,6 +1059,7 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 	struct msm_fb_data_type *mfd = ppp_stat->mfd;
 	struct blit_req_list *req;
 	int i, rc = 0;
+	u32 new_clk_rate;
 
 	mutex_lock(&ppp_stat->config_ppp_mutex);
 	req = mdp3_ppp_next_req(&ppp_stat->req_q);
@@ -1054,6 +1079,12 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 	}
 	while (req) {
 		mdp3_ppp_wait_for_fence(req);
+		new_clk_rate = mdp3_clk_calc(mfd, req);
+		if (new_clk_rate != ppp_stat->mdp_clk) {
+			ppp_stat->mdp_clk = new_clk_rate;
+			mdp3_clk_set_rate(MDP3_CLK_MDP_SRC, new_clk_rate,
+							MDP3_CLIENT_PPP);
+		}
 		for (i = 0; i < req->count; i++) {
 			if (!(req->req_list[i].flags & MDP_NO_BLIT)) {
 				/* Do the actual blit. */
