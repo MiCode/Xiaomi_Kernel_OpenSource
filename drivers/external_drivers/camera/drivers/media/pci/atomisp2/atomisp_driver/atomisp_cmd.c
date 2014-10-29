@@ -2328,27 +2328,38 @@ int atomisp_get_dvs2_bq_resolutions(struct atomisp_sub_device *asd,
 		}
 	} else {
 		unsigned int w_padding;
+		unsigned int gdc_effective_input = 0;
 
-		/*
-		 * the GDC input is:
-		 *     (effective_input + 12 filter padding) / bayer_ds_ratio
+		/* For GDC:
+		 * gdc_effective_input = effective_input + envelope
+		 *
+		 * From the comment and formula in BZ1786,
+		 * we see the source_bq should be:
+		 * effective_input / bayer_ds_ratio
 		 */
 		bq_res->source_bq.width_bq =
-				((input_config->effective_res.width + 12) *
-				pipe_cfg->bayer_ds_out_res.width /
-				input_config->effective_res.width + 1) / 2;
+			(input_config->effective_res.width *
+			 pipe_cfg->bayer_ds_out_res.width /
+			 input_config->effective_res.width + 1) / 2;
 		bq_res->source_bq.height_bq =
-				((input_config->effective_res.height + 12) *
-				pipe_cfg->bayer_ds_out_res.height /
-				input_config->effective_res.height + 1) / 2;
+			(input_config->effective_res.height *
+			 pipe_cfg->bayer_ds_out_res.height /
+			 input_config->effective_res.height + 1) / 2;
+
+
 		if (!asd->params.video_dis_en) {
 			/*
-			 * Bad pixels caused by spatial filter processing
-			 * FIXME: see vied bz 1786, 32 is the experience value,
-			 * we need firmware team to explain why 8 does not work
+			 * We adjust the ispfilter_bq to:
+			 * ispfilter_bq = 128/BDS
+			 * we still need firmware team to provide an offical
+			 * formula for SDV.
 			 */
-			bq_res->ispfilter_bq.width_bq = 32 / 2;
-			bq_res->ispfilter_bq.height_bq = 32 / 2;
+			bq_res->ispfilter_bq.width_bq = 128 *
+				pipe_cfg->bayer_ds_out_res.width /
+				input_config->effective_res.width / 2;
+			bq_res->ispfilter_bq.height_bq = 128 *
+				pipe_cfg->bayer_ds_out_res.width /
+				input_config->effective_res.width / 2;
 
 			if (IS_HWREVISION(asd->isp, ATOMISP_HW_REVISION_ISP2401)) {
 				/* No additional left padding for ISYS2401 */
@@ -2356,27 +2367,27 @@ int atomisp_get_dvs2_bq_resolutions(struct atomisp_sub_device *asd,
 				bq_res->gdc_shift_bq.height_bq = 4 / 2;
 			} else {
 				/*
-				 * spatial filter shift and more left padding in SDV
-				 * case, the left padding is
-				 *	(w_padding + 24) / Bayer_DS_Ratio
+				 * For the w_padding and gdc_shift_bq cacluation
+				 * Please see the BZ 1786 and 4358 for more info.
+				 * Just test that this formula can work now,
+				 * but we still have no offical formula.
 				 *
-				 *	w_padding = ceiling(effective_width/128, 1) *
-				 *			128 - effective_width
-				 * FIXME: see vied bz 1786, w_padding + 24 is
-				 * experience value. we need firmware team to explain
-				 * why w_padding - 12 does not work.
-				 *
-				 * and there is still 4 pixel spatial filter shift
+				 * w_padding = ceiling(gdc_effective_input
+				 *             /128, 1) * 128 - effective_width
+				 * gdc_shift_bq = w_padding/BDS/2 + ispfilter_bq/2
 				 */
-				w_padding =
-				    roundup(input_config->effective_res.width, 128) -
-				    input_config->effective_res.width;
-
-				bq_res->gdc_shift_bq.width_bq = 4 / 2 +
-					((w_padding + 24) *
+				gdc_effective_input =
+					input_config->effective_res.width +
+					pipe_cfg->dvs_envelope.width;
+				w_padding = roundup(gdc_effective_input, 128) -
+					input_config->effective_res.width;
+				w_padding = w_padding *
 					pipe_cfg->bayer_ds_out_res.width /
-					input_config->effective_res.width + 1) /
-					2;
+					input_config->effective_res.width + 1;
+				w_padding = roundup(w_padding/2, 1);
+
+				bq_res->gdc_shift_bq.width_bq = bq_res->ispfilter_bq.width_bq / 2
+					+ w_padding;
 				bq_res->gdc_shift_bq.height_bq = 4 / 2;
 			}
 		} else {
