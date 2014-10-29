@@ -311,18 +311,6 @@ struct bdb_lvds_options {
 	u32 blt_control_type_bits;
 } __packed;
 
-struct bdb_panel_backlight {
-	/* Backlight control parameters */
-	u8 type:2;
-	u8 inverter_pol:1;
-	u8 gpio:3;
-	u8 gmbus:2;
-	u16 pwm_freq;
-	u8 minbrightness;
-	u8 i2c_slave_addr;
-	u8 brightnesscmd;
-} __packed;
-
 /* LFP pointer table contains entries to the struct below */
 struct bdb_lvds_lfp_data_ptr {
 	u16 fp_timing_offset; /* offsets are from start of bdb */
