@@ -83,11 +83,24 @@
 #define PGC_8B_ROUND BIT(1)
 #define PGC_ENABLE BIT(0)
 
+#define DITHER_MATRIX_OFF 0x14
+#define DITHER_MATRIX_INDEX 16
+#define DITHER_DEPTH_MAP_INDEX 9
+static u32 dither_matrix[DITHER_MATRIX_INDEX] = {
+	15, 7, 13, 5, 3, 11, 1, 9, 12, 4, 14, 6, 0, 8, 2, 10};
+static u32 dither_depth_map[DITHER_DEPTH_MAP_INDEX] = {
+	0, 0, 0, 0, 0, 1, 2, 3, 3};
+
 static struct mdss_pp_res_type_v1_7 config_data;
 
 static int pp_hist_lut_get_config(char __iomem *base_addr, void *cfg_data,
 			   u32 block_type, u32 disp_num);
 static int pp_hist_lut_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
+static int pp_dither_get_config(char __iomem *base_addr, void *cfg_data,
+			   u32 block_type, u32 disp_num);
+static int pp_dither_set_config(char __iomem *base_addr,
 		struct pp_sts_type *pp_sts, void *cfg_data,
 		u32 block_type);
 
@@ -150,8 +163,8 @@ void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	ops->pp_ops[CSC].pp_get_config = NULL;
 
 	/* Dither ops */
-	ops->pp_ops[DITHER].pp_set_config = NULL;
-	ops->pp_ops[DITHER].pp_get_config = NULL;
+	ops->pp_ops[DITHER].pp_set_config = pp_dither_set_config;
+	ops->pp_ops[DITHER].pp_get_config = pp_dither_get_config;
 
 	/* QSEED ops */
 	ops->pp_ops[QSEED].pp_set_config = NULL;
@@ -190,7 +203,8 @@ static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 			if (pp_sts->enhist_sts & PP_STS_PA_LUT_FIRST)
 				*opmode |= MDSS_MDP_DSPP_OP_PA_LUTV_FIRST_EN;
 		}
-
+		if (pp_sts_is_enabled(pp_sts->dither_sts, side))
+			*opmode |= MDSS_MDP_DSPP_OP_DST_DITHER_EN;
 		break;
 	case LM:
 		if (pp_sts->argc_sts & PP_STS_ENABLE)
@@ -357,6 +371,83 @@ bail_out:
 		pp_sts->enhist_sts |= PP_STS_ENABLE;
 
 	return ret;
+}
+
+static int pp_dither_get_config(char __iomem *base_addr, void *cfg_data,
+			   u32 block_type, u32 disp_num)
+{
+	pr_err("Operation not supported\n");
+	return -ENOTSUPP;
+}
+
+static int pp_dither_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type)
+{
+	int i = 0;
+	u32 data;
+	struct mdp_dither_cfg_data *dither_cfg_data = NULL;
+	struct mdp_dither_data_v1_7 *dither_data = NULL;
+
+	if (!base_addr || !cfg_data || !pp_sts) {
+		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		      base_addr, cfg_data, pp_sts);
+		return -EINVAL;
+	}
+
+	dither_cfg_data = (struct mdp_dither_cfg_data *) cfg_data;
+
+	if (dither_cfg_data->version != mdp_dither_v1_7 ||
+	    !dither_cfg_data->cfg_payload) {
+		pr_err("invalid dither version %d payload %p\n",
+		       dither_cfg_data->version, dither_cfg_data->cfg_payload);
+		return -EINVAL;
+	}
+	if (!(dither_cfg_data->flags & ~(MDP_PP_OPS_READ))) {
+		pr_err("only read ops set for lut\n");
+		return -EINVAL;
+	}
+	if (!(dither_cfg_data->flags & MDP_PP_OPS_WRITE)) {
+		pr_debug("non write ops set %d\n", dither_cfg_data->flags);
+		goto bail_out;
+	}
+
+	dither_data = dither_cfg_data->cfg_payload;
+	if (!dither_data) {
+		pr_err("invalid payload for dither %p\n", dither_data);
+		return -EINVAL;
+	}
+
+	if ((dither_data->g_y_depth >= DITHER_DEPTH_MAP_INDEX) ||
+		(dither_data->b_cb_depth >= DITHER_DEPTH_MAP_INDEX) ||
+		(dither_data->r_cr_depth >= DITHER_DEPTH_MAP_INDEX)) {
+		pr_err("invalid data for dither, g_y_depth %d y_cb_depth %d r_cr_depth %d\n",
+			dither_data->g_y_depth, dither_data->b_cb_depth,
+			dither_data->r_cr_depth);
+		return -EINVAL;
+	}
+	data = dither_depth_map[dither_data->g_y_depth];
+	data |= dither_depth_map[dither_data->b_cb_depth] << 2;
+	data |= dither_depth_map[dither_data->r_cr_depth] << 4;
+	data |= dither_cfg_data->mode << 8;
+	writel_relaxed(data, base_addr);
+	base_addr += DITHER_MATRIX_OFF;
+	for (i = 0; i < DITHER_MATRIX_INDEX; i += 4) {
+		data = dither_matrix[i] |
+			(dither_matrix[i + 1] << 4) |
+			(dither_matrix[i + 2] << 8) |
+			(dither_matrix[i + 3] << 12);
+		writel_relaxed(data, base_addr);
+		base_addr += 4;
+	}
+bail_out:
+	if (dither_cfg_data->flags & MDP_PP_OPS_DISABLE)
+		pp_sts->dither_sts &= ~PP_STS_ENABLE;
+	else if (dither_cfg_data->flags & MDP_PP_OPS_ENABLE)
+		pp_sts->dither_sts |= PP_STS_ENABLE;
+	pp_sts_set_split_bits(&pp_sts->dither_sts, dither_cfg_data->flags);
+
+	return 0;
 }
 
 static int pp_gamut_get_config(char __iomem *base_addr, void *cfg_data,

@@ -106,6 +106,88 @@ int pp_hist_lut_cache_params(struct mdp_hist_lut_data *config,
 	return ret;
 }
 
+int pp_dither_cache_params_v1_7(struct mdp_dither_cfg_data *config,
+			  struct mdss_pp_res_type *mdss_pp_res)
+{
+	u32 disp_num;
+	int ret = 0;
+	struct mdss_pp_res_type_v1_7 *res_cache = NULL;
+	struct mdp_dither_data_v1_7 *v17_cache_data = NULL, v17_usr_config;
+
+	if (!config || !mdss_pp_res) {
+		pr_err("invalid param config %p pp_res %p\n",
+			config, mdss_pp_res);
+		return -EINVAL;
+	}
+	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
+		(config->block >= MDP_BLOCK_MAX)) {
+		pr_err("invalid config block %d\n", config->block);
+		return -EINVAL;
+	}
+	if (!mdss_pp_res->pp_data_res) {
+		pr_err("invalid pp_data_res %p\n", mdss_pp_res->pp_data_res);
+		return -EINVAL;
+	}
+
+	res_cache = mdss_pp_res->pp_data_res;
+
+	if ((config->flags & MDSS_PP_SPLIT_MASK) == MDSS_PP_SPLIT_MASK) {
+		pr_warn("Can't set both split bits\n");
+		return -EINVAL;
+	}
+
+	if (config->flags & MDP_PP_OPS_READ) {
+		pr_err("read op is not supported\n");
+		return -EINVAL;
+	} else {
+		disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+		mdss_pp_res->dither_disp_cfg[disp_num] = *config;
+		v17_cache_data = &res_cache->dither_v17_data[disp_num];
+		mdss_pp_res->dither_disp_cfg[disp_num].cfg_payload =
+			(void *)v17_cache_data;
+		if (copy_from_user(&v17_usr_config, config->cfg_payload,
+			sizeof(v17_usr_config))) {
+			pr_err("failed to copy v17 dither\n");
+			ret = -EFAULT;
+			goto dither_config_exit;
+		}
+		if ((config->flags & MDP_PP_OPS_DISABLE)) {
+			pr_debug("disable dither");
+			ret = 0;
+			goto dither_config_exit;
+		}
+		if (!(config->flags & MDP_PP_OPS_WRITE)) {
+			pr_debug("op for dither %d\n", config->flags);
+			goto dither_config_exit;
+		}
+		memcpy(v17_cache_data, &v17_usr_config, sizeof(v17_usr_config));
+	}
+dither_config_exit:
+	return ret;
+}
+
+int pp_dither_cache_params(struct mdp_dither_cfg_data *config,
+	struct mdss_pp_res_type *mdss_pp_res)
+{
+	int ret = 0;
+	if (!config || !mdss_pp_res) {
+		pr_err("invalid param config %pi pp_res %p\n",
+			config, mdss_pp_res);
+		return -EINVAL;
+	}
+	switch (config->version) {
+	case mdp_dither_v1_7:
+		ret = pp_dither_cache_params_v1_7(config, mdss_pp_res);
+		break;
+	default:
+		pr_err("unsupported dither version %d\n",
+			config->version);
+		break;
+	}
+	return ret;
+}
+
+
 static int pp_gamut_cache_params_v1_7(struct mdp_gamut_cfg_data *config,
 				      struct mdss_pp_res_type *mdss_pp_res)
 {
@@ -478,7 +560,6 @@ int pp_igc_lut_cache_params(struct mdp_igc_lut_data *config,
 	}
 	return ret;
 }
-
 
 static int pp_pgc_lut_cache_params_v1_7(struct mdp_pgc_lut_data *config,
 			    struct mdss_pp_res_type *mdss_pp_res,

@@ -279,8 +279,6 @@ static int mdss_mdp_hscl_filter[] = {
 #define SHARP_SMOOTH_THR_DEFAULT	8
 #define SHARP_NOISE_THR_DEFAULT	2
 
-
-
 static struct mdp_pp_driver_ops pp_driver_ops;
 static struct mdp_pp_feature_ops *pp_ops;
 
@@ -1760,9 +1758,14 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		writel_relaxed(0, addr + 12);
 	}
 	if (flags & PP_FLAGS_DIRTY_DITHER) {
-		addr = base + MDSS_MDP_REG_DSPP_DITHER_DEPTH;
-		pp_dither_config(addr, pp_sts,
+		if (!pp_ops[DITHER].pp_set_config) {
+			pp_dither_config(addr, pp_sts,
 				&mdss_pp_res->dither_disp_cfg[disp_num]);
+		} else {
+			addr = base + MDSS_MDP_REG_DSPP_DITHER_DEPTH;
+			pp_ops[DITHER].pp_set_config(addr, pp_sts,
+			      &mdss_pp_res->dither_disp_cfg[disp_num], 0);
+		}
 	}
 	if (flags & PP_FLAGS_DIRTY_GAMUT) {
 		if (!pp_ops[GAMUT].pp_set_config) {
@@ -3449,12 +3452,15 @@ int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config,
 					u32 *copyback)
 {
 	u32 disp_num;
+	int ret = 0;
 
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(config->block >= MDP_BLOCK_MAX))
 		return -EINVAL;
-	if (config->flags & MDP_PP_OPS_READ)
+	if (config->flags & MDP_PP_OPS_READ) {
+		pr_err("Dither read is not supported\n");
 		return -ENOTSUPP;
+	}
 
 	if ((config->flags & MDSS_PP_SPLIT_MASK) == MDSS_PP_SPLIT_MASK) {
 		pr_warn("Can't set both split bits\n");
@@ -3463,10 +3469,24 @@ int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config,
 
 	mutex_lock(&mdss_pp_mutex);
 	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+	if (pp_ops[DITHER].pp_set_config) {
+		pr_debug("version of dither is %d\n", config->version);
+		ret = pp_dither_cache_params(config, mdss_pp_res);
+		if (ret) {
+			pr_err("dither config failed version %d ret %d\n",
+				config->version, ret);
+			goto dither_config_exit;
+		} else {
+			goto dither_set_dirty;
+		}
+	}
+
 	mdss_pp_res->dither_disp_cfg[disp_num] = *config;
+dither_set_dirty:
 	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_DITHER;
+dither_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
-	return 0;
+	return ret;
 }
 
 static int pp_gm_has_invalid_lut_size(struct mdp_gamut_cfg_data *config)
