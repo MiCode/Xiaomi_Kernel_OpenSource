@@ -761,8 +761,9 @@ void mdss_bus_bandwidth_ctrl(int enable)
 
 	if (changed) {
 		if (!enable) {
-			msm_bus_scale_client_update_request(
-				mdata->bus_hdl, 0);
+			if (!mdata->handoff_pending)
+				msm_bus_scale_client_update_request(
+						mdata->bus_hdl, 0);
 			pm_runtime_mark_last_busy(&mdata->pdev->dev);
 			pm_runtime_put_autosuspend(&mdata->pdev->dev);
 		} else {
