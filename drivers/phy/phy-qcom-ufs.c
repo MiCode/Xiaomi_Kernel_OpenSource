@@ -142,8 +142,8 @@ out:
 	return err;
 }
 
-int ufs_qcom_phy_clk_get(struct phy *phy,
-			 const char *name, struct clk **clk_out)
+static int __ufs_qcom_phy_clk_get(struct phy *phy,
+			 const char *name, struct clk **clk_out, bool err_print)
 {
 	struct clk *clk;
 	int err = 0;
@@ -153,12 +153,19 @@ int ufs_qcom_phy_clk_get(struct phy *phy,
 	clk = devm_clk_get(dev, name);
 	if (IS_ERR(clk)) {
 		err = PTR_ERR(clk);
-		dev_err(dev, "failed to get %s err %d", name, err);
+		if (err_print)
+			dev_err(dev, "failed to get %s err %d", name, err);
 	} else {
 		*clk_out = clk;
 	}
 
 	return err;
+}
+
+int ufs_qcom_phy_clk_get(struct phy *phy,
+			 const char *name, struct clk **clk_out)
+{
+	return __ufs_qcom_phy_clk_get(phy, name, clk_out, true);
 }
 
 int
@@ -182,10 +189,12 @@ ufs_qcom_phy_init_clks(struct phy *generic_phy,
 	if (err)
 		goto out;
 
-	err = ufs_qcom_phy_clk_get(generic_phy, "ref_clk_parent",
-				   &phy_common->ref_clk_parent);
-	if (err)
-		goto out;
+	/*
+	 * "ref_clk_parent" is optional hence don't abort init if it's not
+	 * found.
+	 */
+	__ufs_qcom_phy_clk_get(generic_phy, "ref_clk_parent",
+				   &phy_common->ref_clk_parent, false);
 
 	err = ufs_qcom_phy_clk_get(generic_phy, "ref_clk",
 				   &phy_common->ref_clk);
@@ -352,11 +361,17 @@ int ufs_qcom_phy_enable_ref_clk(struct phy *generic_phy)
 		goto out;
 	}
 
-	ret = clk_prepare_enable(phy->ref_clk_parent);
-	if (ret) {
-		dev_err(phy->dev, "%s: ref_clk_parent enable failed %d\n",
-				__func__, ret);
-		goto out_disable_src;
+	/*
+	 * "ref_clk_parent" is optional clock hence make sure that clk reference
+	 * is available before trying to enable the clock.
+	 */
+	if (phy->ref_clk_parent) {
+		ret = clk_prepare_enable(phy->ref_clk_parent);
+		if (ret) {
+			dev_err(phy->dev, "%s: ref_clk_parent enable failed %d\n",
+					__func__, ret);
+			goto out_disable_src;
+		}
 	}
 
 	ret = clk_prepare_enable(phy->ref_clk);
@@ -370,7 +385,8 @@ int ufs_qcom_phy_enable_ref_clk(struct phy *generic_phy)
 	goto out;
 
 out_disable_parent:
-	clk_disable_unprepare(phy->ref_clk_parent);
+	if (phy->ref_clk_parent)
+		clk_disable_unprepare(phy->ref_clk_parent);
 out_disable_src:
 	clk_disable_unprepare(phy->ref_clk_src);
 out:
@@ -407,7 +423,12 @@ void ufs_qcom_phy_disable_ref_clk(struct phy *generic_phy)
 
 	if (phy->is_ref_clk_enabled) {
 		clk_disable_unprepare(phy->ref_clk);
-		clk_disable_unprepare(phy->ref_clk_parent);
+		/*
+		 * "ref_clk_parent" is optional clock hence make sure that clk
+		 * reference is available before trying to disable the clock.
+		 */
+		if (phy->ref_clk_parent)
+			clk_disable_unprepare(phy->ref_clk_parent);
 		clk_disable_unprepare(phy->ref_clk_src);
 		phy->is_ref_clk_enabled = false;
 	}
