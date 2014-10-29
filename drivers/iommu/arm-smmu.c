@@ -1858,7 +1858,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		dev_err(dev, "PAR = 0x%llx\n", phys);
 		phys = 0;
 	} else {
-		phys = (phys & 0xfffffff000ULL) | (iova & 0x00000fff);
+		phys = (phys & (PHYS_MASK & ~0xfffULL)) | (iova & 0xfff);
 	}
 
 	arm_smmu_disable_clocks(smmu);
