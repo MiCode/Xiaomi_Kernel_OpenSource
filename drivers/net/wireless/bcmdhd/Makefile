@@ -232,8 +232,24 @@ ifneq ($(CONFIG_BCMDHD_PCIE),)
   DHDOFILES += pcie_core.o
 endif
 
-bcmdhd-objs := $(DHDOFILES)
-obj-$(CONFIG_BCMDHD)   += bcmdhd.o
+# if the driver is built as part of the kernel build, we keep bcmdhd.ko name as usual.
+# in addition, it can also be built as an out of tree module with a different
+# name and different configuration flags passed through the make command line.
+
+ifeq ($(KBUILD_EXTMOD),)
+	bcmdhd-objs := $(DHDOFILES)
+	obj-$(CONFIG_BCMDHD)   += bcmdhd.o
+else
+ifneq ($(CONFIG_BCMDHD_PCIE),)
+	bcmdhd_pcie-objs := $(DHDOFILES)
+	obj-$(CONFIG_BCMDHD)   += bcmdhd_pcie.o
+endif
+ifneq ($(CONFIG_BCMDHD_SDIO),)
+	bcmdhd_sdio-objs := $(DHDOFILES)
+	obj-$(CONFIG_BCMDHD)   += bcmdhd_sdio.o
+endif
+endif
+
 
 all:
 	@echo "$(MAKE) --no-print-directory -C $(KDIR) SUBDIRS=$(CURDIR) modules"
