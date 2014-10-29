@@ -2845,7 +2845,10 @@ dhd_rx_frame(dhd_pub_t *dhdp, int ifidx, void *pktbuf, int numpkt, uint8 chan)
 			continue;
 #endif /* DHD_DONOT_FORWARD_BCMEVENT_AS_NETWORK_PKT */
 		} else {
-			tout_rx = DHD_PACKET_TIMEOUT_MS;
+			if (skb->dev->ieee80211_ptr && skb->dev->ieee80211_ptr->ps == false)
+				tout_rx = CUSTOM_DHCP_LOCK_xTIME * DHD_PACKET_TIMEOUT_MS;
+			else
+				tout_rx = DHD_PACKET_TIMEOUT_MS;
 
 #ifdef PROP_TXSTATUS
 			dhd_wlfc_save_rxpath_ac_time(dhdp, (uint8)PKTPRIO(skb));
