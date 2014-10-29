@@ -1836,6 +1836,10 @@ static ssize_t ppd_enable_store(struct kgsl_device *device,
 	if ((adreno_dev == NULL) || (device == NULL))
 		return -ENODEV;
 
+	if (!adreno_is_a430v2(adreno_dev) ||
+		!ADRENO_FEATURE(adreno_dev, ADRENO_PPD))
+		return count;
+
 	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	ret = kgsl_sysfs_store(buf, &ppd_on);
 	if (ret < 0)
@@ -2805,6 +2809,16 @@ static void adreno_regulator_disable(struct kgsl_device *device)
 	}
 }
 
+static void adreno_pwrlevel_change_settings(struct kgsl_device *device,
+						bool mask_throttle)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+
+	if (gpudev->pwrlevel_change_settings)
+		gpudev->pwrlevel_change_settings(adreno_dev, mask_throttle);
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -2839,7 +2853,7 @@ static const struct kgsl_functable adreno_functable = {
 	.regulator_enable = adreno_regulator_enable,
 	.is_hw_collapsible = adreno_is_hw_collapsible,
 	.regulator_disable = adreno_regulator_disable,
-
+	.pwrlevel_change_settings = adreno_pwrlevel_change_settings,
 };
 
 static struct platform_driver adreno_platform_driver = {

@@ -183,6 +183,8 @@ struct kgsl_functable {
 	void (*regulator_enable)(struct kgsl_device *);
 	bool (*is_hw_collapsible)(struct kgsl_device *);
 	void (*regulator_disable)(struct kgsl_device *);
+	void (*pwrlevel_change_settings)(struct kgsl_device *device,
+		bool mask_throttle);
 };
 
 typedef long (*kgsl_ioctl_func_t)(struct kgsl_device_private *,

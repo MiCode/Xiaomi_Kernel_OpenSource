@@ -80,6 +80,7 @@ struct kgsl_pwr_constraint {
  * @power_flags - Control flags for power
  * @pwrlevels - List of supported power levels
  * @active_pwrlevel - The currently active power level
+ * @previous_pwrlevel - The power level before transition
  * @thermal_pwrlevel - maximum powerlevel constraint from thermal
  * @default_pwrlevel - device wake up power level
  * @init_pwrlevel - device inital power level
@@ -111,6 +112,7 @@ struct kgsl_pwrctrl {
 	unsigned long ctrl_flags;
 	struct kgsl_pwrlevel pwrlevels[KGSL_MAX_PWRLEVELS];
 	unsigned int active_pwrlevel;
+	unsigned int previous_pwrlevel;
 	unsigned int thermal_pwrlevel;
 	unsigned int default_pwrlevel;
 	unsigned int init_pwrlevel;

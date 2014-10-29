@@ -612,6 +612,8 @@ struct adreno_gpudev {
 	void (*enable_ppd)(struct adreno_device *);
 	void (*regulator_enable)(struct adreno_device *);
 	void (*regulator_disable)(struct adreno_device *);
+	void (*pwrlevel_change_settings)(struct adreno_device *,
+					bool mask_throttle);
 };
 
 struct log_field {
@@ -689,6 +691,9 @@ extern const unsigned int a4xx_registers_count;
 
 extern const unsigned int a4xx_sp_tp_registers[];
 extern const unsigned int a4xx_sp_tp_registers_count;
+
+extern const unsigned int a4xx_ppd_registers[];
+extern const unsigned int a4xx_ppd_registers_count;
 
 extern const unsigned int a4xx_xpu_registers[];
 extern const unsigned int a4xx_xpu_reg_cnt;

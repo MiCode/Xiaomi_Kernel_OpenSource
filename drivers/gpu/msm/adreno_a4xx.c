@@ -89,6 +89,16 @@ const unsigned int a4xx_sp_tp_registers[] = {
 const unsigned int a4xx_sp_tp_registers_count =
 			ARRAY_SIZE(a4xx_sp_tp_registers) / 2;
 
+const unsigned int a4xx_ppd_registers[] = {
+	/* V2 Thresholds */
+	0x01B2, 0x01B5,
+	/* Control and Status */
+	0x01B9, 0x01BE,
+};
+
+const unsigned int a4xx_ppd_registers_count =
+			ARRAY_SIZE(a4xx_ppd_registers) / 2;
+
 const unsigned int a4xx_xpu_registers[] = {
 	/* XPU */
 	0x2C00, 0x2C01, 0x2C10, 0x2C10, 0x2C12, 0x2C16, 0x2C1D, 0x2C20,
@@ -418,26 +428,59 @@ static void a4xx_enable_pc(struct adreno_device *adreno_dev)
  * a4xx_enable_ppd() - Enable the Peak power detect logic in the h/w
  * @adreno_dev: The adreno device pointer
  *
- * A430 can detect peak current conditions inside h/w and throttle the
- * gpu clock to mitigate it.
+ * A430 can detect peak current conditions inside h/w and throttle
+ * the workload to ALUs to mitigate it.
  */
 static void a4xx_enable_ppd(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD) ||
-		!test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag))
+		!test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag) ||
+		!adreno_is_a430v2(adreno_dev))
 		return;
 
 	/* Program thresholds */
-	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTRA_TH_1, 0x000A800C);
-	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTRA_TH_2, 0x00140002);
-	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_HI_CLR_TH,
-								0x00000000);
-	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_LO, 0x00010101);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_HIGH_CLEAR_THR,
+								0x003F0101);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_LOW, 0x00000101);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_V2_SP_PWR_WEIGHTS, 0x00085014);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_V2_SP_RB_EPOCH_TH, 0x00000B46);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_V2_TP_CONFIG, 0xE4525111);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_RAMP_V2_CONTROL, 0x0000000B);
+
 	/* Enable PPD*/
-	kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1908E401);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40C);
 };
+
+/*
+ * a4xx_pwrlevel_change_settings() - Program the hardware during power level
+ * transitions
+ * @adreno_dev: The adreno device pointer
+ * @mask_throttle: flag to check if PPD throttle should be masked
+ */
+static void a4xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
+						bool mask_throttle)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	/* PPD programming only for A430v2 */
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD) ||
+		!test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag) ||
+		!adreno_is_a430v2(adreno_dev))
+		return;
+
+	if (mask_throttle) {
+		/* Going to Non-Turbo mode - mask the throttle and reset */
+		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40E);
+		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40C);
+	} else {
+		/* Going to Turbo mode - unmask the throttle and reset */
+		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40A);
+		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E408);
+	}
+}
+
 /*
  * a4xx_enable_hwcg() - Program the clock control registers
  * @device: The adreno device pointer
@@ -1818,6 +1861,7 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.is_sptp_idle = a4xx_is_sptp_idle,
 	.enable_pc = a4xx_enable_pc,
 	.enable_ppd = a4xx_enable_ppd,
+	.pwrlevel_change_settings = a4xx_pwrlevel_change_settings,
 	.regulator_enable = a4xx_regulator_enable,
 	.regulator_disable = a4xx_regulator_disable,
 };
