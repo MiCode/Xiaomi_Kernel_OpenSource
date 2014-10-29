@@ -235,7 +235,6 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 				(is_scm_armv8()) ? 8 : 7, ret);
 		goto read_exit;
 	}
-	dmac_inv_range(&payload, &payload + sizeof(struct lmh_sensor_packet));
 
 	list_for_each_entry(lmh_sensor, &lmh_sensor_list, list_ptr)
 		lmh_sensor->last_read_value = 0;
@@ -532,8 +531,6 @@ static int lmh_get_sensor_list(void)
 					(is_scm_armv8()) ? 8 : 7, ret);
 			goto get_exit;
 		}
-		dmac_inv_range(payload, payload
-			       + sizeof(struct lmh_sensor_packet));
 		size = payload->count;
 		if (!size) {
 			pr_err("No LMH sensor supported\n");
@@ -674,8 +671,6 @@ static int lmh_get_dev_info(void)
 			ret = -ENODEV;
 			goto get_dev_exit;
 		}
-		dmac_inv_range(payload, payload + sizeof(uint32_t) *
-				LMH_GET_PROFILE_SIZE);
 		if (!lmh_data->dev_info.levels) {
 			lmh_data->dev_info.levels = devm_kzalloc(lmh_data->dev,
 				sizeof(uint32_t) * size, GFP_KERNEL);
