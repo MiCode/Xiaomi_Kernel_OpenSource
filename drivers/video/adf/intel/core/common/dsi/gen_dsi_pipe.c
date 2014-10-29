@@ -226,6 +226,46 @@ out_err:
 	return err;
 }
 
+static unsigned int usecs_to_scanlines(struct drm_display_mode *hwmode,
+				       unsigned int usecs)
+{
+	/* paranoia */
+	if (!hwmode->crtc_htotal)
+		return 1;
+
+	return DIV_ROUND_UP(usecs * hwmode->clock,
+			    1000 * hwmode->crtc_htotal);
+}
+
+static void intel_pipe_vblank_evade(struct intel_pipe *intel_pipe)
+{
+	u32 val;
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(intel_pipe);
+	struct drm_display_mode *hwmode = &dsi_pipe->config.vbt_mode;
+	int pipe = intel_pipe->base.idx;
+	/* FIXME needs to be calibrated sensibly */
+	u32 min = hwmode->crtc_vdisplay - usecs_to_scanlines(hwmode, 50);
+	u32 max = hwmode->crtc_vdisplay - 1;
+	long timeout = msecs_to_jiffies(3);
+
+	local_irq_disable();
+	val = REG_READ(PIPEDSL(pipe));
+	local_irq_enable();
+
+	while (val >= min && val <= max && timeout > 0) {
+
+		vlv_wait_for_vblank(pipe);
+		local_irq_disable();
+		val = REG_READ(PIPEDSL(pipe));
+		local_irq_enable();
+		intel_pipe->status.wait_vblank = false;
+	}
+
+	if (val >= min && val <= max)
+		pr_warn("ADF: Page flipping close to vblank start (DSL=%u, VBL=%u)\n",
+			 val, hwmode->crtc_vdisplay);
+}
+
 static void dsi_on_post(struct intel_pipe *pipe)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
@@ -238,6 +278,7 @@ static void dsi_on_post(struct intel_pipe *pipe)
 	}
 	if (dsi_pipe->ops.on_post)
 		dsi_pipe->ops.on_post(dsi_pipe);
+	intel_pipe_vblank_evade(pipe);
 }
 
 static void dsi_pre_validate(struct intel_pipe *pipe,

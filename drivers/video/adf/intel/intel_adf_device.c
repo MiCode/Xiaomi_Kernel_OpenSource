@@ -503,6 +503,10 @@ static void intel_adf_device_post(struct adf_device *dev,
 			intf->pipe->ops->pre_post(intf->pipe);
 	}
 
+	/*disable unused overlay engines*/
+	disable_unused_overlay_engines(&i_dev->active_engs,
+		&state->post_engs);
+
 	/*flip planes*/
 	list_for_each_entry(f, &state->post_flips, list) {
 		eng = f->eng;
@@ -512,10 +516,6 @@ static void intel_adf_device_post(struct adf_device *dev,
 		}
 		eng->plane->ops->flip(eng->plane, &f->buf, &f->config);
 	}
-
-	/*disable unused overlay engines*/
-	disable_unused_overlay_engines(&i_dev->active_engs,
-		&state->post_engs);
 
 	/*trigger pipe processing, if necessary*/
 	for_each_post_obj(po, &state->post_intfs) {
