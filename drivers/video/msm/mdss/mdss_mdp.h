@@ -17,6 +17,7 @@
 
 #include <linux/io.h>
 #include <linux/msm_mdp.h>
+#include <linux/msm_mdp_ext.h>
 #include <linux/platform_device.h>
 #include <linux/notifier.h>
 #include <linux/irqreturn.h>
@@ -487,6 +488,7 @@ struct mdss_mdp_pipe {
 	struct mdss_mdp_mixer *mixer_right;
 
 	struct mdp_overlay req_data;
+	struct mdp_input_layer layer;
 	u32 params_changed;
 	bool dirty;
 
@@ -852,6 +854,10 @@ struct mdss_data_type *mdss_mdp_get_mdata(void);
 int mdss_mdp_secure_display_ctrl(unsigned int enable);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
+int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
+	struct mdp_layer_commit_v1 *ov_commit);
+int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
+	struct mdp_layer_commit_v1 *ov_commit);
 int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			       struct mdp_overlay *req,
 			       struct mdss_mdp_format_params *fmt);
@@ -863,6 +869,13 @@ void mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
 							u32 type);
 int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx);
 int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd);
+void mdss_mdp_overlay_set_chroma_sample(
+	struct mdss_mdp_pipe *pipe);
+int mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
+	u32 flags);
+int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe);
+struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
+	struct mdss_mdp_mixer *mixer, u32 ndx);
 int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
 		u32 *offsets,  u32 count);
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl);

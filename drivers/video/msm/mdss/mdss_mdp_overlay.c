@@ -237,7 +237,7 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		min_dst_size = 2;
 	}
 
-	if (req->z_order >= mdata->max_target_zorder) {
+	if (req->z_order >= (mdata->max_target_zorder + MDSS_MDP_STAGE_0)) {
 		pr_err("zorder %d out of range\n", req->z_order);
 		return -ERANGE;
 	}
@@ -389,7 +389,7 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 	return 0;
 }
 
-static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
+int mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
 	u32 flags)
 {
 	struct mdss_data_type *mdata = pipe->mixer_left->ctl->mdata;
@@ -507,7 +507,7 @@ static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 	return 0;
 }
 
-static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
+int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 {
 	u32 src;
 	int rc;
@@ -548,7 +548,7 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 	return rc;
 }
 
-static inline void __mdss_mdp_overlay_set_chroma_sample(
+inline void mdss_mdp_overlay_set_chroma_sample(
 	struct mdss_mdp_pipe *pipe)
 {
 	pipe->chroma_sample_v = pipe->chroma_sample_h = 0;
@@ -858,7 +858,7 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 
 	memcpy(&pipe->scale, &req->scale, sizeof(struct mdp_scale_data));
 	pipe->src_fmt = fmt;
-	__mdss_mdp_overlay_set_chroma_sample(pipe);
+	mdss_mdp_overlay_set_chroma_sample(pipe);
 
 	pipe->mixer_stage = req->z_order;
 	pipe->is_fg = req->is_fg;
@@ -920,13 +920,13 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	if (is_single_layer)
 		flags |= PERF_CALC_PIPE_SINGLE_LAYER;
 
-	ret = __mdp_pipe_tune_perf(pipe, flags);
+	ret = mdp_pipe_tune_perf(pipe, flags);
 	if (ret) {
 		pr_debug("unable to satisfy performance. ret=%d\n", ret);
 		goto exit_fail;
 	}
 
-	ret = __mdss_mdp_overlay_setup_scaling(pipe);
+	ret = mdss_mdp_overlay_setup_scaling(pipe);
 	if (ret)
 		goto exit_fail;
 
@@ -4484,6 +4484,8 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->get_sync_fnc = mdss_mdp_rotator_sync_pt_get;
 	mdp5_interface->splash_init_fnc = mdss_mdp_splash_init;
 	mdp5_interface->configure_panel = mdss_mdp_update_panel_info;
+	mdp5_interface->atomic_validate = mdss_mdp_layer_atomic_validate;
+	mdp5_interface->pre_commit = mdss_mdp_layer_pre_commit;
 
 	INIT_LIST_HEAD(&mdp5_data->pipes_used);
 	INIT_LIST_HEAD(&mdp5_data->pipes_cleanup);
