@@ -15,14 +15,14 @@
 #include "fsm9010.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. FSM9010 Rumi";
-	compatible = "qcom,fsm9010-rumi", "qcom,fsm9010", "qcom,rumi";
-	qcom,board-id = <15 0>;
+	model = "Qualcomm Technologies, Inc. FSM9010 MTP";
+	compatible = "qcom,fsm9010-mtp", "qcom,fsm9010", "qcom,mtp";
+	qcom,board-id = <0x00010008 0>;
 };
+
 
 &soc {
 	serial@f991f000 {
-		qcom,bus-speed-mode = "";
 		status = "ok";
 	};
 
@@ -32,15 +32,10 @@
 	};
 
 	pcie0: qcom,pcie@fc520000 {
-		status = "disabled";
+		status = "ok";
 	};
 
 	pcie1: qcom,pcie@fc528000 {
-		status = "disabled";
+		status = "ok";
 	};
 };
-
-&sdhc_1 {
-	status = "ok";
-};
-
