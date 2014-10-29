@@ -2688,6 +2688,10 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		"qcom,mdss-rotator-ot-limit", &data);
 	mdata->rotator_ot_limit = (!rc ? data : 0);
 
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-default-ot-limit", &data);
+	mdata->default_ot_limit = (!rc ? data : 0);
+
 	mdata->has_non_scalar_rgb = of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-has-non-scalar-rgb");
 	mdata->has_bwc = of_property_read_bool(pdev->dev.of_node,
@@ -3015,6 +3019,177 @@ int mdss_panel_get_boot_cfg(void)
 		rc = 0;
 	return rc;
 }
+
+int mdss_mdp_wait_for_xin_halt(u32 xin_id, bool is_vbif_nrt)
+{
+	void __iomem *vbif_base;
+	u32 status;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 idle_mask = BIT(xin_id);
+	int rc;
+
+	vbif_base = is_vbif_nrt ? mdata->vbif_nrt_io.base :
+				mdata->vbif_io.base;
+
+	rc = readl_poll_timeout(vbif_base + MMSS_VBIF_XIN_HALT_CTRL1,
+		status, (status & idle_mask),
+		1000, XIN_HALT_TIMEOUT_US);
+	if (rc == -ETIMEDOUT) {
+		pr_err("VBIF client %d not halting. TIMEDOUT.\n",
+			xin_id);
+		BUG();
+	} else {
+		pr_debug("VBIF client %d is halted\n", xin_id);
+	}
+
+	return rc;
+}
+
+/**
+ * force_on_xin_clk() - enable/disable the force-on for the pipe clock
+ * @bit_off: offset of the bit to enable/disable the force-on.
+ * @reg_off: register offset for the clock control.
+ * @enable: boolean to indicate if the force-on of the clock needs to be
+ * enabled or disabled.
+ *
+ * This function returns:
+ * true - if the clock is forced-on by this function
+ * false - if the clock was already forced on
+ * It is the caller responsibility to check if this function is forcing
+ * the clock on; if so, it will need to remove the force of the clock,
+ * otherwise it should avoid to remove the force-on.
+ * Clocks must be on when calling this function.
+ */
+bool force_on_xin_clk(u32 bit_off, u32 clk_ctl_reg_off, bool enable)
+{
+	u32 val;
+	u32 force_on_mask;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	bool clk_forced_on = false;
+
+	force_on_mask = BIT(bit_off);
+	val = readl_relaxed(mdata->mdp_base + clk_ctl_reg_off);
+
+	clk_forced_on = !(force_on_mask & val);
+
+	if (true == enable)
+		val |= force_on_mask;
+	else
+		val &= ~force_on_mask;
+
+	writel_relaxed(val, mdata->mdp_base + clk_ctl_reg_off);
+
+	return clk_forced_on;
+}
+
+static bool limit_rotator_ot(bool is_yuv, u32 width, u32 height)
+{
+	return (true == is_yuv) &&
+		(width * height <= 1080 * 1920);
+}
+
+static int limit_wb_ot(u32 width, u32 height)
+{
+
+	return width * height <= 1080 * 1920;
+}
+
+static u32 get_ot_limit(u32 reg_off, u32 bit_off, bool is_rot,
+	bool is_wb, bool is_yuv, u32 width, u32 height)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 ot_lim = mdata->default_ot_limit;
+	u32 is_vbif_nrt, val;
+
+	/*
+	 * If default ot limit is not set from dt,
+	 * then ot limiting is disabled.
+	 */
+	if (ot_lim == 0)
+		goto exit;
+
+	is_vbif_nrt = mdss_mdp_is_vbif_nrt(mdata->mdp_rev);
+
+	if ((is_rot && limit_rotator_ot(is_yuv, width, height)) ||
+		(is_wb && limit_wb_ot(width, height))) {
+		ot_lim = MDSS_OT_LIMIT;
+	}
+
+	val = MDSS_VBIF_READ(mdata, reg_off, is_vbif_nrt);
+	val &= (0xFF << bit_off);
+	val = val >> bit_off;
+
+	if (val == ot_lim)
+		ot_lim = 0;
+
+exit:
+	return ot_lim;
+}
+
+void mdss_mdp_set_ot_limit(struct mdss_mdp_set_ot_params *params,
+	bool is_rot, bool is_wb, bool is_yuv)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 ot_lim;
+	u32 reg_off_vbif_lim_conf = (params->xin_id / 4) * 4 +
+		params->reg_off_vbif_lim_conf;
+	u32 bit_off_vbif_lim_conf = (params->xin_id % 4) * 8;
+	bool is_vbif_nrt = mdss_mdp_is_vbif_nrt(mdata->mdp_rev);
+	u32 reg_val;
+	bool forced_on;
+
+	if (!mdss_mdp_apply_ot_limit(mdata->mdp_rev))
+		goto exit;
+
+	ot_lim = get_ot_limit(
+		reg_off_vbif_lim_conf,
+		bit_off_vbif_lim_conf,
+		is_rot, is_wb, is_yuv,
+		params->width,
+		params->height) & 0xFF;
+
+	if (ot_lim == 0)
+		goto exit;
+
+	trace_mdp_perf_set_ot(params->num, params->xin_id, ot_lim,
+		is_vbif_nrt);
+
+	mutex_lock(&mdata->reg_lock);
+
+	forced_on = force_on_xin_clk(params->bit_off_mdp_clk_ctrl,
+		params->reg_off_mdp_clk_ctrl, true);
+
+	reg_val = MDSS_VBIF_READ(mdata, reg_off_vbif_lim_conf,
+		is_vbif_nrt);
+	reg_val &= ~(0xFF << bit_off_vbif_lim_conf);
+	reg_val |= (ot_lim) << bit_off_vbif_lim_conf;
+	MDSS_VBIF_WRITE(mdata, reg_off_vbif_lim_conf, reg_val,
+		is_vbif_nrt);
+
+	reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
+		is_vbif_nrt);
+	MDSS_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
+		reg_val | BIT(params->xin_id), is_vbif_nrt);
+
+	mutex_unlock(&mdata->reg_lock);
+	mdss_mdp_wait_for_xin_halt(params->xin_id, is_vbif_nrt);
+	mutex_lock(&mdata->reg_lock);
+
+	reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
+		is_vbif_nrt);
+	MDSS_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
+		reg_val & ~BIT(params->xin_id), is_vbif_nrt);
+
+	if (forced_on)
+		force_on_xin_clk(params->bit_off_mdp_clk_ctrl,
+			params->reg_off_mdp_clk_ctrl, false);
+
+	mutex_unlock(&mdata->reg_lock);
+
+exit:
+	return;
+}
+
 
 static int mdss_mdp_cx_ctrl(struct mdss_data_type *mdata, int enable)
 {

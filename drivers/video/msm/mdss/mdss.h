@@ -176,6 +176,7 @@ struct mdss_data_type {
 	bool needs_hist_vote;
 
 	u32 rotator_ot_limit;
+	u32 default_ot_limit;
 	u32 mdp_irq_mask;
 	u32 mdp_hist_irq_mask;
 

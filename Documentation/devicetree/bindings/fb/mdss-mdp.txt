@@ -337,6 +337,8 @@ Optional properties:
 				used to reduce the pending writes limit dynamically
 				and can be tuned to match performance requirements
 				depending upon system state.
+- qcom,mdss-default-ot-limit:	This integer value indicates the default number of pending
+				reads that can be allowed for the real time clients.
 - qcom,mdss-clk-levels:		This array indicates the mdp core clock level selection
 				array. Core clock is calculated for each frame and
 				hence depending upon calculated value, clock rate

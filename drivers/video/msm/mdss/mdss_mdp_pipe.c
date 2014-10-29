@@ -26,8 +26,6 @@
 #define SMP_MB_ENTRY_SIZE	16
 #define MAX_BPP 4
 
-#define PIPE_HALT_TIMEOUT_US	0x4000
-
 /* following offsets are relative to ctrl register bit offset */
 #define CLK_FORCE_ON_OFFSET	0x0
 #define CLK_FORCE_OFF_OFFSET	0x1
@@ -1171,8 +1169,7 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 {
 	bool is_idle, forced_on = false, in_use = false;
 	int rc = 0;
-	u32 reg_val, idle_mask, status, clk_val, clk_mask;
-	void __iomem *vbif_base;
+	u32 reg_val, idle_mask, clk_val, clk_mask;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool sw_reset_avail = mdss_mdp_pipe_is_sw_reset_available(mdata);
 	bool is_nrt_vbif = mdss_mdp_is_nrt_vbif_client(mdata, pipe);
@@ -1218,18 +1215,7 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 		}
 		mutex_unlock(&mdata->reg_lock);
 
-		vbif_base = is_nrt_vbif ? mdata->vbif_nrt_io.base :
-					mdata->vbif_io.base;
-		rc = readl_poll_timeout(vbif_base + MMSS_VBIF_XIN_HALT_CTRL1,
-			status, (status & idle_mask),
-			1000, PIPE_HALT_TIMEOUT_US);
-		if (rc == -ETIMEDOUT) {
-			pr_err("VBIF client %d not halting. TIMEDOUT.\n",
-				pipe->xin_id);
-			BUG();
-		} else {
-			pr_debug("VBIF client %d is halted\n", pipe->xin_id);
-		}
+		rc = mdss_mdp_wait_for_xin_halt(pipe->xin_id, is_nrt_vbif);
 
 		mutex_lock(&mdata->reg_lock);
 		reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
@@ -1667,6 +1653,26 @@ static int mdss_mdp_pipe_solidfill_setup(struct mdss_mdp_pipe *pipe)
 	return 0;
 }
 
+static void mdss_mdp_set_ot_limit_pipe(struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_mdp_set_ot_params ot_params;
+	struct mdss_mdp_ctl *ctl = pipe->mixer_left->ctl;
+
+	ot_params.xin_id = pipe->xin_id;
+	ot_params.num = pipe->num;
+	ot_params.width = pipe->src.w;
+	ot_params.height = pipe->src.h;
+	ot_params.reg_off_vbif_lim_conf = MMSS_VBIF_RD_LIM_CONF;
+	ot_params.reg_off_mdp_clk_ctrl = pipe->clk_ctrl.reg_off;
+	ot_params.bit_off_mdp_clk_ctrl = pipe->clk_ctrl.bit_off +
+		CLK_FORCE_ON_OFFSET;
+
+	mdss_mdp_set_ot_limit(&ot_params,
+		pipe->mixer_left->rotator_mode,
+		ctl->intf_num ==  MDSS_MDP_NO_INTF,
+		pipe->src_fmt->is_yuv);
+}
+
 int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			     struct mdss_mdp_data *src_data)
 {
@@ -1742,6 +1748,9 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			opmode);
 
 		mdss_mdp_pipe_panic_signal_ctrl(pipe, true);
+
+		mdss_mdp_set_ot_limit_pipe(pipe);
+
 	}
 
 	if (src_data == NULL) {
