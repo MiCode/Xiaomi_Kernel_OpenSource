@@ -114,6 +114,10 @@ struct cpudata {
 	u64	prev_aperf;
 	u64	prev_mperf;
 	struct sample sample;
+
+#ifdef CONFIG_CPU_FREQ_STAT
+	struct cpufreq_frequency_table *pstate_table;
+#endif
 };
 
 static struct cpudata **all_cpu_data;
@@ -560,6 +564,11 @@ static void intel_pstate_set_pstate(struct cpudata *cpu, int pstate)
 {
 	int max_perf, min_perf;
 
+#ifdef CONFIG_CPU_FREQ_STAT
+	struct cpufreq_policy *policy;
+	struct cpufreq_freqs freqs;
+#endif
+
 	intel_pstate_get_min_max(cpu, &min_perf, &max_perf);
 
 	pstate = clamp_t(int, pstate, min_perf, max_perf);
@@ -571,7 +580,25 @@ static void intel_pstate_set_pstate(struct cpudata *cpu, int pstate)
 
 	cpu->pstate.current_pstate = pstate;
 
+#ifdef CONFIG_CPU_FREQ_STAT
+	policy = cpufreq_cpu_get(cpu->cpu);
+	if (cpu->pstate_table && policy) {
+		cpufreq_cpu_put(policy);
+
+		freqs.old = cpu->pstate.current_pstate * cpu->pstate.scaling;
+		freqs.new = pstate * cpu->pstate.scaling;
+
+		cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
+	}
+#endif
+
 	pstate_funcs.set(cpu, pstate);
+
+#ifdef CONFIG_CPU_FREQ_STAT
+	if (cpu->pstate_table && policy) {
+		cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+	}
+#endif
 }
 
 static inline void intel_pstate_pstate_increase(struct cpudata *cpu, int steps)
@@ -784,6 +811,7 @@ static unsigned int intel_pstate_get(unsigned int cpu_num)
 	if (!cpu)
 		return 0;
 	sample = &cpu->sample;
+
 	return sample->freq;
 }
 
@@ -837,6 +865,9 @@ static void intel_pstate_stop_cpu(struct cpufreq_policy *policy)
 
 	del_timer_sync(&all_cpu_data[cpu_num]->timer);
 	intel_pstate_set_pstate(cpu, cpu->pstate.min_pstate);
+#ifdef CONFIG_CPU_FREQ_STAT
+	kfree(cpu->pstate_table);
+#endif
 	kfree(all_cpu_data[cpu_num]);
 	all_cpu_data[cpu_num] = NULL;
 }
@@ -846,6 +877,11 @@ static int intel_pstate_cpu_init(struct cpufreq_policy *policy)
 	struct cpudata *cpu;
 	int rc;
 	u64 misc_en;
+
+#ifdef CONFIG_CPU_FREQ_STAT
+	int i;
+	int states_cnt;
+#endif
 
 	rc = intel_pstate_init_cpu(policy->cpu);
 	if (rc)
@@ -873,6 +909,30 @@ static int intel_pstate_cpu_init(struct cpufreq_policy *policy)
 		cpu->pstate.turbo_pstate * cpu->pstate.scaling;
 	policy->cpuinfo.transition_latency = CPUFREQ_ETERNAL;
 	cpumask_set_cpu(policy->cpu, policy->cpus);
+
+#ifdef CONFIG_CPU_FREQ_STAT
+	policy->cur = policy->min;
+
+	states_cnt = (cpu->pstate.turbo_pstate - cpu->pstate.min_pstate) + 1;
+
+	cpu->pstate_table = kmalloc(sizeof(*cpu->pstate_table) *
+		(states_cnt + 1), GFP_KERNEL);
+	if (cpu->pstate_table) {
+		for (i = 0; i < states_cnt; i++) {
+			cpu->pstate_table[i].driver_data = 0;
+			cpu->pstate_table[i].frequency =
+				(cpu->pstate.min_pstate + i) * cpu->pstate.scaling;
+		}
+		cpu->pstate_table[states_cnt].driver_data = 0;
+		cpu->pstate_table[states_cnt].frequency = CPUFREQ_TABLE_END;
+
+		rc = cpufreq_table_validate_and_show(policy,
+			cpu->pstate_table);
+		if (rc)
+			pr_err("intel_pstates: cannot initiate pstate table (%d)\n", rc);
+	} else
+		pr_err("intel_pstates: cannot allocate memory for pstate table\n");
+#endif
 
 	return 0;
 }
