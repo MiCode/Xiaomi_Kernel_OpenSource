@@ -1423,6 +1423,23 @@ static int mdss_mdp_commit_cb(enum mdp_commit_stage_type commit_stage,
 	return ret;
 }
 
+static bool __validate_roi(struct mdss_mdp_pipe *pipe,
+	struct mdss_rect *ctl_roi)
+{
+	if (pipe->scale.enable_pxl_ext ||
+	    (pipe->src.w != pipe->dst.w) ||
+	    (pipe->src.h != pipe->dst.h)) {
+
+		struct mdss_rect res = pipe->dst;
+		mdss_mdp_intersect_rect(&res, &pipe->dst, ctl_roi);
+
+		if (!mdss_rect_cmp(&res, &pipe->dst))
+			return true;
+	}
+
+	return false;
+}
+
 int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp_display_commit *data)
 {
@@ -1432,7 +1449,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	struct mdp_display_commit temp_data;
 	int ret = 0;
 	int sd_in_pipe = 0;
-	bool need_cleanup = false;
+	bool need_cleanup = false, skip_partial_update = true;
 	struct mdss_mdp_commit_cb commit_cb;
 	LIST_HEAD(destroy_pipes);
 
@@ -1493,7 +1510,38 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 
 	__vsync_set_vsync_handler(mfd);
 
+
+	/*
+	 * partial update should not be enabled if the source pipe has
+	 * scaling enabled and that pipe's dst roi is intersecting with
+	 * final roi. If this condition is detected then it is too late
+	 * to return an error and force fallback strategy. Instead change
+	 * the ROI to be full screen and continue with the update.
+	 */
 	if (data) {
+		struct mdss_rect ctl_roi;
+		struct mdp_rect *in_roi;
+		skip_partial_update = false;
+		list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
+
+			in_roi = pipe->mixer_left->is_right_mixer ?
+				&data->r_roi : &data->l_roi;
+
+			ctl_roi.x = in_roi->x;
+			ctl_roi.y = in_roi->y;
+			ctl_roi.w = in_roi->w;
+			ctl_roi.h = in_roi->h;
+
+			if (__validate_roi(pipe, &ctl_roi)) {
+				skip_partial_update = true;
+				pr_err("error. invalid config with partial update for pipe%d\n",
+					pipe->num);
+				break;
+			}
+		}
+	}
+
+	if (!skip_partial_update) {
 		mdss_mdp_set_roi(ctl, data);
 	} else {
 		temp_data.l_roi = (struct mdp_rect){0, 0,
