@@ -80,6 +80,7 @@
 #include "msm8939-cpu.dtsi"
 #include "msmtellurium-pinctrl.dtsi"
 #include "msmtellurium-smp2p.dtsi"
+#include "msmtellurium-ipcrouter.dtsi"
 
 &soc {
 	#address-cells = <1>;
