@@ -115,6 +115,23 @@
 		clock-names = "iface_clk";
 	};
 
+	qcom,qcrypto@fe0c0000 {
+		compatible = "qcom,qcrypto";
+		reg = <0xfe0c0000 0x20000>,
+			<0xfe0c4000 0x8000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 109 0>;
+		qcom,bam-pipe-pair = <0>;
+		qcom,ce-hw-instance = <0>;
+		qcom,ce-device = <0>;
+		clock-names = "core_clk", "iface_clk", "bus_clk",
+				 "core_clk_src";
+		clocks = <&clock_gcc clk_gcc_ce1_clk>,
+			<&clock_gcc clk_gcc_ce1_ahb_clk>,
+			<&clock_gcc clk_gcc_ce1_axi_clk>,
+			<&clock_gcc clk_ce1_clk_src>;
+	};
+
 	qcom,qfpfuse@fc4b8000 {
 		compatible = "qcom,qfp-fuse";
 		reg = <0xfc4b8000 0x7000>;
