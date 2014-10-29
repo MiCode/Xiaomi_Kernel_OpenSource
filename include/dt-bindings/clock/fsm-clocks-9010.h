@@ -38,5 +38,9 @@
 #define clk_gcc_pcie_phy_0_reset		0x6bb4df33
 #define clk_gcc_pcie_phy_1_reset		0x5fc03a70
 
+#define clk_gcc_ce1_ahb_clk			0x7408a16f
+#define clk_gcc_ce1_axi_clk			0xafb3e588
+#define clk_gcc_ce1_clk				0xc1c80572
+#define clk_ce1_clk_src				0x8e8c7e03
 
 #endif
