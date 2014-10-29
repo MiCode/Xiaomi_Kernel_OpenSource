@@ -116,6 +116,26 @@ TRACE_EVENT(mdp_perf_set_wm_levels,
 			__entry->wm2, __entry->mb_cnt, __entry->mb_size)
 );
 
+TRACE_EVENT(mdp_perf_set_ot,
+	TP_PROTO(u32 pnum, u32 xin_id, u32 rd_lim, u32 is_vbif_rt),
+	TP_ARGS(pnum, xin_id, rd_lim, is_vbif_rt),
+	TP_STRUCT__entry(
+			__field(u32, pnum)
+			__field(u32, xin_id)
+			__field(u32, rd_lim)
+			__field(u32, is_vbif_rt)
+	),
+	TP_fast_assign(
+			__entry->pnum = pnum;
+			__entry->xin_id = xin_id;
+			__entry->rd_lim = rd_lim;
+			__entry->is_vbif_rt = is_vbif_rt;
+	),
+	TP_printk("pnum:%d xin_id:%d ot:%d rt:%d",
+			__entry->pnum, __entry->xin_id, __entry->rd_lim,
+			__entry->is_vbif_rt)
+);
+
 TRACE_EVENT(mdp_perf_prefill_calc,
 	TP_PROTO(u32 pnum, u32 latency_buf, u32 ot, u32 y_buf, u32 y_scaler,
 		u32 pp_lines, u32 pp_bytes, u32 post_sc, u32 fbc_bytes,

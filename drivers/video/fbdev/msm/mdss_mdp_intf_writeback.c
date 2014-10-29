@@ -17,13 +17,13 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
 #include "mdss_panel.h"
+#include "mdss_mdp_trace.h"
 
 /*
  * if BWC enabled and format is H1V2 or 420, do not use site C or I.
  * Hence, set the bits 29:26 in format register, as zero.
  */
 #define BWC_FMT_MASK	0xC3FFFFFF
-#define VBIF_WR_LIM_CONF    0xC0
 #define MDSS_DEFAULT_OT_SETTING    0x10
 
 enum mdss_mdp_writeback_type {
@@ -46,6 +46,7 @@ struct mdss_mdp_writeback_ctx {
 
 	u32 xin_id;
 	u32 wr_lim;
+	struct mdss_mdp_shared_reg_ctrl clk_ctrl;
 
 	u32 opmode;
 	struct mdss_mdp_format_params *dst_fmt;
@@ -75,30 +76,40 @@ static struct mdss_mdp_writeback_ctx wb_ctx_list[MDSS_MDP_MAX_WRITEBACK] = {
 		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
 		.intf_num = 0,
 		.xin_id = 3,
+		.clk_ctrl.reg_off = 0x2BC,
+		.clk_ctrl.bit_off = 0x8,
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_ROTATOR,
 		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
 		.intf_num = 1,
 		.xin_id = 11,
+		.clk_ctrl.reg_off = 0x2BC,
+		.clk_ctrl.bit_off = 0xC,
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_LINE,
 		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
 		.intf_num = 0,
 		.xin_id = 3,
+		.clk_ctrl.reg_off = 0x2BC,
+		.clk_ctrl.bit_off = 0x8,
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_LINE,
 		.intr_type = MDSS_MDP_IRQ_WB_ROT_COMP,
 		.intf_num = 1,
 		.xin_id = 11,
+		.clk_ctrl.reg_off = 0x2BC,
+		.clk_ctrl.bit_off = 0xC,
 	},
 	{
 		.type = MDSS_MDP_WRITEBACK_TYPE_WFD,
 		.intr_type = MDSS_MDP_IRQ_WB_WFD,
 		.intf_num = 0,
 		.xin_id = 6,
+		.clk_ctrl.reg_off = 0x2BC,
+		.clk_ctrl.bit_off = 0x10,
 	},
 };
 
@@ -662,6 +673,25 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 	return rc;
 }
 
+static void mdss_mdp_set_ot_limit_wb(struct mdss_mdp_writeback_ctx *ctx)
+{
+	struct mdss_mdp_set_ot_params ot_params;
+
+	ot_params.xin_id = ctx->xin_id;
+	ot_params.num = ctx->wb_num;
+	ot_params.width = ctx->width;
+	ot_params.height = ctx->height;
+	ot_params.reg_off_vbif_lim_conf = MMSS_VBIF_WR_LIM_CONF;
+	ot_params.reg_off_mdp_clk_ctrl = ctx->clk_ctrl.reg_off;
+	ot_params.bit_off_mdp_clk_ctrl = ctx->clk_ctrl.bit_off;
+
+	mdss_mdp_set_ot_limit(&ot_params,
+		ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR,
+		(ctx->type == MDSS_MDP_WRITEBACK_TYPE_WFD) ||
+		(ctx->type == MDSS_MDP_WRITEBACK_TYPE_LINE),
+		ctx->dst_fmt->is_yuv);
+}
+
 static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
@@ -691,12 +721,14 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 		reg_off = (ctx->xin_id / 4) * 4;
 		bit_off = (ctx->xin_id % 4) * 8;
 
-		val = MDSS_VBIF_READ(ctl->mdata, VBIF_WR_LIM_CONF + reg_off,
-							ctx->is_vbif_nrt);
+		val = MDSS_VBIF_READ(ctl->mdata, MMSS_VBIF_WR_LIM_CONF +
+			reg_off, ctx->is_vbif_nrt);
 		val &= ~(0xFF << bit_off);
 		val |= (ctx->wr_lim) << bit_off;
-		MDSS_VBIF_WRITE(ctl->mdata, VBIF_WR_LIM_CONF + reg_off, val,
-							ctx->is_vbif_nrt);
+		MDSS_VBIF_WRITE(ctl->mdata, MMSS_VBIF_WR_LIM_CONF + reg_off,
+			val, ctx->is_vbif_nrt);
+	} else {
+		mdss_mdp_set_ot_limit_wb(ctx);
 	}
 
 	wb_args = (struct mdss_mdp_writeback_arg *) arg;
@@ -803,8 +835,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	ctl->add_vsync_handler = mdss_mdp_wb_add_vsync_handler;
 	ctl->remove_vsync_handler = mdss_mdp_wb_remove_vsync_handler;
 
-	ctx->is_vbif_nrt = IS_MDSS_MAJOR_MINOR_SAME(ctl->mdata->mdp_rev,
-							MDSS_MDP_HW_REV_107);
+	ctx->is_vbif_nrt = mdss_mdp_is_vbif_nrt(ctl->mdata->mdp_rev);
 
 	return 0;
 }
