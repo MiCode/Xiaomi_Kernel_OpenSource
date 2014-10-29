@@ -811,6 +811,71 @@ close_time:
 	return rc;
 }
 
+#define COUNTER_IMPTR_REG	0X558
+#define COUNTER_PULSE_REG	0X55C
+#define SOC_FULL_REG		0x564
+#define BATTERY_SOC_REG		0x56C
+#define COUNTER_IMPTR_OFFSET	2
+#define COUNTER_PULSE_OFFSET	0
+#define SOC_FULL_OFFSET		3
+#define BATTERY_SOC_OFFSET	1
+#define ESR_PULSE_RECONFIG_SOC	0x7FDF3B
+
+static int fg_configure_soc(struct fg_chip *chip)
+{
+	u32 batt_soc;
+	u8 reg[3], cntr[2] = {0, 0};
+	int rc = 0;
+
+	mutex_lock(&chip->rw_lock);
+	atomic_add_return(1, &chip->memif_user_cnt);
+	mutex_unlock(&chip->rw_lock);
+
+	/* Read Battery SOC */
+	rc = fg_mem_read(chip, reg, BATTERY_SOC_REG, 3, BATTERY_SOC_OFFSET, 1);
+	if (rc) {
+		pr_err("Failed to read battery soc\n");
+		goto out;
+	}
+
+	batt_soc = reg[0] | reg[1] << 8 | reg[2] << 16;
+
+	if (batt_soc > ESR_PULSE_RECONFIG_SOC) {
+		if (fg_debug_mask & FG_POWER_SUPPLY)
+			pr_info("Configuring soc registers batt_soc: %x\n",
+				batt_soc);
+		batt_soc = ESR_PULSE_RECONFIG_SOC;
+		rc = fg_mem_write(chip, (u8 *)&batt_soc, BATTERY_SOC_REG, 3,
+				BATTERY_SOC_OFFSET, 1);
+		if (rc) {
+			pr_err("failed to write BATT_SOC rc=%d\n", rc);
+			goto out;
+		}
+
+		rc = fg_mem_write(chip, (u8 *)&batt_soc, SOC_FULL_REG, 3,
+				SOC_FULL_OFFSET, 1);
+		if (rc) {
+			pr_err("failed to write SOC_FULL rc=%d\n", rc);
+			goto out;
+		}
+
+		rc = fg_mem_write(chip, cntr, COUNTER_IMPTR_REG, 2,
+				COUNTER_IMPTR_OFFSET, 1);
+		if (rc) {
+			pr_err("failed to write COUNTER_IMPTR rc=%d\n", rc);
+			goto out;
+		}
+
+		rc = fg_mem_write(chip, cntr, COUNTER_PULSE_REG, 2,
+				COUNTER_PULSE_OFFSET, 0);
+		if (rc)
+			pr_err("failed to write COUNTER_IMPTR rc=%d\n", rc);
+	}
+out:
+	fg_release_access_if_necessary(chip);
+	return rc;
+}
+
 #define DEFAULT_CAPACITY 50
 #define MISSING_CAPACITY 100
 static int get_prop_capacity(struct fg_chip *chip)
@@ -1221,6 +1286,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_UPDATE_NOW,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
 };
 
 static int fg_power_get_property(struct power_supply *psy,
@@ -1266,6 +1332,12 @@ static int fg_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_UPDATE_NOW:
 		val->intval = 0;
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		if (get_prop_capacity(chip) == 100)
+			val->intval = 1;
+		else
+			val->intval = 0;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1290,6 +1362,10 @@ static int fg_power_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_UPDATE_NOW:
 		if (val->intval)
 			update_sram_data(chip, &unused);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		if (val->intval)
+			rc = fg_configure_soc(chip);
 		break;
 	default:
 		return -EINVAL;
