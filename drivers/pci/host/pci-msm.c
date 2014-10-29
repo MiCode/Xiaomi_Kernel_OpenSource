@@ -181,6 +181,7 @@
 #define PCIE20_ELBI_SYS_STTS		 0x08
 
 #define PCIE20_CAP			   0x70
+#define PCIE20_CAP_DEVCTRLSTATUS	(PCIE20_CAP + 0x08)
 #define PCIE20_CAP_LINKCTRLSTATUS	(PCIE20_CAP + 0x10)
 
 #define PCIE20_COMMAND_STATUS	    0x04
@@ -206,8 +207,16 @@
 #define PCIE20_CTRL1_TYPE_CFG0		0x04
 #define PCIE20_CTRL1_TYPE_CFG1		0x05
 
+#define PCIE20_CAP_ID			0x10
 #define L1SUB_CAP_ID			0x1E
+
+#define PCIE_CAP_PTR_OFFSET		0x34
 #define PCIE_EXT_CAP_OFFSET		0x100
+
+#define PCIE20_AER_UNCORR_ERR_STATUS_REG	0x104
+#define PCIE20_AER_CORR_ERR_STATUS_REG		0x110
+#define PCIE20_AER_ROOT_ERR_STATUS_REG		0x130
+#define PCIE20_AER_ERR_SRC_ID_REG		0x134
 
 #define PCIE_VENDOR_ID_RCP		 0x17cb
 #define PCIE_DEVICE_ID_RCP		 0x0300
@@ -2481,6 +2490,13 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 
 	PCIE_DBG2(dev, "Updated PCIE20_ACK_F_ASPM_CTRL_REG:0x%x\n",
 		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
+
+	/* Enable AER on RC */
+	msm_pcie_write_mask(dev->dm_core +  PCIE20_CAP_DEVCTRLSTATUS, 0,
+					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+
+	PCIE_DBG(dev, "RC's PCIE20_CAP_DEVCTRLSTATUS:0x%x\n",
+		readl_relaxed(dev->dm_core + PCIE20_CAP_DEVCTRLSTATUS));
 }
 
 static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
@@ -3168,6 +3184,42 @@ static struct hw_pci msm_pci[MAX_RC_NUM] = {
 	},
 };
 
+static void msm_pcie_config_ep_aer(struct msm_pcie_dev_t *dev,
+					void __iomem *ep_base)
+{
+	u32 val;
+	u32 ep_device_control_status_offset = 0;
+	u32 current_offset = readl_relaxed(ep_base + PCIE_CAP_PTR_OFFSET) &
+						0xff;
+
+	while (current_offset) {
+		val = readl_relaxed(ep_base + current_offset);
+		if ((val & 0xff) == PCIE20_CAP_ID) {
+			ep_device_control_status_offset =
+				current_offset + 0x8;
+			break;
+		}
+		current_offset = (val >> 8) & 0xff;
+	}
+
+	if (!ep_device_control_status_offset) {
+		PCIE_DBG(dev,
+			"RC%d endpoint does not support PCIe cap registers\n",
+			dev->rc_idx);
+		return;
+	}
+
+	PCIE_DBG2(dev, "RC%d: ep_device_control_status_offset: 0x%x\n",
+		dev->rc_idx, ep_device_control_status_offset);
+
+	/* Enable AER on EP */
+	msm_pcie_write_mask(ep_base + ep_device_control_status_offset, 0,
+				BIT(3)|BIT(2)|BIT(1)|BIT(0));
+
+	PCIE_DBG(dev, "EP's PCIE20_CAP_DEVCTRLSTATUS:0x%x\n",
+		readl_relaxed(ep_base + ep_device_control_status_offset));
+}
+
 static int msm_pcie_config_device_table(struct device *dev, void *pdev)
 {
 	struct pci_dev *pcidev = to_pci_dev(dev);
@@ -3239,6 +3291,10 @@ static int msm_pcie_config_device_table(struct device *dev, void *pdev)
 							PCIE20_COMMAND_STATUS,
 							bme | 0x06);
 					}
+
+					msm_pcie_config_ep_aer(pcie_dev,
+						dev_table_t[index].conf_base);
+
 					break;
 				}
 			}
@@ -3430,6 +3486,91 @@ static void handle_wake_func(struct work_struct *work)
 
 out:
 	mutex_unlock(&dev->recovery_lock);
+}
+
+static irqreturn_t handle_aer_irq(int irq, void *data)
+{
+	struct msm_pcie_dev_t *dev = data;
+
+	int corr_val, uncorr_val, rc_err_status, ep_corr_val, ep_uncorr_val;
+	int i, j, ep_src_bdf;
+	void __iomem *ep_base;
+
+	PCIE_DBG(dev, "AER Interrupt handler fired for RC%d irq %d\n",
+		dev->rc_idx, irq);
+
+	uncorr_val = readl_relaxed(dev->dm_core +
+				PCIE20_AER_UNCORR_ERR_STATUS_REG);
+	corr_val = readl_relaxed(dev->dm_core +
+				PCIE20_AER_CORR_ERR_STATUS_REG);
+	rc_err_status = readl_relaxed(dev->dm_core +
+				PCIE20_AER_ROOT_ERR_STATUS_REG);
+
+	PCIE_DBG(dev, "RC's PCIE20_AER_UNCORR_ERR_STATUS_REG:0x%x\n",
+			uncorr_val);
+	PCIE_DBG(dev, "RC's PCIE20_AER_CORR_ERR_STATUS_REG:0x%x\n",
+			corr_val);
+	PCIE_DBG(dev, "RC's PCIE20_AER_ROOT_ERR_STATUS_REG:0x%x\n",
+			rc_err_status);
+
+	if (dev->link_status == MSM_PCIE_LINK_DISABLED) {
+		PCIE_DBG(dev, "RC%d link is down\n", dev->rc_idx);
+		goto out;
+	}
+
+	for (i = 0; i < 2; i++) {
+		if (i)
+			ep_src_bdf = readl_relaxed(dev->dm_core +
+				PCIE20_AER_ERR_SRC_ID_REG) & ~0xffff;
+		else
+			ep_src_bdf = (readl_relaxed(dev->dm_core +
+				PCIE20_AER_ERR_SRC_ID_REG) & 0xffff) << 16;
+
+		if (!ep_src_bdf)
+			continue;
+
+		for (j = 0; j < MAX_DEVICE_NUM; j++) {
+			if (ep_src_bdf == dev->pcidev_table[j].bdf) {
+				PCIE_DBG(dev,
+					"PCIe: %s Error from Endpoint: %02x:%02x.%01x\n",
+					i ? "Uncorrectable" : "Correctable",
+					dev->pcidev_table[j].bdf >> 24,
+					dev->pcidev_table[j].bdf >> 19 & 0x1f,
+					dev->pcidev_table[j].bdf >> 16 & 0x07);
+				ep_base = dev->pcidev_table[j].conf_base;
+				break;
+			}
+		}
+
+		ep_uncorr_val = readl_relaxed(ep_base +
+					PCIE20_AER_UNCORR_ERR_STATUS_REG);
+		ep_corr_val = readl_relaxed(ep_base +
+					PCIE20_AER_CORR_ERR_STATUS_REG);
+
+		PCIE_DBG(dev, "EP's PCIE20_AER_UNCORR_ERR_STATUS_REG:0x%x\n",
+				ep_uncorr_val);
+		PCIE_DBG(dev, "EP's PCIE20_AER_CORR_ERR_STATUS_REG:0x%x\n",
+				ep_corr_val);
+
+		msm_pcie_write_reg_field(ep_base,
+				PCIE20_AER_UNCORR_ERR_STATUS_REG,
+				0x3fff031, 0x3fff031);
+		msm_pcie_write_reg_field(ep_base,
+				PCIE20_AER_CORR_ERR_STATUS_REG,
+				0xf1c1, 0xf1c1);
+	}
+out:
+	msm_pcie_write_reg_field(dev->dm_core,
+			PCIE20_AER_UNCORR_ERR_STATUS_REG,
+			0x3fff031, 0x3fff031);
+	msm_pcie_write_reg_field(dev->dm_core,
+			PCIE20_AER_CORR_ERR_STATUS_REG,
+			0xf1c1, 0xf1c1);
+	msm_pcie_write_reg_field(dev->dm_core,
+			PCIE20_AER_ROOT_ERR_STATUS_REG,
+			0x7f, 0x7f);
+
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t handle_wake_irq(int irq, void *data)
@@ -3834,6 +3975,36 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 	if (rc) {
 		PCIE_ERR(dev, "PCIe: RC%d: Unable to request MSI interrupt\n",
 			dev->rc_idx);
+		return rc;
+	}
+
+	/* register handler for AER interrupt */
+	rc = devm_request_irq(pdev,
+			dev->irq[MSM_PCIE_INT_PLS_ERR].num,
+			handle_aer_irq,
+			IRQF_TRIGGER_RISING,
+			dev->irq[MSM_PCIE_INT_PLS_ERR].name,
+			dev);
+	if (rc) {
+		PCIE_ERR(dev,
+			"PCIe: RC%d: Unable to request aer pls_err interrupt: %d\n",
+			dev->rc_idx,
+			dev->irq[MSM_PCIE_INT_PLS_ERR].num);
+		return rc;
+	}
+
+	/* register handler for AER legacy interrupt */
+	rc = devm_request_irq(pdev,
+			dev->irq[MSM_PCIE_INT_AER_LEGACY].num,
+			handle_aer_irq,
+			IRQF_TRIGGER_RISING,
+			dev->irq[MSM_PCIE_INT_AER_LEGACY].name,
+			dev);
+	if (rc) {
+		PCIE_ERR(dev,
+			"PCIe: RC%d: Unable to request aer aer_legacy interrupt: %d\n",
+			dev->rc_idx,
+			dev->irq[MSM_PCIE_INT_AER_LEGACY].num);
 		return rc;
 	}
 
