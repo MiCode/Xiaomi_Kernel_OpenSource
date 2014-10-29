@@ -81,6 +81,10 @@
 #define QPNP_FG_DEV_NAME "qcom,qpnp-fg"
 #define MEM_IF_TIMEOUT_MS	5000
 
+#define BCL_MA_TO_ADC(_current, _adc_val) {		\
+	_adc_val = (u8)((_current) * 100 / 976);	\
+}
+
 /* Debug Flag Definitions */
 enum {
 	FG_SPMI_DEBUG_WRITES		= BIT(0), /* Show SPMI writes */
@@ -112,6 +116,8 @@ enum fg_mem_setting_index {
 	FG_MEM_HARD_COLD,
 	FG_MEM_HARD_HOT,
 	FG_MEM_RESUME_SOC,
+	FG_MEM_BCL_LM_THRESHOLD,
+	FG_MEM_BCL_MH_THRESHOLD,
 	FG_MEM_SETTING_MAX,
 };
 
@@ -141,6 +147,8 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(HARD_COLD,       0x454,   2,      50),
 	SETTING(HARD_HOT,        0x454,   3,      450),
 	SETTING(RESUME_SOC,      0x45C,   1,      0),
+	SETTING(BCL_LM_THRESHOLD, 0x47C,   2,      50),
+	SETTING(BCL_MH_THRESHOLD, 0x47C,   3,      752),
 };
 
 #define DATA(_idx, _address, _offset, _length,  _value)	\
@@ -1707,6 +1715,34 @@ static void batt_profile_init(struct work_struct *work)
 		pr_err("failed to initialize profile\n");
 }
 
+static void update_bcl_thresholds(struct fg_chip *chip)
+{
+	u8 data[4];
+	u8 mh_offset = 0, lm_offset = 0;
+	u16 address = 0;
+	int ret = 0;
+
+	address = settings[FG_MEM_BCL_MH_THRESHOLD].address;
+	mh_offset = settings[FG_MEM_BCL_MH_THRESHOLD].offset;
+	lm_offset = settings[FG_MEM_BCL_LM_THRESHOLD].offset;
+	ret = fg_mem_read(chip, data, address, 4, 0, 1);
+	if (ret)
+		pr_err("Error reading BCL LM & MH threshold rc:%d\n", ret);
+	else
+		pr_debug("Old BCL LM threshold:%x MH threshold:%x\n",
+			data[lm_offset], data[mh_offset]);
+	BCL_MA_TO_ADC(settings[FG_MEM_BCL_MH_THRESHOLD].value, data[mh_offset]);
+	BCL_MA_TO_ADC(settings[FG_MEM_BCL_LM_THRESHOLD].value, data[lm_offset]);
+
+	ret = fg_mem_write(chip, data, address, 4, 0, 0);
+	if (ret)
+		pr_err("spmi write failed. addr:%03x, ret:%d\n",
+			address, ret);
+	else
+		pr_debug("New BCL LM threshold:%x MH threshold:%x\n",
+			data[lm_offset], data[mh_offset]);
+}
+
 static int fg_of_init(struct fg_chip *chip)
 {
 	int rc = 0, sense_type, len = 0;
@@ -1716,6 +1752,10 @@ static int fg_of_init(struct fg_chip *chip)
 	OF_READ_SETTING(FG_MEM_SOFT_COLD, "cool-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_HARD_HOT, "hot-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_HARD_COLD, "cold-bat-decidegc", rc, 1);
+	OF_READ_SETTING(FG_MEM_BCL_LM_THRESHOLD, "bcl-lm-threshold-ma",
+		rc, 1);
+	OF_READ_SETTING(FG_MEM_BCL_MH_THRESHOLD, "bcl-mh-threshold-ma",
+		rc, 1);
 	data = of_get_property(chip->spmi->dev.of_node,
 			"qcom,thermal-coefficients", &len);
 	if (data && len == THERMAL_COEFF_N_BYTES) {
@@ -2340,6 +2380,7 @@ static int fg_hw_init(struct fg_chip *chip)
 	u8 resume_soc;
 	int rc = 0;
 
+	update_bcl_thresholds(chip);
 	rc = fg_set_auto_recharge(chip);
 	if (rc) {
 		pr_err("Couldn't set auto recharge in FG\n");
