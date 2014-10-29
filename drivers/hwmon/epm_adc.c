@@ -267,10 +267,8 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 			int rc;
 
 			rc = epm_adc_psoc_gpio_init(epm_adc, true);
-			if (rc) {
+			if (rc)
 				pr_err("GPIO init failed with %d\n", rc);
-				return -EINVAL;
-			}
 
 			if (copy_to_user((void __user *)arg, &rc,
 						sizeof(int)))
@@ -299,10 +297,8 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 				return -EFAULT;
 
 			rc = epm_psoc_generic_request(epm_adc, &psoc_get_data);
-			if (rc) {
+			if (rc)
 				pr_err("Generic request failed\n");
-				return -EINVAL;
-			}
 
 			if (copy_to_user((void __user *)arg, &psoc_get_data,
 				sizeof(struct
