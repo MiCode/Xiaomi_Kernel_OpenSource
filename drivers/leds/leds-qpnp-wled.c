@@ -82,6 +82,7 @@
 #define QPNP_WLED_CABC_REG(b, n)	(QPNP_WLED_MOD_EN_REG(b, n) + 0x06)
 #define QPNP_WLED_BRIGHT_LSB_REG(b, n)	(QPNP_WLED_MOD_EN_REG(b, n) + 0x07)
 #define QPNP_WLED_BRIGHT_MSB_REG(b, n)	(QPNP_WLED_MOD_EN_REG(b, n) + 0x08)
+#define QPNP_WLED_SINK_TEST5_REG(b)	(b + 0xE6)
 
 #define QPNP_WLED_MOD_FREQ_1200_KHZ	1200
 #define QPNP_WLED_MOD_FREQ_2400_KHZ	2400
@@ -105,6 +106,7 @@
 #define QPNP_WLED_MOD_EN_MASK		0x7F
 #define QPNP_WLED_MOD_EN_SHFT		7
 #define QPNP_WLED_MOD_EN		1
+#define QPNP_WLED_GATE_DRV_MASK		0xFE
 #define QPNP_WLED_SYNC_DLY_MASK		0xF8
 #define QPNP_WLED_SYNC_DLY_MIN_US	0
 #define QPNP_WLED_SYNC_DLY_MAX_US	1400
@@ -122,6 +124,9 @@
 #define QPNP_WLED_BRIGHT_MSB_MASK	0x0F
 #define QPNP_WLED_SYNC			0x0F
 #define QPNP_WLED_SYNC_RESET		0x00
+
+#define QPNP_WLED_SINK_TEST5_HYB	0x14
+#define QPNP_WLED_SINK_TEST5_DIG	0x1E
 
 #define QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE	0x0B
 #define QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE	0x05
@@ -193,7 +198,8 @@ static u8 qpnp_wled_sink_dbg_regs[] = {
 	0x50, 0x51, 0x52, 0x53,	0x56, 0x57, 0x58,
 	0x60, 0x61, 0x62, 0x63,	0x66, 0x67, 0x68,
 	0x70, 0x71, 0x72, 0x73,	0x76, 0x77, 0x78,
-	0x80, 0x81, 0x82, 0x83,	0x86, 0x87, 0x88
+	0x80, 0x81, 0x82, 0x83,	0x86, 0x87, 0x88,
+	0xe6,
 };
 
 /* wled ibb debug registers */
@@ -1049,6 +1055,25 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
+	/* Configure TEST5 register */
+	if (wled->dim_mode == QPNP_WLED_DIM_DIGITAL)
+		reg = QPNP_WLED_SINK_TEST5_DIG;
+	else
+		reg = QPNP_WLED_SINK_TEST5_HYB;
+
+	rc = qpnp_wled_sec_access(wled, wled->sink_base);
+	if (rc)
+		return rc;
+	rc = qpnp_wled_write_reg(wled, &reg,
+			QPNP_WLED_SINK_TEST5_REG(wled->sink_base));
+	if (rc)
+		return rc;
+
+	/* disable all current sinks and enable selected strings */
+	reg = 0x00;
+	rc = qpnp_wled_write_reg(wled, &reg,
+			QPNP_WLED_CURR_SINK_REG(wled->sink_base));
+
 	for (i = 0; i < wled->num_strings; i++) {
 		if (wled->strings[i] >= QPNP_WLED_MAX_STRINGS) {
 			dev_err(&wled->spmi->dev, "Invalid string number\n");
@@ -1063,6 +1088,12 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 			return rc;
 		reg &= QPNP_WLED_MOD_EN_MASK;
 		reg |= (QPNP_WLED_MOD_EN << QPNP_WLED_MOD_EN_SHFT);
+
+		if (wled->dim_mode == QPNP_WLED_DIM_HYBRID)
+			reg &= QPNP_WLED_GATE_DRV_MASK;
+		else
+			reg |= ~QPNP_WLED_GATE_DRV_MASK;
+
 		rc = qpnp_wled_write_reg(wled, &reg,
 				QPNP_WLED_MOD_EN_REG(wled->sink_base,
 						wled->strings[i]));
