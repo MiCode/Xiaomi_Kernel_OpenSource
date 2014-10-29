@@ -43,11 +43,13 @@ union adreno_ttbr0 {
  * struct adreno_submit_time - utility structure to store the wall clock / GPU
  * ticks at command submit time
  * @ticks: GPU ticks at submit time (from the 19.2Mhz timer)
- * @clock: local clock time (in nanoseconds)
+ * @ktime: local clock time (in nanoseconds)
+ * @utime: Wall clock time
  */
 struct adreno_submit_time {
 	uint64_t ticks;
-	u64 clock;
+	u64 ktime;
+	struct timespec utime;
 };
 
 /**
