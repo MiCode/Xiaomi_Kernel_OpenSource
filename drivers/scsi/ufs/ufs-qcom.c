@@ -864,12 +864,23 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on)
 		if (err)
 			goto out;
 
+		err = ufs_qcom_phy_enable_ref_clk(host->generic_phy);
+		if (err) {
+			dev_err(hba->dev, "%s enable phy ref clock failed, err=%d\n",
+				__func__, err);
+			ufs_qcom_phy_disable_iface_clk(host->generic_phy);
+			goto out;
+		}
+
 		vote = host->bus_vote.saved_vote;
 		if (vote == host->bus_vote.min_bw_vote)
 			ufs_qcom_update_bus_bw_vote(host);
 	} else {
 		/* M-PHY RMMI interface clocks can be turned off */
 		ufs_qcom_phy_disable_iface_clk(host->generic_phy);
+		/* If link is not active, turn off UFS local PHY ref_clk */
+		if (!ufs_qcom_is_link_active(hba))
+			ufs_qcom_phy_disable_ref_clk(host->generic_phy);
 		vote = host->bus_vote.min_bw_vote;
 	}
 
