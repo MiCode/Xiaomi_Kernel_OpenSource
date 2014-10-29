@@ -202,13 +202,13 @@ static void msm8x16_wcd_compute_impedance(s16 l, s16 r, uint32_t *zl,
 	if (high) {
 		pr_debug("%s: This plug has high range impedance",
 			  __func__);
-		rl = (int)(10*(l*400 - 200))/12;
-		rr = (int)(10*(r*400 - 200))/12;
+		rl = (int)(((100*(l*400 - 200))/96) - 230);
+		rr = (int)(((100*(r*400 - 200))/96) - 230);
 	} else {
 		pr_debug("%s: This plug has low range impedance",
 			__func__);
-		rl = (int)(10*(l*2 - 1))/12;
-		rr = (int)(10*(r*2 - 1))/12;
+		rl = (int)(((1000*(l*2 - 1))/1165) - (13/10));
+		rr = (int)(((1000*(r*2 - 1))/1165) - (13/10));
 	}
 
 	*zl = rl;
@@ -222,6 +222,10 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.set_micbias_value = msm8x16_wcd_set_micb_v,
 	.set_auto_zeroing = msm8x16_wcd_set_auto_zeroing,
 };
+
+static const uint32_t wcd_imped_val[] = {4, 8, 12, 16,
+					20, 24, 28, 32,
+					36, 40, 44, 48};
 
 int msm8x16_unregister_notifier(struct snd_soc_codec *codec,
 				     struct notifier_block *nblock)
@@ -1451,6 +1455,35 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
 };
 
+static int tombak_hph_impedance_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int ret;
+	uint32_t zl, zr;
+	bool hphr;
+	struct soc_multi_mixer_control *mc;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm8x16_wcd_priv *priv = snd_soc_codec_get_drvdata(codec);
+
+	mc = (struct soc_multi_mixer_control *)(kcontrol->private_value);
+
+	hphr = mc->shift;
+	ret = wcd_mbhc_get_impedance(&priv->mbhc, &zl, &zr);
+	if (ret)
+		pr_debug("%s: Failed to get mbhc imped", __func__);
+	pr_debug("%s: zl %u, zr %u\n", __func__, zl, zr);
+	ucontrol->value.integer.value[0] = hphr ? zr : zl;
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new impedance_detect_controls[] = {
+	SOC_SINGLE_EXT("HPHL Impedance", 0, 0, UINT_MAX, 0,
+			tombak_hph_impedance_get, NULL),
+	SOC_SINGLE_EXT("HPHR Impedance", 0, 1, UINT_MAX, 0,
+			tombak_hph_impedance_get, NULL),
+};
+
 static const char * const rx_mix1_text[] = {
 	"ZERO", "IIR1", "IIR2", "RX1", "RX2", "RX3"
 };
@@ -2516,12 +2549,74 @@ static int msm8x16_wcd_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static uint32_t wcd_get_impedance_value(uint32_t imped)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(wcd_imped_val) - 1; i++) {
+		if (imped >= wcd_imped_val[i] &&
+			imped < wcd_imped_val[i + 1])
+			break;
+	}
+
+	pr_debug("%s: selected impedance value = %d\n",
+		 __func__, wcd_imped_val[i]);
+	return wcd_imped_val[i];
+}
+
+void wcd_imped_config(struct snd_soc_codec *codec,
+			uint32_t imped, bool set_gain)
+{
+	uint32_t value;
+	struct msm8x16_wcd_priv *msm8x16_wcd =
+				snd_soc_codec_get_drvdata(codec);
+
+	value = wcd_get_impedance_value(imped);
+
+	if (value < wcd_imped_val[0]) {
+		pr_debug("%s, detected impedance is less than 4 Ohm\n",
+			 __func__);
+		return;
+	}
+	if (value >= wcd_imped_val[ARRAY_SIZE(wcd_imped_val) - 1]) {
+		pr_err("%s, invalid imped, greater than 48 Ohm\n = %d\n",
+			__func__, value);
+		return;
+	}
+
+	if (get_codec_version(msm8x16_wcd) < CONGA) {
+		pr_debug("%s: Default gain is set\n", __func__);
+	} else {
+		if (set_gain) {
+			if (value == 16)
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
+					0x20, 0x00);
+			if (value == 32)
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
+					0x20, 0x20);
+		} else {
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
+				0x20, 0x00);
+		}
+	}
+
+	pr_debug("%s: Exit\n", __func__);
+}
+
 static int msm8x16_wcd_hphl_dac_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
+	uint32_t impedl, impedr;
 	struct snd_soc_codec *codec = w->codec;
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+	int ret;
 
 	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
+	ret = wcd_mbhc_get_impedance(&msm8x16_wcd->mbhc,
+			&impedl, &impedr);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -2531,12 +2626,18 @@ static int msm8x16_wcd_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL, 0x01, 0x01);
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_DIGITAL_CDC_ANA_CLK_CTL, 0x02, 0x02);
+		if (!ret)
+			wcd_imped_config(codec, impedl, true);
+		else
+			dev_err(codec->dev, "Failed to get mbhc impedance %d\n",
+				ret);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_RX_HPH_L_PA_DAC_CTL, 0x02, 0x00);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		wcd_imped_config(codec, impedl, false);
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_DIGITAL_CDC_ANA_CLK_CTL, 0x02, 0x00);
 		snd_soc_update_bits(codec,
@@ -3722,6 +3823,9 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	}
 	msm8x16_wcd_dt_parse_boost_info(codec);
 	msm8x16_wcd_set_boost_v(codec);
+
+	snd_soc_add_codec_controls(codec, impedance_detect_controls,
+				   ARRAY_SIZE(impedance_detect_controls));
 
 	msm8x16_wcd_bringup(codec);
 	msm8x16_wcd_codec_init_reg(codec);

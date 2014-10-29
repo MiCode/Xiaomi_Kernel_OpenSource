@@ -667,6 +667,18 @@ exit:
 	pr_debug("%s: Impedance detection completed\n", __func__);
 }
 
+int wcd_mbhc_get_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
+			uint32_t *zr)
+{
+	*zl = mbhc->zl;
+	*zr = mbhc->zr;
+
+	if (*zl && *zr)
+		return 0;
+	else
+		return -EINVAL;
+}
+
 static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				enum snd_jack_types jack_type)
 {
