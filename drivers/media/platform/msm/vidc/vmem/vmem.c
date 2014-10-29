@@ -81,6 +81,8 @@ DECLARE_TYPE(ERR_SYN_ATID, 14, 8);
 DECLARE_TYPE(ERR_SYN_AMID, 23, 16);
 DECLARE_TYPE(ERR_SYN_APID, 28, 24);
 DECLARE_TYPE(ERR_SYN_ABID, 31, 29);
+/* OCIMEM_INTC_MASK */
+DECLARE_TYPE(AXI_ERR_INT, 0, 0);
 
 /* Internal stuff */
 #define MAX_BANKS 4
@@ -220,6 +222,32 @@ static inline void __bank_set_state(struct vmem *v, unsigned int bank,
 	__writel(bank_state, OCIMEM_PSCGC_M0_M7_CTL(v));
 }
 
+static inline void __toggle_interrupts(struct vmem *v, bool enable)
+{
+	uint32_t ints = __readl(OCIMEM_INTC_MASK(v)),
+		mask = AXI_ERR_INT_MASK,
+		update = AXI_ERR_INT_UPDATE(!enable);
+
+	ints &= ~mask;
+	ints |= update;
+
+	__writel(ints, OCIMEM_INTC_MASK(v));
+}
+
+static void __enable_interrupts(struct vmem *v)
+{
+	pr_debug("Enabling interrupts\n");
+	enable_irq(vmem->irq);
+	__toggle_interrupts(v, true);
+}
+
+static void __disable_interrupts(struct vmem *v)
+{
+	pr_debug("Disabling interrupts\n");
+	__toggle_interrupts(v, false);
+	disable_irq_nosync(vmem->irq);
+}
+
 /**
  * vmem_allocate: - Allocates memory from VMEM.  Allocations have a few
  * restrictions: only allocations of the entire VMEM memory are allowed, and
@@ -268,8 +296,9 @@ int vmem_allocate(size_t size, phys_addr_t *addr)
 		goto exit;
 	}
 
-	/* Make sure all the banks are sleeping (default) */
 	BUG_ON(vmem->num_banks != DIV_ROUND_UP(size, BYTES_PER_BANK));
+
+	/* Make sure all the banks are sleeping (default) */
 	for (c = 0; c < vmem->num_banks; ++c) {
 		enum bank_state curr_bank_state = __bank_get_state(vmem, c);
 
@@ -283,10 +312,13 @@ int vmem_allocate(size_t size, phys_addr_t *addr)
 	}
 
 	/* Turn on the necessary banks */
-	for (c = DIV_ROUND_UP(size, BYTES_PER_BANK) - 1; c >= 0; --c) {
+	for (c = 0; c < vmem->num_banks; ++c) {
 		__bank_set_state(vmem, c, BANK_STATE_NORM_FORCE_CORE_ON);
 		__wait_wakeup(vmem);
 	}
+
+	/* Enable interrupts to detect faults */
+	__enable_interrupts(vmem);
 
 	atomic_inc(&vmem->alloc_count);
 	*addr = (phys_addr_t)vmem->mem.resource->start;
@@ -322,6 +354,7 @@ void vmem_free(phys_addr_t to_free)
 		__bank_set_state(vmem, c, BANK_STATE_SLEEP_NO_RET);
 	}
 
+	__disable_interrupts(vmem);
 	__disable_clocks(vmem);
 	atomic_dec(&vmem->alloc_count);
 }
@@ -361,9 +394,8 @@ static void __irq_helper(struct work_struct *work)
 
 	/* Clear the interrupt */
 	__writel(0, OCIMEM_INTC_CLR(v));
-	enable_irq(v->irq);
 
-	kfree(cookie);
+	__enable_interrupts(v);
 }
 
 static struct vmem_interrupt_cookie interrupt_cookie;
@@ -375,7 +407,8 @@ static irqreturn_t __irq_handler(int irq, void *cookie)
 		IRQ_HANDLED : IRQ_NONE;
 
 	if (status != IRQ_NONE) {
-		disable_irq(v->irq);
+		/* Mask further interrupts while handling this one */
+		__disable_interrupts(v);
 
 		interrupt_cookie.vmem = v;
 		INIT_WORK(&interrupt_cookie.work, __irq_helper);
@@ -520,7 +553,6 @@ static int vmem_probe(struct platform_device *pdev)
 		goto disable_clocks;
 	}
 
-	/* Everything good so far, set up debugfs */
 	rc = devm_request_irq(&pdev->dev, vmem->irq, __irq_handler,
 			IRQF_TRIGGER_HIGH, "vmem", vmem);
 	if (rc) {
@@ -528,6 +560,9 @@ static int vmem_probe(struct platform_device *pdev)
 		goto disable_clocks;
 	}
 
+	__disable_interrupts(vmem);
+
+	/* Everything good so far, set up debugfs */
 	vmem->debugfs_root = vmem_debugfs_init(pdev);
 disable_clocks:
 	__disable_clocks(vmem);
