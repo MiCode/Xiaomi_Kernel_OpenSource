@@ -106,6 +106,7 @@ struct mdss_pp_res_type_v1_7 {
 	struct mdp_pgc_lut_data_v1_7 pgc_lm_v17_data[MDSS_BLOCK_LM_NUM];
 	struct mdp_igc_lut_data_v1_7 igc_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_hist_lut_data_v1_7 hist_lut_v17_data[MDSS_BLOCK_DISP_NUM];
+	struct mdp_dither_data_v1_7 dither_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_gamut_data_v1_7 gamut_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pcc_data_v1_7 pcc_v17_data[MDSS_BLOCK_DISP_NUM];
 };

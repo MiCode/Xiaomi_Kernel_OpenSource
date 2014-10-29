@@ -928,6 +928,11 @@ struct mdp_pa_cfg_data {
 	struct mdp_pa_cfg pa_data;
 };
 
+enum {
+	mdp_dither_v1_7 = 1,
+	mdp_dither_vmax,
+};
+
 struct mdp_dither_data_v1_7 {
 	uint32_t g_y_depth;
 	uint32_t r_cr_depth;
