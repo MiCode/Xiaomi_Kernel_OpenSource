@@ -20,6 +20,7 @@
 #include "msm_vidc_common.h"
 #include "vidc_hfi_api.h"
 #include "msm_vidc_debug.h"
+#include "msm_vidc_dcvs.h"
 
 #define IS_ALREADY_IN_STATE(__p, __d) ({\
 	int __rc = (__p >= __d);\
@@ -59,9 +60,6 @@ struct getprop_buf {
 static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum command_response cmd, void *data);
-static void msm_comm_dcvs_monitor_buffer(struct msm_vidc_inst *inst);
-static int msm_comm_scale_clocks_dcvs(struct msm_vidc_inst *inst, bool fbd);
-static int msm_comm_check_dcvs_supported(struct msm_vidc_inst *inst);
 
 static inline bool is_turbo_session(struct msm_vidc_inst *inst)
 {
@@ -97,40 +95,7 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
 }
 
-static inline int msm_comm_get_mbs_per_frame(struct msm_vidc_inst *inst)
-{
-	int height, width;
-	height = inst->prop.height[CAPTURE_PORT];
-	width = inst->prop.width[CAPTURE_PORT];
-	return NUM_MBS_PER_FRAME(height, width);
-}
-
-static inline int msm_comm_count_active_instances(struct msm_vidc_core *core)
-{
-	int active_instances = 0;
-	struct msm_vidc_inst *inst = NULL;
-	if (!core) {
-		dprintk(VIDC_ERR, "%s: Invalid args: %p\n", __func__, core);
-		return -EINVAL;
-	}
-
-	mutex_lock(&core->lock);
-	list_for_each_entry(inst, &core->instances, list) {
-		if (inst->state >= MSM_VIDC_START_DONE &&
-			inst->state < MSM_VIDC_STOP_DONE)
-			active_instances++;
-	}
-	mutex_unlock(&core->lock);
-	return active_instances;
-}
-
-enum load_calc_quirks {
-	LOAD_CALC_NO_QUIRKS = 0,
-	LOAD_CALC_IGNORE_TURBO_LOAD = 1 << 0,
-	LOAD_CALC_IGNORE_THUMBNAIL_LOAD = 1 << 1,
-};
-
-static int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
+int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 		enum load_calc_quirks quirks)
 {
 	int load = 0;
@@ -153,7 +118,7 @@ static int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 	return load;
 }
 
-static int msm_comm_get_load(struct msm_vidc_core *core,
+int msm_comm_get_load(struct msm_vidc_core *core,
 	enum session_type type, enum load_calc_quirks quirks)
 {
 	struct msm_vidc_inst *inst = NULL;
@@ -782,7 +747,9 @@ static void handle_event_change(enum command_response cmd, void *data)
 					event_notify->width;
 			}
 		}
-		msm_comm_init_dcvs_load(inst);
+
+		if (inst->session_type == MSM_VIDC_DECODER)
+			msm_dcvs_init_load(inst);
 		rc = msm_vidc_check_session_supported(inst);
 		if (!rc) {
 			msm_vidc_queue_v4l2_event(inst, event);
@@ -1737,271 +1704,16 @@ void handle_cmd_response(enum command_response cmd, void *data)
 	}
 }
 
-static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
+int msm_comm_scale_clocks(struct msm_vidc_core *core)
 {
-	int fw_out_qsize = 0;
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
-		return -EINVAL;
-	}
-
-	if (inst->state >= MSM_VIDC_OPEN_DONE &&
-		inst->state < MSM_VIDC_STOP_DONE)
-		fw_out_qsize = inst->count.ftb - inst->count.fbd;
-
-	return fw_out_qsize;
+	int num_mbs_per_sec =
+		msm_comm_get_load(core, MSM_VIDC_ENCODER, LOAD_CALC_NO_QUIRKS) +
+		msm_comm_get_load(core, MSM_VIDC_DECODER, LOAD_CALC_NO_QUIRKS);
+	return msm_comm_scale_clocks_load(core, num_mbs_per_sec);
 }
 
-static inline void msm_comm_print_dcvs_stats(struct dcvs_stats *dcvs)
+int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec)
 {
-	dprintk(VIDC_DBG,
-		"DCVS: Load_Low %d, Load High %d\n",
-		dcvs->load_low,
-		dcvs->load_high);
-
-	dprintk(VIDC_DBG,
-		"DCVS: ThrDispBufLow %d, ThrDispBufHigh %d\n",
-		dcvs->threshold_disp_buf_low,
-		dcvs->threshold_disp_buf_high);
-
-	dprintk(VIDC_DBG,
-		"DCVS: min_threshold %d, max_threshold %d\n",
-		dcvs->min_threshold,
-		dcvs->max_threshold);
-}
-
-void msm_comm_init_dcvs_load(struct msm_vidc_inst *inst)
-{
-	struct msm_vidc_core *core;
-	struct hal_buffer_requirements *output_buf_req;
-	struct dcvs_stats *dcvs;
-
-	dprintk(VIDC_DBG, "Init DCVS Load\n");
-
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
-		return;
-	}
-
-	core = inst->core;
-	dcvs = &inst->dcvs;
-
-	dcvs->load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
-
-	if (dcvs->load >= DCVS_NOMINAL_LOAD) {
-		dcvs->load_low = DCVS_NOMINAL_LOAD;
-		dcvs->load_high = core->resources.max_load;
-	}
-
-	output_buf_req = get_buff_req_buffer(inst,
-		msm_comm_get_hal_output_buffer(inst));
-
-	if (!output_buf_req) {
-		dprintk(VIDC_ERR,
-			"%s: No buffer requirement for buffer type %x\n",
-			__func__, HAL_BUFFER_OUTPUT);
-		return;
-	}
-
-	dcvs->transition_turbo = false;
-
-	/* calculating the min and max threshold */
-	if (output_buf_req->buffer_count_actual) {
-		dcvs->min_threshold = DCVS_MIN_DISPLAY_BUFF;
-		dcvs->max_threshold = output_buf_req->buffer_count_actual;
-		if (dcvs->max_threshold <= dcvs->min_threshold)
-			dcvs->max_threshold =
-				dcvs->min_threshold + DCVS_BUFFER_SAFEGUARD;
-		dcvs->threshold_disp_buf_low = dcvs->min_threshold;
-		dcvs->threshold_disp_buf_high = dcvs->max_threshold;
-	}
-	msm_comm_print_dcvs_stats(dcvs);
-}
-
-void msm_comm_init_dcvs(struct msm_vidc_inst *inst)
-{
-	dprintk(VIDC_DBG, "Init DCVS Struct\n");
-
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
-		return;
-	}
-
-	inst->dcvs = (struct dcvs_stats){ {0} };
-	inst->dcvs.threshold_disp_buf_high = DCVS_NOMINAL_THRESHOLD;
-	inst->dcvs.threshold_disp_buf_low = DCVS_TURBO_THRESHOLD;
-}
-
-static void msm_comm_dcvs_monitor_buffer(struct msm_vidc_inst *inst)
-{
-	int new_ftb, i, prev_buf_count;
-	int fw_pending_bufs, total_output_buf, buffers_outside_fw;
-	struct dcvs_stats *dcvs;
-	struct hal_buffer_requirements *output_buf_req;
-
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
-		return;
-	}
-
-	dcvs = &inst->dcvs;
-	mutex_lock(&inst->lock);
-	output_buf_req = get_buff_req_buffer(inst,
-	msm_comm_get_hal_output_buffer(inst));
-
-	if (!output_buf_req) {
-		dprintk(VIDC_ERR, "%s : Get output buffer req failed %p\n",
-			__func__, inst);
-		mutex_unlock(&inst->lock);
-		return;
-	}
-
-	total_output_buf = output_buf_req->buffer_count_actual;
-	fw_pending_bufs = get_pending_bufs_fw(inst) + 1;
-	mutex_unlock(&inst->lock);
-	buffers_outside_fw = total_output_buf - fw_pending_bufs;
-	dcvs->num_ftb[dcvs->ftb_index] = buffers_outside_fw;
-	dcvs->ftb_index = (dcvs->ftb_index + 1) % DCVS_FTB_WINDOW;
-
-	if (dcvs->ftb_counter < DCVS_FTB_WINDOW)
-		dcvs->ftb_counter++;
-
-	dprintk(VIDC_PROF,
-		"DCVS: ftb_counter %d\n", dcvs->ftb_counter);
-
-	if (dcvs->ftb_counter == DCVS_FTB_WINDOW) {
-		new_ftb = 0;
-		for (i = 0; i < dcvs->ftb_counter; i++) {
-			if (dcvs->num_ftb[i] > new_ftb)
-				new_ftb = dcvs->num_ftb[i];
-		}
-		dcvs->threshold_disp_buf_high = new_ftb;
-		if (dcvs->threshold_disp_buf_high <=
-			dcvs->threshold_disp_buf_low) {
-			dcvs->threshold_disp_buf_high =
-				dcvs->threshold_disp_buf_low +
-				DCVS_BUFFER_SAFEGUARD;
-		}
-		dcvs->threshold_disp_buf_high =
-			clamp(dcvs->threshold_disp_buf_high,
-				dcvs->min_threshold,
-				dcvs->max_threshold);
-	}
-	if (dcvs->ftb_counter == DCVS_FTB_WINDOW &&
-			dcvs->load == dcvs->load_low) {
-		prev_buf_count =
-			dcvs->num_ftb[((dcvs->ftb_index - 2 +
-				DCVS_FTB_WINDOW) % DCVS_FTB_WINDOW)];
-		if (prev_buf_count == DCVS_MIN_DISPLAY_BUFF &&
-			buffers_outside_fw == DCVS_MIN_DISPLAY_BUFF) {
-			dcvs->transition_turbo = true;
-		} else if (buffers_outside_fw > DCVS_MIN_DISPLAY_BUFF &&
-			(buffers_outside_fw -
-			 (prev_buf_count - buffers_outside_fw))
-			< DCVS_MIN_DISPLAY_BUFF){
-			dcvs->transition_turbo = true;
-		}
-	}
-	dprintk(VIDC_PROF,
-		"DCVS: total_output_buf %d buffers_outside_fw %d load %d transition_turbo %d\n",
-		total_output_buf, buffers_outside_fw, dcvs->load_low,
-		dcvs->transition_turbo);
-}
-
-/*
-* In DCVS scale_clocks will be done both in qbuf and FBD
-* 1 indicates call made from fbd that lowers clock
-* 0 indicates call made from qbuf that increases clock
-* based on DCVS algorithm
-*/
-
-static int msm_comm_scale_clocks_dcvs(struct msm_vidc_inst *inst, bool fbd)
-{
-	int rc = 0;
-	int fw_pending_bufs = 0;
-	int total_output_buf = 0;
-	int buffers_outside_fw = 0;
-	struct msm_vidc_core *core;
-	struct hfi_device *hdev;
-	struct hal_buffer_requirements *output_buf_req;
-	struct dcvs_stats *dcvs;
-	u32 codecs_enabled = 0;
-
-	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
-		return -EINVAL;
-	}
-	core = inst->core;
-	hdev = core->device;
-	dcvs = &inst->dcvs;
-	mutex_lock(&inst->lock);
-	fw_pending_bufs = get_pending_bufs_fw(inst) +
-		(fbd ? 0 : 1);
-
-	output_buf_req = get_buff_req_buffer(inst,
-		msm_comm_get_hal_output_buffer(inst));
-	mutex_unlock(&inst->lock);
-	if (!output_buf_req) {
-		dprintk(VIDC_ERR,
-			"%s: No buffer requirement for buffer type %x\n",
-			__func__, HAL_BUFFER_OUTPUT);
-		return -EINVAL;
-	}
-
-	codecs_enabled = VIDC_VOTE_DATA_SESSION_VAL(
-			get_hal_codec_type(inst->fmts[OUTPUT_PORT]->fourcc),
-			get_hal_domain(inst->session_type));
-
-	/* Total number of output buffers */
-	total_output_buf = output_buf_req->buffer_count_actual;
-
-	/* Buffers outside FW are with display */
-	buffers_outside_fw = total_output_buf - fw_pending_bufs;
-
-	if (buffers_outside_fw >= dcvs->threshold_disp_buf_high &&
-			!dcvs->prev_freq_increased &&
-			dcvs->load > dcvs->load_low) {
-			dcvs->load = dcvs->load_low;
-			dcvs->prev_freq_lowered = true;
-			dcvs->prev_freq_increased = false;
-	} else if (dcvs->transition_turbo && dcvs->load == dcvs->load_low) {
-			dcvs->load = dcvs->load_high;
-			dcvs->prev_freq_increased = true;
-			dcvs->prev_freq_lowered = false;
-			dcvs->transition_turbo = false;
-	} else {
-			dcvs->prev_freq_increased = false;
-			dcvs->prev_freq_lowered = false;
-	}
-
-	if (dcvs->prev_freq_lowered || dcvs->prev_freq_increased) {
-		dprintk(VIDC_PROF,
-			"DCVS: clock set = %d tot_output_buf = %d buffers_outside_fw %d threshold_high %d transition_turbo %d\n",
-			dcvs->load,
-			total_output_buf,
-			buffers_outside_fw,
-			dcvs->threshold_disp_buf_high,
-			dcvs->transition_turbo);
-
-		/* HFI call to scale clock */
-		rc = call_hfi_op(hdev, scale_clocks,
-			hdev->hfi_device_data, dcvs->load,
-			codecs_enabled);
-		if (rc)
-			dprintk(VIDC_ERR,
-				"Failed to set clock rate in FBD: %d\n",
-				rc);
-	} else
-		dprintk(VIDC_PROF,
-			"DCVS: clock old = %d tot_output_buf = %d buffers_outside_fw %d threshold_high %d transition_turbo %d\n",
-			dcvs->load, total_output_buf, buffers_outside_fw,
-			dcvs->threshold_disp_buf_high, dcvs->transition_turbo);
-	return rc;
-}
-
-static int msm_comm_scale_clocks(struct msm_vidc_core *core)
-{
-	int num_mbs_per_sec;
 	u32 codecs_enabled = 0;
 	int rc = 0;
 	struct hfi_device *hdev;
@@ -2033,10 +1745,6 @@ static int msm_comm_scale_clocks(struct msm_vidc_core *core)
 
 	}
 	mutex_unlock(&core->lock);
-	num_mbs_per_sec =
-		msm_comm_get_load(core, MSM_VIDC_ENCODER, LOAD_CALC_NO_QUIRKS) +
-		msm_comm_get_load(core, MSM_VIDC_DECODER, LOAD_CALC_NO_QUIRKS);
-
 
 	dprintk(VIDC_INFO, "num_mbs_per_sec = %d codecs_enabled 0x%x\n",
 			num_mbs_per_sec, codecs_enabled);
@@ -2051,7 +1759,6 @@ void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core;
 	struct hfi_device *hdev;
-
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
 		return;
@@ -2317,7 +2024,6 @@ int msm_comm_load_fw(struct msm_vidc_core *core)
 		dprintk(VIDC_DBG, "Firmware downloaded\n");
 	}
 	mutex_unlock(&core->lock);
-
 	rc = msm_comm_scale_clocks(core);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to scale clocks: %d\n", rc);
@@ -3386,6 +3092,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 			if (core->resources.dynamic_bw_update)
 				msm_comm_compute_idle_time(inst);
 
+			msm_dcvs_check_and_scale_clocks(inst, true);
 			rc = call_hfi_op(hdev, session_etb, (void *)
 					inst->session, &frame_data);
 			if (!rc)
@@ -3433,27 +3140,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				}
 				atomic_dec(&inst->seq_hdr_reqs);
 			} else {
-				rc = msm_comm_check_dcvs_supported(inst);
-				if (!rc) {
-					inst->dcvs_mode = true;
-					dprintk(VIDC_DBG,
-						"%s: session DCVS supported, dcvs_mode = %d\n",
-						__func__, inst->dcvs_mode);
-				} else {
-					inst->dcvs_mode = false;
-					dprintk(VIDC_DBG,
-						"%s: session DCVS not supported, dcvs_mode = %d\n",
-						__func__, inst->dcvs_mode);
-				}
-				if (msm_vidc_dcvs_mode && inst->dcvs_mode) {
-					msm_comm_dcvs_monitor_buffer(inst);
-					rc = msm_comm_scale_clocks_dcvs(
-							inst, false);
-					if (rc)
-						dprintk(VIDC_ERR,
-							"%s: Failed to scale clocks in DCVS: %d\n",
-							__func__, rc);
-				}
+				msm_dcvs_check_and_scale_clocks(inst, false);
 				rc = call_hfi_op(hdev, session_ftb,
 					(void *) inst->session, &frame_data);
 				if (!rc)
@@ -4432,78 +4119,6 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 	return 0;
 }
 
-static int msm_comm_check_dcvs_supported(struct msm_vidc_inst *inst)
-{
-	int rc = 0;
-	int num_mbs_per_frame = 0;
-	int instance_count = 0;
-	bool codec_supported = false;
-	struct msm_vidc_inst *temp = NULL;
-	struct msm_vidc_core *core;
-	enum hal_video_codec codec;
-	struct hal_buffer_requirements *output_buf_req;
-	struct dcvs_stats *dcvs;
-
-	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
-		return -EINVAL;
-	}
-
-	core = inst->core;
-	dcvs = &inst->dcvs;
-	instance_count = msm_comm_count_active_instances(core);
-
-	if (instance_count == 1 && inst->session_type == MSM_VIDC_DECODER) {
-		num_mbs_per_frame = msm_comm_get_mbs_per_frame(inst);
-		output_buf_req = get_buff_req_buffer(inst,
-			msm_comm_get_hal_output_buffer(inst));
-
-		codec = get_hal_codec_type(inst->fmts[OUTPUT_PORT]->fourcc);
-		codec_supported = (codec == HAL_VIDEO_CODEC_H264);
-		if (!(codec_supported &&
-			IS_VALID_DCVS_SESSION(num_mbs_per_frame,
-				DCVS_MIN_SUPPORTED_MBPERFRAME)))
-				return -ENOTSUPP;
-
-		if (!output_buf_req) {
-			dprintk(VIDC_ERR,
-				"%s: No buffer requirement for buffer type %x\n",
-				__func__, HAL_BUFFER_OUTPUT);
-			return -EINVAL;
-		}
-	} else {
-		rc = -ENOTSUPP;
-		/*
-		*.For multiple instance use case with 4K, clocks will be scaled
-		* as per load in streamon, but the clocks may be scaled
-		* down as DCVS is running for first playback instance
-		* Rescaling the core clock for multiple instance use case
-		*/
-		if (!dcvs->is_clock_scaled) {
-			if (!msm_comm_scale_clocks(core)) {
-				dcvs->is_clock_scaled = true;
-				dprintk(VIDC_DBG,
-					"%s: Scaled clocks = %d\n",
-					__func__, dcvs->is_clock_scaled);
-			} else {
-				dprintk(VIDC_DBG,
-					"%s: Failed to Scale clocks. Perf might be impacted\n",
-					__func__);
-			}
-		}
-		/*
-		* For multiple instance use case turn OFF DCVS algorithm
-		* immediately
-		*/
-		if (instance_count > 1) {
-			mutex_lock(&core->lock);
-			list_for_each_entry(temp, &core->instances, list)
-				temp->dcvs_mode = false;
-			mutex_unlock(&core->lock);
-		}
-	}
-	return rc;
-}
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core_capability *capability;
