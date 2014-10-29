@@ -1663,6 +1663,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	atomic_set(&dwc->in_lpm, 1);
 
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
+
+	/* Cancel block reset work and wait for it to finish */
+	cancel_work_sync(&mdwc->usb_block_reset_work);
+
 	if (can_suspend_ssphy) {
 		usb_phy_set_suspend(mdwc->ss_phy, 1);
 		usleep_range(1000, 1200);
