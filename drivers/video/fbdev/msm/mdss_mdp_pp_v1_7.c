@@ -14,10 +14,10 @@
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
+#include <linux/uaccess.h>
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_pp.h"
-#include <linux/uaccess.h>
 
 static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 		u32 *opmode, int side);
@@ -186,13 +186,13 @@ static int pp_gamut_get_config(char __iomem *base_addr, void *cfg_data,
 		}
 		if (copy_to_user(gamut_data.c0_data[i], gamut_c0, sz)) {
 			pr_err("copy to user failed for table %d c0 sz %d\n",
-			      (i + 1), sz);
+			       i, sz);
 			ret = -EFAULT;
 			goto bail_out;
 		}
 		if (copy_to_user(gamut_data.c1_c2_data[i], gamut_c1c2, sz)) {
 			pr_err("copy to user failed for table %d c1c2 sz %d\n",
-			      (i + 1), sz);
+			       i, sz);
 			ret = -EFAULT;
 			goto bail_out;
 		}
@@ -260,7 +260,8 @@ static int pp_gamut_set_config(char __iomem *base_addr,
 		pr_info("only read ops is set %d", gamut_cfg_data->flags);
 		return 0;
 	}
-	gamut_data = gamut_cfg_data->cfg_payload;
+	gamut_data = (struct mdp_gamut_data_v1_7 *)
+		      gamut_cfg_data->cfg_payload;
 	if (!gamut_data) {
 		pr_err("invalid payload for gamut %p\n", gamut_data);
 		return -EINVAL;
@@ -283,7 +284,7 @@ static int pp_gamut_set_config(char __iomem *base_addr,
 		    || (gamut_data->tbl_size[i] != tbl_sz)) {
 			pr_err("invalid param for c0 %p c1c2 %p table %d size %d expected sz %d\n",
 			       gamut_data->c0_data[i],
-			       gamut_data->c1_c2_data[i], (i + 1),
+			       gamut_data->c1_c2_data[i], i,
 			       gamut_data->tbl_size[i], tbl_sz);
 			ret = -EINVAL;
 			goto bail_out;

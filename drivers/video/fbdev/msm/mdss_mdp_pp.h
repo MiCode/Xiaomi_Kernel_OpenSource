@@ -33,6 +33,18 @@
 #define GAMUT_TOTAL_TABLE_SIZE_V1_7 (GAMUT_COLOR_COEFF_SIZE_V1_7 + \
 				  GAMUT_SCALE_OFFSET_SIZE_V1_7)
 
+#define GAMUT_T0_SIZE	125
+#define GAMUT_T1_SIZE	100
+#define GAMUT_T2_SIZE	80
+#define GAMUT_T3_SIZE	100
+#define GAMUT_T4_SIZE	100
+#define GAMUT_T5_SIZE	80
+#define GAMUT_T6_SIZE	64
+#define GAMUT_T7_SIZE	80
+#define GAMUT_TOTAL_TABLE_SIZE (GAMUT_T0_SIZE + GAMUT_T1_SIZE + \
+	GAMUT_T2_SIZE + GAMUT_T3_SIZE + GAMUT_T4_SIZE + \
+	GAMUT_T5_SIZE + GAMUT_T6_SIZE + GAMUT_T7_SIZE)
+
 /* PP Feature Operations */
 enum pp_features {
 	IGC,
@@ -78,6 +90,42 @@ struct mdp_pp_driver_ops {
 
 struct mdss_pp_res_type_v1_7 {
 	struct mdp_gamut_data_v1_7 gamut_v17_data[MDSS_BLOCK_DISP_NUM];
+};
+
+struct mdss_pp_res_type {
+	/* logical info */
+	u32 pp_disp_flags[MDSS_BLOCK_DISP_NUM];
+	u32 igc_lut_c0c1[MDSS_BLOCK_DISP_NUM][IGC_LUT_ENTRIES];
+	u32 igc_lut_c2[MDSS_BLOCK_DISP_NUM][IGC_LUT_ENTRIES];
+	struct mdp_ar_gc_lut_data
+		gc_lut_r[MDSS_BLOCK_DISP_NUM][GC_LUT_SEGMENTS];
+	struct mdp_ar_gc_lut_data
+		gc_lut_g[MDSS_BLOCK_DISP_NUM][GC_LUT_SEGMENTS];
+	struct mdp_ar_gc_lut_data
+		gc_lut_b[MDSS_BLOCK_DISP_NUM][GC_LUT_SEGMENTS];
+	u32 enhist_lut[MDSS_BLOCK_DISP_NUM][ENHIST_LUT_ENTRIES];
+	struct mdp_pa_cfg pa_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_pa_v2_data pa_v2_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	u32 six_zone_lut_curve_p0[MDSS_BLOCK_DISP_NUM][MDP_SIX_ZONE_LUT_SIZE];
+	u32 six_zone_lut_curve_p1[MDSS_BLOCK_DISP_NUM][MDP_SIX_ZONE_LUT_SIZE];
+	struct mdp_pcc_cfg_data pcc_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_igc_lut_data igc_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_pgc_lut_data argc_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_pgc_lut_data pgc_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_hist_lut_data enhist_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_dither_cfg_data dither_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	struct mdp_gamut_cfg_data gamut_disp_cfg[MDSS_BLOCK_DISP_NUM];
+	uint16_t gamut_tbl[MDSS_BLOCK_DISP_NUM][GAMUT_TOTAL_TABLE_SIZE];
+	u32 hist_data[MDSS_BLOCK_DISP_NUM][HIST_V_SIZE];
+	struct pp_sts_type pp_disp_sts[MDSS_BLOCK_DISP_NUM];
+	/* physical info */
+	struct pp_hist_col_info *dspp_hist;
+	/*
+	 * The pp_data_res will be a pointer to newer MDP revisions of the
+	 * pp_res, which will hold the cfg_payloads of each feature in a single
+	 * struct.
+	 */
+	void *pp_data_res;
 };
 
 #ifdef CONFIG_ARCH_MSMTHULIUM
