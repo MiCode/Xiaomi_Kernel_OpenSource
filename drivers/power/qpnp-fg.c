@@ -1004,12 +1004,9 @@ static int fg_is_batt_id_valid(struct fg_chip *chip)
 #define DECIKELVIN	2730
 #define SRAM_PERIOD_UPDATE_MS		30000
 #define SRAM_PERIOD_NO_ID_UPDATE_MS	100
-static void update_sram_data(struct work_struct *work)
+static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 {
-	struct fg_chip *chip = container_of(work,
-				struct fg_chip,
-				update_sram_data.work);
-	int i, resched_ms, rc = 0;
+	int i, rc = 0;
 	u8 reg[2];
 	s16 temp;
 	int battid_valid = fg_is_batt_id_valid(chip);
@@ -1051,13 +1048,26 @@ static void update_sram_data(struct work_struct *work)
 			pr_info("%d %d %d\n", i, temp, fg_data[i].value);
 	}
 
+	if (!rc)
+		get_current_time(&chip->last_sram_update_time);
+
 	if (battid_valid) {
 		complete_all(&chip->batt_id_avail);
-		resched_ms = SRAM_PERIOD_UPDATE_MS;
+		*resched_ms = SRAM_PERIOD_UPDATE_MS;
 	} else {
-		resched_ms = SRAM_PERIOD_NO_ID_UPDATE_MS;
+		*resched_ms = SRAM_PERIOD_NO_ID_UPDATE_MS;
 	}
-	get_current_time(&chip->last_sram_update_time);
+}
+
+static void update_sram_data_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				update_sram_data.work);
+	int resched_ms;
+
+	update_sram_data(chip, &resched_ms);
+
 	schedule_delayed_work(
 		&chip->update_sram_data,
 		msecs_to_jiffies(resched_ms));
@@ -1203,6 +1213,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
+	POWER_SUPPLY_PROP_UPDATE_NOW,
 };
 
 static int fg_power_get_property(struct power_supply *psy,
@@ -1242,6 +1253,9 @@ static int fg_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_RESISTANCE_ID:
 		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ID);
 		break;
+	case POWER_SUPPLY_PROP_UPDATE_NOW:
+		val->intval = 0;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1254,16 +1268,18 @@ static int fg_power_set_property(struct power_supply *psy,
 				  const union power_supply_propval *val)
 {
 	struct fg_chip *chip = container_of(psy, struct fg_chip, bms_psy);
-	int rc = 0;
+	int rc = 0, unused;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_COOL_TEMP:
-		rc = set_prop_jeita_temp(chip,
-				FG_MEM_SOFT_COLD, val->intval);
+		rc = set_prop_jeita_temp(chip, FG_MEM_SOFT_COLD, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_WARM_TEMP:
-		rc = set_prop_jeita_temp(chip,
-				FG_MEM_SOFT_HOT, val->intval);
+		rc = set_prop_jeita_temp(chip, FG_MEM_SOFT_HOT, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_UPDATE_NOW:
+		if (val->intval)
+			update_sram_data(chip, &unused);
 		break;
 	default:
 		return -EINVAL;
@@ -2460,12 +2476,10 @@ static int fg_probe(struct spmi_device *spmi)
 	chip->dev = &(spmi->dev);
 
 	mutex_init(&chip->rw_lock);
-	INIT_DELAYED_WORK(&chip->update_jeita_setting,
-			update_jeita_setting);
-	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data);
+	INIT_DELAYED_WORK(&chip->update_jeita_setting, update_jeita_setting);
+	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data_work);
 	INIT_DELAYED_WORK(&chip->update_temp_work, update_temp_data);
-	INIT_WORK(&chip->batt_profile_init,
-			batt_profile_init);
+	INIT_WORK(&chip->batt_profile_init, batt_profile_init);
 	INIT_WORK(&chip->dump_sram, dump_sram);
 	init_completion(&chip->sram_access_granted);
 	init_completion(&chip->sram_access_revoked);
@@ -2575,7 +2589,7 @@ static int fg_probe(struct spmi_device *spmi)
 		msecs_to_jiffies(INIT_JEITA_DELAY_MS));
 
 	if (chip->last_sram_update_time == 0)
-		update_sram_data(&chip->update_sram_data.work);
+		update_sram_data_work(&chip->update_sram_data.work);
 
 	if (chip->last_temp_update_time == 0)
 		update_temp_data(&chip->update_temp_work.work);
