@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,6 +75,67 @@ int q6audio_get_port_index(u16 port_id)
 		return IDX_AFE_PORT_ID_TERTIARY_MI2S_RX;
 	case AFE_PORT_ID_TERTIARY_MI2S_TX:
 		return IDX_AFE_PORT_ID_TERTIARY_MI2S_TX;
+
+	default: return -EINVAL;
+	}
+}
+
+int q6audio_get_port_id_from_index(u16 port_idx)
+{
+	switch (port_idx) {
+	case IDX_PRIMARY_I2S_RX: return PRIMARY_I2S_RX;
+	case IDX_PRIMARY_I2S_TX: return PRIMARY_I2S_TX;
+	case IDX_AFE_PORT_ID_PRIMARY_PCM_RX:
+		return AFE_PORT_ID_PRIMARY_PCM_RX;
+	case IDX_AFE_PORT_ID_PRIMARY_PCM_TX:
+		return AFE_PORT_ID_PRIMARY_PCM_TX;
+	case IDX_AFE_PORT_ID_SECONDARY_PCM_RX:
+		return AFE_PORT_ID_SECONDARY_PCM_RX;
+	case IDX_AFE_PORT_ID_SECONDARY_PCM_TX:
+		return AFE_PORT_ID_SECONDARY_PCM_TX;
+	case IDX_SECONDARY_I2S_RX: return SECONDARY_I2S_RX;
+	case IDX_SECONDARY_I2S_TX: return SECONDARY_I2S_TX;
+	case IDX_MI2S_RX: return MI2S_RX;
+	case IDX_MI2S_TX: return MI2S_TX;
+	case IDX_HDMI_RX: return HDMI_RX;
+	case IDX_RSVD_2: return RSVD_2;
+	case IDX_RSVD_3: return RSVD_3;
+	case IDX_DIGI_MIC_TX: return DIGI_MIC_TX;
+	case IDX_VOICE_RECORD_RX: return VOICE_RECORD_RX;
+	case IDX_VOICE_RECORD_TX: return VOICE_RECORD_TX;
+	case IDX_VOICE_PLAYBACK_TX: return VOICE_PLAYBACK_TX;
+	case IDX_VOICE2_PLAYBACK_TX: return VOICE2_PLAYBACK_TX;
+	case IDX_SLIMBUS_0_RX: return SLIMBUS_0_RX;
+	case IDX_SLIMBUS_0_TX: return SLIMBUS_0_TX;
+	case IDX_SLIMBUS_1_RX: return SLIMBUS_1_RX;
+	case IDX_SLIMBUS_1_TX: return SLIMBUS_1_TX;
+	case IDX_SLIMBUS_2_RX: return SLIMBUS_2_RX;
+	case IDX_SLIMBUS_2_TX: return SLIMBUS_2_TX;
+	case IDX_SLIMBUS_4_TX: return SLIMBUS_4_TX;
+	case IDX_SLIMBUS_5_TX: return SLIMBUS_5_TX;
+	case IDX_INT_BT_SCO_RX: return INT_BT_SCO_RX;
+	case IDX_INT_BT_SCO_TX: return INT_BT_SCO_TX;
+	case IDX_INT_BT_A2DP_RX: return INT_BT_A2DP_RX;
+	case IDX_INT_FM_RX: return INT_FM_RX;
+	case IDX_INT_FM_TX: return INT_FM_TX;
+	case IDX_RT_PROXY_PORT_001_RX: return RT_PROXY_PORT_001_RX;
+	case IDX_RT_PROXY_PORT_001_TX: return RT_PROXY_PORT_001_TX;
+	case IDX_AFE_PORT_ID_PRIMARY_MI2S_RX:
+		return AFE_PORT_ID_PRIMARY_MI2S_RX;
+	case IDX_AFE_PORT_ID_PRIMARY_MI2S_TX:
+		return AFE_PORT_ID_PRIMARY_MI2S_TX;
+	case IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX:
+		return AFE_PORT_ID_QUATERNARY_MI2S_RX;
+	case IDX_AFE_PORT_ID_QUATERNARY_MI2S_TX:
+		return AFE_PORT_ID_QUATERNARY_MI2S_TX;
+	case IDX_AFE_PORT_ID_SECONDARY_MI2S_RX:
+		return AFE_PORT_ID_SECONDARY_MI2S_RX;
+	case IDX_AFE_PORT_ID_SECONDARY_MI2S_TX:
+		return AFE_PORT_ID_SECONDARY_MI2S_TX;
+	case IDX_AFE_PORT_ID_TERTIARY_MI2S_RX:
+		return AFE_PORT_ID_TERTIARY_MI2S_RX;
+	case IDX_AFE_PORT_ID_TERTIARY_MI2S_TX:
+		return AFE_PORT_ID_TERTIARY_MI2S_TX;
 
 	default: return -EINVAL;
 	}
