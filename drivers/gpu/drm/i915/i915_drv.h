@@ -2159,8 +2159,7 @@ static inline void i915_gem_request_assign(struct drm_i915_gem_request **pdst,
 	*pdst = src;
 }
 
-static inline bool i915_gem_request_completed(struct drm_i915_gem_request *req,
-					      bool lazy_coherency)
+static inline bool i915_gem_request_completed(struct drm_i915_gem_request *req)
 {
 	return req->complete;
 }

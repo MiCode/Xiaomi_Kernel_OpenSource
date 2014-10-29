@@ -1231,7 +1231,7 @@ static int __wait_request(struct drm_i915_gem_request *req,
 
 	WARN(dev_priv->pm.irqs_disabled, "IRQs disabled\n");
 
-	if (i915_gem_request_completed(req, true))
+	if (i915_gem_request_completed(req))
 		return 0;
 
 	timeout_expire = timeout ? jiffies + timespec_to_jiffies_timeout(timeout) : 0;
@@ -1279,7 +1279,7 @@ static int __wait_request(struct drm_i915_gem_request *req,
 			break;
 		}
 
-		if (i915_gem_request_completed(req, false)) {
+		if (i915_gem_request_completed(req)) {
 			ret = 0;
 			break;
 		}
@@ -2384,7 +2384,7 @@ i915_gem_object_retire(struct drm_i915_gem_object *obj)
 	if (obj->last_read_req == NULL)
 		return;
 
-	if (i915_gem_request_completed(obj->last_read_req, true))
+	if (i915_gem_request_completed(obj->last_read_req))
 		i915_gem_object_move_to_inactive(obj);
 }
 
@@ -2670,7 +2670,7 @@ i915_gem_find_active_request(struct intel_engine_cs *ring)
 	struct drm_i915_gem_request *request;
 
 	list_for_each_entry(request, &ring->request_list, list) {
-		if (i915_gem_request_completed(request, false))
+		if (i915_gem_request_completed(request))
 			continue;
 
 		return request;
@@ -2857,7 +2857,7 @@ i915_gem_retire_requests_ring(struct intel_engine_cs *ring)
 				      struct drm_i915_gem_object,
 				      ring_list);
 
-		if (!i915_gem_request_completed(obj->last_read_req, true))
+		if (!i915_gem_request_completed(obj->last_read_req))
 			break;
 
 		i915_gem_object_move_to_inactive(obj);
@@ -2872,7 +2872,7 @@ i915_gem_retire_requests_ring(struct intel_engine_cs *ring)
 					   struct drm_i915_gem_request,
 					   list);
 
-		if (!i915_gem_request_completed(request, true))
+		if (!i915_gem_request_completed(request))
 			break;
 
 		trace_i915_gem_request_retire(request);
@@ -2899,7 +2899,7 @@ i915_gem_retire_requests_ring(struct intel_engine_cs *ring)
 	}
 
 	if (unlikely(ring->trace_irq_req &&
-		     i915_gem_request_completed(ring->trace_irq_req, true))) {
+		     i915_gem_request_completed(ring->trace_irq_req))) {
 		ring->irq_put(ring);
 		i915_gem_request_assign(&ring->trace_irq_req, NULL);
 	}

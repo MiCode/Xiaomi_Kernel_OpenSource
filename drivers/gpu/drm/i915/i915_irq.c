@@ -3440,7 +3440,7 @@ void i915_hangcheck_sample(unsigned long data)
 		last_req = ring_last_request(ring);
 	}
 
-	if (empty || i915_gem_request_completed(last_req, false)) {
+	if (empty || i915_gem_request_completed(last_req)) {
 		/* If the request list is empty or the HW has passed the
 		* last seqno of the last item in the request list then the
 		* HW is considered idle.
