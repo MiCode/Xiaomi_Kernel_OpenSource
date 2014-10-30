@@ -129,6 +129,29 @@ Optional Properties:
 - qcom,dc-psy-ma		The current in mA dc path can support. Must be
 				specified if dc-psy-type is specified. Valid
 				range 300mA to 2000mA.
+- qcom,dcin-vadc		The phandle to pmi8994 voltage adc. The ADC is
+				used to get notifications when the DCIN voltage
+				crosses a programmed min/max threshold. This is
+				used to make configurations for optimized power
+				draw for Wipower.
+- qcom,wipower-div2-ilim-map
+- qcom,wipower-pt-ilim-map
+- qcom,wipower-default-ilim-map
+				Array of 5 elements to indicate the voltage ranges and their corresponding
+				current limits. The 5 elements with index [0..4] are:
+				[0] => voltage_low in uV
+				[1] => voltage_high in uV
+				[2] => current limit for pass through in mA
+				[3] => current limit for div2 mode dcin low voltage in mA
+				[4] => current limit for div2 mode dcin high voltage in mA
+				The div2 and pt tables indicate the current limits
+				to use when Wipower is operating in divide_by_2 mode
+				and pass through mode respectively.
+				The default table is used when the voltage ranges
+				are beyond the ones specified in the mapping table.
+				Note that if dcin-vadc or any of these mapping
+				tables are not specified, dynamic dcin input
+				is disabled.
 - qcom,charging-disabled	Set this if charging should be disabled in the
 				build by default.
 - qcom,resume-delta-mv		Specifies the minimum voltage drop in
