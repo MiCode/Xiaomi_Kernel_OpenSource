@@ -687,10 +687,11 @@ static int msm_mpm_dev_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	xo_clk = devm_clk_get(&pdev->dev, clk_name);
+	xo_clk = clk_get(&pdev->dev, clk_name);
 
 	if (IS_ERR(xo_clk)) {
-		pr_err("%s(): Cannot get clk resource for XO\n", __func__);
+		pr_err("%s(): Cannot get clk resource for XO: %ld\n", __func__,
+				PTR_ERR(xo_clk));
 		return PTR_ERR(xo_clk);
 	}
 
