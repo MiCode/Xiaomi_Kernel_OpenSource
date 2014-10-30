@@ -3494,7 +3494,7 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 
 	int corr_val, uncorr_val, rc_err_status, ep_corr_val, ep_uncorr_val;
 	int i, j, ep_src_bdf;
-	void __iomem *ep_base;
+	void __iomem *ep_base = NULL;
 
 	PCIE_DBG(dev, "AER Interrupt handler fired for RC%d irq %d\n",
 		dev->rc_idx, irq);
@@ -3540,6 +3540,13 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 				ep_base = dev->pcidev_table[j].conf_base;
 				break;
 			}
+		}
+
+		if (!ep_base) {
+			PCIE_ERR(dev,
+				"PCIe: RC%d no endpoint found for reported error\n",
+				dev->rc_idx);
+			goto out;
 		}
 
 		ep_uncorr_val = readl_relaxed(ep_base +
