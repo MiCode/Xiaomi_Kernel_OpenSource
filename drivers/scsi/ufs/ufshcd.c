@@ -290,6 +290,8 @@ static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on);
 static int ufshcd_set_vccq_rail_unused(struct ufs_hba *hba, bool unused);
 static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
 static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
+static inline void ufshcd_add_delay_before_dme_cmd(struct ufs_hba *hba);
+static inline void ufshcd_save_tstamp_of_last_dme_cmd(struct ufs_hba *hba);
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba);
 static void ufshcd_resume_clkscaling(struct ufs_hba *hba);
 static void ufshcd_suspend_clkscaling(struct ufs_hba *hba);
@@ -1845,12 +1847,15 @@ ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 
 	ufshcd_hold_all(hba);
 	mutex_lock(&hba->uic_cmd_mutex);
+	ufshcd_add_delay_before_dme_cmd(hba);
+
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	ret = __ufshcd_send_uic_cmd(hba, uic_cmd);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	if (!ret)
 		ret = ufshcd_wait_for_uic_cmd(hba, uic_cmd);
 
+	ufshcd_save_tstamp_of_last_dme_cmd(hba);
 	mutex_unlock(&hba->uic_cmd_mutex);
 	ufshcd_release_all(hba);
 	return ret;
@@ -3172,6 +3177,44 @@ static int ufshcd_dme_link_startup(struct ufs_hba *hba)
 	return ret;
 }
 
+static inline void ufshcd_add_delay_before_dme_cmd(struct ufs_hba *hba)
+{
+	#define MIN_DELAY_BEFORE_DME_CMDS_US	700
+	unsigned long min_sleep_time_us;
+
+	if (!(hba->quirks & UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS))
+		return;
+
+	/*
+	 * last_dme_cmd_tstamp will be 0 only for 1st call to
+	 * this function
+	 */
+	if (unlikely(!ktime_to_us(hba->last_dme_cmd_tstamp))) {
+		min_sleep_time_us = MIN_DELAY_BEFORE_DME_CMDS_US;
+	} else {
+		unsigned long delta =
+			(unsigned long) ktime_to_us(
+				ktime_sub(ktime_get(),
+				hba->last_dme_cmd_tstamp));
+
+		if (delta < MIN_DELAY_BEFORE_DME_CMDS_US)
+			min_sleep_time_us =
+				MIN_DELAY_BEFORE_DME_CMDS_US - delta;
+		else
+			return; /* no more delay required */
+	}
+
+	/* allow sleep for extra 50us if needed */
+	usleep_range(min_sleep_time_us, min_sleep_time_us + 50);
+}
+
+static inline void ufshcd_save_tstamp_of_last_dme_cmd(
+			struct ufs_hba *hba)
+{
+	if (hba->quirks & UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS)
+		hba->last_dme_cmd_tstamp = ktime_get();
+}
+
 /**
  * ufshcd_dme_set_attr - UIC command for DME_SET, DME_PEER_SET
  * @hba: per adapter instance
@@ -3201,16 +3244,11 @@ int ufshcd_dme_set_attr(struct ufs_hba *hba, u32 attr_sel,
 	uic_cmd.argument3 = mib_val;
 
 	do {
-		/* for stability purposes */
-		if (hba->quirks & UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS)
-			usleep_range(1000, 1100);
-
 		/* for peer attributes we retry upon failure */
 		ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
 		if (ret)
 			dev_dbg(hba->dev, "%s: attr-id 0x%x val 0x%x error code %d\n",
 				set, UIC_GET_ATTR_ID(attr_sel), mib_val, ret);
-
 	} while (ret && peer && --retries);
 
 	if (!retries)
@@ -3273,10 +3311,6 @@ int ufshcd_dme_get_attr(struct ufs_hba *hba, u32 attr_sel,
 	uic_cmd.argument1 = attr_sel;
 
 	do {
-		/* for stability purposes */
-		if (hba->quirks & UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS)
-			usleep_range(1000, 1100);
-
 		/* for peer attributes we retry upon failure */
 		ret = ufshcd_send_uic_cmd(hba, &uic_cmd);
 		if (ret)
@@ -3324,6 +3358,7 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 
 	mutex_lock(&hba->uic_cmd_mutex);
 	init_completion(&uic_async_done);
+	ufshcd_add_delay_before_dme_cmd(hba);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->uic_async_done = &uic_async_done;
@@ -3360,6 +3395,7 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 		ret = (status != PWR_OK) ? status : -1;
 	}
 out:
+	ufshcd_save_tstamp_of_last_dme_cmd(hba);
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->uic_async_done = NULL;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);

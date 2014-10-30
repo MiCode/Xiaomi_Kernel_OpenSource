@@ -514,6 +514,7 @@ struct ufshcd_pm_qos {
  * @saved_err: sticky error mask
  * @saved_uic_err: sticky UIC error mask
  * @dev_cmd: ufs device management command information
+ * @last_dme_cmd_tstamp: time stamp of the last completed DME command
  * @auto_bkops_enabled: to track whether bkops is enabled in device
  * @ufs_stats: ufshcd statistics to be used via debugfs
  * @debugfs_files: debugfs files associated with the ufs stats
@@ -635,6 +636,7 @@ struct ufs_hba {
 
 	/* Device management request data */
 	struct ufs_dev_cmd dev_cmd;
+	ktime_t last_dme_cmd_tstamp;
 
 	/* Keeps information of the UFS device connected to this host */
 	struct ufs_dev_info dev_info;
