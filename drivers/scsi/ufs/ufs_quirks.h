@@ -22,7 +22,9 @@
 
 #define MAX_MODEL_LEN 16
 
-#define UFS_VENDOR_TOSHIBA 0x98
+#define UFS_VENDOR_TOSHIBA     0x198
+#define UFS_VENDOR_SAMSUNG     0x1CE
+
 /* UFS TOSHIBA MODELS */
 #define UFS_MODEL_TOSHIBA_32GB "THGLF2G8D4KBADR"
 #define UFS_MODEL_TOSHIBA_64GB "THGLF2G9D8KBADG"
@@ -64,7 +66,13 @@ struct ufs_card_fix {
  * the LCC transmission on UFS host controller (by clearing
  * TX_LCC_ENABLE attribute of host to 0).
  */
-#define UFS_DEVICE_QUIRK_BROKEN_LCC		UFS_BIT(0)
+#define UFS_DEVICE_QUIRK_BROKEN_LCC (1 << 0)
+
+/*
+ * Some UFS devices don't need VCCQ rail for device operations. Enabling this
+ * quirk for such devices will make sure that VCCQ rail is not voted.
+ */
+#define UFS_DEVICE_NO_VCCQ (1 << 1)
 
 struct ufs_hba;
 void ufs_advertise_fixup_device(struct ufs_hba *hba);
