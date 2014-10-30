@@ -50,6 +50,8 @@
 #define WCD9XXX_MBHC_DEF_RLOADS 5
 #define DEFAULT_MCLK_RATE 9600000
 
+#define WCD_MBHC_DEF_RLOADS 5
+
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 
@@ -1057,20 +1059,25 @@ static void *def_msm8x16_wcd_mbhc_cal(void)
 	struct wcd_mbhc_btn_detect_cfg *btn_cfg;
 	u16 *btn_low, *btn_high;
 
-	msm8x16_wcd_cal = kzalloc(WCD_MBHC_CAL_SIZE, GFP_KERNEL);
+	msm8x16_wcd_cal = kzalloc(WCD_MBHC_CAL_SIZE(WCD_MBHC_DEF_BUTTONS,
+				WCD_MBHC_DEF_RLOADS), GFP_KERNEL);
 	if (!msm8x16_wcd_cal) {
 		pr_err("%s: out of memory\n", __func__);
 		return NULL;
 	}
 
-#define S(X, Y) ((WCD_MBHC_CAL_PLUG_DET_PTR(msm8x16_wcd_cal)->X) = (Y))
+#define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(msm8x16_wcd_cal)->X) = (Y))
 	S(v_hs_max, 1500);
 #undef S
+#define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(msm8x16_wcd_cal)->X) = (Y))
+	S(num_btn, WCD_MBHC_DEF_BUTTONS);
+#undef S
+
 
 	btn_cfg = WCD_MBHC_CAL_BTN_DET_PTR(msm8x16_wcd_cal);
-	btn_cfg->num_btn = WCD_MBHC_DEF_BUTTONS;
 	btn_low = btn_cfg->_v_btn_low;
-	btn_high = btn_cfg->_v_btn_high;
+	btn_high = ((void *)&btn_cfg->_v_btn_low) +
+		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
 	/*
 	 * In SW we are maintaining two sets of threshold register

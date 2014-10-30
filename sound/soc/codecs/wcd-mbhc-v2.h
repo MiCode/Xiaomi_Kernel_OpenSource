@@ -13,6 +13,7 @@
 #define __WCD_MBHC_V2_H__
 
 #include <linux/wait.h>
+#include "wcdcal-hwdep.h"
 
 #define TOMBAK_MBHC_NC	0
 #define TOMBAK_MBHC_NO	1
@@ -41,6 +42,33 @@ enum wcd_mbhc_event_state {
 	WCD_MBHC_EVENT_PA_HPHL,
 	WCD_MBHC_EVENT_PA_HPHR,
 };
+struct wcd_mbhc_general_cfg {
+	u8 t_ldoh;
+	u8 t_bg_fast_settle;
+	u8 t_shutdown_plug_rem;
+	u8 mbhc_nsa;
+	u8 mbhc_navg;
+	u8 v_micbias_l;
+	u8 v_micbias;
+	u8 mbhc_reserved;
+	u16 settle_wait;
+	u16 t_micbias_rampup;
+	u16 t_micbias_rampdown;
+	u16 t_supply_bringup;
+} __packed;
+
+struct wcd_mbhc_plug_detect_cfg {
+	u32 mic_current;
+	u32 hph_current;
+	u16 t_mic_pid;
+	u16 t_ins_complete;
+	u16 t_ins_retry;
+	u16 v_removal_delta;
+	u8 micbias_slow_ramp;
+	u8 reserved0;
+	u8 reserved1;
+	u8 reserved2;
+} __packed;
 
 struct wcd_mbhc_plug_type_cfg {
 	u8 av_detect;
@@ -56,9 +84,39 @@ struct wcd_mbhc_plug_type_cfg {
 } __packed;
 
 struct wcd_mbhc_btn_detect_cfg {
+	s8 c[8];
+	u8 nc;
+	u8 n_meas;
+	u8 mbhc_nsc;
+	u8 n_btn_meas;
+	u8 n_btn_con;
 	u8 num_btn;
-	s16 _v_btn_low[WCD_MBHC_DEF_BUTTONS];
-	s16 _v_btn_high[WCD_MBHC_DEF_BUTTONS];
+	u8 reserved0;
+	u8 reserved1;
+	u16 t_poll;
+	u16 t_bounce_wait;
+	u16 t_rel_timeout;
+	s16 v_btn_press_delta_sta;
+	s16 v_btn_press_delta_cic;
+	u16 t_btn0_timeout;
+	s16 _v_btn_low[0]; /* v_btn_low[num_btn] */
+	s16 _v_btn_high[0]; /* v_btn_high[num_btn] */
+	u8 _n_ready[2];
+	u8 _n_cic[2];
+	u8 _gain[2];
+} __packed;
+
+struct wcd_mbhc_imped_detect_cfg {
+	u8 _hs_imped_detect;
+	u8 _n_rload;
+	u8 _hph_keep_on;
+	u8 _repeat_rload_calc;
+	u16 _t_dac_ramp_time;
+	u16 _rhph_high;
+	u16 _rhph_low;
+	u16 _rload[0]; /* rload[n_rload] */
+	u16 _alpha[0]; /* alpha[n_rload] */
+	u16 _beta[3];
 } __packed;
 
 struct wcd_mbhc_config {
@@ -86,6 +144,8 @@ struct wcd_mbhc_cb {
 	void (*compute_impedance) (s16 , s16 , uint32_t *, uint32_t *, bool);
 	void (*set_micbias_value) (struct snd_soc_codec *);
 	void (*set_auto_zeroing) (struct snd_soc_codec *, bool);
+	struct firmware_cal * (*get_hwdep_fw_cal)(struct snd_soc_codec *,
+			enum wcd_cal_type);
 };
 
 struct wcd_mbhc {
@@ -113,6 +173,10 @@ struct wcd_mbhc {
 	bool is_hs_recording;
 
 	struct snd_soc_codec *codec;
+	/* Work to perform MBHC Firmware Read */
+	struct delayed_work mbhc_firmware_dwork;
+	const struct firmware *mbhc_fw;
+	struct firmware_cal *mbhc_cal;
 
 	/* track PA/DAC state to sync with userspace */
 	unsigned long hph_pa_dac_state;
@@ -134,17 +198,57 @@ struct wcd_mbhc {
 	struct work_struct correct_plug_swch;
 	struct notifier_block nblock;
 };
-
-#define WCD_MBHC_CAL_SIZE ( \
+#define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
+	sizeof(struct wcd_mbhc_general_cfg) + \
+	sizeof(struct wcd_mbhc_plug_detect_cfg) + \
+	((sizeof(s16) + sizeof(s16)) * buttons) + \
 	    sizeof(struct wcd_mbhc_plug_type_cfg) + \
-	    sizeof(struct wcd_mbhc_btn_detect_cfg) \
+	sizeof(struct wcd_mbhc_btn_detect_cfg) + \
+	sizeof(struct wcd_mbhc_imped_detect_cfg) + \
+		((sizeof(u16) + sizeof(u16)) * rload) \
 	)
 
+
+#define WCD_MBHC_CAL_GENERAL_PTR(cali) ( \
+	(struct wcd_mbhc_general_cfg *) cali)
 #define WCD_MBHC_CAL_PLUG_DET_PTR(cali) ( \
-	    (struct wcd_mbhc_plug_type_cfg *) cali)
+	(struct wcd_mbhc_plug_detect_cfg *) \
+	&(WCD_MBHC_CAL_GENERAL_PTR(cali)[1]))
+#define WCD_MBHC_CAL_PLUG_TYPE_PTR(cali) ( \
+	(struct wcd_mbhc_plug_type_cfg *) \
+	&(WCD_MBHC_CAL_PLUG_DET_PTR(cali)[1]))
 #define WCD_MBHC_CAL_BTN_DET_PTR(cali) ( \
 	    (struct wcd_mbhc_btn_detect_cfg *) \
-	    &(WCD_MBHC_CAL_PLUG_DET_PTR(cali)[1]))
+	&(WCD_MBHC_CAL_PLUG_TYPE_PTR(cali)[1]))
+#define WCD_MBHC_CAL_IMPED_DET_PTR(cali) ( \
+	(struct wcd_mbhc_imped_detect_cfg *) \
+	(((void *)&WCD_MBHC_CAL_BTN_DET_PTR(cali)[1]) + \
+	(WCD_MBHC_CAL_BTN_DET_PTR(cali)->num_btn * \
+	(sizeof(WCD_MBHC_CAL_BTN_DET_PTR(cali)->_v_btn_low[0]) + \
+	sizeof(WCD_MBHC_CAL_BTN_DET_PTR(cali)->_v_btn_high[0])))) \
+	)
+
+#define WCD_MBHC_CAL_MIN_SIZE ( \
+	sizeof(struct wcd_mbhc_general_cfg) + \
+	sizeof(struct wcd_mbhc_plug_detect_cfg) + \
+	sizeof(struct wcd_mbhc_plug_type_cfg) + \
+	sizeof(struct wcd_mbhc_btn_detect_cfg) + \
+	sizeof(struct wcd_mbhc_imped_detect_cfg) + \
+	(sizeof(u16)*2)  \
+	)
+
+#define WCD_MBHC_CAL_BTN_SZ(cfg_ptr) ( \
+	sizeof(struct wcd_mbhc_btn_detect_cfg) + \
+	(cfg_ptr->num_btn * (sizeof(cfg_ptr->_v_btn_low[0]) + \
+			sizeof(cfg_ptr->_v_btn_high[0]))))
+
+#define WCD_MBHC_CAL_IMPED_MIN_SZ ( \
+	sizeof(struct wcd_mbhc_imped_detect_cfg) + sizeof(u16) * 2)
+
+#define WCD_MBHC_CAL_IMPED_SZ(cfg_ptr) ( \
+	sizeof(struct wcd_mbhc_imped_detect_cfg) + \
+	(cfg_ptr->_n_rload * \
+	(sizeof(cfg_ptr->_rload[0]) + sizeof(cfg_ptr->_alpha[0]))))
 
 int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 		       struct wcd_mbhc_config *mbhc_cfg);
