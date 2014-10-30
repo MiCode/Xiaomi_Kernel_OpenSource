@@ -295,6 +295,8 @@ struct kgsl_cmdbatch_sync_event {
  * @CMDBATCH_FLAG_WFI - Force wait-for-idle for the submission
  * @CMDBATCH_FLAG_PROFILE - store the start / retire ticks for the command batch
  * in the profiling buffer
+ * @CMDBATCH_FLAG_FENCE_LOG - Set if the cmdbatch is dumping fence logs via the
+ * cmdbatch timer - this is used to avoid recursion
  */
 
 enum kgsl_cmdbatch_priv {
@@ -302,6 +304,7 @@ enum kgsl_cmdbatch_priv {
 	CMDBATCH_FLAG_FORCE_PREAMBLE,
 	CMDBATCH_FLAG_WFI,
 	CMDBATCH_FLAG_PROFILE,
+	CMDBATCH_FLAG_FENCE_LOG,
 };
 
 struct kgsl_device {
