@@ -1646,6 +1646,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			return ret;
 	}
 
+	/* Disable core irq */
+	if (dwc->irq)
+		disable_irq(dwc->irq);
+
 	if (mdwc->hs_phy_irq && !mdwc->pwr_event_irq)
 		disable_irq(mdwc->hs_phy_irq);
 
@@ -1885,6 +1889,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	}
 
 	dev_info(mdwc->dev, "DWC3 exited from low power mode\n");
+
+	/* Enable core irq */
+	if (dwc->irq)
+		enable_irq(dwc->irq);
 
 	/*
 	 * Handle other power events that could not have been handled during
