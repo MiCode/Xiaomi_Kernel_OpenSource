@@ -53,11 +53,12 @@ static inline const char *mdss_panel2str(u32 panel)
 		PANEL_NAME(MIPI_CMD),
 		PANEL_NAME(EDP),
 		PANEL_NAME(HDMI),
+		PANEL_NAME(DTV),
 		PANEL_NAME(WRITEBACK),
 #undef PANEL_NAME
 	};
 
-	if (panel >= ARRAY_SIZE(names))
+	if (panel >= ARRAY_SIZE(names) || !names[panel])
 		return "UNKNOWN";
 
 	return names[panel];
