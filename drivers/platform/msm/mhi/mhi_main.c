@@ -861,7 +861,7 @@ enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 	union mhi_xfer_pkt *local_trb_loc;
 	struct mhi_chan_ctxt *chan_ctxt;
 	u32 nr_trb_to_parse;
-	u32 i;
+	u32 i = 0;
 
 	switch (MHI_EV_READ_CODE(EV_TRB_CODE, event)) {
 	case MHI_EVENT_CC_EOB:
@@ -962,7 +962,7 @@ enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 					rp;
 			}
 			i++;
-		} while (i <= nr_trb_to_parse);
+		} while (i < nr_trb_to_parse);
 		break;
 	} /* CC_EOT */
 	case MHI_EVENT_CC_OOB:
