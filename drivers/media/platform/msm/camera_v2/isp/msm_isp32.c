@@ -1442,7 +1442,7 @@ static struct msm_vfe_stats_hardware_info msm_vfe32_stats_hw_info = {
 		1 << MSM_ISP_STATS_SKIN | 1 << MSM_ISP_STATS_BHIST,
 	.stats_ping_pong_offset = stats_pingpong_offset_map,
 	.num_stats_type = VFE32_NUM_STATS_TYPE,
-	.num_stats_comp_mask = 0,
+	.num_stats_comp_mask = 1,
 };
 
 static struct v4l2_subdev_core_ops msm_vfe32_subdev_core_ops = {
