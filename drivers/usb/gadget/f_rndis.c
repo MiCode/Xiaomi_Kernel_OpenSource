@@ -849,59 +849,39 @@ fail:
 	return status;
 }
 
-static void
-rndis_old_unbind(struct usb_configuration *c, struct usb_function *f)
-{
-	struct f_rndis		*rndis = func_to_rndis(f);
-
-	rndis_deregister(rndis->config);
-
-	usb_free_all_descriptors(f);
-
-	kfree(rndis->notify_req->buf);
-	usb_ep_free_request(rndis->notify, rndis->notify_req);
-
-	kfree(rndis);
-}
-
 int
 rndis_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 		u32 vendorID, const char *manufacturer, struct eth_dev *dev)
 {
-	struct f_rndis	*rndis;
-	int		status;
+	struct usb_function_instance *func_inst;
+	struct usb_function *func;
+	struct f_rndis_opts *opts;
+	int status;
 
 	/* allocate and initialize one new instance */
-	status = -ENOMEM;
-	rndis = kzalloc(sizeof *rndis, GFP_KERNEL);
-	if (!rndis)
-		goto fail;
+	func_inst = usb_get_function_instance("rndis");
+	if (IS_ERR(func_inst))
+		return PTR_ERR(func_inst);
 
-	memcpy(rndis->ethaddr, ethaddr, ETH_ALEN);
-	rndis->vendorID = vendorID;
-	rndis->manufacturer = manufacturer;
+	opts =  container_of(func_inst, struct f_rndis_opts, func_inst);
+	opts->vendor_id = vendorID;
+	opts->manufacturer = manufacturer;
 
-	rndis->port.ioport = dev;
-	/* RNDIS activates when the host changes this filter */
-	rndis->port.cdc_filter = 0;
+	func = usb_get_function(func_inst);
+	if (IS_ERR(func)) {
+		status = PTR_ERR(func);
+		goto err_put_func_inst;
+	}
 
-	/* RNDIS has special (and complex) framing */
-	rndis->port.header_len = sizeof(struct rndis_packet_msg_type);
-	rndis->port.wrap = rndis_add_header;
-	rndis->port.unwrap = rndis_rm_hdr;
-
-	rndis->port.func.name = "rndis";
-	/* descriptors are per-instance copies */
-	rndis->port.func.bind = rndis_bind;
-	rndis->port.func.unbind = rndis_old_unbind;
-	rndis->port.func.set_alt = rndis_set_alt;
-	rndis->port.func.setup = rndis_setup;
-	rndis->port.func.disable = rndis_disable;
-
-	status = usb_add_function(c, &rndis->port.func);
+	status = usb_add_function(c, func);
 	if (status)
-		kfree(rndis);
-fail:
+		goto err_put_func;
+	return 0;
+
+err_put_func:
+	usb_put_function(func);
+err_put_func_inst:
+	usb_put_function_instance(func_inst);
 	return status;
 }
 
