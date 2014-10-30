@@ -871,17 +871,20 @@ void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev)
 	update_state = atomic_dec_return(&axi_data->axi_cfg_update);
 }
 
-static void msm_isp_cfg_pong_address(struct vfe_device *vfe_dev,
+static int msm_isp_cfg_pong_address(struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info)
 {
-	int i;
+	int i, rc = -1;
 	struct msm_isp_buffer *buf = stream_info->buf[0];
+	if (!buf)
+		return rc;
 	for (i = 0; i < stream_info->num_planes; i++)
 		vfe_dev->hw_info->vfe_ops.axi_ops.update_ping_pong_addr(
 			vfe_dev, stream_info->wm[i],
 			VFE_PONG_FLAG, buf->mapped_info[i].paddr +
 			stream_info->plane_cfg[i].plane_addr_offset);
 	stream_info->buf[1] = buf;
+	return 0;
 }
 
 static void msm_isp_get_done_buf(struct vfe_device *vfe_dev,
@@ -1200,7 +1203,12 @@ static int msm_isp_init_stream_ping_pong_reg(
 	 */
 	if (stream_info->stream_type == BURST_STREAM &&
 		stream_info->runtime_num_burst_capture <= 1) {
-		msm_isp_cfg_pong_address(vfe_dev, stream_info);
+		rc = msm_isp_cfg_pong_address(vfe_dev, stream_info);
+		if (rc < 0) {
+			pr_err("%s: No free buffer for pong\n",
+				   __func__);
+			return rc;
+		}
 	} else {
 		rc = msm_isp_cfg_ping_pong_address(vfe_dev,
 			stream_info, VFE_PONG_FLAG);
