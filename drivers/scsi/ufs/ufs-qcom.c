@@ -37,6 +37,14 @@ static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
 static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote);
 static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg);
 
+static void ufs_qcom_dump_regs(struct ufs_hba *hba, int offset, int len,
+		char *prefix)
+{
+	print_hex_dump(KERN_ERR, prefix,
+			len > 4 ? DUMP_PREFIX_OFFSET : DUMP_PREFIX_NONE,
+			16, 4, hba->mmio_base + offset, len * 4, false);
+}
+
 static int ufs_qcom_get_connected_tx_lanes(struct ufs_hba *hba, u32 *tx_lanes)
 {
 	int err = 0;
@@ -1261,11 +1269,55 @@ out:
 	return ret;
 }
 
+static void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba)
+{
+	u32 reg;
+
+	ufs_qcom_dump_regs(hba, UFS_UFS_DBG_RD_REG_OCSC, 44,
+			"UFS_UFS_DBG_RD_REG_OCSC ");
+
+	reg = ufshcd_readl(hba, REG_UFS_CFG1);
+	reg |= UFS_BIT(17);
+	ufshcd_writel(hba, reg, REG_UFS_CFG1);
+
+	ufs_qcom_dump_regs(hba, UFS_UFS_DBG_RD_EDTL_RAM, 32,
+			"UFS_UFS_DBG_RD_EDTL_RAM ");
+	ufs_qcom_dump_regs(hba, UFS_UFS_DBG_RD_DESC_RAM, 128,
+			"UFS_UFS_DBG_RD_DESC_RAM ");
+	ufs_qcom_dump_regs(hba, UFS_UFS_DBG_RD_PRDT_RAM, 64,
+			"UFS_UFS_DBG_RD_PRDT_RAM ");
+
+	ufshcd_writel(hba, (reg & ~UFS_BIT(17)), REG_UFS_CFG1);
+
+	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_UAWM, 4,
+			"UFS_DBG_RD_REG_UAWM ");
+	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_UARM, 4,
+			"UFS_DBG_RD_REG_UARM ");
+	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_TXUC, 48,
+			"UFS_DBG_RD_REG_TXUC ");
+	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_RXUC, 27,
+			"UFS_DBG_RD_REG_RXUC ");
+	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_DFC, 19,
+			"UFS_DBG_RD_REG_DFC ");
+	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_TRLUT, 34,
+			"UFS_DBG_RD_REG_TRLUT ");
+	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_TMRLUT, 9,
+			"UFS_DBG_RD_REG_TMRLUT ");
+}
+
+static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
+{
+	ufs_qcom_dump_regs(hba, REG_UFS_SYS1CLK_1US, 5,
+			"REG_UFS_SYS1CLK_1US ");
+
+	ufs_qcom_print_hw_debug_reg_all(hba);
+}
+
 /**
  * struct ufs_hba_qcom_vops - UFS QCOM specific variant operations
  *
  * The variant operations configure the necessary controller and PHY
- * handshake during initializaiton.
+ * handshake during initialization.
  */
 const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.name                   = "qcom",
@@ -1283,5 +1335,6 @@ const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.crypto_engine_eh	= ufs_qcom_crypto_engine_eh,
 	.crypto_engine_get_err	= ufs_qcom_crypto_engine_get_err,
 	.crypto_engine_reset_err = ufs_qcom_crypto_engine_reset_err,
+	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 };
 EXPORT_SYMBOL(ufs_hba_qcom_vops);
