@@ -91,7 +91,8 @@ enum {
 enum {
 	MDSS_PANEL_POWER_OFF = 0,
 	MDSS_PANEL_POWER_ON,
-	MDSS_PANEL_POWER_DOZE,
+	MDSS_PANEL_POWER_LP1,
+	MDSS_PANEL_POWER_LP2,
 };
 
 enum {
@@ -623,13 +624,26 @@ static inline bool mdss_panel_is_power_on(int panel_power_state)
  * @panel_power_state: enum identifying the power state to be checked
  *
  * This function returns true if the panel is in an intermediate low power
- * state where it is still on but not fully interactive. It may still accept
- * commands and display updates but would be operating in a low power mode.
+ * state where it is still on but not fully interactive. It may or may not
+ * accept any commands and display updates.
  */
 static inline bool mdss_panel_is_power_on_lp(int panel_power_state)
 {
 	return !mdss_panel_is_power_off(panel_power_state) &&
 		!mdss_panel_is_power_on_interactive(panel_power_state);
+}
+
+/**
+ * mdss_panel_is_panel_power_on_ulp: - checks if panel is in ultra low power mode
+ * @pdata: pointer to the panel struct associated to the panel
+ * @panel_power_state: enum identifying the power state to be checked
+ *
+ * This function returns true if the panel is in a ultra low power
+ * state where it is still on but cannot recieve any display updates.
+ */
+static inline bool mdss_panel_is_power_on_ulp(int panel_power_state)
+{
+	return panel_power_state == MDSS_PANEL_POWER_LP2;
 }
 
 /**
