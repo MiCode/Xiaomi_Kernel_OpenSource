@@ -122,6 +122,7 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define MAX_AF_CNT_CODE 249
 #define AF_WAIT_SEC 10
 #define MAX_AF_WAIT_SEC 255
+#define AF_PI_WAIT_TIME 50 /* 50*100msec = 5sec */
 /* freqs are divided by 10. */
 #define SCALE_AF_CODE_TO_FREQ_KHZ(x) (87500 + (x*100))
 
