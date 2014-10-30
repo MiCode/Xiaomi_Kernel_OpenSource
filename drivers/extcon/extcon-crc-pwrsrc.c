@@ -32,6 +32,10 @@
 #include <linux/mfd/intel_soc_pmic.h>
 #include <linux/extcon/extcon-crc-pwrsrc.h>
 
+#define CRYSTALCOVE_REVID_REG		0x01
+#define CRYSTALCOVE_REVID_MAJOR_MASK	0xf0
+#define CRYSTALCOVE_REV_A		0xA0
+#define CRYSTALCOVE_REV_B		0xB0
 #define CRYSTALCOVE_PWRSRCIRQ_REG	0x03
 #define CRYSTALCOVE_MPWRSRCIRQS0_REG	0x0F
 #define CRYSTALCOVE_MPWRSRCIRQSX_REG	0x10
@@ -44,7 +48,9 @@
 #define PWRSRC_DCIN_DET			(1 << 1)
 #define PWRSRC_BAT_DET			(1 << 2)
 
-#define CRYSTALCOVE_VBUSCNTL_REG	0x6C
+#define CRYSTALCOVE_VBUSCNTL_REG_REV_A	0x6C
+#define CRYSTALCOVE_VBUSCNTL_REG_REV_B	0x61
+
 #define VBUSCNTL_EN			(1 << 0)
 #define VBUSCNTL_SEL			(1 << 1)
 
@@ -60,7 +66,7 @@
  */
 #define EXTCON_CABLE_SDP		"CHARGER_USB_SDP"
 
-static const char *byt_extcon_cable[] = {
+static const char *supported_cable[] = {
 	PWRSRC_EXTCON_CABLE_AC,
 	PWRSRC_EXTCON_CABLE_USB,
 	NULL,
@@ -72,6 +78,8 @@ struct pwrsrc_info {
 	struct usb_phy *otg;
 	struct extcon_dev *edev;
 	struct notifier_block	nb;
+	int num_chgdet_dev; /* device capable of detecting charger type */
+	u8 vbus_cnt_reg;
 };
 
 static char *pwrsrc_resetsrc0_info[] = {
@@ -129,18 +137,28 @@ static void crystalcove_pwrsrc_log_rsi(struct platform_device *pdev,
  */
 int crystal_cove_enable_vbus(void)
 {
-	int ret;
+	int ret, reg;
 
-	ret = intel_soc_pmic_writeb(CRYSTALCOVE_VBUSCNTL_REG, 0x03);
+	ret = intel_soc_pmic_readb(CRYSTALCOVE_REVID_REG);
+	if ((ret & CRYSTALCOVE_REVID_MAJOR_MASK) == CRYSTALCOVE_REV_A)
+		reg = CRYSTALCOVE_VBUSCNTL_REG_REV_A;
+	else
+		reg = CRYSTALCOVE_VBUSCNTL_REG_REV_B;
+	ret = intel_soc_pmic_writeb(reg, 0x03);
 	return ret;
 }
 EXPORT_SYMBOL(crystal_cove_enable_vbus);
 
 int crystal_cove_disable_vbus(void)
 {
-	int ret;
+	int ret, reg;
 
-	ret = intel_soc_pmic_writeb(CRYSTALCOVE_VBUSCNTL_REG, 0x02);
+	ret = intel_soc_pmic_readb(CRYSTALCOVE_REVID_REG);
+	if ((ret & CRYSTALCOVE_REVID_MAJOR_MASK) == CRYSTALCOVE_REV_A)
+		reg = CRYSTALCOVE_VBUSCNTL_REG_REV_A;
+	else
+		reg = CRYSTALCOVE_VBUSCNTL_REG_REV_B;
+	ret = intel_soc_pmic_writeb(reg, 0x02);
 	return ret;
 }
 EXPORT_SYMBOL(crystal_cove_disable_vbus);
@@ -182,8 +200,9 @@ static void handle_pwrsrc_event(struct pwrsrc_info *info, int pwrsrcirq)
 				extcon_set_cable_state(info->edev,
 						PWRSRC_EXTCON_CABLE_USB, false);
 		}
-		/* notify OTG driver */
-		if (info->otg)
+		/* notify OTG driver for VBUS if charger detecion devices are
+		 * not registered */
+		if (info->otg && !info->num_chgdet_dev)
 			atomic_notifier_call_chain(&info->otg->notifier,
 				mask ? USB_EVENT_VBUS : USB_EVENT_NONE, NULL);
 	} else if (pwrsrcirq & PWRSRC_DCIN_DET) {
@@ -238,8 +257,9 @@ static int pwrsrc_extcon_dev_reg_callback(struct notifier_block *nb,
 {
 	struct pwrsrc_info *info = container_of(nb, struct pwrsrc_info, nb);
 
-	/* check if there is other extcon cables */
-	if (extcon_num_of_cable_devs(EXTCON_CABLE_SDP)) {
+	/* check if devices capable of charger dection are registered */
+	info->num_chgdet_dev = extcon_num_of_cable_devs(EXTCON_CABLE_SDP);
+	if (info->num_chgdet_dev) {
 		dev_info(&info->pdev->dev, "unregistering otg device\n");
 		/* Send VBUS disconnect as another cable detection
 		 * driver registered to extcon framework and notifies
@@ -248,7 +268,7 @@ static int pwrsrc_extcon_dev_reg_callback(struct notifier_block *nb,
 			atomic_notifier_call_chain(&info->otg->notifier,
 					USB_EVENT_NONE, NULL);
 		/* Set VBUS supply mode to SW control mode */
-		intel_soc_pmic_writeb(CRYSTALCOVE_VBUSCNTL_REG, 0x02);
+		intel_soc_pmic_writeb(info->vbus_cnt_reg, 0x02);
 		if (info->nb.notifier_call) {
 			extcon_dev_unregister_notify(&info->nb);
 			info->nb.notifier_call = NULL;
@@ -273,8 +293,8 @@ static int pwrsrc_extcon_registration(struct pwrsrc_info *info)
 		ret = -ENOMEM;
 		goto pwrsrc_extcon_fail;
 	}
-	info->edev->name = "BYT-Charger";
-	info->edev->supported_cable = byt_extcon_cable;
+	info->edev->name = "crc-pwrsrc";
+	info->edev->supported_cable = supported_cable;
 	ret = extcon_dev_register(info->edev);
 	if (ret) {
 		dev_err(&info->pdev->dev, "extcon registration failed!!\n");
@@ -282,14 +302,16 @@ static int pwrsrc_extcon_registration(struct pwrsrc_info *info)
 		goto pwrsrc_extcon_fail;
 	}
 
-	if (extcon_num_of_cable_devs(EXTCON_CABLE_SDP)) {
+	/* check if devices capable of charger dection are registered */
+	info->num_chgdet_dev = extcon_num_of_cable_devs(EXTCON_CABLE_SDP);
+	if (info->num_chgdet_dev) {
 		dev_info(&info->pdev->dev,
-			"extcon device is already registered\n");
+			"extcon chrg detection device is already registered\n");
 		/* Set VBUS supply mode to SW control mode */
-		intel_soc_pmic_writeb(CRYSTALCOVE_VBUSCNTL_REG, 0x02);
+		intel_soc_pmic_writeb(info->vbus_cnt_reg, 0x02);
 	} else {
 		/* Workaround: Set VBUS supply mode to HW control mode */
-		intel_soc_pmic_writeb(CRYSTALCOVE_VBUSCNTL_REG, 0x00);
+		intel_soc_pmic_writeb(info->vbus_cnt_reg, 0x00);
 
 		/* OTG notification */
 		info->otg = usb_get_phy(USB_PHY_TYPE_USB2);
@@ -323,6 +345,12 @@ static int crystalcove_pwrsrc_probe(struct platform_device *pdev)
 	info->pdev = pdev;
 	info->irq = platform_get_irq(pdev, 0);
 	platform_set_drvdata(pdev, info);
+
+	ret = intel_soc_pmic_readb(CRYSTALCOVE_REVID_REG);
+	if ((ret & CRYSTALCOVE_REVID_MAJOR_MASK) == CRYSTALCOVE_REV_A)
+		info->vbus_cnt_reg = CRYSTALCOVE_VBUSCNTL_REG_REV_A;
+	else
+		info->vbus_cnt_reg = CRYSTALCOVE_VBUSCNTL_REG_REV_B;
 
 	/* Log reason for last reset and wake events */
 	crystalcove_pwrsrc_log_rsi(pdev, pwrsrc_resetsrc0_info,
