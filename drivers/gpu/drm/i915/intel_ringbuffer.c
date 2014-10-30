@@ -2120,6 +2120,8 @@ static int intel_init_ring_buffer(struct drm_device *dev,
 	ring->dev = dev;
 	INIT_LIST_HEAD(&ring->active_list);
 	INIT_LIST_HEAD(&ring->request_list);
+	spin_lock_init(&ring->reqlist_lock);
+	INIT_LIST_HEAD(&ring->delayed_free_list);
 	INIT_LIST_HEAD(&ring->execlist_queue);
 	ringbuf->size = 32 * PAGE_SIZE;
 	ringbuf->ring = ring;

@@ -1751,7 +1751,9 @@ static int logical_ring_init(struct drm_device *dev, struct intel_engine_cs *rin
 	ring->dev = dev;
 	INIT_LIST_HEAD(&ring->active_list);
 	INIT_LIST_HEAD(&ring->request_list);
+	spin_lock_init(&ring->reqlist_lock);
 	init_waitqueue_head(&ring->irq_queue);
+	INIT_LIST_HEAD(&ring->delayed_free_list);
 
 	INIT_LIST_HEAD(&ring->execlist_queue);
 	INIT_LIST_HEAD(&ring->execlist_retired_req_list);

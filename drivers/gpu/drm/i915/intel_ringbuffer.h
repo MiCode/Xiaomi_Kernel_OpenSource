@@ -272,6 +272,8 @@ struct intel_engine_cs {
 	 * outstanding.
 	 */
 	struct list_head request_list;
+	spinlock_t reqlist_lock;
+	struct list_head delayed_free_list;
 
 	/**
 	 * Do we have some not yet emitted requests outstanding?

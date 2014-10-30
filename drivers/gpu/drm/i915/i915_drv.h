@@ -2106,6 +2106,10 @@ struct drm_i915_gem_request {
 	struct drm_i915_file_private *file_priv;
 	/** file_priv list entry for this request */
 	struct list_head client_list;
+
+	/** deferred free list for dereferencing from IRQ context */
+	struct list_head delay_free_list;
+	uint32_t delay_free_count;
 };
 
 void i915_gem_request_free(struct kref *req_ref);
@@ -2134,6 +2138,8 @@ i915_gem_request_unreference(struct drm_i915_gem_request *req)
 	WARN_ON(!mutex_is_locked(&req->ring->dev->struct_mutex));
 	kref_put(&req->ref, i915_gem_request_free);
 }
+
+void i915_gem_request_unreference_irq(struct drm_i915_gem_request *req);
 
 static inline void i915_gem_request_assign(struct drm_i915_gem_request **pdst,
 					   struct drm_i915_gem_request *src)

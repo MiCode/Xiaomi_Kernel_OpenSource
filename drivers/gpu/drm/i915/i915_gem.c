@@ -2788,6 +2788,19 @@ void i915_gem_reset(struct drm_device *dev)
 	i915_gem_restore_fences(dev);
 }
 
+void i915_gem_request_unreference_irq(struct drm_i915_gem_request *req)
+{
+	struct intel_engine_cs *ring = req->ring;
+	unsigned long flags;
+
+	/* Need to add the req to a deferred dereference list to be processed
+	 * outside of interrupt time */
+	spin_lock_irqsave(&ring->reqlist_lock, flags);
+	if (req->delay_free_count++ == 0)
+		list_add_tail(&req->delay_free_list, &ring->delayed_free_list);
+	spin_unlock_irqrestore(&ring->reqlist_lock, flags);
+}
+
 /**
  * This function clears the request list as sequence numbers are passed.
  */
@@ -2860,6 +2873,25 @@ i915_gem_retire_requests_ring(struct intel_engine_cs *ring)
 		     i915_seqno_passed(seqno, ring->trace_irq_seqno))) {
 		ring->irq_put(ring);
 		ring->trace_irq_seqno = 0;
+	}
+
+	while (!list_empty(&ring->delayed_free_list)) {
+		struct drm_i915_gem_request *request;
+		unsigned long flags;
+		uint32_t count;
+
+		request = list_first_entry(&ring->delayed_free_list,
+					   struct drm_i915_gem_request,
+					   delay_free_list);
+
+		spin_lock_irqsave(&request->ring->reqlist_lock, flags);
+		list_del(&request->delay_free_list);
+		count = request->delay_free_count;
+		request->delay_free_count = 0;
+		spin_unlock_irqrestore(&request->ring->reqlist_lock, flags);
+
+		while (count-- > 0)
+			i915_gem_request_unreference(request);
 	}
 
 	WARN_ON(i915_verify_lists(ring->dev));
@@ -5195,6 +5227,7 @@ init_ring_lists(struct intel_engine_cs *ring)
 {
 	INIT_LIST_HEAD(&ring->active_list);
 	INIT_LIST_HEAD(&ring->request_list);
+	INIT_LIST_HEAD(&ring->delayed_free_list);
 }
 
 void i915_init_vm(struct drm_i915_private *dev_priv,
