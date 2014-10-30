@@ -115,6 +115,7 @@ struct ufs_qcom_phy_vreg {
 	int min_uV;
 	int max_uV;
 	bool enabled;
+	bool is_always_on;
 };
 
 static inline void
@@ -202,5 +203,7 @@ struct ufs_qcom_host {
 #define VDDA_PHY_MAX_UV            1000000
 #define VDDA_PLL_MIN_UV            1800000
 #define VDDA_PLL_MAX_UV            1800000
+#define VDDP_REF_CLK_MIN_UV        1200000
+#define VDDP_REF_CLK_MAX_UV        1200000
 
 #endif /* UFS_QCOM_H_ */
