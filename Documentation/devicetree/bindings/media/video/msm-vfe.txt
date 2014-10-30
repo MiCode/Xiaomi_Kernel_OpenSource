@@ -28,7 +28,10 @@ Required properties:
 - ds-settings: danger/safe values to be written to registers (optional)
   NOTE: For all qos*, vbif*, ds* parameters, same SoC can have different
   hardware versions with different entries/registers/settings. They can be
-  specified by adding version to the string e.g. qos-v2-settings.
+  specified by adding version to the string e.g. qos-v2-settings. Also
+  different SoC can have same hardware version and still different QOS, VBIF,
+  and DS parameters. In this case they are exported if separate SoC version
+  specific dts files.
 
 Example:
 
@@ -80,3 +83,44 @@ Example:
                 0x44441111 0x44441111 0x44441111
                 0x44441111 0x00000103>;
    };
+
+In version specific file one needs to move only entries that differ between
+SoC versions with same VFE HW version:
+
+	&vfe0 {
+		qos-entries = <8>;
+		qos-regs = <0x378 0x37C 0x380 0x384 0x388 0x38C
+				0x390 0x394>;
+		qos-settings = <0xAAA9AAA9
+			0xAAA9AAA9
+			0xAAA9AAA9
+			0xAAA9AAA9
+			0xAAA9AAA9
+			0xAAA9AAA9
+			0xAAA9AAA9
+			0x0001AAA9>;
+		vbif-entries = <1>;
+		vbif-regs = <0x124>;
+		vbif-settings = <0x3>;
+		ds-entries = <17>;
+		ds-regs = <0xBD8 0xBDC 0xBE0 0xBE4 0xBE8
+			0xBEC 0xBF0 0xBF4 0xBF8 0xBFC 0xC00
+			0xC04 0xC08 0xC0C 0xC10 0xC14 0xC18>;
+		ds-settings = <0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x44441111
+			0x00000103>;
+	};
