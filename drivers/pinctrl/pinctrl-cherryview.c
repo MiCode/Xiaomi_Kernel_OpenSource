@@ -25,9 +25,6 @@
 #include <linux/seq_file.h>
 #include <linux/io.h>
 #include <linux/pnp.h>
-#include "pinctrl-cherryview.h"
-
-#define GPIO_PATH_MAX	64
 
 #define FAMILY0_PAD_REGS_OFF	0x4400
 #define FAMILY_PAD_REGS_SIZE	0x400
@@ -65,6 +62,244 @@
 #define PAD_CFG_LOCKED(offset)	(chv_readl(chv_gpio_reg(&cg->chip,	\
 				offset, CV_PADCTRL1_REG)) & CV_CFG_LOCK_MASK)
 
+/*northeast pin list*/
+enum {
+	MF_PLT_CLK0 = 0,
+	PWM1 = 1,
+	MF_PLT_CLK1 = 2,
+	MF_PLT_CLK4 = 3,
+	MF_PLT_CLK3 = 4,
+	PWM0 = 5,
+	MF_PLT_CLK5 = 6,
+	MF_PLT_CLK2 = 7,
+
+	SDMMC2_D3_CD_B = 15,
+	SDMMC1_CLK = 16,
+	SDMMC1_D0 = 17,
+	SDMMC2_D1 = 18,
+	SDMMC2_CLK = 19,
+	SDMMC1_D2 = 20,
+	SDMMC2_D2 = 21,
+	SDMMC2_CMD = 22,
+	SDMMC1_CMD = 23,
+	SDMMC1_D1 = 24,
+	SDMMC2_D0 = 25,
+	SDMMC1_D3_CD_B = 26,
+
+	SDMMC3_D1 = 30,
+	SDMMC3_CLK = 31,
+	SDMMC3_D3 = 32,
+	SDMMC3_D2 = 33,
+	SDMMC3_CMD = 34,
+	SDMMC3_D0 = 35,
+
+	MF_LPC_AD2 = 45,
+	LPC_CLKRUNB = 46,
+	MF_LPC_AD0 = 47,
+	LPC_FRAMEB = 48,
+	MF_LPC_CLKOUT1 = 49,
+	MF_LPC_AD3 = 50,
+	MF_LPC_CLKOUT0 = 51,
+	MF_LPC_AD1 = 52,
+
+	SPI1_MISO = 60,
+	SPI1_CSO_B = 61,
+	SPI1_CLK = 62,
+	MMC1_D6 = 63,
+	SPI1_MOSI = 64,
+	MMC1_D5 = 65,
+	SPI1_CS1_B = 66,
+	MMC1_D4_SD_WE = 67,
+	MMC1_D7 = 68,
+	MMC1_RCLK = 69,
+
+	USB_OC1_B = 75,
+	PMU_RESETBUTTON_B = 76,
+	GPIO_ALERT = 77,
+	SDMMC3_PWR_EN_B = 78,
+	ILB_SERIRQ = 79,
+	USB_OC0_B = 80,
+	SDMMC3_CD_B = 81,
+	SPKR = 82,
+	SUSPWRDNACK = 83,
+	SPARE_PIN = 84,
+	SDMMC3_1P8_EN = 85,
+};
+
+/*north pin list*/
+enum {
+	GPIO_DFX_0 = 0,
+	GPIO_DFX_3 = 1,
+	GPIO_DFX_7 = 2,
+	GPIO_DFX_1 = 3,
+	GPIO_DFX_5 = 4,
+	GPIO_DFX_4 = 5,
+	GPIO_DFX_8 = 6,
+	GPIO_DFX_2 = 7,
+	GPIO_DFX_6 = 8,
+
+	GPIO_SUS0 = 15,
+	SEC_GPIO_SUS10 = 16,
+	GPIO_SUS3 = 17,
+	GPIO_SUS7 = 18,
+	GPIO_SUS1 = 19,
+	GPIO_SUS5 = 20,
+	SEC_GPIO_SUS11 = 21,
+	GPIO_SUS4 = 22,
+	SEC_GPIO_SUS8 = 23,
+	GPIO_SUS2 = 24,
+	GPIO_SUS6 = 25,
+	CX_PREQ_B = 26,
+	SEC_GPIO_SUS9 = 27,
+
+	TRST_B = 30,
+	TCK = 31,
+	PROCHOT_B = 32,
+	SVIDO_DATA = 33,
+	TMS = 34,
+	CX_PRDY_B_2 = 35,
+	TDO_2 = 36,
+	CX_PRDY_B = 37,
+	SVIDO_ALERT_B = 38,
+	TDO = 39,
+	SVIDO_CLK = 40,
+	TDI = 41,
+
+	GP_CAMERASB_05 = 45,
+	GP_CAMERASB_02 = 46,
+	GP_CAMERASB_08 = 47,
+	GP_CAMERASB_00 = 48,
+	GP_CAMERASB_06 = 49,
+	GP_CAMERASB_10 = 50,
+	GP_CAMERASB_03 = 51,
+	GP_CAMERASB_09 = 52,
+	GP_CAMERASB_01 = 53,
+	GP_CAMERASB_07 = 54,
+	GP_CAMERASB_11 = 55,
+	GP_CAMERASB_04 = 56,
+
+	PANEL0_BKLTEN = 60,
+	HV_DDI0_HPD = 61,
+	HV_DDI2_DDC_SDA = 62,
+	PANEL1_BKLTCTL = 63,
+	HV_DDI1_HPD = 64,
+	PANEL0_BKLTCTL = 65,
+	HV_DDI0_DDC_SDA = 66,
+	HV_DDI2_DDC_SCL = 67,
+	HV_DDI2_HPD = 68,
+	PANEL1_VDDEN = 69,
+	PANEL1_BKLTEN = 70,
+	HV_DDI0_DDC_SCL = 71,
+	PANEL0_VDDEN = 72,
+};
+
+/*east pin list*/
+enum {
+	PMU_SLP_S3_B = 0,
+	PMU_BATLOW_B = 1,
+	SUS_STAT_B = 2,
+	PMU_SLP_S0IX_B = 3,
+	PMU_AC_PRESENT = 4,
+	PMU_PLTRST_B = 5,
+	PMU_SUSCLK = 6,
+	PMU_SLP_LAN_B = 7,
+	PMU_PWRBTN_B = 8,
+	PMU_SLP_S4_B = 9,
+	PMU_WAKE_B = 10,
+	PMU_WAKE_LAN_B = 11,
+
+	MF_ISH_GPIO_3 = 15,
+	MF_ISH_GPIO_7 = 16,
+	MF_ISH_I2C1_SCL = 17,
+	MF_ISH_GPIO_1 = 18,
+	MF_ISH_GPIO_5 = 19,
+	MF_ISH_GPIO_9 = 20,
+	MF_ISH_GPIO_0 = 21,
+	MF_ISH_GPIO_4 = 22,
+	MF_ISH_GPIO_8 = 23,
+	MF_ISH_GPIO_2 = 24,
+	MF_ISH_GPIO_6 = 25,
+	MF_ISH_I2C1_SDA = 26,
+};
+
+/*southwest pin list*/
+enum {
+	FST_SPI_D2 = 0,
+	FST_SPI_D0 = 1,
+	FST_SPI_CLK = 2,
+	FST_SPI_D3 = 3,
+	FST_SPI_CS1_B = 4,
+	FST_SPI_D1 = 5,
+	FST_SPI_CS0_B = 6,
+	FST_SPI_CS2_B = 7,
+
+	UART1_RTS_B = 15,
+	UART1_RXD = 16,
+	UART2_RXD = 17,
+	UART1_CTS_B = 18,
+	UART2_RTS_B = 19,
+	UART1_TXD = 20,
+	UART2_TXD = 21,
+	UART2_CTS_B = 22,
+
+	MF_HDA_CLK = 30,
+	MF_HDA_RSTB = 31,
+	MF_HDA_SDIO = 32,
+	MF_HDA_SDO = 33,
+	MF_HDA_DOCKRSTB = 34,
+	MF_HDA_SYNC = 35,
+	MF_HDA_SDI1 = 36,
+	MF_HDA_DOCKENB = 37,
+
+	I2C5_SDA = 45,
+	I2C4_SDA = 46,
+
+	I2C6_SDA = 49,
+	I2C5_SCL = 50,
+	I2C_NFC_SDA = 51,
+	I2C4_SCL = 52,
+	I2C6_SCL = 53,
+	I2C_NFC_SCL = 54,
+
+	I2C1_SDA = 60,
+	I2C0_SDA = 61,
+	I2C2_SDA = 62,
+	I2C1_SCL = 63,
+	I2C3_SDA = 64,
+	I2C0_SCL = 65,
+	I2C2_SCL = 66,
+	I2C3_SCL = 67,
+
+	SATA_GP0 = 75,
+	SATA_GP1 = 76,
+	SATA_LEDN = 77,
+	SATA_GP2 = 78,
+	MF_SMB_ALERTB = 79,
+	SATA_GP3 = 80,
+	MF_SMB_CLK = 81,
+	MF_SMB_DATA = 82,
+
+	PCIE_CLKREQ0B = 90,
+	PCIE_CLKREQ1B = 91,
+	GP_SSP_2_CLK = 92,
+	PCIE_CLKREQ2B = 93,
+	GP_SSP_2_RXD = 94,
+	PCIE_CLKREQ3B = 95,
+	GP_SSP_2_FS = 96,
+	GP_SSP_2_TXD = 97,
+};
+
+enum {
+	VIRTUAL0,
+	VIRTUAL1,
+	VIRTUAL2,
+	VIRTUAL3,
+	VIRTUAL4,
+	VIRTUAL5,
+	VIRTUAL6,
+	VIRTUAL7,
+};
+
 enum INTR_CFG {
 	CV_INTR_DISABLE,
 	CV_TRIG_EDGE_FALLING,
@@ -84,8 +319,6 @@ struct gpio_pad_info {
 
 struct gpio_bank_pnp {
 	char			*name;
-	int			gpio_base;
-	int			irq_base;
 	int			ngpio;
 	struct gpio_pad_info	*pads_info;
 	struct chv_gpio		 *cg;
@@ -94,7 +327,7 @@ struct gpio_bank_pnp {
 /* For invalid GPIO number(not found in GPIO list),
  * initialize all fields as -1.
  */
-static struct gpio_pad_info north_pads_info[CV_NGPIO_NORTH] = {
+static struct gpio_pad_info north_pads_info[] = {
 	/*0~14*/
 	[GPIO_DFX_0]		= { 0,		0,	-1 },
 	[GPIO_DFX_3]		= { 0,		1,	-1 },
@@ -179,7 +412,7 @@ static struct gpio_pad_info north_pads_info[CV_NGPIO_NORTH] = {
 	[PANEL0_VDDEN]		= { 4,		12,	-1 },
 };
 
-static struct gpio_pad_info southeast_pads_info[CV_NGPIO_SOUTHEAST] = {
+static struct gpio_pad_info southeast_pads_info[] = {
 	/*0~14*/
 	[MF_PLT_CLK0]		= { 0,		0,	-1 },
 	[PWM1]				= { 0,		1,	-1 },
@@ -278,7 +511,7 @@ static struct gpio_pad_info southeast_pads_info[CV_NGPIO_SOUTHEAST] = {
 	[SDMMC3_1P8_EN]		= { 5,		10,	-1 },
 };
 
-static struct gpio_pad_info east_pads_info[CV_NGPIO_EAST] = {
+static struct gpio_pad_info east_pads_info[] = {
 	/*0~14*/
 	[PMU_SLP_S3_B]		= { 0,		0,	-1 },
 	[PMU_BATLOW_B]		= { 0,		1,	-1 },
@@ -311,7 +544,7 @@ static struct gpio_pad_info east_pads_info[CV_NGPIO_EAST] = {
 	[MF_ISH_I2C1_SDA]	= { 1,		11,	-1 },
 };
 
-static struct gpio_pad_info southwest_pads_info[CV_NGPIO_SOUTHWEST] = {
+static struct gpio_pad_info southwest_pads_info[] = {
 	/*0~14*/
 	[FST_SPI_D2]		= { 0,		0,	-1 },
 	[FST_SPI_D0]		= { 0,		1,	-1 },
@@ -425,7 +658,7 @@ static struct gpio_pad_info southwest_pads_info[CV_NGPIO_SOUTHWEST] = {
 	[GP_SSP_2_TXD]		= { 6,		7,	-1 },
 };
 
-static struct gpio_pad_info virtual_pads_info[CV_NGPIO_VIRTUAL] = {
+static struct gpio_pad_info virtual_pads_info[] = {
 	[VIRTUAL0]		= { 0,		0,	-1 },
 	[VIRTUAL1]		= { 0,		1,	-1 },
 	[VIRTUAL2]		= { 0,		2,	-1 },
@@ -439,37 +672,27 @@ static struct gpio_pad_info virtual_pads_info[CV_NGPIO_VIRTUAL] = {
 static struct gpio_bank_pnp chv_banks_pnp[] = {
 	{
 		.name = "GPO0",
-		.gpio_base = CV_GPIO_SOUTHWEST_BASE,
-		.irq_base = CV_GPIO_SOUTHWEST_IRQBASE,
-		.ngpio = CV_NGPIO_SOUTHWEST,
+		.ngpio = ARRAY_SIZE(southwest_pads_info),
 		.pads_info = southwest_pads_info,
 	},
 	{
 		.name = "GPO1",
-		.gpio_base = CV_GPIO_NORTH_BASE,
-		.irq_base = CV_GPIO_NORTH_IRQBASE,
-		.ngpio = CV_NGPIO_NORTH,
+		.ngpio = ARRAY_SIZE(north_pads_info),
 		.pads_info = north_pads_info,
 	},
 	{
 		.name = "GPO2",
-		.gpio_base = CV_GPIO_EAST_BASE,
-		.irq_base = CV_GPIO_EAST_IRQBASE,
-		.ngpio = CV_NGPIO_EAST,
+		.ngpio = ARRAY_SIZE(east_pads_info),
 		.pads_info = east_pads_info,
 	},
 	{
 		.name = "GPO3",
-		.gpio_base = CV_GPIO_SOUTHEAST_BASE,
-		.irq_base = CV_GPIO_SOUTHEAST_IRQBASE,
-		.ngpio = CV_NGPIO_SOUTHEAST,
+		.ngpio = ARRAY_SIZE(southeast_pads_info),
 		.pads_info = southeast_pads_info,
 	},
 	{
 		.name = "GPO4",
-		.gpio_base = CV_GPIO_VIRTUAL_BASE,
-		.irq_base = CV_GPIO_VIRTUAL_IRQBASE,
-		.ngpio = CV_NGPIO_VIRTUAL,
+		.ngpio = ARRAY_SIZE(virtual_pads_info),
 		.pads_info = virtual_pads_info,
 	},
 };
@@ -481,7 +704,6 @@ struct chv_gpio {
 	void __iomem		*reg_base;
 	struct gpio_pad_info	*pad_info;
 	struct irq_domain	*domain;
-	int			irq_base;
 	int			intr_lines[MAX_INTR_LINE_NUM];
 };
 
@@ -903,7 +1125,6 @@ static int chv_gpio_irq_map(struct irq_domain *d, unsigned int virq,
 
 static const struct irq_domain_ops chv_gpio_irq_ops = {
 	.map = chv_gpio_irq_map,
-	.xlate = irq_domain_xlate_twocell,
 };
 
 static int
@@ -930,7 +1151,6 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 		if (!strcmp(pdev->name, bank->name)) {
 			cg->chip.ngpio = bank->ngpio;
 			cg->pad_info = bank->pads_info;
-			cg->irq_base = bank->irq_base;
 			bank->cg = cg;
 			break;
 		}
@@ -973,7 +1193,7 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 	gc->get = chv_gpio_get;
 	gc->set = chv_gpio_set;
 	gc->to_irq = chv_gpio_to_irq;
-	gc->base = bank->gpio_base;
+	gc->base = -1;
 	gc->can_sleep = 0;
 	gc->dev = dev;
 
@@ -981,9 +1201,8 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 	for (i = 0; i < MAX_INTR_LINE_NUM; i++)
 		cg->intr_lines[i] = -1;
 
-	cg->domain = irq_domain_add_simple(pdev->dev.of_node,
-			cg->chip.ngpio, cg->irq_base,
-			&chv_gpio_irq_ops, cg);
+	cg->domain = irq_domain_add_linear(NULL,
+			cg->chip.ngpio, &chv_gpio_irq_ops, cg);
 	if (!cg->domain) {
 		ret = -ENOMEM;
 		goto err;
