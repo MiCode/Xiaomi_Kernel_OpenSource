@@ -1208,6 +1208,16 @@
 		compatible = "qcom,msm-pcm-routing";
 	};
 
+	qcom,memshare {
+		compatible = "qcom,memshare";
+
+		qcom,client_1 {
+			compatible = "qcom,memshare-peripheral";
+			qcom,peripheral-size = <2097152>;
+			label = "modem";
+		};
+	};
+
 	pcm1: qcom,msm-pcm-low-latency {
 		compatible = "qcom,msm-pcm-dsp";
 		qcom,msm-pcm-dsp-id = <1>;

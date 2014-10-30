@@ -559,7 +559,7 @@
 		compatible = "qcom,memshare";
 
 		qcom,client_1 {
-			compatible = "memshare,peripheral";
+			compatible = "qcom,memshare-peripheral";
 			qcom,peripheral-size = <2097152>;
 			label = "modem";
 		};
