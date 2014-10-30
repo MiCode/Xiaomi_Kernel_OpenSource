@@ -17,10 +17,15 @@
 #include <linux/kernel.h>
 #include <linux/devfreq.h>
 
+enum request_group {
+	HIGH,
+	MED,
+	LOW,
+	MAX_NUM_GROUPS,
+};
+
 struct mrps_stats {
-	unsigned long high;
-	unsigned long med;
-	unsigned long low;
+	unsigned long mrps[MAX_NUM_GROUPS];
 	unsigned int busy_percent;
 };
 
