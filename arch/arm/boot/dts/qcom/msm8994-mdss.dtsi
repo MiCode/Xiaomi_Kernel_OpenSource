@@ -218,6 +218,7 @@
 
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
 		qcom,mmss-phyreset-ctrl-offset = <0x108>;
+		qcom,timing-db-mode;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -331,6 +332,7 @@
 
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
 		qcom,mmss-phyreset-ctrl-offset = <0x108>;
+		qcom,timing-db-mode;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
