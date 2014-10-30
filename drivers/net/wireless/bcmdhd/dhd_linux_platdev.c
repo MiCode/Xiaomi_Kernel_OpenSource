@@ -393,7 +393,7 @@ int wifi_platform_set_power(wifi_adapter_info_t *adapter, bool on, unsigned long
 		err = plat_data->set_power(on);
 	}
 
-#ifdef CONFIG_ACPI
+#if defined(CONFIG_ACPI) && defined(BCMSDIO)
 	dev = bus_find_device(&platform_bus_type, NULL, bcm_acpi_id, wifi_acpi_match);
 	pdev = to_platform_device(dev);
 	if (ACPI_HANDLE(&pdev->dev)) {
