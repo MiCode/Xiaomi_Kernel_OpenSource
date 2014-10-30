@@ -191,8 +191,6 @@ struct blk_dev_test_type {
  *			new BIOs.
  * @start_sector:	The address of the first sector that can
  *			be accessed by the test
- * @timeout_timer:	A timer to verify test completion in
- *			case of non-completed requests
  * @wr_rd_next_req_id:	A unique ID to identify WRITE/READ
  *			request to ease the debugging of the
  *			test cases
@@ -225,7 +223,6 @@ struct test_data {
 	struct request_queue *req_q;
 	int num_of_write_bios;
 	u32 start_sector;
-	struct timer_list timeout_timer;
 	int wr_rd_next_req_id;
 	int unique_next_req_id;
 	spinlock_t lock;
