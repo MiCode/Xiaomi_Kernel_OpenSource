@@ -2895,6 +2895,9 @@ static int kgsl_busmon_probe(struct platform_device *pdev)
 	const struct of_device_id *pdid =
 			of_match_device(busmon_match_table, &pdev->dev);
 
+	if (pdid == NULL)
+		return -ENXIO;
+
 	device = (struct kgsl_device *)pdid->data;
 	device->busmondev = &pdev->dev;
 	dev_set_drvdata(device->busmondev, device);
