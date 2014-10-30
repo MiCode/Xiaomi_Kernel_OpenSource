@@ -112,16 +112,6 @@ int msm_vidc_subscribe_event(void *instance,
 int msm_vidc_unsubscribe_event(void *instance,
 		const struct v4l2_event_subscription *sub);
 int msm_vidc_dqevent(void *instance, struct v4l2_event *event);
-int msm_vidc_wait(void *instance);
 int msm_vidc_s_parm(void *instance, struct v4l2_streamparm *a);
 int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize);
-struct msm_smem *msm_vidc_smem_alloc(void *instance,
-			size_t size, u32 align, u32 flags,
-			enum hal_buffer buffer_type, int map_kernel);
-void msm_vidc_smem_free(void *instance, struct msm_smem *mem);
-int msm_vidc_smem_cache_operations(void *instance,
-		struct msm_smem *mem, enum smem_cache_ops);
-struct msm_smem *msm_vidc_smem_user_to_kernel(void *instance,
-			int fd, u32 offset, enum hal_buffer buffer_type);
-void *msm_vidc_smem_get_client(void *instance);
 #endif

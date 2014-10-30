@@ -78,20 +78,6 @@ int msm_vidc_poll(void *instance, struct file *filp,
 }
 EXPORT_SYMBOL(msm_vidc_poll);
 
-/* Kernel client alternative for msm_vidc_poll */
-int msm_vidc_wait(void *instance)
-{
-	struct msm_vidc_inst *inst = instance;
-	int rc = 0;
-
-	if (!inst)
-		return -EINVAL;
-
-	wait_event(inst->kernel_event_queue, (rc = get_poll_flags(inst)));
-	return rc;
-}
-EXPORT_SYMBOL(msm_vidc_wait);
-
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -726,7 +712,12 @@ int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
-	/* Map the buffer only for non-kernel clients*/
+	/* Map the buffer only for non-kernel clients */
+	/*
+	 * TODO: We don't have any kernel clients anymore.  Reconsider deleting
+	 * the conditional once we confirm that no userspace client sends
+	 * reserved[0] == 0
+	 */
 	if (b->m.planes[0].reserved[0]) {
 		inst->map_output_buffer = true;
 		if (map_and_register_buf(inst, b))
@@ -1074,53 +1065,6 @@ int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize)
 }
 EXPORT_SYMBOL(msm_vidc_enum_framesizes);
 
-struct msm_smem *msm_vidc_smem_alloc(void *instance,
-			size_t size, u32 align, u32 flags,
-			enum hal_buffer buffer_type, int map_kernel)
-{
-	return msm_comm_smem_alloc((struct msm_vidc_inst *)instance,
-			size, align, flags, buffer_type, map_kernel);
-
-}
-EXPORT_SYMBOL(msm_vidc_smem_alloc);
-
-void msm_vidc_smem_free(void *instance, struct msm_smem *mem)
-{
-	msm_comm_smem_free((struct msm_vidc_inst *)instance, mem);
-}
-EXPORT_SYMBOL(msm_vidc_smem_free);
-
-int msm_vidc_smem_cache_operations(void *instance, struct msm_smem *mem,
-		enum smem_cache_ops cache_ops)
-{
-	return msm_comm_smem_cache_operations(
-		(struct msm_vidc_inst *)instance, mem, cache_ops);
-}
-EXPORT_SYMBOL(msm_vidc_smem_cache_operations);
-
-struct msm_smem *msm_vidc_smem_user_to_kernel(void *instance, int fd,
-			u32 offset, enum hal_buffer buffer_type)
-{
-	return msm_comm_smem_user_to_kernel(
-			(struct msm_vidc_inst *)instance,
-			fd, offset, buffer_type);
-}
-EXPORT_SYMBOL(msm_vidc_smem_user_to_kernel);
-
-void *msm_vidc_smem_get_client(void *instance)
-{
-	struct msm_vidc_inst *inst = instance;
-
-	if (!inst || !inst->mem_client) {
-		dprintk(VIDC_ERR, "%s: invalid instance or client = %p\n",
-				__func__, inst);
-		return NULL;
-	}
-
-	return inst->mem_client;
-}
-EXPORT_SYMBOL(msm_vidc_smem_get_client);
-
 static void *vidc_get_userptr(void *alloc_ctx, unsigned long vaddr,
 				unsigned long size, int write)
 {
@@ -1255,7 +1199,6 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_MSM_VIDC_LIST(&inst->registeredbufs);
 
 	inst->session_type = session_type;
-	init_waitqueue_head(&inst->kernel_event_queue);
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
 	inst->map_output_buffer = false;

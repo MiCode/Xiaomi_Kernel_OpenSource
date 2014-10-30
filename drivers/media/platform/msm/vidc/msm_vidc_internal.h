@@ -302,7 +302,6 @@ struct msm_vidc_inst {
 	struct v4l2_ctrl **cluster;
 	struct v4l2_fh event_handler;
 	struct msm_smem *extradata_handle;
-	wait_queue_head_t kernel_event_queue;
 	bool in_reconfig;
 	u32 reconfig_width;
 	u32 reconfig_height;
