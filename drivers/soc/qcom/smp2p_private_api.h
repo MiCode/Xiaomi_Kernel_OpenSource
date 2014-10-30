@@ -69,7 +69,7 @@ int msm_smp2p_out_close(struct msm_smp2p_out **handle);
 int msm_smp2p_out_read(struct msm_smp2p_out *handle, uint32_t *data);
 int msm_smp2p_out_write(struct msm_smp2p_out *handle, uint32_t data);
 int msm_smp2p_out_modify(struct msm_smp2p_out *handle, uint32_t set_mask,
-	uint32_t clear_mask);
+	uint32_t clear_mask, bool send_irq);
 int msm_smp2p_in_read(int remote_pid, const char *entry, uint32_t *data);
 int msm_smp2p_in_register(int remote_pid, const char *entry,
 	struct notifier_block *in_notifier);

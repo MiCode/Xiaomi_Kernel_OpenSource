@@ -40,6 +40,7 @@
 #define SMP2P_FLAGS_RESTART_DONE_MASK 0x1
 #define SMP2P_FLAGS_RESTART_ACK_BIT 1
 #define SMP2P_FLAGS_RESTART_ACK_MASK 0x2
+#define SMP2P_GPIO_NO_INT BIT(1)
 
 #define SMP2P_GET_BITS(hdr_val, mask, bit) \
 	(((hdr_val) & (mask)) >> (bit))
