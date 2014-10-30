@@ -182,11 +182,8 @@ enum msm_cci_gpio_cmd_type {
 	CCI_GPIO_INVALID_CMD,
 };
 
-#ifdef MSM_CCI
-static inline struct v4l2_subdev *msm_cci_get_subdev(void)
-{
-	return g_cci_subdev;
-}
+#ifdef CONFIG_MSM_CCI
+struct v4l2_subdev *msm_cci_get_subdev(void);
 #else
 static inline struct v4l2_subdev *msm_cci_get_subdev(void)
 {

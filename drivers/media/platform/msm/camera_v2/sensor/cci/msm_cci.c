@@ -1185,6 +1185,11 @@ static void msm_cci_init_clk_params(struct cci_device *cci_dev)
 	return;
 }
 
+struct v4l2_subdev *msm_cci_get_subdev(void)
+{
+	return g_cci_subdev;
+}
+
 static int msm_cci_get_clk_info(struct cci_device *cci_dev,
 	struct platform_device *pdev)
 {
