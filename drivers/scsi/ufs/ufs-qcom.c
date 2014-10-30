@@ -470,6 +470,8 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			dev_err(hba->dev, "%s: failed ufs_qcom_ice_suspend %d\n",
 					__func__, ret);
 
+		/* Assert PHY soft reset */
+		ufs_qcom_assert_reset(hba);
 		goto out;
 	}
 
