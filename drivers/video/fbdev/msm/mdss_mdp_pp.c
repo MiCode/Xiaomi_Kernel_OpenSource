@@ -3738,7 +3738,6 @@ static int pp_hist_enable(struct pp_hist_col_info *hist_info,
 		spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 		pr_info("%s Hist collection has already been enabled %p\n",
 			__func__, hist_info->base);
-		ret = -EINVAL;
 		goto exit;
 	}
 	hist_info->read_request = 0;
