@@ -765,6 +765,18 @@ int wcd9xxx_slim_ch_master_status(struct wcd9xxx *wcd9xxx, void *handle,
 		pr_err("%s: Get Xfer status rc %x, len %x\n",
 		       __func__, rc, *(len));
 	}
+
+	if (!rc && *len == 0) {
+		/*
+		 * If timeout occurred and the length of
+		 * buffer returned is 0, then there is a
+		 * error on the bus, return error to caller
+		 * to avoid queuing more buffers.
+		 */
+		pr_err("%s: no buffer returned after timeout\n",
+			__func__);
+		rc = -EIO;
+	}
 	mutex_unlock(&tx_master->lock);
 return rc;
 }
