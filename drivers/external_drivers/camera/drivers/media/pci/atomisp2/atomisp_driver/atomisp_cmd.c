@@ -2355,20 +2355,6 @@ int atomisp_get_dvs2_bq_resolutions(struct atomisp_sub_device *asd,
 				bq_res->gdc_shift_bq.width_bq = 4 / 2;
 				bq_res->gdc_shift_bq.height_bq = 4 / 2;
 			} else {
-/*
- * FIXME!
- * The DVS Parameter setting rule is still not settled down at present which
- * makes no general fomular which could fit for all the senarios.
- *
- * Previous parameter configuration formual was only tuned for Saltbay which
- * works well. However currently for IRDA it needs a new formular which is
- * still got by experiment.
- *
- * This issue is tracked by BZ 4358 in high priority to get from Firmware/DVS
- * Library team to give a clear general rule on how the parameter is
- * configured.
- */
-#ifndef CONFIG_GMIN_INTEL_MID
 				/*
 				 * spatial filter shift and more left padding in SDV
 				 * case, the left padding is
@@ -2391,17 +2377,6 @@ int atomisp_get_dvs2_bq_resolutions(struct atomisp_sub_device *asd,
 					pipe_cfg->bayer_ds_out_res.width /
 					input_config->effective_res.width + 1) /
 					2;
-#else
-				w_padding =
-					roundup(input_config->effective_res.width + 12, 128) -
-					input_config->effective_res.width;
-
-				bq_res->gdc_shift_bq.width_bq = 4 / 2 +
-					(w_padding *
-					pipe_cfg->bayer_ds_out_res.width /
-					input_config->effective_res.width + 1) /
-					2;
-#endif
 				bq_res->gdc_shift_bq.height_bq = 4 / 2;
 			}
 		} else {
