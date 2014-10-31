@@ -36,6 +36,7 @@
 #define PCC_CONST_COEFF_MASK 0xFFFF
 #define PCC_COEFF_MASK 0x3FFFF
 
+
 #define GAMUT_OP_MODE_OFF 0
 #define GAMUT_TABLE_INDEX 4
 #define GAMUT_TABLE_UPPER_R 8
@@ -49,6 +50,17 @@
 #define GAMUT_COARSE_INDEX 1248
 #define GAMUT_FINE_INDEX 0
 #define GAMUT_ENABLE BIT(0)
+
+#define IGC_MASK_MAX 3
+#define IGC_C0_LUT 0
+#define IGC_RGB_C0_LUT 0xC
+#define IGC_DMA_C0_LUT 0x18
+#define IGC_CONFIG_MASK(n) \
+	((((1 << (IGC_MASK_MAX + 1)) - 1) & ~(1 << n)) << 28)
+#define IGC_INDEX_UPDATE BIT(25)
+#define IGC_INDEX_VALUE_UPDATE (BIT(24) | IGC_INDEX_UPDATE)
+#define IGC_DATA_MASK (BIT(12) - 1)
+#define IGC_DSPP_OP_MODE_EN BIT(0)
 
 static struct mdss_pp_res_type_v1_7 config_data;
 
@@ -68,6 +80,12 @@ static int pp_pcc_set_config(char __iomem *base_addr,
 static int pp_pcc_get_config(char __iomem *base_addr, void *cfg_data,
 				u32 block_type, u32 disp_num);
 
+static int pp_igc_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
+static int pp_igc_get_config(char __iomem *base_addr, void *cfg_data,
+			   u32 block_type, u32 disp_num);
+
 void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 {
 	if (!ops) {
@@ -76,8 +94,8 @@ void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	}
 
 	/* IGC ops */
-	ops->pp_ops[IGC].pp_set_config = NULL;
-	ops->pp_ops[IGC].pp_get_config = NULL;
+	ops->pp_ops[IGC].pp_set_config = pp_igc_set_config;
+	ops->pp_ops[IGC].pp_get_config = pp_igc_get_config;
 
 	/* PCC ops */
 	ops->pp_ops[PCC].pp_set_config = pp_pcc_set_config;
@@ -124,7 +142,23 @@ static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 		pr_err("Invalid pp_sts %p or opmode %p\n", pp_sts, opmode);
 		return;
 	}
-
+	switch (location) {
+	case SSPP_RGB:
+		break;
+	case SSPP_DMA:
+		break;
+	case SSPP_VIG:
+		break;
+	case DSPP:
+		if (pp_sts_is_enabled(pp_sts->igc_sts, side))
+			*opmode |= IGC_DSPP_OP_MODE_EN;
+		break;
+	case LM:
+		break;
+	default:
+		pr_err("Invalid block type %d\n", location);
+		break;
+	}
 	return;
 }
 
@@ -516,4 +550,175 @@ static int pp_pcc_get_config(char __iomem *base_addr, void *cfg_data,
 	}
 
 	return 0;
+}
+
+static int pp_igc_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type)
+{
+	int ret = 0, i = 0;
+	struct mdp_igc_lut_data *lut_cfg_data = NULL;
+	struct mdp_igc_lut_data_v1_7 *lut_data = NULL;
+	char __iomem *c0 = NULL, *c1 = NULL, *c2 = NULL;
+	u32 data;
+
+	if (!base_addr || !cfg_data || !pp_sts) {
+		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		      base_addr, cfg_data, pp_sts);
+		return -EINVAL;
+	}
+
+	lut_cfg_data = (struct mdp_igc_lut_data *) cfg_data;
+	if (lut_cfg_data->version != mdp_igc_v1_7 ||
+	    !lut_cfg_data->cfg_payload) {
+		pr_err("invalid igc version %d payload %p\n",
+		       lut_cfg_data->version, lut_cfg_data->cfg_payload);
+		return -EINVAL;
+	}
+	if (!(lut_cfg_data->ops & ~(MDP_PP_OPS_READ))) {
+		pr_err("only read ops set for lut\n");
+		return ret;
+	}
+	if (lut_cfg_data->block > IGC_MASK_MAX) {
+		pr_err("invalid mask value for IGC %d", lut_cfg_data->block);
+		return -EINVAL;
+	}
+	if (!(lut_cfg_data->ops & MDP_PP_OPS_WRITE)) {
+		pr_debug("non write ops set %d\n", lut_cfg_data->ops);
+		goto bail_out;
+	}
+	lut_data = lut_cfg_data->cfg_payload;
+	if (lut_data->len != IGC_LUT_ENTRIES || !lut_data->c0_c1_data ||
+	    !lut_data->c2_data) {
+		pr_err("invalid lut len %d c0_c1_data %p  c2_data %p\n",
+		       lut_data->len, lut_data->c0_c1_data, lut_data->c2_data);
+		return -EINVAL;
+	}
+	switch (block_type) {
+	case SSPP_RGB:
+		c0 = base_addr + IGC_RGB_C0_LUT;
+		break;
+	case SSPP_DMA:
+		c0 = base_addr + IGC_DMA_C0_LUT;
+		break;
+	case SSPP_VIG:
+	case DSPP:
+		c0 = base_addr + IGC_C0_LUT;
+		break;
+	default:
+		pr_err("Invalid block type %d\n", block_type);
+		ret = -EINVAL;
+		break;
+	}
+	if (ret) {
+		pr_err("igc table not updated ret %d\n", ret);
+		return ret;
+	}
+	c1 = c0 + 4;
+	c2 = c1 + 4;
+	data = IGC_INDEX_UPDATE | IGC_CONFIG_MASK(lut_cfg_data->block);
+	pr_debug("data %x block type %d mask %x\n",
+		  data, lut_cfg_data->block,
+		  IGC_CONFIG_MASK(lut_cfg_data->block));
+	writel_relaxed((lut_data->c0_c1_data[0] & IGC_DATA_MASK) | data, c0);
+	writel_relaxed(((lut_data->c0_c1_data[0] >> 16)
+			& IGC_DATA_MASK) | data, c1);
+	writel_relaxed((lut_data->c2_data[0] & IGC_DATA_MASK) | data, c2);
+	data &= ~IGC_INDEX_UPDATE;
+	/* update the index for c0, c1 , c2 */
+	for (i = 1; i < IGC_LUT_ENTRIES; i++) {
+		writel_relaxed((lut_data->c0_c1_data[i] & IGC_DATA_MASK)
+			       | data, c0);
+		writel_relaxed(((lut_data->c0_c1_data[i] >> 16)
+				& IGC_DATA_MASK) | data, c1);
+		writel_relaxed((lut_data->c2_data[i] & IGC_DATA_MASK)
+				| data, c2);
+	}
+bail_out:
+	if (!ret) {
+		if (lut_cfg_data->ops & MDP_PP_OPS_DISABLE)
+			pp_sts->igc_sts &= ~PP_STS_ENABLE;
+		else if (lut_cfg_data->ops & MDP_PP_OPS_ENABLE)
+			pp_sts->igc_sts |= PP_STS_ENABLE;
+		pp_sts_set_split_bits(&pp_sts->igc_sts,
+				      lut_cfg_data->ops);
+	}
+	return ret;
+}
+
+static int pp_igc_get_config(char __iomem *base_addr, void *cfg_data,
+			   u32 block_type, u32 disp_num)
+{
+	int ret = 0, i = 0;
+	struct mdp_igc_lut_data *lut_cfg_data = NULL;
+	struct mdp_igc_lut_data_v1_7 *lut_data = NULL;
+	char __iomem *c1 = NULL, *c2 = NULL;
+	u32 *c0c1_data = NULL, *c2_data = NULL;
+	u32 data = 0, sz = 0;
+
+	if (!base_addr || !cfg_data || block_type != DSPP) {
+		pr_err("invalid params base_addr %p cfg_data %p block_type %d\n",
+		      base_addr, cfg_data, block_type);
+		return -EINVAL;
+	}
+	lut_cfg_data = (struct mdp_igc_lut_data *) cfg_data;
+	if (!(lut_cfg_data->ops & MDP_PP_OPS_READ)) {
+		pr_err("read ops not set for lut ops %d\n", lut_cfg_data->ops);
+		return ret;
+	}
+	if (lut_cfg_data->version != mdp_igc_v1_7 ||
+	    !lut_cfg_data->cfg_payload ||
+	    lut_cfg_data->block > IGC_MASK_MAX) {
+		pr_err("invalid igc version %d payload %p block %d\n",
+		       lut_cfg_data->version, lut_cfg_data->cfg_payload,
+		       lut_cfg_data->block);
+		ret = -EINVAL;
+		goto exit;
+	}
+	lut_data = lut_cfg_data->cfg_payload;
+	if (lut_data->len != IGC_LUT_ENTRIES) {
+		pr_err("invalid lut len %d\n", lut_data->len);
+		ret = -EINVAL;
+		goto exit;
+	}
+	sz = IGC_LUT_ENTRIES * sizeof(u32);
+	if (!access_ok(VERIFY_WRITE, lut_data->c0_c1_data, sz) ||
+	    (!access_ok(VERIFY_WRITE, lut_data->c2_data, sz))) {
+		pr_err("invalid lut address for sz %d\n", sz);
+		ret = -EFAULT;
+		goto exit;
+	}
+	/* Allocate for c0c1 and c2 tables */
+	c0c1_data = kzalloc(sz * 2, GFP_KERNEL);
+	if (!c0c1_data) {
+		pr_err("allocation failed for c0c1 size %d\n", sz * 2);
+		ret = -ENOMEM;
+		goto exit;
+	}
+	c2_data = &c0c1_data[IGC_LUT_ENTRIES];
+	data = IGC_INDEX_VALUE_UPDATE | IGC_CONFIG_MASK(lut_cfg_data->block);
+	pr_debug("data %x block type %d mask %x\n",
+		  data, lut_cfg_data->block,
+		  IGC_CONFIG_MASK(lut_cfg_data->block));
+	c1 = base_addr + 4;
+	c2 = c1 + 4;
+	writel_relaxed(data, base_addr);
+	writel_relaxed(data, c1);
+	writel_relaxed(data, c2);
+	for (i = 0; i < IGC_LUT_ENTRIES; i++) {
+		c0c1_data[i] = readl_relaxed(base_addr) & IGC_DATA_MASK;
+		c0c1_data[i] |= (readl_relaxed(c1) & IGC_DATA_MASK) << 16;
+		c2_data[i] = readl_relaxed(c2) & IGC_DATA_MASK;
+	}
+	if (copy_to_user(lut_data->c0_c1_data, c0c1_data, sz)) {
+		pr_err("failed to copy the c0c1 data");
+		ret = -EFAULT;
+	}
+	if (!ret && copy_to_user(lut_data->c2_data, c2_data, sz)) {
+		pr_err("failed to copy the c2 data");
+		ret = -EFAULT;
+	}
+	kfree(c0c1_data);
+exit:
+	return ret;
 }

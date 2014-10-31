@@ -737,27 +737,25 @@ static void pp_igc_config(unsigned long flags, char __iomem *addr,
 				u32 pipe_num, u32 pipe_cnt)
 {
 	u32 tbl_idx;
-	if (flags & PP_FLAGS_DIRTY_IGC) {
-		if (igc_config->ops & MDP_PP_OPS_WRITE)
-			pp_update_igc_lut(igc_config, addr, pipe_num,
-					 pipe_cnt);
+	if (igc_config->ops & MDP_PP_OPS_WRITE)
+		pp_update_igc_lut(igc_config, addr, pipe_num,
+				 pipe_cnt);
 
-		if (igc_config->ops & MDP_PP_IGC_FLAG_ROM0) {
-			pp_sts->pcc_sts |= PP_STS_ENABLE;
-			tbl_idx = 1;
-		} else if (igc_config->ops & MDP_PP_IGC_FLAG_ROM1) {
-			pp_sts->pcc_sts |= PP_STS_ENABLE;
-			tbl_idx = 2;
-		} else {
-			tbl_idx = 0;
-		}
-		pp_sts->igc_tbl_idx = tbl_idx;
-		if (igc_config->ops & MDP_PP_OPS_DISABLE)
-			pp_sts->igc_sts &= ~PP_STS_ENABLE;
-		else if (igc_config->ops & MDP_PP_OPS_ENABLE)
-			pp_sts->igc_sts |= PP_STS_ENABLE;
-		pp_sts_set_split_bits(&pp_sts->igc_sts, igc_config->ops);
+	if (igc_config->ops & MDP_PP_IGC_FLAG_ROM0) {
+		pp_sts->igc_sts |= PP_STS_ENABLE;
+		tbl_idx = 1;
+	} else if (igc_config->ops & MDP_PP_IGC_FLAG_ROM1) {
+		pp_sts->igc_sts |= PP_STS_ENABLE;
+		tbl_idx = 2;
+	} else {
+		tbl_idx = 0;
 	}
+	pp_sts->igc_tbl_idx = tbl_idx;
+	if (igc_config->ops & MDP_PP_OPS_DISABLE)
+		pp_sts->igc_sts &= ~PP_STS_ENABLE;
+	else if (igc_config->ops & MDP_PP_OPS_ENABLE)
+		pp_sts->igc_sts |= PP_STS_ENABLE;
+	pp_sts_set_split_bits(&pp_sts->igc_sts, igc_config->ops);
 }
 
 static void pp_enhist_config(unsigned long flags, char __iomem *addr,
@@ -1569,7 +1567,7 @@ static void pp_dspp_opmode_config(struct mdss_mdp_ctl *ctl, u32 num,
 		return;
 
 	if (pp_driver_ops.pp_opmode_config) {
-		pp_driver_ops.pp_opmode_config(PP_OPMODE_DSPP,
+		pp_driver_ops.pp_opmode_config(DSPP,
 					       pp_sts, opmode, side);
 		return;
 	}
@@ -1709,9 +1707,21 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		}
 	}
 
-	pp_igc_config(flags, mdata->mdp_base + MDSS_MDP_REG_IGC_DSPP_BASE,
-				pp_sts, &mdss_pp_res->igc_disp_cfg[disp_num],
-				dspp_num, mdata->ndspp);
+	if (flags & PP_FLAGS_DIRTY_IGC) {
+		if (!pp_ops[IGC].pp_set_config) {
+			pp_igc_config(flags,
+			      mdata->mdp_base + MDSS_MDP_REG_IGC_DSPP_BASE,
+			      pp_sts, &mdss_pp_res->igc_disp_cfg[disp_num],
+			      dspp_num, mdata->ndspp);
+		} else {
+			addr = mdata->mdp_base + MDSS_MDP_REG_IGC_DSPP_BASE;
+			/* Pass dspp num using block */
+			mdss_pp_res->igc_disp_cfg[disp_num].block = dspp_num;
+			pp_ops[IGC].pp_set_config(addr, pp_sts,
+				&mdss_pp_res->igc_disp_cfg[disp_num],
+				DSPP);
+		}
+	}
 
 	pp_enhist_config(flags, base + MDSS_MDP_REG_DSPP_HIST_LUT_BASE,
 			pp_sts, &mdss_pp_res->enhist_disp_cfg[disp_num]);
@@ -2926,9 +2936,16 @@ int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config,
 			&mdss_pp_res->igc_lut_c2[disp_num][0];
 		if (mdata->has_no_lut_read)
 			pp_read_igc_lut_cached(&local_cfg);
-		else
-			pp_read_igc_lut(&local_cfg, igc_addr, dspp_num,
-					mdata->ndspp);
+		else {
+			if (pp_ops[IGC].pp_get_config) {
+				pp_ops[IGC].pp_get_config(igc_addr, config,
+							  DSPP, disp_num);
+				goto clock_off;
+			} else {
+				pp_read_igc_lut(&local_cfg, igc_addr,
+						dspp_num, mdata->ndspp);
+			}
+		}
 		if (copy_to_user(config->c0_c1_data, local_cfg.c0_c1_data,
 			config->len * sizeof(u32))) {
 			ret = -EFAULT;
@@ -2942,8 +2959,18 @@ int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config,
 			goto igc_config_exit;
 		}
 		*copyback = 1;
+clock_off:
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	} else {
+		if (pp_ops[IGC].pp_set_config) {
+			ret = pp_igc_lut_cache_params(config,
+				mdss_pp_res, copy_from_kernel);
+			if (ret) {
+				pr_err("igc caching failed ret %d", ret);
+				goto igc_config_exit;
+			} else
+				goto igc_set_dirty;
+		}
 		if (copy_from_kernel) {
 			memcpy(&mdss_pp_res->igc_lut_c0c1[disp_num][0],
 			config->c0_c1_data, config->len * sizeof(u32));
@@ -2969,6 +2996,7 @@ int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config,
 			&mdss_pp_res->igc_lut_c0c1[disp_num][0];
 		mdss_pp_res->igc_disp_cfg[disp_num].c2_data =
 			&mdss_pp_res->igc_lut_c2[disp_num][0];
+igc_set_dirty:
 		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_IGC;
 	}
 
