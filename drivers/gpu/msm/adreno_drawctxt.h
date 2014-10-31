@@ -131,6 +131,8 @@ extern const struct adreno_context_ops adreno_preamble_ctx_ops;
  * @queued: Number of commands queued in the cmdqueue
  * @ops: Context switch functions for this context.
  * @fault_policy: GFT fault policy set in cmdbatch_skip_cmd();
+ * @queued_timestamp: The last timestamp that was queued on this context
+ * @submitted_timestamp: The last timestamp that was submitted for this context
  */
 struct adreno_context {
 	struct kgsl_context base;
@@ -179,6 +181,8 @@ struct adreno_context {
 
 	const struct adreno_context_ops *ops;
 	unsigned int fault_policy;
+	unsigned int queued_timestamp;
+	unsigned int submitted_timestamp;
 };
 
 /**
