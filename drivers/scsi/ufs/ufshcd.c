@@ -1839,6 +1839,11 @@ int ufshcd_hibern8_hold(struct ufs_hba *hba, bool async)
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->hibern8_on_idle.active_reqs++;
 
+	if (ufshcd_eh_in_progress(hba)) {
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		return 0;
+	}
+
 start:
 	switch (hba->hibern8_on_idle.state) {
 	case HIBERN8_EXITED:
@@ -1904,7 +1909,8 @@ static void __ufshcd_hibern8_release(struct ufs_hba *hba)
 		|| hba->hibern8_on_idle.is_suspended
 		|| hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL
 		|| hba->lrb_in_use || hba->outstanding_tasks
-		|| hba->active_uic_cmd || hba->uic_async_done)
+		|| hba->active_uic_cmd || hba->uic_async_done
+		|| ufshcd_eh_in_progress(hba))
 		return;
 
 	hba->hibern8_on_idle.state = REQ_HIBERN8_ENTER;
