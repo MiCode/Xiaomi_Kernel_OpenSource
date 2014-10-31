@@ -21,6 +21,9 @@ void cpu_idle_poll_ctrl(bool enable)
 		cpu_idle_force_poll--;
 		WARN_ON_ONCE(cpu_idle_force_poll < 0);
 	}
+
+	/* Make sure poll mode is entered on all CPUs after the flag is set */
+	mb();
 }
 
 #ifdef CONFIG_GENERIC_IDLE_POLL_SETUP
