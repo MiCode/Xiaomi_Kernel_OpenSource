@@ -105,11 +105,12 @@
 #define CORE_DDR_DLL_LOCK	(1 << 11)
 
 #define CORE_VENDOR_SPEC	0x10C
-#define CORE_CLK_PWRSAVE	(1 << 1)
-#define CORE_HC_MCLK_SEL_DFLT	(2 << 8)
-#define CORE_HC_MCLK_SEL_HS400	(3 << 8)
-#define CORE_HC_MCLK_SEL_MASK	(3 << 8)
-#define CORE_HC_AUTO_CMD21_EN	(1 << 6)
+#define CORE_CLK_PWRSAVE		(1 << 1)
+#define CORE_HC_MCLK_SEL_DFLT		(2 << 8)
+#define CORE_HC_MCLK_SEL_HS400		(3 << 8)
+#define CORE_HC_MCLK_SEL_MASK		(3 << 8)
+#define CORE_HC_AUTO_CMD21_EN		(1 << 6)
+#define CORE_IO_PAD_PWR_SWITCH_EN	(1 << 15)
 #define CORE_IO_PAD_PWR_SWITCH	(1 << 16)
 #define CORE_HC_SELECT_IN_EN	(1 << 18)
 #define CORE_HC_SELECT_IN_HS400	(6 << 19)
@@ -324,6 +325,7 @@ struct sdhci_msm_host {
 	atomic_t controller_clock;
 	bool use_cdclp533;
 	bool use_updated_dll_reset;
+	u32 caps_0;
 };
 
 enum vdd_io_level {
@@ -2176,11 +2178,12 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	 */
 	mb();
 
-	if (io_level & REQ_IO_HIGH)
+	if ((io_level & REQ_IO_HIGH) && (msm_host->caps_0 & CORE_3_0V_SUPPORT))
 		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
 				~CORE_IO_PAD_PWR_SWITCH),
 				host->ioaddr + CORE_VENDOR_SPEC);
-	else if (io_level & REQ_IO_LOW)
+	else if ((io_level & REQ_IO_LOW) ||
+			(msm_host->caps_0 & CORE_1_8V_SUPPORT))
 		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) |
 				CORE_IO_PAD_PWR_SWITCH),
 				host->ioaddr + CORE_VENDOR_SPEC);
@@ -2815,7 +2818,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 		struct sdhci_host *host)
 {
-	u32 version, caps;
+	u32 version, caps = 0;
 	u16 minor;
 	u8 major;
 
@@ -2824,6 +2827,8 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 			CORE_VERSION_MAJOR_SHIFT;
 	minor = version & CORE_VERSION_TARGET_MASK;
 
+	caps = readl_relaxed(host->ioaddr + SDHCI_CAPABILITIES);
+
 	/*
 	 * Starting with SDCC 5 controller (core major version = 1)
 	 * controller won't advertise 3.0v, 1.8v and 8-bit features
@@ -2831,20 +2836,19 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	 */
 	if (major >= 1 && minor != 0x11 && minor != 0x12) {
 		struct sdhci_msm_reg_data *vdd_io_reg;
-		caps = CORE_3_0V_SUPPORT;
 		/*
 		 * Enable 1.8V support capability on controllers that
 		 * support dual voltage
 		 */
 		vdd_io_reg = msm_host->pdata->vreg_data->vdd_io_data;
-		if (vdd_io_reg &&
-		   (vdd_io_reg->low_vol_level != vdd_io_reg->high_vol_level))
+		if (vdd_io_reg && (vdd_io_reg->high_vol_level > 2700000))
+			caps |= CORE_3_0V_SUPPORT;
+		if (vdd_io_reg && (vdd_io_reg->low_vol_level < 1950000))
 			caps |= CORE_1_8V_SUPPORT;
 		if (msm_host->pdata->mmc_bus_width == MMC_CAP_8_BIT_DATA)
 			caps |= CORE_8_BIT_SUPPORT;
-		writel_relaxed(
-			(readl_relaxed(host->ioaddr + SDHCI_CAPABILITIES) |
-			caps), host->ioaddr + CORE_VENDOR_SPEC_CAPABILITIES0);
+		writel_relaxed(caps, host->ioaddr +
+				CORE_VENDOR_SPEC_CAPABILITIES0);
 	}
 
 	/*
@@ -2867,9 +2871,10 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	 * In case bus addressing ever changes, controller version should be
 	 * used in order to decide whether or not to mask 64-bit support.
 	 */
-	caps = readl_relaxed(host->ioaddr + SDHCI_CAPABILITIES);
 	caps &= ~CORE_SYS_BUS_SUPPORT_64_BIT;
 	writel_relaxed(caps, host->ioaddr + CORE_VENDOR_SPEC_CAPABILITIES0);
+	/* keep track of the value in SDHCI_CAPABILITIES */
+	msm_host->caps_0 = caps;
 }
 
 static int sdhci_msm_probe(struct platform_device *pdev)
@@ -3047,6 +3052,14 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			FF_CLK_SW_RST_DIS, msm_host->core_mem + CORE_HC_MODE);
 
 	sdhci_set_default_hw_caps(msm_host, host);
+
+	/*
+	 * Set the PAD_PWR_SWTICH_EN bit so that the PAD_PWR_SWITCH bit can
+	 * be used as required later on.
+	 */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) |
+			CORE_IO_PAD_PWR_SWITCH_EN),
+			host->ioaddr + CORE_VENDOR_SPEC);
 	/*
 	 * CORE_SW_RST above may trigger power irq if previous status of PWRCTL
 	 * was either BUS_ON or IO_HIGH_V. So before we enable the power irq
@@ -3062,6 +3075,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (irq_status & (CORE_PWRCTL_IO_HIGH | CORE_PWRCTL_IO_LOW))
 		irq_ctl |= CORE_PWRCTL_IO_SUCCESS;
 	writel_relaxed(irq_ctl, (msm_host->core_mem + CORE_PWRCTL_CTL));
+
 	/*
 	 * Ensure that above writes are propogated before interrupt enablement
 	 * in GIC.
