@@ -1279,7 +1279,6 @@ int32_t qpnp_get_vadc_gain_and_offset(struct qpnp_vadc_chip *vadc,
 	rc = qpnp_vadc_is_valid(vadc);
 	if (rc < 0)
 		return rc;
-	mutex_lock(&vadc->adc->adc_lock);
 
 	switch (calib_type) {
 	case CALIB_RATIOMETRIC:
@@ -1304,7 +1303,6 @@ int32_t qpnp_get_vadc_gain_and_offset(struct qpnp_vadc_chip *vadc,
 		rc = -EINVAL;
 	}
 
-	mutex_unlock(&vadc->adc->adc_lock);
 	return rc;
 }
 EXPORT_SYMBOL(qpnp_get_vadc_gain_and_offset);
