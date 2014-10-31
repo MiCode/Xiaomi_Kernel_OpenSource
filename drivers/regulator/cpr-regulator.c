@@ -150,6 +150,8 @@
 
 #define SPEED_BIN_NONE			UINT_MAX
 
+#define FUSE_REVISION_UNKNOWN		(-1)
+
 #define FLAGS_IGNORE_1ST_IRQ_STATUS	BIT(0)
 #define FLAGS_SET_MIN_VOLTAGE		BIT(1)
 #define FLAGS_UPLIFT_QUOT_VOLT		BIT(2)
@@ -240,6 +242,7 @@ struct cpr_regulator {
 	bool		cpr_fuse_disable;
 	bool		cpr_fuse_local;
 	bool		cpr_fuse_redundant;
+	int		cpr_fuse_revision;
 	int		*cpr_fuse_target_quot;
 	int		*cpr_fuse_ro_sel;
 	int		gcnt;
@@ -2223,6 +2226,33 @@ static int cpr_check_redundant(struct platform_device *pdev,
 	return 0;
 }
 
+static int cpr_read_fuse_revision(struct platform_device *pdev,
+		     struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	u32 fuse_sel[4];
+	int rc;
+
+	if (of_find_property(of_node, "qcom,cpr-fuse-revision", NULL)) {
+		rc = of_property_read_u32_array(of_node,
+			"qcom,cpr-fuse-revision", fuse_sel, 4);
+		if (rc < 0) {
+			cpr_err(cpr_vreg, "qcom,cpr-fuse-revision read failed: rc=%d\n",
+				rc);
+			return rc;
+		}
+		cpr_vreg->cpr_fuse_revision
+			= cpr_read_efuse_param(cpr_vreg, fuse_sel[0],
+					fuse_sel[1], fuse_sel[2], fuse_sel[3]);
+		cpr_info(cpr_vreg, "fuse revision = %d\n",
+			cpr_vreg->cpr_fuse_revision);
+	} else {
+		cpr_vreg->cpr_fuse_revision = FUSE_REVISION_UNKNOWN;
+	}
+
+	return 0;
+}
+
 static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				     struct cpr_regulator *cpr_vreg)
 {
@@ -3436,6 +3466,12 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	if (rc) {
 		cpr_err(cpr_vreg, "Could not check redundant fuse: rc=%d\n",
 			rc);
+		goto err_out;
+	}
+
+	rc = cpr_read_fuse_revision(pdev, cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "Could not read fuse revision: rc=%d\n", rc);
 		goto err_out;
 	}
 
