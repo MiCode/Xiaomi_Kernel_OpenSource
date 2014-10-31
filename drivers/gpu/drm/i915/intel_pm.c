@@ -1536,7 +1536,6 @@ static bool vlv_compute_drain_latency(struct drm_device *dev,
 				struct vlv_MA_component_enabled enable)
 {
 	struct drm_crtc *crtc;
-	int entries;
 	bool latencyprogrammed = false;
 
 	crtc = intel_get_crtc_for_pipe(dev, pipe);
