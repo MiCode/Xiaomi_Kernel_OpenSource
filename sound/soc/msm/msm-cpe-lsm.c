@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/freezer.h>
 #include <sound/soc.h>
 #include <sound/cpe_core.h>
 #include <sound/lsm_params.h>
@@ -776,7 +777,7 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		}
 
 		user = arg;
-		rc = wait_event_interruptible(lsm_d->event_wait,
+		rc = wait_event_freezable(lsm_d->event_wait,
 				(atomic_read(&lsm_d->event_avail) == 1) ||
 				(atomic_read(&lsm_d->event_stop) == 1));
 
