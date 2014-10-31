@@ -58,9 +58,6 @@
 #include <linux/earlysuspend.h>
 #endif
 
-//#define MCUBE_FUNC_DEBUG
-
-
 #ifdef MCUBE_FUNC_DEBUG
     #define MC_PRINT(x...)        pr_info(x)
 #else
@@ -112,6 +109,7 @@
 #define MC3XXX_RANGE_SET	MC3XXX_RANGE_8G_14BIT  /* +/-8g, 14bit */
 #define MC3XXX_BW_SET		MC3XXX_BW_128HZ /* 128HZ  */
 #define MC3XXX_MAX_DELAY		200
+#define MC3XXX_MIN_DELAY		50
 #define ABSMIN				(-8 * 1024)
 #define ABSMAX				(8 * 1024)
 
@@ -132,7 +130,7 @@
 #define GRAVITY_1G_VALUE		1000
 
 /* Polling delay in msecs */
-#define POLL_INTERVAL_MIN	1
+#define POLL_INTERVAL_MIN	10
 #define POLL_INTERVAL_MAX	10000
 #define POLL_INTERVAL		1 /* msecs */
 
@@ -183,7 +181,6 @@ struct mc3xxx_data {
 	struct mc3xxxacc value;
 	struct mutex value_mutex;
 	struct mutex enable_mutex;
-	struct mutex mode_mutex;
 	struct delayed_work work;
 	struct work_struct irq_work;
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -203,8 +200,8 @@ static struct sensors_classdev sensors_cdev = {
 	.version = 1,
 	.handle = 0,
 	.type = 1,
-	.max_range = "19.6",
-	.resolution = "0.01",
+	.max_range = "78.4",
+	.resolution = "0.001",
 	.sensor_power = "0.2",
 	.min_delay = 2000,	/* microsecond */
 	.fifo_reserved_event_count = 0,
@@ -222,7 +219,6 @@ static union{
 
 static unsigned char s_bPCODE;
 static unsigned short s_uiGain;
-static struct miscdevice mc3xxx_device;
 
 static const struct mc3xxx_hwmsen_convert mc3xxx_cvt[] = {
 	/* 0: top, left-down */
@@ -454,8 +450,6 @@ static int mc3xxx_read_accel_xyz(struct mc3xxx_data *mc3xxx,
 	signed short raw[3] = { 0 };
 	const struct mc3xxx_hwmsen_convert *pCvt;
 
-	//MC_PRINT("%s called\n", __func__);
-
 	if (true == mc3xxx_is_high_end(s_bPCODE)) {
 		comres = mc3xxx_smbus_read_block(mc3xxx->mc3xxx_client,
 					MC3XXX_REG_XOUT_EX_L, 6, data);
@@ -515,8 +509,6 @@ static void mc3xxx_work_func(struct work_struct *work)
 						  struct mc3xxx_data, work);
 	static struct mc3xxxacc acc;
 	unsigned long delay = msecs_to_jiffies(atomic_read(&mc3xxx->delay));
-
-	//MC_PRINT("%s called\n", __func__);
 
 	mc3xxx_read_accel_xyz(mc3xxx, &acc);
 	input_report_abs(mc3xxx->input, ABS_X, -acc.y);
@@ -718,6 +710,8 @@ static ssize_t mc3xxx_delay_store(struct device *dev,
 		return error;
 	if (data > MC3XXX_MAX_DELAY)
 		data = MC3XXX_MAX_DELAY;
+	else if (data < MC3XXX_MIN_DELAY)
+		data = MC3XXX_MIN_DELAY;
 	atomic_set(&mc3xxx->delay, (unsigned int)data);
 
 	return count;
@@ -832,12 +826,12 @@ static ssize_t mc3xxx_dte_store(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mc3xxx_data *mc3xxx = i2c_get_clientdata(client);
-	unsigned long data;
+	unsigned char data;
 	int error;
 
 	MC_PRINT("%s called\n", __func__);
 
-	error = kstrtoul(buf, 10, &data);
+	error = kstrtou8(buf, 10, &data);
 	if (error)
 		return error;
 
@@ -881,38 +875,6 @@ static struct attribute_group mc3xxx_attribute_group = {
 	.attrs = mc3xxx_attributes
 };
 
-static long mc3xxx_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-{
-	int err = 0;
-	void __user *argp = (void __user *)arg;
-
-	switch (cmd) {
-
-	default:
-		MC_PRINT("%s: can't recognize the cmd!\n", __func__);
-		argp = argp; /* disable compiling error */
-		return -EINVAL;
-	}
-
-	return err;
-}
-
-static int mc3xxx_open(struct inode *inode, struct file *filp)
-{
-	return nonseekable_open(inode, filp);
-}
-
-static int mc3xxx_release(struct inode *inode, struct file *filp)
-{
-	return 0;
-}
-
-static const struct file_operations mc3xxx_fops = {
-	.owner		= THIS_MODULE,
-	.open		= mc3xxx_open,
-	.release	= mc3xxx_release,
-	.unlocked_ioctl = mc3xxx_ioctl,
-};
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void mc3xxx_early_suspend(struct early_suspend *h)
@@ -948,15 +910,6 @@ static void mc3xxx_early_resume(struct early_suspend *h)
 }
 #endif
 
-static struct miscdevice mc3xxx_device = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name  = MC3XXX_DEV_NAME,
-	.fops  = &mc3xxx_fops,
-};
-
-/*****************************************
- *** gsensor_fetch_sysconfig_para
- *****************************************/
 static int gsensor_fetch_sysconfig_para(void)
 {
 	u_i2c_addr.dirty_addr_buf[0] = MC3XXX_I2C_ADDR;
@@ -1057,6 +1010,8 @@ static int mc3xxx_poll_delay_set(struct sensors_classdev *sensors_cdev,
 
 	if (delay_msec > MC3XXX_MAX_DELAY)
 		delay_msec = MC3XXX_MAX_DELAY;
+	else if (delay_msec < MC3XXX_MIN_DELAY)
+		delay_msec = MC3XXX_MIN_DELAY;
 	atomic_set(&data->delay, (unsigned int)delay_msec);
 
 	return 0;
@@ -1074,7 +1029,7 @@ static int sensors_parse_dt(struct device *dev,
 		dev_err(dev, "Unable to read position\n");
 		return rc;
 	} else {
-		pdata->position = rc;
+		pdata->position = temp_val;
 	}
 	return 0;
 }
@@ -1097,14 +1052,15 @@ static int mc3xxx_probe(struct i2c_client *client,
 		goto exit;
 	}
 
-	data = kzalloc(sizeof(struct mc3xxx_data), GFP_KERNEL);
+	data = devm_kzalloc(&client->dev, sizeof(struct mc3xxx_data),
+		GFP_KERNEL);
 	if (!data) {
 		pr_err("%s: alloc memory error!\n", __func__);
 		err = -ENOMEM;
 		goto exit;
 	}
 
-	platdata = kzalloc(sizeof(*platdata), GFP_KERNEL);
+	platdata = devm_kzalloc(&client->dev, sizeof(*platdata), GFP_KERNEL);
 	if (!platdata) {
 			dev_err(&client->dev,
 			"failed to allocate memory for platform data\n");
@@ -1118,12 +1074,14 @@ static int mc3xxx_probe(struct i2c_client *client,
 				"Unable to parse platfrom data err=%d\n", err);
 			return err;
 		}
+	} else {
+		memset(platdata, 0 , sizeof(*platdata));
 	}
+
 	data->mc3xxx_client = client;
 	i2c_set_clientdata(client, data);
 
 	mutex_init(&data->value_mutex);
-	mutex_init(&data->mode_mutex);
 	mutex_init(&data->enable_mutex);
 
 	data->orientation = platdata->position;
@@ -1139,7 +1097,7 @@ static int mc3xxx_probe(struct i2c_client *client,
 	if (!dev) {
 		pr_err("%s: fail to allocate device!\n", __func__);
 		err = -ENOMEM;
-		goto exit_input_dev_alloc_failed;
+		goto exit;
 	}
 
 	set_bit(EV_ABS, dev->evbit);
@@ -1156,19 +1114,11 @@ static int mc3xxx_probe(struct i2c_client *client,
 	err = input_register_device(dev);
 	if (err < 0) {
 		input_free_device(dev);
-		goto kfree_exit;
+		goto exit;
 	}
 
 	data->input = dev;
 	data->input->dev.parent = &data->mc3xxx_client->dev;
-
-	mc3xxx_device.parent = &client->dev;
-
-	err = misc_register(&mc3xxx_device);
-	if (err) {
-		pr_err("%s: fail to misc register!\n", __func__);
-		goto exit_misc_device_register_failed;
-	}
 
 	err = sysfs_create_group(&data->input->dev.kobj,
 					&mc3xxx_attribute_group);
@@ -1184,10 +1134,6 @@ static int mc3xxx_probe(struct i2c_client *client,
 	register_early_suspend(&data->early_suspend);
 #endif
 
-	mutex_init(&data->value_mutex);
-	mutex_init(&data->mode_mutex);
-	mutex_init(&data->enable_mutex);
-/******************************************************************/
 	data->cdev = sensors_cdev;
 	/* The min_delay is used by userspace and the unit is microsecond. */
 	data->cdev.min_delay = POLL_INTERVAL_MIN * 1000;
@@ -1206,13 +1152,8 @@ static int mc3xxx_probe(struct i2c_client *client,
 	return 0;
 error_sysfs_group:
 	sysfs_remove_group(&data->input->dev.kobj, &mc3xxx_attribute_group);
-exit_misc_device_register_failed:
 error_sysfs:
 	input_unregister_device(data->input);
-
-exit_input_dev_alloc_failed:
-kfree_exit:
-	kfree(data);
 exit:
 	return err;
 }
@@ -1228,8 +1169,8 @@ static int mc3xxx_remove(struct i2c_client *client)
 	unregister_early_suspend(&data->early_suspend);
 #endif
 	sysfs_remove_group(&data->input->dev.kobj, &mc3xxx_attribute_group);
+	sensors_classdev_unregister(&data->cdev);
 	input_unregister_device(data->input);
-	kfree(data);
 
 	return 0;
 }
