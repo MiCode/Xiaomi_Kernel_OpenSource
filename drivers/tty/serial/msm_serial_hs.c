@@ -993,12 +993,12 @@ static void msm_hs_set_std_bps_locked(struct uart_port *uport,
 	msm_hs_write(uport, UART_DM_IPR, data);
 }
 
-static void msm_hs_enable_flow_control(struct uart_port *uport)
+static void msm_hs_enable_flow_control(struct uart_port *uport, bool override)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	unsigned int data;
 
-	if (msm_uport->flow_control) {
+	if (msm_uport->flow_control || override) {
 		/* Enable RFR line */
 		msm_hs_write(uport, UART_DM_CR, RFR_LOW);
 		/* Enable auto RFR */
@@ -1010,7 +1010,7 @@ static void msm_hs_enable_flow_control(struct uart_port *uport)
 	}
 }
 
-static void msm_hs_disable_flow_control(struct uart_port *uport)
+static void msm_hs_disable_flow_control(struct uart_port *uport, bool override)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	unsigned int data;
@@ -1021,7 +1021,7 @@ static void msm_hs_disable_flow_control(struct uart_port *uport)
 	 * data while we change the parameters
 	 */
 
-	if (msm_uport->flow_control) {
+	if (msm_uport->flow_control || override) {
 		data = msm_hs_read(uport, UART_DM_MR1);
 		/* disable auto ready-for-receiving */
 		data &= ~UARTDM_MR1_RX_RDY_CTL_BMSK;
@@ -1060,8 +1060,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	msm_hs_write(uport, UART_DM_IMR, 0);
 
 	MSM_HS_DBG("Entering %s\n", __func__);
-
-	msm_hs_disable_flow_control(uport);
+	msm_hs_disable_flow_control(uport, true);
 
 	/*
 	 * Disable Rx channel of UARTDM
@@ -1143,6 +1142,12 @@ static void msm_hs_set_termios(struct uart_port *uport,
 
 	msm_hs_write(uport, UART_DM_CR, RESET_RX);
 	msm_hs_write(uport, UART_DM_CR, RESET_TX);
+
+	/* Disable RX and TX */
+	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_RX_DISABLE_BMSK);
+	msm_hs_write(uport, UART_DM_CR, STALE_EVENT_DISABLE);
+	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_TX_DISABLE_BMSK);
+
 	/* Issue TX BAM Start IFC command */
 	msm_hs_write(uport, UART_DM_CR, START_TX_BAM_IFC);
 
@@ -1183,6 +1188,10 @@ static void msm_hs_set_termios(struct uart_port *uport,
 		msm_uport->flow_control = true;
 	}
 	msm_hs_write(uport, UART_DM_MR1, data);
+	/* Enable RX and TX */
+	msm_hs_write(uport, UART_DM_CR, STALE_EVENT_ENABLE);
+	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_RX_EN_BMSK);
+	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_TX_EN_BMSK);
 
 	msm_hs_write(uport, UART_DM_IMR, msm_uport->imr_reg);
 	/* Ensure register IO completion */
@@ -1962,9 +1971,9 @@ void msm_hs_set_mctrl_locked(struct uart_port *uport,
 	set_rts = TIOCM_RTS & mctrl ? 0 : 1;
 
 	if (set_rts)
-		msm_hs_disable_flow_control(uport);
+		msm_hs_disable_flow_control(uport, false);
 	else
-		msm_hs_enable_flow_control(uport);
+		msm_hs_enable_flow_control(uport, false);
 }
 
 void msm_hs_set_mctrl(struct uart_port *uport,
@@ -2188,7 +2197,7 @@ void msm_hs_resource_off(struct msm_hs_port *msm_uport)
 	unsigned int data;
 
 	MSM_HS_DBG("%s(): begin", __func__);
-	msm_hs_disable_flow_control(uport);
+	msm_hs_disable_flow_control(uport, false);
 	if (msm_uport->rx.flush == FLUSH_NONE)
 		msm_hs_disconnect_rx(uport);
 
@@ -2204,7 +2213,7 @@ void msm_hs_resource_off(struct msm_hs_port *msm_uport)
 		sps_tx_disconnect(msm_uport);
 	}
 	if (!atomic_read(&msm_uport->client_req_state))
-		msm_hs_enable_flow_control(uport);
+		msm_hs_enable_flow_control(uport, false);
 }
 
 void msm_hs_resource_on(struct msm_hs_port *msm_uport)
@@ -2517,6 +2526,8 @@ static int msm_hs_startup(struct uart_port *uport)
 
 	/* Assume no flow control, unless termios sets it */
 	msm_uport->flow_control = false;
+	msm_hs_disable_flow_control(uport, true);
+
 
 	/* Reset TX */
 	msm_hs_write(uport, UART_DM_CR, RESET_TX);
@@ -3406,7 +3417,7 @@ static void msm_hs_shutdown(struct uart_port *uport)
 
 	msm_hs_resource_vote(msm_uport);
 	/* Stop remote side from sending data */
-	msm_hs_disable_flow_control(uport);
+	msm_hs_disable_flow_control(uport, false);
 	/* make sure rx lh finishes */
 	flush_kthread_worker(&msm_uport->rx.kworker);
 
