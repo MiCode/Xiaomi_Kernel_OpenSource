@@ -1240,7 +1240,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		 * upon set config#1. Call set_alt for non-zero
 		 * alternate setting.
 		 */
-		if (!w_value && cdev->config) {
+		if (!w_value && cdev->config && !f->get_alt) {
 			value = 0;
 			break;
 		}
