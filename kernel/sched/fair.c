@@ -2399,6 +2399,13 @@ unsigned int __read_mostly sysctl_sched_downmigrate_pct = 60;
 int __read_mostly sysctl_sched_upmigrate_min_nice = 15;
 
 /*
+ * Tunable to govern scheduler wakeup placement CPU selection
+ * preference. If set, the scheduler chooses to wake up a task
+ * on an idle CPU.
+ */
+unsigned int __read_mostly sysctl_sched_prefer_idle = 1;
+
+/*
  * Scheduler boost is a mechanism to temporarily place tasks on CPUs
  * with higher capacity than those where a task would have normally
  * ended up with their load characteristics. Any entity enabling
@@ -2931,13 +2938,15 @@ static int select_packing_target(struct task_struct *p, int best_cpu)
 /* return cheapest cpu that can fit this task */
 static int select_best_cpu(struct task_struct *p, int target, int reason)
 {
-	int i, best_cpu = -1, fallback_idle_cpu = -1;
+	int i, best_cpu = -1, fallback_idle_cpu = -1, min_cstate_cpu = -1;
 	int prev_cpu = task_cpu(p);
 	int cpu_cost, min_cost = INT_MAX;
+	int min_idle_cost = INT_MAX, min_busy_cost = INT_MAX;
 	u64 load, min_load = ULLONG_MAX, min_fallback_load = ULLONG_MAX;
 	int small_task = is_small_task(p);
 	int boost = sched_boost();
 	int cstate, min_cstate = INT_MAX;
+	int prefer_idle = reason ? 1 : sysctl_sched_prefer_idle;
 
 	trace_sched_task_load(p, small_task, boost, reason);
 
@@ -2990,43 +2999,67 @@ static int select_best_cpu(struct task_struct *p, int target, int reason)
 		 * overrides load and C-state.
 		 */
 		if (power_delta_exceeded(cpu_cost, min_cost)) {
-			if (cpu_cost < min_cost) {
-				min_load = load;
-				min_cost = cpu_cost;
+			if (cpu_cost > min_cost)
+				continue;
+
+			min_cost = cpu_cost;
+			min_load = ULLONG_MAX;
+			min_cstate = INT_MAX;
+			min_cstate_cpu = -1;
+			best_cpu = -1;
+		}
+
+		/*
+		 * Partition CPUs based on whether they are completely idle
+		 * or not. For completely idle CPUs we choose the one in
+		 * the lowest C-state and then break ties with power cost
+		 */
+		if (idle_cpu(i)) {
+			if (cstate > min_cstate)
+				continue;
+
+			if (cstate < min_cstate) {
+				min_idle_cost = cpu_cost;
 				min_cstate = cstate;
-				best_cpu = i;
+				min_cstate_cpu = i;
+				continue;
+			}
+
+			if (cpu_cost < min_idle_cost) {
+				min_idle_cost = cpu_cost;
+				min_cstate_cpu = i;
 			}
 			continue;
 		}
 
-		/* After power band, load is prioritized next. */
-		if (load < min_load) {
-			min_load = load;
-			min_cost = cpu_cost;
-			min_cstate = cstate;
-			best_cpu = i;
-			continue;
-		}
+		/*
+		 * For CPUs that are not completely idle, pick one with the
+		 * lowest load and break ties with power cost
+		 */
 		if (load > min_load)
 			continue;
 
-		/*
-		 * The load is equal to the previous selected CPU.
-		 * This will most often occur when deciding between
-		 * idle CPUs. Power cost is prioritized after load,
-		 * followed by cstate.
-		 */
-		if (cpu_cost < min_cost) {
-			min_cost = cpu_cost;
-			min_cstate = cstate;
+		if (load < min_load) {
+			min_load = load;
+			min_busy_cost = cpu_cost;
 			best_cpu = i;
 			continue;
 		}
-		if (cpu_cost == min_cost && cstate < min_cstate) {
-			min_cstate = cstate;
+
+		/*
+		 * The load is equal to the previous selected CPU.
+		 * This is rare but when it does happen opt for the
+		 * more power efficient CPU option.
+		 */
+		if (cpu_cost < min_busy_cost) {
+			min_busy_cost = cpu_cost;
 			best_cpu = i;
 		}
 	}
+
+	if (min_cstate_cpu >= 0 && (prefer_idle ||
+			!(best_cpu >= 0 && mostly_idle_cpu(best_cpu))))
+		best_cpu = min_cstate_cpu;
 done:
 	if (best_cpu < 0) {
 		if (unlikely(fallback_idle_cpu < 0))
