@@ -188,6 +188,7 @@
 #define PCIE20_HEADER_TYPE		0x0C
 #define PCIE20_BUSNUMBERS		  0x18
 #define PCIE20_MEMORY_BASE_LIMIT	 0x20
+#define PCIE20_BRIDGE_CTRL		0x3C
 #define PCIE20_L1SUB_CONTROL1	    0x158
 #define PCIE20_DEVICE_CONTROL_STATUS	0x78
 #define PCIE20_DEVICE_CONTROL2_STATUS2 0x98
@@ -2104,6 +2105,10 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 	} else {
 		wr_val = (rd_val & ~mask) |
 				((*val << (8 * byte_offset)) & mask);
+
+		if ((bus->number == 0) && (where == 0x3c))
+			wr_val = wr_val | (3 << 16);
+
 		writel_relaxed(wr_val, config_base + word_offset);
 		wmb(); /* ensure config data is written to hardware register */
 
@@ -2492,6 +2497,8 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
 
 	/* Enable AER on RC */
+	msm_pcie_write_mask(dev->dm_core + PCIE20_BRIDGE_CTRL, 0,
+					BIT(16)|BIT(17));
 	msm_pcie_write_mask(dev->dm_core +  PCIE20_CAP_DEVCTRLSTATUS, 0,
 					BIT(3)|BIT(2)|BIT(1)|BIT(0));
 
