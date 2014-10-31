@@ -2229,7 +2229,6 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 master_ctl, iir;
 	irqreturn_t ret = IRQ_NONE;
-	int lpe_stream;
 
 	for (;;) {
 		master_ctl = I915_READ(GEN8_MASTER_IRQ) & ~GEN8_MASTER_IRQ_CONTROL;
