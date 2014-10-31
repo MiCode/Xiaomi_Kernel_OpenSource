@@ -870,7 +870,7 @@ static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 	}
 	ctrl_rev = MIPI_INP(ctrl_pdata->ctrl_base);
 	/* Flush DSI TIMING registers for 8916/8939 */
-	if (ctrl_rev == MDSS_DSI_HW_REV_103_1)
+	if (ctrl_pdata->timing_db_mode)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e4, 0x1);
 	ctrl_pdata->panel_data.panel_info.mipi.frame_rate = new_fps;
 
@@ -1075,7 +1075,9 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 	if (new_fps !=
 		ctrl_pdata->panel_data.panel_info.mipi.frame_rate) {
 		if (pdata->panel_info.dfps_update
-			== DFPS_IMMEDIATE_PORCH_UPDATE_MODE) {
+			== DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP ||
+			pdata->panel_info.dfps_update
+			== DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) {
 
 			__mdss_dsi_update_video_mode_total(pdata, new_fps);
 			if (sctrl_pdata) {

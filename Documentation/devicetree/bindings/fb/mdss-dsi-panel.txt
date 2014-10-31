@@ -147,12 +147,15 @@ Optional properties:
 - qcom,mdss-dsi-pan-enable-dynamic-fps:	Boolean used to enable change in frame rate dynamically.
 - qcom,mdss-dsi-pan-fps-update:		A string that specifies when to change the frame rate.
 					"dfps_suspend_resume_mode"= FPS change request is
-						implemented during suspend/resume.
+					implemented during suspend/resume.
 					"dfps_immediate_clk_mode" = FPS change request is
-						implemented immediately using DSI clocks.
-					"dfps_immediate_porch_mode" = FPS change request is
-						implemented immediately by changing panel porch
-						values.
+					implemented immediately using DSI clocks.
+					"dfps_immediate_porch_mode_hfp" = FPS change request is
+					implemented immediately by changing panel horizontal
+					front porch values.
+					"dfps_immediate_porch_mode_vfp" = FPS change request is
+					implemented immediately by changing panel vertical
+					front porch values.
 - qcom,min-refresh-rate:		Minimum refresh rate supported by the panel.
 - qcom,max-refresh-rate:		Maximum refresh rate supported by the panel. If max refresh
 					rate is not specified, then the frame rate of the panel in
