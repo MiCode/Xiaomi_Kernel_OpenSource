@@ -262,7 +262,6 @@ static void vlv_configure_dsi_pll(struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
-	const struct drm_display_mode *mode = &intel_crtc->config.adjusted_mode;
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	enum pipe pipe = intel_crtc->pipe;
 	int ret;
