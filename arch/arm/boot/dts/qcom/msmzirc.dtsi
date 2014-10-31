@@ -30,6 +30,7 @@
 		spi1 = &spi_1;
 		i2c3 = &i2c_3;
 		qpic_nand1 = &qnand_1;
+		sdhc1 = &sdhc_1; /* SDC1 eMMC/SD slot */
 	};
 
 	memory {
@@ -807,6 +808,35 @@
 
 		clock-names = "core_clk";
 		clocks = <&clock_rpm clk_qpic_clk>;
+		status = "disabled";
+	};
+
+	sdhc_1: sdhci@7824000 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0x07824900 0x11c>, <0x07824000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		interrupts = <0 123 0>, <0 138 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,cpu-dma-latency-us = <701>;
+		qcom,msm-bus,name = "sdhc1";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <78 512 0 0>, /* No vote */
+				<78 512 1600 3200>,    /* 400 KB/s*/
+				<78 512 80000 160000>, /* 20 MB/s */
+				<78 512 100000 200000>, /* 25 MB/s */
+				<78 512 200000 400000>, /* 50 MB/s */
+				<78 512 400000 800000>, /* 100 MB/s */
+				<78 512 400000 800000>, /* 200 MB/s */
+				<78 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+						100000000 200000000 4294967295>;
+		clocks = <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+
 		status = "disabled";
 	};
 
