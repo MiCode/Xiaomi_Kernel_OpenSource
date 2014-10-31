@@ -71,6 +71,12 @@ SoCs:
 - MSMZIRC
   compatible = "qcom,msmzirc"
 
+- FSM9010
+  compatible = "qcom,fsm9010"
+
+- FSM9910
+  compatible = "qcom,fsm9900"
+
 
 
 Generic board variants:
@@ -179,3 +185,7 @@ compatible = "qcom,msmzirc-cdp"
 compatible = "qcom,msmzirc-mtp"
 compatible = "qcom,msmzirc-rumi"
 compatible = "qcom,msmzirc-sim"
+compatible = "qcom,fsm9010-cdp"
+compatible = "qcom,fsm9010-mtp"
+compatible = "qcom,fsm9900-cdp"
+compatible = "qcom,fsm9900-mtp"
