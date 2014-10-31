@@ -2090,7 +2090,9 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
 					    atomic_read(&this_adm.copp.id
 							[port_idx][copp_idx]),
 					    get_cal_path(path),
-					    payload_map.session_id);
+					    payload_map.session_id,
+					    payload_map.app_type,
+					    payload_map.acdb_dev_id);
 			send_adm_cal(payload_map.port_id[i], copp_idx,
 				     get_cal_path(path), perf_mode,
 				     payload_map.app_type,
