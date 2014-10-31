@@ -979,6 +979,11 @@ int ufshcd_hold(struct ufs_hba *hba, bool async)
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->clk_gating.active_reqs++;
 
+	if (ufshcd_eh_in_progress(hba)) {
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		return 0;
+	}
+
 start:
 	switch (hba->clk_gating.state) {
 	case CLKS_ON:
@@ -1113,7 +1118,8 @@ static void __ufshcd_release(struct ufs_hba *hba)
 	if (hba->clk_gating.active_reqs || hba->clk_gating.is_suspended
 		|| hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL
 		|| hba->lrb_in_use || hba->outstanding_tasks
-		|| hba->active_uic_cmd || hba->uic_async_done)
+		|| hba->active_uic_cmd || hba->uic_async_done
+		|| ufshcd_eh_in_progress(hba))
 		return;
 
 	hba->clk_gating.state = REQ_CLKS_OFF;
@@ -1250,6 +1256,11 @@ int ufshcd_hibern8_hold(struct ufs_hba *hba, bool async)
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->hibern8_on_idle.active_reqs++;
 
+	if (ufshcd_eh_in_progress(hba)) {
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		return 0;
+	}
+
 start:
 	switch (hba->hibern8_on_idle.state) {
 	case HIBERN8_EXITED:
@@ -1315,7 +1326,8 @@ static void __ufshcd_hibern8_release(struct ufs_hba *hba)
 		|| hba->hibern8_on_idle.is_suspended
 		|| hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL
 		|| hba->lrb_in_use || hba->outstanding_tasks
-		|| hba->active_uic_cmd || hba->uic_async_done)
+		|| hba->active_uic_cmd || hba->uic_async_done
+		|| ufshcd_eh_in_progress(hba))
 		return;
 
 	hba->hibern8_on_idle.state = REQ_HIBERN8_ENTER;
@@ -2317,6 +2329,13 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		dev_WARN_ONCE(hba->dev, 1, "%s: invalid state %d\n",
 				__func__, hba->ufshcd_state);
 		set_host_byte(cmd, DID_BAD_TARGET);
+		cmd->scsi_done(cmd);
+		goto out_unlock;
+	}
+
+	/* if error handling is in progress, don't issue commands */
+	if (ufshcd_eh_in_progress(hba)) {
+		set_host_byte(cmd, DID_ERROR);
 		cmd->scsi_done(cmd);
 		goto out_unlock;
 	}
@@ -3613,6 +3632,31 @@ out:
 	return ret;
 }
 
+static int ufshcd_link_recovery(struct ufs_hba *hba)
+{
+	int ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->ufshcd_state = UFSHCD_STATE_RESET;
+	ufshcd_set_eh_in_progress(hba);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	ret = ufshcd_host_reset_and_restore(hba);
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (ret)
+		hba->ufshcd_state = UFSHCD_STATE_ERROR;
+	ufshcd_clear_eh_in_progress(hba);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	if (ret)
+		dev_err(hba->dev, "%s: link recovery failed, err %d",
+			__func__, ret);
+
+	return ret;
+}
+
 static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 {
 	int ret;
@@ -3648,11 +3692,10 @@ static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 			     ktime_to_us(ktime_sub(ktime_get(), start)), ret);
 
 	if (ret) {
-		ufshcd_set_link_off(hba);
 		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_HIBERN8_EXIT);
 		dev_err(hba->dev, "%s: hibern8 exit failed. ret = %d",
 			__func__, ret);
-		ret = ufshcd_host_reset_and_restore(hba);
+		ret = ufshcd_link_recovery(hba);
 	} else {
 		dev_dbg(hba->dev, "%s: Hibern8 Exit at %lld us", __func__,
 			ktime_to_us(ktime_get()));
@@ -5972,7 +6015,6 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);
 	ufshcd_force_reset_auto_bkops(hba);
-	hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
 	hba->wlun_dev_clr_ua = true;
 
 	if (ufshcd_get_max_pwr_mode(hba)) {
@@ -5986,6 +6028,8 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 					__func__, ret);
 	}
 
+	/* set the state as operational after switching to desired gear */
+	hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
 	/*
 	 * If we are in error handling context or in power management callbacks
 	 * context, no need to scan the host
