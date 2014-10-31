@@ -2844,14 +2844,14 @@ static int q6asm_map_channels(u8 *channel_mapping, uint32_t channels)
 	} else if (channels == 4) {
 		lchannel_mapping[0] = PCM_CHANNEL_FL;
 		lchannel_mapping[1] = PCM_CHANNEL_FR;
-		lchannel_mapping[2] = PCM_CHANNEL_RB;
-		lchannel_mapping[3] = PCM_CHANNEL_LB;
+		lchannel_mapping[2] = PCM_CHANNEL_LS;
+		lchannel_mapping[3] = PCM_CHANNEL_RS;
 	} else if (channels == 5) {
 		lchannel_mapping[0] = PCM_CHANNEL_FL;
 		lchannel_mapping[1] = PCM_CHANNEL_FR;
 		lchannel_mapping[2] = PCM_CHANNEL_FC;
-		lchannel_mapping[3] = PCM_CHANNEL_LB;
-		lchannel_mapping[4] = PCM_CHANNEL_RB;
+		lchannel_mapping[3] = PCM_CHANNEL_LS;
+		lchannel_mapping[4] = PCM_CHANNEL_RS;
 	} else if (channels == 6) {
 		lchannel_mapping[0] = PCM_CHANNEL_FL;
 		lchannel_mapping[1] = PCM_CHANNEL_FR;
@@ -2866,8 +2866,8 @@ static int q6asm_map_channels(u8 *channel_mapping, uint32_t channels)
 		lchannel_mapping[3] = PCM_CHANNEL_LFE;
 		lchannel_mapping[4] = PCM_CHANNEL_LB;
 		lchannel_mapping[5] = PCM_CHANNEL_RB;
-		lchannel_mapping[6] = PCM_CHANNEL_FLC;
-		lchannel_mapping[7] = PCM_CHANNEL_FRC;
+		lchannel_mapping[6] = PCM_CHANNEL_LS;
+		lchannel_mapping[7] = PCM_CHANNEL_RS;
 	} else {
 		pr_err("%s: ERROR.unsupported num_ch = %u\n",
 		 __func__, channels);
