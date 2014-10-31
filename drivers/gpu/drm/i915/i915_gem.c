@@ -3685,20 +3685,6 @@ search_free:
 	list_move_tail(&obj->global_list, &dev_priv->mm.bound_list);
 	list_add_tail(&vma->mm_list, &vm->inactive_list);
 
-	if (i915_is_ggtt(vm)) {
-		bool mappable, fenceable;
-
-		fenceable = (vma->node.size == fence_size &&
-			     (vma->node.start & (fence_alignment - 1)) == 0);
-
-		mappable = (vma->node.start + obj->base.size <=
-			    dev_priv->gtt.mappable_end);
-
-		obj->map_and_fenceable = mappable && fenceable;
-	}
-
-	WARN_ON(flags & PIN_MAPPABLE && !obj->map_and_fenceable);
-
 	trace_i915_vma_bind(vma, flags);
 	vma->bind_vma(vma, obj->cache_level,
 		      flags & (PIN_MAPPABLE | PIN_GLOBAL) ? GLOBAL_BIND : 0);
@@ -4270,6 +4256,7 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj,
 {
 	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
 	struct i915_vma *vma;
+	unsigned bound;
 	int ret;
 
 	if (WARN_ON(vm == &dev_priv->mm.aliasing_ppgtt->base))
@@ -4320,6 +4307,7 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj,
 		}
 	}
 
+	bound = vma ? obj->has_global_gtt_mapping : 0;
 	if (vma == NULL || !drm_mm_node_allocated(&vma->node)) {
 		vma = i915_gem_object_bind_to_vm(obj, vm, alignment, flags);
 		if (IS_ERR(vma))
@@ -4328,6 +4316,29 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj,
 
 	if (flags & PIN_GLOBAL && !obj->has_global_gtt_mapping)
 		vma->bind_vma(vma, obj->cache_level, GLOBAL_BIND);
+
+	if ((bound ^ obj->has_global_gtt_mapping) & GLOBAL_BIND) {
+		bool mappable, fenceable;
+		u32 fence_size, fence_alignment;
+
+		fence_size = i915_gem_get_gtt_size(obj->base.dev,
+						   obj->base.size,
+						   obj->tiling_mode);
+		fence_alignment = i915_gem_get_gtt_alignment(obj->base.dev,
+							     obj->base.size,
+							     obj->tiling_mode,
+							     true);
+
+		fenceable = (vma->node.size == fence_size &&
+			     (vma->node.start & (fence_alignment - 1)) == 0);
+
+		mappable = (vma->node.start + obj->base.size <=
+			    dev_priv->gtt.mappable_end);
+
+		obj->map_and_fenceable = mappable && fenceable;
+	}
+
+	WARN_ON(flags & PIN_MAPPABLE && !obj->map_and_fenceable);
 
 	vma->pin_count++;
 	if (flags & PIN_MAPPABLE)
