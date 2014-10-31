@@ -3347,6 +3347,12 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 static void dwc3_process_event_entry(struct dwc3 *dwc,
 		const union dwc3_event *event)
 {
+	/* skip event processing in absence of vbus */
+	if (!dwc->vbus_active) {
+		dbg_print_reg("SKIP EVT", event->raw);
+		return;
+	}
+
 	/* Endpoint IRQ, handle it and return early */
 	if (event->type.is_devspec == 0) {
 		/* depevt */
