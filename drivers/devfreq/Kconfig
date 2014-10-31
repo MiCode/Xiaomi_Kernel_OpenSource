@@ -82,6 +82,15 @@ config QCOM_BIMC_BWMON
 	  has the capability to raise an IRQ when the count exceeds a
 	  programmable limit.
 
+config QCOMCCI_HWMON
+	tristate "QTI CCI Cache monitor hardware"
+	depends on ARCH_QCOM
+	help
+	  QTI CCI has additional PMU counters that can be used to monitor
+	  cache requests. QTI CCI hardware monitor device configures these
+	  registers to monitor cache and inform governor. It can also set an
+	  IRQ when count exceeds a programmable limit.
+
 config DEVFREQ_GOV_QCOM_BW_HWMON
 	tristate "HW monitor based governor for device BW"
 	depends on QCOM_BIMC_BWMON
