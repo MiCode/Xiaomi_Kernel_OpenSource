@@ -950,6 +950,23 @@
 			};
 		};
 
+		pmx_i2c_4 {
+			qcom,pins = <&gp 14>, <&gp 15>; /* SDA, SCL */
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <2>;
+			label = "pmx_i2c_4";
+
+			i2c_4_active: i2c_4_active {
+				drive-strength = <2>;
+				bias-disable;
+			};
+
+			i2c_4_sleep: i2c_4_sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		pmx_i2c_5 {
                         /* CLK, DATA */
                         qcom,pins = <&gp 19>, <&gp 18>;
