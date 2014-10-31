@@ -18,7 +18,7 @@
 #include <linux/types.h>
 #include <linux/io.h>
 #include <linux/pm_qos.h>
-
+#include <linux/ratelimit.h>
 #include <linux/mmc/host.h>
 
 /*
@@ -606,7 +606,7 @@ struct sdhci_host {
 	enum sdhci_power_policy power_policy;
 
 	u32 auto_cmd_err_sts;
-
+	struct ratelimit_state dbg_dump_rs;
 	unsigned long private[0] ____cacheline_aligned;
 };
 
