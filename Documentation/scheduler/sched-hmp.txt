@@ -641,192 +641,63 @@ select_best_cpu(), represents the heart of the HMP scheduling
 algorithm described in this document.
 
 The behavior of select_best_cpu() differs depending on whether the
-task being placed is a small task or not.
+task being placed is a small task or not and the value of the sched_prefer_idle
+tunable.
 
 --- Wakeup Logic a Non-Small Task "p"
 
-  The following is evaluated for every online CPU i which task p may run on:
+The order of CPU preference for a non-small task when sched_prefer_idle = 1 is
+the following:
 
-       |
-       |                    task doesn't fit, but
-       |                    is this CPU a good
-       V                    fallback candidate?
-+---------------+             +-------------+            +--------+
-| does task fit |------------>|   is CPU    |----------->| ignore |
-|   on CPU      |     no      | mostly idle |     no     |   cpu  |
-+---------------+             +-------------+            +--------+
-       |                             |
-       | yes                         | yes
-       |                             |         +--------------------------+
-       |                             --------->| load < min_fallback_load |
-       |                                       +--------------------------+
-       |                                         |                    |
-       |                                         | yes                | no
-       |                                         V                    V
-       |                          +-----------------------+       +------------+
-       |                          | fallback_idle_cpu = i |       | ignore cpu |
-       | task fits, prefer        +-----------------------+       +------------+
-       | mostly idle CPUs                        |                    |
-       | or non-max capacity                     V                    V
-       | CPUs that won't hit                   next CPU            next CPU
-       | spill threshold
-       V
-+---------------------+           task does not meet load requirements
-| CPU mostly idle ||  |    no     +------------+
-| (!max_capacity &&   |---------->| ignore cpu |----> next CPU
-|  !(p causes spill)) |           +------------+
-+---------------------+
-       |
-       | yes
-       |
-       |
-       |
-       | is CPU in a lower power band
-       V than previously seen min cost CPU        CPU in a lower power band
-+---------------------+                           than previously seen min,
-| cost(p, i) is       |   yes     +----------------------------+  override
-| > band_limit % less |---------->| best_cpu = i               |  previously
-| than current min    |           | min_cost = cost(p,i)       |  seen min_load
-+---------------------+           | min_load = load(i)         |  CPU
-       |                          +----------------------------+
-       | no                               |
-       |                                  ---------> next CPU
-       |
-       |
-       |
-       | does CPU have lower load than            CPU has lower load than
-       V previously seen min_load CPU             previously seen lowest load
-+--------------------+    yes                   +-----------------+
-| load(i) < min_load |------------------------->| best_cpu = i    |
-+--------------------+                          | min_load = load |
-       |                                        +-----------------+
-       | no                                             |
-       |                                                |
-       | if load is tied with lowest previously         |
-       | seen lowest load, is power cost less           |
-       V                                                |
-+------------------------+                              |
-| load(i) == min_load && |  yes    +--------------+     |
-| cost(p, i) < min_cost  |-------->| best_cpu = i |     |
-+------------------------+         +--------------+     |
-       |                                |               |
-       | no                             |              /
-       \_____________________________   |   __________/
-                                     \  |  /
-                                      | | |
-                                      V V V              if power cost of this
-                                +----------------------+ CPU is lower than
-                                | cost(p,i) < min_cost | current min, update
-                                +----------------------+ min_cost
-                                   |                |
-                                   | yes            | no
-                                   |                ----------> next CPU
-                                   V
-                           +----------------------+
-                           | min_cost = cost(p,i) |-------> next CPU
-                           +----------------------+
+  1. The shallowest-cstate idle CPU in the lowest-power cluster which can fit
+     the task. Where there is a tie of two CPUs with the same load, the CPU with
+     the lowest power cost is chosen.
 
-Once this flow chart has been evaluated for every online CPU the task
-may run on, if a "best_cpu" was found, it is returned. If a best_cpu
-was not found but a fallback_idle_cpu was found, then the
-fallback_idle_cpu is returned. Finally, if no best_cpu or
-fallback_idle cpu was found, then the task's previous CPU is returned.
+  2. The least-loaded CPU the task is allowed to run on in the lowest power band
+     where the task will fit and where the placement will not result in cpu
+     exceeding spill level. When there is a tie of two CPUs at same load, the
+     CPU with the lowest power cost is chosen.
 
-Phew! Fortunately, all of that can be summarized relatively easily. The
-order of CPU preference for a non-small task is the following:
+  3. The least-loaded mostly idle CPU that the task is allowed to run on where
+     the task won't fit (since there was no CPU where the task would fit).
 
-  1. The least-loaded CPU the task is allowed to run on in the lowest
-     power band where the task will fit and where the placement will
-     not result in cpu exceeding spill level. When there is a tie of
-     two cpus at same load, their CPU with the lowest power cost is
-     chosen.
+  4. The CPU which the task last ran on.
 
-  2. The least-loaded mostly idle CPU that the task is allowed to run
-     on where the task won't fit (since there was no CPU where the
-     task would fit).
+The order of CPU preference for a non-small task when sched_prefer_idle = 0
+is the following:
 
-  3. The CPU which the task last ran on.
+  1. The least-loaded non-idle mostly idle CPU the task is allowed to run on in
+     the lowest power band where the task will fit. When there is a tie of two
+     CPUs at same load, the CPU with the lowest power cost is chosen.
+
+  2. The shallowest-cstate idle CPU in the lowest-power cluster which can fit
+     the task. Where there is a tie of two CPUs with the same load, the CPU with
+     the lowest power cost is chosen.
+
+  3. The least-loaded CPU the task is allowed to run on in the lowest power band
+     where the task will fit and where the placement will not result in the CPU
+     exceeding spill level. When there is a tie of two CPUs at the same load,
+     the CPU with the lowest power cost is chosen.
+
+  4. The least-loaded mostly idle CPU that the task is allowed to run on where
+     the task won't fit (since there was no CPU where the task would fit).
+
+  5. The CPU which the task last ran on.
 
 --- Wakeup Logic a Small Task "p"
 
-The online CPUs the task is allowed to run on are scanned and the
-lowest power CPU is found. This is marked as the min_cost_cpu.
-
-If the minimum cost CPU is mostly idle but not idle, that CPU is
-immediately chosen.
-
-If the minimum cost CPU is idle or not mostly idle, then the following
-will be evaluated for every online CPU i the task is allowed to run
-on:
-      |   is CPU i in higher power band          is this CPU lower power than
-      V   than min_cost_cpu?                     best fallback CPU seen
-+---------------------+                +-----------------------+
-| cost(p, i) is       |       yes      | cost(p,i) <           | no   +--------+
-| > band_limit % more |--------------->| min_fallback_cpu_cost |----->| ignore |
-| than min_cost_cpu   |                +-----------------------+      |  cpu   |
-+---------------------+                           |                   +--------+
-      |                                           | yes                   |
-      | no                                        |                       V
-      |                                           |                    next cpu
-      |  is this CPU                              V
-      V  idle                          +-----------------------------------+
-+-----------------+    yes             | best_fallback_cpu = i             |
-| cpu cstate > 0? |-----------         | min_fallback_cpu_cost = cost(p,i) |
-+-----------------+          |         +-----------------------------------+
-      |                      |                    |
-      | no                   |                    \------> next CPU
-      |                      | is this CPU
-      |  is this CPU         | the shallowest
-      V  mostly idle         | idle CPU seen
-+--------------+       +----------------------+  no  +--------+
-|   cpu i      |       | cstate < min_cstate? |----->| ignore |
-| mostly idle? |       +----------------------+      |  cpu   |--> next cpu
-+--------------+                            |        +--------+
-      |       |                             | yes
-      | no    | yes                         |
-      |       |       +--------------+      |     +---------------------+
-      |       \------>| return cpu i |      ----->| min_cstate_cpu = i  |
-      |               +--------------+            | min_cstate = cstate |
-      |                                           +---------------------+
-      |                                                    |
-      | will task not cross spill                          |
-      | threshold, and is this the                         |
-      V least loaded busy CPU we've seen                   |
-+-------------------------+                                \-----> next cpu
-| !(p causes spill) &&    |  no   +--------+
-| load(i) < min_busy_load |------>| ignore |---> next cpu
-+-------------------------+       |  cpu   |
-      |                           +--------+
-      | yes
-      V
-+----------------------+
-| best_busy_cpu = i    |
-| min_busy_load = load |--------> next cpu
-+----------------------+
-
-Note that the process of evaluating the flow chart for every online
-CPU the task may run on could be interrupted if a mostly idle CPU is
-found in the lowest power band. Such a CPU will be selected
-immediately by the algorithm. Otherwise, once the flow chart has been
-evaluated for every online CPU the task is allowed to run on, a CPU is
-selected from the candidates. If one or more idle CPUs exist in the
-lowest power band then the one in the shallowest C-state is
-returned. If not, then the least loaded CPU in the lowest power band
-which would not exceed its spill threshold by accepting the task is
-selected, assuming it exists. If none of the former possibilities
-exist, the most power-efficient CPU outside the lowest power band is
-selected.
-
-Phew! But once again this can all be summarized. The order of CPU
-preference for a small task is the following:
+The order of CPU preference for a small task is the following:
 
   1. The lowest-power CPU, if it is not idle but is mostly idle.
-  2. A non-idle CPU in the lowest power band which is mostly idle. The
-     first such CPU found is selected.
-  3. An idle CPU in the lowest power band that is in the least shallow
-     C-state.
-  4. The least busy CPU in the lowest power band where adding the task
-     will not result in exceeding the spill threshold.
+
+  2. A non-idle CPU in the lowest power band which is mostly idle. The first
+     such CPU found is selected.
+
+  3. An idle CPU in the lowest power band that is in the least shallow C-state.
+
+  4. The least busy CPU in the lowest power band where adding the task will not
+     result in exceeding the spill threshold.
+
   5. The most power-efficient CPU outside of the lowest power band.
 
 *** 5.3 Scheduler Tick
@@ -1368,6 +1239,16 @@ When the irqload on a CPU exceeds the value of this tunable, the CPU is no
 longer eligible to be seen as mostly idle. This will affect the task placement
 logic described above, causing the scheduler to try and steer tasks away from
 the CPU.
+
+** 7.23 sched_prefer_idle
+
+Appears at: /proc/sys/kernel/sched_prefer_idle
+
+Default value: 1
+
+Non-small tasks will prefer to wake up on idle CPUs if this tunable is set to 1.
+If the tunable is set to 0, non-small tasks will prefer to wake up on mostly
+idle CPUs which are not completely idle, increasing task packing behavior.
 
 =========================
 8. HMP SCHEDULER TRACE POINTS
