@@ -1181,5 +1181,16 @@
 				bias-pull-down;
 			};
 		};
+
+		smb_int_pin {
+			qcom,pins = <&gp 58>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "smb1360_int_gpio";
+			smb_int_default: smb_int_default {
+				drive-strength = <2>;	/* 2 MA */
+				bias-pull-up;		/* PULL UP*/
+			};
+		};
 	};
 };
