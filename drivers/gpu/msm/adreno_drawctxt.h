@@ -288,4 +288,7 @@ static inline void calc_gmemsize(struct gmem_shadow_t *shadow, int gmem_size)
 	shadow->size = shadow->pitch * shadow->height * 4;
 }
 
+void adreno_drawctxt_dump(struct kgsl_device *device,
+		struct kgsl_context *context);
+
 #endif  /* __ADRENO_DRAWCTXT_H */
