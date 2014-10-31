@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,8 +20,10 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/msm-bus.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include "vmem.h"
@@ -105,8 +107,16 @@ struct vmem {
 		struct resource *resource;
 		void __iomem *base;
 	} reg, mem;
-	struct clk *maxi;
-	struct clk *ahb;
+	struct regulator *vdd;
+	struct {
+		const char *name;
+		struct clk *clk;
+	} *clocks;
+	int num_clocks;
+	struct {
+		struct msm_bus_scale_pdata *pdata;
+		uint32_t priv;
+	} bus;
 	atomic_t alloc_count;
 	struct dentry *debugfs_root;
 };
@@ -157,34 +167,61 @@ static inline void __wait_sleep(struct vmem *v)
 	return __wait_timer(v, false);
 }
 
-static inline int __enable_clocks(struct vmem *v)
+static inline int __power_on(struct vmem *v)
 {
-	int rc = 0;
+	int rc = 0, c = 0;
 
-	rc = clk_prepare_enable(v->maxi);
+	rc = msm_bus_scale_client_update_request(v->bus.priv, 1);
 	if (rc) {
-		pr_err("Failed to enable vmem axi clock: %d\n", rc);
+		pr_err("Failed to vote for buses (%d)\n", rc);
 		goto exit;
 	}
+	pr_debug("Voted for buses\n");
 
-	rc = clk_prepare_enable(v->ahb);
+	rc = regulator_enable(v->vdd);
 	if (rc) {
-		pr_err("Failed to enable vmem ahb clock: %d\n", rc);
-		goto disable_ahb;
+		pr_err("Failed to power on gdsc (%d)", rc);
+		goto unvote_bus;
+	}
+	pr_debug("Enabled regulator vdd\n");
+
+	for (c = 0; c < v->num_clocks; ++c) {
+		rc = clk_prepare_enable(v->clocks[c].clk);
+		if (rc) {
+			pr_err("Failed to enable %s clock (%d)\n",
+					v->clocks[c].name, rc);
+			goto disable_clocks;
+		}
+
+		pr_debug("Enabled clock %s\n", v->clocks[c].name);
 	}
 
 	return 0;
-
-disable_ahb:
-	clk_disable_unprepare(v->maxi);
+disable_clocks:
+	for (--c; c >= 0; c--)
+		clk_disable_unprepare(v->clocks[c].clk);
+	regulator_disable(v->vdd);
+unvote_bus:
+	msm_bus_scale_client_update_request(v->bus.priv, 0);
 exit:
 	return rc;
 }
 
-static inline int __disable_clocks(struct vmem *v)
+static inline int __power_off(struct vmem *v)
 {
-	clk_disable_unprepare(v->ahb);
-	clk_disable_unprepare(v->maxi);
+	int c = 0;
+
+	for (c = 0; c < v->num_clocks; ++c) {
+		clk_disable_unprepare(v->clocks[c].clk);
+		pr_debug("Disabled clock %s\n", v->clocks[c].name);
+	}
+
+	regulator_disable(v->vdd);
+	pr_debug("Disabled regulator vdd\n");
+
+	msm_bus_scale_client_update_request(v->bus.priv, 0);
+	pr_debug("Unvoted for buses\n");
+
 	return 0;
 }
 
@@ -290,9 +327,9 @@ int vmem_allocate(size_t size, phys_addr_t *addr)
 		goto exit;
 	}
 
-	rc = __enable_clocks(vmem);
+	rc = __power_on(vmem);
 	if (rc) {
-		pr_err("Failed to enable axi clock\n");
+		pr_err("Failed power on (%d)\n", rc);
 		goto exit;
 	}
 
@@ -325,7 +362,7 @@ int vmem_allocate(size_t size, phys_addr_t *addr)
 	return 0;
 
 disable_clocks:
-	__disable_clocks(vmem);
+	__power_off(vmem);
 exit:
 	return rc;
 }
@@ -355,7 +392,7 @@ void vmem_free(phys_addr_t to_free)
 	}
 
 	__disable_interrupts(vmem);
-	__disable_clocks(vmem);
+	__power_off(vmem);
 	atomic_dec(&vmem->alloc_count);
 }
 
@@ -421,12 +458,12 @@ static irqreturn_t __irq_handler(int irq, void *cookie)
 static inline int __init_resources(struct vmem *v,
 		struct platform_device *pdev)
 {
-	int rc = 0;
+	int rc = 0, c = 0;
 
 	v->irq = platform_get_irq(pdev, 0);
 	if (v->irq < 0) {
 		rc = v->irq;
-		pr_err("Failed to get irq: %d\n", rc);
+		pr_err("Failed to get irq (%d)\n", rc);
 		v->irq = 0;
 		goto exit;
 	}
@@ -443,7 +480,7 @@ static inline int __init_resources(struct vmem *v,
 	v->reg.base = devm_ioremap_resource(&pdev->dev, v->reg.resource);
 	if (IS_ERR_OR_NULL(v->reg.base)) {
 		rc = PTR_ERR(v->reg.base) ?: -EIO;
-		pr_err("Failed to map register base into kernel: %d\n", rc);
+		pr_err("Failed to map register base into kernel (%d)\n", rc);
 		v->reg.base = NULL;
 		goto exit;
 	}
@@ -463,33 +500,88 @@ static inline int __init_resources(struct vmem *v,
 	pr_debug("Memory range: %pa -> %pa\n", &v->mem.resource->start,
 			&v->mem.resource->end);
 
-	/* Clocks */
-	v->maxi = devm_clk_get(&pdev->dev, "maxi");
-	if (!v->maxi) {
-		pr_err("Failed to find maxi clock\n");
-		rc = -ENOENT;
+	/* Buses, Clocks & Regulators*/
+	v->num_clocks = of_property_count_strings(pdev->dev.of_node,
+			"clock-names");
+	if (v->num_clocks <= 0) {
+		pr_err("Can't find any clocks\n");
 		goto exit;
 	}
 
-	v->ahb = devm_clk_get(&pdev->dev, "ahb");
-	if (!v->ahb) {
-		pr_err("Failed to find ahb clock\n");
-		rc = -ENOENT;
+	v->clocks = devm_kzalloc(&pdev->dev, sizeof(*v->clocks) * v->num_clocks,
+			GFP_KERNEL);
+	for (c = 0; c < v->num_clocks; ++c) {
+		const char *name = NULL;
+		struct clk *temp = NULL;
+
+		of_property_read_string(pdev->dev.of_node, "clock-names",
+				&name);
+		temp = devm_clk_get(&pdev->dev, name);
+		if (IS_ERR_OR_NULL(temp)) {
+			rc = PTR_ERR(temp) ?: -ENOENT;
+			pr_err("Failed to find %s (%d)\n", name, rc);
+			goto exit;
+		}
+
+		v->clocks[c].clk = temp;
+		v->clocks[c].name = name;
+	}
+
+	v->vdd = devm_regulator_get(&pdev->dev, "vdd");
+	if (IS_ERR_OR_NULL(v->vdd)) {
+		rc = PTR_ERR(v->vdd) ?: -ENOENT;
+		pr_err("Failed to find regulator (vdd) (%d)\n", rc);
 		goto exit;
 	}
 
+	v->bus.pdata = msm_bus_cl_get_pdata(pdev);
+	if (IS_ERR_OR_NULL(v->bus.pdata)) {
+		rc = PTR_ERR(v->bus.pdata) ?: -ENOENT;
+		pr_err("Failed to find bus vectors (%d)\n", rc);
+		goto exit;
+	}
+
+	v->bus.priv = msm_bus_scale_register_client(v->bus.pdata);
+	if (!v->bus.priv) {
+		rc = -EBADHANDLE;
+		pr_err("Failed to register bus client\n");
+		goto free_pdata;
+	}
+
+	/* Misc. */
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,banks",
 			&v->num_banks);
 	if (rc || !v->num_banks) {
 		pr_err("Failed reading (or found invalid) qcom,banks in %s (%d)\n",
 				of_node_full_name(pdev->dev.of_node), rc);
 		rc = -ENOENT;
-		goto exit;
+		goto free_pdata;
 	}
 
 	pr_debug("Found configuration with %d banks\n", v->num_banks);
+
+	return 0;
+free_pdata:
+	msm_bus_cl_clear_pdata(v->bus.pdata);
 exit:
 	return rc;
+}
+
+static inline void __uninit_resources(struct vmem *v,
+		struct platform_device *pdev)
+{
+	int c = 0;
+
+	msm_bus_cl_clear_pdata(v->bus.pdata);
+	v->bus.pdata = NULL;
+	v->bus.priv = 0;
+
+	for (c = 0; c < v->num_clocks; ++c) {
+		v->clocks[c].clk = NULL;
+		v->clocks[c].name = NULL;
+	}
+
+	v->vdd = NULL;
 }
 
 static int vmem_probe(struct platform_device *pdev)
@@ -527,9 +619,9 @@ static int vmem_probe(struct platform_device *pdev)
 	}
 
 	/* Cross check the platform resources with what's available on chip */
-	rc = __enable_clocks(vmem);
+	rc = __power_on(vmem);
 	if (rc) {
-		pr_err("Failed to enable clocks: %d\n", rc);
+		pr_err("Failed to power on (%d)\n", rc);
 		goto exit;
 	}
 
@@ -556,7 +648,7 @@ static int vmem_probe(struct platform_device *pdev)
 	rc = devm_request_irq(&pdev->dev, vmem->irq, __irq_handler,
 			IRQF_TRIGGER_HIGH, "vmem", vmem);
 	if (rc) {
-		pr_err("Failed to setup irq: %d\n", rc);
+		pr_err("Failed to setup irq (%d)\n", rc);
 		goto disable_clocks;
 	}
 
@@ -565,7 +657,7 @@ static int vmem_probe(struct platform_device *pdev)
 	/* Everything good so far, set up debugfs */
 	vmem->debugfs_root = vmem_debugfs_init(pdev);
 disable_clocks:
-	__disable_clocks(vmem);
+	__power_off(vmem);
 exit:
 	return rc;
 }
@@ -574,7 +666,12 @@ static int vmem_remove(struct platform_device *pdev)
 {
 	struct vmem *v = platform_get_drvdata(pdev);
 
+	BUG_ON(v != vmem);
+
+	__uninit_resources(v, pdev);
 	vmem_debugfs_deinit(v->debugfs_root);
+	vmem = NULL;
+
 	return 0;
 }
 

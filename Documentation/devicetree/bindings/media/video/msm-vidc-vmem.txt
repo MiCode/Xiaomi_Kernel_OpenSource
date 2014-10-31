@@ -12,6 +12,10 @@ hardware uses.
 - clock-names : A string that describes the "clocks" property.  The AHB clock
 should be named "ahb" and the MAXI clock should be named "maxi".
 - qcom,banks : The number of memory banks that the hardware supports.
+- vdd-supply: phandle to a regulator that is considered to be the footswitch for vmem.
+- qcom,msm-bus,(name|num-cases,num-paths,vectors-KBps) - Bus to be voted for prior to
+  issuing any IO transactions to vmem.  Refer to Documentation/devicetree/bindings/arm/\
+  msm/msm_bus_adhoc.txt for further details.
 
 Example:
 
@@ -22,8 +26,17 @@ qcom,vmem@880000 {
 	    <0x6800000 0x100000>;
 	reg-names = "reg-base", "mem-base";
 
+	vdd-supply = <&gdsc_mmagic_video>;
 	clocks = <&clock_mmss clk_vmem_ahb_clk>,
 	       <&clock_mmss clk_vmem_maxi_clk>;
 	clock-names = "ahb", "maxi";
+
 	qcom,banks = <4>;
+
+	qcom,msm-bus,name = "vmem";
+	qcom,msm-bus,num-cases = <2>;
+	qcom,msm-bus,num-paths = <1>;
+	qcom,msm-bus,vectors-KBps =
+	        <MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG   0   0>,
+	        <MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG 500 800>;
 };
