@@ -79,6 +79,12 @@
 		reg-names = "smem", "irq-reg-base";
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm_sps";
+		qcom,device-type = <3>;
+		qcom,pipe-attr-ee;
+	};
+
 	sdhc_1: sdhci@f9824900 {
 		qcom,bus-width = <8>;
 		compatible = "qcom,sdhci-msm";
