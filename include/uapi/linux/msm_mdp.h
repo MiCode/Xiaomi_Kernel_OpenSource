@@ -522,6 +522,18 @@ struct mdp_pa_v2_cfg_data {
 	void *cfg_payload;
 };
 
+enum {
+	mdp_igc_v1_7 = 1,
+	mdp_igc_vmax,
+};
+
+enum {
+	mdp_igc_rec601,
+	mdp_igc_rec709,
+	mdp_igc_custom,
+	mdp_igc_mode_max,
+};
+
 struct mdp_igc_lut_data {
 	uint32_t block;
 	uint32_t version;
@@ -532,6 +544,7 @@ struct mdp_igc_lut_data {
 };
 
 struct mdp_igc_lut_data_v1_7 {
+	uint32_t table_fmt;
 	uint32_t len;
 	uint32_t *c0_c1_data;
 	uint32_t *c2_data;

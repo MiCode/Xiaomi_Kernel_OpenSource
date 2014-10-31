@@ -89,6 +89,9 @@ struct mdp_pp_driver_ops {
 };
 
 struct mdss_pp_res_type_v1_7 {
+	u32 igc_table_c0_c1[MDSS_BLOCK_DISP_NUM][IGC_LUT_ENTRIES];
+	u32 igc_table_c2[MDSS_BLOCK_DISP_NUM][IGC_LUT_ENTRIES];
+	struct mdp_igc_lut_data_v1_7 igc_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_gamut_data_v1_7 gamut_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pcc_data_v1_7 pcc_v17_data[MDSS_BLOCK_DISP_NUM];
 };
