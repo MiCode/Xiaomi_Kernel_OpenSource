@@ -62,6 +62,7 @@ static char *base_names[] = {
 
 static void *vbases[NUM_BASES];
 u32 cci_phys_base = 0xF9112000;
+static void sanity_check_clock_tree(u32 regval, struct mux_clk *mux);
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
@@ -452,6 +453,8 @@ static void __cpu_mux_set_sel(struct mux_clk *mux, int sel)
 	regval &= ~(mux->mask << mux->shift);
 	regval |= (sel & mux->mask) << mux->shift;
 
+	sanity_check_clock_tree(regval, mux);
+
 	if (mux->priv)
 		scm_io_write(*(u32 *)mux->priv + mux->offset, regval);
 	else
@@ -831,6 +834,102 @@ static struct cpu_clk_8994 a57_clk = {
 		CLK_INIT(a57_clk.c),
 	},
 };
+
+#define LFMUX_MASK 0x6
+#define HFMUX_MASK 0x18
+#define LFDIV_MASK 0x20
+
+#define LFMUX_SHIFT 1
+#define HFMUX_SHIFT 3
+
+#define LFMUX_SEL 0
+#define PLL0_MAIN_SEL 2
+#define PLL1_MAIN_SEL 1
+#define PLL0_EARLY_SEL 3
+#define PLL1_EARLY_SEL 1
+#define AUX_CLK_SEL 3
+
+void sanity_check_clock_tree(u32 muxval, struct mux_clk *mux)
+{
+	int level;
+	u32 hfmux_sel = (muxval & HFMUX_MASK) >> HFMUX_SHIFT;
+	u32 lfmux_sel = (muxval & LFMUX_MASK) >> LFMUX_SHIFT;
+	int div = 0;
+	void *base = NULL;
+	unsigned long rate;
+	struct clk *c;
+
+	if (!(msm8994_v2 || msm8992))
+		return;
+
+	if (mux->base == &vbases[ALIAS0_GLB_BASE]) {
+		level = a53_clk.c.vdd_class->cur_level;
+		base = vbases[C0_PLL_BASE];
+		c = &a53_clk.c;
+	}
+	if (mux->base == &vbases[ALIAS1_GLB_BASE]) {
+		level = a57_clk.c.vdd_class->cur_level;
+		base = vbases[C1_PLL_BASE];
+		c = &a57_clk.c;
+	}
+
+	if (!base)
+		return;
+
+	switch (hfmux_sel) {
+	case LFMUX_SEL:
+		switch (lfmux_sel) {
+		case PLL0_MAIN_SEL:
+			rate = readl_relaxed(base + C0_PLL_L_VAL);
+			div = readl_relaxed(base + C0_PLL_USER_CTL);
+			div &= 0x300;
+			div >>= 8;
+			if (div == 1)
+				div = 2;
+			else if (div == 3)
+				div = 4;
+			else
+				WARN(1, "bad div on %s pll0\n", c->dbg_name);
+			rate *= xo_ao.c.rate;
+			rate /= div;
+		break;
+
+		case PLL1_MAIN_SEL:
+			rate = readl_relaxed(base + C0_PLLA_L_VAL);
+			div = readl_relaxed(base + C0_PLLA_USER_CTL);
+			div &= 0x300;
+			div >>= 8;
+			if (div == 1)
+				div = 2;
+			else if (div == 3)
+				div = 4;
+			else
+				WARN(1, "bad div on %s pll1\n", c->dbg_name);
+			rate *= xo_ao.c.rate;
+			rate /= div;
+		break;
+
+		case AUX_CLK_SEL:
+			rate = sys_apcsaux_clk.c.rate;
+		break;
+		};
+	break;
+	case PLL0_EARLY_SEL:
+		rate = readl_relaxed(base + C0_PLL_L_VAL);
+		rate *= xo_ao.c.rate;
+	break;
+	case PLL1_EARLY_SEL:
+		rate = readl_relaxed(base + C0_PLLA_L_VAL);
+		rate *= xo_ao.c.rate;
+	break;
+	};
+
+	if (level < find_vdd_level(c, rate)) {
+		pr_err("rate is %lu, level is %d, cur level is %d\n", rate,
+			find_vdd_level(c, rate), level);
+		BUG();
+	}
+}
 
 DEFINE_FIXED_SLAVE_DIV_CLK(a53_div_clk, 1, &a53_clk.c);
 DEFINE_FIXED_SLAVE_DIV_CLK(a57_div_clk, 1, &a57_clk.c);
@@ -1641,6 +1740,7 @@ static void __low_power_mux_set_sel(struct mux_clk *mux, int sel)
 	regval = readl_relaxed(*mux->base + mux->offset);
 	regval &= ~(mux->mask << mux->shift);
 	regval |= (sel & mux->mask) << mux->shift;
+	sanity_check_clock_tree(regval, mux);
 	writel_relaxed(regval, *mux->base + mux->offset);
 	/* Ensure switch request goes through before returning */
 	mb();
