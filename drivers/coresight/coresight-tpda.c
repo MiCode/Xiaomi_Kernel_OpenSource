@@ -428,6 +428,11 @@ static const struct attribute_group *tpda_attr_grps[] = {
 	NULL,
 };
 
+static void tpda_init_default_data(struct tpda_drvdata *drvdata)
+{
+	drvdata->freq_ts = true;
+}
+
 static int tpda_probe(struct platform_device *pdev)
 {
 	int ret, i;
@@ -501,6 +506,8 @@ static int tpda_probe(struct platform_device *pdev)
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		return ret;
+
+	tpda_init_default_data(drvdata);
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
