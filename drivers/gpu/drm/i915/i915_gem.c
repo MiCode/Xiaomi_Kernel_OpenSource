@@ -4606,7 +4606,6 @@ i915_gem_close_object(struct drm_gem_object *gem_obj,
 			struct drm_file *file_priv)
 {
 	struct drm_i915_gem_object *obj = to_intel_bo(gem_obj);
-	int ret;
 
 	i915_gem_obj_remove_pid(obj);
 }

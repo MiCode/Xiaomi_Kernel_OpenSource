@@ -327,8 +327,8 @@ void i915_gem_obj_remove_pid(struct drm_i915_gem_object *obj)
 	mutex_unlock(&obj->base.dev->struct_mutex);
 
 	if (found == 0)
-		DRM_DEBUG("Couldn't find matching tgid %d for obj 0x%x\n",
-				current_tgid, (u32) obj);
+		DRM_DEBUG("Couldn't find matching tgid %d for obj %p\n",
+				current_tgid, obj);
 }
 
 void i915_gem_obj_remove_all_pids(struct drm_i915_gem_object *obj)
@@ -699,7 +699,8 @@ __i915_get_drm_clients_info(struct drm_i915_error_state_buf *m,
 	struct pid_stat_entry *pid_entry, *temp_entry;
 	struct pid_stat_entry *new_pid_entry, *new_temp_entry;
 	struct list_head per_pid_stats, sorted_pid_stats;
-	int ret = 0, total_shared_prop_space = 0, total_priv_space = 0;
+	int ret = 0;
+	size_t total_shared_prop_space = 0, total_priv_space = 0;
 
 	INIT_LIST_HEAD(&per_pid_stats);
 	INIT_LIST_HEAD(&sorted_pid_stats);
