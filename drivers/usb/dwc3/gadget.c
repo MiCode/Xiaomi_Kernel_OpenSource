@@ -2980,6 +2980,8 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 			reg |= DWC3_DCTL_LPM_NYET_THRES(dwc->lpm_nyet_thresh);
 		}
 
+		reg |= DWC3_DCTL_HIRD_THRES(dwc->hird_threshold);
+
 		/*
 		 * When dwc3 revisions >= 2.40a, LPM Erratum is enabled and
 		 * DCFG.LPMCap is set, core responses with an ACK and the

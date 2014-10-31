@@ -786,6 +786,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	struct resource		*res;
 	struct dwc3		*dwc;
 	u8			lpm_nyet_threshold;
+	u8			hird_threshold;
 
 	int			ret;
 
@@ -848,12 +849,22 @@ static int dwc3_probe(struct platform_device *pdev)
 	/* default to highest possible threshold */
 	lpm_nyet_threshold = 0xff;
 
+	/*
+	 * default to assert utmi_sleep_n and use maximum allowed HIRD
+	 * threshold value of 0b1100
+	 */
+	hird_threshold = 12;
+
 	if (node) {
 		dwc->maximum_speed = of_usb_get_maximum_speed(node);
 		dwc->has_lpm_erratum = of_property_read_bool(node,
 				"snps,has-lpm-erratum");
 		of_property_read_u8(node, "snps,lpm-nyet-threshold",
 				&lpm_nyet_threshold);
+		dwc->is_utmi_l1_suspend = of_property_read_bool(node,
+				"snps,is-utmi-l1-suspend");
+		of_property_read_u8(node, "snps,hird-threshold",
+				&hird_threshold);
 
 		dwc->needs_fifo_resize = of_property_read_bool(node,
 				"tx-fifo-resize");
@@ -886,6 +897,9 @@ static int dwc3_probe(struct platform_device *pdev)
 		dwc->has_lpm_erratum = pdata->has_lpm_erratum;
 		if (pdata->lpm_nyet_threshold)
 			lpm_nyet_threshold = pdata->lpm_nyet_threshold;
+		dwc->is_utmi_l1_suspend = pdata->is_utmi_l1_suspend;
+		if (pdata->hird_threshold)
+			hird_threshold = pdata->hird_threshold;
 
 		dwc->needs_fifo_resize = pdata->tx_fifo_resize;
 		dwc->dr_mode = pdata->dr_mode;
@@ -896,6 +910,9 @@ static int dwc3_probe(struct platform_device *pdev)
 		dwc->maximum_speed = USB_SPEED_SUPER;
 
 	dwc->lpm_nyet_threshold = lpm_nyet_threshold;
+
+	dwc->hird_threshold = hird_threshold
+		| (dwc->is_utmi_l1_suspend << 4);
 
 	ret = dwc3_core_get_phy(dwc);
 	if (ret)
