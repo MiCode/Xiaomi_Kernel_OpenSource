@@ -1043,7 +1043,8 @@ static void apps_ipa_packet_receive_notify(void *priv,
 
 	result = netif_rx(skb);
 	if (result)	{
-		IPAWANERR("fail on netif_rx\n");
+		pr_err_ratelimited(DEV_NAME " %s:%d fail on netif_rx\n",
+				__func__, __LINE__);
 		dev->stats.rx_dropped++;
 	}
 	dev->stats.rx_packets++;
