@@ -100,7 +100,6 @@ struct msm_iommu_bfb_settings {
  * @list:	List head to link all iommus together
  * @clk_reg_virt: Optional clock register virtual address.
  * @halt_enabled: Set to 1 if IOMMU halt is supported in the IOMMU, 0 otherwise.
- * @asid:         List of ASID and their usage count (index is ASID value).
  * @ctx_attach_count: Count of how many context are attached.
  * @bus_client  : Bus client needed to vote for bus bandwidth.
  * @needs_rem_spinlock  : 1 if remote spinlock is needed, 0 otherwise
@@ -130,7 +129,6 @@ struct msm_iommu_drvdata {
 	struct list_head list;
 	void __iomem *clk_reg_virt;
 	int halt_enabled;
-	int *asid;
 	unsigned int ctx_attach_count;
 	unsigned int bus_client;
 	int needs_rem_spinlock;
