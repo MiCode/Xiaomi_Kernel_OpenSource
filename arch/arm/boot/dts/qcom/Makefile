@@ -35,6 +35,7 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-sim.dtb \
 	msm8909-qrd-skue.dtb \
 	msm8909-cdp.dtb \
 	msm8909-mtp.dtb \
+	msm8909-mtp-smb1360.dtb \
 	msm8909-1gb-qrd-skua.dtb \
 	msm8909-1gb-cdp.dtb \
 	msm8909-1gb-mtp.dtb
