@@ -1233,7 +1233,7 @@ int32_t qpnp_vadc_absolute_rthr(struct qpnp_vadc_chip *chip,
 	if (rc < 0)
 		return rc;
 
-	low_thr = (((param->low_thr)/chan_prop->offset_gain_denominator
+	low_thr = (((param->low_thr)/(int)chan_prop->offset_gain_denominator
 					- QPNP_ADC_625_UV) * vbatt_param.dy);
 	if (low_thr < 0) {
 		sign = 1;
@@ -1246,7 +1246,7 @@ int32_t qpnp_vadc_absolute_rthr(struct qpnp_vadc_chip *chip,
 	*low_threshold = low_thr + vbatt_param.adc_gnd;
 
 	sign = 0;
-	high_thr = (((param->high_thr)/chan_prop->offset_gain_denominator
+	high_thr = (((param->high_thr)/(int)chan_prop->offset_gain_denominator
 					- QPNP_ADC_625_UV) * vbatt_param.dy);
 	if (high_thr < 0) {
 		sign = 1;
