@@ -245,7 +245,7 @@ static void ch_push_remote_rx_intent(struct channel_ctx *ctx, size_t size,
 							uint32_t riid);
 
 static int ch_pop_remote_rx_intent(struct channel_ctx *ctx, size_t size,
-							uint32_t *riid_ptr);
+				uint32_t *riid_ptr, size_t *intent_size);
 
 static struct glink_core_rx_intent *ch_push_local_rx_intent(
 		struct channel_ctx *ctx, const void *pkt_priv, size_t size);
@@ -262,7 +262,7 @@ static struct glink_core_rx_intent *ch_get_local_rx_intent_notified(
 		struct channel_ctx *ctx, const void *ptr);
 
 static void ch_remove_local_rx_intent_notified(struct channel_ctx *ctx,
-					struct glink_core_rx_intent *liid_ptr);
+			struct glink_core_rx_intent *liid_ptr, bool reuse);
 
 static struct glink_core_rx_intent *ch_get_free_local_rx_intent(
 		struct channel_ctx *ctx);
@@ -569,7 +569,7 @@ bool ch_check_duplicate_riid(struct channel_ctx *ctx, int riid)
  * This functions searches for an RX intent that is >= to the requested size.
  */
 int ch_pop_remote_rx_intent(struct channel_ctx *ctx, size_t size,
-		uint32_t *riid_ptr)
+		uint32_t *riid_ptr, size_t *intent_size)
 {
 	struct glink_core_rx_intent *intent;
 	struct glink_core_rx_intent *intent_tmp;
@@ -596,15 +596,16 @@ int ch_pop_remote_rx_intent(struct channel_ctx *ctx, size_t size,
 			list) {
 		if (intent->intent_size >= size) {
 			list_del(&intent->list);
-			*riid_ptr = intent->id;
-			kfree(intent);
-			spin_unlock_irqrestore(
-				&ctx->rmt_rx_intent_lst_lock_lhc2, flags);
 			GLINK_DBG_CH(ctx,
 					"%s: R[%u]:%zu Removed remote intent\n",
 					__func__,
 					intent->id,
 					intent->intent_size);
+			*riid_ptr = intent->id;
+			*intent_size = intent->intent_size;
+			kfree(intent);
+			spin_unlock_irqrestore(
+				&ctx->rmt_rx_intent_lst_lock_lhc2, flags);
 			return 0;
 		}
 	}
@@ -705,7 +706,8 @@ struct glink_core_rx_intent *ch_push_local_rx_intent(struct channel_ctx *ctx,
 	}
 
 	/* transport is responsible for allocating/reserving for the intent */
-	ret = ctx->transport_ptr->ops->allocate_rx_intent(size, intent);
+	ret = ctx->transport_ptr->ops->allocate_rx_intent(
+					ctx->transport_ptr->ops, size, intent);
 	if (ret < 0) {
 		/* intent data allocation failure */
 		GLINK_ERR_CH(ctx, "%s: unable to allocate intent sz[%zu] %d",
@@ -947,13 +949,14 @@ struct glink_core_rx_intent *ch_get_local_rx_intent_notified(
  *					notified list
  * @ctx:	Local channel context
  * @ptr:	Pointer to the rx intent
+ * @reuse:	Reuse the rx intent
  *
  * This functions parses the local intent notify list for a specific channel
  * and checks for the intent. If found, the function deletes the intent
  * from local_rx_intent_notified list and adds it to local_rx_intent_free list.
  */
 void ch_remove_local_rx_intent_notified(struct channel_ctx *ctx,
-	struct glink_core_rx_intent *liid_ptr)
+	struct glink_core_rx_intent *liid_ptr, bool reuse)
 {
 	struct glink_core_rx_intent *ptr_intent, *tmp_intent;
 	unsigned long flags;
@@ -970,8 +973,14 @@ void ch_remove_local_rx_intent_notified(struct channel_ctx *ctx,
 				ptr_intent->intent_size);
 			kfree(ptr_intent->bounce_buf);
 			ptr_intent->bounce_buf = NULL;
-			list_add_tail(&ptr_intent->list,
-				&ctx->local_rx_intent_free_list);
+			ptr_intent->write_offset = 0;
+			ptr_intent->pkt_size = 0;
+			if (reuse)
+				list_add_tail(&ptr_intent->list,
+					&ctx->local_rx_intent_list);
+			else
+				list_add_tail(&ptr_intent->list,
+					&ctx->local_rx_intent_free_list);
 			spin_unlock_irqrestore(
 					&ctx->local_rx_intent_lst_lock_lhc1,
 					flags);
@@ -1425,6 +1434,20 @@ static int dummy_poll(struct glink_transport_if *if_ptr, uint32_t lcid)
 }
 
 /**
+ * dummy_reuse_rx_intent() - a dummy reuse_rx_intent() for transports that
+ *			     don't define one
+ * @if_ptr:	The transport interface handle for this transport.
+ * @intent:	The intent to reuse.
+ *
+ * Return: Success.
+ */
+static int dummy_reuse_rx_intent(struct glink_transport_if *if_ptr,
+				 struct glink_core_rx_intent *intent)
+{
+	return 0;
+}
+
+/**
  * dummy_mask_rx_irq() - a dummy mask_rx_irq() for transports that don't define
  *			 one
  * @if_ptr:	The transport interface handle for this transport.
@@ -1760,6 +1783,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	uint32_t riid;
 	int ret = 0;
 	struct glink_core_tx_pkt *tx_info;
+	size_t intent_size;
 
 	if (!ctx)
 		return -EINVAL;
@@ -1774,7 +1798,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 		return -EINVAL;
 
 	/* find matching rx intent (first-fit algorithm for now) */
-	if (ch_pop_remote_rx_intent(ctx, size, &riid)) {
+	if (ch_pop_remote_rx_intent(ctx, size, &riid, &intent_size)) {
 		if (!(tx_flags & GLINK_TX_REQ_INTENT)) {
 			/* no rx intent available */
 			GLINK_ERR_CH(ctx,
@@ -1804,13 +1828,15 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			do {
 				wait_for_completion(&ctx->int_req_complete);
 				reinit_completion(&ctx->int_req_complete);
-			} while (ch_pop_remote_rx_intent(ctx, size, &riid));
+			} while (ch_pop_remote_rx_intent(ctx, size, &riid,
+								&intent_size));
 		}
 	}
 
 	tx_info = kzalloc(sizeof(struct glink_core_tx_pkt), GFP_KERNEL);
 	if (!tx_info) {
 		GLINK_ERR_CH(ctx, "%s: No memory for allocation\n", __func__);
+		ch_push_remote_rx_intent(ctx, intent_size, riid);
 		return -ENOMEM;
 	}
 	tx_info->pkt_priv = pkt_priv;
@@ -1821,6 +1847,8 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	tx_info->iovec = iovec ? iovec : (void *)tx_info;
 	tx_info->vprovider = vbuf_provider;
 	tx_info->pprovider = pbuf_provider;
+	tx_info->intent_size = intent_size;
+
 	GLINK_INFO_CH(ctx, "%s: data[%p], size[%u]. Thread: %u\n", __func__,
 			tx_info->data ? tx_info->data : tx_info->iovec,
 			tx_info->size, current->pid);
@@ -1913,10 +1941,12 @@ EXPORT_SYMBOL(glink_queue_rx_intent);
  *
  * Return: 0 for success; standard Linux error code for failure case
  */
-int glink_rx_done(void *handle, const void *ptr)
+int glink_rx_done(void *handle, const void *ptr, bool reuse)
 {
 	struct channel_ctx *ctx = (struct channel_ctx *)handle;
 	struct glink_core_rx_intent *liid_ptr;
+	uint32_t id;
+	int ret = 0;
 
 	liid_ptr = ch_get_local_rx_intent_notified(ctx, ptr);
 
@@ -1926,13 +1956,26 @@ int glink_rx_done(void *handle, const void *ptr)
 		return -EINVAL;
 	}
 
+	id = liid_ptr->id;
+	if (reuse) {
+		ret = ctx->transport_ptr->ops->reuse_rx_intent(
+					ctx->transport_ptr->ops, liid_ptr);
+		if (ret) {
+			ret = -ENOBUFS;
+			reuse = false;
+			ctx->transport_ptr->ops->deallocate_rx_intent(
+					ctx->transport_ptr->ops, liid_ptr);
+		}
+	} else {
+		ctx->transport_ptr->ops->deallocate_rx_intent(
+					ctx->transport_ptr->ops, liid_ptr);
+	}
+	ch_remove_local_rx_intent_notified(ctx, liid_ptr, reuse);
 	/* send rx done */
 	ctx->transport_ptr->ops->tx_cmd_local_rx_done(ctx->transport_ptr->ops,
-			ctx->lcid, liid_ptr->id);
-	ctx->transport_ptr->ops->deallocate_rx_intent(liid_ptr);
-	ch_remove_local_rx_intent_notified(ctx, liid_ptr);
+			ctx->lcid, id, reuse);
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(glink_rx_done);
 
@@ -2245,6 +2288,8 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 		if_ptr->poll = dummy_poll;
 	if (!if_ptr->mask_rx_irq)
 		if_ptr->mask_rx_irq = dummy_mask_rx_irq;
+	if (!if_ptr->reuse_rx_intent)
+		if_ptr->reuse_rx_intent = dummy_reuse_rx_intent;
 	xprt_ptr->capabilities = 0;
 	xprt_ptr->ops = if_ptr;
 	spin_lock_init(&xprt_ptr->xprt_ctx_lock_lhb1);
@@ -2995,9 +3040,10 @@ void glink_core_rx_put_pkt_ctx(struct glink_transport_if *if_ptr,
  * @xprt_ptr:	Transport to send packet on.
  * @rcid:	Remote channel ID
  * @riid:	Remote intent ID
+ * @reuse:	Reuse the consumed intent
  */
-void glink_core_rx_cmd_tx_done(struct glink_transport_if *if_ptr, uint32_t
-		rcid, uint32_t riid)
+void glink_core_rx_cmd_tx_done(struct glink_transport_if *if_ptr,
+			       uint32_t rcid, uint32_t riid, bool reuse)
 {
 	struct channel_ctx *ctx;
 	struct glink_core_tx_pkt *tx_pkt;
@@ -3030,6 +3076,9 @@ void glink_core_rx_cmd_tx_done(struct glink_transport_if *if_ptr, uint32_t
 	/* notify client */
 	ctx->notify_tx_done(ctx, ctx->user_priv, tx_pkt->pkt_priv,
 			    tx_pkt->data ? tx_pkt->data : tx_pkt->iovec);
+	if (reuse)
+		ch_push_remote_rx_intent(ctx, tx_pkt->intent_size,
+								tx_pkt->riid);
 	ch_remove_tx_pending_remote_done(ctx, tx_pkt);
 	mutex_unlock(&ctx->tx_lists_mutex_lhc3);
 }

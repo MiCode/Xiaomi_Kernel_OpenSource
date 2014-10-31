@@ -798,7 +798,8 @@ static void rx_worker(struct kthread_work *work)
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_tx_done(
 								&einfo->xprt_if,
 								cmd.param1,
-								cmd.param2);
+								cmd.param2,
+								false);
 			break;
 		case RX_INTENT_REQ_CMD:
 			einfo->xprt_if.glink_core_if_ptr->
@@ -834,6 +835,13 @@ static void rx_worker(struct kthread_work *work)
 								&einfo->xprt_if,
 								cmd.param1,
 								cmd.param2);
+			break;
+		case RX_DONE_W_REUSE_CMD:
+			einfo->xprt_if.glink_core_if_ptr->rx_cmd_tx_done(
+								&einfo->xprt_if,
+								cmd.param1,
+								cmd.param2,
+								true);
 			break;
 		default:
 			pr_err("Unrecognized command: %d\n", cmd.id);
@@ -1140,6 +1148,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 
 /**
  * allocate_rx_intent() - allocate/reserve space for RX Intent
+ * @if_ptr:	The transport the intent is associated with.
  * @size:	size of intent.
  * @intent:	Pointer to the intent structure.
  *
@@ -1151,7 +1160,8 @@ static int ssr(struct glink_transport_if *if_ptr)
  *
  * Return: 0 on success or standard Linux error code.
  */
-static int allocate_rx_intent(size_t size, struct glink_core_rx_intent *intent)
+static int allocate_rx_intent(struct glink_transport_if *if_ptr, size_t size,
+			      struct glink_core_rx_intent *intent)
 {
 	void *t;
 
@@ -1168,11 +1178,13 @@ static int allocate_rx_intent(size_t size, struct glink_core_rx_intent *intent)
 
 /**
  * deallocate_rx_intent() - Deallocate space created for RX Intent
+ * @if_ptr:	The transport the intent is associated with.
  * @intent:	Pointer to the intent structure.
  *
  * Return: 0 on success or standard Linux error code.
  */
-static int deallocate_rx_intent(struct glink_core_rx_intent *intent)
+static int deallocate_rx_intent(struct glink_transport_if *if_ptr,
+				struct glink_core_rx_intent *intent)
 {
 	if (!intent || !intent->data)
 		return -EINVAL;
@@ -1241,9 +1253,10 @@ static int tx_cmd_local_rx_intent(struct glink_transport_if *if_ptr,
  * @if_ptr:	The transport to transmit on.
  * @lcid:	The local channel id to encode.
  * @liid:	The local intent id to encode.
+ * @reuse:	Reuse the consumed intent.
  */
 static void tx_cmd_local_rx_done(struct glink_transport_if *if_ptr,
-				 uint32_t lcid, uint32_t liid)
+				 uint32_t lcid, uint32_t liid, bool reuse)
 {
 	struct command {
 		uint16_t id;
@@ -1265,7 +1278,7 @@ static void tx_cmd_local_rx_done(struct glink_transport_if *if_ptr,
 		return;
 	}
 
-	cmd.id = RX_DONE_CMD;
+	cmd.id = reuse ? RX_DONE_W_REUSE_CMD : RX_DONE_CMD;
 	cmd.lcid = lcid;
 	cmd.liid = liid;
 

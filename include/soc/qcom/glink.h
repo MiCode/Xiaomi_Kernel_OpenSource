@@ -174,7 +174,7 @@ int glink_queue_rx_intent(void *handle, const void *pkt_priv, size_t size);
  *
  * Return: 0 for success; standard Linux error code for failure case
  */
-int glink_rx_done(void *handle, const void *ptr);
+int glink_rx_done(void *handle, const void *ptr, bool reuse);
 
 /**
  * glink_txv() - Transmit a packet in vector form.

@@ -729,7 +729,7 @@ static int glink_lbsrv_handle_data(struct rx_work_info *tmp_rx_work_info)
 			   msecs_to_jiffies(delay_ms));
 	return 0;
 out_handle_data:
-	glink_rx_done(rx_ch_info->handle, tmp_rx_work_info->ptr);
+	glink_rx_done(rx_ch_info->handle, tmp_rx_work_info->ptr, false);
 	return ret;
 }
 
@@ -921,7 +921,7 @@ static void glink_lbsrv_rx_worker(struct work_struct *work)
 
 	if (rx_ch_info->type == CTL) {
 		request_pkt = *((struct req *)tmp_rx_work_info->ptr);
-		glink_rx_done(rx_ch_info->handle, tmp_rx_work_info->ptr);
+		glink_rx_done(rx_ch_info->handle, tmp_rx_work_info->ptr, false);
 		ret = glink_queue_rx_intent(rx_ch_info->handle, rx_ch_info,
 					    sizeof(struct req));
 		LBSRV_INFO("%s:%s:%s %s: QUEUE RX INTENT size[%zu] ret[%d]\n",
@@ -1096,7 +1096,7 @@ static void glink_lbsrv_rx_done_worker(struct work_struct *work)
 
 	mutex_lock(&tmp_ch_info->ch_info_lock);
 	if (!IS_ERR_OR_NULL(tmp_ch_info->handle))
-		glink_rx_done(tmp_ch_info->handle, tmp_work_info->ptr);
+		glink_rx_done(tmp_ch_info->handle, tmp_work_info->ptr, false);
 	mutex_unlock(&tmp_ch_info->ch_info_lock);
 	kfree(tmp_work_info);
 }

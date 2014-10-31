@@ -39,6 +39,7 @@ struct glink_core_tx_pkt {
 	uint32_t riid;
 	uint32_t size;
 	uint32_t size_remaining;
+	size_t intent_size;
 	void *iovec;
 	void * (*vprovider)(void *iovec, size_t offset, size_t *size);
 	void * (*pprovider)(void *iovec, size_t offset, size_t *size);
@@ -72,14 +73,19 @@ struct glink_transport_if {
 	int (*ssr)(struct glink_transport_if *if_ptr);
 
 	/* channel data */
-	int (*allocate_rx_intent)(size_t size,
+	int (*allocate_rx_intent)(struct glink_transport_if *if_ptr,
+				  size_t size,
 				  struct glink_core_rx_intent *intent);
-	int (*deallocate_rx_intent)(struct glink_core_rx_intent *intent);
+	int (*deallocate_rx_intent)(struct glink_transport_if *if_ptr,
+				    struct glink_core_rx_intent *intent);
+	/* Optional */
+	int (*reuse_rx_intent)(struct glink_transport_if *if_ptr,
+			       struct glink_core_rx_intent *intent);
 
 	int (*tx_cmd_local_rx_intent)(struct glink_transport_if *if_ptr,
 			uint32_t lcid, size_t size, uint32_t liid);
 	void (*tx_cmd_local_rx_done)(struct glink_transport_if *if_ptr,
-			uint32_t lcid, uint32_t liid);
+			uint32_t lcid, uint32_t liid, bool reuse);
 	int (*tx)(struct glink_transport_if *if_ptr, uint32_t lcid,
 			struct glink_core_tx_pkt *pctx);
 	int (*tx_cmd_rx_intent_req)(struct glink_transport_if *if_ptr,
