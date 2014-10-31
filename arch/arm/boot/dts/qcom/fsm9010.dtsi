@@ -214,6 +214,16 @@
 		status = "disabled";
 	};
 
+	qcom,nand@f9ac0000 {
+		compatible = "qcom,msm-nand";
+		reg = <0xf9ac0000 0x1000>,
+		      <0xf9ac4000 0x8000>;
+		reg-names = "nand_phys",
+			    "bam_phys";
+		interrupts = <0 24 0>;
+		interrupt-names = "bam_irq";
+	};
+
 	pcie1: qcom,pcie@fc528000 {
 		compatible = "qcom,pci-msm";
 		cell-index = <1>;
