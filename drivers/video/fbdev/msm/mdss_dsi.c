@@ -559,6 +559,13 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	mipi = &pdata->panel_info.mipi;
 
 	if (mdss_dsi_is_panel_on_interactive(pdata)) {
+		/*
+		 * all interrupts are disabled at LK
+		 * for cont_splash case, intr mask bits need
+		 * to be restored to allow dcs command be
+		 * sent to panel
+		 */
+		mdss_dsi_restore_intr_mask(ctrl_pdata);
 		pr_debug("%s: panel already on\n", __func__);
 		goto end;
 	}
