@@ -95,12 +95,24 @@ static void early_init_intel(struct cpuinfo_x86 *c)
 			set_sched_clock_stable();
 	}
 
-	/* Penwell and Cloverview have the TSC which doesn't sleep on S3 */
+	/*
+	 * The following x86 models have the TSC which doesn't sleep
+	 * in suspend state.  On those platforms, the tsc clocksource
+	 * is very reliable while the other clocksources like HPET or
+	 * ACPI_PM are stopped in some low power states.  We mark the
+	 * tsc as reliable to ensure it won't be verified against any
+	 * other clocksource.
+	 */
 	if (c->x86 == 6) {
 		switch (c->x86_model) {
 		case 0x27:	/* Penwell */
 		case 0x35:	/* Cloverview */
+		case 0x37:	/* Baytrail */
+		case 0x4a:	/* Tangier */
+		case 0x4c:	/* Cherryview */
+		case 0x5a:	/* Anniedale */
 			set_cpu_cap(c, X86_FEATURE_NONSTOP_TSC_S3);
+			tsc_clocksource_reliable = 1;
 			break;
 		default:
 			break;
