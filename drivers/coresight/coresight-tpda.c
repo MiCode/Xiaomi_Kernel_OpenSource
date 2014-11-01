@@ -376,9 +376,9 @@ static ssize_t tpda_store_freq_req_val(struct device *dev,
 static DEVICE_ATTR(freq_req_val, S_IRUGO | S_IWUSR, tpda_show_freq_req_val,
 		   tpda_store_freq_req_val);
 
-static ssize_t tpda_show_freq_req_enable(struct device *dev,
-					 struct device_attribute *attr,
-					 char *buf)
+static ssize_t tpda_show_freq_req(struct device *dev,
+				  struct device_attribute *attr,
+				  char *buf)
 {
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
@@ -386,10 +386,10 @@ static ssize_t tpda_show_freq_req_enable(struct device *dev,
 			 (unsigned)drvdata->freq_req);
 }
 
-static ssize_t tpda_store_freq_req_enable(struct device *dev,
-					  struct device_attribute *attr,
-					  const char *buf,
-					  size_t size)
+static ssize_t tpda_store_freq_req(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf,
+				   size_t size)
 {
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
@@ -405,9 +405,8 @@ static ssize_t tpda_store_freq_req_enable(struct device *dev,
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(freq_req_enable, S_IRUGO | S_IWUSR,
-		   tpda_show_freq_req_enable,
-		   tpda_store_freq_req_enable);
+static DEVICE_ATTR(freq_req, S_IRUGO | S_IWUSR, tpda_show_freq_req,
+		   tpda_store_freq_req);
 
 static struct attribute *tpda_attrs[] = {
 	&dev_attr_trig_async_enable.attr,
@@ -415,7 +414,7 @@ static struct attribute *tpda_attrs[] = {
 	&dev_attr_trig_freq_enable.attr,
 	&dev_attr_freq_ts_enable.attr,
 	&dev_attr_freq_req_val.attr,
-	&dev_attr_freq_req_enable.attr,
+	&dev_attr_freq_req.attr,
 	NULL,
 };
 
