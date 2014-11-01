@@ -519,7 +519,9 @@
 		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 02 0A 08];
 		qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-panel-status-check-mode = "reg_read_nt35596";
-		qcom,mdss-dsi-panel-status-value = <0x9c>;
+		qcom,mdss-dsi-panel-status-read-length = <8>;
+		qcom,mdss-dsi-panel-max-error-count = <2>;
+		qcom,mdss-dsi-panel-status-value = <0x9c 0x00 0x00 0x02 0x40 0x80 0x00 0x00>;
 		qcom,mdss-dsi-h-sync-pulse = <1>;
 		qcom,mdss-dsi-traffic-mode = "burst_mode";
 		qcom,mdss-dsi-lane-map = "lane_map_0123";
