@@ -3623,41 +3623,25 @@ error:
 static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 {
 	struct list_head *ptr, *next;
-	struct vb2_buffer *vb;
-	if (!list_empty(&inst->bufq[CAPTURE_PORT].
-				vb2_bufq.queued_list)) {
-		list_for_each_safe(ptr, next,
-				&inst->bufq[CAPTURE_PORT].
+	enum vidc_ports ports[] = {OUTPUT_PORT, CAPTURE_PORT};
+	int c = 0;
+
+	for (c = 0; c < ARRAY_SIZE(ports); ++c) {
+		enum vidc_ports port = ports[c];
+
+		dprintk(VIDC_DBG, "Flushing buffers of type %d in bad state\n",
+				port);
+		list_for_each_safe(ptr, next, &inst->bufq[port].
 				vb2_bufq.queued_list) {
-			vb = container_of(ptr,
-					struct vb2_buffer,
-					queued_entry);
-			if (vb) {
-				vb->v4l2_planes[0].bytesused = 0;
-				vb->v4l2_planes[0].data_offset = 0;
-				mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
-				vb2_buffer_done(vb,
-						VB2_BUF_STATE_DONE);
-				mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
-			}
-		}
-	}
-	if (!list_empty(&inst->bufq[OUTPUT_PORT].
-				vb2_bufq.queued_list)) {
-		list_for_each_safe(ptr, next,
-				&inst->bufq[OUTPUT_PORT].
-				vb2_bufq.queued_list) {
-			vb = container_of(ptr,
-					struct vb2_buffer,
-					queued_entry);
-			if (vb) {
-				vb->v4l2_planes[0].bytesused = 0;
-				vb->v4l2_planes[0].data_offset = 0;
-				mutex_lock(&inst->bufq[OUTPUT_PORT].lock);
-				vb2_buffer_done(vb,
-						VB2_BUF_STATE_DONE);
-				mutex_unlock(&inst->bufq[OUTPUT_PORT].lock);
-			}
+			struct vb2_buffer *vb = container_of(ptr,
+					struct vb2_buffer, queued_entry);
+
+			vb->v4l2_planes[0].bytesused = 0;
+			vb->v4l2_planes[0].data_offset = 0;
+
+			mutex_lock(&inst->bufq[port].lock);
+			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+			mutex_unlock(&inst->bufq[port].lock);
 		}
 	}
 
