@@ -311,6 +311,34 @@ static int wcd_cpe_enable_cpe_clks(struct wcd_cpe_core *core, bool enable)
 }
 
 /*
+ * wcd_cpe_bus_vote_max_bw: Function to vote for max bandwidth on codec bus
+ * @core: handle to core for cpe
+ * @vote: flag to indicate enable/disable of vote
+ *
+ * This function will try to use the codec provided callback to
+ * vote/unvote for the max bandwidth of the bus that is used by
+ * the codec for register reads/writes.
+ */
+static int wcd_cpe_bus_vote_max_bw(struct wcd_cpe_core *core,
+		bool vote)
+{
+	if (!core || !core->cpe_cdc_cb) {
+		pr_err("%s: Invalid handle to %s\n",
+			__func__,
+			(!core) ? "core" : "codec callbacks");
+		return -EINVAL;
+	}
+
+	if (core->cpe_cdc_cb->bus_vote_bw) {
+		dev_dbg(core->dev, "%s: %s cdc bus max bandwidth\n",
+			 __func__, vote ? "Vote" : "Unvote");
+		core->cpe_cdc_cb->bus_vote_bw(core->codec, vote);
+	}
+
+	return 0;
+}
+
+/*
  * wcd_cpe_load_fw: Function to load the fw image
  * @core: cpe core pointer
  * @load_type: indicates whether to load to data section
@@ -372,6 +400,8 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 	dev_dbg(core->dev, "%s: start image dload, name = %s, load_type = 0x%x\n",
 		__func__, core->fname, load_type);
 
+	wcd_cpe_bus_vote_max_bw(core, true);
+
 	/* parse every program header and request corresponding firmware */
 	for (phdr_idx = 0; phdr_idx < ehdr->e_phnum; phdr_idx++) {
 		phdr = (struct elf32_phdr *)elf_ptr;
@@ -397,7 +427,7 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 			pr_err("%s: Invalid load_type 0x%x\n",
 				__func__, load_type);
 			ret = -EINVAL;
-			goto done;
+			goto rel_bus_vote;
 		}
 
 		if (load_segment) {
@@ -408,7 +438,7 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 					"Failed to load segment %d, aborting img dload\n",
 					phdr_idx);
 				img_dload_fail = true;
-				goto done;
+				goto rel_bus_vote;
 			}
 		} else {
 			dev_dbg(core->dev,
@@ -420,6 +450,9 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 	}
 	if (load_type == ELF_FLAG_EXECUTE)
 		core->ssr_type = WCD_CPE_IMEM_DOWNLOADED;
+
+rel_bus_vote:
+	wcd_cpe_bus_vote_max_bw(core, false);
 
 done:
 	release_firmware(fw);
@@ -1724,13 +1757,17 @@ static int wcd_cpe_cmi_send_lsm_msg(
 		dev_err(core->dev,
 			"%s: MSG not sent, CPE offline\n",
 			 __func__);
-		return 0;
+		goto done;
 	}
+
+	if (CMI_HDR_GET_OBM_FLAG(hdr))
+		wcd_cpe_bus_vote_max_bw(core, true);
+
 	ret = cmi_send_msg(message);
 	if (ret) {
 		pr_err("%s: msg opcode (0x%x) send failed (%d)\n",
 			__func__, hdr->opcode, ret);
-		return ret;
+		goto rel_bus_vote;
 	}
 
 	ret = wait_for_completion_timeout(&session->cmd_comp,
@@ -1738,17 +1775,25 @@ static int wcd_cpe_cmi_send_lsm_msg(
 	if (ret > 0) {
 		pr_debug("%s: command 0x%x, received response 0x%x\n",
 			__func__, hdr->opcode, session->cmd_err_code);
-		if (session->cmd_err_code)
-			return session->cmd_err_code;
+		ret = session->cmd_err_code;
+		goto rel_bus_vote;
 	} else {
 		pr_err("%s: command (0x%x) send timed out\n",
 			__func__, hdr->opcode);
-		return -ETIMEDOUT;
+		ret = -ETIMEDOUT;
+		goto rel_bus_vote;
 	}
+
+
+rel_bus_vote:
 
 	INIT_COMPLETION(session->cmd_comp);
 
-	return 0;
+	if (CMI_HDR_GET_OBM_FLAG(hdr))
+		wcd_cpe_bus_vote_max_bw(core, false);
+
+done:
+	return ret;
 }
 
 
@@ -3088,11 +3133,15 @@ static int wcd_cpe_cmi_send_afe_msg(
 		dev_err(core->dev, "%s: CPE offline\n", __func__);
 		return 0;
 	}
+
+	if (CMI_HDR_GET_OBM_FLAG(hdr))
+		wcd_cpe_bus_vote_max_bw(core, true);
+
 	ret = cmi_send_msg(message);
 	if (ret) {
 		pr_err("%s: cmd 0x%x send failed, err = %d\n",
 			__func__, hdr->opcode, ret);
-		return ret;
+		goto rel_bus_vote;
 	}
 
 	ret = wait_for_completion_timeout(&port_d->afe_cmd_complete,
@@ -3100,14 +3149,21 @@ static int wcd_cpe_cmi_send_afe_msg(
 	if (ret > 0) {
 		pr_debug("%s: command 0x%x, received response 0x%x\n",
 			 __func__, hdr->opcode, port_d->cmd_result);
-		return port_d->cmd_result;
+		ret = port_d->cmd_result;
+		goto rel_bus_vote;
 	} else {
 		pr_err("%s: command 0x%x send timed out\n",
 			__func__, hdr->opcode);
-		return -ETIMEDOUT;
+		ret = -ETIMEDOUT;
+		goto rel_bus_vote;
 	}
 
+rel_bus_vote:
 	INIT_COMPLETION(port_d->afe_cmd_complete);
+
+	if (CMI_HDR_GET_OBM_FLAG(hdr))
+		wcd_cpe_bus_vote_max_bw(core, false);
+
 	return ret;
 }
 
