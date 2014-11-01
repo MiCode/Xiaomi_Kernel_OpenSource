@@ -446,14 +446,16 @@ static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 
 		/*
 		 * For chroma plane, width is half for the following sub sampled
-		 * formats
+		 * formats. Except in case of decimation, where hardware avoids
+		 * 1 line of decimation instead of downsampling.
 		 */
-		if (plane == 1 &&
+		if (plane == 1 && !pipe->horz_deci &&
 		    ((pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420) ||
-		     (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_H2V1)))
+		     (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_H2V1))) {
 			src_w >>= 1;
+		}
 
-		if (plane == 1 &&
+		if (plane == 1 && !pipe->vert_deci &&
 		    ((pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420) ||
 		     (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_H1V2)))
 			src_h >>= 1;
@@ -486,7 +488,8 @@ static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 			(hor_ov_fetch > pipe->img_width) ||
 			(vert_req_pixels != vert_fetch_pixels) ||
 			(vert_ov_fetch > pipe->img_height)) {
-			pr_err("err: h_req:%d h_fetch:%d v_req:%d v_fetch:%d src_img:[%d,%d]\n",
+			pr_err("err: plane=%d h_req:%d h_fetch:%d v_req:%d v_fetch:%d src_img:[%d,%d]\n",
+					plane,
 					hor_req_pixels, hor_fetch_pixels,
 					vert_req_pixels, vert_fetch_pixels,
 					pipe->img_width, pipe->img_height);
