@@ -151,6 +151,8 @@
 #define SPEED_BIN_NONE			UINT_MAX
 
 #define FUSE_REVISION_UNKNOWN		(-1)
+#define FUSE_MAP_NO_MATCH		(-1)
+#define FUSE_PARAM_MATCH_ANY		0xFFFFFFFF
 
 #define FLAGS_IGNORE_1ST_IRQ_STATUS	BIT(0)
 #define FLAGS_SET_MIN_VOLTAGE		BIT(1)
@@ -243,6 +245,8 @@ struct cpr_regulator {
 	bool		cpr_fuse_local;
 	bool		cpr_fuse_redundant;
 	int		cpr_fuse_revision;
+	int		cpr_fuse_map_count;
+	int		cpr_fuse_map_match;
 	int		*cpr_fuse_target_quot;
 	int		*cpr_fuse_ro_sel;
 	int		gcnt;
@@ -1961,8 +1965,6 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 		return rc;
 	}
 
-	cpr_parse_pvs_version_fuse(cpr_vreg, dev->of_node);
-
 	corner_max = kzalloc((cpr_vreg->num_fuse_corners + 1)
 				* sizeof(*corner_max), GFP_KERNEL);
 	freq_max = kzalloc((cpr_vreg->num_fuse_corners + 1) * sizeof(*freq_max),
@@ -2253,6 +2255,188 @@ static int cpr_read_fuse_revision(struct platform_device *pdev,
 	return 0;
 }
 
+static int cpr_read_ro_select(struct platform_device *pdev,
+				     struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	int rc = 0;
+	u32 cpr_fuse_row[2];
+	char *ro_sel_str;
+	int *bp_ro_sel;
+	int i;
+
+	bp_ro_sel
+		= kzalloc((cpr_vreg->num_fuse_corners + 1) * sizeof(*bp_ro_sel),
+			GFP_KERNEL);
+	if (!bp_ro_sel) {
+		cpr_err(cpr_vreg, "could not allocate memory for temp array\n");
+		return -ENOMEM;
+	}
+
+	if (cpr_vreg->cpr_fuse_redundant) {
+		rc = of_property_read_u32_array(of_node,
+				"qcom,cpr-fuse-redun-row",
+				cpr_fuse_row, 2);
+		ro_sel_str = "qcom,cpr-fuse-redun-ro-sel";
+	} else {
+		rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-row",
+				cpr_fuse_row, 2);
+		ro_sel_str = "qcom,cpr-fuse-ro-sel";
+	}
+	if (rc)
+		goto error;
+
+	rc = of_property_read_u32_array(of_node, ro_sel_str,
+		&bp_ro_sel[CPR_FUSE_CORNER_MIN], cpr_vreg->num_fuse_corners);
+	if (rc) {
+		cpr_err(cpr_vreg, "%s read error, rc=%d\n", ro_sel_str, rc);
+		goto error;
+	}
+
+	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++)
+		cpr_vreg->cpr_fuse_ro_sel[i]
+			= cpr_read_efuse_param(cpr_vreg, cpr_fuse_row[0],
+				bp_ro_sel[i], CPR_FUSE_RO_SEL_BITS,
+				cpr_fuse_row[1]);
+
+error:
+	kfree(bp_ro_sel);
+
+	return rc;
+}
+
+static int cpr_find_fuse_map_match(struct platform_device *pdev,
+				     struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	int i, j, rc, tuple_size;
+	int len = 0;
+	u32 *tmp, val, ro;
+
+	/* Specify default no match case. */
+	cpr_vreg->cpr_fuse_map_match = FUSE_MAP_NO_MATCH;
+	cpr_vreg->cpr_fuse_map_count = 0;
+
+	if (!of_find_property(of_node, "qcom,cpr-fuse-version-map", &len)) {
+		/* No mapping present. */
+		return 0;
+	}
+
+	tuple_size = cpr_vreg->num_fuse_corners + 3;
+	cpr_vreg->cpr_fuse_map_count = len / (sizeof(u32) * tuple_size);
+
+	if (len == 0 || len % (sizeof(u32) * tuple_size)) {
+		cpr_err(cpr_vreg, "qcom,cpr-fuse-version-map length=%d is invalid\n",
+			len);
+		return -EINVAL;
+	}
+
+	tmp = kzalloc(len, GFP_KERNEL);
+	if (!tmp) {
+		cpr_err(cpr_vreg, "could not allocate memory for temp array\n");
+		return -ENOMEM;
+	}
+
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-version-map",
+				tmp, cpr_vreg->cpr_fuse_map_count * tuple_size);
+	if (rc) {
+		cpr_err(cpr_vreg, "could not read qcom,cpr-fuse-version-map, rc=%d\n",
+			rc);
+		goto done;
+	}
+
+	/*
+	 * qcom,cpr-fuse-version-map tuple format:
+	 * <speed_bin, pvs_version, cpr_fuse_revision, ro_sel[1], ...,
+	 *  ro_sel[n]> for n == number of fuse corners
+	 */
+	for (i = 0; i < cpr_vreg->cpr_fuse_map_count; i++) {
+		if (tmp[i * tuple_size] != cpr_vreg->speed_bin
+		    && tmp[i * tuple_size] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		if (tmp[i * tuple_size + 1] != cpr_vreg->pvs_version
+		    && tmp[i * tuple_size + 1] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		if (tmp[i * tuple_size + 2] != cpr_vreg->cpr_fuse_revision
+		    && tmp[i * tuple_size + 2] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		for (j = 0; j < cpr_vreg->num_fuse_corners; j++) {
+			val = tmp[i * tuple_size + 3 + j];
+			ro = cpr_vreg->cpr_fuse_ro_sel[j + CPR_FUSE_CORNER_MIN];
+			if (val != ro && val != FUSE_PARAM_MATCH_ANY)
+				break;
+		}
+		if (j == cpr_vreg->num_fuse_corners) {
+			cpr_vreg->cpr_fuse_map_match = i;
+			break;
+		}
+	}
+
+	if (cpr_vreg->cpr_fuse_map_match != FUSE_MAP_NO_MATCH)
+		cpr_debug(cpr_vreg, "qcom,cpr-fuse-version-map tuple match found: %d\n",
+			cpr_vreg->cpr_fuse_map_match);
+	else
+		cpr_debug(cpr_vreg, "qcom,cpr-fuse-version-map tuple match not found\n");
+
+done:
+	kfree(tmp);
+	return rc;
+}
+
+static int cpr_adjust_target_quots(struct platform_device *pdev,
+					struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	int tuple_count, tuple_match, i;
+	u32 index;
+	u32 quot_adjust = 0;
+	int len = 0;
+	int rc = 0;
+
+	if (!of_find_property(of_node, "qcom,cpr-quotient-adjustment", &len)) {
+		/* No static quotient adjustment needed. */
+		return 0;
+	}
+
+	if (cpr_vreg->cpr_fuse_map_count) {
+		if (cpr_vreg->cpr_fuse_map_match == FUSE_MAP_NO_MATCH) {
+			/* No matching index to use for quotient adjustment. */
+			return 0;
+		}
+		tuple_count = cpr_vreg->cpr_fuse_map_count;
+		tuple_match = cpr_vreg->cpr_fuse_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	if (len != cpr_vreg->num_fuse_corners * tuple_count * sizeof(u32)) {
+		cpr_err(cpr_vreg, "qcom,cpr-quotient-adjustment length=%d is invalid\n",
+			len);
+		return -EINVAL;
+	}
+
+	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++) {
+		index = tuple_match * cpr_vreg->num_fuse_corners
+				+ i - CPR_FUSE_CORNER_MIN;
+		rc = of_property_read_u32_index(of_node,
+			"qcom,cpr-quotient-adjustment", index, &quot_adjust);
+		if (rc) {
+			cpr_err(cpr_vreg, "could not read qcom,cpr-quotient-adjustment index %u, rc=%d\n",
+				index, rc);
+			return rc;
+		}
+
+		if (quot_adjust) {
+			cpr_vreg->cpr_fuse_target_quot[i] += quot_adjust;
+			cpr_info(cpr_vreg, "Corner[%d]: adjusted target quot = %d\n",
+				i, cpr_vreg->cpr_fuse_target_quot[i]);
+		}
+	}
+
+	return rc;
+}
+
 static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				     struct cpr_regulator *cpr_vreg)
 {
@@ -2260,27 +2444,22 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	int i, rc = 0;
 	bool scheme_fuse_valid = false;
 	bool disable_fuse_valid = false;
-	char *targ_quot_str, *ro_sel_str;
+	char *targ_quot_str;
 	u32 cpr_fuse_row[2];
 	u32 bp_cpr_disable, bp_scheme;
 	size_t len;
 	int *bp_target_quot;
-	int *bp_ro_sel;
 	u64 fuse_bits, fuse_bits_2;
-	u32 *quot_adjust;
 	u32 *target_quot_size;
 	struct cpr_quot_scale *quot_scale;
 
 	len = cpr_vreg->num_fuse_corners + 1;
 
 	bp_target_quot = kzalloc(len * sizeof(*bp_target_quot), GFP_KERNEL);
-	bp_ro_sel = kzalloc(len * sizeof(*bp_ro_sel), GFP_KERNEL);
-	quot_adjust = kzalloc(len * sizeof(*quot_adjust), GFP_KERNEL);
 	target_quot_size = kzalloc(len * sizeof(*target_quot_size), GFP_KERNEL);
 	quot_scale = kzalloc(len * sizeof(*quot_scale), GFP_KERNEL);
 
-	if (bp_target_quot == NULL || bp_ro_sel == NULL || quot_adjust == NULL
-	    || target_quot_size == NULL || quot_scale == NULL) {
+	if (!bp_target_quot || !target_quot_size || !quot_scale) {
 		cpr_err(cpr_vreg,
 			"Could not allocate memory for fuse parsing arrays\n");
 		rc = -ENOMEM;
@@ -2292,12 +2471,10 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				"qcom,cpr-fuse-redun-row",
 				cpr_fuse_row, 2);
 		targ_quot_str = "qcom,cpr-fuse-redun-target-quot";
-		ro_sel_str = "qcom,cpr-fuse-redun-ro-sel";
 	} else {
 		rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-row",
 				cpr_fuse_row, 2);
 		targ_quot_str = "qcom,cpr-fuse-target-quot";
-		ro_sel_str = "qcom,cpr-fuse-ro-sel";
 	}
 	if (rc)
 		goto error;
@@ -2361,13 +2538,6 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			quot_scale[i].offset = 0;
 			quot_scale[i].multiplier = 1;
 		}
-	}
-
-	rc = of_property_read_u32_array(of_node, ro_sel_str,
-		&bp_ro_sel[CPR_FUSE_CORNER_MIN], cpr_vreg->num_fuse_corners);
-	if (rc < 0) {
-		cpr_err(cpr_vreg, "missing %s: rc=%d\n", ro_sel_str, rc);
-		goto error;
 	}
 
 	/* Read the control bits of eFuse */
@@ -2458,10 +2628,6 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	}
 
 	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++) {
-		cpr_vreg->cpr_fuse_ro_sel[i]
-			= cpr_read_efuse_param(cpr_vreg, cpr_fuse_row[0],
-				bp_ro_sel[i], CPR_FUSE_RO_SEL_BITS,
-				cpr_fuse_row[1]);
 		cpr_vreg->cpr_fuse_target_quot[i]
 			= cpr_read_efuse_param(cpr_vreg, cpr_fuse_row[0],
 				bp_target_quot[i], target_quot_size[i],
@@ -2475,17 +2641,9 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			cpr_vreg->cpr_fuse_target_quot[i]);
 	}
 
-	rc = of_property_read_u32_array(of_node, "qcom,cpr-quotient-adjustment",
-		&quot_adjust[CPR_FUSE_CORNER_MIN], cpr_vreg->num_fuse_corners);
-	if (!rc) {
-		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
-		     i++) {
-			cpr_vreg->cpr_fuse_target_quot[i] += quot_adjust[i];
-			cpr_info(cpr_vreg,
-				"Corner[%d]: adjusted target quot = %d\n",
-				i, cpr_vreg->cpr_fuse_target_quot[i]);
-		}
-	}
+	rc = cpr_adjust_target_quots(pdev, cpr_vreg);
+	if (rc)
+		goto error;
 
 	if (cpr_vreg->flags & FLAGS_UPLIFT_QUOT_VOLT) {
 		cpr_voltage_uplift_wa_inc_quot(cpr_vreg, of_node);
@@ -2533,8 +2691,6 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 
 error:
 	kfree(bp_target_quot);
-	kfree(bp_ro_sel);
-	kfree(quot_adjust);
 	kfree(target_quot_size);
 	kfree(quot_scale);
 
@@ -3142,7 +3298,6 @@ static int cpr_voltage_plan_init(struct platform_device *pdev,
 	}
 
 	cpr_parse_cond_min_volt_fuse(cpr_vreg, of_node);
-	cpr_parse_speed_bin_fuse(cpr_vreg, of_node);
 	rc = cpr_voltage_uplift_enable_check(cpr_vreg, of_node);
 	if (rc < 0) {
 		cpr_err(cpr_vreg, "voltage uplift enable check failed, %d\n",
@@ -3472,6 +3627,22 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	rc = cpr_read_fuse_revision(pdev, cpr_vreg);
 	if (rc) {
 		cpr_err(cpr_vreg, "Could not read fuse revision: rc=%d\n", rc);
+		goto err_out;
+	}
+
+	cpr_parse_speed_bin_fuse(cpr_vreg, dev->of_node);
+	cpr_parse_pvs_version_fuse(cpr_vreg, dev->of_node);
+
+	rc = cpr_read_ro_select(pdev, cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "Could not read RO select: rc=%d\n", rc);
+		goto err_out;
+	}
+
+	rc = cpr_find_fuse_map_match(pdev, cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "Could not determine fuse mapping match: rc=%d\n",
+			rc);
 		goto err_out;
 	}
 
