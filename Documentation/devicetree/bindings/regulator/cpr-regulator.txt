@@ -246,13 +246,36 @@ Optional properties:
 - qcom,cpr-uplift-speed-bin:	The speed bin value corresponding to one type of processor which needs to apply the
 				pvs voltage uplift workaround.
 				This is required if cpr-fuse-uplift-disable-sel is present.
-- qcom,cpr-quotient-adjustment:	Array of target quotient adjustments to add to the fused quotients of each
-				fuse corner.  The elements in the array are ordered from lowest voltage
-				corner to highest voltage corner.  This property must be of length defined
-				by qcom,cpr-fuse-corners.  If this property is specified, then the quotient
+- qcom,cpr-fuse-version-map:	Array of integer tuples which each match to a given combination of CPR
+				fuse parameter values.  Each tuple consists of N + 3 elements.  Where
+				N is the number of fuse corners defined by the qcom,cpr-fuse-corners
+				property.  The elements in one tuple are:
+				[0]: =>		the speed bin of the CPU
+				[1]: =>		the PVS version of the CPU
+				[2]: =>		the CPR fuse revision
+				[3 - N+2]: =>	the ring oscillator select value of each fuse corner
+						ordered from lowest to highest
+				Any element in a tuple may use the value 0xffffffff as a wildcard
+				which will match against any fuse parameter value.  The first tuple
+				that matches against the fuse values read from hardware will be used.
+				This property is used by several properties to provide an index into
+				their lists.
+- qcom,cpr-quotient-adjustment:	Array of integer tuples of target quotient adjustments to add to the fused
+				quotients of each fuse corner.  The elements in a tuple are ordered from
+				lowest voltage corner to highest voltage corner.  Each tuple must be of
+				length defined by qcom,cpr-fuse-corners.  If the qcom,cpr-fuse-version-map
+				property is specified, then qcom,cpr-quotient-adjustment must contain the
+				same number of tuples as qcom,cpr-fuse-version-map.  These tuples are then
+				mapped one-to-one in the order specified.  E.g. if the second
+				qcom,cpr-fuse-version-map tuple matches for a given device, then the quotient
+				adjustments defined in the second qcom,cpr-quotient-adjustment tuple will
+				be applied.  If the qcom,cpr-fuse-version-map property is not specified,
+				then qcom,cpr-quotient-adjustment must contain a single tuple which is then
+				applied unconditionally.  If this property is specified, then the quotient
 				adjustment values are added to the target quotient values read from fuses
 				before writing them into the CPR GCNT target control registers.
-				This property can be used to add static margin to the voltage rail managed by the CPR controller.
+				This property can be used to add or subtract static voltage margin from the
+				regulator managed by the CPR controller.
 - qcom,cpr-clamp-timer-interval:	The number of 64 reference clock cycle blocks to delay for whenever
 					the clamp signal, sensor mask registers or sensor bypass registers
 					change.  The CPR controller loop is disabled during this delay.
@@ -578,6 +601,15 @@ Example:
 				     1070000 1080000 1090000 1100000 1100000
 				     1100000 1100000>;
 		qcom,cpr-scaled-init-voltage-as-ceiling;
+
+		qcom,cpr-fuse-version-map =
+				<0xffffffff 0xffffffff 2 4 4 4>,
+				<0xffffffff 0xffffffff 2 6 6 6>,
+				<0xffffffff 0xffffffff 3 4 4 4>;
+		qcom,cpr-quotient-adjustment =
+				<0 0 (-210)>,
+				<0 0 (-60)>,
+				<0 0 (-94)>;
 
 		qcom,fuse-remap-base-row = <1000>;
 		qcom,fuse-remap-source =
