@@ -249,7 +249,31 @@ static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
 	}
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_SMP
+static void ufshcd_parse_pm_qos(struct ufs_hba *hba)
+{
+	const char *cpu_affinity = NULL;
+
+	hba->pm_qos.cpu_dma_latency_us = UFS_DEFAULT_CPU_DMA_LATENCY_US;
+	of_property_read_u32(hba->dev->of_node, "qcom,cpu-dma-latency-us",
+		&hba->pm_qos.cpu_dma_latency_us);
+	dev_dbg(hba->dev, "cpu_dma_latency_us = %u\n",
+		hba->pm_qos.cpu_dma_latency_us);
+
+	hba->pm_qos.req.type = PM_QOS_REQ_AFFINE_IRQ;
+	if (!of_property_read_string(hba->dev->of_node, "qcom,cpu-affinity",
+		&cpu_affinity)) {
+		if (!strcmp(cpu_affinity, "all_cores"))
+			hba->pm_qos.req.type = PM_QOS_REQ_ALL_CORES;
+		else if (!strcmp(cpu_affinity, "affine_cores"))
+			hba->pm_qos.req.type = PM_QOS_REQ_AFFINE_CORES;
+		else if (!strcmp(cpu_affinity, "affine_irq"))
+			hba->pm_qos.req.type = PM_QOS_REQ_AFFINE_IRQ;
+	}
+	dev_dbg(hba->dev, "hba->pm_qos.pm_qos_req.type = %u\n",
+		hba->pm_qos.req.type);
+}
+
 /**
  * ufshcd_pltfrm_suspend - suspend power management function
  * @dev: pointer to device handle
@@ -351,6 +375,7 @@ static int ufshcd_pltfrm_probe(struct platform_device *pdev)
 		goto dealloc_host;
 	}
 
+	ufshcd_parse_pm_qos(hba);
 	ufshcd_parse_pm_levels(hba);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
