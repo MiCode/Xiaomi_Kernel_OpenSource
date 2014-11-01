@@ -1673,14 +1673,6 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		kfree(k_stream_buff_info.buffer_info);
 		kfree(u_stream_buff_info);
 		if (cpp_dev->stream_cnt == 0) {
-			rc = msm_isp_update_bandwidth(ISP_CPP, 981345600,
-				1066680000);
-			if (rc < 0) {
-				pr_err("Bandwidth Set Failed!\n");
-				msm_isp_update_bandwidth(ISP_CPP, 0, 0);
-				mutex_unlock(&cpp_dev->mutex);
-				return -EINVAL;
-			}
 			cpp_dev->state = CPP_STATE_ACTIVE;
 			msm_cpp_clear_timer(cpp_dev);
 			msm_cpp_clean_queue(cpp_dev);
