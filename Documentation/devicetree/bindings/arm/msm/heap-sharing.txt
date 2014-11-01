@@ -10,13 +10,10 @@ Required properties for Memshare
 -Root Node-
 
 - compatible:	Must be "qcom,memshare"
-- qcom,num-clients: Indicates the number of child nodes
-
-All child nodes have different compatible stings.
 
 Required properties for child nodes:
 
-- compatible:	Must be "memshare,peripheral"
+- compatible:	Must be "qcom,memshare-peripheral"
 
 - qcom,peripheral-size: Indicates the size (in bytes) required for that child.
 
@@ -32,7 +29,7 @@ qcom,memshare {
 	compatible = "qcom,memshare";
 
 	qcom,client_1 {
-		compatible = "memshare,peripheral";
+		compatible = "qcom,memshare-peripheral";
 		qcom,peripheral-size = <2097152>;
 		label = "modem";
 	};

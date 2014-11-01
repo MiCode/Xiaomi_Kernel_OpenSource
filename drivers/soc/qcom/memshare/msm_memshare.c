@@ -730,7 +730,7 @@ static struct of_device_id memshare_match_table[] = {
 
 static struct of_device_id memshare_match_table1[] = {
 	{
-		.compatible = "memshare,peripheral",
+		.compatible = "qcom,memshare-peripheral",
 	},
 	{}
 };
