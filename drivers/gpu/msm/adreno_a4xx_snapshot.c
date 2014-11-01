@@ -400,7 +400,8 @@ void a4xx_snapshot(struct adreno_device *adreno_dev,
 			a4xx_registers_count, 1);
 
 	_snapshot_a3xx_regs(regs, &list, a4xx_sp_tp_registers,
-			a4xx_sp_tp_registers_count, 0);
+			a4xx_sp_tp_registers_count,
+			(adreno_is_a430(adreno_dev) ? 1 : 0));
 
 	if (adreno_is_a420(adreno_dev)) {
 		_snapshot_a3xx_regs(regs, &list, a4xx_xpu_registers,
@@ -460,9 +461,11 @@ void a4xx_snapshot(struct adreno_device *adreno_dev,
 	/* Debug bus */
 	a4xx_snapshot_debugbus(device, snapshot);
 
-	a4xx_reset_hlsq(device);
+	if (!adreno_is_a430(adreno_dev)) {
+		a4xx_reset_hlsq(device);
 
-	kgsl_snapshot_dump_skipped_regs(device, &list);
+		kgsl_snapshot_dump_skipped_regs(device, &list);
+	}
 	/* Shader working/shadow memory */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
 		snapshot, a4xx_snapshot_shader_memory,
