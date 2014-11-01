@@ -1530,10 +1530,35 @@ void msm_isp_reset_burst_count_and_frame_drop(
 	}
 }
 
-irqreturn_t msm_isp_process_irq(int irq_num, void *data)
+static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
+	uint32_t irq_status0, uint32_t irq_status1, uint32_t iommu_page_fault)
 {
 	unsigned long flags;
-	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
+	struct msm_vfe_tasklet_queue_cmd *queue_cmd = NULL;
+
+	spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
+	queue_cmd = &vfe_dev->tasklet_queue_cmd[vfe_dev->taskletq_idx];
+	if (queue_cmd->cmd_used) {
+		pr_err_ratelimited("%s: Tasklet queue overflow: %d\n",
+			__func__, vfe_dev->pdev->id);
+		list_del(&queue_cmd->list);
+	} else {
+		atomic_add(1, &vfe_dev->irq_cnt);
+	}
+	queue_cmd->vfeInterruptStatus0 = irq_status0;
+	queue_cmd->vfeInterruptStatus1 = irq_status1;
+	queue_cmd->iommu_page_fault = iommu_page_fault;
+	msm_isp_get_timestamp(&queue_cmd->ts);
+	queue_cmd->cmd_used = 1;
+	vfe_dev->taskletq_idx = (vfe_dev->taskletq_idx + 1) %
+		MSM_VFE_TASKLETQ_SIZE;
+	list_add_tail(&queue_cmd->list, &vfe_dev->tasklet_q);
+	spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
+	tasklet_schedule(&vfe_dev->vfe_tasklet);
+}
+
+irqreturn_t msm_isp_process_irq(int irq_num, void *data)
+{
 	struct vfe_device *vfe_dev = (struct vfe_device *) data;
 	uint32_t irq_status0, irq_status1;
 	uint32_t error_mask0, error_mask1;
@@ -1567,24 +1592,8 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 		return IRQ_HANDLED;
 	}
 
-	spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
-	queue_cmd = &vfe_dev->tasklet_queue_cmd[vfe_dev->taskletq_idx];
-	if (queue_cmd->cmd_used) {
-		pr_err_ratelimited("%s: Tasklet queue overflow: %d\n",
-			__func__, vfe_dev->pdev->id);
-		list_del(&queue_cmd->list);
-	} else {
-		atomic_add(1, &vfe_dev->irq_cnt);
-	}
-	queue_cmd->vfeInterruptStatus0 = irq_status0;
-	queue_cmd->vfeInterruptStatus1 = irq_status1;
-	msm_isp_get_timestamp(&queue_cmd->ts);
-	queue_cmd->cmd_used = 1;
-	vfe_dev->taskletq_idx =
-		(vfe_dev->taskletq_idx + 1) % MSM_VFE_TASKLETQ_SIZE;
-	list_add_tail(&queue_cmd->list, &vfe_dev->tasklet_q);
-	spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
-	tasklet_schedule(&vfe_dev->vfe_tasklet);
+	msm_isp_enqueue_tasklet_cmd(vfe_dev, irq_status0, irq_status1, 0);
+
 	return IRQ_HANDLED;
 }
 
@@ -1595,7 +1604,7 @@ void msm_isp_do_tasklet(unsigned long data)
 	struct msm_vfe_irq_ops *irq_ops = &vfe_dev->hw_info->vfe_ops.irq_ops;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
 	struct msm_isp_timestamp ts;
-	uint32_t irq_status0, irq_status1;
+	uint32_t irq_status0, irq_status1, iommu_page_fault;
 	while (atomic_read(&vfe_dev->irq_cnt)) {
 		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
 		queue_cmd = list_first_entry(&vfe_dev->tasklet_q,
@@ -1611,7 +1620,16 @@ void msm_isp_do_tasklet(unsigned long data)
 		irq_status0 = queue_cmd->vfeInterruptStatus0;
 		irq_status1 = queue_cmd->vfeInterruptStatus1;
 		ts = queue_cmd->ts;
+		iommu_page_fault = queue_cmd->iommu_page_fault;
+		queue_cmd->iommu_page_fault = 0;
 		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
+		if (iommu_page_fault > 0) {
+			pr_err("%s:%d] vfe_dev %p id %d\n", __func__,
+				__LINE__, vfe_dev, vfe_dev->pdev->id);
+			vfe_dev->buf_mgr->ops->
+				buf_mgr_debug(vfe_dev->buf_mgr);
+			continue;
+		}
 		ISP_DBG("%s: status0: 0x%x status1: 0x%x\n",
 			__func__, irq_status0, irq_status1);
 		irq_ops->process_reset_irq(vfe_dev,
@@ -1652,6 +1670,7 @@ static int msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 	struct device *dev, unsigned long iova, int flags, void *token)
 {
 	struct vfe_device *vfe_dev = NULL;
+
 	if (token) {
 		vfe_dev = (struct vfe_device *)token;
 		if (!vfe_dev->buf_mgr || !vfe_dev->buf_mgr->ops) {
@@ -1659,11 +1678,8 @@ static int msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 				__LINE__, vfe_dev->buf_mgr);
 			goto end;
 		}
-		if (!vfe_dev->buf_mgr->pagefault_debug) {
-			pr_err("%s:%d] vfe_dev %p id %d\n", __func__,
-				__LINE__, vfe_dev, vfe_dev->pdev->id);
-			vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr);
-		}
+		if (!vfe_dev->buf_mgr->pagefault_debug)
+			msm_isp_enqueue_tasklet_cmd(vfe_dev, 0, 0, 1);
 	} else {
 		ISP_DBG("%s:%d] no token received: %p\n",
 			__func__, __LINE__, token);
