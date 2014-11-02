@@ -25,7 +25,7 @@
 			interrupt-parent = <&msm_gpio>;
 			interrupts = <13 0x2008>;
 			vdd-supply = <&pm8909_l17>;
-			vcc_i2c-supply = <&vcc_i2c_vreg>;
+			vcc_i2c-supply = <&pm8909_l6>;
 			/* pins used by touchscreen */
 			pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
 			pinctrl-0 = <&ts_int_active &ts_reset_active>;
@@ -53,12 +53,6 @@
 			focaltech,fw-auto-cal;
 			focaltech,ignore-id-check;
 		};
-	};
-
-	vcc_i2c_vreg: vcc_i2c_vreg {
-		compatible = "regulator-fixed";
-		status = "ok";
-		regulator-name = "vcc_vreg";
 	};
 
 	gen-vkeys {
