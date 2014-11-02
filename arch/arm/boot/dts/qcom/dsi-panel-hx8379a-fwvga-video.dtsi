@@ -118,7 +118,7 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
-		qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+		qcom,mdss-dsi-bl-pmic-pwm-frequency = <30>;
 		qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 		qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 2>, <1 20>;
