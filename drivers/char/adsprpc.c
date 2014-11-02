@@ -883,25 +883,24 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 		if (err)
 			goto bail;
 		list[i].num = 1;
+		rpra[i].buf.pv = args - ctx->overps[oix]->offset;
 		pages[list[i].pgidx].addr =
 			buf_page_start((void *)((uintptr_t)pbuf->phys -
 						ctx->overps[oix]->offset +
 						 (pbuf->size - rlen)));
-		pages[list[i].pgidx].size =
-			buf_page_size(pra[i].buf.len);
-		if (i < inbufs && mlen) {
+		pages[list[i].pgidx].size = buf_num_pages(rpra[i].buf.pv,
+						rpra[i].buf.len) * PAGE_SIZE;
+		if (i < inbufs) {
 			if (!kernel) {
-				VERIFY(err, 0 == copy_from_user(args,
-					(void *)ctx->overps[oix]->mstart,
-					mlen));
+				VERIFY(err, 0 == copy_from_user(rpra[i].buf.pv,
+					pra[i].buf.pv, pra[i].buf.len));
 				if (err)
 					goto bail;
 			} else {
-				memmove(args, (void *)ctx->overps[oix]->mstart,
-					mlen);
+				memmove(rpra[i].buf.pv, pra[i].buf.pv,
+					pra[i].buf.len);
 			}
 		}
-		rpra[i].buf.pv = args - ctx->overps[oix]->offset;
 		args = (void *)((uintptr_t)args + mlen);
 		rlen -= mlen;
 	}
