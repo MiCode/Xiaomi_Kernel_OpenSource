@@ -221,6 +221,8 @@ enum msm_vfe_axi_stream_update_type {
 	UPDATE_STREAM_STATS_FRAMEDROP_PATTERN,
 	UPDATE_STREAM_AXI_CONFIG,
 	UPDATE_STREAM_REQUEST_FRAMES,
+	UPDATE_STREAM_ADD_BUFQ,
+	UPDATE_STREAM_REMOVE_BUFQ,
 };
 
 enum msm_vfe_iommu_type {
@@ -228,10 +230,16 @@ enum msm_vfe_iommu_type {
 	IOMMU_DETACH,
 };
 
+enum msm_vfe_buff_queue_id {
+	VFE_BUF_QUEUE_DEFAULT,
+	VFE_BUF_QUEUE_SHARED,
+	VFE_BUF_QUEUE_MAX,
+};
+
 struct msm_vfe_axi_stream_cfg_update_info {
 	uint32_t stream_handle;
 	uint32_t output_format;
-	uint32_t request_frm_num;
+	uint32_t user_stream_id;
 	enum msm_vfe_frame_skip_pattern skip_pattern;
 	struct msm_vfe_axi_plane_cfg plane_cfg[MAX_PLANES_PER_STREAM];
 };
