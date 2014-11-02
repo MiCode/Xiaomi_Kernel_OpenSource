@@ -197,8 +197,21 @@ static int ehci_msm_runtime_suspend(struct device *dev)
 
 static int ehci_msm_runtime_resume(struct device *dev)
 {
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	int ret;
+	u32 portsc;
+
 	dev_dbg(dev, "ehci runtime resume\n");
-	return usb_phy_set_suspend(phy, 0);
+	ret = usb_phy_set_suspend(phy, 0);
+	if (ret)
+		return ret;
+
+	portsc = readl_relaxed(USB_PORTSC);
+	portsc &= ~PORT_RWC_BITS;
+	portsc |= PORT_RESUME;
+	writel_relaxed(portsc, USB_PORTSC);
+
+	return ret;
 }
 #endif
 
