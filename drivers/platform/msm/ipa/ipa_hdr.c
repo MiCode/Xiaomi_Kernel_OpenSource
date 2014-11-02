@@ -1110,10 +1110,10 @@ int ipa_reset_hdr(void)
 		list_del(&ctx_entry->link);
 		ctx_entry->ref_cnt = 0;
 		ctx_entry->cookie = 0;
-		kmem_cache_free(ipa_ctx->hdr_proc_ctx_cache, ctx_entry);
 
 		/* remove the handle from the database */
 		ipa_id_remove(ctx_entry->id);
+		kmem_cache_free(ipa_ctx->hdr_proc_ctx_cache, ctx_entry);
 
 	}
 	for (i = 0; i < IPA_HDR_PROC_CTX_BIN_MAX; i++) {
