@@ -610,6 +610,18 @@ void mark_buffer_dirty_inode(struct buffer_head *bh, struct inode *inode)
 }
 EXPORT_SYMBOL(mark_buffer_dirty_inode);
 
+#ifdef CONFIG_BLK_DEV_IO_TRACE
+static inline void save_dirty_task(struct page *page)
+{
+	/* Save the task that is dirtying this page */
+	page->tsk_dirty = current;
+}
+#else
+static inline void save_dirty_task(struct page *page)
+{
+}
+#endif
+
 /*
  * Mark the page dirty, and set it dirty in the radix tree, and mark the inode
  * dirty.
@@ -628,8 +640,7 @@ static void __set_page_dirty(struct page *page,
 		account_page_dirtied(page, mapping);
 		radix_tree_tag_set(&mapping->page_tree,
 				page_index(page), PAGECACHE_TAG_DIRTY);
-		/* Save the task that is dirtying this page */
-		page->tsk_dirty = current;
+		save_dirty_task(page);
 	}
 	spin_unlock_irqrestore(&mapping->tree_lock, flags);
 	__mark_inode_dirty(mapping->host, I_DIRTY_PAGES);

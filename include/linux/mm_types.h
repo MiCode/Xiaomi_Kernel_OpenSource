@@ -166,7 +166,9 @@ struct page {
 #ifdef CONFIG_WANT_PAGE_DEBUG_FLAGS
 	unsigned long debug_flags;	/* Use atomic bitops on this */
 #endif
+#ifdef CONFIG_BLK_DEV_IO_TRACE
 	struct task_struct *tsk_dirty;	/* task that sets this page dirty */
+#endif
 
 #ifdef CONFIG_KMEMCHECK
 	/*
