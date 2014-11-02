@@ -275,4 +275,53 @@
 		qcom,ep-latency = <1000>;
 		status = "disabled";
 	};
+
+	qcom,modem-femto@fbc00000 {
+		compatible = "qcom,pil-femto-modem";
+		#address-cells=<1>;
+		#size-cells=<1>;
+		ranges;
+		reg = <0xfbc00000 0x100>;
+		reg-names = "qdsp6_base";
+		qcom,firmware-name = "mba";
+		qcom,max-num-modems = <4>;
+
+		qcom,modem@fd4a7000 {
+			compatible = "qcom,pil-femto-modem-desc";
+			reg = <0xfd4a7000 0x20>;
+			reg-names = "rmb_base";
+			qcom,firmware-name = "mdm0";
+			qcom,modem-id = <0>;
+			qcom,max-num-images = <1>;
+		};
+
+		qcom,modem@fd4a7030 {
+			compatible = "qcom,pil-femto-modem-desc";
+			reg = <0xfd4a7030 0x20>;
+			reg-names = "rmb_base";
+			qcom,firmware-name = "mdm1";
+			qcom,modem-id = <1>;
+			qcom,max-num-images = <1>;
+		};
+
+		qcom,modem@fd4a7060 {
+			compatible = "qcom,pil-femto-modem-desc";
+			reg = <0xfd4a7060 0x20>;
+			reg-names = "rmb_base";
+			qcom,firmware-name = "mdm2";
+			qcom,modem-id = <2>;
+			qcom,max-num-images = <1>;
+			qcom,pil-skip-entry-check;
+		};
+
+		qcom,modem@fd4a7090 {
+			compatible = "qcom,pil-femto-modem-desc";
+			reg = <0xfd4a7090 0x20>;
+			reg-names = "rmb_base";
+			qcom,firmware-name = "mdm3";
+			qcom,modem-id = <3>;
+			qcom,max-num-images = <1>;
+			qcom,pil-skip-entry-check;
+		};
+	};
 };
