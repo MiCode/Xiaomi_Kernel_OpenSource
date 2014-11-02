@@ -565,6 +565,8 @@
 			 <&clock_cpu clk_a57_clk>,
 			 <&clock_cpu clk_cci_clk>;
 
+		qcom,tz-flushes-cache;
+
 		qcom,pm-snoc-client {
 			compatible = "qcom,pm-snoc-client";
 			qcom,msm-bus,name = "ocimem_snoc";
