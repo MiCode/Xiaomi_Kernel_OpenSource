@@ -17,3 +17,6 @@
 		      <0x100e5 0x20000>, <0x100e6 0x20000>, <0x100e7 0x20000>;
 };
 
+&ssphy0 {
+	qcom,override-pll-calibration;
+};
