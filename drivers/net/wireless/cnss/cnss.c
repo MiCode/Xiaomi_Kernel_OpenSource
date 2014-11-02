@@ -2322,15 +2322,18 @@ static int cnss_probe(struct platform_device *pdev)
 		goto skip_ramdump;
 	}
 
-	penv->dump_data.addr = penv->ramdump_phys;
-	penv->dump_data.len = penv->ramdump_size;
-	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
-	dump_entry.addr = virt_to_phys(&penv->dump_data);
+	if (penv->ramdump_dynamic) {
+		penv->dump_data.addr = penv->ramdump_phys;
+		penv->dump_data.len = penv->ramdump_size;
+		dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
+		dump_entry.addr = virt_to_phys(&penv->dump_data);
 
-	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
-	if (ret) {
-		pr_err("%s: Dump table setup failed: %d\n", __func__, ret);
-		goto err_ramdump_create;
+		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+		if (ret) {
+			pr_err("%s: Dump table setup failed: %d\n",
+					__func__, ret);
+			goto err_ramdump_create;
+		}
 	}
 
 	penv->subsys_handle = subsystem_get(penv->subsysdesc.name);
