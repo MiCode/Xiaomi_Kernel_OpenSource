@@ -501,6 +501,7 @@ struct msm_pcie_dev_t {
 	struct mutex		     recovery_lock;
 	spinlock_t                   linkdown_lock;
 	spinlock_t                   wakeup_lock;
+	spinlock_t			aer_lock;
 	ulong				linkdown_counter;
 	ulong				link_turned_on_counter;
 	ulong				link_turned_off_counter;
@@ -3502,9 +3503,20 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 	int corr_val, uncorr_val, rc_err_status, ep_corr_val, ep_uncorr_val;
 	int i, j, ep_src_bdf;
 	void __iomem *ep_base = NULL;
+	unsigned long irqsave_flags;
 
 	PCIE_DBG(dev, "AER Interrupt handler fired for RC%d irq %d\n",
 		dev->rc_idx, irq);
+
+	spin_lock_irqsave(&dev->aer_lock, irqsave_flags);
+
+	if (dev->suspending) {
+		PCIE_DBG(dev,
+			"PCIe: RC%d is currently suspending.\n",
+			dev->rc_idx);
+		spin_unlock_irqrestore(&dev->aer_lock, irqsave_flags);
+		return IRQ_HANDLED;
+	}
 
 	uncorr_val = readl_relaxed(dev->dm_core +
 				PCIE20_AER_UNCORR_ERR_STATUS_REG);
@@ -3584,6 +3596,7 @@ out:
 			PCIE20_AER_ROOT_ERR_STATUS_REG,
 			0x7f, 0x7f);
 
+	spin_unlock_irqrestore(&dev->aer_lock, irqsave_flags);
 	return IRQ_HANDLED;
 }
 
@@ -4394,6 +4407,7 @@ int __init pcie_init(void)
 		mutex_init(&msm_pcie_dev[i].recovery_lock);
 		spin_lock_init(&msm_pcie_dev[i].linkdown_lock);
 		spin_lock_init(&msm_pcie_dev[i].wakeup_lock);
+		spin_lock_init(&msm_pcie_dev[i].aer_lock);
 		msm_pcie_dev[i].drv_ready = false;
 	}
 	for (i = 0; i < MAX_RC_NUM * MAX_DEVICE_NUM; i++) {
@@ -4442,9 +4456,13 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	int ret = 0;
 	u32 val = 0;
 	int ret_l23;
+	unsigned long irqsave_flags;
 	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
 
+	spin_lock_irqsave(&pcie_dev->aer_lock, irqsave_flags);
 	pcie_dev->suspending = true;
+	spin_unlock_irqrestore(&pcie_dev->aer_lock, irqsave_flags);
+
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
 	if (!pcie_dev->power_on) {
