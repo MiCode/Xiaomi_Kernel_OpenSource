@@ -287,30 +287,21 @@ union fifo_mem {
  * @dest: Destination address
  * @src: Source address
  * @num_bytes: Number of bytes to copy
- * @from_user: true if data being copied is from userspace, false otherwise
  *
  * @return: Address of destination
  *
  * This function copies num_bytes from src to dest maintaining natural alignment
  * for accesses to dest as required for Device memory.
  */
-static void *memcpy_to_log(void *dest, const void *src, size_t num_bytes,
-								bool from_user)
+static void *memcpy_to_log(void *dest, const void *src, size_t num_bytes)
 {
 	union fifo_mem *temp_dst = (union fifo_mem *)dest;
 	union fifo_mem *temp_src = (union fifo_mem *)src;
 	uintptr_t mask = sizeof(union fifo_mem) - 1;
-	int ret;
 
 	/* Do byte copies until we hit 8-byte (double word) alignment */
 	while ((uintptr_t)temp_dst & mask && num_bytes) {
-		if (from_user) {
-			ret = copy_from_user(temp_dst, temp_src, 1);
-			BUG_ON(ret != 0);
-		} else {
-			__raw_writeb_no_log(temp_src->u8, temp_dst);
-		}
-
+		__raw_writeb_no_log(temp_src->u8, temp_dst);
 		temp_src = (union fifo_mem *)((uintptr_t)temp_src + 1);
 		temp_dst = (union fifo_mem *)((uintptr_t)temp_dst + 1);
 		num_bytes--;
@@ -318,14 +309,7 @@ static void *memcpy_to_log(void *dest, const void *src, size_t num_bytes,
 
 	/* Do double word copies */
 	while (num_bytes >= sizeof(union fifo_mem)) {
-		if (from_user) {
-			ret = copy_from_user(temp_dst, temp_src,
-				sizeof(union fifo_mem));
-			BUG_ON(ret != 0);
-		} else {
-			__raw_writeq_no_log(temp_src->u64, temp_dst);
-		}
-
+		__raw_writeq_no_log(temp_src->u64, temp_dst);
 		temp_dst++;
 		temp_src++;
 		num_bytes -= sizeof(union fifo_mem);
@@ -333,13 +317,7 @@ static void *memcpy_to_log(void *dest, const void *src, size_t num_bytes,
 
 	/* Copy remaining bytes */
 	while (num_bytes--) {
-		if (from_user) {
-			ret = copy_from_user(temp_dst, temp_src, 1);
-			BUG_ON(ret != 0);
-		} else {
-			__raw_writeb_no_log(temp_src->u8, temp_dst);
-		}
-
+		__raw_writeb_no_log(temp_src->u8, temp_dst);
 		temp_src = (union fifo_mem *)((uintptr_t)temp_src + 1);
 		temp_dst = (union fifo_mem *)((uintptr_t)temp_dst + 1);
 	}
@@ -354,7 +332,7 @@ static inline unsigned int read_timestamp(void)
 }
 
 static void smem_log_event_from_user(struct smem_log_inst *inst,
-				     const char __user *buf, int size, int num)
+				     const char *buf, int size, int num)
 {
 	uint32_t idx;
 	uint32_t next_idx;
@@ -374,7 +352,7 @@ static void smem_log_event_from_user(struct smem_log_inst *inst,
 		idx = *inst->idx;
 
 		if (idx < inst->num) {
-			memcpy_to_log(&inst->events[idx], buf, size, true);
+			memcpy_to_log(&inst->events[idx], buf, size);
 
 			if (first) {
 				identifier =
@@ -426,7 +404,7 @@ static void _smem_log_event(
 	idx = *_idx;
 
 	if (idx < num)
-		memcpy_to_log(&events[idx], &item, sizeof(item), false);
+		memcpy_to_log(&events[idx], &item, sizeof(item));
 
 	next_idx = idx + 1;
 	if (next_idx >= num)
@@ -468,7 +446,7 @@ static void _smem_log_event6(
 
 	/* FIXME: Wrap around */
 	if (idx < (num-1))
-		memcpy_to_log(&events[idx], &item, sizeof(item), false);
+		memcpy_to_log(&events[idx], &item, sizeof(item));
 
 	next_idx = idx + 2;
 	if (next_idx >= num)
@@ -538,16 +516,30 @@ static int _smem_log_init(void)
 	return 0;
 }
 
-static ssize_t smem_log_write_bin(struct file *fp, const char __user *buf,
+static ssize_t smem_log_write_bin(struct file *fp, const char __user *_buf,
 			 size_t count, loff_t *pos)
 {
+	void *buf;
+	int r;
+
 	if (count < sizeof(struct smem_log_item))
 		return -EINVAL;
+
+	buf = kmalloc(count, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	r = copy_from_user(buf, _buf, count);
+	if (r) {
+		kfree(buf);
+		return -EFAULT;
+	}
 
 	if (smem_log_enable)
 		smem_log_event_from_user(fp->private_data, buf,
 					sizeof(struct smem_log_item),
 					count / sizeof(struct smem_log_item));
+	kfree(buf);
 	return count;
 }
 
