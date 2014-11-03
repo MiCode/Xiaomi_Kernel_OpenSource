@@ -222,6 +222,9 @@
 #define KPDBL_MODULE_DIS		0x00
 #define KPDBL_MODULE_EN_MASK		0x80
 
+#define THRESHOLD			200
+#define LED_NUM				2
+
 /**
  * enum qpnp_leds - QPNP supported led ids
  * @QPNP_ID_WLED - White led backlight
@@ -488,6 +491,7 @@ struct qpnp_led_data {
 };
 
 static int num_kpbl_leds_on;
+static int safety_timer_off_vote = 0;
 
 static int
 qpnp_led_masked_write(struct qpnp_led_data *led, u16 addr, u8 mask, u8 val)
@@ -1089,7 +1093,11 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 			}
 
 			/* Disable safety timer when current is below a threshold*/
-			if (val < 200) {
+			if (val < THRESHOLD)
+				safety_timer_off_vote++;
+
+                        if (safety_timer_off_vote >= LED_NUM) {
+				safety_timer_off_vote = 0;
 				rc = qpnp_led_masked_write(led,
 						FLASH_LED_UNLOCK_SECURE(led->base),
 						FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
@@ -1107,6 +1115,8 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 								"Torch reg write failed(%d)\n", rc);
 						goto error_reg_write;
 				}
+			} else if (led->id == QPNP_ID_FLASH1_LED1) {
+				safety_timer_off_vote = 0;
 			}
 
 			/* Set max current */
