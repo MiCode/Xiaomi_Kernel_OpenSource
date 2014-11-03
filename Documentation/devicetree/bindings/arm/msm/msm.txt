@@ -87,6 +87,9 @@ Generic board variants:
 - LIQUID device:
   compatible = "qcom,liquid"
 
+- Dragonboard device:
+  compatible = "qcom,dragonboard"
+
 - SURF device:
   compatible = "qcom,surf"
 
@@ -118,6 +121,7 @@ compatible = "qcom,apq8094-cdp"
 compatible = "qcom,apq8094-fluid"
 compatible = "qcom,apq8094-liquid"
 compatible = "qcom,apq8094-mtp"
+compatible = "qcom,apq8094-dragonboard"
 compatible = "qcom,mdm9630-cdp"
 compatible = "qcom,mdm9630-mtp"
 compatible = "qcom,mdm9630-sim"
