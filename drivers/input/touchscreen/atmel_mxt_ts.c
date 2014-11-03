@@ -3643,7 +3643,7 @@ static int mxt_probe(struct i2c_client *client,
 		data->pdata = pdata;
 
 		/* Set default parameters */
-		pdata->irqflags = IRQF_TRIGGER_LOW | IRQF_TRIGGER_FALLING;
+		pdata->irqflags = IRQF_TRIGGER_LOW;
 
 		gpio = devm_gpiod_get_index(&client->dev, "atml_gpio_rst", 0);
 		if (!IS_ERR(gpio)) {
