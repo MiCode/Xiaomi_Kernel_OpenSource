@@ -366,10 +366,6 @@ static unsigned int convert_cmd(unsigned int cmd)
 		return QCEDEV_IOCTL_SHA_FINAL_REQ;
 	case COMPAT_QCEDEV_IOCTL_GET_SHA_REQ:
 		return QCEDEV_IOCTL_GET_SHA_REQ;
-	case COMPAT_QCEDEV_IOCTL_LOCK_CE:
-		return QCEDEV_IOCTL_LOCK_CE;
-	case COMPAT_QCEDEV_IOCTL_UNLOCK_CE:
-		return QCEDEV_IOCTL_UNLOCK_CE;
 	case COMPAT_QCEDEV_IOCTL_GET_CMAC_REQ:
 		return QCEDEV_IOCTL_GET_CMAC_REQ;
 	default:
@@ -384,10 +380,6 @@ long compat_qcedev_ioctl(struct file *file,
 	long ret;
 
 	switch (cmd) {
-	case COMPAT_QCEDEV_IOCTL_LOCK_CE:
-	case COMPAT_QCEDEV_IOCTL_UNLOCK_CE: {
-		return qcedev_ioctl(file, convert_cmd(cmd), 0);
-	}
 	case COMPAT_QCEDEV_IOCTL_ENC_REQ:
 	case COMPAT_QCEDEV_IOCTL_DEC_REQ: {
 		struct compat_qcedev_cipher_op_req __user *data32;
