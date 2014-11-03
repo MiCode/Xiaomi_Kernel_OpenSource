@@ -308,7 +308,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 		if (best_level_pwr >= pwr) {
 			best_level = i;
 			best_level_pwr = pwr;
-			if (next_event_us < sleep_us &&
+			if (next_event_us && next_event_us < sleep_us &&
 				(mode != MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT))
 				modified_time_us
 					= next_event_us - lvl_latency_us;
