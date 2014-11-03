@@ -70,6 +70,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C0_PLL_CONFIG_CTL 0x14
 #define C0_PLL_STATUS     0x1C
 #define C0_PLL_TEST_CTL_LO 0x20
+#define C0_PLL_TEST_CTL_HI 0x24
 
 #define C0_PLLA_MODE       0x40
 #define C0_PLLA_L_VAL      0x44
@@ -78,6 +79,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C0_PLLA_CONFIG_CTL 0x54
 #define C0_PLLA_STATUS     0x5C
 #define C0_PLLA_TEST_CTL_LO 0x60
+#define C0_PLLA_TEST_CTL_HI 0x64
 
 #define C1_PLL_MODE        0x0
 #define C1_PLL_L_VAL       0x4
@@ -86,6 +88,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C1_PLL_CONFIG_CTL 0x14
 #define C1_PLL_STATUS     0x1C
 #define C1_PLL_TEST_CTL_LO 0x20
+#define C1_PLL_TEST_CTL_HI 0x24
 
 #define C1_PLLA_MODE       0x40
 #define C1_PLLA_L_VAL      0x44
@@ -94,6 +97,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C1_PLLA_CONFIG_CTL 0x54
 #define C1_PLLA_STATUS     0x5C
 #define C1_PLLA_TEST_CTL_LO 0x60
+#define C1_PLLA_TEST_CTL_HI 0x64
 
 #define GLB_CLK_DIAG	0x1C
 #define MUX_OFFSET	0x54
@@ -164,6 +168,8 @@ static struct pll_clk a57_pll0 = {
 	.config_ctl_reg = (void __iomem *)C1_PLL_CONFIG_CTL,
 	.status_reg = (void __iomem *)C1_PLL_MODE,
 	.test_ctl_lo_reg = (void __iomem *)C1_PLL_TEST_CTL_LO,
+	.test_ctl_hi_reg = (void __iomem *)C1_PLL_TEST_CTL_HI,
+	.pgm_test_ctl_enable = true,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -199,6 +205,8 @@ static struct pll_clk a57_pll1 = {
 	.config_ctl_reg = (void __iomem *)C1_PLLA_CONFIG_CTL,
 	.status_reg = (void __iomem *)C1_PLLA_MODE,
 	.test_ctl_lo_reg = (void __iomem *)C1_PLLA_TEST_CTL_LO,
+	.test_ctl_hi_reg = (void __iomem *)C1_PLLA_TEST_CTL_HI,
+	.pgm_test_ctl_enable = true,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -236,6 +244,8 @@ static struct pll_clk a53_pll0 = {
 	.config_ctl_reg = (void __iomem *)C0_PLL_CONFIG_CTL,
 	.status_reg = (void __iomem *)C0_PLL_MODE,
 	.test_ctl_lo_reg = (void __iomem *)C0_PLL_TEST_CTL_LO,
+	.test_ctl_hi_reg = (void __iomem *)C0_PLL_TEST_CTL_HI,
+	.pgm_test_ctl_enable = true,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -271,6 +281,8 @@ static struct pll_clk a53_pll1 = {
 	.config_ctl_reg = (void __iomem *)C0_PLLA_CONFIG_CTL,
 	.status_reg = (void __iomem *)C0_PLLA_MODE,
 	.test_ctl_lo_reg = (void __iomem *)C0_PLLA_TEST_CTL_LO,
+	.test_ctl_hi_reg = (void __iomem *)C0_PLLA_TEST_CTL_HI,
+	.pgm_test_ctl_enable = true,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -1355,6 +1367,36 @@ static void populate_opp_table(struct platform_device *pdev)
 	print_opp_table(a53_cpu, a57_cpu);
 }
 
+static void init_v2_data(void)
+{
+	a53_pll1.vals.post_div_masked = 0x100;
+	a57_pll1.vals.post_div_masked = 0x100;
+	a53_pll0.vals.config_ctl_val = 0x004D6968;
+	a53_pll1.vals.config_ctl_val = 0x004D6968;
+	a57_pll0.vals.config_ctl_val = 0x004D6968;
+	a57_pll1.vals.config_ctl_val = 0x004D6968;
+	a53_pll0.vals.test_ctl_hi_val = 0x1;
+	a53_pll1.vals.test_ctl_hi_val = 0x1;
+	a57_pll0.vals.test_ctl_hi_val = 0x1;
+	a53_pll0.vals.test_ctl_lo_val = 0x80000000;
+	a53_pll1.vals.test_ctl_lo_val = 0x80000000;
+	a57_pll0.vals.test_ctl_lo_val = 0x80000000;
+	a53_pll0.init_test_ctl = true;
+	a53_pll1.init_test_ctl = true;
+	a57_pll0.init_test_ctl = true;
+	a53_pll0.pgm_test_ctl_enable = false;
+	a53_pll1.pgm_test_ctl_enable = false;
+	a57_pll0.pgm_test_ctl_enable = false;
+	a57_clk.c.parent = &a57_hf_mux_v2.c;
+	a53_clk.c.parent = &a53_hf_mux_v2.c;
+	a53_div_clk.data.min_div = 8;
+	a53_div_clk.data.max_div = 8;
+	a53_div_clk.data.div = 8;
+	a57_div_clk.data.min_div = 8;
+	a57_div_clk.data.max_div = 8;
+	a57_div_clk.data.div = 8;
+}
+
 static int a57speedbin;
 struct platform_device *cpu_clock_8994_dev;
 
@@ -1375,18 +1417,8 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 	a53_pll1_main.c.flags = CLKFLAG_NO_RATE_CACHE;
 	a57_pll1_main.c.flags = CLKFLAG_NO_RATE_CACHE;
 
-	if (v2) {
-		a53_pll1.vals.post_div_masked = 0x100;
-		a57_pll1.vals.post_div_masked = 0x100;
-		a57_clk.c.parent = &a57_hf_mux_v2.c;
-		a53_clk.c.parent = &a53_hf_mux_v2.c;
-		a53_div_clk.data.min_div = 8;
-		a53_div_clk.data.max_div = 8;
-		a53_div_clk.data.div = 8;
-		a57_div_clk.data.min_div = 8;
-		a57_div_clk.data.max_div = 8;
-		a57_div_clk.data.div = 8;
-	}
+	if (v2)
+		init_v2_data();
 
 	ret = cpu_clock_8994_resources_init(pdev);
 	if (ret)
