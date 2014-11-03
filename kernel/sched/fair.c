@@ -2994,7 +2994,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	int cstate, min_cstate = INT_MAX;
 	int prefer_idle = reason ? 1 : sysctl_sched_prefer_idle;
 
-	trace_sched_task_load(p, small_task, boost, reason);
+	trace_sched_task_load(p, small_task, boost, reason, sync);
 
 	if (small_task && !boost) {
 		best_cpu = best_small_task_cpu(p, sync);
