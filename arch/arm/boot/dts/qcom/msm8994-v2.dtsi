@@ -80,6 +80,7 @@
 
 &clock_cpu {
 	compatible = "qcom,cpu-clock-8994-v2";
+	vdd-dig-supply = <&pm8994_s2_corner_ao>;
 	qcom,a53-speedbin0-v0 =
 			<	   0 0>,
 			<  300000000 2>,
