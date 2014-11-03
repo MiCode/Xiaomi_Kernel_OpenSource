@@ -60,10 +60,9 @@ static int sanitize_enable_ppgtt(struct drm_device *dev, int enable_ppgtt)
 	}
 #endif
 
-	/* Early VLV doesn't have this */
-	if (IS_VALLEYVIEW(dev) && !IS_CHERRYVIEW(dev) &&
-	    dev->pdev->revision < 0xb) {
-		DRM_DEBUG_DRIVER("disabling PPGTT on pre-B3 step VLV\n");
+	/* VLV Android doesn't want this */
+	if (IS_VALLEYVIEW(dev) && !IS_CHERRYVIEW(dev)) {
+		DRM_DEBUG_DRIVER("disabling PPGTT on VLV\n");
 		return 0;
 	}
 
