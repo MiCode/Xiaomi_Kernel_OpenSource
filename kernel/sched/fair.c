@@ -1700,20 +1700,17 @@ static unsigned int power_cost(struct task_struct *p, int cpu)
 
 static int best_small_task_cpu(struct task_struct *p, int sync)
 {
-	int best_mi_cpu = -1, best_mi_cpu_power = INT_MAX;
-	int best_idle_lowpower_cpu = -1,
-		best_idle_lowpower_cpu_cstate = INT_MAX;
-	int best_idle_highpower_cpu = -1,
-		best_idle_highpower_cpu_cstate = INT_MAX;
-	int best_busy_lowpower_cpu = -1;
-	u64 best_busy_lowpower_cpu_load = ULLONG_MAX;
-	int best_busy_highpower_cpu = -1;
-	u64 best_busy_highpower_cpu_load = ULLONG_MAX;
-	int min_cost_cpu = -1;
-	int min_cost = INT_MAX;
-	int i, cstate, cpu_cost;
+	int best_nonlpm_sibling_cpu = -1,
+		best_nonlpm_sibling_load = INT_MAX;
+	int best_nonlpm_nonsibling_cpu = -1,
+		best_nonlpm_nonsibling_load = INT_MAX;
+	int best_lpm_sibling_cpu = -1,
+		best_lpm_sibling_cstate = INT_MAX;
+	int best_lpm_nonsibling_cpu = -1,
+		best_lpm_nonsibling_cstate = INT_MAX;
+	int cluster_cost, i, cstate;
 	u64 load;
-	int cost_list[nr_cpu_ids];
+
 	struct cpumask search_cpus;
 	int cpu = smp_processor_id();
 
@@ -1730,114 +1727,70 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 	if (sync && cpu_rq(cpu)->nr_running == 1)
 		return cpu;
 
-	/* Take a first pass to find the lowest power cost CPU. This
-	   will avoid a potential O(n^2) search */
-	for_each_cpu(i, &search_cpus) {
-
-		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
-				     mostly_idle_cpu_sync(i, sync), power_cost(p, i));
-
-		cpu_cost = power_cost(p, i);
-		if (cpu_cost < min_cost) {
-			min_cost = cpu_cost;
-			min_cost_cpu = i;
-		}
-
-		cost_list[i] = cpu_cost;
-	}
-
-	/* Optimization to steer task towards the minimum power
-	   cost CPU. The tradeoff is that we may have to check
-	   the same information again in pass 2 */
-	if (!cpu_rq(min_cost_cpu)->cstate && mostly_idle_cpu(min_cost_cpu))
-		return min_cost_cpu;
+	cluster_cost = power_cost(p, cpu);
 
 	/*
-	 * 1. Lowest power-cost mostly idle non-LPM CPU in system.
-	 * 2. Shallowest c-state idle CPU in little cluster.
-	 * 3. Least busy CPU in little cluster where adding the task
-	 *    won't cross spill.
-	 * 4. Least busy non-idle CPU outside little cluster.
-	 * 5. Shallowest c-state idle CPU outside little cluster.
+	 * 1. Least-loaded CPU in the same cluster which is not in a low
+	 *    power mode and where adding the task will not cause the
+	 *    spill threshold to be crossed.
+	 * 2. Least-loaded CPU in the rest of the topology which is not
+	 *    in a low power mode and where adding the task will not cause
+	 *    the spill threshold to be crossed.
+	 * 3. The idle CPU in the same cluster which is in the shallowest
+	 *    C-state.
+	 * 4. The idle CPU in the rest of the topology which is in the
+	 *    shallowest C-state.
+	 * 5. The task's previous CPU.
 	 */
 	for_each_cpu(i, &search_cpus) {
 		struct rq *rq = cpu_rq(i);
 		cstate = rq->cstate;
-
-		/*
-		 * Is this the best mostly idle CPU (that's not in a low
-		 * power mode) that we've seen?
-		 */
-		if (!(cstate && idle_cpu(i)) && mostly_idle_cpu_sync(i, sync)) {
-			if (cost_list[i] < best_mi_cpu_power) {
-				best_mi_cpu = i;
-				best_mi_cpu_power = cost_list[i];
-			}
-			continue;
-		}
-
-		/*
-		 * CPU is either in a low power mode or not mostly idle.
-		 *
-		 * Is this the lowest-loaded CPU outside the lowest power
-		 * band that we've seen?
-		 */
 		load = cpu_load_sync(i, sync);
-		if (power_delta_exceeded(cost_list[i], min_cost)) {
 
-			if (idle_cpu(i) && cstate) {
-				if (cstate < best_idle_highpower_cpu_cstate) {
-					best_idle_highpower_cpu = i;
-					best_idle_highpower_cpu_cstate = cstate;
+		trace_sched_cpu_load(rq, idle_cpu(i),
+				     mostly_idle_cpu_sync(i, sync),
+				     power_cost(p, i));
+
+		if (power_cost(p, i) == cluster_cost) {
+			/* This CPU is within the same cluster as the waker. */
+			if (cstate) {
+				if (cstate < best_lpm_sibling_cstate) {
+					best_lpm_sibling_cpu = i;
+					best_lpm_sibling_cstate = cstate;
 				}
 				continue;
 			}
-
-			if (load < best_busy_highpower_cpu_load) {
-				best_busy_highpower_cpu = i;
-				best_busy_highpower_cpu_load = load;
+			if (load < best_nonlpm_sibling_load &&
+			    !spill_threshold_crossed(p, rq, i, sync)) {
+				best_nonlpm_sibling_cpu = i;
+				best_nonlpm_sibling_load = load;
 			}
 			continue;
 		}
 
-		/*
-		 * CPU is in lowest power band and either in a low
-		 * power mode or beyond mostly idle.
-		 *
-		 * Is this the shallowest idle CPU in the lowest power
-		 * band that we've seen?
-		 */
-		if (idle_cpu(i) && cstate) {
-			if (cstate < best_idle_lowpower_cpu_cstate) {
-				best_idle_lowpower_cpu = i;
-				best_idle_lowpower_cpu_cstate = cstate;
+		/* This CPU is not within the same cluster as the waker. */
+		if (cstate) {
+			if (cstate < best_lpm_nonsibling_cstate) {
+				best_lpm_nonsibling_cpu = i;
+				best_lpm_nonsibling_cstate = cstate;
 			}
 			continue;
 		}
-
-		/*
-		 * CPU is in lowest power band and beyond mostly idle.
-		 *
-		 * Is this the least loaded non-mostly-idle CPU in the
-		 * lowest power band that we've seen?
-		 */
-		if (load < best_busy_lowpower_cpu_load &&
+		if (load < best_nonlpm_nonsibling_load &&
 		    !spill_threshold_crossed(p, rq, i, sync)) {
-			best_busy_lowpower_cpu = i;
-			best_busy_lowpower_cpu_load = load;
+			best_nonlpm_nonsibling_cpu = i;
+			best_nonlpm_nonsibling_load = load;
 		}
 	}
 
-	if (best_mi_cpu != -1)
-		return best_mi_cpu;
-	if (best_idle_lowpower_cpu != -1)
-		return best_idle_lowpower_cpu;
-	if (best_busy_lowpower_cpu != -1)
-		return best_busy_lowpower_cpu;
-	if (best_busy_highpower_cpu != -1)
-		return best_busy_highpower_cpu;
-	if (best_idle_highpower_cpu != -1)
-		return best_idle_highpower_cpu;
+	if (best_nonlpm_sibling_cpu != -1)
+		return best_nonlpm_sibling_cpu;
+	if (best_nonlpm_nonsibling_cpu != -1)
+		return best_nonlpm_nonsibling_cpu;
+	if (best_lpm_sibling_cpu != -1)
+		return best_lpm_sibling_cpu;
+	if (best_lpm_nonsibling_cpu != -1)
+		return best_lpm_nonsibling_cpu;
 
 	return task_cpu(p);
 }
