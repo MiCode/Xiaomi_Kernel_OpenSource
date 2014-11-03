@@ -1087,8 +1087,7 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl)
 	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 
 	/* On IPA 2.0, disable HOLB */
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 &&
-	    IPA_CLIENT_IS_CONS(ep->client)) {
+	if (IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&holb_cfg, 0 , sizeof(holb_cfg));
 		holb_cfg.en = IPA_HOLB_TMR_DIS;
 		holb_cfg.tmr_val = 0;
