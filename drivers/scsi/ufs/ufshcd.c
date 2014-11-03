@@ -1671,8 +1671,19 @@ static void ufshcd_clk_scaling_update_busy(struct ufs_hba *hba)
  * @task_tag: Task tag of the command
  */
 static inline
-void ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
+int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 {
+	int ret = 0;
+
+	if (hba->vops->crypto_engine_cfg) {
+		ret = hba->vops->crypto_engine_cfg(hba, task_tag);
+		if (ret) {
+			dev_err(hba->dev,
+				"%s: failed to configure crypto engine %d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
 	ufshcd_clk_scaling_start_busy(hba);
 	__set_bit(task_tag, &hba->outstanding_reqs);
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TRANSFER_REQ_DOOR_BELL);
@@ -1680,6 +1691,7 @@ void ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	wmb();
 	ufshcd_cond_add_cmd_trace(hba, task_tag, "send");
 	UFSHCD_UPDATE_TAG_STATS(hba, task_tag);
+	return ret;
 }
 
 /**
@@ -2253,7 +2265,18 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	wmb();
 	/* issue command to the controller */
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	ufshcd_send_command(hba, tag);
+
+	err = ufshcd_send_command(hba, tag);
+	if (err) {
+		scsi_dma_unmap(lrbp->cmd);
+		lrbp->cmd = NULL;
+		clear_bit_unlock(tag, &hba->lrb_in_use);
+		ufshcd_release_all(hba);
+		dev_err(hba->dev, "%s: failed sending command, %d\n",
+							__func__, err);
+		err = DID_ERROR;
+	}
+
 out_unlock:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 out:
@@ -2455,9 +2478,13 @@ static int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
 	/* Make sure descriptors are ready before ringing the doorbell */
 	wmb();
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	ufshcd_send_command(hba, tag);
+	err = ufshcd_send_command(hba, tag);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-
+	if (err) {
+		dev_err(hba->dev, "%s: failed sending command, %d\n",
+							__func__, err);
+		goto out_put_tag;
+	}
 	err = ufshcd_wait_for_dev_cmd(hba, lrbp, timeout);
 
 out_put_tag:
@@ -4383,6 +4410,48 @@ static void ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 }
 
 /**
+ * ufshcd_abort_outstanding_requests - abort all outstanding transfer requests.
+ * @hba: per adapter instance
+ * @result: error result to inform scsi layer about
+ */
+void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
+{
+	u8 index;
+	struct ufshcd_lrb *lrbp;
+	struct scsi_cmnd *cmd;
+
+	if (!hba->outstanding_reqs)
+		return;
+
+	for_each_set_bit(index, &hba->outstanding_reqs, hba->nutrs) {
+		lrbp = &hba->lrb[index];
+		cmd = lrbp->cmd;
+		if (cmd) {
+			ufshcd_cond_add_cmd_trace(hba, index, "failed");
+			UFSHCD_UPDATE_ERROR_STATS(hba,
+					UFS_ERR_INT_FATAL_ERRORS);
+			scsi_dma_unmap(cmd);
+			cmd->result = result;
+			/* Mark completed command as NULL in LRB */
+			lrbp->cmd = NULL;
+			/* Clear pending transfer requests */
+			ufshcd_clear_cmd(hba, index);
+			__clear_bit(index, &hba->outstanding_tasks);
+			clear_bit_unlock(index, &hba->lrb_in_use);
+			/* Do not touch lrbp after scsi done */
+			cmd->scsi_done(cmd);
+			ufshcd_release_all(hba);
+		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
+			if (hba->dev_cmd.complete) {
+				ufshcd_cond_add_cmd_trace(hba, index,
+							"dev_failed");
+				complete(hba->dev_cmd.complete);
+			}
+		}
+	}
+}
+
+/**
  * ufshcd_transfer_req_compl - handle SCSI and query command completion
  * @hba: per adapter instance
  */
@@ -4721,6 +4790,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 	u32 err_tm = 0;
 	int err = 0;
 	int tag;
+	int crypto_engine_err = 0;
 
 	hba = container_of(work, struct ufs_hba, eh_work);
 
@@ -4769,12 +4839,16 @@ static void ufshcd_err_handler(struct work_struct *work)
 	ufshcd_tmc_handler(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
+	if (hba->vops && hba->vops->crypto_engine_get_err)
+		crypto_engine_err = hba->vops->crypto_engine_get_err(hba);
+
 	/* Fatal errors need reset */
 	if (err_xfer || err_tm || (hba->saved_err & INT_FATAL_ERRORS) ||
 			((hba->saved_err & UIC_ERROR) &&
-			 (hba->saved_uic_err & UFSHCD_UIC_DL_PA_INIT_ERROR))) {
+			 (hba->saved_uic_err & UFSHCD_UIC_DL_PA_INIT_ERROR)) ||
+			 crypto_engine_err) {
 
-		if (hba->saved_err & INT_FATAL_ERRORS)
+		if (hba->saved_err & INT_FATAL_ERRORS || crypto_engine_err)
 			UFSHCD_UPDATE_ERROR_STATS(hba,
 						  UFS_ERR_INT_FATAL_ERRORS);
 
@@ -4799,6 +4873,8 @@ static void ufshcd_err_handler(struct work_struct *work)
 		scsi_report_bus_reset(hba->host, 0);
 		hba->saved_err = 0;
 		hba->saved_uic_err = 0;
+		if (hba->vops && hba->vops->crypto_engine_reset_err)
+			hba->vops->crypto_engine_reset_err(hba);
 	}
 	ufshcd_clear_eh_in_progress(hba);
 
@@ -4856,8 +4932,12 @@ static void ufshcd_update_uic_error(struct ufs_hba *hba)
 static void ufshcd_check_errors(struct ufs_hba *hba)
 {
 	bool queue_eh_work = false;
+	int crypto_engine_err = 0;
 
-	if (hba->errors & INT_FATAL_ERRORS)
+	if (hba->vops && hba->vops->crypto_engine_get_err)
+		crypto_engine_err = hba->vops->crypto_engine_get_err(hba);
+
+	if (hba->errors & INT_FATAL_ERRORS || crypto_engine_err)
 		queue_eh_work = true;
 
 	if (hba->errors & UIC_ERROR) {
@@ -4910,10 +4990,15 @@ static void ufshcd_tmc_handler(struct ufs_hba *hba)
  */
 static void ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 {
+	bool crypto_engine_err = false;
+
 	ufsdbg_fail_request(hba, &intr_status);
 
+	if (hba->vops && hba->vops->crypto_engine_eh)
+		crypto_engine_err = hba->vops->crypto_engine_eh(hba);
+
 	hba->errors = UFSHCD_ERROR_MASK & intr_status;
-	if (hba->errors)
+	if (hba->errors || crypto_engine_err)
 		ufshcd_check_errors(hba);
 
 	if (intr_status & UFSHCD_UIC_MASK)

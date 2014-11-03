@@ -42,6 +42,7 @@ Optional properties:
 			  4 - UFS device in Power-down state and Link in Hibern8 state
 			  5 - UFS device in Power-down state and Link in OFF state (Lowest power consumption)
 - spm-level		: UFS System power management level. Allowed PM levels are same as rpm-level.
+- ufs-qcom-crypto	: phandle to UFS-QCOM ICE (Inline Cryptographic Engine) node
 
 Note: If above properties are not defined it can be assumed that the supply
 regulators or clocks are always on.
@@ -53,6 +54,7 @@ Example:
 		interrupts = <0 28 0>;
 
 		ufs-phy = <&ufsphy>;
+		ufs-qcom-crypto = <&ufs_ice>;
 		vdd-hba-supply = <&xxx_reg0>;
 		vdd-hba-fixed-regulator;
 		vcc-supply = <&xxx_reg1>;
