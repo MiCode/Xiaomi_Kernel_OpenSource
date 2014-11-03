@@ -87,8 +87,8 @@ static struct msm_cam_clk_info ispif_8626_reset_clk_info[] = {
 static struct msm_cam_clk_info ispif_8974_ahb_clk_info[ISPIF_CLK_INFO_MAX];
 
 static struct msm_cam_clk_info ispif_8974_reset_clk_info[] = {
-	{"csi0_clk", INIT_RATE},
 	{"csi0_src_clk", INIT_RATE},
+	{"csi0_clk", NO_SET_RATE},
 	{"csi0_pix_clk", NO_SET_RATE},
 	{"csi0_rdi_clk", NO_SET_RATE},
 	{"csi1_src_clk", INIT_RATE},
