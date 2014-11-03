@@ -233,7 +233,7 @@ static int msm_ipc_router_smd_remote_write(void *data,
 
 			sz_written = smd_write_segment(smd_xprtp->channel,
 					ipc_rtr_pkt->data + offset,
-					(ipc_rtr_pkt->len - offset), 0);
+					(ipc_rtr_pkt->len - offset));
 			offset += sz_written;
 			sz_written = 0;
 		}
