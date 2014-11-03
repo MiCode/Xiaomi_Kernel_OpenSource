@@ -259,7 +259,7 @@ int create_pkt_cmd_sys_coverage_config(
 	return 0;
 }
 
-int create_pkt_set_cmd_sys_resource(
+int create_pkt_cmd_sys_set_resource(
 		struct hfi_cmd_sys_set_resource_packet *pkt,
 		struct vidc_resource_hdr *resource_hdr,
 		void *resource_value)
@@ -1926,4 +1926,60 @@ int create_pkt_cmd_sys_image_version(
 	pkt->num_properties = 1;
 	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_IMAGE_VERSION;
 	return 0;
+}
+
+static struct hfi_packetization_ops hfi_default = {
+	.sys_init = create_pkt_cmd_sys_init,
+	.sys_pc_prep = create_pkt_cmd_sys_pc_prep,
+	.sys_idle_indicator = create_pkt_cmd_sys_idle_indicator,
+	.sys_power_control = create_pkt_cmd_sys_power_control,
+	.sys_set_resource = create_pkt_cmd_sys_set_resource,
+	.sys_debug_config = create_pkt_cmd_sys_debug_config,
+	.sys_coverage_config = create_pkt_cmd_sys_coverage_config,
+	.sys_release_resource = create_pkt_cmd_sys_release_resource,
+	.sys_ping = create_pkt_cmd_sys_ping,
+	.sys_image_version = create_pkt_cmd_sys_image_version,
+	.ssr_cmd = create_pkt_ssr_cmd,
+	.session_init = create_pkt_cmd_sys_session_init,
+	.session_cmd = create_pkt_cmd_session_cmd,
+	.session_set_buffers = create_pkt_cmd_session_set_buffers,
+	.session_release_buffers = create_pkt_cmd_session_release_buffers,
+	.session_etb_decoder = create_pkt_cmd_session_etb_decoder,
+	.session_etb_encoder = create_pkt_cmd_session_etb_encoder,
+	.session_ftb = create_pkt_cmd_session_ftb,
+	.session_parse_seq_header = create_pkt_cmd_session_parse_seq_header,
+	.session_get_seq_hdr = create_pkt_cmd_session_get_seq_hdr,
+	.session_get_buf_req = create_pkt_cmd_session_get_buf_req,
+	.session_flush = create_pkt_cmd_session_flush,
+	.session_get_property = create_pkt_cmd_session_get_property,
+	.session_set_property = create_pkt_cmd_session_set_property,
+};
+
+struct hfi_packetization_ops *get_venus_3_x_ops(void)
+{
+	static struct hfi_packetization_ops hfi_venus_3_x;
+
+	hfi_venus_3_x = hfi_default;
+
+	/* Override new HFI functions for HFI_3XX here. */
+
+	return &hfi_venus_3_x;
+}
+
+struct hfi_packetization_ops *hfi_get_pkt_ops_handle(
+			enum hfi_packetization_type type)
+{
+	dprintk(VIDC_DBG, "%s selected\n",
+		type == HFI_PACKETIZATION_LEGACY ? "legacy packetization" :
+		type == HFI_PACKETIZATION_3XX ? "3xx packetization" :
+		"Unknown hfi");
+
+	switch (type) {
+	case HFI_PACKETIZATION_LEGACY:
+		return &hfi_default;
+	case HFI_PACKETIZATION_3XX:
+		return get_venus_3_x_ops();
+	}
+
+	return NULL;
 }
