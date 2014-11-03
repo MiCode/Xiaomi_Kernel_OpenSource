@@ -43,6 +43,8 @@
 							(x)->config_ctl_reg)
 #define PLL_TEST_CTL_LO_REG(x)	(*(x)->base + (unsigned long) \
 							(x)->test_ctl_lo_reg)
+#define PLL_TEST_CTL_HI_REG(x)	(*(x)->base + (unsigned long) \
+							(x)->test_ctl_hi_reg)
 static DEFINE_SPINLOCK(pll_reg_lock);
 
 #define ENABLE_WAIT_MAX_LOOPS 200
@@ -241,6 +243,12 @@ static void __variable_rate_pll_init(struct clk *c)
 
 	writel_relaxed(pll->vals.alpha_val, PLL_ALPHA_REG(pll));
 	writel_relaxed(pll->vals.config_ctl_val, PLL_CFG_CTL_REG(pll));
+	if (pll->init_test_ctl) {
+		writel_relaxed(pll->vals.test_ctl_lo_val,
+				PLL_TEST_CTL_LO_REG(pll));
+		writel_relaxed(pll->vals.test_ctl_hi_val,
+				PLL_TEST_CTL_HI_REG(pll));
+	}
 
 	pll->inited = true;
 }
@@ -261,7 +269,8 @@ static int variable_rate_pll_clk_enable(struct clk *c)
 	mode = readl_relaxed(PLL_MODE_REG(pll));
 
 	/* Set test control bits as required by HW doc */
-	if (pll->test_ctl_lo_reg && pll->vals.test_ctl_lo_val)
+	if (pll->test_ctl_lo_reg && pll->vals.test_ctl_lo_val &&
+		pll->pgm_test_ctl_enable)
 		writel_relaxed(pll->vals.test_ctl_lo_val,
 				PLL_TEST_CTL_LO_REG(pll));
 
@@ -285,7 +294,8 @@ static int variable_rate_pll_clk_enable(struct clk *c)
 	udelay(10);
 
 	/* Clear test control bits */
-	if (pll->test_ctl_lo_reg && pll->vals.test_ctl_lo_val)
+	if (pll->test_ctl_lo_reg && pll->vals.test_ctl_lo_val &&
+		pll->pgm_test_ctl_enable)
 		writel_relaxed(0x0, PLL_TEST_CTL_LO_REG(pll));
 
 	/* Wait for pll to lock. */

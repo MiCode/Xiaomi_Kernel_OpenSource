@@ -63,6 +63,7 @@ struct pll_config_vals {
 	u32 pre_div_masked;
 	u32 config_ctl_val;
 	u32 test_ctl_lo_val;
+	u32 test_ctl_hi_val;
 	u32 alpha_val;
 	bool enable_mn;
 };
@@ -115,6 +116,8 @@ static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *c)
  *   post divider and vco configuration. register name can be configure register
  *   or user_ctl register depending on targets
  * @status_reg: status register, contains the lock detection bit
+ * @init_test_ctl: initialize the test control register
+ * @pgm_test_ctl_enable: program the test_ctl register in the enable sequence
  * @masks: masks used for settings in config_reg
  * @vals: configuration values to be written to PLL registers
  * @freq_tbl: pll freq table
@@ -131,6 +134,10 @@ struct pll_clk {
 	void __iomem *const config_ctl_reg;
 	void __iomem *const status_reg;
 	void __iomem *const test_ctl_lo_reg;
+	void __iomem *const test_ctl_hi_reg;
+
+	bool init_test_ctl;
+	bool pgm_test_ctl_enable;
 
 	struct pll_config_masks masks;
 	struct pll_config_vals vals;
