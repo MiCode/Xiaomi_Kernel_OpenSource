@@ -181,6 +181,8 @@
 #define clk_snoc_mmnoc_axi_clk			0xfedd4bd5
 #define clk_snoc_mmnoc_ahb_clk			0xd2149dbb
 #define clk_snoc_usb_a_clk			0x34b7821b
+#define clk_snoc_mm_msmbus_clk			0x5e221ca4
+#define clk_snoc_mm_msmbus_a_clk		0x5950f9ea
 #define clk_bimc_clk				0x4b80bf00
 #define clk_bimc_a_clk				0x4b25668a
 #define clk_bimc_acpu_a_clk			0x4446311b
