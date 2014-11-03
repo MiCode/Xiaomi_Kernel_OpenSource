@@ -71,6 +71,8 @@ Optional properties:
    dependent on the primary PHY referenced by this phandle.
  - qcom,override-pll-calibration: If present, program PHY register to overrride
 	the automatic PHY PLL calibration settings.
+ - qcom,qmp-misc-config: If present, program PHY miscellaneous device-specific
+	registers.
 
 Example:
 	ssphy@f9200000 {
