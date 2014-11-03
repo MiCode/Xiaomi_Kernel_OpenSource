@@ -691,7 +691,15 @@ static int rmnet_mhi_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 			sizeof(ext_cmd.u.if_name));
 		break;
 	case RMNET_IOCTL_SET_SLEEP_STATE:
-		mhi_set_lpm(rmnet_mhi_ptr->tx_client_handle, ext_cmd.u.data);
+		if (rmnet_mhi_ptr->mhi_enabled &&
+		    rmnet_mhi_ptr->tx_client_handle != NULL) {
+			mhi_set_lpm(rmnet_mhi_ptr->tx_client_handle,
+				   ext_cmd.u.data);
+		} else {
+			rmnet_log(MSG_ERROR,
+				  "Cannot set LPM value, MHI is not up.\n");
+			return -ENODEV;
+		}
 		break;
 	default:
 		rc = -EINVAL;
