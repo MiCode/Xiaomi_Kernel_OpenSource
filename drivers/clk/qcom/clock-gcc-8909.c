@@ -993,7 +993,7 @@ static struct clk_freq_tbl ftbl_gcc_mdss_mdp_clk[] = {
 	F( 50000000,	gpll0,	16,	0,	0),
 	F( 80000000,	gpll0,	10,	0,	0),
 	F( 100000000,	gpll0,	8,	0,	0),
-	F( 153600000,	gpll1_e,	8,	0,	0),
+	F( 160000000,	gpll0,	5,	0,	0),
 	F( 177780000,	gpll0,	4.5,	0,	0),
 	F( 200000000,	gpll0,	4,	0,	0),
 	F( 266670000,	gpll0,	3,	0,	0),
@@ -1010,7 +1010,7 @@ static struct rcg_clk mdp_clk_src = {
 	.c = {
 		.dbg_name = "mdp_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP2(LOW, 153600000, NOMINAL, 307200000),
+		VDD_DIG_FMAX_MAP2(LOW, 160000000, NOMINAL, 307200000),
 		CLK_INIT(mdp_clk_src.c),
 	},
 };
@@ -1029,7 +1029,7 @@ static struct rcg_clk pclk0_clk_src = {
 	.c = {
 		.dbg_name = "pclk0_clk_src",
 		.ops = &clk_ops_pixel,
-		VDD_DIG_FMAX_MAP2(LOW, 41666666.67, NOMINAL, 83333333.33),
+		VDD_DIG_FMAX_MAP1(LOW, 83333333.33),
 		CLK_INIT(pclk0_clk_src.c),
 	},
 };
