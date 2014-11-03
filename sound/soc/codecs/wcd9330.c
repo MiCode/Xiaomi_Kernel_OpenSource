@@ -660,6 +660,20 @@ static unsigned short tx_digital_gain_reg[] = {
 	TOMTOM_A_CDC_TX10_VOL_CTL_GAIN,
 };
 
+int tomtom_enable_qfuse_sensing(struct snd_soc_codec *codec)
+{
+	snd_soc_write(codec, TOMTOM_A_QFUSE_CTL, 0x03);
+	/*
+	 * 5ms sleep required after enabling qfuse control
+	 * before checking the status.
+	 */
+	usleep_range(5000, 5500);
+	if ((snd_soc_read(codec, TOMTOM_A_QFUSE_STATUS) & (0x03)) != 0x03)
+		WARN(1, "%s: Qfuse sense is not complete\n", __func__);
+	return 0;
+}
+EXPORT_SYMBOL(tomtom_enable_qfuse_sensing);
+
 static int tomtom_get_sample_rate(struct snd_soc_codec *codec, int path)
 {
 	if (path == RX8_PATH)
@@ -8296,6 +8310,12 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	for (count = 0; count < NUM_CODEC_DAIS; count++)
 		tomtom->dai[count].bus_down_in_recovery = true;
 
+	/*
+	 * After SSR, the qfuse sensing is lost.
+	 * Perform qfuse sensing again after SSR
+	 * handling is finished.
+	 */
+	tomtom_enable_qfuse_sensing(codec);
 	mutex_unlock(&codec->mutex);
 	return ret;
 }
@@ -8479,20 +8499,6 @@ static int tomtom_cpe_initialize(struct snd_soc_codec *codec)
 
 	return 0;
 }
-
-int tomtom_enable_qfuse_sensing(struct snd_soc_codec *codec)
-{
-	snd_soc_write(codec, TOMTOM_A_QFUSE_CTL, 0x03);
-	/*
-	 * 5ms sleep required after enabling qfuse control
-	 * before checking the status.
-	 */
-	usleep_range(5000, 5500);
-	if ((snd_soc_read(codec, TOMTOM_A_QFUSE_STATUS) & (0x03)) != 0x03)
-		WARN(1, "%s: Qfuse sense is not complete\n", __func__);
-	return 0;
-}
-EXPORT_SYMBOL(tomtom_enable_qfuse_sensing);
 
 static int tomtom_codec_probe(struct snd_soc_codec *codec)
 {
