@@ -172,7 +172,7 @@ struct msm_camera_i2c_read_config {
 	uint16_t slave_addr;
 	uint16_t reg_addr;
 	enum msm_camera_i2c_data_type data_type;
-	uint16_t *data;
+	uint16_t data;
 };
 
 struct msm_camera_csi2_params {
