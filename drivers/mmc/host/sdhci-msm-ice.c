@@ -73,6 +73,52 @@ out:
 	return ice_vops;
 }
 
+static
+void sdhci_msm_enable_ice_hci(struct sdhci_host *host, bool enable)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	u32 config = 0;
+	u32 ice_cap = 0;
+
+	/*
+	 * Enable the cryptographic support inside SDHC.
+	 * This is a global config which needs to be enabled
+	 * all the time.
+	 * Only when it it is enabled, the ICE_HCI capability
+	 * will get reflected in CQCAP register.
+	 */
+	config = readl_relaxed(host->ioaddr + HC_VENDOR_SPECIFIC_FUNC4);
+
+	if (enable)
+		config &= ~DISABLE_CRYPTO;
+	else
+		config |= DISABLE_CRYPTO;
+	writel_relaxed(config, host->ioaddr + HC_VENDOR_SPECIFIC_FUNC4);
+
+	/*
+	 * CQCAP register is in different register space from above
+	 * ice global enable register. So a mb() is required to ensure
+	 * above write gets completed before reading the CQCAP register.
+	 */
+	mb();
+
+	/*
+	 * Check if ICE HCI capability support is present
+	 * If present, enable it.
+	 */
+	ice_cap = readl_relaxed(msm_host->cryptoio + ICE_CQ_CAPABILITIES);
+	if (ice_cap & ICE_HCI_SUPPORT) {
+		config = readl_relaxed(msm_host->cryptoio + ICE_CQ_CONFIG);
+
+		if (enable)
+			config |= CRYPTO_GENERAL_ENABLE;
+		else
+			config &= ~CRYPTO_GENERAL_ENABLE;
+		writel_relaxed(config, msm_host->cryptoio + ICE_CQ_CONFIG);
+	}
+}
+
 int sdhci_msm_ice_get_dev(struct sdhci_host *host)
 {
 	struct device *sdhc_dev;
@@ -109,6 +155,37 @@ int sdhci_msm_ice_get_dev(struct sdhci_host *host)
 	}
 	msm_host->ice.state = SDHCI_MSM_ICE_STATE_DISABLED;
 	return 0;
+}
+
+static
+int sdhci_msm_ice_pltfm_init(struct sdhci_msm_host *msm_host)
+{
+	struct resource *ice_memres = NULL;
+	struct platform_device *pdev = msm_host->pdev;
+	int err = 0;
+
+	if (!msm_host->ice_hci_support)
+		goto out;
+	/*
+	 * ICE HCI registers are present in cmdq register space.
+	 * So map the cmdq mem for accessing ICE HCI registers.
+	 */
+	ice_memres = platform_get_resource_byname(pdev,
+						IORESOURCE_MEM, "cmdq_mem");
+	if (!ice_memres) {
+		dev_err(&pdev->dev, "Failed to get iomem resource for ice\n");
+		err = -EINVAL;
+		goto out;
+	}
+	msm_host->cryptoio = devm_ioremap(&pdev->dev,
+					ice_memres->start,
+					resource_size(ice_memres));
+	if (!msm_host->cryptoio) {
+		dev_err(&pdev->dev, "Failed to remap registers\n");
+		err = -ENOMEM;
+	}
+out:
+	return err;
 }
 
 int sdhci_msm_ice_init(struct sdhci_host *host)
