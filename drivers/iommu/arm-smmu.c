@@ -309,6 +309,13 @@
 #define TTBCR2_ADDR_44			4
 #define TTBCR2_ADDR_48			5
 
+#define TTBCR2_SEP_31			0
+#define TTBCR2_SEP_35			1
+#define TTBCR2_SEP_39			2
+#define TTBCR2_SEP_41			3
+#define TTBCR2_SEP_43			4
+#define TTBCR2_SEP_47			5
+
 #define TTBRn_HI_ASID_SHIFT		16
 
 #define MAIR_ATTR_SHIFT(n)		((n) << 3)
@@ -940,23 +947,23 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 		/* TTBCR2 */
 		switch (smmu->s1_input_size) {
 		case 32:
-			reg = (TTBCR2_ADDR_32 << TTBCR2_SEP_SHIFT);
+			reg = (TTBCR2_SEP_31 << TTBCR2_SEP_SHIFT);
 			break;
 		case 36:
-			reg = (TTBCR2_ADDR_36 << TTBCR2_SEP_SHIFT);
+			reg = (TTBCR2_SEP_35 << TTBCR2_SEP_SHIFT);
 			break;
 		case 39:
 		case 40:
-			reg = (TTBCR2_ADDR_40 << TTBCR2_SEP_SHIFT);
+			reg = (TTBCR2_SEP_39 << TTBCR2_SEP_SHIFT);
 			break;
 		case 42:
-			reg = (TTBCR2_ADDR_42 << TTBCR2_SEP_SHIFT);
+			reg = (TTBCR2_SEP_41 << TTBCR2_SEP_SHIFT);
 			break;
 		case 44:
-			reg = (TTBCR2_ADDR_44 << TTBCR2_SEP_SHIFT);
+			reg = (TTBCR2_SEP_43 << TTBCR2_SEP_SHIFT);
 			break;
 		case 48:
-			reg = (TTBCR2_ADDR_48 << TTBCR2_SEP_SHIFT);
+			reg = (TTBCR2_SEP_47 << TTBCR2_SEP_SHIFT);
 			break;
 		}
 
