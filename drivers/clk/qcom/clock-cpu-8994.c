@@ -34,6 +34,7 @@
 #include <soc/qcom/clock-alpha-pll.h>
 
 #include <dt-bindings/clock/msm-clocks-8994.h>
+#include <dt-bindings/clock/msm-clocks-8992.h>
 
 #include "clock.h"
 #include "vdd-level-8994.h"
@@ -160,6 +161,7 @@ DEFINE_EXT_CLK(xo_ao, NULL);
 DEFINE_EXT_CLK(sys_apcsaux_clk, NULL);
 
 static bool msm8994_v2;
+static bool msm8992;
 
 static struct pll_clk a57_pll0 = {
 	.mode_reg = (void __iomem *)C1_PLL_MODE,
@@ -1053,6 +1055,7 @@ static struct clk_lookup cpu_clocks_8994[] = {
 	CLK_LIST(cpu_debug_mux),
 };
 
+/* List of clocks applicable to both 8994v2 and 8992 */
 
 static struct clk_lookup cpu_clocks_8994_v2[] = {
 	CLK_LIST(a53_clk),
@@ -1775,7 +1778,7 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 	u32 pte_efuse;
 	char a57speedbinstr[] = "qcom,a57-speedbinXX-vXX";
 
-	v2 = msm8994_v2;
+	v2 = msm8994_v2 | msm8992;
 	cpu_clock_8994_dev = pdev;
 
 	a53_pll0_main.c.flags = CLKFLAG_NO_RATE_CACHE;
@@ -1917,6 +1920,7 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 static struct of_device_id match_table[] = {
 	{ .compatible = "qcom,cpu-clock-8994" },
 	{ .compatible = "qcom,cpu-clock-8994-v2" },
+	{ .compatible = "qcom,cpu-clock-8992" },
 	{}
 };
 
@@ -1958,9 +1962,8 @@ int __init cpu_clock_8994_init_a57_v2(void)
 {
 	int ret = 0;
 
-	pr_info("clock-cpu-8994-v2: configuring clocks for the A57 cluster\n");
-
-	msm8994_v2 = true;
+	pr_info("%s: configuring clocks for the A57 cluster\n",
+		msm8992 ? "msm8992" : "msm8994-v2");
 
 	vbases[ALIAS0_GLB_BASE] = ioremap(ALIAS0_GLB_BASE_PHY, SZ_4K);
 	if (!vbases[ALIAS0_GLB_BASE]) {
@@ -1985,7 +1988,8 @@ int __init cpu_clock_8994_init_a57_v2(void)
 	mb();
 	udelay(5);
 
-	pr_cont("clock-cpu-8994-v2: finished configuring A57 cluster clocks.\n");
+	pr_cont("%s: finished configuring A57 cluster clocks.\n",
+		msm8992 ? "msm8992" : "msm8994-v2");
 
 	iounmap(vbases[ALIAS1_GLB_BASE]);
 iomap_fail:
@@ -2004,6 +2008,14 @@ int __init cpu_clock_8994_init_a57(void)
 	ofnode = of_find_compatible_node(NULL, NULL,
 					 "qcom,cpu-clock-8994-v2");
 	if (ofnode)
+		msm8994_v2 = true;
+
+	ofnode = of_find_compatible_node(NULL, NULL,
+					 "qcom,cpu-clock-8992");
+	if (ofnode)
+		msm8992 = true;
+
+	if (msm8994_v2 || msm8992)
 		return cpu_clock_8994_init_a57_v2();
 
 	ofnode = of_find_compatible_node(NULL, NULL,

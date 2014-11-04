@@ -1,13 +1,13 @@
 Qualcomm MSM8994 CPU clock tree
 
-clock-cpu-8994 is a device that represents the MSM8994 CPU subsystem
+clock-cpu-8994 is a device that represents the MSM8994 or MSM8992 CPU subsystem
 clock tree. It lists the various power supplies that need to be scaled when
 the clocks are scaled and also other HW specific parameters like fmax tables,
 avs settings table, etc.
 
 Required properties:
 - compatible:		Must be one of "qcom,clock-cpu-8994" or
-			"qcom,clock-cpu-8994-v2"
+			"qcom,clock-cpu-8994-v2" or "qcom,cpu-clock-8992"
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Expected
