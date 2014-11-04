@@ -1,0 +1,6 @@
+#ifndef __VAMEM_PUBLIC_H_INCLUDED__
+#define __VAMEM_PUBLIC_H_INCLUDED__
+
+
+
+#endif /* __VAMEM_PUBLIC_H_INCLUDED__ */
