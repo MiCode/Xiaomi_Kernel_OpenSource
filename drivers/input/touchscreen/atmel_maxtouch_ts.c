@@ -3003,6 +3003,9 @@ static int mxt_search_fw_name(struct mxt_data *data)
 
 	data->fw_name[0] = '\0';
 
+	if (data->in_bootloader)
+		return 0;
+
 	for_each_child_of_node(np, temp) {
 		rc = of_property_read_u32(temp, "atmel,version", &temp_val);
 		if (rc) {
@@ -3148,7 +3151,7 @@ retry_bootloader:
 				/* this is not an error state, we can reflash
 				 * from here */
 				data->in_bootloader = true;
-				return 0;
+				goto recover_bootloader;
 			}
 
 			/* Attempt to exit bootloader into app mode */
@@ -3171,6 +3174,7 @@ retry_bootloader:
 	if (error)
 		return error;
 
+recover_bootloader:
 	error = mxt_create_input_dev(data);
 	if (error) {
 		dev_err(&client->dev, "Failed to create input dev\n");
@@ -3432,8 +3436,11 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 	int error;
 
 	if (data->fw_name[0] == '\0') {
-		dev_info(dev, "firmware is up-to-date\n");
-		return 0;
+		if (data->in_bootloader)
+			dev_info(dev, "Manual update needed\n");
+		else
+			dev_info(dev, "firmware is up-to-date\n");
+		return count;
 	}
 
 	error = mxt_load_fw(dev);
