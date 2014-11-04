@@ -11,6 +11,29 @@
  */
 
 &soc {
+	/* To use BIMC based bus governor */
+	gpubw: qcom,gpubw {
+		compatible = "qcom,devbw";
+		governor = "bw_hwmon";
+		qcom,src-dst-ports = <26 512>;
+		qcom,bw-tbl =
+			<    0 >,	/*   9.6 MHz */
+			<  381 >,	/*  50.0 MHz */
+			<  762 >,	/* 100.0 MHz */
+			< 1525 >,	/* 200.0 MHz */
+			< 3051 >,	/* 400.0 MHz */
+			< 4066 >;	/* 533.0 MHz */
+	};
+
+	qcom,gpu-bwmon@410000 {
+		compatible = "qcom,bimc-bwmon";
+		reg = <0x00410000 0x300>, <0x00401000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 4>;
+		qcom,mport = <2>;
+		qcom,target-dev = <&gpubw>;
+	};
+
 	msm_gpu: qcom,kgsl-3d0@01c00000 {
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
@@ -44,6 +67,7 @@
 				"gtcu_iface_clk";
 
 		/* Bus Scale Settings */
+		qcom,gpubw-dev = <&gpubw>;
 		qcom,msm-bus,name = "grp3d";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
