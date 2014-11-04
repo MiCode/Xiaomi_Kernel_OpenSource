@@ -7265,22 +7265,11 @@ static inline void ufshcd_add_sysfs_nodes(struct ufs_hba *hba)
  */
 int ufshcd_shutdown(struct ufs_hba *hba)
 {
-	int ret = 0;
-
-	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba))
-		goto out;
-
-	if (pm_runtime_suspended(hba->dev)) {
-		ret = ufshcd_runtime_resume(hba);
-		if (ret)
-			goto out;
-	}
-
-	ret = ufshcd_suspend(hba, UFS_SHUTDOWN_PM);
-out:
-	if (ret)
-		dev_err(hba->dev, "%s failed, err %d\n", __func__, ret);
-	/* allow force shutdown even in case of errors */
+	/*
+	 * TODO: This function should send the power down notification to
+	 * UFS device and then power off the UFS link. But we need to be sure
+	 * that there will not be any new UFS requests issued after this.
+	 */
 	return 0;
 }
 EXPORT_SYMBOL(ufshcd_shutdown);
