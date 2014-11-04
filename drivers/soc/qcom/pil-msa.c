@@ -422,13 +422,13 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	dev_info(pil->dev, "MBA: loading from %pa to %pa\n", &mba_phys,
 								&mba_phys_end);
 	/* Load the MBA image into memory */
-	count = fw->size;
 	data = fw ? fw->data : NULL;
 	if (!data) {
 		dev_err(pil->dev, "MBA data is NULL\n");
 		ret = -ENOMEM;
 		goto err_mss_reset;
 	}
+	count = fw->size;
 	memcpy(mba_virt, data, count);
 	wmb();
 
