@@ -458,10 +458,10 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 		 * Hardware doesn't handle subpixel coordinates.
 		 * Adjust to (macro)pixel boundary
 		 */
-		config->src_x = src.x1;
-		config->src_w = (src.x2 - src.x1);
-		config->src_y = src.y1;
-		config->src_h = (src.y2 - src.y1);
+		config->src_x = src.x1 >> 16;
+		config->src_w = (src.x2 - src.x1) >> 16;
+		config->src_y = src.y1 >> 16;
+		config->src_h = (src.y2 - src.y1) >> 16;
 
 		if (format_is_yuv(buf->format)) {
 			config->src_x &= ~1;
