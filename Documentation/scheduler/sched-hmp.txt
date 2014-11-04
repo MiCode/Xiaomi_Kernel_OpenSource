@@ -564,23 +564,22 @@ both tasks and CPUs to aid in the placement of tasks.
 
   The "mostly_idle" classification applies to CPUs. This
   classification attempts to answer the following question: if a task
-  is put on this CPU, is it likely to be able to run soon? One
-  possible way to answer this question would be to just check whether
-  the CPU is idle or not. That may be too conservative however. The
-  CPU may be currently executing a very small task and could become
-  idle soon. Since the scheduler is tracking the demand of each task
-  it can make an educated guess as to whether a CPU will become idle
-  in the near future.
+  is put on this CPU, is it likely to be able to run with low contention for
+  bandwidth? One possible way to answer this question would be to just check
+  whether the CPU is idle or not. That may be too conservative however. The CPU
+  may be currently executing a very small task and could become idle soon. Since
+  the scheduler is tracking the demand of each task it can make an educated
+  guess as to whether a CPU will become idle in the near future.
 
   There are two tunable parameters which are used to determine whether
   a CPU is mostly idle:
 
-  /proc/sys/kernel/sched_mostly_idle_nr_run
-  /proc/sys/kernel/sched_mostly_idle_load
+  /sys/devices/system/cpu/cpuX/sched_mostly_idle_nr_run
+  /sys/devices/system/cpu/cpuX/sched_mostly_idle_load
 
-  If a CPU does not have more than sched_mostly_idle_nr_run runnable
-  tasks and is not more than sched_mostly_idle_load percent busy, it
-  is considered mostly idle.
+  Note that these tunables are per-cpu. If a CPU does not have more than
+  sched_mostly_idle_nr_run runnable tasks and is not more than
+  sched_mostly_idle_load percent busy, it is considered mostly idle.
 
 - spill threshold
 
@@ -1042,9 +1041,9 @@ IRQ_UPDATE
 
 *** 7.1 sched_mostly_idle_nr_run
 
-Appears at: /proc/sys/kernel/sched_mostly_idle_nr_run
+Appears at: /sys/devices/system/cpu/cpuX/sched_mostly_idle_nr_run
 
-Default value: 4
+Default value: 3
 
 If a CPU has this many runnable tasks (or less), it is considered
 "mostly idle." A mostly idle CPU is a preferred destination for a
@@ -1054,7 +1053,7 @@ than sched_mostly_idle_load percent busy.
 
 *** 7.2 sched_mostly_idle_load
 
-Appears at: /proc/sys/kernel/sched_mostly_idle_load
+Appears at: /sys/devices/system/cpu/cpuX/sched_mostly_idle_load
 
 Default value: 20
 
