@@ -356,9 +356,8 @@ done:
 	return 0;
 }
 
-#ifdef CONFIG_GMIN_INTEL_MID
 /* Workaround for pmu_nc_set_power_state not ready in MRFLD */
-static int atomisp_mrfld_power_down(struct atomisp_device *isp)
+int atomisp_mrfld_power_down(struct atomisp_device *isp)
 {
 	unsigned long timeout;
 	u32 reg_value;
@@ -396,7 +395,7 @@ static int atomisp_mrfld_power_down(struct atomisp_device *isp)
 
 
 /* Workaround for pmu_nc_set_power_state not ready in MRFLD */
-static int atomisp_mrfld_power_up(struct atomisp_device *isp)
+int atomisp_mrfld_power_up(struct atomisp_device *isp)
 {
 	unsigned long timeout;
 	u32 reg_value;
@@ -425,9 +424,8 @@ static int atomisp_mrfld_power_up(struct atomisp_device *isp)
 		usleep_range(100, 150);
 	};
 }
-#endif
 
-static int atomisp_runtime_suspend(struct device *dev)
+int atomisp_runtime_suspend(struct device *dev)
 {
 	struct atomisp_device *isp = (struct atomisp_device *)
 		dev_get_drvdata(dev);
@@ -450,7 +448,7 @@ static int atomisp_runtime_suspend(struct device *dev)
 	return ret;
 }
 
-static int atomisp_runtime_resume(struct device *dev)
+int atomisp_runtime_resume(struct device *dev)
 {
 	struct atomisp_device *isp = (struct atomisp_device *)
 		dev_get_drvdata(dev);

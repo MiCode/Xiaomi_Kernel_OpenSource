@@ -67,6 +67,7 @@
 #include "error_support.h"
 #include "hrt/bits.h"
 
+
 /* We should never need to run the flash for more than 2 frames.
  * At 15fps this means 133ms. We set the timeout a bit longer.
  * Each flash driver is supposed to set its own timeout, but
@@ -360,13 +361,19 @@ int atomisp_reset(struct atomisp_device *isp)
 
 	dev_dbg(isp->dev, "%s\n", __func__);
 	atomisp_css_suspend(isp);
-	ret = pm_runtime_put_sync(isp->dev);
+	ret = atomisp_runtime_suspend(isp->dev);
+	if (ret < 0)
+		dev_err(isp->dev, "atomisp_runtime_suspend failed, %d\n", ret);
+	ret = atomisp_mrfld_power_down(isp);
 	if (ret < 0) {
 		dev_err(isp->dev, "can not disable ISP power\n");
 	} else {
-		ret = pm_runtime_get_sync(isp->dev);
+		ret = atomisp_mrfld_power_up(isp);
 		if (ret < 0)
 			dev_err(isp->dev, "can not enable ISP power\n");
+		ret = atomisp_runtime_resume(isp->dev);
+		if (ret < 0)
+			dev_err(isp->dev, "atomisp_runtime_resume failed, %d\n", ret);
 	}
 	ret = atomisp_css_resume(isp);
 	if (ret)
