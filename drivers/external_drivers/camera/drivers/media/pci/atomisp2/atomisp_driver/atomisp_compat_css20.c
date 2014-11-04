@@ -4175,7 +4175,7 @@ int atomisp_css_get_dis_stat(struct atomisp_sub_device *asd,
 	else
 		ia_css_get_dvs2_statistics(asd->params.dvs_stat,
 			dis_buf->dis_data);
-	stats->exp_id = dis_buf->exp_id;
+	stats->exp_id = dis_buf->dis_data->exp_id;
 
 	spin_lock_irqsave(&asd->dis_stats_lock, flags);
 	list_add_tail(&dis_buf->list, &asd->dis_stats);

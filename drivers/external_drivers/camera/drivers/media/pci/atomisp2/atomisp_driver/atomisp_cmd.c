@@ -975,7 +975,7 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 			asd->s3a_bufs_in_css[css_pipe_id]--;
 			atomisp_3a_stats_ready_event(asd, buffer.css_buffer.exp_id);
 			dev_dbg(isp->dev, "%s: s3a stat with exp_id %d is ready\n",
-				__func__, buffer.css_buffer.exp_id);
+				__func__, s3a_buf->s3a_data->exp_id);
 			break;
 		case CSS_BUFFER_TYPE_METADATA:
 			if (error)
@@ -993,8 +993,7 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 			asd->metadata_bufs_in_css[stream_id][css_pipe_id]--;
 			atomisp_metadata_ready_event(asd, md_type);
 			dev_dbg(isp->dev, "%s: metadata with exp_id %d is ready\n",
-				__func__,
-				buffer.css_buffer.data.metadata->exp_id);
+				__func__, md_buf->metadata->exp_id);
 			break;
 		case CSS_BUFFER_TYPE_DIS_STATISTICS:
 			list_for_each_entry_safe(dis_buf, _dis_buf_tmp,
@@ -1002,7 +1001,6 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 				if (dis_buf->dis_data == buffer.css_buffer.data.stats_dvs) {
 					spin_lock_irqsave(&asd->dis_stats_lock, irqflags);
 					list_del_init(&dis_buf->list);
-					dis_buf->exp_id = buffer.css_buffer.exp_id;
 					list_add(&dis_buf->list, &asd->dis_stats);
 					asd->params.dis_proj_data_valid = true;
 					spin_unlock_irqrestore(&asd->dis_stats_lock, irqflags);
@@ -1011,7 +1009,7 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 			}
 			asd->dis_bufs_in_css--;
 			dev_dbg(isp->dev, "%s: dis stat with exp_id %d is ready\n",
-				__func__, buffer.css_buffer.exp_id);
+				__func__, dis_buf->dis_data->exp_id);
 			break;
 		case CSS_BUFFER_TYPE_VF_OUTPUT_FRAME:
 		case CSS_BUFFER_TYPE_SEC_VF_OUTPUT_FRAME:
@@ -1139,22 +1137,20 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 				asd->frame_status[vb->i];
 
 			if (asd->continuous_mode->val) {
-				unsigned int exp_id = frame->exp_id;
-
 				if (css_pipe_id == CSS_PIPE_ID_PREVIEW ||
 				    css_pipe_id == CSS_PIPE_ID_VIDEO) {
-					asd->latest_preview_exp_id = exp_id;
+					asd->latest_preview_exp_id = frame->exp_id;
 				} else if (css_pipe_id ==
 						CSS_PIPE_ID_CAPTURE) {
 					if (asd->run_mode->val ==
 					    ATOMISP_RUN_MODE_VIDEO)
 					    dev_dbg(isp->dev,
 						    "SDV capture raw buffer id: %u\n",
-						    exp_id);
+						    frame->exp_id);
 					else
 					    dev_dbg(isp->dev,
 						    "ZSL capture raw buffer id: %u\n",
-						    exp_id);
+						    frame->exp_id);
 				}
 			}
 			/*
