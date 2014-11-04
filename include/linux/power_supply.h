@@ -166,6 +166,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_CHARGE_ENABLED,
 	POWER_SUPPLY_PROP_FLASH_CURRENT_MAX,
 	POWER_SUPPLY_PROP_UPDATE_NOW,
+	POWER_SUPPLY_PROP_ESR_COUNT,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
