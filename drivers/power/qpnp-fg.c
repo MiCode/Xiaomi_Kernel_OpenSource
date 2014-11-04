@@ -129,6 +129,7 @@ enum fg_mem_data_index {
 	FG_DATA_VOLTAGE,
 	FG_DATA_CURRENT,
 	FG_DATA_BATT_ESR,
+	FG_DATA_BATT_ESR_COUNT,
 	FG_DATA_BATT_ID,
 	FG_DATA_BATT_ID_INFO,
 	FG_DATA_MAX,
@@ -168,6 +169,7 @@ static struct fg_mem_data fg_data[FG_DATA_MAX] = {
 	DATA(VOLTAGE,         0x5CC,   1,      2,     -EINVAL),
 	DATA(CURRENT,         0x5CC,   3,      2,     -EINVAL),
 	DATA(BATT_ESR,        0x554,   2,      2,     -EINVAL),
+	DATA(BATT_ESR_COUNT,  0x558,   2,      2,     -EINVAL),
 	DATA(BATT_ID,         0x594,   1,      1,     -EINVAL),
 	DATA(BATT_ID_INFO,    0x594,   3,      1,     -EINVAL),
 };
@@ -1172,6 +1174,9 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 		case FG_DATA_BATT_ESR:
 			fg_data[i].value = float_decode((u16) temp);
 			break;
+		case FG_DATA_BATT_ESR_COUNT:
+			fg_data[i].value = (u16)temp;
+			break;
 		case FG_DATA_BATT_ID:
 			if (battid_valid)
 				fg_data[i].value = reg[0] * LSB_8B;
@@ -1354,6 +1359,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_UPDATE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_ESR_COUNT,
 };
 
 static int fg_power_get_property(struct power_supply *psy,
@@ -1392,6 +1398,9 @@ static int fg_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_RESISTANCE:
 		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ESR);
+		break;
+	case POWER_SUPPLY_PROP_ESR_COUNT:
+		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ESR_COUNT);
 		break;
 	case POWER_SUPPLY_PROP_RESISTANCE_ID:
 		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ID);
