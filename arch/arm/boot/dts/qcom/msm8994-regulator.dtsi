@@ -554,7 +554,7 @@
 			reg = <0x3200 0x100>;
 			regulator-name = "pm8994_s11";
 			regulator-min-microvolt = <725000>;
-			regulator-max-microvolt = <1180000>;
+			regulator-max-microvolt = <1225000>;
 			qcom,cpu-num = <4>;
 		};
 	};
@@ -708,7 +708,7 @@
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <16>;
 
-		qcom,cpr-voltage-ceiling = <900000 900000 1000000 1180000>;
+		qcom,cpr-voltage-ceiling = <900000 900000 1000000 1225000>;
 		qcom,cpr-voltage-floor =   <725000 725000  840000 1000000>;
 		vdd-apc-supply = <&pm8994_s11>;
 
@@ -771,8 +771,8 @@
 		qcom,cpr-voltage-ceiling-override =
 				<0xFFFFFFFF 0  900000  900000  900000  900000
 					       900000 1000000 1000000 1000000
-					      1115000 1115000 1115000 1115000
-					      1115000 1180000 1180000 1180000>;
+					      1160000 1160000 1160000 1160000
+					      1160000 1225000 1225000 1225000>;
 		qcom,cpr-voltage-floor-override =
 				<0xFFFFFFFF 0 700000 700000 700000 700000
 					      725000 795000 815000 835000
