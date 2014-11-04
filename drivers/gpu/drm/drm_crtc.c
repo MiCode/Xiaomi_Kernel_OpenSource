@@ -2307,7 +2307,7 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 		spin_lock_irqsave(&dev->event_lock, flags);
 		if (file_priv->event_space < sizeof(e->event)) {
 			spin_unlock_irqrestore(&dev->event_lock, flags);
-			goto out;
+			goto unlock;
 		}
 		file_priv->event_space -= sizeof(e->event);
 		spin_unlock_irqrestore(&dev->event_lock, flags);
@@ -2316,7 +2316,7 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 			spin_lock_irqsave(&dev->event_lock, flags);
 			file_priv->event_space += sizeof(e->event);
 			spin_unlock_irqrestore(&dev->event_lock, flags);
-			goto out;
+			goto unlock;
 		}
 
 		e->event.base.type = DRM_EVENT_FLIP_COMPLETE;
@@ -2345,6 +2345,8 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 		}
 		old_fb = NULL;
 	}
+
+unlock:
 	drm_modeset_unlock_all(dev);
 
 out:
