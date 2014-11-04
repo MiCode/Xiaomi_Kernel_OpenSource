@@ -189,8 +189,10 @@ static int cpufreq_policy_notifier(struct notifier_block *nb,
 
 	case CPUFREQ_REMOVE_POLICY:
 		mutex_lock(&state_lock);
-		state[policy->cpu]->on = false;
-		update_all_devfreqs();
+		if (state[policy->cpu]) {
+			state[policy->cpu]->on = false;
+			update_all_devfreqs();
+		}
 		mutex_unlock(&state_lock);
 		break;
 	}
