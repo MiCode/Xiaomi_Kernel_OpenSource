@@ -119,6 +119,16 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 	return true;
 }
 
+static void intel_dsi_mode_set(struct intel_encoder *intel_encoder);
+static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
+{
+	DRM_DEBUG_KMS("\n");
+
+	intel_dsi_mode_set(encoder);
+
+	vlv_enable_dsi_pll(encoder);
+}
+
 static void intel_dsi_device_ready(struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
@@ -129,6 +139,18 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 	int count = 1;
 
 	DRM_DEBUG_KMS("\n");
+
+	mutex_lock(&dev_priv->dpio_lock);
+	/* program rcomp for compliance, reduce from 50 ohms to 45 ohms
+	 * needed everytime after power gate */
+	vlv_flisdsi_write(dev_priv, 0x04, 0x0004);
+	mutex_unlock(&dev_priv->dpio_lock);
+
+	/* bandgap reset is needed after everytime we do power gate */
+	band_gap_reset(dev_priv);
+
+	I915_WRITE(MIPI_DEVICE_READY(pipe), ULPS_STATE_ENTER);
+	usleep_range(2500, 3000);
 
 	val = I915_READ(MIPI_PORT_CTRL(0));
 
@@ -280,6 +302,8 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	enum pipe pipe = intel_crtc->pipe;
 	u32 tmp;
 
 	DRM_DEBUG_KMS("\n");
@@ -290,18 +314,23 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 
 	msleep(intel_dsi->panel_on_delay);
 
+	/* Disable DPOunit clock gating, can stall pipe
+	 * and we need DPLL REFA always enabled */
+	tmp = I915_READ(DPLL(pipe));
+	tmp |= DPLL_REFA_CLK_ENABLE_VLV;
+	I915_WRITE(DPLL(pipe), tmp);
+
 	tmp = I915_READ(DSPCLK_GATE_D);
 	tmp |= DPOUNIT_CLOCK_GATE_DISABLE;
 	I915_WRITE(DSPCLK_GATE_D, tmp);
-
-
-	if (intel_dsi->dev.dev_ops->panel_reset)
-		intel_dsi->dev.dev_ops->panel_reset(&intel_dsi->dev);
 
 	/* put device in ready state */
 	intel_dsi_device_ready(encoder);
 
 	msleep(intel_dsi->panel_on_delay);
+
+	if (intel_dsi->dev.dev_ops->panel_reset)
+		intel_dsi->dev.dev_ops->panel_reset(&intel_dsi->dev);
 
 	if (intel_dsi->dev.dev_ops->send_otp_cmds)
 		intel_dsi->dev.dev_ops->send_otp_cmds(&intel_dsi->dev);
@@ -325,14 +354,26 @@ static void intel_dsi_enable_nop(struct intel_encoder *encoder)
 
 static void intel_dsi_pre_disable(struct intel_encoder *encoder)
 {
+	struct drm_device *dev = encoder->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	struct intel_connector *intel_connector = intel_dsi->attached_connector;
 
 	DRM_DEBUG_KMS("\n");
+
+	if (dev_priv->display.disable_backlight)
+		dev_priv->display.disable_backlight(intel_connector);
+
+	if (intel_dsi->backlight_off_delay >= 20)
+		msleep(intel_dsi->backlight_off_delay);
+	else
+		usleep_range(intel_dsi->backlight_off_delay * 1000,
+				(intel_dsi->backlight_off_delay * 1000) + 500);
 
 	if (is_vid_mode(intel_dsi)) {
 		/* Send Shutdown command to the panel in LP mode */
 		dpi_send_cmd(intel_dsi, SHUTDOWN, DPI_LP_MODE_EN);
-		msleep(10);
+		usleep_range(2000, 2500);
 	}
 }
 
@@ -372,25 +413,15 @@ static void intel_dsi_disable(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
-	struct intel_connector *intel_connector = intel_dsi->attached_connector;
 	int pipe = intel_crtc->pipe;
 	u32 temp;
 	int count = 1;
 
 	DRM_DEBUG_KMS("\n");
 
-	if (dev_priv->display.disable_backlight)
-		dev_priv->display.disable_backlight(intel_connector);
-
-	if (intel_dsi->backlight_off_delay >= 20)
-		msleep(intel_dsi->backlight_off_delay);
-	else
-		usleep_range(intel_dsi->backlight_off_delay * 1000,
-				(intel_dsi->backlight_off_delay * 1000) + 500);
-
 	if (is_vid_mode(intel_dsi)) {
 		intel_dsi_port_disable(encoder);
-		msleep(2);
+		usleep_range(2000, 2500);
 	}
 
 	if (intel_dsi->dual_link) {
@@ -441,13 +472,13 @@ static void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
 
 	DRM_DEBUG_KMS("\n");
 
-	I915_WRITE(MIPI_DEVICE_READY(pipe), ULPS_STATE_ENTER);
+	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_ENTER);
 	usleep_range(2000, 2500);
 
-	I915_WRITE(MIPI_DEVICE_READY(pipe), ULPS_STATE_EXIT);
+	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_EXIT);
 	usleep_range(2000, 2500);
 
-	I915_WRITE(MIPI_DEVICE_READY(pipe), ULPS_STATE_ENTER);
+	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_ENTER);
 	usleep_range(2000, 2500);
 
 	val = I915_READ(MIPI_PORT_CTRL(0));
@@ -521,8 +552,10 @@ static bool intel_dsi_get_hw_state(struct intel_encoder *encoder,
 	DRM_DEBUG_KMS("\n");
 
 	power_domain = intel_display_port_power_domain(encoder);
-	if (!intel_display_power_enabled(dev_priv, power_domain))
+	if (!intel_display_power_enabled(dev_priv, power_domain)) {
+		DRM_ERROR("Domain power not enabled\n");
 		return false;
+	}
 
 	/* XXX: this only works for one DSI output */
 	for (p = PIPE_A; p <= PIPE_B; p++) {
@@ -542,7 +575,6 @@ static bool intel_dsi_get_hw_state(struct intel_encoder *encoder,
 			}
 		}
 	}
-
 	return false;
 }
 
@@ -682,7 +714,7 @@ static void set_dsi_timings(struct drm_encoder *encoder,
 	} while (--count > 0);
 }
 
-static void intel_dsi_prepare(struct intel_encoder *intel_encoder)
+static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 {
 	struct drm_encoder *encoder = &intel_encoder->base;
 	struct drm_device *dev = encoder->dev;
@@ -726,6 +758,10 @@ static void intel_dsi_prepare(struct intel_encoder *intel_encoder)
 		if (intel_dsi->dual_link)
 			pipe = PIPE_B;
 	} while (--count > 0);
+
+	I915_WRITE(MIPI_DPI_RESOLUTION(pipe),
+		   adjusted_mode->vdisplay << VERTICAL_ADDRESS_SHIFT |
+		   adjusted_mode->hdisplay << HORIZONTAL_ADDRESS_SHIFT);
 
 	set_dsi_timings(encoder, adjusted_mode);
 
@@ -803,6 +839,9 @@ static void intel_dsi_prepare(struct intel_encoder *intel_encoder)
 		/* recovery disables */
 		I915_WRITE(MIPI_EOT_DISABLE(pipe), val);
 
+		/* in terms of low power clock */
+		I915_WRITE(MIPI_INIT_COUNT(pipe), intel_dsi->init_count);
+
 		/*
 		 * in terms of txbyteclkhs. actual high to low switch +
 		 * MIPI_STOP_STATE_STALL * MIPI_LP_BYTECLK.
@@ -853,39 +892,6 @@ static void intel_dsi_prepare(struct intel_encoder *intel_encoder)
 	} while (--count > 0);
 }
 
-static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
-{
-	struct drm_device *dev = encoder->base.dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
-	int pipe = intel_crtc->pipe;
-	u32 tmp;
-
-	DRM_DEBUG_KMS("\n");
-
-	intel_dsi_prepare(encoder);
-
-	mutex_lock(&dev_priv->dpio_lock);
-	/* program rcomp for compliance, reduce from 50 ohms to 45 ohms
-	 * needed everytime after power gate */
-	vlv_flisdsi_write(dev_priv, 0x04, 0x0004);
-	mutex_unlock(&dev_priv->dpio_lock);
-
-	/* bandgap reset is needed after everytime we do power gate */
-	band_gap_reset(dev_priv);
-
-	/* Disable DPOunit clock gating, can stall pipe */
-	tmp = I915_READ(DPLL(pipe));
-	tmp |= DPLL_RESERVED_BIT;
-	I915_WRITE(DPLL(pipe), tmp);
-
-	tmp = I915_READ(DSPCLK_GATE_D);
-	tmp |= VSUNIT_CLOCK_GATE_DISABLE;
-	I915_WRITE(DSPCLK_GATE_D, tmp);
-
-	vlv_enable_dsi_pll(encoder);
-}
-
 static enum drm_connector_status
 intel_dsi_detect(struct drm_connector *connector, bool force)
 {
@@ -893,7 +899,8 @@ intel_dsi_detect(struct drm_connector *connector, bool force)
 	struct intel_encoder *intel_encoder = &intel_dsi->base;
 	enum intel_display_power_domain power_domain;
 	enum drm_connector_status connector_status;
-	struct drm_i915_private *dev_priv = intel_encoder->base.dev->dev_private;
+	struct drm_i915_private *dev_priv =
+		intel_encoder->base.dev->dev_private;
 
 	DRM_DEBUG_KMS("\n");
 	power_domain = intel_display_port_power_domain(intel_encoder);
@@ -993,7 +1000,8 @@ static const struct drm_encoder_funcs intel_dsi_funcs = {
 	.destroy = intel_encoder_destroy,
 };
 
-static const struct drm_connector_helper_funcs intel_dsi_connector_helper_funcs = {
+static const struct drm_connector_helper_funcs
+	intel_dsi_connector_helper_funcs = {
 	.get_modes = intel_dsi_get_modes,
 	.mode_valid = intel_dsi_mode_valid,
 	.best_encoder = intel_best_encoder,
@@ -1105,6 +1113,7 @@ bool intel_dsi_init(struct drm_device *dev)
 	intel_encoder->compute_config = intel_dsi_compute_config;
 	intel_encoder->pre_pll_enable = intel_dsi_pre_pll_enable;
 	intel_encoder->pre_enable = intel_dsi_pre_enable;
+	intel_encoder->mode_set = intel_dsi_mode_set;
 	intel_encoder->enable = intel_dsi_enable_nop;
 	intel_encoder->disable = intel_dsi_pre_disable;
 	intel_encoder->post_disable = intel_dsi_post_disable;

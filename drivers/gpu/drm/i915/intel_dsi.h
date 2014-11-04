@@ -506,7 +506,8 @@ static inline struct intel_dsi *enc_to_intel_dsi(struct drm_encoder *encoder)
 
 extern void vlv_enable_dsi_pll(struct intel_encoder *encoder);
 extern void vlv_disable_dsi_pll(struct intel_encoder *encoder);
-
+extern void wait_for_dsi_fifo_empty(struct intel_dsi *intel_dsi);
+extern u32 vlv_get_dsi_pclk(struct intel_encoder *encoder, int pipe_bpp);
 extern struct intel_dsi_dev_ops vbt_generic_dsi_display_ops;
 extern struct intel_dsi *intel_attached_dsi(struct drm_connector *connector);
 
