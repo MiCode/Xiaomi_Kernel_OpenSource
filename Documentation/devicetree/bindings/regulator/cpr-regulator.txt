@@ -44,8 +44,11 @@ Required properties:
 - qcom,cpr-timer-cons-down:	Consecutive number of timer interval (qcom,cpr-timer-delay)
 				occurred before issuing DOWN interrupt.
 - qcom,cpr-irq-line:		Internal interrupt route signal of RBCPR, one of 0, 1 or 2.
-- qcom,cpr-step-quotient:	Number of CPR quotient (Ring Oscillator(RO) count) per vdd-apc-supply step
-				to issue error_steps.
+- qcom,cpr-step-quotient:	Defines the number of CPR quotient (i.e. Ring Oscillator(RO)
+				count) per vdd-apc-supply output voltage step.  A single
+				integer value may be specified which is to be used for all
+				RO's.  Alternatively, 8 integer values may be specified which
+				define the step quotients for RO0 to RO7 in order.
 - qcom,cpr-up-threshold:	The threshold for CPR to issue interrupt when
 				error_steps is greater than it when stepping up.
 - qcom,cpr-down-threshold:	The threshold for CPR to issue interrupt when
