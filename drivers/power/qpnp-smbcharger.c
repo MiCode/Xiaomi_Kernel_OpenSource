@@ -137,6 +137,7 @@ struct smbchg_chip {
 	int				usb_suspended;
 	int				dc_suspended;
 	int				wake_reasons;
+	int				previous_soc;
 	bool				usb_online;
 	bool				dc_present;
 	bool				usb_present;
@@ -144,6 +145,7 @@ struct smbchg_chip {
 	int				otg_retries;
 	ktime_t				otg_enable_time;
 	bool				aicl_deglitch_on;
+	bool				sw_esr_pulse_en;
 
 	/* jeita and temperature */
 	bool				batt_hot;
@@ -200,6 +202,7 @@ struct smbchg_chip {
 	struct mutex			usb_set_online_lock;
 	struct mutex			usb_en_lock;
 	struct mutex			dc_en_lock;
+	struct mutex			fcc_lock;
 	struct mutex			pm_lock;
 };
 
@@ -216,6 +219,7 @@ enum print_reason {
 enum wake_reason {
 	PM_PARALLEL_CHECK = BIT(0),
 	PM_REASON_VFLOAT_ADJUST = BIT(1),
+	PM_ESR_PULSE = BIT(2),
 };
 
 static int smbchg_debug_mask;
@@ -1408,7 +1412,7 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip)
 #define FCC_CFG			0xF2
 #define FCC_500MA_VAL		0x4
 #define FCC_MASK		SMB_MASK(4, 0)
-static int smbchg_set_fastchg_current(struct smbchg_chip *chip,
+static int smbchg_set_fastchg_current_raw(struct smbchg_chip *chip,
 							int current_ma)
 {
 	int i, rc;
@@ -1442,10 +1446,49 @@ static int smbchg_set_fastchg_current(struct smbchg_chip *chip,
 		dev_err(chip->dev, "cannot write to fcc cfg rc = %d\n", rc);
 		return rc;
 	}
+	pr_smb(PR_STATUS, "fastcharge current set to %d\n",
+			current_ma);
 
 	chip->fastchg_current_ma = usb_current_table[i];
-	pr_smb(PR_STATUS, "fastcharge current set to %d\n",
-			chip->fastchg_current_ma);
+	return rc;
+}
+
+static int smbchg_set_fastchg_current(struct smbchg_chip *chip,
+							int current_ma)
+{
+	int rc;
+
+	mutex_lock(&chip->fcc_lock);
+	if (chip->sw_esr_pulse_en)
+		current_ma = 300;
+	rc = smbchg_set_fastchg_current_raw(chip, current_ma);
+	mutex_unlock(&chip->fcc_lock);
+	return rc;
+}
+
+static int smbchg_parallel_usb_charging_en(struct smbchg_chip *chip, bool en)
+{
+	struct power_supply *parallel_psy = get_parallel_psy(chip);
+	union power_supply_propval pval = {0, };
+
+	if (!parallel_psy)
+		return 0;
+
+	pval.intval = en;
+	return parallel_psy->set_property(parallel_psy,
+		POWER_SUPPLY_PROP_CHARGING_ENABLED, &pval);
+}
+
+static int smbchg_sw_esr_pulse_en(struct smbchg_chip *chip, bool en)
+{
+	int rc;
+
+	chip->sw_esr_pulse_en = en;
+	rc = smbchg_set_fastchg_current_raw(chip,
+			chip->target_fastchg_current_ma);
+	if (rc)
+		return rc;
+	rc = smbchg_parallel_usb_charging_en(chip, !en);
 	return rc;
 }
 
@@ -2411,6 +2454,85 @@ static void smbchg_vfloat_adjust_check(struct smbchg_chip *chip)
 	schedule_delayed_work(&chip->vfloat_adjust_work, 0);
 }
 
+#define FV_STS_REG			0xC
+#define AICL_INPUT_STS_BIT		BIT(6)
+static bool smbchg_is_input_current_limited(struct smbchg_chip *chip)
+{
+	int rc;
+	u8 reg;
+
+	rc = smbchg_read(chip, &reg, chip->chgr_base + FV_STS_REG, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read FV_STS rc=%d\n", rc);
+		return false;
+	}
+
+	return !!(reg & AICL_INPUT_STS_BIT);
+}
+
+#define SW_ESR_PULSE_MS			1500
+static void smbchg_cc_esr_wa_check(struct smbchg_chip *chip)
+{
+	int rc, esr_count;
+
+	if (!is_usb_present(chip) && !is_dc_present(chip)) {
+		pr_smb(PR_STATUS, "No inputs present, skipping\n");
+		return;
+	}
+
+	if (get_prop_charge_type(chip) != POWER_SUPPLY_CHARGE_TYPE_FAST) {
+		pr_smb(PR_STATUS, "Not in fast charge, skipping\n");
+		return;
+	}
+
+	if (!smbchg_is_input_current_limited(chip)) {
+		pr_smb(PR_STATUS, "Not input current limited, skipping\n");
+		return;
+	}
+
+	set_property_on_fg(chip, POWER_SUPPLY_PROP_UPDATE_NOW, 1);
+	rc = get_property_from_fg(chip,
+			POWER_SUPPLY_PROP_ESR_COUNT, &esr_count);
+	if (rc) {
+		pr_smb(PR_STATUS,
+			"could not read ESR counter rc = %d\n", rc);
+		return;
+	}
+
+	/*
+	 * The esr_count is counting down the number of fuel gauge cycles
+	 * before a ESR pulse is needed.
+	 *
+	 * After a successful ESR pulse, this count is reset to some
+	 * high number like 28. If this reaches 0, then the fuel gauge
+	 * hardware should force a ESR pulse.
+	 *
+	 * However, if the device is in constant current charge mode while
+	 * being input current limited, the ESR pulse will not affect the
+	 * battery current, so the measurement will fail.
+	 *
+	 * As a failsafe, force a manual ESR pulse if this value is read as
+	 * 0.
+	 */
+	if (esr_count != 0) {
+		pr_smb(PR_STATUS, "ESR count is not zero, skipping\n");
+		return;
+	}
+
+	pr_smb(PR_STATUS, "Lowering charge current for ESR pulse\n");
+	smbchg_stay_awake(chip, PM_ESR_PULSE);
+	smbchg_sw_esr_pulse_en(chip, true);
+	msleep(SW_ESR_PULSE_MS);
+	pr_smb(PR_STATUS, "Raising charge current for ESR pulse\n");
+	smbchg_relax(chip, PM_ESR_PULSE);
+	smbchg_sw_esr_pulse_en(chip, false);
+}
+
+static void smbchg_soc_changed(struct smbchg_chip *chip)
+{
+	smbchg_cc_esr_wa_check(chip);
+}
+
 #define UNKNOWN_BATT_TYPE	"Unknown Battery"
 #define LOADING_BATT_TYPE	"Loading Battery Data"
 static void smbchg_external_power_changed(struct power_supply *psy)
@@ -2418,7 +2540,7 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 	struct smbchg_chip *chip = container_of(psy,
 				struct smbchg_chip, batt_psy);
 	union power_supply_propval prop = {0,};
-	int rc, current_limit = 0;
+	int rc, current_limit = 0, soc;
 	bool en;
 
 	if (chip->bms_psy_name)
@@ -2432,6 +2554,11 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 		smbchg_unknown_battery_en(chip, en);
 		en = strcmp(prop.strval, LOADING_BATT_TYPE) != 0;
 		smbchg_charging_en(chip, en);
+		soc = get_prop_batt_capacity(chip);
+		if (chip->previous_soc != soc) {
+			chip->previous_soc = soc;
+			smbchg_soc_changed(chip);
+		}
 	}
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
@@ -4469,6 +4596,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	dev_set_drvdata(&spmi->dev, chip);
 
 	spin_lock_init(&chip->sec_access_lock);
+	mutex_init(&chip->fcc_lock);
 	mutex_init(&chip->current_change_lock);
 	mutex_init(&chip->usb_set_online_lock);
 	mutex_init(&chip->usb_en_lock);
@@ -4510,6 +4638,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 		goto free_regulator;
 	}
 
+	chip->previous_soc = -EINVAL;
 	chip->batt_psy.name		= chip->battery_psy_name;
 	chip->batt_psy.type		= POWER_SUPPLY_TYPE_BATTERY;
 	chip->batt_psy.get_property	= smbchg_battery_get_property;
