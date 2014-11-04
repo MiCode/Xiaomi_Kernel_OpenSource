@@ -75,7 +75,7 @@ enum custom_state {
 	CUSTOM_OPENED,
 };
 
-#define RCV_BUFFER_NB		2
+#define RCV_BUFFER_NB		16
 
 #define IOH_PHONE_ON		0
 #define IOH_PHONE_OFF		1
@@ -188,9 +188,9 @@ static void fdp_reset(struct fdp_custom_device *p_device)
 		return;
 	}
 
-	/* Reset RST/WakeUP for at least 2 micro-second */
+	/* Reset RST/WakeUP for at least 120 micro-second */
 	gpiod_set_value(p_device->rst_gpio, RST_RESET);
-	udelay(2);
+	udelay(120);
 	gpiod_set_value(p_device->rst_gpio, RST_NO_RESET);
 }
 
@@ -521,6 +521,9 @@ static void fdp_irqout_read(struct fdp_custom_device *p_device)
 			rx_data_length[p_device->next_to_write])) {
 			p_buffer = p_device->rx_buffer[p_device->next_to_write];
 		} else {
+			if (p_device->state == CUSTOM_OPENED)
+				pr_err("fdp_irqout_read: no buffer to store received data\n");
+
 			/* The buffer pool is full - use scratch buffer */
 			p_buffer = p_device->rx_scratch_buffer;
 		}
