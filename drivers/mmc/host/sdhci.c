@@ -734,8 +734,6 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 	struct mmc_data *data = cmd->data;
 	int ret;
 
-	WARN_ON(host->data);
-
 	if (data || (cmd->flags & MMC_RSP_BUSY)) {
 		count = sdhci_calc_timeout(host, cmd);
 		sdhci_writeb(host, count, SDHCI_TIMEOUT_CONTROL);
@@ -743,6 +741,8 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 
 	if (!data)
 		return;
+
+	WARN_ON(host->data);
 
 	/* Sanity checks */
 	BUG_ON(data->blksz * data->blocks > 524288);
@@ -910,7 +910,9 @@ static void sdhci_set_transfer_mode(struct sdhci_host *host,
 	WARN_ON(!host->data);
 
 	mode = SDHCI_TRNS_BLK_CNT_EN;
-	if (mmc_op_multi(cmd->opcode) || data->blocks > 1) {
+	if (mmc_op_cmdq_execute_task(cmd->opcode) && (data->blocks > 1))
+		mode |= SDHCI_TRNS_MULTI;
+	else if (mmc_op_multi(cmd->opcode) || (data->blocks > 1)) {
 		mode |= SDHCI_TRNS_MULTI;
 		/*
 		 * If we are sending CMD23, CMD12 never gets sent
@@ -984,8 +986,12 @@ static void sdhci_finish_data(struct sdhci_host *host)
 		}
 
 		sdhci_send_command(host, data->stop);
-	} else
-		tasklet_schedule(&host->finish_tasklet);
+	} else {
+		if (host->mmc->context_info.is_cmdq_busy)
+			tasklet_schedule(&host->finish_async_data_tasklet);
+		else
+			tasklet_schedule(&host->finish_tasklet);
+	}
 }
 
 void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
@@ -1064,6 +1070,12 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 	    cmd->opcode == MMC_SEND_TUNING_BLOCK_HS200)
 		flags |= SDHCI_CMD_DATA;
 
+	/* CMD46/47 doesn't wait for data */
+	if (mmc_op_cmdq_execute_task(cmd->opcode)) {
+		cmd->data = NULL;
+		host->mrq->data = NULL;
+	}
+
 	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
 }
 EXPORT_SYMBOL_GPL(sdhci_send_command);
@@ -1096,6 +1108,9 @@ static void sdhci_finish_command(struct sdhci_host *host)
 	if (host->cmd == host->mrq->precmd) {
 		host->cmd = NULL;
 		sdhci_send_command(host, host->mrq->cmd);
+	} else if ((host->cmd == host->mrq->cmd) && host->mrq->cmd2) {
+		host->cmd = NULL;
+		sdhci_send_command(host, host->mrq->cmd2);
 	} else {
 
 		/* Processed actual command. */
@@ -1414,6 +1429,9 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 				if ((mmc->card->ext_csd.part_config & 0x07) ==
 					EXT_CSD_PART_CONFIG_ACC_RPMB)
 					goto end_tuning;
+				/* don't do tuning when cmdq is not empty */
+				if (mmc->context_info.is_cmdq_busy)
+					goto end_tuning;
 				/* eMMC uses cmd21 but sd and sdio use cmd19 */
 				tuning_opcode =
 					mmc->card->type == MMC_TYPE_MMC ?
@@ -1430,12 +1448,12 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 				sdhci_execute_tuning(mmc, tuning_opcode);
 				spin_lock_irqsave(&host->lock, flags);
 
-end_tuning:
 				/* Restore original mmc_request structure */
 				host->mrq = mrq;
 			}
 		}
 
+end_tuning:
 		if (!(sdhci_readw(host, SDHCI_CLOCK_CONTROL) &
 					SDHCI_CLOCK_CARD_EN)) {
 			/*
@@ -1453,9 +1471,15 @@ end_tuning:
 			goto out;
 		}
 
-		if (mrq->precmd && !(host->flags & SDHCI_AUTO_CMD23))
-			sdhci_send_command(host, mrq->precmd);
-		else
+		if (mrq->precmd) {
+			if (mrq->precmd->opcode == 23) {
+				if (!(host->flags & SDHCI_AUTO_CMD23))
+					sdhci_send_command(host, mrq->precmd);
+				else
+					sdhci_send_command(host, mrq->cmd);
+			} else
+				sdhci_send_command(host, mrq->precmd);
+		} else
 			sdhci_send_command(host, mrq->cmd);
 	}
 
@@ -2200,7 +2224,7 @@ static void sdhci_tasklet_card(unsigned long param)
 	mmc_detect_change(host->mmc, msecs_to_jiffies(200));
 }
 
-static void sdhci_tasklet_finish(unsigned long param)
+static void sdhci_tasklet_finish_async_data(unsigned long param)
 {
 	struct sdhci_host *host;
 	unsigned long flags;
@@ -2214,14 +2238,71 @@ static void sdhci_tasklet_finish(unsigned long param)
          * If this tasklet gets rescheduled while running, it will
          * be run again afterwards but without any active request.
          */
-	if (!host->mrq) {
+	if (!host->mmc->areq || !host->mmc->areq->mrq->data) {
 		spin_unlock_irqrestore(&host->lock, flags);
 		return;
 	}
 
 	del_timer(&host->timer);
 
+	mrq = host->mmc->areq->mrq;
+
+	/*
+	 * The controller needs a reset of internal state machines
+	 * upon error conditions.
+	 */
+	if (!(host->flags & SDHCI_DEVICE_DEAD) &&
+	    ((mrq->data && mrq->data->error) ||
+	     (host->quirks & SDHCI_QUIRK_RESET_AFTER_REQUEST))) {
+
+		/* Some controllers need this kick or reset won't work here */
+		if (host->quirks & SDHCI_QUIRK_CLOCK_BEFORE_RESET)
+			/* This is to force an update */
+			sdhci_update_clock(host);
+
+		sdhci_reset(host, SDHCI_RESET_DATA);
+	}
+
+	host->data = NULL;
+
+#ifndef SDHCI_USE_LEDS_CLASS
+	sdhci_deactivate_led(host);
+#endif
+	mmiowb();
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	mmc_request_done(host->mmc, mrq);
+
+	sdhci_runtime_pm_put(host);
+}
+
+static void sdhci_tasklet_finish(unsigned long param)
+{
+	struct sdhci_host *host;
+	unsigned long flags;
+	struct mmc_request *mrq;
+	int opcode;
+
+	host = (struct sdhci_host *)param;
+
+	spin_lock_irqsave(&host->lock, flags);
+
+	/*
+	 * If this tasklet gets rescheduled while running, it will
+	 * be run again afterwards but without any active request.
+	 */
+	if (!host->mrq) {
+		spin_unlock_irqrestore(&host->lock, flags);
+		return;
+	}
+
 	mrq = host->mrq;
+	BUG_ON(!mrq->cmd);
+	opcode = mrq->cmd->opcode;
+
+	/* for CMD46/47, doesn't delete timer */
+	if (!mmc_op_cmdq_execute_task(opcode))
+		del_timer(&host->timer);
 
 	/*
 	 * The controller needs a reset of internal state machines
@@ -2246,17 +2327,25 @@ static void sdhci_tasklet_finish(unsigned long param)
 
 	host->mrq = NULL;
 	host->cmd = NULL;
-	host->data = NULL;
 
+	/* CMD46/47 sill have pending data */
+	if (!mmc_op_cmdq_execute_task(opcode)) {
 #ifndef SDHCI_USE_LEDS_CLASS
-	sdhci_deactivate_led(host);
+		sdhci_deactivate_led(host);
 #endif
+	}
 
 	mmiowb();
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	mmc_request_done(host->mmc, mrq);
-	sdhci_runtime_pm_put(host);
+
+	/*
+	 * host will be put in D0i3 when pending data is done
+	 * for CMD46/47
+	 */
+	if (!mmc_op_cmdq_execute_task(opcode))
+		sdhci_runtime_pm_put(host);
 }
 
 static void sdhci_timeout_timer(unsigned long data)
@@ -2487,16 +2576,16 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		}
 
 		if (intmask & SDHCI_INT_DATA_END) {
-			if (host->cmd) {
+			if (!host->mmc->context_info.is_cmdq_busy &&
+					host->cmd) {
 				/*
 				 * Data managed to finish before the
 				 * command completed. Make sure we do
 				 * things in the proper order.
 				 */
 				host->data_early = 1;
-			} else {
+			} else
 				sdhci_finish_data(host);
-			}
 		}
 	}
 }
@@ -3302,6 +3391,8 @@ int sdhci_add_host(struct sdhci_host *host)
 		sdhci_tasklet_card, (unsigned long)host);
 	tasklet_init(&host->finish_tasklet,
 		sdhci_tasklet_finish, (unsigned long)host);
+	tasklet_init(&host->finish_async_data_tasklet,
+		sdhci_tasklet_finish_async_data, (unsigned long)host);
 
 	setup_timer(&host->timer, sdhci_timeout_timer, (unsigned long)host);
 

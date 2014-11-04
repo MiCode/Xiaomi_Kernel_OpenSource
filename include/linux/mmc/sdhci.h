@@ -167,6 +167,7 @@ struct sdhci_host {
 
 	struct tasklet_struct card_tasklet;	/* Tasklet structures */
 	struct tasklet_struct finish_tasklet;
+	struct tasklet_struct finish_async_data_tasklet;
 
 	struct timer_list timer;	/* Timer for timeouts */
 

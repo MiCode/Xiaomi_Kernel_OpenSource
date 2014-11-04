@@ -214,9 +214,11 @@ static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
 	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE | MMC_CAP_HW_RESET
 		| MMC_CAP_1_8V_DDR,
 	.caps2   = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_POLL_R1B_BUSY |
-		MMC_CAP2_CACHE_CTRL | MMC_CAP2_HS200_1_8V_SDR,
+		MMC_CAP2_CACHE_CTRL | MMC_CAP2_HS200_1_8V_SDR |
+		MMC_CAP2_CAN_DO_CMDQ,
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
 	.quirks2 = SDHCI_QUIRK2_TUNING_POLL | SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+	.pm_caps = MMC_PM_TUNING_AFTER_RTRESUME,
 	.probe_slot = sdhci_acpi_probe_slot,
 	.remove_slot = sdhci_acpi_remove_slot,
 };
