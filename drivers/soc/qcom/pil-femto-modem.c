@@ -31,7 +31,16 @@
 #include "pil-q6v5.h"
 #include "pil-msa.h"
 
-#define MAX_MODEM_ID	4
+#define MAX_MODEM_ID		4
+#define MAX_NUM_Q6		4
+#define Q6_FREQ_COL_MAX		7
+#define Q6_FREQ_COL_MIN		0
+#define Q6_FREQ_COL_MASK	0x00000007
+#define Q6_FREQ_ROW_MAX		6
+#define Q6_FREQ_ROW_MIN		0
+#define Q6_FREQ_ROW_MASK	0x0000000F
+#define Q6_FREQ_ROW_SHIFT	28
+#define Q6_FREQ_COL_SHIFT(q6)	(Q6_FREQ_ROW_SHIFT - (((q6) + 1) * 3))
 
 /* These macros assist with creating sysfs attributes */
 #define MAKE_RO_ATTR(_name, _ptr, _index)\
@@ -60,6 +69,7 @@ enum modem_status {
 	MODEM_STATUS_PMI_LOADED,
 	MODEM_STATUS_PMI_NOT_FOUND,
 	MODEM_STATUS_ADVANCE_FAILED,
+	MODEM_STATUS_Q6_FREQ_ERROR,
 	MODEM_STATUS_LAST
 };
 
@@ -72,7 +82,8 @@ static char *modem_status_str[MODEM_STATUS_LAST] = {
 	"PMI ERROR",
 	"PMI LOADED",
 	"PMI NOT FOUND",
-	"ADVANCE FAILED"
+	"ADVANCE FAILED",
+	"Q6 FREQ ERROR"
 };
 
 struct modem_pil_data {
@@ -99,12 +110,18 @@ struct femto_modem_data {
 	struct modem_pil_data *modem;
 	u32 max_num_modems;
 	u32 disc_modems;
+	u8  change_q6_freqs;
+	u32 q6_freq_row;
+	u32 q6_freq_col[MAX_NUM_Q6];
 
 	/* sysfs */
 	struct kobject *kobj;
 	struct attribute_group attr_grp;
 	struct kobj_attribute kobj_attr_mba_status;
 	struct kobj_attribute kobj_attr_enable;
+	struct kobj_attribute kobj_attr_q6_freq_row;
+	struct kobj_attribute kobj_attr_q6_freq_col;
+
 	u32 mba_status;
 	u8  enable;
 };
@@ -118,7 +135,9 @@ struct femto_modem_data {
 #define RMB_MBA_COMMAND			0x08
 #define RMB_MBA_STATUS			0x0C
 #define CMD_RMB_ADVANCE			0x03
+#define CMD_MBA_SET_Q6_FREQS		0x04
 #define STATUS_RMB_UPDATE_ACK		0x06
+#define STATUS_SET_FREQS_ACK		0x07
 #define RMB_ADVANCE_COMPLETE		0xFE
 #define POLL_INTERVAL_US		50
 #define TIMEOUT_US			1000000
@@ -167,6 +186,52 @@ static int pil_femto_modem_send_rmb_advance(void __iomem *rmb_base, u32 id)
 	return ret;
 }
 
+static int pil_femto_modem_send_mba_set_q6_freqs(struct femto_modem_data *drv)
+{
+	int ret;
+	u32 cmd = CMD_MBA_SET_Q6_FREQS;
+	int status;
+	u32 q6;
+
+	if (!drv)
+		return -EINVAL;
+
+	if (!drv->q6)
+		return -EINVAL;
+
+	/* The format of the upper 16 bits of the command word is as follows:
+	 * ___________________________________________________________
+	 * | 31 30 29 28 | 27 26 25 | 24 23 22 | 21 20 19 | 18 17 16 |
+	 * |-------------|----------|----------|----------|----------|
+	 * | Q6 row num  | Q6 0 col | Q6 1 col | Q6 2 col | Q6 3 col |
+	 * -----------------------------------------------------------
+	 *
+	 * The lower 16 bits contains the command id.
+	 */
+	cmd |= (drv->q6_freq_row & Q6_FREQ_ROW_MASK) <<
+		Q6_FREQ_ROW_SHIFT;
+	for (q6 = 0; q6 < MAX_NUM_Q6; q6++) {
+		cmd |= (drv->q6_freq_col[q6] & Q6_FREQ_COL_MASK) <<
+			Q6_FREQ_COL_SHIFT(q6);
+	}
+
+	/* Sent the MBA command */
+	writel_relaxed(cmd, drv->q6->rmb_base + RMB_MBA_COMMAND);
+
+	/* Wait for MBA status. */
+	ret = readl_poll_timeout(drv->q6->rmb_base + RMB_MBA_STATUS, status,
+		((status < 0) || (status == STATUS_SET_FREQS_ACK)),
+		POLL_INTERVAL_US, TIMEOUT_US);
+
+	if (ret)
+		return ret;
+
+	if (status != STATUS_SET_FREQS_ACK)
+		return -EINVAL;
+
+	return ret;
+}
+
 static int pil_femto_modem_stop(struct femto_modem_data *drv)
 {
 	if (!drv)
@@ -192,6 +257,16 @@ static int pil_femto_modem_start(struct femto_modem_data *drv)
 		return ret;
 	}
 	SET_SYSFS_VALUE(drv, mba_status, MODEM_STATUS_MBA_RUNNING);
+
+	/* Set the q6 frequencies, if needed */
+	if (drv->change_q6_freqs) {
+		ret = pil_femto_modem_send_mba_set_q6_freqs(drv);
+		if (ret) {
+			SET_SYSFS_VALUE(drv, mba_status,
+					MODEM_STATUS_Q6_FREQ_ERROR);
+			return ret;
+		}
+	}
 
 	/* Load the other modem images, if possible. */
 	for (index = 0; index < drv->max_num_modems; index++) {
@@ -367,6 +442,38 @@ static ssize_t show_enable(struct kobject *kobj,
 		(drv->enable ? "ENABLED" : "DISABLED"));
 }
 
+static ssize_t show_q6_freq_row(struct kobject *kobj,
+			   struct kobj_attribute *attr,
+			   char *buf)
+{
+	struct femto_modem_data *drv = TO_DRV(attr, kobj_attr_q6_freq_row);
+
+	if (!drv)
+		return -EINVAL;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", drv->q6_freq_row);
+}
+
+static ssize_t show_q6_freq_col(struct kobject *kobj,
+			   struct kobj_attribute *attr,
+			   char *buf)
+{
+	char freq_str[16];
+	struct femto_modem_data *drv = TO_DRV(attr, kobj_attr_q6_freq_col);
+	int index;
+	int len = 0;
+
+	if (!drv)
+		return -EINVAL;
+
+	for (index = 0; index < MAX_NUM_Q6; index++) {
+		len += snprintf(freq_str + len, 16, "%u ",
+				drv->q6_freq_col[index]);
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n", freq_str);
+}
+
 #define TO_MODEM(attr, elem) \
 	container_of(attr, struct modem_pil_data, elem)
 
@@ -442,7 +549,7 @@ static int pil_femto_modem_create_sysfs(struct femto_modem_data *drv)
 
 	/* Allocate memory for the group */
 	drv->attr_grp.attrs =
-		kzalloc(sizeof(struct attribute *) * 2, GFP_KERNEL);
+		kzalloc(sizeof(struct attribute *) * 4, GFP_KERNEL);
 
 	if (!drv->attr_grp.attrs) {
 		ret = -ENOMEM;
@@ -452,6 +559,12 @@ static int pil_femto_modem_create_sysfs(struct femto_modem_data *drv)
 	/* Create the attributes and add them to the group */
 	MAKE_RO_ATTR(mba_status, drv, 0);
 	MAKE_RW_ATTR(enable, drv, 1);
+
+	/* Add these only if they are specified */
+	if (drv->change_q6_freqs) {
+		MAKE_RO_ATTR(q6_freq_row, drv, 2);
+		MAKE_RO_ATTR(q6_freq_col, drv, 3);
+	}
 
 	/* Create sysfs group*/
 	ret = sysfs_create_group(drv->kobj, &drv->attr_grp);
@@ -655,11 +768,16 @@ static int pil_femto_modem_desc_driver_exit(
 static int pil_femto_modem_driver_probe(
 	struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	struct femto_modem_data *drv;
 	struct q6v5_data *q6;
 	struct pil_desc *q6_desc;
 	struct device_node *p_node = pdev->dev.of_node;
+	struct property *prop = NULL;
+	const __be32 *p = NULL;
 	int ret = 0;
+	u32 index = 0;
+	u32 value = 0;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -675,6 +793,49 @@ static int pil_femto_modem_driver_probe(
 	/* Max number of modems must be greater than zero */
 	if (!drv->max_num_modems)
 		return -EINVAL;
+
+	/* Retrieve the q6 frequency row (if there) */
+	drv->change_q6_freqs = 0;
+	ret = of_property_read_u32(p_node, "qcom,q6-freq-row",
+		&drv->q6_freq_row);
+
+	if (!ret) {
+		/* Validate q6 frequency row */
+		if (drv->q6_freq_row > Q6_FREQ_ROW_MAX) {
+			dev_err(dev, "Invalid q6 freq row value: %u\n",
+				drv->q6_freq_row);
+			return -EINVAL;
+		}
+
+		/* Retrieve the q6 frequency column values (if there) */
+		of_property_for_each_u32(p_node, "qcom,q6-freq-col", prop, p,
+			value) {
+			if (index >= MAX_NUM_Q6) {
+				dev_warn(dev,
+					"Ignoring extra q6 freq col values.\n");
+				break;
+			}
+
+			/* Validate q6 frequency column value */
+			if (value > Q6_FREQ_COL_MAX) {
+				dev_err(dev,
+					"Invalid q6 %u freq column value: %u\n",
+					index, value);
+				return -EINVAL;
+			}
+
+			/* Value is valid, store it */
+			drv->q6_freq_col[index] = value;
+			index++;
+		}
+
+		if (!prop) {
+			dev_err(dev, "Missing q6 frequency column values!\n");
+			return -EINVAL;
+		}
+
+		drv->change_q6_freqs = 1;
+	}
 
 	/* Allocate memory for modem structs */
 	drv->modem = devm_kzalloc(&pdev->dev,
