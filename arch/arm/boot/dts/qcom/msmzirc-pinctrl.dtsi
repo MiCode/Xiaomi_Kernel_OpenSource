@@ -83,7 +83,7 @@
 			qcom,pin-func = <2>;
 			label = "spi0-active";
 			/* active state */
-			spi0_default: default {
+			spi0_default: spi0_default {
 				drive-strength = <12>; /* 12 MA */
 				bias-disable = <0>; /* No PULL */
 			};
@@ -96,7 +96,7 @@
 			qcom,pin-func = <0>;
 			label = "spi0-suspend";
 			/* suspended state */
-			spi0_sleep: sleep {
+			spi0_sleep: spi0_sleep {
 				drive-strength = <2>; /* 2 MA */
 				bias-pull-down; /* pull down */
 			};
@@ -133,7 +133,7 @@
 			qcom,pin-func = <1>;
 			label = "spi1-active";
 			/* active state */
-			spi1_default: default {
+			spi1_default: spi1_default {
 				drive-strength = <12>; /* 12 MA */
 				bias-disable = <0>; /* No PULL */
 			};
@@ -146,7 +146,7 @@
 			qcom,pin-func = <0>;
 			label = "spi1-suspend";
 			/* suspended state */
-			spi1_sleep: sleep {
+			spi1_sleep: spi1_sleep {
 				drive-strength = <2>; /* 2 MA */
 				bias-pull-down; /* pull down */
 			};
