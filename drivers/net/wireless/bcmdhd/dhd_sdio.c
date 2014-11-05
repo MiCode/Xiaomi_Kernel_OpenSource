@@ -350,6 +350,11 @@ typedef struct dhd_bus {
 	uint		f2rxdata;		/* Number of frame data reads */
 	uint		f2txdata;		/* Number of f2 frame writes */
 	uint		f1regdata;		/* Number of f1 register accesses */
+#ifdef DHD_WAKE_STATUS
+	uint		rxwake;
+	uint		rcwake;
+	uint		glomwake;
+#endif
 #ifdef DHDENABLE_TAILPAD
 	uint		tx_tailpad_chain;	/* Number of tail padding by chaining pad_pkt */
 	uint		tx_tailpad_pktget;	/* Number of tail padding by new PKTGET */
@@ -2573,6 +2578,10 @@ dhd_bus_dump(dhd_pub_t *dhdp, struct bcmstrbuf *strbuf)
 	            bus->rxlen, bus->rx_seq);
 	bcm_bprintf(strbuf, "intr %d intrcount %u lastintrs %u spurious %u\n",
 	            bus->intr, bus->intrcount, bus->lastintrs, bus->spurious);
+#ifdef DHD_WAKE_STATUS
+	bcm_bprintf(strbuf, "wake %u rxwake %u glomwake %u readctrlwake %u\n",
+	            bus->sdh->total_wake_count, bus->rxwake, bus->glomwake, bus->rcwake);
+#endif
 	bcm_bprintf(strbuf, "pollrate %u pollcnt %u regfails %u\n",
 	            bus->pollrate, bus->pollcnt, bus->regfails);
 
@@ -5089,6 +5098,9 @@ dhdsdio_readframes(dhd_bus_t *bus, uint maxframes, bool *finished)
 	uchar reorder_info_buf[WLHOST_REORDERDATA_TOTLEN];
 	uint reorder_info_len;
 	uint pkt_count;
+#ifdef DHD_WAKE_STATUS
+	int pkt_wake = bcmsdh_set_get_wake(bus->sdh, 0);
+#endif
 
 #if defined(DHD_DEBUG) || defined(SDTEST)
 	bool sdtest = FALSE;	/* To limit message spew from test mode */
@@ -5120,7 +5132,11 @@ dhdsdio_readframes(dhd_bus_t *bus, uint maxframes, bool *finished)
 
 	for (rxseq = bus->rx_seq, rxleft = maxframes;
 	     !bus->rxskip && rxleft && bus->dhd->busstate != DHD_BUS_DOWN;
+#ifdef DHD_WAKE_STATUS
+	     rxseq++, rxleft--, pkt_wake=0) {
+#else
 	     rxseq++, rxleft--) {
+#endif
 #ifdef DHDTCPACK_SUP_DBG
 		if (bus->dhd->tcpack_sup_mode != TCPACK_SUP_DELAYTX) {
 			if (bus->dotxinrx == FALSE)
@@ -5156,6 +5172,9 @@ dhdsdio_readframes(dhd_bus_t *bus, uint maxframes, bool *finished)
 			uint8 cnt;
 			DHD_GLOM(("%s: calling rxglom: glomd %p, glom %p\n",
 			          __FUNCTION__, bus->glomd, bus->glom));
+#ifdef DHD_WAKE_STATUS
+			bus->glomwake += pkt_wake;
+#endif
 			cnt = dhdsdio_rxglom(bus, rxseq);
 			DHD_GLOM(("%s: rxglom returned %d\n", __FUNCTION__, cnt));
 			rxseq += cnt - 1;
@@ -5545,6 +5564,9 @@ dhdsdio_readframes(dhd_bus_t *bus, uint maxframes, bool *finished)
 
 		/* Call a separate function for control frames */
 		if (chan == SDPCM_CONTROL_CHANNEL) {
+#ifdef DHD_WAKE_STATUS
+			bus->rcwake += pkt_wake;
+#endif
 			dhdsdio_read_control(bus, bus->rxhdr, len, doff);
 			continue;
 		}
@@ -5683,6 +5705,9 @@ deliver:
 			pkt_count = 1;
 
 		/* Unlock during rx call */
+#ifdef DHD_WAKE_STATUS
+		bus->rxwake += pkt_wake;
+#endif
 		dhd_os_sdunlock(bus->dhd);
 		dhd_rx_frame(bus->dhd, ifidx, pkt, pkt_count, chan);
 		dhd_os_sdlock(bus->dhd);

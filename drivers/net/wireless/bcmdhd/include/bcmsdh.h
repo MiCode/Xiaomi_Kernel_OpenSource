@@ -62,6 +62,10 @@ struct bcmsdh_info
 	bool	regfail;	/* Save status of last reg_read/reg_write call */
 	uint32	sbwad;		/* Save backplane window address */
 	void	*os_cxt;        /* Pointer to per-OS private data */
+#ifdef DHD_WAKE_STATUS
+	unsigned int	total_wake_count;
+	int	pkt_wake;
+#endif
 };
 
 /* Detach - freeup resources allocated in attach */
@@ -83,6 +87,10 @@ extern void bcmsdh_intr_forward(void *sdh, bool pass);
 #if defined(DHD_DEBUG)
 /* Query pending interrupt status from the host controller */
 extern bool bcmsdh_intr_pending(void *sdh);
+#endif
+
+#ifdef DHD_WAKE_STATUS
+int bcmsdh_set_get_wake(bcmsdh_info_t *bcmsdh, int flag);
 #endif
 
 /* Register a callback to be called if and when bcmsdh detects

@@ -149,6 +149,8 @@ ifneq ($(CONFIG_BCMDHD_SDIO),)
 
 # bcn_timeout
   DHDCFLAGS += -DCUSTOM_BCN_TIMEOUT_SETTING=5
+# debug info
+  DHDCFLAGS += -DDHD_WAKE_STATUS
 endif
 
 ifneq ($(CONFIG_BCMDHD_PCIE),)
