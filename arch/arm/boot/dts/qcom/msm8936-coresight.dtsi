@@ -261,6 +261,8 @@
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <7>;
 
+		qcom,data-barrier;
+
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
