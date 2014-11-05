@@ -205,6 +205,7 @@ enum {
 	FAULT_AND_CONTINUE /* Unsupported */
 };
 #define GEN8_CTX_ID_SHIFT 32
+#define CTX_RCS_INDIRECT_CTX_OFFSET_DEFAULT  0x17
 
 static int intel_lr_context_pin(struct intel_engine_cs *ring,
 		struct intel_context *ctx);
@@ -1983,6 +1984,213 @@ static int intel_logical_ring_workarounds_emit(struct intel_engine_cs *ring,
 	return 0;
 }
 
+static struct intel_ringbuffer *
+create_wa_bb(struct intel_context *ctx,
+	     struct intel_engine_cs *ring,
+	     uint32_t bb_size)
+{
+	struct drm_device *dev = ring->dev;
+	struct intel_ringbuffer *ringbuf;
+	int ret;
+
+	ringbuf = kzalloc(sizeof(*ringbuf), GFP_KERNEL);
+	if (!ringbuf)
+		return NULL;
+
+	ringbuf->ring = ring;
+	ringbuf->FIXME_lrc_ctx = ctx;
+
+	ringbuf->size = roundup(bb_size, PAGE_SIZE);
+	ringbuf->effective_size = ringbuf->size;
+	ringbuf->head = 0;
+	ringbuf->tail = 0;
+	ringbuf->space = ringbuf->size;
+	ringbuf->last_retired_head = -1;
+
+	ret = intel_alloc_ringbuffer_obj(dev, ringbuf);
+	if (ret) {
+		DRM_DEBUG_DRIVER("Failed to allocate ringbuffer obj %s: %d\n",
+				ring->name, ret);
+		kfree(ringbuf);
+		return NULL;
+	}
+
+	ret = intel_pin_and_map_ringbuffer_obj(dev, ringbuf);
+	if (ret) {
+		DRM_ERROR("Failed to pin and map %s w/a batch: %d\n",
+			  ring->name, ret);
+		intel_destroy_ringbuffer_obj(ringbuf);
+		kfree(ringbuf);
+		return NULL;
+	}
+
+	return ringbuf;
+}
+
+static int gen8_init_indirectctx_bb(struct intel_engine_cs *ring,
+				    struct intel_context *ctx)
+{
+	unsigned long flags = 0;
+	u32 scratch_addr;
+	struct intel_ringbuffer *ringbuf = NULL;
+
+	if (!get_pipe_control_scratch_addr(ring)) {
+		DRM_ERROR("scratch page not allocated for %s\n", ring->name);
+		return -EINVAL;
+	}
+
+	ringbuf = create_wa_bb(ctx, ring, PAGE_SIZE);
+	if (!ringbuf)
+		return -ENOMEM;
+
+	ctx->indirect_ctx_wa_bb = ringbuf;
+
+	/* WaDisableCtxRestoreArbitration:bdw,chv */
+	intel_logical_ring_emit(ringbuf, MI_ARB_ON_OFF | MI_ARB_DISABLE);
+
+	/* WaFlushCoherentL3CacheLinesAtContextSwitch:bdw,chv */
+	intel_logical_ring_emit(ringbuf, GFX_OP_PIPE_CONTROL(6));
+	intel_logical_ring_emit(ringbuf, PIPE_CONTROL_GLOBAL_GTT_IVB |
+				PIPE_CONTROL_DC_FLUSH_ENABLE);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, 0);
+
+	/* WaClearSlmSpaceAtContextSwitch:bdw,chv */
+	flags = PIPE_CONTROL_FLUSH_RO_CACHES |
+		PIPE_CONTROL_GLOBAL_GTT_IVB |
+		PIPE_CONTROL_CS_STALL |
+		PIPE_CONTROL_QW_WRITE;
+
+	/* Actual scratch location is at 128 bytes offset */
+	scratch_addr = get_pipe_control_scratch_addr(ring) + 2*CACHELINE_BYTES;
+	scratch_addr |= PIPE_CONTROL_GLOBAL_GTT;
+
+	intel_logical_ring_emit(ringbuf, GFX_OP_PIPE_CONTROL(6));
+	intel_logical_ring_emit(ringbuf, flags);
+	intel_logical_ring_emit(ringbuf, scratch_addr);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, 0);
+
+	/* Padding to align with cache line */
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, 0);
+
+	/*
+	 * No MI_BATCH_BUFFER_END is required in Indirect ctx BB because
+	 * execution depends on the size defined in CTX_RCS_INDIRECT_CTX
+	 */
+
+	return 0;
+}
+
+static int gen8_init_perctx_bb(struct intel_engine_cs *ring,
+			       struct intel_context *ctx)
+{
+	unsigned long flags = 0;
+	u32 scratch_addr;
+	struct intel_ringbuffer *ringbuf = NULL;
+
+	if (!get_pipe_control_scratch_addr(ring)) {
+		DRM_ERROR("scratch page not allocated for %s\n", ring->name);
+		return -EINVAL;
+	}
+
+	ringbuf = create_wa_bb(ctx, ring, PAGE_SIZE);
+	if (!ringbuf)
+		return -ENOMEM;
+
+	ctx->per_ctx_wa_bb = ringbuf;
+
+	/* Actual scratch location is at 128 bytes offset */
+	scratch_addr = get_pipe_control_scratch_addr(ring) + 2*CACHELINE_BYTES;
+	scratch_addr |= PIPE_CONTROL_GLOBAL_GTT;
+
+	/* WaDisableCtxRestoreArbitration:bdw,chv */
+	intel_logical_ring_emit(ringbuf, MI_ARB_ON_OFF | MI_ARB_ENABLE);
+
+	/*
+	 * As per Bspec, to workaround a known HW issue, SW must perform the
+	 * below programming sequence prior to programming MI_BATCH_BUFFER_END.
+	 *
+	 * This is only applicable for Gen8.
+	 */
+
+	/* WaRsRestoreWithPerCtxtBb:bdw,chv */
+	intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(1));
+	intel_logical_ring_emit(ringbuf, INSTPM);
+	intel_logical_ring_emit(ringbuf,
+				_MASKED_BIT_DISABLE(INSTPM_FORCE_ORDERING));
+
+	flags = MI_ATOMIC_MEMORY_TYPE_GGTT |
+		MI_ATOMIC_INLINE_DATA |
+		MI_ATOMIC_CS_STALL |
+		MI_ATOMIC_RETURN_DATA_CTL |
+		MI_ATOMIC_MOVE;
+
+	intel_logical_ring_emit(ringbuf, MI_ATOMIC(5) | flags);
+	intel_logical_ring_emit(ringbuf, scratch_addr);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf,
+				_MASKED_BIT_ENABLE(INSTPM_FORCE_ORDERING));
+	intel_logical_ring_emit(ringbuf,
+				_MASKED_BIT_ENABLE(INSTPM_FORCE_ORDERING));
+
+	/*
+	 * Bspec says MI_LOAD_REGISTER_MEM, MI_LOAD_REGISTER_REG and
+	 * MI_BATCH_BUFFER_END need to be in the same cacheline.
+	 */
+	while (((unsigned long) ringbuf->tail % CACHELINE_BYTES) != 0)
+		intel_logical_ring_emit(ringbuf, MI_NOOP);
+
+	intel_logical_ring_emit(ringbuf,
+				MI_LOAD_REGISTER_MEM |
+				MI_LRM_USE_GLOBAL_GTT |
+				MI_LRM_ASYNC_MODE_ENABLE);
+	intel_logical_ring_emit(ringbuf, INSTPM);
+	intel_logical_ring_emit(ringbuf, scratch_addr);
+
+	/*
+	 * Bspec says there should not be any commands programmed
+	 * between MI_LOAD_REGISTER_REG and MI_BATCH_BUFFER_END so
+	 * do not add any new commands
+	 */
+	intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_REG);
+	intel_logical_ring_emit(ringbuf, GEN8_RS_PREEMPT_STATUS);
+	intel_logical_ring_emit(ringbuf, GEN8_RS_PREEMPT_STATUS);
+	/* Padding */
+	intel_logical_ring_emit(ringbuf, MI_NOOP);
+
+	intel_logical_ring_emit(ringbuf, MI_BATCH_BUFFER_END);
+
+	return 0;
+}
+
+static int intel_init_workaround_bb(struct intel_engine_cs *ring,
+				    struct intel_context *ctx)
+{
+	int ret;
+	struct drm_device *dev = ring->dev;
+
+	WARN_ON(ring->id != RCS);
+
+	if (IS_GEN8(dev)) {
+		ret = gen8_init_indirectctx_bb(ring, ctx);
+		if (ret)
+			return ret;
+
+		ret = gen8_init_perctx_bb(ring, ctx);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+
+}
+
 static int gen8_init_common_ring(struct intel_engine_cs *ring)
 {
 	struct drm_device *dev = ring->dev;
@@ -2569,6 +2777,7 @@ static int logical_render_ring_init(struct drm_device *dev)
 
 	ring->init = gen8_init_render_ring;
 	ring->init_context = intel_logical_ring_workarounds_emit;
+	ring->init_context_bb = intel_init_workaround_bb;
 	ring->cleanup = intel_fini_pipe_control;
 	ring->get_seqno = gen8_get_seqno;
 	ring->set_seqno = gen8_set_seqno;
@@ -2768,41 +2977,6 @@ cleanup_render_ring:
 	return ret;
 }
 
-struct intel_ringbuffer *
-create_wa_bb(struct intel_context *ctx,
-		struct intel_engine_cs *ring,
-		uint32_t bb_size)
-{
-	struct drm_device *dev = ring->dev;
-	struct intel_ringbuffer *ringbuf;
-	int ret;
-
-	ringbuf = kzalloc(sizeof(*ringbuf), GFP_KERNEL);
-	if (!ringbuf)
-		return NULL;
-
-	ringbuf->ring = ring;
-	ringbuf->FIXME_lrc_ctx = ctx;
-
-	ringbuf->size = roundup(bb_size, PAGE_SIZE);
-	ringbuf->effective_size = ringbuf->size;
-	ringbuf->head = 0;
-	ringbuf->tail = 0;
-	ringbuf->space = ringbuf->size;
-	ringbuf->last_retired_head = -1;
-
-	ret = intel_alloc_ringbuffer_obj(dev, ringbuf);
-	if (ret) {
-		DRM_DEBUG_DRIVER(
-		"Failed to allocate ringbuf obj for wa_bb%s: %d\n",
-		ring->name, ret);
-		kfree(ringbuf);
-		return NULL;
-	}
-
-	return ringbuf;
-}
-
 int intel_lr_context_render_state_init(struct intel_engine_cs *ring,
 				       struct intel_context *ctx)
 {
@@ -2905,15 +3079,29 @@ populate_lr_context(struct intel_context *ctx, struct drm_i915_gem_object *ctx_o
 	reg_state[CTX_SECOND_BB_STATE] = ring->mmio_base + 0x118;
 	reg_state[CTX_SECOND_BB_STATE+1] = 0;
 	if (ring->id == RCS) {
-		/* TODO: according to BSpec, the register state context
-		 * for CHV does not have these. OTOH, these registers do
-		 * exist in CHV. I'm waiting for a clarification */
 		reg_state[CTX_BB_PER_CTX_PTR] = ring->mmio_base + 0x1c0;
-		reg_state[CTX_BB_PER_CTX_PTR+1] = 0;
+
+		if (ctx->per_ctx_wa_bb)
+			reg_state[CTX_BB_PER_CTX_PTR + 1] =
+				i915_gem_obj_ggtt_offset(
+					ctx->per_ctx_wa_bb->obj) | 0x01;
+		else
+			reg_state[CTX_BB_PER_CTX_PTR+1] = 0;
+
 		reg_state[CTX_RCS_INDIRECT_CTX] = ring->mmio_base + 0x1c4;
-		reg_state[CTX_RCS_INDIRECT_CTX+1] = 0;
 		reg_state[CTX_RCS_INDIRECT_CTX_OFFSET] = ring->mmio_base + 0x1c8;
-		reg_state[CTX_RCS_INDIRECT_CTX_OFFSET+1] = 0;
+
+		if (ctx->indirect_ctx_wa_bb) {
+			reg_state[CTX_RCS_INDIRECT_CTX + 1] =
+				i915_gem_obj_ggtt_offset(
+				ctx->indirect_ctx_wa_bb->obj) | 0x01;
+
+			reg_state[CTX_RCS_INDIRECT_CTX_OFFSET + 1] =
+				CTX_RCS_INDIRECT_CTX_OFFSET_DEFAULT << 6;
+		} else {
+			reg_state[CTX_RCS_INDIRECT_CTX+1] = 0;
+			reg_state[CTX_RCS_INDIRECT_CTX_OFFSET+1] = 0;
+		}
 	}
 	reg_state[CTX_LRI_HEADER_1] = MI_LOAD_REGISTER_IMM(9);
 	reg_state[CTX_LRI_HEADER_1] |= MI_LRI_FORCE_POSTED;
@@ -2978,6 +3166,18 @@ void intel_lr_context_free(struct intel_context *ctx)
 			kfree(ringbuf);
 			drm_gem_object_unreference(&ctx_obj->base);
 		}
+	}
+
+	if (ctx->indirect_ctx_wa_bb) {
+		intel_unpin_ringbuffer_obj(ctx->indirect_ctx_wa_bb);
+		intel_destroy_ringbuffer_obj(ctx->indirect_ctx_wa_bb);
+		kfree(ctx->indirect_ctx_wa_bb);
+	}
+
+	if (ctx->per_ctx_wa_bb) {
+		intel_unpin_ringbuffer_obj(ctx->per_ctx_wa_bb);
+		intel_destroy_ringbuffer_obj(ctx->per_ctx_wa_bb);
+		kfree(ctx->per_ctx_wa_bb);
 	}
 }
 
@@ -3110,6 +3310,16 @@ int intel_lr_context_deferred_create(struct intel_context *ctx,
 
 	}
 
+	if (ring->id == RCS && !ctx->rcs_initialized) {
+		if (ring->init_context_bb) {
+			ret = ring->init_context_bb(ring, ctx);
+			if (ret) {
+				DRM_ERROR("ring init context bb: %d\n", ret);
+				goto error;
+			}
+		}
+	}
+
 	ret = populate_lr_context(ctx, ctx_obj, ring, ringbuf);
 	if (ret) {
 		DRM_DEBUG_DRIVER("Failed to populate LRC: %d\n", ret);
@@ -3149,6 +3359,7 @@ int intel_lr_context_deferred_create(struct intel_context *ctx,
 			ctx->engine[ring->id].state = NULL;
 			goto error;
 		}
+
 		ctx->rcs_initialized = true;
 	}
 
@@ -3156,6 +3367,17 @@ int intel_lr_context_deferred_create(struct intel_context *ctx,
 	return 0;
 
 error:
+	if (ctx->indirect_ctx_wa_bb) {
+		intel_unpin_ringbuffer_obj(ctx->indirect_ctx_wa_bb);
+		intel_destroy_ringbuffer_obj(ctx->indirect_ctx_wa_bb);
+		kfree(ctx->indirect_ctx_wa_bb);
+	}
+	if (ctx->per_ctx_wa_bb) {
+		intel_unpin_ringbuffer_obj(ctx->per_ctx_wa_bb);
+		intel_destroy_ringbuffer_obj(ctx->per_ctx_wa_bb);
+		kfree(ctx->per_ctx_wa_bb);
+	}
+
 	if (is_global_default_ctx)
 		intel_unpin_ringbuffer_obj(ringbuf);
 error_destroy_rbuf:

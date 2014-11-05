@@ -318,6 +318,9 @@ struct intel_engine_cs {
 	int		(*init_context)(struct intel_engine_cs *ring,
 					struct intel_context *ctx);
 
+	int (*init_context_bb)(struct intel_engine_cs *ring,
+			       struct intel_context *ctx);
+
 	void		(*write_tail)(struct intel_engine_cs *ring,
 				      u32 value);
 	int __must_check (*flush)(struct intel_engine_cs *ring,

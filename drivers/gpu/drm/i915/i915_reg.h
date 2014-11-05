@@ -311,6 +311,26 @@
 #define   MI_INVALIDATE_BSD		(1<<7)
 #define   MI_FLUSH_DW_USE_GTT		(1<<2)
 #define   MI_FLUSH_DW_USE_PPGTT		(0<<2)
+#define MI_ATOMIC(len)	MI_INSTR(0x2F, (len-2))
+#define   MI_ATOMIC_MEMORY_TYPE_GGTT	(1<<22)
+#define   MI_ATOMIC_INLINE_DATA		(1<<18)
+#define   MI_ATOMIC_CS_STALL		(1<<17)
+#define   MI_ATOMIC_RETURN_DATA_CTL	(1<<16)
+#define MI_ATOMIC_OP_MASK(op)  ((op) << 8)
+#define MI_ATOMIC_AND	MI_ATOMIC_OP_MASK(0x01)
+#define MI_ATOMIC_OR	MI_ATOMIC_OP_MASK(0x02)
+#define MI_ATOMIC_XOR	MI_ATOMIC_OP_MASK(0x03)
+#define MI_ATOMIC_MOVE	MI_ATOMIC_OP_MASK(0x04)
+#define MI_ATOMIC_INC	MI_ATOMIC_OP_MASK(0x05)
+#define MI_ATOMIC_DEC	MI_ATOMIC_OP_MASK(0x06)
+#define MI_ATOMIC_ADD	MI_ATOMIC_OP_MASK(0x07)
+#define MI_ATOMIC_SUB	MI_ATOMIC_OP_MASK(0x08)
+#define MI_ATOMIC_RSUB	MI_ATOMIC_OP_MASK(0x09)
+#define MI_ATOMIC_IMAX	MI_ATOMIC_OP_MASK(0x0A)
+#define MI_ATOMIC_IMIN	MI_ATOMIC_OP_MASK(0x0B)
+#define MI_ATOMIC_UMAX	MI_ATOMIC_OP_MASK(0x0C)
+#define MI_ATOMIC_UMIN	MI_ATOMIC_OP_MASK(0x0D)
+
 #define MI_BATCH_BUFFER		MI_INSTR(0x30, 1)
 #define   MI_BATCH_NON_SECURE		(1)
 /* for snb/ivb/vlv this also means "batch in ppgtt" when ppgtt is enabled. */
@@ -376,6 +396,7 @@
 #define   DISPLAY_PLANE_A           (0<<20)
 #define   DISPLAY_PLANE_B           (1<<20)
 #define GFX_OP_PIPE_CONTROL(len)	((0x3<<29)|(0x3<<27)|(0x2<<24)|(len-2))
+#define   PIPE_CONTROL_FLUSH_RO_CACHES			(1<<27)
 #define   PIPE_CONTROL_GLOBAL_GTT_IVB			(1<<24) /* gen7+ */
 #define   PIPE_CONTROL_MMIO_WRITE			(1<<23)
 #define   PIPE_CONTROL_STORE_DATA_INDEX			(1<<21)
@@ -390,6 +411,7 @@
 #define   PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE		(1<<10) /* GM45+ only */
 #define   PIPE_CONTROL_INDIRECT_STATE_DISABLE		(1<<9)
 #define   PIPE_CONTROL_NOTIFY				(1<<8)
+#define   PIPE_CONTROL_DC_FLUSH_ENABLE			(1<<5)
 #define   PIPE_CONTROL_VF_CACHE_INVALIDATE		(1<<4)
 #define   PIPE_CONTROL_CONST_CACHE_INVALIDATE		(1<<3)
 #define   PIPE_CONTROL_STATE_CACHE_INVALIDATE		(1<<2)
@@ -418,8 +440,10 @@
 #define MI_CLFLUSH              MI_INSTR(0x27, 0)
 #define MI_REPORT_PERF_COUNT    MI_INSTR(0x28, 0)
 #define   MI_REPORT_PERF_COUNT_GGTT (1<<0)
-#define MI_LOAD_REGISTER_MEM    MI_INSTR(0x29, 0)
-#define MI_LOAD_REGISTER_REG    MI_INSTR(0x2A, 0)
+#define MI_LOAD_REGISTER_MEM    MI_INSTR(0x29, 2)
+#define MI_LRM_USE_GLOBAL_GTT (1<<22)
+#define MI_LRM_ASYNC_MODE_ENABLE (1<<21)
+#define MI_LOAD_REGISTER_REG    MI_INSTR(0x2A, 1)
 #define MI_RS_STORE_DATA_IMM    MI_INSTR(0x2B, 0)
 #define MI_LOAD_URB_MEM         MI_INSTR(0x2C, 0)
 #define MI_STORE_URB_MEM        MI_INSTR(0x2D, 0)
@@ -1526,6 +1550,8 @@ enum punit_power_well {
 #define GEN6_RC_SLEEP_PSMI_CONTROL	0x2050
 #define   GEN8_RC_SEMA_IDLE_MSG_DISABLE	(1 << 12)
 #define   GEN8_FF_DOP_CLOCK_GATE_DISABLE	(1<<10)
+
+#define GEN8_RS_PREEMPT_STATUS		0x215C
 
 /* Fuse readout registers for GT */
 #define CHV_FUSE_GT			0x182168

@@ -680,6 +680,9 @@ struct intel_context {
 
 	/* Execlists */
 	bool rcs_initialized;
+	struct intel_ringbuffer *indirect_ctx_wa_bb;
+	struct intel_ringbuffer *per_ctx_wa_bb;
+
 	struct {
 		struct drm_i915_gem_object *state;
 		struct intel_ringbuffer *ringbuf;
@@ -2975,12 +2978,6 @@ static inline bool i915_gem_object_needs_bit17_swizzle(struct drm_i915_gem_objec
 void i915_gem_detect_bit_6_swizzle(struct drm_device *dev);
 void i915_gem_object_do_bit_17_swizzle(struct drm_i915_gem_object *obj);
 void i915_gem_object_save_bit_17_swizzle(struct drm_i915_gem_object *obj);
-
-/* intel_lrc.c */
-struct intel_ringbuffer *
-create_wa_bb(struct intel_context *ctx,
-		struct intel_engine_cs *ring,
-		uint32_t bb_size);
 
 /* i915_gem_debug.c */
 #if WATCH_LISTS
