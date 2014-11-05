@@ -1,19 +1,19 @@
 * Silicon Image-8620 MHL Tx
 
 Required properties:
-- compatible: must be "simg,sii-8620"
+- compatible: must be "sil,sii-8620"
 - reg: i2c slave address
-- simg,reset-gpio: MHL reset gpio going into sii8620 for toggling reset pin
-- simg,irq-gpio: MHL interrupt gpio coming out of sii8620
-- simg,i2c_port#: Port number of i2c device
+- sil,reset-gpio: MHL reset gpio going into sii8620 for toggling reset pin
+- sil,irq-gpio: MHL interrupt gpio coming out of sii8620
+- sil,i2c_port#: Port number of i2c device
 
 Example:
 	i2c@f9923000 {
-		simg,sii-8620@72 {
-			compatible = "simg,sii-8620";
+		sil,sii-8620@72 {
+			compatible = "sil,sii-8620";
 			reg = <0x72>;
-			simg,reset-gpio = <&msm_gpio 58 0>;
-			simg,irq-gpio = <&msm_gpio 57 0>;
-			simg,i2c_port# = <1>;
+			sil,reset-gpio = <&msm_gpio 58 0>;
+			sil,irq-gpio = <&msm_gpio 57 0>;
+			sil,i2c_port# = <1>;
 		};
 	};
