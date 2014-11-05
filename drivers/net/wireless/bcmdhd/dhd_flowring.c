@@ -208,7 +208,8 @@ dhd_flow_rings_init(dhd_pub_t *dhdp, uint32 num_flow_rings)
 
 	/* Allocate per interface hash table */
 	if_flow_lkup_sz = sizeof(if_flow_lkup_t) * DHD_MAX_IFS;
-	if_flow_lkup = (if_flow_lkup_t *)MALLOC(dhdp->osh, if_flow_lkup_sz);
+	if_flow_lkup = (if_flow_lkup_t *)DHD_OS_PREALLOC(dhdp,
+			DHD_PREALLOC_IF_FLOW_LKUP, if_flow_lkup_sz);
 	if (if_flow_lkup == NULL) {
 		DHD_ERROR(("%s: if flow lkup alloc failure\n", __FUNCTION__));
 		goto fail;
@@ -304,7 +305,8 @@ void dhd_flow_rings_deinit(dhd_pub_t *dhdp)
 	/* Destruct the per interface flow lkup table */
 	if (dhdp->if_flow_lkup != NULL) {
 		if_flow_lkup_sz = sizeof(if_flow_lkup_t) * DHD_MAX_IFS;
-		MFREE(dhdp->osh, dhdp->if_flow_lkup, if_flow_lkup_sz);
+		memset(dhdp->if_flow_lkup, 0, sizeof(if_flow_lkup_sz));
+		DHD_OS_PREFREE(dhdp, dhdp->if_flow_lkup, if_flow_lkup_sz);
 		dhdp->if_flow_lkup = NULL;
 	}
 
