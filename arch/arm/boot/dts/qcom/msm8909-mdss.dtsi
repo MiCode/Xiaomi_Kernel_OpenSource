@@ -29,10 +29,13 @@
 			 <&clock_gcc clk_gcc_mdss_vsync_clk>;
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
 				"core_clk", "vsync_clk";
-		mdss_fb0: qcom,mdss_fb_primary {
+
+                mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
-			qcom,memblock-reserve = <0x83200000 0x800000>;
+			qcom,cont-splash-memory {
+				linux,contiguous-region = <&cont_splash_mem>;
+			};
 		};
 	};
 
