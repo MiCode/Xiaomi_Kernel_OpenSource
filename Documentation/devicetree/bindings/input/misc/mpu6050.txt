@@ -29,6 +29,7 @@ Optional properties:
 			instead of polling data.
  - invn,gpio-int	: GPIO used for interrupt.
  - invn,gpio-en		: GPIO used for power enabling.
+ - invn,vdd-min-uv	: Minimum VDD supply voltage in micro-volts.
 
 Example:
 	i2c@f9925000 {
