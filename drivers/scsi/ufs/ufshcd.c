@@ -5135,7 +5135,7 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		break;
 	} /* end of switch */
 
-	if (host_byte(result) != DID_OK) {
+	if ((host_byte(result) != DID_OK) && !hba->silence_err_logs) {
 		print_prdt = (ocs == OCS_INVALID_PRDT_ATTR ||
 			ocs == OCS_MISMATCH_DATA_BUF_SIZE);
 		ufshcd_print_trs(hba, 1 << lrbp->task_tag, print_prdt);
@@ -5693,9 +5693,11 @@ static void ufshcd_err_handler(struct work_struct *work)
 	if (hba->saved_err & (INT_FATAL_ERRORS | UIC_ERROR)) {
 		dev_err(hba->dev, "%s: saved_err 0x%x saved_uic_err 0x%x",
 			__func__, hba->saved_err, hba->saved_uic_err);
-		ufshcd_print_host_regs(hba);
-		ufshcd_print_pwr_info(hba);
-		ufshcd_print_tmrs(hba, hba->outstanding_tasks);
+		if (!hba->silence_err_logs) {
+			ufshcd_print_host_regs(hba);
+			ufshcd_print_pwr_info(hba);
+			ufshcd_print_tmrs(hba, hba->outstanding_tasks);
+		}
 	}
 
 	/* Complete requests that have door-bell cleared by h/w */
@@ -5809,6 +5811,7 @@ skip_err_handling:
 			    __func__, hba->saved_err, hba->saved_uic_err);
 	}
 
+	hba->silence_err_logs = false;
 	ufshcd_clear_eh_in_progress(hba);
 
 out:
