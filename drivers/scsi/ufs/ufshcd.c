@@ -5668,8 +5668,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 {
 	struct ufs_hba *hba;
 	unsigned long flags;
-	u32 err_xfer = 0;
-	u32 err_tm = 0;
+	bool err_xfer = false, err_tm = false;
 	int err = 0;
 	int tag;
 	bool needs_reset = false;
@@ -5764,13 +5763,8 @@ lock_skip_pending_xfer_clear:
 	/* Complete the requests that are cleared by s/w */
 	ufshcd_complete_requests(hba);
 
-	if (err_xfer || err_tm) {
+	if (err_xfer || err_tm)
 		needs_reset = true;
-
-		if (err_xfer || err_tm)
-			UFSHCD_UPDATE_ERROR_STATS(hba,
-						  UFS_ERR_CLEAR_PEND_XFER_TM);
-	}
 
 skip_pending_xfer_clear:
 	/* Fatal errors need reset */
