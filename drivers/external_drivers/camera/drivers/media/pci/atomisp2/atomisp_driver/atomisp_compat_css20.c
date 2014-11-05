@@ -3419,7 +3419,9 @@ int atomisp_css_exp_id_unlock(struct atomisp_sub_device *asd, int exp_id)
 	ret = ia_css_unlock_raw_frame(
 		asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream,
 		exp_id);
-	if (ret != IA_CSS_SUCCESS)
+	if (ret == IA_CSS_ERR_QUEUE_IS_FULL)
+		return -EAGAIN;
+	else if (ret != IA_CSS_SUCCESS)
 		return -EIO;
 
 	return 0;

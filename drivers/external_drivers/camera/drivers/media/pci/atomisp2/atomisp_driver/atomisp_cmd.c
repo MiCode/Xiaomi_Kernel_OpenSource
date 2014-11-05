@@ -1447,12 +1447,13 @@ void atomisp_wdt_work(struct work_struct *work)
 			if (asd->enable_raw_buffer_lock->val) {
 				unsigned int j;
 
-				for (j = 0; j <= ATOMISP_MAX_EXP_ID/32; j++) {
-					dev_err(isp->dev,
-						"%s, raw_buffer_bitmap[%d]: 0x%x\n",
+				dev_err(isp->dev, "%s, raw_buffer_locked_count %d\n",
+					__func__,
+				        asd->raw_buffer_locked_count);
+				for (j = 0; j <= ATOMISP_MAX_EXP_ID/32; j++)
+					dev_err(isp->dev, "%s, raw_buffer_bitmap[%d]: 0x%x\n",
 						__func__, j,
 						asd->raw_buffer_bitmap[j]);
-				}
 			}
 		}
 
@@ -5501,6 +5502,7 @@ void atomisp_init_raw_buffer_bitmap(struct atomisp_sub_device *asd)
 	unsigned long flags;
 	spin_lock_irqsave(&asd->raw_buffer_bitmap_lock, flags);
 	memset(asd->raw_buffer_bitmap, 0, sizeof(asd->raw_buffer_bitmap));
+	asd->raw_buffer_locked_count = 0;
 	spin_unlock_irqrestore(&asd->raw_buffer_bitmap_lock, flags);
 }
 
@@ -5516,7 +5518,36 @@ int atomisp_set_raw_buffer_bitmap(struct atomisp_sub_device *asd, int exp_id)
 	bit = exp_id % 32;
 	spin_lock_irqsave(&asd->raw_buffer_bitmap_lock, flags);
 	(*bitmap) |= (1 << bit);
+	asd->raw_buffer_locked_count ++;
 	spin_unlock_irqrestore(&asd->raw_buffer_bitmap_lock, flags);
+
+	dev_dbg(asd->isp->dev, "%s: exp_id %d,  raw_buffer_locked_count %d\n",
+	        __func__, exp_id, asd->raw_buffer_locked_count);
+
+	/* Check if the raw buffer after next is still locked!!! */
+	exp_id += 2;
+	if (exp_id > ATOMISP_MAX_EXP_ID)
+		exp_id -= ATOMISP_MAX_EXP_ID;
+	bitmap = asd->raw_buffer_bitmap + exp_id / 32;
+	bit = exp_id % 32;
+	if ((*bitmap) & (1 << bit)) {
+		int ret;
+
+		/* WORKAROUND unlock the raw buffer compulsively */
+		ret = atomisp_css_exp_id_unlock(asd, exp_id);
+		if (ret) {
+			dev_err(asd->isp->dev, "%s exp_id is wrapping back to %d but force unlock failed,, err %d.\n",
+			        __func__, exp_id, ret);
+			return ret;
+		}
+
+		spin_lock_irqsave(&asd->raw_buffer_bitmap_lock, flags);
+		(*bitmap) &= ~(1 << bit);
+		asd->raw_buffer_locked_count --;
+		spin_unlock_irqrestore(&asd->raw_buffer_bitmap_lock, flags);
+		dev_warn(asd->isp->dev, "%s exp_id is wrapping back to %d but it is still locked so force unlock it, raw_buffer_locked_count %d\n",
+		         __func__, exp_id, asd->raw_buffer_locked_count);
+	}
 	return 0;
 }
 
@@ -5549,7 +5580,11 @@ static int __clear_raw_buffer_bitmap(struct atomisp_sub_device *asd, int exp_id)
 	bit = exp_id % 32;
 	spin_lock_irqsave(&asd->raw_buffer_bitmap_lock, flags);
 	(*bitmap) &= ~(1 << bit);
+	asd->raw_buffer_locked_count --;
 	spin_unlock_irqrestore(&asd->raw_buffer_bitmap_lock, flags);
+
+	dev_dbg(asd->isp->dev, "%s: exp_id %d,  raw_buffer_locked_count %d\n",
+	        __func__, exp_id, asd->raw_buffer_locked_count);
 	return 0;
 }
 
@@ -5588,9 +5623,10 @@ int atomisp_exp_id_unlock(struct atomisp_sub_device *asd, int *exp_id)
 
 	dev_dbg(isp->dev, "%s exp_id %d\n", __func__, value);
 	ret = atomisp_css_exp_id_unlock(asd, value);
-	if (ret) {
-		dev_err(isp->dev, "%s exp_id %d failed.\n", __func__, value);
-	}
+	if (ret)
+		dev_err(isp->dev, "%s exp_id %d failed, err %d.\n",
+		        __func__, value, ret);
+
 	return ret;
 }
 
