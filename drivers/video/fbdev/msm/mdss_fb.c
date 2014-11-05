@@ -2533,6 +2533,9 @@ static int mdss_fb_wait_for_kickoff(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
 
+	if (!mfd->wait_for_kickoff)
+		return mdss_fb_pan_idle(mfd);
+
 	ret = wait_event_timeout(mfd->kickoff_wait_q,
 			(!atomic_read(&mfd->kickoff_pending) ||
 			 mfd->shutdown_pending),
