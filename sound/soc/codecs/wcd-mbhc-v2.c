@@ -1045,13 +1045,8 @@ exit:
 
 	pr_debug("%s: Valid plug found, plug type is %d\n",
 			 __func__, plug_type);
-	if (plug_type != MBHC_PLUG_TYPE_HIGH_HPH &&
-			plug_type != MBHC_PLUG_TYPE_GND_MIC_SWAP &&
-			plug_type != MBHC_PLUG_TYPE_HEADSET &&
-			plug_type != MBHC_PLUG_TYPE_INVALID) {
-		wcd_configure_cap(mbhc, false);
-		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
-	} else if (plug_type == MBHC_PLUG_TYPE_HEADSET) {
+	if (plug_type == MBHC_PLUG_TYPE_HEADSET ||
+			plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
 		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
 		wcd_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
 	} else
