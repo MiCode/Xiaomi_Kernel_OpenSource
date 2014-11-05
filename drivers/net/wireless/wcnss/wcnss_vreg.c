@@ -236,6 +236,18 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on,
 				cpu_relax();
 
 			iris_reg = readl_relaxed(iris_read_reg);
+			pr_info("wcnss: IRIS Reg: %08x\n", iris_reg);
+			if (iris_reg == PRONTO_IRIS_REG_CHIP_ID) {
+				pr_info("wcnss: IRIS Card not Preset\n");
+				auto_detect = WCNSS_XO_INVALID;
+				/* Reset iris read bit */
+				reg &= ~WCNSS_PMU_CFG_IRIS_XO_READ;
+				/* Clear XO_MODE[b2:b1] bits.
+				   Clear implies 19.2 MHz TCXO
+				 */
+				reg &= ~(WCNSS_PMU_CFG_IRIS_XO_MODE);
+				goto xo_configure;
+			}
 			auto_detect = xo_auto_detect(iris_reg);
 
 			/* Reset iris read bit */
@@ -258,6 +270,7 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on,
 				*iris_xo_set = WCNSS_XO_48MHZ;
 		}
 
+xo_configure:
 		writel_relaxed(reg, pmu_conf_reg);
 
 		/* Reset IRIS */
