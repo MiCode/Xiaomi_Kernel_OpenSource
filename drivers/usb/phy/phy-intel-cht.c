@@ -215,7 +215,10 @@ static int cht_otg_handle_notification(struct notifier_block *nb,
 	/* USB_EVENT_VBUS: vbus valid event */
 	case USB_EVENT_VBUS:
 		dev_info(cht_otg_dev->phy.dev, "USB_EVENT_VBUS vbus valid\n");
-		cht_otg_dev->fsm.b_sess_vld = 1;
+		if (cht_otg_dev->fsm.id)
+			cht_otg_dev->fsm.b_sess_vld = 1;
+		else
+			cht_otg_dev->fsm.a_vbus_vld = 1;
 		schedule_work(&cht_otg_dev->fsm_work);
 		state = NOTIFY_OK;
 		break;
