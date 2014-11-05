@@ -1831,8 +1831,7 @@ static bool is_thermal_permissible(struct msm_vidc_core *core)
 		"Core freq %ld Thermal level %d Turbo mode %d\n",
 		freq, tl, is_turbo);
 
-	if ((!is_turbo && tl >= VIDC_THERMAL_CRITICAL) ||
-				(is_turbo && tl >= VIDC_THERMAL_LOW)) {
+	if (is_turbo && tl >= VIDC_THERMAL_LOW) {
 		dprintk(VIDC_ERR,
 			"Video session not allowed. Turbo mode %d Thermal level %d\n",
 			is_turbo, tl);
