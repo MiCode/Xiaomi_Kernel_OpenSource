@@ -113,7 +113,6 @@
 		qcom,mdss-highest-bank-bit = <0x3>;
 		qcom,mdss-has-decimation;
 		qcom,mdss-has-rotator-downscale;
-		qcom,mdss-has-bwc;
 
 		qcom,mdss-wfd-mode = "intf";
 		qcom,mdss-has-source-split;
