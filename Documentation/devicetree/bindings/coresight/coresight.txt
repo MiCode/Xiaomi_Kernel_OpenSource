@@ -143,6 +143,7 @@ Optional properties:
 - qcom,round-robin : indicates if per core etms are allowed round-robin access
 		     by the funnel
 - qcom,write-64bit : only 64bit data writes supported by stm
+- qcom,data-barrier : barrier required for every stm data write to channel space
 - <supply-name>-supply: phandle to the regulator device tree node. The required
 			<supply-name> is "vdd" for SD card and "vdd-io" for SD
 			I/O supply. Used for tpiu component
