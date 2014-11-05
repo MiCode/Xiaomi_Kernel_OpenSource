@@ -322,13 +322,12 @@ void glink_debugfs_add_channel(struct channel_ctx *ch_ctx,
 				ch_name);
 		return;
 	}
-
 	if (!strcmp(edge_name, "local_loopback"))
 		edge_name = "lloop";
-	if (!strcmp(edge_name, "local_loopback"))
-		ch_dbgfs.curr_name = "lloop";
-	else
-		ch_dbgfs.curr_name = edge_name;
+	else if (!strcmp(edge_name, "local"))
+		edge_name = "mock";
+
+	ch_dbgfs.curr_name = edge_name;
 	ch_dbgfs.par_name = "channel";
 	ch_dbgfs.b_dir_create = true;
 	glink_debugfs_create(ch_name, NULL, &ch_dbgfs, NULL, false);
@@ -366,6 +365,10 @@ void glink_debugfs_add_xprt(struct glink_core_xprt_ctx *xprt_ctx)
 	xprt_dbgfs.b_dir_create = true;
 	glink_debugfs_create(xprt_name, NULL, &xprt_dbgfs, NULL, false);
 	xprt_dbgfs.curr_name = "channel";
+	if (!strcmp(edge_name, "local_loopback"))
+		edge_name = "lloop";
+	else if (!strcmp(edge_name, "local"))
+		edge_name = "mock";
 	glink_debugfs_create(edge_name, NULL, &xprt_dbgfs, NULL, false);
 }
 EXPORT_SYMBOL(glink_debugfs_add_xprt);

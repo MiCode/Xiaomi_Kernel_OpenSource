@@ -103,6 +103,7 @@ struct glink_core_transport_cfg {
 struct glink_core_if {
 	/* Negotiation */
 	void (*link_up)(struct glink_transport_if *if_ptr);
+	void (*link_down)(struct glink_transport_if *if_ptr);
 	void (*rx_cmd_version)(struct glink_transport_if *if_ptr,
 			uint32_t version,
 			uint32_t features);
