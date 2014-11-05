@@ -477,6 +477,10 @@ struct intel_crtc {
 
 	/* Flag to schedule the sprite disable to corresponding flip */
 	bool disable_sprite;
+
+	/* Color status */
+	struct clrmgr_status *color_status;
+
 	struct intel_mmio_flip mmio_flip;
 };
 
@@ -533,6 +537,7 @@ struct intel_plane {
 	void (*get_colorkey)(struct drm_plane *plane,
 			     struct drm_intel_sprite_colorkey *key);
 	u32 (*current_surface)(struct drm_plane *plane);
+	struct clrmgr_status *color_status;
 };
 
 struct vlv_MA_component_enabled {

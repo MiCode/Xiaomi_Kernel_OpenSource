@@ -30,6 +30,7 @@
 #include "intel_drv.h"
 #include "i915_drm.h"
 #include "i915_drv.h"
+#include "i915_reg.h"
 #include "intel_clrmgr.h"
 
 /* Gamma lookup table for Sprite planes */
@@ -97,6 +98,59 @@ struct cont_brightlut savedcbvalues[NO_SPRITE_REG] = {
 /* Color space conversion coff's */
 u32 csc_softlut[CSC_MAX_COEFF_COUNT] = {
 	1024,	 0, 67108864, 0, 0, 1024
+};
+
+/*
+ * Gen 6 SOC allows following color correction values:
+ *     - CSC(wide gamut) with 3x3 matrix = 9 csc correction values.
+ *     - Gamma correction with 128 gamma values.
+ */
+struct clrmgr_property gen6_pipe_color_corrections[] = {
+	{
+		.tweak_id = cgm_csc,
+		.type = DRM_MODE_PROP_BLOB,
+		.len = CHV_CGM_CSC_MATRIX_MAX_VALS,
+		.name = "cgm-csc-correction",
+		.set_property = intel_clrmgr_set_cgm_csc,
+	},
+	{
+		.tweak_id = cgm_gamma,
+		.type = DRM_MODE_PROP_BLOB,
+		.len = CHV_CGM_GAMMA_MATRIX_MAX_VALS,
+		.name = "cgm-gamma-correction",
+		.set_property = intel_clrmgr_set_cgm_gamma,
+	},
+	{
+		.tweak_id = cgm_degamma,
+		.type = DRM_MODE_PROP_BLOB,
+		.len = CHV_CGM_DEGAMMA_MATRIX_MAX_VALS,
+		.name = "cgm-degamma-correction",
+		.set_property = intel_clrmgr_set_cgm_degamma,
+	},
+};
+
+static u32 cgm_ctrl[] = {
+	PIPEA_CGM_CTRL,
+	PIPEB_CGM_CTRL,
+	PIPEC_CGM_CTRL
+};
+
+static u32 cgm_degamma_st[] = {
+	PIPEA_CGM_DEGAMMA_ST,
+	PIPEB_CGM_DEGAMMA_ST,
+	PIPEC_CGM_DEGAMMA_ST
+};
+
+static u32 cgm_csc_st[] = {
+	PIPEA_CGM_CSC_ST,
+	PIPEB_CGM_CSC_ST,
+	PIPEC_CGM_CSC_ST
+};
+
+static u32 cgm_gamma_st[] = {
+	PIPEA_CGM_GAMMA_ST,
+	PIPEB_CGM_GAMMA_ST,
+	PIPEC_CGM_GAMMA_ST
 };
 
 /* Enable color space conversion on PIPE */
@@ -275,8 +329,7 @@ int intel_enable_sprite_gamma(struct drm_crtc *crtc, int planeid)
 	return 0;
 }
 
-/*
-* Gamma correction at Plane level */
+/* Gamma correction at Plane level */
 int intel_enable_primary_gamma(struct drm_crtc *crtc)
 {
 	u32 odd = 0;
@@ -323,6 +376,254 @@ int intel_enable_primary_gamma(struct drm_crtc *crtc)
 	DRM_DEBUG("Gamma enabled on Plane A\n");
 
 	return 0;
+}
+
+
+/*
+ * chv_set_cgm_csc
+ * Cherryview specific csc correction method on PIPE.
+ * inputs:
+ * - intel_crtc*
+ * - color manager registered property for cgm_csc_correction
+ * - data: pointer to correction values to be applied
+ */
+bool chv_set_cgm_csc(struct intel_crtc *intel_crtc,
+	const struct clrmgr_regd_prop *cgm_csc, const int *data, bool enable)
+{
+	u32 cgm_csc_reg, cgm_ctrl_reg, data_size, i;
+	struct drm_device *dev = intel_crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_property *property;
+
+	property = cgm_csc->property;
+	data_size = property->num_values;
+
+	/* Validate input */
+	if (data_size != CHV_CGM_CSC_MATRIX_MAX_VALS) {
+		DRM_ERROR("Unexpected value count for CSC LUT\n");
+		return false;
+	}
+	cgm_ctrl_reg = dev_priv->info.display_mmio_offset +
+			cgm_ctrl[intel_crtc->pipe];
+
+	if (enable) {
+		DRM_DEBUG_DRIVER("Setting CSC on pipe = %d\n",
+						intel_crtc->pipe);
+
+		/* program CGM CSC values */
+		cgm_csc_reg = dev_priv->info.display_mmio_offset +
+					cgm_csc_st[intel_crtc->pipe];
+
+		/*
+		 * the input data is 32 bit signed int array
+		 * of 9 coefficients and for 5 registers
+		 * C0 - 16 bit (LSB)
+		 * C1 - 16 bit (HSB)
+		 * C8 - 16 bit (LSB) and HSB- reserved.
+		 */
+		for (i = 0; i < CGM_CSC_MAX_REGS; i++) {
+			I915_WRITE(cgm_csc_reg + i*4,
+					(data[EVEN(i)] >> 16) |
+					((data[ODD(i)] >> 16) << 16));
+
+			/* The last register has only valid LSB */
+			if (i == 4)
+				I915_WRITE(cgm_csc_reg + i*4,
+					(data[EVEN(i)] >> 16));
+		}
+
+		/* enable csc if not enabled */
+		if (!(I915_READ(cgm_ctrl_reg) & CGM_CSC_EN))
+			I915_WRITE(cgm_ctrl_reg,
+					I915_READ(cgm_ctrl_reg) | CGM_CSC_EN);
+	} else {
+		I915_WRITE(cgm_ctrl_reg,
+			I915_READ(cgm_ctrl_reg) & ~CGM_CSC_EN);
+	}
+	return true;
+}
+
+/*
+ * chv_set_cgm_gamma
+ * Cherryview specific u0.10 cgm gamma correction method on PIPE.
+ * inputs:
+ * - intel_crtc*
+ * - color manager registered property for cgm_csc_correction
+ * - data: pointer to correction values to be applied
+ */
+bool chv_set_cgm_gamma(struct intel_crtc *intel_crtc,
+			const struct clrmgr_regd_prop *cgm_gamma,
+			const struct gamma_lut_data *data, bool enable)
+{
+	u32 i = 0;
+	u32 cgm_gamma_reg = 0;
+	u32 cgm_ctrl_reg = 0;
+
+	struct drm_device *dev = intel_crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_property *property;
+
+	property = cgm_gamma->property;
+
+	/* Validate input */
+	if (!intel_crtc) {
+		DRM_ERROR("Invalid CRTC object input to CGM gamma enable\n");
+		return false;
+	}
+	cgm_ctrl_reg = dev_priv->info.display_mmio_offset +
+			cgm_ctrl[intel_crtc->pipe];
+	if (enable) {
+		/*
+		 * program CGM Gamma values is in
+		 * u0.10 while i/p is 16 bit
+		 */
+		cgm_gamma_reg = dev_priv->info.display_mmio_offset +
+				cgm_gamma_st[intel_crtc->pipe];
+
+		for (i = 0; i < CHV_CGM_GAMMA_MATRIX_MAX_VALS; i++) {
+
+			/* Red coefficent needs to be updated in D1 registers*/
+			I915_WRITE(cgm_gamma_reg + 4 * ODD(i),
+						(data[i].red) >> 6);
+
+			/*
+			 * green and blue coefficients
+			 * need to be updated in D0 registers
+			 */
+			I915_WRITE(cgm_gamma_reg + 4 * EVEN(i),
+					(((data[i].green) >> 6) << 16) |
+					((data[i].blue) >> 6));
+		}
+
+		if (!(I915_READ(cgm_ctrl_reg) & CGM_GAMMA_EN)) {
+			I915_WRITE(cgm_ctrl_reg,
+				I915_READ(cgm_ctrl_reg) | CGM_GAMMA_EN);
+			DRM_DEBUG("CGM Gamma enabled on Pipe %d\n",
+							intel_crtc->pipe);
+		}
+
+	} else {
+		I915_WRITE(cgm_ctrl_reg,
+				I915_READ(cgm_ctrl_reg) & ~CGM_GAMMA_EN);
+	}
+	return true;
+}
+
+/*
+ * chv_set_cgm_degamma
+ * Cherryview specific cgm degamma correction method on PIPE.
+ *  inputs:
+ * - intel_crtc*
+ * - color manager registered property for cgm_csc_correction
+ * - data: pointer to correction values to be applied.
+ */
+bool chv_set_cgm_degamma(struct intel_crtc *intel_crtc,
+			const struct clrmgr_regd_prop *cgm_degamma,
+			const struct gamma_lut_data *data, bool enable)
+{
+	struct drm_device *dev = intel_crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_property *property;
+	u32 i = 0;
+	u32 cgm_degamma_reg = 0;
+	u32 cgm_ctrl_reg = 0;
+	property = cgm_degamma->property;
+
+	/* Validate input */
+	if (!intel_crtc) {
+		DRM_ERROR("Invalid CRTC object i/p to CGM degamma enable\n");
+		return -EINVAL;
+	}
+	cgm_ctrl_reg = dev_priv->info.display_mmio_offset +
+			cgm_ctrl[intel_crtc->pipe];
+
+	if (enable) {
+		/* program CGM Gamma values is in u0.10 */
+		cgm_degamma_reg = dev_priv->info.display_mmio_offset +
+					cgm_degamma_st[intel_crtc->pipe];
+
+		for (i = 0; i < CHV_CGM_DEGAMMA_MATRIX_MAX_VALS; i++) {
+			/* Red coefficent needs to be updated in D1 registers*/
+			I915_WRITE(cgm_degamma_reg + 4 * ODD(i),
+						((data[i].red) >> 2));
+
+			/*
+			 * green and blue coefficients
+			 * need to be updated in D0 registers
+			 */
+			I915_WRITE(cgm_degamma_reg + 4 * EVEN(i),
+					(((data[i].green) >> 2) << 16) |
+						((data[i].blue) >> 2));
+		}
+
+		/* If already enabled, do not enable again */
+		if (!(I915_READ(cgm_ctrl_reg) & CGM_DEGAMMA_EN)) {
+			I915_WRITE(cgm_ctrl_reg,
+				I915_READ(cgm_ctrl_reg) | CGM_DEGAMMA_EN);
+			DRM_DEBUG("CGM Degamma enabled on Pipe %d\n",
+							intel_crtc->pipe);
+		}
+
+	 } else {
+		I915_WRITE(cgm_ctrl_reg,
+			I915_READ(cgm_ctrl_reg) & ~CGM_DEGAMMA_EN);
+	}
+	return true;
+}
+
+/*
+ * intel_clrmgr_set_csc
+ * CSC correction method is different across various
+ * gen devices. c
+ * inputs:
+ * - intel_crtc *
+ * - color manager registered property for csc correction
+ * - data: pointer to correction values to be applied
+ */
+bool intel_clrmgr_set_cgm_csc(void *crtc,
+	const struct clrmgr_regd_prop *cgm_csc, const struct lut_info *info)
+{
+	struct intel_crtc *intel_crtc = crtc;
+	struct drm_device *dev = intel_crtc->base.dev;
+	int *data;
+	int ret = false;
+
+	/* Validate input */
+	if (!info || !info->data || !cgm_csc || !cgm_csc->property) {
+		DRM_ERROR("Invalid input to set cgm_csc\n");
+		return ret;
+	}
+
+#ifdef CLRMGR_DEBUG
+	DRM_DEBUG_DRIVER("Clrmgr: Set csc: data len=%d\n",
+			cgm_csc->property->num_values);
+#endif
+	data = kmalloc(sizeof(int) * (cgm_csc->property->num_values),
+							GFP_KERNEL);
+	if (!data) {
+		DRM_ERROR("Out of memory\n");
+		return ret;
+	}
+
+	if (copy_from_user(data, (const int __user *)info->data,
+			cgm_csc->property->num_values * sizeof(int))) {
+		DRM_ERROR("Failed to copy all data\n");
+		goto free;
+	}
+
+	/* CHV CGM CSC color correction */
+	if (IS_CHERRYVIEW(dev)) {
+		if (chv_set_cgm_csc(intel_crtc, cgm_csc,
+					data, info->enable))
+			ret = true;
+		goto free;
+	}
+
+	/* Todo: Support other gen devices */
+	DRM_ERROR("CGM correction is supported only on CHV\n");
+
+free:	kfree(data);
+	return ret;
 }
 
 /*
@@ -434,13 +735,186 @@ int intel_disable_external_gamma(struct drm_crtc *crtc)
 	return -EINVAL;
 }
 
+/*
+* intel_clrmgr_set_gamma
+* Gamma correction method is different across various
+* gen devices. This is a wrapper function which will call
+* the platform specific gamma set function
+* inputs:
+* - intel_crtc*
+* - color manager registered property for gamma correction
+* - data: pointer to correction values to be applied
+*/
+bool intel_clrmgr_set_cgm_gamma(void *crtc,
+		const struct clrmgr_regd_prop *cgm_gamma,
+				const struct lut_info  *info)
+{
+	struct intel_crtc *intel_crtc = crtc;
+	struct drm_device *dev = intel_crtc->base.dev;
+	struct gamma_lut_data *data;
+	int ret = false;
+
+	/* Validate input */
+	if (!info->data || !cgm_gamma || !cgm_gamma->property) {
+		DRM_ERROR("Invalid input to set_gamma\n");
+		return ret;
+	}
+
+	DRM_DEBUG_DRIVER("Setting gamma correction, len=%d\n",
+		cgm_gamma->property->num_values);
+#ifdef CLRMGR_DEBUG
+	DRM_DEBUG_DRIVER("Clrmgr: Set gamma: len=%d\n",
+				cgm_gamma->property->num_values);
+#endif
+	data = kmalloc(sizeof(struct gamma_lut_data) *
+				(cgm_gamma->property->num_values),
+				GFP_KERNEL);
+	if (!data) {
+		DRM_ERROR("Out of memory\n");
+		return ret;
+	}
+
+	if (copy_from_user(data,
+		(const struct gamma_lut_data __user *) info->data,
+		cgm_gamma->property->num_values *
+		sizeof(struct gamma_lut_data))) {
+
+		DRM_ERROR("Failed to copy all data\n");
+		goto free;
+	}
+
+	/* CHV has CGM gamma correction */
+	if (IS_CHERRYVIEW(dev)) {
+		if (chv_set_cgm_gamma(intel_crtc,
+				cgm_gamma, data, info->enable))
+			ret = true;
+		goto free;
+	}
+
+	/* Todo: Support other gen devices */
+	DRM_ERROR("Color correction is supported only on VLV for now\n");
+free:	kfree(data);
+	return ret;
+}
+
+/*
+* intel_clrmgr_set_cgm_degamma
+* Gamma correction method is different across various
+* gen devices. This is a wrapper function which will call
+* the platform specific gamma set function
+* inputs:
+* - intel_crtc*
+* - color manager registered property for gamma correction
+* - data: pointer to correction values to be applied
+*/
+bool intel_clrmgr_set_cgm_degamma(void *crtc,
+		const struct clrmgr_regd_prop *cgm_degamma,
+				const struct lut_info *info)
+{
+	struct intel_crtc *intel_crtc = crtc;
+	struct drm_device *dev = intel_crtc->base.dev;
+	struct gamma_lut_data *data;
+	int ret = false;
+
+	/* Validate input */
+	if (!info->data || !cgm_degamma || !cgm_degamma->property) {
+		DRM_ERROR("Invalid input to set_gamma\n");
+		return ret;
+	}
+
+	DRM_DEBUG_DRIVER("Setting gamma correction, len=%d\n",
+		cgm_degamma->property->num_values);
+#ifdef CLRMGR_DEBUG
+	DRM_DEBUG_DRIVER("Clrmgr: Set gamma: len=%d\n",
+			cgm_degamma->property->num_values);
+#endif
+	data = kmalloc(sizeof(struct gamma_lut_data) *
+				(cgm_degamma->property->num_values),
+				GFP_KERNEL);
+	if (!data) {
+		DRM_ERROR("Out of memory\n");
+		goto free;
+	}
+
+	if (copy_from_user(data,
+			(const struct gamma_lut_data __user *) info->data,
+			cgm_degamma->property->num_values *
+			sizeof(struct gamma_lut_data))) {
+		DRM_ERROR("Failed to copy all data\n");
+		goto free;
+	}
+
+	/* CHV has CGM degamma correction */
+	if (IS_CHERRYVIEW(dev)) {
+		if (chv_set_cgm_degamma(intel_crtc,
+			cgm_degamma, data, info->enable))
+			ret = true;
+		goto free;
+	}
+	/* Todo: Support other gen devices */
+	DRM_ERROR("Color correction is supported only on VLV for now\n");
+
+free:	kfree(data);
+	return ret;
+}
+
+
+/*
+ * intel_clrmgr_set_property
+ * Set the value of a DRM color correction property
+ * and program the corresponding registers
+ * Inputs:
+ *  - intel_crtc *
+ *  - color manager registered property * which encapsulates
+ *    drm_property and additional data.
+ * - value is the new value to be set
+ */
+bool intel_clrmgr_set_pipe_property(struct intel_crtc *intel_crtc,
+		struct clrmgr_regd_prop *cp, uint64_t value)
+{
+	bool ret = false;
+	struct lut_info *info;
+
+	/* Sanity */
+	if (!cp || !cp->property || !value) {
+		DRM_ERROR("NULL input to set_property\n");
+		return false;
+	}
+
+	DRM_DEBUG_DRIVER("Property %s len:%d\n",
+				cp->property->name, cp->property->num_values);
+
+	info = kmalloc(sizeof(struct lut_info), GFP_KERNEL);
+	if (!info) {
+		DRM_ERROR("Out of memory\n");
+		return false;
+	}
+
+	info = (struct lut_info *) (uintptr_t) value;
+
+	/* call the corresponding set property */
+	if (cp->set_property) {
+		if (!cp->set_property((void *)intel_crtc, cp, info)) {
+			DRM_ERROR("Set property for %s failed\n",
+						cp->property->name);
+			return ret;
+		} else {
+			ret = true;
+			cp->enabled = true;
+			DRM_DEBUG_DRIVER("Set property %s successful\n",
+				cp->property->name);
+		}
+	}
+
+	return ret;
+}
+
 /* Disable gamma correction on Primary display */
 int intel_disable_external_pipe_gamma(struct drm_crtc *crtc)
 {
 	DRM_ERROR("This functionality is not implemented yet\n");
 	return -EINVAL;
 }
-
 
 /* Disable gamma correction for sprite planes on primary display */
 int intel_disable_sprite_gamma(struct drm_crtc *crtc, u32 planeid)
@@ -501,6 +975,109 @@ int intel_disable_primary_gamma(struct drm_crtc *crtc)
 	return 0;
 }
 
+/*
+ * intel_clrmgr_register:
+ * Register color correction properties as DRM propeties
+ */
+struct drm_property *intel_clrmgr_register(struct drm_device *dev,
+	struct drm_mode_object *obj, const struct clrmgr_property *cp)
+{
+	struct drm_property *property;
+
+	/* Create drm property */
+	switch (cp->type) {
+
+	case DRM_MODE_PROP_BLOB:
+		property = drm_property_create(dev,
+				DRM_MODE_PROP_BLOB,
+					cp->name, cp->len);
+		if (!property) {
+			DRM_ERROR("Failed to create property %s\n",
+							cp->name);
+			return NULL;
+		}
+
+		/* Attach property to object */
+		drm_object_attach_property(obj, property, 0);
+		break;
+
+	case DRM_MODE_PROP_RANGE:
+		property = drm_property_create_range(dev,
+				DRM_MODE_PROP_RANGE, cp->name,
+						cp->min, cp->max);
+		if (!property) {
+			DRM_ERROR("Failed to create property %s\n",
+							cp->name);
+			return NULL;
+		}
+		drm_object_attach_property(obj, property, 0);
+		break;
+
+	default:
+		DRM_ERROR("Unsupported type for property %s\n",
+							cp->name);
+		return NULL;
+	}
+
+	DRM_DEBUG_DRIVER("Registered property %s\n", property->name);
+	return property;
+}
+
+bool intel_clrmgr_register_pipe_property(struct intel_crtc *intel_crtc,
+		struct clrmgr_reg_request *features)
+{
+	u32 count = 0;
+	struct clrmgr_property *cp;
+	struct clrmgr_regd_prop *regd_property;
+	struct drm_property *property;
+	struct drm_device *dev = intel_crtc->base.dev;
+	struct drm_mode_object *obj = &intel_crtc->base.base;
+	struct clrmgr_status *status = intel_crtc->color_status;
+
+	/* Color manager initialized? */
+	if (!status) {
+		DRM_ERROR("Request wihout pipe init\n");
+		return false;
+	}
+
+	/* Validate input */
+	if (!features || !features->no_of_properties) {
+		DRM_ERROR("Invalid input to color manager register\n");
+		return false;
+	}
+
+	/* Create drm property */
+	while (count < features->no_of_properties) {
+		cp = &features->cp[count++];
+		property = intel_clrmgr_register(dev, obj, cp);
+		if (!property) {
+			DRM_ERROR("Failed to register property %s\n",
+							property->name);
+			goto error;
+		}
+
+		/* Add the property in global pipe status */
+		regd_property = kzalloc(sizeof(struct clrmgr_regd_prop),
+								GFP_KERNEL);
+		regd_property->property = property;
+		regd_property->enabled = false;
+		regd_property->set_property = cp->set_property;
+		status->cp[status->no_of_properties++] = regd_property;
+	}
+	/* Successfully registered all */
+	DRM_DEBUG_DRIVER("Registered color properties on pipe %c\n",
+		pipe_name(intel_crtc->pipe));
+	return true;
+
+error:
+	if (--count) {
+		DRM_ERROR("Can only register following properties\n");
+		while (count--)
+			DRM_ERROR("%s", status->cp[count]->property->name);
+	} else
+		DRM_ERROR("Can not register any property\n");
+	return false;
+}
 
 /* Disable gamma correction on Primary display */
 int intel_disable_pipe_gamma(struct drm_crtc *crtc)
@@ -531,6 +1108,37 @@ int intel_disable_pipe_gamma(struct drm_crtc *crtc)
 	/* TODO: Reset gamma table default */
 	DRM_DEBUG("Gamma disabled on Pipe\n");
 	return 0;
+}
+
+/*
+* intel_clrmgr_deregister
+* De register color manager properties
+* destroy the DRM property and cleanup
+* Should be called from CRTC/Plane .destroy function
+* input:
+* - struct drm device *dev
+* - status: attached colot status
+*/
+void intel_clrmgr_deregister(struct drm_device *dev,
+	struct clrmgr_status *status)
+{
+	u32 count = 0;
+	struct clrmgr_regd_prop *cp;
+
+	/* Free drm property */
+	while (count < status->no_of_properties) {
+		cp = status->cp[count++];
+
+		/* Destroy property */
+		drm_property_destroy(dev, cp->property);
+
+		/* Release the color property */
+		kfree(status->cp[count]);
+		status->cp[count] = NULL;
+	}
+
+	/* Successfully deregistered all */
+	DRM_DEBUG_DRIVER("De-registered all color properties\n");
 }
 
 /* Load gamma correction values corresponding to supplied
@@ -593,8 +1201,87 @@ int intel_sprite_cb_adjust(struct drm_i915_private *dev_priv,
 		DRM_ERROR("Invalid Sprite Number\n");
 		return -EINVAL;
 	}
-
 	return 0;
+}
+
+/*
+* intel_attach_pipe_color_correction:
+* register color correction properties as DRM CRTC properties
+* for a particular device
+* input:
+* - intel_crtc : CRTC to attach color correcection with
+*/
+void
+intel_attach_pipe_color_correction(struct intel_crtc *intel_crtc)
+{
+	struct clrmgr_reg_request *features;
+
+	/* Color manager initialized? */
+	if (!intel_crtc->color_status) {
+		DRM_ERROR("Color manager not initialized for PIPE %d\n",
+			intel_crtc->pipe);
+		return;
+	}
+
+	features = kzalloc(sizeof(struct clrmgr_reg_request), GFP_KERNEL);
+	if (!features) {
+		DRM_ERROR("kzalloc failed: pipe color features\n");
+		return;
+	}
+
+	features->no_of_properties = ARRAY_SIZE(gen6_pipe_color_corrections);
+	memcpy(features->cp, gen6_pipe_color_corrections,
+			features->no_of_properties
+				* sizeof(struct clrmgr_property));
+
+	/* Register pipe level color properties */
+	if (!intel_clrmgr_register_pipe_property(intel_crtc, features))
+		DRM_ERROR("Register pipe color property failed\n");
+	else
+		DRM_DEBUG_DRIVER("Attached colot corrections for pipe %d\n",
+		intel_crtc->pipe);
+	kfree(features);
+}
+
+
+/*
+* intel_clrmgr_init:
+* allocate memory to save color correction status
+* input: struct drm_device
+*/
+struct clrmgr_status *intel_clrmgr_init(struct drm_device *dev)
+{
+	struct clrmgr_status *status;
+
+	/* Sanity */
+	if (!IS_VALLEYVIEW(dev)) {
+		DRM_ERROR("Color manager is supported for VLV for now\n");
+		return NULL;
+	}
+
+	/* Allocate and attach color status tracker */
+	status = kzalloc(sizeof(struct clrmgr_status), GFP_KERNEL);
+	if (!status) {
+		DRM_ERROR("Out of memory, cant init color manager\n");
+		return NULL;
+	}
+	DRM_DEBUG_DRIVER("\n");
+	return status;
+}
+
+/*
+* intel_clrmgr_exit
+* Free allocated memory for color status
+* Should be called from CRTC/Plane .destroy function
+* input: color status
+*/
+void intel_clrmgr_exit(struct drm_device *dev, struct clrmgr_status *status)
+{
+	/* First free the DRM property, then status */
+	if (status) {
+		intel_clrmgr_deregister(dev, status);
+		kfree(status);
+	}
 }
 
 /* Tune Hue Saturation Value for Sprite */

@@ -40,6 +40,7 @@
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <linux/dma_remapping.h>
+#include "intel_clrmgr.h"
 
 #define DIV_ROUND_CLOSEST_ULL(ll, d)	\
 	({ unsigned long long _tmp = (ll)+(d)/2; do_div(_tmp, d); _tmp; })
@@ -88,7 +89,7 @@ struct intel_limit {
 };
 
 /* Color space conversion coff's */
-static u32 csc_softlut[I915_MAX_PIPES][CSC_MAX_COEFF_REG_COUNT] = {
+static u32 csc_softlut_hsw[I915_MAX_PIPES][CSC_MAX_COEFF_REG_COUNT] = {
 	{0x78000000, 0, 0x7800, 0, 0, 0x78000000},
 	{0x78000000, 0, 0x7800, 0, 0, 0x78000000},
 	{0x78000000, 0, 0x7800, 0, 0, 0x78000000},
@@ -7532,17 +7533,17 @@ static void intel_set_pipe_csc(struct drm_crtc *crtc)
 	if (intel_crtc->config.limited_color_range) {
 		coeff = ((235 - 16) * (1 << 12) / 255) & 0xff8; /* 0.xxx... */
 
-		csc_softlut[pipe][0] = coeff << 16;
-		csc_softlut[pipe][1] = 0;
-		csc_softlut[pipe][2] = coeff;
-		csc_softlut[pipe][3] = 0;
-		csc_softlut[pipe][4] = 0;
-		csc_softlut[pipe][5] = coeff << 16;
+		csc_softlut_hsw[pipe][0] = coeff << 16;
+		csc_softlut_hsw[pipe][1] = 0;
+		csc_softlut_hsw[pipe][2] = coeff;
+		csc_softlut_hsw[pipe][3] = 0;
+		csc_softlut_hsw[pipe][4] = 0;
+		csc_softlut_hsw[pipe][5] = coeff << 16;
 	}
 
 	for (i = 0; i < CSC_MAX_COEFF_REG_COUNT; i++)
 		I915_WRITE(PIPE_CSC_COEFF_RY_GY(pipe) + (i * 4),
-						csc_softlut[pipe][i]);
+						csc_softlut_hsw[pipe][i]);
 
 	for (i = 0; i < CSC_MAX_OFFSET_COUNT; i++)
 		I915_WRITE(PIPE_CSC_PREOFF_HI(pipe) + (i*4),
@@ -7601,7 +7602,7 @@ int intel_configure_csc(struct drm_device *dev, void *data,
 
 	if (csc_coeff_t->param_valid & CSC_COEFF_VALID_MASK) {
 		for (i = 0; i < CSC_MAX_COEFF_REG_COUNT; i++)
-			csc_softlut[pipe][i] = csc_coeff_t->csc_coeff[i];
+			csc_softlut_hsw[pipe][i] = csc_coeff_t->csc_coeff[i];
 	}
 
 	if (csc_coeff_t->param_valid & CSC_OFFSET_VALID_MASK)
@@ -9705,6 +9706,7 @@ static void intel_crtc_destroy(struct drm_crtc *crtc)
 		kfree(sprite_work);
 	}
 	intel_crtc_cursor_set(crtc, NULL, 0, 0, 0);
+	intel_clrmgr_exit(dev, intel_crtc->color_status);
 
 	drm_crtc_cleanup(crtc);
 
@@ -10921,6 +10923,49 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	/* Enable maxfifo if needed */
 	intel_update_maxfifo(dev_priv);
 	dev_priv->atomic_update = false;
+	return ret;
+}
+
+/*
+  * intel_crtc_set_property
+  * Set a CRTC property, like color tweaks
+  */
+static int intel_crtc_set_property(struct drm_crtc *crtc,
+				struct drm_property *property, uint64_t val)
+{
+	int ret = 0;
+	int count = 0;
+	struct clrmgr_regd_prop *cp;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct clrmgr_status *status = intel_crtc->color_status;
+
+	DRM_DEBUG_DRIVER("\n");
+
+	/* Is this color property ?*/
+	if (!status) {
+		DRM_DEBUG_DRIVER("Color manager not initialized\n");
+		return -1;
+	}
+
+	/* Color manager property */
+	while (count < status->no_of_properties) {
+		cp = status->cp[count++];
+		if (property == cp->property) {
+
+			/* Found it, now set it */
+			if (intel_clrmgr_set_pipe_property(intel_crtc,
+								cp, val)) {
+				DRM_DEBUG_DRIVER("Set property %s successful\n",
+							property->name);
+				return 0;
+			} else {
+				DRM_ERROR("Set CRTC property %s failed\n",
+								property->name);
+				return -1;
+			}
+		}
+	}
+
 	return ret;
 }
 
@@ -12430,6 +12475,7 @@ static const struct drm_crtc_funcs intel_crtc_funcs = {
 	.destroy = intel_crtc_destroy,
 	.page_flip = intel_crtc_page_flip,
 	.set_pixelformat = intel_crtc_set_pixel_format,
+	.set_property = intel_crtc_set_property,
 	.set_display = intel_crtc_set_display,
 };
 
@@ -12584,6 +12630,8 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->scaling_src_size = 0;
 	intel_crtc->pfit_en_status = false;
 	intel_crtc->sprite_unpin_work = NULL;
+	intel_crtc->color_status = intel_clrmgr_init(dev);
+	intel_attach_pipe_color_correction(intel_crtc);
 
 	intel_crtc->rotate180 = false;
 	/* Flag for wake from sleep */

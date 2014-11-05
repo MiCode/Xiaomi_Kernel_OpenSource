@@ -28,6 +28,8 @@
 
 #ifndef _I915_CLR_MNGR_H_
 #define _I915_CLR_MNGR_H_
+#include "drmP.h"
+#include "intel_drv.h"
 
 struct cont_brightlut {
 	u32 sprite_no;
@@ -38,6 +40,10 @@ struct hue_saturationlut {
 	u32 sprite_no;
 	u32 val;
 };
+
+#define CLRMGR_PROP_MAX		10
+#define CLRMGR_PROP_NAME_MAX	128
+
 /* CSC correction */
 #define CLRMGR_BASE   16
 #define CSC_MAX_COEFF_COUNT		6
@@ -51,6 +57,12 @@ struct hue_saturationlut {
 /* Gamma correction defines */
 #define GAMMA_MAX_VAL			1024
 #define SHIFTBY6(val) (val<<6)
+#define SHIFTRBY6(val) (val>>6)
+#define SHIFTRBY2(val) (val>>2)
+#define SHIFTLBY16(val) (val<<16)
+#define SHIFTRBY16(val) (val>>16)
+#define EVEN(val)	(2*val)
+#define ODD(val)	((2*val)+1)
 #define PIPEA_GAMMA_MAX_RED	(dev_priv->info.display_mmio_offset + 0x70010)
 #define PIPEA_GAMMA_MAX_GREEN	(dev_priv->info.display_mmio_offset + 0x70014)
 #define PIPEA_GAMMA_MAX_BLUE	(dev_priv->info.display_mmio_offset + 0x70018)
@@ -74,7 +86,35 @@ struct hue_saturationlut {
 #define GAMMA_ENABLE_SPR			(1<<30)
 #define GAMMA_SP_MAX_COUNT			6
 #define NO_SPRITE_REG				4
+#define PIPEA_CGM_CTRL      0x67A00
+#define PIPEB_CGM_CTRL      0x69A00
+#define PIPEC_CGM_CTRL      0x6BA00
+#define CGM_DEGAMMA_EN      1
+#define CGM_CSC_EN          2
+#define CGM_GAMMA_EN        4
+#define CGM_CSC_MAX_REGS	5
 
+#define CHV_CGM_CSC_MATRIX_MAX_VALS    9
+#define CHV_CGM_GAMMA_MATRIX_MAX_VALS   257
+#define CHV_CGM_DEGAMMA_MATRIX_MAX_VALS	65
+
+#define PIPEA_CGM_DEGAMMA_ST 0x66000
+#define PIPEA_CGM_GAMMA_ST   0x67000
+#define PIPEA_CGM_CSC_ST     0x67900
+#define PIPEB_CGM_DEGAMMA_ST 0x68000
+#define PIPEB_CGM_GAMMA_ST   0x69000
+#define PIPEB_CGM_CSC_ST     0x69900
+#define PIPEC_CGM_DEGAMMA_ST 0x6A000
+#define PIPEC_CGM_GAMMA_ST   0x6B000
+#define PIPEC_CGM_CSC_ST     0x6B900
+
+/* Color manager features */
+enum clrmgr_tweaks {
+	cgm_csc = 0,
+	cgm_gamma,
+	cgm_degamma,
+	tweak_invalid
+};
 
 /* Color manager features */
 enum clrmgrfeatures {
@@ -84,6 +124,68 @@ enum clrmgrfeatures {
 	clrmgrhuesat,
 };
 
+struct gamma_lut_data {
+	u16 red;
+	u16 green;
+	u16 blue;
+};
+
+struct lut_info {
+	bool enable;
+	u32 len;
+	void *data;
+};
+
+/*
+* clrmgr_regd_propery structure
+* This structure encapsulates drm_property, and some
+* additional values which are required during the runtime
+* after registration.
+*/
+struct clrmgr_regd_prop {
+	bool enabled;
+	struct drm_property *property;
+
+	/*
+	* A void * is first arg, so that the same function ptr can be used
+	* for both crtc_property and plane_property
+	*/
+	bool (*set_property)(void *,
+		const struct clrmgr_regd_prop *prop, const struct lut_info *);
+};
+
+/*
+* clrmgr_propery structure
+* This structure encapsulates drm_property with other
+* values required during the property registration time.
+*/
+struct clrmgr_property {
+	enum clrmgr_tweaks tweak_id;
+	u32 type;
+	u32 len;
+	u64 min;
+	u64 max;
+	char name[CLRMGR_PROP_NAME_MAX];
+	bool (*set_property)(void *, const struct clrmgr_regd_prop *,
+						const struct lut_info *);
+};
+
+enum clr_property_type {
+	clr_property_pipe = 0,
+	clr_property_plane
+};
+
+/* Request to register property */
+struct clrmgr_reg_request {
+	u32 no_of_properties;
+	struct clrmgr_property cp[CLRMGR_PROP_MAX];
+};
+
+/* Status of color properties on pipe at any time */
+struct clrmgr_status {
+	u32 no_of_properties;
+	struct clrmgr_regd_prop *cp[CLRMGR_PROP_MAX];
+};
 /* Required for sysfs entry calls */
 extern u32 csc_softlut[CSC_MAX_COEFF_COUNT];
 extern u32 gamma_softlut[GAMMA_CORRECT_MAX_COUNT];
@@ -96,6 +198,16 @@ int do_intel_enable_csc(struct drm_device *dev, void *data,
 				struct drm_crtc *crtc);
 void do_intel_disable_csc(struct drm_device *dev, struct drm_crtc *crtc);
 int intel_crtc_enable_gamma(struct drm_crtc *crtc, u32 identifier);
+
+bool intel_clrmgr_set_cgm_csc(void *crtc,
+				const struct clrmgr_regd_prop *cgm_csc,
+				const struct lut_info *info);
+bool intel_clrmgr_set_cgm_gamma(void *crtc,
+				const struct clrmgr_regd_prop *cgm_gamma,
+				const struct lut_info *info);
+bool intel_clrmgr_set_cgm_degamma(void *crtc,
+				const struct clrmgr_regd_prop *cgm_gamma,
+				const struct lut_info *info);
 int intel_crtc_disable_gamma(struct drm_crtc *crtc, u32 identifier);
 int intel_sprite_cb_adjust(struct drm_i915_private *dev_priv,
 		struct cont_brightlut *cb_ptr);
@@ -103,4 +215,55 @@ int intel_sprite_hs_adjust(struct drm_i915_private *dev_priv,
 		struct hue_saturationlut *hs_ptr);
 void intel_save_clr_mgr_status(struct drm_device *dev);
 bool intel_restore_clr_mgr_status(struct drm_device *dev);
+
+/*
+ * intel_clrmgr_set_property
+ * Set the value of a DRM color correction property
+ * and program the corresponding registers
+ * Inputs:
+ *  - intel_crtc *
+ *  - color manager registered property * which encapsulates
+ *    drm_property and additional data.
+ * - value is a pointer to the lut information.
+ */
+bool intel_clrmgr_set_pipe_property(struct intel_crtc *intel_crtc,
+		struct clrmgr_regd_prop *cp, uint64_t value);
+bool intel_clrmgr_register_pipe_property(struct intel_crtc *intel_crtc,
+		struct clrmgr_reg_request *features);
+
+/*
+ * intel_attach_pipe_color_correction:
+ * register color correction properties as DRM CRTC properties
+ * input:
+ * - intel_crtc : CRTC to attach color correcection with
+ */
+void
+intel_attach_pipe_color_correction(struct intel_crtc *intel_crtc);
+
+/*
+ * intel_clrmgr_deregister
+ * De register color manager properties
+ * destroy the DRM property and cleanup
+ * input:
+ * - struct drm device *dev
+ * - status: attached colot status
+ */
+void intel_clrmgr_deregister(struct drm_device *dev,
+	struct clrmgr_status *status);
+
+/*
+ * intel_clrmgr_init:
+ * allocate memory to save color correction
+ * status per pipe
+ * input: struct drm_device
+ */
+struct clrmgr_status *intel_clrmgr_init(struct drm_device *dev);
+
+/*
+ * intel_clrmgr_exit
+ * Free allocated memory for color status
+ * Should be called from CRTC/Plane .destroy function
+ * input: color status
+ */
+void intel_clrmgr_exit(struct drm_device *dev, struct clrmgr_status *status);
 #endif
