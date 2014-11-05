@@ -18,3 +18,9 @@
 	compatible = "qcom,apq8094";
 	qcom,msm-id = <253 0x20000>;
 };
+
+&soc {
+	qcom,rmnet-ipa {
+		status = "disabled";
+	};
+};
