@@ -1587,6 +1587,7 @@
 		qcom,vdd-voltage-level = <1 2 3 5 7>;
 		qcom,usb2-power-budget = <500>;
 		usb-phy = <&qusb_phy>;
+		qcom,pm-qos-latency = <30001>;
 
 		clocks = <&clock_gcc clk_gcc_usb_hs_system_clk>,
 			 <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
