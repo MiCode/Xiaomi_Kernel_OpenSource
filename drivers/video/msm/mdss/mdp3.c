@@ -605,7 +605,7 @@ void mdp3_bus_bw_iommu_enable(int enable, int client)
 	struct mdp3_bus_handle_map *bus_handle;
 	int client_idx;
 	u64 ab = 0, ib = 0;
-	int ref_cnt, i;
+	int ref_cnt;
 
 	client_idx  = MDP3_BUS_HANDLE;
 
@@ -622,18 +622,21 @@ void mdp3_bus_bw_iommu_enable(int enable, int client)
 	ref_cnt = bus_handle->ref_cnt;
 	mutex_unlock(&mdp3_res->res_mutex);
 
-	if (enable && ref_cnt == 1) {
+	if (enable) {
 		if (mdp3_res->allow_iommu_update)
 			mdp3_iommu_enable();
-		for (i = 0; i < MDP3_CLIENT_MAX; i++) {
-			ab += bus_handle->restore_ab[i];
-			ib += bus_handle->restore_ib[i];
+		if (ref_cnt == 1) {
+			ab = bus_handle->restore_ab[client];
+			ib = bus_handle->restore_ib[client];
+			mdp3_bus_scale_set_quota(client, ab, ib);
 		}
-		mdp3_bus_scale_set_quota(client, ab, ib);
-	} else if (!enable && ref_cnt == 0) {
-		mdp3_bus_scale_set_quota(client, 0, 0);
+	} else {
+		if (ref_cnt == 0)
+			mdp3_bus_scale_set_quota(client, 0, 0);
 		mdp3_iommu_disable();
-	} else if (ref_cnt < 0) {
+	}
+
+	if (ref_cnt < 0) {
 		pr_err("Ref count < 0, bus client=%d, ref_cnt=%d",
 				client_idx, ref_cnt);
 	}
@@ -1499,38 +1502,96 @@ u32 mdp3_fb_stride(u32 fb_index, u32 xres, int bpp)
 		return xres * bpp;
 }
 
+__ref int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd)
+{
+	struct platform_device *pdev = mfd->pdev;
+	int len = 0, rc = 0;
+	u32 offsets[2];
+	struct device_node *pnode, *child_node;
+
+	mfd->splash_info.splash_logo_enabled =
+				of_property_read_bool(pdev->dev.of_node,
+				"qcom,mdss-fb-splash-logo-enabled");
+
+	of_find_property(pdev->dev.of_node, "qcom,memblock-reserve", &len);
+	if (len) {
+		len = len / sizeof(u32);
+
+		rc = of_property_read_u32_array(pdev->dev.of_node,
+			"qcom,memblock-reserve", offsets, len);
+		if (rc) {
+			pr_err("error reading mem reserve settings for fb\n");
+			goto error;
+		}
+	} else {
+		child_node = of_get_child_by_name(pdev->dev.of_node,
+					"qcom,cont-splash-memory");
+		if (!child_node) {
+			pr_err("splash mem child node is not present\n");
+			rc = -EINVAL;
+			goto error;
+		}
+
+		pnode = of_parse_phandle(child_node, "linux,contiguous-region",
+					0);
+		if (pnode != NULL) {
+			const u32 *addr;
+			u64 size;
+			addr = of_get_address(pnode, 0, &size, NULL);
+			if (!addr) {
+				pr_err("failed to parse the splash memory address\n");
+				of_node_put(pnode);
+				rc = -EINVAL;
+				goto error;
+			}
+			offsets[0] = (u32) of_read_ulong(addr, 2);
+			offsets[1] = (u32) size;
+			of_node_put(pnode);
+		} else {
+			pr_err("mem reservation for splash screen fb not present\n");
+			rc = -EINVAL;
+			goto error;
+		}
+	}
+
+	if (!memblock_is_reserved(offsets[0])) {
+		pr_debug("failed to reserve memory for fb splash\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	mfd->fbi->fix.smem_start = offsets[0];
+	mfd->fbi->fix.smem_len = offsets[1];
+	mdp3_res->splash_mem_addr = mfd->fbi->fix.smem_start;
+	mdp3_res->splash_mem_size = mfd->fbi->fix.smem_len;
+
+error:
+	if (rc && mfd->panel_info->cont_splash_enabled)
+		pr_err("no rsvd mem found in DT for splash screen\n");
+	else
+		rc = 0;
+
+	return rc;
+}
+
 static int mdp3_alloc(struct msm_fb_data_type *mfd)
 {
 	int ret;
 	int dom;
 	void *virt;
 	unsigned long phys;
-	u32 offsets[2];
 	size_t size;
-	struct platform_device *pdev = mfd->pdev;
 
 	mfd->fbi->screen_base = NULL;
 	mfd->fbi->fix.smem_start = 0;
 	mfd->fbi->fix.smem_len = 0;
 
-	ret = of_property_read_u32_array(pdev->dev.of_node,
-				"qcom,memblock-reserve", offsets, 2);
+	mdp3_parse_dt_splash(mfd);
 
-	if (ret) {
-		pr_err("fail to parse splash memory address\n");
-		return ret;
-	}
-
-	phys = offsets[0];
-	size = PAGE_ALIGN(mfd->fbi->fix.line_length *
-		mfd->fbi->var.yres_virtual);
-
-	if (size > offsets[1]) {
-		pr_err("reserved splash memory size too small\n");
-		return -EINVAL;
-	}
-
-	virt = phys_to_virt(phys);
+	size = mfd->fbi->fix.smem_len;
+	phys = mfd->fbi->fix.smem_start;
+	pr_debug("Reserverd memory addr %lu size %zu\n", phys, size);
+	virt = phys_to_virt(mfd->fbi->fix.smem_start);
 	if (unlikely(!virt)) {
 		pr_err("unable to map in splash memory\n");
 		return -ENOMEM;
@@ -1548,8 +1609,6 @@ static int mdp3_alloc(struct msm_fb_data_type *mfd)
 		size, virt, phys, mfd->index);
 
 	mfd->fbi->screen_base = virt;
-	mfd->fbi->fix.smem_start = phys;
-	mfd->fbi->fix.smem_len = size;
 
 	return 0;
 }
@@ -1572,32 +1631,6 @@ void mdp3_free(struct msm_fb_data_type *mfd)
 	mfd->fbi->fix.smem_start = 0;
 	mfd->fbi->fix.smem_len = 0;
 	mfd->iova = 0;
-}
-
-int mdp3_parse_dt_splash(struct msm_fb_data_type *mfd)
-{
-	struct platform_device *pdev = mfd->pdev;
-	int rc;
-	u32 offsets[2];
-
-	rc = of_property_read_u32_array(pdev->dev.of_node,
-				"qcom,memblock-reserve", offsets, 2);
-
-	if (rc) {
-		pr_err("fail to get memblock-reserve property\n");
-		return rc;
-	}
-
-	if (mdp3_res->splash_mem_addr != offsets[0])
-		rc = -EINVAL;
-
-	mdp3_res->splash_mem_addr = offsets[0];
-	mdp3_res->splash_mem_size = offsets[1];
-
-	pr_debug("memaddr=%lx size=%x\n", mdp3_res->splash_mem_addr,
-		mdp3_res->splash_mem_size);
-
-	return rc;
 }
 
 void mdp3_release_splash_memory(struct msm_fb_data_type *mfd)
@@ -1701,7 +1734,7 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
-	ab = panel_info->xres * panel_info->yres * 4;
+	ab = panel_info->xres * panel_info->yres * 4 * 2;
 	ab *= panel_info->mipi.frame_rate;
 	ib = (ab * 3) / 2;
 	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_DMA_P, ab, ib);
@@ -1718,15 +1751,6 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 	if (rc) {
 		pr_err("ppp init failed\n");
 		goto splash_on_err;
-	}
-
-	if (pdata->event_handler) {
-		rc = pdata->event_handler(pdata, MDSS_EVENT_CONT_SPLASH_BEGIN,
-					NULL);
-		if (rc) {
-			pr_err("MDSS_EVENT_CONT_SPLASH_BEGIN event fail\n");
-			goto splash_on_err;
-		}
 	}
 
 	if (panel_info->type == MIPI_VIDEO_PANEL)
