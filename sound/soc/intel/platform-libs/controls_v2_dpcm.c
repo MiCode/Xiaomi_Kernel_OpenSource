@@ -2441,13 +2441,13 @@ static int sst_copy_gain_control(struct snd_soc_platform *platform,
 	sm->pvt_data_len = sizeof(*mc_pvt);
 	return 0;
 }
-int sst_fw_kcontrol_find_io(struct snd_soc_platform *platform,
+static int sst_fw_kcontrol_find_io(struct snd_soc_platform *platform,
 		u32 io_type, const struct snd_soc_fw_kcontrol_ops *ops,
 		int num_ops, unsigned long sm, unsigned long mc)
 {
 	int i;
 
-	pr_info("number of ops = %d %x io_type\n", num_ops, io_type);
+	pr_debug("number of ops = %d %x io_type\n", num_ops, io_type);
 	for (i = 0; i < num_ops; i++) {
 		if ((SOC_CONTROL_GET_ID_PUT(ops[i].id) ==
 			SOC_CONTROL_GET_ID_PUT(io_type) && ops[i].put)

@@ -17,8 +17,6 @@
  *  data is passed to component drivers for bespoke handling.
  */
 
-#define DEBUG
-
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/list.h>
