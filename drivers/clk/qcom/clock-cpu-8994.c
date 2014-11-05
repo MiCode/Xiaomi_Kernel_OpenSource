@@ -1191,6 +1191,9 @@ static int cpu_clock_8994_resources_init(struct platform_device *pdev)
 	}
 	sys_apcsaux_clk.c.parent = c;
 
+	vdd_a53.use_max_uV = true;
+	vdd_cci.use_max_uV = true;
+
 	return 0;
 }
 
