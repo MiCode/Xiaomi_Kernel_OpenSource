@@ -26,7 +26,6 @@
 
 #include "u_bam_data.h"
 
-#define BAM2BAM_DATA_N_PORTS	1
 #define BAM_DATA_RX_Q_SIZE	128
 #define BAM_DATA_MUX_RX_REQ_SIZE  2048   /* Must be 1KB aligned */
 #define BAM_DATA_PENDING_LIMIT	220
@@ -1270,6 +1269,16 @@ out:
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
+inline int u_bam_data_func_to_port(enum function_type func, u8 func_port)
+{
+	if (func >= USB_NUM_FUNCS || func_port >= PORTS_PER_FUNC) {
+		pr_err("func=%d and func_port=%d are an illegal combination\n",
+			func, func_port);
+		return -EINVAL;
+	}
+	return (PORTS_PER_FUNC * func) + func_port;
+}
+
 static int bam2bam_data_port_alloc(int portno)
 {
 	struct bam_data_port    *port = NULL;
@@ -1671,21 +1680,23 @@ exit:
 	return ret;
 }
 
-int bam_data_setup(unsigned int no_bam2bam_port)
+int bam_data_setup(enum function_type func, unsigned int no_bam2bam_port)
 {
 	int	i;
 	int	ret;
 
 	pr_debug("requested %d BAM2BAM ports", no_bam2bam_port);
 
-	if (!no_bam2bam_port || no_bam2bam_port > BAM2BAM_DATA_N_PORTS) {
-		pr_err("Invalid num of ports count:%d\n", no_bam2bam_port);
+	if (!no_bam2bam_port || no_bam2bam_port > PORTS_PER_FUNC ||
+		func >= USB_NUM_FUNCS) {
+		pr_err("Invalid num of ports count:%d or function type:%d\n",
+			no_bam2bam_port, func);
 		return -EINVAL;
 	}
 
 	for (i = 0; i < no_bam2bam_port; i++) {
 		n_bam2bam_data_ports++;
-		ret = bam2bam_data_port_alloc(i);
+		ret = bam2bam_data_port_alloc(u_bam_data_func_to_port(func, i));
 		if (ret) {
 			n_bam2bam_data_ports--;
 			pr_err("Failed to alloc port:%d\n", i);
