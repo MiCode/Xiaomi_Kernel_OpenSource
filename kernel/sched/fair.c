@@ -3343,6 +3343,11 @@ static inline int nr_big_tasks(struct rq *rq)
 
 #define sched_enable_power_aware 0
 
+static inline int task_will_fit(struct task_struct *p, int cpu)
+{
+	return 1;
+}
+
 static inline int select_best_cpu(struct task_struct *p, int target, int reason)
 {
 	return 0;
@@ -6394,6 +6399,8 @@ struct lb_env {
 	long			imbalance;
 	/* The set of CPUs under consideration for load-balancing */
 	struct cpumask		*cpus;
+	unsigned int		busiest_grp_capacity;
+	unsigned int		busiest_nr_running;
 
 	unsigned int		flags;
 
@@ -6555,6 +6562,10 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		return 0;
 
 	if (env->flags & LBF_IGNORE_SMALL_TASKS && is_small_task(p))
+		return 0;
+
+	if (!task_will_fit(p, env->dst_cpu) &&
+			env->busiest_nr_running <= env->busiest_grp_capacity)
 		return 0;
 
 	if (!cpumask_test_cpu(env->dst_cpu, tsk_cpus_allowed(p))) {
@@ -7540,6 +7551,8 @@ static inline void update_sd_lb_stats(struct lb_env *env, struct sd_lb_stats *sd
 		if (update_sd_pick_busiest(env, sds, sg, sgs)) {
 			sds->busiest = sg;
 			sds->busiest_stat = *sgs;
+			env->busiest_nr_running = sgs->sum_nr_running;
+			env->busiest_grp_capacity = sgs->group_capacity;
 		}
 
 next_group:
@@ -8056,6 +8069,8 @@ static int load_balance(int this_cpu, struct rq *this_rq,
 		.imbalance	= 0,
 		.flags		= 0,
 		.loop		= 0,
+		.busiest_nr_running     = 0,
+		.busiest_grp_capacity   = 0,
 	};
 
 	/*
@@ -8505,14 +8520,16 @@ static int active_load_balance_cpu_stop(void *data)
 	struct task_struct *push_task;
 	int push_task_detached = 0;
 	struct lb_env env = {
-		.sd		= sd,
-		.dst_cpu	= target_cpu,
-		.dst_rq		= target_rq,
-		.src_cpu	= busiest_rq->cpu,
-		.src_rq		= busiest_rq,
-		.idle		= CPU_IDLE,
-		.flags		= 0,
-		.loop		= 0,
+		.sd			= sd,
+		.dst_cpu		= target_cpu,
+		.dst_rq			= target_rq,
+		.src_cpu		= busiest_rq->cpu,
+		.src_rq			= busiest_rq,
+		.idle			= CPU_IDLE,
+		.busiest_nr_running 	= 0,
+		.busiest_grp_capacity 	= 0,
+		.flags			= 0,
+		.loop			= 0,
 	};
 	bool moved = false;
 
