@@ -36,10 +36,6 @@
 #define stm_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define stm_readl(drvdata, off)		__raw_readl(drvdata->base + off)
 
-#define stm_data_writeb(val, addr)	__raw_writeb_no_log(val, addr)
-#define stm_data_writew(val, addr)	__raw_writew_no_log(val, addr)
-#define stm_data_writel(val, addr)	__raw_writel_no_log(val, addr)
-
 #define STM_LOCK(drvdata)						\
 do {									\
 	mb();								\
@@ -141,9 +137,34 @@ struct stm_drvdata {
 	bool			enable;
 	DECLARE_BITMAP(entities, OST_ENTITY_MAX);
 	bool			write_64bit;
+	bool			data_barrier;
 };
 
 static struct stm_drvdata *stmdrvdata;
+
+static inline void stm_data_writeb(uint8_t val, void *addr)
+{
+	__raw_writeb_no_log(val, addr);
+	if (stmdrvdata->data_barrier)
+		/* Helps avoid large number of outstanding writes */
+		mb();
+}
+
+static inline void stm_data_writew(uint16_t val, void *addr)
+{
+	__raw_writew_no_log(val, addr);
+	if (stmdrvdata->data_barrier)
+		/* Helps avoid large number of outstanding writes */
+		mb();
+}
+
+static inline void stm_data_writel(uint32_t val, void *addr)
+{
+	__raw_writel_no_log(val, addr);
+	if (stmdrvdata->data_barrier)
+		/* Helps avoid large number of outstanding writes */
+		mb();
+}
 
 static int stm_hwevent_isenable(struct stm_drvdata *drvdata)
 {
@@ -868,9 +889,12 @@ static int stm_probe(struct platform_device *pdev)
 
 	bitmap_fill(drvdata->entities, OST_ENTITY_MAX);
 
-	if (pdev->dev.of_node)
+	if (pdev->dev.of_node) {
 		drvdata->write_64bit = of_property_read_bool(pdev->dev.of_node,
 							"qcom,write-64bit");
+		drvdata->data_barrier = of_property_read_bool(pdev->dev.of_node,
+							"qcom,data-barrier");
+	}
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
