@@ -39,6 +39,8 @@
 /* Support for first 5 EDID blocks */
 #define MAX_EDID_BLOCK_SIZE (0x80 * 5)
 
+#define MAX_EDID_READ_RETRY	5
+
 #define BUFF_SIZE_3D 128
 
 #define DTD_MAX			0x04
@@ -373,7 +375,7 @@ static int hdmi_edid_read_block(struct hdmi_edid_ctrl *edid_ctrl, int block,
 	u32 ndx, check_sum, print_len;
 	int block_size;
 	int i, status;
-	int retry_cnt = 0;
+	int retry_cnt = 0, checksum_retry = 0;
 	struct hdmi_tx_ddc_data ddc_data;
 	b = edid_buf;
 
@@ -411,8 +413,8 @@ read_retry:
 			if (status)
 				break;
 		}
-
-		block_size /= 2;
+		if (retry_cnt++ >= MAX_EDID_READ_RETRY)
+			block_size /= 2;
 	} while (status && (block_size >= 16));
 
 	if (status)
@@ -431,8 +433,9 @@ read_retry:
 				ndx, ndx+3,
 				b[ndx+0], b[ndx+1], b[ndx+2], b[ndx+3]);
 		status = -EPROTO;
-		if (retry_cnt++ < 3) {
-			DEV_DBG("Retrying reading EDID %d time\n", retry_cnt);
+		if (checksum_retry++ < 3) {
+			DEV_DBG("Retrying reading EDID %d time\n",
+							checksum_retry);
 			goto read_retry;
 		}
 		goto error;
