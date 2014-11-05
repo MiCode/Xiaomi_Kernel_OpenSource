@@ -1,5 +1,5 @@
 /*
-*Copyright (c) 2014, The Linux Foundation. All rights reserved.
+*Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
 *
 *This program is free software; you can redistribute it and/or modify
 *it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,8 @@
 #define DEVFREQ_SPDM_H
 
 #include <linux/list.h>
+#include <soc/qcom/hvc.h>
+#include <soc/qcom/scm.h>
 
 enum pl_levels { SPDM_PL1, SPDM_PL2, SPDM_PL3, SPDM_PL_COUNT };
 enum actions { SPDM_UP, SPDM_DOWN };
@@ -83,7 +85,9 @@ extern void spdm_init_debugfs(struct device *dev);
 extern void spdm_remove_debugfs(struct spdm_data *data);
 
 #define SPDM_HYP_FNID 5
-/* CMD ID's for hypervisor */
+#define SPDM_SCM_SVC_ID 0x9
+#define SPDM_SCM_CMD_ID 0x4
+/* SPDM CMD ID's for hypervisor/SCM */
 #define SPDM_CMD_GET_BW_ALL 1
 #define SPDM_CMD_GET_BW_SPECIFIC 2
 #define SPDM_CMD_ENABLE 3
@@ -103,7 +107,20 @@ extern void spdm_remove_debugfs(struct spdm_data *data);
 #define SPDM_CMD_CFG_MAXCCI 17
 #define SPDM_CMD_CFG_VOTES 18
 
-extern int __spdm_hyp_call(u64 func_id, struct hvc_desc *desc);
-#define spdm_ext_call	__spdm_hyp_call
+#define SPDM_MAX_ARGS 6
+#define SPDM_MAX_RETS 3
 
+struct spdm_args {
+	u64 arg[SPDM_MAX_ARGS];
+	u64 ret[SPDM_MAX_RETS];
+};
+
+extern int __spdm_hyp_call(struct spdm_args *args, int num_args);
+extern int __spdm_scm_call(struct spdm_args *args, int num_args);
+
+#ifdef CONFIG_SPDM_SCM
+#define spdm_ext_call __spdm_scm_call
+#else
+#define spdm_ext_call __spdm_hyp_call
+#endif
 #endif
