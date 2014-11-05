@@ -1521,7 +1521,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	 * to return an error and force fallback strategy. Instead change
 	 * the ROI to be full screen and continue with the update.
 	 */
-	if (data) {
+	if (data && ctl->panel_data->panel_info.partial_update_enabled) {
 		struct mdss_rect ctl_roi;
 		struct mdp_rect *in_roi;
 		skip_partial_update = false;
