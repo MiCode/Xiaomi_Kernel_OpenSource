@@ -79,6 +79,8 @@ struct f_acm {
 	char ctrl_string_buf[ACM_MAX_STRING_DESC_LENGTH];
 	char data_string_buf[ACM_MAX_STRING_DESC_LENGTH];
 	char iad_string_buf[ACM_MAX_STRING_DESC_LENGTH];
+	u8 iad_proto;
+	u8 ctrl_intf_proto;
 };
 
 struct acm_sysfs_entry {
@@ -103,9 +105,30 @@ _field ## _store(struct f_acm *acm, const char *buf, size_t size)	\
 static struct acm_sysfs_entry acm_attr_##_field =			\
 	__ATTR(_field, S_IRUGO | S_IWUSR, _field ## _show, _field ## _store);
 
+#define DESCRIPTOR_ATTR(_field, _variable, _format_string)		\
+static ssize_t								\
+_field ## _show(struct f_acm *acm, char *buf)				\
+{									\
+	return sprintf(buf, _format_string, acm->_variable);		\
+}									\
+static ssize_t								\
+_field ## _store(struct f_acm *acm, const char *buf, size_t size)	\
+{									\
+	int value;							\
+	if (sscanf(buf, _format_string, &value) == 1) {			\
+		acm->_variable = value;					\
+		return size;						\
+	}								\
+	return -1;							\
+}									\
+static struct acm_sysfs_entry acm_attr_##_field =			\
+	__ATTR(_field, S_IRUGO | S_IWUSR, _field ## _show, _field ## _store);
+
 DESCRIPTOR_STRING_ATTR(ctrl_string, ctrl_string_buf)
 DESCRIPTOR_STRING_ATTR(data_string, data_string_buf)
 DESCRIPTOR_STRING_ATTR(iad_string, iad_string_buf)
+DESCRIPTOR_ATTR(iad_bFunctionProtocol, iad_proto, "%d\n")
+DESCRIPTOR_ATTR(ctrl_bInterfaceProtocol, ctrl_intf_proto, "%d\n")
 
 static ssize_t
 acm_default_show(struct kobject *kobj, struct attribute *attr, char *buf)
@@ -146,6 +169,8 @@ static struct attribute *acm_sysfs_attrs[] = {
 	&acm_attr_ctrl_string.attr,
 	&acm_attr_data_string.attr,
 	&acm_attr_iad_string.attr,
+	&acm_attr_iad_bFunctionProtocol.attr,
+	&acm_attr_ctrl_bInterfaceProtocol.attr,
 	NULL
 };
 
@@ -182,7 +207,7 @@ acm_iad_descriptor = {
 	.bInterfaceCount = 	2,	// control + data
 	.bFunctionClass =	USB_CLASS_COMM,
 	.bFunctionSubClass =	USB_CDC_SUBCLASS_ACM,
-	.bFunctionProtocol =	USB_CDC_ACM_PROTO_AT_V25TER,
+	/* .bFunctionProtocol =	DYNAMIC, */
 	/* .iFunction =		DYNAMIC */
 };
 
@@ -194,7 +219,7 @@ static struct usb_interface_descriptor acm_control_interface_desc = {
 	.bNumEndpoints =	1,
 	.bInterfaceClass =	USB_CLASS_COMM,
 	.bInterfaceSubClass =	USB_CDC_SUBCLASS_ACM,
-	.bInterfaceProtocol =	USB_CDC_ACM_PROTO_AT_V25TER,
+	/* .bInterfaceProtocol = DYNAMIC, */
 	/* .iInterface = DYNAMIC */
 };
 
@@ -700,6 +725,9 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 	acm_data_interface_desc.iInterface = us[ACM_DATA_IDX].id;
 	acm_iad_descriptor.iFunction = us[ACM_IAD_IDX].id;
 
+	acm_iad_descriptor.bFunctionProtocol = acm->iad_proto;
+	acm_control_interface_desc.bInterfaceProtocol = acm->ctrl_intf_proto;
+
 	/* allocate instance-specific interface IDs, and patch descriptors */
 	status = usb_interface_id(c, f);
 	if (status < 0)
@@ -840,10 +868,12 @@ static struct usb_function *acm_alloc_func(struct usb_function_instance *fi)
 	acm->port.func.unbind = acm_unbind;
 	acm->port.func.free_func = acm_free_func;
 
-	/* Initialize default strings */
+	/* Initialize sysfs defaults */
 	strcpy(acm->ctrl_string_buf, "CDC Abstract Control Model (ACM)");
 	strcpy(acm->data_string_buf, "CDC ACM Data");
 	strcpy(acm->iad_string_buf, "CDC Serial");
+	acm->iad_proto = USB_CDC_ACM_PROTO_AT_V25TER;
+	acm->ctrl_intf_proto = USB_CDC_ACM_PROTO_AT_V25TER;
 
 	WARN_ON_ONCE(!fi->fd->parent);
 	ret = kobject_init_and_add(&acm->kobj, &acm_type, fi->fd->parent,
