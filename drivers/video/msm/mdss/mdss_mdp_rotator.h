@@ -21,7 +21,6 @@
 
 struct mdss_mdp_rotator_session {
 	u32 session_id;
-	u32 ref_cnt;
 	u32 params_changed;
 	int pid;
 
@@ -36,7 +35,6 @@ struct mdss_mdp_rotator_session {
 	u32 dnsc_factor_h;
 
 	u32 bwc_mode;
-	struct mdss_mdp_pipe *pipe;
 
 	struct mutex lock;
 	u8 busy;
@@ -48,7 +46,6 @@ struct mdss_mdp_rotator_session {
 	bool use_sync_pt;
 	struct list_head head;
 	struct list_head list;
-	struct mdss_mdp_rotator_session *next;
 	struct msm_sync_pt_data *rot_sync_pt_data;
 	struct work_struct commit_work;
 };
@@ -92,4 +89,7 @@ struct msm_sync_pt_data *mdss_mdp_rotator_sync_pt_get(
 int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 			    struct msmfb_overlay_data *req);
 int mdss_mdp_rotator_unset(int ndx);
+
+int mdss_mdp_rot_mgr_init(void);
+
 #endif /* MDSS_MDP_ROTATOR_H */
