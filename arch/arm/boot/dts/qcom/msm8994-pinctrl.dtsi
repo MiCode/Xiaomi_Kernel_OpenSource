@@ -133,6 +133,31 @@
 			};
 		};
 
+		mhl_intr: mhl_intr {
+			qcom,pins = <&gp 57>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "mhl_intr";
+
+			mhl_intr_active: mhl_intr_active {
+				bias-pull-up;
+				input-enable;
+			};
+		};
+
+		mhl_reset: mhl_reset {
+			qcom,pins = <&gp 58>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "mhl_reset";
+
+			mhl_reset_active: mhl_reset_active {
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+
 		spi_0_active {
 			/* MOSI, MISO, CLK */
 			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
