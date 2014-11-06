@@ -798,6 +798,7 @@ static struct rcg_clk ocmemnoc_clk_src = {
 
 static struct clk_freq_tbl ftbl_cci_clk_src[] = {
 	F_MM(  19200000,        mmsscc_xo,    1,    0,     0),
+	F_MM(  37500000,     mmsscc_gpll0,   16,    0,     0),
 	F_MM(  50000000,     mmsscc_gpll0,   12,    0,     0),
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
 	F_END
