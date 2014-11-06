@@ -1,6 +1,8 @@
 config MSM_CAMERA_SENSOR
 	    bool "Qualcomm MSM camera sensor support"
 	    depends on MSMB_CAMERA
+	    select NEW_LEDS
+	    select LEDS_CLASS
         ---help---
           This flag enables support for Camera Sensor.
           The sensor driver is capable of providing real time
