@@ -193,6 +193,7 @@ enum mdss_mdp_wb_ctl_type {
 
 enum mdss_mdp_bw_vote_mode {
 	MDSS_MDP_BW_MODE_SINGLE_LAYER,
+	MDSS_MDP_BW_MODE_SINGLE_IF,
 	MDSS_MDP_BW_MODE_MAX
 };
 
@@ -201,6 +202,27 @@ enum mdp_wb_blk_caps {
 	MDSS_MDP_WB_ROTATOR = BIT(1),
 	MDSS_MDP_WB_INTF = BIT(2),
 	MDSS_MDP_WB_UBWC = BIT(3),
+};
+
+/**
+ * enum perf_calc_vote_mode - enum to decide if mdss_mdp_get_bw_vote_mode
+ *		function needs an extra efficiency factor.
+ *
+ * @PERF_CALC_VOTE_MODE_PER_PIPE: used to check if efficiency factor is needed
+ *		based on the pipe properties.
+ * @PERF_CALC_VOTE_MODE_CTL: used to check if efficiency factor is needed based
+ *		on the controller properties.
+ * @PERF_CALC_VOTE_MODE_MAX: used to check if efficiency factor is need to vote
+ *		max MDP bandwidth.
+ *
+ * Depending upon the properties of each specific object (determined
+ * by this enum), driver decides if the mode to vote needs an
+ * extra factor.
+ */
+enum perf_calc_vote_mode {
+	PERF_CALC_VOTE_MODE_PER_PIPE,
+	PERF_CALC_VOTE_MODE_CTL,
+	PERF_CALC_VOTE_MODE_MAX,
 };
 
 struct mdss_mdp_perf_params {

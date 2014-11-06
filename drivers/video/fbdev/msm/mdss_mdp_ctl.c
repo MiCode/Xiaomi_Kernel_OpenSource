@@ -475,22 +475,33 @@ u32 mdss_mdp_perf_calc_smp_size(struct mdss_mdp_pipe *pipe,
 	return smp_bytes;
 }
 
-static void mdss_mdp_get_bw_vote_mode(struct mdss_mdp_mixer *mixer,
-	u32 mdp_rev, struct mdss_mdp_perf_params *perf, u32 flags)
+static void mdss_mdp_get_bw_vote_mode(void *data,
+	u32 mdp_rev, struct mdss_mdp_perf_params *perf,
+	enum perf_calc_vote_mode calc_mode, u32 flags)
 {
-	bitmap_zero(perf->bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
-	if (!mixer)
+	if (!data)
 		goto exit;
 
 	switch (mdp_rev) {
 	case MDSS_MDP_HW_REV_105:
 	case MDSS_MDP_HW_REV_109:
-		if ((flags & PERF_CALC_PIPE_SINGLE_LAYER) &&
-			!mixer->rotator_mode &&
-			(mixer->type == MDSS_MDP_MIXER_TYPE_INTF)) {
-				set_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
-					perf->bw_vote_mode);
+		if (calc_mode == PERF_CALC_VOTE_MODE_PER_PIPE) {
+			struct mdss_mdp_mixer *mixer =
+				(struct mdss_mdp_mixer *)data;
+
+			if ((flags & PERF_CALC_PIPE_SINGLE_LAYER) &&
+				!mixer->rotator_mode &&
+				(mixer->type == MDSS_MDP_MIXER_TYPE_INTF))
+					set_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
+						perf->bw_vote_mode);
+		} else if (calc_mode == PERF_CALC_VOTE_MODE_CTL) {
+			struct mdss_mdp_ctl *ctl = (struct mdss_mdp_ctl *)data;
+
+			if (ctl->is_video_mode &&
+				(ctl->mfd->split_mode == MDP_SPLIT_MODE_NONE))
+					set_bit(MDSS_MDP_BW_MODE_SINGLE_IF,
+						perf->bw_vote_mode);
 		}
 		break;
 	default:
@@ -816,7 +827,8 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.is_bwc = mdss_mdp_is_ubwc_format(pipe->src_fmt);
 	prefill_params.is_nv12 = mdss_mdp_is_nv12_format(pipe->src_fmt);
 
-	mdss_mdp_get_bw_vote_mode(mixer, mdata->mdp_rev, perf, flags);
+	mdss_mdp_get_bw_vote_mode(mixer, mdata->mdp_rev, perf,
+		PERF_CALC_VOTE_MODE_PER_PIPE, flags);
 
 	if (flags & PERF_CALC_PIPE_SINGLE_LAYER)
 		perf->prefill_bytes =
@@ -1681,6 +1693,9 @@ static u64 mdss_mdp_ctl_calc_client_vote(struct mdss_data_type *mdata,
 	int i;
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_mixer *mixer;
+	struct mdss_mdp_perf_params perf_temp;
+
+	bitmap_zero(perf_temp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
 	for (i = 0; i < mdata->nctl; i++) {
 		ctl = mdata->ctl_off + i;
@@ -1702,11 +1717,13 @@ static u64 mdss_mdp_ctl_calc_client_vote(struct mdss_data_type *mdata,
 				mdss_mdp_ctl_perf_update_traffic_shaper_bw
 					(ctl, mdp_clk);
 
-			if (ctl->cur_perf.bw_vote_mode)
-				bitmap_or(perf->bw_vote_mode,
-					perf->bw_vote_mode,
-					ctl->cur_perf.bw_vote_mode,
-					MDSS_MDP_BW_MODE_MAX);
+			mdss_mdp_get_bw_vote_mode(ctl, mdata->mdp_rev,
+				&perf_temp, PERF_CALC_VOTE_MODE_CTL, 0);
+
+			bitmap_or(perf_temp.bw_vote_mode,
+				perf_temp.bw_vote_mode,
+				ctl->cur_perf.bw_vote_mode,
+				MDSS_MDP_BW_MODE_MAX);
 
 			if (nrt_client && ctl->mixer_left &&
 				!ctl->mixer_left->rotator_mode) {
