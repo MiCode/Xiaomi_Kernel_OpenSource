@@ -1667,7 +1667,6 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 			spin_unlock_irqrestore(&dev->event_lock, flags);
 			kfree(work);
 			drm_vblank_put(dev, intel_crtc->pipe);
-			intel_crtc->sprite_unpin_work = NULL;
 			DRM_ERROR("flip queue: crtc already busy\n");
 			return -EBUSY;
 		}
