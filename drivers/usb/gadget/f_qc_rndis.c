@@ -827,6 +827,14 @@ static void rndis_qc_suspend(struct usb_function *f)
 	if (remote_wakeup_allowed) {
 		bam_data_suspend(RNDIS_QC_ACTIVE_PORT);
 	} else {
+		/* This is required as Linux host side RNDIS driver doesn't
+		 * send RNDIS_MESSAGE_PACKET_FILTER before suspending USB bus.
+		 * Hence we perform same operations explicitly here for Linux
+		 * host case. In case of windows, this RNDIS state machine is
+		 * already updated due to receiving of PACKET_FILTER.
+		 */
+		rndis_flow_control(rndis->config, true);
+
 		/*
 		 * When remote wakeup is disabled, IPA BAM is disconnected
 		 * because it cannot send new data until the USB bus is resumed.
@@ -874,6 +882,14 @@ static void rndis_qc_resume(struct usb_function *f)
 		rndis->bam_port.in->desc  = rndis->in_ep_desc_backup;
 		rndis->bam_port.out->desc = rndis->out_ep_desc_backup;
 		rndis_qc_bam_connect(rndis);
+		/*
+		 * Linux Host doesn't sends RNDIS_MSG_INIT or non-zero value
+		 * set with RNDIS_MESSAGE_PACKET_FILTER after performing bus
+		 * resume. Hence trigger USB IPA transfer functionality
+		 * explicitly here. For Windows host case is also being
+		 * handle with RNDIS state machine.
+		 */
+		rndis_flow_control(rndis->config, false);
 	}
 
 	pr_debug("%s: RNDIS resume completed\n", __func__);

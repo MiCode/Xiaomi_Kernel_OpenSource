@@ -228,5 +228,5 @@ extern void rndis_set_host_mac (int configNr, const u8 *addr);
 extern bool is_rndis_ipa_supported(void);
 int rndis_init(void);
 void rndis_exit (void);
-
+void rndis_flow_control(u8 confignr, bool enable_flow_control);
 #endif  /* _LINUX_RNDIS_H */
