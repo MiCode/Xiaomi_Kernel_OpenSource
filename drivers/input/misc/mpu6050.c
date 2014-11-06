@@ -286,13 +286,16 @@ static int mpu6050_power_ctl(struct mpu6050_sensor *sensor, bool on)
 			return rc;
 		}
 
-		rc = regulator_enable(sensor->vi2c);
-		if (rc) {
-			dev_err(&sensor->client->dev,
-				"Regulator vi2c enable failed rc=%d\n", rc);
-			regulator_disable(sensor->vlogic);
-			regulator_disable(sensor->vdd);
-			return rc;
+		if (!IS_ERR_OR_NULL(sensor->vi2c)) {
+			rc = regulator_enable(sensor->vi2c);
+			if (rc) {
+				dev_err(&sensor->client->dev,
+					"Regulator vi2c enable failed rc=%d\n",
+					rc);
+				regulator_disable(sensor->vlogic);
+				regulator_disable(sensor->vdd);
+				return rc;
+			}
 		}
 
 		if (gpio_is_valid(sensor->enable_gpio)) {
@@ -328,13 +331,16 @@ static int mpu6050_power_ctl(struct mpu6050_sensor *sensor, bool on)
 			return rc;
 		}
 
-		rc = regulator_disable(sensor->vi2c);
-		if (rc) {
-			dev_err(&sensor->client->dev,
-				"Regulator vi2c disable failed rc=%d\n", rc);
-			if (regulator_enable(sensor->vi2c) ||
-					regulator_enable(sensor->vdd))
-				return -EIO;
+		if (!IS_ERR_OR_NULL(sensor->vi2c)) {
+			rc = regulator_disable(sensor->vi2c);
+			if (rc) {
+				dev_err(&sensor->client->dev,
+					"Regulator vi2c disable failed rc=%d\n",
+					rc);
+				if (regulator_enable(sensor->vi2c) ||
+						regulator_enable(sensor->vdd))
+					return -EIO;
+			}
 		}
 
 		sensor->power_enabled = false;
@@ -390,12 +396,10 @@ static int mpu6050_power_init(struct mpu6050_sensor *sensor)
 	sensor->vi2c = regulator_get(&sensor->client->dev, "vi2c");
 	if (IS_ERR(sensor->vi2c)) {
 		ret = PTR_ERR(sensor->vi2c);
-		dev_err(&sensor->client->dev,
+		dev_info(&sensor->client->dev,
 			"Regulator get failed vi2c ret=%d\n", ret);
-		goto reg_vlogic_set_vtg;
-	}
-
-	if (regulator_count_voltages(sensor->vi2c) > 0) {
+		sensor->vi2c = NULL;
+	} else if (regulator_count_voltages(sensor->vi2c) > 0) {
 		ret = regulator_set_voltage(sensor->vi2c,
 				MPU6050_VI2C_MIN_UV,
 				MPU6050_VI2C_MAX_UV);
@@ -406,12 +410,10 @@ static int mpu6050_power_init(struct mpu6050_sensor *sensor)
 		}
 	}
 
-
 	return 0;
 
 reg_vi2c_put:
 	regulator_put(sensor->vi2c);
-reg_vlogic_set_vtg:
 	if (regulator_count_voltages(sensor->vlogic) > 0)
 		regulator_set_voltage(sensor->vlogic, 0, MPU6050_VLOGIC_MAX_UV);
 reg_vlogic_put:

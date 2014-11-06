@@ -11,7 +11,6 @@ Required properties:
  - interrupts		: Gyrometer sample interrupt to indicate new data ready.
  - vdd-supply		: Analog power supply needed to power device.
  - vlogic-supply	: Digital IO power supply needed for IO and I2C.
- - vi2c-supply		: Digital IO Power supply needed for I2C.
  - invn,place		: The placing of the accelerometer on board. There are 8
 				patterns of placing described as below:
 				"Portrait Up": Portrait Up
@@ -25,6 +24,7 @@ Required properties:
 
 Optional properties:
 
+ - vi2c-supply		: Digital IO Power supply needed for I2C.
  - invn,use-interrupt	: use device interrupt to trigger data acquisition
 			instead of polling data.
  - invn,gpio-int	: GPIO used for interrupt.
