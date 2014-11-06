@@ -2323,7 +2323,9 @@ static int venus_hfi_core_release(void *device)
 			return -EIO;
 		}
 
+		mutex_lock(&dev->resource_lock);
 		rc = venus_hfi_unset_free_imem(dev);
+		mutex_unlock(&dev->resource_lock);
 		if (rc)
 			dprintk(VIDC_ERR,
 					"Failed to unset and free imem in core release: %d\n",
@@ -3070,7 +3072,9 @@ static void venus_hfi_pm_hndlr(struct work_struct *work)
 	dprintk(VIDC_DBG, "Prepare for power collapse\n");
 
 	if (device->resources.imem.type) {
+		mutex_lock(&device->resource_lock);
 		rc = venus_hfi_unset_free_imem(device);
+		mutex_unlock(&device->resource_lock);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to unset IMEM for PC: %d\n",
 					rc);
@@ -4105,6 +4109,7 @@ static void *venus_hfi_add_device(u32 device_id,
 	mutex_init(&hdevice->read_lock);
 	mutex_init(&hdevice->write_lock);
 	mutex_init(&hdevice->session_lock);
+	mutex_init(&hdevice->resource_lock);
 
 	if (hal_ctxt.dev_count == 0)
 		INIT_LIST_HEAD(&hal_ctxt.dev_head);
