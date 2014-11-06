@@ -30,7 +30,7 @@
 		qcom,saw2-pmic-data1 = <0x02030080>; /* VDD_APC0 on  */
 		qcom,pfm-port = <0x2>;
 		qcom,use-qchannel-for-pc;
-		qcom,saw2-spm-cmd-ret = [00 03 00 0f];
+		qcom,saw2-spm-cmd-wfi = [00 03 00 0f];
 		qcom,saw2-spm-cmd-pc = [00 60 70 50 01 03 11 3f 3f 3f 3f 50 00
 			60 70 0f];
 	};
@@ -47,7 +47,7 @@
 		qcom,saw2-spm-dly = <0x3c100c1c>;
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,use-qchannel-for-pc;
-		qcom,saw2-spm-cmd-ret = [03 2f 1b 0f];
+		qcom,saw2-spm-cmd-wfi = [03 2f 1b 0f];
 		qcom,saw2-spm-cmd-pc = [08 00 30 50 18 7b 26 6b 16 6b c0 e0 d0
 			1f 18 03 2f 1b 18 7b d0 2b e0 3b c0 16 6b 26 6b 18 00
 			30 50 08 0f];
@@ -72,7 +72,7 @@
 		qcom,saw2-pmic-data1 = <0x02030080>; /* VDD_APC1 on  */
 		qcom,pfm-port = <0x2>;
 		qcom,use-qchannel-for-pc;
-		qcom,saw2-spm-cmd-ret = [03 2f 1b 0f];
+		qcom,saw2-spm-cmd-wfi = [03 2f 1b 0f];
 		qcom,saw2-spm-cmd-pc = [08 00 30 50 18 7b 26 6b 16 6b c0 e0 d0
 			18 b0 01 03 2f 1b 11 b0 3f 3f 3f 3f 18 7b d0 2b e0 3b
 			c0 16 6b 26 6b 18 00 30 50 08 0f];
@@ -245,8 +245,8 @@
 
 			qcom,pm-cluster-level@0{
 				reg = <0>;
-				label = "system-cci-retention";
-				qcom,spm-cci-mode = "retention";
+				label = "system-cci-wfi";
+				qcom,spm-cci-mode = "wfi";
 				qcom,latency-us = <45>;
 				qcom,ss-power = <1000>;
 				qcom,energy-overhead = <300000>;
@@ -276,8 +276,8 @@
 
 				qcom,pm-cluster-level@0{
 					reg = <0>;
-					label = "a53-l2-retention";
-					qcom,spm-l2-mode = "retention";
+					label = "a53-l2-wfi";
+					qcom,spm-l2-mode = "wfi";
 					qcom,latency-us = <30>;
 					qcom,ss-power = <1000>;
 					qcom,energy-overhead = <300000>;
@@ -341,8 +341,8 @@
 
 				qcom,pm-cluster-level@0{
 					reg = <0>;
-					label = "a57-l2-retention";
-					qcom,spm-l2-mode = "retention";
+					label = "a57-l2-wfi";
+					qcom,spm-l2-mode = "wfi";
 					qcom,latency-us = <40>;
 					qcom,ss-power = <1000>;
 					qcom,energy-overhead = <300000>;
