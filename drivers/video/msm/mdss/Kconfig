@@ -21,6 +21,16 @@ config FB_MSM_MDSS_HDMI_MHL_SII8334
 	  MHL (Mobile High-Definition Link) technology
 	  uses USB connector to output HDMI content
 
+config FB_MSM_MDSS_MHL3
+	depends on FB_MSM_MDSS_HDMI_PANEL
+	bool "MHL3 SII8620 Support"
+	default n
+	---help---
+	  Support the SiliconImage 8620 MHL Tx transmitter that uses
+	  USB connector to output HDMI content. Transmitter is an
+	  i2c device acting as an HDMI to MHL bridge. Chip supports
+	  MHL 3.0 standard.
+
 config FB_MSM_MDSS_DSI_CTRL_STATUS
 	tristate "DSI controller status check feature"
 	---help---
