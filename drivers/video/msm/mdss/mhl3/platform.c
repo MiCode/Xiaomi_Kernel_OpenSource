@@ -27,6 +27,7 @@
 #include <linux/semaphore.h>
 #include <linux/cdev.h>
 #include <linux/spi/spi.h>
+#include <linux/regulator/consumer.h>
 
 #include "si_fw_macros.h"
 #include "si_infoframe.h"
@@ -183,6 +184,12 @@ struct i2c_xfer_mem {
 	uint8_t *block_tx_buffers;
 } i2c_mem;
 
+#ifdef MHL_GPIO_EXPANDER
+static bool expander_enabled = true;
+#else
+static bool expander_enabled;
+#endif
+
 static int gpio_expander_transfer(u8 offset, u16 count, u8 *values, bool write);
 
 #if defined(SIMG_USE_DTS)
@@ -218,7 +225,7 @@ bool input_dev_ucp = 1;
 bool input_dev_rbp = 1;
 #endif
 int hdcp_content_type;
-bool use_spi;		 /* Default to i2c (0). */
+bool use_spi = 0;		 /* Default to i2c (0). */
 int crystal_khz = 19200; /* SiI8620 SK has 19.2MHz crystal */
 int use_heartbeat;
 
@@ -490,9 +497,9 @@ static void toggle_reset_n(void)
 static void toggle_BB_RST(int reset_period)
 {
 	MHL_TX_DBG_INFO("Toggle BB_RST# pin. Resets GPIO expander AND 8620\n");
-	gpio_set_value(GPIO_BB_RESET, 0);
+	gpio_set_value(starter_kit_control_gpios[MHL_RESET_INDEX].gpio, 0);
 	msleep(reset_period);
-	gpio_set_value(GPIO_BB_RESET, 1);
+	gpio_set_value(starter_kit_control_gpios[MHL_RESET_INDEX].gpio, 1);
 
 }
 
@@ -545,23 +552,28 @@ void set_pin_impl(int pin_idx, int value,
 		case GET_FROM_MODULE_PARAM:
 			break;
 		case GPIO_ON_EXPANDER:
-			bank_value =
-			    *(platform_signals[pin_idx].gpio_bank_value);
-			if (value)
-				bank_value |= platform_signals[pin_idx].
-					gpio_mask_PCA950x;
-			else
-				bank_value &= ~platform_signals[pin_idx].
-					gpio_mask_PCA950x;
+			if (expander_enabled) {
+				bank_value = *(platform_signals[pin_idx]
+							.gpio_bank_value);
+				if (value)
+					bank_value |= platform_signals[pin_idx].
+						gpio_mask_PCA950x;
+				else
+					bank_value &=
+						~platform_signals[pin_idx].
+							gpio_mask_PCA950x;
 
-			*(platform_signals[pin_idx].gpio_bank_value) =
-				bank_value;
-			platform_write_i2c_reg(i2c_bus_adapter,
+				*(platform_signals[pin_idx].gpio_bank_value) =
+					bank_value;
+				platform_write_i2c_reg(i2c_bus_adapter,
 					       platform_signals[pin_idx].
 					       gpio_reg_PCA950x.slave_addr,
 					       platform_signals[pin_idx].
 					       gpio_reg_PCA950x.offset,
 					       bank_value);
+			} else {
+				bank_value = 0;
+			}
 			break;
 		default:
 			gpio_set_value(platform_signals[pin_idx].gpio_number,
@@ -574,7 +586,10 @@ void set_pin_impl(int pin_idx, int value,
 void platform_mhl_tx_hw_reset(uint32_t reset_period, uint32_t reset_delay)
 {
 	/* then reset the chip */
-	toggle_reset_n();
+	if (expander_enabled)
+		toggle_reset_n();
+	else
+		toggle_BB_RST(100);
 
 	if (reset_delay)
 		msleep(reset_delay);
@@ -1398,7 +1413,10 @@ static int __devinit starter_kit_init(void)
 		pr_err("%s(): gpio_request_array failed, error code %d\n",
 			__func__, ret);
 	} else {
-		ret = gpio_expander_init();
+		if (expander_enabled)
+			ret = gpio_expander_init();
+		else
+			toggle_BB_RST(100);
 		if (ret != 0) {
 			gpio_free_array(starter_kit_control_gpios,
 				ARRAY_SIZE(starter_kit_control_gpios));
@@ -1412,10 +1430,131 @@ static int si_8620_parse_dt(struct device *dev)
 {
 	struct device_node *np = dev->of_node;
 	int value;
+	int pmi_gpio9;
+	int pmi_gpio10;
+	int pm_gpio2;
+	int fw_wake;
+	int rc = 0;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *active_state;
+	struct regulator *ldo;
+
+	pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR_OR_NULL(pinctrl)) {
+		MHL_TX_DBG_ERR("%s: failed to get pinctrl\n", __func__);
+		rc = -ENODEV;
+		goto dt_exit;
+	}
+
+	active_state = pinctrl_lookup_state(pinctrl, "mhl_active");
+	if (IS_ERR_OR_NULL(active_state)) {
+		MHL_TX_DBG_ERR("%s: failed to find mhl_active state\n",
+								__func__);
+		rc = -ENODEV;
+		goto dt_exit;
+	}
+
+	if (pinctrl_select_state(pinctrl, active_state)) {
+		MHL_TX_DBG_ERR("%s: failed to select mhl active state\n",
+								__func__);
+	}
+
+	ldo = devm_regulator_get(dev, "ldo25");
+	if (IS_ERR_OR_NULL(ldo)) {
+		MHL_TX_DBG_ERR("%s: Unable to get regulator\n", __func__);
+		rc = -ENODEV;
+		goto dt_exit;
+	}
+
+	rc = regulator_set_voltage(ldo, 1000000, 1000000);
+	if (rc) {
+		MHL_TX_DBG_ERR("%s: Unable to set regulator voltage\n",
+								__func__);
+		goto dt_exit;
+	}
+
+	rc = regulator_enable(ldo);
+	if (rc) {
+		MHL_TX_DBG_ERR("%s: Regulator enable failed\n", __func__);
+		goto dt_exit;
+	}
+
+	pm_gpio2 = of_get_named_gpio(np, "sil,pwr-gpio", 0);
+	pmi_gpio9 = of_get_named_gpio(np, "sil,pmi9", 0);
+	pmi_gpio10 = of_get_named_gpio(np, "sil,pmi10", 0);
+	fw_wake = of_get_named_gpio(np, "sil,fw-wake", 0);
+
+	if (gpio_is_valid(pmi_gpio9)) {
+		rc = gpio_request(pmi_gpio9, "mhl_pmi9");
+		if (rc) {
+			MHL_TX_DBG_ERR("%s:power_gpio=[%d] req failed:\n",
+				__func__, pmi_gpio9);
+			goto dt_exit;
+		}
+		gpio_direction_output(pmi_gpio9, 0);
+		gpio_set_value(pmi_gpio9, 1);
+	} else {
+		MHL_TX_DBG_ERR("%s:power_gpio=[%d] invalid\n",
+				__func__, pmi_gpio9);
+		rc = pmi_gpio9;
+		goto dt_exit;
+	}
+
+	if (gpio_is_valid(pmi_gpio10)) {
+		rc = gpio_request(pmi_gpio10, "mhl_pmi10");
+		if (rc) {
+			MHL_TX_DBG_ERR("%s:power_gpio=[%d] req failed:\n",
+				__func__, pmi_gpio10);
+			goto dt_exit;
+		}
+		gpio_direction_output(pmi_gpio10, 0);
+		gpio_set_value(pmi_gpio10, 1);
+	} else {
+		MHL_TX_DBG_ERR("%s:power_gpio=[%d] invalid\n",
+				__func__, pmi_gpio10);
+		rc = pmi_gpio10;
+		goto dt_exit;
+	}
+
+	if (gpio_is_valid(pm_gpio2)) {
+		rc = gpio_request(pm_gpio2, "mhl_pm2");
+		if (rc) {
+			MHL_TX_DBG_ERR("%s:power_gpio=[%d] req failed:\n",
+				__func__, pm_gpio2);
+			goto dt_exit;
+		}
+		gpio_direction_output(pm_gpio2, 0);
+		gpio_set_value(pm_gpio2, 0);
+	} else {
+		MHL_TX_DBG_ERR("%s:power_gpio=[%d] invalid\n",
+				__func__, pm_gpio2);
+		rc = pm_gpio2;
+		goto dt_exit;
+	}
+
+	if (gpio_is_valid(fw_wake)) {
+		rc = gpio_request(fw_wake, "mhl_fw");
+		if (rc) {
+			MHL_TX_DBG_ERR("%s:wake_gpio=[%d] req failed:\n",
+				__func__, fw_wake);
+			return rc;
+		}
+		gpio_direction_output(fw_wake, 0);
+		gpio_set_value(fw_wake, 1);
+		platform_signals[TX_FW_WAKE].gpio_number = fw_wake;
+	} else {
+		MHL_TX_DBG_ERR("%s:wake_gpio=[%d] invalid\n",
+				__func__, fw_wake);
+		rc = fw_wake;
+		goto dt_exit;
+	}
 
 	value = of_get_named_gpio_flags(np, "sil,reset-gpio", 0, NULL);
-	if (value >= 0)
+	if (value >= 0) {
 		starter_kit_control_gpios[MHL_RESET_INDEX].gpio = value;
+		gpio_set_value(starter_kit_control_gpios[MHL_RESET_INDEX].gpio,
+									1);
+	}
 
 	value = of_get_named_gpio_flags(np, "sil,irq-gpio", 0, NULL);
 	if (value >= 0)
@@ -1429,15 +1568,16 @@ static int si_8620_parse_dt(struct device *dev)
 		i2c_adapter_num = value;
 
 	MHL_TX_DBG_INFO("Resources assigned to driver...\n");
-	MHL_TX_DBG_ERR("    Reset GPIO = %d\n",
+	MHL_TX_DBG_INFO("    Reset GPIO = %d\n",
 			starter_kit_control_gpios[MHL_RESET_INDEX].gpio);
-	MHL_TX_DBG_ERR("    Interrupt GPIO = %d\n",
+	MHL_TX_DBG_INFO("    Interrupt GPIO = %d\n",
 			starter_kit_control_gpios[MHL_INT_INDEX].gpio);
-	MHL_TX_DBG_ERR("    I2C adapter = %d\n", i2c_adapter_num);
+	MHL_TX_DBG_INFO("    I2C adapter = %d\n", i2c_adapter_num);
 	if (use_spi)
 		MHL_TX_DBG_ERR("    SPI adapter = %d\n", spi_bus_num);
 
-	return 0;
+dt_exit:
+	return rc;
 }
 #endif
 
