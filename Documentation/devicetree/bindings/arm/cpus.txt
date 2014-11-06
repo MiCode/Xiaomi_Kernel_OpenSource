@@ -211,6 +211,11 @@ nodes to be present and contain the properties described below.
 		Value type: <phandle>
 		Definition: Specifies the ACC[2] node associated with this CPU.
 
+	- qcom,ldo
+		Usage: required for systems that need LDO configuration.
+		Value type: <phandle>
+		Definition: Specifies the LDO reference node associated with
+			    this cpu.
 
 Example 1 (dual-cluster big.LITTLE system 32-bit):
 

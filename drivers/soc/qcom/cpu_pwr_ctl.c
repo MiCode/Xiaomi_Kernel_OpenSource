@@ -45,6 +45,10 @@
 #define L2_SPM_STS		0xc
 #define L2_VREG_CTL		0x1c
 
+#define APC_LDO_CFG1		0xc
+#define APC_LDO_CFG2		0x10
+#define APC_LDO_VREF_CFG	0x4
+
 /*
  * struct msm_l2ccc_of_info: represents of data for l2 cache clock controller.
  * @compat: compat string for l2 cache clock controller
@@ -286,6 +290,87 @@ static int power_on_l2_cache(struct device_node *l2ccc_node, int cpu)
 	}
 	pr_err("Compat string not found for L2CCC node\n");
 	return -EIO;
+}
+
+int msm8994_cpu_ldo_config(unsigned int cpu)
+{
+	struct device_node *cpu_node, *ldo_node;
+	void __iomem *ldo_bhs_reg_base;
+	u32 ldo_vref_ret = 0;
+	u32 ref_val = 0;
+	int ret = 0;
+	u32 val;
+
+	cpu_node = of_get_cpu_node(cpu, NULL);
+	if (!cpu_node)
+		return -ENODEV;
+
+	ldo_node = of_parse_phandle(cpu_node, "qcom,ldo", 0);
+	if (!ldo_node) {
+		pr_debug("LDO is not configured to enable retention\n");
+		goto exit_cpu_node;
+	}
+
+	ldo_bhs_reg_base = of_iomap(ldo_node, 0);
+	if (!ldo_bhs_reg_base) {
+		pr_err("LDO configuration failed due to iomap failure\n");
+		ret = -ENOMEM;
+		goto exit_cpu_node;
+	}
+
+	ret = of_property_read_u32(ldo_node, "qcom,ldo-vref-ret", &ref_val);
+	if (ret) {
+		pr_err("Failed to get LDO Reference voltage for CPU%u\n",
+			cpu);
+		BUG_ON(1);
+	}
+
+	/* Program LDO CFG registers */
+	val = readl_relaxed(ldo_bhs_reg_base + APC_LDO_CFG1);
+	val = (val & 0xffffff00) | 0xc2;
+	writel_relaxed(val, ldo_bhs_reg_base + APC_LDO_CFG1);
+	val = readl_relaxed(ldo_bhs_reg_base + APC_LDO_CFG1);
+	val = (val & 0xffff00ff) | (0x98 << 8);
+	writel_relaxed(val, ldo_bhs_reg_base + APC_LDO_CFG1);
+	val = readl_relaxed(ldo_bhs_reg_base + APC_LDO_CFG2);
+	val = (val & 0xffffff00) | 0x60;
+	writel_relaxed(val, ldo_bhs_reg_base + APC_LDO_CFG2);
+	val = readl_relaxed(ldo_bhs_reg_base + APC_LDO_CFG2);
+	val = (val & 0xff00ffff) | (0x4a << 16);
+	writel_relaxed(val, ldo_bhs_reg_base + APC_LDO_CFG2);
+
+	/* Bring LDO out of reset */
+	ldo_vref_ret = readl_relaxed(ldo_bhs_reg_base + APC_LDO_VREF_CFG);
+	ldo_vref_ret &= ~BIT(16);
+	writel_relaxed(ldo_vref_ret, ldo_bhs_reg_base + APC_LDO_VREF_CFG);
+
+	/* Program the retention voltage */
+	ldo_vref_ret = readl_relaxed(ldo_bhs_reg_base + APC_LDO_VREF_CFG);
+	ldo_vref_ret = (ldo_vref_ret & 0xffff80ff) | (ref_val << 8);
+	writel_relaxed(ldo_vref_ret, ldo_bhs_reg_base + APC_LDO_VREF_CFG);
+
+	/* Write the sequence to latch on the LDO voltage */
+	writel_relaxed(0x0, ldo_bhs_reg_base);
+	writel_relaxed(0x1, ldo_bhs_reg_base);
+	/* After writing 1 to the UPDATE register, '1 xo clk cycle' delay
+	 * is required for the update to take effect. This delay needs to
+	 * start after the reg write is complete. Make sure that the reg
+	 * write is complete using a memory barrier */
+	mb();
+	usleep(1);
+	writel_relaxed(0x0, ldo_bhs_reg_base);
+	/* Use a memory barrier to make sure the reg write is complete before
+	 * the node is unmapped. */
+	mb();
+
+	of_node_put(ldo_node);
+
+	iounmap(ldo_bhs_reg_base);
+
+exit_cpu_node:
+	of_node_put(cpu_node);
+
+	return ret;
 }
 
 int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu)
