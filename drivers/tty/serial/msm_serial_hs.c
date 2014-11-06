@@ -157,7 +157,7 @@ struct msm_hs_sps_ep_conn_data {
 };
 
 struct msm_hs_tx {
-	unsigned int dma_in_flight;    /* tx dma in progress */
+	bool dma_in_flight;    /* tx dma in progress */
 	enum flush_reason flush;
 	wait_queue_head_t wait;
 	int tx_count;
@@ -735,7 +735,6 @@ static int msm_hs_spsconnect_tx(struct msm_hs_port *msm_uport)
 
 	spin_lock_irqsave(&(msm_uport->uport.lock), flags);
 	msm_uport->tx.flush = FLUSH_STOP;
-	msm_uport->tx.dma_in_flight = 0;
 	spin_unlock_irqrestore(&(msm_uport->uport.lock), flags);
 
 	data = msm_hs_read(uport, UART_DM_DMEN);
@@ -1368,7 +1367,7 @@ static void msm_hs_submit_tx_locked(struct uart_port *uport)
 		return;
 	}
 
-	tx->dma_in_flight = 1;
+	tx->dma_in_flight = true;
 
 	tx_count = uart_circ_chars_pending(tx_buf);
 
@@ -1771,14 +1770,18 @@ static void msm_hs_start_tx_locked(struct uart_port *uport)
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	struct msm_hs_tx *tx = &msm_uport->tx;
 
-	/* flush < FLUSH_STOP indicates transfer in progress */
-	if (tx->flush < FLUSH_STOP)
+	/* Bail if transfer in progress */
+	if (tx->flush < FLUSH_STOP || tx->dma_in_flight) {
+		MSM_HS_DBG("%s(): retry, flush %d, dma_in_flight %d\n",
+			__func__, tx->flush, tx->dma_in_flight);
 		return;
+	}
 
-	if ((msm_uport->tx.dma_in_flight == 0)) {
-				queue_kthread_work(&msm_uport->tx.kworker,
-				&msm_uport->tx.kwork);
-		}
+	if (!tx->dma_in_flight) {
+		tx->dma_in_flight = true;
+		queue_kthread_work(&msm_uport->tx.kworker,
+			&msm_uport->tx.kwork);
+	}
 }
 
 /**
@@ -1841,7 +1844,7 @@ static void msm_serial_hs_tx_work(struct kthread_work *work)
 	else
 		MSM_HS_DBG("%s:circ buffer is empty\n", __func__);
 
-	tx->dma_in_flight = 0;
+	tx->dma_in_flight = false;
 	wake_up(&msm_uport->tx.wait);
 
 	uport->icount.tx += tx->tx_count;
@@ -2098,7 +2101,7 @@ static irqreturn_t msm_hs_isr(int irq, void *dev)
 			tx_buf->tail = (tx_buf->tail +
 					tx->tx_count) & ~UART_XMIT_SIZE;
 
-		tx->dma_in_flight = 0;
+		tx->dma_in_flight = false;
 
 		uport->icount.tx += tx->tx_count;
 
@@ -2534,7 +2537,7 @@ static int msm_hs_startup(struct uart_port *uport)
 	/* Turn on Uart Transmitter */
 	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_TX_EN_BMSK);
 
-	tx->dma_in_flight = 0;
+	tx->dma_in_flight = false;
 	MSM_HS_DBG("%s():desc usage flag 0x%lx", __func__, rx->queued_flag);
 	setup_timer(&(tx->tx_timeout_timer),
 			tx_timeout_handler,
