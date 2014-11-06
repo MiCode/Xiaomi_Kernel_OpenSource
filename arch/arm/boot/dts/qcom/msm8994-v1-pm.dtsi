@@ -92,9 +92,6 @@
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
-			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
-			40 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 40 30 50 2b 14 70 24 80 e0 a0 92 1b
 			50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00 40
 			30 0f];
@@ -114,9 +111,6 @@
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
-			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
-			40 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 40 30 50 2b 14 70 24 80 e0 a0 92 1b
 			50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00 40
 			30 0f];
@@ -136,9 +130,6 @@
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
-			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
-			40 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 40 30 50 2b 14 70 24 80 e0 a0 92 1b
 			50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00 40
 			30 0f];
@@ -158,9 +149,6 @@
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
-			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
-			40 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 40 30 50 2b 14 70 24 80 e0 a0 92 1b
 			50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00 40
 			30 0f];
@@ -180,9 +168,6 @@
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
-			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
-			40 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 40 30 50 2b 14 70 24 80 e0 a0 92 1b
 			50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00 40
 			30 0f];
@@ -202,9 +187,6 @@
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
-			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
-			40 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 40 30 50 2b 14 70 24 80 e0 a0 92 1b
 			50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00 40
 			30 0f];
@@ -224,9 +206,6 @@
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
-			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
-			40 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 40 30 50 2b 14 70 24 80 e0 a0 92 1b
 			50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00 40
 			30 0f];
@@ -246,9 +225,6 @@
 		qcom,saw2-spm-ctl = <0x0>;
 		qcom,use-qchannel-for-pc;
 		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
-		qcom,saw2-spm-cmd-spc = [00 40 30 50 2b 14 70 24 80 e0 a0 92
-			1b 50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00
-			40 30 0f];
 		qcom,saw2-spm-cmd-pc = [00 40 30 50 2b 14 70 24 80 e0 a0 92 1b
 			50 03 2f 0b 50 2b 92 1b e2 1b a0 80 24 14 70 50 00 40
 			30 0f];
