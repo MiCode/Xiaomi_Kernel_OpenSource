@@ -81,3 +81,62 @@ void msm_bus_scale_unregister_client(uint32_t cl)
 	}
 }
 EXPORT_SYMBOL(msm_bus_scale_unregister_client);
+
+/**
+ * msm_bus_scale_register() - Register the clients with the msm bus
+ * driver
+ * @pdata: Platform data of the client, containing src, dest, ab, ib.
+ * Return non-zero value in case of success, 0 in case of failure.
+ *
+ * Client data contains the vectors specifying arbitrated bandwidth (ab)
+ * and instantaneous bandwidth (ib) requested between a particular
+ * src and dest.
+ */
+struct msm_bus_client_handle*
+msm_bus_scale_register(uint32_t mas, uint32_t slv, char *name, bool active_only)
+{
+	if (arb_ops.register_cl)
+		return arb_ops.register_cl(mas, slv, name, active_only);
+	else {
+		pr_err("%s: Bus driver not ready.",
+				__func__);
+		return ERR_PTR(-EPROBE_DEFER);
+
+	}
+}
+EXPORT_SYMBOL(msm_bus_scale_register);
+
+/**
+ * msm_bus_scale_client_update_bw() - Update the request for bandwidth
+ * from a particular client
+ *
+ * cl: Handle to the client
+ * index: Index into the vector, to which the bw and clock values need to be
+ * updated
+ */
+int msm_bus_scale_update_bw(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
+{
+	if (arb_ops.update_request)
+		return arb_ops.update_bw(cl, ab, ib);
+	else {
+		pr_err("%s: Bus driver not ready.", __func__);
+		return -EPROBE_DEFER;
+	}
+}
+EXPORT_SYMBOL(msm_bus_scale_update_bw);
+
+/**
+ * msm_bus_scale_unregister() - Update the request for bandwidth
+ * from a particular client
+ *
+ * cl: Handle to the client
+ */
+void msm_bus_scale_unregister(struct msm_bus_client_handle *cl)
+{
+	if (arb_ops.unregister)
+		arb_ops.unregister(cl);
+	else
+		pr_err("%s: Bus driver not ready.",
+				__func__);
+}
+EXPORT_SYMBOL(msm_bus_scale_unregister);
