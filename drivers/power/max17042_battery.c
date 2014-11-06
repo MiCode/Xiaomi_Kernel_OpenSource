@@ -38,6 +38,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/acpi.h>
 #include <linux/power/battery_id.h>
+#include <linux/thermal.h>
 
 /* Status register bits */
 #define STATUS_POR_BIT         (1 << 1)
@@ -69,6 +70,8 @@
 
 #define SOC_ROUNDOFF_MASK      0x80
 
+#define MAX17042_TEX_BIT_ENBL	(1 << 8)
+
 #define MAX17042_TEMP_REG_SHIFT	8
 #define MAX17042_VOLTAGE_CONV_FCTR	625
 #define MAX17042_CHRG_CONV_FCTR	500
@@ -79,6 +82,9 @@
 
 #define MAX17042_IC_VERSION	0x0092
 #define MAX17047_IC_VERSION	0x00AC	/* same for max17050 */
+#define MC_TO_DEGREE(mC) (mC / 1000)
+#define DEGREE_TO_TENTHS_DEGREE(c) (c * 10)
+#define ACPI_BATTERY_SENSOR_NAME "STR3"
 
 struct max17042_chip {
 	struct i2c_client *client;
@@ -122,10 +128,32 @@ static int max17042_get_temperature(struct max17042_chip *chip, int *temp)
 	int ret;
 	u32 data;
 	struct regmap *map = chip->regmap;
+#ifdef CONFIG_ACPI
+	u32 config, val;
+	struct thermal_zone_device *tzd;
+	unsigned long temp_mC;
 
-	if (!temp)
-		return -EINVAL;
+	tzd = thermal_zone_get_zone_by_name(ACPI_BATTERY_SENSOR_NAME);
+	if (!IS_ERR_OR_NULL(tzd)) {
+		tzd->ops->get_temp(tzd, &temp_mC);
+		*temp = MC_TO_DEGREE(temp_mC);
 
+		regmap_read(chip->regmap, MAX17042_CONFIG, &config);
+		if (config & MAX17042_TEX_BIT_ENBL) {
+			if (*temp < 0) {
+				val = (*temp + 0xff + 1);
+				val <<= 8;
+			} else {
+				val = *temp;
+				val <<= 8;
+			}
+			regmap_write(chip->regmap, MAX17042_TEMP, val);
+		}
+
+		*temp = DEGREE_TO_TENTHS_DEGREE(*temp);
+		return 0;
+	}
+#endif
 	ret = regmap_read(map, MAX17042_TEMP, &data);
 	if (ret < 0)
 		return ret;
