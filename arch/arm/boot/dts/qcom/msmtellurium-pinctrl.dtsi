@@ -19,7 +19,7 @@
 
 		/*General purpose pins*/
 		gp: gp {
-			qcom,num-pins = <122>;
+			qcom,num-pins = <134>;
 			#qcom,pin-cells = <1>;
 			msm_gpio: msm_gpio {
 				compatible = "qcom,msm-tlmm-gp";
@@ -27,7 +27,7 @@
 				#gpio-cells = <2>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
-				num_irqs = <122>;
+				num_irqs = <134>;
 			};
 		};
 
