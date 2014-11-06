@@ -699,7 +699,7 @@ static int sd_setup_discard_cmnd(struct scsi_device *sdp, struct request *rq)
 
 	sector >>= ilog2(sdp->sector_size) - 9;
 	nr_sectors >>= ilog2(sdp->sector_size) - 9;
-	rq->timeout = SD_TIMEOUT;
+	rq->timeout = SD_DISCARD_TIMEOUT;
 
 	memset(rq->cmd, 0, rq->cmd_len);
 
