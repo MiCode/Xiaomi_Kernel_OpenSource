@@ -53,6 +53,7 @@
 #include "mdss_panel.h"
 #include "mdss_debug.h"
 #include "mdss_mdp_debug.h"
+#include "mdss_mdp_rotator.h"
 
 #define CREATE_TRACE_POINTS
 #include "mdss_mdp_trace.h"
@@ -1544,6 +1545,11 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	rc = mdss_mdp_bus_scale_register(mdata);
 	if (rc) {
 		pr_err("unable to register bus scaling\n");
+		goto probe_done;
+	}
+	rc = mdss_mdp_rot_mgr_init();
+	if (rc) {
+		pr_err("unable to initialize rotation mgr\n");
 		goto probe_done;
 	}
 
