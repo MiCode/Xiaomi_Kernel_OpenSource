@@ -241,6 +241,10 @@ Optional properties :
   ext-hub-reset-gpio GPIO. It should be driven LOW to RESET the HUB.
 - qcom,usb2-enable-uicc: If present, usb2 port will be used for uicc card connection.
 - usb-phy: phandle for the PHY device, if described as a separate device tree node
+- qcom,pm-qos-latency: This property represents the maximum tolerable CPU latency in
+  microsecs, which is used as a vote to keep the CPUs in a high enough power state when
+  USB bus is in use (not suspended).
+
 
 Example MSM HSUSB EHCI controller device node :
 	ehci: qcom,ehci-host@f9a55000 {

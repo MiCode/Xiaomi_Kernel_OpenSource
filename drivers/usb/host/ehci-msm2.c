@@ -94,6 +94,7 @@ struct msm_hcd {
 	int					wakeup_irq;
 	void __iomem				*usb_phy_ctrl_reg;
 	struct pinctrl				*hsusb_pinctrl;
+	struct pm_qos_request			pm_qos_req_dma;
 };
 
 static inline struct msm_hcd *hcd_to_mhcd(struct usb_hcd *hcd)
@@ -810,6 +811,9 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 		enable_irq_wake(mhcd->async_irq);
 		enable_irq(mhcd->async_irq);
 	}
+
+	pm_qos_update_request(&mhcd->pm_qos_req_dma, PM_QOS_DEFAULT_VALUE);
+
 	pm_relax(mhcd->dev);
 
 	dev_info(mhcd->dev, "EHCI USB in low power mode\n");
@@ -862,6 +866,10 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 
 	pm_stay_awake(mhcd->dev);
 
+	pdata = mhcd->dev->platform_data;
+	if (pdata)
+		pm_qos_update_request(&mhcd->pm_qos_req_dma,
+			pdata->pm_qos_latency + 1);
 	/* Vote for TCXO when waking up the phy */
 	if (mhcd->xo_clk)
 		clk_prepare_enable(mhcd->xo_clk);
@@ -898,8 +906,7 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 	}
 
 skip_phy_resume:
-	pdata = mhcd->dev->platform_data;
-	if (pdata && pdata->is_uicc) {
+	if (pdata->is_uicc) {
 		/* put the controller in normal mode */
 		func_ctrl = msm_ulpi_read(mhcd, ULPI_FUNC_CTRL);
 		func_ctrl &= ~ULPI_FUNC_CTRL_OPMODE_MASK;
@@ -1311,6 +1318,8 @@ struct msm_usb_host_platform_data *ehci_msm2_dt_to_pdata(
 					"qcom,ext-hub-reset-gpio", 0);
 	pdata->is_uicc = of_property_read_bool(node,
 					"qcom,usb2-enable-uicc");
+	of_property_read_u32(node, "qcom,pm-qos-latency",
+				&pdata->pm_qos_latency);
 
 	return pdata;
 }
@@ -1605,6 +1614,10 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 			mhcd->pmic_gpio_dp_irq = 0;
 		}
 	}
+
+	pm_qos_add_request(&mhcd->pm_qos_req_dma, PM_QOS_CPU_DMA_LATENCY,
+			pdata->pm_qos_latency + 1);
+
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
