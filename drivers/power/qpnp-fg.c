@@ -255,6 +255,7 @@ struct fg_chip {
 	u8			thermal_coefficients[THERMAL_COEFF_N_BYTES];
 	bool			use_thermal_coefficients;
 	unsigned int		batt_profile_len;
+	unsigned int		batt_max_voltage_uv;
 	const char		*batt_type;
 	unsigned long		last_sram_update_time;
 	unsigned long		last_temp_update_time;
@@ -1212,6 +1213,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_COOL_TEMP,
 	POWER_SUPPLY_PROP_WARM_TEMP,
@@ -1242,6 +1244,9 @@ static int fg_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
 		val->intval = get_sram_prop_now(chip, FG_DATA_OCV);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
+		val->intval = chip->batt_max_voltage_uv;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
@@ -1508,6 +1513,12 @@ wait:
 		pr_err("couldn't find profile handle\n");
 		return -ENODATA;
 	}
+
+	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
+					&chip->batt_max_voltage_uv);
+
+	if (rc)
+		pr_warn("couldn't find battery max voltage\n");
 
 	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
 	if (!data) {
