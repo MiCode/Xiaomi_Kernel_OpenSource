@@ -1528,6 +1528,7 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 			pr_err("unable to map dma memory to iommu(%d)\n", ret);
 			return -ENOMEM;
 		}
+		ctrl->dmap_iommu_map = true;
 	} else {
 		ctrl->dma_addr = tp->dmap;
 	}
@@ -1568,19 +1569,21 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		ret = tp->len;
 
 	if (mctrl && mctrl->dma_addr) {
-		if (ctrl->mdss_util->iommu_attached()) {
+		if (mctrl->dmap_iommu_map) {
 			msm_iommu_unmap_contig_buffer(mctrl->dma_addr,
-			ctrl->mdss_util->get_iommu_domain(domain),
+				mctrl->mdss_util->get_iommu_domain(domain),
 							0, mctrl->dma_size);
+			mctrl->dmap_iommu_map = false;
 		}
 		mctrl->dma_addr = 0;
 		mctrl->dma_size = 0;
 	}
 
-	if (ctrl->mdss_util->iommu_attached()) {
+	if (ctrl->dmap_iommu_map) {
 		msm_iommu_unmap_contig_buffer(ctrl->dma_addr,
 			ctrl->mdss_util->get_iommu_domain(domain),
 							0, ctrl->dma_size);
+		ctrl->dmap_iommu_map = false;
 	}
 
 	ctrl->dma_addr = 0;
