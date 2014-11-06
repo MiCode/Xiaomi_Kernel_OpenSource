@@ -18,6 +18,7 @@
 #include <mach/scm-io.h>
 #include <linux/msm-sps.h>
 
+#include <linux/pinctrl/consumer.h>
 #include "mdss_panel.h"
 #include "mdss_qpic_panel.h"
 
