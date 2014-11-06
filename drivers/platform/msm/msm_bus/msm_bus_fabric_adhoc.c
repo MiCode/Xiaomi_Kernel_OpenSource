@@ -1114,6 +1114,9 @@ static int msm_bus_node_debug(struct device *bus_dev, void *data)
 		MSM_BUS_DBG("\n\t Connection[%d] %d", j, bdev->node_info->id);
 	}
 
+	if (bus_node->node_info->is_fab_dev)
+		msm_bus_floor_init(bus_dev);
+
 exit_node_debug:
 	return ret;
 }
@@ -1176,10 +1179,11 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 		goto exit_device_probe;
 	}
 
-	bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_node_debug);
 
 	/* Register the arb layer ops */
 	msm_bus_arb_setops_adhoc(&arb_ops);
+	bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_node_debug);
+
 	devm_kfree(&pdev->dev, pdata->info);
 	devm_kfree(&pdev->dev, pdata);
 exit_device_probe:
