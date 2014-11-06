@@ -469,6 +469,7 @@ struct ufs_vreg {
 	struct regulator *reg;
 	const char *name;
 	bool enabled;
+	bool unused;
 	int min_uV;
 	int max_uV;
 	int min_uA;
