@@ -998,7 +998,8 @@ static int fg_is_batt_id_valid(struct fg_chip *chip)
 	return (fg_batt_sts & BATT_IDED) ? 1 : 0;
 }
 
-#define LSB_16B		153
+#define LSB_16B_NUMRTR		152587
+#define LSB_16B_DENMTR		1000
 #define LSB_8B		9800
 #define TEMP_LSB_16B	625
 #define DECIKELVIN	2730
@@ -1026,10 +1027,14 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 		switch (i) {
 		case FG_DATA_OCV:
 		case FG_DATA_VOLTAGE:
-			fg_data[i].value = ((u16) temp) * LSB_16B;
+			fg_data[i].value = div_u64(
+					(u64)(u16)temp * LSB_16B_NUMRTR,
+					LSB_16B_DENMTR);
 			break;
 		case FG_DATA_CURRENT:
-			fg_data[i].value = temp * LSB_16B;
+			fg_data[i].value = div_s64(
+					(s64)temp * LSB_16B_NUMRTR,
+					LSB_16B_DENMTR);
 			break;
 		case FG_DATA_BATT_ESR:
 			fg_data[i].value = float_decode((u16) temp);
