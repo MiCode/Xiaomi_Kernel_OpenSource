@@ -1363,7 +1363,7 @@ struct hfi_device {
 	int (*session_get_property)(void *sess, enum hal_property ptype);
 	int (*scale_clocks)(void *dev, int load, int codecs_enabled);
 	int (*vote_bus)(void *dev, struct vidc_bus_vote_data *data,
-			int num_data, int requested_level);
+			int num_data);
 	int (*unvote_bus)(void *dev);
 	int (*iommu_get_domain_partition)(void *dev, u32 flags, u32 buffer_type,
 			int *domain_num, int *partition_num);
