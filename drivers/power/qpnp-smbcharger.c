@@ -100,6 +100,10 @@ struct smbchg_chip {
 	int				rpara_uohm;
 	int				rslow_uohm;
 
+	/* vfloat adjustment */
+	int				max_vbat_sample;
+	int				n_vbat_samples;
+
 	/* status variables */
 	int				usb_suspended;
 	int				dc_suspended;
@@ -158,6 +162,7 @@ struct smbchg_chip {
 	struct smbchg_regulator		otg_vreg;
 	struct smbchg_regulator		ext_otg_vreg;
 	struct work_struct		usb_set_online_work;
+	struct delayed_work		vfloat_adjust_work;
 	spinlock_t			sec_access_lock;
 	struct mutex			current_change_lock;
 	struct mutex			usb_set_online_lock;
@@ -177,6 +182,7 @@ enum print_reason {
 
 enum wake_reason {
 	PM_PARALLEL_CHECK = BIT(0),
+	PM_REASON_VFLOAT_ADJUST = BIT(1),
 };
 
 static int smbchg_debug_mask;
@@ -660,6 +666,30 @@ static int get_prop_charge_type(struct smbchg_chip *chip)
 		return POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
 
 	return POWER_SUPPLY_CHARGE_TYPE_NONE;
+}
+
+static int set_property_on_fg(struct smbchg_chip *chip,
+		enum power_supply_property prop, int val)
+{
+	int rc;
+	union power_supply_propval ret = {0, };
+
+	if (!chip->bms_psy && chip->bms_psy_name)
+		chip->bms_psy =
+			power_supply_get_by_name((char *)chip->bms_psy_name);
+	if (!chip->bms_psy) {
+		pr_smb(PR_STATUS, "no bms psy found\n");
+		return -EINVAL;
+	}
+
+	ret.intval = val;
+	rc = chip->bms_psy->set_property(chip->bms_psy, prop, &ret);
+	if (rc)
+		pr_smb(PR_STATUS,
+			"bms psy does not allow updating prop %d rc = %d\n",
+			prop, rc);
+
+	return rc;
 }
 
 static int get_property_from_fg(struct smbchg_chip *chip,
@@ -1923,6 +1953,16 @@ static int smbchg_charging_en(struct smbchg_chip *chip, bool en)
 			EN_BAT_CHG_BIT, en ? 0 : EN_BAT_CHG_BIT);
 }
 
+static void smbchg_vfloat_adjust_check(struct smbchg_chip *chip)
+{
+	if (!chip->use_vfloat_adjustments)
+		return;
+
+	smbchg_stay_awake(chip, PM_REASON_VFLOAT_ADJUST);
+	pr_smb(PR_STATUS, "Starting vfloat adjustments\n");
+	schedule_delayed_work(&chip->vfloat_adjust_work, 0);
+}
+
 #define UNKNOWN_BATT_TYPE	"Unknown Battery"
 #define LOADING_BATT_TYPE	"Loading Battery Data"
 static void smbchg_external_power_changed(struct power_supply *psy)
@@ -1975,6 +2015,8 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 				"Couldn't set usb current rc = %d\n", rc);
 	}
 	mutex_unlock(&chip->current_change_lock);
+
+	smbchg_vfloat_adjust_check(chip);
 
 	power_supply_changed(&chip->batt_psy);
 }
@@ -2309,6 +2351,240 @@ out:
 	return rc;
 }
 
+static int vf_adjust_low_threshold = 5;
+module_param(vf_adjust_low_threshold, int, 0644);
+
+static int vf_adjust_high_threshold = 7;
+module_param(vf_adjust_high_threshold, int, 0644);
+
+static int vf_adjust_n_samples = 10;
+module_param(vf_adjust_n_samples, int, 0644);
+
+static int vf_adjust_max_delta_mv = 40;
+module_param(vf_adjust_max_delta_mv, int, 0644);
+
+static int vf_adjust_trim_steps_per_adjust = 1;
+module_param(vf_adjust_trim_steps_per_adjust, int, 0644);
+
+#define CENTER_TRIM_CODE		7
+#define MAX_LIN_CODE			14
+#define MAX_TRIM_CODE			15
+#define SCALE_SHIFT			4
+#define VF_TRIM_OFFSET_MASK		SMB_MASK(3, 0)
+#define VF_STEP_SIZE_MV			10
+#define SCALE_LSB_MV			17
+static int smbchg_trim_add_steps(int prev_trim, int delta_steps)
+{
+	int scale_steps;
+	int linear_offset, linear_scale;
+	int offset_code = prev_trim & VF_TRIM_OFFSET_MASK;
+	int scale_code = (prev_trim & ~VF_TRIM_OFFSET_MASK) >> SCALE_SHIFT;
+
+	if (abs(delta_steps) > 1) {
+		pr_smb(PR_STATUS,
+			"Cant trim multiple steps delta_steps = %d\n",
+			delta_steps);
+		return prev_trim;
+	}
+	if (offset_code <= CENTER_TRIM_CODE)
+		linear_offset = offset_code + CENTER_TRIM_CODE;
+	else if (offset_code > CENTER_TRIM_CODE)
+		linear_offset = MAX_TRIM_CODE - offset_code;
+
+	if (scale_code <= CENTER_TRIM_CODE)
+		linear_scale = scale_code + CENTER_TRIM_CODE;
+	else if (scale_code > CENTER_TRIM_CODE)
+		linear_scale = scale_code - (CENTER_TRIM_CODE + 1);
+
+	/* check if we can accomodate delta steps with just the offset */
+	if (linear_offset + delta_steps >= 0
+			&& linear_offset + delta_steps <= MAX_LIN_CODE) {
+		linear_offset += delta_steps;
+
+		if (linear_offset > CENTER_TRIM_CODE)
+			offset_code = linear_offset - CENTER_TRIM_CODE;
+		else
+			offset_code = MAX_TRIM_CODE - linear_offset;
+
+		return (prev_trim & ~VF_TRIM_OFFSET_MASK) | offset_code;
+	}
+
+	/* changing offset cannot satisfy delta steps, change the scale bits */
+	scale_steps = delta_steps > 0 ? 1 : -1;
+
+	if (linear_scale + scale_steps < 0
+			|| linear_scale + scale_steps > MAX_LIN_CODE) {
+		pr_smb(PR_STATUS,
+			"Cant trim scale_steps = %d delta_steps = %d\n",
+			scale_steps, delta_steps);
+		return prev_trim;
+	}
+
+	linear_scale += scale_steps;
+
+	if (linear_scale > CENTER_TRIM_CODE)
+		scale_code = linear_scale - CENTER_TRIM_CODE;
+	else
+		scale_code = linear_scale + (CENTER_TRIM_CODE + 1);
+	prev_trim = (prev_trim & VF_TRIM_OFFSET_MASK)
+		| scale_code << SCALE_SHIFT;
+
+	/*
+	 * now that we have changed scale which is a 17mV jump, change the
+	 * offset bits (10mV) too so the effective change is just 7mV
+	 */
+	delta_steps = -1 * delta_steps;
+
+	linear_offset = clamp(linear_offset + delta_steps, 0, MAX_LIN_CODE);
+	if (linear_offset > CENTER_TRIM_CODE)
+		offset_code = linear_offset - CENTER_TRIM_CODE;
+	else
+		offset_code = MAX_TRIM_CODE - linear_offset;
+
+	return (prev_trim & ~VF_TRIM_OFFSET_MASK) | offset_code;
+}
+
+#define TRIM_14		0xFE
+#define VF_TRIM_MASK	0xFF
+static int smbchg_adjust_vfloat_mv_trim(struct smbchg_chip *chip,
+						int delta_mv)
+{
+	int sign, delta_steps, rc = 0;
+	u8 prev_trim, new_trim;
+	int i;
+
+	sign = delta_mv > 0 ? 1 : -1;
+	delta_steps = (delta_mv + sign * VF_STEP_SIZE_MV / 2)
+			/ VF_STEP_SIZE_MV;
+
+	rc = smbchg_read(chip, &prev_trim, chip->misc_base + TRIM_14, 1);
+	if (rc) {
+		dev_err(chip->dev, "Unable to read trim 14: %d\n", rc);
+		return rc;
+	}
+
+	for (i = 1; i <= abs(delta_steps)
+			&& i <= vf_adjust_trim_steps_per_adjust; i++) {
+		new_trim = (u8)smbchg_trim_add_steps(prev_trim,
+				delta_steps > 0 ? 1 : -1);
+		if (new_trim == prev_trim) {
+			pr_smb(PR_STATUS,
+				"VFloat trim unchanged from %02x\n", prev_trim);
+			/* treat no trim change as an error */
+			return -EINVAL;
+		}
+
+		rc = smbchg_sec_masked_write(chip, chip->misc_base + TRIM_14,
+				VF_TRIM_MASK, new_trim);
+		if (rc < 0) {
+			dev_err(chip->dev,
+				"Couldn't change vfloat trim rc=%d\n", rc);
+		}
+		pr_smb(PR_STATUS,
+			"VFlt trim %02x to %02x, delta steps: %d\n",
+			prev_trim, new_trim, delta_steps);
+		prev_trim = new_trim;
+	}
+
+	return rc;
+}
+
+static void smbchg_vfloat_adjust_work(struct work_struct *work)
+{
+	struct smbchg_chip *chip = container_of(work,
+				struct smbchg_chip,
+				vfloat_adjust_work.work);
+	int vbat_uv, vbat_mv, ibat_ua, rc, delta_vfloat_mv;
+	bool taper, enable;
+
+start:
+	taper = (get_prop_charge_type(chip)
+		== POWER_SUPPLY_CHARGE_TYPE_TAPER);
+	enable = taper && (chip->parallel.current_max_ma == 0);
+
+	if (!enable) {
+		pr_smb(PR_MISC,
+			"Stopping vfloat adj taper=%d parallel_ma = %d\n",
+			taper, chip->parallel.current_max_ma);
+		goto stop;
+	}
+
+	set_property_on_fg(chip, POWER_SUPPLY_PROP_UPDATE_NOW, 1);
+	rc = get_property_from_fg(chip,
+			POWER_SUPPLY_PROP_VOLTAGE_NOW, &vbat_uv);
+	if (rc) {
+		pr_smb(PR_STATUS,
+			"bms psy does not support voltage rc = %d\n", rc);
+		goto stop;
+	}
+	vbat_mv = vbat_uv / 1000;
+
+	if ((vbat_mv - chip->vfloat_mv) < -1 * vf_adjust_max_delta_mv) {
+		pr_smb(PR_STATUS, "Skip vbat out of range: %d\n", vbat_mv);
+		goto start;
+	}
+
+	rc = get_property_from_fg(chip,
+			POWER_SUPPLY_PROP_CURRENT_NOW, &ibat_ua);
+	if (rc) {
+		pr_smb(PR_STATUS,
+			"bms psy does not support current_now rc = %d\n", rc);
+		goto stop;
+	}
+
+	if (ibat_ua / 1000 > -chip->iterm_ma) {
+		pr_smb(PR_STATUS, "Skip ibat too high: %d\n", ibat_ua);
+		goto start;
+	}
+
+	pr_smb(PR_STATUS, "sample number = %d vbat_mv = %d ibat_ua = %d\n",
+		chip->n_vbat_samples,
+		vbat_mv,
+		ibat_ua);
+
+	chip->max_vbat_sample = max(chip->max_vbat_sample, vbat_mv);
+	chip->n_vbat_samples += 1;
+	if (chip->n_vbat_samples < vf_adjust_n_samples) {
+		pr_smb(PR_STATUS, "Skip %d samples; max = %d\n",
+			chip->n_vbat_samples, chip->max_vbat_sample);
+		goto start;
+	}
+	/* if max vbat > target vfloat, delta_vfloat_mv could be negative */
+	delta_vfloat_mv = chip->vfloat_mv - chip->max_vbat_sample;
+	pr_smb(PR_STATUS, "delta_vfloat_mv = %d, samples = %d, mvbat = %d\n",
+		delta_vfloat_mv, chip->n_vbat_samples, chip->max_vbat_sample);
+	/*
+	 * enough valid samples has been collected, adjust trim codes
+	 * based on maximum of collected vbat samples if necessary
+	 */
+	if (delta_vfloat_mv > vf_adjust_high_threshold
+			|| delta_vfloat_mv < -1 * vf_adjust_low_threshold) {
+		rc = smbchg_adjust_vfloat_mv_trim(chip, delta_vfloat_mv);
+		if (rc) {
+			pr_smb(PR_STATUS,
+				"Stopping vfloat adj after trim adj rc = %d\n",
+				 rc);
+			goto stop;
+		}
+		chip->max_vbat_sample = 0;
+		chip->n_vbat_samples = 0;
+		goto start;
+	}
+
+stop:
+	chip->max_vbat_sample = 0;
+	chip->n_vbat_samples = 0;
+	smbchg_relax(chip, PM_REASON_VFLOAT_ADJUST);
+	return;
+}
+
+static int smbchg_charging_status_change(struct smbchg_chip *chip)
+{
+	smbchg_low_icl_wa_check(chip);
+	smbchg_vfloat_adjust_check(chip);
+	return 0;
+}
+
 #define HOT_BAT_HARD_BIT	BIT(0)
 #define HOT_BAT_SOFT_BIT	BIT(1)
 #define COLD_BAT_HARD_BIT	BIT(2)
@@ -2325,7 +2601,7 @@ static irqreturn_t batt_hot_handler(int irq, void *_chip)
 	smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
 	chip->batt_hot = !!(reg & HOT_BAT_HARD_BIT);
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
-	smbchg_low_icl_wa_check(chip);
+	smbchg_charging_status_change(chip);
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
@@ -2340,7 +2616,7 @@ static irqreturn_t batt_cold_handler(int irq, void *_chip)
 	smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
 	chip->batt_cold = !!(reg & COLD_BAT_HARD_BIT);
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
-	smbchg_low_icl_wa_check(chip);
+	smbchg_charging_status_change(chip);
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
@@ -2399,7 +2675,7 @@ static irqreturn_t chg_error_handler(int irq, void *_chip)
 	struct smbchg_chip *chip = _chip;
 
 	pr_smb(PR_INTERRUPT, "chg-error triggered\n");
-	smbchg_low_icl_wa_check(chip);
+	smbchg_charging_status_change(chip);
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
@@ -2412,7 +2688,7 @@ static irqreturn_t fastchg_handler(int irq, void *_chip)
 	struct smbchg_chip *chip = _chip;
 
 	pr_smb(PR_INTERRUPT, "p2f triggered\n");
-	smbchg_low_icl_wa_check(chip);
+	smbchg_charging_status_change(chip);
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
@@ -3009,7 +3285,7 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 		return rc;
 	}
 
-	smbchg_low_icl_wa_check(chip);
+	smbchg_charging_status_change(chip);
 
 	/*
 	 * The charger needs 20 milliseconds to go into battery supplementary
@@ -3174,6 +3450,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 			chip->parallel.min_9v_current_thr_ma);
 
 	/* read boolean configuration properties */
+	chip->use_vfloat_adjustments = of_property_read_bool(node,
+						"qcom,autoadjust-vfloat");
 	chip->bmd_algo_disabled = of_property_read_bool(node,
 						"qcom,bmd-algo-disabled");
 	chip->iterm_disabled = of_property_read_bool(node,
@@ -3539,6 +3817,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->usb_set_online_work, smbchg_usb_update_online_work);
 	INIT_DELAYED_WORK(&chip->parallel_en_work,
 			smbchg_parallel_usb_en_work);
+	INIT_DELAYED_WORK(&chip->vfloat_adjust_work, smbchg_vfloat_adjust_work);
 	chip->spmi = spmi;
 	chip->dev = &spmi->dev;
 	chip->usb_psy = usb_psy;
