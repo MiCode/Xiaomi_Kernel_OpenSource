@@ -663,7 +663,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		goto err_ret;
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "core");
 	if (!res) {
 		dev_err(dev, "missing memory base resource\n");
 		ret = -ENODEV;
@@ -677,7 +677,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		goto err_ret;
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcsr");
 	if (res) {
 		phy->tcsr = devm_ioremap_nocache(dev, res->start,
 						 resource_size(res));

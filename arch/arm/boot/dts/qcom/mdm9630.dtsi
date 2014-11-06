@@ -545,6 +545,7 @@
 	hsphy0: hsphy@f92f8800 {
 		compatible = "qcom,usb-hsphy";
 		reg = <0xf92f8800 0x3ff>;
+		reg-names = "core";
 		qcom,hsphy-init = <0x00D191A4>;
 		vdd-supply = <&pmd9635_l3_corner>;
 		vdda18-supply = <&pmd9635_l8>;
