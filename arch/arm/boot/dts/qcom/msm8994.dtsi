@@ -2713,7 +2713,7 @@
 
 	qcom_tzlog: tz-log@fe87f720 {
 		compatible = "qcom,tz-log";
-		reg = <0xfe87f720 0x1000>;
+		reg = <0xfe87f720 0x2000>;
 	};
 
 	qcom_crypto1fde: qcrypto1fde@fd440000 {
