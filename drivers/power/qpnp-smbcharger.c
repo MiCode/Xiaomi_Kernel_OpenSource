@@ -562,6 +562,7 @@ static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 	POWER_SUPPLY_PROP_FLASH_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
@@ -1760,6 +1761,69 @@ static int smbchg_calc_max_flash_current(struct smbchg_chip *chip)
 	return (int)total_flash_ua;
 }
 
+#define VFLOAT_CFG_REG			0xF4
+#define MIN_FLOAT_MV			3600
+#define MAX_FLOAT_MV			4500
+#define VFLOAT_MASK			SMB_MASK(5, 0)
+
+#define MID_RANGE_FLOAT_MV_MIN		3600
+#define MID_RANGE_FLOAT_MIN_VAL		0x05
+#define MID_RANGE_FLOAT_STEP_MV		20
+
+#define HIGH_RANGE_FLOAT_MIN_MV		4340
+#define HIGH_RANGE_FLOAT_MIN_VAL	0x2A
+#define HIGH_RANGE_FLOAT_STEP_MV	10
+
+#define VHIGH_RANGE_FLOAT_MIN_MV	4360
+#define VHIGH_RANGE_FLOAT_MIN_VAL	0x2C
+#define VHIGH_RANGE_FLOAT_STEP_MV	20
+static int smbchg_float_voltage_set(struct smbchg_chip *chip, int vfloat_mv)
+{
+	int rc, delta;
+	u8 temp;
+
+	if ((vfloat_mv < MIN_FLOAT_MV) || (vfloat_mv > MAX_FLOAT_MV)) {
+		dev_err(chip->dev, "bad float voltage mv =%d asked to set\n",
+					vfloat_mv);
+		return -EINVAL;
+	}
+
+	if (vfloat_mv <= HIGH_RANGE_FLOAT_MIN_MV) {
+		/* mid range */
+		delta = vfloat_mv - MID_RANGE_FLOAT_MV_MIN;
+		temp = MID_RANGE_FLOAT_MIN_VAL + delta
+				/ MID_RANGE_FLOAT_STEP_MV;
+		vfloat_mv -= delta % MID_RANGE_FLOAT_STEP_MV;
+	} else if (vfloat_mv <= VHIGH_RANGE_FLOAT_MIN_MV) {
+		/* high range */
+		delta = vfloat_mv - HIGH_RANGE_FLOAT_MIN_MV;
+		temp = HIGH_RANGE_FLOAT_MIN_VAL + delta
+				/ HIGH_RANGE_FLOAT_STEP_MV;
+		vfloat_mv -= delta % HIGH_RANGE_FLOAT_STEP_MV;
+	} else {
+		/* very high range */
+		delta = vfloat_mv - VHIGH_RANGE_FLOAT_MIN_MV;
+		temp = VHIGH_RANGE_FLOAT_MIN_VAL + delta
+				/ VHIGH_RANGE_FLOAT_STEP_MV;
+		vfloat_mv -= delta % VHIGH_RANGE_FLOAT_STEP_MV;
+	}
+
+	rc = smbchg_sec_masked_write(chip, chip->chgr_base + VFLOAT_CFG_REG,
+			VFLOAT_MASK, temp);
+
+	if (rc)
+		dev_err(chip->dev, "Couldn't set float voltage rc = %d\n", rc);
+	else
+		chip->vfloat_mv = vfloat_mv;
+
+	return rc;
+}
+
+static int smbchg_float_voltage_get(struct smbchg_chip *chip)
+{
+	return chip->vfloat_mv;
+}
+
 static int smbchg_battery_set_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       const union power_supply_propval *val)
@@ -1785,6 +1849,9 @@ static int smbchg_battery_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smbchg_set_fastchg_current(chip, val->intval / 1000);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		rc = smbchg_float_voltage_set(chip, val->intval);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1802,6 +1869,7 @@ static int smbchg_battery_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = 1;
 		break;
 	default:
@@ -1830,6 +1898,9 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		val->intval = get_prop_charge_type(chip);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		val->intval = smbchg_float_voltage_get(chip);
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = get_prop_batt_health(chip);
@@ -2024,53 +2095,6 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 	smbchg_vfloat_adjust_check(chip);
 
 	power_supply_changed(&chip->batt_psy);
-}
-
-#define VFLOAT_CFG_REG			0xF4
-#define MIN_FLOAT_MV			3600
-#define MAX_FLOAT_MV			4500
-#define VFLOAT_MASK			SMB_MASK(5, 0)
-
-#define MID_RANGE_FLOAT_MV_MIN		3600
-#define MID_RANGE_FLOAT_MIN_VAL		0x05
-#define MID_RANGE_FLOAT_STEP_MV		20
-
-#define HIGH_RANGE_FLOAT_MIN_MV		4340
-#define HIGH_RANGE_FLOAT_MIN_VAL	0x2A
-#define HIGH_RANGE_FLOAT_STEP_MV	10
-
-#define VHIGH_RANGE_FLOAT_MIN_MV	4360
-#define VHIGH_RANGE_FLOAT_MIN_VAL	0x2C
-#define VHIGH_RANGE_FLOAT_STEP_MV	20
-static int smbchg_float_voltage_set(struct smbchg_chip *chip, int vfloat_mv)
-{
-	u8 temp;
-
-	if ((vfloat_mv < MIN_FLOAT_MV) || (vfloat_mv > MAX_FLOAT_MV)) {
-		dev_err(chip->dev, "bad float voltage mv =%d asked to set\n",
-					vfloat_mv);
-		return -EINVAL;
-	}
-
-	if (vfloat_mv <= HIGH_RANGE_FLOAT_MIN_MV) {
-		/* mid range */
-		temp = MID_RANGE_FLOAT_MIN_VAL
-			+ (vfloat_mv - MID_RANGE_FLOAT_MV_MIN)
-				/ MID_RANGE_FLOAT_STEP_MV;
-	} else if (vfloat_mv <= VHIGH_RANGE_FLOAT_MIN_MV) {
-		/* high range */
-		temp = HIGH_RANGE_FLOAT_MIN_VAL
-			+ (vfloat_mv - HIGH_RANGE_FLOAT_MIN_MV)
-				/ HIGH_RANGE_FLOAT_STEP_MV;
-	} else {
-		/* very high range */
-		temp = VHIGH_RANGE_FLOAT_MIN_VAL
-			+ (vfloat_mv - VHIGH_RANGE_FLOAT_MIN_MV)
-				/ VHIGH_RANGE_FLOAT_STEP_MV;
-	}
-
-	return smbchg_sec_masked_write(chip, chip->chgr_base + VFLOAT_CFG_REG,
-			VFLOAT_MASK, temp);
 }
 
 #define OTG_EN		BIT(0)
