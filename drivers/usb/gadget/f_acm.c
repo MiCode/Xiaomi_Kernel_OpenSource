@@ -73,6 +73,85 @@ struct f_acm {
 #define ACM_CTRL_BRK		(1 << 2)
 #define ACM_CTRL_DSR		(1 << 1)
 #define ACM_CTRL_DCD		(1 << 0)
+
+#define ACM_MAX_STRING_DESC_LENGTH 64
+	struct kobject kobj;
+	char ctrl_string_buf[ACM_MAX_STRING_DESC_LENGTH];
+	char data_string_buf[ACM_MAX_STRING_DESC_LENGTH];
+	char iad_string_buf[ACM_MAX_STRING_DESC_LENGTH];
+};
+
+struct acm_sysfs_entry {
+	struct attribute attr;
+	ssize_t (*show)(struct f_acm *, char *);
+	ssize_t (*store)(struct f_acm *, const char *, size_t);
+};
+
+#define DESCRIPTOR_STRING_ATTR(_field, _buffer)				\
+static ssize_t								\
+_field ## _show(struct f_acm *acm, char *buf)				\
+{									\
+	return sprintf(buf, "%s", acm->_buffer);			\
+}									\
+static ssize_t								\
+_field ## _store(struct f_acm *acm, const char *buf, size_t size)	\
+{									\
+	if (size >= sizeof(acm->_buffer))				\
+		return -EINVAL;						\
+	return strlcpy(acm->_buffer, buf, sizeof(acm->_buffer));	\
+}									\
+static struct acm_sysfs_entry acm_attr_##_field =			\
+	__ATTR(_field, S_IRUGO | S_IWUSR, _field ## _show, _field ## _store);
+
+DESCRIPTOR_STRING_ATTR(ctrl_string, ctrl_string_buf)
+DESCRIPTOR_STRING_ATTR(data_string, data_string_buf)
+DESCRIPTOR_STRING_ATTR(iad_string, iad_string_buf)
+
+static ssize_t
+acm_default_show(struct kobject *kobj, struct attribute *attr, char *buf)
+{
+	struct acm_sysfs_entry *entry;
+	struct f_acm *acm;
+
+	entry = container_of(attr, struct acm_sysfs_entry, attr);
+	acm = container_of(kobj, struct f_acm, kobj);
+
+	if (!entry->show)
+		return -EIO;
+
+	return entry->show(acm, buf);
+}
+static ssize_t
+acm_default_store(struct kobject *kobj, struct attribute *attr, const char *buf,
+		size_t count)
+{
+	struct acm_sysfs_entry *entry;
+	struct f_acm *acm;
+
+	entry = container_of(attr, struct acm_sysfs_entry, attr);
+	acm = container_of(kobj, struct f_acm, kobj);
+
+	if (!entry->store)
+		return -EIO;
+
+	return entry->store(acm, buf, count);
+}
+
+static const struct sysfs_ops acm_sysfs_ops = {
+	.show = acm_default_show,
+	.store = acm_default_store,
+};
+
+static struct attribute *acm_sysfs_attrs[] = {
+	&acm_attr_ctrl_string.attr,
+	&acm_attr_data_string.attr,
+	&acm_attr_iad_string.attr,
+	NULL
+};
+
+static struct kobj_type acm_type = {
+	.sysfs_ops = &acm_sysfs_ops,
+	.default_attrs = acm_sysfs_attrs,
 };
 
 static inline struct f_acm *func_to_acm(struct usb_function *f)
@@ -281,12 +360,7 @@ static struct usb_descriptor_header *acm_ss_function[] = {
 #define ACM_IAD_IDX	2
 
 /* static strings, in UTF-8 */
-static struct usb_string acm_string_defs[] = {
-	[ACM_CTRL_IDX].s = "CDC Abstract Control Model (ACM)",
-	[ACM_DATA_IDX].s = "CDC ACM Data",
-	[ACM_IAD_IDX ].s = "CDC Serial",
-	{  } /* end of list */
-};
+static struct usb_string acm_string_defs[3];
 
 static struct usb_gadget_strings acm_string_table = {
 	.language =		0x0409,	/* en-us */
@@ -612,15 +686,16 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 	int			status;
 	struct usb_ep		*ep;
 
-	/* REVISIT might want instance-specific strings to help
-	 * distinguish instances ...
-	 */
+	acm_string_defs[ACM_CTRL_IDX].s = acm->ctrl_string_buf;
+	acm_string_defs[ACM_DATA_IDX].s = acm->data_string_buf;
+	acm_string_defs[ACM_IAD_IDX].s = acm->iad_string_buf;
 
 	/* maybe allocate device-global string IDs, and patch descriptors */
 	us = usb_gstrings_attach(cdev, acm_strings,
 			ARRAY_SIZE(acm_string_defs));
 	if (IS_ERR(us))
 		return PTR_ERR(us);
+
 	acm_control_interface_desc.iInterface = us[ACM_CTRL_IDX].id;
 	acm_data_interface_desc.iInterface = us[ACM_DATA_IDX].id;
 	acm_iad_descriptor.iFunction = us[ACM_IAD_IDX].id;
@@ -731,6 +806,8 @@ static void acm_free_func(struct usb_function *f)
 {
 	struct f_acm		*acm = func_to_acm(f);
 
+	kobject_del(&acm->kobj);
+	kobject_put(&acm->kobj);
 	kfree(acm);
 }
 
@@ -738,6 +815,7 @@ static struct usb_function *acm_alloc_func(struct usb_function_instance *fi)
 {
 	struct f_serial_opts *opts;
 	struct f_acm *acm;
+	int ret;
 
 	acm = kzalloc(sizeof(*acm), GFP_KERNEL);
 	if (!acm)
@@ -761,6 +839,21 @@ static struct usb_function *acm_alloc_func(struct usb_function_instance *fi)
 	acm->port_num = opts->port_num;
 	acm->port.func.unbind = acm_unbind;
 	acm->port.func.free_func = acm_free_func;
+
+	/* Initialize default strings */
+	strcpy(acm->ctrl_string_buf, "CDC Abstract Control Model (ACM)");
+	strcpy(acm->data_string_buf, "CDC ACM Data");
+	strcpy(acm->iad_string_buf, "CDC Serial");
+
+	WARN_ON_ONCE(!fi->fd->parent);
+	ret = kobject_init_and_add(&acm->kobj, &acm_type, fi->fd->parent,
+						"%s%d", "port", acm->port_num);
+	if (ret) {
+		pr_err("%s: Failed to add kobject\n", __func__);
+		kobject_put(&acm->kobj);
+		kfree(acm);
+		return ERR_PTR(-EINVAL);
+	}
 
 	return &acm->port.func;
 }
