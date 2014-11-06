@@ -236,14 +236,17 @@
 #define ARIZONA_DAC_VOLUME_LIMIT_6R              0x43E
 #define ARIZONA_NOISE_GATE_SELECT_6R             0x43F
 #define ARIZONA_DRE_ENABLE                       0x440
+#define ARIZONA_DRE_CONTROL_1                    0x441
 #define ARIZONA_DRE_CONTROL_2                    0x442
 #define ARIZONA_DRE_CONTROL_3                    0x443
 #define ARIZONA_DAC_AEC_CONTROL_1                0x450
+#define ARIZONA_DAC_AEC_CONTROL_2                0x451
 #define ARIZONA_NOISE_GATE_CONTROL               0x458
 #define ARIZONA_PDM_SPK1_CTRL_1                  0x490
 #define ARIZONA_PDM_SPK1_CTRL_2                  0x491
 #define ARIZONA_PDM_SPK2_CTRL_1                  0x492
 #define ARIZONA_PDM_SPK2_CTRL_2                  0x493
+#define ARIZONA_HP_TEST_CTRL_13                  0x49A
 #define ARIZONA_HP1_SHORT_CIRCUIT_CTRL           0x4A0
 #define ARIZONA_HP2_SHORT_CIRCUIT_CTRL           0x4A1
 #define ARIZONA_HP3_SHORT_CIRCUIT_CTRL           0x4A2
@@ -292,8 +295,16 @@
 #define ARIZONA_AIF2_FRAME_CTRL_2                0x548
 #define ARIZONA_AIF2_FRAME_CTRL_3                0x549
 #define ARIZONA_AIF2_FRAME_CTRL_4                0x54A
+#define ARIZONA_AIF2_FRAME_CTRL_5                0x54B
+#define ARIZONA_AIF2_FRAME_CTRL_6                0x54C
+#define ARIZONA_AIF2_FRAME_CTRL_7                0x54D
+#define ARIZONA_AIF2_FRAME_CTRL_8                0x54E
 #define ARIZONA_AIF2_FRAME_CTRL_11               0x551
 #define ARIZONA_AIF2_FRAME_CTRL_12               0x552
+#define ARIZONA_AIF2_FRAME_CTRL_13               0x553
+#define ARIZONA_AIF2_FRAME_CTRL_14               0x554
+#define ARIZONA_AIF2_FRAME_CTRL_15               0x555
+#define ARIZONA_AIF2_FRAME_CTRL_16               0x556
 #define ARIZONA_AIF2_TX_ENABLES                  0x559
 #define ARIZONA_AIF2_RX_ENABLES                  0x55A
 #define ARIZONA_AIF2_FORCE_WRITE                 0x55B
@@ -313,6 +324,10 @@
 #define ARIZONA_AIF3_TX_ENABLES                  0x599
 #define ARIZONA_AIF3_RX_ENABLES                  0x59A
 #define ARIZONA_AIF3_FORCE_WRITE                 0x59B
+#define ARIZONA_SPD1_TX_CONTROL                  0x5C2
+#define ARIZONA_SPD1_TX_CHANNEL_STATUS_1         0x5C3
+#define ARIZONA_SPD1_TX_CHANNEL_STATUS_2         0x5C4
+#define ARIZONA_SPD1_TX_CHANNEL_STATUS_3         0x5C5
 #define ARIZONA_SLIMBUS_FRAMER_REF_GEAR          0x5E3
 #define ARIZONA_SLIMBUS_RATES_1                  0x5E5
 #define ARIZONA_SLIMBUS_RATES_2                  0x5E6
@@ -646,6 +661,10 @@
 #define ARIZONA_SLIMTX8MIX_INPUT_3_VOLUME        0x7FD
 #define ARIZONA_SLIMTX8MIX_INPUT_4_SOURCE        0x7FE
 #define ARIZONA_SLIMTX8MIX_INPUT_4_VOLUME        0x7FF
+#define ARIZONA_SPDIFTX1MIX_INPUT_1_SOURCE       0x800
+#define ARIZONA_SPDIFTX1MIX_INPUT_1_VOLUME       0x801
+#define ARIZONA_SPDIFTX2MIX_INPUT_1_SOURCE       0x808
+#define ARIZONA_SPDIFTX2MIX_INPUT_1_VOLUME       0x809
 #define ARIZONA_EQ1MIX_INPUT_1_SOURCE            0x880
 #define ARIZONA_EQ1MIX_INPUT_1_VOLUME            0x881
 #define ARIZONA_EQ1MIX_INPUT_2_SOURCE            0x882
@@ -1178,6 +1197,13 @@
 #define ARIZONA_DSP4_SCRATCH_1                   0x1441
 #define ARIZONA_DSP4_SCRATCH_2                   0x1442
 #define ARIZONA_DSP4_SCRATCH_3                   0x1443
+#define ARIZONA_FRF_COEFF_1                      0x1700
+#define ARIZONA_FRF_COEFF_2                      0x1701
+#define ARIZONA_FRF_COEFF_3                      0x1702
+#define ARIZONA_FRF_COEFF_4                      0x1703
+#define ARIZONA_V2_DAC_COMP_1                    0x1704
+#define ARIZONA_V2_DAC_COMP_2                    0x1705
+
 
 /*
  * Field Definitions.
@@ -2507,6 +2533,12 @@
 /*
  * R785 (0x311) - ADC Digital Volume 1L
  */
+#define ARIZONA_IN1L_SRC_MASK                    0x4000  /* IN1L_SRC - [14] */
+#define ARIZONA_IN1L_SRC_SHIFT                       14  /* IN1L_SRC - [14] */
+#define ARIZONA_IN1L_SRC_WIDTH                        1  /* IN1L_SRC - [14] */
+#define ARIZONA_IN1L_SRC_SE_MASK                 0x2000  /* IN1L_SRC - [13] */
+#define ARIZONA_IN1L_SRC_SE_SHIFT                    13  /* IN1L_SRC - [13] */
+#define ARIZONA_IN1L_SRC_SE_WIDTH                     1  /* IN1L_SRC - [13] */
 #define ARIZONA_IN_VU                            0x0200  /* IN_VU */
 #define ARIZONA_IN_VU_MASK                       0x0200  /* IN_VU */
 #define ARIZONA_IN_VU_SHIFT                           9  /* IN_VU */
@@ -2539,6 +2571,12 @@
 /*
  * R789 (0x315) - ADC Digital Volume 1R
  */
+#define ARIZONA_IN1R_SRC_MASK                    0x4000  /* IN1R_SRC - [14] */
+#define ARIZONA_IN1R_SRC_SHIFT                       14  /* IN1R_SRC - [14] */
+#define ARIZONA_IN1R_SRC_WIDTH                        1  /* IN1R_SRC - [14] */
+#define ARIZONA_IN1R_SRC_SE_MASK                 0x2000  /* IN1R_SRC - [13] */
+#define ARIZONA_IN1R_SRC_SE_SHIFT                    13  /* IN1R_SRC - [13] */
+#define ARIZONA_IN1R_SRC_SE_WIDTH                     1  /* IN1R_SRC - [13] */
 #define ARIZONA_IN_VU                            0x0200  /* IN_VU */
 #define ARIZONA_IN_VU_MASK                       0x0200  /* IN_VU */
 #define ARIZONA_IN_VU_SHIFT                           9  /* IN_VU */
@@ -2583,6 +2621,12 @@
 /*
  * R793 (0x319) - ADC Digital Volume 2L
  */
+#define ARIZONA_IN2L_SRC_MASK                    0x4000  /* IN2L_SRC - [14] */
+#define ARIZONA_IN2L_SRC_SHIFT                       14  /* IN2L_SRC - [14] */
+#define ARIZONA_IN2L_SRC_WIDTH                        1  /* IN2L_SRC - [14] */
+#define ARIZONA_IN2L_SRC_SE_MASK                 0x2000  /* IN2L_SRC - [13] */
+#define ARIZONA_IN2L_SRC_SE_SHIFT                    13  /* IN2L_SRC - [13] */
+#define ARIZONA_IN2L_SRC_SE_WIDTH                     1  /* IN2L_SRC - [13] */
 #define ARIZONA_IN_VU                            0x0200  /* IN_VU */
 #define ARIZONA_IN_VU_MASK                       0x0200  /* IN_VU */
 #define ARIZONA_IN_VU_SHIFT                           9  /* IN_VU */
@@ -3433,11 +3477,21 @@
 #define ARIZONA_DRE1L_ENA_WIDTH                       1  /* DRE1L_ENA */
 
 /*
+ * R1089 (0x441) - DRE Control 1
+ */
+#define ARIZONA_DRE_ENV_TC_FAST_MASK             0x0F00  /* DRE_ENV_TC_FAST - [11:8] */
+#define ARIZONA_DRE_ENV_TC_FAST_SHIFT                 8  /* DRE_ENV_TC_FAST - [11:8] */
+#define ARIZONA_DRE_ENV_TC_FAST_WIDTH                 4  /* DRE_ENV_TC_FAST - [11:8] */
+
+/*
  * R1090 (0x442) - DRE Control 2
  */
 #define ARIZONA_DRE_T_LOW_MASK                   0x3F00  /* DRE_T_LOW - [13:8] */
 #define ARIZONA_DRE_T_LOW_SHIFT                       8  /* DRE_T_LOW - [13:8] */
 #define ARIZONA_DRE_T_LOW_WIDTH                       6  /* DRE_T_LOW - [13:8] */
+#define ARIZONA_DRE_ALOG_VOL_DELAY_MASK          0x000F  /* DRE_ALOG_VOL_DELAY - [3:0] */
+#define ARIZONA_DRE_ALOG_VOL_DELAY_SHIFT              0  /* DRE_ALOG_VOL_DELAY - [3:0] */
+#define ARIZONA_DRE_ALOG_VOL_DELAY_WIDTH              4  /* DRE_ALOG_VOL_DELAY - [3:0] */
 
 /*
  * R1091 (0x443) - DRE Control 3
@@ -4327,6 +4381,86 @@
 #define ARIZONA_AIF3_FRC_WR_MASK                 0x0001  /* AIF3_FRC_WR */
 #define ARIZONA_AIF3_FRC_WR_SHIFT                     0  /* AIF3_FRC_WR */
 #define ARIZONA_AIF3_FRC_WR_WIDTH                     1  /* AIF3_FRC_WR */
+
+/*
+ * R1474 (0x5C2) - SPD1 TX Control
+ */
+#define ARIZONA_SPD1_VAL2                        0x2000  /* SPD1_VAL2 */
+#define ARIZONA_SPD1_VAL2_MASK                   0x2000  /* SPD1_VAL2 */
+#define ARIZONA_SPD1_VAL2_SHIFT                      13  /* SPD1_VAL2 */
+#define ARIZONA_SPD1_VAL2_WIDTH                       1  /* SPD1_VAL2 */
+#define ARIZONA_SPD1_VAL1                        0x1000  /* SPD1_VAL1 */
+#define ARIZONA_SPD1_VAL1_MASK                   0x1000  /* SPD1_VAL1 */
+#define ARIZONA_SPD1_VAL1_SHIFT                      12  /* SPD1_VAL1 */
+#define ARIZONA_SPD1_VAL1_WIDTH                       1  /* SPD1_VAL1 */
+#define ARIZONA_SPD1_RATE_MASK                   0x00F0  /* SPD1_RATE */
+#define ARIZONA_SPD1_RATE_SHIFT                       4  /* SPD1_RATE */
+#define ARIZONA_SPD1_RATE_WIDTH                       4  /* SPD1_RATE */
+#define ARIZONA_SPD1_ENA                         0x0001  /* SPD1_ENA */
+#define ARIZONA_SPD1_ENA_MASK                    0x0001  /* SPD1_ENA */
+#define ARIZONA_SPD1_ENA_SHIFT                        0  /* SPD1_ENA */
+#define ARIZONA_SPD1_ENA_WIDTH                        1  /* SPD1_ENA */
+
+/*
+ * R1475 (0x5C3) - SPD1 TX Channel Status 1
+ */
+#define ARIZONA_SPD1_CATCODE_MASK                0xFF00  /* SPD1_CATCODE */
+#define ARIZONA_SPD1_CATCODE_SHIFT                    8  /* SPD1_CATCODE */
+#define ARIZONA_SPD1_CATCODE_WIDTH                    8  /* SPD1_CATCODE */
+#define ARIZONA_SPD1_CHSTMODE_MASK               0x00C0  /* SPD1_CHSTMODE */
+#define ARIZONA_SPD1_CHSTMODE_SHIFT                   6  /* SPD1_CHSTMODE */
+#define ARIZONA_SPD1_CHSTMODE_WIDTH                   2  /* SPD1_CHSTMODE */
+#define ARIZONA_SPD1_PREEMPH_MASK                0x0038  /* SPD1_PREEMPH */
+#define ARIZONA_SPD1_PREEMPH_SHIFT                    3  /* SPD1_PREEMPH */
+#define ARIZONA_SPD1_PREEMPH_WIDTH                    3  /* SPD1_PREEMPH */
+#define ARIZONA_SPD1_NOCOPY                      0x0004  /* SPD1_NOCOPY */
+#define ARIZONA_SPD1_NOCOPY_MASK                 0x0004  /* SPD1_NOCOPY */
+#define ARIZONA_SPD1_NOCOPY_SHIFT                     2  /* SPD1_NOCOPY */
+#define ARIZONA_SPD1_NOCOPY_WIDTH                     1  /* SPD1_NOCOPY */
+#define ARIZONA_SPD1_NOAUDIO                     0x0002  /* SPD1_NOAUDIO */
+#define ARIZONA_SPD1_NOAUDIO_MASK                0x0002  /* SPD1_NOAUDIO */
+#define ARIZONA_SPD1_NOAUDIO_SHIFT                    1  /* SPD1_NOAUDIO */
+#define ARIZONA_SPD1_NOAUDIO_WIDTH                    1  /* SPD1_NOAUDIO */
+#define ARIZONA_SPD1_PRO                         0x0001  /* SPD1_PRO */
+#define ARIZONA_SPD1_PRO_MASK                    0x0001  /* SPD1_PRO */
+#define ARIZONA_SPD1_PRO_SHIFT                        0  /* SPD1_PRO */
+#define ARIZONA_SPD1_PRO_WIDTH                        1  /* SPD1_PRO */
+
+/*
+ * R1475 (0x5C4) - SPD1 TX Channel Status 2
+ */
+#define ARIZONA_SPD1_FREQ_MASK                   0xF000  /* SPD1_FREQ */
+#define ARIZONA_SPD1_FREQ_SHIFT                      12  /* SPD1_FREQ */
+#define ARIZONA_SPD1_FREQ_WIDTH                       4  /* SPD1_FREQ */
+#define ARIZONA_SPD1_CHNUM2_MASK                 0x0F00  /* SPD1_CHNUM2 */
+#define ARIZONA_SPD1_CHNUM2_SHIFT                     8  /* SPD1_CHNUM2 */
+#define ARIZONA_SPD1_CHNUM2_WIDTH                     4  /* SPD1_CHNUM2 */
+#define ARIZONA_SPD1_CHNUM1_MASK                 0x00F0  /* SPD1_CHNUM1 */
+#define ARIZONA_SPD1_CHNUM1_SHIFT                     4  /* SPD1_CHNUM1 */
+#define ARIZONA_SPD1_CHNUM1_WIDTH                     4  /* SPD1_CHNUM1 */
+#define ARIZONA_SPD1_SRCNUM_MASK                 0x000F  /* SPD1_SRCNUM */
+#define ARIZONA_SPD1_SRCNUM_SHIFT                     0  /* SPD1_SRCNUM */
+#define ARIZONA_SPD1_SRCNUM_WIDTH                     4  /* SPD1_SRCNUM */
+
+/*
+ * R1475 (0x5C5) - SPD1 TX Channel Status 3
+ */
+#define ARIZONA_SPD1_ORGSAMP_MASK                 0x0F00  /* SPD1_ORGSAMP */
+#define ARIZONA_SPD1_ORGSAMP_SHIFT                     8  /* SPD1_ORGSAMP */
+#define ARIZONA_SPD1_ORGSAMP_WIDTH                     4  /* SPD1_ORGSAMP */
+#define ARIZONA_SPD1_TXWL_MASK                    0x00E0  /* SPD1_TXWL */
+#define ARIZONA_SPD1_TXWL_SHIFT                        5  /* SPD1_TXWL */
+#define ARIZONA_SPD1_TXWL_WIDTH                        3  /* SPD1_TXWL */
+#define ARIZONA_SPD1_MAXWL                        0x0010  /* SPD1_MAXWL */
+#define ARIZONA_SPD1_MAXWL_MASK                   0x0010  /* SPD1_MAXWL */
+#define ARIZONA_SPD1_MAXWL_SHIFT                       4  /* SPD1_MAXWL */
+#define ARIZONA_SPD1_MAXWL_WIDTH                       1  /* SPD1_MAXWL */
+#define ARIZONA_SPD1_CS31_30_MASK                 0x000C  /* SPD1_CS31_30 */
+#define ARIZONA_SPD1_CS31_30_SHIFT                     2  /* SPD1_CS31_30 */
+#define ARIZONA_SPD1_CS31_30_WIDTH                     2  /* SPD1_CS31_30 */
+#define ARIZONA_SPD1_CLKACU_MASK                  0x0003  /* SPD1_CLKACU */
+#define ARIZONA_SPD1_CLKACU_SHIFT                      2  /* SPD1_CLKACU */
+#define ARIZONA_SPD1_CLKACU_WIDTH                      0  /* SPD1_CLKACU */
 
 /*
  * R1507 (0x5E3) - SLIMbus Framer Ref Gear
@@ -5701,6 +5835,10 @@
 /*
  * R3366 (0xD26) - Interrupt Raw Status 8
  */
+#define ARIZONA_SPDIF_OVERCLOCKED_STS            0x8000  /* SPDIF_OVERCLOCKED_STS */
+#define ARIZONA_SPDIF_OVERCLOCKED_STS_MASK       0x8000  /* SPDIF_OVERCLOCKED_STS */
+#define ARIZONA_SPDIF_OVERCLOCKED_STS_SHIFT          15  /* SPDIF_OVERCLOCKED_STS */
+#define ARIZONA_SPDIF_OVERCLOCKED_STS_WIDTH           1  /* SPDIF_OVERCLOCKED_STS */
 #define ARIZONA_AIF3_UNDERCLOCKED_STS            0x0400  /* AIF3_UNDERCLOCKED_STS */
 #define ARIZONA_AIF3_UNDERCLOCKED_STS_MASK       0x0400  /* AIF3_UNDERCLOCKED_STS */
 #define ARIZONA_AIF3_UNDERCLOCKED_STS_SHIFT          10  /* AIF3_UNDERCLOCKED_STS */
