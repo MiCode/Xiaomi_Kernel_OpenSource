@@ -260,7 +260,7 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 	mutex_unlock(&core->lock);
 
 	rc = call_hfi_op(hdev, vote_bus, hdev->hfi_device_data, vote_data,
-			vote_data_count, core->idle_stats.fb_err_level);
+			vote_data_count);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
 

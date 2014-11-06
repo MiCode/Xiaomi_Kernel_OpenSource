@@ -272,9 +272,11 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 	c = 0;
 
 	for_each_child_of_node(bus_node, child_node) {
+		bool passive = false;
 		u32 configs = 0;
 		struct bus_info *bus = &buses->bus_tbl[c];
 
+		passive = of_property_read_bool(child_node, "qcom,bus-passive");
 		rc = of_property_read_u32(child_node, "qcom,bus-configs",
 				&configs);
 		if (rc) {
@@ -282,14 +284,9 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 					"Failed to read qcom,bus-configs in %s: %d\n",
 					child_node->name, rc);
 			break;
-		} else if (!configs) {
-			dprintk(VIDC_ERR,
-					"qcom,bus-configs in %s needs to be applicable for some codec\n",
-					child_node->name);
-			rc = -EINVAL;
-			break;
 		}
 
+		bus->passive = passive;
 		bus->sessions_supported = configs;
 		bus->pdata = msm_bus_pdata_from_node(pdev, child_node);
 		if (IS_ERR_OR_NULL(bus->pdata)) {
@@ -298,8 +295,9 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 			break;
 		}
 
-		dprintk(VIDC_DBG, "Bus %s supports: %x\n", bus->pdata->name,
-				bus->sessions_supported);
+		dprintk(VIDC_DBG, "Bus %s supports: %x, passive: %d\n",
+				bus->pdata->name, bus->sessions_supported,
+				passive);
 		++c;
 	}
 
