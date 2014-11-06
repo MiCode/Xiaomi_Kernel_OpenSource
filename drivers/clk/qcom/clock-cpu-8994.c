@@ -1416,6 +1416,7 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 	a57_pll0_main.c.flags = CLKFLAG_NO_RATE_CACHE;
 	a53_pll1_main.c.flags = CLKFLAG_NO_RATE_CACHE;
 	a57_pll1_main.c.flags = CLKFLAG_NO_RATE_CACHE;
+	cci_pll_main.c.flags = CLKFLAG_NO_RATE_CACHE;
 
 	if (v2)
 		init_v2_data();
