@@ -5120,7 +5120,7 @@ static int mhl_cbus_err_isr(struct drv_hw_context *hw_context,
 			ddc_abort_count = 0;
 		} else if (MHL_READ_EDID_BLOCK ==
 			   hw_context->current_cbus_req.command) {
-			hw_context->intr_info->flags |= DRV_INTR_FLAG_MSC_DONE;
+			hw_context->intr_info->flags |= DRV_INTR_MSC_DONE;
 			/* setting 1 indicates there was an error */
 			hw_context->intr_info->msc_done_data = 1;
 		}
