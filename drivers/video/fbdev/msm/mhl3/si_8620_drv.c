@@ -6654,7 +6654,7 @@ int si_mhl_tx_chip_initialize(struct drv_hw_context *hw_context)
 	int status = -1;
 
 	hw_context->pp_16bpp_override = pp_16bpp_automatic;
-	set_pin(TX_FW_WAKE, 0);	/* inverter on board */
+	set_pin(TX_FW_WAKE, 1);	/* inverter on board */
 	platform_mhl_tx_hw_reset(TX_HW_RESET_PERIOD, TX_HW_RESET_DELAY);
 
 	/* Power up the device. Keep HSIC and Rx cores powered down. */
