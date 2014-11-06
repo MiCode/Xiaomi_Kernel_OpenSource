@@ -818,16 +818,20 @@ static int msm8939_gpio_set_mux_ctl(void)
 	iounmap(vaddr);
 
 	vaddr = ioremap(0x103f004, 4);
-	if (!vaddr)
+	if (!vaddr) {
 		pr_err("%s ioremap failure for addr\n",
 					__func__);
+		return -ENOMEM;
+	}
 	val = ioread32(vaddr);
 	pr_debug("%s:val1 %x\n", __func__, val);
 	iounmap(vaddr);
 	vaddr = ioremap(0x103f000, 4);
-	if (!vaddr)
+	if (!vaddr) {
 		pr_err("%s ioremap failure for addr2\n",
 					__func__);
+		return -ENOMEM;
+	}
 	val = ioread32(vaddr);
 	pr_debug("%s:val2 %x\n", __func__, val);
 	iounmap(vaddr);
