@@ -124,6 +124,7 @@ static int msm_iommu_dump_fault_regs(int smmu_id, int cb_num,
 				struct msm_scm_fault_regs_dump *regs)
 {
 	int ret;
+	struct scm_desc desc = {0};
 
 	struct msm_scm_fault_regs_dump_req {
 		uint32_t id;
@@ -133,15 +134,19 @@ static int msm_iommu_dump_fault_regs(int smmu_id, int cb_num,
 	} req_info;
 	int resp = 0;
 
-	req_info.id = smmu_id;
-	req_info.cb_num = cb_num;
-	req_info.buff = virt_to_phys(regs);
-	req_info.len = sizeof(*regs);
+	desc.args[0] = req_info.id = smmu_id;
+	desc.args[1] = req_info.cb_num = cb_num;
+	desc.args[2] = req_info.buff = virt_to_phys(regs);
+	desc.args[3] = req_info.len = sizeof(*regs);
+	desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_VAL, SCM_RW, SCM_VAL);
 
 	dmac_clean_range(regs, regs + 1);
-	ret = scm_call(SCM_SVC_UTIL, IOMMU_DUMP_SMMU_FAULT_REGS,
-		&req_info, sizeof(req_info), &resp, 1);
-
+	if (!is_scm_armv8())
+		ret = scm_call(SCM_SVC_UTIL, IOMMU_DUMP_SMMU_FAULT_REGS,
+			&req_info, sizeof(req_info), &resp, 1);
+	else
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_UTIL,
+			IOMMU_DUMP_SMMU_FAULT_REGS), &desc);
 	dmac_inv_range(regs, regs + 1);
 
 	return ret;
