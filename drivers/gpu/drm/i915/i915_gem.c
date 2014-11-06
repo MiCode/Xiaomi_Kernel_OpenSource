@@ -172,16 +172,33 @@ int i915_gem_wedged(struct drm_device *dev, bool interruptible)
 int i915_mutex_lock_interruptible(struct drm_device *dev)
 {
 	int ret;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	/*
-	 * There should be no need to call i915_gem_wait_for_error
-	 * as the error recovery handler takes dev->struct_mutex
-	 * so if it is active we will wait on the mutex_lock_interruptible
-	 * call instead
+	 * Since the full GPU reset has to release the struct_mutex
+	 * and then re-acquire it in the middle of reset it is not
+	 * enough to trust the struct_mutex alone.
+	 * i915_gem_wait_for_error checks i915_reset_in_progress and
+	 * waits until reset has been completed.
 	 */
+	ret = i915_gem_wait_for_error(dev, &dev_priv->gpu_error);
+	if (ret)
+		return ret;
+
 	ret = mutex_lock_interruptible(&dev->struct_mutex);
 	if (ret)
 		return ret;
+
+	/*
+	 * If reset is ongoing at this point it means that while we
+	 * were waiting for the struct_mutex a hang was detected and reset
+	 * was initiated. In that case we should back off and try again.
+	 * We don't want to step on the toes of TDR.
+	 */
+	if (i915_gem_wedged(dev, true)) {
+		mutex_unlock(&dev->struct_mutex);
+		return -EAGAIN;
+	}
 
 	WARN_ON(i915_verify_lists(dev));
 	return 0;
