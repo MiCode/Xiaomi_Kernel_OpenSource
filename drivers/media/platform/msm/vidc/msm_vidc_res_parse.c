@@ -565,9 +565,6 @@ int read_platform_resources_from_dt(
 	res->sys_idle_indicator = of_property_read_bool(pdev->dev.of_node,
 			"qcom,enable-idle-indicator");
 
-	res->minimum_vote = of_property_read_bool(pdev->dev.of_node,
-			"qcom,enable-minimum-voting");
-
 	res->thermal_mitigable =
 			of_property_read_bool(pdev->dev.of_node,
 			"qcom,enable-thermal-mitigation");
