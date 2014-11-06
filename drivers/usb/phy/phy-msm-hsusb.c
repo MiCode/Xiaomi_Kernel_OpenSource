@@ -332,18 +332,16 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 					SEC_UTMI_FREE_CLK_GFM_SEL1);
 
 	if (phy->core_ver >= MSM_CORE_VER_120) {
+		val = readl_relaxed(phy->base + HS_PHY_CTRL_COMMON_REG);
+		val |= COMMON_OTGDISABLE0 | COMMON_OTGTUNE0_DEFAULT |
+			COMMON_COMMONONN | FSEL_DEFAULT | COMMON_RETENABLEN;
+
 		if (phy->set_pllbtune) {
-			val = readl_relaxed(phy->base + HS_PHY_CTRL_COMMON_REG);
 			val |= COMMON_PLLBTUNE | COMMON_CLKCORE;
 			val &= ~COMMON_FSEL;
-			writel_relaxed(val, phy->base + HS_PHY_CTRL_COMMON_REG);
-		} else {
-			writel_relaxed(COMMON_OTGDISABLE0 |
-				COMMON_OTGTUNE0_DEFAULT |
-				COMMON_COMMONONN | FSEL_DEFAULT |
-				COMMON_RETENABLEN,
-				phy->base + HS_PHY_CTRL_COMMON_REG);
 		}
+
+		writel_relaxed(val, phy->base + HS_PHY_CTRL_COMMON_REG);
 	}
 
 	/*
@@ -412,23 +410,7 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 					HS_PHY_CTRL_REG(i),
 					(USB2_SUSPEND_N_SEL | USB2_SUSPEND_N),
 					USB2_SUSPEND_N_SEL);
-			/*
-			 * Enable PHY retention
-			 * RETENABLEN bit is not available on few platforms.
-			 */
-			if (!chg_connected) {
-				if (phy->set_pllbtune)
-					msm_usb_write_readback(phy->base,
-						HS_PHY_CTRL_COMMON_REG,
-						COMMON_PLLITUNE_1,
-						COMMON_PLLITUNE_1);
-				else
-					msm_usb_write_readback(phy->base,
-						HS_PHY_CTRL_REG(i),
-						RETENABLEN, 0);
-				phy->lpm_flags |= PHY_RETENTIONED;
 			}
-		}
 
 			if (!phy->ext_vbus_id)
 				/* Enable PHY-based IDHV and
@@ -439,6 +421,30 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 					(OTGSESSVLDHV_INTEN | IDHV_INTEN),
 					(OTGSESSVLDHV_INTEN | IDHV_INTEN));
 		}
+
+		/* Enable PHY retention */
+		if (!host && !chg_connected) {
+			if (phy->core_ver == MSM_CORE_VER_120 &&
+					phy->set_pllbtune)
+				/*
+				 * On this particular revision the PLLITUNE[1]
+				 * bit acts as the control for the RETENABLEN
+				 * PHY signal.
+				 */
+				msm_usb_write_readback(phy->base,
+					HS_PHY_CTRL_COMMON_REG,
+					COMMON_PLLITUNE_1, COMMON_PLLITUNE_1);
+			else if (phy->core_ver >= MSM_CORE_VER_120)
+				msm_usb_write_readback(phy->base,
+					HS_PHY_CTRL_COMMON_REG,
+					COMMON_RETENABLEN, 0);
+			else
+				msm_usb_write_readback(phy->base,
+					HS_PHY_CTRL_REG(0),
+					RETENABLEN, 0);
+			phy->lpm_flags |= PHY_RETENTIONED;
+		}
+
 		/* can turn off regulators if disconnected in device mode */
 		if (phy->lpm_flags & PHY_RETENTIONED && !phy->cable_connected) {
 			if (phy->ext_vbus_id) {
@@ -462,6 +468,21 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 				msm_hsusb_ldo_enable(phy, 1);
 				phy->lpm_flags &= ~PHY_PWR_COLLAPSED;
 			}
+
+			/* Disable PHY retention */
+			if (phy->core_ver == MSM_CORE_VER_120 &&
+					phy->set_pllbtune)
+				msm_usb_write_readback(phy->base,
+					HS_PHY_CTRL_COMMON_REG,
+					COMMON_PLLITUNE_1, 0);
+			else if (phy->core_ver >= MSM_CORE_VER_120)
+				msm_usb_write_readback(phy->base,
+					HS_PHY_CTRL_COMMON_REG,
+					COMMON_RETENABLEN, COMMON_RETENABLEN);
+			else
+				msm_usb_write_readback(phy->base,
+					HS_PHY_CTRL_REG(0),
+					RETENABLEN, RETENABLEN);
 			phy->lpm_flags &= ~PHY_RETENTIONED;
 		}
 
@@ -476,6 +497,7 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 						FSEL_MASK, FSEL_DEFAULT);
 			}
 		}
+
 		for (i = 0; i < phy->num_ports; i++) {
 			if (!phy->ext_vbus_id)
 				/* Disable HV interrupts */
@@ -497,16 +519,6 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 						ALT_INTERRUPT_EN_REG(i),
 						DPDMHV_INT_MASK, 0);
 			if (!host) {
-				/* Disable PHY retention */
-				if (phy->set_pllbtune)
-					msm_usb_write_readback(phy->base,
-						HS_PHY_CTRL_COMMON_REG,
-						COMMON_PLLITUNE_1, 0);
-				else
-					msm_usb_write_readback(phy->base,
-						HS_PHY_CTRL_REG(i),
-						RETENABLEN, RETENABLEN);
-
 				/* Bring PHY out of suspend */
 				msm_usb_write_readback(phy->base,
 						HS_PHY_CTRL_REG(i),
