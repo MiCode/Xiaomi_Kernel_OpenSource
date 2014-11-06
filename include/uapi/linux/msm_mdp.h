@@ -558,6 +558,11 @@ struct mdp_histogram_cfg {
 	uint16_t num_bins;
 };
 
+enum {
+	mdp_hist_lut_v1_7 = 1,
+	mdp_hist_lut_vmax,
+};
+
 struct mdp_hist_lut_data_v1_7 {
 	uint32_t len;
 	uint32_t *data;
@@ -566,6 +571,7 @@ struct mdp_hist_lut_data_v1_7 {
 struct mdp_hist_lut_data {
 	uint32_t block;
 	uint32_t version;
+	uint32_t hist_lut_first;
 	uint32_t ops;
 	uint32_t len;
 	uint32_t *data;

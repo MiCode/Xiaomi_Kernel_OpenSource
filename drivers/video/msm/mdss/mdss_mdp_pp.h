@@ -21,6 +21,8 @@
 
 /* PP STS related flags */
 #define PP_STS_ENABLE	0x1
+#define PP_STS_GAMUT_FIRST	0x2
+#define PP_STS_PA_LUT_FIRST	0x4
 
 /* Demo mode macros */
 #define MDSS_SIDE_NONE	0
@@ -91,7 +93,9 @@ struct mdp_pp_driver_ops {
 struct mdss_pp_res_type_v1_7 {
 	u32 igc_table_c0_c1[MDSS_BLOCK_DISP_NUM][IGC_LUT_ENTRIES];
 	u32 igc_table_c2[MDSS_BLOCK_DISP_NUM][IGC_LUT_ENTRIES];
+	u32 hist_lut[MDSS_BLOCK_DISP_NUM][ENHIST_LUT_ENTRIES];
 	struct mdp_igc_lut_data_v1_7 igc_v17_data[MDSS_BLOCK_DISP_NUM];
+	struct mdp_hist_lut_data_v1_7 hist_lut_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_gamut_data_v1_7 gamut_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pcc_data_v1_7 pcc_v17_data[MDSS_BLOCK_DISP_NUM];
 };
