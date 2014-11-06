@@ -2300,6 +2300,17 @@
 					<68 604 1717000 3632000>;
 				qcom,bus-configs = <0x30fcfff>;
 			};
+
+			qcom,msm-bus-client@8 {
+				qcom,msm-bus,name = "venus-arm9-ddr";
+				qcom,msm-bus,num-cases = <2>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 1000 1000>;
+				qcom,bus-configs = <0x00000000>;
+				qcom,bus-passive;
+			};
 		};
 	};
 
