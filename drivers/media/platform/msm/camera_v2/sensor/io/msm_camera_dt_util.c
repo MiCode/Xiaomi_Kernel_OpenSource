@@ -1308,10 +1308,17 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 					SENSOR_GPIO_MAX);
 				goto power_up_failed;
 			}
-			msm_camera_config_single_vreg(ctrl->dev,
-				&ctrl->cam_vreg[power_setting->seq_val],
-				(struct regulator **)&power_setting->data[0],
-				1);
+			if (power_setting->seq_val < ctrl->num_vreg)
+				msm_camera_config_single_vreg(ctrl->dev,
+					&ctrl->cam_vreg
+					[power_setting->seq_val],
+					(struct regulator **)
+					&power_setting->data[0],
+					1);
+			else
+				pr_err("ERR:%s: %d usr_idx:%d dts_idx:%d\n",
+					__func__, __LINE__,
+					power_setting->seq_val, ctrl->num_vreg);
 			break;
 		case SENSOR_I2C_MUX:
 			if (ctrl->i2c_conf && ctrl->i2c_conf->use_i2c_mux)
@@ -1367,10 +1374,17 @@ power_up_failed:
 				[power_setting->seq_val], GPIOF_OUT_INIT_LOW);
 			break;
 		case SENSOR_VREG:
-			msm_camera_config_single_vreg(ctrl->dev,
-				&ctrl->cam_vreg[power_setting->seq_val],
-				(struct regulator **)&power_setting->data[0],
-				0);
+			if (power_setting->seq_val < ctrl->num_vreg)
+				msm_camera_config_single_vreg(ctrl->dev,
+					&ctrl->cam_vreg
+					[power_setting->seq_val],
+					(struct regulator **)
+					&power_setting->data[0],
+					0);
+			else
+				pr_err("%s:%d:seq_val: %d > num_vreg: %d\n",
+					__func__, __LINE__,
+					power_setting->seq_val, ctrl->num_vreg);
 			break;
 		case SENSOR_I2C_MUX:
 			if (ctrl->i2c_conf && ctrl->i2c_conf->use_i2c_mux)
@@ -1489,13 +1503,19 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 			ps = msm_camera_get_power_settings(ctrl,
 						pd->seq_type,
 						pd->seq_val);
-
-			if (ps)
-				msm_camera_config_single_vreg(ctrl->dev,
-					&ctrl->cam_vreg[pd->seq_val],
-					(struct regulator **)&ps->data[0],
-					0);
-			else
+			if (ps) {
+				if (pd->seq_val < ctrl->num_vreg)
+					msm_camera_config_single_vreg(ctrl->dev,
+						&ctrl->cam_vreg
+						[pd->seq_val],
+						(struct regulator **)
+						&ps->data[0],
+						0);
+				else
+					pr_err("%s:%d:seq_val:%d > num_vreg: %d\n",
+						__func__, __LINE__, pd->seq_val,
+						ctrl->num_vreg);
+			} else
 				pr_err("%s error in power up/down seq data\n",
 								__func__);
 			break;
