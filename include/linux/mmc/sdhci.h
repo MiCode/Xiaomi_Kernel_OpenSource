@@ -168,7 +168,12 @@ struct sdhci_host {
  * Some SDHC controllers do not require data buffers alignment, skip
  * the bounce buffer logic when preparing data
  */
-#define SDHCI_QUIRK2_ADMA_SKIP_DATA_ALIGNMENT             (1<<13)
+#define SDHCI_QUIRK2_ADMA_SKIP_DATA_ALIGNMENT		(1<<17)
+
+/* Controller has nonstandard clock management */
+#define SDHCI_QUIRK_NONSTANDARD_CLOCK			(1<<18)
+/* Capability register bit-63 indicates HS400 support */
+#define SDHCI_QUIRK2_CAPS_BIT63_FOR_HS400		(1<<19)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
