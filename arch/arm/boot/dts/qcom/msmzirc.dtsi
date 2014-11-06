@@ -740,7 +740,7 @@
 	qnand_1: nand@7980000 {
 		compatible = "qcom,msm-nand";
 		reg = <0x07980000 0x1000>,
-		      <0x07984000 0x16000>;
+		      <0x07984000 0x1a000>;
 		reg-names = "nand_phys",
 			    "bam_phys";
 		interrupts = <0 247 0>;
