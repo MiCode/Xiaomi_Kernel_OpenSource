@@ -5155,18 +5155,6 @@ static void cherryview_set_cdclk(struct drm_device *dev, int new_cdclk)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 cmd, val, vco;
-	int cur_cdclk, czclk;
-
-	/*
-	 * The existing CHT systems can work only when
-	 * CDclk freq is equal to OR higher than CZclk.
-	 * freq. So, cap the CDclk freq, if required.
-	 */
-	intel_get_cd_cz_clk(dev_priv, &cur_cdclk, &czclk);
-	if (new_cdclk < czclk) {
-		new_cdclk = czclk;
-		DRM_DEBUG_KMS("Corrected CDclk freq: %d\n", new_cdclk);
-	}
 
 	WARN_ON(valleyview_cur_cdclk(dev_priv) != dev_priv->vlv_cdclk_freq);
 	dev_priv->vlv_cdclk_freq = new_cdclk;
@@ -5296,6 +5284,7 @@ int valleyview_cur_cdclk(struct drm_i915_private *dev_priv)
 static int valleyview_calc_cdclk(struct drm_i915_private *dev_priv,
 				 int max_pixclk)
 {
+	int new_cdclk, cur_cdclk, czclk;
 	/*
 	 * Really only a few cases to deal with, as only 4 CDclks are supported:
 	 *   200MHz
@@ -5305,13 +5294,26 @@ static int valleyview_calc_cdclk(struct drm_i915_private *dev_priv,
 	 * So we check to see whether we're above 90% of the lower bin and
 	 * adjust if needed.
 	 */
-	if (max_pixclk > 288000) {
-		return 400;
-	} else if (max_pixclk > 240000) {
-		return 320;
-	} else
-		return 266;
+	if (max_pixclk > 288000)
+		new_cdclk = 400;
+	else if (max_pixclk > 240000)
+		new_cdclk = 320;
+	else
+		new_cdclk = 266;
 	/* Looks like the 200MHz CDclk freq doesn't work on some configs */
+
+	if (IS_CHERRYVIEW(dev_priv->dev)) {
+		/*
+		 * The existing CHT systems can work only when
+		 * CDclk freq is equal to OR higher than CZclk.
+		 * freq. So, cap the CDclk freq, if required.
+		 */
+		intel_get_cd_cz_clk(dev_priv, &cur_cdclk, &czclk);
+		if (new_cdclk < czclk)
+			new_cdclk = czclk;
+	}
+
+	return new_cdclk;
 }
 
 /* compute the max pixel clock for new configuration */
