@@ -482,6 +482,11 @@ acm_function_init(struct android_usb_function *f,
 			ret = PTR_ERR(config->f_acm_inst[i]);
 			goto err_usb_get_function_instance;
 		}
+
+		/* Provide kobject reference */
+		if (!config->f_acm_inst[i]->fd->parent)
+			config->f_acm_inst[i]->fd->parent = &f->dev->kobj;
+
 		config->f_acm[i] = usb_get_function(config->f_acm_inst[i]);
 		if (IS_ERR(config->f_acm[i])) {
 			ret = PTR_ERR(config->f_acm[i]);
