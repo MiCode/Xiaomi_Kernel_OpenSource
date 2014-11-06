@@ -1323,7 +1323,7 @@ static int lightsensor_setup(struct cm36283_info *lpi)
 			__func__);
 		return -ENOMEM;
 	}
-	lpi->ls_input_dev->name = "cm36283-ls";
+	lpi->ls_input_dev->name = "light";
 	lpi->ls_input_dev->id.bustype = BUS_I2C;
 	set_bit(EV_ABS, lpi->ls_input_dev->evbit);
 
@@ -1355,7 +1355,7 @@ static int psensor_setup(struct cm36283_info *lpi)
 			__func__);
 		return -ENOMEM;
 	}
-	lpi->ps_input_dev->name = "cm36283-ps";
+	lpi->ps_input_dev->name = "proximity";
 	lpi->ps_input_dev->id.bustype = BUS_I2C;
 	set_bit(EV_ABS, lpi->ps_input_dev->evbit);
 	input_set_abs_params(lpi->ps_input_dev, ABS_DISTANCE, 0, 1, 0, 0);
