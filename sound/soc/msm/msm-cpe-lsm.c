@@ -303,7 +303,9 @@ static int msm_cpe_lab_thread(void *data)
 			       __func__, rc);
 			lab->thread_status = MSM_LSM_LAB_THREAD_ERROR;
 		}
-		if (done_len) {
+		if (done_len ||
+		    ((!done_len) &&
+		     lab->thread_status == MSM_LSM_LAB_THREAD_ERROR)) {
 			atomic_inc(&lab->in_count);
 			lab->dma_write += snd_pcm_lib_period_bytes(substream);
 			snd_pcm_period_elapsed(substream);
@@ -324,7 +326,8 @@ static int msm_cpe_lab_thread(void *data)
 				__func__, done_len);
 		}
 		done_len = 0;
-	} while (!kthread_should_stop());
+	} while (!kthread_should_stop() &&
+		 lab->thread_status != MSM_LSM_LAB_THREAD_ERROR);
 
 	pr_debug("%s: Exiting LAB thread\n", __func__);
 
@@ -591,8 +594,12 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			rc = 1;
 			atomic_inc(&lab_sess->abort_read);
 			wake_up(&lab_sess->period_wait);
-			rc = kthread_stop(session->lsm_lab_thread);
-			pr_debug("%s: Thread stop rc%x\n", __func__, rc);
+			if (lab_sess->thread_status !=
+			    MSM_LSM_LAB_THREAD_ERROR) {
+				rc = kthread_stop(session->lsm_lab_thread);
+				pr_debug("%s: Thread stop rc%x\n",
+					 __func__, rc);
+			}
 			rc = lsm_ops->lsm_lab_stop(cpe->core_handle, session);
 			if (rc)
 				pr_err("%s: Lab stop status %d\n",
@@ -1517,6 +1524,21 @@ static int msm_cpe_lsm_copy(struct snd_pcm_substream *substream, int a,
 	}
 	session = lsm_d->lsm_session;
 	lab_s = &session->lab;
+
+	/* Check if buffer reading is already in error state */
+	if (lab_s->thread_status != MSM_LSM_LAB_THREAD_RUNNING) {
+		pr_err("%s: Buffers not available\n",
+			__func__);
+		/*
+		 * Advance the period so there is no wait in case
+		 * read is invoked even after error is propogated
+		 */
+		atomic_inc(&lab_s->in_count);
+		lab_s->dma_write += snd_pcm_lib_period_bytes(substream);
+		snd_pcm_period_elapsed(substream);
+		return -ENETRESET;
+	}
+
 	rc = wait_event_timeout(lab_s->period_wait,
 			(atomic_read(&lab_s->in_count) ||
 			atomic_read(&lab_s->abort_read)),
