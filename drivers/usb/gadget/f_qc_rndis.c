@@ -1137,6 +1137,14 @@ rndis_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_ep_free_request(rndis->notify, rndis->notify_req);
 
 	if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		/*
+		 * call flush_workqueue to make sure that any pending
+		 * disconnect_work() from u_bam_data.c file is being
+		 * flushed before calling this rndis_ipa_cleanup API
+		 * as rndis ipa disconnect API is required to be
+		 * called before this.
+		 */
+		bam_data_flush_workqueue();
 		rndis_ipa_cleanup(rndis_ipa_params.private);
 		rndis_ipa_supported = false;
 	}

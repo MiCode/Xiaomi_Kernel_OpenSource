@@ -1102,8 +1102,17 @@ ecm_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 
 	ecm_qc_string_defs[1].s = NULL;
 
-	if (ecm->xport == USB_GADGET_XPORT_BAM2BAM_IPA)
+	if (ecm->xport == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		/*
+		 * call flush_workqueue to make sure that any pending
+		 * disconnect_work() from u_bam_data.c file is being
+		 * flushed before calling this rndis_ipa_cleanup API
+		 * as rndis ipa disconnect API is required to be
+		 * called before this.
+		 */
+		bam_data_flush_workqueue();
 		ecm_ipa_cleanup(ipa_params.private);
+	}
 
 	kfree(ecm);
 	__ecm = NULL;
