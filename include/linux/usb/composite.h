@@ -463,6 +463,7 @@ struct usb_function_driver {
 	struct list_head list;
 	struct usb_function_instance *(*alloc_inst)(void);
 	struct usb_function *(*alloc_func)(struct usb_function_instance *inst);
+	struct kobject *parent;
 };
 
 struct usb_function_instance {
