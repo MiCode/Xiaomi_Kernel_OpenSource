@@ -139,7 +139,8 @@ int ipa_rm_resource_consumer_request_work(struct ipa_rm_resource_cons *consumer,
 
 int ipa_rm_resource_consumer_request(
 		struct ipa_rm_resource_cons *consumer,
-		u32 prod_needed_bw)
+		u32 prod_needed_bw,
+		bool inc_usage_count)
 {
 	int result = 0;
 	enum ipa_rm_resource_state prev_state;
@@ -180,7 +181,8 @@ int ipa_rm_resource_consumer_request(
 		result = -EPERM;
 		goto bail;
 	}
-	consumer->usage_count++;
+	if (inc_usage_count)
+		consumer->usage_count++;
 bail:
 	IPA_RM_DBG("%s new state: %d\n",
 		ipa_rm_resource_str(consumer->resource.name),
@@ -192,7 +194,8 @@ bail:
 
 int ipa_rm_resource_consumer_release(
 		struct ipa_rm_resource_cons *consumer,
-		u32 prod_needed_bw)
+		u32 prod_needed_bw,
+		bool dec_usage_count)
 {
 	int result = 0;
 	enum ipa_rm_resource_state save_state;
@@ -207,12 +210,8 @@ int ipa_rm_resource_consumer_release(
 		break;
 	case IPA_RM_GRANTED:
 	case IPA_RM_REQUEST_IN_PROGRESS:
-		if (consumer->usage_count == 0) {
-			IPA_RM_ERR("consumer not used\n");
-			result = -EPERM;
-			break;
-		}
-		consumer->usage_count--;
+		if (dec_usage_count && consumer->usage_count > 0)
+			consumer->usage_count--;
 		if (consumer->usage_count == 0) {
 			consumer->resource.state = IPA_RM_RELEASE_IN_PROGRESS;
 			if (save_state == IPA_RM_REQUEST_IN_PROGRESS ||
@@ -233,7 +232,7 @@ int ipa_rm_resource_consumer_release(
 		}
 		break;
 	case IPA_RM_RELEASE_IN_PROGRESS:
-		if (consumer->usage_count > 0)
+		if (dec_usage_count && consumer->usage_count > 0)
 			consumer->usage_count--;
 		result = -EINPROGRESS;
 		break;
@@ -623,7 +622,8 @@ int ipa_rm_resource_add_dependency(struct ipa_rm_resource *resource,
 					resource)->pending_request++;
 		consumer_result = ipa_rm_resource_consumer_request(
 				(struct ipa_rm_resource_cons *)depends_on,
-				resource->max_bw);
+				resource->max_bw,
+				true);
 		if (consumer_result != -EINPROGRESS) {
 			resource->state = prev_state;
 			((struct ipa_rm_resource_prod *)
@@ -737,7 +737,8 @@ int ipa_rm_resource_delete_dependency(struct ipa_rm_resource *resource,
 	if (release_consumer)
 		(void) ipa_rm_resource_consumer_release(
 				(struct ipa_rm_resource_cons *)depends_on,
-				resource->max_bw);
+				resource->max_bw,
+				true);
 bail:
 	IPA_RM_DBG("EXIT with %d\n", result);
 
@@ -785,7 +786,8 @@ int ipa_rm_resource_producer_request(struct ipa_rm_resource_prod *producer)
 			producer->pending_request++;
 			consumer_result = ipa_rm_resource_consumer_request(
 				(struct ipa_rm_resource_cons *)consumer,
-				producer->resource.max_bw);
+				producer->resource.max_bw,
+				true);
 			if (consumer_result == -EINPROGRESS) {
 				result = -EINPROGRESS;
 			} else {
@@ -859,7 +861,8 @@ int ipa_rm_resource_producer_release(struct ipa_rm_resource_prod *producer)
 			producer->pending_release++;
 			consumer_result = ipa_rm_resource_consumer_release(
 				(struct ipa_rm_resource_cons *)consumer,
-				producer->resource.max_bw);
+				producer->resource.max_bw,
+				true);
 			producer->pending_release--;
 		}
 	}

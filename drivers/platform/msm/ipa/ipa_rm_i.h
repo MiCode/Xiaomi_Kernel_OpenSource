@@ -42,11 +42,13 @@ int ipa_rm_cons_index(enum ipa_rm_resource_name resource_name);
  * @delayed_work: work struct
  * @ipa_rm_resource_name: name of the resource on which this work should be done
  * @needed_bw: bandwidth required for resource in Mbps
+ * @dec_usage_count: decrease usage count on release ?
  */
 struct ipa_rm_delayed_release_work_type {
 	struct delayed_work		work;
 	enum ipa_rm_resource_name	resource_name;
 	u32				needed_bw;
+	bool				dec_usage_count;
 
 };
 
