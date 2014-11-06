@@ -98,6 +98,7 @@
 #include "msmtellurium-smp2p.dtsi"
 #include "msmtellurium-ipcrouter.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msmtellurium-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
