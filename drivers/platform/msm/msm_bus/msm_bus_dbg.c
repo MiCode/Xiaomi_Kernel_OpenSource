@@ -45,6 +45,7 @@ struct msm_bus_dbg_state {
 
 struct msm_bus_cldata {
 	const struct msm_bus_scale_pdata *pdata;
+	const struct msm_bus_client_handle *handle;
 	int index;
 	uint32_t clid;
 	int size;
@@ -285,14 +286,17 @@ static ssize_t client_data_read(struct file *file, char __user *buf,
 	int bsize = 0;
 	uint32_t cl = (uint32_t)(uintptr_t)file->private_data;
 	struct msm_bus_cldata *cldata = NULL;
+	const struct msm_bus_client_handle *handle = file->private_data;
 	int found = 0;
 
 	list_for_each_entry(cldata, &cl_list, list) {
-		if (cldata->clid == cl) {
+		if ((cldata->clid == cl) ||
+			(cldata->handle && (cldata->handle == handle))) {
 			found = 1;
 			break;
 		}
 	}
+
 	if (!found)
 		return 0;
 
@@ -321,6 +325,93 @@ struct dentry *msm_bus_dbg_create(const char *name, mode_t mode,
 	}
 	return debugfs_create_file(name, mode, dent, (void *)(uintptr_t)clid,
 		&client_data_fops);
+}
+
+int msm_bus_dbg_add_client(const struct msm_bus_client_handle *pdata)
+
+{
+	struct msm_bus_cldata *cldata;
+
+	cldata = kzalloc(sizeof(struct msm_bus_cldata), GFP_KERNEL);
+	if (!cldata) {
+		MSM_BUS_DBG("Failed to allocate memory for client data\n");
+		return -ENOMEM;
+	}
+	cldata->handle = pdata;
+	list_add_tail(&cldata->list, &cl_list);
+	return 0;
+}
+
+int msm_bus_dbg_rec_transaction(const struct msm_bus_client_handle *pdata,
+						u64 ab, u64 ib)
+{
+	struct msm_bus_cldata *cldata;
+	int i;
+	struct timespec ts;
+	bool found = false;
+	char *buf = NULL;
+
+	list_for_each_entry(cldata, &cl_list, list) {
+		if (cldata->handle == pdata) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found)
+		return -ENOENT;
+
+	if (cldata->file == NULL) {
+		if (pdata->name == NULL) {
+			MSM_BUS_DBG("Client doesn't have a name\n");
+			return -EINVAL;
+		}
+		pr_err("\n%s setting up debugfs %s", __func__, pdata->name);
+		cldata->file = debugfs_create_file(pdata->name, S_IRUGO,
+				clients, (void *)pdata, &client_data_fops);
+	}
+
+	if (cldata->size < (MAX_BUFF_SIZE - FILL_LIMIT))
+		i = cldata->size;
+	else {
+		i = 0;
+		cldata->size = 0;
+	}
+	buf = cldata->buffer;
+	ts = ktime_to_timespec(ktime_get());
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n%d.%d\n",
+		(int)ts.tv_sec, (int)ts.tv_nsec);
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "master: ");
+
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "%d  ", pdata->mas);
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\nslave : ");
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "%d  ", pdata->slv);
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\nab     : ");
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "%llu  ", ab);
+
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\nib     : ");
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "%llu  ", ib);
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n");
+	cldata->size = i;
+
+	trace_bus_update_request((int)ts.tv_sec, (int)ts.tv_nsec,
+		pdata->name, pdata->mas, pdata->slv, ab, ib);
+
+	return i;
+}
+
+void msm_bus_dbg_remove_client(const struct msm_bus_client_handle *pdata)
+{
+	struct msm_bus_cldata *cldata = NULL;
+
+	list_for_each_entry(cldata, &cl_list, list) {
+		if (cldata->handle == pdata) {
+			debugfs_remove(cldata->file);
+			list_del(&cldata->list);
+			kfree(cldata);
+			break;
+		}
+	}
 }
 
 static int msm_bus_dbg_record_client(const struct msm_bus_scale_pdata *pdata,
@@ -416,12 +507,13 @@ static int msm_bus_dbg_fill_cl_buffer(const struct msm_bus_scale_pdata *pdata,
 
 	for (j = 0; j < pdata->usecase->num_paths; j++)
 		trace_bus_update_request((int)ts.tv_sec, (int)ts.tv_nsec,
-		pdata->name, index,
+		pdata->name,
 		pdata->usecase[index].vectors[j].src,
 		pdata->usecase[index].vectors[j].dst,
 		pdata->usecase[index].vectors[j].ab,
 		pdata->usecase[index].vectors[j].ib);
 
+	cldata->index = index;
 	cldata->size = i;
 	return i;
 }

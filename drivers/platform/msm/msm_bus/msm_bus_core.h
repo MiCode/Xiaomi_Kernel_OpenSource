@@ -58,6 +58,11 @@ struct msm_bus_arb_ops {
 	uint32_t (*register_client)(struct msm_bus_scale_pdata *pdata);
 	int (*update_request)(uint32_t cl, unsigned int index);
 	void (*unregister_client)(uint32_t cl);
+	struct msm_bus_client_handle*
+		(*register_cl)(uint32_t mas, uint32_t slv, char *name,
+						bool active_only);
+	int (*update_bw)(struct msm_bus_client_handle *cl, u64 ab, u64 ib);
+	void (*unregister)(struct msm_bus_client_handle *cl);
 };
 
 enum {
@@ -312,6 +317,11 @@ void msm_bus_dbg_client_data(struct msm_bus_scale_pdata *pdata, int index,
 	uint32_t cl);
 void msm_bus_dbg_commit_data(const char *fabname, void *cdata,
 	int nmasters, int nslaves, int ntslaves, int op);
+int msm_bus_dbg_add_client(const struct msm_bus_client_handle *pdata);
+int msm_bus_dbg_rec_transaction(const struct msm_bus_client_handle *pdata,
+						u64 ab, u64 ib);
+void msm_bus_dbg_remove_client(const struct msm_bus_client_handle *pdata);
+
 #else
 static inline void msm_bus_dbg_client_data(struct msm_bus_scale_pdata *pdata,
 	int index, uint32_t cl)
@@ -321,6 +331,23 @@ static inline void msm_bus_dbg_commit_data(const char *fabname,
 	void *cdata, int nmasters, int nslaves, int ntslaves,
 	int op)
 {
+}
+static inline void void msm_bus_dbg_remove_client
+		(const struct msm_bus_client_handle *pdata)
+{
+}
+
+static inline int
+msm_bus_dbg_rec_transaction(const struct msm_bus_client_handle *pdata,
+						u64 ab, u64 ib)
+{
+	return 0;
+}
+
+static inline int
+msm_bus_dbg_add_client(const struct msm_bus_client_handle *pdata)
+{
+	return 0;
 }
 #endif
 
