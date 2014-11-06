@@ -222,8 +222,6 @@ static int mdss_mdp_hscl_filter[] = {
 #define PP_SSPP		0
 #define PP_DSPP		1
 
-#define PP_STS_GAMUT_FIRST	0x2
-
 #define PP_STS_PA_HUE_MASK		0x2
 #define PP_STS_PA_SAT_MASK		0x4
 #define PP_STS_PA_VAL_MASK		0x8
@@ -1723,8 +1721,19 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		}
 	}
 
-	pp_enhist_config(flags, base + MDSS_MDP_REG_DSPP_HIST_LUT_BASE,
-			pp_sts, &mdss_pp_res->enhist_disp_cfg[disp_num]);
+	if (flags & PP_FLAGS_DIRTY_ENHIST) {
+		if (!pp_ops[HIST_LUT].pp_set_config) {
+			pp_enhist_config(flags,
+				base + MDSS_MDP_REG_DSPP_HIST_LUT_BASE,
+				pp_sts,
+				&mdss_pp_res->enhist_disp_cfg[disp_num]);
+		} else {
+			/* Pass dspp num using block */
+			mdss_pp_res->enhist_disp_cfg[disp_num].block = dspp_num;
+			pp_ops[HIST_LUT].pp_set_config(base, pp_sts,
+				&mdss_pp_res->enhist_disp_cfg[disp_num], DSPP);
+		}
+	}
 
 	if (pp_sts->enhist_sts & PP_STS_ENABLE &&
 			!(pp_sts->pa_sts & PP_STS_ENABLE)) {
@@ -3289,7 +3298,7 @@ int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config,
 {
 	int i, ret = 0;
 	u32 disp_num, dspp_num = 0;
-	char __iomem *hist_addr;
+	char __iomem *hist_addr = NULL, *base_addr = NULL;
 
 	if ((PP_BLOCK(config->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(PP_BLOCK(config->block) >= MDP_BLOCK_MAX))
@@ -3306,9 +3315,22 @@ int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config,
 			goto enhist_config_exit;
 		}
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+		base_addr = mdss_mdp_get_dspp_addr_off(dspp_num);
+		if (IS_ERR_OR_NULL(base_addr)) {
+			pr_err("invalid base addr %p\n",
+				base_addr);
+			ret = -EINVAL;
+			goto hist_lut_clk_off;
+		}
+		hist_addr = base_addr + MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
+		if (pp_ops[HIST_LUT].pp_get_config) {
+			ret = pp_ops[HIST_LUT].pp_get_config(base_addr, config,
+				DSPP, disp_num);
+			if (ret)
+				pr_err("hist_lut get config failed %d\n", ret);
+			goto hist_lut_clk_off;
+		}
 
-		hist_addr = mdss_mdp_get_dspp_addr_off(dspp_num) +
-			  MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
 		for (i = 0; i < ENHIST_LUT_ENTRIES; i++)
 			mdss_pp_res->enhist_lut[disp_num][i] =
 				readl_relaxed(hist_addr);
@@ -3320,8 +3342,20 @@ int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config,
 			goto enhist_config_exit;
 		}
 		*copyback = 1;
+hist_lut_clk_off:
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	} else {
+		if (pp_ops[HIST_LUT].pp_set_config) {
+			ret = pp_hist_lut_cache_params(config, mdss_pp_res);
+			if (ret) {
+				pr_err("hist_lut config failed version %d ret %d\n",
+					config->version, ret);
+				ret = -EFAULT;
+				goto enhist_config_exit;
+			} else {
+				goto enhist_set_dirty;
+			}
+		}
 		if (copy_from_user(&mdss_pp_res->enhist_lut[disp_num][0],
 			config->data, ENHIST_LUT_ENTRIES * sizeof(u32))) {
 			ret = -EFAULT;
@@ -3330,6 +3364,7 @@ int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config,
 		mdss_pp_res->enhist_disp_cfg[disp_num] = *config;
 		mdss_pp_res->enhist_disp_cfg[disp_num].data =
 			&mdss_pp_res->enhist_lut[disp_num][0];
+enhist_set_dirty:
 		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_ENHIST;
 	}
 enhist_config_exit:
