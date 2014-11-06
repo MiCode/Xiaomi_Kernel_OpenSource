@@ -2576,6 +2576,7 @@ static int soc_to_setpoint(int soc)
 #define DELTA_SOC_PERCENT	1
 #define THERMAL_COEFF_ADDR	0x444
 #define THERMAL_COEFF_OFFSET	0x2
+#define I_TERM_QUAL_BIT		BIT(1)
 static int fg_hw_init(struct fg_chip *chip)
 {
 	u8 resume_soc;
@@ -2626,6 +2627,9 @@ static int fg_hw_init(struct fg_chip *chip)
 			THERMAL_COEFF_ADDR, THERMAL_COEFF_N_BYTES,
 			THERMAL_COEFF_OFFSET, 0);
 	}
+
+	fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, I_TERM_QUAL_BIT,
+			I_TERM_QUAL_BIT, 0);
 
 	return 0;
 }
