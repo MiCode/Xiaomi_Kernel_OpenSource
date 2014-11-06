@@ -162,6 +162,7 @@ struct smbchg_chip {
 	struct smbchg_regulator		otg_vreg;
 	struct smbchg_regulator		ext_otg_vreg;
 	struct work_struct		usb_set_online_work;
+	struct work_struct		batt_soc_work;
 	struct delayed_work		vfloat_adjust_work;
 	spinlock_t			sec_access_lock;
 	struct mutex			current_change_lock;
@@ -694,6 +695,21 @@ static int set_property_on_fg(struct smbchg_chip *chip,
 	return rc;
 }
 
+static void smbchg_check_and_notify_fg_soc(struct smbchg_chip *chip)
+{
+	bool charger_present, charger_suspended;
+
+	charger_present = is_usb_present(chip) | is_dc_present(chip);
+	charger_suspended = chip->usb_suspended & chip->dc_suspended;
+
+	if (charger_present && !charger_suspended
+		&& get_prop_batt_status(chip)
+			== POWER_SUPPLY_STATUS_CHARGING) {
+		pr_smb(PR_STATUS, "Adjusting battery soc in FG\n");
+		set_property_on_fg(chip, POWER_SUPPLY_PROP_CHARGE_FULL, 1);
+	}
+}
+
 static int get_property_from_fg(struct smbchg_chip *chip,
 		enum power_supply_property prop, int *val)
 {
@@ -733,6 +749,11 @@ static int get_prop_batt_capacity(struct smbchg_chip *chip)
 		pr_smb(PR_STATUS, "Couldn't get capacity rc = %d\n", rc);
 		capacity = DEFAULT_BATT_CAPACITY;
 	}
+	if ((capacity == 100) && (get_prop_charge_type(chip)
+					== POWER_SUPPLY_CHARGE_TYPE_TAPER
+				|| get_prop_batt_status(chip)
+					== POWER_SUPPLY_STATUS_FULL))
+		smbchg_check_and_notify_fg_soc(chip);
 	return capacity;
 }
 
@@ -2632,6 +2653,16 @@ static int smbchg_charging_status_change(struct smbchg_chip *chip)
 	return 0;
 }
 
+static void smbchg_adjust_batt_soc_work(struct work_struct *work)
+{
+	struct smbchg_chip *chip = container_of(work,
+				struct smbchg_chip,
+				batt_soc_work);
+
+	if (get_prop_batt_capacity(chip) == 100)
+		smbchg_check_and_notify_fg_soc(chip);
+}
+
 #define HOT_BAT_HARD_BIT	BIT(0)
 #define HOT_BAT_SOFT_BIT	BIT(1)
 #define COLD_BAT_HARD_BIT	BIT(2)
@@ -2759,6 +2790,8 @@ static irqreturn_t chg_term_handler(int irq, void *_chip)
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
+	if (reg & BAT_TCC_REACHED_BIT)
+		schedule_work(&chip->batt_soc_work);
 	return IRQ_HANDLED;
 }
 
@@ -3862,6 +3895,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	}
 
 	INIT_WORK(&chip->usb_set_online_work, smbchg_usb_update_online_work);
+	INIT_WORK(&chip->batt_soc_work, smbchg_adjust_batt_soc_work);
 	INIT_DELAYED_WORK(&chip->parallel_en_work,
 			smbchg_parallel_usb_en_work);
 	INIT_DELAYED_WORK(&chip->vfloat_adjust_work, smbchg_vfloat_adjust_work);
