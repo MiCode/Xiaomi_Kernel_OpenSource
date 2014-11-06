@@ -662,74 +662,85 @@ static int get_prop_charge_type(struct smbchg_chip *chip)
 	return POWER_SUPPLY_CHARGE_TYPE_NONE;
 }
 
-#define DEFAULT_BATT_CAPACITY	50
-static int get_prop_batt_capacity(struct smbchg_chip *chip)
+static int get_property_from_fg(struct smbchg_chip *chip,
+		enum power_supply_property prop, int *val)
 {
+	int rc;
 	union power_supply_propval ret = {0, };
 
-	if (chip->fake_battery_soc >= 0)
-		return chip->fake_battery_soc;
 	if (!chip->bms_psy && chip->bms_psy_name)
 		chip->bms_psy =
 			power_supply_get_by_name((char *)chip->bms_psy_name);
-	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
-				POWER_SUPPLY_PROP_CAPACITY, &ret);
-		return ret.intval;
+	if (!chip->bms_psy) {
+		pr_smb(PR_STATUS, "no bms psy found\n");
+		return -EINVAL;
 	}
 
-	return DEFAULT_BATT_CAPACITY;
+	rc = chip->bms_psy->get_property(chip->bms_psy, prop, &ret);
+	if (rc) {
+		pr_smb(PR_STATUS,
+			"bms psy doesn't support reading prop %d rc = %d\n",
+			prop, rc);
+		return rc;
+	}
+
+	*val = ret.intval;
+	return rc;
+}
+
+#define DEFAULT_BATT_CAPACITY	50
+static int get_prop_batt_capacity(struct smbchg_chip *chip)
+{
+	int capacity, rc;
+
+	if (chip->fake_battery_soc >= 0)
+		return chip->fake_battery_soc;
+
+	rc = get_property_from_fg(chip, POWER_SUPPLY_PROP_CAPACITY, &capacity);
+	if (rc) {
+		pr_smb(PR_STATUS, "Couldn't get capacity rc = %d\n", rc);
+		capacity = DEFAULT_BATT_CAPACITY;
+	}
+	return capacity;
 }
 
 #define DEFAULT_BATT_TEMP		200
 static int get_prop_batt_temp(struct smbchg_chip *chip)
 {
-	union power_supply_propval ret = {0, };
+	int temp, rc;
 
-	if (!chip->bms_psy && chip->bms_psy_name)
-		chip->bms_psy =
-			power_supply_get_by_name((char *)chip->bms_psy_name);
-	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
-				POWER_SUPPLY_PROP_TEMP, &ret);
-		return ret.intval;
+	rc = get_property_from_fg(chip, POWER_SUPPLY_PROP_TEMP, &temp);
+	if (rc) {
+		pr_smb(PR_STATUS, "Couldn't get temperature rc = %d\n", rc);
+		temp = DEFAULT_BATT_TEMP;
 	}
-
-	return DEFAULT_BATT_TEMP;
+	return temp;
 }
 
 #define DEFAULT_BATT_CURRENT_NOW	0
 static int get_prop_batt_current_now(struct smbchg_chip *chip)
 {
-	union power_supply_propval ret = {0, };
+	int ua, rc;
 
-	if (!chip->bms_psy && chip->bms_psy_name)
-		chip->bms_psy =
-			power_supply_get_by_name((char *)chip->bms_psy_name);
-	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
-				POWER_SUPPLY_PROP_CURRENT_NOW, &ret);
-		return ret.intval;
+	rc = get_property_from_fg(chip, POWER_SUPPLY_PROP_CURRENT_NOW, &ua);
+	if (rc) {
+		pr_smb(PR_STATUS, "Couldn't get current rc = %d\n", rc);
+		ua = DEFAULT_BATT_CURRENT_NOW;
 	}
-
-	return DEFAULT_BATT_CURRENT_NOW;
+	return ua;
 }
 
 #define DEFAULT_BATT_VOLTAGE_NOW	0
 static int get_prop_batt_voltage_now(struct smbchg_chip *chip)
 {
-	union power_supply_propval ret = {0, };
+	int uv, rc;
 
-	if (!chip->bms_psy && chip->bms_psy_name)
-		chip->bms_psy =
-			power_supply_get_by_name((char *)chip->bms_psy_name);
-	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
-				POWER_SUPPLY_PROP_VOLTAGE_NOW, &ret);
-		return ret.intval;
+	rc = get_property_from_fg(chip, POWER_SUPPLY_PROP_VOLTAGE_NOW, &uv);
+	if (rc) {
+		pr_smb(PR_STATUS, "Couldn't get voltage rc = %d\n", rc);
+		uv = DEFAULT_BATT_VOLTAGE_NOW;
 	}
-
-	return DEFAULT_BATT_VOLTAGE_NOW;
+	return uv;
 }
 
 static int get_prop_batt_health(struct smbchg_chip *chip)
@@ -1684,42 +1695,28 @@ out:
 #define BUCK_EFFICIENCY		800LL
 static int smbchg_calc_max_flash_current(struct smbchg_chip *chip)
 {
-	union power_supply_propval ret = {0, };
 	int ocv_uv, ibat_ua, esr_uohm, rbatt_uohm, rc;
 	int64_t ibat_flash_ua, total_flash_ua, total_flash_power_fw;
 
-	if (!chip->bms_psy && chip->bms_psy_name)
-		chip->bms_psy =
-			power_supply_get_by_name((char *)chip->bms_psy_name);
-	/* if bms psy is not found, return 0 uA (no flash available) */
-	if (!chip->bms_psy) {
-		pr_smb(PR_STATUS, "no bms psy found\n");
-		return 0;
-	}
-
-	rc = chip->bms_psy->get_property(chip->bms_psy,
-			POWER_SUPPLY_PROP_VOLTAGE_OCV, &ret);
+	rc = get_property_from_fg(chip, POWER_SUPPLY_PROP_VOLTAGE_OCV, &ocv_uv);
 	if (rc) {
 		pr_smb(PR_STATUS, "bms psy does not support OCV\n");
 		return 0;
 	}
-	ocv_uv = ret.intval;
 
-	rc = chip->bms_psy->get_property(chip->bms_psy,
-			POWER_SUPPLY_PROP_CURRENT_NOW, &ret);
+	rc = get_property_from_fg(chip,
+			POWER_SUPPLY_PROP_CURRENT_NOW, &ibat_ua);
 	if (rc) {
 		pr_smb(PR_STATUS, "bms psy does not support current_now\n");
 		return 0;
 	}
-	ibat_ua = ret.intval;
 
-	rc = chip->bms_psy->get_property(chip->bms_psy,
-			POWER_SUPPLY_PROP_RESISTANCE, &ret);
+	rc = get_property_from_fg(chip, POWER_SUPPLY_PROP_RESISTANCE,
+			&esr_uohm);
 	if (rc) {
 		pr_smb(PR_STATUS, "bms psy does not support resistance\n");
 		return 0;
 	}
-	esr_uohm = ret.intval;
 
 	rbatt_uohm = esr_uohm + chip->rpara_uohm + chip->rslow_uohm;
 	ibat_flash_ua = (div_s64((ocv_uv - FLASH_V_THRESHOLD) * UCONV,
@@ -1799,18 +1796,6 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		val->intval = get_prop_charge_type(chip);
 		break;
-	case POWER_SUPPLY_PROP_CAPACITY:
-		val->intval = get_prop_batt_capacity(chip);
-		break;
-	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval = get_prop_batt_current_now(chip);
-		break;
-	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = get_prop_batt_temp(chip);
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = get_prop_batt_voltage_now(chip);
-		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = get_prop_batt_health(chip);
 		break;
@@ -1825,6 +1810,19 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		val->intval = chip->therm_lvl_sel;
+		break;
+	/* properties from fg */
+	case POWER_SUPPLY_PROP_CAPACITY:
+		val->intval = get_prop_batt_capacity(chip);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		val->intval = get_prop_batt_current_now(chip);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		val->intval = get_prop_batt_voltage_now(chip);
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		val->intval = get_prop_batt_temp(chip);
 		break;
 	default:
 		return -EINVAL;
