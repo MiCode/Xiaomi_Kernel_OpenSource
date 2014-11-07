@@ -51,7 +51,6 @@
 
 #include <linux/miscdevice.h>
 
-#include <mach/hardware.h>
 #include <linux/fs.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
