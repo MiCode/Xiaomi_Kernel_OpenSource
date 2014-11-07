@@ -850,6 +850,17 @@ int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from);
 struct cgroup_subsys_state *css_from_dir(struct dentry *dentry,
 					 struct cgroup_subsys *ss);
 
+/*
+ * Default Android check for whether the current process is allowed to move a
+ * task across cgroups, either because CAP_SYS_NICE is set or because the uid
+ * of the calling process is the same as the moved task or because we are
+ * running as root.
+ * Returns 0 if this is allowed, or -EACCES otherwise.
+ */
+int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css,
+			       struct cgroup_taskset *tset);
+
+
 #else /* !CONFIG_CGROUPS */
 
 static inline int cgroup_init_early(void) { return 0; }
@@ -871,6 +882,11 @@ static inline int cgroup_attach_task_all(struct task_struct *from,
 	return 0;
 }
 
+static inline int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css,
+					     struct cgroup_taskset *tset)
+{
+	return 0;
+}
 #endif /* !CONFIG_CGROUPS */
 
 #endif /* _LINUX_CGROUP_H */
