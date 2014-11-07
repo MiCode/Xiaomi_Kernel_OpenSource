@@ -593,6 +593,17 @@ static int arizona_runtime_resume(struct device *dev)
 				ret);
 			goto err;
 		}
+		break;
+	case WM5110:
+	case WM8280:
+		ret = regulator_set_voltage(arizona->dcvdd, 1200000, 1200000);
+		if (ret < 0) {
+			dev_err(arizona->dev,
+				"Failed to set resume voltage: %d\n",
+				ret);
+			goto err;
+		}
+		break;
 	default:
 		break;
 	}
@@ -633,13 +644,10 @@ static int arizona_runtime_suspend(struct device *dev)
 	switch (arizona->type) {
 	case WM5110:
 	case WM8280:
-		ret = regmap_update_bits(arizona->regmap,
-					 ARIZONA_LDO1_CONTROL_1,
-					 ARIZONA_LDO1_VSEL_MASK,
-					 0x0b << ARIZONA_LDO1_VSEL_SHIFT);
-		if (ret != 0) {
+		ret = regulator_set_voltage(arizona->dcvdd, 1175000, 1175000);
+		if (ret < 0) {
 			dev_err(arizona->dev,
-				"Failed to prepare for sleep %d\n",
+				"Failed to set suspend voltage: %d\n",
 				ret);
 			return ret;
 		}
