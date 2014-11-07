@@ -608,13 +608,13 @@ static int diag_remote_init(void)
 	diagmem_setsize(POOL_TYPE_MDM_DCI, itemsize_mdm_dci, poolsize_mdm_dci);
 	diagmem_setsize(POOL_TYPE_MDM2_DCI, itemsize_mdm_dci,
 			poolsize_mdm_dci);
-	diagmem_setsize(POOL_TYPE_MDM_USB, itemsize_mdm_usb, poolsize_mdm_usb);
-	diagmem_setsize(POOL_TYPE_MDM2_USB, itemsize_mdm_usb, poolsize_mdm_usb);
+	diagmem_setsize(POOL_TYPE_MDM_MUX, itemsize_mdm_usb, poolsize_mdm_usb);
+	diagmem_setsize(POOL_TYPE_MDM2_MUX, itemsize_mdm_usb, poolsize_mdm_usb);
 	diagmem_setsize(POOL_TYPE_MDM_DCI_WRITE, itemsize_mdm_dci_write,
 			poolsize_mdm_dci_write);
 	diagmem_setsize(POOL_TYPE_MDM2_DCI_WRITE, itemsize_mdm_dci_write,
 			poolsize_mdm_dci_write);
-	diagmem_setsize(POOL_TYPE_QSC_USB, itemsize_qsc_usb,
+	diagmem_setsize(POOL_TYPE_QSC_MUX, itemsize_qsc_usb,
 			poolsize_qsc_usb);
 	driver->cb_buf = kzalloc(HDLC_OUT_BUF_SIZE, GFP_KERNEL);
 	if (!driver->cb_buf)
@@ -2303,13 +2303,13 @@ static int __init diagchar_init(void)
 	diagmem_setsize(POOL_TYPE_HDLC, itemsize_hdlc, poolsize_hdlc);
 	diagmem_setsize(POOL_TYPE_USER, itemsize_user, poolsize_user);
 	/*
-	 * POOL_TYPE_USB_APPS is for USB write structures for the Local
-	 * USB channel. The number of items encompasses Diag data generated on
+	 * POOL_TYPE_MUX_APPS is for the buffers in the Diag MUX layer.
+	 * The number of buffers encompasses Diag data generated on
 	 * the Apss processor + 1 for the responses generated exclusively on
 	 * the Apps processor + data from SMD data channels (2 channels per
 	 * peripheral) + data from SMD command channels
 	 */
-	diagmem_setsize(POOL_TYPE_USB_APPS, itemsize_usb_apps,
+	diagmem_setsize(POOL_TYPE_MUX_APPS, itemsize_usb_apps,
 			poolsize_usb_apps + 1 + (NUM_SMD_DATA_CHANNELS * 2) +
 			NUM_SMD_CMD_CHANNELS);
 	diagmem_setsize(POOL_TYPE_DCI, itemsize_dci, poolsize_dci);
