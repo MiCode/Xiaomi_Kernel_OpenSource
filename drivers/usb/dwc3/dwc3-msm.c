@@ -1511,9 +1511,6 @@ static void dwc3_msm_wake_interrupt_enable(struct dwc3_msm *mdwc, bool on)
 {
 	u32 irq_mask;
 
-	if (!mdwc->pwr_event_irq)
-		return;
-
 	if (on) {
 		/* Enable P3 and L2 OUT events */
 		irq_mask = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG);
@@ -1658,7 +1655,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			mdwc->qscratch_ctl_val);
 
 	/* Enable wakeup from LPM */
-	dwc3_msm_wake_interrupt_enable(mdwc, true);
+	if (mdwc->pwr_event_irq) {
+		dwc3_msm_wake_interrupt_enable(mdwc, true);
+		enable_irq_wake(mdwc->pwr_event_irq);
+	}
 
 	/*
 	 * Marking in LPM before disabling the clocks in order to avoid a
@@ -1866,7 +1866,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	msm_bam_notify_lpm_resume(DWC3_CTRL);
 	/* disable wakeup from LPM */
-	dwc3_msm_wake_interrupt_enable(mdwc, false);
+	if (mdwc->pwr_event_irq) {
+		disable_irq_wake(mdwc->pwr_event_irq);
+		dwc3_msm_wake_interrupt_enable(mdwc, false);
+	}
 
 	/* Disable HSPHY auto suspend */
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
