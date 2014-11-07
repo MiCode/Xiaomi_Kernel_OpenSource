@@ -403,7 +403,7 @@ static int msm_ext_ultrasound_event(struct snd_soc_dapm_widget *w,
 			     struct snd_kcontrol *k, int event)
 {
 	pr_debug("%s()\n", __func__);
-	if (strcmp(w->name, "ultrasound amp")) {
+	if (!strcmp(w->name, "ultrasound amp")) {
 		if (!gpio_is_valid(ext_us_amp_gpio)) {
 			pr_err("%s: ext_us_amp_gpio isn't configured\n",
 				__func__);
