@@ -13,6 +13,8 @@ Required properties:
         "wlf,wm8997"
         "wlf,wm8998"
         "wlf,wm1814"
+        "wlf,wm1831"
+        "cirrus,cs47l24"
 
   - reg : I2C slave address when connected using I2C, chip select number when
     using SPI.
@@ -33,8 +35,8 @@ Required properties:
 
   - AVDD-supply, DBVDD1-supply, DBVDD2-supply, DBVDD3-supply (wm5102, wm5110),
     CPVDD-supply, SPKVDDL-supply (wm5102, wm5110), SPKVDDR-supply (wm5102,
-    wm5110), SPKVDD-supply (wm8997) : Power supplies for the device, as covered
-    in Documentation/devicetree/bindings/regulator/regulator.txt
+    wm5110), SPKVDD-supply (wm8997, cs47l24) : Power supplies for the device,
+    as covered in Documentation/devicetree/bindings/regulator/regulator.txt
 
 Optional properties:
 
