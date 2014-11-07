@@ -1057,6 +1057,7 @@
 		reg = <0x00000000 0x00010000>;
 		reg-names = "rfsa_dsp";
 		qcom,client-id = <0x011013ec>;
+		linux,contiguous-region = <&adsp_mem>;
 	};
 
 	qcom,mdm_sharedmem@00000000 {
