@@ -392,6 +392,7 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 	u32 format_config, bpp;
 	bool visible = false;
 	struct rectangle clip;
+	u32 width, height;
 
 	struct rectangle src = {
 		/* sample coordinates in 16.16 fixed point */
@@ -409,6 +410,15 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 		.y2 = config->dst_y + config->dst_h,
 	};
 
+	/* make sure the src rectangle in 16.16 fixed point format */
+	if (!(config->src_x / (1<<16)) ||
+	    !(config->src_w / (1<<16)) ||
+	    !(config->src_y / (1<<16)) ||
+	    !(config->src_h / (1<<16))) {
+		pr_err("ADF:src rec are not in 16.16 fixed fmt%s\n", __func__);
+		return -ERANGE;
+	}
+
 	if (config->pipe->type == INTEL_PIPE_DSI) {
 		dsi_pipe = to_dsi_pipe(config->pipe);
 		mode = &dsi_pipe->config.perferred_mode;
@@ -425,6 +435,27 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 	if (get_format_config(buf->format, &format_config, &bpp)) {
 		pr_err("ADF: pixel format not supported %s\n", __func__);
 		return -EINVAL;
+	}
+
+	width = buf->w << 16;
+	height = buf->h << 16;
+
+	/* make sure src co-ordinates are inside the input buffer size */
+	if (config->src_w > width ||
+	    config->src_x > width - config->src_w ||
+	    config->src_h > height ||
+	    config->src_y > height - config->src_h) {
+		pr_err("ADF: Invalid source co-ordinates %s\n", __func__);
+		return -ENOSPC;
+	}
+
+	/* check against integer overflows */
+	if (config->dst_w > INT_MAX ||
+	    config->dst_x > INT_MAX - (int32_t) config->dst_w ||
+	    config->dst_h > INT_MAX ||
+	    config->dst_y > INT_MAX - (int32_t) config->dst_h) {
+		pr_err("ADF: Invalid dst co-ordinates %s\n", __func__);
+		return -ERANGE;
 	}
 
 	/* check buf limits */
