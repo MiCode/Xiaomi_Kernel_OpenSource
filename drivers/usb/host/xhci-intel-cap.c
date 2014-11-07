@@ -50,6 +50,8 @@ int xhci_intel_vendor_cap_init(struct xhci_hcd *xhci)
 		retval = otg_set_host(hcd->phy->otg, &hcd->self);
 		if (retval)
 			usb_put_phy(hcd->phy);
+	} else {
+		hcd->phy = NULL;
 	}
 
 	xhci_dbg(xhci, "capability init done\n");
