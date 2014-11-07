@@ -568,11 +568,13 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		data0 = MIPI_INP(ctrl0->ctrl_base + 0x0004);
 		data1 = MIPI_INP(ctrl1->ctrl_base + 0x0004);
 		/* Disable DSI video mode */
-		MIPI_OUTP(ctrl0->ctrl_base + 0x004, 0x1f5);
-		MIPI_OUTP(ctrl1->ctrl_base + 0x004, 0x1f5);
+		MIPI_OUTP(ctrl0->ctrl_base + 0x004, (data0 & ~BIT(1)));
+		MIPI_OUTP(ctrl1->ctrl_base + 0x004, (data1 & ~BIT(1)));
 		/* Disable DSI controller */
-		MIPI_OUTP(ctrl0->ctrl_base + 0x004, 0x1f4);
-		MIPI_OUTP(ctrl1->ctrl_base + 0x004, 0x1f4);
+		MIPI_OUTP(ctrl0->ctrl_base + 0x004,
+					(data0 & ~(BIT(0) | BIT(1))));
+		MIPI_OUTP(ctrl1->ctrl_base + 0x004,
+					(data1 & ~(BIT(0) | BIT(1))));
 		/* "Force On" all dynamic clocks */
 		MIPI_OUTP(ctrl0->ctrl_base + 0x11c, 0x100a00);
 		MIPI_OUTP(ctrl1->ctrl_base + 0x11c, 0x100a00);
@@ -590,8 +592,8 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP(ctrl1->ctrl_base + 0x11c, 0x00); /* DSI_CLK_CTRL */
 
 		/* Enable DSI controller */
-		MIPI_OUTP(ctrl0->ctrl_base + 0x004, 0x1f5);
-		MIPI_OUTP(ctrl1->ctrl_base + 0x004, 0x1f5);
+		MIPI_OUTP(ctrl0->ctrl_base + 0x004, (data0 & ~BIT(1)));
+		MIPI_OUTP(ctrl1->ctrl_base + 0x004, (data1 & ~BIT(1)));
 
 		/*
 		 * Toggle Clk lane Force TX stop so that
@@ -629,8 +631,8 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP(ctrl1->ctrl_base + 0x0ac, ln_ctrl1 & ~BIT(20));
 
 		/* Enable Video mode for DSI controller */
-		MIPI_OUTP(ctrl0->ctrl_base + 0x004, 0x1f7);
-		MIPI_OUTP(ctrl1->ctrl_base + 0x004, 0x1f7);
+		MIPI_OUTP(ctrl0->ctrl_base + 0x004, data0);
+		MIPI_OUTP(ctrl1->ctrl_base + 0x004, data1);
 
 		/*
 		 * Enable PHY contention detection and receive.
@@ -652,9 +654,10 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 
 		data0 = MIPI_INP(ctrl->ctrl_base + 0x0004);
 		/* Disable DSI video mode */
-		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f5);
+		MIPI_OUTP(ctrl->ctrl_base + 0x004, (data0 & ~BIT(1)));
 		/* Disable DSI controller */
-		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f4);
+		MIPI_OUTP(ctrl->ctrl_base + 0x004,
+					(data0 & ~(BIT(0) | BIT(1))));
 		/* "Force On" all dynamic clocks */
 		MIPI_OUTP(ctrl->ctrl_base + 0x11c, 0x100a00);
 
@@ -667,7 +670,7 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		/* Remove "Force On" all dynamic clocks */
 		MIPI_OUTP(ctrl->ctrl_base + 0x11c, 0x00);
 		/* Enable DSI controller */
-		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f5);
+		MIPI_OUTP(ctrl->ctrl_base + 0x004, (data0 & ~BIT(1)));
 
 		/*
 		 * Toggle Clk lane Force TX stop so that
@@ -698,7 +701,7 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP(ctrl->ctrl_base + 0x0ac, ln_ctrl0 & ~BIT(20));
 
 		/* Enable Video mode for DSI controller */
-		MIPI_OUTP(ctrl->ctrl_base + 0x004, 0x1f7);
+		MIPI_OUTP(ctrl->ctrl_base + 0x004, data0);
 		/* Enable PHY contention detection and receiver */
 		MIPI_OUTP((ctrl->phy_io.base) + 0x0188, 0x6);
 		/*
