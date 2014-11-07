@@ -1135,6 +1135,12 @@ config MFD_WM8997
 	help
 	  Support for Wolfson Microelectronics WM8997 low power audio SoC
 
+config MFD_CS47L24
+	bool "Cirrus Logic CS47L24"
+	depends on MFD_ARIZONA
+	help
+	  Support for Cirrus Logic CS47L24 low power audio SoC
+
 config MFD_WM8400
 	bool "Wolfson Microelectronics WM8400"
 	select MFD_CORE

@@ -1,6 +1,7 @@
 /*
  * arizona.h  --  WM5102 MFD internals
  *
+ * Copyright 2014 Cirrus Logic
  * Copyright 2012 Wolfson Microelectronics plc
  *
  * Author: Mark Brown <broonie@opensource.wolfsonmicro.com>
@@ -29,6 +30,8 @@ extern const struct regmap_config wm8997_i2c_regmap;
 
 extern const struct regmap_config wm8998_i2c_regmap;
 
+extern const struct regmap_config cs47l24_spi_regmap;
+
 extern const struct dev_pm_ops arizona_pm_ops;
 
 extern const struct of_device_id arizona_of_match[];
@@ -45,6 +48,8 @@ extern const struct regmap_irq_chip wm8997_irq;
 
 extern struct regmap_irq_chip wm8998_aod;
 extern struct regmap_irq_chip wm8998_irq;
+
+extern const struct regmap_irq_chip cs47l24_irq;
 
 int arizona_dev_init(struct arizona *arizona);
 int arizona_dev_exit(struct arizona *arizona);

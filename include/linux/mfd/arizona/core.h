@@ -1,6 +1,7 @@
 /*
  * Arizona MFD internals
  *
+ * Copyright 2014 CirrusLogic, Inc.
  * Copyright 2012 Wolfson Microelectronics plc
  *
  * Author: Mark Brown <broonie@opensource.wolfsonmicro.com>
@@ -27,6 +28,8 @@ enum arizona_type {
 	WM8280 = 4,
 	WM8998 = 5,
 	WM1814 = 6,
+	WM1831 = 9,
+	CS47L24 = 10,
 };
 
 #define ARIZONA_IRQ_GP1                    0
@@ -176,6 +179,7 @@ int wm5102_patch(struct arizona *arizona);
 int florida_patch(struct arizona *arizona);
 int wm8997_patch(struct arizona *arizona);
 int wm8998_patch(struct arizona *arizona);
+int cs47l24_patch(struct arizona *arizona);
 
 extern int arizona_of_get_named_gpio(struct arizona *arizona, const char *prop,
 				     bool mandatory);
