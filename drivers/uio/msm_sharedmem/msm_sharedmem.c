@@ -23,6 +23,53 @@
 
 #define CLIENT_ID_PROP "qcom,client-id"
 
+static int uio_get_mem_index(struct uio_info *info, struct vm_area_struct *vma)
+{
+	if (vma->vm_pgoff >= MAX_UIO_MAPS)
+		return -EINVAL;
+
+	if (info->mem[vma->vm_pgoff].size == 0)
+		return -EINVAL;
+
+	return (int)vma->vm_pgoff;
+}
+
+static int sharedmem_mmap(struct uio_info *info, struct vm_area_struct *vma)
+{
+	int result;
+	struct uio_mem *mem;
+	int mem_index = uio_get_mem_index(info, vma);
+
+	if (mem_index < 0) {
+		pr_err("mem_index is invalid errno %d\n", mem_index);
+		return mem_index;
+	}
+
+	mem = info->mem + mem_index;
+
+	if (vma->vm_end - vma->vm_start > mem->size) {
+		pr_err("vm_end[%lu] - vm_start[%lu] [%lu] > mem->size[%lu]\n",
+			vma->vm_end, vma->vm_start,
+			(vma->vm_end - vma->vm_start), mem->size);
+		return -EINVAL;
+	}
+	pr_debug("Attempting to setup mmap.\n");
+
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
+	result = remap_pfn_range(vma,
+				 vma->vm_start,
+				 mem->addr >> PAGE_SHIFT,
+				 vma->vm_end - vma->vm_start,
+				 vma->vm_page_prot);
+	if (result != 0)
+		pr_err("mmap Failed with errno %d\n", result);
+	else
+		pr_debug("mmap success\n");
+
+	return result;
+}
+
 static int msm_sharedmem_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -62,7 +109,7 @@ static int msm_sharedmem_probe(struct platform_device *pdev)
 	shared_mem_pyhsical = clnt_res->start;
 
 	if (shared_mem_size == 0) {
-		pr_err("Shared memory size is zero");
+		pr_err("Shared memory size is zero\n");
 		return -EINVAL;
 	}
 
@@ -78,6 +125,7 @@ static int msm_sharedmem_probe(struct platform_device *pdev)
 	}
 
 	/* Setup device */
+	info->mmap = sharedmem_mmap; /* Custom mmap function. */
 	info->name = clnt_res->name;
 	info->version = "1.0";
 	info->mem[0].addr = shared_mem_pyhsical;
@@ -86,7 +134,7 @@ static int msm_sharedmem_probe(struct platform_device *pdev)
 
 	ret = uio_register_device(&pdev->dev, info);
 	if (ret) {
-		pr_err("uio register failed ret=%d", ret);
+		pr_err("uio register failed ret=%d\n", ret);
 		goto out;
 	}
 	dev_set_drvdata(&pdev->dev, info);
@@ -134,13 +182,13 @@ static int __init msm_sharedmem_init(void)
 	int result;
 	result = sharedmem_qmi_init();
 	if (result < 0) {
-		pr_err("sharedmem_qmi_init failed result = %d", result);
+		pr_err("sharedmem_qmi_init failed result = %d\n", result);
 		return result;
 	}
 
 	result = platform_driver_register(&msm_sharedmem_driver);
 	if (result != 0) {
-		pr_err("Platform driver registration failed");
+		pr_err("Platform driver registration failed\n");
 		return result;
 	}
 	return 0;

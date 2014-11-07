@@ -117,7 +117,7 @@ static int get_buffer_for_client(u32 id, u32 size, u64 *address)
 				list_entry->entry.request_count++;
 				result = 0;
 			} else {
-				pr_err("Shared mem req too large for id=%u",
+				pr_err("Shared mem req too large for id=%u\n",
 					id);
 				result = -ENOMEM;
 			}
@@ -129,7 +129,7 @@ static int get_buffer_for_client(u32 id, u32 size, u64 *address)
 	up_read(&sharedmem_list_lock);
 
 	if (client_found != 1) {
-		pr_err("Unknown client id %u", id);
+		pr_err("Unknown client id %u\n", id);
 		result = -ENOENT;
 	}
 	return result;
@@ -152,7 +152,7 @@ static int sharedmem_qmi_get_buffer(void *conn_h, void *req_handle, void *req)
 		return result;
 
 	if (address == 0) {
-		pr_err("Entry found for client id = 0x%X but address is zero",
+		pr_err("Entry found for client id= 0x%X but address is zero\n",
 			get_buffer_req->client_id);
 		return -ENOMEM;
 	}
@@ -323,25 +323,25 @@ static void debugfs_init(void)
 
 	dir_ent = debugfs_create_dir("rmt_storage", NULL);
 	if (IS_ERR(dir_ent)) {
-		pr_err("Failed to create debug_fs directory");
+		pr_err("Failed to create debug_fs directory\n");
 		return;
 	}
 
 	f_ent = debugfs_create_file("info", 0400, dir_ent, NULL, &debug_ops);
 	if (IS_ERR(f_ent)) {
-		pr_err("Failed to create debug_fs info file");
+		pr_err("Failed to create debug_fs info file\n");
 		return;
 	}
 
 	f_ent = debugfs_create_file("rfsa", 0200, dir_ent, NULL, &rfsa_fops);
 	if (IS_ERR(f_ent)) {
-		pr_err("Failed to create debug_fs rfsa file");
+		pr_err("Failed to create debug_fs rfsa file\n");
 		return;
 	}
 
 	f_ent = debugfs_create_file("rmts", 0200, dir_ent, NULL, &rmts_fops);
 	if (IS_ERR(f_ent)) {
-		pr_err("Failed to create debug_fs rmts file");
+		pr_err("Failed to create debug_fs rmts file\n");
 		return;
 	}
 }
@@ -356,7 +356,7 @@ static void sharedmem_qmi_svc_recv_msg(struct work_struct *work)
 	int rc;
 
 	do {
-		pr_debug("%s: Notified about a Receive Event", __func__);
+		pr_debug("Notified about a Receive Event\n");
 	} while ((rc = qmi_recv_msg(sharedmem_qmi_svc_handle)) == 0);
 
 	if (rc != -ENOMSG)
