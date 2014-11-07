@@ -391,6 +391,18 @@ struct dentry *glink_debugfs_create(const char *name,
 void glink_debugfs_remove_recur(struct glink_dbgfs *dfs);
 
 /**
+ * glink_debugfs_remove_channel() - remove all channel specifc files & folder in
+ *				 debugfs when channel is fully closed
+ * @ch_ctx:		pointer to the channel_contenxt
+ * @xprt_ctx:		pointer to the transport_context
+ *
+ * This function is invoked when any channel is fully closed. It removes the
+ * folders & other files in debugfs for that channel.
+ */
+void glink_debugfs_remove_channel(struct channel_ctx *ch_ctx,
+			struct glink_core_xprt_ctx *xprt_ctx);
+
+/**
  * glink_debugfs_add_channel() - create channel specifc files & folder in
  *				 debugfs when channel is added
  * @ch_ctx:		pointer to the channel_contenxt

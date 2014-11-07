@@ -58,11 +58,13 @@ struct glink_dbgfs_dent {
 	char self_name[GLINK_NAME_SIZE];
 	struct dentry *parent;
 	struct dentry *self;
+	spinlock_t file_list_lock_lhb0;
 	struct list_head file_list;
 };
 
 static struct dentry *dent;
 static LIST_HEAD(dent_list);
+static DEFINE_MUTEX(dent_list_lock_lha0);
 
 static int debugfs_show(struct seq_file *s, void *data)
 {
@@ -295,6 +297,31 @@ static void glink_dfs_update_ch_stats(struct seq_file *s)
 }
 
 /**
+ * glink_debugfs_remove_channel() - remove all channel specifc files & folder in
+ *				 debugfs when channel is fully closed
+ * @ch_ctx:		pointer to the channel_contenxt
+ * @xprt_ctx:		pointer to the transport_context
+ *
+ * This function is invoked when any channel is fully closed. It removes the
+ * folders & other files in debugfs for that channel.
+ */
+void glink_debugfs_remove_channel(struct channel_ctx *ch_ctx,
+			struct glink_core_xprt_ctx *xprt_ctx){
+
+	struct glink_dbgfs ch_rm_dbgfs;
+	char *edge_name;
+	ch_rm_dbgfs.curr_name = glink_get_ch_name(ch_ctx);
+	edge_name = glink_get_xprt_edge_name(xprt_ctx);
+	if (!strcmp(edge_name, "local_loopback"))
+		edge_name = "lloop";
+	else if (!strcmp(edge_name, "local"))
+		edge_name = "mock";
+	ch_rm_dbgfs.par_name = edge_name;
+	glink_debugfs_remove_recur(&ch_rm_dbgfs);
+}
+EXPORT_SYMBOL(glink_debugfs_remove_channel);
+
+/**
  * glink_debugfs_add_channel() - create channel specifc files & folder in
  *				 debugfs when channel is added
  * @ch_ctx:		pointer to the channel_contenxt
@@ -511,13 +538,16 @@ void glink_dfs_update_list(struct dentry *curr_dent, struct dentry *parent,
 				GFP_KERNEL);
 		if (dbgfs_dent_s != NULL) {
 			INIT_LIST_HEAD(&dbgfs_dent_s->file_list);
+			spin_lock_init(&dbgfs_dent_s->file_list_lock_lhb0);
 			dbgfs_dent_s->parent = parent;
 			dbgfs_dent_s->self = curr_dent;
 			strlcpy(dbgfs_dent_s->self_name,
 				curr, GLINK_NAME_SIZE);
 			strlcpy(dbgfs_dent_s->par_name, par_dir,
 					GLINK_NAME_SIZE);
+			mutex_lock(&dent_list_lock_lha0);
 			list_add_tail(&dbgfs_dent_s->list_node, &dent_list);
+			mutex_unlock(&dent_list_lock_lha0);
 		}
 	} else {
 		GLINK_DBG("%s:create directory failed for par:curr [%s:%s]\n",
@@ -537,20 +567,25 @@ void glink_dfs_update_list(struct dentry *curr_dent, struct dentry *parent,
 void glink_remove_dfs_entry(struct glink_dbgfs_dent *entry)
 {
 	struct glink_dbgfs_data *fentry, *fentry_temp;
+	unsigned long flags;
 
 	if (entry == NULL)
 		return;
 	if (!list_empty(&entry->file_list)) {
+		spin_lock_irqsave(&entry->file_list_lock_lhb0, flags);
 		list_for_each_entry_safe(fentry, fentry_temp,
 				&entry->file_list, flist) {
 			if (fentry->b_priv_free_req)
 				kfree(fentry->priv_data);
 			list_del(&fentry->flist);
 			kfree(fentry);
+			fentry = NULL;
 		}
+		spin_unlock_irqrestore(&entry->file_list_lock_lhb0, flags);
 	}
 	list_del(&entry->list_node);
 	kfree(entry);
+	entry = NULL;
 }
 
 /**
@@ -573,6 +608,7 @@ void glink_debugfs_remove_recur(struct glink_dbgfs *rm_dfs)
 	c_dir_name = rm_dfs->curr_name;
 	p_dir_name = rm_dfs->par_name;
 
+	mutex_lock(&dent_list_lock_lha0);
 	list_for_each_entry_safe(entry, entry_temp, &dent_list, list_node) {
 		if (!strcmp(entry->par_name, c_dir_name)) {
 			glink_remove_dfs_entry(entry);
@@ -582,6 +618,7 @@ void glink_debugfs_remove_recur(struct glink_dbgfs *rm_dfs)
 			glink_remove_dfs_entry(entry);
 		}
 	}
+	mutex_unlock(&dent_list_lock_lha0);
 	if (par_dent != NULL)
 		debugfs_remove_recursive(par_dent);
 }
@@ -592,7 +629,7 @@ EXPORT_SYMBOL(glink_debugfs_remove_recur);
  * @name:	debugfs file name
  * @show:	pointer to the actual function which will be invoked upon
  *		opening this file.
- * @dir:	pointer to a strutcture debugfs_dir
+ * @dir:	pointer to a structure debugfs_dir
  * dbgfs_data:	pointer to any private data need to be associated with debugfs
  * b_free_req:	boolean value to decide to free the memory associated with
  *		@dbgfs_data during deletion of the file
@@ -614,6 +651,7 @@ struct dentry *glink_debugfs_create(const char *name,
 	struct glink_dbgfs_data *file_data;
 	const char *c_dir_name;
 	const char *p_dir_name;
+	unsigned long flags;
 
 	if (dir == NULL) {
 		GLINK_ERR("%s: debugfs_dir strucutre is null\n", __func__);
@@ -622,12 +660,14 @@ struct dentry *glink_debugfs_create(const char *name,
 	c_dir_name = dir->curr_name;
 	p_dir_name = dir->par_name;
 
+	mutex_lock(&dent_list_lock_lha0);
 	list_for_each_entry(entry, &dent_list, list_node)
 		if (!strcmp(entry->par_name, p_dir_name)
 				&& !strcmp(entry->self_name, c_dir_name)) {
 			parent = entry->self;
 			break;
 		}
+	mutex_unlock(&dent_list_lock_lha0);
 	p_dir_name = c_dir_name;
 	c_dir_name = name;
 	if (parent != NULL) {
@@ -639,9 +679,12 @@ struct dentry *glink_debugfs_create(const char *name,
 		} else {
 			file_data = glink_dfs_create_file(name, parent, show,
 							dbgfs_data, b_free_req);
+			spin_lock_irqsave(&entry->file_list_lock_lhb0, flags);
 			if (file_data != NULL)
 				list_add_tail(&file_data->flist,
 						&entry->file_list);
+			spin_unlock_irqrestore(&entry->file_list_lock_lhb0,
+						flags);
 		}
 	} else {
 		GLINK_DBG("%s: parent dentry is null for [%s]\n",
