@@ -594,7 +594,7 @@
 		regulator-name = "apc0_corner";
 		qcom,cpr-fuse-corners = <4>;
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <12>;
+		regulator-max-microvolt = <13>;
 
 		qcom,cpr-voltage-ceiling = <800000 900000 1000000 1180000>;
 		qcom,cpr-voltage-floor =   <700000 725000  840000 1000000>;
@@ -654,28 +654,30 @@
 		qcom,cpr-init-voltage-ref = <800000 900000 1000000 1225000>;
 		qcom,cpr-init-voltage-step = <10000>;
 
-		qcom,cpr-corner-map = <1 2 2 2 3 3 3 4 4 4 4 4>;
+		qcom,cpr-corner-map = <1 2 2 2 3 3 3 4 4 4 4 4 4>;
 		qcom,cpr-voltage-ceiling-override =
 				<0xFFFFFFFF 0  800000  900000  900000  900000
 					      1000000 1000000 1000000 1115000
-					      1115000 1180000 1180000 1180000>;
+					      1115000 1180000 1180000 1180000
+					      1180000>;
 		qcom,cpr-voltage-floor-override =
 				<0xFFFFFFFF 0 700000 700000 715000 725000
 					      790000 815000 835000 900000
-					      935000 940000 965000 990000>;
+					      935000 940000 965000 990000
+					      1010000>;
 
 		qcom,cpr-fuse-version-map =
 				<0xffffffff 0xffffffff 1 0 0 0 0>,
 				<0xffffffff 0xffffffff 2 0 0 0 0>,
 				<0xffffffff 0xffffffff 3 0 0 0 0>;
 		qcom,cpr-quotient-adjustment =
-				<0 0 0 (-140)>,
-				<0 0 0 (-140)>,
-				<0 0 0 (-50)>;
+				<0 0 0 (-50)>,
+				<0 0 0 (-50)>,
+				<0 0 0 40>;
 		qcom,cpr-init-voltage-adjustment =
-				<0 0 0 (-70000)>,
-				<0 0 0 (-70000)>,
-				<0 0 0 (-25000)>;
+				<0 0 0 (-25000)>,
+				<0 0 0 (-25000)>,
+				<0 0 0 20000>;
 
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;
@@ -692,9 +694,10 @@
 				<9   960000000>,
 				<10 1248000000>,
 				<11 1344000000>,
-				<12 1478400000>;
+				<12 1478400000>,
+				<13 1555200000>;
 		qcom,cpr-speed-bin-max-corners =
-				<0xFFFFFFFF 0 1 4 7 12>;
+				<0xFFFFFFFF 0 1 4 7 13>;
 		qcom,cpr-enable;
 	};
 
