@@ -827,6 +827,19 @@ config INTEL_BAYTRAIL_MBI
 	  Interface. This is a requirement for systems that need to configure
 	  the PUNIT for power management features such as RAPL.
 
+config INTEL_WARN_INT
+	tristate "TCO Watchdog warning interrupt"
+	depends on ITCO_WDT
+	---help---
+	  This driver provides support for TCO watchdog warning interrupt.
+	  Upon first expiration of the TCO watchdog, a warning interrupt is
+	  fired and the driver calls panic() function to dump debug information
+	  (registers and call stacks).
+	  At the same time, the TCO watchdog reloads with 2.4 seconds timeout
+	  value and runs till the second expiration. At the second expiration of
+	  the TCO watchdog, the platform resets (the dump is supposed to last less
+	  than 2.4 seconds).
+
 config INTEL_GPIO_HSIC
 	tristate "Intel HSIC GPIO support"
 	depends on ACPI && USB && GPIOLIB
