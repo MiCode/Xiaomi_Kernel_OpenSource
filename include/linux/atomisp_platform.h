@@ -29,6 +29,8 @@
 #define MAX_SENSORS_PER_PORT 4
 #define MAX_STREAMS_PER_CHANNEL 2
 
+#define CAMERA_MODULE_ID_LEN 64
+
 enum atomisp_bayer_order {
 	atomisp_bayer_order_grbg,
 	atomisp_bayer_order_rggb,
@@ -188,6 +190,25 @@ struct atomisp_input_stream_info {
 	struct atomisp_isys_config_info isys_info[MAX_STREAMS_PER_CHANNEL];
 };
 
+struct camera_vcm_control;
+struct camera_vcm_ops {
+	int (*power_up)(struct v4l2_subdev *sd, struct camera_vcm_control *vcm);
+	int (*power_down)(struct v4l2_subdev *sd,
+			struct camera_vcm_control *vcm);
+	int (*queryctrl)(struct v4l2_subdev *sd, struct v4l2_queryctrl *qc,
+			struct camera_vcm_control *vcm);
+	int (*g_ctrl)(struct v4l2_subdev *sd, struct v4l2_control *ctrl,
+			struct camera_vcm_control *vcm);
+	int (*s_ctrl)(struct v4l2_subdev *sd, struct v4l2_control *ctrl,
+			struct camera_vcm_control *vcm);
+};
+
+struct camera_vcm_control {
+	char camera_module[CAMERA_MODULE_ID_LEN];
+	struct camera_vcm_ops *ops;
+	struct list_head list;
+};
+
 struct camera_sensor_platform_data {
 	int (*gpio_ctrl)(struct v4l2_subdev *subdev, int flag);
 	int (*flisclk_ctrl)(struct v4l2_subdev *subdev, int flag);
@@ -208,6 +229,8 @@ struct camera_sensor_platform_data {
 	int (*gpio1_ctrl)(struct v4l2_subdev *subdev, int on);
 	int (*v1p8_ctrl)(struct v4l2_subdev *subdev, int on);
 	int (*v2p8_ctrl)(struct v4l2_subdev *subdev, int on);
+	struct camera_vcm_control * (*get_vcm_ctrl)(struct v4l2_subdev *subdev,
+						    char *module_id);
 #endif
 };
 

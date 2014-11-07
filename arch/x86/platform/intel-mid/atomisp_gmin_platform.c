@@ -124,6 +124,8 @@ static int v2p8_gpio = V2P8_GPIO_UNSET;
 enum { V1P8_GPIO_UNSET = -2, V1P8_GPIO_NONE = -1 };
 static int v1p8_gpio = V1P8_GPIO_UNSET;
 
+static LIST_HEAD(vcm_devices);
+static DEFINE_MUTEX(vcm_lock);
 
 static struct gmin_subdev *find_gmin_subdev(struct v4l2_subdev *subdev);
 
@@ -653,6 +655,31 @@ static int gmin_csi_cfg(struct v4l2_subdev *sd, int flag)
 				 gs->csi_fmt, gs->csi_bayer, flag);
 }
 
+static struct camera_vcm_control *gmin_get_vcm_ctrl(struct v4l2_subdev *subdev,
+						char *camera_module)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(subdev);
+	struct gmin_subdev *gs = find_gmin_subdev(subdev);
+	struct camera_vcm_control *vcm;
+
+	if (client == NULL || gs == NULL)
+		return NULL;
+
+	if (!camera_module)
+		return NULL;
+
+	mutex_lock(&vcm_lock);
+	list_for_each_entry(vcm, &vcm_devices, list) {
+		if (!strcmp(camera_module, vcm->camera_module)) {
+			mutex_unlock(&vcm_lock);
+			return vcm;
+		}
+	}
+
+	mutex_unlock(&vcm_lock);
+	return NULL;
+}
+
 static struct camera_sensor_platform_data gmin_plat = {
 	.gpio0_ctrl = gmin_gpio0_ctrl,
 	.gpio1_ctrl = gmin_gpio1_ctrl,
@@ -662,6 +689,7 @@ static struct camera_sensor_platform_data gmin_plat = {
 	.platform_init = gmin_platform_init,
 	.platform_deinit = gmin_platform_deinit,
 	.csi_cfg = gmin_csi_cfg,
+	.get_vcm_ctrl = gmin_get_vcm_ctrl,
 };
 
 struct camera_sensor_platform_data *gmin_camera_platform_data(
@@ -676,6 +704,19 @@ struct camera_sensor_platform_data *gmin_camera_platform_data(
 	return &gmin_plat;
 }
 EXPORT_SYMBOL_GPL(gmin_camera_platform_data);
+
+int atomisp_gmin_register_vcm_control(struct camera_vcm_control *vcmCtrl)
+{
+	if (!vcmCtrl)
+		return -EINVAL;
+
+	mutex_lock(&vcm_lock);
+	list_add_tail(&vcmCtrl->list, &vcm_devices);
+	mutex_unlock(&vcm_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(atomisp_gmin_register_vcm_control);
 
 /* Retrieves a device-specific configuration variable.  The dev
  * argument should be a device with an ACPI companion, as all
