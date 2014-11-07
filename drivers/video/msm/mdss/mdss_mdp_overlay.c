@@ -2973,7 +2973,8 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 static int __mdss_overlay_map(struct mdp_overlay *ovs,
 	struct mdp_overlay *op_ovs, int num_ovs, int num_ovs_processed)
 {
-	int i = num_ovs_processed, j, k;
+	int mapped = num_ovs_processed;
+	int j, k;
 
 	for (j = 0; j < num_ovs; j++) {
 		for (k = 0; k < num_ovs; k++) {
@@ -2984,15 +2985,14 @@ static int __mdss_overlay_map(struct mdp_overlay *ovs,
 				break;
 			}
 		}
-		if ((i != num_ovs) && (i != j) &&
-		    (ovs[j].dst_rect.x == op_ovs[k].dst_rect.x) &&
-		    (ovs[i].z_order == op_ovs[k].z_order)) {
-			pr_debug("mapped %d->%d\n", i, j);
-			i = j;
+
+		if ((mapped != num_ovs) && (mapped == j)) {
+			pr_debug("mapped %d->%d\n", mapped, k);
+			mapped = k;
 		}
 	}
 
-	return i;
+	return mapped;
 }
 
 static inline void __overlay_swap_func(void *a, void *b, int size)
