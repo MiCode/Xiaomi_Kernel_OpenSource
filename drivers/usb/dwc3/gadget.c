@@ -1460,17 +1460,9 @@ static inline enum dwc3_link_state dwc3_get_link_state(struct dwc3 *dwc)
 
 static bool dwc3_gadget_is_suspended(struct dwc3 *dwc)
 {
-	enum dwc3_link_state		link_state;
-
-	if (atomic_read(&dwc->in_lpm)) {
+	if (atomic_read(&dwc->in_lpm) ||
+		dwc->link_state == DWC3_LINK_STATE_U3)
 		return true;
-	} else {
-		link_state = dwc3_get_link_state(dwc);
-		if (link_state == DWC3_LINK_STATE_RX_DET ||
-			link_state == DWC3_LINK_STATE_U3)
-			return true;
-	}
-
 	return false;
 }
 
@@ -3071,24 +3063,27 @@ static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 {
 	dev_dbg(dwc->dev, "%s\n", __func__);
 
-	/*
-	 * TODO take core out of low power mode when that's
-	 * implemented.
-	 */
+	/* Only perform resume from L2 or Early Suspend states */
+	if (dwc->link_state == DWC3_LINK_STATE_U3) {
+		dbg_event(0xFF, "WAKEUP", 0);
 
-	dbg_event(0xFF, "WAKEUP", 0);
+		/* Clear OTG suspend state */
+		if (dwc->enable_bus_suspend)
+			usb_phy_set_suspend(dwc->dotg->otg.phy, 0);
 
-	/* Clear OTG suspend state */
-	if (dwc->enable_bus_suspend)
-		usb_phy_set_suspend(dwc->dotg->otg.phy, 0);
+		dwc->link_state = dwc3_get_link_state(dwc);
+		/*
+		 * gadget_driver resume function might require some dwc3-gadget
+		 * operations, such as ep_enable. Hence, dwc->lock must be
+		 * released.
+		 */
+		spin_unlock(&dwc->lock);
+		dwc->gadget_driver->resume(&dwc->gadget);
+		spin_lock(&dwc->lock);
+	} else {
+		dwc->link_state = dwc3_get_link_state(dwc);
+	}
 
-	/*
-	 * gadget_driver resume function might require some dwc3-gadget
-	 * operations, such as ep_enable. Hence, dwc->lock must be released.
-	 */
-	spin_unlock(&dwc->lock);
-	dwc->gadget_driver->resume(&dwc->gadget);
-	spin_lock(&dwc->lock);
 }
 
 static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
