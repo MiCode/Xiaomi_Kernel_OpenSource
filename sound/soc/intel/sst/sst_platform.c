@@ -294,7 +294,7 @@ static void set_cht_platform_config(void)
 {
 	sst_platform_pdata.pdev_strm_map = mrfld_strm_map;
 	sst_platform_pdata.strm_map_size = ARRAY_SIZE(mrfld_strm_map);
-	sst_platform_pdata.dfw_enable = 0;
+	sst_platform_pdata.dfw_enable = 1;
 	memcpy(sst_platform_pdata.ssp_config, sst_ssp_configs_mrfld, sizeof(sst_ssp_configs_mrfld));
 	memcpy(sst_platform_pdata.mux_shift, sst_ssp_mux_shift, sizeof(sst_ssp_mux_shift));
 	memcpy(sst_platform_pdata.domain_shift, sst_ssp_domain_shift, sizeof(sst_ssp_domain_shift));
