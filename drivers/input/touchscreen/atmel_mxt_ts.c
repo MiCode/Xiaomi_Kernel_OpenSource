@@ -212,6 +212,10 @@ struct t9_range {
 
 #define DEBUG_MSG_MAX		200
 
+#define MSLEEP(ms)		usleep_range(ms*1000, ms*1000)
+#define MXT_FW_MAGIC		"fwvr"
+#define MXT_FW_INFO_SIZE	8
+
 struct mxt_info {
 	u8 family_id;
 	u8 variant_id;
@@ -319,7 +323,12 @@ struct mxt_data {
 	u32 irqcnt;
 	u8 *buf_raw_data;
 #endif
+	int alloc_pdata;
 };
+
+static int mxt_initialize(struct mxt_data *data);
+static int mxt_load_fw(struct device *dev);
+static int mxt_debugfs_create(struct mxt_data *data);
 
 static size_t mxt_obj_size(const struct mxt_object *obj)
 {
@@ -2542,25 +2551,83 @@ static void mxt_config_cb(const struct firmware *cfg, void *ctx)
 	mxt_configure_objects(ctx, cfg);
 }
 
-static int mxt_load_fw(struct device *dev);
-static int mxt_check_firmware(struct mxt_data *data)
+/*Toggle reset pin to bootloader mode
+* the timing parameters are from Vendor
+*/
+static void mxt_force_bootloader(struct mxt_data *data)
+{
+	int i;
+
+	dev_info(&data->client->dev, "Force to enter bootloader\n");
+	for (i = 0; i < 10; i++) {
+		MSLEEP(1);
+		gpio_set_value(data->pdata->gpio_reset, 1);
+		MSLEEP(120);
+		gpio_set_value(data->pdata->gpio_reset, 0);
+	}
+	MSLEEP(1);
+	gpio_set_value(data->pdata->gpio_reset, 1);
+	MSLEEP(100);
+	MSLEEP(MXT_RESET_TIME * 3);
+	return;
+}
+
+static bool mxt_fw_is_latest(struct mxt_data *data, struct mxt_info *info,
+				const struct firmware *fw)
+{
+	int pos = fw->size - MXT_FW_INFO_SIZE;
+	struct mxt_info *fw_info;
+
+	if (strncmp(fw->data + pos, MXT_FW_MAGIC, strlen(MXT_FW_MAGIC))) {
+		dev_info(&data->client->dev, "Skip non supported firmware\n");
+		return true;
+	}
+
+	fw_info = (struct mxt_info *)(fw->data + pos + strlen(MXT_FW_MAGIC));
+
+	/*Force update*/
+	if (fw_info->family_id == 0xff && fw_info->variant_id == 0xff &&
+		fw_info->version == 0xff && fw_info->build == 0xff) {
+		dev_info(&data->client->dev, "Force update firmware\n");
+		return false;
+	}
+
+	if (fw_info->family_id == info->family_id &&
+		fw_info->variant_id == info->variant_id &&
+		fw_info->version == info->version &&
+		fw_info->build == info->build)
+		return true;
+	else {
+		dev_info(&data->client->dev, "Update firmware\n");
+		return false;
+	}
+}
+
+static int mxt_check_firmware(struct mxt_data *data, const struct firmware *fw)
 {
 	int error = 0;
 	bool retry = false;
+	bool alt_bootloader_addr = false;
 	struct i2c_client *client = data->client;
 	struct mxt_info info = { 0 };
 
 read_info:
 	error = __mxt_read_reg(client, 0, sizeof(struct mxt_info), &info);
-	if (error) {
-		if (retry) {
-			dev_err(&client->dev, "Check firmware err %d\n", error);
-			return error;
+	if (error || (!retry && !mxt_fw_is_latest(data, &info, fw))) {
+		mxt_force_bootloader(data);
+retry_bootloader:
+		error = mxt_probe_bootloader(data, alt_bootloader_addr);
+		if (error) {
+			if (alt_bootloader_addr) {
+				/* Chip is not in appmode or bootloader mode */
+				return error;
+			}
+			dev_info(&client->dev, "Trying alternate bootloader address\n");
+			alt_bootloader_addr = true;
+			goto retry_bootloader;
 		}
 
-		error = mxt_lookup_bootloader_address(data, 0);
-		if (error)
-			return error;
+		release_firmware(fw);
 		data->in_bootloader = true;
 		error = mxt_load_fw(&client->dev);
 		if (!error) {
@@ -2572,9 +2639,43 @@ read_info:
 		retry = true;
 		goto read_info;
 	}
+	if (error)
+		dev_err(&client->dev, "Check firmware err %d\n", error);
 
-	/*No firmware version control for further firmware update*/
-	return 0;
+	return error;
+}
+
+static void mxt_fw_cb(const struct firmware *fw, void *ctx)
+{
+	int error;
+	struct mxt_data *data = (struct mxt_data *)ctx;
+
+	if (fw) {
+		error = mxt_check_firmware(data, fw);
+		if (error) {
+			dev_err(&data->client->dev, "Err checking firmware\n");
+			return;
+		}
+	} else
+		dev_warn(&data->client->dev, "Found no Firmware\n");
+
+	error = mxt_initialize(data);
+	if (error)
+		dev_err(&data->client->dev, "Fail to initialize\n");
+	return;
+}
+
+static int mxt_initialize_with_fw_check(struct mxt_data *data)
+{
+	int error;
+
+	error = request_firmware_nowait(THIS_MODULE, true,
+				data->fw_name,
+				&data->client->dev, GFP_KERNEL, data,
+				mxt_fw_cb);
+	if (error)
+		dev_err(&data->client->dev, "Fail to request fw firmware\n");
+	return error;
 }
 
 static int mxt_initialize(struct mxt_data *data)
@@ -2584,8 +2685,6 @@ static int mxt_initialize(struct mxt_data *data)
 	bool alt_bootloader_addr = false;
 	bool retry = false;
 
-	/*flash firmware if corrupt*/
-	mxt_check_firmware(data);
 retry_info:
 	error = mxt_read_info_block(data);
 	if (error) {
@@ -2644,6 +2743,9 @@ retry_bootloader:
 			goto err_free_object_table;
 	}
 
+#ifdef CONFIG_DEBUG_FS
+	mxt_debugfs_create(data);
+#endif
 	return 0;
 
 err_free_object_table:
@@ -2841,7 +2943,6 @@ static int mxt_load_fw(struct device *dev)
 				     MXT_BOOT_VALUE, false);
 		if (ret)
 			goto release_firmware;
-
 		msleep(MXT_RESET_TIME);
 
 		/* Do not need to scan since we know family ID */
@@ -2870,7 +2971,8 @@ static int mxt_load_fw(struct device *dev)
 			goto disable_irq;
 	}
 
-	while (pos < fw->size) {
+	while (pos < fw->size - MXT_FW_INFO_SIZE) {
+
 		ret = mxt_check_bootloader(data, MXT_WAITING_FRAME_DATA, true);
 		if (ret)
 			goto disable_irq;
@@ -2904,8 +3006,9 @@ static int mxt_load_fw(struct device *dev)
 
 		if (frame % 50 == 0)
 			dev_dbg(dev, "Sent %d frames, %d/%zd bytes\n",
-				frame, pos, fw->size);
+				frame, pos, fw->size - MXT_FW_INFO_SIZE);
 	}
+
 
 	/* Wait for flash. */
 	ret = mxt_wait_for_completion(data, &data->bl_completion,
@@ -3639,7 +3742,9 @@ static int mxt_probe(struct i2c_client *client,
 			dev_err(&client->dev, "Failed to allocate pdata\n");
 			error = -ENOMEM;
 			goto err_free_mem;
-		}
+		} else
+			data->alloc_pdata = 1;
+
 		data->pdata = pdata;
 
 		/* Set default parameters */
@@ -3675,8 +3780,8 @@ static int mxt_probe(struct i2c_client *client,
 
 		pdata->regulator_dis = 1;
 		pdata->input_name = "atmel_mxt_ts";
-		data->fw_name = "maxtouch.fw";
-		data->cfg_name = "maxtouch.cfg";
+		data->fw_name = kasprintf(GFP_KERNEL, "maxtouch.fw");
+		data->cfg_name = kasprintf(GFP_KERNEL, "maxtouch.cfg");
 
 		dev_info(&client->dev,
 			"gpio_reset=%lu, gpio_switch=%lu, gpio_int=%lu\n",
@@ -3707,7 +3812,7 @@ static int mxt_probe(struct i2c_client *client,
 
 	disable_irq(data->irq);
 
-	error = mxt_initialize(data);
+	error = mxt_initialize_with_fw_check(data);
 	if (error)
 		goto err_free_irq;
 
@@ -3732,9 +3837,6 @@ static int mxt_probe(struct i2c_client *client,
 		goto err_remove_sysfs_group;
 	}
 
-#ifdef CONFIG_DEBUG_FS
-	mxt_debugfs_create(data);
-#endif
 	return 0;
 
 err_remove_sysfs_group:
@@ -3744,6 +3846,11 @@ err_free_object:
 err_free_irq:
 	free_irq(client->irq, data);
 err_free_mem:
+	if (data->alloc_pdata) {
+		kfree(data->pdata);
+		kfree(data->fw_name);
+		kfree(data->cfg_name);
+	}
 	kfree(data);
 	return error;
 }
@@ -3770,6 +3877,11 @@ static int mxt_remove(struct i2c_client *client)
 	regulator_put(data->reg_avdd);
 	regulator_put(data->reg_vdd);
 	mxt_free_object_table(data);
+	if (data->alloc_pdata) {
+		kfree(data->pdata);
+		kfree(data->fw_name);
+		kfree(data->cfg_name);
+	}
 	kfree(data);
 
 	return 0;
