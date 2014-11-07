@@ -1359,8 +1359,7 @@ static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
 	if (IRQ_HANDLED == synaptics_filter_interrupt(data))
 		return IRQ_HANDLED;
 
-	if (!rmi4_data->touch_stopped)
-		synaptics_rmi4_sensor_report(rmi4_data);
+	synaptics_rmi4_sensor_report(rmi4_data);
 
 	return IRQ_HANDLED;
 }
