@@ -111,6 +111,7 @@ static struct intel_dp *intel_attached_dp(struct drm_connector *connector)
 static void intel_dp_link_down(struct intel_dp *intel_dp);
 static bool _edp_panel_vdd_on(struct intel_dp *intel_dp);
 static void edp_panel_vdd_off(struct intel_dp *intel_dp, bool sync);
+static bool edp_is_vdd_on(struct intel_dp *intel_dp);
 static struct edid *
 intel_dp_get_edid(struct drm_connector *connector, struct i2c_adapter *adapter);
 
@@ -297,6 +298,8 @@ vlv_power_sequencer_kick(struct intel_dp *intel_dp,
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	struct drm_device *dev = intel_dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_encoder *intel_encoder = &intel_dig_port->base;
+	enum intel_display_power_domain power_domain;
 	uint32_t DP;
 
 	/* Preserve the BIOS-computed detected bit. This is
@@ -326,7 +329,13 @@ vlv_power_sequencer_kick(struct intel_dp *intel_dp,
 	I915_WRITE(intel_dp->output_reg, DP);
 	POSTING_READ(intel_dp->output_reg);
 
-	intel_edp_panel_vdd_on(intel_dp);
+	if (edp_is_vdd_on(intel_dp)) {
+		power_domain = intel_display_port_power_domain(intel_encoder);
+		intel_display_power_get(dev_priv, power_domain);
+	} else {
+		intel_edp_panel_vdd_on(intel_dp);
+	}
+
 	intel_edp_panel_on(intel_dp);
 	intel_edp_panel_off(intel_dp);
 
@@ -459,7 +468,7 @@ static bool edp_have_panel_power(struct intel_dp *intel_dp)
 	return (I915_READ(_pp_stat_reg(intel_dp)) & PP_ON) != 0;
 }
 
-static bool edp_have_panel_vdd(struct intel_dp *intel_dp)
+static bool edp_is_vdd_on(struct intel_dp *intel_dp)
 {
 	struct drm_device *dev = intel_dp_to_dev(intel_dp);
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -481,7 +490,7 @@ intel_dp_check_edp(struct intel_dp *intel_dp)
 	if (!is_edp(intel_dp))
 		return;
 
-	if (!edp_have_panel_power(intel_dp) && !edp_have_panel_vdd(intel_dp)) {
+	if (!edp_have_panel_power(intel_dp) && !edp_is_vdd_on(intel_dp)) {
 		WARN(1, "eDP powered off while attempting aux channel communication.\n");
 		DRM_DEBUG_KMS("Status 0x%08x Control 0x%08x\n",
 			      I915_READ(_pp_stat_reg(intel_dp)),
@@ -1265,7 +1274,7 @@ static bool _edp_panel_vdd_on(struct intel_dp *intel_dp)
 
 	intel_dp->want_panel_vdd = true;
 
-	if (edp_have_panel_vdd(intel_dp))
+	if (edp_is_vdd_on(intel_dp))
 		return need_to_disable;
 
 	power_domain = intel_display_port_power_domain(intel_encoder);
@@ -1315,7 +1324,7 @@ static void edp_panel_vdd_off_sync(struct intel_dp *intel_dp)
 
 	WARN_ON(!drm_modeset_is_locked(&dev->mode_config.connection_mutex));
 
-	if (!intel_dp->want_panel_vdd && edp_have_panel_vdd(intel_dp)) {
+	if (!intel_dp->want_panel_vdd && edp_is_vdd_on(intel_dp)) {
 		struct intel_digital_port *intel_dig_port =
 						dp_to_dig_port(intel_dp);
 		struct intel_encoder *intel_encoder = &intel_dig_port->base;
@@ -1360,7 +1369,7 @@ static void edp_panel_vdd_off(struct intel_dp *intel_dp, bool sync)
 	if (!is_edp(intel_dp))
 		return;
 
-	if (!edp_have_panel_vdd(intel_dp))
+	if (!edp_is_vdd_on(intel_dp))
 		return;
 
 	if (!intel_dp->want_panel_vdd)
@@ -4638,7 +4647,7 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 
 	/* The VDD bit needs a power domain reference, so if the bit is already
 	 * enabled when we boot, grab this reference. */
-	if (edp_have_panel_vdd(intel_dp)) {
+	if (edp_is_vdd_on(intel_dp)) {
 		enum intel_display_power_domain power_domain;
 		power_domain = intel_display_port_power_domain(intel_encoder);
 		intel_display_power_get(dev_priv, power_domain);
@@ -4880,6 +4889,8 @@ intel_dp_init(struct drm_device *dev, int output_reg, enum port port)
 	if (IS_CHERRYVIEW(dev)) {
 		if (port == PORT_D)
 			intel_encoder->crtc_mask = 1 << 2;
+		else if (intel_dp_is_edp(dev, port))
+			intel_encoder->crtc_mask = 1 << 1;
 		else
 			intel_encoder->crtc_mask = (1 << 0) | (1 << 1);
 	} else {
