@@ -961,19 +961,14 @@ static void msm_slim_remove_ep(struct msm_slim_ctrl *dev,
 void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg)
 {
 	int i;
-	struct sps_register_event sps_event;
 
 	if (dev->use_rx_msgqs >= MSM_MSGQ_ENABLED)
 		msm_slim_remove_ep(dev, &dev->rx_msgq, &dev->use_rx_msgqs);
 	if (dev->use_tx_msgqs >= MSM_MSGQ_ENABLED)
 		msm_slim_remove_ep(dev, &dev->tx_msgq, &dev->use_tx_msgqs);
 	for (i = dev->port_b; i < MSM_SLIM_NPORTS; i++) {
-		struct msm_slim_endp *endpoint = &dev->pipes[i - dev->port_b];
-		if (!(dev->pipes[i - dev->port_b].connected))
-			continue;
-		memset(&sps_event, 0, sizeof(sps_event));
-		sps_register_event(endpoint->sps, &sps_event);
-		dev->pipes[i - dev->port_b].connected = false;
+		if (dev->pipes[i - dev->port_b].connected)
+			msm_slim_disconn_pipe_port(dev, i - dev->port_b);
 	}
 	if (dereg) {
 		for (i = dev->port_b; i < MSM_SLIM_NPORTS; i++) {
