@@ -1447,7 +1447,7 @@ static int pp_mixer_setup(u32 disp_num,
 	lm_bitmask = (BIT(6) << mixer_num);
 
 	/* Assign appropriate flags after mixer index validation */
-	if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
+	if (mixer->type != MDSS_MDP_MIXER_TYPE_WRITEBACK) {
 		if (mixer_num >= mdata->nmixers_intf) {
 			pr_err("bad intf mixer index = %d total = %d\n",
 				mixer_num, mdata->nmixers_intf);
@@ -1455,15 +1455,9 @@ static int pp_mixer_setup(u32 disp_num,
 		}
 		if (mixer_num == MDSS_MDP_DSPP3)
 			lm_bitmask = BIT(20);
-	} else if (mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK) {
-		if (mixer_num >= mdata->nmixers_wb +
-				mdata->nmixers_intf) {
-			pr_err("bad wb mixer index = %d total = %d\n",
-				mixer_num,
+	} else if (mixer_num >= mdata->nmixers_wb + mdata->nmixers_intf) {
+		pr_err("bad wb mixer index = %d total = %d\n", mixer_num,
 				mdata->nmixers_intf + mdata->nmixers_wb);
-			return 0;
-		}
-	} else {
 		return 0;
 	}
 
@@ -1708,8 +1702,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	mdata = ctl->mdata;
 	dspp_num = mixer->num;
 	/* no corresponding dspp */
-	if ((mixer->type != MDSS_MDP_MIXER_TYPE_INTF) ||
-		(dspp_num >= mdata->ndspp))
+	if (mixer->type != MDSS_MDP_MIXER_TYPE_INTF)
 		return -EINVAL;
 	base = mdss_mdp_get_dspp_addr_off(dspp_num);
 	if (IS_ERR(base))
