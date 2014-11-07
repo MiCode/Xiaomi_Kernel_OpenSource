@@ -4479,8 +4479,7 @@ static int ufshcd_task_req_compl(struct ufs_hba *hba, u32 index, u8 *resp)
  * Returns value base on SCSI command status
  */
 static inline int
-ufshcd_scsi_cmd_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp,
-	int scsi_status)
+ufshcd_scsi_cmd_status(struct ufshcd_lrb *lrbp, int scsi_status)
 {
 	int result = 0;
 
@@ -4502,11 +4501,6 @@ ufshcd_scsi_cmd_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp,
 		result |= DID_ERROR << 16;
 		break;
 	} /* end of switch */
-
-	if (scsi_status != SAM_STAT_GOOD)
-		dev_err(hba->dev,
-			"SCSI cmd opcode: 0x%x status error: 0x%x, result: 0x%x\n",
-			lrbp->cmd->cmnd[0], scsi_status, result);
 
 	return result;
 }
@@ -4546,7 +4540,7 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 			 * to notify the SCSI midlayer of the command status
 			 */
 			scsi_status = result & MASK_SCSI_STATUS;
-			result = ufshcd_scsi_cmd_status(hba, lrbp, scsi_status);
+			result = ufshcd_scsi_cmd_status(lrbp, scsi_status);
 
 			if (ufshcd_is_exception_event(lrbp->ucd_rsp_ptr))
 				schedule_work(&hba->eeh_work);
