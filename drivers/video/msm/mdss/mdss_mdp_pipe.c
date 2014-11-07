@@ -846,9 +846,9 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 
 	if (left_blend_pipe && pipe &&
 	    pipe->priority <= left_blend_pipe->priority) {
-		pr_debug("priority limitation. l_pipe_prio:%d r_pipe_prio:%d\n",
-			left_blend_pipe->priority, pipe->priority);
-		return NULL;
+		pr_debug("priority limitation. l_pipe:%d r_pipe:%d\n",
+			left_blend_pipe->num, pipe->num);
+		return ERR_PTR(-EINVAL);
 	}
 
 	if (pipe && mdss_mdp_pipe_fetch_halt(pipe)) {
@@ -914,8 +914,9 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_dma(struct mdss_mdp_mixer *mixer)
 	mdata = mixer->ctl->mdata;
 	pipe = mdss_mdp_pipe_init(mixer, MDSS_MDP_PIPE_TYPE_DMA, mixer->num,
 		NULL);
-	if (!pipe) {
+	if (IS_ERR_OR_NULL(pipe)) {
 		pr_err("DMA pipes not available for mixer=%d\n", mixer->num);
+		pipe = NULL;
 	} else if (pipe != &mdata->dma_pipes[mixer->num]) {
 		pr_err("Requested DMA pnum=%d not available\n",
 			mdata->dma_pipes[mixer->num].num);
