@@ -2898,30 +2898,91 @@ void usb_enable_ltm(struct usb_device *udev)
 }
 EXPORT_SYMBOL_GPL(usb_enable_ltm);
 
+static struct usb_interface_assoc_descriptor *is_assoc_interface(
+						struct usb_device *dev,
+						struct usb_host_config *config,
+						u8 inum)
+{
+	struct usb_interface_assoc_descriptor *intf_assoc;
+	int first_intf;
+	int last_intf;
+	int i;
+
+	for (i = 0; (i < USB_MAXIADS && config->intf_assoc[i]); i++) {
+		intf_assoc = config->intf_assoc[i];
+		if (intf_assoc->bInterfaceCount == 0)
+			continue;
+
+		first_intf = intf_assoc->bFirstInterface;
+		last_intf = first_intf + (intf_assoc->bInterfaceCount - 1);
+		if (inum >= first_intf && inum <= last_intf)
+			return intf_assoc;
+	}
+
+	return NULL;
+}
+
+
 /*
  * usb_enable_remote_wakeup - enable remote wakeup for a device
  * @udev: target device
  *
  * For USB-2 devices: Set the device's remote wakeup feature.
  *
- * For USB-3 devices: Assume there's only one function on the device and
- * enable remote wake for the first interface.  FIXME if the interface
- * association descriptor shows there's more than one function.
+ * For USB-3 devices: enable  remote wakeup for all  functions.
  */
 static int usb_enable_remote_wakeup(struct usb_device *udev)
 {
+	struct usb_host_config *config = udev->actconfig;
+	struct usb_interface_assoc_descriptor *intf_assoc;
+	struct usb_interface	*intf;
+	int intf_num;
+	int intf_class;
+	int i;
+	int ret = 0;
+
 	if (udev->speed < USB_SPEED_SUPER)
 		return usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
 				USB_REQ_SET_FEATURE, USB_RECIP_DEVICE,
 				USB_DEVICE_REMOTE_WAKEUP, 0, NULL, 0,
 				USB_CTRL_SET_TIMEOUT);
-	else
-		return usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
-				USB_REQ_SET_FEATURE, USB_RECIP_INTERFACE,
-				USB_INTRF_FUNC_SUSPEND,
-				USB_INTRF_FUNC_SUSPEND_RW |
-					USB_INTRF_FUNC_SUSPEND_LP,
-				NULL, 0, USB_CTRL_SET_TIMEOUT);
+
+	for (i = 0; i < config->desc.bNumInterfaces; i++) {
+		intf = config->interface[i];
+		intf_class = intf->cur_altsetting->desc.bInterfaceClass;
+		intf_num = intf->cur_altsetting->desc.bInterfaceNumber;
+
+		if (intf_class == USB_CLASS_CDC_DATA)
+			continue;
+
+		intf_assoc = is_assoc_interface(udev, config, intf_num);
+		if (intf_assoc && intf_num != intf_assoc->bFirstInterface)
+			continue;
+
+		/* the lower byte of wIndex shall be set to the first
+		 * interface that is part of that function (USB 3.0 spec
+		 * section 9.4.9)
+		 */
+		ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+			USB_REQ_SET_FEATURE, USB_RECIP_INTERFACE,
+			USB_INTRF_FUNC_SUSPEND,
+			USB_INTRF_FUNC_SUSPEND_RW |
+			USB_INTRF_FUNC_SUSPEND_LP |
+			intf_num,
+			NULL, 0, USB_CTRL_SET_TIMEOUT);
+
+		if (ret) {
+			dev_warn(&udev->dev,
+				"Can't enable remote wakeup interface %d\n",
+				 intf_num);
+
+			return ret;
+		}
+
+		dev_dbg(&udev->dev, "interface %d remote wakeup enabled\n",
+			 intf_num);
+	}
+	return 0;
 }
 
 /*
@@ -2930,22 +2991,58 @@ static int usb_enable_remote_wakeup(struct usb_device *udev)
  *
  * For USB-2 devices: Clear the device's remote wakeup feature.
  *
- * For USB-3 devices: Assume there's only one function on the device and
- * disable remote wake for the first interface.  FIXME if the interface
- * association descriptor shows there's more than one function.
+ * For USB-3 devices: clear remote wakeup for all functions
  */
 static int usb_disable_remote_wakeup(struct usb_device *udev)
 {
+	struct usb_host_config *config = udev->actconfig;
+	struct usb_interface_assoc_descriptor *intf_assoc;
+	struct usb_interface	*intf;
+	int intf_num;
+	int intf_class;
+	int i;
+	int ret = 0;
+
 	if (udev->speed < USB_SPEED_SUPER)
 		return usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
 				USB_REQ_CLEAR_FEATURE, USB_RECIP_DEVICE,
 				USB_DEVICE_REMOTE_WAKEUP, 0, NULL, 0,
 				USB_CTRL_SET_TIMEOUT);
-	else
-		return usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
-				USB_REQ_CLEAR_FEATURE, USB_RECIP_INTERFACE,
-				USB_INTRF_FUNC_SUSPEND,	0, NULL, 0,
-				USB_CTRL_SET_TIMEOUT);
+
+	for (i = 0; i < config->desc.bNumInterfaces; i++) {
+		intf = config->interface[i];
+		intf_class = intf->cur_altsetting->desc.bInterfaceClass;
+		intf_num = intf->cur_altsetting->desc.bInterfaceNumber;
+
+		if (intf_class == USB_CLASS_CDC_DATA)
+			continue;
+
+		intf_assoc = is_assoc_interface(udev, config, intf_num);
+		if (intf_assoc && intf_num != intf_assoc->bFirstInterface)
+			continue;
+
+		/* the lower byte of wIndex shall be set to the first
+		 * interface that is part of that function (USB 3.0 spec
+		 * section 9.4.9)
+		 */
+		ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+			USB_REQ_CLEAR_FEATURE, USB_RECIP_INTERFACE,
+			USB_INTRF_FUNC_SUSPEND,
+			intf_num,
+			NULL, 0,
+			USB_CTRL_SET_TIMEOUT);
+
+		if (ret) {
+			dev_warn(&udev->dev,
+				"Can't disable remote wakeup interface %d\n",
+				 intf_num);
+			return ret;
+		}
+		dev_dbg(&udev->dev, "interface %d remotewakeup disabled\n",
+			intf_num);
+
+	}
+	return 0;
 }
 
 /* Count of wakeup-enabled devices at or below udev */
