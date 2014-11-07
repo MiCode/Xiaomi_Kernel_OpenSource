@@ -570,6 +570,17 @@ static inline void pr_cont_cgroup_path(struct cgroup *cgrp)
 	pr_cont_kernfs_path(cgrp->kn);
 }
 
+/*
+ * Default Android check for whether the current process is allowed to move a
+ * task across cgroups, either because CAP_SYS_NICE is set or because the uid
+ * of the calling process is the same as the moved task or because we are
+ * running as root.
+ * Returns 0 if this is allowed, or -EACCES otherwise.
+ */
+int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css,
+			       struct cgroup_taskset *tset);
+
+
 #else /* !CONFIG_CGROUPS */
 
 struct cgroup_subsys_state;
@@ -595,6 +606,11 @@ static inline bool task_under_cgroup_hierarchy(struct task_struct *task,
 					       struct cgroup *ancestor)
 {
 	return true;
+
+static inline int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css,
+					     struct cgroup_taskset *tset)
+{
+	return 0;
 }
 #endif /* !CONFIG_CGROUPS */
 
