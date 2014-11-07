@@ -176,6 +176,9 @@ enum dsi_pm_type {
 #define DSI_BTA_TERM    BIT(1)
 #define DSI_CMD_TERM    BIT(0)
 
+#define DSI_DATA_LANES_STOP_STATE	0xF
+#define DSI_CLK_LANE_STOP_STATE		BIT(4)
+
 /* offsets for dynamic refresh */
 #define DSI_DYNAMIC_REFRESH_CTRL		0x200
 #define DSI_DYNAMIC_REFRESH_PIPE_DELAY		0x204
