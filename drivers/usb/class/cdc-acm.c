@@ -421,7 +421,12 @@ static void acm_read_bulk_callback(struct urb *urb)
 	if (urb->status) {
 		dev_dbg(&acm->data->dev, "%s - non-zero urb status: %d\n",
 							__func__, urb->status);
-		return;
+		if ((urb->status != -ENOENT) || (urb->actual_length == 0)) {
+			dev_dbg(&acm->data->dev,
+				"%s - no handling for ENOENT and ZLP urb\n",
+					__func__);
+			return;
+		}
 	}
 	acm_process_read_urb(acm, urb);
 
