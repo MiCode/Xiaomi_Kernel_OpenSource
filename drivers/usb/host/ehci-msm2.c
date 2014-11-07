@@ -726,23 +726,15 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 		func_ctrl |= ULPI_FUNC_CTRL_OPMODE_NONDRIVING;
 		msm_ulpi_write(mhcd, func_ctrl, ULPI_FUNC_CTRL);
 	}
-	/* If port is enabled wait 5ms for PHCD to come up. Reset PHY
-	 * and link if it fails to do so.
-	 * If port is not enabled set the PHCD bit and poll for it to
-	 * come up with in 500ms. Reset phy and link if it fails to do so.
+
+	/*
+	 * Set the PHCD bit, only if it is not set by the controller.
+	 * PHY may take some time or even fail to enter into low power
+	 * mode (LPM). Hence poll for 500 msec and reset the PHY and link
+	 * in failure case.
 	 */
 	portsc = readl_relaxed(USB_PORTSC);
-	if (portsc & PORT_PE) {
-
-		usleep_range(5000, 5000);
-
-		if (!(readl_relaxed(USB_PORTSC) & PORTSC_PHCD)) {
-			dev_err(mhcd->dev,
-				"Unable to suspend PHY. portsc: %8x\n",
-				readl_relaxed(USB_PORTSC));
-			goto reset_phy_and_link;
-		}
-	} else {
+	if (!(portsc & PORTSC_PHCD)) {
 		writel_relaxed(portsc | PORTSC_PHCD, USB_PORTSC);
 
 		timeout = jiffies + msecs_to_jiffies(PHY_SUSP_TIMEOUT_MSEC);
