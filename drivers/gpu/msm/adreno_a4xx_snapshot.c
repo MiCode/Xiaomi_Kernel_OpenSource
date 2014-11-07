@@ -384,14 +384,22 @@ void a4xx_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot_registers_list list;
 	struct kgsl_snapshot_registers regs[5];
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
-	unsigned int clock_ctl, clock_ctl2;
 
 	list.registers = regs;
 	list.count = 0;
 
-	/* Disable Clock gating temporarily for the debug bus to work */
-	kgsl_regread(device, A4XX_RBBM_CLOCK_CTL, &clock_ctl);
-	kgsl_regread(device, A4XX_RBBM_CLOCK_CTL2, &clock_ctl2);
+	/* Disable SP clock gating for the debug bus to work on A430v2 */
+	if (adreno_is_a430v2(adreno_dev)) {
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP0, 0);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP1, 0);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP2, 0);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP3, 0);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP0, 0);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP1, 0);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP2, 0);
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP3, 0);
+	}
+	/* Disable top level clock gating the debug bus to work */
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2, 0);
 
