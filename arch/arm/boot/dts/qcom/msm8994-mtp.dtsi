@@ -470,6 +470,8 @@
 		qcom,mbhc-audio-jack-type = "6-pole-jack";
 		qcom,ext-ult-spk-amp-gpio = <&pmi8994_gpios 1 0>;
 		qcom,hdmi-audio-rx;
+		asoc-codec = <&stub_codec>, <&hdmi_audio>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
 	};
 };
 

@@ -2439,6 +2439,93 @@ static int cdc_slim_get_pinctrl(struct platform_device *pdev,
 	return 0;
 }
 
+static int msm8939_populate_dai_link_component_of_node(
+					struct snd_soc_card *card)
+{
+	int i, index, ret = 0;
+	struct device *cdev = card->dev;
+	struct snd_soc_dai_link *dai_link = card->dai_link;
+	struct device_node *phandle;
+
+
+	if (!cdev) {
+		pr_err("%s: Sound card device memory NULL\n", __func__);
+		return -ENODEV;
+	}
+
+	for (i = 0; i < card->num_links; i++) {
+		if (dai_link[i].platform_of_node && dai_link[i].cpu_of_node)
+			continue;
+		/* populate platform_of_node for snd card dai links */
+		if (dai_link[i].platform_name &&
+		    !dai_link[i].platform_of_node) {
+			index = of_property_match_string(cdev->of_node,
+						"asoc-platform-names",
+						dai_link[i].platform_name);
+			if (index < 0) {
+				pr_err("%s: No match found for platform name: %s\n",
+					__func__, dai_link[i].platform_name);
+				ret = index;
+				goto cpu_dai;
+			}
+			phandle = of_parse_phandle(cdev->of_node,
+						"asoc-platform",
+						index);
+			if (!phandle) {
+				pr_err("%s: retrieving phandle for platform %s, index %d failed\n",
+					__func__, dai_link[i].platform_name,
+					index);
+				ret = -ENODEV;
+				goto err;
+			}
+			dai_link[i].platform_of_node = phandle;
+			dai_link[i].platform_name = NULL;
+		}
+cpu_dai:
+		/* populate cpu_of_node for snd card dai links */
+		if (dai_link[i].cpu_dai_name && !dai_link[i].cpu_of_node) {
+			index = of_property_match_string(cdev->of_node,
+						 "asoc-cpu-names",
+						 dai_link[i].cpu_dai_name);
+			if (index < 0) {
+				pr_debug("cpu-names not found index = %d\n", i);
+				goto codec_dai;
+			}
+			phandle = of_parse_phandle(cdev->of_node, "asoc-cpu",
+					      index);
+			if (!phandle) {
+				pr_err("%s: retrieving phandle for cpu dai %s failed\n",
+					__func__, dai_link[i].cpu_dai_name);
+				ret = -ENODEV;
+				goto err;
+			}
+			dai_link[i].cpu_of_node = phandle;
+			dai_link[i].cpu_dai_name = NULL;
+		}
+codec_dai:
+		/* populate codec_of_node for snd card dai links */
+		if (dai_link[i].codec_name && !dai_link[i].codec_of_node) {
+			index = of_property_match_string(cdev->of_node,
+						 "asoc-codec-names",
+						 dai_link[i].codec_name);
+			if (index < 0)
+				continue;
+			phandle = of_parse_phandle(cdev->of_node, "asoc-codec",
+					      index);
+			if (!phandle) {
+				pr_err("%s: retrieving phandle for codec dai %s failed\n",
+					__func__, dai_link[i].codec_name);
+				ret = -ENODEV;
+				goto err;
+			}
+			dai_link[i].codec_of_node = phandle;
+			dai_link[i].codec_name = NULL;
+		}
+	}
+err:
+	return ret;
+}
+
 static int msm8939_asoc_machine_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &snd_card_msm;
@@ -2528,6 +2615,12 @@ static int msm8939_asoc_machine_probe(struct platform_device *pdev)
 	pdata->digital_cdc_clk.clk_val = 9600000;
 	pdata->digital_cdc_clk.clk_root = 5;
 	pdata->digital_cdc_clk.reserved = 0;
+
+	ret = msm8939_populate_dai_link_component_of_node(card);
+	if (ret) {
+		ret = -EPROBE_DEFER;
+		goto err;
+	}
 
 	ret = snd_soc_register_card(card);
 	if (ret) {
