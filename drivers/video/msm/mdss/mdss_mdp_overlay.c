@@ -3207,7 +3207,7 @@ static int __handle_ioctl_overlay_prepare(struct msm_fb_data_type *mfd,
 	if (copy_from_user(&ovlist, argp, sizeof(ovlist)))
 		return -EFAULT;
 
-	if (ovlist.num_overlays >= OVERLAY_MAX) {
+	if (ovlist.num_overlays > OVERLAY_MAX) {
 		pr_err("Number of overlays exceeds max\n");
 		return -EINVAL;
 	}
