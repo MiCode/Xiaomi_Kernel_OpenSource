@@ -4040,6 +4040,92 @@ struct snd_soc_card snd_soc_card_taiko_apq8084 = {
 	.name		= "apq8084-taiko-snd-card",
 };
 
+static int apq8084_populate_dai_link_component_of_node(
+					struct snd_soc_card *card)
+{
+	int i, index, ret = 0;
+	struct device *cdev = card->dev;
+	struct snd_soc_dai_link *dai_link = card->dai_link;
+	struct device_node *np;
+
+	if (!cdev) {
+		pr_err("%s: Sound card device memory NULL\n", __func__);
+		return -ENODEV;
+	}
+
+	for (i = 0; i < card->num_links; i++) {
+		if (dai_link[i].platform_of_node && dai_link[i].cpu_of_node)
+			continue;
+
+		/* populate platform_of_node for snd card dai links */
+		if (dai_link[i].platform_name &&
+		    !dai_link[i].platform_of_node) {
+			index = of_property_match_string(cdev->of_node,
+						"asoc-platform-names",
+						dai_link[i].platform_name);
+			if (index < 0) {
+				pr_err("%s: No match found for platform name: %s\n",
+					__func__, dai_link[i].platform_name);
+				ret = index;
+				goto err;
+			}
+			np = of_parse_phandle(cdev->of_node, "asoc-platform",
+					      index);
+			if (!np) {
+				pr_err("%s: retrieving phandle for platform %s, index %d failed\n",
+					__func__, dai_link[i].platform_name,
+					index);
+				ret = -ENODEV;
+				goto err;
+			}
+			dai_link[i].platform_of_node = np;
+			dai_link[i].platform_name = NULL;
+		}
+
+		/* populate cpu_of_node for snd card dai links */
+		if (dai_link[i].cpu_dai_name && !dai_link[i].cpu_of_node) {
+			index = of_property_match_string(cdev->of_node,
+						 "asoc-cpu-names",
+						 dai_link[i].cpu_dai_name);
+			if (index >= 0) {
+				np = of_parse_phandle(cdev->of_node, "asoc-cpu",
+						index);
+				if (!np) {
+					pr_err("%s: retrieving phandle for cpu dai %s failed\n",
+						__func__,
+						dai_link[i].cpu_dai_name);
+					ret = -ENODEV;
+					goto err;
+				}
+				dai_link[i].cpu_of_node = np;
+				dai_link[i].cpu_dai_name = NULL;
+			}
+		}
+
+		/* populate codec_of_node for snd card dai links */
+		if (dai_link[i].codec_name && !dai_link[i].codec_of_node) {
+			index = of_property_match_string(cdev->of_node,
+						 "asoc-codec-names",
+						 dai_link[i].codec_name);
+			if (index < 0)
+				continue;
+			np = of_parse_phandle(cdev->of_node, "asoc-codec",
+					      index);
+			if (!np) {
+				pr_err("%s: retrieving phandle for codec %s failed\n",
+					__func__, dai_link[i].codec_name);
+				ret = -ENODEV;
+				goto err;
+			}
+			dai_link[i].codec_of_node = np;
+			dai_link[i].codec_name = NULL;
+		}
+	}
+
+err:
+	return ret;
+}
+
 static int apq8084_dtparse_auxpcm(struct platform_device *pdev,
 				  struct msm_auxpcm_ctrl **auxpcm_ctrl,
 				  char *msm_auxpcm_gpio_name[][2])
@@ -4341,6 +4427,12 @@ static int apq8084_asoc_machine_probe(struct platform_device *pdev)
 	atomic_set(&prim_auxpcm_rsc_ref, 0);
 	atomic_set(&sec_auxpcm_rsc_ref, 0);
 	spdev = pdev;
+
+	ret = apq8084_populate_dai_link_component_of_node(card);
+	if (ret) {
+		ret = -EPROBE_DEFER;
+		goto err;
+	}
 
 	ret = snd_soc_register_card(card);
 	if (ret == -EPROBE_DEFER) {
