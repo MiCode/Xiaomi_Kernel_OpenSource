@@ -3076,7 +3076,7 @@
 		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-mask = <0xfe>;
 		qcom,hotplug-temp = <105>;
-		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,hotplug-temp-hysteresis = <40>;
 		qcom,cpu-sensors = "tsens_tz_sensor7", "tsens_tz_sensor8",
 				   "tsens_tz_sensor9", "tsens_tz_sensor10",
 				   "tsens_tz_sensor13", "tsens_tz_sensor14",
