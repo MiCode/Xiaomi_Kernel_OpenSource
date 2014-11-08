@@ -99,6 +99,13 @@ struct ufs_card_fix {
  */
 #define UFS_DEVICE_QUIRK_RECOVERY_FROM_DL_NAC_ERRORS (1 << 2)
 
+/*
+ * Some UFS devices may not work properly after resume if the link was kept
+ * in off state during suspend. Enabling this quirk will not allow the
+ * link to be kept in off state during suspend.
+ */
+#define UFS_DEVICE_QUIRK_NO_LINK_OFF	(1 << 3)
+
 struct ufs_hba;
 void ufs_advertise_fixup_device(struct ufs_hba *hba);
 #endif /* UFS_QUIRKS_H_ */
