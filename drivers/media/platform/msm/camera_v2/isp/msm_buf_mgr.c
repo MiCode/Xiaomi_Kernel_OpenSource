@@ -143,7 +143,7 @@ static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 		ion_import_dma_buf(buf_mgr->client,
 			qbuf_buf->planes[i].addr);
 		if (IS_ERR_OR_NULL(mapped_info->handle)) {
-			pr_err("%s: buf has null/error ION handle %p\n",
+			pr_err_ratelimited("%s: null/error ION handle %p\n",
 				__func__, mapped_info->handle);
 			goto ion_map_error;
 		}
@@ -263,7 +263,7 @@ static int msm_isp_buf_prepare(struct msm_isp_buf_mgr *buf_mgr,
 
 	rc = msm_isp_prepare_isp_buf(buf_mgr, buf_info, &buf);
 	if (rc < 0) {
-		pr_err("%s: Prepare buffer error\n", __func__);
+		pr_err_ratelimited("%s: Prepare buffer error\n", __func__);
 		return rc;
 	}
 	spin_lock_irqsave(&bufq->bufq_lock, flags);
@@ -765,7 +765,7 @@ static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
 	struct msm_isp_buffer *buf_info = NULL;
 	buf_state = msm_isp_buf_prepare(buf_mgr, info, NULL);
 	if (buf_state < 0) {
-		pr_err("%s: Buf prepare failed\n", __func__);
+		pr_err_ratelimited("%s: Buf prepare failed\n", __func__);
 		return -EINVAL;
 	}
 
