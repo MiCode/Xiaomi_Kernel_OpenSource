@@ -2539,6 +2539,7 @@
 
 	voice: qcom,msm-pcm-voice {
 		compatible = "qcom,msm-pcm-voice";
+		qcom,destroy-cvd;
 	};
 
 	stub_codec: qcom,msm-stub-codec {
