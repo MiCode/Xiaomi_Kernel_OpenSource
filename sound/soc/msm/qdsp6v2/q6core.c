@@ -24,6 +24,7 @@
 #include <mach/ocmem.h>
 
 #define TIMEOUT_MS 1000
+#define Q6_READY_TIMEOUT_MS 100
 
 struct q6core_str {
 	struct apr_svc *core_handle_q;
@@ -237,7 +238,7 @@ bool q6core_is_adsp_ready(void)
 
 	rc = wait_event_timeout(q6core_lcl.bus_bw_req_wait,
 				(q6core_lcl.bus_bw_resp_received == 1),
-				msecs_to_jiffies(TIMEOUT_MS));
+				msecs_to_jiffies(Q6_READY_TIMEOUT_MS));
 	if (rc > 0 && q6core_lcl.bus_bw_resp_received) {
 		/* ensure to read updated param by callback thread */
 		rmb();
