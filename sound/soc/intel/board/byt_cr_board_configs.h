@@ -69,6 +69,7 @@ static const struct board_config board_configs0[] = {
 		.i2s_port = 2,
 		.speaker_input = 1,
 	},
+	{}
 };
 
 static const struct dmi_system_id dmi_system_ids0[] = {
@@ -88,6 +89,7 @@ static const struct dmi_system_id dmi_system_ids0[] = {
 		},
 		.driver_data = (void *)&board_configs0[RT5640_T100],
 	},
+	{}
 };
 
 /* Configurations - RT5651 */
@@ -117,6 +119,7 @@ static const struct board_config board_configs1[] = {
 		.i2s_port = 0,
 		.speaker_input = 3,
 	},
+	{}
 };
 
 static const struct dmi_system_id dmi_system_ids1[] = {
@@ -128,6 +131,7 @@ static const struct dmi_system_id dmi_system_ids1[] = {
 		},
 		.driver_data = (void *)&board_configs1[RT5651_ANCHOR8],
 	},
+	{}
 };
 
 static const struct mach_codec_link mach_codec_links[] = {
