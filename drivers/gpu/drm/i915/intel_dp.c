@@ -4920,6 +4920,7 @@ static void
 intel_dp_add_properties(struct intel_dp *intel_dp, struct drm_connector *connector)
 {
 	struct intel_connector *intel_connector = to_intel_connector(connector);
+	struct drm_device *dev = connector->dev;
 
 	intel_attach_force_audio_property(connector);
 	intel_attach_broadcast_rgb_property(connector);
@@ -4927,7 +4928,7 @@ intel_dp_add_properties(struct intel_dp *intel_dp, struct drm_connector *connect
 	intel_attach_scaling_src_size_property(connector);
 	intel_dp->color_range_auto = true;
 
-	if (is_edp(intel_dp)) {
+	if (is_edp(intel_dp) && !IS_VALLEYVIEW(dev)) {
 		drm_mode_create_scaling_mode_property(connector->dev);
 		drm_object_attach_property(
 			&connector->base,
