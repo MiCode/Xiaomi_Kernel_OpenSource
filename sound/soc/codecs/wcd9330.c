@@ -5197,159 +5197,6 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{DAPM_MICBIAS2_EXTERNAL_STANDALONE, NULL, "LDO_H Standalone"},
 };
 
-static int tomtom_readable(struct snd_soc_codec *ssc, unsigned int reg)
-{
-	return tomtom_reg_readable[reg];
-}
-
-static bool tomtom_is_digital_gain_register(unsigned int reg)
-{
-	bool rtn = false;
-	switch (reg) {
-	case TOMTOM_A_CDC_RX1_VOL_CTL_B2_CTL:
-	case TOMTOM_A_CDC_RX2_VOL_CTL_B2_CTL:
-	case TOMTOM_A_CDC_RX3_VOL_CTL_B2_CTL:
-	case TOMTOM_A_CDC_RX4_VOL_CTL_B2_CTL:
-	case TOMTOM_A_CDC_RX5_VOL_CTL_B2_CTL:
-	case TOMTOM_A_CDC_RX6_VOL_CTL_B2_CTL:
-	case TOMTOM_A_CDC_RX7_VOL_CTL_B2_CTL:
-	case TOMTOM_A_CDC_RX8_VOL_CTL_B2_CTL:
-	case TOMTOM_A_CDC_TX1_VOL_CTL_GAIN:
-	case TOMTOM_A_CDC_TX2_VOL_CTL_GAIN:
-	case TOMTOM_A_CDC_TX3_VOL_CTL_GAIN:
-	case TOMTOM_A_CDC_TX4_VOL_CTL_GAIN:
-	case TOMTOM_A_CDC_TX5_VOL_CTL_GAIN:
-	case TOMTOM_A_CDC_TX6_VOL_CTL_GAIN:
-	case TOMTOM_A_CDC_TX7_VOL_CTL_GAIN:
-	case TOMTOM_A_CDC_TX8_VOL_CTL_GAIN:
-	case TOMTOM_A_CDC_TX9_VOL_CTL_GAIN:
-	case TOMTOM_A_CDC_TX10_VOL_CTL_GAIN:
-		rtn = true;
-		break;
-	default:
-		break;
-	}
-	return rtn;
-}
-
-static int tomtom_volatile(struct snd_soc_codec *ssc, unsigned int reg)
-{
-	int i;
-
-	/* Registers lower than 0x100 are top level registers which can be
-	 * written by the TomTom core driver.
-	 */
-
-	if ((reg >= TOMTOM_A_CDC_MBHC_EN_CTL) || (reg < 0x100))
-		return 1;
-
-	/* IIR Coeff registers are not cacheable */
-	if ((reg >= TOMTOM_A_CDC_IIR1_COEF_B1_CTL) &&
-		(reg <= TOMTOM_A_CDC_IIR2_COEF_B2_CTL))
-		return 1;
-
-	/* ANC filter registers are not cacheable */
-	if ((reg >= TOMTOM_A_CDC_ANC1_IIR_B1_CTL) &&
-		(reg <= TOMTOM_A_CDC_ANC1_LPF_B2_CTL))
-		return 1;
-	if ((reg >= TOMTOM_A_CDC_ANC2_IIR_B1_CTL) &&
-		(reg <= TOMTOM_A_CDC_ANC2_LPF_B2_CTL))
-		return 1;
-
-	/* Digital gain register is not cacheable so we have to write
-	 * the setting even it is the same
-	 */
-	if (tomtom_is_digital_gain_register(reg))
-		return 1;
-
-	/* HPH status registers */
-	if (reg == TOMTOM_A_RX_HPH_L_STATUS || reg == TOMTOM_A_RX_HPH_R_STATUS)
-		return 1;
-
-	if (reg == TOMTOM_A_MBHC_INSERT_DET_STATUS)
-		return 1;
-
-	if (reg == TOMTOM_A_RX_HPH_CNP_EN)
-		return 1;
-
-	if (((reg >= TOMTOM_A_CDC_SPKR_CLIPDET_VAL0 &&
-	    reg <= TOMTOM_A_CDC_SPKR_CLIPDET_VAL7)) ||
-	    ((reg >= TOMTOM_A_CDC_SPKR2_CLIPDET_VAL0) &&
-	     (reg <= TOMTOM_A_CDC_SPKR2_CLIPDET_VAL7)))
-		return 1;
-
-	if (reg == TOMTOM_A_CDC_VBAT_GAIN_MON_VAL)
-		return 1;
-
-	for (i = 0; i < ARRAY_SIZE(audio_reg_cfg); i++)
-		if (audio_reg_cfg[i].reg_logical_addr -
-		    TOMTOM_REGISTER_START_OFFSET == reg)
-			return 1;
-
-	if (reg == TOMTOM_A_SVASS_SPE_INBOX_TRG)
-		return 1;
-
-	return 0;
-}
-
-static int tomtom_write(struct snd_soc_codec *codec, unsigned int reg,
-	unsigned int value)
-{
-	int ret;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
-	struct tomtom_priv *tomtom_p = snd_soc_codec_get_drvdata(codec);
-
-	if (reg == SND_SOC_NOPM)
-		return 0;
-
-	BUG_ON(reg > TOMTOM_MAX_REGISTER);
-
-	if (!tomtom_volatile(codec, reg)) {
-		ret = snd_soc_cache_write(codec, reg, value);
-		if (ret != 0)
-			dev_err(codec->dev, "Cache write to %x failed: %d\n",
-				reg, ret);
-	}
-
-	if (unlikely(test_bit(BUS_DOWN, &tomtom_p->status_mask))) {
-		dev_err(codec->dev, "write 0x%02x while offline\n", reg);
-		return -ENODEV;
-	} else
-		return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, value);
-}
-static unsigned int tomtom_read(struct snd_soc_codec *codec,
-				unsigned int reg)
-{
-	unsigned int val;
-	int ret;
-	struct tomtom_priv *tomtom_p = snd_soc_codec_get_drvdata(codec);
-
-	struct wcd9xxx *wcd9xxx = codec->control_data;
-
-	if (reg == SND_SOC_NOPM)
-		return 0;
-
-	BUG_ON(reg > TOMTOM_MAX_REGISTER);
-
-	if (!tomtom_volatile(codec, reg) && tomtom_readable(codec, reg) &&
-		reg < codec->driver->reg_cache_size) {
-		ret = snd_soc_cache_read(codec, reg, &val);
-		if (ret >= 0) {
-			return val;
-		} else
-			dev_err(codec->dev, "Cache read from %x failed: %d\n",
-				reg, ret);
-	}
-
-	if (unlikely(test_bit(BUS_DOWN, &tomtom_p->status_mask))) {
-		dev_err(codec->dev, "read 0x%02x while offline\n", reg);
-		return -ENODEV;
-	} else {
-		val = wcd9xxx_reg_read(&wcd9xxx->core_res, reg);
-		return val;
-	}
-}
-
 static int tomtom_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
@@ -5714,12 +5561,12 @@ static void tomtom_set_rxsb_port_format(struct snd_pcm_hw_params *params,
 	u8 bit_sel;
 	u16 sb_ctl_reg, field_shift;
 
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_S16_LE:
+	switch (params_width(params)) {
+	case 16:
 		bit_sel = 0x2;
 		tomtom_p->dai[dai->id].bit_width = 16;
 		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
+	case 24:
 		bit_sel = 0x0;
 		tomtom_p->dai[dai->id].bit_width = 24;
 		break;
@@ -5773,18 +5620,18 @@ static void tomtom_set_tx_sb_port_format(struct snd_pcm_hw_params *params,
 	u8 bit_sel, bit_shift;
 	u16 sb_ctl_reg;
 
-	switch (params_format(params)) {
-	case SNDRV_PCM_FORMAT_S16_LE:
+	switch (params_width(params)) {
+	case 16:
 		bit_sel = 0x2;
 		tomtom_p->dai[dai->id].bit_width = 16;
 		break;
-	case SNDRV_PCM_FORMAT_S24_LE:
+	case 24:
 		bit_sel = 0x0;
 		tomtom_p->dai[dai->id].bit_width = 24;
 		break;
 	default:
 		dev_err(codec->dev, "%s: Invalid format %d\n", __func__,
-			params_format(params));
+			params_width(params));
 		return;
 	}
 
@@ -6181,6 +6028,7 @@ static void tomtom_codec_enable_int_port(struct wcd9xxx_codec_dai_data *dai,
 					  struct snd_soc_codec *codec)
 {
 	struct wcd9xxx_ch *ch;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	int port_num = 0;
 	unsigned short reg = 0;
 	u8 val = 0;
@@ -6192,26 +6040,26 @@ static void tomtom_codec_enable_int_port(struct wcd9xxx_codec_dai_data *dai,
 		if (ch->port >= TOMTOM_RX_PORT_START_NUMBER) {
 			port_num = ch->port - TOMTOM_RX_PORT_START_NUMBER;
 			reg = TOMTOM_SLIM_PGD_PORT_INT_EN0 + (port_num / 8);
-			val = wcd9xxx_interface_reg_read(codec->control_data,
+			val = wcd9xxx_interface_reg_read(wcd9xxx,
 				reg);
 			if (!(val & (1 << (port_num % 8)))) {
 				val |= (1 << (port_num % 8));
 				wcd9xxx_interface_reg_write(
-					codec->control_data, reg, val);
+					wcd9xxx, reg, val);
 				val = wcd9xxx_interface_reg_read(
-					codec->control_data, reg);
+					wcd9xxx, reg);
 			}
 		} else {
 			port_num = ch->port;
 			reg = TOMTOM_SLIM_PGD_PORT_INT_TX_EN0 + (port_num / 8);
-			val = wcd9xxx_interface_reg_read(codec->control_data,
+			val = wcd9xxx_interface_reg_read(wcd9xxx,
 				reg);
 			if (!(val & (1 << (port_num % 8)))) {
 				val |= (1 << (port_num % 8));
-				wcd9xxx_interface_reg_write(codec->control_data,
+				wcd9xxx_interface_reg_write(wcd9xxx,
 					reg, val);
 				val = wcd9xxx_interface_reg_read(
-					codec->control_data, reg);
+					wcd9xxx, reg);
 			}
 		}
 	}
@@ -7131,6 +6979,7 @@ static irqreturn_t tomtom_slimbus_irq(int irq, void *data)
 {
 	struct tomtom_priv *priv = data;
 	struct snd_soc_codec *codec = priv->codec;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	unsigned long status = 0;
 	int i, j, port_id, k;
 	u32 bit;
@@ -7140,14 +6989,14 @@ static irqreturn_t tomtom_slimbus_irq(int irq, void *data)
 
 	for (i = TOMTOM_SLIM_PGD_PORT_INT_STATUS_RX_0, j = 0;
 	     i <= TOMTOM_SLIM_PGD_PORT_INT_STATUS_TX_1; i++, j++) {
-		val = wcd9xxx_interface_reg_read(codec->control_data, i);
+		val = wcd9xxx_interface_reg_read(wcd9xxx, i);
 		status |= ((u32)val << (8 * j));
 	}
 
 	for_each_set_bit(j, &status, 32) {
 		tx = (j >= 16 ? true : false);
 		port_id = (tx ? j - 16 : j);
-		val = wcd9xxx_interface_reg_read(codec->control_data,
+		val = wcd9xxx_interface_reg_read(wcd9xxx,
 				TOMTOM_SLIM_PGD_PORT_INT_RX_SOURCE0 + j);
 		if (val) {
 			if (!tx)
@@ -7157,7 +7006,7 @@ static irqreturn_t tomtom_slimbus_irq(int irq, void *data)
 				reg = TOMTOM_SLIM_PGD_PORT_INT_TX_EN0 +
 					(port_id / 8);
 			int_val = wcd9xxx_interface_reg_read(
-				codec->control_data, reg);
+				wcd9xxx, reg);
 			/*
 			 * Ignore interrupts for ports for which the
 			 * interrupts are not specifically enabled.
@@ -7181,12 +7030,11 @@ static irqreturn_t tomtom_slimbus_irq(int irq, void *data)
 			else
 				reg = TOMTOM_SLIM_PGD_PORT_INT_TX_EN0 +
 					(port_id / 8);
-			int_val = wcd9xxx_interface_reg_read(
-				codec->control_data, reg);
+			int_val = wcd9xxx_interface_reg_read(wcd9xxx, reg);
 			if (int_val & (1 << (port_id % 8))) {
 				int_val = int_val ^ (1 << (port_id % 8));
-				wcd9xxx_interface_reg_write(codec->control_data,
-					reg, int_val);
+				wcd9xxx_interface_reg_write(wcd9xxx, reg,
+							    int_val);
 			}
 		}
 		if (val & TOMTOM_SLIM_IRQ_PORT_CLOSED) {
@@ -7217,7 +7065,7 @@ static irqreturn_t tomtom_slimbus_irq(int irq, void *data)
 			     "Couldn't find slimbus %s port %d for closing\n",
 			     (tx ? "TX" : "RX"), port_id);
 		}
-		wcd9xxx_interface_reg_write(codec->control_data,
+		wcd9xxx_interface_reg_write(wcd9xxx,
 					    TOMTOM_SLIM_PGD_PORT_INT_CLR_RX_0 +
 					    (j / 8),
 					    1 << (j % 8));
@@ -7729,9 +7577,10 @@ static void tomtom_codec_init_reg(struct snd_soc_codec *codec)
 static void tomtom_slim_interface_init_reg(struct snd_soc_codec *codec)
 {
 	int i;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 
 	for (i = 0; i < WCD9XXX_SLIM_NUM_PORT_REG; i++)
-		wcd9xxx_interface_reg_write(codec->control_data,
+		wcd9xxx_interface_reg_write(wcd9xxx,
 					    TOMTOM_SLIM_PGD_PORT_INT_EN0 + i,
 					    0xFF);
 }
@@ -7740,7 +7589,7 @@ static int tomtom_setup_irqs(struct tomtom_priv *tomtom)
 {
 	int ret = 0;
 	struct snd_soc_codec *codec = tomtom->codec;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	struct wcd9xxx_core_resource *core_res =
 				&wcd9xxx->core_res;
 
@@ -7758,7 +7607,7 @@ static int tomtom_setup_irqs(struct tomtom_priv *tomtom)
 static void tomtom_cleanup_irqs(struct tomtom_priv *tomtom)
 {
 	struct snd_soc_codec *codec = tomtom->codec;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	struct wcd9xxx_core_resource *core_res =
 				&wcd9xxx->core_res;
 
@@ -7843,7 +7692,7 @@ static void tomtom_init_slim_slave_cfg(struct snd_soc_codec *codec)
 {
 	struct tomtom_priv *priv = snd_soc_codec_get_drvdata(codec);
 	struct afe_param_cdc_slimbus_slave_cfg *cfg;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	uint64_t eaddr = 0;
 
 	cfg = &priv->slimbus_slave_cfg;
@@ -8718,20 +8567,15 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	struct wcd9xxx_core_resource *core_res;
 	struct clk *wcd_ext_clk = NULL;
 
-	codec->control_data = dev_get_drvdata(codec->dev->parent);
-	control = codec->control_data;
+	dev_info(codec->dev, "%s()\n", __func__);
+
+	control = dev_get_drvdata(codec->dev->parent);
+
+	tomtom = snd_soc_codec_get_drvdata(codec);
 
 	wcd9xxx_ssr_register(control, tomtom_device_down,
 			     tomtom_post_reset_cb, (void *)codec);
 
-	dev_info(codec->dev, "%s()\n", __func__);
-
-	tomtom = devm_kzalloc(codec->dev, sizeof(struct tomtom_priv),
-			      GFP_KERNEL);
-	if (!tomtom) {
-		dev_err(codec->dev, "Failed to allocate private data\n");
-		return -ENOMEM;
-	}
 	for (i = 0; i < NUM_DECIMATORS; i++) {
 		tx_hpf_work[i].tomtom = tomtom;
 		tx_hpf_work[i].decimator = i + 1;
@@ -8740,11 +8584,7 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 			tx_hpf_corner_freq_callback);
 	}
 
-	snd_soc_codec_set_drvdata(codec, tomtom);
-
-	/* codec resmgr module init */
-	wcd9xxx = codec->control_data;
-
+	wcd9xxx = control;
 	if (!of_find_property(wcd9xxx->dev->of_node, "clock-names", NULL)) {
 		dev_dbg(wcd9xxx->dev, "%s: codec not using audio-ext-clk driver\n",
 			__func__);
@@ -8759,6 +8599,7 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	tomtom->wcd_ext_clk = wcd_ext_clk;
 	core_res = &wcd9xxx->core_res;
 	pdata = dev_get_platdata(codec->dev->parent);
+	/* codec resmgr module init */
 	ret = wcd9xxx_resmgr_init(&tomtom->resmgr, codec, core_res, pdata,
 				  &pdata->micbias, &tomtom_reg_address,
 				  &resmgr_cb, WCD9XXX_CDC_TYPE_TOMTOM);
@@ -8938,26 +8779,24 @@ static int tomtom_codec_remove(struct snd_soc_codec *codec)
 	devm_kfree(codec->dev, tomtom);
 	return 0;
 }
+
+static struct regmap *tomtom_get_regmap(struct device *dev)
+{
+	struct wcd9xxx *control = dev_get_drvdata(dev->parent);
+
+	return control->regmap;
+}
+
 static struct snd_soc_codec_driver soc_codec_dev_tomtom = {
-	.probe	= tomtom_codec_probe,
-	.remove	= tomtom_codec_remove,
-
-	.read = tomtom_read,
-	.write = tomtom_write,
-
-	.readable_register = tomtom_readable,
-	.volatile_register = tomtom_volatile,
-
-	.reg_cache_size = TOMTOM_CACHE_SIZE,
-	.reg_cache_default = tomtom_reset_reg_defaults,
-	.reg_word_size = 1,
-
+	.probe = tomtom_codec_probe,
+	.remove = tomtom_codec_remove,
 	.controls = tomtom_snd_controls,
 	.num_controls = ARRAY_SIZE(tomtom_snd_controls),
 	.dapm_widgets = tomtom_dapm_widgets,
 	.num_dapm_widgets = ARRAY_SIZE(tomtom_dapm_widgets),
 	.dapm_routes = audio_map,
 	.num_dapm_routes = ARRAY_SIZE(audio_map),
+	.get_regmap = tomtom_get_regmap,
 };
 
 #ifdef CONFIG_PM
@@ -8992,6 +8831,18 @@ static const struct dev_pm_ops tomtom_pm_ops = {
 static int tomtom_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct tomtom_priv *tomtom;
+
+	tomtom = devm_kzalloc(&pdev->dev, sizeof(struct tomtom_priv),
+			      GFP_KERNEL);
+	if (!tomtom) {
+		dev_err(&pdev->dev, "%s: cannot create memory for wcd9330\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	platform_set_drvdata(pdev, tomtom);
+
 	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
 		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tomtom,
 			tomtom_dai, ARRAY_SIZE(tomtom_dai));

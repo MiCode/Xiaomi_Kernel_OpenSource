@@ -13,7 +13,7 @@
 #include <linux/mfd/wcd9xxx/wcd9330_registers.h>
 #include "wcd9330.h"
 
-const u8 tomtom_reg_readable[TOMTOM_CACHE_SIZE] = {
+const u8 tomtom_reg_readable[WCD9330_MAX_REGISTER + 1] = {
 	[TOMTOM_A_CHIP_CTL] = 1,
 	[TOMTOM_A_CHIP_STATUS] = 1,
 	[TOMTOM_A_CHIP_ID_BYTE_0] = 1,

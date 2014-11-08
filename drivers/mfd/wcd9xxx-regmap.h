@@ -21,6 +21,10 @@
 extern struct regmap_config wcd9335_regmap_config;
 #endif
 
+#ifdef CONFIG_WCD9330_CODEC
+extern struct regmap_config wcd9330_regmap_config;
+#endif
+
 static inline struct regmap_config *wcd9xxx_get_regmap_config(int type)
 {
 	struct regmap_config *regmap_config;
@@ -29,6 +33,11 @@ static inline struct regmap_config *wcd9xxx_get_regmap_config(int type)
 #ifdef CONFIG_WCD9335_CODEC
 	case WCD9335:
 		regmap_config = &wcd9335_regmap_config;
+		break;
+#endif
+#ifdef CONFIG_WCD9330_CODEC
+	case WCD9330:
+		regmap_config = &wcd9330_regmap_config;
 		break;
 #endif
 	default:

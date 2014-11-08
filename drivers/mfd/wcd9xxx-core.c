@@ -2397,6 +2397,7 @@ static void wcd9xxx_set_codec_specific_param(struct wcd9xxx *wcd9xxx)
 
 	switch (wcd9xxx->type) {
 	case WCD9335:
+	case WCD9330:
 		wcd9xxx->using_regmap = true;
 		wcd9xxx->prev_pg_valid = false;
 		break;

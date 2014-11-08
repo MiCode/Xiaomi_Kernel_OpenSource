@@ -39,7 +39,6 @@
 
 #define TOMTOM_ZDET_SUPPORTED true
 
-extern const u8 tomtom_reg_readable[TOMTOM_CACHE_SIZE];
 extern const u8 tomtom_reset_reg_defaults[TOMTOM_CACHE_SIZE];
 struct tomtom_codec_dai_data {
 	u32 rate;
