@@ -30,12 +30,12 @@
 #include <sound/tlv.h>
 #include <sound/asound.h>
 #include <sound/pcm_params.h>
+#include <sound/q6core.h>
 #include <linux/slab.h>
 
 #include "msm-pcm-routing-v2.h"
 #include "msm-dolby-dap-config.h"
 #include "q6voice.h"
-#include "q6core.h"
 
 struct msm_pcm_routing_bdai_data {
 	u16 port_id; /* AFE port ID */
