@@ -81,7 +81,7 @@ Example:
 			synaptics,y-flip;
 			synaptics,disable-gpios;
 			synaptics,fw-name = "PR1610974.img";
-			pinctrl-names = "pmx_ts_active","pmx_ts_suspend", "pmx_ts_suspend";
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend", "pmx_ts_release";
 			pinctrl-0 = <&ts_int_active &ts_reset_active>;
 			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 			pinctrl-2 = <&ts_release>;

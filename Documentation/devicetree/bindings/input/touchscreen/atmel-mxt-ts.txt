@@ -18,6 +18,16 @@ Required properties:
  - atmel,variant-id	: variant identification of the controller
  - atmel,version	: firmware version of the controller
  - atmel,build		: firmware build number of the controller
+ - pinctrl-names	: This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			It should specify the names of the configs that pinctrl can install in driver.
+			Following are the pinctrl configs that can be installed:
+			"pmx_ts_active" : Active configuration of pins, this should specify active
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_suspend" : Disabled configuration of pins, this should specify sleep
+			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_release" : Release configuration of pins, this should specify
+			release config defined in pin groups of interrupt and reset gpio.
 
 Required for firmware update only:
  - atmel,fw-name		: firmware name to use for flashing firmware
@@ -63,6 +73,11 @@ Example:
 			vcc_i2c-supply = <&pm8941_lvs1>;
 			atmel,panel-coords = <0 0 479 799>;
 			atmel,display-coords = <0 0 479 799>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend", "pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
 			atmel,i2c-pull-up;
 			atmel,no-force-update;
 			atmel,dig-reg-support;
