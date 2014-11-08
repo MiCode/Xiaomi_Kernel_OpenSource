@@ -25,7 +25,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
-#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/usb.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/ch11.h>
@@ -33,8 +33,8 @@
 
 
 /* GPIO names */
-#define INTEL_HSIC_GPIO_DISC	"hsic_disc"
-#define INTEL_HSIC_GPIO_WAKEUP	"hsic_wakeup"
+#define HSIC_GPIO_DISC		"hsic_disc"
+#define HSIC_GPIO_WAKEUP	"hsic_wakeup"
 
 #define HSIC_DISABLE_ENABLE_MIN_DELAY	20
 #define HSIC_WAKEUP_SUSPEND_DELAY	5000
@@ -51,8 +51,10 @@ struct intel_hsic {
 	spinlock_t	lock;
 
 	/* platform specific */
-	int		disc_gpio;
-	int		wakeup_gpio;
+	struct gpio_desc	*gpio_disc;
+	struct gpio_desc	*gpio_wakeup;
+	int		irq_disc;
+	int		irq_wakeup;
 	int		port_num;
 
 	/* roothub and usb device associated with the HSIC port */
@@ -166,34 +168,56 @@ static irqreturn_t intel_hsic_wakeup_irq(int irq, void *__hsic)
 
 static int intel_hsic_init_gpios(struct intel_hsic *hsic)
 {
-	struct device	*dev = hsic->dev;
+	struct device	*dev = hsic->controller;
 	int ret;
 
-	ret = devm_gpio_request(dev, hsic->disc_gpio, INTEL_HSIC_GPIO_DISC);
-	if (ret)
-		return ret;
-	ret = devm_gpio_request(dev, hsic->wakeup_gpio, INTEL_HSIC_GPIO_WAKEUP);
-	if (ret)
-		return ret;
+	hsic->gpio_disc = devm_gpiod_get_index(dev, HSIC_GPIO_DISC, 0);
+	if (IS_ERR(hsic->gpio_disc)) {
+		dev_err(dev, "Can't request gpio_disc\n");
+		return PTR_ERR(hsic->gpio_disc);
+	}
+	hsic->gpio_wakeup = devm_gpiod_get_index(dev, HSIC_GPIO_WAKEUP, 1);
+	if (IS_ERR(hsic->gpio_wakeup)) {
+		dev_err(dev, "Can't request gpio_wakeup\n");
+		return PTR_ERR(hsic->gpio_wakeup);
+	}
 
-	ret = gpio_direction_input(hsic->disc_gpio);
-	if (ret)
+	ret = gpiod_direction_input(hsic->gpio_disc);
+	if (ret) {
+		dev_err(dev, "Can't configure gpio_disc as input\n");
 		return ret;
-	ret = gpio_direction_input(hsic->wakeup_gpio);
-	if (ret)
+	}
+	ret = gpiod_direction_input(hsic->gpio_wakeup);
+	if (ret) {
+		dev_err(dev, "Can't configure gpio_wakeup as input\n");
 		return ret;
+	}
 
-	ret = devm_request_irq(dev, gpio_to_irq(hsic->disc_gpio),
+	ret = gpiod_to_irq(hsic->gpio_disc);
+	if (ret < 0) {
+		dev_err(dev, "can't get valid irq num for gpio disc\n");
+		return ret;
+	}
+	hsic->irq_disc = ret;
+
+	ret = gpiod_to_irq(hsic->gpio_wakeup);
+	if (ret < 0) {
+		dev_err(dev, "can't get valid irq num for gpio wakeup\n");
+		return ret;
+	}
+	hsic->irq_wakeup = ret;
+
+	ret = devm_request_irq(dev, hsic->irq_disc,
 			intel_hsic_disc_irq,
 			IRQF_SHARED | IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND,
-			INTEL_HSIC_GPIO_DISC, hsic);
+			HSIC_GPIO_DISC, hsic);
 	if (ret)
 		return ret;
 
-	ret = devm_request_irq(dev, gpio_to_irq(hsic->wakeup_gpio),
+	ret = devm_request_irq(dev, hsic->irq_wakeup,
 			intel_hsic_wakeup_irq,
 			IRQF_SHARED | IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
-			INTEL_HSIC_GPIO_WAKEUP, hsic);
+			HSIC_GPIO_WAKEUP, hsic);
 	return ret;
 }
 
@@ -520,9 +544,6 @@ static int intel_hsic_probe(struct platform_device *pdev)
 
 	/* FIXME: hardcode some platform specific settings */
 	hsic->port_num = 6;
-	/* GPIO # can be known from ACPI table */
-	hsic->disc_gpio = 78;
-	hsic->wakeup_gpio = 105;
 
 	hsic->autosuspend_enable = 1;
 	INIT_WORK(&hsic->disc_work, intel_hsic_disc_work);
@@ -575,8 +596,8 @@ static void intel_hsic_shutdown(struct platform_device *pdev)
 {
 	struct intel_hsic	*hsic = platform_get_drvdata(pdev);
 
-	disable_irq(gpio_to_irq(hsic->disc_gpio));
-	disable_irq(gpio_to_irq(hsic->wakeup_gpio));
+	disable_irq(hsic->irq_disc);
+	disable_irq(hsic->irq_wakeup);
 }
 
 static struct platform_driver intel_hsic_driver = {
