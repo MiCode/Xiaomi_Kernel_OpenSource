@@ -1002,7 +1002,6 @@ static void __dwc3_ep0_do_control_data(struct dwc3 *dwc,
 	}
 
 	dbg_queue(dep->number, &req->request, ret);
-	WARN_ON(ret < 0);
 }
 
 static int dwc3_ep0_start_control_status(struct dwc3_ep *dep)
@@ -1053,7 +1052,11 @@ static void dwc3_ep0_end_control_data(struct dwc3 *dwc, struct dwc3_ep *dep)
 	cmd |= DWC3_DEPCMD_PARAM(dep->resource_index);
 	memset(&params, 0, sizeof(params));
 	ret = dwc3_send_gadget_ep_cmd(dwc, dep->number, cmd, &params);
-	WARN_ON_ONCE(ret);
+	if (ret) {
+		dev_dbg(dwc->dev, "%s: send ep cmd ENDTRANSFER failed",
+			dep->name);
+		dbg_event(dep->number, "EENDXFER", ret);
+	}
 	dep->resource_index = 0;
 }
 
@@ -1098,7 +1101,9 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 					dwc->ctrl_req_addr, 0,
 					DWC3_TRBCTL_CONTROL_DATA);
 			dbg_event(epnum, "ZLP", ret);
-			WARN_ON(ret < 0);
+			if (ret)
+				dev_dbg(dwc->dev, "%s: start xfer cmd failed",
+					dep->name);
 		}
 
 		break;
@@ -1115,7 +1120,8 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 
 		if (dwc->delayed_status &&
 				list_empty(&dwc->eps[0]->request_list)) {
-			WARN_ON_ONCE(event->endpoint_number != 1);
+			if (event->endpoint_number != 1)
+				dbg_event(epnum, "EEPNUM", event->status);
 			dev_vdbg(dwc->dev, "Mass Storage delayed status\n");
 			return;
 		}
