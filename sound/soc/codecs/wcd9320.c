@@ -6869,6 +6869,18 @@ static int taiko_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 	mutex_lock(&codec->mutex);
 
+        if (codec->reg_def_copy) {
+            pr_debug("%s: Update ASOC cache", __func__);
+            kfree(codec->reg_cache);
+            codec->reg_cache = kmemdup(codec->reg_def_copy,
+                                            codec->reg_size, GFP_KERNEL);
+            if (!codec->reg_cache) {
+                pr_err("%s: Cache update failed!\n", __func__);
+                mutex_unlock(&codec->mutex);
+                return -ENOMEM;
+            }
+        }
+
 	taiko_update_reg_defaults(codec);
 	if (wcd9xxx->mclk_rate == TAIKO_MCLK_CLK_12P288MHZ)
 		snd_soc_update_bits(codec, TAIKO_A_CHIP_CTL, 0x06, 0x0);
