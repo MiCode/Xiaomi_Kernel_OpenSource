@@ -790,6 +790,7 @@ struct dwc3_scratchpad_array {
  * @hird_thresh: value to configure in DCTL[HIRD_Thresh]
  * @in_lpm: if 1, indicates that the controller is in low power mode (no clocks)
  * @tx_fifo_size: Available RAM size for TX fifo allocation
+ * @irq_cnt: total irq count
  * @bh_completion_time: time taken for taklet completion
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
@@ -923,6 +924,7 @@ struct dwc3 {
 	bool			tx_fifo_reduced;
 
 	/* IRQ timing statistics */
+	unsigned long		irq_cnt;
 	unsigned                bh_completion_time[MAX_INTR_STATS];
 	unsigned                bh_handled_evt_cnt[MAX_INTR_STATS];
 	unsigned                bh_dbg_index;
