@@ -68,7 +68,6 @@ static inline int arch_spin_trylock(arch_spinlock_t *lock)
 	arch_spinlock_t lockval;
 
 	asm volatile(
-"	prfm	pstl1strm, %2\n"
 "1:	ldaxr	%w0, %2\n"
 "	eor	%w1, %w0, %w0, ror #16\n"
 "	cbnz	%w1, 2f\n"
