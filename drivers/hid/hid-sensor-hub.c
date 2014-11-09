@@ -16,15 +16,47 @@
  * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
  *
  */
+
+/*#define CONFIG_ISH_PATH_SENSCOL*/
+
+/***************************************/
+#if 1
+
+#ifdef CONFIG_ISH_PATH_SENSCOL
+#define SENSCOL		1
+#else
+#define SENSCOL		0	
+#endif
+
+#ifdef CONFIG_ISH_PATH_IIO
+#define IIO 		1
+#else
+#define IIO 		0	
+#endif
+
+#else
+
+#define SENSCOL		1
+#define IIO 		0	
+
+#endif
+/***************************************/
+
+
 #include <linux/device.h>
 #include <linux/hid.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/mfd/core.h>
 #include <linux/list.h>
 #include <linux/hid-sensor-ids.h>
 #include <linux/hid-sensor-hub.h>
+#include <linux/sched.h>
 #include "hid-ids.h"
+
+/*SENSCOL*/
+#include <linux/senscol/senscol-core.h>
+/*IIO*/
+#include <linux/mfd/core.h>
 
 #define HID_SENSOR_HUB_ENUM_QUIRK	0x01
 
@@ -67,7 +99,12 @@ struct sensor_hub_data {
 	struct mfd_cell *hid_sensor_hub_client_devs;
 	int hid_sensor_client_cnt;
 	unsigned long quirks;
+	int sensor_hub_index;	/* Needed to identify sensor in a collection */
 };
+
+#define	MAX_HID_SENSOR_HUBS 32
+static struct hid_device *hid_sensor_hubs[MAX_HID_SENSOR_HUBS];
+static int	sensor_hub_count;
 
 /**
  * struct hid_sensor_hub_callbacks_list - Stores callback list
@@ -371,6 +408,9 @@ int sensor_hub_input_get_attribute_info(struct hid_sensor_hub_device *hsdev,
 		}
 	}
 
+ 	if (info->units == 0)
+ 		info->units = HID_USAGE_SENSOR_UNITS_MILLISECOND;
+ 
 err_ret:
 	return ret;
 }
@@ -417,6 +457,262 @@ static int sensor_hub_reset_resume(struct hid_device *hdev)
 }
 #endif
 
+static bool is_supported(int physical)
+{
+	if (physical == 0x200073)
+		return true;
+	if (physical == 0x200041)
+		return true;
+	if (physical == 0x200076)
+		return true;
+	if (physical == 0x200083)
+		return true;
+
+	return false;
+}
+
+/****************************** SENSCOL block: START ******************************/
+
+static int	senscol_impl_added;
+static int	is_sens_data_field(unsigned usage);
+static int get_field_index(struct hid_device *hdev, unsigned report_id, unsigned usage, int report_idx);	//???
+
+/* Get sensor's property by name */
+static struct sens_property	*get_prop_by_name(struct sensor_def *sensor, char *name)
+{
+	int	i;
+
+	for (i = 0; i < sensor->num_properties; ++i)
+		if (!strcmp(sensor->properties[i].name, name))
+			return	&sensor->properties[i];
+
+	return	NULL;
+}
+
+/* Get sensor's data field by name */
+static struct data_field	*get_data_field_by_name(struct sensor_def *sensor, char *name)
+{
+	int	i;
+
+	for (i = 0; i < sensor->num_data_fields; ++i)
+		if (!strcmp(sensor->data_fields[i].name, name))
+			return	&sensor->data_fields[i];
+
+	return	NULL;
+}
+
+static int get_field_index(struct hid_device *hdev, unsigned report_id, unsigned usage, int report_type)	//???
+{
+	int i = 0;
+	struct hid_report *report;
+
+	report = sensor_hub_report(report_id, hdev, report_type /*HID_FEATURE_REPORT or HID_INPUT_REPORT*/);
+	if (!report) {
+		return -1;
+	}
+
+	for (i = 0; i < report->maxfield; ++i)
+		if (report->field[i]->usage->hid == usage)
+			return i;
+
+	return -1;
+}
+
+/*
+ * The reason for this _ex() function is broken semantics and existing usage of sensor_hub_get_feature() that
+ * doesn't allow anything with ->report_count > 1 to be delivered.
+ * If that was fixed, existing callers would immediately buffer-overflow if such feature was delivered
+ * NOTES:
+ *   - if ret != 0, contents of pvalue and count are undefined.
+ *   - upon success, count is in s32 values (not in bytes)
+ */
+static int sensor_hub_get_feature_ex(struct hid_sensor_hub_device *hsdev, u32 report_id, u32 field_index, u32 *usage_id, s32 **pvalue, size_t *count)
+{
+	struct hid_report *report;
+	struct sensor_hub_data *data =  hid_get_drvdata(hsdev->hdev);
+	int ret = 0;
+
+	mutex_lock(&data->mutex);
+	report = sensor_hub_report(report_id, hsdev->hdev, HID_FEATURE_REPORT);
+	if (!report || (field_index >=  report->maxfield) ||
+	    report->field[field_index]->report_count < 1) {
+		ret = -EINVAL;
+		goto done_proc;
+	}
+	hid_hw_request(hsdev->hdev, report, HID_REQ_GET_REPORT);
+	hid_hw_wait(hsdev->hdev);
+	*pvalue = report->field[field_index]->value;
+	*count = report->field[field_index]->report_count;
+	*usage_id = report->field[field_index]->usage->hid;
+
+done_proc:
+	mutex_unlock(&data->mutex);
+
+	return ret;
+}
+
+static bool hid_is_string_property(uint32_t usage_id)
+{
+	return ((usage_id == HID_USAGE_SENSOR_PROPERTY_SENSOR_DESCRIPTION) || (usage_id == HID_USAGE_SENSOR_PROPERTY_FRIENDLY_NAME));
+}
+
+/* Get sensor hub device by index */
+static struct sensor_hub_data	*get_sensor_hub_by_index(unsigned idx)						//???
+{
+	int	i;
+	struct sensor_hub_data	*sd;
+	struct	hid_device	*hdev;
+
+	for (i = 0; i < sensor_hub_count; ++i) {
+		if (!hid_sensor_hubs[i])
+			continue;
+		sd = hid_get_drvdata(hid_sensor_hubs[i]);
+		if (!sd)
+			continue;
+		if (sd->sensor_hub_index == idx)
+			return	sd;
+	}
+
+	return	NULL;
+}
+
+static int     hid_get_sens_property(struct sensor_def *sensor, const struct sens_property* prop, char *value, size_t val_buf_size)
+{
+	unsigned	idx;
+	struct sensor_hub_data	*sd;
+	char	buf[1024];		/* Enough for single property (?) */
+	unsigned	report_id;
+	int	field;
+	uint32_t	usage_id;
+	int32_t	*pval;
+	size_t	count;
+	int	rv;
+
+	if (!sensor || !prop)
+		return	-EINVAL;	/* input is invalid */
+
+	/* sensor hub device */
+	idx = sensor->id >> 16 & 0xFFFF;
+	sd = get_sensor_hub_by_index(idx);
+	if (!sd)
+		return	-EINVAL;	/* sensor->id is bad */
+
+	/* Report ID */
+	report_id = sensor->id & 0xFFFF;
+
+	/* Field index */
+	field = get_field_index(sd->hsdev->hdev, report_id, prop->usage_id, HID_FEATURE_REPORT);
+	if (field == -1)
+		return	-EINVAL;	/* Something is still wrong */
+
+	/* Get value */
+	rv = sensor_hub_get_feature_ex(sd->hsdev, report_id, field, &usage_id, &pval, &count);
+	if (rv)
+		return	rv;
+
+	if  (hid_is_string_property(usage_id)) {
+		int	i;
+
+		for (i = 0; i < count; ++i)
+			buf[i] = (char)pval[i];
+		buf[i] = '\0';
+	} else {
+		/* Verify output length */
+		sprintf(buf, "%d", *pval);
+	}
+
+	if (strlen(buf) >= val_buf_size)
+		return	-EMSGSIZE;
+	strcpy(value, buf);
+	return	0;
+}
+
+static int     hid_set_sens_property(struct sensor_def *sensor, const struct sens_property *prop, const char *value)
+{
+	unsigned	idx;
+	struct sensor_hub_data	*sd;
+	unsigned	report_id;
+	int	field;
+	int32_t	val;
+	int	rv;
+
+	if (!sensor || !prop)
+		return	-EINVAL;	/* input is invalid */
+
+	/* Value */
+	rv = sscanf(value, " %d ", &val);
+	if (rv != 1)
+		return	-EINVAL;	/* Bad value */
+
+	/* sensor hub device */
+	idx = sensor->id >> 16 & 0xFFFF;
+	sd = get_sensor_hub_by_index(idx);
+	if (!sd)
+		return	-EINVAL;	/* sensor->id is bad */
+
+	/* Report ID */
+	report_id = sensor->id & 0xFFFF;
+
+	/* Field index */
+	field = get_field_index(sd->hsdev->hdev, report_id, prop->usage_id, HID_FEATURE_REPORT);
+	if (field == -1)
+		return	-EINVAL;	/* Something is still wrong */
+
+	/* Get value */
+	rv = sensor_hub_set_feature(sd->hsdev, report_id, field, val);
+	return	rv;
+}
+
+static int     hid_get_sample(struct sensor_def *sensor, void *sample_buf, size_t sample_buf_size)
+{
+	unsigned	idx;
+	struct sensor_hub_data	*sd;
+	unsigned	report_id;
+	int	field;
+	struct data_field *data_field;
+	int32_t	val;
+	int	rv;
+
+	/* sensor hub device */
+	idx = sensor->id >> 16 & 0xFFFF;
+	sd = get_sensor_hub_by_index(idx);
+	if (!sd)
+		return	-EINVAL;	/* sensor->id is bad */
+
+	/* Report ID */
+	report_id = sensor->id & 0xFFFF;
+
+	/* Request an input report with the first data field, regardless of what it is */
+	data_field = &sensor->data_fields[0];
+	val = sensor_hub_input_attr_get_raw_value(sd->hsdev, sensor->usage_id, data_field->usage_id, HID_INPUT_REPORT);
+	if (!sd->pending.status)
+		return	-EIO;
+
+	/*
+	 * Actual sample will be pushed by sensor_hub_raw_event().
+	 * Invoke a short sleep in order to remove threads race condition and ensure that the sample is in senscol buffer
+	 */
+	schedule_timeout(2);
+
+	return	0;
+}
+
+struct senscol_impl	hid_senscol_impl = {
+	.get_sens_property = hid_get_sens_property,
+	.set_sens_property = hid_set_sens_property,
+	.get_sample = hid_get_sample
+};
+
+static int	is_sens_data_field(unsigned usage)
+{
+	if (usage >= 0x400 && usage <= 0x49F || usage >= 0x4B0 && usage <= 0x4DF || usage >= 0x4F0 && usage <= 0x4F7 ||
+	  usage >= 0x500 && usage <= 0x52F || usage >= 0x540 && usage <= 0x57F || usage >= 590 && usage <= 0x7FF)
+		return	1;
+	return	0;
+}
+
+/******************************* SENSCOL block: END *******************************/
+
 /*
  * Handle raw report as sent by device
  */
@@ -428,20 +724,35 @@ static int sensor_hub_raw_event(struct hid_device *hdev,
 	int sz;
 	struct sensor_hub_data *pdata = hid_get_drvdata(hdev);
 	unsigned long flags;
-	struct hid_sensor_hub_callbacks *callback = NULL;
 	struct hid_collection *collection = NULL;
 	void *priv = NULL;
+/*#if SENSCOL*/
+	uint32_t	sensor_id;
+	unsigned char	data_buf[1024];
+	unsigned	sample_size;
+/*#endif*/
+
+/*#if IIO*/
+	struct hid_sensor_hub_callbacks *callback = NULL;
+/*#endif*/
+
 
 	hid_dbg(hdev, "sensor_hub_raw_event report id:0x%x size:%d type:%d\n",
 			 report->id, size, report->type);
 	hid_dbg(hdev, "maxfield:%d\n", report->maxfield);
 	if (report->type != HID_INPUT_REPORT)
-		return 1;
+		return 0;
 
 	ptr = raw_data;
 	ptr++; /* Skip report id */
 
 	spin_lock_irqsave(&pdata->lock, flags);
+
+/*#if SENSCOL*/
+	/* make up senscol id */
+	sensor_id = pdata->sensor_hub_index << 16 | report->id & 0xFFFF;
+	sample_size = 0;
+/*#endif*/
 
 	for (i = 0; i < report->maxfield; ++i) {
 		hid_dbg(hdev, "%d collection_index:%x hid:%x sz:%x\n",
@@ -451,6 +762,7 @@ static int sensor_hub_raw_event(struct hid_device *hdev,
 					report->field[i]->report_count)/8);
 		sz = (report->field[i]->report_size *
 					report->field[i]->report_count)/8;
+/*#if IIO*/
 		if (pdata->pending.status && pdata->pending.attr_usage_id ==
 				report->field[i]->usage->hid) {
 			hid_dbg(hdev, "data was pending ...\n");
@@ -478,13 +790,32 @@ static int sensor_hub_raw_event(struct hid_device *hdev,
 					report->field[i]->usage->hid, sz, ptr,
 					callback->pdev);
 		}
+/*#endif*/
+
+/*#if SENSCOL*/
+		/* Prepare data for senscol sample */
+		if (is_sens_data_field(report->field[i]->usage->hid & 0xFFFF)) {
+			dev_dbg(&hdev->dev, "%s(): aggregating, sz=%u \n", __func__, sample_size);
+			memcpy(data_buf + sample_size, ptr, sz);
+			sample_size += sz;
+		}
+/*#endif*/
+		/* If we want to add indication into raw stream that the last sample was synchronous, it's here: check for complete() condition above */
+
 		ptr += sz;
 	}
+/*#if IIO*/
 	if (callback && collection && callback->send_event)
 		callback->send_event(pdata->hsdev, collection->usage,
 				callback->pdev);
+/*endif*/
 	spin_unlock_irqrestore(&pdata->lock, flags);
 
+/*#if SENSCOL*/
+	/* Upstream sample to sensor collection framework */
+	dev_dbg(&hdev->dev, "%s(): calling push_sample, aggregated sample size is %u\n", __func__, sample_size);
+	push_sample(sensor_id, data_buf);
+/*#endif*/
 	return 1;
 }
 
@@ -562,10 +893,11 @@ static int sensor_hub_probe(struct hid_device *hdev,
 	struct sensor_hub_data *sd;
 	int i;
 	char *name;
-	struct hid_report *report;
-	struct hid_report_enum *report_enum;
-	struct hid_field *field;
+	struct hid_report *report, *freport;
+	struct hid_report_enum *inp_report_enum, *feat_report_enum;
+	struct hid_field *field, *feat_field;
 	int dev_cnt;
+	int	rv;
 
 	sd = devm_kzalloc(&hdev->dev, sizeof(*sd), GFP_KERNEL);
 	if (!sd) {
@@ -575,9 +907,12 @@ static int sensor_hub_probe(struct hid_device *hdev,
 	sd->hsdev = devm_kzalloc(&hdev->dev, sizeof(*sd->hsdev), GFP_KERNEL);
 	if (!sd->hsdev) {
 		hid_err(hdev, "cannot allocate hid_sensor_hub_device\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err_free_hub;
 	}
 	hid_set_drvdata(hdev, sd);
+	hid_sensor_hubs[sensor_hub_count] = hdev;	/* Keep array of HID sensor hubs for senscol_impl usage */
+	sd->sensor_hub_index = sensor_hub_count++;	/* Need to count sensor hub devices for senscol ids */
 	sd->quirks = id->driver_data;
 	sd->hsdev->hdev = hdev;
 	sd->hsdev->vendor_id = hdev->vendor;
@@ -588,25 +923,49 @@ static int sensor_hub_probe(struct hid_device *hdev,
 	ret = hid_parse(hdev);
 	if (ret) {
 		hid_err(hdev, "parse failed\n");
-		return ret;
+		goto err_free;
 	}
 	INIT_LIST_HEAD(&hdev->inputs);
 
 	ret = hid_hw_start(hdev, 0);
 	if (ret) {
 		hid_err(hdev, "hw start failed\n");
-		return ret;
+		goto err_free;
 	}
 	INIT_LIST_HEAD(&sd->dyn_callback_list);
 	sd->hid_sensor_client_cnt = 0;
-	report_enum = &hdev->report_enum[HID_INPUT_REPORT];
+	inp_report_enum = &hdev->report_enum[HID_INPUT_REPORT];
+	feat_report_enum = &hdev->report_enum[HID_FEATURE_REPORT];
 
-	dev_cnt = sensor_hub_get_physical_device_count(report_enum);
+	dev_cnt = sensor_hub_get_physical_device_count(inp_report_enum);
 	if (dev_cnt > HID_MAX_PHY_DEVICES) {
 		hid_err(hdev, "Invalid Physical device count\n");
 		ret = -EINVAL;
 		goto err_stop_hw;
 	}
+
+#if IIO													//???
+	/* filter the unknown sensors */
+	list_for_each_entry(report, &inp_report_enum->report_list, list) {
+		dev_dbg(&hdev->dev, "Checking Report id:%x\n", report->id);
+		field = report->field[0];
+		if (report->maxfield && field && field->physical) {
+			if (!is_supported(field->physical))
+				dev_cnt--;
+		}
+	}
+	dev_dbg(&hdev->dev, "%s(): Dev Count after  is %d\n", __func__, dev_cnt);
+#endif
+
+#if SENSCOL
+	/* Register senscol impl */
+	if (!senscol_impl_added) {
+		rv = add_senscol_impl(&hid_senscol_impl);
+		dev_dbg(&hdev->dev, "%s(): add_senscol_impl() returned %d\n", __func__, rv);
+		if (!rv)
+			senscol_impl_added = 1;
+	}
+#endif
 	sd->hid_sensor_hub_client_devs = kzalloc(dev_cnt *
 						sizeof(struct mfd_cell),
 						GFP_KERNEL);
@@ -615,37 +974,188 @@ static int sensor_hub_probe(struct hid_device *hdev,
 			ret = -ENOMEM;
 			goto err_stop_hw;
 	}
-	list_for_each_entry(report, &report_enum->report_list, list) {
+	list_for_each_entry(report, &inp_report_enum->report_list, list) {
 		hid_dbg(hdev, "Report id:%x\n", report->id);
 		field = report->field[0];
 		if (report->maxfield && field &&
 					field->physical) {
-			name = kasprintf(GFP_KERNEL, "HID-SENSOR-%x",
+			if (is_supported(field->physical)) {						//???
+				name = kasprintf(GFP_KERNEL, "HID-SENSOR-%x",
 						field->physical);
-			if (name == NULL) {
-				hid_err(hdev, "Failed MFD device name\n");
-					ret = -ENOMEM;
-					goto err_free_names;
-			}
-			sd->hid_sensor_hub_client_devs[
-				sd->hid_sensor_client_cnt].id = PLATFORM_DEVID_AUTO;
-			sd->hid_sensor_hub_client_devs[
-				sd->hid_sensor_client_cnt].name = name;
-			sd->hid_sensor_hub_client_devs[
-				sd->hid_sensor_client_cnt].platform_data =
+				if (name == NULL) {
+					hid_err(hdev, "Failed MFD device name\n");
+						ret = -ENOMEM;
+						goto err_free_names;
+				}
+				sd->hid_sensor_hub_client_devs[
+					sd->hid_sensor_client_cnt].id = PLATFORM_DEVID_AUTO;
+				sd->hid_sensor_hub_client_devs[
+					sd->hid_sensor_client_cnt].name = name;
+				sd->hid_sensor_hub_client_devs[
+					sd->hid_sensor_client_cnt].platform_data =
 						sd->hsdev;
-			sd->hid_sensor_hub_client_devs[
-				sd->hid_sensor_client_cnt].pdata_size =
+				sd->hid_sensor_hub_client_devs[
+					sd->hid_sensor_client_cnt].pdata_size =
 						sizeof(*sd->hsdev);
-			hid_dbg(hdev, "Adding %s:%p\n", name, sd);
-			sd->hid_sensor_client_cnt++;
+				hid_dbg(hdev, "Adding %s:%p\n", name, sd);
+				sd->hid_sensor_client_cnt++;
+			}
 		}
+#if SENSCOL
+			/* Create senscol sensor from each report, regardles of is_supported() */
+			do {
+				struct sensor_def	*senscol_sensor;
+				int	j;
+				const char	*usage_name;
+
+				senscol_sensor = alloc_senscol_sensor();
+				if (!senscol_sensor) {
+					printk(KERN_ERR "%s(): failed to allocate senscol_sensor\n", __func__);
+					break;
+				}
+				init_senscol_sensor(senscol_sensor);
+				/* TODO: for known sensors from HID usages should appear known name */
+				usage_name = senscol_usage_to_name(field->physical & 0xFFFF);
+				if (usage_name)
+					senscol_sensor->name = kasprintf(GFP_KERNEL, "%s", usage_name);
+				else
+					senscol_sensor->name = kasprintf(GFP_KERNEL, "custom-%X", field->physical);
+				if (!senscol_sensor->name) {
+					printk(KERN_ERR "%s(): failed to allocate memory for senscol_sensor->name\n", __func__);
+					kfree(senscol_sensor);
+					break;
+				}
+				senscol_sensor->usage_id = field->physical;
+				senscol_sensor->id = sd->sensor_hub_index << 16 | report->id & 0xFFFF;
+				senscol_sensor->impl = &hid_senscol_impl;
+				senscol_sensor->sample_size = 0;
+
+				/* Add properties */
+				/* 1 find matching feature report */
+				list_for_each_entry(freport, &feat_report_enum->report_list, list) {
+					feat_field = freport->field[0];
+					if (freport->maxfield && feat_field && feat_field->physical && (feat_field->physical == senscol_sensor->usage_id))
+						break;
+				}
+
+				/*2 . dump each prop field */
+				for (i = 0; i < freport->maxfield; ++i) {
+					struct sens_property	prop_field;
+
+					dev_dbg(&hdev->dev, "ZZZ %d collection_index:%x hid:%x sz:%x order: %x\n",
+							i, freport->field[i]->usage->collection_index,
+							freport->field[i]->usage->hid,
+							freport->field[i]->report_size/8,
+							freport->field[i]->report_count);
+
+					memset(&prop_field, 0, sizeof(struct sens_property));
+					prop_field.usage_id = freport->field[i]->usage->hid;
+					usage_name = senscol_usage_to_name(prop_field.usage_id  & 0xFFFF);
+					if (usage_name)
+						prop_field.name = kasprintf(GFP_KERNEL, "%s", usage_name);
+					else /* there is  a special case when the property is related to specific data field/ set of fields */ {
+						uint32_t modifier = prop_field.usage_id & 0xF000;
+						uint32_t data_hid  = prop_field.usage_id & 0x0FFF;
+						usage_name = senscol_usage_to_name(data_hid);
+						dev_dbg(&hdev->dev, "%s(): DATANAME %s \n", __func__, usage_name);
+						if (!usage_name)
+							prop_field.name = kasprintf(GFP_KERNEL, "unknown-%X", prop_field.usage_id);
+						else {
+							const char *modif_name = senscol_get_modifier(modifier);
+							dev_dbg(&hdev->dev, "%s(): MODIFNAME %s \n", __func__, modif_name);
+							prop_field.name = kasprintf(GFP_KERNEL, "%s_%s", usage_name, modif_name);
+						}
+					}
+					prop_field.is_numeric = (freport->field[i]->flags  & HID_MAIN_ITEM_VARIABLE) && (!hid_is_string_property(prop_field.usage_id));
+
+					rv = add_sens_property(senscol_sensor, &prop_field);
+					dev_dbg(&hdev->dev, "%s(): add_prop_field() for prop %s returned %d\n", __func__, prop_field.name, rv);
+
+
+				}
+
+				/* Add data fields; Dump fields in this report. `maxfield' is upper-bound NON-INCLUSIVE */
+				for (j = 0; j < report->maxfield; ++j) {
+					int	k;
+					bool need_internal_index = false;
+
+					dev_dbg(&hdev->dev, "%s(): field:%d physical=%08X logical=%08X maxusage=%u report_type=%u "
+						"report_size=%u (bytes) logic_min=%d logic_max=%d phys_min=%d phys_max=%d exp=%d unit=%u rep cnt=%d\n",
+						__func__, j, report->field[j]->physical, report->field[j]->logical,
+						report->field[j]->maxusage, report->field[j]->report_type,
+						report->field[j]->report_size >> 3,
+						report->field[j]->logical_minimum, report->field[j]->logical_maximum,
+						report->field[j]->physical_minimum, report->field[j]->physical_maximum,
+						report->field[j]->unit_exponent, report->field[j]->unit,
+						report->field[j]->report_count);
+					dev_dbg(&hdev->dev, "%s(): usages --\n", __func__);
+
+					if (report->field[j]->report_count > 1) {
+						int instancesCnt = 0;
+						for (k = 0; k < report->field[j]->maxusage; ++k)
+							if (is_sens_data_field(report->field[j]->usage[k].hid & 0xFFFF))
+								instancesCnt++;
+
+						if (instancesCnt > 1)
+							need_internal_index = true;
+					}
+
+					for (k = 0; k < report->field[j]->maxusage; ++k) {
+						dev_dbg(&hdev->dev, "	%s(): usage:%d hid=%08X\n", __func__,
+							k, report->field[j]->usage[k].hid);
+
+						/* Add data fields */
+						if (is_sens_data_field(report->field[j]->usage[k].hid & 0xFFFF)) {
+							struct data_field	data_field;
+
+							memset(&data_field, 0, sizeof(struct data_field));
+
+							usage_name = senscol_usage_to_name(report->field[j]->usage[k].hid & 0xFFFF);
+							if (usage_name)
+								data_field.name = need_internal_index	? kasprintf(GFP_KERNEL, "%s_%d", usage_name, k)
+																		: kasprintf(GFP_KERNEL, "%s", usage_name);
+							else {
+								printk(KERN_ERR "%s():got problematic name for usage  %08X\n", __func__, report->field[j]->usage[k].hid);
+								data_field.name = need_internal_index	? kasprintf(GFP_KERNEL, "data-%X_%d", report->field[j]->usage[k].hid, k)
+																		: kasprintf(GFP_KERNEL, "data-%X", report->field[j]->usage[k].hid);
+							}
+							if (!data_field.name) {
+								printk(KERN_ERR "%s(): Failed to allocated data field for usage %08X\n", __func__, report->field[j]->usage[k].hid);
+								continue;
+							}
+
+							data_field.usage_id = report->field[j]->usage[k].hid;
+							data_field.is_numeric = (report->field[j]->flags  & HID_MAIN_ITEM_VARIABLE);
+							if (data_field.is_numeric) {
+								if (report->field[j]->unit_exponent > 7 || report->field[j]->unit_exponent < -8)
+									data_field.exp = 0xFF;
+								else if (report->field[j]->unit_exponent >= 0)
+									data_field.exp = report->field[j]->unit_exponent;
+								else
+									data_field.exp = 0x10 - report->field[j]->unit_exponent;
+								data_field.unit = report->field[j]->unit;
+							}
+							
+							data_field.len = (report->field[j]->report_size >> 3) * report->field[j]->report_count;
+							rv = add_data_field(senscol_sensor, &data_field);
+							dev_dbg(&hdev->dev, "%s(): add_data_field() returned %d\n", __func__, rv);
+							senscol_sensor->sample_size += report->field[j]->report_size >> 3;
+						}
+					}
+				}
+
+				/* Add senscol_sensor */
+				rv = add_senscol_sensor(senscol_sensor);
+				dev_dbg(&hdev->dev, "%s(): add_senscol_sensor() returned %d\n", __func__, rv);
+			} while (0);
+#endif
 	}
+#if IIO
 	ret = mfd_add_devices(&hdev->dev, 0, sd->hid_sensor_hub_client_devs,
 		sd->hid_sensor_client_cnt, NULL, 0, NULL);
 	if (ret < 0)
 		goto err_free_names;
-
+#endif
 	return ret;
 
 err_free_names:
@@ -654,6 +1164,10 @@ err_free_names:
 	kfree(sd->hid_sensor_hub_client_devs);
 err_stop_hw:
 	hid_hw_stop(hdev);
+err_free:
+	kfree(sd->hsdev);
+err_free_hub:
+	kfree(sd);
 
 	return ret;
 }
