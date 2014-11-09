@@ -12,15 +12,24 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <linux/stacktrace.h>
 #include <linux/wcnss_wlan.h>
 #include <linux/spinlock.h>
 
 static DEFINE_SPINLOCK(alloc_lock);
 
+#ifdef CONFIG_SLUB_DEBUG
+#define WCNSS_MAX_STACK_TRACE			64
+#endif
+
 struct wcnss_prealloc {
 	int occupied;
 	unsigned int size;
 	void *ptr;
+#ifdef CONFIG_SLUB_DEBUG
+	unsigned long stack_trace[WCNSS_MAX_STACK_TRACE];
+	struct stack_trace trace;
+#endif
 };
 
 /* pre-alloced mem for WLAN driver */
@@ -116,6 +125,28 @@ void wcnss_prealloc_deinit(void)
 	}
 }
 
+#ifdef CONFIG_SLUB_DEBUG
+static void wcnss_prealloc_save_stack_trace(struct wcnss_prealloc *entry)
+{
+	struct stack_trace *trace = &entry->trace;
+
+	memset(&entry->stack_trace, 0, sizeof(entry->stack_trace));
+	trace->nr_entries = 0;
+	trace->max_entries = WCNSS_MAX_STACK_TRACE;
+	trace->entries = entry->stack_trace;
+	trace->skip = 2;
+
+	save_stack_trace(trace);
+
+	return;
+}
+#else
+static inline void wcnss_prealloc_save_stack_trace(struct wcnss_prealloc *entry)
+{
+	return;
+}
+#endif
+
 void *wcnss_prealloc_get(unsigned int size)
 {
 	int i = 0;
@@ -130,10 +161,12 @@ void *wcnss_prealloc_get(unsigned int size)
 			/* we found the slot */
 			wcnss_allocs[i].occupied = 1;
 			spin_unlock_irqrestore(&alloc_lock, flags);
+			wcnss_prealloc_save_stack_trace(&wcnss_allocs[i]);
 			return wcnss_allocs[i].ptr;
 		}
 	}
 	spin_unlock_irqrestore(&alloc_lock, flags);
+
 	pr_err("wcnss: %s: prealloc not available for size: %d\n",
 			__func__, size);
 
@@ -159,6 +192,43 @@ int wcnss_prealloc_put(void *ptr)
 	return 0;
 }
 EXPORT_SYMBOL(wcnss_prealloc_put);
+
+#ifdef CONFIG_SLUB_DEBUG
+void wcnss_prealloc_check_memory_leak(void)
+{
+	int i, j = 0;
+
+	for (i = 0; i < ARRAY_SIZE(wcnss_allocs); i++) {
+		if (!wcnss_allocs[i].occupied)
+			continue;
+
+		if (j == 0) {
+			pr_err("wcnss_prealloc: Memory leak detected\n");
+			j++;
+		}
+
+		pr_err("Size: %u, addr: %pK, backtrace:\n",
+				wcnss_allocs[i].size, wcnss_allocs[i].ptr);
+		print_stack_trace(&wcnss_allocs[i].trace, 1);
+	}
+
+}
+#endif
+
+int wcnss_pre_alloc_reset(void)
+{
+	int i, n = 0;
+
+	for (i = 0; i < ARRAY_SIZE(wcnss_allocs); i++) {
+		if (!wcnss_allocs[i].occupied)
+			continue;
+
+		wcnss_allocs[i].occupied = 0;
+		n++;
+	}
+
+	return n;
+}
 
 static int __init wcnss_pre_alloc_init(void)
 {
