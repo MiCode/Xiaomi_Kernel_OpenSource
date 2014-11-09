@@ -17,20 +17,28 @@ The optional properties are:
 
 - reg: physical IMEM address reserved for PC counters and the size
 - qcom,use-sync-timer: Indicates whether the target uses the synchronized QTimer.
-- qcom,saw-turns-off-pll: Version of SAW2.1 or can turn off the HFPLL, when
-	doing power collapse and so the core need to switch to Global PLL before
-	PC.
 - qcom,synced-clocks: Indicates that all cpus running off a single clock source and to
 	instantiate the necessary clock source.
 - qcom,pc-resets-timer: Indicates that the timer gets reset during power collapse.
 - qcom,tz-flushes-cache: Indicates that TZ flushes all of the cache during
 power collapse. MSM PM can decide to not perform cache flush operations to
 reduce latency associated with L2 PC.
+- qcom,saw-turns-off-pll: Indicates that the CPU's PLL can be managed from SAW
+	hardware. On such targets software mangement of PLL is not required. If
+	this property is specified then qcom,synced-clocks would be ignored.
 
-Example:
+Example 1:
 
 qcom,pm@fe800664 {
 		compatible = "qcom,pm";
 		reg = <0xfe800664 0x40>;
 		qcom,use-sync-timer;
+	};
+
+Example 2:
+
+qcom,pm@fe800664 {
+		compatible = "qcom,pm";
+		reg = <0xfe800664 0x40>;
+		qcom,saw-turns-off-pll;
 	};
