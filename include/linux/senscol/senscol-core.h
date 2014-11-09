@@ -104,10 +104,10 @@ struct senscol_sample {
  */
 struct senscol_impl {
 	/* Get property value, will return NULL on failure */
-	int	(*get_sens_property)(struct sensor_def *sensor, const struct sens_property* prop, char *value, size_t val_buf_size);
+	int	(*get_sens_property)(struct sensor_def *sensor, const struct sens_property *prop, char *value, size_t val_buf_size);
 
 	/* Set property value */
-	int	(*set_sens_property)(struct sensor_def *sensor, const struct sens_property* prop, const char *value);
+	int	(*set_sens_property)(struct sensor_def *sensor, const struct sens_property *prop, const char *value);
 
 	/* Get sample */
 	int	(*get_sample)(struct sensor_def *sensor, void *sample_buf, size_t sample_buf_size);

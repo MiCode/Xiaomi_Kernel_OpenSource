@@ -123,7 +123,7 @@ static ssize_t ishdbg_read(struct file *file, char __user *ubuf, size_t length, 
 
 	if (resp_buf_read)
 		return	0;	/* EOF */
-	copy_len = (length > strlen(dbg_resp_buf))? strlen(dbg_resp_buf) : length;
+	copy_len = (length > strlen(dbg_resp_buf)) ? strlen(dbg_resp_buf) : length;
 	rv = copy_to_user(ubuf, dbg_resp_buf, copy_len);
 	if (rv)
 		return  -EINVAL;
@@ -144,7 +144,7 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf, size_t l
 	rv = copy_from_user(dbg_req_buf, ubuf, length);
 	if (rv)
 		return  -EINVAL;
-        if (sscanf(dbg_req_buf, "%s ", cmd) != 1) {
+	if (sscanf(dbg_req_buf, "%s ", cmd) != 1) {
 		printk(KERN_ERR "[ish-dbg]) sscanf failed\n");
 		return  -EINVAL;
 	}
@@ -163,13 +163,12 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf, size_t l
 		}
 		cur_index = 0;
 		for (i = 0; i < count; i++) {
-			reg_data = (volatile uint32_t *)((char*)hw_dbg->mem_addr + addr + i*4);
+			reg_data = (volatile uint32_t *)((char *)hw_dbg->mem_addr + addr + i*4);
 			cur_index += sprintf(dbg_resp_buf + cur_index, "%08X ", *reg_data);
 		}
 		cur_index += sprintf(dbg_resp_buf + cur_index, "\n");
 		resp_buf_read = 0;
-	}
-	else if (!strcmp(cmd, "e")) {
+	} else if (!strcmp(cmd, "e")) {
 		/* Enter values e <addr> <value> */
 		if (sscanf_match != 2) {
 			printk(KERN_ERR "[ish-dbg] sscanf failed, sscanfMatch = %d\n", sscanf_match);
@@ -179,11 +178,11 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf, size_t l
 			printk(KERN_ERR "[ish-dbg] address isn't aligned to 4 bytes\n");
 			return -EINVAL;
 		}
-		reg_data = (volatile uint32_t *)((char*)hw_dbg->mem_addr + addr);
+		reg_data = (volatile uint32_t *)((char *)hw_dbg->mem_addr + addr);
 		*reg_data = count;
 		sprintf(dbg_resp_buf, "OK\n");
 		resp_buf_read = 0;
-        }
+	}
 
 	return  length;
 }
@@ -311,7 +310,8 @@ static ssize_t ish_read_log(struct heci_device *dev, char *buf, size_t size)
 	i = (i-1) % PRINT_BUFFER_SIZE;
 
 	/* read from tail to last '\n' before i */
-	for (;dev->log_buffer[i] != '\n';i = (i-1) % PRINT_BUFFER_SIZE);
+	for (; dev->log_buffer[i] != '\n'; i = (i-1) % PRINT_BUFFER_SIZE)
+		;
 
 	if (dev->log_tail < i) {
 		memcpy(buf, dev->log_buffer + dev->log_tail, i - dev->log_tail + 1);
@@ -444,7 +444,7 @@ void workqueue_init_function(struct work_struct *work)
 	int err;
 
 	ISH_DBG_PRINT(KERN_ALERT "[pci driver] %s() in workqueue func, continue initialization process\n", __func__);
-	
+
 	pci_set_drvdata(dev->pdev, dev);
 /*	dev_dbg(&dev->pdev->dev, "heci: after pci_set_drvdata\n");*/
 
@@ -563,7 +563,7 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	ishdbg_misc_device.parent = &pdev->dev;
 	rv = misc_register(&ishdbg_misc_device);
 	if (rv)
-		dev_err(&pdev->dev, "error starting ISH debugger (misc_register failed): %d\n", rv);	
+		dev_err(&pdev->dev, "error starting ISH debugger (misc_register failed): %d\n", rv);
 	hw_dbg = hw;
 #endif
 

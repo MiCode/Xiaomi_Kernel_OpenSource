@@ -20,7 +20,7 @@
 static const struct sensor_map {
 	unsigned code;
 	char *msg;
-} code_msg_arr[] = { 
+} code_msg_arr[] = {
 	{0x01,	"type_collection"},
 	{0x10,	"category_biometric"},
 	{0x11,	"type_biometric_presence"},
@@ -508,7 +508,7 @@ static const struct sensor_map {
 	{0,	0}
 };
 
-static const char* modifiers[16] = {"none", "chg_sensitivity_abs", "max", "min", "accuracy", "resolution", "thres_high", "thres_low",
+static const char *modifiers[16] = {"none", "chg_sensitivity_abs", "max", "min", "accuracy", "resolution", "thres_high", "thres_low",
 	"calibration_offset", "calibration_multiplier", "report_interval", "freq_max", "period_max", "chg_sensitivity_percent_range",
 	"chg_sensitivity_percent_rel", "custom"};
 

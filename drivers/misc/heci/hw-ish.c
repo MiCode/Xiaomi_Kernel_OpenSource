@@ -37,7 +37,7 @@ void g_ish_print_log(char *format, ...);
 
 int write_ipc_from_queue(struct heci_device *dev);
 static int	ipc_send_mng_msg(struct heci_device *dev, uint32_t msg_code, void *msg, size_t size);
-static int	ipc_send_heci_msg(struct heci_device *dev, struct heci_msg_hdr *hdr, void *msg, void(*ipc_send_compl)(void *),void *ipc_send_compl_prm);
+static int	ipc_send_heci_msg(struct heci_device *dev, struct heci_msg_hdr *hdr, void *msg, void(*ipc_send_compl)(void *), void *ipc_send_compl_prm);
 static u32 ish_read_hdr(const struct heci_device *dev);
 
 /**
@@ -165,7 +165,7 @@ void ish_intr_disable(struct heci_device *dev)
 }
 
 void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr);
-	
+
 /*
  * BH processing work function (instead of thread handler)
  */
@@ -197,7 +197,7 @@ static void	bh_hbm_work_fn(struct work_struct *work)
  * RETURN VALUE:	negative -  fail (means free links list is empty, or msg too long)
  *			0 -  succeed
  */
-static int write_ipc_to_queue(struct heci_device *dev, void(*ipc_send_compl)(void *),void *ipc_send_compl_prm, unsigned char *msg, int length)
+static int write_ipc_to_queue(struct heci_device *dev, void(*ipc_send_compl)(void *), void *ipc_send_compl_prm, unsigned char *msg, int length)
 {
 	struct wr_msg_ctl_info *ipc_link;
 	unsigned long   flags;
@@ -234,7 +234,7 @@ static int write_ipc_to_queue(struct heci_device *dev, void(*ipc_send_compl)(voi
 int write_ipc_from_queue(struct heci_device *dev)
 {
 	u32	doorbell_val;
-	unsigned long length;	
+	unsigned long length;
 	unsigned long rem;
 	u32	*r_buf;
 	int i;
@@ -354,7 +354,7 @@ static void	fw_reset_work_fn(struct work_struct *unused)
 		heci_dev->hbm_state = HECI_HBM_START;
 		heci_hbm_start_req(heci_dev);
 		ISH_DBG_PRINT(KERN_ALERT "%s(): after heci_hbm_start_req()\n", __func__);
-	
+
 	} else
 		printk(KERN_ERR "[heci-ish]: FW reset failed (%d)\n", rv);
 }
@@ -650,8 +650,8 @@ static int ish_write(struct heci_device *dev, struct heci_msg_hdr *header, unsig
 	u32 doorbell_val;
 
 	doorbell_val = IPC_BUILD_HEADER(header->length + sizeof(struct heci_msg_hdr), IPC_PROTOCOL_HECI, 1);
-	memcpy(ipc_msg, (char*)&doorbell_val, sizeof(u32));
-	memcpy(ipc_msg + sizeof(u32), (char*)header, sizeof(struct heci_msg_hdr));
+	memcpy(ipc_msg, (char *)&doorbell_val, sizeof(u32));
+	memcpy(ipc_msg + sizeof(u32), (char *)header, sizeof(struct heci_msg_hdr));
 	memcpy(ipc_msg + sizeof(u32) + sizeof(struct heci_msg_hdr), buf, header->length);
 
 	return write_ipc_to_queue(dev, NULL, NULL, ipc_msg, sizeof(u32) + sizeof(struct heci_msg_hdr) + header->length);

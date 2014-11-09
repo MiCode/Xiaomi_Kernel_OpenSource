@@ -129,7 +129,7 @@ struct heci_hw_ops {
 	int  (*hw_start) (struct heci_device *dev);
 	void (*hw_config) (struct heci_device *dev);
 	int (*write)(struct heci_device *dev, struct heci_msg_hdr *hdr, unsigned char *buf);
-	int (*write_ex)(struct heci_device *dev, struct heci_msg_hdr *hdr, void *msg, void(*ipc_send_compl)(void *),void *ipc_send_compl_prm);
+	int (*write_ex)(struct heci_device *dev, struct heci_msg_hdr *hdr, void *msg, void(*ipc_send_compl)(void *), void *ipc_send_compl_prm);
 	int (*read)(struct heci_device *dev, unsigned char *buffer, unsigned long buffer_length);
 };
 
@@ -186,9 +186,9 @@ struct heci_device {
 	/* FIFO for output IPC messages. Includes also HECI/IPC header to be supplied in DRBL (first dword) */
 	unsigned char	wr_msg_fifo[IPC_TX_FIFO_SIZE * IPC_FULL_MSG_SIZE];
 #endif
-	/* 
+	/*
 	 * Control info for IPC messages HECI/IPC sending FIFO - list with inline data buffer
-	 * This structure will be filled with parameters submitted by the caller glue layer 
+	 * This structure will be filled with parameters submitted by the caller glue layer
 	 * 'buf' may be pointing to the external buffer or to 'inline_data'
 	 * 'offset' will be initialized to 0 by submitting
 	 *
@@ -199,7 +199,7 @@ struct heci_device {
 	 *
 	 * (!) We can work on FIFO list or cyclic FIFO in an array
 	 */
-	
+
 	struct wr_msg_ctl_info wr_processing_list_head, wr_free_list_head;
 	spinlock_t	wr_processing_spinlock;		/* For both processing and free lists */
 /*
@@ -230,7 +230,7 @@ struct heci_device {
 
 	const struct heci_hw_ops *ops;
 
-	size_t	mtu;	
+	size_t	mtu;
 	char hw[0] __aligned(sizeof(void *));
 };
 

@@ -26,19 +26,24 @@
 
 const char *heci_dev_state_str(int state)
 {
-#define HECI_DEV_STATE(state) case HECI_DEV_##state: return #state
 	switch (state) {
-	HECI_DEV_STATE(INITIALIZING);
-	HECI_DEV_STATE(INIT_CLIENTS);
-	HECI_DEV_STATE(ENABLED);
-	HECI_DEV_STATE(RESETTING);
-	HECI_DEV_STATE(DISABLED);
-	HECI_DEV_STATE(POWER_DOWN);
-	HECI_DEV_STATE(POWER_UP);
+	case HECI_DEV_INITIALIZING:
+		return	"INITIALIZING";
+	case HECI_DEV_INIT_CLIENTS:
+		return	"INIT_CLIENTS";
+	case HECI_DEV_ENABLED:
+		return	"ENABLED";
+	case HECI_DEV_RESETTING:
+		return	"RESETTING";
+	case HECI_DEV_DISABLED:
+		return	"DISABLED";
+	case HECI_DEV_POWER_DOWN:
+		return	"POWER_DOWN";
+	case HECI_DEV_POWER_UP:
+		return	"POWER_UP";
 	default:
 		return "unkown";
 	}
-#undef HECI_DEV_STATE
 }
 EXPORT_SYMBOL(heci_dev_state_str);
 
@@ -111,7 +116,7 @@ int heci_start(struct heci_device *dev)
 	if (dev->recvd_hw_ready)
 		goto	reset_done;
 	dev_err(&dev->pdev->dev, "[heci-ish] %s(): Timed out waiting for FW-initiated reset\n", __func__);
-#if 1 
+#if 1
 	goto	err; /* DEBUGDEBUGDEBUG: raise timeout for FW-initiated reset to 10 s and don't sent host-initiated reset flow */
 #endif
 	/* DEBUGDEBUGDEBUG: Below code until 'reset_done:' is defunct */

@@ -553,12 +553,12 @@ static int __init ish_init(void)
 	/* 7/7/2014: in order to not stick Android boot, from here & below needs to run in work queue and here we should return rv */
 	/****************************************************************/
 	workqueue_for_init = create_workqueue("workqueue_for_init");
-        INIT_WORK(&my_work, workqueue_init_function);
-        queue_work(workqueue_for_init, &my_work);
+	INIT_WORK(&my_work, workqueue_init_function);
+	queue_work(workqueue_for_init, &my_work);
 
-        ISH_DBG_PRINT(KERN_ALERT "[ish client driver] %s() enqueue init_work function\n", __func__);
+	ISH_DBG_PRINT(KERN_ALERT "[ish client driver] %s() enqueue init_work function\n", __func__);
         g_ish_print_log(KERN_ALERT "[ish client driver] %s() enqueue init_work function\n", __func__);
-	
+
 	return rv;
 	/****************************************************************/
 
