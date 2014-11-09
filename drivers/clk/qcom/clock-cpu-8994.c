@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
 #include <linux/pm_opp.h>
+#include <linux/pm_qos.h>
 
 #include <soc/qcom/scm.h>
 #include <soc/qcom/clock-pll.h>
@@ -719,6 +720,8 @@ static struct mux_clk a57_hf_mux_v2 = {
 
 struct cpu_clk_8994 {
 	u32 cpu_reg_mask;
+	cpumask_t cpumask;
+	bool hw_low_power_ctrl;
 	struct clk c;
 };
 
@@ -739,9 +742,39 @@ static long cpu_clk_8994_round_rate(struct clk *c, unsigned long rate)
 	return clk_round_rate(c->parent, rate);
 }
 
+static void do_nothing(void *unused) { }
+
+#define CPU_LATENCY_NO_L2_PC_US (800 - 1)
+
 static int cpu_clk_8994_set_rate(struct clk *c, unsigned long rate)
 {
-	return clk_set_rate(c->parent, rate);
+	struct pm_qos_request req = {0};
+	int ret;
+	struct cpu_clk_8994 *cpuclk = to_cpu_clk_8994(c);
+	bool hw_low_power_ctrl = cpuclk->hw_low_power_ctrl;
+
+	/*
+	 * If hardware control of the clock tree is enabled during power
+	 * collapse, setup a PM QOS request to prevent power collapse and
+	 * wake up one of the CPUs in this clock domain, to ensure software
+	 * control while the clock rate is being switched.
+	 */
+	if (hw_low_power_ctrl) {
+		req.cpus_affine = cpuclk->cpumask;
+		req.type = PM_QOS_REQ_AFFINE_CORES;
+		pm_qos_add_request(&req, PM_QOS_CPU_DMA_LATENCY,
+				   CPU_LATENCY_NO_L2_PC_US);
+
+		ret = smp_call_function_any(&cpuclk->cpumask, do_nothing,
+						NULL, 1);
+	}
+
+	ret = clk_set_rate(c->parent, rate);
+
+	if (hw_low_power_ctrl)
+		pm_qos_remove_request(&req);
+
+	return ret;
 }
 
 static struct clk_ops clk_ops_cpu_8994 = {
@@ -1395,6 +1428,8 @@ static void init_v2_data(void)
 	a57_div_clk.data.min_div = 8;
 	a57_div_clk.data.max_div = 8;
 	a57_div_clk.data.div = 8;
+	a53_clk.hw_low_power_ctrl = true;
+	a57_clk.hw_low_power_ctrl = true;
 }
 
 static int a57speedbin;
@@ -1459,6 +1494,13 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev, "Can't get speed bin for cci\n");
 		return ret;
+	}
+
+	for_each_possible_cpu(cpu) {
+		if (logical_cpu_to_clk(cpu) == &a53_clk.c)
+			cpumask_set_cpu(cpu, &a53_clk.cpumask);
+		if (logical_cpu_to_clk(cpu) == &a57_clk.c)
+			cpumask_set_cpu(cpu, &a57_clk.cpumask);
 	}
 
 	get_online_cpus();
