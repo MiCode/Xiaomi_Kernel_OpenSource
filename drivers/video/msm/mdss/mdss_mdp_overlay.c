@@ -393,6 +393,8 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_perf_params perf;
 	int rc;
 
+	memset(&perf, 0, sizeof(perf));
+
 	flags |= PERF_CALC_PIPE_APPLY_CLK_FUDGE |
 		PERF_CALC_PIPE_CALC_SMP_SIZE;
 

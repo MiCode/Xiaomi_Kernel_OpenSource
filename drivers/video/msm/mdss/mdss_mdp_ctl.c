@@ -425,22 +425,35 @@ u32 mdss_mdp_perf_calc_smp_size(struct mdss_mdp_pipe *pipe,
 	return smp_bytes;
 }
 
-static void mdss_mdp_get_bw_vote_mode(struct mdss_mdp_mixer *mixer,
-	u32 mdp_rev, struct mdss_mdp_perf_params *perf, u32 flags)
+static void mdss_mdp_get_bw_vote_mode(void *data,
+	u32 mdp_rev, struct mdss_mdp_perf_params *perf,
+	enum perf_calc_vote_mode calc_mode, u32 flags)
 {
-	bitmap_zero(perf->bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
-	if (!mixer)
+	if (!data)
 		goto exit;
 
 	switch (mdp_rev) {
 	case MDSS_MDP_HW_REV_105:
 	case MDSS_MDP_HW_REV_109:
-		if ((flags & PERF_CALC_PIPE_SINGLE_LAYER) &&
-			!mixer->rotator_mode &&
-			(mixer->type == MDSS_MDP_MIXER_TYPE_INTF)) {
-				set_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
-					perf->bw_vote_mode);
+		if (calc_mode == PERF_CALC_VOTE_MODE_PER_PIPE) {
+			struct mdss_mdp_mixer *mixer =
+				(struct mdss_mdp_mixer *)data;
+
+			if ((flags & PERF_CALC_PIPE_SINGLE_LAYER) &&
+				!mixer->rotator_mode &&
+				(mixer->type == MDSS_MDP_MIXER_TYPE_INTF)) {
+					set_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
+						perf->bw_vote_mode);
+			}
+		} else if (calc_mode == PERF_CALC_VOTE_MODE_CTL) {
+			struct mdss_mdp_ctl *ctl = (struct mdss_mdp_ctl *)data;
+
+			if (ctl->is_video_mode &&
+				(ctl->mfd->split_mode == MDP_SPLIT_MODE_NONE)) {
+					set_bit(MDSS_MDP_BW_MODE_SINGLE_IF,
+						perf->bw_vote_mode);
+			}
 		}
 		break;
 	default:
@@ -451,6 +464,16 @@ static void mdss_mdp_get_bw_vote_mode(struct mdss_mdp_mixer *mixer,
 
 exit:
 	return;
+}
+
+static bool is_factor_needed(struct mdss_mdp_perf_params *perf_temp,
+	u64 bus_ib_quota)
+{
+	return (test_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
+			perf_temp->bw_vote_mode) &&
+			(bus_ib_quota >= PERF_SINGLE_PIPE_BW_FLOOR)) ||
+			test_bit(MDSS_MDP_BW_MODE_SINGLE_IF,
+			perf_temp->bw_vote_mode);
 }
 
 /**
@@ -610,7 +633,8 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.is_cmd = !mixer->ctl->is_video_mode;
 	prefill_params.pnum = pipe->num;
 
-	mdss_mdp_get_bw_vote_mode(mixer, mdata->mdp_rev, perf, flags);
+	mdss_mdp_get_bw_vote_mode(mixer, mdata->mdp_rev, perf,
+		PERF_CALC_VOTE_MODE_PER_PIPE, flags);
 
 	if (flags & PERF_CALC_PIPE_SINGLE_LAYER)
 		perf->prefill_bytes =
@@ -1200,11 +1224,13 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 				mdss_mdp_ctl_perf_update_traffic_shaper_bw
 					(ctl, mdp_clk);
 
-			if (ctl->cur_perf.bw_vote_mode)
-				bitmap_or(perf_temp.bw_vote_mode,
-					perf_temp.bw_vote_mode,
-					ctl->cur_perf.bw_vote_mode,
-					MDSS_MDP_BW_MODE_MAX);
+			mdss_mdp_get_bw_vote_mode(ctl, mdata->mdp_rev,
+				&perf_temp, PERF_CALC_VOTE_MODE_CTL, 0);
+
+			bitmap_or(perf_temp.bw_vote_mode,
+				perf_temp.bw_vote_mode,
+				ctl->cur_perf.bw_vote_mode,
+				MDSS_MDP_BW_MODE_MAX);
 
 			bw_sum_of_intfs += ctl->cur_perf.bw_ctl;
 
@@ -1217,9 +1243,7 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 	bw_sum_of_intfs = max(bw_sum_of_intfs, mdata->perf_tune.min_bus_vote);
 	bus_ib_quota = bw_sum_of_intfs;
 
-	if (test_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
-		perf_temp.bw_vote_mode) &&
-		(bus_ib_quota >= PERF_SINGLE_PIPE_BW_FLOOR)) {
+	if (true == is_factor_needed(&perf_temp, bus_ib_quota)) {
 		struct mdss_fudge_factor ib_factor_vscaling;
 		ib_factor_vscaling.numer = 2;
 		ib_factor_vscaling.denom = 1;
