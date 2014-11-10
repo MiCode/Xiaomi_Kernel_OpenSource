@@ -17,3 +17,6 @@
 		      <0x200e5 0x20000>, <0x200e6 0x20000>, <0x200e7 0x20000>;
 };
 
+&ssphy0 {
+	qcom,qmp-misc-config;
+};
