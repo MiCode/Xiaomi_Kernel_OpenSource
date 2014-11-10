@@ -18,7 +18,15 @@ where platform_id and subtype_id are the numeric values for the platform and
 subtype of the current hardware.
 
 The "subtype_id" cell is a 32-bit integer whose bit values are defined as follows:
-    bits 31-16 = Reserved bits
+    bits 31-20 = Reserved bits
+    bits 19-16 = Boot Device Type.
+		 MSM:
+		     0: default (eMMC)
+		     2: EMMC_SDC1
+		     4: BOOT_UFS
+		 MDM:
+		     0: default (NAND)
+		     3: EMMC_SDC1
     bits 15-8  = DDR Size. For devices with DDR Size as 512MB the value is 0x1, default value as 0x0
     bits 7-0   = Platform Subtype
 
