@@ -315,6 +315,27 @@
 		cpu-vdd-supply = <&pmd9635_s5_corner_ao>;
 	};
 
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			< 1541 /* 202 MHz */ >,
+			< 3082 /* 404 MHz */ >,
+			< 3952 /* 518 MHz */ >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				<  600000 1541 >,
+				<  787200 3082 >,
+				< 1190400 3952 >;
+		};
+	};
+
         qcom,msm-cpufreq@0 {
                 reg = <0 4>;
                 compatible = "qcom,msm-cpufreq";
