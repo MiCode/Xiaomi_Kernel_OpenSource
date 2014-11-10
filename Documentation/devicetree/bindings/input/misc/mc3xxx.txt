@@ -1,0 +1,39 @@
+mCube mc3xxx 3-axis accelerometer sensor driver.
+
+Required properties:
+
+ - compatible		: Should be "mcube,mc3xxx".
+ - reg			: i2c slave address of the device.
+ - pinctrl-names	: Pinctrl configuration names of this sensor driver.
+				Should be "default".
+ - pinctrl-0		: The pinctrl node corresponding to "default",
+				Should be <&mc3xxx_default>.
+ - interrupt-parent	: Parent of interrupt.
+ - interrupts		: Accelerometer interrupt to indicate new data ready or events.
+ - vdd-supply		: Analog power supply needed to power device.
+ - vio-supply		: Digital IO power supply needed for IO and I2C.
+ - mcube,position	: The orientation of the accelerometer on the board. There
+				are 8 possible ways of positioning it:
+				0: top, left-down
+				1: top, right-down
+				2: top, right-up
+				3: top, left-up
+				4: bottom, left-down
+				5: bottom, right-down
+				6: bottom, right-up
+				7: bottom, left-up
+
+Example:
+&i2c_0 { /* BLSP1 QUP2 */
+	 mcube@4c { /* Accelerometer sensor */
+		compatible = "mcube,mc3xxx";
+		reg = <0x4c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&mc3xxx_default>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <115 0x2002>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		mcube,position = <1>;
+	};
+};
