@@ -1,7 +1,7 @@
 /*
  * SiI8620 Linux Driver
  *
- * Copyright (C) 2013-2014 Silicon Image, Inc.
+ * Copyright (C) 2013-2015 Silicon Image, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -1564,7 +1564,7 @@ static int si_8620_parse_dt(struct device *dev)
 	 * Need this for I/O expander in case we're using SPI as
 	 * the register I/O.
 	 */
-	if (!of_property_read_u32(np, "sil,i2c_port#", &value))
+	if (!of_property_read_u32(np, "sil,i2c-port", &value))
 		i2c_adapter_num = value;
 
 	MHL_TX_DBG_INFO("Resources assigned to driver...\n");
