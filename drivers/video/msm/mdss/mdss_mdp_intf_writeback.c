@@ -120,9 +120,6 @@ static int mdss_mdp_writeback_addr_setup(struct mdss_mdp_writeback_ctx *ctx,
 
 	pr_debug("wb_num=%d addr=0x%pa\n", ctx->wb_num, &data.p[0].addr);
 
-	if (ctx->bwc_mode)
-		data.bwc_enabled = 1;
-
 	ret = mdss_mdp_data_check(&data, &ctx->dst_planes);
 	if (ret)
 		return ret;

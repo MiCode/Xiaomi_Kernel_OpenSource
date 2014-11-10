@@ -335,10 +335,23 @@ struct mdss_mdp_img_data {
 	struct ion_handle *srcp_ihdl;
 };
 
+enum mdss_mdp_data_state {
+	MDP_BUF_STATE_UNUSED,
+	MDP_BUF_STATE_READY,
+	MDP_BUF_STATE_ACTIVE,
+	MDP_BUF_STATE_CLEANUP,
+};
+
 struct mdss_mdp_data {
+	enum mdss_mdp_data_state state;
 	u8 num_planes;
-	u8 bwc_enabled;
 	struct mdss_mdp_img_data p[MAX_PLANES];
+	struct list_head buf_list;
+	struct list_head pipe_list;
+	struct list_head chunk_list;
+	u64 last_alloc;
+	u64 last_freed;
+	struct mdss_mdp_pipe *last_pipe;
 };
 
 struct pp_hist_col_info {
@@ -473,9 +486,7 @@ struct mdss_mdp_pipe {
 
 	struct mdss_mdp_pipe_smp_map smp_map[MAX_PLANES];
 
-	struct mdss_mdp_data back_buf;
-	struct mdss_mdp_data front_buf;
-
+	struct list_head buf_queue;
 	struct list_head list;
 
 	struct mdp_overlay_pp_params pp_cfg;
@@ -505,14 +516,18 @@ struct mdss_overlay_private {
 	struct mdss_mdp_wb *wb;
 
 	struct mutex list_lock;
-	struct list_head overlay_list;
 	struct list_head pipes_used;
 	struct list_head pipes_cleanup;
 	struct list_head rot_proc_list;
 	bool mixer_swap;
 
-	struct mdss_mdp_data free_list[MAX_FREE_LIST_SIZE];
-	int free_list_size;
+	/* list of buffers that can be reused */
+	struct list_head bufs_chunks;
+	struct list_head bufs_pool;
+	struct list_head bufs_used;
+	/* list of buffers which should be freed during cleanup stage */
+	struct list_head bufs_freelist;
+
 	int ad_state;
 
 	bool handoff;
@@ -782,6 +797,10 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		struct mdp_display_commit *data);
+struct mdss_mdp_data *mdss_mdp_overlay_buf_alloc(struct msm_fb_data_type *mfd,
+		struct mdss_mdp_pipe *pipe);
+void mdss_mdp_overlay_buf_free(struct msm_fb_data_type *mfd,
+		struct mdss_mdp_data *buf);
 
 struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 					struct msm_fb_data_type *mfd);
