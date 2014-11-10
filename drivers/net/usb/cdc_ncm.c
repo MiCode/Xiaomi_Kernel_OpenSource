@@ -897,6 +897,11 @@ int cdc_ncm_rx_verify_nth16(struct cdc_ncm_ctx *ctx, struct sk_buff *skb_in)
 		goto error;
 	}
 
+	if (len != skb_in->len) {
+		pr_debug("invalid NTB block size %u vs %u\n", skb_in->len, len);
+		goto error;
+	}
+
 	if ((ctx->rx_seq + 1) != le16_to_cpu(nth16->wSequence) &&
 	    (ctx->rx_seq || le16_to_cpu(nth16->wSequence)) &&
 	    !((ctx->rx_seq == 0xffff) && !le16_to_cpu(nth16->wSequence))) {
@@ -948,6 +953,116 @@ error:
 }
 EXPORT_SYMBOL_GPL(cdc_ncm_rx_verify_ndp16);
 
+
+/* handle NTB fragments recombination if needed (limited to 2 fragments)      */
+/* return:                                                                    */
+/*  0: valid NTB packet to be processed                                       */
+/*  1: invalid NTB packet                                                     */
+static inline int cdc_ncm_handle_fragments_recombination(
+					struct cdc_ncm_ctx *ctx,
+					struct sk_buff *skb_in,
+					int *ndpoffset)
+{
+	int len;
+	int i;
+	char *pc, *pcd;
+
+	if (*ndpoffset >= 0) {
+
+		/* valid NTD packet */
+		/* delete saved fragment if existing since flow back to normal*/
+		if (ctx->fragment_size) {
+
+			kfree(ctx->fragment);
+			ctx->fragment_size = 0;
+			pr_debug("frag deleted (%d) due to valid flow\n",
+				(int)(++ctx->fragment_deleted));
+		}
+		return 0;
+	}
+
+	/* invalid NTD packet */
+
+	if (ctx->fragment_size == 0) {
+
+		/* Save the current fragment */
+		ctx->fragment = kmalloc(skb_in->len, GFP_ATOMIC);
+		if (ctx->fragment == NULL) {
+			pr_debug("frag deleted (%d) due to kmalloc error\n",
+			(int)(++ctx->fragment_deleted));
+			return 1;
+		}
+		memcpy(ctx->fragment,
+			(unsigned char *)skb_in->data, skb_in->len);
+		ctx->fragment_size = skb_in->len;
+		pr_debug("frag saved\n");
+		return 1;
+	}
+
+	/* Try to recombinate current fragment with saved one (in skbuff) */
+
+	/* If skbuff is too small for the 2 fragments */
+	/* then delete previous fragment and save the current one */
+	len = skb_in->len;
+	if (ctx->fragment_size > skb_tailroom(skb_in)) {
+
+		kfree(ctx->fragment);
+		ctx->fragment_size = 0;
+		pr_debug("frag deleted (%d) due to size\n",
+			(int)(++ctx->fragment_deleted));
+
+		ctx->fragment = kmalloc(len, GFP_ATOMIC);
+		if (ctx->fragment == NULL) {
+			pr_debug("frag deleted (%d) due to kmalloc error\n",
+			(int)(++ctx->fragment_deleted));
+			return 1;
+		}
+		memcpy(ctx->fragment, skb_in->data, len);
+		ctx->fragment_size = len;
+		pr_debug("frag saved\n");
+
+		return 1;
+	}
+
+	/* recombinate current fragment with saved one (in skbuff) */
+	skb_put(skb_in, ctx->fragment_size);
+
+	pc = (unsigned char *)(skb_in->data); /* need to memcpy by the end */
+	pcd = pc + ctx->fragment_size;
+	pc = pc + len - 1;
+	pcd = pcd + len - 1;
+	for (i = 0; i < len; i++)
+		*pcd-- = *pc--;
+
+	memcpy(skb_in->data, ctx->fragment, ctx->fragment_size);
+
+	kfree(ctx->fragment);
+	ctx->fragment_size = 0;
+
+	/* test the recombination and deliver it if ok */
+	*ndpoffset = cdc_ncm_rx_verify_nth16(ctx, skb_in);
+	if (*ndpoffset >= 0) {
+		ctx->fragment_recombinated += 2;
+		pr_debug("frag successfully recombinated (%d)\n",
+			(int)ctx->fragment_recombinated);
+		return 0;
+	}
+
+	/* Else delete previous fragment and save the current one */
+	pr_debug("frag deleted (%d) due to recombination error\n",
+			(int)(++ctx->fragment_deleted));
+	ctx->fragment = kmalloc(len, GFP_ATOMIC);
+	if (ctx->fragment == NULL) {
+		pr_debug("frag deleted (%d) due to kmalloc error\n",
+			(int)(++ctx->fragment_deleted));
+		return 1;
+	}
+	memcpy(ctx->fragment, ++pcd, len);
+	ctx->fragment_size = len;
+	pr_debug("frag saved\n");
+	return 1;
+}
+
 int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in)
 {
 	struct sk_buff *skb;
@@ -961,9 +1076,12 @@ int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in)
 	int ndpoffset;
 	int loopcount = 50; /* arbitrary max preventing infinite loop */
 
-	ndpoffset = cdc_ncm_rx_verify_nth16(ctx, skb_in);
-	if (ndpoffset < 0)
+	if (ctx == NULL)
 		goto error;
+
+	ndpoffset = cdc_ncm_rx_verify_nth16(ctx, skb_in);
+	if (cdc_ncm_handle_fragments_recombination(ctx, skb_in, &ndpoffset))
+		return 1;
 
 next_ndp:
 	nframes = cdc_ncm_rx_verify_ndp16(skb_in, ndpoffset);
