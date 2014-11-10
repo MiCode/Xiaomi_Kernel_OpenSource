@@ -118,11 +118,17 @@ static struct platform_driver adp1660_platform_driver = {
 static int __init msm_flash_adp1660_init_module(void)
 {
 	int32_t rc = 0;
+#ifdef CONFIG_MSM_CCI
 	rc = platform_driver_register(&adp1660_platform_driver);
 	if (!rc)
-		return rc;
-	pr_debug("%s:%d rc %d\n", __func__, __LINE__, rc);
-	return i2c_add_driver(&adp1660_i2c_driver);
+		pr_debug("adp1660_platform_driver: probe is selected");
+#else
+	rc = i2c_add_driver(&adp1660_i2c_driver);
+	if (!rc)
+		pr_debug("adp1660 I2C probe is selecetd %s:%d rc %d\n",
+			__func__, __LINE__, rc);
+#endif
+	return rc;
 }
 
 static void __exit msm_flash_adp1660_exit_module(void)
