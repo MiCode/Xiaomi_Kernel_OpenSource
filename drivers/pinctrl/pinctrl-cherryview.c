@@ -767,16 +767,35 @@ static void chv_writel(u32 value, void __iomem *reg)
 static int chv_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
 	struct chv_gpio *cg = to_chv_priv(chip);
+	void __iomem *reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL0_REG);
+	u32 value;
 
 	if (cg->pad_info[offset].family < 0)
 		return -EINVAL;
+
+	dev_dbg(&cg->pdev->dev, "chv_gpio_request %d\n", offset);
+
+	/*change it to GPIO mode*/
+	value = chv_readl(reg) | CV_GPIO_EN;
+	chv_writel(value, reg);
 
 	return 0;
 }
 
 static void chv_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
-	return;
+	struct chv_gpio *cg = to_chv_priv(chip);
+	void __iomem *reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL0_REG);
+	u32 value;
+
+	if (cg->pad_info[offset].family < 0)
+		return;
+
+	dev_dbg(&cg->pdev->dev, "chv_gpio_free %d\n", offset);
+
+	/*clear GPIOEn bit to let Pad mode take effect*/
+	value = chv_readl(reg) & (~CV_GPIO_EN);
+	chv_writel(value, reg);
 }
 
 static void chv_update_irq_type(struct chv_gpio *cg, unsigned type,
