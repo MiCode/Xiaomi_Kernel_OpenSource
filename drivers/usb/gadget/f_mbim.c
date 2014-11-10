@@ -711,7 +711,7 @@ static int mbim_bam_setup(int no_ports)
 
 	pr_info("no_ports:%d\n", no_ports);
 
-	ret = bam_data_setup(no_ports);
+	ret = bam_data_setup(USB_FUNC_MBIM, no_ports);
 	if (ret) {
 		pr_err("bam_data_setup failed err: %d\n", ret);
 		return ret;
@@ -728,10 +728,14 @@ static int mbim_bam_connect(struct f_mbim *dev)
 	struct usb_gadget *gadget = dev->cdev->gadget;
 	enum peer_bam bam_name = (dev->xport == USB_GADGET_XPORT_BAM2BAM_IPA) ?
 							IPA_P_BAM : A2_P_BAM;
+	int port_num;
 
 	pr_info("dev:%p portno:%d\n", dev, dev->port_num);
 
-	ret = bam2bam_data_port_select(MBIM_DEFAULT_PORT);
+	port_num = u_bam_data_func_to_port(USB_FUNC_MBIM, MBIM_DEFAULT_PORT);
+	if (port_num < 0)
+		return port_num;
+	ret = bam2bam_data_port_select(port_num);
 	if (ret) {
 		pr_err("mbim port select failed err: %d\n", ret);
 		return ret;
@@ -746,7 +750,10 @@ static int mbim_bam_connect(struct f_mbim *dev)
 		return ret;
 	}
 
-	ret = bam_data_connect(&dev->bam_port, dev->port_num,
+	port_num = u_bam_data_func_to_port(USB_FUNC_MBIM, dev->port_num);
+	if (port_num < 0)
+		return port_num;
+	ret = bam_data_connect(&dev->bam_port, port_num,
 		dev->xport, src_connection_idx, dst_connection_idx,
 		USB_FUNC_MBIM);
 
@@ -762,8 +769,13 @@ static int mbim_bam_connect(struct f_mbim *dev)
 
 static int mbim_bam_disconnect(struct f_mbim *dev)
 {
+	int port_num;
+
 	pr_info("%s - dev:%p port:%d\n", __func__, dev, dev->port_num);
-	bam_data_disconnect(&dev->bam_port, dev->port_num);
+	port_num = u_bam_data_func_to_port(USB_FUNC_MBIM, dev->port_num);
+	if (port_num < 0)
+		return port_num;
+	bam_data_disconnect(&dev->bam_port, port_num);
 
 	return 0;
 }
@@ -1424,6 +1436,7 @@ static void mbim_suspend(struct usb_function *f)
 {
 	bool remote_wakeup_allowed;
 	struct f_mbim	*mbim = func_to_mbim(f);
+	int port_num;
 
 	pr_info("mbim suspended\n");
 
@@ -1449,7 +1462,11 @@ static void mbim_suspend(struct usb_function *f)
 	}
 
 	if (remote_wakeup_allowed) {
-		bam_data_suspend(MBIM_ACTIVE_PORT);
+		port_num = u_bam_data_func_to_port(USB_FUNC_MBIM,
+				MBIM_ACTIVE_PORT);
+		if (port_num < 0)
+			return;
+		bam_data_suspend(port_num);
 	} else {
 		/*
 		 * When remote wakeup is disabled, IPA BAM is disconnected
@@ -1475,6 +1492,7 @@ static void mbim_resume(struct usb_function *f)
 {
 	bool remote_wakeup_allowed;
 	struct f_mbim	*mbim = func_to_mbim(f);
+	int port_num;
 
 	pr_info("mbim resumed\n");
 
@@ -1498,7 +1516,11 @@ static void mbim_resume(struct usb_function *f)
 	}
 
 	if (remote_wakeup_allowed) {
-		bam_data_resume(MBIM_ACTIVE_PORT);
+		port_num = u_bam_data_func_to_port(USB_FUNC_MBIM,
+						   MBIM_ACTIVE_PORT);
+		if (port_num < 0)
+			return;
+		bam_data_resume(port_num);
 	} else {
 		/* Restore endpoint descriptors info. */
 		mbim->bam_port.in->desc  = mbim->in_ep_desc_backup;
