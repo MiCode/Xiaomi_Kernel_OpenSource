@@ -1,0 +1,1 @@
+-DMHL_BUILD_NUM=$BUILD_NUM -DI2C_BUS_NUM=4 -DMHL_PRODUCT_NUM=8620 mhl_linux_tx.c mhl_rcp_inputdev.c mhl_supp.c platform.c si_8620_drv.c si_mdt_inputdev.c si_mhl2_edid_3d.c
