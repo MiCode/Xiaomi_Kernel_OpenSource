@@ -399,12 +399,15 @@ static long msm_core_ioctl(struct file *file, unsigned int cmd,
 	struct cpu_activity_info *node = NULL;
 	struct sched_params __user *argp = (struct sched_params __user *)arg;
 	int i, cpu = num_possible_cpus();
-	int mpidr = (argp->cluster << (MAX_CORES_PER_CLUSTER *
-			MAX_NUM_OF_CLUSTERS));
-	int cpumask = argp->cpumask;
+	int mpidr;
+	int cpumask;
 
 	if (!argp)
 		return -EINVAL;
+
+	mpidr = (argp->cluster << (MAX_CORES_PER_CLUSTER *
+			MAX_NUM_OF_CLUSTERS));
+	cpumask = argp->cpumask;
 
 	switch (cmd) {
 	case EA_LEAKAGE:
