@@ -170,6 +170,8 @@ static int mdss_mdp_parse_dt_prefill(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
+static int mdss_iommu_attach(struct mdss_data_type *mdata);
+static int mdss_iommu_dettach(struct mdss_data_type *mdata);
 
 /**
  * mdss_mdp_vbif_axi_halt() - Halt MDSS AXI ports
@@ -667,11 +669,7 @@ int mdss_iommu_ctrl(int enable)
 		__builtin_return_address(0), enable, mdata->iommu_ref_cnt);
 
 	if (enable) {
-		/*
-		 * delay iommu attach until continous splash screen has
-		 * finished handoff, as it may still be working with phys addr
-		 */
-		if (!mdata->iommu_attached && !mdata->handoff_pending)
+		if (mdata->iommu_ref_cnt == 0)
 			rc = mdss_iommu_attach(mdata);
 		mdata->iommu_ref_cnt++;
 	} else {
@@ -942,7 +940,7 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	return 0;
 }
 
-int mdss_iommu_attach(struct mdss_data_type *mdata)
+static int mdss_iommu_attach(struct mdss_data_type *mdata)
 {
 	struct iommu_domain *domain;
 	struct mdss_iommu_map_type *iomap;
@@ -981,7 +979,7 @@ end:
 	return rc;
 }
 
-int mdss_iommu_dettach(struct mdss_data_type *mdata)
+static int mdss_iommu_dettach(struct mdss_data_type *mdata)
 {
 	struct iommu_domain *domain;
 	struct mdss_iommu_map_type *iomap;
@@ -1011,7 +1009,7 @@ int mdss_iommu_dettach(struct mdss_data_type *mdata)
 	return 0;
 }
 
-int mdss_iommu_init(struct mdss_data_type *mdata)
+static int mdss_iommu_init(struct mdss_data_type *mdata)
 {
 	struct msm_iova_layout layout;
 	struct iommu_domain *domain;
