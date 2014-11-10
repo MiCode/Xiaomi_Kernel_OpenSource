@@ -93,6 +93,10 @@ Parent node optional properties:
 					BPD and disables BTC. Declare this node
 					only if you are using an external charger
 					and not the PMIC internal LBC.
+- qcom,chgr-led-support			There is a current sink device in linear
+					charger module, it is used to control a
+					led which can act as a charger led as well
+					as a general notification led.
 
 Sub node required structure:
 - A qcom,charger node must be a child of an SPMI node that has specified
