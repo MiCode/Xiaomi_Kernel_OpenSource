@@ -1152,7 +1152,8 @@ static const struct driver_info wwan_noarp_info = {
 
 static const struct driver_info cdc_ncm_remote_mac_info = {
 	.description = "CDC NCM",
-	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET,
+	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET
+			| FLAG_SEND_ZLP,
 	.bind = cdc_ncm_remote_mac_bind,
 	.unbind = cdc_ncm_unbind,
 	.check_connect = cdc_ncm_check_connect,
