@@ -42,6 +42,13 @@ static int is_power_on;
 
 #define PRONTO_IRIS_REG_READ_OFFSET       0x1134
 #define PRONTO_IRIS_REG_CHIP_ID           0x04
+/* IRIS card chip ID's */
+#define WCN3660       0x0200
+#define WCN3660A      0x0300
+#define WCN3660B      0x0400
+#define WCN3620       0x5111
+#define WCN3620A      0x5112
+#define WCN3610       0x9101
 
 #define WCNSS_PMU_CFG_IRIS_XO_CFG          BIT(3)
 #define WCNSS_PMU_CFG_IRIS_XO_EN           BIT(4)
@@ -168,6 +175,24 @@ int xo_auto_detect(u32 reg)
 	}
 }
 
+int validate_iris_chip_id(u32 reg)
+{
+	int iris_id;
+	iris_id = reg >> 16;
+
+	switch (iris_id) {
+	case WCN3660:
+	case WCN3660A:
+	case WCN3660B:
+	case WCN3620:
+	case WCN3620A:
+	case WCN3610:
+		return 0;
+	default:
+		return 1;
+	}
+}
+
 static int
 configure_iris_xo(struct device *dev,
 			struct wcnss_wlan_config *cfg,
@@ -261,8 +286,9 @@ configure_iris_xo(struct device *dev,
 
 			iris_reg = readl_relaxed(iris_read_reg);
 			pr_info("wcnss: IRIS Reg: %08x\n", iris_reg);
-			if (iris_reg == PRONTO_IRIS_REG_CHIP_ID) {
-				pr_info("wcnss: IRIS Card not Preset\n");
+
+			if (validate_iris_chip_id(iris_reg)) {
+				pr_info("wcnss: IRIS Card absent/invalid\n");
 				auto_detect = WCNSS_XO_INVALID;
 				/* Reset iris read bit */
 				reg &= ~WCNSS_PMU_CFG_IRIS_XO_READ;
