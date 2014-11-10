@@ -515,6 +515,27 @@ static struct kgsl_memdesc_ops kgsl_cma_ops = {
 	.vmfault = kgsl_contiguous_vmfault,
 };
 
+#ifdef CONFIG_ARM64
+/*
+ * For security reasons, ARMv8 doesn't allow invalidate only on read-only
+ * mapping. It would be performance prohibitive to read the permissions on
+ * the buffer before the operation. Every use case that we have found does not
+ * assume that an invalidate operation is invalidate only, so we feel
+ * comfortable turning invalidates into flushes for these targets
+ */
+static inline unsigned int _fixup_cache_range_op(unsigned int op)
+{
+	if (op == KGSL_CACHE_OP_INV)
+		return KGSL_CACHE_OP_FLUSH;
+	return op;
+}
+#else
+static inline unsigned int _fixup_cache_range_op(unsigned int op)
+{
+	return op;
+}
+#endif
+
 int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, size_t offset,
 			size_t size, unsigned int op)
 {
@@ -545,7 +566,7 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, size_t offset,
 	 * are not aligned to the cacheline size correctly.
 	 */
 
-	switch (op) {
+	switch (_fixup_cache_range_op(op)) {
 	case KGSL_CACHE_OP_FLUSH:
 		dmac_flush_range(addr, addr + size);
 		break;
