@@ -252,7 +252,9 @@ static int set_preferred_mode(struct intel_adf_interface *intf)
 	if (err)
 		goto out_err0;
 
-	adf_hotplug_notify_connected(&intf->base, modelist, n_modes);
+	/* Only send HPD event in case of HDMI */
+	if (pipe->type == INTEL_PIPE_HDMI)
+		adf_hotplug_notify_connected(&intf->base, modelist, n_modes);
 
 	return 0;
 out_err0:
