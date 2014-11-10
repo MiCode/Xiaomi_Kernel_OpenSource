@@ -105,8 +105,8 @@ static int msm_flash_pinctrl_init(struct msm_led_flash_ctrl_t *ctrl)
 		flash_pctrl->pinctrl = devm_pinctrl_get(&ctrl->pdev->dev);
 #else
 		flash_pctrl->pinctrl = devm_pinctrl_get(
-#endif					&ctrl->flash_i2c_client->client->dev);
-
+					&ctrl->flash_i2c_client->client->dev);
+#endif
 	if (IS_ERR_OR_NULL(flash_pctrl->pinctrl)) {
 		pr_err("%s:%d Getting pinctrl handle failed\n",
 			__func__, __LINE__);
