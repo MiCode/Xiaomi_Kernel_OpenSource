@@ -257,6 +257,7 @@ header-y += maxim_sti.h
 header-y += mdio.h
 header-y += mdss_rotator.h
 header-y += media.h
+header-y += media-bus-format.h
 header-y += mei.h
 header-y += memfd.h
 header-y += mempolicy.h
