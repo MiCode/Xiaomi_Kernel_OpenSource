@@ -837,5 +837,82 @@
 				bias-disable;
 			};
 		};
+
+		mdss_cs: mdss_cs {
+			label = "mdss-cs-pins";
+			qcom,num-grp-pins = <1>;
+			qcom,pins = <&gp 21>;
+			qcom,pin-func = <2>;
+			mdss_cs_active: active {
+				drive-strength = <10>; /* 10 mA */
+				bias-disable; /* NO pull */
+			};
+			mdss_cs_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-disable; /* NO pull */
+			};
+		};
+
+		mdss_te: mdss_te {
+			label = "mdss-te-pins";
+			qcom,num-grp-pins = <1>;
+			qcom,pins = <&gp 22>;
+			qcom,pin-func = <2>;
+			mdss_te_active: active {
+				drive-strength = <10>; /* 10 mA */
+				bias-disable; /* NO pull */
+			};
+			mdss_te_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-disable; /* NO pull */
+			};
+		};
+
+		mdss_rs: mdss_rs {
+			label = "mdss-rs-pins";
+			qcom,num-grp-pins = <1>;
+			qcom,pins = <&gp 23>;
+			qcom,pin-func = <2>;
+			mdss_rs_active: active {
+				drive-strength = <10>; /* 10 mA */
+				bias-disable; /* NO pull */
+			};
+			mdss_rs_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-disable; /* NO pull */
+			};
+		};
+
+		mdss_ad: mdss_ad {
+			label = "mdss-ad-pins";
+			qcom,num-grp-pins = <1>;
+			qcom,pins = <&gp 20>;
+			qcom,pin-func = <2>;
+			mdss_ad_active: active {
+				drive-strength = <10>; /* 10 mA */
+				bias-disable; /* NO pull */
+			};
+			mdss_ad_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-disable; /* NO pull */
+			};
+		};
+
+		mdss_bl: mdss_bl {
+			label = "mdss-bl-pins";
+			qcom,num-grp-pins = <1>;
+			qcom,pins = <&gp 68>;
+			qcom,pin-func = <0>;
+			mdss_bl_active: active {
+				drive-strength = <10>; /* 10 mA */
+				bias-pull-none; /* pull none */
+				output-high;
+			};
+			mdss_bl_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-disable; /* NO pull */
+				output-low;
+			};
+		};
 	};
 };
