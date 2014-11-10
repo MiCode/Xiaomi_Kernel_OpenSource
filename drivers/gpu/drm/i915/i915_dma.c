@@ -152,11 +152,10 @@ void i915_kernel_lost_context(struct drm_device * dev)
 	if (drm_core_check_feature(dev, DRIVER_MODESET))
 		return;
 
+	ringbuf->last_retired_head = -1;
 	ringbuf->head = I915_READ_HEAD(ring) & HEAD_ADDR;
 	ringbuf->tail = I915_READ_TAIL(ring) & TAIL_ADDR;
-	ringbuf->space = ringbuf->head - (ringbuf->tail + I915_RING_FREE_SPACE);
-	if (ringbuf->space < 0)
-		ringbuf->space += ringbuf->size;
+	intel_ring_update_space(ringbuf);
 
 	if (!dev->primary->master)
 		return;
