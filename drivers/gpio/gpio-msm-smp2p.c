@@ -123,6 +123,7 @@ static void smp2p_set_value(struct gpio_chip *cp, unsigned offset, int value)
 	struct smp2p_chip_dev *chip;
 	uint32_t data_set;
 	uint32_t data_clear;
+	bool send_irq;
 	int ret;
 
 	if (!cp)
@@ -139,6 +140,13 @@ static void smp2p_set_value(struct gpio_chip *cp, unsigned offset, int value)
 		return;
 	}
 
+	if (value & SMP2P_GPIO_NO_INT) {
+		value &= ~SMP2P_GPIO_NO_INT;
+		send_irq = false;
+	} else {
+		send_irq = true;
+	}
+
 	if (value) {
 		data_set = 1 << offset;
 		data_clear = 0;
@@ -148,7 +156,7 @@ static void smp2p_set_value(struct gpio_chip *cp, unsigned offset, int value)
 	}
 
 	ret = msm_smp2p_out_modify(chip->out_handle,
-			data_set, data_clear);
+			data_set, data_clear, send_irq);
 
 	if (ret)
 		SMP2P_GPIO("'%s':%d gpio %d set to %d failed (%d)\n",

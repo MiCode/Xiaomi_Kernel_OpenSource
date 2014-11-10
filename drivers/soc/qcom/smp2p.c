@@ -145,7 +145,7 @@ struct smp2p_version_if {
 	int (*create_entry)(struct msm_smp2p_out *);
 	int (*read_entry)(struct msm_smp2p_out *, uint32_t *);
 	int (*write_entry)(struct msm_smp2p_out *, uint32_t);
-	int (*modify_entry)(struct msm_smp2p_out *, uint32_t, uint32_t);
+	int (*modify_entry)(struct msm_smp2p_out *, uint32_t, uint32_t, bool);
 
 	/* inbound entry functions */
 	struct smp2p_smem __iomem *(*validate_size)(int remote_pid,
@@ -164,7 +164,8 @@ static void smp2p_find_entry_v0(struct smp2p_smem __iomem *item,
 static int smp2p_out_create_v0(struct msm_smp2p_out *);
 static int smp2p_out_read_v0(struct msm_smp2p_out *, uint32_t *);
 static int smp2p_out_write_v0(struct msm_smp2p_out *, uint32_t);
-static int smp2p_out_modify_v0(struct msm_smp2p_out *, uint32_t, uint32_t);
+static int smp2p_out_modify_v0(struct msm_smp2p_out *,
+					uint32_t, uint32_t, bool);
 static struct smp2p_smem __iomem *smp2p_in_validate_size_v0(int remote_pid,
 		struct smp2p_smem __iomem *smem_item, uint32_t size);
 
@@ -177,7 +178,8 @@ static void smp2p_find_entry_v1(struct smp2p_smem __iomem *item,
 static int smp2p_out_create_v1(struct msm_smp2p_out *);
 static int smp2p_out_read_v1(struct msm_smp2p_out *, uint32_t *);
 static int smp2p_out_write_v1(struct msm_smp2p_out *, uint32_t);
-static int smp2p_out_modify_v1(struct msm_smp2p_out *, uint32_t, uint32_t);
+static int smp2p_out_modify_v1(struct msm_smp2p_out *,
+					uint32_t, uint32_t, bool);
 static struct smp2p_smem __iomem *smp2p_in_validate_size_v1(int remote_pid,
 		struct smp2p_smem __iomem *smem_item, uint32_t size);
 
@@ -677,6 +679,7 @@ static int smp2p_out_write_v1(struct msm_smp2p_out *out_entry, uint32_t data)
  *
  * @set_mask:  Mask containing the bits that needs to be set.
  * @clear_mask: Mask containing the bits that needs to be cleared.
+ * @send_irq: Flag to send interrupt to remote processor.
  * @returns: 0 on success, standard Linux error code otherwise.
  *
  * The clear mask is applied first, so  if a bit is set in both clear and
@@ -685,7 +688,7 @@ static int smp2p_out_write_v1(struct msm_smp2p_out *out_entry, uint32_t data)
  * Must be called with out_item_lock_lha1 locked.
  */
 static int smp2p_out_modify_v1(struct msm_smp2p_out *out_entry,
-		uint32_t set_mask, uint32_t clear_mask)
+		uint32_t set_mask, uint32_t clear_mask, bool send_irq)
 {
 	struct smp2p_smem __iomem  *smp2p_h_ptr;
 	uint32_t remote_pid;
@@ -711,7 +714,8 @@ static int smp2p_out_modify_v1(struct msm_smp2p_out *out_entry,
 		return -ENODEV;
 	}
 
-	smp2p_send_interrupt(remote_pid);
+	if (send_irq)
+		smp2p_send_interrupt(remote_pid);
 	return 0;
 }
 
@@ -912,10 +916,11 @@ static int smp2p_out_write_v0(struct msm_smp2p_out *out_entry, uint32_t data)
  *
  * @set_mask:  Mask containing the bits that needs to be set.
  * @clear_mask: Mask containing the bits that needs to be cleared.
+ * @send_irq: Flag to send interrupt to remote processor.
  * @returns: -ENODEV
  */
 static int smp2p_out_modify_v0(struct msm_smp2p_out *out_entry,
-		uint32_t set_mask, uint32_t clear_mask)
+		uint32_t set_mask, uint32_t clear_mask, bool send_irq)
 {
 	SMP2P_ERR("%s: item '%s':%d not yet OPEN\n",
 		__func__, out_entry->name, out_entry->remote_pid);
@@ -1325,6 +1330,7 @@ EXPORT_SYMBOL(msm_smp2p_out_write);
  * @handle: Handle to the smem entry structure.
  * @set_mask: Specifies the bits that needs to be set.
  * @clear_mask: Specifies the bits that needs to be cleared.
+ * @send_irq: Flag to send interrupt to remote processor.
  * @returns: 0 on success, standard Linux error code otherwise.
  *
  * The modification is done by doing a bitwise AND of clear mask followed by
@@ -1337,7 +1343,7 @@ EXPORT_SYMBOL(msm_smp2p_out_write);
  * acceptable.
  */
 int msm_smp2p_out_modify(struct msm_smp2p_out *handle, uint32_t set_mask,
-							uint32_t clear_mask)
+					uint32_t clear_mask, bool send_irq)
 {
 	int ret = -EINVAL;
 	unsigned long flags;
@@ -1355,7 +1361,8 @@ int msm_smp2p_out_modify(struct msm_smp2p_out *handle, uint32_t set_mask,
 
 	out_item = &out_list[handle->remote_pid];
 	spin_lock_irqsave(&out_item->out_item_lock_lha1, flags);
-	ret = out_item->ops_ptr->modify_entry(handle, set_mask, clear_mask);
+	ret = out_item->ops_ptr->modify_entry(handle, set_mask,
+						clear_mask, send_irq);
 	spin_unlock_irqrestore(&out_item->out_item_lock_lha1, flags);
 
 	return ret;
