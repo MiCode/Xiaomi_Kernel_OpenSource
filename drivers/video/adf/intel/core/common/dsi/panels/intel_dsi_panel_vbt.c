@@ -291,14 +291,18 @@ static void generic_exec_sequence(struct dsi_pipe *dsi_pipe, char *sequence)
 	if (!sequence)
 		return;
 
-	pr_debug("Starting MIPI sequence - %s\n", seq_name[*data]);
+	pr_err("Starting MIPI sequence - %s\n", seq_name[*data]);
 
 	/* go to the first element of the sequence */
 	data++;
 
+	if (dsi_pipe->config.dsi->seq_version >= 3)
+		data = data + 4;
+
 	/* parse each byte till we reach end of sequence byte - 0x00 */
 	while (1) {
 		index = *data;
+		pr_debug("ADF: %s: Element Type = %d\n", __func__, index);
 		mipi_elem_exec = exec_elem[index];
 		if (!mipi_elem_exec) {
 			pr_err("Unsupported MIPI element, skipping sequence execution\n");
@@ -307,6 +311,9 @@ static void generic_exec_sequence(struct dsi_pipe *dsi_pipe, char *sequence)
 
 		/* goto element payload */
 		data++;
+
+		if (dsi_pipe->config.dsi->seq_version >= 3)
+			data++;
 
 		/* execute the element specific rotines */
 		data = mipi_elem_exec(dsi_pipe, data);
