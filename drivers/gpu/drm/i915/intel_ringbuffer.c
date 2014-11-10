@@ -2484,6 +2484,7 @@ intel_ring_alloc_request(struct intel_engine_cs *ring, struct intel_context *ctx
 
 	kref_init(&request->ref);
 	request->ring = ring;
+	request->ringbuf = ring->buffer;
 	request->uniq = dev_private->request_uniq++;
 
 	ret = i915_gem_get_seqno(ring->dev, &request->seqno);

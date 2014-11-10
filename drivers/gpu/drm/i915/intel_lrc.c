@@ -1670,12 +1670,14 @@ int intel_logical_ring_alloc_request(struct intel_engine_cs *ring,
 		return ret;
 	}
 
-	/* Hold a reference to the context this request belongs to
+	/*
+	 * Hold a reference to the context this request belongs to
 	 * (we will need it when the time comes to emit/retire the
-	 * request).
+	 * request). Likewise, the ringbuff is useful to keep track of.
 	 */
 	request->ctx = ctx;
 	i915_gem_context_reference(request->ctx);
+	request->ringbuf = ctx->engine[ring->id].ringbuf;
 
 	ring->outstanding_lazy_request = request;
 	return 0;
