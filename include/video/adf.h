@@ -293,6 +293,9 @@ struct adf_device {
 
 	struct list_head post_list;
 	struct mutex post_lock;
+	struct mutex dpms_lock;
+	bool dpms_in_progress;
+	int dpms_state;
 	struct kthread_worker post_worker;
 	struct task_struct *post_thread;
 	struct kthread_work post_work;

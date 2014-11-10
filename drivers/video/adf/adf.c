@@ -555,6 +555,7 @@ int adf_device_init(struct adf_device *dev, struct device *parent,
 	idr_init(&dev->overlay_engines);
 	idr_init(&dev->interfaces);
 	mutex_init(&dev->client_lock);
+	mutex_init(&dev->dpms_lock);
 	INIT_LIST_HEAD(&dev->post_list);
 	mutex_init(&dev->post_lock);
 	init_kthread_worker(&dev->post_worker);

@@ -229,6 +229,19 @@ static int adf_device_post_config(struct adf_device *dev,
 	if (complete_fence_fd < 0)
 		return complete_fence_fd;
 
+	if (dev->dpms_in_progress) {
+		ret = -EBUSY;
+		pr_err("DPMS in Progress. Rejecting Flip.\n");
+		goto err_get_user;
+	}
+
+	mutex_lock(&dev->dpms_lock);
+	if (dev->dpms_state == DRM_MODE_DPMS_OFF) {
+		ret = -EFAULT;
+		pr_err("Device Suspended. Rejecting Flip.\n");
+		goto err_get_user;
+	}
+
 	if (get_user(n_intfs, &arg->n_interfaces)) {
 		ret = -EFAULT;
 		goto err_get_user;
@@ -324,6 +337,7 @@ static int adf_device_post_config(struct adf_device *dev,
 	}
 
 	sync_fence_install(complete_fence, complete_fence_fd);
+	mutex_unlock(&dev->dpms_lock);
 	return 0;
 
 err_import:
@@ -335,6 +349,7 @@ err_get_user:
 	kfree(bufs);
 	kfree(intfs);
 	put_unused_fd(complete_fence_fd);
+	mutex_unlock(&dev->dpms_lock);
 	return ret;
 }
 

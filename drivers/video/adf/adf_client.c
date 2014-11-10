@@ -49,6 +49,9 @@ int adf_interface_blank(struct adf_interface *intf, u8 state)
 	if (state > DRM_MODE_DPMS_OFF)
 		return -EINVAL;
 
+	dev->dpms_in_progress = true;
+
+	mutex_lock(&dev->dpms_lock);
 	mutex_lock(&dev->client_lock);
 	if (state != DRM_MODE_DPMS_ON)
 		flush_kthread_worker(&dev->post_worker);
@@ -94,6 +97,12 @@ int adf_interface_blank(struct adf_interface *intf, u8 state)
 done:
 	mutex_unlock(&intf->base.event_lock);
 	mutex_unlock(&dev->client_lock);
+	dev->dpms_in_progress = false;
+	if (state == DRM_MODE_DPMS_OFF)
+		dev->dpms_state = DRM_MODE_DPMS_OFF;
+	else if (state == DRM_MODE_DPMS_ON)
+		dev->dpms_state = DRM_MODE_DPMS_ON;
+	mutex_unlock(&dev->dpms_lock);
 	return ret;
 }
 EXPORT_SYMBOL(adf_interface_blank);
