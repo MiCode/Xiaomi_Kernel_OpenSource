@@ -843,6 +843,7 @@
 		vdda18-supply = <&pmd9635_l8>;
 		vdda33-supply = <&pmd9635_l10>;
 		qcom,vdd-voltage-level = <0 1000000 1000000>;
+		qcom,qusb-tune = <0xa08391d5>;
 		phy_type = "utmi";
 
 		clocks = <&clock_rpm clk_ln_bb_clk>,
