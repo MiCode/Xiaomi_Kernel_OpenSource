@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+ #include "apq8094-camera-sensor-dragonboard.dtsi"
+
 / {
 	bt_qca6174 {
 		compatible = "qca,qca6174";
