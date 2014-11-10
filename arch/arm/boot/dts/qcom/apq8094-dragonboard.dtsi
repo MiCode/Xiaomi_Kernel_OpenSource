@@ -11,8 +11,6 @@
  */
 
 / {
-	qcom,msm-id = <207 0x10000>, <253 0x10000>;
-
 	bt_qca6174 {
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&pm8994_gpios 19 0>; /* BT_EN */
