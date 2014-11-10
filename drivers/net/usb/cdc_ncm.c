@@ -580,6 +580,13 @@ static int cdc_ncm_bind(struct usbnet *dev, struct usb_interface *intf)
 	return ret;
 }
 
+static int cdc_ncm_remote_mac_bind(struct usbnet *dev,
+					struct usb_interface *intf)
+{
+	dev->net->addr_len = 1;
+	return cdc_ncm_bind(dev, intf);
+}
+
 static void cdc_ncm_align_tail(struct sk_buff *skb, size_t modulus, size_t remainder, size_t max)
 {
 	size_t align = ALIGN(skb->len, modulus) - skb->len + remainder;
@@ -1143,6 +1150,18 @@ static const struct driver_info wwan_noarp_info = {
 	.tx_fixup = cdc_ncm_tx_fixup,
 };
 
+static const struct driver_info cdc_ncm_remote_mac_info = {
+	.description = "CDC NCM",
+	.flags = FLAG_POINTTOPOINT | FLAG_NO_SETINT | FLAG_MULTI_PACKET,
+	.bind = cdc_ncm_remote_mac_bind,
+	.unbind = cdc_ncm_unbind,
+	.check_connect = cdc_ncm_check_connect,
+	.manage_power = usbnet_manage_power,
+	.status = cdc_ncm_status,
+	.rx_fixup = cdc_ncm_rx_fixup,
+	.tx_fixup = cdc_ncm_tx_fixup,
+};
+
 static const struct usb_device_id cdc_devs[] = {
 	/* Ericsson MBM devices like F5521gw */
 	{ .match_flags = USB_DEVICE_ID_MATCH_INT_INFO
@@ -1187,6 +1206,11 @@ static const struct usb_device_id cdc_devs[] = {
 		USB_CLASS_COMM,
 		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
 	  .driver_info = (unsigned long)&wwan_noarp_info,
+	},
+	{ USB_DEVICE_AND_INTERFACE_INFO(0x1519, 0x0452,
+		USB_CLASS_COMM,
+		USB_CDC_SUBCLASS_NCM, USB_CDC_PROTO_NONE),
+	  .driver_info = (unsigned long)&cdc_ncm_remote_mac_info,
 	},
 
 	/* Generic CDC-NCM devices */
