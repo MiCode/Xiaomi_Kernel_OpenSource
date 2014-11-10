@@ -70,6 +70,7 @@ struct qusb_phy {
 	struct regulator	*vdda33;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
+	u32			qusb_tune;
 
 	bool			power_enabled;
 	bool			clocks_enabled;
@@ -141,6 +142,7 @@ disable_vdd:
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
+	u32 t1, t2, t3, t4;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
@@ -185,13 +187,20 @@ static int qusb_phy_init(struct usb_phy *phy)
 		if (qphy->ulpi_mode)
 			writel_relaxed(0x0,
 					qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+		if (qphy->qusb_tune) {
 
-		/* Program tuning parameters for PHY */
-		writel_relaxed(0xA0, qphy->base + QUSB2PHY_PORT_TUNE1);
-		writel_relaxed(0xA5, qphy->base + QUSB2PHY_PORT_TUNE2);
-		writel_relaxed(0x81, qphy->base + QUSB2PHY_PORT_TUNE3);
-		writel_relaxed(0x85, qphy->base + QUSB2PHY_PORT_TUNE4);
+			t1 = qphy->qusb_tune >> 24;
+			t2 = (qphy->qusb_tune) >> 16 & 0xFF;
+			t3 = (qphy->qusb_tune) >> 8 & 0xFF;
+			t4 = (qphy->qusb_tune) & 0xFF;
 
+			/* Program tuning parameters for PHY */
+			writel_relaxed(t1, qphy->base + QUSB2PHY_PORT_TUNE1);
+			writel_relaxed(t2, qphy->base + QUSB2PHY_PORT_TUNE2);
+			writel_relaxed(t3, qphy->base + QUSB2PHY_PORT_TUNE3);
+			writel_relaxed(t4, qphy->base + QUSB2PHY_PORT_TUNE4);
+
+		}
 		/* ensure above writes are completed before re-enabling PHY */
 		wmb();
 
@@ -396,6 +405,8 @@ static int qusb_phy_probe(struct platform_device *pdev)
 
 	qphy->emulation = of_property_read_bool(dev->of_node,
 						"qcom,emulation");
+
+	of_property_read_u32(dev->of_node, "qcom,qusb-tune", &qphy->qusb_tune);
 
 	qphy->ulpi_mode = false;
 	ret = of_property_read_string(dev->of_node, "phy_type", &phy_type);
