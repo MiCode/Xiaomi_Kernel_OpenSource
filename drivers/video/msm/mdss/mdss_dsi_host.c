@@ -779,6 +779,16 @@ void mdss_dsi_controller_cfg(int enable,
 	wmb();
 }
 
+void mdss_dsi_restore_intr_mask(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	u32 mask;
+
+	mask = MIPI_INP((ctrl->ctrl_base) + 0x0110);
+	mask |= (DSI_INTR_CMD_DMA_DONE_MASK | DSI_INTR_ERROR_MASK |
+				DSI_INTR_BTA_DONE_MASK);
+	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, mask);
+}
+
 void mdss_dsi_op_mode_config(int mode,
 			     struct mdss_panel_data *pdata)
 {
