@@ -1042,6 +1042,8 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 		unsigned long flags = 0;
 		lock = &mhi_dev_ctxt->mhi_ev_spinlock_list[ring_index];
 		spin_lock_irqsave(lock, flags);
+		db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
+					(uintptr_t)ring->wp);
 		mhi_update_ctxt(mhi_dev_ctxt,
 				mhi_dev_ctxt->event_db_addr,
 				ring_index, db_value);
@@ -1077,6 +1079,9 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 			mhi_dev_ctxt->mhi_ev_db_order[ring_index] = 1;
 			if ((mhi_dev_ctxt->ev_counter[ring_index] %
 						MHI_EV_DB_INTERVAL) == 0) {
+				db_value = mhi_v2p_addr(
+						mhi_dev_ctxt->mhi_ctrl_seg_info,
+						(uintptr_t)ring->wp);
 				mhi_process_db(mhi_dev_ctxt,
 						mhi_dev_ctxt->event_db_addr,
 						ring_index, db_value);
