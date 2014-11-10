@@ -26,9 +26,12 @@
 
 #include <mach/hardware.h>
 
+#include "mdss.h"
 #include "mdss_qpic.h"
 #include "mdss_qpic_panel.h"
 
+static int mdss_qpic_pinctrl_set_state(struct qpic_panel_io_desc *qpic_panel_io,
+		bool active);
 static int panel_io_init(struct qpic_panel_io_desc *panel_io)
 {
 	int rc;
@@ -53,6 +56,9 @@ static int panel_io_init(struct qpic_panel_io_desc *panel_io)
 
 static void panel_io_off(struct qpic_panel_io_desc *qpic_panel_io)
 {
+	if (mdss_qpic_pinctrl_set_state(qpic_panel_io, false))
+		pr_warn("%s panel on: pinctrl not enabled\n", __func__);
+
 	if (qpic_panel_io->ad8_gpio)
 		gpio_free(qpic_panel_io->ad8_gpio);
 	if (qpic_panel_io->cs_gpio)
@@ -93,35 +99,41 @@ static int panel_io_on(struct qpic_panel_io_desc *qpic_panel_io)
 		}
 	}
 
-	if ((qpic_panel_io->rst_gpio) &&
-		(gpio_request(qpic_panel_io->rst_gpio, "disp_rst_n"))) {
-		pr_err("%s request reset gpio failed\n", __func__);
-		goto power_on_error;
+	/* GPIO settings using pinctrl */
+	if (mdss_qpic_pinctrl_set_state(qpic_panel_io, true)) {
+		pr_warn("%s panel on: pinctrl not enabled\n", __func__);
+
+		if ((qpic_panel_io->rst_gpio) &&
+			(gpio_request(qpic_panel_io->rst_gpio, "disp_rst_n"))) {
+			pr_err("%s request reset gpio failed\n", __func__);
+			goto power_on_error;
+		}
+
+		if ((qpic_panel_io->cs_gpio) &&
+			(gpio_request(qpic_panel_io->cs_gpio, "disp_cs_n"))) {
+			pr_err("%s request cs gpio failed\n", __func__);
+			goto power_on_error;
+		}
+
+		if ((qpic_panel_io->ad8_gpio) &&
+			(gpio_request(qpic_panel_io->ad8_gpio, "disp_ad8_n"))) {
+			pr_err("%s request ad8 gpio failed\n", __func__);
+			goto power_on_error;
+		}
+
+		if ((qpic_panel_io->te_gpio) &&
+			(gpio_request(qpic_panel_io->te_gpio, "disp_te_n"))) {
+			pr_err("%s request te gpio failed\n", __func__);
+			goto power_on_error;
+		}
+
+		if ((qpic_panel_io->bl_gpio) &&
+			(gpio_request(qpic_panel_io->bl_gpio, "disp_bl_n"))) {
+			pr_err("%s request bl gpio failed\n", __func__);
+			goto power_on_error;
+		}
 	}
 
-	if ((qpic_panel_io->cs_gpio) &&
-		(gpio_request(qpic_panel_io->cs_gpio, "disp_cs_n"))) {
-		pr_err("%s request cs gpio failed\n", __func__);
-		goto power_on_error;
-	}
-
-	if ((qpic_panel_io->ad8_gpio) &&
-		(gpio_request(qpic_panel_io->ad8_gpio, "disp_ad8_n"))) {
-		pr_err("%s request ad8 gpio failed\n", __func__);
-		goto power_on_error;
-	}
-
-	if ((qpic_panel_io->te_gpio) &&
-		(gpio_request(qpic_panel_io->te_gpio, "disp_te_n"))) {
-		pr_err("%s request te gpio failed\n", __func__);
-		goto power_on_error;
-	}
-
-	if ((qpic_panel_io->bl_gpio) &&
-		(gpio_request(qpic_panel_io->bl_gpio, "disp_bl_n"))) {
-		pr_err("%s request bl gpio failed\n", __func__);
-		goto power_on_error;
-	}
 	/* wait for 20 ms after enable gpio as suggested by hw */
 	msleep(20);
 	return 0;
@@ -190,4 +202,30 @@ int ili9341_on(struct qpic_panel_io_desc *qpic_panel_io)
 	pr_debug("Pixel format =%x", param[0]);
 
 	return 0;
+}
+
+static int mdss_qpic_pinctrl_set_state(struct qpic_panel_io_desc *qpic_panel_io,
+		bool active)
+{
+	struct pinctrl_state *pin_state;
+	int rc = -EFAULT;
+
+	if (IS_ERR_OR_NULL(qpic_panel_io->pin_res.pinctrl))
+		return PTR_ERR(qpic_panel_io->pin_res.pinctrl);
+
+	pin_state = active ? qpic_panel_io->pin_res.gpio_state_active
+		: qpic_panel_io->pin_res.gpio_state_suspend;
+	if (!IS_ERR_OR_NULL(pin_state)) {
+		rc = pinctrl_select_state(qpic_panel_io->pin_res.pinctrl,
+				pin_state);
+		if (rc)
+			pr_err("%s: can not set %s pins\n", __func__,
+					active ? MDSS_PINCTRL_STATE_DEFAULT
+					: MDSS_PINCTRL_STATE_SLEEP);
+	} else {
+		pr_err("%s: invalid '%s' pinstate\n", __func__,
+				active ? MDSS_PINCTRL_STATE_DEFAULT
+				: MDSS_PINCTRL_STATE_SLEEP);
+	}
+	return rc;
 }

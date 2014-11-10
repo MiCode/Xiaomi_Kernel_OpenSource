@@ -36,6 +36,9 @@ static u32 panel_refresh_rate;
 static int (*qpic_panel_on)(struct qpic_panel_io_desc *qpic_panel_io);
 static void (*qpic_panel_off)(struct qpic_panel_io_desc *qpic_panel_io);
 
+static int mdss_qpic_pinctrl_init(struct platform_device *pdev,
+		struct qpic_panel_io_desc *qpic_panel_io);
+
 u32 qpic_panel_get_framerate(void)
 {
 	return panel_refresh_rate;
@@ -99,6 +102,30 @@ u32 qpic_send_frame(u32 x_start,
 	return 0;
 }
 
+static int mdss_qpic_pinctrl_init(struct platform_device *pdev,
+		struct qpic_panel_io_desc *qpic_panel_io)
+{
+	qpic_panel_io->pin_res.pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(qpic_panel_io->pin_res.pinctrl)) {
+		pr_err("%s: failed to get pinctrl\n", __func__);
+		return PTR_ERR(qpic_panel_io->pin_res.pinctrl);
+	}
+
+	qpic_panel_io->pin_res.gpio_state_active
+		= pinctrl_lookup_state(qpic_panel_io->pin_res.pinctrl,
+				MDSS_PINCTRL_STATE_DEFAULT);
+	if (IS_ERR_OR_NULL(qpic_panel_io->pin_res.gpio_state_active))
+		pr_warn("%s: cannot get default pinstate\n", __func__);
+
+	qpic_panel_io->pin_res.gpio_state_suspend
+		= pinctrl_lookup_state(qpic_panel_io->pin_res.pinctrl,
+				MDSS_PINCTRL_STATE_SLEEP);
+	if (IS_ERR_OR_NULL(qpic_panel_io->pin_res.gpio_state_suspend))
+		pr_warn("%s: cannot get sleep pinstate\n", __func__);
+
+	return 0;
+}
+
 int mdss_qpic_panel_on(struct mdss_panel_data *pdata,
 	struct qpic_panel_io_desc *panel_io)
 {
@@ -125,14 +152,18 @@ int mdss_qpic_panel_off(struct mdss_panel_data *pdata,
 	return 0;
 }
 
-
 int mdss_qpic_panel_io_init(struct platform_device *pdev,
 	struct qpic_panel_io_desc *qpic_panel_io)
 {
+	int rc = 0;
 	struct device_node *np = pdev->dev.of_node;
 	int rst_gpio, cs_gpio, te_gpio, ad8_gpio, bl_gpio;
 	struct regulator *vdd_vreg;
 	struct regulator *avdd_vreg;
+
+	rc = mdss_qpic_pinctrl_init(pdev, qpic_panel_io);
+	if (rc)
+		pr_warn("%s: failed to get pin resources\n", __func__);
 
 	rst_gpio = of_get_named_gpio(np, "qcom,rst-gpio", 0);
 	cs_gpio = of_get_named_gpio(np, "qcom,cs-gpio", 0);
@@ -141,27 +172,27 @@ int mdss_qpic_panel_io_init(struct platform_device *pdev,
 	bl_gpio = of_get_named_gpio(np, "qcom,bl-gpio", 0);
 
 	if (!gpio_is_valid(rst_gpio))
-		pr_err("%s: reset gpio not specified\n" , __func__);
+		pr_warn("%s: reset gpio not specified\n" , __func__);
 	else
 		qpic_panel_io->rst_gpio = rst_gpio;
 
 	if (!gpio_is_valid(cs_gpio))
-		pr_err("%s: cs gpio not specified\n", __func__);
+		pr_warn("%s: cs gpio not specified\n", __func__);
 	else
 		qpic_panel_io->cs_gpio = cs_gpio;
 
 	if (!gpio_is_valid(ad8_gpio))
-		pr_err("%s: ad8 gpio not specified\n", __func__);
+		pr_warn("%s: ad8 gpio not specified\n", __func__);
 	else
 		qpic_panel_io->ad8_gpio = ad8_gpio;
 
 	if (!gpio_is_valid(te_gpio))
-		pr_err("%s: te gpio not specified\n", __func__);
+		pr_warn("%s: te gpio not specified\n", __func__);
 	else
 		qpic_panel_io->te_gpio = te_gpio;
 
 	if (!gpio_is_valid(bl_gpio))
-		pr_err("%s: te gpio not specified\n", __func__);
+		pr_warn("%s: te gpio not specified\n", __func__);
 	else
 		qpic_panel_io->bl_gpio = bl_gpio;
 
