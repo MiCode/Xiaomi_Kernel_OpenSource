@@ -68,11 +68,13 @@ static int zram_show_mem_notifier(struct notifier_block *nb,
 
 		if (zram->init_done) {
 			u64 val;
+			u64 data_size;
 
 			val = zs_get_total_size_bytes(meta->mem_pool);
+			data_size = atomic64_read(&zram->stats.compr_size);
 			pr_info("Zram[%d] mem_used_total = %llu\n", i, val);
 			pr_info("Zram[%d] compr_data_size = %llu\n", i,
-				atomic64_read(&zram->stats.compr_size));
+				(unsigned long long)data_size);
 			pr_info("Zram[%d] orig_data_size = %u\n", i,
 				zram->stats.pages_stored);
 		}
