@@ -749,6 +749,9 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 		}
 	}
 
+	/* Suspend QUSB2 PHY */
+	usb_phy_set_suspend(hcd->phy, 1);
+
 	/*
 	 * PHY has capability to generate interrupt asynchronously in low
 	 * power mode (LPM). This interrupt is level triggered. So USB IRQ
@@ -864,6 +867,9 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 	temp &= ~ASYNC_INTR_CTRL;
 	temp &= ~ULPI_STP_CTRL;
 	writel_relaxed(temp, USB_USBCMD);
+
+	/* Resume QUSB2 PHY */
+	usb_phy_set_suspend(hcd->phy, 0);
 
 	if (!(readl_relaxed(USB_PORTSC) & PORTSC_PHCD))
 		goto skip_phy_resume;
@@ -1515,12 +1521,15 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 		hcd->phy = NULL;
 	}
 
-	if (hcd->phy)
+	if (hcd->phy) {
 		usb_phy_init(hcd->phy);
-	else if (pdata && pdata->use_sec_phy)
+		/* Set Host mode flag */
+		hcd->phy->flags |= PHY_HOST_MODE;
+	} else if (pdata && pdata->use_sec_phy) {
 		mhcd->usb_phy_ctrl_reg = USB_PHY_CTRL2;
-	else
+	} else {
 		mhcd->usb_phy_ctrl_reg = USB_PHY_CTRL;
+	}
 
 	ret = msm_hsusb_reset(mhcd);
 	if (ret) {
@@ -1668,8 +1677,11 @@ static int ehci_msm2_remove(struct platform_device *pdev)
 
 	usb_remove_hcd(hcd);
 
-	if (hcd->phy)
+	if (hcd->phy) {
+		/* Clear host mode flag */
+		hcd->phy->flags &= ~PHY_HOST_MODE;
 		usb_phy_shutdown(hcd->phy);
+	}
 
 	if (mhcd->xo_clk) {
 		clk_disable_unprepare(mhcd->xo_clk);
