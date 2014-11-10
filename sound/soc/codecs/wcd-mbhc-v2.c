@@ -785,10 +785,7 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 		/*
 		 * Nothing was reported previously
 		 * report a headphone or unsupported
-		 * Enable CS for headphone to correct slow insertion of headset.
 		 */
-		snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL, 0x30, 0x30);
 		wcd_mbhc_report_plug(mbhc, 1, SND_JACK_HEADPHONE);
 	} else if (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
 			if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE)
@@ -934,6 +931,43 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 	return ret;
 }
 
+static void wcd_enable_mbhc_supply(struct wcd_mbhc *mbhc,
+			enum wcd_mbhc_plug_type plug_type)
+{
+	/*
+	 * Do not disable micbias if recording is going on or
+	 * headset is inserted on the other side of the extn
+	 * cable. If headset has been detected current source
+	 * needs to be kept enabled for button detection to work.
+	 * If the accessory type is invalid or unsupported, we
+	 * dont need to enable either of them.
+	 */
+	if (det_extn_cable_en && mbhc->is_extn_cable) {
+		if (plug_type == MBHC_PLUG_TYPE_HEADPHONE ||
+		    plug_type == MBHC_PLUG_TYPE_HEADSET)
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
+	} else {
+		if (plug_type == MBHC_PLUG_TYPE_HEADSET) {
+			if (mbhc->is_hs_recording)
+				wcd_enable_curr_micbias(mbhc,
+							WCD_MBHC_EN_MB);
+			else if ((test_bit(WCD_MBHC_EVENT_PA_HPHL,
+				&mbhc->event_state)) ||
+				(test_bit(WCD_MBHC_EVENT_PA_HPHR,
+				&mbhc->event_state)))
+					wcd_enable_curr_micbias(mbhc,
+							WCD_MBHC_EN_PULLUP);
+			else
+				wcd_enable_curr_micbias(mbhc,
+							WCD_MBHC_EN_CS);
+		} else if (plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+		} else {
+			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_NONE);
+		}
+	}
+}
+
 static void wcd_correct_swch_plug(struct work_struct *work)
 {
 	struct wcd_mbhc *mbhc;
@@ -1051,29 +1085,8 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	 * detect_plug-type or in above while loop, no need to report again
 	 */
 	if (!wrk_complete && plug_type == MBHC_PLUG_TYPE_HEADSET) {
-		pr_debug("%s: It's neither headset nor headphone\n", __func__);
-		/*
-		 * Do not disable micbias if recording is going on or
-		 * headset is inserted on the other side of the extn
-		 * cable. If headset has been detected current source
-		 * needs to be kept enabled for button detection to work.
-		 * If the accessory type is invalid or unsupported, we
-		 * dont need to enable either of them.
-		 */
-		if (plug_type == MBHC_PLUG_TYPE_HEADSET) {
-			if ((mbhc->is_hs_recording || det_extn_cable_en))
-				wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
-			else if ((test_bit(WCD_MBHC_EVENT_PA_HPHL,
-				&mbhc->event_state)) ||
-				(test_bit(WCD_MBHC_EVENT_PA_HPHR,
-					  &mbhc->event_state)))
-				wcd_enable_curr_micbias(mbhc,
-						WCD_MBHC_EN_PULLUP);
-			else
-				wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
-		} else {
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_NONE);
-		}
+		pr_debug("%s: Headset already reported\n", __func__);
+		wcd_enable_mbhc_supply(mbhc, plug_type);
 		goto exit;
 	}
 
@@ -1091,27 +1104,7 @@ report:
 	pr_debug("%s: Valid plug found, plug type %d wrk_cmpt %d btn_intr %d\n",
 			__func__, plug_type, wrk_complete,
 			mbhc->btn_press_intr);
-	/*
-	 * Do not disable micbias if recording is going on or
-	 * headset is inserted on the other side of the extn
-	 * cable. If headset has been detected current source
-	 * needs to be kept enabled for button detection to work.
-	 * If the accessory type is invalid or unsupported, we
-	 * dont need to enable either of them.
-	 */
-	if (plug_type == MBHC_PLUG_TYPE_HEADSET) {
-		if ((mbhc->is_hs_recording || det_extn_cable_en))
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
-		else if ((test_bit(WCD_MBHC_EVENT_PA_HPHL, &mbhc->event_state))
-				|| (test_bit(WCD_MBHC_EVENT_PA_HPHR,
-					  &mbhc->event_state)))
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_PULLUP);
-		else
-			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
-
-	} else {
-		wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_NONE);
-	}
+	wcd_enable_mbhc_supply(mbhc, plug_type);
 	WCD_MBHC_RSC_LOCK(mbhc);
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
 	WCD_MBHC_RSC_UNLOCK(mbhc);
@@ -1316,6 +1309,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 					0x06, 0x00);
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADSET);
 		} else if (mbhc->current_plug == MBHC_PLUG_TYPE_HIGH_HPH) {
+			mbhc->is_extn_cable = false;
 			wcd9xxx_spmi_disable_irq(
 					mbhc->intr_ids->mbhc_hs_rem_intr);
 			wcd9xxx_spmi_disable_irq(
@@ -1466,12 +1460,14 @@ determine_plug:
 		0x80, 0x80);
 	hphl_trigerred = 0;
 	mic_trigerred = 0;
+	mbhc->is_extn_cable = true;
 	/*
 	 * even if controls comes here, it is taking more than
 	 * debounce time to detect cable as headphone, so wait
 	 * for 20msec for the mic line to stabilize
 	 */
 	msleep(20);
+	mbhc->btn_press_intr = false;
 	wcd_mbhc_detect_plug_type(mbhc);
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 	pr_debug("%s: leave\n", __func__);
@@ -2017,6 +2013,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	mbhc->mbhc_cb = mbhc_cb;
 	mbhc->btn_press_intr = false;
 	mbhc->is_hs_recording = false;
+	mbhc->is_extn_cable = false;
 
 	if (mbhc->intr_ids == NULL) {
 		pr_err("%s: Interrupt mapping not provided\n", __func__);
