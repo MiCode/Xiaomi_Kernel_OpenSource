@@ -83,4 +83,16 @@ config FREE_PAGES_RDONLY
 
           If unsure, say N.
 
+config KERNEL_TEXT_RDONLY
+        bool "Set kernel text section pages as read only"
+	depends on FREE_PAGES_RDONLY
+        help
+          The kernel text pages are always mapped in the kernel.
+	  This means that anyone can write to the page if they have
+	  the address. Enable this option to mark the kernel text pages
+	  as read only to trigger a fault if any code attempts to write
+	  to a page part of the kernel text section. This may have a
+	  performance impact.
+
+          If unsure, say N.
 endmenu
