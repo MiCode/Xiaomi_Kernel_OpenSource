@@ -942,10 +942,6 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	if (sctx)
 		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, sctx->pp_num);
 
-	if (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_105 ||
-			ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_109)
-		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_INTF_RESTORE, NULL);
-
 	if (!ctx->autorefresh_pending && !ctl->cmd_autorefresh_en) {
 		/* Kickoff */
 		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
