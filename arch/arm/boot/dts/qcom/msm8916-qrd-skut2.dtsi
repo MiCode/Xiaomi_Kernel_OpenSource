@@ -18,3 +18,15 @@
 		status = "disabled";
 	};
 };
+
+&pm8916_vadc {
+	chan@30 {
+		qcom,scale-function = <1>;
+	};
+};
+
+&pm8916_adc_tm {
+	chan@30 {
+		qcom,scale-function = <1>;
+	};
+};
