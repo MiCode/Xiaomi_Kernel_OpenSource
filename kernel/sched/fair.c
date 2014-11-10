@@ -1772,6 +1772,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason)
 	u64 load, min_load = ULLONG_MAX, min_fallback_load = ULLONG_MAX;
 	int small_task = is_small_task(p);
 	int boost = sched_boost();
+	int cstate, min_cstate = INT_MAX;
 
 	trace_sched_task_load(p, small_task, boost, reason);
 
@@ -1789,6 +1790,11 @@ static int select_best_cpu(struct task_struct *p, int target, int reason)
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
 				     mostly_idle_cpu(i), power_cost(p, i));
 
+		/*
+		 * The least-loaded mostly-idle CPU where the task
+		 * won't fit is our fallback if we can't find a CPU
+		 * where the task will fit.
+		 */
 		if (!task_will_fit(p, i)) {
 			if (mostly_idle_cpu(i)) {
 				load = cpu_load(i);
@@ -1797,36 +1803,72 @@ static int select_best_cpu(struct task_struct *p, int target, int reason)
 					fallback_idle_cpu = i;
 				}
 			}
-		} else {
-			if (eligible_cpu(p, i)) {
-				cpu_cost = power_cost(p, i);
-				load = cpu_load(i);
+			continue;
+		}
 
-				if (power_delta_exceeded(cpu_cost, min_cost)) {
-					if (cpu_cost < min_cost) {
-						min_cost = cpu_cost;
-						min_load = load;
-						best_cpu = i;
-					}
-				} else {
-					if (load < min_load) {
-						min_load = load;
-						best_cpu = i;
-					} else if (load == min_load &&
-						   cpu_cost < min_cost) {
-						best_cpu = i;
-					}
+		if (!eligible_cpu(p, i))
+			continue;
 
-					if (cpu_cost < min_cost)
-						min_cost = cpu_cost;
-				}
+		/*
+		 * The task will fit on this CPU, and the CPU is either
+		 * mostly_idle or not max capacity and can fit it under
+		 * spill.
+		 */
+
+		load = cpu_load(i);
+		cpu_cost = power_cost(p, i);
+		cstate = cpu_rq(i)->cstate;
+
+		/*
+		 * If the task fits in a CPU in a lower power band, that
+		 * overrides load and C-state.
+		 */
+		if (power_delta_exceeded(cpu_cost, min_cost)) {
+			if (cpu_cost < min_cost) {
+				min_load = load;
+				min_cost = cpu_cost;
+				min_cstate = cstate;
+				best_cpu = i;
 			}
+			continue;
+		}
+
+		/* After power band, load is prioritized next. */
+		if (load < min_load) {
+			min_load = load;
+			min_cost = cpu_cost;
+			min_cstate = cstate;
+			best_cpu = i;
+			continue;
+		}
+		if (load > min_load)
+			continue;
+
+		/*
+		 * The load is equal to the previous selected CPU.
+		 * This will most often occur when deciding between
+		 * idle CPUs. Power cost is prioritized after load,
+		 * followed by cstate.
+		 */
+		if (cpu_cost < min_cost) {
+			min_cost = cpu_cost;
+			min_cstate = cstate;
+			best_cpu = i;
+			continue;
+		}
+		if (cpu_cost == min_cost && cstate < min_cstate) {
+			min_cstate = cstate;
+			best_cpu = i;
 		}
 	}
-
 done:
 	if (best_cpu < 0) {
 		if (unlikely(fallback_idle_cpu < 0))
+			/*
+			 * For the lack of a better choice just use
+			 * prev_cpu. We may just benefit from having
+			 * a hot cache.
+			 */
 			best_cpu = prev_cpu;
 		else
 			best_cpu = fallback_idle_cpu;
