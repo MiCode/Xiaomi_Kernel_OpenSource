@@ -21,26 +21,6 @@
 
 #define VLV_ID(pipe, plane) ((pipe * VLV_MAX_PLANES) + plane)
 
-struct vlv_dc_config {
-	struct intel_dc_config base;
-	struct vlv_disp {
-		struct vlv_pri_plane pplane;
-		struct vlv_sp_plane splane[2];
-		enum intel_pipe_type type;
-		union {
-			struct dsi_pipe dsi;
-
-			/* later we will have hdmi pipe */
-		} pipe;
-	} vdisp[2];
-};
-
-static inline struct vlv_dc_config *to_vlv_dc_config(
-	struct intel_dc_config *config)
-{
-	return container_of(config, struct vlv_dc_config, base);
-}
-
 static const struct intel_dc_attachment vlv_allowed_attachments[] = {
 	{
 		.pipe_id = PIPE_A,

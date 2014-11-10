@@ -19,6 +19,10 @@
 #include "core/vlv/vlv_dc_regs.h"
 #include <drm/i915_drm.h>
 #include <drm/i915_adf.h>
+#include <core/common/dsi/dsi_pipe.h>
+#include <core/vlv/vlv_dc_config.h>
+#include <core/vlv/vlv_pri_plane.h>
+#include <core/vlv/vlv_sp_plane.h>
 
 #define VLV_N_PLANES	6
 #define VLV_N_PIPES	2
@@ -91,6 +95,27 @@ static inline void vlv_cck_write(u32 reg, u32 val)
 {
 	intel_adf_pci_sideband_rw(INTEL_SIDEBAND_REG_WRITE, IOSF_PORT_CCK,
 			       reg, &val);
+}
+
+struct vlv_dc_config {
+	struct intel_dc_config base;
+	struct vlv_disp {
+		struct vlv_pri_plane pplane;
+		struct vlv_sp_plane splane[2];
+		enum intel_pipe_type type;
+		union {
+			struct dsi_pipe dsi;
+
+			/* later we will have hdmi pipe */
+		} pipe;
+
+	} vdisp[2];
+};
+
+static inline struct vlv_dc_config *to_vlv_dc_config(
+	struct intel_dc_config *config)
+{
+	return container_of(config, struct vlv_dc_config, base);
 }
 
 bool vlv_intf_screen_connected(struct intel_pipe *pipe);
