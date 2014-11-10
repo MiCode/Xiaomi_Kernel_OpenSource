@@ -608,6 +608,7 @@ struct msm_usb_host_platform_data {
 	int resume_gpio;
 	int ext_hub_reset_gpio;
 	bool is_uicc;
+	int pm_qos_latency;
 };
 
 /**
