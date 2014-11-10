@@ -2568,7 +2568,10 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 					replenish_rx_work_func);
 				atomic_set(&sys->curr_polling_state, 0);
 				sys->rx_buff_sz = IPA_ODU_RX_BUFF_SZ;
-				sys->rx_pool_sz = IPA_ODU_RX_POOL_SZ;
+				sys->rx_pool_sz = in->desc_fifo_sz /
+					sizeof(struct sps_iovec) - 1;
+				if (sys->rx_pool_sz > IPA_ODU_RX_POOL_SZ)
+					sys->rx_pool_sz = IPA_ODU_RX_POOL_SZ;
 				sys->pyld_hdlr = ipa_odu_rx_pyld_hdlr;
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
