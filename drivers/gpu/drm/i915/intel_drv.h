@@ -404,6 +404,7 @@ struct intel_crtc {
 	u8 lut_r[256], lut_g[256], lut_b[256];
 	u32 flags;
 	__u32 z_order;
+	u32 alpha;
 	/*
 	 * Whether the crtc and the connected output pipeline is active. Implies
 	 * that crtc->enabled is set, i.e. the current mode configuration has
@@ -498,6 +499,7 @@ struct intel_plane {
 	u32 flags;
 	__u32 z_order;
 	__u32 rrb2_enable;
+	u32 alpha;
 	int crtc_x, crtc_y;
 	unsigned int crtc_w, crtc_h;
 	uint32_t src_x, src_y;
