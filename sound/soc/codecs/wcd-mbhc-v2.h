@@ -171,6 +171,7 @@ struct wcd_mbhc {
 	bool micbias_enable;
 	bool btn_press_intr;
 	bool is_hs_recording;
+	bool is_extn_cable;
 
 	struct snd_soc_codec *codec;
 	/* Work to perform MBHC Firmware Read */
