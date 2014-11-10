@@ -212,3 +212,15 @@
 	pinctrl-0 = <&usbid_default>;
 	vbus_otg-supply = <&smb1358_otg_vreg>;
 };
+
+&pm8916_vadc {
+	chan@30 {
+		qcom,scale-function = <12>;
+	};
+};
+
+&pm8916_adc_tm {
+	chan@30 {
+		qcom,scale-function = <7>;
+	};
+};
