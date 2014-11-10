@@ -2674,14 +2674,24 @@ static int ipa_init_flt_block(void)
 			rule->at_rear = 1;
 			if (ip == IPA_IP_v4) {
 				rule->rule.attrib.attrib_mask =
-					IPA_FLT_PROTOCOL;
+					IPA_FLT_PROTOCOL | IPA_FLT_DST_ADDR;
 				rule->rule.attrib.u.v4.protocol =
 				   IPA_INVALID_L4_PROTOCOL;
+				rule->rule.attrib.u.v4.dst_addr_mask = ~0;
+				rule->rule.attrib.u.v4.dst_addr = ~0;
 			} else if (ip == IPA_IP_v6) {
 				rule->rule.attrib.attrib_mask =
-					IPA_FLT_NEXT_HDR;
+					IPA_FLT_NEXT_HDR | IPA_FLT_DST_ADDR;
 				rule->rule.attrib.u.v6.next_hdr =
-				   IPA_INVALID_L4_PROTOCOL;
+					IPA_INVALID_L4_PROTOCOL;
+				rule->rule.attrib.u.v6.dst_addr_mask[0] = ~0;
+				rule->rule.attrib.u.v6.dst_addr_mask[1] = ~0;
+				rule->rule.attrib.u.v6.dst_addr_mask[2] = ~0;
+				rule->rule.attrib.u.v6.dst_addr_mask[3] = ~0;
+				rule->rule.attrib.u.v6.dst_addr[0] = ~0;
+				rule->rule.attrib.u.v6.dst_addr[1] = ~0;
+				rule->rule.attrib.u.v6.dst_addr[2] = ~0;
+				rule->rule.attrib.u.v6.dst_addr[3] = ~0;
 			} else {
 				result = -EINVAL;
 				WARN_ON(1);
