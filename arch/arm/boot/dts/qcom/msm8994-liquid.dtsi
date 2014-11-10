@@ -512,8 +512,6 @@
 	liquid_dock {
 		compatible = "qcom,liquid-dock";
 		qcom,dock-detect-gpio = <&pm8994_gpios 5 0>;
-		qcom,dock-hub-reset-gpio = <&pm8994_gpios 1 0>;
-		qcom,dock-eth-reset-gpio = <&pm8994_mpps 6 0>;
 		qcom,usb-host = <&usb_ehci>;
 	};
 };
@@ -589,15 +587,6 @@
 };
 
 &pm8994_gpios {
-	gpio@c000 { /* GPIO 1 HUB RESET*/
-		qcom,mode = <1>;	/* Digital output */
-		qcom,output-type = <0>;	/* CMOS logic */
-		qcom,vin-sel = <2>;	/* 1.8v */
-		qcom,src-sel = <0>;	/* Constant */
-		qcom,master-en = <1>;	/* Enable GPIO */
-		status = "okay";
-	};
-
 	gpio@c100 { /* GPIO 2 */
 		qcom,mode = <0>;
 		qcom,pull = <0>;
@@ -732,15 +721,6 @@
 		qcom,mode = <1>;	/* Digital output */
 		qcom,output-type = <0>;	/* CMOS logic */
 		qcom,vin-sel = <2>;	/* 1.8 */
-		qcom,src-sel = <0>;	/* Constant */
-		qcom,master-en = <1>;	/* Enable GPIO */
-		status = "okay";
-	};
-
-	mpp@a500 { /* MPP 6 Ethernet RESET */
-		qcom,mode = <1>;	/* Digital output */
-		qcom,output-type = <0>;	/* CMOS logic */
-		qcom,vin-sel = <2>;	/* 1.8 V */
 		qcom,src-sel = <0>;	/* Constant */
 		qcom,master-en = <1>;	/* Enable GPIO */
 		status = "okay";
