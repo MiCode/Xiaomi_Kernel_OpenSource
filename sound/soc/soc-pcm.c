@@ -463,6 +463,7 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 
 	mutex_lock_nested(&rtd->pcm_mutex, rtd->pcm_subclass);
 
+	mutex_lock_nested(&rtd->card->dapm_mutex, SND_SOC_DAPM_CLASS_RUNTIME);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		cpu_dai->playback_active--;
 		codec_dai->playback_active--;
@@ -496,6 +497,7 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 	if (platform->driver->ops && platform->driver->ops->close)
 		platform->driver->ops->close(substream);
 	cpu_dai->runtime = NULL;
+	mutex_unlock(&rtd->card->dapm_mutex);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		if (!rtd->pmdown_time || codec->ignore_pmdown_time ||
@@ -1351,7 +1353,6 @@ int dpcm_be_dai_shutdown(struct snd_soc_pcm_runtime *fe, int stream)
 
 		dev_dbg(be->dev, "ASoC: close BE %s\n",
 			dpcm->fe->dai_link->name);
-
 		soc_pcm_close(be_substream);
 		be_substream->runtime = NULL;
 
