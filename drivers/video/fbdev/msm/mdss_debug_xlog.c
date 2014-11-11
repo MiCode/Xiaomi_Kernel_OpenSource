@@ -186,9 +186,10 @@ static void mdss_dump_reg_by_blk(const char *blk_name)
 
 	list_for_each_entry_safe(blk_base, tmp, &mdd->base_list, head) {
 		if (blk_base->name &&
-			!strcmp(blk_base->name, blk_name))
-			mdss_dump_reg(blk_base,
-				mdss_dbg_xlog.enable_reg_dump);
+			!strcmp(blk_base->name, blk_name)) {
+			mdss_dump_reg(blk_base, mdss_dbg_xlog.enable_reg_dump);
+			break;
+		}
 	}
 }
 
