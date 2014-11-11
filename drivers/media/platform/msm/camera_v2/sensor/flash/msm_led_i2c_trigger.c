@@ -81,11 +81,29 @@ int32_t msm_led_i2c_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		break;
 
 	case MSM_CAMERA_LED_LOW:
+		for (i = 0; i < fctrl->torch_num_sources; i++) {
+			if (fctrl->torch_max_current[i] > 0) {
+				fctrl->torch_op_current[i] =
+					(cfg->torch_current[i] < fctrl->torch_max_current[i]) ?
+					cfg->torch_current[i] : fctrl->torch_max_current[i];
+				CDBG("torch source%d: op_current %d max_current %d\n",
+					i, fctrl->torch_op_current[i], fctrl->torch_max_current[i]);
+			}
+		}
 		if (fctrl->func_tbl->flash_led_low)
 			rc = fctrl->func_tbl->flash_led_low(fctrl);
 		break;
 
 	case MSM_CAMERA_LED_HIGH:
+		for (i = 0; i < fctrl->flash_num_sources; i++) {
+			if (fctrl->flash_max_current[i] > 0) {
+				fctrl->flash_op_current[i] =
+					(cfg->flash_current[i] < fctrl->flash_max_current[i]) ?
+					cfg->flash_current[i] : fctrl->flash_max_current[i];
+				CDBG("flash source%d: op_current %d max_current %d\n",
+					i, fctrl->flash_op_current[i], fctrl->flash_max_current[i]);
+			}
+		}
 		if (fctrl->func_tbl->flash_led_high)
 			rc = fctrl->func_tbl->flash_led_high(fctrl);
 		break;
@@ -521,6 +539,9 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 				goto ERROR8;
 			}
 
+			fctrl->flash_num_sources = count;
+			fctrl->torch_num_sources = count;
+
 			rc = of_property_read_u32_array(of_node,
 				"qcom,max-current",
 				fctrl->flash_max_current, count);
@@ -531,6 +552,10 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 
 			for (; count < MAX_LED_TRIGGERS; count++)
 				fctrl->flash_max_current[count] = 0;
+
+			for (count = 0; count < MAX_LED_TRIGGERS; count++)
+				fctrl->torch_max_current[count] =
+					fctrl->flash_max_current[count] >> 1;
 		}
 
 		/* Read the max duration for an LED if present */
