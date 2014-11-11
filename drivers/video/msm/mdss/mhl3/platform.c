@@ -1413,11 +1413,11 @@ static int si_8620_parse_dt(struct device *dev)
 	struct device_node *np = dev->of_node;
 	int value;
 
-	value = of_get_named_gpio_flags(np, "simg,reset-gpio", 0, NULL);
+	value = of_get_named_gpio_flags(np, "sil,reset-gpio", 0, NULL);
 	if (value >= 0)
 		starter_kit_control_gpios[MHL_RESET_INDEX].gpio = value;
 
-	value = of_get_named_gpio_flags(np, "simg,irq-gpio", 0, NULL);
+	value = of_get_named_gpio_flags(np, "sil,irq-gpio", 0, NULL);
 	if (value >= 0)
 		starter_kit_control_gpios[MHL_INT_INDEX].gpio = value;
 
@@ -1425,7 +1425,7 @@ static int si_8620_parse_dt(struct device *dev)
 	 * Need this for I/O expander in case we're using SPI as
 	 * the register I/O.
 	 */
-	if (!of_property_read_u32(np, "simg,i2c_port#", &value))
+	if (!of_property_read_u32(np, "sil,i2c_port#", &value))
 		i2c_adapter_num = value;
 
 	MHL_TX_DBG_INFO("Resources assigned to driver...\n");
@@ -1660,7 +1660,7 @@ static const struct dev_pm_ops si_8620_tx_pm_ops = {
 #ifdef SIMG_USE_DTS
 static struct of_device_id si_8620_of_match_table[] = {
 	{
-		.compatible = "simg,sii-8620",
+		.compatible = "sil,sii-8620",
 	},
 	{}
 };
