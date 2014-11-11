@@ -510,15 +510,9 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 		return;
 	}
 	pr_debug("usb_qdss_disconnect_work\n");
-	switch (ctrl_xport) {
-	case USB_GADGET_XPORT_QTI:
+
+	if (ctrl_xport == USB_GADGET_XPORT_QTI)
 		gqti_ctrl_disconnect(&qdss->port, DPL_QTI_CTRL_PORT_NO);
-		break;
-	default:
-		pr_err("%s(): Un-supported transport: %u\n", __func__,
-							ctrl_xport);
-		return;
-	}
 
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
@@ -674,8 +668,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 
 	pr_debug("usb_qdss_connect_work\n");
 
-	switch (ctrl_xport) {
-	case USB_GADGET_XPORT_QTI:
+	if (ctrl_xport == USB_GADGET_XPORT_QTI) {
 		status = gqti_ctrl_connect(&qdss->port, DPL_QTI_CTRL_PORT_NO,
 					qdss->data_iface_id, ctrl_xport,
 					USB_GADGET_DPL);
@@ -685,11 +678,6 @@ static void usb_qdss_connect_work(struct work_struct *work)
 			return;
 		}
 		qdss->port.send_encap_cmd(DPL_QTI_CTRL_PORT_NO, NULL, 0);
-		break;
-	default:
-		pr_err("%s(): Un-supported control transport: %u\n", __func__,
-								ctrl_xport);
-		return;
 	}
 
 	switch (dxport) {
