@@ -624,10 +624,12 @@ intel_dp_aux_ch(struct intel_dp *intel_dp,
 	int i, ret, recv_bytes;
 	uint32_t status;
 	int try, clock = 0;
-	bool has_aux_irq = HAS_AUX_IRQ(dev);
-	bool vdd;
+	bool has_aux_irq = HAS_AUX_IRQ(dev) && !IS_VALLEYVIEW(dev);
+	bool vdd = false;
 
-	vdd = _edp_panel_vdd_on(intel_dp);
+	/* If we already have panel power, do not call _vdd_on */
+	if (!edp_have_panel_power(intel_dp))
+		vdd = _edp_panel_vdd_on(intel_dp);
 
 	/* dp aux is extremely sensitive to irq latency, hence request the
 	 * lowest possible wakeup latency and so prevent the cpu from going into
