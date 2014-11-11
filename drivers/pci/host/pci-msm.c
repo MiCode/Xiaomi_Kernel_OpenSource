@@ -3558,10 +3558,11 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 {
 	struct msm_pcie_dev_t *dev = data;
 
-	int corr_val, uncorr_val, rc_err_status, ep_corr_val, ep_uncorr_val;
-	int rc_dev_ctrlstts, ep_dev_ctrlstts;
-	u32 ep_dev_ctrlstts_offset;
-	int i, j, ep_src_bdf;
+	int corr_val = 0, uncorr_val = 0, rc_err_status = 0;
+	int ep_corr_val = 0, ep_uncorr_val = 0;
+	int rc_dev_ctrlstts = 0, ep_dev_ctrlstts = 0;
+	u32 ep_dev_ctrlstts_offset = 0;
+	int i, j, ep_src_bdf = 0;
 	void __iomem *ep_base = NULL;
 	unsigned long irqsave_flags;
 
