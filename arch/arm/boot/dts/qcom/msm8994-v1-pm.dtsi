@@ -30,7 +30,7 @@
 		qcom,saw2-pmic-data1 = <0x02030080>; /* VDD_APC0 on  */
 		qcom,pfm-port = <0x2>;
 		qcom,use-qchannel-for-pc;
-		qcom,saw2-spm-cmd-wfi = [00 03 00 0f];
+		qcom,saw2-spm-cmd-ret = [00 03 00 0f];
 		qcom,saw2-spm-cmd-pc = [00 60 70 50 01 03 11 3f 3f 3f 3f 50 00
 			60 70 0f];
 	};
@@ -245,8 +245,8 @@
 
 			qcom,pm-cluster-level@0{
 				reg = <0>;
-				label = "system-cci-wfi";
-				qcom,spm-cci-mode = "wfi";
+				label = "system-cci-retention";
+				qcom,spm-cci-mode = "retention";
 				qcom,latency-us = <45>;
 				qcom,ss-power = <1000>;
 				qcom,energy-overhead = <300000>;
