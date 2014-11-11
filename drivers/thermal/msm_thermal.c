@@ -5266,6 +5266,9 @@ arch_initcall(msm_thermal_device_init);
 
 int __init msm_thermal_late_init(void)
 {
+	if (!msm_thermal_probed)
+		return 0;
+
 	if (num_possible_cpus() > 1)
 		msm_thermal_add_cc_nodes();
 	msm_thermal_add_psm_nodes();
