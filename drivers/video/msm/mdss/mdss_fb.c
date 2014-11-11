@@ -2131,12 +2131,12 @@ blank_error:
 	pm_runtime_put(info->dev);
 
 pm_error:
+	list_del(&file_info->list);
+	kfree(file_info);
 	if (pinfo && !pinfo->ref_cnt) {
 		list_del(&pinfo->list);
 		kfree(pinfo);
 	}
-	list_del(&file_info->list);
-	kfree(file_info);
 	return result;
 }
 
