@@ -31,6 +31,8 @@
 #include "ufshci.h"
 #include "ufs-qcom-ice.h"
 
+static struct ufs_qcom_host *ufs_qcom_hosts[MAX_UFS_QCOM_HOSTS];
+
 static void ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result);
 static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
 		const char *speed_mode);
@@ -1168,6 +1170,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 			goto out_disable_phy;
 		}
 	}
+
+	if (hba->dev->id < MAX_UFS_QCOM_HOSTS)
+		ufs_qcom_hosts[hba->dev->id] = host;
 
 	goto out;
 

@@ -16,6 +16,7 @@
 
 #include <linux/phy/phy.h>
 
+#define MAX_UFS_QCOM_HOSTS	1
 #define MAX_U32                 (~(u32)0)
 #define MPHY_TX_FSM_STATE       0x41
 #define TX_FSM_HIBERN8          0x1
