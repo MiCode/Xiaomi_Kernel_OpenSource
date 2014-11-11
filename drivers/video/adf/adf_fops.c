@@ -196,7 +196,7 @@ static int adf_buffer_import(struct adf_device *dev,
 		buf->pitch[i] = user_buf.pitch[i];
 	}
 	buf->n_planes = user_buf.n_planes;
-
+#if 0
 	if (user_buf.acquire_fence >= 0) {
 		buf->acquire_fence = sync_fence_fdget(user_buf.acquire_fence);
 		if (!buf->acquire_fence) {
@@ -206,7 +206,7 @@ static int adf_buffer_import(struct adf_device *dev,
 			goto done;
 		}
 	}
-
+#endif
 done:
 	if (ret < 0)
 		adf_buffer_cleanup(buf);
@@ -585,7 +585,7 @@ static int adf_intf_get_data(struct adf_interface *intf,
 
 	mutex_lock(&dev->client_lock);
 	read_lock_irqsave(&intf->hotplug_modelist_lock, flags);
-	data.hotplug_detect = intf->hotplug_detect;
+	data.hotplug_detect = 1; /* intf->hotplug_detect; */
 	modelist_size = min(data.n_available_modes, intf->n_modes) *
 			sizeof(intf->modelist[0]);
 	memcpy(modelist, intf->modelist, modelist_size);
