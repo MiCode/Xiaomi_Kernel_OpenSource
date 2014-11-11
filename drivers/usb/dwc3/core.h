@@ -262,6 +262,9 @@
 
 #define DWC3_DCTL_APPL1RES	(1 << 23)
 
+#define DWC3_DCTL_LPM_NYET_THRES_MASK	(0x0f << 20)
+#define DWC3_DCTL_LPM_NYET_THRES(n)	((n) << 20)
+
 /* These apply for core versions 1.87a and earlier */
 #define DWC3_DCTL_TRGTULST_MASK		(0x0f << 17)
 #define DWC3_DCTL_TRGTULST(n)		((n) << 17)
@@ -784,6 +787,7 @@ struct dwc3_scratchpad_array {
  *	during disconnect and set it after device is configured.
  * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
  * @hird_thresh: value to configure in DCTL[HIRD_Thresh]
+ * @lpm_nyet_thresh: value to configure in DCTL[LPM_NYET_Thresh]
  * @in_lpm: if 1, indicates that the controller is in low power mode (no clocks)
  * @irq: irq number
  * @bh: tasklet which handles the interrupt
@@ -902,6 +906,7 @@ struct dwc3 {
 	bool			usb3_u1u2_disable;
 	bool			enable_bus_suspend;
 	u8			hird_thresh;
+	u8			lpm_nyet_thresh;
 	atomic_t		in_lpm;
 	struct dwc3_gadget_events	dbg_gadget_events;
 
