@@ -392,6 +392,15 @@ void msm_fd_hw_vbif_register(struct msm_fd_device *fd)
 		MSM_FD_VBIF_CLKON, 0x1);
 
 	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
+		MSM_FD_VBIF_QOS_OVERRIDE_EN, 0x10001);
+
+	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
+		MSM_FD_VBIF_QOS_OVERRIDE_REQPRI, 0x1);
+
+	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
+		MSM_FD_VBIF_QOS_OVERRIDE_PRILVL, 0x1);
+
+	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
 		MSM_FD_VBIF_IN_RD_LIM_CONF0, 0x10);
 
 	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
@@ -404,7 +413,7 @@ void msm_fd_hw_vbif_register(struct msm_fd_device *fd)
 		MSM_FD_VBIF_OUT_WR_LIM_CONF0, 0x10);
 
 	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_DDR_OUT_MAX_BURST, 0x0F);
+		MSM_FD_VBIF_DDR_OUT_MAX_BURST, 0xF0F);
 
 	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
 		MSM_FD_VBIF_ARB_CTL, 0x30);
