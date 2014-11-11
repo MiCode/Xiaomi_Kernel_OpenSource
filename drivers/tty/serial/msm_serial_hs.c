@@ -1340,11 +1340,6 @@ void tx_timeout_handler(unsigned long arg)
 	if (UARTDM_ISR_CURRENT_CTS_BMSK & isr)
 		MSM_HS_WARN("%s(): CTS Disabled, ISR 0x%x", __func__, isr);
 	dump_uart_hs_registers(msm_uport);
-	/* Log BAM TX pipe debug information */
-	sps_get_bam_debug_info(msm_uport->bam_handle,
-			93,
-			SPS_BAM_PIPE(msm_uport->bam_tx_ep_pipe_index),
-			0, 2);
 }
 
 /*  Transmit the next chunk of data */
