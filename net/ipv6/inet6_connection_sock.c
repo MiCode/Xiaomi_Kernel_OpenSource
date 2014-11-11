@@ -84,6 +84,7 @@ struct dst_entry *inet6_csk_route_req(struct sock *sk,
 	fl6->flowi6_mark = inet_rsk(req)->ir_mark;
 	fl6->fl6_dport = inet_rsk(req)->rmt_port;
 	fl6->fl6_sport = inet_rsk(req)->loc_port;
+	fl6->flowi6_uid = sock_i_uid(sk);
 	security_req_classify_flow(req, flowi6_to_flowi(fl6));
 
 	dst = ip6_dst_lookup_flow(sk, fl6, final_p, false);
