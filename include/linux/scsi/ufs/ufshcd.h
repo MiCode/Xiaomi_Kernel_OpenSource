@@ -746,6 +746,9 @@ struct ufs_hba {
 
 	/* PM Quality-of-Service (QoS) data */
 	struct ufshcd_pm_qos pm_qos;
+
+	/* Number of requests aborts */
+	int req_abort_count;
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
