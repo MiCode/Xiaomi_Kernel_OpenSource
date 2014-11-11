@@ -1644,6 +1644,9 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		if (ret)
 			goto cleanup;
 
+		if (IS_VALLEYVIEW(dev))
+			intel_vlv_edp_psr_disable(dev);
+
 		work->pending_flip_obj = obj;
 		/* Block clients from rendering to the new back buffer until
 		* the flip occurs and the object is no longer visible.
@@ -1653,6 +1656,10 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 				&work->old_fb_obj->pending_flip);
 	} else
 		mutex_lock(&dev->struct_mutex);
+
+	/* Disable PSR */
+	if (IS_VALLEYVIEW(dev))
+		intel_vlv_edp_psr_disable(dev);
 
 	/* Note that this will apply the VT-d workaround for scanouts,
 	 * which is more restrictive than required for sprites. (The

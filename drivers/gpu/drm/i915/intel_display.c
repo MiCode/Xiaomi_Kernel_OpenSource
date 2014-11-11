@@ -3338,9 +3338,12 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 	}
 
 	mutex_lock(&dev->struct_mutex);
+	if (IS_VALLEYVIEW(dev))
+		intel_vlv_edp_psr_update(dev);
+	else
+		intel_edp_psr_update(dev);
 	intel_update_fbc(dev);
 	intel_update_drrs(dev);
-	intel_edp_psr_update(dev);
 	mutex_unlock(&dev->struct_mutex);
 
 	return 0;
@@ -4553,7 +4556,11 @@ static void intel_crtc_enable_planes(struct drm_crtc *crtc)
 
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
-	intel_edp_psr_update(dev);
+
+	if (IS_VALLEYVIEW(dev))
+		intel_vlv_edp_psr_update(dev);
+	else
+		intel_edp_psr_update(dev);
 	intel_update_drrs(dev);
 	mutex_unlock(&dev->struct_mutex);
 }
@@ -5537,6 +5544,10 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	 */
 	if (IS_GEN2(dev))
 		intel_set_cpu_fifo_underrun_reporting(dev, pipe, false);
+
+	/* Disable PSR if enabled on this pipe */
+	if (IS_VALLEYVIEW(dev))
+		intel_vlv_edp_psr_disable(dev);
 
 	if (I915_HAS_DPST(dev))
 		i915_dpst_display_off(dev);
@@ -9737,6 +9748,9 @@ void intel_unpin_work_fn(struct work_struct *__work)
 	drm_gem_object_unreference(&work->pending_flip_obj->base);
 	drm_gem_object_unreference(&work->old_fb_obj->base);
 
+	if (IS_VALLEYVIEW(dev))
+		intel_vlv_edp_psr_update(dev);
+
 	/* disable current DRRS work scheduled and restart
 	 * to push work by another x seconds
 	 */
@@ -10393,6 +10407,10 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	ret = i915_mutex_lock_interruptible(dev);
 	if (ret)
 		goto cleanup;
+
+	/* Exit PSR */
+	if (IS_VALLEYVIEW(dev))
+		intel_vlv_edp_psr_exit(dev, false);
 
 	/* Reference the objects for the scheduled work. */
 	drm_gem_object_reference(&work->old_fb_obj->base);
