@@ -62,7 +62,7 @@ static int32_t msm_buf_mngr_buf_done(struct msm_buf_mngr_device *buf_mngr_dev,
 			(bufs->vb2_buf->v4l2_buf.index == buf_info->index)) {
 			bufs->vb2_buf->v4l2_buf.sequence  = buf_info->frame_id;
 			bufs->vb2_buf->v4l2_buf.timestamp = buf_info->timestamp;
-			bufs->vb2_buf->v4l2_buf.reserved = 0;
+			bufs->vb2_buf->v4l2_buf.reserved = buf_info->reserved;
 			ret = buf_mngr_dev->vb2_ops.buf_done
 					(bufs->vb2_buf,
 						buf_info->session_id,
@@ -213,6 +213,7 @@ static long msm_bmgr_subdev_fops_compat_ioctl(struct file *file,
 	buf_info.index = buf_info32.index;
 	buf_info.timestamp.tv_sec = (long) buf_info32.timestamp.tv_sec;
 	buf_info.timestamp.tv_usec = (long) buf_info32.timestamp.tv_usec;
+	buf_info.reserved = buf_info32.reserved;
 
 	/* Convert 32 bit IOCTL ID's to 64 bit IOCTL ID's
 	 * except VIDIOC_MSM_CPP_CFG32, which needs special
@@ -254,6 +255,7 @@ static long msm_bmgr_subdev_fops_compat_ioctl(struct file *file,
 	buf_info32.index = buf_info.index;
 	buf_info32.timestamp.tv_sec = (int32_t) buf_info.timestamp.tv_sec;
 	buf_info32.timestamp.tv_usec = (int32_t) buf_info.timestamp.tv_usec;
+	buf_info32.reserved = buf_info.reserved;
 
 	if (copy_to_user((void __user *)up, &buf_info32,
 			sizeof(struct msm_buf_mngr_info32_t)))
