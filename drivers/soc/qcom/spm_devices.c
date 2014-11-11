@@ -29,6 +29,7 @@
 
 struct msm_spm_power_modes {
 	uint32_t mode;
+	bool notify_rpm;
 	uint32_t start_addr;
 };
 
@@ -43,7 +44,6 @@ struct msm_spm_device {
 	struct cpumask mask;
 	void __iomem *q2s_reg;
 	bool qchannel_ignore;
-	bool allow_rpm_hs;
 };
 
 struct msm_spm_vdd_info {
@@ -201,17 +201,14 @@ static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
 		ret = msm_spm_drv_set_spm_enable(&dev->reg_data, false);
 	} else if (!msm_spm_drv_set_spm_enable(&dev->reg_data, true)) {
 		for (i = 0; i < dev->num_modes; i++) {
-			if (dev->modes[i].mode != mode)
-				continue;
-
-			if (!dev->allow_rpm_hs && notify_rpm)
-				notify_rpm = false;
-
-			start_addr = dev->modes[i].start_addr;
-			break;
+			if ((dev->modes[i].mode == mode) &&
+				(dev->modes[i].notify_rpm == notify_rpm)) {
+				start_addr = dev->modes[i].start_addr;
+				break;
+			}
 		}
 		ret = msm_spm_drv_set_low_power_mode(&dev->reg_data,
-					start_addr, pc_mode, notify_rpm);
+					start_addr, pc_mode);
 	}
 
 	msm_spm_config_q2s(dev, mode);
@@ -252,10 +249,10 @@ static int msm_spm_dev_init(struct msm_spm_device *dev,
 			goto spm_failed_init;
 
 		dev->modes[i].mode = data->modes[i].mode;
+		dev->modes[i].notify_rpm = data->modes[i].notify_rpm;
 	}
 	msm_spm_drv_flush_seq_entry(&dev->reg_data);
 	dev->initialized = true;
-
 	return 0;
 
 spm_failed_init:
@@ -555,14 +552,15 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	struct mode_of {
 		char *key;
 		uint32_t id;
+		uint32_t notify_rpm;
 	};
 
 	struct mode_of mode_of_data[] = {
-		{"qcom,saw2-spm-cmd-wfi", MSM_SPM_MODE_CLOCK_GATING},
-		{"qcom,saw2-spm-cmd-ret", MSM_SPM_MODE_RETENTION},
-		{"qcom,saw2-spm-cmd-gdhs", MSM_SPM_MODE_GDHS},
-		{"qcom,saw2-spm-cmd-spc", MSM_SPM_MODE_POWER_COLLAPSE},
-		{"qcom,saw2-spm-cmd-pc", MSM_SPM_MODE_POWER_COLLAPSE},
+		{"qcom,saw2-spm-cmd-wfi", MSM_SPM_MODE_CLOCK_GATING, 0},
+		{"qcom,saw2-spm-cmd-ret", MSM_SPM_MODE_RETENTION, 0},
+		{"qcom,saw2-spm-cmd-gdhs", MSM_SPM_MODE_GDHS, 1},
+		{"qcom,saw2-spm-cmd-spc", MSM_SPM_MODE_POWER_COLLAPSE, 0},
+		{"qcom,saw2-spm-cmd-pc", MSM_SPM_MODE_POWER_COLLAPSE, 1},
 	};
 
 	dev = msm_spm_get_device(pdev);
@@ -652,16 +650,15 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 		if (!modes[mode_count].cmd)
 			continue;
 		modes[mode_count].mode = mode_of_data[i].id;
-		pr_debug("%s(): dev: %s cmd:%s, mode:%d\n", __func__,
-				dev->name, key, modes[mode_count].mode);
+		modes[mode_count].notify_rpm = mode_of_data[i].notify_rpm;
+		pr_debug("%s(): dev: %s cmd:%s, mode:%d rpm:%d\n", __func__,
+				dev->name, key, modes[mode_count].mode,
+				modes[mode_count].notify_rpm);
 		mode_count++;
 	}
 
 	spm_data.modes = modes;
 	spm_data.num_modes = mode_count;
-
-	key = "qcom,supports-rpm-hs";
-	dev->allow_rpm_hs = of_property_read_bool(pdev->dev.of_node, key);
 
 	ret = msm_spm_dev_init(dev, &spm_data);
 	if (ret)

@@ -98,7 +98,7 @@ int msm_spm_drv_init(struct msm_spm_driver_data *dev,
 		struct msm_spm_platform_data *data);
 void msm_spm_drv_reinit(struct msm_spm_driver_data *dev);
 int msm_spm_drv_set_low_power_mode(struct msm_spm_driver_data *dev,
-		uint32_t addr, bool pc_mode, bool notify_rpm);
+		uint32_t addr, bool pc_mode);
 int msm_spm_drv_set_vdd(struct msm_spm_driver_data *dev,
 		unsigned int vlevel);
 void dump_regs(struct msm_spm_driver_data *dev, int cpu);
