@@ -85,6 +85,7 @@
 
 /* Type definitions */
 static void pmic_bat_zone_changed(void);
+static int intel_pmic_handle_otgmode(bool enable);
 
 /* Extern definitions */
 
@@ -562,7 +563,7 @@ int intel_pmic_enable_vbus(bool enable)
 	return ret;
 }
 
-int intel_pmic_handle_otgmode(bool enable)
+static int intel_pmic_handle_otgmode(bool enable)
 {
 	int ret = 0;
 
@@ -966,19 +967,23 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 
 	id_mask = BIT_POS(PMIC_INT_USBIDFLTDET) |
 				 BIT_POS(PMIC_INT_USBIDGNDDET);
+
 	if (int_reg & BIT_POS(PMIC_INT_USBIDGNDDET)) {
 		mask = (stat_reg & id_mask) == SHRT_GND_DET;
-		chc.otg_mode_enabled = !!mask;
-		/* Close D+/D- lines in USB detection switch
+		chc.otg_mode_enabled = mask;
+		/* Close/Open D+/D- lines in USB detection switch
 		 * due to WC PMIC bug
 		 */
-		pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x1);
-		if (mask)
+		if (mask) {
+			intel_pmic_handle_otgmode(chc.otg_mode_enabled);
+			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x1);
 			atomic_notifier_call_chain(&chc.otg->notifier,
 				USB_EVENT_ID, &mask);
-		else
+		} else {
 			atomic_notifier_call_chain(&chc.otg->notifier,
 				USB_EVENT_NONE, NULL);
+			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x0);
+		}
 	}
 
 	if (int_reg & BIT_POS(PMIC_INT_USBIDDET)) {
@@ -987,18 +992,27 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 				USB_EVENT_ID, &mask);
 	}
 
+	/* WA for OTG ID removal: PMIC interprets ID removal as ID_FLOAT.
+	 * Check for ID float and otg_mode enabled to send ID disconnect.
+	 */
+	if ((int_reg & BIT_POS(PMIC_INT_USBIDFLTDET)) &&
+				chc.otg_mode_enabled) {
+		atomic_notifier_call_chain(&chc.otg->notifier,
+			USB_EVENT_NONE, NULL);
+		pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x0);
+		/* in order to avoid ctyp detection flow, disable otg mode
+		 * when vbus is turned off
+		 */
+	}
+
 	if (int_reg & BIT_POS(PMIC_INT_VBUS)) {
 		mask = !!(stat_reg & BIT_POS(PMIC_INT_VBUS));
 		if (mask) {
-			/* Open D+/D- lines in USB detection switch
-			 * due to WC PMIC bug
-			 */
-			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x0);
 			dev_info(chc.dev,
 				"USB VBUS Detected. Notifying OTG driver\n");
 			chc.vbus_connect_status = true;
 
-			ret = pmic_read_reg(chc.reg_map->pmic_chgrctrl0, &val);
+			ret = pmic_read_reg(chc.reg_map->pmic_chgrctrl1, &val);
 			if (!ret && (val & CHGRCTRL1_OTGMODE_MASK))
 				chc.otg_mode_enabled = true;
 		} else {
@@ -1011,7 +1025,7 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 		if (chc.is_internal_usb_phy && !chc.otg_mode_enabled)
 			handle_internal_usbphy_notifications(mask);
 		else if (!mask)
-				chc.otg_mode_enabled = false;
+			intel_pmic_handle_otgmode(chc.otg_mode_enabled = false);
 	}
 }
 

@@ -108,7 +108,6 @@ extern int intel_pmic_set_cc(int);
 extern int intel_pmic_set_cv(int);
 extern int intel_pmic_set_ilimma(int);
 extern int intel_pmic_enable_vbus(bool enable);
-extern int intel_pmic_handle_otgmode(bool enable);
 /* WA for ShadyCove VBUS removal detect issue */
 extern int intel_pmic_handle_low_supply(void);
 
