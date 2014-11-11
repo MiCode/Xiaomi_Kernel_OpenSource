@@ -222,6 +222,27 @@ enum fg_mem_if_irq {
 	FG_MEM_IF_IRQ_COUNT,
 };
 
+struct fg_wakeup_source {
+	struct wakeup_source	source;
+	unsigned long		enabled;
+};
+
+static void fg_stay_awake(struct fg_wakeup_source *source)
+{
+	if (!__test_and_set_bit(0, &source->enabled)) {
+		__pm_stay_awake(&source->source);
+		pr_debug("enabled source %s\n", source->source.name);
+	}
+}
+
+static void fg_relax(struct fg_wakeup_source *source)
+{
+	if (__test_and_clear_bit(0, &source->enabled)) {
+		__pm_relax(&source->source);
+		pr_debug("disabled source %s\n", source->source.name);
+	}
+}
+
 #define THERMAL_COEFF_N_BYTES		6
 struct fg_chip {
 	struct device		*dev;
@@ -243,6 +264,8 @@ struct fg_chip {
 	struct work_struct	batt_profile_init;
 	struct work_struct	dump_sram;
 	struct power_supply	*batt_psy;
+	struct fg_wakeup_source	memif_wakeup_source;
+	struct fg_wakeup_source	profile_wakeup_source;
 	bool			profile_loaded;
 	bool			use_otp_profile;
 	bool			battery_missing;
@@ -523,6 +546,7 @@ static int fg_req_and_wait_access(struct fg_chip *chip, int timeout)
 			pr_err("failed to set mem access bit\n");
 			return -EIO;
 		}
+		fg_stay_awake(&chip->memif_wakeup_source);
 	}
 
 wait:
@@ -543,13 +567,23 @@ wait:
 	return rc;
 }
 
+static int fg_release_access(struct fg_chip *chip)
+{
+	int rc;
+
+	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
+			RIF_MEM_ACCESS_REQ, 0, 1);
+	fg_relax(&chip->memif_wakeup_source);
+	INIT_COMPLETION(chip->sram_access_granted);
+
+	return rc;
+}
+
 static void fg_release_access_if_necessary(struct fg_chip *chip)
 {
 	mutex_lock(&chip->rw_lock);
 	if (atomic_sub_return(1, &chip->memif_user_cnt) <= 0) {
-		fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
-				RIF_MEM_ACCESS_REQ, 0, 1);
-		INIT_COMPLETION(chip->sram_access_granted);
+		fg_release_access(chip);
 	}
 	mutex_unlock(&chip->rw_lock);
 }
@@ -652,11 +686,11 @@ out:
 	fg_assert_sram_access(chip);
 
 	if (!keep_access && (user_cnt == 0) && !rc) {
-		rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
-				RIF_MEM_ACCESS_REQ, 0, 1);
-		if (rc)
+		rc = fg_release_access(chip);
+		if (rc) {
 			pr_err("failed to set mem access bit\n");
-		INIT_COMPLETION(chip->sram_access_granted);
+			return -EIO;
+		}
 	}
 
 	mutex_unlock(&chip->rw_lock);
@@ -736,13 +770,11 @@ out:
 	fg_assert_sram_access(chip);
 
 	if (!keep_access && (user_cnt == 0) && !rc) {
-		rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
-				RIF_MEM_ACCESS_REQ, 0, 1);
+		rc = fg_release_access(chip);
 		if (rc) {
 			pr_err("failed to set mem access bit\n");
 			rc = -EIO;
 		}
-		INIT_COMPLETION(chip->sram_access_granted);
 	}
 
 	mutex_unlock(&chip->rw_lock);
@@ -1564,6 +1596,7 @@ static int fg_batt_profile_init(struct fg_chip *chip)
 	u8 reg = 0;
 
 wait:
+	fg_stay_awake(&chip->profile_wakeup_source);
 	ret = wait_for_completion_interruptible_timeout(&chip->batt_id_avail,
 			msecs_to_jiffies(PROFILE_LOAD_TIMEOUT_MS));
 	/* If we were interrupted wait again one more time. */
@@ -1574,13 +1607,14 @@ wait:
 	} else if (ret <= 0) {
 		rc = -ETIMEDOUT;
 		pr_err("profile loading timed out rc=%d\n", rc);
-		return rc;
+		goto no_profile;
 	}
 
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
 		pr_warn("No available batterydata, using OTP defaults\n");
-		return 0;
+		rc = 0;
+		goto no_profile;
 	}
 
 	profile_node = of_batterydata_get_best_profile(batt_node, "bms",
@@ -1599,14 +1633,16 @@ wait:
 	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
 	if (!data) {
 		pr_err("no battery profile loaded\n");
-		return 0;
+		rc = 0;
+		goto no_profile;
 	}
 
 	rc = of_property_read_string(profile_node, "qcom,battery-type",
 					&batt_type_str);
 	if (rc) {
 		pr_err("Could not find battery data type: %d\n", rc);
-		return 0;
+		rc = 0;
+		goto no_profile;
 	}
 
 	if (!chip->batt_profile)
@@ -1615,20 +1651,21 @@ wait:
 
 	if (!chip->batt_profile) {
 		pr_err("out of memory\n");
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto no_profile;
 	}
 
 	rc = fg_mem_read(chip, &reg, PROFILE_INTEGRITY_REG, 1, 0, 1);
 	if (rc) {
 		pr_err("failed to read profile integrity rc=%d\n", rc);
-		return rc;
+		goto no_profile;
 	}
 
 	rc = fg_mem_read(chip, chip->batt_profile, BATT_PROFILE_OFFSET,
 			len, 0, 1);
 	if (rc) {
 		pr_err("failed to read profile rc=%d\n", rc);
-		return rc;
+		goto no_profile;
 	}
 
 	if ((reg & PROFILE_INTEGRITY_BIT)
@@ -1665,9 +1702,7 @@ wait:
 	 * before re-requesting access.
 	 */
 	mutex_lock(&chip->rw_lock);
-	fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
-			RIF_MEM_ACCESS_REQ, 0, 1);
-	INIT_COMPLETION(chip->sram_access_granted);
+	fg_release_access(chip);
 
 	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD,
 			NO_OTP_PROF_RELOAD, 0, 1);
@@ -1708,9 +1743,7 @@ wait:
 		msleep(3000);
 
 	mutex_lock(&chip->rw_lock);
-	fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
-			RIF_MEM_ACCESS_REQ, 0, 1);
-	INIT_COMPLETION(chip->sram_access_granted);
+	fg_release_access(chip);
 	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
 				LOW_LATENCY, 0, 1);
 	if (rc) {
@@ -1799,6 +1832,7 @@ done:
 	chip->battery_missing = is_battery_missing(chip);
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
+	fg_relax(&chip->profile_wakeup_source);
 	return rc;
 unlock_and_fail:
 	mutex_unlock(&chip->rw_lock);
@@ -1810,6 +1844,8 @@ fail:
 	chip->batt_type = old_batt_type;
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
+no_profile:
+	fg_relax(&chip->profile_wakeup_source);
 	return rc;
 }
 
@@ -2055,11 +2091,13 @@ static int fg_remove(struct spmi_device *spmi)
 {
 	struct fg_chip *chip = dev_get_drvdata(&spmi->dev);
 
-	mutex_destroy(&chip->rw_lock);
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
 	cancel_work_sync(&chip->batt_profile_init);
 	cancel_work_sync(&chip->dump_sram);
 	power_supply_unregister(&chip->bms_psy);
+	mutex_destroy(&chip->rw_lock);
+	wakeup_source_trash(&chip->memif_wakeup_source.source);
+	wakeup_source_trash(&chip->profile_wakeup_source.source);
 	dev_set_drvdata(&spmi->dev, NULL);
 	return 0;
 }
@@ -2567,6 +2605,10 @@ static int fg_probe(struct spmi_device *spmi)
 	chip->spmi = spmi;
 	chip->dev = &(spmi->dev);
 
+	wakeup_source_init(&chip->memif_wakeup_source.source,
+			"qpnp_fg_memaccess");
+	wakeup_source_init(&chip->profile_wakeup_source.source,
+			"qpnp_fg_profile");
 	mutex_init(&chip->rw_lock);
 	INIT_DELAYED_WORK(&chip->update_jeita_setting, update_jeita_setting);
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data_work);
@@ -2708,6 +2750,8 @@ power_supply_unregister:
 	power_supply_unregister(&chip->bms_psy);
 of_init_fail:
 	mutex_destroy(&chip->rw_lock);
+	wakeup_source_trash(&chip->memif_wakeup_source.source);
+	wakeup_source_trash(&chip->profile_wakeup_source.source);
 	return rc;
 }
 
