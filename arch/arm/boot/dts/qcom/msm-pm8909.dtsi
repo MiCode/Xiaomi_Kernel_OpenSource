@@ -489,7 +489,7 @@
 		};
 
 		pm8909_conga_dig: 8909_wcd_codec@f000 {
-			compatible = "qcom,wcd-spmi";
+			compatible = "qcom,msm8x16_wcd_codec";
 			reg = <0xf000 0x100>;
 			interrupt-parent = <&spmi_bus>;
 			interrupts = <0x1 0xf0 0x0>,
@@ -545,7 +545,7 @@
 		};
 
 		pm8909_conga_analog: 8909_wcd_codec@f100 {
-			compatible = "qcom,wcd-spmi";
+			compatible = "qcom,msm8x16_wcd_codec";
 			reg = <0xf100 0x100>;
 			interrupt-parent = <&spmi_bus>;
 			interrupts = <0x1 0xf1 0x0>,
