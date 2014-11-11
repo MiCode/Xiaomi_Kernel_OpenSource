@@ -273,11 +273,6 @@ static int mdss_qpic_panel_probe(struct platform_device *pdev)
 		qpic_panel_off = ili9341_off;
 	}
 
-	if (qpic_panel_on == ili9341_on) {
-		vendor_pdata.panel_info.xres = 240;
-		vendor_pdata.panel_info.yres = 320;
-	}
-
 	rc = qpic_register_panel(&vendor_pdata);
 	if (rc)
 		return rc;
