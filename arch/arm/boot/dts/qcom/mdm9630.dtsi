@@ -529,7 +529,6 @@
 				interrupt-names = "irq", "otg_irq";
 				usb-phy = <&hsphy0>, <&ssphy0>;
 				snps,nominal-elastic-buffer;
-				snps,core-reset-after-phy-init;
 				snps,hsphy-auto-suspend-disable;
 				snps,hird_thresh = <0x10>;
 				snps,bus-suspend-enable;

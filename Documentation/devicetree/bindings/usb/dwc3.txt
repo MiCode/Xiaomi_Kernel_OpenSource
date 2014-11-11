@@ -16,8 +16,6 @@ Optional properties:
  - snps,host-only-mode: if present then dwc3 should be run in HOST only mode.
  - snps,nominal-elastic-buffer: When set, the nominal elastic buffer setting
 	is used. By default, the half-full setting is used.
- - snps,core-reset-after-phy-init: If present, PHY reset and initialization is
-   performed before core reset.
  - snps,ssphy-clear-auto-suspend-on-disconnect: If present, clear auto suspend feaure with ssusb phy
    during cable disconnect.
  - snps,usb3-u1u2-disable: If present, disable u1u2 low power modes for DWC3 core controller in SS mode.
