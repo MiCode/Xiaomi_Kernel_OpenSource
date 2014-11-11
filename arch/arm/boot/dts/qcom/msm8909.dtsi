@@ -19,6 +19,10 @@
 	qcom,msm-id = <245 0>;
 	interrupt-parent = <&intc>;
 
+	chosen {
+		bootargs = "sched_enable_hmp=1";
+	};
+
 	aliases {
 		/* smdtty devices */
 		smd1 = &smdtty_apps_fm;
