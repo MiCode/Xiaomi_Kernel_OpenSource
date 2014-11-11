@@ -36,6 +36,7 @@ struct msm_thermal_data {
 	int32_t psm_temp_hyst_degC;
 	int32_t ocr_temp_degC;
 	int32_t ocr_temp_hyst_degC;
+	int32_t therm_reset_temp_degC;
 };
 
 #ifdef CONFIG_THERMAL_MONITOR
