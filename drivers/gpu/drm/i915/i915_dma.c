@@ -1309,6 +1309,23 @@ static const struct vga_switcheroo_client_ops i915_switcheroo_ops = {
 	.can_switch = i915_switcheroo_can_switch,
 };
 
+static void intel_assign_pfit_pipe(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_crtc *crtc;
+
+	/* Safe for all platforms, assign panel fitter to one pipe */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		if (intel_pipe_has_type(crtc, INTEL_OUTPUT_DSI) ||
+			intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP)) {
+				int pipe = to_intel_crtc(crtc)->pipe;
+				dev_priv->pfit_pipe = pipe;
+				I915_WRITE_BITS(PFIT_CONTROL, pipe,
+					PFIT_PIPE_MASK);
+		}
+	}
+}
+
 static int i915_load_modeset_init(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1386,6 +1403,7 @@ static int i915_load_modeset_init(struct drm_device *dev)
 	intel_fbdev_initial_config(dev);
 
 	drm_kms_helper_poll_init(dev);
+	intel_assign_pfit_pipe(dev);
 
 	return 0;
 

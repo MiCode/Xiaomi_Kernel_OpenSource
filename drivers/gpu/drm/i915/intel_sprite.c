@@ -546,22 +546,22 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 
 	/* if panel fitter is enabled program the input src size */
 	if (intel_crtc->scaling_src_size &&
-			intel_crtc->config.gmch_pfit.control) {
+		(intel_crtc->config.gmch_pfit.control &	PFIT_ENABLE)) {
 		intel_plane->reg.pfit_control =
 				intel_crtc->config.gmch_pfit.control;
 		intel_plane->reg.pipesrc = intel_crtc->scaling_src_size;
-		dev_priv->pfit_pipe = ((intel_crtc->reg.pfit_control &
-						PFIT_PIPE_MASK) >> 29);
 		if (!dev_priv->atomic_update) {
 			I915_WRITE(PFIT_CONTROL, intel_plane->reg.pfit_control);
 			I915_WRITE(PIPESRC(pipe), intel_plane->reg.pipesrc);
 			intel_crtc->pfit_en_status = true;
 		}
 	} else if (intel_crtc->pfit_en_status) {
+		i9xx_get_pfit_mode(crtc, src_w, src_h);
+		intel_plane->reg.pfit_control =
+			intel_crtc->config.gmch_pfit.control;
 		intel_plane->reg.pipesrc =
 			((mode->hdisplay - 1) << SCALING_SRCSIZE_SHIFT) |
 			(mode->vdisplay - 1);
-		intel_plane->reg.pfit_control = 0;
 		if (!dev_priv->atomic_update) {
 			I915_WRITE(PIPESRC(pipe), intel_plane->reg.pipesrc);
 			I915_WRITE(PFIT_CONTROL, intel_plane->reg.pfit_control);

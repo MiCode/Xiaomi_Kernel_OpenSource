@@ -948,9 +948,6 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&encoder->base);
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_display_mode *adjusted_mode = &pipe_config->adjusted_mode;
-	struct intel_crtc *intel_crtc = encoder->new_crtc;
-	struct intel_connector *intel_connector =
-		intel_hdmi->attached_connector;
 	int clock_12bpc = pipe_config->adjusted_mode.crtc_clock * 3 / 2;
 	int portclock_limit = hdmi_portclock_limit(intel_hdmi, false);
 	int desired_bpp;
@@ -958,11 +955,6 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 	pipe_config->has_hdmi_sink = intel_hdmi->has_hdmi_sink;
 
 	intel_hdmi_compute_color_range(intel_hdmi, adjusted_mode);
-
-	if (IS_VALLEYVIEW(dev)) {
-		intel_gmch_panel_fitting(intel_crtc, pipe_config,
-			intel_connector->panel.fitting_mode);
-	}
 
 	if (intel_hdmi->color_range)
 		pipe_config->limited_color_range = true;
@@ -1232,19 +1224,6 @@ intel_hdmi_set_property(struct drm_connector *connector,
 		goto done;
 	}
 
-	if (property == dev_priv->force_pfit_property) {
-		if (intel_connector->panel.fitting_mode == val)
-			return 0;
-
-		intel_connector->panel.fitting_mode = val;
-		if (IS_VALLEYVIEW(dev_priv->dev)) {
-			intel_gmch_panel_fitting(intel_crtc,
-				&intel_crtc->config,
-				intel_connector->panel.fitting_mode);
-			return 0;
-		} else
-			goto done;
-	}
 	if (property == dev_priv->scaling_src_size_property) {
 		intel_crtc->scaling_src_size = val;
 		DRM_DEBUG_DRIVER("src size = %u\n",
@@ -1741,9 +1720,6 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 		u32 temp = I915_READ(PEG_BAND_GAP_DATA);
 		I915_WRITE(PEG_BAND_GAP_DATA, (temp & ~0xf) | 0xd);
 	}
-
-	/* Load initialized connector */
-	intel_hdmi->attached_connector = intel_connector;
 }
 
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO

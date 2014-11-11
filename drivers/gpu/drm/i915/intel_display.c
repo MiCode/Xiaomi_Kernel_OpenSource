@@ -2563,6 +2563,35 @@ int i915_set_plane_180_rotation(struct drm_device *dev, void *data,
 	return ret;
 }
 
+void i9xx_get_pfit_mode(struct drm_crtc *crtc, uint32_t src_w, uint32_t src_h)
+{
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct drm_display_mode *adjusted_mode =
+		&intel_crtc->config.adjusted_mode;
+	u32 scaled_width = adjusted_mode->hdisplay * src_w;
+	u32 scaled_height = src_h * adjusted_mode->vdisplay;
+	u32 pfit_control = intel_crtc->config.gmch_pfit.control;
+
+	if (scaled_width > scaled_height) {
+		pfit_control &= MASK_PFIT_SCALING_MODE;
+		pfit_control |= PFIT_SCALING_PILLAR;
+	} else if (scaled_width < scaled_height) {
+		pfit_control &=  MASK_PFIT_SCALING_MODE;
+		pfit_control |= PFIT_SCALING_LETTER;
+	} else if (!(adjusted_mode->hdisplay <= (src_w+25) &&
+			adjusted_mode->hdisplay >= (src_w-25))) {
+
+		/*
+		 * TODO: If native width doest not lies b/n src layer
+		 * width-25 and width+25, we put pfit in auto scale,
+		 * not expecting variation more than 25
+		 */
+		pfit_control &=  MASK_PFIT_SCALING_MODE;
+		pfit_control |= PFIT_SCALING_AUTO;
+	}
+	intel_crtc->config.gmch_pfit.control = pfit_control;
+}
+
 static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 				      struct drm_framebuffer *fb,
 				      int x, int y)
@@ -2711,12 +2740,10 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 
 		/* if panel fitter is enabled program the input src size */
 		if (intel_crtc->scaling_src_size &&
-			intel_crtc->config.gmch_pfit.control) {
+			(intel_crtc->config.gmch_pfit.control & PFIT_ENABLE)) {
 			intel_crtc->reg.pfit_control =
 				intel_crtc->config.gmch_pfit.control;
 			intel_crtc->reg.pipesrc = intel_crtc->scaling_src_size;
-			dev_priv->pfit_pipe = ((intel_crtc->reg.pfit_control &
-						PFIT_PIPE_MASK) >> 29);
 			if (!dev_priv->atomic_update) {
 				I915_WRITE(PFIT_CONTROL,
 					intel_crtc->reg.pfit_control);
@@ -2725,10 +2752,11 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 				intel_crtc->pfit_en_status = true;
 			}
 		} else if (intel_crtc->pfit_en_status) {
+			intel_crtc->reg.pfit_control =
+				intel_crtc->config.gmch_pfit.control;
 			intel_crtc->reg.pipesrc =
 				((mode->hdisplay - 1) <<
 				SCALING_SRCSIZE_SHIFT) | (mode->vdisplay - 1);
-			intel_crtc->reg.pfit_control = 0;
 			if (!dev_priv->atomic_update) {
 				I915_WRITE(PIPESRC(pipe),
 						intel_crtc->reg.pipesrc);
@@ -4889,7 +4917,8 @@ static void i9xx_pfit_enable(struct intel_crtc *crtc)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc_config *pipe_config = &crtc->config;
 
-	if (!crtc->config.gmch_pfit.control)
+	if (!crtc->config.gmch_pfit.control &&
+		!dev_priv->scaling_reqd)
 		return;
 
 	/*
@@ -5462,15 +5491,16 @@ static void i9xx_pfit_disable(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 tmp;
 
 	if (!crtc->config.gmch_pfit.control)
 		return;
 
 	assert_pipe_disabled(dev_priv, crtc->pipe);
 
-	DRM_DEBUG_DRIVER("disabling pfit, current: 0x%08x\n",
-			 I915_READ(PFIT_CONTROL));
-	I915_WRITE(PFIT_CONTROL, 0);
+	tmp = (crtc->config.gmch_pfit.control & ~PFIT_ENABLE);
+	if (I915_READ(PFIT_CONTROL) != tmp)
+		I915_WRITE(PFIT_CONTROL, tmp);
 	crtc->pfit_en_status = false;
 }
 
@@ -10485,16 +10515,20 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 	}
 
 	if (reg->pfit_control && reg->pipesrc) {
-		if (I915_READ(PFIT_CONTROL) != reg->pfit_control)
-			I915_WRITE(PFIT_CONTROL, reg->pfit_control);
+		if (dev_priv->pfit_pipe ==
+			((reg->pfit_control & PFIT_PIPE_MASK) >> 29) &&
+			I915_READ(PFIT_CONTROL) != reg->pfit_control)
+				I915_WRITE(PFIT_CONTROL, reg->pfit_control);
 		if (I915_READ(PIPESRC(pipe)) != reg->pipesrc)
 			I915_WRITE(PIPESRC(pipe), reg->pipesrc);
 		intel_crtc->pfit_en_status = true;
 	} else if (intel_crtc->pfit_en_status) {
 		if (I915_READ(PIPESRC(pipe)) != reg->pipesrc)
 			I915_WRITE(PIPESRC(pipe), reg->pipesrc);
-		if (I915_READ(PFIT_CONTROL) != reg->pfit_control)
-			I915_WRITE(PFIT_CONTROL, reg->pfit_control);
+		if (dev_priv->pfit_pipe ==
+			((reg->pfit_control & PFIT_PIPE_MASK) >> 29)
+			&& I915_READ(PFIT_CONTROL) != reg->pfit_control)
+				I915_WRITE(PFIT_CONTROL, reg->pfit_control);
 		intel_crtc->pfit_en_status = false;
 	}
 
@@ -10641,26 +10675,30 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 	struct drm_i915_plane_180_rotation *rotate;
 	struct drm_i915_set_plane_zorder *zorder;
 	int i, tmp_ret, ret = 0;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	/* Update the panel fitter */
 	if (disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_PANEL_FITTER) {
 		if (intel_crtc->config.gmch_pfit.control ||
 				disp->panel_fitter.mode) {
-			u32 pfit_control = intel_crtc->config.gmch_pfit.control
-				& MASK_PFIT_SCALING_MODE;
+			u32 pfit_control = intel_crtc->config.gmch_pfit.control;
 
 			/* Enable Panel fitter if any valid mode is set */
 			pfit_control = (1 << 31) | pfit_control;
-			if (disp->panel_fitter.mode == AUTOSCALE)
+			if (disp->panel_fitter.mode == AUTOSCALE) {
+				pfit_control &=  MASK_PFIT_SCALING_MODE;
 				pfit_control |= PFIT_SCALING_AUTO;
-			else if (disp->panel_fitter.mode == PILLARBOX)
+			} else if (disp->panel_fitter.mode == PILLARBOX) {
+				pfit_control &=  MASK_PFIT_SCALING_MODE;
 				pfit_control |= PFIT_SCALING_PILLAR;
-			else if (disp->panel_fitter.mode == LETTERBOX)
+			} else if (disp->panel_fitter.mode == LETTERBOX) {
+				pfit_control &=  MASK_PFIT_SCALING_MODE;
 				pfit_control |= PFIT_SCALING_LETTER;
-			else {
-				/* Disable Panel fitter if no valid mode */
-				pfit_control |= PFIT_SCALING_AUTO;
-				pfit_control &= ~(1 << 31);
+			} else {
+				if (!dev_priv->scaling_reqd)
+					pfit_control &= ~PFIT_ENABLE;
+				else
+					pfit_control &=  MASK_PFIT_SCALING_MODE;
 			}
 			intel_crtc->config.gmch_pfit.control = pfit_control;
 		}
