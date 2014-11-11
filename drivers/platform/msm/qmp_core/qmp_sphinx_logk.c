@@ -185,9 +185,14 @@ int get_uid_from_message_for_system_event(const char *buffer)
 		}
 
 		if (*p2 == '\0') {
-			while (*p1 != ',') {
+			while ((*p1) && (aindex < 5)
+				&& (*p1 != ',')) {
 				asciiuid[aindex++] = *p1;
 				p1++;
+			}
+			if (*p1 != ',') {
+				pr_err("Failed to get app_id\n");
+				return -EPERM;
 			}
 			asciiuid[aindex] = '\0';
 
@@ -433,7 +438,7 @@ static long qmp_sphinx_logk_reserve_rdblks(
 
 		finish_wait(&sdev->readers_wq, &read_wait);
 		if (ret) {
-			mutex_unlock(&slogk_dev->lock);
+			mutex_unlock(&sdev->lock);
 			return -EINTR;
 		}
 	}
@@ -462,17 +467,25 @@ static long qmp_sphinx_logk_set_mask(unsigned long arg)
 		(unsigned int __user *) arg, sizeof(unsigned int)))
 		return -EFAULT;
 
-	if (0 == num_sources)
+	read_lock(&filter_lock);
+	if (0 == num_sources) {
+		read_unlock(&filter_lock);
 		return -EINVAL;
+	}
 
 	if (num_elements == 0 ||
-		MASK_BUFFER_SIZE < DIV_ROUND_UP(num_sources, 8))
+		MASK_BUFFER_SIZE < DIV_ROUND_UP(num_sources, 8)) {
+		read_unlock(&filter_lock);
 		return -EINVAL;
+	}
 
 	if (copy_from_user(buffer,
-			(__u8 *)arg, DIV_ROUND_UP(num_sources, 8)))
-			return -EFAULT;
+			(__u8 *)arg, DIV_ROUND_UP(num_sources, 8))) {
+		read_unlock(&filter_lock);
+		return -EFAULT;
+	}
 
+	read_unlock(&filter_lock);
 	write_lock(&filter_lock);
 	if (num_elements != num_sources) {
 		write_unlock(&filter_lock);
@@ -502,19 +515,19 @@ static long qmp_sphinx_logk_set_mapping(unsigned long arg)
 		(UINT_MAX / sizeof(struct qmp_sphinx_source_mask))))
 		return -EFAULT;
 
+	write_lock(&filter_lock);
 	if (NULL != pmask) {
 		/*
 		 * Mask is getting set again.
 		 * qmp_sphinx_core was probably restarted.
 		 */
 		struct qmp_sphinx_source_mask *ptempmask;
-		write_lock(&filter_lock);
 		num_sources = 0;
 		ptempmask = pmask;
 		pmask = NULL;
-		write_unlock(&filter_lock);
 		kfree(ptempmask);
 	}
+	write_unlock(&filter_lock);
 	pbuffer = kmalloc(sizeof(struct qmp_sphinx_source_mask)
 				* num_elements, GFP_KERNEL);
 	if (NULL == pbuffer)
