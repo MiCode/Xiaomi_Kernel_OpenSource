@@ -70,7 +70,6 @@ static int mdss_fb_mem_get_iommu_domain(void)
 struct msm_mdp_interface mdp5 = {
 	.init_fnc = mdss_mdp_overlay_init,
 	.fb_mem_get_iommu_domain = mdss_fb_mem_get_iommu_domain,
-	.panel_register_done = mdss_panel_register_done,
 	.fb_stride = mdss_mdp_fb_stride,
 	.check_dsi_status = mdss_check_dsi_ctrl_status,
 };
@@ -1094,6 +1093,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 	case MDSS_MDP_HW_REV_105:
 	case MDSS_MDP_HW_REV_109:
 	case MDSS_MDP_HW_REV_110:
+		mdss_set_quirk(mdata, MDSS_QUIRK_BWCPANIC);
 		mdata->max_target_zorder = MDSS_MDP_MAX_STAGE;
 		mdata->max_cursor_size = 128;
 		break;
@@ -1110,7 +1110,6 @@ static void mdss_hw_rev_init(struct mdss_data_type *mdata)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	mdata->mdp_rev = MDSS_REG_READ(mdata, MDSS_REG_HW_VERSION);
-	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
 	mdss_mdp_hw_rev_caps_init(mdata);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
@@ -1123,7 +1122,7 @@ static void mdss_hw_rev_init(struct mdss_data_type *mdata)
  * parameters. This function does not explicitly turn on the MDP clocks
  * and so it must be called with the MDP clocks already enabled.
  */
-int mdss_hw_init(struct mdss_data_type *mdata)
+void mdss_hw_init(struct mdss_data_type *mdata)
 {
 	int i, j;
 	char *offset;
@@ -1172,8 +1171,6 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 			mdss_mdp_hscl_init(&vig[i]);
 
 	pr_debug("MDP hw init done\n");
-
-	return 0;
 }
 
 static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
@@ -1226,13 +1223,11 @@ void mdss_mdp_footswitch_ctrl_splash(int on)
 	if (mdata != NULL) {
 		if (on) {
 			pr_debug("Enable MDP FS for splash.\n");
-			mdata->handoff_pending = true;
 			ret = regulator_enable(mdata->fs);
 			if (ret)
 				pr_err("Footswitch failed to enable\n");
 
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-			mdss_hw_init(mdata);
 		} else {
 			pr_debug("Disable MDP FS for splash.\n");
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
@@ -1443,6 +1438,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	struct resource *res;
 	int rc;
 	struct mdss_data_type *mdata;
+	bool display_on;
 
 	if (!pdev->dev.of_node) {
 		pr_err("MDP driver only supports device tree probe\n");
@@ -1574,6 +1570,34 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	if (rc)
 		pr_err("mdss_register_irq failed.\n");
 	mdss_res->mdss_util->mdp_probe_done = true;
+
+	/*
+	 * enable clocks and read mdp_rev as soon as possible once
+	 * kernel is up. Read the DISP_INTF_SEL register to check if
+	 * display was enabled in bootloader or not. If yes, let handoff
+	 * handle removing the extra clk/regulator votes else turn off
+	 * clk/regulators because purpose here is to get mdp_rev.
+	 */
+	mdss_mdp_footswitch_ctrl_splash(true);
+	mdss_hw_init(mdata);
+	display_on = (bool)readl_relaxed(mdata->mdp_base +
+		MDSS_MDP_REG_DISP_INTF_SEL);
+	if (!display_on)
+		mdss_mdp_footswitch_ctrl_splash(false);
+	else
+		mdata->handoff_pending = true;
+
+	pr_info("mdss version = 0x%x, bootloader display is %s\n",
+		mdata->mdp_rev, display_on ? "on" : "off");
+
+	if (mdss_has_quirk(mdata, MDSS_QUIRK_BWCPANIC)) {
+		mdata->default_panic_lut0 = readl_relaxed(mdata->mdp_base +
+			MMSS_MDP_PANIC_LUT0);
+		mdata->default_panic_lut1 = readl_relaxed(mdata->mdp_base +
+			MMSS_MDP_PANIC_LUT1);
+		mdata->default_robust_lut = readl_relaxed(mdata->mdp_base +
+			MMSS_MDP_ROBUST_LUT);
+	}
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
 		if (mdata->regulator_notif_register)
