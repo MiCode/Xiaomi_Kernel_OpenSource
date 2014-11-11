@@ -646,6 +646,8 @@ struct intel_dp {
 	int backlight_off_delay;
 	struct delayed_work panel_vdd_work;
 	bool want_panel_vdd;
+	bool do_fast_link_train;
+	bool has_fast_link_train;
 	unsigned long last_power_cycle;
 	unsigned long last_power_on;
 	unsigned long last_backlight_off;
@@ -943,6 +945,7 @@ bool intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 void intel_dp_start_link_train(struct intel_dp *intel_dp);
 void intel_dp_complete_link_train(struct intel_dp *intel_dp);
 void intel_dp_stop_link_train(struct intel_dp *intel_dp);
+bool intel_dp_fast_link_train(struct intel_dp *intel_dp);
 void intel_dp_sink_dpms(struct intel_dp *intel_dp, int mode);
 void intel_dp_encoder_destroy(struct drm_encoder *encoder);
 void intel_dp_check_link_status(struct intel_dp *intel_dp);

@@ -108,6 +108,7 @@ static struct intel_dp *intel_attached_dp(struct drm_connector *connector)
 	return enc_to_intel_dp(&intel_attached_encoder(connector)->base);
 }
 
+static void intel_vlv_dp_send_idle_pattern(struct intel_dp *intel_dp);
 static void intel_dp_link_down(struct intel_dp *intel_dp);
 static bool _edp_panel_vdd_on(struct intel_dp *intel_dp);
 static void edp_panel_vdd_off(struct intel_dp *intel_dp, bool sync);
@@ -2207,6 +2208,26 @@ static void vlv_unstuck_power_sequencer(struct intel_dp *intel_dp)
 	vlv_kick_power_seqeuencer_for_dp(intel_dp, pipe);
 }
 
+static void intel_vlv_dp_send_idle_pattern(struct intel_dp *intel_dp)
+{
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct drm_device *dev = intel_dig_port->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (!IS_VALLEYVIEW(dev))
+		return;
+
+	intel_dp->DP = I915_READ(intel_dp->output_reg);
+	if (IS_CHERRYVIEW(dev))
+		intel_dp->DP &= ~DP_LINK_TRAIN_MASK_CHV;
+	else
+		intel_dp->DP &= ~DP_LINK_TRAIN_MASK;
+	intel_dp->DP |= DP_LINK_TRAIN_PAT_IDLE;
+
+	I915_WRITE(intel_dp->output_reg, intel_dp->DP);
+	POSTING_READ(intel_dp->output_reg);
+}
+
 static void intel_edp_init_train(struct intel_dp *intel_dp)
 {
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
@@ -3310,6 +3331,11 @@ intel_dp_set_link_train(struct intel_dp *intel_dp,
 		}
 
 	} else {
+		if (dp_train_pat & DP_LINK_SCRAMBLING_DISABLE)
+			*DP |= DP_TP_CTL_SCRAMBLE_DISABLE;
+		else
+			*DP &= ~DP_TP_CTL_SCRAMBLE_DISABLE;
+
 		if (IS_CHERRYVIEW(dev))
 			*DP &= ~DP_LINK_TRAIN_MASK_CHV;
 		else
@@ -3344,23 +3370,28 @@ intel_dp_set_link_train(struct intel_dp *intel_dp,
 	if (chv_quirk)
 		intel_chv_reset_tx_lane(intel_dp);
 
-	buf[0] = dp_train_pat;
-	if ((dp_train_pat & DP_TRAINING_PATTERN_MASK) ==
-	    DP_TRAINING_PATTERN_DISABLE) {
-		/* don't write DP_TRAINING_LANEx_SET on disable */
-		len = 1;
-	} else {
-		/* Set vswing & Pre-emph if we had reset lanes earlier */
-		if (chv_quirk)
-			intel_dp_set_signal_levels(intel_dp, DP);
+	/* Do not write DPCD registers for Fast Link Training */
+	ret = len = 0;
+	if (!intel_dp->do_fast_link_train) {
+		buf[0] = dp_train_pat;
+		if ((dp_train_pat & DP_TRAINING_PATTERN_MASK) ==
+			    DP_TRAINING_PATTERN_DISABLE) {
+			/* don't write DP_TRAINING_LANEx_SET on disable */
+			len = 1;
+		} else {
+			/* Set vswing/Pre-emph had we reset lanes earlier */
+			if (chv_quirk)
+				intel_dp_set_signal_levels(intel_dp, DP);
 
-		/* DP_TRAINING_LANEx_SET follow DP_TRAINING_PATTERN_SET */
-		memcpy(buf + 1, intel_dp->train_set, intel_dp->lane_count);
-		len = intel_dp->lane_count + 1;
+			/* DP_TRAIN_LANEx_SET follow DP_TRAIN_PATTERN_SET */
+			memcpy(buf + 1, intel_dp->train_set,
+					intel_dp->lane_count);
+			len = intel_dp->lane_count + 1;
+		}
+
+		ret = drm_dp_dpcd_write(&intel_dp->aux, DP_TRAINING_PATTERN_SET,
+					buf, len);
 	}
-
-	ret = drm_dp_dpcd_write(&intel_dp->aux, DP_TRAINING_PATTERN_SET,
-				buf, len);
 
 	return ret == len;
 }
@@ -3437,6 +3468,15 @@ intel_dp_start_link_train(struct intel_dp *intel_dp)
 	int voltage_tries, loop_tries;
 	uint32_t DP = intel_dp->DP;
 	uint8_t link_config[2];
+
+	intel_dp->do_fast_link_train = false;
+
+	/*
+	 * After successfully doing complete_link_train,
+	 * we set this to true, indicating that successive
+	 * link trainings can be 'fast mode' ones.
+	 */
+	intel_dp->has_fast_link_train = false;
 
 	if (HAS_DDI(dev))
 		intel_ddi_prepare_link_retrain(encoder);
@@ -3593,8 +3633,10 @@ intel_dp_complete_link_train(struct intel_dp *intel_dp)
 
 	intel_dp->DP = DP;
 
-	if (channel_eq)
+	if (channel_eq) {
+		intel_dp->has_fast_link_train = true;
 		DRM_DEBUG_KMS("Channel EQ done. DP Training successful\n");
+	}
 
 }
 
@@ -3602,6 +3644,62 @@ void intel_dp_stop_link_train(struct intel_dp *intel_dp)
 {
 	intel_dp_set_link_train(intel_dp, &intel_dp->DP,
 				DP_TRAINING_PATTERN_DISABLE);
+}
+
+bool intel_dp_fast_link_train(struct intel_dp *intel_dp)
+{
+	uint8_t     link_config[2];
+	uint8_t     link_status[DP_LINK_STATUS_SIZE];
+	uint32_t DP = intel_dp->DP;
+	uint8_t tp;
+	bool ret = false;
+
+	intel_dp->do_fast_link_train = true;
+
+	/* Write the link configuration data */
+	link_config[0] = intel_dp->link_bw;
+	link_config[1] = intel_dp->lane_count;
+	if (drm_dp_enhanced_frame_cap(intel_dp->dpcd))
+		link_config[1] |= DP_LANE_COUNT_ENHANCED_FRAME_EN;
+	drm_dp_dpcd_write(&intel_dp->aux, DP_LINK_BW_SET, link_config, 2);
+
+	link_config[0] = 0;
+	link_config[1] = DP_SET_ANSI_8B10B;
+	drm_dp_dpcd_write(&intel_dp->aux, DP_DOWNSPREAD_CTRL, link_config, 2);
+
+	intel_dp_set_signal_levels(intel_dp, &DP);
+
+	/* Set link training pattern 1 */
+	tp = DP_TRAINING_PATTERN_1 | DP_LINK_SCRAMBLING_DISABLE;
+	if (!intel_dp_set_link_train(intel_dp, &DP, tp))
+		goto exit;
+
+	udelay(500);
+
+	/* Set link training pattern 2 */
+	tp = DP_TRAINING_PATTERN_2 | DP_LINK_SCRAMBLING_DISABLE;
+	if (!intel_dp_set_link_train(intel_dp, &DP, tp))
+		goto exit;
+
+	udelay(500);
+
+	/* Wait 1 ms for 5 idle frames to be sent */
+	intel_vlv_dp_send_idle_pattern(intel_dp);
+	udelay(1000);
+
+	/* Port requires 60 us delay after disabling Link training */
+	intel_dp_stop_link_train(intel_dp);
+	udelay(60);
+
+	intel_dp->DP = DP;
+
+	ret = intel_dp_get_link_status(intel_dp, link_status) &&
+		drm_dp_clock_recovery_ok(link_status, intel_dp->lane_count) &&
+		drm_dp_channel_eq_ok(link_status, intel_dp->lane_count);
+
+exit:
+	intel_dp->do_fast_link_train = false;
+	return ret;
 }
 
 static void
@@ -3622,6 +3720,8 @@ intel_dp_link_down(struct intel_dp *intel_dp)
 		return;
 
 	DRM_DEBUG_KMS("\n");
+
+	intel_dp->has_fast_link_train = false;
 
 	if (HAS_PCH_CPT(dev) && (IS_GEN7(dev) || port != PORT_A)) {
 		DP &= ~DP_LINK_TRAIN_MASK_CPT;
