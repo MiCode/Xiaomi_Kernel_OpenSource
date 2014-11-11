@@ -589,6 +589,8 @@ __i915_enable_pipestat(struct drm_i915_private *dev_priv, enum pipe pipe,
 {
 	u32 reg = PIPESTAT(pipe);
 	u32 pipestat = I915_READ(reg) & PIPESTAT_INT_ENABLE_MASK;
+	u32 vlv_psr_status[I915_MAX_PIPES] = {PIPE_A_PSR_STATUS_VLV,
+					PIPE_B_PSR_STATUS_VLV, 0};
 
 	assert_spin_locked(&dev_priv->irq_lock);
 
@@ -600,6 +602,9 @@ __i915_enable_pipestat(struct drm_i915_private *dev_priv, enum pipe pipe,
 
 	if ((pipestat & enable_mask) == enable_mask)
 		return;
+
+	if (IS_CHERRYVIEW(dev_priv->dev))
+		status_mask |= vlv_psr_status[pipe];
 
 	dev_priv->pipestat_irq_mask[pipe] |= status_mask;
 
@@ -1147,6 +1152,9 @@ static void i915_hotplug_work_func(struct work_struct *work)
 	bool changed = false;
 	u32 hpd_event_bits;
 	char *envp[] = {"hdcp_hpd", NULL};
+
+	/* Disable PSR on Hotplug interrupt */
+	intel_vlv_edp_psr_disable(dev);
 
 	mutex_lock(&mode_config->mutex);
 	DRM_DEBUG_KMS("running encoder hotplug functions\n");
@@ -2097,6 +2105,8 @@ static void valleyview_pipestat_irq_handler(struct drm_device *dev, u32 iir)
 	struct drm_crtc *crtc;
 	struct intel_crtc *intel_crtc;
 	u32 pipe_stats[I915_MAX_PIPES] = { };
+	u32 vlv_psr_status[I915_MAX_PIPES] = {PIPE_A_PSR_STATUS_VLV,
+					PIPE_B_PSR_STATUS_VLV, 0};
 	int pipe;
 
 	spin_lock(&dev_priv->irq_lock);
@@ -2169,6 +2179,10 @@ static void valleyview_pipestat_irq_handler(struct drm_device *dev, u32 iir)
 
 		if (pipe_stats[pipe] & PIPE_DPST_EVENT_STATUS)
 			i915_dpst_irq_handler(dev, pipe);
+
+		/* Handle PSR active entry events */
+		if (pipe_stats[pipe] & vlv_psr_status[pipe])
+			intel_vlv_psr_irq_handler(dev, pipe);
 
 		if (pipe_stats[pipe] & PIPE_FIFO_UNDERRUN_STATUS &&
 		    intel_set_cpu_fifo_underrun_reporting(dev, pipe, false))
