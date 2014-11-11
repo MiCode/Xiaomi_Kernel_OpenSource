@@ -3,17 +3,25 @@
 Required properties:
 - compatible: must be "sil,sii-8620"
 - reg: i2c slave address
+- sil,pwr-gpio: MHL power gpio required to power sii8620
+- sil,fw-wake: MHL fw wake gpio going into sii8620
 - sil,reset-gpio: MHL reset gpio going into sii8620 for toggling reset pin
 - sil,irq-gpio: MHL interrupt gpio coming out of sii8620
 - sil,i2c_port#: Port number of i2c device
+- pinctrl-0: Pin control group to be used for this controller.
+- pinctrl-names: Should contain only one value - "mhl_active".
 
 Example:
 	i2c@f9923000 {
 		sil,sii-8620@72 {
 			compatible = "sil,sii-8620";
 			reg = <0x72>;
+			sil,pwr-gpio = <&pm8994_gpios 2 0>;
+			sil,fw-wake = <&msm_gpio 38 0>;
 			sil,reset-gpio = <&msm_gpio 58 0>;
 			sil,irq-gpio = <&msm_gpio 57 0>;
 			sil,i2c_port# = <1>;
+			pinctrl-names = "mhl_active";
+			pinctrl-0 = <&mhl_intr_active &mhl_reset_active>;
 		};
 	};
