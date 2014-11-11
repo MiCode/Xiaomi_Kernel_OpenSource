@@ -414,6 +414,26 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 
 	tmp = ~flash_node->trigger & val;
 	if (!tmp) {
+		if (flash_node->type == TORCH) {
+			rc = qpnp_led_masked_write(led->spmi_dev,
+				FLASH_LED_UNLOCK_SECURE(led->base),
+				FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Secure reg write failed\n");
+				return -EINVAL;
+			}
+
+			rc = qpnp_led_masked_write(led->spmi_dev,
+				FLASH_TORCH(led->base),
+				FLASH_TORCH_MASK, FLASH_LED_TORCH_DISABLE);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Torch reg write failed\n");
+				return -EINVAL;
+			}
+		}
+
 		rc = qpnp_led_masked_write(led->spmi_dev,
 			FLASH_MODULE_ENABLE_CTRL(led->base),
 			FLASH_MODULE_ENABLE_MASK, FLASH_LED_DISABLE);
@@ -642,26 +662,6 @@ turn_off:
 	if (rc) {
 		dev_err(&led->spmi_dev->dev, "Strobe disable failed\n");
 		goto exit_flash_led_work;
-	}
-
-	if (flash_node->type == TORCH) {
-		rc = qpnp_led_masked_write(led->spmi_dev,
-			FLASH_LED_UNLOCK_SECURE(led->base),
-			FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-				"Secure reg write failed\n");
-			goto exit_flash_led_work;
-		}
-
-		rc = qpnp_led_masked_write(led->spmi_dev,
-			FLASH_TORCH(led->base),
-			FLASH_TORCH_MASK, FLASH_LED_TORCH_DISABLE);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-				"Torch reg write failed\n");
-			goto exit_flash_led_work;
-		}
 	}
 
 	usleep(FLASH_RAMP_DN_DELAY_US);
