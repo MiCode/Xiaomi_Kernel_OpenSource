@@ -3217,6 +3217,40 @@ intel_dp_set_signal_levels(struct intel_dp *intel_dp, uint32_t *DP)
 	*DP = (*DP & ~mask) | signal_levels;
 }
 
+static void intel_chv_reset_tx_lane(struct intel_dp *intel_dp)
+{
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_digital_port *dport = dp_to_dig_port(intel_dp);
+	struct intel_crtc *intel_crtc = to_intel_crtc(dport->base.base.crtc);
+	enum dpio_channel ch = vlv_dport_to_channel(dport);
+	enum pipe pipe = intel_crtc->pipe;
+	u32 val;
+
+	mutex_lock(&dev_priv->dpio_lock);
+
+	/* Propagate soft reset to data lane reset */
+	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW1(ch));
+	val |= CHV_PCS_REQ_SOFTRESET_EN;
+	val |= DPIO_PCS_CLK_SOFT_RESET;
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW1(ch), val);
+
+	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS23_DW1(ch));
+	val |= CHV_PCS_REQ_SOFTRESET_EN;
+	val |= DPIO_PCS_CLK_SOFT_RESET;
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW1(ch), val);
+
+	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS01_DW0(ch));
+	val |= (DPIO_PCS_TX_LANE2_RESET | DPIO_PCS_TX_LANE1_RESET);
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS01_DW0(ch), val);
+
+	val = vlv_dpio_read(dev_priv, pipe, VLV_PCS23_DW0(ch));
+	val |= (DPIO_PCS_TX_LANE2_RESET | DPIO_PCS_TX_LANE1_RESET);
+	vlv_dpio_write(dev_priv, pipe, VLV_PCS23_DW0(ch), val);
+
+	mutex_unlock(&dev_priv->dpio_lock);
+}
+
 static bool
 intel_dp_set_link_train(struct intel_dp *intel_dp,
 			uint32_t *DP,
@@ -3227,6 +3261,7 @@ intel_dp_set_link_train(struct intel_dp *intel_dp,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	enum port port = intel_dig_port->port;
 	uint8_t buf[sizeof(intel_dp->train_set) + 1];
+	bool chv_quirk = false;
 	int ret, len;
 
 	if (HAS_DDI(dev)) {
@@ -3283,9 +3318,11 @@ intel_dp_set_link_train(struct intel_dp *intel_dp,
 		switch (dp_train_pat & DP_TRAINING_PATTERN_MASK) {
 		case DP_TRAINING_PATTERN_DISABLE:
 			*DP |= DP_LINK_TRAIN_OFF;
+			chv_quirk = IS_CHERRYVIEW(dev) ? true : false;
 			break;
 		case DP_TRAINING_PATTERN_1:
 			*DP |= DP_LINK_TRAIN_PAT_1;
+			chv_quirk = IS_CHERRYVIEW(dev) ? true : false;
 			break;
 		case DP_TRAINING_PATTERN_2:
 			*DP |= DP_LINK_TRAIN_PAT_2;
@@ -3304,12 +3341,19 @@ intel_dp_set_link_train(struct intel_dp *intel_dp,
 	I915_WRITE(intel_dp->output_reg, *DP);
 	POSTING_READ(intel_dp->output_reg);
 
+	if (chv_quirk)
+		intel_chv_reset_tx_lane(intel_dp);
+
 	buf[0] = dp_train_pat;
 	if ((dp_train_pat & DP_TRAINING_PATTERN_MASK) ==
 	    DP_TRAINING_PATTERN_DISABLE) {
 		/* don't write DP_TRAINING_LANEx_SET on disable */
 		len = 1;
 	} else {
+		/* Set vswing & Pre-emph if we had reset lanes earlier */
+		if (chv_quirk)
+			intel_dp_set_signal_levels(intel_dp, DP);
+
 		/* DP_TRAINING_LANEx_SET follow DP_TRAINING_PATTERN_SET */
 		memcpy(buf + 1, intel_dp->train_set, intel_dp->lane_count);
 		len = intel_dp->lane_count + 1;
