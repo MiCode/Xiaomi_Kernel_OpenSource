@@ -5138,6 +5138,11 @@ void intel_dp_set_drrs_state(struct drm_device *dev, int refresh_rate)
 		return;
 	}
 
+	if (IS_CHERRYVIEW(dev) && i915.enable_psr) {
+		DRM_DEBUG_KMS("DRRS is disabled as PSR is enabled\n");
+		return;
+	}
+
 	if ((IS_CHERRYVIEW(dev) || INTEL_INFO(dev)->gen < 8)
 		&& intel_edp_is_psr_enabled(dev)) {
 		DRM_DEBUG_KMS("DRRS is disabled as PSR is enabled\n");
@@ -5227,6 +5232,11 @@ intel_dp_drrs_init(struct intel_digital_port *intel_dig_port,
 
 	if (dev_priv->vbt.drrs_type != SEAMLESS_DRRS_SUPPORT) {
 		DRM_INFO("VBT doesn't support DRRS\n");
+		return NULL;
+	}
+
+	if (IS_CHERRYVIEW(dev) && i915.enable_psr) {
+		DRM_DEBUG_KMS("DRRS disabled since PSR is enabled\n");
 		return NULL;
 	}
 
