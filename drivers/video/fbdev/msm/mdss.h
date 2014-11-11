@@ -26,6 +26,7 @@
 #include "mdss_panel.h"
 
 #define MAX_DRV_SUP_MMB_BLKS	44
+#define MAX_DRV_SUP_PIPES 10
 
 #define MDSS_PINCTRL_STATE_DEFAULT "mdss_default"
 #define MDSS_PINCTRL_STATE_SLEEP  "mdss_sleep"
@@ -125,6 +126,11 @@ struct mdss_pp_block_off {
 	u32 dspp_pgc_off;
 };
 
+enum mdss_hw_quirk {
+	MDSS_QUIRK_BWCPANIC,
+	MDSS_QUIRK_MAX,
+};
+
 struct mdss_data_type {
 	u32 mdp_rev;
 	struct clk *mdp_clk[MDSS_MAX_CLK];
@@ -143,7 +149,18 @@ struct mdss_data_type {
 
 	struct mutex reg_lock;
 
+	/* bitmap to track pipes that have BWC enabled */
+	DECLARE_BITMAP(bwc_enable_map, MAX_DRV_SUP_PIPES);
+	/* bitmap to track hw workarounds */
+	DECLARE_BITMAP(mdss_quirk_map, MDSS_QUIRK_MAX);
+	/* bitmap to track total mmbs in use */
+	DECLARE_BITMAP(mmb_alloc_map, MAX_DRV_SUP_MMB_BLKS);
+
 	u32 has_bwc;
+	u32 default_panic_lut0;
+	u32 default_panic_lut1;
+	u32 default_robust_lut;
+
 	u32 has_decimation;
 	bool has_fixed_qos_arbiter_enabled;
 	bool has_panic_ctrl;
@@ -217,8 +234,6 @@ struct mdss_data_type {
 	u32 max_target_zorder;
 	u8  ncursor_pipes;
 	u32 max_cursor_size;
-
-	DECLARE_BITMAP(mmb_alloc_map, MAX_DRV_SUP_MMB_BLKS);
 
 	struct mdss_mdp_mixer *mixer_intf;
 	struct mdss_mdp_mixer *mixer_wb;
@@ -333,6 +348,18 @@ static inline int mdss_get_sd_client_cnt(void)
 		return 0;
 	else
 		return atomic_read(&mdss_res->sd_client_count);
+}
+
+static inline void mdss_set_quirk(struct mdss_data_type *mdata,
+	enum mdss_hw_quirk bit)
+{
+	set_bit(bit, mdata->mdss_quirk_map);
+}
+
+static inline bool mdss_has_quirk(struct mdss_data_type *mdata,
+	enum mdss_hw_quirk bit)
+{
+	return test_bit(bit, mdata->mdss_quirk_map);
 }
 
 #define MDSS_VBIF_WRITE(mdata, offset, value, nrt_vbif) \

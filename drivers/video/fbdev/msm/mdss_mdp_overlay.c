@@ -3625,14 +3625,6 @@ ctl_stop:
 	return rc;
 }
 
-int mdss_panel_register_done(struct mdss_panel_data *pdata)
-{
-	if (pdata->panel_info.cont_splash_enabled)
-		mdss_mdp_footswitch_ctrl_splash(1);
-
-	return 0;
-}
-
 static int __mdss_mdp_ctl_handoff(struct mdss_mdp_ctl *ctl,
 	struct mdss_data_type *mdata)
 {
@@ -3921,7 +3913,6 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->cursor_update = mdss_mdp_hw_cursor_update;
 	mdp5_interface->dma_fnc = mdss_mdp_overlay_pan_display;
 	mdp5_interface->ioctl_handler = mdss_mdp_overlay_ioctl_handler;
-	mdp5_interface->panel_register_done = mdss_panel_register_done;
 	mdp5_interface->kickoff_fnc = mdss_mdp_overlay_kickoff;
 	mdp5_interface->get_sync_fnc = mdss_mdp_rotator_sync_pt_get;
 	mdp5_interface->splash_init_fnc = mdss_mdp_splash_init;
@@ -3964,6 +3955,14 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	rc = mdss_mdp_overlay_fb_parse_dt(mfd);
 	if (rc)
 		return rc;
+
+	/*
+	 * disable BWC if primary panel is video mode on specific
+	 * chipsets to workaround HW problem.
+	 */
+	if (mdss_has_quirk(mdp5_data->mdata, MDSS_QUIRK_BWCPANIC) &&
+	    mfd->panel_info->type == MIPI_VIDEO_PANEL && (0 == mfd->index))
+		mdp5_data->mdata->has_bwc = false;
 
 	mfd->panel_orientation = mfd->panel_info->panel_orientation;
 

@@ -66,6 +66,7 @@ int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable)
 	if (!mdata->has_panic_ctrl)
 		goto end;
 
+	mutex_lock(&mdata->reg_lock);
 	switch (mdss_mdp_panic_signal_support_mode(mdata, pipe)) {
 	case MDSS_MDP_PANIC_COMMON_REG_CFG:
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
@@ -92,9 +93,31 @@ int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable)
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 		break;
 	}
+	mutex_unlock(&mdata->reg_lock);
 
 end:
 	return 0;
+}
+
+void mdss_mdp_bwcpanic_ctrl(struct mdss_data_type *mdata, bool enable)
+{
+	if (!mdata)
+		return;
+
+	mutex_lock(&mdata->reg_lock);
+	if (enable) {
+		writel_relaxed(0x0, mdata->mdp_base + MMSS_MDP_PANIC_LUT0);
+		writel_relaxed(0x0, mdata->mdp_base + MMSS_MDP_PANIC_LUT1);
+		writel_relaxed(0x0, mdata->mdp_base + MMSS_MDP_ROBUST_LUT);
+	} else {
+		writel_relaxed(mdata->default_panic_lut0,
+			mdata->mdp_base + MMSS_MDP_PANIC_LUT0);
+		writel_relaxed(mdata->default_panic_lut1,
+			mdata->mdp_base + MMSS_MDP_PANIC_LUT1);
+		writel_relaxed(mdata->default_robust_lut,
+			mdata->mdp_base + MMSS_MDP_ROBUST_LUT);
+	}
+	mutex_unlock(&mdata->reg_lock);
 }
 
 static void mdss_mdp_pipe_nrt_vbif_setup(struct mdss_data_type *mdata,
@@ -1010,14 +1033,15 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
 static void mdss_mdp_pipe_free(struct kref *kref)
 {
 	struct mdss_mdp_pipe *pipe;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	pipe = container_of(kref, struct mdss_mdp_pipe, kref);
 
 	pr_debug("ndx=%x pnum=%d\n", pipe->ndx, pipe->num);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
 
+	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
 	if (pipe->play_cnt) {
 		mdss_mdp_pipe_fetch_halt(pipe);
 		mdss_mdp_pipe_sspp_term(pipe);
@@ -1025,12 +1049,22 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 	} else {
 		mdss_mdp_smp_unreserve(pipe);
 	}
+	if (mdss_has_quirk(mdata, MDSS_QUIRK_BWCPANIC) && pipe->bwc_mode) {
+		unsigned long pnum_bitmap = BIT(pipe->num);
+		bitmap_andnot(mdata->bwc_enable_map, mdata->bwc_enable_map,
+			&pnum_bitmap, MAX_DRV_SUP_PIPES);
+		pipe->bwc_mode = 0;
+
+		if (bitmap_empty(mdata->bwc_enable_map, MAX_DRV_SUP_PIPES))
+			mdss_mdp_bwcpanic_ctrl(mdata, false);
+	}
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	pipe->flags = 0;
 	pipe->is_right_blend = false;
 	pipe->src_split_req = false;
-	pipe->bwc_mode = 0;
+
 	pipe->mfd = NULL;
 	pipe->mixer_left = pipe->mixer_right = NULL;
 	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
@@ -1723,6 +1757,17 @@ update_nobuf:
 	}
 
 	pipe->play_cnt++;
+
+	if (mdss_has_quirk(mdata, MDSS_QUIRK_BWCPANIC)) {
+		unsigned long pnum_bitmap = BIT(pipe->num);
+		if (pipe->bwc_mode)
+			bitmap_or(mdata->bwc_enable_map, mdata->bwc_enable_map,
+				&pnum_bitmap, MAX_DRV_SUP_PIPES);
+		else
+			bitmap_andnot(mdata->bwc_enable_map,
+				mdata->bwc_enable_map, &pnum_bitmap,
+				MAX_DRV_SUP_PIPES);
+	}
 
 done:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
