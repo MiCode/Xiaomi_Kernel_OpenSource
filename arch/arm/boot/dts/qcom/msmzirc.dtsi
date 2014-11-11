@@ -854,6 +854,7 @@
 			snps,hsphy-auto-suspend-disable;
 			snps,ssphy-auto-suspend-disable;
 			snps,hird_thresh = <0x7>;
+			snps,lpm-nyet-thresh = <0x8>;
 		};
 	};
 
