@@ -26,6 +26,29 @@ MODULE_DESCRIPTION("IRC (DCC) NAT helper");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("ip_nat_irc");
 
+/* Specific API required since the data connection will go through a hardware
+ * accelerator and it will expect data to be coming from IRC server instead
+ * of endclient if the source IP is mangled as in the case of
+ * nf_nat_follow_master API
+ */
+void nf_nat_follow_master_irc(struct nf_conn *ct,
+			  struct nf_conntrack_expect *exp)
+{
+	struct nf_nat_range range;
+
+	/* This must be a fresh one. */
+	BUG_ON(ct->status & IPS_NAT_DONE_MASK);
+
+
+	/* For DST manip, map port here to where it's expected. */
+	range.flags = (NF_NAT_RANGE_MAP_IPS | NF_NAT_RANGE_PROTO_SPECIFIED);
+	range.min_proto = range.max_proto = exp->saved_proto;
+	range.min_addr = range.max_addr
+		= ct->master->tuplehash[!exp->dir].tuple.src.u3;
+	nf_nat_setup_info(ct, &range, NF_NAT_MANIP_DST);
+}
+
+
 static unsigned int help(struct sk_buff *skb,
 			 enum ip_conntrack_info ctinfo,
 			 unsigned int protoff,
@@ -44,7 +67,7 @@ static unsigned int help(struct sk_buff *skb,
 
 	exp->saved_proto.tcp.port = exp->tuple.dst.u.tcp.port;
 	exp->dir = IP_CT_DIR_REPLY;
-	exp->expectfn = nf_nat_follow_master;
+	exp->expectfn = nf_nat_follow_master_irc;
 
 	/* Try to get same port: if not, try to change it. */
 	for (port = ntohs(exp->saved_proto.tcp.port); port != 0; port++) {
