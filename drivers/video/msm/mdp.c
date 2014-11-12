@@ -2929,7 +2929,7 @@ static int mdp_probe(struct platform_device *pdev)
 	frame_rate = mdp_get_panel_framerate(mfd);
 	if (frame_rate) {
 		mfd->panel_info.frame_interval = 1000 / frame_rate;
-		mfd->cpu_pm_hdl = add_event_timer(NULL, (void *)mfd);
+		mfd->cpu_pm_hdl = add_event_timer(mdp_irq, NULL, (void *)mfd);
 	}
 	mdp_clk_ctrl(0);
 
