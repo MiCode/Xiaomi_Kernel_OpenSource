@@ -43,6 +43,10 @@ Optional properties:
    If omitted, defaults to 1
  - qcom,sleep-clk-reset: If present, the HSUSB PHY sleep clock supports the clk_reset
    operation, and should be called during initialization.
+ - qcom,vdda-force-on: If present, HW requires a workaround that forces 1.8V and 3.1V
+		       regulator supplies to be left on even when PHY enters into
+		       low power mode.
+
 Example:
 	hsphy@f9200000 {
 		compatible = "qcom,usb-hsphy";
