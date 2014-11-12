@@ -58,6 +58,9 @@ struct diagchar_priv {
 	int pid;
 };
 
+#define CALLBACK_NON_HDLC_DATA	0
+#define CALLBACK_HDLC_DATA	1
+
 /* Memory pool variables */
 /* Used for copying any incoming packet from user space clients. */
 static unsigned int poolsize = 12;
@@ -331,12 +334,73 @@ fail:
 	return -ENOMEM;
 }
 
+static void diag_close_logging_process(int pid)
+{
+	uint8_t i;
+	uint8_t found = 0;
+	uint8_t switch_flag = 1;
+	unsigned long flags;
+	struct diag_md_proc_info *logging_proc = NULL;
+
+	mutex_lock(&driver->diagchar_mutex);
+	for (i = 0; i < DIAG_NUM_PROC; i++) {
+		logging_proc = &driver->md_proc[i];
+		if (logging_proc->pid != pid) {
+			pr_debug("diag: In %s, logging proc pid %d doesn't match logging proc for %d",
+				 __func__, pid, i);
+			continue;
+		}
+		found = 1;
+		if (logging_proc->socket_process)
+			logging_proc->socket_process = NULL;
+		if (logging_proc->callback_process)
+			logging_proc->callback_process = NULL;
+		logging_proc->pid = 0;
+		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN, i);
+	}
+	mutex_unlock(&driver->diagchar_mutex);
+
+	if (!found)
+		return;
+
+	queue_work(driver->diag_real_time_wq, &driver->diag_real_time_work);
+
+	if (driver->rsp_buf_busy) {
+		/*
+		 * This condition is true when the logging process did
+		 * not get a chance to read the last response. Clear the
+		 * busy flag for the response buffer.
+		 */
+		spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
+		driver->rsp_buf_busy = 0;
+		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock,
+				       flags);
+		pr_debug("diag: In %s, Resetting rsp_buf_busy explicitly due to pid: %d\n",
+			 __func__, pid);
+	}
+
+	/*
+	 * There can be multiple instances of Callback applications in the
+	 * system. Ensure that there are no other Memory Device logging process
+	 * before you switch the mode back to USB.
+	 */
+	for (i = 0; i < DIAG_NUM_PROC; i++) {
+		logging_proc = &driver->md_proc[i];
+		if (logging_proc->pid != 0) {
+			switch_flag = 0;
+			break;
+		}
+	}
+
+	if (switch_flag)
+		diag_switch_logging(USB_MODE);
+}
+
 static int diagchar_close(struct inode *inode, struct file *file)
 {
 	int i = -1;
 	struct diagchar_priv *diagpriv_data = file->private_data;
 	struct diag_dci_client_tbl *dci_entry = NULL;
-	unsigned long flags;
 
 	pr_debug("diag: process exit %s\n", current->comm);
 	if (!(file->private_data)) {
@@ -354,43 +418,9 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	dci_entry = dci_lookup_client_entry_pid(current->tgid);
 	if (dci_entry)
 		diag_dci_deinit_client(dci_entry);
-	/* If the exiting process is the socket process */
-	mutex_lock(&driver->diagchar_mutex);
-	if (driver->socket_process &&
-		(driver->socket_process->tgid == current->tgid)) {
-		driver->socket_process = NULL;
-		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN,
-				      ALL_PROC);
-	}
-	if (driver->callback_process &&
-		(driver->callback_process->tgid == current->tgid)) {
-		driver->callback_process = NULL;
-		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN,
-				      ALL_PROC);
-	}
-	mutex_unlock(&driver->diagchar_mutex);
 
-#ifdef CONFIG_DIAG_OVER_USB
-	/* If the SD logging process exits, change logging to USB mode */
-	if (driver->logging_process_id == current->tgid) {
-		if (driver->rsp_buf_busy) {
-			/*
-			 * This happens when the logging process did not get a
-			 * chance to read the last response. Clear the busy flag
-			 * for the response buffer.
-			 */
-			spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
-			driver->rsp_buf_busy = 0;
-			spin_unlock_irqrestore(&driver->rsp_buf_busy_lock,
-					       flags);
-			pr_debug("diag: In %s, Resetting rsp_buf_busy explicitly due to pid: %d\n",
-				 __func__, current->tgid);
-		}
-		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN,
-				      ALL_PROC);
-		diag_switch_logging(USB_MODE);
-	}
-#endif /* DIAG over USB */
+	diag_close_logging_process(current->tgid);
+
 	/* Delete the pkt response table entry for the exiting process */
 	for (i = 0; i < diag_max_reg; i++)
 			if (driver->table[i].process_id == current->tgid)
@@ -631,7 +661,8 @@ static void diag_remote_exit(void)
 	kfree(driver->cb_buf);
 }
 
-static int diag_cb_send_data_remote(int proc, void *buf, int len)
+static int diag_cb_send_data_remote(int proc, void *buf, int len,
+				    uint8_t hdlc_flag)
 {
 	int err = 0;
 	int max_len = 0;
@@ -648,17 +679,6 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len)
 		return -EBADMSG;
 	}
 
-	/*
-	 * The worst case length will be twice as the incoming packet length.
-	 * Add 3 bytes for CRC bytes (2 bytes) and delimiter (1 byte)
-	 */
-	max_len = (2 * len) + 3;
-	if (DIAG_MAX_HDLC_BUF_SIZE < max_len) {
-		pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
-			max_len);
-		return -EBADMSG;
-	}
-
 	do {
 		if (driver->cb_buf_len == 0)
 			break;
@@ -668,6 +688,28 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len)
 
 	if (driver->cb_buf_len != 0)
 		return -EAGAIN;
+
+	if (hdlc_flag) {
+		if (DIAG_MAX_HDLC_BUF_SIZE < len) {
+			pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
+			       len);
+			return -EBADMSG;
+		}
+		driver->cb_buf_len = len;
+		memcpy(driver->cb_buf, buf, len);
+		goto send_data;
+	}
+
+	/*
+	 * The worst case length will be twice as the incoming packet length.
+	 * Add 3 bytes for CRC bytes (2 bytes) and delimiter (1 byte)
+	 */
+	max_len = (2 * len) + 3;
+	if (DIAG_MAX_HDLC_BUF_SIZE < max_len) {
+		pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
+		       max_len);
+		return -EBADMSG;
+	}
 
 	/* Perform HDLC encoding on incoming data */
 	send.state = DIAG_STATE_START;
@@ -679,6 +721,8 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len)
 	enc.dest_last = (void *)(driver->cb_buf + max_len - 1);
 	diag_hdlc_encode(&send, &enc);
 	driver->cb_buf_len = (int)(enc.dest - (void *)driver->cb_buf);
+
+send_data:
 	err = diagfwd_bridge_write(proc, driver->cb_buf,
 				   driver->cb_buf_len);
 	if (err) {
@@ -735,7 +779,8 @@ uint16_t diag_get_remote_device_mask(void)
 	return 0;
 }
 
-static int diag_cb_send_data_remote(int proc, void *buf, int len)
+static int diag_cb_send_data_remote(int proc, void *buf, int len,
+				    uint8_t hdlc_flag)
 {
 	return -EINVAL;
 }
@@ -873,105 +918,84 @@ static int diag_command_reg(struct bindpkt_params_per_process *pkt_params)
 
 static int diag_switch_logging(int requested_mode)
 {
-	int success = -EINVAL;
-	int temp = 0, status = 0;
-	int new_mode = DIAG_USB_MODE; /* set the mode from diag_mux.h */
-	int old_logging_id;
+	int i;
+	int err = 0;
+	int mux_mode = DIAG_USB_MODE; /* set the mode from diag_mux.h */
+	int new_mode = USB_MODE;
+	int current_mode = driver->logging_mode;
 
 	switch (requested_mode) {
-	case USB_MODE:
-	case MEMORY_DEVICE_MODE:
-	case NO_LOGGING_MODE:
+	case CALLBACK_MODE:
 	case UART_MODE:
 	case SOCKET_MODE:
-	case CALLBACK_MODE:
+	case MEMORY_DEVICE_MODE:
+		mux_mode = DIAG_MEMORY_DEVICE_MODE;
+		new_mode = MEMORY_DEVICE_MODE;
+		break;
+	case USB_MODE:
+		mux_mode = DIAG_USB_MODE;
+		new_mode = USB_MODE;
 		break;
 	default:
 		pr_err("diag: In %s, request to switch to invalid mode: %d\n",
-			__func__, requested_mode);
+		       __func__, requested_mode);
 		return -EINVAL;
 	}
 
-	if (requested_mode == driver->logging_mode) {
+	if (new_mode == current_mode) {
 		if (requested_mode != MEMORY_DEVICE_MODE ||
-					driver->real_time_mode)
+		    driver->real_time_mode) {
 			pr_info_ratelimited("diag: Already in logging mode change requested, mode: %d\n",
-					driver->logging_mode);
+					    current_mode);
+		}
 		return 0;
 	}
-	mutex_lock(&driver->diagchar_mutex);
-	temp = driver->logging_mode;
-	driver->logging_mode = requested_mode;
-	old_logging_id = driver->logging_process_id;
 
-	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
-		driver->mask_check = 1;
-		new_mode = DIAG_MEMORY_DEVICE_MODE;
-		if (driver->socket_process) {
-			/*
-			 * Notify the socket logging process that we
-			 * are switching to MEMORY_DEVICE_MODE
-			 */
-			status = send_sig(SIGCONT,
-				 driver->socket_process, 0);
-			if (status) {
-				pr_err("diag: %s, Error notifying ",
-					__func__);
-				pr_err("socket process, status: %d\n",
-					status);
-			}
-			driver->socket_process = NULL;
+	if (new_mode == SOCKET_MODE &&
+	    driver->md_proc[DIAG_LOCAL_PROC].socket_process) {
+		err = send_sig(SIGCONT,
+			       driver->md_proc[DIAG_LOCAL_PROC].socket_process,
+			       0);
+		if (err) {
+			pr_err("diag: In %s, error notifying socket process %d\n",
+			       __func__, err);
 		}
-	} else if (driver->logging_mode == SOCKET_MODE) {
-		driver->socket_process = current;
-	} else if (driver->logging_mode == CALLBACK_MODE) {
-		driver->callback_process = current;
 	}
 
-	if (driver->logging_mode == UART_MODE ||
-				driver->logging_mode == SOCKET_MODE ||
-				driver->logging_mode == CALLBACK_MODE) {
-		driver->mask_check = 0;
-		driver->logging_mode = MEMORY_DEVICE_MODE;
-		new_mode = DIAG_MEMORY_DEVICE_MODE;
-	} else if (driver->logging_mode == NO_LOGGING_MODE) {
-		new_mode = DIAG_NO_LOGGING_MODE;
+	mutex_lock(&driver->diagchar_mutex);
+	driver->logging_mode = new_mode;
+	err = diag_mux_switch_logging(mux_mode);
+	if (err) {
+		pr_err("diag: In %s, unable to switch mode from %d to %d\n",
+		       __func__, current_mode, requested_mode);
+		driver->logging_mode = current_mode;
+		goto fail;
 	}
+	pr_info("diag: Logging switched from %d to %d mode\n",
+		current_mode, new_mode);
 
-	driver->logging_process_id = current->tgid;
-	if (driver->logging_mode != MEMORY_DEVICE_MODE) {
+	if (new_mode != MEMORY_DEVICE_MODE) {
 		diag_update_real_time_vote(DIAG_PROC_MEMORY_DEVICE,
-						MODE_REALTIME, ALL_PROC);
+					   MODE_REALTIME, ALL_PROC);
 	} else {
 		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_UP,
-						ALL_PROC);
+				      ALL_PROC);
 	}
 
-	if (!(driver->logging_mode == MEMORY_DEVICE_MODE &&
-					temp == USB_MODE))
+	if (!(new_mode == MEMORY_DEVICE_MODE && current_mode == USB_MODE)) {
 		queue_work(driver->diag_real_time_wq,
-						&driver->diag_real_time_work);
-
-	status = diag_mux_switch_logging(new_mode);
-	if (status) {
-		if (requested_mode == MEMORY_DEVICE_MODE)
-			driver->mask_check = 0;
-		else if (requested_mode == SOCKET_MODE)
-			driver->socket_process = NULL;
-		else if (requested_mode == CALLBACK_MODE)
-			driver->callback_process = NULL;
-
-		driver->logging_process_id = old_logging_id;
-		driver->logging_mode = temp;
-		pr_err("diag: Error switching logging mode, current logging mode: %d\n",
-						driver->logging_mode);
-		mutex_unlock(&driver->diagchar_mutex);
-		success = status ? success : 1;
-		return success;
+			   &driver->diag_real_time_work);
 	}
+
+	for (i = 0; i < DIAG_NUM_PROC; i++) {
+		driver->md_proc[i].pid = current->tgid;
+		if (requested_mode == SOCKET_MODE)
+			driver->md_proc[i].socket_process = current;
+	}
+fail:
 	mutex_unlock(&driver->diagchar_mutex);
-	success = status ? success : 1;
-	return success;
+
+	return err ? err : 1;
 }
 
 static int diag_ioctl_dci_reg(unsigned long ioarg)
@@ -1068,6 +1092,7 @@ static int diag_ioctl_lsm_deinit(void)
 static int diag_ioctl_vote_real_time(unsigned long ioarg)
 {
 	int real_time = 0;
+	int temp_proc = ALL_PROC;
 	struct real_time_vote_t vote;
 	struct diag_dci_client_tbl *dci_client = NULL;
 
@@ -1089,8 +1114,9 @@ static int diag_ioctl_vote_real_time(unsigned long ioarg)
 					dci_client->client_info.token);
 	} else {
 		real_time = vote.real_time_vote;
+		temp_proc = vote.client_id;
 		diag_update_real_time_vote(vote.proc, real_time,
-						ALL_PROC);
+					   temp_proc);
 	}
 	queue_work(driver->diag_real_time_wq, &driver->diag_real_time_work);
 	return 0;
@@ -1206,6 +1232,30 @@ static int diag_ioctl_dci_support(unsigned long ioarg)
 	return result;
 }
 
+static int diag_ioctl_register_callback(unsigned long ioarg)
+{
+	struct diag_callback_reg_t reg;
+
+	if (copy_from_user(&reg, (void __user *)ioarg,
+			   sizeof(struct diag_callback_reg_t))) {
+		return -EFAULT;
+	}
+
+	if (reg.proc < 0 || reg.proc >= DIAG_NUM_PROC) {
+		pr_err("diag: In %s, invalid proc %d for callback registration\n",
+		       __func__, reg.proc);
+		return -EINVAL;
+	}
+
+	mutex_lock(&driver->diagchar_mutex);
+	driver->md_proc[reg.proc].pid = current->tgid;
+	driver->md_proc[reg.proc].callback_process = current;
+	driver->md_proc[reg.proc].socket_process = NULL;
+	mutex_unlock(&driver->diagchar_mutex);
+
+	return 0;
+}
+
 #ifdef CONFIG_COMPAT
 
 struct bindpkt_params_per_process_compat {
@@ -1314,6 +1364,9 @@ long diagchar_compat_ioctl(struct file *filp,
 	case DIAG_IOCTL_PERIPHERAL_BUF_DRAIN:
 		result = diag_ioctl_peripheral_drain_immediate(ioarg);
 		break;
+	case DIAG_IOCTL_REGISTER_CALLBACK:
+		result = diag_ioctl_register_callback(ioarg);
+		break;
 	}
 	return result;
 }
@@ -1411,6 +1464,8 @@ long diagchar_ioctl(struct file *filp,
 	case DIAG_IOCTL_PERIPHERAL_BUF_DRAIN:
 		result = diag_ioctl_peripheral_drain_immediate(ioarg);
 		break;
+	case DIAG_IOCTL_REGISTER_CALLBACK:
+		result = diag_ioctl_register_callback(ioarg);
 	}
 	return result;
 }
@@ -1534,7 +1589,60 @@ static int diag_user_process_callback_data(const char __user *buf, int len)
 	len -= sizeof(int);
 	ret = diag_cb_send_data_remote(remote_proc - 1,
 				(void *)(user_space_data + token_offset),
-				len);
+				len, CALLBACK_NON_HDLC_DATA);
+fail:
+	diagmem_free(driver, user_space_data, mempool);
+	user_space_data = NULL;
+	return ret;
+}
+
+static int diag_user_process_callback_hdlc_data(const char __user *buf, int len)
+{
+	int err = 0;
+	int ret = 0;
+	int token_offset = 0;
+	int remote_proc = 0;
+	const int mempool = POOL_TYPE_COPY;
+	unsigned char *user_space_data = NULL;
+
+	if (!buf || len <= 0 || len > CALLBACK_BUF_SIZE) {
+		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
+				   __func__, buf, len);
+		return -EBADMSG;
+	}
+
+	user_space_data = diagmem_alloc(driver, len, mempool);
+	if (!user_space_data)
+		return -ENOMEM;
+
+	err = copy_from_user(user_space_data, buf, len);
+	if (err) {
+		pr_err("diag: copy failed for user space data\n");
+		goto fail;
+	}
+
+	/* Check for proc_type */
+	remote_proc = diag_get_remote(*(int *)user_space_data);
+	if (!remote_proc) {
+		wait_event_interruptible(driver->wait_q,
+					 (driver->in_busy_pktdata == 0));
+		diag_process_hdlc((void *)user_space_data, len);
+		diagmem_free(driver, user_space_data, mempool);
+		user_space_data = NULL;
+		return 0;
+	}
+
+	token_offset = sizeof(int);
+	if (len <= MIN_SIZ_ALLOW) {
+		pr_err("diag: In %s, possible integer underflow, payload size: %d\n",
+		       __func__, len);
+		return -EBADMSG;
+	}
+
+	len -= sizeof(int);
+	ret = diag_cb_send_data_remote(remote_proc - 1,
+				(void *)(user_space_data + token_offset),
+				len, CALLBACK_HDLC_DATA);
 fail:
 	diagmem_free(driver, user_space_data, mempool);
 	user_space_data = NULL;
@@ -2005,6 +2113,9 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 	else if (pkt_type == CALLBACK_DATA_TYPE)
 		return diag_user_process_callback_data(payload_buf,
 						       payload_len);
+	else if (pkt_type == CALLBACK_HDLC_DATA_TYPE)
+		return diag_user_process_callback_hdlc_data(payload_buf,
+							    payload_len);
 	else if (pkt_type == USER_SPACE_DATA_TYPE)
 		return diag_user_process_userspace_data(payload_buf,
 							payload_len);
@@ -2362,6 +2473,7 @@ static int __init diagchar_init(void)
 {
 	dev_t dev;
 	int error, ret;
+	int i;
 
 	pr_debug("diagfwd initializing ..\n");
 	ret = 0;
@@ -2392,8 +2504,11 @@ static int __init diagchar_init(void)
 			NUM_SMD_CMD_CHANNELS);
 	driver->num_clients = max_clients;
 	driver->logging_mode = USB_MODE;
-	driver->socket_process = NULL;
-	driver->callback_process = NULL;
+	for (i = 0; i < DIAG_NUM_PROC; i++) {
+		driver->md_proc[i].pid = 0;
+		driver->md_proc[i].callback_process = NULL;
+		driver->md_proc[i].socket_process = NULL;
+	}
 	driver->mask_check = 0;
 	driver->in_busy_pktdata = 0;
 	driver->in_busy_dcipktdata = 0;

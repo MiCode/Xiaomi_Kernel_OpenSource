@@ -41,7 +41,6 @@
  * (1 byte)
  */
 #define DIAG_MAX_HDLC_BUF_SIZE	((DIAG_MAX_REQ_SIZE * 2) + 3)
-#define HDLC_OUT_BUF_SIZE	(driver->itemsize_hdlc)
 
 /* The header of callback data type has remote processor token (of type int) */
 #define CALLBACK_HDR_SIZE	(sizeof(int))
@@ -279,6 +278,10 @@ struct diag_buffering_mode_t {
 	uint8_t low_wm_val;
 } __packed;
 
+struct diag_callback_reg_t {
+	int proc;
+} __packed;
+
 struct diag_ws_ref_t {
 	int ref_count;
 	int copy_count;
@@ -361,6 +364,12 @@ struct diag_smd_info {
 	 */
 	int (*process_smd_read_data)(struct diag_smd_info *smd_info,
 						void *buf, int num_bytes);
+};
+
+struct diag_md_proc_info {
+	int pid;
+	struct task_struct *socket_process;
+	struct task_struct *callback_process;
 };
 
 struct diagchar_dev {
@@ -465,9 +474,7 @@ struct diagchar_dev {
 	int in_busy_dcipktdata;
 	int logging_mode;
 	int mask_check;
-	int logging_process_id;
-	struct task_struct *socket_process;
-	struct task_struct *callback_process;
+	struct diag_md_proc_info md_proc[DIAG_NUM_PROC];
 	/* Power related variables */
 	struct diag_ws_ref_t dci_ws;
 	struct diag_ws_ref_t md_ws;

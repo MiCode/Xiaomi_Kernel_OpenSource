@@ -213,8 +213,9 @@ void chk_logging_wakeup(void)
 	/* Find the index of the logging process */
 	for (i = 0; i < driver->num_clients; i++)
 		if (driver->client_map[i].pid ==
-			driver->logging_process_id)
+		    driver->md_proc[DIAG_LOCAL_PROC].pid) {
 			break;
+		}
 
 	if (i < driver->num_clients) {
 		/* At very high logging rates a race condition can
