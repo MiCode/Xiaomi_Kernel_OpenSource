@@ -1405,27 +1405,42 @@ static int pp_mixer_setup(u32 disp_num,
 	pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
 	/* GC_LUT is in layer mixer */
 	if (flags & PP_FLAGS_DIRTY_ARGC) {
-		pgc_config = &mdss_pp_res->argc_disp_cfg[disp_num];
-		if (pgc_config->flags & MDP_PP_OPS_WRITE) {
-			addr = mixer->base +
-				MDSS_MDP_REG_LM_GC_LUT_BASE;
-			pp_update_argc_lut(addr, pgc_config);
+		if (pp_ops[GC].pp_set_config) {
+			if (mdata->pp_block_off.lm_pgc_off == U32_MAX) {
+				pr_err("invalid pgc offset %d\n", U32_MAX);
+			} else {
+				addr = mixer->base +
+					mdata->pp_block_off.lm_pgc_off;
+				pp_ops[GC].pp_set_config(addr, pp_sts,
+				   &mdss_pp_res->argc_disp_cfg[disp_num], LM);
+			}
+		} else {
+			pgc_config = &mdss_pp_res->argc_disp_cfg[disp_num];
+			if (pgc_config->flags & MDP_PP_OPS_WRITE) {
+				addr = mixer->base +
+					MDSS_MDP_REG_LM_GC_LUT_BASE;
+				pp_update_argc_lut(addr, pgc_config);
+			}
+			if (pgc_config->flags & MDP_PP_OPS_DISABLE)
+				pp_sts->argc_sts &= ~PP_STS_ENABLE;
+			else if (pgc_config->flags & MDP_PP_OPS_ENABLE)
+				pp_sts->argc_sts |= PP_STS_ENABLE;
 		}
-		if (pgc_config->flags & MDP_PP_OPS_DISABLE)
-			pp_sts->argc_sts &= ~PP_STS_ENABLE;
-		else if (pgc_config->flags & MDP_PP_OPS_ENABLE)
-			pp_sts->argc_sts |= PP_STS_ENABLE;
-
 		ctl->flush_bits |= lm_bitmask;
 	}
 
 	/* update LM opmode if LM needs flush */
 	if ((pp_sts->argc_sts & PP_STS_ENABLE) &&
 		(ctl->flush_bits & lm_bitmask)) {
-		addr = mixer->base + MDSS_MDP_REG_LM_OP_MODE;
-		opmode = readl_relaxed(addr);
-		opmode |= (1 << 0); /* GC_LUT_EN */
-		writel_relaxed(opmode, addr);
+		if (pp_driver_ops.pp_opmode_config) {
+			pp_driver_ops.pp_opmode_config(LM, pp_sts,
+					&opmode, 0);
+		} else {
+			addr = mixer->base + MDSS_MDP_REG_LM_OP_MODE;
+			opmode = readl_relaxed(addr);
+			opmode |= (1 << 0); /* GC_LUT_EN */
+			writel_relaxed(opmode, addr);
+		}
 	}
 	return 0;
 }
@@ -1768,15 +1783,28 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 
 	if (flags & PP_FLAGS_DIRTY_PGC) {
 		pgc_config = &mdss_pp_res->pgc_disp_cfg[disp_num];
-		if (pgc_config->flags & MDP_PP_OPS_WRITE) {
-			addr = base + MDSS_MDP_REG_DSPP_GC_BASE;
-			pp_update_argc_lut(addr, pgc_config);
+		if (pp_ops[GC].pp_set_config) {
+			if (mdata->pp_block_off.dspp_pgc_off == U32_MAX) {
+				pr_err("invalid pgc offset %d\n", U32_MAX);
+			} else {
+				addr = base +
+					mdata->pp_block_off.dspp_pgc_off;
+				pp_ops[GC].pp_set_config(addr, pp_sts,
+					&mdss_pp_res->pgc_disp_cfg[disp_num],
+					DSPP);
+			}
+		} else {
+			if (pgc_config->flags & MDP_PP_OPS_WRITE) {
+				addr = base + MDSS_MDP_REG_DSPP_GC_BASE;
+				pp_update_argc_lut(addr, pgc_config);
+			}
+			if (pgc_config->flags & MDP_PP_OPS_DISABLE)
+				pp_sts->pgc_sts &= ~PP_STS_ENABLE;
+			else if (pgc_config->flags & MDP_PP_OPS_ENABLE)
+				pp_sts->pgc_sts |= PP_STS_ENABLE;
+			pp_sts_set_split_bits(&pp_sts->pgc_sts,
+					      pgc_config->flags);
 		}
-		if (pgc_config->flags & MDP_PP_OPS_DISABLE)
-			pp_sts->pgc_sts &= ~PP_STS_ENABLE;
-		else if (pgc_config->flags & MDP_PP_OPS_ENABLE)
-			pp_sts->pgc_sts |= PP_STS_ENABLE;
-		pp_sts_set_split_bits(&pp_sts->pgc_sts, pgc_config->flags);
 	}
 
 	pp_dspp_opmode_config(ctl, dspp_num, pp_sts, mdata->mdp_rev, &opmode);
@@ -3165,7 +3193,7 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 				u32 *copyback)
 {
 	int ret = 0;
-	u32 disp_num, dspp_num = 0;
+	u32 disp_num, dspp_num = 0, is_lm = 0;
 	struct mdp_pgc_lut_data local_cfg;
 	struct mdp_pgc_lut_data *pgc_ptr;
 	u32 tbl_size, r_size, g_size, b_size;
@@ -3216,6 +3244,33 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 
 	if (config->flags & MDP_PP_OPS_READ) {
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+		if (pp_ops[GC].pp_get_config) {
+			char __iomem *temp_addr = NULL;
+			u32 off = 0;
+			is_lm = (PP_LOCAT(config->block) == MDSS_PP_LM_CFG);
+			off = (is_lm) ? mdata->pp_block_off.lm_pgc_off :
+				mdata->pp_block_off.dspp_pgc_off;
+			if (off == U32_MAX) {
+				pr_err("invalid offset for loc %d off %d\n",
+					PP_LOCAT(config->block), U32_MAX);
+				ret = -EINVAL;
+				goto clock_off;
+			}
+			temp_addr = (is_lm) ?
+				     mdss_mdp_get_mixer_addr_off(dspp_num) :
+				     mdss_mdp_get_dspp_addr_off(dspp_num);
+			if (IS_ERR_OR_NULL(temp_addr)) {
+				pr_err("invalid addr is_lm %d\n", is_lm);
+				ret = -EINVAL;
+				goto clock_off;
+			}
+			temp_addr += off;
+			ret = pp_ops[GC].pp_get_config(temp_addr, config,
+				((is_lm) ? LM : DSPP), disp_num);
+			if (ret)
+				pr_err("gc get config failed %d\n", ret);
+			goto clock_off;
+		}
 		local_cfg = *config;
 		local_cfg.r_data =
 			&mdss_pp_res->gc_lut_r[disp_num][0];
@@ -3246,8 +3301,26 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 			goto argc_config_exit;
 		}
 		*copyback = 1;
+clock_off:
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	} else {
+		if (pp_ops[GC].pp_set_config) {
+			pr_debug("version of gc is %d\n", config->version);
+			is_lm = (PP_LOCAT(config->block) == MDSS_PP_LM_CFG);
+			ret = pp_pgc_lut_cache_params(config, mdss_pp_res,
+				((is_lm) ? LM : DSPP), dspp_num);
+			if (ret) {
+				pr_err("gamut set config failed ret %d\n",
+					ret);
+				if (is_lm)
+					mdss_pp_res->pp_disp_flags[disp_num]
+						&= ~PP_FLAGS_DIRTY_ARGC;
+				else
+					mdss_pp_res->pp_disp_flags[disp_num]
+						&= ~PP_FLAGS_DIRTY_PGC;
+			}
+			goto argc_config_exit;
+		}
 		r_size = config->num_r_stages *
 			sizeof(struct mdp_ar_gc_lut_data);
 		g_size = config->num_g_stages *

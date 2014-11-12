@@ -896,6 +896,12 @@ struct mdp_pgc_lut_data {
 	void *cfg_payload;
 };
 
+enum {
+	mdp_pgc_v1_7 = 1,
+	mdp_pgc_vmax,
+};
+
+#define PGC_LUT_ENTRIES 1024
 struct mdp_pgc_lut_data_v1_7 {
 	uint32_t  len;
 	uint32_t  *c0_data;
