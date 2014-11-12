@@ -36,6 +36,7 @@
 #include <asm/system_misc.h>
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
+#include <asm/edac.h>
 
 #include <trace/events/exception.h>
 
@@ -369,6 +370,7 @@ static int __kprobes do_translation_fault(unsigned long addr,
  */
 static int do_bad(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 {
+	arm64_erp_local_dbe_handler();
 	return 1;
 }
 
