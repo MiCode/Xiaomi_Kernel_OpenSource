@@ -29,6 +29,14 @@ Optional:
 is a number
 - qcom,ipa-hw-mode: IPA hardware mode - Normal, Virtual memory allocation,
 memory allocation over a PCIe bridge
+- qcom,msm-bus,name:            String representing the client-name
+- qcom,msm-bus,num-cases:       Total number of usecases
+- qcom,msm-bus,active-only:     Boolean context flag for requests in active or
+                                dual (active & sleep) contex
+- qcom,msm-bus,num-paths:       Total number of master-slave pairs
+- qcom,msm-bus,vectors-KBps:    Arrays of unsigned integers representing:
+                                master-id, slave-id, arbitrated bandwidth
+                                in KBps, instantaneous bandwidth in KBps
 
 IPA pipe sub nodes (A2 static pipes configurations):
 
@@ -77,6 +85,14 @@ qcom,ipa@fd4c0000 {
 	clocks = <&clock_rpm clk_ipa_clk>;
 	clock-names = "iface_clk";
 
+        qcom,msm-bus,name = "ipa";
+        qcom,msm-bus,num-cases = <3>;
+        qcom,msm-bus,num-paths = <2>;
+        qcom,msm-bus,vectors-KBps =
+        <90 512 0 0>, <90 585 0 0>,         /* No vote */
+        <90 512 100000 800000>, <90 585 100000 800000>,    /* SVS */
+        <90 512 100000 1200000>, <90 585 100000 1200000>;    /* PERF */
+        qcom,bus-vector-names = "MIN", "SVS", "PERF";
 
 	qcom,pipe1 {
 		label = "a2-to-ipa";
