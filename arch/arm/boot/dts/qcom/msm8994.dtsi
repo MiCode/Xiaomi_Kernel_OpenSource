@@ -793,6 +793,15 @@
 		qcom,ee = <2>;
 		clock-names = "core_clk";
 		clocks = <&clock_rpm clk_ipa_clk>;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		<90 512 0 0>, <90 585 0 0>,         /* No vote */
+		<90 512 100000 800000>, <90 585 100000 800000>,    /* SVS */
+		<90 512 100000 1200000>, <90 585 100000 1200000>;    /* PERF */
+		qcom,bus-vector-names = "MIN", "SVS", "PERF";
+
 	};
 
 	qcom,rmnet-ipa {
