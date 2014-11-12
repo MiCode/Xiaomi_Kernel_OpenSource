@@ -204,7 +204,9 @@ static int flush_bw_data(struct device *node_device, int ctx)
 			struct msm_bus_fab_device_type *fabdev =
 							bus_device->fabdev;
 
-			if (fabdev)
+			if (fabdev && fabdev->noc_ops.update_bw_reg &&
+				fabdev->noc_ops.update_bw_reg
+					(node_info->node_info->qos_params.mode))
 				ret = fabdev->noc_ops.set_bw(node_info,
 							fabdev->qos_base,
 							fabdev->base_offset,

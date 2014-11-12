@@ -533,6 +533,17 @@ static void free_commit_data(void *cdata)
 	kfree(cd);
 }
 
+static bool msm_bus_noc_update_bw_reg(int mode)
+{
+	bool ret = false;
+
+	if ((mode == NOC_QOS_MODE_LIMITER) ||
+			(mode == NOC_QOS_MODE_REGULATOR))
+			ret = true;
+
+	return ret;
+}
+
 static void msm_bus_noc_update_bw(struct msm_bus_inode_info *hop,
 	struct msm_bus_inode_info *info,
 	struct msm_bus_fabric_registration *fab_pdata,
@@ -579,6 +590,13 @@ static void msm_bus_noc_update_bw(struct msm_bus_inode_info *hop,
 		else {
 			if (!info->node_info->qport) {
 				MSM_BUS_DBG("No qos ports to update!\n");
+				break;
+			}
+
+			if (!(info->node_info->mode == NOC_QOS_MODE_REGULATOR)
+					|| (info->node_info->mode ==
+						NOC_QOS_MODE_LIMITER)) {
+				MSM_BUS_DBG("Skip QoS reg programming\n");
 				break;
 			}
 			qos_bw.bw = sel_cd->mas[info->node_info->masterp[i]].
@@ -728,6 +746,7 @@ int msm_bus_noc_hw_init(struct msm_bus_fabric_registration *pdata,
 	hw_algo->commit = msm_bus_noc_commit;
 	hw_algo->port_halt = msm_bus_noc_port_halt;
 	hw_algo->port_unhalt = msm_bus_noc_port_unhalt;
+	hw_algo->update_bw_reg = msm_bus_noc_update_bw_reg;
 	hw_algo->config_master = NULL;
 	hw_algo->config_limiter = NULL;
 
@@ -742,6 +761,8 @@ int msm_bus_noc_set_ops(struct msm_bus_node_device_type *bus_dev)
 		bus_dev->fabdev->noc_ops.qos_init = msm_bus_noc_qos_init;
 		bus_dev->fabdev->noc_ops.set_bw = msm_bus_noc_set_bw;
 		bus_dev->fabdev->noc_ops.limit_mport = NULL;
+		bus_dev->fabdev->noc_ops.update_bw_reg =
+						msm_bus_noc_update_bw_reg;
 	}
 	return 0;
 }
