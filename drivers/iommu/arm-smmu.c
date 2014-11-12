@@ -1684,6 +1684,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		*((int *)data) = !!(smmu_domain->attributes &
 				(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE));
 		return 0;
+	case DOMAIN_ATTR_PT_BASE_ADDR:
+		*((phys_addr_t *)data) =
+			smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
+		return 0;
 	default:
 		return -ENODEV;
 	}
