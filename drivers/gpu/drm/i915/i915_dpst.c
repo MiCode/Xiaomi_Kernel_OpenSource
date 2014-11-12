@@ -65,6 +65,8 @@ i915_dpst_save_conn_on_edp(struct drm_device *dev)
 		if (i_connector->encoder
 			&& (i_connector->encoder->type == INTEL_OUTPUT_EDP ||
 			i_connector->encoder->type == INTEL_OUTPUT_DSI)) {
+			if (i_connector->encoder->base.crtc == NULL)
+				continue;
 			dev_priv->dpst.connector = i_connector;
 			new_pipe = to_intel_crtc(i_connector->encoder->base.crtc)->pipe;
 			if (new_pipe != dev_priv->dpst.pipe)
