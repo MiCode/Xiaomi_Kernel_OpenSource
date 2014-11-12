@@ -790,6 +790,7 @@ struct dwc3_scratchpad_array {
  * @lpm_nyet_thresh: value to configure in DCTL[LPM_NYET_Thresh]
  * @in_lpm: if 1, indicates that the controller is in low power mode (no clocks)
  * @irq: irq number
+ * @irq_cnt: total irq count
  * @bh: tasklet which handles the interrupt
  * @bh_completion_time: time taken for taklet completion
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
@@ -912,6 +913,7 @@ struct dwc3 {
 
 	/* offload IRQ handling to tasklet */
 	int			irq;
+	unsigned long		irq_cnt;
 	struct tasklet_struct	bh;
 	unsigned                bh_completion_time[MAX_INTR_STATS];
 	unsigned                bh_handled_evt_cnt[MAX_INTR_STATS];
