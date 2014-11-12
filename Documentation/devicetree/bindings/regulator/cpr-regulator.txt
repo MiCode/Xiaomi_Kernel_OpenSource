@@ -383,6 +383,34 @@ Optional properties:
 				voltages will be used in place of the per-fuse-corner floor voltages defined in the
 				qcom,cpr-voltage-floor property.  If this property is not specified, then the
 				per-fuse-corner floor voltages will always be used.
+- qcom,cpr-virtual-corner-init-voltage-adjustment: Array of integer tuples of voltage adjustments in microvolts to be
+				added to the initial voltage values of each virtual corner.  The elements
+				in a tuple are ordered from lowest voltage corner to highest voltage corner.
+				Each tuple must be of the length equal to the number of virtual corners as
+				specified by the number of elements in the qcom,cpr-corner-map property. If the
+				qcom,cpr-fuse-version-map property is specified, then
+				qcom,cpr-virtual-corner-init-voltage-adjustment must contain the same number of
+				tuples as qcom,cpr-fuse-version-map.  These tuples are then mapped one-to-one in the
+				order specified.  E.g. if the second qcom,cpr-fuse-version-map tuple matches
+				for a given device, then voltage adjustments defined in the second
+				qcom,cpr-virtual-corner-init-voltage-adjustment tuple will be applied.  If the
+				qcom,cpr-fuse-version-map property is not specified, then
+				qcom,cpr-virtual-corner-init-voltage-adjustment must contain a single tuple which
+				is then applied unconditionally.
+- qcom,cpr-virtual-corner-quotient-adjustment: Array of integer tuples of quotient offsets to be added to
+				the scaled target quotient of each virtual corner. The elements
+				in a tuple are ordered from lowest voltage corner to highest voltage corner.
+				Each tuple must be of the length equal to the number of virtual corners as
+				specified by the number of elements in the qcom,cpr-corner-map property.
+				If the qcom,cpr-fuse-version-map property is specified, then
+				qcom,cpr-virtual-corner-quotient-adjustment must contain the same number of tuples as
+				qcom,cpr-fuse-version-map.  These tuples are then mapped one-to-one in the
+				order specified.  E.g. if the second qcom,cpr-fuse-version-map tuple matches
+				for a given device, then quotient adjustments defined in the second
+				qcom,cpr-virtual-corner-quotient-adjustment tuple will be applied.  If the
+				qcom,cpr-fuse-version-map property is not specified, then
+				qcom,cpr-virtual-corner-quotient-adjustment must contain a single tuple which is then
+				applied unconditionally.
 - qcom,cpr-init-voltage-as-ceiling: Boolean which indicates that the ceiling voltage used for a given virtual
 				corner may be reduced to the per-fuse-corner initial voltage fuse value.
 - qcom,cpr-scaled-init-voltage-as-ceiling: Boolean which indicates that the ceiling voltage used for a given
@@ -632,6 +660,14 @@ Example:
 				<0 0 (-100000)>,
 				<0 0 (-100000)>,
 				<0 0 (-45000)>;
+		qcom,cpr-virtual-corner-init-voltage-adjustment =
+			<0 0 0 (-10000) 0 0 0 0 0 0 0 0>,
+			<0 0 0 0 0 0 0 0 0 0 0 (-20000)>,
+			<0 0 0 0 0 0 0 0 0 0 0 (-30000)>;
+		qcom,cpr-virtual-corner-quotient-adjustment =
+			<0 0 0 100 0 0 0 0 0 0 0 0>,
+			<0 0 0 0 0 0 0 0 0 0 0 (-300)>,
+			<0 0 0 (-60) 0 0 0 0 0 0 0 0>;
 
 		qcom,fuse-remap-base-row = <1000>;
 		qcom,fuse-remap-source =
