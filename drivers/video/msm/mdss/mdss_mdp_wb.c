@@ -214,10 +214,10 @@ int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable)
 	if (!pipe) {
 		pipe = mdss_mdp_pipe_alloc(mixer, MDSS_MDP_PIPE_TYPE_RGB,
 			NULL);
-		if (!pipe)
+		if (IS_ERR_OR_NULL(pipe))
 			pipe = mdss_mdp_pipe_alloc(mixer,
 				MDSS_MDP_PIPE_TYPE_VIG, NULL);
-		if (!pipe) {
+		if (IS_ERR_OR_NULL(pipe)) {
 			pr_err("Unable to get pipe to set secure session\n");
 			return -ENOMEM;
 		}
