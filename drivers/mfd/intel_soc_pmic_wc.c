@@ -262,7 +262,7 @@ static struct pmic_ccsm_int_cfg wc_intmap[] = {
 static struct wcove_bcu_platform_data wc_bcu_pdata = {
 	.config = {
 		{VWARNA_CFG_REG,	0xFF},
-		{VWARNB_CFG_REG,	0xFF},
+		{VWARNB_CFG_REG,	0xFC},
 		{VCRIT_CFG_REG,		0xFD},
 		{ICCMAXVCC_CFG_REG,	0x06},
 		{ICCMAXVNN_CFG_REG,	0x06},
