@@ -91,9 +91,8 @@ typedef struct dhdpcie_info
 	uint16		last_intrstatus;	/* to cache intrstatus */
 	int	irq;
 	char pciname[32];
-
+	struct pci_saved_state* default_state;
 	struct pci_saved_state* state;
-
 } dhdpcie_info_t;
 
 
@@ -207,8 +206,10 @@ static int dhdpcie_pci_resume(struct pci_dev *pdev)
 static int dhdpcie_suspend_dev(struct pci_dev *dev)
 {
 	int ret;
+	dhdpcie_info_t *pch = pci_get_drvdata(dev);
 	dhdpcie_pme_active(dev, TRUE);
 	pci_save_state(dev);
+	pch->state = pci_store_saved_state(dev);
 	pci_enable_wake(dev, PCI_D0, TRUE);
 	if (pci_is_enabled(dev))
 		pci_disable_device(dev);
@@ -219,6 +220,8 @@ static int dhdpcie_suspend_dev(struct pci_dev *dev)
 static int dhdpcie_resume_dev(struct pci_dev *dev)
 {
 	int err = 0;
+	dhdpcie_info_t *pch = pci_get_drvdata(dev);
+	pci_load_and_free_saved_state(dev, &pch->state);
 	pci_restore_state(dev);
 	err = pci_enable_device(dev);
 	if (err) {
@@ -362,7 +365,7 @@ dhdpcie_detach(dhdpcie_info_t *pch)
 	if (pch) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
 		if (!dhd_download_fw_on_driverload)
-			pci_load_and_free_saved_state(pch->dev, &pch->state);
+			pci_load_and_free_saved_state(pch->dev, &pch->default_state);
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
 		MFREE(osh, pch, sizeof(dhdpcie_info_t));
 	}
@@ -481,9 +484,9 @@ int dhdpcie_get_resource(dhdpcie_info_t *dhdpcie_info)
 			 * in case of built in driver
 			 */
 			pci_save_state(pdev);
-			dhdpcie_info->state = pci_store_saved_state(pdev);
+			dhdpcie_info->default_state = pci_store_saved_state(pdev);
 
-			if (dhdpcie_info->state == NULL) {
+			if (dhdpcie_info->default_state == NULL) {
 				DHD_ERROR(("%s pci_store_saved_state returns NULL\n",
 					__FUNCTION__));
 				REG_UNMAP(dhdpcie_info->regs);
@@ -805,12 +808,12 @@ dhdpcie_enable_device(dhd_bus_t *bus)
 		return BCME_ERROR;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
-	if (pci_load_saved_state(bus->dev, pch->state))
+	if (pci_load_saved_state(bus->dev, pch->default_state))
 		pci_disable_device(bus->dev);
 	else {
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
-	if (pci_load_and_free_saved_state(bus->dev, &pch->state))
+	if (pci_load_and_free_saved_state(bus->dev, &pch->default_state))
 		pci_disable_device(bus->dev);
 	else {
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
