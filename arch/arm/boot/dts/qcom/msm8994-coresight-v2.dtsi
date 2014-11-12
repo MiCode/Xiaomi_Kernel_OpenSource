@@ -803,14 +803,13 @@
 		      <0xfd4ab160 0x80>,
 		      <0xfc401600 0x80>,
 		      <0xfd4ab360 0x80>,
-		      <0xfc596000 0x80>,
 		      <0xfc520000 0x4>,
 		      <0xfc520058 0x80>,
 		      <0xfc528000 0x4>,
 		      <0xfc528058 0x80>;
 		reg-names = "mmss-mux", "apcs-hwev", "apcs-spi", "apcs-ppi",
 			    "apcs-cpu", "apcs-cci", "ppss-mux", "gcc-mux",
-			    "tcsr-mux", "ufs-mux", "pcie0-sysctl", "pcie0-hwev",
+			    "tcsr-mux", "pcie0-sysctl", "pcie0-hwev",
 			    "pcie1-sysctl", "pcie1-hwev";
 
 		coresight-id = <47>;
@@ -819,15 +818,10 @@
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>,
-			 <&clock_mmss clk_mmss_misc_ahb_clk>,
-			 <&clock_gcc clk_gcc_ufs_ahb_clk>,
-			 <&clock_gcc clk_gcc_ufs_axi_clk>;
-		clock-names = "core_clk", "core_a_clk", "core_mmss_clk",
-			      "ufs_ahb_clk", "ufs_axi_clk";
+			 <&clock_mmss clk_mmss_misc_ahb_clk>;
+		clock-names = "core_clk", "core_a_clk", "core_mmss_clk";
 
-		qcom,hwevent-clks = "core_mmss_clk", "ufs_ahb_clk",
-				    "ufs_axi_clk";
-		qcom,hwevent-regs = "gdsc_ufs";
+		qcom,hwevent-clks = "core_mmss_clk";
 	};
 
 	fuse: fuse@fc4be024 {
