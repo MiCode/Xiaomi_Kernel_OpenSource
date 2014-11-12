@@ -139,6 +139,21 @@ Optional Properties:
 - qcom,rsense-10mhom		A bool property to indicate the Rsense resistor
 				configuraton. If set, the Rsense is 10mOhm else
 				its 20mOhm.
+- qcom,otg-fet-present		A bool property to indicate that a pMOS FET is present
+				to boost the OTG current. On enabling this the max OTG
+				current supported is 3x(qcom,otg-batt-curr-limit).
+- qcom,otg-fet-enable-gpio	GPIO for enabling and disabling OTG FET.
+				Following should be the PMIC gpio configuration:
+				{
+					qcom,mode = <1>; //Digital output
+					qcom,pull = <0>; //Pull up configuration
+					qcom,vin-sel = <0>; //Voltage level: VPH_PWR
+					qcom,src-sel = <0>; //Pin function: GPIO
+					qcom,master-en = <1>; //Enable
+				}
+				Please go through the documentation for PMIC gpio
+				configuration details:
+				Documentation/devicetree/bindings/gpio/qpnp-pin.txt
 
 Example:
 	i2c@f9967000 {
@@ -189,5 +204,8 @@ Example:
 
 			qcom,otg-batt-curr-limit = <950>;
 			qcom,fg-reset-at-pon;
+
+			qcom,otg-fet-present;
+			qcom,otg-fet-enable-gpio = <&pm8916_gpios 3 0>;
 		};
 	};
