@@ -116,6 +116,9 @@ static struct usb_gadget_strings *dev_strings[] = {
 	NULL,
 };
 
+static struct usb_function_instance *fi_midi;
+static struct usb_function *f_midi;
+
 static int __exit midi_unbind(struct usb_composite_dev *dev)
 {
 	return 0;
