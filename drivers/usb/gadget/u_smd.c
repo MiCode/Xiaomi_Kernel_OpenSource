@@ -634,6 +634,9 @@ static void gsmd_notify_modem(void *gptr, u8 portno, int ctrl_bits)
 	if (!test_bit(CH_OPENED, &port->pi->flags))
 		return;
 
+	pr_debug("%s: ctrl_tomodem:%d DTR:%d  RST:%d\n", __func__, ctrl_bits,
+		ctrl_bits & SMD_ACM_CTRL_DTR ? 1 : 0,
+		ctrl_bits & SMD_ACM_CTRL_RTS ? 1 : 0);
 	/* if DTR is high, update latest modem info to laptop */
 	if (port->cbits_to_modem & TIOCM_DTR) {
 		unsigned i;
@@ -641,6 +644,12 @@ static void gsmd_notify_modem(void *gptr, u8 portno, int ctrl_bits)
 		i = smd_tiocmget(port->pi->ch);
 		port->cbits_to_laptop = convert_uart_sigs_to_acm(i);
 
+		pr_debug("%s - input control lines: cbits_to_host:%x DCD:%c DSR:%c BRK:%c RING:%c\n",
+			__func__, port->cbits_to_laptop,
+			port->cbits_to_laptop & SMD_ACM_CTRL_DCD ? '1' : '0',
+			port->cbits_to_laptop & SMD_ACM_CTRL_DSR ? '1' : '0',
+			port->cbits_to_laptop & SMD_ACM_CTRL_BRK ? '1' : '0',
+			port->cbits_to_laptop & SMD_ACM_CTRL_RI  ? '1' : '0');
 		if (gser->send_modem_ctrl_bits)
 			gser->send_modem_ctrl_bits(
 					port->port_usb,

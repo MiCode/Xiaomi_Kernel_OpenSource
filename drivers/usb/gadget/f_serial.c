@@ -554,6 +554,9 @@ gser_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 
 		value = 0;
 		gser->port_handshake_bits = w_value;
+		pr_debug("%s: USB_CDC_REQ_SET_CONTROL_LINE_STATE: DTR:%d RST:%d\n",
+			__func__, w_value & ACM_CTRL_DTR ? 1 : 0,
+			w_value & ACM_CTRL_RTS ? 1 : 0);
 		if (gser->port.notify_modem) {
 			unsigned port_num =
 				gserial_ports[gser->port_num].client_port_num;
