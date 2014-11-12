@@ -1200,7 +1200,8 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev)
 		msm_enqueue(&cpp_dev->eventData_q, &event_qcmd->list_eventdata);
 
 		if (!processed_frame->output_buffer_info[0].processed_divert &&
-			!processed_frame->output_buffer_info[0].native_buff) {
+			!processed_frame->output_buffer_info[0].native_buff &&
+			!processed_frame->we_disable) {
 			memset(&buff_mgr_info, 0 ,
 				sizeof(struct msm_buf_mngr_info));
 			buff_mgr_info.session_id =
@@ -1223,7 +1224,8 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev)
 
 		if (processed_frame->duplicate_output  &&
 			!processed_frame->
-				output_buffer_info[1].processed_divert) {
+				output_buffer_info[1].processed_divert &&
+			!processed_frame->we_disable) {
 			memset(&buff_mgr_info, 0 ,
 				sizeof(struct msm_buf_mngr_info));
 			buff_mgr_info.session_id =
@@ -1455,7 +1457,8 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	int32_t rc = 0;
 	struct msm_queue_cmd *frame_qcmd = NULL;
 	uint32_t *cpp_frame_msg;
-	unsigned long in_phyaddr, out_phyaddr0, out_phyaddr1;
+	unsigned long in_phyaddr, out_phyaddr0 = (unsigned long)NULL;
+	unsigned long out_phyaddr1;
 	unsigned long tnr_scratch_buffer0, tnr_scratch_buffer1;
 	uint16_t num_stripes = 0;
 	struct msm_buf_mngr_info buff_mgr_info, dup_buff_mgr_info;
@@ -1491,32 +1494,38 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		goto frame_msg_err;
 	}
 
-	if (new_frame->output_buffer_info[0].native_buff == 0) {
-		memset(&buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
-		buff_mgr_info.session_id = ((new_frame->identity >> 16) &
-			0xFFFF);
-		buff_mgr_info.stream_id = (new_frame->identity & 0xFFFF);
-		rc = msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_GET_BUF,
-			&buff_mgr_info);
-		if (rc < 0) {
-			rc = -EAGAIN;
-			pr_debug("%s: error getting buffer rc:%d\n",
-				 __func__, rc);
-			goto frame_msg_err;
+	if (new_frame->we_disable == 0) {
+		if (new_frame->output_buffer_info[0].native_buff == 0) {
+			memset(&buff_mgr_info, 0,
+				sizeof(struct msm_buf_mngr_info));
+			buff_mgr_info.session_id =
+				((new_frame->identity >> 16) & 0xFFFF);
+			buff_mgr_info.stream_id =
+				(new_frame->identity & 0xFFFF);
+			rc = msm_cpp_buffer_ops(cpp_dev,
+				VIDIOC_MSM_BUF_MNGR_GET_BUF,
+				&buff_mgr_info);
+			if (rc < 0) {
+				rc = -EAGAIN;
+				pr_debug("%s: error getting buffer rc:%d\n",
+					__func__, rc);
+				goto frame_msg_err;
+			}
+			new_frame->output_buffer_info[0].index =
+				buff_mgr_info.index;
 		}
-		new_frame->output_buffer_info[0].index = buff_mgr_info.index;
-	}
 
-	out_phyaddr0 = msm_cpp_fetch_buffer_info(cpp_dev,
-		&new_frame->output_buffer_info[0],
-		((new_frame->identity >> 16) & 0xFFFF),
-		(new_frame->identity & 0xFFFF),
-		&new_frame->output_buffer_info[0].fd);
-	if (!out_phyaddr0) {
-		pr_err("%s: error gettting output physical address\n",
-			__func__);
-		rc = -EINVAL;
-		goto phyaddr_err;
+		out_phyaddr0 = msm_cpp_fetch_buffer_info(cpp_dev,
+			&new_frame->output_buffer_info[0],
+			((new_frame->identity >> 16) & 0xFFFF),
+			(new_frame->identity & 0xFFFF),
+			&new_frame->output_buffer_info[0].fd);
+		if (!out_phyaddr0) {
+			pr_err("%s: error gettting output physical address\n",
+				__func__);
+			rc = -EINVAL;
+			goto phyaddr_err;
+		}
 	}
 	out_phyaddr1 = out_phyaddr0;
 
@@ -2355,6 +2364,7 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 	new_frame->tnr_scratch_buffer_info[1] =
 		new_frame32->tnr_scratch_buffer_info[1];
 	new_frame->duplicate_output = new_frame32->duplicate_output;
+	new_frame->we_disable = new_frame32->we_disable;
 	new_frame->duplicate_identity = new_frame32->duplicate_identity;
 	new_frame->reserved = new_frame32->reserved;
 
@@ -2427,6 +2437,7 @@ static void get_compat_frame_from_64bit(struct msm_cpp_frame_info_t *frame,
 	k32_frame->output_buffer_info[0] = frame->output_buffer_info[0];
 	k32_frame->output_buffer_info[1] = frame->output_buffer_info[1];
 	k32_frame->duplicate_output = frame->duplicate_output;
+	k32_frame->we_disable = frame->we_disable;
 	k32_frame->duplicate_identity = frame->duplicate_identity;
 	k32_frame->reserved = frame->reserved;
 	k32_frame->cookie = ptr_to_compat(frame->cookie);
