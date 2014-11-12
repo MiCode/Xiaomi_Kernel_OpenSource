@@ -25,12 +25,14 @@
 #include <linux/workqueue.h>
 #include <linux/percpu.h>
 #include <soc/qcom/cti-pmu-irq.h>
+#include <linux/msm_rtb.h>
 
 #include <asm/cputype.h>
+#include <asm/esr.h>
 
 #include "edac_core.h"
 
-#define A53_CPMUERRSR_FATAL(a)	((a) & (1 << 63))
+#define A53_CPUMERRSR_FATAL(a)	((a) & (1LL << 63))
 #define A53_CPUMERRSR_OTHER(a)	(((a) >> 40) & 0xff)
 #define A53_CPUMERRSR_REPT(a)	(((a) >> 32) & 0xff)
 #define A53_CPUMERRSR_VALID(a)	((a) & (1 << 31))
@@ -38,7 +40,7 @@
 #define A53_CPUMERRSR_CPUID(a)	(((a) >> 18) & 0x07)
 #define A53_CPUMERRSR_ADDR(a)	((a) & 0xfff)
 
-#define A53_L2MERRSR_FATAL(a)	((a) & (1 << 63))
+#define A53_L2MERRSR_FATAL(a)	((a) & (1LL << 63))
 #define A53_L2MERRSR_OTHER(a)	(((a) >> 40) & 0xff)
 #define A53_L2MERRSR_REPT(a)	(((a) >> 32) & 0xff)
 #define A53_L2MERRSR_VALID(a)	((a) & (1 << 31))
@@ -46,7 +48,7 @@
 #define A53_L2MERRSR_CPUID(a)	(((a) >> 18) & 0x0f)
 #define A53_L2MERRSR_INDEX(a)	(((a) >> 3) & 0x3fff)
 
-#define A57_CPMUERRSR_FATAL(a)	((a) & (1 << 63))
+#define A57_CPUMERRSR_FATAL(a)	((a) & (1LL << 63))
 #define A57_CPUMERRSR_OTHER(a)	(((a) >> 40) & 0xff)
 #define A57_CPUMERRSR_REPT(a)	(((a) >> 32) & 0xff)
 #define A57_CPUMERRSR_VALID(a)	((a) & (1 << 31))
@@ -54,7 +56,7 @@
 #define A57_CPUMERRSR_BANK(a)	(((a) >> 18) & 0x1f)
 #define A57_CPUMERRSR_INDEX(a)	((a) & 0x1ffff)
 
-#define A57_L2MERRSR_FATAL(a)	((a) & (1 << 63))
+#define A57_L2MERRSR_FATAL(a)	((a) & (1LL << 63))
 #define A57_L2MERRSR_OTHER(a)	(((a) >> 40) & 0xff)
 #define A57_L2MERRSR_REPT(a)	(((a) >> 32) & 0xff)
 #define A57_L2MERRSR_VALID(a)	((a) & (1 << 31))
@@ -64,6 +66,11 @@
 
 #define L2ECTLR_INT_ERR		(1 << 30)
 #define L2ECTLR_EXT_ERR		(1 << 29)
+
+#define ESR_SERROR(a)	((a) >> ESR_EL1_EC_SHIFT == ESR_EL1_EC_SERROR)
+#define ESR_VALID(a)	((a) & BIT(24))
+#define ESR_L2_DBE(a) (ESR_SERROR(a) && ESR_VALID(a) && \
+			(((a) & 0x00C00003) == 0x1))
 
 #define CCI_IMPRECISEERROR_REG	0x10
 
@@ -172,6 +179,12 @@ static const struct errors_edac errors[] = {
 	__val;								\
 })
 
+#define read_esr_el1 ({							\
+	u64 __val;							\
+	asm("mrs %0, esr_el1" : "=r" (__val));				\
+	__val;								\
+})
+
 #define write_l2merrsr_el1(val) ({					\
 	asm("msr s3_1_c15_c2_3, %0" : : "r" (val));			\
 })
@@ -183,6 +196,34 @@ static const struct errors_edac errors[] = {
 #define write_cpumerrsr_el1(val) ({					\
 	asm("msr s3_1_c15_c2_2, %0" : : "r" (val));			\
 })
+
+static void ca53_ca57_print_error_state_regs(void)
+{
+	u64 l2merrsr;
+	u64 cpumerrsr;
+	u32 esr_el1;
+
+	cpumerrsr = read_cpumerrsr_el1;
+	l2merrsr = read_l2merrsr_el1;
+	esr_el1 = read_esr_el1;
+
+	/* store data in uncached rtb logs */
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0),
+				(void *)cpumerrsr);
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0),
+				(void *)l2merrsr);
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0),
+				(void *)((u64)esr_el1));
+
+	edac_printk(KERN_CRIT, EDAC_CPU, "CPUMERRSR value = %#llx\n",
+								cpumerrsr);
+	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %#llx\n", l2merrsr);
+
+	edac_printk(KERN_CRIT, EDAC_CPU, "ESR value = %#x\n", esr_el1);
+	if (ESR_L2_DBE(esr_el1))
+		edac_printk(KERN_CRIT, EDAC_CPU,
+			"Double bit error on dirty L2 cacheline\n");
+}
 
 static void ca53_parse_cpumerrsr(struct erp_local_data *ed)
 {
@@ -196,8 +237,10 @@ static void ca53_parse_cpumerrsr(struct erp_local_data *ed)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A53 CPU%d L1 %s Error detected\n",
 					 smp_processor_id(), err_name[ed->err]);
-	edac_printk(KERN_CRIT, EDAC_CPU, "CPUMERRSR value = %#llx\n",
-								cpumerrsr);
+
+	ca53_ca57_print_error_state_regs();
+	if (A53_CPUMERRSR_FATAL(cpumerrsr))
+		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
 
 	cpuid = A53_CPUMERRSR_CPUID(cpumerrsr);
 
@@ -263,7 +306,9 @@ static void ca53_parse_l2merrsr(struct erp_local_data *ed)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA53 L2 %s Error detected\n",
 							err_name[ed->err]);
-	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %#llx\n", l2merrsr);
+	ca53_ca57_print_error_state_regs();
+	if (A53_L2MERRSR_FATAL(l2merrsr))
+		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
 
 	cpuid = A53_L2MERRSR_CPUID(l2merrsr);
 
@@ -315,8 +360,9 @@ static void ca57_parse_cpumerrsr(struct erp_local_data *ed)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A57 CPU%d L1 %s Error detected\n",
 					 smp_processor_id(), err_name[ed->err]);
-	edac_printk(KERN_CRIT, EDAC_CPU, "CPUMERRSR value = %#llx\n",
-								cpumerrsr);
+	ca53_ca57_print_error_state_regs();
+	if (A57_CPUMERRSR_FATAL(cpumerrsr))
+		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
 
 	bank = A57_CPUMERRSR_BANK(cpumerrsr);
 
@@ -376,7 +422,9 @@ static void ca57_parse_l2merrsr(struct erp_local_data *ed)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA57 L2 %s Error detected\n",
 							err_name[ed->err]);
-	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %#llx\n", l2merrsr);
+	ca53_ca57_print_error_state_regs();
+	if (A57_L2MERRSR_FATAL(l2merrsr))
+		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
 
 	cpuid = A57_L2MERRSR_CPUID(l2merrsr);
 
@@ -557,7 +605,7 @@ void arm64_erp_local_dbe_handler(void)
 		struct erp_local_data errdata;
 		errdata.err = DBE;
 		errdata.drv = abort_handler_drvdata;
-		arm64_erp_local_handler(abort_handler_drvdata);
+		arm64_erp_local_handler(&errdata);
 	}
 }
 
