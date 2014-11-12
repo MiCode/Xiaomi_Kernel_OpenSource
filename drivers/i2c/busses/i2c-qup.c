@@ -1242,7 +1242,7 @@ timeout_err:
 				} else if (dev->err < 0) {
 					dev_err(dev->dev,
 					"QUP data xfer error %d\n", dev->err);
-					ret = dev->err;
+					ret = -EIO;
 					goto out_err;
 				} else if (dev->err > 0) {
 					/*
@@ -1253,7 +1253,7 @@ timeout_err:
 					 */
 					qup_i2c_recover_bus_busy(dev);
 				}
-				ret = -dev->err;
+				ret = -EBUSY;
 				goto out_err;
 			}
 			if (dev->msg->flags & I2C_M_RD) {
