@@ -1994,6 +1994,9 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		*((int *)data) = !!(smmu_domain->attributes &
 				(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE));
 		return 0;
+	case DOMAIN_ATTR_PT_BASE_ADDR:
+		*((phys_addr_t *)data) = virt_to_phys(smmu_domain->cfg.pgd);
+		return 0;
 	default:
 		return -ENODEV;
 	}
