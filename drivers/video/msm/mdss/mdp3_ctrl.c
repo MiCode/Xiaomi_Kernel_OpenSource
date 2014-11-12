@@ -355,9 +355,9 @@ static int mdp3_ctrl_res_req_bus(struct msm_fb_data_type *mfd, int status)
 		ab = panel_info->xres * panel_info->yres * 4 * 2;
 		ab *= panel_info->mipi.frame_rate;
 		ib = (ab * 3) / 2;
-		rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_DMA_P, ab, ib);
+		rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_DMA_P, ab, 0, ib);
 	} else {
-		rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_DMA_P, 0, 0);
+		rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_DMA_P, 0, 0, 0);
 	}
 	return rc;
 }

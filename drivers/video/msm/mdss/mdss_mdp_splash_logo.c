@@ -149,6 +149,7 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 {
 	struct iommu_domain *domain;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int rc, ret;
 
 	/*
@@ -157,7 +158,7 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 	 * 2. MDP hardware version supports the feature
 	 * 3. configuration is with valid splash buffer
 	 */
-	if (is_mdss_iommu_attached() ||
+	if (mdata->mdss_util->iommu_attached() ||
 		!mfd->panel_info->cont_splash_enabled ||
 		!mdss_mdp_iommu_dyn_attach_supported(mdp5_data->mdata) ||
 		!mdp5_data->splash_mem_addr ||

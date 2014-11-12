@@ -1193,6 +1193,7 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 {
 	int rc;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
 
 	if (mdss_mdp_ctl_is_power_on(ctl)) {
@@ -1237,7 +1238,7 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	 * This is not needed when continuous splash screen is enabled since
 	 * we would have called in to TZ to restore security configs from LK.
 	 */
-	if (!is_mdss_iommu_attached()) {
+	if (!mdata->mdss_util->iommu_attached()) {
 		if (!mfd->panel_info->cont_splash_enabled) {
 			rc = mdss_iommu_ctrl(1);
 			if (IS_ERR_VALUE(rc)) {
@@ -1979,7 +1980,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	}
 
 	buf = &pipe->back_buf;
-	if (is_mdss_iommu_attached()) {
+	if (mdata->mdss_util->iommu_attached()) {
 		if (!mfd->iova) {
 			pr_err("mfd iova is zero\n");
 			mdss_mdp_pipe_unmap(pipe);
@@ -2419,6 +2420,7 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_mixer *mixer_left = NULL;
 	struct mdss_mdp_mixer *mixer_right = NULL;
 	struct fb_image *img = &cursor->image;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct fbcurpos cursor_hot;
 	struct mdss_rect roi;
 	int ret = 0;
@@ -2512,7 +2514,7 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 			return ret;
 		}
 
-		if (is_mdss_iommu_attached()) {
+		if (mdata->mdss_util->iommu_attached()) {
 			cursor_addr = mfd->cursor_buf_iova;
 		} else {
 			if (MDSS_LPAE_CHECK(mfd->cursor_buf_phys)) {

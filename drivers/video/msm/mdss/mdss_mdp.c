@@ -631,6 +631,13 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx)
 	return clk_rate;
 }
 
+static inline int is_mdss_iommu_attached(void)
+{
+	if (!mdss_res)
+		return false;
+	return mdss_res->iommu_attached;
+}
+
 int mdss_iommu_ctrl(int enable)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -1442,6 +1449,11 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	mdss_res->mdss_util->iommu_attached = is_mdss_iommu_attached;
+	mdss_res->mdss_util->iommu_ctrl = mdss_iommu_ctrl;
+	mdss_res->mdss_util->bus_scale_set_quota = mdss_bus_scale_set_quota;
+	mdss_res->mdss_util->bus_bandwidth_ctrl = mdss_bus_bandwidth_ctrl;
+
 	rc = msm_dss_ioremap_byname(pdev, &mdata->mdss_io, "mdp_phys");
 	if (rc) {
 		pr_err("unable to map MDP base\n");
@@ -1536,7 +1548,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	rc = mdss_res->mdss_util->register_irq(&mdss_mdp_hw);
 	if (rc)
 		pr_err("mdss_register_irq failed.\n");
-
+	mdss_res->mdss_util->mdp_probe_done = true;
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
 		mdss_mdp_hw.ptr = NULL;

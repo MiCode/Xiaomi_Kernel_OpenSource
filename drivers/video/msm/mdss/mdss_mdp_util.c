@@ -803,7 +803,7 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data)
 		return 0;
 
 	if (!IS_ERR_OR_NULL(data->srcp_dma_buf)) {
-		if (is_mdss_iommu_attached()) {
+		if (mdss_res->mdss_util->iommu_attached()) {
 			int domain;
 			if (data->flags & MDP_SECURE_OVERLAY_SESSION)
 				domain = MDSS_IOMMU_DOMAIN_SECURE;
