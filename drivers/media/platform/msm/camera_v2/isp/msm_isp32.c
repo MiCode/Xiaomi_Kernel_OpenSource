@@ -627,10 +627,7 @@ static long msm_vfe32_reset_hardware(struct vfe_device *vfe_dev,
 	uint32_t first_start, uint32_t blocking)
 {
 	init_completion(&vfe_dev->reset_complete);
-	if (first_start)
-		msm_camera_io_w_mb(0x1FF, vfe_dev->vfe_base + 0xC);
-	else
-		msm_camera_io_w_mb(0x3FF, vfe_dev->vfe_base + 0x4);
+	msm_camera_io_w_mb(0x3FF, vfe_dev->vfe_base + 0x4);
 	return wait_for_completion_timeout(
 	   &vfe_dev->reset_complete, msecs_to_jiffies(50));
 }
