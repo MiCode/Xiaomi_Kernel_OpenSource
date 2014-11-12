@@ -24,7 +24,7 @@
 		qcom,saw2-spm-ctl = <0x1>;
 		qcom,cpu-vctl-mask = <0x1>;
 		qcom,saw2-spm-cmd-wfi = [04 03 04 0f];
-		qcom,saw2-spm-cmd-spc = [34 04 44 24 54 03 5a 24 44 04 3a 0f];
+		qcom,saw2-spm-cmd-spc = [34 04 14 24 54 03 5a 24 14 04 3e 0f];
 		qcom,saw2-spm-cmd-pc = [34 04 14 24 54 07 5a 24 14 04 3e 0f];
 	};
 
