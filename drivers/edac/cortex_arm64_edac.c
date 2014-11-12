@@ -239,8 +239,10 @@ static void ca53_parse_cpumerrsr(struct erp_local_data *ed)
 					 smp_processor_id(), err_name[ed->err]);
 
 	ca53_ca57_print_error_state_regs();
-	if (A53_CPUMERRSR_FATAL(cpumerrsr))
+	if (A53_CPUMERRSR_FATAL(cpumerrsr)) {
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
+		ed->err = DBE;
+	}
 
 	cpuid = A53_CPUMERRSR_CPUID(cpumerrsr);
 
@@ -307,8 +309,10 @@ static void ca53_parse_l2merrsr(struct erp_local_data *ed)
 	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA53 L2 %s Error detected\n",
 							err_name[ed->err]);
 	ca53_ca57_print_error_state_regs();
-	if (A53_L2MERRSR_FATAL(l2merrsr))
+	if (A53_L2MERRSR_FATAL(l2merrsr)) {
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
+		ed->err = DBE;
+	}
 
 	cpuid = A53_L2MERRSR_CPUID(l2merrsr);
 
@@ -361,8 +365,10 @@ static void ca57_parse_cpumerrsr(struct erp_local_data *ed)
 	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A57 CPU%d L1 %s Error detected\n",
 					 smp_processor_id(), err_name[ed->err]);
 	ca53_ca57_print_error_state_regs();
-	if (A57_CPUMERRSR_FATAL(cpumerrsr))
+	if (A57_CPUMERRSR_FATAL(cpumerrsr)) {
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
+		ed->err = DBE;
+	}
 
 	bank = A57_CPUMERRSR_BANK(cpumerrsr);
 
@@ -423,8 +429,10 @@ static void ca57_parse_l2merrsr(struct erp_local_data *ed)
 	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA57 L2 %s Error detected\n",
 							err_name[ed->err]);
 	ca53_ca57_print_error_state_regs();
-	if (A57_L2MERRSR_FATAL(l2merrsr))
+	if (A57_L2MERRSR_FATAL(l2merrsr)) {
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
+		ed->err = DBE;
+	}
 
 	cpuid = A57_L2MERRSR_CPUID(l2merrsr);
 
