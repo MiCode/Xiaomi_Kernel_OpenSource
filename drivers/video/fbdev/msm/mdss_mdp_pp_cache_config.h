@@ -28,4 +28,7 @@ int pp_igc_lut_cache_params(struct mdp_igc_lut_data *config,
 			    struct mdss_pp_res_type *mdss_pp_res,
 			    u32 copy_from_kernel);
 
+int pp_pgc_lut_cache_params(struct mdp_pgc_lut_data *config,
+			    struct mdss_pp_res_type *mdss_pp_res,
+			    int location, int cnt);
 #endif

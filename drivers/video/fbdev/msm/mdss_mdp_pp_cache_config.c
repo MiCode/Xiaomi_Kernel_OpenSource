@@ -478,3 +478,119 @@ int pp_igc_lut_cache_params(struct mdp_igc_lut_data *config,
 	}
 	return ret;
 }
+
+
+static int pp_pgc_lut_cache_params_v1_7(struct mdp_pgc_lut_data *config,
+			    struct mdss_pp_res_type *mdss_pp_res,
+			    int location, int cnt)
+{
+	int ret = 0, max_cnt = 0;
+	u32 sz = 0;
+	struct mdp_pgc_lut_data_v1_7 *v17_cache_data = NULL, v17_usr_config;
+	struct mdss_pp_res_type_v1_7 *res_cache = NULL;
+	if (location != DSPP && location != LM) {
+		pr_err("Invalid location for pgc %d\n", location);
+		return -EINVAL;
+	}
+	max_cnt = (location == DSPP) ? MDSS_BLOCK_DISP_NUM :
+		   MDSS_BLOCK_LM_NUM;
+	if (cnt >= max_cnt) {
+		pr_err("invalid layer count %d max is %d location is %d\n",
+			cnt, max_cnt, location);
+		return -EINVAL;
+	}
+	res_cache = mdss_pp_res->pp_data_res;
+	if (!res_cache) {
+		pr_err("invalid resource payload\n");
+		return -EINVAL;
+	}
+	if (copy_from_user(&v17_usr_config, config->cfg_payload,
+			   sizeof(v17_usr_config))) {
+		pr_err("failed to copy from user config info\n");
+		return -EFAULT;
+	}
+	if (v17_usr_config.len != PGC_LUT_ENTRIES) {
+		pr_err("invalid entries for pgc act %d exp %d\n",
+			v17_usr_config.len, PGC_LUT_ENTRIES);
+		return -EFAULT;
+	}
+	if (config->flags & MDP_PP_OPS_READ) {
+		pr_err("ops read not supported\n");
+		return -EINVAL;
+	}
+	if (!(config->flags & MDP_PP_OPS_WRITE)) {
+		pr_debug("ops write not set flags %d\n", config->flags);
+		if (location == DSPP)
+			mdss_pp_res->pgc_disp_cfg[cnt].flags = config->flags;
+		else
+			mdss_pp_res->argc_disp_cfg[cnt].flags = config->flags;
+		return 0;
+	}
+	if (location == DSPP) {
+		mdss_pp_res->pgc_disp_cfg[cnt] = *config;
+		v17_cache_data = &res_cache->pgc_dspp_v17_data[cnt];
+		v17_cache_data->c0_data = &res_cache->pgc_table_c0[cnt][0];
+		v17_cache_data->c1_data = &res_cache->pgc_table_c1[cnt][0];
+		v17_cache_data->c2_data = &res_cache->pgc_table_c2[cnt][0];
+		mdss_pp_res->pgc_disp_cfg[cnt].cfg_payload = v17_cache_data;
+	} else {
+		mdss_pp_res->argc_disp_cfg[cnt] = *config;
+		v17_cache_data = &res_cache->pgc_lm_v17_data[cnt];
+		v17_cache_data->c0_data = &res_cache->pgc_lm_table_c0[cnt][0];
+		v17_cache_data->c1_data = &res_cache->pgc_lm_table_c1[cnt][0];
+		v17_cache_data->c2_data = &res_cache->pgc_lm_table_c2[cnt][0];
+		mdss_pp_res->argc_disp_cfg[cnt].cfg_payload = v17_cache_data;
+	}
+	v17_cache_data->len = 0;
+	sz = PGC_LUT_ENTRIES * sizeof(u32);
+	if (copy_from_user(v17_cache_data->c0_data, v17_usr_config.c0_data,
+			   sz)) {
+		pr_err("failed to copy c0_data from user sz %d\n", sz);
+		ret = -EFAULT;
+		goto bail_out;
+	}
+	if (copy_from_user(v17_cache_data->c1_data, v17_usr_config.c1_data,
+			   sz)) {
+		pr_err("failed to copy c1_data from user sz %d\n", sz);
+		ret = -EFAULT;
+		goto bail_out;
+	}
+	if (copy_from_user(v17_cache_data->c2_data, v17_usr_config.c2_data,
+			   sz)) {
+		pr_err("failed to copy c2_data from user sz %d\n", sz);
+		ret = -EFAULT;
+		goto bail_out;
+	}
+	v17_cache_data->len = PGC_LUT_ENTRIES;
+	return 0;
+bail_out:
+	if (location == DSPP)
+		mdss_pp_res->pgc_disp_cfg[cnt].flags = 0;
+	else
+		mdss_pp_res->argc_disp_cfg[cnt].flags = 0;
+	return ret;
+}
+
+int pp_pgc_lut_cache_params(struct mdp_pgc_lut_data *config,
+			    struct mdss_pp_res_type *mdss_pp_res, int loc,
+			    int cnt)
+{
+	int ret = 0;
+	if (!config || !mdss_pp_res) {
+		pr_err("invalid param config %p pp_res %p\n",
+			config, mdss_pp_res);
+		return -EINVAL;
+	}
+	switch (config->version) {
+	case mdp_pgc_v1_7:
+		ret = pp_pgc_lut_cache_params_v1_7(config, mdss_pp_res,
+						   loc, cnt);
+		break;
+	default:
+		pr_err("unsupported igc version %d\n",
+			config->version);
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}

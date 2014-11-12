@@ -62,7 +62,6 @@
 #define IGC_DATA_MASK (BIT(12) - 1)
 #define IGC_DSPP_OP_MODE_EN BIT(0)
 
-
 #define MDSS_MDP_DSPP_OP_PA_LUTV_FIRST_EN	BIT(21)
 #define REG_SSPP_VIG_HIST_LUT_BASE	0x1200
 #define REG_DSPP_HIST_LUT_BASE		0x1400
@@ -71,6 +70,18 @@
 #define ENHIST_LOWER_VALUE_MASK		0x3FF
 #define ENHIST_UPPER_VALUE_MASK		0x3FF0000
 #define ENHIST_BIT_SHIFT		16
+
+#define PGC_OPMODE_OFF 0
+#define PGC_C0_LUT_INDEX 4
+#define PGC_INDEX_OFF 4
+#define PGC_C1C2_LUT_OFF 8
+#define PGC_LUT_SWAP 0x1C
+#define PGC_LUT_SEL 0x20
+#define PGC_DATA_MASK (BIT(10) - 1)
+#define PGC_ODD_SHIFT 16
+#define PGC_SWAP 1
+#define PGC_8B_ROUND BIT(1)
+#define PGC_ENABLE BIT(0)
 
 static struct mdss_pp_res_type_v1_7 config_data;
 
@@ -101,6 +112,11 @@ static int pp_igc_set_config(char __iomem *base_addr,
 		u32 block_type);
 static int pp_igc_get_config(char __iomem *base_addr, void *cfg_data,
 			   u32 block_type, u32 disp_num);
+static int pp_pgc_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type);
+static int pp_pgc_get_config(char __iomem *base_addr, void *cfg_data,
+			   u32 block_type, u32 disp_num);
 
 void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 {
@@ -118,8 +134,8 @@ void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	ops->pp_ops[PCC].pp_get_config = pp_pcc_get_config;
 
 	/* GC ops */
-	ops->pp_ops[GC].pp_set_config = NULL;
-	ops->pp_ops[GC].pp_get_config = NULL;
+	ops->pp_ops[GC].pp_set_config = pp_pgc_set_config;
+	ops->pp_ops[GC].pp_get_config = pp_pgc_get_config;
 
 	/* PA ops */
 	ops->pp_ops[PA].pp_set_config = NULL;
@@ -177,6 +193,8 @@ static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 
 		break;
 	case LM:
+		if (pp_sts->argc_sts & PP_STS_ENABLE)
+			pr_debug("pgc in LM enabled\n");
 		break;
 	default:
 		pr_err("Invalid block type %d\n", location);
@@ -899,5 +917,168 @@ static int pp_igc_get_config(char __iomem *base_addr, void *cfg_data,
 	}
 	kfree(c0c1_data);
 exit:
+	return ret;
+}
+
+
+static int pp_pgc_set_config(char __iomem *base_addr,
+		struct pp_sts_type *pp_sts, void *cfg_data,
+		u32 block_type)
+{
+	char __iomem *c0 = NULL, *c1 = NULL, *c2 = NULL;
+	u32 val = 0, i = 0;
+	struct mdp_pgc_lut_data *pgc_data = NULL;
+	struct mdp_pgc_lut_data_v1_7  *pgc_data_v17 = NULL;
+
+	if (!base_addr || !cfg_data || !pp_sts) {
+		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		      base_addr, cfg_data, pp_sts);
+		return -EINVAL;
+	}
+	pgc_data = (struct mdp_pgc_lut_data *) cfg_data;
+	pgc_data_v17 = (struct mdp_pgc_lut_data_v1_7 *)
+			pgc_data->cfg_payload;
+	if (pgc_data->version != mdp_pgc_v1_7 || !pgc_data_v17) {
+		pr_err("invalid pgc version %d payload %p\n",
+			pgc_data->version, pgc_data_v17);
+		return -EINVAL;
+	}
+	if (!(pgc_data->flags & ~(MDP_PP_OPS_READ))) {
+		pr_info("only read ops is set %d", pgc_data->flags);
+		return 0;
+	}
+	if (!(pgc_data->flags & MDP_PP_OPS_WRITE)) {
+		pr_info("only read ops is set %d", pgc_data->flags);
+		goto set_ops;
+	}
+	if (pgc_data_v17->len != PGC_LUT_ENTRIES || !pgc_data_v17->c0_data ||
+	    !pgc_data_v17->c1_data || !pgc_data_v17->c2_data) {
+		pr_err("Invalid params entries %d c0_data %p c1_data %p c2_data %p\n",
+			pgc_data_v17->len, pgc_data_v17->c0_data,
+			pgc_data_v17->c1_data, pgc_data_v17->c2_data);
+		return -EINVAL;
+	}
+	if (block_type != DSPP && block_type != LM) {
+		pr_err("invalid block type %d\n", block_type);
+		return -EINVAL;
+	}
+	c0 = base_addr + PGC_C0_LUT_INDEX;
+	c1 = c0 + PGC_C1C2_LUT_OFF;
+	c2 = c1 + PGC_C1C2_LUT_OFF;
+	/*  set the indexes to zero */
+	writel_relaxed(0, c0 + PGC_INDEX_OFF);
+	writel_relaxed(0, c1 + PGC_INDEX_OFF);
+	writel_relaxed(0, c2 + PGC_INDEX_OFF);
+	for (i = 0; i < PGC_LUT_ENTRIES; i += 2) {
+		val = pgc_data_v17->c0_data[i] & PGC_DATA_MASK;
+		val |= (pgc_data_v17->c0_data[i + 1] & PGC_DATA_MASK) <<
+			PGC_ODD_SHIFT;
+		writel_relaxed(val, c0);
+		val = pgc_data_v17->c1_data[i] & PGC_DATA_MASK;
+		val |= (pgc_data_v17->c1_data[i + 1] & PGC_DATA_MASK) <<
+			PGC_ODD_SHIFT;
+		writel_relaxed(val, c1);
+		val = pgc_data_v17->c2_data[i] & PGC_DATA_MASK;
+		val |= (pgc_data_v17->c2_data[i + 1] & PGC_DATA_MASK) <<
+			PGC_ODD_SHIFT;
+		writel_relaxed(val, c2);
+	}
+	if (block_type == DSPP) {
+		val = PGC_SWAP;
+		writel_relaxed(val, base_addr + PGC_LUT_SWAP);
+	}
+set_ops:
+	if (pgc_data->flags & MDP_PP_OPS_DISABLE) {
+		pp_sts->pgc_sts &= ~PP_STS_ENABLE;
+		writel_relaxed(0, base_addr + PGC_OPMODE_OFF);
+	} else if (pgc_data->flags & MDP_PP_OPS_ENABLE) {
+		val = PGC_ENABLE;
+		writel_relaxed(val, base_addr + PGC_OPMODE_OFF);
+		pp_sts->pgc_sts |= PP_STS_ENABLE;
+	}
+	return 0;
+}
+
+static int pp_pgc_get_config(char __iomem *base_addr, void *cfg_data,
+			   u32 block_type, u32 disp_num)
+{
+	int ret = 0;
+	char __iomem *c0 = NULL, *c1 = NULL, *c2 = NULL;
+	u32 *c0_data = NULL, *c1_data = NULL, *c2_data = NULL;
+	u32 val = 0, i = 0, sz = 0;
+	struct mdp_pgc_lut_data *pgc_data = NULL;
+	struct mdp_lut_cfg_data *pgc_cfg_data = NULL;
+	struct mdp_pgc_lut_data_v1_7  *pgc_data_v17 = NULL;
+	if (!base_addr || !cfg_data) {
+		pr_err("invalid params base_addr %p cfg_data %p block_type %d\n",
+		      base_addr, cfg_data, block_type);
+		return -EINVAL;
+	}
+	pgc_cfg_data = (struct mdp_lut_cfg_data *) cfg_data;
+	if (pgc_cfg_data->lut_type != mdp_lut_pgc) {
+		pr_err("incorrect lut type passed %d\n",
+			pgc_cfg_data->lut_type);
+		return -EINVAL;
+	}
+	pgc_data = &pgc_cfg_data->data.pgc_lut_data;
+	pgc_data_v17 = (struct mdp_pgc_lut_data_v1_7 *)
+			pgc_data->cfg_payload;
+	if (pgc_data->version != mdp_pgc_v1_7 || !pgc_data_v17) {
+		pr_err("invalid pgc version %d payload %p\n",
+			pgc_data->version, pgc_data_v17);
+		return -EINVAL;
+	}
+	if (!(pgc_data->flags & MDP_PP_OPS_READ)) {
+		pr_info("read ops is not set %d", pgc_data->flags);
+		return -EINVAL;
+	}
+	sz = PGC_LUT_ENTRIES * sizeof(u32);
+	if (!access_ok(VERIFY_WRITE, pgc_data_v17->c0_data, sz) ||
+	    !access_ok(VERIFY_WRITE, pgc_data_v17->c1_data, sz) ||
+	    !access_ok(VERIFY_WRITE, pgc_data_v17->c2_data, sz)) {
+		pr_err("incorrect payload for PGC read size %d\n",
+			PGC_LUT_ENTRIES);
+		return -EFAULT;
+	}
+	c0_data = kzalloc(sz * 3, GFP_KERNEL);
+	if (!c0_data) {
+		pr_err("memory allocation failure sz %d", sz * 3);
+		return -ENOMEM;
+	}
+	c1_data = c0_data + PGC_LUT_ENTRIES;
+	c2_data = c1_data + PGC_LUT_ENTRIES;
+	c0 = base_addr + PGC_C0_LUT_INDEX;
+	c1 = c0 + PGC_C1C2_LUT_OFF;
+	c2 = c1 + PGC_C1C2_LUT_OFF;
+	/*  set the indexes to zero */
+	writel_relaxed(0, c0 + 4);
+	writel_relaxed(0, c1 + 4);
+	writel_relaxed(0, c2 + 4);
+	for (i = 0; i < PGC_LUT_ENTRIES; i += 2) {
+		val = readl_relaxed(c0);
+		c0_data[i] = val & PGC_DATA_MASK;
+		c0_data[i + 1] = (val >> PGC_ODD_SHIFT) & PGC_DATA_MASK;
+		val = readl_relaxed(c1);
+		c1_data[i] = val & PGC_DATA_MASK;
+		c1_data[i + 1] = (val >> PGC_ODD_SHIFT) & PGC_DATA_MASK;
+		val = readl_relaxed(c2);
+		c2_data[i] = val & PGC_DATA_MASK;
+		c2_data[i + 1] = (val >> PGC_ODD_SHIFT) & PGC_DATA_MASK;
+	}
+	if (copy_to_user(pgc_data_v17->c0_data, c0_data, sz)) {
+		pr_err("failed to copyuser c0 data of sz %d\n", sz);
+		ret = -EFAULT;
+	}
+	if (!ret && copy_to_user(pgc_data_v17->c1_data, c1_data, sz)) {
+		pr_err("failed to copyuser c1 data of sz %d\n", sz);
+		ret = -EFAULT;
+	}
+	if (!ret && copy_to_user(pgc_data_v17->c2_data, c2_data, sz)) {
+		pr_err("failed to copyuser c2 data of sz %d\n", sz);
+		ret = -EFAULT;
+	}
+	if (!ret)
+		pgc_data_v17->len = PGC_LUT_ENTRIES;
+	kfree(c0_data);
 	return ret;
 }
