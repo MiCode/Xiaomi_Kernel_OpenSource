@@ -1484,6 +1484,7 @@ static void mbim_suspend(struct usb_function *f)
 		pr_debug("in_ep_desc_backup = %p, out_ep_desc_backup = %p",
 			mbim->in_ep_desc_backup, mbim->out_ep_desc_backup);
 
+		atomic_set(&mbim->online, 0);
 		mbim_bam_disconnect(mbim);
 	}
 }
@@ -1529,6 +1530,7 @@ static void mbim_resume(struct usb_function *f)
 		pr_debug("in_ep_desc_backup = %p, out_ep_desc_backup = %p",
 			mbim->in_ep_desc_backup, mbim->out_ep_desc_backup);
 
+		atomic_set(&mbim->online, 1);
 		mbim_bam_connect(mbim);
 	}
 }
