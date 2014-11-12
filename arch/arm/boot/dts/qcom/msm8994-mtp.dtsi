@@ -728,7 +728,7 @@
 
 &pmi8994_charger {
 	qcom,ext-sense-type;
-	qcom,dc-psy-type = "Wireless";
+	qcom,dc-psy-type = "Wipower";
 };
 
 &cnss {
