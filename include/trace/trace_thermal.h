@@ -18,7 +18,76 @@
 #define _TRACE_THERMAL_H
 
 #include <linux/tracepoint.h>
-#ifdef TRACE_MSM_THERMAL
+
+#ifdef TRACE_MSM_LMH
+DECLARE_EVENT_CLASS(msm_lmh_print_sensor_reading,
+
+	TP_PROTO(const char *sensor_name, unsigned int intensity),
+
+	TP_ARGS(
+		sensor_name, intensity
+	),
+
+	TP_STRUCT__entry(
+		__string(_name, sensor_name)
+		__field(unsigned int, reading)
+	),
+
+	TP_fast_assign(
+		__assign_str(_name, sensor_name);
+		__entry->reading = intensity;
+	),
+
+	TP_printk(
+		"Sensor:[%s] throttling intensity:%u", __get_str(_name),
+		__entry->reading
+	)
+);
+
+DECLARE_EVENT_CLASS(msm_lmh_print_event,
+
+	TP_PROTO(const char *event_name),
+
+	TP_ARGS(
+		event_name
+	),
+
+	TP_STRUCT__entry(
+		__string(_name,	event_name)
+	),
+
+	TP_fast_assign(
+		__assign_str(_name, event_name);
+	),
+
+	TP_printk(
+		"Event:[%s]", __get_str(_name)
+	)
+);
+
+DEFINE_EVENT(msm_lmh_print_sensor_reading, lmh_sensor_interrupt,
+
+	TP_PROTO(const char *sensor_name, unsigned int intensity),
+
+	TP_ARGS(sensor_name, intensity)
+);
+
+DEFINE_EVENT(msm_lmh_print_sensor_reading, lmh_sensor_reading,
+
+	TP_PROTO(const char *sensor_name, unsigned int intensity),
+
+	TP_ARGS(sensor_name, intensity)
+);
+
+DEFINE_EVENT(msm_lmh_print_event, lmh_event_call,
+
+	TP_PROTO(const char *event_name),
+
+	TP_ARGS(event_name)
+);
+
+#elif defined(TRACE_MSM_THERMAL)
+
 DECLARE_EVENT_CLASS(msm_thermal_post_core_ctl,
 
 	TP_PROTO(unsigned int cpu, unsigned int online),
