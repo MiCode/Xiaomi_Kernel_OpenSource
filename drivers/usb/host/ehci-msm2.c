@@ -1607,8 +1607,9 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 		}
 	}
 
-	pm_qos_add_request(&mhcd->pm_qos_req_dma, PM_QOS_CPU_DMA_LATENCY,
-			pdata->pm_qos_latency + 1);
+	if (pdata && pdata->pm_qos_latency)
+		pm_qos_add_request(&mhcd->pm_qos_req_dma,
+			PM_QOS_CPU_DMA_LATENCY, pdata->pm_qos_latency + 1);
 
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -1663,6 +1664,7 @@ static int ehci_msm2_remove(struct platform_device *pdev)
 	struct usb_hcd *hcd = platform_get_drvdata(pdev);
 	struct msm_hcd *mhcd = hcd_to_mhcd(hcd);
 	struct pinctrl_state *set_state;
+	struct msm_usb_host_platform_data *pdata;
 
 	if (mhcd->pmic_gpio_dp_irq) {
 		if (mhcd->pmic_gpio_dp_irq_enabled)
@@ -1689,6 +1691,10 @@ static int ehci_msm2_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(&pdev->dev);
 
 	usb_remove_hcd(hcd);
+
+	pdata = pdev->dev.platform_data;
+	if (pdata && pdata->pm_qos_latency)
+		pm_qos_remove_request(&mhcd->pm_qos_req_dma);
 
 	if (hcd->phy) {
 		/* Clear host mode flag */
