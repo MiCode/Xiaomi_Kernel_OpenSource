@@ -349,7 +349,7 @@ int mdp3_ppp_vote_update(struct msm_fb_data_type *mfd)
 		ab = ib / 2;
 	else
 		ab = req_bw;
-	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP, ab, ib);
+	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP, ab, 0, ib);
 	if (rc < 0) {
 		pr_err("%s: scale_set_quota failed\n", __func__);
 		return rc;
@@ -383,7 +383,7 @@ int mdp3_ppp_turnon(struct msm_fb_data_type *mfd, int on_off)
 		pr_err("%s: mdp3_clk_enable failed\n", __func__);
 		return rc;
 	}
-	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP, ab, ib);
+	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_PPP, ab, 0, ib);
 	if (rc < 0) {
 		mdp3_res_update(!on_off, 0, MDP3_CLIENT_PPP);
 		pr_err("%s: scale_set_quota failed\n", __func__);

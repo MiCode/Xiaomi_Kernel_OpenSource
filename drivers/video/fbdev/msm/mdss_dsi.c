@@ -1377,8 +1377,15 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	const char *ctrl_name;
 	bool cmd_cfg_cont_splash = true;
 	struct mdss_panel_cfg *pan_cfg = NULL;
+	struct mdss_util_intf *util;
 
-	if (!mdss_is_ready()) {
+	util = mdss_get_util_intf();
+	if (util == NULL) {
+		pr_err("Failed to get mdss utility functions\n");
+		return -ENODEV;
+	}
+
+	if (!util->mdp_probe_done) {
 		pr_err("%s: MDP not probed yet!\n", __func__);
 		return -EPROBE_DEFER;
 	}
@@ -1409,13 +1416,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		}
 		platform_set_drvdata(pdev, ctrl_pdata);
 	}
-
-	ctrl_pdata->mdss_util = mdss_get_util_intf();
-	if (ctrl_pdata->mdss_util == NULL) {
-		pr_err("Failed to get mdss utility functions\n");
-		rc = -ENODEV;
-		goto error_no_mem;
-	}
+	ctrl_pdata->mdss_util = util;
 	atomic_set(&ctrl_pdata->te_irq_ready, 0);
 
 	ctrl_name = of_get_property(pdev->dev.of_node, "label", NULL);

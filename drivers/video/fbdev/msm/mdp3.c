@@ -346,7 +346,8 @@ static void mdp3_bus_scale_unregister(void)
 	}
 }
 
-int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
+int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ab_quota_nrt,
+								u64 ib_quota)
 {
 	struct mdp3_bus_handle_map *bus_handle;
 	int cur_bus_idx;
@@ -364,6 +365,9 @@ int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
 		pr_err("invalid bus handle %d\n", bus_handle->handle);
 		return -EINVAL;
 	}
+
+	if (ab_quota_nrt != 0)
+		pr_err("Ignoring non zero NRT bus voting on mdp3\n");
 
 	bus_handle->ab[client] = ab_quota;
 	bus_handle->ib[client] = ib_quota;
@@ -629,9 +633,9 @@ void mdp3_bus_bw_iommu_enable(int enable, int client)
 			ab += bus_handle->restore_ab[i];
 			ib += bus_handle->restore_ib[i];
 		}
-		mdp3_bus_scale_set_quota(client, ab, ib);
+		mdp3_bus_scale_set_quota(client, ab, 0, ib);
 	} else if (!enable && ref_cnt == 0) {
-		mdp3_bus_scale_set_quota(client, 0, 0);
+		mdp3_bus_scale_set_quota(client, 0, 0, 0);
 		mdp3_iommu_disable();
 	} else if (ref_cnt < 0) {
 		pr_err("Ref count < 0, bus client=%d, ref_cnt=%d",
@@ -1385,6 +1389,17 @@ int mdp3_iommu_disable()
 	return rc;
 }
 
+int mdp3_iommu_ctrl(int enable)
+{
+	int rc;
+
+	if (enable)
+		rc = mdp3_iommu_enable();
+	else
+		rc = mdp3_iommu_disable();
+	return rc;
+}
+
 int mdp3_iommu_is_attached()
 {
 	struct mdp3_iommu_ctx_map *context_map;
@@ -1633,7 +1648,7 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 	ab = panel_info->xres * panel_info->yres * 4;
 	ab *= panel_info->mipi.frame_rate;
 	ib = (ab * 3) / 2;
-	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_DMA_P, ab, ib);
+	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_DMA_P, ab, 0, ib);
 	bus_handle->restore_ab[MDP3_CLIENT_DMA_P] = ab;
 	bus_handle->restore_ib[MDP3_CLIENT_DMA_P] = ib;
 
@@ -1981,6 +1996,9 @@ static int mdp3_probe(struct platform_device *pdev)
 		rc =  -ENODEV;
 		goto get_util_fail;
 	}
+	mdp3_res->mdss_util->iommu_attached = mdp3_iommu_is_attached;
+	mdp3_res->mdss_util->iommu_ctrl = mdp3_iommu_ctrl;
+	mdp3_res->mdss_util->bus_scale_set_quota = mdp3_bus_scale_set_quota;
 
 	rc = mdp3_parse_dt(pdev);
 	if (rc)
@@ -2028,6 +2046,7 @@ static int mdp3_probe(struct platform_device *pdev)
 					&underrun_cb);
 	if (rc)
 		pr_err("unable to configure interrupt callback\n");
+	mdp3_res->mdss_util->mdp_probe_done = true;
 
 probe_done:
 	if (IS_ERR_VALUE(rc))

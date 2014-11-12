@@ -140,11 +140,17 @@ int mdss_irq_dispatch(u32 hw_ndx, int irq, void *ptr)
 }
 
 struct mdss_util_intf mdss_util = {
-	mdss_register_irq,
-	mdss_enable_irq,
-	mdss_disable_irq,
-	mdss_disable_irq_nosync,
-	mdss_irq_dispatch
+	.register_irq = mdss_register_irq,
+	.enable_irq = mdss_enable_irq,
+	.disable_irq = mdss_disable_irq,
+	.disable_irq_nosync = mdss_disable_irq_nosync,
+	.irq_dispatch = mdss_irq_dispatch,
+	.iommu_attached = NULL,
+	.iommu_ctrl = NULL,
+	.bus_bandwidth_ctrl = NULL,
+	.bus_scale_set_quota = NULL,
+	.mdp_probe_done = false
+
 };
 
 struct mdss_util_intf *mdss_get_util_intf()
