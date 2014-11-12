@@ -314,6 +314,30 @@ static inline int wcove_bcu_get_battery_voltage(int *volt)
 	return ret;
 }
 
+/**
+ * Initiate Graceful Shutdown by setting the SOC to 0% via battery driver and
+ * post the power supply changed event to indicate the change in battery level.
+ */
+static inline int wcove_bcu_action_voltage_drop(void)
+{
+	struct power_supply *psy;
+	union power_supply_propval val;
+	int ret;
+
+	psy = wcove_bcu_get_psy_battery();
+	if (!psy)
+		return -EINVAL;
+
+	/* setting battery capacity to 0 */
+	val.intval = 0;
+	ret = psy->set_property(psy, POWER_SUPPLY_PROP_CAPACITY, &val);
+	if (ret < 0)
+		return ret;
+
+	power_supply_changed(psy);
+	return 0;
+}
+
 static void wcove_bcu_handle_vwarnb_event(void *dev_data, u8 status)
 {
 	int beh_data, ret;
@@ -342,6 +366,30 @@ fail:
 	return;
 }
 
+static void wcove_bcu_handle_vwarna_event(void *dev_data)
+{
+	int ret;
+	struct wcpmic_bcu_info *info = (struct wcpmic_bcu_info *)dev_data;
+
+	/* Trigger graceful shutdown via battery driver by setting SOC to 0% */
+	dev_info(info->dev, "Triggering Graceful Shutdown\n");
+	ret = wcove_bcu_action_voltage_drop();
+	if (ret) {
+		dev_err(info->dev,
+			"Error in Triggering Graceful Shutdown\n");
+		return;
+	}
+
+	/**
+	 * Masking the BCU MVWARNA and MVWARNB Interrupt, since software does
+	 * graceful shutdown once VWARNA interrupt occurs. So we never expect
+	 * another VWARNA or VWARNB interrupt.
+	 */
+	ret = intel_soc_pmic_setb(MBCUIRQ_REG, (u8)(MVWARNA | MVWARNB));
+	if (ret)
+		dev_err(info->dev, "Error in masking vwarna and vwarnb intr\n");
+}
+
 static void wcove_bcu_handle_vwarn_event(void *dev_data, int event)
 {
 	u8 irq_status;
@@ -360,6 +408,7 @@ static void wcove_bcu_handle_vwarn_event(void *dev_data, int event)
 		wcove_bcu_handle_vwarnb_event(dev_data, irq_status);
 	} else if (event == VWARNA) {
 		dev_info(info->dev, "VWARNA Event has occured\n");
+		wcove_bcu_handle_vwarna_event(dev_data);
 	}
 }
 
