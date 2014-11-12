@@ -96,6 +96,7 @@ struct max17042_chip {
 	int    init_complete;
 	int    status;
 	int    health;
+	int    ext_set_cap;
 };
 
 static enum power_supply_property max17042_battery_props[] = {
@@ -295,6 +296,15 @@ static int max17042_get_property(struct power_supply *psy,
 		val->intval = data * MAX17042_VOLTAGE_CONV_FCTR / 8;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
+		/* Check whether the capacity is set externally or not (accepts
+		 * value '0' only). If the capacity value is set externally, use
+		 * same as a SOC value for the battery level usage.
+		 */
+		if (chip->ext_set_cap == 0) {
+			val->intval = chip->ext_set_cap;
+			break;
+		}
+
 		ret = regmap_read(map, MAX17042_OCVInternal, &data);
 		if (ret < 0)
 			return ret;
@@ -427,6 +437,17 @@ static int max17042_set_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		chip->status = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		/* here, this property is to set the soc value '0' only in high
+		 * peak current situation for shutting down the platform
+		 * gracefully, to avoid components crash/critical hardware
+		 * shutdown.
+		 */
+		if (val->intval == 0)
+			chip->ext_set_cap = val->intval;
+		else
+			ret = -EINVAL;
 		break;
 	case POWER_SUPPLY_PROP_TEMP_ALERT_MIN:
 		regmap_read(map, MAX17042_TALRT_Th, &read_value);
@@ -1024,6 +1045,7 @@ static int max17042_probe(struct i2c_client *client,
 
 	chip->health = POWER_SUPPLY_HEALTH_GOOD;
 	chip->status = POWER_SUPPLY_STATUS_DISCHARGING;
+	chip->ext_set_cap = -EINVAL;
 
 	ret = power_supply_register(&client->dev, &chip->battery);
 	if (ret) {
