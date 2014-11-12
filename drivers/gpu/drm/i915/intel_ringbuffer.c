@@ -2454,35 +2454,48 @@ static int intel_wrap_ring_buffer(struct intel_engine_cs *ring)
 	return 0;
 }
 
-int intel_ring_idle(struct intel_engine_cs *ring)
+int intel_ring_idle(struct intel_engine_cs *ring, bool flush)
 {
 	struct drm_i915_gem_request *req;
-	int ret;
+	int ret = 0;
 
-	/* We need to add any requests required to flush the objects and ring */
-	if (ring->outstanding_lazy_request) {
-		ret = i915_add_request(ring);
-		if (ret)
-			return ret;
+	if (flush) {
+		/* We need to add any requests required to flush the objects and ring */
+		if (ring->outstanding_lazy_request) {
+			ret = i915_add_request(ring);
+			if (ret)
+				return ret;
+		}
+
+		/* If there is anything outstanding within the scheduler then
+		 * give up now as the submission of such work requires the
+		 * mutex lock. While the lock is definitely held at this point
+		 * (i915_wait_request will BUG if called without), the driver
+		 * is not necessarily at a safe point to start submitting ring
+		 * work. */
+		if (!i915_scheduler_is_ring_idle(ring))
+			return -EAGAIN;
 	}
 
-	/* If there is anything outstanding within the scheduler then give up
-	 * now as the submission of such work requires the mutex lock. While
-	 * the lock is definitely held at this point (i915_wait_seqno will BUG
-	 * if called without), the driver is not necessarily at a safe point
-	 * to start submitting ring work. */
-	if (!i915_scheduler_is_ring_idle(ring))
-		return -EAGAIN;
+	/* Wait upon the last request to be completed.
+	 *
+	 * NB: With a scheduler, requests might complete out of order (or
+	 * even be pre-empted and not complete at all). Thus the 'last'
+	 * request could change between it being the wait starting and the
+	 * wait completing. Hence a loop while not empty is required. */
+	while(!list_empty(&ring->request_list)) {
+		req = list_entry(ring->request_list.prev,
+				 struct drm_i915_gem_request,
+				 list);
 
-	/* Wait upon the last request to be completed */
-	if (list_empty(&ring->request_list))
-		return 0;
+		ret = i915_wait_request(req);
+		if (ret)
+			return ret;
 
-	req = list_entry(ring->request_list.prev,
-			   struct drm_i915_gem_request,
-			   list);
+		i915_gem_retire_requests_ring(ring);
+	}
 
-	return i915_wait_request(req);
+	return 0;
 }
 
 int
@@ -2587,7 +2600,9 @@ void intel_ring_init_seqno(struct intel_engine_cs *ring, u32 seqno)
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	BUG_ON(ring->outstanding_lazy_request);
+	/* It is safe to have work pending in the OLR but only if it has not
+	 * yet had a seqno assigned. */
+	BUG_ON(ring->outstanding_lazy_request && ring->outstanding_lazy_request->seqno);
 
 	if (INTEL_INFO(dev)->gen == 6 || INTEL_INFO(dev)->gen == 7) {
 		I915_WRITE(RING_SYNC_0(ring->mmio_base), 0);
@@ -3550,7 +3565,7 @@ intel_stop_ring_buffer(struct intel_engine_cs *ring)
 	if (!intel_ring_initialized(ring))
 		return;
 
-	ret = intel_ring_idle(ring);
+	ret = intel_ring_idle(ring, true);
 	if (ret && !i915_reset_in_progress(&to_i915(ring->dev)->gpu_error))
 		DRM_ERROR("failed to quiesce %s whilst cleaning up: %d\n",
 			  ring->name, ret);

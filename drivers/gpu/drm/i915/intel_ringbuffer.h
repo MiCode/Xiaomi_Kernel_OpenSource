@@ -637,7 +637,7 @@ static inline int intel_ring_supports_watchdog(struct intel_engine_cs *ring)
 int intel_ring_start_watchdog(struct intel_engine_cs *ring);
 int intel_ring_stop_watchdog(struct intel_engine_cs *ring);
 
-int __must_check intel_ring_idle(struct intel_engine_cs *ring);
+int __must_check intel_ring_idle(struct intel_engine_cs *ring, bool flush);
 void intel_ring_init_seqno(struct intel_engine_cs *ring, u32 seqno);
 int intel_ring_flush_all_caches(struct intel_engine_cs *ring);
 int intel_ring_invalidate_all_caches(struct intel_engine_cs *ring);

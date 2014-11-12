@@ -4952,7 +4952,7 @@ static void ironlake_enable_rc6(struct drm_device *dev)
 	 * does an implicit flush, combined with MI_FLUSH above, it should be
 	 * safe to assume that renderctx is valid
 	 */
-	ret = intel_ring_idle(ring);
+	ret = intel_ring_idle(ring, true);
 	dev_priv->mm.interruptible = was_interruptible;
 	if (ret) {
 		DRM_ERROR("failed to enable ironlake power savings\n");

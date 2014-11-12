@@ -2434,7 +2434,7 @@ i915_gem_init_seqno(struct drm_device *dev, u32 seqno)
 
 	/* Carefully retire all requests without writing to the rings */
 	for_each_ring(ring, dev_priv, i) {
-		ret = intel_ring_idle(ring);
+		ret = intel_ring_idle(ring, false);
 		if (ret)
 			return ret;
 	}
@@ -3342,7 +3342,7 @@ int i915_gpu_idle(struct drm_device *dev)
 				return ret;
 		}
 
-		ret = intel_ring_idle(ring);
+		ret = intel_ring_idle(ring, true);
 		if (ret)
 			return ret;
 	}
