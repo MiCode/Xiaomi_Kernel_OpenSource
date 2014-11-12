@@ -2896,7 +2896,9 @@ enum punit_power_well {
 #define PCH_HDMIC	0xe1150
 #define PCH_HDMID	0xe1160
 #define PORT_ENABLE	(1 << 31)
-
+#define _PORTADDR(dvo_port, b, c, d)	((dvo_port == b) ? GEN4_HDMIB : \
+					((dvo_port == c) ? GEN4_HDMIC : \
+					CHV_HDMID))
 #define PORT_DFT_I9XX				0x61150
 #define   DC_BALANCE_RESET			(1 << 25)
 #define PORT_DFT2_G4X				0x61154
@@ -2904,7 +2906,8 @@ enum punit_power_well {
 #define   PIPE_SCRAMBLE_RESET_MASK		(0x3 << 0)
 #define   PIPE_B_SCRAMBLE_RESET			(1 << 1)
 #define   PIPE_A_SCRAMBLE_RESET			(1 << 0)
-
+#define PORT_ADDR(dvo_port)		_PORTADDR(dvo_port, DVO_PORT_HDMIB,\
+					DVO_PORT_HDMIC, DVO_PORT_HDMID)
 /* Gen 3 SDVO bits: */
 #define   SDVO_ENABLE				(1 << 31)
 #define   SDVO_PIPE_SEL(pipe)			((pipe) << 30)

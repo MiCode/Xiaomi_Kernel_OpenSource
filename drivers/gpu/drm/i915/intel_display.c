@@ -12994,6 +12994,60 @@ static bool intel_crt_present(struct drm_device *dev)
 	return true;
 }
 
+static void intel_setup_outputs_vbt(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int i;
+
+	for (i = 0; i < dev_priv->vbt.child_dev_num; i++) {
+		int dvo_port =
+			dev_priv->vbt.child_dev[i].common.dvo_port;
+		int devtype =
+			dev_priv->vbt.child_dev[i].common.device_type;
+
+		switch (dvo_port) {
+		case DVO_PORT_MIPIA:
+		case DVO_PORT_MIPIB:
+		case DVO_PORT_MIPIC:
+			if (devtype & DEVICE_TYPE_MIPI_OUTPUT)
+				intel_dsi_init(dev);
+			break;
+		case DVO_PORT_DPB:
+		case DVO_PORT_DPC:
+		case DVO_PORT_DPD:
+			if (devtype & DEVICE_TYPE_eDP_BITS) {
+				int port = dvo_port - DVO_PORT_CRT;
+				intel_dp_init(dev, VLV_DISPLAY_BASE
+					+ DDI_BUF_CTL(port), port);
+			}
+			break;
+		case DVO_PORT_HDMIB:
+		case DVO_PORT_HDMIC:
+		case DVO_PORT_HDMID:
+			if (devtype == DEVICE_TYPE_DP_HDMI_DVI ||
+						devtype == DEVICE_TYPE_HDMI) {
+				int hdmi_reg = VLV_DISPLAY_BASE
+						+ PORT_ADDR(dvo_port);
+				if (I915_READ(hdmi_reg) & SDVO_DETECTED)
+					intel_hdmi_init(dev, hdmi_reg,
+							dvo_port);
+			}
+
+			if (devtype == DEVICE_TYPE_DP_HDMI_DVI ||
+						devtype == DEVICE_TYPE_DP) {
+				intel_dp_init(dev, VLV_DISPLAY_BASE
+						+ DDI_BUF_CTL(dvo_port),
+							dvo_port);
+			break;
+			}
+		default:
+			DRM_DEBUG_KMS("Unknown port\n");
+			break;
+
+		}
+	}
+}
+
 static void intel_setup_outputs(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -13053,18 +13107,8 @@ static void intel_setup_outputs(struct drm_device *dev)
 		if (I915_READ(PCH_DP_D) & DP_DETECTED)
 			intel_dp_init(dev, PCH_DP_D, PORT_D);
 	} else if (IS_CHERRYVIEW(dev)) {
+		intel_setup_outputs_vbt(dev);
 
-		/* Strap bits not working consistently with all BIOS versions.
-		 * For now initialize all displays and enable them only if
-		 * actual display is present.
-		 */
-
-		intel_dp_init(dev, VLV_DISPLAY_BASE + DP_C, PORT_C);
-
-		intel_hdmi_init(dev, VLV_DISPLAY_BASE + CHV_HDMID, PORT_D);
-
-		if (dev_priv->vbt.has_mipi)
-			intel_dsi_init(dev);
 	} else if (IS_VALLEYVIEW(dev)) {
 		/* There is no detection method for MIPI so rely on VBT */
 		if (dev_priv->vbt.has_mipi)
