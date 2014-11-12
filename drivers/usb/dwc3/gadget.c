@@ -2853,6 +2853,7 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;
 	dwc->setup_packet_pending = false;
+	dwc->link_state = dwc3_get_link_state(dwc);
 }
 
 void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend)
@@ -2940,6 +2941,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	reg &= ~(DWC3_DCFG_DEVADDR_MASK);
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;
+	dwc->link_state = dwc3_get_link_state(dwc);
 }
 
 static void dwc3_update_ram_clk_sel(struct dwc3 *dwc, u32 speed)
