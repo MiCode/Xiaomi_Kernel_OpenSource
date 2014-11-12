@@ -3571,6 +3571,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 			chip->dc_psy_type = POWER_SUPPLY_TYPE_MAINS;
 		else if (strcmp(dc_psy_type, "Wireless") == 0)
 			chip->dc_psy_type = POWER_SUPPLY_TYPE_WIRELESS;
+		else if (strcmp(dc_psy_type, "Wipower") == 0)
+			chip->dc_psy_type = POWER_SUPPLY_TYPE_WIPOWER;
 	}
 	if (chip->dc_psy_type != -EINVAL) {
 		OF_PROP_READ(chip, chip->dc_target_current_ma,
