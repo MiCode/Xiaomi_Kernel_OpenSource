@@ -4378,7 +4378,7 @@ static struct spmi_device_id msm8x16_wcd_spmi_id_table[] = {
 };
 
 static struct of_device_id msm8x16_wcd_spmi_of_match[] = {
-	{ .compatible = "qcom,wcd-spmi",},
+	{ .compatible = "qcom,msm8x16_wcd_codec",},
 	{ },
 };
 
