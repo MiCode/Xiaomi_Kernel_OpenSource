@@ -58,6 +58,14 @@
 	};
 
 	gpio@c100 { /* GPIO 2 */
+		qcom,mode = <1>;               /* Digital output */
+		qcom,output-type = <0>;        /* CMOS logic */
+		qcom,invert = <0>;             /* no inversion */
+		qcom,vin-sel = <2>;            /* VIN 2 */
+		qcom,src-sel = <2>;            /* Function 2 */
+		qcom,out-strength = <2>;       /* Medium */
+		qcom,master-en = <1>;          /* Enable GPIO */
+		status = "ok";
 	};
 
 	gpio@c200 { /* GPIO 3 */
