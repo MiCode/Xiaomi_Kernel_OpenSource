@@ -1516,6 +1516,9 @@ out:
 
 static void ufshcd_init_hibern8_on_idle(struct ufs_hba *hba)
 {
+	/* initialize the state variable here */
+	hba->hibern8_on_idle.state = HIBERN8_EXITED;
+
 	if (!ufshcd_is_hibern8_on_idle_allowed(hba))
 		return;
 
@@ -1524,7 +1527,6 @@ static void ufshcd_init_hibern8_on_idle(struct ufs_hba *hba)
 	INIT_WORK(&hba->hibern8_on_idle.exit_work, ufshcd_hibern8_exit_work);
 
 	hba->hibern8_on_idle.delay_ms = 10;
-	hba->hibern8_on_idle.state = HIBERN8_EXITED;
 	hba->hibern8_on_idle.is_enabled = true;
 
 	hba->hibern8_on_idle.delay_attr.show =
@@ -7387,6 +7389,8 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		 */
 		if (ret || !ufshcd_is_link_active(hba))
 			goto vendor_suspend;
+		/* mark link state as hibern8 exited */
+		hba->hibern8_on_idle.state = HIBERN8_EXITED;
 	}
 
 	if (!ufshcd_is_ufs_dev_active(hba)) {
