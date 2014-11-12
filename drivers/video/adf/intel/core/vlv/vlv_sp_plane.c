@@ -411,10 +411,18 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 	};
 
 	/* make sure the src rectangle in 16.16 fixed point format */
-	if (!(config->src_x / (1<<16)) ||
-	    !(config->src_w / (1<<16)) ||
-	    !(config->src_y / (1<<16)) ||
-	    !(config->src_h / (1<<16))) {
+	if (!(config->src_w / (1 << 16)) ||
+	    !(config->src_h / (1 << 16))) {
+		pr_err("ADF:src rec are not in 16.16 fixed fmt%s\n", __func__);
+		return -ERANGE;
+	}
+
+	if (config->src_x && !(config->src_x / (1 << 16))) {
+		pr_err("ADF:src rec are not in 16.16 fixed fmt%s\n", __func__);
+		return -ERANGE;
+	}
+
+	if (config->src_y && !(config->src_y / (1 << 16))) {
 		pr_err("ADF:src rec are not in 16.16 fixed fmt%s\n", __func__);
 		return -ERANGE;
 	}
