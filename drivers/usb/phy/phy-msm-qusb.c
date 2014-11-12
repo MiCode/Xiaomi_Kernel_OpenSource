@@ -142,9 +142,14 @@ disable_vdd:
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
+	int ret;
 	u32 t1, t2, t3, t4;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
+
+	ret = qusb_phy_enable_power(qphy, true);
+	if (ret)
+		return ret;
 
 	if (!qphy->clocks_enabled) {
 		clk_prepare_enable(qphy->ref_clk);
@@ -444,10 +449,6 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		dev_err(dev, "unable to get vdda18 supply\n");
 		return PTR_ERR(qphy->vdda18);
 	}
-
-	ret = qusb_phy_enable_power(qphy, true);
-	if (ret)
-		return ret;
 
 	platform_set_drvdata(pdev, qphy);
 
