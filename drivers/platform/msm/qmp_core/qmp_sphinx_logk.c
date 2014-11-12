@@ -57,7 +57,7 @@ static long qmp_sphinx_logk_check_filter(unsigned long arg);
 
 void* (*qmp_sphinx_logk_kernel_begin)(char **buf);
 
-void (*qmp_sphinx_logk_kernel_end) (void *blck);
+void (*qmp_sphinx_logk_kernel_end)(void *blck);
 
 /*
  * the last param is the permission bits *
@@ -498,7 +498,8 @@ static long qmp_sphinx_logk_set_mapping(unsigned long arg)
 					(__u32 __user *)arg, sizeof(__u32)))
 		return -EFAULT;
 
-	if (0 == num_elements)
+	if ((0 == num_elements) || (num_elements >
+		(UINT_MAX / sizeof(struct qmp_sphinx_source_mask))))
 		return -EFAULT;
 
 	if (NULL != pmask) {
