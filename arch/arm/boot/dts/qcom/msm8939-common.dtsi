@@ -996,6 +996,7 @@
 		qcom,bam-consumer-pipe-index = <12>;
 		qcom,bam-producer-pipe-index = <13>;
 		qcom,master-id = <86>;
+		qcom,rt-priority;
 		status = "disabled";
 	};
 
