@@ -375,9 +375,21 @@ static int32_t msm_flash_init(
 	if (flash_data->cfg.flash_init_info->flash_driver_type ==
 		FLASH_DRIVER_DEFAULT) {
 		flash_driver_type = flash_ctrl->flash_driver_type;
+		for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+			flash_data->flash_current[i] =
+				flash_ctrl->flash_max_current[i];
+			flash_data->flash_duration[i] =
+				flash_ctrl->flash_max_duration[i];
+		}
 	} else if (flash_data->cfg.flash_init_info->flash_driver_type ==
 		flash_ctrl->flash_driver_type) {
 		flash_driver_type = flash_ctrl->flash_driver_type;
+		for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+			flash_ctrl->flash_max_current[i] =
+				flash_data->flash_current[i];
+			flash_data->flash_duration[i] =
+				flash_ctrl->flash_max_duration[i];
+		}
 	}
 
 	if (flash_driver_type == FLASH_DRIVER_DEFAULT) {
@@ -422,21 +434,23 @@ static int32_t msm_flash_low(
 	CDBG("Enter\n");
 	/* Turn off flash triggers */
 	for (i = 0; i < flash_ctrl->flash_num_sources; i++)
-		led_trigger_event(flash_ctrl->flash_trigger[i], 0);
+		if (flash_ctrl->flash_trigger[i])
+			led_trigger_event(flash_ctrl->flash_trigger[i], 0);
 
 	/* Turn on flash triggers */
 	for (i = 0; i < flash_ctrl->torch_num_sources; i++) {
 		if (flash_ctrl->torch_trigger[i]) {
 			max_current = flash_ctrl->torch_max_current[i];
-			if (flash_data->cfg.flash_current[i] >= 0 &&
-				flash_data->cfg.flash_current[i] <
+			if (flash_data->flash_current[i] >= 0 &&
+				flash_data->flash_current[i] <
 				max_current) {
-				curr = flash_data->cfg.flash_current[i];
+				curr = flash_data->flash_current[i];
 			} else {
 				curr = flash_ctrl->torch_op_current[i];
 				pr_debug("LED current clamped to %d\n",
 					curr);
 			}
+			CDBG("low_flash_current[%d] = %d", i, curr);
 			led_trigger_event(flash_ctrl->torch_trigger[i],
 				curr);
 		}
@@ -456,21 +470,23 @@ static int32_t msm_flash_high(
 
 	/* Turn off torch triggers */
 	for (i = 0; i < flash_ctrl->torch_num_sources; i++)
-		led_trigger_event(flash_ctrl->torch_trigger[i], 0);
+		if (flash_ctrl->torch_trigger[i])
+			led_trigger_event(flash_ctrl->torch_trigger[i], 0);
 
 	/* Turn on flash triggers */
 	for (i = 0; i < flash_ctrl->flash_num_sources; i++) {
 		if (flash_ctrl->flash_trigger[i]) {
 			max_current = flash_ctrl->flash_max_current[i];
-			if (flash_data->cfg.flash_current[i] >= 0 &&
-				flash_data->cfg.flash_current[i] <
+			if (flash_data->flash_current[i] >= 0 &&
+				flash_data->flash_current[i] <
 				max_current) {
-				curr = flash_data->cfg.flash_current[i];
+				curr = flash_data->flash_current[i];
 			} else {
 				curr = flash_ctrl->flash_op_current[i];
-				pr_debug("LED current clamped to %d\n",
-					curr);
+				pr_debug("LED flash_current[%d] clamped %d\n",
+					i, curr);
 			}
+			CDBG("high_flash_current[%d] = %d", i, curr);
 			led_trigger_event(flash_ctrl->flash_trigger[i],
 				curr);
 		}
@@ -871,6 +887,7 @@ static int32_t msm_flash_get_dt_data(struct device_node *of_node,
 static long msm_flash_subdev_do_ioctl(
 	struct file *file, unsigned int cmd, void *arg)
 {
+	int32_t i = 0;
 	int32_t rc = 0;
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
@@ -882,6 +899,10 @@ static long msm_flash_subdev_do_ioctl(
 
 	CDBG("Enter");
 	flash_data.cfg_type = u32->cfg_type;
+	for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+		flash_data.flash_current[i] = u32->flash_current[i];
+		flash_data.flash_duration[i] = u32->flash_duration[i];
+	}
 	switch (cmd) {
 	case VIDIOC_MSM_FLASH_CFG32:
 		cmd = VIDIOC_MSM_FLASH_CFG;
@@ -917,6 +938,10 @@ static long msm_flash_subdev_do_ioctl(
 	}
 
 	rc =  msm_flash_subdev_ioctl(sd, cmd, &flash_data);
+	for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+		u32->flash_current[i] = flash_data.flash_current[i];
+		u32->flash_duration[i] = flash_data.flash_duration[i];
+	}
 	CDBG("Exit");
 	return rc;
 }
