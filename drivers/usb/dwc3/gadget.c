@@ -2252,6 +2252,7 @@ static enum hrtimer_restart dwc3_gadget_ep_timer(struct hrtimer *hrtimer)
 {
 	struct dwc3_ep *dep = container_of(hrtimer, struct dwc3_ep, xfer_timer);
 	struct dwc3_event_depevt event;
+	unsigned long flags;
 	struct dwc3 *dwc;
 
 	if (!dep) {
@@ -2274,9 +2275,12 @@ static enum hrtimer_restart dwc3_gadget_ep_timer(struct hrtimer *hrtimer)
 
 	event.status = 0;
 
-	spin_lock(&dwc->lock);
-	dwc3_endpoint_transfer_complete(dep->dwc, dep, &event, 1);
-	spin_unlock(&dwc->lock);
+	spin_lock_irqsave(&dwc->lock, flags);
+
+	if (!(atomic_read(&dwc->in_lpm)))
+		dwc3_endpoint_transfer_complete(dep->dwc, dep, &event, 1);
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
 
 out:
 	return HRTIMER_NORESTART;
@@ -2578,10 +2582,13 @@ static void dwc3_endpoint_transfer_complete(struct dwc3 *dwc,
 		 * If this is ISR (LST) racing with hr_timer then timer_cancel
 		 * will fail and there is a possibility that timer gets re-armed
 		 * But, clean_busy check would ensure timer is not armed again.
+		 * Also, in case we're suspended (DWC3_LINK_STATE_U3), don't arm
+		 * the timer.
 		 */
+
 		if (event->status & DEPEVT_STATUS_LST)
 			hrtimer_try_to_cancel(&dep->xfer_timer);
-		else if (!clean_busy)
+		else if (!clean_busy && (dwc->link_state != DWC3_LINK_STATE_U3))
 			hrtimer_start(&dep->xfer_timer, ktime_set(0,
 				bulk_ep_xfer_timeout_ms * NSEC_PER_MSEC),
 				HRTIMER_MODE_REL);
