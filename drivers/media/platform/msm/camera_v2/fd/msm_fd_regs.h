@@ -135,6 +135,9 @@
 
 /* FD vbif registers */
 #define MSM_FD_VBIF_CLKON                   (0x04)
+#define MSM_FD_VBIF_QOS_OVERRIDE_EN         (0x10)
+#define MSM_FD_VBIF_QOS_OVERRIDE_REQPRI     (0x18)
+#define MSM_FD_VBIF_QOS_OVERRIDE_PRILVL     (0x1C)
 #define MSM_FD_VBIF_IN_RD_LIM_CONF0         (0xB0)
 #define MSM_FD_VBIF_IN_WR_LIM_CONF0         (0xC0)
 #define MSM_FD_VBIF_OUT_RD_LIM_CONF0        (0xD0)
