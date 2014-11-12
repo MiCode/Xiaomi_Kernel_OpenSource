@@ -4995,7 +4995,8 @@ int msm_pcie_shadow_control(struct pci_dev *dev, bool enable)
 	if (dev) {
 		pcie_dev = PCIE_BUS_PRIV_DATA(dev);
 		PCIE_DBG(pcie_dev,
-			"Recovery for the link of RC%d\n", pcie_dev->rc_idx);
+			"User requests to %s shadow\n",
+			enable ? "enable" : "disable");
 	} else {
 		pr_err("PCIe: the input pci dev is NULL.\n");
 		return -ENODEV;
