@@ -782,7 +782,7 @@ static int pmic_get_usbid(void)
 	u8 val;
 
 	ret = pmic_read_reg(chc.reg_map->pmic_schgrirq1, &val);
-	if (!ret)
+	if (ret)
 		return RID_UNKNOWN;
 
 	/* SCHGRIRQ1_REG SUSBIDDET bit definition:
@@ -803,7 +803,7 @@ static int pmic_get_usbid(void)
 		dev_err(chc.dev, "IIO channel read error for USBID\n");
 		goto err_exit;
 	}
-
+	dev_dbg(chc.dev, "%s: rid=%d\n", __func__, rid);
 	if (IS_RID_A(rid))
 		id = RID_A;
 	else if (IS_RID_B(rid))
@@ -857,7 +857,9 @@ static int get_charger_type(void)
 		rid = pmic_get_usbid();
 		if (rid == RID_A)
 			return POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK;
-		else if (rid != RID_UNKNOWN)
+		/* As PMIC detected the charger as ACA, if RID detection
+		 * failed report type as ACA  */
+		else
 			return POWER_SUPPLY_CHARGER_TYPE_USB_ACA;
 	case PMIC_CHARGER_TYPE_SE1:
 		return POWER_SUPPLY_CHARGER_TYPE_SE1;
