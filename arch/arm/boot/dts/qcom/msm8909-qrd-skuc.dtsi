@@ -272,6 +272,10 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
+&dsi_ili9806e_fwvga_video {
+	qcom,cont-splash-enabled;
+};
+
 &pmx_mdss {
 	qcom,num-grp-pins = <1>;
 	qcom,pins = <&gp 25>;
