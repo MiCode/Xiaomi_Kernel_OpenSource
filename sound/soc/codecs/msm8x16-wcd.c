@@ -2610,14 +2610,20 @@ void wcd_imped_config(struct snd_soc_codec *codec,
 		pr_debug("%s: Default gain is set\n", __func__);
 	} else {
 		if (set_gain) {
-			if (value == 16)
-				snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
-					0x20, 0x00);
-			if (value == 32)
+			/*
+			 * For 32Ohm load and higher loads, Set 0x19E bit 5
+			 * to 1 (POS_6_DB_DI). For loads lower than 32Ohm
+			 * (such as 16Ohm load), Set 0x19E bit 5 to 0
+			 * (POS_1P5_DB_DI)
+			 */
+			if (value >= 32)
 				snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
 					0x20, 0x20);
+			else
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
+					0x20, 0x00);
 		} else {
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
