@@ -174,7 +174,7 @@ static void wcd_program_btn_threshold(const struct wcd_mbhc *mbhc, bool micbias)
 
 		reg_val = (course << 5) | (fine << 2);
 		snd_soc_update_bits(codec, reg_addr, 0xFC, reg_val);
-		pr_err("%s: course: %d fine: %d reg_addr: %x reg_val: %x\n",
+		pr_debug("%s: course: %d fine: %d reg_addr: %x reg_val: %x\n",
 				__func__, course, fine, reg_addr, reg_val);
 		reg_addr++;
 	}
