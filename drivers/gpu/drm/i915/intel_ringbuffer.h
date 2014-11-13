@@ -187,10 +187,7 @@ struct intel_engine_cs {
 
 	int		(*init)(struct intel_engine_cs *ring);
 
-	int		(*init_context)(struct intel_ringbuffer *ringbuf);
-
-	void	(*emit_wa)(struct intel_ringbuffer *ringbuf,
-		       u32 addr, u32 value);
+	int		(*init_context)(struct intel_engine_cs *ring);
 
 	void		(*write_tail)(struct intel_engine_cs *ring,
 				      u32 value);
@@ -472,7 +469,6 @@ int intel_init_vebox_ring_buffer(struct drm_device *dev);
 u64 intel_ring_get_active_head(struct intel_engine_cs *ring);
 void intel_ring_setup_status_page(struct intel_engine_cs *ring);
 u32 get_pipe_control_scratch_addr(struct intel_engine_cs *ring);
-void bdw_emit_workarounds(struct intel_ringbuffer *ringbuf);
 
 static inline u32 intel_ring_get_tail(struct intel_ringbuffer *ringbuf)
 {
