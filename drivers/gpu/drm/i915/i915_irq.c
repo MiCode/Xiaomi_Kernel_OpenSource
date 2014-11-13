@@ -3471,6 +3471,8 @@ void i915_hangcheck_sample(struct work_struct *work)
 	struct drm_device *dev;
 	struct drm_i915_private *dev_priv;
 	struct intel_engine_cs *ring;
+	struct intel_context *current_context = NULL;
+	enum context_submission_status status = CONTEXT_SUBMISSION_STATUS_OK;
 	struct intel_ring_hangcheck *hc =
 		container_of(work, typeof(*hc), work.work);
 
@@ -3482,6 +3484,10 @@ void i915_hangcheck_sample(struct work_struct *work)
 	ring = &dev_priv->ring[hc->ringid];
 
 	/* Sample the current state */
+
+	if (i915.enable_execlists)
+		status = i915_gem_context_get_current_context(ring,
+			&current_context);
 
 	head = I915_READ_HEAD(ring) & HEAD_ADDR;
 	tail = I915_READ_TAIL(ring) & TAIL_ADDR;
@@ -3508,10 +3514,10 @@ void i915_hangcheck_sample(struct work_struct *work)
 
 	idle = ((head == tail) && (pending_work == 0));
 
-	DRM_DEBUG_TDR("[%u] HD: 0x%08x 0x%08x, ACTHD: 0x%08x 0x%08x IC: %d\n",
-		      ring->id, (unsigned int) head, (unsigned int) hc->last_hd,
-		      (unsigned int) acthd, (unsigned int) hc->last_acthd,
-		      instdone_cmp);
+	DRM_DEBUG_TDR("[%u] HD: 0x%08x 0x%08x, ACTHD: 0x%08x 0x%08x IC: %d " \
+		      "status: %u\n", ring->id, (unsigned int) head,
+		      (unsigned int) hc->last_hd, (unsigned int) acthd,
+		      (unsigned int) hc->last_acthd, instdone_cmp, status);
 	DRM_DEBUG_TDR("[%u] E:%d PW:%d TL:0x%08x Csq:0x%08x (%ld) Lsq:0x%08x (%ld) Idle: %s\n",
 		      ring->id, empty, pending_work, (unsigned int) tail,
 		      (unsigned int) ring->get_seqno(ring, false),
@@ -3536,7 +3542,7 @@ void i915_hangcheck_sample(struct work_struct *work)
 	    && (hc->last_hd == head)
 	    && instdone_cmp) {
 		/* Ring hasn't advanced in this sampling period */
-		if (idle) {
+		if (idle && (status == CONTEXT_SUBMISSION_STATUS_OK)) {
 			ring->hangcheck.action = HANGCHECK_IDLE;
 
 			/* The hardware is idle */
@@ -3556,7 +3562,7 @@ void i915_hangcheck_sample(struct work_struct *work)
 				hc->count = 0;
 				resched_timer = 0;
 			}
-		} else {
+		} else if (status == CONTEXT_SUBMISSION_STATUS_OK) {
 			/*
 			 * The hardware is busy but has not advanced
 			 * since the last sample - possible hang
@@ -3574,6 +3580,34 @@ void i915_hangcheck_sample(struct work_struct *work)
 	hc->last_acthd = acthd;
 	memcpy(hc->prev_instdone, instdone, sizeof(instdone));
 
+	if (i915.enable_execlists) {
+		if (resched_timer & (status == CONTEXT_SUBMISSION_STATUS_SUBMITTED)) {
+			u32 remaining_detections =
+				(DRM_I915_FORCED_RESUBMISSION_THRESHOLD -
+					++hc->forced_resubmission_cnt);
+
+			DRM_DEBUG_TDR("HACK: EXECLIST_STATUS context ID=0 on" \
+				      " %s with requests pending! " \
+				      "Forced submission in %u\n",
+				      ring->name,
+				      (unsigned int) remaining_detections);
+
+		} else {
+			/* Wait some more before forcing resubmission again */
+			hc->forced_resubmission_cnt = 0;
+		}
+
+		if (hc->forced_resubmission_cnt ==
+				DRM_I915_FORCED_RESUBMISSION_THRESHOLD) {
+			DRM_DEBUG_TDR("HACK: Forcing resubmission to move " \
+				      "%s forward.\n", ring->name);
+			intel_execlists_TDR_force_resubmit(dev_priv, hc->ringid);
+			hc->forced_resubmission_cnt = 0;
+		}
+	}
+
+	resched_timer &= (status != CONTEXT_SUBMISSION_STATUS_NONE_SUBMITTED);
+
 	if (resched_timer) {
 		/*
 		 * Work is still pending! Reschedule hang check to come back
@@ -3582,6 +3616,14 @@ void i915_hangcheck_sample(struct work_struct *work)
 		mod_delayed_work(dev_priv->ring[hc->ringid].hangcheck.wq,
 				&dev_priv->ring[hc->ringid].hangcheck.work,
 				round_jiffies_up_relative(DRM_I915_HANGCHECK_JIFFIES));
+	}
+
+	if (i915.enable_execlists) {
+		unsigned long flags;
+
+		spin_lock_irqsave(&ring->execlist_lock, flags);
+		i915_gem_context_unreference(current_context);
+		spin_unlock_irqrestore(&ring->execlist_lock, flags);
 	}
 }
 
