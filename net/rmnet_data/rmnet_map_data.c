@@ -377,6 +377,10 @@ static int rmnet_map_validate_ipv4_packet_checksum(unsigned char *map_payload,
 	if (unlikely(!checksum_field))
 		return RMNET_MAP_CHECKSUM_ERR_UNKNOWN_TRANSPORT;
 
+	/* RFC 768 - Skip IPv4 UDP packets where sender checksum field is 0 */
+	if ((*checksum_field == 0) && (ip4h->protocol == IPPROTO_UDP))
+		return RMNET_MAP_CHECKSUM_SKIPPED;
+
 	checksum_value = ~ntohs(cksum_trailer->checksum_value);
 	ip_hdr_checksum = ~ip_fast_csum(ip4h, (int)ip4h->ihl);
 	ip_payload_checksum = rmnet_map_subtract_checksums(checksum_value,
