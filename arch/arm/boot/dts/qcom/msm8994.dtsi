@@ -3425,10 +3425,8 @@
 };
 
 &gdsc_vfe {
-	clock-names = "bus_clk", "core0_clk", "core1_clk";
-	clocks = <&clock_mmss clk_camss_vfe_vfe_axi_clk>,
-		 <&clock_mmss clk_camss_vfe_vfe0_clk>,
-		 <&clock_mmss clk_camss_vfe_vfe1_clk>;
+	clock-names = "bus_clk";
+	clocks = <&clock_mmss clk_camss_vfe_vfe_axi_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
