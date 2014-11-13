@@ -11188,6 +11188,8 @@ static void intel_dump_pipe_config(struct intel_crtc *crtc,
 		      pipe_config->fdi_m_n.gmch_m, pipe_config->fdi_m_n.gmch_n,
 		      pipe_config->fdi_m_n.link_m, pipe_config->fdi_m_n.link_n,
 		      pipe_config->fdi_m_n.tu);
+	DRM_DEBUG_KMS("hdmi_sink: %i, audio: %i\n",
+		      pipe_config->has_hdmi_sink, pipe_config->has_audio);
 	DRM_DEBUG_KMS("dp: %i, gmch_m: %u, gmch_n: %u, link_m: %u, link_n: %u, tu: %u\n",
 		      pipe_config->has_dp_encoder,
 		      pipe_config->dp_m_n.gmch_m, pipe_config->dp_m_n.gmch_n,
