@@ -506,10 +506,19 @@ static int32_t msm_actuator_vreg_control(struct msm_actuator_ctrl_t *a_ctrl,
 	}
 
 	for (i = 0; i < cnt; i++) {
-		rc = msm_camera_config_single_vreg(&(a_ctrl->pdev->dev),
-			&vreg_cfg->cam_vreg[i],
-			(struct regulator **)&vreg_cfg->data[i],
-			config);
+		if (a_ctrl->act_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
+			rc = msm_camera_config_single_vreg(&(a_ctrl->pdev->dev),
+				&vreg_cfg->cam_vreg[i],
+				(struct regulator **)&vreg_cfg->data[i],
+				config);
+		} else if (a_ctrl->act_device_type ==
+			MSM_CAMERA_I2C_DEVICE) {
+			rc = msm_camera_config_single_vreg(
+				&(a_ctrl->i2c_client.client->dev),
+				&vreg_cfg->cam_vreg[i],
+				(struct regulator **)&vreg_cfg->data[i],
+				config);
+		}
 	}
 	return rc;
 }
