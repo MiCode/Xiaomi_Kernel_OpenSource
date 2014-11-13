@@ -623,6 +623,10 @@ struct rq {
 	int mostly_idle_nr_run;
 	int mostly_idle_freq;
 
+	u64 cur_irqload;
+	u64 avg_irqload;
+	u64 irqload_ts;
+
 #ifdef CONFIG_SCHED_FREQ_INPUT
 	unsigned int old_busy_time;
 #endif
