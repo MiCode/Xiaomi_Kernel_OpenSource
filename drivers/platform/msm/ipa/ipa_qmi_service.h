@@ -24,7 +24,7 @@
  */
 #define IPA_A7_QMAP_HDR_NAME "ipa_qmap_hdr"
 #define IPA_DFLT_WAN_RT_TBL_NAME "ipa_dflt_wan_rt"
-#define MAX_NUM_Q6_RULE 20
+#define MAX_NUM_Q6_RULE 35
 #define DEV_NAME "ipa-wan"
 #define SUBSYS_MODEM "modem"
 

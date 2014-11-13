@@ -80,7 +80,7 @@
 /**
  * max number of interface properties
  */
-#define IPA_NUM_PROPS_MAX 20
+#define IPA_NUM_PROPS_MAX 35
 
 /**
  * size of the mac address
