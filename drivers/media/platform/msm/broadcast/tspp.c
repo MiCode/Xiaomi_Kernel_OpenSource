@@ -661,8 +661,7 @@ static int tspp_config_gpios(struct tspp_device *device,
 	int ret;
 	struct pinctrl_state *s;
 	struct tspp_pinctrl *p = &device->pinctrl;
-	/* Both TSIF always work in the same mode */
-	bool mode2 = device->tsif[0].mode == TSPP_TSIF_MODE_2;
+	bool mode2;
 
 	/*
 	 * TSIF devices are handled separately, however changing of the pinctrl
@@ -673,6 +672,7 @@ static int tspp_config_gpios(struct tspp_device *device,
 
 	switch (source) {
 	case TSPP_SOURCE_TSIF0:
+		mode2 = device->tsif[0].mode == TSPP_TSIF_MODE_2;
 		if (enable == p->tsif1_active) {
 			if (enable)
 				/* Both tsif enabled */
@@ -693,6 +693,7 @@ static int tspp_config_gpios(struct tspp_device *device,
 			p->tsif0_active = enable;
 		break;
 	case TSPP_SOURCE_TSIF1:
+		mode2 = device->tsif[1].mode == TSPP_TSIF_MODE_2;
 		if (enable == p->tsif0_active) {
 			if (enable)
 				/* Both tsif enabled */
