@@ -3107,6 +3107,10 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 				"Secure buffer not supported");
 			return -EINVAL;
 		}
+
+		/* Can't use CPU map with secure buffers */
+		if (param->flags & KGSL_MEMFLAGS_USE_CPU_MAP)
+			return -EINVAL;
 	}
 
 	entry = kgsl_mem_entry_create();
@@ -3593,8 +3597,13 @@ long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 	if (result != 0)
 		goto err;
 
-	if (param->flags & KGSL_MEMFLAGS_SECURE)
+	if (param->flags & KGSL_MEMFLAGS_SECURE) {
 		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
+		if (param->flags & KGSL_MEMFLAGS_USE_CPU_MAP) {
+			result = -EINVAL;
+			goto err;
+		}
+	}
 
 	result = kgsl_mem_entry_attach_process(entry, dev_priv);
 	if (result != 0)
