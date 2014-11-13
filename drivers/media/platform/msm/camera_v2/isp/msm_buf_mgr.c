@@ -1112,49 +1112,54 @@ int msm_isp_proc_buf_cmd(struct msm_isp_buf_mgr *buf_mgr,
 	return 0;
 }
 
-int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
+static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
 {
 	struct msm_isp_buffer *bufs = NULL;
 	uint32_t i = 0, j = 0, k = 0, rc = 0;
+	char *print_buf = NULL, temp_buf[512];
+	uint32_t start_addr = 0, end_addr = 0, print_buf_size = 1024;
 	if (!buf_mgr) {
 		pr_err_ratelimited("%s: %d] NULL buf_mgr\n",
 			__func__, __LINE__);
 		return -EINVAL;
 	}
+	print_buf = kzalloc(print_buf_size, GFP_ATOMIC);
+	if (!print_buf) {
+		pr_err("%s failed: no memory", __func__);
+		return -ENOMEM;
+	}
+	snprintf(print_buf, print_buf_size, "%s\n", __func__);
 	for (i = 0; i < BUF_MGR_NUM_BUF_Q; i++) {
 		if (buf_mgr->bufq[i].bufq_handle != 0) {
-			pr_err("%s:%d handle %x\n", __func__, i,
-				buf_mgr->bufq[i].bufq_handle);
-			pr_err("%s:%d session_id %d, stream_id %x,",
-				__func__, i, buf_mgr->bufq[i].session_id,
-				buf_mgr->bufq[i].stream_id);
-			pr_err("num_bufs %d, handle %x, type %d\n",
-				buf_mgr->bufq[i].num_bufs,
+			snprintf(temp_buf, sizeof(temp_buf),
+				"handle %x stream %x num_bufs %d",
 				buf_mgr->bufq[i].bufq_handle,
-				buf_mgr->bufq[i].buf_type);
+				buf_mgr->bufq[i].stream_id,
+				buf_mgr->bufq[i].num_bufs);
+			strlcat(print_buf, temp_buf, print_buf_size);
 			for (j = 0; j < buf_mgr->bufq[i].num_bufs; j++) {
 				bufs = &buf_mgr->bufq[i].bufs[j];
 				if (!bufs) {
-					pr_err("bufs at %d is NULL breaking\n",
-						j);
 					break;
 				}
-				pr_err("%s:%d buf_idx %d, frame_id %d,",
-					__func__, j, bufs->buf_idx,
-					bufs->frame_id);
-				pr_err("num_planes %d, state %d\n",
-					bufs->num_planes, bufs->state);
 				for (k = 0; k < bufs->num_planes; k++) {
-					pr_err("%s:%d paddr %x, len %lu,",
-						__func__, k, (unsigned int)
-						bufs->mapped_info[k].paddr,
-						bufs->mapped_info[k].len);
-					pr_err(" ion handle %p\n",
-						bufs->mapped_info[k].handle);
+					if (!start_addr)
+						start_addr = bufs->
+							mapped_info[k].paddr;
+					end_addr = bufs->mapped_info[k].paddr +
+						bufs->mapped_info[k].len;
 				}
 			}
+			snprintf(temp_buf, sizeof(temp_buf),
+				" start_addr %x end_addr %x\n",
+				start_addr, end_addr);
+			strlcat(print_buf, temp_buf, print_buf_size);
+			start_addr = 0;
+			end_addr = 0;
 		}
 	}
+	pr_err("%s\n", print_buf);
+	kfree(print_buf);
 	buf_mgr->pagefault_debug = 1;
 	return rc;
 }
