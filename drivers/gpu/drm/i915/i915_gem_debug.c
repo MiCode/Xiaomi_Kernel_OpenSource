@@ -472,6 +472,17 @@ static void i915_obj_pidarray_validate(struct drm_gem_object *gem_obj)
 	 * be subset of the the drm filelist pid entries.
 	 */
 	list_for_each_entry_safe(pid_entry, pid_next, &obj->pid_info, head) {
+		if (pid_next == NULL) {
+			DRM_ERROR(
+				  "Invalid pid info. obj:%p, size:%zdK, pin flag:%s, tiling:%s, userptr=%s, stolen:%s, name:%d, handle_count=%d\n",
+				  &obj->base, obj->base.size/1024,
+				  get_pin_flag(obj), get_tiling_flag(obj),
+				  (obj->userptr.mm != 0) ? "Y" : "N",
+				  obj->stolen ? "Y" : "N", obj->base.name,
+				  obj->base.handle_count);
+			break;
+		}
+
 		present = 0;
 		list_for_each_entry(file, &dev->filelist, lhead) {
 			file_priv = file->driver_priv;
@@ -586,6 +597,16 @@ i915_drm_gem_obj_info(int id, void *ptr, void *data)
 	struct drm_i915_error_state_buf *m = data;
 	int ret;
 
+	if (obj->pid_info.next == NULL) {
+		DRM_ERROR(
+			"Invalid pid info. obj:%p, size:%zdK, pin flag:%s, tiling:%s, userptr=%s, stolen:%s, name:%d, handle_count=%d\n",
+			&obj->base, obj->base.size/1024,
+			get_pin_flag(obj), get_tiling_flag(obj),
+			(obj->userptr.mm != 0) ? "Y" : "N",
+			obj->stolen ? "Y" : "N", obj->base.name,
+			obj->base.handle_count);
+		return 0;
+	}
 	i915_obj_pidarray_validate(&obj->base);
 	ret = i915_describe_obj(m, obj);
 
@@ -602,6 +623,17 @@ i915_drm_gem_object_per_file_summary(int id, void *ptr, void *data)
 	struct drm_hash_item *hash_item;
 	int obj_shared_count = 0;
 
+	if (obj->pid_info.next == NULL) {
+		DRM_ERROR(
+			"Invalid pid info. obj:%p, size:%zdK, pin flag:%s, tiling:%s, userptr=%s, stolen:%s, name:%d, handle_count=%d\n",
+			&obj->base, obj->base.size/1024,
+			get_pin_flag(obj), get_tiling_flag(obj),
+			(obj->userptr.mm != 0) ? "Y" : "N",
+			obj->stolen ? "Y" : "N", obj->base.name,
+			obj->base.handle_count);
+		return 0;
+	}
+
 	i915_obj_pidarray_validate(&obj->base);
 
 	stats->num_obj++;
@@ -611,7 +643,7 @@ i915_drm_gem_object_per_file_summary(int id, void *ptr, void *data)
 		if (drm_ht_find_item(&pid_entry->namelist,
 				(unsigned long)obj->base.name, &hash_item)) {
 			struct name_entry *entry =
-				kzalloc(sizeof(*entry), GFP_KERNEL);
+				kzalloc(sizeof(*entry), GFP_NOWAIT);
 			if (entry == NULL) {
 				DRM_ERROR("alloc failed\n");
 				return -ENOMEM;
@@ -741,8 +773,10 @@ __i915_get_drm_clients_info(struct drm_i915_error_state_buf *m,
 			pid_entry = new_entry;
 		}
 
+		spin_lock(&file->table_lock);
 		ret = idr_for_each(&file->object_idr,
 			&i915_drm_gem_object_per_file_summary, pid_entry);
+		spin_unlock(&file->table_lock);
 		if (ret)
 			break;
 	}
@@ -859,8 +893,10 @@ __i915_gem_get_all_obj_info(struct drm_i915_error_state_buf *m,
 
 		err_puts(m,
 			"\n Obj Identifier       Size Pin Tiling Dirty Shared Vmap Stolen Mappable  AllocState Global/PP  GttOffset (PID: handle count: user virt addrs)\n");
+		spin_lock(&file->table_lock);
 		ret = idr_for_each(&file->object_idr,
 				&i915_drm_gem_obj_info, m);
+		spin_unlock(&file->table_lock);
 		if (ret)
 			break;
 	}

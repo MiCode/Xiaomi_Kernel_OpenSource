@@ -5207,6 +5207,8 @@ void i915_gem_release(struct drm_device *dev, struct drm_file *file)
 {
 	struct drm_i915_file_private *file_priv = file->driver_priv;
 
+	put_pid(file_priv->tgid);
+
 	cancel_delayed_work_sync(&file_priv->mm.idle_work);
 
 	/* Clean up our request list when the client is going away, so that
@@ -5248,7 +5250,11 @@ int i915_gem_open(struct drm_device *dev, struct drm_file *file)
 	file->driver_priv = file_priv;
 	file_priv->dev_priv = dev->dev_private;
 	file_priv->file = file;
-	file_priv->tgid = find_vpid(task_tgid_nr(current));
+
+	rcu_read_lock();
+	file_priv->tgid = get_pid(find_vpid(task_tgid_nr(current)));
+	rcu_read_unlock();
+
 	file_priv->process_name =  kzalloc(PAGE_SIZE, GFP_ATOMIC);
 	if (!file_priv->process_name) {
 		ret = -ENOMEM;
@@ -5273,6 +5279,7 @@ int i915_gem_open(struct drm_device *dev, struct drm_file *file)
 out_free_name:
 	kfree(file_priv->process_name);
 out_free_file:
+	put_pid(file_priv->tgid);
 	kfree(file_priv);
 
 	return ret;
