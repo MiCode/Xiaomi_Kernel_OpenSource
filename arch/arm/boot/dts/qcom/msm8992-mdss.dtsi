@@ -74,7 +74,7 @@
 		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x2AC 8 12>,
 						      <0x2B4 8 12>;
 
-		qcom,mdss-smp-data = <44 8192>;
+		qcom,mdss-smp-data = <34 8192>;
 		qcom,mdss-sspp-len = <0x00002000>;
 
 		qcom,mdss-ctl-off = <0x00002000 0x00002200 0x00002400>;
