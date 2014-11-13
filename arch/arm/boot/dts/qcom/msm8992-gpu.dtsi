@@ -11,6 +11,27 @@
  */
 
 &soc {
+        msm_bus: qcom,kgsl-busmon{
+                label = "kgsl-busmon";
+                compatible = "qcom,kgsl-busmon";
+        };
+
+        gpubw: qcom,gpubw {
+                compatible = "qcom,devbw";
+                governor = "bw_vbif";
+                qcom,src-dst-ports = <26 512>;
+                qcom,bw-tbl =
+                        <     0 /*  off     */ >,
+                        <  1144 /*  150 MHz */ >,
+                        <  1525 /*  200 MHz */ >,
+                        <  2288 /*  300 MHz */ >,
+                        <  3559 /*  466.5 MHz */ >,
+                        <  4066 /*  533 MHz */ >,
+                        <  4745 /*  622 MHz */ >,
+                        <  5340 /*  700 MHz */ >,
+                        <  7118 /*  933 MHz */ >;
+        };
+
 	msm_gpu: qcom,kgsl-3d0@fdb00000 {
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
@@ -39,24 +60,33 @@
 		clock-names = "core_clk", "iface_clk", "rbbmtimer_clk";
 
 		/* Bus Scale Settings */
+                qcom,gpubw-dev = <&gpubw>;
 		qcom,bus-control;
+                /*
+                 * qcom,msm-bus structures below define
+                 * GPU msm client and its vote data for
+                 * each of available power levels
+                 * (gpu-bus frequency combination)
+                 */
 		qcom,msm-bus,name = "grp3d";
-		qcom,msm-bus,num-cases = <9>;
-		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,num-cases = <11>;
+		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
-				<26 512 0 0>, <89 662 0 0>,
+                                <26 512 0 0>, <89 662 0 0>,
 
-				<26 512 0 1600000>,  <89 662 0 3200000>,     // gpu=200 bus=100
-				<26 512 0 2400000>,  <89 662 0 3200000>,     // gpu=200 bus=150
+                                <26 512 0 1200000>,   // gpu=180 bus=150
+                                <26 512 0 1600000>,   // gpu=180 bus=200
+                                <26 512 0 2400000>,   // gpu=180 bus=300
 
-				<26 512 0 3200000>,  <89 662 0 5200000>,     // gpu=325 bus=200
-				<26 512 0 4800000>,  <89 662 0 5200000>,     // gpu=325 bus=300
+                                <26 512 0 2400000>,   // gpu=300 bus=300
+                                <26 512 0 3732000>,   // gpu=300 bus=466.5
+                                <26 512 0 4976000>,   // gpu=300 bus=622
 
-				<26 512 0 7748000>,  <89 662 0 7600000>,     // gpu=475 bus=466.5
-				<26 512 0 9952000>,  <89 662 0 7600000>,     // gpu=475 bus=622
-				<26 512 0 11200000>, <89 662 0 7600000>,     // gpu=475 bus=700
+                                <26 512 0 3732000>,   // gpu=450 bus=466.5
+                                <26 512 0 4976000>,   // gpu=450 bus=622
+                                <26 512 0 5600000>,   // gpu=450 bus=700
 
-				<26 512 0 14928000>, <89 662 0 10000000>;    // gpu=625 bus=933
+                                <26 512 0 7464000>;   // gpu=600 bus=933
 
 		/* GDSC oxili regulators */
 		vddcx-supply = <&gdsc_oxili_cx>;
@@ -74,25 +104,25 @@
 
 			qcom,gpu-pwrlevel@0 {
 				reg = <0>;
-				qcom,gpu-freq = <625000000>;
-				qcom,bus-freq = <8>;
+				qcom,gpu-freq = <600000000>;
+				qcom,bus-freq = <11>;
 			};
 
 			qcom,gpu-pwrlevel@1 {
 				reg = <1>;
-				qcom,gpu-freq = <475000000>;
-				qcom,bus-freq = <6>;
+				qcom,gpu-freq = <450000000>;
+				qcom,bus-freq = <8>;
 			};
 
 			qcom,gpu-pwrlevel@2 {
 				reg = <2>;
-				qcom,gpu-freq = <325000000>;
-				qcom,bus-freq = <4>;
+				qcom,gpu-freq = <300000000>;
+				qcom,bus-freq = <5>;
 			};
 
 			qcom,gpu-pwrlevel@3 {
 				reg = <3>;
-				qcom,gpu-freq = <200000000>;
+				qcom,gpu-freq = <180000000>;
 				qcom,bus-freq = <2>;
 			};
 
@@ -103,5 +133,32 @@
 			};
 		};
 
+                /*
+                 * qcom,ocmem-bus-client defines
+                 * ocmem msm client and its vote data for
+                 * each of available power levels -
+                 * the same levels that grp3d above uses
+                 */
+                qcom,ocmem-bus-client {
+                        qcom,msm-bus,name = "gpu-ocmem";
+                        qcom,msm-bus,num-cases = <11>;
+                        qcom,msm-bus,num-paths = <1>;
+                        qcom,msm-bus,vectors-KBps =
+                                <89 662 0 0>,
+
+                                <89 662 0 2880000>,     /* gpu=180 */
+                                <89 662 0 2880000>,     /* gpu=180 */
+                                <89 662 0 2880000>,     /* gpu=180 */
+
+                                <89 662 0 4800000>,     /* gpu=300 */
+                                <89 662 0 4800000>,     /* gpu=300 */
+                                <89 662 0 4800000>,     /* gpu=300 */
+
+                                <89 662 0 7200000>,     /* gpu=450 */
+                                <89 662 0 7200000>,     /* gpu=450 */
+                                <89 662 0 7200000>,     /* gpu=450 */
+
+                                <89 662 0 9600000>;     /* gpu=600 */
+                };
 	};
 };
