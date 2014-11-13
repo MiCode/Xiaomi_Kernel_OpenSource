@@ -175,7 +175,6 @@ struct msm_hs_rx {
 	dma_addr_t rbuffer;
 	unsigned char *buffer;
 	unsigned int buffer_pending;
-	struct wake_lock wake_lock;
 	struct delayed_work flip_insert_work;
 	struct kthread_work kwork;
 	struct kthread_worker kworker;
