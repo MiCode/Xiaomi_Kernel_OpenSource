@@ -20,3 +20,9 @@
 	compatible = "qcom,msmtellurium-sim", "qcom,msmtellurium", "qcom,sim";
 	qcom,board-id= <16 0>;
 };
+
+&blsp1_uart2 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
