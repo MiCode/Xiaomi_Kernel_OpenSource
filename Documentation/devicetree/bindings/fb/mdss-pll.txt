@@ -47,8 +47,9 @@ Example:
 		cell-index = <0>;
 
 		reg = <0xfd922A00 0xD4>,
-		      <0xfd922900 0x64>;
-		reg-names = "pll_base", "dynamic_pll_base";
+		      <0xfd922900 0x64>,
+		      <0xfd8c2300 0x8>;
+		reg-names = "pll_base", "dynamic_pll_base", "gdsc_base";
 		gdsc-supply = <&gdsc_mdss>;
 		vddio-supply = <&pm8941_l12>;
 		vcca-supply = <&pm8941_l28>;

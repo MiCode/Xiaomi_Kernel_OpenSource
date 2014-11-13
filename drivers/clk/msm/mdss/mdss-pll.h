@@ -51,12 +51,13 @@ struct mdss_pll_resources {
 	struct dss_module_power mp;
 
 	/*
-	 * dsi/edp/hmdi plls' base register, phy and dynamic refresh
+	 * dsi/edp/hmdi plls' base register, phy, gdsc and dynamic refresh
 	 * register mapping
 	 */
 	void __iomem	*pll_base;
 	void __iomem	*pll_1_base;
 	void __iomem	*phy_base;
+	void __iomem	*gdsc_base;
 	void __iomem	*dyn_pll_base;
 
 	/*
@@ -138,6 +139,17 @@ struct mdss_pll_vco_calc {
 	s64 pll_plllock_cmp2;
 	s64 pll_plllock_cmp3;
 };
+
+static inline bool is_gdsc_disabled(struct mdss_pll_resources *pll_res)
+{
+	if (!pll_res->gdsc_base) {
+		WARN(1, "gdsc_base register is not defined\n");
+		return true;
+	}
+
+	return ((readl_relaxed(pll_res->gdsc_base + 0x4) & BIT(31)) &&
+		(!(readl_relaxed(pll_res->gdsc_base) & BIT(0)))) ? false : true;
+}
 
 int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable);
 int mdss_pll_util_resource_init(struct platform_device *pdev,
