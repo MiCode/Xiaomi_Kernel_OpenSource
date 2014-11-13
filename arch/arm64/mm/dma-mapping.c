@@ -721,11 +721,14 @@ static struct page **__iommu_alloc_buffer(struct device *dev, size_t size,
 
 	if (dma_get_attr(DMA_ATTR_FORCE_CONTIGUOUS, attrs)) {
 		unsigned long order = get_order(size);
+		unsigned long pfn;
 		struct page *page;
 
-		page = dma_alloc_from_contiguous(dev, count, order);
-		if (!page)
-			goto error;
+		pfn = dma_alloc_from_contiguous(dev, count, order);
+		if (!pfn)
+			return NULL;
+
+		page = pfn_to_page(pfn);
 
 		__dma_clear_buffer(page, size, attrs);
 
@@ -781,7 +784,7 @@ static int __iommu_free_buffer(struct device *dev, struct page **pages,
 	int i;
 
 	if (dma_get_attr(DMA_ATTR_FORCE_CONTIGUOUS, attrs)) {
-		dma_release_from_contiguous(dev, pages[0], count);
+		dma_release_from_contiguous(dev, page_to_pfn(pages[0]), count);
 	} else {
 		for (i = 0; i < count; i++)
 			if (pages[i])
@@ -802,7 +805,29 @@ static void *
 __iommu_alloc_remap(struct page **pages, size_t size, gfp_t gfp, pgprot_t prot,
 		    const void *caller)
 {
-	return dma_common_pages_remap(pages, size, VM_USERMAP, prot, caller);
+	unsigned int i, nr_pages = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	struct vm_struct *area;
+	unsigned long p;
+
+	area = get_vm_area_caller(size, VM_USERMAP, caller);
+	if (!area)
+		return NULL;
+
+	area->pages = pages;
+	area->nr_pages = nr_pages;
+	p = (unsigned long)area->addr;
+
+	for (i = 0; i < nr_pages; i++) {
+		phys_addr_t phys = __pfn_to_phys(page_to_pfn(pages[i]));
+		if (ioremap_page_range(p, p + PAGE_SIZE, phys, prot))
+			goto err;
+		p += PAGE_SIZE;
+	}
+	return area->addr;
+err:
+	unmap_kernel_range((unsigned long)area->addr, size);
+	vunmap(area->addr);
+	return NULL;
 }
 
 /*
@@ -864,13 +889,11 @@ static int __iommu_remove_mapping(struct device *dev, dma_addr_t iova,
 
 static struct page **__atomic_get_pages(void *addr)
 {
-	struct page *page;
-	phys_addr_t phys;
+	struct dma_pool *pool = &atomic_pool;
+	struct page **pages = pool->pages;
+	int offs = (addr - pool->vaddr) >> PAGE_SHIFT;
 
-	phys = gen_pool_virt_to_phys(atomic_pool, (unsigned long)addr);
-	page = phys_to_page(phys);
-
-	return (struct page **)page;
+	return pages + offs;
 }
 
 static struct page **__iommu_get_pages(void *cpu_addr, struct dma_attrs *attrs)
@@ -920,7 +943,7 @@ static void __iommu_free_atomic(struct device *dev, void *cpu_addr,
 static void *arm_iommu_alloc_attrs(struct device *dev, size_t size,
 	    dma_addr_t *handle, gfp_t gfp, struct dma_attrs *attrs)
 {
-	pgprot_t prot = __get_dma_pgprot(attrs, PAGE_KERNEL, true);
+	pgprot_t prot = __get_dma_pgprot(attrs, PAGE_KERNEL);
 	struct page **pages;
 	void *addr = NULL;
 
@@ -972,7 +995,7 @@ static int arm_iommu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 	unsigned long usize = vma->vm_end - vma->vm_start;
 	struct page **pages = __iommu_get_pages(cpu_addr, attrs);
 
-	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot, true);
+	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot);
 
 	if (!pages)
 		return -ENXIO;
@@ -1011,8 +1034,10 @@ void arm_iommu_free_attrs(struct device *dev, size_t size, void *cpu_addr,
 		return;
 	}
 
-	if (!dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING, attrs))
-		dma_common_free_remap(cpu_addr, size, VM_USERMAP);
+	if (!dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING, attrs)) {
+		unmap_kernel_range((unsigned long)cpu_addr, size);
+		vunmap(cpu_addr);
+	}
 
 	__iommu_remove_mapping(dev, handle, size);
 	__iommu_free_buffer(dev, pages, size, attrs);
