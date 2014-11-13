@@ -526,13 +526,18 @@ static char *usb_type_str[] = {
 
 #define N_TYPE_BITS		4
 #define TYPE_BITS_OFFSET	4
-/* helper to return the string of USB type */
-static char *get_usb_type_name(u8 type_reg)
+
+static int get_type(u8 type_reg)
 {
 	unsigned long type = type_reg;
-
 	type >>= TYPE_BITS_OFFSET;
-	return usb_type_str[find_first_bit(&type, N_TYPE_BITS)];
+	return find_first_bit(&type, N_TYPE_BITS);
+}
+
+/* helper to return the string of USB type */
+static inline char *get_usb_type_name(int type)
+{
+	return usb_type_str[type];
 }
 
 static enum power_supply_type usb_type_enum[] = {
@@ -544,12 +549,9 @@ static enum power_supply_type usb_type_enum[] = {
 };
 
 /* helper to return enum power_supply_type of USB type */
-static enum power_supply_type get_usb_supply_type(u8 type_reg)
+static inline enum power_supply_type get_usb_supply_type(int type)
 {
-	unsigned long type = type_reg;
-
-	type >>= TYPE_BITS_OFFSET;
-	return usb_type_enum[find_first_bit(&type, N_TYPE_BITS)];
+	return usb_type_enum[type];
 }
 
 static enum power_supply_property smbchg_battery_properties[] = {
@@ -1284,7 +1286,7 @@ static int smbchg_get_min_parallel_current_ma(struct smbchg_chip *chip)
 #define USBIN_ACTIVE_PWR_SRC_BIT	BIT(1)
 static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip)
 {
-	int min_current_thr_ma, rc;
+	int min_current_thr_ma, rc, type;
 	u8 reg;
 
 	if (!smbchg_parallel_en) {
@@ -1308,12 +1310,13 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip)
 		return false;
 	}
 
-	if (get_usb_supply_type(reg) == POWER_SUPPLY_TYPE_USB_CDP) {
+	type = get_type(reg);
+	if (get_usb_supply_type(type) == POWER_SUPPLY_TYPE_USB_CDP) {
 		pr_smb(PR_STATUS, "CDP adapter, skipping\n");
 		return false;
 	}
 
-	if (get_usb_supply_type(reg) == POWER_SUPPLY_TYPE_USB) {
+	if (get_usb_supply_type(type) == POWER_SUPPLY_TYPE_USB) {
 		pr_smb(PR_STATUS, "SDP adapter, skipping\n");
 		return false;
 	}
@@ -2897,7 +2900,7 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
 	enum power_supply_type usb_supply_type;
-	int rc;
+	int rc, type;
 	char *usb_type_name = "null";
 	u8 reg = 0;
 
@@ -2905,8 +2908,9 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	rc = smbchg_read(chip, &reg, chip->misc_base + IDEV_STS, 1);
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't read status 5 rc = %d\n", rc);
-	usb_type_name = get_usb_type_name(reg);
-	usb_supply_type = get_usb_supply_type(reg);
+	type = get_type(reg);
+	usb_type_name = get_usb_type_name(type);
+	usb_supply_type = get_usb_supply_type(type);
 	pr_smb(PR_STATUS, "inserted %s, usb psy type = %d stat_5 = 0x%02x\n",
 			usb_type_name, usb_supply_type, reg);
 	if (chip->usb_psy) {
