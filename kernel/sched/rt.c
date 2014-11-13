@@ -1638,7 +1638,7 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 		if (sched_boost() && capacity(rq) != max_capacity)
 			continue;
 
-		if (cpu_cost < min_cost) {
+		if (cpu_cost < min_cost && !sched_cpu_high_irqload(i)) {
 			min_cost = cpu_cost;
 			best_cpu = i;
 		}

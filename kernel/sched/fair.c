@@ -2574,12 +2574,10 @@ spill_threshold_crossed(struct task_struct *p, struct rq *rq, int cpu)
 int mostly_idle_cpu(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
-	int mostly_idle;
 
-	mostly_idle = (cpu_load(cpu) <= rq->mostly_idle_load
-				&& rq->nr_running <= rq->mostly_idle_nr_run);
-
-	return mostly_idle;
+	return cpu_load(cpu) <= rq->mostly_idle_load
+		&& rq->nr_running <= rq->mostly_idle_nr_run
+		&& !sched_cpu_high_irqload(cpu);
 }
 
 static int boost_refcount;
@@ -2831,7 +2829,7 @@ static int best_small_task_cpu(struct task_struct *p)
 			continue;
 		}
 
-		if (idle_cpu(i) && cstate) {
+		if (idle_cpu(i) && cstate && !sched_cpu_high_irqload(i)) {
 			if (cstate < min_cstate) {
 				min_cstate_cpu = i;
 				min_cstate = cstate;
@@ -2919,7 +2917,7 @@ static int select_packing_target(struct task_struct *p, int best_cpu)
 	for_each_cpu(i, &search_cpus) {
 		int cost = power_cost(p, i);
 
-		if (cost < min_cost) {
+		if (cost < min_cost && !sched_cpu_high_irqload(i)) {
 			target = i;
 			min_cost = cost;
 		}
