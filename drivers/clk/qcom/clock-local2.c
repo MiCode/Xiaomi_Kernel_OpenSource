@@ -414,12 +414,53 @@ static void branch_clk_halt_check(struct clk *c, u32 halt_check,
 	}
 }
 
+static int branch_clk_set_flags(struct clk *c, unsigned flags)
+{
+	u32 cbcr_val;
+	unsigned long irq_flags;
+	struct branch_clk *branch = to_branch_clk(c);
+	int delay_us = 0, ret = 0;
+
+	spin_lock_irqsave(&local_clock_reg_lock, irq_flags);
+	cbcr_val = readl_relaxed(CBCR_REG(branch));
+	switch (flags) {
+	case CLKFLAG_RETAIN_PERIPH:
+		cbcr_val |= BIT(13);
+		delay_us = 1;
+		break;
+	case CLKFLAG_NORETAIN_PERIPH:
+		cbcr_val &= ~BIT(13);
+		break;
+	case CLKFLAG_RETAIN_MEM:
+		cbcr_val |= BIT(14);
+		delay_us = 1;
+		break;
+	case CLKFLAG_NORETAIN_MEM:
+		cbcr_val &= ~BIT(14);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+	writel_relaxed(cbcr_val, CBCR_REG(branch));
+	/* Make sure power is enabled before returning. */
+	mb();
+	udelay(delay_us);
+
+	spin_unlock_irqrestore(&local_clock_reg_lock, irq_flags);
+
+	return ret;
+}
+
 static int branch_clk_enable(struct clk *c)
 {
 	unsigned long flags;
 	u32 cbcr_val;
 	struct branch_clk *branch = to_branch_clk(c);
 
+	if (branch->toggle_memory) {
+		branch_clk_set_flags(c, CLKFLAG_RETAIN_MEM);
+		branch_clk_set_flags(c, CLKFLAG_RETAIN_PERIPH);
+	}
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	cbcr_val = readl_relaxed(CBCR_REG(branch));
 	cbcr_val |= CBCR_BRANCH_ENABLE_BIT;
@@ -448,6 +489,11 @@ static void branch_clk_disable(struct clk *c)
 	/* Wait for clock to disable before continuing. */
 	branch_clk_halt_check(c, branch->halt_check, CBCR_REG(branch),
 				BRANCH_OFF);
+
+	if (branch->toggle_memory) {
+		branch_clk_set_flags(c, CLKFLAG_NORETAIN_MEM);
+		branch_clk_set_flags(c, CLKFLAG_NORETAIN_PERIPH);
+	}
 }
 
 static int branch_cdiv_set_rate(struct branch_clk *branch, unsigned long rate)
@@ -596,43 +642,6 @@ static int branch_clk_reset(struct clk *c, enum clk_reset_action action)
 	if (!branch->bcr_reg)
 		return -EPERM;
 	return __branch_clk_reset(BCR_REG(branch), action);
-}
-
-static int branch_clk_set_flags(struct clk *c, unsigned flags)
-{
-	u32 cbcr_val;
-	unsigned long irq_flags;
-	struct branch_clk *branch = to_branch_clk(c);
-	int delay_us = 0, ret = 0;
-
-	spin_lock_irqsave(&local_clock_reg_lock, irq_flags);
-	cbcr_val = readl_relaxed(CBCR_REG(branch));
-	switch (flags) {
-	case CLKFLAG_RETAIN_PERIPH:
-		cbcr_val |= BIT(13);
-		delay_us = 1;
-		break;
-	case CLKFLAG_NORETAIN_PERIPH:
-		cbcr_val &= ~BIT(13);
-		break;
-	case CLKFLAG_RETAIN_MEM:
-		cbcr_val |= BIT(14);
-		delay_us = 1;
-		break;
-	case CLKFLAG_NORETAIN_MEM:
-		cbcr_val &= ~BIT(14);
-		break;
-	default:
-		ret = -EINVAL;
-	}
-	writel_relaxed(cbcr_val, CBCR_REG(branch));
-	/* Make sure power is enabled before returning. */
-	mb();
-	udelay(delay_us);
-
-	spin_unlock_irqrestore(&local_clock_reg_lock, irq_flags);
-
-	return ret;
 }
 
 static void __iomem *branch_clk_list_registers(struct clk *c, int n,
