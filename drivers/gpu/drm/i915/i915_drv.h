@@ -2849,6 +2849,12 @@ void i915_gem_detect_bit_6_swizzle(struct drm_device *dev);
 void i915_gem_object_do_bit_17_swizzle(struct drm_i915_gem_object *obj);
 void i915_gem_object_save_bit_17_swizzle(struct drm_i915_gem_object *obj);
 
+/* intel_lrc.c */
+struct intel_ringbuffer *
+create_wa_bb(struct intel_context *ctx,
+		struct intel_engine_cs *ring,
+		uint32_t bb_size);
+
 /* i915_gem_debug.c */
 #if WATCH_LISTS
 int i915_verify_lists(struct drm_device *dev);

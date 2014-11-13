@@ -2588,6 +2588,41 @@ cleanup_render_ring:
 	return ret;
 }
 
+struct intel_ringbuffer *
+create_wa_bb(struct intel_context *ctx,
+		struct intel_engine_cs *ring,
+		uint32_t bb_size)
+{
+	struct drm_device *dev = ring->dev;
+	struct intel_ringbuffer *ringbuf;
+	int ret;
+
+	ringbuf = kzalloc(sizeof(*ringbuf), GFP_KERNEL);
+	if (!ringbuf)
+		return NULL;
+
+	ringbuf->ring = ring;
+	ringbuf->FIXME_lrc_ctx = ctx;
+
+	ringbuf->size = roundup(bb_size, PAGE_SIZE);
+	ringbuf->effective_size = ringbuf->size;
+	ringbuf->head = 0;
+	ringbuf->tail = 0;
+	ringbuf->space = ringbuf->size;
+	ringbuf->last_retired_head = -1;
+
+	ret = intel_alloc_ringbuffer_obj(dev, ringbuf);
+	if (ret) {
+		DRM_DEBUG_DRIVER(
+		"Failed to allocate ringbuf obj for wa_bb%s: %d\n",
+		ring->name, ret);
+		kfree(ringbuf);
+		return NULL;
+	}
+
+	return ringbuf;
+}
+
 int intel_lr_context_render_state_init(struct intel_engine_cs *ring,
 				       struct intel_context *ctx)
 {
