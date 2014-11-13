@@ -4707,11 +4707,11 @@ static void cherryview_enable_rps(struct drm_device *dev)
 	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 }
 
-static void valleyview_enable_rps(struct drm_device *dev)
+static void valleyview_enable_rc6(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_engine_cs *ring;
-	u32 gtfifodbg, val, rc6_mode = 0, pcbr;
+	u32 gtfifodbg, rc6_mode = 0, pcbr;
 	int i;
 
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
@@ -4723,24 +4723,6 @@ static void valleyview_enable_rps(struct drm_device *dev)
 				 gtfifodbg);
 		I915_WRITE(GTFIFODBG, gtfifodbg);
 	}
-
-	/* If VLV, Forcewake all wells, else re-direct to regular path */
-	gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
-
-	I915_WRITE(GEN6_RP_UP_THRESHOLD, 59400);
-	I915_WRITE(GEN6_RP_DOWN_THRESHOLD, 245000);
-	I915_WRITE(GEN6_RP_UP_EI, 66000);
-	I915_WRITE(GEN6_RP_DOWN_EI, 350000);
-
-	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
-	I915_WRITE(GEN6_RP_DOWN_TIMEOUT, 0xf4240);
-
-	dev_priv->rps.rps_mask = GEN6_RP_MEDIA_TURBO |
-				   GEN6_RP_MEDIA_HW_NORMAL_MODE |
-				   GEN6_RP_MEDIA_IS_GFX |
-				   GEN6_RP_ENABLE |
-				   GEN6_RP_UP_BUSY_AVG |
-				   GEN6_RP_DOWN_IDLE_CONT;
 
 	I915_WRITE(GEN6_RC6_WAKE_RATE_LIMIT, 0x00280000);
 	I915_WRITE(GEN6_RC_EVALUATION_INTERVAL, 125000);
@@ -4766,6 +4748,31 @@ static void valleyview_enable_rps(struct drm_device *dev)
 		vlv_set_rc6_mode(dev, false);
 
 	intel_print_rc6_info(dev, rc6_mode);
+}
+
+static void valleyview_enable_rps(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 val;
+
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
+	gen6_gt_force_wake_get(dev_priv, FORCEWAKE_ALL);
+
+	I915_WRITE(GEN6_RP_UP_THRESHOLD, 59400);
+	I915_WRITE(GEN6_RP_DOWN_THRESHOLD, 245000);
+	I915_WRITE(GEN6_RP_UP_EI, 66000);
+	I915_WRITE(GEN6_RP_DOWN_EI, 350000);
+
+	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
+	I915_WRITE(GEN6_RP_DOWN_TIMEOUT, 0xf4240);
+
+	dev_priv->rps.rps_mask = GEN6_RP_MEDIA_TURBO |
+				   GEN6_RP_MEDIA_HW_NORMAL_MODE |
+				   GEN6_RP_MEDIA_IS_GFX |
+				   GEN6_RP_ENABLE |
+				   GEN6_RP_UP_BUSY_AVG |
+				   GEN6_RP_DOWN_IDLE_CONT;
 
 	val = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
 
@@ -5638,6 +5645,16 @@ void intel_enable_gt_powersave(struct drm_device *dev)
 				WARN(1, "Cannot enable Turbo! Expect low performance\n");
 				return;
 			}
+		}
+
+		/*
+		 * Enabling RC6 for VLV here itself and only deferring turbo
+		 * enabling.
+		 */
+		if (IS_VALLEYVIEW(dev) && !IS_CHERRYVIEW(dev)) {
+			mutex_lock(&dev_priv->rps.hw_lock);
+			valleyview_enable_rc6(dev);
+			mutex_unlock(&dev_priv->rps.hw_lock);
 		}
 
 		/*
