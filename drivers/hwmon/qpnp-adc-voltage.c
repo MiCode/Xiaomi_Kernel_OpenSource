@@ -397,7 +397,8 @@ static int32_t qpnp_vadc_read_conversion_result(struct qpnp_vadc_chip *vadc,
 
 	*data = (rslt_msb << 8) | rslt_lsb;
 
-	status = qpnp_vadc_check_result(data);
+	status = qpnp_vadc_check_result(data,
+			(vadc->vadc_recalib_check ? true : false));
 	if (status < 0) {
 		pr_err("VADC data check failed\n");
 		goto fail;

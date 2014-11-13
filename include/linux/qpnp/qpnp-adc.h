@@ -1093,8 +1093,9 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *dev,
 /**
  * qpnp_vadc_check_result() - Performs check on the ADC raw code.
  * @data:	Data used for verifying the range of the ADC code.
+ * @recalib_check:	Recalibration check to ignore result check.
  */
-int32_t qpnp_vadc_check_result(int32_t *data);
+int32_t qpnp_vadc_check_result(int32_t *data, bool recalib_check);
 
 /**
  * qpnp_adc_get_devicetree_data() - Abstracts the ADC devicetree data.
