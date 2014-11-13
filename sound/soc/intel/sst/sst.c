@@ -1034,13 +1034,11 @@ do_free_probe_bytes:
 	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
 		kfree(sst_drv_ctx->probe_bytes);
 do_free_dram_buf:
-#ifdef CONFIG_DEBUG_FS
 	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
 		kfree(sst_drv_ctx->dump_buf.dram_buf.buf);
 do_free_iram_buf:
 	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
 		kfree(sst_drv_ctx->dump_buf.iram_buf.buf);
-#endif
 do_unmap_dram:
 	iounmap(sst_drv_ctx->dram);
 do_unmap_iram:
