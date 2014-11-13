@@ -409,6 +409,9 @@ intel_write_status_page(struct intel_engine_cs *ring,
 #define I915_GEM_ACTIVE_SEQNO_INDEX     0x34
 #define I915_GEM_PGFLIP_INDEX           0x35
 
+void intel_unpin_ringbuffer_obj(struct intel_ringbuffer *ringbuf);
+int intel_pin_and_map_ringbuffer_obj(struct drm_device *dev,
+				     struct intel_ringbuffer *ringbuf);
 void intel_destroy_ringbuffer_obj(struct intel_ringbuffer *ringbuf);
 int intel_alloc_ringbuffer_obj(struct drm_device *dev,
 			       struct intel_ringbuffer *ringbuf);
