@@ -105,6 +105,7 @@ config ARCH_MSM8909
 	select CPU_FREQ_MSM
 	select CPU_FREQ
 	select PM_DEVFREQ
+	select PM_OPP
 	select MSM_DEVFREQ_DEVBW
 	select DEVFREQ_SIMPLE_DEV
 	select DEVFREQ_GOV_MSM_BW_HWMON
