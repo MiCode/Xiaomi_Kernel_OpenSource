@@ -682,10 +682,11 @@ __ftrace_vprintk(unsigned long ip, const char *fmt, va_list ap);
 
 extern void ftrace_dump(enum ftrace_dump_mode oops_dump_mode);
 #else
+typedef u64 cycle_t;
 static inline void tracing_start(void) { }
 static inline void tracing_stop(void) { }
 static inline void trace_dump_stack(int skip) { }
-static inline cycle_t ftrace_now(int cpu) { return 0 };
+static inline cycle_t ftrace_now(int cpu) { return 0; };
 
 static inline void tracing_on(void) { }
 static inline void tracing_off(void) { }
