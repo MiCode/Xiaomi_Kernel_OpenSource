@@ -18,9 +18,10 @@
 		#clock-cells = <1>;
 
 		reg = <0xfd998300 0x500>,
+		      <0xfd8c2300 0x8>,
 		      <0xfd998200 0x64>,
 		      <0xfd9a0300 0x500>;
-		reg-names = "pll_base", "dynamic_pll_base",
+		reg-names = "pll_base", "gdsc_base", "dynamic_pll_base",
 			"pll_1_base";
 
 		gdsc-supply = <&gdsc_mdss>;
@@ -69,8 +70,9 @@
 		cell-index = <1>;
 		#clock-cells = <1>;
 
-		reg = <0xfd9a0300 0x500>;
-		reg-names = "pll_base";
+		reg = <0xfd9a0300 0x500>,
+		      <0xfd8c2300 0x8>;
+		reg-names = "pll_base", "gdsc_base";
 
 		gdsc-supply = <&gdsc_mdss>;
 		vddio-supply = <&pm8994_l12>;
@@ -118,8 +120,10 @@
 		label = "MDSS HDMI PLL";
 		#clock-cells = <1>;
 
-		reg = <0xfd9a8600 0xac4>, <0xfd9a9200 0x0C8>;
-		reg-names = "pll_base", "phy_base";
+		reg = <0xfd9a8600 0xac4>,
+		      <0xfd9a9200 0x0C8>,
+		      <0xfd8c2300 0x8>;
+		reg-names = "pll_base", "phy_base", "gdsc_base";
 
 		gdsc-supply = <&gdsc_mdss>;
 		vddio-supply = <&pm8994_l12>;
