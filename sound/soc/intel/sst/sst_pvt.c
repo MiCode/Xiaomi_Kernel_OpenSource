@@ -360,8 +360,6 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	char iram_event[30], dram_event[30], ddr_imr_event[65], event_type[30];
 	char *envp[5];
 	int env_offset = 0;
-	bool reset_dapm;
-	struct sst_platform_cb_params cb_params;
 
 	/*
 	 * setting firmware state as RESET so that the firmware will get
@@ -374,11 +372,6 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	mutex_lock(&sst->sst_lock);
 	sst->sst_state = SST_RECOVERY;
 	mutex_unlock(&sst->sst_lock);
-
-	cb_params.params = &reset_dapm;
-	cb_params.event = SST_PLATFORM_TRIGGER_RECOVERY;
-	reset_dapm = true;
-	sst_platform_cb(&cb_params);
 
 	sst_stall_lpe_n_wait(sst);
 
@@ -444,8 +437,6 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	 * powering on DAPM widget
 	 */
 	usleep_range(10000, 12000);
-	reset_dapm = false;
-	sst_platform_cb(&cb_params);
 }
 
 void sst_do_recovery(struct intel_sst_drv *sst)
