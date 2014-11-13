@@ -742,9 +742,9 @@ static int lmh_sensor_init(struct platform_device *pdev)
 	pr_debug("LMH Sensor Init complete\n");
 
 init_exit:
+	up_write(&lmh_sensor_access);
 	if (ret)
 		lmh_remove_sensors();
-	up_write(&lmh_sensor_access);
 
 	return ret;
 }
