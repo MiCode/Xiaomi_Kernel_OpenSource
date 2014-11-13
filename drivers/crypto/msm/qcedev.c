@@ -31,7 +31,6 @@
 #include <linux/msm-bus.h>
 #include <linux/qcedev.h>
 
-#include <soc/qcom/scm.h>
 #include <crypto/hash.h>
 #include "qcedevi.h"
 #include "qce.h"
@@ -62,34 +61,6 @@ static uint8_t _std_init_vector_sha256_uint8[] = {
 
 static DEFINE_MUTEX(send_cmd_lock);
 static DEFINE_MUTEX(qcedev_sent_bw_req);
-/*-------------------------------------------------------------------------
-* Resource Locking Service
-* ------------------------------------------------------------------------*/
-#define QCEDEV_CMD_ID				1
-#define QCEDEV_CE_LOCK_CMD			1
-#define QCEDEV_CE_UNLOCK_CMD			0
-#define NUM_RETRY				1000
-#define CE_BUSY					55
-
-static int qcedev_scm_cmd(int resource, int cmd, int *response)
-{
-#ifdef CONFIG_MSM_SCM
-
-	struct {
-		int resource;
-		int cmd;
-	} cmd_buf;
-
-	cmd_buf.resource = resource;
-	cmd_buf.cmd = cmd;
-
-	return scm_call(SCM_SVC_TZ, QCEDEV_CMD_ID, &cmd_buf,
-		sizeof(cmd_buf), response, sizeof(*response));
-
-#else
-	return 0;
-#endif
-}
 
 static void qcedev_ce_high_bw_req(struct qcedev_control *podev,
 							bool high_bw_req)
@@ -141,66 +112,6 @@ static void qcedev_ce_high_bw_req(struct qcedev_control *podev,
 		podev->high_bw_req_count--;
 	}
 	mutex_unlock(&qcedev_sent_bw_req);
-}
-
-
-static int qcedev_unlock_ce(struct qcedev_control *podev)
-{
-	int ret = 0;
-
-	mutex_lock(&send_cmd_lock);
-	if (podev->ce_lock_count == 1) {
-		int response = 0;
-
-		if (qcedev_scm_cmd(podev->platform_support.shared_ce_resource,
-					QCEDEV_CE_UNLOCK_CMD, &response)) {
-			pr_err("Failed to release CE lock\n");
-			ret = -EIO;
-		}
-	}
-	if (ret == 0) {
-		if (podev->ce_lock_count)
-			podev->ce_lock_count--;
-		else {
-			/* We should never be here */
-			ret = -EIO;
-			pr_err("CE hardware is already unlocked\n");
-		}
-	}
-	mutex_unlock(&send_cmd_lock);
-
-	return ret;
-}
-
-static int qcedev_lock_ce(struct qcedev_control *podev)
-{
-	int ret = 0;
-
-	mutex_lock(&send_cmd_lock);
-	if (podev->ce_lock_count == 0) {
-		int response = -CE_BUSY;
-		int i = 0;
-
-		do {
-			if (qcedev_scm_cmd(
-				podev->platform_support.shared_ce_resource,
-				QCEDEV_CE_LOCK_CMD, &response)) {
-				response = -EINVAL;
-				break;
-			}
-		} while ((response == -CE_BUSY) && (i++ < NUM_RETRY));
-
-		if ((response == -CE_BUSY) && (i >= NUM_RETRY)) {
-			ret = -EUSERS;
-		} else {
-			if (response < 0)
-				ret = -EINVAL;
-		}
-	}
-	if (ret == 0)
-		podev->ce_lock_count++;
-	mutex_unlock(&send_cmd_lock);
-	return ret;
 }
 
 #define QCEDEV_MAGIC 0x56434544 /* "qced" */
@@ -589,12 +500,6 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 	qcedev_areq->err = 0;
 	podev = handle->cntl;
 
-	if (podev->platform_support.ce_shared) {
-		ret = qcedev_lock_ce(podev);
-		if (ret)
-			return ret;
-	}
-
 	spin_lock_irqsave(&podev->lock, flags);
 
 	if (podev->active_command == NULL) {
@@ -614,9 +519,6 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 
 	if (ret == 0)
 		wait_for_completion(&qcedev_areq->complete);
-
-	if (podev->platform_support.ce_shared)
-		ret = qcedev_unlock_ce(podev);
 
 	if (ret)
 		qcedev_areq->err = -EIO;
@@ -1771,18 +1673,6 @@ long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	pstat = &_qcedev_stat;
 
 	switch (cmd) {
-	case QCEDEV_IOCTL_LOCK_CE:
-		if (podev->platform_support.ce_shared)
-			err = qcedev_lock_ce(podev);
-		else
-			err = -ENOTTY;
-		break;
-	case QCEDEV_IOCTL_UNLOCK_CE:
-		if (podev->platform_support.ce_shared)
-			err = qcedev_unlock_ce(podev);
-		else
-			err = -ENOTTY;
-		break;
 	case QCEDEV_IOCTL_ENC_REQ:
 	case QCEDEV_IOCTL_DEC_REQ:
 		if (!access_ok(VERIFY_WRITE, (void __user *)arg,
@@ -2002,7 +1892,6 @@ static int qcedev_probe(struct platform_device *pdev)
 
 	podev = &qce_dev[0];
 
-	podev->ce_lock_count = 0;
 	podev->high_bw_req_count = 0;
 	INIT_LIST_HEAD(&podev->ready_commands);
 	podev->active_command = NULL;
