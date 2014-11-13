@@ -215,6 +215,7 @@ struct venus_hfi_device {
 	struct workqueue_struct *venus_pm_workq;
 	int spur_count;
 	int reg_count;
+	int pc_num_cmds;
 	u32 base_addr;
 	u32 register_base;
 	u32 register_size;
