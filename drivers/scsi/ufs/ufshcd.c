@@ -925,6 +925,48 @@ static bool ufshcd_is_unipro_pa_params_tuning_req(struct ufs_hba *hba)
 		return false;
 }
 
+static int
+ufshcd_send_request_sense(struct ufs_hba *hba, struct scsi_device *sdp)
+{
+	unsigned char cmd[6] = {REQUEST_SENSE,
+				0,
+				0,
+				0,
+				SCSI_SENSE_BUFFERSIZE,
+				0};
+	char *buffer;
+	int ret;
+
+	buffer = kzalloc(SCSI_SENSE_BUFFERSIZE, GFP_KERNEL);
+	if (!buffer) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = scsi_execute_req_flags(sdp, cmd, DMA_FROM_DEVICE, buffer,
+				SCSI_SENSE_BUFFERSIZE, NULL,
+				msecs_to_jiffies(1000), 3, NULL, REQ_PM);
+	if (ret)
+		pr_err("%s: failed with err %d\n", __func__, ret);
+
+	kfree(buffer);
+out:
+	return ret;
+}
+
+static int ufshcd_send_request_sense_all_lus(struct ufs_hba *hba)
+{
+	struct scsi_device *sdev;
+
+	__shost_for_each_device(sdev, hba->host) {
+		int ret = ufshcd_send_request_sense(hba, sdev);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static void ufshcd_ungate_work(struct work_struct *work)
 {
 	int ret;
@@ -5249,6 +5291,15 @@ skip_err_handling:
 out:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	scsi_unblock_requests(hba->host);
+	if (!err && needs_reset)
+		/*
+		 * Clear UNIT ATTENTION condition on all LUs.
+		 * ufshcd_send_request_sense_all_lus() sends "REQUEST SENSE"
+		 * SCSI command to each LUs, call this function only after
+		 * scsi requests are unblocked.
+		 */
+		ufshcd_send_request_sense_all_lus(hba);
+
 	ufshcd_release_all(hba);
 	pm_runtime_put_sync(hba->dev);
 }
@@ -6948,35 +6999,6 @@ static void ufshcd_hba_exit(struct ufs_hba *hba)
 	}
 }
 
-static int
-ufshcd_send_request_sense(struct ufs_hba *hba, struct scsi_device *sdp)
-{
-	unsigned char cmd[6] = {REQUEST_SENSE,
-				0,
-				0,
-				0,
-				SCSI_SENSE_BUFFERSIZE,
-				0};
-	char *buffer;
-	int ret;
-
-	buffer = kzalloc(SCSI_SENSE_BUFFERSIZE, GFP_KERNEL);
-	if (!buffer) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	ret = scsi_execute_req_flags(sdp, cmd, DMA_FROM_DEVICE, buffer,
-				SCSI_SENSE_BUFFERSIZE, NULL,
-				msecs_to_jiffies(1000), 3, NULL, REQ_PM);
-	if (ret)
-		pr_err("%s: failed with err %d\n", __func__, ret);
-
-	kfree(buffer);
-out:
-	return ret;
-}
-
 /**
  * ufshcd_set_dev_pwr_mode - sends START STOP UNIT command to set device
  *			     power mode
@@ -7306,7 +7328,9 @@ set_link_active:
 		ufshcd_set_link_active(hba);
 	} else if (ufshcd_is_link_off(hba)) {
 		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_VOPS_SUSPEND);
-		ufshcd_host_reset_and_restore(hba);
+		if (!ufshcd_host_reset_and_restore(hba))
+			/* Clear UNIT ATTENTION condition on all LUs */
+			ufshcd_send_request_sense_all_lus(hba);
 	}
 set_dev_active:
 	if (!ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE))
@@ -7388,6 +7412,11 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			goto vendor_suspend;
 		/* mark link state as hibern8 exited */
 		hba->hibern8_on_idle.state = HIBERN8_EXITED;
+
+		/* Clear UNIT ATTENTION condition on all LUs */
+		ret = ufshcd_send_request_sense_all_lus(hba);
+		if (ret)
+			goto set_old_link_state;
 	}
 
 	if (!ufshcd_is_ufs_dev_active(hba)) {
