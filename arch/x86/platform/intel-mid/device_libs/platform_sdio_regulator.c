@@ -24,6 +24,7 @@
 #include <linux/mfd/intel_soc_pmic.h>
 #include <linux/platform_device.h>
 #include <asm/cpu_device_id.h>
+#include <linux/regulator/intel_whiskey_cove_pmic.h>
 
 struct acpi_ids { char *hid; char *uid; };
 
@@ -171,9 +172,44 @@ static void intel_setup_ccove_sd_regulators(void)
 			sizeof(struct fixed_voltage_config), 0);
 }
 
+/*************************************************************
+*
+* WCOVE SD card related regulator
+*
+*************************************************************/
+static struct regulator_init_data wcove_vmmc_data;
+static struct regulator_init_data wcove_vqmmc_data;
+
+static struct wcove_regulator_info wcove_vmmc_info = {
+	.init_data = &wcove_vmmc_data,
+};
+
+static struct wcove_regulator_info wcove_vqmmc_info = {
+	.init_data = &wcove_vqmmc_data,
+};
+
+static void intel_setup_whiskey_cove_sd_regulators(void)
+{
+	memcpy((void *)&wcove_vmmc_data, (void *)&vmmc_data,
+			sizeof(struct regulator_init_data));
+	memcpy((void *)&wcove_vqmmc_data, (void *)&vqmmc_data,
+			sizeof(struct regulator_init_data));
+
+	/* set enable time for vqmmc regulator, stabilize power rail */
+	wcove_vqmmc_data.constraints.enable_time = 20000;
+
+	/* register SD card regulator for whiskey cove PMIC */
+	intel_soc_pmic_set_pdata("wcove_regulator", &wcove_vmmc_info,
+		sizeof(struct wcove_regulator_info), WCOVE_ID_V3P3SD + 1);
+	intel_soc_pmic_set_pdata("wcove_regulator", &wcove_vqmmc_info,
+		sizeof(struct wcove_regulator_info), WCOVE_ID_VSDIO + 1);
+}
+
 static int __init sdio_regulator_init(void)
 {
 	intel_setup_ccove_sd_regulators();
+
+	intel_setup_whiskey_cove_sd_regulators();
 
 	return 0;
 }

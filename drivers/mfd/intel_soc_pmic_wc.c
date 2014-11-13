@@ -36,6 +36,7 @@
 #include <linux/mfd/intel_soc_pmic_wcove.h>
 #include <asm/intel_em_config.h>
 #include "./intel_soc_pmic_core.h"
+#include <linux/regulator/intel_whiskey_cove_pmic.h>
 
 #define WHISKEY_COVE_IRQ_NUM	17
 
@@ -402,6 +403,18 @@ static struct mfd_cell whiskey_cove_dev[] = {
 	{
 		.name = "sw_fuel_gauge_ha",
 		.id = 0,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+	{
+		.name = "wcove_regulator",
+		.id = WCOVE_ID_V3P3SD + 1,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+	{
+		.name = "wcove_regulator",
+		.id = WCOVE_ID_VSDIO + 1,
 		.num_resources = 0,
 		.resources = NULL,
 	},
