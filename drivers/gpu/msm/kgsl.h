@@ -24,6 +24,7 @@
 #include <linux/cdev.h>
 #include <linux/regulator/consumer.h>
 #include <linux/mm.h>
+#include <linux/dma-attrs.h>
 
 /* The number of memstore arrays limits the number of contexts allowed.
  * If more contexts are needed, update multiple for MEMSTORE_SIZE
@@ -147,6 +148,7 @@ struct kgsl_memdesc {
 	struct kgsl_memdesc_ops *ops;
 	unsigned int flags; /* Flags set from userspace */
 	struct device *dev;
+	struct dma_attrs attrs;
 };
 
 /*

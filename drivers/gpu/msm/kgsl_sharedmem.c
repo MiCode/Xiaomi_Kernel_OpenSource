@@ -485,17 +485,20 @@ static int kgsl_contiguous_vmfault(struct kgsl_memdesc *memdesc,
 
 static void kgsl_cma_coherent_free(struct kgsl_memdesc *memdesc)
 {
+	struct dma_attrs *attrs = NULL;
+
 	if (memdesc->hostptr) {
 		if (memdesc->priv & KGSL_MEMDESC_SECURE) {
 			kgsl_driver.stats.secure -= memdesc->size;
 			if (memdesc->priv & KGSL_MEMDESC_TZ_LOCKED)
 				kgsl_cma_unlock_secure(
 				memdesc->pagetable->mmu->device, memdesc);
+			attrs = &memdesc->attrs;
 		} else
 			kgsl_driver.stats.coherent -= memdesc->size;
 
-		dma_free_coherent(memdesc->dev, memdesc->size,
-				memdesc->hostptr, memdesc->physaddr);
+		dma_free_attrs(memdesc->dev, memdesc->size,
+			memdesc->hostptr, memdesc->physaddr, attrs);
 	}
 }
 
@@ -916,8 +919,8 @@ int kgsl_cma_alloc_coherent(struct kgsl_device *device,
 	memdesc->ops = &kgsl_cma_ops;
 	memdesc->dev = device->dev->parent;
 
-	memdesc->hostptr = dma_alloc_coherent(memdesc->dev, size,
-					&memdesc->physaddr, GFP_KERNEL);
+	memdesc->hostptr = dma_alloc_attrs(memdesc->dev, size,
+		&memdesc->physaddr, GFP_KERNEL, NULL);
 
 	if (memdesc->hostptr == NULL) {
 		result = -ENOMEM;
@@ -962,8 +965,11 @@ int kgsl_cma_alloc_secure(struct kgsl_device *device,
 	memdesc->ops = &kgsl_cma_ops;
 	memdesc->dev = device->dev->parent;
 
-	memdesc->hostptr = dma_alloc_coherent(memdesc->dev, size,
-					&memdesc->physaddr, GFP_KERNEL);
+	init_dma_attrs(&memdesc->attrs);
+	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &memdesc->attrs);
+
+	memdesc->hostptr = dma_alloc_attrs(memdesc->dev, size,
+		&memdesc->physaddr, GFP_KERNEL, &memdesc->attrs);
 
 	if (memdesc->hostptr == NULL) {
 		result = -ENOMEM;
