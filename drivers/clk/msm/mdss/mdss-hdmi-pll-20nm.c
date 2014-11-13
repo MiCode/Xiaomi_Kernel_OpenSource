@@ -766,6 +766,9 @@ static unsigned long hdmi_20nm_vco_get_rate(struct clk *c)
 	struct hdmi_pll_vco_clk *vco = to_hdmi_20nm_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
 
+	if (is_gdsc_disabled(io))
+		return 0;
+
 	rc = mdss_pll_resource_enable(io, true);
 	if (rc) {
 		pr_err("pll resource can't be enabled\n");
@@ -834,6 +837,9 @@ static enum handoff hdmi_20nm_vco_handoff(struct clk *c)
 	enum handoff ret = HANDOFF_DISABLED_CLK;
 	struct hdmi_pll_vco_clk *vco = to_hdmi_20nm_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
+
+	if (is_gdsc_disabled(io))
+		return HANDOFF_DISABLED_CLK;
 
 	if (mdss_pll_resource_enable(io, true)) {
 		pr_err("pll resource can't be enabled\n");

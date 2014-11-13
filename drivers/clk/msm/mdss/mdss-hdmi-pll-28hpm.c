@@ -767,6 +767,9 @@ static unsigned long hdmi_vco_get_rate(struct clk *c)
 	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
 	struct mdss_pll_resources *hdmi_pll_res = vco->priv;
 
+	if (is_gdsc_disabled(hdmi_pll_res))
+		return 0;
+
 	rc = mdss_pll_resource_enable(hdmi_pll_res, true);
 	if (rc) {
 		pr_err("pll resource can't be enabled\n");
@@ -867,6 +870,9 @@ static enum handoff hdmi_vco_handoff(struct clk *c)
 	enum handoff ret = HANDOFF_DISABLED_CLK;
 	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
 	struct mdss_pll_resources *hdmi_pll_res = vco->priv;
+
+	if (is_gdsc_disabled(hdmi_pll_res))
+		return HANDOFF_DISABLED_CLK;
 
 	if (mdss_pll_resource_enable(hdmi_pll_res, true)) {
 		pr_err("pll resource can't be enabled\n");
@@ -993,6 +999,9 @@ static int hdmipll_get_mux_sel(struct mux_clk *clk)
 	int rc;
 	int mux_sel = 0;
 	struct mdss_pll_resources *hdmi_pll_res = clk->priv;
+
+	if (is_gdsc_disabled(hdmi_pll_res))
+		return 0;
 
 	rc = mdss_pll_resource_enable(hdmi_pll_res, true);
 	if (rc) {
