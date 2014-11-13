@@ -685,6 +685,13 @@ struct Scsi_Host {
 	 * units along with standard LUs.
 	 */
 	unsigned report_wlus:1;
+
+	/*
+	 * Set "DBD" field in mode_sense caching mode page in case it is
+	 * mandatory by LLD standard.
+	 */
+	unsigned set_dbd_for_caching:1;
+
 	/*
 	 * Optional work queue to be utilized by the transport
 	 */
