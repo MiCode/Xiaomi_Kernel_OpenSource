@@ -600,13 +600,6 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 		goto fail_debugfs;
 	RNDIS_IPA_DEBUG("debugfs entries were created\n");
 
-	result = rndis_ipa_create_rm_resource(rndis_ipa_ctx);
-	if (result) {
-		RNDIS_IPA_ERROR("fail on RM create\n");
-		goto fail_create_rm;
-	}
-	RNDIS_IPA_DEBUG("RM resource was created\n");
-
 	result = rndis_ipa_set_device_ethernet_addr(net->dev_addr,
 			rndis_ipa_ctx->device_ethaddr);
 	if (result) {
@@ -661,8 +654,6 @@ fail_register_tx:
 	rndis_ipa_hdrs_destroy(rndis_ipa_ctx);
 fail_set_device_ethernet:
 fail_hdrs_cfg:
-	rndis_ipa_destory_rm_resource(rndis_ipa_ctx);
-fail_create_rm:
 	rndis_ipa_debugfs_destroy(rndis_ipa_ctx);
 fail_debugfs:
 fail_netdev_priv:
@@ -739,6 +730,14 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 				ipa_to_usb_hdl);
 		return -EINVAL;
 	}
+
+	result = rndis_ipa_create_rm_resource(rndis_ipa_ctx);
+	if (result) {
+		RNDIS_IPA_ERROR("fail on RM create\n");
+		goto fail_create_rm;
+	}
+	RNDIS_IPA_DEBUG("RM resource was created\n");
+
 	rndis_ipa_ctx->ipa_to_usb_hdl = ipa_to_usb_hdl;
 	rndis_ipa_ctx->usb_to_ipa_hdl = usb_to_ipa_hdl;
 	if (max_packet_number_to_dev > 1)
@@ -780,7 +779,11 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 
 	RNDIS_IPA_LOG_EXIT();
 
+	return 0;
+
 fail:
+	rndis_ipa_destory_rm_resource(rndis_ipa_ctx);
+fail_create_rm:
 	return result;
 }
 EXPORT_SYMBOL(rndis_ipa_pipe_connect_notify);
@@ -1179,6 +1182,7 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 	struct rndis_ipa_dev *rndis_ipa_ctx = private;
 	int next_state;
 	int outstanding_dropped_pkts;
+	int retval;
 
 	RNDIS_IPA_LOG_ENTRY();
 
@@ -1210,6 +1214,13 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 
 	rndis_ipa_ctx->net->stats.tx_dropped += outstanding_dropped_pkts;
 	atomic_set(&rndis_ipa_ctx->outstanding_pkts, 0);
+
+	retval = rndis_ipa_destory_rm_resource(rndis_ipa_ctx);
+	if (retval) {
+		RNDIS_IPA_ERROR("Fail to clean RM\n");
+		return retval;
+	}
+	RNDIS_IPA_DEBUG("RM was successfully destroyed\n");
 
 	rndis_ipa_ctx->state = next_state;
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
@@ -1281,13 +1292,6 @@ void rndis_ipa_cleanup(void *private)
 		return;
 	}
 	RNDIS_IPA_DEBUG("RNDIS headers were removed from IPA core\n");
-
-	retval = rndis_ipa_destory_rm_resource(rndis_ipa_ctx);
-	if (retval) {
-		RNDIS_IPA_ERROR("Fail to clean RM\n");
-		return;
-	}
-	RNDIS_IPA_DEBUG("RM was successfully destroyed\n");
 
 	rndis_ipa_debugfs_destroy(rndis_ipa_ctx);
 	RNDIS_IPA_DEBUG("debugfs remove was done\n");
