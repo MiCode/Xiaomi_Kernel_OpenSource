@@ -999,7 +999,6 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		if ((!(result2 & 0x01)) && (!is_pa_on)) {
 			/* Check for cross connection*/
 			if (wcd_check_cross_conn(mbhc)) {
-				plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
 				pt_gnd_mic_swap_cnt++;
 				if (pt_gnd_mic_swap_cnt <
 						GND_MIC_SWAP_THRESHOLD) {
@@ -1012,6 +1011,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 					 */
 					pr_debug("%s: switch didnt work\n",
 						  __func__);
+					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
 					goto report;
 				} else if (mbhc->mbhc_cfg->swap_gnd_mic) {
 					pr_debug("%s: US_EU gpio present, flip switch\n",
@@ -1020,6 +1020,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 					 * if switch is toggled, check again,
 					 * otherwise report unsupported plug
 					 */
+					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
 					if (mbhc->mbhc_cfg->swap_gnd_mic(codec))
 						continue;
 				}
