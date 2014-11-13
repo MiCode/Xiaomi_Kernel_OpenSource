@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -550,8 +550,6 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static int msm_pcm_probe(struct platform_device *pdev)
 {
-	if (pdev->dev.of_node)
-			dev_set_name(&pdev->dev, "%s", "msm-pcm-dtmf");
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 
 	return snd_soc_register_platform(&pdev->dev,

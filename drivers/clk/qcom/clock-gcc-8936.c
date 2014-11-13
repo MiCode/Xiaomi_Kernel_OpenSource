@@ -782,6 +782,7 @@ static struct clk_freq_tbl ftbl_gcc_camss_vfe0_clk[] = {
 	F( 320000000,	   gpll0_out_main, 2.5,	  0,	0),
 	F( 400000000,	   gpll0_out_main,   2,	  0,	0),
 	F( 465000000,	   gpll2_out_aux,   2,	  0,	0),
+	F( 480000000,      gpll4_out_main, 2.5,    0,    0),
 	F( 600000000,      gpll4_out_main,   2,    0,    0),
 	F_END
 };
@@ -1228,6 +1229,9 @@ static struct rcg_clk csi1phytimer_clk_src = {
 
 static struct clk_freq_tbl ftbl_gcc_camss_cpp_clk[] = {
 	F( 160000000,	   gpll0_out_main,   5,	  0,	0),
+	F( 200000000,      gpll0_out_main,   4,   0,    0),
+	F( 228500000,      gpll0_out_main, 3.5,   0,    0),
+	F( 266000000,      gpll0_out_main,   3,   0,    0),
 	F( 320000000,	   gpll0_out_main, 2.5,	  0,	0),
 	F( 465000000,	   gpll2_out_main,   2,	  0,	0),
 	F_END

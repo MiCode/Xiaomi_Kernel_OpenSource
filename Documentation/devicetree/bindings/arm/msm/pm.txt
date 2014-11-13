@@ -23,6 +23,9 @@ The optional properties are:
 - qcom,synced-clocks: Indicates that all cpus running off a single clock source and to
 	instantiate the necessary clock source.
 - qcom,pc-resets-timer: Indicates that the timer gets reset during power collapse.
+- qcom,tz-flushes-cache: Indicates that TZ flushes all of the cache during
+power collapse. MSM PM can decide to not perform cache flush operations to
+reduce latency associated with L2 PC.
 
 Example:
 

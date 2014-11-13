@@ -100,7 +100,11 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		else
 			time->ticks = 0;
 
-		time->clock = local_clock();
+		/* Get the kernel clock for time since boot */
+		time->ktime = local_clock();
+
+		/* Get the timeofday for the wall time (for the user) */
+		getnstimeofday(&time->utime);
 
 		local_irq_restore(flags);
 	}
@@ -1506,12 +1510,8 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	/* Put the timevalues in the profiling buffer */
 	if (cmdbatch_user_profiling) {
-		uint64_t secs;
-		unsigned long nsecs;
-		secs = time->clock;
-		nsecs = do_div(secs, 1000000000);
-		profile_buffer->wall_clock_s = secs;
-		profile_buffer->wall_clock_ns = nsecs;
+		profile_buffer->wall_clock_s = time->utime.tv_sec;
+		profile_buffer->wall_clock_ns = time->utime.tv_nsec;
 		profile_buffer->gpu_ticks_queued = time->ticks;
 	}
 

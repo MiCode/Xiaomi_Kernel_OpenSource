@@ -59,6 +59,8 @@
 
 		qcom,cdc-micbias2-headset-only;
 		qcom,hdmi-audio-rx;
+		asoc-codec = <&stub_codec>, <&hdmi_audio>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
 		qcom,ext-spk-amp-supply = <&hdmi_vreg>;
 		qcom,ext-spk-amp-gpio = <&pma8084_mpps 6 0>;
 		qcom,dock-plug-det-irq = <&msmgpio 142 0>;

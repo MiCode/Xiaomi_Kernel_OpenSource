@@ -79,6 +79,7 @@
 
 #define QPNP_FAST_AVG_CTL				0x5a
 #define QPNP_FAST_AVG_EN				0x5b
+#define QPNP_FAST_AVG_ENABLED				BIT(7)
 
 #define QPNP_M0_LOW_THR_LSB				0x5c
 #define QPNP_M0_LOW_THR_MSB				0x5d
@@ -322,6 +323,33 @@ static int32_t qpnp_adc_tm_write_reg(struct qpnp_adc_tm_chip *chip,
 	return rc;
 }
 
+static int32_t qpnp_adc_tm_fast_avg_en(struct qpnp_adc_tm_chip *chip,
+				uint32_t *fast_avg_sample)
+{
+	int rc = 0, version = 0;
+	u8 fast_avg_en = 0;
+
+	version = qpnp_adc_get_revid_version(chip->dev);
+	if (!((version == QPNP_REV_ID_8916_1_0) ||
+		(version == QPNP_REV_ID_8916_1_1) ||
+		(version == QPNP_REV_ID_8916_2_0))) {
+		pr_debug("fast-avg-en not required for this version\n");
+		return rc;
+	}
+
+	fast_avg_en = QPNP_FAST_AVG_ENABLED;
+	rc = qpnp_adc_tm_write_reg(chip, QPNP_FAST_AVG_EN, fast_avg_en);
+	if (rc < 0) {
+		pr_err("adc-tm fast-avg enable err\n");
+		return rc;
+	}
+
+	if (*fast_avg_sample >= 3)
+		*fast_avg_sample = 2;
+
+	return rc;
+}
+
 static int32_t qpnp_adc_tm_enable(struct qpnp_adc_tm_chip *chip)
 {
 	int rc = 0;
@@ -423,7 +451,12 @@ static int32_t qpnp_adc_tm_req_sts_check(struct qpnp_adc_tm_chip *chip)
 	}
 
 	/* Disable the bank if a conversion is occuring */
-	while ((status1 & QPNP_STATUS1_REQ_STS) && (count < QPNP_RETRY)) {
+	while (status1 & QPNP_STATUS1_REQ_STS) {
+		if (count > QPNP_RETRY) {
+			pr_err("adc-tm conversion not completed in retry=%d\n",
+							count);
+			break;
+		}
 		/* Wait time is based on the optimum sampling rate
 		 * and adding enough time buffer to account for ADC conversions
 		 * occuring on different peripheral banks */
@@ -988,7 +1021,13 @@ static int32_t qpnp_adc_tm_configure(struct qpnp_adc_tm_chip *chip,
 		return rc;
 	}
 
-	/* Fast averaging setup */
+	/* Fast averaging setup/enable */
+	rc = qpnp_adc_tm_fast_avg_en(chip, &chan_prop->fast_avg_setup);
+	if (rc < 0) {
+		pr_err("adc-tm fast-avg enable err\n");
+		return rc;
+	}
+
 	rc = qpnp_adc_tm_write_reg(chip, QPNP_FAST_AVG_CTL,
 					chan_prop->fast_avg_setup);
 	if (rc < 0) {
@@ -2367,6 +2406,46 @@ static int qpnp_adc_tm_remove(struct spmi_device *spmi)
 	return 0;
 }
 
+static void qpnp_adc_tm_shutdown(struct spmi_device *spmi)
+{
+	struct qpnp_adc_tm_chip *chip = dev_get_drvdata(&spmi->dev);
+	int rc = 0;
+	u8 reg_val = 0, status1 = 0, en_ctl1 = 0;
+
+	/* Set measurement in single measurement mode */
+	reg_val = ADC_OP_NORMAL_MODE << QPNP_OP_MODE_SHIFT;
+	rc = qpnp_adc_tm_mode_select(chip, reg_val);
+	if (rc < 0)
+		pr_err("adc-tm single mode select failed\n");
+
+	/* Disable bank */
+	rc = qpnp_adc_tm_disable(chip);
+	if (rc < 0)
+		pr_err("adc-tm disable failed\n");
+
+	/* Check if a conversion is in progress */
+	rc = qpnp_adc_tm_req_sts_check(chip);
+	if (rc < 0)
+		pr_err("adc-tm req_sts check failed\n");
+
+	/* Disable multimeasurement */
+	reg_val = 0;
+	rc = qpnp_adc_tm_write_reg(chip, QPNP_ADC_TM_MULTI_MEAS_EN, reg_val);
+	if (rc < 0)
+		pr_err("adc-tm multi-measurement mode disable failed\n");
+
+	rc = qpnp_adc_tm_read_reg(chip, QPNP_ADC_TM_STATUS1, &status1);
+	if (rc < 0)
+		pr_err("adc-tm status1 read failed\n");
+
+	rc = qpnp_adc_tm_read_reg(chip, QPNP_EN_CTL1, &en_ctl1);
+	if (rc < 0)
+		pr_err("adc-tm en_ctl1 read failed\n");
+
+	pr_debug("adc-tm status1=0%x, en_ctl1=0x%x\n", status1, en_ctl1);
+	pr_debug("stopping all recurring measurements on adc-tm\n");
+}
+
 static int qpnp_adc_tm_suspend_noirq(struct device *dev)
 {
 	struct qpnp_adc_tm_chip *chip = dev_get_drvdata(dev);
@@ -2396,6 +2475,7 @@ static struct spmi_driver qpnp_adc_tm_driver = {
 	},
 	.probe		= qpnp_adc_tm_probe,
 	.remove		= qpnp_adc_tm_remove,
+	.shutdown	= qpnp_adc_tm_shutdown,
 };
 
 static int __init qpnp_adc_tm_init(void)

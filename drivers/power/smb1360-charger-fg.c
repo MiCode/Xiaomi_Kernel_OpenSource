@@ -330,6 +330,9 @@ struct smb1360_chip {
 	int				fg_reset_threshold_mv;
 	bool				fg_reset_at_pon;
 	bool				rsense_10mohm;
+	bool				otg_fet_present;
+	bool				fet_gain_enabled;
+	int				otg_fet_enable_gpio;
 
 	/* status tracking */
 	bool				usb_present;
@@ -1796,41 +1799,53 @@ static int smb1360_adjust_current_gain(struct smb1360_chip *chip,
 			{0xF1, 0x00},
 	};
 
-	rc = smb1360_fg_read(chip, CURRENT_GAIN_LSB_REG, &reg[0]);
-	if (rc) {
-		pr_err("Unable to set FG access I2C address rc=%d\n", rc);
-		return rc;
-	}
+	if (gain_factor) {
+		rc = smb1360_fg_read(chip, CURRENT_GAIN_LSB_REG, &reg[0]);
+		if (rc) {
+			pr_err("Unable to set FG access I2C address rc=%d\n",
+									rc);
+			return rc;
+		}
 
-	rc = smb1360_fg_read(chip, CURRENT_GAIN_MSB_REG, &reg[1]);
-	if (rc) {
-		pr_err("Unable to set FG access I2C address rc=%d\n", rc);
-		return rc;
-	}
+		rc = smb1360_fg_read(chip, CURRENT_GAIN_MSB_REG, &reg[1]);
+		if (rc) {
+			pr_err("Unable to set FG access I2C address rc=%d\n",
+									rc);
+			return rc;
+		}
 
-	reg_value1 = (reg[1] << 8) | reg[0];
-	current_gain = float_decode(reg_value1);
-	new_current_gain = MICRO_UNIT  + (gain_factor * current_gain);
-	reg_value2 = float_encode(new_current_gain);
-	reg[0] = reg_value2 & 0xFF;
-	reg[1] = (reg_value2 & 0xFF00) >> 8;
-	pr_debug("current_gain_reg=0x%x current_gain_decoded=%lld new_current_gain_decoded=%lld new_current_gain_reg=0x%x\n",
-		reg_value1, current_gain, new_current_gain, reg_value2);
+		reg_value1 = (reg[1] << 8) | reg[0];
+		current_gain = float_decode(reg_value1);
+		new_current_gain = MICRO_UNIT  + (gain_factor * current_gain);
+		reg_value2 = float_encode(new_current_gain);
+		reg[0] = reg_value2 & 0xFF;
+		reg[1] = (reg_value2 & 0xFF00) >> 8;
+		pr_debug("current_gain_reg=0x%x current_gain_decoded=%lld new_current_gain_decoded=%lld new_current_gain_reg=0x%x\n",
+			reg_value1, current_gain, new_current_gain, reg_value2);
 
-	for (i = 0; i < ARRAY_SIZE(reg_val_mapping); i++) {
-		if (reg_val_mapping[i][0] == 0xE1)
-			reg_val_mapping[i][1] = reg[0];
-		if (reg_val_mapping[i][0] == 0xE3)
-			reg_val_mapping[i][1] = reg[1];
+		for (i = 0; i < ARRAY_SIZE(reg_val_mapping); i++) {
+			if (reg_val_mapping[i][0] == 0xE1)
+				reg_val_mapping[i][1] = reg[0];
+			if (reg_val_mapping[i][0] == 0xE3)
+				reg_val_mapping[i][1] = reg[1];
 
-		pr_debug("Writing reg_add=%x value=%x\n", reg_val_mapping[i][0],
-						reg_val_mapping[i][1]);
+			pr_debug("Writing reg_add=%x value=%x\n",
+				reg_val_mapping[i][0], reg_val_mapping[i][1]);
 
-		rc = smb1360_fg_write(chip, reg_val_mapping[i][0],
+			rc = smb1360_fg_write(chip, reg_val_mapping[i][0],
 					reg_val_mapping[i][1]);
+			if (rc) {
+				pr_err("Write fg address 0x%x failed, rc = %d\n",
+						reg_val_mapping[i][0], rc);
+				return rc;
+			}
+		}
+	} else {
+		pr_debug("Disabling gain correction\n");
+		rc = smb1360_fg_write(chip, 0xF0, 0x00);
 		if (rc) {
 			pr_err("Write fg address 0x%x failed, rc = %d\n",
-						reg_val_mapping[i][0], rc);
+								0xF0, rc);
 			return rc;
 		}
 	}
@@ -1876,6 +1891,54 @@ restore_fg:
 	}
 
 	return rc;
+}
+
+static int smb1360_otg_disable(struct smb1360_chip *chip)
+{
+	int rc;
+
+	rc = smb1360_masked_write(chip, CMD_CHG_REG, CMD_OTG_EN_BIT, 0);
+	if (rc) {
+		pr_err("Couldn't disable OTG mode rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Disable current gain configuration */
+	if (chip->otg_fet_present && chip->fet_gain_enabled) {
+		/* Disable FET */
+		gpio_set_value(chip->otg_fet_enable_gpio, 1);
+		rc = smb1360_otp_gain_config(chip, 0);
+		if (rc < 0)
+			pr_err("Couldn't config OTP gain config rc=%d\n", rc);
+		else
+			chip->fet_gain_enabled = false;
+	}
+
+	return rc;
+}
+
+static int otg_fail_handler(struct smb1360_chip *chip, u8 rt_stat)
+{
+	int rc;
+
+	pr_debug("OTG Failed stat=%d\n", rt_stat);
+	rc = smb1360_otg_disable(chip);
+	if (rc)
+		pr_err("Couldn't disable OTG mode rc=%d\n", rc);
+
+	return 0;
+}
+
+static int otg_oc_handler(struct smb1360_chip *chip, u8 rt_stat)
+{
+	int rc;
+
+	pr_debug("OTG over-current stat=%d\n", rt_stat);
+	rc = smb1360_otg_disable(chip);
+	if (rc)
+		pr_err("Couldn't disable OTG mode rc=%d\n", rc);
+
+	return 0;
 }
 
 struct smb_irq_info {
@@ -1996,9 +2059,11 @@ static struct irq_handler_info handlers[] = {
 			},
 			{
 				.name		= "otg_fail",
+				.smb_irq	= otg_fail_handler,
 			},
 			{
 				.name		= "otg_oc",
+				.smb_irq	= otg_oc_handler,
 			},
 		},
 	},
@@ -2536,7 +2601,7 @@ static int show_fg_regs(struct seq_file *m, void *data)
 	}
 
 	j = i * SMB1360_I2C_READ_LENGTH;
-	rem_length = (FG_SCRATCH_PAD_MAX % SMB1360_I2C_READ_LENGTH) + 1;
+	rem_length = (FG_SCRATCH_PAD_MAX % SMB1360_I2C_READ_LENGTH);
 	if (rem_length) {
 		rc = smb1360_read_bytes(chip, FG_SCRATCH_PAD_BASE_REG + j,
 						&reg[j], rem_length);
@@ -2607,8 +2672,22 @@ static int smb1360_otg_regulator_enable(struct regulator_dev *rdev)
 
 	rc = smb1360_masked_write(chip, CMD_CHG_REG, CMD_OTG_EN_BIT,
 						CMD_OTG_EN_BIT);
-	if (rc)
+	if (rc) {
 		pr_err("Couldn't enable  OTG mode rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("OTG mode enabled\n");
+	/* Enable current gain configuration */
+	if (chip->otg_fet_present) {
+		/* Enable FET */
+		gpio_set_value(chip->otg_fet_enable_gpio, 0);
+		rc = smb1360_otp_gain_config(chip, 3);
+		if (rc < 0)
+			pr_err("Couldn't config OTP gain config rc=%d\n", rc);
+		else
+			chip->fet_gain_enabled = true;
+	}
 
 	return rc;
 }
@@ -2618,10 +2697,11 @@ static int smb1360_otg_regulator_disable(struct regulator_dev *rdev)
 	int rc = 0;
 	struct smb1360_chip *chip = rdev_get_drvdata(rdev);
 
-	rc = smb1360_masked_write(chip, CMD_CHG_REG, CMD_OTG_EN_BIT, 0);
+	rc = smb1360_otg_disable(chip);
 	if (rc)
-		pr_err("Couldn't disable OTG mode rc=%d\n", rc);
+		pr_err("Couldn't disable OTG regulator rc=%d\n", rc);
 
+	pr_debug("OTG mode disabled\n");
 	return rc;
 }
 
@@ -3344,6 +3424,25 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 		}
 	}
 
+	if (chip->otg_fet_present) {
+		/* Configure OTG FET control gpio */
+		rc = devm_gpio_request_one(chip->dev,
+				chip->otg_fet_enable_gpio,
+				GPIOF_OPEN_DRAIN | GPIOF_INIT_HIGH,
+				"smb1360_otg_fet_gpio");
+		if (rc) {
+			pr_err("Unable to request gpio rc=%d\n", rc);
+			return rc;
+		}
+
+		/* Reset current gain to the default value */
+		rc = smb1360_otp_gain_config(chip, 0);
+		if (rc < 0) {
+			pr_err("Couldn't config OTP gain rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	rc = smb1360_check_batt_profile(chip);
 	if (rc)
 		pr_err("Unable to modify battery profile\n");
@@ -3805,6 +3904,19 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 		}
 	}
 
+	chip->otg_fet_present = of_property_read_bool(node,
+						"qcom,otg-fet-present");
+	if (chip->otg_fet_present) {
+		chip->otg_fet_enable_gpio = of_get_named_gpio(node,
+						"qcom,otg-fet-enable-gpio", 0);
+		if (!gpio_is_valid(chip->otg_fet_enable_gpio)) {
+			if (chip->otg_fet_enable_gpio != -EPROBE_DEFER)
+				pr_err("Unable to get OTG FET enable gpio=%d\n",
+						chip->otg_fet_enable_gpio);
+			return chip->otg_fet_enable_gpio;
+		}
+	}
+
 	chip->pulsed_irq = of_property_read_bool(node, "qcom,stat-pulsed-irq");
 
 	rc = of_property_read_u32(node, "qcom,float-voltage-mv",
@@ -4021,18 +4133,18 @@ static int smb1360_probe(struct i2c_client *client,
 
 	pr_debug("default_i2c_addr=%x\n", chip->default_i2c_addr);
 
-	rc = smb1360_regulator_init(chip);
-	if  (rc) {
-		dev_err(&client->dev,
-			"Couldn't initialize smb349 ragulator rc=%d\n", rc);
-		return rc;
-	}
-
 	rc = smb1360_hw_init(chip);
 	if (rc < 0) {
 		dev_err(&client->dev,
 			"Unable to intialize hardware rc = %d\n", rc);
 		goto fail_hw_init;
+	}
+
+	rc = smb1360_regulator_init(chip);
+	if  (rc) {
+		dev_err(&client->dev,
+			"Couldn't initialize smb349 ragulator rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = determine_initial_status(chip);
@@ -4302,6 +4414,10 @@ static void smb1360_shutdown(struct i2c_client *client)
 {
 	int rc;
 	struct smb1360_chip *chip = i2c_get_clientdata(client);
+
+	rc = smb1360_otg_disable(chip);
+	if (rc)
+		pr_err("Couldn't disable OTG mode rc=%d\n", rc);
 
 	if (chip->shdn_after_pwroff) {
 		rc = smb1360_poweroff(chip);

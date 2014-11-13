@@ -967,6 +967,34 @@ static const struct file_operations pmic_arb_dfs_fops = {
 	.release	= seq_release,
 };
 
+/* mask interrupts that are stack at boot time */
+static void pmic_arb_handle_stuck_irqs(struct spmi_pmic_arb_dev *pmic_arb)
+{
+	int apid;
+
+	/* we only saw the firt 32bit accumulator get currupted at boot */
+	pmic_arb->irq_acc0_init_val = readl_relaxed(pmic_arb->intr +
+			pmic_arb->ver->owner_acc_status(pmic_arb->ee, 0));
+
+	if (!pmic_arb->irq_acc0_init_val)
+		return;
+
+	dev_err(pmic_arb->dev, "non-zero irq-accumulator[0]:0x%x\n",
+					pmic_arb->irq_acc0_init_val);
+
+	for (apid = 0; apid < 32 ; ++apid) {
+		u32 mask = BIT(apid);
+		if (pmic_arb->irq_acc0_init_val & mask) {
+			u32 owner = SPMI_OWNERSHIP_PERIPH2OWNER(
+					readl_relaxed(pmic_arb->cnfg +
+					      SPMI_OWNERSHIP_TABLE_REG(apid)));
+			/* don't mask interrupts that we own */
+			if (owner == pmic_arb->ee)
+				pmic_arb->irq_acc0_init_val &= ~mask;
+		}
+	}
+}
+
 static int
 spmi_pmic_arb_get_property(struct platform_device *pdev, char *pname, u32 *prop)
 {
@@ -1179,11 +1207,7 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	pmic_arb->controller.dev.parent = pdev->dev.parent;
 	pmic_arb->controller.dev.of_node = of_node_get(pdev->dev.of_node);
 
-	pmic_arb->irq_acc0_init_val = readl_relaxed(pmic_arb->intr +
-			pmic_arb->ver->owner_acc_status(pmic_arb->ee, 0));
-	if (pmic_arb->irq_acc0_init_val)
-		dev_err(&pdev->dev, "non-zero irq-accumulator[0]:0x%x\n",
-						pmic_arb->irq_acc0_init_val);
+	pmic_arb_handle_stuck_irqs(pmic_arb);
 
 	/* Callbacks */
 	pmic_arb->controller.cmd = pmic_arb_cmd;

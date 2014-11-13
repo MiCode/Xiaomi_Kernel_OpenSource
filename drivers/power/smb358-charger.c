@@ -29,6 +29,12 @@
 #include <linux/mutex.h>
 #include <linux/qpnp/qpnp-adc.h>
 
+#define _SMB358_MASK(BITS, POS) \
+	((unsigned char)(((1 << (BITS)) - 1) << (POS)))
+#define SMB358_MASK(LEFT_BIT_POS, RIGHT_BIT_POS) \
+		_SMB358_MASK((LEFT_BIT_POS) - (RIGHT_BIT_POS) + 1, \
+			(RIGHT_BIT_POS))
+
 /* Config/Control registers */
 #define CHG_CURRENT_CTRL_REG		0x0
 #define CHG_OTH_CURRENT_CTRL_REG	0x1
@@ -75,22 +81,22 @@
 #define CMD_B_CHG_USB_500_900_ENABLE_BIT	BIT(1)
 #define CHG_CTRL_AUTO_RECHARGE_ENABLE_BIT	0x0
 #define CHG_CTRL_CURR_TERM_END_CHG_BIT		0x0
-#define CHG_CTRL_BATT_MISSING_DET_THERM_IO	(BIT(5) | BIT(4))
+#define CHG_CTRL_BATT_MISSING_DET_THERM_IO	SMB358_MASK(5, 4)
 #define CHG_CTRL_AUTO_RECHARGE_MASK		BIT(7)
 #define CHG_AUTO_RECHARGE_DIS_BIT		BIT(7)
 #define CHG_CTRL_CURR_TERM_END_MASK		BIT(6)
-#define CHG_CTRL_BATT_MISSING_DET_MASK		(BIT(5) | BIT(4))
+#define CHG_CTRL_BATT_MISSING_DET_MASK		SMB358_MASK(5, 4)
 #define CHG_CTRL_APSD_EN_BIT			BIT(2)
 #define CHG_CTRL_APSD_EN_MASK			BIT(2)
 #define CHG_ITERM_MASK				0x07
 #define CHG_PIN_CTRL_USBCS_REG_BIT		0x0
 /* This is to select if use external pin EN to control CHG */
-#define CHG_PIN_CTRL_CHG_EN_LOW_PIN_BIT		(BIT(5) | BIT(6))
+#define CHG_PIN_CTRL_CHG_EN_LOW_PIN_BIT		SMB358_MASK(6, 5)
 #define CHG_PIN_CTRL_CHG_EN_LOW_REG_BIT		0x0
-#define CHG_PIN_CTRL_CHG_EN_MASK		(BIT(5) | BIT(6))
+#define CHG_PIN_CTRL_CHG_EN_MASK		SMB358_MASK(6, 5)
 
 #define CHG_LOW_BATT_THRESHOLD \
-				(BIT(3) | BIT(2) | BIT(1) | BIT(0))
+				SMB358_MASK(3, 0)
 #define CHG_PIN_CTRL_USBCS_REG_MASK		BIT(4)
 #define CHG_PIN_CTRL_APSD_IRQ_BIT		BIT(1)
 #define CHG_PIN_CTRL_APSD_IRQ_MASK		BIT(1)
@@ -139,21 +145,23 @@
 #define IRQ_F_POWER_OK				BIT(0)
 
 /* Status  bits */
-#define STATUS_C_CHARGING_MASK			(BIT(1) | BIT(2))
+#define STATUS_C_CHARGING_MASK			SMB358_MASK(2, 1)
 #define STATUS_C_FAST_CHARGING			BIT(2)
 #define STATUS_C_PRE_CHARGING			BIT(1)
-#define STATUS_C_TAPER_CHARGING			(BIT(2) | BIT(1))
+#define STATUS_C_TAPER_CHARGING			SMB358_MASK(2, 1)
 #define STATUS_C_CHG_ERR_STATUS_BIT		BIT(6)
 #define STATUS_C_CHG_ENABLE_STATUS_BIT		BIT(0)
 #define STATUS_C_CHG_HOLD_OFF_BIT		BIT(3)
-#define STATUS_D_PORT_OTHER			BIT(0)
-#define STATUS_D_PORT_SDP			BIT(1)
-#define STATUS_D_PORT_DCP			BIT(2)
-#define STATUS_D_PORT_CDP			BIT(3)
-#define STATUS_D_PORT_ACA_A			BIT(4)
-#define STATUS_D_PORT_ACA_B			BIT(5)
-#define STATUS_D_PORT_ACA_C			BIT(6)
-#define STATUS_D_PORT_ACA_DOCK			BIT(7)
+#define STATUS_D_CHARGING_PORT_MASK \
+				SMB358_MASK(3, 0)
+#define STATUS_D_PORT_ACA_DOCK			BIT(3)
+#define STATUS_D_PORT_SDP			BIT(2)
+#define STATUS_D_PORT_DCP			BIT(1)
+#define STATUS_D_PORT_CDP			BIT(0)
+#define STATUS_D_PORT_OTHER			SMB358_MASK(1, 0)
+#define STATUS_D_PORT_ACA_A			(BIT(2) | BIT(0))
+#define STATUS_D_PORT_ACA_B			SMB358_MASK(2, 1)
+#define STATUS_D_PORT_ACA_C			SMB358_MASK(2, 0)
 
 /* constants */
 #define USB2_MIN_CURRENT_MA		100
@@ -1232,7 +1240,7 @@ static int apsd_complete(struct smb358_charger *chip, u8 status)
 
 	dev_dbg(chip->dev, "%s: STATUS_D_REG=%x\n", __func__, reg);
 
-	switch (reg) {
+	switch (reg & STATUS_D_CHARGING_PORT_MASK) {
 	case STATUS_D_PORT_ACA_DOCK:
 	case STATUS_D_PORT_ACA_C:
 	case STATUS_D_PORT_ACA_B:
