@@ -1598,12 +1598,9 @@
 };
 
 &gdsc_venus {
-	clock-names = "bus_clk", "core_clk",
-			"core0_clk", "core1_clk";
+	clock-names = "bus_clk", "core_clk";
 	clocks = <&clock_gcc clk_gcc_venus0_axi_clk>,
-		 <&clock_gcc clk_gcc_venus0_vcodec0_clk>,
-		 <&clock_gcc clk_gcc_venus0_core0_vcodec0_clk>,
-		 <&clock_gcc clk_gcc_venus0_core1_vcodec0_clk>;
+		 <&clock_gcc clk_gcc_venus0_vcodec0_clk>;
 	status = "okay";
 };
 
@@ -1642,10 +1639,16 @@
 };
 
 &gdsc_venus_core0 {
+	qcom,support-hw-trigger;
+	clock-names ="core0_clk";
+	clocks = <&clock_gcc clk_gcc_venus0_core0_vcodec0_clk>;
 	status = "okay";
 };
 
 &gdsc_venus_core1 {
+	qcom,support-hw-trigger;
+	clock-names ="core1_clk";
+	clocks = <&clock_gcc clk_gcc_venus0_core1_vcodec0_clk>;
 	status = "okay";
 };
 
