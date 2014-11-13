@@ -1529,8 +1529,11 @@ int32_t qpnp_adc_smb_btm_rscaler(struct qpnp_vadc_chip *chip,
 }
 EXPORT_SYMBOL(qpnp_adc_smb_btm_rscaler);
 
-int32_t qpnp_vadc_check_result(int32_t *data)
+int32_t qpnp_vadc_check_result(int32_t *data, bool recalib_check)
 {
+	if (recalib_check)
+		return 0;
+
 	if (*data < QPNP_VADC_MIN_ADC_CODE)
 		*data = QPNP_VADC_MIN_ADC_CODE;
 	else if (*data > QPNP_VADC_MAX_ADC_CODE)
