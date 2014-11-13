@@ -318,12 +318,9 @@ kgsl_mem_entry_track_gpuaddr(struct kgsl_process_private *process,
 	struct rb_node **node;
 	struct rb_node *parent = NULL;
 	struct kgsl_pagetable *pagetable = process->pagetable;
-	size_t size = entry->memdesc.size;
 
 	assert_spin_locked(&process->mem_lock);
 
-	if (kgsl_memdesc_has_guard_page(&entry->memdesc))
-		size += PAGE_SIZE;
 	/*
 	 * If cpu=gpu map is used then caller needs to set the
 	 * gpu address
@@ -3188,9 +3185,6 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 		break;
 	case KGSL_MEM_ENTRY_ION:
-		if (kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
-			(param->flags & KGSL_MEMFLAGS_SECURE))
-			entry->memdesc.priv &= ~KGSL_MEMDESC_GUARD_PAGE;
 		result = kgsl_setup_ion(entry, private->pagetable, data,
 					dev_priv->device);
 		break;
@@ -3561,10 +3555,8 @@ long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 	if (result)
 		return result;
 
-	if (param->flags & KGSL_MEMFLAGS_SECURE) {
+	if (param->flags & KGSL_MEMFLAGS_SECURE)
 		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
-		entry->memdesc.priv &= ~KGSL_MEMDESC_GUARD_PAGE;
-	}
 
 	result = kgsl_mem_entry_attach_process(entry, dev_priv);
 	if (result != 0)
