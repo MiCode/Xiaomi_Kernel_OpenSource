@@ -606,7 +606,6 @@
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,cti-ack-atomic;
 		qcom,cti-save;
 	};
 
@@ -624,7 +623,6 @@
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,cti-ack-atomic;
 		qcom,cti-save;
 	};
 
@@ -642,7 +640,6 @@
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,cti-ack-atomic;
 		qcom,cti-save;
 	};
 
@@ -660,7 +657,6 @@
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,cti-ack-atomic;
 		qcom,cti-save;
 	};
 
@@ -678,7 +674,6 @@
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,cti-ack-atomic;
 		qcom,cti-save;
 	};
 
@@ -696,7 +691,6 @@
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,cti-ack-atomic;
 		qcom,cti-save;
 	};
 
@@ -714,7 +708,6 @@
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,cti-ack-atomic;
 		qcom,cti-save;
 	};
 
@@ -732,7 +725,6 @@
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 
-		qcom,cti-ack-atomic;
 		qcom,cti-save;
 	};
 
