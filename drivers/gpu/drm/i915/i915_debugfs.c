@@ -2060,6 +2060,7 @@ static int i915_context_status(struct seq_file *m, void *unused)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_engine_cs *ring;
 	struct intel_context *ctx;
+	uint32_t count = 0;
 	int ret, i;
 
 	ret = mutex_lock_interruptible(&dev->mode_config.mutex);
@@ -2070,12 +2071,14 @@ static int i915_context_status(struct seq_file *m, void *unused)
 		seq_puts(m, "power context ");
 		describe_obj(m, dev_priv->ips.pwrctx);
 		seq_putc(m, '\n');
+		count++;
 	}
 
 	if (dev_priv->ips.renderctx) {
 		seq_puts(m, "render context ");
 		describe_obj(m, dev_priv->ips.renderctx);
 		seq_putc(m, '\n');
+		count++;
 	}
 
 	list_for_each_entry(ctx, &dev_priv->context_list, link) {
@@ -2085,6 +2088,7 @@ static int i915_context_status(struct seq_file *m, void *unused)
 
 		seq_puts(m, "HW context ");
 		describe_ctx(m, ctx);
+		count++;
 		for_each_ring(ring, dev_priv, i) {
 			if (ring->default_context == ctx)
 				seq_printf(m, "(default context %s) ",
@@ -2112,6 +2116,8 @@ static int i915_context_status(struct seq_file *m, void *unused)
 
 		seq_putc(m, '\n');
 	}
+
+	seq_printf(m, "Total: %d contexts\n", count);
 
 	mutex_unlock(&dev->mode_config.mutex);
 
