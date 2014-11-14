@@ -26,3 +26,9 @@
 		clock-frequency = <10000000>;
 	};
 };
+
+&blsp1_uart2 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
