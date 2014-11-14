@@ -21,7 +21,11 @@
 #define MAX_CPU_FEATURES	(8 * sizeof(elf_hwcap))
 #define cpu_feature(x)		ilog2(HWCAP_ ## x)
 
-#define NCAPS			0
+#define ARM64_WORKAROUND_CLEAN_CACHE	0
+
+#define NCAPS				1
+
+#ifndef __ASSEMBLY__
 
 extern DECLARE_BITMAP(cpu_hwcaps, NCAPS);
 
@@ -49,5 +53,7 @@ static inline void cpus_set_cap(unsigned int num)
 bool cpu_supports_mixed_endian_el0(void);
 bool system_supports_mixed_endian_el0(void);
 void check_local_cpu_errata(void);
+
+#endif /* __ASSEMBLY__ */
 
 #endif
