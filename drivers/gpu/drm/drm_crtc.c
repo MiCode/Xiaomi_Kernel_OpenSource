@@ -2466,14 +2466,15 @@ int drm_crtc_check_viewport(const struct drm_crtc *crtc,
 	if (crtc->invert_dimensions)
 		swap(hdisplay, vdisplay);
 
+	/* Support for all width and height for cases like fitter */
 	if (hdisplay > fb->width ||
 	    vdisplay > fb->height ||
 	    x > fb->width - hdisplay ||
 	    y > fb->height - vdisplay) {
-		DRM_DEBUG_KMS("Invalid fb size %ux%u for CRTC viewport %ux%u+%d+%d%s.\n",
-			      fb->width, fb->height, hdisplay, vdisplay, x, y,
-			      crtc->invert_dimensions ? " (inverted)" : "");
-		return -ENOSPC;
+		DRM_DEBUG_KMS(
+			"Invalid fb size %ux%u for CRTC viewport %ux%u+%d+%d%s.\n",
+			fb->width, fb->height, hdisplay, vdisplay, x, y,
+			crtc->invert_dimensions ? " (inverted)" : "");
 	}
 
 	return 0;
