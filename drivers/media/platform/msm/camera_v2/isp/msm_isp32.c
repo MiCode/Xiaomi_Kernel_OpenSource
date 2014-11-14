@@ -403,8 +403,8 @@ static long msm_vfe32_reset_hardware(struct vfe_device *vfe_dev ,
 		reset_type = ISP_RST_HARD;
 	}
 	rst_val = msm_vfe32_reset_values[reset_type];
-	init_completion(&vfe_dev->reset_complete);
 	if (blocking) {
+		init_completion(&vfe_dev->reset_complete);
 		msm_camera_io_w_mb(rst_val, vfe_dev->vfe_base + 0x4);
 		rc = wait_for_completion_timeout(
 		   &vfe_dev->reset_complete, msecs_to_jiffies(50));
