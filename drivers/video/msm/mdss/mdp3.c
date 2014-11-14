@@ -790,7 +790,7 @@ int mdp3_iommu_domain_init(void)
 		layout.client_name = mdp3_iommu_domains[i].client_name;
 		layout.partitions = mdp3_iommu_domains[i].partitions;
 		layout.npartitions = mdp3_iommu_domains[i].npartitions;
-		layout.is_secure = false;
+		layout.is_secure = (i == MDP3_IOMMU_DOMAIN_SECURE);
 
 		domain_idx = msm_register_domain(&layout);
 		if (IS_ERR_VALUE(domain_idx))
