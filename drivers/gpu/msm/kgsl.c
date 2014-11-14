@@ -3343,6 +3343,23 @@ static int mem_id_cmp(const void *_a, const void *_b)
 	return (*a > *b) ? 1 : -1;
 }
 
+#ifdef CONFIG_ARM64
+/* Do not support full flush on ARM64 targets */
+static inline bool check_full_flush(size_t size, int op)
+{
+	return false;
+}
+#else
+/* Support full flush if the size is bigger than the threshold */
+static inline bool check_full_flush(size_t size, int op)
+{
+	/* If we exceed the breakeven point, flush the entire cache */
+	return (kgsl_driver.full_cache_threshold != 0) &&
+		(size >= kgsl_driver.full_cache_threshold) &&
+		(op == KGSL_GPUMEM_CACHE_FLUSH);
+}
+#endif
+
 long kgsl_ioctl_gpumem_sync_cache_bulk(struct kgsl_device_private *dev_priv,
 	unsigned int cmd, void *data)
 {
@@ -3401,13 +3418,10 @@ long kgsl_ioctl_gpumem_sync_cache_bulk(struct kgsl_device_private *dev_priv,
 		op_size += entry->memdesc.size;
 		entries[actual_count++] = entry;
 
-		/* If we exceed the breakeven point, flush the entire cache */
-		if (kgsl_driver.full_cache_threshold != 0 &&
-		    op_size >= kgsl_driver.full_cache_threshold &&
-		    param->op == KGSL_GPUMEM_CACHE_FLUSH) {
-			full_flush = true;
+		full_flush  = check_full_flush(op_size, param->op);
+		if (full_flush)
 			break;
-		}
+
 		last_id = id;
 	}
 	if (full_flush) {
