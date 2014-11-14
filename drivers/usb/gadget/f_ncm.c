@@ -851,6 +851,7 @@ static int ncm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			net = gether_connect(&ncm->port);
 			if (IS_ERR(net))
 				return PTR_ERR(net);
+			gether_enable_sg(&ncm->port, false);
 		}
 
 		spin_lock(&ncm->lock);

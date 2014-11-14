@@ -110,6 +110,7 @@ void gether_disconnect(struct gether *);
 int gether_up(struct gether *);
 void gether_update_dl_max_pkts_per_xfer(struct gether *link, uint32_t n);
 void gether_update_dl_max_xfer_size(struct gether *link, uint32_t s);
+void gether_enable_sg(struct gether *link, bool);
 
 /* Some controllers can't support CDC Ethernet (ECM) ... */
 static inline bool can_support_ecm(struct usb_gadget *gadget)
