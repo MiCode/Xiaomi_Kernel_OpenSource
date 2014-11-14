@@ -646,6 +646,9 @@ static ssize_t csc_enable_show(struct device *kdev,
 	len = scnprintf(ubuf, PAGE_SIZE, "Pipe 0: %s\nPipe 1: %s\n",
 		dev_priv->csc_enabled[0] ? "Enabled" : "Disabled",
 		dev_priv->csc_enabled[1] ? "Enabled" : "Disabled");
+	if (IS_CHERRYVIEW(dev))
+		len += scnprintf(ubuf+len, PAGE_SIZE, "Pipe 2: %s\n",
+			dev_priv->csc_enabled[1] ? "Enabled" : "Disabled");
 
 	return len;
 }
@@ -829,6 +832,9 @@ static ssize_t gamma_enable_show(struct device *kdev,
 	len = scnprintf(ubuf, PAGE_SIZE, "Pipe 0: %s\nPipe 1: %s\n",
 		dev_priv->gamma_enabled[0] ? "Enabled" : "Disabled",
 		dev_priv->gamma_enabled[1] ? "Enabled" : "Disabled");
+	if (IS_CHERRYVIEW(dev))
+		len += scnprintf(ubuf+len, PAGE_SIZE, "Pipe 2: %s\n",
+			dev_priv->gamma_enabled[2] ? "Enabled" : "Disabled");
 
 	return len;
 }
@@ -911,7 +917,7 @@ static ssize_t gamma_enable_store(struct device *kdev,
 	/* if gamma enabled, apply gamma correction on PIPE */
 	if (req_state) {
 		if (intel_crtc_enable_gamma(crtc,
-				pipe ? PIPEB : PIPEA)) {
+				PIPEID(pipe))) {
 			DRM_ERROR("Apply gamma correction failed\n");
 			ret = -EINVAL;
 		} else
@@ -919,7 +925,7 @@ static ssize_t gamma_enable_store(struct device *kdev,
 	} else {
 		/* Disable gamma on this plane */
 		intel_crtc_disable_gamma(crtc,
-				pipe ? PIPEB : PIPEA);
+			PIPEID(pipe));
 		ret = count;
 	}
 
@@ -942,6 +948,7 @@ static ssize_t cb_adjust_store(struct device *kdev,
 	struct drm_device *dev = minor->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	char *buf = NULL;
+	int spn = 0;
 
 	/* Validate input */
 	if (!count) {
@@ -978,10 +985,20 @@ static ssize_t cb_adjust_store(struct device *kdev,
 	} else
 		DRM_DEBUG("Contrast Brightness loading done\n");
 
-	if (cb_ptr->sprite_no < SPRITEA || cb_ptr->sprite_no > SPRITED ||
-			cb_ptr->sprite_no == PLANEB) {
-		DRM_ERROR("Sprite value out of range. Enter 2,3, 5 or 6\n");
-		goto EXIT;
+	spn = cb_ptr->sprite_no;
+	if (IS_CHERRYVIEW(dev)) {
+		if (!(spn == SPRITEA || spn == SPRITEB ||  spn == SPRITEC ||
+			spn == SPRITED || spn == SPRITEE ||  spn == SPRITEF)) {
+			DRM_ERROR("Wrong sprite = %d Val=0x%x,\n",
+					cb_ptr->sprite_no, cb_ptr->val);
+			goto EXIT;
+		}
+	} else {
+		if (spn < SPRITEA || spn > SPRITED || spn == PLANEB) {
+			DRM_ERROR("Wrong sprite = %d Val=0x%x,\n",
+					cb_ptr->sprite_no, cb_ptr->val);
+			goto EXIT;
+		}
 	}
 
 	DRM_DEBUG("sprite = %d Val=0x%x,\n", cb_ptr->sprite_no, cb_ptr->val);
@@ -1009,6 +1026,7 @@ static ssize_t hs_adjust_store(struct device *kdev,
 	struct drm_device *dev = minor->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	char *buf = NULL;
+	int spn = 0;
 
 	/* Validate input */
 	if (!count) {
@@ -1045,11 +1063,20 @@ static ssize_t hs_adjust_store(struct device *kdev,
 	} else
 		DRM_DEBUG("Hue Saturation loading done\n");
 
-	if (hs_ptr->sprite_no < SPRITEA || hs_ptr->sprite_no > SPRITED ||
-			hs_ptr->sprite_no == PLANEB) {
-		DRM_ERROR("sprite = %d Val=0x%x,\n", hs_ptr->sprite_no,
+	spn = hs_ptr->sprite_no;
+	if (IS_CHERRYVIEW(dev)) {
+		if (!(spn == SPRITEA || spn == SPRITEB ||  spn == SPRITEC ||
+			spn == SPRITED || spn == SPRITEE ||  spn == SPRITEF)) {
+			DRM_ERROR("sprite = %d Val=0x%x,\n", hs_ptr->sprite_no,
 					hs_ptr->val);
-		goto EXIT;
+			goto EXIT;
+		}
+	} else {
+		if (spn < SPRITEA || spn > SPRITED || spn == PLANEB) {
+			DRM_ERROR("sprite = %d Val=0x%x,\n", hs_ptr->sprite_no,
+					hs_ptr->val);
+			goto EXIT;
+		}
 	}
 
 	DRM_DEBUG("sprite = %d Val=0x%x,\n", hs_ptr->sprite_no, hs_ptr->val);

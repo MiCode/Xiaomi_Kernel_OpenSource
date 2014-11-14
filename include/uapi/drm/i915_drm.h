@@ -75,6 +75,11 @@
 #define CURSORB		8
 #define PIPEA		9
 #define PIPEB		10
+#define PLANEC		11
+#define SPRITEE		12
+#define SPRITEF		13
+#define PIPEC		14
+#define CURSORC		15
 
 struct drm_intel_csc_params {
 	float   m_CSCCoeff[MAX_CSC_COEFFICIENTS];

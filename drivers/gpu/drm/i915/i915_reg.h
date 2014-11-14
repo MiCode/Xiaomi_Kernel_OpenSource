@@ -2416,6 +2416,7 @@ enum punit_power_well {
 /* CSC Control Register */
 #define	_PIPEACSC	(dev_priv->info.display_mmio_offset + 0x600b0)
 #define	_PIPEBCSC	(dev_priv->info.display_mmio_offset + 0x610b0)
+#define	_CHV_PIPECCSC	(dev_priv->info.display_mmio_offset + 0x630b0)
 #define	PIPECONF_CSC_ENABLE	(1<<15)
 
 #define CHV_CLK_CTL1			0x101100
@@ -4405,12 +4406,16 @@ enum punit_power_well {
 #define SPRITEB_CB_REG		(dev_priv->info.display_mmio_offset + 0x722d0)
 #define SPRITEC_CB_REG		(dev_priv->info.display_mmio_offset + 0x723d0)
 #define SPRITED_CB_REG		(dev_priv->info.display_mmio_offset + 0x724d0)
+#define SPRITEE_CB_REG		(dev_priv->info.display_mmio_offset + 0x725d0)
+#define SPRITEF_CB_REG		(dev_priv->info.display_mmio_offset + 0x726d0)
 
 /* Sprite Hue and Saturation Registers */
 #define SPRITEA_HS_REG         (dev_priv->info.display_mmio_offset + 0x721d4)
 #define SPRITEB_HS_REG         (dev_priv->info.display_mmio_offset + 0x722d4)
 #define SPRITEC_HS_REG         (dev_priv->info.display_mmio_offset + 0x723d4)
 #define SPRITED_HS_REG         (dev_priv->info.display_mmio_offset + 0x724d4)
+#define SPRITEE_HS_REG         (dev_priv->info.display_mmio_offset + 0x725d4)
+#define SPRITEF_HS_REG         (dev_priv->info.display_mmio_offset + 0x726d4)
 
 
 /* Sprite A control */

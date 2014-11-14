@@ -39,7 +39,39 @@ u32 gamma_sprite_softlut[GAMMA_SP_MAX_COUNT] = {
 };
 
 /* Gamma soft lookup table for default gamma =1.0 */
-u32 gamma_softlut[MAX_PIPES_VLV][GAMMA_CORRECT_MAX_COUNT] =  {
+u32 gamma_softlut[MAX_PIPES_CHV][GAMMA_CORRECT_MAX_COUNT] =  {
+	{0x000000, 0x0, 0x020202, 0x0, 0x040404, 0x0, 0x060606, 0x0,
+	 0x080808, 0x0, 0x0A0A0A, 0x0, 0x0C0C0C, 0x0, 0x0E0E0E, 0x0,
+	 0x101010, 0x0, 0x121212, 0x0, 0x141414, 0x0, 0x161616, 0x0,
+	 0x181818, 0x0, 0x1A1A1A, 0x0, 0x1C1C1C, 0x0, 0x1E1E1E, 0x0,
+	 0x202020, 0x0, 0x222222, 0x0, 0x242424, 0x0, 0x262626, 0x0,
+	 0x282828, 0x0, 0x2A2A2A, 0x0, 0x2C2C2C, 0x0, 0x2E2E2E, 0x0,
+	 0x303030, 0x0, 0x323232, 0x0, 0x343434, 0x0, 0x363636, 0x0,
+	 0x383838, 0x0, 0x3A3A3A, 0x0, 0x3C3C3C, 0x0, 0x3E3E3E, 0x0,
+	 0x404040, 0x0, 0x424242, 0x0, 0x444444, 0x0, 0x464646, 0x0,
+	 0x484848, 0x0, 0x4A4A4A, 0x0, 0x4C4C4C, 0x0, 0x4E4E4E, 0x0,
+	 0x505050, 0x0, 0x525252, 0x0, 0x545454, 0x0, 0x565656, 0x0,
+	 0x585858, 0x0, 0x5A5A5A, 0x0, 0x5C5C5C, 0x0, 0x5E5E5E, 0x0,
+	 0x606060, 0x0, 0x626262, 0x0, 0x646464, 0x0, 0x666666, 0x0,
+	 0x686868, 0x0, 0x6A6A6A, 0x0, 0x6C6C6C, 0x0, 0x6E6E6E, 0x0,
+	 0x707070, 0x0, 0x727272, 0x0, 0x747474, 0x0, 0x767676, 0x0,
+	 0x787878, 0x0, 0x7A7A7A, 0x0, 0x7C7C7C, 0x0, 0x7E7E7E, 0x0,
+	 0x808080, 0x0, 0x828282, 0x0, 0x848484, 0x0, 0x868686, 0x0,
+	 0x888888, 0x0, 0x8A8A8A, 0x0, 0x8C8C8C, 0x0, 0x8E8E8E, 0x0,
+	 0x909090, 0x0, 0x929292, 0x0, 0x949494, 0x0, 0x969696, 0x0,
+	 0x989898, 0x0, 0x9A9A9A, 0x0, 0x9C9C9C, 0x0, 0x9E9E9E, 0x0,
+	 0xA0A0A0, 0x0, 0xA2A2A2, 0x0, 0xA4A4A4, 0x0, 0xA6A6A6, 0x0,
+	 0xA8A8A8, 0x0, 0xAAAAAA, 0x0, 0xACACAC, 0x0, 0xAEAEAE, 0x0,
+	 0xB0B0B0, 0x0, 0xB2B2B2, 0x0, 0xB4B4B4, 0x0, 0xB6B6B6, 0x0,
+	 0xB8B8B8, 0x0, 0xBABABA, 0x0, 0xBCBCBC, 0x0, 0xBEBEBE, 0x0,
+	 0xC0C0C0, 0x0, 0xC2C2C2, 0x0, 0xC4C4C4, 0x0, 0xC6C6C6, 0x0,
+	 0xC8C8C8, 0x0, 0xCACACA, 0x0, 0xCCCCCC, 0x0, 0xCECECE, 0x0,
+	 0xD0D0D0, 0x0, 0xD2D2D2, 0x0, 0xD4D4D4, 0x0, 0xD6D6D6, 0x0,
+	 0xD8D8D8, 0x0, 0xDADADA, 0x0, 0xDCDCDC, 0x0, 0xDEDEDE, 0x0,
+	 0xE0E0E0, 0x0, 0xE2E2E2, 0x0, 0xE4E4E4, 0x0, 0xE6E6E6, 0x0,
+	 0xE8E8E8, 0x0, 0xEAEAEA, 0x0, 0xECECEC, 0x0, 0xEEEEEE, 0x0,
+	 0xF0F0F0, 0x0, 0xF2F2F2, 0x0, 0xF4F4F4, 0x0, 0xF6F6F6, 0x0,
+	 0xF8F8F8, 0x0, 0xFAFAFA, 0x0, 0xFCFCFC, 0x0, 0xFEFEFE, 0x0},
 	{0x000000, 0x0, 0x020202, 0x0, 0x040404, 0x0, 0x060606, 0x0,
 	 0x080808, 0x0, 0x0A0A0A, 0x0, 0x0C0C0C, 0x0, 0x0E0E0E, 0x0,
 	 0x101010, 0x0, 0x121212, 0x0, 0x141414, 0x0, 0x161616, 0x0,
@@ -107,29 +139,35 @@ u32 gamma_softlut[MAX_PIPES_VLV][GAMMA_CORRECT_MAX_COUNT] =  {
 };
 
 /* GCMAX soft lookup table */
-u32 gcmax_softlut[MAX_PIPES_VLV][GC_MAX_COUNT] =  {
+u32 gcmax_softlut[MAX_PIPES_CHV][GC_MAX_COUNT] =  {
+	{0x10000, 0x10000, 0x10000},
 	{0x10000, 0x10000, 0x10000},
 	{0x10000, 0x10000, 0x10000}
 };
 
 /* Hue Saturation defaults */
-struct hue_saturationlut savedhsvalues[NO_SPRITE_REG] = {
+struct hue_saturationlut savedhsvalues[NO_SPRITE_REG_CHV] = {
 	{SPRITEA, 0x1000000},
 	{SPRITEB, 0x1000000},
 	{SPRITEC, 0x1000000},
-	{SPRITED, 0x1000000}
+	{SPRITED, 0x1000000},
+	{SPRITEE, 0x1000000},
+	{SPRITEF, 0x1000000}
 };
 
 /* Contrast brightness defaults */
-struct cont_brightlut savedcbvalues[NO_SPRITE_REG] = {
+struct cont_brightlut savedcbvalues[NO_SPRITE_REG_CHV] = {
 	{SPRITEA, 0x80},
 	{SPRITEB, 0x80},
 	{SPRITEC, 0x80},
-	{SPRITED, 0x80}
+	{SPRITED, 0x80},
+	{SPRITEE, 0x80},
+	{SPRITEF, 0x80}
 };
 
 /* Color space conversion coff's */
-u32 csc_softlut[MAX_PIPES_VLV][CSC_MAX_COEFF_COUNT] = {
+u32 csc_softlut[MAX_PIPES_CHV][CSC_MAX_COEFF_COUNT] = {
+	{ 1024,	 0, 67108864, 0, 0, 1024 },
 	{ 1024,	 0, 67108864, 0, 0, 1024 },
 	{ 1024,	 0, 67108864, 0, 0, 1024 }
 };
@@ -213,6 +251,8 @@ do_intel_enable_csc(struct drm_device *dev, void *data, struct drm_crtc *crtc)
 		csc_reg = _PIPEACSC;
 	else if (pipe == 1)
 		csc_reg = _PIPEBCSC;
+	else if (IS_CHERRYVIEW(dev) && (PIPEID(pipe) == PIPEC))
+		csc_reg = _CHV_PIPECCSC;
 	else {
 		DRM_ERROR("Invalid pipe input");
 		return -EINVAL;
@@ -337,8 +377,24 @@ int intel_enable_sprite_gamma(struct drm_crtc *crtc, int planeid)
 		break;
 
 	case SPRITEC:
+		correctreg = GAMMA_SPC_GAMC0;
+		controlreg = GAMMA_SPC_CNTRL;
+		break;
+
 	case SPRITED:
-		return intel_enable_external_sprite_gamma(crtc, planeid);
+		correctreg = GAMMA_SPD_GAMC0;
+		controlreg = GAMMA_SPD_CNTRL;
+		break;
+
+	case SPRITEE:
+		correctreg = GAMMA_SPE_GAMC0;
+		controlreg = GAMMA_SPE_CNTRL;
+		break;
+
+	case SPRITEF:
+		correctreg = GAMMA_SPF_GAMC0;
+		controlreg = GAMMA_SPF_CNTRL;
+		break;
 
 	default:
 		DRM_ERROR("Invalid sprite object gamma enable\n");
@@ -401,9 +457,9 @@ int intel_enable_primary_gamma(struct drm_crtc *crtc)
 	}
 
 	/* Write max values in 11.6 format */
-	I915_WRITE(PIPEA_GAMMA_MAX_BLUE, gcmax_softlut[pipe][0]);
-	I915_WRITE(PIPEA_GAMMA_MAX_GREEN, gcmax_softlut[pipe][1]);
-	I915_WRITE(PIPEA_GAMMA_MAX_RED, gcmax_softlut[pipe][2]);
+	I915_WRITE(PIPE_GAMMA_MAX_BLUE(pipe), gcmax_softlut[pipe][0]);
+	I915_WRITE(PIPE_GAMMA_MAX_GREEN(pipe), gcmax_softlut[pipe][1]);
+	I915_WRITE(PIPE_GAMMA_MAX_RED(pipe), gcmax_softlut[pipe][2]);
 
 	/* Enable gamma on PIPE  */
 	status = I915_READ(PIPECONF(pipe));
@@ -738,22 +794,21 @@ int intel_crtc_enable_gamma(struct drm_crtc *crtc, u32 identifier)
 	/* Whole pipe level correction */
 	case PIPEA:
 	case PIPEB:
+	case PIPEC:
 		return intel_enable_pipe_gamma(crtc);
-
 	/* Primary display planes */
 	case PLANEA:
 		return intel_enable_primary_gamma(crtc);
 	case PLANEB:
 		return intel_enable_external_gamma(crtc);
-
 	/* Sprite planes */
 	case SPRITEA:
 	case SPRITEB:
-		return intel_enable_sprite_gamma(crtc, identifier);
 	case SPRITEC:
 	case SPRITED:
-		return intel_enable_external_sprite_gamma(crtc, identifier);
-
+	case SPRITEE:
+	case SPRITEF:
+		return intel_enable_sprite_gamma(crtc, identifier);
 	default:
 		DRM_ERROR("Invalid panel ID to Gamma enabled\n");
 		return -EINVAL;
@@ -963,6 +1018,22 @@ int intel_disable_sprite_gamma(struct drm_crtc *crtc, u32 planeid)
 
 	case SPRITEB:
 		controlreg = GAMMA_SPB_CNTRL;
+		break;
+
+	case SPRITEC:
+		controlreg = GAMMA_SPC_CNTRL;
+		break;
+
+	case SPRITED:
+		controlreg = GAMMA_SPD_CNTRL;
+		break;
+
+	case SPRITEE:
+		controlreg = GAMMA_SPE_CNTRL;
+		break;
+
+	case SPRITEF:
+		controlreg = GAMMA_SPF_CNTRL;
 		break;
 
 	default:
@@ -1182,6 +1253,7 @@ int intel_crtc_disable_gamma(struct drm_crtc *crtc, u32 identifier)
 	/* Whole pipe level correction */
 	case PIPEA:
 	case PIPEB:
+	case PIPEC:
 		return intel_disable_pipe_gamma(crtc);
 	/* Primary planes */
 	case PLANEA:
@@ -1191,10 +1263,11 @@ int intel_crtc_disable_gamma(struct drm_crtc *crtc, u32 identifier)
 	/* Sprite plane */
 	case SPRITEA:
 	case SPRITEB:
-		return intel_disable_sprite_gamma(crtc, identifier);
 	case SPRITEC:
 	case SPRITED:
-		return intel_disable_external_sprite_gamma(crtc, identifier);
+	case SPRITEE:
+	case SPRITEF:
+		return intel_disable_sprite_gamma(crtc, identifier);
 	default:
 		DRM_ERROR("Invalid panel ID to Gamma enabled\n");
 		return -EINVAL;
@@ -1228,6 +1301,14 @@ int intel_sprite_cb_adjust(struct drm_i915_private *dev_priv,
 	case SPRITED:
 		if (is_sprite_enabled(dev_priv, 1, 1) || dev_priv->is_resuming)
 			I915_WRITE(SPRITED_CB_REG, cb_ptr->val);
+	break;
+	case SPRITEE:
+		if (is_sprite_enabled(dev_priv, 2, 0) || dev_priv->is_resuming)
+			I915_WRITE(SPRITEE_CB_REG, cb_ptr->val);
+	break;
+	case SPRITEF:
+		if (is_sprite_enabled(dev_priv, 2, 1) || dev_priv->is_resuming)
+			I915_WRITE(SPRITEF_CB_REG, cb_ptr->val);
 	break;
 	default:
 		DRM_ERROR("Invalid Sprite Number\n");
@@ -1343,6 +1424,14 @@ int intel_sprite_hs_adjust(struct drm_i915_private *dev_priv,
 		if (is_sprite_enabled(dev_priv, 1, 1) || dev_priv->is_resuming)
 			I915_WRITE(SPRITED_HS_REG, hs_ptr->val);
 	break;
+	case SPRITEE:
+		if (is_sprite_enabled(dev_priv, 2, 0) || dev_priv->is_resuming)
+			I915_WRITE(SPRITEE_HS_REG, hs_ptr->val);
+	break;
+	case SPRITEF:
+		if (is_sprite_enabled(dev_priv, 2, 1) || dev_priv->is_resuming)
+			I915_WRITE(SPRITEF_HS_REG, hs_ptr->val);
+	break;
 	default:
 		DRM_ERROR("Invalid Sprite Number\n");
 		return -EINVAL;
@@ -1354,8 +1443,9 @@ static bool intel_restore_cb(struct drm_device *dev)
 {
 	int count = 0;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	int no_spr_reg = IS_CHERRYVIEW(dev) ? NO_SPRITE_REG_CHV : NO_SPRITE_REG;
 
-	while (count < NO_SPRITE_REG) {
+	while (count < no_spr_reg) {
 		if (intel_sprite_cb_adjust(dev_priv, &savedcbvalues[count++])) {
 			DRM_ERROR("Color Restore: Error restoring CB\n");
 			return false;
@@ -1369,7 +1459,9 @@ static bool intel_restore_hs(struct drm_device *dev)
 {
 	int count = 0;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	while (count < NO_SPRITE_REG) {
+	int no_spr_reg = IS_CHERRYVIEW(dev) ? NO_SPRITE_REG_CHV : NO_SPRITE_REG;
+
+	while (count < no_spr_reg) {
 		if (intel_sprite_hs_adjust(dev_priv, &savedhsvalues[count++])) {
 			DRM_ERROR("Color Restore: Error restoring HS\n");
 			return false;
@@ -1397,8 +1489,7 @@ bool intel_restore_clr_mgr_status(struct drm_device *dev)
 
 		/* If gamma enabled, restore gamma */
 		if (dev_priv->gamma_enabled[pipe]) {
-			if (intel_crtc_enable_gamma(crtc,
-						pipe ? PIPEB : PIPEA)) {
+			if (intel_crtc_enable_gamma(crtc, PIPEID(pipe))) {
 				DRM_ERROR("Color Restore: gamma failed\n");
 				return false;
 			}
@@ -1438,6 +1529,10 @@ void intel_save_cb_status(struct drm_device *dev)
 	savedcbvalues[1].val = I915_READ(SPRITEB_CB_REG);
 	savedcbvalues[2].val = I915_READ(SPRITEC_CB_REG);
 	savedcbvalues[3].val = I915_READ(SPRITED_CB_REG);
+	if (IS_CHERRYVIEW(dev)) {
+		savedcbvalues[4].val = I915_READ(SPRITEE_CB_REG);
+		savedcbvalues[5].val = I915_READ(SPRITEF_CB_REG);
+	}
 }
 
 void intel_save_hs_status(struct drm_device *dev)
@@ -1448,6 +1543,10 @@ void intel_save_hs_status(struct drm_device *dev)
 	savedhsvalues[1].val = I915_READ(SPRITEB_HS_REG);
 	savedhsvalues[2].val = I915_READ(SPRITEC_HS_REG);
 	savedhsvalues[3].val = I915_READ(SPRITED_HS_REG);
+	if (IS_CHERRYVIEW(dev)) {
+		savedhsvalues[4].val = I915_READ(SPRITEE_HS_REG);
+		savedhsvalues[5].val = I915_READ(SPRITEF_HS_REG);
+	}
 }
 
 void intel_save_clr_mgr_status(struct drm_device *dev)

@@ -71,18 +71,21 @@ struct hue_saturationlut {
 #define ODD(val)	((2*val)+1)
 #define PIPEA_GAMMA_MAX_RED	(dev_priv->info.display_mmio_offset + 0x70010)
 #define PIPEB_GAMMA_MAX_RED	(dev_priv->info.display_mmio_offset + 0x71010)
-#define PIPE_GAMMA_MAX_RED(pipe)    _PIPE(pipe, PIPEA_GAMMA_MAX_RED, \
-							PIPEB_GAMMA_MAX_RED)
+#define PIPEC_GAMMA_MAX_RED	(dev_priv->info.display_mmio_offset + 0x74010)
+#define PIPE_GAMMA_MAX_RED(pipe)    _PIPE3(pipe, PIPEA_GAMMA_MAX_RED, \
+				PIPEB_GAMMA_MAX_RED, PIPEC_GAMMA_MAX_RED)
 
 #define PIPEA_GAMMA_MAX_GREEN	(dev_priv->info.display_mmio_offset + 0x70014)
 #define PIPEB_GAMMA_MAX_GREEN	(dev_priv->info.display_mmio_offset + 0x71014)
-#define PIPE_GAMMA_MAX_GREEN(pipe)  _PIPE(pipe, PIPEA_GAMMA_MAX_GREEN, \
-							PIPEB_GAMMA_MAX_GREEN)
+#define PIPEC_GAMMA_MAX_GREEN	(dev_priv->info.display_mmio_offset + 0x74014)
+#define PIPE_GAMMA_MAX_GREEN(pipe)  _PIPE3(pipe, PIPEA_GAMMA_MAX_GREEN, \
+				PIPEB_GAMMA_MAX_GREEN, PIPEC_GAMMA_MAX_GREEN)
 
 #define PIPEA_GAMMA_MAX_BLUE	(dev_priv->info.display_mmio_offset + 0x70018)
 #define PIPEB_GAMMA_MAX_BLUE	(dev_priv->info.display_mmio_offset + 0x71018)
-#define PIPE_GAMMA_MAX_BLUE(pipe) _PIPE(pipe, PIPEA_GAMMA_MAX_BLUE, \
-							PIPEB_GAMMA_MAX_BLUE)
+#define PIPEC_GAMMA_MAX_BLUE	(dev_priv->info.display_mmio_offset + 0x74018)
+#define PIPE_GAMMA_MAX_BLUE(pipe) _PIPE3(pipe, PIPEA_GAMMA_MAX_BLUE, \
+				PIPEB_GAMMA_MAX_BLUE, PIPEC_GAMMA_MAX_BLUE)
 
 /* Sprite gamma correction regs */
 #define GAMMA_SPA_GAMC0		(dev_priv->info.display_mmio_offset + 0x721F4)
@@ -113,18 +116,42 @@ struct hue_saturationlut {
 #define GAMMA_SPD_GAMC4		(dev_priv->info.display_mmio_offset + 0x724E4)
 #define GAMMA_SPD_GAMC5		(dev_priv->info.display_mmio_offset + 0x724E0)
 
-#define GAMMA_SP1_GAMC0(pipe)	_PIPE(pipe, GAMMA_SPA_GAMC0, GAMMA_SPC_GAMC0)
-#define GAMMA_SP2_GAMC0(pipe)	_PIPE(pipe, GAMMA_SPB_GAMC0, GAMMA_SPD_GAMC0)
+#define GAMMA_SPE_GAMC0		(dev_priv->info.display_mmio_offset + 0x725F4)
+#define GAMMA_SPE_GAMC1		(dev_priv->info.display_mmio_offset + 0x725F0)
+#define GAMMA_SPE_GAMC2		(dev_priv->info.display_mmio_offset + 0x725EC)
+#define GAMMA_SPE_GAMC3		(dev_priv->info.display_mmio_offset + 0x725E8)
+#define GAMMA_SPE_GAMC4		(dev_priv->info.display_mmio_offset + 0x725E4)
+#define GAMMA_SPE_GAMC5		(dev_priv->info.display_mmio_offset + 0x725E0)
+
+#define GAMMA_SPF_GAMC0		(dev_priv->info.display_mmio_offset + 0x726F4)
+#define GAMMA_SPF_GAMC1		(dev_priv->info.display_mmio_offset + 0x726F0)
+#define GAMMA_SPF_GAMC2		(dev_priv->info.display_mmio_offset + 0x726EC)
+#define GAMMA_SPF_GAMC3		(dev_priv->info.display_mmio_offset + 0x726E8)
+#define GAMMA_SPF_GAMC4		(dev_priv->info.display_mmio_offset + 0x726E4)
+#define GAMMA_SPF_GAMC5		(dev_priv->info.display_mmio_offset + 0x726E0)
+
+#define GAMMA_SP1_GAMC0(pipe)	_PIPE3(pipe, GAMMA_SPA_GAMC0, GAMMA_SPC_GAMC0, \
+							GAMMA_SPE_GAMC0)
+#define GAMMA_SP2_GAMC0(pipe)	_PIPE3(pipe, GAMMA_SPB_GAMC0, GAMMA_SPD_GAMC0, \
+							GAMMA_SPF_GAMC0)
 
 
 #define GAMMA_SPA_CNTRL		(dev_priv->info.display_mmio_offset + 0x72180)
 #define GAMMA_SPB_CNTRL		(dev_priv->info.display_mmio_offset + 0x72280)
 #define GAMMA_SPC_CNTRL		(dev_priv->info.display_mmio_offset + 0x72380)
 #define GAMMA_SPD_CNTRL		(dev_priv->info.display_mmio_offset + 0x72480)
-#define GAMMA_SP1_CNTRL(pipe)	_PIPE(pipe, GAMMA_SPA_CNTRL, GAMMA_SPC_CNTRL)
-#define GAMMA_SP2_CNTRL(pipe)	_PIPE(pipe, GAMMA_SPB_CNTRL, GAMMA_SPD_CNTRL)
+#define GAMMA_SPE_CNTRL		(dev_priv->info.display_mmio_offset + 0x72580)
+#define GAMMA_SPF_CNTRL		(dev_priv->info.display_mmio_offset + 0x72680)
+#define GAMMA_SP1_CNTRL(pipe)	_PIPE3(pipe, GAMMA_SPA_CNTRL, GAMMA_SPC_CNTRL, \
+							GAMMA_SPE_CNTRL)
+#define GAMMA_SP2_CNTRL(pipe)	_PIPE3(pipe, GAMMA_SPB_CNTRL, GAMMA_SPD_CNTRL, \
+							GAMMA_SPF_CNTRL)
+
+#define PIPEID(pipe)		_PIPE3(pipe, PIPEA, PIPEB, PIPEC)
 
 
+#define NO_SPRITE_REG_CHV			6
+#define MAX_PIPES_CHV				3
 #define GAMMA_ENABLE_SPR			(1<<30)
 #define GAMMA_SP_MAX_COUNT			6
 #define NO_SPRITE_REG				4
@@ -230,9 +257,9 @@ struct clrmgr_status {
 	struct clrmgr_regd_prop *cp[CLRMGR_PROP_MAX];
 };
 /* Required for sysfs entry calls */
-extern u32 csc_softlut[MAX_PIPES_VLV][CSC_MAX_COEFF_COUNT];
-extern u32 gamma_softlut[MAX_PIPES_VLV][GAMMA_CORRECT_MAX_COUNT];
-extern u32 gcmax_softlut[MAX_PIPES_VLV][GC_MAX_COUNT];
+extern u32 csc_softlut[MAX_PIPES_CHV][CSC_MAX_COEFF_COUNT];
+extern u32 gamma_softlut[MAX_PIPES_CHV][GAMMA_CORRECT_MAX_COUNT];
+extern u32 gcmax_softlut[MAX_PIPES_CHV][GC_MAX_COUNT];
 extern u32 gamma_sprite_softlut[GAMMA_SP_MAX_COUNT];
 
 /* Prototypes */
