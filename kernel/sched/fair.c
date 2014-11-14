@@ -3035,7 +3035,8 @@ static int best_small_task_cpu(struct task_struct *p)
 	for_each_cpu(i, &search_cpus) {
 
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
-				     mostly_idle_cpu(i), power_cost(p, i));
+				     mostly_idle_cpu(i), sched_irqload(i),
+				     power_cost(p, i));
 
 		cpu_cost = power_cost(p, i);
 		if (cpu_cost < min_cost) {
@@ -3184,7 +3185,8 @@ static int select_best_cpu(struct task_struct *p, int target, int reason)
 	for_each_cpu_and(i, tsk_cpus_allowed(p), cpu_online_mask) {
 
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
-				     mostly_idle_cpu(i), power_cost(p, i));
+				     mostly_idle_cpu(i), sched_irqload(i),
+				     power_cost(p, i));
 
 		if (skip_cpu(p, i, reason))
 			continue;
@@ -7683,6 +7685,7 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
 				     mostly_idle_cpu(i),
+				     sched_irqload(i),
 				     power_cost_at_freq(i, 0));
 
 		/* Bias balancing toward cpus of our domain */

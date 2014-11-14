@@ -151,10 +151,10 @@ TRACE_EVENT(sched_task_load,
 
 TRACE_EVENT(sched_cpu_load,
 
-	TP_PROTO(struct rq *rq, int idle, int mostly_idle,
-						unsigned int power_cost),
+	TP_PROTO(struct rq *rq, int idle, int mostly_idle, u64 irqload,
+		 unsigned int power_cost),
 
-	TP_ARGS(rq, idle, mostly_idle, power_cost),
+	TP_ARGS(rq, idle, mostly_idle, irqload, power_cost),
 
 	TP_STRUCT__entry(
 		__field(unsigned int, cpu			)
@@ -165,7 +165,8 @@ TRACE_EVENT(sched_cpu_load,
 		__field(unsigned int, nr_small_tasks		)
 		__field(unsigned int, load_scale_factor		)
 		__field(unsigned int, capacity			)
-		__field(	 u64,  cumulative_runnable_avg	)
+		__field(	 u64, cumulative_runnable_avg	)
+		__field(	 u64, irqload			)
 		__field(unsigned int, cur_freq			)
 		__field(unsigned int, max_freq			)
 		__field(unsigned int, power_cost		)
@@ -182,17 +183,19 @@ TRACE_EVENT(sched_cpu_load,
 		__entry->load_scale_factor	= rq->load_scale_factor;
 		__entry->capacity		= rq->capacity;
 		__entry->cumulative_runnable_avg = rq->cumulative_runnable_avg;
+		__entry->irqload		= irqload;
 		__entry->cur_freq		= rq->cur_freq;
 		__entry->max_freq		= rq->max_freq;
 		__entry->power_cost		= power_cost;
 		__entry->cstate			= rq->cstate;
 	),
 
-	TP_printk("cpu %u idle %d mostly_idle %d nr_run %u nr_big %u nr_small %u lsf %u capacity %u cr_avg %llu fcur %u fmax %u power_cost %u cstate %d",
+	TP_printk("cpu %u idle %d mostly_idle %d nr_run %u nr_big %u nr_small %u lsf %u capacity %u cr_avg %llu irqload %llu fcur %u fmax %u power_cost %u cstate %d",
 	__entry->cpu, __entry->idle, __entry->mostly_idle, __entry->nr_running,
 	__entry->nr_big_tasks, __entry->nr_small_tasks,
 	__entry->load_scale_factor, __entry->capacity,
-	__entry->cumulative_runnable_avg, __entry->cur_freq, __entry->max_freq,
+	__entry->cumulative_runnable_avg, __entry->irqload,
+	__entry->cur_freq, __entry->max_freq,
 	__entry->power_cost, __entry->cstate)
 );
 
