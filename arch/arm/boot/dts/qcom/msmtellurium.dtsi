@@ -93,6 +93,7 @@
 };
 
 #include "msmtellurium-ion.dtsi"
+#include "msmtellurium-iommu.dtsi"
 #include "msm8939-cpu.dtsi"
 #include "msmtellurium-pinctrl.dtsi"
 #include "msmtellurium-smp2p.dtsi"
