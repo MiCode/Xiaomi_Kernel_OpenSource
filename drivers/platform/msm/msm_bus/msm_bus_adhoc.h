@@ -101,6 +101,8 @@ struct msm_bus_node_info_type {
 	unsigned int buswidth;
 	struct rule_update_path_info rule;
 	uint64_t lim_bw;
+	uint32_t util_fact;
+	uint32_t vrail_comp;
 };
 
 struct msm_bus_node_device_type {

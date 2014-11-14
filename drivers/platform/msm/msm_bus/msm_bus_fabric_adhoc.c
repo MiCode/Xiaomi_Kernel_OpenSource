@@ -23,6 +23,40 @@
 #include "msm_bus_noc.h"
 #include "msm_bus_bimc.h"
 
+ssize_t vrail_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
+{
+	struct msm_bus_node_info_type *node_info = NULL;
+	struct msm_bus_node_device_type *bus_node = NULL;
+
+	bus_node = dev->platform_data;
+	if (!bus_node)
+		return -EINVAL;
+	node_info = bus_node->node_info;
+
+	return snprintf(buf, PAGE_SIZE, "%u", node_info->vrail_comp);
+}
+
+ssize_t vrail_store(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct msm_bus_node_info_type *node_info = NULL;
+	struct msm_bus_node_device_type *bus_node = NULL;
+	int ret = 0;
+
+	bus_node = dev->platform_data;
+	if (!bus_node)
+		return -EINVAL;
+	node_info = bus_node->node_info;
+
+	ret = sscanf(buf, "%u", &node_info->vrail_comp);
+	if (ret != 1)
+		return -EINVAL;
+	return count;
+}
+
+DEVICE_ATTR(vrail, 0600, vrail_show, vrail_store);
+
 struct static_rules_type {
 	int num_rules;
 	struct bus_rule_type *rules;
@@ -839,6 +873,8 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->qos_params.thmp = pdata_node_info->qos_params.thmp;
 	node_info->qos_params.ws = pdata_node_info->qos_params.ws;
 	node_info->qos_params.bw_buffer = pdata_node_info->qos_params.bw_buffer;
+	node_info->util_fact = pdata_node_info->util_fact;
+	node_info->vrail_comp = pdata_node_info->vrail_comp;
 
 	node_info->dev_connections = devm_kzalloc(bus_dev,
 			sizeof(struct device *) *
@@ -981,6 +1017,7 @@ static struct device *msm_bus_device_init(
 		bus_dev = NULL;
 		goto exit_device_init;
 	}
+	device_create_file(bus_dev, &dev_attr_vrail);
 
 exit_device_init:
 	return bus_dev;
