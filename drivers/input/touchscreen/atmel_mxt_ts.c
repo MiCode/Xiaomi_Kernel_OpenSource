@@ -330,6 +330,18 @@ enum mxt_device_state { INIT, APPMODE, BOOTLOADER };
 #define MXT_DEBUGFS_DIR	"ts_debug"
 #define MXT_DEBUGFS_FILE_OBJ	"object"
 #define MXT_DEBUGFS_FILE_SUSPEND	"suspend"
+#define DISP_PROP "atmel,display-coords"
+#define PANEL_PROP "atmel,panel-coords"
+
+#define MAX_BUF_SIZE	256
+#define VKEY_VER_CODE	"0x01"
+
+#define HEIGHT_SCALE_NUM 8
+#define HEIGHT_SCALE_DENOM 10
+
+/* numerator and denomenator for border equations */
+#define BORDER_ADJUST_NUM 3
+#define BORDER_ADJUST_DENOM 4
 
 struct mxt_info {
 	u8 family_id;
@@ -397,6 +409,8 @@ struct mxt_data {
 	u32 keyarray_new;
 	u8 t9_max_reportid;
 	u8 t9_min_reportid;
+	u16 t9_ymax_reso;
+	u16 t9_xmax_reso;
 	u8 t15_max_reportid;
 	u8 t15_min_reportid;
 	u8 t42_max_reportid;
@@ -418,6 +432,81 @@ struct mxt_data {
 };
 
 static struct dentry *debug_base;
+static struct kobject *vkey_kobj;
+static char *vkey_buf;
+
+static ssize_t vkey_show(struct kobject  *obj,
+	struct kobj_attribute *attr, char *buf)
+{
+	strlcpy(buf, vkey_buf, MAX_BUF_SIZE);
+	return strnlen(buf, MAX_BUF_SIZE);
+}
+
+static struct kobj_attribute vkey_obj_attr = {
+	.attr = {
+		.mode = S_IRUGO,
+		.name = "virtualkeys.atmel_mxt_ts",
+	},
+	.show = vkey_show,
+};
+
+static struct attribute *vkey_attr[] = {
+	&vkey_obj_attr.attr,
+	NULL,
+};
+
+static struct attribute_group vkey_grp = {
+	.attrs = vkey_attr,
+};
+
+static int mxt_virtual_keys_init(struct device *dev,
+			struct mxt_data *data)
+{
+	int width, height, center_x, center_y;
+	int x1 = 0, x2 = 0, i, c = 0, rc = 0, border;
+
+	vkey_buf = devm_kzalloc(dev, MAX_BUF_SIZE, GFP_KERNEL);
+	if (!vkey_buf) {
+		dev_err(dev, "Failed to allocate memory\n");
+		return -ENOMEM;
+	}
+
+	border = (data->pdata->panel_maxx - data->pdata->disp_maxx) * 2;
+	width = ((data->pdata->disp_maxx -
+			(border * (data->pdata->nvkeys - 1)))
+			/ data->pdata->nvkeys);
+	height = (data->pdata->panel_maxy - data->pdata->disp_maxy);
+	center_y = data->pdata->disp_maxy + (height / 2);
+	height = height * HEIGHT_SCALE_NUM / HEIGHT_SCALE_DENOM;
+
+	x2 -= border * BORDER_ADJUST_NUM / BORDER_ADJUST_DENOM;
+
+	for (i = 0; i < data->pdata->nvkeys; i++) {
+		x1 = x2 + border;
+		x2 = x2 + border + width;
+		center_x = x1 + (x2 - x1) / 2;
+		c += snprintf(vkey_buf + c, MAX_BUF_SIZE - c,
+				"%s:%d:%d:%d:%d:%d\n", VKEY_VER_CODE,
+				data->pdata->vkey_codes[i],
+				center_x, center_y, width, height);
+	}
+
+	vkey_buf[c] = '\0';
+
+	vkey_kobj = kobject_create_and_add("board_properties", NULL);
+	if (!vkey_kobj) {
+		dev_err(dev, "unable to create kobject\n");
+		return -ENOMEM;
+	}
+
+	rc = sysfs_create_group(vkey_kobj, &vkey_grp);
+	if (rc) {
+		dev_err(dev, "failed to create attributes\n");
+		kobject_put(vkey_kobj);
+	}
+
+	return rc;
+}
 
 static bool mxt_object_readable(unsigned int type)
 {
@@ -1497,6 +1586,7 @@ static int mxt_save_objects(struct mxt_data *data)
 	struct mxt_object *t15_object;
 	struct mxt_object *t42_object;
 	int error;
+	u8 val[4];
 
 	/* Store T7 and T9 locally, used in suspend/resume operations */
 	t7_object = mxt_get_object(data, MXT_GEN_POWER_T7);
@@ -1524,6 +1614,18 @@ static int mxt_save_objects(struct mxt_data *data)
 	data->t9_min_reportid = t9_object->max_reportid -
 					(t9_object->num_report_ids *
 					(t9_object->instances + 1)) + 1;
+
+	error = __mxt_read_reg(client,
+		t9_object->start_address + MXT_TOUCH_XRANGE_LSB, 4, val);
+	if (error) {
+		dev_err(&client->dev, "Failed to get X-Y reso\n");
+		return -EINVAL;
+	}
+
+	/* Y resolution */
+	data->t9_ymax_reso = (val[1]<<8) + val[0];
+	/* X resolution */
+	data->t9_xmax_reso = (val[3]<<8) + val[2];
 
 	if (data->pdata->key_codes) {
 		t15_object = mxt_get_object(data, MXT_TOUCH_KEYARRAY_T15);
@@ -1662,8 +1764,9 @@ static int mxt_initialize(struct mxt_data *data)
 	info->matrix_ysize = val;
 
 	dev_info(&client->dev,
-			"Matrix X Size: %d Matrix Y Size: %d\n",
-			info->matrix_xsize, info->matrix_ysize);
+		"Matrix X Size: %d Matrix Y Size: %d Panel X Resolution: %d Panel Y Resolution: %d\n",
+		info->matrix_xsize, info->matrix_ysize,
+		data->t9_xmax_reso, data->t9_ymax_reso);
 
 	return 0;
 
@@ -2966,11 +3069,11 @@ static void mxt_debugfs_init(struct mxt_data *data)
 
 #ifdef CONFIG_OF
 static int mxt_get_dt_coords(struct device *dev, char *name,
-				struct mxt_platform_data *pdata)
+		struct device_node *node, struct mxt_platform_data *pdata)
 {
 	u32 coords[MXT_COORDS_ARR_SIZE];
 	struct property *prop;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = (node == NULL) ? (dev->of_node) : (node);
 	int coords_size, rc;
 
 	prop = of_find_property(np, name, NULL);
@@ -3048,12 +3151,12 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 	struct property *prop;
 	u32 temp_val;
 
-	rc = mxt_get_dt_coords(dev, "atmel,panel-coords", pdata);
-	if (rc)
+	rc = mxt_get_dt_coords(dev, "atmel,panel-coords", NULL, pdata);
+	if (rc && (rc != -EINVAL))
 		return rc;
 
-	rc = mxt_get_dt_coords(dev, "atmel,display-coords", pdata);
-	if (rc)
+	rc = mxt_get_dt_coords(dev, "atmel,display-coords", NULL, pdata);
+	if (rc && (rc != -EINVAL))
 		return rc;
 
 	/* regulator info */
@@ -3073,6 +3176,8 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 				0, &pdata->reset_gpio_flags);
 	pdata->irq_gpio = of_get_named_gpio_flags(np, "atmel,irq-gpio",
 				0, &pdata->irq_gpio_flags);
+
+	pdata->create_vkeys = of_property_read_bool(np, "atmel,create-vkeys");
 
 	/* keycodes for keyarray object*/
 	prop = of_find_property(np, "atmel,key-codes", NULL);
@@ -3285,6 +3390,85 @@ err_pinctrl_get:
 	return retval;
 }
 
+static int mxt_check_child_node_and_create_vkeys(struct mxt_data *data,
+		struct mxt_platform_data *pdata, struct device_node *np)
+{
+	u8 family_id;
+	u16 x_reso, y_reso;
+	u32 temp_val, d[MXT_COORDS_ARR_SIZE], p[MXT_COORDS_ARR_SIZE];
+	int error, proplen;
+	struct i2c_client *client = data->client;
+
+	if (!of_property_read_u32_array(np, DISP_PROP, d, ARRAY_SIZE(d)) &&
+		!of_property_read_u32_array(np, PANEL_PROP, p, ARRAY_SIZE(p)) &&
+		!of_property_read_u32(np, "atmel,family-id", &temp_val) &&
+		of_find_property(np, "atmel,vkey-codes", &proplen)) {
+
+		/* Read family id from dt */
+		family_id = (u8) temp_val;
+
+		/* Read X resolution of touch panel from dt */
+		x_reso = (u16) p[2];
+
+		/* Read Y resolution of touch panel from dt */
+		y_reso = (u16) p[3];
+
+		/*
+		 * Check if family id, x-resolution and y-resolution read from
+		 * the child DT node match with those read from the touch
+		 * controller. In case there is a match:
+		 * 1. Populate platform data
+		 * 2. Create /sys/board_properties/virtual_keys.<devicename>
+		 *  sysfs
+		 * Otherwise return -EINVAL to indicate that current child
+		 * node's characteristics don't match that of the touch
+		 * controller's.
+		 */
+		if (family_id == data->info.family_id &&
+				x_reso == data->t9_xmax_reso &&
+				y_reso == data->t9_ymax_reso) {
+
+			/* Populate platform data's display coordinates */
+			pdata->disp_minx = d[0];
+			pdata->disp_miny = d[1];
+			pdata->disp_maxx = d[2];
+			pdata->disp_maxy = d[3];
+
+			/* Populate platform data's panel coordinates */
+			pdata->panel_minx = p[0];
+			pdata->panel_miny = p[1];
+			pdata->panel_maxx = p[2];
+			pdata->panel_maxy = p[3];
+
+			/* Parse vkey-codes property */
+			pdata->nvkeys = proplen / sizeof(u32);
+			pdata->vkey_codes = devm_kzalloc(&client->dev,
+					sizeof(int) * pdata->nvkeys,
+					GFP_KERNEL);
+			if (!pdata->vkey_codes)
+				return -ENOMEM;
+
+			error = of_property_read_u32_array(np,
+					"atmel,vkey-codes",
+					pdata->vkey_codes, pdata->nvkeys);
+			if (error) {
+				dev_err(&client->dev, "Unable to read virtual key codes\n");
+				return error;
+			}
+
+			error = mxt_virtual_keys_init(&client->dev, data);
+			if (error) {
+				dev_err(&client->dev, "Unable to create virtual keys\n");
+				return error;
+			}
+		} else
+			return -EINVAL;
+	} else
+		return -EINVAL;
+
+	return 0;
+}
+
 static int mxt_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -3292,6 +3476,7 @@ static int mxt_probe(struct i2c_client *client,
 	struct mxt_data *data;
 	struct input_dev *input_dev;
 	int error, i;
+	struct device_node *child, *np;
 
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev,
@@ -3336,25 +3521,6 @@ static int mxt_probe(struct i2c_client *client,
 	__set_bit(EV_KEY, input_dev->evbit);
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
-
-	/* For single touch */
-	input_set_abs_params(input_dev, ABS_X,
-			pdata->disp_minx, pdata->disp_maxx, 0, 0);
-	input_set_abs_params(input_dev, ABS_Y,
-			pdata->disp_miny, pdata->disp_maxy, 0, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE,
-			     0, 255, 0, 0);
-
-	/* For multi touch */
-	input_mt_init_slots(input_dev, MXT_MAX_FINGER, 0);
-	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
-			     0, MXT_MAX_AREA, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-			pdata->disp_minx, pdata->disp_maxx, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-			pdata->disp_miny, pdata->disp_maxy, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_PRESSURE,
-			     0, 255, 0, 0);
 
 	/* set key array supported keys */
 	if (pdata->key_codes) {
@@ -3421,9 +3587,39 @@ static int mxt_probe(struct i2c_client *client,
 	if (error)
 		goto err_configure_gpio;
 
+	if (pdata->create_vkeys) {
+		np = client->dev.of_node;
+		for_each_child_of_node(np, child) {
+			if (!mxt_check_child_node_and_create_vkeys(data,
+						 pdata, child)) {
+				dev_info(&client->dev, "vkeys created successfully\n");
+				break;
+			}
+		}
+		if (child == NULL)
+			dev_err(&client->dev, "Failed to create vkeys\n");
+	}
+
+	/* For single touch */
+	input_set_abs_params(input_dev, ABS_X,
+			data->pdata->disp_minx, data->pdata->disp_maxx, 0, 0);
+	input_set_abs_params(input_dev, ABS_Y,
+			data->pdata->disp_miny, data->pdata->disp_maxy, 0, 0);
+	input_set_abs_params(input_dev, ABS_PRESSURE, 0, 255, 0, 0);
+
+	/* For multi touch */
+	input_mt_init_slots(input_dev, MXT_MAX_FINGER, 0);
+	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
+			     0, MXT_MAX_AREA, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
+			data->pdata->disp_minx, data->pdata->disp_maxx, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
+			data->pdata->disp_miny, data->pdata->disp_maxy, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, 255, 0, 0);
+
 	error = irq_of_parse_and_map(client->dev.of_node, 0);
 	if (!error)
-		goto err_configure_gpio;
+		goto err_parse_irq;
 
 	error = request_threaded_irq(client->irq, NULL, mxt_interrupt,
 			pdata->irqflags | IRQF_ONESHOT,
@@ -3478,6 +3674,11 @@ err_free_irq:
 	free_irq(client->irq, data);
 err_free_object:
 	kfree(data->object_table);
+err_parse_irq:
+	if (data->pdata->create_vkeys) {
+		sysfs_remove_group(vkey_kobj, &vkey_grp);
+		kobject_put(vkey_kobj);
+	}
 err_configure_gpio:
 	if (gpio_is_valid(pdata->irq_gpio))
 		gpio_free(pdata->irq_gpio);
@@ -3516,6 +3717,10 @@ static int mxt_remove(struct i2c_client *client)
 	struct mxt_data *data = i2c_get_clientdata(client);
 
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
+	if (data->pdata->create_vkeys) {
+		sysfs_remove_group(vkey_kobj, &vkey_grp);
+		kobject_put(vkey_kobj);
+	}
 	free_irq(data->irq, data);
 	input_unregister_device(data->input_dev);
 #if defined(CONFIG_FB)
