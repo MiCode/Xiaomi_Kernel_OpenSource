@@ -204,12 +204,15 @@ struct kgsl_cmdbatch {
  * @CMDBATCH_FLAG_SKIP - skip the entire command batch
  * @CMDBATCH_FLAG_FORCE_PREAMBLE - Force the preamble on for the cmdbatch
  * @CMDBATCH_FLAG_WFI - Force wait-for-idle for the submission
+ * @CMDBATCH_FLAG_FENCE_LOG - Set if the cmdbatch is dumping fence logs via the
+ * cmdbatch timer - this is used to avoid recursion
  */
 
 enum kgsl_cmdbatch_priv {
 	CMDBATCH_FLAG_SKIP = 0,
 	CMDBATCH_FLAG_FORCE_PREAMBLE,
 	CMDBATCH_FLAG_WFI,
+	CMDBATCH_FLAG_FENCE_LOG,
 };
 
 struct kgsl_device {
