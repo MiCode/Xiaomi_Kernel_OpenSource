@@ -147,6 +147,7 @@ struct msm_hsphy {
 	int			vdd_levels[3]; /* none, low, high */
 	u32			lpm_flags;
 	bool			suspended;
+	bool			vdda_force_on;
 
 	/* Using external VBUS/ID notification */
 	bool			ext_vbus_id;
@@ -854,6 +855,20 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	phy->set_pllbtune = of_property_read_bool(dev->of_node,
 						 "qcom,set-pllbtune");
 
+	/*
+	 * If this workaround flag is enabled, the HW requires the 1.8 and 3.x
+	 * regulators to be kept ON when entering suspend. The easiest way to
+	 * do that is to call regulator_enable() an additional time here,
+	 * since it will keep the regulators' reference counts nonzero.
+	 */
+	phy->vdda_force_on = of_property_read_bool(dev->of_node,
+						"qcom,vdda-force-on");
+	if (phy->vdda_force_on) {
+		ret = msm_hsusb_ldo_enable(phy, 1);
+		if (ret)
+			goto disable_clk;
+	}
+
 	platform_set_drvdata(pdev, phy);
 
 	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
@@ -895,6 +910,10 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 
 	usb_remove_phy(&phy->phy);
 	clk_disable_unprepare(phy->sleep_clk);
+
+	/* Undo the additional regulator enable */
+	if (phy->vdda_force_on)
+		msm_hsusb_ldo_enable(phy, 0);
 	msm_hsusb_ldo_enable(phy, 0);
 	regulator_disable(phy->vdd);
 	msm_hsusb_config_vdd(phy, 0);
