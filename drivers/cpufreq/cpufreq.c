@@ -25,6 +25,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/pm_qos.h>
 #include <linux/slab.h>
 #include <linux/syscore_ops.h>
 #include <linux/tick.h>
@@ -2030,9 +2031,14 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 				struct cpufreq_policy *new_policy)
 {
 	int ret = 0, failed = 1;
+	unsigned int pmin = new_policy->min;
+	unsigned int qmin = pm_qos_request(PM_QOS_CPU_FREQ_MIN);
 
 	pr_debug("setting new policy for CPU %u: %u - %u kHz\n", new_policy->cpu,
 		new_policy->min, new_policy->max);
+
+	/* clamp the new policy to PM QoS limits */
+	new_policy->min = max(pmin, qmin);
 
 	memcpy(&new_policy->cpuinfo, &policy->cpuinfo, sizeof(policy->cpuinfo));
 
@@ -2126,6 +2132,9 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 	}
 
 error_out:
+	/* restore the limits that the policy requested */
+	new_policy->min = pmin;
+
 	return ret;
 }
 
@@ -2219,6 +2228,27 @@ static int cpufreq_cpu_callback(struct notifier_block *nfb,
 
 static struct notifier_block __refdata cpufreq_cpu_notifier = {
 	.notifier_call = cpufreq_cpu_callback,
+};
+
+static int cpu_freq_notify(struct notifier_block *b, unsigned long l, void *v)
+{
+	int cpu;
+
+	for_each_online_cpu(cpu) {
+		struct cpufreq_policy *policy = cpufreq_cpu_get(cpu);
+		if (policy) {
+			cpufreq_update_policy(policy->cpu);
+			cpufreq_cpu_put(policy);
+		}
+	}
+
+	pr_debug("%s: Min cpufreq updated with the value %lu\n", __func__, l);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block __refdata min_freq_notifier = {
+	.notifier_call = cpu_freq_notify,
 };
 
 /*********************************************************************
@@ -2421,12 +2451,18 @@ EXPORT_SYMBOL_GPL(cpufreq_unregister_driver);
 
 static int __init cpufreq_core_init(void)
 {
+	int rc;
+
 	if (cpufreq_disabled())
 		return -ENODEV;
 
 	cpufreq_global_kobject = kobject_create();
 	BUG_ON(!cpufreq_global_kobject);
 	register_syscore_ops(&cpufreq_syscore_ops);
+
+	rc = pm_qos_add_notifier(PM_QOS_CPU_FREQ_MIN,
+			&min_freq_notifier);
+	BUG_ON(rc);
 
 	return 0;
 }
