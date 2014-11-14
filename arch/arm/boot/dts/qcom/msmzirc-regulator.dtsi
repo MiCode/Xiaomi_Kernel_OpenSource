@@ -257,4 +257,10 @@
 		compatible = "regulator-fixed";
 		regulator-name = "codec_2.15v";
 	};
+
+	wlan_vreg: wlan_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_vreg";
+		regulator-always-on;
+	};
 };
