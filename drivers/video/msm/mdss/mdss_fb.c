@@ -654,6 +654,7 @@ static void mdss_fb_shutdown(struct platform_device *pdev)
 	mfd->shutdown_pending = true;
 	lock_fb_info(mfd->fbi);
 	mdss_fb_release_all(mfd->fbi, true);
+	sysfs_notify(&mfd->fbi->dev->kobj, NULL, "show_blank_event");
 	unlock_fb_info(mfd->fbi);
 }
 
