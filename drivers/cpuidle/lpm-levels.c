@@ -472,7 +472,7 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		/*
 		 * Notify that the cluster is entering a low power mode
 		 */
-		if (level->mode[i] == MSM_SPM_MODE_POWER_COLLAPSE)
+		if (level->mode[i] == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
 			cpu_cluster_pm_enter();
 	}
 	if (level->notify_rpm) {
@@ -614,7 +614,7 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 		BUG_ON(ret);
 
 		if (cluster->levels[last_level].mode[i] ==
-				MSM_SPM_MODE_POWER_COLLAPSE)
+				MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
 			cpu_cluster_pm_exit();
 	}
 unlock_return:
@@ -642,7 +642,11 @@ static inline void cpu_prepare(struct lpm_cluster *cluster, int cpu_index,
 	if (from_idle && (cpu_level->use_bc_timer ||
 			(cpu_index >= cluster->min_child_level)))
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &cpu);
-	cpu_pm_enter();
+
+	if (from_idle && ((cpu_level->mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
+		|| (cpu_level->mode ==
+			MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)))
+		cpu_pm_enter();
 }
 
 static inline void cpu_unprepare(struct lpm_cluster *cluster, int cpu_index,
@@ -654,7 +658,11 @@ static inline void cpu_unprepare(struct lpm_cluster *cluster, int cpu_index,
 	if (from_idle && (cpu_level->use_bc_timer ||
 			(cpu_index >= cluster->min_child_level)))
 		clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu);
-	cpu_pm_exit();
+
+	if (from_idle && ((cpu_level->mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
+		|| (cpu_level->mode ==
+			MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)))
+		cpu_pm_exit();
 }
 
 static int lpm_cpuidle_enter(struct cpuidle_device *dev,
