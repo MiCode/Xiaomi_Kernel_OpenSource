@@ -34,6 +34,7 @@
 #define LISTEN_MAX_PERIOD_SIZE     4096
 #define LISTEN_MIN_PERIOD_SIZE     320
 
+#define MSM_CPE_LAB_THREAD_TIMEOUT (3 * (HZ/10))
 
 /* Conventional and unconventional sample rate supported */
 static unsigned int supported_sample_rates[] = {
@@ -331,6 +332,8 @@ static int msm_cpe_lab_thread(void *data)
 
 	pr_debug("%s: Exiting LAB thread\n", __func__);
 
+	complete(&lab->thread_complete);
+
 	return 0;
 }
 
@@ -600,6 +603,18 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 				pr_debug("%s: Thread stop rc%x\n",
 					 __func__, rc);
 			}
+
+			/* Wait for the lab thread to exit */
+			rc = wait_for_completion_timeout(
+					&lab_sess->thread_complete,
+					MSM_CPE_LAB_THREAD_TIMEOUT);
+			if (!rc) {
+				dev_err(rtd->dev,
+					"%s: Wait for lab thread timedout\n",
+					__func__);
+				return -ETIMEDOUT;
+			}
+
 			rc = lsm_ops->lsm_lab_stop(cpe->core_handle, session);
 			if (rc)
 				pr_err("%s: Lab stop status %d\n",
@@ -633,8 +648,10 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			if (rc) {
 				pr_err("%s: Lab Enable Failed rc %d\n",
 				       __func__, rc);
+				lab_sess->lab_enable = false;
 				return rc;
 			}
+
 			lab_sess->substream = substream;
 			dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 			dma_buf->dev.dev = substream->pcm->card->dev;
@@ -643,8 +660,12 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			dma_buf->addr =  lab_sess->pcm_buf[0].phys;
 			dma_buf->bytes = (lab_sess->hw_params.buf_sz *
 					lab_sess->hw_params.period_count);
-			if (!dma_buf->area)
+			if (!dma_buf->area) {
+				lab_sess->lab_enable = false;
 				return -ENOMEM;
+			}
+
+			init_completion(&lab_sess->thread_complete);
 			snd_pcm_set_runtime_buffer(substream,
 						   &substream->dma_buffer);
 		} else {
@@ -954,6 +975,8 @@ static int msm_cpe_lsm_lab_start(struct snd_pcm_substream *substream,
 	session = lsm_d->lsm_session;
 	lsm_ops = &cpe->lsm_ops;
 	lab_sess = &session->lab;
+
+	INIT_COMPLETION(lab_sess->thread_complete);
 
 	if (lab_sess->lab_enable &&
 	    event_status->status ==

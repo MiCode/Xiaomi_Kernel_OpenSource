@@ -67,6 +67,7 @@ struct wcd_cpe_lsm_lab {
 	struct wcd_cpe_lab_hw_params hw_params;
 	struct wcd_cpe_data_pcm_buf *pcm_buf;
 	wait_queue_head_t period_wait;
+	struct completion thread_complete;
 };
 
 struct cpe_lsm_session {
