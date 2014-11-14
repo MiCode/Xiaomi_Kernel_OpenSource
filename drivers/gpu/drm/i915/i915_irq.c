@@ -5143,8 +5143,14 @@ void intel_runtime_pm_disable_interrupts(struct drm_device *dev)
 void intel_runtime_pm_restore_interrupts(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	unsigned long flags;
 
 	dev_priv->pm.irqs_disabled = false;
 	dev->driver->irq_preinstall(dev);
 	dev->driver->irq_postinstall(dev);
+
+	spin_lock_irqsave(&dev_priv->irq_lock, flags);
+	if (dev_priv->display.hpd_irq_setup)
+		dev_priv->display.hpd_irq_setup(dev);
+	spin_unlock_irqrestore(&dev_priv->irq_lock, flags);
 }
