@@ -858,6 +858,11 @@ drain_rfifo:
 	MHL_TX_DBG_ERR("Draining %d bytes from RFIFO\n", data_len);
 
 	pbit_bucket = kmalloc(data_len, GFP_KERNEL);
+	if (!pbit_bucket) {
+		MHL_TX_DBG_ERR("Failed to allocate %d bytes for pbit bucket\n",
+							data_len);
+		goto done_emsc;
+	}
 	if (use_spi) {
 		mhl_tx_read_spi_emsc(hw_context, data_len, pbit_bucket);
 	} else {
@@ -1831,8 +1836,10 @@ void mhl_tx_drv_send_block(struct drv_hw_context *hw_context,
 	if (use_spi) {
 		mhl_tx_write_block_spi_emsc(hw_context, req);
 	} else {
-		mhl_tx_write_reg_block(hw_context, REG_EMSC_XMIT_WRITE_PORT,
-			req->count, &req->payload->as_bytes[0]);
+		if (req->count < EMSC_PAYLOAD_LEN)
+			mhl_tx_write_reg_block(hw_context,
+				REG_EMSC_XMIT_WRITE_PORT, req->count,
+				&req->payload->as_bytes[0]);
 	}
 }
 
@@ -2258,6 +2265,10 @@ uint8_t si_mhl_tx_drv_send_cbus_command(struct drv_hw_context *hw_context,
 		     req->burst_offset, req->length);
 		hw_context->hawb_write_pending = true;
 		enable_gen2_write_burst_xmit(hw_context);
+		if (req->length > CBUS_REQ_MSG_DATA_LEN) {
+			ret_val = -EINVAL;
+			break;
+		}
 		mhl_tx_write_reg_block(hw_context,
 				       REG_MDT_XMIT_WRITE_PORT,
 				       req->length, req->msg_data);

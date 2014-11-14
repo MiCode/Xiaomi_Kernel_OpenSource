@@ -16,6 +16,8 @@
 #if !defined(SI_MHL_TX_DRV_API_H)
 #define SI_MHL_TX_DRV_API_H
 
+#define CBUS_REQ_MSG_DATA_LEN 16
+#define EMSC_PAYLOAD_LEN 256
 /*
  * Structure to hold command details from upper layer to CBUS module
  */
@@ -34,7 +36,7 @@ struct cbus_req {
 	uint8_t reg_data;
 	uint8_t burst_offset;	/* register offset */
 	uint8_t length;		/* Only applicable to write burst */
-	uint8_t msg_data[16];	/* scratch pad data area. */
+	uint8_t msg_data[CBUS_REQ_MSG_DATA_LEN]; /* scratch pad data area. */
 	const char *function;
 	int line;
 	int sequence;
@@ -53,7 +55,7 @@ struct SI_PACK_THIS_STRUCT tport_hdr_and_burst_id_t {
 };
 union SI_PACK_THIS_STRUCT emsc_payload_t {
 	struct SI_PACK_THIS_STRUCT tport_hdr_and_burst_id_t hdr_and_burst_id;
-	uint8_t as_bytes[256];
+	uint8_t as_bytes[EMSC_PAYLOAD_LEN];
 };
 
 struct SI_PACK_THIS_STRUCT block_req {
