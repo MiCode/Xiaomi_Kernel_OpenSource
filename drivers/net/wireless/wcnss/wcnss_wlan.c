@@ -98,6 +98,7 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define PRONTO_PMU_WLAN_GDSCR_OFFSET       0x0054
 #define PRONTO_PMU_WLAN_GDSCR_SW_COLLAPSE  BIT(0)
 
+#define PRONTO_PMU_WDOG_CTL		0x0068
 
 #define PRONTO_PMU_CBCR_OFFSET        0x0008
 #define PRONTO_PMU_CBCR_CLK_EN        BIT(0)
@@ -150,6 +151,14 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define CCU_PRONTO_A2AB_ERR_ADDR_OFFSET		0x18
 
 #define PRONTO_SAW2_SPM_STS_OFFSET		0x0c
+#define PRONTO_SAW2_SPM_CTL		0x30
+#define PRONTO_SAW2_SAW2_VERSION		0xFD0
+#define PRONTO_SAW2_MAJOR_VER_OFFSET		0x1C
+#define PRONTO_SAW2_MAJOR_VER_3		0x3
+#define PRONTO_SAW2_SPM_SLP_SEQ		0x80
+#define PRONTO_SAW2_SPM_SLP_SEQ_2		0x400
+#define PRONTO_SAW2_SPM_SLP_SEQ_OFFSET		0x04
+#define PRONTO_SAW2_SPM_SLP_SEQ_COUNT		0x08
 
 #define PRONTO_PLL_STATUS_OFFSET		0x1c
 #define PRONTO_PLL_MODE_OFFSET			0x1c0
@@ -613,7 +622,8 @@ void wcnss_pronto_is_a2xb_bus_stall(void *tst_addr, u32 fifo_mask, char *type)
 void wcnss_pronto_log_debug_regs(void)
 {
 	void __iomem *reg_addr, *tst_addr, *tst_ctrl_addr;
-	u32 reg = 0, reg2 = 0, reg3 = 0, reg4 = 0;
+	u32 reg = 0, reg2 = 0, reg3 = 0, reg4 = 0, offset_addr = 0;
+	int i;
 
 
 	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_SPARE_OFFSET;
@@ -640,9 +650,34 @@ void wcnss_pronto_log_debug_regs(void)
 	reg = readl_relaxed(reg_addr);
 	pr_err("PRONTO_PMU_SOFT_RESET %08x\n", reg);
 
+	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_WDOG_CTL;
+	reg = readl_relaxed(reg_addr);
+	pr_err("PRONTO_PMU_WDOG_CTL %08x\n", reg);
+
 	reg_addr = penv->pronto_saw2_base + PRONTO_SAW2_SPM_STS_OFFSET;
 	reg = readl_relaxed(reg_addr);
 	pr_err("PRONTO_SAW2_SPM_STS %08x\n", reg);
+
+	reg_addr = penv->pronto_saw2_base + PRONTO_SAW2_SPM_CTL;
+	reg = readl_relaxed(reg_addr);
+	pr_err("PRONTO_SAW2_SPM_CTL %08x\n", reg);
+
+	reg_addr = penv->pronto_saw2_base + PRONTO_SAW2_SAW2_VERSION;
+	reg = readl_relaxed(reg_addr);
+	pr_err("PRONTO_SAW2_SAW2_VERSION %08x\n", reg);
+	reg >>= PRONTO_SAW2_MAJOR_VER_OFFSET;
+
+	if (reg >= PRONTO_SAW2_MAJOR_VER_3)
+		offset_addr = PRONTO_SAW2_SPM_SLP_SEQ_2;
+	else
+		offset_addr = PRONTO_SAW2_SPM_SLP_SEQ;
+
+	for (i = 0; i <= PRONTO_SAW2_SPM_SLP_SEQ_COUNT; i++) {
+		reg_addr = penv->pronto_saw2_base + offset_addr
+			+ (i * PRONTO_SAW2_SPM_SLP_SEQ_OFFSET);
+		reg = readl_relaxed(reg_addr);
+		pr_err("PRONTO_SAW2_SPM_SLP_SEQ_ENTRY_%d %08x\n", i, reg);
+	}
 
 	reg_addr = penv->pronto_pll_base + PRONTO_PLL_STATUS_OFFSET;
 	reg = readl_relaxed(reg_addr);
