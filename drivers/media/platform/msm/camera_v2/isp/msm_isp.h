@@ -266,6 +266,7 @@ enum msm_vfe_axi_state {
 	STOPPING,
 	PAUSING,
 	RESUMING,
+	UPDATING,
 };
 
 enum msm_vfe_axi_cfg_update_state {
