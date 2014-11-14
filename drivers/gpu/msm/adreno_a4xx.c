@@ -941,10 +941,19 @@ void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 			"ringbuffer reserved bit error interrupt\n");
 		break;
 	case A4XX_INT_CP_HW_FAULT:
+	{
+		struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 		kgsl_regread(device, A4XX_CP_HW_FAULT, &reg);
 		KGSL_DRV_CRIT_RATELIMIT(device,
 			"CP | Ringbuffer HW fault | status=%x\n", reg);
+		/*
+		 * mask off this interrupt since it can spam, it will be
+		 * turned on again when device resets
+		 */
+		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_0_MASK,
+			gpudev->irq->mask & ~(1 << A4XX_INT_CP_HW_FAULT));
 		break;
+	}
 	case A4XX_INT_CP_REG_PROTECT_FAULT:
 		kgsl_regread(device, A4XX_CP_PROTECT_STATUS, &reg);
 		KGSL_DRV_CRIT(device,
