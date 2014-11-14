@@ -727,6 +727,45 @@ static void bam2bam_free_rx_skb_idle_list(struct bam_data_port *port)
 							d->freed_skb);
 }
 
+/*
+ * bam_data_ipa_disconnect()- Perform USB IPA function level disconnect
+ * struct bam_data_ch_info - Per USB IPA port data structure
+ *
+ * Make sure to call IPA rndis/ecm/mbim related disconnect APIs() only
+ * if those APIs init counterpart is already performed.
+ * MBIM: teth_bridge_connect() is NO_OPS and teth_bridge_init() is
+ * being called with atomic context on cable connect, hence there is no
+ * need to consider for this check. is_net_interface_up is being used
+ * for RNDIS/ECM driver due to its different design with usage of
+ * network interface created by IPA driver.
+ */
+static void bam_data_ipa_disconnect(struct bam_data_ch_info *d)
+{
+	pr_debug("%s(): is_net_interface_up:%d\n",
+		__func__, atomic_read(&d->is_net_interface_up));
+	/*
+	 * Check if is_net_interface_up is set to 1, then perform disconnect
+	 * part and set is_net_interface_up to zero.
+	 */
+	if (atomic_xchg(&d->is_net_interface_up, 0) == 1) {
+		void *priv;
+		if (d->func_type == USB_FUNC_ECM) {
+			priv = ecm_qc_get_ipa_priv();
+			ecm_ipa_disconnect(priv);
+		} else if (d->func_type == USB_FUNC_RNDIS) {
+			priv = rndis_qc_get_ipa_priv();
+			rndis_ipa_pipe_disconnect_notify(priv);
+			is_ipa_rndis_net_on = false;
+		}
+		pr_debug("%s(): net interface is disconnected.\n", __func__);
+	}
+
+	if (d->func_type == USB_FUNC_MBIM) {
+		pr_debug("%s(): teth_bridge() disconnected\n", __func__);
+		teth_bridge_disconnect(d->ipa_params.src_client);
+	}
+}
+
 static void bam2bam_data_disconnect_work(struct work_struct *w)
 {
 	struct bam_data_port *port =
@@ -748,6 +787,7 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 	 * even if there gonna be errors down in this function.
 	 */
 	port->is_connected = false;
+	d = &port->data_ch;
 
 	/*
 	 * Unlock the port here and not at the end of this work,
@@ -759,8 +799,9 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 	*/
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	d = &port->data_ch;
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		/* Perform IPA functions' disconnect */
+		bam_data_ipa_disconnect(d);
 		ret = usb_bam_disconnect_ipa(&d->ipa_params);
 		if (ret)
 			pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
@@ -1514,39 +1555,7 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 		}
 	}
 
-	/*
-	 * Make sure to call IPA rndis/ecm/mbim related disconnect APIs() only
-	 * if those APIs init counterpart is already performed.
-	 * MBIM: teth_bridge_connect() is NO_OPS and teth_bridge_init() is
-	 * being called with atomic context on cable connect, hence there is no
-	 * need to consider for this check. is_net_interface_up is being used
-	 * for RNDIS/ECM driver due to its different design with usage of
-	 * network interface created by IPA driver.
-	 */
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		pr_debug("%s(): is_net_interface_up:%d\n",
-			__func__, atomic_read(&d->is_net_interface_up));
-		if (atomic_read(&d->is_net_interface_up)) {
-			void *priv;
-
-			if (d->func_type == USB_FUNC_ECM) {
-				priv = ecm_qc_get_ipa_priv();
-				ecm_ipa_disconnect(priv);
-			} else if (d->func_type == USB_FUNC_RNDIS) {
-				priv = rndis_qc_get_ipa_priv();
-				rndis_ipa_pipe_disconnect_notify(priv);
-				is_ipa_rndis_net_on = false;
-			}
-			pr_debug("%s(): net interface is disconnected.\n",
-								__func__);
-			atomic_set(&d->is_net_interface_up, 0);
-		}
-
-		if (d->func_type == USB_FUNC_MBIM) {
-			pr_debug("%s(): teth_bridge() disconnected\n",
-								__func__);
-			teth_bridge_disconnect(d->ipa_params.src_client);
-		}
 		port->last_event = U_BAM_DATA_DISCONNECT_E;
 		queue_work(bam_data_wq, &port->disconnect_w);
 	} else {
