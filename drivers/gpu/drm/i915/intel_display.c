@@ -11949,6 +11949,9 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 	intel_modeset_affected_pipes(crtc, &modeset_pipes,
 				     &prepare_pipes, &disable_pipes);
 
+	if (!(modeset_pipes | prepare_pipes | disable_pipes))
+		goto out;
+
 	*saved_mode = crtc->mode;
 
 	/* Hack: Because we don't (yet) support global modeset on multiple
