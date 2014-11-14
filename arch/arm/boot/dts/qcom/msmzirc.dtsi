@@ -817,7 +817,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 133 0>, <0 180 0>;
+		interrupts = <0 202 0>, <0 180 0>;
 		interrupt-names = "hs_phy_irq", "pwr_event_irq";
 		qcom,otg-capability;
 		USB3_GDSC-supply = <&gdsc_usb30>;
