@@ -354,10 +354,12 @@ static u32 log_next(u32 idx, bool logbuf)
 #if defined(CONFIG_OOPS_LOG_BUFFER)
 void oops_printk_start(void)
 {
-	raw_spin_lock_irq(&logbuf_lock);
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&logbuf_lock, flags);
 	if (log_oops_first_seq == ULLONG_MAX)
 		log_oops_first_seq = log_next_seq;
-	raw_spin_unlock_irq(&logbuf_lock);
+	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
 }
 
 static void log_oops_store(struct log *msg)
