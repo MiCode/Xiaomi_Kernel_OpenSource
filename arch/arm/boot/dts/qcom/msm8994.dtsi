@@ -1524,6 +1524,7 @@
 		compatible = "qcom,usb-hsphy";
 		status = "disabled";
 		reg = <0xf92f8800 0x3ff>;
+		reg-names = "core";
 		qcom,hsphy-init = <0x00D191A4>;
 		vdd-supply = <&pm8994_s2_corner>;
 		vdda18-supply = <&pm8994_l6>;

@@ -5,6 +5,8 @@ HSUSB PHY
 Required properties:
  - compatible: Should be "qcom,usb-hsphy"
  - reg: Address and length of the register set for the device
+   Required regs are:
+	"core" : the QSCRATCH base register set
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for HSPHY digital circuit operation
@@ -15,9 +17,10 @@ Required properties:
    microvolts or a value corresponding to voltage corner
 
 Optional properties:
- - reg: Address and length of the TCSR register to be written when performing
-   a block reset, as well as to intialize the internal MUX to select the
-   correct controller. If present this must be the second register listed.
+ - reg: Additional registers
+	"tcsr" : top-level CSR register to be written during power-on reset
+		 intialize the internal MUX that controls whether this PHY is
+		 used with the USB3 or the USB2 controller.
 
  - qcom,hsphy-init: Init value used to override HSPHY parameters into
    QSCRATCH register. This 32-bit value represents parameters as follows:
