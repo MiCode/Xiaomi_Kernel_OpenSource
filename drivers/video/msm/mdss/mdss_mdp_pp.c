@@ -410,6 +410,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 	struct mdss_data_type *mdata;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_ctl *ctl;
+	struct mdss_mdp_cdm *cdm;
 
 
 	if (data == NULL) {
@@ -439,6 +440,18 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 			ctl = mdata->ctl_off + blk_idx;
 			if (ctl->wb_base)
 				base = ctl->wb_base + MDSS_MDP_REG_WB_CSC_BASE;
+			else
+				ret = -EINVAL;
+		} else {
+			ret = -EINVAL;
+		}
+		break;
+	case MDSS_MDP_BLOCK_CDM:
+		if (blk_idx < mdata->ncdm) {
+			cdm = mdata->cdm_off + blk_idx;
+			if (cdm->base)
+				base = cdm->base +
+					MDSS_MDP_REG_CDM_CSC_10_BASE;
 			else
 				ret = -EINVAL;
 		} else {

@@ -25,6 +25,7 @@
 #include "mdss.h"
 #include "mdss_mdp_hwio.h"
 #include "mdss_fb.h"
+#include "mdss_mdp_cdm.h"
 
 #define MDSS_MDP_DEFAULT_INTR_MASK 0
 #define MDSS_MDP_CURSOR_WIDTH 64
@@ -107,6 +108,7 @@ enum mdss_mdp_block_type {
 	MDSS_MDP_BLOCK_MIXER,
 	MDSS_MDP_BLOCK_DSPP,
 	MDSS_MDP_BLOCK_WB,
+	MDSS_MDP_BLOCK_CDM,
 	MDSS_MDP_BLOCK_MAX
 };
 
@@ -224,6 +226,7 @@ struct mdss_mdp_ctl {
 	struct msm_fb_data_type *mfd;
 	struct mdss_mdp_mixer *mixer_left;
 	struct mdss_mdp_mixer *mixer_right;
+	struct mdss_mdp_cdm *cdm;
 	struct mutex lock;
 	struct mutex *shared_lock;
 	spinlock_t spin_lock;
@@ -737,6 +740,21 @@ static inline bool mdss_mdp_is_ubwc_format(struct mdss_mdp_format_params *fmt)
 static inline int mdss_mdp_is_ubwc_supported(struct mdss_data_type *mdata)
 {
 	return IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_107);
+}
+
+static inline int mdss_mdp_is_cdm_supported(struct mdss_data_type *mdata,
+					    u32 intf_type, u32 mixer_type)
+{
+	int support = mdata->ncdm;
+
+	/*
+	 * CDM is supported under these conditions
+	 * 1. If Device tree created a cdm block AND
+	 * 2. Output interface is HDMI OR Output interface is WB2
+	 */
+	return support && ((intf_type == MDSS_INTF_HDMI) ||
+			   ((intf_type == MDSS_MDP_NO_INTF) &&
+			    (mixer_type == MDSS_MDP_MIXER_TYPE_INTF)));
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);

@@ -309,6 +309,17 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_POLARITY_CTL, polarity_ctl);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_FRAME_LINE_COUNT_EN, 0x3);
 
+	/*
+	 * If CDM is present Interface should have destination
+	 * format set to RGB
+	 */
+	if (ctl->cdm) {
+		u32 reg = mdp_video_read(ctx, MDSS_MDP_REG_INTF_CONFIG);
+
+		reg &= ~BIT(18); /* CSC_DST_DATA_FORMAT = RGB */
+		reg &= ~BIT(17); /* CSC_SRC_DATA_FROMAT = RGB */
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_CONFIG, reg);
+	}
 	return 0;
 }
 
@@ -499,6 +510,10 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	mdss_mdp_ctl_reset(ctl);
 	ctl->priv_data = NULL;
 
+	if (ctl->cdm) {
+		mdss_mdp_cdm_destroy(ctl->cdm);
+		ctl->cdm = NULL;
+	}
 	return 0;
 }
 
@@ -1092,6 +1107,49 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_CONFIG, fetch_enable);
 }
 
+static int mdss_mdp_video_cdm_setup(struct mdss_mdp_cdm *cdm,
+				   struct mdss_panel_info *pinfo)
+{
+	struct mdss_mdp_format_params *fmt;
+	struct mdp_cdm_cfg setup;
+
+	fmt = mdss_mdp_get_format_params(pinfo->out_format);
+
+	if (!fmt) {
+		pr_err("%s: format %d not supported\n", __func__,
+		       pinfo->out_format);
+		return -EINVAL;
+	}
+	setup.out_format = pinfo->out_format;
+	if (fmt->is_yuv)
+		setup.csc_type = MDSS_MDP_CSC_RGB2YUV;
+	else
+		setup.csc_type = MDSS_MDP_CSC_RGB2RGB;
+
+	switch (fmt->chroma_sample) {
+	case MDSS_MDP_CHROMA_RGB:
+		setup.horz_downsampling_type = MDP_CDM_CDWN_DISABLE;
+		setup.vert_downsampling_type = MDP_CDM_CDWN_DISABLE;
+		break;
+	case MDSS_MDP_CHROMA_H2V1:
+		setup.horz_downsampling_type = MDP_CDM_CDWN_COSITE;
+		setup.vert_downsampling_type = MDP_CDM_CDWN_DISABLE;
+		break;
+	case MDSS_MDP_CHROMA_420:
+		setup.horz_downsampling_type = MDP_CDM_CDWN_COSITE;
+		setup.vert_downsampling_type = MDP_CDM_CDWN_OFFSITE;
+		break;
+	case MDSS_MDP_CHROMA_H1V2:
+	default:
+		pr_err("%s: unsupported chroma sampling type\n", __func__);
+		return -EINVAL;
+	}
+
+	setup.mdp_csc_bit_depth = MDP_CDM_CSC_8BIT;
+	setup.output_width = pinfo->xres + pinfo->lcdc.xres_pad;
+	setup.output_height = pinfo->yres + pinfo->lcdc.yres_pad;
+	return mdss_mdp_cdm_setup(cdm, &setup);
+}
 static int mdss_mdp_video_intfs_setup(struct mdss_mdp_ctl *ctl,
 	struct mdss_panel_data *pdata, int inum)
 {
@@ -1151,6 +1209,23 @@ static int mdss_mdp_video_intfs_setup(struct mdss_mdp_ctl *ctl,
 		ctx->intf_recovery.data = NULL;
 	}
 
+	if (mdss_mdp_is_cdm_supported(mdata, ctl->intf_type, 0)) {
+		ctl->cdm = mdss_mdp_cdm_init(ctl, MDP_CDM_CDWN_OUTPUT_HDMI);
+		if (ctl->cdm) {
+			if (mdss_mdp_video_cdm_setup(ctl->cdm, pinfo)) {
+				pr_err("%s: setting up cdm failed\n",
+				       __func__);
+				return -EINVAL;
+			}
+			ctl->flush_bits |= BIT(26);
+		} else {
+			pr_err("%s: failed to initialize cdm\n", __func__);
+			return -EINVAL;
+		}
+	} else {
+		pr_debug("%s: cdm not supported\n", __func__);
+	}
+
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_VSYNC,
 				(inum + MDSS_MDP_INTF0),
 				mdss_mdp_video_vsync_intr_done, ctl);
@@ -1175,7 +1250,18 @@ static int mdss_mdp_video_intfs_setup(struct mdss_mdp_ctl *ctl,
 	itp.v_front_porch = pinfo->lcdc.v_front_porch;
 	itp.hsync_pulse_width = pinfo->lcdc.h_pulse_width;
 	itp.vsync_pulse_width = pinfo->lcdc.v_pulse_width;
-
+	/*
+	 * In case of YUV420 output, MDP outputs data at half the rate. So
+	 * reduce all horizontal parameters by half
+	 */
+	if (ctl->cdm && pinfo->out_format == MDP_Y_CBCR_H2V2) {
+		itp.width >>= 1;
+		itp.hsync_skew >>= 1;
+		itp.xres >>= 1;
+		itp.h_back_porch >>= 1;
+		itp.h_front_porch >>= 1;
+		itp.hsync_pulse_width >>= 1;
+	}
 	if (!ctl->panel_data->panel_info.cont_splash_enabled) {
 		if (mdss_mdp_video_timegen_setup(ctl, &itp)) {
 			pr_err("unable to set timing parameters intfs: %d\n",

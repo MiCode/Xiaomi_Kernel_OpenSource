@@ -170,6 +170,7 @@ static int mdss_mdp_parse_dt_prefill(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
+static int mdss_mdp_parse_dt_cdm(struct platform_device *pdev);
 
 /**
  * mdss_mdp_vbif_axi_halt() - Halt MDSS AXI ports
@@ -1723,6 +1724,10 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = mdss_mdp_parse_dt_cdm(pdev);
+	if (rc)
+		pr_debug("CDM offset not found in device tree\n");
+
 	/* Parse the mdp specific register base offset*/
 	rc = of_property_read_u32(pdev->dev.of_node,
 		"qcom,mdss-mdp-reg-offset", &data);
@@ -2250,6 +2255,75 @@ pingpong_alloc_fail:
 dspp_alloc_fail:
 	kfree(mixer_offsets);
 
+	return rc;
+}
+
+static int mdss_mdp_cdm_addr_setup(struct mdss_data_type *mdata,
+				   u32 *cdm_offsets, u32 len)
+{
+	struct mdss_mdp_cdm *head;
+	u32 i = 0;
+
+	head = devm_kzalloc(&mdata->pdev->dev, sizeof(struct mdss_mdp_cdm) *
+				len, GFP_KERNEL);
+	if (!head) {
+		pr_err("%s: no memory for CDM info\n", __func__);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < len; i++) {
+		head[i].num = i;
+		head[i].base = (mdata->mdss_io.base) + cdm_offsets[i];
+		atomic_set(&head[i].kref.refcount, 0);
+		mutex_init(&head[i].lock);
+		pr_debug("%s: cdm off (%d) = %p\n", __func__, i, head[i].base);
+	}
+
+	mdata->cdm_off = head;
+	mutex_init(&mdata->cdm_lock);
+	return 0;
+}
+
+static int mdss_mdp_parse_dt_cdm(struct platform_device *pdev)
+{
+	int rc = 0;
+	u32 *cdm_offsets = NULL;
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+
+	mdata->ncdm = mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-cdm-off");
+
+	if (!mdata->ncdm) {
+		rc = 0;
+		pr_debug("%s: No CDM offsets present in DT\n", __func__);
+		goto end;
+	}
+	pr_debug("%s: cdm len == %d\n", __func__, mdata->ncdm);
+	cdm_offsets = kzalloc(sizeof(u32) * mdata->ncdm, GFP_KERNEL);
+	if (!cdm_offsets) {
+		pr_err("no more memory for cdm offsets\n");
+		rc = -ENOMEM;
+		mdata->ncdm = 0;
+		goto end;
+	}
+
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-cdm-off", cdm_offsets,
+				       mdata->ncdm);
+	if (rc) {
+		pr_err("device tree err: failed to get cdm offsets\n");
+		goto fail;
+	}
+
+	rc = mdss_mdp_cdm_addr_setup(mdata, cdm_offsets, mdata->ncdm);
+	if (rc) {
+		pr_err("%s: CDM address setup failed\n", __func__);
+		goto fail;
+	}
+
+fail:
+	kfree(cdm_offsets);
+	if (rc)
+		mdata->ncdm = 0;
+end:
 	return rc;
 }
 
