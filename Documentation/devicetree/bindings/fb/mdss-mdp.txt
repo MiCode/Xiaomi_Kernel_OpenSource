@@ -408,7 +408,13 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				qcom,mdss-pipe-dma-off
 - qcom,mdss-has-dst-split:	Boolean property to indicate if destination
 				split feature is available or not in the target.
-
+- qcom,mdss-cdm-off:            Array of offset addresses for the available
+				chroma down modules that can convert RGB data
+				to YUV before sending it to the interface
+				block. These offsets will be calculated from
+				register "mdp_phys" define in reg property. The
+				number of cdm offsets should reflect the number
+				of cdm blocks present in hardware.
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
 
@@ -599,6 +605,7 @@ Example:
 				    0x00017100 0x00019100>;
 		qcom,mdss-intf-off = <0x00021100 0x00021300
 					   0x00021500 0x00021700>;
+		qcom,mdss-cdm-off = <0x0007A200>;
 
 		/* buffer parameters to calculate prefill bandwidth */
 		qcom,mdss-prefill-outstanding-buffer-bytes = <1024>;

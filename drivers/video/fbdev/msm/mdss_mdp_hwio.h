@@ -623,6 +623,27 @@ enum mdss_mdp_pingpong_index {
 #define MDSS_MDP_INTF_MISR_CTRL		0x180
 #define MDSS_MDP_INTF_MISR_SIGNATURE		(MDSS_MDP_INTF_MISR_CTRL + 0x4)
 
+#define MDSS_MDP_REG_CDM_CSC_10_OPMODE                  0x000
+#define MDSS_MDP_REG_CDM_CSC_10_BASE                    0x004
+
+#define MDSS_MDP_REG_CDM_CDWN2_OP_MODE                  0x100
+#define MDSS_MDP_REG_CDM_CDWN2_CLAMP_OUT                0x104
+#define MDSS_MDP_REG_CDM_CDWN2_PARAMS_3D_0              0x108
+#define MDSS_MDP_REG_CDM_CDWN2_PARAMS_3D_1              0x10C
+#define MDSS_MDP_REG_CDM_CDWN2_COEFF_COSITE_H_0         0x110
+#define MDSS_MDP_REG_CDM_CDWN2_COEFF_COSITE_H_1         0x114
+#define MDSS_MDP_REG_CDM_CDWN2_COEFF_COSITE_H_2         0x118
+#define MDSS_MDP_REG_CDM_CDWN2_COEFF_OFFSITE_H_0        0x11C
+#define MDSS_MDP_REG_CDM_CDWN2_COEFF_OFFSITE_H_1        0x120
+#define MDSS_MDP_REG_CDM_CDWN2_COEFF_OFFSITE_H_2        0x124
+#define MDSS_MDP_REG_CDM_CDWN2_COEFF_COSITE_V           0x128
+#define MDSS_MDP_REG_CDM_CDWN2_COEFF_OFFSITE_V          0x12C
+#define MDSS_MDP_REG_CDM_CDWN2_OUT_SIZE                 0x130
+
+#define MDSS_MDP_REG_CDM_HDMI_PACK_OP_MODE              0x200
+
+/* Following offsets are with respect to MDP base */
+#define MDSS_MDP_MDP_OUT_CTL_0                          0x410
 /* following offsets are with respect to MDP VBIF base */
 #define MMSS_VBIF_XIN_HALT_CTRL0	0x200
 #define MMSS_VBIF_XIN_HALT_CTRL1	0x204

@@ -268,6 +268,10 @@ struct mdss_data_type {
 	u64 ab[MDSS_MAX_BUS_CLIENTS];
 	u64 ib[MDSS_MAX_BUS_CLIENTS];
 	struct mdss_pp_block_off pp_block_off;
+
+	struct mdss_mdp_cdm *cdm_off;
+	u32 ncdm;
+	struct mutex cdm_lock;
 };
 extern struct mdss_data_type *mdss_res;
 
