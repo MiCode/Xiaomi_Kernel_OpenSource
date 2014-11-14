@@ -38,17 +38,6 @@
 
 static struct hal_device_data hal_ctxt;
 
-static const u32 venus_qdss_entries[][2] = {
-	{0xFC307000, 0x1000},
-	{0xFC322000, 0x1000},
-	{0xFC319000, 0x1000},
-	{0xFC31A000, 0x1000},
-	{0xFC31B000, 0x1000},
-	{0xFC321000, 0x1000},
-	{0xFA180000, 0x1000},
-	{0xFA181000, 0x1000},
-};
-
 #define TZBSP_MEM_PROTECT_VIDEO_VAR 0x8
 struct tzbsp_memprot {
 	u32 cp_start;
@@ -1854,7 +1843,7 @@ static void venus_hfi_interface_queues_release(struct venus_hfi_device *device)
 	int i;
 	struct hfi_mem_map_table *qdss;
 	struct hfi_mem_map *mem_map;
-	int num_entries = sizeof(venus_qdss_entries)/(2 * sizeof(u32));
+	int num_entries = device->res->qdss_addr_set.count;
 	int domain = -1, partition = -1;
 	unsigned long mem_map_table_base_addr;
 
@@ -1918,32 +1907,36 @@ static void venus_hfi_interface_queues_release(struct venus_hfi_device *device)
 	mutex_unlock(&device->read_lock);
 	mutex_unlock(&device->write_lock);
 }
-static int venus_hfi_get_qdss_iommu_virtual_addr(struct hfi_mem_map *mem_map,
-						int domain, int partition)
+static int venus_hfi_get_qdss_iommu_virtual_addr(struct venus_hfi_device *dev,
+		struct hfi_mem_map *mem_map, int domain, int partition)
 {
 	int i;
 	int rc = 0;
 	ion_phys_addr_t iova = 0;
-	int num_entries = sizeof(venus_qdss_entries)/(2 * sizeof(u32));
+	int num_entries = dev->res->qdss_addr_set.count;
+	struct addr_range *qdss_addr_tbl = dev->res->qdss_addr_set.addr_tbl;
+
+	if (!num_entries)
+		return -ENODATA;
 
 	for (i = 0; i < num_entries; i++) {
 		if (domain >= 0 && partition >= 0) {
 			rc = msm_iommu_map_contig_buffer(
-				venus_qdss_entries[i][0], domain, partition,
-				venus_qdss_entries[i][1], SZ_4K, 0, &iova);
+				qdss_addr_tbl[i].start, domain, partition,
+				qdss_addr_tbl[i].size, SZ_4K, 0, &iova);
 			if (rc) {
 				dprintk(VIDC_ERR,
 						"IOMMU QDSS mapping failed for addr 0x%x\n",
-						venus_qdss_entries[i][0]);
+						qdss_addr_tbl[i].start);
 				rc = -ENOMEM;
 				break;
 			}
 		} else {
-			iova =  venus_qdss_entries[i][0];
+			iova =  qdss_addr_tbl[i].start;
 		}
-		mem_map[i].virtual_addr = iova;
-		mem_map[i].physical_addr = venus_qdss_entries[i][0];
-		mem_map[i].size = venus_qdss_entries[i][1];
+		mem_map[i].virtual_addr = (u32)iova;
+		mem_map[i].physical_addr = qdss_addr_tbl[i].start;
+		mem_map[i].size = qdss_addr_tbl[i].size;
 		mem_map[i].attr = 0x0;
 	}
 	if (i < num_entries) {
@@ -1974,7 +1967,7 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev)
 	struct hfi_sfr_struct *vsfr;
 	struct vidc_mem_addr *mem_addr;
 	int offset = 0;
-	int num_entries = sizeof(venus_qdss_entries)/(2 * sizeof(u32));
+	int num_entries = dev->res->qdss_addr_set.count;
 	int domain = -1, partition = -1;
 	u32 value = 0;
 	unsigned long mem_map_table_base_addr;
@@ -2010,10 +2003,10 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev)
 				dev->iface_q_table.align_virtual_addr, i);
 		venus_hfi_set_queue_hdr_defaults(iface_q->q_hdr);
 	}
-	if (msm_fw_debug_mode & HFI_DEBUG_MODE_QDSS) {
+	if ((msm_fw_debug_mode & HFI_DEBUG_MODE_QDSS) && num_entries) {
 		rc = venus_hfi_alloc(dev, (void *) mem_addr,
-				QDSS_SIZE, 1, 0,
-				HAL_BUFFER_INTERNAL_CMD_QUEUE);
+			QDSS_SIZE, 1, 0,
+			HAL_BUFFER_INTERNAL_CMD_QUEUE);
 		if (rc) {
 			dprintk(VIDC_WARN,
 				"qdss_alloc_fail: QDSS messages logging will not work\n");
@@ -2115,13 +2108,15 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev)
 		msm_smem_get_domain_partition(dev->hal_client, 0,
 				HAL_BUFFER_INTERNAL_CMD_QUEUE,
 				&domain, &partition);
-		rc = venus_hfi_get_qdss_iommu_virtual_addr(
+		rc = venus_hfi_get_qdss_iommu_virtual_addr(dev,
 				mem_map, domain, partition);
 		if (rc) {
 			dprintk(VIDC_ERR,
 					"IOMMU mapping failed, Freeing qdss memdata\n");
 			venus_hfi_free(dev, dev->qdss.mem_data);
 			dev->qdss.mem_data = NULL;
+			dev->qdss.align_virtual_addr = NULL;
+			dev->qdss.align_device_addr = 0;
 		}
 		value = (u32)dev->qdss.align_device_addr;
 		if ((ion_phys_addr_t)value !=
