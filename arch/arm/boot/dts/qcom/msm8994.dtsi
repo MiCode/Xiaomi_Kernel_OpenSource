@@ -1523,8 +1523,9 @@
 	hsphy0: hsphy@f92f8800 {
 		compatible = "qcom,usb-hsphy";
 		status = "disabled";
-		reg = <0xf92f8800 0x3ff>;
-		reg-names = "core";
+		reg = <0xf92f8800 0x3ff>,
+			<0xf9b3a000 0x110>;
+		reg-names = "core", "phy_csr";
 		qcom,hsphy-init = <0x00D191A4>;
 		vdd-supply = <&pm8994_s2_corner>;
 		vdda18-supply = <&pm8994_l6>;
@@ -1534,6 +1535,7 @@
 		qcom,vbus-valid-override;
 		qcom,set-pllbtune;
 		qcom,sleep-clk-reset;
+		qcom,vdda-force-on;
 		clocks = <&clock_gcc clk_gcc_usb2_hs_phy_sleep_clk>;
 		clock-names = "phy_sleep_clk";
 	};
