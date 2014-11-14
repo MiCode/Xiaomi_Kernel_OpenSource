@@ -2100,7 +2100,7 @@ static int gen8_emit_request(struct intel_ringbuffer *ringbuf)
 	if (ret)
 		return ret;
 
-	cmd = MI_STORE_DWORD_IMM_GEN8;
+	cmd = MI_STORE_DWORD_IMM_GEN4;
 	cmd |= MI_GLOBAL_GTT;
 
 	intel_logical_ring_emit(ringbuf, cmd);
