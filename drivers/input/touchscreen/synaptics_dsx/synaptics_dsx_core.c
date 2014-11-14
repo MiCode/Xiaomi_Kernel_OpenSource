@@ -1508,46 +1508,24 @@ static int synaptics_rmi4_f01_init(struct synaptics_rmi4_data *rmi4_data,
 }
 
  /**
- * synaptics_rmi4_f11_init()
- *
- * Called by synaptics_rmi4_query_device().
- *
- * This funtion parses information from the Function 11 registers
- * and determines the number of fingers supported, x and y data ranges,
- * offset to the associated interrupt status register, interrupt bit
- * mask, and gathers finger data acquisition capabilities from the query
- * registers.
- */
-static int synaptics_rmi4_f11_init(struct synaptics_rmi4_data *rmi4_data,
-		struct synaptics_rmi4_fn *fhandler,
-		struct synaptics_rmi4_fn_desc *fd,
-		unsigned int intr_count)
+  * synaptics_rmi4_f11_set_coords()
+  *
+  * Set panel resolution for f11 to match display resolution.
+  *
+  */
+static int synaptics_rmi4_f11_set_coords(struct synaptics_rmi4_data *rmi4_data,
+			struct synaptics_rmi4_fn *fhandler)
 {
 	int retval;
-	unsigned char abs_data_size;
-	unsigned char abs_data_blk_size;
-	unsigned char query[F11_STD_QUERY_LEN];
 	unsigned char control[F11_STD_CTRL_LEN];
 	const struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
 
-	fhandler->fn_number = fd->fn_number;
-	fhandler->num_of_data_sources = fd->intr_src_count;
-
-	retval = synaptics_rmi4_reg_read(rmi4_data,
-			fhandler->full_addr.query_base,
-			query,
-			sizeof(query));
-	if (retval < 0)
-		return retval;
-
-	/* Maximum number of fingers supported */
-	if ((query[1] & MASK_3BIT) <= 4)
-		fhandler->num_of_data_points = (query[1] & MASK_3BIT) + 1;
-	else if ((query[1] & MASK_3BIT) == 5)
-		fhandler->num_of_data_points = 10;
-
-	rmi4_data->num_of_fingers = fhandler->num_of_data_points;
+	if (!rmi4_data->update_coords) {
+		dev_dbg(rmi4_data->pdev->dev.parent,
+			"%s: No need to update panel resolution\n", __func__);
+		return 0;
+	}
 
 	retval = synaptics_rmi4_reg_read(rmi4_data,
 			fhandler->full_addr.ctrl_base,
@@ -1585,6 +1563,9 @@ static int synaptics_rmi4_f11_init(struct synaptics_rmi4_data *rmi4_data,
 				sizeof(control));
 		if (retval < 0)
 			return retval;
+		rmi4_data->update_coords = true;
+	} else {
+		rmi4_data->update_coords = false;
 	}
 
 	dev_dbg(rmi4_data->pdev->dev.parent,
@@ -1594,6 +1575,52 @@ static int synaptics_rmi4_f11_init(struct synaptics_rmi4_data *rmi4_data,
 			rmi4_data->sensor_max_y);
 
 	rmi4_data->max_touch_width = MAX_F11_TOUCH_WIDTH;
+
+	return 0;
+}
+
+ /**
+  * synaptics_rmi4_f11_init()
+  *
+  * Called by synaptics_rmi4_query_device().
+  *
+  * This funtion parses information from the Function 11 registers
+  * and determines the number of fingers supported, x and y data ranges,
+  * offset to the associated interrupt status register, interrupt bit
+  * mask, and gathers finger data acquisition capabilities from the query
+  * registers.
+  */
+static int synaptics_rmi4_f11_init(struct synaptics_rmi4_data *rmi4_data,
+		struct synaptics_rmi4_fn *fhandler,
+		struct synaptics_rmi4_fn_desc *fd,
+		unsigned int intr_count)
+{
+	int retval;
+	unsigned char abs_data_size;
+	unsigned char abs_data_blk_size;
+	unsigned char query[F11_STD_QUERY_LEN];
+
+	fhandler->fn_number = fd->fn_number;
+	fhandler->num_of_data_sources = fd->intr_src_count;
+
+	retval = synaptics_rmi4_reg_read(rmi4_data,
+			fhandler->full_addr.query_base,
+			query,
+			sizeof(query));
+	if (retval < 0)
+		return retval;
+
+	/* Maximum number of fingers supported */
+	if ((query[1] & MASK_3BIT) <= 4)
+		fhandler->num_of_data_points = (query[1] & MASK_3BIT) + 1;
+	else if ((query[1] & MASK_3BIT) == 5)
+		fhandler->num_of_data_points = 10;
+
+	rmi4_data->num_of_fingers = fhandler->num_of_data_points;
+
+	retval = synaptics_rmi4_f11_set_coords(rmi4_data, fhandler);
+	if (retval < 0)
+		return retval;
 
 	synaptics_rmi4_set_intr_mask(fhandler, fd, intr_count);
 
@@ -1626,16 +1653,116 @@ static int synaptics_rmi4_f12_set_enables(struct synaptics_rmi4_data *rmi4_data,
 }
 
  /**
- * synaptics_rmi4_f12_init()
- *
- * Called by synaptics_rmi4_query_device().
- *
- * This funtion parses information from the Function 12 registers and
- * determines the number of fingers supported, offset to the data1
- * register, x and y data ranges, offset to the associated interrupt
- * status register, interrupt bit mask, and allocates memory resources
- * for finger data acquisition.
- */
+  * synaptics_rmi4_f12_set_coords()
+  *
+  * Set panel resolution for f12 to match display resolution.
+  *
+  */
+static int synaptics_rmi4_f12_set_coords(struct synaptics_rmi4_data *rmi4_data,
+			struct synaptics_rmi4_fn *fhandler)
+{
+
+	const struct synaptics_dsx_board_data *bdata =
+			rmi4_data->hw_if->board_data;
+	struct synaptics_rmi4_f12_query_5 query_5;
+	struct synaptics_rmi4_f12_ctrl_8 ctrl_8;
+	unsigned char ctrl_8_offset;
+	int retval;
+
+	if (!rmi4_data->update_coords) {
+		dev_dbg(rmi4_data->pdev->dev.parent,
+			"%s: No need to update panel resolution\n", __func__);
+		return 0;
+	}
+
+	retval = synaptics_rmi4_reg_read(rmi4_data,
+			fhandler->full_addr.query_base + 5,
+			query_5.data,
+			sizeof(query_5.data));
+	if (retval < 0)
+		return retval;
+
+	ctrl_8_offset = query_5.ctrl0_is_present +
+			query_5.ctrl1_is_present +
+			query_5.ctrl2_is_present +
+			query_5.ctrl3_is_present +
+			query_5.ctrl4_is_present +
+			query_5.ctrl5_is_present +
+			query_5.ctrl6_is_present +
+			query_5.ctrl7_is_present;
+
+	retval = synaptics_rmi4_reg_read(rmi4_data,
+			fhandler->full_addr.ctrl_base + ctrl_8_offset,
+			ctrl_8.data,
+			sizeof(ctrl_8.data));
+	if (retval < 0)
+		return retval;
+
+	/* Maximum x and y */
+	rmi4_data->sensor_max_x =
+			((unsigned short)ctrl_8.max_x_coord_lsb << 0) |
+			((unsigned short)ctrl_8.max_x_coord_msb << 8);
+	rmi4_data->sensor_max_y =
+			((unsigned short)ctrl_8.max_y_coord_lsb << 0) |
+			((unsigned short)ctrl_8.max_y_coord_msb << 8);
+
+	if (bdata->panel_maxx && bdata->panel_maxy &&
+		(rmi4_data->sensor_max_x != bdata->panel_maxx ||
+			rmi4_data->sensor_max_y != bdata->panel_maxy)) {
+
+		if (bdata->panel_maxx > SYNA_F12_MAX ||
+				bdata->panel_maxy > SYNA_F12_MAX) {
+			dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Invalid panel resolution\n", __func__);
+			retval = -EINVAL;
+			return retval;
+		}
+
+		rmi4_data->sensor_max_x = bdata->panel_maxx;
+		rmi4_data->sensor_max_y = bdata->panel_maxy;
+		ctrl_8.max_x_coord_lsb = rmi4_data->sensor_max_x & MASK_8BIT;
+		ctrl_8.max_x_coord_msb = (rmi4_data->sensor_max_x >> 8) &
+								MASK_4BIT;
+		ctrl_8.max_y_coord_lsb = rmi4_data->sensor_max_y & MASK_8BIT;
+		ctrl_8.max_y_coord_msb = (rmi4_data->sensor_max_y >> 8) &
+								MASK_4BIT;
+
+		retval = synaptics_rmi4_reg_write(rmi4_data,
+				fhandler->full_addr.ctrl_base + ctrl_8_offset,
+				ctrl_8.data,
+				sizeof(ctrl_8.data));
+		if (retval < 0)
+			return retval;
+		rmi4_data->update_coords = true;
+	} else {
+		rmi4_data->update_coords = false;
+	}
+
+	dev_dbg(rmi4_data->pdev->dev.parent,
+			"%s: Function %02x max x = %d max y = %d\n",
+			__func__, fhandler->fn_number,
+			rmi4_data->sensor_max_x,
+			rmi4_data->sensor_max_y);
+
+	rmi4_data->num_of_rx = ctrl_8.num_of_rx;
+	rmi4_data->num_of_tx = ctrl_8.num_of_tx;
+	rmi4_data->max_touch_width = max(rmi4_data->num_of_rx,
+			rmi4_data->num_of_tx);
+
+	return 0;
+}
+
+ /**
+  * synaptics_rmi4_f12_init()
+  *
+  * Called by synaptics_rmi4_query_device().
+  *
+  * This funtion parses information from the Function 12 registers and
+  * determines the number of fingers supported, offset to the data1
+  * register, x and y data ranges, offset to the associated interrupt
+  * status register, interrupt bit mask, and allocates memory resources
+  * for finger data acquisition.
+  */
 static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 		struct synaptics_rmi4_fn *fhandler,
 		struct synaptics_rmi4_fn_desc *fd,
@@ -1651,10 +1778,7 @@ static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 	struct synaptics_rmi4_f12_extra_data *extra_data;
 	struct synaptics_rmi4_f12_query_5 query_5;
 	struct synaptics_rmi4_f12_query_8 query_8;
-	struct synaptics_rmi4_f12_ctrl_8 ctrl_8;
 	struct synaptics_rmi4_f12_ctrl_23 ctrl_23;
-	const struct synaptics_dsx_board_data *bdata =
-			rmi4_data->hw_if->board_data;
 
 	fhandler->fn_number = fd->fn_number;
 	fhandler->num_of_data_sources = fd->intr_src_count;
@@ -1774,59 +1898,10 @@ static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 	if (retval < 0)
 		goto free_function_handler_mem;
 
-	retval = synaptics_rmi4_reg_read(rmi4_data,
-			fhandler->full_addr.ctrl_base + ctrl_8_offset,
-			ctrl_8.data,
-			sizeof(ctrl_8.data));
+
+	retval = synaptics_rmi4_f12_set_coords(rmi4_data, fhandler);
 	if (retval < 0)
 		goto free_function_handler_mem;
-
-	/* Maximum x and y */
-	rmi4_data->sensor_max_x =
-			((unsigned short)ctrl_8.max_x_coord_lsb << 0) |
-			((unsigned short)ctrl_8.max_x_coord_msb << 8);
-	rmi4_data->sensor_max_y =
-			((unsigned short)ctrl_8.max_y_coord_lsb << 0) |
-			((unsigned short)ctrl_8.max_y_coord_msb << 8);
-
-	if (bdata->panel_maxx && bdata->panel_maxy &&
-		(rmi4_data->sensor_max_x != bdata->panel_maxx ||
-			rmi4_data->sensor_max_y != bdata->panel_maxy)) {
-		if (bdata->panel_maxx > SYNA_F12_MAX ||
-				bdata->panel_maxy > SYNA_F12_MAX) {
-			dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Invalid panel resolution\n", __func__);
-			retval = -EINVAL;
-			goto free_function_handler_mem;
-		}
-
-		rmi4_data->sensor_max_x = bdata->panel_maxx;
-		rmi4_data->sensor_max_y = bdata->panel_maxy;
-		ctrl_8.max_x_coord_lsb = rmi4_data->sensor_max_x & MASK_8BIT;
-		ctrl_8.max_x_coord_msb = (rmi4_data->sensor_max_x >> 8) &
-								MASK_4BIT;
-		ctrl_8.max_y_coord_lsb = rmi4_data->sensor_max_y & MASK_8BIT;
-		ctrl_8.max_y_coord_msb = (rmi4_data->sensor_max_y >> 8) &
-								MASK_4BIT;
-
-		retval = synaptics_rmi4_reg_write(rmi4_data,
-				fhandler->full_addr.ctrl_base + ctrl_8_offset,
-				ctrl_8.data,
-				sizeof(ctrl_8.data));
-		if (retval < 0)
-			goto free_function_handler_mem;
-	}
-
-	dev_dbg(rmi4_data->pdev->dev.parent,
-			"%s: Function %02x max x = %d max y = %d\n",
-			__func__, fhandler->fn_number,
-			rmi4_data->sensor_max_x,
-			rmi4_data->sensor_max_y);
-
-	rmi4_data->num_of_rx = ctrl_8.num_of_rx;
-	rmi4_data->num_of_tx = ctrl_8.num_of_tx;
-	rmi4_data->max_touch_width = max(rmi4_data->num_of_rx,
-			rmi4_data->num_of_tx);
 
 	synaptics_rmi4_set_intr_mask(fhandler, fd, intr_count);
 
@@ -3105,9 +3180,16 @@ static int synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data)
 	if (!list_empty(&rmi->support_fn_list)) {
 		list_for_each_entry(fhandler, &rmi->support_fn_list, link) {
 			if (fhandler->fn_number == SYNAPTICS_RMI4_F12) {
+				synaptics_rmi4_f12_set_coords(rmi4_data,
+								fhandler);
 				synaptics_rmi4_f12_set_enables(rmi4_data, 0);
 				break;
+			} else if (fhandler->fn_number == SYNAPTICS_RMI4_F11) {
+				synaptics_rmi4_f11_set_coords(rmi4_data,
+								fhandler);
+				break;
 			}
+
 		}
 	}
 
@@ -3418,6 +3500,7 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	rmi4_data->irq_enabled = false;
 	rmi4_data->fw_updating = false;
 	rmi4_data->fingers_on_2d = false;
+	rmi4_data->update_coords = true;
 
 	rmi4_data->irq_enable = synaptics_rmi4_irq_enable;
 	rmi4_data->reset_device = synaptics_rmi4_reset_device;
