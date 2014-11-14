@@ -2844,7 +2844,9 @@ static int android_init_functions(struct android_usb_function **functions,
 	struct device_attribute **attrs;
 	struct device_attribute *attr;
 	int err = 0;
-	int index = 1; /* index 0 is for android0 device */
+	int index = 2; /* index 0 is for android0 device
+			* index 1 is for android1 device
+			*/
 
 	for (; (f = *functions++); index++) {
 		f->dev_name = kasprintf(GFP_KERNEL, "f_%s", f->name);
