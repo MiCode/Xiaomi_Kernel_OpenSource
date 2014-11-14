@@ -172,7 +172,6 @@ struct dwc3_msm {
 	bool			resume_pending;
 	atomic_t                pm_suspended;
 	int			hs_phy_irq;
-	bool			hs_phy_irq_seen;
 	struct delayed_work	resume_work;
 	struct work_struct	restart_usb_work;
 	bool			in_restart;
@@ -1684,9 +1683,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	if (dwc->irq)
 		disable_irq(dwc->irq);
 
-	if (mdwc->hs_phy_irq)
-		disable_irq(mdwc->hs_phy_irq);
-
 	if (!dcp && !host_bus_suspend)
 		dwc3_msm_write_reg(mdwc->base, QSCRATCH_CTRL_REG,
 			mdwc->qscratch_ctl_val);
@@ -1765,13 +1761,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			enable_irq_wake(mdwc->hs_phy_irq);
 			mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 		}
-
-		/*
-		 * We don't need HS PHY IRQ (other than for wakeup) if PWR
-		 * EVENT IRQ is available
-		 */
-		if (!mdwc->pwr_event_irq)
-			enable_irq(mdwc->hs_phy_irq);
 	}
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
@@ -1909,11 +1898,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
 				~(DWC3_GUSB2PHYCFG_ENBLSLPM |
 					DWC3_GUSB2PHYCFG_SUSPHY));
-	/* match disable_irq call from isr */
-	if (mdwc->hs_phy_irq_seen && mdwc->hs_phy_irq) {
-		enable_irq(mdwc->hs_phy_irq);
-		mdwc->hs_phy_irq_seen = false;
-	}
+
 	/* Disable wakeup capable for HS_PHY IRQ, if enabled */
 	if (mdwc->hs_phy_irq &&
 			(mdwc->lpm_flags & MDWC3_ASYNC_IRQ_WAKE_CAPABILITY)) {
@@ -2059,19 +2044,11 @@ static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t msm_dwc3_irq(int irq, void *data)
+static irqreturn_t msm_dwc3_hs_phy_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
-	if (atomic_read(&dwc->in_lpm)) {
-		dev_dbg(mdwc->dev, "%s received in LPM\n", __func__);
-		mdwc->hs_phy_irq_seen = true;
-		disable_irq_nosync(irq);
-		schedule_delayed_work(&mdwc->resume_work, 0);
-	} else {
-		pr_info_ratelimited("%s: IRQ outside LPM\n", __func__);
-	}
+	dev_dbg(mdwc->dev, "%s HS PHY IRQ handled\n", __func__);
 
 	return IRQ_HANDLED;
 }
@@ -2663,13 +2640,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	 */
 	mdwc->hs_phy_irq = platform_get_irq_byname(pdev, "hs_phy_irq");
 	if (mdwc->hs_phy_irq < 0) {
-		dev_dbg(&pdev->dev, "pget_irq for hs_phy_irq failed\n");
-		mdwc->hs_phy_irq = 0;
+		dev_err(&pdev->dev, "pget_irq for hs_phy_irq failed\n");
+		goto disable_ref_clk;
 	} else {
 		irq_set_status_flags(mdwc->hs_phy_irq, IRQ_NOAUTOEN);
 		ret = devm_request_irq(&pdev->dev, mdwc->hs_phy_irq,
-				msm_dwc3_irq, IRQF_TRIGGER_RISING,
-			       "msm_dwc3", mdwc);
+				msm_dwc3_hs_phy_irq, IRQF_TRIGGER_RISING,
+			       "msm_hs_phy_irq", mdwc);
 		if (ret) {
 			dev_err(&pdev->dev, "irqreq HSPHYINT failed\n");
 			goto disable_ref_clk;
@@ -2682,8 +2659,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	 */
 	mdwc->pwr_event_irq = platform_get_irq_byname(pdev, "pwr_event_irq");
 	if (mdwc->pwr_event_irq < 0) {
-		dev_dbg(&pdev->dev, "pget_irq for pwr_event_irq failed\n");
-		mdwc->pwr_event_irq = 0;
+		dev_err(&pdev->dev, "pget_irq for pwr_event_irq failed\n");
+		goto disable_ref_clk;
 	} else {
 		/*
 		 * enable pwr event irq early during PM resume to meet bus
@@ -2951,9 +2928,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
 				PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
 
-	/* Don't enable HS PHY IRQ if PWR EVENT IRQ is available */
-	if (!mdwc->pwr_event_irq)
-		enable_irq(mdwc->hs_phy_irq);
+	enable_irq(mdwc->hs_phy_irq);
 
 	/* Update initial ID state */
 	if (mdwc->pmic_id_irq) {
@@ -3059,7 +3034,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		regulator_disable(mdwc->vbus_otg);
 
 	if (mdwc->hs_phy_irq)
-		disable_irq_wake(mdwc->hs_phy_irq);
+		disable_irq(mdwc->hs_phy_irq);
 	if (mdwc->pwr_event_irq)
 		disable_irq(mdwc->pwr_event_irq);
 
