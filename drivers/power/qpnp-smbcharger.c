@@ -30,6 +30,7 @@
 #include <linux/spmi.h>
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
+#include <linux/debugfs.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/batterydata-lib.h>
 
@@ -110,6 +111,7 @@ struct smbchg_chip {
 	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
 	struct delayed_work		parallel_en_work;
+	struct dentry			*debug_root;
 
 	/* wipower params */
 	struct ilim_map			wipower_default;
@@ -1967,6 +1969,16 @@ static void btm_notify_dcin(enum qpnp_tm_state state, void *ctx)
 	__smbchg_wipower_check(chip);
 	mutex_unlock(&chip->wipower_config);
 }
+
+static int force_dcin_icl_write(void *data, u64 val)
+{
+	struct smbchg_chip *chip = data;
+
+	smbchg_wipower_check(chip);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(force_dcin_icl_ops, NULL,
+		force_dcin_icl_write, "0x%02llx\n");
 
 /*
  * set the dc charge path's maximum allowed current draw
@@ -4313,6 +4325,28 @@ static void dump_regs(struct smbchg_chip *chip)
 		dump_reg(chip, chip->misc_base + addr, "MISC CFG");
 }
 
+static int create_debugfs_entries(struct smbchg_chip *chip)
+{
+	struct dentry *ent;
+
+	chip->debug_root = debugfs_create_dir("qpnp-smbcharger", NULL);
+	if (!chip->debug_root) {
+		dev_err(chip->dev, "Couldn't create debug dir\n");
+		return -EINVAL;
+	}
+
+	ent = debugfs_create_file("force_dcin_icl_check",
+				  S_IFREG | S_IWUSR | S_IRUGO,
+				  chip->debug_root, chip,
+				  &force_dcin_icl_ops);
+	if (!ent) {
+		dev_err(chip->dev,
+			"Couldn't create force dcin icl check file\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static int smbchg_probe(struct spmi_device *spmi)
 {
 	int rc;
@@ -4440,6 +4474,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	power_supply_set_present(chip->usb_psy, chip->usb_present);
 
 	dump_regs(chip);
+	create_debugfs_entries(chip);
 	dev_info(chip->dev, "SMBCHG successfully probed batt=%d dc = %d usb = %d\n",
 			get_prop_batt_present(chip),
 			chip->dc_present, chip->usb_present);
@@ -4458,6 +4493,8 @@ free_regulator:
 static int smbchg_remove(struct spmi_device *spmi)
 {
 	struct smbchg_chip *chip = dev_get_drvdata(&spmi->dev);
+
+	debugfs_remove_recursive(chip->debug_root);
 
 	if (chip->dc_psy_type != -EINVAL)
 		power_supply_unregister(&chip->dc_psy);
