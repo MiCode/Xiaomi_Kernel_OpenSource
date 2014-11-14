@@ -410,7 +410,12 @@ static int hdmi_tx_get_vic_from_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl,
 	}
 
 	if (pinfo->vic) {
-		if (hdmi_get_supported_mode(pinfo->vic)) {
+		struct msm_hdmi_mode_timing_info info = {0};
+		u32 ret = hdmi_get_supported_mode(&info,
+				&hdmi_ctrl->ds_data, pinfo->vic);
+		u32 supported = info.supported;
+
+		if (!ret && supported) {
 			new_vic = pinfo->vic;
 			DEV_DBG("%s: %s is supported\n", __func__,
 				msm_hdmi_mode_2string(new_vic));
@@ -451,7 +456,7 @@ static int hdmi_tx_get_vic_from_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl,
 		DEV_DBG("%s: pixel_freq=%d refresh_rate=%d\n", __func__,
 			timing.pixel_freq, timing.refresh_rate);
 
-		new_vic = hdmi_get_video_id_code(&timing);
+		new_vic = hdmi_get_video_id_code(&timing, &hdmi_ctrl->ds_data);
 	}
 
 	return new_vic;
@@ -680,7 +685,7 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 		return rc;
 	}
 
-	if (hdmi_ctrl->mhl_max_pclk && hpd &&
+	if (hdmi_ctrl->ds_registered && hpd &&
 	    (!hdmi_ctrl->mhl_hpd_on || hdmi_ctrl->hpd_feature_on))
 		return 0;
 
@@ -956,6 +961,72 @@ static ssize_t hdmi_tx_sysfs_wta_avi_cn_bits(struct device *dev,
 	return ret;
 } /* hdmi_tx_sysfs_wta_cn_bits */
 
+static ssize_t hdmi_tx_sysfs_wta_res_info(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int rc, res_info_id;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+
+	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = kstrtoint(buf, 10, &res_info_id);
+	if (rc) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	if (res_info_id >= 0 && res_info_id < HDMI_VFRMT_MAX)
+		hdmi_ctrl->res_info_id = res_info_id;
+	else
+		hdmi_ctrl->res_info_id = 0;
+
+	DEV_DBG("%s: %d\n", __func__, hdmi_ctrl->res_info_id);
+	return ret;
+}
+
+static ssize_t hdmi_tx_sysfs_rda_res_info(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct msm_hdmi_mode_timing_info info = {0};
+	struct hdmi_tx_ctrl *hdmi_ctrl =
+		hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+	u32 size = sizeof(info) < PAGE_SIZE ? sizeof(info) : PAGE_SIZE;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!hdmi_ctrl->res_info_id)
+		return -EINVAL;
+
+	ret = hdmi_get_supported_mode(&info, &hdmi_ctrl->ds_data,
+		hdmi_ctrl->res_info_id);
+
+	if (ret)
+		return -EINVAL;
+
+	memcpy(buf, &info, size);
+
+	DEV_DBG("%s: %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+		__func__,
+		info.video_format, info.active_h, info.front_porch_h,
+		info.pulse_width_h, info.back_porch_h, info.active_low_h,
+		info.active_v, info.front_porch_v, info.pulse_width_v,
+		info.back_porch_v, info.active_low_v, info.pixel_freq,
+		info.refresh_rate, info.interlaced, info.supported,
+		info.ar);
+
+	return size;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_tx_sysfs_rda_connected, NULL);
 static DEVICE_ATTR(video_mode, S_IRUGO, hdmi_tx_sysfs_rda_video_mode, NULL);
 static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_hpd,
@@ -967,6 +1038,8 @@ static DEVICE_ATTR(product_description, S_IRUGO | S_IWUSR,
 	hdmi_tx_sysfs_wta_product_description);
 static DEVICE_ATTR(avi_itc, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_itc);
 static DEVICE_ATTR(avi_cn0_1, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_cn_bits);
+static DEVICE_ATTR(res_info, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_res_info,
+	hdmi_tx_sysfs_wta_res_info);
 
 static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_connected.attr,
@@ -976,6 +1049,7 @@ static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_product_description.attr,
 	&dev_attr_avi_itc.attr,
 	&dev_attr_avi_cn0_1.attr,
+	&dev_attr_res_info.attr,
 	NULL,
 };
 static struct attribute_group hdmi_tx_fs_attrs_group = {
@@ -1150,6 +1224,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 	edid_init_data.mutex = &hdmi_ctrl->mutex;
 	edid_init_data.sysfs_kobj = hdmi_ctrl->kobj;
 	edid_init_data.ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
+	edid_init_data.ds_data = &hdmi_ctrl->ds_data;
 
 	hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] =
 		hdmi_edid_init(&edid_init_data);
@@ -1217,31 +1292,33 @@ static inline u32 hdmi_tx_is_controller_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 static int hdmi_tx_init_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	struct mdss_panel_info *pinfo;
-	const struct msm_hdmi_mode_timing_info *timing;
+	struct msm_hdmi_mode_timing_info timing = {0};
+	u32 ret;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
 
-	timing = hdmi_get_supported_mode(hdmi_ctrl->vid_cfg.vic);
+	ret = hdmi_get_supported_mode(&timing, &hdmi_ctrl->ds_data,
+		hdmi_ctrl->vid_cfg.vic);
 	pinfo = &hdmi_ctrl->panel_data.panel_info;
 
-	if (!timing || !pinfo) {
+	if (ret || !timing.supported || !pinfo) {
 		DEV_ERR("%s: invalid timing data\n", __func__);
 		return -EINVAL;
 	}
 
-	pinfo->xres = timing->active_h;
-	pinfo->yres = timing->active_v;
-	pinfo->clk_rate = timing->pixel_freq*1000;
+	pinfo->xres = timing.active_h;
+	pinfo->yres = timing.active_v;
+	pinfo->clk_rate = timing.pixel_freq * 1000;
 
-	pinfo->lcdc.h_back_porch = timing->back_porch_h;
-	pinfo->lcdc.h_front_porch = timing->front_porch_h;
-	pinfo->lcdc.h_pulse_width = timing->pulse_width_h;
-	pinfo->lcdc.v_back_porch = timing->back_porch_v;
-	pinfo->lcdc.v_front_porch = timing->front_porch_v;
-	pinfo->lcdc.v_pulse_width = timing->pulse_width_v;
+	pinfo->lcdc.h_back_porch = timing.back_porch_h;
+	pinfo->lcdc.h_front_porch = timing.front_porch_h;
+	pinfo->lcdc.h_pulse_width = timing.pulse_width_h;
+	pinfo->lcdc.v_back_porch = timing.back_porch_v;
+	pinfo->lcdc.v_front_porch = timing.front_porch_v;
+	pinfo->lcdc.v_pulse_width = timing.pulse_width_v;
 
 	pinfo->type = DTV_PANEL;
 	pinfo->pdest = DISPLAY_2;
@@ -1257,30 +1334,6 @@ static int hdmi_tx_init_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	return 0;
 } /* hdmi_tx_init_panel_info */
-
-/* Table tuned to indicate video formats supported by the MHL Tx */
-/* Valid pclk rates (Mhz): 25.2, 27, 27.03, 74.25 */
-static void hdmi_tx_setup_mhl_video_mode_lut(struct hdmi_tx_ctrl *hdmi_ctrl)
-{
-	u32 i;
-	struct msm_hdmi_mode_timing_info *temp_timing;
-
-	if (!hdmi_ctrl->mhl_max_pclk) {
-		DEV_WARN("%s: mhl max pclk not set!\n", __func__);
-		return;
-	}
-	DEV_DBG("%s: max mode set to [%u]\n",
-		__func__, hdmi_ctrl->mhl_max_pclk);
-	for (i = 0; i < HDMI_VFRMT_MAX; i++) {
-		temp_timing =
-		(struct msm_hdmi_mode_timing_info *)hdmi_get_supported_mode(i);
-		if (!temp_timing)
-			continue;
-		/* formats that exceed max mhl line clk bw */
-		if (temp_timing->pixel_freq > hdmi_ctrl->mhl_max_pclk)
-			hdmi_del_supported_mode(i);
-	}
-} /* hdmi_tx_setup_mhl_video_mode_lut */
 
 static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
@@ -1406,9 +1459,9 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 	struct mdss_panel_info *pinfo)
 {
 	int new_vic = -1;
-	const struct msm_hdmi_mode_timing_info *timing = NULL;
 	int res_changed = RESOLUTION_UNCHANGED;
 	struct hdmi_video_config *vid_cfg = NULL;
+	u32 ret;
 
 	if (!hdmi_ctrl || !pinfo) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1430,16 +1483,16 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 	vid_cfg->vic = (u32)new_vic;
 
-	timing = hdmi_get_supported_mode(vid_cfg->vic);
+	ret = hdmi_get_supported_mode(&vid_cfg->timing, &hdmi_ctrl->ds_data,
+				      vid_cfg->vic);
 
-	if (!timing) {
+	if (ret || !vid_cfg->timing.supported) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
 
 	/* Setup AVI Infoframe content */
 	vid_cfg->vic = new_vic;
-	vid_cfg->timing = timing;
 	vid_cfg->avi_iframe.pixel_format = pinfo->out_format;
 	vid_cfg->avi_iframe.scan_info = hdmi_edid_get_sink_scaninfo(
 				hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
@@ -1448,9 +1501,11 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 	vid_cfg->avi_iframe.pixel_format = pinfo->out_format;
 
 	vid_cfg->avi_iframe.bar_info.end_of_top_bar = 0x0;
-	vid_cfg->avi_iframe.bar_info.start_of_bottom_bar = timing->active_v + 1;
+	vid_cfg->avi_iframe.bar_info.start_of_bottom_bar =
+					vid_cfg->timing.active_v + 1;
 	vid_cfg->avi_iframe.bar_info.end_of_left_bar = 0;
-	vid_cfg->avi_iframe.bar_info.start_of_right_bar = timing->active_h + 1;
+	vid_cfg->avi_iframe.bar_info.start_of_right_bar =
+					vid_cfg->timing.active_h + 1;
 
 	vid_cfg->avi_iframe.act_fmt_info_present = true;
 	vid_cfg->avi_iframe.rgb_quantization_range = HDMI_QUANTIZATION_DEFAULT;
@@ -1464,7 +1519,7 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 	vid_cfg->avi_iframe.pixel_rpt_factor = 0;
 	/* todo: find a better way */
 	hdmi_ctrl->pdata.power_data[HDMI_TX_CORE_PM].clk_config[0].rate =
-		timing->pixel_freq * 1000;
+		vid_cfg->timing.pixel_freq * 1000;
 
 	hdmi_edid_set_video_resolution(
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID], vid_cfg->vic);
@@ -1482,14 +1537,13 @@ static int hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 	u32 end_v     = 0;
 	u32 div       = 0;
 	struct dss_io_data *io = NULL;
-	const struct msm_hdmi_mode_timing_info *timing = NULL;
-
+	struct msm_hdmi_mode_timing_info *timing = NULL;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
-	timing = hdmi_ctrl->vid_cfg.timing;
+	timing = &hdmi_ctrl->vid_cfg.timing;
 
 	if (timing == NULL) {
 		DEV_ERR("%s: video format not supported: %d\n", __func__,
@@ -1562,7 +1616,7 @@ static void hdmi_tx_set_avi_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl)
 	u32 sum, reg_val;
 	struct dss_io_data *io = NULL;
 	struct hdmi_avi_infoframe_config *avi_info;
-	const struct msm_hdmi_mode_timing_info *timing;
+	struct msm_hdmi_mode_timing_info *timing;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1571,7 +1625,7 @@ static void hdmi_tx_set_avi_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	avi_info = &hdmi_ctrl->vid_cfg.avi_iframe;
-	timing = hdmi_ctrl->vid_cfg.timing;
+	timing = &hdmi_ctrl->vid_cfg.timing;
 
 	if (!io->base) {
 		DEV_ERR("%s: Core io is not initialized\n", __func__);
@@ -2311,8 +2365,8 @@ static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 	acr_pck_ctrl_reg = DSS_REG_R(io, HDMI_ACR_PKT_CTRL);
 
 	if (enabled) {
-		const struct msm_hdmi_mode_timing_info *timing =
-			hdmi_ctrl->vid_cfg.timing;
+		struct msm_hdmi_mode_timing_info *timing =
+			&hdmi_ctrl->vid_cfg.timing;
 		const struct hdmi_tx_audio_acr_arry *audio_acr =
 			&hdmi_tx_audio_acr_lut[0];
 		const int lut_size = sizeof(hdmi_tx_audio_acr_lut)
@@ -2649,12 +2703,13 @@ static int hdmi_tx_set_mhl_max_pclk(struct platform_device *pdev, u32 max_val)
 		return -ENODEV;
 	}
 	if (max_val) {
-		hdmi_ctrl->mhl_max_pclk = max_val;
-		hdmi_tx_setup_mhl_video_mode_lut(hdmi_ctrl);
+		hdmi_ctrl->ds_data.ds_max_clk = max_val;
+		hdmi_ctrl->ds_data.ds_registered = true;
 	} else {
 		DEV_ERR("%s: invalid max pclk val\n", __func__);
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -2792,7 +2847,7 @@ static int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 	u32 reg_val = 0;
 	bool scrambler_on = false;
 	struct dss_io_data *io = NULL;
-	const struct msm_hdmi_mode_timing_info *timing = NULL;
+	struct msm_hdmi_mode_timing_info *timing = NULL;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: Bad input parameters\n", __func__);
@@ -2805,7 +2860,7 @@ static int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return -EINVAL;
 	}
 
-	timing = hdmi_ctrl->vid_cfg.timing;
+	timing = &hdmi_ctrl->vid_cfg.timing;
 	if (!timing) {
 		DEV_ERR("%s: Invalid timing info\n", __func__);
 		return -EINVAL;
@@ -3406,7 +3461,6 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 	/* irq enable/disable will be handled in hpd on/off */
 	hdmi_tx_hw.ptr = (void *)hdmi_ctrl;
 
-	hdmi_setup_video_mode_lut();
 	mutex_init(&hdmi_ctrl->mutex);
 	mutex_init(&hdmi_ctrl->lut_lock);
 	mutex_init(&hdmi_ctrl->cable_notify_mutex);
