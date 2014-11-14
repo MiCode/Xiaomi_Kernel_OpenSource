@@ -191,12 +191,6 @@ struct mdp3_dma_ccs {
 	u32 *post_lv;
 };
 
-struct mdp3_dma_lut {
-	u16 *color0_lut;
-	u16 *color1_lut;
-	u16 *color2_lut;
-};
-
 struct mdp3_dma_lut_config {
 	int lut_enable;
 	u32 lut_sel;
@@ -283,6 +277,10 @@ struct mdp3_dma {
 	bool has_panic_ctrl;
 	struct mdp3_rect roi;
 
+	u32 lut_sts;
+	struct fb_cmap *gc_cmap;
+	struct fb_cmap *hist_cmap;
+
 	int (*dma_config)(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
 			struct mdp3_dma_output_config *output_config);
@@ -305,7 +303,7 @@ struct mdp3_dma {
 
 	int (*config_lut)(struct mdp3_dma *dma,
 			struct mdp3_dma_lut_config *config,
-			struct mdp3_dma_lut *lut);
+			struct fb_cmap *cmap);
 
 	int (*update)(struct mdp3_dma *dma,
 			void *buf, struct mdp3_intf *intf, void *data);

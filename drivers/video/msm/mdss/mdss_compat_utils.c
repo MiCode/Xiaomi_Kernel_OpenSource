@@ -422,6 +422,27 @@ static int __from_user_fb_cmap(struct fb_cmap __user *cmap,
 	return 0;
 }
 
+static int __to_user_fb_cmap(struct fb_cmap __user *cmap,
+				struct fb_cmap32 __user *cmap32)
+{
+	unsigned long data;
+
+	if (copy_in_user(&cmap32->start, &cmap->start, 2 * sizeof(__u32)))
+		return -EFAULT;
+
+	if (get_user(data, (unsigned long *) &cmap->red) ||
+	    put_user((compat_caddr_t) data, &cmap32->red) ||
+	    get_user(data, (unsigned long *) &cmap->green) ||
+	    put_user((compat_caddr_t) data, &cmap32->green) ||
+	    get_user(data, (unsigned long *) &cmap->blue) ||
+	    put_user((compat_caddr_t) data, &cmap32->blue) ||
+	    get_user(data, (unsigned long *) &cmap->transp) ||
+	    put_user((compat_caddr_t) data, &cmap32->transp))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __from_user_fb_image(struct fb_image __user *image,
 				struct fb_image32 __user *image32)
 {
@@ -1415,6 +1436,32 @@ static int __to_user_hist_lut_data(
 	return 0;
 }
 
+static int __from_user_rgb_lut_data(
+				struct mdp_rgb_lut_data32 __user *rgb_lut32,
+				struct mdp_rgb_lut_data __user *rgb_lut)
+{
+	if (copy_in_user(&rgb_lut->flags, &rgb_lut32->flags,
+		sizeof(uint32_t)) ||
+		copy_in_user(&rgb_lut->lut_type, &rgb_lut32->lut_type,
+		sizeof(uint32_t)))
+		return -EFAULT;
+
+	return __from_user_fb_cmap(&rgb_lut->cmap, &rgb_lut32->cmap);
+}
+
+static int __to_user_rgb_lut_data(
+			struct mdp_rgb_lut_data32 __user *rgb_lut32,
+			struct mdp_rgb_lut_data __user *rgb_lut)
+{
+	if (copy_in_user(&rgb_lut32->flags, &rgb_lut->flags,
+		sizeof(uint32_t)) ||
+		copy_in_user(&rgb_lut32->lut_type, &rgb_lut->lut_type,
+		sizeof(uint32_t)))
+		return -EFAULT;
+
+	return __to_user_fb_cmap(&rgb_lut->cmap, &rgb_lut32->cmap);
+}
+
 static int __from_user_lut_cfg_data(
 			struct mdp_lut_cfg_data32 __user *lut_cfg32,
 			struct mdp_lut_cfg_data __user *lut_cfg)
@@ -1446,6 +1493,11 @@ static int __from_user_lut_cfg_data(
 		ret = __from_user_hist_lut_data(
 			compat_ptr((uintptr_t)&lut_cfg32->data.hist_lut_data),
 			&lut_cfg->data.hist_lut_data);
+		break;
+	case mdp_lut_rgb:
+		ret = __from_user_rgb_lut_data(
+			compat_ptr((uintptr_t)&lut_cfg32->data.rgb_lut_data),
+			&lut_cfg->data.rgb_lut_data);
 		break;
 	default:
 		break;
@@ -1485,6 +1537,11 @@ static int __to_user_lut_cfg_data(
 		ret = __to_user_hist_lut_data(
 			compat_ptr((uintptr_t)&lut_cfg32->data.hist_lut_data),
 			&lut_cfg->data.hist_lut_data);
+		break;
+	case mdp_lut_rgb:
+		ret = __to_user_rgb_lut_data(
+			compat_ptr((uintptr_t)&lut_cfg32->data.rgb_lut_data),
+			&lut_cfg->data.rgb_lut_data);
 		break;
 	default:
 		break;

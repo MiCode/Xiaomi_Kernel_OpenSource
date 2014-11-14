@@ -25,6 +25,9 @@
 #include "mdss_panel.h"
 
 #define MDP3_MAX_BUF_QUEUE 8
+#define MDP3_LUT_HIST_EN 0x001
+#define MDP3_LUT_GC_EN 0x002
+#define MDP3_LUT_HIST_GC_EN (MDP3_LUT_HIST_EN | MDP3_LUT_GC_EN)
 
 struct mdp3_buffer_queue {
 	struct mdp3_img_data img_data[MDP3_MAX_BUF_QUEUE];
@@ -53,6 +56,7 @@ struct mdp3_session_data {
 	atomic_t dma_done_cnt;
 	int histo_status;
 	struct mutex histo_lock;
+	struct mutex pp_lock;
 	int lut_sel;
 	int cc_vect_sel;
 	bool vsync_before_commit;

@@ -35,6 +35,30 @@ static int mdp3_histogram_stop(struct mdp3_session_data *session,
 static int mdp3_ctrl_clk_enable(struct msm_fb_data_type *mfd, int enable);
 static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable);
 static int mdp3_ctrl_get_intf_type(struct msm_fb_data_type *mfd);
+static int mdp3_ctrl_lut_read(struct msm_fb_data_type *mfd,
+				struct mdp_rgb_lut_data *cfg);
+static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
+				struct mdp_rgb_lut_data *cfg);
+
+u32 mdp_lut_inverse16[MDP_LUT_SIZE] = {
+0, 65536, 32768, 21845, 16384, 13107, 10923, 9362, 8192, 7282, 6554, 5958,
+5461, 5041, 4681, 4369, 4096, 3855, 3641, 3449, 3277, 3121, 2979, 2849, 2731,
+2621, 2521, 2427, 2341, 2260, 2185, 2114, 2048, 1986, 1928, 1872, 1820, 1771,
+1725, 1680, 1638, 1598, 1560, 1524, 1489, 1456, 1425, 1394, 1365, 1337, 1311,
+1285, 1260, 1237, 1214, 1192, 1170, 1150, 1130, 1111, 1092, 1074, 1057, 1040,
+1024, 1008, 993, 978, 964, 950, 936, 923, 910, 898, 886, 874, 862, 851, 840,
+830, 819, 809, 799, 790, 780, 771, 762, 753, 745, 736, 728, 720, 712, 705, 697,
+690, 683, 676, 669, 662, 655, 649, 643, 636, 630, 624, 618, 612, 607, 601, 596,
+590, 585, 580, 575, 570, 565, 560, 555, 551, 546, 542, 537, 533, 529, 524, 520,
+516, 512, 508, 504, 500, 496, 493, 489, 485, 482, 478, 475, 471, 468, 465, 462,
+458, 455, 452, 449, 446, 443, 440, 437, 434, 431, 428, 426, 423, 420, 417, 415,
+412, 410, 407, 405, 402, 400, 397, 395, 392, 390, 388, 386, 383, 381, 379, 377,
+374, 372, 370, 368, 366, 364, 362, 360, 358, 356, 354, 352, 350, 349, 347, 345,
+343, 341, 340, 338, 336, 334, 333, 331, 329, 328, 326, 324, 323, 321, 320, 318,
+317, 315, 314, 312, 311, 309, 308, 306, 305, 303, 302, 301, 299, 298, 297, 295,
+294, 293, 291, 290, 289, 287, 286, 285, 284, 282, 281, 280, 279, 278, 277, 275,
+274, 273, 272, 271, 270, 269, 267, 266, 265, 264, 263, 262, 261, 260, 259, 258,
+257};
 
 static void mdp3_bufq_init(struct mdp3_buffer_queue *bufq)
 {
@@ -1553,6 +1577,7 @@ static int mdp3_pp_ioctl(struct msm_fb_data_type *mfd,
 {
 	int ret = -EINVAL;
 	struct msmfb_mdp_pp mdp_pp;
+	struct mdp_lut_cfg_data *lut;
 	struct mdp3_session_data *mdp3_session;
 
 	if (!mfd || !mfd->mdp.private1)
@@ -1582,6 +1607,21 @@ static int mdp3_pp_ioctl(struct msm_fb_data_type *mfd,
 		}
 		ret = mdp3_csc_config(mdp3_session,
 						&(mdp_pp.data.csc_cfg_data));
+		break;
+	case mdp_op_lut_cfg:
+		lut = &mdp_pp.data.lut_cfg_data;
+		if (lut->lut_type != mdp_lut_rgb) {
+			pr_err("Lut type %d is not supported", lut->lut_type);
+			return -EINVAL;
+		}
+		if (lut->data.rgb_lut_data.flags & MDP_PP_OPS_READ)
+			ret = mdp3_ctrl_lut_read(mfd,
+						&(lut->data.rgb_lut_data));
+		else
+			ret = mdp3_ctrl_lut_update(mfd,
+						&(lut->data.rgb_lut_data));
+		if (ret)
+			pr_err("%s: invalid rgb lut data\n", __func__);
 		break;
 
 	default:
@@ -1640,55 +1680,277 @@ static int mdp3_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 	return ret;
 }
 
+static int mdp3_validate_lut_data(struct fb_cmap *cmap)
+{
+	u32 i = 0;
+
+	if (!cmap || !cmap->red || !cmap->green || !cmap->blue) {
+		pr_err("Invalid arguments!\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < MDP_LUT_SIZE; i++) {
+		if (cmap->red[i] > 0xFF || cmap->green[i] > 0xFF ||
+			cmap->blue[i] > 0xFF) {
+			pr_err("LUT value over 255 (limit) at %d index\n", i);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static int mdp3_alloc_lut_buffer(struct platform_device *pdev, void **cmap)
+{
+	struct fb_cmap *map;
+
+	map = devm_kzalloc(&pdev->dev, sizeof(struct fb_cmap), GFP_KERNEL);
+	if (map == NULL) {
+		pr_err("Failed memory allocation for cmap\n");
+		return -ENOMEM;
+	}
+	memset(map, 0, sizeof(struct fb_cmap));
+
+	map->red = devm_kzalloc(&pdev->dev, MDP_LUT_SIZE * sizeof(u16),
+				GFP_KERNEL);
+	if (map->red == NULL) {
+		pr_err("Failed cmap allocation for red\n");
+		goto exit_red;
+	}
+	memset(map->red, 0, sizeof(u16) * MDP_LUT_SIZE);
+
+	map->green = devm_kzalloc(&pdev->dev, MDP_LUT_SIZE * sizeof(u16),
+				GFP_KERNEL);
+	if (map->green == NULL) {
+		pr_err("Failed cmap allocation for green\n");
+		goto exit_green;
+	}
+	memset(map->green, 0, sizeof(u16) * MDP_LUT_SIZE);
+
+	map->blue = devm_kzalloc(&pdev->dev, MDP_LUT_SIZE * sizeof(u16),
+				GFP_KERNEL);
+	if (map->blue == NULL) {
+		pr_err("Failed cmap allocation for blue\n");
+		goto exit_blue;
+	}
+	memset(map->blue, 0, sizeof(u16) * MDP_LUT_SIZE);
+
+	*cmap = map;
+	return 0;
+exit_blue:
+	devm_kfree(&pdev->dev, map->green);
+exit_green:
+	devm_kfree(&pdev->dev, map->red);
+exit_red:
+	devm_kfree(&pdev->dev, map);
+	return -ENOMEM;
+}
+
+static void mdp3_free_lut_buffer(struct platform_device *pdev, void **cmap)
+{
+	struct fb_cmap *map = (struct fb_cmap *)(*cmap);
+
+	if (map == NULL)
+		return;
+
+	devm_kfree(&pdev->dev, map->blue);
+	map->blue = NULL;
+	devm_kfree(&pdev->dev, map->green);
+	map->green = NULL;
+	devm_kfree(&pdev->dev, map->red);
+	map->red = NULL;
+	devm_kfree(&pdev->dev, map);
+	map = NULL;
+}
+
+static void mdp3_lut_combine_gain(struct fb_cmap *cmap, struct mdp3_dma *dma)
+{
+	int i = 0;
+	u32 r = 0, g = 0, b = 0;
+
+	if (!cmap || !dma || !dma->gc_cmap || !dma->hist_cmap ||
+		!dma->gc_cmap->red || !dma->gc_cmap->green ||
+		!dma->gc_cmap->blue || !dma->hist_cmap->red ||
+		!dma->hist_cmap->green || !dma->hist_cmap->blue) {
+		pr_err("Invalid params\n");
+		return;
+	}
+
+	for (i = 1; i < MDP_LUT_SIZE; i++) {
+		r = MIN(dma->gc_cmap->red[i] * dma->hist_cmap->red[i] *
+			mdp_lut_inverse16[i], 0xFF0000);
+		g = MIN(dma->gc_cmap->green[i] * dma->hist_cmap->green[i] *
+			mdp_lut_inverse16[i], 0xFF0000);
+		b = MIN(dma->gc_cmap->blue[i] * dma->hist_cmap->blue[i] *
+			mdp_lut_inverse16[i], 0xFF0000);
+
+		cmap->red[i]   = (r >> 16) & 0xFF;
+		cmap->green[i] = (g >> 16) & 0xFF;
+		cmap->blue[i]  = (b >> 16) & 0xFF;
+	}
+}
+
 static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
-				struct fb_cmap *cmap)
+				struct mdp_rgb_lut_data *cfg)
 {
 	int rc = 0;
+	bool data_validated = false;
 	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+	struct mdp3_dma *dma;
 	struct mdp3_dma_lut_config lut_config;
-	struct mdp3_dma_lut lut;
-	static u16 r[MDP_LUT_SIZE];
-	static u16 g[MDP_LUT_SIZE];
-	static u16 b[MDP_LUT_SIZE];
+	struct fb_cmap *cmap;
 
-	if (!mdp3_session->dma->config_lut)
+	dma = mdp3_session->dma;
+
+	if (!dma->config_lut) {
+		pr_err("Config LUT not defined!\n");
 		return -EINVAL;
+	}
 
-	if (cmap->start > MDP_LUT_SIZE || cmap->len > MDP_LUT_SIZE ||
-			(cmap->start + cmap->len > MDP_LUT_SIZE)) {
-		pr_err("mdp3_ctrl_lut_update invalid arguments\n");
+	if (cfg->cmap.start + cfg->cmap.len > MDP_LUT_SIZE) {
+		pr_err("Invalid arguments\n");
 		return  -EINVAL;
 	}
 
-	rc = copy_from_user(r + cmap->start,
-					cmap->red, sizeof(u16)*cmap->len);
-	rc |= copy_from_user(g + cmap->start,
-					cmap->green, sizeof(u16)*cmap->len);
-	rc |= copy_from_user(b + cmap->start,
-					cmap->blue, sizeof(u16)*cmap->len);
-	if (rc)
-		return rc;
+	rc = mdp3_alloc_lut_buffer(mfd->pdev, (void **) &cmap);
+	if (rc) {
+		pr_err("No memory\n");
+		return -ENOMEM;
+	}
+
+	mutex_lock(&mdp3_session->pp_lock);
+	rc = copy_from_user(cmap->red + cfg->cmap.start,
+			cfg->cmap.red, sizeof(u16) * cfg->cmap.len);
+	rc |= copy_from_user(cmap->green + cfg->cmap.start,
+			cfg->cmap.green, sizeof(u16) * cfg->cmap.len);
+	rc |= copy_from_user(cmap->blue + cfg->cmap.start,
+			cfg->cmap.blue, sizeof(u16) * cfg->cmap.len);
+	if (rc) {
+		pr_err("Copying user data failed!\n");
+		goto exit_err;
+	}
+
+	switch (cfg->lut_type) {
+	case mdp_rgb_lut_gc:
+		if (cfg->flags & MDP_PP_OPS_DISABLE) {
+			if (dma->lut_sts & MDP3_LUT_GC_EN)
+				/* Free GC cmap cache since disabled */
+				mdp3_free_lut_buffer(mfd->pdev,
+						(void **)&dma->gc_cmap);
+			dma->lut_sts &= ~MDP3_LUT_GC_EN;
+		} else if (!(dma->lut_sts & MDP3_LUT_GC_EN)) {
+			/* Check if values sent are valid */
+			rc = mdp3_validate_lut_data(cmap);
+			if (rc) {
+				pr_err("Invalid GC LUT data\n");
+				goto exit_err;
+			}
+			data_validated = true;
+
+			/* Allocate GC cmap cache to store values */
+			rc = mdp3_alloc_lut_buffer(mfd->pdev,
+					(void **)&dma->gc_cmap);
+			if (rc) {
+				pr_err("GC LUT config failed\n");
+				goto exit_err;
+			}
+			dma->lut_sts |= MDP3_LUT_GC_EN;
+		}
+		/*
+		 * Copy the GC values from userspace to maintain the
+		 * correct values user intended to program in cache.
+		 * The values programmed in HW might factor in presence
+		 * of other LUT modifying features hence can be
+		 * different from these user given values.
+		 */
+		if (dma->lut_sts & MDP3_LUT_GC_EN) {
+			/* Validate LUT data if not yet validated */
+			if (!data_validated) {
+				rc = mdp3_validate_lut_data(cmap);
+				if (rc) {
+					pr_err("Invalid GC LUT data\n");
+					goto exit_err;
+				}
+			}
+			memcpy(dma->gc_cmap, cmap,
+					sizeof(struct fb_cmap));
+		}
+		break;
+	case mdp_rgb_lut_hist:
+		if (cfg->flags & MDP_PP_OPS_DISABLE) {
+			if (dma->lut_sts & MDP3_LUT_HIST_EN)
+				/* Free HIST cmap cache since disabled */
+				mdp3_free_lut_buffer(mfd->pdev,
+						(void **)&dma->hist_cmap);
+			dma->lut_sts &= ~MDP3_LUT_HIST_EN;
+		} else if (!(dma->lut_sts & MDP3_LUT_HIST_EN)) {
+			/* Check if values sent are valid */
+			rc = mdp3_validate_lut_data(cmap);
+			if (rc) {
+				pr_err("Invalid HIST LUT data\n");
+				goto exit_err;
+			}
+			data_validated = true;
+
+			/* Allocate HIST cmap cache to store values */
+			rc = mdp3_alloc_lut_buffer(mfd->pdev,
+					(void **)&dma->hist_cmap);
+			if (rc) {
+				pr_err("HIST LUT config failed\n");
+				goto exit_err;
+			}
+			dma->lut_sts |= MDP3_LUT_HIST_EN;
+		}
+		/*
+		 * Copy the HIST LUT values from userspace to maintain
+		 * correct values user intended to program in cache.
+		 * The values programmed in HW might factor in presence
+		 * of other LUT modifying features hence can be
+		 * different from these user given values.
+		 */
+		if (dma->lut_sts & MDP3_LUT_HIST_EN) {
+			/* Validate LUT data if not yet validated */
+			if (!data_validated) {
+				rc = mdp3_validate_lut_data(cmap);
+				if (rc) {
+					pr_err("Invalid H LUT data\n");
+					goto exit_err;
+				}
+			}
+			memcpy(dma->hist_cmap, cmap,
+					sizeof(struct fb_cmap));
+		}
+		break;
+	default:
+		pr_err("Invalid lut type: %u\n", cfg->lut_type);
+		rc = -EINVAL;
+		goto exit_err;
+	}
+
+	/*
+	 * In case both GC LUT and HIST LUT need to be programmed the gains
+	 * of each the individual LUTs need to be applied onto a single LUT
+	 * and applied in HW
+	 */
+	if (dma->lut_sts & MDP3_LUT_HIST_GC_EN)
+		mdp3_lut_combine_gain(cmap, dma);
 
 	lut_config.lut_enable = 7;
 	lut_config.lut_sel = mdp3_session->lut_sel;
 	lut_config.lut_position = 0;
 	lut_config.lut_dirty = true;
-	/* In HW the order is color0 = g, color1 = r and color2 = b*/
-	lut.color0_lut = g;
-	lut.color1_lut = r;
-	lut.color2_lut = b;
 
 	mutex_lock(&mdp3_session->lock);
 
 	if (!mdp3_session->status) {
-		pr_err("%s, display off!\n", __func__);
+		pr_err("display off!\n");
 		mutex_unlock(&mdp3_session->lock);
-		return -EPERM;
+		rc = -EPERM;
+		goto exit_err;
 	}
 
 	mdp3_clk_enable(1, 0);
-	rc = mdp3_session->dma->config_lut(mdp3_session->dma, &lut_config,
-					&lut);
+	rc = dma->config_lut(dma, &lut_config, cmap);
 	mdp3_clk_enable(0, 0);
 	if (rc)
 		pr_err("mdp3_ctrl_lut_update failed\n");
@@ -1696,6 +1958,51 @@ static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
 	mdp3_session->lut_sel = (mdp3_session->lut_sel + 1) % 2;
 
 	mutex_unlock(&mdp3_session->lock);
+exit_err:
+	mutex_unlock(&mdp3_session->pp_lock);
+	mdp3_free_lut_buffer(mfd->pdev, (void **) &cmap);
+	return rc;
+}
+
+static int mdp3_ctrl_lut_read(struct msm_fb_data_type *mfd,
+				struct mdp_rgb_lut_data *cfg)
+{
+	int rc = 0;
+	struct fb_cmap *cmap;
+	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+	struct mdp3_dma *dma = mdp3_session->dma;
+
+	switch (cfg->lut_type) {
+	case mdp_rgb_lut_gc:
+		if (!dma->gc_cmap) {
+			pr_err("GC not programmed\n");
+			return -EPERM;
+		}
+		cmap = dma->gc_cmap;
+		break;
+	case mdp_rgb_lut_hist:
+		if (!dma->hist_cmap) {
+			pr_err("Hist LUT not programmed\n");
+			return -EPERM;
+		}
+		cmap = dma->hist_cmap;
+		break;
+	default:
+		pr_err("Invalid lut type %u\n", cfg->lut_type);
+		return -EINVAL;
+	}
+
+	cfg->cmap.start = cmap->start;
+	cfg->cmap.len = cmap->len;
+
+	mutex_lock(&mdp3_session->pp_lock);
+	rc = copy_to_user(cfg->cmap.red, cmap->red, sizeof(u16) *
+								MDP_LUT_SIZE);
+	rc |= copy_to_user(cfg->cmap.green, cmap->green, sizeof(u16) *
+								MDP_LUT_SIZE);
+	rc |= copy_to_user(cfg->cmap.blue, cmap->blue, sizeof(u16) *
+								MDP_LUT_SIZE);
+	mutex_unlock(&mdp3_session->pp_lock);
 	return rc;
 }
 
@@ -1929,7 +2236,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	mdp3_interface->dma_fnc = mdp3_ctrl_pan_display;
 	mdp3_interface->ioctl_handler = mdp3_ctrl_ioctl_handler;
 	mdp3_interface->kickoff_fnc = mdp3_ctrl_display_commit_kickoff;
-	mdp3_interface->lut_update = mdp3_ctrl_lut_update;
+	mdp3_interface->lut_update = NULL;
 	mdp3_interface->configure_panel = mdp3_update_panel_info;
 
 	mdp3_session = kzalloc(sizeof(struct mdp3_session_data), GFP_KERNEL);
@@ -1942,6 +2249,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	INIT_WORK(&mdp3_session->dma_done_work, mdp3_dispatch_dma_done);
 	atomic_set(&mdp3_session->vsync_countdown, 0);
 	mutex_init(&mdp3_session->histo_lock);
+	mutex_init(&mdp3_session->pp_lock);
 	mdp3_session->dma = mdp3_get_dma_pipe(MDP3_DMA_CAP_ALL);
 	if (!mdp3_session->dma) {
 		rc = -ENODEV;
