@@ -879,8 +879,7 @@ static void arm_smmu_flush_pgtable(struct arm_smmu_domain *smmu_domain,
 
 
 	/* Ensure new page tables are visible to the hardware walker */
-	if ((smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
-		&& !coherent_htw_disable) {
+	if (!coherent_htw_disable) {
 		dsb(ishst);
 	} else {
 		/*
@@ -1452,6 +1451,15 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto err_disable_clocks;
 	}
 
+	if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE))
+		&& !(smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)) {
+		dev_err(dev,
+			"Can't attach: this domain wants coherent htw but %s doesn't support it\n",
+			dev_name(smmu_domain->smmu->dev));
+		ret = -EINVAL;
+		goto err_disable_clocks;
+	}
+
 	/* Looks ok, so add the device to the domain */
 	cfg = find_smmu_master_cfg(dev);
 	if (!cfg) {
@@ -1983,10 +1991,22 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 
 	switch (attr) {
 	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
-		if (*((int *)data))
+	{
+		struct arm_smmu_device *smmu = smmu_domain->smmu;
+		int htw_disable = *((int *)data);
+
+		if (smmu && !(smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
+			&& !htw_disable) {
+			dev_err(smmu->dev,
+				"Can't enable coherent htw on this domain: this SMMU doesn't support it\n");
+			return -EINVAL;
+		}
+
+		if (htw_disable)
 			smmu_domain->attributes |=
 				(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
 		return 0;
+	}
 	default:
 		return -ENODEV;
 	}
