@@ -25,7 +25,11 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of.h>
 #include <linux/clk/msm-clock-generic.h>
+#include <linux/of_platform.h>
+#include <linux/pm_opp.h>
 #include <soc/qcom/clock-local2.h>
+
+#include "clock.h"
 
 DEFINE_VDD_REGS_INIT(vdd_cpu, 1);
 
@@ -63,6 +67,105 @@ static struct clk_lookup clock_tbl_a7[] = {
 	CLK_LOOKUP("cpu2_clk",   a7ssmux.c, "8600664.qcom,pm"),
 	CLK_LOOKUP("cpu3_clk",   a7ssmux.c, "8600664.qcom,pm"),
 };
+
+static void print_opp_table(int a7_cpu)
+{
+	struct opp *oppfmax, *oppfmin;
+	unsigned long apc0_fmax = a7ssmux.c.fmax[a7ssmux.c.num_fmax - 1];
+	unsigned long apc0_fmin = a7ssmux.c.fmax[1];
+
+	rcu_read_lock();
+	oppfmax = dev_pm_opp_find_freq_exact(get_cpu_device(a7_cpu), apc0_fmax,
+						true);
+	oppfmin = dev_pm_opp_find_freq_exact(get_cpu_device(a7_cpu), apc0_fmin,
+						true);
+
+	/* One time information during boot. */
+	pr_info("clock_cpu: a7: OPP voltage for %lu: %ld\n", apc0_fmin,
+			dev_pm_opp_get_voltage(oppfmin));
+	pr_info("clock_cpu: a7: OPP voltage for %lu: %ld\n", apc0_fmax,
+			dev_pm_opp_get_voltage(oppfmax));
+
+	rcu_read_unlock();
+}
+
+static int add_opp(struct clk *c, struct device *cpudev, struct device *vregdev,
+			unsigned long max_rate)
+{
+	unsigned long rate = 0;
+	int level;
+	long ret, uv, corner;
+
+	while (1) {
+		ret = clk_round_rate(c, rate + 1);
+		if (ret < 0) {
+			pr_warn("clock-cpu: round_rate failed at %lu\n", rate);
+			return ret;
+		}
+
+		rate = ret;
+
+		level = find_vdd_level(c, rate);
+		if (level <= 0) {
+			pr_warn("clock-cpu: no uv for %lu.\n", rate);
+			return -EINVAL;
+		}
+
+		uv = corner = c->vdd_class->vdd_uv[level];
+
+		/*
+		 * Populate both CPU and regulator devices with the
+		 * freq-to-corner OPP table to maintain backward
+		 * compatibility.
+		 */
+		ret = dev_pm_opp_add(cpudev, rate, corner);
+		if (ret) {
+			pr_warn("clock-cpu: couldn't add OPP for %lu\n",
+					rate);
+			return ret;
+		}
+
+		ret = dev_pm_opp_add(vregdev, rate, corner);
+		if (ret) {
+			pr_warn("clock-cpu: couldn't add OPP for %lu\n",
+					rate);
+			return ret;
+		}
+
+		if (rate >= max_rate)
+			break;
+	}
+
+	return 0;
+}
+
+static void populate_opp_table(struct platform_device *pdev)
+{
+	struct platform_device *apc_dev;
+	struct device_node *apc_node;
+	unsigned long apc_fmax;
+	int cpu, a7_cpu = 0;
+
+	apc_node = of_parse_phandle(pdev->dev.of_node, "cpu-vdd-supply", 0);
+	if (!apc_node) {
+		pr_err("can't find the apc0 device node.\n");
+		return;
+	}
+
+	apc_fmax = a7ssmux.c.fmax[a7ssmux.c.num_fmax - 1];
+
+	for_each_possible_cpu(cpu) {
+		a7_cpu = cpu;
+		WARN(add_opp(&a7ssmux.c, get_cpu_device(cpu),
+					&apc_dev->dev, apc_fmax),
+				"Failed to add OPP levels for A7\n");
+	}
+
+	/* One time print during bootup */
+	pr_info("clock-a7: OPP tables populated (cpu %d)\n", a7_cpu);
+
+	print_opp_table(a7_cpu);
+}
 
 static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 								char *prop_name)
@@ -236,6 +339,8 @@ static int of_get_clk_src(struct platform_device *pdev, struct clk_src *parents)
 	return num_parents;
 }
 
+static struct platform_device *cpu_clock_a7_dev;
+
 static int clock_a7_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -245,6 +350,7 @@ static int clock_a7_probe(struct platform_device *pdev)
 	char prop_name[] = "qcom,speedX-bin-vX";
 	const void *prop;
 	bool compat_bin = false;
+	bool opp_enable;
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,clock-a53-8916");
@@ -328,6 +434,12 @@ static int clock_a7_probe(struct platform_device *pdev)
 		WARN(clk_prepare_enable(&a7ssmux.c),
 			"Unable to turn on CPU clock");
 	put_online_cpus();
+
+	opp_enable = of_property_read_bool(pdev->dev.of_node,
+						"qcom,enable-opp");
+	if (opp_enable)
+		cpu_clock_a7_dev = pdev;
+
 	return 0;
 }
 
@@ -354,3 +466,12 @@ static int __init clock_a7_init(void)
 	return platform_driver_register(&clock_a7_driver);
 }
 arch_initcall(clock_a7_init);
+
+/* CPU devices are not currently available in arch_initcall */
+static int __init cpu_clock_a7_init_opp(void)
+{
+	if (cpu_clock_a7_dev)
+		populate_opp_table(cpu_clock_a7_dev);
+	return 0;
+}
+module_init(cpu_clock_a7_init_opp);
