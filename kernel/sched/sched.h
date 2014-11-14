@@ -1083,6 +1083,7 @@ struct sched_group {
 	unsigned int group_weight;
 	struct sched_group_capacity *sgc;
 	int asym_prefer_cpu;		/* cpu of highest priority in group */
+	const struct sched_group_energy const *sge;
 
 	/*
 	 * The CPUs this group covers.
