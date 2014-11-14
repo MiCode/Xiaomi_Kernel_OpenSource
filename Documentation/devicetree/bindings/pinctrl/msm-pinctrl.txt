@@ -8,13 +8,10 @@ different types, encapsulating different functions and having differing register
 semantics.
 
  Required Properties:
- - compatible: identifies TLMM hardware version. should be in following format.
-   - "qcom,msm-tlmm-<soc number>"
-     e.g.) "qcom,msm-tlmm-8974"
-           - Denotes compatible with msm8974 TLMM only.
-     e.g.) "qcom,msm-tlmm-8226", "qcom,msm-tlmm-8974"
-           - Denotes compatible with msm8226 TLMM best but still compatible
-	     with msm8974.
+ - compatible: identifies TLMM hardware version. should be one of the following
+ 	"qcom,msm-tlmm-8916"
+	"qcom,msm-tlmm-8226"
+	"qcom,msm-tlmm-8974"
 
  - reg: Base address of the pin controller hardware module and length of
    the address space it occupies.
