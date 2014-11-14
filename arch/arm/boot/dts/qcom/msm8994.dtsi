@@ -1076,6 +1076,14 @@
 		qcom,client-id = <0x011013ed>;
 	};
 
+	qcom,sensors_sharedmem@00000000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x00000000 0x00010000>;
+		reg-names = "rfsa_sensor";
+		qcom,client-id = <0x011013ee>;
+		linux,contiguous-region = <&adsp_mem>;
+	};
+
 	sdhc_1: sdhci@f9824900 {
 		compatible = "qcom,sdhci-msm";
 		reg = <0xf9824900 0x1a0>, <0xf9824000 0x800>;
