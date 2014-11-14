@@ -316,8 +316,6 @@ int glink_ssr(const char *subsystem)
 	list_for_each_entry(xprt_ctx, &transport_list, list_node) {
 		if (!strcmp(subsystem, xprt_ctx->edge) &&
 				xprt_is_fully_opened(xprt_ctx)) {
-			mutex_unlock(&transport_list_lock_lha0);
-
 			GLINK_INFO_XPRT(xprt_ctx, "%s: SSR\n", __func__);
 			xprt_ctx->ops->ssr(xprt_ctx->ops);
 			check_link_notifier_and_notify(xprt_ctx,
