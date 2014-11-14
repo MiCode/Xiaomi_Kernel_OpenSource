@@ -1923,7 +1923,8 @@ static void si_mhl_tx_prune_edid(struct edid_3d_data_t *mhl_edid_3d_data)
 		}
 	}
 
-	if (mhl_edid_3d_data->parse_data.p_three_d) {
+	if (mhl_edid_3d_data->parse_data.p_three_d &&
+				mhl_edid_3d_data->parse_data.p_HDMI_vsdb) {
 		uint8_t num_3D_structure_bytes_pruned = 0;
 		union {
 			union _3D_structure_and_detail_entry_u *p_3D;
@@ -4288,7 +4289,10 @@ int si_mhl_tx_get_num_cea_861_extensions(void *context, uint8_t block_number)
 	uint8_t limit_blocks = sizeof(mhl_edid_3d_data->EDID_block_data) /
 	    EDID_BLOCK_SIZE;
 
-	uint8_t *pb_data =
+	uint8_t *pb_data;
+	if (block_number > NUM_VIDEO_DATA_BLOCKS_LIMIT)
+		return ne_BAD_DATA;
+	pb_data =
 	    &mhl_edid_3d_data->EDID_block_data[EDID_BLOCK_SIZE * block_number];
 
 	MHL_TX_EDID_INFO("block number:%d pb_data:%x\n", block_number, pb_data);
