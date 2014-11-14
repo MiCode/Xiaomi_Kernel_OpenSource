@@ -6,6 +6,10 @@ Required properties :
 	offset and length of the TCSR register for routing USB
 	signals to either picoPHY0 or picoPHY1.
 - interrupts: IRQ lines used by this controller
+- interrupt-names : Interrupt resource entries are :
+	"hs_phy_irq" : Interrupt from HS PHY for asynchronous events in LPM.
+	"pwr_event_irq" : Interrupt to controller for asynchronous events in LPM.
+	Used for SS-USB power events.
 - <supply-name>-supply: phandle to the regulator device tree node
   Required "supply-name" examples are:
 	"vbus_dwc3" : vbus supply for host mode when DWC3 operating as DRD.
@@ -20,12 +24,7 @@ Optional properties :
     - qcom,msm_bus,num_paths
     - qcom,msm_bus,vectors
 - interrupt-names : Optional interrupt resource entries are:
-    "hs_phy_irq" : Interrupt from HSPHY for asynchronous events in LPM.
-	This is not used if wakeup events are received externally (e.g. PMIC)
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
-    "pwr_event_irq" : Interrupt to controller for asynchronous events in LPM.
-	Used for SS-USB power events. This is not used if wakeup events are
-	received externally (e.g. PMIC)
 - qcom,otg-capability: If present then depend on PMIC for VBUS notifications,
   otherwise depend on PHY.
 - qcom,charging-disabled: If present then battery charging using USB
