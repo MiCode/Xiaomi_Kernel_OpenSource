@@ -301,6 +301,11 @@ static inline int mdss_fb_validate_split(int left, int right,
 {
 	int rc = -EINVAL;
 	u32 panel_xres = mdss_fb_get_panel_xres(mfd->panel_info);
+
+	pr_debug("%pS: split_mode = %d left=%d right=%d panel_xres=%d\n",
+		__builtin_return_address(0), mfd->split_mode,
+		left, right, panel_xres);
+
 	/* more validate condition could be added if needed */
 	if (left && right) {
 		if (panel_xres == left + right) {
@@ -309,7 +314,7 @@ static inline int mdss_fb_validate_split(int left, int right,
 			rc = 0;
 		}
 	} else {
-		if (is_split_lm(mfd)) {
+		if (mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 			mfd->split_fb_left = mfd->panel_info->xres;
 			mfd->split_fb_right = panel_xres - mfd->split_fb_left;
 			rc = 0;
@@ -330,7 +335,8 @@ static void mdss_fb_parse_dt_split(struct msm_fb_data_type *mfd)
 		"qcom,mdss-fb-split", data, 2);
 
 	if (!mdss_fb_validate_split(data[0], data[1], mfd))
-		pr_debug("dt split_left=%d split_right=%d\n", data[0], data[1]);
+		pr_info_once("device tree split left=%d right=%d\n",
+			data[0], data[1]);
 }
 
 static ssize_t mdss_fb_store_split(struct device *dev,
@@ -370,9 +376,28 @@ static void mdss_fb_get_split(struct msm_fb_data_type *mfd)
 	if (!mfd->mdss_fb_split_stored)
 		mdss_fb_parse_dt_split(mfd);
 
-	if (mfd->split_fb_left || mfd->split_fb_right)
-		pr_debug("split framebuffer left=%d right=%d\n",
-			mfd->split_fb_left, mfd->split_fb_right);
+	if ((mfd->split_mode == MDP_SPLIT_MODE_NONE) &&
+	    (mfd->split_fb_left || mfd->split_fb_right))
+		mfd->split_mode = MDP_DUAL_LM_SINGLE_DISPLAY;
+
+	pr_debug("split framebuffer left=%d right=%d mode=%d\n",
+		mfd->split_fb_left, mfd->split_fb_right, mfd->split_mode);
+}
+
+static ssize_t mdss_fb_get_src_split_info(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = fbi->par;
+
+	if (is_split_lm(mfd) && (fbi->var.yres > fbi->var.xres)) {
+		pr_debug("always split mode enabled\n");
+		ret = scnprintf(buf, PAGE_SIZE,
+			"src_split_always\n");
+	}
+
+	return ret;
 }
 
 static ssize_t mdss_fb_get_thermal_level(struct device *dev,
@@ -588,21 +613,6 @@ static int mdss_fb_lpm_enable(struct msm_fb_data_type *mfd, int mode)
 	return 0;
 }
 
-static ssize_t mdss_fb_get_src_split_info(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	struct fb_info *fbi = dev_get_drvdata(dev);
-	struct msm_fb_data_type *mfd = fbi->par;
-	int ret = 0;
-
-	if ((mfd->split_mode == MDP_SPLIT_MODE_LM) &&
-	    (fbi->var.yres > 2048) && (fbi->var.yres > fbi->var.xres))
-		ret = scnprintf(buf, PAGE_SIZE,
-			"src_split_always\n");
-
-	return ret;
-}
-
 static DEVICE_ATTR(msm_fb_type, S_IRUGO, mdss_fb_get_type, NULL);
 static DEVICE_ATTR(msm_fb_split, S_IRUGO | S_IWUSR, mdss_fb_show_split,
 					mdss_fb_store_split);
@@ -699,9 +709,11 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->fb_imgType = MDP_RGBA_8888;
 
 	mfd->pdev = pdev;
+
 	mfd->split_mode = MDP_SPLIT_MODE_NONE;
 	if (pdata->next)
-		mfd->split_mode = MDP_SPLIT_MODE_LM;
+		mfd->split_mode = MDP_DUAL_LM_DUAL_DISPLAY;
+
 	mfd->mdp = *mdp_instance;
 	INIT_LIST_HEAD(&mfd->proc_list);
 
@@ -714,6 +726,8 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	rc = mdss_fb_register(mfd);
 	if (rc)
 		return rc;
+
+	mdss_fb_get_split(mfd);
 
 	if (mfd->mdp.init_fnc) {
 		rc = mfd->mdp.init_fnc(mfd);
@@ -1136,6 +1150,7 @@ static int mdss_fb_start_disp_thread(struct msm_fb_data_type *mfd)
 	pr_debug("%pS: start display thread fb%d\n",
 		__builtin_return_address(0), mfd->index);
 
+	/* this is needed for new split request from debugfs */
 	mdss_fb_get_split(mfd);
 
 	atomic_set(&mfd->commits_pending, 0);

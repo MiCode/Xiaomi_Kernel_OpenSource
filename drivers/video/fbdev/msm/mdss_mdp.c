@@ -2731,7 +2731,7 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	if (rc)
 		pr_debug("Could not read optional property: highest bank bit\n");
 
-	mdata->has_dst_split = of_property_read_bool(pdev->dev.of_node,
+	mdata->has_pingpong_split = of_property_read_bool(pdev->dev.of_node,
 		 "qcom,mdss-has-dst-split");
 
 	/*

@@ -3551,7 +3551,7 @@ static struct mdss_mdp_ctl *__mdss_mdp_overlay_ctl_init(
 	INIT_WORK(&ctl->remove_underrun_handler,
 				remove_underrun_vsync_handler);
 
-	if (is_split_lm(mfd)) {
+	if (mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 		/* enable split display */
 		rc = mdss_mdp_ctl_split_display_setup(ctl, pdata->next);
 		if (rc) {
@@ -3840,7 +3840,7 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 		goto error;
 	}
 
-	if (is_split_lm(mfd)) {
+	if (mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 		sctl = mdss_mdp_get_split_ctl(ctl);
 		if (!sctl) {
 			pr_err("cannot get secondary ctl. fail the handoff\n");
@@ -4058,8 +4058,8 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	}
 	mfd->mdp.private1 = mdp5_data;
 	mfd->wait_for_kickoff = true;
-	if (is_panel_split(mfd) && mdp5_data->mdata->has_dst_split)
-		mfd->split_mode = MDP_SPLIT_MODE_DST;
+	if (is_panel_split(mfd) && mdp5_data->mdata->has_pingpong_split)
+		mfd->split_mode = MDP_PINGPONG_SPLIT;
 
 	if (mfd->panel_info->partial_update_enabled && is_split_lm(mfd))
 		mdp5_data->mdata->has_src_split = false;
@@ -4084,7 +4084,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mfd->panel_orientation = mfd->panel_info->panel_orientation;
 
 	if ((mfd->panel_info->panel_orientation & MDP_FLIP_LR) &&
-		(is_split_lm(mfd)))
+	    (mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY))
 		mdp5_data->mixer_swap = true;
 
 	rc = sysfs_create_group(&dev->kobj, &mdp_overlay_sysfs_group);
