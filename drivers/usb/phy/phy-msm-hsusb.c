@@ -106,6 +106,20 @@ MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 #define TCSR_USB30_CONTROL		BIT(8)
 #define TCSR_HSPHY_ARES			BIT(11)
 
+/* USB2PHY CSR register offsets */
+#define USB2PHY_HS_PHY_CTRL_COMMON0	(0x78)
+#define USB2PHY_COMMONONN		BIT(7)
+#define USB2PHY_RETENABLEN		BIT(3)
+#define USB2PHY_HS_PHY_CTRL2		(0x90)
+#define USB2PHY_SUSPEND_N_SEL		BIT(7)
+#define USB2PHY_SUSPEND_N		BIT(6)
+#define USB2PHY_USB_PHY_CFG0		(0xC4)
+#define USB2PHY_OVERRIDE_EN		(0x7)
+#define USB2PHY_USB_PHY_REFCLK_CTRL	(0xE8)
+#define REFCLK_RXTAP_EN			BIT(0)
+#define USB2PHY_USB_PHY_PWRDOWN_CTRL	(0xEC)
+#define PWRDN_B				BIT(0)
+
 #define USB_HSPHY_3P3_VOL_MIN			3050000 /* uV */
 #define USB_HSPHY_3P3_VOL_MAX			3300000 /* uV */
 #define USB_HSPHY_3P3_HPM_LOAD			16000	/* uA */
@@ -119,6 +133,7 @@ struct msm_hsphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
 	void __iomem		*tcsr;
+	void __iomem		*csr;
 	int			hsphy_init_seq;
 	bool			set_pllbtune;
 	u32			core_ver;
@@ -258,7 +273,7 @@ static void msm_usb_write_readback(void *base, u32 offset,
 	tmp &= mask;		/* clear other bits */
 
 	if (tmp != val)
-		pr_err("%s: write: %x to QSCRATCH: %x FAILED\n",
+		pr_err("%s: write: %x to offset(%x) FAILED\n",
 			__func__, val, offset);
 }
 
@@ -442,6 +457,34 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 				msm_usb_write_readback(phy->base,
 					HS_PHY_CTRL_REG(0),
 					RETENABLEN, 0);
+
+			if (phy->csr) {
+				/* switch PHY control to USB2PHY CSRs */
+				msm_usb_write_readback(phy->csr,
+						USB2PHY_USB_PHY_CFG0,
+						USB2PHY_OVERRIDE_EN,
+						USB2PHY_OVERRIDE_EN);
+				/* clear suspend_n */
+				msm_usb_write_readback(phy->csr,
+						USB2PHY_HS_PHY_CTRL2,
+						USB2PHY_SUSPEND_N_SEL |
+						USB2PHY_SUSPEND_N,
+						USB2PHY_SUSPEND_N_SEL);
+				/* enable retention */
+				msm_usb_write_readback(phy->csr,
+						USB2PHY_HS_PHY_CTRL_COMMON0,
+						USB2PHY_COMMONONN |
+						USB2PHY_RETENABLEN, 0);
+				/* disable internal ref clock buffer */
+				msm_usb_write_readback(phy->csr,
+						USB2PHY_USB_PHY_REFCLK_CTRL,
+						REFCLK_RXTAP_EN, 0);
+				/* power down PHY */
+				msm_usb_write_readback(phy->csr,
+						USB2PHY_USB_PHY_PWRDOWN_CTRL,
+						PWRDN_B, 0);
+			}
+
 			phy->lpm_flags |= PHY_RETENTIONED;
 		}
 
@@ -467,6 +510,33 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 			if (phy->ext_vbus_id) {
 				msm_hsusb_ldo_enable(phy, 1);
 				phy->lpm_flags &= ~PHY_PWR_COLLAPSED;
+			}
+
+			if (phy->csr) {
+				/* power on PHY */
+				msm_usb_write_readback(phy->csr,
+						USB2PHY_USB_PHY_PWRDOWN_CTRL,
+						PWRDN_B, PWRDN_B);
+				/* enable internal ref clock buffer */
+				msm_usb_write_readback(phy->csr,
+						USB2PHY_USB_PHY_REFCLK_CTRL,
+						REFCLK_RXTAP_EN,
+						REFCLK_RXTAP_EN);
+				/* disable retention */
+				msm_usb_write_readback(phy->csr,
+						USB2PHY_HS_PHY_CTRL_COMMON0,
+						USB2PHY_COMMONONN |
+						USB2PHY_RETENABLEN,
+						USB2PHY_COMMONONN |
+						USB2PHY_RETENABLEN);
+				/* switch suspend_n_sel back to HW */
+				msm_usb_write_readback(phy->csr,
+						USB2PHY_HS_PHY_CTRL2,
+						USB2PHY_SUSPEND_N_SEL |
+						USB2PHY_SUSPEND_N, 0);
+				msm_usb_write_readback(phy->csr,
+						USB2PHY_USB_PHY_CFG0,
+						USB2PHY_OVERRIDE_EN, 0);
 			}
 
 			/* Disable PHY retention */
@@ -689,6 +759,16 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		/* switch MUX to let SNPS controller use the primary HSPHY */
 		writel_relaxed(readl_relaxed(phy->tcsr) | TCSR_USB30_CONTROL,
 				phy->tcsr);
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "phy_csr");
+	if (res) {
+		phy->csr = devm_ioremap_nocache(dev, res->start,
+						 resource_size(res));
+		if (!phy->csr) {
+			dev_err(dev, "phy_csr ioremap failed\n");
+			return -ENODEV;
+		}
 	}
 
 	if (of_get_property(dev->of_node, "qcom,primary-phy", NULL)) {
