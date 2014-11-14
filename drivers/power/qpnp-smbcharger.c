@@ -30,6 +30,8 @@
 #include <linux/spmi.h>
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
+#include <linux/qpnp/qpnp-adc.h>
+#include <linux/batterydata-lib.h>
 
 /* Mask/Bit helpers */
 #define _SMB_MASK(BITS, POS) \
@@ -52,6 +54,19 @@ struct parallel_usb_cfg {
 	bool				avail;
 	struct mutex			lock;
 	int				initial_aicl_ma;
+};
+
+struct ilim_entry {
+	int vmin_uv;
+	int vmax_uv;
+	int icl_pt_ma;
+	int icl_lv_ma;
+	int icl_hv_ma;
+};
+
+struct ilim_map {
+	int			num;
+	struct ilim_entry	*entries;
 };
 
 struct smbchg_chip {
@@ -95,6 +110,17 @@ struct smbchg_chip {
 	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
 	struct delayed_work		parallel_en_work;
+
+	/* wipower params */
+	struct ilim_map			wipower_default;
+	struct ilim_map			wipower_pt;
+	struct ilim_map			wipower_div2;
+	struct qpnp_vadc_chip		*vadc_dev;
+	bool				wipower_dyn_icl_avail;
+	struct ilim_entry		current_ilim;
+	struct mutex			wipower_config;
+	bool				wipower_configured;
+	struct qpnp_adc_tm_btm_param	param;
 
 	/* flash current prediction */
 	int				rpara_uohm;
@@ -173,12 +199,13 @@ struct smbchg_chip {
 };
 
 enum print_reason {
-	PR_REGISTER = BIT(0),
-	PR_INTERRUPT = BIT(1),
-	PR_STATUS = BIT(2),
-	PR_DUMP = BIT(3),
-	PR_PM = BIT(4),
-	PR_MISC = BIT(5),
+	PR_REGISTER	= BIT(0),
+	PR_INTERRUPT	= BIT(1),
+	PR_STATUS	= BIT(2),
+	PR_DUMP		= BIT(3),
+	PR_PM		= BIT(4),
+	PR_MISC		= BIT(5),
+	PR_WIPOWER	= BIT(6),
 };
 
 enum wake_reason {
@@ -194,6 +221,25 @@ module_param_named(
 static int smbchg_parallel_en;
 module_param_named(
 	parallel_en, smbchg_parallel_en, int, S_IRUSR | S_IWUSR
+);
+
+static int wipower_dyn_icl_en;
+module_param_named(
+	dynamic_icl_wipower_en, wipower_dyn_icl_en,
+	int, S_IRUSR | S_IWUSR
+);
+
+static int wipower_dcin_interval = ADC_MEAS1_INTERVAL_2P0MS;
+module_param_named(
+	wipower_dcin_interval, wipower_dcin_interval,
+	int, S_IRUSR | S_IWUSR
+);
+
+#define WIPOWER_DEFAULT_HYSTERISIS_UV	250000
+static int wipower_dcin_hyst_uv = WIPOWER_DEFAULT_HYSTERISIS_UV;
+module_param_named(
+	wipower_dcin_hyst_uv, wipower_dcin_hyst_uv,
+	int, S_IRUSR | S_IWUSR
 );
 
 #define pr_smb(reason, fmt, ...)				\
@@ -1284,6 +1330,7 @@ static int smbchg_get_min_parallel_current_ma(struct smbchg_chip *chip)
 #define AICL_STS_BIT			BIT(5)
 #define USBIN_SUSPEND_STS_BIT		BIT(3)
 #define USBIN_ACTIVE_PWR_SRC_BIT	BIT(1)
+#define DCIN_ACTIVE_PWR_SRC_BIT		BIT(0)
 static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip)
 {
 	int min_current_thr_ma, rc, type;
@@ -1651,6 +1698,274 @@ static int smbchg_usb_en(struct smbchg_chip *chip, bool enable,
 	if (changed)
 		smbchg_parallel_usb_check_ok(chip);
 	return rc;
+}
+
+static struct ilim_entry *smbchg_wipower_find_entry(struct smbchg_chip *chip,
+				struct ilim_map *map, int uv)
+{
+	int i;
+	struct ilim_entry *ret = &(chip->wipower_default.entries[0]);
+
+	for (i = 0; i < map->num; i++) {
+		if (is_between(uv,
+			map->entries[i].vmin_uv, map->entries[i].vmax_uv))
+			ret = &map->entries[i];
+	}
+	return ret;
+}
+
+static int ilim_ma_table[] = {
+	300,
+	400,
+	450,
+	475,
+	500,
+	550,
+	600,
+	650,
+	700,
+	900,
+	950,
+	1000,
+	1100,
+	1200,
+	1400,
+	1450,
+	1500,
+	1600,
+	1800,
+	1850,
+	1880,
+	1910,
+	1930,
+	1950,
+	1970,
+	2000,
+};
+
+#define ZIN_ICL_PT	0xFC
+#define ZIN_ICL_LV	0xFD
+#define ZIN_ICL_HV	0xFE
+#define ZIN_ICL_MASK	SMB_MASK(4, 0)
+static int smbchg_dcin_ilim_config(struct smbchg_chip *chip, int offset, int ma)
+{
+	int i, rc;
+
+	for (i = ARRAY_SIZE(ilim_ma_table); i >= 0; i--) {
+		if (ma >= ilim_ma_table[i])
+			break;
+	}
+
+	if (i < 0)
+		i = 0;
+
+	rc = smbchg_masked_write(chip, chip->bat_if_base + offset,
+			ZIN_ICL_MASK, i);
+	if (rc)
+		dev_err(chip->dev, "Couldn't write bat if offset %d value = %d rc = %d\n",
+				offset, i, rc);
+	return rc;
+}
+
+static int smbchg_wipower_ilim_config(struct smbchg_chip *chip,
+						struct ilim_entry *ilim)
+{
+	int rc = 0;
+
+	if (chip->current_ilim.icl_pt_ma != ilim->icl_pt_ma) {
+		rc = smbchg_dcin_ilim_config(chip, ZIN_ICL_PT, ilim->icl_pt_ma);
+		if (rc)
+			dev_err(chip->dev, "failed to write batif offset %d %dma rc = %d\n",
+					ZIN_ICL_PT, ilim->icl_pt_ma, rc);
+		else
+			chip->current_ilim.icl_pt_ma =  ilim->icl_pt_ma;
+	}
+
+	if (chip->current_ilim.icl_lv_ma !=  ilim->icl_lv_ma) {
+		rc = smbchg_dcin_ilim_config(chip, ZIN_ICL_LV, ilim->icl_lv_ma);
+		if (rc)
+			dev_err(chip->dev, "failed to write batif offset %d %dma rc = %d\n",
+					ZIN_ICL_LV, ilim->icl_lv_ma, rc);
+		else
+			chip->current_ilim.icl_lv_ma =  ilim->icl_lv_ma;
+	}
+
+	if (chip->current_ilim.icl_hv_ma !=  ilim->icl_hv_ma) {
+		rc = smbchg_dcin_ilim_config(chip, ZIN_ICL_HV, ilim->icl_hv_ma);
+		if (rc)
+			dev_err(chip->dev, "failed to write batif offset %d %dma rc = %d\n",
+					ZIN_ICL_HV, ilim->icl_hv_ma, rc);
+		else
+			chip->current_ilim.icl_hv_ma =  ilim->icl_hv_ma;
+	}
+	return rc;
+}
+
+static void btm_notify_dcin(enum qpnp_tm_state state, void *ctx);
+static int smbchg_wipower_dcin_btm_configure(struct smbchg_chip *chip,
+		struct ilim_entry *ilim)
+{
+	int rc;
+
+	if (ilim->vmin_uv == chip->current_ilim.vmin_uv
+			&& ilim->vmax_uv == chip->current_ilim.vmax_uv)
+		return 0;
+
+	chip->param.channel = DCIN;
+	chip->param.btm_ctx = chip;
+	if (wipower_dcin_interval < ADC_MEAS1_INTERVAL_0MS)
+		wipower_dcin_interval = ADC_MEAS1_INTERVAL_0MS;
+
+	if (wipower_dcin_interval > ADC_MEAS1_INTERVAL_16S)
+		wipower_dcin_interval = ADC_MEAS1_INTERVAL_16S;
+
+	chip->param.timer_interval = wipower_dcin_interval;
+	chip->param.threshold_notification = &btm_notify_dcin;
+	chip->param.high_thr = ilim->vmax_uv + wipower_dcin_hyst_uv;
+	chip->param.low_thr = ilim->vmin_uv - wipower_dcin_hyst_uv;
+	chip->param.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
+	rc = qpnp_vadc_channel_monitor(chip->vadc_dev, &chip->param);
+	if (rc) {
+		dev_err(chip->dev, "Couldn't configure btm for dcin rc = %d\n",
+				rc);
+	} else {
+		chip->current_ilim.vmin_uv = ilim->vmin_uv;
+		chip->current_ilim.vmax_uv = ilim->vmax_uv;
+		pr_smb(PR_STATUS, "btm ilim = (%duV %duV %dmA %dmA %dmA)\n",
+			ilim->vmin_uv, ilim->vmax_uv,
+			ilim->icl_pt_ma, ilim->icl_lv_ma, ilim->icl_hv_ma);
+	}
+	return rc;
+}
+
+static int smbchg_wipower_icl_configure(struct smbchg_chip *chip,
+						int dcin_uv, bool div2)
+{
+	int rc = 0;
+	struct ilim_map *map = div2 ? &chip->wipower_div2 : &chip->wipower_pt;
+	struct ilim_entry *ilim = smbchg_wipower_find_entry(chip, map, dcin_uv);
+
+	rc = smbchg_wipower_ilim_config(chip, ilim);
+	if (rc) {
+		dev_err(chip->dev, "failed to config ilim rc = %d, dcin_uv = %d , div2 = %d, ilim = (%duV %duV %dmA %dmA %dmA)\n",
+			rc, dcin_uv, div2,
+			ilim->vmin_uv, ilim->vmax_uv,
+			ilim->icl_pt_ma, ilim->icl_lv_ma, ilim->icl_hv_ma);
+		return rc;
+	}
+
+	rc = smbchg_wipower_dcin_btm_configure(chip, ilim);
+	if (rc) {
+		dev_err(chip->dev, "failed to config btm rc = %d, dcin_uv = %d , div2 = %d, ilim = (%duV %duV %dmA %dmA %dmA)\n",
+			rc, dcin_uv, div2,
+			ilim->vmin_uv, ilim->vmax_uv,
+			ilim->icl_pt_ma, ilim->icl_lv_ma, ilim->icl_hv_ma);
+		return rc;
+	}
+	chip->wipower_configured = true;
+	return 0;
+}
+
+static void smbchg_wipower_icl_deconfigure(struct smbchg_chip *chip)
+{
+	int rc;
+	struct ilim_entry *ilim = &(chip->wipower_default.entries[0]);
+
+	if (!chip->wipower_configured)
+		return;
+
+	rc = smbchg_wipower_ilim_config(chip, ilim);
+	if (rc)
+		dev_err(chip->dev, "Couldn't config default ilim rc = %d\n",
+				rc);
+
+	rc = qpnp_vadc_end_channel_monitor(chip->vadc_dev);
+	if (rc)
+		dev_err(chip->dev, "Couldn't de configure btm for dcin rc = %d\n",
+				rc);
+
+	chip->wipower_configured = false;
+	chip->current_ilim.vmin_uv = 0;
+	chip->current_ilim.vmax_uv = 0;
+	chip->current_ilim.icl_pt_ma = ilim->icl_pt_ma;
+	chip->current_ilim.icl_lv_ma = ilim->icl_lv_ma;
+	chip->current_ilim.icl_hv_ma = ilim->icl_hv_ma;
+	pr_smb(PR_WIPOWER, "De config btm\n");
+}
+
+#define FV_STS		0x0C
+#define DIV2_ACTIVE	BIT(7)
+static void __smbchg_wipower_check(struct smbchg_chip *chip)
+{
+	int chg_type;
+	bool usb_present, dc_present;
+	int rc;
+	int dcin_uv;
+	bool div2;
+	struct qpnp_vadc_result adc_result;
+	u8 reg;
+
+	if (!wipower_dyn_icl_en) {
+		smbchg_wipower_icl_deconfigure(chip);
+		return;
+	}
+
+	chg_type = get_prop_charge_type(chip);
+	usb_present = is_usb_present(chip);
+	dc_present = is_dc_present(chip);
+	if (chg_type != POWER_SUPPLY_CHARGE_TYPE_NONE
+			 && !usb_present
+			&& dc_present
+			&& chip->dc_psy_type == POWER_SUPPLY_TYPE_WIPOWER) {
+		rc = qpnp_vadc_read(chip->vadc_dev, DCIN, &adc_result);
+		if (rc) {
+			pr_smb(PR_STATUS, "error DCIN read rc = %d\n", rc);
+			return;
+		}
+		dcin_uv = adc_result.physical;
+
+		/* check div_by_2 */
+		rc = smbchg_read(chip, &reg, chip->chgr_base + FV_STS, 1);
+		if (rc) {
+			pr_smb(PR_STATUS, "error DCIN read rc = %d\n", rc);
+			return;
+		}
+		div2 = !!(reg & DIV2_ACTIVE);
+
+		pr_smb(PR_WIPOWER,
+			"config ICL chg_type = %d usb = %d dc = %d dcin_uv(adc_code) = %d (0x%x) div2 = %d\n",
+			chg_type, usb_present, dc_present, dcin_uv,
+			adc_result.adc_code, div2);
+		smbchg_wipower_icl_configure(chip, dcin_uv, div2);
+	} else {
+		pr_smb(PR_WIPOWER,
+			"deconfig ICL chg_type = %d usb = %d dc = %d\n",
+			chg_type, usb_present, dc_present);
+		smbchg_wipower_icl_deconfigure(chip);
+	}
+}
+
+static void smbchg_wipower_check(struct smbchg_chip *chip)
+{
+	if (!chip->wipower_dyn_icl_avail)
+		return;
+
+	mutex_lock(&chip->wipower_config);
+	__smbchg_wipower_check(chip);
+	mutex_unlock(&chip->wipower_config);
+}
+
+static void btm_notify_dcin(enum qpnp_tm_state state, void *ctx)
+{
+	struct smbchg_chip *chip = ctx;
+
+	mutex_lock(&chip->wipower_config);
+	pr_smb(PR_WIPOWER, "%s state\n",
+			state  == ADC_TM_LOW_STATE ? "low" : "high");
+	chip->current_ilim.vmin_uv = 0;
+	chip->current_ilim.vmax_uv = 0;
+	__smbchg_wipower_check(chip);
+	mutex_unlock(&chip->wipower_config);
 }
 
 /*
@@ -2686,6 +3001,7 @@ static irqreturn_t batt_hot_handler(int irq, void *_chip)
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
+	smbchg_wipower_check(chip);
 	return IRQ_HANDLED;
 }
 
@@ -2701,6 +3017,7 @@ static irqreturn_t batt_cold_handler(int irq, void *_chip)
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
+	smbchg_wipower_check(chip);
 	return IRQ_HANDLED;
 }
 
@@ -2761,6 +3078,7 @@ static irqreturn_t chg_error_handler(int irq, void *_chip)
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
 
+	smbchg_wipower_check(chip);
 	return IRQ_HANDLED;
 }
 
@@ -2774,12 +3092,14 @@ static irqreturn_t fastchg_handler(int irq, void *_chip)
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
 
+	smbchg_wipower_check(chip);
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t chg_hot_handler(int irq, void *_chip)
 {
 	pr_warn_ratelimited("chg hot\n");
+	smbchg_wipower_check(_chip);
 	return IRQ_HANDLED;
 }
 
@@ -2807,6 +3127,7 @@ static irqreturn_t taper_handler(int irq, void *_chip)
 	smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	smbchg_parallel_usb_taper(chip);
+	smbchg_wipower_check(chip);
 	return IRQ_HANDLED;
 }
 
@@ -2871,6 +3192,7 @@ static irqreturn_t dcin_uv_handler(int irq, void *_chip)
 			power_supply_changed(&chip->dc_psy);
 	}
 
+	smbchg_wipower_check(chip);
 	return IRQ_HANDLED;
 }
 
@@ -2947,6 +3269,7 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 		chip->usb_present = usb_present;
 		handle_usb_removal(chip);
 	}
+	smbchg_wipower_check(chip);
 	return IRQ_HANDLED;
 }
 
@@ -3455,6 +3778,16 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't read usb allowance rc=%d\n", rc);
 
+	if (chip->wipower_dyn_icl_avail) {
+		rc = smbchg_wipower_ilim_config(chip,
+				&(chip->wipower_default.entries[0]));
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set default wipower ilim = %d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	return rc;
 }
 
@@ -3485,6 +3818,101 @@ do {									\
 		dev_err(chip->dev, "Error reading " #dt_property	\
 				" property rc = %d\n", rc);		\
 } while (0)
+
+#define ILIM_ENTRIES		3
+#define VOLTAGE_RANGE_ENTRIES	2
+#define RANGE_ENTRY		(ILIM_ENTRIES + VOLTAGE_RANGE_ENTRIES)
+static int smb_parse_wipower_map_dt(struct smbchg_chip *chip,
+		struct ilim_map *map, char *property)
+{
+	struct device_node *node = chip->dev->of_node;
+	int total_elements, size;
+	struct property *prop;
+	const __be32 *data;
+	int num, i;
+
+	prop = of_find_property(node, property, &size);
+	if (!prop) {
+		dev_err(chip->dev, "%s missing\n", property);
+		return -EINVAL;
+	}
+
+	total_elements = size / sizeof(int);
+	if (total_elements % RANGE_ENTRY) {
+		dev_err(chip->dev, "%s table not in multiple of %d, total elements = %d\n",
+				property, RANGE_ENTRY, total_elements);
+		return -EINVAL;
+	}
+
+	data = prop->value;
+	num = total_elements / RANGE_ENTRY;
+	map->entries = devm_kzalloc(chip->dev,
+			num * sizeof(struct ilim_entry), GFP_KERNEL);
+	if (!map->entries) {
+		dev_err(chip->dev, "kzalloc failed for default ilim\n");
+		return -ENOMEM;
+	}
+	for (i = 0; i < num; i++) {
+		map->entries[i].vmin_uv =  be32_to_cpup(data++);
+		map->entries[i].vmax_uv =  be32_to_cpup(data++);
+		map->entries[i].icl_pt_ma =  be32_to_cpup(data++);
+		map->entries[i].icl_lv_ma =  be32_to_cpup(data++);
+		map->entries[i].icl_hv_ma =  be32_to_cpup(data++);
+	}
+	map->num = num;
+	return 0;
+}
+
+static int smb_parse_wipower_dt(struct smbchg_chip *chip)
+{
+	int rc = 0;
+
+	chip->wipower_dyn_icl_avail = false;
+
+	if (!chip->vadc_dev)
+		goto err;
+
+	rc = smb_parse_wipower_map_dt(chip, &chip->wipower_default,
+					"qcom,wipower-default-ilim-map");
+	if (rc) {
+		dev_err(chip->dev, "failed to parse wipower-pt-ilim-map rc = %d\n",
+				rc);
+		goto err;
+	}
+
+	rc = smb_parse_wipower_map_dt(chip, &chip->wipower_pt,
+					"qcom,wipower-pt-ilim-map");
+	if (rc) {
+		dev_err(chip->dev, "failed to parse wipower-pt-ilim-map rc = %d\n",
+				rc);
+		goto err;
+	}
+
+	rc = smb_parse_wipower_map_dt(chip, &chip->wipower_div2,
+					"qcom,wipower-div2-ilim-map");
+	if (rc) {
+		dev_err(chip->dev, "failed to parse wipower-div2-ilim-map rc = %d\n",
+				rc);
+		goto err;
+	}
+	chip->wipower_dyn_icl_avail = true;
+	return 0;
+err:
+	chip->wipower_default.num = 0;
+	chip->wipower_pt.num = 0;
+	chip->wipower_default.num = 0;
+	if (chip->wipower_default.entries)
+		devm_kfree(chip->dev, chip->wipower_default.entries);
+	if (chip->wipower_pt.entries)
+		devm_kfree(chip->dev, chip->wipower_pt.entries);
+	if (chip->wipower_div2.entries)
+		devm_kfree(chip->dev, chip->wipower_div2.entries);
+	chip->wipower_default.entries = NULL;
+	chip->wipower_pt.entries = NULL;
+	chip->wipower_div2.entries = NULL;
+	chip->vadc_dev = NULL;
+	return rc;
+}
 
 static int smb_parse_dt(struct smbchg_chip *chip)
 {
@@ -3590,6 +4018,9 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 			return -EINVAL;
 		}
 	}
+
+	if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIPOWER)
+		smb_parse_wipower_dt(chip);
 
 	/* read the bms power supply name */
 	rc = of_property_read_string(node, "qcom,bms-psy-name",
@@ -3887,11 +4318,23 @@ static int smbchg_probe(struct spmi_device *spmi)
 	int rc;
 	struct smbchg_chip *chip;
 	struct power_supply *usb_psy;
+	struct qpnp_vadc_chip *vadc_dev;
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
 		pr_smb(PR_STATUS, "USB supply not found, deferring probe\n");
 		return -EPROBE_DEFER;
+	}
+
+	if (of_find_property(spmi->dev.of_node, "qcom,dcin-vadc", NULL)) {
+		vadc_dev = qpnp_get_vadc(&spmi->dev, "dcin");
+		if (IS_ERR(vadc_dev)) {
+			rc = PTR_ERR(vadc_dev);
+			if (rc != -EPROBE_DEFER)
+				dev_err(&spmi->dev, "Couldn't get vadc rc=%d\n",
+						rc);
+			return rc;
+		}
 	}
 
 	chip = devm_kzalloc(&spmi->dev, sizeof(*chip), GFP_KERNEL);
@@ -3905,6 +4348,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->parallel_en_work,
 			smbchg_parallel_usb_en_work);
 	INIT_DELAYED_WORK(&chip->vfloat_adjust_work, smbchg_vfloat_adjust_work);
+	chip->vadc_dev = vadc_dev;
 	chip->spmi = spmi;
 	chip->dev = &spmi->dev;
 	chip->usb_psy = usb_psy;
@@ -3920,6 +4364,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	mutex_init(&chip->parallel.lock);
 	mutex_init(&chip->taper_irq_lock);
 	mutex_init(&chip->pm_lock);
+	mutex_init(&chip->wipower_config);
 
 	rc = smbchg_parse_peripherals(chip);
 	if (rc) {
