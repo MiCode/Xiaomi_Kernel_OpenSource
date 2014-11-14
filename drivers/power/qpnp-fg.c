@@ -118,6 +118,7 @@ enum fg_mem_setting_index {
 	FG_MEM_RESUME_SOC,
 	FG_MEM_BCL_LM_THRESHOLD,
 	FG_MEM_BCL_MH_THRESHOLD,
+	FG_MEM_TERM_CURRENT,
 	FG_MEM_SETTING_MAX,
 };
 
@@ -149,6 +150,7 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(RESUME_SOC,      0x45C,   1,      0),
 	SETTING(BCL_LM_THRESHOLD, 0x47C,   2,      50),
 	SETTING(BCL_MH_THRESHOLD, 0x47C,   3,      752),
+	SETTING(TERM_CURRENT,	 0x40C,   2,      250),
 };
 
 #define DATA(_idx, _address, _offset, _length,  _value)	\
@@ -1920,6 +1922,25 @@ static void update_bcl_thresholds(struct fg_chip *chip)
 			data[lm_offset], data[mh_offset]);
 }
 
+#define CURRENT_UA_TO_ADC_RAW(cur_ua)	\
+			(cur_ua * LSB_16B_DENMTR / LSB_16B_NUMRTR)
+static int update_iterm(struct fg_chip *chip)
+{
+	u8 data[2];
+	u16 converted_current_raw;
+	int current_ma = -settings[FG_MEM_TERM_CURRENT].value;
+
+	converted_current_raw = (u16)CURRENT_UA_TO_ADC_RAW(current_ma * 1000);
+	data[0] = cpu_to_le16(converted_current_raw) & 0xFF;
+	data[1] = cpu_to_le16(converted_current_raw) >> 8;
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("current = %d, converted_raw = %04x, data = %02x %02x\n",
+			current_ma, converted_current_raw, data[0], data[1]);
+	return fg_mem_write(chip, data, settings[FG_MEM_TERM_CURRENT].address,
+				2, settings[FG_MEM_TERM_CURRENT].offset, 0);
+}
+
 static int fg_of_init(struct fg_chip *chip)
 {
 	int rc = 0, sense_type, len = 0;
@@ -1933,6 +1954,7 @@ static int fg_of_init(struct fg_chip *chip)
 		rc, 1);
 	OF_READ_SETTING(FG_MEM_BCL_MH_THRESHOLD, "bcl-mh-threshold-ma",
 		rc, 1);
+	OF_READ_SETTING(FG_MEM_TERM_CURRENT, "fg-iterm-ma", rc, 1);
 	data = of_get_property(chip->spmi->dev.of_node,
 			"qcom,thermal-coefficients", &len);
 	if (data && len == THERMAL_COEFF_N_BYTES) {
@@ -2559,6 +2581,7 @@ static int fg_hw_init(struct fg_chip *chip)
 	u8 resume_soc;
 	int rc = 0;
 
+	update_iterm(chip);
 	update_bcl_thresholds(chip);
 	rc = fg_set_auto_recharge(chip);
 	if (rc) {
