@@ -21,3 +21,15 @@
 &spi_0 {
 	status = "disabled";
 };
+
+&usb3 {
+	status = "ok";
+};
+
+&hsphy0 {
+	status = "ok";
+};
+
+&ssphy0 {
+	status = "ok";
+};
