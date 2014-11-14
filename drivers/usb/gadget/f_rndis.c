@@ -96,7 +96,7 @@ struct f_rndis {
 static struct f_rndis *__rndis;
 
 int
-rndis_rx_trigger(void)
+rndis_rx_trigger(bool write)
 {
 	struct f_rndis *rndis = __rndis;
 
@@ -104,6 +104,8 @@ rndis_rx_trigger(void)
 		pr_err("can't set rx trigger\n");
 		return -EINVAL;
 	}
+	if (!write)
+		return rndis->port.rx_triggered;
 
 	if (rndis->port.rx_triggered)
 		return 0;

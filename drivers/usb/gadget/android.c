@@ -2260,20 +2260,31 @@ static ssize_t rndis_transports_store(struct device *dev,
 static DEVICE_ATTR(rndis_transports, S_IRUGO | S_IWUSR, rndis_transports_show,
 					       rndis_transports_store);
 
+static ssize_t rndis_rx_trigger_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	bool write = false;
+	int rx_trigger = rndis_rx_trigger(write);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", rx_trigger);
+}
+
 static ssize_t rndis_rx_trigger_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	int value;
+	bool write = true;
 
 	if (sscanf(buf, "%d", &value) == 1) {
-		rndis_rx_trigger();
+		rndis_rx_trigger(write);
 		return size;
 	}
 	return -EINVAL;
 }
 
-static DEVICE_ATTR(rx_trigger, S_IWUSR, NULL,
-					     rndis_rx_trigger_store);
+static DEVICE_ATTR(rx_trigger, S_IRUGO | S_IWUSR,
+					 rndis_rx_trigger_show,
+					 rndis_rx_trigger_store);
 
 static ssize_t rndis_pkt_alignment_factor_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
