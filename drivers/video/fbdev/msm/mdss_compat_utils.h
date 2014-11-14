@@ -218,6 +218,12 @@ struct mdp_igc_lut_data_v1_7_32 {
 	compat_caddr_t c2_data;
 };
 
+struct mdp_rgb_lut_data32 {
+	uint32_t flags;
+	uint32_t lut_type;
+	struct fb_cmap32 cmap;
+};
+
 struct mdp_igc_lut_data32 {
 	uint32_t block;
 	uint32_t version;
@@ -274,6 +280,7 @@ struct mdp_lut_cfg_data32 {
 		struct mdp_igc_lut_data32 igc_lut_data;
 		struct mdp_pgc_lut_data32 pgc_lut_data;
 		struct mdp_hist_lut_data32 hist_lut_data;
+		struct mdp_rgb_lut_data32 rgb_lut_data;
 	} data;
 };
 

@@ -905,6 +905,9 @@ static int mdp3_hw_init(void)
 		mdp3_res->dma[i].capability = MDP3_DMA_CAP_ALL;
 		mdp3_res->dma[i].in_use = 0;
 		mdp3_res->dma[i].available = 1;
+		mdp3_res->dma[i].lut_sts = 0;
+		mdp3_res->dma[i].hist_cmap = NULL;
+		mdp3_res->dma[i].gc_cmap = NULL;
 	}
 	mdp3_res->dma[MDP3_DMA_S].capability = MDP3_DMA_CAP_DITHER;
 	mdp3_res->dma[MDP3_DMA_E].available = 0;

@@ -552,20 +552,20 @@ static int mdp3_dmap_ccs_config(struct mdp3_dma *dma,
 
 static int mdp3_dmap_lut_config(struct mdp3_dma *dma,
 			struct mdp3_dma_lut_config *config,
-			struct mdp3_dma_lut *lut)
+			struct fb_cmap *cmap)
 {
 	u32 addr, color;
 	int i;
 
-	if (config->lut_enable && lut) {
+	if (config->lut_enable && cmap) {
 		addr = MDP3_REG_DMA_P_CSC_LUT1;
 		if (config->lut_sel)
 			addr = MDP3_REG_DMA_P_CSC_LUT2;
 
 		for (i = 0; i < MDP_LUT_SIZE; i++) {
-			color = lut->color0_lut[i] & 0xff;
-			color |= (lut->color1_lut[i] & 0xff) << 8;
-			color |= (lut->color2_lut[i] & 0xff) << 16;
+			color = cmap->green[i] & 0xff;
+			color |= (cmap->red[i] & 0xff) << 8;
+			color |= (cmap->blue[i] & 0xff) << 16;
 			MDP3_REG_WRITE(addr, color);
 			addr += 4;
 		}
