@@ -332,7 +332,7 @@
 		status = "okay";
 		pm8994_l24: regulator-l24 {
 			regulator-min-microvolt = <3075000>;
-			regulator-max-microvolt = <30750000>;
+			regulator-max-microvolt = <3150000>;
 			qcom,init-voltage = <3075000>;
 			status = "okay";
 		};
@@ -351,9 +351,9 @@
 	rpm-regulator-ldoa26 {
 		status = "okay";
 		pm8994_l26: regulator-l26 {
-			regulator-min-microvolt = <988000>;
-			regulator-max-microvolt = <988000>;
-			qcom,init-voltage = <988000>;
+			regulator-min-microvolt = <987500>;
+			regulator-max-microvolt = <987500>;
+			qcom,init-voltage = <987500>;
 			status = "okay";
 		};
 	};
@@ -401,9 +401,9 @@
 	rpm-regulator-ldoa31 {
 		status = "okay";
 		pm8994_l31: regulator-l31 {
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1200000>;
-			qcom,init-voltage = <1200000>;
+			regulator-min-microvolt = <1262500>;
+			regulator-max-microvolt = <1262500>;
+			qcom,init-voltage = <1262500>;
 			status = "okay";
 		};
 	};
@@ -496,9 +496,9 @@
 		status = "okay";
 		pmi8994_boostbypass: regulator-bby {
 			status = "okay";
-			regulator-min-microvolt = <5000000>;
-			regulator-max-microvolt = <5000000>;
-			qcom,init-voltage = <5000000>;
+			regulator-min-microvolt = <3150000>;
+			regulator-max-microvolt = <3600000>;
+			qcom,init-voltage = <3150000>;
 		};
 	};
 
