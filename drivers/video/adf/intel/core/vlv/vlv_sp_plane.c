@@ -139,19 +139,35 @@ static void context_destroy(struct vlv_sp_plane_context *ctx)
 	return;
 }
 
-static int get_format_config(u32 drm_format, u32 *format, u32 *bpp)
+static int get_format_config(u32 drm_format, u32 *format, u32 *bpp,
+		u8 alpha)
 {
 	int i;
+	int ret = -EINVAL;
 
 	for (i = 0; i < ARRAY_SIZE(format_mappings); i++) {
 		if (format_mappings[i].drm_format == drm_format) {
 			*format = format_mappings[i].hw_config;
 			*bpp = format_mappings[i].bpp;
-			return 0;
+			ret = 0;
+			break;
 		}
 	}
+	if (alpha)
+		return ret;
+	switch (*format) {
+	case DISPPLANE_BGRA888:
+		*format = DISPPLANE_BGRX888;
+		break;
+	case DISPPLANE_RGBA101010:
+		*format = DISPPLANE_RGBX101010;
+		break;
+	case DISPPLANE_RGBA888:
+		*format = DISPPLANE_RGBX888;
+		break;
+	}
 
-	return -EINVAL;
+	return ret;
 }
 
 static void vlv_sp_suspend(struct intel_dc_component *component)
@@ -264,7 +280,8 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 	s2_zorder = (order >> 1) & 0x1;
 	s2_bottom = (order >> 0) & 0x1;
 
-	get_format_config(buf->format, &hw_format, &bpp);
+	get_format_config(buf->format, &hw_format, &bpp,
+			config->alpha);
 	sprctl = REG_READ(SPCNTR(pipe, plane));
 	prev_sprctl = sprctl;
 
@@ -440,7 +457,8 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 	clip.x2 = mode->hdisplay;
 	clip.y2 = mode->vdisplay;
 
-	if (get_format_config(buf->format, &format_config, &bpp)) {
+	if (get_format_config(buf->format, &format_config, &bpp,
+				config->alpha)) {
 		pr_err("ADF: pixel format not supported %s\n", __func__);
 		return -EINVAL;
 	}

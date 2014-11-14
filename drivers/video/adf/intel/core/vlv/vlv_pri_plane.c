@@ -118,18 +118,39 @@ static const u32 pri_supported_tiling[] = {
 	INTEL_PLANE_TILE_X,
 };
 
-static int get_format_config(u32 drm_format, u32 *config, u8 *bpp)
+static int get_format_config(u32 drm_format, u32 *config, u8 *bpp,
+		u8 alpha)
 {
 	int i;
+	int ret = -EINVAL;
+
 	for (i = 0; i < ARRAY_SIZE(format_mapping); i++) {
 		if (format_mapping[i].drm_format == drm_format) {
 			*config = format_mapping[i].hw_config;
 			*bpp = format_mapping[i].bpp;
-			return 0;
+			ret = 0;
+			break;
 		}
 	}
+	if (alpha)
+		return ret;
 
-	return -EINVAL;
+	switch (*config) {
+	case DISPPLANE_BGRA888:
+		*config = DISPPLANE_BGRX888;
+		break;
+	case DISPPLANE_RGBA101010:
+		*config = DISPPLANE_RGBX101010;
+		break;
+	case DISPPLANE_BGRA101010:
+		*config = DISPPLANE_BGRX101010;
+		break;
+	case DISPPLANE_RGBA888:
+		*config = DISPPLANE_RGBX888;
+		break;
+	}
+
+	return ret;
 }
 
 static int init_context(struct vlv_pri_plane_context *ctx, u8 idx)
@@ -206,7 +227,8 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 	u8 bpp = 0, prev_bpp = 0;
 	u8 i = 0;
 
-	get_format_config(buf->format, &format_config, &bpp);
+	get_format_config(buf->format, &format_config, &bpp,
+			config->alpha);
 
 	src_x = config->src_x;
 	src_y = config->src_y;
