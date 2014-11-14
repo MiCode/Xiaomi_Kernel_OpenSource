@@ -1413,11 +1413,11 @@ wl_show_host_event(dhd_pub_t *dhd_pub, wl_event_msg_t *event, void *event_data,
 			p = (char *)&buf[MSGTRACE_HDRLEN];
 			while (*p != '\0' && (s = strstr(p, "\n")) != NULL) {
 				*s = '\0';
-				DHD_EVENT(("%s\n", p));
+				DHD_ERROR(("%s\n", p));
 				p = s+1;
 			}
 			if (*p)
-				DHD_EVENT(("%s", p));
+				DHD_ERROR(("%s", p));
 
 			/* Reset datalen to avoid display below */
 			datalen = 0;

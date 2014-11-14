@@ -88,6 +88,7 @@ static struct bcm_cfg80211 *g_bcm_cfg = NULL;
 u32 wl_dbg_level = WL_DBG_ERR;
 
 #define MAX_WAIT_TIME 1500
+#define CHAN_INFO_LEN 128
 #define IBSS_IF_NAME "ibss%d"
 
 #ifdef VSDB
@@ -3781,26 +3782,26 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 {
 	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
 	struct ieee80211_channel *chan = sme->channel;
-	wl_extjoin_params_t *ext_join_params;
 	struct wl_join_params join_params;
+	struct ether_addr bssid;
+	wl_extjoin_params_t *ext_join_params;
 	size_t join_params_size;
 #if defined(ROAM_ENABLE) && defined(ROAM_AP_ENV_DETECTION)
 	dhd_pub_t *dhd =  (dhd_pub_t *)(cfg->pub);
 	s32 roam_trigger[2] = {0, 0};
 #endif /* ROAM_AP_ENV_DETECTION */
-	s32 err = 0;
-	wpa_ie_fixed_t *wpa_ie;
-	bcm_tlv_t *wpa2_ie;
 	u8* wpaie  = 0;
+	u8 chan_info[CHAN_INFO_LEN] = {0}, *chan_ptr;
 	u32 wpaie_len = 0;
-	u32 chan_cnt = 0;
-	struct ether_addr bssid;
+	u32 chan_cnt = 0, i, w_count = 0;
+	s32 wait_cnt;
 	s32 bssidx;
+	s32 err = 0;
 #ifdef ROAM_CHANNEL_CACHE
 	chanspec_t chanspec_list[MAX_ROAM_CACHE_NUM];
 #endif /* ROAM_CHANNEL_CACHE */
-	int ret;
-	int wait_cnt;
+	wpa_ie_fixed_t *wpa_ie;
+	bcm_tlv_t *wpa2_ie;
 	bool use_chan_cache = FALSE;
 	WL_DBG(("In\n"));
 
@@ -3817,6 +3818,7 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 
 	RETURN_EIO_IF_NOT_UP(cfg);
 
+	chan_ptr = chan_info;
 	/*
 	 * Cancel ongoing scan to sync up with sme state machine of cfg80211.
 	 */
@@ -3840,7 +3842,7 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 #endif
 	bzero(&bssid, sizeof(bssid));
 	if (!wl_get_drv_status(cfg, CONNECTED, dev)&&
-		(ret = wldev_ioctl(dev, WLC_GET_BSSID, &bssid, ETHER_ADDR_LEN, false)) == 0) {
+		(err = wldev_ioctl(dev, WLC_GET_BSSID, &bssid, ETHER_ADDR_LEN, false)) == 0) {
 		if (!ETHER_ISNULLADDR(&bssid)) {
 			scb_val_t scbval;
 			wl_set_drv_status(cfg, DISCONNECTING, dev);
@@ -4030,6 +4032,13 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 #ifdef ROAM_CHANNEL_CACHE
 			memcpy(ext_join_params->assoc.chanspec_list, chanspec_list,
 				sizeof(chanspec_t) * chan_cnt);
+			for (i = 0; i < chan_cnt; i++) {
+				w_count += snprintf(chan_ptr + w_count, sizeof(chan_info) - w_count, "%d",
+						    wf_chspec_ctlchan(chanspec_list[i]));
+				if (i != chan_cnt - 1) {
+					w_count += snprintf(chan_ptr + w_count, sizeof(chan_info) - w_count, ", ");
+				}
+			}
 #endif
 		} else {
 			u16 channel, band, bw, ctl_sb;
@@ -4044,7 +4053,10 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 			ext_join_params->assoc.chanspec_list[0] |= chspec;
 			ext_join_params->assoc.chanspec_list[0] =
 				wl_chspec_host_to_driver(ext_join_params->assoc.chanspec_list[0]);
+			snprintf(chan_ptr, sizeof(chan_info), "%d", channel);
 		}
+	} else {
+		snprintf(chan_ptr, sizeof(chan_info), "0");
 	}
 	ext_join_params->assoc.chanspec_num = htod32(ext_join_params->assoc.chanspec_num);
 	if (ext_join_params->ssid.SSID_len < IEEE80211_MAX_SSID_LEN) {
@@ -4060,9 +4072,9 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	err = wldev_iovar_setbuf_bsscfg(dev, "join", ext_join_params, join_params_size,
 		cfg->ioctl_buf, WLC_IOCTL_MAXLEN, bssidx, &cfg->ioctl_buf_sync);
 
-	WL_ERR(("Connectting with " MACDBG " channel (%d) ssid \"%s\", len (%d)\n\n",
-		MAC2STRDBG((u8*)(&ext_join_params->assoc.bssid)), cfg->channel,
-		ext_join_params->ssid.SSID, ext_join_params->ssid.SSID_len));
+	WL_ERR(("Connecting to " MACDBG " with channel (%s) ssid %s\n",
+		MAC2STRDBG((u8*)(&ext_join_params->assoc.bssid)),
+		chan_info, ext_join_params->ssid.SSID));
 
 	kfree(ext_join_params);
 	if (err) {
@@ -7318,7 +7330,7 @@ wl_cfg80211_sched_scan_start(struct wiphy *wiphy,
 	int ret = 0;
 
 	WL_DBG(("Enter \n"));
-	WL_PNO((">>> SCHED SCAN START\n"));
+	WL_ERR((">>> SCHED SCAN START\n"));
 	WL_PNO(("Enter n_match_sets:%d   n_ssids:%d \n",
 		request->n_match_sets, request->n_ssids));
 	WL_PNO(("ssids:%d pno_time:%d pno_repeat:%d pno_freq:%d \n",
@@ -7372,7 +7384,7 @@ wl_cfg80211_sched_scan_stop(struct wiphy *wiphy, struct net_device *dev)
 	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
 
 	WL_DBG(("Enter \n"));
-	WL_PNO((">>> SCHED SCAN STOP\n"));
+	WL_ERR((">>> SCHED SCAN STOP\n"));
 
 	if (dhd_dev_pno_stop_for_ssid(dev) < 0)
 		WL_ERR(("PNO Stop for SSID failed"));

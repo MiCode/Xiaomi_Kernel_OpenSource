@@ -1702,7 +1702,7 @@ dhd_ifidx2hostidx(dhd_info_t *dhd, int ifidx)
 	ASSERT(dhd);
 
 	if (ifidx < 0 || ifidx >= DHD_MAX_IFS) {
-		DHD_ERROR(("%s: ifidx %d out of range\n", __FUNCTION__, ifidx));
+		DHD_TRACE(("%s: ifidx %d out of range\n", __FUNCTION__, ifidx));
 		return 0;	/* default - the primary interface */
 	}
 
