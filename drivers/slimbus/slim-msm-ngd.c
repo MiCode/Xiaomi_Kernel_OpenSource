@@ -879,12 +879,20 @@ static void ngd_slim_setup_msg_path(struct msm_slim_ctrl *dev)
 	} else {
 		if (dev->use_rx_msgqs == MSM_MSGQ_DISABLED)
 			goto setup_tx_msg_path;
+		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED) {
+			SLIM_WARN(dev, "pipe setup when RX msgq enabled?");
+			goto setup_tx_msg_path;
+		}
 		msm_slim_connect_endp(dev, &dev->rx_msgq,
 				&dev->rx_msgq_notify);
 
 setup_tx_msg_path:
 		if (dev->use_tx_msgqs == MSM_MSGQ_DISABLED)
 			return;
+		if (dev->use_tx_msgqs == MSM_MSGQ_ENABLED) {
+			SLIM_WARN(dev, "pipe setup when TX msgq enabled?");
+			return;
+		}
 		msm_slim_connect_endp(dev, &dev->tx_msgq,
 				NULL);
 	}
@@ -1051,9 +1059,7 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 		}
 		/*
 		 * ADSP power collapse case, where HW wasn't reset.
-		 * Reconnect BAM pipes if disconnected
 		 */
-		ngd_slim_setup_msg_path(dev);
 		return 0;
 	}
 
@@ -1069,25 +1075,14 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 		SLIM_INFO(dev,
 			"SLIM MDM restart: MDM active framer: reinit HW\n");
 		/* disconnect BAM pipes */
-		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
-			dev->use_rx_msgqs = MSM_MSGQ_DOWN;
-		if (dev->use_tx_msgqs == MSM_MSGQ_ENABLED)
-			dev->use_tx_msgqs = MSM_MSGQ_DOWN;
+		msm_slim_sps_exit(dev, false);
 		dev->state = MSM_CTRL_DOWN;
 	}
-	/* SSR scenario, need to disconnect pipe before connecting */
-	if (dev->use_rx_msgqs == MSM_MSGQ_DOWN) {
-		struct msm_slim_endp *endpoint = &dev->rx_msgq;
-		sps_disconnect(endpoint->sps);
-		sps_free_endpoint(endpoint->sps);
-		dev->use_rx_msgqs = MSM_MSGQ_RESET;
-	}
-	if (dev->use_tx_msgqs == MSM_MSGQ_DOWN) {
-		struct msm_slim_endp *endpoint = &dev->tx_msgq;
-		sps_disconnect(endpoint->sps);
-		sps_free_endpoint(endpoint->sps);
-		dev->use_tx_msgqs = MSM_MSGQ_RESET;
-	}
+
+	msm_slim_disconnect_endp(dev, &dev->rx_msgq,
+				&dev->use_rx_msgqs);
+	msm_slim_disconnect_endp(dev, &dev->tx_msgq,
+				&dev->use_tx_msgqs);
 	/*
 	 * ADSP power collapse case (OR SSR), where HW was reset
 	 * BAM programming will happen when capability message is received
@@ -1154,10 +1149,6 @@ static int ngd_slim_power_down(struct msm_slim_ctrl *dev)
 		}
 	}
 	mutex_unlock(&ctrl->m_ctrl);
-	msm_slim_disconnect_endp(dev, &dev->rx_msgq,
-				&dev->use_rx_msgqs);
-	msm_slim_disconnect_endp(dev, &dev->tx_msgq,
-				&dev->use_tx_msgqs);
 	return msm_slim_qmi_power_request(dev, false);
 }
 
