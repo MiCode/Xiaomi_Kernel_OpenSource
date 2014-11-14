@@ -480,7 +480,7 @@ static long __slave_div_round_rate(struct clk *c, unsigned long rate,
 	max_div = d->data.max_div;
 
 	p_rate = clk_get_rate(c->parent);
-	div = p_rate / rate;
+	div = DIV_ROUND_CLOSEST(p_rate, rate);
 	div = max(div, min_div);
 	div = min(div, max_div);
 	if (best_div)
