@@ -471,6 +471,33 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 }
 
 /**
+ * kgsl_context_dump() - dump information about a draw context
+ * @device: KGSL device that owns the context
+ * @context: KGSL context to dump information about
+ *
+ * Dump specific information about the context to the kernel log.  Used for
+ * fence timeout callbacks
+ */
+void kgsl_context_dump(struct kgsl_context *context)
+{
+	struct kgsl_device *device;
+
+	if (_kgsl_context_get(context) == 0)
+		return;
+
+	device = context->device;
+
+	if (kgsl_context_detached(context)) {
+		dev_err(device->dev, "  context[%d]: context detached\n",
+			context->id);
+	} else if (device->ftbl->drawctxt_dump != NULL)
+		device->ftbl->drawctxt_dump(device, context);
+
+	kgsl_context_put(context);
+}
+EXPORT_SYMBOL(kgsl_context_dump);
+
+/**
  * kgsl_context_init() - helper to initialize kgsl_context members
  * @dev_priv: the owner of the context
  * @context: the newly created context struct, should be allocated by
@@ -1554,21 +1581,10 @@ struct kgsl_cmdbatch_sync_event {
 	struct kref refcount;
 };
 
-static void _kgsl_cmdbatch_timer(unsigned long data)
+void kgsl_dump_syncpoints(struct kgsl_device *device,
+	struct kgsl_cmdbatch *cmdbatch)
 {
-	struct kgsl_cmdbatch *cmdbatch = (struct kgsl_cmdbatch *) data;
 	struct kgsl_cmdbatch_sync_event *event;
-
-	if (cmdbatch == NULL || cmdbatch->context == NULL)
-		return;
-
-	spin_lock(&cmdbatch->lock);
-	if (list_empty(&cmdbatch->synclist))
-		goto done;
-
-	pr_err("kgsl: possible gpu syncpoint deadlock for context %d timestamp %d\n",
-		cmdbatch->context->id, cmdbatch->timestamp);
-	pr_err(" Active sync points:\n");
 
 	/* Print all the pending sync objects */
 	list_for_each_entry(event, &cmdbatch->synclist, node) {
@@ -1580,22 +1596,44 @@ static void _kgsl_cmdbatch_timer(unsigned long data)
 			 retired = kgsl_readtimestamp(event->device,
 				event->context, KGSL_TIMESTAMP_RETIRED);
 
-			pr_err("  [timestamp] context %d timestamp %d (retired %d)\n",
+			dev_err(device->dev,
+				"  [timestamp] context %d timestamp %d (retired %d)\n",
 				event->context->id, event->timestamp,
 				retired);
 			break;
 		}
 		case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
 			if (event->handle && event->handle->fence)
-				pr_err("  fence: [%p] %s\n",
+				dev_err(device->dev, "  fence: [%p] %s\n",
 					event->handle->fence,
 					event->handle->fence->name);
 			else
-				pr_err("  fence: invalid\n");
+				dev_err(device->dev, "  fence: invalid\n");
 			break;
 		}
 	}
+}
 
+static void _kgsl_cmdbatch_timer(unsigned long data)
+{
+	struct kgsl_device *device;
+	struct kgsl_cmdbatch *cmdbatch = (struct kgsl_cmdbatch *) data;
+
+	if (cmdbatch == NULL || cmdbatch->context == NULL)
+		return;
+
+	spin_lock(&cmdbatch->lock);
+	if (list_empty(&cmdbatch->synclist))
+		goto done;
+
+	device = cmdbatch->context->device;
+
+	dev_err(device->dev,
+		"kgsl: possible gpu syncpoint deadlock for context %d timestamp %d\n",
+		cmdbatch->context->id, cmdbatch->timestamp);
+	dev_err(device->dev, " Active sync points:\n");
+
+	kgsl_dump_syncpoints(device, cmdbatch);
 done:
 	spin_unlock(&cmdbatch->lock);
 }
