@@ -168,7 +168,7 @@ static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_ctl *ctl,
 
 	pingpong_base = mixer->pingpong_base;
 	/* for dst split pp_num is cmd session (0 and 1) */
-	if (is_split_dst(ctl->mfd))
+	if (is_pingpong_split(ctl->mfd))
 		pingpong_base += ctx->pp_num * SPLIT_MIXER_OFFSET;
 
 	mdss_mdp_pingpong_write(pingpong_base,
@@ -866,7 +866,7 @@ int mdss_mdp_cmd_intfs_stop(struct mdss_mdp_ctl *ctl, int session,
 	if (session >= MAX_SESSIONS)
 		return 0;
 
-	if (is_split_dst(ctl->mfd)) {
+	if (is_pingpong_split(ctl->mfd)) {
 		ret = mdss_mdp_cmd_intfs_stop(ctl, (session + 1),
 			panel_power_state);
 		if (IS_ERR_VALUE(ret))
@@ -1096,7 +1096,7 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 	if (session >= MAX_SESSIONS)
 		return 0;
 
-	if (is_split_dst(ctl->mfd)) {
+	if (is_pingpong_split(ctl->mfd)) {
 		ret = mdss_mdp_cmd_intfs_setup(ctl, (session + 1));
 		if (IS_ERR_VALUE(ret))
 			return ret;
@@ -1140,7 +1140,7 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 	}
 
 	ctx->ctl = ctl;
-	ctx->pp_num = (is_split_dst(ctl->mfd) ? session : mixer->num);
+	ctx->pp_num = (is_pingpong_split(ctl->mfd) ? session : mixer->num);
 	ctx->pp_timeout_report_cnt = 0;
 	init_waitqueue_head(&ctx->pp_waitq);
 	init_completion(&ctx->stop_comp);

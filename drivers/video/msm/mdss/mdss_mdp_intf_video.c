@@ -425,7 +425,7 @@ static int mdss_mdp_video_intfs_stop(struct mdss_mdp_ctl *ctl,
 	if (pdata == NULL)
 		return 0;
 
-	if (is_split_dst(ctl->mfd)) {
+	if (is_pingpong_split(ctl->mfd)) {
 		ret = mdss_mdp_video_intfs_stop(ctl, pdata->next, (inum + 1));
 		if (IS_ERR_VALUE(ret))
 			return ret;
@@ -849,7 +849,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			pr_err("invalid ctx\n");
 			return -ENODEV;
 		}
-	} else if (is_split_dst(ctl->mfd)) {
+	} else if (is_pingpong_split(ctl->mfd)) {
 		/*
 		 * On targets when destination split is enabled, mixer swap
 		 * is not valid. So we can safely assume that ctl->intf_num
@@ -1080,7 +1080,7 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 	pdata->panel_info.cont_splash_enabled = 0;
 	if (sctl)
 		sctl->panel_data->panel_info.cont_splash_enabled = 0;
-	else if (ctl->panel_data->next && is_split_dst(ctl->mfd))
+	else if (ctl->panel_data->next && is_pingpong_split(ctl->mfd))
 		ctl->panel_data->next->panel_info.cont_splash_enabled = 0;
 
 	if (!handoff) {
@@ -1229,7 +1229,7 @@ static int mdss_mdp_video_intfs_setup(struct mdss_mdp_ctl *ctl,
 	if (pdata == NULL)
 		return 0;
 
-	if (is_split_dst(ctl->mfd)) {
+	if (is_pingpong_split(ctl->mfd)) {
 		ret = mdss_mdp_video_intfs_setup(ctl, pdata->next, (inum + 1));
 		if (IS_ERR_VALUE(ret))
 			return ret;
