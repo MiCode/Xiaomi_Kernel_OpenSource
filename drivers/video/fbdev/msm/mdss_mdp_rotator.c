@@ -798,6 +798,7 @@ static int mdss_mdp_rotator_config(struct msm_fb_data_type *mfd,
 	req->src.format = mdss_mdp_get_rotator_dst_format(req->src.format,
 		req->flags & MDP_ROT_90, req->flags & MDP_BWC_EN);
 
+	rot->req_data = *req;
 	rot->params_changed++;
 
 	return 0;
@@ -878,6 +879,12 @@ static int mdss_mdp_rotator_config_ex(struct msm_fb_data_type *mfd,
 		return -ENODEV;
 	}
 
+	/* if session hasn't changed, skip reconfiguration */
+	if (!memcmp(req, &rot->req_data, sizeof(*req)))
+		return 0;
+
+	flush_work(&rot->commit_work);
+
 	mutex_lock(&rot->lock);
 	ret = mdss_mdp_rotator_config(mfd, rot, req, fmt);
 	mutex_unlock(&rot->lock);
@@ -918,7 +925,7 @@ static int mdss_mdp_rotator_finish(struct mdss_mdp_rotator_session *rot)
 {
 	pr_debug("finish rot id=%x\n", rot->session_id);
 
-	cancel_work_sync(&rot->commit_work);
+	flush_work(&rot->commit_work);
 	mdss_mdp_rot_mgr_del_session(rot);
 
 	return 0;

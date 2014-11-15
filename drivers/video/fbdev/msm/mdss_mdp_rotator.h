@@ -48,6 +48,8 @@ struct mdss_mdp_rotator_session {
 	struct list_head list;
 	struct msm_sync_pt_data *rot_sync_pt_data;
 	struct work_struct commit_work;
+
+	struct mdp_overlay req_data;
 };
 
 static inline u32 mdss_mdp_get_rotator_dst_format(u32 in_format, u32 in_rot90,
