@@ -2206,6 +2206,15 @@ static void intel_enable_primary_hw_plane(struct drm_i915_private *dev_priv,
 
 	dev_priv->plane_stat |= VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
 
+	/*
+	 * Since we are enabling a plane, we
+	 * need to make sure that we do not keep the
+	 * maxfifo enabled, if we already have one plane
+	 * enabled
+	 */
+	if (!dev_priv->atomic_update)
+		intel_update_maxfifo(dev_priv);
+
 	reg = DSPCNTR(plane);
 	val = I915_READ(reg);
 	WARN_ON(val & DISPLAY_PLANE_ENABLE);
