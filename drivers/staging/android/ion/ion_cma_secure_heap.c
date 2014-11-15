@@ -519,7 +519,8 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 	unsigned long secure_allocation = flags & ION_FLAG_SECURE;
 	struct ion_secure_cma_buffer_info *buf = NULL;
 
-	if (!secure_allocation) {
+	if (!secure_allocation &&
+		!ion_heap_allow_secure_allocation(heap->type)) {
 		pr_err("%s: non-secure allocation disallowed from heap %s %lx\n",
 			__func__, heap->name, flags);
 		return -ENOMEM;

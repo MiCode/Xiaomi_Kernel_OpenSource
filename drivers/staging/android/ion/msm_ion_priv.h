@@ -49,6 +49,9 @@ void ion_iommu_heap_destroy(struct ion_heap *);
 struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *);
 void ion_cp_heap_destroy(struct ion_heap *);
 
+struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *);
+void ion_system_secure_heap_destroy(struct ion_heap *);
+
 long msm_ion_custom_ioctl(struct ion_client *client,
 				unsigned int cmd,
 				unsigned long arg);
@@ -105,6 +108,8 @@ void ion_cp_heap_get_base(struct ion_heap *heap, unsigned long *base,
 			unsigned long *size);
 
 void ion_mem_map_show(struct ion_heap *heap);
+
+int ion_heap_is_system_secure_heap_type(enum ion_heap_type type);
 
 int ion_heap_allow_secure_allocation(enum ion_heap_type type);
 
