@@ -449,7 +449,7 @@ static inline void *kgsl_malloc(size_t size)
  */
 static inline void kgsl_free(void *ptr)
 {
-	if (is_vmalloc_addr(ptr))
+	if (ptr != NULL && is_vmalloc_addr(ptr))
 		return vfree(ptr);
 
 	kfree(ptr);

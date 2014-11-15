@@ -1774,33 +1774,37 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	if (memdesc->priv & KGSL_MEMDESC_PRIVILEGED)
 		protflags |= IOMMU_PRIV;
 
-	sg_temp = _create_sg_no_large_pages(memdesc);
-	if (IS_ERR(sg_temp))
-		return PTR_ERR(sg_temp);
-
 	if (kgsl_memdesc_is_secured(memdesc) && kgsl_mmu_is_secured(pt->mmu)) {
 		mutex_lock(&device->mutex);
 		ret = kgsl_active_count_get(device);
 		if (!ret) {
 			ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr,
-				sg_temp ? sg_temp : memdesc->sg,
-				size, protflags);
+				memdesc->sg, size, protflags);
 			kgsl_active_count_put(device);
 		}
 		mutex_unlock(&device->mutex);
-	} else
+	} else {
+		sg_temp = _create_sg_no_large_pages(memdesc);
+
+		if (IS_ERR(sg_temp))
+			return PTR_ERR(sg_temp);
+
 		ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr,
 				sg_temp ? sg_temp : memdesc->sg,
 				size, protflags);
-	if (ret) {
+	}
+
+	if (ret)
 		KGSL_CORE_ERR("iommu_map_range(%p, %x, %p, %zd, %x) err: %d\n",
 			iommu_pt->domain, iommu_virt_addr,
-			sg_temp ? sg_temp : memdesc->sg, size,
+			sg_temp != NULL ? sg_temp : memdesc->sg, size,
 			protflags, ret);
-		kgsl_free(sg_temp);
-		return ret;
-	}
+
 	kgsl_free(sg_temp);
+
+	if (ret)
+		return ret;
+
 	if (kgsl_memdesc_has_guard_page(memdesc)) {
 		ret = iommu_map(iommu_pt->domain, iommu_virt_addr + size,
 				page_to_phys(kgsl_guard_page), PAGE_SIZE,
