@@ -796,7 +796,7 @@ static struct rcg_clk vfe0_clk_src = {
 	.c = {
 		.dbg_name = "vfe0_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOW, 160000000, NOMINAL, 320000000, HIGH,
+		VDD_DIG_FMAX_MAP3(LOW, 200000000, NOMINAL, 400000000, HIGH,
 			600000000),
 		CLK_INIT(vfe0_clk_src.c),
 	},
