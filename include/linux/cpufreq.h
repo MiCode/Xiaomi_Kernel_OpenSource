@@ -353,6 +353,7 @@ static inline void cpufreq_resume(void) {}
 
 #define CPUFREQ_TRANSITION_NOTIFIER	(0)
 #define CPUFREQ_POLICY_NOTIFIER		(1)
+#define CPUFREQ_GOVINFO_NOTIFIER	(2)
 
 /* Transition notifiers */
 #define CPUFREQ_PRECHANGE		(0)
@@ -367,6 +368,9 @@ static inline void cpufreq_resume(void) {}
 #define CPUFREQ_CREATE_POLICY		(5)
 #define CPUFREQ_REMOVE_POLICY		(6)
 
+/* Govinfo Notifiers */
+#define CPUFREQ_LOAD_CHANGE		(0)
+
 #ifdef CONFIG_CPU_FREQ
 int cpufreq_register_notifier(struct notifier_block *nb, unsigned int list);
 int cpufreq_unregister_notifier(struct notifier_block *nb, unsigned int list);
@@ -375,6 +379,16 @@ void cpufreq_freq_transition_begin(struct cpufreq_policy *policy,
 		struct cpufreq_freqs *freqs);
 void cpufreq_freq_transition_end(struct cpufreq_policy *policy,
 		struct cpufreq_freqs *freqs, int transition_failed);
+/*
+ * Governor specific info that can be passed to modules that subscribe
+ * to CPUFREQ_GOVINFO_NOTIFIER
+ */
+struct cpufreq_govinfo {
+	unsigned int cpu;
+	unsigned int load;
+	unsigned int sampling_rate_us;
+};
+extern struct atomic_notifier_head cpufreq_govinfo_notifier_list;
 
 #else /* CONFIG_CPU_FREQ */
 static inline int cpufreq_register_notifier(struct notifier_block *nb,
