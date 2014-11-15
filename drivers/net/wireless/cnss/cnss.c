@@ -1598,6 +1598,9 @@ again:
 
 		ret = wdrv->probe(pdev, penv->id);
 		if (ret) {
+			wcnss_prealloc_check_memory_leak();
+			wcnss_pre_alloc_reset();
+
 			if (probe_again > 3) {
 				pr_err("Failed to probe WLAN\n");
 				goto err_wlan_probe;
