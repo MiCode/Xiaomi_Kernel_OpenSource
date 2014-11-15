@@ -26,6 +26,7 @@
 
 #define JPEG_8974_V1 0x10000000
 #define JPEG_8974_V2 0x10010000
+#define JPEG_8994 0x10020000
 #define JPEG_CLK_MAX 16
 
 enum msm_jpeg_state {
