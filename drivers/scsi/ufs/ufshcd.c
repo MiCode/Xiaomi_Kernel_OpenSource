@@ -112,9 +112,6 @@
 /* UIC command timeout, unit: ms */
 #define UIC_CMD_TIMEOUT	500
 
-/* Default request timeout value for the queue */
-#define READ_WRITE_REQUEST_TIMEOUT	(3*HZ)	/* 3 seconds */
-
 /* Retries waiting for doorbells to clear */
 #define POWER_MODE_RETRIES	10
 
@@ -4378,7 +4375,7 @@ static int ufshcd_slave_configure(struct scsi_device *sdev)
 
 	blk_queue_update_dma_pad(q, PRDT_DATA_BYTE_COUNT_PAD - 1);
 	blk_queue_max_segment_size(q, PRDT_DATA_BYTE_COUNT_MAX);
-	blk_queue_rq_timeout(q, READ_WRITE_REQUEST_TIMEOUT);
+
 	sdev->autosuspend_delay = UFSHCD_AUTO_SUSPEND_DELAY_MS;
 	sdev->use_rpm_auto = 1;
 
