@@ -1604,7 +1604,7 @@ static struct snd_soc_dai_link msm8x16_dai[] = {
 		.codec_name = "snd-soc-dummy",
 		.be_id = MSM_FRONTEND_DAI_LSM5,
 	},
-	{/* hw:x,19 */
+	{ /* hw:x,24 */
 		.name = "MSM8916 ULL",
 		.stream_name = "MultiMedia7",
 		.cpu_dai_name   = "MultiMedia7",
@@ -1618,6 +1618,21 @@ static struct snd_soc_dai_link msm8x16_dai[] = {
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA7,
+	},
+	{ /* hw:x,25 */
+		.name = "QUAT_MI2S Hostless",
+		.stream_name = "QUAT_MI2S Hostless",
+		.cpu_dai_name = "QUAT_MI2S_RX_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
 	},
 	/* Backend I2S DAI Links */
 	{
