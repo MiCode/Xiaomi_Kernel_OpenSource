@@ -535,7 +535,7 @@ static void byt_export_gpio(struct gpio_desc *desc, char *name)
 
 static int byt_init(struct snd_soc_pcm_runtime *runtime)
 {
-	int ret, dir;
+	int ret, dir, count;
 	struct snd_soc_codec *codec;
 	struct snd_soc_card *card = runtime->card;
 	struct byt_drvdata *drvdata = snd_soc_card_get_drvdata(runtime->card);
@@ -656,6 +656,18 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	}
 
 	/* BYT-CR Audio Jack */
+	count = 0;
+	if (drvdata->gpios.jd_int_gpio != RT5640_GPIO_NA) {
+		hs_gpio[count].gpio = drvdata->gpios.jd_int_gpio;
+		hs_gpio[count].data = drvdata;
+		count++;
+	}
+
+	if (drvdata->gpios.jd_buttons_gpio != RT5640_GPIO_NA) {
+		hs_gpio[count].gpio = drvdata->gpios.jd_buttons_gpio;
+		hs_gpio[count].data = drvdata;
+		count++;
+	}
 
 	drvdata->t_jack_recheck = msecs_to_jiffies(BYT_T_JACK_RECHECK);
 	INIT_DELAYED_WORK(&drvdata->hs_jack_recheck, byt_hs_jack_recheck);
@@ -663,27 +675,28 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	INIT_DELAYED_WORK(&drvdata->hs_buttons_recheck, byt_hs_buttons_recheck);
 	drvdata->jack_hp_count = 5;
 
-	ret = snd_soc_jack_new(codec, "BYT-CR Audio Jack",
-			SND_JACK_HEADSET | SND_JACK_BTN_0,
-			 &drvdata->jack);
-	if (ret) {
-		pr_err("%s: snd_soc_jack_new failed (ret = %d)!\n", __func__,
-			ret);
-		return ret;
-	}
+	if (!count) {
+		/* Someting wrong with ACPI configuration */
+		WARN(1, "Wrong ACPI configuration !");
+	} else {
+		ret = snd_soc_jack_new(codec, "BYT-CR Audio Jack",
+				SND_JACK_HEADSET | SND_JACK_BTN_0,
+				 &drvdata->jack);
+		if (ret) {
+			pr_err("%s: snd_soc_jack_new failed (ret = %d)!\n", __func__,
+				ret);
+			return ret;
+		}
 
-	hs_gpio[0].gpio = drvdata->gpios.jd_int_gpio;
-	hs_gpio[0].data = drvdata;
-	hs_gpio[1].gpio = drvdata->gpios.jd_buttons_gpio;
-	hs_gpio[1].data = drvdata;
-	ret = snd_soc_jack_add_gpios(&drvdata->jack, 2, &hs_gpio[0]);
-	if (ret) {
-		pr_err("%s: snd_soc_jack_add_gpios failed (ret = %d)!\n",
-			__func__, ret);
-		return ret;
-	}
+		ret = snd_soc_jack_add_gpios(&drvdata->jack, count, &hs_gpio[0]);
+		if (ret) {
+			pr_err("%s: snd_soc_jack_add_gpios failed (ret = %d)!\n",
+				__func__, ret);
+			return ret;
+		}
 
-	snd_jack_set_key(drvdata->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
+		snd_jack_set_key(drvdata->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
+	}
 
 	ret = snd_soc_add_card_controls(card, byt_mc_controls,
 					ARRAY_SIZE(byt_mc_controls));
