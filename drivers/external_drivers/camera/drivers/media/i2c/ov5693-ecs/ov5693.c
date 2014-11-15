@@ -39,6 +39,7 @@
 #include <linux/atomisp_gmin_platform.h>
 
 #include "ov5693.h"
+#include "ad5823.h"
 
 static int vcm_ad_i2c_wr8(struct i2c_client *client, u8 reg, u8 val)
 {
@@ -62,7 +63,8 @@ static int vcm_ad_i2c_wr8(struct i2c_client *client, u8 reg, u8 val)
 	}
 	return 0;
 }
-
+/*TODO: remove this unuseful i2c writer helper*/
+/*
 static int vcm_ad_i2c_wr16(struct i2c_client *client, u8 reg, u16 val)
 {
 	int err;
@@ -84,6 +86,46 @@ static int vcm_ad_i2c_wr16(struct i2c_client *client, u8 reg, u16 val)
 	}
 	return 0;
 }
+*/
+static int ad5823_i2c_write(struct i2c_client *client, u8 reg, u8 val)
+{
+	struct i2c_msg msg;
+	u8 buf[2];
+	buf[0] = reg;
+	buf[1] = val;
+	msg.addr = AD5823_VCM_ADDR;
+	msg.flags = 0;
+	msg.len = 0x02;
+	msg.buf = &buf[0];
+
+	if (i2c_transfer(client->adapter, &msg, 1) != 1)
+		return -EIO;
+	return 0;
+}
+
+static int ad5823_i2c_read(struct i2c_client *client, u8 reg, u8 *val)
+{
+	struct i2c_msg msg[2];
+	u8 buf[2];
+	buf[0] = reg;
+	buf[1] = 0;
+
+	msg[0].addr = AD5823_VCM_ADDR;
+	msg[0].flags = 0;
+	msg[0].len = 0x01;
+	msg[0].buf = &buf[0];
+
+	msg[1].addr = 0x0c;
+	msg[1].flags = I2C_M_RD;
+	msg[1].len = 0x01;
+	msg[1].buf = &buf[1];
+	*val = 0;
+	if (i2c_transfer(client->adapter, msg, 2) != 2)
+		return -EIO;
+	*val = buf[1];
+	return 0;
+}
+
 
 static const uint32_t ov5693_embedded_effective_size = 28;
 
@@ -849,13 +891,52 @@ err:
 	return ret;
 }
 
+int ad5823_t_focus_vcm(struct v4l2_subdev *sd, u16 val)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret = -EINVAL;
+	u8 vcm_code;
+
+	ret = ad5823_i2c_read(client, AD5823_REG_VCM_CODE_MSB, &vcm_code);
+	if (ret)
+		return ret;
+
+	/* set reg VCM_CODE_MSB Bit[1:0] */
+	vcm_code = (vcm_code & VCM_CODE_MSB_MASK) | ((val >> 8) & ~VCM_CODE_MSB_MASK);
+	ret = ad5823_i2c_write(client, AD5823_REG_VCM_CODE_MSB, vcm_code);
+	if (ret)
+		return ret;
+
+	/* set reg VCM_CODE_LSB Bit[7:0] */
+	ret = ad5823_i2c_write(client, AD5823_REG_VCM_CODE_LSB, (val & 0xff));
+	if (ret)
+		return ret;
+
+	/* set required vcm move time */
+	vcm_code = AD5823_RESONANCE_PERIOD / AD5823_RESONANCE_COEF
+		- AD5823_HIGH_FREQ_RANGE;
+	ret = ad5823_i2c_write(client, AD5823_REG_VCM_MOVE_TIME, vcm_code);
+
+	return ret;
+}
+
+int ad5823_t_focus_abs(struct v4l2_subdev *sd, s32 value)
+{
+	int ret;
+
+	value = min(value, AD5823_MAX_FOCUS_POS);
+	ret = ad5823_t_focus_vcm(sd, AD5823_MAX_FOCUS_POS - value);
+
+	return ret;
+}
+
 static int ov5693_t_focus_abs(struct v4l2_subdev *sd, s32 value)
 {
 	struct ov5693_device *dev = to_ov5693_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
 
-	dev_dbg(&client->dev, "%s: FOCUS_POS: %x\n", __func__, value);
+	dev_dbg(&client->dev, "%s: FOCUS_POS: 0x%x\n", __func__, value);
 	value = clamp(value, 0, OV5693_VCM_MAX_FOCUS_POS);
 	if (dev->vcm == VCM_DW9714) {
 		if (dev->vcm_update) {
@@ -873,7 +954,7 @@ static int ov5693_t_focus_abs(struct v4l2_subdev *sd, s32 value)
 		ret = vcm_dw_i2c_write(client,
 				       vcm_val(value, VCM_DEFAULT_S));
 	} else if (dev->vcm == VCM_AD5823) {
-		ret = vcm_ad_i2c_wr16(client, VCM_CODE_MSB, value);
+		ad5823_t_focus_abs(sd, value);
 	}
 	if (ret == 0) {
 		dev->number_of_steps = value - dev->focus;
@@ -1177,14 +1258,31 @@ static int ov5693_init(struct v4l2_subdev *sd)
 		if (ret)
 			dev_err(&client->dev,
 				"vcm reset failed\n");
+		/*change the mode*/
+		ret = ad5823_i2c_write(client, AD5823_REG_VCM_CODE_MSB,
+				       AD5823_RING_CTRL_ENABLE);
+		if (ret)
+			dev_err(&client->dev,
+				"vcm enable ringing failed\n");
+		ret = ad5823_i2c_write(client, AD5823_REG_MODE, AD5823_ARC_RES1);
+		if (ret)
+			dev_err(&client->dev,
+				"vcm change mode failed\n");
 	}
 
 	/* restore settings */
 	ov5693_res = ov5693_res_preview;
 	N_RES = N_RES_PREVIEW;
 
-	dev->focus = 0;
-	ov5693_t_focus_abs(sd, 0);
+	/*change initial focus value for ad5823*/
+	if(dev->vcm == VCM_AD5823) {
+		dev->focus = AD5823_INIT_FOCUS_POS;
+		ov5693_t_focus_abs(sd, (AD5823_MAX_FOCUS_POS
+					- AD5823_INIT_FOCUS_POS));
+	} else {
+		dev->focus = 0;
+		ov5693_t_focus_abs(sd, 0);
+	}
 
 	mutex_unlock(&dev->input_lock);
 
