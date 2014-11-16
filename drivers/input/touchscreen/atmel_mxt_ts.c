@@ -29,6 +29,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
 #include <linux/debugfs.h>
+#include <linux/acpi.h>
 
 #ifdef CONFIG_OF
 #include <linux/of_gpio.h>
@@ -3941,10 +3942,21 @@ static const struct i2c_device_id mxt_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, mxt_id);
 
+#ifdef CONFIG_ACPI
+static struct acpi_device_id mxt_acpi_match[] = {
+	{ "ATML1000", 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(acpi, mxt_acpi_match);
+#endif
+
 static struct i2c_driver mxt_driver = {
 	.driver = {
 		.name	= "atmel_mxt_ts",
 		.owner	= THIS_MODULE,
+#ifdef CONFIG_ACPI
+		.acpi_match_table = ACPI_PTR(mxt_acpi_match),
+#endif
 		.of_match_table = of_match_ptr(mxt_of_match),
 		.pm	= &mxt_pm_ops,
 	},
