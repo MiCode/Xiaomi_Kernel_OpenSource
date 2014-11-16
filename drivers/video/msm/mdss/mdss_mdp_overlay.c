@@ -1231,6 +1231,10 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 					mfd->index);
 			return 0;
 		}
+	} else if (mdata->handoff_pending) {
+		pr_warn("fb%d: commit while splash handoff pending\n",
+				mfd->index);
+		return -EPERM;
 	}
 
 	pr_debug("starting fb%d overlay\n", mfd->index);
