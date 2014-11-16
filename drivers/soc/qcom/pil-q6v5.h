@@ -25,6 +25,7 @@ struct q6v5_data {
 	void __iomem *rmb_base;
 	void __iomem *cxrail_bhs;  /* External BHS register */
 	struct clk *xo;		   /* XO clock source */
+	struct clk *pnoc_clk;	   /* PNOC bus clock source */
 	struct clk *ahb_clk;	   /* PIL access to registers */
 	struct clk *axi_clk;	   /* CPU access to memory */
 	struct clk *core_clk;	   /* CPU core */

@@ -87,6 +87,12 @@ int pil_q6v5_make_proxy_votes(struct pil_desc *pil)
 		goto out;
 	}
 
+	ret = clk_prepare_enable(drv->pnoc_clk);
+	if (ret) {
+		dev_err(pil->dev, "Failed to vote for pnoc\n");
+		goto err_pnoc_vote;
+	}
+
 	ret = regulator_set_voltage(drv->vreg_cx,
 				    RPM_REGULATOR_CORNER_SUPER_TURBO,
 				    RPM_REGULATOR_CORNER_SUPER_TURBO);
@@ -125,6 +131,8 @@ err_cx_mode:
 	regulator_set_voltage(drv->vreg_cx, RPM_REGULATOR_CORNER_NONE,
 			      RPM_REGULATOR_CORNER_SUPER_TURBO);
 err_cx_voltage:
+	clk_disable_unprepare(drv->pnoc_clk);
+err_pnoc_vote:
 	clk_disable_unprepare(drv->xo);
 out:
 	return ret;
@@ -144,6 +152,7 @@ void pil_q6v5_remove_proxy_votes(struct pil_desc *pil)
 	regulator_set_voltage(drv->vreg_cx, RPM_REGULATOR_CORNER_NONE,
 			      RPM_REGULATOR_CORNER_SUPER_TURBO);
 	clk_disable_unprepare(drv->xo);
+	clk_disable_unprepare(drv->pnoc_clk);
 }
 EXPORT_SYMBOL(pil_q6v5_remove_proxy_votes);
 
@@ -484,6 +493,14 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
 		return ERR_CAST(drv->xo);
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,pnoc-clk-vote")) {
+		drv->pnoc_clk = devm_clk_get(&pdev->dev, "pnoc_clk");
+		if (IS_ERR(drv->pnoc_clk))
+			return ERR_CAST(drv->pnoc_clk);
+	} else {
+		drv->pnoc_clk = NULL;
+	}
 
 	drv->vreg_cx = devm_regulator_get(&pdev->dev, "vdd_cx");
 	if (IS_ERR(drv->vreg_cx))
