@@ -618,9 +618,7 @@ void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr)
 			dev->print_log(dev, "%s(): HOST_CLIENT_PROPERTIES_RES_CMD, client# = %d props: ", __func__, dev->me_client_presentation_num);
 			for (i = 0; i < sizeof(struct hbm_props_response); ++i)
 				dev->print_log(dev, "%02X ", *(((unsigned char *)props_res) + i));
-			
 			dev->print_log(dev, "\n");
-			
 		} while (0);
 #endif
 
