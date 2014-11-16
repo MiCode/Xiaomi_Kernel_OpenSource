@@ -1745,12 +1745,13 @@
 
 		clocks = <&clock_rpm clk_cxo_clk_src>,
 			 <&clock_rpm clk_mss_cfg_ahb_clk>,
+			 <&clock_rpm clk_pnoc_clk>,
 			 <&clock_gcc clk_gcc_mss_q6_bimc_axi_clk>,
 			 <&clock_gcc clk_gcc_boot_rom_ahb_clk>,
 			 <&clock_gcc clk_gpll0_out_msscc>;
-		clock-names = "xo", "iface_clk", "bus_clk", "mem_clk",
-			      "gpll0_mss_clk";
-		qcom,proxy-clock-names = "xo";
+		clock-names = "xo", "iface_clk", "pnoc_clk", "bus_clk",
+			      "mem_clk", "gpll0_mss_clk";
+		qcom,proxy-clock-names = "xo", "pnoc_clk";
 		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
 				     "gpll0_mss_clk";
 
@@ -1768,6 +1769,7 @@
 		qcom,ssctl-instance-id = <0x12>;
 		qcom,override-acc;
 		qcom,ahb-clk-vote;
+		qcom,pnoc-clk-vote;
 
 		/* GPIO inputs from mss */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
