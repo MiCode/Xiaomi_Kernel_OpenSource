@@ -469,14 +469,13 @@ static int cpu_mux_set_sel(struct mux_clk *mux, int sel)
 	mux->en_mask = sel;
 
 	/*
-	 * Don't switch the mux if it isn't enabled.
-	 * However, if this is a request to select the safe source
-	 * do it unconditionally. This is to allow the safe source
-	 * to be selected during frequency switches even if the mux
-	 * is disabled (specifically on 8994 V1, the LFMUX may be
-	 * disabled).
+	 * Don't switch the mux if it isn't enabled. However, if this is a
+	 * request to select the safe source or low power source do it
+	 * unconditionally. This is to allow the safe source to be selected
+	 * during frequency switches even if the mux is disabled (specifically
+	 * on 8994 V1, the LFMUX may be disabled).
 	 */
-	if (!mux->c.count && sel != mux->safe_sel)
+	if (!mux->c.count && sel != mux->low_power_sel)
 		return 0;
 
 	__cpu_mux_set_sel(mux, mux->en_mask);
@@ -503,7 +502,7 @@ static int cpu_mux_enable(struct mux_clk *mux)
 
 static void cpu_mux_disable(struct mux_clk *mux)
 {
-	__cpu_mux_set_sel(mux, mux->safe_sel);
+	__cpu_mux_set_sel(mux, mux->low_power_sel);
 }
 
 static struct clk_mux_ops cpu_mux_ops = {
@@ -521,6 +520,7 @@ static struct mux_clk a53_lf_mux = {
 		{ &xo_ao.c,		  0 },
 	),
 	.safe_parent = &a53_safe_clk.c,
+	.low_power_sel = 1,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 1,
@@ -541,6 +541,7 @@ static struct mux_clk a53_hf_mux = {
 		{ &sys_apcsaux_clk.c, 2 },
 	),
 	.safe_parent = &a53_lf_mux.c,
+	.low_power_sel = 0,
 	.safe_freq = 199200000,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
@@ -561,6 +562,7 @@ static struct mux_clk a57_lf_mux = {
 		{ &xo_ao.c,               0 },
 	),
 	.safe_parent = &a57_safe_clk.c,
+	.low_power_sel = 1,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 1,
@@ -581,6 +583,7 @@ static struct mux_clk a57_hf_mux = {
 		{ &sys_apcsaux_clk.c, 2 },
 	),
 	.safe_parent = &a57_lf_mux.c,
+	.low_power_sel = 0,
 	.safe_freq = 199200000,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
@@ -604,10 +607,12 @@ static struct mux_clk a53_lf_mux_v2 = {
 		{ &sys_apcsaux_clk.c, 3 },
 	),
 	.en_mask = 3,
-	.safe_parent = &sys_apcsaux_clk.c,
+	.low_power_sel = 3,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 1,
+	.try_new_parent = true,
+	.try_get_rate = true,
 	.base = &vbases[ALIAS0_GLB_BASE],
 	.c = {
 		.dbg_name = "a53_lf_mux_v2",
@@ -644,11 +649,12 @@ static struct mux_clk a53_hf_mux_v2 = {
 		{ &a53_pll0.c,       3 },
 	),
 	.en_mask = 0,
-	.safe_parent = &a53_lf_mux_div.c,
-	.safe_freq = 300000000,
+	.low_power_sel = 0,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 3,
+	.try_new_parent = true,
+	.try_get_rate = true,
 	.base = &vbases[ALIAS0_GLB_BASE],
 	.c = {
 		.dbg_name = "a53_hf_mux_v2",
@@ -666,10 +672,12 @@ static struct mux_clk a57_lf_mux_v2 = {
 		{ &a57_pll0_main.c,   2 },
 		{ &sys_apcsaux_clk.c, 3 },
 	),
-	.safe_parent = &sys_apcsaux_clk.c,
+	.low_power_sel = 3,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 1,
+	.try_new_parent = true,
+	.try_get_rate = true,
 	.base = &vbases[ALIAS1_GLB_BASE],
 	.c = {
 		.dbg_name = "a57_lf_mux_v2",
@@ -705,11 +713,12 @@ static struct mux_clk a57_hf_mux_v2 = {
 		{ &a57_pll1.c,       1 },
 		{ &a57_pll0.c,       3 },
 	),
-	.safe_parent = &a57_lf_mux_div.c,
-	.safe_freq = 300000000,
+	.low_power_sel = 0,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 3,
+	.try_new_parent = true,
+	.try_get_rate = true,
 	.base = &vbases[ALIAS1_GLB_BASE],
 	.c = {
 		.dbg_name = "a57_hf_mux_v2",
@@ -951,6 +960,7 @@ static struct mux_clk cci_lf_mux = {
 	),
 	.en_mask = 1,
 	.safe_parent = &sys_apcsaux_clk.c,
+	.low_power_sel = 1,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 1,
@@ -973,6 +983,7 @@ static struct mux_clk cci_hf_mux = {
 	),
 	.en_mask = 1,
 	.safe_parent = &cci_lf_mux.c,
+	.low_power_sel = 1,
 	.safe_freq = 600000000,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
@@ -1444,6 +1455,10 @@ static void init_v2_data(void)
 	a57_div_clk.data.div = 8;
 	a53_clk.hw_low_power_ctrl = true;
 	a57_clk.hw_low_power_ctrl = true;
+	a57_pll0.no_prepared_reconfig = true;
+	a57_pll1.no_prepared_reconfig = true;
+	a53_pll0.no_prepared_reconfig = true;
+	a53_pll1.no_prepared_reconfig = true;
 }
 
 static int a57speedbin;
