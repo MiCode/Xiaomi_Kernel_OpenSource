@@ -724,7 +724,7 @@
 		qcom,cpr-timer-cons-up = <0>;
 		qcom,cpr-timer-cons-down = <2>;
 		qcom,cpr-irq-line = <0>;
-		qcom,cpr-step-quotient = <12>;
+		qcom,cpr-step-quotient = <14 14 12 12 12 12 7 8>;
 		qcom,cpr-up-threshold = <2>;
 		qcom,cpr-down-threshold = <4>;
 		qcom,cpr-idle-clocks = <15>;
