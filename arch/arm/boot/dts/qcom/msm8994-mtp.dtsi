@@ -635,6 +635,15 @@
 		qcom,master-en = <1>;	/* ENABLE GPIO */
 		status = "okay";
 	};
+
+	gpio@c400 {	/* GPIO 5  OTG SWITCH EN */
+		qcom,mode = <1>;	/* DIGITAL OUT */
+		qcom,pull = <5>;	/* No Pull */
+		qcom,vin-sel = <2>;	/* 1.8 */
+		qcom,src-sel = <0>;	/* GPIO */
+		qcom,master-en = <1>;	/* ENABLE GPIO */
+		status = "okay";
+	};
 };
 
 &pmi8994_mpps {
