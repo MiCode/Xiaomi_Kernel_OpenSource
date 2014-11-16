@@ -635,6 +635,7 @@
 					<138  0 6 0>,
 					<138  6 6 0>,
 					<138 12 6 0>;
+		qcom,cpr-fuse-revision = <62 48 3 0>;
 
 		qcom,fuse-remap-base-row = <1000>;
 		qcom,fuse-remap-source =
@@ -662,6 +663,19 @@
 				<0xFFFFFFFF 0 700000 700000 715000 725000
 					      790000 815000 835000 900000
 					      935000 940000 965000 990000>;
+
+		qcom,cpr-fuse-version-map =
+				<0xffffffff 0xffffffff 1 0 0 0 0>,
+				<0xffffffff 0xffffffff 2 0 0 0 0>,
+				<0xffffffff 0xffffffff 3 0 0 0 0>;
+		qcom,cpr-quotient-adjustment =
+				<0 0 0 (-140)>,
+				<0 0 0 (-140)>,
+				<0 0 0 (-50)>;
+		qcom,cpr-init-voltage-adjustment =
+				<0 0 0 (-70000)>,
+				<0 0 0 (-70000)>,
+				<0 0 0 (-25000)>;
 
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;
@@ -734,6 +748,7 @@
 					<138 54 6 0>,
 					<138 60 6 0>,
 					<139  2 6 0>;
+		qcom,cpr-fuse-revision = <62 48 3 0>;
 
 		qcom,fuse-remap-base-row = <1000>;
 		qcom,fuse-remap-source =
@@ -763,6 +778,25 @@
 					      725000 795000 815000 835000
 					      865000 880000 895000 915000
 					      935000 940000 960000 990000>;
+
+		qcom,cpr-fuse-version-map =
+				<0xffffffff 0xffffffff 1 6 6 6 6>,
+				<0xffffffff 0xffffffff 2 6 6 6 6>,
+				<0xffffffff 0xffffffff 2 4 4 4 4>,
+				<0xffffffff 0xffffffff 3 4 4 4 4>,
+				<0xffffffff 0xffffffff 4 4 4 4 4>;
+		qcom,cpr-quotient-adjustment =
+				<0 0 0 (-60)>,
+				<0 0 0 (-60)>,
+				<0 0 0 (-210)>,
+				<0 0 0 (-115)>,
+				<0 0 0 (-115)>;
+		qcom,cpr-init-voltage-adjustment =
+				<0 0 0 (-80000)>,
+				<0 0 0 (-80000)>,
+				<0 0 0 (-80000)>,
+				<0 0 0 (-35000)>,
+				<0 0 0 (-35000)>;
 
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;

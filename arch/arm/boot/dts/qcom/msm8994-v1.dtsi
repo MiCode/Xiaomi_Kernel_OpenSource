@@ -112,6 +112,7 @@
 				<138  0 6 0>,
 				<138  6 6 0>,
 				<138 12 6 0>;
+	qcom,cpr-fuse-revision = <62 48 2 0>;
 
 	qcom,fuse-remap-base-row = <1000>;
 	qcom,fuse-remap-source =
@@ -134,6 +135,9 @@
 	qcom,cpr-voltage-floor-override =
 			<0xFFFFFFFF 0 725000 800000 840000 860000 860000
 				      900000 900000 940000 940000>;
+
+	/delete-property/ qcom,cpr-fuse-version-map;
+	/delete-property/ qcom,cpr-init-voltage-adjustment;
 
 	qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
 	qcom,cpr-quot-adjust-scaling-factor-max = <0 2000 2000>;
@@ -180,6 +184,7 @@
 				<138 54 6 0>,
 				<138 60 6 0>,
 				<139  2 6 0>;
+	qcom,cpr-fuse-revision = <62 48 2 0>;
 
 	qcom,fuse-remap-base-row = <1000>;
 	qcom,fuse-remap-source =
@@ -202,6 +207,9 @@
 	qcom,cpr-voltage-floor-override =
 			<0xFFFFFFFF 0 725000 790000 840000 840000 860000
 				      890000 920000 940000>;
+
+	/delete-property/ qcom,cpr-fuse-version-map;
+	/delete-property/ qcom,cpr-init-voltage-adjustment;
 
 	qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
 	qcom,cpr-quot-adjust-scaling-factor-max = <0 2000 2000>;
