@@ -57,6 +57,10 @@
 	};
 };
 
+&tspp {
+	status = "disabled";
+};
+
 &tlmm_pinmux{
 	spi_0 {
 		status = "disabled";
@@ -508,6 +512,8 @@
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
 			"AIF4 MAD", "MCLK",
+			"AMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Analog Mic4",
 			"AMIC2", "MIC BIAS2 External",
 			"MIC BIAS2 External", "Headset Mic",
 			"AMIC3", "MIC BIAS2 External",
@@ -518,10 +524,10 @@
 			"MIC BIAS3 External", "Analog Mic7",
 			"AMIC6", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Analog Mic8",
-			"DMIC1", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Digital Mic1",
-			"DMIC2", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Digital Mic2",
+			"DMIC1", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic1",
+			"DMIC2", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic2",
 			"DMIC3", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Digital Mic3",
 			"DMIC4", "MIC BIAS4 External",
@@ -531,8 +537,21 @@
 			"DMIC6", "MIC BIAS3 External",
 			"MIC BIAS3 External", "Digital Mic6";
 
+		pinctrl-names = "mi2s-sleep",
+				"mi2s-active",
+				"auxpcm-sleep",
+				"auxpcm-active",
+				"audio-ext-speakers";
+
+		pinctrl-0 = <&pri_mi2s_sleep>, <&pri_mi2s_sd0_sleep>;
+		pinctrl-1 = <&pri_mi2s_active>, <&pri_mi2s_sd0_active>;
+		pinctrl-2 = <&sec_aux_pcm_sleep>, <&sec_aux_pcm_din_sleep>;
+		pinctrl-3 = <&sec_aux_pcm_active>, <&sec_aux_pcm_din_active>;
+		pinctrl-4 = <&audio_ext_speakers>;
+
 		qcom,ext-spk-rear-panel-irq = <&pm8994_gpios 13 0x1>;
-		qcom,ext-spk-front-panel-irq = <&pm8994_gpios 11 0x1>;
+		qcom,ext-spk-front-panel-irq = <&msm_gpio 96 0>;
+		qcom,ext-mic-front-panel-irq = <&pm8994_gpios 11 0x1>;
 		qcom,cdc-micbias2-headset-only;
 		qcom,mbhc-audio-jack-type = "6-pole-jack";
 		qcom,hdmi-audio-rx;
