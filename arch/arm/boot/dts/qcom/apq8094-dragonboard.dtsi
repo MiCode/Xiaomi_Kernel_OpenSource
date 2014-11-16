@@ -262,6 +262,7 @@
 			 0x0 1 &intc 0 180 0>;
 	interrupt-names = "hs_phy_irq", "pwr_event_irq";
 	qcom,charging-disabled;
+	vbus_dwc3-supply = <&vph_pwr_vreg>;
 	/delete-property/ qcom,otg-capability;
 	qcom,ext-hub-reset-gpio =  <&pm8994_gpios 1 0>;
 	dwc3@f9200000 {
@@ -555,7 +556,7 @@
 };
 
 &pmi8994_charger {
-	qcom,charging-disabled;
+	status = "disabled";
 };
 
 &rpm_bus {
