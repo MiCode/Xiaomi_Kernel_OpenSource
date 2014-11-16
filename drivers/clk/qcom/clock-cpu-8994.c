@@ -739,7 +739,18 @@ static enum handoff cpu_clk_8994_handoff(struct clk *c)
 
 static long cpu_clk_8994_round_rate(struct clk *c, unsigned long rate)
 {
-	return clk_round_rate(c->parent, rate);
+	unsigned long fmax = c->fmax[c->num_fmax - 1];
+	unsigned long fmin = c->fmax[1];
+	int i = 1;
+
+	if (rate <= fmin)
+		return fmin;
+	if (rate >= fmax)
+		return fmax;
+	while ((c->fmax[i++] < rate) && (i < c->num_fmax))
+		;
+
+	return c->fmax[i-1];
 }
 
 static void do_nothing(void *unused) { }
@@ -1397,7 +1408,7 @@ static void populate_opp_table(struct platform_device *pdev)
 	}
 
 	/* One time print during bootup */
-	pr_info("clock-cpu-8994: OPP tables populated (cpu %d and %d)",
+	pr_info("clock-cpu-8994: OPP tables populated (cpu %d and %d)\n",
 		a53_cpu, a57_cpu);
 
 	print_opp_table(a53_cpu, a57_cpu);
