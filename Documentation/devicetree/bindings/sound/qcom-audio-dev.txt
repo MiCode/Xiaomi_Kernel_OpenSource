@@ -734,6 +734,12 @@ Optional properties:
 			   for headset detection.
 - qcom,dock-plug-det-irq: Interrupt line to detect Docking/Undocking of Liquid
 			  device
+- qcom,ext-spk-rear-panel-irq: Interrupt line to detect rear panel speakers
+              jack for Dragon Board.
+- qcom,ext-spk-front-panel-irq: Interrupt line to detect front panel speakers
+              jack for Dragon Board.
+- qcom,ext-mic-front-panel-irq: Interrupt line to detect front panel microphone
+              jack for Dragon Board.
 - qcom,mbhc-audio-jack-type : String to indicate the jack type on the hardware.
 		Possible Values:
 		4-pole-jack : Jack on the hardware is 4-pole.
