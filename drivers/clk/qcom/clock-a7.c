@@ -148,6 +148,12 @@ static void populate_opp_table(struct platform_device *pdev)
 
 	apc_node = of_parse_phandle(pdev->dev.of_node, "cpu-vdd-supply", 0);
 	if (!apc_node) {
+		pr_err("can't find the apc0 dt node.\n");
+		return;
+	}
+
+	apc_dev = of_find_device_by_node(apc_node);
+	if (!apc_dev) {
 		pr_err("can't find the apc0 device node.\n");
 		return;
 	}
