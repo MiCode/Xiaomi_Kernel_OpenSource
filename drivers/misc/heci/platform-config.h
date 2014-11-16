@@ -17,7 +17,7 @@
 #define PLATFORM_CONFIG__H
 
 /* Build ID string */
-#define	BUILD_ID	"0110-imin-support-fixed-hid-client-init"
+#define	BUILD_ID	"0117-imin-support-hid-client-startup-fix"
 
 #define	ISH_DEBUG	0
 #if ISH_DEBUG

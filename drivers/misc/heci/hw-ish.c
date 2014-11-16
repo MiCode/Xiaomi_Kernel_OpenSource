@@ -462,11 +462,13 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 
 	/* HECI bus message */
 	if (!heci_hdr->host_addr && !heci_hdr->me_addr) {
+		g_ish_print_log(KERN_ALERT "%s(): received HBM\n", __func__);
 		recv_hbm(dev, heci_hdr);
 		goto	eoi;
 
 	} else {
 		/* HECI client message */
+		g_ish_print_log(KERN_ALERT "%s(): received HECI client message\n", __func__);
 		recv_heci_cl_msg(dev, heci_hdr);
 		goto	eoi;
 	}

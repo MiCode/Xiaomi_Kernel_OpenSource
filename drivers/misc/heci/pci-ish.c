@@ -512,8 +512,8 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct workqueue_struct *workqueue_for_init;
 	my_work_t *work;
 
-	ISH_INFO_PRINT(KERN_ALERT "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n", __func__);
-	ISH_INFO_PRINT(KERN_ALERT "[heci-ish] %s() running on %s revision [%02X]\n", __func__,
+	ISH_INFO_PRINT(KERN_ERR "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n", __func__);
+	ISH_INFO_PRINT(KERN_ERR "[heci-ish] %s() running on %s revision [%02X]\n", __func__,
 		pdev->revision == REVISION_ID_CHT_A0 || (pdev->revision & REVISION_ID_SI_MASK) == REVISION_ID_CHT_A0_SI ? "CHT A0" :
 		pdev->revision == REVISION_ID_CHT_B0 || (pdev->revision & REVISION_ID_SI_MASK) == REVISION_ID_CHT_Bx_SI ? "CHT B0" : "Unknown", pdev->revision);
 #if defined (SUPPORT_Ax_ONLY)

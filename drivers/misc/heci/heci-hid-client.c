@@ -388,6 +388,7 @@ void workqueue_init_function(struct work_struct *work)
 	struct hostif_msg	*msg = (struct hostif_msg *)buf;
 	int	i;
 	struct heci_device	*dev;
+	int	retry_count;
 
 	ISH_DBG_PRINT(KERN_ALERT "[ish client driver] %s() in workqueue func, continue initialization process\n", __func__);
 	g_ish_print_log(KERN_ALERT "[ish client driver] %s() in workqueue func, continue initialization process\n", __func__);
@@ -443,8 +444,25 @@ void workqueue_init_function(struct work_struct *work)
 
 	rv = 0;
 
-	if (!enum_devices_done)
-		wait_event_timeout(init_wait, enum_devices_done, 30 * HZ);
+	retry_count = 0;
+printk(KERN_ALERT "[hid-ish]: going to send HOSTIF_DM_ENUM_DEVICES\n");
+g_ish_print_log(KERN_ALERT "[hid-ish]: going to send HOSTIF_DM_ENUM_DEVICES\n");
+	while (!enum_devices_done && retry_count < 10) {
+		wait_event_timeout(init_wait, enum_devices_done, 3 * HZ);
+		++retry_count;
+printk(KERN_ALERT "[hid-ish]: enum_devices_done = %d, retry_count = %d\n", enum_devices_done, retry_count);
+g_ish_print_log(KERN_ALERT "[hid-ish]: enum_devices_done = %d, retry_count = %d\n", enum_devices_done, retry_count);
+		if (!enum_devices_done) {
+			/* Send HOSTIF_DM_ENUM_DEVICES */
+			memset(msg, 0, sizeof(struct hostif_msg));
+			msg->hdr.command = HOSTIF_DM_ENUM_DEVICES;
+			len = sizeof(struct hostif_msg);
+			rv = heci_cl_send(hid_heci_cl, buf, len);
+printk(KERN_ALERT "[hid-ish]: heci_cl_send() returns %d\n", rv);
+g_ish_print_log(KERN_ALERT "[hid-ish]: heci_cl_send() returns %d\n", rv);
+		}
+	}
+	printk(KERN_ALERT "[hid-ish]: enum_devices_done = %d, retry_count = %d\n", enum_devices_done, retry_count);
 
 	if (!enum_devices_done) {
 		printk(KERN_ERR "[ish client driver]: timed out waiting for enum_devices_done\n");
@@ -540,8 +558,8 @@ static int __init ish_init(void)
 	int	rv;
 	struct workqueue_struct *workqueue_for_init;
 
-	ISH_INFO_PRINT(KERN_ALERT "[hid-ish]: %s():+++ [Build" BUILD_ID "]\n", __func__);
-	g_ish_print_log(KERN_ALERT "[hid-ish]: %s():+++ [Build" BUILD_ID "]\n", __func__);
+	ISH_INFO_PRINT(KERN_ERR "[hid-ish]: %s():+++ [Build" BUILD_ID "]\n", __func__);
+	g_ish_print_log(KERN_ERR "[hid-ish]: %s():+++ [Build" BUILD_ID "]\n", __func__);
 /*----------------------*/
 /*return 0;*/
 /*----------------------*/
@@ -553,12 +571,12 @@ static int __init ish_init(void)
 	/* 7/7/2014: in order to not stick Android boot, from here & below needs to run in work queue and here we should return rv */
 	/****************************************************************/
 	workqueue_for_init = create_workqueue("workqueue_for_init");
-	INIT_WORK(&my_work, workqueue_init_function);
-	queue_work(workqueue_for_init, &my_work);
+        INIT_WORK(&my_work, workqueue_init_function);
+        queue_work(workqueue_for_init, &my_work);
 
-	ISH_DBG_PRINT(KERN_ALERT "[ish client driver] %s() enqueue init_work function\n", __func__);
+        ISH_DBG_PRINT(KERN_ALERT "[ish client driver] %s() enqueue init_work function\n", __func__);
         g_ish_print_log(KERN_ALERT "[ish client driver] %s() enqueue init_work function\n", __func__);
-
+	
 	return rv;
 	/****************************************************************/
 

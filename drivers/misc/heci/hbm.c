@@ -23,6 +23,27 @@
 #include "client.h"
 #include <linux/spinlock.h>
 
+/*
+#define	DEBUG_FW_BOOT_SEQ	1
+#define	DUMP_CL_PROP	1
+*/
+
+#ifdef DEBUG_FW_BOOT_SEQ
+unsigned char	static_fw_cl_props[6][32] = {
+
+{0x85, 0x01, 0x00, 0x00, 0x3B, 0x79, 0x63, 0xD9, 0xCF, 0x61, 0x8E, 0x4F, 0x8C, 0x02, 0xF2, 0xF7, 0xD0, 0x7F, 0x8E, 0x84, 0x01, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+{0x85, 0x02, 0x00, 0x00, 0xB9, 0x78, 0xCC, 0xC1, 0x93, 0xB6, 0x54, 0x4E, 0x91, 0x91, 0x51, 0x69, 0xCB, 0x02, 0x7C, 0x25, 0x01, 0x01, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+{0x85, 0x03, 0x00, 0x00, 0x26, 0x06, 0x05, 0x1F, 0x05, 0xD5, 0x94, 0x4E, 0xB1, 0x89, 0x53, 0x5D, 0x7D, 0xE1, 0x9C, 0xF2, 0x01, 0x01, 0x00, 0x00, 0x34, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+{0x85, 0x04, 0x00, 0x00, 0x54, 0x6C, 0x53, 0x28, 0x99, 0xCF, 0x27, 0x4F, 0xA6, 0xF3, 0x49, 0x97, 0x41, 0xBA, 0xAD, 0xFE, 0x01, 0x01, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x90, 0x00, 0x00, 0x00},
+{0x85, 0x05, 0x00, 0x00, 0x58, 0xCD, 0xAE, 0x33, 0x79, 0xB6, 0x54, 0x4E, 0x9B, 0xD9, 0xA0, 0x4D, 0x34, 0xF0, 0xC2, 0x26, 0x01, 0x01, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+{0x85, 0x06, 0x00, 0x00, 0x2E, 0x9A, 0x57, 0xBB, 0x54, 0xCC, 0x50, 0x44, 0xB1, 0xD0, 0x5E, 0x75, 0x20, 0xDC, 0xAD, 0x25, 0x01, 0x01, 0x00, 0x00, 0x04, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+
+};
+
+#define	NUM_STATIC_CLIENTS	6
+
+#endif /* DEBUG_FW_BOOT_SEQ */
+
 #ifdef dev_dbg
 #undef dev_dbg
 #endif
@@ -222,12 +243,19 @@ static int heci_hbm_prop_req(struct heci_device *dev)
 	if (next_client_index == HECI_CLIENTS_MAX) {
 		dev->hbm_state = HECI_HBM_WORKING;
 		dev->dev_state = HECI_DEV_ENABLED;
+
+		for (dev->me_client_presentation_num = 0; dev->me_client_presentation_num < client_num; ++dev->me_client_presentation_num)
+			/* Add new client device */
+			heci_bus_new_client(dev);
+
 		return 0;
 	}
 
 	dev->me_clients[client_num].client_id = next_client_index;
 	dev->me_clients[client_num].heci_flow_ctrl_creds = 0;
 
+#ifndef DEBUG_FW_BOOT_SEQ
+	dev->print_log(dev, "%s(): retrieving real fw client #%d properties\n", __func__, client_num);
 	heci_hbm_hdr(heci_hdr, len);
 	prop_req = (struct hbm_props_request *)data;
 
@@ -242,8 +270,15 @@ static int heci_hbm_prop_req(struct heci_device *dev)
 		heci_reset(dev, 1);
 		return -EIO;
 	}
+#endif
 
 	dev->me_client_index = next_client_index;
+
+#ifdef DEBUG_FW_BOOT_SEQ
+	dev->print_log(dev, "%s(): retrieving static fw client #%d properties\n", __func__, client_num);
+	heci_hbm_dispatch(dev, (struct heci_bus_message *)static_fw_cl_props[client_num]);
+#endif
+
 	return 0;
 }
 
@@ -575,6 +610,20 @@ void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr)
 		props_res = (struct hbm_props_response *)heci_msg;
 		me_client = &dev->me_clients[dev->me_client_presentation_num];
 
+#ifdef DUMP_CL_PROP
+		/* DEBUG -- dump complete response */
+		do {
+			int	i;
+
+			dev->print_log(dev, "%s(): HOST_CLIENT_PROPERTIES_RES_CMD, client# = %d props: ", __func__, dev->me_client_presentation_num);
+			for (i = 0; i < sizeof(struct hbm_props_response); ++i)
+				dev->print_log(dev, "%02X ", *(((unsigned char *)props_res) + i));
+			
+			dev->print_log(dev, "\n");
+			
+		} while (0);
+#endif
+
 		if (props_res->status || !dev->me_clients) {
 			dev_err(&dev->pdev->dev, "reset: properties response hbm wrong status.\n");
 			heci_reset(dev, 1);
@@ -582,7 +631,7 @@ void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr)
 		}
 
 		if (me_client->client_id != props_res->address) {
-			dev_err(&dev->pdev->dev, "reset: host properties response address mismatch\n");
+			dev_err(&dev->pdev->dev, "reset: host properties response address mismatch [%02X %02X]\n", me_client->client_id, props_res->address);
 			heci_reset(dev, 1);
 			return;
 		}
@@ -612,8 +661,10 @@ void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr)
 		} while (0);
 #endif
 
+#if 0
 		/* Add new client device */
 		heci_bus_new_client(dev);
+#endif
 
 		/* request property for the next client */
 		heci_hbm_prop_req(dev);
@@ -687,6 +738,8 @@ void	recv_hbm(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 	unsigned long	flags;
 
 	dev->ops->read(dev, rd_msg_buf, heci_hdr->length);
+
+	dev->print_log(dev, "%s(): HBM command %02X\n", __func__, heci_msg->hbm_cmd);
 
 	/* Flow control - handle in place */
 	if (heci_msg->hbm_cmd == HECI_FLOW_CONTROL_CMD) {
