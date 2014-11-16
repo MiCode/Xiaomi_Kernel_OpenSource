@@ -668,6 +668,7 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned int cp_debug = A4XX_CP_DEBUG_DEFAULT;
 
 	adreno_vbif_start(adreno_dev, a4xx_vbif_platforms,
 			ARRAY_SIZE(a4xx_vbif_platforms));
@@ -719,8 +720,13 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, UCHE_TRAP_BASE_HI, 0xffff0000);
 
 	/* On A420 cores turn on SKIP_IB2_DISABLE in addition to the default */
-	kgsl_regwrite(device, A4XX_CP_DEBUG, A4XX_CP_DEBUG_DEFAULT |
-			(adreno_is_a420(adreno_dev) ? (1 << 29) : 0));
+	if (adreno_is_a420(adreno_dev))
+		cp_debug |= (1 << 29);
+	/* Set chicken bit to disable the speed up of bootstrap on A430 */
+	else if (adreno_is_a430(adreno_dev))
+		cp_debug |= (1 << 14);
+
+	kgsl_regwrite(device, A4XX_CP_DEBUG, cp_debug);
 
 	/* On A430 enable SP regfile sleep for power savings */
 	if (!adreno_is_a420(adreno_dev)) {
