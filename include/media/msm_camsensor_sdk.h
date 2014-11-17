@@ -120,11 +120,6 @@ enum camerab_mode_t {
 	CAMERA_MODE_INVALID = (1<<2),
 };
 
-enum sensor_stats_type {
-	YRGB,
-	YYYY,
-};
-
 enum msm_actuator_data_type {
 	MSM_ACTUATOR_BYTE_DATA = 1,
 	MSM_ACTUATOR_WORD_DATA,
