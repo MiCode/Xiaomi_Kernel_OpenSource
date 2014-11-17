@@ -702,6 +702,9 @@ static int msm_otg_reset(struct usb_phy *phy)
 			ULPI_SET(ULPI_PWR_CLK_MNG_REG));
 		/* Enable PMIC pull-up */
 		pm8xxx_usb_id_pullup(1);
+		if (motg->phy_irq)
+			writeb_relaxed(USB_PHY_ID_MASK,
+				USB2_PHY_USB_PHY_INTERRUPT_MASK1);
 	}
 
 	if (motg->caps & ALLOW_VDD_MIN_WITH_RETENTION_DISABLED)
@@ -1044,7 +1047,8 @@ static void msm_otg_enable_phy_hv_int(struct msm_otg *motg)
 	bool dp_dm_hv_int = false;
 	u32 val;
 
-	if (motg->pdata->otg_control == OTG_PHY_CONTROL)
+	if (motg->pdata->otg_control == OTG_PHY_CONTROL ||
+				motg->phy_irq)
 		bsv_id_hv_int = true;
 	if (motg->host_bus_suspend || motg->device_bus_suspend)
 		dp_dm_hv_int = true;
@@ -1076,6 +1080,8 @@ static void msm_otg_enable_phy_hv_int(struct msm_otg *motg)
 	default:
 		break;
 	}
+	pr_debug("%s: bsv_id_hv = %d dp_dm_hv_int = %d\n",
+			__func__, bsv_id_hv_int, dp_dm_hv_int);
 }
 
 static void msm_otg_disable_phy_hv_int(struct msm_otg *motg)
@@ -1084,7 +1090,8 @@ static void msm_otg_disable_phy_hv_int(struct msm_otg *motg)
 	bool dp_dm_hv_int = false;
 	u32 val;
 
-	if (motg->pdata->otg_control == OTG_PHY_CONTROL)
+	if (motg->pdata->otg_control == OTG_PHY_CONTROL ||
+				motg->phy_irq)
 		bsv_id_hv_int = true;
 	if (motg->host_bus_suspend || motg->device_bus_suspend)
 		dp_dm_hv_int = true;
@@ -1117,6 +1124,8 @@ static void msm_otg_disable_phy_hv_int(struct msm_otg *motg)
 	default:
 		break;
 	}
+	pr_debug("%s: bsv_id_hv = %d dp_dm_hv_int = %d\n",
+			__func__, bsv_id_hv_int, dp_dm_hv_int);
 }
 
 static void msm_otg_enter_phy_retention(struct msm_otg *motg)
@@ -1138,6 +1147,7 @@ static void msm_otg_enter_phy_retention(struct msm_otg *motg)
 	default:
 		break;
 	}
+	pr_debug("USB PHY is in retention\n");
 }
 
 static void msm_otg_exit_phy_retention(struct msm_otg *motg)
@@ -1160,6 +1170,25 @@ static void msm_otg_exit_phy_retention(struct msm_otg *motg)
 	default:
 		break;
 	}
+	pr_debug("USB PHY is exited from retention\n");
+}
+
+static void msm_id_status_w(struct work_struct *w);
+static irqreturn_t msm_otg_phy_irq_handler(int irq, void *data)
+{
+	struct msm_otg *motg = data;
+
+	if (atomic_read(&motg->in_lpm)) {
+		pr_debug("PHY ID IRQ in LPM\n");
+		motg->phy_irq_pending = true;
+		if (!atomic_read(&motg->pm_suspended))
+			pm_request_resume(motg->phy.dev);
+	} else {
+		pr_debug("PHY ID IRQ outside LPM\n");
+		msm_id_status_w(&motg->id_status_work.work);
+	}
+
+	return IRQ_HANDLED;
 }
 
 #define PHY_SUSPEND_TIMEOUT_USEC	(500 * 1000)
@@ -1417,6 +1446,8 @@ phcd_retry:
 		else
 			enable_irq_wake(motg->irq);
 
+		if (motg->phy_irq)
+			enable_irq_wake(motg->phy_irq);
 		if (motg->pdata->pmic_id_irq)
 			enable_irq_wake(motg->pdata->pmic_id_irq);
 		if (motg->ext_id_irq)
@@ -1604,6 +1635,8 @@ skip_phy_resume:
 		else
 			disable_irq_wake(motg->irq);
 
+		if (motg->phy_irq)
+			disable_irq_wake(motg->phy_irq);
 		if (motg->pdata->pmic_id_irq)
 			disable_irq_wake(motg->pdata->pmic_id_irq);
 		if (motg->ext_id_irq)
@@ -1636,6 +1669,11 @@ skip_phy_resume:
 	/* If ASYNC IRQ is present then keep it enabled only during LPM */
 	if (motg->async_irq)
 		disable_irq(motg->async_irq);
+
+	if (motg->phy_irq_pending) {
+		motg->phy_irq_pending = false;
+		msm_id_status_w(&motg->id_status_work.work);
+	}
 
 	if (motg->host_bus_suspend)
 		usb_hcd_resume_root_hub(hcd);
@@ -2156,6 +2194,31 @@ static bool msm_otg_read_pmic_id_state(struct msm_otg *motg)
 	 * host mode unnecessarily.
 	 */
 	return !!id;
+}
+
+static bool msm_otg_read_phy_id_state(struct msm_otg *motg)
+{
+	u8 val;
+
+	/*
+	 * clear the pending/outstanding interrupts and
+	 * read the ID status from the SRC_STATUS register.
+	 */
+	writeb_relaxed(USB_PHY_ID_MASK, USB2_PHY_USB_PHY_INTERRUPT_CLEAR1);
+
+	writeb_relaxed(0x1, USB2_PHY_USB_PHY_IRQ_CMD);
+	/*
+	 * Databook says 200 usec delay is required for
+	 * clearing the interrupts.
+	 */
+	udelay(200);
+	writeb_relaxed(0x0, USB2_PHY_USB_PHY_IRQ_CMD);
+
+	val = readb_relaxed(USB2_PHY_USB_PHY_INTERRUPT_SRC_STATUS);
+	if (val & USB_PHY_IDDIG_1_0)
+		return false; /* ID is grounded */
+	else
+		return true;
 }
 
 static int msm_otg_mhl_register_callback(struct msm_otg *motg,
@@ -2865,6 +2928,11 @@ static void msm_otg_init_sm(struct msm_otg *motg)
 					clear_bit(ID, &motg->inputs);
 			} else if (motg->ext_id_irq) {
 				if (gpio_get_value(pdata->usb_id_gpio))
+					set_bit(ID, &motg->inputs);
+				else
+					clear_bit(ID, &motg->inputs);
+			} else if (motg->phy_irq) {
+				if (msm_otg_read_phy_id_state(motg))
 					set_bit(ID, &motg->inputs);
 				else
 					clear_bit(ID, &motg->inputs);
@@ -3804,6 +3872,8 @@ static void msm_id_status_w(struct work_struct *w)
 		id_state = msm_otg_read_pmic_id_state(motg);
 	else if (motg->ext_id_irq)
 		id_state = gpio_get_value(motg->pdata->usb_id_gpio);
+	else if (motg->phy_irq)
+		id_state = msm_otg_read_phy_id_state(motg);
 
 	if (id_state) {
 		if (!test_and_set_bit(ID, &motg->inputs)) {
@@ -5223,12 +5293,38 @@ static int msm_otg_probe(struct platform_device *pdev)
 		goto destroy_wlock;
 	}
 
+	motg->phy_irq = platform_get_irq_byname(pdev, "phy_irq");
+	if (motg->phy_irq < 0) {
+		dev_dbg(&pdev->dev, "phy_irq is not present\n");
+		motg->phy_irq = 0;
+	} else {
+
+		/* clear all interrupts before enabling the IRQ */
+		writeb_relaxed(0xFF, USB2_PHY_USB_PHY_INTERRUPT_CLEAR0);
+		writeb_relaxed(0xFF, USB2_PHY_USB_PHY_INTERRUPT_CLEAR1);
+
+		writeb_relaxed(0x1, USB2_PHY_USB_PHY_IRQ_CMD);
+		/*
+		 * Databook says 200 usec delay is required for
+		 * clearing the interrupts.
+		 */
+		udelay(200);
+		writeb_relaxed(0x0, USB2_PHY_USB_PHY_IRQ_CMD);
+
+		ret = request_irq(motg->phy_irq, msm_otg_phy_irq_handler,
+				IRQF_TRIGGER_RISING, "msm_otg_phy_irq", motg);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "phy_irq request fail %d\n", ret);
+			goto free_irq;
+		}
+	}
+
 	if (motg->async_irq) {
 		ret = request_irq(motg->async_irq, msm_otg_irq,
 					IRQF_TRIGGER_RISING, "msm_otg", motg);
 		if (ret) {
 			dev_err(&pdev->dev, "request irq failed (ASYNC INT)\n");
-			goto free_irq;
+			goto free_phy_irq;
 		}
 		disable_irq(motg->async_irq);
 	}
@@ -5265,7 +5361,8 @@ static int msm_otg_probe(struct platform_device *pdev)
 	}
 
 	if (motg->pdata->mode == USB_OTG &&
-		motg->pdata->otg_control == OTG_PMIC_CONTROL) {
+		motg->pdata->otg_control == OTG_PMIC_CONTROL &&
+		!motg->phy_irq) {
 
 		if (gpio_is_valid(motg->pdata->usb_id_gpio)) {
 			/* usb_id_gpio request */
@@ -5316,7 +5413,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 			 motg->pdata->pmic_id_irq || motg->ext_id_irq))
 		motg->caps = ALLOW_PHY_POWER_COLLAPSE | ALLOW_PHY_RETENTION;
 
-	if (motg->pdata->otg_control == OTG_PHY_CONTROL)
+	if (motg->pdata->otg_control == OTG_PHY_CONTROL || motg->phy_irq)
 		motg->caps = ALLOW_PHY_RETENTION | ALLOW_PHY_REGULATORS_LPM;
 
 	if (motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int)
@@ -5404,6 +5501,9 @@ remove_phy:
 free_async_irq:
 	if (motg->async_irq)
 		free_irq(motg->async_irq, motg);
+free_phy_irq:
+	if (motg->phy_irq)
+		free_irq(motg->phy_irq, motg);
 free_irq:
 	free_irq(motg->irq, motg);
 destroy_wlock:
@@ -5495,6 +5595,8 @@ static int msm_otg_remove(struct platform_device *pdev)
 	wake_lock_destroy(&motg->wlock);
 
 	msm_hsusb_mhl_switch_enable(motg, 0);
+	if (motg->phy_irq)
+		free_irq(motg->phy_irq, motg);
 	if (motg->pdata->pmic_id_irq)
 		free_irq(motg->pdata->pmic_id_irq, motg);
 	usb_remove_phy(phy);
@@ -5645,6 +5747,7 @@ static int msm_otg_pm_resume(struct device *dev)
 	motg->pm_done = 0;
 
 	if (motg->async_int || motg->sm_work_pending ||
+			motg->phy_irq_pending ||
 			!pm_runtime_suspended(dev)) {
 		pm_runtime_get_noresume(dev);
 		ret = msm_otg_resume(motg);

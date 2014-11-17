@@ -356,6 +356,8 @@ struct msm_otg_platform_data {
  * @pdata: otg device platform data.
  * @irq: IRQ number assigned for HSUSB controller.
  * @async_irq: IRQ number used by some controllers during low power state
+ * @phy_irq: IRQ number assigned for PHY to notify events like id and line
+		state changes.
  * @pclk: clock struct of iface_clk.
  * @core_clk: clock struct of core_bus_clk.
  * @sleep_clk: clock struct of sleep_clk for USB PHY.
@@ -405,12 +407,14 @@ struct msm_otg_platform_data {
 	     the charger detection starts. When USB is disconnected and in lpm
 	     pm_done is set to true.
  * @ext_id_irq: IRQ for ID interrupt.
+ * @phy_irq_pending: Gets set when PHY IRQ arrives in LPM.
  */
 struct msm_otg {
 	struct usb_phy phy;
 	struct msm_otg_platform_data *pdata;
 	int irq;
 	int async_irq;
+	int phy_irq;
 	struct clk *xo_clk;
 	struct clk *pclk;
 	struct clk *core_clk;
@@ -541,6 +545,7 @@ struct msm_otg {
 	bool pm_done;
 	struct qpnp_vadc_chip	*vadc_dev;
 	int ext_id_irq;
+	bool phy_irq_pending;
 };
 
 struct ci13xxx_platform_data {
