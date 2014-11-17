@@ -59,7 +59,7 @@
 			"csi_ahb_clk", "csi_src_clk",
 			"csi_clk",  "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
-		qcom,clock-rates = <80000000 0 0 200000000 0 0 0 0>;
+		qcom,clock-rates = <40000000 0 0 200000000 0 0 0 0>;
      };
 
 	qcom,csid@1b08400 {
@@ -84,7 +84,7 @@
 			"csi_ahb_clk", "csi_src_clk",
 			"csi_clk", "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk", "camss_csi1_phy";
-		qcom,clock-rates = <80000000 0 0 200000000 0 0 0 0 0>;
+		qcom,clock-rates = <40000000 0 0 200000000 0 0 0 0 0>;
 	};
 
 	qcom,ispif@1b0a000 {
@@ -97,7 +97,7 @@
 		interrupt-names = "ispif";
 		clocks = <&clock_gcc clk_gcc_camss_ispif_ahb_clk>;
 		clock-names = "ispif_ahb_clk";
-		qcom,clock-rates = < 80000000 >;
+		qcom,clock-rates = < 40000000 >;
 	};
 
 	qcom,vfe@1b10000 {
@@ -120,7 +120,7 @@
 		clock-names = "camss_top_ahb_clk", "vfe_clk_src",
 			"camss_vfe_vfe_clk", "camss_csi_vfe_clk", "iface_clk",
 			"bus_clk", "camss_ahb_clk", "ispif_ahb_clk";
-		qcom,clock-rates = <80000000 266670000 0 0 0 0 0 0>;
+		qcom,clock-rates = <40000000 266670000 0 0 0 0 0 0>;
 
 		qos-entries = <8>;
 		qos-regs = <0x7BC 0x7C0 0x7C4 0x7C8 0x7CC 0x7D0
