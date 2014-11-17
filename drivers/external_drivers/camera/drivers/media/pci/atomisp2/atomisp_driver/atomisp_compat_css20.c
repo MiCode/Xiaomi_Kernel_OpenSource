@@ -531,6 +531,7 @@ static int __destroy_stream(struct atomisp_sub_device *asd,
 {
 	struct atomisp_device *isp = asd->isp;
 	int i;
+	unsigned long timeout;
 
 	if (!stream_env->stream)
 		return 0;
@@ -549,6 +550,22 @@ static int __destroy_stream(struct atomisp_sub_device *asd,
 		dev_err(isp->dev, "stop stream failed.\n");
 		return -EINVAL;
 	}
+
+	if (stream_env->stream_state == CSS_STREAM_STARTED) {
+		timeout = jiffies + msecs_to_jiffies(40);
+		while (1) {
+			if (ia_css_stream_has_stopped(stream_env->stream))
+				break;
+
+			if (time_after(jiffies, timeout)) {
+				dev_warn(isp->dev, "stop stream timeout.\n");
+				break;
+			}
+
+			usleep_range(100, 200);
+		};
+	}
+
 	stream_env->stream_state = CSS_STREAM_STOPPED;
 
 	if (ia_css_stream_destroy(stream_env->stream) != IA_CSS_SUCCESS) {
@@ -2344,12 +2361,8 @@ int atomisp_css_stop(struct atomisp_sub_device *asd,
 	/*
 	 * SP can not be stop if other streams are in use
 	 */
-	if (atomisp_streaming_count(isp) == 0) {
+	if (atomisp_streaming_count(isp) == 0)
 		ia_css_stop_sp();
-		if (!sh_css_hrt_system_is_idle())
-			dev_err(isp->dev, "CSS HW not idle after stopping SP\n");
-	}
-
 
 	if (!in_reset) {
 		struct atomisp_stream_env *stream_env;
@@ -2946,8 +2959,8 @@ static int __get_frame_info(struct atomisp_sub_device *asd,
 			*info = p_info.raw_output_info;
 			dev_dbg(isp->dev, "getting raw frame info.\n");
 		}
-		dev_dbg(isp->dev, "get frame info: w=%d, h=%d.\n",
-			info->res.width, info->res.height);
+		dev_dbg(isp->dev, "get frame info: w=%d, h=%d, num_invalid_frames %d.\n",
+			info->res.width, info->res.height, p_info.num_invalid_frames);
 		return 0;
 	}
 
@@ -3467,6 +3480,12 @@ void atomisp_css_set_de_config(struct atomisp_sub_device *asd,
 			struct atomisp_css_de_config *de_config)
 {
 	asd->params.config.de_config = de_config;
+}
+
+void atomisp_css_set_dz_config(struct atomisp_sub_device *asd,
+			struct atomisp_css_dz_config *dz_config)
+{
+	asd->params.config.dz_config = dz_config;
 }
 
 void atomisp_css_set_default_de_config(struct atomisp_sub_device *asd)

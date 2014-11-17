@@ -15,6 +15,9 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#ifndef CONFIG_GMIN_INTEL_MID /* FIXME! for non-gmin*/
+#include <media/v4l2-chip-ident.h>
+#endif
 #include <media/v4l2-device.h>
 
 #include "ad5816g.h"

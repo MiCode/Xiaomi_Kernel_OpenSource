@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef __IA_CSS_FIXEDBDS_HOST_H
-#define __IA_CSS_FIXEDBDS_HOST_H
+#ifndef __IA_CSS_FIXEDBDS_TYPES_H
+#define __IA_CSS_FIXEDBDS_TYPES_H
 
 
 struct sh_css_bds_factor {
@@ -30,4 +30,4 @@ struct sh_css_bds_factor {
 };
 
 
-#endif	/*__IA_CSS_FIXEDBDS_HOST_H*/
+#endif	/*__IA_CSS_FIXEDBDS_TYPES_H*/

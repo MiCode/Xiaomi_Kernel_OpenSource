@@ -51,6 +51,9 @@
 #define GROUPED_PARAMETER_HOLD_ENABLE  {IMX_8BIT, 0x0104, 0x1}
 #define GROUPED_PARAMETER_HOLD_DISABLE  {IMX_8BIT, 0x0104, 0x0}
 
+#define IMX135_EMBEDDED_DATA_LINE_NUM 2
+#define IMX135_OUTPUT_DATA_FORMAT_REG  0x0112
+#define IMX135_OUTPUT_FORMAT_RAW10  0x0a0a
 /*
  * We use three different MIPI rates for our modes based on the resolution and
  * FPS requirements. So we have three PLL configurationa and these are based
@@ -989,63 +992,6 @@ static struct imx_reg const imx135_1m[] = {
 	{IMX_8BIT, 0x4086, 0x03},
 	{IMX_8BIT, 0x4087, 0x10},
 	{IMX_8BIT, 0x4400, 0x00},
-	{IMX_TOK_TERM, 0, 0},
-};
-
-static struct imx_reg const imx135_976x736[] = {
-	GROUPED_PARAMETER_HOLD_ENABLE,
-	PLL_SETTINGS_FOR_MIPI_209_6MHZ_SALTBAY,
-	/* mode setting */
-	{IMX_8BIT, 0x0108, 0x03},
-	{IMX_8BIT, 0x0112, 0x0A},
-	{IMX_8BIT, 0x0113, 0x0A},
-	{IMX_8BIT, 0x0381, 0x01},
-	{IMX_8BIT, 0x0383, 0x01},
-	{IMX_8BIT, 0x0385, 0x01},
-	{IMX_8BIT, 0x0387, 0x01},
-	{IMX_8BIT, 0x0390, 0x01},
-	{IMX_8BIT, 0x0391, 0x22},
-	{IMX_8BIT, 0x0392, 0x00},
-	{IMX_8BIT, 0x0401, 0x02}, /* Scaling */
-	{IMX_8BIT, 0x0404, 0x00},
-	{IMX_8BIT, 0x0405, 0x21},
-	{IMX_8BIT, 0x4082, 0x00},
-	{IMX_8BIT, 0x4083, 0x00},
-	{IMX_8BIT, 0x4203, 0xFF},
-	{IMX_8BIT, 0x7006, 0x04},
-	/* Size setting */
-	{IMX_8BIT, 0x0344, 0x00},
-	{IMX_8BIT, 0x0345, 0x58},
-	{IMX_8BIT, 0x0346, 0x00},
-	{IMX_8BIT, 0x0347, 0x28},
-	{IMX_8BIT, 0x0348, 0x10},
-	{IMX_8BIT, 0x0349, 0x17},
-	{IMX_8BIT, 0x034A, 0x0C},
-	{IMX_8BIT, 0x034B, 0x07}, /* 88,40  4119,3079  4032,3040*/
-	{IMX_8BIT, 0x034C, 0x03}, /* 976x736 */
-	{IMX_8BIT, 0x034D, 0xD0},
-	{IMX_8BIT, 0x034E, 0x02},
-	{IMX_8BIT, 0x034F, 0xE0},
-	{IMX_8BIT, 0x0350, 0x00}, /* No Dig crop */
-	{IMX_8BIT, 0x0351, 0x00},
-	{IMX_8BIT, 0x0352, 0x00},
-	{IMX_8BIT, 0x0353, 0x00},
-	{IMX_8BIT, 0x0354, 0x07}, /* 2016,1520 */
-	{IMX_8BIT, 0x0355, 0xE0},
-	{IMX_8BIT, 0x0356, 0x05},
-	{IMX_8BIT, 0x0357, 0xF0},
-	{IMX_8BIT, 0x301D, 0x30}, /* ?? */
-	{IMX_8BIT, 0x3310, 0x03},
-	{IMX_8BIT, 0x3311, 0xD0},
-	{IMX_8BIT, 0x3312, 0x02},
-	{IMX_8BIT, 0x3313, 0xE0},
-	{IMX_8BIT, 0x331C, 0x02}, /* ?? */
-	{IMX_8BIT, 0x331D, 0x4E},
-	{IMX_8BIT, 0x4084, 0x03}, /* Scaling related? */
-	{IMX_8BIT, 0x4085, 0xD0},
-	{IMX_8BIT, 0x4086, 0x02},
-	{IMX_8BIT, 0x4087, 0xE0},
-	{IMX_8BIT, 0x4400, 0x00}, /* STATS off */
 	{IMX_TOK_TERM, 0, 0},
 };
 
@@ -2030,44 +1976,6 @@ struct imx_resolution imx135_res_preview[] = {
 		.mipi_freq = 209600,
 	},
 	{
-		.desc = "imx135_976x736_preview",
-		.regs = imx135_976x736,
-		.width = 976,
-		.height = 736,
-		.fps_options = {
-			{
-				 .fps = 30,
-				 .pixels_per_line = 5464,
-				 .lines_per_frame = 2046,
-			},
-			{
-			}
-		},
-		.bin_factor_x = 1,
-		.bin_factor_y = 1,
-		.used = 0,
-		.mipi_freq = 209600,
-	},
-	{
-		.desc = "imx135_1m_preview",
-		.regs = imx135_1m,
-		.width = 1040,
-		.height = 784,
-		.fps_options = {
-			{
-				 .fps = 30,
-				 .pixels_per_line = 5464,
-				 .lines_per_frame = 2046,
-			},
-			{
-			}
-		},
-		.bin_factor_x = 1,
-		.bin_factor_y = 1,
-		.used = 0,
-		.mipi_freq = 209600,
-	},
-	{
 		.desc = "imx135_1080p_binning_preview",
 		.regs = imx135_1080p_binning,
 		.width = 1936,
@@ -2573,6 +2481,25 @@ struct imx_resolution imx135_res_video[] = {
 		},
 		.bin_factor_x = 0,
 		.bin_factor_y = 0,
+		.mipi_freq = 451200,
+	},
+	{
+		.desc = "imx135_6m_cont_cap",
+		.regs = imx135_6m,
+		.width = 3280,
+		.height = 1852,
+		.fps_options = {
+			{ /* Binning Pixel clock: 360.96MHz */
+				.fps = 30,
+				.pixels_per_line = 4572,
+				.lines_per_frame = 2624,
+			},
+			{
+			}
+		},
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.used = 0,
 		.mipi_freq = 451200,
 	},
 	{

@@ -1158,6 +1158,8 @@ long atomisp_compat_ioctl32(struct file *file,
 	case ATOMISP_IOC_G_SENSOR_AE_BRACKETING_INFO:
 	case ATOMISP_IOC_S_SENSOR_AE_BRACKETING_MODE:
 	case ATOMISP_IOC_G_SENSOR_AE_BRACKETING_MODE:
+	case ATOMISP_IOC_G_INVALID_FRAME_NUM:
+	case ATOMISP_IOC_G_EFFECTIVE_RESOLUTION:
 		ret = native_ioctl(file, cmd, arg);
 		break;
 

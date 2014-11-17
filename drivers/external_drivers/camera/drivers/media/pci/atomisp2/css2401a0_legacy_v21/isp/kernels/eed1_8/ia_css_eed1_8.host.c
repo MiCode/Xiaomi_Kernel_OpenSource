@@ -31,9 +31,12 @@
 void
 ia_css_eed1_8_encode(
 	struct ia_css_isp_eed1_8_params *to,
-	const struct ia_css_eed1_8_config *from)
+	const struct ia_css_eed1_8_config *from,
+	size_t size)
 {
 	int i;
+
+	(void)size;
 
 	to->rbzp_strength = from->rbzp_strength;
 

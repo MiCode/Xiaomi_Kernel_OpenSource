@@ -27,6 +27,7 @@
 #include "ia_css_device_access.h"
 #endif
 #include "assert_support.h"
+#include "platform_support.h"			/* hrt_sleep() */
 
 typedef unsigned long long hive_uedge;
 typedef hive_uedge *hive_wide;
@@ -34,10 +35,10 @@ typedef hive_uedge *hive_wide;
 /* Copied from SDK: sim_semantics.c */
 
 /* subword bits move like this:         MSB[____xxxx____]LSB -> MSB[00000000xxxx]LSB */
-#define SUBWORD(w, start, end)     ((w & (((1ULL << (end-1))-1) << 1 | 1)) >> (start))
+#define SUBWORD(w, start, end)     (((w) & (((1ULL << ((end)-1))-1) << 1 | 1)) >> (start))
 
 /* inverse subword bits move like this: MSB[xxxx____xxxx]LSB -> MSB[xxxx0000xxxx]LSB */
-#define INV_SUBWORD(w, start, end) (w & (~(((1ULL << (end-1))-1) << 1 | 1) | ((1ULL << (start))-1)) )
+#define INV_SUBWORD(w, start, end) ((w) & (~(((1ULL << ((end)-1))-1) << 1 | 1) | ((1ULL << (start))-1)) )
 
 #define uedge_bits (8*sizeof(hive_uedge))
 #define move_lower_bits(target, target_bit, src, src_bit) move_subword(target, target_bit, src, 0, src_bit)
@@ -116,9 +117,9 @@ hive_sim_wide_pack(
 	if (elem_bits == uedge_bits) {
 		vector[start_elem] = elem[0];
 	} else if (elem_bits > uedge_bits) {
-		int bits_to_write = elem_bits;
-		int start_bit = elem_bits * index;
-		int i = 0;
+		unsigned bits_to_write = elem_bits;
+		unsigned start_bit = elem_bits * index;
+		unsigned i = 0;
 		for(; bits_to_write > uedge_bits; bits_to_write -= uedge_bits, i++, start_bit += uedge_bits) {
 			move_word(vector, start_bit, elem[i]);
 		}
@@ -135,11 +136,11 @@ static void load_vector (
 	const t_vmem_elem	*from)
 {
 	unsigned i;
-	unsigned size = sizeof(short)*ISP_NWAY;
 #ifdef C_RUN
 	hive_uedge *data = (hive_uedge *)from;
 	(void)ID;
 #else
+	unsigned size = sizeof(short)*ISP_NWAY;
 	VMEM_ARRAY(v, 2*ISP_NWAY); /* Need 2 vectors to work around vmem hss bug */
 	assert(ISP_BAMEM_BASE[ID] != (hrt_address)-1);
 #if !defined(HRT_MEMORY_ACCESS)
@@ -163,19 +164,19 @@ static void store_vector (
 	const t_vmem_elem	*from)
 {
 	unsigned i;
-	unsigned size = sizeof(short)*ISP_NWAY;
 #ifdef C_RUN
 	hive_uedge *data = (hive_uedge *)to;
 	(void)ID;
 	for (i = 0; i < ISP_NWAY; i++) {
-		hive_sim_wide_pack(data, &from[i], ISP_VEC_ELEMBITS, i);
+		hive_sim_wide_pack(data, (hive_wide)&from[i], ISP_VEC_ELEMBITS, i);
 	}
 #else
+	unsigned size = sizeof(short)*ISP_NWAY;
 	VMEM_ARRAY(v, 2*ISP_NWAY); /* Need 2 vectors to work around vmem hss bug */
 	//load_vector (&v[1][0], &to[ISP_NWAY]); /* Fetch the next vector, since it will be overwritten. */
 	hive_uedge *data = (hive_uedge *)v;
 	for (i = 0; i < ISP_NWAY; i++) {
-		hive_sim_wide_pack(data, &from[i], ISP_VEC_ELEMBITS, i);
+		hive_sim_wide_pack(data, (hive_wide)&from[i], ISP_VEC_ELEMBITS, i);
 	}
 	assert(ISP_BAMEM_BASE[ID] != (hrt_address)-1);
 #if !defined(HRT_MEMORY_ACCESS)

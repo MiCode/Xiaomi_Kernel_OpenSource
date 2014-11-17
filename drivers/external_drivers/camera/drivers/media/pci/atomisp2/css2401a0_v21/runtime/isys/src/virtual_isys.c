@@ -174,6 +174,10 @@ ia_css_isys_error_t ia_css_isys_stream_create(
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,
 		"ia_css_isys_stream_create() enter:\n");
 
+	/*Reset isys_stream to 0*/
+	memset(isys_stream, 0, sizeof(*isys_stream));
+	isys_stream->enable_metadata = isys_stream_descr->metadata.enable;
+
 	isys_stream->linked_isys_stream_id = isys_stream_descr->linked_isys_stream_id;
 	rc = create_input_system_input_port(isys_stream_descr, &(isys_stream->input_port));
 	if (rc == false)
@@ -181,7 +185,7 @@ ia_css_isys_error_t ia_css_isys_stream_create(
 
 	rc = create_input_system_channel(isys_stream_descr, false, &(isys_stream->channel));
 	if (rc == false) {
-		destroy_input_system_input_port(&(isys_stream->input_port));
+		destroy_input_system_input_port(&isys_stream->input_port);
 		return false;
 	}
 
@@ -203,7 +207,7 @@ ia_css_isys_error_t ia_css_isys_stream_create(
 void ia_css_isys_stream_destroy(
 	ia_css_isys_stream_h	isys_stream)
 {
-	destroy_input_system_input_port(&(isys_stream->input_port));
+	destroy_input_system_input_port(&isys_stream->input_port);
 	destroy_input_system_channel(&(isys_stream->channel));
 	if (isys_stream->enable_metadata) {
 		/* Destroy metadata channel only if its allocated*/
@@ -402,6 +406,7 @@ static bool create_input_system_input_port(
 	me->source_type = cfg->mode;
 
 	/* for metadata */
+	me->metadata.packet_type = CSI_MIPI_PACKET_TYPE_UNDEFINED;
 	if (rc && cfg->metadata.enable) {
 		me->metadata.packet_type = get_csi_mipi_packet_type(
 				cfg->metadata.fmt_type);
@@ -422,6 +427,14 @@ static void destroy_input_system_input_port(
 				me->csi_rx.backend_id,
 				me->csi_rx.packet_type,
 				&me->csi_rx.backend_lut_entry);
+	}
+
+	if (me->metadata.packet_type != CSI_MIPI_PACKET_TYPE_UNDEFINED) {
+		/*Free the backend lut allocated for metadata*/
+		release_be_lut_entry(
+				me->csi_rx.backend_id,
+				me->metadata.packet_type,
+				&me->metadata.backend_lut_entry);
 	}
 }
 

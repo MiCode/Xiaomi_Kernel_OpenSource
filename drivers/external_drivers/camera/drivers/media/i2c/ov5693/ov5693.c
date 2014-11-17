@@ -25,7 +25,6 @@
 #include <linux/gpio.h>
 #include <linux/init.h>
 #include <linux/i2c.h>
-#include <linux/acpi.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/kmod.h>
@@ -39,8 +38,6 @@
 #include <media/v4l2-chip-ident.h>
 
 #include "ov5693.h"
-
-static const uint32_t ov5693_embedded_effective_size = 28;
 
 /* i2c read/write stuff */
 static int ov5693_read_reg(struct i2c_client *client,
@@ -374,22 +371,16 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov5693_device *dev = to_ov5693_sensor(sd);
 	u16 vts;
 	int ret;
 
-	/*
-	 * According to spec, the low 4 bits of exposure/gain reg are
-	 * fraction bits, so need to take 4 bits left shift to align
-	 * reg integer bits.
-	 */
-	coarse_itg <<= 4;
-	gain <<= 4;
-
-	ret = ov5693_read_reg(client, OV5693_16BIT,
-					OV5693_VTS_H, &vts);
+	/* group hold start */
+	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_GROUP_ACCESS, 0);
 	if (ret)
 		return ret;
 
+	vts = dev->ov5693_res[dev->fmt_idx].lines_per_frame;
 	if (coarse_itg + OV5693_INTEGRATION_TIME_MARGIN >= vts)
 		vts = coarse_itg + OV5693_INTEGRATION_TIME_MARGIN;
 
@@ -397,10 +388,12 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	if (ret)
 		return ret;
 
-	/* group hold start */
-	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_GROUP_ACCESS, 0);
-	if (ret)
-		return ret;
+	/*
+	 * According to spec, the low 4 bits of exposure reg are
+	 * fraction bits, so need to take 4 bits left shift to align
+	 * reg integer bits.
+	 */
+	coarse_itg <<= 4;
 
 	/* set exposure */
 	ret = ov5693_write_reg(client, OV5693_8BIT,
@@ -615,12 +608,13 @@ static int ov5693_g_ctrl(struct v4l2_ctrl *ctrl)
 
 static int ov5693_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct ov5693_device *dev = container_of(
-		ctrl->handler, struct ov5693_device, ctrl_handler);
+	struct ov5693_device *dev = NULL;
 	int ret = 0;
 
 	if (!ctrl)
 		return -EINVAL;
+	dev = container_of(
+		ctrl->handler, struct ov5693_device, ctrl_handler);
 
 	switch (ctrl->id) {
 	case V4L2_CID_RUN_MODE:
@@ -914,10 +908,6 @@ static int ov5693_s_mbus_fmt(struct v4l2_subdev *sd,
 	if (ret)
 		dev_err(&client->dev, "failed to get integration_factor\n");
 
-	ov5693_info->metadata_width = fmt->width * 10 / 8;
-	ov5693_info->metadata_height = 1;
-	ov5693_info->metadata_effective_width = &ov5693_embedded_effective_size;
-
 done:
 	mutex_unlock(&dev->input_lock);
 	return ret;
@@ -1052,15 +1042,6 @@ static int ov5693_s_config(struct v4l2_subdev *sd,
 
 	dev->platform_data = platform_data;
 
-	if (dev->platform_data->platform_init) {
-		ret = dev->platform_data->platform_init(client);
-		if (ret) {
-			mutex_unlock(&dev->input_lock);
-			dev_err(&client->dev, "ov5693 platform init err\n");
-			return ret;
-		}
-	}
-
 	ret = power_up(sd);
 	if (ret) {
 		dev_err(&client->dev, "ov5693 power-up err.\n");
@@ -1084,21 +1065,6 @@ static int ov5693_s_config(struct v4l2_subdev *sd,
 		dev_err(&client->dev, "ov5693 power-off err.\n");
 		goto fail_csi_cfg;
 	}
-
-	/* Register the atomisp platform data prior to the ISP module
-	 * load.  Ideally this would be stored as data on the
-	 * subdevices, but this API matches upstream better. */
-	ret = atomisp_register_i2c_module(sd, client, platform_data,
-					  gmin_get_var_int(&client->dev, "CamType",
-						     RAW_CAMERA),
-					  gmin_get_var_int(&client->dev, "CsiPort",
-						     ATOMISP_CAMERA_PORT_PRIMARY));
-	if (ret) {
-		dev_err(&client->dev,
-			"ov5693 atomisp_register_i2c_module failed.\n");
-		goto fail_csi_cfg;
-	}
-
 	mutex_unlock(&dev->input_lock);
 
 	return 0;
@@ -1108,8 +1074,6 @@ fail_csi_cfg:
 fail_power_on:
 	power_down(sd);
 	dev_err(&client->dev, "sensor power-gating failed\n");
-	if (dev->platform_data->platform_deinit)
-		dev->platform_data->platform_deinit();
 	mutex_unlock(&dev->input_lock);
 	return ret;
 }
@@ -1403,9 +1367,6 @@ static int ov5693_remove(struct i2c_client *client)
 	media_entity_cleanup(&dev->sd.entity);
 	devm_kfree(&client->dev, dev);
 
-	if (dev->platform_data->platform_deinit)
-		dev->platform_data->platform_deinit();
-
 	return 0;
 }
 
@@ -1415,7 +1376,6 @@ static int ov5693_probe(struct i2c_client *client,
 	struct ov5693_device *dev;
 	int i;
 	int ret;
-	void *pdata = client->dev.platform_data;
 
 	dev = devm_kzalloc(&client->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -1434,17 +1394,9 @@ static int ov5693_probe(struct i2c_client *client,
 
 	v4l2_i2c_subdev_init(&(dev->sd), client, &ov5693_ops);
 
-	if (!pdata && ACPI_COMPANION(&client->dev)) {
-		/*
-		 * If no SFI firmware, try to grab the platform struct
-		 * directly and configure via ACPI/EFIvars instead
-		 */
-		pdata = ov5693_platform_data(NULL);
-	}
-
-	if(pdata) {
+	if (client->dev.platform_data) {
 		ret = ov5693_s_config(&dev->sd, client->irq,
-				       pdata);
+				       client->dev.platform_data);
 		if (ret)
 			goto out_free;
 	}
@@ -1495,19 +1447,11 @@ out_free:
 	return ret;
 }
 
-static struct acpi_device_id ov5693_acpi_match[] = {
-	{"INT33BE"},
-	{},
-};
-
-MODULE_DEVICE_TABLE(acpi, ov5693_acpi_match);
 MODULE_DEVICE_TABLE(i2c, ov5693_id);
-
 static struct i2c_driver ov5693_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = OV5693_NAME,
-		.acpi_match_table = ACPI_PTR(ov5693_acpi_match),
 	},
 	.probe = ov5693_probe,
 	.remove = ov5693_remove,

@@ -52,6 +52,7 @@
  * be printed.
  */
 static int debug;
+static int aaalock;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "Debug level (0-1)");
 
@@ -629,8 +630,8 @@ static int mt9m114_s_power(struct v4l2_subdev *sd, int power)
  * res->width/height smaller than w/h wouldn't be considered.
  * Returns the value of gap or -1 if fail.
  */
-#define LARGEST_ALLOWED_RATIO_MISMATCH 800
-static int distance(struct mt9m114_res_struct *res, u32 w, u32 h)
+#define LARGEST_ALLOWED_RATIO_MISMATCH 600
+static int distance(struct mt9m114_res_struct const *res, u32 w, u32 h)
 {
 	unsigned int w_ratio;
 	unsigned int h_ratio;
@@ -638,14 +639,13 @@ static int distance(struct mt9m114_res_struct *res, u32 w, u32 h)
 
 	if (w == 0)
 		return -1;
-	w_ratio = ((res->width << 13) / w);
-
+	w_ratio = (res->width << 13) / w;
 	if (h == 0)
 		return -1;
-	h_ratio = ((res->height << 13) / h);
+	h_ratio = (res->height << 13) / h;
 	if (h_ratio == 0)
 		return -1;
-	match = abs(((w_ratio << 13) / h_ratio) - ((int)8192));
+	match   = abs(((w_ratio << 13) / h_ratio) - ((int)8192));
 
 	if ((w_ratio < (int)8192) || (h_ratio < (int)8192)  ||
 		(match > LARGEST_ALLOWED_RATIO_MISMATCH))
@@ -661,9 +661,9 @@ static int nearest_resolution_index(int w, int h)
 	int idx = -1;
 	int dist;
 	int min_dist = INT_MAX;
-	struct mt9m114_res_struct *tmp_res = NULL;
+	const struct mt9m114_res_struct *tmp_res = NULL;
 
-	for (i = 0; i < N_RES; i++) {
+	for (i = 0; i < ARRAY_SIZE(mt9m114_res); i++) {
 		tmp_res = &mt9m114_res[i];
 		dist = distance(tmp_res, w, h);
 		if (dist == -1)
@@ -679,15 +679,24 @@ static int nearest_resolution_index(int w, int h)
 
 static int mt9m114_try_res(u32 *w, u32 *h)
 {
-	int idx;
+	int idx = 0;
 
-	idx = nearest_resolution_index(*w, *h);
-
-	if (idx == -1) {
-		/* return the largest resolution */
-		*w = mt9m114_res[N_RES-1].width;
-		*h = mt9m114_res[N_RES-1].height;
+	if ((*w > MT9M114_RES_960P_SIZE_H)
+		|| (*h > MT9M114_RES_960P_SIZE_V)) {
+		*w = MT9M114_RES_960P_SIZE_H;
+		*h = MT9M114_RES_960P_SIZE_V;
 	} else {
+		idx = nearest_resolution_index(*w, *h);
+
+		/*
+		 * nearest_resolution_index() doesn't return smaller
+		 *  resolutions. If it fails, it means the requested
+		 *  resolution is higher than wecan support. Fallback
+		 *  to highest possible resolution in this case.
+		 */
+		if (idx == -1)
+			idx = ARRAY_SIZE(mt9m114_res) - 1;
+
 		*w = mt9m114_res[idx].width;
 		*h = mt9m114_res[idx].height;
 	}
@@ -1157,7 +1166,6 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
     struct i2c_client *client = v4l2_get_subdevdata(sd);
     struct mt9m114_device *dev = to_mt9m114_sensor(sd);
     int ret = 0;
-    int max_itg;
     unsigned int coarse_integration = 0;
     unsigned int fine_integration = 0;
     unsigned int FLines = 0;
@@ -1176,18 +1184,12 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
     FLines = mt9m114_res[dev->res].lines_per_frame;
     AnalogGain = exposure->gain[0];
     DigitalGain = exposure->gain[1];
-
-    /* Clamp integration time in video mode so as not to reduce FPS */
-    max_itg = FLines - 6;
-    if (coarse_integration > max_itg && dev->run_mode == CI_MODE_VIDEO)
-	    coarse_integration = max_itg;
-
-    if (!dev->streamon) {
-	    /*Save the first exposure values while stream is off*/
-	    dev->first_exp = coarse_integration;
-	    dev->first_gain = AnalogGain;
-	    dev->first_diggain = DigitalGain;
-    }
+	if (!dev->streamon) {
+		/*Save the first exposure values while stream is off*/
+		dev->first_exp = coarse_integration;
+		dev->first_gain = AnalogGain;
+		dev->first_diggain = DigitalGain;
+	}
     //DigitalGain = 0x400 * (((u16) DigitalGain) >> 8) + ((unsigned int)(0x400 * (((u16) DigitalGain) & 0xFF)) >>8);
 
     //set frame length
@@ -1262,6 +1264,7 @@ static long mt9m114_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 }
 
 
+#endif
 /* This returns the exposure time being used. This should only be used
    for filling in EXIF data, not for actual image processing. */
 static int mt9m114_g_exposure(struct v4l2_subdev *sd, s32 *value)
@@ -1279,7 +1282,6 @@ static int mt9m114_g_exposure(struct v4l2_subdev *sd, s32 *value)
 	*value = coarse;
 	return 0;
 }
-#endif
 #ifndef CSS15
 /*
  * This function will return the sensor supported max exposure zone number.
@@ -1411,6 +1413,76 @@ static int mt9m114_g_bin_factor_y(struct v4l2_subdev *sd, s32 *val)
 }
 #endif
 
+static int mt9m114_s_ev(struct v4l2_subdev *sd, s32 val)
+{
+	struct i2c_client *c = v4l2_get_subdevdata(sd);
+	s32 luma = 0x37;
+	int err;
+
+	/* EV value only support -2 to 2
+	 * 0: 0x37, 1:0x47, 2:0x57, -1:0x27, -2:0x17
+	 */
+	if (val < -2 || val > 2) {
+		return -EINVAL;
+	}
+	luma += 0x10 * val;
+	dev_dbg(&c->dev, "%s val:%d luma:0x%x\n", __func__, val, luma);
+	err = mt9m114_write_reg(c, MISENSOR_16BIT, 0x098E, 0xC87A);
+	if (err) {
+		dev_err(&c->dev, "%s logic addr access error\n", __func__);
+		return err;
+	}
+	err = mt9m114_write_reg(c, MISENSOR_8BIT, 0xC87A, (u32)luma);
+	if (err) {
+		dev_err(&c->dev, "%s write target_average_luma failed\n", __func__);
+		return err;
+	}
+	udelay(10);
+
+	return 0;
+}
+
+static int mt9m114_g_ev(struct v4l2_subdev *sd, s32 *val)
+{
+	struct i2c_client *c = v4l2_get_subdevdata(sd);
+	int err;
+	u32 luma;
+
+	err = mt9m114_write_reg(c, MISENSOR_16BIT, 0x098E, 0xC87A);
+	if (err) {
+		dev_err(&c->dev, "%s logic addr access error\n", __func__);
+		return err;
+	}
+	err = mt9m114_read_reg(c, MISENSOR_8BIT, 0xC87A, &luma);
+	if (err) {
+		dev_err(&c->dev, "%s read target_average_luma failed\n", __func__);
+		return err;
+	}
+	luma -= 0x17;
+	luma /= 0x10;
+	*val = (s32)luma - 2;
+	dev_dbg(&c->dev, "%s val:%d\n", __func__, *val);
+
+	return 0;
+}
+
+/* Fake interface
+ * mt9m114 now can not support 3a_lock
+*/
+static int mt9m114_s_3a_lock(struct v4l2_subdev *sd, s32 val)
+{
+	aaalock = val;
+	return 0;
+}
+
+static int mt9m114_g_3a_lock(struct v4l2_subdev *sd, s32 *val)
+{
+	if (aaalock)
+		return V4L2_LOCK_EXPOSURE | V4L2_LOCK_WHITE_BALANCE
+			| V4L2_LOCK_FOCUS;
+	return 0;
+}
+
 static struct mt9m114_control mt9m114_controls[] = {
 	{
 		.qc = {
@@ -1506,7 +1578,6 @@ static struct mt9m114_control mt9m114_controls[] = {
 		.query = mt9m114_g_2a_status,
 	},
 #endif
-#ifdef CONFIG_GMIN_INTEL_MID /* FIXME! for RAW Mode*/
 	{
 		.qc = {
 			.id = V4L2_CID_EXPOSURE_ABSOLUTE,
@@ -1520,7 +1591,6 @@ static struct mt9m114_control mt9m114_controls[] = {
 		},
 		.query = mt9m114_g_exposure,
 	},
-#endif
 #ifndef CSS15
 	{
 		.qc = {
@@ -1577,6 +1647,35 @@ static struct mt9m114_control mt9m114_controls[] = {
 		.query = mt9m114_g_bin_factor_y,
 	},
 #endif
+	{
+		.qc = {
+			.id = V4L2_CID_EXPOSURE,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "exposure biasx",
+			.minimum = -2,
+			.maximum = 2,
+			.step = 1,
+			.default_value = 0,
+			.flags = 0,
+		},
+		.tweak = mt9m114_s_ev,
+		.query = mt9m114_g_ev,
+	},
+	{
+		.qc = {
+			.id = V4L2_CID_3A_LOCK,
+			.type = V4L2_CTRL_TYPE_BITMASK,
+			.name = "3a lock",
+			.minimum = 0,
+			.maximum = V4L2_LOCK_EXPOSURE | V4L2_LOCK_WHITE_BALANCE
+			| V4L2_LOCK_FOCUS,
+			.step = 1,
+			.default_value = 0,
+			.flags = 0,
+		},
+		.tweak = mt9m114_s_3a_lock,
+		.query = mt9m114_g_3a_lock,
+	},
 };
 #define N_CONTROLS (ARRAY_SIZE(mt9m114_controls))
 
@@ -1759,8 +1858,6 @@ static int mt9m114_t_vflip(struct v4l2_subdev *sd, int value)
 static int mt9m114_s_parm(struct v4l2_subdev *sd,
 			struct v4l2_streamparm *param)
 {
-	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
-	dev->run_mode = param->parm.capture.capturemode;
 	return 0;
 }
 

@@ -449,6 +449,21 @@ binary_supports_output_format(const struct ia_css_binary_xinfo *info,
 	return false;
 }
 
+static bool
+binary_supports_vf_format(const struct ia_css_binary_xinfo *info,
+			  enum ia_css_frame_format format)
+{
+	int i;
+
+	assert(info != NULL);
+
+	for (i = 0; i < info->num_vf_formats; i++) {
+		if (info->vf_formats[i] == format)
+			return true;
+	}
+	return false;
+}
+
 /* move to host part of bds module */
 static bool
 supports_bds_factor(uint32_t supported_factors,
@@ -464,8 +479,8 @@ binary_init_info(struct ia_css_binary_xinfo *info, unsigned int i,
 	const unsigned char *blob = sh_css_blob_info[i].blob;
 	unsigned size = sh_css_blob_info[i].header.blob.size;
 
-	assert(info != NULL);
-	assert(binary_found != NULL);
+	if ((info == NULL) || (binary_found == NULL))
+		return IA_CSS_ERR_INVALID_ARGUMENTS;
 
 	*info = sh_css_blob_info[i].header.info.isp;
 	*binary_found = blob != NULL;
@@ -756,8 +771,7 @@ ia_css_binary_fill_info(const struct ia_css_binary_xinfo *xinfo,
 	/* viewfinder output info */
 	if ((vf_info != NULL) && (vf_info->res.width != 0)) {
 		unsigned int vf_out_vecs, vf_out_width, vf_out_height;
-
-		binary->vf_frame_info.format = IA_CSS_FRAME_FORMAT_YUV_LINE;
+		binary->vf_frame_info.format = vf_info->format;
 		if (bin_out_info == NULL)
 			return IA_CSS_ERR_INTERNAL_ERROR;
 		vf_out_vecs = __ISP_VF_OUTPUT_WIDTH_VECS(bin_out_info->padded_width,
@@ -1163,6 +1177,18 @@ ia_css_binary_find(struct ia_css_binary_descr *descr,
 				__LINE__, xcandidate->num_output_pins, 1,
 				req_vf_info,
 				binary_supports_output_format(xcandidate, req_vf_info->format));
+			continue;
+		}
+
+		/* Check if vf_veceven supports the requested vf format */
+		if (xcandidate->num_output_pins == 1 &&
+			req_vf_info && candidate->enable.vf_veceven &&
+			!binary_supports_vf_format(xcandidate, req_vf_info->format)) {
+			ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
+				"ia_css_binary_find() [%d] continue: (%d == %d) && (%p != NULL) && %d && !%d\n",
+				__LINE__, xcandidate->num_output_pins, 1,
+				req_vf_info, candidate->enable.vf_veceven,
+				binary_supports_vf_format(xcandidate, req_vf_info->format));
 			continue;
 		}
 

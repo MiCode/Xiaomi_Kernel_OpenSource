@@ -27,6 +27,10 @@
 #include "sh_css_internal.h"
 #include "memory_access.h"
 
+
+#define NV12_TILEY_TILE_WIDTH  128
+#define NV12_TILEY_TILE_HEIGHT  32
+
 /**************************************************************************
 **	Static functions declarations
 **************************************************************************/
@@ -380,6 +384,7 @@ enum ia_css_err ia_css_frame_init_planes(struct ia_css_frame *frame)
 		 */
 	case IA_CSS_FRAME_FORMAT_NV12:
 	case IA_CSS_FRAME_FORMAT_NV21:
+	case IA_CSS_FRAME_FORMAT_NV12_TILEY:
 		frame_init_nv_planes(frame, 2, 2);
 		break;
 		/* nv16 and nv61 have the same frame layout, only the data
@@ -454,6 +459,8 @@ void ia_css_frame_info_set_width(struct ia_css_frame_info *info,
 	    info->format == IA_CSS_FRAME_FORMAT_YUV_LINE)
 		info->padded_width =
 		    CEIL_MUL(align, 2 * HIVE_ISP_DDR_WORD_BYTES);
+	else if (info->format == IA_CSS_FRAME_FORMAT_NV12_TILEY)
+		info->padded_width = CEIL_MUL(align, NV12_TILEY_TILE_WIDTH);
 	else if (info->format == IA_CSS_FRAME_FORMAT_RAW ||
 		 info->format == IA_CSS_FRAME_FORMAT_RAW_PACKED)
 		info->padded_width = CEIL_MUL(align, 2 * ISP_VEC_NELEMS);
@@ -468,11 +475,7 @@ void ia_css_frame_info_set_format(struct ia_css_frame_info *info,
 	assert(info != NULL);
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
 		"ia_css_frame_info_set_format() enter:\n");
-	/* yuv_line has 2*NWAY alignment */
 	info->format = format;
-	/* HACK: this resets the padded width incorrectly.
-	   Lex needs to fix this in the vf_veceven module. */
-	info->padded_width = CEIL_MUL(info->padded_width, 2 * ISP_VEC_NELEMS);
 }
 
 void ia_css_frame_info_init(struct ia_css_frame_info *info,
@@ -650,7 +653,7 @@ static void frame_init_mipi_plane(struct ia_css_frame *frame,
 	unsigned int stride;
 
 	stride = subpixels_per_line * bytes_per_pixel;
-	frame->data_bytes = 8388608;
+	frame->data_bytes = 8388608; /* 8*1024*1024 */
 	frame->valid = false;
 	frame->contiguous = true;
 	frame_init_plane(plane, subpixels_per_line, stride, height, 0);
@@ -665,6 +668,13 @@ static void frame_init_nv_planes(struct ia_css_frame *frame,
 	    y_height = frame->info.res.height,
 	    uv_width = 2 * (y_width / horizontal_decimation),
 	    uv_height = y_height / vertical_decimation, y_bytes, uv_bytes;
+
+	if (IA_CSS_FRAME_FORMAT_NV12_TILEY == frame->info.format) {
+		y_width   = CEIL_MUL(y_width,   NV12_TILEY_TILE_WIDTH);
+		uv_width  = CEIL_MUL(uv_width,  NV12_TILEY_TILE_WIDTH);
+		y_height  = CEIL_MUL(y_height,  NV12_TILEY_TILE_HEIGHT);
+		uv_height = CEIL_MUL(uv_height, NV12_TILEY_TILE_HEIGHT);
+	}
 
 	y_bytes = y_width * y_height;
 	uv_bytes = uv_width * uv_height;

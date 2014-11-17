@@ -274,33 +274,60 @@ static int ov680_read_sensor(struct v4l2_subdev *sd, int sid,
 	ret = ov680_i2c_write_reg(sd, OV680_CMD_PARAMETER_2, reg & 0xff);
 	if (ret)
 		dev_dbg(&client->dev, "4%s - reg = %x failed\n", __func__, reg);
-	msleep(20);
 	ret = ov680_i2c_write_reg(sd, OV680_CMD_CIR_REG,
 				  OV680_CMD_CIR_SENSOR_ACCESS_STATE);
 	if (ret)
 		dev_dbg(&client->dev, "5%s - reg = %x failed\n", __func__, reg);
-	msleep(20);
+	usleep_range(8000, 10000);
 	ret = ov680_i2c_read_reg(sd, OV680_CMD_PARAMETER_4, data);
 	if (ret)
 		dev_dbg(&client->dev, "6%s - reg = %x failed\n", __func__, reg);
-	dev_dbg(&client->dev, "%s - sid = %x, reg = %x, data= %x successfully\n",
+	dev_dbg(&client->dev, "%s - sid = %x, reg = %x, data= %x successful\n",
 		__func__, sid, reg, *data);
 	return ret;
 }
 
+static int ov680_check_sensor_avail(struct v4l2_subdev *sd)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u8 data[2];
+	int ret, i;
+	bool sensor_fail = false;
+	int sid[OV680_MAX_INPUT_SENSOR_NUM] = {
+		OV680_SENSOR_0_ID, OV680_SENSOR_1_ID
+	};
+
+	for (i = 0; i < OV680_MAX_INPUT_SENSOR_NUM; i++) {
+		ret = ov680_read_sensor(sd, sid[i], 0x0000, &data[0]);
+		ret = ov680_read_sensor(sd, sid[i], 0x0001, &data[1]);
+		if (ret || data[0] != OV680_SENSOR_REG0_VAL ||
+		    data[1] != OV680_SENSOR_REG1_VAL) {
+			dev_err(&client->dev, "Subdev OV680 sensor %d with"\
+				" id:0x%x detection failure.\n", i, sid[i]);
+			sensor_fail = true;
+		} else {
+			dev_info(&client->dev,
+				 "Subdev OV680 sensor %d with id:0x%x"\
+				 " detection Successful.\n", i, sid[i]);
+		}
+	}
+
+	return sensor_fail ? -1 : 0;
+}
+
+#ifdef ov680_DUMP_DEBUG
 static int ov680_dump_snr_regs(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 	u8 data;
 
-	/* sensor0 is 0x20, sensor 1 is 6c */
-	int sid = 0x20;
+	int sid = OV680_SENSOR_0_ID;
 	ret = ov680_read_sensor(sd, sid, 0x0000, &data); /* 0x97 */
 	ret = ov680_read_sensor(sd, sid, 0x0001, &data); /* 0x28 */
 	ret = ov680_read_sensor(sd, sid, 0x0100, &data);
 
-	sid = 0x6c;
+	sid = OV680_SENSOR_1_ID;
 	ret = ov680_read_sensor(sd, sid, 0x0000, &data); /* 0x97 */
 	ret = ov680_read_sensor(sd, sid, 0x0001, &data); /* 0x28 */
 
@@ -343,25 +370,99 @@ static int ov680_dump_rx_regs(struct v4l2_subdev *sd)
 	}
 	return 0;
 }
+#endif
+
+static int ov680_write_firmware(struct v4l2_subdev *sd)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov680_device *dev = to_ov680_device(sd);
+	int count, ret;
+	u16 len;
+	const struct ov680_firmware *ov680_fw_header =
+		(const struct ov680_firmware *)dev->fw->data;
+
+	count = ov680_fw_header->cmd_count;
+	len = count + sizeof(u16); /* 16-bit address + data */
+
+	ret = ov680_i2c_write(client, len, (u8 *)dev->ov680_fw);
+	if (ret)
+		dev_err(&client->dev, "write failure\n");
+
+	return ret;
+}
 
 static int ov680_load_firmware(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov680_device *dev = to_ov680_device(sd);
 	int ret;
+	u8 read_value;
+	unsigned int read_timeout = 500;
 
 	dev_info(&client->dev, "Start to load firmware.\n");
 
-	ret = ov680_write_reg_array(sd, dev->ov680_fw);
+	/* Init clock PLL */
+	ret = ov680_write_reg_array(sd, ov680_init_clock_pll);
 	if (ret) {
-		dev_dbg(&client->dev, "%s - debug fw load failed\n", __func__);
+		dev_err(&client->dev, "%s - clock init failed\n", __func__);
 		return ret;
 	}
 
-	dev_info(&client->dev, "firmware load successfully.\n");
-	ov680_dump_res_regs(sd);
-	ov680_dump_rx_regs(sd);
+	/* Change clock for FW loading */
+	ret = ov680_write_reg_array(sd, ov680_dw_fw_change_pll);
+	if (ret) {
+		dev_err(&client->dev, "%s - clock set failed\n", __func__);
+		return ret;
+	}
 
+	/* Load FW */
+	ret = ov680_write_firmware(sd);
+	if (ret) {
+		dev_err(&client->dev, "%s - FW load failed\n", __func__);
+		return ret;
+	}
+
+	/* Restore clock for FW loading */
+	ret = ov680_write_reg_array(sd, ov680_dw_fw_change_back_pll);
+	if (ret) {
+		dev_err(&client->dev, "%s - clk restore failed\n", __func__);
+		return ret;
+	}
+
+	/* Check for readiness */
+	while (read_timeout) {
+		ret = ov680_i2c_read_reg(sd, REG_SC_66, &read_value);
+		if (ret) {
+			dev_err(&client->dev,
+				"%s - status check failed\n", __func__);
+			return ret;
+		} else if (REG_SC_66_GLOBAL_READY == read_value) {
+			break;
+		} else {
+			usleep_range(1000, 2000);
+			dev_dbg(&client->dev,
+				"%s - status check val: %x\n", __func__,
+				read_value);
+			--read_timeout;
+		}
+	}
+
+	if (0 == read_timeout) {
+		dev_err(&client->dev,
+			"%s - status check timed out\n", __func__);
+		return -EBUSY;
+	}
+
+	if (dev->probed) {
+		/* turn embedded line on */
+		ret = ov680_write_reg_array(sd, ov680_720p_2s_embedded_line);
+		if (ret) {
+			dev_err(&client->dev, "%s - turn embedded on failed\n",
+					__func__);
+			return ret;
+		}
+	}
+	dev_info(&client->dev, "firmware load successfully.\n");
 	return ret;
 }
 
@@ -372,6 +473,23 @@ static int __ov680_s_power(struct v4l2_subdev *sd, int on, int load_fw)
 	int ret;
 
 	dev_info(&client->dev, "%s - on-%d.\n", __func__, on);
+
+	/* clock control */
+	/*
+	 * WA: If the app did not disable the clock before exit,
+	 * driver has to disable it firstly, or the clock cannot
+	 * be enabled any more after device enter sleep.
+	 */
+	if (dev->power_on && on)
+		dev->platform_data->flisclk_ctrl(sd, 0);
+
+	ret = dev->platform_data->flisclk_ctrl(sd, on);
+	if (ret) {
+		dev_err(&client->dev,
+			"%s - set clock error.\n", __func__);
+		return ret;
+	}
+
 	ret = dev->platform_data->power_ctrl(sd, on);
 	if (ret) {
 		dev_err(&client->dev,
@@ -387,6 +505,19 @@ static int __ov680_s_power(struct v4l2_subdev *sd, int on, int load_fw)
 	}
 
 	dev->power_on = on;
+	if (on) {
+		/* Load firmware after power on. */
+		ret = ov680_load_firmware(sd);
+		if (ret)
+			dev_err(&client->dev,
+				"ov680_load_firmware failed. ret=%d\n", ret);
+#ifdef OV680_DUMP_DEBUG
+		ov680_dump_rx_regs(sd);
+		ov680_dump_res_regs(sd);
+		ov680_dump_snr_regs(sd);
+#endif
+	}
+
 	return ret;
 }
 
@@ -435,15 +566,21 @@ static int ov680_s_config(struct v4l2_subdev *sd, void *pdata)
 	if (ret)
 		goto fail_config;
 
-	msleep(200);
 	/* Detect for OV680 */
 	ret = ov680_i2c_read_reg(sd, REG_SC_00, &reg_val);
-	if (ret || (reg_val != 0x1E)) { /* defalut value of REG_SC_00*/
-		dev_err(&client->dev,
-			"reg SC_00 does no match with default value 0x1E. ret=%d sc_00=0x%04x\n",
-			ret, reg_val);
+	if (ret) {
+		dev_err(&client->dev, "ov680_i2c_read_reg fails: %d\n", ret);
 		goto fail_config;
 	}
+
+	if (reg_val != 0x1E) { /* default value of REG_SC_00*/
+		ret = -EINVAL;
+		dev_err(&client->dev,
+			"register value doesn't match: 0x1E != 0x%02x\n",
+			reg_val);
+		goto fail_config;
+	}
+
 	/* reg access test purpose */
 	ret = ov680_i2c_write_reg(sd, REG_SC_00, 0x03);
 	if (ret) {
@@ -453,14 +590,28 @@ static int ov680_s_config(struct v4l2_subdev *sd, void *pdata)
 
 	ret = ov680_i2c_read_reg(sd, REG_SC_00, &reg_val);
 
-	if (ret || (reg_val != 0x03)) { /* defalut value of REG_SC_00*/
-		dev_err(&client->dev,
-			"reg SC_00 is incorrect. ret=%d sc_00=0x%04x\n",
-			ret, reg_val);
+	if (ret) {
+		dev_err(&client->dev, "ov680_i2c_read_reg fails: %d\n", ret);
 		goto fail_config;
 	}
+
+	if (reg_val != 0x03) {
+		ret = -EINVAL;
+		dev_err(&client->dev,
+			"register value doesn't match: 0x03 != 0x%02x\n",
+			reg_val);
+		goto fail_config;
+	}
+
 	ov680_i2c_write_reg(sd, REG_SC_00, 0x1E); /* write back value */
-	dev_info(&client->dev, "OV680 Chip was detected with reg access ok\n");
+	dev_info(&client->dev, "Subdev OV680 Chip detect with reg access ok\n");
+
+	/* detect the input sensor */
+	ret = ov680_check_sensor_avail(sd);
+	if (ret) {
+		dev_err(&client->dev, "detect sensors failed. ret=%d\n", ret);
+		goto fail_config;
+	}
 
 	mipi_info = v4l2_get_subdev_hostdata(sd);
 	if (!mipi_info) {
@@ -477,7 +628,7 @@ static int ov680_s_config(struct v4l2_subdev *sd, void *pdata)
 		dev_dbg(&client->dev, "ov680_s_config - bayer output\n");
 		dev->bayer_fmt = 1;
 		dev->mbus_pixelcode = V4L2_MBUS_FMT_SBGGR10_1X10;
-	 }
+	}
 
 	ret = __ov680_s_power(sd, 0, 0);
 	if (ret)
@@ -622,6 +773,26 @@ static int ov680_set_mbus_fmt(struct v4l2_subdev *sd,
 		dev_dbg(&client->dev, "%s - fw_index failed\n", __func__);
 		ret = -EINVAL;
 	}
+
+	switch (ov680_info->input_format) {
+	case ATOMISP_INPUT_FORMAT_YUV422_8:
+		ov680_info->metadata_width = fmt->width * 2;
+		break;
+	case ATOMISP_INPUT_FORMAT_RAW_10:
+		ov680_info->metadata_width = fmt->width * 10 / 8;
+		break;
+	case ATOMISP_INPUT_FORMAT_RAW_8:
+		ov680_info->metadata_width = fmt->width;
+		break;
+	default:
+		ov680_info->metadata_width = 0;
+		dev_err(&client->dev, "%s unsupported format for embedded data.\n",
+			__func__);
+	}
+
+	ov680_info->metadata_height = 2;
+	ov680_info->metadata_format = ATOMISP_INPUT_FORMAT_EMBEDDED;
+
 out:
 	dev_dbg(&client->dev, "%s - mbusf done ret %d\n", __func__, ret);
 	return ret;
@@ -636,9 +807,8 @@ static int ov680_enum_framesizes(struct v4l2_subdev *sd,
 
 	dev_dbg(&client->dev, "%s\n", __func__);
 
-	if (index >= N_FW) {
+	if (index >= N_FW)
 		return -EINVAL;
-	}
 
 	mutex_lock(&dev->input_lock);
 	fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
@@ -783,24 +953,23 @@ static int ov680_s_stream(struct v4l2_subdev *sd, int enable)
 
 	mutex_lock(&dev->input_lock);
 	if (dev->power_on && enable) {
-		/* Load firmware after power on. */
-		ret = ov680_load_firmware(sd);
+		/* start streaming */
+		ret = ov680_write_reg_array(sd, ov680_720p_2s_embedded_stream_on);
 		if (ret) {
 			dev_err(&client->dev,
-				"ov680_load_firmware failed. ret=%d\n", ret);
+				"%s - stream on failed\n", __func__);
 			dev->sys_activated = 0;
+		} else {
+			dev->sys_activated = 1;
 		}
-		ov680_dump_rx_regs(sd);
-		ov680_dump_res_regs(sd);
-
-		dev->sys_activated = 1; /* fw loaded */
-		/* to be removed after get ov680 fw handshake document */
-		msleep(20000); /* wait enough for finish fw downloading */
-		ov680_dump_snr_regs(sd);
-		ov680_dump_rx_regs(sd);
-
 	} else { /* stream off */
-		dev->sys_activated = 0; /* fw loaded */
+
+		ret = ov680_i2c_write_reg(sd, REG_SC_03,
+					  REG_SC_03_GLOBAL_DISABLED);
+		if (ret)
+			dev_err(&client->dev,
+				"%s - stream off failed\n", __func__);
+		dev->sys_activated = 0;
 	}
 
 	mutex_unlock(&dev->input_lock);
@@ -1098,14 +1267,23 @@ static int ov680_probe(struct i2c_client *client,
 
 	/* Request firmware */
 	ret = request_firmware(&dev->fw, "ov680_fw.bin", &client->dev);
-	if (ret || !dev->fw) {
+	if (ret) {
 		dev_err(&client->dev,
 			"Requesting ov680_fw.bin failed, ret=%d.\n", ret);
 		goto out_free_dev;
 	}
+
+	if (!dev->fw) {
+		ret = -EINVAL;
+		dev_err(&client->dev,
+			"No firmware, ret=%d.\n", ret);
+		goto out_free_dev;
+	}
+
 	ov680_fw_header = (const struct ov680_firmware *)dev->fw->data;
 	ov680_fw_data_size = ov680_fw_header->cmd_count *
-				ov680_fw_header->cmd_size;
+				ov680_fw_header->cmd_size +
+				sizeof(u16);
 
 	/* Check firmware size: FW header size + FW data size */
 	if (dev->fw->size != (sizeof(*ov680_fw_header)+ov680_fw_data_size)) {
@@ -1165,6 +1343,8 @@ static int ov680_probe(struct i2c_client *client,
 		ov680_remove(client);
 	}
 	dev_dbg(&client->dev, "%s - driver load done\n", __func__);
+
+	dev->probed = true;
 	return ret;
 
 out_free:
@@ -1172,7 +1352,6 @@ out_free:
 	v4l2_device_unregister_subdev(&dev->sd);
 	mutex_destroy(&dev->input_lock);
 out_free_dev:
-	kfree(dev);
 	return ret;
 }
 

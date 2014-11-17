@@ -61,7 +61,7 @@
 
 #ifdef CONFIG_GMIN_INTEL_MID
 /* Moorefield lacks PCI PM, BYT advertises it but it's broken, use PUNIT */
-#define ATOMISP_INTERNAL_PM	(IS_MOFD || IS_BYT)
+#define ATOMISP_INTERNAL_PM	(IS_MOFD || IS_BYT || IS_CHT)
 #endif
 
 /* set reserved memory pool size in page */
@@ -221,18 +221,16 @@ static int atomisp_save_iunit_reg(struct atomisp_device *isp)
 	pci_read_config_dword(dev, MRFLD_PCI_CSI_CONTROL,
 			      &isp->saved_regs.csi_control);
 	if (isp->media_dev.hw_revision >=
-	    ATOMISP_HW_REVISION_ISP2401 << ATOMISP_HW_REVISION_SHIFT)
+	    (ATOMISP_HW_REVISION_ISP2401 << ATOMISP_HW_REVISION_SHIFT))
 		isp->saved_regs.csi_control |=
 			MRFLD_PCI_CSI_CONTROL_PARPATHEN;
-	/* Disable CSI interface on ANN B0/K0. It is turned on just before
-	 * starting streaming, not before to allow driver time to configure
-	 * the CSI receiver before incoming packets are seen.
-	 * A fuse configures whether this bit has actually any effect.
+	/*
+	 * On CHT CSI_READY bit should be enabled before stream on
 	 */
-	if (isp->media_dev.hw_revision >= ((ATOMISP_HW_REVISION_ISP2401 <<
-	    ATOMISP_HW_REVISION_SHIFT) | ATOMISP_HW_STEPPING_B0))
-		isp->saved_regs.csi_control &=
-			~MRFLD_PCI_CSI_CONTROL_CSI_READY;
+	if (IS_CHT && (isp->media_dev.hw_revision >= ((ATOMISP_HW_REVISION_ISP2401 <<
+	    ATOMISP_HW_REVISION_SHIFT) | ATOMISP_HW_STEPPING_B0)))
+		isp->saved_regs.csi_control |=
+			MRFLD_PCI_CSI_CONTROL_CSI_READY;
 	pci_read_config_dword(dev, MRFLD_PCI_CSI_AFE_RCOMP_CONTROL,
 			      &isp->saved_regs.csi_afe_rcomp_config);
 	pci_read_config_dword(dev, MRFLD_PCI_CSI_AFE_HS_CONTROL,
@@ -1140,7 +1138,6 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 	unsigned int start;
 	void __iomem *base;
 	int err;
-	u32 irq;
 
 	if (!dev) {
 		dev_err(&dev->dev, "atomisp: error device ptr\n");
@@ -1234,7 +1231,11 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 			(ATOMISP_HW_REVISION_ISP2400
 			 << ATOMISP_HW_REVISION_SHIFT) |
 			ATOMISP_HW_STEPPING_B0;
-		isp->dfs = &dfs_config_byt;
+		if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2) ||
+				INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2))
+			isp->dfs = &dfs_config_byt_cr;
+		else
+			isp->dfs = &dfs_config_byt;
 		/*
 		 * for BYT/CHT we are put isp into D3cold to avoid pci registers access
 		 * in power off. Set d3cold_delay to 0 since default 100ms is not
@@ -1261,8 +1262,10 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 #else
 			 ATOMISP_HW_REVISION_ISP2401_LEGACY
 #endif
-			 << ATOMISP_HW_REVISION_SHIFT) |
-			ATOMISP_HW_STEPPING_A0;
+			<< ATOMISP_HW_REVISION_SHIFT);
+		isp->media_dev.hw_revision |= isp->pdev->revision < 2 ?
+			 ATOMISP_HW_STEPPING_A0 : ATOMISP_HW_STEPPING_B0;
+
 		isp->dfs = &dfs_config_cht;
 		isp->pdev->d3cold_delay = 0;
 		break;
@@ -1432,29 +1435,9 @@ wdt_work_queue_fail:
 fw_validation_fail:
 	release_firmware(isp->firmware);
 load_fw_fail:
-	/*
-	 * Switch off ISP, as keeping it powered on would prevent
-	 * reaching S0ix states.
-	 *
-	 * The following lines have been copied from atomisp suspend path
-	 */
-
-	pci_read_config_dword(dev, PCI_INTERRUPT_CTRL, &irq);
-	irq = irq & 1 << INTR_IIR;
-	pci_write_config_dword(dev, PCI_INTERRUPT_CTRL, irq);
-
-	pci_read_config_dword(dev, PCI_INTERRUPT_CTRL, &irq);
-	irq &= ~(1 << INTR_IER);
-	pci_write_config_dword(dev, PCI_INTERRUPT_CTRL, irq);
-
-	atomisp_msi_irq_uninit(isp, dev);
-
-	atomisp_ospm_dphy_down(isp);
-	if (ATOMISP_INTERNAL_PM) {
-		if (atomisp_mrfld_power_down(isp))
-			dev_err(&dev->dev, "Failed to switch off ISP\n");
-	}
-
+#ifdef CONFIG_GMIN_INTEL_MID
+	pm_qos_remove_request(&isp->pm_qos);
+#endif
 	pci_dev_put(isp->pci_root);
 	return err;
 }

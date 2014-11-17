@@ -144,21 +144,17 @@
 #define OV5693_VCM_MAX_FOCUS_NEG       -1023
 #define OV5693_VCM_MAX_FOCUS_POS       1023
 
-/* Defines for OTP Data Registers */
-#define OV5693_FRAME_OFF_NUM		0x4202
-#define OV5693_OTP_BYTE_MAX		32	//change to 32 as needed by otpdata
-#define OV5693_OTP_SHORT_MAX		16
-#define OV5693_OTP_START_ADDR		0x3D00
-#define OV5693_OTP_END_ADDR		0x3D0F
-#define OV5693_OTP_DATA_SIZE		320
-#define OV5693_OTP_PROGRAM_REG      	0x3D80
-#define OV5693_OTP_READ_REG		0x3D81	// 1:Enable 0:disable
-#define OV5693_OTP_BANK_REG		0x3D84	//otp bank and mode
-#define OV5693_OTP_READY_REG_DONE	1
-#define OV5693_OTP_BANK_MAX		28
-#define OV5693_OTP_BANK_SIZE		16	//16 bytes per bank
-#define OV5693_OTP_READ_ONETIME		16
-#define OV5693_OTP_MODE_READ		1
+#define DLC_ENABLE 1
+#define DLC_DISABLE 0
+#define VCM_PROTECTION_OFF     0xeca3
+#define VCM_PROTECTION_ON      0xdc51
+#define VCM_DEFAULT_S 0x0
+#define vcm_step_s(a) (u8)(a & 0xf)
+#define vcm_step_mclk(a) (u8)((a >> 4) & 0x3)
+#define vcm_dlc_mclk(dlc, mclk) (u16)((dlc << 3) | mclk | 0xa104)
+#define vcm_tsrc(tsrc) (u16)(tsrc << 3 | 0xf200)
+#define vcm_val(data, s) (u16)(data << 4 | s)
+#define DIRECT_VCM vcm_dlc_mclk(0, 0)
 
 struct regval_list {
 	u16 reg_num;
@@ -193,6 +189,12 @@ struct ov5693_control {
 	int (*tweak)(struct v4l2_subdev *sd, s32 value);
 };
 
+enum vcm_type {
+       VCM_UNKNOWN,
+       VCM_AD5823,
+       VCM_DW9714,
+};
+
 /*
  * ov5693 device structure.
  */
@@ -207,12 +209,12 @@ struct ov5693_device {
 	int vt_pix_clk_freq_mhz;
 	int fmt_idx;
 	int run_mode;
-	int otp_size;
-	u8 *otp_data;
 	u32 focus;
 	s16 number_of_steps;
 	u8 res;
 	u8 type;
+	bool vcm_update;
+	enum vcm_type vcm;
 };
 
 enum ov5693_tok_type {

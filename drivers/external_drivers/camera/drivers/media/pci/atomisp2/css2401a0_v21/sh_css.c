@@ -1184,7 +1184,8 @@ static void print_pc_histo(char *core_name, struct sh_css_pc_histogram *hist)
 	unsigned cnt_run = 0;
 	unsigned cnt_stall = 0;
 
-	assert(hist != NULL);
+	if (hist == NULL)
+		return;
 
 	sh_css_print("%s histogram length = %d\n", core_name, hist->length);
 	sh_css_print("%s PC\trun\tstall\n", core_name);
@@ -4994,6 +4995,8 @@ static enum ia_css_err load_video_binaries(struct ia_css_pipe *pipe)
 	struct ia_css_frame_info video_bin_out_info;
 	bool need_scaler = false;
 	bool vf_res_different_than_output = false;
+	bool need_vf_pp = false;
+	int vf_ds_log2;
 	struct ia_css_video_settings *mycs  = &pipe->pipe_settings.video;
 
 	assert(pipe != NULL);
@@ -5100,19 +5103,65 @@ static enum ia_css_err load_video_binaries(struct ia_css_pipe *pipe)
 
 	{
 		struct ia_css_binary_descr video_descr;
+		enum ia_css_frame_format vf_info_format;
 
 		err = ia_css_pipe_get_video_binarydesc(pipe,
 			&video_descr, &video_in_info, &video_bds_out_info, &video_bin_out_info, video_vf_info,
 			pipe->stream->config.left_padding);
 		if (err != IA_CSS_SUCCESS)
 			return err;
+
+		/* In the case where video_vf_info is not NULL, this allows
+		 * us to find a potential video library with desired vf format.
+		 * If success, no vf_pp binary is needed.
+		 * If failed, we will look up video binary with YUV_LINE vf format
+		 */
 		err = ia_css_binary_find(&video_descr,
 					 &mycs->video_binary);
-		if (err != IA_CSS_SUCCESS)
-			return err;
-	}
 
-	num_output_pins = mycs->video_binary.info->num_output_pins;
+		if (err != IA_CSS_SUCCESS) {
+			if (video_vf_info) {
+				/* This will do another video binary lookup later for YUV_LINE format*/
+				need_vf_pp = true;
+			} else
+				return err;
+		} else if (video_vf_info) {
+			/* The first video binary lookup is successful, but we may
+			 * still need vf_pp binary based on additiona check */
+			num_output_pins = mycs->video_binary.info->num_output_pins;
+			vf_ds_log2 = mycs->video_binary.vf_downscale_log2;
+
+			/* If the binary has dual output pins, we need vf_pp if the resolution
+			* is different. */
+			need_vf_pp |= ((num_output_pins == 2) && vf_res_different_than_output);
+
+			/* If the binary has single output pin, we need vf_pp if additional
+			* scaling is needed for vf */
+			need_vf_pp |= ((num_output_pins == 1) &&
+				((video_vf_info->res.width << vf_ds_log2 != pipe_out_info->res.width) ||
+				(video_vf_info->res.height << vf_ds_log2 != pipe_out_info->res.height)));
+		}
+
+		if (need_vf_pp) {
+			/* save the current vf_info format for restoration later */
+			ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
+				"load_video_binaries() need_vf_pp; find video binary with YUV_LINE again\n");
+
+			vf_info_format = video_vf_info->format;
+
+			ia_css_frame_info_set_format(video_vf_info,
+					IA_CSS_FRAME_FORMAT_YUV_LINE);
+			err = ia_css_binary_find(&video_descr,
+						&mycs->video_binary);
+
+			/* restore original vf_info format */
+			ia_css_frame_info_set_format(video_vf_info,
+					vf_info_format);
+			if (err != IA_CSS_SUCCESS)
+				return err;
+		}
+
+	}
 
 	/* If a video binary does not use a ref_frame, we set the frame delay
 	 * to 0. This is the case for the 1-stage low-power video binary. */
@@ -5153,12 +5202,8 @@ static enum ia_css_err load_video_binaries(struct ia_css_pipe *pipe)
 #endif
 #endif
 
-	/* Viewfinder post-processing */
-	if (pipe->enable_viewfinder[IA_CSS_PIPE_OUTPUT_STAGE_0] &&  /* only when viewfinder is enabled. */
-	   ((num_output_pins == 1)        /* when the binary has a single output pin, we need vf_pp */
-		|| ((num_output_pins == 2) && vf_res_different_than_output))) {
-			/* when the binary has dual output pin, */
-			/* we only need vf_pp in case the resolution is different. */
+#if !defined(HAS_OUTPUT_SYSTEM)
+	if (pipe->enable_viewfinder[IA_CSS_PIPE_OUTPUT_STAGE_0] && need_vf_pp) {
 		struct ia_css_binary_descr vf_pp_descr;
 
 		ia_css_pipe_get_vfpp_binarydesc(pipe, &vf_pp_descr,
@@ -5169,6 +5214,7 @@ static enum ia_css_err load_video_binaries(struct ia_css_pipe *pipe)
 		if (err != IA_CSS_SUCCESS)
 			return err;
 	}
+#endif
 
 	ref_info = mycs->video_binary.internal_frame_info;
 #if defined(IS_ISP_2500_SYSTEM)
@@ -6795,8 +6841,10 @@ create_host_yuvpp_pipeline(struct ia_css_pipe *pipe)
 			}
 		}
 	} else if (post_stage != NULL) {
-		err = add_vf_pp_stage(pipe, vf_frame[0], &vf_pp_binary[0],
+		if (vf_frame[0] != NULL && vf_frame[0]->info.res.width != 0) {
+			err = add_vf_pp_stage(pipe, vf_frame[0], &vf_pp_binary[0],
 				      post_stage, &vf_pp_stage);
+		}
 		if (err != IA_CSS_SUCCESS)
 			return err;
 	}

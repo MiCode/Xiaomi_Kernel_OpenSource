@@ -23,7 +23,19 @@
 #define __IA_CSS_EED1_8_PARAM_H
 
 #include "type_support.h"
+#include "vmem.h" /* for VMEM_ARRAY*/
 #include "ia_css_eed1_8_types.h" /* IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS */
+
+/* Define size of the state..... TODO: check if this is the correct place */
+/* 4 planes : GR, R, B, GB */
+#define NUM_PLANES		4
+/* 3 lines state per color plane input_line_state */
+#define EED1_8_STATE_INPUT_BUFFER_HEIGHT	(2 * NUM_PLANES)
+/* ToDo: Move this to testsetup */
+#define MAX_FRAME_SIMDWIDTH	30
+/* Each plane has width equal to half frame line */
+#define EED1_8_STATE_INPUT_BUFFER_WIDTH	CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
+
 
 /* EED (Edge Enhancing Demosaic) ISP parameters */
 struct ia_css_isp_eed1_8_params {

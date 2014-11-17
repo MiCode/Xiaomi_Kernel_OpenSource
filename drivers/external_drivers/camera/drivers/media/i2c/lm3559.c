@@ -88,7 +88,7 @@ struct lm3559_ctrl_id {
 
 #define LM3559_CONFIG_REG_1_INIT_SETTING	0x6c
 #define LM3559_CONFIG_REG_2_INIT_SETTING	0x01
-#define LM3559_CONFIG_REG_2_INIT_SETTING_LM3560	0x11
+#define LM3559_CONFIG_REG_2_INIT_SETTING_LM3560	0x01
 #define LM3559_GPIO_REG_INIT_SETTING		0x00
 
 #define LM3559_ENVM_TX2_SHIFT		0
@@ -517,6 +517,7 @@ static int lm3559_g_flash_status(struct v4l2_subdev *sd, s32 *val)
 	return 0;
 }
 
+#ifndef CSS15
 static int lm3559_g_flash_status_register(struct v4l2_subdev *sd, s32 *val)
 {
 	struct lm3559 *flash = to_lm3559(sd);
@@ -530,6 +531,7 @@ static int lm3559_g_flash_status_register(struct v4l2_subdev *sd, s32 *val)
 	*val = ret;
 	return 0;
 }
+#endif
 
 static const struct lm3559_ctrl_id lm3559_ctrls[] = {
 	s_ctrl_id_entry_integer(V4L2_CID_FLASH_TIMEOUT,
@@ -592,6 +594,7 @@ static const struct lm3559_ctrl_id lm3559_ctrls[] = {
 				0,
 				NULL,
 				lm3559_g_flash_status),
+#ifndef CSS15
 	s_ctrl_id_entry_integer(V4L2_CID_FLASH_STATUS_REGISTER,
 				"Flash Status Register",
 				0,   /* don't assume any enum ID is first */
@@ -601,6 +604,7 @@ static const struct lm3559_ctrl_id lm3559_ctrls[] = {
 				0,
 				NULL,
 				lm3559_g_flash_status_register),
+#endif
 };
 
 static const struct lm3559_ctrl_id *find_ctrl_id(unsigned int id)

@@ -65,6 +65,7 @@
 #include "sp.h"
 #include "isp.h"
 #include "type_support.h"
+#include "math_support.h" /* CEIL_DIV */
 #if defined(HAS_INPUT_FORMATTER_VERSION_2) || defined(USE_INPUT_SYSTEM_VERSION_2401)
 #include "input_system.h"	/* input_formatter_reg_load */
 #include "gp_device.h"		/* gp_device_reg_load */
@@ -119,6 +120,12 @@ unsigned int ia_css_debug_trace_level = IA_CSS_DEBUG_WARNING;
 
 #define ENABLE_LINE_MAX_LENGTH (25)
 
+/*
+ * TODO:SH_CSS_MAX_SP_THREADS is not the max number of sp threads
+ * future rework should fix this and remove the define MAX_THREAD_NUM
+ */
+#define MAX_THREAD_NUM (SH_CSS_MAX_SP_THREADS + SH_CSS_MAX_SP_INTERNAL_THREADS)
+
 static struct pipe_graph_class {
 	bool do_init;
 	int height;
@@ -150,6 +157,87 @@ static const char * const pipe_id_to_str[] = {
 
 static char dot_id_input_bin[SH_CSS_MAX_BINARY_NAME+10];
 static char ring_buffer[200];
+
+#if !defined(C_RUN) && !defined(HRT_UNSCHED)
+static void debug_dump_long_array_formatted(
+	const sp_ID_t sp_id,
+	hrt_address stack_sp_addr,
+	unsigned stack_size)
+{
+	unsigned int i;
+	uint32_t val;
+	uint32_t addr = (uint32_t) stack_sp_addr;
+	uint32_t stack_size_words = CEIL_DIV(stack_size, sizeof(uint32_t));
+
+	/* When size is not multiple of four, last word is only relevant for
+	 * remaining bytes */
+	for (i = 0; i < stack_size_words; i++) {
+		val = sp_dmem_load_uint32(sp_id, (hrt_address)addr);
+		if ((i%8) == 0)
+			ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE, "\n");
+
+		ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE, "0x%08x ", val);
+		addr += sizeof(uint32_t);
+	}
+
+	ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE, "\n");
+}
+
+static void debug_dump_sp_stack_info(
+	const sp_ID_t sp_id)
+{
+	const struct ia_css_fw_info *fw;
+	unsigned int HIVE_ADDR_sp_threads_stack;
+	unsigned int HIVE_ADDR_sp_threads_stack_size;
+	uint32_t stack_sizes[MAX_THREAD_NUM];
+	uint32_t stack_sp_addr[MAX_THREAD_NUM];
+	unsigned int i;
+
+	fw = &sh_css_sp_fw;
+
+	ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE, "sp_id(%u) stack info\n", sp_id);
+	ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE,
+		"from objects stack_addr_offset:0x%x stack_size_offset:0x%x\n",
+		fw->info.sp.threads_stack,
+		fw->info.sp.threads_stack_size);
+
+	HIVE_ADDR_sp_threads_stack = fw->info.sp.threads_stack;
+	HIVE_ADDR_sp_threads_stack_size = fw->info.sp.threads_stack_size;
+
+	if (fw->info.sp.threads_stack == 0 ||
+		fw->info.sp.threads_stack_size == 0)
+		return;
+
+	(void) HIVE_ADDR_sp_threads_stack;
+	(void) HIVE_ADDR_sp_threads_stack_size;
+
+	sp_dmem_load(sp_id,
+		(unsigned int)sp_address_of(sp_threads_stack),
+		&stack_sp_addr, sizeof(stack_sp_addr));
+	sp_dmem_load(sp_id,
+		(unsigned int)sp_address_of(sp_threads_stack_size),
+		&stack_sizes, sizeof(stack_sizes));
+
+	for (i = 0 ; i < MAX_THREAD_NUM; i++) {
+		ia_css_debug_dtrace(IA_CSS_DEBUG_VERBOSE,
+			"thread: %u stack_addr: 0x%08x stack_size: %u\n",
+			i, stack_sp_addr[i], stack_sizes[i]);
+		debug_dump_long_array_formatted(sp_id, (hrt_address)stack_sp_addr[i],
+			stack_sizes[i]);
+	}
+}
+
+void ia_css_debug_dump_sp_stack_info(void)
+{
+	debug_dump_sp_stack_info(SP0_ID);
+}
+#else
+/* Empty def for crun */
+void ia_css_debug_dump_sp_stack_info(void)
+{
+}
+#endif /* #if __HIVECC */
+
 
 void ia_css_debug_set_dtrace_level(const unsigned int trace_level)
 {
@@ -454,8 +542,59 @@ void ia_css_debug_dump_sp_state(void)
 	return;
 }
 
+static void debug_print_fifo_channel_state(const fifo_channel_state_t *state,
+					   const char *descr)
+{
+	assert(state != NULL);
+	assert(descr != NULL);
+
+	ia_css_debug_dtrace(2, "FIFO channel: %s\n", descr);
+	ia_css_debug_dtrace(2, "\t%-32s: %d\n", "source valid",
+			    state->src_valid);
+	ia_css_debug_dtrace(2, "\t%-32s: %d\n", "fifo accept",
+			    state->fifo_accept);
+	ia_css_debug_dtrace(2, "\t%-32s: %d\n", "fifo valid",
+			    state->fifo_valid);
+	ia_css_debug_dtrace(2, "\t%-32s: %d\n", "sink accept",
+			    state->sink_accept);
+	return;
+}
+
 #if !defined(HAS_NO_INPUT_FORMATTER) && defined(USE_INPUT_SYSTEM_VERSION_2)
-static void debug_print_if_state(input_formatter_state_t *state)
+void ia_css_debug_dump_pif_a_isp_fifo_state(void)
+{
+	fifo_channel_state_t pif_to_isp, isp_to_pif;
+	fifo_channel_get_state(FIFO_MONITOR0_ID,
+			       FIFO_CHANNEL_IF0_TO_ISP0, &pif_to_isp);
+	fifo_channel_get_state(FIFO_MONITOR0_ID,
+			       FIFO_CHANNEL_ISP0_TO_IF0, &isp_to_pif);
+	debug_print_fifo_channel_state(&pif_to_isp, "Primary IF A to ISP");
+	debug_print_fifo_channel_state(&isp_to_pif, "ISP to Primary IF A");
+}
+
+void ia_css_debug_dump_pif_b_isp_fifo_state(void)
+{
+	fifo_channel_state_t pif_to_isp, isp_to_pif;
+	fifo_channel_get_state(FIFO_MONITOR0_ID,
+			       FIFO_CHANNEL_IF1_TO_ISP0, &pif_to_isp);
+	fifo_channel_get_state(FIFO_MONITOR0_ID,
+			       FIFO_CHANNEL_ISP0_TO_IF1, &isp_to_pif);
+	debug_print_fifo_channel_state(&pif_to_isp, "Primary IF B to ISP");
+	debug_print_fifo_channel_state(&isp_to_pif, "ISP to Primary IF B");
+}
+
+void ia_css_debug_dump_str2mem_sp_fifo_state(void)
+{
+	fifo_channel_state_t s2m_to_sp, sp_to_s2m;
+	fifo_channel_get_state(FIFO_MONITOR0_ID,
+			       FIFO_CHANNEL_STREAM2MEM0_TO_SP0, &s2m_to_sp);
+	fifo_channel_get_state(FIFO_MONITOR0_ID,
+			       FIFO_CHANNEL_SP0_TO_STREAM2MEM0, &sp_to_s2m);
+	debug_print_fifo_channel_state(&s2m_to_sp, "Stream-to-memory to SP");
+	debug_print_fifo_channel_state(&sp_to_s2m, "SP to stream-to-memory");
+}
+
+static void debug_print_if_state(input_formatter_state_t *state, const char *id)
 {
 	unsigned int val;
 
@@ -489,7 +628,7 @@ static void debug_print_if_state(input_formatter_state_t *state)
 	int st_block_fifo_when_no_req = state->block_fifo_when_no_req;
 
 	assert(state != NULL);
-	ia_css_debug_dtrace(2, "InputFormatter State:\n");
+	ia_css_debug_dtrace(2, "InputFormatter State (%s):\n", id);
 
 	ia_css_debug_dtrace(2, "\tConfiguration:\n");
 
@@ -777,8 +916,12 @@ void ia_css_debug_dump_if_state(void)
 	input_formatter_bin_state_t if_bin_state;
 
 	input_formatter_get_state(INPUT_FORMATTER0_ID, &if_state);
-	debug_print_if_state(&if_state);
-	ia_css_debug_dump_pif_isp_fifo_state();
+	debug_print_if_state(&if_state, "Primary IF A");
+	ia_css_debug_dump_pif_a_isp_fifo_state();
+
+	input_formatter_get_state(INPUT_FORMATTER1_ID, &if_state);
+	debug_print_if_state(&if_state, "Primary IF B");
+	ia_css_debug_dump_pif_b_isp_fifo_state();
 
 	input_formatter_bin_get_state(INPUT_FORMATTER3_ID, &if_bin_state);
 	debug_print_if_bin_state(&if_bin_state);
@@ -1055,46 +1198,6 @@ void ia_css_debug_dump_dma_state(void)
 	}
 	ia_css_debug_dtrace(2, "\n");
 	return;
-}
-
-static void debug_print_fifo_channel_state(const fifo_channel_state_t *state,
-					   const char *descr)
-{
-	assert(state != NULL);
-	assert(descr != NULL);
-
-	ia_css_debug_dtrace(2, "FIFO channel: %s\n", descr);
-	ia_css_debug_dtrace(2, "\t%-32s: %d\n", "source valid",
-			    state->src_valid);
-	ia_css_debug_dtrace(2, "\t%-32s: %d\n", "fifo accept",
-			    state->fifo_accept);
-	ia_css_debug_dtrace(2, "\t%-32s: %d\n", "fifo valid",
-			    state->fifo_valid);
-	ia_css_debug_dtrace(2, "\t%-32s: %d\n", "sink accept",
-			    state->sink_accept);
-	return;
-}
-
-void ia_css_debug_dump_pif_isp_fifo_state(void)
-{
-	fifo_channel_state_t pif_to_isp, isp_to_pif;
-	fifo_channel_get_state(FIFO_MONITOR0_ID,
-			       FIFO_CHANNEL_IF0_TO_ISP0, &pif_to_isp);
-	fifo_channel_get_state(FIFO_MONITOR0_ID,
-			       FIFO_CHANNEL_ISP0_TO_IF0, &isp_to_pif);
-	debug_print_fifo_channel_state(&pif_to_isp, "Primary IF A to ISP");
-	debug_print_fifo_channel_state(&isp_to_pif, "ISP to Primary IF A");
-}
-
-void ia_css_debug_dump_str2mem_sp_fifo_state(void)
-{
-	fifo_channel_state_t s2m_to_sp, sp_to_s2m;
-	fifo_channel_get_state(FIFO_MONITOR0_ID,
-			       FIFO_CHANNEL_STREAM2MEM0_TO_SP0, &s2m_to_sp);
-	fifo_channel_get_state(FIFO_MONITOR0_ID,
-			       FIFO_CHANNEL_SP0_TO_STREAM2MEM0, &sp_to_s2m);
-	debug_print_fifo_channel_state(&s2m_to_sp, "Stream-to-memory to SP");
-	debug_print_fifo_channel_state(&sp_to_s2m, "SP to stream-to-memory");
 }
 
 void ia_css_debug_dump_dma_sp_fifo_state(void)
@@ -2506,11 +2609,6 @@ STORAGE_CLASS_INLINE void dtrace_dot(const char *fmt, ...)
 	va_end(ap);
 }
 #ifdef HAS_WATCHDOG_SP_THREAD_DEBUG
-/*
- * TODO:SH_CSS_MAX_SP_THREADS is not the max number of sp threads
- * future rework should fix this and remove the define MAX_THREAD_NUM
- */
-#define MAX_THREAD_NUM (SH_CSS_MAX_SP_THREADS + SH_CSS_MAX_SP_INTERNAL_THREADS)
 void sh_css_dump_thread_wait_info(void)
 {
 	const struct ia_css_fw_info *fw;

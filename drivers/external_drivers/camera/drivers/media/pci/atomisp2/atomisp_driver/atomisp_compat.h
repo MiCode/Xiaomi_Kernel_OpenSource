@@ -508,6 +508,9 @@ void atomisp_css_set_dp_config(struct atomisp_sub_device *asd,
 void atomisp_css_set_de_config(struct atomisp_sub_device *asd,
 			struct atomisp_css_de_config *de_config);
 
+void atomisp_css_set_dz_config(struct atomisp_sub_device *asd,
+			struct atomisp_css_dz_config *dz_config);
+
 void atomisp_css_set_default_de_config(struct atomisp_sub_device *asd);
 
 void atomisp_css_set_ce_config(struct atomisp_sub_device *asd,

@@ -48,17 +48,13 @@
 
 
 struct ia_css_isp_dpc2_params {
-	int32_t one_plus_metric1;
-	int32_t one_minus_metric1;
-	int32_t one_plus_metric3;
+	int32_t metric1;
+	int32_t metric2;
+	int32_t metric3;
 	int32_t wb_gain_gr;
 	int32_t wb_gain_r;
 	int32_t wb_gain_b;
 	int32_t wb_gain_gb;
-	int32_t wb_gain_gr_scaled_by_metric2;
-	int32_t wb_gain_r_scaled_by_metric2;
-	int32_t wb_gain_b_scaled_by_metric2;
-	int32_t wb_gain_gb_scaled_by_metric2;
 };
 
 #endif /* __IA_CSS_DPC2_PARAM_H */

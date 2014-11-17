@@ -304,6 +304,8 @@ struct ia_css_binary_xinfo {
 	enum ia_css_acc_type	     type;
 	CSS_ALIGN(int32_t	     num_output_formats, 8);
 	enum ia_css_frame_format     output_formats[IA_CSS_FRAME_FORMAT_NUM];
+	CSS_ALIGN(int32_t	     num_vf_formats, 8); /**< number of supported vf formats */
+	enum ia_css_frame_format     vf_formats[IA_CSS_FRAME_FORMAT_NUM]; /**< types of supported vf formats */
 	uint8_t			     num_output_pins;
 	ia_css_ptr		     xmem_addr;
 	CSS_ALIGN(const struct ia_css_blob_descr *blob, 8);
@@ -338,6 +340,8 @@ struct ia_css_sp_info {
 	uint32_t debug_stage; /**< thread/pipe post mortem debug */
 	uint32_t debug_stripe; /**< thread/pipe post mortem debug */
 #endif
+	uint32_t threads_stack; /**< sp thread's stack pointers */
+	uint32_t threads_stack_size; /**< sp thread's stack sizes */
 	uint32_t curr_binary_id;        /**< current binary id */
 	uint32_t raw_copy_line_count;   /**< raw copy line counter */
 	uint32_t ddr_parameter_address; /**< acc param ddrptr, sp dmem */

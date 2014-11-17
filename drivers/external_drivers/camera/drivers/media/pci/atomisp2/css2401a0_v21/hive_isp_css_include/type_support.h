@@ -39,7 +39,14 @@
 
 #if defined(_MSC_VER)
 #include <stdint.h>
+/* For ATE compilation define the bool */
+#if defined(_ATE_)
+#define bool int
+#define true 1
+#define false 0
+#else
 #include <stdbool.h>
+#endif
 #include <stddef.h>
 #include <limits.h>
 #include <errno.h>

@@ -30,6 +30,7 @@
 #include "memory_access.h"
 #include "assert_support.h"
 #include "ia_css_spctrl.h"
+#include "ia_css_debug.h"
 
 typedef struct {
 	struct ia_css_sp_init_dmem_cfg dmem_config;
@@ -82,10 +83,22 @@ enum ia_css_err ia_css_spctrl_load_fw(sp_ID_t sp_id,
 		return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
 	mmgr_store(code_addr, spctrl_cfg->code, spctrl_cfg->code_size);
 
-	assert(sizeof(hrt_vaddress) <= sizeof(hrt_data));
+	if (sizeof(hrt_vaddress) > sizeof(hrt_data)) {
+		ia_css_debug_dtrace(IA_CSS_DEBUG_ERROR,
+				    "size of hrt_vaddress can not be greater than hrt_data\n");
+		mmgr_free(spctrl_cfg->code_size);
+		spctrl_cfg->code_size = mmgr_NULL;
+		return IA_CSS_ERR_INTERNAL_ERROR;
+	}
 
 	init_dmem_cfg->ddr_data_addr  = code_addr + spctrl_cfg->ddr_data_offset;
-	assert((init_dmem_cfg->ddr_data_addr % HIVE_ISP_DDR_WORD_BYTES) == 0);
+	if ((init_dmem_cfg->ddr_data_addr % HIVE_ISP_DDR_WORD_BYTES) != 0) {
+		ia_css_debug_dtrace(IA_CSS_DEBUG_ERROR,
+				    "DDR address pointer is not properly aligned for DMA transfer\n");
+		mmgr_free(spctrl_cfg->code_size);
+		spctrl_cfg->code_size = mmgr_NULL;
+		return IA_CSS_ERR_INTERNAL_ERROR;
+	}
 #endif
 	spctrl_cofig_info[sp_id].sp_entry = spctrl_cfg->sp_entry;
 	spctrl_cofig_info[sp_id].code_addr = code_addr;

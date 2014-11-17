@@ -3,6 +3,7 @@
 #
 
 source "drivers/external_drivers/camera/drivers/media/i2c/mt9e013/Kconfig"
+source "drivers/external_drivers/camera/drivers/media/i2c/ov5693/Kconfig"
 source "drivers/external_drivers/camera/drivers/media/i2c/imx/Kconfig"
 source "drivers/external_drivers/camera/drivers/media/i2c/imx135VB/Kconfig"
 
@@ -45,17 +46,6 @@ config VIDEO_M10MO_FAKE_SFI_TABLE
 
 	  Not needed if device IFWI already has M10MO in the SFI table.
 
-config VIDEO_GC0339
-       tristate "Galaxy gc0339 sensor support"
-       depends on I2C && VIDEO_V4L2
-       ---help---
-         This is a Video4Linux2 sensor-level driver for the OVT
-         GC0339 camera.
-
-         GC0339 is a 0.3M sensor.
-
-         It currently only works with the atomisp driver.
-
 config VIDEO_GC2235
        tristate "Galaxy gc2235 sensor support"
        depends on I2C && VIDEO_V4L2
@@ -64,17 +54,6 @@ config VIDEO_GC2235
          GC2235 raw camera.
 
          GC2235 is a 2M raw sensor.
-
-         It currently only works with the atomisp driver.
-
-config VIDEO_OV5693
-       tristate "Omnivision ov5693 sensor support"
-       depends on I2C && VIDEO_V4L2
-       ---help---
-         This is a Video4Linux2 sensor-level driver for the Micron
-         ov5693 5 Mpixel camera.
-
-         ov5693 is video camera sensor.
 
          It currently only works with the atomisp driver.
 
@@ -215,6 +194,17 @@ config VIDEO_LM3554
          To compile this driver as a module, choose M here: the
          module will be called lm3554
 
+config VIDEO_LM3642
+       tristate "LM3642 flash light driver"
+       depends on VIDEO_V4L2 && I2C
+       ---help---
+         This is a Video4Linux2 sub-dev driver for the LM3642
+         flash light driver.
+
+         To compile this driver as a module, choose M here: the
+         module will be called lm3642
+
+
 config VIDEO_LM3559
        tristate "LM3559 flash light driver"
        depends on VIDEO_V4L2 && I2C
@@ -224,4 +214,5 @@ config VIDEO_LM3559
 
          To compile this driver as a module, choose M here: the
          module will be called lm3559
+
 

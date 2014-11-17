@@ -41,10 +41,10 @@ static struct pixter_format_bridge format_bridge[] = {
 	{"GRBG10", V4L2_MBUS_FMT_SGRBG10_1X10, ATOMISP_INPUT_FORMAT_RAW_10, 10},
 	{"GBRG10", V4L2_MBUS_FMT_SGBRG10_1X10, ATOMISP_INPUT_FORMAT_RAW_10, 10},
 	{"BGGR10", V4L2_MBUS_FMT_SBGGR10_1X10, ATOMISP_INPUT_FORMAT_RAW_10, 10},
-	{"RGGB8", V4L2_MBUS_FMT_SRGGB10_1X10, ATOMISP_INPUT_FORMAT_RAW_8, 8},
-	{"GRBG8", V4L2_MBUS_FMT_SGRBG10_1X10, ATOMISP_INPUT_FORMAT_RAW_8, 8},
-	{"GBRG8", V4L2_MBUS_FMT_SGBRG10_1X10, ATOMISP_INPUT_FORMAT_RAW_8, 8},
-	{"BGGR8", V4L2_MBUS_FMT_SBGGR10_1X10, ATOMISP_INPUT_FORMAT_RAW_8, 8},
+	{"RGGB8", V4L2_MBUS_FMT_SRGGB8_1X8, ATOMISP_INPUT_FORMAT_RAW_8, 8},
+	{"GRBG8", V4L2_MBUS_FMT_SGRBG8_1X8, ATOMISP_INPUT_FORMAT_RAW_8, 8},
+	{"GBRG8", V4L2_MBUS_FMT_SGBRG8_1X8, ATOMISP_INPUT_FORMAT_RAW_8, 8},
+	{"BGGR8", V4L2_MBUS_FMT_SBGGR8_1X8, ATOMISP_INPUT_FORMAT_RAW_8, 8},
 	{"YUV422_8", V4L2_MBUS_FMT_UYVY8_1X16, ATOMISP_INPUT_FORMAT_YUV422_8, 16},
 	{"YUV420_8", 0x8001/*For YUV420*/, ATOMISP_INPUT_FORMAT_YUV420_8, 16},
 };
@@ -52,47 +52,53 @@ static struct pixter_format_bridge format_bridge[] = {
 static u32 port_to_channel[4] = {1, 0, 2, 0};
 
 static struct pixter_dbgfs dbgfs[] = {
-	{"root", NULL, DBGFS_DIR, 0},
-	{"fps", "root", DBGFS_DIR, 0},
-	{"blank", "root", DBGFS_DIR, 0},
-	{"timing", "root", DBGFS_DIR, 0},
-	{"fps_ovrd", "fps", DBGFS_FILE, dev_off(dbg_fps.fps_ovrd)},
-	{"fps", "fps", DBGFS_FILE, dev_off(dbg_fps.fps)},
-	{"blank_ovrd", "blank", DBGFS_FILE, dev_off(dbg_blank.blank_ovrd)},
-	{"h_blank", "blank", DBGFS_FILE, dev_off(dbg_blank.h_blank)},
-	{"v_blank_pre", "blank", DBGFS_FILE, dev_off(dbg_blank.v_blank_pre)},
-	{"v_blank_post", "blank", DBGFS_FILE, dev_off(dbg_blank.v_blank_post)},
-	{"mipi_clk", "timing", DBGFS_FILE, dev_off(dbg_timing.mipi_clk)},
-	{"cont_hs_clk", "timing", DBGFS_FILE, dev_off(dbg_timing.cont_hs_clk)},
-	{"timing_ovrd", "timing", DBGFS_FILE, dev_off(dbg_timing.timing_ovrd)},
-	{"pre", "timing", DBGFS_FILE, dev_off(dbg_timing.pre)},
-	{"post", "timing", DBGFS_FILE, dev_off(dbg_timing.post)},
-	{"gap", "timing", DBGFS_FILE, dev_off(dbg_timing.gap)},
-	{"ck_lpx", "timing", DBGFS_FILE, dev_off(dbg_timing.ck_lpx)},
-	{"ck_prep", "timing", DBGFS_FILE, dev_off(dbg_timing.ck_prep)},
-	{"ck_zero", "timing", DBGFS_FILE, dev_off(dbg_timing.ck_zero)},
-	{"ck_trail", "timing", DBGFS_FILE, dev_off(dbg_timing.ck_trail)},
-	{"dat_lpx", "timing", DBGFS_FILE, dev_off(dbg_timing.dat_lpx)},
-	{"dat_prep", "timing", DBGFS_FILE, dev_off(dbg_timing.dat_prep)},
-	{"dat_zero", "timing", DBGFS_FILE, dev_off(dbg_timing.dat_zero)},
-	{"dat_trail", "timing", DBGFS_FILE, dev_off(dbg_timing.dat_trail)},
-	{"twakeup", "timing", DBGFS_FILE, dev_off(dbg_timing.twakeup)},
+	{"root", NULL, DBGFS_DIR, 0, 0},
+	{"fps", "root", DBGFS_DIR, 0, 0},
+	{"blank", "root", DBGFS_DIR, 0, 0},
+	{"timing", "root", DBGFS_DIR, 0, 0},
+	{"fps_ovrd", "fps", DBGFS_FILE, PIXTER_RW, dev_off(dbg_fps.fps_ovrd)},
+	{"fps", "fps", DBGFS_FILE, PIXTER_RW, dev_off(dbg_fps.fps)},
+	{"blank_ovrd", "blank", DBGFS_FILE, PIXTER_RW, dev_off(dbg_blank.blank_ovrd)},
+	{"h_blank", "blank", DBGFS_FILE, PIXTER_RW, dev_off(dbg_blank.h_blank)},
+	{"v_blank_pre", "blank", DBGFS_FILE, PIXTER_RW, dev_off(dbg_blank.v_blank_pre)},
+	{"v_blank_post", "blank", DBGFS_FILE, PIXTER_RW, dev_off(dbg_blank.v_blank_post)},
+	{"mipi_clk", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.mipi_clk)},
+	{"cont_hs_clk", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.cont_hs_clk)},
+	{"timing_ovrd", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.timing_ovrd)},
+	{"pre", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.pre)},
+	{"post", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.post)},
+	{"gap", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.gap)},
+	{"ck_lpx", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.ck_lpx)},
+	{"ck_prep", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.ck_prep)},
+	{"ck_zero", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.ck_zero)},
+	{"ck_trail", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.ck_trail)},
+	{"dat_lpx", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_lpx)},
+	{"dat_prep", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_prep)},
+	{"dat_zero", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_zero)},
+	{"dat_trail", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_trail)},
+	{"twakeup", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.twakeup)},
+	{"mipi_lanes_num", "timing", DBGFS_FILE, PIXTER_RONLY, dev_off(dbg_timing.mipi_lanes_num)},
 };
 
-static u32 pixter_get_tx_freq_sel(u32 freq)
+static u32 pixter_get_tx_freq_sel(u32 *freq)
 {
 	u32 sel;
 
-	freq /= 1000000; /* To MHz */
-	if (freq < 20) {
+	*freq /= 1000000; /* To MHz */
+	if (*freq < 20) {
 		sel = 1;
-	} else if (freq <= 100) {
-		sel = (freq + 9) / 10 - 1;
-	} else if (freq <= 750) {
-		sel = (freq + 24) / 25 + 5;
+		*freq = 20;
+	} else if (*freq <= 100) {
+		sel = (*freq + 9) / 10 - 1;
+		*freq = 20 + (sel - 1) * 10;
+	} else if (*freq <= 750) {
+		sel = (*freq + 24) / 25 + 5;
+		*freq = 100 + (sel - 9) * 25;
 	} else {
 		sel = 35;
+		*freq = 750;
 	}
+	*freq *= 1000000;
 
 	return sel;
 }
@@ -281,7 +287,7 @@ static int pixter_config_tx(struct v4l2_subdev *sd)
 	}
 
 	/* Config MIPI clock. */
-	reg_val = pixter_get_tx_freq_sel(dev->dbg_timing.mipi_clk);
+	reg_val = pixter_get_tx_freq_sel(&dev->dbg_timing.mipi_clk);
 	pixter_write_reg(sd, PIXTER_TX_CTRL(ch), reg_val);
 	/* Wait MIPI clock to be ready. Timeout=5s. */
 	while (cnt) {
@@ -301,6 +307,85 @@ static int pixter_config_tx(struct v4l2_subdev *sd)
 	return 0;
 }
 
+static void __print_mipi_timing(struct v4l2_subdev *sd)
+{
+	struct pixter_device *dev = to_pixter_dev(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct pixter_timing *dbg_time = &dev->dbg_timing;
+	unsigned short mipi_clk = dbg_time->mipi_clk / 1000000;
+	/* 1UI = 1 bit periold, in pS */
+	unsigned int ui = 1000000 / (mipi_clk * 2);
+	unsigned int tmp;
+
+	dev_dbg(&client->dev, "MIPI CLK: %d MHz.\n", mipi_clk);
+
+	dev_dbg(&client->dev, "----Pixter MIPI Parameters----\n");
+	dev_dbg(&client->dev, "ck_lpx: %d.\n", dbg_time->ck_lpx);
+	dev_dbg(&client->dev, "ck_prep: %d.\n", dbg_time->ck_prep);
+	dev_dbg(&client->dev, "ck_zero: %d.\n", dbg_time->ck_zero);
+	dev_dbg(&client->dev, "pre: %d.\n", dbg_time->pre);
+	dev_dbg(&client->dev, "post: %d.\n", dbg_time->post);
+	dev_dbg(&client->dev, "ck_trail: %d.\n", dbg_time->ck_trail);
+	dev_dbg(&client->dev, "dat_lpx: %d.\n", dbg_time->dat_lpx);
+	dev_dbg(&client->dev, "dat_prep: %d.\n", dbg_time->dat_prep);
+	dev_dbg(&client->dev, "dat_zero: %d.\n", dbg_time->dat_zero);
+	dev_dbg(&client->dev, "dat_trail: %d.\n", dbg_time->dat_trail);
+	dev_dbg(&client->dev, "gap: %d.\n", dbg_time->gap);
+	dev_dbg(&client->dev, "twakeup: %d.\n", dbg_time->twakeup);
+
+	dev_dbg(&client->dev, "----Standard MIPI Parameters----\n");
+
+	tmp = (dbg_time->ck_lpx + 1) * 8 * ui;
+	dev_dbg(&client->dev, "CLK-LPX: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+	tmp = (dbg_time->ck_prep + 1) * 8 * ui;
+	dev_dbg(&client->dev, "CLK-PREPARE: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+	tmp = (dbg_time->ck_zero + 1) * 8 * ui;
+	dev_dbg(&client->dev, "CLK-ZERO: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+	tmp = (dbg_time->pre - dbg_time->ck_lpx - dbg_time->ck_zero - 3)
+		* 8 * ui;
+	dev_dbg(&client->dev, "CLK-PRE: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+	tmp = (dbg_time->post + 8) * 8 * ui;
+	dev_dbg(&client->dev, "CLK-POST: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+	tmp = (dbg_time->ck_trail + 1) * 8 * ui;
+	dev_dbg(&client->dev, "CLK-TRAIL: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+	tmp = (dbg_time->dat_lpx + 1) * 8 * ui;
+	dev_dbg(&client->dev, "HS-LPX: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+	tmp = (dbg_time->dat_prep + 1) * 8 * ui;
+	dev_dbg(&client->dev, "HS-PREPARE: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+	tmp = (dbg_time->dat_zero + 6) * 8 * ui;
+	dev_dbg(&client->dev, "HS-ZERO: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+	tmp = (dbg_time->dat_trail + 2) * 8 * ui;
+	dev_dbg(&client->dev, "HS-TRAIL: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+	tmp = (dbg_time->gap + 9) * 8 * ui;
+	dev_dbg(&client->dev, "HS-EXIT: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+	tmp = (dbg_time->twakeup + 1) * 8 * ui;
+	dev_dbg(&client->dev, "Wakeup: %d.%d nS.\n",
+			tmp / 1000, tmp % 1000);
+
+}
+
 static int pixter_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct pixter_device *dev = to_pixter_dev(sd);
@@ -313,6 +398,7 @@ static int pixter_s_stream(struct v4l2_subdev *sd, int enable)
 	mutex_lock(&dev->input_lock);
 
 	if (enable) {
+		__print_mipi_timing(sd);
 		ret = pixter_config_rx(sd);
 		if (ret)
 			goto out;
@@ -396,7 +482,8 @@ static u32 pixter_try_mbus_fmt_locked(struct v4l2_subdev *sd,
 		(struct atomisp_input_stream_info*)fmt->reserved;
 	struct pixter_setting *settings = dev->settings;
 	struct pixter_vc_setting *vc_setting = dev->vc_setting;
-	u32 vc, i, j, idx;
+	u32 vc, i, j;
+	s32 idx = -1, max_idx = -1;
 	s64 w0, h0, mismatch, distance;
 	s64 w1 = fmt->width;
 	s64 h1 = fmt->height;
@@ -408,9 +495,10 @@ static u32 pixter_try_mbus_fmt_locked(struct v4l2_subdev *sd,
 		vc = 0;
 	else
 		vc = stream_info->stream;
-	for (i = 0, idx = dev->setting_num - 1; i < dev->setting_num; i++) {
+	for (i = 0; i < dev->setting_num; i++) {
 		if (dev->setting_en[i] == 0)
 			continue;
+		max_idx = i;
 		for (j = 0; j < 4; j++) {
 			if (!vc_setting[j].width)
 				continue;
@@ -434,6 +522,17 @@ static u32 pixter_try_mbus_fmt_locked(struct v4l2_subdev *sd,
 			min_distance = distance;
 			idx = i;
 		}
+	}
+	if (idx < 0 && max_idx < 0) {
+		idx = dev->setting_num - 1;
+		dev_warn(&client->dev, "All settings disabled, using: %dx%d\n",
+				settings[idx].vc[vc].width,
+				settings[idx].vc[vc].height);
+	} else if (idx < 0) {
+		idx = max_idx;
+		dev_warn(&client->dev, "using max enabled resolution: %dx%d\n",
+				settings[idx].vc[vc].width,
+				settings[idx].vc[vc].height);
 	}
 	fmt->width = settings[idx].vc[vc].width;
 	fmt->height = settings[idx].vc[vc].height;
@@ -865,6 +964,9 @@ static int pixter_probe(struct i2c_client *client,
 		goto out_free;
 	}
 
+	/* Get the number of mipi lanes */
+	dev->dbg_timing.mipi_lanes_num = dev->mipi_info->num_lanes;
+
 	dev->regmap = devm_regmap_init_i2c(client,
 					   &pixter_reg_config);
 	if (IS_ERR(dev->regmap)) {
@@ -904,9 +1006,7 @@ static int pixter_probe(struct i2c_client *client,
 
 	/* Find settings that match the current device. */
 	for (i = 0, j = 0; i < dev->setting_num; i++) {
-		if (caps->sensor[0].stream_num == settings[i].valid_vc_num &&
-		   (dev->mipi_info->input_format == format_bridge[
-		   settings[i].vc[settings[i].def_vc].format].atomisp_format))
+		if (caps->sensor[0].stream_num == settings[i].valid_vc_num)
 			settings[j++] = settings[i];
 	}
 	dev->setting_num = j;
@@ -986,7 +1086,7 @@ static int pixter_probe(struct i2c_client *client,
 				parent);
 		else
 			dbgfs_data[i].entry = debugfs_create_file(dbgfs[i].name,
-				S_IRUSR|S_IWUSR, parent,
+				dbgfs[i].mode, parent,
 				&dbgfs_data[i], &pixter_dbgfs_fops);
 	}
 	/* Create setting nodes. */

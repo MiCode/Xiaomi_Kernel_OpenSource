@@ -54,6 +54,7 @@
 #define atomisp_css_ee_config	ia_css_ee_config
 #define atomisp_css_ob_config	ia_css_ob_config
 #define atomisp_css_de_config	ia_css_de_config
+#define atomisp_css_dz_config	ia_css_dz_config
 #define atomisp_css_ce_config	ia_css_ce_config
 #define atomisp_css_gc_config	ia_css_gc_config
 #define atomisp_css_tnr_config	ia_css_tnr_config

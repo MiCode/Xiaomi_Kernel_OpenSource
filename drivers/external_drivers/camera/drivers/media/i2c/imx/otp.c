@@ -23,6 +23,9 @@
 #include <linux/mm.h>
 #include <linux/string.h>
 #include <linux/types.h>
+#ifndef CONFIG_GMIN_INTEL_MID /* FIXME! for non-gmin*/
+#include <media/v4l2-chip-ident.h>
+#endif
 #include <media/v4l2-device.h>
 
 void *dummy_otp_read(struct v4l2_subdev *sd, u8 dev_addr,

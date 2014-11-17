@@ -71,6 +71,9 @@
 #define PIXTER_SETTING_NUM	0x80000004
 #define PIXTER_SETTING_START	0x80000008
 
+#define PIXTER_RONLY		S_IRUSR
+#define PIXTER_RW			S_IRUSR | S_IWUSR
+
 enum pixter_image_format {
 	PIXTER_UNKNOWN_FMT,
 	PIXTER_RGGB10,
@@ -141,12 +144,15 @@ struct pixter_timing {
 	u32 dat_zero;
 	u32 dat_trail;
 	u32 twakeup;
+
+	u32 mipi_lanes_num;	/* The number of mipi lanes */
 };
 
 struct pixter_dbgfs {
 	char *name;
 	char *parent;
 	enum pixter_dbgfs_type type;
+	umode_t mode;
 	u32  offset;
 };
 

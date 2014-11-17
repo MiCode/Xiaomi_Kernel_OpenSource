@@ -121,9 +121,11 @@ void ia_css_rmgr_refcount_retain_vbuf(struct ia_css_rmgr_vbuf_handle **handle)
  */
 void ia_css_rmgr_refcount_release_vbuf(struct ia_css_rmgr_vbuf_handle **handle)
 {
-	assert(handle != NULL);
-	assert(*handle != NULL);
-	assert((*handle)->count != 0);
+	if ((handle == NULL) || ((*handle) == NULL) || (((*handle)->count) == 0)) {
+		ia_css_debug_dtrace(IA_CSS_DEBUG_ERROR,
+				    "ia_css_rmgr_refcount_release_vbuf() invalid arguments!\n");
+		return;
+	}
 	/* decrease reference count */
 	(*handle)->count--;
 	/* remove from admin */
@@ -175,7 +177,10 @@ void ia_css_rmgr_uninit_vbuf(struct ia_css_rmgr_vbuf_pool *pool)
 {
 	uint32_t i;
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "ia_css_rmgr_uninit_vbuf()\n");
-	assert(pool != NULL);
+	if (pool == NULL) {
+		ia_css_debug_dtrace(IA_CSS_DEBUG_ERROR, "ia_css_rmgr_uninit_vbuf(): NULL argument\n");
+		 return;
+	}
 	if (pool->handles != NULL) {
 		/* free the hmm buffers */
 		for (i = 0; i < pool->size; i++) {

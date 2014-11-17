@@ -36,8 +36,17 @@
  * Currently the FW image and dump paths are hardcoded here.
  * TBD: flexible interface for defining proper path as needed
  */
-#define M10MO_FW_DUMP_PATH "/data/M10MO_dump.bin"
-#define M10MO_FW_NAME "M10MO_fw.bin"
+#define M10MO_FW_LOG1_NAME      "/data/M10MO_log1"
+#define M10MO_FW_LOG2_1_NAME    "/data/M10MO_log2_1"
+#define M10MO_FW_LOG2_2_NAME    "/data/M10MO_log2_2"
+#define M10MO_FW_LOG2_3_NAME    "/data/M10MO_log2_3"
+#define M10MO_FW_LOG3_NAME      "/data/M10MO_log3"
+
+#define M10MO_FW_LOG_SUFFIX     ".bin"
+#define M10MO_FW_LOG_MAX_NAME_LEN (128)
+
+#define M10MO_FW_DUMP_PATH      "/data/M10MO_dump.bin"
+#define M10MO_FW_NAME           "M10MO_fw.bin"
 
 #define SRAM_BUFFER_ADDRESS 0x01100000
 #define SDRAM_BUFFER_ADDRESS 0x20000000
@@ -104,6 +113,11 @@ static const u8 buf_port_settings2_m10mo[] = {
 		  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		 };
 
+static const u32 m10mo_fw_address[] = {
+	M10MO_FW_VERSION_INFO_ADDR_0,
+	M10MO_FW_VERSION_INFO_ADDR_1,
+};
+
 static int m10mo_set_flash_address(struct v4l2_subdev *sd, u32 addr)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -144,10 +158,22 @@ static int m10mo_wait_operation_complete(struct v4l2_subdev *sd, u8 reg,
 
 	if (!timeout) {
 		dev_err(&client->dev,
-			"timeout while waiting for chip op to finish");
+			"timeout while waiting for chip op to finish\n");
 		return -ETIME;
 	}
 	return 0;
+}
+
+int m10mo_update_pll_setting(struct v4l2_subdev *sd)
+{
+	struct m10mo_device *m10mo_dev = to_m10mo_sensor(sd);
+	int err;
+
+	err = m10mo_writel(sd, CATEGORY_FLASHROM,
+			   REG_PLL_VALUES,
+			   m10mo_get_pll_cfg(m10mo_dev->ref_clock));
+
+	return err;
 }
 
 static int m10mo_to_fw_access_mode(struct m10mo_device *m10mo_dev)
@@ -324,7 +350,530 @@ out_file:
 	return err;
 }
 
-int m10mo_get_isp_fw_version_string(struct m10mo_device *dev, char *buf, int len)
+static void m10mo_gen_log_name(char *name, char *prefix)
+{
+	static long long time;
+
+	time = ktime_to_ms(ktime_get());
+	snprintf(name, M10MO_FW_LOG_MAX_NAME_LEN, "%s_%lld%s", prefix, time, M10MO_FW_LOG_SUFFIX);
+}
+
+int m10mo_dump_string_log3(struct v4l2_subdev *sd)
+{
+	u32 addr;
+	mm_segment_t old_fs;
+	struct file *fp;
+	u32 len = MAX_LOG_STR_LEN;
+	u32 ret = 0;
+	u32 count = 0;
+	u32 count_len = 0;
+	u32 ptr = 0;
+	char *buf = NULL;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	char filename[M10MO_FW_LOG_MAX_NAME_LEN] = {0};
+
+	m10mo_gen_log_name(filename, M10MO_FW_LOG3_NAME);
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	fp = filp_open(filename,
+			O_WRONLY|O_CREAT|O_TRUNC, S_IRUGO|S_IWUGO|S_IXUSR);
+	if (IS_ERR(fp)) {
+		dev_err(&client->dev,
+				"failed to open %s, err %ld\n",
+				M10MO_FW_DUMP_PATH, PTR_ERR(fp));
+		ret = -ENOENT;
+		goto out_file;
+	}
+
+	buf = kmalloc(DUMP_BLOCK_SIZE, GFP_KERNEL);
+	if (!buf) {
+		dev_err(&client->dev, "Failed to allocate memory\n");
+		ret = -ENOMEM;
+		goto out_close;
+	}
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_MODE, LOG_TRACE_MODE);
+	if (ret < 0)
+		goto out_mem_free;
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_DISABLE);
+	if (ret < 0)
+		goto out_mem_free;
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ADD_SHOW, LOG_ADD_SHOW_INIT_VALUE);
+	if (ret < 0)
+		goto out_mem_free;
+
+	while (count++ < MAX_MEM_DUMP_NUM_LOG3) {
+		ret = m10mo_writew(sd, CATEGORY_LOGLEDFLASH, LOG_SEL1, ptr);
+		if (ret < 0)
+			goto out_mem_free;
+
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_OUTPUT_STR);
+		if (ret < 0)
+			goto out_mem_free;
+
+		do {
+			ret = m10mo_readb(sd, CATEGORY_LOGLEDFLASH, LOG_STR_LEN, &len);
+			if (ret < 0)
+				goto out_mem_free;
+			msleep(10);
+			count_len++;
+		} while ((len == MAX_LOG_STR_LEN) && (count_len < 10));
+
+		if (len == MIN_LOG_STR_LEN) {
+			goto out_mem_free;
+		} else {
+			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH, LOG_STR_ADD3, &addr);
+			if (ret < 0)
+				goto out_mem_free;
+
+			ret = m10mo_memory_read(sd, len, addr, buf);
+			if (ret < 0)
+				goto out_mem_free;
+			/* Do not add buf[len] = '\n'; */
+			vfs_write(fp, buf, len, &fp->f_pos);
+		}
+		len = MAX_LOG_STR_LEN;
+		ptr = ptr + 1;
+	}
+
+out_mem_free:
+	kfree(buf);
+out_close:
+	if (!IS_ERR(fp))
+		filp_close(fp, current->files);
+out_file:
+	set_fs(old_fs);
+
+	if (ret < 0)
+		dev_err(&client->dev, "%s, dump log error\n", __func__);
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_DISABLE);
+	if (ret < 0)
+		dev_err(&client->dev, "%s, m10mo_writeb error\n", __func__);
+
+	return ret;
+}
+
+/* Not verified */
+int m10mo_dump_string_log2_3(struct v4l2_subdev *sd)
+{
+	u32 addr, i;
+	mm_segment_t old_fs;
+	struct file *fp;
+	u32 len = MAX_LOG_STR_LEN_LOG2;
+	u32 ret = 0;
+	u32 count = 0;
+	u32 unit_count = 0;
+	u32 ptr = 0;
+	char *buf = NULL;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	char filename[M10MO_FW_LOG_MAX_NAME_LEN] = {0};
+
+	m10mo_gen_log_name(filename, M10MO_FW_LOG2_3_NAME);
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	fp = filp_open(filename,
+			O_WRONLY|O_CREAT|O_TRUNC, S_IRUGO|S_IWUGO|S_IXUSR);
+	if (IS_ERR(fp)) {
+		dev_err(&client->dev,
+				"failed to open %s, err %ld\n",
+				M10MO_FW_DUMP_PATH, PTR_ERR(fp));
+		ret = -ENOENT;
+		goto out_file;
+	}
+
+	buf = kmalloc(DUMP_BLOCK_SIZE, GFP_KERNEL);
+	if (!buf) {
+		dev_err(&client->dev, "Failed to allocate memory\n");
+		ret = -ENOMEM;
+		goto out_close;
+	}
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_MODE, LOG_ANALYZE_MODE2);
+	if (ret < 0)
+		goto out_mem_free;
+
+	while (count++ < MAX_MEM_DUMP_NUM) {
+		ret = m10mo_writew(sd, CATEGORY_LOGLEDFLASH, LOG_SEL1, ptr);
+		if (ret < 0)
+			goto out_mem_free;
+
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_OUTPUT_STR);
+		if (ret < 0)
+			goto out_mem_free;
+
+		do {
+			ret = m10mo_readw(sd, CATEGORY_LOGLEDFLASH, LOG_DATA_LEN1, &len);
+			if (ret < 0)
+				goto out_mem_free;
+		} while (len == MAX_LOG_STR_LEN_LOG2);
+
+		if (len == MIN_LOG_STR_LEN_LOG2) {
+			goto out_mem_free;
+		} else {
+
+			if (len > MAX_LOG_STR_LEN_LOG2)
+				len = MAX_LOG_STR_LEN_LOG2;
+
+			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH, LOG_STR_ADD3, &addr);
+			if (ret < 0)
+				goto out_mem_free;
+
+			unit_count =  len / I2C_MEM_READ_SIZE;
+			for (i = 0; i <= unit_count; i += I2C_MEM_READ_SIZE) {
+				if ((len - i) <= I2C_MEM_READ_SIZE) {
+					ret = m10mo_memory_read(sd, len - i, addr + i, buf);
+					if (ret < 0)
+						goto out_mem_free;
+
+					vfs_write(fp, buf, len - i, &fp->f_pos);
+					break;
+				} else {
+					ret = m10mo_memory_read(sd, I2C_MEM_READ_SIZE, addr + i, buf);
+					if (ret < 0)
+						goto out_mem_free;
+
+					vfs_write(fp, buf, I2C_MEM_READ_SIZE, &fp->f_pos);
+				}
+			}
+		}
+		len = MAX_LOG_STR_LEN_LOG2;
+		ptr = ptr + 1;
+	}
+
+out_mem_free:
+	kfree(buf);
+out_close:
+	if (!IS_ERR(fp))
+		filp_close(fp, current->files);
+out_file:
+	set_fs(old_fs);
+
+	if (ret < 0)
+		dev_err(&client->dev, "%s, dump log error\n", __func__);
+	return ret;
+}
+
+/* Not verified */
+int m10mo_dump_string_log2_2(struct v4l2_subdev *sd)
+{
+	u32 addr, i;
+	mm_segment_t old_fs;
+	struct file *fp;
+	u32 len = MAX_LOG_STR_LEN_LOG2;
+	u32 ret = 0;
+	u32 count = 0;
+	u32 unit_count = 0;
+	u32 ptr = 0;
+	char *buf = NULL;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	char filename[M10MO_FW_LOG_MAX_NAME_LEN] = {0};
+
+	m10mo_gen_log_name(filename, M10MO_FW_LOG2_2_NAME);
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	fp = filp_open(filename,
+			O_WRONLY|O_CREAT|O_TRUNC, S_IRUGO|S_IWUGO|S_IXUSR);
+	if (IS_ERR(fp)) {
+		dev_err(&client->dev,
+				"failed to open %s, err %ld\n",
+				M10MO_FW_DUMP_PATH, PTR_ERR(fp));
+		ret = -ENOENT;
+		goto out_file;
+	}
+
+	buf = kmalloc(DUMP_BLOCK_SIZE, GFP_KERNEL);
+	if (!buf) {
+		dev_err(&client->dev, "Failed to allocate memory\n");
+		ret = -ENOMEM;
+		goto out_close;
+	}
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_MODE, LOG_ANALYZE_MODE1);
+	if (ret < 0)
+		goto out_mem_free;
+
+	while (count++ < MAX_MEM_DUMP_NUM) {
+		ret = m10mo_writew(sd, CATEGORY_LOGLEDFLASH, LOG_SEL1, ptr);
+		if (ret < 0)
+			goto out_mem_free;
+
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_OUTPUT_STR);
+		if (ret < 0)
+			goto out_mem_free;
+
+		do {
+			ret = m10mo_readw(sd, CATEGORY_LOGLEDFLASH, LOG_DATA_LEN1, &len);
+			if (ret < 0)
+				goto out_mem_free;
+		} while (len == MAX_LOG_STR_LEN_LOG2);
+
+		if (len == MIN_LOG_STR_LEN_LOG2) {
+			goto out_mem_free;
+		} else {
+
+			if (len > MAX_LOG_STR_LEN_LOG2)
+				len = MAX_LOG_STR_LEN_LOG2;
+
+			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH, LOG_STR_ADD3, &addr);
+			if (ret < 0)
+				goto out_mem_free;
+
+			unit_count =  len / I2C_MEM_READ_SIZE;
+			for (i = 0; i <= unit_count; i += I2C_MEM_READ_SIZE) {
+				if ((len - i) <= I2C_MEM_READ_SIZE) {
+					ret = m10mo_memory_read(sd, len - i, addr + i, buf);
+					if (ret < 0)
+						goto out_mem_free;
+
+					vfs_write(fp, buf, len - i, &fp->f_pos);
+					break;
+				} else {
+					ret = m10mo_memory_read(sd, I2C_MEM_READ_SIZE, addr + i, buf);
+					if (ret < 0)
+						goto out_mem_free;
+
+					vfs_write(fp, buf, I2C_MEM_READ_SIZE, &fp->f_pos);
+				}
+			}
+		}
+		len = MAX_LOG_STR_LEN_LOG2;
+		ptr = ptr + 1;
+	}
+
+out_mem_free:
+	kfree(buf);
+out_close:
+	if (!IS_ERR(fp))
+		filp_close(fp, current->files);
+out_file:
+	set_fs(old_fs);
+
+	if (ret < 0)
+		dev_err(&client->dev, "%s, dump log error\n", __func__);
+	return ret;
+}
+
+int m10mo_dump_string_log2_1(struct v4l2_subdev *sd)
+{
+	u32 addr, i;
+	mm_segment_t old_fs;
+	struct file *fp;
+	u32 len = MAX_LOG_STR_LEN_LOG2;
+	u32 ret = 0;
+	u32 count = 0;
+	u32 unit_count = 0;
+	u32 ptr = 0;
+	char *buf = NULL;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	char filename[M10MO_FW_LOG_MAX_NAME_LEN] = {0};
+
+	m10mo_gen_log_name(filename, M10MO_FW_LOG2_1_NAME);
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	fp = filp_open(filename,
+			O_WRONLY|O_CREAT|O_TRUNC, S_IRUGO|S_IWUGO|S_IXUSR);
+	if (IS_ERR(fp)) {
+		dev_err(&client->dev,
+				"failed to open %s, err %ld\n",
+				M10MO_FW_DUMP_PATH, PTR_ERR(fp));
+		ret = -ENOENT;
+		goto out_file;
+	}
+
+	buf = kmalloc(DUMP_BLOCK_SIZE, GFP_KERNEL);
+	if (!buf) {
+		dev_err(&client->dev, "Failed to allocate memory\n");
+		ret = -ENOMEM;
+		goto out_close;
+	}
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_MODE, LOG_ANALYZE_MODE0);
+	if (ret < 0)
+		goto out_mem_free;
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_DISABLE);
+	if (ret < 0)
+		goto out_mem_free;
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ADD_SHOW, LOG_ADD_SHOW_INIT_VALUE);
+	if (ret < 0)
+		goto out_mem_free;
+
+	while (count++ < MAX_MEM_DUMP_NUM) {
+		ret = m10mo_writew(sd, CATEGORY_LOGLEDFLASH, LOG_SEL1, ptr);
+		if (ret < 0)
+			goto out_mem_free;
+
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_OUTPUT_STR);
+		if (ret < 0)
+			goto out_mem_free;
+
+		do {
+			ret = m10mo_readw(sd, CATEGORY_LOGLEDFLASH, LOG_DATA_LEN1, &len);
+			if (ret < 0)
+				goto out_mem_free;
+		} while (len == MAX_LOG_STR_LEN_LOG2);
+
+		if (len == MIN_LOG_STR_LEN_LOG2) {
+				goto out_mem_free;
+		} else {
+
+			if (len > MAX_LOG_STR_LEN_LOG2)
+				len = MAX_LOG_STR_LEN_LOG2;
+
+			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH, LOG_STR_ADD3, &addr);
+			if (ret < 0)
+				goto out_mem_free;
+
+			unit_count =  len / I2C_MEM_READ_SIZE;
+			for (i = 0; i <= unit_count; i += I2C_MEM_READ_SIZE) {
+				if ((len - i) <= I2C_MEM_READ_SIZE) {
+					ret = m10mo_memory_read(sd, len - i, addr + i, buf);
+					if (ret < 0)
+						goto out_mem_free;
+
+					vfs_write(fp, buf, len - i, &fp->f_pos);
+					break;
+				} else {
+					ret = m10mo_memory_read(sd, I2C_MEM_READ_SIZE, addr + i, buf);
+					if (ret < 0)
+						goto out_mem_free;
+
+					vfs_write(fp, buf, I2C_MEM_READ_SIZE, &fp->f_pos);
+				}
+			}
+		}
+		len = MAX_LOG_STR_LEN_LOG2;
+		ptr = ptr + 1;
+	}
+
+out_mem_free:
+	kfree(buf);
+out_close:
+	if (!IS_ERR(fp))
+		filp_close(fp, current->files);
+out_file:
+	set_fs(old_fs);
+
+	if (ret < 0)
+		dev_err(&client->dev, "%s, dump log error\n", __func__);
+	return ret;
+}
+
+int m10mo_dump_string_log1(struct v4l2_subdev *sd)
+{
+	u32 addr;
+	mm_segment_t old_fs;
+	struct file *fp;
+	u32 len = MAX_LOG_STR_LEN;
+	u32 ret = 0;
+	u32 count = 0;
+	u32 count_len = 0;
+	u32 ptr = 0;
+	char *buf = NULL;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	char filename[M10MO_FW_LOG_MAX_NAME_LEN] = {0};
+
+	m10mo_gen_log_name(filename, M10MO_FW_LOG1_NAME);
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+	fp = filp_open(filename,
+			O_WRONLY|O_CREAT|O_TRUNC, S_IRUGO|S_IWUGO|S_IXUSR);
+	if (IS_ERR(fp)) {
+		dev_err(&client->dev,
+				"failed to open %s, err %ld\n",
+				M10MO_FW_DUMP_PATH, PTR_ERR(fp));
+		ret = -ENOENT;
+		goto out_file;
+	}
+
+	buf = kmalloc(DUMP_BLOCK_SIZE, GFP_KERNEL);
+	if (!buf) {
+		dev_err(&client->dev, "Failed to allocate memory\n");
+		ret = -ENOMEM;
+		goto out_close;
+	}
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_MODE, LOG_STANDARD_MODE);
+	if (ret < 0)
+		goto out_mem_free;
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_DISABLE);
+	if (ret < 0)
+		goto out_mem_free;
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ADD_SHOW, LOG_ADD_SHOW_INIT_VALUE);
+	if (ret < 0)
+		goto out_mem_free;
+
+	while (count++ < MAX_MEM_DUMP_NUM) {
+		ret = m10mo_writew(sd, CATEGORY_LOGLEDFLASH, LOG_SEL1, ptr);
+		if (ret < 0)
+			goto out_mem_free;
+
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_OUTPUT_STR);
+		if (ret < 0)
+			goto out_mem_free;
+
+		do {
+			ret = m10mo_readb(sd, CATEGORY_LOGLEDFLASH, LOG_STR_LEN, &len);
+			if (ret < 0)
+				goto out_mem_free;
+			msleep(10);
+			count_len++;
+		} while ((len == MAX_LOG_STR_LEN) && (count_len < 10));
+
+		if (len == MIN_LOG_STR_LEN) {
+				goto out_mem_free;
+		} else {
+			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH, LOG_STR_ADD3, &addr);
+			if (ret < 0)
+				goto out_mem_free;
+
+				ret = m10mo_memory_read(sd, len, addr, buf);
+				if (ret < 0)
+					goto out_mem_free;
+
+				buf[len] = '\n';
+				vfs_write(fp, buf, len + 1, &fp->f_pos);
+		}
+		len = MAX_LOG_STR_LEN;
+		ptr = ptr + 1;
+	}
+
+out_mem_free:
+	kfree(buf);
+out_close:
+	if (!IS_ERR(fp))
+		filp_close(fp, current->files);
+out_file:
+	set_fs(old_fs);
+
+	if (ret < 0)
+		dev_err(&client->dev, "%s, dump log error\n", __func__);
+
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_DISABLE);
+	if (ret < 0)
+		dev_err(&client->dev, "%s, m10mo_writeb error\n", __func__);
+
+	return ret;
+}
+
+int m10mo_get_fw_address_count(void)
+{
+	return ARRAY_SIZE(m10mo_fw_address);
+}
+
+int m10mo_get_isp_fw_version_string(struct m10mo_device *dev,
+		char *buf, int len, int fw_address_id)
 {
 	int err;
 	struct v4l2_subdev *sd = &dev->sd;
@@ -343,8 +892,14 @@ int m10mo_get_isp_fw_version_string(struct m10mo_device *dev, char *buf, int len
 	msleep(10);
 
 	memset(buf, 0, len);
-	err = m10mo_memory_read(sd, len - 1, FW_VERSION_INFO_ADDR,
-				buf);
+	if ((fw_address_id < 0) ||
+		(fw_address_id >= ARRAY_SIZE(m10mo_fw_address))) {
+		dev_err(&client->dev, "Error FW address ID: %d\n",
+				fw_address_id);
+		fw_address_id = 0;
+	}
+	err = m10mo_memory_read(sd, len - 1,
+			m10mo_fw_address[fw_address_id], buf);
 	if (err)
 		dev_err(&client->dev, "version read failed\n");
 
@@ -523,7 +1078,7 @@ static int m10mo_sio_write(struct m10mo_device *m10mo_dev, u8 *buf)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
 	if (!m10mo_dev->spi) {
-		dev_err(&client->dev, "No spi device available");
+		dev_err(&client->dev, "No spi device available\n");
 		return -ENODEV;
 	}
 
@@ -683,7 +1238,7 @@ int m10mo_program_device(struct m10mo_device *m10mo_dev)
 		}
 	}
 
-	dev_info(&client->dev, "Flashing done");
+	dev_info(&client->dev, "Flashing done\n");
 	msleep(50);
 
 	ret = 0;

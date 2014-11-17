@@ -2066,6 +2066,25 @@ struct imx_resolution imx134_res_video[] = {
 		.bin_factor_y = 0,
 		.used = 0,
 	},
+	{
+		/*This setting only be used for SDV mode*/
+		.desc = "imx134_8M_sdv_30fps",
+		.regs = imx134_8M_30fps,
+		.width = 3280,
+		.height = 2464,
+		.fps_options = {
+			{
+				 .fps = 30,
+				 .pixels_per_line = 3600,
+				 .lines_per_frame = 2518,
+			},
+			{
+			}
+		},
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.used = 0,
+	},
 };
 
 #endif

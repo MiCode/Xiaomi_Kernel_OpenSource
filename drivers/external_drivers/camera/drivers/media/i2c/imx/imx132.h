@@ -24,12 +24,13 @@
 #include "common.h"
 
 /********************** registers define ********************************/
-#define IMX132_PLL_MULTIPLIER			0x0306
-#define IMX132_VT_RGPLTD			0x30A4
 #define IMX132_RGLANESEL			0x3301	/* Number of lanes */
 #define IMX132_RGLANESEL_1LANE			0x01
 #define IMX132_RGLANESEL_2LANES			0x00
 #define IMX132_RGLANESEL_4LANES			0x03
+
+#define IMX132_2LANES_GAINFACT			2096	/* 524/256 * 2^10 */
+#define IMX132_2LANES_GAINFACT_SHIFT		10
 
 /********************** settings for imx from vendor*********************/
 static struct imx_reg imx132_1080p_30fps[] = {
@@ -122,18 +123,6 @@ static struct imx_reg imx132_1080p_30fps[] = {
 	{IMX_8BIT, 0x3322, 0x09},
 	{IMX_8BIT, 0x3342, 0x00},
 	{IMX_8BIT, 0x3348, 0xE0},
-	/* Gain Setting */
-	{IMX_8BIT, 0x0202, 0x04},
-	{IMX_8BIT, 0x0203, 0x50},
-	{IMX_8BIT, 0x0205, 0x00},
-	{IMX_8BIT, 0x020E, 0x01}, /* Gr */
-	{IMX_8BIT, 0x020F, 0x00},
-	{IMX_8BIT, 0x0210, 0x01}, /* R */
-	{IMX_8BIT, 0x0211, 0xA0},
-	{IMX_8BIT, 0x0212, 0x02}, /* B */
-	{IMX_8BIT, 0x0213, 0x00},
-	{IMX_8BIT, 0x0214, 0x01}, /* Gb */
-	{IMX_8BIT, 0x0215, 0x00},
 
 	{IMX_TOK_TERM, 0, 0},
 };
@@ -228,18 +217,6 @@ static struct imx_reg imx132_1456x1096_30fps[] = {
 	{IMX_8BIT, 0x3322, 0x09},
 	{IMX_8BIT, 0x3342, 0x00},
 	{IMX_8BIT, 0x3348, 0xE0},
-	/* Gain Setting */
-	{IMX_8BIT, 0x0202, 0x04},
-	{IMX_8BIT, 0x0203, 0x50},
-	{IMX_8BIT, 0x0205, 0x00},
-	{IMX_8BIT, 0x020E, 0x01}, /* Gr */
-	{IMX_8BIT, 0x020F, 0x00},
-	{IMX_8BIT, 0x0210, 0x01}, /* R */
-	{IMX_8BIT, 0x0211, 0xA0},
-	{IMX_8BIT, 0x0212, 0x02}, /* B */
-	{IMX_8BIT, 0x0213, 0x00},
-	{IMX_8BIT, 0x0214, 0x01}, /* Gb */
-	{IMX_8BIT, 0x0215, 0x00},
 
 	{IMX_TOK_TERM, 0, 0},
 };
@@ -334,18 +311,6 @@ static struct imx_reg imx132_1636x1096_30fps[] = {
 	{IMX_8BIT, 0x3322, 0x09},
 	{IMX_8BIT, 0x3342, 0x00},
 	{IMX_8BIT, 0x3348, 0xE0},
-	/* Gain Setting */
-	{IMX_8BIT, 0x0202, 0x04},
-	{IMX_8BIT, 0x0203, 0x50},
-	{IMX_8BIT, 0x0205, 0x00},
-	{IMX_8BIT, 0x020E, 0x01}, /* Gr */
-	{IMX_8BIT, 0x020F, 0x00},
-	{IMX_8BIT, 0x0210, 0x01}, /* R */
-	{IMX_8BIT, 0x0211, 0xA0},
-	{IMX_8BIT, 0x0212, 0x02}, /* B */
-	{IMX_8BIT, 0x0213, 0x00},
-	{IMX_8BIT, 0x0214, 0x01}, /* Gb */
-	{IMX_8BIT, 0x0215, 0x00},
 
 	{IMX_TOK_TERM, 0, 0},
 };
@@ -440,18 +405,6 @@ static struct imx_reg imx132_1336x1096_30fps[] = {
 	{IMX_8BIT, 0x3322, 0x09},
 	{IMX_8BIT, 0x3342, 0x00},
 	{IMX_8BIT, 0x3348, 0xE0},
-	/* Gain Setting */
-	{IMX_8BIT, 0x0202, 0x04},
-	{IMX_8BIT, 0x0203, 0x50},
-	{IMX_8BIT, 0x0205, 0x00},
-	{IMX_8BIT, 0x020E, 0x01}, /* Gr */
-	{IMX_8BIT, 0x020F, 0x00},
-	{IMX_8BIT, 0x0210, 0x01}, /* R */
-	{IMX_8BIT, 0x0211, 0xA0},
-	{IMX_8BIT, 0x0212, 0x02}, /* B */
-	{IMX_8BIT, 0x0213, 0x00},
-	{IMX_8BIT, 0x0214, 0x01}, /* Gb */
-	{IMX_8BIT, 0x0215, 0x00},
 
 	{IMX_TOK_TERM, 0, 0},
 };
@@ -546,18 +499,6 @@ static struct imx_reg imx132_1200p_30fps[] = {
 	{IMX_8BIT, 0x3322, 0x09},
 	{IMX_8BIT, 0x3342, 0x00},
 	{IMX_8BIT, 0x3348, 0xE0},
-	/* Gain Setting */
-	{IMX_8BIT, 0x0202, 0x04},
-	{IMX_8BIT, 0x0203, 0x50},
-	{IMX_8BIT, 0x0205, 0x00},
-	{IMX_8BIT, 0x020E, 0x01}, /* Gr */
-	{IMX_8BIT, 0x020F, 0x00},
-	{IMX_8BIT, 0x0210, 0x01}, /* R */
-	{IMX_8BIT, 0x0211, 0xA0},
-	{IMX_8BIT, 0x0212, 0x02}, /* B */
-	{IMX_8BIT, 0x0213, 0x00},
-	{IMX_8BIT, 0x0214, 0x01}, /* Gb */
-	{IMX_8BIT, 0x0215, 0x00},
 
 	{IMX_TOK_TERM, 0, 0},
 };

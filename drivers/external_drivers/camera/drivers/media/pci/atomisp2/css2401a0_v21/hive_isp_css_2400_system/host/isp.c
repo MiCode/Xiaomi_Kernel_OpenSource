@@ -19,6 +19,7 @@
  *
  */
 
+#include <system_global.h>
 #include "isp.h"
 
 #ifndef __INLINE_ISP__
@@ -26,6 +27,7 @@
 #endif /* __INLINE_ISP__ */
 
 #include "assert_support.h"
+#include "platform_support.h"			/* hrt_sleep() */
 
 void cnd_isp_irq_enable(
 	const isp_ID_t		ID,
@@ -51,6 +53,12 @@ void isp_get_state(
 
 	assert(state != NULL);
 	assert(stall != NULL);
+
+#if defined(_hrt_sysmem_ident_address)
+	/* Patch to avoid compiler unused symbol warning in C_RUN build */
+	(void)__hrt_sysmem_ident_address;
+	(void)_hrt_sysmem_map_var;
+#endif
 
 	state->pc = isp_ctrl_load(ID, ISP_PC_REG);
 	state->status_register = sc;
@@ -95,3 +103,53 @@ void isp_get_state(
  */
 return;
 }
+
+/* ISP functions to control the ISP state from the host, even in crun. */
+#ifdef C_RUN
+volatile uint32_t isp_sleeping[N_ISP_ID] = { 0 }; /* Sleeping state per ISP */
+volatile uint32_t isp_ready   [N_ISP_ID] = { 1 }; /* Ready state per ISP */
+#endif
+
+/* Inspect readiness of an ISP indexed by ID */
+unsigned isp_is_ready(isp_ID_t ID)
+{
+	assert (ID < N_ISP_ID);
+#ifdef C_RUN
+	return isp_ready[ID];
+#else
+	return isp_ctrl_getbit(ID, ISP_SC_REG, ISP_IDLE_BIT);
+#endif
+}
+
+/* Inspect sleeping of an ISP indexed by ID */
+unsigned isp_is_sleeping(isp_ID_t ID)
+{
+	assert (ID < N_ISP_ID);
+#ifdef C_RUN
+	return isp_sleeping[ID];
+#else
+	return isp_ctrl_getbit(ID, ISP_SC_REG, ISP_SLEEPING_BIT);
+#endif
+}
+
+/* To be called by the host immediately before starting ISP ID. */
+void isp_start(isp_ID_t ID)
+{
+	assert (ID < N_ISP_ID);
+#ifdef C_RUN
+	isp_ready[ID] = 0;
+#endif
+}
+
+/* Wake up ISP ID. */
+void isp_wake(isp_ID_t ID)
+{
+	assert (ID < N_ISP_ID);
+#ifdef C_RUN
+	isp_sleeping[ID] = 0;
+#else
+	isp_ctrl_setbit(ID, ISP_SC_REG, ISP_START_BIT);
+	hrt_sleep();
+#endif
+}
+

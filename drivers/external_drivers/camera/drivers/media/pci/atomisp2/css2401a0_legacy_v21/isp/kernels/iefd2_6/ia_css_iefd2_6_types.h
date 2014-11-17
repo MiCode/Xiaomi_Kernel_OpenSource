@@ -80,14 +80,14 @@ struct ia_css_iefd2_6_config {
 						u9.0, [0,511], default 128, ineffective 0 */
 	int32_t rad_dir_far_sharp_weight;  /**< Weight of wide direct sharpening.
 						u1.12, [0,4096], default 8, ineffective 0 */
-	int32_t sharp_nega_lmt_txt;	   /**< Sharpening limit for negative overshoots for texture.
+	int32_t shrpn_nega_lmt_txt;	   /**< Sharpening limit for negative overshoots for texture.
 						u13.0, [0,8191], default 1024, ineffective 0 */
-	int32_t sharp_posi_lmt_txt;	   /**< Sharpening limit for positive overshoots for texture.
+	int32_t shrpn_posi_lmt_txt;	   /**< Sharpening limit for positive overshoots for texture.
 						u13.0, [0,8191], default 1024, ineffective 0 */
-	int32_t sharp_nega_lmt_dir;	   /**< Sharpening limit for negative overshoots for direction
+	int32_t shrpn_nega_lmt_dir;	   /**< Sharpening limit for negative overshoots for direction
 						(edge).
 						u13.0, [0,8191], default 128, ineffective 0 */
-	int32_t sharp_posi_lmt_dir;	   /**< Sharpening limit for positive overshoots for direction
+	int32_t shrpn_posi_lmt_dir;	   /**< Sharpening limit for positive overshoots for direction
 						(edge).
 						u13.0, [0,8191], default 128, ineffective 0 */
 	int32_t clamp_stitch;		   /**< Slope to stitch between clamped and unclamped edge values.

@@ -28,10 +28,10 @@
 #include "isp2601_config.h"
 #elif defined(ISP2500)
 #include "isp2500_config.h"
-#elif defined(ISP2400)
+#elif defined(ISP2400) || defined(ISP2401)
 #include "isp2400_config.h"
 #else
-#error "Please define a core {ISP2400, ISP2500, ISP2600, ISP2601}"
+#error "Please define a core {ISP2400, ISP2401, ISP2500, ISP2600, ISP2601}"
 #endif
 
 #endif /* __ISP_CONFIG_H_INCLUDED__ */

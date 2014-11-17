@@ -590,6 +590,15 @@ static int __ov8830_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int exp_val, ret;
 
+	dev_dbg(&client->dev, "set exposure:0x%x, gain:0x%x, dig_gain:0x%x",
+		exposure,
+		gain,
+		dig_gain);
+
+	if (!(exposure && gain)) {
+		return 0;
+	}
+
 	/* Update frame timings. Expsure must be minimum <  vts-14 */
 	ret = __ov8830_update_frame_timing(sd, exposure, hts, vts);
 	if (ret)
@@ -692,12 +701,14 @@ static int ov8830_s_exposure(struct v4l2_subdev *sd,
 
 static long ov8830_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	switch (cmd) {
 	case ATOMISP_IOC_S_EXPOSURE:
 		return ov8830_s_exposure(sd, (struct atomisp_exposure *)arg);
 	case ATOMISP_IOC_G_SENSOR_PRIV_INT_DATA:
 		return ov8830_g_priv_int_data(sd, arg);
 	default:
+		dev_err(&client->dev, "%s: invalid ioctl cmd\n", __func__);
 		return -EINVAL;
 	}
 	return 0;

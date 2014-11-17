@@ -281,6 +281,12 @@ int atomisp_3a_config_param(struct atomisp_sub_device *asd, int flag,
 int atomisp_digital_zoom(struct atomisp_sub_device *asd, int flag,
 			 __s32 *value);
 
+/*
+ * Function to get current sensor output effective resolution
+ */
+int atomisp_get_effective_res(struct atomisp_sub_device *asd,
+			struct atomisp_resolution  *config);
+
 int atomisp_cp_dvs_6axis_config(struct atomisp_sub_device *asd,
 			struct atomisp_dvs_6axis_config *user_6axis_config,
 			struct atomisp_css_params *css_param);
@@ -382,4 +388,10 @@ atomisp_get_metadata_type(struct atomisp_sub_device *asd,
  */
 int atomisp_inject_a_fake_event(struct atomisp_sub_device *asd, int *event);
 
+/*
+ * Function for HAL to query how many invalid frames at the beginning of ISP
+ * pipeline output
+ */
+int atomisp_get_invalid_frame_num(struct video_device *vdev,
+			int *invalid_frame_num);
 #endif /* __ATOMISP_CMD_H__ */

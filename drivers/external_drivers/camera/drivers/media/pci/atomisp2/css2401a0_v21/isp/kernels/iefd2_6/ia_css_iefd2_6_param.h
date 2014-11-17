@@ -23,6 +23,19 @@
 #define __IA_CSS_IEFD2_6_PARAM_H
 
 #include "type_support.h"
+#include "vmem.h" /* needed for VMEM_ARRAY */
+
+struct ia_css_isp_iefd2_6_vmem_params {
+	VMEM_ARRAY(e_cued_x, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_cued_a, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_cued_b, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_cu_dir_x, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_cu_dir_a, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_cu_dir_b, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_cu_non_dir_x, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_cu_non_dir_a, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_cu_non_dir_b, ISP_VEC_NELEMS);
+};
 
 struct ia_css_isp_iefd2_6_dmem_params {
 	int32_t horver_diag_coeff;
@@ -45,10 +58,10 @@ struct ia_css_isp_iefd2_6_dmem_params {
 	int32_t rad_cu_dir_sharp_x1;
 	int32_t rad_cu_non_dir_sharp_x1;
 	int32_t rad_dir_far_sharp_weight;
-	int32_t sharp_nega_lmt_txt;
-	int32_t sharp_posi_lmt_txt;
-	int32_t sharp_nega_lmt_dir;
-	int32_t sharp_posi_lmt_dir;
+	int32_t shrpn_nega_lmt_txt;
+	int32_t shrpn_posi_lmt_txt;
+	int32_t shrpn_nega_lmt_dir;
+	int32_t shrpn_posi_lmt_dir;
 	int32_t clamp_stitch;
 	bool rad_enable;
 	int32_t rad_x_origin;
@@ -62,17 +75,8 @@ struct ia_css_isp_iefd2_6_dmem_params {
 	int32_t vssnlm_y1;
 	int32_t vssnlm_y2;
 	int32_t vssnlm_y3;
-	int32_t e_cued_x[6];
-	int32_t e_cued_a[5];
-	int32_t e_cued_b[5];
 	int32_t e_cued2_a;
 	int32_t e_cued2_b;
-	int32_t e_cu_dir_x[4];
-	int32_t e_cu_dir_a[3];
-	int32_t e_cu_dir_b[3];
-	int32_t e_cu_non_dir_x[4];
-	int32_t e_cu_non_dir_a[3];
-	int32_t e_cu_non_dir_b[3];
 	int32_t curad_x[6];
 	int32_t curad_a[5];
 	int32_t curad_b[5];

@@ -1142,6 +1142,7 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 	struct atomisp_device *isp;
 	unsigned int start;
 	void __iomem *base;
+	void __iomem * const *iomap;
 	int err;
 
 	if (!dev) {
@@ -1177,10 +1178,11 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 		return err;
 	}
 
-	if (!pcim_iomap_table(dev))
+	iomap = pcim_iomap_table(dev);
+	if (!iomap)
 		return -ENODEV;
 
-	base = pcim_iomap_table(dev)[ATOM_ISP_PCI_BAR];
+	base = iomap[ATOM_ISP_PCI_BAR];
 	dev_dbg(&dev->dev, "base: %p\n", base);
 	if (!base)
 		return -ENODEV;

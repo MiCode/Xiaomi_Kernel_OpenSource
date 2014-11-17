@@ -151,7 +151,7 @@ int ad5823_t_focus_abs(struct v4l2_subdev *sd, s32 value)
 	int ret;
 
 	value = min(value, AD5823_MAX_FOCUS_POS);
-	ret = ad5823_t_focus_vcm(sd, AD5823_MAX_FOCUS_POS - value);
+	ret = ad5823_t_focus_vcm(sd, value);
 	if (ret == 0) {
 		ad5823_dev.number_of_steps = value - ad5823_dev.focus;
 		ad5823_dev.focus = value;
@@ -218,8 +218,8 @@ int ad5823_t_vcm_timing(struct v4l2_subdev *sd, s32 value)
 
 int ad5823_vcm_init(struct v4l2_subdev *sd)
 {
-	/* set vcm mode to ARC RES0.5 */
-	ad5823_dev.vcm_mode = AD5823_ARC_RES1;
+	/* set vcm mode to DIRECT */
+	ad5823_dev.vcm_mode = AD5823_DIRECT;
 	ad5823_dev.platform_data = camera_get_af_platform_data();
 	return ad5823_dev.platform_data ? 0 : -ENODEV;
 }

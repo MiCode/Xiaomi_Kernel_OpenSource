@@ -1916,13 +1916,13 @@ sh_css_debug_pipe_graph_dump_stage(
 				while (ei[p] != ',' && p > 0)
 					p--;
 				/* Last space found, copy till that space */
-				if (p >= 0 && p <= 100) {
-					strncpy(enable_info1, ei, p);
-					enable_info1[p] = '\0';
+				if (p >= sizeof(enable_info1))
+					return;
+				strncpy(enable_info1, ei, p);
+				enable_info1[p] = '\0';
 
-					ei += p+1;
-					l = strlen(ei);
-				}
+				ei += p+1;
+				l = strlen(ei);
 
 				if (l<=ENABLE_LINE2_MAX_LENGHT2) {
 					/* The 2nd line fits */
@@ -1938,12 +1938,12 @@ sh_css_debug_pipe_graph_dump_stage(
 					p=ENABLE_LINE2_MAX_LENGHT2;
 					while (ei[p] != ',' && p > 0)
 						p--;
-					if (p >= 0 && p <= 100) {
-						strncpy(enable_info2, ei, p);
-						enable_info2[p] = '\0';
-						ei += p+1;
-						strcpy(enable_info3, ei);
-					}
+					if (p >= sizeof(enable_info2))
+						return;
+					strncpy(enable_info2, ei, p);
+					enable_info2[p] = '\0';
+					ei += p+1;
+					strcpy(enable_info3, ei);
 					snprintf(enable_info, 200,
 						"%s\\n%s\\n%s",
 						enable_info1, enable_info2,

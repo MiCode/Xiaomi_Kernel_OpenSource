@@ -23,6 +23,11 @@
 #define __IA_CSS_DPC2_TYPES_H
 
 #include "type_support.h"
+#define METRIC1_ONE_FP	(1<<12)
+#define METRIC2_ONE_FP	(1<<5)
+#define METRIC3_ONE_FP	(1<<12)
+#define WBGAIN_ONE_FP	(1<<9)
+
 
 struct ia_css_dpc2_config {
 	int32_t metric1;

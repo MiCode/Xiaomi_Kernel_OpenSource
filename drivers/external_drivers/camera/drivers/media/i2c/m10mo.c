@@ -21,6 +21,7 @@
 #include <asm/intel-mid.h>
 #include <asm/irq.h>
 #include <linux/atomisp_platform.h>
+#include <linux/atomisp.h>
 #include <media/m10mo_atomisp.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
@@ -43,7 +44,10 @@
 #include <media/v4l2-device.h>
 #include "m10mo.h"
 
-#define M10MO_FORMAT	V4L2_MBUS_FMT_UYVY8_1X16
+/* cross component debug message flag */
+int dbglvl = 0;
+module_param(dbglvl, int, 0644);
+MODULE_PARM_DESC(dbglvl, "debug message on/off (default:off)");
 
 /*
  * m10mo_read -  I2C read function
@@ -100,7 +104,12 @@ static int m10mo_read(struct v4l2_subdev *sd, u8 len, u8 category, u8 reg, u32 *
 			*val = recv_data[1] << 24 | recv_data[2] << 16
 				| recv_data[3] << 8 | recv_data[4];
 	}
-	return 0;
+
+	dev_dbg(&client->dev,
+		"%s len :%d cat, reg, val: 0x%02x, 0x%02x, 0x%02x\n",
+		__func__, len, category, reg, *val);
+
+	return (ret == 2) ? 0 : -EIO;
 }
 
 /**
@@ -125,6 +134,10 @@ static int m10mo_write(struct v4l2_subdev *sd, u8 len, u8 category, u8 reg, u32 
 		dev_err(&client->dev, "Wrong data size\n");
 		return -EINVAL;
 	}
+
+	dev_dbg(&client->dev,
+		"%s len :%d cat, reg, val: 0x%02x, 0x%02x, 0x%02x\n",
+		__func__, len, category, reg, val);
 
 	msg.addr = client->addr;
 	msg.flags = 0;
@@ -159,6 +172,8 @@ static int m10mo_write(struct v4l2_subdev *sd, u8 len, u8 category, u8 reg, u32 
 
 	ret = i2c_transfer(client->adapter, &msg, 1);
 
+	dev_dbg(&client->dev, "Write reg. Category=0x%02X Reg=0x%02X Value=0x%X ret=%s\n",
+		category, reg, val, (ret == 1) ? "OK" : "Error");
 	return ret == num_msg ? 0 : -EIO;
 }
 
@@ -199,6 +214,8 @@ int m10mo_memory_write(struct v4l2_subdev *sd, u8 cmd, u16 len, u32 addr, u8 *va
 	struct i2c_msg msg;
 	u8 *data = m10mo_dev->message_buffer;
 	int i, ret;
+
+	dev_dbg(&client->dev, "Write mem. cmd=0x%02X len=%d addr=0x%X\n", cmd, len, addr);
 
 	if (!client->adapter)
 		return -ENODEV;
@@ -306,6 +323,7 @@ int m10mo_memory_read(struct v4l2_subdev *sd, u16 len, u32 addr, u8 *val)
 
 	memcpy(val, recv_data + 3, len);
 
+	dev_dbg(&client->dev, "Read mem. len=%d addr=0x%X\n", len, addr);
 	return 0;
 }
 
@@ -335,7 +353,7 @@ int m10mo_setup_flash_controller(struct v4l2_subdev *sd)
  * be read to clear pending interrupts.
  */
 
-static int m10mo_request_mode_change(struct v4l2_subdev *sd, u8 requested_mode)
+int m10mo_request_mode_change(struct v4l2_subdev *sd, u8 requested_mode)
 {
 	struct m10mo_device *dev = to_m10mo_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -349,17 +367,43 @@ static int m10mo_request_mode_change(struct v4l2_subdev *sd, u8 requested_mode)
 	case M10MO_PARAM_SETTING_MODE:
 		ret = m10mo_write(sd, 1, CATEGORY_FLASHROM, FLASH_CAM_START, 0x01);
 		if (ret < 0)
-			dev_err(&client->dev, "Unable to change to PARAM_SETTING_MODE\n");
+			dev_err(&client->dev,
+				"Unable to change to PARAM_SETTING_MODE\n");
 		break;
+	case M10MO_PARAMETER_MODE:
+		ret = m10mo_write(sd, 1, CATEGORY_SYSTEM, SYSTEM_SYSMODE, 0x01);
+		if (ret < 0)
+			dev_err(&client->dev,
+				"Unable to change to PARAMETER MODE\n");
+		break;
+	case M10MO_MONITOR_MODE_PANORAMA:
+	case M10MO_MONITOR_MODE_ZSL:
 	case M10MO_MONITOR_MODE:
+	case M10MO_MONITOR_MODE_HIGH_SPEED:
 		ret = m10mo_write(sd, 1, CATEGORY_SYSTEM, SYSTEM_SYSMODE, 0x02);
 		if (ret < 0)
-			dev_err(&client->dev, "Unable to change to MONITOR_MODE\n");
+			dev_err(&client->dev,
+				"Unable to change to MONITOR_MODE / ZSL \n");
 		break;
 	case M10MO_SINGLE_CAPTURE_MODE:
 		ret = m10mo_write(sd, 1, CATEGORY_SYSTEM, SYSTEM_SYSMODE, 0x03);
 		if (ret < 0)
-			dev_err(&client->dev, "Unable to change to SINGLE_CAPTURE_MODE\n");
+			dev_err(&client->dev,
+				"Unable to change to SINGLE_CAPTURE_MODE\n");
+		break;
+	case M10MO_BURST_CAPTURE_MODE:
+		/* Set monitor type as burst capture. */
+		ret = m10mo_write(sd, 1, CATEGORY_PARAM,
+			MONITOR_TYPE, MONITOR_BURST);
+		if (ret < 0) {
+			dev_err(&client->dev,
+				"Unable to change to BURST_CAPTURE_MODE\n");
+			break;
+		}
+		ret = m10mo_write(sd, 1, CATEGORY_SYSTEM, SYSTEM_SYSMODE, 0x02);
+		if (ret < 0)
+			dev_err(&client->dev,
+				"Unable to change to BURST_CAPTURE_MODE\n");
 		break;
 	default:
 		break;
@@ -368,7 +412,72 @@ static int m10mo_request_mode_change(struct v4l2_subdev *sd, u8 requested_mode)
 	return ret;
 }
 
-static int m10mo_wait_mode_change(struct v4l2_subdev *sd, u8 mode, u32 timeout)
+static int is_m10mo_in_monitor_mode(struct v4l2_subdev *sd)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+
+	if (dev->mode == M10MO_MONITOR_MODE_PANORAMA ||
+	    dev->mode == M10MO_MONITOR_MODE_ZSL ||
+	    dev->mode == M10MO_MONITOR_MODE ||
+	    dev->mode == M10MO_MONITOR_MODE_HIGH_SPEED)
+		return 1;
+
+	return 0;
+}
+
+static int m10mo_set_monitor_parameters(struct v4l2_subdev *sd)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	int id = M10MO_GET_FOCUS_MODE(dev->fw_type);
+	int ret;
+
+	dev_info(&client->dev,
+		 "%s: af_mode: 0x%x exe_mode: 0x%x posx: 0x%x, posy: 0x%x\n",
+		 __func__, dev->monitor_params.af_mode,
+		 dev->monitor_params.exe_mode,
+		 dev->monitor_params.af_touch_posx,
+		 dev->monitor_params.af_touch_posy);
+
+	ret = m10mo_writeb(sd, CATEGORY_LENS,
+			   m10m0_af_parameters[id].af_mode,
+			   dev->monitor_params.af_mode);
+	if (ret)
+		return ret;
+
+	ret = m10mo_writew(sd, CATEGORY_LENS,
+			   m10m0_af_parameters[id].af_touch_posx,
+			   dev->monitor_params.af_touch_posx);
+	if (ret)
+		return ret;
+
+	ret = m10mo_writew(sd, CATEGORY_LENS,
+			   m10m0_af_parameters[id].af_touch_posy,
+			   dev->monitor_params.af_touch_posy);
+	if (ret)
+		return ret;
+
+	ret = m10mo_writeb(sd, CATEGORY_LENS,
+			   m10m0_af_parameters[id].af_execution,
+			   dev->monitor_params.exe_mode);
+
+	if (ret)
+	    return ret;
+
+	if (dev->monitor_params.flash_mode == LED_TORCH)
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+				   LED_TORCH,
+				   dev->monitor_params.torch);
+	else
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+				   FLASH_MODE,
+				   dev->monitor_params.flash_mode);
+
+	return ret;
+}
+
+int m10mo_wait_mode_change(struct v4l2_subdev *sd, u8 mode, u32 timeout)
 {
 	struct m10mo_device *dev = to_m10mo_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -377,11 +486,30 @@ static int m10mo_wait_mode_change(struct v4l2_subdev *sd, u8 mode, u32 timeout)
 	ret = wait_event_interruptible_timeout(dev->irq_waitq,
 					       dev->mode == mode,
 					       msecs_to_jiffies(timeout));
-	if (ret <= 0) {
-		dev_err(&client->dev, "m10mo_wait_mode_change timed out");
+	if (ret > 0) {
+		if (is_m10mo_in_monitor_mode(sd))
+			return m10mo_set_monitor_parameters(sd);
+		return 0;
+	} else if (ret == 0) {
+		dev_err(&client->dev, "m10mo_wait_mode_change timed out\n");
 		return -ETIMEDOUT;
 	}
 
+	return ret;
+}
+
+int __m10mo_param_mode_set(struct v4l2_subdev *sd)
+{
+	int ret;
+
+	ret = m10mo_request_mode_change(sd, M10MO_PARAMETER_MODE);
+	if (ret)
+		return ret;
+
+	ret = m10mo_wait_mode_change(sd, M10MO_PARAMETER_MODE,
+				     M10MO_INIT_TIMEOUT);
+	if (ret > 0)
+		ret = 0;
 	return ret;
 }
 
@@ -397,7 +525,7 @@ static int m10mo_detect(struct v4l2_subdev *sd)
 	if (!ret)
 		ret = m10mo_read(sd, 1, CATEGORY_SYSTEM, SYSTEM_PROJECT_CODE,
 				&ver->project);
-	dev_info(&client->dev, "Customer/Project[0x%x/0x%x]", dev->ver.customer,
+	dev_info(&client->dev, "Customer/Project[0x%x/0x%x]\n", dev->ver.customer,
 				dev->ver.project);
 	return 0;
 }
@@ -406,6 +534,13 @@ static int __m10mo_fw_start(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
+
+	/*
+	 * Correct the pll value before fw start
+	 */
+	ret = m10mo_update_pll_setting(sd);
+	if (ret < 0)
+		return ret;
 
 	ret = m10mo_setup_flash_controller(sd);
 	if (ret < 0)
@@ -418,7 +553,7 @@ static int __m10mo_fw_start(struct v4l2_subdev *sd)
 	ret = m10mo_wait_mode_change(sd, M10MO_PARAM_SETTING_MODE,
 				     M10MO_INIT_TIMEOUT);
 	if (ret < 0) {
-		dev_err(&client->dev, "Initialization timeout");
+		dev_err(&client->dev, "Initialization timeout\n");
 		return ret;
 	}
 
@@ -442,10 +577,376 @@ static int m10mo_fw_start(struct v4l2_subdev *sd, u32 val)
 	return ret;
 }
 
+static int m10mo_set_af_mode(struct v4l2_subdev *sd, unsigned int val)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int id = M10MO_GET_FOCUS_MODE(dev->fw_type);
+	int ret = 0;
+	u32 cur_af_mode;
+
+	switch (val) {
+	case EXT_ISP_FOCUS_MODE_NORMAL:
+		dev->monitor_params.af_mode = m10m0_af_parameters[id].af_normal;
+		break;
+	case EXT_ISP_FOCUS_MODE_MACRO:
+		dev->monitor_params.af_mode = m10m0_af_parameters[id].af_macro;
+		break;
+	case EXT_ISP_FOCUS_MODE_TOUCH_AF:
+		dev->monitor_params.af_mode = m10m0_af_parameters[id].af_touch;
+		break;
+	case EXT_ISP_FOCUS_MODE_PREVIEW_CAF:
+		dev->monitor_params.af_mode = m10m0_af_parameters[id].af_preview_caf;
+		break;
+	case EXT_ISP_FOCUS_MODE_MOVIE_CAF:
+		dev->monitor_params.af_mode = m10m0_af_parameters[id].af_movie_caf;
+		break;
+	case EXT_ISP_FOCUS_MODE_FACE_CAF:
+		dev->monitor_params.af_mode = m10m0_af_parameters[id].af_face_caf;
+		break;
+	case EXT_ISP_FOCUS_MODE_TOUCH_MACRO:
+		dev->monitor_params.af_mode = m10m0_af_parameters[id].af_touch_macro;
+		break;
+	case EXT_ISP_FOCUS_MODE_TOUCH_CAF:
+		dev->monitor_params.af_mode = m10m0_af_parameters[id].af_touch_caf;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (!is_m10mo_in_monitor_mode(sd))
+		return ret;
+
+	ret = m10mo_read(sd, 1, CATEGORY_LENS,
+			m10m0_af_parameters[id].af_mode,
+			&cur_af_mode);
+
+	/*
+	 * If af_mode has changed as expected already
+	 * no need to set any more
+	 */
+	if (dev->monitor_params.af_mode == cur_af_mode)
+		return ret;
+
+	dev_info(&client->dev, "%s: In monitor mode, set AF mode to %d",
+		 __func__, dev->monitor_params.af_mode);
+
+	/* We are in monitor mode already, */
+	/* af_mode can be applied immediately */
+	ret = m10mo_writeb(sd, CATEGORY_LENS,
+			m10m0_af_parameters[id].af_mode,
+			dev->monitor_params.af_mode);
+
+	return ret;
+}
+
+static int m10mo_set_af_execution(struct v4l2_subdev *sd, s32 val)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int id = M10MO_GET_FOCUS_MODE(dev->fw_type);
+	int ret = 0;
+
+	switch (val) {
+	case EXT_ISP_FOCUS_STOP:
+		dev->monitor_params.exe_mode = m10m0_af_parameters[id].af_stop;
+		break;
+	case EXT_ISP_FOCUS_SEARCH:
+		dev->monitor_params.exe_mode = m10m0_af_parameters[id].af_search;
+		break;
+	case EXT_ISP_PAN_FOCUSING:
+		dev->monitor_params.exe_mode = m10m0_af_parameters[id].af_pan_focusing;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (is_m10mo_in_monitor_mode(sd)) {
+
+		dev_info(&client->dev, "%s: In monitor mode, set AF exe_mode to %d",
+			 __func__, dev->monitor_params.exe_mode);
+
+		/* We are in monitor mode already, */
+		/* exe_mode can be applied immediately */
+		ret = m10mo_writeb(sd, CATEGORY_LENS,
+				   m10m0_af_parameters[id].af_execution,
+				   dev->monitor_params.exe_mode);
+	}
+	return ret;
+}
+
+static int m10mo_set_af_position_x(struct v4l2_subdev *sd, unsigned int x)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret = 0;
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int id = M10MO_GET_FOCUS_MODE(dev->fw_type);
+
+	dev->monitor_params.af_touch_posx = x;
+
+	if (is_m10mo_in_monitor_mode(sd)) {
+		dev_info(&client->dev,
+			 "%s: In monitor mode, set AF touch X pos to 0x%x",
+			 __func__, dev->monitor_params.af_touch_posx);
+
+		/* Set X Position */
+		ret = m10mo_writew(sd, CATEGORY_LENS,
+				   m10m0_af_parameters[id].af_touch_posx,
+				   dev->monitor_params.af_touch_posx);
+	}
+
+	if (ret)
+		dev_err(&client->dev, "AutoFocus position x failed %d\n", ret);
+
+	return ret;
+}
+
+static int m10mo_set_af_position_y(struct v4l2_subdev *sd, unsigned int y)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret = 0;
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int id = M10MO_GET_FOCUS_MODE(dev->fw_type);
+
+	dev->monitor_params.af_touch_posy = y;
+
+	if (is_m10mo_in_monitor_mode(sd)) {
+		dev_info(&client->dev,
+			 "%s: In monitor mode, set AF touch Y pos to 0x%x",
+			 __func__, dev->monitor_params.af_touch_posy);
+
+		/* Set Y Position */
+		ret = m10mo_writew(sd, CATEGORY_LENS,
+				   m10m0_af_parameters[id].af_touch_posy,
+				   dev->monitor_params.af_touch_posy);
+	}
+
+	if (ret)
+		dev_err(&client->dev, "AutoFocus position y failed %d\n", ret);
+
+	return ret;
+}
+
+/* Because of different m10m0 firmwares and parameter values, transform
+   the values to the macro definition */
+static u32 m10mo_af_parameter_transform(struct v4l2_subdev *sd, u32 val)
+{
+	u32 ret = 0xffffffff;
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int id = M10MO_GET_FOCUS_MODE(dev->fw_type);
+
+	if (val == m10m0_af_parameters[id].caf_status_focusing) {
+		ret = CAF_STATUS_FOCUSING;
+	} else if (val == m10m0_af_parameters[id].caf_status_success) {
+		ret = CAF_STATUS_SUCCESS;
+	} else if (val == m10m0_af_parameters[id].caf_status_fail) {
+		ret = CAF_STATUS_FAIL;
+	} else if (val == m10m0_af_parameters[id].caf_status_restart_check) {
+		ret = CAF_STATUS_RESTART_CHECK;
+	} else if (val == m10m0_af_parameters[id].af_status_invalid) {
+		ret = AF_STATUS_INVALID;
+	} else if (val == m10m0_af_parameters[id].af_status_focusing) {
+		ret = AF_STATUS_FOCUSING;
+	} else if (val == m10m0_af_parameters[id].af_status_success) {
+		ret = AF_STATUS_SUCCESS;
+	} else if (val == m10m0_af_parameters[id].af_status_fail) {
+		ret = AF_STATUS_FAIL;
+	} else if (val == m10m0_af_parameters[id].af_normal) {
+		ret = AF_NORMAL;
+	} else if (val == m10m0_af_parameters[id].af_macro) {
+		ret = AF_MACRO;
+	} else if (val == m10m0_af_parameters[id].af_touch) {
+		ret = AF_TOUCH;
+	} else if (val == m10m0_af_parameters[id].af_preview_caf) {
+		ret = AF_PREVIEW_CAF;
+	} else if (val == m10m0_af_parameters[id].af_movie_caf) {
+		ret = AF_MOVIE_CAF;
+	} else if (val == m10m0_af_parameters[id].af_face_caf) {
+		ret = AF_FACE_CAF;
+	} else if (val == m10m0_af_parameters[id].af_touch_macro) {
+		ret = AF_TOUCH_MACRO;
+	} else if (val == m10m0_af_parameters[id].af_touch_caf) {
+		ret = AF_TOUCH_CAF;
+	}
+
+	return ret;
+}
+
+static int m10mo_get_caf_status(struct v4l2_subdev *sd, unsigned int *status)
+{
+	int ret;
+	u32 af_result;
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int id = M10MO_GET_FOCUS_MODE(dev->fw_type);
+
+	ret = m10mo_read(sd, 1, CATEGORY_LENS,
+			m10m0_af_parameters[id].af_result, &af_result);
+	if (ret)
+		return ret;
+
+	af_result = m10mo_af_parameter_transform(sd, af_result);
+
+	switch (af_result) {
+	case CAF_STATUS_FOCUSING:
+		*status = EXT_ISP_CAF_STATUS_FOCUSING;
+		break;
+	case CAF_STATUS_SUCCESS:
+		*status = EXT_ISP_CAF_STATUS_SUCCESS;
+		break;
+	case CAF_STATUS_FAIL:
+		*status = EXT_ISP_CAF_STATUS_FAIL;
+		break;
+	case CAF_STATUS_RESTART_CHECK:
+		*status = EXT_ISP_CAF_RESTART_CHECK;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int m10mo_get_af_status(struct v4l2_subdev *sd, unsigned int *status)
+{
+	int ret;
+	u32 af_result;
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int id = M10MO_GET_FOCUS_MODE(dev->fw_type);
+
+	ret = m10mo_read(sd, 1, CATEGORY_LENS,
+			m10m0_af_parameters[id].af_result, &af_result);
+	if (ret)
+		return ret;
+
+	af_result = m10mo_af_parameter_transform(sd, af_result);
+
+	switch (af_result) {
+	case AF_STATUS_INVALID:
+		*status = EXT_ISP_AF_STATUS_INVALID;
+		break;
+	case AF_STATUS_FOCUSING:
+		*status = EXT_ISP_AF_STATUS_FOCUSING;
+		break;
+	case AF_STATUS_SUCCESS:
+		*status = EXT_ISP_AF_STATUS_SUCCESS;
+		break;
+	case AF_STATUS_FAIL:
+		*status = EXT_ISP_AF_STATUS_FAIL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+/* Adding this as requested by HAL. Can be removed if HAL is saving af mode */
+static int m10mo_get_af_mode(struct v4l2_subdev *sd, unsigned int *status)
+{
+	int ret;
+	u32 af_mode;
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int id = M10MO_GET_FOCUS_MODE(dev->fw_type);
+
+	ret = m10mo_read(sd, 1, CATEGORY_LENS,
+			m10m0_af_parameters[id].af_result, &af_mode);
+	if (ret)
+		return ret;
+
+	af_mode = m10mo_af_parameter_transform(sd, af_mode);
+
+	switch (af_mode) {
+	case AF_NORMAL:
+		*status = EXT_ISP_FOCUS_MODE_NORMAL;
+		break;
+	case AF_MACRO:
+		*status = EXT_ISP_FOCUS_MODE_MACRO;
+		break;
+	case AF_TOUCH:
+		*status = EXT_ISP_FOCUS_MODE_TOUCH_AF;
+		break;
+	case AF_PREVIEW_CAF:
+		*status = EXT_ISP_FOCUS_MODE_PREVIEW_CAF;
+		break;
+	case AF_MOVIE_CAF:
+		*status = EXT_ISP_FOCUS_MODE_MOVIE_CAF;
+		break;
+	case AF_FACE_CAF:
+		*status = EXT_ISP_FOCUS_MODE_FACE_CAF;
+		break;
+	case AF_TOUCH_MACRO:
+		*status = EXT_ISP_FOCUS_MODE_TOUCH_MACRO;
+		break;
+	case AF_TOUCH_CAF:
+		*status = EXT_ISP_FOCUS_MODE_TOUCH_CAF;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int m10mo_set_flash_mode(struct v4l2_subdev *sd, unsigned int val)
+{
+	int ret = 0;
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+
+	/* by default force the torch off, value depends on incoming flash mode */
+	dev->monitor_params.torch = LED_TORCH_OFF;
+
+	switch (val) {
+	case EXT_ISP_FLASH_MODE_OFF:
+		dev->monitor_params.flash_mode = FLASH_MODE_OFF;
+		break;
+	case EXT_ISP_FLASH_MODE_ON:
+		dev->monitor_params.flash_mode = FLASH_MODE_ON;
+		break;
+	case EXT_ISP_FLASH_MODE_AUTO:
+		dev->monitor_params.flash_mode = FLASH_MODE_AUTO;
+		break;
+	case EXT_ISP_LED_TORCH_OFF:
+		dev->monitor_params.flash_mode = LED_TORCH;
+		dev->monitor_params.torch = LED_TORCH_OFF;
+		break;
+	case EXT_ISP_LED_TORCH_ON:
+		dev->monitor_params.flash_mode = LED_TORCH;
+		dev->monitor_params.torch = LED_TORCH_ON;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	/* Only apply setting if we are in monitor mode */
+	if (!is_m10mo_in_monitor_mode(sd))
+		return ret;
+
+	dev_info(&client->dev, "%s: In monitor mode, set flash mode to %d",
+		 __func__, dev->monitor_params.flash_mode);
+
+	/* TODO get current flash mode, and apply new setting only when needed? */
+
+	if (dev->monitor_params.flash_mode == LED_TORCH)
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LED_TORCH,
+				   dev->monitor_params.torch);
+	else
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, FLASH_MODE,
+				   dev->monitor_params.flash_mode);
+
+	return ret;
+}
+
 static int power_up(struct v4l2_subdev *sd)
 {
 	struct m10mo_device *dev = to_m10mo_sensor(sd);
 	int ret;
+
+	if (dev->pdata->common.power_ctrl) {
+		ret = dev->pdata->common.power_ctrl(sd, 1);
+		if (ret)
+			goto fail_power_ctrl;
+	}
 
 	if (dev->pdata->common.flisclk_ctrl) {
 		ret = dev->pdata->common.flisclk_ctrl(sd, 1);
@@ -464,6 +965,9 @@ fail_power_off:
 fail_clk_off:
 	if (dev->pdata->common.flisclk_ctrl)
 		ret = dev->pdata->common.flisclk_ctrl(sd, 0);
+fail_power_ctrl:
+	if (dev->pdata->common.power_ctrl)
+		ret = dev->pdata->common.power_ctrl(sd, 0);
 	return ret;
 }
 
@@ -475,13 +979,19 @@ static int power_down(struct v4l2_subdev *sd)
 
 	ret = dev->pdata->common.gpio_ctrl(sd, 0);
 	if (ret)
-		dev_err(&client->dev, "gpio failed");
+		dev_err(&client->dev, "gpio failed\n");
 
 	/* Even if the first one fails we still want to turn clock off */
 	if (dev->pdata->common.flisclk_ctrl) {
 		ret = dev->pdata->common.flisclk_ctrl(sd, 0);
 		if (ret)
-			dev_err(&client->dev, "stop clock failed");
+			dev_err(&client->dev, "stop clock failed\n");
+	}
+
+	if (dev->pdata->common.power_ctrl) {
+		ret = dev->pdata->common.power_ctrl(sd, 0);
+		if (ret)
+			dev_err(&client->dev, "power off fail\n");
 	}
 	return ret;
 }
@@ -513,18 +1023,26 @@ static int __m10mo_s_power(struct v4l2_subdev *sd, int on, bool fw_update_mode)
 	struct m10mo_device *dev = to_m10mo_sensor(sd);
 	int ret;
 
+	if (dev->power == on)
+		return 0;
+
 	if (on) {
 		dev->mode = M10MO_POWERING_ON;
 		m10mo_request_mode_change(sd, M10MO_FLASH_WRITE_MODE);
 
 		ret = power_up(sd);
-		if (!ret) {
-			dev->power = 1;
-			ret = __m10mo_bootrom_mode_start(sd);
+		if (ret)
+			return ret;
+		dev->power = 1;
+
+		ret = __m10mo_bootrom_mode_start(sd);
+		if (ret)
+			goto startup_failure;
+
+		if (!fw_update_mode) {
+			ret = __m10mo_fw_start(sd);
 			if (ret)
-				return ret;
-			if (!fw_update_mode)
-				ret = __m10mo_fw_start(sd);
+				goto startup_failure;
 		}
 	} else {
 		ret = power_down(sd);
@@ -532,6 +1050,445 @@ static int __m10mo_s_power(struct v4l2_subdev *sd, int on, bool fw_update_mode)
 	}
 
 	return ret;
+
+startup_failure:
+	power_down(sd);
+	dev->power = 0;
+	return ret;
+}
+
+int m10mo_set_panorama_monitor(struct v4l2_subdev *sd)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
+	u32 val;
+
+	dev_info(&client->dev,
+		"%s mode: %d Width: %d, height: %d, cmd: 0x%x vdis: %d\n",
+		__func__, dev->mode, dev->curr_res_table[dev->fmt_idx].width,
+		dev->curr_res_table[dev->fmt_idx].height,
+		dev->curr_res_table[dev->fmt_idx].command,
+		(int)dev->curr_res_table[dev->fmt_idx].vdis);
+
+	/* Check if m10mo already streaming @ required resolution */
+	ret = m10mo_readb(sd, CATEGORY_PARAM,  PARAM_MON_SIZE, &val);
+	if (ret)
+		goto out;
+
+	/* If mode is monitor mode and size same, do not configure again*/
+	if (dev->mode == M10MO_MONITOR_MODE_PANORAMA &&
+		val == dev->curr_res_table[dev->fmt_idx].command) {
+		dev_info(&client->dev,
+			"%s Already streaming with required size\n", __func__);
+		return 0;
+	}
+
+	if (dev->mode != M10MO_PARAM_SETTING_MODE &&
+		dev->mode != M10MO_PARAMETER_MODE) {
+		/* Already in panorama mode. So swith to parameter mode */
+		ret = __m10mo_param_mode_set(sd);
+		if (ret)
+			goto out;
+	}
+
+	/* Change the Monitor Size */
+	ret = m10mo_write(sd, 1, CATEGORY_PARAM, PARAM_MON_SIZE,
+			dev->curr_res_table[dev->fmt_idx].command);
+	if (ret)
+		goto out;
+
+	/* Set Panorama mode */
+	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL, CAPTURE_MODE,
+			CAP_MODE_PANORAMA);
+	if (ret)
+		goto out;
+
+	/* Setting output to NV12/NV21. */
+	ret = m10mo_writeb(sd, CATEGORY_PARAM, OUTPUT_FMT_SELECT,
+			OUTPUT_FMT_SELECT_NV12NV21);
+	if (ret)
+		goto out;
+
+	/* Select either NV12 or NV21 based on the format set from user space */
+	val = dev->format.code == V4L2_MBUS_FMT_CUSTOM_NV21 ?
+		CHOOSE_NV12NV21_FMT_NV21 : CHOOSE_NV12NV21_FMT_NV12;
+	ret = m10mo_writeb(sd, CATEGORY_PARAM, CHOOSE_NV12NV21_FMT, val);
+	if (ret)
+		goto out;
+
+	/* Enable metadata (the command sequence PDF-example) */
+	ret = m10mo_writeb(sd, CATEGORY_PARAM, MON_METADATA_SUPPORT_CTRL,
+			MON_METADATA_SUPPORT_CTRL_EN);
+	if (ret)
+		goto out;
+
+	/* Enable interrupt signal */
+	ret = m10mo_writeb(sd, CATEGORY_SYSTEM, SYSTEM_INT_ENABLE, 0x01);
+	if (ret)
+		goto out;
+
+	/* Go to Panorama Monitor mode */
+	ret = m10mo_request_mode_change(sd, M10MO_MONITOR_MODE_PANORAMA);
+	if (ret)
+		goto out;
+
+	ret = m10mo_wait_mode_change(sd, M10MO_MONITOR_MODE_PANORAMA,
+				M10MO_INIT_TIMEOUT);
+	if (ret < 0)
+		goto out;
+
+	return 0;
+out:
+	dev_err(&client->dev, "m10mo_set_panorama_monitor failed %d\n", ret);
+	return ret;
+}
+
+int m10mo_set_zsl_monitor(struct v4l2_subdev *sd)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int mode = M10MO_GET_RESOLUTION_MODE(dev->fw_type);
+	int shot_mode_support = M10MO_SHOT_MODES_SUPPORTED(dev->fw_type);
+	const struct m10mo_resolution *capture_res =
+			resolutions[mode][M10MO_MODE_CAPTURE_INDEX];
+	int ret;
+	u32 fmt;
+
+	dev_info(&client->dev,
+		"%s mode: %d width: %d, height: %d, cmd: 0x%x vdis: %d\n",
+		__func__, dev->mode, dev->curr_res_table[dev->fmt_idx].width,
+		dev->curr_res_table[dev->fmt_idx].height,
+		dev->curr_res_table[dev->fmt_idx].command,
+		(int)dev->curr_res_table[dev->fmt_idx].vdis);
+
+	dev_info(&client->dev, "%s capture width: %d, height: %d, cmd: 0x%x\n",
+		__func__, capture_res[dev->capture_res_idx].width,
+		capture_res[dev->capture_res_idx].height,
+		capture_res[dev->capture_res_idx].command);
+
+	if (dev->mode != M10MO_PARAM_SETTING_MODE &&
+		dev->mode != M10MO_PARAMETER_MODE) {
+		/*
+		 * At this stage means we are already at ZSL. So switch to
+		 * param mode first and reset all the parameters.
+		 */
+
+		ret = __m10mo_param_mode_set(sd);
+		if (ret)
+			goto out;
+	}
+
+	/* Set ZSL mode */
+	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL, CAPTURE_MODE,
+				CAP_MODE_INFINITY_ZSL);
+	if (ret)
+		goto out;
+
+	/* Change the Monitor Size */
+	ret = m10mo_write(sd, 1, CATEGORY_PARAM, PARAM_MON_SIZE,
+			dev->curr_res_table[dev->fmt_idx].command);
+	if (ret)
+		goto out;
+
+	/* Change the capture size */
+	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_PARAM, CAPP_MAIN_IMAGE_SIZE,
+			capture_res[dev->capture_res_idx].command);
+	if (ret)
+		goto out;
+
+	/* Set shot mode */
+	if (shot_mode_support) {
+		ret = m10mo_writeb(sd, CATEGORY_PARAM, SHOT_MODE, dev->shot_mode);
+		if (ret)
+			goto out;
+	}
+
+	/* Select monitor/movie mode */
+	ret = m10mo_write(sd, 1, CATEGORY_PARAM, MOVIE_MODE,
+			dev->run_mode == CI_MODE_VIDEO ? 0x01 : 0x00);
+	if (ret)
+		goto out;
+
+	/* vdis on/off */
+	m10mo_writeb(sd, CATEGORY_MONITOR, PARAM_VDIS,
+		     dev->curr_res_table[dev->fmt_idx].vdis ? 0x01 : 0x00);
+
+	/* Select either NV12 or NV21 based on the format set from user space */
+	fmt = dev->format.code == V4L2_MBUS_FMT_CUSTOM_NV21 ?
+		CHOOSE_NV12NV21_FMT_NV21 : CHOOSE_NV12NV21_FMT_NV12;
+	ret = m10mo_writeb(sd, CATEGORY_PARAM, CHOOSE_NV12NV21_FMT, fmt);
+	if (ret)
+		goto out;
+
+	/* Enable interrupt signal */
+	ret = m10mo_writeb(sd, CATEGORY_SYSTEM, SYSTEM_INT_ENABLE, 0x01);
+	if (ret)
+		goto out;
+
+	/* Go to ZSL Monitor mode */
+	ret = m10mo_request_mode_change(sd, M10MO_MONITOR_MODE_ZSL);
+	if (ret)
+		goto out;
+
+	ret = m10mo_wait_mode_change(sd, M10MO_MONITOR_MODE_ZSL,
+				M10MO_INIT_TIMEOUT);
+	if (ret < 0)
+		goto out;
+
+	return 0;
+out:
+	dev_err(&client->dev, "m10mo_set_zsl_monitor failed %d\n", ret);
+	return ret;
+}
+
+static u32 __get_dual_capture_value(u8 capture_mode)
+{
+	switch(capture_mode) {
+	case M10MO_CAPTURE_MODE_ZSL_BURST:
+		return DUAL_CAPTURE_BURST_CAPTURE_START;
+	case M10MO_CAPTURE_MODE_ZSL_LLS:
+		return DUAL_CAPTURE_LLS_CAPTURE_START;
+	case M10MO_CAPTURE_MODE_ZSL_NORMAL:
+		return DUAL_CAPTURE_ZSL_CAPTURE_START;
+	case M10MO_CAPTURE_MODE_ZSL_HDR:
+	case M10MO_CAPTURE_MODE_ZSL_RAW:
+	default:
+		return DUAL_CAPTURE_SINGLE_CAPTURE_START;
+	}
+}
+
+static int m10mo_set_zsl_capture(struct v4l2_subdev *sd, int sel_frame)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret, i;
+	u32 val, dual_status;
+	int finish = 0;
+
+	/* TODO: Fix this. Currently we do not use this */
+	(void) sel_frame;
+
+	val = __get_dual_capture_value(dev->capture_mode);
+
+	/* Check dual capture status before the capture request */
+	for (i = POLL_NUM; i; i--) {
+		ret = m10mo_readb(sd, CATEGORY_CAPTURE_CTRL, START_DUAL_STATUS,
+				&dual_status);
+		if (ret)
+			continue;
+
+		if ((dual_status == 0) || (dual_status == DUAL_STATUS_AF_WORKING)) {
+			finish = 1;
+			break;
+		}
+
+		msleep(10);
+	}
+
+	/*
+	* If last capture not finished yet, return error code
+	*/
+	if (!finish) {
+		dev_err(&client->dev, "%s Device busy. Status check failed %d\n",
+			__func__, dual_status);
+		return -EBUSY;
+	}
+
+	/* Start capture, JPEG encode & transfer start */
+	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL, START_DUAL_CAPTURE, val);
+	dev_dbg(&client->dev, "%s zsl capture trigger result: %d\n",
+			__func__, ret);
+	return ret;
+}
+
+int m10mo_set_zsl_raw_capture(struct v4l2_subdev *sd)
+{
+	int ret;
+
+	/* Set capture mode - Infinity capture 3 */
+	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL, CAPTURE_MODE,
+						CAP_MODE_INFINITY_ZSL);
+	if (ret)
+		return ret;
+
+	/* Enable interrupt signal */
+	ret = m10mo_writeb(sd, CATEGORY_SYSTEM, SYSTEM_INT_ENABLE, 0x01);
+	if (ret)
+		return ret;
+
+	/* Go to ZSL Monitor mode */
+	ret = m10mo_request_mode_change(sd, M10MO_MONITOR_MODE_ZSL);
+	if (ret)
+		return ret;
+
+	ret = m10mo_wait_mode_change(sd, M10MO_MONITOR_MODE_ZSL,
+						M10MO_INIT_TIMEOUT);
+	if (ret < 0)
+		return ret;
+
+	/* switch to RAW capture mode */
+	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL, REG_CAP_NV12_MODE,
+						RAW_CAPTURE);
+	if (ret)
+		return ret;
+
+	/* RAW mode is set. Now do a normal capture */
+	return m10mo_set_zsl_capture(sd, 1);
+}
+
+int m10mo_set_burst_mode(struct v4l2_subdev *sd, unsigned int val)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int ret = 0;
+
+	switch(val) {
+	case EXT_ISP_BURST_CAPTURE_CTRL_START:
+		/* First check if already in ZSL monitor mode. If not start */
+		if (dev->mode != M10MO_MONITOR_MODE_ZSL) {
+			ret = m10mo_set_zsl_monitor(sd);
+			if (ret)
+				return ret;
+		}
+		/* set cap mode to burst so that ZSL cap can differentiate */
+		dev->capture_mode = M10MO_CAPTURE_MODE_ZSL_BURST;
+		return m10mo_set_zsl_capture(sd, 1);
+	case EXT_ISP_BURST_CAPTURE_CTRL_STOP:
+		if (dev->capture_mode != M10MO_CAPTURE_MODE_ZSL_BURST)
+			return 0;
+		/* Stop the burst capture */
+		ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL,
+			START_DUAL_CAPTURE, DUAL_CAPTURE_BURST_CAPTURE_STOP);
+		if (ret)
+			return ret;
+		/* captutre mode back to normal */
+		dev->capture_mode = M10MO_CAPTURE_MODE_ZSL_NORMAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int m10mo_set_lls_mode(struct v4l2_subdev *sd, unsigned int val)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int ret;
+
+	switch(val) {
+	case STOP_LLS_MODE:
+		/* switch to normal capture. HDR MODE off */
+		ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL, REG_CAP_NV12_MODE,
+				NORMAL_CAPTURE);
+		if (!ret)
+			dev->capture_mode = M10MO_CAPTURE_MODE_ZSL_NORMAL;
+		break;
+	case START_LLS_MODE:
+		/* switch to HDR mode */
+		ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL, REG_CAP_NV12_MODE,
+				LLS_CAPTURE);
+		if (!ret)
+			dev->capture_mode = M10MO_CAPTURE_MODE_ZSL_LLS;
+		break;
+	case RESUME_PREVIEW_IN_LLS_MODE:
+		/* switch to HDR mode */
+		ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL,
+				START_DUAL_CAPTURE, PREVIEW_IN_NV12_MODE);
+		if (!ret)
+			dev->capture_mode = M10MO_CAPTURE_MODE_ZSL_LLS;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int m10mo_set_hdr_mode(struct v4l2_subdev *sd, unsigned int val)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int ret;
+
+	switch(val) {
+	case STOP_HDR_MODE:
+		/* switch to normal capture. HDR MODE off */
+		ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL, REG_CAP_NV12_MODE,
+				NORMAL_CAPTURE);
+		if (!ret)
+			dev->capture_mode = M10MO_CAPTURE_MODE_ZSL_NORMAL;
+		break;
+	case START_HDR_MODE:
+		/* switch to HDR mode */
+		ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL, REG_CAP_NV12_MODE,
+				HDR_CAPTURE);
+		if (!ret)
+			dev->capture_mode = M10MO_CAPTURE_MODE_ZSL_HDR;
+		break;
+	case RESUME_PREVIEW_IN_HDR_MODE:
+		/* switch to HDR mode */
+		ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL,
+				START_DUAL_CAPTURE, PREVIEW_IN_NV12_MODE);
+		if (!ret)
+			dev->capture_mode = M10MO_CAPTURE_MODE_ZSL_HDR;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int m10mo_set_shot_mode(struct v4l2_subdev *sd, unsigned int val)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int shot_mode_support = M10MO_SHOT_MODES_SUPPORTED(dev->fw_type);
+
+	if (!shot_mode_support)
+		return -EINVAL;
+
+	switch (val) {
+	case EXT_ISP_SHOT_MODE_AUTO:
+		dev->shot_mode = SHOT_MODE_AUTO;
+		break;
+	case EXT_ISP_SHOT_MODE_BEAUTY_FACE:
+		dev->shot_mode = SHOT_MODE_BEAUTY_FACE;
+		break;
+	case EXT_ISP_SHOT_MODE_BEST_PHOTO:
+		dev->shot_mode = SHOT_MODE_BEST_PHOTO;
+		break;
+	case EXT_ISP_SHOT_MODE_DRAMA:
+		dev->shot_mode = SHOT_MODE_DRAMA;
+		break;
+	case EXT_ISP_SHOT_MODE_BEST_FACE:
+		dev->shot_mode = SHOT_MODE_BEST_FACE;
+		break;
+	case EXT_ISP_SHOT_MODE_ERASER:
+		dev->shot_mode = SHOT_MODE_ERASER;
+		break;
+	case EXT_ISP_SHOT_MODE_PANORAMA:
+		dev->shot_mode = SHOT_MODE_PANORAMA;
+		break;
+	case EXT_ISP_SHOT_MODE_RICH_TONE_HDR:
+		dev->shot_mode = SHOT_MODE_RICH_TONE_HDR;
+		break;
+	case EXT_ISP_SHOT_MODE_NIGHT:
+		dev->shot_mode = SHOT_MODE_NIGHT;
+		break;
+	case EXT_ISP_SHOT_MODE_SOUND_SHOT:
+		dev->shot_mode = SHOT_MODE_SOUND_SHOT;
+		break;
+	case EXT_ISP_SHOT_MODE_ANIMATED_PHOTO:
+		dev->shot_mode = SHOT_MODE_ANIMATED_PHOTO;
+		break;
+	case EXT_ISP_SHOT_MODE_SPORTS:
+		dev->shot_mode = SHOT_MODE_SPORTS;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int m10mo_s_power(struct v4l2_subdev *sd, int on)
@@ -546,29 +1503,31 @@ static int m10mo_s_power(struct v4l2_subdev *sd, int on)
 	return ret;
 }
 
-static int m10mo_single_capture_process(struct v4l2_subdev *sd)
+int m10mo_single_capture_process(struct v4l2_subdev *sd)
 {
 	struct m10mo_device *dev = to_m10mo_sensor(sd);
 	int ret;
+	u32 fmt;
 
 	/* Select frame */
 	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL,
 			  CAPC_SEL_FRAME_MAIN, 0x01);
-
 	if (ret)
 		return ret;
 
 	/* Image format */
-	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_PARAM,
-			  CAPP_YUVOUT_MAIN, CAPP_YUVOUT_MAIN);
+	if (dev->format.code == V4L2_MBUS_FMT_JPEG_1X8)
+		fmt = CAPTURE_FORMAT_JPEG8;
+	else
+		fmt = CAPTURE_FORMAT_YUV422;
 
+	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_PARAM, CAPP_YUVOUT_MAIN, fmt);
 	if (ret)
 		return ret;
 
 	/* Image size */
 	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_PARAM, CAPP_MAIN_IMAGE_SIZE,
-			  dev->curr_res_table[dev->fmt_idx].command);
-
+			   dev->curr_res_table[dev->fmt_idx].command);
 	if (ret)
 		return ret;
 
@@ -604,15 +1563,39 @@ static irqreturn_t m10mo_irq_thread(int irq, void *dev_id)
 			dev->mode = M10MO_PARAM_SETTING_MODE;
 		}
 		break;
+	case M10MO_PARAMETER_MODE:
+		if (int_factor & REG_INT_STATUS_MODE) {
+			dev->mode = M10MO_PARAMETER_MODE;
+		}
+		break;
 	case M10MO_MONITOR_MODE:
 		if (int_factor & REG_INT_STATUS_MODE) {
 			dev->mode = M10MO_MONITOR_MODE;
 		}
 		break;
+	case M10MO_MONITOR_MODE_ZSL:
+		if (int_factor & REG_INT_STATUS_MODE) {
+			dev->mode = M10MO_MONITOR_MODE_ZSL;
+		}
+		break;
+	case M10MO_MONITOR_MODE_PANORAMA:
+		if (int_factor & REG_INT_STATUS_MODE) {
+			dev->mode = M10MO_MONITOR_MODE_PANORAMA;
+		}
+		break;
 	case M10MO_SINGLE_CAPTURE_MODE:
 		if (int_factor & REG_INT_STATUS_CAPTURE) {
 			dev->mode = M10MO_SINGLE_CAPTURE_MODE;
-			m10mo_single_capture_process(sd);
+			dev->fw_ops->single_capture_process(sd);
+		}
+		break;
+	case M10MO_BURST_CAPTURE_MODE:
+		if (int_factor & REG_INT_STATUS_MODE)
+			dev->mode = M10MO_BURST_CAPTURE_MODE;
+		break;
+	case M10MO_MONITOR_MODE_HIGH_SPEED:
+		if (int_factor & REG_INT_STATUS_MODE) {
+			dev->mode = M10MO_MONITOR_MODE_HIGH_SPEED;
 		}
 		break;
 	default:
@@ -665,51 +1648,15 @@ out:
 	return ret;
 }
 
-#define LARGEST_ALLOWED_RATIO_MISMATCH 500
-static int distance(struct m10mo_resolution const *res, const u32 w,
-				const u32 h)
+int get_resolution_index(const struct m10mo_resolution *res,
+			int entries, int w, int h)
 {
-	unsigned int w_ratio = ((res->width << 13) / w);
-	unsigned int h_ratio = ((res->height << 13) / h);
-	int match = abs(((w_ratio << 13) / h_ratio) - ((int)8192));
-
-	if ((w_ratio < 8192) || (h_ratio < 8192)
-		|| (match > LARGEST_ALLOWED_RATIO_MISMATCH))
-		return -1;
-
-	return w_ratio + h_ratio;
-}
-
-static int nearest_resolution_index(struct v4l2_subdev *sd, u32 w, u32 h)
-{
-	const struct m10mo_resolution *tmp_res = NULL;
-	struct m10mo_device *dev = to_m10mo_sensor(sd);
-	int min_dist = INT_MAX;
-	int idx = -1;
-	int i, dist;
-
-	for (i = 0; i < dev->entries_curr_table; i++) {
-		tmp_res = &dev->curr_res_table[i];
-		dist = distance(tmp_res, w, h);
-		if (dist == -1)
-			continue;
-		if (dist < min_dist) {
-			min_dist = dist;
-			idx = i;
-		}
-	}
-	return idx;
-}
-
-static int get_resolution_index(struct v4l2_subdev *sd, int w, int h)
-{
-	struct m10mo_device *dev = to_m10mo_sensor(sd);
 	int i;
 
-	for (i = 0; i < dev->entries_curr_table; i++) {
-		if (w != dev->curr_res_table[i].width)
+	for (i = 0; i < entries; i++) {
+		if (w != res[i].width)
 			continue;
-		if (h != dev->curr_res_table[i].height)
+		if (h != res[i].height)
 			continue;
 		/* Found it */
 		return i;
@@ -717,38 +1664,75 @@ static int get_resolution_index(struct v4l2_subdev *sd, int w, int h)
 	return -1;
 }
 
-static int __m10mo_try_mbus_fmt(struct v4l2_subdev *sd,
-				 struct v4l2_mbus_framefmt *fmt)
+int __m10mo_try_mbus_fmt(struct v4l2_subdev *sd,
+			struct v4l2_mbus_framefmt *fmt, bool update_fmt)
 {
 	struct m10mo_device *dev = to_m10mo_sensor(sd);
-	int idx;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct atomisp_input_stream_info *stream_info =
+			(struct atomisp_input_stream_info *)fmt->reserved;
+	const struct m10mo_resolution *res;
+	int entries, idx;
+	int mode = M10MO_GET_RESOLUTION_MODE(dev->fw_type);
 
-	if (!fmt)
+	if (fmt->code != V4L2_MBUS_FMT_JPEG_1X8 &&
+	    fmt->code != V4L2_MBUS_FMT_UYVY8_1X16 &&
+	    fmt->code != V4L2_MBUS_FMT_CUSTOM_NV12 &&
+	    fmt->code != V4L2_MBUS_FMT_CUSTOM_NV21 &&
+	    fmt->code != V4L2_MBUS_FMT_CUSTOM_M10MO_RAW) {
+		dev_info(&client->dev,
+			 "%s unsupported code: 0x%x. Set to NV12\n",
+			 __func__, fmt->code);
+		fmt->code = V4L2_MBUS_FMT_CUSTOM_NV12;
+	}
+
+	/* In ZSL case, capture table needs to be handled separately */
+	if (stream_info->stream == ATOMISP_INPUT_STREAM_CAPTURE &&
+			(dev->run_mode == CI_MODE_PREVIEW ||
+			 dev->run_mode == CI_MODE_VIDEO ||
+			 dev->run_mode == CI_MODE_CONTINUOUS)) {
+		res = resolutions[mode][M10MO_MODE_CAPTURE_INDEX];
+		entries =
+		     resolutions_sizes[mode][M10MO_MODE_CAPTURE_INDEX];
+	} else {
+		res = dev->curr_res_table;
+		entries = dev->entries_curr_table;
+	}
+
+	/* check if the given resolutions are spported */
+	idx = get_resolution_index(res, entries, fmt->width, fmt->height);
+	if (idx < 0) {
+		dev_err(&client->dev, "%s unsupported resolution: %dx%d\n",
+			__func__, fmt->width, fmt->height);
 		return -EINVAL;
+	}
 
-	idx = nearest_resolution_index(sd, fmt->width, fmt->height);
-
-	/* Fall back to the last if not found */
-	if (idx == -1)
-		idx = dev->entries_curr_table - 1;
-
-	fmt->width = dev->curr_res_table[idx].width;
-	fmt->height = dev->curr_res_table[idx].height;
-	fmt->code = M10MO_FORMAT;
-	return 0;
+	/* If the caller wants to get updated fmt values based on the search */
+	if (update_fmt) {
+		if (fmt->code == V4L2_MBUS_FMT_JPEG_1X8) {
+			fmt->width = dev->mipi_params.jpeg_width;
+			fmt->height = dev->mipi_params.jpeg_height;
+		} else if (fmt->code == V4L2_MBUS_FMT_CUSTOM_M10MO_RAW) {
+			fmt->width = dev->mipi_params.raw_width;
+			fmt->height = dev->mipi_params.raw_height;
+		} else {
+			fmt->width = res[idx].width;
+			fmt->height = res[idx].height;
+		}
+	}
+	return idx;
 }
 
 static int m10mo_try_mbus_fmt(struct v4l2_subdev *sd,
 				struct v4l2_mbus_framefmt *fmt)
 {
 	struct m10mo_device *dev = to_m10mo_sensor(sd);
-	int r;
+	int idx;
 
 	mutex_lock(&dev->input_lock);
-	r = __m10mo_try_mbus_fmt(sd, fmt);
+	idx = dev->fw_ops->try_mbus_fmt(sd, fmt, true);
 	mutex_unlock(&dev->input_lock);
-
-	return r;
+	return idx >= 0 ? 0 : -EINVAL;
 }
 
 static int m10mo_get_mbus_fmt(struct v4l2_subdev *sd,
@@ -760,10 +1744,125 @@ static int m10mo_get_mbus_fmt(struct v4l2_subdev *sd,
 
 	fmt->width = dev->curr_res_table[dev->fmt_idx].width;
 	fmt->height = dev->curr_res_table[dev->fmt_idx].height;
-	fmt->code = M10MO_FORMAT;
+	fmt->code = dev->format.code;
 
 	mutex_unlock(&dev->input_lock);
 
+	return 0;
+}
+
+int __m10mo_update_stream_info(struct v4l2_subdev *sd,
+			       struct v4l2_mbus_framefmt *fmt)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct atomisp_input_stream_info *stream_info =
+			(struct atomisp_input_stream_info*)fmt->reserved;
+	int mode = M10MO_GET_RESOLUTION_MODE(dev->fw_type);
+
+	/* TODO: Define a FW Type as well. Resolution could be reused */
+	switch (mode) {
+	case M10MO_RESOLUTION_MODE_0:
+		/* TODO: handle FW type cases here */
+		break;
+	case M10MO_RESOLUTION_MODE_1:
+		/* Raw Capture is a special case. Capture data comes like HDR */
+		if (fmt->code == V4L2_MBUS_FMT_JPEG_1X8 ||
+			fmt->code == V4L2_MBUS_FMT_CUSTOM_M10MO_RAW) {
+			/* fill stream info */
+			stream_info->ch_id = M10MO_ZSL_JPEG_VIRTUAL_CHANNEL;
+			stream_info->isys_configs = 1;
+			stream_info->isys_info[0].input_format =
+				(u8)ATOMISP_INPUT_FORMAT_USER_DEF3;
+			stream_info->isys_info[0].width = 0;
+			stream_info->isys_info[0].height = 0;
+		} else if (fmt->code == V4L2_MBUS_FMT_CUSTOM_NV12 ||
+			   fmt->code == V4L2_MBUS_FMT_CUSTOM_NV21) {
+			stream_info->ch_id = M10MO_ZSL_NV12_VIRTUAL_CHANNEL;
+			stream_info->isys_configs = 2;
+			/* first stream */
+			stream_info->isys_info[0].input_format =
+				(u8)ATOMISP_INPUT_FORMAT_USER_DEF1;
+			stream_info->isys_info[0].width = (u16)fmt->width;
+			stream_info->isys_info[0].height = (u16)fmt->height;
+			/* Second stream */
+			stream_info->isys_info[1].input_format =
+				(u8)ATOMISP_INPUT_FORMAT_USER_DEF2;
+			stream_info->isys_info[1].width = (u16)fmt->width;
+			stream_info->isys_info[1].height = (u16)fmt->height / 2;
+		}
+		break;
+	}
+	return 0;
+}
+
+int __m10mo_set_mbus_fmt(struct v4l2_subdev *sd,
+			      struct v4l2_mbus_framefmt *fmt)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct atomisp_input_stream_info *stream_info =
+			(struct atomisp_input_stream_info *)fmt->reserved;
+	int mode = M10MO_GET_RESOLUTION_MODE(dev->fw_type);
+	int index;
+
+	mutex_lock(&dev->input_lock);
+
+	index = dev->fw_ops->try_mbus_fmt(sd, fmt, false);
+	if (index < 0) {
+		mutex_unlock(&dev->input_lock);
+		return -EINVAL;
+	}
+
+	dev->format.code = fmt->code;
+	dev->fmt_idx = index;
+	if (stream_info->stream == ATOMISP_INPUT_STREAM_CAPTURE) {
+		/* Save the index for selecting the capture resolution */
+		dev->capture_res_idx = dev->fmt_idx;
+	}
+
+	/*
+	 * In ZSL Capture cases, for capture an image the run mode is not
+	 * changed. So we need to maintain a separate cpature table index
+	 * to select the snapshot sizes.
+	 */
+	if (stream_info->stream == ATOMISP_INPUT_STREAM_CAPTURE &&
+	    (dev->run_mode == CI_MODE_PREVIEW ||
+	     dev->run_mode == CI_MODE_VIDEO ||
+	     dev->run_mode == CI_MODE_CONTINUOUS))
+		dev->capture_res_idx = dev->fmt_idx;
+
+	dev_dbg(&client->dev,
+		"%s index prev/cap: %d/%d width: %d, height: %d, code; 0x%x\n",
+		 __func__, dev->fmt_idx, dev->capture_res_idx, fmt->width,
+		 fmt->height, dev->format.code);
+
+	/* Make the fixed width and height for JPEG and RAW formats */
+	if (dev->format.code == V4L2_MBUS_FMT_JPEG_1X8) {
+		/* The m10mo can only run JPEG in 30fps or lower */
+		dev->fps = M10MO_NORMAL_FPS;
+		fmt->width = dev->mipi_params.jpeg_width;
+		fmt->height = dev->mipi_params.jpeg_height;
+	} else if (dev->format.code == V4L2_MBUS_FMT_CUSTOM_M10MO_RAW) {
+		fmt->width = dev->mipi_params.raw_width;
+		fmt->height = dev->mipi_params.raw_height;
+	}
+
+	/* Update the stream info. Atomisp uses this for configuring mipi */
+	__m10mo_update_stream_info(sd, fmt);
+
+	/*
+	 * Handle raw capture mode separately. Update the capture mode to RAW
+	 * capture now. So that the next streamon call will start RAW capture.
+	 */
+	if (mode == M10MO_RESOLUTION_MODE_1 &&
+	    dev->format.code == V4L2_MBUS_FMT_CUSTOM_M10MO_RAW) {
+		dev_dbg(&client->dev, "%s RAW capture mode\n", __func__);
+		dev->capture_mode = M10MO_CAPTURE_MODE_ZSL_RAW;
+		dev->capture_res_idx = dev->fmt_idx;
+		dev->fmt_idx = 0;
+	}
+
+	mutex_unlock(&dev->input_lock);
 	return 0;
 }
 
@@ -771,24 +1870,8 @@ static int m10mo_set_mbus_fmt(struct v4l2_subdev *sd,
 			      struct v4l2_mbus_framefmt *fmt)
 {
 	struct m10mo_device *dev = to_m10mo_sensor(sd);
-	int ret;
 
-	mutex_lock(&dev->input_lock);
-
-	ret = __m10mo_try_mbus_fmt(sd, fmt);
-	if (ret)
-		goto out;
-
-	/* This will be set during the next stream on call */
-	dev->fmt_idx = get_resolution_index(sd, fmt->width, fmt->height);
-	if (dev->fmt_idx == -1) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-out:
-	mutex_unlock(&dev->input_lock);
-	return ret;
+	return dev->fw_ops->set_mbus_fmt(sd, fmt);
 }
 
 static int m10mo_identify_fw_type(struct v4l2_subdev *sd)
@@ -799,32 +1882,154 @@ static int m10mo_identify_fw_type(struct v4l2_subdev *sd)
 	char buffer[M10MO_MAX_FW_ID_STRING];
 	int ret;
 
-	fw_ids = dev->pdata->fw_ids;
-	if (!fw_ids)
+	int m10mo_fw_address_cnt = m10mo_get_fw_address_count();
+	int i;
+
+	ret = dev->pdata->identify_fw();
+	if (ret != -1) {
+		dev->fw_type = ret;
 		return 0;
-
-	ret = m10mo_get_isp_fw_version_string(dev, buffer, sizeof(buffer));
-	if (ret)
-		return ret;
-
-	while(fw_ids->id_string) {
-		/*
-		 * Null char is skipped (strlen - 1) because the string in
-		 * platform data can be shorter than the string in the FW.
-		 * There can be some additional information
-		 * after the match.
-		 */
-		if (!strncmp(fw_ids->id_string, buffer,
-			     strlen(fw_ids->id_string) - 1))
-		{
-			dev_info(&client->dev, "FW id %s detected\n", buffer);
-			dev->fw_type = fw_ids->fw_type;
-			return 0;
-		}
-		fw_ids++;
 	}
+
+	for (i = 0; i < m10mo_fw_address_cnt; i++) {
+		fw_ids = dev->pdata->fw_ids;
+		if (!fw_ids)
+			return 0;
+
+		ret = m10mo_get_isp_fw_version_string(dev, buffer,
+				sizeof(buffer), i);
+		if (ret)
+			return ret;
+
+		while (fw_ids->id_string) {
+			if (!strncmp(fw_ids->id_string, buffer,
+				     strlen(fw_ids->id_string)))
+			{
+				dev_info(&client->dev, "FW id %s detected\n", buffer);
+				dev->fw_type = fw_ids->fw_type;
+				dev->fw_addr_id = i;
+				return 0;
+			}
+			fw_ids++;
+		}
+	}
+
 	dev_err(&client->dev, "FW id string table given but no match found");
 	return 0;
+}
+
+static void m10mo_mipi_initialization(struct v4l2_subdev *sd)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int id = M10MO_GET_MIPI_PACKET_SIZE_IDX(dev->fw_type);
+	u32 mipi_packet_size = dev->pdata->mipi_packet_size[id];
+
+	dev->mipi_params.jpeg_width = mipi_packet_size;
+	dev->mipi_params.jpeg_height = M10MO_MAX_YUV422_SIZE / mipi_packet_size;
+
+	dev->mipi_params.raw_width = mipi_packet_size;
+	dev->mipi_params.raw_height = M10MO_MAX_RAW_SIZE / mipi_packet_size;
+
+	dev_dbg(&client->dev,
+		"%s JPEG: W=%d H=%d, RAW: W=%d H=%d\n", __func__,
+		dev->mipi_params.jpeg_width, dev->mipi_params.jpeg_height,
+		dev->mipi_params.raw_width, dev->mipi_params.raw_height);
+}
+
+int m10mo_set_still_capture(struct v4l2_subdev *sd)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
+
+	dev_info(&client->dev, "%s mode: %d width: %d, height: %d, cmd: 0x%x\n",
+		__func__, dev->mode, dev->curr_res_table[dev->fmt_idx].width,
+		dev->curr_res_table[dev->fmt_idx].height,
+		dev->curr_res_table[dev->fmt_idx].command);
+
+	ret = m10mo_writeb(sd, CATEGORY_SYSTEM, SYSTEM_INT_ENABLE, 0x08);
+	if (ret)
+		goto out;
+
+	/* Set capture mode */
+	ret = m10mo_request_mode_change(sd, M10MO_SINGLE_CAPTURE_MODE);
+
+out:
+	return ret;
+}
+
+static int m10mo_set_run_mode(struct v4l2_subdev *sd)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int ret;
+
+	/*
+	 * Handle RAW capture mode separately irrespective of the run mode
+	 * being configured. Start the RAW capture right away.
+	 */
+	if (dev->capture_mode == M10MO_CAPTURE_MODE_ZSL_RAW) {
+		/*
+		 * As RAW capture is done from a command line tool, we are not
+		 * restarting the preview after the RAW capture. So it is ok
+		 * to reset the RAW capture mode here because the next RAW
+		 * capture has to start from the Set format onwards.
+		 */
+		dev->capture_mode = M10MO_CAPTURE_MODE_ZSL_NORMAL;
+		return m10mo_set_zsl_raw_capture(sd);
+	}
+
+	switch (dev->run_mode) {
+	case CI_MODE_STILL_CAPTURE:
+		ret = m10mo_set_still_capture(sd);
+		break;
+	default:
+		/* TODO: Revisit this logic on switching to panorama */
+		if (dev->curr_res_table[dev->fmt_idx].command == 0x43)
+			ret = m10mo_set_panorama_monitor(sd);
+		else
+			ret = m10mo_set_zsl_monitor(sd);
+	}
+	return ret;
+}
+
+int m10mo_streamoff(struct v4l2_subdev *sd)
+{
+	return __m10mo_param_mode_set(sd);
+}
+
+int m10mo_test_pattern(struct v4l2_subdev *sd, u8 val)
+{
+	return -EINVAL;
+}
+
+static const struct m10mo_fw_ops fw_ops = {
+	.set_run_mode           = m10mo_set_run_mode,
+	.set_burst_mode         = m10mo_set_burst_mode,
+	.stream_off             = m10mo_streamoff,
+	.single_capture_process = m10mo_single_capture_process,
+	.try_mbus_fmt           =  __m10mo_try_mbus_fmt,
+	.set_mbus_fmt           =  __m10mo_set_mbus_fmt,
+	.test_pattern           = m10mo_test_pattern,
+};
+
+void m10mo_handlers_init(struct v4l2_subdev *sd)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+
+	switch (dev->fw_type) {
+	case M10MO_FW_TYPE_1:
+		dev->fw_ops = &fw_type1_5_ops;
+		break;
+	case M10MO_FW_TYPE_2:
+		dev->fw_ops = &fw_type2_ops;
+		break;
+	case M10MO_FW_TYPE_5:
+		dev->fw_ops = &fw_type1_5_ops;
+		break;
+	default:
+		dev->fw_ops = &fw_ops;
+	}
 }
 
 static int m10mo_s_config(struct v4l2_subdev *sd, int irq)
@@ -833,13 +2038,14 @@ static int m10mo_s_config(struct v4l2_subdev *sd, int irq)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 	u16 result = M10MO_INVALID_CHECKSUM;
+	int id = 0;
 
 	mutex_lock(&dev->input_lock);
 
 	init_waitqueue_head(&dev->irq_waitq);
 
-	dev->fw_type = M10MO_FW_TYPE_0;
-	dev->ref_clock = dev->pdata->ref_clock_rate;
+	dev->fw_type = dev->pdata->def_fw_type;
+	dev->ref_clock = dev->pdata->ref_clock_rate[id];
 
 	if (dev->pdata->common.platform_init) {
 		ret = dev->pdata->common.platform_init(client);
@@ -860,8 +2066,7 @@ static int m10mo_s_config(struct v4l2_subdev *sd, int irq)
 	ret = __m10mo_s_power(sd, 1, true);
 	if (ret) {
 		dev_err(&client->dev, "power-up err.\n");
-		mutex_unlock(&dev->input_lock);
-		return ret;
+		goto free_irq;
 	}
 
 	if (dev->pdata->common.csi_cfg) {
@@ -886,104 +2091,57 @@ static int m10mo_s_config(struct v4l2_subdev *sd, int irq)
 	 */
 	m10mo_identify_fw_type(sd);
 
+	/*
+	 * Only after identify_fw_type the correct dev->fw_type
+	 * can be got, so here update the ref_clock
+	 */
+	id = M10MO_GET_CLOCK_RATE_MODE(dev->fw_type);
+	dev->ref_clock = dev->pdata->ref_clock_rate[id];
+
+	m10mo_mipi_initialization(sd);
+
+	/* Set proper function pointers based on FW_TYPE */
+	m10mo_handlers_init(sd);
+
 	ret = __m10mo_s_power(sd, 0, true);
-	mutex_unlock(&dev->input_lock);
 	if (ret) {
 		dev_err(&client->dev, "power-down err.\n");
-		return ret;
+		goto free_irq;
 	}
 
+	mutex_unlock(&dev->input_lock);
 	return 0;
 
 fail:
 	__m10mo_s_power(sd, 0, true);
+free_irq:
+	free_irq(client->irq, sd);
+
 	mutex_unlock(&dev->input_lock);
 	dev_err(&client->dev, "External ISP power-gating failed\n");
 	return ret;
 
 }
 
-static int m10mo_set_monitor_mode(struct v4l2_subdev *sd)
+static int m10mo_recovery(struct v4l2_subdev *sd)
 {
-	struct m10mo_device *dev = to_m10mo_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret;
+	int ret = 0;
 
-	dev_info(&client->dev," Width: %d, height: %d, command: 0x%x\n",
-		dev->curr_res_table[dev->fmt_idx].width,
-		dev->curr_res_table[dev->fmt_idx].height,
-		dev->curr_res_table[dev->fmt_idx].command);
+	/* still power off sensor in case power is cut off abnormally*/
+	ret = __m10mo_s_power(sd, 0, false);
+	if (ret) {
+		dev_err(&client->dev, "power-down err.\n");
+		return ret;
+	}
+	usleep_range(100, 200);
 
-	/*Change to Monitor Size (e,g. VGA) */
-	ret = m10mo_write(sd, 1, CATEGORY_PARAM, PARAM_MON_SIZE,
-			dev->curr_res_table[dev->fmt_idx].command);
-	if (ret)
-		goto out;
-
-	if (dev->fw_type == M10MO_FW_TYPE_0) {
-		/* TODO: FPS setting must be changed */
-		ret = m10mo_write(sd, 1, CATEGORY_PARAM, PARAM_MON_FPS, 0x02);
-		if (ret)
-			goto out;
-
-		ret = m10mo_write(sd, 1, CATEGORY_PARAM, 0x67, 0x00);
-		if (ret)
-			goto out;
+	ret = __m10mo_s_power(sd, 1, false);
+	if (ret) {
+		dev_err(&client->dev, "power-up err.\n");
+		return ret;
 	}
 
-	/* Enable interrupt signal */
-	ret = m10mo_write(sd, 1, CATEGORY_SYSTEM, SYSTEM_INT_ENABLE, 0x01);
-	if (ret)
-		goto out;
-	/* Go to Monitor mode and output YUV Data */
-	ret = m10mo_request_mode_change(sd, M10MO_MONITOR_MODE);
-	if (ret)
-		goto out;
-
-	return 0;
-out:
-	dev_err(&client->dev, "Streaming failed %d\n", ret);
-	return ret;
-}
-
-static int m10mo_set_still_capture(struct v4l2_subdev *sd)
-{
-	struct m10mo_device *dev = to_m10mo_sensor(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret;
-
-	dev_info(&client->dev," Width: %d, height: %d, command: 0x%x\n",
-		dev->curr_res_table[dev->fmt_idx].width,
-		dev->curr_res_table[dev->fmt_idx].height,
-		dev->curr_res_table[dev->fmt_idx].command);
-
-	ret= m10mo_write(sd, 1, CATEGORY_SYSTEM, SYSTEM_INT_ENABLE, 0x08);
-	if (ret)
-		goto out;
-
-	/* Set capture mode */
-	ret = m10mo_request_mode_change(sd, M10MO_SINGLE_CAPTURE_MODE);
-
-out:
-	return ret;
-}
-
-static int __m10mo_set_run_mode(struct v4l2_subdev *sd)
-{
-	struct m10mo_device *dev = to_m10mo_sensor(sd);
-	int ret;
-
-	switch (dev->run_mode) {
-	case CI_MODE_VIDEO:
-		/* TODO: Differentiate the video mode */
-		ret = m10mo_set_monitor_mode(sd);
-		break;
-	case CI_MODE_STILL_CAPTURE:
-		ret = m10mo_set_still_capture(sd);
-		break;
-	default:
-		ret = m10mo_set_monitor_mode(sd);
-	}
 	return ret;
 }
 
@@ -992,11 +2150,29 @@ static int m10mo_s_stream(struct v4l2_subdev *sd, int enable)
 	struct m10mo_device *dev = to_m10mo_sensor(sd);
 	int ret = 0;
 
-	/* TODO: Handle Stream OFF case */
 	mutex_lock(&dev->input_lock);
-	if (enable)
-		ret = __m10mo_set_run_mode(sd);
+	if (enable) {
+		ret = dev->fw_ops->set_run_mode(sd);
+		if (ret) {
+			ret = m10mo_recovery(sd);
+			if (ret) {
+				mutex_unlock(&dev->input_lock);
+				return ret;
+			}
+			ret = dev->fw_ops->set_run_mode(sd);
+		}
+	} else {
+		ret = dev->fw_ops->stream_off(sd);
+	}
+
 	mutex_unlock(&dev->input_lock);
+
+	/*
+	 * Dump M10MO log when stream-off with checking folder
+	 */
+	if (!enable)
+		m10mo_dump_log(sd);
+
 	return ret;
 }
 
@@ -1021,10 +2197,12 @@ static int m10mo_enum_mbus_code(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_fh *fh,
 				  struct v4l2_subdev_mbus_code_enum *code)
 {
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+
 	if (code->index)
 		return -EINVAL;
 
-	code->code = V4L2_MBUS_FMT_UYVY8_1X16;
+	code->code = dev->format.code;
 	return 0;
 }
 
@@ -1129,11 +2307,263 @@ static int m10mo_set_metering(struct v4l2_subdev *sd, s32 val)
 	return m10mo_writeb(sd, CATEGORY_AE, AE_MODE, metering);
 }
 
+static const unsigned short wb_lut[][2] = {
+	{ V4L2_WHITE_BALANCE_INCANDESCENT,  REG_AWB_INCANDESCENT },
+	{ V4L2_WHITE_BALANCE_FLUORESCENT,   REG_AWB_FLUORESCENT_L },
+	{ V4L2_WHITE_BALANCE_FLUORESCENT_H, REG_AWB_FLUORESCENT_H },
+	{ V4L2_WHITE_BALANCE_HORIZON,       REG_AWB_HORIZON },
+	{ V4L2_WHITE_BALANCE_DAYLIGHT,      REG_AWB_DAYLIGHT },
+	{ V4L2_WHITE_BALANCE_FLASH,         REG_AWB_LEDLIGHT },
+	{ V4L2_WHITE_BALANCE_CLOUDY,        REG_AWB_CLOUDY },
+	{ V4L2_WHITE_BALANCE_SHADE,         REG_AWB_SHADE },
+	{ V4L2_WHITE_BALANCE_AUTO,          REG_AWB_AUTO },
+};
+
+static int m10mo_set_white_balance(struct v4l2_subdev *sd, s32 val)
+{
+	int i, ret;
+	int awb = REG_AWB_MANUAL;
+
+	for (i = 0; i < ARRAY_SIZE(wb_lut); i++) {
+		if (val == wb_lut[i][0])
+			break;
+	}
+
+	if (i == ARRAY_SIZE(wb_lut))
+		return -EINVAL;
+
+	if (wb_lut[i][0] == V4L2_WHITE_BALANCE_AUTO)
+		awb = REG_AWB_AUTO;
+
+	ret = m10mo_writeb(sd, CATEGORY_WB,
+			   AWB_MODE, awb);
+	if (ret < 0)
+		return ret;
+
+	if (awb == REG_AWB_MANUAL)
+		ret = m10mo_writeb(sd, CATEGORY_WB,
+				   AWB_PRESET, wb_lut[i][1]);
+	return ret;
+}
+
+static int m10mo_set_ev_bias(struct v4l2_subdev *sd, s32 val)
+{
+	/* 0x04 refers to 0.0EV value in m10mo HW */
+	/* val refers to EV units, where the */
+	/* value 1000 stands for +1EV */
+
+	int ev_bias = 0x04 + (val/M10MO_EV_STEP);
+	return m10mo_writeb(sd, CATEGORY_AE, AE_EV_BIAS, ev_bias);
+}
+
+static int m10mo_get_ev_bias(struct v4l2_subdev *sd, s32 *val)
+{
+	int ret;
+	u32 ev_bias;
+
+	ret = m10mo_readb(sd, CATEGORY_AE, AE_EV_BIAS, &ev_bias);
+	if (ret)
+		return ret;
+
+	*val = (ev_bias-4) * M10MO_EV_STEP;
+	return 0;
+}
+
+
+static const unsigned short iso_lut[][2] = {
+	{ 100,  REG_AE_ISOMODE_ISO100},
+	{ 200,  REG_AE_ISOMODE_ISO200},
+	{ 400,  REG_AE_ISOMODE_ISO400},
+	{ 800,  REG_AE_ISOMODE_ISO800},
+	{ 1600, REG_AE_ISOMODE_ISO1600},
+};
+
+static int m10mo_set_iso_sensitivity(struct v4l2_subdev *sd, s32 val)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int ret, i;
+
+	for (i = 0; i < ARRAY_SIZE(iso_lut); i++) {
+		if (val == iso_lut[i][0])
+			break;
+	}
+
+	if (i == ARRAY_SIZE(iso_lut))
+		return -EINVAL;
+
+	if (dev->iso_mode == V4L2_ISO_SENSITIVITY_MANUAL) {
+		ret = m10mo_writeb(sd, CATEGORY_AE,
+				   AE_ISOMODE, iso_lut[i][1]);
+		if (ret < 0)
+			return ret;
+	}
+	dev->iso_sensitivity = iso_lut[i][1];
+
+	return 0;
+}
+
+static int m10mo_set_iso_mode(struct v4l2_subdev *sd, s32 val)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int ret;
+
+	if (val == V4L2_ISO_SENSITIVITY_AUTO) {
+		ret = m10mo_writeb(sd, CATEGORY_AE,
+				   AE_ISOMODE, REG_AE_ISOMODE_AUTO);
+		if (ret < 0)
+			return ret;
+		dev->iso_mode = V4L2_ISO_SENSITIVITY_AUTO;
+	} else {
+		ret = m10mo_writeb(sd, CATEGORY_AE,
+				   AE_ISOMODE, dev->iso_sensitivity);
+		if (ret < 0)
+			return ret;
+		dev->iso_mode = V4L2_ISO_SENSITIVITY_MANUAL;
+	}
+
+	return 0;
+}
+
+static const unsigned short ce_lut[][2] = {
+	{ V4L2_COLORFX_NONE,     COLOR_EFFECT_NONE},
+	{ V4L2_COLORFX_NEGATIVE, COLOR_EFFECT_NEGATIVE},
+	{ V4L2_COLORFX_WARM,     COLOR_EFFECT_WARM},
+	{ V4L2_COLORFX_COLD,     COLOR_EFFECT_COLD},
+	{ V4L2_COLORFX_WASHED,   COLOR_EFFECT_WASHED},
+};
+
+static const unsigned short cbcr_lut[][3] = {
+	{ V4L2_COLORFX_SEPIA,   COLOR_CFIXB_SEPIA,   COLOR_CFIXR_SEPIA},
+	{ V4L2_COLORFX_BW,      COLOR_CFIXB_BW,      COLOR_CFIXR_BW},
+	{ V4L2_COLORFX_RED,     COLOR_CFIXB_RED,     COLOR_CFIXR_RED},
+	{ V4L2_COLORFX_GREEN,   COLOR_CFIXB_GREEN,   COLOR_CFIXR_GREEN},
+	{ V4L2_COLORFX_BLUE,    COLOR_CFIXB_BLUE,    COLOR_CFIXR_BLUE},
+	{ V4L2_COLORFX_PINK ,   COLOR_CFIXB_PINK,    COLOR_CFIXR_PINK},
+	{ V4L2_COLORFX_YELLOW,  COLOR_CFIXB_YELLOW,  COLOR_CFIXR_YELLOW},
+	{ V4L2_COLORFX_PURPLE,  COLOR_CFIXB_PURPLE,  COLOR_CFIXR_PURPLE},
+	{ V4L2_COLORFX_ANTIQUE, COLOR_CFIXB_ANTIQUE, COLOR_CFIXR_ANTIQUE},
+};
+
+static int m10mo_set_cb_cr(struct v4l2_subdev *sd, u8 cfixb, u8 cfixr)
+{
+	int ret;
+
+	ret = m10mo_writeb(sd, CATEGORY_MONITOR,
+			   MONITOR_CFIXB, cfixb);
+	if (ret)
+		return ret;
+
+	ret = m10mo_writeb(sd, CATEGORY_MONITOR,
+			   MONITOR_CFIXR, cfixr);
+	if (ret)
+		return ret;
+
+	ret = m10mo_writeb(sd, CATEGORY_MONITOR,
+			   MONITOR_COLOR_EFFECT, COLOR_EFFECT_ON);
+	return ret;
+}
+
+static int m10mo_set_color_effect(struct v4l2_subdev *sd, s32 val)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+
+	int i, ret;
+
+	switch (val) {
+	case V4L2_COLORFX_NONE:
+	case V4L2_COLORFX_NEGATIVE:
+	case V4L2_COLORFX_WARM:
+	case V4L2_COLORFX_COLD:
+	case V4L2_COLORFX_WASHED:
+		for (i = 0; i < ARRAY_SIZE(ce_lut); i++) {
+			if (val == ce_lut[i][0])
+				break;
+		}
+
+		if (i == ARRAY_SIZE(ce_lut))
+			return -EINVAL;
+
+		ret = m10mo_writeb(sd, CATEGORY_MONITOR,
+				   MONITOR_COLOR_EFFECT, ce_lut[i][1]);
+		break;
+	case V4L2_COLORFX_SEPIA:
+	case V4L2_COLORFX_BW:
+	case V4L2_COLORFX_ANTIQUE:
+	case V4L2_COLORFX_RED:
+	case V4L2_COLORFX_GREEN:
+	case V4L2_COLORFX_BLUE:
+	case V4L2_COLORFX_PINK:
+	case V4L2_COLORFX_YELLOW:
+	case V4L2_COLORFX_PURPLE:
+		for (i = 0; i < ARRAY_SIZE(cbcr_lut); i++) {
+			if (val == cbcr_lut[i][0])
+				break;
+		}
+
+		if (i == ARRAY_SIZE(cbcr_lut))
+			return -EINVAL;
+
+		ret = m10mo_set_cb_cr(sd, cbcr_lut[i][1], cbcr_lut[i][2]);
+		break;
+	case V4L2_COLORFX_SET_CBCR:
+		ret = m10mo_set_cb_cr(sd, dev->colorfx_cb, dev->colorfx_cr);
+		break;
+	default:
+		ret = -EINVAL;
+	};
+
+	return ret;
+}
+
+static int m10mo_set_color_effect_cbcr(struct v4l2_subdev *sd, s32 val)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	int ret;
+	u8 cr, cb;
+
+	cr = val & 0xff;
+	cb = (val >> 8) & 0xff;
+
+	if (dev->colorfx->cur.val == V4L2_COLORFX_SET_CBCR) {
+		ret = m10mo_set_cb_cr(sd, cb, cr);
+		if (ret)
+			return ret;
+	}
+
+	dev->colorfx_cr = cr;
+	dev->colorfx_cb = cb;
+
+	return 0;
+}
+
+static int m10mo_get_focal(struct v4l2_subdev *sd, s32 *val)
+{
+	*val = (M10MO_FOCAL_LENGTH_NUM << 16) | M10MO_FOCAL_LENGTH_DEM;
+	return 0;
+}
+
+static int m10mo_get_fnumber(struct v4l2_subdev *sd, s32 *val)
+{
+	*val = (M10MO_F_NUMBER_DEFAULT_NUM << 16) | M10MO_F_NUMBER_DEM;
+	return 0;
+}
+
+static int m10mo_get_fnumber_range(struct v4l2_subdev *sd, s32 *val)
+{
+	*val = (M10MO_F_NUMBER_DEFAULT_NUM << 24) |
+		(M10MO_F_NUMBER_DEM << 16) |
+		(M10MO_F_NUMBER_DEFAULT_NUM << 8) | M10MO_F_NUMBER_DEM;
+	return 0;
+}
+
 static int m10mo_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct m10mo_device *dev = container_of(
 		ctrl->handler, struct m10mo_device, ctrl_handler);
-	int ret;
+	int ret = 0;
+
+	if (!dev->power)
+		return 0;
 
 	switch (ctrl->id) {
 	case V4L2_CID_POWER_LINE_FREQUENCY:
@@ -1142,6 +2572,31 @@ static int m10mo_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_EXPOSURE_METERING:
 		ret = m10mo_set_metering(&dev->sd, ctrl->val);
 		break;
+	case V4L2_CID_START_ZSL_CAPTURE:
+		if (ctrl->val)
+			ret = m10mo_set_zsl_capture(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
+		ret = m10mo_set_white_balance(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_EXPOSURE:
+		ret = m10mo_set_ev_bias(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_ISO_SENSITIVITY:
+		ret = m10mo_set_iso_sensitivity(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_ISO_SENSITIVITY_AUTO:
+		ret = m10mo_set_iso_mode(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_COLORFX:
+		ret = m10mo_set_color_effect(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_COLORFX_CBCR:
+		ret = m10mo_set_color_effect_cbcr(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_TEST_PATTERN:
+		ret = dev->fw_ops->test_pattern(&dev->sd, ctrl->val);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1149,16 +2604,38 @@ static int m10mo_s_ctrl(struct v4l2_ctrl *ctrl)
 	return ret;
 }
 
+static const u32 m10mo_mipi_freq[] = {
+	M10MO_MIPI_FREQ_0,
+	M10MO_MIPI_FREQ_1,
+};
+
 static int m10mo_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 {
+	struct m10mo_device *dev = container_of(
+		ctrl->handler, struct m10mo_device, ctrl_handler);
+	int ret = 0;
+	int id = M10MO_GET_MIPI_FREQ_MODE(dev->fw_type);
+
 	switch (ctrl->id) {
 	case V4L2_CID_LINK_FREQ:
-		ctrl->val = M10MO_MIPI_FREQ;
+		ctrl->val = m10mo_mipi_freq[id];
+		break;
+	case V4L2_CID_EXPOSURE:
+		ret = m10mo_get_ev_bias(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_FOCAL_ABSOLUTE:
+		ret = m10mo_get_focal(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_FNUMBER_ABSOLUTE:
+		ret = m10mo_get_fnumber(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_FNUMBER_RANGE:
+		ret = m10mo_get_fnumber_range(&dev->sd, &ctrl->val);
 		break;
 	default:
 		return -EINVAL;
 	}
-	return 0;
+	return ret;
 }
 
 static struct v4l2_ctrl_ops m10mo_ctrl_ops = {
@@ -1171,13 +2648,11 @@ static int m10mo_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *param)
 {
 	struct m10mo_device *dev = to_m10mo_sensor(sd);
 	int index;
-	dev->run_mode = param->parm.capture.capturemode;
+	int mode = M10MO_GET_RESOLUTION_MODE(dev->fw_type);
 
 	mutex_lock(&dev->input_lock);
+	dev->run_mode = param->parm.capture.capturemode;
 	switch (dev->run_mode) {
-	case CI_MODE_VIDEO:
-		index = M10MO_MODE_VIDEO_INDEX;
-		break;
 	case CI_MODE_STILL_CAPTURE:
 		index = M10MO_MODE_CAPTURE_INDEX;
 		break;
@@ -1185,11 +2660,80 @@ static int m10mo_s_parm(struct v4l2_subdev *sd, struct v4l2_streamparm *param)
 		index = M10MO_MODE_PREVIEW_INDEX;
 		break;
 	}
-	dev->entries_curr_table = resolutions_sizes[dev->fw_type][index];
-	dev->curr_res_table = resolutions[dev->fw_type][index];
+	dev->entries_curr_table = resolutions_sizes[mode][index];
+	dev->curr_res_table = resolutions[mode][index];
 
 	mutex_unlock(&dev->input_lock);
 	return 0;
+}
+
+static long m10mo_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
+			void *arg)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct atomisp_ext_isp_ctrl *m10mo_ctrl
+		= (struct atomisp_ext_isp_ctrl *)arg;
+	int ret = 0;
+
+	dev_info(&client->dev, "m10mo ioctl id 0x%x data 0x%x\n",
+			m10mo_ctrl->id, m10mo_ctrl->data);
+
+	mutex_lock(&dev->input_lock);
+	switch(m10mo_ctrl->id)
+	{
+	case EXT_ISP_CID_ISO:
+		dev_info(&client->dev, "m10mo ioctl ISO\n");
+		break;
+	case EXT_ISP_CID_CAPTURE_HDR:
+		ret = m10mo_set_hdr_mode(sd, m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_CAPTURE_LLS:
+		ret = m10mo_set_lls_mode(sd, m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_FOCUS_MODE:
+		ret = m10mo_set_af_mode(sd, m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_FOCUS_EXECUTION:
+		ret = m10mo_set_af_execution(sd, m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_TOUCH_POSX:
+		ret = m10mo_set_af_position_x(sd, m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_TOUCH_POSY:
+		ret = m10mo_set_af_position_y(sd, m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_CAF_STATUS:
+		ret = m10mo_get_caf_status(sd, &m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_AF_STATUS:
+		ret = m10mo_get_af_status(sd, &m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_GET_AF_MODE:
+		ret = m10mo_get_af_mode(sd, &m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_CAPTURE_BURST:
+		ret = dev->fw_ops->set_burst_mode(sd, m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_FLASH_MODE:
+		ret = m10mo_set_flash_mode(sd, m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_ZOOM:
+		m10mo_ctrl->data = clamp_t(unsigned int, m10mo_ctrl->data,
+						ZOOM_POS_MIN, ZOOM_POS_MAX);
+		ret = m10mo_writeb(sd, CATEGORY_MONITOR, MONITOR_ZOOM,
+						m10mo_ctrl->data);
+		break;
+	case EXT_ISP_CID_SHOT_MODE:
+		ret = m10mo_set_shot_mode(sd, m10mo_ctrl->data);
+		break;
+	default:
+		ret = -EINVAL;
+		dev_err(&client->dev, "m10mo ioctl: Unsupported ID\n");
+	};
+
+	mutex_unlock(&dev->input_lock);
+	return ret;
 }
 
 static const struct v4l2_ctrl_config ctrls[] = {
@@ -1222,7 +2766,118 @@ static const struct v4l2_ctrl_config ctrls[] = {
 		.min = 0,
 		.max = 2,
 	},
-
+	{
+		.ops = &m10mo_ctrl_ops,
+		.id = V4L2_CID_START_ZSL_CAPTURE,
+		.name = "Start zsl capture",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.def = 1,
+		.max = 4,
+		.step = 1,
+	},
+	{
+		.ops = &m10mo_ctrl_ops,
+		.id = V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE,
+		.name = "White Balance, Auto & Preset",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = V4L2_WHITE_BALANCE_MANUAL,
+		.def = V4L2_WHITE_BALANCE_AUTO,
+		.max = V4L2_WHITE_BALANCE_SHADE,
+		.step = 1,
+	},
+	{
+		.ops = &m10mo_ctrl_ops,
+		.id = V4L2_CID_EXPOSURE,
+		.name = "Exposure Bias",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = M10MO_MIN_EV,
+		.def = 0,
+		.max = M10MO_MAX_EV,
+		.step = M10MO_EV_STEP
+	},
+	{
+		.id = V4L2_CID_ISO_SENSITIVITY,
+		.name = "Iso",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 100,
+		.def = 100,
+		.max = 1600,
+		.step = 100,
+	},
+	{
+		.ops = &m10mo_ctrl_ops,
+		.id = V4L2_CID_ISO_SENSITIVITY_AUTO,
+		.name = "Iso mode",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = V4L2_ISO_SENSITIVITY_MANUAL,
+		.def = V4L2_ISO_SENSITIVITY_AUTO,
+		.max = V4L2_ISO_SENSITIVITY_AUTO,
+		.step = 1,
+	},
+	{
+		.ops = &m10mo_ctrl_ops,
+		.id = V4L2_CID_COLORFX,
+		.name = "Image Color Effect",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = V4L2_COLORFX_NONE,
+		.def = V4L2_COLORFX_NONE,
+		.max = V4L2_COLORFX_PURPLE,
+		.step = 1,
+	},
+	{
+		.ops = &m10mo_ctrl_ops,
+		.id = V4L2_CID_COLORFX_CBCR,
+		.name = "Image Color Effect CbCr",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.def = 0,
+		.max = 0xffff,
+		.step = 1,
+	},
+	{
+		.ops = &m10mo_ctrl_ops,
+		.id = V4L2_CID_TEST_PATTERN,
+		.name = "Test Pattern (Color Bar)",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.def = 0,
+		.max = 1,
+		.step = 1
+	},
+	{
+		.ops = &m10mo_ctrl_ops,
+		.id = V4L2_CID_FOCAL_ABSOLUTE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "focal length",
+		.min = M10MO_FOCAL_LENGTH_DEFAULT,
+		.max = M10MO_FOCAL_LENGTH_DEFAULT,
+		.step = 1,
+		.def = M10MO_FOCAL_LENGTH_DEFAULT,
+		.flags = 0,
+	},
+	{
+		.ops = &m10mo_ctrl_ops,
+		.id = V4L2_CID_FNUMBER_ABSOLUTE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "f-number",
+		.min = M10MO_F_NUMBER_DEFAULT,
+		.max = M10MO_F_NUMBER_DEFAULT,
+		.step = 1,
+		.def = M10MO_F_NUMBER_DEFAULT,
+		.flags = 0,
+	},
+	{
+		.ops = &m10mo_ctrl_ops,
+		.id = V4L2_CID_FNUMBER_RANGE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "f-number range",
+		.min = M10MO_F_NUMBER_RANGE,
+		.max =  M10MO_F_NUMBER_RANGE,
+		.step = 1,
+		.def = M10MO_F_NUMBER_RANGE,
+		.flags = 0,
+	},
 };
 
 static int __m10mo_init_ctrl_handler(struct m10mo_device *dev)
@@ -1250,7 +2905,53 @@ static int __m10mo_init_ctrl_handler(struct m10mo_device *dev)
 	v4l2_ctrl_handler_setup(hdl);
 
 	dev->link_freq = v4l2_ctrl_find(&dev->ctrl_handler, V4L2_CID_LINK_FREQ);
+	if (NULL == dev->link_freq)
+		return -ENODEV;
 	v4l2_ctrl_s_ctrl(dev->link_freq, V4L2_CID_LINK_FREQ);
+
+	dev->zsl_capture = v4l2_ctrl_find(&dev->ctrl_handler,
+					V4L2_CID_START_ZSL_CAPTURE);
+	if (NULL == dev->zsl_capture)
+		return -ENODEV;
+	v4l2_ctrl_s_ctrl(dev->zsl_capture, V4L2_CID_START_ZSL_CAPTURE);
+
+	dev->colorfx = v4l2_ctrl_find(&dev->ctrl_handler,
+				      V4L2_CID_COLORFX);
+	return 0;
+}
+
+static int m10mo_s_routing(struct v4l2_subdev *sd, u32 input, u32 output, u32 config)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct atomisp_camera_caps *caps =
+		dev->pdata->common.get_camera_caps();
+
+	/* Select operating sensor. */
+	if (caps->sensor_num > 1) {
+		return m10mo_write(sd, 1, CATEGORY_SYSTEM,
+			SYSTEM_MASTER_SENSOR, !output);
+	}
+
+	return 0;
+}
+
+static int m10mo_s_frame_interval(struct v4l2_subdev *sd,
+		struct v4l2_subdev_frame_interval *interval)
+{
+	struct m10mo_device *dev = to_m10mo_sensor(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int fps = 0;
+
+	mutex_lock(&dev->input_lock);
+	if (interval->interval.numerator != 0)
+		fps = interval->interval.denominator / interval->interval.numerator;
+	if (!fps) {
+		mutex_unlock(&dev->input_lock);
+		return -EINVAL;
+	}
+	dev->fps = fps;
+	dev_dbg(&client->dev, "%s: fps is %d\n", __func__, dev->fps);
+	mutex_unlock(&dev->input_lock);
 
 	return 0;
 }
@@ -1262,6 +2963,8 @@ static const struct v4l2_subdev_video_ops m10mo_video_ops = {
 	.s_stream = m10mo_s_stream,
 	.s_parm = m10mo_s_parm,
 	.enum_framesizes = m10mo_enum_framesizes,
+	.s_routing = m10mo_s_routing,
+	.s_frame_interval = m10mo_s_frame_interval,
 };
 
 static const struct v4l2_subdev_core_ops m10mo_core_ops = {
@@ -1269,6 +2972,7 @@ static const struct v4l2_subdev_core_ops m10mo_core_ops = {
 	.s_ctrl = v4l2_subdev_s_ctrl,
 	.s_power = m10mo_s_power,
 	.init	= m10mo_fw_start,
+	.ioctl  = m10mo_ioctl,
 };
 
 static const struct v4l2_subdev_pad_ops m10mo_pad_ops = {
@@ -1327,7 +3031,8 @@ static int read_fw_version(struct m10mo_device *dev, char *buf)
 		goto leave;
 	}
 	__m10mo_s_power(&dev->sd, 1, true);
-	ret = m10mo_get_isp_fw_version_string(dev, buf, M10MO_MAX_FW_ID_STRING);
+	ret = m10mo_get_isp_fw_version_string(dev, buf, M10MO_MAX_FW_ID_STRING,
+			dev->fw_addr_id);
 	__m10mo_s_power(&dev->sd, 0, true);
 leave:
 	mutex_unlock(&dev->input_lock);
@@ -1370,7 +3075,7 @@ leave:
 static ssize_t m10mo_flash_rom_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "flash\n");
+	return scnprintf(buf, PAGE_SIZE, "flash\n");
 }
 
 static ssize_t m10mo_flash_rom_store(struct device *dev,
@@ -1392,7 +3097,8 @@ static ssize_t m10mo_flash_spi_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	struct m10mo_device *m10mo_dev = dev_get_drvdata(dev);
-	return sprintf(buf, "%d\n", m10mo_get_spi_state(m10mo_dev));
+	return scnprintf(buf, PAGE_SIZE,
+			 "%d\n", m10mo_get_spi_state(m10mo_dev));
 }
 
 static ssize_t m10mo_flash_spi_store(struct device *dev,
@@ -1425,7 +3131,7 @@ static ssize_t m10mo_flash_checksum_show(struct device *dev,
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%04x\n", result);
+	return scnprintf(buf, PAGE_SIZE, "%04x\n", result);
 }
 static DEVICE_ATTR(isp_checksum, S_IRUGO, m10mo_flash_checksum_show, NULL);
 
@@ -1439,7 +3145,7 @@ static ssize_t m10mo_flash_version_show(struct device *dev,
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%s\n", buf);
+	return scnprintf(buf, PAGE_SIZE, "%s\n", buf);
 }
 static DEVICE_ATTR(isp_version, S_IRUGO, m10mo_flash_version_show, NULL);
 
@@ -1448,9 +3154,163 @@ static ssize_t m10mo_flash_dump_show(struct device *dev,
 {
 	struct m10mo_device *m10_dev = dev_get_drvdata(dev);
 	dump_fw(m10_dev);
-	return sprintf(buf, "done\n");
+	return scnprintf(buf, PAGE_SIZE, "done\n");
 }
 static DEVICE_ATTR(isp_fw_dump, S_IRUGO, m10mo_flash_dump_show, NULL);
+
+static int m10mo_ispd1(struct m10mo_device *dev)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+	struct v4l2_subdev *sd = &dev->sd;
+	int ret = 0;
+
+	mutex_lock(&dev->input_lock);
+
+	dev_info(&client->dev, "ispd1 start\n");
+	ret = m10mo_dump_string_log1(sd);
+	if (ret < 0)
+		dev_err(&client->dev, "isp log 1 error\n");
+
+	dev_info(&client->dev, "ispd1 finished\n");
+	mutex_unlock(&dev->input_lock);
+	return ret;
+}
+
+static int m10mo_ispd2(struct m10mo_device *dev)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+	struct v4l2_subdev *sd = &dev->sd;
+	int ret = 0;
+
+	mutex_lock(&dev->input_lock);
+
+	dev_info(&client->dev, "ispd2 start\n");
+
+	ret = m10mo_dump_string_log2_1(sd);
+	if (ret != 0)
+		dev_err(&client->dev, "m10mo_dump_string_log2_1 error\n");
+
+	dev_info(&client->dev, "log2_1 finished\n");
+
+	ret = m10mo_dump_string_log2_2(sd);
+	if (ret != 0)
+		dev_err(&client->dev, "m10mo_dump_string_log2_2 error\n");
+
+	dev_info(&client->dev, "ispd2_2 finish\n");
+
+	ret = m10mo_dump_string_log2_3(sd);
+	if (ret != 0)
+		dev_err(&client->dev, "m10mo_dump_string_log2_3 error\n");
+
+	dev_info(&client->dev, "ispd2_3 finish\n");
+
+	mutex_unlock(&dev->input_lock);
+	return ret;
+}
+
+static int m10mo_ispd3(struct m10mo_device *dev)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+	struct v4l2_subdev *sd = &dev->sd;
+	int ret = 0;
+
+	mutex_lock(&dev->input_lock);
+
+	/**ISP RESET**/
+	ret = dev->pdata->common.gpio_ctrl(sd, 0);
+
+	msleep(10);
+
+	/**ISP RESET**/
+	ret = dev->pdata->common.gpio_ctrl(sd, 1);
+
+	msleep(50);
+
+	dev_info(&client->dev, "ispd3 start\n");
+
+	ret = m10mo_dump_string_log2_1(sd);
+	if (ret != 0)
+		dev_err(&client->dev, "m10mo_dump_string_log2_1 error\n");
+
+	dev_info(&client->dev, "log2_1 finished\n");
+
+	ret = m10mo_dump_string_log2_2(sd);
+	if (ret != 0)
+		dev_err(&client->dev, "m10mo_dump_string_log2_2 error\n");
+
+	dev_info(&client->dev, "ispd2_2 finish\n");
+
+	ret = m10mo_dump_string_log2_3(sd);
+	if (ret != 0)
+		dev_err(&client->dev, "m10mo_dump_string_log2_3 error\n");
+
+	dev_info(&client->dev, "ispd2_3 finish\n");
+
+	dev_info(&client->dev, "ispd3 finished\n");
+
+	mutex_unlock(&dev->input_lock);
+	return ret;
+}
+
+static int m10mo_ispd4(struct m10mo_device *dev)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
+	struct v4l2_subdev *sd = &dev->sd;
+	int ret = 0;
+
+	mutex_lock(&dev->input_lock);
+
+	dev_info(&client->dev, "ispd4 start\n");
+	ret = m10mo_dump_string_log3(sd);
+	if (ret < 0)
+		dev_err(&client->dev, "isp log 4 error\n");
+
+	dev_info(&client->dev, "ispd4 finished\n");
+	mutex_unlock(&dev->input_lock);
+	return ret;
+}
+
+void m10mo_dump_log(struct v4l2_subdev *sd)
+{
+	struct m10mo_device *m10mo_dev = to_m10mo_sensor(sd);
+
+	/*
+	 * dbglvl: bit0 to dump m10mo_ispd1
+	 * dbglvl: bit1 to dump m10mo_ispd2
+	 * dbglvl: bit2 to dump m10mo_ispd4
+	 * Debug log 3 is most important, so dump first
+	 */
+	if (dbglvl & 4)
+		m10mo_ispd4(m10mo_dev);
+
+	if (dbglvl & 2)
+		m10mo_ispd2(m10mo_dev);
+
+	if (dbglvl & 1)
+		m10mo_ispd1(m10mo_dev);
+}
+
+static ssize_t m10mo_isp_log_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t len)
+{
+	struct m10mo_device *m10mo_dev = dev_get_drvdata(dev);
+
+	if (!strncmp(buf, "1", 1))
+		m10mo_ispd1(m10mo_dev);
+	else if (!strncmp(buf, "4", 1))
+		m10mo_ispd4(m10mo_dev);
+	else if (!strncmp(buf, "2", 1))
+		m10mo_ispd2(m10mo_dev);
+	else if (!strncmp(buf, "3", 1))
+		m10mo_ispd3(m10mo_dev);
+	else
+		m10mo_ispd4(m10mo_dev);
+
+	return len;
+}
+
+static DEVICE_ATTR(isp_log, S_IRUGO | S_IWUSR, NULL, m10mo_isp_log_store);
 
 static struct attribute *sysfs_attrs_ctrl[] = {
 	&dev_attr_isp_flashfw.attr,
@@ -1458,6 +3318,7 @@ static struct attribute *sysfs_attrs_ctrl[] = {
 	&dev_attr_isp_fw_dump.attr,
 	&dev_attr_isp_spi.attr,
 	&dev_attr_isp_version.attr,
+	&dev_attr_isp_log.attr,
 	NULL
 };
 
@@ -1516,6 +3377,10 @@ static int m10mo_probe(struct i2c_client *client,
 
 	dev->mode = M10MO_POWERED_OFF;
 	dev->requested_mode = M10MO_NO_MODE_REQUEST;
+	dev->iso_sensitivity =  REG_AE_ISOMODE_ISO100;
+	dev->iso_mode = V4L2_ISO_SENSITIVITY_AUTO;
+	dev->monitor_params.af_mode = AF_NORMAL;
+	dev->monitor_params.exe_mode = AF_STOP;
 
 	mutex_init(&dev->input_lock);
 
@@ -1552,6 +3417,7 @@ static int m10mo_probe(struct i2c_client *client,
 	dev->sd.entity.ops = &m10mo_entity_ops;
 	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
 	dev->format.code = V4L2_MBUS_FMT_UYVY8_1X16;
+	dev->shot_mode = SHOT_MODE_AUTO;
 
 	ret = media_entity_init(&dev->sd.entity, 1, &dev->pad, 0);
 	if (ret)

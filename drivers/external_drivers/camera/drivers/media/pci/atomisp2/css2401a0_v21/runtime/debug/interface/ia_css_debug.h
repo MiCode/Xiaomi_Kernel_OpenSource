@@ -151,6 +151,13 @@ ia_css_debug_dtrace(unsigned int level, const char *fmt, ...)
 }
 #endif
 
+/*! \brief Dump sp thread's stack contents
+ * SP thread's stack contents are set to 0xcafecafe. This function dumps the
+ * stack to inspect if the stack's boundaries are compromised.
+ * \return	None
+ */
+void ia_css_debug_dump_sp_stack_info(void);
+
 /*! \brief Function to set the global dtrace verbosity level.
  * \param[in]	trace_level	Maximum level of the messages to be traced.
  * \return	None
@@ -227,17 +234,23 @@ void ia_css_debug_dump_dma_isp_fifo_state(void);
  */
 void ia_css_debug_dump_dma_sp_fifo_state(void);
 
-/*! \brief Dump pif isp fifo state
+/*! \brief Dump pif A isp fifo state
  * Dumps the primary input formatter state to tracing output.
  * \return	None
  */
-void ia_css_debug_dump_pif_isp_fifo_state(void);
+void ia_css_debug_dump_pif_a_isp_fifo_state(void);
+
+/*! \brief Dump pif B isp fifo state
+ * Dumps the primary input formatter state to tracing output.
+ * \return	None
+ */
+void ia_css_debug_dump_pif_b_isp_fifo_state(void);
 
 /*! \brief Dump stream-to-memory sp fifo state
  * Dumps the stream-to-memory block state to tracing output.
  * \return	None
  */
-extern void ia_css_debug_dump_str2mem_sp_fifo_state(void);
+void ia_css_debug_dump_str2mem_sp_fifo_state(void);
 
 /*! \brief Dump isp sp fifo state
  * Dumps the isp sp fifo state to tracing output.

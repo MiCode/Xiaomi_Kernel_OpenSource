@@ -52,16 +52,17 @@
 #define SP_CTRL_SINK_REG		0x0A
 
 /* SP Register bits */
-#define SP_RST_BIT				0x00
+#define SP_RST_BIT			0x00
 #define SP_START_BIT			0x01
 #define SP_BREAK_BIT			0x02
-#define SP_RUN_BIT				0x03
+#define SP_RUN_BIT			0x03
 #define SP_BROKEN_BIT			0x04
-#define SP_IDLE_BIT				0x05     /* READY */
+#define SP_IDLE_BIT			0x05     /* READY */
+#define SP_SLEEPING_BIT			0x06
 #define SP_STALLING_BIT			0x07
 #define SP_IRQ_CLEAR_BIT		0x08
 #define SP_IRQ_READY_BIT		0x0A
-#define SP_SLEEPING_BIT			0x0B     /* SLEEPING_IRQ_MASK */
+#define SP_IRQ_SLEEPING_BIT		0x0B
 
 #define SP_ICACHE_INV_BIT		0x0C
 #define SP_IPREFETCH_EN_BIT		0x0D

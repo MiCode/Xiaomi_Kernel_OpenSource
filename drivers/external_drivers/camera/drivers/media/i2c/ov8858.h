@@ -29,7 +29,7 @@
 /*
  * This should be added into include/linux/videodev2.h
  * NOTE: This is most likely not used anywhere.
- * */
+ */
 #define V4L2_IDENT_OV8858	V4L2_IDENT_UNKNOWN
 
 /*
@@ -38,9 +38,24 @@
 #define OV8858_ID_DEFAULT	0
 #define OV8858_SUNNY		1
 
+#define OV8858_OTP_START_ADDR	0x7010
+#define OV8858_OTP_END_ADDR	0x7186
+
 /*
  * ov8858 System control registers
  */
+
+#define OV8858_OTP_LOAD_CTRL		0x3D81
+#define OV8858_OTP_MODE_CTRL		0x3D84
+#define OV8858_OTP_START_ADDR_REG	0x3D88
+#define OV8858_OTP_END_ADDR_REG		0x3D8A
+#define OV8858_OTP_ISP_CTRL2		0x5002
+
+#define OV8858_OTP_MODE_MANUAL		BIT(6)
+#define OV8858_OTP_MODE_PROGRAM_DISABLE	BIT(7)
+#define OV8858_OTP_LOAD_ENABLE		BIT(0)
+#define OV8858_OTP_DPC_ENABLE		BIT(3)
+
 #define OV8858_PLL1_PREDIV0		0x030A
 #define OV8858_PLL1_PREDIV		0x0300
 #define OV8858_PLL1_MULTIPLIER		0x0301
@@ -102,12 +117,15 @@
 #define OV8858_CHIP_ID				0x8858
 
 #define OV8858_LONG_EXPO			0x3500
-#define OV8858_AGC_ADJ				0x3508 /* OV Long Gain? */
+#define OV8858_LONG_GAIN			0x3508
+#define OV8858_LONG_DIGI_GAIN			0x350A
+#define OV8858_SHORT_GAIN			0x350C
+#define OV8858_SHORT_DIGI_GAIN			0x350E
 
-#define OV8858_MWB_RED_GAIN_H			0x5032 /* ToDo: Fixed? */
-#define OV8858_MWB_GREEN_GAIN_H			0x5034 /* ToDo: Fixed? */
-#define OV8858_MWB_BLUE_GAIN_H			0x5036 /* ToDo: Fixed? */
-#define OV8858_MWB_GAIN_MAX			0x0FFF /* ToDo: Fixed? */
+#define OV8858_MWB_RED_GAIN_H			0x5032
+#define OV8858_MWB_GREEN_GAIN_H			0x5034
+#define OV8858_MWB_BLUE_GAIN_H			0x5036
+#define OV8858_MWB_GAIN_MAX			0x0FFF
 
 #define OV8858_CHIP_ID_HIGH			0x300B
 #define OV8858_CHIP_ID_LOW			0x300C
@@ -128,10 +146,10 @@
 #define OV8858_BIN_FACTOR_MAX			2
 #define OV8858_INTEGRATION_TIME_MARGIN		14
 
-#define OV8858_MAX_VTS_VALUE			0x7FFF /* ToDo: ?? */
+#define OV8858_MAX_VTS_VALUE			0xFFFF
 #define OV8858_MAX_EXPOSURE_VALUE \
 		(OV8858_MAX_VTS_VALUE - OV8858_INTEGRATION_TIME_MARGIN)
-#define OV8858_MAX_GAIN_VALUE			0xFF   /* ToDo: ?? */
+#define OV8858_MAX_GAIN_VALUE			0x07FF
 
 #define OV8858_MAX_FOCUS_POS			1023
 
@@ -231,6 +249,8 @@ struct ov8858_device {
 	u16 pixels_per_line;
 	u16 lines_per_frame;
 	u8 fps;
+	u8 *otp_data;
+
 	const struct ov8858_reg *regs;
 	struct ov8858_vcm *vcm_driver;
 	const struct ov8858_resolution *curr_res_table;
@@ -314,32 +334,85 @@ static struct ov8858_vcm ov8858_vcms[] = {
 #define OV8858_RES_WIDTH_MAX	3280
 #define OV8858_RES_HEIGHT_MAX	2464
 
-static const struct ov8858_reg ov8858_module_detection[] = {
-	{OV8858_8BIT, OV8858_STREAM_MODE, 0x01}, /* Stream on */
-	{OV8858_8BIT, 0x3d84, 0xc0}, /* Select Bank 0 */
-	{OV8858_8BIT, 0x3d81, 0x01}, /* OTP read enable */
-	{OV8858_TOK_TERM, 0, 0}
-};
-
 static const struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT, 0x0103, 0x01}, /* software_reset */
 	{OV8858_8BIT, 0x0100, 0x00}, /* software_standby */
 	/* PLL settings */
-	{OV8858_8BIT, 0x0300, 0x02}, /* pll1_pre_div = /2 */
-	{OV8858_8BIT, 0x0302, 0x50}, /* pll1_multiplier = 80 */
+	{OV8858_8BIT, 0x0300, 0x05}, /* pll1_pre_div = /4 */
+	{OV8858_8BIT, 0x0302, 0xAF}, /* pll1_multiplier = 175 */
 	{OV8858_8BIT, 0x0303, 0x00}, /* pll1_divm = /(1 + 0) */
 	{OV8858_8BIT, 0x0304, 0x03}, /* pll1_div_mipi = /8 */
 	{OV8858_8BIT, 0x030B, 0x02}, /* pll2_pre_div = /2 */
-	{OV8858_8BIT, 0x030D, 0x4B}, /* pll2_r_divp = 75 */
+	{OV8858_8BIT, 0x030D, 0x4E}, /* pll2_r_divp = 78 */
 	{OV8858_8BIT, 0x030E, 0x00}, /* pll2_r_divs = /1 */
 	{OV8858_8BIT, 0x030F, 0x04}, /* pll2_r_divsp = /(1 + 4) */
 	/* pll2_pre_div0 = /1, pll2_r_divdac = /(1 + 1) */
 	{OV8858_8BIT, 0x0312, 0x01},
 	{OV8858_8BIT, 0x031E, 0x0C}, /* pll1_no_lat = 1, mipi_bitsel_man = 0 */
 
-	{OV8858_8BIT, 0x300D, 0x00}, /* PAD SEL2, VSYNC out value = 0 */
-	{OV8858_8BIT, 0x3002, 0x80}, /* PAD OEN2, VSYNC out enable */
-	{OV8858_8BIT, 0x3010, 0x00}, /* PAD OUT2, VSYNC out select = 0 */
+	/* PAD OEN2, VSYNC out enable=0x80, disable=0x00 */
+	{OV8858_8BIT, 0x3002, 0x80},
+	/* PAD OUT2, VSYNC pulse direction low-to-high = 1 */
+	{OV8858_8BIT, 0x3007, 0x01},
+	/* PAD SEL2, VSYNC out value = 0 */
+	{OV8858_8BIT, 0x300D, 0x00},
+	/* PAD OUT2, VSYNC out select = 0 */
+	{OV8858_8BIT, 0x3010, 0x00},
+
+	/* Npump clock div = /2, Ppump clock div = /4 */
+	{OV8858_8BIT, 0x3015, 0x01},
+	/*
+	 * mipi_lane_mode = 1+3, mipi_lvds_sel = 1 = MIPI enable,
+	 * r_phy_pd_mipi_man = 0, lane_dis_option = 0
+	 */
+	{OV8858_8BIT, 0x3018, 0x72},
+	/* Clock switch output = normal, pclk_div = /1 */
+	{OV8858_8BIT, 0x3020, 0x93},
+	/*
+	 * lvds_mode_o = 0, clock lane disable when pd_mipi = 0,
+	 * pd_mipi enable when rst_sync = 1
+	 */
+	{OV8858_8BIT, 0x3022, 0x01},
+	{OV8858_8BIT, 0x3031, 0x0A}, /* mipi_bit_sel = 10 */
+	{OV8858_8BIT, 0x3034, 0x00}, /* Unknown */
+	/* sclk_div = /1, sclk_pre_div = /1, chip debug = 1 */
+	{OV8858_8BIT, 0x3106, 0x01},
+
+	{OV8858_8BIT, 0x3305, 0xF1}, /* Unknown */
+	{OV8858_8BIT, 0x3307, 0x04}, /* Unknown */
+	{OV8858_8BIT, 0x3308, 0x00}, /* Unknown */
+	{OV8858_8BIT, 0x3309, 0x28}, /* Unknown */
+	{OV8858_8BIT, 0x330A, 0x00}, /* Unknown */
+	{OV8858_8BIT, 0x330B, 0x20}, /* Unknown */
+	{OV8858_8BIT, 0x330C, 0x00}, /* Unknown */
+	{OV8858_8BIT, 0x330D, 0x00}, /* Unknown */
+	{OV8858_8BIT, 0x330E, 0x00}, /* Unknown */
+	{OV8858_8BIT, 0x330F, 0x40}, /* Unknown */
+
+	{OV8858_8BIT, 0x3500, 0x00}, /* long exposure = 0x9A20 */
+	{OV8858_8BIT, 0x3501, 0x9A}, /* long exposure = 0x9A20 */
+	{OV8858_8BIT, 0x3502, 0x20}, /* long exposure = 0x9A20 */
+	/*
+	 * Digital fraction gain delay option = Delay 1 frame,
+	 * Gain change delay option = Delay 1 frame,
+	 * Gain delay option = Delay 1 frame,
+	 * Gain manual as sensor gain = Input gain as real gain format,
+	 * Exposure delay option (must be 0 = Delay 1 frame,
+	 * Exposure change delay option (must be 0) = Delay 1 frame
+	 */
+	{OV8858_8BIT, 0x3503, 0x00},
+	{OV8858_8BIT, 0x3505, 0x80}, /* gain conversation option */
+	/*
+	 * [10:7] are integer gain, [6:0] are fraction gain. For example:
+	 * 0x80 is 1x gain, 0x100 is 2x gain, 0x1C0 is 3.5x gain
+	 */
+	{OV8858_8BIT, 0x3508, 0x02}, /* long gain = 0x0200 */
+	{OV8858_8BIT, 0x3509, 0x00}, /* long gain = 0x0200 */
+	{OV8858_8BIT, 0x350C, 0x00}, /* short gain = 0x0080 */
+	{OV8858_8BIT, 0x350D, 0x80}, /* short gain = 0x0080 */
+	{OV8858_8BIT, 0x3510, 0x00}, /* short exposure = 0x000200 */
+	{OV8858_8BIT, 0x3511, 0x02}, /* short exposure = 0x000200 */
+	{OV8858_8BIT, 0x3512, 0x00}, /* short exposure = 0x000200 */
 
 	{OV8858_8BIT, 0x3600, 0x00}, /* Unknown */
 	{OV8858_8BIT, 0x3601, 0x00}, /* Unknown */
@@ -381,53 +454,6 @@ static const struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT, 0x3645, 0x13}, /* Unknown */
 	{OV8858_8BIT, 0x3646, 0x83}, /* Unknown */
 	{OV8858_8BIT, 0x364A, 0x07}, /* Unknown */
-
-	/* Npump clock div = /2, Ppump clock div = /4 */
-	{OV8858_8BIT, 0x3015, 0x01},
-	/* mipi_lane_mode = 1+3, mipi_lvds_sel = 1 = MIPI enable,
-	 * r_phy_pd_mipi_man = 0, lane_dis_option = 0 */
-	{OV8858_8BIT, 0x3018, 0x72},
-	/*Clock switch output = normal, pclk_div = /1 */
-	{OV8858_8BIT, 0x3020, 0x93},
-	/* lvds_mode_o = 0, clock lane disable when pd_mipi = 0,
-	 * pd_mipi enable when rst_sync = 1 */
-	{OV8858_8BIT, 0x3022, 0x01},
-	{OV8858_8BIT, 0x3031, 0x0A}, /* mipi_bit_sel = 10 */
-	{OV8858_8BIT, 0x3034, 0x00}, /* Unknown */
-	/* sclk_div = /1, sclk_pre_div = /1, chip debug = 1 */
-	{OV8858_8BIT, 0x3106, 0x01},
-
-	{OV8858_8BIT, 0x3305, 0xF1}, /* Unknown */
-	{OV8858_8BIT, 0x3307, 0x04}, /* Unknown */
-	{OV8858_8BIT, 0x3308, 0x28}, /* Unknown */
-	{OV8858_8BIT, 0x3309, 0x00}, /* Unknown */
-	{OV8858_8BIT, 0x330A, 0x20}, /* Unknown */
-	{OV8858_8BIT, 0x330B, 0x00}, /* Unknown */
-	{OV8858_8BIT, 0x330C, 0x00}, /* Unknown */
-	{OV8858_8BIT, 0x330D, 0x00}, /* Unknown */
-	{OV8858_8BIT, 0x330E, 0x40}, /* Unknown */
-	{OV8858_8BIT, 0x330F, 0x04}, /* Unknown */
-
-	{OV8858_8BIT, 0x3500, 0x00}, /* long exposure = 0x9A20 */
-	{OV8858_8BIT, 0x3501, 0x9A}, /* long exposure = 0x9A20 */
-	{OV8858_8BIT, 0x3502, 0x20}, /* long exposure = 0x9A20 */
-	/* Digital fraction gain delay option = Delay 1 frame,
-	 * Gain change delay option = Delay 1 frame,
-	 * Gain delay option = Delay 1 frame,
-	 * Gain manual as sensor gain = Input gain as real gain format,
-	 * Exposure delay option (must be 0 = Delay 1 frame,
-	 * Exposure change delay option (must be 0) = Delay 1 frame */
-	{OV8858_8BIT, 0x3503, 0x00},
-	{OV8858_8BIT, 0x3505, 0x80}, /* gain conversation option */
-	/* [10:7] are integer gain, [6:0] are fraction gain. For example:
-	 * 0x80 is 1x gain, 0x100 is 2x gain, 0x1C0 is 3.5x gain */
-	{OV8858_8BIT, 0x3508, 0x02}, /* long gain = 0x0200 */
-	{OV8858_8BIT, 0x3509, 0x00}, /* long gain = 0x0200 */
-	{OV8858_8BIT, 0x350C, 0x00}, /* short gain = 0x0080 */
-	{OV8858_8BIT, 0x350D, 0x80}, /* short gain = 0x0080 */
-	{OV8858_8BIT, 0x3510, 0x00}, /* short exposure = 0x000200 */
-	{OV8858_8BIT, 0x3511, 0x02}, /* short exposure = 0x000200 */
-	{OV8858_8BIT, 0x3512, 0x00}, /* short exposure = 0x000200 */
 
 	{OV8858_8BIT, 0x3700, 0x30}, /* Unknown */
 	{OV8858_8BIT, 0x3701, 0x18}, /* Unknown */
@@ -538,16 +564,16 @@ static const struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT, 0x380B, 0x90}, /* v_output_size low */
 	{OV8858_8BIT, 0x380C, 0x07}, /* horizontal timing size high */
 	{OV8858_8BIT, 0x380D, 0x94}, /* horizontal timing size low */
-	{OV8858_8BIT, 0x380E, 0x09}, /* vertical timing size high */
-	{OV8858_8BIT, 0x380F, 0xAA}, /* vertical timing size low */
+	{OV8858_8BIT, 0x380E, 0x0A}, /* vertical timing size high */
+	{OV8858_8BIT, 0x380F, 0x0D}, /* vertical timing size low */
 	{OV8858_8BIT, 0x3810, 0x00}, /* h_win offset high */
 	{OV8858_8BIT, 0x3811, 0x04}, /* h_win offset low */
 	{OV8858_8BIT, 0x3812, 0x00}, /* v_win offset high */
 	{OV8858_8BIT, 0x3813, 0x02}, /* v_win offset low */
 	{OV8858_8BIT, 0x3814, 0x01}, /* h_odd_inc */
 	{OV8858_8BIT, 0x3815, 0x01}, /* h_even_inc */
-	{OV8858_8BIT, 0x3820, 0x00}, /* format1 */
-	{OV8858_8BIT, 0x3821, 0x46}, /* format2 */
+	{OV8858_8BIT, 0x3820, 0x46}, /* format1 */
+	{OV8858_8BIT, 0x3821, 0x00}, /* format2 */
 	{OV8858_8BIT, 0x382A, 0x01}, /* v_odd_inc */
 	{OV8858_8BIT, 0x382B, 0x01}, /* v_even_inc */
 
@@ -591,16 +617,18 @@ static const struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT, 0x4300, 0xFF}, /* clip_max[11:4] = 0xFFF */
 	{OV8858_8BIT, 0x4301, 0x00}, /* clip_min[11:4] = 0 */
 	{OV8858_8BIT, 0x4302, 0x0F}, /* clip_min/max[3:0] */
+	{OV8858_8BIT, 0x4307, 0x01}, /* Unknown */
 	{OV8858_8BIT, 0x4316, 0x00}, /* CTRL16 = default */
 	{OV8858_8BIT, 0x4503, 0x18}, /* Unknown */
 	{OV8858_8BIT, 0x4600, 0x01}, /* Unknown */
 	{OV8858_8BIT, 0x4601, 0x97}, /* Unknown */
 	/* wkup_dly = Mark1 wakeup delay/2^10 = 0x25 */
 	{OV8858_8BIT, 0x4808, 0x25},
+	{OV8858_8BIT, 0x4816, 0x52}, /* Embedded data type*/
 	{OV8858_8BIT, 0x481F, 0x32}, /* clk_prepare_min = 0x32 */
 	{OV8858_8BIT, 0x4825, 0x3A}, /* lpx_p_min = 0x3A */
 	{OV8858_8BIT, 0x4826, 0x40}, /* hs_prepare_min = 0x40 */
-	{OV8858_8BIT, 0x4837, 0x16}, /* pclk_period = 0x16 */
+	{OV8858_8BIT, 0x4837, 0x14}, /* pclk_period = 0x14 */
 	{OV8858_8BIT, 0x4850, 0x10}, /* LANE SEL01 */
 	{OV8858_8BIT, 0x4851, 0x32}, /* LANE SEL02 */
 
@@ -613,39 +641,48 @@ static const struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT, 0x4D04, 0xFF}, /* TPM_CTRL_REG */
 	{OV8858_8BIT, 0x4D05, 0xFF}, /* TPM_CTRL_REG */
 
-	/* Lens correction (LENC) function enable = 0
+	/*
+	 * Lens correction (LENC) function enable = 0
 	 * Slave sensor AWB Gain function enable = 1
 	 * Slave sensor AWB Statistics function enable = 1
 	 * Master sensor AWB Gain function enable = 1
 	 * Master sensor AWB Statistics function enable = 1
 	 * Black DPC function enable = 1
-	 * White DPC function enable =1 */
+	 * White DPC function enable =1
+	 */
 	{OV8858_8BIT, 0x5000, 0x7E},
 	{OV8858_8BIT, 0x5001, 0x01}, /* BLC function enable = 1 */
-	/* Horizontal scale function enable = 0
+	/*
+	 * Horizontal scale function enable = 0
 	 * WBMATCH bypass mode = Select slave sensor's gain
 	 * WBMATCH function enable = 0
 	 * Master MWB gain support RGBC = 0
 	 * OTP_DPC function enable = 1
 	 * Manual mode of VarioPixel function enable = 0
 	 * Manual enable of VarioPixel function enable = 0
-	 * Use VSYNC to latch ISP modules's function enable signals = 0 */
+	 * Use VSYNC to latch ISP modules's function enable signals = 0
+	 */
 	{OV8858_8BIT, 0x5002, 0x08},
-	/* Bypass all ISP modules after BLC module = 0
+	/*
+	 * Bypass all ISP modules after BLC module = 0
 	 * DPC_DBC buffer control enable = 1
 	 * WBMATCH VSYNC selection = Select master sensor's VSYNC fall
 	 * Select master AWB gain to embed line = AWB gain before manual mode
-	 * Enable BLC's input flip_i signal = 0 */
+	 * Enable BLC's input flip_i signal = 0
+	 */
 	{OV8858_8BIT, 0x5003, 0x20},
+	{OV8858_8BIT, 0x5041, 0x1D}, /* ISP CTRL41 - embedded data=on */
 	{OV8858_8BIT, 0x5046, 0x12}, /* ISP CTRL46 = default */
-	/* Tail enable = 1
+	/*
+	 * Tail enable = 1
 	 * Saturate cross cluster enable = 1
 	 * Remove cross cluster enable = 1
 	 * Enable to remove connected defect pixels in same channel = 1
 	 * Enable to remove connected defect pixels in different channel = 1
 	 * Smooth enable, use average G for recovery = 1
 	 * Black/white sensor mode enable = 0
-	 * Manual mode enable = 0 */
+	 * Manual mode enable = 0
+	 */
 	{OV8858_8BIT, 0x5780, 0xFC},
 	{OV8858_8BIT, 0x5784, 0x0C}, /* DPC CTRL04 */
 	{OV8858_8BIT, 0x5787, 0x40}, /* DPC CTRL07 */
@@ -657,6 +694,7 @@ static const struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT, 0x578F, 0x01}, /* DPC CTRL0F */
 	{OV8858_8BIT, 0x5790, 0x01}, /* DPC CTRL10 */
 	{OV8858_8BIT, 0x5901, 0x00}, /* VAP CTRL01 = default */
+	{OV8858_8BIT, 0x5A08, 0x00}, /* WINC CTRL08 = embedded data in 1st line*/
 	{OV8858_8BIT, 0x5B00, 0x02}, /* OTP CTRL00 */
 	{OV8858_8BIT, 0x5B01, 0x10}, /* OTP CTRL01 */
 	{OV8858_8BIT, 0x5B02, 0x03}, /* OTP CTRL02 */
@@ -665,13 +703,13 @@ static const struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT, 0x5E00, 0x00}, /* PRE CTRL00 = default */
 	{OV8858_8BIT, 0x5E01, 0x41}, /* PRE_CTRL01 = default */
 
-	{OV8858_8BIT, 0x0100, 0x01}, /* Streaming enable */
 	{OV8858_TOK_TERM, 0, 0}
 };
 
 /*****************************STILL********************************/
 
 static const struct ov8858_reg ov8858_8M[] = {
+	{OV8858_8BIT, 0x3778, 0x16}, /* Unknown */
 	{OV8858_8BIT, 0x3800, 0x00}, /* h_crop_start high */
 	{OV8858_8BIT, 0x3801, 0x0C}, /* h_crop_start low */
 	{OV8858_8BIT, 0x3802, 0x00}, /* v_crop_start high */
@@ -684,14 +722,24 @@ static const struct ov8858_reg ov8858_8M[] = {
 	{OV8858_8BIT, 0x3809, 0xD0}, /* h_output_size low */
 	{OV8858_8BIT, 0x380A, 0x09}, /* v_output_size high */
 	{OV8858_8BIT, 0x380B, 0xa0}, /* v_output_size low */
-	{OV8858_8BIT, 0x3810, 0x00}, /* h_win offset high */
-	{OV8858_8BIT, 0x3811, 0x04}, /* h_win offset low */
-	{OV8858_8BIT, 0x3812, 0x00}, /* v_win offset high */
-	{OV8858_8BIT, 0x3813, 0x02}, /* v_win offset low */
+	{OV8858_8BIT, 0x380C, 0x07}, /* horizontal timing size high */
+	{OV8858_8BIT, 0x380D, 0x94}, /* horizontal timing size low */
+	{OV8858_8BIT, 0x380E, 0x0A}, /* vertical timing size high */
+	{OV8858_8BIT, 0x380F, 0x0D}, /* vertical timing size low */
+	{OV8858_8BIT, 0x4022, 0x0B}, /* Anchor left end = 0x0BC3 */
+	{OV8858_8BIT, 0x4023, 0xC3}, /* Anchor left end = 0x0BC3 */
+	{OV8858_8BIT, 0x4024, 0x0C}, /* Anchor right start = 0x0C36 */
+	{OV8858_8BIT, 0x4025, 0x36}, /* Anchor right start = 0x0C36 */
+	{OV8858_8BIT, 0x4026, 0x0C}, /* Anchor right end = 0x0C37 */
+	{OV8858_8BIT, 0x4027, 0x37}, /* Anchor right end = 0x0C37 */
+	{OV8858_8BIT, 0x4600, 0x01}, /* Unknown */
+	{OV8858_8BIT, 0x4601, 0x97}, /* Unknown */
+	{OV8858_8BIT, 0x4837, 0x14}, /* pclk_period = 0x14 */
 	{OV8858_TOK_TERM, 0, 0}
 };
 
 static const struct ov8858_reg ov8858_6M[] = {
+	{OV8858_8BIT, 0x3778, 0x16}, /* Unknown */
 	{OV8858_8BIT, 0x3800, 0x00}, /* h_crop_start high */
 	{OV8858_8BIT, 0x3801, 0x0C}, /* h_crop_start low */
 	{OV8858_8BIT, 0x3802, 0x01}, /* v_crop_start high */
@@ -704,10 +752,49 @@ static const struct ov8858_reg ov8858_6M[] = {
 	{OV8858_8BIT, 0x3809, 0xD0}, /* h_output_size low */
 	{OV8858_8BIT, 0x380A, 0x07}, /* v_output_size high */
 	{OV8858_8BIT, 0x380B, 0x3C}, /* v_output_size low */
-	{OV8858_8BIT, 0x3810, 0x00}, /* h_win offset high */
-	{OV8858_8BIT, 0x3811, 0x04}, /* h_win offset low */
-	{OV8858_8BIT, 0x3812, 0x00}, /* v_win offset high */
-	{OV8858_8BIT, 0x3813, 0x02}, /* v_win offset low */
+	{OV8858_8BIT, 0x380C, 0x07}, /* horizontal timing size high */
+	{OV8858_8BIT, 0x380D, 0x94}, /* horizontal timing size low */
+	{OV8858_8BIT, 0x380E, 0x0A}, /* vertical timing size high */
+	{OV8858_8BIT, 0x380F, 0x0D}, /* vertical timing size low */
+	{OV8858_8BIT, 0x4022, 0x0B}, /* Anchor left end = 0x0BC3 */
+	{OV8858_8BIT, 0x4023, 0xC3}, /* Anchor left end = 0x0BC3 */
+	{OV8858_8BIT, 0x4024, 0x0C}, /* Anchor right start = 0x0C36 */
+	{OV8858_8BIT, 0x4025, 0x36}, /* Anchor right start = 0x0C36 */
+	{OV8858_8BIT, 0x4026, 0x0C}, /* Anchor right end = 0x0C37 */
+	{OV8858_8BIT, 0x4027, 0x37}, /* Anchor right end = 0x0C37 */
+	{OV8858_8BIT, 0x4600, 0x01}, /* Unknown */
+	{OV8858_8BIT, 0x4601, 0x97}, /* Unknown */
+	{OV8858_8BIT, 0x4837, 0x14}, /* pclk_period = 0x14 */
+	{OV8858_TOK_TERM, 0, 0}
+};
+
+static const struct ov8858_reg ov8858_1080P_60[] = {
+	{OV8858_8BIT, 0x3778, 0x17}, /* Unknown */
+	{OV8858_8BIT, 0x3800, 0x02}, /* h_crop_start high */
+	{OV8858_8BIT, 0x3801, 0x26}, /* h_crop_start low */
+	{OV8858_8BIT, 0x3802, 0x02}, /* v_crop_start high */
+	{OV8858_8BIT, 0x3803, 0x8C}, /* v_crop_start low */
+	{OV8858_8BIT, 0x3804, 0x0A}, /* h_crop_end high */
+	{OV8858_8BIT, 0x3805, 0x9D}, /* h_crop_end low */
+	{OV8858_8BIT, 0x3806, 0x07}, /* v_crop_end high */
+	{OV8858_8BIT, 0x3807, 0x0A}, /* v_crop_end low */
+	{OV8858_8BIT, 0x3808, 0x07}, /* h_output_size high*/
+	{OV8858_8BIT, 0x3809, 0x90}, /* h_output_size low */
+	{OV8858_8BIT, 0x380A, 0x04}, /* v_output_size high */
+	{OV8858_8BIT, 0x380B, 0x48}, /* v_output_size low */
+	{OV8858_8BIT, 0x380C, 0x08}, /* horizontal timing size high */
+	{OV8858_8BIT, 0x380D, 0x78}, /* horizontal timing size low */
+	{OV8858_8BIT, 0x380E, 0x04}, /* vertical timing size high */
+	{OV8858_8BIT, 0x380F, 0x7f}, /* vertical timing size low */
+	{OV8858_8BIT, 0x4022, 0x07}, /* Anchor left end = 0x072D */
+	{OV8858_8BIT, 0x4023, 0x2D}, /* Anchor left end = 0x072D */
+	{OV8858_8BIT, 0x4024, 0x07}, /* Anchor right start = 0x079E */
+	{OV8858_8BIT, 0x4025, 0x9E}, /* Anchor right start = 0x079E */
+	{OV8858_8BIT, 0x4026, 0x07}, /* Anchor right end = 0x079F */
+	{OV8858_8BIT, 0x4027, 0x9F}, /* Anchor right end = 0x079F */
+	{OV8858_8BIT, 0x4600, 0x00}, /* Unknown */
+	{OV8858_8BIT, 0x4601, 0xef}, /* Unknown */
+	{OV8858_8BIT, 0x4837, 0x16}, /* pclk_period = 0x16 */
 	{OV8858_TOK_TERM, 0, 0}
 };
 
@@ -724,8 +811,8 @@ static struct ov8858_resolution ov8858_res_preview[] = {
 		.fps_options = {
 			{
 				.fps = 30,
-				.pixels_per_line = 4696,
-				.lines_per_frame = 2867,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 2573,
 			},
 			{
 			}
@@ -743,8 +830,8 @@ static struct ov8858_resolution ov8858_res_preview[] = {
 		.fps_options = {
 			{
 				.fps = 30,
-				.pixels_per_line = 4464,
-				.lines_per_frame = 2867,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 2573,
 			},
 			{
 			}
@@ -765,8 +852,8 @@ static struct ov8858_resolution ov8858_res_still[] = {
 		 .fps_options =  {
 			{
 				.fps = 30,
-				.pixels_per_line = 4464,
-				.lines_per_frame = 2867,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 2573,
 			},
 			{
 			}
@@ -783,9 +870,10 @@ static struct ov8858_resolution ov8858_res_still[] = {
 		.skip_frames = 1,
 		.fps_options = {
 			{
-				.fps = 30,
-				.pixels_per_line = 4464,
-				.lines_per_frame = 2867,
+				/* Pixel clock: 149.76MHZ */
+				.fps = 10,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 3859,
 			},
 			{
 			}
@@ -794,6 +882,25 @@ static struct ov8858_resolution ov8858_res_still[] = {
 };
 
 static struct ov8858_resolution ov8858_res_video[] = {
+	{
+		.desc = "ov8858_1080P_60_VIDEO",
+		.width = 1936,
+		.height = 1096,
+		.used = 0,
+		.regs = ov8858_1080P_60,
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.skip_frames = 1,
+		.fps_options =  {
+			{
+				.fps = 60,
+				.pixels_per_line = 4366,
+				.lines_per_frame = 1151,
+			},
+			{
+			}
+		},
+	},
 	{
 		 .desc = "ov8858_6M_STILL",
 		 .width = 3280,
@@ -806,8 +913,8 @@ static struct ov8858_resolution ov8858_res_video[] = {
 		 .fps_options =  {
 			{
 				.fps = 30,
-				.pixels_per_line = 4464,
-				.lines_per_frame = 2867,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 2573,
 			},
 			{
 			}
@@ -825,8 +932,8 @@ static struct ov8858_resolution ov8858_res_video[] = {
 		.fps_options = {
 			{
 				.fps = 30,
-				.pixels_per_line = 4464,
-				.lines_per_frame = 2867,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 2573,
 			},
 			{
 			}

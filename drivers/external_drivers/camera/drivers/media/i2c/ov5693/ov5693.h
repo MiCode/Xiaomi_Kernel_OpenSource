@@ -35,8 +35,6 @@
 #include <linux/v4l2-mediabus.h>
 
 #include <linux/atomisp_platform.h>
-#include <linux/atomisp_gmin_platform.h>
-
 #include "ad5823.h"
 
 #define OV5693_NAME		"ov5693"
@@ -81,7 +79,7 @@
 #define OV5693_FINE_INTG_TIME_MIN 0
 #define OV5693_FINE_INTG_TIME_MAX_MARGIN 0
 #define OV5693_COARSE_INTG_TIME_MIN 1
-#define OV5693_COARSE_INTG_TIME_MAX_MARGIN (0xffff - 6)
+#define OV5693_COARSE_INTG_TIME_MAX_MARGIN 6
 #define OV5693_INTEGRATION_TIME_MARGIN	8
 
 #define OV5693_BIN_FACTOR_MAX	2
@@ -115,8 +113,6 @@
 
 #define OV5693_START_STREAMING			0x01
 #define OV5693_STOP_STREAMING			0x00
-
-void *ov5693_platform_data(void *info);
 
 struct ov5693_vcm {
 	int (*power_up)(struct v4l2_subdev *sd);
@@ -230,7 +226,6 @@ static struct ov5693_reg const ov5693_init_setting[] = {
 	{OV5693_8BIT, 0x3016, 0xf0},
 	{OV5693_8BIT, 0x3017, 0xf0},
 	{OV5693_8BIT, 0x3018, 0xf0},
-	{OV5693_8BIT, 0x3019, 0x10},
 	{OV5693_8BIT, 0x301b, 0xb4},
 	{OV5693_8BIT, 0x301d, 0x02},
 	{OV5693_8BIT, 0x3021, 0x00},
@@ -408,7 +403,7 @@ static struct ov5693_reg const ov5693_init_setting[] = {
 	{OV5693_8BIT, 0x4101, 0xb2},
 	{OV5693_8BIT, 0x4303, 0x00},
 	{OV5693_8BIT, 0x4304, 0x08},
-	{OV5693_8BIT, 0x4307, 0x31},
+	{OV5693_8BIT, 0x4307, 0x30},
 	{OV5693_8BIT, 0x4311, 0x04},
 	{OV5693_8BIT, 0x4315, 0x01},
 	{OV5693_8BIT, 0x4511, 0x05},
@@ -684,7 +679,7 @@ struct ov5693_resolution ov5693_res_preview[] = {
 		.width = 656,
 		.height = 496,
 		.fps = 30,
-		.pix_clk_freq = 81,
+		.pix_clk_freq = 160,
 		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
@@ -699,7 +694,7 @@ struct ov5693_resolution ov5693_res_preview[] = {
 		.width = 1940,
 		.height = 1096,
 		.fps = 30,
-		.pix_clk_freq = 81,
+		.pix_clk_freq = 160,
 		.used = 0,
 		.pixels_per_line = 3688,
 		.lines_per_frame = 2984,
@@ -714,7 +709,7 @@ struct ov5693_resolution ov5693_res_preview[] = {
 		.width = 2592,
 		.height = 1944,
 		.fps = 15,
-		.pix_clk_freq = 81,
+		.pix_clk_freq = 160,
 		.used = 0,
 		.pixels_per_line = 3688,
 		.lines_per_frame = 3968,
@@ -733,7 +728,7 @@ struct ov5693_resolution ov5693_res_still[] = {
 		.width = 656,
 		.height = 496,
 		.fps = 30,
-		.pix_clk_freq = 81,
+		.pix_clk_freq = 160,
 		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
@@ -748,7 +743,7 @@ struct ov5693_resolution ov5693_res_still[] = {
 		.width = 1940,
 		.height = 1096,
 		.fps = 30,
-		.pix_clk_freq = 81,
+		.pix_clk_freq = 160,
 		.used = 0,
 		.pixels_per_line = 3688,
 		.lines_per_frame = 2984,
@@ -763,7 +758,7 @@ struct ov5693_resolution ov5693_res_still[] = {
 		.width = 2592,
 		.height = 1944,
 		.fps = 15,
-		.pix_clk_freq = 81,
+		.pix_clk_freq = 160,
 		.used = 0,
 		.pixels_per_line = 3688,
 		.lines_per_frame = 3968,
@@ -782,7 +777,7 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 656,
 		.height = 496,
 		.fps = 30,
-		.pix_clk_freq = 81,
+		.pix_clk_freq = 160,
 		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
@@ -797,7 +792,7 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 736,
 		.height = 496,
 		.fps = 30,
-		.pix_clk_freq = 81,
+		.pix_clk_freq = 160,
 		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
@@ -812,7 +807,7 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 1296,
 		.height = 736,
 		.fps = 30,
-		.pix_clk_freq = 81,
+		.pix_clk_freq = 160,
 		.used = 0,
 		.pixels_per_line = 2688,
 		.lines_per_frame = 1984,
@@ -827,7 +822,7 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.width = 1940,
 		.height = 1096,
 		.fps = 30,
-		.pix_clk_freq = 81,
+		.pix_clk_freq = 160,
 		.used = 0,
 		.pixels_per_line = 3688,
 		.lines_per_frame = 2984,

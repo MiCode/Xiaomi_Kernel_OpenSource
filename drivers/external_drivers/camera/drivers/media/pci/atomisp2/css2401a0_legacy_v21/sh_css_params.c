@@ -90,7 +90,7 @@
 #include "anr/anr_2/ia_css_anr2.host.h"
 #include "bh/bh_2/ia_css_bh.host.h"
 #include "cnr/cnr_2/ia_css_cnr2.host.h"
-#include "ctc/ctc_2/ia_css_ctc2.host.h"
+#include "ctc/ctc1_5/ia_css_ctc1_5.host.h"
 #include "de/de_2/ia_css_de2.host.h"
 #include "gc/gc_2/ia_css_gc2.host.h"
 #include "sdis/sdis_2/ia_css_sdis2.host.h"

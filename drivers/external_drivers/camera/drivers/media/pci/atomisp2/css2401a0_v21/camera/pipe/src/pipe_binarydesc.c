@@ -533,7 +533,8 @@ void ia_css_pipe_get_yuvscaler_binarydesc(
 	pipe_binarydesc_get_offline(pipe,
 			       IA_CSS_BINARY_MODE_CAPTURE_PP,
 			       yuv_scaler_descr,
-			       NULL, in_info, out_infos, vf_info);
+			       NULL, in_info, out_infos,
+			       (vf_info->res.width == 0 && vf_info->res.height == 0) ? NULL : vf_info);
 
 	yuv_scaler_descr->enable_fractional_ds = true;
 	IA_CSS_LEAVE_PRIVATE("");

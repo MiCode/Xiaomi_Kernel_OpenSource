@@ -40,10 +40,7 @@
 
 #include "ov5693.h"
 
-/* Focus for the AD5823 should start in the middle of the field */
-#define INIT_FOCUS_POS 350
-
-static int vcm_i2c_wr8(struct i2c_client *client, u8 reg, u8 val)
+static int vcm_ad_i2c_wr8(struct i2c_client *client, u8 reg, u8 val)
 {
 	int err;
 	struct i2c_msg msg;
@@ -59,14 +56,14 @@ static int vcm_i2c_wr8(struct i2c_client *client, u8 reg, u8 val)
 
 	err = i2c_transfer(client->adapter, &msg, 1);
 	if (err != 1) {
-		dev_err(&client->dev, "%s: main camera vcm i2c fail, err code = %d\n",
+		dev_err(&client->dev, "%s: vcm i2c fail, err code = %d\n",
 			__func__, err);
 		return -EIO;
 	}
 	return 0;
 }
 
-static int vcm_i2c_wr16(struct i2c_client *client, u8 reg, u16 val)
+static int vcm_ad_i2c_wr16(struct i2c_client *client, u8 reg, u16 val)
 {
 	int err;
 	struct i2c_msg msg;
@@ -81,7 +78,7 @@ static int vcm_i2c_wr16(struct i2c_client *client, u8 reg, u16 val)
 
 	err = i2c_transfer(client->adapter, &msg, 1);
 	if (err != 1) {
-		dev_err(&client->dev, "%s: main camera vcm i2c fail, err code = %d\n",
+		dev_err(&client->dev, "%s: vcm i2c fail, err code = %d\n",
 			__func__, err);
 		return -EIO;
 	}
@@ -161,6 +158,64 @@ static int ov5693_i2c_write(struct i2c_client *client, u16 len, u8 *data)
 	ret = i2c_transfer(client->adapter, &msg, 1);
 
 	return ret == num_msg ? 0 : -EIO;
+}
+
+static int vcm_dw_i2c_write(struct i2c_client *client, u16 data)
+{
+	struct i2c_msg msg;
+	const int num_msg = 1;
+	int ret;
+	u16 val;
+
+	val = cpu_to_be16(data);
+	msg.addr = VCM_ADDR;
+	msg.flags = 0;
+	msg.len = OV5693_16BIT;
+	msg.buf = (u8 *)&val;
+
+	ret = i2c_transfer(client->adapter, &msg, 1);
+
+	return ret == num_msg ? 0 : -EIO;
+}
+
+/* Theory: per datasheet, the two VCMs both allow for a 2-byte read.
+ * The DW9714 doesn't actually specify what this does (it has a
+ * two-byte write-only protocol, but specifies the read sequence as
+ * legal), but it returns the same data (zeroes) always, after an
+ * undocumented initial NAK.  The AD5823 has a one-byte address
+ * register to which all writes go, and subsequent reads will cycle
+ * through the 8 bytes of registers.  Notably, the default values (the
+ * device is always power-cycled affirmatively, so we can rely on
+ * these) in AD5823 are not pairwise repetitions of the same 16 bit
+ * word.  So all we have to do is sequentially read two bytes at a
+ * time and see if we detect a difference in any of the first four
+ * pairs.  */
+static int vcm_detect(struct i2c_client *client)
+{
+	int i, ret;
+	struct i2c_msg msg;
+        u16 data0=0, data;
+	for(i=0; i<4; i++) {
+		msg.addr = VCM_ADDR;
+		msg.flags = I2C_M_RD;
+		msg.len = sizeof(data);
+		msg.buf = (u8*)&data;
+		ret = i2c_transfer(client->adapter, &msg, 1);
+
+		/* DW9714 always fails the first read and returns
+		 * zeroes for subsequent ones */
+		if (i == 0 && ret == -EREMOTEIO) {
+			data0 = 0;
+			continue;
+		}
+
+		if (i == 0)
+			data0 = data;
+
+		if (data != data0)
+			return VCM_AD5823;
+	}
+	return ret == 1 ? VCM_DW9714 : ret;
 }
 
 static int ov5693_write_reg(struct i2c_client *client, u16 data_length,
@@ -437,21 +492,10 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov5693_device *dev = to_ov5693_sensor(sd);
 	u16 vts,hts;
-	int ret,exp_val,max_itg;
+	int ret,exp_val;
 
 	hts = ov5693_res[dev->fmt_idx].pixels_per_line;
 	vts = ov5693_res[dev->fmt_idx].lines_per_frame;
-
-	max_itg = vts - OV5693_INTEGRATION_TIME_MARGIN;
-	if (coarse_itg > max_itg) {
-		if(dev->run_mode == CI_MODE_VIDEO) {
-			/* Don't reduce FPS in video mode */
-			coarse_itg = max_itg;
-		} else {
-			/* Increase the VTS to match exposure + MARGIN */
-			vts = (u16) coarse_itg + OV5693_INTEGRATION_TIME_MARGIN;
-		}
-	}
 
 	/* group hold */
 	ret = ov5693_write_reg(client, OV5693_8BIT,
@@ -461,6 +505,10 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 			__func__, OV5693_GROUP_ACCESS);
 		return ret;
 	}
+
+	/* Increase the VTS to match exposure + MARGIN */
+	if (coarse_itg > vts - OV5693_INTEGRATION_TIME_MARGIN)
+		vts = (u16) coarse_itg + OV5693_INTEGRATION_TIME_MARGIN;
 
 	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_TIMING_VTS_H, (vts >> 8) & 0xFF);
 	if (ret) {
@@ -589,179 +637,12 @@ static long ov5693_s_exposure(struct v4l2_subdev *sd,
 	return ov5693_set_exposure(sd, coarse_itg, analog_gain, digital_gain);
 }
 
-static int ov5693_read_otp_reg_array(struct i2c_client *client, u16 size,
-				     u16 addr, u8 * buf)
-{
-	u16 index;
-	int ret;
-	u16 *pVal = 0;
-
-	for (index = 0; index <= size; index++) {
-		pVal = (u16 *) (buf + index);
-		ret =
-			ov5693_read_reg(client, OV5693_8BIT, addr + index,
-				    pVal);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
-static int __ov5693_otp_read(struct v4l2_subdev *sd, u8 * buf)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ov5693_device *dev = to_ov5693_sensor(sd);
-	int ret;
-	int i;
-	u8 *b = buf;
-	dev->otp_size = 0;
-	for (i = 1; i < OV5693_OTP_BANK_MAX; i++) {
-		/*set bank NO and OTP read mode. */
-		ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_OTP_BANK_REG, (i | 0xc0));	//[7:6] 2'b11 [5:0] bank no
-		if (ret) {
-			dev_err(&client->dev, "failed to prepare OTP page\n");
-			return ret;
-		}
-		//pr_debug("write 0x%x->0x%x\n",OV5693_OTP_BANK_REG,(i|0xc0));
-
-		/*enable read */
-		ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_OTP_READ_REG, OV5693_OTP_MODE_READ);	// enable :1
-		if (ret) {
-			dev_err(&client->dev,
-				"failed to set OTP reading mode page");
-			return ret;
-		}
-		//pr_debug("write 0x%x->0x%x\n",OV5693_OTP_READ_REG,OV5693_OTP_MODE_READ);
-
-		/* Reading the OTP data array */
-		ret = ov5693_read_otp_reg_array(client, OV5693_OTP_BANK_SIZE,
-						OV5693_OTP_START_ADDR,
-						b);
-		if (ret) {
-			dev_err(&client->dev, "failed to read OTP data\n");
-			return ret;
-		}
-
-		//pr_debug("BANK[%2d] %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n", i, *b, *(b+1), *(b+2), *(b+3), *(b+4), *(b+5), *(b+6), *(b+7), *(b+8), *(b+9), *(b+10), *(b+11), *(b+12), *(b+13), *(b+14), *(b+15));
-
-		//Intel OTP map, try to read 320byts first.
-		if (21 == i) {
-			if ((*b) == 0) {
-				dev->otp_size = 320;
-				break;
-			} else {
-				b = buf;
-				continue;
-			}
-		} else if (24 == i) {		//if the first 320bytes data doesn't not exist, try to read the next 32bytes data.
-			if ((*b) == 0) {
-				dev->otp_size = 32;
-				break;
-		} else {
-				b = buf;
-				continue;
-			}
-		} else if (27 == i) {		//if the prvious 32bytes data doesn't exist, try to read the next 32bytes data again.
-			if ((*b) == 0) {
-				dev->otp_size = 32;
-				break;
-			} else {
-				dev->otp_size = 0;	// no OTP data.
-				break;
-			}
-		}
-
-		b = b + OV5693_OTP_BANK_SIZE;
-	}
-	return 0;
-}
-
-/*
- * Read otp data and store it into a kmalloced buffer.
- * The caller must kfree the buffer when no more needed.
- * @size: set to the size of the returned otp data.
- */
-static void *ov5693_otp_read(struct v4l2_subdev *sd)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	u8 *buf;
-	int ret;
-
-	buf = devm_kzalloc(&client->dev, (OV5693_OTP_DATA_SIZE + 16), GFP_KERNEL);
-	if (!buf)
-		return ERR_PTR(-ENOMEM);
-
-	//otp valid after mipi on and sw stream on
-	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_FRAME_OFF_NUM, 0x00);
-
-	ret = ov5693_write_reg(client, OV5693_8BIT,
-			       OV5693_SW_STREAM, OV5693_START_STREAMING);
-
-	ret = __ov5693_otp_read(sd, buf);
-
-	//mipi off and sw stream off after otp read
-	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_FRAME_OFF_NUM, 0x0f);
-
-	ret = ov5693_write_reg(client, OV5693_8BIT,
-			       OV5693_SW_STREAM, OV5693_STOP_STREAMING);
-
-	/* Driver has failed to find valid data */
-	if (ret) {
-		dev_err(&client->dev, "sensor found no valid OTP data\n");
-		return ERR_PTR(ret);
-	}
-
-	return buf;
-}
-
-static int ov5693_g_priv_int_data(struct v4l2_subdev *sd,
-				  struct v4l2_private_int_data *priv)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ov5693_device *dev = to_ov5693_sensor(sd);
-	u8 __user *to = priv->data;
-	u32 read_size = priv->size;
-	int ret;
-
-	/* No need to copy data if size is 0 */
-	if (!read_size)
-		goto out;
-
-	if (IS_ERR(dev->otp_data)) {
-		dev_err(&client->dev, "OTP data not available");
-		return PTR_ERR(dev->otp_data);
-	}
-
-	/* Correct read_size value only if bigger than maximum */
-	if (read_size > OV5693_OTP_DATA_SIZE)
-		read_size = OV5693_OTP_DATA_SIZE;
-
-	ret = copy_to_user(to, dev->otp_data, read_size);
-	if (ret) {
-		dev_err(&client->dev, "%s: failed to copy OTP data to user\n",
-			__func__);
-		return -EFAULT;
-	}
-
-	pr_debug("%s read_size:%d\n", __func__, read_size);
-
-out:
-	/* Return correct size */
-	priv->size = dev->otp_size;
-
-	return 0;
-
-}
-
 static long ov5693_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 
 	switch (cmd) {
 	case ATOMISP_IOC_S_EXPOSURE:
 		return ov5693_s_exposure(sd, arg);
-	case ATOMISP_IOC_G_SENSOR_PRIV_INT_DATA:
-		return ov5693_g_priv_int_data(sd, arg);
 	default:
 		return -EINVAL;
 	}
@@ -805,11 +686,28 @@ static int ov5693_t_focus_abs(struct v4l2_subdev *sd, s32 value)
 {
 	struct ov5693_device *dev = to_ov5693_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret;
+	int ret = 0;
 
 	dev_dbg(&client->dev, "%s: FOCUS_POS: %x\n", __func__, value);
 	value = clamp(value, 0, OV5693_VCM_MAX_FOCUS_POS);
-	ret = vcm_i2c_wr16(client, VCM_CODE_MSB, value);
+	if (dev->vcm == VCM_DW9714) {
+		if (dev->vcm_update) {
+			ret = vcm_dw_i2c_write(client, VCM_PROTECTION_OFF);
+			if (ret)
+				return ret;
+			ret = vcm_dw_i2c_write(client, DIRECT_VCM);
+			if (ret)
+				return ret;
+			ret = vcm_dw_i2c_write(client, VCM_PROTECTION_ON);
+			if (ret)
+				return ret;
+			dev->vcm_update = false;
+		}
+		ret = vcm_dw_i2c_write(client,
+				       vcm_val(value, VCM_DEFAULT_S));
+	} else if (dev->vcm == VCM_AD5823) {
+		ret = vcm_ad_i2c_wr16(client, VCM_CODE_MSB, value);
+	}
 	if (ret == 0) {
 		dev->number_of_steps = value - dev->focus;
 		dev->focus = value;
@@ -872,11 +770,17 @@ static int ov5693_q_focus_abs(struct v4l2_subdev *sd, s32 *value)
 
 static int ov5693_t_vcm_slew(struct v4l2_subdev *sd, s32 value)
 {
+	struct ov5693_device *dev = to_ov5693_sensor(sd);
+	dev->number_of_steps = value;
+	dev->vcm_update = true;
 	return 0;
 }
 
 static int ov5693_t_vcm_timing(struct v4l2_subdev *sd, s32 value)
 {
+	struct ov5693_device *dev = to_ov5693_sensor(sd);
+	dev->number_of_steps = value;
+	dev->vcm_update = true;
 	return 0;
 }
 
@@ -1099,18 +1003,21 @@ static int ov5693_init(struct v4l2_subdev *sd)
 
 	pr_info("%s\n", __func__);
 	mutex_lock(&dev->input_lock);
+	dev->vcm_update = false;
 
-	ret = vcm_i2c_wr8(client, 0x01, 0x01); // vcm init test
-	if (ret)
-		dev_err(&client->dev,
-			"vcm reset failed\n");
+	if (dev->vcm == VCM_AD5823) {
+		ret = vcm_ad_i2c_wr8(client, 0x01, 0x01); // vcm init test
+		if (ret)
+			dev_err(&client->dev,
+				"vcm reset failed\n");
+	}
 
 	/* restore settings */
 	ov5693_res = ov5693_res_preview;
 	N_RES = N_RES_PREVIEW;
 
 	dev->focus = 0;
-	ov5693_t_focus_abs(sd, INIT_FOCUS_POS);
+	ov5693_t_focus_abs(sd, 0);
 
 	mutex_unlock(&dev->input_lock);
 
@@ -1573,6 +1480,9 @@ static int ov5693_s_config(struct v4l2_subdev *sd,
 		goto fail_power_on;
 	}
 
+	if (!dev->vcm)
+		dev->vcm = vcm_detect(client);
+
 	ret = dev->platform_data->csi_cfg(sd, 1);
 	if (ret)
 		goto fail_csi_cfg;
@@ -1583,8 +1493,6 @@ static int ov5693_s_config(struct v4l2_subdev *sd,
 		dev_err(&client->dev, "ov5693_detect err s_config.\n");
 		goto fail_csi_cfg;
 	}
-
-	dev->otp_data = ov5693_otp_read(sd);
 
 	/* turn off sensor, after probed */
 	ret = power_down(sd);
