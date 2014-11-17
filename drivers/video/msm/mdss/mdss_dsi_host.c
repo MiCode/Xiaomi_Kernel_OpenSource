@@ -1954,6 +1954,7 @@ static int dsi_event_thread(void *data)
 	struct sched_param param;
 	u32 todo = 0, ln_status;
 	int ret;
+	u32 ctrl_rev;
 
 	param.sched_priority = 16;
 	ret = sched_setscheduler_nocheck(current, SCHED_FIFO, &param);
@@ -2001,9 +2002,11 @@ static int dsi_event_thread(void *data)
 			mdss_dsi_sw_reset(ctrl, true);
 
 		if (todo & DSI_EV_DLNx_FIFO_OVERFLOW) {
+			ctrl_rev = MIPI_INP(ctrl->ctrl_base);
 			mutex_lock(&dsi_mtx);
 			/*
-			 * Run the overflow recovery sequence only when
+			 * For targets other than msm8994,
+			 * run the overflow recovery sequence only when
 			 * data lanes are in stop state and
 			 * clock lane is not in Stop State.
 			 */
@@ -2011,11 +2014,22 @@ static int dsi_event_thread(void *data)
 			pr_debug("%s: lane_status: 0x%x\n",
 				       __func__, ln_status);
 			if (ctrl->recovery
+					&& (ctrl_rev != MDSS_DSI_HW_REV_103)
 					&& (ln_status
 						& DSI_DATA_LANES_STOP_STATE)
 					&& !(ln_status
 						& DSI_CLK_LANE_STOP_STATE)) {
 				pr_debug("%s: Handling overflow event.\n",
+								__func__);
+				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
+				mdss_dsi_ctl_phy_reset(ctrl);
+				mdss_dsi_err_intr_ctrl(ctrl,
+						DSI_INTR_ERROR_MASK, 1);
+				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
+			} else if (ctrl->recovery
+					&& (ctrl_rev
+					    == MDSS_DSI_HW_REV_103)) {
+				pr_debug("%s: Handle overflow->Rev_103\n",
 								__func__);
 				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
 				mdss_dsi_ctl_phy_reset(ctrl);
