@@ -2806,7 +2806,6 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
-		status = "disabled";
 		qcom,ce-opp-freq = <171430000>;
 	};
 
@@ -2834,7 +2833,6 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
-		status = "disabled";
 		qcom,ce-opp-freq = <171430000>;
 	};
 
@@ -2862,7 +2860,6 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
-		status = "disabled";
 		qcom,ce-opp-freq = <171430000>;
 	};
 
@@ -2890,7 +2887,6 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
-		status = "disabled";
 		qcom,ce-opp-freq = <171430000>;
 	};
 
@@ -2914,7 +2910,6 @@
 			 <&clock_rpm clk_gcc_ce2_ahb_m_clk>,
 			 <&clock_rpm clk_gcc_ce2_axi_m_clk>;
 		qcom,support-core-clk-only;
-		status = "disabled";
 		qcom,ce-opp-freq = <171430000>;
 	};
 
