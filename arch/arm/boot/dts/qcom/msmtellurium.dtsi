@@ -97,6 +97,7 @@
 #include "msmtellurium-pinctrl.dtsi"
 #include "msmtellurium-smp2p.dtsi"
 #include "msmtellurium-ipcrouter.dtsi"
+#include "msm-gdsc-8916.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -399,4 +400,40 @@
 		<&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
 	};
+};
+
+&gdsc_venus {
+	status = "okay";
+};
+
+&gdsc_venus_core0 {
+	status = "okay";
+};
+
+&gdsc_venus_core1 {
+	status = "okay";
+};
+
+&gdsc_mdss {
+	status = "okay";
+};
+
+&gdsc_jpeg {
+	status = "okay";
+};
+
+&gdsc_vfe {
+	status = "okay";
+};
+
+&gdsc_vfe1 {
+	status = "okay";
+};
+
+&gdsc_cpp {
+	status = "okay";
+};
+
+&gdsc_oxili_gx {
+	status = "okay";
 };
