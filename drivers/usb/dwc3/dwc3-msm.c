@@ -1617,8 +1617,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		for (i = 0; i < dwc->num_event_buffers; i++) {
 			struct dwc3_event_buffer *evt = dwc->ev_buffs[i];
 			if ((evt->flags & DWC3_EVENT_PENDING)) {
-				dev_warn(mdwc->dev, "%s: %d device events pending, abort suspend\n",
-					__func__, evt->count / 4);
+				dev_dbg(mdwc->dev,
+				"%s: %d device events pending, abort suspend\n",
+				__func__, evt->count / 4);
 				dbg_print_reg("PENDING DEVICE EVENT",
 						*(u32 *)(evt->buf + evt->lpos));
 				return -EBUSY;
