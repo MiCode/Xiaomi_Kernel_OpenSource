@@ -240,6 +240,7 @@
 			<&clock_rpm clk_xo_a_clk_src>;
 		clock-names = "xo", "xo_a";
 		#clock-cells = <1>;
+		qcom,dev-opp-list = <&msm_gpu>;
 	};
 
 	clock_gcc_mdss: qcom,gcc-mdss@1ac8300 {
