@@ -345,6 +345,7 @@ struct atomisp_sub_device {
 	spinlock_t raw_buffer_bitmap_lock;
 
 	bool high_speed_mode; /* Indicate whether now is a high speed mode */
+	int pending_capture_request; /* Indicates the number of pending capture requests. */
 };
 
 extern const struct atomisp_in_fmt_conv atomisp_in_fmt_conv[];

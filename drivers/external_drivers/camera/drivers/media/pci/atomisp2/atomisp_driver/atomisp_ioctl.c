@@ -1329,6 +1329,24 @@ done:
 				atomisp_wdt_start(isp);
 		}
 	}
+
+	/* Workaround: Due to the design of HALv3,
+	 * sometimes in ZSL mode HAL needs to
+	 * capture multiple images within one streaming cycle.
+	 * But the capture number cannot be determined by HAL.
+	 * So HAL only sets the capture number to be 1 and queue multiple
+	 * buffers. Atomisp driver needs to check this case and re-trigger
+	 * CSS to do capture when new buffer is queued. */
+	if (asd->continuous_mode->val &&
+	    asd->run_mode->val == ATOMISP_RUN_MODE_PREVIEW &&
+	    atomisp_subdev_source_pad(vdev)
+	    == ATOMISP_SUBDEV_PAD_SOURCE_CAPTURE &&
+	    pipe->capq.streaming &&
+	    !asd->enable_raw_buffer_lock->val &&
+	    asd->params.offline_parm.num_captures == 1) {
+		asd->pending_capture_request++;
+		dev_dbg(isp->dev, "Add one pending capture request.\n");
+	}
 	rt_mutex_unlock(&isp->mutex);
 
 	dev_dbg(isp->dev, "qbuf buffer %d (%s)\n", buf->index, vdev->name);
@@ -1609,6 +1627,9 @@ static int atomisp_streamon(struct file *file, void *fh,
 	ret = videobuf_streamon(&pipe->capq);
 	if (ret)
 		goto out;
+
+	/* Reset pending capture request count. */
+	asd->pending_capture_request = 0;
 
 	if ((atomisp_subdev_streaming_count(asd) > sensor_start_stream) &&
 	    (!isp->inputs[asd->input_curr].camera_caps->multi_stream_ctrl)) {
