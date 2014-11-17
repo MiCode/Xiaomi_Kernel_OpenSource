@@ -40,6 +40,20 @@
 		status = "disabled";
 	};
 
+	gdsc_vfe1: qcom,gdsc@185806c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_vfe1";
+		reg = <0x185806c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_cpp: qcom,gdsc@1858078 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_cpp";
+		reg = <0x1858078 0x4>;
+		status = "disabled";
+	};
+
 	gdsc_oxili_gx: qcom,gdsc@185901c {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_oxili_gx";
