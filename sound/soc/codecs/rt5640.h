@@ -224,13 +224,11 @@
 
 /* INL and INR Volume Control (0x0f) */
 #define RT5640_INL_SEL_MASK			(0x1 << 15)
-#define RT5640_INL_SEL_SFT			15
 #define RT5640_INL_SEL_IN4P			(0x0 << 15)
 #define RT5640_INL_SEL_MONOP			(0x1 << 15)
 #define RT5640_INL_VOL_MASK			(0x1f << 8)
 #define RT5640_INL_VOL_SFT			8
 #define RT5640_INR_SEL_MASK			(0x1 << 7)
-#define RT5640_INR_SEL_SFT			7
 #define RT5640_INR_SEL_IN4N			(0x0 << 7)
 #define RT5640_INR_SEL_MONON			(0x1 << 7)
 #define RT5640_INR_VOL_MASK			(0x1f)
