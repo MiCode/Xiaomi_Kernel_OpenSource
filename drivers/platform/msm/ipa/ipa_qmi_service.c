@@ -680,14 +680,18 @@ static void ipa_qmi_service_init_worker(struct work_struct *work)
 
 destroy_clnt_resp_wq:
 	destroy_workqueue(ipa_clnt_resp_workqueue);
+	ipa_clnt_resp_workqueue = NULL;
 destroy_clnt_req_wq:
 	destroy_workqueue(ipa_clnt_req_workqueue);
+	ipa_clnt_req_workqueue = NULL;
 deregister_qmi_srv:
 	qmi_svc_unregister(ipa_svc_handle);
 destroy_qmi_handle:
 	qmi_handle_destroy(ipa_svc_handle);
+	ipa_svc_handle = 0;
 destroy_ipa_A7_svc_wq:
 	destroy_workqueue(ipa_svc_workqueue);
+	ipa_svc_workqueue = NULL;
 	return;
 }
 
@@ -706,6 +710,7 @@ int ipa_qmi_service_init(bool load_uc, uint32_t wan_platform_type)
 void ipa_qmi_service_exit(void)
 {
 	int ret = 0;
+
 	/* qmi-service */
 	if (ipa_svc_handle) {
 		ret = qmi_svc_unregister(ipa_svc_handle);
@@ -716,14 +721,15 @@ void ipa_qmi_service_exit(void)
 	if (ipa_svc_workqueue) {
 		flush_workqueue(ipa_svc_workqueue);
 		destroy_workqueue(ipa_svc_workqueue);
+		ipa_svc_workqueue = NULL;
 	}
+
 	if (ipa_svc_handle) {
 		ret = qmi_handle_destroy(ipa_svc_handle);
 		if (ret < 0)
 			IPAWANERR("Error destroying qmi handle %p, ret=%d\n",
 			ipa_svc_handle, ret);
 	}
-
 
 	/* qmi-client */
 	ret = qmi_svc_event_notifier_unregister(IPA_Q6_SERVICE_SVC_ID,
@@ -733,10 +739,15 @@ void ipa_qmi_service_exit(void)
 		IPAWANERR(
 		"Error qmi_svc_event_notifier_unregister service %d, ret=%d\n",
 		IPA_Q6_SERVICE_SVC_ID, ret);
-	if (ipa_clnt_req_workqueue)
+
+	if (ipa_clnt_req_workqueue) {
 		destroy_workqueue(ipa_clnt_req_workqueue);
-	if (ipa_clnt_resp_workqueue)
+		ipa_clnt_req_workqueue = NULL;
+	}
+	if (ipa_clnt_resp_workqueue) {
 		destroy_workqueue(ipa_clnt_resp_workqueue);
+		ipa_clnt_resp_workqueue = NULL;
+	}
 
 	ipa_svc_handle = 0;
 }
