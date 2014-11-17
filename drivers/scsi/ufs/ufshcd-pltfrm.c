@@ -250,9 +250,10 @@ static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
 }
 
 #ifdef CONFIG_SMP
-static void ufshcd_parse_pm_qos(struct ufs_hba *hba)
+static void ufshcd_parse_pm_qos(struct ufs_hba *hba, int irq)
 {
 	const char *cpu_affinity = NULL;
+	u32 cpu_mask;
 
 	hba->pm_qos.cpu_dma_latency_us = UFS_DEFAULT_CPU_DMA_LATENCY_US;
 	of_property_read_u32(hba->dev->of_node, "qcom,cpu-dma-latency-us",
@@ -260,18 +261,30 @@ static void ufshcd_parse_pm_qos(struct ufs_hba *hba)
 	dev_dbg(hba->dev, "cpu_dma_latency_us = %u\n",
 		hba->pm_qos.cpu_dma_latency_us);
 
+	/* Default to affine irq in case parsing fails */
 	hba->pm_qos.req.type = PM_QOS_REQ_AFFINE_IRQ;
+	hba->pm_qos.req.irq = irq;
 	if (!of_property_read_string(hba->dev->of_node, "qcom,cpu-affinity",
 		&cpu_affinity)) {
 		if (!strcmp(cpu_affinity, "all_cores"))
 			hba->pm_qos.req.type = PM_QOS_REQ_ALL_CORES;
 		else if (!strcmp(cpu_affinity, "affine_cores"))
-			hba->pm_qos.req.type = PM_QOS_REQ_AFFINE_CORES;
-		else if (!strcmp(cpu_affinity, "affine_irq"))
-			hba->pm_qos.req.type = PM_QOS_REQ_AFFINE_IRQ;
+			/*
+			 * PM_QOS_REQ_AFFINE_CORES request type is used for
+			 * targets that have little cluster and will apply
+			 * the vote to all the cores in the little cluster.
+			 */
+			if (!of_property_read_u32(hba->dev->of_node,
+				"qcom,cpu-affinity-mask", &cpu_mask)) {
+				hba->pm_qos.req.type = PM_QOS_REQ_AFFINE_CORES;
+				/* Convert u32 to cpu bit mask */
+				cpumask_bits(&hba->pm_qos.req.cpus_affine)[0] =
+					cpu_mask;
+			}
 	}
-	dev_dbg(hba->dev, "hba->pm_qos.pm_qos_req.type = %u\n",
-		hba->pm_qos.req.type);
+
+	dev_dbg(hba->dev, "hba->pm_qos.pm_qos_req.type = %u, cpu_mask=0x%lx\n",
+		hba->pm_qos.req.type, hba->pm_qos.req.cpus_affine.bits[0]);
 }
 
 /**
@@ -375,7 +388,7 @@ static int ufshcd_pltfrm_probe(struct platform_device *pdev)
 		goto dealloc_host;
 	}
 
-	ufshcd_parse_pm_qos(hba);
+	ufshcd_parse_pm_qos(hba, irq);
 	ufshcd_parse_pm_levels(hba);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
