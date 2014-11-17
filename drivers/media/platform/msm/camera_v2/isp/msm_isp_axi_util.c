@@ -1778,6 +1778,10 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			uint32_t framedrop_period =
 				msm_isp_get_framedrop_period(
 				   update_info->skip_pattern);
+			if (stream_info->controllable_output) {
+				pr_err("Controllable output streams does not support custom frame skip pattern\n");
+				return -EINVAL;
+			}
 			if (update_info->skip_pattern == SKIP_ALL)
 				stream_info->framedrop_pattern = 0x0;
 			else
