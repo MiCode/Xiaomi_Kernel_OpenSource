@@ -70,6 +70,8 @@ struct sdhci_acpi_slot {
 	unsigned int	flags;
 	int (*probe_slot) (struct platform_device *);
 	int (*remove_slot)(struct platform_device *);
+	int (*suspend)(struct device *);
+	int (*resume)(struct device *);
 };
 
 struct sdhci_acpi_host {
@@ -174,6 +176,39 @@ static int sdhci_acpi_remove_slot(struct platform_device *pdev)
 	return 0;
 }
 
+static int sdhci_acpi_sd_resume(struct device *dev)
+{
+	struct sdhci_acpi_host *c = dev_get_drvdata(dev);
+	struct sdhci_host *host = c->host;
+	int loop = 2000; /* 2000 cycles * 1ms */
+	unsigned int present;
+
+	if (!(host->mmc->caps & MMC_CAP_NONREMOVABLE)) {
+		if (mmc_gpio_get_cd(host->mmc) == 0)
+			/* no SD card */
+			return 0;
+	}
+
+	/*
+	 * If there is SD card, needs to check the present register
+	 */
+	present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
+		SDHCI_CARD_PRESENT;
+	while (!present && loop > 0) {
+		usleep_range(1000, 1100);
+		present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
+			SDHCI_CARD_PRESENT;
+		loop--;
+	}
+	if (loop == 0) {
+		WARN_ON(1);
+		pr_warn("%s %s: PRESENT bit16 is not recover\n",
+				__func__, mmc_hostname(host->mmc));
+	}
+
+	return 0;
+}
+
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
 	.chip    = &sdhci_acpi_chip_int,
 	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE | MMC_CAP_HW_RESET
@@ -202,6 +237,7 @@ static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sd = {
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.probe_slot = sdhci_acpi_probe_slot,
 	.remove_slot = sdhci_acpi_remove_slot,
+	.resume = sdhci_acpi_sd_resume,
 };
 
 struct sdhci_acpi_uid_slot {
@@ -458,13 +494,28 @@ static int sdhci_acpi_remove(struct platform_device *pdev)
 static int sdhci_acpi_suspend(struct device *dev)
 {
 	struct sdhci_acpi_host *c = dev_get_drvdata(dev);
+	int ret;
 
-	return sdhci_suspend_host(c->host);
+	ret = sdhci_suspend_host(c->host);
+	if (ret)
+		return ret;
+
+	if (c->slot && c->slot->suspend)
+		return c->slot->suspend(dev);
+
+	return 0;
 }
 
 static int sdhci_acpi_resume(struct device *dev)
 {
 	struct sdhci_acpi_host *c = dev_get_drvdata(dev);
+	int ret;
+
+	if (c->slot && c->slot->resume) {
+		ret = c->slot->resume(dev);
+		if (ret)
+			return ret;
+	}
 
 	return sdhci_resume_host(c->host);
 }
@@ -481,13 +532,28 @@ static int sdhci_acpi_resume(struct device *dev)
 static int sdhci_acpi_runtime_suspend(struct device *dev)
 {
 	struct sdhci_acpi_host *c = dev_get_drvdata(dev);
+	int ret;
 
-	return sdhci_runtime_suspend_host(c->host);
+	ret = sdhci_runtime_suspend_host(c->host);
+	if (ret)
+		return ret;
+
+	if (c->slot && c->slot->suspend)
+		return c->slot->suspend(dev);
+
+	return 0;
 }
 
 static int sdhci_acpi_runtime_resume(struct device *dev)
 {
 	struct sdhci_acpi_host *c = dev_get_drvdata(dev);
+	int ret;
+
+	if (c->slot && c->slot->resume) {
+		ret = c->slot->resume(dev);
+		if (ret)
+			return ret;
+	}
 
 	return sdhci_runtime_resume_host(c->host);
 }
