@@ -1271,6 +1271,7 @@
 			"MAX";
 
 			qcom,cpu-affinity = "affine_cores";
+			qcom,cpu-affinity-mask = <0xf>; /* little cluster */
 			qcom,cpu-dma-latency-us = <301>;
 
 			spm-level = <5>;
