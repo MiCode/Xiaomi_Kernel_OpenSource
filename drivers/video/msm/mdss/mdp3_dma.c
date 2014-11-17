@@ -763,7 +763,7 @@ static int mdp3_dmap_histo_get(struct mdp3_dma *dma)
 			MDP3_REG_READ(MDP3_REG_DMA_P_HIST_EXTRA_INFO_1);
 
 	spin_lock_irqsave(&dma->histo_lock, flag);
-	init_completion(&dma->histo_comp);
+	INIT_COMPLETION(dma->histo_comp);
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_HIST_START, 1);
 	wmb();
 	dma->histo_state = MDP3_DMA_HISTO_STATE_START;
@@ -781,7 +781,7 @@ static int mdp3_dmap_histo_start(struct mdp3_dma *dma)
 
 	spin_lock_irqsave(&dma->histo_lock, flag);
 
-	init_completion(&dma->histo_comp);
+	INIT_COMPLETION(dma->histo_comp);
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_HIST_START, 1);
 	wmb();
 	dma->histo_state = MDP3_DMA_HISTO_STATE_START;
@@ -800,7 +800,7 @@ static int mdp3_dmap_histo_reset(struct mdp3_dma *dma)
 
 	spin_lock_irqsave(&dma->histo_lock, flag);
 
-	init_completion(&dma->histo_comp);
+	INIT_COMPLETION(dma->histo_comp);
 
 	mdp3_dma_clk_auto_gating(dma, 0);
 
