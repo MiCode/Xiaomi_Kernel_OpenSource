@@ -3879,6 +3879,7 @@
 #define SPCONSTALPHA(pipe, plane) _PIPE(pipe * 2 + plane, _SPACONSTALPHA, _SPBCONSTALPHA)
 #define SPGAMC(pipe, plane) _PIPE(pipe * 2 + plane, _SPAGAMC, _SPBGAMC)
 
+#define	  PLANE_RESERVED_REG_BIT_2_ENABLE	(1 << 2)
 #define	SPRITE_FORCE_BOTTOM	(1<<2)
 #define	SPRITE_ZORDER_ENABLE	(1<<0)
 

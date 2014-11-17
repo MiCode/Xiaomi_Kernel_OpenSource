@@ -245,6 +245,7 @@ static void adf_plane_to_intel_plane_config(
 	config->transform = adf_plane->transform;
 	config->pipe = intf->pipe;
 	config->zorder = zorder;
+	config->flags = adf_plane->flags;
 }
 
 static struct driver_state *driver_state_create_and_init(void)

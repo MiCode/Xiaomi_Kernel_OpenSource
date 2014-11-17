@@ -540,6 +540,7 @@ static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 	struct sp_plane_regs_value *regs = &splane->ctx.regs;
 	int plane = splane->ctx.plane;
 	int pipe = splane->ctx.pipe;
+	u32 val = 0;
 
 	REG_WRITE(SPSTRIDE(pipe, plane), regs->stride);
 	REG_WRITE(SPPOS(pipe, plane), regs->pos);
@@ -551,6 +552,17 @@ static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 	REG_POSTING_READ(SPSURF(pipe, plane));
 	vlv_update_plane_status(config->pipe,
 			plane ? VLV_SPRITE2 : VLV_SPRITE1, true);
+	/* Check for reserved register bit 2 */
+	val = REG_READ(SPSURF(pipe, plane));
+	if (config->flags & INTEL_ADF_PLANE_HW_PRIVATE_1) {
+		if (!(val & PLANE_RESERVED_REG_BIT_2_ENABLE)) {
+			val |= PLANE_RESERVED_REG_BIT_2_ENABLE;
+			REG_WRITE(SPSURF(pipe, plane), val);
+		}
+	} else if (val & PLANE_RESERVED_REG_BIT_2_ENABLE) {
+		val &= ~PLANE_RESERVED_REG_BIT_2_ENABLE;
+		REG_WRITE(SPSURF(pipe, plane), val);
+	}
 
 	return;
 }
