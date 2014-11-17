@@ -578,4 +578,15 @@ int sps_bam_pipe_get_unused_desc_num(struct sps_bam *dev, u32 pipe_index,
  * Return: 0 on success, negative value on error
  */
 int sps_bam_check_irq(struct sps_bam *dev);
+
+/*
+ * sps_bam_pipe_pending_desc - checking pending descriptor.
+ * @dev:	BAM device handle
+ * @pipe_index:	pipe index
+ *
+ * This function checks if a pipe of a BAM has any pending descriptor.
+ *
+ * @return true if there is any desc pending
+ */
+bool sps_bam_pipe_pending_desc(struct sps_bam *dev, u32 pipe_index);
 #endif	/* _SPSBAM_H_ */
