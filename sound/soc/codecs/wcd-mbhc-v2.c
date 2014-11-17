@@ -848,7 +848,7 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 /* To determine if cross connection occured */
 static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 {
-	u16 result1, swap_res;
+	u16 swap_res;
 	struct snd_soc_codec *codec = mbhc->codec;
 	enum wcd_mbhc_plug_type plug_type = mbhc->current_plug;
 	s16 reg1;
@@ -859,8 +859,6 @@ static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	 * Micbias and schmitt trigger (HPHL-HPHR)
 	 * needs to be enabled.
 	 */
-	result1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
-	/* Make sure micbias is enabled now */
 	wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
@@ -869,7 +867,7 @@ static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	swap_res = snd_soc_read(codec,
 			MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
 	pr_debug("%s: swap_res %x\n", __func__, swap_res);
-	if (!result1 && !(swap_res & 0x0C)) {
+	if (!(swap_res & 0x0C)) {
 		plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
 		pr_debug("%s: Cross connection identified\n", __func__);
 	} else {
