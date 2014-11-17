@@ -616,6 +616,11 @@ void glink_get_ch_intent_info(struct channel_ctx *ch_ctx,
  */
 int glink_ssr(const char *subsystem);
 
+struct channel_lcid {
+	struct list_head list_node;
+	uint32_t lcid;
+};
+
 /**
  * struct rwref_lock - Read/Write Reference Lock
  *

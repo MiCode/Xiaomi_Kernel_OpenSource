@@ -77,6 +77,7 @@ struct glink_core_xprt_ctx {
 	spinlock_t xprt_ctx_lock_lhb1;
 	struct list_head channels;
 	uint32_t next_lcid;
+	struct list_head free_lcid_list;
 
 	uint32_t max_cid;
 	uint32_t max_iid;
@@ -1156,8 +1157,13 @@ void ch_remove_tx_pending_remote_done(struct channel_ctx *ctx,
  */
 static void glink_ch_ctx_release(struct rwref_lock *ch_st_lock)
 {
+	struct channel_lcid *free_lcid;
 	struct channel_ctx *ctx = container_of(ch_st_lock, struct channel_ctx,
 						ch_state_lhc0);
+	free_lcid = kzalloc(sizeof(struct channel_lcid), GFP_KERNEL);
+	free_lcid->lcid = ctx->lcid;
+	list_add_tail(&free_lcid->list_node,
+			&ctx->transport_ptr->free_lcid_list);
 	ctx->transport_ptr = NULL;
 	kfree(ctx);
 	GLINK_INFO("%s: freed th channel ctx in pid [%d]\n", __func__,
@@ -1182,6 +1188,7 @@ static struct channel_ctx *ch_name_to_ch_ctx_create(
 	struct channel_ctx *ctx;
 	struct channel_ctx *temp;
 	unsigned long flags;
+	struct channel_lcid *flcid;
 
 	ctx = kzalloc(sizeof(struct channel_ctx), GFP_KERNEL);
 	if (!ctx) {
@@ -1227,18 +1234,29 @@ check_ctx:
 		}
 
 	if (ctx) {
-		if (xprt_ctx->next_lcid > xprt_ctx->max_cid) {
-			/* no more channels available */
-			GLINK_ERR_XPRT(xprt_ctx,
-				"%s: unable to exceed %u channels\n",
-				__func__, xprt_ctx->max_cid);
-			spin_unlock_irqrestore(&xprt_ctx->xprt_ctx_lock_lhb1,
-					flags);
-			kfree(ctx);
-			rwref_write_put(&xprt_ctx->xprt_state_lhb0);
-			return NULL;
+		if (list_empty(&xprt_ctx->free_lcid_list)) {
+			if (xprt_ctx->next_lcid > xprt_ctx->max_cid) {
+				/* no more channels available */
+				GLINK_ERR_XPRT(xprt_ctx,
+					"%s: unable to exceed %u channels\n",
+					__func__, xprt_ctx->max_cid);
+				spin_unlock_irqrestore(
+						&xprt_ctx->xprt_ctx_lock_lhb1,
+						flags);
+				kfree(ctx);
+				rwref_write_put(&xprt_ctx->xprt_state_lhb0);
+				return NULL;
+			} else {
+				ctx->lcid = xprt_ctx->next_lcid++;
+			}
+		} else {
+			flcid = list_first_entry(&xprt_ctx->free_lcid_list,
+						struct channel_lcid, list_node);
+			ctx->lcid = flcid->lcid;
+			list_del(&flcid->list_node);
+			kfree(flcid);
 		}
-		ctx->lcid = xprt_ctx->next_lcid++;
+
 		list_add_tail(&ctx->port_list_node, &xprt_ctx->channels);
 
 		GLINK_INFO_PERF_CH_XPRT(ctx, xprt_ctx,
@@ -2294,6 +2312,7 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 	xprt_ptr->ops = if_ptr;
 	spin_lock_init(&xprt_ptr->xprt_ctx_lock_lhb1);
 	xprt_ptr->next_lcid = 1; /* 0 reserved for default unconfigured */
+	INIT_LIST_HEAD(&xprt_ptr->free_lcid_list);
 	xprt_ptr->max_cid = cfg->max_cid;
 	xprt_ptr->max_iid = cfg->max_iid;
 	xprt_ptr->local_state = GLINK_XPRT_DOWN;
