@@ -66,6 +66,7 @@ Optional properties :
 - interrupt-names : Optional interrupt resource entries are:
     "async_irq" : Interrupt from HSPHY for asynchronous wakeup events in LPM.
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
+    "phy_irq" : Interrupt from PHY. Used for ID detection.
 - qcom,hsusb-otg-disable-reset: If present then core is RESET only during
 	    init, otherwise core is RESET for every cable disconnect as well
 - qcom,hsusb-otg-pnoc-errata-fix: If present then workaround for PNOC
