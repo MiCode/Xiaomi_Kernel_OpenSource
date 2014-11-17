@@ -1748,16 +1748,6 @@ static void ufshcd_pm_qos_unvote_work(struct work_struct *work)
 
 static int ufshcd_pm_qos_init(struct ufs_hba *hba)
 {
-	/*
-	 * PM_QOS_REQ_AFFINE_CORES request type is used for targets that have
-	 * little cluster and will update/apply the vote to all the cores in
-	 * the little cluster.
-	 */
-	if (hba->pm_qos.req.type == PM_QOS_REQ_AFFINE_CORES)
-		hba->pm_qos.req.cpus_affine.bits[0] = 0x0F;
-	else if (hba->pm_qos.req.type == PM_QOS_REQ_AFFINE_IRQ)
-		hba->pm_qos.req.irq = hba->irq;
-
 	if (hba->pm_qos.cpu_dma_latency_us)
 		pm_qos_add_request(&hba->pm_qos.req,
 			PM_QOS_CPU_DMA_LATENCY, hba->pm_qos.cpu_dma_latency_us);
