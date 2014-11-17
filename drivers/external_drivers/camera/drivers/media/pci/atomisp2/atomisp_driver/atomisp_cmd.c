@@ -5003,7 +5003,13 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 		main_compose.width = f->fmt.pix.width;
 		main_compose.height = f->fmt.pix.height;
 
-		if (crop_needs_override) {
+		/* WORKAROUND: this override is universally enabled in
+		 * GMIN to work around a CTS failures (GMINL-539)
+		 * which appears to be related by a hardware
+		 * performance limitation.  It's unclear why this
+		 * particular code triggers the issue. */
+		if (config_enabled(CONFIG_GMIN_INTEL_MID) ||
+		    crop_needs_override) {
 			if (isp_sink_crop.width * main_compose.height >
 			    isp_sink_crop.height * main_compose.width) {
 				sink_crop.height = isp_sink_crop.height;
