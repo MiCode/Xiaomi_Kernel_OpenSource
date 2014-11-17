@@ -65,7 +65,9 @@ struct pmic_gpio_data {
 
 struct pmic_gpio {
 	struct mutex		buslock; /* irq_bus_lock */
+#ifdef CONFIG_GPIOLIB
 	struct gpio_chip	chip;
+#endif
 	int			irq;
 	int			irq_base;
 	int			update;
