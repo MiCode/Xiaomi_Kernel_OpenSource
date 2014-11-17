@@ -1464,6 +1464,307 @@ static void init_v2_data(void)
 static int a57speedbin;
 struct platform_device *cpu_clock_8994_dev;
 
+/* Low power mux code begins here */
+#define EVENT_WAIT_US 1
+#define WAIT_IPI_HANDLER_BEGIN_US 50
+#define LOW_POWER_IPI_WAIT_US 100
+#define WARN_ON_SLOW_SYNC_EVENT_ITERS 500000
+
+/*
+ * Low power mux switch feature flag. Cannot be switched at runtime.
+ * Set this on the kernel commandline.
+ */
+static int clk_low_power_mux_switch = 1;
+module_param(clk_low_power_mux_switch, int, 0444);
+
+enum {
+	CSD_LF_MUX,
+	CSD_HF_MUX,
+	CSD_N,
+};
+
+struct clkcpu_8994_idle_data {
+	struct call_single_data csd[CSD_N];
+	spinlock_t idle_lock;
+	spinlock_t *exit_idle_lock;
+	bool idle;
+	bool low_power_mux_switch;
+
+	/* Debug */
+	u64 ipi_sent_time;
+	u64 ipi_notsent_time;
+	u64 ipi_started_time;
+	u64 ipi_exit_time;
+	u64 idle_start_time;
+	u64 idle_exit_time;
+};
+
+static DEFINE_SPINLOCK(a57_exit_idle_lock);
+
+struct mux_priv_data {
+	cpumask_t cpumask;
+	spinlock_t *exit_idle_lock;
+	int csd_idx;
+};
+
+static struct mux_priv_data a57_hf_mux_priv_data = {
+	.exit_idle_lock = &a57_exit_idle_lock,
+	.csd_idx = CSD_HF_MUX,
+};
+static struct mux_priv_data a57_lf_mux_priv_data = {
+	.exit_idle_lock = &a57_exit_idle_lock,
+	.csd_idx = CSD_LF_MUX,
+};
+static DEFINE_PER_CPU(struct clkcpu_8994_idle_data, idle_data_clk_8994);
+
+static void do_low_power_poll(void *unused)
+{
+	int cpu = smp_processor_id();
+	struct clkcpu_8994_idle_data *idle_data;
+
+	idle_data = &per_cpu(idle_data_clk_8994, cpu);
+	idle_data->ipi_started_time = sched_clock();
+	udelay(LOW_POWER_IPI_WAIT_US);
+}
+
+static inline void __init_idle_data(struct clkcpu_8994_idle_data *id)
+{
+	id->ipi_sent_time = 0ULL;
+	id->ipi_notsent_time = 0ULL;
+	id->ipi_started_time = 0ULL;
+	id->ipi_exit_time = 0ULL;
+	/*
+	 * This is in case we use the fact that these flags are cleared here
+	 * as a serialization mechanism in the idle notifiers. Better to put
+	 * in this memory barrier now rather than forget about it then.
+	 */
+	mb();
+}
+
+static void __low_power_pre_mux_switch(struct mux_clk *mux)
+{
+	struct clkcpu_8994_idle_data *idle_data, *this_idle_data;
+	int cpu, this_cpu = smp_processor_id();
+	struct mux_priv_data *data = (struct mux_priv_data *)mux->priv;
+
+	/*
+	 * If we somehow ended up here in the idle thread (when the low power
+	 * mode code calls clk_enable/disable), do not attempt to schedule
+	 * IPIs since those may deadlock with IPIs sent by other entities in
+	 * the cpufreq thread.
+	 */
+	this_idle_data = &per_cpu(idle_data_clk_8994, this_cpu);
+	if (this_idle_data->idle &&
+	    cpumask_test_cpu(this_cpu, &data->cpumask))
+			return;
+
+	/*
+	 * Prevent non-idle CPUs from entering low power modes. This is to
+	 * a) Ensure that we don't hit the clk_enable/disable on other CPUs
+	 *    in the low power code, the IPI would only be processed after the
+	 *    mux switch and a sleep and wakeup cycle since we're already
+	 *    holding the mux reg lock at this point.
+	 * b) Prevent CPUs from sleeping just to have them wake up immediately
+	      and process the IPI.
+	 */
+	for_each_cpu(cpu, &data->cpumask)
+		per_cpu_idle_poll_ctrl(cpu, true);
+	spin_lock(data->exit_idle_lock);
+
+	for_each_online_cpu(cpu) {
+		if (cpu == smp_processor_id() ||
+			!cpumask_test_cpu(cpu, &data->cpumask))
+			continue;
+		idle_data = &per_cpu(idle_data_clk_8994, cpu);
+		if (!idle_data->idle) {
+			__init_idle_data(idle_data);
+			idle_data->ipi_sent_time = sched_clock();
+			/*
+			 * send IPI to core not in idle. It is assumed that the
+			 * caller (probably cpufreq) has ensured that hotplug
+			 * is not possible here.
+			 */
+			__smp_call_function_single(cpu,
+				&idle_data->csd[data->csd_idx], 0);
+		} else {
+			idle_data->ipi_notsent_time = sched_clock();
+		}
+	}
+
+	/* Wait for IPI to begin */
+	udelay(WAIT_IPI_HANDLER_BEGIN_US);
+}
+
+static void __low_power_post_mux_switch(struct mux_clk *mux)
+{
+	struct clkcpu_8994_idle_data *this_idle_data;
+	int cpu, this_cpu = smp_processor_id();
+	struct mux_priv_data *data = (struct mux_priv_data *)mux->priv;
+
+	/*
+	 * If we ended up here in the idle thread (when the low power
+	 * mode code calls clk_enable/disable), do not attempt to schedule
+	 * IPIs since those may deadlock with IPIs sent by other entities in
+	 * the cpufreq thread.
+	 */
+	this_idle_data = &per_cpu(idle_data_clk_8994, this_cpu);
+	if (this_idle_data->idle &&
+	    cpumask_test_cpu(this_cpu, &data->cpumask))
+			return;
+
+	spin_unlock(data->exit_idle_lock);
+	for_each_cpu(cpu, &data->cpumask)
+		per_cpu_idle_poll_ctrl(cpu, false);
+}
+
+/*
+ * One CPU may be switching LF CPU mux, while the other is enabling or disabling
+ * the HFMUX. Serialize those operations.
+ */
+static DEFINE_SPINLOCK(low_power_mux_lock);
+
+static void __low_power_mux_set_sel(struct mux_clk *mux, int sel)
+{
+	u32 regval;
+	unsigned long flags;
+
+	spin_lock(&low_power_mux_lock);
+	__low_power_pre_mux_switch(mux);
+
+	spin_lock_irqsave(&mux_reg_lock, flags);
+	regval = readl_relaxed(*mux->base + mux->offset);
+	regval &= ~(mux->mask << mux->shift);
+	regval |= (sel & mux->mask) << mux->shift;
+	writel_relaxed(regval, *mux->base + mux->offset);
+	/* Ensure switch request goes through before returning */
+	mb();
+	/* Hardware mandated delay */
+	udelay(5);
+	spin_unlock_irqrestore(&mux_reg_lock, flags);
+
+	__low_power_post_mux_switch(mux);
+	spin_unlock(&low_power_mux_lock);
+}
+
+/* It is assumed that the mux enable state is locked in this function */
+static int low_power_mux_set_sel(struct mux_clk *mux, int sel)
+{
+	mux->en_mask = sel;
+
+	/*
+	 * Don't switch the mux if it isn't enabled.
+	 * However, if this is a request to select the safe source
+	 * do it unconditionally. This is to allow the safe source
+	 * to be selected during frequency switches even if the mux
+	 * is disabled (specifically on 8994 V1, the LFMUX may be
+	 * disabled).
+	 */
+	if (!mux->c.count && sel != mux->low_power_sel)
+		return 0;
+
+	__low_power_mux_set_sel(mux, mux->en_mask);
+
+	return 0;
+}
+
+static int low_power_mux_get_sel(struct mux_clk *mux)
+{
+	u32 regval = readl_relaxed(*mux->base + mux->offset);
+	return (regval >> mux->shift) & mux->mask;
+}
+
+static int low_power_mux_enable(struct mux_clk *mux)
+{
+	__low_power_mux_set_sel(mux, mux->en_mask);
+	return 0;
+}
+
+static void low_power_mux_disable(struct mux_clk *mux)
+{
+	__low_power_mux_set_sel(mux, mux->low_power_sel);
+}
+
+static int clock_cpu_8994_idle_notifier(struct notifier_block *nb,
+					     unsigned long val,
+					     void *data)
+{
+	int cpu = smp_processor_id();
+	struct clkcpu_8994_idle_data *id = &per_cpu(idle_data_clk_8994, cpu);
+
+	if (!id->low_power_mux_switch)
+		return 0;
+
+	switch (val) {
+	case IDLE_START:
+		id->idle_start_time = sched_clock();
+		id->idle = true;
+		/*
+		 * Don't allow re-ordering of the idle flag with
+		 * rest of the idle thread.
+		 */
+		mb();
+		break;
+	case IDLE_END:
+		id->idle = false;
+		/*
+		 * Don't allow re-ordering of the idle flag with
+		 * rest of the idle thread and the exit_idle_lock
+		 * below..
+		 */
+		mb();
+		id->idle_exit_time = sched_clock();
+		spin_lock(id->exit_idle_lock);
+		spin_unlock(id->exit_idle_lock);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static struct notifier_block clock_cpu_8994_idle_nb = {
+	.notifier_call = clock_cpu_8994_idle_notifier,
+};
+
+static struct clk_mux_ops low_power_mux_ops = {
+	.set_mux_sel = low_power_mux_set_sel,
+	.get_mux_sel = low_power_mux_get_sel,
+	.enable = low_power_mux_enable,
+	.disable = low_power_mux_disable,
+};
+
+static void low_power_mux_init(void)
+{
+	int cpu;
+
+	if (!clk_low_power_mux_switch)
+		return;
+
+	a57_hf_mux.ops = a57_hf_mux_v2.ops = &low_power_mux_ops;
+	a57_lf_mux.ops = a57_lf_mux_v2.ops = &low_power_mux_ops;
+
+	a57_hf_mux.priv = a57_hf_mux_v2.priv = &a57_hf_mux_priv_data;
+	a57_lf_mux.priv = a57_lf_mux_v2.priv = &a57_lf_mux_priv_data;
+
+	for_each_possible_cpu(cpu) {
+		struct clkcpu_8994_idle_data *id =
+					&per_cpu(idle_data_clk_8994, cpu);
+		if (logical_cpu_to_clk(cpu) == &a57_clk.c) {
+			cpumask_set_cpu(cpu, &a57_hf_mux_priv_data.cpumask);
+			cpumask_set_cpu(cpu, &a57_lf_mux_priv_data.cpumask);
+			id->exit_idle_lock = &a57_exit_idle_lock;
+			id->csd[CSD_LF_MUX].func = do_low_power_poll;
+			id->csd[CSD_HF_MUX].func = do_low_power_poll;
+			id->idle = false;
+			spin_lock_init(&id->idle_lock);
+			id->low_power_mux_switch = true;
+		}
+	}
+
+	idle_notifier_register(&clock_cpu_8994_idle_nb);
+}
+
 static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 {
 	int ret, cpu;
@@ -1531,6 +1832,8 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 		if (logical_cpu_to_clk(cpu) == &a57_clk.c)
 			cpumask_set_cpu(cpu, &a57_clk.cpumask);
 	}
+
+	low_power_mux_init();
 
 	get_online_cpus();
 
