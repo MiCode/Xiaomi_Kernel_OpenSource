@@ -524,6 +524,49 @@
 		#clock-cells = <1>;
 	};
 
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk", "cpu4_clk", "cpu5_clk";
+		clocks = <&clock_cpu clk_cci_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a57_clk>,
+			 <&clock_cpu clk_a57_clk>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			<  300000 >,
+			<  384000 >,
+			<  460800 >,
+			<  600000 >,
+			<  672000 >,
+			<  787200 >,
+			<  864000 >,
+			<  960000 >,
+			< 1248000 >;
+
+		qcom,cpufreq-table-4 =
+			<  300000 >,
+			<  384000 >,
+			<  480000 >,
+			<  633600 >,
+			<  768000 >,
+			<  864000 >,
+			<  960000 >,
+			< 1248000 >,
+			< 1344000 >,
+			< 1440000 >,
+			< 1536000 >,
+			< 1632000 >,
+			< 1689600 >,
+			< 1824000 >;
+
+	};
+
 	clock_cpu: qcom,cpu-clock-8992@f9015000 {
 		compatible = "qcom,cpu-clock-8992";
 		reg = <0xf9015000 0x1000>,
