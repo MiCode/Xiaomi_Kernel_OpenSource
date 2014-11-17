@@ -732,6 +732,7 @@ struct cpu_clk_8994 {
 	cpumask_t cpumask;
 	bool hw_low_power_ctrl;
 	struct clk c;
+	struct pm_qos_request req;
 };
 
 static inline struct cpu_clk_8994 *to_cpu_clk_8994(struct clk *c)
@@ -768,7 +769,6 @@ static void do_nothing(void *unused) { }
 
 static int cpu_clk_8994_set_rate(struct clk *c, unsigned long rate)
 {
-	struct pm_qos_request req = {0};
 	int ret;
 	struct cpu_clk_8994 *cpuclk = to_cpu_clk_8994(c);
 	bool hw_low_power_ctrl = cpuclk->hw_low_power_ctrl;
@@ -780,9 +780,10 @@ static int cpu_clk_8994_set_rate(struct clk *c, unsigned long rate)
 	 * control while the clock rate is being switched.
 	 */
 	if (hw_low_power_ctrl) {
-		req.cpus_affine = cpuclk->cpumask;
-		req.type = PM_QOS_REQ_AFFINE_CORES;
-		pm_qos_add_request(&req, PM_QOS_CPU_DMA_LATENCY,
+		memset(&cpuclk->req, 0, sizeof(cpuclk->req));
+		cpuclk->req.cpus_affine = cpuclk->cpumask;
+		cpuclk->req.type = PM_QOS_REQ_AFFINE_CORES;
+		pm_qos_add_request(&cpuclk->req, PM_QOS_CPU_DMA_LATENCY,
 				   CPU_LATENCY_NO_L2_PC_US);
 
 		ret = smp_call_function_any(&cpuclk->cpumask, do_nothing,
@@ -792,7 +793,7 @@ static int cpu_clk_8994_set_rate(struct clk *c, unsigned long rate)
 	ret = clk_set_rate(c->parent, rate);
 
 	if (hw_low_power_ctrl)
-		pm_qos_remove_request(&req);
+		pm_qos_remove_request(&cpuclk->req);
 
 	return ret;
 }
