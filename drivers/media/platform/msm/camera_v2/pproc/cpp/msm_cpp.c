@@ -3175,6 +3175,28 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	case VIDIOC_MSM_CPP_LOAD_FIRMWARE32:
 		cmd = VIDIOC_MSM_CPP_LOAD_FIRMWARE;
 		break;
+	case VIDIOC_MSM_CPP_GET_INST_INFO32:
+	{
+		struct cpp_device *cpp_dev = v4l2_get_subdevdata(sd);
+		struct msm_cpp_frame_info32_t inst_info;
+		struct v4l2_fh *vfh = NULL;
+		uint32_t i;
+		vfh = file->private_data;
+		memset(&inst_info, 0, sizeof(struct msm_cpp_frame_info32_t));
+		for (i = 0; i < MAX_ACTIVE_CPP_INSTANCE; i++) {
+			if (cpp_dev->cpp_subscribe_list[i].vfh == vfh) {
+				inst_info.inst_id = i;
+				break;
+			}
+		}
+		if (copy_to_user(
+				(void __user *)kp_ioctl.ioctl_ptr, &inst_info,
+				sizeof(struct msm_cpp_frame_info32_t))) {
+			return -EFAULT;
+		}
+		cmd = VIDIOC_MSM_CPP_GET_INST_INFO;
+		break;
+	}
 	case VIDIOC_MSM_CPP_FLUSH_QUEUE32:
 		cmd = VIDIOC_MSM_CPP_FLUSH_QUEUE;
 		break;
@@ -3328,6 +3350,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	case VIDIOC_MSM_CPP_GET_HW_INFO:
 	case VIDIOC_MSM_CPP_CFG:
 	case VIDIOC_MSM_CPP_GET_EVENTPAYLOAD:
+	case VIDIOC_MSM_CPP_GET_INST_INFO:
 		break;
 	case MSM_SD_NOTIFY_FREEZE:
 		break;
