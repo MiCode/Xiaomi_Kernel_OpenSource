@@ -113,6 +113,11 @@
 #define INTEL_PLANE_STATE_ENABLED true
 #define INTEL_PLANE_STATE_DISABLED false
 
+#define PMIC_BKL_CNTL		0
+#define LPSS_PWM_BKL_CNTL	1
+#define DISPLAY_DDI_BKL_CNTL	2
+#define CABC_BKL_CNTL		3
+
 struct intel_framebuffer {
 	struct drm_framebuffer base;
 	struct drm_i915_gem_object *obj;

@@ -390,6 +390,12 @@
 #define MIPI_DUAL_LINK_FRONT_BACK	1
 #define MIPI_DUAL_LINK_PIXEL_ALT	2
 
+#define VLV_GPIO_CFG			0x2000CC00
+#define VLV_GPIO_INPUT_DIS		0x04
+#define VLV_GPIO_INPUT_EN		0x05
+
+#define LPIO_PWM_ENABLE_MASK		0x80000000
+
 struct intel_dsi_device {
 	unsigned int panel_id;
 	const char *name;

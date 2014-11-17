@@ -1371,6 +1371,8 @@ struct intel_vbt_data {
 		u16 pwm_freq_hz;
 		bool present;
 		bool active_low_pwm;
+		u8 pin;
+		u8 controller;
 	} backlight;
 
 	/* MIPI DSI */
@@ -1594,6 +1596,7 @@ struct drm_i915_private {
 	struct i915_drrs drrs;
 	struct intel_opregion opregion;
 	struct intel_vbt_data vbt;
+	u16 vbt_version;
 	bool scaling_reqd;
 
 	struct kobject memtrack_kobj;
