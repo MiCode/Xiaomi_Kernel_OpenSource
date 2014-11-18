@@ -2021,6 +2021,11 @@ stopsensor:
 				atomisp_destroy_pipes_stream_force(&isp->
 						asd[i]);
 		}
+
+		/* disable  PUNIT/ISP acknowlede/handshake - SRSE=3 */
+		pci_write_config_dword(isp->pdev, PCI_I_CONTROL, isp->saved_regs.i_control |
+				MRFLD_PCI_I_CONTROL_SRSE_RESET_MASK);
+		dev_err(isp->dev, "atomisp_reset");
 		atomisp_reset(isp);
 		isp->isp_timeout = false;
 	}
