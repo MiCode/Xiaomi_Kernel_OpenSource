@@ -509,6 +509,10 @@ struct intel_dsi {
 
 	/* cht hw issue that MIPI port C reg cannot be read */
 	u32 port_ctrl_reg_val;
+
+	struct drm_i915_gem_object *gem_obj;
+	void *cmd_buff;
+	dma_addr_t cmd_buff_phy_addr;
 };
 
 static inline struct intel_dsi *enc_to_intel_dsi(struct drm_encoder *encoder)

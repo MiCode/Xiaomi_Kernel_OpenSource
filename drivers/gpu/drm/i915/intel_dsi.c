@@ -315,6 +315,27 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 
 	DRM_DEBUG_KMS("\n");
 
+	if (intel_dsi->gem_obj == NULL && is_cmd_mode(intel_dsi)) {
+		intel_dsi->gem_obj = i915_gem_alloc_object(dev, 4096);
+		if (intel_dsi->gem_obj == NULL) {
+			DRM_ERROR("Failed to allocate seqno page\n");
+			return;
+		}
+
+		i915_gem_object_set_cache_level(intel_dsi->gem_obj,
+							I915_CACHE_LLC);
+
+		if (i915_gem_obj_ggtt_pin(intel_dsi->gem_obj, 4096, 0)) {
+			DRM_ERROR("MIPI command buffer GTT pin failed");
+			return;
+		}
+
+		intel_dsi->cmd_buff =
+				kmap(sg_page(intel_dsi->gem_obj->pages->sgl));
+		intel_dsi->cmd_buff_phy_addr = page_to_phys(
+				sg_page(intel_dsi->gem_obj->pages->sgl));
+	}
+
 	/* Panel Enable */
 	if (intel_dsi->dev.dev_ops->power_on)
 		intel_dsi->dev.dev_ops->power_on(&intel_dsi->dev);
@@ -541,6 +562,12 @@ static void intel_dsi_post_disable(struct intel_encoder *encoder)
 
 	msleep(intel_dsi->panel_off_delay);
 	msleep(intel_dsi->panel_pwr_cycle_delay);
+
+	if (intel_dsi->gem_obj != NULL) {
+		kunmap(intel_dsi->cmd_buff);
+		i915_gem_object_ggtt_unpin(intel_dsi->gem_obj);
+		drm_gem_object_unreference(&intel_dsi->gem_obj->base);
+	}
 }
 
 static bool intel_dsi_get_hw_state(struct intel_encoder *encoder,
@@ -1161,6 +1188,10 @@ bool intel_dsi_init(struct drm_device *dev)
 		intel_encoder->crtc_mask = (1 << 0);
 	else if (dev_priv->vbt.dsi.port == DVO_PORT_MIPIC)
 		intel_encoder->crtc_mask = (1 << 1);
+
+	intel_dsi->cmd_buff = NULL;
+	intel_dsi->cmd_buff_phy_addr = 0;
+	intel_dsi->gem_obj = NULL;
 
 	intel_encoder->cloneable = 0;
 	drm_connector_init(dev, connector, &intel_dsi_connector_funcs,
