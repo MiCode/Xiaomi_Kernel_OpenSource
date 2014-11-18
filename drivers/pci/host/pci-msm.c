@@ -517,6 +517,7 @@ struct msm_pcie_dev_t {
 	u32		ep_shadow[MAX_DEVICE_NUM][PCIE_CONF_SPACE_DW];
 	u32				  rc_shadow[PCIE_CONF_SPACE_DW];
 	bool				 shadow_en;
+	bool				bridge_found;
 	struct msm_pcie_register_event *event_reg;
 	unsigned int			scm_dev_id;
 	bool				 power_on;
@@ -1005,6 +1006,8 @@ static void msm_pcie_cfg_recover(struct msm_pcie_dev_t *dev, bool rc)
 		}
 		if (rc)
 			break;
+
+		pci_save_state(dev->pcidev_table[i].dev);
 		cfg += SZ_4K;
 	}
 }
@@ -2057,6 +2060,8 @@ static inline void msm_pcie_save_shadow(struct msm_pcie_dev_t *dev,
 						break;
 					}
 				dev->pcidev_table[i].bdf = bdf;
+				if ((!dev->bridge_found) && (i > 0))
+					dev->bridge_found = true;
 			}
 			if (dev->pcidev_table[i].bdf == bdf) {
 				dev->ep_shadow[i][word_offset / 4] = wr_val;
@@ -4337,6 +4342,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].wake_counter = 0;
 	msm_pcie_dev[rc_idx].power_on = false;
 	msm_pcie_dev[rc_idx].use_msi = false;
+	msm_pcie_dev[rc_idx].bridge_found = false;
 	memcpy(msm_pcie_dev[rc_idx].vreg, msm_pcie_vreg_info,
 				sizeof(msm_pcie_vreg_info));
 	memcpy(msm_pcie_dev[rc_idx].gpio, msm_pcie_gpio_info,
@@ -4691,6 +4697,9 @@ static int msm_pcie_pm_resume(struct pci_dev *dev,
 			pci_restore_state(dev);
 		}
 	}
+
+	if (pcie_dev->bridge_found)
+		msm_pcie_recover_config(dev);
 
 	return ret;
 }
