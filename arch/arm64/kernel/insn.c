@@ -302,3 +302,8 @@ u32 __kprobes aarch64_insn_gen_nop(void)
 {
 	return aarch64_insn_gen_hint(AARCH64_INSN_HINT_NOP);
 }
+
+bool aarch32_insn_is_wide(u32 insn)
+{
+	return insn >= 0xe800;
+}
