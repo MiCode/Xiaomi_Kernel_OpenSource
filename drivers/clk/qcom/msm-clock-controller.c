@@ -371,8 +371,11 @@ static int generic_clk_parse_init_config(struct device *dev, struct clk *c,
 {
 	int rc;
 	u32 temp;
-	char *name = "qcom,config-rate";
+	char *name = "qcom,always-on";
 
+	c->always_on = of_property_read_bool(np, name);
+
+	name = "qcom,config-rate";
 	/* This property is optional */
 	if (!of_find_property(np, name, NULL))
 		return 0;
@@ -384,8 +387,6 @@ static int generic_clk_parse_init_config(struct device *dev, struct clk *c,
 	}
 	c->init_rate = temp;
 
-	name = "qcom,always-on";
-	c->always_on = of_property_read_bool(np, name);
 	return rc;
 }
 
