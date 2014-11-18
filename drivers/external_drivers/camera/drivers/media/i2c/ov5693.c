@@ -40,6 +40,9 @@
 
 #include "ov5693.h"
 
+/* Focus for the AD5823 should start in the middle of the field */
+#define INIT_FOCUS_POS 350
+
 static int vcm_i2c_wr8(struct i2c_client *client, u8 reg, u8 val)
 {
 	int err;
@@ -1107,7 +1110,7 @@ static int ov5693_init(struct v4l2_subdev *sd)
 	N_RES = N_RES_PREVIEW;
 
 	dev->focus = 0;
-	ov5693_t_focus_abs(sd, 0);
+	ov5693_t_focus_abs(sd, INIT_FOCUS_POS);
 
 	mutex_unlock(&dev->input_lock);
 
