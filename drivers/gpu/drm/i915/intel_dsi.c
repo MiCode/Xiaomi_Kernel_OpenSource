@@ -389,8 +389,21 @@ static void intel_dsi_pre_disable(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	struct intel_connector *intel_connector = intel_dsi->attached_connector;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	int pipe = intel_crtc->pipe;
 
 	DRM_DEBUG_KMS("\n");
+
+	if (is_cmd_mode(intel_dsi)) {
+		dev->driver->disable_vblank(dev, pipe);
+
+		/*
+		 * Make sure that the last frame is sent otherwise pipe can get
+		 * stuck. Currently providing delay time for ~2 vblanks
+		 * assuming 60fps.
+		 */
+		mdelay(40);
+	}
 
 	if (dev_priv->display.disable_backlight)
 		dev_priv->display.disable_backlight(intel_connector);
