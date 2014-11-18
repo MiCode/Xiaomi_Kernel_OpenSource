@@ -563,14 +563,13 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	desc = devm_gpiod_get_index(codec->dev, NULL, RT5640_GPIO_JD_INT);
 	if (!IS_ERR(desc)) {
 		drvdata->gpios.jd_int_gpio = desc_to_gpio(desc);
-		devm_gpiod_put(codec->dev, desc);
-
 		byt_export_gpio(desc, "JD-int");
 
 		pr_info("%s: GPIOs - JD-int: %d (pol = %d, val = %d)\n",
 			__func__, drvdata->gpios.jd_int_gpio,
 			gpiod_is_active_low(desc), gpiod_get_value(desc));
 
+		devm_gpiod_put(codec->dev, desc);
 	} else {
 		drvdata->gpios.jd_int_gpio = RT5640_GPIO_NA;
 		pr_err("%s: GPIOs - JD-int: Not present!\n", __func__);
@@ -579,14 +578,13 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	desc = devm_gpiod_get_index(codec->dev, NULL, RT5640_GPIO_JD_INT2);
 	if (!IS_ERR(desc)) {
 		drvdata->gpios.jd_int2_gpio = desc_to_gpio(desc);
-		devm_gpiod_put(codec->dev, desc);
-
 		byt_export_gpio(desc, "JD-int2");
 
 		pr_info("%s: GPIOs - JD-int2: %d (pol = %d, val = %d)\n",
 			__func__, drvdata->gpios.jd_int2_gpio,
 			gpiod_is_active_low(desc), gpiod_get_value(desc));
 
+		devm_gpiod_put(codec->dev, desc);
 	} else {
 		drvdata->gpios.jd_int2_gpio = RT5640_GPIO_NA;
 		pr_warn("%s: GPIOs - JD-int2: Not present!\n", __func__);
@@ -595,8 +593,6 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	desc = devm_gpiod_get_index(codec->dev, NULL, RT5640_GPIO_JACK_SWITCH);
 	if (!IS_ERR(desc)) {
 		drvdata->gpios.debug_mux_gpio = desc_to_gpio(desc);
-		devm_gpiod_put(codec->dev, desc);
-
 		byt_export_gpio(desc, "debug-mux");
 
 		dir = gpiod_get_direction(desc);
@@ -613,6 +609,8 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		pr_info("%s: GPIOs - Debug-mux: %d (dir = %d, val = %d)\n",
 			__func__, drvdata->gpios.debug_mux_gpio, dir,
 			gpiod_get_value(desc));
+
+		devm_gpiod_put(codec->dev, desc);
 	} else {
 		drvdata->gpios.debug_mux_gpio = RT5640_GPIO_NA;
 		pr_warn("%s: GPIOs - Debug-mux: Not present!\n", __func__);
@@ -621,14 +619,13 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	desc = devm_gpiod_get_index(codec->dev, NULL, RT5640_GPIO_JD_BUTTONS);
 	if (!IS_ERR(desc)) {
 		drvdata->gpios.jd_buttons_gpio = desc_to_gpio(desc);
-		devm_gpiod_put(codec->dev, desc);
-
 		byt_export_gpio(desc, "JD-buttons");
 
 		pr_info("%s: GPIOs - JD-buttons: %d (pol = %d, val = %d)\n",
 			__func__, drvdata->gpios.jd_buttons_gpio,
 			gpiod_is_active_low(desc), gpiod_get_value(desc));
 
+		devm_gpiod_put(codec->dev, desc);
 	} else {
 		drvdata->gpios.jd_buttons_gpio = RT5640_GPIO_NA;
 		pr_warn("%s: GPIOs - JD-buttons: Not present!\n", __func__);
@@ -637,18 +634,20 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	desc = devm_gpiod_get_index(codec->dev, NULL, RT5640_GPIO_I2S_TRISTATE);
 	if (!IS_ERR(desc)) {
 		drvdata->gpios.i2s_tristate_en_gpio = desc_to_gpio(desc);
-		devm_gpiod_put(codec->dev, desc);
 
-		byt_export_gpio(desc, "I2S-Tristate-En");
 		ret = gpiod_direction_output(desc, 0);
 		if (ret)
 			pr_warn("%s: Failed to set direction for GPIO%d (err = %d)!\n",
 				__func__, drvdata->gpios.i2s_tristate_en_gpio,
 				ret);
 
+		byt_export_gpio(desc, "I2S-Tristate-En");
+
 		pr_info("%s: GPIOs - I2S-Tristate-En: %d (pol = %d, val = %d)\n",
 			__func__, drvdata->gpios.i2s_tristate_en_gpio,
 			gpiod_is_active_low(desc), gpiod_get_value(desc));
+
+		devm_gpiod_put(codec->dev, desc);
 	} else {
 		drvdata->gpios.i2s_tristate_en_gpio = RT5640_GPIO_NA;
 		pr_warn("%s: GPIOs - i2s_tristate_en-mux: Not present!\n",
