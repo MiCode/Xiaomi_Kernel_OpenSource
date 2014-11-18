@@ -585,6 +585,9 @@ static int mdss_debugfs_perf_init(struct mdss_debug_data *mdd,
 	debugfs_create_file("ib_factor_overlap", 0644, mdd->perf,
 		&mdata->ib_factor_overlap, &mdss_factor_fops);
 
+	debugfs_create_file("ib_factor_cmd", 0644, mdd->perf,
+		&mdata->ib_factor_cmd, &mdss_factor_fops);
+
 	debugfs_create_file("clk_factor", 0644, mdd->perf,
 		&mdata->clk_factor, &mdss_factor_fops);
 
