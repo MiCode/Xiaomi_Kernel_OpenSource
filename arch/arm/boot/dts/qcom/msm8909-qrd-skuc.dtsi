@@ -87,3 +87,17 @@
 	status = "okay";
 	qcom,battery-data = <&qrd_batterydata>;
 };
+
+&sdc2_cd_on {
+	/delete-property/  bias-pull-up;
+	bias-disable;
+};
+
+&sdhc_2 {
+	qcom,vdd-always-on;
+	qcom,vdd-lpm-sup;
+
+	qcom,vdd-current-level = <4000 400000>;
+
+	cd-gpios = <&msm_gpio 38 0x0>;
+};
