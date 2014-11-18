@@ -1,0 +1,48 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "fsm9900-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. FSM9900 MTP";
+	compatible = "qcom,fsm9900-mtp", "qcom,fsm9900", "qcom,mtp";
+	qcom,msm-id = <188 0x10000>,
+		      <189 0x10000>,
+		      <190 0x10000>,
+		      <191 0x10000>,
+		      <192 0x10000>,
+		      <193 0x10000>;
+	qcom,board-id = <0x00020008 0>;
+};
+
+&soc {
+	emac1:qcom,emac@feb00000 {
+		qcom,no-external-phy;
+	};
+};
+
+/* QPNP controlled regulators: */
+&spmi_bus {
+	/*LDO01 */
+        qcom,pma8084@1 {
+		pma8084_l01: regulator@4000 {
+			regulator-min-microvolt = <1300000>;
+			regulator-max-microvolt = <1300000>;
+			qcom,enable-time = <500>;
+			com,pull-down-enable = <1>;
+			regulator-always-on;
+			status = "okay";
+		};
+	};
+};
