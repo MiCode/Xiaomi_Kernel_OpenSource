@@ -141,7 +141,7 @@ struct adreno_context {
 	int state;
 	unsigned long priv;
 	unsigned int type;
-	struct mutex mutex;
+	spinlock_t lock;
 	struct kgsl_memdesc gpustate;
 	unsigned int reg_restore[3];
 	unsigned int shader_save[3];
