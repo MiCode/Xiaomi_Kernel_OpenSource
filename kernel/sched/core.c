@@ -2538,6 +2538,16 @@ static void restore_orig_mark_start(struct task_struct *p, u64 mark_start)
 	p->ravg.mark_start = mark_start;
 }
 
+/*
+ * Note down when task started running on a cpu. This information will be handy
+ * to avoid "too" frequent task migrations for a running task on account of
+ * power.
+ */
+static inline void note_run_start(struct task_struct *p, u64 wallclock)
+{
+	p->run_start = wallclock;
+}
+
 #else	/* CONFIG_SCHED_HMP */
 
 static inline void fixup_busy_time(struct task_struct *p, int new_cpu) { }
@@ -2568,6 +2578,8 @@ static inline void
 restore_orig_mark_start(struct task_struct *p, u64 mark_start)
 {
 }
+
+static inline void note_run_start(struct task_struct *p, u64 wallclock) { }
 
 #endif	/* CONFIG_SCHED_HMP */
 
@@ -2833,6 +2845,8 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 #endif
 
 	trace_sched_migrate_task(p, new_cpu, pct_task_load(p));
+
+	note_run_start(p, -1);
 
 	if (task_cpu(p) != new_cpu) {
 		if (p->sched_class->migrate_task_rq)
@@ -4772,6 +4786,7 @@ static void __sched notrace __schedule(bool preempt)
 			prev->state = TASK_RUNNING;
 		} else {
 			deactivate_task(rq, prev, DEQUEUE_SLEEP);
+			note_run_start(prev, -1);
 			prev->on_rq = 0;
 
 			/*
@@ -4800,6 +4815,7 @@ static void __sched notrace __schedule(bool preempt)
 	clear_tsk_need_resched(prev);
 	clear_preempt_need_resched();
 	rq->clock_skip_update = 0;
+	note_run_start(next, wallclock);
 
 	BUG_ON(task_cpu(next) != cpu_of(rq));
 
