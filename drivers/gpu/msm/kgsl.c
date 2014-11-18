@@ -3075,6 +3075,20 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	unsigned int memtype;
 
+	/*
+	 * If content protection is not enabled and secure buffer
+	 * is requested to be mapped return error.
+	 */
+
+	if (param->flags & KGSL_MEMFLAGS_SECURE) {
+		/* Log message and return if context protection isn't enabled */
+		if (!kgsl_mmu_is_secured(&dev_priv->device->mmu)) {
+			dev_WARN_ONCE(dev_priv->device->dev, 1,
+				"Secure buffer not supported");
+			return -EINVAL;
+		}
+	}
+
 	entry = kgsl_mem_entry_create();
 
 	if (entry == NULL)
@@ -3101,27 +3115,6 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMFLAGS_USE_CPU_MAP
 			| KGSL_MEMFLAGS_SECURE;
 
-	/*
-	 * If content protection is not enabled and secure buffer
-	 * is requested to be mapped return error.
-	 */
-	if (!kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
-			(param->flags & KGSL_MEMFLAGS_SECURE)) {
-		dev_WARN_ONCE(dev_priv->device->dev, 1,
-				"Secure buffer not supported");
-		goto error;
-	}
-
-	if (param->flags & KGSL_MEMFLAGS_SECURE) {
-		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
-		if (!IS_ALIGNED(entry->memdesc.size, SZ_1M)) {
-			KGSL_DRV_ERR(dev_priv->device,
-				 "Secure buffer size %zx must be %x aligned",
-				 entry->memdesc.size, SZ_1M);
-			goto error;
-		}
-	}
-
 	entry->memdesc.flags = param->flags;
 
 	if (!kgsl_mmu_use_cpu_map(&dev_priv->device->mmu))
@@ -3129,6 +3122,9 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_IOMMU)
 		entry->memdesc.priv |= KGSL_MEMDESC_GUARD_PAGE;
+
+	if (param->flags & KGSL_MEMFLAGS_SECURE)
+		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
 
 	switch (memtype) {
 	case KGSL_MEM_ENTRY_PMEM:
@@ -3182,6 +3178,15 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 	if (result)
 		goto error;
+
+	if ((param->flags & KGSL_MEMFLAGS_SECURE) &&
+		!IS_ALIGNED(entry->memdesc.size, SZ_1M)) {
+			KGSL_DRV_ERR(dev_priv->device,
+				"Secure buffer size %zx must be 1MB aligned",
+				entry->memdesc.size);
+		result = -EINVAL;
+		goto error_attach;
+	}
 
 	if (entry->memdesc.size >= SZ_2M)
 		kgsl_memdesc_set_align(&entry->memdesc, ilog2(SZ_2M));
