@@ -3495,11 +3495,11 @@ static void msm_pcie_notify_client(struct msm_pcie_dev_t *dev,
 				"PCIe: Client of RC%d will recover the link later.\n",
 				dev->rc_idx);
 			return;
-		} else {
-			PCIE_DBG2(dev,
-				"PCIe: Client of RC%d does not have registration for event %d\n",
-				dev->rc_idx, event);
 		}
+	} else {
+		PCIE_DBG2(dev,
+			"PCIe: Client of RC%d does not have registration for event %d\n",
+			dev->rc_idx, event);
 	}
 }
 
