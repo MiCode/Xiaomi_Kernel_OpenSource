@@ -12,6 +12,7 @@
  */
 
 #include "msm8916-qrd-skut1.dtsi"
+#include "dsi-panel-samsung-wxga-video.dtsi"
 
 &soc {
 	gpio-leds {
@@ -29,4 +30,24 @@
 	chan@30 {
 		qcom,scale-function = <1>;
 	};
+};
+
+&pmx_mdss {
+	qcom,num-grp-pins = <2>;
+	qcom,pins = <&gp 22>, <&gp 25>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_samsung_wxga_video>;
+
+	qcom,platform-enable-gpio = <&msm_gpio 22 0>;
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+};
+
+&dsi_samsung_wxga_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+	qcom,cont-splash-enabled;
 };
