@@ -52,7 +52,7 @@ struct i915_params i915 __read_mostly = {
 	.enable_cmd_parser = 1,
 	.disable_vtd_wa = 0,
 	.drrs_interval = 2000,
-	.use_mmio_flip = 0,
+	.use_mmio_flip = 1,
 	.hangcheck_period = 1000,
 	.ring_reset_min_alive_period = 0,
 	.gpu_reset_min_alive_period = 0,
@@ -192,7 +192,7 @@ MODULE_PARM_DESC(drrs_interval,
 
 module_param_named(use_mmio_flip, i915.use_mmio_flip, int, 0600);
 MODULE_PARM_DESC(use_mmio_flip,
-		 "use MMIO flips (-1=never, 0=driver discretion [default], 1=always)");
+		 "use MMIO flips (-1=never, 0=driver discretion, 1=always [default])");
 
 int hangcheck_period_set(const char *val, const struct kernel_param *kp)
 {
