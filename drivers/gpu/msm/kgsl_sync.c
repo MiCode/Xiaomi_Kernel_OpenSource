@@ -369,9 +369,13 @@ struct kgsl_sync_fence_waiter *kgsl_sync_fence_async_wait(int fd,
 		sync_fence_put(fence);
 		return ERR_PTR(-ENOMEM);
 	}
+
 	kwaiter->fence = fence;
 	kwaiter->priv = priv;
 	kwaiter->func = func;
+
+	strlcpy(kwaiter->name, fence->name, sizeof(kwaiter->name));
+
 	sync_fence_waiter_init((struct sync_fence_waiter *) kwaiter,
 		kgsl_sync_callback);
 
