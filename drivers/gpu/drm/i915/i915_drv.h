@@ -733,7 +733,12 @@ struct i915_psr {
 	bool sink_support;
 	bool source_ok;
 	bool setup_done;
+	atomic_t update_pending;
 	struct mutex lock;
+	struct delayed_work work;
+	struct intel_dp *enabled;
+	struct intel_dp *dp_setup;
+	unsigned long entry_ts;
 };
 
 enum intel_pch {

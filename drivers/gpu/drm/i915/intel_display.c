@@ -2638,8 +2638,21 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	if (intel_crtc->pri_update && dev_priv->atomic_update) {
 		dspcntr = intel_crtc->reg.cntr;
 		intel_crtc->pri_update = false;
-	} else
+	} else {
 		dspcntr = I915_READ(reg);
+		/*
+		 * Flag set during psr_exit in intel_dp.c, to
+		 * enable the primary plane after PSR exit.
+		 */
+		if (atomic_read(&dev_priv->psr.update_pending))
+			dspcntr |= DISPLAY_PLANE_ENABLE;
+	}
+
+	/*
+	 * Reset this to 0 since we have enabled/disabled
+	 * primary plane according to the above conditions.
+	 */
+	atomic_set(&dev_priv->psr.update_pending, 0);
 
 	/* Update plane alpha */
 	 if (intel_crtc->flags & DRM_MODE_SET_DISPLAY_PLANE_UPDATE_ALPHA) {

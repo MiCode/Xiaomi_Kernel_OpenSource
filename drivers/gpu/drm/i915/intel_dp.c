@@ -1978,6 +1978,10 @@ void intel_edp_psr_update(struct drm_device *dev)
 	if (!dev_priv->psr.setup_done)
 		return;
 
+	/* VLV/CHV handle PSR differently */
+	if (IS_VALLEYVIEW(dev))
+		return;
+
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, base.head)
 		if (encoder->type == INTEL_OUTPUT_EDP) {
 			intel_dp = enc_to_intel_dp(&encoder->base);
@@ -1993,6 +1997,457 @@ void intel_edp_psr_update(struct drm_device *dev)
 					intel_edp_psr_do_enable(intel_dp);
 			mutex_unlock(&dev_priv->psr.lock);
 		}
+}
+
+/* CHV PSR related functions */
+static int intel_edp_get_active_crtc_count(struct drm_device *dev)
+{
+	struct drm_crtc *crtc;
+	struct intel_crtc *intel_crtc;
+	int count = 0;
+
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		intel_crtc = to_intel_crtc(crtc);
+		if (intel_crtc->active)
+			count++;
+	}
+	return count;
+}
+
+static bool intel_vlv_psr_match_conditions(struct intel_dp *intel_dp)
+{
+	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
+	struct intel_encoder *intel_encoder = &dig_port->base;
+	struct drm_crtc *crtc = dig_port->base.base.crtc;
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int valid_pipe = IS_CHERRYVIEW(dev) ? PIPE_B : PIPE_A;
+	enum pipe pipe;
+
+	dev_priv->psr.source_ok = false;
+
+	if (!crtc || !intel_crtc_active(crtc)) {
+		DRM_DEBUG_KMS("crtc not initialized for PSR");
+		return false;
+	}
+
+	if (intel_encoder->type != INTEL_OUTPUT_EDP) {
+		DRM_DEBUG_KMS("PSR only for eDP\n");
+		return false;
+	}
+
+	/* If we cannot support fast link training, do not enable PSR */
+	if (!intel_dp->has_fast_link_train) {
+		DRM_DEBUG_KMS("Fast link training not supported.\n");
+		return false;
+	}
+
+	/* eDP only on pipe A in VLV and pipe A/B in CHV */
+	pipe = (to_intel_crtc(crtc))->pipe;
+	if (pipe > valid_pipe) {
+		DRM_DEBUG_KMS("Trying to enable PSR on wrong pipe: %d\n", pipe);
+		return false;
+	}
+
+	/* Enable PSR only when one pipe is active */
+	if (intel_edp_get_active_crtc_count(dev) > 1) {
+		DRM_DEBUG_KMS("More than one pipe active\n");
+		return false;
+	}
+
+	/* Enable PSR only when primary plane is active */
+	if (is_sprite_enabled(dev_priv, pipe, 0) ||
+		is_sprite_enabled(dev_priv, pipe, 1)) {
+		DRM_DEBUG_KMS("Pipe %d Sprite enabled\n", pipe);
+		return false;
+	}
+
+	dev_priv->psr.source_ok = true;
+	return true;
+}
+
+static bool intel_vlv_psr_active(struct intel_dp *intel_dp,
+				enum pipe pipe, bool in_progress)
+{
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int reg = VLV_EDP_PSR_STATUS(pipe);
+	u32 val = I915_READ(reg) & VLV_PSR_STATE_MASK;
+
+	/*
+	 * We treat 'PSR active' as three different cases:
+	 * i. When we are enabling PSR, if it is in transition
+	 *    we consider that as 'active'. Because, we do not
+	 *    want to re-enable, since it was already enabled.
+	 * ii.When we are disabling PSR, we would like to
+	 *    disable even when we are 'Transitioning to
+	 *    active'. (We may be disabling pipe etc..)
+	 * iii.When we are just 'exiting' PSR (to be re-enabled
+	 *    soon, without changes in pipe configurations),
+	 *    we return false since we have to gracefully exit
+	 *    (which means going to state 3 and then exiting)
+	 */
+	if (val == VLV_PSR_TRANSIT_TO_ACTIVE) {
+		if (in_progress)
+			DRM_DEBUG_KMS("PSR Transition in Progress\n");
+
+		return in_progress;
+	}
+
+	return val == VLV_PSR_ACTIVE_NO_RFB || val == VLV_PSR_ACTIVE_SFU;
+}
+
+static bool intel_vlv_psr_exited(struct intel_dp *intel_dp,
+					enum pipe pipe)
+{
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int reg = VLV_EDP_PSR_STATUS(pipe);
+	u32 val = I915_READ(reg) & VLV_PSR_STATE_MASK;
+
+	return val == VLV_PSR_EXIT || val == VLV_PSR_INACTIVE;
+}
+
+static void intel_vlv_psr_enable_sink(struct intel_dp *intel_dp)
+{
+	int ret;
+	u8 buf[1];
+
+	/* Enable PSR in Sink */
+	ret = drm_dp_dpcd_readb(&intel_dp->aux, DP_PSR_EN_CFG, buf);
+	if (ret < 0) {
+		DRM_ERROR("PSR dpcd read failed:%d\n", ret);
+		return;
+	}
+
+	drm_dp_dpcd_writeb(&intel_dp->aux, DP_PSR_EN_CFG,
+			buf[0] | DP_PSR_ENABLE | DP_PSR_MAIN_LINK_ACTIVE);
+}
+
+static void intel_vlv_psr_enable_source(struct intel_dp *intel_dp)
+{
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct intel_encoder *encoder = &intel_dig_port->base;
+	enum pipe pipe = to_intel_crtc(encoder->base.crtc)->pipe;
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int reg, val;
+
+	/* Enable PSR interrupts */
+	if (pipe == PIPE_A) {
+		val = I915_READ(VLV_DPFLIPSTAT);
+		val |= PIPE_PSR_INT_EN;
+		I915_WRITE(VLV_DPFLIPSTAT, val);
+	} else if (pipe == PIPE_B) {
+		/* TODO: A cleaner way to set this in irq.c */
+		val = I915_READ(PIPESTAT(pipe));
+		val |= PIPE_B_PSR_INTERRUPT_ENABLE_VLV;
+		I915_WRITE(PIPESTAT(pipe), val);
+	}
+
+	/* Disable Clock gating */
+	I915_WRITE(VLV_PSR_CLK_GATE, CLK_GATE_DISABLE_ALL);
+
+	/* Set frequency to send SDP frame */
+	val = I915_READ(VLV_EDP_PSR_VSC_SDP(pipe));
+	val &= ~VLV_PSR_SDP_SEND_FREQ_MASK;
+	val |= VLV_PSR_SDP_SEND_EVFRAME;
+	I915_WRITE(VLV_EDP_PSR_VSC_SDP(pipe), val);
+
+	reg = VLV_EDP_PSR_CONTROL(pipe);
+	val = I915_READ(reg);
+
+	/* Set hardware mode */
+	val = (val & ~VLV_PSR_MODE_MASK) |
+			(VLV_PSR_HW_MODE << VLV_PSR_MODE_SHIFT);
+	/* Set idle frame threshold */
+	val = (val & ~VLV_PSR_IDENTICAL_FRAMES_MASK) |
+		(VLV_PSR_IDENTICAL_FRAMES << VLV_PSR_IDENTICAL_FRAMES_SHIFT);
+
+	/* Set source transmitter to active */
+	val = val | VLV_PSR_SRC_TRANSMITTER_STATE;
+
+	/* Enable PSR in source */
+	val = val | VLV_PSR_ENABLE;
+
+	I915_WRITE(reg, val);
+}
+
+static void intel_vlv_psr_do_enable(struct intel_dp *intel_dp)
+{
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct intel_encoder *encoder = &intel_dig_port->base;
+	enum pipe pipe = to_intel_crtc(encoder->base.crtc)->pipe;
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (dev_priv->psr.enabled)
+		return;
+
+	if (!intel_vlv_psr_match_conditions(intel_dp))
+		return;
+
+	/* Need to check for state 2 */
+	if (intel_vlv_psr_active(intel_dp, pipe, true))
+		return;
+
+	dev_priv->psr.enabled = intel_dp;
+
+	intel_vlv_psr_enable_sink(intel_dp);
+
+	intel_vlv_psr_enable_source(intel_dp);
+}
+
+static bool intel_vlv_psr_do_exit(struct intel_dp *intel_dp, bool disable)
+{
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct intel_encoder *encoder = &intel_dig_port->base;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	enum pipe pipe = intel_crtc->pipe;
+	int dpll = DPLL(pipe);
+	int reg = VLV_EDP_PSR_CONTROL(pipe);
+	int val, count = 0;
+	bool ret = false;
+	bool main_link_on = false;
+
+	if (!dev_priv->psr.enabled)
+		return false;
+
+	if (!intel_vlv_psr_active(intel_dp, pipe, disable))
+		return false;
+
+	if (I915_READ(VLV_EDP_PSR_STATUS(pipe)) & VLV_PSR_IN_TRANSITION) {
+		DRM_DEBUG_KMS("Waiting for Sink to commit to PSR\n");
+		udelay(250);
+	}
+
+	/*
+	 * Source might have just entered into PSR Active state (3).
+	 * Sink needs a setup time of 330us to enter into a valid
+	 * PSR state (according to eDP specv1.3). And we can do a
+	 * graceful exit only when Sink is in a valid PSR state.
+	 * So, provide that delay if required. If we do not,
+	 * we will see a failure in the link training below.
+	 *
+	 * Experiments show that a 330 us delay is not sufficient
+	 * here. So, make it to 1 ms.
+	 */
+	if (jiffies_to_usecs(jiffies - dev_priv->psr.entry_ts) < 1000)
+		udelay(VLV_PSR_ENABLE_DELAY);
+
+	/* Check the main link status */
+	val = I915_READ(reg);
+	main_link_on = val & VLV_PSR_SRC_TRANSMITTER_STATE;
+
+	/* Set idle pattern and wait 1 ms for 5 idle frames to be sent */
+	if (!main_link_on) {
+		intel_vlv_dp_send_idle_pattern(intel_dp);
+		udelay(1000);
+	}
+
+	/* Disable PSR by clearing the active entry bit and changing mode */
+	val &= ~VLV_PSR_ACTIVE_ENTRY;
+	val &= ~VLV_PSR_ENABLE;
+	val &= ~VLV_PSR_MODE_MASK;
+	I915_WRITE(reg, val);
+
+	dev_priv->psr.enabled = NULL;
+
+	/* Wait for 40 ms max to exit PSR state */
+	while ((count < 400) && !intel_vlv_psr_exited(intel_dp, pipe)) {
+		udelay(100);
+		count++;
+	}
+
+	/* Use Reset bit to force exit out of PSR */
+	if (count == 400) {
+		DRM_ERROR("Error waiting to exit PSR. Resetting\n");
+		val = I915_READ(reg);
+		I915_WRITE(reg, val | VLV_PSR_RESET);
+	}
+
+	/* We dont need to train link if it's already on */
+	if (main_link_on)
+		goto done;
+
+	/* CHV HW requires a wait of 60us before and after enabling port */
+	udelay(60);
+
+	/* Enable Port */
+	intel_dp->DP = I915_READ(intel_dp->output_reg);
+	intel_dp->DP |= DP_PORT_EN;
+	I915_WRITE(intel_dp->output_reg, intel_dp->DP);
+	POSTING_READ(intel_dp->output_reg);
+
+	/* Wait for PLL to get Locked */
+	if (wait_for(((I915_READ(dpll) & DPLL_LOCK_VLV) == DPLL_LOCK_VLV), 4))
+		DRM_ERROR("DPLL %d failed to lock\n", pipe);
+
+	/* Wait for DPIO PHY status to be up */
+	vlv_wait_port_ready(dev_priv, intel_dig_port);
+	udelay(60);
+
+	/* Power On the sink and give it 10us delay to actually do so */
+	intel_dp_sink_dpms(intel_dp, DRM_MODE_DPMS_ON);
+	udelay(10);
+
+	if (intel_dp->has_fast_link_train)
+		ret = intel_dp_fast_link_train(intel_dp);
+
+	/* Fast Link training failed. So do full link training */
+	if (!ret) {
+		intel_dp_start_link_train(intel_dp);
+		intel_dp_complete_link_train(intel_dp);
+		intel_dp_stop_link_train(intel_dp);
+	}
+
+	/*
+	 * Set a flag to indicate that primary plane should be
+	 * enabled. In i9xx_update_primary_plane() we enable
+	 * the plane if need be.
+	 */
+	atomic_inc(&dev_priv->psr.update_pending);
+
+done:
+	cancel_delayed_work(&dev_priv->psr.work);
+
+	return true;
+}
+
+void intel_vlv_psr_irq_handler(struct drm_device *dev, enum pipe pipe)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/*
+	 * Cache the timestamp of PSR entry. This helps us to
+	 * allow setup time when we do frequent PSR entry/exits.
+	 */
+	dev_priv->psr.entry_ts = jiffies;
+	DRM_DEBUG_KMS("PSR state: Active\n");
+}
+
+void intel_vlv_edp_psr_update(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_encoder *enc;
+	struct intel_dp *intel_dp = NULL;
+	bool flag;
+
+	if (!dev_priv->psr.setup_done)
+		return;
+
+	if (!IS_VALLEYVIEW(dev) || !is_edp_psr(dev))
+		return;
+
+	list_for_each_entry(enc, &dev->mode_config.encoder_list, base.head) {
+		if (enc->type != INTEL_OUTPUT_EDP)
+			continue;
+
+		intel_dp = enc_to_intel_dp(&enc->base);
+		if (!intel_dp)
+			break;
+
+		mutex_lock(&dev_priv->psr.lock);
+
+		/*
+		 * We mostly land here from unpin_work_fn which means
+		 * we had a page flip call. PSR should have been
+		 * disabled for that flip. If not, (may be it was
+		 * busy entering) disable it here.
+		 */
+		if (dev_priv->psr.enabled)
+			intel_vlv_psr_do_exit(intel_dp, false);
+
+		flag = intel_vlv_psr_match_conditions(intel_dp);
+		if (!dev_priv->psr.enabled && flag)
+			schedule_delayed_work(&dev_priv->psr.work,
+				msecs_to_jiffies(VLV_PSR_ENABLE_DELAY));
+
+		mutex_unlock(&dev_priv->psr.lock);
+	}
+}
+
+void intel_vlv_edp_psr_exit(struct drm_device *dev, bool disable)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (!dev_priv->psr.setup_done || !IS_VALLEYVIEW(dev))
+		return;
+
+	mutex_lock(&dev_priv->psr.lock);
+
+	if (dev_priv->psr.enabled)
+		intel_vlv_psr_do_exit(dev_priv->psr.enabled, disable);
+
+	mutex_unlock(&dev_priv->psr.lock);
+}
+
+void intel_vlv_edp_psr_disable(struct drm_device *dev)
+{
+	/* The caller should check. Just in case, paranoia */
+	if (IS_VALLEYVIEW(dev))
+		intel_vlv_edp_psr_exit(dev, true);
+}
+
+static void intel_vlv_psr_work_execute(struct work_struct *work)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(work, typeof(*dev_priv), psr.work.work);
+	struct intel_dp *intel_dp;
+
+	mutex_lock(&dev_priv->psr.lock);
+	intel_dp = dev_priv->psr.dp_setup;
+
+	/* If not initialized, exit. Should never really happen */
+	if (!intel_dp)
+		goto unlock;
+
+	intel_vlv_psr_do_enable(intel_dp);
+
+	/*
+	 * There might be other workers trying to enable.
+	 * Now that we have enabled, cancel them.
+	 */
+	cancel_delayed_work(&dev_priv->psr.work);
+unlock:
+	mutex_unlock(&dev_priv->psr.lock);
+}
+
+static void intel_vlv_edp_psr_init(struct intel_dp *intel_dp)
+{
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	bool link_train_on_exit = true;
+
+	/* Enable it in CHV alone for now */
+	if (!IS_CHERRYVIEW(dev))
+		return;
+
+	if (!i915.enable_psr) {
+		DRM_DEBUG_KMS("PSR not enabled in kernel cmdline\n");
+		return;
+	}
+
+	if (intel_dp->psr_dpcd[1] & DP_PSR_NO_TRAIN_ON_EXIT)
+		link_train_on_exit = false;
+	else
+		link_train_on_exit = true;
+
+	DRM_DEBUG_KMS("Link training is%srequired on PSR exit\n",
+			link_train_on_exit ? " " : " not ");
+
+	mutex_init(&dev_priv->psr.lock);
+	dev_priv->psr.dp_setup = intel_dp;
+	dev_priv->psr.enabled = NULL;
+	dev_priv->psr.setup_done = true;
+	atomic_set(&dev_priv->psr.update_pending, 0);
+
+	INIT_DELAYED_WORK(&dev_priv->psr.work,
+			intel_vlv_psr_work_execute);
+
+	DRM_DEBUG_KMS("PSR setup done\n");
 }
 
 static void intel_disable_dp(struct intel_encoder *encoder)
@@ -4856,6 +5311,9 @@ static bool intel_edp_init_connector(struct intel_dp *intel_dp,
 		edid = ERR_PTR(-ENOENT);
 	}
 	intel_connector->edid = edid;
+
+	if (IS_VALLEYVIEW(dev))
+		intel_vlv_edp_psr_init(intel_dp);
 
 	/* prefer fixed mode from EDID if available */
 	list_for_each_entry(scan, &connector->probed_modes, head) {
