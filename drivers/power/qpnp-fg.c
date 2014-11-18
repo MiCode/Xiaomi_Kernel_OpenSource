@@ -604,16 +604,67 @@ static int fg_set_ram_addr(struct fg_chip *chip, u16 *address)
 }
 
 #define BUF_LEN		4
-static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
-		int offset, bool keep_access)
+static int fg_sub_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
+		int offset)
 {
-	int rc = 0, user_cnt = 0, total_len = 0, orig_address = address;
+	int rc, total_len;
 	u8 *rd_data = val;
 	bool otp;
 	char str[DEBUG_PRINT_BUFFER_SIZE];
 
 	if (address < RAM_OFFSET)
-		otp = 1;
+		otp = true;
+
+	rc = fg_config_access(chip, 0, (len > 4), otp);
+	if (rc)
+		return rc;
+
+	rc = fg_set_ram_addr(chip, &address);
+	if (rc)
+		return rc;
+
+	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+		pr_info("length %d addr=%02X\n", len, address);
+
+	total_len = len;
+	while (len > 0) {
+		if (!offset) {
+			rc = fg_read(chip, rd_data,
+					chip->mem_base + MEM_INTF_RD_DATA0,
+					(len > BUF_LEN) ? BUF_LEN : len);
+		} else {
+			rc = fg_read(chip, rd_data,
+				chip->mem_base + MEM_INTF_RD_DATA0 + offset,
+				BUF_LEN - offset);
+
+			/* manually set address to allow continous reads */
+			address += BUF_LEN;
+
+			rc = fg_set_ram_addr(chip, &address);
+			if (rc)
+				return rc;
+		}
+		if (rc) {
+			pr_err("spmi read failed: addr=%03x, rc=%d\n",
+				chip->mem_base + MEM_INTF_RD_DATA0, rc);
+			return rc;
+		}
+		rd_data += (BUF_LEN - offset);
+		len -= (BUF_LEN - offset);
+		offset = 0;
+	}
+
+	if (fg_debug_mask & FG_MEM_DEBUG_READS) {
+		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, val, total_len);
+		pr_info("data: %s\n", str);
+	}
+	return rc;
+}
+
+static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
+		int offset, bool keep_access)
+{
+	int rc = 0, user_cnt = 0, orig_address = address;
 
 	if (offset > 3) {
 		pr_err("offset too large %d\n", offset);
@@ -633,50 +684,7 @@ static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 			goto out;
 	}
 
-	rc = fg_config_access(chip, 0, (len > 4), otp);
-	if (rc)
-		goto out;
-
-	rc = fg_set_ram_addr(chip, &address);
-	if (rc)
-		goto out;
-
-	if (fg_debug_mask & FG_MEM_DEBUG_READS)
-		pr_info("length %d addr=%02X keep_access %d\n",
-				len, address, keep_access);
-
-	total_len = len;
-	while (len > 0) {
-		if (!offset) {
-			rc = fg_read(chip, rd_data,
-					chip->mem_base + MEM_INTF_RD_DATA0,
-					(len > BUF_LEN) ? BUF_LEN : len);
-		} else {
-			rc = fg_read(chip, rd_data,
-				chip->mem_base + MEM_INTF_RD_DATA0 + offset,
-				BUF_LEN - offset);
-
-			/* manually set address to allow continous reads */
-			address += BUF_LEN;
-
-			rc = fg_set_ram_addr(chip, &address);
-			if (rc)
-				goto out;
-		}
-		if (rc) {
-			pr_err("spmi read failed: addr=%03x, rc=%d\n",
-				chip->mem_base + MEM_INTF_RD_DATA0, rc);
-			goto out;
-		}
-		rd_data += (BUF_LEN - offset);
-		len -= (BUF_LEN - offset);
-		offset = 0;
-	}
-
-	if (fg_debug_mask & FG_MEM_DEBUG_READS) {
-		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, val, total_len);
-		pr_info("data: %s\n", str);
-	}
+	rc = fg_sub_mem_read(chip, val, address, len, offset);
 
 out:
 	user_cnt = atomic_sub_return(1, &chip->memif_user_cnt);
@@ -698,10 +706,12 @@ out:
 }
 
 static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
-		unsigned int len, unsigned int offset, bool keep_access)
+		int len, int offset, bool keep_access)
 {
-	int rc = 0, user_cnt = 0, orig_address = address;
-	u8 *wr_data = val;
+	int rc = 0, user_cnt = 0, sublen;
+	bool access_configured = false;
+	u8 *wr_data = val, word[4];
+	char str[DEBUG_PRINT_BUFFER_SIZE];
 
 	if (address < RAM_OFFSET)
 		return -EINVAL;
@@ -709,8 +719,8 @@ static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	if (offset > 3)
 		return -EINVAL;
 
-	address = ((orig_address + offset) / 4) * 4;
-	offset = (orig_address + offset) % 4;
+	address = ((address + offset) / 4) * 4;
+	offset = (address + offset) % 4;
 
 	user_cnt = atomic_add_return(1, &chip->memif_user_cnt);
 	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
@@ -722,44 +732,68 @@ static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 			goto out;
 	}
 
-	rc = fg_config_access(chip, 1, (len > 4), 0);
-	if (rc)
-		goto out;
-
-	rc = fg_set_ram_addr(chip, &address);
-	if (rc)
-		goto out;
-
-	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
-		pr_info("length %d addr=%02X\n", len, address);
+	if (fg_debug_mask & FG_MEM_DEBUG_WRITES) {
+		pr_info("length %d addr=%02X offset=%d\n",
+				len, address, offset);
+		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, wr_data, len);
+		pr_info("writing: %s\n", str);
+	}
 
 	while (len > 0) {
-		if (offset)
-			rc = fg_write(chip, wr_data,
-				chip->mem_base + MEM_INTF_WR_DATA0 + offset,
-				(len > 4) ? 4 : len);
-		else
-			rc = fg_write(chip, wr_data,
-				chip->mem_base + MEM_INTF_WR_DATA0,
-				(len > 4) ? 4 : len);
+		if (offset != 0) {
+			sublen = min(4 - offset, len);
+			rc = fg_sub_mem_read(chip, word, address, 4, 0);
+			if (rc)
+				goto out;
+			memcpy(word + offset, wr_data, sublen);
+			/* configure access as burst if more to write */
+			rc = fg_config_access(chip, 1, (len - sublen) > 0, 0);
+			if (rc)
+				goto out;
+			rc = fg_set_ram_addr(chip, &address);
+			if (rc)
+				goto out;
+			offset = 0;
+			access_configured = true;
+		} else if (len >= 4) {
+			if (!access_configured) {
+				rc = fg_config_access(chip, 1, len > 4, 0);
+				if (rc)
+					goto out;
+				rc = fg_set_ram_addr(chip, &address);
+				if (rc)
+					goto out;
+				access_configured = true;
+			}
+			sublen = 4;
+			memcpy(word, wr_data, 4);
+		} else if (len > 0 && len < 4) {
+			sublen = len;
+			rc = fg_sub_mem_read(chip, word, address, 4, 0);
+			if (rc)
+				goto out;
+			memcpy(word, wr_data, sublen);
+			rc = fg_config_access(chip, 1, 0, 0);
+			if (rc)
+				goto out;
+			rc = fg_set_ram_addr(chip, &address);
+			if (rc)
+				goto out;
+			access_configured = true;
+		} else {
+			pr_err("Invalid length: %d\n", len);
+			break;
+		}
+		rc = fg_write(chip, word,
+			chip->mem_base + MEM_INTF_WR_DATA0, 4);
 		if (rc) {
-			pr_err("spmi read failed: addr=%03x, rc=%d\n",
+			pr_err("spmi write failed: addr=%03x, rc=%d\n",
 				chip->mem_base + MEM_INTF_RD_DATA0, rc);
 			goto out;
 		}
-		if (offset) {
-			wr_data += 4-offset;
-			if (len >= 4)
-				len -= 4-offset;
-			else
-				len = 0;
-		} else {
-			wr_data += 4;
-			if (len >= 4)
-				len -= 4;
-			else
-				len = 0;
-		}
+		len -= sublen;
+		wr_data += sublen;
+		address += 4;
 	}
 
 out:
@@ -2567,10 +2601,8 @@ static int fg_hw_init(struct fg_chip *chip)
 
 	if (chip->use_thermal_coefficients) {
 		fg_mem_write(chip, chip->thermal_coefficients,
-			THERMAL_COEFF_ADDR, 2,
+			THERMAL_COEFF_ADDR, THERMAL_COEFF_N_BYTES,
 			THERMAL_COEFF_OFFSET, 0);
-		fg_mem_write(chip, chip->thermal_coefficients + 2,
-			THERMAL_COEFF_ADDR + 4, 4, 0, 0);
 	}
 
 	return 0;
