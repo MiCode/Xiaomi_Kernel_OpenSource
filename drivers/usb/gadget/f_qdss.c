@@ -670,7 +670,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 
 	if (ctrl_xport == USB_GADGET_XPORT_QTI) {
 		status = gqti_ctrl_connect(&qdss->port, DPL_QTI_CTRL_PORT_NO,
-					qdss->data_iface_id, ctrl_xport,
+					qdss->data_iface_id, dxport,
 					USB_GADGET_DPL);
 		if (status) {
 			pr_err("%s: gqti_ctrl_connect failed: err:%d\n",
