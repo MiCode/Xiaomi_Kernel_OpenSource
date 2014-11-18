@@ -884,6 +884,8 @@ static struct i2c_msm_tag i2c_msm_tag_create(bool is_high_speed,
 	u8 slave_addr)
 {
 	struct i2c_msm_tag tag;
+	/* Normalize booleans to 1 or 0 */
+	start_req = start_req ? 1 : 0;
 	is_last_buf = is_last_buf ? 1 : 0;
 	is_rx = is_rx ? 1 : 0;
 
@@ -3209,7 +3211,8 @@ static bool i2c_msm_xfer_buf_is_last(struct i2c_msm_ctrl *ctrl)
 	struct i2c_msm_xfer_buf *cur_buf = &ctrl->xfer.cur_buf;
 	struct i2c_msg *cur_msg = ctrl->xfer.msgs + cur_buf->msg_idx;
 
-	return (cur_buf->byte_idx + ctrl->ver.max_buf_size) >= cur_msg->len;
+	return i2c_msm_xfer_msg_is_last(ctrl) &&
+		((cur_buf->byte_idx + ctrl->ver.max_buf_size) >= cur_msg->len);
 }
 
 static void i2c_msm_xfer_create_cur_tag(struct i2c_msm_ctrl *ctrl,
@@ -3390,7 +3393,7 @@ static void i2c_msm_xfer_scan(struct i2c_msm_ctrl *ctrl)
 		xfer->rx_ovrhd_cnt += cur_buf->in_tag.len;
 		xfer->tx_ovrhd_cnt += cur_buf->out_tag.len;
 
-		if (cur_buf->is_last)
+		if (i2c_msm_xfer_msg_is_last(ctrl))
 			xfer->last_is_rx = cur_buf->is_rx;
 	}
 	ctrl->xfer.cur_buf = first_buf;
