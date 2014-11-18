@@ -34,6 +34,7 @@ struct cpu_pstate_pwr {
 struct cpu_pwr_stats {
 	int cpu;
 	long temp;
+	bool throttling;
 	struct cpu_pstate_pwr *ptable;
 	int len;
 };
