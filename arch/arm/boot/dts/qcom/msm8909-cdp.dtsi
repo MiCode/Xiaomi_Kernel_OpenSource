@@ -39,6 +39,73 @@
 				synaptics,key-codes = <158 139 172 217>;
 			};
 		};
+
+		atmel_mxt_ts@4a {
+			compatible = "atmel,mxt-ts";
+			reg = <0x4a>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x2>;
+			vdd_ana-supply = <&pm8909_l17>;
+			vcc_i2c-supply = <&pm8909_l6>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			atmel,reset-gpio = <&msm_gpio 12 0x00>;
+			atmel,irq-gpio = <&msm_gpio 13 0x00>;
+			atmel,i2c-pull-up;
+			atmel,no-force-update;
+			atmel,no-lpm-support;
+			atmel,create-vkeys;
+			atmel,cfg_1 {
+				atmel,family-id = <0x81>;
+				atmel,variant-id = <0x01>;
+				atmel,version = <0x20>;
+				atmel,build = <0xab>;
+				atmel,bootldr-id = <0x06>;
+				atmel,check-panel-coordinates;
+				atmel,panel-coords = <0 0 566 1067>;
+				atmel,display-coords = <0 0 540 960>;
+				atmel,vkey-codes = <158 139 172 217>;
+				atmel,config = [
+					/* Object 6, Instance = 0 */
+					00 00 00 00 00 00
+					/* Object 38, Instance = 0 */
+					0F 04 01 1E 07 0D 00 00
+					/* Object 7, Instance = 0 */
+					20 08 32
+					/* Object 8, Instance = 0 */
+					19 00 14 14 00 00 FF 00 00 00
+					/* Object 9, Instance = 0 */
+					83 00 00 13 0B 00 20 32 01 03
+					00 32 05 30 0A 05 0A 00 2B 04
+					36 02 04 2F F8 DC 00 00 40 00
+					00 0A 00 00 02
+					/* Object 18, Instance = 0 */
+					00 00
+					/* Object 19, Instance = 0 */
+					00 00 00 00 00 00
+					/* Object 25, Instance = 0 */
+					03 00 18 79 A8 61
+					/* Object 42, Instance = 0 */
+					00 00 00 00 00 00 00 00
+					/* Object 46, Instance = 0 */
+					04 03 08 10 00 00 00 00 00
+					/* Object 47, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					/* Object 48, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00 00 00 00 00 00 00
+					00 00 00 00
+					/* Object 55, Instance = 0 */
+					00 00 00 00
+					];
+			};
+		};
 	};
 
 	i2c@78b6000 { /* BLSP1 QUP2 */
