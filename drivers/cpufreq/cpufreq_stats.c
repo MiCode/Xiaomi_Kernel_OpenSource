@@ -58,13 +58,14 @@ static int cpufreq_stats_update(unsigned int cpu)
 	struct cpufreq_stats *stat;
 	struct all_cpufreq_stats *all_stat;
 	unsigned long long cur_time;
+	unsigned long flags;
 
 	cur_time = get_jiffies_64();
-	spin_lock(&cpufreq_stats_lock);
+	spin_lock_irqsave(&cpufreq_stats_lock, flags);
 	stat = per_cpu(cpufreq_stats_table, cpu);
 	all_stat = per_cpu(all_cpufreq_stats, cpu);
 	if (!stat) {
-		spin_unlock(&cpufreq_stats_lock);
+		spin_unlock_irqrestore(&cpufreq_stats_lock, flags);
 		return 0;
 	}
 	if (stat->time_in_state) {
@@ -75,7 +76,7 @@ static int cpufreq_stats_update(unsigned int cpu)
 					cur_time - stat->last_time;
 	}
 	stat->last_time = cur_time;
-	spin_unlock(&cpufreq_stats_lock);
+	spin_unlock_irqrestore(&cpufreq_stats_lock, flags);
 	return 0;
 }
 
@@ -295,6 +296,8 @@ static int __cpufreq_stats_create_table(struct cpufreq_policy *policy,
 	struct cpufreq_policy *current_policy;
 	unsigned int alloc_size;
 	unsigned int cpu = policy->cpu;
+	unsigned long flags;
+
 	if (per_cpu(cpufreq_stats_table, cpu))
 		return -EBUSY;
 	stat = kzalloc(sizeof(*stat), GFP_KERNEL);
@@ -346,10 +349,10 @@ static int __cpufreq_stats_create_table(struct cpufreq_policy *policy,
 			stat->freq_table[j++] = freq;
 	}
 	stat->state_num = j;
-	spin_lock(&cpufreq_stats_lock);
+	spin_lock_irqsave(&cpufreq_stats_lock, flags);
 	stat->last_time = get_jiffies_64();
 	stat->last_index = freq_table_get_index(stat, policy->cur);
-	spin_unlock(&cpufreq_stats_lock);
+	spin_unlock_irqrestore(&cpufreq_stats_lock, flags);
 	cpufreq_cpu_put(current_policy);
 	return 0;
 error_out:
@@ -527,6 +530,7 @@ static int cpufreq_stat_notifier_trans(struct notifier_block *nb,
 	struct cpufreq_freqs *freq = data;
 	struct cpufreq_stats *stat;
 	int old_index, new_index;
+	unsigned long flags;
 
 	if (val != CPUFREQ_POSTCHANGE)
 		return 0;
@@ -547,13 +551,13 @@ static int cpufreq_stat_notifier_trans(struct notifier_block *nb,
 	if (old_index == new_index)
 		return 0;
 
-	spin_lock(&cpufreq_stats_lock);
+	spin_lock_irqsave(&cpufreq_stats_lock, flags);
 	stat->last_index = new_index;
 #ifdef CONFIG_CPU_FREQ_STAT_DETAILS
 	stat->trans_table[old_index * stat->max_state + new_index]++;
 #endif
 	stat->total_trans++;
-	spin_unlock(&cpufreq_stats_lock);
+	spin_unlock_irqrestore(&cpufreq_stats_lock, flags);
 	return 0;
 }
 
