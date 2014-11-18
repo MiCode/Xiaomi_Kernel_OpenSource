@@ -344,6 +344,12 @@ static int ulpi_read(struct usb_phy *phy, u32 reg)
 	struct msm_otg *motg = container_of(phy, struct msm_otg, phy);
 	int cnt = 0;
 
+	if (motg->pdata->phy_type == QUSB_ULPI_PHY && reg > 0x3F) {
+		pr_debug("%s: ULPI vendor-specific reg 0x%02x not supported\n",
+			__func__, reg);
+		return 0;
+	}
+
 	/* initiate read operation */
 	writel(ULPI_RUN | ULPI_READ | ULPI_ADDR(reg),
 	       USB_ULPI_VIEWPORT);
@@ -370,6 +376,12 @@ static int ulpi_write(struct usb_phy *phy, u32 val, u32 reg)
 {
 	struct msm_otg *motg = container_of(phy, struct msm_otg, phy);
 	int cnt = 0;
+
+	if (motg->pdata->phy_type == QUSB_ULPI_PHY && reg > 0x3F) {
+		pr_debug("%s: ULPI vendor-specific reg 0x%02x not supported\n",
+			__func__, reg);
+		return 0;
+	}
 
 	/* initiate write operation */
 	writel(ULPI_RUN | ULPI_WRITE |
@@ -565,10 +577,13 @@ static int msm_otg_link_reset(struct msm_otg *motg)
 	return 0;
 }
 
+#define QUSB2PHY_PORT_POWERDOWN		0xB4
+#define QUSB2PHY_PORT_UTMI_CTRL2	0xC4
+
 static void msm_usb_phy_reset(struct msm_otg *motg)
 {
 	u32 val;
-	int ret;
+	int ret, *seq;
 
 	switch (motg->pdata->phy_type) {
 	case SNPS_PICO_PHY:
@@ -588,6 +603,45 @@ static void msm_usb_phy_reset(struct msm_otg *motg)
 		val &= ~PHY_POR_BIT_MASK;
 		val |= PHY_POR_DEASSERT;
 		writel_relaxed(val, motg->usb_phy_ctrl_reg);
+		break;
+	case QUSB_ULPI_PHY:
+		ret = clk_reset(motg->phy_reset_clk, CLK_RESET_ASSERT);
+		if (ret) {
+			pr_err("phy_reset_clk assert failed %d\n", ret);
+			break;
+		}
+
+		/* need to delay 10us for PHY to reset */
+		usleep(10);
+
+		ret = clk_reset(motg->phy_reset_clk, CLK_RESET_DEASSERT);
+		if (ret) {
+			pr_err("phy_reset_clk de-assert failed %d\n", ret);
+			break;
+		}
+
+		/* Ensure that RESET operation is completed. */
+		mb();
+
+		writel_relaxed(0x23,
+				motg->phy_csr_regs + QUSB2PHY_PORT_POWERDOWN);
+		writel_relaxed(0x0,
+				motg->phy_csr_regs + QUSB2PHY_PORT_UTMI_CTRL2);
+
+		/* Program tuning parameters for PHY */
+		seq = motg->pdata->phy_init_seq;
+		if (seq) {
+			while (seq[0] >= 0) {
+				writel_relaxed(seq[1],
+						motg->phy_csr_regs + seq[0]);
+				seq += 2;
+			}
+		}
+
+		/* ensure above writes are completed before re-enabling PHY */
+		wmb();
+		writel_relaxed(0x22,
+				motg->phy_csr_regs + QUSB2PHY_PORT_POWERDOWN);
 		break;
 	case SNPS_FEMTO_PHY:
 		if (!motg->phy_por_clk) {
@@ -4964,6 +5018,26 @@ static int msm_otg_probe(struct platform_device *pdev)
 		pdata = pdev->dev.platform_data;
 	}
 
+	if (pdata->phy_type == QUSB_ULPI_PHY) {
+		if (of_property_match_string(pdev->dev.of_node,
+					"clock-names", "phy_ref_clk") >= 0) {
+			motg->phy_ref_clk = devm_clk_get(&pdev->dev,
+						"phy_ref_clk");
+			if (IS_ERR(motg->phy_ref_clk)) {
+				ret = PTR_ERR(motg->phy_ref_clk);
+				goto disable_phy_csr_clk;
+			} else {
+				ret = clk_prepare_enable(motg->phy_ref_clk);
+				if (ret) {
+					dev_err(&pdev->dev,
+						"fail to enable phy ref clk %d\n",
+						ret);
+					goto disable_phy_csr_clk;
+				}
+			}
+		}
+	}
+
 	motg->phy.otg = devm_kzalloc(&pdev->dev, sizeof(struct usb_otg),
 							GFP_KERNEL);
 	if (!motg->phy.otg) {
@@ -5062,7 +5136,8 @@ static int msm_otg_probe(struct platform_device *pdev)
 	 * The link does not have any PHY specific registers.
 	 * Hence set motg->usb_phy_ctrl_reg to.
 	 */
-	if (motg->pdata->phy_type == SNPS_FEMTO_PHY) {
+	if (motg->pdata->phy_type == SNPS_FEMTO_PHY ||
+		pdata->phy_type == QUSB_ULPI_PHY) {
 		res = platform_get_resource_byname(pdev,
 				IORESOURCE_MEM, "phy_csr");
 		if (!res) {

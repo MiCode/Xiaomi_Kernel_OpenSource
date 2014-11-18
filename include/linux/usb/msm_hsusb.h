@@ -102,6 +102,7 @@ enum msm_usb_phy_type {
 	CI_PHY,			/* not supported */
 	SNPS_PICO_PHY,
 	SNPS_FEMTO_PHY,
+	QUSB_ULPI_PHY,
 };
 
 #define IDEV_CHG_MAX	1500
@@ -419,6 +420,7 @@ struct msm_otg {
 	struct clk *phy_por_clk;
 	struct clk *phy_csr_clk;
 	struct clk *bus_clks[USB_NUM_BUS_CLOCKS];
+	struct clk *phy_ref_clk;
 	long core_clk_rate;
 	struct resource *io_res;
 	void __iomem *regs;
