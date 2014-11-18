@@ -199,8 +199,9 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 	retire = kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED);
 
 	dev_err(device->dev,
-		"  context[%d]: queue=%d, start=%d, retire=%d\n",
-		context->id, queue, start, retire);
+		"  context[%d]: queue=%d, submit=%d, start=%d, retire=%d\n",
+		context->id, queue, drawctxt->submitted_timestamp,
+		start, retire);
 
 	if (drawctxt->cmdqueue_head != drawctxt->cmdqueue_tail) {
 		struct kgsl_cmdbatch *cmdbatch =
