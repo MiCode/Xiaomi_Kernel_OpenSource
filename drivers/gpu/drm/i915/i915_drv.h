@@ -1583,6 +1583,7 @@ struct drm_i915_private {
 	struct intel_opregion opregion;
 	struct intel_vbt_data vbt;
 
+	struct kobject memtrack_kobj;
 	/* overlay */
 	struct intel_overlay *overlay;
 
@@ -2070,6 +2071,7 @@ struct drm_i915_file_private {
 
 	atomic_t rps_wait_boost;
 	struct  intel_engine_cs *bsd_ring;
+	struct bin_attribute *obj_attr;
 };
 
 /*
@@ -2752,8 +2754,8 @@ int i915_obj_insert_virt_addr(struct drm_i915_gem_object *obj,
 				bool is_mutex_locked);
 int i915_get_drm_clients_info(struct drm_i915_error_state_buf *m,
 				struct drm_device *dev);
-int i915_gem_get_all_obj_info(struct drm_i915_error_state_buf *m,
-				struct drm_device *dev);
+int i915_gem_get_obj_info(struct drm_i915_error_state_buf *m,
+			struct drm_device *dev, struct pid *tgid);
 
 /* i915_debugfs.c */
 int i915_debugfs_init(struct drm_minor *minor);
@@ -2769,10 +2771,13 @@ __printf(2, 3)
 void i915_error_printf(struct drm_i915_error_state_buf *e, const char *f, ...);
 void i915_error_puts(struct drm_i915_error_state_buf *e,
 			    const char *str);
+bool i915_error_ok(struct drm_i915_error_state_buf *e);
 int i915_error_state_to_str(struct drm_i915_error_state_buf *estr,
 			    const struct i915_error_state_file_priv *error);
 int i915_error_state_buf_init(struct drm_i915_error_state_buf *eb,
 			      size_t count, loff_t pos);
+int i915_obj_state_buf_init(struct drm_i915_error_state_buf *eb,
+			      size_t count);
 static inline void i915_error_state_buf_release(
 	struct drm_i915_error_state_buf *eb)
 {
@@ -2812,6 +2817,10 @@ void i915_restore_display_reg(struct drm_device *dev);
 /* i915_sysfs.c */
 void i915_setup_sysfs(struct drm_device *dev_priv);
 void i915_teardown_sysfs(struct drm_device *dev_priv);
+int i915_gem_create_sysfs_file_entry(struct drm_device *dev,
+					struct drm_file *file);
+void i915_gem_remove_sysfs_file_entry(struct drm_device *dev,
+			struct drm_file *file);
 
 /* intel_i2c.c */
 extern int intel_setup_gmbus(struct drm_device *dev);

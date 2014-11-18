@@ -873,18 +873,19 @@ out:
 }
 
 static int
-__i915_gem_get_all_obj_info(struct drm_i915_error_state_buf *m,
-			struct drm_device *dev)
+__i915_gem_get_obj_info(struct drm_i915_error_state_buf *m,
+			struct drm_device *dev, struct pid *tgid)
 {
 	struct drm_file *file;
 	int pid_num, ret = 0;
 
 	list_for_each_entry(file, &dev->filelist, lhead) {
-		struct pid *tgid;
 		struct drm_i915_file_private *file_priv = file->driver_priv;
 
-		tgid = file_priv->tgid;
-		pid_num = pid_nr(tgid);
+		pid_num = pid_nr(file_priv->tgid);
+
+		if (file_priv->tgid != tgid)
+			continue;
 
 		err_puts(m, "\n\n  PID  process\n");
 
@@ -932,31 +933,18 @@ int i915_get_drm_clients_info(struct drm_i915_error_state_buf *m,
 	return ret;
 }
 
-int i915_gem_get_all_obj_info(struct drm_i915_error_state_buf *m,
-			struct drm_device *dev)
+int i915_gem_get_obj_info(struct drm_i915_error_state_buf *m,
+			struct drm_device *dev, struct pid *tgid)
 {
 	int ret = 0;
 
-	/*
-	 * Protect the access to global drm resources such as filelist. Protect
-	 * against their removal under our noses, while in use.
-	 */
-	mutex_lock(&drm_global_mutex);
 	ret = i915_mutex_lock_interruptible(dev);
-	if (ret) {
-		mutex_unlock(&drm_global_mutex);
-		return ret;
-	}
-
-	ret = __i915_gem_get_all_obj_info(m, dev);
 	if (ret)
-		goto out_unlock;
+		return ret;
 
-	ret = __i915_get_drm_clients_info(m, dev);
+	ret = __i915_gem_get_obj_info(m, dev, tgid);
 
-out_unlock:
 	mutex_unlock(&dev->struct_mutex);
-	mutex_unlock(&drm_global_mutex);
 
 	return ret;
 }

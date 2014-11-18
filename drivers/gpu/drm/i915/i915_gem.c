@@ -5207,6 +5207,7 @@ void i915_gem_release(struct drm_device *dev, struct drm_file *file)
 {
 	struct drm_i915_file_private *file_priv = file->driver_priv;
 
+	i915_gem_remove_sysfs_file_entry(dev, file);
 	put_pid(file_priv->tgid);
 
 	cancel_delayed_work_sync(&file_priv->mm.idle_work);
@@ -5273,6 +5274,12 @@ int i915_gem_open(struct drm_device *dev, struct drm_file *file)
 	ret = i915_gem_context_open(dev, file);
 	if (ret)
 		goto out_free_name;
+
+	ret = i915_gem_create_sysfs_file_entry(dev, file);
+	if (ret) {
+		i915_gem_context_close(dev, file);
+		goto out_free_name;
+	}
 
 	return 0;
 

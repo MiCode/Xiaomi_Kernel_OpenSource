@@ -91,6 +91,11 @@ static bool __i915_error_ok(struct drm_i915_error_state_buf *e)
 	return true;
 }
 
+bool i915_error_ok(struct drm_i915_error_state_buf *e)
+{
+	return __i915_error_ok(e);
+}
+
 static bool __i915_error_seek(struct drm_i915_error_state_buf *e,
 			      unsigned len)
 {
@@ -487,6 +492,20 @@ int i915_error_state_buf_init(struct drm_i915_error_state_buf *ebuf,
 
 	ebuf->start = pos;
 
+	return 0;
+}
+
+int i915_obj_state_buf_init(struct drm_i915_error_state_buf *ebuf,
+				size_t count)
+{
+	memset(ebuf, 0, sizeof(*ebuf));
+
+	ebuf->buf = kmalloc(count, GFP_KERNEL);
+
+	if (ebuf->buf == NULL)
+		return -ENOMEM;
+
+	ebuf->size = count;
 	return 0;
 }
 
