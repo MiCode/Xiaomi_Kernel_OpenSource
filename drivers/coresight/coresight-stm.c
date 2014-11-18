@@ -26,6 +26,7 @@
 #include <linux/clk.h>
 #include <linux/bitmap.h>
 #include <linux/of.h>
+#include <linux/sched.h>
 #include <linux/of_coresight.h>
 #include <linux/coresight.h>
 #include <linux/coresight-stm.h>
@@ -90,6 +91,9 @@ do {									\
 #define OST_TOKEN_STARTBASE		(0x30)
 #define OST_VERSION_PROP		(1)
 #define OST_VERSION_MIPI1		(16)
+
+#define STM_MAKE_VERSION(ma, mi)	((ma << 8) | mi)
+#define STM_HEADER_MAGIC		(0x5953)
 
 enum stm_pkt_type {
 	STM_PKT_TYPE_DATA	= 0x98,
@@ -522,8 +526,7 @@ static int stm_send(void *addr, const void *data, uint32_t size)
 }
 
 static int stm_trace_ost_header(unsigned long ch_addr, uint32_t options,
-				uint8_t entity_id, uint8_t proto_id,
-				const void *payload_data, uint32_t payload_size)
+				uint8_t entity_id, uint8_t proto_id)
 {
 	void *addr;
 	uint32_t header;
@@ -544,15 +547,37 @@ static int stm_trace_ost_header(unsigned long ch_addr, uint32_t options,
 	return stm_send(addr, &header, sizeof(header));
 }
 
+static int stm_trace_data_header(void *addr)
+{
+	char hdr[16];
+	int len = 0;
+
+	*(uint16_t *)(hdr) = STM_MAKE_VERSION(0, 1);
+	*(uint16_t *)(hdr + 2) = STM_HEADER_MAGIC;
+	*(uint32_t *)(hdr + 4) = raw_smp_processor_id();
+	*(uint64_t *)(hdr + 8) = sched_clock();
+
+	len += stm_send(addr, hdr, sizeof(hdr));
+	len += stm_send(addr, current->comm, TASK_COMM_LEN);
+
+	return len;
+}
+
 static int stm_trace_data(unsigned long ch_addr, uint32_t options,
 			  const void *data, uint32_t size)
 {
 	void *addr;
+	int len = 0;
 
 	options &= ~STM_OPTION_TIMESTAMPED;
 	addr = (void *)(ch_addr | stm_channel_off(STM_PKT_TYPE_DATA, options));
 
-	return stm_send(addr, data, size);
+	/* send the data header */
+	len += stm_trace_data_header(addr);
+	/* send the actual data */
+	len += stm_send(addr, data, size);
+
+	return len;
 }
 
 static int stm_trace_ost_tail(unsigned long ch_addr, uint32_t options)
@@ -590,7 +615,7 @@ static inline int __stm_trace(uint32_t options, uint8_t entity_id,
 	} else {
 		/* send the ost header */
 		len += stm_trace_ost_header(ch_addr, options, entity_id,
-					    proto_id, data, size);
+					    proto_id);
 
 		/* send the payload data */
 		len += stm_trace_data(ch_addr, options, data, size);
