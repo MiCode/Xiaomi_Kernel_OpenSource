@@ -360,6 +360,16 @@ config SMB349_USB_CHARGER
 	 notification support. The driver controls SMB349 via I2C and
 	 supports device-tree interface.
 
+config SMB349_DUAL_CHARGER
+	tristate "smb349 dual charger"
+	depends on I2C
+	help
+	 Say Y to enable support for the SMB349 dual charger single path
+	 switching mode charger. The driver supports charging in conjuction
+	 with an external charger on the same path by providing hand-off
+	 control and charge-current limiting. The driver controls SMB349
+	 via I2C in STAT IRQ driven mode and supports device-tree interface.
+
 config SMB350_CHARGER
 	tristate "smb350 charger"
 	depends on I2C
