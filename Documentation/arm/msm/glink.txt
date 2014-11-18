@@ -1,0 +1,853 @@
+Introduction
+============
+
+G-Link, short for Generic Link, is a generic link-layer transport that supports
+a plug-in framework for physical transports. This allows it to adapt to
+different physical transports such as shared memory, UARTs, buses, and DMA.
+
+It is designed to enable zero copy, is power aware, and supports version and
+feature negotiation to enable phased upgrades. The design is symmetrical with
+the same high-level design and the same client API across all subsystems
+regardless of OS.
+
+Hardware description
+====================
+
+The hardware is managed by the transport plug-in. In the initial
+driver version, this is done by the SMEM Native Transport which requires
+shared memory and an interrupt in each direction between the local and remote
+subsystems. This transport is a replacement for SMD.
+
+Software description
+=================================
+
+G-Link consists of:
+ * Client API
+ * Core that implements the high-level protocol
+ * Transport plug-ins that handle translation of the high-level protocol to wire
+   format
+
+The below diagram shows the organization of G-Link. Clients use G-Link to
+interface with the Transport Plug-in, which interfaces directly with the
+physical transport. The G-Link component is shown in further detail in the
+"Design" section.
+
+        +-----------+     +---------+      +-----------+
+        |  G-Link   |---->|Transport|----->| Physical  |
+        |           |<----| Plug-in |<-----| Transport |
+        +-----------+     +---------+      +-----------+
+
+Design
+======
+
+G-Link is conceptually broken down into a command and data queue. The command
+queue is used to pass commands for synchronizing buffer status, channel state,
+and for the equivalent of packet headers. The data queue is reserved for raw
+client data.
+
+For every packet in the data queue, there is at least one command
+that acts as the packet header that goes through the command queue. This
+separation is necessary to support the zero-copy use case for data packets and
+for DMA-type transports that need to have the transfer size known ahead of time.
+
+For copy-based transports, the command and data transports can be merged
+together in the transport plug-in resulting in traditional packet headers like
+we have today in other common protocols such as IP.
+
+As shown in the diagram below, the client itself communicates directly with the
+G-Link core, and uses the Transport Interface and the G-Link Core interface to
+create the transport plug-in.
+
+                                             +-----------+
+                     +------+    +---------+ |           |
+                     |      |<---|Transport|-|           |
+        +-------+    |      |    |   IF    | |           |
+        |Clients|<-->|      |    +---------+ | Transport |
+        +-------+    |G-Link|                |  Plug-in  |
+                     | Core |                |           |
+                     |      | +-------+      |           |
+                     |      |-|G-Link |----->|           |
+                     |      | |Core IF|      |           |
+                     +------+ +-------+      |           |
+                                             +-----------+
+
+A channel is a discrete data pipe used by a client to communicate with a
+remote system. All channels are multiplexed onto one or more physical
+transports.
+
+A receive intent is queued by a client to indicate that it is ready to receive
+a packet up to the specified size. The intent is sent to the remote side to
+let clients know that they can transmit and expect the client to be able to
+process it.
+
+Intents provide back-pressure to transmitting clients and remove the
+requirement for flow control. In addition, the intent size is used for
+copy-based transports to either reserve buffer space or allocate buffers to
+receive data to prevent blocking the underlying transport. Multiple intents
+can be queued.
+
+Transport Plug-in
+-----------------
+The transport plug-in is responsible for marshaling data and commands between
+the G-Link core and the physical transport. If the remote side is not running
+G-Link, then the transport plug-in will be more complex and will handle
+translating G-Link core commands and data into the proper protocol to
+interact with the remote system.
+
+Client API
+----------
+The API into the G-Link core is asynchronous by default, but may have blocking
+variants. If necessary, a thin client layer can be built on top of the
+asynchronous API to create a synchronous API for clients. All client
+notifications are serialized to ensure in-order notification of events.
+
+The G-Link client API includes the following functions for the following
+operations. Details of each function are described later in this section.
+ * glink_open() - Open a G-Link channel
+ * glink_close() - Close a G-Link channel
+ * glink_tx() - Transmit data
+ * glink_txv() - Transmit a buffer chain
+ * glink_queue_rx_intent() - Queue a receive intent
+ * glink_rx_done() - Signal consumption of the receive buffer
+ * glink_sigs_set() - Set a 32-bit signal field for client-specific signaling.
+                      Standard TIOCM bits are reserved in the upper bits of the
+                      field as a conviencence for users, but they are 100
+                      percent pass-through.
+ * glink_sigs_local_get() - Get the local 32-bit control signal field
+ * glink_sigs_remote_get() - Get the remote 32-bit control signal field
+
+The TIOCM bitmasks are defined as follows:
+   #define SMD_CTR_SIG_SHFT 31
+   #define SMD_CTS_SIG_SHFT 30
+   #define SMD_CD_SIG_SHFT 29
+   #define SMD_RI_SIG_SHFT 28
+
+When a channel is opened by a client, the client provides an open
+configuration to the G-Link core as a parameter to the glink_open() function.
+This open configuration contains the following information:
+ * The name of the transport (optional)
+ * The name of the edge (remote processor)
+ * The name of the channel
+
+The open configuration also contains function pointers for the following
+operations, which are defined by the client:
+ * notify_rx() - Notify the client that data has been received
+ * notify_rxv() - Notify the client that vector data has been received
+ * notify_tx_done() - Notify the client that data has been transmitted
+ * notify_state() - Notify the client that the channel's state has changed
+ * notify_rx_intent_req() - Notify the client whether their request for a
+                            receive intent was granted
+
+Buffer ownership is transferred between the local G-Link and the remote G-Link
+using message passing. A typical transmit sequence is as follows:
+
+ 1. The remote side queues an RX intent. When the remote client queues the
+    intent by calling glink_queue_rx_intent(), the ownership of the buffer
+    transfers to the remote G-Link core, which notifies the local G-Link core
+    of the receive intent. The remote G-Link core is now ready to receive data
+    from the local client. In the zero-copy case, the remote G-Link core does
+    not need to allocate a buffer.
+
+        +------+                    +------+                 +------+
+        |Local |                    |Remote|                 |Remote|
+        |G-Link|                    |G-Link|                 |Client|
+        +------+                    +------+                 +------+
+           |                           |                        |
+           |                           | glink_queue_rx_intent()|
+           |                          +-+<---------------------+-+
+           |                          |-|                      |-|
+           |                          |-|(allocate/reserve     |-|
+           |                          |-| buffer)              |-|
+           |                          |-|-----+                |-|
+           |                          |-|     |                |-|
+           |                          |-|<----+                |-|
+           |                          +-+                      +-+
+           |   send_intent()           |                        |
+           |<--------------------------+                        |
+           |                           |                        |
+           |   (signal)                |                        |
+          +-+<-------------------------|                        |
+          |-|                          |                        |
+          |-|                          |                        |
+          |-|                          |                        |
+          +-+                          |                        |
+           |                           |                        |
+        +------+                    +------+                 +------+
+        |Local |                    |Remote|                 |Remote|
+        |G-Link|                    |G-Link|                 |Client|
+        +------+                    +------+                 +------+
+
+ 2. The local client can allocate a buffer, fill it, and send it to the remote
+    side. If multiple receive intents are available, then a first-fit
+    algorithm is used to select the receive intent.
+
+        +------+               +------+      +------+        +------+
+        |Local |               |Local |      |Remote|        |Remote|
+        |Client|               |G-Link|      |G-Link|        |Client|
+        +------+               +------+      +------+        +------+
+           |                      |             |               |
+           | (Allocate tx buffer) |             |               |
+          +-+--------+            |             |               |
+          |-|        |            |             |               |
+          |-|<-------+            |             |               |
+          |-|                     |             |               |
+          |-| (Copy data into     |             |               |
+          |-|  tx buffer)         |             |               |
+          |-|--------+            |             |               |
+          |-|        |            |             |               |
+          |-|<-------+            |             |               |
+          |-|                     |             |               |
+          |-| glink_tx()          |             |               |
+          |-|------------------->+-+ tx()       |               |
+          |-|                    |-|---------->+-+ notify_rx()  |
+          |-|                    |-|           |-|------------>+-+
+          +-+                    |-| (signal)  |-|             |-|
+           |                     |-|---------->|-|             |-|
+           |                     +-+           |-|             |-|
+           |                      |            +-+             |-|
+           |                      |             |              +-+
+           |                      |             |               |
+        +------+               +------+      +------+        +------+
+        |Local |               |Local |      |Remote|        |Remote|
+        |Client|               |G-Link|      |G-Link|        |Client|
+        +------+               +------+      +------+        +------+
+
+ 3. The transmit buffer ownership is returned to the local client after the
+    remote client has finished with it. At this point, the local client can
+    destroy/reuse the buffer.
+
+        +------+           +------+      +------+            +------+
+        |Local |           |Local |      |Remote|            |Remote|
+        |Client|           |G-Link|      |G-Link|            |Client|
+        +------+           +------+      +------+            +------+
+           |                  |             |                   |
+           |                  |             |   glink_rx_done() |
+           |                  |            +-+<----------------+-+
+           |                  |            |-|                 |-|
+           |                  |            |-| (copy-based     |-|
+           |                  |            |-|  transport:     |-|
+           |                  |            |-|  destroy/reuse  |-|
+           |                  |            |-|  buffer)        |-|
+           |                  |            |-|----------+      +-+
+           |                  |            |-|          |       |
+           |                  |            |-|          |       |
+           |                  |            |-|<---------+       |
+           |                  |   tx_done()|-|                  |
+           |                 +-+<----------|-|                  |
+           |                 |-|           |-|                  |
+           |                 |-| (signal)  |-|                  |
+           | notify_tx_done()|-|<----------|-|                  |
+          +-+<---------------|-|           |-|                  |
+          |-|                |-|           +-+                  |
+          |-|                |-|            |                   |
+          |-|                +-+            |                   |
+          +-+                 |             |                   |
+           |                  |             |                   |
+        +------+           +------+      +------+            +------+
+        |Local |           |Local |      |Remote|            |Remote|
+        |Client|           |G-Link|      |G-Link|            |Client|
+        +------+           +------+      +------+            +------+
+
+Transport Interface
+-------------------
+The transport interface is used for function calls from the G-Link core to a
+G-Link transport. Modules which implement this interface are G-Link
+transports. All function calls include the pointer to the transport instance
+and the data fields that should be encoded into a command packet to be sent to
+the remote processor. These functions act on the transport itself - they
+translate the commands into actions for each different transport. This interface
+contains APIs for transport negotiation, channel state, channel data, and
+power. Requests that change state always have an ACK to synchronize
+the state between the local and remote subsystems.
+
+The transport interface is implemented as follows:
+
+struct glink_transport_if {
+        /* Negotiation */
+        void (*tx_cmd_version)(struct glink_transport_if *if_ptr,
+                        uint32_t version,
+                        uint32_t features);
+        void (*tx_cmd_version_ack)(struct glink_transport_if *if_ptr,
+                        uint32_t version,
+                        uint32_t features);
+        void (*set_version)(struct glink_transport_if *if_ptr, uint32_t version,
+                        uint32_t features);
+
+        /* channel state */
+        int (*tx_cmd_ch_open)(struct glink_transport_if *if_ptr, uint32_t lcid,
+                        const char *name);
+        int (*tx_cmd_ch_close)(struct glink_transport_if *if_ptr,
+                        uint32_t lcid);
+        void (*tx_cmd_ch_remote_open_ack)(struct glink_transport_if *if_ptr,
+                        uint32_t rcid);
+        void (*tx_cmd_ch_remote_close_ack)(struct glink_transport_if *if_ptr,
+                        uint32_t rcid);
+
+        /* channel data */
+        int (*allocate_rx_intent)(size_t size,
+                                  struct glink_core_rx_intent *intent);
+        int (*deallocate_rx_intent)(struct glink_core_rx_intent *intent);
+
+        int (*tx_cmd_local_rx_intent)(struct glink_transport_if *if_ptr,
+                        uint32_t lcid, size_t size, uint32_t liid);
+        void (*tx_cmd_local_rx_done)(struct glink_transport_if *if_ptr,
+                        uint32_t lcid, uint32_t liid);
+        int (*tx)(struct glink_transport_if *if_ptr, uint32_t lcid,
+                        struct glink_core_tx_pkt *pctx);
+        int (*tx_cmd_rx_intent_req)(struct glink_transport_if *if_ptr,
+                        uint32_t lcid, size_t size);
+        int (*tx_cmd_remote_rx_intent_req_ack)(
+                        struct glink_transport_if *if_ptr,
+                        uint32_t lcid, bool granted);
+        int (*tx_cmd_set_sigs)(struct glink_transport_if *if_ptr,
+                        uint32_t lcid, uint32_t sigs);
+
+        /* private pointer for core */
+        struct glink_core_xprt_ctx *glink_core_priv;
+
+        /* core pointer (set during transport registration) */
+        struct glink_core_if *glink_core_if_ptr;
+};
+
+G-Link Core Interface
+---------------------
+The G-Link Core Interface is used by the transport to call back into G-Link
+core for messages or events received from the transport. This interface has
+APIs for transport negotiation, power, channel state, and channel data.
+Like the transport interface, requests that change state always have an ACK
+to synchronize the state between the local and remote subsystems.
+
+The G-Link Core Interface is implemented as follows:
+
+struct glink_core_if {
+        /* Negotiation */
+        void (*link_up)(struct glink_transport_if *if_ptr);
+        void (*rx_cmd_version)(struct glink_transport_if *if_ptr,
+                        uint32_t version,
+                        uint32_t features);
+        void (*rx_cmd_version_ack)(struct glink_transport_if *if_ptr,
+                        uint32_t version,
+                        uint32_t features);
+
+        /* channel management */
+        void (*rx_cmd_ch_remote_open)(struct glink_transport_if *if_ptr,
+                        uint32_t rcid, const char *name);
+        void (*rx_cmd_ch_open_ack)(struct glink_transport_if *if_ptr,
+                        uint32_t lcid);
+        void (*rx_cmd_ch_remote_close)(struct glink_transport_if *if_ptr,
+                        uint32_t rcid);
+        void (*rx_cmd_ch_close_ack)(struct glink_transport_if *if_ptr,
+                        uint32_t lcid);
+        void (*ch_state_local_trans)(struct glink_transport_if *if_ptr,
+                        uint32_t lcid,
+                        enum local_channel_state_e new_state);
+
+        /* channel data */
+        struct glink_core_rx_intent *(*rx_get_pkt_ctx)(
+                        struct glink_transport_if *if_ptr,
+                        uint32_t rcid, uint32_t liid);
+        void (*rx_put_pkt_ctx)(struct glink_transport_if *if_ptr, uint32_t rcid,
+                        struct glink_core_rx_intent *intent_ptr, bool complete);
+        void (*rx_cmd_remote_rx_intent_put)(struct glink_transport_if *if_ptr,
+                        uint32_t rcid, uint32_t riid, size_t size);
+        void (*rx_cmd_tx_done)(struct glink_transport_if *if_ptr, uint32_t rcid,
+                        uint32_t riid);
+        void (*rx_cmd_remote_rx_intent_req)(struct glink_transport_if *if_ptr,
+                        uint32_t rcid, size_t size);
+        void (*rx_cmd_rx_intent_req_ack)(struct glink_transport_if *if_ptr,
+                        uint32_t rcid, bool granted);
+        void (*rx_cmd_remote_sigs)(struct glink_transport_if *if_ptr,
+                        uint32_t rcid, uint32_t sigs);
+
+        /* channel scheduling */
+        void (*tx_resume)(struct glink_transport_if *if_ptr);
+};
+
+Power Management
+================
+
+Power management has yet to be implemented. See the "To do" section for more
+information.
+
+SMP/multi-core
+==============
+
+Locking and synchronization will be done using mutexes or spinlocks where
+appropriate.
+
+Security
+========
+
+No known security issues.
+
+Performance
+===========
+
+No known performance issues.
+
+Client Interface
+================
+
+Open
+----
+void *glink_open(const struct glink_open_config *cfg)
+
+Opens a logical channel. When this function is called, a notification is sent
+to the remote processor. Once the remote processor responds with an open
+command, the channel will be opened locally. At this point, the channel is
+considered fully open and ready for data operations. The client will be notified
+at this point with a GLINK_CONNECTED notification.
+
+When a channel is opened by calling glink_open(), a structure of configuration
+information (struct glink_open_config) is passed to it. This includes the name
+of the transport, the name of the edge, and the name of the channel, along with
+pointers to notification functions:
+ * notify_rx() - Notify the client that data has been received
+ * notify_tx_done() - Notify the client that data has been transmitted
+ * notify_state() - Notify the client that the channel's state has
+                    changed
+ * notify_rx_intent_req() - Notify the client whether their request for a
+                            receive intent was granted
+ * notify_rxv - Receive notification for vector buffers
+ * notify_rx_sigs() - Notification callback for change in state of remote
+                      side's control signals.
+
+This structure is copied internally during the glink_open() call. The full
+definition of the structure is below:
+
+struct glink_open_config {
+        unsigned options;
+
+        const char *transport;
+        const char *edge;
+        const char *name;
+
+        struct glink_ch_ctx (*notify_rx)(void *handle, const void *priv,
+                        const void *pkt_priv, const void *ptr, size_t size);
+        struct glink_ch_ctx (*notify_tx_done)(void *handle, const void *priv,
+                        const void *pkt_priv, const void *ptr);
+        struct glink_ch_ctx (*notify_state)(void *handle, const void *priv,
+                        unsigned event);
+        bool (*notify_rx_intent_req)(void *handle, const void *priv,
+                        size_t req_size);
+        struct glink_ch_ctx (*notify_rxv)(void *handle, const void *priv,
+                        const void *pkt_priv, void *iovec, size_t size,
+                        void *(*vbuf_provider)(void *iovec, size_t offset,
+                                              size_t *size),
+                        void *(*pbuf_provider)(void *iovec, size_t offset,
+                                              size_t *size));
+        struct glink_ch_ctx (*notify_rx_sigs)(void *handle, const void *priv,
+                        uint32_t old_sigs, uint32_t new_sigs);
+};
+
+The following are the possible event notification values. The GLINK_CONNECTED
+notification is sent using the notify_state() callback once the channel has
+been fully opened. See the Close section for the closing state details.
+enum {
+        GLINK_CONNECTED,
+        GLINK_LOCAL_DISCONNECTED,
+        GLINK_REMOTE_DISCONNECTED,
+};
+
+glink_open() returns the following standard error codes:
+ * ERR_PTR(-EINVAL) - The glink_open_config structure which was passed to
+                      glink_open() is invalid.
+ * ERR_PTR(-ENODEV) - No transport is available.
+ * ERR_PTR(-EBUSY)  - The requested channel is not ready to be re-opened.
+
+Close
+-----
+int glink_close (void *handle)
+
+Closes the logical channel. Once the close request has been processed by the
+remote processor, the GLINK_LOCAL_DISCONNECTED notification is sent to the
+client. If the remote processor closes the channel first, then the
+GLINK_REMOTE_DISCONNECTED notification is sent to the client. After the
+GLINK_LOCAL_DISCONNECTED notification is sent, no additional activity will occur
+on the channel, regardless of whether the GLINK_REMOTE_DISCONNECTED notification
+was sent or not. At this point, it's safe for the callbacks and/or their
+resources to be destroyed. If the client wishes to re-establish communication
+on the channel, then the client will need to re-open the channel.
+
+glink_close() returns the following standard error codes:
+ * -EINVAL - The channel to be closed is NULL.
+ * -EBUSY  - The channel to be closed is already closing.
+
+If the channel to be closed is already closed, 0 is returned.
+
+Transmit Data
+-------------
+int glink_tx(void *handle, void *pkt_priv, void *data, size_t size,
+        bool req_intent)
+
+Arguments:
+handle:     The handle returned by glink_open()
+pkt_priv:   Opaque data value that will be returned to client with the
+            notify_tx_done() notification
+data:       Pointer to the data being sent
+size:       Size of the data being sent
+req_intent: Boolean indicating whether or not to request an intent from the
+            remote channel
+
+Transmit data packet for a matching RX Intent.
+
+If a client would like to transmit a packet, but a suitable RX Intent has not
+been queued, the client can request that glink_tx() block and request a
+receive intent from the remote system. The remote system can still deny the
+request at which point glink_tx() will return -EAGAIN to the client. The call
+sequence for this exchange is:
+
+ 1. Client wants to transmit a packet, and sets the req_intent flag to true in
+    the call to glink_tx() in order to request an intent if one is not already
+    available.
+ 3. Remote G-Link calls its client's notify_rx_intent_req() function and that
+    client returns a boolean indicating whether the intent will be granted or
+    not
+ 4. If the client grants the remote intent request, glink_tx() receives the
+    intent and returns success
+ 5. If the client rejects the remote intent request, glink_tx() returns an error
+
+int glink_txv(void *handle, void* pkt_priv, const void *iovec, size_t size,
+        glink_buffer_provider_fn vbuff_provider,
+        glink_buffer_proivder_fn pbuff_provider,
+        bool req_intent)
+
+Arguments:
+handle:        The handle returned by glink_open()
+pkt_priv:      Opaque data value that will be returned to client with the
+               notify_tx_done() notification
+iovec:         Pointer to the vector
+size:          Size of the data being sent
+vbuf_provider: Client-provided helper function to iterate the vector in
+               virtual address space
+pbuf_provider: Client-provided helper function to iterate the vector in
+               physical address space
+req_intent:    Boolean indicating whether or not to request an intent from the
+               remote channel
+
+glink_txv() provides a transmit function that accommodates clients using vector
+buffer implementations (DSM, SKB, etc.), and allows transports to operate on
+virtual or physical address mappings when necessary. This is done through the
+vbuf_provider() and pbuf_provider() functions, which are defined by the client
+and return a pointer to the contiguous vector data after iteration. After
+assembling the data from the vector, the call sequence is the same as
+glink_tx().
+
+Queue Receive Intent
+--------------------
+int glink_queue_rx_intent(void *handle, const void *pkt_priv, size_t size)
+
+Queues a receive intent. A receive intent indicates that the client is ready to
+receive a packet up to the specified size. The transport interface will either
+reserve space for this packet or allocate a buffer to receive this packet such
+that the packet can be received without stalling the physical transport.
+
+The pkt_priv parameter is an opaque value provided by the client that is
+returned in the notify_rx() callback.
+
+Signal Consumption of Receive Buffer
+------------------------------------
+int glink_rx_done(void *handle, const void *ptr)
+
+This function is called by the client to signal that they are done with the
+receive buffer. The remote client is notified that it now owns the buffer again.
+
+Set Control Signal Field
+------------------------
+glink_sigs_set(void *handle, uint32 *sig_value)
+
+This function is called by the client to set a 32-bit control signal field.
+Depending on the transport, it may take appropriate actions on the set bit-mask,
+or transmit the entire 32-bit value to the remote host.
+
+Get Local Control Signal Field
+------------------------------
+glink_sigs_local_get(void *handle, uint32 *sig_value)
+
+This function is called by the client to retrieve the cached signals sent
+using glink_sigs_set().
+
+Get Remote Control Signal Field
+-------------------------------
+glink_sigs_remote_get(void *handle, uint32 *sig_value)
+
+This function is called by the client to retrieve the cached remote signals
+that were passed to notify_rx_sigs().
+
+Register a Transport
+--------------------
+int glink_core_register_transport(struct glink_transport_if *if_ptr,
+                                  struct glink_core_transport_cfg *cfg)
+
+Register a new transport with the G-Link Core. The if_ptr parameter is the
+interface to the transport, and the cfg parameter is the configuration, which
+contains the following information:
+ * The name of the transport
+ * The edge of the transport, i.e. remote processor name
+ * An array of the transport versions supported
+ * The maximum number of entries in the versions array
+ * The maximum number of channel identifiers supported
+ * The maximum number of intent identifiers supported
+
+The implementation of this transport configuration structure is below.
+
+struct glink_core_transport_cfg {
+        const char *name;
+        const char *edge;
+        const struct glink_core_version *versions;
+        size_t versions_count;
+        uint32_t max_cid;
+        uint32_t max_iid;
+};
+
+The initial state of a transport after it is registered is GLINK_XPRT_DOWN.
+The possible states of a transport are as follows:
+enum transport_state_e {
+        GLINK_XPRT_DOWN,
+        GLINK_XPRT_NEGOTIATING,
+        GLINK_XPRT_OPENED,
+        GLINK_XPRT_FAILED,
+}
+
+Unregister a Transport
+----------------------
+void glink_core_unregister_transport(struct glink_transport_if *if_ptr)
+
+Unregister/destroy an existing transport. The transport's state is changed to
+GLINK_XPRT_DOWN, and the following values are reset:
+ * the next local channel ID
+ * The local version index
+ * The remote version index
+ * The version negotiation completion flag
+ * The list of channels on the transport (list is deleted)
+
+Driver parameters
+=================
+
+The G-Link core and G-Link Loopback Server modules both have a module parameter
+called "debug_mask". The possible values are detailed in the "Config options"
+section.
+
+Config options
+==============
+
+G-Link supports several logging configurations. The following options are
+available for the core and loopback client. They can be bitwise OR'ed together
+to have multiple options at once.
+
+QCOM_GLINK_INFO - The default option. Turn on only INFO messages
+QCOM_GLINK_DEBUG - Turn on debug log messages - much more verbose logging to
+                   aid in debugging.
+QCOM_GLINK_PERF - Performance logging. This removes all other logging except
+                  for logging messages that are created through a special
+                  set of macros. These logs can be post-processed for
+                  performance metrics.
+
+The values of these options are as follows:
+enum {
+        QCOM_GLINK_INFO = 1U << 0,
+        QCOM_GLINK_DEBUG = 1U << 1,
+        QCOM_GLINK_PERF = 1U << 2,
+};
+
+Dependencies
+============
+
+IPC Logging is a dependency of the G-Link core. The Transport Plug-ins will have
+their own dependencies. The SMEM Native Transport depends on SMEM and the
+interrupt subsystem.
+
+DebugFS
+=======
+
+Several DebugFS nodes are exported under the glink directory for testing and
+debugging. The directory structure below allows listing information by
+subsystem, channel, and transport.
+
+glink Directory
+---------------
+`-- debugfs
+    `-- glink
+        |-- channel
+        |   |-- channels <- lists all of the channels in the system, their
+        |   |               state, the transport they are assigned to, etc.
+        |   |-- SUBSYSTEM_NAME <- directory (such as "mpss")
+        |   |   `-- CHANNEL_NAME <- one directory per channel
+        |   |       |-- intents <- list of all open intents, their size, and
+        |   |       |              their ID
+        |   |       `-- stats <- statistics for the channel (contents TBD)
+        `-- xprt
+            |-- xprts <- lists all of the transports in the system and basic
+            |            transport-specific state
+            |-- XPRT_NAME <-- directory (such as "smem")
+                `-- XPRT_INFO <-- transport specific files
+
+User space utilities
+====================
+
+A user space driver is provided which can export a character device for a single
+channel based upon Device Tree configuration. The full DT schema is detailed in
+Documentation/devicetree/bindings/arm/msm/glinkpkt.txt. The user space driver
+implements the standard file operations of open, release, read, write, poll, and
+mmap. An ioctl is defined to queue RX intents.
+
+The file operations map to the G-Link Client API as follows:
+open()    -> glink_open() (Open a channel. Exported channels configured
+                           through DT)
+write()   -> glink_tx() (Transmit data)
+read()    -> Receive data and send RX done notification (glink_rx_done())
+release() -> glink_close() (Close a channel)
+ioctl()   -> glink_queue_rx_intent()
+
+Other operations are:
+poll()    -> Poll waiting for the channel to become available
+mmap()    -> Prevent having to do a copy between kernel space and user space
+             for clients that need that performance.
+
+A typical transmit and receive call flow is as follows:
+1. G-Link user space driver opens the channel using open(), which returns a
+   file descriptor for the channel
+2. An ioctl is sent to queue an RX intent on the channel
+3. Data is transmitted on the channel using write()
+4. The data is received using read(). read() also sends an RX done
+   notification.
+
+Version/Feature Negotiation
+===========================
+
+To enable upgrading transports, G-Link supports a version number and feature
+flags for each transport. The combination of the version number and feature
+flags enable:
+        1. G-Link software updates to be rolled out to each processor
+           separately.
+        2. Individual features to be enabled or disabled on an edge-by-edge
+           basis.
+
+Endpoints negotiate both the version and the feature flags when the transport
+is opened; they cannot be changed after negotiation has been completed.
+
+The version number represents any change in G-Link or the transport that
+breaks compatibility between processors. Examples would be a change in the
+shared data structures or changes to fundamental behavior in either the
+transport or in G-Link Core. Each full implementation of G-Link must support a
+minimum of the current version, the previous version, and the base negotiation
+version called v0. For resource-constrained devices, this can be relaxed to
+only support the latest version of the protocol and the v0 version.
+
+The feature flags represent any changes in G-Link that are optional and
+backwards-compatible. Feature flags can be version-specific, but to limit code
+maintenance and documentation overhead, feature flags should not be re-used
+unless the limit of 32 feature flags has been reached.
+
+Negotiation Algorithm
+---------------------
+After a transport is registered with G-Link core, it should be configured with
+the v0 transport settings. Once communication can be done without losing
+messages, the link_up() call in the G-Link core should be made to start the
+negotiation process. Both the local and remote sides will follow the same
+negotiation state machines.
+
+Since both sides follow the same sequence and both sides start once the link is
+up, it is possible that both sides may start the negotiation sequence at the
+same time resulting in a perceived race condition. However, both negotiation
+sequences are independent and the transport is not considered opened until both
+negotiation sequences are complete, so this is not a true race condition and
+both sides will converge to the same version and feature set even if they
+start with different versions and feature sets. Since this sequence is not
+performance-critical, the extra complexity in the negotiation algorithm to
+short-circuit the process is not deemed necessary.
+
+Local-Initiated Negotiation Sequence
+------------------------------------
+The following local negotiation sequence is initiated and followed by each
+side. The processor that is running this algorithm will be matched by the
+remote processor following the Remote-Initiated Negotiation Sequence.
+
+ 1. Set current version and feature variables to the maximum supported version
+    and feature set
+ 2. Send Version Command (glink_transport_if::tx_cmd_version()) with local
+    version and feature set
+ 3. If version is 0, then negotiation has failed and the transport should be
+    marked as having failed negotiation and the negotiation sequence
+    terminated.
+ 4. When Version ACK is received (glink_core_if::rx_cmd_version_ack()):
+     a. Compare ACK version to the sent version and:
+         i. If equal, we are done with version negotiation
+        ii. Else set current version to the lower of:
+             1. Remote version number
+             2. Highest supported local version
+     b. Compare ACK features to the sent features and:
+         i. If equal, we are done with the negotiation sequence
+        ii. Else, call glink_core_version:: negotiate_features() for the
+            current version to set the features to either the bitwise AND of
+            the ACK features and the locally supported features or a lesser
+            feature set for cases where only certain combinations of features
+            are valid.
+     c. Go back to step 2 to send the updated version/feature set
+
+Remote-Initiated Negotiation Sequence
+-------------------------------------
+The following remote negotiation sequence is followed by each side based upon
+receiving a Version Command.
+
+ 1. Receive Version Command (glink_core_if::rx_cmd_version())
+ 2. Compare received version with the locally supported version and:
+     a. If equal, set ACK version to the received version
+     b. Else, set ACK version to the lower of:
+         i. Remote version number
+        ii. Highest supported local version
+       iii. Version 0 if no supported version less than or equal to
+            the remote version number can be found.
+ 3. Compare received features with the locally supported features and:
+     a. If equal, set ACK features to the received features
+     b. Else, call glink_core_version:: negotiate_features() for the current
+        version to set the features to either the bitwise AND of the ACK
+        features and the locally supported features or a lesser feature set
+        for cases where only certain combinations of features are valid.
+ 4. Send the Version ACK Command (glink_transport_if::tx_cmd_version_ack()).
+
+Packets
+=======
+Packets are scheduled in a round-robin fashion from all active channels. Large
+packets can be fragmented by the transport to ensure fairness between channels
+and ensure latency.
+
+Channel Migration
+=================
+The G-Link core has the capability of selecting the best transport available on
+an edge-by-edge basis. The transport is selected based upon a pre-defined
+transport priority and from optional transport selection information passed in
+by the client in the glink_open_config structure.
+
+Known issues
+============
+
+No known issues.
+
+To do
+=====
+
+Power Management
+----------------
+An internal power voting API will be defined to bring the transport out of power
+collapse for SMUX and BAM DMUX-type systems. In addition, power for
+request/response type systems can be optimized to prevent powering down
+unnecessarily after sending a request only to power up immediately to process
+the response.
+
+Round-Robin Scheduling
+----------------------
+Add deficit round-robin schedule to ensure fairness between channels that have
+a large number of small packets and channels that are sending the maximum
+MTU-sized packets.
+
+Subsystem Restart (SSR) Support
+-------------------------------
+Support for SSR needs to be added. We will need to enchance SSR to allow
+for edges to be reset.
+
+Transport Filter Internal API
+-----------------------------
+An internal transport filter API will be defined. This can be plugged into a
+filter chain at the transport level to easily add data coding, encryption,
+integrity hashes, etc.

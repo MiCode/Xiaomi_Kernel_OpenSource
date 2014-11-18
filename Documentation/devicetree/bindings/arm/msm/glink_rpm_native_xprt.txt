@@ -1,0 +1,21 @@
+Qualcomm Technologies, Inc. G-link RPM Native Transport
+
+Required properties:
+-compatible : should be "qcom,glink-rpm-native-xprt"
+-reg : the location and size of RPM message RAM
+	the irq register base address for triggering interrupts
+-reg-names : "msgram" - string to identify the RPM message RAM region
+		"irq-reg-base" - string to identify the irq register region
+-qcom,irq-mask : the bitmark to trigger an interrupt
+-interrupts : the receiving interrupt line
+
+Example:
+
+	qcom,glink-rpm-native-xprt@68000 {
+		compatible = "qcom,glink-rpm-native-xprt";
+		reg = <0x68000 0x8000>,
+			<0xfa006008 0x4>;
+		reg-names = "msgram", "irq-reg-base";
+		qcom,irq-mask = <0x1000>;
+		interrupts = <0 25 1>;
+	};
