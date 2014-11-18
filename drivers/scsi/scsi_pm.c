@@ -74,9 +74,23 @@ scsi_bus_resume_common(struct device *dev, int (*cb)(struct device *))
 		err = scsi_dev_type_resume(dev, cb);
 
 	if (err == 0) {
+		int ret;
+
 		pm_runtime_disable(dev);
-		pm_runtime_set_active(dev);
+		ret = pm_runtime_set_active(dev);
 		pm_runtime_enable(dev);
+
+		if (!ret && scsi_is_sdev_device(dev)) {
+			struct scsi_device *sdev = to_scsi_device(dev);
+
+			/*
+			 * If scsi device runtime PM is managed by block layer
+			 * then we should update request queue's runtime status
+			 * as well.
+			 */
+			if (sdev->request_queue->dev)
+				blk_post_runtime_resume(sdev->request_queue, 0);
+		}
 	}
 	return err;
 }
