@@ -3116,10 +3116,10 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 link_fail:
 	msm_pcie_write_reg(dev->phy, PCIE_PHY_SW_RESET, 0x1);
 	msm_pcie_write_reg(dev->phy, PCIE_PHY_POWER_DOWN_CONTROL, 0);
+	msm_pcie_pipe_clk_deinit(dev);
 	msm_pcie_clk_deinit(dev);
 clk_fail:
 	msm_pcie_vreg_deinit(dev);
-	msm_pcie_pipe_clk_deinit(dev);
 out:
 	mutex_unlock(&dev->setup_lock);
 
