@@ -263,4 +263,12 @@
 		regulator-name = "wlan_vreg";
 		regulator-always-on;
 	};
+
+	sd_slot_vreg: regulator-isl80101 {
+		compatible = "regulator-fixed";
+		regulator-name = "sd_2.95";
+		gpio = <&msm_gpio 50 0>;
+		startup-delay-us = <1600>;
+		enable-active-high;
+	};
 };
