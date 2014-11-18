@@ -131,14 +131,27 @@ static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
 	vlv_enable_dsi_pll(encoder);
 }
 
-static void intel_dsi_device_ready(struct intel_encoder *encoder)
+static void intel_dsi_write_dev_rdy_on_A_and_C(struct intel_encoder *encoder,
+								u32 val)
 {
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	int pipe = intel_crtc->pipe;
+
+	if (intel_dsi->dual_link) {
+		I915_WRITE(MIPI_DEVICE_READY(PIPE_A), val);
+		I915_WRITE(MIPI_DEVICE_READY(PIPE_B), val);
+	} else
+		I915_WRITE(MIPI_DEVICE_READY(pipe), val);
+}
+
+static void intel_dsi_device_ready(struct intel_encoder *encoder)
+{
+	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	int pipe = intel_crtc->pipe;
 	u32 val;
-	int count = 1;
 
 	DRM_DEBUG_KMS("\n");
 
@@ -163,29 +176,23 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 	if (IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_A2))
 		val |= pipe ? DELAY_180_PHASE_SHIFT_MIPIC :
 				DELAY_180_PHASE_SHIFT_MIPIA;
+
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, DEVICE_READY |
+							ULPS_STATE_ENTER);
+
+	/* wait for LP state to go 00 */
+	usleep_range(2000, 2500);
 	I915_WRITE(MIPI_PORT_CTRL(0), val | LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
-
-	if (intel_dsi->dual_link) {
-		count = 2;
-		pipe = PIPE_A;
-	}
-
-	do {
-		I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY |
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, DEVICE_READY |
 							ULPS_STATE_EXIT);
-		usleep_range(2000, 2500);
-		I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY);
-		usleep_range(2000, 2500);
-		I915_WRITE(MIPI_DEVICE_READY(pipe), 0x00);
-		usleep_range(2000, 2500);
-		I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY);
-		usleep_range(2000, 2500);
 
-		/* For Port C for dual link */
-		if (intel_dsi->dual_link)
-			pipe = PIPE_B;
-	} while (--count > 0);
+	/* wait for LP state to goto 11 */
+	usleep_range(2000, 2500);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, DEVICE_READY);
+
+	/* wait for dsi controller hw enumeration */
+	usleep_range(2000, 2500);
 }
 
 static void intel_dsi_port_enable(struct intel_encoder *encoder)
@@ -525,30 +532,41 @@ static void intel_dsi_disable(struct intel_encoder *encoder)
 static void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
-	int pipe = intel_crtc->pipe;
 	u32 val;
 
 	DRM_DEBUG_KMS("\n");
 
-	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_ENTER);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER |
+								DEVICE_READY);
+
+	/* wait for LP state to go 00 */
 	usleep_range(2000, 2500);
 
-	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_EXIT);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_EXIT |
+								DEVICE_READY);
+
+	/* wait for LP state to goto 11 */
 	usleep_range(2000, 2500);
 
-	I915_WRITE(MIPI_DEVICE_READY(pipe), DEVICE_READY | ULPS_STATE_ENTER);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER |
+								DEVICE_READY);
+
+	/* wait for LP state to go 00 */
 	usleep_range(2000, 2500);
 
 	val = I915_READ(MIPI_PORT_CTRL(0));
 	I915_WRITE(MIPI_PORT_CTRL(0), val & ~LP_OUTPUT_HOLD);
+
+	/* wait to latch the state */
 	usleep_range(1000, 1500);
 
 	if (wait_for(((I915_READ(MIPI_PORT_CTRL(0)) & AFE_LATCHOUT)
 					== 0x00000), 30))
 		DRM_ERROR("DSI LP not going Low\n");
 
-	I915_WRITE(MIPI_DEVICE_READY(pipe), 0x00);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder, 0x00);
+
+	/* wait for dsi controller to be off */
 	usleep_range(2000, 2500);
 
 	vlv_disable_dsi_pll(encoder);
