@@ -3121,13 +3121,13 @@
 		compatible = "qcom,bcl";
 		qcom,bcl-enable;
 		qcom,bcl-framework-interface;
-		qcom,bcl-hotplug-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,bcl-hotplug-list = <&CPU6 &CPU7>;
 		qcom,ibat-monitor {
-			qcom,low-threshold-uamp = <1500000>;
+			qcom,low-threshold-uamp = <2000000>;
 			qcom,high-threshold-uamp = <3500000>;
-			qcom,mitigation-freq-khz = <384000>;
-			qcom,vph-high-threshold-uv = <3800000>;
-			qcom,vph-low-threshold-uv = <3500000>;
+			qcom,mitigation-freq-khz = <768000>;
+			qcom,vph-high-threshold-uv = <3900000>;
+			qcom,vph-low-threshold-uv = <3600000>;
 			qcom,thermal-handle = <&msm_thermal_freq>;
 		};
 	};
