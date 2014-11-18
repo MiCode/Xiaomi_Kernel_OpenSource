@@ -1,0 +1,52 @@
+SMB349 Dual Charger
+
+SMB349 Dual Charger is a single-path battery charger working
+in conjunction with an additional external charger to hand-off
+for HVDCP/WiPower charging on the same path.
+
+The SMB349 charger interface is via I2C bus.
+SMB349 suspend HW to HW signal is used to prevent charging while
+HVDCP/WiPower charging is activated.
+
+Required Properties:
+- compatible:			Must be "qcom,smb349-dual-charger".
+- reg:				The device 7-bit I2C address.
+- qcom,chg-stat-gpio		GPIO which indicates the charger presence
+				by level, as well as special events by pulses
+				of 10ms each 300ms until cleared.
+- qcom,ext-psy-name		This is a string and it point to the external
+				power supply name, SMB349 Dual Charger driver
+				controls the hand-off to/from this external
+				power supply
+
+Optional Properties:
+
+- qcom,fastchg-current-max-ma	Fast Charging current in mA. Supported range is
+				from 1000mA to 4000mA.
+- qcom,charging-disabled	This is a bool property which disables charging.
+
+- qcom,bms-psy-name		This is a string and it points to the bms
+				power supply name.
+- qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
+				Possible values in mA - 100, 200, 300, 400, 500, 600, 700.
+- qcom,iterm-disabled		Disables the termination current feature. This is a bool
+				property.
+- qcom,float-voltage-mv	 	Float Voltage in mV - the maximum voltage up to which
+				the battery is charged. Supported range 3460mV to 4720mV
+- qcom,recharge-mv		Recharge threshold in mV - the offset from the float-volatge
+				as which the charger restarts charging. Possible
+				values are 50mV and 100mV.
+- qcom,recharge-disabled	Boolean value which disables the auto-recharge.
+
+Example:
+	i2c@f9967000 {
+		smb349-dual-charger@1b {
+			compatible = "qcom,smb349-dual-charger";
+			reg = <0x1b>;
+			interrupt-parent = <&spmi_bus>;
+			qcom,chg-stat-gpio = <&pm8994_gpios 6 0x1>;
+			qcom,fastchg-current-max-ma = <2000>;
+			qcom,battery-psy-name = "cradle-charger";
+			qcom,ext-psy-name = "battery";
+		};
+	};
