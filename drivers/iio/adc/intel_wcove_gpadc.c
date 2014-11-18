@@ -152,7 +152,7 @@ int iio_whiskeycove_gpadc_sample(struct iio_dev *indio_dev,
 {
 	struct gpadc_info *info = iio_priv(indio_dev);
 	int i, ret, reg_val;
-	u8 tmp, th, tl;
+	u8 adc_req = 0, irq_en = 0, th, tl, adc_irq;
 	u8 mask, cursrc;
 	unsigned long rlsb;
 	static const unsigned long rlsb_array[] = {
@@ -166,16 +166,16 @@ int iio_whiskeycove_gpadc_sample(struct iio_dev *indio_dev,
 
 	mutex_lock(&info->lock);
 
-	mask = info->intr_mask;
-	intel_soc_pmic_clearb(regs->madcirq, mask);
-	intel_soc_pmic_clearb(regs->mirqlvl1, regs->mirqlvl1_adc);
-
-	tmp = regs->gpadcreq_irqen;
-
 	for (i = 0; i < info->channel_num; i++) {
-		if (ch & (1 << i))
-			tmp |= (1 << info->gpadc_regmaps[i].cntl);
+		if (ch & (1 << i)) {
+			adc_req |= (1 << info->gpadc_regmaps[i].cntl);
+			irq_en |= (1 << info->gpadc_regmaps[i].irq_en);
+		}
 	}
+
+	intel_soc_pmic_clearb(regs->madcirq, irq_en);
+	intel_soc_pmic_clearb(regs->mirqlvl1, regs->mirqlvl1_adc);
+	intel_soc_pmic_setb(regs->adcirq, 0xFF);
 
 	info->sample_done = 0;
 
@@ -185,17 +185,20 @@ int iio_whiskeycove_gpadc_sample(struct iio_dev *indio_dev,
 		goto done;
 	}
 
-	intel_soc_pmic_writeb(regs->gpadcreq, tmp);
+	intel_soc_pmic_writeb(regs->gpadcreq, adc_req);
 
 	ret = wait_event_timeout(info->wait, info->sample_done, HZ);
-	if (ret == 0) {
+
+	/* Chek if the required IRQ bits are set */
+	adc_irq = intel_soc_pmic_readb(regs->adcirq);
+	if (!(adc_irq & irq_en)) {
 		gpadc_dump(info);
-		ret = -ETIMEDOUT;
-		dev_err(info->dev, "sample timeout, return %d\n", ret);
+		ret = -EIO;
+		dev_err(info->dev, "Error in Sample%d\n", ret);
 		goto done;
-	} else {
-		ret = 0;
 	}
+
+	ret = 0;
 
 	for (i = 0; i < info->channel_num; i++) {
 		if (ch & (1 << i)) {
@@ -218,16 +221,6 @@ int iio_whiskeycove_gpadc_sample(struct iio_dev *indio_dev,
 			case PMIC_GPADC_CHANNEL_SYSTEMP0:
 			case PMIC_GPADC_CHANNEL_SYSTEMP1:
 			case PMIC_GPADC_CHANNEL_SYSTEMP2:
-			if (!info->is_pmic_provisioned) {
-					/* Auto mode with Scaling 4
-					 * for non-provisioned A0 */
-					rlsb = 32550;
-					res->data[i] = (reg_val * rlsb)/10000;
-					break;
-			}
-			/* Case fall-through for PMIC-A1 onwards.
-			 * For USBID, Auto-mode-without-scaling always
-			 */
 			case PMIC_GPADC_CHANNEL_USBID:
 				/* Auto mode without Scaling */
 				cursrc = (th & 0xF0) >> 4;
@@ -241,6 +234,7 @@ int iio_whiskeycove_gpadc_sample(struct iio_dev *indio_dev,
 done:
 	intel_soc_pmic_setb(regs->mirqlvl1, regs->mirqlvl1_adc);
 	intel_soc_pmic_setb(regs->madcirq, mask);
+	intel_soc_pmic_setb(regs->adcirq, mask);
 	mutex_unlock(&info->lock);
 	return ret;
 }
@@ -556,6 +550,8 @@ static int wcove_gpadc_probe(struct platform_device *pdev)
 	struct intel_wcove_gpadc_platform_data *pdata =
 			pdev->dev.platform_data;
 
+	struct gpadc_regs_t *regs;
+
 	if (!pdata) {
 		dev_err(&pdev->dev, "no platform data supplied\n");
 		return -EINVAL;
@@ -584,6 +580,18 @@ static int wcove_gpadc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "unable to register irq %d\n", info->irq);
 		return err;
 	}
+
+	regs = info->gpadc_regs;
+	intel_soc_pmic_setb(regs->mirqlvl1, regs->mirqlvl1_adc);
+	intel_soc_pmic_setb(regs->madcirq, 0xFF);
+
+	/* configure sample periods */
+	intel_soc_pmic_writeb(regs->thrmmonctl, pdata->thrmmon_val);
+	intel_soc_pmic_writeb(regs->batthermonctl, pdata->battthermmon_val);
+	intel_soc_pmic_writeb(regs->vbatmonctl, pdata->vbatmon_val);
+	intel_soc_pmic_writeb(regs->gpmonctl, pdata->gpmon_val);
+
+	intel_soc_pmic_setb(regs->adcirq, 0xFF);
 
 	platform_set_drvdata(pdev, indio_dev);
 

@@ -53,6 +53,7 @@ enum gpadc_channel_type {
 struct gpadc_regmap_t {
 	char *name;
 	int cntl;       /* GPADC Conversion Control Bit indicator */
+	int irq_en;	/* GPADC IRQ bit indicator */
 	int rslth;      /* GPADC Conversion Result Register Addr High */
 	int rsltl;      /* GPADC Conversion Result Register Addr Low */
 	int alrt_min_h;
@@ -70,6 +71,10 @@ struct gpadc_regs_t {
 	u16 adc1cntl;
 	u16 adcirq;
 	u16 madcirq;
+	u16 thrmmonctl;
+	u16 batthermonctl;
+	u16 vbatmonctl;
+	u16 gpmonctl;
 };
 
 struct iio_dev;
@@ -78,6 +83,10 @@ struct intel_wcove_gpadc_platform_data {
 	int channel_num;
 	unsigned long intr;
 	u8 intr_mask;
+	u8 thrmmon_val;
+	u8 battthermmon_val;
+	u8 vbatmon_val;
+	u8 gpmon_val;
 	struct iio_map *gpadc_iio_maps;
 	struct gpadc_regmap_t *gpadc_regmaps;
 	struct gpadc_regs_t *gpadc_regs;
