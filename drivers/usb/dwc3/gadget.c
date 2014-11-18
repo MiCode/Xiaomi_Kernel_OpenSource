@@ -2830,6 +2830,8 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 	dwc->speed = speed;
 
 	dwc3_update_ram_clk_sel(dwc, speed);
+	dwc->link_state = dwc3_get_link_state(dwc);
+	pr_debug("%s(): LINK_STATE:%d\n", __func__, dwc->link_state);
 
 	switch (speed) {
 	case DWC3_DCFG_SUPERSPEED:
