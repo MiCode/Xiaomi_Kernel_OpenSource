@@ -165,3 +165,4 @@
 	};
 };
 
+#include "msm8909-pm8909-pm.dtsi"
