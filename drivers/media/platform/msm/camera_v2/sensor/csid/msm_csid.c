@@ -44,6 +44,8 @@
 #define SHORT_PKT_CAPTURE                    0
 #define SHORT_PKT_OFFSET                     0x200
 #define ENABLE_3P_BIT                        1
+#define SOF_DEBUG_ENABLE                     1
+#define SOF_DEBUG_DISABLE                    0
 
 #define TRUE   1
 #define FALSE  0
@@ -201,6 +203,7 @@ static int msm_csid_config(struct csid_device *csid_dev,
 	CDBG("%s csid_params phy_sel = %d\n", __func__,
 		csid_params->phy_sel);
 
+	csid_dev->csid_lane_cnt = csid_params->lane_cnt;
 	msm_csid_reset(csid_dev);
 
 	csid_clk_ptr = csid_dev->csid_clk;
@@ -333,8 +336,8 @@ static int msm_csid_config(struct csid_device *csid_dev,
 static irqreturn_t msm_csid_irq(int irq_num, void *data)
 {
 	uint32_t irq;
-	struct csid_device *csid_dev = data;
 	uint32_t short_dt = 0;
+	struct csid_device *csid_dev = data;
 
 	if (!csid_dev) {
 		pr_err("%s:%d csid_dev NULL\n", __func__, __LINE__);
@@ -342,8 +345,12 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 	}
 	irq = msm_camera_io_r(csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
-	CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
-		 __func__, csid_dev->pdev->id, irq);
+	if (csid_dev->csid_sof_debug == SOF_DEBUG_ENABLE)
+		pr_err("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
+			 __func__, csid_dev->pdev->id, irq);
+	else
+		CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
+			 __func__, csid_dev->pdev->id, irq);
 	if (irq & (0x1 <<
 		csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift))
 		complete(&csid_dev->reset_complete);
@@ -487,6 +494,7 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 	CDBG("%s:%d called csid_dev->hw_version %x\n", __func__, __LINE__,
 		csid_dev->hw_version);
 	*csid_version = csid_dev->hw_version;
+	csid_dev->csid_sof_debug = SOF_DEBUG_DISABLE;
 
 	csid_dev->is_testmode = 0;
 
@@ -663,9 +671,10 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void __user *arg)
 			}
 			csid_params.lut_params.vc_cfg[i] = vc_cfg;
 		}
+		csid_dev->csid_sof_debug = SOF_DEBUG_DISABLE;
 		rc = msm_csid_config(csid_dev, &csid_params);
 MEM_CLEAN:
-		for (i-- ; i >= 0; i--)
+		for (i--; i >= 0; i--)
 			kfree(csid_params.lut_params.vc_cfg[i]);
 		break;
 	}
@@ -705,6 +714,11 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 	case VIDIOC_MSM_CSID_IO_CFG:
 		rc = msm_csid_cmd(csid_dev, arg);
+		break;
+	case MSM_SD_NOTIFY_FREEZE:
+		if (csid_dev->csid_state != CSID_POWER_UP)
+			break;
+		csid_dev->csid_sof_debug = SOF_DEBUG_ENABLE;
 		break;
 	case VIDIOC_MSM_CSID_RELEASE:
 	case MSM_SD_SHUTDOWN:
@@ -847,6 +861,11 @@ static long msm_csid_subdev_ioctl32(struct v4l2_subdev *sd,
 		break;
 	case VIDIOC_MSM_CSID_IO_CFG32:
 		rc = msm_csid_cmd32(csid_dev, arg);
+		break;
+	case MSM_SD_NOTIFY_FREEZE:
+		if (csid_dev->csid_state != CSID_POWER_UP)
+			break;
+		csid_dev->csid_sof_debug = SOF_DEBUG_ENABLE;
 		break;
 	case VIDIOC_MSM_CSID_RELEASE:
 	case MSM_SD_SHUTDOWN:

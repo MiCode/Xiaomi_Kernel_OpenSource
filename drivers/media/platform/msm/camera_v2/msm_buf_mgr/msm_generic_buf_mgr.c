@@ -404,6 +404,8 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_BUF_MNGR_DEINIT:
 		rc = msm_generic_buf_mngr_close(sd, NULL);
 		break;
+	case MSM_SD_NOTIFY_FREEZE:
+		break;
 	case MSM_SD_SHUTDOWN:
 		msm_buf_mngr_sd_shutdown(buf_mngr_dev, argp);
 		break;

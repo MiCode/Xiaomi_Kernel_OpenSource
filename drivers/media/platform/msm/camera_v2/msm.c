@@ -460,6 +460,16 @@ static inline int __msm_sd_close_subdevs(struct msm_sd_subdev *msm_sd,
 	return 0;
 }
 
+static inline int __msm_sd_notify_freeze_subdevs(struct msm_sd_subdev *msm_sd)
+{
+	struct v4l2_subdev *sd;
+	sd = &msm_sd->sd;
+
+	v4l2_subdev_call(sd, core, ioctl, MSM_SD_NOTIFY_FREEZE, NULL);
+
+	return 0;
+}
+
 static inline int __msm_destroy_session_streams(void *d1, void *d2)
 {
 	struct msm_stream *stream = d1;
@@ -564,6 +574,7 @@ static long msm_private_ioctl(struct file *file, void *fh,
 	unsigned int session_id;
 	unsigned int stream_id;
 	unsigned long spin_flags = 0;
+	struct msm_sd_subdev *msm_sd;
 
 	session_id = event_data->session_id;
 	stream_id = event_data->stream_id;
@@ -620,6 +631,15 @@ static long msm_private_ioctl(struct file *file, void *fh,
 		complete(&cmd_ack->wait_complete);
 		spin_unlock_irqrestore(&(session->command_ack_q.lock),
 		   spin_flags);
+	}
+		break;
+
+	case MSM_CAM_V4L2_IOCTL_NOTIFY_DEBUG: {
+		pr_err("Notifying subdevs about potential sof freeze\n");
+		if (!list_empty(&msm_v4l2_dev->subdevs)) {
+			list_for_each_entry(msm_sd, &ordered_sd_list, list)
+				__msm_sd_notify_freeze_subdevs(msm_sd);
+		}
 	}
 		break;
 
@@ -739,7 +759,7 @@ int msm_post_event(struct v4l2_event *event, int timeout)
 
 	if (timeout < 0) {
 		mutex_unlock(&session->lock);
-		pr_err("%s : timeout cannot be negative Line %d\n",
+		pr_debug("%s : timeout cannot be negative Line %d\n",
 				__func__, __LINE__);
 		return rc;
 	}

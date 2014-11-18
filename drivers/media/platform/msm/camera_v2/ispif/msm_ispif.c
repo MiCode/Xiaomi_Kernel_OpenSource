@@ -44,6 +44,7 @@
 
 #define ISPIF_TIMEOUT_SLEEP_US                1000
 #define ISPIF_TIMEOUT_ALL_US               1000000
+#define ISPIF_SOF_DEBUG_COUNT                    5
 
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
@@ -1020,19 +1021,35 @@ static void ispif_process_irq(struct ispif_device *ispif,
 
 	if (out[vfe_id].ispifIrqStatus0 &
 			ISPIF_IRQ_STATUS_PIX_SOF_MASK) {
+		if (ispif->ispif_sof_debug < ISPIF_SOF_DEBUG_COUNT)
+			pr_err("%s: PIX0 frame id: %u\n", __func__,
+				ispif->sof_count[vfe_id].sof_cnt[PIX0]);
 		ispif->sof_count[vfe_id].sof_cnt[PIX0]++;
+		ispif->ispif_sof_debug++;
 	}
 	if (out[vfe_id].ispifIrqStatus0 &
 			ISPIF_IRQ_STATUS_RDI0_SOF_MASK) {
+		if (ispif->ispif_rdi0_debug < ISPIF_SOF_DEBUG_COUNT)
+			pr_err("%s: RDI0 frame id: %u\n", __func__,
+				ispif->sof_count[vfe_id].sof_cnt[RDI0]);
 		ispif->sof_count[vfe_id].sof_cnt[RDI0]++;
+		ispif->ispif_rdi0_debug++;
 	}
 	if (out[vfe_id].ispifIrqStatus1 &
 			ISPIF_IRQ_STATUS_RDI1_SOF_MASK) {
+		if (ispif->ispif_rdi1_debug < ISPIF_SOF_DEBUG_COUNT)
+			pr_err("%s: RDI1 frame id: %u\n", __func__,
+				ispif->sof_count[vfe_id].sof_cnt[RDI1]);
 		ispif->sof_count[vfe_id].sof_cnt[RDI1]++;
+		ispif->ispif_rdi1_debug++;
 	}
 	if (out[vfe_id].ispifIrqStatus2 &
 			ISPIF_IRQ_STATUS_RDI2_SOF_MASK) {
+		if (ispif->ispif_rdi2_debug < ISPIF_SOF_DEBUG_COUNT)
+			pr_err("%s: RDI2 frame id: %u\n", __func__,
+				ispif->sof_count[vfe_id].sof_cnt[RDI2]);
 		ispif->sof_count[vfe_id].sof_cnt[RDI2]++;
+		ispif->ispif_rdi2_debug++;
 	}
 }
 
@@ -1298,9 +1315,19 @@ static struct v4l2_file_operations msm_ispif_v4l2_subdev_fops;
 static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
+	struct ispif_device *ispif =
+		(struct ispif_device *)v4l2_get_subdevdata(sd);
+
 	switch (cmd) {
 	case VIDIOC_MSM_ISPIF_CFG:
 		return msm_ispif_cmd(sd, arg);
+	case MSM_SD_NOTIFY_FREEZE: {
+		ispif->ispif_sof_debug = 0;
+		ispif->ispif_rdi0_debug = 0;
+		ispif->ispif_rdi1_debug = 0;
+		ispif->ispif_rdi2_debug = 0;
+		return 0;
+	}
 	case MSM_SD_SHUTDOWN: {
 		struct ispif_device *ispif =
 			(struct ispif_device *)v4l2_get_subdevdata(sd);

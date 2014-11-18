@@ -26,6 +26,8 @@
 #include "include/msm_csiphy_3_5_hwreg.h"
 
 #define DBG_CSIPHY 0
+#define SOF_DEBUG_ENABLE 1
+#define SOF_DEBUG_DISABLE 0
 
 #define V4L2_IDENT_CSIPHY                        50003
 #define CSIPHY_VERSION_V22                        0x01
@@ -731,6 +733,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	else
 		csiphy_dev->hw_version = csiphy_dev->hw_dts_version;
 
+	csiphy_dev->csiphy_sof_debug = SOF_DEBUG_DISABLE;
 	CDBG("%s:%d called csiphy_dev->hw_version 0x%x\n", __func__, __LINE__,
 		csiphy_dev->hw_version);
 	csiphy_dev->csiphy_state = CSIPHY_POWER_UP;
@@ -967,6 +970,7 @@ static int32_t msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 			rc = -EFAULT;
 			break;
 		}
+		csiphy_dev->csiphy_sof_debug = SOF_DEBUG_DISABLE;
 		rc = msm_csiphy_lane_config(csiphy_dev, &csiphy_params);
 		break;
 	case CSIPHY_RELEASE:
@@ -977,6 +981,8 @@ static int32_t msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 			rc = -EFAULT;
 			break;
 		}
+		if (csiphy_dev->csiphy_sof_debug == SOF_DEBUG_ENABLE)
+			disable_irq(csiphy_dev->irq->start);
 		rc = msm_csiphy_release(csiphy_dev, &csi_lane_params);
 		break;
 	default:
@@ -1017,6 +1023,13 @@ static long msm_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_CSIPHY_RELEASE:
 	case MSM_SD_SHUTDOWN:
 		rc = msm_csiphy_release(csiphy_dev, arg);
+		break;
+	case MSM_SD_NOTIFY_FREEZE:
+		if (!csiphy_dev || !csiphy_dev->ctrl_reg ||
+				!csiphy_dev->ref_count)
+			break;
+		csiphy_dev->csiphy_sof_debug = SOF_DEBUG_ENABLE;
+		enable_irq(csiphy_dev->irq->start);
 		break;
 	default:
 		pr_err_ratelimited("%s: command not found\n", __func__);

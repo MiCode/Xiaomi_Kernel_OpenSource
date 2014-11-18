@@ -22,6 +22,7 @@
 #define HANDLE_TO_IDX(handle) (handle & 0xFF)
 /* at how many frames to add frame skip pattern */
 #define BURST_SKIP_THRESHOLD              (16)
+#define ISP_SOF_DEBUG_COUNT 5
 
 int msm_isp_axi_create_stream(
 	struct msm_vfe_axi_shared_data *axi_data,
@@ -535,6 +536,28 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 				sof_counter_step;
 		else
 			vfe_dev->axi_data.src_info[frame_src].frame_id++;
+
+		if (frame_src == VFE_PIX_0) {
+			if (vfe_dev->isp_sof_debug < ISP_SOF_DEBUG_COUNT)
+				pr_err("%s: PIX0 frame id: %u\n", __func__,
+				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+			vfe_dev->isp_sof_debug++;
+		} else if (frame_src == VFE_RAW_0) {
+			if (vfe_dev->isp_raw0_debug < ISP_SOF_DEBUG_COUNT)
+				pr_err("%s: RAW_0 frame id: %u\n", __func__,
+				vfe_dev->axi_data.src_info[VFE_RAW_0].frame_id);
+			vfe_dev->isp_raw0_debug++;
+		} else if (frame_src == VFE_RAW_1) {
+			if (vfe_dev->isp_raw1_debug < ISP_SOF_DEBUG_COUNT)
+				pr_err("%s: RAW_1 frame id: %u\n", __func__,
+				vfe_dev->axi_data.src_info[VFE_RAW_1].frame_id);
+			vfe_dev->isp_raw1_debug++;
+		} else if (frame_src == VFE_RAW_2) {
+			if (vfe_dev->isp_raw2_debug < ISP_SOF_DEBUG_COUNT)
+				pr_err("%s: RAW_2 frame id: %u\n", __func__,
+				vfe_dev->axi_data.src_info[VFE_RAW_2].frame_id);
+			vfe_dev->isp_raw2_debug++;
+		}
 
 		if (vfe_dev->axi_data.src_info[frame_src].frame_id == 0)
 			vfe_dev->axi_data.src_info[frame_src].frame_id = 1;
