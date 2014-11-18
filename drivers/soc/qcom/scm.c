@@ -670,6 +670,7 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 		return scm_remap_error(ret);
 	return 0;
 }
+EXPORT_SYMBOL(scm_call2);
 
 /**
  * scm_call2_atomic() - Invoke a syscall in the secure world
