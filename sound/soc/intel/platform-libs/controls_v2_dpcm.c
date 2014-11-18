@@ -859,7 +859,7 @@ void sst_handle_vb_timer(struct snd_soc_platform *p, bool enable)
 				SST_TASK_SBA, 0, &cmd, sizeof(cmd.header) + cmd.header.length) == 0) {
 
 			if (sst_dsp->ops->set_generic_params(SST_SET_MONITOR_LPE,
-									(void *)&enable) != 0)
+									(void *)&enable) < 0)
 				pr_err("%s: failed to set recovery timer\n", __func__);
 		} else
 			pr_err("%s: failed to send sst cmd %d\n",
