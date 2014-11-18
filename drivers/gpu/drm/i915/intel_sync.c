@@ -162,7 +162,12 @@ int i915_sync_timeline_create(struct drm_device *dev,
 				const char *name,
 				struct intel_engine_cs *ring)
 {
-	struct i915_sync_timeline *obj = (struct i915_sync_timeline *)
+	struct i915_sync_timeline *obj;
+
+	if (ring->timeline)
+		return 0;
+
+	obj = (struct i915_sync_timeline *)
 		sync_timeline_create(&i915_sync_timeline_ops,
 				     sizeof(struct i915_sync_timeline),
 				     name);
