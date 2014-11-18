@@ -2521,12 +2521,22 @@ static void __exit cnss_exit(void)
 
 void cnss_request_pm_qos(u32 qos_val)
 {
+	if (!penv) {
+		pr_err("%s: penv is NULL!\n", __func__);
+		return;
+	}
+
 	pm_qos_add_request(&penv->qos_request, PM_QOS_CPU_DMA_LATENCY, qos_val);
 }
 EXPORT_SYMBOL(cnss_request_pm_qos);
 
 void cnss_remove_pm_qos(void)
 {
+	if (!penv) {
+		pr_err("%s: penv is NULL!\n", __func__);
+		return;
+	}
+
 	pm_qos_remove_request(&penv->qos_request);
 }
 EXPORT_SYMBOL(cnss_remove_pm_qos);
