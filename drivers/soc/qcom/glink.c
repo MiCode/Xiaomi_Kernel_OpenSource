@@ -1852,6 +1852,9 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 		}
 	}
 
+	GLINK_INFO_PERF_CH(ctx, "%s: R[%u]:%zu data[%p], size[%zu]. TID %u\n",
+			__func__, riid, intent_size,
+			data ? data : iovec, size, current->pid);
 	tx_info = kzalloc(sizeof(struct glink_core_tx_pkt), GFP_KERNEL);
 	if (!tx_info) {
 		GLINK_ERR_CH(ctx, "%s: No memory for allocation\n", __func__);
@@ -1868,10 +1871,6 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	tx_info->pprovider = pbuf_provider;
 	tx_info->intent_size = intent_size;
 
-	GLINK_INFO_CH(ctx, "%s: data[%p], size[%u]. Thread: %u\n", __func__,
-			tx_info->data ? tx_info->data : tx_info->iovec,
-			tx_info->size, current->pid);
-
 	/* schedule packet for transmit */
 	if ((tx_flags & GLINK_TX_SINGLE_THREADED) &&
 	    (ctx->transport_ptr->capabilities & GCAP_INTENTLESS))
@@ -1879,7 +1878,6 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 					       ctx, tx_info);
 	else
 		xprt_schedule_tx(ctx->transport_ptr, ctx, tx_info);
-
 	return 0;
 }
 
@@ -1975,6 +1973,8 @@ int glink_rx_done(void *handle, const void *ptr, bool reuse)
 		return -EINVAL;
 	}
 
+	GLINK_INFO_PERF_CH(ctx, "%s: L[%u]: data[%p]. TID %u\n",
+			__func__, liid_ptr->id, ptr, current->pid);
 	id = liid_ptr->id;
 	if (reuse) {
 		ret = ctx->transport_ptr->ops->reuse_rx_intent(
@@ -3009,11 +3009,6 @@ void glink_core_rx_put_pkt_ctx(struct glink_transport_if *if_ptr,
 				intent_ptr->write_offset);
 		return;
 	}
-	GLINK_DBG_XPRT(if_ptr->glink_core_priv,
-		"%s: rcid[%u] liid[%u] pkt_size[%zu] write_offset[%zu] Complete packet received\n",
-			__func__, rcid, intent_ptr->id,
-			intent_ptr->pkt_size,
-			intent_ptr->write_offset);
 
 	/* packet complete */
 	ctx = xprt_rcid_to_ch_ctx(if_ptr->glink_core_priv, rcid);
@@ -3025,6 +3020,10 @@ void glink_core_rx_put_pkt_ctx(struct glink_transport_if *if_ptr,
 		return;
 	}
 
+	GLINK_PERF_CH(ctx, "%s: L[%u]: data[%p] size[%zu]\n",
+		__func__, intent_ptr->id,
+		intent_ptr->data ? intent_ptr->data : intent_ptr->iovec,
+		intent_ptr->write_offset);
 	if (!intent_ptr->data && !ctx->notify_rxv) {
 		/* Received a vector, but client can't handle a vector */
 		intent_ptr->bounce_buf = linearize_vector(intent_ptr->iovec,
@@ -3170,6 +3169,8 @@ static void tx_work_func(struct work_struct *work)
 	struct glink_core_tx_pkt *tx_info;
 	int ret;
 
+	GLINK_PERF("%s: worker starting\n", __func__);
+
 	mutex_lock(&xprt_ptr->tx_ready_mutex_lhb2);
 	while (!list_empty(&xprt_ptr->tx_ready)) {
 
@@ -3221,6 +3222,7 @@ static void tx_work_func(struct work_struct *work)
 		list_rotate_left(&xprt_ptr->tx_ready);
 	}
 	mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
+	GLINK_PERF("%s: worker exiting\n", __func__);
 }
 
 static void glink_core_tx_resume(struct glink_transport_if *if_ptr)
