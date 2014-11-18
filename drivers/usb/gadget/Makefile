@@ -64,6 +64,10 @@ usb_f_mass_storage-y		:= f_mass_storage.o storage_common.o
 obj-$(CONFIG_USB_F_MASS_STORAGE)+= usb_f_mass_storage.o
 usb_f_fs-y			:= f_fs.o
 obj-$(CONFIG_USB_F_FS)		+= usb_f_fs.o
+usb_f_mtp-y			:= f_mtp.o
+obj-$(CONFIG_USB_F_MTP)		+= usb_f_mtp.o
+usb_f_ptp-y			:= f_ptp.o
+obj-$(CONFIG_USB_F_PTP)		+= usb_f_ptp.o
 
 #
 # USB gadget drivers
