@@ -658,4 +658,8 @@ config KEYBOARD_ACPI_GPIO
 	  Say Y here to enable support for ACPI5-based GPIO button
 	  array objects used by some modern PC tablet devices.
 
+config KEYBOARD_CYPRESS
+	tristate "Cypress Button"
+	help
+	  Say Y here to enable support for Cypressbutton.
 endif
