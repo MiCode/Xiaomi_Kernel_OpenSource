@@ -356,4 +356,6 @@ int aarch64_insn_patch_text_sync(void *addrs[], u32 insns[], int cnt);
 int aarch64_insn_patch_text(void *addrs[], u32 insns[], int cnt);
 #endif /* __ASSEMBLY__ */
 
+bool aarch32_insn_is_wide(u32 insn);
+
 #endif	/* __ASM_INSN_H */
