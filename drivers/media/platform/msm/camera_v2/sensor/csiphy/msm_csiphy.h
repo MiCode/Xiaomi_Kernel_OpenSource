@@ -84,6 +84,7 @@ struct csiphy_device {
 	uint32_t is_3_1_20nm_hw;
 	uint32_t csiphy_clk_index;
 	uint32_t csiphy_max_clk;
+	uint32_t csiphy_sof_freeze;
 };
 
 #define VIDIOC_MSM_CSIPHY_RELEASE \
