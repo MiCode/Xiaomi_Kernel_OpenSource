@@ -900,6 +900,8 @@
 
 		qcom,ep-latency = <10>;
 
+		qcom,ep-wakeirq;
+
 		qcom,msi-gicm-addr = <0xf9006040>;
 		qcom,msi-gicm-base = <0x180>;
 
