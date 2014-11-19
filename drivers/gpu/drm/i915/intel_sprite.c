@@ -1444,8 +1444,18 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 
 	/* FIXME check all gen limits */
 	if (fb->width < 3 || fb->height < 3 || fb->pitches[0] > 16384) {
-		DRM_DEBUG_KMS("Unsuitable framebuffer for plane\n");
-		return -EINVAL;
+		/*
+		 * User layer can send width/height < 3 in few instances
+		 * Relaxing these limits for all platforms are being
+		 * considered. But for now, do it only for VLV
+		 * based devices.
+		 */
+		if (IS_VALLEYVIEW(dev) && fb->pitches[0] <= 16384)
+			DRM_DEBUG_KMS("Allow lesser fb width/height\n");
+		else {
+			DRM_DEBUG_KMS("Unsuitable framebuffer for plane\n");
+			return -EINVAL;
+		}
 	}
 
 	/* Sprite planes can be linear or x-tiled surfaces */
