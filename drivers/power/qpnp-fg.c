@@ -885,8 +885,7 @@ close_time:
 #define COUNTER_PULSE_OFFSET	0
 #define SOC_FULL_OFFSET		3
 #define BATTERY_SOC_OFFSET	1
-#define ESR_PULSE_RECONFIG_SOC	0x7FDF3B
-
+#define ESR_PULSE_RECONFIG_SOC	0xFFF971
 static int fg_configure_soc(struct fg_chip *chip)
 {
 	u32 batt_soc;
