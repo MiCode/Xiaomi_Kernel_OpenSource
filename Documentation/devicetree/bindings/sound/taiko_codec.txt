@@ -341,7 +341,7 @@ i2c@f9925000 {
 
 Tombak audio CODEC in SPMI mode
 
- - compatible = "qcom,wcd-spmi";
+ - compatible = "qcom,msm8x16_wcd_codec";
  - reg: represents the slave base address provided to the peripheral.
  - interrupt-parent : The parent interrupt controller.
  - interrupts: List of interrupts in given SPMI peripheral.
@@ -388,7 +388,7 @@ Optional properties:
 
 Example:
 msm8x16_wcd_codec@f000{
-	compatible = "qcom,wcd-spmi";
+	compatible = "qcom,msm8x16_wcd_codec";
 	reg = <0xf000 0x100>;
 	interrupt-parent = <&spmi_bus>;
 	interrupts = <0x1 0xf0 0x0>,

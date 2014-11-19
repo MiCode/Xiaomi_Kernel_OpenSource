@@ -34,6 +34,11 @@ Optional properties:
 			clocks, the clock_cells property needs to be specified.
 			This will allow the common clock device tree framework
 			to recognize _this_ device node as a clock provider.
+- qcom,dev-opp-list:	List of device nodes for which the drivers would need
+			the Operating Performance Points(OPP). OPPs are the
+			frequency/voltage pairs that the device can operate at.
+			drivers can use the OPP library API to operate on the
+			list of OPPs registered.
 
 Example:
 	clock_rpm: qcom,rpmcc@fc4000000 {

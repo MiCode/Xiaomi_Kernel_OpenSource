@@ -68,15 +68,15 @@
 					&cam_sensor_rear_default>;
 		pinctrl-1 = <&cam_sensor_mclk0_sleep &cam_sensor_rear_sleep>;
 		gpios = <&msm_gpio 26 0>,
-		        <&msm_gpio 35 0>,
-                <&msm_gpio 34 0>;
+			<&msm_gpio 35 0>,
+			<&msm_gpio 34 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-standby = <2>;
 		qcom,gpio-req-tbl-num = <0 1 2>;
 		qcom,gpio-req-tbl-flags = <1 0 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
-								"CAM_RESET1",
-								"CAM_STANDBY";
+						"CAM_RESET1",
+						"CAM_STANDBY";
 		qcom,cam-power-seq-type = "sensor_vreg",
 			"sensor_gpio", "sensor_gpio",
 			"sensor_clk";
@@ -91,6 +91,29 @@
 		clock-names = "cam_src_clk", "cam_clk";
 	};
 
+	led_flash0: qcom,led-flash@60 {
+		cell-index = <0>;
+		reg = <0x60>;
+		qcom,slave-id = <0x60 0x00 0x0011>;
+		compatible = "qcom,led-flash";
+		label = "adp1660";
+		qcom,flash-type = <1>;
+		qcom,gpio-no-mux = <0>;
+		qcom,enable_pinctrl;
+		pinctrl-names = "cam_flash_default", "cam_flash_suspend";
+		pinctrl-0 = <&cam_sensor_flash_default>;
+		pinctrl-1 = <&cam_sensor_flash_sleep>;
+		gpios = <&msm_gpio 31 0>,
+			<&msm_gpio 32 0>;
+		qcom,gpio-flash-en = <0>;
+		qcom,gpio-flash-now = <1>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <0 0>;
+		qcom,gpio-req-tbl-label = "FLASH_EN",
+			"FLASH_NOW";
+		qcom,cci-master = <0>;
+	};
+
 	qcom,camera@0 {
 		cell-index = <0>;
 		compatible = "qcom,camera";
@@ -99,6 +122,7 @@
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
 		qcom,actuator-src = <&actuator0>;
+		qcom,led-flash-src = <&led_flash0>;
 		qcom,eeprom-src = <&eeprom0>;
 		cam_vdig-supply = <&pm8909_l2>;
 		cam_vana-supply = <&pm8909_l17>;

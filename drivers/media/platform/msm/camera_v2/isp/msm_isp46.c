@@ -293,6 +293,8 @@ static void msm_vfe46_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_camera_io_w_mb(0xE1FFFFFF, vfe_dev->vfe_base + 0x60);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x64);
 	msm_camera_io_w_mb(0xFFFFFFFF, vfe_dev->vfe_base + 0x68);
+	msm_camera_io_w(vfe_dev->stats_data.reg_mask,
+		vfe_dev->vfe_base + 0x78);
 }
 
 static void msm_vfe46_clear_status_reg(struct vfe_device *vfe_dev)
@@ -1382,7 +1384,7 @@ static void msm_vfe46_stats_cfg_comp_mask(
 	struct vfe_device *vfe_dev,
 	uint32_t stats_mask, uint8_t enable)
 {
-	uint32_t reg_mask, comp_stats_mask, mask_bf_scale;
+	uint32_t comp_stats_mask, mask_bf_scale;
 	uint32_t i = 0;
 	atomic_t *stats_comp;
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
@@ -1408,14 +1410,16 @@ static void msm_vfe46_stats_cfg_comp_mask(
 	for (i = 0;
 		i < vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask; i++) {
 		stats_comp = &stats_data->stats_comp_mask[i];
-		reg_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x78);
-		comp_stats_mask = reg_mask & (STATS_COMP_BIT_MASK << (i*8));
+		stats_data->reg_mask =
+		  msm_camera_io_r(vfe_dev->vfe_base + 0x78);
+		comp_stats_mask =
+		  stats_data->reg_mask & (STATS_COMP_BIT_MASK << (i*8));
 
 		if (enable) {
 			if (comp_stats_mask)
 				continue;
 
-			reg_mask |= (mask_bf_scale << (16 + i*8));
+			stats_data->reg_mask |= (mask_bf_scale << (16 + i*8));
 			atomic_set(stats_comp, stats_mask |
 					atomic_read(stats_comp));
 			break;
@@ -1433,17 +1437,17 @@ static void msm_vfe46_stats_cfg_comp_mask(
 
 			atomic_set(stats_comp,
 					~stats_mask & atomic_read(stats_comp));
-			reg_mask &= ~(mask_bf_scale << (16 + i*8));
+			stats_data->reg_mask &= ~(mask_bf_scale << (16 + i*8));
 			break;
 		}
 	}
 
 	ISP_DBG("%s: comp_mask: %x atomic stats[0]: %x %x\n",
-		__func__, reg_mask,
+		__func__, stats_data->reg_mask,
 		atomic_read(&stats_data->stats_comp_mask[0]),
 		atomic_read(&stats_data->stats_comp_mask[1]));
 
-	msm_camera_io_w(reg_mask, vfe_dev->vfe_base + 0x78);
+	msm_camera_io_w(stats_data->reg_mask, vfe_dev->vfe_base + 0x78);
 	return;
 }
 

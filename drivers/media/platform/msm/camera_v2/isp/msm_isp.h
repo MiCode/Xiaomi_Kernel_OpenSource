@@ -423,6 +423,7 @@ struct msm_vfe_stats_shared_data {
 	struct msm_vfe_stats_stream stream_info[MSM_ISP_STATS_MAX];
 	uint8_t num_active_stream;
 	atomic_t stats_comp_mask[MAX_NUM_STATS_COMP_MASK];
+	uint32_t reg_mask;
 	uint16_t stream_handle_cnt;
 	atomic_t stats_update;
 };
