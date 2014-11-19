@@ -185,6 +185,52 @@ static struct attribute_group rc6_attr_group = {
 };
 #endif
 
+static ssize_t
+show_i915_videostatus(struct device *kdev, struct device_attribute *attr,
+		char *buf)
+{
+	/* This sysfs function return video status known to i915 */
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			(dev_priv->is_video_playing ? 1 : 0));
+
+}
+static ssize_t
+store_i915_videostatus(struct device *kdev, struct device_attribute *attr,
+		const char *buf, size_t n)
+{
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 ret, val;
+
+	ret = kstrtou32(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	if (dev_priv->dpst.is_video_mode_enabled) {
+		dev_priv->is_video_playing = val;
+		ret = i915_dpst_enable_disable(dev, val);
+		DRM_DEBUG_DRIVER("\nVideo Status : %d\n", val);
+	} else
+		n = -EINVAL;
+	return n;
+}
+
+static DEVICE_ATTR(i915_videostatus, (S_IRUGO | S_IWOTH),
+		show_i915_videostatus, store_i915_videostatus);
+static struct attribute *i915_videostatus_attrs[] = {
+	&dev_attr_i915_videostatus.attr,
+	NULL
+};
+static struct attribute_group i915_videostatus_attr_group = {
+	.name = power_group_name,
+	.attrs = i915_videostatus_attrs
+};
+
 static int l3_access_valid(struct drm_device *dev, loff_t offset)
 {
 	if (!HAS_L3_DPF(dev))
@@ -1500,11 +1546,14 @@ void i915_setup_sysfs(struct drm_device *dev)
 				DRM_ERROR("l3 parity slice 1 setup failed\n");
 		}
 	}
-
 	ret = 0;
-	if (IS_VALLEYVIEW(dev))
+	if (IS_VALLEYVIEW(dev)) {
+		ret = sysfs_merge_group(&dev->primary->kdev->kobj,
+				&i915_videostatus_attr_group);
+		if (ret)
+			DRM_ERROR("video status sysfs setup failed\n");
 		ret = sysfs_create_files(&dev->primary->kdev->kobj, vlv_attrs);
-	else if (INTEL_INFO(dev)->gen >= 6)
+	} else if (INTEL_INFO(dev)->gen >= 6)
 		ret = sysfs_create_files(&dev->primary->kdev->kobj, gen6_attrs);
 	if (ret)
 		DRM_ERROR("RPS sysfs setup failed\n");
@@ -1542,9 +1591,11 @@ void i915_setup_sysfs(struct drm_device *dev)
 void i915_teardown_sysfs(struct drm_device *dev)
 {
 	sysfs_remove_bin_file(&dev->primary->kdev->kobj, &error_state_attr);
-	if (IS_VALLEYVIEW(dev))
+	if (IS_VALLEYVIEW(dev)) {
 		sysfs_remove_files(&dev->primary->kdev->kobj, vlv_attrs);
-	else
+		sysfs_unmerge_group(&dev->primary->kdev->kobj,
+				&i915_videostatus_attr_group);
+	} else
 		sysfs_remove_files(&dev->primary->kdev->kobj, gen6_attrs);
 	device_remove_bin_file(dev->primary->kdev,  &dpf_attrs_1);
 	device_remove_bin_file(dev->primary->kdev,  &dpf_attrs);

@@ -94,6 +94,10 @@ i915_dpst_enable_hist_interrupt(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 blm_hist_ctl;
 
+	if (dev_priv->dpst.is_video_mode_enabled &&
+			!dev_priv->is_video_playing)
+		return 0;
+
 	dev_priv->dpst.enabled = true;
 	dev_priv->dpst.blc_adjustment = DPST_MAX_FACTOR ;
 
@@ -501,6 +505,12 @@ i915_dpst_init(struct drm_device *dev,
 	ioctl_data->init_data.image_res = i915_dpst_get_resolution(dev);
 	dev_priv->dpst.init_image_res = ioctl_data->init_data.image_res;
 
+	/* Re-using the hist_reg_values variable for sending the
+	 * video-mode status to kernel from user mode process */
+	if (IS_VALLEYVIEW(dev))
+		dev_priv->dpst.is_video_mode_enabled =
+					ioctl_data->init_data.hist_reg_values;
+
 	if (!i915_dpst_update_context(dev))
 		return -EINVAL;
 
@@ -671,4 +681,20 @@ i915_dpst_set_kernel_disable(struct drm_device *dev, bool disable)
 	drm_modeset_unlock(&dev->mode_config.connection_mutex);
 
 	return ret;
+}
+
+int i915_dpst_enable_disable(struct drm_device *dev, unsigned int val)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (val == 1 && !dev_priv->dpst.enabled &&
+			!dev_priv->dpst.kernel_disable)
+		i915_dpst_enable_hist_interrupt(dev);
+	else if (val == 0 && (dev_priv->dpst.enabled))
+		i915_dpst_disable_hist_interrupt(dev);
+
+	/* Send a fake signal to start the process */
+	i915_dpst_irq_handler(dev, dev_priv->dpst.pipe);
+
+	return 0;
 }

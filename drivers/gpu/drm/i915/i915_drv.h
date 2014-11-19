@@ -1688,6 +1688,7 @@ struct drm_i915_private {
 		bool enabled;		/* actual functional state */
 		bool pipe_mismatch;	/* Indicates pipe mismatch between user mode and kernel */
 		bool display_off;	/* Indicates that Display is off (could be power gated also) */
+		bool is_video_mode_enabled;
 		struct {
 			bool is_valid;
 			u32 blc_adjustment;
@@ -1720,6 +1721,7 @@ struct drm_i915_private {
 	bool gamma_enabled[I915_MAX_PIPES];
 	bool csc_enabled[I915_MAX_PIPES];
 	bool is_resuming;
+	bool is_video_playing;  /* Indicates enabling only in videomode */
 
 	/* Indicates currently enabled planes */
 	unsigned int plane_stat;
@@ -3074,6 +3076,7 @@ void i915_dpst_irq_handler(struct drm_device *dev, enum pipe);
 void intel_panel_actually_set_backlight(struct intel_connector *conn, u32 level);
 void i915_dpst_display_on(struct drm_device *dev);
 void i915_dpst_display_off(struct drm_device *dev);
+int i915_dpst_enable_disable(struct drm_device *dev, unsigned int val);
 
 /* intel_acpi.c */
 #ifdef CONFIG_ACPI
