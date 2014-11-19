@@ -301,7 +301,7 @@
 			qcom,pin-func = <1>;
 			label = "spi0-active";
 			/* active state */
-			spi0_default: default {
+			spi0_default: spi0_default {
 				drive-strength = <12>; /* 12 MA */
 				bias-disable = <0>; /* No PULL */
 			};
@@ -314,7 +314,7 @@
 			qcom,pin-func = <0>;
 			label = "spi0-suspend";
 			/* suspended state */
-			spi0_sleep: sleep {
+			spi0_sleep: spi0_sleep {
 				drive-strength = <2>; /* 2 MA */
 				bias-pull-down; /* pull down */
 			};
