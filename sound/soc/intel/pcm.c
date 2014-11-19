@@ -151,8 +151,8 @@ static void sst_fill_alloc_params(struct snd_pcm_substream *substream,
 
 	u32 buffer_addr = virt_to_phys(substream->dma_buffer.area);
 
-	pr_err("phy_to_virt: %p\n", phys_to_virt(buffer_addr));
-	pr_err("Virtual address: %p\n", substream->dma_buffer.area);
+	pr_debug("phy_to_virt: %p\n", phys_to_virt(buffer_addr));
+	pr_debug("Virtual address: %p\n", substream->dma_buffer.area);
 
 	channels = substream->runtime->channels;
 	period_size = substream->runtime->period_size;
@@ -855,7 +855,7 @@ static int sst_platform_async_cb(struct sst_platform_cb_params *params)
 		return -EINVAL;
 	}
 
-	pr_info("%s: event = %d\n", __func__, params->event);
+	pr_debug("%s: event = %d\n", __func__, params->event);
 
 	switch (params->event) {
 	case SST_PLATFORM_VTSV_READ_EVENT: {
@@ -885,7 +885,7 @@ static int sst_platform_async_cb(struct sst_platform_cb_params *params)
 	}
 
 	default:
-		pr_info("No event handler for event Id %d\n", params->event);
+		pr_debug("No event handler for event Id %d\n", params->event);
 	}
 
 	return retval;
@@ -949,7 +949,7 @@ static int sst_platform_probe(struct platform_device *pdev)
 	}
 
 	if (dpcm_enable == 1) {
-		pr_info("dpcm enabled; overriding stream map\n");
+		pr_debug("dpcm enabled; overriding stream map\n");
 		pdata->pdev_strm_map = dpcm_strm_map;
 		pdata->strm_map_size = ARRAY_SIZE(dpcm_strm_map);
 	}

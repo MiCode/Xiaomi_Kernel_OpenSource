@@ -195,7 +195,7 @@ int sst_alloc_stream_mrfld(char *params, struct sst_block *block)
 	pr_debug("header:%x\n", msg->mrfld_header.p.header_high.full);
 	pr_debug("response rqd: %x", msg->mrfld_header.p.header_high.part.res_rqd);
 	pr_debug("calling post_message\n");
-	pr_info("Alloc for str %d pipe %#x\n", str_id, pipe_id);
+	pr_debug("Alloc for str %d pipe %#x\n", str_id, pipe_id);
 
 	sst_add_to_dispatch_list_and_post(sst_drv_ctx, msg);
 	return str_id;

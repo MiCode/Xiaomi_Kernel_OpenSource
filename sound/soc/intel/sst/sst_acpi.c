@@ -672,7 +672,7 @@ int sst_acpi_probe(struct platform_device *pdev)
 
 	sst_set_fw_state_locked(ctx, SST_RESET);
 	sst_save_shim64(ctx, ctx->shim, ctx->shim_regs64);
-	pr_info("%s successfully done!\n", __func__);
+	pr_debug("%s successfully done!\n", __func__);
 	return ret;
 
 do_free_misc:

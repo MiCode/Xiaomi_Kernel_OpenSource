@@ -420,7 +420,7 @@ static void process_fw_init(void *msg)
 	pr_info("FW Version %02x.%02x.%02x.%02x\n",
 		init->fw_version.type, init->fw_version.major,
 		init->fw_version.minor, init->fw_version.build);
-	pr_info("Build date %s Time %s\n",
+	pr_debug("Build date %s Time %s\n",
 			init->build_info.date, init->build_info.time);
 
 	/* If there any runtime parameter to set, send it */

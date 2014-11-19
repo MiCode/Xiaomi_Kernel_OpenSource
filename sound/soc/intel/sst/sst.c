@@ -542,7 +542,7 @@ static ssize_t sst_sysfs_set_recovery_interval(struct device *dev,
 	val = max(val, (long)MIN_FW_MONITOR_INTERVAL);
 	ctx->monitor_lpe.interval = min(val, (long)MAX_FW_MONITOR_INTERVAL);
 
-	pr_info("%s: setting recovery interval to %d\n", __func__,
+	pr_debug("%s: setting recovery interval to %d\n", __func__,
 							 ctx->monitor_lpe.interval);
 
 	return len;
@@ -730,7 +730,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 	pr_debug("ipcx 0x%x ipxd 0x%x", sst_drv_ctx->ipc_reg.ipcx,
 					sst_drv_ctx->ipc_reg.ipcd);
 
-	pr_info("Got drv data max stream %d\n",
+	pr_debug("Got drv data max stream %d\n",
 				sst_drv_ctx->info.max_streams);
 	for (i = 1; i <= sst_drv_ctx->info.max_streams; i++) {
 		struct stream_info *stream = &sst_drv_ctx->streams[i];
@@ -991,7 +991,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 
 	}
 
-	pr_info("%s successfully done!\n", __func__);
+	pr_debug("%s successfully done!\n", __func__);
 	return ret;
 
 do_free_qos:
@@ -1149,7 +1149,7 @@ static int intel_sst_runtime_suspend(struct device *dev)
 	int ret = 0;
 	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
 
-	pr_info("runtime_suspend called\n");
+	pr_debug("runtime_suspend called\n");
 	if (ctx->sst_state == SST_RESET) {
 		pr_debug("LPE is already in RESET state, No action");
 		return 0;
@@ -1185,7 +1185,7 @@ static int intel_sst_runtime_resume(struct device *dev)
 	int ret = 0;
 	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
 
-	pr_info("runtime_resume called\n");
+	pr_debug("runtime_resume called\n");
 
 	if (ctx->pci_id == SST_BYT_PCI_ID || ctx->pci_id == SST_CHT_PCI_ID) {
 		/* wait for device power up a/c to PCI spec */
@@ -1230,7 +1230,7 @@ static int intel_sst_suspend(struct device *dev)
 	bool reset_dapm;
 	struct sst_platform_cb_params cb_params;
 
-	pr_info("Enter: %s\n", __func__);
+	pr_debug("Enter: %s\n", __func__);
 	mutex_lock(&ctx->sst_lock);
 	sst_drv_ctx->sst_suspend_state = true;
 	mutex_unlock(&ctx->sst_lock);
@@ -1254,7 +1254,7 @@ static int intel_sst_suspend(struct device *dev)
 	reset_dapm = true;
 	sst_platform_cb(&cb_params);
 
-	pr_info("reset the pvt id from val %d\n", ctx->pvt_id);
+	pr_debug("reset the pvt id from val %d\n", ctx->pvt_id);
 	spin_lock(&ctx->pvt_id_lock);
 	ctx->pvt_id = 0;
 	spin_unlock(&ctx->pvt_id_lock);
@@ -1276,7 +1276,7 @@ static int intel_sst_resume(struct device *dev)
 {
 	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
 
-	pr_info("Enter: %s\n", __func__);
+	pr_debug("Enter: %s\n", __func__);
 	mutex_lock(&ctx->sst_lock);
 	sst_drv_ctx->sst_suspend_state = false;
 	mutex_unlock(&ctx->sst_lock);
@@ -1431,7 +1431,7 @@ static int __init intel_sst_init(void)
 {
 	/* Init all variables, data structure etc....*/
 	int ret = 0;
-	pr_info("INFO: ******** SST DRIVER loading.. Ver: %s\n",
+	pr_debug("INFO: ******** SST DRIVER loading.. Ver: %s\n",
 				       SST_DRIVER_VERSION);
 
 	mutex_init(&drv_ctx_lock);
