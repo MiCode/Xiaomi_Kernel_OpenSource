@@ -2860,7 +2860,7 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;
 	dwc->setup_packet_pending = false;
-	dwc->link_state = dwc3_get_link_state(dwc);
+	dwc->link_state = DWC3_LINK_STATE_SS_DIS;
 }
 
 void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend)
@@ -2948,7 +2948,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	reg &= ~(DWC3_DCFG_DEVADDR_MASK);
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;
-	dwc->link_state = dwc3_get_link_state(dwc);
+	dwc->link_state = DWC3_LINK_STATE_U0;
 }
 
 static void dwc3_update_ram_clk_sel(struct dwc3 *dwc, u32 speed)
@@ -2990,8 +2990,6 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 	dwc->speed = speed;
 
 	dwc3_update_ram_clk_sel(dwc, speed);
-	dwc->link_state = dwc3_get_link_state(dwc);
-	pr_debug("%s(): LINK_STATE:%d\n", __func__, dwc->link_state);
 
 	switch (speed) {
 	case DWC3_DCFG_SUPERSPEED:
@@ -3098,7 +3096,6 @@ static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 		if (dwc->enable_bus_suspend)
 			usb_phy_set_suspend(dwc->dotg->otg.phy, 0);
 
-		dwc->link_state = dwc3_get_link_state(dwc);
 		/*
 		 * gadget_driver resume function might require some dwc3-gadget
 		 * operations, such as ep_enable. Hence, dwc->lock must be
@@ -3107,10 +3104,9 @@ static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 		spin_unlock(&dwc->lock);
 		dwc->gadget_driver->resume(&dwc->gadget);
 		spin_lock(&dwc->lock);
-	} else {
-		dwc->link_state = dwc3_get_link_state(dwc);
 	}
 
+	dwc->link_state = DWC3_LINK_STATE_U0;
 }
 
 static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
