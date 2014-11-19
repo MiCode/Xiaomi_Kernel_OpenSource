@@ -141,6 +141,7 @@ struct smbchg_chip {
 	bool				usb_present;
 	bool				batt_present;
 	bool				otg_retries;
+	bool				aicl_deglitch_on;
 
 	/* jeita and temperature */
 	bool				batt_hot;
@@ -3115,6 +3116,51 @@ static irqreturn_t chg_hot_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+#define USB_AICL_DEGLITCH_MASK		(BIT(5) | BIT(4) | BIT(3))
+#define USB_AICL_DEGLITCH_SHORT		(BIT(5) | BIT(4) | BIT(3))
+#define USB_AICL_DEGLITCH_LONG		0
+#define MISC_TRIM_OPTIONS_15_8		0xF5
+#define AICL_RERUN_MASK			(BIT(5) | BIT(4))
+#define AICL_RERUN_ON			(BIT(5) | BIT(4))
+#define AICL_RERUN_OFF			0
+static void smbchg_aicl_deglitch_wa_en(struct smbchg_chip *chip, bool en)
+{
+	int rc;
+
+	if (en && !chip->aicl_deglitch_on) {
+		rc = smbchg_sec_masked_write(chip,
+			chip->usb_chgpth_base + USB_AICL_CFG,
+			USB_AICL_DEGLITCH_MASK, USB_AICL_DEGLITCH_SHORT);
+		if (rc)
+			return;
+		rc = smbchg_sec_masked_write(chip,
+			chip->misc_base + MISC_TRIM_OPTIONS_15_8,
+			AICL_RERUN_MASK, AICL_RERUN_ON);
+		if (rc)
+			return;
+		pr_smb(PR_STATUS, "AICL deglitch set to short\n");
+	} else if (!en && chip->aicl_deglitch_on) {
+		rc = smbchg_sec_masked_write(chip,
+			chip->usb_chgpth_base + USB_AICL_CFG,
+			USB_AICL_DEGLITCH_MASK, USB_AICL_DEGLITCH_LONG);
+		if (rc)
+			return;
+		rc = smbchg_sec_masked_write(chip,
+			chip->misc_base + MISC_TRIM_OPTIONS_15_8,
+			AICL_RERUN_MASK, AICL_RERUN_OFF);
+		if (rc)
+			return;
+		pr_smb(PR_STATUS, "AICL deglitch set to normal\n");
+	}
+	chip->aicl_deglitch_on = en;
+}
+
+static void smbchg_aicl_deglitch_wa_check(struct smbchg_chip *chip)
+{
+	smbchg_aicl_deglitch_wa_en(chip,
+		get_prop_charge_type(chip) == POWER_SUPPLY_CHARGE_TYPE_TAPER);
+}
+
 static irqreturn_t chg_term_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
@@ -3127,6 +3173,7 @@ static irqreturn_t chg_term_handler(int irq, void *_chip)
 		power_supply_changed(&chip->batt_psy);
 	if (reg & BAT_TCC_REACHED_BIT)
 		schedule_work(&chip->batt_soc_work);
+	smbchg_aicl_deglitch_wa_check(chip);
 	return IRQ_HANDLED;
 }
 
@@ -3138,6 +3185,7 @@ static irqreturn_t taper_handler(int irq, void *_chip)
 	taper_irq_en(chip, false);
 	smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
+	smbchg_aicl_deglitch_wa_check(chip);
 	smbchg_parallel_usb_taper(chip);
 	smbchg_wipower_check(chip);
 	return IRQ_HANDLED;
@@ -3150,6 +3198,7 @@ static irqreturn_t recharge_handler(int irq, void *_chip)
 
 	smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
 	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
+	smbchg_aicl_deglitch_wa_check(chip);
 	smbchg_parallel_usb_check_ok(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
@@ -3227,6 +3276,7 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	if (chip->parallel.avail && chip->enable_aicl_wake) {
 		disable_irq_wake(chip->aicl_done_irq);
 		chip->enable_aicl_wake = false;
+		smbchg_aicl_deglitch_wa_check(chip);
 	}
 }
 
@@ -3511,6 +3561,9 @@ static inline int get_bpd(const char *name)
 #define FG_INPUT_FET_DELAY_BIT		BIT(3)
 #define TRIM_OPTIONS_7_0		0xF6
 #define INPUT_MISSING_POLLER_EN_BIT	BIT(3)
+#define AICL_WL_SEL_CFG			0xF5
+#define AICL_WL_SEL_MASK		SMB_MASK(1, 0)
+#define AICL_WL_SEL_45S		0
 static int smbchg_hw_init(struct smbchg_chip *chip)
 {
 	int rc, i;
@@ -3526,6 +3579,15 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	pr_smb(PR_STATUS, "Charger Revision DIG: %d.%d; ANA: %d.%d\n",
 			chip->revision[DIG_MAJOR], chip->revision[DIG_MINOR],
 			chip->revision[ANA_MAJOR], chip->revision[ANA_MINOR]);
+
+	rc = smbchg_sec_masked_write(chip,
+			chip->dc_chgpth_base + AICL_WL_SEL_CFG,
+			AICL_WL_SEL_MASK, AICL_WL_SEL_45S);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set AICL rerun timer rc=%d\n",
+				rc);
+		return rc;
+	}
 
 	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + TR_RID_REG,
 			FG_INPUT_FET_DELAY_BIT, FG_INPUT_FET_DELAY_BIT);
