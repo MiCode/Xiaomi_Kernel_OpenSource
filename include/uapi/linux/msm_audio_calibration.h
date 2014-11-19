@@ -85,6 +85,7 @@ enum {
 	ULP_LSM_CAL_TYPE,
 
 	DTS_EAGLE_CAL_TYPE,
+	AUDIO_CORE_METAINFO_CAL_TYPE,
 
 	MAX_CAL_TYPES,
 };
@@ -169,6 +170,11 @@ struct audio_cal_post {
 	struct audio_cal_type_post	cal_type;
 };
 
+/*AUDIO_CORE_META_INFO */
+
+struct audio_cal_info_metainfo {
+	uint32_t nKey;
+};
 
 /* Cal info types */
 enum {
@@ -361,6 +367,17 @@ struct audio_cal_type_adm_top {
 struct audio_cal_adm_top {
 	struct audio_cal_header		hdr;
 	struct audio_cal_type_adm_top	cal_type;
+};
+
+struct audio_cal_type_metainfo {
+	struct audio_cal_type_header	cal_hdr;
+	struct audio_cal_data		cal_data;
+	struct audio_cal_info_metainfo	cal_info;
+};
+
+struct audio_core_metainfo {
+	struct audio_cal_header	  hdr;
+	struct audio_cal_type_metainfo cal_type;
 };
 
 struct audio_cal_type_audproc {
