@@ -970,9 +970,8 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 	id_mask = BIT_POS(PMIC_INT_USBIDFLTDET) |
 				 BIT_POS(PMIC_INT_USBIDGNDDET);
 
-	if (int_reg & BIT_POS(PMIC_INT_USBIDGNDDET)) {
+	if (int_reg & id_mask) {
 		mask = (stat_reg & id_mask) == SHRT_GND_DET;
-		chc.otg_mode_enabled = mask;
 		/* Close/Open D+/D- lines in USB detection switch
 		 * due to WC PMIC bug
 		 */
@@ -981,10 +980,18 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x1);
 			atomic_notifier_call_chain(&chc.otg->notifier,
 				USB_EVENT_ID, &mask);
-		} else {
+		} else if ((int_reg & BIT_POS(PMIC_INT_USBIDFLTDET)) &&
+				chc.otg_mode_enabled) {
+			/* WA for OTG ID removal: PMIC interprets ID removal
+			 * as ID_FLOAT. Check for ID float and otg_mode enabled
+			 * to send ID disconnect.
+			 * In order to avoid ctyp detection flow, disable otg
+			 * mode during vbus turn off event
+			 */
 			atomic_notifier_call_chain(&chc.otg->notifier,
 				USB_EVENT_NONE, NULL);
 			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x0);
+
 		}
 	}
 
@@ -992,19 +999,6 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 		mask = !!(stat_reg & BIT_POS(PMIC_INT_USBIDDET));
 		atomic_notifier_call_chain(&chc.otg->notifier,
 				USB_EVENT_ID, &mask);
-	}
-
-	/* WA for OTG ID removal: PMIC interprets ID removal as ID_FLOAT.
-	 * Check for ID float and otg_mode enabled to send ID disconnect.
-	 */
-	if ((int_reg & BIT_POS(PMIC_INT_USBIDFLTDET)) &&
-				chc.otg_mode_enabled) {
-		atomic_notifier_call_chain(&chc.otg->notifier,
-			USB_EVENT_NONE, NULL);
-		pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x0);
-		/* in order to avoid ctyp detection flow, disable otg mode
-		 * when vbus is turned off
-		 */
 	}
 
 	if (int_reg & BIT_POS(PMIC_INT_VBUS)) {
@@ -1027,7 +1021,8 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 		if (chc.is_internal_usb_phy && !chc.otg_mode_enabled)
 			handle_internal_usbphy_notifications(mask);
 		else if (!mask)
-			intel_pmic_handle_otgmode(chc.otg_mode_enabled = false);
+			intel_pmic_handle_otgmode(chc.otg_mode_enabled =
+				(stat_reg & id_mask) == SHRT_GND_DET);
 	}
 }
 
