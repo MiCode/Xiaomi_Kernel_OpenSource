@@ -716,6 +716,7 @@ void mdss_dsi_err_intr_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, u32 mask,
 	u32 intr;
 
 	intr = MIPI_INP(ctrl->ctrl_base + 0x0110);
+	intr &= DSI_INTR_TOTAL_MASK;
 
 	if (enable)
 		intr |= mask;
@@ -1655,6 +1656,7 @@ void mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	u32 data;
 	/* DSI_INTL_CTRL */
 	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
+	data &= DSI_INTR_TOTAL_MASK;
 	data |= DSI_INTR_DYNAMIC_REFRESH_MASK;
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
 
@@ -1670,6 +1672,7 @@ void mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
 		pr_err("Dynamic interrupt timedout\n");
 
 	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
+	data &= DSI_INTR_TOTAL_MASK;
 	data &= ~DSI_INTR_DYNAMIC_REFRESH_MASK;
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
 }
@@ -1681,6 +1684,7 @@ void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	/* DSI_INTL_CTRL */
 	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
+	data &= DSI_INTR_TOTAL_MASK;
 	data |= DSI_INTR_VIDEO_DONE_MASK;
 
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
@@ -1694,6 +1698,7 @@ void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 			msecs_to_jiffies(VSYNC_PERIOD * 4));
 
 	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
+	data &= DSI_INTR_TOTAL_MASK;
 	data &= ~DSI_INTR_VIDEO_DONE_MASK;
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
 }
