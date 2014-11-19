@@ -23,6 +23,7 @@
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
+		qcom,disable-pil-loading;
 	};
 
 	qcom,ipc_router_wcnss_xprt {
