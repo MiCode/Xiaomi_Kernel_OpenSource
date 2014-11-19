@@ -288,6 +288,10 @@
 		qcom,vreg-1.8-voltage-level = <1800000 1800000 1000>;
 		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
 
+		qcom,l1ss-supported;
+		qcom,n-fts = <0x50>;
+		qcom,ep-latency = <10>;
+
 		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
 				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
 				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
