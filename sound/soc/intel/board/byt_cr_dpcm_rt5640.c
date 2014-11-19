@@ -207,7 +207,8 @@ static inline bool byt_hs_inserted(struct byt_drvdata *drvdata)
 	return val;
 }
 
-static int byt_hs_jack_check(struct byt_drvdata *drvdata, bool is_recheck)
+static int byt_hs_jack_check(struct byt_drvdata *drvdata, bool is_recheck,
+							bool is_resume_check)
 {
 	struct snd_soc_jack *jack = &drvdata->jack;
 	struct snd_soc_codec *codec = jack->codec;
@@ -257,7 +258,7 @@ static int byt_hs_jack_check(struct byt_drvdata *drvdata, bool is_recheck)
 				jack->status &= ~SND_JACK_HEADPHONE;
 				pr_info("%s: Headphone removed.\n", __func__);
 			}
-		} else
+		} else if (!is_resume_check)
 			pr_warn("%s: Remove-interrupt while no accessory present!\n",
 					__func__);
 	}
@@ -277,7 +278,7 @@ static int byt_jack_interrupt(void *data)
 	mutex_lock(&drvdata->jack_mlock);
 	pr_debug("%s: Enter.\n", __func__);
 
-	status = byt_hs_jack_check(drvdata, false);
+	status = byt_hs_jack_check(drvdata, false, false);
 
 	mutex_unlock(&drvdata->jack_mlock);
 	return status;
@@ -293,7 +294,7 @@ static void byt_hs_jack_recheck(struct work_struct *work)
 	mutex_lock(&drvdata->jack_mlock);
 	pr_debug("%s: Enter.\n", __func__);
 
-	status = byt_hs_jack_check(drvdata, true);
+	status = byt_hs_jack_check(drvdata, true, false);
 	snd_soc_jack_report(jack, status, SND_JACK_HEADSET);
 
 	mutex_unlock(&drvdata->jack_mlock);
@@ -836,7 +837,23 @@ static int snd_byt_prepare(struct device *dev)
 
 static void snd_byt_complete(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
+	struct snd_soc_card *soc_card = platform_get_drvdata(pdev);
+	struct byt_drvdata *drv = snd_soc_card_get_drvdata(soc_card);
+	int status;
+
 	pr_debug("%s: Enter.\n", __func__);
+
+	status = cancel_delayed_work_sync(&drv->hs_jack_recheck);
+	if (status)
+		pr_debug("%s: Delayed work cancelled!\n", __func__);
+
+	mutex_lock(&drv->jack_mlock);
+
+	status = byt_hs_jack_check(drv, false, true);
+	snd_soc_jack_report(&drv->jack, status, SND_JACK_HEADSET);
+
+	mutex_unlock(&drv->jack_mlock);
 
 	snd_soc_resume(dev);
 }
