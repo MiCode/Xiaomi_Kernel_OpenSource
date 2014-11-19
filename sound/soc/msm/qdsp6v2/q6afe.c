@@ -3848,6 +3848,80 @@ fail_cmd:
 	return ret;
 }
 
+int afe_enable_lpass_core_shared_clock(u16 port_id, u32 enable)
+{
+	struct afe_lpass_core_shared_clk_config_command clk_cfg;
+	int index = 0;
+	int ret = 0;
+
+	index = q6audio_get_port_index(port_id);
+	ret = q6audio_is_digital_pcm_interface(port_id);
+	if (ret < 0) {
+		pr_err("%s: q6audio_is_digital_pcm_interface fail %d\n",
+		       __func__, ret);
+		return -EINVAL;
+	}
+
+	ret = afe_q6_interface_prepare();
+	if (ret != 0) {
+		pr_err("%s: Q6 interface prepare failed %d\n", __func__, ret);
+		return ret;
+	}
+
+	mutex_lock(&this_afe.afe_cmd_lock);
+	clk_cfg.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	clk_cfg.hdr.pkt_size = sizeof(clk_cfg);
+	clk_cfg.hdr.src_port = 0;
+	clk_cfg.hdr.dest_port = 0;
+	clk_cfg.hdr.token = index;
+
+	clk_cfg.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	clk_cfg.param.port_id = q6audio_get_port_id(port_id);
+	clk_cfg.param.payload_size = sizeof(clk_cfg) - sizeof(struct apr_hdr)
+						- sizeof(clk_cfg.param);
+	clk_cfg.param.payload_address_lsw = 0x00;
+	clk_cfg.param.payload_address_msw = 0x00;
+	clk_cfg.param.mem_map_handle = 0x00;
+	clk_cfg.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	clk_cfg.pdata.param_id = AFE_PARAM_ID_LPASS_CORE_SHARED_CLOCK_CONFIG;
+	clk_cfg.pdata.param_size =  sizeof(clk_cfg.clk_cfg);
+	clk_cfg.clk_cfg.lpass_core_shared_clk_cfg_minor_version =
+				AFE_API_VERSION_LPASS_CORE_SHARED_CLK_CONFIG;
+	clk_cfg.clk_cfg.enable = enable;
+
+	pr_debug("%s: port id = %d, enable = %d\n",
+		 __func__, q6audio_get_port_id(port_id), enable);
+
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &clk_cfg);
+	if (ret < 0) {
+		pr_err("%s: AFE enable for port 0x%x ret %d\n",
+		       __func__, port_id, ret);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait[index],
+			(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	mutex_unlock(&this_afe.afe_cmd_lock);
+	return ret;
+}
+
 int q6afe_check_osr_clk_freq(u32 freq)
 {
 	int ret = 0;
