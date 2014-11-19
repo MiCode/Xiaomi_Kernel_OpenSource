@@ -175,7 +175,8 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x8>;
-		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
+		qcom,use-qchannel-for-wfi;
+		qcom,saw2-spm-cmd-wfi = [03 50 2b 54 0f];
 		qcom,saw2-spm-cmd-ret = [50 2b 00 c0 14 3b b0 e2 a0 92 1b 50
 			03 2f 0b 50 2b 92 1b e2 1b a0 b0 14 3b 70 70 c0 00 50
 			0f];
@@ -196,7 +197,8 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x8>;
-		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
+		qcom,use-qchannel-for-wfi;
+		qcom,saw2-spm-cmd-wfi = [03 50 2b 54 0f];
 		qcom,saw2-spm-cmd-ret = [50 2b 00 c0 14 3b b0 e2 a0 92 1b 50
 			03 2f 0b 50 2b 92 1b e2 1b a0 b0 14 3b 70 70 c0 00 50
 			0f];
@@ -217,7 +219,8 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x8>;
-		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
+		qcom,use-qchannel-for-wfi;
+		qcom,saw2-spm-cmd-wfi = [03 50 2b 54 0f];
 		qcom,saw2-spm-cmd-ret = [50 2b 00 c0 14 3b b0 e2 a0 92 1b 50
 			03 2f 0b 50 2b 92 1b e2 1b a0 b0 14 3b 70 70 c0 00 50
 			0f];
@@ -238,7 +241,8 @@
 		qcom,saw2-cfg = <0x01>;
 		qcom,saw2-spm-dly = <0X3c100c00>;
 		qcom,saw2-spm-ctl = <0x8>;
-		qcom,saw2-spm-cmd-wfi = [03 2f 0b 0f];
+		qcom,use-qchannel-for-wfi;
+		qcom,saw2-spm-cmd-wfi = [03 50 2b 54 0f];
 		qcom,saw2-spm-cmd-ret = [50 2b 00 c0 14 3b b0 e2 a0 92 1b 50
 			03 2f 0b 50 2b 92 1b e2 1b a0 b0 14 3b 70 70 c0 00 50
 			0f];
