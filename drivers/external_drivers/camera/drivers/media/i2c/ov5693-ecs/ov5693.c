@@ -925,7 +925,7 @@ int ad5823_t_focus_abs(struct v4l2_subdev *sd, s32 value)
 	int ret;
 
 	value = min(value, AD5823_MAX_FOCUS_POS);
-	ret = ad5823_t_focus_vcm(sd, AD5823_MAX_FOCUS_POS - value);
+	ret = ad5823_t_focus_vcm(sd, value);
 
 	return ret;
 }
@@ -1277,8 +1277,7 @@ static int ov5693_init(struct v4l2_subdev *sd)
 	/*change initial focus value for ad5823*/
 	if(dev->vcm == VCM_AD5823) {
 		dev->focus = AD5823_INIT_FOCUS_POS;
-		ov5693_t_focus_abs(sd, (AD5823_MAX_FOCUS_POS
-					- AD5823_INIT_FOCUS_POS));
+		ov5693_t_focus_abs(sd, AD5823_INIT_FOCUS_POS);
 	} else {
 		dev->focus = 0;
 		ov5693_t_focus_abs(sd, 0);
