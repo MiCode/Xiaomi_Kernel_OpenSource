@@ -31,6 +31,7 @@
 #include <linux/sysfs.h>
 #include "intel_drv.h"
 #include "i915_drv.h"
+#include "intel_clrmgr.h"
 
 #define dev_to_drm_minor(d) dev_get_drvdata((d))
 
@@ -545,6 +546,401 @@ static ssize_t thaw_show(struct device *kdev, struct device_attribute *attr,
 }
 static DEVICE_ATTR(thaw, S_IRUGO, thaw_show, NULL);
 
+static ssize_t gamma_adjust_store(struct device *kdev,
+				     struct device_attribute *attr,
+				     const char *ubuf, size_t count)
+{
+	int ret = 0;
+	int bytes_count = 0;
+	int bytes_read = 0;
+	char *buf = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Gamma adjust: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Gamma adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (!strncpy(buf, ubuf, count)) {
+		DRM_ERROR("Gamma adjust: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+	bytes_count = count;
+
+	/* Parse data and load the gamma  table */
+	ret = parse_clrmgr_input(gamma_softlut, buf,
+		GAMMA_CORRECT_MAX_COUNT, &bytes_count);
+	if (ret < GAMMA_CORRECT_MAX_COUNT) {
+		DRM_ERROR("Gamma table loading failed\n");
+		goto EXIT;
+	} else
+		DRM_DEBUG("Gamma table loading done\n");
+
+	bytes_read = bytes_count;
+	if (bytes_count < count) {
+
+		/* Number of bytes remaining */
+		bytes_count = count - bytes_count;
+
+		/* Parse data and load the gcmax table */
+		ret = parse_clrmgr_input(gcmax_softlut, buf+bytes_read,
+				GC_MAX_COUNT, &bytes_count);
+
+		if (ret < GC_MAX_COUNT)
+			DRM_ERROR("GCMAX table loading failed\n");
+		else
+			DRM_DEBUG("GCMAX table loading done\n");
+	}
+
+EXIT:
+	kfree(buf);
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+
+static ssize_t csc_enable_show(struct device *kdev,
+		struct device_attribute *attr, char *ubuf)
+{
+	int len = 0;
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	len = scnprintf(ubuf, PAGE_SIZE, "%s\n",
+		dev_priv->csc_enabled ? "Enabled" : "Disabled");
+
+	return len;
+}
+
+static ssize_t csc_enable_store(struct device *kdev,
+				     struct device_attribute *attr,
+				     const char *ubuf, size_t count)
+{
+	int ret = 0;
+	uint status = 0;
+	struct drm_crtc *crtc = NULL;
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("CSC enable: insufficient data\n");
+		return -EINVAL;
+	}
+
+	/* Finally, get the status */
+	if (kstrtouint(ubuf, 10, &status)) {
+		DRM_ERROR("CSC enable: Invalid limit\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	dev_priv->csc_enabled = status;
+
+	/* Search for a CRTC,
+	Assumption: Either MIPI or EDP is fix panel */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		if ((intel_pipe_has_type(crtc, INTEL_OUTPUT_DSI)) ||
+			(intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP)))
+			break;
+	}
+
+	/* No CRTC */
+	if (!crtc) {
+		DRM_ERROR("CSC enable: No local panel found\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* if CSC enabled, apply CSC correction */
+	if (dev_priv->csc_enabled) {
+		if (do_intel_enable_csc(dev,
+			(void *) csc_softlut, crtc)) {
+			DRM_ERROR("CSC correction failed\n");
+			ret = -EINVAL;
+		} else
+			ret = count;
+	} else {
+		/* Disable CSC on this CRTC */
+		do_intel_disable_csc(dev, crtc);
+		ret = count;
+	}
+
+EXIT:
+	return ret;
+}
+
+static ssize_t csc_adjust_store(struct device *kdev,
+				     struct device_attribute *attr,
+				     const char *ubuf, size_t count)
+{
+	int bytes_count = count;
+	int ret = 0;
+	char *buf = NULL;
+
+	if (!count) {
+		DRM_ERROR("CSC adjust: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Gamma adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (!strncpy(buf, ubuf, count)) {
+		DRM_ERROR("Gamma adjust: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* Parse data and load the csc  table */
+	ret = parse_clrmgr_input(csc_softlut, buf,
+		CSC_MAX_COEFF_COUNT, &bytes_count);
+	if (ret < CSC_MAX_COEFF_COUNT)
+		DRM_ERROR("CSC table loading failed\n");
+	else
+		DRM_DEBUG("CSC table loading done\n");
+
+EXIT:
+	kfree(buf);
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+static ssize_t gamma_enable_show(struct device *kdev,
+		struct device_attribute *attr,  char *ubuf)
+{
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int len = 0;
+
+	len = scnprintf(ubuf, PAGE_SIZE, "%s\n",
+		dev_priv->gamma_enabled ? "Enabled" : "Disabled");
+
+	return len;
+}
+
+static ssize_t gamma_enable_store(struct device *kdev,
+				     struct device_attribute *attr,
+				     const char *ubuf, size_t count)
+{
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret = 0;
+	struct drm_crtc *crtc = NULL;
+	long unsigned int status = 0;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Gamma adjust: insufficient data\n");
+		return -EINVAL;
+	}
+
+	/* Finally, get the status */
+	if (kstrtoul(ubuf, 10, &status)) {
+		DRM_ERROR("Gamma enable: Invalid limit\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+	dev_priv->gamma_enabled = status;
+
+	/* Search for a CRTC,
+	Assumption: Either MIPI or EDP is fix panel */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		if ((intel_pipe_has_type(crtc, INTEL_OUTPUT_DSI)) ||
+			(intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP)))
+			break;
+	}
+
+	/* No CRTC */
+	if (!crtc) {
+		DRM_ERROR("Gamma adjust: No local panel found\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* if gamma enabled, apply gamma correction on PIPE */
+	if (dev_priv->gamma_enabled) {
+		if (intel_crtc_enable_gamma(crtc, PIPEA)) {
+			DRM_ERROR("Apply gamma correction failed\n");
+			ret = -EINVAL;
+		} else
+			ret = count;
+	} else {
+		/* Disable gamma on this plane */
+		intel_crtc_disable_gamma(crtc, PIPEA);
+		ret = count;
+	}
+
+EXIT:
+	return ret;
+}
+
+static ssize_t cb_adjust_store(struct device *kdev,
+				     struct device_attribute *attr,
+				     const char *ubuf, size_t count)
+{
+	int ret = 0;
+	int bytes_count = count;
+	struct cont_brightlut *cb_ptr = NULL;
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	char *buf = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Contrast Brightness: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Gamma adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (!strncpy(buf, ubuf, count)) {
+		DRM_ERROR("Gamma adjust: copy failed\n");
+		kfree(buf);
+		return -EINVAL;
+	}
+
+	cb_ptr = kzalloc(sizeof(struct cont_brightlut), GFP_KERNEL);
+	if (!cb_ptr) {
+		DRM_ERROR("Contrast Brightness adjust: insufficient memory\n");
+		kfree(buf);
+		return -ENOMEM;
+	}
+
+	/* Parse input data */
+	ret = parse_clrmgr_input((uint *)cb_ptr, buf, CB_MAX_COEFF_COUNT,
+			&bytes_count);
+	if (ret < CB_MAX_COEFF_COUNT) {
+		DRM_ERROR("Contrast Brightness loading failed\n");
+		goto EXIT;
+	} else
+		DRM_DEBUG("Contrast Brightness loading done\n");
+
+	if (cb_ptr->sprite_no < SPRITEA || cb_ptr->sprite_no > SPRITED ||
+			cb_ptr->sprite_no == PLANEB) {
+		DRM_ERROR("Sprite value out of range. Enter 2,3, 5 or 6\n");
+		goto EXIT;
+	}
+
+	DRM_DEBUG("sprite = %d Val=0x%x,\n", cb_ptr->sprite_no, cb_ptr->val);
+
+	if (intel_sprite_cb_adjust(dev_priv, cb_ptr))
+		DRM_ERROR("Contrast Brightness update failed\n");
+
+EXIT:
+	kfree(buf);
+	kfree(cb_ptr);
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+static ssize_t hs_adjust_store(struct device *kdev,
+				     struct device_attribute *attr,
+				     const char *ubuf, size_t count)
+{
+	int ret = count;
+	int bytes_count = count;
+	struct hue_saturationlut *hs_ptr = NULL;
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	char *buf = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Hue Saturation: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Gamma adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (!strncpy(buf, ubuf, count)) {
+		DRM_ERROR("Gamma adjust: copy failed\n");
+		kfree(buf);
+		return -EINVAL;
+	}
+
+	hs_ptr = kzalloc(sizeof(struct hue_saturationlut), GFP_KERNEL);
+	if (!hs_ptr) {
+		DRM_ERROR("Hue Saturation adjust: insufficient memory\n");
+		kfree(buf);
+		return -ENOMEM;
+	}
+
+	/* Parse input data */
+	ret = parse_clrmgr_input((uint *)hs_ptr, buf, HS_MAX_COEFF_COUNT,
+			&bytes_count);
+	if (ret < HS_MAX_COEFF_COUNT) {
+		DRM_ERROR("Hue Saturation loading failed\n");
+		goto EXIT;
+	} else
+		DRM_DEBUG("Hue Saturation loading done\n");
+
+	if (hs_ptr->sprite_no < SPRITEA || hs_ptr->sprite_no > SPRITED ||
+			hs_ptr->sprite_no == PLANEB) {
+		DRM_ERROR("sprite = %d Val=0x%x,\n", hs_ptr->sprite_no,
+					hs_ptr->val);
+		goto EXIT;
+	}
+
+	DRM_DEBUG("sprite = %d Val=0x%x,\n", hs_ptr->sprite_no, hs_ptr->val);
+
+	if (intel_sprite_hs_adjust(dev_priv, hs_ptr))
+		DRM_ERROR("Hue Saturation update failed\n");
+
+EXIT:
+	kfree(buf);
+	kfree(hs_ptr);
+
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+
+static DEVICE_ATTR(gamma_enable, S_IRUGO | S_IWUSR, gamma_enable_show,
+						gamma_enable_store);
+static DEVICE_ATTR(gamma_adjust, S_IWUSR, NULL, gamma_adjust_store);
+static DEVICE_ATTR(csc_enable, S_IRUGO | S_IWUSR, csc_enable_show,
+						csc_enable_store);
+static DEVICE_ATTR(csc_adjust, S_IWUSR, NULL, csc_adjust_store);
+static DEVICE_ATTR(cb_adjust, S_IWUSR, NULL, cb_adjust_store);
+static DEVICE_ATTR(hs_adjust, S_IWUSR, NULL, hs_adjust_store);
+
 static const struct attribute *gen6_attrs[] = {
 	&dev_attr_gt_cur_freq_mhz.attr,
 	&dev_attr_gt_max_freq_mhz.attr,
@@ -565,6 +961,12 @@ static const struct attribute *vlv_attrs[] = {
 	&dev_attr_gt_RPn_freq_mhz.attr,
 	&dev_attr_vlv_rpe_freq_mhz.attr,
 	&dev_attr_thaw.attr,
+	&dev_attr_gamma_enable.attr,
+	&dev_attr_gamma_adjust.attr,
+	&dev_attr_csc_enable.attr,
+	&dev_attr_csc_adjust.attr,
+	&dev_attr_cb_adjust.attr,
+	&dev_attr_hs_adjust.attr,
 	NULL,
 };
 
