@@ -5197,6 +5197,18 @@ static int bma2x2_select_chanel(struct i2c_client *client)
 		dev_err(&client->dev, "unknown sensor place\n");
 		return -EINVAL;
 	}
+	if (bma2x2_set_mode(client, BMA2X2_MODE_NORMAL) < 0) {
+		dev_err(&client->dev, "set calibrate mode error\n");
+		return -EINVAL;
+	}
+	if (bma2x2_set_bandwidth(client, BMA2X2_BW_1000HZ) < 0) {
+		dev_err(&client->dev, "set calibrate bandwidth error\n");
+		return -EINVAL;
+	}
+	if (bma2x2_set_range(client, BMA2X2_RANGE_SET) < 0) {
+		dev_err(&client->dev, "set calibrate range error\n");
+		return -EINVAL;
+	}
 	for (i = 0; i < 3; i++) {
 		if (bma2x2_set_offset_target(client, bmi058_channel_tb[i],
 					(unsigned char)data_ore[i]) < 0) {
@@ -5204,8 +5216,7 @@ static int bma2x2_select_chanel(struct i2c_client *client)
 					"set offset target error\n");
 			return -EINVAL;
 		}
-		if (bma2x2_set_cal_trigger(bma2x2->bma2x2_client,
-					(i + 1)) < 0) {
+		if (bma2x2_set_cal_trigger(client, (i + 1)) < 0) {
 			dev_err(&client->dev,
 					"read calibration state error\n");
 			return -EINVAL;
@@ -5213,8 +5224,7 @@ static int bma2x2_select_chanel(struct i2c_client *client)
 		timeout = 0;
 		do {
 			WAIT_CAL_READY();
-			error = bma2x2_get_cal_ready(bma2x2->bma2x2_client,
-					&tmp);
+			error = bma2x2_get_cal_ready(client, &tmp);
 			if (error < 0) {
 				dev_err(&client->dev,
 						"read cal_ready error\n");
@@ -5228,6 +5238,11 @@ static int bma2x2_select_chanel(struct i2c_client *client)
 			};
 
 		} while (tmp == 0);
+	}
+	bma2x2_set_bandwidth(client, bma2x2->bandwidth);
+	if (error < 0) {
+		dev_err(&client->dev, "restore calibrate bandwidth error\n");
+		return error;
 	}
 	return 0;
 }
@@ -5250,6 +5265,20 @@ static int bma2x2_select_chanel(struct i2c_client *client)
 		dev_err(&client->dev, "unknown sensor place\n");
 		return -EINVAL;
 	}
+
+	if (bma2x2_set_mode(client, BMA2X2_MODE_NORMAL) < 0) {
+		dev_err(&client->dev, "set calibrate mode error\n");
+		return -EINVAL;
+	}
+	if (bma2x2_set_bandwidth(client, BMA2X2_BW_1000HZ) < 0) {
+		dev_err(&client->dev, "set calibrate bandwidth error\n");
+		return -EINVAL;
+	}
+	if (bma2x2_set_range(client, BMA2X2_RANGE_SET) < 0) {
+		dev_err(&client->dev, "set calibrate range error\n");
+		return -EINVAL;
+	}
+
 	for (i = 0; i < 3; i++) {
 		if (bma2x2_set_offset_target(client, channel_tab[i],
 			(unsigned char)data_ore[i]) < 0) {
@@ -5257,8 +5286,7 @@ static int bma2x2_select_chanel(struct i2c_client *client)
 					"set offset target error\n");
 			return -EINVAL;
 		}
-		if (bma2x2_set_cal_trigger(bma2x2->bma2x2_client,
-					(i + 1)) < 0) {
+		if (bma2x2_set_cal_trigger(client, (i + 1)) < 0) {
 			dev_err(&client->dev,
 					"read calibration state error\n");
 			return -EINVAL;
@@ -5266,8 +5294,7 @@ static int bma2x2_select_chanel(struct i2c_client *client)
 		timeout = 0;
 		do {
 			WAIT_CAL_READY();
-			error = bma2x2_get_cal_ready(bma2x2->bma2x2_client,
-					&tmp);
+			error = bma2x2_get_cal_ready(client, &tmp);
 			if (error < 0) {
 				dev_err(&client->dev,
 						"read cal_ready error\n");
@@ -5281,6 +5308,12 @@ static int bma2x2_select_chanel(struct i2c_client *client)
 			};
 
 		} while (tmp == 0);
+	}
+
+	error = bma2x2_set_bandwidth(client, bma2x2->bandwidth);
+	if (error < 0) {
+		dev_err(&client->dev, "restore calibrate bandwidth error\n");
+		return error;
 	}
 	return 0;
 }
@@ -5359,7 +5392,7 @@ static int bma2x2_eeprom_prog(struct i2c_client *client)
 		dev_err(&client->dev, "read eeprom control reg error3\n");
 		return res;
 	}
-	databuf |= 0xFE;
+	databuf &= 0xFE;
 	res = bma2x2_smbus_write_byte(client, BMA2X2_EEPROM_CTRL_REG,
 					&databuf);
 	if (res < 0) {
