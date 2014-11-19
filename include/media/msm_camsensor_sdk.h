@@ -32,7 +32,7 @@
 #define MAX_I2C_REG_SET           12
 
 #define MAX_NAME_SIZE             32
-#define MAX_FLASH_NUM             8
+#define MAX_LED_TRIGGERS          3
 
 enum msm_sensor_camera_id_t {
 	CAMERA_0,
