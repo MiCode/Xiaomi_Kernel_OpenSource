@@ -1673,9 +1673,12 @@ end:
 
 int msm_ds2_dap_set_security_control(u32 cmd, void *arg)
 {
-	int *manufacturer_id = ((int *)arg);
-	pr_debug("%s: manufacturer_id %d\n", __func__, *manufacturer_id);
-	core_set_dolby_manufacturer_id(*manufacturer_id);
+	struct dolby_param_license *dolby_license =
+				 ((struct dolby_param_license *)arg);
+	pr_err("%s: dmid %d license key %d\n", __func__,
+		dolby_license->dmid, dolby_license->license_key);
+	core_set_dolby_manufacturer_id(dolby_license->dmid);
+	core_set_license(dolby_license->license_key, DOLBY_DS1_LICENSE_ID);
 	return 0;
 }
 
@@ -1775,14 +1778,14 @@ int msm_ds2_dap_ioctl(struct snd_hwdep *hw, struct file *file,
 		break;
 	}
 	case SNDRV_DEVDEP_DAP_IOCTL_DAP_LICENSE: {
-		int manufacturer_id = 0;
-		if (copy_from_user((void *)&manufacturer_id,
-			arg, sizeof(manufacturer_id))) {
+		struct dolby_param_license dolby_license;
+		if (copy_from_user((void *)&dolby_license, (void *)arg,
+				sizeof(struct dolby_param_license))) {
 			pr_err("%s: Copy from user failed\n", __func__);
 			ret = -EFAULT;
 			goto end;
 		}
-		ret = msm_ds2_dap_ioctl_shared(hw, file, cmd, &manufacturer_id);
+		ret = msm_ds2_dap_ioctl_shared(hw, file, cmd, &dolby_license);
 		break;
 	}
 	case SNDRV_DEVDEP_DAP_IOCTL_GET_PARAM:
@@ -1886,15 +1889,18 @@ handle_get_ioctl:
 		break;
 	}
 	case SNDRV_DEVDEP_DAP_IOCTL_DAP_LICENSE32: {
-		int manufacturer_id = 0;
+		struct dolby_param_license32 dolby_license32;
+		struct dolby_param_license dolby_license;
 		cmd = SNDRV_DEVDEP_DAP_IOCTL_DAP_LICENSE;
-		if (copy_from_user((void *)&manufacturer_id,
-			arg, sizeof(manufacturer_id))) {
+		if (copy_from_user((void *)&dolby_license32, (void *)arg,
+			sizeof(struct dolby_param_license32))) {
 			pr_err("%s: Copy from user failed\n", __func__);
 			ret = -EFAULT;
 			goto end;
 		}
-		ret = msm_ds2_dap_ioctl_shared(hw, file, cmd, &manufacturer_id);
+		dolby_license.dmid = dolby_license32.dmid;
+		dolby_license.license_key = dolby_license32.license_key;
+		ret = msm_ds2_dap_ioctl_shared(hw, file, cmd, &dolby_license);
 		break;
 	}
 	default:
