@@ -241,6 +241,7 @@ struct bq24192_chip {
 	struct delayed_work chrg_task_wrkr;
 	struct delayed_work chrg_full_wrkr;
 	struct delayed_work chrg_temp_wrkr;
+	struct delayed_work irq_wrkr;
 	struct work_struct otg_evt_work;
 	struct notifier_block	otg_nb;
 	struct list_head	otg_queue;
@@ -1600,27 +1601,13 @@ static void bq24192_full_worker(struct work_struct *work)
 	schedule_delayed_work(&chip->chrg_full_wrkr, FULL_THREAD_JIFFIES);
 }
 
-/* IRQ handler for charger Interrupts configured to GPIO pin */
-static irqreturn_t bq24192_irq_isr(int irq, void *devid)
+
+static void bq24192_irq_worker(struct work_struct *work)
 {
-	struct bq24192_chip *chip = (struct bq24192_chip *)devid;
-
-	/**TODO: This hanlder will be used for charger Interrupts */
-	dev_dbg(&chip->client->dev,
-		"IRQ Handled for charger interrupt: %d\n", irq);
-
-	return IRQ_WAKE_THREAD;
-}
-
-/* IRQ handler for charger Interrupts configured to GPIO pin */
-static irqreturn_t bq24192_irq_thread(int irq, void *devid)
-{
-	struct bq24192_chip *chip = (struct bq24192_chip *)devid;
 	int reg_status, reg_fault;
-
-	dev_info(&chip->client->dev,
-		"IRQ Handled for charger interrupt: %d\n", irq);
-
+	struct bq24192_chip *chip = container_of(work,
+						    struct bq24192_chip,
+						    irq_wrkr.work);
 	/*
 	 * check the bq24192 status/fault registers to see what is the
 	 * source of the interrupt
@@ -1677,7 +1664,26 @@ static irqreturn_t bq24192_irq_thread(int irq, void *devid)
 			"%s:Battery over temp occured!!!!\n", __func__);
 		schedule_delayed_work(&chip->chrg_temp_wrkr, 0);
 	}
+}
 
+/* IRQ handler for charger Interrupts configured to GPIO pin */
+static irqreturn_t bq24192_irq_isr(int irq, void *devid)
+{
+	struct bq24192_chip *chip = (struct bq24192_chip *)devid;
+
+	/**TODO: This hanlder will be used for charger Interrupts */
+	dev_dbg(&chip->client->dev,
+		"IRQ Handled for charger interrupt: %d\n", irq);
+
+	return IRQ_WAKE_THREAD;
+}
+
+/* IRQ handler for charger Interrupts configured to GPIO pin */
+static irqreturn_t bq24192_irq_thread(int irq, void *devid)
+{
+	struct bq24192_chip *chip = (struct bq24192_chip *)devid;
+
+	schedule_delayed_work(&chip->irq_wrkr, 0);
 	return IRQ_HANDLED;
 }
 
@@ -2220,6 +2226,7 @@ static int bq24192_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&chip->chrg_full_wrkr, bq24192_full_worker);
 	INIT_DELAYED_WORK(&chip->chrg_task_wrkr, bq24192_task_worker);
 	INIT_DELAYED_WORK(&chip->chrg_temp_wrkr, bq24192_temp_update_worker);
+	INIT_DELAYED_WORK(&chip->irq_wrkr, bq24192_irq_worker);
 	mutex_init(&chip->event_lock);
 
 	/* Initialize the wakelock */

@@ -616,7 +616,7 @@ static void __init register_external_charger(void)
 
 	strncpy(i2c_info.type, "ext-charger", I2C_NAME_SIZE);
 	i2c_info.addr = pmic_read_tt(TT_I2CDADDR_ADDR);
-	i2c_info.irq = INTEL_PMIC_IRQBASE + CHGR_IRQ;
+	i2c_info.irq = whiskey_cove_pmic.irq_base + CHGR_IRQ;
 	i2c_new_device(wcove_pmic_i2c_adapter, &i2c_info);
 }
 late_initcall(register_external_charger);
