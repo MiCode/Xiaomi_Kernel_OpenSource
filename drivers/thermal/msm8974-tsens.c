@@ -861,10 +861,6 @@ static int tsens_tz_activate_trip_type(struct thermal_zone_device *thermal,
 						(tmdev->tsens_addr) +
 			(tm_sensor->sensor_hw_num * TSENS_SN_ADDR_OFFSET)));
 	else {
-		if (code < lo_code || code > hi_code) {
-			pr_err("%s with invalid code %x\n", __func__, code);
-			return -EINVAL;
-		}
 		writel_relaxed(reg_cntl & ~mask,
 		(TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR(tmdev->tsens_addr) +
 		(tm_sensor->sensor_hw_num * TSENS_SN_ADDR_OFFSET)));
@@ -958,9 +954,6 @@ static int tsens_tz_set_trip_temp(struct thermal_zone_device *thermal,
 	default:
 		return -EINVAL;
 	}
-
-	if (code_err_chk < lo_code || code_err_chk > hi_code)
-		return -EINVAL;
 
 	writel_relaxed(reg_cntl | code, (TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR
 					(tmdev->tsens_addr) +
