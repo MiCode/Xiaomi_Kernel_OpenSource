@@ -2259,6 +2259,7 @@ void glink_xprt_ctx_release(struct rwref_lock *xprt_st_lock)
 	xprt_rm_dbgfs.par_name = "xprt";
 	glink_debugfs_remove_recur(&xprt_rm_dbgfs);
 	GLINK_INFO("%s: xprt debugfs removec\n", __func__);
+	destroy_workqueue(xprt_ctx->tx_wq);
 	kfree(xprt_ctx);
 	xprt_ctx = NULL;
 }
