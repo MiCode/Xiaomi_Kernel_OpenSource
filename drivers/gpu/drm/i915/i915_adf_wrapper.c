@@ -66,6 +66,19 @@ void set_adf_ready(void)
 	g_adf_ready = true;
 }
 
+/**
+ * i915_adf_driver_initialize - Adf driver calls this function to check if
+ * kernel paramter for ADF Enable is set or notice
+ */
+int i915_adf_driver_initialize(void)
+{
+	if (!i915_adf_dev)
+		return 0;
+
+	return i915.enable_intel_adf;
+}
+EXPORT_SYMBOL(i915_adf_driver_initialize);
+
 struct pci_dev *i915_adf_get_pci_dev(void)
 {
 	if (!i915_adf_dev)

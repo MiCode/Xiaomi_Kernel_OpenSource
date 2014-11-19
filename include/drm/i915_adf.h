@@ -55,6 +55,7 @@ extern volatile bool g_adf_ready;
 extern int intel_adf_context_on_event(void);
 extern void intel_adf_display_rpm_get(void);
 extern void intel_adf_display_rpm_put(void);
+extern int i915_adf_driver_initialize(void);
 #endif
 
 
