@@ -13,13 +13,14 @@
 
 /dts-v1/;
 
-#include "msm8909-mtp.dtsi"
-#include "msm8909-pm8909.dtsi"
-#include "msm8909-pm8909-mtp.dtsi"
-#include "msm8208.dtsi"
+#include "msm8909-cdp.dtsi"
+#include "msm8909-pm8916.dtsi"
+#include "msm8909-pm8916-cdp.dtsi"
+
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8208 1GB MTP";
-	compatible = "qcom,msm8909-mtp", "qcom,msm8909", "qcom,mtp";
-	qcom,board-id= <8 0>;
+	model = "Qualcomm Technologies, Inc. MSM8909-PM8916 1GB CDP";
+	compatible = "qcom,msm8909-cdp", "qcom,msm8909", "qcom,cdp";
+	qcom,board-id= <1 0x2>;
 };
+
