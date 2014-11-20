@@ -35,6 +35,9 @@ struct ia_css_isp_iefd2_6_vmem_params {
 	VMEM_ARRAY(e_cu_non_dir_x, ISP_VEC_NELEMS);
 	VMEM_ARRAY(e_cu_non_dir_a, ISP_VEC_NELEMS);
 	VMEM_ARRAY(e_cu_non_dir_b, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_curad_x, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_curad_a, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_curad_b, ISP_VEC_NELEMS);
 };
 
 struct ia_css_isp_iefd2_6_dmem_params {
@@ -77,9 +80,6 @@ struct ia_css_isp_iefd2_6_dmem_params {
 	int32_t vssnlm_y3;
 	int32_t e_cued2_a;
 	int32_t e_cued2_b;
-	int32_t curad_x[6];
-	int32_t curad_a[5];
-	int32_t curad_b[5];
 	int32_t e_cu_vssnlm_a;
 	int32_t e_cu_vssnlm_b;
 };

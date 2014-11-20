@@ -19,21 +19,11 @@
  *
  */
 
-#ifndef __VMEM_GLOBAL_H_INCLUDED__
-#define __VMEM_GLOBAL_H_INCLUDED__
+#ifndef __IA_CSS_MACC1_5_TABLE_HOST_H
+#define __IA_CSS_MACC1_5_TABLE_HOST_H
 
-#include "isp.h"
+#include "macc/macc1_5/ia_css_macc1_5_types.h"
 
-#define VMEM_SIZE	ISP_VMEM_DEPTH
-#define VMEM_ELEMBITS	ISP_VMEM_ELEMBITS
-#ifdef C_RUN
-#define VMEM_ALIGN	1
-#else
-#define VMEM_ALIGN	ISP_VMEM_ALIGN
-#endif
+extern const struct ia_css_macc1_5_table default_macc1_5_table;
 
-#ifndef PIPE_GENERATION
-typedef tvector *pvector;
-#endif
-
-#endif /* __VMEM_GLOBAL_H_INCLUDED__ */
+#endif /* __IA_CSS_MACC1_5_TABLE_HOST_H */

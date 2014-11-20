@@ -111,6 +111,9 @@
 #include <components/stats_3a/src/host/stats_3a.host.h>
 #include <components/include/components_types.host.h>                /* Skylake kernel settings structs */
 #include <components/include/components.host.h>                /* Skylake kernel settings structs */
+#if defined(HAS_OUTPUT_SYSTEM)
+#include <components/output_system/sc_output_system_1.0/host/output_system.host.h>
+#endif
 #endif
 
 #include "sh_css_frac.h"
@@ -2098,7 +2101,7 @@ ia_css_get_4a_statistics(struct ia_css_4a_statistics *host_stats,
 	if (ae_join_buffers == 1) {
 		mmgr_load(ae_buff_1_ddr_addr,
 			  (void *)&(ae_raw_buffer_s),
-			  sizeof(ae_public_raw_buffer_t));
+			  sizeof(ae_private_raw_buffer_aligned_t));
 	}
 
 	mmgr_load(awb_fr_ddr_addr,
@@ -3067,9 +3070,12 @@ ia_css_stream_isp_parameters_init(struct ia_css_stream *stream)
 	struct ia_css_isp_parameters *params;
 
 	assert(stream != NULL);
-
 	IA_CSS_ENTER_PRIVATE("void");
 
+	if (stream == NULL) {
+		IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_ERR_INVALID_ARGUMENTS);
+		return IA_CSS_ERR_INVALID_ARGUMENTS;
+	}
 	/* TMP: tracking of paramsets */
 	g_param_buffer_dequeue_count = 0;
 	g_param_buffer_enqueue_count = 0;
@@ -3194,6 +3200,9 @@ sh_css_create_isp_params(struct ia_css_stream *stream)
 					mmgr_malloc(sizeof(struct isp_acc_param)));
 	succ &= (ddr_ptrs->acc_cluster_params_for_sp != mmgr_NULL);
 	acc_cluster_set_default_params(stream);
+#if defined(HAS_OUTPUT_SYSTEM)
+	ia_css_osys_set_default(stream);
+#endif
 #else
 	(void)stream;
 #endif
@@ -3539,7 +3548,6 @@ ia_css_stream_isp_parameters_uninit(struct ia_css_stream *stream)
 
 #if defined(IS_ISP_2500_SYSTEM)
 	destroy_acc_cluster(stream);
-	free_dvs_2500_6axis_table();
 #endif
 
 	/* Free up theDVS table memory blocks before recomputing new table */
@@ -3848,25 +3856,6 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 		assert(isp_pipe_version == ia_css_pipe_get_isp_pipe_version(curr_pipe->stream->pipes[i]));
 	}
 
-#if defined(IS_ISP_2500_SYSTEM)
-	pipe_num = ia_css_pipe_get_pipe_num(curr_pipe);
-	if (ia_css_pipeline_is_mapped(pipe_num) == false) {
-		thread_id = 0;
-	} else
-	{
-		ia_css_pipeline_get_sp_thread_id(pipe_num, &thread_id);
-	}
-	sh_css_acc_cluster_parameters = &(sh_css_acc_cluster_parameters_pool[thread_id]);
-	if (sh_css_acc_cluster_parameters == NULL) {
-		return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
-	}
-	err = sh_css_process_acc_cluster_parameters(curr_pipe, sh_css_acc_cluster_parameters, &acc_cluster_params_changed);
-	if (err != IA_CSS_SUCCESS) {
-		IA_CSS_LOG("sh_css_process_acc_cluster_parameters() returned INVALID KERNEL CONFIGURATION\n");
-		IA_CSS_LEAVE_ERR_PRIVATE(err);
-		return err;
-	}
-#endif
 
 	/* now make the map available to the sp */
 	if (!commit) {
@@ -3890,6 +3879,21 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 		pipeline = ia_css_pipe_get_pipeline(pipe);
 		pipe_num = ia_css_pipe_get_pipe_num(pipe);
 		ia_css_pipeline_get_sp_thread_id(pipe_num, &thread_id);
+#if defined(IS_ISP_2500_SYSTEM)
+		if (ia_css_pipeline_is_mapped(pipe_num) == false) {
+			thread_id = 0;
+		}
+		sh_css_acc_cluster_parameters = &(sh_css_acc_cluster_parameters_pool[thread_id]);
+		if (sh_css_acc_cluster_parameters == NULL) {
+			return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
+		}
+		err = sh_css_process_acc_cluster_parameters(pipe, sh_css_acc_cluster_parameters, &acc_cluster_params_changed);
+		if (err != IA_CSS_SUCCESS) {
+			IA_CSS_LOG("sh_css_process_acc_cluster_parameters() returned INVALID KERNEL CONFIGURATION\n");
+			IA_CSS_LEAVE_ERR_PRIVATE(err);
+			return err;
+		}
+#endif
 
 #if defined(SH_CSS_ENABLE_PER_FRAME_PARAMS)
 		ia_css_query_internal_queue_id(params->output_frame

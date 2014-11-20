@@ -42,6 +42,7 @@
 #include "isp/kernels/gc/gc_1.0/ia_css_gc.host.h"
 #include "isp/kernels/gc/gc_2/ia_css_gc2.host.h"
 #include "isp/kernels/macc/macc_1.0/ia_css_macc.host.h"
+#include "isp/kernels/macc/macc1_5/ia_css_macc1_5.host.h"
 #include "isp/kernels/ob/ob_1.0/ia_css_ob.host.h"
 #include "isp/kernels/ob/ob2/ia_css_ob2.host.h"
 #include "isp/kernels/output/output_1.0/ia_css_output.host.h"

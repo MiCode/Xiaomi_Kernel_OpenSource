@@ -484,13 +484,13 @@ void ia_css_isys_rx_configure(const rx_cfg_t *config,
 	bool port_enabled[N_MIPI_PORT_ID];
 	bool any_port_enabled = false;
 	mipi_port_ID_t port;
-    
-    if ((config == NULL)
-            || (config->mode >= N_RX_MODE)
-            || (config->port >= N_MIPI_PORT_ID)) {
-            assert(0);
-            return;
-    }
+
+	if ((config == NULL)
+		|| (config->mode >= N_RX_MODE)
+		|| (config->port >= N_MIPI_PORT_ID)) {
+		assert(0);
+		return;
+	}
 	for (port = (mipi_port_ID_t) 0; port < N_MIPI_PORT_ID; port++) {
 		if (is_receiver_port_enabled(RX0_ID, port))
 			any_port_enabled = true;

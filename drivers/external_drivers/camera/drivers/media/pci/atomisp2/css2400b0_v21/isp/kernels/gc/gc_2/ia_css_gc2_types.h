@@ -22,6 +22,8 @@
 #ifndef __IA_CSS_GC2_TYPES_H
 #define __IA_CSS_GC2_TYPES_H
 
+#include "isp/kernels/ctc/ctc_1.0/ia_css_ctc_types.h"  /* FIXME: needed for ia_css_vamem_type */
+
 /** @file
 * CSS-API header file for Gamma Correction parameters.
 */

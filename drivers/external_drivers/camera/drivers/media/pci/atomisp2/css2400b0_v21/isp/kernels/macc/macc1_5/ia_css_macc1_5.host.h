@@ -19,21 +19,30 @@
  *
  */
 
-#ifndef __VMEM_GLOBAL_H_INCLUDED__
-#define __VMEM_GLOBAL_H_INCLUDED__
+#ifndef __IA_CSS_MACC1_5_HOST_H
+#define __IA_CSS_MACC1_5_HOST_H
 
-#include "isp.h"
+#include "ia_css_macc1_5_param.h"
+#include "ia_css_macc1_5_table.host.h"
 
-#define VMEM_SIZE	ISP_VMEM_DEPTH
-#define VMEM_ELEMBITS	ISP_VMEM_ELEMBITS
-#ifdef C_RUN
-#define VMEM_ALIGN	1
-#else
-#define VMEM_ALIGN	ISP_VMEM_ALIGN
+extern const struct ia_css_macc1_5_config default_macc1_5_config;
+
+void
+ia_css_macc1_5_encode(
+	struct sh_css_isp_macc1_5_params *to,
+	const struct ia_css_macc1_5_config *from,
+	unsigned size);
+
+void
+ia_css_macc1_5_vmem_encode(
+	struct sh_css_isp_macc1_5_vmem_params *params,
+	const struct ia_css_macc1_5_table *from,
+	unsigned size);
+
+#ifndef IA_CSS_NO_DEBUG
+void
+ia_css_macc1_5_debug_dtrace(
+	const struct ia_css_macc1_5_config *config,
+	unsigned level);
 #endif
-
-#ifndef PIPE_GENERATION
-typedef tvector *pvector;
-#endif
-
-#endif /* __VMEM_GLOBAL_H_INCLUDED__ */
+#endif /* __IA_CSS_MACC1_5_HOST_H */

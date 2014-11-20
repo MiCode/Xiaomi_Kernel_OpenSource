@@ -28,6 +28,7 @@
 #define __INLINE_VAMEM__
 #endif
 #include "vamem.h"
+#include "ia_css_gc_types.h"
 
 #if defined(IS_VAMEM_VERSION_1)
 #define SH_CSS_ISP_GAMMA_TABLE_SIZE_LOG2 IA_CSS_VAMEM_1_GAMMA_TABLE_SIZE_LOG2

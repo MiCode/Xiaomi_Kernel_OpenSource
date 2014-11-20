@@ -19,21 +19,10 @@
  *
  */
 
-#ifndef __VMEM_GLOBAL_H_INCLUDED__
-#define __VMEM_GLOBAL_H_INCLUDED__
+#ifndef __IA_CSS_S3A_STAT_STORE_PARAM_H
+#define __IA_CSS_S3A_STAT_STORE_PARAM_H
 
-#include "isp.h"
+#include "ia_css_s3a_stat_ls_param.h"
 
-#define VMEM_SIZE	ISP_VMEM_DEPTH
-#define VMEM_ELEMBITS	ISP_VMEM_ELEMBITS
-#ifdef C_RUN
-#define VMEM_ALIGN	1
-#else
-#define VMEM_ALIGN	ISP_VMEM_ALIGN
-#endif
 
-#ifndef PIPE_GENERATION
-typedef tvector *pvector;
-#endif
-
-#endif /* __VMEM_GLOBAL_H_INCLUDED__ */
+#endif /* __IA_CSS_S3A_STAT_STORE_PARAM_H */

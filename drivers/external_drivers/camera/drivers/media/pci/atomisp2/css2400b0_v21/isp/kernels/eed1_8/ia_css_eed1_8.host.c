@@ -57,20 +57,20 @@ ia_css_eed1_8_encode(
 	to->derel_gain1 = from->derel_gain1;
 
 	to->coring_pos0 = from->coring_pos0;
-	to->coring_pos1 = from->coring_pos1;
+	to->coring_pos_diff = (from->coring_pos1 - from->coring_pos0);
 	to->coring_neg0 = from->coring_neg0;
-	to->coring_neg1 = from->coring_neg1;
+	to->coring_neg_diff = (from->coring_neg1 - from->coring_neg0);
 
-	to->gain_exp = from->gain_exp;
+	to->gain = (1 << from->gain_exp);
 	to->gain_pos0 = from->gain_pos0;
-	to->gain_pos1 = from->gain_pos1;
+	to->gain_pos_diff = (from->gain_pos1 - from->gain_pos0);
 	to->gain_neg0 = from->gain_neg0;
-	to->gain_neg1 = from->gain_neg1;
+	to->gain_neg_diff = (from->gain_neg1 - from->gain_neg0);
 
 	to->pos_margin0 = from->pos_margin0;
-	to->pos_margin1 = from->pos_margin1;
+	to->margin_pos_diff = (from->pos_margin1 - from->pos_margin0);
 	to->neg_margin0 = from->neg_margin0;
-	to->neg_margin1 = from->neg_margin1;
+	to->margin_neg_diff = (from->neg_margin1 - from->neg_margin0);
 
 	for (i = 0; i < IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS; i++) {
 		to->dew_enhance_seg_x[i] = from->dew_enhance_seg_x[i];

@@ -77,6 +77,10 @@
 #endif
 #include "sh_css_sp.h"		/* sh_css_sp_get_debug_state() */
 
+#include "css_trace.h"      /* tracer */
+
+#include "device_access.h"	/* for ia_css_device_load_uint32 */
+
 #if !defined(IS_ISP_2500_SYSTEM)
 /* Include all kernel host interfaces for ISP1 */
 #include "anr/anr_1.0/ia_css_anr.host.h"
@@ -244,6 +248,12 @@ void ia_css_debug_set_dtrace_level(const unsigned int trace_level)
 	ia_css_debug_trace_level = trace_level;
 	return;
 }
+
+unsigned int ia_css_debug_get_dtrace_level(void)
+{
+	return ia_css_debug_trace_level;
+}
+
 static const char *debug_stream_format2str(const enum ia_css_stream_format stream_format)
 {
 	switch (stream_format) {
@@ -539,6 +549,7 @@ void ia_css_debug_dump_sp_state(void)
 				    "i-cache master stalled",
 				    stall.icache_master);
 	}
+	ia_css_debug_dump_trace();
 	return;
 }
 
@@ -3294,6 +3305,100 @@ ia_css_debug_dump_stream_config(
 			config->left_padding);
 	ia_css_debug_dump_mipi_buffer_config(&config->mipi_buffer_config);
 	ia_css_debug_dump_metadata_config(&config->metadata_config);
+}
+
+/*
+    Trace support.
+
+    This tracer is using a buffer to trace the flow of the FW and dump misc values (see below for details).
+    Currently, support is only for SKC.
+    To enable support for other platforms:
+     - Allocate a buffer for tracing in DMEM. The longer the better.
+     - Use the DBG_init routine in sp.hive.c to initiatilize the tracer with the address and size selected.
+     - Add trace points in the SP code wherever needed.
+     - Enable the dump below with the required address and required adjustments.
+	   Dump is called at the end of ia_css_debug_dump_sp_state().
+*/
+
+/*
+ dump_trace() : dump the trace points from DMEM2.
+ for every trace point, the following are printed: index, major:minor and the 16-bit attached value.
+ The routine looks for the first 0, and then prints from it cyclically.
+ Data forma in DMEM2:
+  first 4 DWORDS: header
+   DWORD 0: data description
+    byte 0: version
+    byte 1: number of threads (for future use)
+    byte 2+3: number ot TPs
+   DWORD 1: command byte + data (for future use)
+    byte 0: command
+    byte 1-3: command signature
+   DWORD 2-3: additional data (for future use)
+  Following data is 4-byte oriented:
+    byte 0:   major
+	byte 1:   minor
+	byte 2-3: data
+*/
+
+#define TRACE_MAX_SIZE     4096			/* max points - sanity check */
+
+static void debug_dump_one_trace(const char *text, uint32_t start_addr)
+{
+#if !defined(HAS_TRACER_V1)
+	(void) text;
+	(void) start_addr;
+#else
+	uint32_t tmp;
+	int i, j, point_num, limit = -1;
+	/* using a static buffer here as the driver has issues allocating memory */
+	static uint32_t trace_read_buf[TRACE_MAX_SIZE];
+	/* read the header and parse it */
+	tmp = ia_css_device_load_uint32(start_addr);
+	point_num = (tmp >> 16) & 0xFFFF;
+	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "~~~ Tracer %s ver %d %d points\n", text, tmp & 0xFF, point_num);
+	if ((tmp & 0xFF) != 1) {
+		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "\t\tUnknown version - exiting\n");
+		return;
+	}
+	if (point_num > TRACE_MAX_SIZE) {
+		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "\t\tToo many points - exiting\n");
+		return;
+	}
+	/* copy the TPs and find the first 0 */
+	for (i = 0; i < point_num; i++) {
+		trace_read_buf[i] = ia_css_device_load_uint32(start_addr + sizeof(struct trace_header_t) + i * sizeof(struct trace_item_t));
+		if ((limit == (-1)) && (trace_read_buf[i] == 0))
+			limit = i;
+	}
+	/* two 0s in the beginning: empty buffer */
+	if ((trace_read_buf[0] == 0) && (trace_read_buf[1] == 0)) {
+		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "\t\tEmpty tracer - exiting\n");
+		return;
+	}
+	/* no overrun: start from 0 */
+	if ((limit == point_num-1) ||         /* first 0 is at the end - border case */
+	    (trace_read_buf[limit+1] == 0))   /* did not make a full cycle after the memset */
+		limit = 0;
+	/* overrun: limit is the first non-zero after the first zero */
+	else
+		limit++;
+	/* print the TPs */
+	for (i = 0; i < point_num; i++) {
+		j = (limit + i) % point_num;
+		if (trace_read_buf[j])
+			ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "\t\t%d %d:%d %d\n",
+								j,
+								trace_read_buf[j] & 0xFF,
+								(trace_read_buf[j] >> 8) & 0xFF,
+								(trace_read_buf[j] >> 16) & 0xFFFF);
+	}
+#endif /* IS_ISP_2500_SYSTEM */
+}
+
+void ia_css_debug_dump_trace(void)
+{
+	debug_dump_one_trace("SP0", TRACE_BUFF_ADDR);
+	debug_dump_one_trace("SP1", TRACE_BUFF_ADDR + SP1_TRACER_OFFSET);
 }
 
 #if defined(HRT_SCHED) || defined(SH_CSS_DEBUG_SPMEM_DUMP_SUPPORT)

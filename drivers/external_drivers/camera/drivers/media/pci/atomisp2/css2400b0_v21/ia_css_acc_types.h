@@ -140,6 +140,11 @@ struct ia_css_binary_s3a_info {
 	uint32_t		fixed_s3a_deci_log;
 };
 
+/** DPC related binary info */
+struct ia_css_binary_dpc_info {
+	uint32_t		bnr_lite; /**< bnr lite enable flag */
+};
+
 struct ia_css_binary_iterator_info {
 	uint32_t		num_stripes;
 	uint32_t		row_stripes_height;
@@ -205,6 +210,7 @@ struct ia_css_binary_info {
 	struct ia_css_binary_dvs_info		dvs;
 	struct ia_css_binary_vf_dec_info	vf_dec;
 	struct ia_css_binary_s3a_info		s3a;
+	struct ia_css_binary_dpc_info		dpc_bnr; /**< DPC related binary info */
 	struct ia_css_binary_iterator_info	iterator;
 	struct ia_css_binary_address_info	addresses;
 	struct ia_css_binary_uds_info		uds;

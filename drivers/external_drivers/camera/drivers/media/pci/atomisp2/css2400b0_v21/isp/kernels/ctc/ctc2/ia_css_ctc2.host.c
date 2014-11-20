@@ -90,13 +90,15 @@ static int ctc2_slope(int y1, int y0, int x1, int x0)
  * VMEM Encode Function to translate Y parameters from userspace into ISP space
  */
 void ia_css_ctc2_vmem_encode(struct ia_css_isp_ctc2_vmem_params *to,
-			    const struct ia_css_ctc2_config *from)
+			     const struct ia_css_ctc2_config *from,
+			     size_t size)
 {
 	unsigned i, j;
 	const unsigned shffl_blck = 4;
 	const unsigned lenght_zeros = 11;
 	short dydx0, dydx1, dydx2, dydx3, dydx4;
 
+	(void)size;
 	/*
 	*  Calculation of slopes of lines interconnecting
 	*  0.0 -> y_x1 -> y_x2 -> y _x3 -> y_x4 -> 1.0
@@ -148,13 +150,16 @@ void ia_css_ctc2_vmem_encode(struct ia_css_isp_ctc2_vmem_params *to,
 	}
 }
 
-/* (void) = ia_css_ctc2_dmem_encode(*to, *from)
+/* (void) = ia_css_ctc2_encode(*to, *from)
  * -----------------------------------------------
  * DMEM Encode Function to translate UV parameters from userspace into ISP space
  */
-void ia_css_ctc2_dmem_encode(struct ia_css_isp_ctc2_dmem_params *to,
-			     struct ia_css_ctc2_config *from)
+void ia_css_ctc2_encode(struct ia_css_isp_ctc2_dmem_params *to,
+			struct ia_css_ctc2_config *from,
+			size_t size)
 {
+	(void)size;
+
 	to->uv_y0 = from->uv_y0;
 	to->uv_y1 = from->uv_y1;
 	to->uv_x0 = from->uv_x0;

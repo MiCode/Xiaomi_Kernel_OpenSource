@@ -78,6 +78,8 @@ enum ia_css_fw_warning {
 		This warning can be avoided by unlocking locked frame-buffers more timely. */
 	IA_CSS_FW_WARNING_EXP_ID_LOCKED, /** < Exposure ID skipped because the frame associated to it was still locked.
 		This warning can be avoided by unlocking locked frame-buffers more timely. */
+	IA_CSS_FW_WARNING_TAG_EXP_ID_FAILED, /** < Exposure ID cannot be found on the circular buffer.
+		This warning can be avoided by unlocking locked frame-buffers more timely. */
 };
 
 #endif /* __IA_CSS_ERR_H */

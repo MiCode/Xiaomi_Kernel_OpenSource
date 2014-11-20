@@ -254,8 +254,9 @@ void ia_css_refcount_clear(int32_t id, clear_func clear_func_ptr)
 				mmgr_free(entry->data);
 			}
 			assert(entry->count == 0);
-			ia_css_debug_dtrace(IA_CSS_DEBUG_ERROR,
-					    "ia_css_refcount_clear(): Ref count for entry %x is not zero!\n", entry->id);
+			if (entry->count != 0) {
+				IA_CSS_WARNING("Ref count for entry %x is not zero!", entry->id);
+			}
 			entry->data = mmgr_NULL;
 			entry->count = 0;
 			entry->id = 0;

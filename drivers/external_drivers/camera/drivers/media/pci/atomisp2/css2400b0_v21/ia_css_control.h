@@ -139,26 +139,6 @@ ia_css_sp_has_initialized(void);
 bool
 ia_css_sp_has_terminated(void);
 
-/** @brief start SP1 hardware
- *
- * @return			IA_CSS_SUCCESS or error code upon error.
- *
- * It will boot the SP hardware and start multi-threading infrastructure.
- * All threads will be started and blocked by semaphore. This function should
- * be called before any ia_css_stream_start().
- */
-void
-ia_css_start_sp1(void);
-
-/** @brief stop SP1 hardware
- *
- * @return			IA_CSS_SUCCESS or error code upon error.
- *
- * This function will shut down SP1.
- */
-enum ia_css_err
-ia_css_stop_sp1(void);
-
 /** @brief start SP hardware
  *
  * @return			IA_CSS_SUCCESS or error code upon error.
