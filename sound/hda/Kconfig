@@ -1,0 +1,68 @@
+menu "HD-Audio Common Library"
+
+config SND_CORE_HDA
+	tristate "Enable HD Audio Common Library"
+	default n
+	depends on !SND_HDA_INTEL
+	select SND_VMASTER
+	select SND_KCTL_JACK
+	help
+	  Say Y here to enable the HD-audio codec common library.
+
+if SND_CORE_HDA
+
+config SND_HDA_PREALLOC_SIZE
+	int "Pre-allocated buffer size for HD-audio driver"
+	range 0 32768
+        default 64
+	help
+	Specifies the default pre-allocated buffer-size in kB for the
+	HD-audio driver.  A larger buffer (e.g. 2048) is preferred for systems
+	using PulseAudio.  The default 64 is chosen just
+	for compatibility reasons.
+
+	Note that the pre-allocation size can be changed dynamically
+        via a proc file (/proc/asound/card*/pcm*/sub*/prealloc), too.
+
+config SND_HDA_RECONFIG
+	bool "Allow dynamic codec reconfiguration"
+	help
+	  Say Y here to enable the HD-audio codec re-configuration feature.
+	  This adds the sysfs interfaces to allow user to clear the whole
+	  codec configuration, change the codec setup, add extra verbs,
+	  and re-configure the codec dynamically.
+
+config SND_CORE_HDA_INPUT_BEEP
+	bool "Support digital beep via input layer"
+	depends on INPUT=y || INPUT=SND_HDA
+	help
+	  Say Y here to build a digital beep interface for HD-audio
+	  driver. This interface is used to generate digital beeps.
+
+config SND_HDA_INPUT_BEEP_MODE
+	int "Digital beep registration mode (0=off, 1=on)"
+	depends on SND_CORE_HDA_INPUT_BEEP=y
+	default "1"
+	range 0 1
+	help
+	  Set 0 to disable the digital beep interface for HD-audio by default.
+	  Set 1 to always enable the digital beep interface for HD-audio by
+	  default.
+
+config SND_HDA_INPUT_JACK
+	bool "Support jack plugging notification via input layer"
+	depends on INPUT=y || INPUT=SND
+	select SND_JACK
+	help
+	  Say Y here to enable the jack plugging notification via
+	  input layer.
+
+config SND_CORE_HDA_GENERIC
+	tristate "Enable generic HD-audio codec parser"
+	help
+	  Say Y or M here to enable the generic HD-audio codec parser
+	  in HDA library.
+
+endif
+
+endmenu
