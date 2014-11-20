@@ -3514,6 +3514,7 @@ static inline int get_bpd(const char *name)
 #define CHGR_CFG1			0xFB
 #define RECHG_THRESHOLD_SRC_BIT		BIT(1)
 #define TERM_I_SRC_BIT			BIT(2)
+#define TERM_SRC_FG			BIT(2)
 #define CHGR_CFG2			0xFC
 #define CHG_INHIB_CFG_REG		0xF7
 #define CHG_INHIBIT_50MV_VAL		0x00
@@ -3641,7 +3642,7 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	if (chip->chg_inhibit_source_fg)
 		rc = smbchg_sec_masked_write(chip, chip->chgr_base + CHGR_CFG1,
 			TERM_I_SRC_BIT | RECHG_THRESHOLD_SRC_BIT,
-			RECHG_THRESHOLD_SRC_BIT);
+			TERM_SRC_FG | RECHG_THRESHOLD_SRC_BIT);
 	else
 		rc = smbchg_sec_masked_write(chip, chip->chgr_base + CHGR_CFG1,
 			TERM_I_SRC_BIT | RECHG_THRESHOLD_SRC_BIT, 0);
