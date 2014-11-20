@@ -418,7 +418,7 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			 * Only disable port
 			 */
 			writel_relaxed(0, PGD_PORT(PGD_PORT_CFGn,
-					(*puc + dev->port_b), dev->ver));
+					dev->pipes[*puc].port_b, dev->ver));
 			mutex_unlock(&dev->tx_lock);
 			if (msgv >= 0)
 				msm_slim_put_ctrl(dev);
@@ -431,7 +431,7 @@ static int msm_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 				msm_slim_put_ctrl(dev);
 			return dev->err;
 		}
-		*(puc) = *(puc) + dev->port_b;
+		*(puc) = (u8)dev->pipes[*puc].port_b;
 	}
 	if (txn->mt == SLIM_MSG_MT_CORE &&
 		mc == SLIM_MSG_MC_BEGIN_RECONFIGURATION)
