@@ -14,7 +14,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/io.h>
-#include <linux/iopoll.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/of.h>
@@ -41,6 +40,41 @@
 #define CLK_DIS_WAIT_VAL	(0x2 << 12)
 
 #define TIMEOUT_US		100
+#define MAX_GDSCR_READS		100
+
+enum gdscr_status {
+	ENABLED,
+	DISABLED,
+};
+
+static int poll_gdsc_status(void __iomem *gdscr, enum gdscr_status status)
+{
+	int count;
+	u32 val;
+	for (count = MAX_GDSCR_READS; count > 0; count--) {
+		val = readl_relaxed(gdscr);
+		val &= PWR_ON_MASK;
+		switch (status) {
+		case ENABLED:
+			if (val)
+				return 0;
+			break;
+		case DISABLED:
+			if (!val)
+				return 0;
+			break;
+		}
+		/*
+		 * There is no guarantee about the delay needed for the enable
+		 * bit in the GDSCR to be set or reset after the GDSC state
+		 * changes. Hence, keep on checking for a reasonable number
+		 * of times until the bit is set with the least possible delay
+		 * between succeessive tries.
+		 */
+		udelay(1);
+	}
+	return -ETIMEDOUT;
+}
 
 struct gdsc {
 	struct regulator_dev	*rdev;
@@ -97,8 +131,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		regval &= ~SW_COLLAPSE_MASK;
 		writel_relaxed(regval, sc->gdscr);
 
-		ret = readl_tight_poll_timeout(sc->gdscr, regval,
-					regval & PWR_ON_MASK, TIMEOUT_US);
+		ret = poll_gdsc_status(sc->gdscr, ENABLED);
 		if (ret) {
 			dev_err(&rdev->dev, "%s enable timed out: 0x%x\n",
 				sc->rdesc.name, regval);
@@ -161,9 +194,7 @@ static int gdsc_disable(struct regulator_dev *rdev)
 		regval |= SW_COLLAPSE_MASK;
 		writel_relaxed(regval, sc->gdscr);
 
-		ret = readl_tight_poll_timeout(sc->gdscr, regval,
-					       !(regval & PWR_ON_MASK),
-						TIMEOUT_US);
+		ret = poll_gdsc_status(sc->gdscr, DISABLED);
 		if (ret)
 			dev_err(&rdev->dev, "%s disable timed out: 0x%x\n",
 				sc->rdesc.name, regval);
@@ -245,8 +276,7 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		 */
 		mb();
 		udelay(1);
-		ret = readl_tight_poll_timeout(sc->gdscr, regval,
-					regval & PWR_ON_MASK, TIMEOUT_US);
+		ret = poll_gdsc_status(sc->gdscr, ENABLED);
 		if (ret) {
 			dev_err(&rdev->dev, "%s set_mode timed out: 0x%x\n",
 				sc->rdesc.name, regval);
@@ -390,8 +420,7 @@ static int gdsc_probe(struct platform_device *pdev)
 		regval &= ~SW_COLLAPSE_MASK;
 		writel_relaxed(regval, sc->gdscr);
 
-		ret = readl_tight_poll_timeout(sc->gdscr, regval,
-					regval & PWR_ON_MASK, TIMEOUT_US);
+		ret = poll_gdsc_status(sc->gdscr, ENABLED);
 		if (ret) {
 			dev_err(&pdev->dev, "%s enable timed out: 0x%x\n",
 				sc->rdesc.name, regval);
