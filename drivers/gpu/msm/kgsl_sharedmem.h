@@ -190,6 +190,18 @@ kgsl_memdesc_has_guard_page(const struct kgsl_memdesc *memdesc)
 }
 
 /*
+ * kgsl_memdesc_guard_page_size - returns guard page size
+ * @memdesc - the memdesc
+ *
+ * Returns guard page size
+ */
+static inline int
+kgsl_memdesc_guard_page_size(const struct kgsl_memdesc *memdesc)
+{
+	return kgsl_memdesc_is_secured(memdesc) ? SZ_1M : PAGE_SIZE;
+}
+
+/*
  * kgsl_memdesc_use_cpu_map - use the same virtual mapping on CPU and GPU?
  * @memdesc - the memdesc
  */
