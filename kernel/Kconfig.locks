@@ -90,6 +90,8 @@ config ARCH_INLINE_WRITE_UNLOCK_IRQRESTORE
 config UNINLINE_SPIN_UNLOCK
 	bool
 
+config CONSOLE_FLUSH_ON_HOTPLUG
+	bool
 #
 # lock_* functions are inlined when:
 #   - DEBUG_SPINLOCK=n and GENERIC_LOCKBREAK=n and ARCH_INLINE_*LOCK=y
