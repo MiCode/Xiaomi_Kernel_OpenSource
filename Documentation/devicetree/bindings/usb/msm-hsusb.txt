@@ -21,6 +21,7 @@ Required properties :
 	    1 - Chipidea PHY (obsolete)
 	    2 - Synopsis Pico PHY
 	    3 - Synopsis Femto PHY
+	    4 - QUSB ULPI PHY
 - qcom,hsusb-otg-mode: Operational mode. Can be one of
             1 - Peripheral only mode
 	    2 - Host only mode
@@ -56,6 +57,7 @@ Required properties :
 		PHY POR signal. Required for overriding PHY parameters.
 	"phy_csr_clk": Required for accessing PHY CSR registers through
 		AHB2PHY interface.
+	"phy_ref_clk": Required when PHY have referance clock,
 	"xo": XO clock. The source clock that is used as a reference clock
 		to the PHY.
 	"bimc_clk", "snoc_clk", "pcnoc_clk": bus voting clocks. Used to
