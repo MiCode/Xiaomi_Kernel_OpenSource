@@ -2878,6 +2878,7 @@ static struct snd_soc_dai_link msm8994_common_dai_links[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_5_TX,
 		.be_hw_params_fixup = msm_slim_5_tx_be_hw_params_fixup,
+		.ignore_suspend = 1,
 		.ops = &msm8994_be_ops,
 	},
 	/* Incall Music BACK END DAI Link */
