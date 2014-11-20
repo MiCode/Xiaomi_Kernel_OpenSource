@@ -15,9 +15,22 @@
 
 #include "msm8916-qrd-skut2.dtsi"
 #include "msm8916-memory.dtsi"
+#include "dsi-panel-hx8279a-wsvga-video.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8916 QRD SKUT3";
 	compatible = "qcom,msm8916-qrd-skut3", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
 	qcom,board-id = <0x3000b 0x40>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8279a_wsvga_video>;
+};
+
+&dsi_hx8279a_wsvga_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+	qcom,cont-splash-enabled;
 };
