@@ -357,6 +357,17 @@ struct emac_sw_rrdes_general {
 	u32 ts_high;
 };
 
+/* EMAC Errors in emac_sw_rrdesc.dfmt.dw[3] */
+#define EMAC_RRDES_L4F BIT(14)
+#define EMAC_RRDES_IPF BIT(15)
+#define EMAC_RRDES_CRC BIT(21)
+#define EMAC_RRDES_FAE BIT(22)
+#define EMAC_RRDES_TRN BIT(23)
+#define EMAC_RRDES_RNT BIT(24)
+#define EMAC_RRDES_INC BIT(25)
+#define EMAC_RRDES_FOV BIT(29)
+#define EMAC_RRDES_LEN BIT(30)
+
 union emac_sw_rrdesc {
 	struct emac_sw_rrdes_general genr;
 

@@ -45,6 +45,12 @@ const char emac_drv_version[] = DRV_VERSION;
 		NETIF_MSG_INTR | NETIF_MSG_TX_DONE | NETIF_MSG_RX_STATUS |    \
 		NETIF_MSG_PKTDATA | NETIF_MSG_HW | NETIF_MSG_WOL)
 
+/* Error bits that will result in a received frame being discarded */
+#define EMAC_RRDES_ERROR (EMAC_RRDES_IPF | EMAC_RRDES_CRC | EMAC_RRDES_FAE | \
+			EMAC_RRDES_TRN | EMAC_RRDES_RNT | EMAC_RRDES_INC | \
+			EMAC_RRDES_FOV | EMAC_RRDES_LEN)
+#define EMAC_RRDES_STATS_DW_IDX 3
+
 #define EMAC_RRDESC_SIZE      4
 #define EMAC_TS_RRDESC_SIZE   6
 #define EMAC_TPDESC_SIZE      4
@@ -622,7 +628,16 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 		num_consume_pkts--;
 		count++;
 
-		if (srrd.genr.res || srrd.genr.lene) {
+		/* Due to a HW issue in L4 check sum detection (UDP/TCP frags
+		 * with DF set are marked as error), drop packets based on the
+		 * error mask rather than the summary bit (ignoring L4F errors)
+		 */
+		if (srrd.dfmt.dw[EMAC_RRDES_STATS_DW_IDX] & EMAC_RRDES_ERROR) {
+			emac_dbg(adpt, rx_status,
+				"Drop error packet[RRD: 0x%x:0x%x:0x%x:0x%x]\n",
+				 srrd.dfmt.dw[0], srrd.dfmt.dw[1],
+				 srrd.dfmt.dw[2], srrd.dfmt.dw[3]);
+
 			dev_kfree_skb(skb);
 			continue;
 		}
@@ -631,7 +646,8 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 		skb->dev = netdev;
 		skb->protocol = eth_type_trans(skb, skb->dev);
 		if (netdev->features & NETIF_F_RXCSUM)
-			skb->ip_summed = CHECKSUM_UNNECESSARY;
+			skb->ip_summed = ((srrd.genr.l4f) ?
+					  CHECKSUM_NONE : CHECKSUM_UNNECESSARY);
 		else
 			skb_checksum_none_assert(skb);
 

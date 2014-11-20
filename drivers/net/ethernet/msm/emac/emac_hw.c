@@ -1470,7 +1470,8 @@ void emac_hw_start_mac(struct emac_hw *hw)
 	mac |= (CRCE | PCRCE);
 	mac |= ((hw->preamble << PRLEN_SHFT) & PRLEN_BMSK);
 	mac |= BROAD_EN;
-	mac |= (FLCHK | RX_CHKSUM_EN);
+	mac |= FLCHK;
+	mac &= ~RX_CHKSUM_EN;
 	mac &= ~(HUGEN | VLAN_STRIP | TPAUSE | SIMR | HUGE | MULTI_ALL |
 		 DEBUG_MODE | SINGLE_PAUSE_MODE);
 
