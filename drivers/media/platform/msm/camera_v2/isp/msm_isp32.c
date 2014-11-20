@@ -366,6 +366,11 @@ static void msm_vfe32_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_camera_io_w_mb(0x1CFFFFFF, vfe_dev->vfe_base + 0x20);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x24);
 	msm_camera_io_w_mb(0x1FFFFFFF, vfe_dev->vfe_base + 0x28);
+	msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x6FC);
+	msm_camera_io_w(0x10000000, vfe_dev->vfe_base + VFE32_RDI_BASE(1));
+	msm_camera_io_w(0x10000000, vfe_dev->vfe_base + VFE32_RDI_BASE(2));
+	msm_camera_io_w(0x0, vfe_dev->vfe_base + VFE32_XBAR_BASE(0));
+	msm_camera_io_w(0x0, vfe_dev->vfe_base + VFE32_XBAR_BASE(4));
 
 }
 
@@ -579,7 +584,6 @@ static void msm_vfe32_process_reg_update(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts)
 {
-	uint32_t rdi_status;
 	uint8_t input_src = 0x0;
 	if (!(irq_status0 & 0x20) && !(irq_status1 & 0x1C000000))
 		return;
@@ -599,18 +603,6 @@ static void msm_vfe32_process_reg_update(struct vfe_device *vfe_dev,
 	if (irq_status1 & BIT(28)) {
 		msm_isp_sof_notify(vfe_dev, VFE_RAW_2, ts);
 		input_src |= (1 << VFE_RAW_2);
-	}
-
-	if (vfe_dev->axi_data.stream_update) {
-		rdi_status = msm_camera_io_r(vfe_dev->vfe_base +
-						VFE32_XBAR_BASE(0));
-		rdi_status |= msm_camera_io_r(vfe_dev->vfe_base +
-						VFE32_XBAR_BASE(4));
-
-		if (((rdi_status & BIT(7)) || (rdi_status & BIT(7)) ||
-			(rdi_status & BIT(7)) || (rdi_status & BIT(7))) &&
-			(!(irq_status0 & 0x20)))
-			return;
 	}
 
 	if (vfe_dev->axi_data.stream_update)
@@ -648,9 +640,8 @@ static void msm_vfe32_axi_reload_wm(
 		msm_camera_io_w_mb(reload_mask, vfe_dev->vfe_base + 0x38);
 	} else {
 		/*vfe32 B-family: 8610*/
-		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x24);
 		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x28);
-		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x20);
+		msm_camera_io_w(0x1C800000, vfe_dev->vfe_base + 0x20);
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x18);
 		msm_camera_io_w(0x9AAAAAAA , vfe_dev->vfe_base + 0x600);
 		msm_camera_io_w(reload_mask, vfe_dev->vfe_base + 0x38);
@@ -1006,6 +997,8 @@ static void msm_vfe32_axi_clear_wm_reg(
 {
 	uint32_t val = 0;
 	uint32_t wm_base = VFE32_WM_BASE(stream_info->wm[plane_idx]);
+	/* FRAME BASED */
+	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base);
 	/*WR_IMAGE_SIZE*/
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x10);
 	/*WR_BUFFER_CFG*/

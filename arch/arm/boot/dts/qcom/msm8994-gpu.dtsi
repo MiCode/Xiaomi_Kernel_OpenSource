@@ -60,6 +60,9 @@
 		qcom,idle-timeout = <8>; //<HZ/12>
 		qcom,strtstp-sleepwake;
 
+		qcom,pm-qos-active-latency = <501>;
+		qcom,pm-qos-wakeup-latency = <101>;
+
 		/*
 		 * Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE
 		 * KGSL_CLK_RBBMTIMER

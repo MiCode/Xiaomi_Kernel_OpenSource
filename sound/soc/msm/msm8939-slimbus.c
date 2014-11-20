@@ -979,6 +979,17 @@ out:
 	return err;
 }
 
+static void codec_enable_qfuse(struct snd_soc_codec *codec)
+{
+	if(codec == NULL ||
+		strcmp(codec->name, "tomtom_codec"))
+		return;
+
+	msm_snd_enable_codec_ext_clk(codec, 1, false);
+	tomtom_enable_qfuse_sensing(codec);
+	msm_snd_enable_codec_ext_clk(codec, 0, false);
+}
+
 static void hs_detect_work(struct work_struct *work)
 {
 	struct delayed_work *dwork;
@@ -997,6 +1008,7 @@ static void hs_detect_work(struct work_struct *work)
 	if (ret < 0)
 		pr_err("%s: Failed to intialise mbhc %d\n", __func__, ret);
 
+	codec_enable_qfuse(pdata->codec);
 	/*
 	 *  Set pdata->codec back to NULL, to ensure codec pointer
 	 *  is not referenced further from this structure.
