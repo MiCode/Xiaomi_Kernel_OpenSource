@@ -384,6 +384,14 @@ int copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 	}
 	/* copy UL filter rules from Modem*/
 	for (i = 0; i < num_q6_rule; i++) {
+		/* check if rules overside the cache*/
+		if (i == MAX_NUM_Q6_RULE) {
+			IPAWANERR("Reaching (%d) max cache ",
+				MAX_NUM_Q6_RULE);
+			IPAWANERR(" however total (%d)\n",
+				num_q6_rule);
+			break;
+		}
 		/* construct UL_filter_rule handler QMI use-cas */
 		q6_ul_filter_rule[i].filter_hdl =
 			UL_FILTER_RULE_HANDLE_START + i;
