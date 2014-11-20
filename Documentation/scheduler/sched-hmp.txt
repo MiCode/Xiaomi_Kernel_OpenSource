@@ -11,6 +11,7 @@ CONTENTS
    2.5 Task Events
    2.6 update_task_ravg()
    2.7 update_history()
+   2.8 Per-task 'initial task load'
 3. CPU Capacity
    3.1 Load scale factor
    3.2 CPU Power
@@ -341,6 +342,39 @@ update_history() is called on a task to record its activity in an elapsed
 window. 'sum', which represents task's cpu demand in its elapsed window is
 pushed onto sum_history[] array and its 'demand' attribute is updated based on
 the sched_window_stats_policy in effect.
+
+*** 2.8 Initial task load attribute for a task (init_load_pct)
+
+In some cases, it may be desirable for children of a task to be assigned a
+"high" load so that they can start running on best capacity cluster. By default,
+newly created tasks are assigned a load defined by tunable sched_init_task_load
+(Sec 7.8). Some specialized tasks may need a higher value than the global
+default for their child tasks. This will let child tasks run on cpus with best
+capacity. This is accomplished by setting the 'initial task load' attribute
+(init_load_pct) for a task. Child tasks starting load (ravg.demand and
+ravg.sum_history[]) is initialized from their parent's 'initial task load'
+attribute. Note that child task's 'initial task load' attribute itself will be 0
+by default (i.e it is not inherited from parent).
+
+A task's 'initial task load' attribute can be set in two ways:
+
+**** /proc interface
+
+/proc/[pid]/sched_init_task_load can be written to for setting a task's 'initial
+task load' attribute. A numeric value between 0 - 100 (in percent scale) is
+accepted for task's 'initial task load' attribute.
+
+Reading /proc/[pid]/sched_init_task_load returns the 'initial task load'
+attribute for the given task.
+
+**** kernel API
+
+Following kernel APIs are provided to set or retrieve a given task's 'initial
+task load' attribute:
+
+int sched_set_init_task_load(struct task_struct *p, int init_load_pct);
+int sched_get_init_task_load(struct task_struct *p);
+
 
 ===============
 3. CPU CAPACITY
@@ -1096,7 +1130,8 @@ Default value: 15
 This tunable is a percentage. When a task is first created it has no
 history, so the task load tracking mechanism cannot determine a
 historical load value to assign to it. This tunable specifies the
-initial load value for newly created tasks.
+initial load value for newly created tasks. Also see Sec 2.8 on per-task
+'initial task load' attribute.
 
 *** 7.9 sched_upmigrate_min_nice
 
