@@ -278,17 +278,42 @@ static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
 		goto error_enable;
 	}
 
+	if (vreg_info->wlan_reg_io) {
+		ret = regulator_enable(vreg_info->wlan_reg_io);
+		if (ret) {
+			pr_err("%s: regulator enable failed for wlan_reg_io\n",
+				__func__);
+			goto error_enable_reg_io;
+		}
+	}
+
+	if (vreg_info->wlan_reg_xtal) {
+		ret = regulator_enable(vreg_info->wlan_reg_xtal);
+		if (ret) {
+			pr_err("%s: regulator enable failed for wlan_reg_xtal\n",
+				__func__);
+			goto error_enable_reg_xtal;
+		}
+	}
+
 	if (vreg_info->soc_swreg) {
 		ret = regulator_enable(vreg_info->soc_swreg);
 		if (ret) {
 			pr_err("%s: regulator enable failed for external soc-swreg\n",
 					__func__);
-			goto error_enable2;
+			goto error_enable_soc_swreg;
 		}
 	}
+
 	return ret;
 
-error_enable2:
+error_enable_soc_swreg:
+	if (vreg_info->wlan_reg_xtal)
+		regulator_disable(vreg_info->wlan_reg_xtal);
+error_enable_reg_xtal:
+	if (vreg_info->wlan_reg_io)
+		regulator_disable(vreg_info->wlan_reg_io);
+error_enable_reg_io:
 	regulator_disable(vreg_info->wlan_reg);
 error_enable:
 	return ret;
@@ -296,7 +321,7 @@ error_enable:
 
 static int cnss_wlan_vreg_off(struct cnss_wlan_vreg_info *vreg_info)
 {
-	int ret, ret2;
+	int ret;
 
 	if (vreg_info->soc_swreg) {
 		ret = regulator_disable(vreg_info->soc_swreg);
@@ -306,20 +331,32 @@ static int cnss_wlan_vreg_off(struct cnss_wlan_vreg_info *vreg_info)
 			goto error_disable;
 		}
 	}
+
+	if (vreg_info->wlan_reg_xtal) {
+		ret = regulator_disable(vreg_info->wlan_reg_xtal);
+		if (ret) {
+			pr_err("%s: regulator disable failed for wlan_reg_xtal\n",
+				__func__);
+			goto error_disable;
+		}
+	}
+
+	if (vreg_info->wlan_reg_io) {
+		ret = regulator_disable(vreg_info->wlan_reg_io);
+		if (ret) {
+			pr_err("%s: regulator disable failed for wlan_reg_io\n",
+				__func__);
+			goto error_disable;
+		}
+	}
+
 	ret = regulator_disable(vreg_info->wlan_reg);
 	if (ret) {
 		pr_err("%s: regulator disable failed for WLAN power\n",
 				__func__);
-		goto error_disable2;
+		goto error_disable;
 	}
-	return ret;
 
-error_disable2:
-	if (vreg_info->soc_swreg) {
-		ret2 = regulator_enable(vreg_info->soc_swreg);
-		if (ret2)
-			ret = ret2;
-	}
 error_disable:
 	return ret;
 }
@@ -648,13 +685,13 @@ static void cnss_wlan_release_resources(void)
 	gpio_free(gpio_info->num);
 	gpio_info->state = WLAN_EN_LOW;
 	gpio_info->prop = false;
+	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
 	if (vreg_info->soc_swreg)
 		regulator_put(vreg_info->soc_swreg);
 	if (vreg_info->wlan_reg_xtal)
 		regulator_put(vreg_info->wlan_reg_xtal);
 	if (vreg_info->wlan_reg_io)
 		regulator_put(vreg_info->wlan_reg_io);
-	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
 	regulator_put(vreg_info->wlan_reg);
 	vreg_info->state = VREG_OFF;
 }
@@ -2448,7 +2485,6 @@ err_get_wlan_res:
 
 static int cnss_remove(struct platform_device *pdev)
 {
-	struct cnss_wlan_vreg_info *vreg_info = &penv->vreg_info;
 	struct cnss_wlan_gpio_info *gpio_info = &penv->gpio_info;
 
 	unregister_pm_notifier(&cnss_pm_notifier);
@@ -2476,8 +2512,6 @@ static int cnss_remove(struct platform_device *pdev)
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
 	if (penv->wlan_bootstrap_gpio > 0)
 		gpio_set_value(penv->wlan_bootstrap_gpio, WLAN_BOOTSTRAP_LOW);
-	if (cnss_wlan_vreg_set(vreg_info, VREG_OFF))
-		pr_err("Failed to turn OFF wlan vreg\n");
 	cnss_wlan_release_resources();
 
 	return 0;
