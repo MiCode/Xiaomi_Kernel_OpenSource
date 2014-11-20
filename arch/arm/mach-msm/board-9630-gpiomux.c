@@ -216,6 +216,21 @@ static struct msm_gpiomux_config mdm9630_cdc_reset_config[] __initdata = {
 	}
 };
 
+static struct gpiomux_setting gpio_pcie_clkreq_config = {
+	.func = GPIOMUX_FUNC_1,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct msm_gpiomux_config msm_pcie_configs[] __initdata = {
+	{
+		.gpio = 64,    /* PCIE0_CLKREQ_N */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &gpio_pcie_clkreq_config,
+		},
+	},
+};
+
 #ifdef CONFIG_FB_MSM_QPIC
 static struct gpiomux_setting qpic_lcdc_a_d = {
 	.func = GPIOMUX_FUNC_1,
@@ -309,6 +324,7 @@ void __init mdm9630_init_gpiomux(void)
 			ARRAY_SIZE(mdm9630_mi2s_configs));
 	msm_gpiomux_install(mdm9630_cdc_reset_config,
 			ARRAY_SIZE(mdm9630_cdc_reset_config));
+	msm_gpiomux_install(msm_pcie_configs, ARRAY_SIZE(msm_pcie_configs));
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	msm_gpiomux_install(msm_eth_config, ARRAY_SIZE(msm_eth_config));
 #endif
