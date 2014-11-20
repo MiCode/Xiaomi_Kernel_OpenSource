@@ -528,10 +528,6 @@
 	qcom,use-otp-profile;
 };
 
-&pmi8994_charger {
-	qcom,charging-disabled;
-};
-
 &slim_msm {
 	tomtom_codec {
 		qcom,cdc-micbias1-ext-cap;
@@ -583,6 +579,18 @@
 			atmel,version = <0x11>;
 			atmel,build = <0xab>;
 		};
+	};
+};
+
+&i2c_5 {
+	smb349-dual-charger@1b {
+		compatible = "qcom,smb349-dual-charger";
+		reg = <0x1b>;
+		interrupt-parent = <&spmi_bus>;
+		qcom,chg-stat-gpio = <&pm8994_gpios 6 0x1>;
+		qcom,fastchg-current-max-ma = <2000>;
+		qcom,battery-psy-name = "cradle-charger";
+		qcom,ext-psy-name = "battery";
 	};
 };
 
