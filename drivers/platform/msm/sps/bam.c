@@ -1158,6 +1158,16 @@ void bam_pipe_reset(void *base, u32 pipe)
 	wmb(); /* ensure pipe reset is de-asserted*/
 }
 
+/*
+ * Disable a BAM pipe
+ */
+void bam_disable_pipe(void *base, u32 pipe)
+{
+	SPS_DBG("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
+	bam_write_reg_field(base, P_CTRL, pipe, P_EN, 0);
+	wmb(); /* ensure pipe is disabled */
+}
+
 /**
  * Initialize a BAM pipe
  */
