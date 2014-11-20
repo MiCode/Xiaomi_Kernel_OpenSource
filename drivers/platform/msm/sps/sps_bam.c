@@ -2215,3 +2215,19 @@ int sps_bam_pipe_get_unused_desc_num(struct sps_bam *dev, u32 pipe_index,
 
 	return 0;
 }
+
+/*
+ * Check if a pipe of a BAM has any pending descriptor
+ */
+bool sps_bam_pipe_pending_desc(struct sps_bam *dev, u32 pipe_index)
+{
+	u32 sw_offset, peer_offset;
+
+	sw_offset = bam_pipe_get_desc_read_offset(dev->base, pipe_index);
+	peer_offset = bam_pipe_get_desc_write_offset(dev->base, pipe_index);
+
+	if (sw_offset == peer_offset)
+		return false;
+	else
+		return true;
+}

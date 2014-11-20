@@ -2372,6 +2372,44 @@ int sps_pipe_disable(unsigned long dev, u32 pipe)
 EXPORT_SYMBOL(sps_pipe_disable);
 
 /*
+ * Check pending descriptors in the descriptor FIFO
+ * of a pipe
+ */
+int sps_pipe_pending_desc(unsigned long dev, u32 pipe, bool *pending)
+{
+
+	struct sps_bam *bam;
+
+	SPS_DBG("sps:%s.", __func__);
+
+	if (!dev) {
+		SPS_ERR("sps:%s:BAM handle is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	if (pipe >= BAM_MAX_PIPES) {
+		SPS_ERR("sps:%s:pipe index is invalid.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	if (!pending) {
+		SPS_ERR("sps:%s:input flag is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	bam = sps_h2bam(dev);
+	if (bam == NULL) {
+		SPS_ERR("sps:%s:BAM is not found by handle.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	*pending = sps_bam_pipe_pending_desc(bam, pipe);
+
+	return 0;
+}
+EXPORT_SYMBOL(sps_pipe_pending_desc);
+
+/*
  * Process any pending IRQ of a BAM
  */
 int sps_bam_process_irq(unsigned long dev)
