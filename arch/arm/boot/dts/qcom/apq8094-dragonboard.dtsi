@@ -239,9 +239,13 @@
 	status = "ok";
 	reg = <0xf9a55000 0x400>,
 		<0xf9b39000 0x17f>;
+	reg-names = "core", "phy_csr";
 	qcom,hsusb-otg-otg-control = <2>; /* PMIC control */
 	qcom,hsusb-otg-mode = <1>;   /* USB_PERIPHERAL */
-	qcom,hsusb-otg-phy-type = <3>; /* QUSB_ULPI_PHY */
+	qcom,hsusb-otg-phy-type = <4>; /* QUSB_ULPI_PHY */
+	qcom,hsusb-otg-phy-init-seq =
+		<0x80 0xA0 0x84 0xA5 0x88 0x81 0x8c 0x85 0xffffffff>;
+
 	vbus_otg-supply = <&vph_pwr_vreg>;
 	qcom,dp-manual-pullup;
 
@@ -253,7 +257,7 @@
 		 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 		 <&clock_gcc clk_gcc_qusb2_phy_reset>;
 	clock-names = "core_clk", "iface_clk", "sleep_clk", "xo",
-			"phy_ref_clk", "ahb2phy_clk", "phy_reset";
+			"phy_ref_clk", "phy_csr_clk", "phy_reset_clk";
 };
 
 &usb3 {
