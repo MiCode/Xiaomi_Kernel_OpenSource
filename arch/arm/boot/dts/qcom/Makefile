@@ -138,7 +138,8 @@ dtb-$(CONFIG_ARCH_FSM9900) += fsm9900-rumi.dtb \
 	fsm9900-sim.dtb \
 	fsm9900-cdp.dtb \
 	fsm9900-mtp-v1.0.dtb \
-	fsm9900-mtp-v1.1.dtb
+	fsm9900-mtp-v1.1.dtb \
+	fsm9900-mtp-v2.0.dtb
 dtb-$(CONFIG_ARCH_FSM9010) += fsm9010-rumi.dtb
 dtb-$(CONFIG_ARCH_MDM9630) += mdm9630-sim.dtb \
 	mdm9630-v1-cdp.dtb \
