@@ -312,10 +312,15 @@ static int rmnet_gport_setup(void)
 		no_data_hsic_ports, no_data_hsuart_ports, no_ctrl_smd_ports,
 		no_ctrl_hsic_ports, no_ctrl_hsuart_ports, nr_rmnet_ports);
 
-	if (no_data_bam_ports || no_data_bam2bam_ports) {
-		ret = gbam_setup(no_data_bam_ports,
-				 no_data_bam2bam_ports);
-		if (ret)
+	if (no_data_bam_ports) {
+		ret = gbam_setup(no_data_bam_ports);
+		if (ret < 0)
+			return ret;
+	}
+
+	if (no_data_bam2bam_ports) {
+		ret = gbam2bam_setup(no_data_bam2bam_ports);
+		if (ret < 0)
 			return ret;
 	}
 
