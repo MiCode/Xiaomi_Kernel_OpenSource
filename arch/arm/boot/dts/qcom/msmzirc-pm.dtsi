@@ -117,9 +117,10 @@
 
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
-			<47 172>, /* usb1_hs_async_wakeup_irq */
-			<49 165>, /* usb2_phy_dpse_hv for msm_dwc3_irq */
 			<41 180>,   /* usb2_hsic_async_wakeup_irq */
+			<47 172>, /* usb1_hs_async_wakeup_irq */
+			<49 234>, /* usb2_phy_dpse_hv for qusb2phy_intr */
+			<54 212>, /* lfps_rxterm_irq for pwr_event_irq */
 			<62 222>,   /* ee0_krait_hlos_spmi_periph_irq */
 			<0xff 18>,  /* WDT_barkInt */
 			<0xff 38>,  /* qtmr_virt_irq[0] */
@@ -129,7 +130,7 @@
 			<0xff 59>,  /* mss_to_apps_irq(2) */
 			<0xff 60>,  /* mss_to_apps_irq(3) */
 			<0xff 63>,  /* APCS_wcnIPCInterrupt(1) */
-                        <0xff 66>,  /* bam_irq[2] */
+			<0xff 66>,  /* bam_irq[2] */
 			<0xff 73>,  /* pcie20_int_msi */
 			<0xff 126>, /* bam_irq[0] */
 			<0xff 173>, /* o_wcss_apss_smd_hi */
