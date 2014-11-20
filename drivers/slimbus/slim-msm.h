@@ -199,6 +199,7 @@ struct msm_slim_endp {
 	struct sps_register_event	event;
 	struct sps_mem_buffer		buf;
 	bool				connected;
+	int				port_b;
 };
 
 struct msm_slim_qmi {
@@ -246,7 +247,7 @@ struct msm_slim_ctrl {
 	int			ee;
 	struct completion	**wr_comp;
 	struct msm_slim_sat	*satd[MSM_MAX_NSATS];
-	struct msm_slim_endp	pipes[7];
+	struct msm_slim_endp	*pipes;
 	struct msm_slim_sps_bam	bam;
 	struct msm_slim_endp	tx_msgq;
 	struct msm_slim_endp	rx_msgq;
@@ -259,7 +260,7 @@ struct msm_slim_ctrl {
 	u8			pgdla;
 	enum msm_slim_msgq	use_rx_msgqs;
 	enum msm_slim_msgq	use_tx_msgqs;
-	int			port_b;
+	int			port_nums;
 	struct completion	reconf;
 	bool			reconf_busy;
 	bool			chan_active;
