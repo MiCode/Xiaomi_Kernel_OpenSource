@@ -465,14 +465,10 @@ struct ipa_filter_rule_type_v01 {
 enum ipa_ip_type_enum_v01 {
 	IPA_IP_TYPE_ENUM_MIN_ENUM_VAL_V01 = -2147483647,
 	/* To force a 32 bit signed enum.  Do not change or use*/
-	QMI_IPA_IP_TYPE_INVALID_V01 = 0,
-	/*  Invalid IP type identifier */
-	QMI_IPA_IP_TYPE_V4_V01 = 1,
+	QMI_IPA_IP_TYPE_V4_V01 = 0,
 	/*  IP V4 type */
-	QMI_IPA_IP_TYPE_V6_V01 = 2,
+	QMI_IPA_IP_TYPE_V6_V01 = 1,
 	/*  IP V6 type */
-	QMI_IPA_IP_TYPE_V4V6_V01 = 3,
-	/*  Applies to both IP types */
 	IPA_IP_TYPE_ENUM_MAX_ENUM_VAL_V01 = 2147483647
 	/* To force a 32 bit signed enum.  Do not change or use*/
 };
