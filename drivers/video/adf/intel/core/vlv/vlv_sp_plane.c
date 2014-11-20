@@ -367,6 +367,14 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 	return 0;
 }
 
+static int vlv_sp_attach(struct intel_plane *plane, struct intel_pipe *pipe)
+{
+	/* attach the requested plane to pipe */
+	plane->pipe = pipe;
+
+	return 0;
+}
+
 static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 		struct intel_plane_config *config)
 {
@@ -585,6 +593,7 @@ static const struct intel_plane_ops vlv_sp_ops = {
 		.supported_formats = sprite_supported_formats,
 		.n_supported_formats = ARRAY_SIZE(sprite_supported_formats),
 	},
+	.attach = vlv_sp_attach,
 	.validate = vlv_sp_validate,
 	.flip = vlv_sp_flip,
 	.enable = vlv_sp_enable,

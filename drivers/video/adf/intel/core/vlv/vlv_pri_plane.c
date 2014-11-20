@@ -265,6 +265,14 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 	return 0;
 }
 
+static int vlv_pri_attach(struct intel_plane *plane, struct intel_pipe *pipe)
+{
+	/* attach the requested plane to pipe */
+	plane->pipe = pipe;
+
+	return 0;
+}
+
 static int vlv_pri_validate(struct intel_plane *plane,
 		struct intel_buffer *buf,
 		struct intel_plane_config *config)
@@ -367,6 +375,7 @@ static const struct intel_plane_ops vlv_pri_ops = {
 		.supported_formats = pri_supported_formats,
 		.n_supported_formats = ARRAY_SIZE(pri_supported_formats),
 	},
+	.attach = vlv_pri_attach,
 	.validate = vlv_pri_validate,
 	.flip = vlv_pri_flip,
 	.enable = vlv_pri_enable,

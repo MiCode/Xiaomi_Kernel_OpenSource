@@ -82,7 +82,9 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config, int pipe,
 	struct vlv_pri_plane *pplane;
 	struct vlv_sp_plane *splane;
 	struct dsi_pipe *dsi_pipe;
-	int err;
+	struct intel_plane *intel_plane;
+	struct intel_pipe *intel_pipe;
+	int err = 0;
 
 	if (pipe > MAX_PIPES) {
 		dev_err(vlv_config->base.dev, "%s:invalid pipe", __func__);
@@ -138,10 +140,32 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config, int pipe,
 		intel_dc_config_add_pipe(&vlv_config->base,
 					 &dsi_pipe->base, pipe);
 		vlv_config->vdisp[pipe].type = type;
+		intel_pipe = &vlv_config->vdisp[pipe].pipe.dsi.base;
 	} else {
 		pr_err("ADF: %s: unsupported pipe type = %d\n", __func__, type);
 		err = -EINVAL;
+		return err;
 	}
+
+	/*
+	 * In this platform the plane and pipe are fixed and cannot be
+	 * moved across to a different pipe, hence set the attachment by
+	 * default over here
+	 */
+	/* Attach Primary plane to Pipe */
+	intel_plane = &vlv_config->vdisp[pipe].pplane.base;
+	if (intel_plane->ops->attach)
+		intel_plane->ops->attach(intel_plane, intel_pipe);
+
+	/* Attach Sprite1 to the pipe */
+	intel_plane = &vlv_config->vdisp[pipe].splane[0].base;
+	if (intel_plane->ops->attach)
+		intel_plane->ops->attach(intel_plane, intel_pipe);
+
+	/* Attach Sprite2 to the pipe */
+	intel_plane = &vlv_config->vdisp[pipe].splane[1].base;
+	if (intel_plane->ops->attach)
+		intel_plane->ops->attach(intel_plane, intel_pipe);
 
 	return err;
 }
