@@ -16,7 +16,10 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909";
 	compatible = "qcom,msm8909";
-	qcom,msm-id = <245 0>;
+	qcom,msm-id =	<245 0>,
+			<258 0>,
+			<259 0>,
+			<265 0>;
 	interrupt-parent = <&intc>;
 
 	chosen {
