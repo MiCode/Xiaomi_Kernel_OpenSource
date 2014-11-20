@@ -95,7 +95,7 @@
 #include "msm_iomap-8226.h"
 #include "msm_iomap-8610.h"
 #include "msm_iomap-9630.h"
-#include "msm_iomap-zirc.h"
+#include "msm_iomap-9640.h"
 #include "msm_iomap-fsm9900.h"
 #include "msm_iomap-fsm9010.h"
 

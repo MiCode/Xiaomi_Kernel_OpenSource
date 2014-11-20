@@ -12,11 +12,11 @@
 
 /dts-v1/;
 
-#include "msmzirc-cdp.dtsi"
+#include "mdm9640-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM ZIRC CDP";
-	compatible = "qcom,msmzirc-cdp", "qcom,msmzirc", "qcom,cdp";
+	model = "Qualcomm Technologies, Inc. MSM 9640 CDP";
+	compatible = "qcom,mdm9640-cdp", "qcom,mdm9640", "qcom,cdp";
 	qcom,board-id = <1 0x00030000>;
 
         qcom,rmtfs_sharedmem@00000000 {

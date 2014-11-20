@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __ASM_ARCH_MSM_IOMAP_MSMZIRC_H
-#define __ASM_ARCH_MSM_IOMAP_MSMZIRC_H
+#ifndef __ASM_ARCH_MSM_IOMAP_MDM9640_H
+#define __ASM_ARCH_MSM_IOMAP_MDM9640_H
 
 /* Physical base address and size of peripherals.
  * Ordered by the virtual base addresses they will be mapped at.
@@ -23,7 +23,7 @@
  *
  */
 
-#ifdef CONFIG_DEBUG_MSMZIRC_UART
+#ifdef CONFIG_DEBUG_MDM9640_UART
 #define MSM_DEBUG_UART_BASE	IOMEM(0xFA0B1000)
 #define MSM_DEBUG_UART_PHYS	0x078B1000
 #endif

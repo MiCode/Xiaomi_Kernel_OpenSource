@@ -498,20 +498,20 @@
 #define TSENS3_MSM8909_POINT2_SHIFT	10
 #define TSENS4_MSM8909_POINT2_SHIFT	22
 
-#define TSENS_ZIRC_CAL_SEL		0x700
-#define TSENS_ZIRC_CAL_SEL_SHIFT	8
-#define TSENS_BASE0_ZIRC_MASK		0x3ff
-#define TSENS_BASE1_ZIRC_MASK		0xffc00
-#define TSENS_BASE1_ZIRC_SHIFT		10
-#define TSENS0_OFFSET_ZIRC_MASK		0xf00000
-#define TSENS0_OFFSET_ZIRC_SHIFT	20
-#define TSENS1_OFFSET_ZIRC_MASK		0xf000000
-#define TSENS1_OFFSET_ZIRC_SHIFT	24
-#define TSENS2_OFFSET_ZIRC_MASK		0xf0000000
-#define TSENS2_OFFSET_ZIRC_SHIFT	28
-#define TSENS3_OFFSET_ZIRC_MASK		0xf
-#define TSENS4_OFFSET_ZIRC_MASK		0xf0
-#define TSENS4_OFFSET_ZIRC_SHIFT	4
+#define TSENS_9640_CAL_SEL		0x700
+#define TSENS_9640_CAL_SEL_SHIFT	8
+#define TSENS_BASE0_9640_MASK		0x3ff
+#define TSENS_BASE1_9640_MASK		0xffc00
+#define TSENS_BASE1_9640_SHIFT		10
+#define TSENS0_OFFSET_9640_MASK		0xf00000
+#define TSENS0_OFFSET_9640_SHIFT	20
+#define TSENS1_OFFSET_9640_MASK		0xf000000
+#define TSENS1_OFFSET_9640_SHIFT	24
+#define TSENS2_OFFSET_9640_MASK		0xf0000000
+#define TSENS2_OFFSET_9640_SHIFT	28
+#define TSENS3_OFFSET_9640_MASK		0xf
+#define TSENS4_OFFSET_9640_MASK		0xf0
+#define TSENS4_OFFSET_9640_SHIFT	4
 
 enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_8974 = 0,
@@ -523,7 +523,7 @@ enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_8939,
 	TSENS_CALIB_FUSE_MAP_8994,
 	TSENS_CALIB_FUSE_MAP_MSM8909,
-	TSENS_CALIB_FUSE_MAP_MSMZIRC,
+	TSENS_CALIB_FUSE_MAP_MDM9640,
 	TSENS_CALIB_FUSE_MAP_NUM,
 };
 
@@ -2718,7 +2718,7 @@ compute_intercept_slope:
 	return 0;
 }
 
-static int tsens_calib_msmzirc_sensors(void)
+static int tsens_calib_mdm9640_sensors(void)
 {
 	int i = 0, tsens_base0_data = 0, tsens_base1_data = 0;
 	int tsens0_point = 0, tsens1_point = 0, tsens2_point = 0;
@@ -2734,24 +2734,24 @@ static int tsens_calib_msmzirc_sensors(void)
 			(TSENS_EEPROM(tmdev->tsens_calib_addr) + 0x4));
 
 		tsens_calibration_mode =
-			(calib_data[1] & TSENS_ZIRC_CAL_SEL) >>
-				TSENS_ZIRC_CAL_SEL_SHIFT;
+			(calib_data[1] & TSENS_9640_CAL_SEL) >>
+				TSENS_9640_CAL_SEL_SHIFT;
 		pr_debug("calib mode is %d\n", tsens_calibration_mode);
 	}
 
 	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB)) {
-		tsens_base0_data = (calib_data[0] & TSENS_BASE0_ZIRC_MASK);
-		tsens_base1_data = (calib_data[0] & TSENS_BASE1_ZIRC_MASK) >>
-						TSENS_BASE1_ZIRC_SHIFT;
-		tsens0_point = (calib_data[0] & TSENS0_OFFSET_ZIRC_MASK) >>
-						TSENS0_OFFSET_ZIRC_SHIFT;
-		tsens1_point = (calib_data[0] & TSENS1_OFFSET_ZIRC_MASK) >>
-						TSENS1_OFFSET_ZIRC_SHIFT;
-		tsens2_point = (calib_data[0] & TSENS2_OFFSET_ZIRC_MASK) >>
-						TSENS2_OFFSET_ZIRC_SHIFT;
-		tsens3_point = (calib_data[1] & TSENS3_OFFSET_ZIRC_MASK);
-		tsens4_point = (calib_data[1] & TSENS4_OFFSET_ZIRC_MASK) >>
-						TSENS4_OFFSET_ZIRC_SHIFT;
+		tsens_base0_data = (calib_data[0] & TSENS_BASE0_9640_MASK);
+		tsens_base1_data = (calib_data[0] & TSENS_BASE1_9640_MASK) >>
+						TSENS_BASE1_9640_SHIFT;
+		tsens0_point = (calib_data[0] & TSENS0_OFFSET_9640_MASK) >>
+						TSENS0_OFFSET_9640_SHIFT;
+		tsens1_point = (calib_data[0] & TSENS1_OFFSET_9640_MASK) >>
+						TSENS1_OFFSET_9640_SHIFT;
+		tsens2_point = (calib_data[0] & TSENS2_OFFSET_9640_MASK) >>
+						TSENS2_OFFSET_9640_SHIFT;
+		tsens3_point = (calib_data[1] & TSENS3_OFFSET_9640_MASK);
+		tsens4_point = (calib_data[1] & TSENS4_OFFSET_9640_MASK) >>
+						TSENS4_OFFSET_9640_SHIFT;
 		calib_tsens_point_data[0] = tsens0_point;
 		calib_tsens_point_data[1] = tsens1_point;
 		calib_tsens_point_data[2] = tsens2_point;
@@ -2824,8 +2824,8 @@ static int tsens_calib_sensors(void)
 		rc = tsens_calib_8994_sensors();
 	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MSM8909)
 		rc = tsens_calib_msm8909_sensors();
-	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MSMZIRC)
-		rc = tsens_calib_msmzirc_sensors();
+	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MDM9640)
+		rc = tsens_calib_mdm9640_sensors();
 	else {
 		pr_err("TSENS Calib fuse not found\n");
 		rc = -ENODEV;
@@ -2862,8 +2862,8 @@ static struct of_device_id tsens_match[] = {
 	{	.compatible = "qcom,msm8909-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_MSM8909,
 	},
-	{	.compatible = "qcom,msmzirc-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_MSMZIRC,
+	{	.compatible = "qcom,mdm9640-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_MDM9640,
 	},
 	{}
 };
@@ -2952,14 +2952,14 @@ static int get_device_tree_data(struct platform_device *pdev)
 	}
 
 	if (!strcmp(id->compatible, "qcom,mdm9630-tsens") ||
-		(!strcmp(id->compatible, "qcom,msmzirc-tsens")) ||
+		(!strcmp(id->compatible, "qcom,mdm9640-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8994-tsens")))
 		tmdev->tsens_type = TSENS_TYPE2;
 	else
 		tmdev->tsens_type = TSENS_TYPE0;
 
 	if (!strcmp(id->compatible, "qcom,msm8994-tsens") ||
-		(!strcmp(id->compatible, "qcom,msmzirc-tsens")))
+		(!strcmp(id->compatible, "qcom,mdm9640-tsens")))
 		tmdev->tsens_valid_status_check = true;
 	else
 		tmdev->tsens_valid_status_check = false;

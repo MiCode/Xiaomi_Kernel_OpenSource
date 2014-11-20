@@ -1372,10 +1372,10 @@ Example:
 		asoc-codec-names = "msm-stub-codec.1";
 	};
 
-* MSMZIRC ASoC Machine driver
+* MDM9640 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,msmzirc-audio-tomtom"
+- compatible : "qcom,mdm9640-audio-tomtom"
 - qcom,model : The user-visible name of this sound card.
 - qcom,audio-routing : A list of the connections between audio components.
 Each entry is a pair of strings, the first being the connection's sink,
@@ -1405,8 +1405,8 @@ codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
 Example:
 
 	sound {
-		compatible = "qcom,msmzirc-audio-tomtom";
-		qcom,model = "msmzirc-tomtom-i2s-snd-card";
+		compatible = "qcom,mdm9640-audio-tomtom";
+		qcom,model = "mdm9640-tomtom-i2s-snd-card";
 
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",

@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#include <dt-bindings/clock/msm-clocks-zirc.h>
-#include <dt-bindings/clock/msm-clocks-hwio-zirc.h>
+#include <dt-bindings/clock/msm-clocks-9640.h>
+#include <dt-bindings/clock/msm-clocks-hwio-9640.h>
 
 &soc {
 	clock_rpm: qcom,rpmcc@1800000 {

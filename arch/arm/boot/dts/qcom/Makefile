@@ -152,11 +152,11 @@ dtb-$(CONFIG_ARCH_MDM9630) += mdm9630-sim.dtb \
 	mdm9630-v2-gf-cdp.dtb  \
 	mdm9630-v2-tsmc-mtp.dtb \
 	mdm9630-v2-gf-mtp.dtb
-dtb-$(CONFIG_ARCH_MSMZIRC) += msmzirc-sim.dtb \
-	msmzirc-rumi.dtb \
-	msmzirc-emmc-cdp.dtb \
-	msmzirc-nand-cdp.dtb \
-	msmzirc-mtp.dtb
+dtb-$(CONFIG_ARCH_MDM9640) += mdm9640-sim.dtb \
+	mdm9640-rumi.dtb \
+	mdm9640-emmc-cdp.dtb \
+	mdm9640-nand-cdp.dtb \
+	mdm9640-mtp.dtb
 dtb-$(CONFIG_ARCH_MDMFERRUM) += mdmferrum-sim.dtb \
 	mdmferrum-rumi.dtb \
 	mdmferrum-cdp.dtb \
