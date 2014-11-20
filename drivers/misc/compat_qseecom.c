@@ -325,6 +325,41 @@ static int compat_get_qseecom_qteec_req(
 	return err;
 }
 
+static int compat_get_qseecom_qteec_modfd_req(
+		struct compat_qseecom_qteec_modfd_req __user *data32,
+		struct qseecom_qteec_modfd_req __user *data)
+{
+	compat_uptr_t req_ptr;
+	compat_ulong_t req_len;
+	compat_uptr_t resp_ptr;
+	compat_ulong_t resp_len;
+	compat_long_t fd;
+	compat_ulong_t cmd_buf_offset;
+	int err, i;
+
+	err = get_user(req_ptr, &data32->req_ptr);
+	data->req_ptr = NULL;
+	err |= put_user(req_ptr, (compat_uptr_t *)&data->req_ptr);
+	err |= get_user(req_len, &data32->req_len);
+	err |= put_user(req_len, &data->req_len);
+
+	err |= get_user(resp_ptr, &data32->resp_ptr);
+	data->resp_ptr = NULL;
+	err |= put_user(resp_ptr, (compat_uptr_t *)&data->resp_ptr);
+	err |= get_user(resp_len, &data32->resp_len);
+	err |= put_user(resp_len, &data->resp_len);
+
+	for (i = 0; i < MAX_ION_FD; i++) {
+		err |= get_user(fd, &data32->ifd_data[i].fd);
+		err |= put_user(fd, &data->ifd_data[i].fd);
+		err |= get_user(cmd_buf_offset,
+				&data32->ifd_data[i].cmd_buf_offset);
+		err |= put_user(cmd_buf_offset,
+				&data->ifd_data[i].cmd_buf_offset);
+	}
+	return err;
+}
+
 static int compat_get_int(compat_int_t __user *data32,
 		int __user *data)
 {
@@ -457,6 +492,8 @@ static unsigned int convert_cmd(unsigned int cmd)
 		return QSEECOM_QTEEC_IOCTL_CLOSE_SESSION_REQ;
 	case COMPAT_QSEECOM_QTEEC_IOCTL_INVOKE_MODFD_CMD_REQ:
 		return QSEECOM_QTEEC_IOCTL_INVOKE_MODFD_CMD_REQ;
+	case COMPAT_QSEECOM_QTEEC_IOCTL_REQUEST_CANCELLATION_REQ:
+		return QSEECOM_QTEEC_IOCTL_REQUEST_CANCELLATION_REQ;
 	default:
 		return cmd;
 	}
@@ -477,7 +514,7 @@ long compat_qseecom_ioctl(struct file *file,
 	case COMPAT_QSEECOM_IOCTL_UNLOAD_EXTERNAL_ELF_REQ: {
 		return qseecom_ioctl(file, convert_cmd(cmd), 0);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_REGISTER_LISTENER_REQ: {
 		struct compat_qseecom_register_listener_req __user *data32;
 		struct qseecom_register_listener_req __user *data;
@@ -495,7 +532,7 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_LOAD_APP_REQ: {
 		struct compat_qseecom_load_img_req __user *data32;
 		struct qseecom_load_img_req __user *data;
@@ -515,7 +552,7 @@ long compat_qseecom_ioctl(struct file *file,
 		err = compat_put_qseecom_load_img_req(data32, data);
 		return ret ? ret : err;
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_SEND_CMD_REQ: {
 		struct compat_qseecom_send_cmd_req __user *data32;
 		struct qseecom_send_cmd_req __user *data;
@@ -533,7 +570,7 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_CMD_REQ: {
 		struct compat_qseecom_send_modfd_cmd_req __user *data32;
 		struct qseecom_send_modfd_cmd_req __user *data;
@@ -551,7 +588,7 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_SET_MEM_PARAM_REQ: {
 		struct compat_qseecom_set_sb_mem_param_req __user *data32;
 		struct qseecom_set_sb_mem_param_req __user *data;
@@ -569,7 +606,7 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_GET_QSEOS_VERSION_REQ: {
 		struct compat_qseecom_qseos_version_req __user *data32;
 		struct qseecom_qseos_version_req __user *data;
@@ -590,7 +627,7 @@ long compat_qseecom_ioctl(struct file *file,
 
 		return ret ? ret : err;
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_SET_BUS_SCALING_REQ: {
 		compat_int_t __user *data32;
 		int __user *data;
@@ -606,7 +643,7 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_LOAD_EXTERNAL_ELF_REQ: {
 		struct compat_qseecom_load_img_req __user *data32;
 		struct qseecom_load_img_req __user *data;
@@ -624,7 +661,7 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_APP_LOADED_QUERY_REQ: {
 		struct compat_qseecom_qseos_app_load_query __user *data32;
 		struct qseecom_qseos_app_load_query __user *data;
@@ -644,7 +681,7 @@ long compat_qseecom_ioctl(struct file *file,
 		err = compat_put_qseecom_qseos_app_load_query(data32, data);
 		return ret ? ret : err;
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_SEND_CMD_SERVICE_REQ: {
 		struct compat_qseecom_send_svc_cmd_req __user *data32;
 		struct qseecom_send_svc_cmd_req __user *data;
@@ -662,7 +699,7 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_CREATE_KEY_REQ: {
 		struct compat_qseecom_create_key_req __user *data32;
 		struct qseecom_create_key_req __user *data;
@@ -680,7 +717,7 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_WIPE_KEY_REQ: {
 		struct compat_qseecom_wipe_key_req __user *data32;
 		struct qseecom_wipe_key_req __user *data;
@@ -698,7 +735,7 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_UPDATE_KEY_USER_INFO_REQ: {
 		struct compat_qseecom_update_key_userinfo_req __user *data32;
 		struct qseecom_update_key_userinfo_req __user *data;
@@ -716,7 +753,7 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_SAVE_PARTITION_HASH_REQ: {
 		struct compat_qseecom_save_partition_hash_req __user *data32;
 		struct qseecom_save_partition_hash_req __user *data;
@@ -734,7 +771,7 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_IS_ES_ACTIVATED_REQ: {
 		struct compat_qseecom_is_es_activated_req __user *data32;
 		struct qseecom_is_es_activated_req __user *data;
@@ -754,7 +791,7 @@ long compat_qseecom_ioctl(struct file *file,
 		err = compat_put_qseecom_is_es_activated_req(data32, data);
 		return ret ? ret : err;
 	}
-
+	break;
 	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_RESP: {
 		struct compat_qseecom_send_modfd_listener_resp __user *data32;
 		struct qseecom_send_modfd_listener_resp __user *data;
@@ -772,10 +809,8 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
-
-	case COMPAT_QSEECOM_QTEEC_IOCTL_OPEN_SESSION_REQ:
-	case COMPAT_QSEECOM_QTEEC_IOCTL_CLOSE_SESSION_REQ:
-	case COMPAT_QSEECOM_QTEEC_IOCTL_INVOKE_MODFD_CMD_REQ: {
+	break;
+	case COMPAT_QSEECOM_QTEEC_IOCTL_CLOSE_SESSION_REQ: {
 		struct compat_qseecom_qteec_req __user *data32;
 		struct qseecom_qteec_req __user *data;
 		int err;
@@ -792,9 +827,30 @@ long compat_qseecom_ioctl(struct file *file,
 		return qseecom_ioctl(file, convert_cmd(cmd),
 						(unsigned long)data);
 	}
+	break;
+	case COMPAT_QSEECOM_QTEEC_IOCTL_OPEN_SESSION_REQ:
+	case COMPAT_QSEECOM_QTEEC_IOCTL_INVOKE_MODFD_CMD_REQ:
+	case COMPAT_QSEECOM_QTEEC_IOCTL_REQUEST_CANCELLATION_REQ: {
+		struct compat_qseecom_qteec_modfd_req __user *data32;
+		struct qseecom_qteec_modfd_req __user *data;
+		int err;
 
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(*data));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_get_qseecom_qteec_modfd_req(data32, data);
+		if (err)
+			return err;
+
+		return qseecom_ioctl(file, convert_cmd(cmd),
+						(unsigned long)data);
+	}
+	break;
 	default:
 		return -ENOIOCTLCMD;
+	break;
 	}
 	return 0;
 }
