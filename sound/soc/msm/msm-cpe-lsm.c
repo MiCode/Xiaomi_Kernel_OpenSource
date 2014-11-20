@@ -466,6 +466,7 @@ static int msm_cpe_lsm_close(struct snd_pcm_substream *substream)
 	struct cpe_lsm_session *session;
 	struct wcd_cpe_afe_ops *afe_ops;
 	struct wcd_cpe_afe_port_cfg *afe_cfg;
+	struct wcd_cpe_lsm_lab *lab_sess;
 	int rc = 0;
 
 	if (!cpe || !cpe->core_handle) {
@@ -484,8 +485,30 @@ static int msm_cpe_lsm_close(struct snd_pcm_substream *substream)
 
 	lsm_ops = &cpe->lsm_ops;
 	session = lsm_d->lsm_session;
+	lab_sess = &session->lab;
 	afe_ops = &cpe->afe_ops;
 	afe_cfg = &(lsm_d->lsm_session->afe_port_cfg);
+
+	if (lab_sess->thread_status == MSM_LSM_LAB_THREAD_RUNNING) {
+		/*
+		 * Close invoked while buferring is in progress.
+		 * Gracefully terminate the buferring before closing
+		 * the device.
+		 */
+		pr_err("%s: close when bufferring is in progress\n", __func__);
+		rc = kthread_stop(session->lsm_lab_thread);
+
+		/* Wait for the lab thread to exit */
+		rc = wait_for_completion_timeout(
+				&lab_sess->thread_complete,
+				MSM_CPE_LAB_THREAD_TIMEOUT);
+		if (!rc) {
+			dev_err(rtd->dev,
+				"%s: Wait for lab thread timedout\n",
+				__func__);
+			return -ETIMEDOUT;
+		}
+	}
 
 	rc = msm_cpe_afe_port_cntl(substream,
 				   cpe->core_handle,
