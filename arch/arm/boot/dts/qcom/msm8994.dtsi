@@ -1149,7 +1149,7 @@
 		qcom,bam-producer-pipe-index = <13>;
 		qcom,master-id = <86>;
 		qcom,use-pinctrl;
-		pinctrl-names = "default", "sleep";
+		pinctrl-names = "spi_default", "spi_sleep";
 		pinctrl-0 = <&spi_0_active &spi_0_cs1_active>;
 		pinctrl-1 = <&spi_0_sleep &spi_0_cs1_sleep>;
 

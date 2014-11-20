@@ -97,14 +97,14 @@ static int msm_spi_pinctrl_init(struct msm_spi *dd)
 		return PTR_ERR(dd->pinctrl);
 	}
 	dd->pins_active = pinctrl_lookup_state(dd->pinctrl,
-				PINCTRL_STATE_DEFAULT);
+				SPI_PINCTRL_STATE_DEFAULT);
 	if (IS_ERR_OR_NULL(dd->pins_active)) {
 		dev_err(dd->dev, "Failed to lookup pinctrl default state\n");
 		return PTR_ERR(dd->pins_active);
 	}
 
 	dd->pins_sleep = pinctrl_lookup_state(dd->pinctrl,
-				PINCTRL_STATE_SLEEP);
+				SPI_PINCTRL_STATE_SLEEP);
 	if (IS_ERR_OR_NULL(dd->pins_sleep)) {
 		dev_err(dd->dev, "Failed to lookup pinctrl sleep state\n");
 		return PTR_ERR(dd->pins_sleep);
@@ -136,7 +136,7 @@ static inline int msm_spi_request_gpios(struct msm_spi *dd)
 		result = pinctrl_select_state(dd->pinctrl, dd->pins_active);
 		if (result) {
 			dev_err(dd->dev, "%s: Can not set %s pins\n",
-			__func__, PINCTRL_STATE_DEFAULT);
+			__func__, SPI_PINCTRL_STATE_DEFAULT);
 			goto error;
 		}
 	}
@@ -172,7 +172,7 @@ static inline void msm_spi_free_gpios(struct msm_spi *dd)
 		result = pinctrl_select_state(dd->pinctrl, dd->pins_sleep);
 		if (result)
 			dev_err(dd->dev, "%s: Can not set %s pins\n",
-			__func__, PINCTRL_STATE_SLEEP);
+			__func__, SPI_PINCTRL_STATE_SLEEP);
 	}
 }
 
