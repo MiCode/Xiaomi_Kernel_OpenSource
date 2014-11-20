@@ -1656,7 +1656,9 @@ wait:
 							fg_batt_type);
 	if (!profile_node) {
 		pr_err("couldn't find profile handle\n");
-		return -ENODATA;
+		old_batt_type = default_batt_type;
+		rc = -ENODATA;
+		goto fail;
 	}
 
 	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
