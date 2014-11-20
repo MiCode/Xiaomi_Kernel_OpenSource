@@ -226,6 +226,7 @@ struct mdss_mdp_ctl {
 	struct mdss_mdp_perf_params new_perf;
 	u32 perf_transaction_status;
 	bool perf_release_ctl_bw;
+	u64 bw_pending;
 
 	bool traffic_shaper_enabled;
 	u32  traffic_shaper_mdp_clk;
