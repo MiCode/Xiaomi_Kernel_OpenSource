@@ -700,6 +700,4 @@ struct sst_probe_config {
 
 int sst_mix_put(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
 int sst_mix_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
-int sst_vtsv_enroll_set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
-int sst_vtsv_enroll_get(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol);
 #endif

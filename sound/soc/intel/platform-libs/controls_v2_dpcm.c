@@ -1323,11 +1323,6 @@ static const struct snd_kcontrol_new sst_mix_sw_vad =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 0, 1, 0,
 		sst_mix_get, sst_mix_put);
 
-static const struct snd_kcontrol_new sst_vad_enroll[] = {
-	SOC_SINGLE_BOOL_EXT("SST VTSV Enroll", 0, sst_vtsv_enroll_get,
-					sst_vtsv_enroll_set),
-};
-
 static const struct snd_kcontrol_new sst_mix_sw_tone_gen =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 1, 1, 0,
 		sst_mix_get, sst_mix_put);
@@ -2246,8 +2241,6 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 			ARRAY_SIZE(sst_mux_controls));
 	snd_soc_add_platform_controls(platform, sst_debug_controls,
 			ARRAY_SIZE(sst_debug_controls));
-	snd_soc_add_platform_controls(platform, sst_vad_enroll,
-			ARRAY_SIZE(sst_vad_enroll));
 	snd_soc_add_platform_controls(platform, sst_vtsv_read,
 			ARRAY_SIZE(sst_vtsv_read));
 
@@ -2296,8 +2289,6 @@ int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 	}
 	snd_soc_add_platform_controls(platform, sst_slot_controls,
 			ARRAY_SIZE(sst_slot_controls));
-	snd_soc_add_platform_controls(platform, sst_vad_enroll,
-			ARRAY_SIZE(sst_vad_enroll));
 
 	/* initialize the names of the probe points */
 	for (i = 0; i < ARRAY_SIZE(sst_probes); i++)
