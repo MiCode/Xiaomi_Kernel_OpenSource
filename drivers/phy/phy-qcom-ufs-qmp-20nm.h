@@ -30,6 +30,7 @@
 #define QSERDES_COM_PLL_CNTRL			COM_OFF(0x14)
 #define QSERDES_COM_PLL_IP_SETI			COM_OFF(0x24)
 #define QSERDES_COM_CORE_CLK_IN_SYNC_SEL	COM_OFF(0x28)
+#define QSERDES_COM_BIAS_EN_CLKBUFLR_EN		COM_OFF(0x30)
 #define QSERDES_COM_PLL_CP_SETI			COM_OFF(0x34)
 #define QSERDES_COM_PLL_IP_SETP			COM_OFF(0x38)
 #define QSERDES_COM_PLL_CP_SETP			COM_OFF(0x3C)
@@ -173,6 +174,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_1_2_0[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_TX_LANE_MODE(1), 0x68),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2(1), 0xdc),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2(0), 0xdc),
+	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x3),
 };
 
 static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_1_3_0[] = {
@@ -218,6 +220,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_1_3_0[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_TX_LANE_MODE(1), 0x68),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2(1), 0xdc),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2(0), 0xdc),
+	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x3),
 };
 
 static struct ufs_qcom_phy_calibration phy_cal_table_rate_B[] = {
