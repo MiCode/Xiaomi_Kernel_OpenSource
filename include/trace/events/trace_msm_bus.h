@@ -101,6 +101,36 @@ TRACE_EVENT(bus_avail_bw,
 		(unsigned long long)__entry->cur_mdp_bw)
 );
 
+TRACE_EVENT(bus_rules_matches,
+
+	TP_PROTO(int node_id, int rule_id, unsigned long long node_ab,
+		unsigned long long node_ib, unsigned long long node_clk),
+
+	TP_ARGS(node_id, rule_id, node_ab, node_ib, node_clk),
+
+	TP_STRUCT__entry(
+		__field(int, node_id)
+		__field(int, rule_id)
+		__field(u64, node_ab)
+		__field(u64, node_ib)
+		__field(u64, node_clk)
+	),
+
+	TP_fast_assign(
+		__entry->node_id = node_id;
+		__entry->rule_id = rule_id;
+		__entry->node_ab = node_ab;
+		__entry->node_ib = node_ib;
+		__entry->node_clk = node_clk;
+	),
+
+	TP_printk("Rule match node%d rule%d node-ab%llu:ib%llu:clk%llu",
+		__entry->node_id, __entry->rule_id,
+		(unsigned long long)__entry->node_ab,
+		(unsigned long long)__entry->node_ib,
+		(unsigned long long)__entry->node_clk)
+);
+
 TRACE_EVENT(bus_bke_params,
 
 	TP_PROTO(u32 gc, u32 gp, u32 thl, u32 thm, u32 thh),
