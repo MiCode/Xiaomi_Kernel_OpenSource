@@ -50,6 +50,13 @@ Parent node optional properties:
 					the Rbias needs to be controlled by
 					software. If this is not set, it will
 					be controlled by hardware (default).
+- qcom,fg-current-ma:			Battery current at which the fuel gauge
+					will issue end of charge if the charger
+					is configured to use the fuel gauge
+					ADCs for end of charge detection. This
+					property is in milliamps and should be
+					positive (e.g. 100mA to terminate at
+					-100mA).
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
