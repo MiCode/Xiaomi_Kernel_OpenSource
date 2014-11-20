@@ -331,7 +331,7 @@ ssize_t send_scratch_pad(struct device *dev, struct device_attribute *attr,
 	 * Parse the input string and extract the scratch pad register selection
 	 * parameters
 	 */
-	str = strstr(pinput, "offset=");
+	str = strnstr(pinput, "offset=", count);
 	if (str != NULL) {
 		str += 7;
 		status = si_strtoul(&str, 0, &offset);
@@ -3067,7 +3067,7 @@ void mhl_event_notify(struct mhl_dev_context *dev_context, u32 event,
 			"MHLEVENT=SPAD_CHG length=0x%02x data=", length);
 
 		count = 0;
-		while (idx < MAX_EVENT_STRING_LEN) {
+		while (buf && idx < MAX_EVENT_STRING_LEN) {
 			if (count >= length)
 				break;
 

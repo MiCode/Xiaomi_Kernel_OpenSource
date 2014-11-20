@@ -484,12 +484,14 @@ void si_mhl_tx_push_block_transactions(struct mhl_dev_context *dev_context)
 		req->payload->hdr_and_burst_id.tport_hdr.length_remaining =
 		    req->sub_payload_size;
 		req->count = payload_size;
-		/* The driver layer will fill in the rx_unload_ack field */
-		mhl_tx_drv_send_block((struct drv_hw_context *)
-				      (&dev_context->drv_context), req);
-		/* return request to free list */
-		return_block_queue_entry(dev_context, req);
-
+		if (req->count < EMSC_PAYLOAD_LEN) {
+			/* The driver layer will fill */
+			/* in the rx_unload_ack field */
+			mhl_tx_drv_send_block((struct drv_hw_context *)
+					      (&dev_context->drv_context), req);
+			/* return request to free list */
+			return_block_queue_entry(dev_context, req);
+		}
 	}
 	if (NULL == dev_context->block_protocol.marshalling_req) {
 		/* now start a new marshalling request */
@@ -1337,7 +1339,7 @@ void si_mhl_tx_drive_states(struct mhl_dev_context *dev_context)
 					    next_req;
 				}
 
-			} while (ret_val);
+			} while (ret_val && req);
 			break;
 		case MHL_MSC_MSG:
 			if (MHL_MSC_MSG_RAP == req->msg_data[0]) {
