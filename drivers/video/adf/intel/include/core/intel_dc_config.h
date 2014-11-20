@@ -180,6 +180,8 @@ struct intel_plane_ops {
 	/*FIXME: Have to put adf overlay ops*/
 	const struct adf_overlay_engine_ops adf_ops;
 #endif
+	int (*attach)(struct intel_plane *plane, struct intel_pipe *pipe);
+	int (*detach)(struct intel_plane *plane, struct intel_pipe *pipe);
 	int (*validate_custom_format)(struct intel_plane *plane, u32 format,
 		u32 w, u32 h);
 	int (*validate)(struct intel_plane *plane,
@@ -194,6 +196,7 @@ struct intel_plane_ops {
 
 struct intel_plane {
 	struct intel_dc_component base;
+	struct intel_pipe *pipe;
 	const struct intel_plane_capabilities *caps;
 	const struct intel_plane_ops *ops;
 };

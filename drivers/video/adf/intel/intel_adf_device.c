@@ -144,22 +144,38 @@ static void post_obj_set_destroy(struct post_obj_set *set)
 	}
 }
 
-/*----------------------------------------------------------------------------*/
-/*
 static int intel_adf_device_attach(struct adf_device *dev,
 				struct adf_overlay_engine *eng,
 				struct adf_interface *intf)
 {
-	return 0;
+	struct intel_adf_overlay_engine *intel_eng = to_intel_eng(eng);
+	struct intel_plane *plane = intel_eng->plane;
+	struct intel_adf_interface *intel_intf = to_intel_intf(intf);
+	struct intel_pipe *pipe = intel_intf->pipe;
+
+	if (plane && plane->ops && plane->ops->attach)
+		return plane->ops->attach(plane, pipe);
+	else
+		return -EINVAL;
 }
 
 static int intel_adf_device_detach(struct adf_device *dev,
 				struct adf_overlay_engine *eng,
 				struct adf_interface *intf)
 {
-	return 0;
+	struct intel_adf_overlay_engine *intel_eng = to_intel_eng(eng);
+	struct intel_plane *plane = intel_eng->plane;
+	struct intel_adf_interface *intel_intf = to_intel_intf(intf);
+	struct intel_pipe *pipe = intel_intf->pipe;
+
+	if (plane && plane->ops && plane->ops->detach)
+		return plane->ops->detach(plane, pipe);
+	else
+		return -EINVAL;
 }
 
+/*----------------------------------------------------------------------------*/
+/*
 static int intel_adf_device_validate_custom_format(struct adf_device *dev,
 						struct adf_buffer *buf)
 {
@@ -587,6 +603,8 @@ static void intel_adf_device_state_free(struct adf_device *dev,
 
 static const struct adf_device_ops intel_adf_device_ops = {
 	.owner = THIS_MODULE,
+	.attach = intel_adf_device_attach,
+	.detach = intel_adf_device_detach,
 	.validate_custom_format = intel_adf_device_validate_custom_format,
 	.validate = intel_adf_device_validate,
 	.post = intel_adf_device_post,
