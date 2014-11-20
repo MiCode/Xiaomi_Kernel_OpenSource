@@ -13,10 +13,11 @@
 /dts-v1/;
 
 #include "msm8909.dtsi"
+#include "msm8909-pm8909.dtsi"
 #include "msm8909-pinctrl.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8909 Simulator";
+	model = "Qualcomm Technologies, Inc. MSM8909-PM8909 Simulator";
 	compatible = "qcom,msm8909-sim", "qcom,msm8909", "qcom,sim";
 	qcom,board-id= <16 0>;
 };
