@@ -28,7 +28,7 @@
 #include "../platform_ipc_v2.h"
 #include "../sst_platform.h"
 #include "../sst_platform_pvt.h"
-#include "controls_v2.h"
+#include "controls_v2_dpcm.h"
 #include "sst_widgets.h"
 
 #define DUMP_LPE_BUFFERS 0
