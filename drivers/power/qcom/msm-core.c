@@ -116,6 +116,10 @@ module_param_named(disabled, disabled, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
 static bool in_suspend;
 static bool activate_power_table;
+static int max_throttling_temp = 80; /* in C */
+module_param_named(throttling_temp, max_throttling_temp, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+
 /*
  * Cannot be called from an interrupt context
  */
@@ -183,6 +187,8 @@ static void repopulate_stats(int cpu)
 		temp_point = (cpu_node->temp - TEMP_BASE_POINT) / 5;
 
 	cpu_stats[cpu].temp = cpu_node->temp;
+	cpu_stats[cpu].throttling = cpu_node->temp >= max_throttling_temp ?
+					true : false;
 	for (i = 0; i < cpu_node->sp->num_of_freqs; i++)
 		pt[i].power = cpu_node->sp->power[temp_point][i];
 
@@ -495,6 +501,8 @@ static int msm_core_stats_init(struct device *dev, int cpu)
 	cpu_node = &activity[cpu];
 	cpu_stats[cpu].cpu = cpu;
 	cpu_stats[cpu].temp = cpu_node->temp;
+	cpu_stats[cpu].throttling = cpu_node->temp >= max_throttling_temp ?
+					true : false;
 
 	cpu_stats[cpu].len = cpu_node->sp->num_of_freqs;
 	pstate = devm_kzalloc(dev,
@@ -921,6 +929,9 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(node, key, &poll_ms);
 	if (ret)
 		pr_info("msm-core initialized without polling period\n");
+
+	key = "qcom,throttling-temp";
+	ret = of_property_read_u32(node, key, &max_throttling_temp);
 
 	ret = msm_core_freq_init();
 	if (ret)
