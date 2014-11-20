@@ -351,6 +351,7 @@
 		qcom,iommu-ctx-sids = <2>;
 		interrupts = <0 241 0>, <0 240 0>;
 		qcom,secure-context;
+		linux,contiguous-region = <&secure_mem>;
 	};
 };
 

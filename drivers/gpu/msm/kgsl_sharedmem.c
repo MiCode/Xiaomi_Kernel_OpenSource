@@ -947,6 +947,9 @@ EXPORT_SYMBOL(kgsl_cma_alloc_coherent);
 int kgsl_cma_alloc_secure(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc, size_t size)
 {
+	struct kgsl_iommu *iommu = device->mmu.priv;
+	struct kgsl_iommu_unit *iommu_unit =
+			&iommu->iommu_units[KGSL_IOMMU_UNIT_0];
 	int result = 0;
 	struct cp2_lock_req request;
 	unsigned int resp;
@@ -963,7 +966,7 @@ int kgsl_cma_alloc_secure(struct kgsl_device *device,
 	memdesc->size = size;
 	memdesc->pagetable = pagetable;
 	memdesc->ops = &kgsl_cma_ops;
-	memdesc->dev = device->dev->parent;
+	memdesc->dev = iommu_unit->dev[KGSL_IOMMU_CONTEXT_SECURE].dev;
 
 	init_dma_attrs(&memdesc->attrs);
 	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &memdesc->attrs);
