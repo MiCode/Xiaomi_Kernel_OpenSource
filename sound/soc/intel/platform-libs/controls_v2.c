@@ -41,12 +41,6 @@
 		.mc.rshift = xshift, .mc.max = xmax, .mc.platform_max = xmax, \
 		.mc.invert = xinvert, .module_id = xmod, .pipe_id = xpipe, \
 		.instance_id = xinstance, .value = default_val } }
-/* Thresholds for Low Latency & Deep Buffer*/
-#define DEFAULT_LOW_LATENCY 10 /* In Ms */
-#define DEFAULT_DEEP_BUFFER 96
-
-unsigned long ll_threshold = DEFAULT_LOW_LATENCY;
-unsigned long db_threshold = DEFAULT_DEEP_BUFFER;
 
 int sst_algo_int_ctl_info(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_info *uinfo)
@@ -1707,19 +1701,6 @@ static const struct snd_kcontrol_new sst_mrfld_controls[] = {
 		       sst_vtsv_enroll_set),
 };
 
-static DEVICE_ULONG_ATTR(low_latency_threshold, 0644, ll_threshold);
-static DEVICE_ULONG_ATTR(deep_buffer_threshold, 0644, db_threshold);
-
-static struct attribute *device_sysfs_attrs[] = {
-	&dev_attr_low_latency_threshold.attr.attr,
-	&dev_attr_deep_buffer_threshold.attr.attr,
-	NULL,
-};
-
-static struct attribute_group attr_group = {
-	.attrs = device_sysfs_attrs,
-};
-
 int sst_dsp_init(struct snd_soc_platform *platform)
 {
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
@@ -1741,11 +1722,6 @@ int sst_dsp_init(struct snd_soc_platform *platform)
 	}
 
 	sst->vtsv_enroll = false;
-	/* Assign the pointer variables */
-	sst->ll_db.low_latency = &ll_threshold;
-	sst->ll_db.deep_buffer = &db_threshold;
-
-	pr_debug("Default ll thres %lu db thres %lu\n", ll_threshold, db_threshold);
 
 	snd_soc_dapm_new_controls(&platform->dapm, sst_dapm_widgets,
 			ARRAY_SIZE(sst_dapm_widgets));
@@ -1754,10 +1730,6 @@ int sst_dsp_init(struct snd_soc_platform *platform)
 	snd_soc_dapm_new_widgets(platform->dapm.card);
 	snd_soc_add_platform_controls(platform, sst_mrfld_controls,
 			ARRAY_SIZE(sst_mrfld_controls));
-
-	error = sysfs_create_group(&platform->dev->kobj, &attr_group);
-	if (error)
-		pr_err("failed to create sysfs files  %d\n", error);
 
 	return error;
 }

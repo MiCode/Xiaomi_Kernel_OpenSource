@@ -173,8 +173,7 @@ static void sst_fill_pcm_params(struct snd_pcm_substream *substream,
 }
 
 static int sst_get_stream_mapping(int dev, int sdev, int dir,
-	struct sst_dev_stream_map *map, int size, u8 pipe_id,
-	const struct sst_lowlatency_deepbuff *ll_db)
+	struct sst_dev_stream_map *map, int size)
 {
 	int index;
 
@@ -219,7 +218,7 @@ int sst_fill_stream_params(void *substream,
 	if (pstream) {
 		index = sst_get_stream_mapping(pstream->pcm->device,
 					  pstream->number, pstream->stream,
-					  map, map_size, ctx->pipe_id, &ctx->ll_db);
+					  map, map_size);
 		if (index <= 0)
 			return -EINVAL;
 
@@ -242,7 +241,7 @@ int sst_fill_stream_params(void *substream,
 		 * snd_compr_stream */
 		index = sst_get_stream_mapping(cstream->device->device,
 					       0, cstream->direction,
-					       map, map_size, ctx->pipe_id, &ctx->ll_db);
+					       map, map_size);
 		if (index <= 0)
 			return -EINVAL;
 		str_params->stream_id = index;
@@ -256,8 +255,6 @@ int sst_fill_stream_params(void *substream,
 	}
 	return 0;
 }
-
-#define CALC_PERIODTIME(period_size, rate) (((period_size) * 1000) / (rate))
 
 static int sst_platform_alloc_stream(struct snd_pcm_substream *substream,
 		struct snd_soc_platform *platform)
@@ -277,9 +274,6 @@ static int sst_platform_alloc_stream(struct snd_pcm_substream *substream,
 	str_params.sparams = param;
 	str_params.aparams = alloc_params;
 	str_params.codec = SST_CODEC_TYPE_PCM;
-
-	ctx->ll_db.period_time = CALC_PERIODTIME(substream->runtime->period_size,
-					substream->runtime->rate);
 
 	/* fill the device type and stream id to pass to SST driver */
 	ret_val = sst_fill_stream_params(substream, ctx, &str_params, false);
