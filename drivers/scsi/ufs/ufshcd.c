@@ -3379,7 +3379,7 @@ static int ufshcd_dme_link_startup(struct ufs_hba *hba)
 
 static inline void ufshcd_add_delay_before_dme_cmd(struct ufs_hba *hba)
 {
-	#define MIN_DELAY_BEFORE_DME_CMDS_US	700
+	#define MIN_DELAY_BEFORE_DME_CMDS_US	1000
 	unsigned long min_sleep_time_us;
 
 	if (!(hba->quirks & UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS))
