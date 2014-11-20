@@ -127,14 +127,14 @@ const struct ia_css_iefd2_6_config default_iefd2_6_config = {
 		224,
 		255
 		},
-	.cu_radial_slope_a = {
+	.cu_radial_slopes_a = {
 		713,
 		278,
 		295,
 		286,
 		-1
 		},
-	.cu_radial_slope_b = {
+	.cu_radial_slopes_b = {
 		1,
 		101,
 		162,

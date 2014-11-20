@@ -109,6 +109,9 @@ static const hrt_address MMU_BASE[N_MMU_ID] = {
 static const hrt_address DMA_BASE[N_DMA_ID] = {
 	0x0000000000040000ULL};
 
+static const hrt_address ISYS2401_DMA_BASE[N_ISYS2401_DMA_ID] = {
+	0x00000000000CA000ULL};
+
 /* IRQ */
 static const hrt_address IRQ_BASE[N_IRQ_ID] = {
 	0x0000000000000500ULL,
@@ -258,6 +261,9 @@ static const hrt_address MMU_BASE[N_MMU_ID] = {
 /* DMA */
 static const hrt_address DMA_BASE[N_DMA_ID] = {
 	0x00040000UL};
+
+static const hrt_address ISYS2401_DMA_BASE[N_ISYS2401_DMA_ID] = {
+	0x000CA000UL};
 
 /* IRQ */
 static const hrt_address IRQ_BASE[N_IRQ_ID] = {

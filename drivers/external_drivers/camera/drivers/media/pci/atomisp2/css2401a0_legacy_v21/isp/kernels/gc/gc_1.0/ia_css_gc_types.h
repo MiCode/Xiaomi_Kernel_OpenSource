@@ -26,6 +26,8 @@
 * CSS-API header file for Gamma Correction parameters.
 */
 
+#include "isp/kernels/ctc/ctc_1.0/ia_css_ctc_types.h"  /* FIXME: Needed for ia_css_vamem_type */
+
 /** Fractional bits for GAMMA gain */
 #define IA_CSS_GAMMA_GAIN_K_SHIFT      13
 

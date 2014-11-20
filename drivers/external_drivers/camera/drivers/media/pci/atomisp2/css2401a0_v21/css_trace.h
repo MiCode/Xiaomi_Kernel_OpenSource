@@ -19,9 +19,43 @@
  *
  */
 
+#ifndef __CSS_TRACE_H_
+#define __CSS_TRACE_H_
+
+#include <type_support.h>
+
 /*
-	constants for tracing
+	structs and constants for tracing
 */
+
+/* one tracer item: major, minor and counter. The counter value can be used for GP data */
+struct trace_item_t {
+	uint8_t   major;
+	uint8_t   minor;
+	uint16_t  counter;
+};
+
+/* trace header: holds the version and the topology of the tracer. */
+struct trace_header_t {
+	/* 1st dword */
+	uint8_t   version;
+	uint8_t   max_threads;
+	uint16_t  max_tracer_points;
+	/* 2nd dword */
+	uint32_t  command;
+	/* 3rd & 4th dword */
+	uint32_t  data[2];
+	/* 5th & 6th dword: debug pointer mechanism */
+	uint32_t  debug_ptr_signature;
+	uint32_t  debug_ptr_value;
+};
+
+
+/* buffer offsets and sizes, common to SP and host */
+#define TRACE_BUFF_ADDR       0xA000
+#define TRACE_BUFF_SIZE       0x1000	/* 4K allocated */
+#define SP1_TRACER_OFFSET     (TRACE_BUFF_SIZE/2)
+#define MAX_TRACER_POINTS     (TRACE_BUFF_SIZE/sizeof(struct trace_item_t))
 
 /* offsets for master_port read/write */
 #define HDR_HDR_OFFSET              0	/* offset of the header */
@@ -31,10 +65,10 @@
 #define HDR_DEBUG_POINTER_OFFSET    20	/* offset of the param debug pointer in trace_header_t */
 
 /* common majors */
-#define MAJOR_MAIN		1
-#define MAJOR_ISP_STAGE_ENTRY	2
-#define MAJOR_DMA_PRXY		3
-#define MAJOR_START_ISP		4
+#define MAJOR_MAIN              1
+#define MAJOR_ISP_STAGE_ENTRY   2
+#define MAJOR_DMA_PRXY          3
+#define MAJOR_START_ISP         4
 
 #define DEBUG_PTR_SIGNATURE     0xABCD	/* signature for the debug parameter pointer */
 
@@ -48,3 +82,5 @@ typedef enum {
 
 /* command signature */
 #define CMD_SIGNATURE	0xAABBCC00
+
+#endif /* __CSS_TRACE_H_ */

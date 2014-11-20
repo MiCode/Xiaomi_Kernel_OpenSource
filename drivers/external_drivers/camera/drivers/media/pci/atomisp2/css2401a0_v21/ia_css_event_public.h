@@ -67,9 +67,11 @@ enum ia_css_event_type {
 	IA_CSS_EVENT_TYPE_PORT_EOF			= 1 << 12,
 	/**< End Of Frame event, sent when in buffered sensor mode. */
 	IA_CSS_EVENT_TYPE_FW_ERROR			= 1 << 13,
-	/**< Unrecoverable error encounter by FW */
+	/**< @deprecated{Unrecoverable error encounter by FW } */
 	IA_CSS_EVENT_TYPE_FW_WARNING			= 1 << 14,
 	/**< Performance warning encounter by FW */
+	IA_CSS_EVENT_TYPE_FW_ASSERT			= 1 << 15,
+	/**< Assertion hit by FW */
 };
 
 #define IA_CSS_EVENT_TYPE_NONE 0
@@ -107,7 +109,7 @@ struct ia_css_event {
 	uint8_t                port;
 	/**< Port number for EOF event (not valid for other events). */
 	uint8_t                exp_id;
-	/**< Exposure id for EOF/TAGGED_FRAME event (not valid for other events)
+	/**< Exposure id for EOF/FRAME_TAGGED/FW_WARNING event (not valid for other events)
 	     The exposure ID is unique only within a logical stream and it is
 	     only generated on systems that have an input system (such as 2400
 	     and 2401, not on 2500 aka skycam).
@@ -126,9 +128,13 @@ struct ia_css_event {
 	/**< Firmware Handle for ACC_STAGE_COMPLETE event (not valid for other
 	     events). */
 	enum ia_css_fw_err     fw_error;
-	/**< Firmware error code, only for ERROR events. */
+	/**< @deprecated{This field is deprecated since ERROR events are no longer sent and will be removed. } */
 	enum ia_css_fw_warning fw_warning;
 	/**< Firmware warning code, only for WARNING events. */
+	uint8_t                fw_assert_module_id;
+	/**< Firmware module id, only for ASSERT events, should be logged by driver. */
+	uint16_t               fw_assert_line_no;
+	/**< Firmware line number, only for ASSERT events, should be logged by driver. */
 };
 
 /** @brief Dequeue a PSYS event from the CSS system.

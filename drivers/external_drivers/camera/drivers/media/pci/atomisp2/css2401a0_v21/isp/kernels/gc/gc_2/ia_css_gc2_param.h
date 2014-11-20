@@ -24,6 +24,7 @@
 
 #include "type_support.h"
 /* Extend GC1 */
+#include "ia_css_gc2_types.h"
 #include "gc/gc_1.0/ia_css_gc_param.h"
 #include "csc/csc_1.0/ia_css_csc_param.h"
 

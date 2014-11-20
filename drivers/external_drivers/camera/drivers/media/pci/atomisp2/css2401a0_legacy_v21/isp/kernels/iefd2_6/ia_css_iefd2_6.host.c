@@ -59,6 +59,10 @@ ia_css_iefd2_6_vmem_encode(
 		to->e_cu_non_dir_x[0][i] = 0;
 		to->e_cu_non_dir_a[0][i] = 0;
 		to->e_cu_non_dir_b[0][i] = 0;
+
+		to->e_curad_x[0][i] = 0;
+		to->e_curad_a[0][i] = 0;
+		to->e_curad_b[0][i] = 0;
 	}
 
 	/* Copy all data */
@@ -78,6 +82,10 @@ ia_css_iefd2_6_vmem_encode(
 		to->e_cu_non_dir_a[0][base] = 0;
 		to->e_cu_non_dir_b[0][base] = from->cu_non_dir_sharp_slopes_b[1];
 
+		to->e_curad_x[0][base] = 0;
+		to->e_curad_a[0][base] = 0;
+		to->e_curad_b[0][base] = from->cu_radial_slopes_b[1];
+
 		for (j = 1; j < 4; j++) {
 			to->e_cu_dir_a[0][base+j] = from->cu_dir_sharp_slopes_a[j];
 			to->e_cu_dir_b[0][base+j] = from->cu_dir_sharp_slopes_b[j];
@@ -96,8 +104,14 @@ ia_css_iefd2_6_vmem_encode(
 			to->e_cued_a[0][base+j] = from->cu_ed_slopes_a[j];
 			to->e_cued_b[0][base+j] = from->cu_ed_slopes_b[j];
 		}
-
 		to->e_cued_x[0][base+6] = from->cu_ed_points_x[j];
+
+		for (j = 1; j < 6; j++) {
+			to->e_curad_x[0][base+j] = from->cu_radial_points_x[j];
+			to->e_curad_a[0][base+j] = from->cu_radial_slopes_a[j];
+			to->e_curad_b[0][base+j] = from->cu_radial_slopes_b[j];
+		}
+		to->e_curad_x[0][base+6] = from->cu_radial_points_x[j];
 	}
 }
 
@@ -152,25 +166,8 @@ ia_css_iefd2_6_encode(
 	to->vssnlm_y3			= from->vssnlm_y3;
 
 	/* Setup for configurable units */
-	/* First copy the hardcoded items */
-	to->curad_x[0]			= 0;
-	to->curad_a[0]			= 0;
-	to->curad_b[0]			= from->cu_radial_slope_b[1];
-	to->e_cued2_a			= from->cu_ed2_slopes_a;
-	to->e_cu_vssnlm_a		= from->cu_vssnlm_slopes_a;
-
-	/* copying remaining array part */
-	for (i = 1; i < 5; i++)
-	{
-		to->curad_a[i]			= from->cu_radial_slope_a[i];
-		to->curad_b[i]			= from->cu_radial_slope_b[i];
-	}
-
-	for (i = 1; i < 6; i++)
-	{
-		to->curad_x[i]			= from->cu_radial_points_x[i];
-	}
-
+	to->e_cued2_a		= from->cu_ed2_slopes_a;
+	to->e_cu_vssnlm_a	= from->cu_vssnlm_slopes_a;
 	to->e_cued2_b		= ((0-from->cu_ed2_points_x[1]) * from->cu_ed2_slopes_a)>>4;
 	to->e_cu_vssnlm_b	= ((0-from->cu_vssnlm_points_x[1]) * from->cu_vssnlm_slopes_a)>>4;
 }

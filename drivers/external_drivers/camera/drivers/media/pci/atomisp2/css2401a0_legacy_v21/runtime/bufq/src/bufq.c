@@ -134,18 +134,20 @@ bool ia_css_query_internal_queue_id(
 	unsigned int thread_id,
 	enum sh_css_queue_id *val)
 {
-	assert(buf_type < IA_CSS_NUM_DYNAMIC_BUFFER_TYPE);
-	assert(thread_id < SH_CSS_MAX_SP_THREADS);
-	assert(val != NULL);
+	IA_CSS_ENTER("buf_type=%d, thread_id=%d, val = %p", buf_type, thread_id, val);
 
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
-		"ia_css_query_internal_queue_id() enter: buf_type=%d, thread_id=%d\n", buf_type, thread_id);
+	if ((val == NULL) || (thread_id >= SH_CSS_MAX_SP_THREADS) || (buf_type >= IA_CSS_NUM_DYNAMIC_BUFFER_TYPE)) {
+		IA_CSS_LEAVE("return_val = false");
+		return false;
+	}
+
 	*val = buffer_type_to_queue_id_map[thread_id][buf_type];
-	assert(*val != SH_CSS_INVALID_QUEUE_ID);
-	assert(*val < SH_CSS_MAX_NUM_QUEUES);
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
-		"ia_css_query_internal_queue_id() leave: return_val=%d\n",
-		*val);
+	if ((*val == SH_CSS_INVALID_QUEUE_ID) || (*val >= SH_CSS_MAX_NUM_QUEUES)) {
+		IA_CSS_LOG("INVALID queue ID MAP = %d\n", *val);
+		IA_CSS_LEAVE("return_val = false");
+		return false;
+	}
+	IA_CSS_LEAVE("return_val = true");
 	return true;
 }
 

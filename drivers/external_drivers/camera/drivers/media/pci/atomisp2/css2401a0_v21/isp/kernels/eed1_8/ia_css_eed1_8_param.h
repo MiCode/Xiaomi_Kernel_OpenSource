@@ -29,8 +29,8 @@
 /* Define size of the state..... TODO: check if this is the correct place */
 /* 4 planes : GR, R, B, GB */
 #define NUM_PLANES		4
-/* 3 lines state per color plane input_line_state */
-#define EED1_8_STATE_INPUT_BUFFER_HEIGHT	(2 * NUM_PLANES)
+/* 4 lines state per color plane input_line_state */
+#define EED1_8_STATE_INPUT_BUFFER_HEIGHT	(3 * NUM_PLANES)
 /* ToDo: Move this to testsetup */
 #define MAX_FRAME_SIMDWIDTH	30
 /* Each plane has width equal to half frame line */
@@ -58,20 +58,20 @@ struct ia_css_isp_eed1_8_params {
 	int32_t derel_gain1;
 
 	int32_t coring_pos0;
-	int32_t coring_pos1;
+	int32_t coring_pos_diff;
 	int32_t coring_neg0;
-	int32_t coring_neg1;
+	int32_t coring_neg_diff;
 
-	int32_t gain_exp;
+	int32_t gain;
 	int32_t gain_pos0;
-	int32_t gain_pos1;
+	int32_t gain_pos_diff;
 	int32_t gain_neg0;
-	int32_t gain_neg1;
+	int32_t gain_neg_diff;
 
 	int32_t pos_margin0;
-	int32_t pos_margin1;
+	int32_t margin_pos_diff;
 	int32_t neg_margin0;
-	int32_t neg_margin1;
+	int32_t margin_neg_diff;
 
 	int32_t dew_enhance_seg_x[IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS];
 	int32_t dew_enhance_seg_y[IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS];

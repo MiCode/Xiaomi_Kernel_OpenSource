@@ -53,14 +53,14 @@ mipi_port_ID_t ia_css_isys_port_to_mipi_port(
  * only started when all registered streams are configured.
  *
  * @param[in]	port		CSI port
- * @param[in]	stream_handle	Stream handle generated with ia_css_isys_generate_stream_handle()
+ * @param[in]	isys_stream_id	Stream handle generated with ia_css_isys_generate_stream_id()
  *				Must be lower than SH_CSS_MAX_ISYS_CHANNEL_NODES
  * @return			IA_CSS_SUCCESS if successful, IA_CSS_ERR_INTERNAL_ERROR if
  *				there is already a stream registered with the same handle
  */
 enum ia_css_err ia_css_isys_csi_rx_register_stream(
 	enum ia_css_csi2_port port,
-	uint32_t stream_handle);
+	uint32_t isys_stream_id);
 
 /**
  * @brief Unregister one (virtual) stream. This is used to track when all
@@ -68,14 +68,14 @@ enum ia_css_err ia_css_isys_csi_rx_register_stream(
  * only started when all registered streams are configured.
  *
  * @param[in]	port		CSI port
- * @param[in]	stream_handle	Stream handle generated with ia_css_isys_generate_stream_handle()
+ * @param[in]	isys_stream_id	Stream handle generated with ia_css_isys_generate_stream_id()
  *				Must be lower than SH_CSS_MAX_ISYS_CHANNEL_NODES
  * @return			IA_CSS_SUCCESS if successful, IA_CSS_ERR_INTERNAL_ERROR if
  *				there is no stream registered with that handle
  */
 enum ia_css_err ia_css_isys_csi_rx_unregister_stream(
 	enum ia_css_csi2_port port,
-	uint32_t stream_handle);
+	uint32_t isys_stream_id);
 
 enum ia_css_err ia_css_isys_convert_compressed_format(
 		struct ia_css_csi2_compression *comp,
@@ -125,7 +125,8 @@ enum ia_css_err ia_css_isys_convert_stream_format_to_mipi_format(
  */
 extern ia_css_isys_error_t ia_css_isys_stream_create(
 		ia_css_isys_descr_t	*isys_stream_descr,
-		ia_css_isys_stream_h	isys_stream);
+		ia_css_isys_stream_h	isys_stream,
+		uint32_t isys_stream_id);
 
 extern void ia_css_isys_stream_destroy(
 		ia_css_isys_stream_h	isys_stream);

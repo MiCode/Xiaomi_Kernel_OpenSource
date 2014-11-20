@@ -52,7 +52,7 @@
 /* Global variable which controls the verbosity levels of the debug tracing */
 extern unsigned int ia_css_debug_trace_level;
 
-/*! \brief Enum defining the different isp parameters to dump.
+/*! @brief Enum defining the different isp parameters to dump.
  *  Values can be combined to dump a combination of sets.
  */
 enum ia_css_debug_enable_param_dump {
@@ -126,11 +126,11 @@ enum ia_css_debug_enable_param_dump {
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE, \
 		"%s(): enter: leave: " fmt "\n", __func__, ##__VA_ARGS__)
 
-/*! \brief Function for tracing to the provided printf function in the
+/*! @brief Function for tracing to the provided printf function in the
  *	environment.
- * \param[in]	level		Level of the message.
- * \param[in]	fmt		printf like format string
- * \param[in]	args		arguments for the format string
+ * @param[in]	level		Level of the message.
+ * @param[in]	fmt		printf like format string
+ * @param[in]	args		arguments for the format string
  */
 STORAGE_CLASS_INLINE void
 ia_css_debug_vdtrace(unsigned int level, const char *fmt, va_list args)
@@ -151,53 +151,58 @@ ia_css_debug_dtrace(unsigned int level, const char *fmt, ...)
 }
 #endif
 
-/*! \brief Dump sp thread's stack contents
+/*! @brief Dump sp thread's stack contents
  * SP thread's stack contents are set to 0xcafecafe. This function dumps the
  * stack to inspect if the stack's boundaries are compromised.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_sp_stack_info(void);
 
-/*! \brief Function to set the global dtrace verbosity level.
- * \param[in]	trace_level	Maximum level of the messages to be traced.
- * \return	None
+/*! @brief Function to set the global dtrace verbosity level.
+ * @param[in]	trace_level	Maximum level of the messages to be traced.
+ * @return	None
  */
 void ia_css_debug_set_dtrace_level(
 	const unsigned int	trace_level);
 
-/*! \brief Dump input formatter state.
+/*! @brief Function to get the global dtrace verbosity level.
+ * @return	global dtrace verbosity level
+ */
+unsigned int ia_css_debug_get_dtrace_level(void);
+
+/*! @brief Dump input formatter state.
  * Dumps the input formatter state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_if_state(void);
 
-/*! \brief Dump isp hardware state.
+/*! @brief Dump isp hardware state.
  * Dumps the isp hardware state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_isp_state(void);
 
-/*! \brief Dump sp hardware state.
+/*! @brief Dump sp hardware state.
  * Dumps the sp hardware state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_sp_state(void);
 
-/*! \brief Dump dma controller state.
+/*! @brief Dump dma controller state.
  * Dumps the dma controller state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_dma_state(void);
 
-/*! \brief Dump internal sp software state.
+/*! @brief Dump internal sp software state.
  * Dumps the sp software state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_sp_sw_debug_info(void);
 
-/*! \brief Dump all related hardware state to the trace output
- * \param[in]  context	String to identify context in output.
- * \return	None
+/*! @brief Dump all related hardware state to the trace output
+ * @param[in]  context	String to identify context in output.
+ * @return	None
  */
 void ia_css_debug_dump_debug_info(
 	const char	*context);
@@ -207,36 +212,36 @@ void ia_css_debug_print_sp_debug_state(
 	const struct sh_css_sp_debug_state *state);
 #endif
 
-/*! \brief Dump all related binary info data
- * \param[in]  bi	Binary info struct.
- * \return	None
+/*! @brief Dump all related binary info data
+ * @param[in]  bi	Binary info struct.
+ * @return	None
  */
 void ia_css_debug_binary_print(
 	const struct ia_css_binary *bi);
 
 void ia_css_debug_sp_dump_mipi_fifo_high_water(void);
 
-/*! \brief Dump isp gdc fifo state to the trace output
+/*! @brief Dump isp gdc fifo state to the trace output
  * Dumps the isp gdc fifo state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_isp_gdc_fifo_state(void);
 
-/*! \brief Dump dma isp fifo state
+/*! @brief Dump dma isp fifo state
  * Dumps the dma isp fifo state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_dma_isp_fifo_state(void);
 
-/*! \brief Dump dma sp fifo state
+/*! @brief Dump dma sp fifo state
  * Dumps the dma sp fifo state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_dma_sp_fifo_state(void);
 
 /*! \brief Dump pif A isp fifo state
  * Dumps the primary input formatter state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_pif_a_isp_fifo_state(void);
 
@@ -246,71 +251,71 @@ void ia_css_debug_dump_pif_a_isp_fifo_state(void);
  */
 void ia_css_debug_dump_pif_b_isp_fifo_state(void);
 
-/*! \brief Dump stream-to-memory sp fifo state
+/*! @brief Dump stream-to-memory sp fifo state
  * Dumps the stream-to-memory block state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_str2mem_sp_fifo_state(void);
 
-/*! \brief Dump isp sp fifo state
+/*! @brief Dump isp sp fifo state
  * Dumps the isp sp fifo state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_isp_sp_fifo_state(void);
 
-/*! \brief Dump all fifo state info to the output
+/*! @brief Dump all fifo state info to the output
  * Dumps all fifo state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_all_fifo_state(void);
 
-/*! \brief Dump the rx state to the output
+/*! @brief Dump the rx state to the output
  * Dumps the rx state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_rx_state(void);
 
-/*! \brief Dump the input system state to the output
+/*! @brief Dump the input system state to the output
  * Dumps the input system state to tracing output.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_isys_state(void);
 
-/*! \brief Dump the frame info to the trace output
+/*! @brief Dump the frame info to the trace output
  * Dumps the frame info to tracing output.
- * \param[in]	frame		pointer to struct ia_css_frame
- * \param[in]	descr		description output along with the frame info
- * \return	None
+ * @param[in]	frame		pointer to struct ia_css_frame
+ * @param[in]	descr		description output along with the frame info
+ * @return	None
  */
 void ia_css_debug_frame_print(
 	const struct ia_css_frame	*frame,
 	const char	*descr);
 
-/*! \brief Function to enable sp sleep mode.
+/*! @brief Function to enable sp sleep mode.
  * Function that enables sp sleep mode
- * \param[in]	mode		indicates when to put sp to sleep
- * \return	None
+ * @param[in]	mode		indicates when to put sp to sleep
+ * @return	None
  */
 void ia_css_debug_enable_sp_sleep_mode(enum ia_css_sp_sleep_mode mode);
 
-/*! \brief Function to wake up sp when in sleep mode.
+/*! @brief Function to wake up sp when in sleep mode.
  * After sp has been put to sleep, use this function to let it continue
  * to run again.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_wake_up_sp(void);
 
-/*! \brief Function to dump isp parameters.
+/*! @brief Function to dump isp parameters.
  * Dump isp parameters to tracing output
- * \param[in]	stream		pointer to ia_css_stream struct
- * \param[in]	enable		flag indicating which parameters to dump.
- * \return	None
+ * @param[in]	stream		pointer to ia_css_stream struct
+ * @param[in]	enable		flag indicating which parameters to dump.
+ * @return	None
  */
 void ia_css_debug_dump_isp_params(struct ia_css_stream *stream, unsigned int enable);
 
-/*! \brief Function to dump some sp performance counters.
+/*! @brief Function to dump some sp performance counters.
  * Dump sp performance counters, currently input system errors.
- * \return	None
+ * @return	None
  */
 void ia_css_debug_dump_perf_counters(void);
 
@@ -324,80 +329,80 @@ void ia_css_debug_dump_isp_binary(void);
 
 void sh_css_dump_sp_raw_copy_linecount(bool reduced);
 
-/*! \brief Dump the resolution info to the trace output
+/*! @brief Dump the resolution info to the trace output
  * Dumps the resolution info to the trace output.
- * \param[in]	res	pointer to struct ia_css_resolution
- * \param[in]	label	description of resolution output
- * \return	None
+ * @param[in]	res	pointer to struct ia_css_resolution
+ * @param[in]	label	description of resolution output
+ * @return	None
  */
 void ia_css_debug_dump_resolution(
 	const struct ia_css_resolution *res,
 	const char *label);
 
-/*! \brief Dump the frame info to the trace output
+/*! @brief Dump the frame info to the trace output
  * Dumps the frame info to the trace output.
- * \param[in]	info	pointer to struct ia_css_frame_info
- * \param[in]	label	description of frame_info output
- * \return	None
+ * @param[in]	info	pointer to struct ia_css_frame_info
+ * @param[in]	label	description of frame_info output
+ * @return	None
  */
 void ia_css_debug_dump_frame_info(
 	const struct ia_css_frame_info *info,
 	const char *label);
 
-/*! \brief Dump the capture config info to the trace output
+/*! @brief Dump the capture config info to the trace output
  * Dumps the capture config info to the trace output.
- * \param[in]	config	pointer to struct ia_css_capture_config
- * \return	None
+ * @param[in]	config	pointer to struct ia_css_capture_config
+ * @return	None
  */
 void ia_css_debug_dump_capture_config(
 	const struct ia_css_capture_config *config);
 
-/*! \brief Dump the pipe extra config info to the trace output
+/*! @brief Dump the pipe extra config info to the trace output
  * Dumps the pipe extra config info to the trace output.
- * \param[in]	extra_config	pointer to struct ia_css_pipe_extra_config
- * \return	None
+ * @param[in]	extra_config	pointer to struct ia_css_pipe_extra_config
+ * @return	None
  */
 void ia_css_debug_dump_pipe_extra_config(
 	const struct ia_css_pipe_extra_config *extra_config);
 
-/*! \brief Dump the pipe config info to the trace output
+/*! @brief Dump the pipe config info to the trace output
  * Dumps the pipe config info to the trace output.
- * \param[in]	config	pointer to struct ia_css_pipe_config
- * \return	None
+ * @param[in]	config	pointer to struct ia_css_pipe_config
+ * @return	None
  */
 void ia_css_debug_dump_pipe_config(
 	const struct ia_css_pipe_config *config);
 
 
-/*! \brief Dump the stream config source info to the trace output
+/*! @brief Dump the stream config source info to the trace output
  * Dumps the stream config source info to the trace output.
- * \param[in]	config	pointer to struct ia_css_stream_config
- * \return	None
+ * @param[in]	config	pointer to struct ia_css_stream_config
+ * @return	None
  */
 void ia_css_debug_dump_stream_config_source(
 	const struct ia_css_stream_config *config);
 
-/*! \brief Dump the mipi buffer config info to the trace output
+/*! @brief Dump the mipi buffer config info to the trace output
  * Dumps the mipi buffer config info to the trace output.
- * \param[in]	config	pointer to struct ia_css_mipi_buffer_config
- * \return	None
+ * @param[in]	config	pointer to struct ia_css_mipi_buffer_config
+ * @return	None
  */
 void ia_css_debug_dump_mipi_buffer_config(
 	const struct ia_css_mipi_buffer_config *config);
 
-/*! \brief Dump the metadata config info to the trace output
+/*! @brief Dump the metadata config info to the trace output
  * Dumps the metadata config info to the trace output.
- * \param[in]	config	pointer to struct ia_css_metadata_config
- * \return	None
+ * @param[in]	config	pointer to struct ia_css_metadata_config
+ * @return	None
  */
 void ia_css_debug_dump_metadata_config(
 	const struct ia_css_metadata_config *config);
 
-/*! \brief Dump the stream config info to the trace output
+/*! @brief Dump the stream config info to the trace output
  * Dumps the stream config info to the trace output.
- * \param[in]	config		pointer to struct ia_css_stream_config
- * \param[in]	num_pipes	number of pipes for the stream
- * \return	None
+ * @param[in]	config		pointer to struct ia_css_stream_config
+ * @param[in]	num_pipes	number of pipes for the stream
+ * @return	None
  */
 void ia_css_debug_dump_stream_config(
 	const struct ia_css_stream_config *config,
@@ -445,6 +450,7 @@ bool ia_css_debug_mode_disable_dma_channel(
  *				- "0" indicates the writing request.
  *				- "1" indicates the reading request.
  *
+ * @return
  *	- true, if it is successful.
  *	- false, otherwise.
  */
@@ -452,5 +458,15 @@ bool ia_css_debug_mode_enable_dma_channel(
 	int dma_ID,
 	int channel_id,
 	int request_type);
+
+/**
+ * @brief Dump tracer data.
+ * [Currently support is only for SKC]
+ *
+ * @return
+ *	- none.
+ */
+void ia_css_debug_dump_trace(void);
+
 
 #endif /* _IA_CSS_DEBUG_H_ */

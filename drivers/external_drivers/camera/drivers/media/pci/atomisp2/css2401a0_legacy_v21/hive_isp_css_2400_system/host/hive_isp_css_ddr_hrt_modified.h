@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef _hive_isp_css_dma_hrt_h_
-#define _hive_isp_css_dma_hrt_h_
+#ifndef _hive_isp_css_ddr_hrt_modified_h_
+#define _hive_isp_css_ddr_hrt_modified_h_
 
 #include <hmm_64/hmm.h>
 
@@ -152,4 +152,4 @@ hrt_isp_css_calloc(
     unsigned int height,
     unsigned int bits_per_element);
 
-#endif /* _hive_isp_css_dma_hrt_h_ */
+#endif /* _hive_isp_css_ddr_hrt_modified_h_ */

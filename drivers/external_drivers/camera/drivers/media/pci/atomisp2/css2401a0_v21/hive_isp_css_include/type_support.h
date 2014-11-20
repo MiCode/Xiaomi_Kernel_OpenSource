@@ -57,7 +57,8 @@
 #endif
 
 #elif defined(__HIVECC)
-#include <stdint.h>
+#define __INDIRECT_STDINT_INCLUDE
+#include <stdint/stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <limits.h>
@@ -73,6 +74,7 @@
 #define HOST_ADDRESS(x) (unsigned long)(x)
 
 #elif defined(__GNUC__)
+#define __STDC_LIMIT_MACROS 1
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>

@@ -164,11 +164,13 @@ static int32_t calculate_stride(
  **************************************************/
 ia_css_isys_error_t ia_css_isys_stream_create(
 	ia_css_isys_descr_t	*isys_stream_descr,
-	ia_css_isys_stream_h	isys_stream)
+	ia_css_isys_stream_h	isys_stream,
+	uint32_t isys_stream_id)
 {
 	ia_css_isys_error_t rc;
 
-	if (isys_stream_descr == NULL || isys_stream == NULL)
+	if (isys_stream_descr == NULL || isys_stream == NULL ||
+		isys_stream_id >= SH_CSS_MAX_ISYS_CHANNEL_NODES)
 		return	false;
 
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,
@@ -177,6 +179,7 @@ ia_css_isys_error_t ia_css_isys_stream_create(
 	/*Reset isys_stream to 0*/
 	memset(isys_stream, 0, sizeof(*isys_stream));
 	isys_stream->enable_metadata = isys_stream_descr->metadata.enable;
+	isys_stream->id = isys_stream_id;
 
 	isys_stream->linked_isys_stream_id = isys_stream_descr->linked_isys_stream_id;
 	rc = create_input_system_input_port(isys_stream_descr, &(isys_stream->input_port));

@@ -170,6 +170,9 @@ struct input_system_cfg_s {
 
 typedef struct virtual_input_system_stream_s virtual_input_system_stream_t;
 struct virtual_input_system_stream_s {
+	uint32_t id;				/*Used when multiple MIPI data types and/or virtual channels are used.
+								Must be unique within one CSI RX
+								and lower than SH_CSS_MAX_ISYS_CHANNEL_NODES */
 	uint8_t enable_metadata;
 	input_system_input_port_t	input_port;
 	input_system_channel_t		channel;

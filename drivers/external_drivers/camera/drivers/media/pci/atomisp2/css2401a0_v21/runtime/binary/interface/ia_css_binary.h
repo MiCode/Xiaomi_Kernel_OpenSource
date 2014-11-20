@@ -222,11 +222,13 @@ ia_css_binary_get_shading_info(const struct ia_css_binary *binary,
 
 void
 ia_css_binary_3a_grid_info(const struct ia_css_binary *binary,
-			   struct ia_css_grid_info *info);
+			   struct ia_css_grid_info *info,
+			   struct ia_css_pipe *pipe);
 
 void
 ia_css_binary_dvs_grid_info(const struct ia_css_binary *binary,
-			   struct ia_css_grid_info *info);
+			    struct ia_css_grid_info *info,
+			    struct ia_css_pipe *pipe);
 
 unsigned
 ia_css_binary_max_vf_width(void);

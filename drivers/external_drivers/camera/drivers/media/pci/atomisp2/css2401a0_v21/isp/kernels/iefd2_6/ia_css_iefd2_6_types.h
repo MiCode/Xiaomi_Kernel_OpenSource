@@ -152,10 +152,10 @@ struct ia_css_iefd2_6_config {
 	int32_t cu_radial_points_x[6];	   /**< PointsX of Config Unit Radial.
 						u0.8, [0,255], default 50,86,142,189,224,255,
 						ineffective 0,0,0,0,0,0 */
-	int32_t cu_radial_slope_a[5];	   /**< SlopesA of Config Unit Radial.
+	int32_t cu_radial_slopes_a[5];	   /**< SlopesA of Config Unit Radial.
 						s5.8, [-8192, 8191], default 713,278,295,286,-1,
 						ineffective 0,0,0,0,0 */
-	int32_t cu_radial_slope_b[5];	   /**< SlopesB of Config Unit Radial.
+	int32_t cu_radial_slopes_b[5];	   /**< SlopesB of Config Unit Radial.
 						u0.8, [0,255], default 1,101,162,216,255,
 						ineffective 0,0,0,0,0 */
 	int32_t cu_vssnlm_points_x[2];	   /**< PointsX of config unit VSSNLM.

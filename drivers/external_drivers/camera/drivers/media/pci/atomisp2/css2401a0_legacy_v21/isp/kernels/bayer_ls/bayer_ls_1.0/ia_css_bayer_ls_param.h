@@ -25,6 +25,13 @@
 #include "type_support.h"
 
 #define NUM_BAYER_LS 2
+#define BAYER_IDX_GR 0
+#define BAYER_IDX_R 1
+#define BAYER_IDX_B 2
+#define BAYER_IDX_GB 3
+#define BAYER_QUAD_WIDTH 2
+#define BAYER_QUAD_HEIGHT 2
+#define NOF_BAYER_VECTORS 4
 
 /** bayer load/store */
 struct sh_css_isp_bayer_ls_isp_config {

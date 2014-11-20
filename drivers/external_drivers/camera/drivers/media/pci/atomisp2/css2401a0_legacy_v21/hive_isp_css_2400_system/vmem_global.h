@@ -32,4 +32,8 @@
 #define VMEM_ALIGN	ISP_VMEM_ALIGN
 #endif
 
+#ifndef PIPE_GENERATION
+typedef tvector *pvector;
+#endif
+
 #endif /* __VMEM_GLOBAL_H_INCLUDED__ */

@@ -88,8 +88,10 @@ void ia_css_rmgr_refcount_retain_vbuf(struct ia_css_rmgr_vbuf_handle **handle)
 {
 	int i;
 	struct ia_css_rmgr_vbuf_handle *h;
-	assert(handle != NULL);
-	assert(*handle != NULL);
+	if ((handle == NULL) || (*handle == NULL)) {
+		IA_CSS_LOG("Invalid inputs");
+		return;
+	}
 	/* new vbuf to count on */
 	if ((*handle)->count == 0) {
 		h = *handle;
@@ -284,9 +286,10 @@ void ia_css_rmgr_acq_vbuf(struct ia_css_rmgr_vbuf_pool *pool,
 	struct ia_css_rmgr_vbuf_handle h;
 #endif /* __KLOCWORK__ */
 
-	assert(pool != NULL);
-	assert(handle != NULL);
-	assert(*handle != NULL);
+	if ((pool == NULL) || (handle == NULL) || (*handle == NULL)) {
+		IA_CSS_LOG("Invalid inputs");
+		return;
+	}
 
 	if (pool->copy_on_write) {
 		/* only one reference, reuse (no new retain) */
@@ -329,9 +332,10 @@ void ia_css_rmgr_acq_vbuf(struct ia_css_rmgr_vbuf_pool *pool,
 void ia_css_rmgr_rel_vbuf(struct ia_css_rmgr_vbuf_pool *pool,
 			  struct ia_css_rmgr_vbuf_handle **handle)
 {
-	assert(pool != NULL);
-	assert(handle != NULL);
-	assert(*handle != NULL);
+	if ((pool == NULL) || (handle == NULL) || (*handle == NULL)) {
+		IA_CSS_LOG("Invalid inputs");
+		return;
+	}
 	/* release the handle */
 	if ((*handle)->count == 1) {
 		if (!pool->recycle) {

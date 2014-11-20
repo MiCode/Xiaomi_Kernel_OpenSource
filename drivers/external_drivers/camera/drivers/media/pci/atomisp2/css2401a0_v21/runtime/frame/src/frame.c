@@ -299,16 +299,14 @@ enum ia_css_err ia_css_frame_allocate_contiguous_from_info(
 
 void ia_css_frame_free(struct ia_css_frame *frame)
 {
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
-		"ia_css_frame_free() enter: frame=%p\n", frame);
+	IA_CSS_ENTER_PRIVATE("frame = %p", frame);
 
 	if (frame != NULL) {
 		mmgr_free(frame->data);
 		sh_css_free(frame);
 	}
 
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
-		"ia_css_frame_free() leave: return_void\n");
+	IA_CSS_LEAVE_PRIVATE("void");
 }
 
 /**************************************************************************

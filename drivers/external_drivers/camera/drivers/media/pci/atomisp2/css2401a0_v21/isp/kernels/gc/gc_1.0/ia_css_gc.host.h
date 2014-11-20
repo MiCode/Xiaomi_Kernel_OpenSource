@@ -22,8 +22,6 @@
 #ifndef __IA_CSS_GC_HOST_H
 #define __IA_CSS_GC_HOST_H
 
-#include "sh_css_params.h"
-
 #include "ia_css_gc_param.h"
 #include "ia_css_gc_table.host.h"
 
@@ -48,6 +46,7 @@ ia_css_ce_encode(
 	const struct ia_css_ce_config *from,
 	unsigned size);
 
+#ifndef IA_CSS_NO_DEBUG
 void
 ia_css_gc_dump(
 	const struct sh_css_isp_gc_params *gc,
@@ -67,5 +66,7 @@ void
 ia_css_ce_debug_dtrace(
 	const struct ia_css_ce_config *config,
 	unsigned level);
+
+#endif
 
 #endif /* __IA_CSS_GC_HOST_H */

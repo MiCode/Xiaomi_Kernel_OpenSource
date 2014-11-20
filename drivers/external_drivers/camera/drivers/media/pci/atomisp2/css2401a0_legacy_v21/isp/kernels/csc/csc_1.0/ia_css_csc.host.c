@@ -21,7 +21,10 @@
 
 #include "ia_css_types.h"
 #include "sh_css_defs.h"
+#ifndef IA_CSS_NO_DEBUG
+/* FIXME: See BZ 4427 */
 #include "ia_css_debug.h"
+#endif
 
 #include "ia_css_csc.host.h"
 
@@ -37,7 +40,9 @@ ia_css_encode_cc(
 	unsigned size)
 {
 	(void)size;
+#ifndef IA_CSS_NO_DEBUG
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE, "ia_css_encode_cc() enter:\n");
+#endif
 
 	to->m_shift    = (int16_t) from->fraction_bits;
 	to->m00 = (int16_t) from->matrix[0];
@@ -50,7 +55,9 @@ ia_css_encode_cc(
 	to->m21 = (int16_t) from->matrix[7];
 	to->m22 = (int16_t) from->matrix[8];
 
+#ifndef IA_CSS_NO_DEBUG
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE, "ia_css_encode_cc() leave:\n");
+#endif
 }
 
 void
@@ -62,6 +69,7 @@ ia_css_csc_encode(
 	ia_css_encode_cc(to, from, size);
 }
 
+#ifndef IA_CSS_NO_DEBUG
 void
 ia_css_cc_dump(
 	const struct sh_css_isp_csc_params *csc,
@@ -127,5 +135,5 @@ ia_css_cc_config_debug_dtrace(
 		config->matrix[5], config->matrix[6],
 		config->matrix[7], config->matrix[8]);
 }
-
+#endif
 

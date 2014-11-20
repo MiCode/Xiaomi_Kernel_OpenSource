@@ -25,6 +25,10 @@
 #include "ia_css_isys.h"
 #include "platform_support.h"
 
+#ifdef USE_INPUT_SYSTEM_VERSION_2401
+#include "isys_dma.h"		/* isys2401_dma_set_max_burst_size() */
+#endif
+
 #if defined(USE_INPUT_SYSTEM_VERSION_2)
 input_system_error_t ia_css_isys_init(void)
 {
@@ -97,6 +101,9 @@ input_system_error_t ia_css_isys_init(void)
 	ia_css_isys_ibuf_rmgr_init();
 	ia_css_isys_dma_channel_rmgr_init();
 	ia_css_isys_stream2mmio_sid_rmgr_init();
+
+	isys2401_dma_set_max_burst_size(ISYS2401_DMA0_ID,
+		1 /* Non Burst DMA transactions */);
 
 	return error;
 }
