@@ -2173,15 +2173,17 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	 */
 	match_found = false;
 	for (i = 0; i < size; i += cpr_vreg->num_fuse_corners + 2) {
-		if (tmp[i] == cpr_vreg->speed_bin &&
-		    tmp[i + 1] == cpr_vreg->pvs_version) {
-			for (j = CPR_FUSE_CORNER_MIN;
-			     j <= cpr_vreg->num_fuse_corners; j++)
-				corner_max[j]
-					= tmp[i + 2 + j - CPR_FUSE_CORNER_MIN];
-			match_found = true;
-			break;
-		}
+		if (tmp[i] != cpr_vreg->speed_bin &&
+		    tmp[i] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		if (tmp[i + 1] != cpr_vreg->pvs_version &&
+		    tmp[i + 1] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		for (j = CPR_FUSE_CORNER_MIN;
+		     j <= cpr_vreg->num_fuse_corners; j++)
+			corner_max[j] = tmp[i + 2 + j - CPR_FUSE_CORNER_MIN];
+		match_found = true;
+		break;
 	}
 	kfree(tmp);
 
@@ -2970,15 +2972,16 @@ static int cpr_fill_override_voltage(struct cpr_regulator *cpr_vreg,
 	 * and pvs_version values.
 	 */
 	for (i = 0; i < size; i += cpr_vreg->num_corners + 2) {
-		if (tmp[i] == cpr_vreg->speed_bin &&
-		    tmp[i + 1] == cpr_vreg->pvs_version) {
-			for (j = CPR_CORNER_MIN;
-			     j <= cpr_vreg->num_corners; j++)
-				virtual_limit[j]
-					= tmp[i + 2 + j - CPR_FUSE_CORNER_MIN];
-			match_found = true;
-			break;
-		}
+		if (tmp[i] != cpr_vreg->speed_bin &&
+		    tmp[i] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		if (tmp[i + 1] != cpr_vreg->pvs_version &&
+		    tmp[i + 1] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		for (j = CPR_CORNER_MIN; j <= cpr_vreg->num_corners; j++)
+			virtual_limit[j] = tmp[i + 2 + j - CPR_FUSE_CORNER_MIN];
+		match_found = true;
+		break;
 	}
 	kfree(tmp);
 
