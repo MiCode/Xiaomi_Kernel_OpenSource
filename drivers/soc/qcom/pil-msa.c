@@ -172,8 +172,8 @@ static int pil_mss_restart_reg(struct q6v5_data *drv, u32 mss_restart)
 	int scm_ret = 0;
 	struct scm_desc desc = {0};
 
-	desc.args[0] = MSS_RESTART_PARAM_ID;
-	desc.args[1] = mss_restart;
+	desc.args[0] = mss_restart;
+	desc.args[1] = 0;
 	desc.arginfo = SCM_ARGS(2);
 
 	if (drv->restart_reg && !drv->restart_reg_sec) {
