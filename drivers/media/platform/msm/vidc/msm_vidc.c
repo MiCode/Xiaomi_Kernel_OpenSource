@@ -1333,7 +1333,7 @@ int msm_vidc_close(void *instance)
 	int rc = 0;
 	int i;
 
-	if (!inst)
+	if (!inst || !inst->core)
 		return -EINVAL;
 
 	v4l2_fh_del(&inst->event_handler);
@@ -1353,6 +1353,8 @@ int msm_vidc_close(void *instance)
 	mutex_unlock(&inst->registeredbufs.lock);
 
 	core = inst->core;
+	msm_comm_session_clean(inst);
+
 	mutex_lock(&core->lock);
 	list_for_each_entry_safe(temp, inst_dummy, &core->instances, list) {
 		if (temp == inst)
