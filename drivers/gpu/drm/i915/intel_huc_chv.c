@@ -112,9 +112,8 @@ out:
 	return obj;
 }
 
-static struct drm_i915_gem_object *create_huc_batch(struct drm_device *dev,
+static int add_huc_commands(struct intel_ringbuffer *ringbuf,
 	struct drm_i915_gem_object *fw_obj, u32 fw_size)
-
 {
 	#define CHV_DMA_GUC_OFFSET 0xc340
 	#define   CHV_GEN8_DMA_GUC_OFFSET (0x80000)
@@ -134,12 +133,15 @@ static struct drm_i915_gem_object *create_huc_batch(struct drm_device *dev,
 		0x00000000, 0x00000000, 0x00000000, 0x00000000,
 		0x00000000, 0x00000000, 0x00000000, 0x13000000,
 		0x00000004, 0x00000000, 0x00000000, 0x00000000,
-		0x00000000, 0x00000000, 0x00000000, 0x05000000,
+		0x00000000, 0x00000000, 0x00000000, 0x00000000,
 	};
 
+	struct intel_engine_cs *ring = ringbuf->ring;
+	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = NULL;
-	struct drm_i915_gem_object *obj = NULL;
-	int ret = 0;
+	int i;
+	int ret;
+	int load_cmd_size = sizeof(load_cmds) / sizeof(load_cmds[0]);
 
 	dev_priv = dev->dev_private;
 
@@ -155,45 +157,32 @@ static struct drm_i915_gem_object *create_huc_batch(struct drm_device *dev,
 	I915_WRITE(CHV_DMA_GUC_SIZE, 0);
 	POSTING_READ(CHV_DMA_GUC_SIZE);
 
-	obj = i915_gem_alloc_object(dev, 4096);
-	if (!obj)
-		HUC_ERROR_OUT("Failed allocation");
-
-	ret = i915_gem_obj_ggtt_pin(obj, 4096, 0);
-	if (ret)
-		HUC_ERROR_OUT("Failed to pin");
-
 	load_cmds[FIRMWARE_ADDR] |= i915_gem_obj_ggtt_offset(fw_obj);
 	load_cmds[FIRMWARE_SIZE] |= fw_size;
 
-	ret = i915_gem_object_write(obj, load_cmds, sizeof(load_cmds));
-	if (ret) {
-		i915_gem_object_ggtt_unpin(obj);
-		HUC_ERROR_OUT("Failed to write");
-	}
-out:
-	if (ret && obj) {
-		drm_gem_object_unreference(&obj->base);
-		obj = NULL;
-	}
+	ret = intel_logical_ring_begin(ringbuf, load_cmd_size);
+	if (ret)
+		return ret;
 
-	return obj;
+	for (i = 0; i < load_cmd_size; i++)
+		intel_logical_ring_emit(ringbuf, load_cmds[i]);
+
+	intel_logical_ring_advance(ringbuf);
+
+	return ret;
 }
 
 static void finish_chv_huc_load(const struct firmware *fw, void *context)
 {
-	#define CHV_VCS_GFX_MODE 0x1229C
-
 	struct drm_i915_private *dev_priv = context;
 	struct drm_device *dev = dev_priv->dev;
-	struct drm_i915_gem_object *batch_obj = NULL;
 	struct drm_i915_gem_object *fw_obj = NULL;
 	struct intel_engine_cs *ring;
 	struct intel_context *ctx;
 	struct intel_ringbuffer *ringbuf;
 	u32 seqno;
 	u32 fw_size;
-	int ret = 0;
+	int ret;
 
 	if (!fw) {
 		DRM_ERROR("HuC: Null fw. Check fw binary file is present\n");
@@ -211,15 +200,9 @@ static void finish_chv_huc_load(const struct firmware *fw, void *context)
 		return;
 	}
 
-	I915_WRITE(CHV_VCS_GFX_MODE, 0x00010001);
-
 	fw_obj = create_fw_obj(dev, fw, &fw_size);
 	if (!fw_obj)
 		HUC_ERROR_OUT("Null fw obj");
-
-	batch_obj = create_huc_batch(dev, fw_obj, fw_size);
-	if (!batch_obj)
-		HUC_ERROR_OUT("Null batch obj");
 
 	ring = &dev_priv->ring[VCS];
 
@@ -231,32 +214,22 @@ static void finish_chv_huc_load(const struct firmware *fw, void *context)
 	if (!ringbuf)
 		HUC_ERROR_OUT("No ring obj");
 
-	ret = ring->emit_bb_start(ringbuf,
-			i915_gem_obj_ggtt_offset(batch_obj),
-			I915_DISPATCH_SECURE);
+	ret = add_huc_commands(ringbuf, fw_obj, fw_size);
 	if (ret)
-		HUC_ERROR_OUT("Failed to emit batch");
+		HUC_ERROR_OUT("add huc commands failed");
 
-	i915_vma_move_to_active(i915_gem_obj_to_ggtt(batch_obj), ring);
-
-	ret = __i915_add_request(ring, NULL, batch_obj, &seqno);
+	ret = __i915_add_request(ring, NULL, ringbuf->obj, &seqno);
 	if (ret)
 		HUC_ERROR_OUT("Failed to add request");
 
 	ret = i915_wait_seqno(ring, seqno);
 	if (ret)
-		HUC_ERROR_OUT("Batch didn't finish executing");
+		HUC_ERROR_OUT("Commands didn't finish executing");
 
 out:
-	I915_WRITE(CHV_VCS_GFX_MODE, 0x00010000);
-
 	if (fw_obj) {
 		i915_gem_object_ggtt_unpin(fw_obj);
 		drm_gem_object_unreference(&fw_obj->base);
-	}
-	if (batch_obj) {
-		i915_gem_object_ggtt_unpin(batch_obj);
-		drm_gem_object_unreference(&batch_obj->base);
 	}
 
 	mutex_unlock(&dev->struct_mutex);
