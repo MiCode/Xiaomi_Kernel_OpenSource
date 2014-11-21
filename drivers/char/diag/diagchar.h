@@ -78,6 +78,14 @@
 #define DIAG_STM_APPS	0x08
 #define DIAG_STM_SENSORS 0x16
 
+#define INVALID_PID		-1
+#define DIAG_CMD_FOUND		1
+#define DIAG_CMD_NOT_FOUND	0
+#define DIAG_CMD_POLLING	1
+#define DIAG_CMD_NOT_POLLING	0
+#define DIAG_CMD_ADD		1
+#define DIAG_CMD_REMOVE		0
+
 #define DIAG_CMD_VERSION	0
 #define DIAG_CMD_ERROR		0x13
 #define DIAG_CMD_DOWNLOAD	0x3A
@@ -89,6 +97,14 @@
 #define DIAG_CMD_GET_EVENT_MASK	0x81
 #define DIAG_CMD_SET_EVENT_MASK	0x82
 #define DIAG_CMD_EVENT_TOGGLE	0x60
+#define DIAG_CMD_NO_SUBSYS	0xFF
+#define DIAG_CMD_STATUS	0x0C
+#define DIAG_SS_WCDMA	0x04
+#define DIAG_CMD_QUERY_CALL	0x0E
+#define DIAG_SS_GSM	0x08
+#define DIAG_CMD_QUERY_TMC	0x02
+#define DIAG_SS_TDSCDMA	0x57
+#define DIAG_CMD_TDSCDMA_STATUS	0x0E
 
 #define DIAG_SS_DIAG		0x12
 #define DIAG_SS_PARAMS		0x32
@@ -195,10 +211,6 @@
 #define DIAG_CNTL_TYPE		2
 #define DIAG_DCI_TYPE		3
 
-/* Maximum number of pkt reg supported at initialization*/
-extern int diag_max_reg;
-extern int diag_threshold_reg;
-
 #define APPEND_DEBUG(ch) \
 do {							\
 	diag_debug_buf[diag_debug_buf_idx] = ch; \
@@ -226,33 +238,29 @@ struct diag_cmd_ext_mobile_rsp_t {
 	uint32_t family;
 };
 
-struct diag_master_table {
+struct diag_cmd_reg_entry_t {
 	uint16_t cmd_code;
 	uint16_t subsys_id;
-	uint32_t client_id;
 	uint16_t cmd_code_lo;
 	uint16_t cmd_code_hi;
-	int process_id;
+} __packed;
+
+struct diag_cmd_reg_t {
+	struct list_head link;
+	struct diag_cmd_reg_entry_t entry;
+	uint8_t proc;
+	int pid;
 };
 
-struct bindpkt_params_per_process {
-	/* Name of the synchronization object associated with this proc */
+/*
+ * @sync_obj_name: name of the synchronization object associated with this proc
+ * @count: number of entries in the bind
+ * @entries: the actual packet registrations
+ */
+struct diag_cmd_reg_tbl_t {
 	char sync_obj_name[MAX_SYNC_OBJ_NAME_SIZE];
-	uint32_t count;	/* Number of entries in this bind */
-	struct bindpkt_params *params; /* first bind params */
-};
-
-struct bindpkt_params {
-	uint16_t cmd_code;
-	uint16_t subsys_id;
-	uint16_t cmd_code_lo;
-	uint16_t cmd_code_hi;
-	/* For Central Routing, used to store Processor number */
-	uint16_t proc_id;
-	uint32_t event_id;
-	uint32_t log_code;
-	/* For Central Routing, used to store SMD channel pointer */
-	uint32_t client_id;
+	uint32_t count;
+	struct diag_cmd_reg_entry_t *entries;
 };
 
 struct diag_client_map {
@@ -412,6 +420,9 @@ struct diagchar_dev {
 	unsigned char *apps_dci_buf;
 	int dci_state;
 	struct workqueue_struct *diag_dci_wq;
+	struct list_head cmd_reg_list;
+	struct mutex cmd_reg_mutex;
+	uint32_t cmd_reg_count;
 	/* Sizes that reflect memory pool sizes */
 	unsigned int poolsize;
 	unsigned int poolsize_hdlc;
@@ -466,7 +477,6 @@ struct diagchar_dev {
 	struct work_struct diag_drain_work;
 	struct workqueue_struct *diag_cntl_wq;
 	uint8_t log_on_demand_support;
-	struct diag_master_table *table;
 	uint8_t *apps_req_buf;
 	uint32_t apps_req_buf_len;
 	uint8_t *dci_pkt_buf; /* For Apps DCI packets */
@@ -504,7 +514,6 @@ extern int wrap_enabled;
 extern uint16_t wrap_count;
 
 void diag_get_timestamp(char *time_str);
-int diag_find_polling_reg(int i);
 void check_drain_timer(void);
 int diag_get_remote(int remote_info);
 
@@ -516,5 +525,15 @@ void diag_ws_on_copy_fail(int type);
 void diag_ws_on_copy_complete(int type);
 void diag_ws_reset(int type);
 void diag_ws_release(void);
+
+int diag_cmd_add_reg(struct diag_cmd_reg_entry_t *new_entry, uint8_t proc,
+		     int pid);
+struct diag_cmd_reg_entry_t *diag_cmd_search(
+			struct diag_cmd_reg_entry_t *entry,
+			int proc);
+void diag_cmd_remove_reg(struct diag_cmd_reg_entry_t *entry, uint8_t proc);
+void diag_cmd_remove_reg_by_pid(int pid);
+void diag_cmd_remove_reg_by_proc(int proc);
+int diag_cmd_chk_polling(struct diag_cmd_reg_entry_t *entry);
 
 #endif

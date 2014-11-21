@@ -53,8 +53,6 @@
 
 int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
-/* Number of entries in table of buffers */
-struct diag_master_table entry;
 int wrap_enabled;
 uint16_t wrap_count;
 static struct diag_hdlc_decode_type *hdlc_decode;
@@ -852,51 +850,45 @@ void diag_update_sleeping_process(int process_id, int data_type)
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
-int diag_send_data(struct diag_master_table entry, unsigned char *buf,
-					 int len, int type)
+static int diag_send_data(struct diag_cmd_reg_t *entry, unsigned char *buf,
+			  int len)
 {
-	int success = 1;
 	int err = 0;
+	int peripheral;
+	struct diag_smd_info *smd_info = NULL;
 
-	/* If the process_id corresponds to an apps process */
-	if (entry.process_id != NON_APPS_PROC) {
-		/* If the message is to be sent to the apps process */
-		if (type != MODEM_DATA) {
-			diag_update_pkt_buffer(buf, len, PKT_TYPE);
-			diag_update_sleeping_process(entry.process_id,
-							PKT_TYPE);
-		}
-	} else {
-		if (len > 0) {
-			if (entry.client_id < NUM_SMD_DATA_CHANNELS) {
-				struct diag_smd_info *smd_info;
-				int index = entry.client_id;
-				if (!driver->rcvd_feature_mask[
-					entry.client_id]) {
-					pr_debug("diag: In %s, feature mask for peripheral: %d not received yet\n",
-						__func__, entry.client_id);
-					return 0;
-				}
+	if (!entry)
+		return -EIO;
 
-				smd_info = (driver->separate_cmdrsp[index] &&
-						index < NUM_SMD_CMD_CHANNELS) ?
-						&driver->smd_cmd[index] :
-						&driver->smd_data[index];
-				err = diag_smd_write(smd_info, buf, len);
-				if (err) {
-					pr_err_ratelimited("diag: In %s, unable to write to smd, peripheral: %d, type: %d, err: %d\n",
-						__func__, smd_info->peripheral,
-						smd_info->type, err);
-				}
-			} else {
-				pr_alert("diag: In %s, incorrect channel: %d",
-					__func__, entry.client_id);
-				success = 0;
-			}
-		}
+	if (entry->proc == APPS_PROC) {
+		diag_update_pkt_buffer(buf, len, PKT_TYPE);
+		diag_update_sleeping_process(entry->pid, PKT_TYPE);
+		return 0;
 	}
 
-	return success;
+	peripheral = entry->proc;
+	if (peripheral >= NUM_SMD_DATA_CHANNELS)
+		return -EINVAL;
+
+	if (!driver->rcvd_feature_mask[peripheral]) {
+		pr_debug("diag: In %s, yet to receive feature mask from %d\n",
+			 __func__, peripheral);
+		return -ENODEV;
+	}
+
+	if (driver->separate_cmdrsp[peripheral])
+		smd_info = &driver->smd_cmd[peripheral];
+	else
+		smd_info = &driver->smd_data[peripheral];
+
+	err = diag_smd_write(smd_info, buf, len);
+	if (err) {
+		pr_err_ratelimited("diag: In %s, unable to write to smd, peripheral: %d, type: %d, err: %d\n",
+				   __func__, smd_info->peripheral,
+				   smd_info->type, err);
+	}
+
+	return err;
 }
 
 void diag_process_stm_mask(uint8_t cmd, uint8_t data_mask, int data_type)
@@ -1070,14 +1062,17 @@ int diag_check_common_cmd(struct diag_pkt_header_t *header)
 
 int diag_process_apps_pkt(unsigned char *buf, int len)
 {
-	uint16_t subsys_cmd_code;
-	int subsys_id;
-	int packet_type = 1, i, cmd_code;
-	unsigned char *temp = buf;
-	int data_type;
+	int i;
+	int packet_type = 1;
 	int mask_ret;
-	int status = 0;
 	int write_len = 0;
+	unsigned char *temp = NULL;
+	struct diag_cmd_reg_entry_t entry;
+	struct diag_cmd_reg_entry_t *temp_entry = NULL;
+	struct diag_cmd_reg_t *reg_item = NULL;
+
+	if (!buf)
+		return -EIO;
 
 	/* Check if the command is a supported mask command */
 	mask_ret = diag_process_apps_masks(buf, len);
@@ -1086,64 +1081,25 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		return 0;
 	}
 
-	/* Check for registered clients and forward packet to apropriate proc */
-	cmd_code = (int)(*(char *)buf);
-	temp++;
-	subsys_id = (int)(*(char *)temp);
-	temp++;
-	subsys_cmd_code = *(uint16_t *)temp;
-	temp += 2;
-	data_type = APPS_DATA;
-	/* Dont send any command other than mode reset */
-	if (chk_apps_master() && cmd_code == MODE_CMD) {
-		if (subsys_id != RESET_ID)
-			data_type = MODEM_DATA;
+	temp = buf;
+	entry.cmd_code = (uint16_t)(*(uint8_t *)temp);
+	temp += sizeof(uint8_t);
+	entry.subsys_id = (uint16_t)(*(uint8_t *)temp);
+	temp += sizeof(uint8_t);
+	entry.cmd_code_hi = (uint16_t)(*(uint16_t *)temp);
+	entry.cmd_code_lo = (uint16_t)(*(uint16_t *)temp);
+	temp += sizeof(uint16_t);
+
+	pr_debug("diag: In %s, received cmd %02x %02x %02x\n",
+		 __func__, entry.cmd_code, entry.subsys_id, entry.cmd_code_hi);
+
+	temp_entry = diag_cmd_search(&entry, ALL_PROC);
+	if (temp_entry) {
+		reg_item = container_of(temp_entry, struct diag_cmd_reg_t,
+								entry);
+		return diag_send_data(reg_item, buf, len);
 	}
 
-	pr_debug("diag: %d %d %d", cmd_code, subsys_id, subsys_cmd_code);
-	for (i = 0; i < diag_max_reg; i++) {
-		entry = driver->table[i];
-		if (entry.process_id != NO_PROCESS) {
-			if (entry.cmd_code == cmd_code && entry.subsys_id ==
-				 subsys_id && entry.cmd_code_lo <=
-							 subsys_cmd_code &&
-				  entry.cmd_code_hi >= subsys_cmd_code) {
-				status = diag_send_data(entry, buf, len,
-								data_type);
-				if (status)
-					packet_type = 0;
-			} else if (entry.cmd_code == 255
-				  && cmd_code == 75) {
-				if (entry.subsys_id ==
-					subsys_id &&
-				   entry.cmd_code_lo <=
-					subsys_cmd_code &&
-					 entry.cmd_code_hi >=
-					subsys_cmd_code) {
-					status = diag_send_data(entry, buf,
-								len, data_type);
-					if (status)
-						packet_type = 0;
-				}
-			} else if (entry.cmd_code == 255 &&
-				  entry.subsys_id == 255) {
-				if (entry.cmd_code_lo <=
-						 cmd_code &&
-						 entry.
-						cmd_code_hi >= cmd_code) {
-					if (cmd_code == MODE_CMD &&
-							subsys_id == RESET_ID &&
-							entry.process_id ==
-							NON_APPS_PROC)
-						continue;
-					status = diag_send_data(entry, buf, len,
-								 data_type);
-					if (status)
-						packet_type = 0;
-				}
-			}
-		}
-	}
 #if defined(CONFIG_DIAG_OVER_USB)
 	/* Check for the command/respond msg for the maximum packet length */
 	if ((*buf == 0x4b) && (*(buf+1) == 0x12) &&
@@ -2133,6 +2089,9 @@ int diagfwd_init(void)
 	spin_lock_init(&driver->rsp_buf_busy_lock);
 	driver->user_space_data_busy = 0;
 	driver->hdlc_buf_len = 0;
+	INIT_LIST_HEAD(&driver->cmd_reg_list);
+	driver->cmd_reg_count = 0;
+	mutex_init(&driver->cmd_reg_mutex);
 
 	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
 		driver->separate_cmdrsp[i] = 0;
@@ -2189,12 +2148,6 @@ int diagfwd_init(void)
 							, GFP_KERNEL)) == NULL)
 		goto err;
 	kmemleak_not_leak(driver->data_ready);
-	if (driver->table == NULL &&
-	     (driver->table = kzalloc(diag_max_reg*
-		      sizeof(struct diag_master_table),
-		       GFP_KERNEL)) == NULL)
-		goto err;
-	kmemleak_not_leak(driver->table);
 	if (driver->apps_req_buf == NULL) {
 		driver->apps_req_buf = kzalloc(DIAG_MAX_REQ_SIZE, GFP_KERNEL);
 		if (!driver->apps_req_buf)
@@ -2243,7 +2196,6 @@ err:
 	kfree(driver->hdlc_buf);
 	kfree(driver->client_map);
 	kfree(driver->data_ready);
-	kfree(driver->table);
 	kfree(driver->apps_req_buf);
 	kfree(driver->dci_pkt_buf);
 	kfree(driver->apps_rsp_buf);
@@ -2276,7 +2228,6 @@ void diagfwd_exit(void)
 	kfree(hdlc_decode);
 	kfree(driver->client_map);
 	kfree(driver->data_ready);
-	kfree(driver->table);
 	kfree(driver->apps_req_buf);
 	kfree(driver->dci_pkt_buf);
 	kfree(driver->apps_rsp_buf);

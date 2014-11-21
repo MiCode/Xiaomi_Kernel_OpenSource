@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,7 @@
 #define DIAG_CTRL_MSG_LOG_RANGE_REPORT		23
 #define DIAG_CTRL_MSG_SSID_RANGE_REPORT		24
 #define DIAG_CTRL_MSG_BUILD_MASK_REPORT		25
+#define DIAG_CTRL_MSG_DEREG		27
 #define DIAG_CTRL_MSG_DCI_HANDSHAKE_PKT		29
 
 /*
@@ -98,6 +99,15 @@ struct diag_ctrl_cmd_reg {
 	uint16_t count_entries;
 	uint16_t port;
 };
+
+struct diag_ctrl_cmd_dereg {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint16_t cmd_code;
+	uint16_t subsysid;
+	uint16_t count_entries;
+} __packed;
 
 struct diag_ctrl_event_mask {
 	uint32_t cmd_type;
