@@ -82,6 +82,8 @@ struct rtac_adm_data {
 	uint32_t		afe_port;
 	uint32_t		copp;
 	uint32_t		num_of_popp;
+	uint32_t		app_type;
+	uint32_t		acdb_dev_id;
 	struct rtac_popp_data	popp[RTAC_MAX_ACTIVE_POPP];
 };
 
@@ -396,7 +398,8 @@ done:
 	return;
 }
 
-void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id)
+void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id,
+			 u32 app_type, u32 acdb_id)
 {
 	u32 i = 0;
 	pr_debug("%s: port_id = %d, popp_id = %d\n", __func__, port_id,
@@ -431,6 +434,8 @@ void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id)
 		adm_get_topology_for_port_from_copp_id(port_id, copp_id);
 	rtac_adm_data.device[i].afe_port = port_id;
 	rtac_adm_data.device[i].copp = copp_id;
+	rtac_adm_data.device[i].app_type = app_type;
+	rtac_adm_data.device[i].acdb_dev_id = acdb_id;
 	rtac_adm_data.device[i].popp[
 		rtac_adm_data.device[i].num_of_popp].popp = popp_id;
 	rtac_adm_data.device[i].popp[
