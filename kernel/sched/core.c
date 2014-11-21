@@ -8769,6 +8769,7 @@ void __init sched_init(void)
 		rq->hmp_flags = 0;
 		rq->mostly_idle_load = pct_to_real(20);
 		rq->mostly_idle_nr_run = 3;
+		rq->mostly_idle_freq = 0;
 #ifdef CONFIG_SCHED_FREQ_INPUT
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->old_busy_time = 0;
