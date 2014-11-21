@@ -118,3 +118,15 @@
 		synaptics,disable-gpios;
 	};
 };
+
+&soc {
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "synaptics_dsx";
+		qcom,disp-maxx = <1599>;
+		qcom,disp-maxy = <2559>;
+		qcom,panel-maxx = <1599>;
+		qcom,panel-maxy = <2703>;
+		qcom,key-codes = <158 139 102 217>;
+	};
+};
