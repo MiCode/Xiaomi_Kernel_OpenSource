@@ -144,3 +144,7 @@
 	pinctrl-5 = <&qdsd_clk_spmi &qdsd_cmd_spmi
 		     &qdsd_data0_spmi &qdsd_data3_spmi>;
 };
+
+&android_usb {
+        qcom,android-usb-cdrom;
+};
