@@ -25,15 +25,6 @@ int linear_interpolate(int y0, int x0, int y1, int x1, int x)
 	return y0 + ((y1 - y0) * (x - x0) / (x1 - x0));
 }
 
-int is_between(int left, int right, int value)
-{
-	if (left >= right && left >= value && value >= right)
-		return 1;
-	if (left <= right && left <= value && value <= right)
-		return 1;
-	return 0;
-}
-
 static int interpolate_single_lut_scaled(struct single_row_lut *lut,
 						int x, int scale)
 {
