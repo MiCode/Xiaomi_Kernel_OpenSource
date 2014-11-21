@@ -380,6 +380,12 @@ static int qmi_init_modem_send_sync_msg(void)
 	req.ctrl_comm_dest_end_pt_valid = true;
 	req.ctrl_comm_dest_end_pt =
 		ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	req.hdr_proc_ctx_tbl_info_valid = true;
+	req.hdr_proc_ctx_tbl_info.modem_offset_start =
+		IPA_MEM_PART(modem_hdr_proc_ctx_ofst) + smem_restr_bytes;
+	req.hdr_proc_ctx_tbl_info.modem_offset_end =
+		IPA_MEM_PART(modem_hdr_proc_ctx_ofst) +
+		IPA_MEM_PART(modem_hdr_proc_ctx_size) + smem_restr_bytes - 1;
 	if (is_load_uc) {  /* First time boot */
 		req.is_ssr_bootup_valid = false;
 		req.is_ssr_bootup = 0;
