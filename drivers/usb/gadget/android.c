@@ -101,6 +101,7 @@ struct android_dev {
 	bool sw_connected;
 	struct work_struct work;
 	char ffs_aliases[256];
+	u8 reset_string_id;
 };
 
 static struct class *android_class;
@@ -1274,7 +1275,12 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 
 	sscanf(buff, "%d", &enabled);
 	if (enabled && !dev->enabled) {
-		cdev->next_string_id = 0;
+		/* reset cdev->next_string_id to dev->reset_string_id
+		 * because "android_usb" driver is working and its
+		 * string descriptor numbers have been allocated
+		 */
+		cdev->next_string_id = dev->reset_string_id;
+
 		/*
 		 * Update values in composite driver's copy of
 		 * device descriptor.
@@ -1463,6 +1469,7 @@ static int android_bind(struct usb_composite_dev *cdev)
 		return id;
 	strings_dev[STRING_SERIAL_IDX].id = id;
 	device_desc.iSerialNumber = id;
+	dev->reset_string_id = id;
 
 	usb_gadget_set_selfpowered(gadget);
 	dev->cdev = cdev;

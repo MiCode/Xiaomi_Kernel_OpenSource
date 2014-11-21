@@ -1258,9 +1258,16 @@ mtp_function_bind(struct usb_configuration *c, struct usb_function *f)
 	struct mtp_dev	*dev = func_to_mtp(f);
 	int			id;
 	int			ret;
+	struct usb_string	*us;
 
 	dev->cdev = cdev;
 	DBG(cdev, "mtp_function_bind dev: %p\n", dev);
+
+	us = usb_gstrings_attach(cdev, mtp_strings,
+			ARRAY_SIZE(mtp_string_defs));
+	if (IS_ERR(us))
+		return PTR_ERR(us);
+	mtp_interface_desc.iInterface = us[INTERFACE_STRING_INDEX].id;
 
 	/* allocate interface ID(s) */
 	id = usb_interface_id(c, f);

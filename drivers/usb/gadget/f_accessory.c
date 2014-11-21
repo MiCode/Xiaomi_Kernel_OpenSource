@@ -905,8 +905,15 @@ acc_function_bind(struct usb_configuration *c, struct usb_function *f)
 	struct acc_dev	*dev = func_to_dev(f);
 	int			id;
 	int			ret;
+	struct usb_string	*us;
 
 	DBG(cdev, "acc_function_bind dev: %p\n", dev);
+
+	us = usb_gstrings_attach(cdev, acc_strings,
+			ARRAY_SIZE(acc_string_defs));
+	if (IS_ERR(us))
+		return PTR_ERR(us);
+	acc_interface_desc.iInterface = us[INTERFACE_STRING_INDEX].id;
 
 	ret = hid_register_driver(&acc_hid_driver);
 	if (ret)
@@ -981,6 +988,7 @@ acc_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_request *req;
 	int i;
 
+	acc_string_defs[INTERFACE_STRING_INDEX].id = 0;
 	while ((req = req_get(dev, &dev->tx_idle)))
 		acc_request_free(req, dev->ep_in);
 	for (i = 0; i < RX_REQ_MAX; i++)
@@ -1136,18 +1144,8 @@ static void acc_function_disable(struct usb_function *f)
 static int acc_bind_config(struct usb_configuration *c)
 {
 	struct acc_dev *dev = _acc_dev;
-	int ret;
 
 	printk(KERN_INFO "acc_bind_config\n");
-
-	/* allocate a string ID for our interface */
-	if (acc_string_defs[INTERFACE_STRING_INDEX].id == 0) {
-		ret = usb_string_id(c->cdev);
-		if (ret < 0)
-			return ret;
-		acc_string_defs[INTERFACE_STRING_INDEX].id = ret;
-		acc_interface_desc.iInterface = ret;
-	}
 
 	dev->cdev = c->cdev;
 	dev->function.name = "accessory";
