@@ -1,0 +1,4 @@
+config SND_SOC_HDA_BUS
+	tristate "SOC HDA bus driver"
+	help
+	 This adds support the generic SOC HDA Bus Core library

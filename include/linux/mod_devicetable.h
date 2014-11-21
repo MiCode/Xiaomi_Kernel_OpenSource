@@ -412,6 +412,17 @@ struct rpmsg_device_id {
 	char name[RPMSG_NAME_SIZE];
 };
 
+/*HDA Devide*/
+#define HDA_NAME_SIZE      20
+#define HDA_MODULE_PREFIX  "hda:"
+
+struct snd_soc_hda_device_id {
+	__u32 id;
+	__u8 addr;
+	char name[HDA_NAME_SIZE];
+	kernel_ulong_t driver_data;
+};
+
 /* i2c */
 
 #define I2C_NAME_SIZE	20
