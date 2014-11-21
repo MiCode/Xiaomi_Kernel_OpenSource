@@ -289,9 +289,14 @@ static int variable_rate_pll_clk_enable(struct clk *c)
 	mode |= PLL_RESET_N;
 	writel_relaxed(mode, PLL_MODE_REG(pll));
 
-	/* 5us delay mandated by HPG. Use 10 to be sure. */
+	/*
+	 * 5us delay mandated by HPG. However, put in a 50us delay here.
+	 * This is to address possible locking issues with the PLL exhibit
+	 * early "transient" locks about 16us from this point. With this
+	 * higher delay, we avoid running into those transients.
+	 */
 	mb();
-	udelay(10);
+	udelay(50);
 
 	/* Clear test control bits */
 	if (pll->test_ctl_lo_reg && pll->vals.test_ctl_lo_val &&
@@ -300,8 +305,16 @@ static int variable_rate_pll_clk_enable(struct clk *c)
 
 	/* Wait for pll to lock. */
 	for (count = ENABLE_WAIT_MAX_LOOPS; count > 0; count--) {
-		if (readl_relaxed(PLL_STATUS_REG(pll)) & lockmask)
-			break;
+		if (readl_relaxed(PLL_STATUS_REG(pll)) & lockmask) {
+			udelay(1);
+			/*
+			 * Check again to be sure. This is to avoid
+			 * breaking too early if there is a "transient"
+			 * lock.
+			 */
+			if ((readl_relaxed(PLL_STATUS_REG(pll)) & lockmask))
+				break;
+		}
 		udelay(1);
 	}
 
