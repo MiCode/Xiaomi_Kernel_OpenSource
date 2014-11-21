@@ -18,6 +18,13 @@
 	model = "Qualcomm Technologies, Inc. MSM ZIRC CDP";
 	compatible = "qcom,msmzirc-cdp", "qcom,msmzirc", "qcom,cdp";
 	qcom,board-id = <1 0x00030000>;
+
+        qcom,rmtfs_sharedmem@00000000 {
+            compatible = "qcom,sharedmem-uio";
+            reg = <0x00000000 0x00100000>;
+            reg-names = "rmtfs";
+            qcom,client-id = <0x00000001>;
+        };
 };
 
 &usb3 {
