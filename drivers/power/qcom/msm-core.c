@@ -33,6 +33,7 @@
 #include <linux/thermal.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
+#include <linux/uio_driver.h>
 #include <asm/smp_plat.h>
 #include <stdbool.h>
 #define CREATE_TRACE_POINTS
@@ -907,6 +908,49 @@ static void free_dyn_memory(void)
 	}
 }
 
+static int uio_init(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct uio_info *info = NULL;
+	struct resource *clnt_res = NULL;
+	u32 ea_mem_size = 0;
+	phys_addr_t ea_mem_pyhsical = 0;
+
+	clnt_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!clnt_res) {
+		pr_err("resource not found\n");
+		return -ENODEV;
+	}
+
+	info = devm_kzalloc(&pdev->dev, sizeof(struct uio_info), GFP_KERNEL);
+	if (!info)
+		return -ENOMEM;
+
+	ea_mem_size = resource_size(clnt_res);
+	ea_mem_pyhsical = clnt_res->start;
+
+	if (ea_mem_size == 0) {
+		pr_err("msm-core: memory size is zero");
+		return -EINVAL;
+	}
+
+	/* Setup device */
+	info->name = clnt_res->name;
+	info->version = "1.0";
+	info->mem[0].addr = ea_mem_pyhsical;
+	info->mem[0].size = ea_mem_size;
+	info->mem[0].memtype = UIO_MEM_PHYS;
+
+	ret = uio_register_device(&pdev->dev, info);
+	if (ret) {
+		pr_err("uio register failed ret=%d", ret);
+		return ret;
+	}
+	dev_set_drvdata(&pdev->dev, info);
+
+	return 0;
+}
+
 static int msm_core_dev_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -939,6 +983,10 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 
 	key = "qcom,throttling-temp";
 	ret = of_property_read_u32(node, key, &max_throttling_temp);
+
+	ret = uio_init(pdev);
+	if (ret)
+		return ret;
 
 	ret = msm_core_freq_init();
 	if (ret)
@@ -974,6 +1022,9 @@ failed:
 static int msm_core_remove(struct platform_device *pdev)
 {
 	int cpu;
+	struct uio_info *info = dev_get_drvdata(&pdev->dev);
+
+	uio_unregister_device(info);
 
 	for_each_possible_cpu(cpu) {
 		if (activity[cpu].sensor_id < 0)
