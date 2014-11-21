@@ -910,8 +910,12 @@ max17042_get_pdata(struct device *dev)
 		return NULL;
 
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
+	memset(&batt_prof, 0 , sizeof(batt_prof));
 	ret = get_batt_prop(&batt_prof);
-	if (ret < 0) {
+	/* Treat the battery as invalid if charge profile not found
+	 * or type is CHRG_PROF_NONE.
+	 */
+	if (ret < 0 || batt_prof.chrg_prof_type == CHRG_PROF_NONE) {
 		pdata->enable_current_sense = false;
 		snprintf(pdata->battid, (BATTID_LEN+1),
 			"%s", "UNKNOWNB");
