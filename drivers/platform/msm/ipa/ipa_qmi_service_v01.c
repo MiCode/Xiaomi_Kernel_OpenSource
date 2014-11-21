@@ -95,6 +95,60 @@ static struct elem_info ipa_modem_mem_info_type_data_v01_ei[] = {
 	},
 };
 
+static struct elem_info ipa_hdr_proc_ctx_tbl_info_type_data_v01_ei[] = {
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+		.offset		= offsetof(
+			struct ipa_hdr_proc_ctx_tbl_info_type_v01,
+			modem_offset_start),
+	},
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+		.offset		= offsetof(
+			struct ipa_hdr_proc_ctx_tbl_info_type_v01,
+			modem_offset_end),
+	},
+	{
+		.data_type	= QMI_EOTI,
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+	},
+};
+
+static struct elem_info ipa_zip_tbl_info_type_data_v01_ei[] = {
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+		.offset		= offsetof(struct ipa_zip_tbl_info_type_v01,
+					modem_offset_start),
+	},
+	{
+		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint32_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+		.offset		= offsetof(struct ipa_zip_tbl_info_type_v01,
+					modem_offset_end),
+	},
+	{
+		.data_type	= QMI_EOTI,
+		.is_array	= NO_ARRAY,
+		.tlv_type	= QMI_COMMON_TLV_TYPE,
+	},
+};
+
 static struct elem_info ipa_ipfltr_range_eq_16_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
@@ -821,6 +875,49 @@ struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_init_modem_driver_req_msg_v01,
 			is_ssr_bootup),
+	},
+	{
+		.data_type	= QMI_OPT_FLAG,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint8_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x19,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			hdr_proc_ctx_tbl_info_valid),
+	},
+	{
+		.data_type	= QMI_STRUCT,
+		.elem_len	= 1,
+		.elem_size	= sizeof(
+			struct ipa_hdr_proc_ctx_tbl_info_type_v01),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x19,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			hdr_proc_ctx_tbl_info),
+		.ei_array	= ipa_hdr_proc_ctx_tbl_info_type_data_v01_ei,
+	},
+	{
+		.data_type	= QMI_OPT_FLAG,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint8_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x1A,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			zip_tbl_info_valid),
+	},
+	{
+		.data_type	= QMI_STRUCT,
+		.elem_len	= 1,
+		.elem_size	= sizeof(struct ipa_zip_tbl_info_type_v01),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x1A,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			zip_tbl_info),
+		.ei_array	= ipa_zip_tbl_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
