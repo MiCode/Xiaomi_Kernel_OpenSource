@@ -1746,7 +1746,7 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	 * committed before returning.
 	 */
 	mb();
-	ufshcd_release(host->hba);
+	ufshcd_release(host->hba, false);
 	pm_runtime_put_sync(host->hba->dev);
 
 	return 0;
