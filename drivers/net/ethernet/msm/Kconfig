@@ -85,3 +85,12 @@ config RNDIS_IPA
 	  host using the RNDIS protocol.
 	  This Network interface is aimed to allow data path go through
 	  IPA core while using RNDIS protocol.
+
+config QFEC
+	tristate "QFEC ethernet driver"
+	select MII
+	depends on ARM
+	help
+	  This driver supports Ethernet in the FSM9xxx.
+	  To compile this driver as a module, choose M here: the
+	  module will be called qfec.
