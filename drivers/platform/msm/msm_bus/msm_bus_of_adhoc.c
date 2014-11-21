@@ -333,6 +333,14 @@ static struct msm_bus_node_info_type *get_node_info_data(
 		dev_dbg(&pdev->dev, "slv rpm id is missing\n");
 		node_info->slv_rpm_id = -1;
 	}
+	ret = of_property_read_u32(dev_node, "qcom,util-fact",
+						&node_info->util_fact);
+	if (ret)
+		node_info->util_fact = 0;
+	ret = of_property_read_u32(dev_node, "qcom,vrail-comp",
+						&node_info->vrail_comp);
+	if (ret)
+		node_info->vrail_comp = 0;
 	get_qos_params(dev_node, pdev, node_info);
 
 	return node_info;
