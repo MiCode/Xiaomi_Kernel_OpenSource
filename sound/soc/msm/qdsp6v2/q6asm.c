@@ -2874,7 +2874,6 @@ static int q6asm_map_channels(u8 *channel_mapping, uint32_t channels)
 		return -EINVAL;
 	}
 	return 0;
-
 }
 
 int q6asm_enable_sbrps(struct audio_client *ac,
@@ -3200,7 +3199,8 @@ fail_cmd:
 
 static int __q6asm_media_format_block_pcm(struct audio_client *ac,
 				uint32_t rate, uint32_t channels,
-				uint16_t bits_per_sample, int stream_id)
+				uint16_t bits_per_sample, int stream_id,
+				bool use_default_chmap, char *channel_map)
 {
 	struct asm_multi_channel_pcm_fmt_blk_v2 fmt;
 	u8 *channel_mapping;
@@ -3235,9 +3235,15 @@ static int __q6asm_media_format_block_pcm(struct audio_client *ac,
 
 	memset(channel_mapping, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
 
-	if (q6asm_map_channels(channel_mapping, channels)) {
-		pr_err("%s: map channels failed %d\n", __func__, channels);
-		return -EINVAL;
+	if (use_default_chmap) {
+		if (q6asm_map_channels(channel_mapping, channels)) {
+			pr_err("%s: map channels failed %d\n",
+				__func__, channels);
+			return -EINVAL;
+		}
+	} else {
+		memcpy(channel_mapping, channel_map,
+			 PCM_FORMAT_MAX_NUM_CHANNEL);
 	}
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
@@ -3265,7 +3271,8 @@ int q6asm_media_format_block_pcm(struct audio_client *ac,
 				uint32_t rate, uint32_t channels)
 {
 	return __q6asm_media_format_block_pcm(ac, rate,
-				channels, 16, ac->stream_id);
+				channels, 16, ac->stream_id,
+				true, NULL);
 }
 
 int q6asm_media_format_block_pcm_format_support(struct audio_client *ac,
@@ -3273,15 +3280,23 @@ int q6asm_media_format_block_pcm_format_support(struct audio_client *ac,
 				uint16_t bits_per_sample)
 {
 	return __q6asm_media_format_block_pcm(ac, rate,
-				channels, bits_per_sample, ac->stream_id);
+				channels, bits_per_sample, ac->stream_id,
+				true, NULL);
 }
 
 int q6asm_media_format_block_pcm_format_support_v2(struct audio_client *ac,
 				uint32_t rate, uint32_t channels,
-				uint16_t bits_per_sample, int stream_id)
+				uint16_t bits_per_sample, int stream_id,
+				bool use_default_chmap, char *channel_map)
 {
+	if (!use_default_chmap && (channel_map == NULL)) {
+		pr_err("%s: No valid chan map and can't use default\n",
+			__func__);
+		return -EINVAL;
+	}
 	return __q6asm_media_format_block_pcm(ac, rate,
-				channels, bits_per_sample, stream_id);
+				channels, bits_per_sample, stream_id,
+				use_default_chmap, channel_map);
 }
 
 static int __q6asm_media_format_block_multi_ch_pcm(struct audio_client *ac,
