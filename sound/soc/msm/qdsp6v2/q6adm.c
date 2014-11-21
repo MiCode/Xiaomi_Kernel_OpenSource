@@ -1916,14 +1916,14 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		} else if (channel_mode == 4) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
-			open.dev_channel_mapping[2] = PCM_CHANNEL_RB;
-			open.dev_channel_mapping[3] = PCM_CHANNEL_LB;
+			open.dev_channel_mapping[2] = PCM_CHANNEL_LS;
+			open.dev_channel_mapping[3] = PCM_CHANNEL_RS;
 		} else if (channel_mode == 5) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
 			open.dev_channel_mapping[2] = PCM_CHANNEL_FC;
-			open.dev_channel_mapping[3] = PCM_CHANNEL_LB;
-			open.dev_channel_mapping[4] = PCM_CHANNEL_RB;
+			open.dev_channel_mapping[3] = PCM_CHANNEL_LS;
+			open.dev_channel_mapping[4] = PCM_CHANNEL_RS;
 		} else if (channel_mode == 6) {
 			open.dev_channel_mapping[0] = PCM_CHANNEL_FL;
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
@@ -1936,10 +1936,10 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			open.dev_channel_mapping[1] = PCM_CHANNEL_FR;
 			open.dev_channel_mapping[2] = PCM_CHANNEL_LFE;
 			open.dev_channel_mapping[3] = PCM_CHANNEL_FC;
-			open.dev_channel_mapping[4] = PCM_CHANNEL_LB;
-			open.dev_channel_mapping[5] = PCM_CHANNEL_RB;
-			open.dev_channel_mapping[6] = PCM_CHANNEL_FLC;
-			open.dev_channel_mapping[7] = PCM_CHANNEL_FRC;
+			open.dev_channel_mapping[4] = PCM_CHANNEL_LS;
+			open.dev_channel_mapping[5] = PCM_CHANNEL_RS;
+			open.dev_channel_mapping[6] = PCM_CHANNEL_LB;
+			open.dev_channel_mapping[7] = PCM_CHANNEL_RB;
 		} else {
 			pr_err("%s: invalid num_chan %d\n", __func__,
 					channel_mode);

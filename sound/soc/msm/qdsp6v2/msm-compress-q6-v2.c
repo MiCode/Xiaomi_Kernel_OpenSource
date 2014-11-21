@@ -97,6 +97,7 @@ struct msm_compr_pdata {
 	struct msm_compr_audio_effects *audio_effects[MSM_FRONTEND_DAI_MAX];
 	bool use_dsp_gapless_mode;
 	struct msm_compr_dec_params *dec_params[MSM_FRONTEND_DAI_MAX];
+	struct msm_compr_ch_map *ch_map[MSM_FRONTEND_DAI_MAX];
 };
 
 struct msm_compr_audio {
@@ -172,6 +173,11 @@ struct msm_compr_audio_effects {
 
 struct msm_compr_dec_params {
 	struct snd_dec_ddp ddp_params;
+};
+
+struct msm_compr_ch_map {
+	bool set_ch_map;
+	char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL];
 };
 
 static int msm_compr_send_dec_params(struct snd_compr_stream *cstream,
@@ -584,6 +590,9 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 {
 	struct snd_compr_runtime *runtime = cstream->runtime;
 	struct msm_compr_audio *prtd = runtime->private_data;
+	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
+	struct msm_compr_pdata *pdata =
+			snd_soc_platform_get_drvdata(rtd->platform);
 	struct asm_aac_cfg aac_cfg;
 	struct asm_wma_cfg wma_cfg;
 	struct asm_wmapro_cfg wma_pro_cfg;
@@ -596,6 +605,12 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 	switch (prtd->codec) {
 	case FORMAT_LINEAR_PCM:
 		pr_debug("SND_AUDIOCODEC_PCM\n");
+		if (pdata->ch_map[rtd->dai_link->be_id]) {
+			use_default_chmap =
+			    !(pdata->ch_map[rtd->dai_link->be_id]->set_ch_map);
+			chmap =
+			    pdata->ch_map[rtd->dai_link->be_id]->channel_map;
+		}
 		if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE)
 			bit_width = 24;
 		ret = q6asm_media_format_block_pcm_format_support_v2(
@@ -1087,7 +1102,9 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 	q6asm_audio_client_free(ac);
 
 	kfree(pdata->audio_effects[soc_prtd->dai_link->be_id]);
+	pdata->audio_effects[soc_prtd->dai_link->be_id] = NULL;
 	kfree(pdata->dec_params[soc_prtd->dai_link->be_id]);
+	pdata->dec_params[soc_prtd->dai_link->be_id] = NULL;
 	kfree(prtd);
 
 	return 0;
@@ -2293,6 +2310,64 @@ static int msm_compr_app_type_cfg_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_compr_channel_map_put(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	u64 fe_id = kcontrol->private_value;
+	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
+			snd_soc_platform_get_drvdata(platform);
+	int rc = 0, i;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (pdata->ch_map[fe_id]) {
+		pdata->ch_map[fe_id]->set_ch_map = true;
+		for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+			pdata->ch_map[fe_id]->channel_map[i] =
+				(char)(ucontrol->value.integer.value[i]);
+	} else {
+		pr_debug("%s: no memory for ch_map, default will be set\n",
+			__func__);
+	}
+end:
+	pr_debug("%s: ret %d\n", __func__, rc);
+	return rc;
+}
+
+static int msm_compr_channel_map_get(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	u64 fe_id = kcontrol->private_value;
+	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
+			snd_soc_platform_get_drvdata(platform);
+	int rc = 0, i;
+
+	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s: Received out of bounds fe_id %llu\n",
+			__func__, fe_id);
+		rc = -EINVAL;
+		goto end;
+	}
+	if (pdata->ch_map[fe_id]) {
+		for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+			ucontrol->value.integer.value[i] =
+				pdata->ch_map[fe_id]->channel_map[i];
+	}
+end:
+	pr_debug("%s: ret %d\n", __func__, rc);
+	return rc;
+}
+
 static int msm_compr_probe(struct snd_soc_platform *platform)
 {
 	struct msm_compr_pdata *pdata;
@@ -2314,6 +2389,7 @@ static int msm_compr_probe(struct snd_soc_platform *platform)
 		pdata->audio_effects[i] = NULL;
 		pdata->dec_params[i] = NULL;
 		pdata->cstream[i] = NULL;
+		pdata->ch_map[i] = NULL;
 	}
 
 	/*
@@ -2361,6 +2437,16 @@ static int msm_compr_app_type_cfg_info(struct snd_kcontrol *kcontrol,
 {
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = 5;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = 0xFFFFFFFF;
+	return 0;
+}
+
+static int msm_compr_channel_map_info(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 8;
 	uinfo->value.integer.min = 0;
 	uinfo->value.integer.max = 0xFFFFFFFF;
 	return 0;
@@ -2592,6 +2678,65 @@ static int msm_compr_add_app_type_cfg_control(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+static int msm_compr_add_channel_map_control(struct snd_soc_pcm_runtime *rtd)
+{
+	const char *mixer_ctl_name = "Playback Channel Map";
+	const char *deviceNo       = "NN";
+	char *mixer_str = NULL;
+	struct msm_compr_pdata *pdata = NULL;
+	int ctl_len;
+	struct snd_kcontrol_new fe_channel_map_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_compr_channel_map_info,
+		.get = msm_compr_channel_map_get,
+		.put = msm_compr_channel_map_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s: NULL rtd\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: added new compr FE with name %s, id %d, cpu dai %s, device no %d\n",
+		 __func__, rtd->dai_link->name, rtd->dai_link->be_id,
+		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+
+	ctl_len = strlen(mixer_ctl_name) + strlen(deviceNo) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+
+	if (!mixer_str) {
+		pr_err("%s: failed to allocate mixer ctrl str of len %d\n",
+			__func__, ctl_len);
+		return -ENOMEM;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s%d", mixer_ctl_name, rtd->pcm->device);
+
+	fe_channel_map_control[0].name = mixer_str;
+	fe_channel_map_control[0].private_value = rtd->dai_link->be_id;
+	pr_debug("%s: Registering new mixer ctl %s\n", __func__, mixer_str);
+	snd_soc_add_platform_controls(rtd->platform,
+				fe_channel_map_control,
+				ARRAY_SIZE(fe_channel_map_control));
+
+	pdata = snd_soc_platform_get_drvdata(rtd->platform);
+	pdata->ch_map[rtd->dai_link->be_id] =
+		 kzalloc(sizeof(struct msm_compr_ch_map), GFP_KERNEL);
+	if (!pdata->ch_map[rtd->dai_link->be_id]) {
+		pr_err("%s: Could not allocate memory for channel map\n",
+			__func__);
+		kfree(mixer_str);
+		return -ENOMEM;
+	}
+	kfree(mixer_str);
+	return 0;
+}
+
 static int msm_compr_new(struct snd_soc_pcm_runtime *rtd)
 {
 	int rc;
@@ -2609,7 +2754,11 @@ static int msm_compr_new(struct snd_soc_pcm_runtime *rtd)
 			__func__);
 	rc = msm_compr_add_app_type_cfg_control(rtd);
 	if (rc)
-		pr_err("%s: Could not add Compr Dec runtime params Control\n",
+		pr_err("%s: Could not add Compr App Type Cfg Control\n",
+			__func__);
+	rc = msm_compr_add_channel_map_control(rtd);
+	if (rc)
+		pr_err("%s: Could not add Compr Channel Map Control\n",
 			__func__);
 	return 0;
 }
