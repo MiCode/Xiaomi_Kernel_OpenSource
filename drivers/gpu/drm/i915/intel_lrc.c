@@ -814,8 +814,9 @@ gen8_ring_stop_watchdog(struct intel_ringbuffer *ringbuf)
 	return 0;
 }
 
-static int logical_ring_write_active_seqno(struct intel_ringbuffer *ringbuf,
-					   u32 seqno)
+static int
+logical_ring_write_active_request(struct intel_ringbuffer *ringbuf,
+				  struct drm_i915_gem_request *req)
 {
 	int ret;
 	struct intel_engine_cs *ring = ringbuf->ring;
@@ -829,7 +830,7 @@ static int logical_ring_write_active_seqno(struct intel_ringbuffer *ringbuf,
 				(ring->status_page.gfx_addr +
 				 (I915_GEM_ACTIVE_SEQNO_INDEX <<
 				  MI_STORE_DWORD_INDEX_SHIFT)));
-	intel_logical_ring_emit(ringbuf, seqno);
+	intel_logical_ring_emit(ringbuf, i915_gem_request_get_seqno(req));
 	intel_logical_ring_emit(ringbuf, MI_NOOP);
 	intel_logical_ring_advance(ringbuf);
 
@@ -1056,11 +1057,12 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	if (IS_GEN8(dev) && ring == &dev_priv->ring[RCS])
 		i915_program_perfmon(dev, ringbuf, ctx);
 
-	/* Flag this seqno as being active on the ring so the watchdog
+	/* Flag this request as being active on the ring so the watchdog
 	 * code knows where to look if things go wrong. */
-	ret = logical_ring_write_active_seqno(ringbuf, seqno);
+	ret = logical_ring_write_active_request(ringbuf,
+						intel_ring_get_request(ring));
 	if (ret) {
-		DRM_DEBUG_DRIVER("Failed to store seqno for %d (%d)\n",
+		DRM_DEBUG_DRIVER("Failed to tag request on ring %d (%d)\n",
 				 ring->id, ret);
 		goto error;
 	}
@@ -1076,8 +1078,8 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 			goto error;
 	}
 
-	/* Clear the active seqno again */
-	ret = logical_ring_write_active_seqno(ringbuf, 0);
+	/* Clear the active request again */
+	ret = logical_ring_write_active_request(ringbuf, NULL);
 	if (ret)
 		goto error;
 

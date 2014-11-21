@@ -2215,8 +2215,11 @@ void intel_cleanup_ring_buffer(struct intel_engine_cs *ring)
 }
 
 /* Write a specific seqno value to the HWS page so that
- * we can identify the cause of any hangs. */
-int i915_write_active_seqno(struct intel_engine_cs *ring, u32 seqno)
+ * we can identify the cause of any hangs. NB: req can be
+ * null in the case of clearing the active request, in this
+ * case, a seqno of zero is written. */
+int i915_write_active_request(struct intel_engine_cs *ring,
+			      struct drm_i915_gem_request *req)
 {
 	int ret;
 
@@ -2227,7 +2230,7 @@ int i915_write_active_seqno(struct intel_engine_cs *ring, u32 seqno)
 	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
 	intel_ring_emit(ring, I915_GEM_ACTIVE_SEQNO_INDEX <<
 			MI_STORE_DWORD_INDEX_SHIFT);
-	intel_ring_emit(ring, seqno);
+	intel_ring_emit(ring, i915_gem_request_get_seqno(req));
 	intel_ring_emit(ring, MI_NOOP);
 	intel_ring_advance(ring);
 

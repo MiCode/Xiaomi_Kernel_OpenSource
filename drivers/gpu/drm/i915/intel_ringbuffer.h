@@ -483,7 +483,8 @@ static inline u32 intel_ring_get_tail(struct intel_ringbuffer *ringbuf)
 	return ringbuf->tail;
 }
 
-int i915_write_active_seqno(struct intel_engine_cs *ring, u32 seqno);
+int i915_write_active_request(struct intel_engine_cs *ring,
+			      struct drm_i915_gem_request *req);
 
 static inline u32 intel_ring_get_seqno(struct intel_engine_cs *ring)
 {

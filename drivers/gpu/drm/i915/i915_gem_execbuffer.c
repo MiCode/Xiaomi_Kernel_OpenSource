@@ -1237,11 +1237,11 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 			goto error;
 	}
 
-	/* Flag this seqno as being active on the ring so the watchdog
+	/* Flag this request as being active on the ring so the watchdog
 	 * code knows where to look if things go wrong. */
-	ret = i915_write_active_seqno(ring, seqno);
+	ret = i915_write_active_request(ring, intel_ring_get_request(ring));
 	if (ret) {
-		DRM_DEBUG_DRIVER("Failed to store seqno for %d (%d)\n",
+		DRM_DEBUG_DRIVER("Failed to tag request on ring %d (%d)\n",
 				 ring->id, ret);
 		goto error;
 	}
@@ -1272,8 +1272,8 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 			goto error;
 	}
 
-	/* Clear the active seqno again */
-	ret = i915_write_active_seqno(ring, 0);
+	/* Clear the active request again */
+	ret = i915_write_active_request(ring, NULL);
 	if (ret)
 		goto error;
 
