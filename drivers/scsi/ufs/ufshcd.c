@@ -1153,7 +1153,7 @@ out:
 }
 
 /* host lock must be held before calling this variant */
-static void __ufshcd_release(struct ufs_hba *hba)
+static void __ufshcd_release(struct ufs_hba *hba, bool no_sched)
 {
 	if (!ufshcd_is_clkgating_allowed(hba))
 		return;
@@ -1164,7 +1164,7 @@ static void __ufshcd_release(struct ufs_hba *hba)
 		|| hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL
 		|| hba->lrb_in_use || hba->outstanding_tasks
 		|| hba->active_uic_cmd || hba->uic_async_done
-		|| ufshcd_eh_in_progress(hba))
+		|| ufshcd_eh_in_progress(hba) || no_sched)
 		return;
 
 	hba->clk_gating.state = REQ_CLKS_OFF;
@@ -1175,12 +1175,12 @@ static void __ufshcd_release(struct ufs_hba *hba)
 			msecs_to_jiffies(hba->clk_gating.delay_ms));
 }
 
-void ufshcd_release(struct ufs_hba *hba)
+void ufshcd_release(struct ufs_hba *hba, bool no_sched)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	__ufshcd_release(hba);
+	__ufshcd_release(hba, no_sched);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
 
@@ -1230,7 +1230,7 @@ static ssize_t ufshcd_clkgate_enable_store(struct device *dev,
 		goto out;
 
 	if (value) {
-		ufshcd_release(hba);
+		ufshcd_release(hba, false);
 	} else {
 		spin_lock_irqsave(hba->host->host_lock, flags);
 		hba->clk_gating.active_reqs++;
@@ -1357,7 +1357,7 @@ out:
 }
 
 /* host lock must be held before calling this variant */
-static void __ufshcd_hibern8_release(struct ufs_hba *hba)
+static void __ufshcd_hibern8_release(struct ufs_hba *hba, bool no_sched)
 {
 	unsigned long delay_in_jiffies;
 
@@ -1372,7 +1372,7 @@ static void __ufshcd_hibern8_release(struct ufs_hba *hba)
 		|| hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL
 		|| hba->lrb_in_use || hba->outstanding_tasks
 		|| hba->active_uic_cmd || hba->uic_async_done
-		|| ufshcd_eh_in_progress(hba))
+		|| ufshcd_eh_in_progress(hba) || no_sched)
 		return;
 
 	hba->hibern8_on_idle.state = REQ_HIBERN8_ENTER;
@@ -1395,12 +1395,12 @@ static void __ufshcd_hibern8_release(struct ufs_hba *hba)
 			      delay_in_jiffies);
 }
 
-void ufshcd_hibern8_release(struct ufs_hba *hba)
+void ufshcd_hibern8_release(struct ufs_hba *hba, bool no_sched)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	__ufshcd_hibern8_release(hba);
+	__ufshcd_hibern8_release(hba, no_sched);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
 
@@ -1481,7 +1481,7 @@ static void ufshcd_hibern8_exit_work(struct work_struct *work)
 	if (ufshcd_is_link_hibern8(hba)) {
 		ufshcd_hold(hba, false);
 		ret = ufshcd_uic_hibern8_exit(hba);
-		ufshcd_release(hba);
+		ufshcd_release(hba, false);
 		if (!ret) {
 			spin_lock_irqsave(hba->host->host_lock, flags);
 			ufshcd_set_link_active(hba);
@@ -1666,24 +1666,24 @@ static int ufshcd_pm_qos_hold(struct ufs_hba *hba, bool async)
 }
 
 /* Host lock is assumed to be held by caller */
-static void __ufshcd_pm_qos_release(struct ufs_hba *hba)
+static void __ufshcd_pm_qos_release(struct ufs_hba *hba, bool no_sched)
 {
 	if (!hba->pm_qos.cpu_dma_latency_us)
 		return;
 
-	if (--hba->pm_qos.active_reqs)
+	if (--hba->pm_qos.active_reqs || no_sched)
 		return;
 
 	hba->pm_qos.state = PM_QOS_REQ_UNVOTE;
 	schedule_work(&hba->pm_qos.unvote_work);
 }
 
-static void ufshcd_pm_qos_release(struct ufs_hba *hba)
+static void ufshcd_pm_qos_release(struct ufs_hba *hba, bool no_sched)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
-	__ufshcd_pm_qos_release(hba);
+	__ufshcd_pm_qos_release(hba, no_sched);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
 
@@ -1789,9 +1789,9 @@ static void ufshcd_hold_all(struct ufs_hba *hba)
 
 static void ufshcd_release_all(struct ufs_hba *hba)
 {
-	ufshcd_hibern8_release(hba);
-	ufshcd_pm_qos_release(hba);
-	ufshcd_release(hba);
+	ufshcd_hibern8_release(hba, false);
+	ufshcd_pm_qos_release(hba, false);
+	ufshcd_release(hba, false);
 }
 
 /* Must be called with host lock acquired */
@@ -2416,7 +2416,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	if (err) {
 		err = SCSI_MLQUEUE_HOST_BUSY;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
-		ufshcd_release(hba);
+		ufshcd_release(hba, true);
 		goto out;
 	}
 
@@ -2424,8 +2424,8 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	if (err) {
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		err = SCSI_MLQUEUE_HOST_BUSY;
-		ufshcd_pm_qos_release(hba);
-		ufshcd_release(hba);
+		ufshcd_pm_qos_release(hba, true);
+		ufshcd_release(hba, true);
 		goto out;
 	}
 	WARN_ON(hba->hibern8_on_idle.state != HIBERN8_EXITED);
@@ -4729,9 +4729,9 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			clear_bit_unlock(index, &hba->lrb_in_use);
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
-			__ufshcd_release(hba);
-			__ufshcd_pm_qos_release(hba);
-			__ufshcd_hibern8_release(hba);
+			__ufshcd_release(hba, false);
+			__ufshcd_pm_qos_release(hba, false);
+			__ufshcd_hibern8_release(hba, false);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
 			if (hba->dev_cmd.complete) {
 				ufshcd_cond_add_cmd_trace(hba, index,
@@ -8119,7 +8119,7 @@ static ssize_t ufshcd_clkscale_enable_store(struct device *dev,
 	}
 	hba->clk_scaling.is_allowed = value;
 
-	ufshcd_release(hba);
+	ufshcd_release(hba, false);
 	pm_runtime_put_sync(hba->dev);
 out:
 	return count;
