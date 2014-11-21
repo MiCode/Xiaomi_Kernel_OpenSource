@@ -273,6 +273,23 @@
 			};
 		};
 
+		pmx_ts {
+			qcom,pins = <&gp 60>, <&gp 61>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <2>;
+			label = "pmx_ts";
+
+			ts_active: ts_active {
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+
+			ts_suspend: ts_suspend {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
 		eth-irq {
 			qcom,pins = <&gp 75>;
 			qcom,num-grp-pins = <1>;
