@@ -371,6 +371,37 @@ TRACE_EVENT(core_ctl_set_busy,
 		  __entry->is_busy)
 );
 
+DECLARE_EVENT_CLASS(kpm_module2,
+
+	TP_PROTO(unsigned int cpu, unsigned int cycles, unsigned int io_busy,
+								u64 iowait),
+
+	TP_ARGS(cpu, cycles, io_busy, iowait),
+
+	TP_STRUCT__entry(
+		__field(u32, cpu)
+		__field(u32, cycles)
+		__field(u32, io_busy)
+		__field(u64, iowait)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->cycles = cycles;
+		__entry->io_busy = io_busy;
+		__entry->iowait = iowait;
+	),
+
+	TP_printk("CPU:%u cycles=%u io_busy=%u iowait=%lu",
+		(unsigned int)__entry->cpu, (unsigned int)__entry->cycles,
+		(unsigned int)__entry->io_busy, (unsigned long)__entry->iowait)
+);
+
+DEFINE_EVENT(kpm_module2, track_iowait,
+	TP_PROTO(unsigned int cpu, unsigned int cycles, unsigned int io_busy,
+								u64 iowait),
+	TP_ARGS(cpu, cycles, io_busy, iowait)
+);
 #endif /* _TRACE_POWER_H */
 
 /* This part must be outside protection */
