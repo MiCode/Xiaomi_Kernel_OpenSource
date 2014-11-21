@@ -4246,13 +4246,13 @@ static int css_input_resolution_changed(struct atomisp_sub_device *asd,
 	dev_dbg(asd->isp->dev, "css_input_resolution_changed to %ux%u\n",
 		ffmt->width, ffmt->height);
 
+#if defined(ISP2401_NEW_INPUT_SYSTEM)
+	atomisp_css_input_set_two_pixels_per_clock(asd, false);
+#else
+	atomisp_css_input_set_two_pixels_per_clock(asd, true);
+#endif
 	if (asd->continuous_mode->val) {
 		/* Note for all checks: ffmt includes pad_w+pad_h */
-#if defined(ISP2401_NEW_INPUT_SYSTEM)
-		atomisp_css_input_set_two_pixels_per_clock(asd, false);
-#else
-		atomisp_css_input_set_two_pixels_per_clock(asd, true);
-#endif
 		if (asd->run_mode->val == ATOMISP_RUN_MODE_VIDEO ||
 		    (ffmt->width >= 2048 || ffmt->height >= 1536)) {
 			/*
