@@ -18,8 +18,12 @@
 #include <linux/cpumask.h>
 #include <linux/cpufreq.h>
 #include <linux/slab.h>
-
+#include <linux/sched.h>
+#include <linux/tick.h>
 #include <trace/events/power.h>
+#include <linux/sysfs.h>
+#include <linux/module.h>
+#include <linux/kthread.h>
 
 static struct mutex managed_cpus_lock;
 
@@ -31,6 +35,13 @@ struct cluster {
 	int max_cpu_request;
 	/* To track CPUs that the module decides to offline */
 	cpumask_var_t offlined_cpus;
+
+	/* stats for load detection */
+	u64 last_io_check_ts;
+	unsigned int iowait_cycle_cnt;
+	spinlock_t iowait_lock;
+	unsigned int cur_io_busy;
+	bool io_change;
 };
 static struct cluster **managed_clusters;
 static bool clusters_inited;
@@ -50,6 +61,31 @@ static int init_cluster_control(void);
 static int rm_high_pwr_cost_cpus(struct cluster *cl);
 
 static DEFINE_PER_CPU(unsigned int, cpu_power_cost);
+
+struct load_stats {
+	u64 last_wallclock;
+	/* IO wait related */
+	u64 last_iowait;
+	unsigned int last_iopercent;
+};
+static DEFINE_PER_CPU(struct load_stats, cpu_load_stats);
+#define LAST_UPDATE_TOL		USEC_PER_MSEC
+
+/* Bitmask to keep track of the workloads being detected */
+static unsigned int workload_detect;
+#define IO_DETECT	1
+
+/* IOwait related tunables */
+static unsigned int io_enter_cycles = 4;
+static u64 iowait_ceiling_pct = 25;
+static u64 iowait_floor_pct = 8;
+#define LAST_IO_CHECK_TOL	(3 * USEC_PER_MSEC)
+
+static unsigned int aggr_iobusy;
+
+static struct task_struct *notify_thread;
+
+/**************************sysfs start********************************/
 
 static int set_num_clusters(const char *buf, const struct kernel_param *kp)
 {
@@ -381,6 +417,144 @@ static const struct kernel_param_ops param_ops_cpu_max_freq = {
 };
 module_param_cb(cpu_max_freq, &param_ops_cpu_max_freq, NULL, 0644);
 
+static int set_io_enter_cycles(const char *buf, const struct kernel_param *kp)
+{
+	unsigned int val;
+
+	if (sscanf(buf, "%u\n", &val) != 1)
+		return -EINVAL;
+
+	io_enter_cycles = val;
+
+	return 0;
+}
+
+static int get_io_enter_cycles(char *buf, const struct kernel_param *kp)
+{
+	return snprintf(buf, PAGE_SIZE, "%u", io_enter_cycles);
+}
+
+static const struct kernel_param_ops param_ops_io_enter_cycles = {
+	.set = set_io_enter_cycles,
+	.get = get_io_enter_cycles,
+};
+device_param_cb(io_enter_cycles, &param_ops_io_enter_cycles, NULL, 0644);
+
+static int set_iowait_floor_pct(const char *buf, const struct kernel_param *kp)
+{
+	u64 val;
+
+	if (sscanf(buf, "%llu\n", &val) != 1)
+		return -EINVAL;
+	if (val > iowait_ceiling_pct)
+		return -EINVAL;
+
+	iowait_floor_pct = val;
+
+	return 0;
+}
+
+static int get_iowait_floor_pct(char *buf, const struct kernel_param *kp)
+{
+	return snprintf(buf, PAGE_SIZE, "%llu", iowait_floor_pct);
+}
+
+static const struct kernel_param_ops param_ops_iowait_floor_pct = {
+	.set = set_iowait_floor_pct,
+	.get = get_iowait_floor_pct,
+};
+device_param_cb(iowait_floor_pct, &param_ops_iowait_floor_pct, NULL, 0644);
+
+static int set_iowait_ceiling_pct(const char *buf,
+						const struct kernel_param *kp)
+{
+	u64 val;
+
+	if (sscanf(buf, "%llu\n", &val) != 1)
+		return -EINVAL;
+	if (val < iowait_floor_pct)
+		return -EINVAL;
+
+	iowait_ceiling_pct = val;
+
+	return 0;
+}
+
+static int get_iowait_ceiling_pct(char *buf, const struct kernel_param *kp)
+{
+	return snprintf(buf, PAGE_SIZE, "%llu", iowait_ceiling_pct);
+}
+
+static const struct kernel_param_ops param_ops_iowait_ceiling_pct = {
+	.set = set_iowait_ceiling_pct,
+	.get = get_iowait_ceiling_pct,
+};
+device_param_cb(iowait_ceiling_pct, &param_ops_iowait_ceiling_pct, NULL, 0644);
+
+static int set_workload_detect(const char *buf, const struct kernel_param *kp)
+{
+	unsigned int val, i;
+	struct cluster *i_cl;
+	unsigned long flags;
+
+	if (!clusters_inited)
+		return -EINVAL;
+
+	if (sscanf(buf, "%u\n", &val) != 1)
+		return -EINVAL;
+
+	if (val == workload_detect)
+		return 0;
+
+	workload_detect = val;
+
+	if (!(workload_detect & IO_DETECT)) {
+		for (i = 0; i < num_clusters; i++) {
+			i_cl = managed_clusters[i];
+			spin_lock_irqsave(&i_cl->iowait_lock, flags);
+			i_cl->iowait_cycle_cnt = 0;
+			i_cl->cur_io_busy = 0;
+			i_cl->io_change = true;
+			spin_unlock_irqrestore(&i_cl->iowait_lock, flags);
+		}
+	}
+
+	wake_up_process(notify_thread);
+	return 0;
+}
+
+static int get_workload_detect(char *buf, const struct kernel_param *kp)
+{
+	return snprintf(buf, PAGE_SIZE, "%u", workload_detect);
+}
+
+static const struct kernel_param_ops param_ops_workload_detect = {
+	.set = set_workload_detect,
+	.get = get_workload_detect,
+};
+device_param_cb(workload_detect, &param_ops_workload_detect, NULL, 0644);
+
+static struct kobject *mode_kobj;
+
+static ssize_t show_aggr_iobusy(struct kobject *kobj,
+					struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", aggr_iobusy);
+}
+static struct kobj_attribute aggr_iobusy_attr =
+__ATTR(aggr_iobusy, 0444, show_aggr_iobusy, NULL);
+
+static struct attribute *attrs[] = {
+	&aggr_iobusy_attr.attr,
+	NULL,
+};
+
+static struct attribute_group attr_group = {
+	.attrs = attrs,
+};
+
+/*******************************sysfs ends************************************/
+
 static unsigned int num_online_managed(struct cpumask *mask)
 {
 	struct cpumask tmp_mask;
@@ -417,6 +591,174 @@ static int perf_adjust_notify(struct notifier_block *nb, unsigned long val,
 
 static struct notifier_block perf_cpufreq_nb = {
 	.notifier_call = perf_adjust_notify,
+};
+
+static bool check_notify_status(void)
+{
+	int i;
+	struct cluster *cl;
+	bool any_change = false;
+	unsigned long flags;
+
+	for (i = 0; i < num_clusters; i++) {
+		cl = managed_clusters[i];
+		spin_lock_irqsave(&cl->iowait_lock, flags);
+		if (!any_change)
+			any_change = cl->io_change;
+		cl->io_change = false;
+		spin_unlock_irqrestore(&cl->iowait_lock, flags);
+	}
+
+	return any_change;
+}
+
+static int notify_userspace(void *data)
+{
+	unsigned int i, io;
+
+	while (1) {
+		set_current_state(TASK_INTERRUPTIBLE);
+		if (!check_notify_status()) {
+			schedule();
+
+			if (kthread_should_stop())
+				break;
+		}
+		set_current_state(TASK_RUNNING);
+
+		io = 0;
+		for (i = 0; i < num_clusters; i++)
+			io |= managed_clusters[i]->cur_io_busy;
+
+		if (io != aggr_iobusy) {
+			aggr_iobusy = io;
+			sysfs_notify(mode_kobj, NULL, "aggr_iobusy");
+			pr_debug("msm_perf: Notifying IO: %u\n", aggr_iobusy);
+		}
+	}
+
+	return 0;
+}
+
+static void check_cluster_iowait(struct cluster *cl, unsigned int rate, u64 now)
+{
+	struct load_stats *pcpu_st;
+	unsigned int i;
+	unsigned long flags;
+	unsigned int temp_iobusy;
+	u64 max_iowait = 0;
+
+	spin_lock_irqsave(&cl->iowait_lock, flags);
+
+	if (((now - cl->last_io_check_ts) < (rate - LAST_IO_CHECK_TOL)) ||
+					!(workload_detect & IO_DETECT)) {
+		spin_unlock_irqrestore(&cl->iowait_lock, flags);
+		return;
+	}
+
+	temp_iobusy = cl->cur_io_busy;
+	for_each_cpu(i, cl->cpus) {
+		pcpu_st = &per_cpu(cpu_load_stats, i);
+		if ((now - pcpu_st->last_wallclock) > (rate + LAST_UPDATE_TOL))
+			continue;
+		if (max_iowait < pcpu_st->last_iopercent)
+			max_iowait = pcpu_st->last_iopercent;
+	}
+
+	if (!cl->cur_io_busy) {
+		if (max_iowait > iowait_ceiling_pct) {
+			cl->iowait_cycle_cnt++;
+			if (cl->iowait_cycle_cnt >= io_enter_cycles)
+				cl->cur_io_busy = 1;
+		} else {
+			cl->iowait_cycle_cnt = 0;
+		}
+	} else {
+		if (max_iowait < iowait_floor_pct) {
+			cl->iowait_cycle_cnt--;
+			if (!cl->iowait_cycle_cnt)
+				cl->cur_io_busy = 0;
+		} else {
+			cl->iowait_cycle_cnt = io_enter_cycles;
+		}
+	}
+	cl->last_io_check_ts = now;
+	trace_track_iowait(cpumask_first(cl->cpus), cl->iowait_cycle_cnt,
+						cl->cur_io_busy, max_iowait);
+
+	if (temp_iobusy != cl->cur_io_busy) {
+		cl->io_change = true;
+		pr_debug("msm_perf: IO changed to %u\n", cl->cur_io_busy);
+	}
+
+	spin_unlock_irqrestore(&cl->iowait_lock, flags);
+	if (cl->io_change)
+		wake_up_process(notify_thread);
+}
+
+static void check_cpu_io_stats(unsigned int cpu, unsigned int timer_rate,
+									u64 now)
+{
+	struct cluster *cl = NULL;
+	unsigned int i;
+
+	for (i = 0; i < num_clusters; i++) {
+		if (cpumask_test_cpu(cpu, managed_clusters[i]->cpus)) {
+			cl = managed_clusters[i];
+			break;
+		}
+	}
+	if (cl == NULL)
+		return;
+
+	check_cluster_iowait(cl, timer_rate, now);
+}
+
+static int perf_govinfo_notify(struct notifier_block *nb, unsigned long val,
+								void *data)
+{
+	struct cpufreq_govinfo *gov_info = data;
+	unsigned int cpu = gov_info->cpu;
+	struct load_stats *cpu_st = &per_cpu(cpu_load_stats, cpu);
+	u64 now, cur_iowait, time_diff, iowait_diff;
+
+	if (!clusters_inited || !workload_detect)
+		return NOTIFY_OK;
+
+	cur_iowait = get_cpu_iowait_time_us(cpu, &now);
+	if (cur_iowait >= cpu_st->last_iowait)
+		iowait_diff = cur_iowait - cpu_st->last_iowait;
+	else
+		iowait_diff = 0;
+
+	if (now > cpu_st->last_wallclock)
+		time_diff = now - cpu_st->last_wallclock;
+	else
+		return NOTIFY_OK;
+
+	if (iowait_diff <= time_diff) {
+		iowait_diff *= 100;
+		cpu_st->last_iopercent = div64_u64(iowait_diff, time_diff);
+	} else {
+		cpu_st->last_iopercent = 100;
+	}
+
+	cpu_st->last_wallclock = now;
+	cpu_st->last_iowait = cur_iowait;
+
+	/*
+	 * Avoid deadlock in case governor notifier ran in the context
+	 * of notify_work thread
+	 */
+	if (current == notify_thread)
+		return NOTIFY_OK;
+
+	check_cpu_io_stats(cpu, gov_info->sampling_rate_us, now);
+
+	return NOTIFY_OK;
+}
+static struct notifier_block perf_govinfo_nb = {
+	.notifier_call = perf_govinfo_notify,
 };
 
 /*
@@ -647,6 +989,8 @@ static struct notifier_block __refdata msm_performance_cpu_notifier = {
 static int init_cluster_control(void)
 {
 	unsigned int i;
+	int ret;
+	struct kobject *module_kobj;
 
 	managed_clusters = kcalloc(num_clusters, sizeof(struct cluster *),
 								GFP_KERNEL);
@@ -658,12 +1002,31 @@ static int init_cluster_control(void)
 		if (!managed_clusters[i])
 			return -ENOMEM;
 		managed_clusters[i]->max_cpu_request = -1;
+		spin_lock_init(&(managed_clusters[i]->iowait_lock));
 	}
 
 	INIT_DELAYED_WORK(&evaluate_hotplug_work, check_cluster_status);
 	mutex_init(&managed_cpus_lock);
 
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("msm_perf: Couldn't find module kobject\n");
+		return -ENOENT;
+	}
+	mode_kobj = kobject_create_and_add("workload_modes", module_kobj);
+	if (!mode_kobj) {
+		pr_err("msm_perf: Failed to add mode_kobj\n");
+		return -ENOMEM;
+	}
+	ret = sysfs_create_group(mode_kobj, &attr_group);
+	if (ret) {
+		pr_err("msm_perf: Failed to create sysfs\n");
+		return ret;
+	}
+
+	notify_thread = kthread_run(notify_userspace, NULL, "wrkld_notify");
 	clusters_inited = true;
+
 	return 0;
 }
 
@@ -672,9 +1035,13 @@ static int __init msm_performance_init(void)
 	unsigned int cpu;
 
 	cpufreq_register_notifier(&perf_cpufreq_nb, CPUFREQ_POLICY_NOTIFIER);
+	cpufreq_register_notifier(&perf_govinfo_nb, CPUFREQ_GOVINFO_NOTIFIER);
+
 	for_each_present_cpu(cpu)
 		per_cpu(cpu_stats, cpu).max = UINT_MAX;
+
 	register_cpu_notifier(&msm_performance_cpu_notifier);
+
 	return 0;
 }
 late_initcall(msm_performance_init);
