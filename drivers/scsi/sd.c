@@ -3201,7 +3201,7 @@ static int sd_suspend_common(struct device *dev, bool ignore_stop_errors)
 		return 0;	/* this can happen */
 
 	if (sdkp->WCE && sdkp->media_present) {
-		sd_printk(KERN_NOTICE, sdkp, "Synchronizing SCSI cache\n");
+		sd_printk(KERN_DEBUG, sdkp, "Synchronizing SCSI cache\n");
 		ret = sd_sync_cache(sdkp);
 		if (ret) {
 			/* ignore OFFLINE device */
@@ -3212,7 +3212,7 @@ static int sd_suspend_common(struct device *dev, bool ignore_stop_errors)
 	}
 
 	if (sdkp->device->manage_start_stop) {
-		sd_printk(KERN_NOTICE, sdkp, "Stopping disk\n");
+		sd_printk(KERN_DEBUG, sdkp, "Stopping disk\n");
 		/* an error is not worth aborting a system sleep */
 		ret = sd_start_stop_device(sdkp, 0);
 		if (ignore_stop_errors)
@@ -3242,7 +3242,7 @@ static int sd_resume(struct device *dev)
 	if (!sdkp->device->manage_start_stop)
 		goto done;
 
-	sd_printk(KERN_NOTICE, sdkp, "Starting disk\n");
+	sd_printk(KERN_DEBUG, sdkp, "Starting disk\n");
 	ret = sd_start_stop_device(sdkp, 1);
 
 done:
