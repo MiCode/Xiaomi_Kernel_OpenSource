@@ -1479,7 +1479,9 @@ static void ufshcd_hibern8_exit_work(struct work_struct *work)
 
 	/* Exit from hibern8 */
 	if (ufshcd_is_link_hibern8(hba)) {
+		ufshcd_hold(hba, false);
 		ret = ufshcd_uic_hibern8_exit(hba);
+		ufshcd_release(hba);
 		if (!ret) {
 			spin_lock_irqsave(hba->host->host_lock, flags);
 			ufshcd_set_link_active(hba);
