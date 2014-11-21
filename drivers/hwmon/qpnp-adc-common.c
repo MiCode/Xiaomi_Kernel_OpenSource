@@ -1718,6 +1718,20 @@ int qpnp_adc_get_revid_version(struct device *dev)
 		(revid_data->pmic_type == PM8916_V2P0_TYPE) &&
 		(revid_data->pmic_subtype == PM8916_V2P0_SUBTYPE))
 			return QPNP_REV_ID_8916_2_0;
+	else if ((revid_data->rev1 == PM8909_V1P0_REV1) &&
+		(revid_data->rev2 == PM8909_V1P0_REV2) &&
+		(revid_data->rev3 == PM8909_V1P0_REV3) &&
+		(revid_data->rev4 == PM8909_V1P0_REV4) &&
+		(revid_data->pmic_type == PM8909_V1P0_TYPE) &&
+		(revid_data->pmic_subtype == PM8909_V1P0_SUBTYPE))
+			return QPNP_REV_ID_8909_1_0;
+	else if ((revid_data->rev1 == PM8909_V1P1_REV1) &&
+		(revid_data->rev2 == PM8909_V1P1_REV2) &&
+		(revid_data->rev3 == PM8909_V1P1_REV3) &&
+		(revid_data->rev4 == PM8909_V1P1_REV4) &&
+		(revid_data->pmic_type == PM8909_V1P1_TYPE) &&
+		(revid_data->pmic_subtype == PM8909_V1P1_SUBTYPE))
+			return QPNP_REV_ID_8909_1_1;
 	else
 		return -EINVAL;
 }
