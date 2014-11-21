@@ -110,7 +110,7 @@ static int handle_indication_req(void *req_h, void *req)
 				ipa_master_driver_init_complt_ind_msg_v01));
 		ind.master_driver_init_status.result =
 			IPA_QMI_RESULT_SUCCESS_V01;
-		rc = qmi_send_ind(ipa_svc_handle, curr_conn,
+		rc = qmi_send_ind_from_cb(ipa_svc_handle, curr_conn,
 			&ipa_master_driver_complete_indication_desc,
 			&ind,
 			sizeof(ind));
