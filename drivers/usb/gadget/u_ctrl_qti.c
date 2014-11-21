@@ -269,7 +269,6 @@ void gqti_ctrl_disconnect(void *gr, u8 port_num)
 		g_rmnet->disconnect(port->port_usb);
 	} else if (gr && (port->gtype == USB_GADGET_DPL)) {
 		g_dpl = (struct gqdss *)gr;
-		gqti_ctrl_send_cpkt_tomodem(DPL_QTI_CTRL_PORT_NO, NULL, 0);
 	} else {
 		pr_err("%s(): unrecognized gadget type(%d).\n",
 					__func__, port->gtype);
