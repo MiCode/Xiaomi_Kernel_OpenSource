@@ -2677,3 +2677,4 @@
 #include "msm8992-smp2p.dtsi"
 #include "msm8992-pm.dtsi"
 #include "msm8992-coresight.dtsi"
+#include "msm8992-camera.dtsi"
