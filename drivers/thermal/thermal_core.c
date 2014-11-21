@@ -45,6 +45,8 @@
 #include "thermal_core.h"
 #include "thermal_hwmon.h"
 
+#define THERMAL_UEVENT_DATA "type"
+
 MODULE_AUTHOR("Zhang Rui");
 MODULE_DESCRIPTION("Generic thermal management sysfs support");
 MODULE_LICENSE("GPL v2");
@@ -332,6 +334,10 @@ int thermal_sensor_trip(struct thermal_zone_device *tz,
 			((trip == THERMAL_TRIP_CONFIGURABLE_HI) &&
 				(pos->temp >= tz->sensor.threshold_max) &&
 				(pos->temp <= temp))) {
+			if ((pos == &tz->tz_threshold[0])
+				|| (pos == &tz->tz_threshold[1]))
+				sysfs_notify(&tz->device.kobj, NULL,
+					THERMAL_UEVENT_DATA);
 			pos->active = 0;
 			pos->notify(trip, temp, pos->data);
 		}
