@@ -57,3 +57,7 @@
 &qnand_1 {
 	status = "ok";
 };
+
+&qrng {
+	status = "ok";
+};
