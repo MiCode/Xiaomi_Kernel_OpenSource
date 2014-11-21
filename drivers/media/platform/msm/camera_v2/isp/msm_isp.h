@@ -96,6 +96,9 @@ struct msm_vfe_irq_ops {
 	void (*process_reg_update) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
 		struct msm_isp_timestamp *ts);
+	void (*process_epoch_irq)(struct vfe_device *vfe_dev,
+		uint32_t irq_status0, uint32_t irq_status1,
+		struct msm_isp_timestamp *ts);
 	void (*process_reset_irq) (struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1);
 	void (*process_halt_irq) (struct vfe_device *vfe_dev,
@@ -120,7 +123,8 @@ struct msm_vfe_axi_ops {
 		enum msm_vfe_axi_stream_src stream_src,
 		uint32_t io_format);
 	void (*cfg_framedrop) (struct vfe_device *vfe_dev,
-		struct msm_vfe_axi_stream *stream_info);
+		struct msm_vfe_axi_stream *stream_info,
+		uint32_t framedrop_pattern, uint32_t framedrop_period);
 	void (*clear_framedrop) (struct vfe_device *vfe_dev,
 		struct msm_vfe_axi_stream *stream_info);
 	void (*cfg_comp_mask) (struct vfe_device *vfe_dev,
@@ -160,7 +164,8 @@ struct msm_vfe_axi_ops {
 };
 
 struct msm_vfe_core_ops {
-	void (*reg_update) (struct vfe_device *vfe_dev);
+	void (*reg_update)(struct vfe_device *vfe_dev,
+		enum msm_vfe_input_src frame_src);
 	long (*reset_hw) (struct vfe_device *vfe_dev, uint32_t first_start,
 		uint32_t blocking_call);
 	int (*init_hw) (struct vfe_device *vfe_dev);
@@ -192,7 +197,8 @@ struct msm_vfe_stats_ops {
 	int (*get_stats_idx) (enum msm_isp_stats_type stats_type);
 	int (*check_streams) (struct msm_vfe_stats_stream *stream_info);
 	void (*cfg_framedrop) (struct vfe_device *vfe_dev,
-		struct msm_vfe_stats_stream *stream_info);
+		struct msm_vfe_stats_stream *stream_info,
+		uint32_t framedrop_pattern, uint32_t framedrop_period);
 	void (*clear_framedrop) (struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info);
 	void (*cfg_comp_mask) (struct vfe_device *vfe_dev,
@@ -382,6 +388,7 @@ struct msm_vfe_axi_shared_data {
 	uint32_t free_wm[MAX_NUM_WM];
 	uint32_t wm_image_size[MAX_NUM_WM];
 	enum msm_wm_ub_cfg_type wm_ub_cfg_policy;
+	uint8_t reg_update_requested;
 	uint8_t num_used_wm;
 	uint8_t num_active_stream;
 	uint8_t num_rdi_stream;
@@ -390,8 +397,8 @@ struct msm_vfe_axi_shared_data {
 	struct msm_vfe_axi_composite_info
 	composite_info[MAX_NUM_COMPOSITE_MASK];
 	uint8_t num_used_composite_mask;
-	uint32_t stream_update;
-	atomic_t axi_cfg_update;
+	uint32_t stream_update[VFE_SRC_MAX];
+	atomic_t axi_cfg_update[VFE_SRC_MAX];
 	enum msm_isp_camif_update_state pipeline_update;
 	struct msm_vfe_src_info src_info[VFE_SRC_MAX];
 	uint16_t stream_handle_cnt;

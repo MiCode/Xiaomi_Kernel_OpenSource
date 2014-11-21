@@ -47,7 +47,8 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg);
-void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev);
+void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src);
 int msm_isp_axi_halt(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_halt_cmd *halt_cmd);
 int msm_isp_axi_reset(struct vfe_device *vfe_dev,
@@ -56,12 +57,14 @@ int msm_isp_axi_restart(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_restart_cmd *restart_cmd);
 
 void msm_isp_axi_stream_update(struct vfe_device *vfe_dev,
-	uint8_t input_src);
+	enum msm_vfe_input_src frame_src);
 
 void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev,
-	uint8_t input_src);
-void msm_isp_sof_notify(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src);
+
+void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	enum msm_vfe_input_src frame_src, struct msm_isp_timestamp *ts);
+
 void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts);
