@@ -619,6 +619,34 @@ struct ipa_install_fltr_rule_req_msg_v01 {
 	 *	this rule on all the pipes that it controls through
 	 *	which data may be fed into IPA.
 	 */
+
+	/* Optional */
+	/*  Total number of IPv4 filters in the filter spec list */
+	uint8_t num_ipv4_filters_valid;
+	/* Must be set to true if num_ipv4_filters is being passed */
+	uint32_t num_ipv4_filters;
+	/*   Number of IPv4 rules included in filter spec list */
+
+	/* Optional */
+	/*  Total number of IPv6 filters in the filter spec list */
+	uint8_t num_ipv6_filters_valid;
+	/* Must be set to true if num_ipv6_filters is being passed */
+	uint32_t num_ipv6_filters;
+	/* Number of IPv6 rules included in filter spec list */
+
+	/* Optional */
+	/*  List of XLAT filter indices in the filter spec list */
+	uint8_t xlat_filter_indices_list_valid;
+	/* Must be set to true if xlat_filter_indices_list
+	 * is being passed
+	 */
+	uint32_t xlat_filter_indices_list_len;
+	/* Must be set to # of elements in xlat_filter_indices_list */
+	uint32_t xlat_filter_indices_list[QMI_IPA_MAX_FILTERS_V01];
+	/* List of XLAT filter indices. Filter rules at specified indices
+	 * will need to be modified by the receiver if the PDN is XLAT
+	 * before installing them on the associated IPA consumer pipe.
+	 */
 };  /* Message */
 
 struct ipa_filter_rule_identifier_to_handle_map_v01 {
@@ -739,10 +767,37 @@ struct ipa_fltr_installed_notif_req_msg_v01 {
 	/**< Must be set to true if embedded_call_mux_id is being passed */
 	uint32_t embedded_call_mux_id;
 	/*	This identifies one of the many calls that have been originated
-	 *	on the embedded pipe. This is how we identify the PDN gateway to
-	 *	which traffic from the source pipe has to flow.
+	 *	on the embedded pipe. This is how we identify the PDN gateway
+	 *	to which traffic from the source pipe has to flow.
 	 */
 
+	/* Optional */
+	/*  Total number of IPv4 filters in the filter index list */
+	uint8_t num_ipv4_filters_valid;
+	/* Must be set to true if num_ipv4_filters is being passed */
+	uint32_t num_ipv4_filters;
+	/* Number of IPv4 rules included in filter index list */
+
+	/* Optional */
+	/*  Total number of IPv6 filters in the filter index list */
+	uint8_t num_ipv6_filters_valid;
+	/* Must be set to true if num_ipv6_filters is being passed */
+	uint32_t num_ipv6_filters;
+	/* Number of IPv6 rules included in filter index list */
+
+	/* Optional */
+	/*  Start index on IPv4 filters installed on source pipe */
+	uint8_t start_ipv4_filter_idx_valid;
+	/* Must be set to true if start_ipv4_filter_idx is being passed */
+	uint32_t start_ipv4_filter_idx;
+	/* Start index of IPv4 rules in filter index list */
+
+	/* Optional */
+	/*  Start index on IPv6 filters installed on source pipe */
+	uint8_t start_ipv6_filter_idx_valid;
+	/* Must be set to true if start_ipv6_filter_idx is being passed */
+	uint32_t start_ipv6_filter_idx;
+	/* Start index of IPv6 rules in filter index list */
 };  /* Message */
 
 /* Response Message; This is the message that is exchanged between the control
@@ -1047,9 +1102,9 @@ struct ipa_config_resp_msg_v01 {
 #define QMI_IPA_INIT_MODEM_DRIVER_RESP_MAX_MSG_LEN_V01 21
 #define QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01 4
 #define QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01 7
-#define QMI_IPA_INSTALL_FILTER_RULE_REQ_MAX_MSG_LEN_V01 11019
+#define QMI_IPA_INSTALL_FILTER_RULE_REQ_MAX_MSG_LEN_V01 11293
 #define QMI_IPA_INSTALL_FILTER_RULE_RESP_MAX_MSG_LEN_V01 523
-#define QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01 546
+#define QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01 574
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_MAX_MSG_LEN_V01 7
 #define QMI_IPA_MASTER_DRIVER_INIT_COMPLETE_IND_MAX_MSG_LEN_V01 7
 
