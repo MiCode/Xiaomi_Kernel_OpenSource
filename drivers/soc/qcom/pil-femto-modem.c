@@ -23,6 +23,8 @@
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/sysfs.h>
+#include <linux/vmalloc.h>
+#include <linux/semaphore.h>
 
 #include <asm/page.h>
 #include <asm/cacheflush.h>
@@ -142,19 +144,83 @@ struct femto_modem_data {
 #define POLL_INTERVAL_US		50
 #define TIMEOUT_US			1000000
 
+static DECLARE_WAIT_QUEUE_HEAD(fw_map_wq);
+static DEFINE_SEMAPHORE(fw_map_mutex);
+static void *fw_bounce_buf;
+static void *fw_io_buf;
+
 static void *pil_femto_modem_map_fw_mem(phys_addr_t paddr, size_t size, void *d)
 {
-	/* Due to certain memory areas on the platform requiring 32-bit wide
-	 * accesses, we must cache the firmware to avoid bus errors.
-	 */
-	return ioremap_cache(paddr, size);
+	for (;;) {
+		wait_event_interruptible(fw_map_wq, fw_bounce_buf == NULL);
+
+		if (down_interruptible(&fw_map_mutex))
+			return NULL;
+
+		if (fw_bounce_buf == NULL)
+			break;
+
+		up(&fw_map_mutex);
+	}
+
+	fw_bounce_buf = vmalloc(size);
+	if (fw_bounce_buf == NULL) {
+		pr_err("%s - Cannot allocate memory\n", __func__);
+		goto ret_err;
+	}
+
+	fw_io_buf = ioremap(paddr, size);
+	if (fw_io_buf == NULL) {
+		pr_err("%s - Cannot map firmware memory\n", __func__);
+		goto ret_err_after_free;
+	}
+
+	up(&fw_map_mutex);
+	return fw_bounce_buf;
+
+ret_err_after_free:
+	kfree(fw_bounce_buf);
+	fw_bounce_buf = NULL;
+ret_err:
+	up(&fw_map_mutex);
+	return NULL;
 }
 
 static void pil_femto_modem_unmap_fw_mem(void *vaddr, size_t size, void *data)
 {
-	flush_cache_vmap((unsigned long) vaddr, (unsigned long) vaddr + size);
-	iounmap(vaddr);
+	u8 *src, *dst;
+
+	down(&fw_map_mutex);
+
+	if (vaddr == NULL)
+		goto ret_err;
+
+	if (vaddr != fw_bounce_buf) {
+		pr_err("%s - Cannot unmap that was not mapped\n", __func__);
+		goto ret_err;
+	}
+
+	src = (u8 *) fw_bounce_buf;
+	dst = (u8 *) fw_io_buf;
+	while (size >= 4) {
+		*(u32 *) dst = *(u32 *) src;
+		dst += 4;
+		src += 4;
+		size -= 4;
+	}
+	while (size-- > 0)
+		*dst++ = *src++;
+
+	vfree(fw_bounce_buf);
+	fw_bounce_buf = NULL;
+	iounmap(fw_io_buf);
+	fw_io_buf = NULL;
+
 	isb();
+
+ret_err:
+	up(&fw_map_mutex);
+	wake_up_interruptible(&fw_map_wq);
 }
 
 static int pil_femto_modem_send_rmb_advance(void __iomem *rmb_base, u32 id)
