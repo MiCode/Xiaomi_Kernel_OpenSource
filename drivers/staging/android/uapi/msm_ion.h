@@ -80,6 +80,12 @@ enum cp_mem_usage {
 #define ION_FLAG_CP_HLOS_FREE (1 << 23)
 
 /**
+ * Flag to allow non continguous allocation of memory from secure
+ * heap
+ */
+#define ION_FLAG_ALLOW_NON_CONTIG (1 << 24)
+
+/**
  * Flag to use when allocating to indicate that a heap is secure.
  */
 #define ION_FLAG_SECURE (1 << ION_HEAP_ID_RESERVED)
