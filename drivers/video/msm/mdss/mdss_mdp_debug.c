@@ -111,9 +111,11 @@ static void __dump_mixer(struct seq_file *s, struct mdss_mdp_mixer *mixer)
 		return;
 
 	seq_printf(s, "\n%s Mixer #%d  res=%dx%d  %s\n",
-		mixer->type == MDSS_MDP_MIXER_TYPE_INTF ? "Intf" : "Writeback",
-		mixer->num, mixer->width, mixer->height,
-		mixer->cursor_enabled ? "w/cursor" : "");
+			mixer->type != MDSS_MDP_MIXER_TYPE_WRITEBACK ?
+			(mixer->type != MDSS_MDP_MIXER_TYPE_INTF ?
+			 "Intf without DSPP" : "Intf") : "Writeback",
+			mixer->num, mixer->width, mixer->height,
+			mixer->cursor_enabled ? "w/cursor" : "");
 
 	for (i = 0; i < ARRAY_SIZE(mixer->stage_pipe); i++) {
 		pipe = mixer->stage_pipe[i];
