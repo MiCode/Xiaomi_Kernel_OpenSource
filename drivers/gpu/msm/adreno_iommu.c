@@ -397,7 +397,9 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 				*cmds++ = reg_pt_val;
 			}
 		}
-		if (kgsl_mmu_hw_halt_supported(&device->mmu, i)) {
+
+		if (kgsl_mmu_hw_halt_supported(&device->mmu, i) &&
+			adreno_is_a3xx(adreno_dev)) {
 			/* unlock the IOMMU lock */
 			*cmds++ = cp_type3_packet(CP_REG_RMW, 3);
 			*cmds++ = mmu_ctrl;
@@ -431,6 +433,18 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 		else
 			cmds += adreno_wait_reg_eq(cmds, tlbstatus, 0,
 				KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
+
+		if (kgsl_mmu_hw_halt_supported(&device->mmu, i) &&
+			!adreno_is_a3xx(adreno_dev)) {
+			/* unlock the IOMMU lock */
+			*cmds++ = cp_type3_packet(CP_REG_RMW, 3);
+			*cmds++ = mmu_ctrl;
+			/* AND to unmask the lock bit */
+			*cmds++ =
+			   ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
+			/* OR with 0 so lock bit is unset */
+			*cmds++ = 0;
+		}
 		/* release all commands with wait_for_me */
 		*cmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
 		*cmds++ = 0;
