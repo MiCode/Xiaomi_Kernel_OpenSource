@@ -2506,24 +2506,25 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 	if (name->addrtype != MSM_IPC_ADDR_NAME)
 		return -EINVAL;
 
+	rport_ptr = ipc_router_create_rport(IPC_ROUTER_NID_LOCAL,
+			port_ptr->this_port.port_id, NULL);
+	if (!rport_ptr) {
+		IPC_RTR_ERR("%s: RPort %08x:%08x creation failed\n", __func__,
+			    IPC_ROUTER_NID_LOCAL, port_ptr->this_port.port_id);
+		return -ENOMEM;
+	}
+
 	server = msm_ipc_router_create_server(name->addr.port_name.service,
 					      name->addr.port_name.instance,
 					      IPC_ROUTER_NID_LOCAL,
 					      port_ptr->this_port.port_id,
 					      NULL);
 	if (!server) {
-		IPC_RTR_ERR("%s: Server Creation failed\n", __func__);
-		return -ENOMEM;
-	}
-
-	rport_ptr = ipc_router_create_rport(IPC_ROUTER_NID_LOCAL,
-			port_ptr->this_port.port_id, NULL);
-	if (!rport_ptr) {
-		IPC_RTR_ERR("%s: RPort Creation failed\n", __func__);
-		kref_put(&server->ref, ipc_router_release_server);
-		ipc_router_destroy_server(server,
-					IPC_ROUTER_NID_LOCAL,
-					port_ptr->this_port.port_id);
+		IPC_RTR_ERR("%s: Server %08x:%08x Create failed\n",
+			    __func__, name->addr.port_name.service,
+			    name->addr.port_name.instance);
+		kref_put(&rport_ptr->ref, ipc_router_release_rport);
+		ipc_router_destroy_rport(rport_ptr);
 		return -ENOMEM;
 	}
 
