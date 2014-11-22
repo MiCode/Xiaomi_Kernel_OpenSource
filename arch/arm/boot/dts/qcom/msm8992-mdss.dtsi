@@ -49,6 +49,7 @@
 		qcom,mdss-pipe-rgb-off = <0x00015000 0x00017000
 					  0x00019000>;
 		qcom,mdss-pipe-dma-off = <0x00025000 0x00027000>;
+		qcom,mdss-pipe-cursor-off = <0x00035000>;
 
 		qcom,mdss-pipe-vig-fetch-id = <1 4 7>;
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
@@ -57,6 +58,7 @@
 		qcom,mdss-pipe-vig-xin-id = <0 4 8>;
 		qcom,mdss-pipe-rgb-xin-id = <1 5 9>;
 		qcom,mdss-pipe-dma-xin-id = <2 10>;
+		qcom,mdss-pipe-cursor-xin-id = <7>;
 
 		qcom,mdss-pipe-rgb-fixed-mmb =	<5 0 1 6 7 8>,
 						<5 2 3 9 10 11>,
@@ -98,6 +100,7 @@
 		/* These Offsets are relative to "mdp_phys" address */
 		qcom,mdp-settings = <0x0117c 0x00005555>,
 				    <0x01184 0xC000ff00>,
+				    <0x011e0 0x000000a4>,
 				    <0x011e4 0x00000000>,
 				    <0x012ac 0xc0000ccc>,
 				    <0x012b4 0xc0000ccc>,
@@ -133,7 +136,7 @@
 		};
 	};
 
-	mdss_dsi0: qcom,mdss_dsi@fd998000 {
+	mdss_dsi0: qcom,mdss_dsi@fd994000 {
 		compatible = "qcom,mdss-dsi-ctrl";
 		label = "MDSS DSI CTRL->0";
 		cell-index = <0>;
@@ -142,26 +145,38 @@
 			<0xfd828000 0x108>;
 		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
 		gdsc-supply = <&gdsc_mdss>;
-		qcom,mdss-mdp = <&mdss_mdp>;
+		vdd-supply = <&pm8994_l14>;
+		vddio-supply = <&pm8994_l12>;
+		vdda-supply = <&pm8994_l2>;
+		vcca-supply = <&pm8994_l28>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
 		clocks = <&clock_mmss clk_mdss_mdp_clk>,
 			<&clock_mmss clk_mdss_ahb_clk>,
 			<&clock_mmss clk_mmss_misc_ahb_clk>,
 			<&clock_mmss clk_mdss_axi_clk>,
 			<&clock_mmss clk_mdss_byte0_clk>,
 			<&clock_mmss clk_mdss_pclk0_clk>,
-			<&clock_mmss clk_mdss_esc0_clk>;
-		clock-names = "mdp_core_clk", "iface_clk", "bus_clk",
-			"byte_clk", "pixel_clk", "core_clk";
+			<&clock_mmss clk_mdss_esc0_clk>,
+			<&mdss_dsi0_pll clk_mdss_byte_clk_mux>,
+			<&mdss_dsi0_pll clk_mdss_pixel_clk_mux>,
+			<&mdss_dsi0_pll clk_byte_clk_src>,
+			<&mdss_dsi0_pll clk_pixel_clk_src>,
+			<&mdss_dsi1_pll clk_mdss_dsi1_vco_clk_src>;
+		clock-names = "mdp_core_clk", "iface_clk",
+			"core_mmss_clk", "bus_clk",
+			"byte_clk", "pixel_clk", "core_clk",
+			"mdss_byte_clk_mux", "mdss_pixel_clk_mux", "byte_clk_src",
+			"pixel_clk_src", "clk_mdss_dsi1_vco_clk_src";
 
-		qcom,platform-strength-ctrl = [77 00];
+		qcom,platform-strength-ctrl = [77 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
-		qcom,platform-regulator-settings = [03 08 07 00 20 07 01];
-		qcom,platform-lane-config = [02 00 00 00 20 00 00 00 00
-			02 00 00 00 40 00 00 00 00
-			02 00 00 40 20 00 00 00 00
-			02 00 00 40 00 00 00 00 00
-			00 00 00 80 00 00 00 00 00];
+		qcom,platform-regulator-settings = [03 05 03 00 20 07 01];
+		qcom,platform-lane-config = [02 00 00 00 20 00 00 01 88
+			02 00 00 00 40 00 00 01 88
+			02 00 00 40 20 00 00 01 88
+			02 00 00 40 00 00 00 01 88
+			00 00 00 80 00 00 00 01 88];
 
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
 		qcom,mmss-phyreset-ctrl-offset = <0x108>;
@@ -180,6 +195,162 @@
 			};
 		};
 
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda";
+				qcom,supply-min-voltage = <1250000>;
+				qcom,supply-max-voltage = <1250000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+
+			qcom,ctrl-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <20>;
+			};
+
+			qcom,ctrl-supply-entry@2 {
+				reg = <2>;
+				qcom,supply-name = "vcca";
+				qcom,supply-min-voltage = <1000000>;
+				qcom,supply-max-voltage = <1000000>;
+				qcom,supply-enable-load = <10000>;
+				qcom,supply-disable-load = <100>;
+			};
+		};
+
+		qcom,panel-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,panel-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <20>;
+			};
+		};
+	};
+
+	mdss_dsi1: qcom,mdss_dsi@fd996000 {
+		compatible = "qcom,mdss-dsi-ctrl";
+		label = "MDSS DSI CTRL->1";
+		cell-index = <1>;
+		reg = 	<0xfd996000 0x260>,
+			<0xfd996500 0x2b0>,
+			<0xfd828000 0x108>;
+		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
+		gdsc-supply = <&gdsc_mdss>;
+		vdd-supply = <&pm8994_l14>;
+		vddio-supply = <&pm8994_l12>;
+		vdda-supply = <&pm8994_l2>;
+		vcca-supply = <&pm8994_l28>;
+		qcom,mdss-fb-map = <&mdss_fb0>;
+		qcom,mdss-mdp = <&mdss_mdp>;
+		clocks = <&clock_mmss clk_mdss_mdp_clk>,
+			<&clock_mmss clk_mdss_ahb_clk>,
+			<&clock_mmss clk_mmss_misc_ahb_clk>,
+			<&clock_mmss clk_mdss_axi_clk>,
+			<&clock_mmss clk_mdss_byte1_clk>,
+			<&clock_mmss clk_mdss_pclk1_clk>,
+			<&clock_mmss clk_mdss_esc1_clk>,
+			<&mdss_dsi0_pll clk_mdss_byte_clk_mux>,
+			<&mdss_dsi0_pll clk_mdss_pixel_clk_mux>,
+			<&mdss_dsi0_pll clk_byte_clk_src>,
+			<&mdss_dsi0_pll clk_pixel_clk_src>,
+			<&mdss_dsi1_pll clk_mdss_dsi1_vco_clk_src>;
+		clock-names = "mdp_core_clk", "iface_clk",
+			"core_mmss_clk", "bus_clk",
+			"byte_clk", "pixel_clk", "core_clk",
+			"mdss_byte_clk_mux", "mdss_pixel_clk_mux",
+			"byte_clk_src", "pixel_clk_src",
+			"clk_mdss_dsi1_vco_clk_src";
+
+		qcom,platform-strength-ctrl = [77 06];
+		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
+		qcom,platform-regulator-settings = [03 05 03 00 20 07 01];
+		qcom,platform-lane-config = [02 00 00 00 20 00 00 01 88
+			02 00 00 00 40 00 00 01 88
+			02 00 00 40 20 00 00 01 88
+			02 00 00 40 00 00 00 01 88
+			00 00 00 80 00 00 00 01 88];
+
+		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
+		qcom,mmss-phyreset-ctrl-offset = <0x108>;
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda";
+				qcom,supply-min-voltage = <1250000>;
+				qcom,supply-max-voltage = <1250000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+
+			qcom,ctrl-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <20>;
+			};
+
+			qcom,ctrl-supply-entry@2 {
+				reg = <2>;
+				qcom,supply-name = "vcca";
+				qcom,supply-min-voltage = <1000000>;
+				qcom,supply-max-voltage = <1000000>;
+				qcom,supply-enable-load = <10000>;
+				qcom,supply-disable-load = <100>;
+			};
+		};
+
+		qcom,panel-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,panel-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <20>;
+			};
+		};
 	};
 
 	qcom,mdss_wb_panel {
@@ -197,13 +368,14 @@
 		reg-names = "core_physical", "qfprom_physical";
 
 		hpd-gdsc-supply = <&gdsc_mdss>;
+		core-vdda-supply = <&pm8994_l12>;
+		core-vcc-supply = <&pm8994_s4>;
 
-		qcom,supply-names = "hpd-gdsc";
-
-		qcom,min-voltage-level = <0>;
-		qcom,max-voltage-level = <0>;
-		qcom,enable-load = <0>;
-		qcom,disable-load = <0>;
+		qcom,supply-names = "hpd-gdsc", "core-vdda", "core-vcc";
+		qcom,min-voltage-level = <0 1800000 1800000>;
+		qcom,max-voltage-level = <0 1800000 1800000>;
+		qcom,enable-load = <0 300000 0>;
+		qcom,disable-load = <0 0 0>;
 
 		clocks = <&clock_mmss clk_mdss_mdp_clk>,
 				<&clock_mmss clk_mdss_ahb_clk>,
@@ -212,7 +384,6 @@
 				<&clock_mmss clk_mdss_extpclk_clk>;
 		clock-names = "mdp_core_clk", "iface_clk",
 				"core_clk", "alt_iface_clk", "extp_clk";
-
 		qcom,mdss-fb-map = <&mdss_fb1>;
 		qcom,msm-hdmi-audio-rx {
 			compatible = "qcom,msm-hdmi-audio-codec-rx";

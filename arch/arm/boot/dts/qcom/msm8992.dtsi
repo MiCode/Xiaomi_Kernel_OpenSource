@@ -187,6 +187,7 @@
 
 #include "msm-gdsc.dtsi"
 #include "msm8994-smp2p.dtsi"
+#include "msm8992-mdss-pll.dtsi"
 #include "msm8992-mdss.dtsi"
 #include "msm8992-gpu.dtsi"
 #include "msm8992-bus.dtsi"
@@ -508,7 +509,12 @@
 		clocks = <&clock_rpm clk_cxo_clk_src>,
 		         <&clock_gcc clk_gpll0_out_mmsscc>,
 			 <&clock_rpm clk_mmssnoc_ahb_clk>,
-			 <&clock_rpm clk_oxili_gfx3d_clk_src>;
+			 <&clock_rpm clk_oxili_gfx3d_clk_src>,
+			 <&mdss_dsi0_pll clk_mdss_pixel_clk_mux>,
+			 <&mdss_dsi0_pll clk_mdss_pixel_clk_mux>,
+			 <&mdss_dsi0_pll clk_mdss_byte_clk_mux>,
+			 <&mdss_dsi0_pll clk_mdss_byte_clk_mux>,
+			 <&mdss_hdmi_pll clk_hdmi_20nm_vco_clk>;
 		#clock-cells = <1>;
 	};
 
