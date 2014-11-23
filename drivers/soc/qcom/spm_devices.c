@@ -44,6 +44,7 @@ struct msm_spm_device {
 	void __iomem *q2s_reg;
 	bool qchannel_ignore;
 	bool allow_rpm_hs;
+	bool use_spm_clk_gating;
 };
 
 struct msm_spm_vdd_info {
@@ -162,7 +163,7 @@ static void msm_spm_config_q2s(struct msm_spm_device *dev, unsigned int mode)
 	case MSM_SPM_MODE_DISABLED:
 	case MSM_SPM_MODE_CLOCK_GATING:
 		qchannel_ignore = 1;
-		spm_legacy_mode = 0;
+		spm_legacy_mode = dev->use_spm_clk_gating;
 		break;
 	case MSM_SPM_MODE_RETENTION:
 		qchannel_ignore = 0;
@@ -196,6 +197,10 @@ static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
 	if ((mode == MSM_SPM_MODE_POWER_COLLAPSE)
 			|| (mode == MSM_SPM_MODE_GDHS))
 		pc_mode = true;
+
+	if ((mode == MSM_SPM_MODE_CLOCK_GATING)
+			&& (!dev->use_spm_clk_gating))
+		mode = MSM_SPM_MODE_DISABLED;
 
 	if (mode == MSM_SPM_MODE_DISABLED) {
 		ret = msm_spm_drv_set_spm_enable(&dev->reg_data, false);
@@ -629,6 +634,9 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 
 	key = "qcom,use-qchannel-for-pc";
 	dev->qchannel_ignore = !of_property_read_bool(node, key);
+
+	key = "qcom,use-spm-clock-gating";
+	dev->use_spm_clk_gating = of_property_read_bool(node, key);
 
 	/*
 	 * At system boot, cpus and or clusters can remain in reset. CCI SPM

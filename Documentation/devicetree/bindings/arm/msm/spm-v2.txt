@@ -60,6 +60,10 @@ Optional properties
 - qcom,supports-rpm-hs: Indicates that this SPM instance allow handshake with
 RPM processor when executing the sleep command in the SPM sequence. Supported
 only on SAW2 v3.0 and above.
+- qcom,use-spm-clock-gating: This boolean property is used to indicate that
+	the SPM needs to be used for clock gating. Using the SPM for clock
+	gating would result in auto clock gating being disabled. Use this on
+	targets that do not support or do not use auto clock gating.
 
 Example 1:
 	qcom,spm@f9089000 {
