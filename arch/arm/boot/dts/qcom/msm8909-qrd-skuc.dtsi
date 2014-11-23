@@ -11,6 +11,7 @@
  */
 
 #include "msm8909-qrd.dtsi"
+#include "msm8909-camera-sensor-skuc.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909 QRD SKUC";
