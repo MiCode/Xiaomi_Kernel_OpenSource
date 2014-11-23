@@ -200,6 +200,15 @@ config GC0339
 		Preview and snapshot resolution shall be 640*480 at 30 fps,
 		It does not support auto focus.
 
+config GC0310
+	bool "Sensor GC0310 (YUV .3M)"
+	depends on MSMB_CAMERA
+	---help---
+		0310 is a Galaxycore .3 MP YUV Sensor.
+		It supports 1 mipi lane.
+		Preview and snapshot resolution shall be 640*480 at 30 fps,
+		It does not support auto focus.
+
 config OV8825
 	bool "OmniVision OV8825 (BAYER 8MP)"
 	depends on MSMB_CAMERA
