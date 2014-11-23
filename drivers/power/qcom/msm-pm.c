@@ -79,6 +79,7 @@ enum msm_pc_count_offsets {
 
 static bool msm_pm_ldo_retention_enabled = true;
 static bool msm_pm_tz_flushes_cache;
+static bool msm_pm_ret_no_pll_switch;
 static bool msm_no_ramp_down_pc;
 static struct msm_pm_sleep_status_data *msm_pm_slp_sts;
 DEFINE_PER_CPU(struct clk *, cpu_clks);
@@ -136,7 +137,8 @@ static bool msm_pm_retention(bool from_idle)
 	cpumask_set_cpu(cpu, &retention_cpus);
 	spin_unlock(&retention_lock);
 
-	clk_disable(cpu_clk);
+	if (!msm_pm_ret_no_pll_switch)
+		clk_disable(cpu_clk);
 
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_RETENTION, false);
 	WARN_ON(ret);
@@ -146,8 +148,9 @@ static bool msm_pm_retention(bool from_idle)
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
 	WARN_ON(ret);
 
-	if (clk_enable(cpu_clk))
-		pr_err("%s(): Error restore cpu clk\n", __func__);
+	if (!msm_pm_ret_no_pll_switch)
+		if (clk_enable(cpu_clk))
+			pr_err("%s(): Error restore cpu clk\n", __func__);
 
 	spin_lock(&retention_lock);
 	cpumask_clear_cpu(cpu, &retention_cpus);
@@ -849,6 +852,10 @@ skip_save_imem:
 	if (pdev->dev.of_node) {
 		key = "qcom,tz-flushes-cache";
 		msm_pm_tz_flushes_cache =
+				of_property_read_bool(pdev->dev.of_node, key);
+
+		key = "qcom,no-pll-switch-for-retention";
+		msm_pm_ret_no_pll_switch =
 				of_property_read_bool(pdev->dev.of_node, key);
 
 		ret = msm_pm_clk_init(pdev);

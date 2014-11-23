@@ -26,6 +26,11 @@ reduce latency associated with L2 PC.
 - qcom,saw-turns-off-pll: Indicates that the CPU's PLL can be managed from SAW
 	hardware. On such targets software mangement of PLL is not required. If
 	this property is specified then qcom,synced-clocks would be ignored.
+- qcom,no-pll-switch-for-retention: Boolean property, to indicate that the cpu
+	clock can be sourced even from the HFPLL even when the cpu is in
+	retention, and need not be switched to an always on pll. If this flag
+	is set then the cpu clock is not ramped down when entering retention or
+	ramped up on exiting retention.
 
 Example 1:
 
