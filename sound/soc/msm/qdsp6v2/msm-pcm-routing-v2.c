@@ -732,9 +732,6 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 			acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
 			topology = msm_routing_get_adm_topology(path_type,
 								fedai_id);
-			if (msm_bedais[i].port_id == VOICE_RECORD_RX ||
-			    msm_bedais[i].port_id == VOICE_RECORD_TX)
-				topology = NULL_COPP_TOPOLOGY;
 			copp_idx = adm_open(msm_bedais[i].port_id, path_type,
 					    sample_rate, channels, topology,
 					    perf_mode, bits_per_sample,
@@ -946,9 +943,6 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 
 			topology = msm_routing_get_adm_topology(path_type, val);
 			acdb_dev_id = fe_dai_app_type_cfg[val].acdb_dev_id;
-			if (msm_bedais[reg].port_id == VOICE_RECORD_RX ||
-			    msm_bedais[reg].port_id == VOICE_RECORD_TX)
-				topology = NULL_COPP_TOPOLOGY;
 			copp_idx = adm_open(msm_bedais[reg].port_id, path_type,
 					    sample_rate, channels, topology,
 					    fdai->perf_mode, bits_per_sample,
@@ -5449,9 +5443,6 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 			channels = bedai->channel;
 			acdb_dev_id = fe_dai_app_type_cfg[i].acdb_dev_id;
 			topology = msm_routing_get_adm_topology(path_type, i);
-			if (bedai->port_id == VOICE_RECORD_RX ||
-			    bedai->port_id == VOICE_RECORD_TX)
-				topology = NULL_COPP_TOPOLOGY;
 			copp_idx = adm_open(bedai->port_id, path_type,
 					    sample_rate, channels, topology,
 					    fdai->perf_mode, bits_per_sample,
