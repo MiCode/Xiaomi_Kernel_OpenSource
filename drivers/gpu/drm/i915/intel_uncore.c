@@ -451,8 +451,8 @@ hsw_unclaimed_reg_check(struct drm_i915_private *dev_priv, u32 reg)
 static void
 assert_device_not_suspended(struct drm_i915_private *dev_priv)
 {
-	WARN(HAS_RUNTIME_PM(dev_priv->dev) && dev_priv->pm.suspended,
-	     "Device suspended\n");
+	WARN_ONCE(HAS_RUNTIME_PM(dev_priv->dev) && dev_priv->pm.suspended,
+		  "Device suspended\n");
 }
 
 #define REG_READ_HEADER(x) \
