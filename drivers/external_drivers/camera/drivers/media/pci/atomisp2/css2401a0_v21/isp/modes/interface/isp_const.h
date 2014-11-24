@@ -112,6 +112,7 @@
 #define SH_CSS_BINARY_ID_SC_VIDEO_HIGH_RESOLUTION           104
 #define SH_CSS_BINARY_ID_VIDEO_C0                           105
 #define SH_CSS_BINARY_ID_SC_VIDEO_C0_HIGH_RESOLUTION        106
+#define SH_CSS_BINARY_ID_SC_VIDEO_HIRES                     107
 
 /* skycam kerneltest pipelines */
 #define SH_CSS_BINARY_ID_VIDEO_KERNELTEST_NORM              120
@@ -216,12 +217,14 @@
 #define SH_CSS_BINARY_ID_SC_PRIMARY_SINGLE_STAGE            252
 #define SH_CSS_BINARY_ID_COPY_KERNELTEST_OUTPUT_SYSTEM      253
 #define SH_CSS_BINARY_ID_SC_PRIMARY_SINGLE_STAGE_C0         254
-#define SH_CSS_BINARY_ID_IF_TO_XNR                          255
-#define SH_CSS_BINARY_ID_IF_TO_XNR_STRIPED                  256
-#define SH_CSS_BINARY_ID_IF_TO_REF_STRIPED                  257
-#define SH_CSS_BINARY_ID_VIDEO_IF_TO_OSYS                   258
-#define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS_C0_STRIPED        259
-#define SH_CSS_BINARY_ID_IF_TO_YUVP1_C0                     260
+#define SH_CSS_BINARY_ID_SC_PRIMARY_SINGLE_STAGE_HR         255
+#define SH_CSS_BINARY_ID_IF_TO_XNR                          256
+#define SH_CSS_BINARY_ID_IF_TO_XNR_STRIPED                  257
+#define SH_CSS_BINARY_ID_IF_TO_REF_STRIPED                  258
+#define SH_CSS_BINARY_ID_VIDEO_IF_TO_OSYS                   259
+#define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS_C0_STRIPED        260
+#define SH_CSS_BINARY_ID_IF_TO_YUVP1_C0                     261
+#define SH_CSS_BINARY_ID_IF_TO_XNR_PRIMARY                  262
 
 #define XMEM_WIDTH_BITS              HIVE_ISP_DDR_WORD_BITS
 #define XMEM_SHORTS_PER_WORD         (HIVE_ISP_DDR_WORD_BITS/16)

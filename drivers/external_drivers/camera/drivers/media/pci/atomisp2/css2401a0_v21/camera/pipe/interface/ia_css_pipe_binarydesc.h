@@ -88,7 +88,6 @@ extern enum ia_css_err sh_css_bds_factor_get_numerator_denominator(
 extern enum ia_css_err ia_css_pipe_get_preview_binarydesc(
 	struct ia_css_pipe * const pipe,
 	struct ia_css_binary_descr *preview_descr,
-	struct ia_css_frame_info *original_in_info,
 	struct ia_css_frame_info *in_info,
 	struct ia_css_frame_info *bds_out_info,
 	struct ia_css_frame_info *out_info,

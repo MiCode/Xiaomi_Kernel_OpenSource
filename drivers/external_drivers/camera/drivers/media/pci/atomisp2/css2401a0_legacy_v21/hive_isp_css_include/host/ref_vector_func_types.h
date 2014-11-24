@@ -36,13 +36,13 @@
 #include "isp_op1w_types.h"
 #include "isp_op2w_types.h"
 
+/* Defines for the Config Unit */
 #define MAX_CONFIG_POINTS 5
 #define INPUT_OFFSET_FACTOR 10
 #define INPUT_SCALE_FACTOR 10
 #define OUTPUT_SCALE_FACTOR 10
 #define SLOPE_A_RESOLUTION 10
-#define CONFIG_UNIT_LUT_SIZE 32
-
+#define CONFIG_UNIT_LUT_SIZE 32 /*XCU works for ISP_NWAY = 32 */
 
 #define ONE_IN_Q14 (1<<(NUM_BITS-2))
 #define Q29_TO_Q15_SHIFT_VAL (NUM_BITS-2)
@@ -195,8 +195,6 @@ typedef struct {
 	tvector1w v80; tvector1w v81; tvector1w v82; tvector1w v83; tvector1w v84;
 	tvector1w v85; tvector1w v86; tvector1w v87; tvector1w v88;
 } s_1w_9x9_matrix;
-
-
 
 typedef struct {
 	tvector1w x_cord[MAX_CONFIG_POINTS];

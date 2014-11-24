@@ -89,7 +89,6 @@ struct ia_css_pipeline_stage_desc {
 	enum ia_css_pipeline_stage_sp_func sp_func;
 	unsigned max_input_width;
 	unsigned int mode;
-	struct ia_css_frame *cc_frame;
 	struct ia_css_frame *in_frame;
 	struct ia_css_frame *out_frame[IA_CSS_BINARY_MAX_OUTPUT_PORTS];
 	struct ia_css_frame *vf_frame;

@@ -2999,14 +2999,7 @@ ia_css_debug_pipe_graph_dump_stage(
 		}
 	}
 
-	/* CC is a bit of special case, it used to be the alternating IN */
-	/* when continuous capture was still used in a double buffer scheme. */
-	/* Now consider it just as another IN */
-	if (stage->args.cc_frame) {
-		ia_css_debug_pipe_graph_dump_frame(
-			stage->args.cc_frame, id, blob_name,
-			"in", true);
-	} else if (stage->args.in_frame) {
+	if (stage->args.in_frame) {
 		ia_css_debug_pipe_graph_dump_frame(
 			stage->args.in_frame, id, blob_name,
 			"in", true);

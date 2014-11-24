@@ -55,12 +55,12 @@ extern void ia_css_debug_pipe_graph_dump_stage(
 
 /**
  * @brief Internal debug support for constructing a pipe graph.
- * @param[in]	cc_frame	Output frame of SP raw copy.
+ * @param[in]	out_frame	Output frame of SP raw copy.
  *
  * @return	None
  */
 extern void ia_css_debug_pipe_graph_dump_sp_raw_copy(
-		struct ia_css_frame *cc_frame);
+		struct ia_css_frame *out_frame);
 
 
 /**

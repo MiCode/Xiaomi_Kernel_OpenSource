@@ -1,5 +1,5 @@
-/* Release Version: irci_master_20141114_1919 */
-/* Release Version: irci_master_20141114_1919 */
+/* Release Version: irci_master_20141122_1500 */
+/* Release Version: irci_master_20141122_1500 */
 /*
  * INTEL CONFIDENTIAL
  *
@@ -32,8 +32,8 @@ ia_css_hdr_init_config(
 	const struct ia_css_hdr_config *from,
 	unsigned size)
 {
-	(void)size;
 	int i;
+	(void)size;
 
 	for (i = 0; i < HDR_NUM_INPUT_FRAMES - 1; i++) {
 		to->irradiance.match_shift[i] = from->irradiance.match_shift[i];

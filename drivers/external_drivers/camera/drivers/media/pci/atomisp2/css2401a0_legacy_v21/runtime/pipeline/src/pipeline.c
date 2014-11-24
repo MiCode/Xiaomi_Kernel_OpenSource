@@ -650,7 +650,6 @@ static enum ia_css_err pipeline_stage_create(
 			stage->vf_frame_allocated = true;
 	}
 
-	stage->args.cc_frame = stage_desc->cc_frame;
 	stage->args.in_frame = stage_desc->in_frame;
 	for (i = 0; i < IA_CSS_BINARY_MAX_OUTPUT_PORTS; i++)
 		stage->args.out_frame[i] = out_frame[i];

@@ -24,9 +24,6 @@
 
 #include "type_support.h"
 
-/* TEMP: for implementation purpose.... */
-#define BYPASS_BNR2_2		1
-
 /* BNR (Bayer Noise Reduction) ISP parameters */
 struct sh_css_isp_bnr2_2_params {
 	int32_t d_var_gain_r;
