@@ -218,6 +218,9 @@ config USB_F_TCM
 config USB_F_AUDIO_SRC
 	tristate
 
+config USB_F_ACC
+	tristate
+
 # this first set of drivers all depend on bulk-capable hardware.
 
 config USB_CONFIGFS
@@ -371,9 +374,16 @@ config USB_CONFIGFS_F_FS
 	  implemented in kernel space (for instance Ethernet, serial or
 	  mass storage) and other are implemented in user space.
 
+config USB_CONFIGFS_F_ACC
+	bool "Accessory gadget"
+	depends on USB_CONFIGFS
+	select USB_F_ACC
+	help
+	  USB gadget Accessory support
+
 config USB_CONFIGFS_F_AUDIO_SRC
 	bool "Audio Source gadget"
-	depends on USB_CONFIGFS
+	depends on USB_CONFIGFS && USB_CONFIGFS_F_ACC
 	depends on SND
 	select SND_PCM
 	select USB_F_AUDIO_SRC
