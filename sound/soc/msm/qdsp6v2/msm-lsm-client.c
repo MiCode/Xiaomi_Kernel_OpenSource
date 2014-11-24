@@ -363,9 +363,20 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		       sizeof(struct snd_lsm_session_data));
 		if (prtd) {
 			if (session_data.app_id <= LSM_VOICE_WAKEUP_APP_ID_V2
-			    && session_data.app_id > 0)
+			    && session_data.app_id > 0) {
 				prtd->lsm_client->app_id = session_data.app_id;
-			else {
+				ret = q6lsm_open(prtd->lsm_client,
+					prtd->lsm_client->app_id);
+				if (ret < 0) {
+					pr_err("%s: lsm open failed, %d\n",
+								__func__, ret);
+					q6lsm_client_free(prtd->lsm_client);
+					kfree(prtd);
+					return ret;
+				}
+				pr_debug("%s: Session ID %d\n", __func__,
+					prtd->lsm_client->session);
+			} else {
 				pr_err("%s:Invalid App id for Listen client\n",
 				       __func__);
 				rc = -EINVAL;
@@ -1104,21 +1115,11 @@ static int msm_lsm_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct lsm_priv *prtd = runtime->private_data;
-	int ret = 0;
 
 	if (!prtd->lsm_client) {
 		pr_err("%s: LSM client data ptr is NULL\n", __func__);
 		return -EINVAL;
 	}
-	ret = q6lsm_open(prtd->lsm_client, prtd->lsm_client->app_id);
-	if (ret < 0) {
-		pr_err("%s: lsm open failed, %d\n", __func__, ret);
-		q6lsm_client_free(prtd->lsm_client);
-		kfree(prtd);
-		return ret;
-	}
-	pr_debug("%s: Session ID %d\n", __func__,
-		 prtd->lsm_client->session);
 	prtd->lsm_client->started = false;
 	runtime->private_data = prtd;
 	return 0;
