@@ -2603,7 +2603,7 @@ void i915_gem_retire_requests_ring(struct intel_engine_cs *ring);
 int __must_check i915_gem_check_wedge(struct i915_gpu_error *error,
 				      bool interruptible,
 				      struct intel_engine_cs *ring);
-int __must_check i915_gem_check_olr(struct intel_engine_cs *ring, u32 seqno);
+int __must_check i915_gem_check_olr(struct drm_i915_gem_request *req);
 int i915_gem_wedged(struct drm_device *dev, bool interruptible);
 static inline bool i915_reset_in_progress(struct i915_gpu_error *error)
 {
@@ -3240,5 +3240,21 @@ wait_remaining_ms_from_jiffies(unsigned long timestamp_jiffies, int to_wait_ms)
 }
 
 void intel_chv_huc_load(struct drm_device *dev);
+
+/* XXX: Temporary solution to be removed later in patch series. */
+static inline int __must_check i915_gem_check_ols(
+				     struct intel_engine_cs *ring, u32 seqno)
+{
+	int ret;
+
+	WARN_ON(!mutex_is_locked(&ring->dev->struct_mutex));
+
+	ret = 0;
+	if (seqno == i915_gem_request_get_seqno(ring->outstanding_lazy_request))
+		ret = i915_add_request(ring, NULL);
+
+	return ret;
+}
+/* XXX: Temporary solution to be removed later in patch series. */
 
 #endif

@@ -10410,7 +10410,7 @@ static int intel_postpone_flip(struct drm_i915_gem_object *obj)
 			      i915_gem_request_get_seqno(obj->last_write_req)))
 		return 0;
 
-	ret = i915_gem_check_olr(ring, i915_gem_request_get_seqno(obj->last_write_req));
+	ret = i915_gem_check_olr(obj->last_write_req);
 	if (ret)
 		return ret;
 
