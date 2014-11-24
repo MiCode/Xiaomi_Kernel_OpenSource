@@ -612,19 +612,23 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		goto on_error;
 	}
 
+	rc = mdp3_ctrl_res_req_clk(mfd, 1);
+	if (rc) {
+		pr_err("fail to request mdp clk resource\n");
+		goto on_error;
+	}
+
 	panel = mdp3_session->panel;
 	if (panel->event_handler) {
 		rc = panel->event_handler(panel, MDSS_EVENT_LINK_READY, NULL);
 		rc |= panel->event_handler(panel, MDSS_EVENT_UNBLANK, NULL);
 		rc |= panel->event_handler(panel, MDSS_EVENT_PANEL_ON, NULL);
+		if (panel->panel_info.type == MIPI_CMD_PANEL)
+			rc |= panel->event_handler(panel,
+					MDSS_EVENT_PANEL_CLK_CTRL, (void *)1);
 	}
 	if (rc) {
 		pr_err("fail to turn on the panel\n");
-		goto on_error;
-	}
-	rc = mdp3_ctrl_res_req_clk(mfd, 1);
-	if (rc) {
-		pr_err("fail to request mdp clk resource\n");
 		goto on_error;
 	}
 
@@ -706,6 +710,12 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 				MDSS_EVENT_PANEL_OFF, NULL);
 		if (rc)
 			pr_err("fail to turn off the panel\n");
+		if (panel->event_handler &&
+			(panel->panel_info.type == MIPI_CMD_PANEL)) {
+			rc = panel->event_handler(panel,
+				MDSS_EVENT_PANEL_CLK_CTRL, (void *)0);
+		}
+
 		rc = mdp3_res_update(0, 1, MDP3_CLIENT_DMA_P);
 		if (rc)
 			pr_err("mdp clock resource release failed\n");
