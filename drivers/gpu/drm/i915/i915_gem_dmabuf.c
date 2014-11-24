@@ -42,6 +42,7 @@ static int i915_gem_attach_dma_buf(struct dma_buf *dmabuf,
 	struct drm_gem_object *gem_obj = dmabuf->priv;
 	struct drm_i915_gem_object *obj = to_intel_bo(gem_obj);
 	struct drm_device *drm_dev = gem_obj->dev;
+	struct intel_engine_cs *ring;
 	u32 ret;
 
 	i915_attach = kzalloc(sizeof(*i915_attach), GFP_KERNEL);
@@ -49,7 +50,8 @@ static int i915_gem_attach_dma_buf(struct dma_buf *dmabuf,
 		return -ENOMEM;
 
 	mutex_lock(&drm_dev->struct_mutex);
-	ret = intel_pin_and_fence_fb_obj(drm_dev, obj, obj->ring);
+	ring = i915_gem_request_get_ring(obj->last_read_req);
+	ret = intel_pin_and_fence_fb_obj(drm_dev, obj, ring);
 	if (ret) {
 		drm_gem_object_unreference(&obj->base);
 		mutex_unlock(&drm_dev->struct_mutex);

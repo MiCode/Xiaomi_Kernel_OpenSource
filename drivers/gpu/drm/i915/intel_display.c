@@ -10372,7 +10372,7 @@ static bool use_mmio_flip(struct intel_engine_cs *ring,
 	else if (i915.enable_execlists)
 		return true;
 	else
-		return ring != obj->ring;
+		return ring != i915_gem_request_get_ring(obj->last_read_req);
 }
 
 static void intel_do_mmio_flip(struct intel_crtc *intel_crtc)
@@ -10398,11 +10398,11 @@ static int intel_postpone_flip(struct drm_i915_gem_object *obj)
 	if (!obj->last_write_req)
 		return 0;
 
-	ring = obj->ring;
+	ring = i915_gem_request_get_ring(obj->last_write_req);
 
 	dev_priv = to_i915(ring->dev);
 	ret = i915_gem_check_wedge(&dev_priv->gpu_error,
-				   dev_priv->mm.interruptible, obj->ring);
+				   dev_priv->mm.interruptible, ring);
 	if (ret)
 		return ret;
 
@@ -10476,13 +10476,14 @@ static int intel_queue_mmio_flip(struct drm_device *dev,
 	spin_lock_irqsave(&dev_priv->mmio_flip_lock, irq_flags);
 	i915_gem_request_assign(&intel_crtc->mmio_flip.req,
 				obj->last_write_req);
+	WARN_ON(ring != i915_gem_request_get_ring(intel_crtc->mmio_flip.req));
 	spin_unlock_irqrestore(&dev_priv->mmio_flip_lock, irq_flags);
 
 	/*
 	 * Double check to catch cases where irq fired before
 	 * mmio flip data was ready
 	 */
-	intel_notify_mmio_flip(obj->ring);
+	intel_notify_mmio_flip(ring);
 	return 0;
 }
 
@@ -10610,7 +10611,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	if (IS_VALLEYVIEW(dev)) {
 		ring = &dev_priv->ring[BCS];
 	} else if (INTEL_INFO(dev)->gen >= 7) {
-		ring = obj->ring;
+		ring = i915_gem_request_get_ring(obj->last_read_req);
 		if (ring == NULL || ring->id != RCS)
 			ring = &dev_priv->ring[BCS];
 	} else {

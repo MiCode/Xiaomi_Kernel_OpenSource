@@ -169,8 +169,9 @@ describe_obj(struct seq_file *m, struct drm_i915_gem_object *obj)
 		*t = '\0';
 		seq_printf(m, " (%s mappable)", s);
 	}
-	if (obj->ring != NULL)
-		seq_printf(m, " (%s)", obj->ring->name);
+	if (obj->last_read_req != NULL)
+		seq_printf(m, " (%s)",
+			   i915_gem_request_get_ring(obj->last_read_req)->name);
 }
 
 static void describe_ctx(struct seq_file *m, struct intel_context *ctx)
@@ -335,7 +336,7 @@ static int per_file_stats(int id, void *ptr, void *data)
 			if (ppgtt->file_priv != stats->file_priv)
 				continue;
 
-			if (obj->ring) /* XXX per-vma statistic */
+			if (obj->active) /* XXX per-vma statistic */
 				stats->active += obj->base.size;
 			else
 				stats->inactive += obj->base.size;
@@ -345,7 +346,7 @@ static int per_file_stats(int id, void *ptr, void *data)
 	} else {
 		if (i915_gem_obj_ggtt_bound(obj)) {
 			stats->global += obj->base.size;
-			if (obj->ring)
+			if (obj->active)
 				stats->active += obj->base.size;
 			else
 				stats->inactive += obj->base.size;
