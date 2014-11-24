@@ -81,4 +81,15 @@ config SPS_SUPPORT_NDP_BAM
 	help
 	  No-Data-Path BAM is used to improve BAM performance.
 
+config I2C_MSM_PROF_DBG
+	tristate "I2C_MSM_PROF_DBG"
+	depends on ARCH_MSM && I2C_MSM_V2
+	help
+	  This option enables the enhanced logging, profiling and debugfs
+	  support to the i2c-msm-v2 driver. If you say yes to this option,
+	  you can change the deugging level to adjust the amount of debugging
+	  information as needed at run time using debugfs.
+
+	  This module can also be dynamically linked as a shared kernel object.
+
 endmenu

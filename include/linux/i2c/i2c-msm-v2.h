@@ -11,7 +11,7 @@
  *
  */
 /*
- * I2C controller driver for Qualcomm MSM platforms
+ * I2C controller driver for Qualcomm Technologies Inc platforms
  */
 
 #ifndef _I2C_MSM_V2_H
@@ -36,7 +36,6 @@ enum msm_i2_debug_level {
 #define MASK_IS_SET_BOOL(val, mask) (MASK_IS_SET(val, mask) ? 1 : 0)
 #define KHz(freq) (1000 * freq)
 #define I2C_MSM_CLK_FAST_PLUS_FREQ  (1000000)
-#define I2C_MSM_TAG2_MAX_LEN (4)
 
 /* QUP Registers */
 enum {
@@ -234,12 +233,12 @@ enum msm_spi_clk_path_vec_idx {
 #define I2C_MSM_CLK_PATH_AVRG_BW(ctrl) (0)
 #define I2C_MSM_CLK_PATH_BRST_BW(ctrl) (ctrl->rsrcs.clk_freq_in * 8)
 
-static char const * const i2c_msm_gpio_names[] = {"i2c_clk", "i2c_sda"};
-
 enum i2c_msm_gpio_name_idx {
 	I2C_MSM_GPIO_SCL,
 	I2C_MSM_GPIO_SDA,
 };
+
+extern const char * const i2c_msm_mode_str_tbl[];
 
 struct i2c_msm_ctrl;
 
@@ -580,9 +579,6 @@ struct i2c_msm_xfer_buf {
 #define I2C_MSM_PROF_MAX_EVNTS   (16)
 #endif
 
-struct i2c_msm_prof_event;
-typedef void (*i2c_msm_prof_dump_func_func_t)(struct i2c_msm_ctrl *,
-			struct i2c_msm_prof_event *, size_t msec, size_t usec);
 /*
  * i2c_msm_prof_event: profiling event
  *
@@ -591,12 +587,12 @@ typedef void (*i2c_msm_prof_dump_func_func_t)(struct i2c_msm_ctrl *,
  * @type event type (see enum i2c_msm_prof_event_type)
  */
 struct i2c_msm_prof_event {
-	i2c_msm_prof_dump_func_func_t dump_func;
 	struct timespec time;
 	u64             data0;
 	u32             data1;
 	u32             data2;
 	u8              type;
+	u8              dump_func_id;
 };
 
 enum i2c_msm_err_bit_field {
@@ -658,7 +654,6 @@ struct i2c_msm_xfer {
  * @dbgfs    debug-fs root and values that may be set via debug-fs.
  * @rsrcs    resources from platform data including clocks, gpios, irqs, and
  *           memory regions.
- * @pdata    the platform data (values from board-file or from device-tree)
  * @mstr_clk_ctl cached value for programming to mstr_clk_ctl register
  */
 struct i2c_msm_ctrl {
@@ -669,8 +664,74 @@ struct i2c_msm_ctrl {
 	struct i2c_msm_dbgfs       dbgfs;
 	struct i2c_msm_resources   rsrcs;
 	u32                        mstr_clk_ctl;
-	struct i2c_msm_v2_platform_data *pdata;
 	enum msm_i2c_power_state   pwr_state;
 };
 
-#endif  /* _I2C_MSM_V2_H */
+/* Enum for the profiling event types */
+enum i2c_msm_prof_evnt_type {
+	I2C_MSM_VALID_END,
+	I2C_MSM_PIP_DSCN,
+	I2C_MSM_PIP_CNCT,
+	I2C_MSM_ACTV_END,
+	I2C_MSM_IRQ_BGN,
+	I2C_MSM_IRQ_END,
+	I2C_MSM_XFER_BEG,
+	I2C_MSM_XFER_END,
+	I2C_MSM_SCAN_SUM,
+	I2C_MSM_NEXT_BUF,
+	I2C_MSM_COMPLT_OK,
+	I2C_MSM_COMPLT_FL,
+	I2C_MSM_PROF_RESET,
+};
+
+#ifdef CONFIG_I2C_MSM_PROF_DBG
+extern void i2c_msm_dbgfs_init(struct i2c_msm_ctrl *ctrl);
+
+extern void i2c_msm_dbgfs_teardown(struct i2c_msm_ctrl *ctrl);
+
+/* diagonisis the i2c registers and dump the errors accordingly */
+extern const char *i2c_msm_dbg_tag_to_str(const struct i2c_msm_tag *tag,
+						char *buf, size_t buf_len);
+
+extern void i2c_msm_prof_evnt_dump(struct i2c_msm_ctrl *ctrl);
+
+/* function definitions to be used from the i2c-msm-v2-debug file */
+extern void i2c_msm_prof_evnt_add(struct i2c_msm_ctrl *ctrl,
+				enum msm_i2_debug_level dbg_level,
+				enum i2c_msm_prof_evnt_type event,
+				u64 data0, u32 data1, u32 data2);
+
+extern int i2c_msm_dbg_qup_reg_dump(struct i2c_msm_ctrl *ctrl);
+
+extern const char *
+i2c_msm_dbg_bam_tag_to_str(const struct i2c_msm_bam_tag *bam_tag, char *buf,
+								size_t buf_len);
+#else
+/* use dummy functions */
+static inline void i2c_msm_dbgfs_init(struct i2c_msm_ctrl *ctrl) {}
+static inline void i2c_msm_dbgfs_teardown(struct i2c_msm_ctrl *ctrl) {}
+
+static inline const char *i2c_msm_dbg_tag_to_str(const struct i2c_msm_tag *tag,
+						char *buf, size_t buf_len)
+{
+	return NULL;
+}
+static inline void i2c_msm_prof_evnt_dump(struct i2c_msm_ctrl *ctrl) {}
+
+/* function definitions to be used from the i2c-msm-v2-debug file */
+void i2c_msm_prof_evnt_add(struct i2c_msm_ctrl *ctrl,
+				enum msm_i2_debug_level dbg_level,
+				enum i2c_msm_prof_evnt_type event,
+				u64 data0, u32 data1, u32 data2) {}
+
+static inline int i2c_msm_dbg_qup_reg_dump(struct i2c_msm_ctrl *ctrl)
+{
+	return true;
+}
+static inline const char *i2c_msm_dbg_bam_tag_to_str(const struct
+			i2c_msm_bam_tag * bam_tag, char *buf, size_t buf_len)
+{
+	return NULL;
+}
+#endif /* I2C_MSM_V2_PROF_DBG */
+#endif /* _I2C_MSM_V2_H */
