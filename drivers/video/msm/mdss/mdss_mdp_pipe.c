@@ -1198,11 +1198,9 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 				reg_val | BIT(pipe->xin_id), is_nrt_vbif);
 
 		if (sw_reset_avail) {
-			reg_val = MDSS_VBIF_READ(mdata, sw_reset_off,
-								is_nrt_vbif);
-			MDSS_VBIF_WRITE(mdata, sw_reset_off,
-				reg_val | BIT(pipe->sw_reset.bit_off),
-				is_nrt_vbif);
+			reg_val = readl_relaxed(mdata->mdp_base + sw_reset_off);
+			writel_relaxed(reg_val | BIT(pipe->sw_reset.bit_off),
+					mdata->mdp_base + sw_reset_off);
 			wmb();
 		}
 		mutex_unlock(&mdata->reg_lock);
@@ -1225,16 +1223,16 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 				reg_val & ~BIT(pipe->xin_id), is_nrt_vbif);
 
 		if (sw_reset_avail) {
-			MDSS_VBIF_WRITE(mdata, sw_reset_off, reg_val &
-				~BIT(pipe->sw_reset.bit_off), is_nrt_vbif);
+			reg_val = readl_relaxed(mdata->mdp_base + sw_reset_off);
+			writel_relaxed(reg_val & ~BIT(pipe->sw_reset.bit_off),
+				mdata->mdp_base + sw_reset_off);
 			wmb();
 
-			reg_val = MDSS_VBIF_READ(mdata, clk_ctrl_off,
-								is_nrt_vbif);
+			reg_val = readl_relaxed(mdata->mdp_base + clk_ctrl_off);
 			reg_val |= BIT(pipe->clk_ctrl.bit_off +
 				CLK_FORCE_OFF_OFFSET);
-			MDSS_VBIF_WRITE(mdata, clk_ctrl_off, reg_val,
-								is_nrt_vbif);
+			writel_relaxed(reg_val,
+				mdata->mdp_base + clk_ctrl_off);
 		}
 		mutex_unlock(&mdata->reg_lock);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
