@@ -10434,15 +10434,16 @@ void intel_notify_mmio_flip(struct intel_engine_cs *ring)
 		struct intel_mmio_flip *mmio_flip;
 
 		mmio_flip = &intel_crtc->mmio_flip;
-		if (mmio_flip->seqno == 0)
+		if (mmio_flip->req == NULL)
 			continue;
 
 		if (ring->id != mmio_flip->ring_id)
 			continue;
 
-		if (i915_seqno_passed(seqno, mmio_flip->seqno)) {
+		if (i915_seqno_passed(seqno, i915_gem_request_get_seqno(mmio_flip->req))) {
 			intel_do_mmio_flip(intel_crtc);
-			mmio_flip->seqno = 0;
+			i915_gem_request_unreference_irq(mmio_flip->req);
+			mmio_flip->req = NULL;
 			ring->irq_put(ring);
 		}
 	}
@@ -10461,7 +10462,7 @@ static int intel_queue_mmio_flip(struct drm_device *dev,
 	unsigned long irq_flags;
 	int ret;
 
-	if (WARN_ON(intel_crtc->mmio_flip.seqno))
+	if (WARN_ON(intel_crtc->mmio_flip.req))
 		return -EBUSY;
 
 	ret = intel_postpone_flip(obj);
@@ -10473,8 +10474,8 @@ static int intel_queue_mmio_flip(struct drm_device *dev,
 	}
 
 	spin_lock_irqsave(&dev_priv->mmio_flip_lock, irq_flags);
-	intel_crtc->mmio_flip.seqno =
-			     i915_gem_request_get_seqno(obj->last_write_req);
+	i915_gem_request_assign(&intel_crtc->mmio_flip.req,
+				obj->last_write_req);
 	intel_crtc->mmio_flip.ring_id = obj->ring->id;
 	spin_unlock_irqrestore(&dev_priv->mmio_flip_lock, irq_flags);
 
