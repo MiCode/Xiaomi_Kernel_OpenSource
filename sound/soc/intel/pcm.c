@@ -583,7 +583,7 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 	.capture = {
 		.stream_name = "Headset Capture",
 		.channels_min = 1,
-		.channels_max = 2,
+		.channels_max = 4,
 		.rates = SNDRV_PCM_RATE_44100|SNDRV_PCM_RATE_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},

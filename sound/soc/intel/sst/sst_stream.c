@@ -145,6 +145,7 @@ int sst_alloc_stream_mrfld(char *params, struct sst_block *block)
 	 * Currently hardcoding as per FW reqm.
 	 */
 	num_ch = sst_get_num_channel(str_params);
+	pr_debug("%s num_channel = %d\n", __func__, num_ch);
 	for (i = 0; i < 8; i++) {
 		if (i < num_ch)
 			alloc_param.codec_params.uc.pcm_params.channel_map[i] = i;
