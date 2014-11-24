@@ -107,6 +107,7 @@ struct smbchg_chip {
 	bool				low_icl_wa_on;
 	bool				battery_unknown;
 	bool				charge_unknown_battery;
+	bool				chg_inhibit_en;
 	bool				chg_inhibit_source_fg;
 	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
@@ -3621,13 +3622,15 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 
 	/*
 	 * set chg en by cmd register, set chg en by writing bit 1,
-	 * enable auto pre to fast, enable current termination, enable
-	 * auto recharge, enable chg inhibition
+	 * enable auto pre to fast, enable auto recharge by default.
+	 * enable current termination and charge inhibition based on
+	 * the device tree configuration.
 	 */
 	rc = smbchg_sec_masked_write(chip, chip->chgr_base + CHGR_CFG2,
 			CHG_EN_SRC_BIT | CHG_EN_COMMAND_BIT | P2F_CHG_TRAN
 			| I_TERM_BIT | AUTO_RECHG_BIT | CHARGER_INHIBIT_BIT,
-			CHARGER_INHIBIT_BIT | CHG_EN_COMMAND_BIT
+			CHG_EN_COMMAND_BIT
+			| (chip->chg_inhibit_en ? CHARGER_INHIBIT_BIT : 0)
 			| (chip->iterm_disabled ? I_TERM_BIT : 0));
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set chgr_cfg2 rc=%d\n", rc);
@@ -4049,6 +4052,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 						"qcom,charging-disabled"));
 	chip->charge_unknown_battery = of_property_read_bool(node,
 						"qcom,charge-unknown-battery");
+	chip->chg_inhibit_en = of_property_read_bool(node,
+					"qcom,chg-inhibit-en");
 	chip->chg_inhibit_source_fg = of_property_read_bool(node,
 						"qcom,chg-inhibit-fg");
 
