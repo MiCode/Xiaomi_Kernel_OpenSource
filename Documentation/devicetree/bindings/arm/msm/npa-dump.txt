@@ -1,0 +1,22 @@
+* NPA Dump
+
+RPM maintains the shared resources using the Node Power Architecture (NPA)
+framework. The framework aggregates requests from different clients for a
+resource and determines the final value. The NPA framework also provides an
+option to log a snapshot of the resource active values and the client
+requests. RPM provides a command to initiate and log this snapshot in the
+shared ram
+
+The required properties for npa-dump are:
+
+- compatible: "qcom,npa-dump".
+- reg: The address on RPM RAM from where the start address of log to be read.
+       The second tuple would be the start of the RPM address and the size of
+       the log.
+
+Example:
+
+	qcom,npa-dump@0xfc190020 {
+		compatible = "qcom,npa-dump";
+		reg = <0xfc190020 0x4>, <0xfc000000 0x1c00>;
+	};
