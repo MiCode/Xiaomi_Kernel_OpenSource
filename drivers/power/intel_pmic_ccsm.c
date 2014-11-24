@@ -963,9 +963,8 @@ static void handle_batttemp_interrupt(u16 int_reg, u16 stat_reg)
 
 static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 {
-	int mask, ret;
+	int mask;
 	u16 id_mask;
-	u8 val;
 
 	id_mask = BIT_POS(PMIC_INT_USBIDFLTDET) |
 				 BIT_POS(PMIC_INT_USBIDGNDDET);
@@ -976,7 +975,6 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 		 * due to WC PMIC bug
 		 */
 		if (mask) {
-			intel_pmic_handle_otgmode(chc.otg_mode_enabled);
 			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x1);
 			atomic_notifier_call_chain(&chc.otg->notifier,
 				USB_EVENT_ID, &mask);
@@ -1008,9 +1006,8 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 				"USB VBUS Detected. Notifying OTG driver\n");
 			chc.vbus_connect_status = true;
 
-			ret = pmic_read_reg(chc.reg_map->pmic_chgrctrl1, &val);
-			if (!ret && (val & CHGRCTRL1_OTGMODE_MASK))
-				chc.otg_mode_enabled = true;
+			chc.otg_mode_enabled =
+				(stat_reg & id_mask) == SHRT_GND_DET;
 		} else {
 			dev_info(chc.dev,
 				"USB VBUS Removed. Notifying OTG driver\n");
@@ -1021,8 +1018,9 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 		if (chc.is_internal_usb_phy && !chc.otg_mode_enabled)
 			handle_internal_usbphy_notifications(mask);
 		else if (!mask)
-			intel_pmic_handle_otgmode(chc.otg_mode_enabled =
-				(stat_reg & id_mask) == SHRT_GND_DET);
+			chc.otg_mode_enabled =
+					(stat_reg & id_mask) == SHRT_GND_DET;
+		intel_pmic_handle_otgmode(chc.otg_mode_enabled);
 	}
 }
 
@@ -1062,7 +1060,8 @@ static irqreturn_t pmic_thread_handler(int id, void *data)
 {
 	int i, shift;
 	u16 *pmic_int, *pmic_int_stat, off;
-	u8 val, mask;
+	u16 stat_reg = 0, int_reg = 0;
+	u8 ireg_val = 0, sreg_val = 0, val;
 	struct pmic_event *evt;
 
 	evt = kzalloc(sizeof(struct pmic_event), GFP_KERNEL);
@@ -1075,11 +1074,11 @@ static irqreturn_t pmic_thread_handler(int id, void *data)
 	for (i = 0; i < chc.intmap_size; ++i) {
 		off = chc.intmap[i].pmic_int / 16;
 
-		/* mask for debug purpose */
-		pmic_read_reg(chc.intmap[i].mreg, &mask);
-		pmic_read_reg(chc.intmap[i].ireg, &val);
-		dev_dbg(chc.dev, "%s:%d mreg=%x val = %x\n", __func__, __LINE__,
-			chc.intmap[i].mreg, mask);
+		if (int_reg != chc.intmap[i].ireg) {
+			pmic_read_reg(chc.intmap[i].ireg, &ireg_val);
+			int_reg = chc.intmap[i].ireg;
+		}
+		val = ireg_val;
 		dev_dbg(chc.dev, "%s:%d ireg=%x val = %x\n", __func__, __LINE__,
 			chc.intmap[i].ireg, val);
 		val &= chc.intmap[i].mask;
@@ -1096,7 +1095,11 @@ static irqreturn_t pmic_thread_handler(int id, void *data)
 		dev_dbg(chc.dev, "%s:%d ireg=%x\n", __func__, __LINE__,
 				pmic_int[off]);
 
-		pmic_read_reg(chc.intmap[i].sreg, &val);
+		if (stat_reg != chc.intmap[i].sreg) {
+			pmic_read_reg(chc.intmap[i].sreg, &sreg_val);
+			stat_reg = chc.intmap[i].sreg;
+		}
+		val = sreg_val;
 		dev_dbg(chc.dev, "%s:%d sreg=%x\n",
 				__func__, __LINE__, chc.intmap[i].sreg);
 		val &= chc.intmap[i].mask;
@@ -1429,8 +1432,9 @@ static int pmic_check_initial_events(void)
 {
 	int ret = 0, i, shift;
 	struct pmic_event *evt;
-	u8 mask, val;
+	u8 val, sreg_val = 0;
 	u16 *pmic_int, *pmic_int_stat, off;
+	u16 stat_reg = 0;
 
 	evt = kzalloc(sizeof(struct pmic_event), GFP_KERNEL);
 	if (!evt)
@@ -1442,11 +1446,12 @@ static int pmic_check_initial_events(void)
 	for (i = 0; i < chc.intmap_size; ++i) {
 		off = chc.intmap[i].pmic_int / 16;
 
-		pmic_read_reg(chc.intmap[i].mreg, &mask);
-		pmic_read_reg(chc.intmap[i].sreg, &val);
+		if (stat_reg != chc.intmap[i].sreg) {
+			pmic_read_reg(chc.intmap[i].sreg, &sreg_val);
+			stat_reg = chc.intmap[i].sreg;
+		}
 
-		dev_dbg(chc.dev, "%s:%d reg=%x val = %x\n", __func__, __LINE__,
-					chc.intmap[i].mreg, mask);
+		val = sreg_val;
 		dev_dbg(chc.dev, "%s:%d reg=%x val = %x\n", __func__, __LINE__,
 					chc.intmap[i].sreg, val);
 		val &= chc.intmap[i].mask;
