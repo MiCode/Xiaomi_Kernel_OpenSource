@@ -172,6 +172,7 @@
 	qcom,batt-cold-percentage = <70>;
 	qcom,tchg-mins = <360>;
 	qcom,chgr-led-support;
+	qcom,disable-vbatdet-based-recharge;
 	status = "okay";
 };
 
@@ -186,6 +187,7 @@
 
 &pm8909_bms {
 	status = "okay";
+	qcom,force-bms-active-on-charger;
 	qcom,battery-data = <&qrd_batterydata>;
 };
 
