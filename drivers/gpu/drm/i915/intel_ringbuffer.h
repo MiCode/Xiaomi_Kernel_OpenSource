@@ -276,8 +276,7 @@ struct intel_engine_cs {
 	/**
 	 * Do we have some not yet emitted requests outstanding?
 	 */
-	struct drm_i915_gem_request *preallocated_lazy_request;
-	u32 outstanding_lazy_seqno;
+	struct drm_i915_gem_request *outstanding_lazy_request;
 	bool gpu_caches_dirty;
 	bool fbc_dirty;
 
@@ -418,7 +417,7 @@ int intel_alloc_ringbuffer_obj(struct drm_device *dev,
 
 void intel_stop_ring_buffer(struct intel_engine_cs *ring);
 void intel_cleanup_ring_buffer(struct intel_engine_cs *ring);
-int __must_check intel_ring_alloc_seqno(struct intel_engine_cs *ring);
+int __must_check intel_ring_alloc_request(struct intel_engine_cs *ring);
 
 int __must_check intel_ring_begin(struct intel_engine_cs *ring, int n);
 int __must_check intel_ring_cacheline_align(struct intel_engine_cs *ring);
@@ -486,17 +485,11 @@ static inline u32 intel_ring_get_tail(struct intel_ringbuffer *ringbuf)
 int i915_write_active_request(struct intel_engine_cs *ring,
 			      struct drm_i915_gem_request *req);
 
-static inline u32 intel_ring_get_seqno(struct intel_engine_cs *ring)
-{
-	BUG_ON(ring->outstanding_lazy_seqno == 0);
-	return ring->outstanding_lazy_seqno;
-}
-
 static inline struct drm_i915_gem_request *
 intel_ring_get_request(struct intel_engine_cs *ring)
 {
-	BUG_ON(ring->preallocated_lazy_request == NULL);
-	return ring->preallocated_lazy_request;
+	BUG_ON(ring->outstanding_lazy_request == NULL);
+	return ring->outstanding_lazy_request;
 }
 
 static inline void i915_trace_irq_get(struct intel_engine_cs *ring, u32 seqno)

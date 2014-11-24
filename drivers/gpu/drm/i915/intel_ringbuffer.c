@@ -1324,9 +1324,11 @@ static int gen6_signal(struct intel_engine_cs *signaller,
 	for_each_ring(useless, dev_priv, i) {
 		u32 mbox_reg = signaller->semaphore.mbox.signal[i];
 		if (mbox_reg != GEN6_NOSYNC) {
+			u32 seqno = i915_gem_request_get_seqno(
+					   signaller->outstanding_lazy_request);
 			intel_ring_emit(signaller, MI_LOAD_REGISTER_IMM(1));
 			intel_ring_emit(signaller, mbox_reg);
-			intel_ring_emit(signaller, signaller->outstanding_lazy_seqno);
+			intel_ring_emit(signaller, seqno);
 			intel_ring_emit(signaller, MI_NOOP);
 		} else {
 			intel_ring_emit(signaller, MI_NOOP);
@@ -1359,7 +1361,8 @@ gen6_add_request(struct intel_engine_cs *ring)
 
 	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
 	intel_ring_emit(ring, I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
-	intel_ring_emit(ring, ring->outstanding_lazy_seqno);
+	intel_ring_emit(ring,
+		    i915_gem_request_get_seqno(ring->outstanding_lazy_request));
 	intel_ring_emit(ring, MI_USER_INTERRUPT);
 	__intel_ring_advance(ring);
 
@@ -1451,7 +1454,8 @@ pc_render_add_request(struct intel_engine_cs *ring)
 			PIPE_CONTROL_WRITE_FLUSH |
 			PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE);
 	intel_ring_emit(ring, ring->scratch.gtt_offset | PIPE_CONTROL_GLOBAL_GTT);
-	intel_ring_emit(ring, ring->outstanding_lazy_seqno);
+	intel_ring_emit(ring,
+		    i915_gem_request_get_seqno(ring->outstanding_lazy_request));
 	intel_ring_emit(ring, 0);
 	PIPE_CONTROL_FLUSH(ring, scratch_addr);
 	scratch_addr += 2 * CACHELINE_BYTES; /* write to separate cachelines */
@@ -1470,7 +1474,8 @@ pc_render_add_request(struct intel_engine_cs *ring)
 			PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE |
 			PIPE_CONTROL_NOTIFY);
 	intel_ring_emit(ring, ring->scratch.gtt_offset | PIPE_CONTROL_GLOBAL_GTT);
-	intel_ring_emit(ring, ring->outstanding_lazy_seqno);
+	intel_ring_emit(ring,
+		    i915_gem_request_get_seqno(ring->outstanding_lazy_request));
 	intel_ring_emit(ring, 0);
 	__intel_ring_advance(ring);
 
@@ -1744,7 +1749,8 @@ i9xx_add_request(struct intel_engine_cs *ring)
 
 	intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
 	intel_ring_emit(ring, I915_GEM_HWS_INDEX << MI_STORE_DWORD_INDEX_SHIFT);
-	intel_ring_emit(ring, ring->outstanding_lazy_seqno);
+	intel_ring_emit(ring,
+		    i915_gem_request_get_seqno(ring->outstanding_lazy_request));
 	intel_ring_emit(ring, MI_USER_INTERRUPT);
 	__intel_ring_advance(ring);
 
@@ -2200,8 +2206,7 @@ void intel_cleanup_ring_buffer(struct intel_engine_cs *ring)
 
 	intel_unpin_ringbuffer_obj(ringbuf);
 	intel_destroy_ringbuffer_obj(ringbuf);
-	i915_gem_request_assign(&ring->preallocated_lazy_request, NULL);
-	ring->outstanding_lazy_seqno = 0;
+	i915_gem_request_assign(&ring->outstanding_lazy_request, NULL);
 
 	if (ring->cleanup)
 		ring->cleanup(ring);
@@ -2356,7 +2361,7 @@ int intel_ring_idle(struct intel_engine_cs *ring)
 	int ret;
 
 	/* We need to add any requests required to flush the objects and ring */
-	if (ring->outstanding_lazy_seqno) {
+	if (ring->outstanding_lazy_request) {
 		ret = i915_add_request(ring, NULL);
 		if (ret)
 			return ret;
@@ -2374,22 +2379,13 @@ int intel_ring_idle(struct intel_engine_cs *ring)
 }
 
 int
-intel_ring_alloc_seqno(struct intel_engine_cs *ring)
+intel_ring_alloc_request(struct intel_engine_cs *ring)
 {
 	int ret;
 	struct drm_i915_gem_request *request;
 
-	/* XXX: The aim is to replace seqno values with request structures.
-	 * A step along the way is to switch to using the PLR in preference
-	 * to the OLS. That requires the PLR to only be valid when the OLS
-	 * is also valid. I.e., the two must be kept in step. */
-
-	if (ring->outstanding_lazy_seqno) {
-		WARN_ON(ring->preallocated_lazy_request == NULL);
+	if (ring->outstanding_lazy_request)
 		return 0;
-	}
-
-	WARN_ON(ring->preallocated_lazy_request != NULL);
 
 	request = kmalloc(sizeof(*request), GFP_KERNEL);
 	if (request == NULL)
@@ -2397,13 +2393,13 @@ intel_ring_alloc_seqno(struct intel_engine_cs *ring)
 
 	kref_init(&request->ref);
 
-	ret = i915_gem_get_seqno(ring->dev, &ring->outstanding_lazy_seqno);
+	ret = i915_gem_get_seqno(ring->dev, &request->seqno);
 	if (ret) {
 		kfree(request);
 		return ret;
 	}
 
-	ring->preallocated_lazy_request = request;
+	ring->outstanding_lazy_request = request;
 	return 0;
 }
 
@@ -2445,7 +2441,7 @@ int intel_ring_begin(struct intel_engine_cs *ring,
 		return ret;
 
 	/* Preallocate the olr before touching the ring */
-	ret = intel_ring_alloc_seqno(ring);
+	ret = intel_ring_alloc_request(ring);
 	if (ret)
 		return ret;
 
@@ -2480,7 +2476,7 @@ void intel_ring_init_seqno(struct intel_engine_cs *ring, u32 seqno)
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	BUG_ON(ring->outstanding_lazy_seqno);
+	BUG_ON(ring->outstanding_lazy_request);
 
 	if (INTEL_INFO(dev)->gen == 6 || INTEL_INFO(dev)->gen == 7) {
 		I915_WRITE(RING_SYNC_0(ring->mmio_base), 0);
