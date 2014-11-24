@@ -107,3 +107,21 @@ int xhci_intel_phy_mux_switch(struct xhci_hcd *xhci, int is_device_on)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(xhci_intel_phy_mux_switch);
+
+/* This function is only used as one workaround for Cherrytrail XHCI spurious
+   pme issue */
+void xhci_intel_clr_internal_pme_flag(struct xhci_hcd *xhci)
+{
+	u32	data;
+
+	if (!xhci || !xhci->phy_mux_regs)
+		return;
+
+	xhci_dbg(xhci, "spurious PME issue workaround\n");
+
+	/* clear internal PME flag, write 1 to PMCTRL.INT_PME_FLAG_CLR */
+	data = readl(xhci->phy_mux_regs + PMCTRL);
+	data |= INT_PME_FLAG_CLR;
+	writel(data, xhci->phy_mux_regs + PMCTRL);
+}
+EXPORT_SYMBOL_GPL(xhci_intel_clr_internal_pme_flag);

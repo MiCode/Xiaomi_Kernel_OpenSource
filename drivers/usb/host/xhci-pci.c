@@ -39,6 +39,8 @@
 #define PCI_DEVICE_ID_INTEL_LYNXPOINT_XHCI	0x8c31
 #define PCI_DEVICE_ID_INTEL_LYNXPOINT_LP_XHCI	0x9c31
 
+#define PCI_DEVICE_ID_INTEL_CHT_XHCI	0x22b5
+
 static const char hcd_name[] = "xhci_hcd";
 
 /* called after powerup, by probe or system-pm "wakeup" */
@@ -148,6 +150,11 @@ static void xhci_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
 
 		xhci->quirks |= XHCI_SPURIOUS_REBOOT;
 	}
+	if (pdev->vendor == PCI_VENDOR_ID_INTEL &&
+			pdev->device == PCI_DEVICE_ID_INTEL_CHT_XHCI) {
+		xhci->quirks |= XHCI_SPURIOUS_PME;
+	}
+
 	if (pdev->vendor == PCI_VENDOR_ID_ETRON &&
 			pdev->device == PCI_DEVICE_ID_ASROCK_P67) {
 		xhci->quirks |= XHCI_RESET_ON_RESUME;
@@ -296,6 +303,12 @@ static int xhci_pci_resume(struct usb_hcd *hcd, bool hibernated)
 	struct xhci_hcd		*xhci = hcd_to_xhci(hcd);
 	struct pci_dev		*pdev = to_pci_dev(hcd->self.controller);
 	int			retval = 0;
+
+	/* Due to one HW bug, XHCI will keep generating PME wakeups and fail
+	 * to stay in runtime suspended state, so required to clear the internal
+	 * PME flag once it is back to D0 as the software workaround */
+	if (xhci->quirks & XHCI_SPURIOUS_PME)
+		xhci_intel_clr_internal_pme_flag(xhci);
 
 	/* The BIOS on systems with the Intel Panther Point chipset may or may
 	 * not support xHCI natively.  That means that during system resume, it

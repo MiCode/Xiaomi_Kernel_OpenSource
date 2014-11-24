@@ -18,6 +18,9 @@
 #define XHCI_EXT_CAPS_INTEL_HOST_CAP	192
 
 /* register definition */
+#define PMCTRL			0x34
+#define INT_PME_FLAG_CLR	(1 << 28)
+
 #define DUAL_ROLE_CFG0		0x68
 #define SW_VBUS_VALID		(1 << 24)
 #define SW_IDPIN_EN		(1 << 21)
@@ -30,3 +33,4 @@
 
 extern int xhci_intel_vendor_cap_init(struct xhci_hcd *xhci);
 extern int xhci_intel_phy_mux_switch(struct xhci_hcd *xhci, int is_device_on);
+extern void xhci_intel_clr_internal_pme_flag(struct xhci_hcd *xhci);
