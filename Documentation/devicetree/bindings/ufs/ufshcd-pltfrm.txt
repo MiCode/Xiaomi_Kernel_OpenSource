@@ -121,6 +121,10 @@ bus vectors in the same order as qcom,msm-bus,vectors-KBps property.
   have little cluster and will update/apply the vote to all the cores in the
   little cluster.
   The default CPU affinity mode is PM_QOS_REQ_AFFINE_IRQ.
+- qcom,cpu-affinity-mask: this property is taken into consideration only in case
+  "affine_cores" is specified for qcom,cpu-affinity. It specifies which cores the
+  PM QoS voting should apply to. In practice, for system with big / little cluster
+  configuration, this should specify the cores of the little cluster.
 
 Example:
 	ufshc@0xfc598000 {
