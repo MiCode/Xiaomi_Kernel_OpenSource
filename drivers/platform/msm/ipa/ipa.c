@@ -2582,9 +2582,8 @@ static int ipa_setup_bam_cfg(const struct ipa_plat_drv_res *res)
 		retval = -EPERM;
 		goto fail;
 	}
-
-	ipa_write_reg(ipa_bam_mmio, IPA_BAM_CNFG_BITS_OFST, reg_val);
-
+	if (ipa_ctx->ipa_hw_type < IPA_HW_v2_5)
+		ipa_write_reg(ipa_bam_mmio, IPA_BAM_CNFG_BITS_OFST, reg_val);
 fail:
 	iounmap(ipa_bam_mmio);
 
@@ -2961,6 +2960,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 	ipa_ctx->ipa_hw_mode = resource_p->ipa_hw_mode;
 	ipa_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
+	ipa_ctx->ipa_bam_remote_mode = resource_p->ipa_bam_remote_mode;
 
 	/* default aggregation parameters */
 	ipa_ctx->aggregation_type = IPA_MBIM_16;
@@ -3082,6 +3082,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_VIRTUAL)
 		bam_props.options |= SPS_BAM_OPT_IRQ_WAKEUP;
 	bam_props.options |= SPS_BAM_RES_CONFIRM;
+	if (ipa_ctx->ipa_bam_remote_mode == true)
+		bam_props.manage |= SPS_BAM_MGR_DEVICE_REMOTE;
 	bam_props.ee = resource_p->ee;
 	bam_props.callback = sps_event_cb;
 
@@ -3455,6 +3457,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_pipe_mem_size = IPA_PIPE_MEM_SIZE;
 	ipa_drv_res->ipa_hw_type = 0;
 	ipa_drv_res->ipa_hw_mode = 0;
+	ipa_drv_res->ipa_bam_remote_mode = false;
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -3480,6 +3483,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	IPADBG(": using TBDr = %s",
 		ipa_drv_res->use_ipa_teth_bridge
 		? "True" : "False");
+
+	ipa_drv_res->ipa_bam_remote_mode =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,ipa-bam-remote-mode");
+	IPADBG(": ipa bam remote mode = %s\n",
+			ipa_drv_res->ipa_bam_remote_mode
+			? "True" : "False");
 
 	/* Get IPA wrapper address */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
