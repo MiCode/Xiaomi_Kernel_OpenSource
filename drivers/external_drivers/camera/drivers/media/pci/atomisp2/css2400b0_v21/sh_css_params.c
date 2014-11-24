@@ -4025,12 +4025,7 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 			 * parameter sets and dequeued sets
 			 */
 			g_param_buffer_enqueue_count++;
-			/* WORKAROUND: replace assertion check by just warning log, the BZ
-			 * is tracked by ICG BZ 4328. */
-			if (g_param_buffer_enqueue_count >= g_param_buffer_dequeue_count+50)
-				IA_CSS_WARNING("param buffer enqueue count %d, dequeue count %d\n",
-			                       g_param_buffer_enqueue_count,
-			                       g_param_buffer_dequeue_count);
+			assert(g_param_buffer_enqueue_count < g_param_buffer_dequeue_count+50);
 
 			/*
 			 * Tell the SP which queues are not empty,

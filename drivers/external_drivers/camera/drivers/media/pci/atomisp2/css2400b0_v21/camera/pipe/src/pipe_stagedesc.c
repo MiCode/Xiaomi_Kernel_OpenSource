@@ -28,7 +28,6 @@ void ia_css_pipe_get_generic_stage_desc(
 	struct ia_css_binary *binary,
 	struct ia_css_frame *out_frame[],
 	struct ia_css_frame *in_frame,
-	struct ia_css_frame *cc_frame,
 	struct ia_css_frame *vf_frame)
 {
 	unsigned int i;
@@ -39,7 +38,6 @@ void ia_css_pipe_get_generic_stage_desc(
 	stage_desc->sp_func = IA_CSS_PIPELINE_NO_FUNC;
 	stage_desc->max_input_width = 0;
 	stage_desc->mode = binary->info->sp.pipeline.mode;
-	stage_desc->cc_frame = cc_frame;
 	stage_desc->in_frame = in_frame;
 	for (i = 0; i < IA_CSS_BINARY_MAX_OUTPUT_PORTS; i++) {
 		stage_desc->out_frame[i] = out_frame[i];
@@ -64,7 +62,6 @@ void ia_css_pipe_get_firmwares_stage_desc(
 	stage_desc->sp_func = IA_CSS_PIPELINE_NO_FUNC;
 	stage_desc->max_input_width = 0;
 	stage_desc->mode = mode;
-	stage_desc->cc_frame = NULL;
 	stage_desc->in_frame = in_frame;
 	for (i = 0; i < IA_CSS_BINARY_MAX_OUTPUT_PORTS; i++) {
 		stage_desc->out_frame[i] = out_frame[i];
@@ -85,7 +82,6 @@ void ia_css_pipe_get_acc_stage_desc(
 	stage_desc->sp_func = IA_CSS_PIPELINE_NO_FUNC;
 	stage_desc->max_input_width = 0;
 	stage_desc->mode = IA_CSS_BINARY_MODE_VF_PP;
-	stage_desc->cc_frame = NULL;
 	stage_desc->in_frame = NULL;
 	for (i = 0; i < IA_CSS_BINARY_MAX_OUTPUT_PORTS; i++) {
 		stage_desc->out_frame[i] = NULL;
@@ -107,7 +103,6 @@ void ia_css_pipe_get_sp_func_stage_desc(
 	stage_desc->sp_func = sp_func;
 	stage_desc->max_input_width = max_input_width;
 	stage_desc->mode = (unsigned int)-1;
-	stage_desc->cc_frame = NULL;
 	stage_desc->in_frame = NULL;
 	stage_desc->out_frame[0] = out_frame;
 	for (i = 1; i < IA_CSS_BINARY_MAX_OUTPUT_PORTS; i++) {

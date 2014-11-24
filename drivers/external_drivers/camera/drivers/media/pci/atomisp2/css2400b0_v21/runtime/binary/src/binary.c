@@ -409,10 +409,12 @@ ia_css_binary_3a_grid_info(const struct ia_css_binary *binary,
 	s3a_info->awb_fr_enable     = binary->info->sp.enable.awb_fr_acc;
 	s3a_info->awb_enable        = binary->info->sp.enable.awb_acc;
 	s3a_info->elem_bit_depth    = SH_CSS_BAYER_BITS;
+
+	ia_css_3a_stat_grid_calculate(s3a_info, pipe);
+
 	s3a_info->af_grd_info       = *get_af_grid_config(pipe);
 	s3a_info->awb_fr_grd_info   = *get_awb_fr_grid_config(pipe);
 	s3a_info->awb_grd_info      = *get_awb_grid_config(pipe);
-	s3a_info->ae_grd_info       = *get_ae_grid_config_config(pipe);
 #endif
 #if defined(HAS_VAMEM_VERSION_2)
 	info->vamem_type = IA_CSS_VAMEM_TYPE_2;

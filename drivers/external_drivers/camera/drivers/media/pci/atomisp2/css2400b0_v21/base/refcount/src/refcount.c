@@ -202,8 +202,8 @@ bool ia_css_refcount_decrement(int32_t id, hrt_vaddress ptr)
 		IA_CSS_ERROR("id %x, ptr 0x%x entry %p entry->id %x entry->count %d\n",
 			id, ptr, entry, entry->id, entry->count);
 	else
-		IA_CSS_ERROR("entry NULL for ptr 0x%x\n", ptr);
-	/* assert(false); */
+		IA_CSS_ERROR("entry NULL\n");
+	assert(false);
 
 	return false;
 }

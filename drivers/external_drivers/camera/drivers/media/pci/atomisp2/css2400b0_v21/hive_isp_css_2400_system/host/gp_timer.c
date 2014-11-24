@@ -19,7 +19,7 @@
  *
  */
 
-#include <stdint.h> /*uint32_t */
+#include <type_support.h> /*uint32_t */
 #include "gp_timer.h"   /*system_local.h,
 			  gp_timer_public.h*/
 

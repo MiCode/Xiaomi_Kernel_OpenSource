@@ -127,8 +127,8 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_output_scaling_clamping(
 
 /** @brief Config Unit Piecewiselinear estimation
  *
- * @param[in] a 	           input
- * @param[in] test_config_points   config parameter structure
+ * @param[in] a 	          input
+ * @param[in] config_points   config parameter structure
  *
  * @return		     	   piecewise linear estimated output
  *
@@ -139,14 +139,13 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_output_scaling_clamping(
  */
 STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_piecewise_estimation(
 	tvector1w a,
-	ref_config_points test_config_points);
+	ref_config_points config_points);
 
-/** @brief XCU Fast Config Unit Piecewise linear estimation
+/** @brief XCU LUT initialization
  *
- * @param[in] x input
- * @param[in] test_config_points   config parameter structure
+ * @param[in] config_points   config parameter structure
  *
- * @return		     	   piecewise linear estimated output
+ * @return				   LUT with three vectors for slope, x_prev, offset
  *
  * Given a set of N points, not necessariliy equidistant,
  * {(x1,y1), (x2,y2), ...., (xn,yn)}, to find
@@ -158,36 +157,64 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_piecewise_estimation(
  * divided into 32 equal intervals and LUT is created for each of these 32
  * intervals for slope, y_offset and x_prev. Interval of current point x
  * is calculated by dividing it with the range approximated to nearest
- * power of 2 (upper bound)
+ * power of 2 (upper bound). The range has to be a multiple of 32.
  *
  * * @details
  * Given a set of N configuration points, not necessarily equidistant,
- * {(x1,y1), (x2,y2),....(xn,yn)}, not necessarily euqidistant, this function
- * gives the piecewise linear estimation for any arbitrary point around the
- * config points. The distance between the minimum config point and maximum
- * config point (range) is divided into ISP_NWAY equal intervals i.e. the
- * LUT size is equal to ISP_NWAY. It is assumed that is always a power of 2.
+ * {(x1,y1), (x2,y2),....(xn,yn)}, this function gives the piecewise linear
+ * estimation for any arbitrary point around the config points. The distance
+ * between the minimum config point and maximum config point (range) is
+ * divided into ISP_NWAY equal intervals i.e. the LUT size is equal to
+ * ISP_NWAY. It is assumed that is always a power of 2.
  * In the current case, 32 intervals are used as the ISP is 32 way. It should
  * be noted that some approximation is introduced here as the range may not be
  * an integer multiple of ISP_NWAY.
- * A LUT is created from the configuration input for slope, y_offset and
+ * The LUT is created from the configuration input for slope, y_offset and
  * x_prev_value. Input values of a particular conifg point are replicated in
  * the LUT till the interval reaches the next config point. LUT is then filled
  * with the data of the next config point. For example:
  * LUT for Slope can look like S = [s1 s2 s2 s2 s2 s3 s3 s4 s5 s5 s6 s6 s6..],
  * depending on the distance between the config points. Similarly the data
- * is filled for y_offset and X-prev_values. Once this LUT is created,
- * the interval of the any input x is identified by dividing it by the range
- * (approximated to the nearest power of 2 (upper bound)). This is done for
- * fast division operation to identify the interval of input x. Once the
- * interavl of the input is idenitfied, its config data is retrieved from the
- * LUT and output y is calculated. Input points less than x1 are treated as
- * simple case of using first y_pffset as the output.
- */
+ * is filled for y_offset and X-prev_values. */
 
+STORAGE_CLASS_REF_VECTOR_FUNC_H ref_config_point_vectors XCU_LUT_create(
+	ref_config_points config_points);
+
+/** @brief XCU Fast Config Unit Piecewise linear estimation
+ *
+ * @param[in] x input
+ * @param[in] config_points   config parameters structure
+ * @param[in] init_vectors		   LUT data structure
+ *
+ * @return		     	   piecewise linear estimated output
+ *
+ * Once the LUT is created in XCU_LUT_create function,
+ * the interval of the any input x is identified by dividing it by the range
+ * (approximated to the nearest power of 2 (upper bound)). This is done to have a
+ * fast division operation to identify the interval of input x. Once the
+ * interval of the input is idenitfied, its config data is retrieved from the
+ * LUT and output y is calculated. Input points less than x1 are treated as
+ * simple case of using first y_offset as the output.
+ */
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_X_piecewise_estimation(
+	tvector1w x,
+	ref_config_points config_points,
+	ref_config_point_vectors init_vectors);
+
+/** @brief OP_1w_XCU Wrapper function for XCU LUT create, piecewise estimation and output clamping
+ *
+ * @param[in] x input
+ * @param[in] config_points Config parameters structure
+ *
+ * @return	piecewise linear estimated clamped output
+ * This block gets a set of input configuration points and input x, creates a LUT for
+ * config points and gives a clamped piece-wise interpolated output. This block assumes
+ * that the difference between the first config point and the last config point is a multiple
+ * of 32. The config points are monotonically increasing.
+ **/
 STORAGE_CLASS_REF_VECTOR_FUNC_H  tvector1w OP_1w_XCU(
 	tvector1w x,
-	ref_config_points test_config_points);
+	ref_config_points config_points);
 
 
 /** @brief Coring

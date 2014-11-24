@@ -30,6 +30,7 @@
 #define ROUNDMODE           ROUND_NEAREST_EVEN
 #define MAX_SHIFT_1W        (NUM_BITS-1)   /* Max number of bits a 1w input can be shifted */
 #define MAX_SHIFT_2W        (2*NUM_BITS-1) /* Max number of bits a 2w input can be shifted */
+#define ISP_NWAY		32 /* Number of elements in a vector in ISP 2600 */
 
 #define HAS_div_unit
 #define HAS_1w_sqrt_u_unit

@@ -42,14 +42,14 @@ ia_css_eed1_8_encode(
 
 	to->fcstrength = from->fcstrength;
 	to->fcthres_0 = from->fcthres_0;
-	to->fcthres_1 = from->fcthres_1;
 	to->fc_sat_coef = from->fc_sat_coef;
 	to->fc_coring_prm = from->fc_coring_prm;
+	to->fc_slope = from->fcthres_1 - from->fcthres_0;
 
 	to->aerel_thres0 = from->aerel_thres0;
 	to->aerel_gain0 = from->aerel_gain0;
-	to->aerel_thres1 = from->aerel_thres1;
-	to->aerel_gain1 = from->aerel_gain1;
+	to->aerel_thres_diff = from->aerel_thres1 - from->aerel_thres0;
+	to->aerel_gain_diff = from->aerel_gain1 - from->aerel_gain0;
 
 	to->derel_thres0 = from->derel_thres0;
 	to->derel_gain0 = from->derel_gain0;

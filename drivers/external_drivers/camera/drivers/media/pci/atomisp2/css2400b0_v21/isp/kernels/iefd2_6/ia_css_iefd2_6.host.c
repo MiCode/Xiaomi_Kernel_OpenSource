@@ -32,8 +32,8 @@ ia_css_iefd2_6_vmem_encode(
 	const struct ia_css_iefd2_6_config *from,
 	size_t size)
 {
-	const int total_blocks = 4;
-	const int shuffle_block = 16;
+	const unsigned total_blocks = 4;
+	const unsigned shuffle_block = 16;
 	unsigned i, j, base;
 	(void)size;
 
@@ -121,8 +121,6 @@ ia_css_iefd2_6_encode(
 	const struct ia_css_iefd2_6_config *from,
 	size_t size)
 {
-	int i;
-
 	(void)size;
 
 	/* Copy parameters to dmem, as described in the KFS
