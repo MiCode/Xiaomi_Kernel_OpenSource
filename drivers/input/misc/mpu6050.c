@@ -365,7 +365,8 @@ static int mpu6050_power_init(struct mpu6050_sensor *sensor)
 	}
 
 	if (regulator_count_voltages(sensor->vdd) > 0) {
-		ret = regulator_set_voltage(sensor->vdd, MPU6050_VDD_MIN_UV,
+		ret = regulator_set_voltage(sensor->vdd,
+					   sensor->pdata->vdd_min_uv,
 					   MPU6050_VDD_MAX_UV);
 		if (ret) {
 			dev_err(&sensor->client->dev,
@@ -2019,6 +2020,11 @@ static int mpu6050_parse_dt(struct device *dev,
 
 	pdata->use_int = of_property_read_bool(dev->of_node,
 				"invn,use-interrupt");
+
+	rc = of_property_read_u32(dev->of_node, "invn,vdd-min-uv",
+				&pdata->vdd_min_uv);
+	if (rc)
+		pdata->vdd_min_uv = MPU6050_VDD_MIN_UV;
 
 	return 0;
 }

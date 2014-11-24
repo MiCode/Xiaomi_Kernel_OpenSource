@@ -283,6 +283,7 @@ struct mpu6050_platform_data {
 	u32 int_flags;
 	bool use_int;
 	u8 place;
+	u32 vdd_min_uv;
 };
 
 #endif /* __MPU6050_H__ */
