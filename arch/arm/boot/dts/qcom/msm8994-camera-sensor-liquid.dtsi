@@ -268,7 +268,7 @@
 		reg = <0x0>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
-		qcom,mount-angle = <270>;
+		qcom,mount-angle = <0>;
                 qcom,eeprom-src = <&eeprom0 &eeprom2>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,ois-src = <&ois0>;
