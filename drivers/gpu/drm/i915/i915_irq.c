@@ -3401,7 +3401,6 @@ void i915_hangcheck_sample(unsigned long data)
 	int instdone_cmp;
 	int pending_work = 1;
 	int resched_timer = 1;
-	uint32_t cur_seqno = 0;
 	struct drm_i915_gem_request *last_req = NULL;
 	uint32_t head, tail, acthd, instdone[I915_NUM_INSTDONE_REG];
 	struct drm_device *dev;
@@ -3436,11 +3435,10 @@ void i915_hangcheck_sample(unsigned long data)
 	if (!empty) {
 		/* Examine the request list to see where the HW has got to
 		* (Only call ring_last_request when the list is non-empty)*/
-		cur_seqno = ring->get_seqno(ring, false);
 		last_req = ring_last_request(ring);
 	}
 
-	if (empty || i915_seqno_passed(cur_seqno, i915_gem_request_get_seqno(last_req))) {
+	if (empty || i915_gem_request_completed(last_req, false)) {
 		/* If the request list is empty or the HW has passed the
 		* last seqno of the last item in the request list then the
 		* HW is considered idle.
@@ -3454,7 +3452,8 @@ void i915_hangcheck_sample(unsigned long data)
 		ring->id, head, hc->last_hd, acthd, hc->last_acthd,
 		instdone_cmp);
 	DRM_DEBUG_TDR("E:%d PW:%d TL:0x%08x Csq:0x%08x Lsq:0x%08x Idle: %d\n",
-		empty, pending_work, tail, cur_seqno, i915_gem_request_get_seqno(last_req), idle);
+		empty, pending_work, tail, ring->get_seqno(ring, false),
+		i915_gem_request_get_seqno(last_req), idle);
 
 	/* Check both head and active head.
 	* Neither is enough on its own - acthd can be pointing within the
