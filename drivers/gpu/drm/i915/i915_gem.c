@@ -2515,7 +2515,6 @@ int __i915_add_request(struct intel_engine_cs *ring,
 			goto end;
 	}
 
-	request->ring = ring;
 	request->head = request_start;
 	request->tail = request_ring_position;
 
