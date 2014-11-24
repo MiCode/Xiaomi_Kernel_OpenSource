@@ -1361,11 +1361,11 @@ i915_gem_object_wait_rendering__tail(struct drm_i915_gem_object *obj)
 	/* Manually manage the write flush as we may have not yet
 	 * retired the buffer.
 	 *
-	 * Note that the last_write_seqno is always the earlier of
-	 * the two (read/write) seqno, so if we haved successfully waited,
+	 * Note that the last_write_req is always the earlier of
+	 * the two (read/write) requests, so if we haved successfully waited,
 	 * we know we have passed the last write.
 	 */
-	obj->last_write_seqno = 0;
+	i915_gem_request_assign(&obj->last_write_req, NULL);
 
 	return 0;
 }
@@ -1378,13 +1378,17 @@ static __must_check int
 i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj,
 			       bool readonly)
 {
+	struct drm_i915_gem_request *req;
 	struct intel_engine_cs *ring = obj->ring;
 	u32 seqno;
 	int ret;
 
-	seqno = readonly ? obj->last_write_seqno : obj->last_read_seqno;
-	if (seqno == 0)
+	req = readonly ? obj->last_write_req : obj->last_read_req;
+	if (!req)
 		return 0;
+
+	seqno = i915_gem_request_get_seqno(req);
+	WARN_ON(seqno == 0);
 
 	ret = i915_wait_seqno(ring, seqno);
 	if (ret)
@@ -1401,6 +1405,7 @@ i915_gem_object_wait_rendering__nonblocking(struct drm_i915_gem_object *obj,
 					    struct drm_i915_file_private *file_priv,
 					    bool readonly)
 {
+	struct drm_i915_gem_request *req;
 	struct drm_device *dev = obj->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_engine_cs *ring = obj->ring;
@@ -1411,9 +1416,12 @@ i915_gem_object_wait_rendering__nonblocking(struct drm_i915_gem_object *obj,
 	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
 	BUG_ON(!dev_priv->mm.interruptible);
 
-	seqno = readonly ? obj->last_write_seqno : obj->last_read_seqno;
-	if (seqno == 0)
+	req = readonly ? obj->last_write_req : obj->last_read_req;
+	if (!req)
 		return 0;
+
+	seqno = i915_gem_request_get_seqno(req);
+	WARN_ON(seqno == 0);
 
 	ret = i915_gem_check_wedge(&dev_priv->gpu_error, true, ring);
 	if (ret)
@@ -2290,12 +2298,12 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 {
 	struct drm_device *dev = obj->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 seqno = intel_ring_get_seqno(ring);
+	struct drm_i915_gem_request *req = intel_ring_get_request(ring);
 
 	BUG_ON(ring == NULL);
-	if (obj->ring != ring && obj->last_write_seqno) {
-		/* Keep the seqno relative to the current ring */
-		obj->last_write_seqno = seqno;
+	if (obj->ring != ring && obj->last_write_req) {
+		/* Keep the request relative to the current ring */
+		i915_gem_request_assign(&obj->last_write_req, req);
 	}
 	obj->ring = ring;
 
@@ -2307,10 +2315,10 @@ i915_gem_object_move_to_active(struct drm_i915_gem_object *obj,
 
 	list_move_tail(&obj->ring_list, &ring->active_list);
 
-	obj->last_read_seqno = seqno;
+	i915_gem_request_assign(&obj->last_read_req, req);
 
 	if (obj->fenced_gpu_access) {
-		obj->last_fenced_seqno = seqno;
+		i915_gem_request_assign(&obj->last_fenced_req, req);
 
 		/* Bump MRU to take account of the delayed flush */
 		if (obj->fence_reg != I915_FENCE_REG_NONE) {
@@ -2349,11 +2357,11 @@ i915_gem_object_move_to_inactive(struct drm_i915_gem_object *obj)
 	list_del_init(&obj->ring_list);
 	obj->ring = NULL;
 
-	obj->last_read_seqno = 0;
-	obj->last_write_seqno = 0;
+	i915_gem_request_assign(&obj->last_read_req, NULL);
+	i915_gem_request_assign(&obj->last_write_req, NULL);
 	obj->base.write_domain = 0;
 
-	obj->last_fenced_seqno = 0;
+	i915_gem_request_assign(&obj->last_fenced_req, NULL);
 	obj->fenced_gpu_access = false;
 
 	obj->active = 0;
@@ -2371,7 +2379,7 @@ i915_gem_object_retire(struct drm_i915_gem_object *obj)
 		return;
 
 	if (i915_seqno_passed(ring->get_seqno(ring, true),
-			      obj->last_read_seqno))
+			      i915_gem_request_get_seqno(obj->last_read_req)))
 		i915_gem_object_move_to_inactive(obj);
 }
 
@@ -2808,7 +2816,8 @@ i915_gem_retire_requests_ring(struct intel_engine_cs *ring)
 				      struct drm_i915_gem_object,
 				      ring_list);
 
-		if (!i915_seqno_passed(seqno, obj->last_read_seqno))
+		if (!i915_seqno_passed(seqno,
+			     i915_gem_request_get_seqno(obj->last_read_req)))
 			break;
 
 		i915_gem_object_move_to_inactive(obj);
@@ -2927,7 +2936,8 @@ i915_gem_object_flush_active(struct drm_i915_gem_object *obj)
 	int ret;
 
 	if (obj->active) {
-		ret = i915_gem_check_olr(obj->ring, obj->last_read_seqno);
+		ret = i915_gem_check_olr(obj->ring,
+			     i915_gem_request_get_seqno(obj->last_read_req));
 		if (ret)
 			return ret;
 
@@ -2991,13 +3001,12 @@ i915_gem_wait_ioctl(struct drm_device *dev, void *data, struct drm_file *file)
 	if (ret)
 		goto out;
 
-	if (obj->active) {
-		seqno = obj->last_read_seqno;
-		ring = obj->ring;
-	}
+	if (!obj->active || !obj->last_read_req)
+		goto out;
 
-	if (seqno == 0)
-		 goto out;
+	seqno = i915_gem_request_get_seqno(obj->last_read_req);
+	WARN_ON(seqno == 0);
+	ring = obj->ring;
 
 	/* Do this after OLR check to make sure we make forward progress polling
 	 * on this IOCTL with a 0 timeout (like busy ioctl)
@@ -3050,7 +3059,7 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 
 	idx = intel_ring_sync_index(from, to);
 
-	seqno = obj->last_read_seqno;
+	seqno = i915_gem_request_get_seqno(obj->last_read_req);
 	if (seqno <= from->semaphore.sync_seqno[idx])
 		return 0;
 
@@ -3061,11 +3070,12 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 	trace_i915_gem_ring_sync_to(from, to, seqno);
 	ret = to->semaphore.sync_to(to, from, seqno);
 	if (!ret)
-		/* We use last_read_seqno because sync_to()
+		/* We use last_read_req because sync_to()
 		 * might have just caused seqno wrap under
 		 * the radar.
 		 */
-		from->semaphore.sync_seqno[idx] = obj->last_read_seqno;
+		from->semaphore.sync_seqno[idx] =
+				i915_gem_request_get_seqno(obj->last_read_req);
 
 	return ret;
 }
@@ -3375,12 +3385,13 @@ static void i915_gem_object_update_fence(struct drm_i915_gem_object *obj,
 static int
 i915_gem_object_wait_fence(struct drm_i915_gem_object *obj)
 {
-	if (obj->last_fenced_seqno) {
-		int ret = i915_wait_seqno(obj->ring, obj->last_fenced_seqno);
+	if (obj->last_fenced_req) {
+		int ret = i915_wait_seqno(obj->ring,
+			   i915_gem_request_get_seqno(obj->last_fenced_req));
 		if (ret)
 			return ret;
 
-		obj->last_fenced_seqno = 0;
+		i915_gem_request_assign(&obj->last_fenced_req, NULL);
 	}
 
 	obj->fenced_gpu_access = false;

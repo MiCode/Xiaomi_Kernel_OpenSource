@@ -10395,7 +10395,7 @@ static int intel_postpone_flip(struct drm_i915_gem_object *obj)
 
 	lockdep_assert_held(&obj->base.dev->struct_mutex);
 
-	if (!obj->last_write_seqno)
+	if (!obj->last_write_req)
 		return 0;
 
 	ring = obj->ring;
@@ -10407,10 +10407,10 @@ static int intel_postpone_flip(struct drm_i915_gem_object *obj)
 		return ret;
 
 	if (i915_seqno_passed(ring->get_seqno(ring, true),
-			      obj->last_write_seqno))
+			      i915_gem_request_get_seqno(obj->last_write_req)))
 		return 0;
 
-	ret = i915_gem_check_olr(ring, obj->last_write_seqno);
+	ret = i915_gem_check_olr(ring, i915_gem_request_get_seqno(obj->last_write_req));
 	if (ret)
 		return ret;
 
@@ -10473,7 +10473,8 @@ static int intel_queue_mmio_flip(struct drm_device *dev,
 	}
 
 	spin_lock_irqsave(&dev_priv->mmio_flip_lock, irq_flags);
-	intel_crtc->mmio_flip.seqno = obj->last_write_seqno;
+	intel_crtc->mmio_flip.seqno =
+			     i915_gem_request_get_seqno(obj->last_write_req);
 	intel_crtc->mmio_flip.ring_id = obj->ring->id;
 	spin_unlock_irqrestore(&dev_priv->mmio_flip_lock, irq_flags);
 

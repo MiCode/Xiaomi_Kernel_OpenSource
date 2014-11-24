@@ -960,6 +960,7 @@ void
 i915_gem_execbuffer_move_to_active(struct list_head *vmas,
 				   struct intel_engine_cs *ring)
 {
+	struct drm_i915_gem_request *req = intel_ring_get_request(ring);
 	struct i915_vma *vma;
 
 	list_for_each_entry(vma, vmas, exec_list) {
@@ -976,7 +977,7 @@ i915_gem_execbuffer_move_to_active(struct list_head *vmas,
 		i915_vma_move_to_active(vma, ring);
 		if (obj->base.write_domain) {
 			obj->dirty = 1;
-			obj->last_write_seqno = intel_ring_get_seqno(ring);
+			i915_gem_request_assign(&obj->last_write_req, req);
 			/* check for potential scanout */
 			if (i915_gem_obj_ggtt_bound(obj) &&
 			    i915_gem_obj_to_ggtt(obj)->pin_count)

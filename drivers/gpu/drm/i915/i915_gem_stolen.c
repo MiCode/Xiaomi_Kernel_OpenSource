@@ -404,7 +404,7 @@ static int i915_memset_stolen_obj_hw(struct drm_i915_gem_object *obj)
 	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
 	struct intel_engine_cs *ring = &dev_priv->ring[BCS];
 	unsigned alignment = 0;
-	u32 seqno;
+	struct drm_i915_gem_request *req;
 	int ret;
 
 	/* Pre-Gen6, blitter engine is not on a separate ring */
@@ -433,7 +433,7 @@ static int i915_memset_stolen_obj_hw(struct drm_i915_gem_object *obj)
 		return ret;
 	}
 
-	seqno = intel_ring_get_seqno(ring);
+	req = intel_ring_get_request(ring);
 
 	/* Object now in render domain */
 	obj->base.read_domains = I915_GEM_DOMAIN_RENDER;
@@ -442,7 +442,7 @@ static int i915_memset_stolen_obj_hw(struct drm_i915_gem_object *obj)
 	i915_vma_move_to_active(i915_gem_obj_to_ggtt(obj), ring);
 
 	obj->dirty = 1;
-	obj->last_write_seqno = seqno;
+	i915_gem_request_assign(&obj->last_write_req, req);
 
 	/* Unconditionally force add_request to emit a full flush. */
 	ring->gpu_caches_dirty = true;
