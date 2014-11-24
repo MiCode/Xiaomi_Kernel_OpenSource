@@ -373,10 +373,9 @@ struct pmic_chrgr_drv_context {
 	bool current_sense_enabled;
 	bool is_internal_usb_phy;
 	enum pmic_charger_cable_type charger_type;
-	/* ShadyCove-WA for VBUS removal detect issue */
-	bool vbus_connect_status;
 	bool otg_mode_enabled;
 	unsigned int irq[PMIC_CCSM_IRQ_MAX];		/* GPE_ID or IRQ# */
+	int vbus_state;
 	int irq_cnt;
 	int batt_health;
 	int pmic_model;
@@ -391,6 +390,7 @@ struct pmic_chrgr_drv_context {
 	struct ps_pse_mod_prof *runtime_bcprof;
 	struct intel_pmic_ccsm_platform_data *pdata;
 	struct usb_phy *otg;
+	struct thermal_cooling_device *vbus_cdev;
 	struct list_head evt_queue;
 	struct work_struct evt_work;
 	struct mutex evt_queue_lock;

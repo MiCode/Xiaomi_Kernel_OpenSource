@@ -35,6 +35,7 @@
 #include <linux/platform_device.h>
 #include <linux/usb/otg.h>
 #include <linux/power_supply.h>
+#include <linux/thermal.h>
 #include <linux/iio/consumer.h>
 #include <linux/notifier.h>
 #include <linux/power/battery_id.h>
@@ -71,6 +72,7 @@
 	 ((bprof->temp_mon_ranges < MIN_BATT_PROF))
 #define NEXT_ZONE_OFFSET 2
 #define BATTEMP_CHANNEL "BATTEMP0"
+#define VBUS_CTRL_CDEV_NAME	"vbus_control"
 
 #define RID_A_MIN 11150
 #define RID_A_MAX 13640
@@ -103,6 +105,11 @@ u16 pmic_inlmt[][2] = {
 	{ 2500, CHGRCTRL1_FUSB_INLMT_1500},
 };
 
+enum pmic_vbus_states {
+	VBUS_ENABLE,
+	VBUS_DISABLE,
+	MAX_VBUSCTRL_STATES,
+};
 
 static inline struct power_supply *get_psy_battery(void)
 {
@@ -969,6 +976,7 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 	id_mask = BIT_POS(PMIC_INT_USBIDFLTDET) |
 				 BIT_POS(PMIC_INT_USBIDGNDDET);
 
+	mutex_lock(&pmic_lock);
 	if (int_reg & id_mask) {
 		mask = (stat_reg & id_mask) == SHRT_GND_DET;
 		/* Close/Open D+/D- lines in USB detection switch
@@ -976,8 +984,10 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 		 */
 		if (mask) {
 			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x1);
-			atomic_notifier_call_chain(&chc.otg->notifier,
-				USB_EVENT_ID, &mask);
+			if (chc.vbus_state == VBUS_ENABLE)
+				atomic_notifier_call_chain(&chc.otg->notifier,
+								USB_EVENT_ID,
+								&mask);
 		} else if ((int_reg & BIT_POS(PMIC_INT_USBIDFLTDET)) &&
 				chc.otg_mode_enabled) {
 			/* WA for OTG ID removal: PMIC interprets ID removal
@@ -986,32 +996,33 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 			 * In order to avoid ctyp detection flow, disable otg
 			 * mode during vbus turn off event
 			 */
-			atomic_notifier_call_chain(&chc.otg->notifier,
-				USB_EVENT_NONE, NULL);
+			if (chc.vbus_state == VBUS_ENABLE)
+				atomic_notifier_call_chain(&chc.otg->notifier,
+								USB_EVENT_NONE,
+								NULL);
 			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x0);
 
 		}
 	}
 
-	if (int_reg & BIT_POS(PMIC_INT_USBIDDET)) {
+	if ((int_reg & BIT_POS(PMIC_INT_USBIDDET)) &&
+			(chc.vbus_state == VBUS_ENABLE)) {
 		mask = !!(stat_reg & BIT_POS(PMIC_INT_USBIDDET));
 		atomic_notifier_call_chain(&chc.otg->notifier,
 				USB_EVENT_ID, &mask);
 	}
+	mutex_unlock(&pmic_lock);
 
 	if (int_reg & BIT_POS(PMIC_INT_VBUS)) {
 		mask = !!(stat_reg & BIT_POS(PMIC_INT_VBUS));
 		if (mask) {
 			dev_info(chc.dev,
 				"USB VBUS Detected. Notifying OTG driver\n");
-			chc.vbus_connect_status = true;
-
 			chc.otg_mode_enabled =
 				(stat_reg & id_mask) == SHRT_GND_DET;
 		} else {
 			dev_info(chc.dev,
 				"USB VBUS Removed. Notifying OTG driver\n");
-			chc.vbus_connect_status = false;
 		}
 
 		/* Avoid charger-detection flow in case of host-mode */
@@ -1491,6 +1502,79 @@ static int get_pmic_model(const char *name)
 	return INTEL_PMIC_UNKNOWN;
 }
 
+/* vbus control cooling device callbacks */
+static int vbus_get_max_state(struct thermal_cooling_device *tcd,
+				unsigned long *state)
+{
+	*state = MAX_VBUSCTRL_STATES;
+	return 0;
+}
+
+static int vbus_get_cur_state(struct thermal_cooling_device *tcd,
+				unsigned long *state)
+{
+	mutex_lock(&pmic_lock);
+	*state = chc.vbus_state;
+	mutex_unlock(&pmic_lock);
+
+	return 0;
+}
+
+static int vbus_set_cur_state(struct thermal_cooling_device *tcd,
+				unsigned long new_state)
+{
+	int ret;
+
+	if (new_state >= MAX_VBUSCTRL_STATES || new_state < 0) {
+		dev_err(chc.dev, "Invalid vbus control state: %ld\n",
+				new_state);
+		return -EINVAL;
+	}
+
+	/**
+	 * notify directly only when the ID_GND and want to change the state
+	 * from previous state (vbus enable/disable).
+	 */
+	mutex_lock(&pmic_lock);
+	if ((pmic_get_usbid() == RID_GND) && (chc.vbus_state != new_state)) {
+		if (!new_state)
+			atomic_notifier_call_chain(&chc.otg->notifier,
+						USB_EVENT_ID,
+						NULL);
+		else
+			atomic_notifier_call_chain(&chc.otg->notifier,
+						USB_EVENT_NONE,
+						NULL);
+	}
+
+	chc.vbus_state = new_state;
+	mutex_unlock(&pmic_lock);
+
+	return ret;
+}
+
+static struct thermal_cooling_device_ops psy_vbuscd_ops = {
+	.get_max_state = vbus_get_max_state,
+	.get_cur_state = vbus_get_cur_state,
+	.set_cur_state = vbus_set_cur_state,
+};
+
+static inline int register_cooling_device(struct pmic_chrgr_drv_context *chc)
+{
+	struct power_supply *psy_bat = get_psy_battery();
+	chc->vbus_cdev = thermal_cooling_device_register(
+				(char *)VBUS_CTRL_CDEV_NAME,
+				psy_bat,
+				&psy_vbuscd_ops);
+	if (IS_ERR(chc->vbus_cdev))
+		return PTR_ERR(chc->vbus_cdev);
+
+	dev_dbg(chc->dev, "cooling device register success for %s\n",
+				VBUS_CTRL_CDEV_NAME);
+	return 0;
+}
+
+
 /**
  * pmic_charger_probe - PMIC charger probe function
  * @pdev: pmic platform device structure
@@ -1526,6 +1610,7 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 	chc.reg_cnt = sizeof(struct pmic_regs) / sizeof(u16);
 	chc.intmap = chc.pdata->intmap;
 	chc.intmap_size = chc.pdata->intmap_size;
+	chc.vbus_state = VBUS_ENABLE;
 
 	chc.pmic_model = get_pmic_model(pdev->name);
 	dev_info(chc.dev, "PMIC model is %d\n", chc.pmic_model);
@@ -1619,8 +1704,18 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 #ifdef CONFIG_DEBUG_FS
 	pmic_debugfs_init();
 #endif
+
+	/* Register to cooling device to control the vbus */
+	ret = register_cooling_device(&chc);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Register cooling device Failed (%d)\n", ret);
+		goto cdev_reg_fail;
+	}
+
 	return 0;
 
+cdev_reg_fail:
 otg_req_failed:
 kzalloc_fail:
 	kfree(chc.bcprof);
@@ -1647,10 +1742,15 @@ static void pmic_chrgr_do_exit_ops(struct pmic_chrgr_drv_context *chc)
  */
 static int pmic_chrgr_remove(struct platform_device *pdev)
 {
-	int i;
+	int i, ret = 0;
 	struct pmic_chrgr_drv_context *chc = platform_get_drvdata(pdev);
 
 	if (chc) {
+		if (IS_ERR_OR_NULL(chc->vbus_cdev))
+			ret = PTR_ERR(chc->vbus_cdev);
+		else
+			thermal_cooling_device_unregister(chc->vbus_cdev);
+
 		pmic_chrgr_do_exit_ops(chc);
 		for (i = 0; i < chc->irq_cnt; ++i)
 			free_irq(chc->irq[i], &chc);
@@ -1659,7 +1759,7 @@ static int pmic_chrgr_remove(struct platform_device *pdev)
 		kfree(chc->runtime_bcprof);
 	}
 
-	return 0;
+	return ret;
 }
 
 /*********************************************************************
