@@ -240,6 +240,10 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
+&dsi_hx8379a_fwvga_skua_vid {
+	qcom,cont-splash-enabled;
+};
+
 &pmx_mdss {
 	qcom,num-grp-pins = <1>;
 	qcom,pins = <&gp 25>;
