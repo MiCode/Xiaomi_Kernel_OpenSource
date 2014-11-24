@@ -71,6 +71,7 @@
 	qcom,batt-hot-percentage = <35>;
 	qcom,batt-cold-percentage = <70>;
 	qcom,tchg-mins = <360>;
+	qcom,chgr-led-support;
 	status = "okay";
 };
 
