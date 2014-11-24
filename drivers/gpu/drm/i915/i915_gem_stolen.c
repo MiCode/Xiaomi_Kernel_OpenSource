@@ -448,7 +448,7 @@ static int i915_memset_stolen_obj_hw(struct drm_i915_gem_object *obj)
 	ring->gpu_caches_dirty = true;
 
 	/* Add a breadcrumb for the completion of the clear request */
-	(void)i915_add_request(ring, NULL);
+	(void)i915_add_request(ring);
 
 	i915_gem_object_ggtt_unpin(obj);
 
