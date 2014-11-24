@@ -1607,14 +1607,15 @@ static void ufshcd_exit_hibern8_on_idle(struct ufs_hba *hba)
 #ifdef CONFIG_SMP
 
 /* Host lock is assumed to be held by caller */
-static int __ufshcd_pm_qos_hold(struct ufs_hba *hba, bool async)
+static int ufshcd_pm_qos_hold(struct ufs_hba *hba, bool async)
 {
 	int ret = 0;
 	unsigned long flags;
 
 	if (!hba->pm_qos.cpu_dma_latency_us)
-		goto out;
+		return 0;
 
+	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->pm_qos.active_reqs++;
 	if (hba->pm_qos.is_suspended)
 		goto out;
@@ -1650,18 +1651,7 @@ start:
 		break;
 	}
 out:
-	return ret;
-}
-
-static int ufshcd_pm_qos_hold(struct ufs_hba *hba, bool async)
-{
-	unsigned long flags;
-	int ret;
-
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	ret = __ufshcd_pm_qos_hold(hba, async);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-
 	return ret;
 }
 
