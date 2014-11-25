@@ -1369,9 +1369,9 @@ static int mdp3_histogram_start(struct mdp3_session_data *session,
 	mutex_lock(&session->histo_lock);
 
 	if (session->histo_status) {
-		pr_err("mdp3_histogram_start already started\n");
+		pr_info("mdp3_histogram_start already started\n");
 		mutex_unlock(&session->histo_lock);
-		return -EBUSY;
+		return 0;
 	}
 
 	mdp3_res_update(1, 0, MDP3_CLIENT_DMA_P);
