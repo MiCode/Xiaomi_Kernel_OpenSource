@@ -949,7 +949,8 @@ static int atomisp_release(struct file *file)
 	if (atomisp_dev_users(isp))
 		goto done;
 
-	atomisp_acc_release(isp);
+	atomisp_acc_release(asd);
+
 	atomisp_destroy_pipes_stream_force(asd);
 	atomisp_css_uninit(isp);
 

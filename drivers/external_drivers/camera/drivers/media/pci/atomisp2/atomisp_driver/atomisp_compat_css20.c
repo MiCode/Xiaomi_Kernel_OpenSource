@@ -4280,7 +4280,7 @@ void atomisp_css_set_cont_prev_start_time(struct atomisp_device *isp,
 
 void atomisp_css_acc_done(struct atomisp_sub_device *asd)
 {
-	complete(&asd->isp->acc.acc_done);
+	complete(&asd->acc.acc_done);
 }
 
 int atomisp_css_wait_acc_finish(struct atomisp_sub_device *asd)
@@ -4290,7 +4290,7 @@ int atomisp_css_wait_acc_finish(struct atomisp_sub_device *asd)
 
 	/* Unlock the isp mutex taken in IOCTL handler before sleeping! */
 	rt_mutex_unlock(&isp->mutex);
-	if (wait_for_completion_interruptible_timeout(&isp->acc.acc_done,
+	if (wait_for_completion_interruptible_timeout(&asd->acc.acc_done,
 					ATOMISP_ISP_TIMEOUT_DURATION) == 0) {
 		dev_err(isp->dev, "<%s: completion timeout\n", __func__);
 		atomisp_css_debug_dump_sp_sw_debug_info();
@@ -4388,11 +4388,11 @@ int atomisp_css_create_acc_pipe(struct atomisp_sub_device *asd)
 
 	pipe_config = &stream_env->pipe_configs[CSS_PIPE_ID_ACC];
 	ia_css_pipe_config_defaults(pipe_config);
-	isp->acc.acc_stages = kzalloc(MAX_ACC_STAGES *
+	asd->acc.acc_stages = kzalloc(MAX_ACC_STAGES *
 				sizeof(void *), GFP_KERNEL);
-	if (!isp->acc.acc_stages)
+	if (!asd->acc.acc_stages)
 		return -ENOMEM;
-	pipe_config->acc_stages = isp->acc.acc_stages;
+	pipe_config->acc_stages = asd->acc.acc_stages;
 	pipe_config->mode = IA_CSS_PIPE_MODE_ACC;
 	pipe_config->num_acc_stages = 0;
 
@@ -4429,8 +4429,8 @@ int atomisp_css_start_acc_pipe(struct atomisp_sub_device *asd)
 	}
 	stream_env->acc_stream_state = CSS_STREAM_CREATED;
 
-	init_completion(&isp->acc.acc_done);
-	isp->acc.pipeline = stream_env->pipes[IA_CSS_PIPE_ID_ACC];
+	init_completion(&asd->acc.acc_done);
+	asd->acc.pipeline = stream_env->pipes[IA_CSS_PIPE_ID_ACC];
 
 	atomisp_freq_scaling(isp, ATOMISP_DFS_MODE_MAX, false);
 
@@ -4484,15 +4484,15 @@ void atomisp_css_destroy_acc_pipe(struct atomisp_sub_device *asd)
 		ia_css_pipe_extra_config_defaults(
 			&stream_env->pipe_extra_configs[IA_CSS_PIPE_ID_ACC]);
 	}
-	asd->isp->acc.pipeline = NULL;
+	asd->acc.pipeline = NULL;
 
 	/* css 2.0 API limitation: ia_css_stop_sp() could be only called after
 	 * destroy all pipes
 	 */
 	ia_css_stop_sp();
 
-	kfree(asd->isp->acc.acc_stages);
-	asd->isp->acc.acc_stages = NULL;
+	kfree(asd->acc.acc_stages);
+	asd->acc.acc_stages = NULL;
 
 	atomisp_freq_scaling(asd->isp, ATOMISP_DFS_MODE_LOW, false);
 }
@@ -4529,7 +4529,7 @@ static struct atomisp_sub_device *__get_atomisp_subdev(
 	for (i = 0; i < isp->num_of_streams; i++) {
 		asd = &isp->asd[i];
 		if (asd->streaming == ATOMISP_DEVICE_STREAMING_DISABLED &&
-		    !isp->acc.pipeline)
+		    !asd->acc.pipeline)
 			continue;
 		for (j = 0; j < ATOMISP_INPUT_STREAM_NUM; j++) {
 			stream_env = &asd->stream_env[j];

@@ -663,6 +663,16 @@ unsigned int atomisp_streaming_count(struct atomisp_device *isp)
 	return sum;
 }
 
+unsigned int atomisp_is_acc_enabled(struct atomisp_device *isp)
+{
+	unsigned int i;
+
+	for (i = 0; i < isp->num_of_streams; i++)
+		if (isp->asd[i].acc.pipeline)
+			return 1;
+
+	return 0;
+}
 /*
  * get input are used to get current primary/secondary camera
  */
@@ -2813,15 +2823,15 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 		break;
 
 	case ATOMISP_IOC_ACC_LOAD:
-		err = atomisp_acc_load(isp, arg);
+		err = atomisp_acc_load(asd, arg);
 		break;
 
 	case ATOMISP_IOC_ACC_LOAD_TO_PIPE:
-		err = atomisp_acc_load_to_pipe(isp, arg);
+		err = atomisp_acc_load_to_pipe(asd, arg);
 		break;
 
 	case ATOMISP_IOC_ACC_UNLOAD:
-		err = atomisp_acc_unload(isp, arg);
+		err = atomisp_acc_unload(asd, arg);
 		break;
 
 	case ATOMISP_IOC_ACC_START:
@@ -2833,15 +2843,15 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 		break;
 
 	case ATOMISP_IOC_ACC_MAP:
-		err = atomisp_acc_map(isp, arg);
+		err = atomisp_acc_map(asd, arg);
 		break;
 
 	case ATOMISP_IOC_ACC_UNMAP:
-		err = atomisp_acc_unmap(isp, arg);
+		err = atomisp_acc_unmap(asd, arg);
 		break;
 
 	case ATOMISP_IOC_ACC_S_MAPPED_ARG:
-		err = atomisp_acc_s_mapped_arg(isp, arg);
+		err = atomisp_acc_s_mapped_arg(asd, arg);
 		break;
 
 	case ATOMISP_IOC_S_ISP_SHD_TAB:

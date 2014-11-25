@@ -31,7 +31,7 @@
  * Interface functions for AtomISP driver acceleration API implementation.
  */
 
-struct atomisp_device;
+struct atomisp_sub_device;
 
 /*
  * Initialize acceleration interface.
@@ -48,36 +48,36 @@ void atomisp_acc_cleanup(struct atomisp_device *isp);
  * this function may be called sequentially multiple times.
  * Must be called to free up resources before driver is unloaded.
  */
-void atomisp_acc_release(struct atomisp_device *isp);
+void atomisp_acc_release(struct atomisp_sub_device *asd);
 
 /* Load acceleration binary. DEPRECATED. */
-int atomisp_acc_load(struct atomisp_device *isp,
+int atomisp_acc_load(struct atomisp_sub_device *asd,
 		     struct atomisp_acc_fw_load *fw);
 
 /* Load acceleration binary with specified properties */
-int atomisp_acc_load_to_pipe(struct atomisp_device *isp,
+int atomisp_acc_load_to_pipe(struct atomisp_sub_device *asd,
 			     struct atomisp_acc_fw_load_to_pipe *fw);
 
 /* Unload specified acceleration binary */
-int atomisp_acc_unload(struct atomisp_device *isp,
+int atomisp_acc_unload(struct atomisp_sub_device *asd,
 		       unsigned int *handle);
 
 /*
  * Map a memory region into ISP memory space.
  */
-int atomisp_acc_map(struct atomisp_device *isp,
+int atomisp_acc_map(struct atomisp_sub_device *asd,
 		    struct atomisp_acc_map *map);
 
 /*
  * Unmap a mapped memory region.
  */
-int atomisp_acc_unmap(struct atomisp_device *isp,
+int atomisp_acc_unmap(struct atomisp_sub_device *asd,
 		      struct atomisp_acc_map *map);
 
 /*
  * Set acceleration binary argument to a previously mapped memory region.
  */
-int atomisp_acc_s_mapped_arg(struct atomisp_device *isp,
+int atomisp_acc_s_mapped_arg(struct atomisp_sub_device *asd,
 			     struct atomisp_acc_s_mapped_arg *arg);
 
 

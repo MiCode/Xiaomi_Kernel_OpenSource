@@ -75,23 +75,23 @@ static void acc_free_fw(struct atomisp_acc_fw *acc_fw)
 }
 
 static struct atomisp_acc_fw *
-acc_get_fw(struct atomisp_device *isp, unsigned int handle)
+acc_get_fw(struct atomisp_sub_device *asd, unsigned int handle)
 {
 	struct atomisp_acc_fw *acc_fw;
 
-	list_for_each_entry(acc_fw, &isp->acc.fw, list)
+	list_for_each_entry(acc_fw, &asd->acc.fw, list)
 		if (acc_fw->handle == handle)
 			return acc_fw;
 
 	return NULL;
 }
 
-static struct atomisp_map *acc_get_map(struct atomisp_device *isp,
+static struct atomisp_map *acc_get_map(struct atomisp_sub_device *asd,
 				       unsigned long css_ptr, size_t length)
 {
 	struct atomisp_map *atomisp_map;
 
-	list_for_each_entry(atomisp_map, &isp->acc.memory_maps, list) {
+	list_for_each_entry(atomisp_map, &asd->acc.memory_maps, list) {
 		if (atomisp_map->ptr == css_ptr &&
 		    atomisp_map->length == length)
 			return atomisp_map;
@@ -99,53 +99,60 @@ static struct atomisp_map *acc_get_map(struct atomisp_device *isp,
 	return NULL;
 }
 
-static int acc_stop_acceleration(struct atomisp_device *isp)
+static int acc_stop_acceleration(struct atomisp_sub_device *asd)
 {
 	int ret;
 
-	ret = atomisp_css_stop_acc_pipe(isp->asd);
-	atomisp_css_destroy_acc_pipe(isp->asd);
+	ret = atomisp_css_stop_acc_pipe(asd);
+	atomisp_css_destroy_acc_pipe(asd);
 
 	return ret;
 }
 
 void atomisp_acc_init(struct atomisp_device *isp)
 {
-	INIT_LIST_HEAD(&isp->acc.fw);
-	INIT_LIST_HEAD(&isp->acc.memory_maps);
-	ida_init(&isp->acc.ida);
+	int i;
+
+	for (i = 0; i < isp->num_of_streams; i++) {
+		INIT_LIST_HEAD(&isp->asd[i].acc.fw);
+		INIT_LIST_HEAD(&isp->asd[i].acc.memory_maps);
+		ida_init(&isp->asd[i].acc.ida);
+	}
 }
 
 void atomisp_acc_cleanup(struct atomisp_device *isp)
 {
-	ida_destroy(&isp->acc.ida);
+	int i;
+
+	for (i = 0; i < isp->num_of_streams; i++)
+		ida_destroy(&isp->asd[i].acc.ida);
 }
 
-void atomisp_acc_release(struct atomisp_device *isp)
+void atomisp_acc_release(struct atomisp_sub_device *asd)
 {
 	struct atomisp_acc_fw *acc_fw, *ta;
 	struct atomisp_map *atomisp_map, *tm;
 
 	/* Stop acceleration if already running */
-	if (isp->acc.pipeline)
-		acc_stop_acceleration(isp);
+	if (asd->acc.pipeline)
+		acc_stop_acceleration(asd);
 
 	/* Unload all loaded acceleration binaries */
-	list_for_each_entry_safe(acc_fw, ta, &isp->acc.fw, list) {
+	list_for_each_entry_safe(acc_fw, ta, &asd->acc.fw, list) {
 		list_del(&acc_fw->list);
-		ida_remove(&isp->acc.ida, acc_fw->handle);
+		ida_remove(&asd->acc.ida, acc_fw->handle);
 		acc_free_fw(acc_fw);
 	}
 
 	/* Free all mapped memory blocks */
-	list_for_each_entry_safe(atomisp_map, tm, &isp->acc.memory_maps, list) {
+	list_for_each_entry_safe(atomisp_map, tm, &asd->acc.memory_maps, list) {
 		list_del(&atomisp_map->list);
 		mmgr_free(atomisp_map->ptr);
 		kfree(atomisp_map);
 	}
 }
 
-int atomisp_acc_load_to_pipe(struct atomisp_device *isp,
+int atomisp_acc_load_to_pipe(struct atomisp_sub_device *asd,
 			     struct atomisp_acc_fw_load_to_pipe *user_fw)
 {
 	static const unsigned int pipeline_flags =
@@ -171,7 +178,7 @@ int atomisp_acc_load_to_pipe(struct atomisp_device *isp,
 	    user_fw->type > ATOMISP_ACC_FW_LOAD_TYPE_STANDALONE)
 		return -EINVAL;
 
-	if (isp->acc.pipeline || isp->acc.extension_mode)
+	if (asd->acc.pipeline || asd->acc.extension_mode)
 		return -EBUSY;
 
 	acc_fw = acc_alloc_fw(user_fw->size);
@@ -183,8 +190,8 @@ int atomisp_acc_load_to_pipe(struct atomisp_device *isp,
 		return -EFAULT;
 	}
 
-	if (!ida_pre_get(&isp->acc.ida, GFP_KERNEL) ||
-	    ida_get_new_above(&isp->acc.ida, 1, &handle)) {
+	if (!ida_pre_get(&asd->acc.ida, GFP_KERNEL) ||
+	    ida_get_new_above(&asd->acc.ida, 1, &handle)) {
 		acc_free_fw(acc_fw);
 		return -ENOSPC;
 	}
@@ -211,11 +218,11 @@ int atomisp_acc_load_to_pipe(struct atomisp_device *isp,
 		acc_fw->fw->info.isp.type = type_to_css[acc_fw->type];
 	}
 
-	list_add_tail(&acc_fw->list, &isp->acc.fw);
+	list_add_tail(&acc_fw->list, &asd->acc.fw);
 	return 0;
 }
 
-int atomisp_acc_load(struct atomisp_device *isp,
+int atomisp_acc_load(struct atomisp_sub_device *asd,
 		     struct atomisp_acc_fw_load *user_fw)
 {
 	struct atomisp_acc_fw_load_to_pipe ltp = {0};
@@ -225,24 +232,24 @@ int atomisp_acc_load(struct atomisp_device *isp,
 	ltp.type = ATOMISP_ACC_FW_LOAD_TYPE_STANDALONE;
 	ltp.size = user_fw->size;
 	ltp.data = user_fw->data;
-	r = atomisp_acc_load_to_pipe(isp, &ltp);
+	r = atomisp_acc_load_to_pipe(asd, &ltp);
 	user_fw->fw_handle = ltp.fw_handle;
 	return r;
 }
 
-int atomisp_acc_unload(struct atomisp_device *isp, unsigned int *handle)
+int atomisp_acc_unload(struct atomisp_sub_device *asd, unsigned int *handle)
 {
 	struct atomisp_acc_fw *acc_fw;
 
-	if (isp->acc.pipeline || isp->acc.extension_mode)
+	if (asd->acc.pipeline || asd->acc.extension_mode)
 		return -EBUSY;
 
-	acc_fw = acc_get_fw(isp, *handle);
+	acc_fw = acc_get_fw(asd, *handle);
 	if (!acc_fw)
 		return -EINVAL;
 
 	list_del(&acc_fw->list);
-	ida_remove(&isp->acc.ida, acc_fw->handle);
+	ida_remove(&asd->acc.ida, acc_fw->handle);
 	acc_free_fw(acc_fw);
 
 	return 0;
@@ -255,7 +262,7 @@ int atomisp_acc_start(struct atomisp_sub_device *asd, unsigned int *handle)
 	int ret;
 	unsigned int nbin;
 
-	if (isp->acc.pipeline || isp->acc.extension_mode)
+	if (asd->acc.pipeline || asd->acc.extension_mode)
 		return -EBUSY;
 
 	/* Invalidate caches. FIXME: should flush only necessary buffers */
@@ -266,7 +273,7 @@ int atomisp_acc_start(struct atomisp_sub_device *asd, unsigned int *handle)
 		return ret;
 
 	nbin = 0;
-	list_for_each_entry(acc_fw, &isp->acc.fw, list) {
+	list_for_each_entry(acc_fw, &asd->acc.fw, list) {
 		if (*handle != 0 && *handle != acc_fw->handle)
 			continue;
 
@@ -313,14 +320,14 @@ int atomisp_acc_wait(struct atomisp_sub_device *asd, unsigned int *handle)
 	struct atomisp_device *isp = asd->isp;
 	int ret;
 
-	if (!isp->acc.pipeline)
+	if (!asd->acc.pipeline)
 		return -ENOENT;
 
-	if (*handle && !acc_get_fw(isp, *handle))
+	if (*handle && !acc_get_fw(asd, *handle))
 		return -EINVAL;
 
 	ret = atomisp_css_wait_acc_finish(asd);
-	if (acc_stop_acceleration(isp) == -EIO) {
+	if (acc_stop_acceleration(asd) == -EIO) {
 		atomisp_reset(isp);
 		return -EINVAL;
 	}
@@ -339,7 +346,7 @@ void atomisp_acc_done(struct atomisp_sub_device *asd, unsigned int handle)
 	v4l2_event_queue(asd->subdev.devnode, &event);
 }
 
-int atomisp_acc_map(struct atomisp_device *isp, struct atomisp_acc_map *map)
+int atomisp_acc_map(struct atomisp_sub_device *asd, struct atomisp_acc_map *map)
 {
 	struct atomisp_map *atomisp_map;
 	ia_css_ptr cssptr;
@@ -348,13 +355,13 @@ int atomisp_acc_map(struct atomisp_device *isp, struct atomisp_acc_map *map)
 	if (map->css_ptr)
 		return -EINVAL;
 
-	if (isp->acc.pipeline)
+	if (asd->acc.pipeline)
 		return -EBUSY;
 
 	if (map->user_ptr) {
 		/* Buffer to map must be page-aligned */
 		if ((unsigned long)map->user_ptr & ~PAGE_MASK) {
-			dev_err(isp->dev,
+			dev_err(asd->isp->dev,
 				"%s: mapped buffer address %p is not page aligned\n",
 				__func__, map->user_ptr);
 			return -EINVAL;
@@ -383,22 +390,22 @@ int atomisp_acc_map(struct atomisp_device *isp, struct atomisp_acc_map *map)
 	}
 	atomisp_map->ptr = cssptr;
 	atomisp_map->length = map->length;
-	list_add(&atomisp_map->list, &isp->acc.memory_maps);
+	list_add(&atomisp_map->list, &asd->acc.memory_maps);
 
-	dev_dbg(isp->dev, "%s: userptr %p, css_address 0x%x, size %d\n",
+	dev_dbg(asd->isp->dev, "%s: userptr %p, css_address 0x%x, size %d\n",
 		__func__, map->user_ptr, cssptr, map->length);
 	map->css_ptr = cssptr;
 	return 0;
 }
 
-int atomisp_acc_unmap(struct atomisp_device *isp, struct atomisp_acc_map *map)
+int atomisp_acc_unmap(struct atomisp_sub_device *asd, struct atomisp_acc_map *map)
 {
 	struct atomisp_map *atomisp_map;
 
-	if (isp->acc.pipeline)
+	if (asd->acc.pipeline)
 		return -EBUSY;
 
-	atomisp_map = acc_get_map(isp, map->css_ptr, map->length);
+	atomisp_map = acc_get_map(asd, map->css_ptr, map->length);
 	if (!atomisp_map)
 		return -EINVAL;
 
@@ -408,7 +415,7 @@ int atomisp_acc_unmap(struct atomisp_device *isp, struct atomisp_acc_map *map)
 	return 0;
 }
 
-int atomisp_acc_s_mapped_arg(struct atomisp_device *isp,
+int atomisp_acc_s_mapped_arg(struct atomisp_sub_device *asd,
 			     struct atomisp_acc_s_mapped_arg *arg)
 {
 	struct atomisp_acc_fw *acc_fw;
@@ -416,23 +423,23 @@ int atomisp_acc_s_mapped_arg(struct atomisp_device *isp,
 	if (arg->memory >= ATOMISP_ACC_NR_MEMORY)
 		return -EINVAL;
 
-	if (isp->acc.pipeline)
+	if (asd->acc.pipeline)
 		return -EBUSY;
 
-	acc_fw = acc_get_fw(isp, arg->fw_handle);
+	acc_fw = acc_get_fw(asd, arg->fw_handle);
 	if (!acc_fw)
 		return -EINVAL;
 
 	if (arg->css_ptr != 0 || arg->length != 0) {
 		/* Unless the parameter is cleared, check that it exists */
-		if (!acc_get_map(isp, arg->css_ptr, arg->length))
+		if (!acc_get_map(asd, arg->css_ptr, arg->length))
 			return -EINVAL;
 	}
 
 	acc_fw->args[arg->memory].length = arg->length;
 	acc_fw->args[arg->memory].css_ptr = arg->css_ptr;
 
-	dev_dbg(isp->dev, "%s: mem %d, address %p, size %ld\n",
+	dev_dbg(asd->isp->dev, "%s: mem %d, address %p, size %ld\n",
 		__func__, arg->memory, (void *)arg->css_ptr,
 		(unsigned long)arg->length);
 	return 0;
@@ -451,13 +458,13 @@ int atomisp_acc_load_extensions(struct atomisp_sub_device *asd)
 	int ret = 0, i = -1;
 	struct atomisp_device *isp = asd->isp;
 
-	if (isp->acc.pipeline || isp->acc.extension_mode)
+	if (asd->acc.pipeline || asd->acc.extension_mode)
 		return -EBUSY;
 
 	/* Invalidate caches. FIXME: should flush only necessary buffers */
 	wbinvd();
 
-	list_for_each_entry(acc_fw, &isp->acc.fw, list) {
+	list_for_each_entry(acc_fw, &asd->acc.fw, list) {
 		if (acc_fw->type != ATOMISP_ACC_FW_LOAD_TYPE_OUTPUT &&
 		    acc_fw->type != ATOMISP_ACC_FW_LOAD_TYPE_VIEWFINDER)
 			continue;
@@ -498,7 +505,7 @@ int atomisp_acc_load_extensions(struct atomisp_sub_device *asd)
 		goto error;
 	}
 
-	isp->acc.extension_mode = true;
+	asd->acc.extension_mode = true;
 	return 0;
 
 error:
@@ -509,7 +516,7 @@ error:
 		}
 	}
 
-	list_for_each_entry_continue_reverse(acc_fw, &isp->acc.fw, list) {
+	list_for_each_entry_continue_reverse(acc_fw, &asd->acc.fw, list) {
 		if (acc_fw->type != ATOMISP_ACC_FW_LOAD_TYPE_OUTPUT &&
 		    acc_fw->type != ATOMISP_ACC_FW_LOAD_TYPE_VIEWFINDER)
 			continue;
@@ -531,14 +538,13 @@ error:
 
 void atomisp_acc_unload_extensions(struct atomisp_sub_device *asd)
 {
-	struct atomisp_device *isp = asd->isp;
 	struct atomisp_acc_fw *acc_fw;
 	int i;
 
-	if (!isp->acc.extension_mode)
+	if (!asd->acc.extension_mode)
 		return;
 
-	list_for_each_entry_reverse(acc_fw, &isp->acc.fw, list) {
+	list_for_each_entry_reverse(acc_fw, &asd->acc.fw, list) {
 		if (acc_fw->type != ATOMISP_ACC_FW_LOAD_TYPE_OUTPUT &&
 		    acc_fw->type != ATOMISP_ACC_FW_LOAD_TYPE_VIEWFINDER)
 			continue;
@@ -552,26 +558,25 @@ void atomisp_acc_unload_extensions(struct atomisp_sub_device *asd)
 		}
 	}
 
-	isp->acc.extension_mode = false;
+	asd->acc.extension_mode = false;
 }
 
 int atomisp_acc_set_state(struct atomisp_sub_device *asd,
 			  struct atomisp_acc_state *arg)
 {
-	struct atomisp_device *isp = asd->isp;
 	struct atomisp_acc_fw *acc_fw;
 	bool enable = (arg->flags & ATOMISP_STATE_FLAG_ENABLE) != 0;
 	struct ia_css_pipe *pipe;
 	enum ia_css_err r;
 	int i;
 
-	if (!isp->acc.extension_mode)
+	if (!asd->acc.extension_mode)
 		return -EBUSY;
 
 	if (arg->flags & ~ATOMISP_STATE_FLAG_ENABLE)
 		return -EINVAL;
 
-	acc_fw = acc_get_fw(isp, arg->fw_handle);
+	acc_fw = acc_get_fw(asd, arg->fw_handle);
 	if (!acc_fw)
 		return -EINVAL;
 
@@ -597,13 +602,12 @@ int atomisp_acc_set_state(struct atomisp_sub_device *asd,
 int atomisp_acc_get_state(struct atomisp_sub_device *asd,
 			  struct atomisp_acc_state *arg)
 {
-	struct atomisp_device *isp = asd->isp;
 	struct atomisp_acc_fw *acc_fw;
 
-	if (!isp->acc.extension_mode)
+	if (!asd->acc.extension_mode)
 		return -EBUSY;
 
-	acc_fw = acc_get_fw(isp, arg->fw_handle);
+	acc_fw = acc_get_fw(asd, arg->fw_handle);
 	if (!acc_fw)
 		return -EINVAL;
 

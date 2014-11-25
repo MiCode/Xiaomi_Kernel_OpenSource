@@ -232,27 +232,6 @@ struct atomisp_sw_contex {
 	int running_freq;
 };
 
-struct atomisp_acc_fw {
-	struct atomisp_css_fw_info *fw;
-	unsigned int handle;
-	unsigned int flags;
-	unsigned int type;
-	struct {
-		size_t length;
-		unsigned long css_ptr;
-	} args[ATOMISP_ACC_NR_MEMORY];
-	struct list_head list;
-};
-
-struct atomisp_map {
-	ia_css_ptr ptr;
-	size_t length;
-	struct list_head list;
-	/* FIXME: should keep book which maps are currently used
-	 * by binaries and not allow releasing those
-	 * which are in use. Implement by reference counting.
-	 */
-};
 
 #define ATOMISP_DEVICE_STREAMING_DISABLED	0
 #define ATOMISP_DEVICE_STREAMING_ENABLED	1
@@ -273,17 +252,6 @@ struct atomisp_device {
 
 	struct pm_qos_request pm_qos;
 	s32 max_isr_latency;
-
-	struct {
-		struct list_head fw;
-		struct list_head memory_maps;
-		struct atomisp_css_pipeline *pipeline;
-		bool extension_mode;
-		struct ida ida;
-		struct completion acc_done;
-		void *acc_stages;
-	} acc;
-
 
 	/*
 	 * ISP modules

@@ -587,11 +587,12 @@ irqreturn_t atomisp_isr(int irq, void *dev)
 
 	clear_irq_reg(isp);
 
-	if (!atomisp_streaming_count(isp) && !isp->acc.pipeline)
+	if (!atomisp_streaming_count(isp) && !atomisp_is_acc_enabled(isp))
 		goto out_nowake;
 
 	for (i = 0; i < isp->num_of_streams; i++) {
 		asd = &isp->asd[i];
+
 		if (asd->streaming != ATOMISP_DEVICE_STREAMING_ENABLED)
 			continue;
 		/*
@@ -1638,7 +1639,7 @@ irqreturn_t atomisp_isr_thread(int irq, void *isp_ptr)
 
 	spin_lock_irqsave(&isp->lock, flags);
 
-	if (!atomisp_streaming_count(isp) && !isp->acc.pipeline) {
+	if (!atomisp_streaming_count(isp) && !atomisp_is_acc_enabled(isp)) {
 		spin_unlock_irqrestore(&isp->lock, flags);
 		return IRQ_HANDLED;
 	}
@@ -1697,7 +1698,7 @@ out:
 			v4l2_subdev_call(isp->inputs[asd->input_curr].camera,
 					 video, s_stream, 1);
 		/* FIXME! FIX ACC implementation */
-		if (isp->acc.pipeline && css_pipe_done[asd->index])
+		if (asd->acc.pipeline && css_pipe_done[asd->index])
 			atomisp_css_acc_done(asd);
 	}
 	dev_dbg(isp->dev, "<%s\n", __func__);
