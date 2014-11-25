@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -399,6 +399,7 @@ enum ipa_hw_status_opcode {
 	IPA_HW_STATUS_OPCODE_NEW_FRAG_RULE,
 	IPA_HW_STATUS_OPCODE_DROPPED_PACKET,
 	IPA_HW_STATUS_OPCODE_SUSPENDED_PACKET,
+	IPA_HW_STATUS_OPCODE_XLAT_PACKET = 6,
 	IPA_HW_STATUS_OPCODE_MAX
 };
 

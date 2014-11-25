@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,7 @@ const char *ipa_event_name[] = {
 	__stringify(WAN_UPSTREAM_ROUTE_ADD),
 	__stringify(WAN_UPSTREAM_ROUTE_DEL),
 	__stringify(WAN_EMBMS_CONNECT),
+	__stringify(WAN_XLAT_CONNECT),
 	__stringify(ECM_CONNECT),
 	__stringify(ECM_DISCONNECT),
 };
