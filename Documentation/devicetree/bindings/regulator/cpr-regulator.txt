@@ -511,6 +511,9 @@ Optional properties:
 				greater than all of the real row numbers addressed in other properties of
 				the cpr-regulator device node.  This property is required if
 				qcom,fuse-remap-source is specified.
+- qcom,cpr-quot-min-diff:	Integer which defines the minimum target-quotient difference between
+				the highest and (highest - 1) fuse corner to keep CPR enabled. If this
+				property is not specified a default value of 50 is used.
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
