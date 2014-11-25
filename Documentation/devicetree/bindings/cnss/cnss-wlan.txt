@@ -27,6 +27,7 @@ Optional properties:
     has exclusive access to UART.
   - vdd-wlan-io-supply: phandle to the 1.8V IO regulator for QCA6174
   - vdd-wlan-xtal-supply: phandle to the 1.8V XTAL regulator for QCA6174
+  - vdd-wlan-sp2t-supply: phandle to the 2.7V SP2T regulator for QCA6174
   - qcom,wlan-ramdump-dynamic: To enable CNSS RAMDUMP collection
     by providing the size of CNSS DUMP
   - reg: Memory regions defined as starting address and size
