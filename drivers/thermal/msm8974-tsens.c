@@ -551,6 +551,18 @@ struct tsens_tm_device_sensor {
 	uint32_t			slope_mul_tsens_factor;
 };
 
+struct tsens_dbg_counter {
+	uint32_t			dbg_count[10];
+	uint32_t			idx;
+	unsigned long long		time_stmp[10];
+};
+
+struct tsens_sensor_dbg_info {
+	unsigned long			temp[10];
+	uint32_t			idx;
+	unsigned long long		time_stmp[10];
+};
+
 struct tsens_tm_device {
 	struct platform_device		*pdev;
 	struct workqueue_struct		*tsens_wq;
@@ -571,6 +583,9 @@ struct tsens_tm_device {
 	uint32_t			calib_mode;
 	uint32_t			tsens_type;
 	bool				tsens_valid_status_check;
+	struct tsens_dbg_counter	tsens_irq_dbg;
+	struct tsens_dbg_counter	tsens_wq_dbg;
+	struct tsens_sensor_dbg_info	sensor_dbg_info[16];
 	struct tsens_tm_device_sensor	sensor[0];
 };
 
@@ -748,11 +763,19 @@ static int tsens_tz_get_temp(struct thermal_zone_device *thermal,
 			     unsigned long *temp)
 {
 	struct tsens_tm_device_sensor *tm_sensor = thermal->devdata;
+	uint32_t idx = 0;
 
 	if (!tm_sensor || tm_sensor->mode != THERMAL_DEVICE_ENABLED || !temp)
 		return -EINVAL;
 
 	msm_tsens_get_temp(tm_sensor->sensor_hw_num, temp);
+
+	idx = tmdev->sensor_dbg_info[tm_sensor->sensor_hw_num].idx;
+	tmdev->sensor_dbg_info[tm_sensor->sensor_hw_num].temp[idx%10] = *temp;
+	tmdev->sensor_dbg_info[tm_sensor->sensor_hw_num].time_stmp[idx%10] =
+					sched_clock();
+	idx++;
+	tmdev->sensor_dbg_info[tm_sensor->sensor_hw_num].idx = idx;
 
 	return 0;
 }
@@ -973,6 +996,9 @@ static struct thermal_zone_device_ops tsens_thermal_zone_ops = {
 	.notify = tsens_tz_notify,
 };
 
+uint32_t tsens1_dbg_cnt;
+unsigned long long tsens1_time_stmp;
+
 static void tsens_scheduler_fn(struct work_struct *work)
 {
 	struct tsens_tm_device *tm = container_of(work, struct tsens_tm_device,
@@ -981,6 +1007,7 @@ static void tsens_scheduler_fn(struct work_struct *work)
 	void __iomem *sensor_status_addr;
 	void __iomem *sensor_status_ctrl_addr;
 	int sensor_sw_id = -EINVAL, rc = 0;
+	uint32_t idx = 0;
 
 	if (tmdev->tsens_type == TSENS_TYPE2)
 		sensor_status_addr = TSENS2_SN_STATUS_ADDR(tmdev->tsens_addr);
@@ -1045,6 +1072,12 @@ static void tsens_scheduler_fn(struct work_struct *work)
 					tm->sensor[i].sensor_hw_num);
 		}
 	}
+	/* debug */
+	idx = tmdev->tsens_wq_dbg.idx;
+	tmdev->tsens_wq_dbg.dbg_count[idx%10]++;
+	tmdev->tsens_wq_dbg.time_stmp[idx%10] = sched_clock();
+	tmdev->tsens_wq_dbg.idx++;
+
 	mb();
 
 	enable_irq(tmdev->tsens_irq);
@@ -1052,7 +1085,15 @@ static void tsens_scheduler_fn(struct work_struct *work)
 
 static irqreturn_t tsens_isr(int irq, void *data)
 {
+	uint32_t idx = 0;
+
 	disable_irq_nosync(tmdev->tsens_irq);
+
+	/* debug */
+	idx = tmdev->tsens_irq_dbg.idx;
+	tmdev->tsens_irq_dbg.dbg_count[idx%10]++;
+	tmdev->tsens_irq_dbg.time_stmp[idx%10] = sched_clock();
+	tmdev->tsens_irq_dbg.idx++;
 
 	queue_work(tmdev->tsens_wq, &tmdev->tsens_work);
 
@@ -3264,7 +3305,7 @@ fail_tmdev:
 
 static int tsens_tm_probe(struct platform_device *pdev)
 {
-	int rc;
+	int rc, i;
 
 	if (tmdev) {
 		pr_err("TSENS device already in use\n");
@@ -3296,6 +3337,9 @@ static int tsens_tm_probe(struct platform_device *pdev)
 	tsens_hw_init();
 
 	tmdev->prev_reading_avail = true;
+
+	for (i = 0; i < 16; i++)
+		tmdev->sensor_dbg_info[i].idx = 0;
 
 	tmdev->is_ready = true;
 
