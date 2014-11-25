@@ -206,6 +206,9 @@ enum {
 };
 #define GEN8_CTX_ID_SHIFT 32
 
+static int logical_ring_alloc_seqno(struct intel_engine_cs *ring,
+				    struct intel_context *ctx);
+
 /**
  * intel_sanitize_enable_execlists() - sanitize i915.enable_execlists
  * @dev: DRM device.
@@ -815,32 +818,6 @@ gen8_ring_stop_watchdog(struct intel_ringbuffer *ringbuf)
 	return 0;
 }
 
-static int logical_ring_alloc_seqno(struct intel_engine_cs *ring,
-				    struct intel_context *ctx)
-{
-	if (ring->outstanding_lazy_seqno)
-		return 0;
-
-	if (ring->preallocated_lazy_request == NULL) {
-		struct drm_i915_gem_request *request;
-
-		request = kmalloc(sizeof(*request), GFP_KERNEL);
-		if (request == NULL)
-			return -ENOMEM;
-
-		/* Hold a reference to the context this request belongs to
-		 * (we will need it when the time comes to emit/retire the
-		 * request).
-		 */
-		request->ctx = ctx;
-		i915_gem_context_reference(request->ctx);
-
-		ring->preallocated_lazy_request = request;
-	}
-
-	return i915_gem_get_seqno(ring->dev, &ring->outstanding_lazy_seqno);
-}
-
 static int logical_ring_write_active_seqno(struct intel_ringbuffer *ringbuf,
 					   u32 seqno)
 {
@@ -1199,6 +1176,32 @@ void intel_logical_ring_advance_and_submit(struct intel_ringbuffer *ringbuf)
 		return;
 
 	execlists_context_queue(ring, ctx, ringbuf->tail);
+}
+
+static int logical_ring_alloc_seqno(struct intel_engine_cs *ring,
+				    struct intel_context *ctx)
+{
+	if (ring->outstanding_lazy_seqno)
+		return 0;
+
+	if (ring->preallocated_lazy_request == NULL) {
+		struct drm_i915_gem_request *request;
+
+		request = kmalloc(sizeof(*request), GFP_KERNEL);
+		if (request == NULL)
+			return -ENOMEM;
+
+		/* Hold a reference to the context this request belongs to
+		 * (we will need it when the time comes to emit/retire the
+		 * request).
+		 */
+		request->ctx = ctx;
+		i915_gem_context_reference(request->ctx);
+
+		ring->preallocated_lazy_request = request;
+	}
+
+	return i915_gem_get_seqno(ring->dev, &ring->outstanding_lazy_seqno);
 }
 
 static int logical_ring_wait_request(struct intel_ringbuffer *ringbuf,
