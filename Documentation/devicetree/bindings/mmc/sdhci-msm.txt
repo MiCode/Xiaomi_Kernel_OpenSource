@@ -114,6 +114,10 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	  The default CPU affinity mode is PM_QOS_REQ_AFFINE_IRQ to maintain
 	  backward compatibility.
 
+	- qcom,cpu-affinity-mask: this is a bitmap that specifies little cluster CPU
+	  cores used for PM QoS voting. This is parsed only for pm QoS request type of
+	  PM_QOS_REQ_AFFINE_CORES ("affine_cores").
+
 Example:
 
 	aliases {
@@ -144,6 +148,10 @@ Example:
 
 
                 qcom,bus-width = <4>;
+		qcom,cpu-dma-latency-us = <301>;
+		qcom,cpu-affinity = "affine_cores";
+		qcom,cpu-affinity-mask = <0x0f>;
+
 		qcom,nonremovable;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
 		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
@@ -182,6 +190,10 @@ Example:
 
 
                 qcom,bus-width = <4>;
+		qcom,cpu-dma-latency-us = <301>;
+		qcom,cpu-affinity = "affine_cores";
+		qcom,cpu-affinity-mask = <0x0f>;
+
 		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
 
 		qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
