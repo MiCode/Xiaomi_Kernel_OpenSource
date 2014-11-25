@@ -188,11 +188,17 @@ EXPORT_SYMBOL_GPL(vlv2_plat_get_clock_status);
 
 static int vlv2_plat_clk_probe(struct platform_device *pdev)
 {
+	int i = 0;
+
 	pmc_base = ioremap_nocache(VLV2_PMC_CLK_BASE_ADDRESS, PMC_MAP_SIZE);
 	if (!pmc_base) {
 		dev_err(&pdev->dev, "I/O memory remapping failed\n");
 		return -ENOMEM;
 	}
+
+	/* Initialize all clocks as disabled */
+	for (i = 0; i < MAX_CLK_COUNT; i++)
+		vlv2_plat_configure_clock(i, CLK_CONFG_FORCE_OFF);
 
 	dev_info(&pdev->dev, "vlv2_plat_clk initialized\n");
 	return 0;
