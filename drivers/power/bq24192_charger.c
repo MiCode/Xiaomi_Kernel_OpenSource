@@ -58,14 +58,15 @@
  * instability issue when duty cycle reaches 100%.
  */
 #define INPUT_SRC_VOLT_LMT_DEF                 (3 << 4)
+#define INPUT_SRC_VOLT_LMT_404                 (1 << 4)
+#define INPUT_SRC_VOLT_LMT_412                 (3 << 3)
 #define INPUT_SRC_VOLT_LMT_444                 (7 << 3)
 #define INPUT_SRC_VOLT_LMT_468                 (5 << 4)
 #define INPUT_SRC_VOLT_LMT_476                 (0xB << 3)
 
 #define INPUT_SRC_VINDPM_MASK                  (0xF << 3)
 #define INPUT_SRC_LOW_VBAT_LIMIT               3600
-#define INPUT_SRC_MIDL_VBAT_LIMIT              4000
-#define INPUT_SRC_MIDH_VBAT_LIMIT              4200
+#define INPUT_SRC_MIDL_VBAT_LIMIT              4100
 #define INPUT_SRC_HIGH_VBAT_LIMIT              4350
 
 /* D0, D1, D2 represent the input current limit */
@@ -275,7 +276,6 @@ struct bq24192_chip {
 	bool boost_mode;
 	bool online;
 	bool present;
-	bool sfttmr_expired;
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -1193,44 +1193,30 @@ static inline int bq24192_enable_charging(
 		return ret;
 	}
 
-	/*
-	 * Program the inlmt here in case we are asked to resume the charging
-	 * framework would send only set CC/CV commands and not the inlmt. This
-	 * would make sure that we program the last set inlmt into the register
-	 * in case for some reasons WDT expires
-	 */
-	regval = chrg_ilim_to_reg(chip->inlmt);
-
-	if (regval < 0) {
-		dev_err(&chip->client->dev,
-			"read ilim failed: %d\n", regval);
-		return regval;
-	}
-
-	ret = bq24192_write_reg(chip->client, BQ24192_INPUT_SRC_CNTL_REG,
-				regval);
+	ret = bq24192_read_reg(chip->client, BQ24192_POWER_ON_CFG_REG);
 	if (ret < 0) {
 		dev_err(&chip->client->dev,
-			"inlmt programming failed: %d\n", ret);
+				"pwr cfg read failed: %d\n", ret);
 		return ret;
 	}
 
-	/*
-	 * check if we have the battery emulator connected. We do not start
-	 * charging if the emulator is connected. Disable the charging
-	 * explicitly.
-	 */
-	if (!chip->pdata->sfi_tabl_present) {
-		ret = bq24192_reg_multi_bitset(chip->client,
-						BQ24192_POWER_ON_CFG_REG,
-						POWER_ON_CFG_CHRG_CFG_DIS,
-						CHR_CFG_BIT_POS,
-						CHR_CFG_BIT_LEN);
-		/* Schedule the charger task worker now */
-		schedule_delayed_work(&chip->chrg_task_wrkr,
-						0);
-		return ret;
+	if ((chip->chip_type == BQ24296) || (chip->chip_type == BQ24297)) {
+		if (val)
+			regval = ret | POWER_ON_CFG_BQ29X_CHRG_EN;
+		else
+			regval = ret & ~POWER_ON_CFG_BQ29X_CHRG_EN;
+	} else {
+		/* clear the charge enbale bit mask first */
+		ret &= ~(CHR_CFG_CHRG_MASK << CHR_CFG_BIT_POS);
+		if (val)
+			regval = ret | POWER_ON_CFG_CHRG_CFG_EN;
+		else
+			regval = ret | POWER_ON_CFG_CHRG_CFG_DIS;
 	}
+
+	ret = bq24192_write_reg(chip->client, BQ24192_POWER_ON_CFG_REG, regval);
+	if (ret < 0)
+		dev_warn(&chip->client->dev, "charger enable/disable failed\n");
 
 	if (val) {
 		/* Schedule the charger task worker now */
@@ -1262,38 +1248,9 @@ static inline int bq24192_enable_charging(
 		/* If no charger connected, cancel the workers */
 		if (!(ret & SYSTEM_STAT_VBUS_OTG)) {
 			dev_info(&chip->client->dev, "NO charger connected\n");
-			chip->sfttmr_expired = false;
 			cancel_delayed_work_sync(&chip->chrg_task_wrkr);
 		}
 	}
-
-	if (chip->sfttmr_expired)
-		return ret;
-
-	ret = bq24192_read_reg(chip->client, BQ24192_POWER_ON_CFG_REG);
-	if (ret < 0) {
-		dev_err(&chip->client->dev,
-				"pwr cfg read failed: %d\n", ret);
-		return ret;
-	}
-
-	if ((chip->chip_type == BQ24296) || (chip->chip_type == BQ24297)) {
-		if (val)
-			regval = ret | POWER_ON_CFG_BQ29X_CHRG_EN;
-		else
-			regval = ret & ~POWER_ON_CFG_BQ29X_CHRG_EN;
-	} else {
-		/* clear the charge enbale bit mask first */
-		ret &= ~(CHR_CFG_CHRG_MASK << CHR_CFG_BIT_POS);
-		if (val)
-			regval = ret | POWER_ON_CFG_CHRG_CFG_EN;
-		else
-			regval = ret | POWER_ON_CFG_CHRG_CFG_DIS;
-	}
-
-	ret = bq24192_write_reg(chip->client, BQ24192_POWER_ON_CFG_REG, regval);
-	if (ret < 0)
-		dev_warn(&chip->client->dev, "charger enable/disable failed\n");
 
 	return ret;
 }
@@ -1367,7 +1324,6 @@ static inline int bq24192_set_iterm(struct bq24192_chip *chip, int iterm)
 			"%s ITERM set for >128mA", __func__);
 
 	reg_val = chrg_iterm_to_reg(iterm);
-	msleep(500);
 
 	return bq24192_write_reg(chip->client,
 			BQ24192_PRECHRG_TERM_CUR_CNTL_REG,
@@ -1507,11 +1463,7 @@ static int bq24192_usb_get_property(struct power_supply *psy,
 	enum bq24192_chrgr_stat charging;
 
 	dev_dbg(&chip->client->dev, "%s %d\n", __func__, psp);
-	if (system_state != SYSTEM_RUNNING) {
-		if (!mutex_trylock(&chip->event_lock))
-			return -EBUSY;
-		} else
-			mutex_lock(&chip->event_lock);
+	mutex_lock(&chip->event_lock);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -1653,7 +1605,6 @@ static void bq24192_irq_worker(struct work_struct *work)
 			dev_info(&chip->client->dev, "No charger connected\n");
 	}
 	if ((reg_fault & FAULT_STAT_CHRG_TMR_FLT) == FAULT_STAT_CHRG_TMR_FLT) {
-		chip->sfttmr_expired = true;
 		dev_info(&chip->client->dev, "Safety timer expired\n");
 	}
 	if (reg_status != SYSTEM_STAT_CHRG_DONE)
@@ -1734,27 +1685,19 @@ static void bq24192_task_worker(struct work_struct *work)
 	vbatt /= 1000;
 	dev_warn(&chip->client->dev, "vbatt = %d\n", vbatt);
 
-	/* If vbatt <= 3600mV, leave the VINDPM settings to default */
-	if (vbatt <= INPUT_SRC_LOW_VBAT_LIMIT)
-		goto sched_task_work;
 
 	/* The charger vindpm voltage changes are causing charge current
 	 * throttle resulting in a prolonged changing time.
 	 * Hence disabling dynamic vindpm update  for bq24296 chip.
 	*/
 	if (chip->chip_type != BQ24296) {
-		if (vbatt > INPUT_SRC_LOW_VBAT_LIMIT &&
-			vbatt < INPUT_SRC_MIDL_VBAT_LIMIT)
+		if (vbatt >= INPUT_SRC_MIDL_VBAT_LIMIT &&
+			vbatt <= INPUT_SRC_HIGH_VBAT_LIMIT)
 			vindpm = INPUT_SRC_VOLT_LMT_444;
-		else if (vbatt > INPUT_SRC_MIDL_VBAT_LIMIT &&
-			vbatt < INPUT_SRC_MIDH_VBAT_LIMIT)
-			vindpm = INPUT_SRC_VOLT_LMT_468;
-		else if (vbatt > INPUT_SRC_MIDH_VBAT_LIMIT &&
-			vbatt < INPUT_SRC_HIGH_VBAT_LIMIT)
-			vindpm = INPUT_SRC_VOLT_LMT_476;
+		else
+			vindpm = INPUT_SRC_VOLT_LMT_412;
 
-		if (!mutex_trylock(&chip->event_lock))
-			goto sched_task_work;
+		mutex_lock(&chip->event_lock);
 		ret = bq24192_modify_vindpm(vindpm);
 		if (ret < 0)
 			dev_err(&chip->client->dev, "%s failed\n", __func__);
