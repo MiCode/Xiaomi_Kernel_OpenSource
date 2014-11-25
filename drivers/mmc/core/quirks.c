@@ -66,6 +66,9 @@ static const struct mmc_fixup mmc_fixup_methods[] = {
 	SDIO_FIXUP(SDIO_VENDOR_ID_MARVELL, SDIO_DEVICE_ID_MARVELL_8797_F0,
 		   add_quirk, MMC_QUIRK_BROKEN_IRQ_POLLING),
 
+	SDIO_FIXUP(SDIO_VENDOR_ID_BROADCOM, SDIO_ANY_ID,
+		   add_quirk, MMC_QUIRK_NO_TUNING_IN_SLEEP),
+
 	END_FIXUP
 };
 

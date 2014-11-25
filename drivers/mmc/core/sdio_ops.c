@@ -86,7 +86,11 @@ static int mmc_io_rw_direct_host(struct mmc_host *host, int write, unsigned fn,
 	cmd.arg |= in;
 	cmd.flags = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_AC;
 
-	err = mmc_wait_for_cmd(host, &cmd, 0);
+	if (host->card &&
+		(host->card->quirks & MMC_QUIRK_NO_TUNING_IN_SLEEP))
+		err = mmc_wait_for_cmd(host, &cmd, 1);
+	else
+		err = mmc_wait_for_cmd(host, &cmd, 0);
 	if (err)
 		return err;
 

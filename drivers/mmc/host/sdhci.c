@@ -28,6 +28,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
+#include <linux/mmc/sdio.h>
 #include <linux/mmc/slot-gpio.h>
 
 #include "sdhci.h"
@@ -1406,6 +1407,11 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		    !(present_state & (SDHCI_DOING_WRITE | SDHCI_DOING_READ)) &&
 		    (present_state & SDHCI_DATA_0_LVL_MASK)) {
 			if (mmc->card) {
+				if (mmc_card_sdio(mmc->card) &&
+					(mmc->card->quirks & MMC_QUIRK_NO_TUNING_IN_SLEEP) &&
+					(mrq->cmd->opcode == SD_IO_RW_DIRECT) &&
+					(mrq->cmd->retries > 0))
+					goto end_tuning;
 				if ((mmc->card->ext_csd.part_config & 0x07) ==
 					EXT_CSD_PART_CONFIG_ACC_RPMB)
 					goto end_tuning;
