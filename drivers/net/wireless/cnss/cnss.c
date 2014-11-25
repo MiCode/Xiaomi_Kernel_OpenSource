@@ -2390,6 +2390,8 @@ static int cnss_probe(struct platform_device *pdev)
 		goto err_subsys_reg;
 	}
 
+	penv->subsys_handle = subsystem_get(penv->subsysdesc.name);
+
 	if (of_property_read_u32(dev->of_node, "qcom,wlan-ramdump-dynamic",
 				&ramdump_size) == 0) {
 		penv->ramdump_addr = dma_alloc_coherent(&pdev->dev,
@@ -2435,8 +2437,6 @@ static int cnss_probe(struct platform_device *pdev)
 			goto err_ramdump_create;
 		}
 	}
-
-	penv->subsys_handle = subsystem_get(penv->subsysdesc.name);
 
 	penv->ramdump_dev = create_ramdump_device(penv->subsysdesc.name,
 				penv->subsysdesc.dev);
@@ -2503,16 +2503,15 @@ err_bus_reg:
 	pci_unregister_driver(&cnss_wlan_pci_driver);
 
 err_pci_reg:
-	destroy_ramdump_device(penv->ramdump_dev);
-
-err_ramdump_create:
-	if (penv->subsys_handle)
-		subsystem_put(penv->subsys_handle);
 	if (penv->notify_modem_status)
 		subsys_notif_unregister_notifier
 			(penv->modem_notify_handler, &mnb);
 
 err_notif_modem:
+	if (penv->ramdump_dev)
+		destroy_ramdump_device(penv->ramdump_dev);
+
+err_ramdump_create:
 	if (penv->ramdump_addr) {
 		if (penv->ramdump_dynamic) {
 			dma_free_coherent(&pdev->dev, penv->ramdump_size,
@@ -2521,6 +2520,9 @@ err_notif_modem:
 			iounmap(penv->ramdump_addr);
 		}
 	}
+
+	if (penv->subsys_handle)
+		subsystem_put(penv->subsys_handle);
 
 	subsys_unregister(penv->subsys);
 
