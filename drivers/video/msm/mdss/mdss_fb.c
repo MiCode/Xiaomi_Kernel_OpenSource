@@ -1236,16 +1236,16 @@ static int mdss_fb_blank_blank(struct msm_fb_data_type *mfd,
 	complete(&mfd->no_update.comp);
 
 	mfd->op_enable = false;
-	mutex_lock(&mfd->bl_lock);
 	if (mdss_panel_is_power_off(req_power_state)) {
 		/* Stop Display thread */
 		if (mfd->disp_thread)
 			mdss_fb_stop_disp_thread(mfd);
+		mutex_lock(&mfd->bl_lock);
 		mdss_fb_set_backlight(mfd, 0);
 		mfd->bl_updated = 0;
+		mutex_unlock(&mfd->bl_lock);
 	}
 	mfd->panel_power_state = req_power_state;
-	mutex_unlock(&mfd->bl_lock);
 
 	ret = mfd->mdp.off_fnc(mfd);
 	if (ret)
