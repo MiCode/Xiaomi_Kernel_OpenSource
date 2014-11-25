@@ -28,14 +28,18 @@ Required properties:
 		time 5ms, 1 for conversion time 9.6ms, 2 for conversion time 14.1ms and 3 for
 		conversion time 18.7ms.
  - di,ps-integrated-time: Selects the duration at which the device's ADC will sample the
-		photodiode current signal.
- - di,wait-time		: Idle frames inserted to the device's conversion cycle. Each frame is
-		5ms and the maximum number of frames is 255.
+		photodiode current signal. The maximum value is 63.
 
 
 Optional properties:
  - di,ps-distance-table	: Calibrated ADC value of proximity sensor to indicate the distance of
-		the object in centimeter.
+		the object in centimeter. The value in this table should in descend order and the
+		maximum value is 1023. Use default value if not exist.
+ - di,als-sensitivity	: Ambient light sensitivity in lux. This value configures how much light
+		intensity change will trigger an light sensor event. The maximum value is 1023.
+ - di,wakeup-threshold	: This value configures the threshold in centimeter that can wake up
+		SoC when system is suspended. This value should between 0 and
+		ARRAY_SIZE(di,ps-distance-table).
 
 Example:
 
@@ -59,8 +63,9 @@ i2c@78b5000 { /* BLSP1 QUP1 */
 		di,ps-led-driver = <3>;
 		di,ps-mean-time = <0>;
 		di,ps-integrated-time = <0>;
-		di,wait-time = <0>;
-		di,ps-distance-table = <1023, 740, 340, 200, 180, 176>;
+		di,ps-distance-table = <887, 282, 111, 78, 53, 46>;
+		di,als-sensitivity = <50>;
+		di,wakeup-threshold = <4>;
 	};
 };
 
