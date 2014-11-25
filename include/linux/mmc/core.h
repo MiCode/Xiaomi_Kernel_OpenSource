@@ -132,6 +132,7 @@ struct mmc_request {
 	struct mmc_command	*precmd;
 	struct mmc_command	*cmd;
 	struct mmc_command	*postcmd;
+	struct mmc_command	*cmd2;
 	struct mmc_data		*data;
 	struct mmc_command	*stop;
 
@@ -147,6 +148,7 @@ extern int mmc_stop_bkops(struct mmc_card *);
 extern int mmc_read_bkops_status(struct mmc_card *);
 extern struct mmc_async_req *mmc_start_req(struct mmc_host *,
 					   struct mmc_async_req *, int *);
+extern int mmc_execute_cmdq(struct mmc_host *, struct mmc_async_req *, int *);
 extern int mmc_interrupt_hpi(struct mmc_card *);
 extern void mmc_wait_for_req(struct mmc_host *, struct mmc_request *);
 extern int mmc_wait_for_cmd(struct mmc_host *, struct mmc_command *, int);

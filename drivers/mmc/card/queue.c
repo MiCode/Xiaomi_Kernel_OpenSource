@@ -84,16 +84,21 @@ static int mmc_queue_thread(void *d)
 		req = blk_fetch_request(q);
 		spin_unlock_irq(q->queue_lock);
 
+		/*
+		 * For the request which doesn't have data to transfer,
+		 * we don't need to allocate a mqrq slot for it as it doesn't
+		 * need the sg to map data
+		 */
 		if (req && !(req->cmd_flags & (REQ_DISCARD | REQ_FLUSH))) {
 			while (!mmc_queue_get_free_slot(mq, &i))
-				mq->issue_fn(mq, NULL);
+				mq->issue_fn(mq, NULL, true);
 			mq->mqrq_cur = &mq->mqrq[i];
 			mq->mqrq_cur->req = req;
 		}
 
 		if (req || atomic_read(&mq->active_slots)) {
 			set_current_state(TASK_RUNNING);
-			mq->issue_fn(mq, req);
+			mq->issue_fn(mq, req, false);
 		} else {
 			if (kthread_should_stop()) {
 				set_current_state(TASK_RUNNING);
@@ -208,11 +213,17 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 	if (!mq->queue)
 		return -ENOMEM;
 
-	mq->qdepth = 2;
+	if (card->ext_csd.cmdq_en)
+		mq->qdepth = card->ext_csd.cmdq_depth;
+	else
+		mq->qdepth = 2;
+
 	mq->mqrq = kzalloc(mq->qdepth * sizeof(struct mmc_queue_req),
 			GFP_KERNEL);
-	if (!mq->mqrq)
-		return -ENOMEM;
+	if (!mq->mqrq) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	mqrq = mq->mqrq;
 	for (i = mq->qdepth; i > 0; i--)
@@ -309,6 +320,8 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		mqrq[i].bounce_buf = NULL;
 	}
 
+	kfree(mq->mqrq);
+out:
 	blk_cleanup_queue(mq->queue);
 	return ret;
 }

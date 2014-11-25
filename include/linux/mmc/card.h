@@ -117,6 +117,9 @@ struct mmc_ext_csd {
 
 	unsigned int            feature_support;
 #define MMC_DISCARD_FEATURE	BIT(0)                  /* CMD38 feature */
+	u8			cmdq_support;		/* 308 */
+	bool			cmdq_en;
+	u8			cmdq_depth;		/* 307 */
 };
 
 struct sd_scr {

@@ -211,8 +211,6 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 	} else {
 		mmc_should_fail_request(host, mrq);
 
-		led_trigger_event(host->led, LED_OFF);
-
 		pr_debug("%s: req done (CMD%u): %d: %08x %08x %08x %08x\n",
 			mmc_hostname(host), cmd->opcode, err,
 			cmd->resp[0], cmd->resp[1],
@@ -232,6 +230,14 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 				mrq->stop->resp[0], mrq->stop->resp[1],
 				mrq->stop->resp[2], mrq->stop->resp[3]);
 		}
+
+		if (mmc_op_cmdq_execute_task(cmd->opcode) && !mrq->data) {
+			if (mrq->done)
+				mrq->done(mrq);
+			return;
+		}
+
+		led_trigger_event(host->led, LED_OFF);
 
 		if (mrq->done)
 			mrq->done(mrq);
@@ -429,6 +435,7 @@ static int __mmc_start_req(struct mmc_host *host, struct mmc_request *mrq)
 {
 	init_completion(&mrq->completion);
 	mrq->done = mmc_wait_done;
+	mrq->host = host;
 	if (mmc_card_removed(host->card)) {
 		mrq->cmd->error = -ENOMEDIUM;
 		complete(&mrq->completion);
@@ -525,7 +532,8 @@ static void mmc_wait_for_req_done(struct mmc_host *host,
 		}
 		if (!cmd->error || !cmd->retries ||
 		    mmc_card_removed(host->card)) {
-			mmc_qos_update(host, mrq, PM_QOS_DEFAULT_VALUE);
+			if (!mmc_op_cmdq_execute_task(cmd->opcode))
+				mmc_qos_update(host, mrq, PM_QOS_DEFAULT_VALUE);
 			break;
 		}
 
@@ -649,6 +657,51 @@ struct mmc_async_req *mmc_start_req(struct mmc_host *host,
 	return data;
 }
 EXPORT_SYMBOL(mmc_start_req);
+
+int mmc_execute_cmdq(struct mmc_host *host,
+		struct mmc_async_req *areq,
+		int *status)
+{
+	struct mmc_request mrq = {0};
+	struct mmc_command cmd = {0};
+
+	*status = MMC_BLK_SUCCESS;
+
+	if (host->areq) {
+		*status = mmc_wait_for_data_req_done(host,
+				host->areq->mrq, areq);
+		switch (*status) {
+		case MMC_BLK_SUCCESS:
+		case MMC_BLK_PARTIAL:
+			host->areq = NULL;
+			break;
+		case MMC_BLK_NEW_REQUEST:
+			return 0;
+		default:
+			host->areq = NULL;
+			return -EIO;
+		}
+	}
+
+	host->areq = areq;
+	if (!host->areq)
+		return 0;
+	/*
+	 * If previous request is success, update host->areq
+	 */
+	memcpy(&cmd, areq->mrq->postcmd, sizeof(cmd));
+	mrq.cmd = &cmd;
+	mrq.data = areq->mrq->data;
+	/* CMD complete only */
+	mmc_wait_for_req(host, &mrq);
+	if (mrq.cmd->error) {
+		host->areq = NULL;
+		return mrq.cmd->error;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mmc_execute_cmdq);
 
 /**
  *	mmc_wait_for_req - start a request and wait for completion

@@ -605,6 +605,20 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		card->ext_csd.data_sector_size = 512;
 	}
 
+	if (card->ext_csd.rev >= 7) {
+		/* check CQ capability */
+		if (ext_csd[EXT_CSD_CMDQ_SUPPORT] &&
+				ext_csd[EXT_CSD_CMDQ_DEPTH]) {
+			card->ext_csd.cmdq_support =
+				ext_csd[EXT_CSD_CMDQ_SUPPORT];
+			card->ext_csd.cmdq_depth = ext_csd[EXT_CSD_CMDQ_DEPTH];
+			if (card->ext_csd.cmdq_depth <= 2) {
+				card->ext_csd.cmdq_support = 0;
+				card->ext_csd.cmdq_depth = 0;
+			}
+		}
+	}
+
 out:
 	return err;
 }
@@ -712,6 +726,7 @@ MMC_DEV_ATTR(enhanced_area_size, "%d KBytes\n",
 		card->ext_csd.enhanced_area_size);
 MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
+MMC_DEV_ATTR(cmdq_en, "%#x\n", card->ext_csd.cmdq_en);
 
 static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_cid.attr,
@@ -730,6 +745,7 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_enhanced_area_size.attr,
 	&dev_attr_raw_rpmb_size_mult.attr,
 	&dev_attr_rel_sectors.attr,
+	&dev_attr_cmdq_en.attr,
 	NULL,
 };
 
@@ -1465,12 +1481,36 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	}
 
 	/*
+	 * enable Command queue if supported
+	 */
+	if (card->ext_csd.cmdq_support &&
+			(host->caps2 & MMC_CAP2_CAN_DO_CMDQ)) {
+		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+				EXT_CSD_CMDQ_MODE_EN,
+				EXT_CSD_CMDQ_MODE_ON,
+				card->ext_csd.generic_cmd6_time);
+		if (err && err != -EBADMSG)
+			goto free_card;
+		if (err) {
+			pr_warn("%s: Enabling CMDQ failed\n",
+				mmc_hostname(card->host));
+			card->ext_csd.cmdq_en = 0;
+			card->ext_csd.cmdq_depth = 0;
+			err = 0;
+		} else
+			card->ext_csd.cmdq_en = 1;
+	}
+
+	/*
 	 * The mandatory minimum values are defined for packed command.
 	 * read: 5, write: 3
+	 * disable packed CMD feature if CMDQ is enabled
+	 * CMDQ has better performance
 	 */
 	if (card->ext_csd.max_packed_writes >= 3 &&
 	    card->ext_csd.max_packed_reads >= 5 &&
-	    host->caps2 & MMC_CAP2_PACKED_CMD) {
+	    (host->caps2 & MMC_CAP2_PACKED_CMD) &&
+	    !card->ext_csd.cmdq_en) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_EXP_EVENTS_CTRL,
 				EXT_CSD_PACKED_EVENT_EN,

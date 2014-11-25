@@ -10,6 +10,7 @@ struct mmc_blk_request {
 	struct mmc_request	mrq;
 	struct mmc_command	precmd;
 	struct mmc_command	cmd;
+	struct mmc_command	cmd2;
 	struct mmc_command	postcmd;
 	struct mmc_command	stop;
 	struct mmc_data		data;
@@ -52,7 +53,7 @@ struct mmc_queue {
 	unsigned int		flags;
 #define MMC_QUEUE_SUSPENDED	(1 << 0)
 
-	int			(*issue_fn)(struct mmc_queue *, struct request *);
+	int	(*issue_fn)(struct mmc_queue *, struct request *, bool);
 	void			*data;
 	struct request_queue	*queue;
 	struct mmc_queue_req	*mqrq;

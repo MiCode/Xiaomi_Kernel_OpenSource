@@ -148,6 +148,7 @@ struct device;
 struct mmc_async_req {
 	/* active mmc request */
 	struct mmc_request	*mrq;
+	bool	success;
 	/*
 	 * Check error status of completed mmc request.
 	 * Returns 0 if success otherwise non zero.
@@ -185,6 +186,9 @@ struct mmc_context_info {
 	bool			is_done_rcv;
 	bool			is_new_req;
 	bool			is_waiting_last_req;
+	bool			is_last_cmdq;
+	bool			is_cmdq_busy;
+	bool			is_pending_cmdq;
 	wait_queue_head_t	wait;
 	spinlock_t		lock;
 };
@@ -288,6 +292,7 @@ struct mmc_host {
 #define MMC_CAP2_HS400_1_2V	(1 << 18)	/* Can support HS400 1.2V */
 #define MMC_CAP2_HS400		(MMC_CAP2_HS400_1_8V | \
 				 MMC_CAP2_HS400_1_2V)
+#define MMC_CAP2_CAN_DO_CMDQ	(1 << 19)
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
