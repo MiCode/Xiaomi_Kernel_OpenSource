@@ -1715,11 +1715,20 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 	u64 load;
 	int cost_list[nr_cpu_ids];
 	struct cpumask search_cpus;
+	int cpu = smp_processor_id();
 
 	cpumask_and(&search_cpus,  tsk_cpus_allowed(p), cpu_online_mask);
 
 	if (cpumask_empty(&search_cpus))
 		return task_cpu(p);
+
+	/*
+	 * If a CPU is doing a sync wakeup and it only has one currently
+	 * running task, just run the waking small task on that CPU regardless
+	 * of what type of CPU it is.
+	 */
+	if (sync && cpu_rq(cpu)->nr_running == 1)
+		return cpu;
 
 	/* Take a first pass to find the lowest power cost CPU. This
 	   will avoid a potential O(n^2) search */
