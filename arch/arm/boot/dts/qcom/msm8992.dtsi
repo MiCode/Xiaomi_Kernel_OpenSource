@@ -579,6 +579,36 @@
 		max-clock-frequency-hz = <125000000>, <0>, <1011000>, <0>, <0>, <0>, <0>, <0>;
 	};
 
+	ipa_hw: qcom,ipa@fd4c0000 {
+		compatible = "qcom,ipa";
+		reg = <0xfd4c0000 0x29000>,
+		      <0xfd4c4000 0x15820>;
+		reg-names = "ipa-base", "bam-base";
+		interrupts = <0 301 0>,
+		             <0 300 0>;
+		interrupt-names = "ipa-irq", "bam-irq";
+		qcom,ipa-hw-ver = <3>; /* IPA core version = IPAv2.0 */
+		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+		qcom,ee = <2>;
+		clock-names = "core_clk";
+		clocks = <&clock_rpm clk_ipa_clk>;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		<90 512 0 0>, <90 585 0 0>,         /* No vote */
+		<90 512 100000 800000>, <90 585 100000 800000>,    /* SVS */
+		<90 512 100000 1200000>, <90 585 100000 1200000>;    /* PERF */
+		qcom,bus-vector-names = "MIN", "SVS", "PERF";
+
+	};
+
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-loaduC;
+	};
+
 	spi_0: spi@f9923000 {
 		compatible = "qcom,spi-qup-v2";
 		#address-cells = <1>;
