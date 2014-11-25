@@ -7515,16 +7515,13 @@ int ufshcd_system_suspend(struct ufs_hba *hba)
 	if (!hba->is_powered)
 		goto out;
 
-	if (pm_runtime_suspended(hba->dev)) {
-		if (hba->rpm_lvl == hba->spm_lvl)
-			/*
-			 * There is possibility that device may still be in
-			 * active state during the runtime suspend.
-			 */
-			if ((ufs_get_pm_lvl_to_dev_pwr_mode(hba->spm_lvl) ==
-			    hba->curr_dev_pwr_mode) && !hba->auto_bkops_enabled)
-				goto out;
+	if ((ufs_get_pm_lvl_to_dev_pwr_mode(hba->spm_lvl) ==
+	     hba->curr_dev_pwr_mode) &&
+	    (ufs_get_pm_lvl_to_link_pwr_state(hba->spm_lvl) ==
+	     hba->uic_link_state))
+		goto out;
 
+	if (pm_runtime_suspended(hba->dev)) {
 		/*
 		 * UFS device and/or UFS link low power states during runtime
 		 * suspend seems to be different than what is expected during
