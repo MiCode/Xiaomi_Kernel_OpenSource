@@ -384,8 +384,8 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 		}
 		break;
 	case USB_GADGET_XPORT_QTI:
-		ret = gqti_ctrl_connect(&dev->port, port_num, intf, dxport,
-							USB_GADGET_RMNET);
+		ret = gqti_ctrl_connect(&dev->port, port_num, dev->ifc_id,
+						dxport, USB_GADGET_RMNET);
 		if (ret) {
 			pr_err("%s: gqti_ctrl_connect failed: err:%d\n",
 					__func__, ret);
@@ -609,7 +609,7 @@ static void frmnet_suspend(struct usb_function *f)
 			pr_debug("in_ep_desc_bkup = %p, out_ep_desc_bkup = %p",
 			       dev->in_ep_desc_backup, dev->out_ep_desc_backup);
 			pr_debug("%s(): Disconnecting\n", __func__);
-			gbam_disconnect(&dev->port, port_num, dxport);
+			gport_rmnet_disconnect(dev);
 		}
 		break;
 	case USB_GADGET_XPORT_HSIC:
@@ -631,8 +631,7 @@ static void frmnet_resume(struct usb_function *f)
 	struct f_rmnet *dev = func_to_rmnet(f);
 	unsigned		port_num;
 	enum transport_type	dxport = rmnet_ports[dev->port_num].data_xport;
-	struct usb_gadget	*gadget = dev->cdev->gadget;
-	int  ret, src_connection_idx = 0, dst_connection_idx = 0;
+	int  ret;
 	bool remote_wakeup_allowed;
 
 	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
@@ -654,22 +653,10 @@ static void frmnet_resume(struct usb_function *f)
 			dev->port.in->desc = dev->in_ep_desc_backup;
 			dev->port.out->desc = dev->out_ep_desc_backup;
 			pr_debug("%s(): Connecting\n", __func__);
-			src_connection_idx = usb_bam_get_connection_idx(
-				gadget->name, IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
-				USB_BAM_DEVICE, port_num);
-			dst_connection_idx = usb_bam_get_connection_idx(
-				gadget->name, IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
-				USB_BAM_DEVICE, port_num);
-			if (dst_connection_idx < 0 || src_connection_idx < 0) {
-				pr_err("%s: usb_bam_get_connection_idx failed\n",
-					__func__);
-				return;
-			}
-			ret = gbam_connect(&dev->port, port_num,
-				dxport, src_connection_idx, dst_connection_idx);
+			ret = gport_rmnet_connect(dev, dev->ifc_id);
 			if (ret) {
-				pr_err("%s: gbam_connect failed: err:%d\n",
-					__func__, ret);
+				pr_err("%s: gport_rmnet_connect failed: err:%d\n",
+								__func__, ret);
 			}
 		}
 		break;
