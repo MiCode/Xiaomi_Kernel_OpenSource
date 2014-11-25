@@ -381,8 +381,7 @@ int usb_get_func_interface_id(struct usb_function *func)
 	return -ENODEV;
 }
 
-static int usb_func_wakeup_int(struct usb_function *func,
-					bool use_pending_flag)
+static int usb_func_wakeup_int(struct usb_function *func)
 {
 	int ret;
 	int interface_id;
@@ -390,12 +389,13 @@ static int usb_func_wakeup_int(struct usb_function *func,
 	struct usb_gadget *gadget;
 	struct usb_composite_dev *cdev;
 
-	pr_debug("%s - %s function wakeup, use pending: %u\n",
-		__func__, func->name ? func->name : "", use_pending_flag);
 
 	if (!func || !func->config || !func->config->cdev ||
 		!func->config->cdev->gadget)
 		return -EINVAL;
+
+	pr_debug("%s - %s function wakeup\n", __func__,
+					func->name ? func->name : "");
 
 	gadget = func->config->cdev->gadget;
 	if ((gadget->speed != USB_SPEED_SUPER) || !func->func_wakeup_allowed) {
@@ -409,13 +409,6 @@ static int usb_func_wakeup_int(struct usb_function *func,
 
 	cdev = get_gadget_data(gadget);
 	spin_lock_irqsave(&cdev->lock, flags);
-
-	if (use_pending_flag && !func->func_wakeup_pending) {
-		pr_debug("Pending flag is cleared - Function wakeup is cancelled.\n");
-		spin_unlock_irqrestore(&cdev->lock, flags);
-		return 0;
-	}
-
 	ret = usb_get_func_interface_id(func);
 	if (ret < 0) {
 		ERROR(func->config->cdev,
@@ -428,14 +421,6 @@ static int usb_func_wakeup_int(struct usb_function *func,
 
 	interface_id = ret;
 	ret = usb_gadget_func_wakeup(gadget, interface_id);
-
-	if (use_pending_flag) {
-		func->func_wakeup_pending = false;
-	} else {
-		if (ret == -EAGAIN)
-			func->func_wakeup_pending = true;
-	}
-
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	return ret;
@@ -448,7 +433,7 @@ int usb_func_wakeup(struct usb_function *func)
 	pr_debug("%s function wakeup\n",
 		func->name ? func->name : "");
 
-	ret = usb_func_wakeup_int(func, false);
+	ret = usb_func_wakeup_int(func);
 	if (ret == -EAGAIN) {
 		DBG(func->config->cdev,
 			"Function wakeup for %s could not complete due to suspend state. Delayed until after bus resume.\n",
@@ -2294,7 +2279,7 @@ composite_resume(struct usb_gadget *gadget)
 
 	if (cdev->config) {
 		list_for_each_entry(f, &cdev->config->functions, list) {
-			ret = usb_func_wakeup_int(f, true);
+			ret = usb_func_wakeup_int(f);
 			if (ret) {
 				if (ret == -EAGAIN) {
 					ERROR(f->config->cdev,
