@@ -1703,6 +1703,8 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 	int best_mi_cpu = -1, best_mi_cpu_power = INT_MAX;
 	int best_idle_lowpower_cpu = -1,
 		best_idle_lowpower_cpu_cstate = INT_MAX;
+	int best_idle_highpower_cpu = -1,
+		best_idle_highpower_cpu_cstate = INT_MAX;
 	int best_busy_lowpower_cpu = -1;
 	u64 best_busy_lowpower_cpu_load = ULLONG_MAX;
 	int best_busy_highpower_cpu = -1;
@@ -1746,7 +1748,8 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 	 * 2. Shallowest c-state idle CPU in little cluster.
 	 * 3. Least busy CPU in little cluster where adding the task
 	 *    won't cross spill.
-	 * 4. Least busy CPU outside little cluster.
+	 * 4. Least busy non-idle CPU outside little cluster.
+	 * 5. Shallowest c-state idle CPU outside little cluster.
 	 */
 	for_each_cpu(i, &search_cpus) {
 		struct rq *rq = cpu_rq(i);
@@ -1772,6 +1775,15 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		 */
 		load = cpu_load_sync(i, sync);
 		if (power_delta_exceeded(cost_list[i], min_cost)) {
+
+			if (idle_cpu(i) && cstate) {
+				if (cstate < best_idle_highpower_cpu_cstate) {
+					best_idle_highpower_cpu = i;
+					best_idle_highpower_cpu_cstate = cstate;
+				}
+				continue;
+			}
+
 			if (load < best_busy_highpower_cpu_load) {
 				best_busy_highpower_cpu = i;
 				best_busy_highpower_cpu_load = load;
@@ -1815,6 +1827,8 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		return best_busy_lowpower_cpu;
 	if (best_busy_highpower_cpu != -1)
 		return best_busy_highpower_cpu;
+	if (best_idle_highpower_cpu != -1)
+		return best_idle_highpower_cpu;
 
 	return task_cpu(p);
 }
