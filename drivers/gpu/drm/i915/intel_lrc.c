@@ -919,7 +919,6 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	int instp_mode;
 	u32 instp_mask;
 	int ret;
-	u32 seqno;
 	int fd_fence_complete = -1;
 	u32 priv_data = 0;
 
@@ -986,8 +985,6 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	if (ret)
 		return ret;
 
-	seqno = ring->outstanding_lazy_seqno;
-
 #ifdef CONFIG_SYNC
 	if (args->flags & I915_EXEC_WAIT_FENCE) {
 		/* Validate the fence wait parameter but don't do the wait until
@@ -1012,7 +1009,7 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 		/* Caller has requested a sync fence.
 		 * User interrupts will be enabled to make sure that
 		 * the timeline is signalled on completion. */
-		ret = i915_sync_create_fence(ring, seqno,
+		ret = i915_sync_create_fence(ring, intel_ring_get_request(ring),
 					     &fd_fence_complete,
 					     args->flags & I915_EXEC_RING_MASK);
 		if (ret) {

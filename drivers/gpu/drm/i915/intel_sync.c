@@ -222,7 +222,8 @@ void i915_sync_reset_timelines(struct drm_i915_private *dev_priv)
 	}
 }
 
-int i915_sync_create_fence(struct intel_engine_cs *ring, u32 seqno,
+int i915_sync_create_fence(struct intel_engine_cs *ring,
+			   struct drm_i915_gem_request *req,
 			   int *fd_out, u64 ring_mask)
 {
 	struct sync_pt *pt;
@@ -231,12 +232,13 @@ int i915_sync_create_fence(struct intel_engine_cs *ring, u32 seqno,
 
 	BUG_ON(!ring->timeline);
 
-	pt = i915_sync_pt_create(ring->timeline, seqno,
+	pt = i915_sync_pt_create(ring->timeline,
+				 i915_gem_request_get_seqno(req),
 				 ring->timeline->pvt.cycle,
 				 ring_mask);
 	if (!pt) {
 		DRM_DEBUG_DRIVER("Failed to create sync point for %d/%u\n",
-					ring->id, seqno);
+				 ring->id, i915_gem_request_get_seqno(req));
 		return -ENOMEM;
 	}
 

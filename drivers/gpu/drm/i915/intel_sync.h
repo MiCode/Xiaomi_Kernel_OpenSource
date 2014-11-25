@@ -68,7 +68,8 @@ void i915_sync_timeline_destroy(struct intel_engine_cs *ring);
 
 void i915_sync_reset_timelines(struct drm_i915_private *dev_priv);
 
-int i915_sync_create_fence(struct intel_engine_cs *ring, u32 seqno,
+int i915_sync_create_fence(struct intel_engine_cs *ring,
+			   struct drm_i915_gem_request *req,
 			   int *fd_out, u64 ring_mask);
 
 void i915_sync_timeline_advance(struct intel_engine_cs *ring);
@@ -96,7 +97,8 @@ void i915_sync_reset_timelines(struct drm_i915_private *dev_priv)
 
 }
 
-static int i915_sync_create_fence(struct intel_engine_cs *ring, u32 seqno,
+static int i915_sync_create_fence(struct intel_engine_cs *ring,
+				  struct drm_i915_gem_request *req,
 				  int *fd_out, u64 ring_mask)
 {
 	return 0;
