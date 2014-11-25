@@ -462,7 +462,7 @@ static int ufsdbg_host_regs_show(struct seq_file *file, void *data)
 	ufsdbg_pr_buf_to_std(file, hba->mmio_base, UFSHCI_REG_SPACE_SIZE,
 				"host regs");
 	pm_runtime_put_sync(hba->dev);
-	ufshcd_release(hba);
+	ufshcd_release(hba, false);
 	return 0;
 }
 
