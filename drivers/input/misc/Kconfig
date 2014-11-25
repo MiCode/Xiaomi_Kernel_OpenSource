@@ -735,6 +735,16 @@ config SENSORS_MMA_POSITION
 	help
 	  this provide the sensor position setting , value is between 0~7
 
+config SENSORS_AP3426
+	tristate "AP3426 3-in-1 digital ALPS+PS+IRLED sensor driver"
+	depends on I2C
+	help
+	  Say Y here if you want to enable the AP3426 ALPS sensor
+	  driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ap3426.
+
 config SENSORS_MMC3416X
 	tristate "MMC3416xPJ 3-axis magnetic sensor driver"
 	depends on I2C
