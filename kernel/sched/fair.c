@@ -3388,6 +3388,8 @@ static int lower_power_cpu_available(struct task_struct *p, int cpu)
 	return (lowest_power_cpu != task_cpu(p));
 }
 
+static inline int is_cpu_throttling_imminent(int cpu);
+
 /*
  * Check if a task is on the "wrong" cpu (i.e its current cpu is not the ideal
  * cpu as per its demand or priority)
@@ -3420,6 +3422,7 @@ static inline int migration_needed(struct rq *rq, struct task_struct *p)
 		return MOVE_TO_BIG_CPU;
 
 	if (sched_enable_power_aware &&
+	    is_cpu_throttling_imminent(cpu_of(rq)) &&
 	    lower_power_cpu_available(p, cpu_of(rq)))
 		return MOVE_TO_POWER_EFFICIENT_CPU;
 
@@ -3483,6 +3486,16 @@ static inline int nr_big_tasks(struct rq *rq)
 	return rq->nr_big_tasks;
 }
 
+static inline int is_cpu_throttling_imminent(int cpu)
+{
+	int throttling = 0;
+	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
+
+	if (per_cpu_info)
+		throttling = per_cpu_info[cpu].throttling;
+	return throttling;
+}
+
 #else	/* CONFIG_SCHED_HMP */
 
 #define sched_enable_power_aware 0
@@ -3535,6 +3548,11 @@ static inline int is_big_task(struct task_struct *p)
 }
 
 static inline int nr_big_tasks(struct rq *rq)
+{
+	return 0;
+}
+
+static inline int is_cpu_throttling_imminent(int cpu)
 {
 	return 0;
 }
@@ -7468,7 +7486,8 @@ struct sched_group *group, struct sg_lb_stats *sgs, struct lb_env *env)
 	if ((capacity(env->dst_rq) == group_rq_capacity(group)) &&
 	    sgs->sum_nr_running && (env->idle != CPU_NOT_IDLE) &&
 	    power_cost_at_freq(env->dst_cpu, 0) <
-	    power_cost_at_freq(cpumask_first(sched_group_cpus(group)), 0)) {
+	    power_cost_at_freq(cpumask_first(sched_group_cpus(group)), 0) &&
+	    is_cpu_throttling_imminent(cpumask_first(sched_group_cpus(group)))) {
 		env->flags |= LBF_PWR_ACTIVE_BALANCE;
 		return group_ea;
 	}
