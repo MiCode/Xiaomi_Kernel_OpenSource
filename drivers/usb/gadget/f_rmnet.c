@@ -22,6 +22,11 @@
 #include "u_rmnet.h"
 #include "gadget_chips.h"
 
+static unsigned int rmnet_dl_max_pkt_per_xfer = 7;
+module_param(rmnet_dl_max_pkt_per_xfer, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(rmnet_dl_max_pkt_per_xfer,
+	"Maximum packets per transfer for DL aggregation");
+
 #define RMNET_NOTIFY_INTERVAL	5
 #define RMNET_MAX_NOTIFY_SIZE	sizeof(struct usb_cdc_notification)
 
@@ -531,7 +536,8 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 
 			return PTR_ERR(net);
 		}
-		gether_update_dl_max_pkts_per_xfer(&dev->gether_port, 10);
+		gether_update_dl_max_pkts_per_xfer(&dev->gether_port,
+			rmnet_dl_max_pkt_per_xfer);
 		gether_update_dl_max_xfer_size(&dev->gether_port, 16384);
 		break;
 	case USB_GADGET_XPORT_NONE:
