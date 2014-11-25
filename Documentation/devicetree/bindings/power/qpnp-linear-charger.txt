@@ -97,6 +97,10 @@ Parent node optional properties:
 					charger module, it is used to control a
 					led which can act as a charger led as well
 					as a general notification led.
+- qcom,bms-controlled-charging		This property enables BMS to control
+					charging. BMS and charger communicates
+					with each other via power_supply
+					framework.
 
 Sub node required structure:
 - A qcom,charger node must be a child of an SPMI node that has specified
