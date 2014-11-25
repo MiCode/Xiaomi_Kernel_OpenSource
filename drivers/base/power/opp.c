@@ -54,7 +54,7 @@
  * @rate:	Frequency in hertz
  * @u_volt:	Nominal voltage in microvolts corresponding to this OPP
  * @dev_opp:	points back to the device_opp struct this opp belongs to
- * @head:	RCU callback head used for deferred freeing
+ * @rcu_head:	RCU callback head used for deferred freeing
  *
  * This structure stores the OPP information for a given device.
  */
@@ -67,7 +67,7 @@ struct dev_pm_opp {
 	unsigned long u_volt;
 
 	struct device_opp *dev_opp;
-	struct rcu_head head;
+	struct rcu_head rcu_head;
 };
 
 /**
@@ -78,7 +78,7 @@ struct dev_pm_opp {
  *		RCU usage: nodes are not modified in the list of device_opp,
  *		however addition is possible and is secured by dev_opp_list_lock
  * @dev:	device pointer
- * @head:	notifier head to notify the OPP availability changes.
+ * @srcu_head:	notifier head to notify the OPP availability changes.
  * @opp_list:	list of opps
  *
  * This is an internal data structure maintaining the link to opps attached to
@@ -89,7 +89,7 @@ struct device_opp {
 	struct list_head node;
 
 	struct device *dev;
-	struct srcu_notifier_head head;
+	struct srcu_notifier_head srcu_head;
 	struct list_head opp_list;
 };
 
@@ -423,7 +423,7 @@ static int dev_pm_opp_add_dynamic(struct device *dev, unsigned long freq,
 		}
 
 		dev_opp->dev = dev;
-		srcu_init_notifier_head(&dev_opp->head);
+		srcu_init_notifier_head(&dev_opp->srcu_head);
 		INIT_LIST_HEAD(&dev_opp->opp_list);
 
 		/* Secure the device list modification */
@@ -465,7 +465,7 @@ list_add:
 	 * Notify the changes in the availability of the operable
 	 * frequency/voltage list.
 	 */
-	srcu_notifier_call_chain(&dev_opp->head, OPP_EVENT_ADD, new_opp);
+	srcu_notifier_call_chain(&dev_opp->srcu_head, OPP_EVENT_ADD, new_opp);
 	return 0;
 }
 
@@ -569,14 +569,14 @@ static int opp_set_availability(struct device *dev, unsigned long freq,
 
 	list_replace_rcu(&opp->node, &new_opp->node);
 	mutex_unlock(&dev_opp_list_lock);
-	kfree_rcu(opp, head);
+	kfree_rcu(opp, rcu_head);
 
 	/* Notify the change of the OPP availability */
 	if (availability_req)
-		srcu_notifier_call_chain(&dev_opp->head, OPP_EVENT_ENABLE,
+		srcu_notifier_call_chain(&dev_opp->srcu_head, OPP_EVENT_ENABLE,
 					 new_opp);
 	else
-		srcu_notifier_call_chain(&dev_opp->head, OPP_EVENT_DISABLE,
+		srcu_notifier_call_chain(&dev_opp->srcu_head, OPP_EVENT_DISABLE,
 					 new_opp);
 
 	return 0;
@@ -641,7 +641,7 @@ struct srcu_notifier_head *dev_pm_opp_get_notifier(struct device *dev)
 	if (IS_ERR(dev_opp))
 		return ERR_CAST(dev_opp); /* matching type */
 
-	return &dev_opp->head;
+	return &dev_opp->srcu_head;
 }
 
 #ifdef CONFIG_OF
