@@ -16,8 +16,9 @@
 		label = "MDSS DSI 0 PLL";
 		cell-index = <0>;
 
-		reg = <0xfd922a00 0xd4>;
-		reg-names = "pll_base";
+		reg = <0xfd922a00 0xd4>,
+		      <0xfd8c2300 0x8>;
+		reg-names = "pll_base", "gdsc_base";
 
 		gdsc-supply = <&gdsc_mdss>;
 		vddio-supply = <&pm8941_l12>;
@@ -54,8 +55,9 @@
 		compatible = "qcom,mdss_edp_pll";
 		label = "MDSS EDP PLL";
 
-		reg = <0xfd923a00 0xd4>;
-		reg-names = "pll_base";
+		reg = <0xfd923a00 0xd4>,
+		      <0xfd8c2300 0x8>;
+		reg-names = "pll_base", "gdsc_base";
 
 		gdsc-supply = <&gdsc_mdss>;
 		vddio-supply = <&pm8941_l12>;
@@ -93,8 +95,9 @@
 		label = "MDSS HDMI PLL";
 
 		reg = <0xfd922700 0xd4>,
-			<0xfd922500 0x7c>;
-		reg-names = "pll_base", "phy_base";
+		      <0xfd922500 0x7c>,
+		      <0xfd8c2300 0x8>;
+		reg-names = "pll_base", "phy_base", "gdsc_base";
 
 		gdsc-supply = <&gdsc_mdss>;
 		vddio-supply = <&pm8941_l12>;
