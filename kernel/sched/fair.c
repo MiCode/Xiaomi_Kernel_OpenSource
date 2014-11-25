@@ -1458,9 +1458,11 @@ static inline u64 cpu_load_sync(int cpu, int sync)
 }
 
 static int
-spill_threshold_crossed(struct task_struct *p, struct rq *rq, int cpu)
+spill_threshold_crossed(struct task_struct *p, struct rq *rq, int cpu,
+			int sync)
 {
-	u64 total_load = cpu_load(cpu) + scale_load_to_cpu(task_load(p), cpu);
+	u64 total_load = cpu_load_sync(cpu, sync) +
+		scale_load_to_cpu(task_load(p), cpu);
 
 	if (total_load > sched_spill_load ||
 	    (rq->nr_running + 1) > sysctl_sched_spill_nr_run)
@@ -1612,15 +1614,15 @@ static int task_will_fit(struct task_struct *p, int cpu)
 	return 0;
 }
 
-static int eligible_cpu(struct task_struct *p, int cpu)
+static int eligible_cpu(struct task_struct *p, int cpu, int sync)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	if (mostly_idle_cpu(cpu))
+	if (mostly_idle_cpu_sync(cpu, sync))
 		return 1;
 
 	if (rq->capacity != max_capacity)
-		return !spill_threshold_crossed(p, rq, cpu);
+		return !spill_threshold_crossed(p, rq, cpu, sync);
 
 	return 0;
 }
@@ -1799,7 +1801,7 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		 * lowest power band that we've seen?
 		 */
 		if (load < best_busy_lowpower_cpu_load &&
-		    !spill_threshold_crossed(p, rq, i)) {
+		    !spill_threshold_crossed(p, rq, i, sync)) {
 			best_busy_lowpower_cpu = i;
 			best_busy_lowpower_cpu_load = load;
 		}
@@ -1877,7 +1879,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 			continue;
 
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
-				     mostly_idle_cpu(i), power_cost(p, i));
+				     mostly_idle_cpu_sync(i, sync), power_cost(p, i));
 
 		/*
 		 * The least-loaded mostly-idle CPU where the task
@@ -1885,8 +1887,8 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		 * where the task will fit.
 		 */
 		if (!task_will_fit(p, i)) {
-			if (mostly_idle_cpu(i)) {
-				load = cpu_load(i);
+			if (mostly_idle_cpu_sync(i, sync)) {
+				load = cpu_load_sync(i, sync);
 				if (load < min_fallback_load) {
 					min_fallback_load = load;
 					fallback_idle_cpu = i;
@@ -1895,7 +1897,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 			continue;
 		}
 
-		if (!eligible_cpu(p, i))
+		if (!eligible_cpu(p, i, sync))
 			continue;
 
 		/*
@@ -1904,7 +1906,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		 * spill.
 		 */
 
-		load = cpu_load(i);
+		load = cpu_load_sync(i, sync);
 		cpu_cost = power_cost(p, i);
 		cstate = cpu_rq(i)->cstate;
 
@@ -1971,8 +1973,9 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		}
 	}
 
-	if (min_cstate_cpu >= 0 && (sysctl_sched_prefer_idle ||
-			!(best_cpu >= 0 && mostly_idle_cpu(best_cpu))))
+	if (min_cstate_cpu >= 0 &&
+	    (sysctl_sched_prefer_idle ||
+	     !(best_cpu >= 0 && mostly_idle_cpu_sync(best_cpu, sync))))
 		best_cpu = min_cstate_cpu;
 done:
 	if (best_cpu < 0) {
@@ -2361,7 +2364,7 @@ static inline int power_cost(struct task_struct *p, int cpu)
 }
 
 static inline int
-spill_threshold_crossed(struct task_struct *p, struct rq *rq, int cpu)
+spill_threshold_crossed(struct task_struct *p, struct rq *rq, int cpu, int sync)
 {
 	return 0;
 }
