@@ -1084,6 +1084,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->hird_threshold = hird_threshold
 		| (dwc->is_utmi_l1_suspend << 4);
 
+	init_waitqueue_head(&dwc->wait_linkstate);
 	platform_set_drvdata(pdev, dwc);
 	dwc3_cache_hwparams(dwc);
 
