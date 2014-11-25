@@ -1596,6 +1596,8 @@ int32_t mt9m114_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		break;
 	case CFG_SET_ISO:
 		break;
+	case CFG_SET_STREAM_TYPE:
+		break;
 	default:
 	pr_err("Invalid cfgtype func %s line %d cfgtype = %d\n",
 		__func__, __LINE__, (int32_t)cdata->cfgtype);
