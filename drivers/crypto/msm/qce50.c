@@ -5258,12 +5258,21 @@ static int __qce_init_clk(struct qce_device *pce_dev)
 			goto exit_put_core_src_clk;
 		}
 	} else {
-		pr_warn("Unable to get CE core src clk, set to NULL\n");
-		pce_dev->ce_core_src_clk = NULL;
+		if (pce_dev->support_only_core_src_clk) {
+			rc = PTR_ERR(pce_dev->ce_core_src_clk);
+			pce_dev->ce_core_src_clk = NULL;
+			pr_err("Unable to get CE core src clk\n");
+			return rc;
+		} else {
+			pr_warn("Unable to get CE core src clk, set to NULL\n");
+			pce_dev->ce_core_src_clk = NULL;
+		}
 	}
 
 	if (pce_dev->support_only_core_src_clk) {
 		pce_dev->ce_core_clk = NULL;
+		pce_dev->ce_clk = NULL;
+		pce_dev->ce_bus_clk = NULL;
 	} else {
 		pce_dev->ce_core_clk = clk_get(pce_dev->pdev, "core_clk");
 		if (IS_ERR(pce_dev->ce_core_clk)) {
@@ -5271,20 +5280,19 @@ static int __qce_init_clk(struct qce_device *pce_dev)
 			pr_err("Unable to get CE core clk\n");
 			goto exit_put_core_src_clk;
 		}
-	}
+		pce_dev->ce_clk = clk_get(pce_dev->pdev, "iface_clk");
+		if (IS_ERR(pce_dev->ce_clk)) {
+			rc = PTR_ERR(pce_dev->ce_clk);
+			pr_err("Unable to get CE interface clk\n");
+			goto exit_put_core_clk;
+		}
 
-	pce_dev->ce_clk = clk_get(pce_dev->pdev, "iface_clk");
-	if (IS_ERR(pce_dev->ce_clk)) {
-		rc = PTR_ERR(pce_dev->ce_clk);
-		pr_err("Unable to get CE interface clk\n");
-		goto exit_put_core_clk;
-	}
-
-	pce_dev->ce_bus_clk = clk_get(pce_dev->pdev, "bus_clk");
-	if (IS_ERR(pce_dev->ce_bus_clk)) {
-		rc = PTR_ERR(pce_dev->ce_bus_clk);
-		pr_err("Unable to get CE BUS interface clk\n");
-		goto exit_put_iface_clk;
+		pce_dev->ce_bus_clk = clk_get(pce_dev->pdev, "bus_clk");
+		if (IS_ERR(pce_dev->ce_bus_clk)) {
+			rc = PTR_ERR(pce_dev->ce_bus_clk);
+			pr_err("Unable to get CE BUS interface clk\n");
+			goto exit_put_iface_clk;
+		}
 	}
 	return rc;
 
