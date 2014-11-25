@@ -207,6 +207,7 @@ static int mdss_pll_probe(struct platform_device *pdev)
 	struct resource *pll_base_reg;
 	struct resource *phy_base_reg;
 	struct resource *dynamic_pll_base_reg;
+	struct resource *gdsc_base_reg;
 	struct mdss_pll_resources *pll_res;
 
 	if (!pdev->dev.of_node) {
@@ -309,6 +310,21 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		}
 	}
 
+	gdsc_base_reg = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "gdsc_base");
+	if (!gdsc_base_reg) {
+		pr_err("Unable to get the gdsc base resource\n");
+		rc = -ENOMEM;
+		goto gdsc_io_error;
+	}
+	pll_res->gdsc_base = ioremap(gdsc_base_reg->start,
+			resource_size(gdsc_base_reg));
+	if (!pll_res->gdsc_base) {
+		pr_err("Unable to remap gdsc base resources\n");
+		rc = -ENOMEM;
+		goto gdsc_io_error;
+	}
+
 	rc = mdss_pll_resource_init(pdev, pll_res);
 	if (rc) {
 		pr_err("Pll resource init failed rc=%d\n", rc);
@@ -326,6 +342,9 @@ static int mdss_pll_probe(struct platform_device *pdev)
 clock_register_error:
 	mdss_pll_resource_deinit(pdev, pll_res);
 res_init_error:
+	if (pll_res->gdsc_base)
+		iounmap(pll_res->gdsc_base);
+gdsc_io_error:
 	if (pll_res->dyn_pll_base)
 		iounmap(pll_res->dyn_pll_base);
 dyn_pll_io_error:
@@ -356,6 +375,8 @@ static int mdss_pll_remove(struct platform_device *pdev)
 	mdss_pll_resource_deinit(pdev, pll_res);
 	if (pll_res->phy_base)
 		iounmap(pll_res->phy_base);
+	if (pll_res->gdsc_base)
+		iounmap(pll_res->gdsc_base);
 	mdss_pll_resource_release(pdev, pll_res);
 	iounmap(pll_res->pll_base);
 	devm_kfree(&pdev->dev, pll_res);
