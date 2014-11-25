@@ -2882,12 +2882,17 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		 */
 		int *quot = cpr_vreg->cpr_fuse_target_quot;
 		int highest_fuse_corner = cpr_vreg->num_fuse_corners;
+		u32 min_diff_quot;
 		bool valid_fuse = true;
+
+		min_diff_quot = CPR_FUSE_MIN_QUOT_DIFF;
+		of_property_read_u32(of_node, "qcom,cpr-quot-min-diff",
+							&min_diff_quot);
 
 		if (quot[highest_fuse_corner] > quot[highest_fuse_corner - 1]) {
 			if ((quot[highest_fuse_corner]
 				- quot[highest_fuse_corner - 1])
-					<= CPR_FUSE_MIN_QUOT_DIFF)
+					<= min_diff_quot)
 				valid_fuse = false;
 		} else {
 			valid_fuse = false;
