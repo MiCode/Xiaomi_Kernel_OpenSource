@@ -3089,7 +3089,8 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
 				     mostly_idle_cpu_sync(i, sync),
-				     sched_irqload(i), power_cost(p, i));
+				     sched_irqload(i), power_cost(p, i),
+				     cpu_temp(i));
 
 		cpu_cost = power_cost(p, i);
 		if (cpu_cost < min_cost) {
@@ -3244,7 +3245,8 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
 				     mostly_idle_cpu_sync(i, sync),
-				     sched_irqload(i), power_cost(p, i));
+				     sched_irqload(i), power_cost(p, i),
+				     cpu_temp(i));
 
 		if (skip_cpu(p, i, reason))
 			continue;
@@ -3731,6 +3733,16 @@ static inline int is_cpu_throttling_imminent(int cpu)
 	return throttling;
 }
 
+unsigned int cpu_temp(int cpu)
+{
+	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
+	if (per_cpu_info)
+		return per_cpu_info[cpu].temp;
+	else
+		return 0;
+}
+
+
 #else	/* CONFIG_SCHED_HMP */
 
 #define sched_enable_power_aware 0
@@ -3791,6 +3803,12 @@ static inline int is_cpu_throttling_imminent(int cpu)
 {
 	return 0;
 }
+
+unsigned int cpu_temp(int cpu)
+{
+	return 0;
+}
+
 
 #endif	/* CONFIG_SCHED_HMP */
 
@@ -7797,7 +7815,8 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
 				     mostly_idle_cpu(i),
 				     sched_irqload(i),
-				     power_cost_at_freq(i, 0));
+				     power_cost_at_freq(i, 0),
+				     cpu_temp(i));
 
 		/* Bias balancing toward cpus of our domain */
 		if (local_group)
