@@ -3425,9 +3425,7 @@ static void sdhci_set_pmqos_req_type(struct sdhci_host *host)
 	 * little cluster and will update/apply the vote to all the cores in
 	 * the little cluster.
 	 */
-	if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_CORES)
-		host->pm_qos_req_dma.cpus_affine.bits[0] = 0x0F;
-	else if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_IRQ)
+	if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_IRQ)
 		host->pm_qos_req_dma.irq = host->irq;
 }
 #else
