@@ -20,6 +20,7 @@
 #include <linux/types.h>
 #include <linux/workqueue.h>
 #include <linux/rwsem.h>
+#include <linux/pm_qos.h>
 #include <soc/qcom/glink.h>
 #include "glink_core_if.h"
 #include "glink_private.h"
@@ -27,6 +28,7 @@
 
 /* Number of internal IPC Logging log pages */
 #define NUM_LOG_PAGES	3
+#define GLINK_PM_QOS_HOLDOFF_MS		10
 
 /**
  * struct glink_core_xprt_ctx - transport representation structure
@@ -59,6 +61,10 @@
  * @channels:			list of all existing channels on this transport
  * @tx_ready_mutex_lhb2:	lock to protect @tx_ready
  * @tx_ready:			list of all channels ready to transmit
+ * @pm_qos_req:			power management QoS request for TX path
+ * @qos_req_active:		a vote is active with the PM QoS system
+ * @tx_path_activity:		transmit activity has occurred
+ * @pm_qos_work:		removes PM QoS vote due to inactivity
  */
 struct glink_core_xprt_ctx {
 	struct rwref_lock xprt_state_lhb0;
@@ -86,6 +92,11 @@ struct glink_core_xprt_ctx {
 
 	struct mutex tx_ready_mutex_lhb2;
 	struct list_head tx_ready;
+	struct pm_qos_request pm_qos_req;
+	bool qos_req_active;
+	bool tx_path_activity;
+	struct delayed_work pm_qos_work;
+
 	struct mutex xprt_dbgfs_lock_lhb3;
 };
 
@@ -196,6 +207,11 @@ static unsigned glink_debug_mask = QCOM_GLINK_INFO;
 module_param_named(debug_mask, glink_debug_mask,
 		   uint, S_IRUGO | S_IWUSR | S_IWGRP);
 
+static unsigned glink_pm_qos;
+module_param_named(pm_qos_enable, glink_pm_qos,
+		   uint, S_IRUGO | S_IWUSR | S_IWGRP);
+
+
 static LIST_HEAD(transport_list);
 
 /*
@@ -297,6 +313,10 @@ static void check_link_notifier_and_notify(struct glink_core_xprt_ctx *xprt_ptr,
 					   enum glink_link_state link_state);
 
 static void glink_core_channel_cleanup(struct glink_core_xprt_ctx *xprt_ptr);
+static void glink_pm_qos_vote(struct glink_core_xprt_ctx *xprt_ptr);
+static void glink_pm_qos_unvote(struct glink_core_xprt_ctx *xprt_ptr);
+static void glink_pm_qos_cancel_worker(struct work_struct *work);
+
 /**
  * glink_ssr() - Clean up locally for SSR by simulating remote close
  * @subsystem:	The name of the subsystem being restarted
@@ -1852,6 +1872,10 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 		}
 	}
 
+	mutex_lock(&ctx->transport_ptr->tx_ready_mutex_lhb2);
+	glink_pm_qos_vote(ctx->transport_ptr);
+	mutex_unlock(&ctx->transport_ptr->tx_ready_mutex_lhb2);
+
 	GLINK_INFO_PERF_CH(ctx, "%s: R[%u]:%zu data[%p], size[%zu]. TID %u\n",
 			__func__, riid, intent_size,
 			data ? data : iovec, size, current->pid);
@@ -2292,7 +2316,7 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 	if (cfg->versions_entries < 1)
 		return -EINVAL;
 
-	xprt_ptr = kmalloc(sizeof(struct glink_core_xprt_ctx), GFP_KERNEL);
+	xprt_ptr = kzalloc(sizeof(struct glink_core_xprt_ctx), GFP_KERNEL);
 	if (xprt_ptr == NULL)
 		return -ENOMEM;
 
@@ -2330,6 +2354,9 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 		kfree(xprt_ptr);
 		return -ENOMEM;
 	}
+	INIT_DELAYED_WORK(&xprt_ptr->pm_qos_work, glink_pm_qos_cancel_worker);
+	pm_qos_add_request(&xprt_ptr->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+			PM_QOS_DEFAULT_VALUE);
 
 	if_ptr->glink_core_priv = xprt_ptr;
 	if_ptr->glink_core_if_ptr = &core_impl;
@@ -2365,6 +2392,9 @@ void glink_core_unregister_transport(struct glink_transport_if *if_ptr)
 		mutex_lock(&transport_list_lock_lha0);
 		list_del(&xprt_ptr->list_node);
 		mutex_unlock(&transport_list_lock_lha0);
+
+		flush_delayed_work(&xprt_ptr->pm_qos_work);
+		pm_qos_remove_request(&xprt_ptr->pm_qos_req);
 		rwref_put(&xprt_ptr->xprt_state_lhb0);
 	} else {
 		GLINK_ERR("%s:Channel list is not empty.This should not happen!"
@@ -3173,7 +3203,7 @@ static void tx_work_func(struct work_struct *work)
 
 	mutex_lock(&xprt_ptr->tx_ready_mutex_lhb2);
 	while (!list_empty(&xprt_ptr->tx_ready)) {
-
+		glink_pm_qos_vote(xprt_ptr);
 		ch_ptr = list_first_entry(&xprt_ptr->tx_ready,
 				struct channel_ctx,
 				tx_ready_list_node);
@@ -3221,6 +3251,7 @@ static void tx_work_func(struct work_struct *work)
 		mutex_lock(&xprt_ptr->tx_ready_mutex_lhb2);
 		list_rotate_left(&xprt_ptr->tx_ready);
 	}
+	glink_pm_qos_unvote(xprt_ptr);
 	mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
 	GLINK_PERF("%s: worker exiting\n", __func__);
 }
@@ -3229,6 +3260,64 @@ static void glink_core_tx_resume(struct glink_transport_if *if_ptr)
 {
 	queue_work(if_ptr->glink_core_priv->tx_wq,
 					&if_ptr->glink_core_priv->tx_work);
+}
+
+/**
+ * glink_pm_qos_vote() - Add Power Management QoS Vote
+ * @xprt_ptr:	Transport for power vote
+ *
+ * Note - must be called with tx_ready_mutex_lhb2 locked.
+ */
+static void glink_pm_qos_vote(struct glink_core_xprt_ctx *xprt_ptr)
+{
+	if (glink_pm_qos && !xprt_ptr->qos_req_active) {
+		GLINK_PERF("%s: qos vote %u us\n", __func__, glink_pm_qos);
+		pm_qos_update_request(&xprt_ptr->pm_qos_req, glink_pm_qos);
+		xprt_ptr->qos_req_active = true;
+	}
+	xprt_ptr->tx_path_activity = true;
+}
+
+/**
+ * glink_pm_qos_unvote() - Schedule Power Management QoS Vote Removal
+ * @xprt_ptr:	Transport for power vote removal
+ *
+ * Note - must be called with tx_ready_mutex_lhb2 locked.
+ */
+static void glink_pm_qos_unvote(struct glink_core_xprt_ctx *xprt_ptr)
+{
+	xprt_ptr->tx_path_activity = false;
+	if (xprt_ptr->qos_req_active) {
+		GLINK_PERF("%s: qos unvote\n", __func__);
+		schedule_delayed_work(&xprt_ptr->pm_qos_work,
+				msecs_to_jiffies(GLINK_PM_QOS_HOLDOFF_MS));
+	}
+}
+
+/**
+ * glink_pm_qos_cancel_worker() - Remove Power Management QoS Vote
+ * @work:	Delayed work structure
+ *
+ * Removes PM QoS vote if no additional transmit activity has occurred between
+ * the unvote and when this worker runs.
+ */
+static void glink_pm_qos_cancel_worker(struct work_struct *work)
+{
+	struct glink_core_xprt_ctx *xprt_ptr;
+
+	xprt_ptr = container_of(to_delayed_work(work),
+			struct glink_core_xprt_ctx, pm_qos_work);
+
+	mutex_lock(&xprt_ptr->tx_ready_mutex_lhb2);
+	if (!xprt_ptr->tx_path_activity) {
+		/* no more tx activity */
+		GLINK_PERF("%s: qos off\n", __func__);
+		pm_qos_update_request(&xprt_ptr->pm_qos_req,
+				PM_QOS_DEFAULT_VALUE);
+		xprt_ptr->qos_req_active = false;
+	}
+	xprt_ptr->tx_path_activity = false;
+	mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
 }
 
 /**
