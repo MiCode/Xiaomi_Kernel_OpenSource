@@ -95,19 +95,22 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 		(stat & NGD_INT_MSG_TX_INVAL) || (stat & NGD_INT_DEV_ERR) ||
 		(stat & NGD_INT_TX_NACKED_2)) {
 		writel_relaxed(stat, ngd + NGD_INT_CLR);
-		dev->err = -EIO;
+		if (stat & NGD_INT_MSG_TX_INVAL)
+			dev->err = -EINVAL;
+		else
+			dev->err = -EIO;
 
 		SLIM_WARN(dev, "NGD interrupt error:0x%x, err:%d\n", stat,
 								dev->err);
 		/* Guarantee that error interrupts are cleared */
 		mb();
-		msm_slim_manage_tx_msgq(dev, false, NULL);
+		msm_slim_manage_tx_msgq(dev, false, NULL, dev->err);
 
 	} else if (stat & NGD_INT_TX_MSG_SENT) {
 		writel_relaxed(NGD_INT_TX_MSG_SENT, ngd + NGD_INT_CLR);
 		/* Make sure interrupt is cleared */
 		mb();
-		msm_slim_manage_tx_msgq(dev, false, NULL);
+		msm_slim_manage_tx_msgq(dev, false, NULL, 0);
 	}
 	if (stat & NGD_INT_RX_MSG_RCVD) {
 		u32 rx_buf[10];
@@ -475,6 +478,13 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	}
 	txn->rl--;
 
+	if (txn->len > SLIM_MSGQ_BUF_LEN || txn->rl > SLIM_MSGQ_BUF_LEN) {
+		SLIM_WARN(dev, "msg exeeds HW lim:%d, rl:%d, mc:0x%x, mt:0x%x",
+					txn->len, txn->rl, txn->mc, txn->mt);
+		ret = -EDQUOT;
+		goto ngd_xfer_err;
+	}
+
 	if (txn->mt == SLIM_MSG_MT_CORE && txn->comp &&
 		dev->use_tx_msgqs == MSM_MSGQ_ENABLED &&
 		(txn_mc != SLIM_MSG_MC_REQUEST_INFORMATION &&
@@ -567,9 +577,26 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	ret = msm_send_msg_buf(dev, pbuf, txn->rl,
 			NGD_BASE(dev->ctrl.nr, dev->ver) + NGD_TX_MSG);
 	if (!ret && sync_wr) {
+		int i;
 		int timeout = wait_for_completion_timeout(&tx_sent, HZ);
-		if (!timeout) {
+		if (!timeout && dev->use_tx_msgqs == MSM_MSGQ_ENABLED) {
+			struct msm_slim_endp *endpoint = &dev->tx_msgq;
+			struct sps_mem_buffer *mem = &endpoint->buf;
+			u32 idx = (u32) (((u8 *)pbuf - (u8 *)mem->base) /
+						SLIM_MSGQ_BUF_LEN);
+			phys_addr_t addr = mem->phys_base +
+						(idx * SLIM_MSGQ_BUF_LEN);
 			ret = -ETIMEDOUT;
+			SLIM_WARN(dev, "timeout, BAM desc_idx:%d, phys:%llx",
+					idx, (u64)addr);
+			for (i = 0; i < (SLIM_MSGQ_BUF_LEN >> 2) ; i++)
+				SLIM_WARN(dev, "timeout:bam-desc[%d]:0x%x",
+							i, *(pbuf + i));
+			if (idx < MSM_TX_BUFS)
+				dev->wr_comp[idx] = NULL;
+			/* print BAM debug info for TX pipe */
+			sps_get_bam_debug_info(dev->bam.hdl, 93,
+						SPS_BAM_PIPE(4), 0, 2);
 			/*
 			 * disconnect/recoonect pipe so that subsequent
 			 * transactions don't timeout due to unavailable
@@ -580,6 +607,12 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 							&dev->use_tx_msgqs);
 				msm_slim_connect_endp(dev, &dev->tx_msgq, NULL);
 			}
+		} else if (!timeout) {
+			ret = -ETIMEDOUT;
+			SLIM_WARN(dev, "timeout non-BAM TX,len:%d", txn->rl);
+			for (i = 0; i < (SLIM_MSGQ_BUF_LEN >> 2) ; i++)
+				SLIM_WARN(dev, "timeout:txbuf[%d]:0x%x", i,
+						dev->tx_buf[i]);
 		} else {
 			ret = dev->err;
 		}
@@ -599,22 +632,27 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 
 		SLIM_WARN(dev, "conf:0x%x,stat:0x%x,rxmsgq:0x%x\n",
 				conf, stat, rx_msgq);
-		SLIM_WARN(dev, "int_stat:0x%x,int_en:0x%x,int_cll:0x%x\n",
+		SLIM_ERR(dev, "int_stat:0x%x,int_en:0x%x,int_cll:0x%x\n",
 				int_stat, int_en, int_clr);
-	} else if (txn_mt == SLIM_MSG_MT_DEST_REFERRED_USER &&
+	}
+
+	if (txn_mt == SLIM_MSG_MT_DEST_REFERRED_USER &&
 		(txn_mc == SLIM_USR_MC_CONNECT_SRC ||
 		 txn_mc == SLIM_USR_MC_CONNECT_SINK ||
 		 txn_mc == SLIM_USR_MC_DISCONNECT_PORT)) {
 		int timeout;
 		mutex_unlock(&dev->tx_lock);
 		msm_slim_put_ctrl(dev);
-		timeout = wait_for_completion_timeout(txn->comp, HZ);
-		if (!timeout)
-			ret = -ETIMEDOUT;
-		else
-			ret = txn->ec;
+		if (!ret) {
+			timeout = wait_for_completion_timeout(txn->comp, HZ);
+			/* remote side did not acknowledge */
+			if (!timeout)
+				ret = -EREMOTEIO;
+			else
+				ret = txn->ec;
+		}
 		if (ret) {
-			SLIM_INFO(dev,
+			SLIM_ERR(dev,
 				"connect/disconnect:0x%x,tid:%d err:%d\n",
 					txn->mc, txn->tid, ret);
 			mutex_lock(&ctrl->m_ctrl);
