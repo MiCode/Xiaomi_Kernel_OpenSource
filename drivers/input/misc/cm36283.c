@@ -2062,6 +2062,7 @@ static const struct i2c_device_id cm36283_i2c_id[] = {
 
 static struct of_device_id cm36283_match_table[] = {
 	{ .compatible = "capella,cm36283",},
+	{ .compatible = "capella,cm36682",},
 	{ },
 };
 
