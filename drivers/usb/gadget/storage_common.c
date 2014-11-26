@@ -140,6 +140,7 @@ struct fsg_lun {
 
 	unsigned int	blkbits;	/* Bits of logical block size of bound block device */
 	unsigned int	blksize;	/* logical block size of bound block device */
+	unsigned int    max_ratio;
 	struct device	dev;
 #ifdef CONFIG_USB_MSC_PROFILING
 	spinlock_t	lock;
@@ -188,6 +189,19 @@ MODULE_PARM_DESC(num_buffers, "Number of pipeline buffers");
 
 #endif /* CONFIG_USB_DEBUG */
 #endif /* CONFIG_USB_CSW_HACK */
+
+/*
+ * uicc_ums_max_ratio is used to set the max ratio for UICC block device when
+ * operating in UMS mode. We want to keep this max_ratio as minimum as possible
+ * in USM mode and with max_ratio as 1 we are meeting throughput numbers and no
+ * functional issues Max ratio for UICC devices in UMS mode, hence a default
+ * value of 1 is set for this
+ */
+
+#define UICC_UMS_MAX_RATIO 1
+static unsigned int uicc_ums_max_ratio = UICC_UMS_MAX_RATIO;
+module_param(uicc_ums_max_ratio, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(uicc_ums_max_ratio, "max ratio in UMS mode for UICC device");
 
 /* check if fsg_num_buffers is within a valid range */
 static inline int fsg_num_buffers_validate(void)
@@ -418,7 +432,17 @@ static struct usb_gadget_strings	fsg_stringtab = {
 
 static void fsg_lun_close(struct fsg_lun *curlun)
 {
+	struct inode *inode = NULL;
+	struct backing_dev_info	*bdi;
+
 	if (curlun->filp) {
+		inode = file_inode(curlun->filp);
+		bdi = &inode->i_bdev->bd_queue->backing_dev_info;
+
+		if ((bdi->capabilities & BDI_CAP_STRICTLIMIT) &&
+				bdi_set_max_ratio(bdi, curlun->max_ratio))
+			pr_debug("%s, error in setting max_ratio\n", __func__);
+
 		LDBG(curlun, "close backing file\n");
 		fput(curlun->filp);
 		curlun->filp = NULL;
@@ -432,6 +456,7 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 	struct file			*filp = NULL;
 	int				rc = -EINVAL;
 	struct inode			*inode = NULL;
+	struct backing_dev_info		*bdi;
 	loff_t				size;
 	loff_t				num_sectors;
 	loff_t				min_sectors;
@@ -516,6 +541,17 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 	curlun->filp = filp;
 	curlun->file_length = size;
 	curlun->num_sectors = num_sectors;
+
+	bdi = &inode->i_bdev->bd_queue->backing_dev_info;
+
+	if (bdi->capabilities & BDI_CAP_STRICTLIMIT) {
+		curlun->max_ratio = bdi->max_ratio;
+		curlun->nofua = 1;
+
+		if (bdi_set_max_ratio(bdi, uicc_ums_max_ratio))
+			pr_debug("%s, error in setting max_ratio\n", __func__);
+	}
+
 	LDBG(curlun, "open backing file: %s\n", filename);
 	return 0;
 
