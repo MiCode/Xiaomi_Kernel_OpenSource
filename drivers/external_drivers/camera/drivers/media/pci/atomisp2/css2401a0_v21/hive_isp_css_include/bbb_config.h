@@ -23,7 +23,7 @@
 #define __BBB_CONFIG_H_INCLUDED__
 /* This header contains BBB defines common to ISP and host */
 
-#define BFA_MAX_KWAY                (61)
+#define BFA_MAX_KWAY                (49)
 #define BFA_RW_LUT_SIZE             (7)
 
 #define SAD3x3_IN_SHIFT      (2) /* input right shift value for SAD3x3 */

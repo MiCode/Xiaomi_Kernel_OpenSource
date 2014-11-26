@@ -456,18 +456,19 @@ verify_copy_out_frame_format(struct ia_css_pipe *pipe)
  * TODO: see if needs to be made public
  */
 static enum ia_css_err
-sh_css_commit_isp_config(struct ia_css_stream *stream,
-			 struct ia_css_pipeline *pipeline)
+sh_css_commit_isp_config(struct ia_css_pipe *pipe)
 {
 	enum ia_css_err err = IA_CSS_SUCCESS;
 	struct ia_css_pipeline_stage *stage;
+	struct ia_css_pipeline *pipeline;
 
+	pipeline = &pipe->pipeline;
 	if (pipeline) {
 		/* walk through pipeline and commit settings */
 		/* TODO: check if this is needed (s3a is handled through this */
 		for (stage = pipeline->stages; stage; stage = stage->next) {
 			if (stage && stage->binary) {
-				err = sh_css_params_write_to_ddr(stream,
+				err = sh_css_params_write_to_ddr(pipe,
 								 stage);
 				if (err != IA_CSS_SUCCESS)
 					return err;
@@ -1431,7 +1432,7 @@ static enum ia_css_err start_pipe(
 
 	if (me->config.mode != IA_CSS_PIPE_MODE_COPY){
 		/* prepare update of params to ddr */
-		err = sh_css_commit_isp_config(me->stream, &me->pipeline);
+		err = sh_css_commit_isp_config(me);
 		if (err == IA_CSS_SUCCESS)
 			pipe_start(me);
 	}

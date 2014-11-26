@@ -827,7 +827,7 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H bma_output_14_2 OP_1w_asp_bma_14_2_32way(
 	tscalar1w_4bit_bma_shift shift);
 
 #ifdef HAS_bfa_unit
-/** @brief OP_1w_single_bfa_9x9_reduced
+/** @brief OP_1w_single_bfa_7x7
  *
  * @param[in] weights - spatial and range weight lut
  * @param[in] threshold - threshold plane, for range weight scaling
@@ -836,13 +836,12 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H bma_output_14_2 OP_1w_asp_bma_14_2_32way(
  *
  * @return   Bilateral filter output pixel
  *
- * This function implements, reduced 9x9 single bilateral filter.
+ * This function implements, 7x7 single bilateral filter.
  * Output = sum(pixel * weight) / sum(weight)
- * Where sum is summation over reduced 9x9 block set. Reduced because few
- * corner pixels are not taken.
+ * Where sum is summation over 7x7 block set.
  * weight = spatial weight * range weight
  * spatial weights are loaded from spatial_weight_lut depending on src pixel
- * position in the 9x9 block
+ * position in the 7x7 block
  * range weights are computed by table look up from range_weight_lut depending
  * on scaled absolute difference between src and central pixels.
  * threshold is used as scaling factor. range_weight_lut consists of
@@ -850,13 +849,13 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H bma_output_14_2 OP_1w_asp_bma_14_2_32way(
  * Piecewise linear approximation technique is used to compute range weight
  * It computes absolute difference between central pixel and 61 src pixels.
  */
-STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_single_bfa_9x9_reduced(
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_single_bfa_7x7(
 	bfa_weights weights,
 	tvector1w threshold,
 	tvector1w central_pix,
-	s_1w_9x9_matrix src_plane);
+	s_1w_7x7_matrix src_plane);
 
-/** @brief OP_1w_joint_bfa_9x9_reduced
+/** @brief OP_1w_joint_bfa_7x7
  *
  * @param[in] weights - spatial and range weight lut
  * @param[in] threshold0 - 1st threshold plane, for range weight scaling
@@ -868,13 +867,12 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_single_bfa_9x9_reduced(
  *
  * @return   Joint bilateral filter output pixel
  *
- * This function implements, reduced 9x9 joint bilateral filter.
+ * This function implements, 7x7 joint bilateral filter.
  * Output = sum(pixel * weight) / sum(weight)
- * Where sum is summation over reduced 9x9 block set. Reduced because few
- * corner pixels are not taken.
+ * Where sum is summation over 7x7 block set.
  * weight = spatial weight * range weight
  * spatial weights are loaded from spatial_weight_lut depending on src pixel
- * position in the 9x9 block
+ * position in the 7x7 block
  * range weights are computed by table look up from range_weight_lut depending
  * on sum of scaled absolute difference between central pixel and two src pixel
  * planes. threshold is used as scaling factor. range_weight_lut consists of
@@ -882,18 +880,18 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_single_bfa_9x9_reduced(
  * Piecewise linear approximation technique is used to compute range weight
  * It computes absolute difference between central pixel and 61 src pixels.
  */
-STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_joint_bfa_9x9_reduced(
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_joint_bfa_7x7(
 	bfa_weights weights,
 	tvector1w threshold0,
 	tvector1w central_pix0,
-	s_1w_9x9_matrix src0_plane,
+	s_1w_7x7_matrix src0_plane,
 	tvector1w threshold1,
 	tvector1w central_pix1,
-	s_1w_9x9_matrix src1_plane);
+	s_1w_7x7_matrix src1_plane);
 
 /** @brief bbb_bfa_gen_spatial_weight_lut
  *
- * @param[in] in - 9x9 matrix of spatial weights
+ * @param[in] in - 7x7 matrix of spatial weights
  * @param[in] out - generated LUT
  *
  * @return   None
@@ -902,7 +900,7 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_joint_bfa_9x9_reduced(
  * for bilaterl filter instruction.
  */
 STORAGE_CLASS_REF_VECTOR_FUNC_H void bbb_bfa_gen_spatial_weight_lut(
-	s_1w_9x9_matrix in,
+	s_1w_7x7_matrix in,
 	tvector1w out[BFA_MAX_KWAY]);
 
 /** @brief bbb_bfa_gen_range_weight_lut

@@ -38,7 +38,7 @@
 #define HAS_vec_sub
 
 /* Bit widths and element widths defined in HW implementation of BFA */
-#define BFA_THRESHOLD_BIT_CNT       (4)
+#define BFA_THRESHOLD_BIT_CNT       (8)
 #define BFA_THRESHOLD_MASK          ((1<<BFA_THRESHOLD_BIT_CNT)-1)
 #define BFA_SW_BIT_CNT              (7)
 #define BFA_SW_MASK                 ((1<<BFA_SW_BIT_CNT)-1)
