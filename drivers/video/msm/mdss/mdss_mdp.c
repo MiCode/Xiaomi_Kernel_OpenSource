@@ -1585,6 +1585,16 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	 */
 	mdss_mdp_footswitch_ctrl_splash(true);
 	mdss_hw_init(mdata);
+
+	if (mdss_has_quirk(mdata, MDSS_QUIRK_BWCPANIC)) {
+		mdata->default_panic_lut0 = readl_relaxed(mdata->mdp_base +
+			MMSS_MDP_PANIC_LUT0);
+		mdata->default_panic_lut1 = readl_relaxed(mdata->mdp_base +
+			MMSS_MDP_PANIC_LUT1);
+		mdata->default_robust_lut = readl_relaxed(mdata->mdp_base +
+			MMSS_MDP_ROBUST_LUT);
+	}
+
 	display_on = (bool)readl_relaxed(mdata->mdp_base +
 		MDSS_MDP_REG_DISP_INTF_SEL);
 	if (!display_on)
@@ -1595,14 +1605,6 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	pr_info("mdss version = 0x%x, bootloader display is %s\n",
 		mdata->mdp_rev, display_on ? "on" : "off");
 
-	if (mdss_has_quirk(mdata, MDSS_QUIRK_BWCPANIC)) {
-		mdata->default_panic_lut0 = readl_relaxed(mdata->mdp_base +
-			MMSS_MDP_PANIC_LUT0);
-		mdata->default_panic_lut1 = readl_relaxed(mdata->mdp_base +
-			MMSS_MDP_PANIC_LUT1);
-		mdata->default_robust_lut = readl_relaxed(mdata->mdp_base +
-			MMSS_MDP_ROBUST_LUT);
-	}
 probe_done:
 	if (IS_ERR_VALUE(rc)) {
 		if (mdata->regulator_notif_register)
