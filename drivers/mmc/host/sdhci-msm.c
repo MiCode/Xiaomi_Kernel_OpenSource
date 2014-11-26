@@ -316,6 +316,7 @@ struct sdhci_msm_pltfm_data {
 	int mpm_sdiowakeup_int;
 	int sdiowakeup_irq;
 	enum pm_qos_req_type cpu_affinity_type;
+	cpumask_t cpu_affinity_mask;
 };
 
 struct sdhci_msm_bus_vote {
@@ -1457,25 +1458,29 @@ out:
 }
 
 #ifdef CONFIG_SMP
-static void sdhci_msm_populate_affinity_type(struct sdhci_msm_pltfm_data *pdata,
+static void sdhci_msm_populate_affinity(struct sdhci_msm_pltfm_data *pdata,
 					     struct device_node *np)
 {
 	const char *cpu_affinity = NULL;
+	u32 cpu_mask;
 
 	pdata->cpu_affinity_type = PM_QOS_REQ_AFFINE_IRQ;
-	if (!of_property_read_string(np, "qcom,cpu-affinity",
-				    &cpu_affinity)) {
+	if (!of_property_read_string(np, "qcom,cpu-affinity", &cpu_affinity)) {
 		if (!strcmp(cpu_affinity, "all_cores"))
 			pdata->cpu_affinity_type = PM_QOS_REQ_ALL_CORES;
-		else if (!strcmp(cpu_affinity, "affine_cores"))
-			pdata->cpu_affinity_type = PM_QOS_REQ_AFFINE_CORES;
-		else if (!strcmp(cpu_affinity, "affine_irq"))
-			pdata->cpu_affinity_type = PM_QOS_REQ_AFFINE_IRQ;
+		else if (!strcmp(cpu_affinity, "affine_cores") &&
+			 !of_property_read_u32(np, "qcom,cpu-affinity-mask",
+						&cpu_mask)) {
+				cpumask_bits(&pdata->cpu_affinity_mask)[0] =
+					cpu_mask;
+				pdata->cpu_affinity_type =
+					PM_QOS_REQ_AFFINE_CORES;
+		}
 	}
 }
 #else
-static void sdhci_msm_populate_affinity_type(struct sdhci_msm_pltfm_data *pdata,
-					     struct device_node *np)
+static void sdhci_msm_populate_affinity(struct sdhci_msm_pltfm_data *pdata,
+							struct device_node *np)
 {
 }
 #endif
@@ -1592,7 +1597,7 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 	else
 		pdata->mpm_sdiowakeup_int = -1;
 
-	sdhci_msm_populate_affinity_type(pdata, np);
+	sdhci_msm_populate_affinity(pdata, np);
 
 	return pdata;
 out:
@@ -3288,6 +3293,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	host->cpu_dma_latency_us = msm_host->pdata->cpu_dma_latency_us;
 	host->pm_qos_req_dma.type = msm_host->pdata->cpu_affinity_type;
+	if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_CORES)
+		bitmap_copy(cpumask_bits(&host->pm_qos_req_dma.cpus_affine),
+			    cpumask_bits(&msm_host->pdata->cpu_affinity_mask),
+			    nr_cpumask_bits);
 
 	init_completion(&msm_host->pwr_irq_completion);
 
