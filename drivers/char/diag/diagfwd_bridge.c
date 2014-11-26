@@ -77,7 +77,8 @@ static int diagfwd_bridge_mux_connect(int id, int mode)
 {
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
-	bridge_info[id].dev_ops->open(bridge_info[id].ctxt);
+	if (bridge_info[id].dev_ops && bridge_info[id].dev_ops->open)
+		bridge_info[id].dev_ops->open(bridge_info[id].ctxt);
 	return 0;
 }
 
@@ -85,7 +86,8 @@ static int diagfwd_bridge_mux_disconnect(int id, int mode)
 {
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
-	bridge_info[id].dev_ops->close(bridge_info[id].ctxt);
+	if (bridge_info[id].dev_ops && bridge_info[id].dev_ops->close)
+		bridge_info[id].dev_ops->close(bridge_info[id].ctxt);
 	return 0;
 }
 
@@ -102,7 +104,8 @@ static int diagfwd_bridge_mux_write_done(unsigned char *buf, int len,
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
 	ch = &bridge_info[id];
-	ch->dev_ops->fwd_complete(ch->ctxt, buf, len, 0);
+	if (ch->dev_ops && ch->dev_ops->fwd_complete)
+		ch->dev_ops->fwd_complete(ch->ctxt, buf, len, 0);
 	return 0;
 }
 
@@ -122,8 +125,10 @@ static void bridge_dci_read_work_fn(struct work_struct *work)
 		return;
 	diag_process_remote_dci_read_data(ch->id, ch->dci_read_buf,
 					  ch->dci_read_len);
-	ch->dev_ops->fwd_complete(ch->ctxt, ch->dci_read_ptr,
-				  ch->dci_read_len, 0);
+	if (ch->dev_ops && ch->dev_ops->fwd_complete) {
+		ch->dev_ops->fwd_complete(ch->ctxt, ch->dci_read_ptr,
+					  ch->dci_read_len, 0);
+	}
 }
 
 int diagfwd_bridge_register(int id, int ctxt, struct diag_remote_dev_ops *ops)
@@ -200,7 +205,8 @@ int diag_remote_dev_read_done(int id, unsigned char *buf, int len)
 	ch = &bridge_info[id];
 	if (ch->type == DIAG_DATA_TYPE) {
 		err = diag_mux_write(BRIDGE_TO_MUX(id), buf, len, id);
-		ch->dev_ops->queue_read(ch->ctxt);
+		if (ch->dev_ops && ch->dev_ops->queue_read)
+			ch->dev_ops->queue_read(ch->ctxt);
 		return err;
 	}
 	/*
@@ -265,15 +271,20 @@ int diagfwd_bridge_close(int id)
 {
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
-	return bridge_info[id].dev_ops->close(bridge_info[id].ctxt);
+	if (bridge_info[id].dev_ops && bridge_info[id].dev_ops->close)
+		return bridge_info[id].dev_ops->close(bridge_info[id].ctxt);
+	return 0;
 }
 
 int diagfwd_bridge_write(int id, unsigned char *buf, int len)
 {
 	if (id < 0 || id >= NUM_REMOTE_DEV)
 		return -EINVAL;
-	return bridge_info[id].dev_ops->write(bridge_info[id].ctxt,
-					      buf, len, 0);
+	if (bridge_info[id].dev_ops && bridge_info[id].dev_ops->write) {
+		return bridge_info[id].dev_ops->write(bridge_info[id].ctxt,
+						      buf, len, 0);
+	}
+	return 0;
 }
 
 uint16_t diag_get_remote_device_mask()
