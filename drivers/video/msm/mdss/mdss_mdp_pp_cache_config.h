@@ -16,6 +16,12 @@
 #define MDSS_MDP_CACHE_CONFIG_H
 #include "mdss_mdp_pp.h"
 
+struct mdp_pp_cache_res {
+	enum pp_config_block block;
+	struct mdss_pp_res_type *mdss_pp_res;
+	struct mdss_mdp_pipe *pipe_res;
+};
+
 int pp_hist_lut_cache_params(struct mdp_hist_lut_data *config,
 			  struct mdss_pp_res_type *mdss_pp_res);
 
@@ -30,7 +36,7 @@ int pp_pa_cache_params(struct mdp_pa_v2_cfg_data *config,
 			  struct mdss_pp_res_type *mdss_pp_res);
 
 int pp_igc_lut_cache_params(struct mdp_igc_lut_data *config,
-			    struct mdss_pp_res_type *mdss_pp_res,
+			    struct mdp_pp_cache_res *res_cache,
 			    u32 copy_from_kernel);
 
 int pp_pgc_lut_cache_params(struct mdp_pgc_lut_data *config,
