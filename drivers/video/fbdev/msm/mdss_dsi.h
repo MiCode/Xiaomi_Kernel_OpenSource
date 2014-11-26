@@ -248,9 +248,8 @@ struct dsi_kickoff_action {
 };
 
 struct dsi_drv_cm_data {
-	struct regulator *vdd_vreg;
-	struct regulator *vdd_io_vreg;
-	struct regulator *vdda_vreg;
+	struct dss_io_data phy_regulator_io;
+	int phy_disable_refcount;
 };
 
 struct dsi_pinctrl_res {
@@ -344,7 +343,7 @@ struct mdss_dsi_ctrl_pdata {
 
 	struct mdss_rect roi;
 	struct pwm_device *pwm_bl;
-	struct dsi_drv_cm_data shared_pdata;
+	struct dsi_drv_cm_data *shared_ctrl_data;
 	u32 pclk_rate;
 	u32 byte_clk_rate;
 	bool refresh_clk_rate; /* flag to recalculate clk_rate */
