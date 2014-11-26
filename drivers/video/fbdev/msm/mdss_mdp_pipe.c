@@ -1169,9 +1169,9 @@ exit:
  */
 int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 {
-	bool is_idle, in_use = false;
+	bool is_idle, forced_on = false, in_use = false;
 	int rc = 0;
-	u32 reg_val, idle_mask, status;
+	u32 reg_val, idle_mask, status, clk_val, clk_mask;
 	void __iomem *vbif_base;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool sw_reset_avail = mdss_mdp_pipe_is_sw_reset_available(mdata);
@@ -1192,6 +1192,19 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 		mutex_lock(&mdata->reg_lock);
 		idle_mask = BIT(pipe->xin_id + 16);
 
+		/*
+		 * make sure client clock is not gated while halting by forcing
+		 * it ON only if it was not previously forced on
+		 */
+		clk_val = readl_relaxed(mdata->mdp_base + clk_ctrl_off);
+		clk_mask = BIT(pipe->clk_ctrl.bit_off + CLK_FORCE_ON_OFFSET);
+		if (!(clk_val & clk_mask)) {
+			clk_val |= clk_mask;
+			writel_relaxed(clk_val, mdata->mdp_base + clk_ctrl_off);
+			wmb(); /* ensure write is finished before progressing */
+			forced_on = true;
+		}
+
 		reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
 								is_nrt_vbif);
 		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
@@ -1210,11 +1223,13 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 		rc = readl_poll_timeout(vbif_base + MMSS_VBIF_XIN_HALT_CTRL1,
 			status, (status & idle_mask),
 			1000, PIPE_HALT_TIMEOUT_US);
-		if (rc == -ETIMEDOUT)
+		if (rc == -ETIMEDOUT) {
 			pr_err("VBIF client %d not halting. TIMEDOUT.\n",
 				pipe->xin_id);
-		else
+			BUG();
+		} else {
 			pr_debug("VBIF client %d is halted\n", pipe->xin_id);
+		}
 
 		mutex_lock(&mdata->reg_lock);
 		reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
@@ -1222,18 +1237,20 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
 				reg_val & ~BIT(pipe->xin_id), is_nrt_vbif);
 
+		clk_val = readl_relaxed(mdata->mdp_base + clk_ctrl_off);
+		if (forced_on)
+			clk_val &= ~clk_mask;
+
 		if (sw_reset_avail) {
 			reg_val = readl_relaxed(mdata->mdp_base + sw_reset_off);
 			writel_relaxed(reg_val & ~BIT(pipe->sw_reset.bit_off),
 				mdata->mdp_base + sw_reset_off);
 			wmb();
 
-			reg_val = readl_relaxed(mdata->mdp_base + clk_ctrl_off);
-			reg_val |= BIT(pipe->clk_ctrl.bit_off +
+			clk_val |= BIT(pipe->clk_ctrl.bit_off +
 				CLK_FORCE_OFF_OFFSET);
-			writel_relaxed(reg_val,
-				mdata->mdp_base + clk_ctrl_off);
 		}
+		writel_relaxed(clk_val, mdata->mdp_base + clk_ctrl_off);
 		mutex_unlock(&mdata->reg_lock);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	}
