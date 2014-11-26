@@ -638,8 +638,6 @@ static void ipa_qmi_service_init_worker(struct work_struct *work)
 
 	/* Initialize QMI-service*/
 	IPAWANDBG("IPA A7 QMI init OK :>>>>\n");
-	qmi_modem_init_fin = false;
-	qmi_indication_fin = false;
 
 	ipa_svc_workqueue = create_singlethread_workqueue("ipa_A7_svc");
 	if (!ipa_svc_workqueue) {
@@ -714,6 +712,8 @@ int ipa_qmi_service_init(bool load_uc, uint32_t wan_platform_type)
 {
 	ipa_wan_platform = wan_platform_type;
 	is_load_uc = load_uc;
+	qmi_modem_init_fin = false;
+	qmi_indication_fin = false;
 	if (!ipa_svc_handle) {
 		INIT_WORK(&ipa_qmi_service_init_work,
 			ipa_qmi_service_init_worker);
@@ -765,4 +765,6 @@ void ipa_qmi_service_exit(void)
 	}
 
 	ipa_svc_handle = 0;
+	qmi_modem_init_fin = false;
+	qmi_indication_fin = false;
 }
