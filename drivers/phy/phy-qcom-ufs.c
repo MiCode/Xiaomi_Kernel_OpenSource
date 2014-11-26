@@ -496,9 +496,25 @@ static void ufs_qcom_phy_dev_ref_clk_ctrl(struct phy *generic_phy, bool enable)
 		else
 			temp &= ~UFS_REF_CLK_EN;
 
+		/*
+		 * If we are here to disable this clock immediately after
+		 * entering into hibern8, we need to make sure that device
+		 * ref_clk is active atleast 1us after the hibern8 enter.
+		 */
+		if (!enable)
+			udelay(1);
+
 		writel_relaxed(temp, phy->dev_ref_clk_ctrl_mmio);
 		/* ensure that ref_clk is enabled/disabled before we return */
 		wmb();
+		/*
+		 * If we call hibern8 exit after this, we need to make sure that
+		 * device ref_clk is stable for atleast 1us before the hibern8
+		 * exit command.
+		 */
+		if (enable)
+			udelay(1);
+
 		phy->is_dev_ref_clk_enabled = enable;
 	}
 }
