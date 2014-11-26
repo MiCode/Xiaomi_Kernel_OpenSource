@@ -114,6 +114,7 @@ static int slave_alloc (struct scsi_device *sdev)
 static int slave_configure(struct scsi_device *sdev)
 {
 	struct us_data *us = host_to_us(sdev->host);
+	struct backing_dev_info *bdi = &sdev->request_queue->backing_dev_info;
 
 	/* Many devices have trouble transferring more than 32KB at a time,
 	 * while others have trouble with more than 64K. At this time we
@@ -261,6 +262,12 @@ static int slave_configure(struct scsi_device *sdev)
 			sdev->autosuspend_delay = us->sdev_autosuspend_delay;
 		}
 
+		if (us->sdev_max_ratio > 0) {
+			bdi->capabilities |= BDI_CAP_STRICTLIMIT;
+			if (bdi_set_max_ratio(bdi, us->sdev_max_ratio))
+				usb_stor_dbg(us, "%s, max_ratio not updated\n",
+						__func__);
+		}
 	} else {
 
 		/* Non-disk-type devices don't need to blacklist any pages
