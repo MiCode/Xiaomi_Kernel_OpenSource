@@ -1272,6 +1272,7 @@ wait:
 
 	get_current_time(&chip->last_temp_update_time);
 
+out:
 	if (chip->sw_rbias_ctrl) {
 		rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
 				BATT_TEMP_CNTRL_MASK,
@@ -1280,7 +1281,6 @@ wait:
 		if (rc)
 			pr_err("failed to write BATT_TEMP_OFF rc=%d\n", rc);
 	}
-out:
 	schedule_delayed_work(
 		&chip->update_temp_work,
 		msecs_to_jiffies(TEMP_PERIOD_UPDATE_MS));
@@ -2829,7 +2829,6 @@ static void check_and_update_sram_data(struct fg_chip *chip)
 	else
 		time_left = 0;
 
-	cancel_delayed_work_sync(&chip->update_temp_work);
 	schedule_delayed_work(
 		&chip->update_temp_work, msecs_to_jiffies(time_left * 1000));
 
@@ -2841,7 +2840,6 @@ static void check_and_update_sram_data(struct fg_chip *chip)
 	else
 		time_left = 0;
 
-	cancel_delayed_work_sync(&chip->update_sram_data);
 	schedule_delayed_work(
 		&chip->update_sram_data, msecs_to_jiffies(time_left * 1000));
 }
@@ -2849,28 +2847,12 @@ static void check_and_update_sram_data(struct fg_chip *chip)
 static int fg_suspend(struct device *dev)
 {
 	struct fg_chip *chip = dev_get_drvdata(dev);
-	ktime_t  enter_time;
-	ktime_t  total_time;
-	int total_time_ms;
-	int rc;
 
 	if (!chip->sw_rbias_ctrl)
 		return 0;
 
-	enter_time = ktime_get();
-	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
-			BATT_TEMP_CNTRL_MASK,
-			BATT_TEMP_OFF,
-			BATT_TEMP_OFFSET);
-	if (rc)
-		pr_err("failed to write to memif rc=%d\n", rc);
-
-	total_time = ktime_sub(ktime_get(), enter_time);
-	total_time_ms = ktime_to_ms(total_time);
-
-	if ((total_time_ms > 1500) && (fg_debug_mask & FG_STATUS))
-		pr_info("spent %dms configuring rbias\n",
-			total_time_ms);
+	cancel_delayed_work_sync(&chip->update_temp_work);
+	cancel_delayed_work_sync(&chip->update_sram_data);
 
 	return 0;
 }
@@ -2882,10 +2864,6 @@ static int fg_resume(struct device *dev)
 	if (!chip->sw_rbias_ctrl)
 		return 0;
 
-	/*
-	 * this may fail, but current time should be still 0,
-	 * triggering an immediate update.
-	 */
 	check_and_update_sram_data(chip);
 	return 0;
 }
