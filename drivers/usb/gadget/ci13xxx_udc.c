@@ -3802,8 +3802,7 @@ static irqreturn_t udc_irq(void)
 
 	spin_lock(udc->lock);
 
-	if ((udc->udc_driver->flags & CI13XXX_PULLUP_ON_VBUS) &&
-				!udc->vbus_active) {
+	if (udc->udc_driver->in_lpm && udc->udc_driver->in_lpm(udc)) {
 		spin_unlock(udc->lock);
 		return IRQ_NONE;
 	}
