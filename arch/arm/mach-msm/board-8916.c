@@ -95,6 +95,11 @@ static const char *msmtellurium_dt_match[] __initconst = {
 	NULL
 };
 
+static const char *msmterbium_dt_match[] __initconst = {
+	"qcom,msmterbium",
+	NULL
+};
+
 DT_MACHINE_START(MSM8916_DT,
 		"Qualcomm Technologies, Inc. MSM 8916 (Flattened Device Tree)")
 	.map_io = msm8916_map_io,
@@ -129,4 +134,13 @@ DT_MACHINE_START(MSMTellurium_DT,
 	.dt_compat = msmtellurium_dt_match,
 	.reserve = msm8916_dt_reserve,
 	.smp = &msm8936_smp_ops,
+MACHINE_END
+
+DT_MACHINE_START(MSMTerbium_DT,
+	"Qualcomm Technologies, Inc. MSM Terbium (Flattened Device Tree)")
+	.map_io = msm8916_map_io,
+	.init_machine = msm8916_init,
+	.dt_compat = msmterbium_dt_match,
+	.reserve = msm8916_dt_reserve,
+	.smp = &msmterbium_smp_ops,
 MACHINE_END
