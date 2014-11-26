@@ -206,6 +206,21 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 	}
 }
 
+static bool ci13xxx_cancel_pending_suspend(struct ci13xxx *udc)
+{
+	struct msm_otg *otg;
+
+	if (udc == NULL)
+		return false;
+
+	if (udc->transceiver == NULL)
+		return false;
+
+	otg = container_of(udc->transceiver, struct msm_otg, phy);
+
+	return cancel_delayed_work_sync(&otg->suspend_work);
+}
+
 static bool ci13xxx_msm_in_lpm(struct ci13xxx *udc)
 {
 	struct msm_otg *otg;
@@ -258,6 +273,7 @@ static struct ci13xxx_udc_driver ci13xxx_msm_udc_driver = {
 				  CI13XXX_IS_OTG,
 	.nz_itc			= 0,
 	.notify_event		= ci13xxx_msm_notify_event,
+	.cancel_pending_suspend = ci13xxx_cancel_pending_suspend,
 	.in_lpm                 = ci13xxx_msm_in_lpm,
 	.set_fpr_flag           = ci13xxx_msm_set_fpr_flag,
 };
