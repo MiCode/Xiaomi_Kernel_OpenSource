@@ -2695,6 +2695,46 @@ int atomisp_get_metadata_by_type(struct atomisp_sub_device *asd, int flag,
 	return 0;
 }
 
+/*
+ * Function to check the zoom region whether is effective
+ */
+static bool atomisp_check_zoom_region(
+			struct atomisp_sub_device *asd,
+			struct atomisp_parameters *arg)
+{
+	struct atomisp_stream_env *stream_env;
+	struct atomisp_resolution  config;
+	struct atomisp_dz_config dz_config;
+	bool flag = false;
+	unsigned int w , h;
+
+	stream_env = &(asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]);
+	memset(&dz_config, 0, sizeof(struct atomisp_dz_config));
+	memset(&config, 0, sizeof(struct atomisp_resolution));
+
+	if (arg->dz_config)
+		if (copy_from_user(&dz_config, arg->dz_config,
+			   sizeof(struct atomisp_css_dz_config)))
+			return flag;
+
+	if (dz_config.dx && dz_config.dy)
+		return true;
+
+	config.width =
+		stream_env->stream_config.input_config.effective_res.width;
+	config.height =
+		stream_env->stream_config.input_config.effective_res.height;
+	w = dz_config.zoom_region.origin.x +
+		dz_config.zoom_region.resolution.width;
+	h = dz_config.zoom_region.origin.y +
+		dz_config.zoom_region.resolution.height;
+
+	if ((w <= config.width) && (h <= config.height) && w > 0 && h >0)
+		flag = true;
+
+	return flag;
+}
+
 void atomisp_apply_css_parameters(
 				struct atomisp_sub_device *asd,
 				struct atomisp_parameters *arg,
@@ -2708,6 +2748,10 @@ void atomisp_apply_css_parameters(
 
 	if (arg->dp_config)
 		atomisp_css_set_dp_config(asd, &css_param->dp_config);
+
+	if (arg->dz_config &&
+		atomisp_check_zoom_region(asd, arg) == true)
+		atomisp_css_set_dz_config(asd, &css_param->dz_config);
 
 	if (arg->nr_config)
 		atomisp_css_set_nr_config(asd, &css_param->nr_config);
@@ -2822,6 +2866,13 @@ static int __atomisp_cp_general_isp_parameters(
 		if (copy_from_user(&css_param->dp_config, arg->dp_config,
 				   sizeof(struct atomisp_css_dp_config)))
 			return -EFAULT;
+	if (asd->run_mode->val != ATOMISP_RUN_MODE_VIDEO) {
+		if (arg->dz_config &&
+			atomisp_check_zoom_region(asd, arg) == true)
+			if (copy_from_user(&css_param->dz_config, arg->dz_config,
+				   sizeof(struct atomisp_css_dz_config)))
+				return -EFAULT;
+	}
 
 	if (arg->nr_config)
 		if (copy_from_user(&css_param->nr_config, arg->nr_config,
