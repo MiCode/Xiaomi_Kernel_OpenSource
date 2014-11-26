@@ -31,6 +31,8 @@
 
 #define XO_CLK_RATE	19200000
 
+static struct dsi_drv_cm_data shared_ctrl_data;
+
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 					bool active);
 
@@ -1646,9 +1648,22 @@ int mdss_dsi_retrieve_ctrl_resources(struct platform_device *pdev, int mode,
 		return rc;
 	}
 
+	ctrl->shared_ctrl_data = &shared_ctrl_data;
+	rc = msm_dss_ioremap_byname(pdev,
+			&ctrl->shared_ctrl_data->phy_regulator_io,
+			"dsi_phy_regulator");
+	if (rc) {
+		pr_err("%s:%d unable to remap dsi phy regulator resources\n",
+			       __func__, __LINE__);
+		return rc;
+	}
+
 	pr_info("%s: ctrl_base=%p ctrl_size=%x phy_base=%p phy_size=%x\n",
 		__func__, ctrl->ctrl_base, ctrl->reg_size, ctrl->phy_io.base,
 		ctrl->phy_io.len);
+	pr_info("%s: phy_regulator_base=%p phy_regulator_size=%x\n", __func__,
+		ctrl->shared_ctrl_data->phy_regulator_io.base,
+		ctrl->shared_ctrl_data->phy_regulator_io.len);
 
 	rc = msm_dss_ioremap_byname(pdev, &ctrl->mmss_misc_io,
 		"mmss_misc_phys");
@@ -1955,10 +1970,14 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	if (pinfo->pdest == DISPLAY_1) {
 		mdss_debug_register_io("dsi0_ctrl", &ctrl_pdata->ctrl_io);
 		mdss_debug_register_io("dsi0_phy", &ctrl_pdata->phy_io);
+		mdss_debug_register_io("dsi0_phy_regulator",
+			&ctrl_pdata->shared_ctrl_data->phy_regulator_io);
 		ctrl_pdata->ndx = 0;
 	} else {
 		mdss_debug_register_io("dsi1_ctrl", &ctrl_pdata->ctrl_io);
 		mdss_debug_register_io("dsi1_phy", &ctrl_pdata->phy_io);
+		mdss_debug_register_io("dsi1_phy_regulator",
+			&ctrl_pdata->shared_ctrl_data->phy_regulator_io);
 		ctrl_pdata->ndx = 1;
 	}
 

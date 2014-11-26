@@ -11,6 +11,7 @@ Required properties:
 - reg-names: 				A list of strings that map in order to the list of regs.
 					"dsi_ctrl" - MDSS DSI controller register region
 					"dsi_phy" - MDSS DSI PHY register region
+					"dsi_phy_regulator" - MDSS DSI PHY REGULATOR region
 					"mmss_misc_phys" - Register region for MMSS DSI clamps
 - vdd-supply:				Phandle for vdd regulator device node.
 - vddio-supply:				Phandle for vdd-io regulator device node.
@@ -84,8 +85,9 @@ Example:
 		cell-index = <0>;
 		reg = 	<0xfd922800 0x1f8>,
 			<0xfd922b00 0x2b0>,
+			<0xfd998780 0x30>,
 			<0xfd828000 0x108>;
-		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
+		reg-names = "dsi_ctrl", "dsi_phy", "dsi_phy_regulator", "mmss_misc_phys";
 		vdd-supply = <&pm8226_l15>;
 		vddio-supply = <&pm8226_l8>;
 		vdda-supply = <&pm8226_l4>;
