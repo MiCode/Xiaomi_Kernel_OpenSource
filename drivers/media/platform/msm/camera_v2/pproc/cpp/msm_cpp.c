@@ -1290,7 +1290,8 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 
 	disable_irq(cpp_timer.data.cpp_dev->irq->start);
 	pr_err("Reloading firmware\n");
-	cpp_load_fw(cpp_timer.data.cpp_dev, NULL);
+	cpp_load_fw(cpp_timer.data.cpp_dev,
+		cpp_timer.data.cpp_dev->fw_name_bin);
 	pr_err("Firmware loading done\n");
 	enable_irq(cpp_timer.data.cpp_dev->irq->start);
 	msm_camera_io_w_mb(0x8, cpp_timer.data.cpp_dev->base +
@@ -1916,12 +1917,15 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			rc = msm_cpp_add_buff_queue_entry(cpp_dev,
 				((k_stream_buff_info.identity >> 16) & 0xFFFF),
 				(k_stream_buff_info.identity & 0xFFFF));
-		}
 
-		if (rc)
-			goto STREAM_BUFF_END;
+			if (rc)
+				goto STREAM_BUFF_END;
 
-		if (buff_queue_info == NULL) {
+			if (cpp_dev->stream_cnt == 0) {
+				cpp_dev->state = CPP_STATE_ACTIVE;
+				msm_cpp_clear_timer(cpp_dev);
+				msm_cpp_clean_queue(cpp_dev);
+			}
 			cpp_dev->stream_cnt++;
 			CPP_DBG("stream_cnt:%d\n", cpp_dev->stream_cnt);
 		}
@@ -1954,11 +1958,6 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 STREAM_BUFF_END:
 		kfree(k_stream_buff_info.buffer_info);
 		kfree(u_stream_buff_info);
-		if (cpp_dev->stream_cnt == 0) {
-			cpp_dev->state = CPP_STATE_ACTIVE;
-			msm_cpp_clear_timer(cpp_dev);
-			msm_cpp_clean_queue(cpp_dev);
-		}
 
 		break;
 	}
