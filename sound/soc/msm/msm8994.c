@@ -111,15 +111,23 @@ static int clk_users;
 static atomic_t prim_auxpcm_rsc_ref;
 static atomic_t sec_auxpcm_rsc_ref;
 
-struct msm8994_liquid_dock_dev {
-	int dock_plug_gpio;
-	int dock_plug_irq;
-	int dock_plug_det;
+struct audio_plug_dev {
+	int plug_gpio;
+	int plug_irq;
+	int plug_det;
 	struct work_struct irq_work;
 	struct switch_dev audio_sdev;
 };
 
-static struct msm8994_liquid_dock_dev *msm8994_liquid_dock_dev;
+static struct audio_plug_dev *msm8994_liquid_dock_dev;
+
+/* Rear panel audio jack which connected to LO1&2 */
+static struct audio_plug_dev *apq8094_db_ext_bp_out_dev;
+/* Front panel audio jack which connected to LO3&4 */
+static struct audio_plug_dev *apq8094_db_ext_fp_in_dev;
+/* Front panel audio jack which connected to Line in (ADC6) */
+static struct audio_plug_dev *apq8094_db_ext_fp_out_dev;
+
 
 static const char *const pin_states[] = {"Disable", "active"};
 static const char *const spk_function[] = {"Off", "On"};
@@ -208,25 +216,127 @@ static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
 	}
 }
 
-static void msm8994_liquid_docking_irq_work(struct work_struct *work)
+static irqreturn_t msm8994_audio_plug_device_irq_handler(int irq, void *dev)
 {
-	struct msm8994_liquid_dock_dev *dock_dev =
-		container_of(work, struct msm8994_liquid_dock_dev, irq_work);
+	struct audio_plug_dev *dock_dev = dev;
 
-	dock_dev->dock_plug_det =
-		gpio_get_value(dock_dev->dock_plug_gpio);
-
-	switch_set_state(&dock_dev->audio_sdev, dock_dev->dock_plug_det);
-	/*notify to audio deamon*/
-	sysfs_notify(&dock_dev->audio_sdev.dev->kobj, NULL, "state");
-}
-
-static irqreturn_t msm8994_liquid_docking_irq_handler(int irq, void *dev)
-{
-	struct msm8994_liquid_dock_dev *dock_dev = dev;
 	/* switch speakers should not run in interrupt context */
 	schedule_work(&dock_dev->irq_work);
 	return IRQ_HANDLED;
+}
+
+static int msm8994_audio_plug_device_init
+				(struct audio_plug_dev *audio_plug_dev,
+				 int plug_gpio,
+				 char *node_name,
+				 char *switch_dev_name,
+				 void (*irq_work)(struct work_struct *work))
+{
+	int ret = 0;
+
+	/* awaike by plug in device OR unplug one of them */
+	u32 plug_irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+
+	audio_plug_dev =
+		kzalloc(sizeof(*audio_plug_dev), GFP_KERNEL);
+	if (!audio_plug_dev) {
+		pr_err("audio_plug_device alloc fail. dev_name= %s\n",
+					node_name);
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	audio_plug_dev->plug_gpio = plug_gpio;
+
+	ret = gpio_request(audio_plug_dev->plug_gpio,
+					   node_name);
+	if (ret) {
+		pr_err("%s:failed request audio_plug_device device_name = %s err= 0x%x\n",
+			__func__, node_name, ret);
+		ret = -EINVAL;
+		goto release_audio_plug_device;
+	}
+
+	ret = gpio_direction_input(audio_plug_dev->plug_gpio);
+
+	audio_plug_dev->plug_det =
+			gpio_get_value(audio_plug_dev->plug_gpio);
+	audio_plug_dev->plug_irq =
+		gpio_to_irq(audio_plug_dev->plug_gpio);
+
+	ret = request_irq(audio_plug_dev->plug_irq,
+				msm8994_audio_plug_device_irq_handler,
+				plug_irq_flags,
+				node_name,
+				audio_plug_dev);
+	if (ret < 0) {
+		pr_err("%s: Request Irq Failed err = %d\n",
+				__func__, ret);
+		goto fail_gpio;
+	}
+
+	audio_plug_dev->audio_sdev.name = switch_dev_name;
+	if (switch_dev_register(
+		&audio_plug_dev->audio_sdev) < 0) {
+		pr_err("%s: audio plug device register in switch diretory failed\n",
+		__func__);
+		goto fail_switch_dev;
+	}
+
+	switch_set_state(&audio_plug_dev->audio_sdev,
+					!(audio_plug_dev->plug_det));
+
+	/*notify to audio deamon*/
+	sysfs_notify(&audio_plug_dev->audio_sdev.dev->kobj,
+				NULL, "state");
+
+	INIT_WORK(&audio_plug_dev->irq_work,
+			irq_work);
+
+	return 0;
+
+fail_switch_dev:
+	free_irq(audio_plug_dev->plug_irq,
+				audio_plug_dev);
+fail_gpio:
+	gpio_free(audio_plug_dev->plug_gpio);
+release_audio_plug_device:
+	kfree(audio_plug_dev);
+exit:
+	audio_plug_dev = NULL;
+	return ret;
+
+}
+
+static void msm8994_audio_plug_device_remove
+				(struct audio_plug_dev *audio_plug_dev)
+{
+	if (audio_plug_dev != NULL) {
+		switch_dev_unregister(&audio_plug_dev->audio_sdev);
+
+		if (audio_plug_dev->plug_irq)
+			free_irq(audio_plug_dev->plug_irq,
+				 audio_plug_dev);
+
+		if (audio_plug_dev->plug_gpio)
+			gpio_free(audio_plug_dev->plug_gpio);
+
+		kfree(audio_plug_dev);
+		audio_plug_dev = NULL;
+	}
+}
+
+static void msm8994_liquid_docking_irq_work(struct work_struct *work)
+{
+	struct audio_plug_dev *dock_dev =
+		container_of(work, struct audio_plug_dev, irq_work);
+
+	dock_dev->plug_det =
+		gpio_get_value(dock_dev->plug_gpio);
+
+	switch_set_state(&dock_dev->audio_sdev, dock_dev->plug_det);
+	/*notify to audio deamon*/
+	sysfs_notify(&dock_dev->audio_sdev.dev->kobj, NULL, "state");
 }
 
 static int msm8994_liquid_dock_notify_handler(struct notifier_block *this,
@@ -238,22 +348,22 @@ static int msm8994_liquid_dock_notify_handler(struct notifier_block *this,
 	u32 dock_plug_irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
 					IRQF_SHARED;
 	if (dock_event) {
-		ret = gpio_request(msm8994_liquid_dock_dev->dock_plug_gpio,
+		ret = gpio_request(msm8994_liquid_dock_dev->plug_gpio,
 					   "dock-plug-det-irq");
 		if (ret) {
-			pr_err("%s:failed request msm8994_liquid_dock_plug_gpio err = %d\n",
+			pr_err("%s:failed request msm8994_liquid_plug_gpio err = %d\n",
 				__func__, ret);
 			ret = -EINVAL;
 			goto fail_dock_gpio;
 		}
 
-		msm8994_liquid_dock_dev->dock_plug_det =
-			gpio_get_value(msm8994_liquid_dock_dev->dock_plug_gpio);
-		msm8994_liquid_dock_dev->dock_plug_irq =
-			gpio_to_irq(msm8994_liquid_dock_dev->dock_plug_gpio);
+		msm8994_liquid_dock_dev->plug_det =
+			gpio_get_value(msm8994_liquid_dock_dev->plug_gpio);
+		msm8994_liquid_dock_dev->plug_irq =
+			gpio_to_irq(msm8994_liquid_dock_dev->plug_gpio);
 
-		ret = request_irq(msm8994_liquid_dock_dev->dock_plug_irq,
-				  msm8994_liquid_docking_irq_handler,
+		ret = request_irq(msm8994_liquid_dock_dev->plug_irq,
+				  msm8994_audio_plug_device_irq_handler,
 				  dock_plug_irq_flags,
 				  "liquid_dock_plug_irq",
 				  msm8994_liquid_dock_dev);
@@ -264,23 +374,22 @@ static int msm8994_liquid_dock_notify_handler(struct notifier_block *this,
 		}
 
 		switch_set_state(&msm8994_liquid_dock_dev->audio_sdev,
-					msm8994_liquid_dock_dev->dock_plug_det);
+				msm8994_liquid_dock_dev->plug_det);
 		/*notify to audio deamon*/
 		sysfs_notify(&msm8994_liquid_dock_dev->audio_sdev.dev->kobj,
-					NULL, "state");
-
+				NULL, "state");
 	} else {
-		if (msm8994_liquid_dock_dev->dock_plug_irq)
-			free_irq(msm8994_liquid_dock_dev->dock_plug_irq,
+		if (msm8994_liquid_dock_dev->plug_irq)
+			free_irq(msm8994_liquid_dock_dev->plug_irq,
 				 msm8994_liquid_dock_dev);
 
-		if (msm8994_liquid_dock_dev->dock_plug_gpio)
-			gpio_free(msm8994_liquid_dock_dev->dock_plug_gpio);
+		if (msm8994_liquid_dock_dev->plug_gpio)
+			gpio_free(msm8994_liquid_dock_dev->plug_gpio);
 	}
 	return NOTIFY_OK;
 
 fail_dock_gpio:
-	gpio_free(msm8994_liquid_dock_dev->dock_plug_gpio);
+	gpio_free(msm8994_liquid_dock_dev->plug_gpio);
 
 	return NOTIFY_DONE;
 }
@@ -293,12 +402,12 @@ static struct notifier_block msm8994_liquid_docking_notifier = {
 static int msm8994_liquid_init_docking(void)
 {
 	int ret = 0;
-	int dock_plug_gpio = 0;
+	int plug_gpio = 0;
 
-	dock_plug_gpio = of_get_named_gpio(spdev->dev.of_node,
+	plug_gpio = of_get_named_gpio(spdev->dev.of_node,
 					   "qcom,dock-plug-det-irq", 0);
 
-	if (dock_plug_gpio >= 0) {
+	if (plug_gpio >= 0) {
 		msm8994_liquid_dock_dev =
 		 kzalloc(sizeof(*msm8994_liquid_dock_dev), GFP_KERNEL);
 		if (!msm8994_liquid_dock_dev) {
@@ -307,7 +416,7 @@ static int msm8994_liquid_init_docking(void)
 			goto exit;
 		}
 
-		msm8994_liquid_dock_dev->dock_plug_gpio = dock_plug_gpio;
+		msm8994_liquid_dock_dev->plug_gpio = plug_gpio;
 		msm8994_liquid_dock_dev->audio_sdev.name =
 						QC_AUDIO_EXTERNAL_SPK_1_EVENT;
 
@@ -327,6 +436,75 @@ static int msm8994_liquid_init_docking(void)
 	return 0;
 exit:
 	msm8994_liquid_dock_dev = NULL;
+	return ret;
+}
+
+static void apq8094_db_device_irq_work(struct work_struct *work)
+{
+	struct audio_plug_dev *plug_dev =
+		container_of(work, struct audio_plug_dev, irq_work);
+
+	plug_dev->plug_det =
+		gpio_get_value(plug_dev->plug_gpio);
+
+	switch_set_state(&plug_dev->audio_sdev, !(plug_dev->plug_det));
+
+	/*notify to audio deamon*/
+	sysfs_notify(&plug_dev->audio_sdev.dev->kobj, NULL, "state");
+}
+
+static int apq8094_db_device_init(void)
+{
+	int ret = 0;
+	int plug_gpio = 0;
+
+
+	plug_gpio = of_get_named_gpio(spdev->dev.of_node,
+					   "qcom,ext-spk-rear-panel-irq", 0);
+	if (plug_gpio >= 0) {
+		ret = msm8994_audio_plug_device_init(apq8094_db_ext_bp_out_dev,
+						plug_gpio,
+						"qcom,ext-spk-rear-panel-irq",
+						QC_AUDIO_EXTERNAL_SPK_2_EVENT,
+						&apq8094_db_device_irq_work);
+		if (ret != 0) {
+			pr_err("%s: external audio device init failed = %s\n",
+				__func__,
+				apq8094_db_ext_bp_out_dev->audio_sdev.name);
+			return ret;
+		}
+	}
+
+	plug_gpio = of_get_named_gpio(spdev->dev.of_node,
+					   "qcom,ext-spk-front-panel-irq", 0);
+	if (plug_gpio >= 0) {
+		ret = msm8994_audio_plug_device_init(apq8094_db_ext_fp_out_dev,
+						plug_gpio,
+						"qcom,ext-spk-front-panel-irq",
+						QC_AUDIO_EXTERNAL_SPK_1_EVENT,
+						&apq8094_db_device_irq_work);
+		if (ret != 0) {
+			pr_err("%s: external audio device init failed = %s\n",
+				__func__,
+				apq8094_db_ext_fp_out_dev->audio_sdev.name);
+			return ret;
+		}
+	}
+
+	plug_gpio = of_get_named_gpio(spdev->dev.of_node,
+					   "qcom,ext-mic-front-panel-irq", 0);
+	if (plug_gpio >= 0) {
+		ret = msm8994_audio_plug_device_init(apq8094_db_ext_fp_in_dev,
+						plug_gpio,
+						"qcom,ext-mic-front-panel-irq",
+						QC_AUDIO_EXTERNAL_MIC_EVENT,
+						&apq8094_db_device_irq_work);
+		if (ret != 0)
+			pr_err("%s: external audio device init failed = %s\n",
+				__func__,
+				apq8094_db_ext_fp_in_dev->audio_sdev.name);
+	}
+
 	return ret;
 }
 
@@ -3248,6 +3426,14 @@ static int msm8994_asoc_machine_probe(struct platform_device *pdev)
 			__func__, ret);
 		goto err1;
 	}
+
+	ret = apq8094_db_device_init();
+	if (ret) {
+		pr_err("%s: DB8094 init ext devices stat IRQ failed (%d)\n",
+				__func__, ret);
+		goto err1;
+	}
+
 	return 0;
 
 err1:
@@ -3280,19 +3466,12 @@ static int msm8994_asoc_machine_remove(struct platform_device *pdev)
 	gpio_free(pdata->mclk_gpio);
 	gpio_free(pdata->us_euro_gpio);
 
-	if (msm8994_liquid_dock_dev != NULL) {
-		switch_dev_unregister(&msm8994_liquid_dock_dev->audio_sdev);
+	msm8994_audio_plug_device_remove(msm8994_liquid_dock_dev);
 
-		if (msm8994_liquid_dock_dev->dock_plug_irq)
-			free_irq(msm8994_liquid_dock_dev->dock_plug_irq,
-				 msm8994_liquid_dock_dev);
+	msm8994_audio_plug_device_remove(apq8094_db_ext_bp_out_dev);
+	msm8994_audio_plug_device_remove(apq8094_db_ext_fp_in_dev);
+	msm8994_audio_plug_device_remove(apq8094_db_ext_fp_out_dev);
 
-		if (msm8994_liquid_dock_dev->dock_plug_gpio)
-			gpio_free(msm8994_liquid_dock_dev->dock_plug_gpio);
-
-		kfree(msm8994_liquid_dock_dev);
-		msm8994_liquid_dock_dev = NULL;
-	}
 	msm_auxpcm_release_pinctrl(pdev, SEC_MI2S_PCM);
 	msm_mi2s_release_pinctrl(pdev, PRI_MI2S_PCM);
 	snd_soc_unregister_card(card);
