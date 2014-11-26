@@ -2939,6 +2939,10 @@ static int skip_cpu(struct task_struct *p, int cpu, int reason)
 		skip = (rq->capacity >= task_rq->capacity);
 		break;
 
+	case MOVE_TO_POWER_EFFICIENT_CPU:
+		skip = rq->capacity < task_rq->capacity  ||
+			power_cost(p, cpu) >  power_cost(p,  task_cpu(p));
+		break;
 	default:
 		skip = (cpu == task_cpu(p));
 		break;
