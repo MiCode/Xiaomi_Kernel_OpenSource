@@ -1327,7 +1327,6 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	u32 instp_mask;
 	int ret;
 	int fd_fence_complete = -1;
-	u32 priv_data = 0;
 	bool watchdog_running = 0;
 
 	instp_mode = args->flags & I915_EXEC_CONSTANTS_MASK;
@@ -1357,21 +1356,22 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	}
 
 	if (args->num_cliprects != 0) {
+		u32 priv_data;
+
 		/*
-		 * num_cliprects is only used by the userland to pass in private
-		 * handshake data for gen8+.
-		 *
-		 * Future users of this communication method will have to add
-		 * a function to sanitize the private length for all known
-		 * values.
+		 * cliprects is only used by the userland to pass in private
+		 * handshake data for gen5+.
 		 */
-		if (args->num_cliprects != sizeof(u32))
+		if (args->num_cliprects != sizeof(priv_data))
 			return -EINVAL;
 
 		if (copy_from_user((void *)&priv_data,
-			to_user_ptr(args->cliprects_ptr), sizeof(u32))) {
+			to_user_ptr(args->cliprects_ptr), sizeof(priv_data))) {
 			return -EFAULT;
 		}
+
+		if (priv_data == 0xffffffff)
+			dispatch_flags |= I915_DISPATCH_LAUNCH_CB2;
 	} else {
 		if (args->DR4 == 0xffffffff) {
 			DRM_DEBUG("UXA submitting garbage DR4, fixing up\n");
@@ -1484,7 +1484,7 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 		goto error;
 
 	/* Send pipe control with protected memory disable if requested */
-	if (priv_data == 0xffffffff) {
+	if (dispatch_flags & I915_DISPATCH_LAUNCH_CB2) {
 		ret = gen8_logical_disable_protected_mem(ringbuf);
 		if (ret)
 			goto error;

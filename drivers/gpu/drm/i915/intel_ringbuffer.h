@@ -332,10 +332,10 @@ struct intel_engine_cs {
 				     u32 seqno);
 	int		(*dispatch_execbuffer)(struct intel_engine_cs *ring,
 					       u64 offset, u32 length,
-					       void *priv_data, u32 priv_length,
 					       unsigned dispatch_flags);
-#define I915_DISPATCH_SECURE 0x1
-#define I915_DISPATCH_PINNED 0x2
+#define I915_DISPATCH_SECURE            (1 << 0)
+#define I915_DISPATCH_PINNED            (1 << 1)
+#define I915_DISPATCH_LAUNCH_CB2        (1 << 2)
 	void		(*cleanup)(struct intel_engine_cs *ring);
 	int (*enable)(struct intel_engine_cs *ring, struct intel_context *ctx);
 	int (*disable)(struct intel_engine_cs *ring, struct intel_context *ctx);

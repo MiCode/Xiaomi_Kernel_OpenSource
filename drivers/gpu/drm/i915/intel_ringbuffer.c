@@ -1973,7 +1973,6 @@ gen8_ring_put_irq(struct intel_engine_cs *ring)
 static int
 i965_dispatch_execbuffer(struct intel_engine_cs *ring,
 			 u64 offset, u32 length,
-			 void *priv_data, u32 priv_length,
 			 unsigned flags)
 {
 	int ret;
@@ -1997,7 +1996,6 @@ i965_dispatch_execbuffer(struct intel_engine_cs *ring,
 static int
 i830_dispatch_execbuffer(struct intel_engine_cs *ring,
 				u64 offset, u32 len,
-				void *priv_data, u32 priv_length,
 				unsigned flags)
 {
 	int ret;
@@ -2049,7 +2047,6 @@ i830_dispatch_execbuffer(struct intel_engine_cs *ring,
 static int
 i915_dispatch_execbuffer(struct intel_engine_cs *ring,
 			 u64 offset, u32 len,
-			 void *priv_data, u32 priv_length,
 			 unsigned flags)
 {
 	int ret;
@@ -2680,7 +2677,6 @@ gen8_pipe_control_disable_protected_mem(struct intel_engine_cs *ring)
 static int
 gen8_ring_dispatch_execbuffer(struct intel_engine_cs *ring,
 			      u64 offset, u32 len,
-			      void *priv_data, u32 priv_length,
 			      unsigned flags)
 {
 	bool ppgtt = USES_PPGTT(ring->dev) && !(flags & I915_DISPATCH_SECURE);
@@ -2698,8 +2694,7 @@ gen8_ring_dispatch_execbuffer(struct intel_engine_cs *ring,
 	intel_ring_advance(ring);
 
 	/* Send pipe control with protected memory disable if requested */
-	if ((priv_length == sizeof(u32)) &&
-	    (*(u32 *)priv_data == 0xffffffff)) {
+	if (flags & I915_DISPATCH_LAUNCH_CB2) {
 		ret = gen8_pipe_control_disable_protected_mem(ring);
 		if (ret)
 			return ret;
@@ -2790,7 +2785,6 @@ launch_cb2(struct intel_engine_cs *ring)
 static int
 hsw_ring_dispatch_execbuffer(struct intel_engine_cs *ring,
 			      u64 offset, u32 len,
-			      void *priv_data, u32 priv_length,
 			      unsigned flags)
 {
 	int ret = 0;
@@ -2807,8 +2801,7 @@ hsw_ring_dispatch_execbuffer(struct intel_engine_cs *ring,
 	intel_ring_advance(ring);
 
 	/* Execute CB2 if requested */
-	if ((priv_length == sizeof(u32)) &&
-	    (*(u32 *)priv_data == 0xffffffff))
+	if (flags & I915_DISPATCH_LAUNCH_CB2)
 		ret = launch_cb2(ring);
 
 	return ret;
@@ -2817,7 +2810,6 @@ hsw_ring_dispatch_execbuffer(struct intel_engine_cs *ring,
 static int
 gen6_ring_dispatch_execbuffer(struct intel_engine_cs *ring,
 			      u64 offset, u32 len,
-			      void *priv_data, u32 priv_length,
 			      unsigned flags)
 {
 	int ret = 0;
@@ -2834,8 +2826,7 @@ gen6_ring_dispatch_execbuffer(struct intel_engine_cs *ring,
 	intel_ring_advance(ring);
 
 	/* Execute CB2 if requested */
-	if ((priv_length == sizeof(u32)) &&
-	    (*(u32 *)priv_data == 0xffffffff)) {
+	if (flags & I915_DISPATCH_LAUNCH_CB2) {
 		if (IS_VALLEYVIEW(ring->dev))
 			ret = launch_cb2(ring);
 	}

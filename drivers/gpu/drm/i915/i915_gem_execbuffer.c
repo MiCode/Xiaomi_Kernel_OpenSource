@@ -1053,8 +1053,6 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 	int instp_mode;
 	u32 instp_mask;
 	int i, ret = 0;
-	void *priv_data = NULL;
-	u32 priv_length = 0;
 	int fd_fence_complete = -1;
 	bool watchdog_running = 0;
 
@@ -1089,21 +1087,26 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 				goto error;
 			}
 		} else {
-			/* Gen5 and later definition of cliprects */
-			priv_data = kmalloc(args->num_cliprects, GFP_KERNEL);
-			if (priv_data == NULL) {
-				ret = -ENOMEM;
+			u32 priv_data;
+
+			/*
+			 * cliprects is only used by the userland to pass in
+			 * private handshake data for gen5+.
+			 */
+			if (args->num_cliprects != sizeof(priv_data)) {
+				ret = -EINVAL;
 				goto error;
 			}
 
-			priv_length = args->num_cliprects;
-			if (copy_from_user(
-					priv_data,
-					to_user_ptr(args->cliprects_ptr),
-					priv_length)) {
+			if (copy_from_user(&priv_data,
+					   to_user_ptr(args->cliprects_ptr),
+					   sizeof(priv_data))) {
 				ret = -EFAULT;
 				goto error;
 			}
+
+			if (priv_data == 0xffffffff)
+				dispatch_flags |= I915_DISPATCH_LAUNCH_CB2;
 		}
 	} else {
 		if (args->DR4 == 0xffffffff) {
@@ -1261,7 +1264,6 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 
 			ret = ring->dispatch_execbuffer(ring,
 							exec_start, exec_len,
-							NULL, 0,
 							dispatch_flags);
 			if (ret)
 				goto error;
@@ -1270,7 +1272,6 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 		/* Execution path for all Gen >= 5 */
 		ret = ring->dispatch_execbuffer(ring,
 						exec_start, exec_len,
-						priv_data, priv_length,
 						dispatch_flags);
 		if (ret)
 			goto error;
@@ -1310,7 +1311,6 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 
 error:
 	kfree(cliprects);
-	kfree(priv_data);
 
 	if (ret && fd_fence_complete != -1) {
 		sys_close(fd_fence_complete);
