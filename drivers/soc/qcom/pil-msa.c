@@ -64,6 +64,7 @@
 #define EXTERNAL_BHS_STATUS		BIT(4)
 #define BHS_TIMEOUT_US			50
 
+#define MSS_RESTART_PARAM_ID		0x2
 #define MSS_RESTART_ID			0xA
 
 static int pbl_mba_boot_timeout_ms = 1000;
@@ -168,16 +169,28 @@ static void pil_mss_disable_clks(struct q6v5_data *drv)
 static int pil_mss_restart_reg(struct q6v5_data *drv, u32 mss_restart)
 {
 	int ret = 0;
-	int scm_ret;
+	int scm_ret = 0;
+	struct scm_desc desc = {0};
+
+	desc.args[0] = MSS_RESTART_PARAM_ID;
+	desc.args[1] = mss_restart;
+	desc.arginfo = SCM_ARGS(2);
 
 	if (drv->restart_reg && !drv->restart_reg_sec) {
 		writel_relaxed(mss_restart, drv->restart_reg);
 		mb();
 		udelay(2);
 	} else if (drv->restart_reg_sec) {
-		ret = scm_call(SCM_SVC_PIL, MSS_RESTART_ID, &mss_restart,
-			sizeof(mss_restart), &scm_ret, sizeof(scm_ret));
-		if (ret)
+		if (!is_scm_armv8()) {
+			ret = scm_call(SCM_SVC_PIL, MSS_RESTART_ID,
+					&mss_restart, sizeof(mss_restart),
+					&scm_ret, sizeof(scm_ret));
+		} else {
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
+						MSS_RESTART_ID), &desc);
+			scm_ret = desc.ret[0];
+		}
+		if (ret || scm_ret)
 			pr_err("Secure MSS restart failed\n");
 	}
 
