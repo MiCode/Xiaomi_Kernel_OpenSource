@@ -509,7 +509,7 @@ static void __init map_mem(void)
 	memblock_set_current_limit(MEMBLOCK_ALLOC_ANYWHERE);
 }
 #ifdef CONFIG_FORCE_PAGES
-static noinline void split_pmd(pmd_t *pmd, unsigned long addr,
+static noinline void __init split_pmd(pmd_t *pmd, unsigned long addr,
 				unsigned long end, unsigned long pfn)
 {
 	pte_t *pte, *start_pte;
