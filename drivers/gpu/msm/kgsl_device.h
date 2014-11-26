@@ -978,4 +978,17 @@ void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
 	size_t (*func)(struct kgsl_device *, u8 *, size_t, void *),
 	void *priv);
 
+/**
+ * struct kgsl_pwr_limit - limit structure for each client
+ * @node: Local list node for the limits list
+ * @level: requested power level
+ * @device: pointer to the device structure
+ */
+struct kgsl_pwr_limit {
+	struct list_head node;
+	unsigned int level;
+	struct kgsl_device *device;
+};
+
+
 #endif  /* __KGSL_DEVICE_H */
