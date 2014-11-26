@@ -2860,7 +2860,7 @@ dhdpcie_bus_suspend(struct  dhd_bus *bus, bool state)
 	int timeleft;
 	bool pending;
 	int rc = 0;
-	DHD_ERROR(("%s Enter with state :%d\n", __FUNCTION__, state));
+	DHD_INFO(("%s Enter with state :%d\n", __FUNCTION__, state));
 
 	if (bus->dhd == NULL) {
 		DHD_ERROR(("bus not inited\n"));
@@ -2925,7 +2925,7 @@ dhdpcie_bus_suspend(struct  dhd_bus *bus, bool state)
 		bus->wait_for_d3_ack = 1;
 	} else {
 		/* Resume */
-		DHD_ERROR(("dhdpcie_bus_suspend resume\n"));
+		DHD_INFO(("dhdpcie_bus_suspend resume\n"));
 		rc = dhdpcie_pci_suspend_resume(bus->dev, state);
 		bus->suspended = FALSE;
 		if (dhdpcie_bus_cfg_read_dword(bus, PCI_VENDOR_ID, 4) == PCIE_LINK_DOWN) {
