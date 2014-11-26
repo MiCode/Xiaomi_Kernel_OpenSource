@@ -1324,31 +1324,39 @@ static int __wait_seqno(struct intel_engine_cs *ring, u32 seqno,
 }
 
 /**
- * Waits for a sequence number to be signaled, and cleans up the
+ * Waits for a request to be signaled, and cleans up the
  * request and object lists appropriately for that event.
  */
 int
-i915_wait_seqno(struct intel_engine_cs *ring, uint32_t seqno)
+i915_wait_request(struct drm_i915_gem_request *req)
 {
-	struct drm_device *dev = ring->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	bool interruptible = dev_priv->mm.interruptible;
+	struct drm_device *dev;
+	struct drm_i915_private *dev_priv;
+	bool interruptible;
 	int ret;
 
+	BUG_ON(req == NULL);
+
+	dev = req->ring->dev;
+	dev_priv = dev->dev_private;
+	interruptible = dev_priv->mm.interruptible;
+
 	BUG_ON(!mutex_is_locked(&dev->struct_mutex));
-	BUG_ON(seqno == 0);
 
 	ret = i915_gem_wedged(dev, interruptible);
 	if (ret)
 		return ret;
 
-	ret = i915_gem_check_ols(ring, seqno);
+	ret = i915_gem_check_olr(req);
 	if (ret)
 		return ret;
 
-	return __wait_seqno(ring, seqno,
-			    atomic_read(&dev_priv->gpu_error.reset_counter),
-			    interruptible, NULL, NULL);
+	i915_gem_request_reference(req);
+	ret = __wait_seqno(req->ring, i915_gem_request_get_seqno(req),
+			   atomic_read(&dev_priv->gpu_error.reset_counter),
+			   interruptible, NULL, NULL);
+	i915_gem_request_unreference(req);
+	return ret;
 }
 
 static int
@@ -1378,18 +1386,13 @@ i915_gem_object_wait_rendering(struct drm_i915_gem_object *obj,
 			       bool readonly)
 {
 	struct drm_i915_gem_request *req;
-	struct intel_engine_cs *ring = obj->ring;
-	u32 seqno;
 	int ret;
 
 	req = readonly ? obj->last_write_req : obj->last_read_req;
 	if (!req)
 		return 0;
 
-	seqno = i915_gem_request_get_seqno(req);
-	WARN_ON(seqno == 0);
-
-	ret = i915_wait_seqno(ring, seqno);
+	ret = i915_wait_request(req);
 	if (ret)
 		return ret;
 
@@ -3387,8 +3390,7 @@ static int
 i915_gem_object_wait_fence(struct drm_i915_gem_object *obj)
 {
 	if (obj->last_fenced_req) {
-		int ret = i915_wait_seqno(obj->ring,
-			   i915_gem_request_get_seqno(obj->last_fenced_req));
+		int ret = i915_wait_request(obj->last_fenced_req);
 		if (ret)
 			return ret;
 

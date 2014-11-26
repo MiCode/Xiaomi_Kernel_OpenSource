@@ -2246,7 +2246,6 @@ static int intel_ring_wait_request(struct intel_engine_cs *ring, int n)
 {
 	struct intel_ringbuffer *ringbuf = ring->buffer;
 	struct drm_i915_gem_request *request;
-	u32 seqno = 0;
 	int ret;
 
 	if (intel_ring_space(ringbuf) >= n)
@@ -2255,15 +2254,14 @@ static int intel_ring_wait_request(struct intel_engine_cs *ring, int n)
 	list_for_each_entry(request, &ring->request_list, list) {
 		if (__intel_ring_space(request->tail, ringbuf->tail,
 				       ringbuf->size) >= n) {
-			seqno = request->seqno;
 			break;
 		}
 	}
 
-	if (seqno == 0)
+	if (&request->list == &ring->request_list)
 		return -ENOSPC;
 
-	ret = i915_wait_seqno(ring, seqno);
+	ret = i915_wait_request(request);
 	if (ret)
 		return ret;
 
@@ -2357,7 +2355,7 @@ static int intel_wrap_ring_buffer(struct intel_engine_cs *ring)
 
 int intel_ring_idle(struct intel_engine_cs *ring)
 {
-	u32 seqno;
+	struct drm_i915_gem_request *req;
 	int ret;
 
 	/* We need to add any requests required to flush the objects and ring */
@@ -2371,11 +2369,11 @@ int intel_ring_idle(struct intel_engine_cs *ring)
 	if (list_empty(&ring->request_list))
 		return 0;
 
-	seqno = list_entry(ring->request_list.prev,
+	req = list_entry(ring->request_list.prev,
 			   struct drm_i915_gem_request,
-			   list)->seqno;
+			   list);
 
-	return i915_wait_seqno(ring, seqno);
+	return i915_wait_request(req);
 }
 
 int

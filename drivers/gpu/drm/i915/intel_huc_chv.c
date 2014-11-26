@@ -180,7 +180,7 @@ static void finish_chv_huc_load(const struct firmware *fw, void *context)
 	struct intel_engine_cs *ring;
 	struct intel_context *ctx;
 	struct intel_ringbuffer *ringbuf;
-	u32 seqno;
+	struct drm_i915_gem_request *req;
 	u32 fw_size;
 	int ret;
 
@@ -218,11 +218,13 @@ static void finish_chv_huc_load(const struct firmware *fw, void *context)
 	if (ret)
 		HUC_ERROR_OUT("add huc commands failed");
 
-	ret = __i915_add_request(ring, NULL, ringbuf->obj, &seqno);
+	req = intel_ring_get_request(ring);
+
+	ret = __i915_add_request(ring, NULL, ringbuf->obj, NULL);
 	if (ret)
 		HUC_ERROR_OUT("Failed to add request");
 
-	ret = i915_wait_seqno(ring, seqno);
+	ret = i915_wait_request(req);
 	if (ret)
 		HUC_ERROR_OUT("Commands didn't finish executing");
 
