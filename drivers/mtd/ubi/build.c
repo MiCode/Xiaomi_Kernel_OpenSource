@@ -153,7 +153,7 @@ static struct device_attribute dev_rd_threshold =
 	__ATTR(rd_threshold, S_IRUGO | S_IWUGO, dev_attribute_show,
 		   dev_attribute_store);
 static struct device_attribute dev_mtd_trigger_scan =
-	__ATTR(peb_scan, S_IRUGO | S_IWUGO,
+	__ATTR(peb_scan, S_IRUGO | S_IWUSR,
 		dev_attribute_show, dev_attribute_store);
 
 /**
