@@ -77,6 +77,11 @@
 #define MSM_FD_RESULT_ANGLE_SHIFT (0x000)
 #define MSM_FD_RESULT_POSE_MASK   (0x7)
 #define MSM_FD_RESULT_POSE_SHIFT  (0x9)
+#define MSM_FD_RESULT_POSE_FRONT           (0x1)
+#define MSM_FD_RESULT_POSE_RIGHT_DIAGONAL  (0x2)
+#define MSM_FD_RESULT_POSE_RIGHT           (0x3)
+#define MSM_FD_RESULT_POSE_LEFT_DIAGONAL   (0x4)
+#define MSM_FD_RESULT_POSE_LEFT            (0x5)
 
 /* FD misc registers */
 #define MSM_FD_MISC_HW_VERSION (0x00)

@@ -374,11 +374,34 @@ void msm_fd_hw_get_result_angle_pose(struct msm_fd_device *fd, int idx,
 	u32 *angle, u32 *pose)
 {
 	u32 reg;
+	u32 pose_reg;
 
 	reg = msm_fd_hw_read_reg(fd, MSM_FD_IOMEM_CORE,
 		MSM_FD_RESULT_ANGLE_POSE(idx));
 	*angle = (reg >> MSM_FD_RESULT_ANGLE_SHIFT) & MSM_FD_RESULT_ANGLE_MASK;
-	*pose = (reg >> MSM_FD_RESULT_POSE_SHIFT) & MSM_FD_RESULT_POSE_MASK;
+	pose_reg = (reg >> MSM_FD_RESULT_POSE_SHIFT) & MSM_FD_RESULT_POSE_MASK;
+
+	switch (pose_reg) {
+	case MSM_FD_RESULT_POSE_FRONT:
+		*pose = MSM_FD_POSE_FRONT;
+		break;
+	case MSM_FD_RESULT_POSE_RIGHT_DIAGONAL:
+		*pose = MSM_FD_POSE_RIGHT_DIAGONAL;
+		break;
+	case MSM_FD_RESULT_POSE_RIGHT:
+		*pose = MSM_FD_POSE_RIGHT;
+		break;
+	case MSM_FD_RESULT_POSE_LEFT_DIAGONAL:
+		*pose = MSM_FD_POSE_LEFT_DIAGONAL;
+		break;
+	case MSM_FD_RESULT_POSE_LEFT:
+		*pose = MSM_FD_POSE_LEFT;
+		break;
+	default:
+		dev_err(fd->dev, "Invalid pose from the engine\n");
+		*pose = MSM_FD_POSE_FRONT;
+		break;
+	}
 }
 
 /*
