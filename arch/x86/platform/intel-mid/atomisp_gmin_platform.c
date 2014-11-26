@@ -62,8 +62,8 @@ EXPORT_SYMBOL(spid);
 #define LDO_1P8V_OFF	0x58 /* ... bottom bit is "enabled" */
 
 /* CRYSTAL COVE PMIC register hackery */
-#define CRYSTAL_1P8V_REG        0x5d
-#define CRYSTAL_2P8V_REG        0x66
+#define CRYSTAL_1P8V_REG        0x57
+#define CRYSTAL_2P8V_REG        0x5d
 #define CRYSTAL_ON      0x63
 #define CRYSTAL_OFF     0x62
 
