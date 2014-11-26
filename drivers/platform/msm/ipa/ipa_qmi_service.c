@@ -34,7 +34,7 @@
 #define IPA_Q6_SERVICE_SVC_ID 0x31
 #define IPA_Q6_SERVICE_INS_ID 2
 
-#define QMI_SEND_REQ_TIMEOUT_MS 10000
+#define QMI_SEND_REQ_TIMEOUT_MS 60000
 
 static struct qmi_handle *ipa_svc_handle;
 static void ipa_a5_svc_recv_msg(struct work_struct *work);
@@ -428,9 +428,11 @@ static int qmi_init_modem_send_sync_msg(void)
 	resp_desc.msg_id = QMI_IPA_INIT_MODEM_DRIVER_RESP_V01;
 	resp_desc.ei_array = ipa_init_modem_driver_resp_msg_data_v01_ei;
 
+	pr_info("Sending QMI_IPA_INIT_MODEM_DRIVER_REQ_V01\n");
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, &req, sizeof(req),
 			&resp_desc, &resp, sizeof(resp),
 			QMI_SEND_REQ_TIMEOUT_MS);
+	pr_info("QMI_IPA_INIT_MODEM_DRIVER_REQ_V01 response received\n");
 	return ipa_check_qmi_response(rc,
 		QMI_IPA_INIT_MODEM_DRIVER_REQ_V01, resp.resp.result,
 		resp.resp.error, "ipa_init_modem_driver_resp_msg_v01");
@@ -573,6 +575,15 @@ static void ipa_q6_clnt_svc_arrive(struct work_struct *work)
 	if (rc == -ENETRESET) {
 		IPAWANERR("qmi_init_modem_send_sync_msg failed due to SSR!\n");
 		/* Cleanup will take place when ipa_wwan_remove is called */
+		return;
+	}
+	if (rc != 0) {
+		IPAWANERR("qmi_init_modem_send_sync_msg failed\n");
+		/*
+		 * This is a very unexpected scenario, which requires a kernel
+		 * panic in order to force dumps for QMI/Q6 side analysis.
+		 */
+		BUG();
 		return;
 	}
 	qmi_modem_init_fin = true;
