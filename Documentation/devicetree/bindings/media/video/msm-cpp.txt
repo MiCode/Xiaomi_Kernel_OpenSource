@@ -18,6 +18,7 @@ Required properties:
   clock names.
 - clock-names: name of the clocks required for the device used by the consumer.
 - qcom,clock-rates: clock rate in Hz.
+- bus_master: Flag for presence of CPP bus master
 
 Example:
 
@@ -42,4 +43,5 @@ Example:
 			"camss_vfe_cpp_ahb_clk", "camss_vfe_cpp_axi_clk",
 			"camss_vfe_cpp_clk","micro_iface_clk", "camss_ahb_clk";
 		qcom,clock-rates = <0 465000000 0 0 465000000 0 0>;
+		bus_master = <0>;
 	};
