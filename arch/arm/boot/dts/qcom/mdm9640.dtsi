@@ -11,11 +11,11 @@
  */
 
 #include "skeleton.dtsi"
-#include <dt-bindings/clock/msm-clocks-zirc.h>
+#include <dt-bindings/clock/msm-clocks-9640.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM ZIRC";
-	compatible = "qcom,msmzirc";
+	model = "Qualcomm Technologies, Inc. MSM 9640";
+	compatible = "qcom,mdm9640";
 	qcom,msm-id = <234 0x10000>, <235 0x10000>, <236 0x10000>,
 		      <237 0x10000>, <238 0x10000>;
 	interrupt-parent = <&intc>;
@@ -72,15 +72,15 @@
 	soc: soc { };
 };
 
-#include "msmzirc-smp2p.dtsi"
-#include "msmzirc-ipcrouter.dtsi"
+#include "mdm9640-smp2p.dtsi"
+#include "mdm9640-ipcrouter.dtsi"
 
-#include "msmzirc-coresight.dtsi"
+#include "mdm9640-coresight.dtsi"
 #include "msm-gdsc.dtsi"
-#include "msmzirc-bus.dtsi"
-#include "msmzirc-ion.dtsi"
-#include "msmzirc-cc.dtsi"
-#include "msmzirc-pm.dtsi"
+#include "mdm9640-bus.dtsi"
+#include "mdm9640-ion.dtsi"
+#include "mdm9640-cc.dtsi"
+#include "mdm9640-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -284,7 +284,7 @@
 	};
 
 	qcom,clock-a7@0b010008 {
-		compatible = "qcom,clock-a7-zirc";
+		compatible = "qcom,clock-a7-9640";
 		reg = <0x0B010008 0x8>;
 		reg-names = "rcg-base";
 
@@ -1068,7 +1068,7 @@
 	};
 
 	tsens: tsens@4a8000 {
-		compatible = "qcom,msmzirc-tsens";
+		compatible = "qcom,mdm9640-tsens";
 		reg = <0x4a8000 0x2000>,
 		      <0x5c000 0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
@@ -1089,8 +1089,8 @@
 	};
 
 	sound {
-		compatible = "qcom,msmzirc-audio-tomtom";
-		qcom,model = "msmzirc-tomtom-i2s-snd-card";
+		compatible = "qcom,mdm9640-audio-tomtom";
+		qcom,model = "mdm9640-tomtom-i2s-snd-card";
 
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
@@ -1428,7 +1428,7 @@
 
 #include "msm-pmd9635-rpm-regulator.dtsi"
 #include "msm-pmd9635.dtsi"
-#include "msmzirc-regulator.dtsi"
+#include "mdm9640-regulator.dtsi"
 
 &pmd9635_pon {
 	interrupts = <0x0 0x8 0x2>;

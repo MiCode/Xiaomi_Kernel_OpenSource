@@ -89,6 +89,6 @@ obj-$(CONFIG_SND_SOC_MSM8909) += snd-soc-msm8909.o
 snd-soc-msm8994-objs := msm8994.o
 obj-$(CONFIG_SND_SOC_MSM8994) += snd-soc-msm8994.o
 
-# for MSMZIRC sound card driver
-snd-soc-msmzirc-objs := msmzirc.o
-obj-$(CONFIG_SND_SOC_MSMZIRC) += snd-soc-msmzirc.o
+# for MDM9640 sound card driver
+snd-soc-mdm9640-objs := mdm9640.o
+obj-$(CONFIG_SND_SOC_MDM9640) += snd-soc-mdm9640.o

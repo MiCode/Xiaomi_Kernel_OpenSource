@@ -41,7 +41,7 @@ obj-$(CONFIG_ARCH_MSM8610) += board-8610.o board-8610-gpiomux.o
 obj-$(CONFIG_ARCH_MSM8610) += clock-8610.o
 obj-$(CONFIG_ARCH_MSM8610) += clock-dsi-8610.o
 obj-$(CONFIG_ARCH_MDM9630) += clock-9630.o
-obj-$(CONFIG_ARCH_MSMZIRC) += board-zirc.o
+obj-$(CONFIG_ARCH_MDM9640) += board-9640.o
 obj-$(CONFIG_ARCH_MDMFERRUM) += board-8909.o
 obj-$(CONFIG_MSM_PM) += ext-buck-control.o
 

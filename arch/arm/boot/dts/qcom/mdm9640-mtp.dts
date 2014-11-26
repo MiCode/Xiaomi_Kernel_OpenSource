@@ -12,10 +12,10 @@
 
 /dts-v1/;
 
-#include "msmzirc-mtp.dtsi"
+#include "mdm9640-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM ZIRC MTP";
-	compatible = "qcom,msmzirc-mtp", "qcom,msmzirc", "qcom,mtp";
+	model = "Qualcomm Technologies, Inc. MSM 9640 MTP";
+	compatible = "qcom,mdm9640-mtp", "qcom,mdm9640", "qcom,mtp";
 	qcom,board-id = <8 0>;
 };

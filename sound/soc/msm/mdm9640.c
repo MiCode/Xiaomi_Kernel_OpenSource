@@ -30,10 +30,10 @@
 #include "../codecs/wcd9330.h"
 
 /* Spk control */
-#define MSMZIRC_SPK_ON 1
+#define MDM9640_SPK_ON 1
 
 /*
- * MSMZIRC run Tomtom at 12.288 Mhz.
+ * MDM9640 run Tomtom at 12.288 Mhz.
  * At present MDM supports 12.288mhz
  * only. Tomtom supports 9.6 MHz also.
  */
@@ -56,7 +56,7 @@
 #define CLOCK_OFF 0
 
 /* Machine driver Name*/
-#define DRV_NAME "msmzirc-asoc-tomtom"
+#define DRV_NAME "mdm9640-asoc-tomtom"
 
 enum mi2s_pcm_mux {
 	PRI_MI2S_PCM = 1,
@@ -89,7 +89,7 @@ struct msm_pinctrl_info {
 	enum pinctrl_pin_state curr_state;
 };
 
-struct msmzirc_machine_data {
+struct mdm9640_machine_data {
 	u32 mclk_freq;
 	u32 prim_clk_usrs;
 	struct msm_pinctrl_info pri_mi2s_pinctrl_info;
@@ -105,18 +105,18 @@ static const struct afe_clk_cfg lpass_default = {
 	0,
 };
 
-static int msmzirc_auxpcm_rate = 8000;
+static int mdm9640_auxpcm_rate = 8000;
 static void *lpaif_pri_muxsel_virt_addr;
 static void *lpass_gpio_mux_spkr_ctl_virt_addr;
 
 static struct mutex cdc_mclk_mutex;
-static int msmzirc_mi2s_rx_ch = 1;
-static int msmzirc_mi2s_tx_ch = 1;
+static int mdm9640_mi2s_rx_ch = 1;
+static int mdm9640_mi2s_tx_ch = 1;
 static int msm_spk_control;
 static atomic_t aux_ref_count;
 static atomic_t mi2s_ref_count;
 
-static int msmzirc_enable_codec_ext_clk(struct snd_soc_codec *codec,
+static int mdm9640_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
 static int msm_reset_pinctrl(struct msm_pinctrl_info *pinctrl_info);
 static int msm_set_pinctrl(struct msm_pinctrl_info *pinctrl_info);
@@ -127,7 +127,7 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
 	.micbias = MBHC_MICBIAS2,
-	.mclk_cb_fn = msmzirc_enable_codec_ext_clk,
+	.mclk_cb_fn = mdm9640_enable_codec_ext_clk,
 	.mclk_rate = MDM_MCLK_CLK_12P288MHZ,
 	.gpio_level_insert = 1,
 	.detect_extn_cable = true,
@@ -147,10 +147,10 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 #define WCD9XXX_MBHC_DEF_BUTTONS 8
 #define WCD9XXX_MBHC_DEF_RLOADS 5
 
-static int msmzirc_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable)
+static int mdm9640_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable)
 {
 	struct snd_soc_card *card = rtd->card;
-	struct msmzirc_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	struct mdm9640_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	struct afe_clk_cfg *lpass_clk = NULL;
 	int ret = 0;
 
@@ -203,11 +203,11 @@ done:
 	return ret;
 }
 
-static void msmzirc_mi2s_shutdown(struct snd_pcm_substream *substream)
+static void mdm9640_mi2s_shutdown(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *card = rtd->card;
-	struct msmzirc_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	struct mdm9640_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	struct msm_pinctrl_info *pinctrl_info = &pdata->pri_mi2s_pinctrl_info;
 	int ret;
 
@@ -217,19 +217,19 @@ static void msmzirc_mi2s_shutdown(struct snd_pcm_substream *substream)
 			pr_err("%s Reset pinctrl failed with %d\n",
 			       __func__, ret);
 
-		ret = msmzirc_mi2s_clk_ctl(rtd, false);
+		ret = mdm9640_mi2s_clk_ctl(rtd, false);
 		if (ret < 0)
 			pr_err("%s Clock disable failed\n", __func__);
 	}
 }
 
-static int msmzirc_mi2s_startup(struct snd_pcm_substream *substream)
+static int mdm9640_mi2s_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_card *card = rtd->card;
-	struct msmzirc_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	struct mdm9640_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	struct msm_pinctrl_info *pinctrl_info = &pdata->pri_mi2s_pinctrl_info;
 	int ret = 0;
 
@@ -279,7 +279,7 @@ static int msmzirc_mi2s_startup(struct snd_pcm_substream *substream)
 
 			goto done;
 		}
-		ret = msmzirc_mi2s_clk_ctl(rtd, true);
+		ret = mdm9640_mi2s_clk_ctl(rtd, true);
 		if (ret < 0) {
 			pr_err("%s clock enable failed\n", __func__);
 
@@ -303,12 +303,12 @@ done:
 	return ret;
 }
 
-static struct snd_soc_ops msmzirc_mi2s_be_ops = {
-	.startup = msmzirc_mi2s_startup,
-	.shutdown = msmzirc_mi2s_shutdown,
+static struct snd_soc_ops mdm9640_mi2s_be_ops = {
+	.startup = mdm9640_mi2s_startup,
+	.shutdown = mdm9640_mi2s_shutdown,
 };
 
-static int msmzirc_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
+static int mdm9640_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 					     struct snd_pcm_hw_params *params)
 {
 	struct snd_interval *rate = hw_param_interval(params,
@@ -316,11 +316,11 @@ static int msmzirc_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 	rate->min = rate->max = MDM_MI2S_RATE;
-	channels->min = channels->max = msmzirc_mi2s_rx_ch;
+	channels->min = channels->max = mdm9640_mi2s_rx_ch;
 	return 0;
 }
 
-static int msmzirc_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
+static int mdm9640_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 					     struct snd_pcm_hw_params *params)
 {
 	struct snd_interval *rate = hw_param_interval(params,
@@ -328,11 +328,11 @@ static int msmzirc_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 	struct snd_interval *channels = hw_param_interval(params,
 						SNDRV_PCM_HW_PARAM_CHANNELS);
 	rate->min = rate->max = MDM_MI2S_RATE;
-	channels->min = channels->max = msmzirc_mi2s_tx_ch;
+	channels->min = channels->max = mdm9640_mi2s_tx_ch;
 	return 0;
 }
 
-static int msmzirc_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
+static int mdm9640_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 				      struct snd_pcm_hw_params *params)
 {
 	struct snd_interval *rate = hw_param_interval(params,
@@ -341,48 +341,48 @@ static int msmzirc_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 	return 0;
 }
 
-static int msmzirc_mi2s_rx_ch_get(struct snd_kcontrol *kcontrol,
+static int mdm9640_mi2s_rx_ch_get(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
-	pr_debug("%s msmzirc_mi2s_rx_ch %d\n", __func__,
-		 msmzirc_mi2s_rx_ch);
+	pr_debug("%s mdm9640_mi2s_rx_ch %d\n", __func__,
+		 mdm9640_mi2s_rx_ch);
 
-	ucontrol->value.integer.value[0] = msmzirc_mi2s_rx_ch - 1;
+	ucontrol->value.integer.value[0] = mdm9640_mi2s_rx_ch - 1;
 	return 0;
 }
 
-static int msmzirc_mi2s_rx_ch_put(struct snd_kcontrol *kcontrol,
+static int mdm9640_mi2s_rx_ch_put(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
-	msmzirc_mi2s_rx_ch = ucontrol->value.integer.value[0] + 1;
-	pr_debug("%s msmzirc_mi2s_rx_ch %d\n", __func__,
-		 msmzirc_mi2s_rx_ch);
+	mdm9640_mi2s_rx_ch = ucontrol->value.integer.value[0] + 1;
+	pr_debug("%s mdm9640_mi2s_rx_ch %d\n", __func__,
+		 mdm9640_mi2s_rx_ch);
 
 	return 1;
 }
 
-static int msmzirc_mi2s_tx_ch_get(struct snd_kcontrol *kcontrol,
+static int mdm9640_mi2s_tx_ch_get(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
-	pr_debug("%s msmzirc_mi2s_tx_ch %d\n", __func__,
-		 msmzirc_mi2s_tx_ch);
+	pr_debug("%s mdm9640_mi2s_tx_ch %d\n", __func__,
+		 mdm9640_mi2s_tx_ch);
 
-	ucontrol->value.integer.value[0] = msmzirc_mi2s_tx_ch - 1;
+	ucontrol->value.integer.value[0] = mdm9640_mi2s_tx_ch - 1;
 	return 0;
 }
 
-static int msmzirc_mi2s_tx_ch_put(struct snd_kcontrol *kcontrol,
+static int mdm9640_mi2s_tx_ch_put(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
-	msmzirc_mi2s_tx_ch = ucontrol->value.integer.value[0] + 1;
-	pr_debug("%s msmzirc_mi2s_tx_ch %d\n", __func__,
-		 msmzirc_mi2s_tx_ch);
+	mdm9640_mi2s_tx_ch = ucontrol->value.integer.value[0] + 1;
+	pr_debug("%s mdm9640_mi2s_tx_ch %d\n", __func__,
+		 mdm9640_mi2s_tx_ch);
 
 	return 1;
 }
 
 
-static int msmzirc_mi2s_get_spk(struct snd_kcontrol *kcontrol,
+static int mdm9640_mi2s_get_spk(struct snd_kcontrol *kcontrol,
 		       struct snd_ctl_elem_value *ucontrol)
 {
 	pr_debug("%s msm_spk_control %d", __func__, msm_spk_control);
@@ -397,7 +397,7 @@ static void mdm_ext_control(struct snd_soc_codec *codec)
 	pr_debug("%s msm_spk_control %d", __func__, msm_spk_control);
 
 	mutex_lock(&dapm->codec->mutex);
-	if (msm_spk_control == MSMZIRC_SPK_ON) {
+	if (msm_spk_control == MDM9640_SPK_ON) {
 		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
 		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
 		snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
@@ -412,7 +412,7 @@ static void mdm_ext_control(struct snd_soc_codec *codec)
 	mutex_unlock(&dapm->codec->mutex);
 }
 
-static int msmzirc_mi2s_set_spk(struct snd_kcontrol *kcontrol,
+static int mdm9640_mi2s_set_spk(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
@@ -425,11 +425,11 @@ static int msmzirc_mi2s_set_spk(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
-static int msmzirc_enable_codec_ext_clk(struct snd_soc_codec *codec,
+static int mdm9640_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm)
 {
 	int ret = 0;
-	struct msmzirc_machine_data *pdata =
+	struct mdm9640_machine_data *pdata =
 			snd_soc_card_get_drvdata(codec->card);
 	struct afe_clk_cfg *lpass_clk = NULL;
 
@@ -482,25 +482,25 @@ err:
 	return ret;
 }
 
-static int msmzirc_mclk_event(struct snd_soc_dapm_widget *w,
+static int mdm9640_mclk_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event)
 {
 	pr_debug("%s event %d\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		return msmzirc_enable_codec_ext_clk(w->codec, 1, true);
+		return mdm9640_enable_codec_ext_clk(w->codec, 1, true);
 	case SND_SOC_DAPM_POST_PMD:
-		return msmzirc_enable_codec_ext_clk(w->codec, 0, true);
+		return mdm9640_enable_codec_ext_clk(w->codec, 0, true);
 	}
 	return 0;
 }
 
-static int msmzirc_auxpcm_startup(struct snd_pcm_substream *substream)
+static int mdm9640_auxpcm_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *card = rtd->card;
-	struct msmzirc_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	struct mdm9640_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	struct msm_pinctrl_info *pinctrl_info = &pdata->pri_mi2s_pinctrl_info;
 	int ret = 0;
 
@@ -539,11 +539,11 @@ done:
 	return ret;
 }
 
-static void msmzirc_auxpcm_shutdown(struct snd_pcm_substream *substream)
+static void mdm9640_auxpcm_shutdown(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *card = rtd->card;
-	struct msmzirc_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	struct mdm9640_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	struct msm_pinctrl_info *pinctrl_info = &pdata->pri_mi2s_pinctrl_info;
 	int ret = 0;
 
@@ -555,36 +555,36 @@ static void msmzirc_auxpcm_shutdown(struct snd_pcm_substream *substream)
 	}
 }
 
-static struct snd_soc_ops msmzirc_auxpcm_be_ops = {
-	.startup = msmzirc_auxpcm_startup,
-	.shutdown = msmzirc_auxpcm_shutdown,
+static struct snd_soc_ops mdm9640_auxpcm_be_ops = {
+	.startup = mdm9640_auxpcm_startup,
+	.shutdown = mdm9640_auxpcm_shutdown,
 };
 
-static int msmzirc_auxpcm_rate_get(struct snd_kcontrol *kcontrol,
+static int mdm9640_auxpcm_rate_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	ucontrol->value.integer.value[0] = msmzirc_auxpcm_rate;
+	ucontrol->value.integer.value[0] = mdm9640_auxpcm_rate;
 	return 0;
 }
 
-static int msmzirc_auxpcm_rate_put(struct snd_kcontrol *kcontrol,
+static int mdm9640_auxpcm_rate_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
 	switch (ucontrol->value.integer.value[0]) {
 	case 0:
-		msmzirc_auxpcm_rate = 8000;
+		mdm9640_auxpcm_rate = 8000;
 		break;
 	case 1:
-		msmzirc_auxpcm_rate = 16000;
+		mdm9640_auxpcm_rate = 16000;
 		break;
 	default:
-		msmzirc_auxpcm_rate = 8000;
+		mdm9640_auxpcm_rate = 8000;
 		break;
 	}
 	return 0;
 }
 
-static int msmzirc_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
+static int mdm9640_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					  struct snd_pcm_hw_params *params)
 {
 	struct snd_interval *rate =
@@ -593,16 +593,16 @@ static int msmzirc_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_interval *channels =
 		hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	rate->min = rate->max = msmzirc_auxpcm_rate;
+	rate->min = rate->max = mdm9640_auxpcm_rate;
 	channels->min = channels->max = 1;
 
 	return 0;
 }
 
-static const struct snd_soc_dapm_widget msmzirc_dapm_widgets[] = {
+static const struct snd_soc_dapm_widget mdm9640_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
-	msmzirc_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	mdm9640_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SPK("Lineout_1 amp", NULL),
 	SND_SOC_DAPM_SPK("Lineout_3 amp", NULL),
@@ -630,7 +630,7 @@ static const char *const mi2s_rx_ch_text[] = {"One", "Two"};
 static const char *const mi2s_tx_ch_text[] = {"One", "Two"};
 static const char *const auxpcm_rate_text[] = {"rate_8000", "rate_16000"};
 
-static const struct soc_enum msmzirc_enum[] = {
+static const struct soc_enum mdm9640_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
 	SOC_ENUM_SINGLE_EXT(2, mi2s_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, mi2s_tx_ch_text),
@@ -638,21 +638,21 @@ static const struct soc_enum msmzirc_enum[] = {
 };
 
 static const struct snd_kcontrol_new mdm_snd_controls[] = {
-	SOC_ENUM_EXT("Speaker Function",   msmzirc_enum[0],
-				 msmzirc_mi2s_get_spk,
-				 msmzirc_mi2s_set_spk),
-	SOC_ENUM_EXT("MI2S_RX Channels",   msmzirc_enum[1],
-				 msmzirc_mi2s_rx_ch_get,
-				 msmzirc_mi2s_rx_ch_put),
-	SOC_ENUM_EXT("MI2S_TX Channels",   msmzirc_enum[2],
-				 msmzirc_mi2s_tx_ch_get,
-				 msmzirc_mi2s_tx_ch_put),
-	SOC_ENUM_EXT("AUX PCM SampleRate", msmzirc_enum[3],
-				 msmzirc_auxpcm_rate_get,
-				 msmzirc_auxpcm_rate_put),
+	SOC_ENUM_EXT("Speaker Function",   mdm9640_enum[0],
+				 mdm9640_mi2s_get_spk,
+				 mdm9640_mi2s_set_spk),
+	SOC_ENUM_EXT("MI2S_RX Channels",   mdm9640_enum[1],
+				 mdm9640_mi2s_rx_ch_get,
+				 mdm9640_mi2s_rx_ch_put),
+	SOC_ENUM_EXT("MI2S_TX Channels",   mdm9640_enum[2],
+				 mdm9640_mi2s_tx_ch_get,
+				 mdm9640_mi2s_tx_ch_put),
+	SOC_ENUM_EXT("AUX PCM SampleRate", mdm9640_enum[3],
+				 mdm9640_auxpcm_rate_get,
+				 mdm9640_auxpcm_rate_put),
 };
 
-static int msmzirc_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
+static int mdm9640_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int ret = 0;
 	struct snd_soc_codec *codec = rtd->codec;
@@ -667,8 +667,8 @@ static int msmzirc_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (ret < 0)
 		goto done;
 
-	snd_soc_dapm_new_controls(dapm, msmzirc_dapm_widgets,
-				  ARRAY_SIZE(msmzirc_dapm_widgets));
+	snd_soc_dapm_new_controls(dapm, mdm9640_dapm_widgets,
+				  ARRAY_SIZE(mdm9640_dapm_widgets));
 
 	/*
 	 * After DAPM Enable pins always
@@ -809,7 +809,7 @@ void *def_codec_mbhc_cal(void)
 }
 
 /* Digital audio interface connects codec <---> CPU */
-static struct snd_soc_dai_link msmzirc_dai[] = {
+static struct snd_soc_dai_link mdm9640_dai[] = {
 	/* FrontEnd DAI Links */
 	{
 		.name = "MDM Media1",
@@ -1042,9 +1042,9 @@ static struct snd_soc_dai_link msmzirc_dai[] = {
 		.codec_dai_name = "tomtom_i2s_rx1",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
-		.init  = &msmzirc_mi2s_audrx_init,
-		.be_hw_params_fixup = &msmzirc_mi2s_rx_be_hw_params_fixup,
-		.ops = &msmzirc_mi2s_be_ops,
+		.init  = &mdm9640_mi2s_audrx_init,
+		.be_hw_params_fixup = &mdm9640_mi2s_rx_be_hw_params_fixup,
+		.ops = &mdm9640_mi2s_be_ops,
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 	},
@@ -1057,8 +1057,8 @@ static struct snd_soc_dai_link msmzirc_dai[] = {
 		.codec_dai_name = "tomtom_i2s_tx1",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
-		.be_hw_params_fixup = &msmzirc_mi2s_tx_be_hw_params_fixup,
-		.ops = &msmzirc_mi2s_be_ops,
+		.be_hw_params_fixup = &mdm9640_mi2s_tx_be_hw_params_fixup,
+		.ops = &mdm9640_mi2s_be_ops,
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 	},
@@ -1093,8 +1093,8 @@ static struct snd_soc_dai_link msmzirc_dai[] = {
 		.codec_dai_name = "msm-stub-rx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AUXPCM_RX,
-		.be_hw_params_fixup = msmzirc_auxpcm_be_params_fixup,
-		.ops = &msmzirc_auxpcm_be_ops,
+		.be_hw_params_fixup = mdm9640_auxpcm_be_params_fixup,
+		.ops = &mdm9640_auxpcm_be_ops,
 		.ignore_pmdown_time = 1,
 		/* this dainlink has playback support */
 		.ignore_suspend = 1,
@@ -1108,8 +1108,8 @@ static struct snd_soc_dai_link msmzirc_dai[] = {
 		.codec_dai_name = "msm-stub-tx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_AUXPCM_TX,
-		.be_hw_params_fixup = msmzirc_auxpcm_be_params_fixup,
-		.ops = &msmzirc_auxpcm_be_ops,
+		.be_hw_params_fixup = mdm9640_auxpcm_be_params_fixup,
+		.ops = &mdm9640_auxpcm_be_ops,
 		.ignore_suspend = 1,
 	},
 	/* Incall Record Uplink BACK END DAI Link */
@@ -1122,7 +1122,7 @@ static struct snd_soc_dai_link msmzirc_dai[] = {
 		.codec_dai_name = "msm-stub-tx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_TX,
-		.be_hw_params_fixup = msmzirc_be_hw_params_fixup,
+		.be_hw_params_fixup = mdm9640_be_hw_params_fixup,
 		.ignore_suspend = 1,
 	},
 	/* Incall Record Downlink BACK END DAI Link */
@@ -1135,7 +1135,7 @@ static struct snd_soc_dai_link msmzirc_dai[] = {
 		.codec_dai_name = "msm-stub-tx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_RX,
-		.be_hw_params_fixup = msmzirc_be_hw_params_fixup,
+		.be_hw_params_fixup = mdm9640_be_hw_params_fixup,
 		.ignore_suspend = 1,
 	},
 	/* Incall Music BACK END DAI Link */
@@ -1148,15 +1148,15 @@ static struct snd_soc_dai_link msmzirc_dai[] = {
 		.codec_dai_name = "msm-stub-rx",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
-		.be_hw_params_fixup = msmzirc_be_hw_params_fixup,
+		.be_hw_params_fixup = mdm9640_be_hw_params_fixup,
 		.ignore_suspend = 1,
 	},
 };
 
-static struct snd_soc_card snd_soc_card_msmzirc = {
-	.name = "msmzirc-tomtom-i2s-snd-card",
-	.dai_link = msmzirc_dai,
-	.num_links = ARRAY_SIZE(msmzirc_dai),
+static struct snd_soc_card snd_soc_card_mdm9640 = {
+	.name = "mdm9640-tomtom-i2s-snd-card",
+	.dai_link = mdm9640_dai,
+	.num_links = ARRAY_SIZE(mdm9640_dai),
 };
 
 static int msm_set_pinctrl(struct msm_pinctrl_info *pinctrl_info)
@@ -1238,7 +1238,7 @@ static void msm_mi2s_release_pinctrl(struct platform_device *pdev,
 				     enum mi2s_pcm_mux mux)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct msmzirc_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	struct mdm9640_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	struct msm_pinctrl_info *pinctrl_info = &pdata->pri_mi2s_pinctrl_info;
 
 	switch (mux) {
@@ -1271,7 +1271,7 @@ static int msm_mi2s_get_pinctrl(struct platform_device *pdev,
 				enum mi2s_pcm_mux mux)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct msmzirc_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	struct mdm9640_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	struct msm_pinctrl_info *pinctrl_info = NULL;
 	struct pinctrl *pinctrl;
 	int ret;
@@ -1336,7 +1336,7 @@ err:
 	return ret;
 }
 
-static int msmzirc_populate_dai_link_component_of_node(
+static int mdm9640_populate_dai_link_component_of_node(
 					struct snd_soc_card *card)
 {
 	int i, index, ret = 0;
@@ -1421,11 +1421,11 @@ static int msmzirc_populate_dai_link_component_of_node(
 err:
 	return ret;
 }
-static int msmzirc_asoc_machine_probe(struct platform_device *pdev)
+static int mdm9640_asoc_machine_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct snd_soc_card *card = &snd_soc_card_msmzirc;
-	struct msmzirc_machine_data *pdata;
+	struct snd_soc_card *card = &snd_soc_card_mdm9640;
+	struct mdm9640_machine_data *pdata;
 	enum apr_subsys_state q6_mdsp_state;
 
 	q6_mdsp_state = apr_get_modem_state();
@@ -1442,11 +1442,11 @@ static int msmzirc_asoc_machine_probe(struct platform_device *pdev)
 
 		return -EINVAL;
 	}
-	pdata = devm_kzalloc(&pdev->dev, sizeof(struct msmzirc_machine_data),
+	pdata = devm_kzalloc(&pdev->dev, sizeof(struct mdm9640_machine_data),
 			     GFP_KERNEL);
 	if (!pdata) {
 		dev_err(&pdev->dev,
-			"%s Can't allocate msmzirc_asoc_mach_data\n", __func__);
+			"%s Can't allocate mdm9640_asoc_mach_data\n", __func__);
 
 		return -ENOMEM;
 	}
@@ -1486,7 +1486,7 @@ static int msmzirc_asoc_machine_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
-	ret = msmzirc_populate_dai_link_component_of_node(card);
+	ret = mdm9640_populate_dai_link_component_of_node(card);
 	if (ret) {
 		ret = -EPROBE_DEFER;
 		goto err;
@@ -1536,10 +1536,10 @@ err:
 	return ret;
 }
 
-static int msmzirc_asoc_machine_remove(struct platform_device *pdev)
+static int mdm9640_asoc_machine_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct msmzirc_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	struct mdm9640_machine_data *pdata = snd_soc_card_get_drvdata(card);
 
 	pdata->mclk_freq = 0;
 	iounmap(lpaif_pri_muxsel_virt_addr);
@@ -1549,26 +1549,26 @@ static int msmzirc_asoc_machine_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id msmzirc_asoc_machine_of_match[]  = {
-	{ .compatible = "qcom,msmzirc-audio-tomtom", },
+static const struct of_device_id mdm9640_asoc_machine_of_match[]  = {
+	{ .compatible = "qcom,mdm9640-audio-tomtom", },
 	{},
 };
 
-static struct platform_driver msmzirc_asoc_machine_driver = {
+static struct platform_driver mdm9640_asoc_machine_driver = {
 	.driver = {
 		.name = DRV_NAME,
 		.owner = THIS_MODULE,
 		.pm = &snd_soc_pm_ops,
-		.of_match_table = msmzirc_asoc_machine_of_match,
+		.of_match_table = mdm9640_asoc_machine_of_match,
 	},
-	.probe = msmzirc_asoc_machine_probe,
-	.remove = msmzirc_asoc_machine_remove,
+	.probe = mdm9640_asoc_machine_probe,
+	.remove = mdm9640_asoc_machine_remove,
 };
 
 
-module_platform_driver(msmzirc_asoc_machine_driver);
+module_platform_driver(mdm9640_asoc_machine_driver);
 
 MODULE_DESCRIPTION("ALSA SoC msm");
 MODULE_LICENSE("GPL v2");
-MODULE_ALIAS("platform:" MSMZIRC_MACHINE_DRV_NAME);
-MODULE_DEVICE_TABLE(of, msmzirc_asoc_machine_of_match);
+MODULE_ALIAS("platform:" MDM9640_MACHINE_DRV_NAME);
+MODULE_DEVICE_TABLE(of, mdm9640_asoc_machine_of_match);

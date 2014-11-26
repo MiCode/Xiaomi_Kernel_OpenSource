@@ -68,8 +68,8 @@ SoCs:
 - MSMTELLURIUM
   compatible = "qcom,msmtellurium"
 
-- MSMZIRC
-  compatible = "qcom,msmzirc"
+- MDM9640
+  compatible = "qcom,mdm9640"
 
 - FSM9010
   compatible = "qcom,fsm9010"
@@ -189,10 +189,10 @@ compatible = "qcom,msmterbium-rumi"
 compatible = "qcom,msmterbium-sim"
 compatible = "qcom,msmterbium-cdp"
 compatible = "qcom,msmterbium-mtp"
-compatible = "qcom,msmzirc-cdp"
-compatible = "qcom,msmzirc-mtp"
-compatible = "qcom,msmzirc-rumi"
-compatible = "qcom,msmzirc-sim"
+compatible = "qcom,mdm9640-cdp"
+compatible = "qcom,mdm9640-mtp"
+compatible = "qcom,mdm9640-rumi"
+compatible = "qcom,mdm9640-sim"
 compatible = "qcom,fsm9010-cdp"
 compatible = "qcom,fsm9010-mtp"
 compatible = "qcom,fsm9900-cdp"

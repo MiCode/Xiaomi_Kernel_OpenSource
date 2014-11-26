@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MSM_CLOCKS_ZIRC_HWIO_H
-#define __MSM_CLOCKS_ZIRC_HWIO_H
+#ifndef __MSM_CLOCKS_9640_HWIO_H
+#define __MSM_CLOCKS_9640_HWIO_H
 
 #define FMAX_LOW        1
 #define FMAX_NOM        2

@@ -480,12 +480,12 @@ static struct msm_soc_info cpu_of_id[] = {
 	[261] = {MSM_CPU_8909, "MDMFERRUM"},
 	[262] = {MSM_CPU_8909, "MDMFERRUM"},
 
-	/* ZIRC IDs */
-	[234] = {MSM_CPU_ZIRC, "MSMZIRC"},
-	[235] = {MSM_CPU_ZIRC, "MSMZIRC"},
-	[236] = {MSM_CPU_ZIRC, "MSMZIRC"},
-	[237] = {MSM_CPU_ZIRC, "MSMZIRC"},
-	[238] = {MSM_CPU_ZIRC, "MSMZIRC"},
+	/* 9640 IDs */
+	[234] = {MSM_CPU_9640, "MDM9640"},
+	[235] = {MSM_CPU_9640, "MDM9640"},
+	[236] = {MSM_CPU_9640, "MDM9640"},
+	[237] = {MSM_CPU_9640, "MDM9640"},
+	[238] = {MSM_CPU_9640, "MDM9640"},
 
 	/* 8994 ID */
 	[207] = {MSM_CPU_8994, "MSM8994"},
@@ -1001,9 +1001,9 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 233;
 		strlcpy(dummy_socinfo.build_id, "msm8936 - ",
 			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msmzirc()) {
+	} else if (early_machine_is_mdm9640()) {
 		dummy_socinfo.id = 238;
-		strlcpy(dummy_socinfo.build_id, "msmzirc - ",
+		strlcpy(dummy_socinfo.build_id, "mdm9640 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msm8994()) {
 		dummy_socinfo.id = 207;

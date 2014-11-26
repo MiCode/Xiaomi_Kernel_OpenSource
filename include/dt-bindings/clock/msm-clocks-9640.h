@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MSM_CLOCKS_ZIRC_H
-#define __MSM_CLOCKS_ZIRC_H
+#ifndef __MSM_CLOCKS_9640_H
+#define __MSM_CLOCKS_9640_H
 
 /* clock_rpm controlled clocks */
 #define clk_xo_clk_src			&xo_clk_src

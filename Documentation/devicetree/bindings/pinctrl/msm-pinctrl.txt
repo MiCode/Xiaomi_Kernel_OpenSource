@@ -9,10 +9,10 @@ semantics.
 
  Required Properties:
  - compatible: identifies TLMM hardware version. should be one of the following
- 	"qcom,msm-tlmm-8916"
+	"qcom,msm-tlmm-8916"
 	"qcom,msm-tlmm-8226"
 	"qcom,msm-tlmm-8974"
-
+	"qcom,msm-tlmm-mdm9640"
  - reg: Base address of the pin controller hardware module and length of
    the address space it occupies.
 

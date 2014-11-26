@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,12 +12,12 @@
 
 /dts-v1/;
 
-#include "msmzirc.dtsi"
-#include "msmzirc-pinctrl.dtsi"
+#include "mdm9640.dtsi"
+#include "mdm9640-pinctrl.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MDM ZIRC SIM";
-	compatible = "qcom,msmzirc-sim", "qcom,msmzirc", "qcom,sim";
+	model = "Qualcomm Technologies, Inc. MDM 9640 RUMI";
+	compatible = "qcom,mdm9640-rumi", "qcom,mdm9640", "qcom,rumi";
 	qcom,board-id = <16 0>;
 };
 
@@ -27,13 +27,24 @@
 	pinctrl-0 = <&uart2_console_active>;
 };
 
-&ipa_hw {
-		qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
+&spi_0 {
+	status = "ok";
+	ethernet-switch@0 {
+		compatible = "simtec,ks8851";
+		interrupt-parent = <&msm_gpio>;
+		reg = <0>;
+		spi-max-frequency = <2400000>;
+		interrupts = <88 0>;
+		vdd-io-supply = <&spi_eth_vreg>;
+		vdd-phy-supply = <&spi_eth_vreg>;
+		rst-gpio = <&msm_gpio 89 0>;
 	};
+};
 
 &usb3 {
 	status = "ok";
 	qcom,skip-charger-detection;
+	qcom,otg-capability;
 	qcom,vbus-present;
 	dwc3@8a00000 {
 		maximum-speed = "high-speed";
@@ -42,22 +53,21 @@
 
 &qusb_phy {
 	status = "ok";
+	qcom,emulation;
 };
 
 &ssphy {
 	status = "ok";
+	qcom,emulation;
 };
 
 &soc {
 	android_usb {
 		status = "ok";
 	};
+
 };
 
-&qnand_1 {
-	status = "ok";
-};
-
-&qrng {
-	status = "ok";
+&ipa_hw {
+	qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
 };

@@ -177,15 +177,15 @@ void __init msm_map_msm8610_io(void)
 }
 #endif /* CONFIG_ARCH_MSM8610 */
 
-#ifdef CONFIG_ARCH_MSMZIRC
-static struct map_desc msmzirc_io_desc[] __initdata = {
-#ifdef CONFIG_DEBUG_MSMZIRC_UART
+#ifdef CONFIG_ARCH_MDM9640
+static struct map_desc mdm9640_io_desc[] __initdata = {
+#ifdef CONFIG_DEBUG_MDM9640_UART
 	MSM_DEVICE(DEBUG_UART),
 #endif
 };
 
-void __init msm_map_msmzirc_io(void)
+void __init msm_map_mdm9640_io(void)
 {
-	iotable_init(msmzirc_io_desc, ARRAY_SIZE(msmzirc_io_desc));
+	iotable_init(mdm9640_io_desc, ARRAY_SIZE(mdm9640_io_desc));
 }
-#endif /* CONFIG_ARCH_MSMZIRC */
+#endif /* CONFIG_ARCH_MDM9640 */

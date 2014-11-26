@@ -634,7 +634,7 @@ void msm_map_fsm9010_io(void);
 void msm_map_8974_io(void);
 void msm_map_8084_io(void);
 void msm_map_mdm9630_io(void);
-void msm_map_msmzirc_io(void);
+void msm_map_mdm9640_io(void);
 void msm_map_msm8625_io(void);
 void msm_map_msm9625_io(void);
 void msm_init_irq(void);
