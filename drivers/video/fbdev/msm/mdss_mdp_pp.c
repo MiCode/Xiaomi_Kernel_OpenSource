@@ -1645,6 +1645,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	struct mdss_data_type *mdata;
 	struct mdss_ad_info *ad = NULL;
 	struct mdss_mdp_ad *ad_hw = NULL;
+	struct mdp_pa_v2_cfg_data *pa_v2_cfg_data = NULL;
 	struct mdss_mdp_ctl *ctl;
 	u32 mixer_cnt;
 	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
@@ -1694,8 +1695,9 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
 
 	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
+		pa_v2_cfg_data = &mdss_pp_res->pa_v2_disp_cfg[disp_num];
 		pp_pa_v2_config(flags, base + MDSS_MDP_REG_DSPP_PA_BASE, pp_sts,
-				&mdss_pp_res->pa_v2_disp_cfg[disp_num],
+				&pa_v2_cfg_data->pa_v2_data,
 				PP_DSPP);
 	} else
 		pp_pa_config(flags, base + MDSS_MDP_REG_DSPP_PA_BASE, pp_sts,
@@ -1908,7 +1910,7 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	mutex_lock(&mdss_pp_mutex);
 
 	flags = mdss_pp_res->pp_disp_flags[disp_num];
-	pa_v2_flags = mdss_pp_res->pa_v2_disp_cfg[disp_num].flags;
+	pa_v2_flags = mdss_pp_res->pa_v2_disp_cfg[disp_num].pa_v2_data.flags;
 
 	/*
 	 * If a LUT based PP feature needs to be reprogrammed during resume,
@@ -1965,6 +1967,7 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 	struct mdss_ad_info *ad;
 	struct mdss_data_type *mdata;
 	struct msm_fb_data_type *bl_mfd;
+	struct mdp_pa_v2_cfg_data *pa_v2_cache_cfg = NULL;
 
 	if (!ctl || !ctl->mdata || !ctl->mfd) {
 		pr_err("invalid input: ctl = 0x%p, mdata = 0x%p, mfd = 0x%p\n",
@@ -1983,10 +1986,11 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 
 	if (pp_sts.pa_sts & PP_STS_ENABLE) {
 		flags |= PP_FLAGS_DIRTY_PA;
+		pa_v2_cache_cfg = &mdss_pp_res->pa_v2_disp_cfg[disp_num];
 		if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
-			if (!(mdss_pp_res->pa_v2_disp_cfg[disp_num].flags
+			if (!(pa_v2_cache_cfg->pa_v2_data.flags
 						& MDP_PP_OPS_DISABLE))
-				mdss_pp_res->pa_v2_disp_cfg[disp_num].flags |=
+				pa_v2_cache_cfg->pa_v2_data.flags |=
 					MDP_PP_OPS_WRITE;
 		} else {
 			if (!(mdss_pp_res->pa_disp_cfg[disp_num].flags
@@ -2456,6 +2460,7 @@ int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config,
 	u32 disp_num, dspp_num = 0;
 	char __iomem *pa_addr;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdp_pa_v2_cfg_data *pa_v2_cache = NULL;
 
 	if (mdata->mdp_rev < MDSS_MDP_HW_REV_103)
 		return -EINVAL;
@@ -2500,11 +2505,11 @@ int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config,
 			if (ret)
 				goto pa_config_exit;
 		}
-		mdss_pp_res->pa_v2_disp_cfg[disp_num] =
-			config->pa_v2_data;
-		mdss_pp_res->pa_v2_disp_cfg[disp_num].six_zone_curve_p0 =
+		pa_v2_cache = &mdss_pp_res->pa_v2_disp_cfg[disp_num];
+		*pa_v2_cache = *config;
+		pa_v2_cache->pa_v2_data.six_zone_curve_p0 =
 			&mdss_pp_res->six_zone_lut_curve_p0[disp_num][0];
-		mdss_pp_res->pa_v2_disp_cfg[disp_num].six_zone_curve_p1 =
+		pa_v2_cache->pa_v2_data.six_zone_curve_p1 =
 			&mdss_pp_res->six_zone_lut_curve_p1[disp_num][0];
 		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PA;
 	}
