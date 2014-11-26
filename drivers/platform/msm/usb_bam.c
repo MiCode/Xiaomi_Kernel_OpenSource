@@ -857,7 +857,7 @@ static void _usb_bam_suspend_core(enum usb_ctrl bam_type, bool disconnect)
 		info[bam_type].pending_lpm = 0;
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		pr_debug("%s: Going to LPM\n", __func__);
-		pm_runtime_suspend(usb_device);
+		pm_runtime_idle(usb_device);
 	} else
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 }
@@ -977,8 +977,6 @@ static int usb_bam_disconnect_ipa_prod(
 	/* Start release handshake on the last producer pipe for non-DPL case*/
 	if (info[cur_bam].prod_pipes_enabled_per_bam == 1 && !is_dpl)
 		wait_for_prod_release(cur_bam);
-	if (pipe_connect->bam_mode == USB_BAM_DEVICE && !is_dpl)
-		usb_bam_resume_core(cur_bam, pipe_connect->bam_mode);
 
 	/* close IPA -> USB pipe */
 	if (pipe_connect->pipe_type == USB_BAM_PIPE_BAM2BAM) {
@@ -2776,7 +2774,7 @@ static bool is_ipa_handle_valid(u32 ipa_handle)
 
 int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 {
-	int ret;
+	int ret = 0;
 	u8 idx = 0;
 	struct usb_bam_pipe_connect *pipe_connect;
 	enum usb_ctrl cur_bam;
@@ -2799,23 +2797,25 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	cur_bam = pipe_connect->bam_type;
 	bam_mode = pipe_connect->bam_mode;
 
+	/* Ensure USB device is not in low power mode while disconnecting */
+	if (bam_mode == USB_BAM_DEVICE) {
+		info[cur_bam].pending_lpm = 1;
+		usb_bam_resume_core(cur_bam, bam_mode);
+	}
+
 	mutex_lock(&info[cur_bam].suspend_resume_mutex);
 	/* Delay USB core to go into lpm before we finish our handshake */
 	if (is_ipa_handle_valid(ipa_params->prod_clnt_hdl)) {
 		ret = usb_bam_disconnect_ipa_prod(ipa_params,
 				cur_bam, bam_mode);
-		if (ret) {
-			mutex_unlock(&info[cur_bam].suspend_resume_mutex);
-			return ret;
-		}
+		if (ret)
+			goto out;
 	}
 
 	if (is_ipa_handle_valid(ipa_params->cons_clnt_hdl)) {
 		ret = usb_bam_disconnect_ipa_cons(ipa_params, cur_bam);
-		if (ret) {
-			mutex_unlock(&info[cur_bam].suspend_resume_mutex);
-			return ret;
-		}
+		if (ret)
+			goto out;
 	}
 
 	/* Notify CONS release on the last cons pipe released */
@@ -2828,14 +2828,17 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 				ipa_rm_resource_cons[cur_bam]);
 		}
 
-		if (pipe_connect->bam_mode == USB_BAM_DEVICE) {
-			pr_debug("%s Ended disconnect sequence\n", __func__);
-			usb_bam_suspend_core(cur_bam, USB_BAM_DEVICE, 1);
-		}
+	}
+
+out:
+	if (ctx.pipes_enabled_per_bam[cur_bam] == 0 &&
+			bam_mode == USB_BAM_DEVICE) {
+		pr_debug("%s Ended disconnect sequence\n", __func__);
+		usb_bam_suspend_core(cur_bam, USB_BAM_DEVICE, 1);
 	}
 
 	mutex_unlock(&info[cur_bam].suspend_resume_mutex);
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(usb_bam_disconnect_ipa);
 
