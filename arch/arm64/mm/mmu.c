@@ -69,7 +69,9 @@ static struct cachepolicy cache_policies[] __initdata = {
 #ifdef CONFIG_STRICT_MEMORY_RWX
 static struct {
 	pmd_t *pmd;
+	pte_t *pte;
 	pmd_t saved_pmd;
+	pte_t saved_pte;
 	bool made_writeable;
 } mem_unprotect;
 
@@ -120,11 +122,15 @@ void mem_text_address_writeable(u64 addr)
 	mem_unprotect.pmd = pmd_offset(pud, addr);
 	addr_aligned = addr & PAGE_MASK;
 	mem_unprotect.saved_pmd = *mem_unprotect.pmd;
-	if ((mem_unprotect.saved_pmd & PMD_TYPE_MASK) != PMD_TYPE_SECT)
-		return;
-
-	set_pmd(mem_unprotect.pmd,
-		__pmd(__pa(addr_aligned) | prot_sect_kernel));
+	if ((mem_unprotect.saved_pmd & PMD_TYPE_MASK) == PMD_TYPE_SECT) {
+		set_pmd(mem_unprotect.pmd,
+			__pmd(__pa(addr_aligned) | prot_sect_kernel));
+	} else {
+		mem_unprotect.pte = pte_offset_kernel(mem_unprotect.pmd, addr);
+		mem_unprotect.saved_pte = *mem_unprotect.pte;
+		set_pte(mem_unprotect.pte, pfn_pte(__pa(addr) >> PAGE_SHIFT,
+						   PAGE_KERNEL_EXEC));
+	}
 	flush_tlb_kernel_range(addr, addr + PAGE_SIZE);
 
 	mem_unprotect.made_writeable = 1;
@@ -134,7 +140,10 @@ void mem_text_address_writeable(u64 addr)
 void mem_text_address_restore(u64 addr)
 {
 	if (mem_unprotect.made_writeable) {
-		*mem_unprotect.pmd = mem_unprotect.saved_pmd;
+		if ((mem_unprotect.saved_pmd & PMD_TYPE_MASK) == PMD_TYPE_SECT)
+			*mem_unprotect.pmd = mem_unprotect.saved_pmd;
+		else
+			*mem_unprotect.pte = mem_unprotect.saved_pte;
 		flush_tlb_kernel_range(addr, addr + PAGE_SIZE);
 	}
 }
