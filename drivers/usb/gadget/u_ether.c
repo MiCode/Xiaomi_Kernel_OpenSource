@@ -550,12 +550,12 @@ static int alloc_requests(struct eth_dev *dev, struct gether *link, unsigned n)
 
 	spin_lock(&dev->req_lock);
 	status = prealloc(&dev->tx_reqs, link->in_ep, n * tx_qmult,
-				dev->gadget->sg_supported,
+				dev->sg_enabled,
 				dev->header_len);
 	if (status < 0)
 		goto fail;
 	status = prealloc(&dev->rx_reqs, link->out_ep, n,
-				dev->gadget->sg_supported,
+				dev->sg_enabled,
 				dev->header_len);
 	if (status < 0)
 		goto fail;
@@ -1052,7 +1052,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 
 	dev->tx_pkts_rcvd++;
-	if (dev->gadget->sg_supported && dev->sg_enabled) {
+	if (dev->sg_enabled) {
 		skb_queue_tail(&dev->tx_skb_q, skb);
 		if (dev->tx_skb_q.qlen > tx_stop_threshold) {
 			dev->tx_throttle++;
@@ -1695,7 +1695,7 @@ void gether_enable_sg(struct gether *link, bool enable)
 {
 	struct eth_dev		*dev = link->ioport;
 
-	dev->sg_enabled = enable;
+	dev->sg_enabled = enable ? dev->gadget->sg_supported : false;
 }
 
 void gether_update_dl_max_pkts_per_xfer(struct gether *link, uint32_t n)
@@ -1739,7 +1739,7 @@ struct net_device *gether_connect(struct gether *link)
 	/* if scatter/gather or sg is supported then headers can be part of
 	 * req->buf which is allocated later
 	 */
-	if (!dev->gadget->sg_supported) {
+	if (!dev->sg_enabled) {
 		link->header = kzalloc(sizeof(struct rndis_packet_msg_type),
 						GFP_ATOMIC);
 		if (!link->header) {
@@ -1748,9 +1748,6 @@ struct net_device *gether_connect(struct gether *link)
 			goto fail;
 		}
 	}
-
-	/* function driver may later disable sg support */
-	dev->sg_enabled = dev->gadget->sg_supported;
 
 	link->in_ep->driver_data = dev;
 	result = usb_ep_enable(link->in_ep);
@@ -1866,11 +1863,11 @@ void gether_disconnect(struct gether *link)
 
 		spin_unlock(&dev->req_lock);
 		if (link->multi_pkt_xfer ||
-				dev->gadget->sg_supported) {
+				dev->sg_enabled) {
 			kfree(req->buf);
 			req->buf = NULL;
 		}
-		if (dev->gadget->sg_supported) {
+		if (dev->sg_enabled) {
 			kfree(req->context);
 			kfree(req->sg);
 		}
@@ -1880,7 +1877,7 @@ void gether_disconnect(struct gether *link)
 	}
 
 	/* Free rndis header buffer memory */
-	if (!dev->gadget->sg_supported)
+	if (!dev->sg_enabled)
 		kfree(link->header);
 	link->header = NULL;
 	spin_unlock(&dev->req_lock);

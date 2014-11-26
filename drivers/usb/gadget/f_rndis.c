@@ -698,7 +698,8 @@ static int rndis_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		 */
 		rndis->port.cdc_filter = 0;
 
-		DBG(cdev, "RNDIS RX/TX early activation ... \n");
+		DBG(cdev, "RNDIS RX/TX early activation ...\n");
+		gether_enable_sg(&rndis->port, true);
 		net = gether_connect(&rndis->port);
 		if (IS_ERR(net))
 			return PTR_ERR(net);
