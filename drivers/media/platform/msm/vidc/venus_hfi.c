@@ -707,7 +707,6 @@ static int venus_hfi_core_start_cpu(struct venus_hfi_device *device)
 	venus_hfi_write_register(device,
 			VIDC_WRAPPER_INTR_MASK,
 			VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK);
-	venus_hfi_write_register(device, VIDC_CPU_CS_SCIACMDARG3, 1);
 
 	while (!ctrl_status && count < max_tries) {
 		ctrl_status = venus_hfi_read_register(
@@ -2399,7 +2398,6 @@ static int venus_hfi_core_release(void *device)
 			dprintk(VIDC_ERR,
 					"Failed to unset and free imem in core release: %d\n",
 					rc);
-		venus_hfi_write_register(dev, VIDC_CPU_CS_SCIACMDARG3, 0);
 		if (!(dev->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
 			disable_irq_nosync(dev->hal_data->irq);
 		dev->intr_status = 0;
