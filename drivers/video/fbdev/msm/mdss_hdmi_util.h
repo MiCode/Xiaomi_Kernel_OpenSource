@@ -267,6 +267,7 @@
 enum hdmi_tx_feature_type {
 	HDMI_TX_FEAT_EDID,
 	HDMI_TX_FEAT_HDCP,
+	HDMI_TX_FEAT_HDCP2P2,
 	HDMI_TX_FEAT_CEC,
 	HDMI_TX_FEAT_MAX,
 };

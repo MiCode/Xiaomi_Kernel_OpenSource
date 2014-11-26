@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,6 +56,7 @@ struct hdmi_hdcp_ctrl {
 	struct work_struct hdcp_int_work;
 	struct completion r0_checked;
 	struct hdmi_hdcp_init_data init_data;
+	struct hdmi_hdcp_ops *ops;
 };
 
 const char *hdcp_state_name(enum hdmi_hdcp_state hdcp_state)
@@ -1531,6 +1532,12 @@ void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data)
 {
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = NULL;
 	int ret;
+	static struct hdmi_hdcp_ops ops = {
+		.hdmi_hdcp_isr = hdmi_hdcp_isr,
+		.hdmi_hdcp_reauthenticate = hdmi_hdcp_reauthenticate,
+		.hdmi_hdcp_authenticate = hdmi_hdcp_authenticate,
+		.hdmi_hdcp_off = hdmi_hdcp_off
+	};
 
 	if (!init_data || !init_data->core_io || !init_data->qfprom_io ||
 		!init_data->mutex || !init_data->ddc_ctrl ||
@@ -1547,6 +1554,7 @@ void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data)
 	}
 
 	hdcp_ctrl->init_data = *init_data;
+	hdcp_ctrl->ops = &ops;
 
 	if (sysfs_create_group(init_data->sysfs_kobj,
 				&hdmi_hdcp_fs_attr_group)) {
@@ -1575,3 +1583,9 @@ void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data)
 error:
 	return (void *)hdcp_ctrl;
 } /* hdmi_hdcp_init */
+
+struct hdmi_hdcp_ops *hdmi_hdcp_start(void *input)
+{
+	return ((struct hdmi_hdcp_ctrl *)input)->ops;
+}
+

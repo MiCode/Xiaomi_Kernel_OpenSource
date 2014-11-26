@@ -178,6 +178,8 @@ struct hdmi_tx_ctrl {
 	void *downstream_data;
 
 	void *feature_data[HDMI_TX_FEAT_MAX];
+	struct hdmi_hdcp_ops *hdcp_ops;
+	void *hdcp_feature_data;
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */
