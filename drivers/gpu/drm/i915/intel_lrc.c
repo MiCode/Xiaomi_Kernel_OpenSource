@@ -1324,7 +1324,6 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	int instp_mode;
 	u32 instp_mask;
 	int ret;
-	int fd_fence_complete = -1;
 	bool watchdog_running = 0;
 
 	instp_mode = args->flags & I915_EXEC_CONSTANTS_MASK;
@@ -1385,44 +1384,6 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	if (args->flags & I915_EXEC_GEN7_SOL_RESET) {
 		DRM_DEBUG("sol reset is gen7 only\n");
 		return -EINVAL;
-	}
-
-#ifdef CONFIG_SYNC
-	if (args->flags & I915_EXEC_WAIT_FENCE) {
-		/* Validate the fence wait parameter but don't do the wait until
-		 * a scheduler arrives. Otherwise the entire universe stalls. */
-		int fd_fence_wait = (int) args->rsvd2;
-
-		if (fd_fence_wait < 0) {
-			DRM_ERROR("Wait fence for ring %d has invalid id %d\n",
-				  (int) ring->id, fd_fence_wait);
-		} else {
-			struct sync_fence *fence_wait;
-
-			fence_wait = sync_fence_fdget(fd_fence_wait);
-			if (fence_wait == NULL)
-				DRM_ERROR("Invalid wait fence %d\n",
-					  fd_fence_wait);
-		}
-	}
-#endif
-
-	if (args->flags & I915_EXEC_REQUEST_FENCE) {
-		/* Caller has requested a sync fence.
-		 * User interrupts will be enabled to make sure that
-		 * the timeline is signalled on completion. */
-		ret = i915_sync_create_fence(ring, intel_ring_get_request(ring),
-					     &fd_fence_complete,
-					     args->flags & I915_EXEC_RING_MASK);
-		if (ret) {
-			DRM_ERROR("Fence creation failed for ring %d\n",
-				  ring->id);
-			args->rsvd2 = (__u64) -1;
-			return ret;
-		}
-
-		/* Return the fence through the rsvd2 field */
-		args->rsvd2 = (__u64) fd_fence_complete;
 	}
 
 	ret = execlists_move_to_gpu(ringbuf, vmas);
@@ -1504,12 +1465,6 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 	return 0;
 
 error:
-	if (fd_fence_complete != -1)
-		sys_close(fd_fence_complete);
-
-	if (args->flags & I915_EXEC_REQUEST_FENCE)
-		args->rsvd2 = (__u64) -1;
-
 	return ret;
 }
 
