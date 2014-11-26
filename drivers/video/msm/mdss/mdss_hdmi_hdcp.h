@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,17 +31,25 @@ struct hdmi_hdcp_init_data {
 	struct workqueue_struct *workq;
 	void *cb_data;
 	void (*notify_status)(void *cb_data, enum hdmi_hdcp_state status);
-
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
-
 	u32 phy_addr;
 };
 
-const char *hdcp_state_name(enum hdmi_hdcp_state hdcp_state);
+struct hdmi_hdcp_ops {
+	int (*hdmi_hdcp_isr)(void *ptr);
+	int (*hdmi_hdcp_reauthenticate)(void *input);
+	int (*hdmi_hdcp_authenticate)(void *hdcp_ctrl);
+	void (*hdmi_hdcp_off)(void *hdcp_ctrl);
+};
+
 void *hdmi_hdcp_init(struct hdmi_hdcp_init_data *init_data);
+void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data);
 void hdmi_hdcp_deinit(void *input);
-int hdmi_hdcp_isr(void *ptr);
-int hdmi_hdcp_reauthenticate(void *input);
-int hdmi_hdcp_authenticate(void *hdcp_ctrl);
-void hdmi_hdcp_off(void *hdcp_ctrl);
+void hdmi_hdcp2p2_deinit(void *input);
+
+struct hdmi_hdcp_ops *hdmi_hdcp_start(void *input);
+struct hdmi_hdcp_ops *hdmi_hdcp2p2_start(void *input);
+
+const char *hdcp_state_name(enum hdmi_hdcp_state hdcp_state);
+
 #endif /* __MDSS_HDMI_HDCP_H__ */

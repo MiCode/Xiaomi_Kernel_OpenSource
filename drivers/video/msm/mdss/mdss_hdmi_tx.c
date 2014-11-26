@@ -1119,8 +1119,8 @@ static void hdmi_tx_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
 
 		if (hdmi_ctrl->hpd_state) {
 			DEV_DBG("%s: Reauthenticating\n", __func__);
-			rc = hdmi_hdcp_reauthenticate(
-				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
+			rc = hdmi_ctrl->hdcp_ops->hdmi_hdcp_reauthenticate(
+				hdmi_ctrl->hdcp_feature_data);
 			if (rc)
 				DEV_ERR("%s: HDCP reauth failed. rc=%d\n",
 					__func__, rc);
@@ -1188,15 +1188,28 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdcp_init_data.notify_status = hdmi_tx_hdcp_cb;
 		hdcp_init_data.cb_data = (void *)hdmi_ctrl;
 
+		/*
+		 * Initialize both HDCP 1.4 and 2.2 features, decide which one
+		 * to use at HPD time
+		 */
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP] =
 			hdmi_hdcp_init(&hdcp_init_data);
-		if (!hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]) {
+
+		if (IS_ERR_OR_NULL(
+				  hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP])) {
 			DEV_ERR("%s: hdmi_hdcp_init failed\n", __func__);
 			hdmi_edid_deinit(hdmi_ctrl->feature_data[
 				HDMI_TX_FEAT_EDID]);
 			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] = NULL;
 			return -EPERM;
 		}
+
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2] =
+			hdmi_hdcp2p2_init(&hdcp_init_data);
+
+		if (IS_ERR_OR_NULL(
+				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2]))
+			DEV_WARN("%s: hdmi_hdcp2p2_init failed\n", __func__);
 
 		DEV_DBG("%s: HDCP feature initialized\n", __func__);
 	}
@@ -1332,6 +1345,18 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 
 		if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false))
 			DEV_ERR("%s: Failed to disable ddc power\n", __func__);
+
+		/* Figure out HDCP capabilities of sink */
+		hdmi_ctrl->hdcp_feature_data =
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2];
+		hdmi_ctrl->hdcp_ops =
+			hdmi_hdcp2p2_start(hdmi_ctrl->hdcp_feature_data);
+		if (!hdmi_ctrl->hdcp_ops) {
+			hdmi_ctrl->hdcp_feature_data =
+				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP];
+			hdmi_ctrl->hdcp_ops =
+				hdmi_hdcp_start(hdmi_ctrl->hdcp_feature_data);
+		}
 
 		hdmi_tx_send_cable_notification(hdmi_ctrl, true);
 	} else {
@@ -3341,8 +3366,9 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 		if (hdmi_cec_isr(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]))
 			DEV_ERR("%s: hdmi_cec_isr failed\n", __func__);
 
-	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP])
-		if (hdmi_hdcp_isr(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]))
+	if (hdmi_ctrl->hdcp_ops && hdmi_ctrl->hdcp_feature_data)
+		if (hdmi_ctrl->hdcp_ops->hdmi_hdcp_isr(
+					hdmi_ctrl->hdcp_feature_data))
 			DEV_ERR("%s: hdmi_hdcp_isr failed\n", __func__);
 
 	return IRQ_HANDLED;
@@ -3364,6 +3390,15 @@ static void hdmi_tx_dev_deinit(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_hdcp_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP] = NULL;
 	}
+
+	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2]) {
+		hdmi_hdcp2p2_deinit(
+				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2]);
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2] = NULL;
+	}
+
+	hdmi_ctrl->hdcp_ops = NULL;
+	hdmi_ctrl->hdcp_feature_data = NULL;
 
 	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) {
 		hdmi_edid_deinit(hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]);
@@ -3472,6 +3507,11 @@ static int hdmi_tx_start_hdcp(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return -EINVAL;
 	}
 
+	if (!hdmi_ctrl->hdcp_ops) {
+		DEV_ERR("%s: HDCP feature is not available\n", __func__);
+		return -ENODEV;
+	}
+
 	if (hdmi_ctrl->panel_data.panel_info.cont_splash_enabled ||
 		!hdmi_tx_is_hdcp_enabled(hdmi_ctrl))
 		return 0;
@@ -3484,7 +3524,8 @@ static int hdmi_tx_start_hdcp(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return -ENODEV;
 	}
 
-	rc = hdmi_hdcp_authenticate(hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
+	rc = hdmi_ctrl->hdcp_ops->hdmi_hdcp_authenticate(
+			hdmi_ctrl->hdcp_feature_data);
 	if (rc)
 		DEV_ERR("%s: hdcp auth failed. rc=%d\n", __func__, rc);
 
@@ -3621,8 +3662,8 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 	case MDSS_EVENT_BLANK:
 		if (hdmi_tx_is_hdcp_enabled(hdmi_ctrl)) {
 			DEV_DBG("%s: Turning off HDCP\n", __func__);
-			hdmi_hdcp_off(
-				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP]);
+			hdmi_ctrl->hdcp_ops->hdmi_hdcp_off(
+				hdmi_ctrl->hdcp_feature_data);
 
 			rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM,
 				false);
