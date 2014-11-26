@@ -187,7 +187,8 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define CTS_INT_BIT_MASK           (1 << 7)
 #define ERR_BIT_MASK               (1 << 6)
 #define RSQ_INT_BIT_MASK           (1 << 3)
-#define RDS_INT_BIT_MASK           (1 << 2)
+/* set RDS repeat int bit along with RDS int bit */
+#define RDS_INT_BIT_MASK           (0x0404)
 #define STC_INT_BIT_MASK            1
 #define RSSI_LOW_TH_INT_BIT_MASK    1
 #define RDS_INT_DISABLE_MASK	    0x9
