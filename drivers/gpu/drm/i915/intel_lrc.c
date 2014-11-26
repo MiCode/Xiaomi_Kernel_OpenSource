@@ -1306,7 +1306,7 @@ gen8_logical_disable_protected_mem(struct intel_ringbuffer *ringbuf)
  * @vmas: list of vmas.
  * @batch_obj: the batchbuffer to submit.
  * @exec_start: batchbuffer start virtual address pointer.
- * @flags: translated execbuffer call flags.
+ * @dispatch_flags: translated execbuffer call flags.
  *
  * This is the evil twin version of i915_gem_ringbuffer_submission. It abstracts
  * away the submission details of the execbuffer ioctl call.
@@ -1319,7 +1319,7 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 			       struct drm_i915_gem_execbuffer2 *args,
 			       struct list_head *vmas,
 			       struct drm_i915_gem_object *batch_obj,
-			       u64 exec_start, u32 flags)
+			       u64 exec_start, u32 dispatch_flags)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_ringbuffer *ringbuf = ctx->engine[ring->id].ringbuf;
@@ -1479,7 +1479,7 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 		goto error;
 	}
 
-	ret = ring->emit_bb_start(ringbuf, exec_start, flags);
+	ret = ring->emit_bb_start(ringbuf, exec_start, dispatch_flags);
 	if (ret)
 		goto error;
 

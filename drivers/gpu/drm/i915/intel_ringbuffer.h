@@ -333,7 +333,7 @@ struct intel_engine_cs {
 	int		(*dispatch_execbuffer)(struct intel_engine_cs *ring,
 					       u64 offset, u32 length,
 					       void *priv_data, u32 priv_length,
-					       unsigned flags);
+					       unsigned dispatch_flags);
 #define I915_DISPATCH_SECURE 0x1
 #define I915_DISPATCH_PINNED 0x2
 	void		(*cleanup)(struct intel_engine_cs *ring);
