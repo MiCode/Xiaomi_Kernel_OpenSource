@@ -557,7 +557,7 @@ enum {
 };
 
 enum {
-	mdp_igc_rec601,
+	mdp_igc_rec601 = 1,
 	mdp_igc_rec709,
 	mdp_igc_custom,
 	mdp_igc_mode_max,

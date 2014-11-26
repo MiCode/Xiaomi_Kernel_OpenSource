@@ -21,6 +21,56 @@
 #include "mdss_mdp_pp.h"
 #include "mdss_mdp_pp_cache_config.h"
 
+#define IGC_C1_SHIFT 16
+static u32 pp_igc_601[IGC_LUT_ENTRIES] = {
+	0, 1, 2, 4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 18, 20, 21, 23,
+	25, 27, 29, 31, 33, 35, 37, 40, 42, 45, 48, 50, 53, 56, 59, 62,
+	66, 69, 72, 76, 79, 83, 87, 91, 95, 99, 103, 107, 112, 116, 121,
+	126, 131, 136, 141, 146, 151, 156, 162, 168, 173, 179, 185, 191,
+	197, 204, 210, 216, 223, 230, 237, 244, 251, 258, 265, 273, 280,
+	288, 296, 304, 312, 320, 329, 337, 346, 354, 363, 372, 381, 390,
+	400, 409, 419, 428, 438, 448, 458, 469, 479, 490, 500, 511, 522,
+	533, 544, 555, 567, 578, 590, 602, 614, 626, 639, 651, 664, 676,
+	689, 702, 715, 728, 742, 755, 769, 783, 797, 811, 825, 840, 854,
+	869, 884, 899, 914, 929, 945, 960, 976, 992, 1008, 1024, 1041,
+	1057, 1074, 1091, 1108, 1125, 1142, 1159, 1177, 1195, 1213, 1231,
+	1249, 1267, 1286, 1304, 1323, 1342, 1361, 1381, 1400, 1420, 1440,
+	1459, 1480, 1500, 1520, 1541, 1562, 1582, 1603, 1625, 1646, 1668,
+	1689, 1711, 1733, 1755, 1778, 1800, 1823, 1846, 1869, 1892, 1916,
+	1939, 1963, 1987, 2011, 2035, 2059, 2084, 2109, 2133, 2159, 2184,
+	2209, 2235, 2260, 2286, 2312, 2339, 2365, 2392, 2419, 2446, 2473,
+	2500, 2527, 2555, 2583, 2611, 2639, 2668, 2696, 2725, 2754, 2783,
+	2812, 2841, 2871, 2901, 2931, 2961, 2991, 3022, 3052, 3083, 3114,
+	3146, 3177, 3209, 3240, 3272, 3304, 3337, 3369, 3402, 3435, 3468,
+	3501, 3535, 3568, 3602, 3636, 3670, 3705, 3739, 3774, 3809, 3844,
+	3879, 3915, 3950, 3986, 4022, 4059, 4095,
+};
+
+static u32 pp_igc_709[IGC_LUT_ENTRIES] = {
+	0, 4, 7, 11, 14, 18, 21, 25, 29, 32, 36, 39, 43, 46, 50, 54, 57,
+	61, 64, 68, 71, 75, 78, 82, 86, 90, 94, 98, 102, 107, 111, 115,
+	120, 125, 130, 134, 139, 145, 150, 155, 161, 166, 172, 177, 183,
+	189, 195, 201, 208, 214, 220, 227, 234, 240, 247, 254, 261, 269,
+	276, 283, 291, 298, 306, 314, 322, 330, 338, 347, 355, 364, 372,
+	381, 390, 399, 408, 417, 426, 436, 445, 455, 465, 474, 484, 495,
+	505, 515, 525, 536, 547, 558, 568, 579, 591, 602, 613, 625, 636,
+	648, 660, 672, 684, 696, 708, 721, 733, 746, 759, 772, 785, 798,
+	811, 825, 838, 852, 865, 879, 893, 907, 922, 936, 950, 965, 980,
+	995, 1010, 1025, 1040, 1055, 1071, 1086, 1102, 1118, 1134, 1150,
+	1166, 1183, 1199, 1216, 1232, 1249, 1266, 1283, 1300, 1318, 1335,
+	1353, 1370, 1388, 1406, 1424, 1443, 1461, 1479, 1498, 1517, 1536,
+	1555, 1574, 1593, 1612, 1632, 1652, 1671, 1691, 1711, 1731, 1752,
+	1772, 1793, 1813, 1834, 1855, 1876, 1897, 1919, 1940, 1962, 1984,
+	2005, 2027, 2050, 2072, 2094, 2117, 2139, 2162, 2185, 2208, 2231,
+	2255, 2278, 2302, 2325, 2349, 2373, 2397, 2422, 2446, 2471, 2495,
+	2520, 2545, 2570, 2595, 2621, 2646, 2672, 2697, 2723, 2749, 2775,
+	2802, 2828, 2855, 2881, 2908, 2935, 2962, 2990, 3017, 3044, 3072,
+	3100, 3128, 3156, 3184, 3212, 3241, 3270, 3298, 3327, 3356, 3385,
+	3415, 3444, 3474, 3503, 3533, 3563, 3594, 3624, 3654, 3685, 3716,
+	3746, 3777, 3808, 3840, 3871, 3903, 3934, 3966, 3998, 4030, 4063,
+	4095,
+};
+
 static int pp_hist_lut_cache_params_v1_7(struct mdp_hist_lut_data *config,
 				      struct mdss_pp_res_type *mdss_pp_res)
 {
@@ -452,7 +502,7 @@ int pp_pcc_cache_params(struct mdp_pcc_cfg_data *config,
 	return ret;
 }
 
-int pp_igc_lut_cache_params_v1_7(struct mdp_igc_lut_data *config,
+static int pp_igc_lut_cache_params_v1_7(struct mdp_igc_lut_data *config,
 			    struct mdss_pp_res_type *mdss_pp_res,
 			    u32 copy_from_kernel)
 {
@@ -484,14 +534,33 @@ int pp_igc_lut_cache_params_v1_7(struct mdp_igc_lut_data *config,
 		v17_cache_data = &res_cache->igc_v17_data[disp_num];
 		mdss_pp_res->igc_disp_cfg[disp_num].cfg_payload =
 		(void *) v17_cache_data;
-		if (copy_from_user(&v17_usr_config, config->cfg_payload,
-				   sizeof(v17_usr_config))) {
-			pr_err("failed to copy igc config\n");
-			ret = -EFAULT;
-			goto igc_config_exit;
+		if (!copy_from_kernel) {
+			if (copy_from_user(&v17_usr_config,
+					   config->cfg_payload,
+					   sizeof(v17_usr_config))) {
+				pr_err("failed to copy igc config\n");
+				ret = -EFAULT;
+				goto igc_config_exit;
+			}
+		} else {
+			if (!config->cfg_payload) {
+				pr_err("can't copy config info NULL payload\n");
+				ret = -EINVAL;
+				goto igc_config_exit;
+			}
+			memcpy(&v17_usr_config, config->cfg_payload,
+			       sizeof(v17_usr_config));
 		}
 		if (!(config->ops & MDP_PP_OPS_WRITE)) {
 			pr_debug("op for gamut %d\n", config->ops);
+			goto igc_config_exit;
+		}
+		if (copy_from_kernel && (!v17_usr_config.c0_c1_data ||
+		    !v17_usr_config.c2_data)) {
+			pr_err("copy from kernel invalid params c0_c1_data %p c2_data %p\n",
+				v17_usr_config.c0_c1_data,
+				v17_usr_config.c2_data);
+			ret = -EINVAL;
 			goto igc_config_exit;
 		}
 		if (v17_usr_config.len != IGC_LUT_ENTRIES) {
@@ -537,20 +606,173 @@ igc_config_exit:
 	return ret;
 }
 
+static int pp_igc_lut_cache_params_pipe_v1_7(struct mdp_igc_lut_data *config,
+			    struct mdss_mdp_pipe *pipe,
+			    u32 copy_from_kernel)
+{
+	struct mdp_igc_lut_data_v1_7 *v17_cache_data = NULL, v17_usr_config;
+	int ret = 0, fix_up = 0, i = 0;
+	if (!config || !pipe) {
+		pr_err("invalid param config %p pipe %p\n",
+			config, pipe);
+		return -EINVAL;
+	}
+	if (config->ops & MDP_PP_OPS_READ) {
+		pr_err("read op is not supported\n");
+		return -EINVAL;
+	} else {
+		if (!copy_from_kernel) {
+			if (copy_from_user(&v17_usr_config,
+					   config->cfg_payload,
+					   sizeof(v17_usr_config))) {
+				pr_err("failed to copy igc config\n");
+				ret = -EFAULT;
+				goto igc_config_exit;
+			}
+		} else {
+			if (!config->cfg_payload) {
+				pr_err("can't copy config info NULL payload\n");
+				ret = -EINVAL;
+				goto igc_config_exit;
+			}
+			memcpy(&v17_usr_config, config->cfg_payload,
+			       sizeof(v17_usr_config));
+		}
+		if (!(config->ops & MDP_PP_OPS_WRITE)) {
+			pr_debug("op for gamut %d\n", config->ops);
+			goto igc_config_exit;
+		}
+		if (v17_usr_config.table_fmt < mdp_igc_rec601 ||
+		    v17_usr_config.table_fmt >= mdp_igc_vmax) {
+			pr_err("incorrect igc version %d",
+				v17_usr_config.table_fmt);
+			ret = -EINVAL;
+			goto igc_config_exit;
+		}
+		switch (v17_usr_config.table_fmt) {
+		case mdp_igc_custom:
+			if (!v17_usr_config.c0_c1_data ||
+			    !v17_usr_config.c2_data || v17_usr_config.len !=
+			    IGC_LUT_ENTRIES) {
+				pr_err("invalid c0_c1data %p c2_data %p tbl len %d\n",
+					v17_usr_config.c0_c1_data,
+					v17_usr_config.c2_data,
+					v17_usr_config.len);
+				ret = -EINVAL;
+				goto igc_config_exit;
+			}
+			break;
+		case mdp_igc_rec709:
+			v17_usr_config.c0_c1_data = pp_igc_709;
+			v17_usr_config.c2_data = pp_igc_709;
+			v17_usr_config.len = IGC_LUT_ENTRIES;
+			copy_from_kernel = 1;
+			fix_up = 1;
+			break;
+		case mdp_igc_rec601:
+			v17_usr_config.c0_c1_data = pp_igc_601;
+			v17_usr_config.c2_data = pp_igc_601;
+			v17_usr_config.len = IGC_LUT_ENTRIES;
+			copy_from_kernel = 1;
+			fix_up = 1;
+			break;
+		default:
+			pr_err("invalid format %d\n",
+				v17_usr_config.table_fmt);
+			ret = -EINVAL;
+			goto igc_config_exit;
+		}
+		v17_cache_data = pipe->pp_cfg.igc_cfg.cfg_payload;
+		if (!v17_cache_data)
+			v17_cache_data = kzalloc(sizeof(
+						 struct mdp_igc_lut_data_v1_7),
+						 GFP_KERNEL);
+		if (!v17_cache_data) {
+			pr_err("failed to allocate cache data\n");
+			ret = -ENOMEM;
+			goto igc_config_exit;
+		} else {
+			pipe->pp_cfg.igc_cfg.cfg_payload = v17_cache_data;
+		}
+		v17_cache_data->c0_c1_data = pipe->pp_res.igc_c0_c1;
+		v17_cache_data->c2_data = pipe->pp_res.igc_c2;
+		v17_cache_data->len = IGC_LUT_ENTRIES;
+		if (copy_from_kernel) {
+			memcpy(v17_cache_data->c0_c1_data,
+			       v17_usr_config.c0_c1_data,
+			       IGC_LUT_ENTRIES * sizeof(u32));
+			memcpy(v17_cache_data->c2_data,
+			       v17_usr_config.c2_data,
+			       IGC_LUT_ENTRIES * sizeof(u32));
+			if (fix_up) {
+				for (i = 0; i < IGC_LUT_ENTRIES; i++)
+					v17_cache_data->c0_c1_data[i]
+					|= (v17_cache_data->c0_c1_data[i]
+						<< IGC_C1_SHIFT);
+			}
+		} else {
+			if (copy_from_user(v17_cache_data->c0_c1_data,
+					   v17_usr_config.c0_c1_data,
+					   IGC_LUT_ENTRIES * sizeof(u32))) {
+				pr_err("error in copying the c0_c1_data of size %zd\n",
+					IGC_LUT_ENTRIES * sizeof(u32));
+				ret = -EFAULT;
+				goto igc_config_exit;
+			}
+			if (copy_from_user(v17_cache_data->c2_data,
+					   v17_usr_config.c2_data,
+					   IGC_LUT_ENTRIES * sizeof(u32))) {
+				pr_err("error in copying the c2_data of size %zd\n",
+					IGC_LUT_ENTRIES * sizeof(u32));
+				ret = -EFAULT;
+			}
+		}
+	}
+igc_config_exit:
+	if (ret || (config->ops & MDP_PP_OPS_DISABLE)) {
+		kfree(v17_cache_data);
+		pipe->pp_cfg.igc_cfg.cfg_payload = NULL;
+	}
+	return ret;
+}
+
 int pp_igc_lut_cache_params(struct mdp_igc_lut_data *config,
-			    struct mdss_pp_res_type *mdss_pp_res,
+			    struct mdp_pp_cache_res *res_cache,
 			    u32 copy_from_kernel)
 {
 	int ret = 0;
-	if (!config || !mdss_pp_res) {
+	if (!config || !res_cache) {
 		pr_err("invalid param config %p pp_res %p\n",
-			config, mdss_pp_res);
+			config, res_cache);
 		return -EINVAL;
+	}
+	if (res_cache->block < SSPP_RGB || res_cache->block > DSPP) {
+		pr_err("invalid block for IGC %d\n", res_cache->block);
+		return -EINVAL;
+	}
+	if (!res_cache->mdss_pp_res && !res_cache->pipe_res) {
+		pr_err("NULL payload for block %d mdss_pp_res %p pipe_res %p\n",
+			res_cache->block, res_cache->mdss_pp_res,
+			res_cache->pipe_res);
+		ret = -EINVAL;
+		goto igc_exit;
 	}
 	switch (config->version) {
 	case mdp_igc_v1_7:
-		ret = pp_igc_lut_cache_params_v1_7(config, mdss_pp_res,
-						  copy_from_kernel);
+		if (res_cache->block == DSPP) {
+			ret = pp_igc_lut_cache_params_v1_7(config,
+				     res_cache->mdss_pp_res, copy_from_kernel);
+			if (ret)
+				pr_err("failed to cache IGC params for DSPP ret %d\n",
+					ret);
+
+		} else {
+			ret = pp_igc_lut_cache_params_pipe_v1_7(config,
+				      res_cache->pipe_res, copy_from_kernel);
+			if (ret)
+				pr_err("failed to cache IGC params for SSPP ret %d\n",
+					ret);
+		}
 		break;
 	default:
 		pr_err("unsupported igc version %d\n",
@@ -558,6 +780,7 @@ int pp_igc_lut_cache_params(struct mdp_igc_lut_data *config,
 		ret = -EINVAL;
 		break;
 	}
+igc_exit:
 	return ret;
 }
 

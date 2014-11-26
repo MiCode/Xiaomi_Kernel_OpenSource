@@ -1260,6 +1260,7 @@ void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
 			hist_info = &pipe->pp_res.hist;
 			pp_hist_disable(hist_info);
 		}
+		kfree(pipe->pp_cfg.igc_cfg.cfg_payload);
 		memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
 		memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
 	}
@@ -1272,7 +1273,7 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	char __iomem *pipe_base;
 	u32 pipe_num, pipe_cnt;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	u32 current_opmode;
+	u32 current_opmode, location;
 	u32 dcm_state = DCM_UNINIT;
 
 	if (pipe == NULL)
@@ -1297,6 +1298,7 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	case MDSS_MDP_PIPE_TYPE_VIG:
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_VIG_BASE;
 		pipe_cnt = mdata->nvig_pipes;
+		location = SSPP_VIG;
 		switch (pipe->num) {
 		case MDSS_MDP_SSPP_VIG0:
 			pipe_num = 0;
@@ -1319,6 +1321,7 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	case MDSS_MDP_PIPE_TYPE_RGB:
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_RGB_BASE;
 		pipe_cnt = mdata->nrgb_pipes;
+		location = SSPP_RGB;
 		switch (pipe->num) {
 		case MDSS_MDP_SSPP_RGB0:
 			pipe_num = 0;
@@ -1342,6 +1345,7 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_DMA_BASE;
 		pipe_num = pipe->num - MDSS_MDP_SSPP_DMA0;
 		pipe_cnt = mdata->ndma_pipes;
+		location = SSPP_DMA;
 		break;
 	default:
 		pr_err("Invalid pipe type %d\n", pipe->type);
@@ -1350,8 +1354,17 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 
 	if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_IGC_CFG) {
 		flags |= PP_FLAGS_DIRTY_IGC;
-		pp_igc_config(flags, pipe_base, &pipe->pp_res.pp_sts,
+		if (!pp_ops[IGC].pp_set_config) {
+			pp_igc_config(flags, pipe_base, &pipe->pp_res.pp_sts,
 			      &pipe->pp_cfg.igc_cfg, pipe_num, pipe_cnt);
+		} else {
+			pipe->pp_cfg.igc_cfg.block = pipe_num;
+			pipe_base = mdata->mdp_base +
+				    mdata->pp_block_off.sspp_igc_lut_off;
+			pp_ops[IGC].pp_set_config(pipe_base,
+				 &pipe->pp_res.pp_sts, &pipe->pp_cfg.igc_cfg,
+				 location);
+		}
 	}
 
 	if (pipe->pp_res.pp_sts.igc_sts & PP_STS_ENABLE)
@@ -2975,6 +2988,7 @@ int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config,
 	u32 tbl_idx, disp_num, dspp_num = 0;
 	struct mdp_igc_lut_data local_cfg;
 	char __iomem *igc_addr;
+	struct mdp_pp_cache_res res_cache;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
@@ -3042,8 +3056,11 @@ clock_off:
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	} else {
 		if (pp_ops[IGC].pp_set_config) {
+			res_cache.block = DSPP;
+			res_cache.mdss_pp_res = mdss_pp_res;
+			res_cache.pipe_res = NULL;
 			ret = pp_igc_lut_cache_params(config,
-				mdss_pp_res, copy_from_kernel);
+						&res_cache, copy_from_kernel);
 			if (ret) {
 				pr_err("igc caching failed ret %d", ret);
 				goto igc_config_exit;
@@ -6021,6 +6038,7 @@ int mdss_mdp_calib_config_buffer(struct mdp_calib_config_buffer *cfg,
 int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 {
 	struct mdp_histogram_start_req hist;
+	struct mdp_pp_cache_res cache_res;
 	u32 len = 0;
 	int ret = 0;
 
@@ -6031,7 +6049,31 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 
 	len = pipe->pp_cfg.igc_cfg.len;
 	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_IGC_CFG)) {
-		if (len == IGC_LUT_ENTRIES) {
+		if (pp_ops[IGC].pp_set_config) {
+			switch (pipe->type) {
+			case MDSS_MDP_PIPE_TYPE_VIG:
+				cache_res.block = SSPP_VIG;
+				break;
+			case MDSS_MDP_PIPE_TYPE_RGB:
+				cache_res.block = SSPP_RGB;
+				break;
+			case MDSS_MDP_PIPE_TYPE_DMA:
+				cache_res.block = SSPP_DMA;
+			default:
+				pr_err("invalid pipe type %d\n", pipe->type);
+				ret = -EINVAL;
+				goto exit_fail;
+			}
+			cache_res.mdss_pp_res = NULL;
+			cache_res.pipe_res = pipe;
+			ret = pp_igc_lut_cache_params(&pipe->pp_cfg.igc_cfg,
+						      &cache_res, false);
+			if (ret) {
+				pr_err("failed to cache igc params ret %d\n",
+					ret);
+				goto exit_fail;
+			}
+		}  else if (len == IGC_LUT_ENTRIES) {
 			ret = copy_from_user(pipe->pp_res.igc_c0_c1,
 					pipe->pp_cfg.igc_cfg.c0_c1_data,
 					sizeof(uint32_t) * len);
