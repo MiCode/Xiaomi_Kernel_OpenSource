@@ -90,6 +90,57 @@ static int msm_cpp_buffer_ops(struct cpp_device *cpp_dev,
 			((to) ? "to" : "from"))
 #define ERR_COPY_FROM_USER() ERR_USER_COPY(0)
 
+/* CPP bus bandwidth definitions */
+static struct msm_bus_vectors msm_cpp_init_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_CPP,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+};
+
+static struct msm_bus_vectors msm_cpp_ping_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_CPP,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+};
+
+static struct msm_bus_vectors msm_cpp_pong_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_CPP,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 0,
+		.ib  = 0,
+	},
+};
+
+
+
+static struct msm_bus_paths msm_cpp_bus_client_config[] = {
+	{
+		ARRAY_SIZE(msm_cpp_init_vectors),
+		msm_cpp_init_vectors,
+	},
+	{
+		ARRAY_SIZE(msm_cpp_ping_vectors),
+		msm_cpp_ping_vectors,
+	},
+	{
+		ARRAY_SIZE(msm_cpp_pong_vectors),
+		msm_cpp_pong_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata msm_cpp_bus_scale_data = {
+	msm_cpp_bus_client_config,
+	ARRAY_SIZE(msm_cpp_bus_client_config),
+	.name = "msm_camera_cpp",
+};
+
 #define msm_dequeue(queue, member) ({	   \
 	unsigned long flags;		  \
 	struct msm_device_queue *__q = (queue);	 \
@@ -119,6 +170,57 @@ struct msm_cpp_timer_t {
 };
 
 struct msm_cpp_timer_t cpp_timer;
+
+static int msm_cpp_init_bandwidth_mgr(struct cpp_device *cpp_dev)
+{
+	int rc = 0;
+
+	cpp_dev->bus_client =
+		msm_bus_scale_register_client(&msm_cpp_bus_scale_data);
+	if (!cpp_dev->bus_client) {
+		pr_err("Fail to register bus client\n");
+		return -ENOENT;
+	}
+
+	rc = msm_bus_scale_client_update_request(cpp_dev->bus_client, 1);
+	if (rc < 0) {
+		pr_err("Fail bus scale update %d\n", rc);
+		return -EINVAL;
+	}
+	cpp_dev->bus_idx = 1;
+
+	return 0;
+}
+
+static int msm_cpp_update_bandwidth(struct cpp_device *cpp_dev,
+	uint64_t ab, uint64_t ib)
+{
+
+	int rc;
+	struct msm_bus_paths *path;
+
+	path = &(msm_cpp_bus_scale_data.usecase[cpp_dev->bus_idx]);
+	path->vectors[0].ab = ab;
+	path->vectors[0].ib = ib;
+
+	rc = msm_bus_scale_client_update_request(cpp_dev->bus_client,
+		 cpp_dev->bus_idx);
+	if (rc < 0) {
+		pr_err("Fail bus scale update %d\n", rc);
+		return -EINVAL;
+	}
+	cpp_dev->bus_idx = 3 - cpp_dev->bus_idx;
+
+	return 0;
+}
+
+void msm_cpp_deinit_bandwidth_mgr(struct cpp_device *cpp_dev)
+{
+	if (cpp_dev->bus_client) {
+		msm_bus_scale_unregister_client(cpp_dev->bus_client);
+		cpp_dev->bus_client = 0;
+	}
+}
 
 static void msm_queue_init(struct msm_device_queue *queue, const char *name)
 {
@@ -714,7 +816,11 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	uint32_t msm_cpp_core_clk_idx;
 	uint32_t msm_micro_iface_idx;
 	uint32_t vbif_version;
-	rc = msm_isp_init_bandwidth_mgr(ISP_CPP);
+
+	if (cpp_dev->bus_master_flag)
+		rc = msm_cpp_init_bandwidth_mgr(cpp_dev);
+	else
+		rc = msm_isp_init_bandwidth_mgr(ISP_CPP);
 	if (rc < 0) {
 		pr_err("%s: Bandwidth registration Failed!\n", __func__);
 		goto bus_scale_register_failed;
@@ -888,7 +994,10 @@ clk_failed:
 	regulator_disable(cpp_dev->fs_cpp);
 	regulator_put(cpp_dev->fs_cpp);
 fs_failed:
-	msm_isp_deinit_bandwidth_mgr(ISP_CPP);
+		if (cpp_dev->bus_master_flag)
+			msm_cpp_deinit_bandwidth_mgr(cpp_dev);
+		else
+			msm_isp_deinit_bandwidth_mgr(ISP_CPP);
 bus_scale_register_failed:
 	return rc;
 }
@@ -918,10 +1027,16 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	cpp_dev->fs_cpp = NULL;
 	if (cpp_dev->stream_cnt > 0) {
 		pr_err("error: stream count active\n");
-		msm_isp_update_bandwidth(ISP_CPP, 0, 0);
+		if (cpp_dev->bus_master_flag)
+			rc = msm_cpp_update_bandwidth(cpp_dev, 0, 0);
+		else
+			rc = msm_isp_update_bandwidth(ISP_CPP, 0, 0);
 	}
 	cpp_dev->stream_cnt = 0;
-	msm_isp_deinit_bandwidth_mgr(ISP_CPP);
+	if (cpp_dev->bus_master_flag)
+		msm_cpp_deinit_bandwidth_mgr(cpp_dev);
+	else
+		msm_isp_deinit_bandwidth_mgr(ISP_CPP);
 }
 
 static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
@@ -1969,7 +2084,12 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			cpp_dev->stream_cnt--;
 			pr_info("stream_cnt:%d\n", cpp_dev->stream_cnt);
 			if (cpp_dev->stream_cnt == 0) {
-				rc = msm_isp_update_bandwidth(ISP_CPP, 0, 0);
+				if (cpp_dev->bus_master_flag)
+					rc = msm_cpp_update_bandwidth(cpp_dev,
+						 0, 0);
+				else
+					rc = msm_isp_update_bandwidth(ISP_CPP,
+						 0, 0);
 				if (rc < 0)
 					pr_err("Bandwidth Reset Failed!\n");
 				cpp_dev->state = CPP_STATE_IDLE;
@@ -2043,13 +2163,22 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				pr_err(" Fail to get clock index\n");
 				return -EINVAL;
 			}
-			rc = msm_isp_update_bandwidth(ISP_CPP,
-				clock_settings.avg,
-				clock_settings.inst);
-
+			if (cpp_dev->bus_master_flag)
+				rc = msm_cpp_update_bandwidth(cpp_dev,
+					clock_settings.avg,
+					clock_settings.inst);
+			else
+				rc = msm_isp_update_bandwidth(ISP_CPP,
+					clock_settings.avg,
+					clock_settings.inst);
 			if (rc < 0) {
 				pr_err("Bandwidth Set Failed!\n");
-				msm_isp_update_bandwidth(ISP_CPP, 0, 0);
+				if (cpp_dev->bus_master_flag)
+					rc = msm_cpp_update_bandwidth(cpp_dev,
+						0, 0);
+				else
+					rc = msm_isp_update_bandwidth(ISP_CPP,
+						0, 0);
 				mutex_unlock(&cpp_dev->mutex);
 				return -EINVAL;
 			}
@@ -2856,6 +2985,13 @@ static int cpp_probe(struct platform_device *pdev)
 		pr_err("msm_cpp_get_clk_info() failed\n");
 		goto iommu_err;
 	}
+
+	if (pdev->dev.of_node)
+		rc = of_property_read_u32(pdev->dev.of_node, "bus_master",
+			&cpp_dev->bus_master_flag);
+	if (rc)
+		cpp_dev->bus_master_flag = 0;
+	pr_err("Bus master %d\n", cpp_dev->bus_master_flag);
 
 	rc = cpp_init_hardware(cpp_dev);
 	if (rc < 0)

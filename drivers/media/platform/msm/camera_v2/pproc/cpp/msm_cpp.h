@@ -228,5 +228,8 @@ struct cpp_device {
 	struct msm_cpp_buff_queue_info_t *buff_queue;
 	uint32_t num_buffq;
 	struct v4l2_subdev *buf_mgr_subdev;
+	uint32_t bus_client;
+	uint32_t bus_idx;
+	uint32_t bus_master_flag;
 };
 #endif /* __MSM_CPP_H__ */
