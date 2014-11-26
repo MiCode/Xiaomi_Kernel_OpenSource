@@ -1257,8 +1257,14 @@ static enum ia_css_err
 free_ia_css_isp_parameter_set_info(hrt_vaddress ptr);
 
 static enum ia_css_err
-sh_css_params_write_to_ddr_internal(
+sh_css_params_write_to_ddr_pipe_internal(
 		struct ia_css_pipe *pipe,
+		const struct ia_css_pipeline_stage *stage,
+		struct sh_css_ddr_address_map *ddr_map,
+		struct sh_css_ddr_address_map_size *ddr_map_size);
+
+static enum ia_css_err
+sh_css_params_write_to_ddr_internal(
 		unsigned pipe_id,
 		struct ia_css_isp_parameters *params,
 		const struct ia_css_pipeline_stage *stage,
@@ -3939,8 +3945,15 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 					stage, params,
 					isp_pipe_version, raw_bit_depth);
 
-			err = sh_css_params_write_to_ddr_internal(
+			err = sh_css_params_write_to_ddr_pipe_internal(
 					pipe,
+					stage,
+					cur_map,
+					cur_map_size);
+			if (err != IA_CSS_SUCCESS)
+				break;
+
+			err = sh_css_params_write_to_ddr_internal(
 					pipeline->pipe_id,
 					params,
 					stage,
@@ -4072,8 +4085,43 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 }
 
 static enum ia_css_err
-sh_css_params_write_to_ddr_internal(
+sh_css_params_write_to_ddr_pipe_internal(
 	struct ia_css_pipe *pipe,
+	const struct ia_css_pipeline_stage *stage,
+	struct sh_css_ddr_address_map *ddr_map,
+	struct sh_css_ddr_address_map_size *ddr_map_size)
+{
+#if !defined(IS_ISP_2500_SYSTEM)
+	(void)pipe;
+	(void)stage;
+	(void)ddr_map;
+	(void)ddr_map_size;
+#else
+	enum ia_css_err err;
+	const struct ia_css_binary *binary;
+
+	IA_CSS_ENTER_PRIVATE("");
+	assert(ddr_map != NULL);
+	assert(ddr_map_size != NULL);
+	assert(stage != NULL);
+
+
+	binary = stage->binary;
+	assert(binary != NULL);
+
+	/* pass call to product specific to handle copying of tables to DDR */
+	err = sh_css_params_to_ddr(pipe, binary, ddr_map, ddr_map_size);
+	if (err != IA_CSS_SUCCESS) {
+		IA_CSS_LEAVE_ERR_PRIVATE(err);
+		return err;
+	}
+#endif
+	IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_SUCCESS);
+	return IA_CSS_SUCCESS;
+}
+
+static enum ia_css_err
+sh_css_params_write_to_ddr_internal(
 	unsigned pipe_id,
 	struct ia_css_isp_parameters *params,
 	const struct ia_css_pipeline_stage *stage,
@@ -4090,7 +4138,6 @@ sh_css_params_write_to_ddr_internal(
 #if !defined(IS_ISP_2500_SYSTEM)
 	/* struct is > 128 bytes so it should not be on stack (see checkpatch) */
 	static struct ia_css_macc_table converted_macc_table;
-	(void)pipe;
 #endif
 
 	IA_CSS_ENTER_PRIVATE("void");
@@ -4102,18 +4149,6 @@ sh_css_params_write_to_ddr_internal(
 	binary = stage->binary;
 	assert(binary != NULL);
 
-#if defined(IS_ISP_2500_SYSTEM)
-	(void)pipe_id;
-	(void)stage;
-	(void)buff_realloced;
-
-	/* pass call to product specific to handle copying of tables to DDR */
-	err = sh_css_params_to_ddr(pipe, binary, ddr_map, ddr_map_size);
-	if (err != IA_CSS_SUCCESS) {
-		IA_CSS_LEAVE_ERR_PRIVATE(err);
-		return err;
-	}
-#endif
 
 	stage_num = stage->stage_num;
 
@@ -4480,24 +4515,35 @@ sh_css_params_write_to_ddr_internal(
  *    (loops through the stages in a pipe to reconfigure settings)
  */
 enum ia_css_err
-sh_css_params_write_to_ddr(struct ia_css_stream *stream,
+sh_css_params_write_to_ddr(struct ia_css_pipe *pipe,
 			   struct ia_css_pipeline_stage *stage)
 {
 	int i;
 	enum ia_css_err err = IA_CSS_SUCCESS;
 	struct ia_css_isp_parameters *params;
+	struct ia_css_stream *stream;
+	struct ia_css_pipeline *pipeline;
 
 	IA_CSS_ENTER_PRIVATE("void");
-	assert(stream != NULL);
-
+	assert(pipe != NULL);
+	stream = pipe->stream;
 	params = stream->isp_params_configs;
 
+	pipeline = ia_css_pipe_get_pipeline(pipe);
+	err = sh_css_params_write_to_ddr_pipe_internal(
+			pipe,
+			stage,
+			&params->pipe_ddr_ptrs[pipeline->pipe_id],
+			&params->pipe_ddr_ptrs_size[pipeline->pipe_id]);
+	if (err != IA_CSS_SUCCESS) {
+		IA_CSS_LEAVE_ERR_PRIVATE(err);
+		return err;
+	}
 	for (i = 0; i < stream->num_pipes; i++) {
 		struct ia_css_pipe *pipe = stream->pipes[i];
 		struct ia_css_pipeline *pipeline;
 		pipeline = ia_css_pipe_get_pipeline(pipe);
 		err = sh_css_params_write_to_ddr_internal(
-				pipe,
 				pipeline->pipe_id,
 				params,
 				stage,

@@ -81,6 +81,7 @@ typedef short tscalar1w_5bit_signed;         /* tscalar1w in interval [-2^(5-1),
 typedef unsigned short tscalar1w_5bit;       /* tscalar1w in interval [0, 2^5)                       */
 typedef short tscalar1w_range1wbit;          /* tscalar1w in interval [-NUM_BITS, NUM_BITS]          */
 typedef short tscalar1w_unsigned_range1wbit; /* tscalar1w in interval [0, NUM_BITS]                  */
+typedef unsigned short tvector_8bit;
 typedef unsigned short tvector_5bit;
 typedef unsigned short tvector_4bit;
 typedef unsigned short tscalar1w_16bit;
@@ -132,15 +133,25 @@ typedef struct {
 } s_1w_5x5_matrix;
 
 typedef struct {
-  tvector1w     v00 ;
-  tvector1w     v01 ;
-  tvector1w     v02 ;
-  tvector1w     v03 ;
-  tvector1w     v04 ;
-  tvector1w     v05 ;
-  tvector1w     v06 ;
-  tvector1w     v07 ;
-  tvector1w     v08 ;
+	tvector1w v00;
+	tvector1w v01;
+	tvector1w v02;
+	tvector1w v03;
+	tvector1w v04;
+	tvector1w v05;
+	tvector1w v06;
+} s_1w_1x7_matrix;
+
+typedef struct {
+	tvector1w v00;
+	tvector1w v01;
+	tvector1w v02;
+	tvector1w v03;
+	tvector1w v04;
+	tvector1w v05;
+	tvector1w v06;
+	tvector1w v07;
+	tvector1w v08;
 } s_1w_1x9_matrix;
 
 typedef struct {
@@ -195,6 +206,23 @@ typedef struct {
 	tvector1w v80; tvector1w v81; tvector1w v82; tvector1w v83; tvector1w v84;
 	tvector1w v85; tvector1w v86; tvector1w v87; tvector1w v88;
 } s_1w_9x9_matrix;
+
+typedef struct {
+	tvector1w v00; tvector1w v01; tvector1w v02; tvector1w v03; tvector1w v04;
+	tvector1w v05; tvector1w v06;
+	tvector1w v10; tvector1w v11; tvector1w v12; tvector1w v13; tvector1w v14;
+	tvector1w v15; tvector1w v16;
+	tvector1w v20; tvector1w v21; tvector1w v22; tvector1w v23; tvector1w v24;
+	tvector1w v25; tvector1w v26;
+	tvector1w v30; tvector1w v31; tvector1w v32; tvector1w v33; tvector1w v34;
+	tvector1w v35; tvector1w v36;
+	tvector1w v40; tvector1w v41; tvector1w v42; tvector1w v43; tvector1w v44;
+	tvector1w v45; tvector1w v46;
+	tvector1w v50; tvector1w v51; tvector1w v52; tvector1w v53; tvector1w v54;
+	tvector1w v55; tvector1w v56;
+	tvector1w v60; tvector1w v61; tvector1w v62; tvector1w v63; tvector1w v64;
+	tvector1w v65; tvector1w v66;
+} s_1w_7x7_matrix;
 
 typedef struct {
 	tvector1w x_cord[MAX_CONFIG_POINTS];
