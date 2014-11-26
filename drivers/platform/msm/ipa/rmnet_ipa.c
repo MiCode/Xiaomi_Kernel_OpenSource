@@ -1863,6 +1863,11 @@ static int ipa_wwan_remove(struct platform_device *pdev)
 	int ret;
 
 	pr_info("rmnet_ipa started deinitialization\n");
+	ret = ipa_teardown_sys_pipe(ipa_to_apps_hdl);
+	if (ret < 0)
+		IPAWANERR("Failed to teardown IPA->APPS pipe\n");
+	else
+		ipa_to_apps_hdl = 0;
 	unregister_netdev(ipa_netdevs[0]);
 	ret = ipa_rm_delete_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
 		IPA_RM_RESOURCE_Q6_CONS);
