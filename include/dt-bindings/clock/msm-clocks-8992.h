@@ -390,8 +390,8 @@
 #define clk_a57_pll1 0x546813fa
 #define clk_a57_pll0_main 0xe2f766a8
 #define clk_a57_pll1_main 0xe231d575
-#define clk_a57_hf_mux 0x11a12cf4
-#define clk_a57_lf_mux 0xc4923785
+#define clk_a57_hf_mux_v2 0xf03c6e30
+#define clk_a57_lf_mux_v2 0xcc0c0f08
 #define clk_a57_lf_mux_div 0xac0c1150
 #define clk_a57_div_clk 0x4fdce8aa
 #define clk_a53_clk 0x5c9f8836
@@ -399,8 +399,8 @@
 #define clk_a53_pll1 0xdc2957a1
 #define clk_a53_pll0_main 0xb2cc34c0
 #define clk_a53_pll1_main 0x4fea3e81
-#define clk_a53_hf_mux 0xae9fcd1a
-#define clk_a53_lf_mux 0x541f1e40
+#define clk_a53_hf_mux_v2 0xae5899af
+#define clk_a53_lf_mux_v2 0x073a2e36
 #define clk_a53_lf_mux_div 0x6ae626e5
 #define clk_a53_div_clk 0x6006022b
 #define clk_cci_clk 0x96854074
