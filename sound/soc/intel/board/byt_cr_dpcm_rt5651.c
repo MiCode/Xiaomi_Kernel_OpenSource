@@ -772,7 +772,7 @@ static struct snd_soc_ops byt_8k_16k_ops = {
 };
 
 static struct snd_soc_dai_link byt_dailink[] = {
-	{
+	[BYT_DPCM_AUDIO] = {
 		.name = "Baytrail Audio Port",
 		.stream_name = "Baytrail Audio",
 		.cpu_dai_name = "Headset-cpu-dai",
@@ -784,7 +784,7 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.dynamic = 1,
 		.ops = &byt_aif1_ops,
 	},
-	{
+	[BYT_DPCM_VOIP] = {
 		.name = "Baytrail VOIP Port",
 		.stream_name = "Baytrail Voip",
 		.cpu_dai_name = "Voip-cpu-dai",

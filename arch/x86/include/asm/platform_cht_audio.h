@@ -13,7 +13,7 @@
 #define _PLATFORM_CHT_AUDIO_H_
 
 enum {
-	CHT_DPCM_AUD_AIF1 = 0,
+	CHT_DPCM_AUDIO = 0,
 	CHT_DPCM_VOIP,
 };
 

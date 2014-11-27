@@ -18,64 +18,34 @@
 #include <linux/platform_device.h>
 #include <asm/platform_sst_audio.h>
 #include <asm/intel-mid.h>
-#include <asm/intel_sst_mrfld.h>
 #include <asm/platform_byt_audio.h>
+#include <asm/platform_cht_audio.h>
 #include <sound/asound.h>
 #include "sst.h"
 
 static struct sst_platform_data sst_platform_pdata;
-static struct sst_dev_stream_map mrfld_strm_map[] = {
+static struct sst_dev_stream_map dpcm_strm_map_byt[] = {
 	{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, /* Reserved, not in use */
-	{MERR_SALTBAY_AUDIO, 0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_AUDIO, 1, SNDRV_PCM_STREAM_PLAYBACK, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_AUDIO, 2, SNDRV_PCM_STREAM_PLAYBACK, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_COMPR, 0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_MEDIA0_IN,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_SALTBAY_VOIP, 0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_VOIP_IN,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_SALTBAY_AUDIO, 0, SNDRV_PCM_STREAM_CAPTURE, PIPE_PCM1_OUT,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_SALTBAY_VOIP, 0, SNDRV_PCM_STREAM_CAPTURE, PIPE_VOIP_OUT,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_SALTBAY_PROBE, 0, SNDRV_PCM_STREAM_CAPTURE, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 1, SNDRV_PCM_STREAM_CAPTURE, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 2, SNDRV_PCM_STREAM_CAPTURE, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 3, SNDRV_PCM_STREAM_CAPTURE, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 4, SNDRV_PCM_STREAM_CAPTURE, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 5, SNDRV_PCM_STREAM_CAPTURE, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 6, SNDRV_PCM_STREAM_CAPTURE, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 7, SNDRV_PCM_STREAM_CAPTURE, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 1, SNDRV_PCM_STREAM_PLAYBACK, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 2, SNDRV_PCM_STREAM_PLAYBACK, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 3, SNDRV_PCM_STREAM_PLAYBACK, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 4, SNDRV_PCM_STREAM_PLAYBACK, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 5, SNDRV_PCM_STREAM_PLAYBACK, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 6, SNDRV_PCM_STREAM_PLAYBACK, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_PROBE, 7, SNDRV_PCM_STREAM_PLAYBACK, PIPE_RSVD,
-	SST_TASK_ID_MEDIA, SST_DEV_MAP_FREE},
-	{MERR_SALTBAY_AWARE, 0, SNDRV_PCM_STREAM_CAPTURE, PIPE_AWARE_OUT,
-	SST_TASK_ID_AWARE, SST_DEV_MAP_IN_USE},
-	{MERR_SALTBAY_VAD, 0, SNDRV_PCM_STREAM_CAPTURE, PIPE_VAD_OUT,
-	SST_TASK_ID_AWARE, SST_DEV_MAP_IN_USE},
+	{BYT_DPCM_AUDIO, 0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_MEDIA1_IN,
+					SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
+	{BYT_DPCM_VOIP,  0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_VOIP_IN,
+					SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
+	{BYT_DPCM_AUDIO, 0, SNDRV_PCM_STREAM_CAPTURE, PIPE_PCM1_OUT,
+					SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
+	{BYT_DPCM_VOIP,  0, SNDRV_PCM_STREAM_CAPTURE, PIPE_VOIP_OUT,
+					SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
+};
+
+static struct sst_dev_stream_map dpcm_strm_map_cht[] = {
+	{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, /* Reserved, not in use */
+	{CHT_DPCM_AUDIO, 0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_MEDIA1_IN,
+					SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
+	{CHT_DPCM_VOIP,  0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_VOIP_IN,
+					SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
+	{CHT_DPCM_AUDIO, 0, SNDRV_PCM_STREAM_CAPTURE, PIPE_PCM1_OUT,
+					SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
+	{CHT_DPCM_VOIP,  0, SNDRV_PCM_STREAM_CAPTURE, PIPE_VOIP_OUT,
+					SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
 };
 
 static const int sst_ssp_mux_shift[SST_NUM_SSPS] = {
@@ -292,8 +262,8 @@ sst_ssp_configs_cht_cr[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
 
 static void set_cht_platform_config(void)
 {
-	sst_platform_pdata.pdev_strm_map = mrfld_strm_map;
-	sst_platform_pdata.strm_map_size = ARRAY_SIZE(mrfld_strm_map);
+	sst_platform_pdata.pdev_strm_map = dpcm_strm_map_cht;
+	sst_platform_pdata.strm_map_size = ARRAY_SIZE(dpcm_strm_map_cht);
 	sst_platform_pdata.dfw_enable = 1;
 	memcpy(sst_platform_pdata.ssp_config, sst_ssp_configs_mrfld, sizeof(sst_ssp_configs_mrfld));
 	memcpy(sst_platform_pdata.mux_shift, sst_ssp_mux_shift, sizeof(sst_ssp_mux_shift));
@@ -303,8 +273,8 @@ static void set_cht_platform_config(void)
 
 static void set_cht_cr_platform_config(void)
 {
-	sst_platform_pdata.pdev_strm_map = mrfld_strm_map;
-	sst_platform_pdata.strm_map_size = ARRAY_SIZE(mrfld_strm_map);
+	sst_platform_pdata.pdev_strm_map = dpcm_strm_map_byt;
+	sst_platform_pdata.strm_map_size = ARRAY_SIZE(dpcm_strm_map_byt);
 	sst_platform_pdata.dfw_enable = 0;
 	memcpy(sst_platform_pdata.ssp_config, sst_ssp_configs_cht_cr, sizeof(sst_ssp_configs_cht_cr));
 	memcpy(sst_platform_pdata.mux_shift, sst_ssp_mux_shift, sizeof(sst_ssp_mux_shift));

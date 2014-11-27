@@ -749,7 +749,7 @@ static struct snd_soc_ops cht_be_ssp2_ops = {
 
 
 static struct snd_soc_dai_link cht_dailink[] = {
-	[CHT_DPCM_AUD_AIF1] = {
+	[CHT_DPCM_AUDIO] = {
 		.name = "Cherrytrail Audio Port",
 		.stream_name = "Cherrytrail Audio",
 		.cpu_dai_name = "Headset-cpu-dai",
