@@ -25,6 +25,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of.h>
 #include <linux/clk/msm-clock-generic.h>
+#include <linux/suspend.h>
 #include <soc/qcom/clock-local2.h>
 
 #include <dt-bindings/clock/msm-cpu-clocks-8939.h>
@@ -293,6 +294,32 @@ static void config_pll(int mux_id)
 	return;
 }
 
+static int clock_8939_pm_event(struct notifier_block *this,
+				unsigned long event, void *ptr)
+{
+	switch (event) {
+	case PM_POST_HIBERNATION:
+	case PM_POST_SUSPEND:
+		clk_unprepare(&a53ssmux_lc.c);
+		clk_unprepare(&a53ssmux_bc.c);
+		clk_unprepare(&a53ssmux_cci.c);
+		break;
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		clk_prepare(&a53ssmux_lc.c);
+		clk_prepare(&a53ssmux_bc.c);
+		clk_prepare(&a53ssmux_cci.c);
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block clock_8939_pm_notifier = {
+	.notifier_call = clock_8939_pm_event,
+};
+
 static int clock_a53_probe(struct platform_device *pdev)
 {
 	int speed_bin, version, rc, cpu, mux_id, rate;
@@ -358,6 +385,7 @@ static int clock_a53_probe(struct platform_device *pdev)
 		clk_prepare_enable(&a53ssmux_cci.c);
 	}
 	put_online_cpus();
+	register_pm_notifier(&clock_8939_pm_notifier);
 	return 0;
 }
 
