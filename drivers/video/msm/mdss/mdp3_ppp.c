@@ -29,6 +29,7 @@
 #include "mdp3_ppp.h"
 #include "mdp3_hwio.h"
 #include "mdp3.h"
+#include "mdss_debug.h"
 
 #define MDP_IS_IMGTYPE_BAD(x) ((x) >= MDP_IMGTYPE_LIMIT)
 #define MDP_RELEASE_BW_TIMEOUT 50
@@ -332,7 +333,9 @@ void mdp3_ppp_kickoff(void)
 	init_completion(&ppp_stat->ppp_comp);
 	mdp3_irq_enable(MDP3_PPP_DONE);
 	ppp_enable();
+	ATRACE_BEGIN("mdp3_wait_for_ppp_comp");
 	mdp3_ppp_pipe_wait();
+	ATRACE_END("mdp3_wait_for_ppp_comp");
 	mdp3_irq_disable(MDP3_PPP_DONE);
 }
 
@@ -893,6 +896,7 @@ int mdp3_ppp_start_blit(struct msm_fb_data_type *mfd,
 void mdp3_ppp_wait_for_fence(struct blit_req_list *req)
 {
 	int i, ret = 0;
+	ATRACE_BEGIN(__func__);
 	/* buf sync */
 	for (i = 0; i < req->acq_fen_cnt; i++) {
 		ret = sync_fence_wait(req->acq_fen[i],
@@ -904,7 +908,7 @@ void mdp3_ppp_wait_for_fence(struct blit_req_list *req)
 		}
 		sync_fence_put(req->acq_fen[i]);
 	}
-
+	ATRACE_END(__func__);
 	if (ret < 0) {
 		while (i < req->acq_fen_cnt) {
 			sync_fence_put(req->acq_fen[i]);
@@ -1062,6 +1066,7 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 	}
 	while (req) {
 		mdp3_ppp_wait_for_fence(req);
+		ATRACE_BEGIN("mdp3_ppp_start");
 		for (i = 0; i < req->count; i++) {
 			if (!(req->req_list[i].flags & MDP_NO_BLIT)) {
 				/* Do the actual blit. */
@@ -1077,6 +1082,7 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 					MDP3_CLIENT_PPP);
 			}
 		}
+		ATRACE_END("mdp3_ppp_start");
 		/* Signal to release fence */
 		mutex_lock(&ppp_stat->req_mutex);
 		mdp3_ppp_signal_timeline(req);
