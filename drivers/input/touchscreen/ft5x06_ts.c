@@ -1946,6 +1946,10 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 
 	err = request_threaded_irq(client->irq, NULL,
 				ft5x06_ts_interrupt,
+	/*
+	 * the interrupt trigger mode will be set in Device Tree with property
+	 * "interrupts", so here we just need to set the flag IRQF_ONESHOT
+	 */
 				IRQF_ONESHOT,
 				client->dev.driver->name, data);
 	if (err) {
