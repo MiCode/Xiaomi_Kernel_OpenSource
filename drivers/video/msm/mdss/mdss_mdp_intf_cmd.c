@@ -37,6 +37,7 @@ struct mdss_mdp_cmd_ctx {
 	u32 pp_num;
 	u8 ref_cnt;
 	struct completion stop_comp;
+	struct completion readptr_done;
 	wait_queue_head_t pp_waitq;
 	struct list_head vsync_handlers;
 	int panel_power_state;
@@ -50,7 +51,10 @@ struct mdss_mdp_cmd_ctx {
 	spinlock_t koff_lock;
 	struct work_struct clk_work;
 	struct work_struct pp_done_work;
+	struct mutex autorefresh_mtx;
 	atomic_t pp_done_cnt;
+	int autorefresh_pending;
+	u8 autorefresh_init;
 	struct mdss_intf_recovery intf_recovery;
 	struct mdss_mdp_cmd_ctx *sync_ctx; /* for partial update */
 	u32 pp_timeout_report_cnt;
@@ -259,6 +263,11 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int set_clk_off = 0;
 
+	if (ctx->autorefresh_init) {
+		/* Do not turn off clocks if aurtorefresh is on. */
+		return;
+	}
+
 	mutex_lock(&ctx->clk_mtx);
 	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
 						ctx->rdptr_enabled);
@@ -267,6 +276,8 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 		set_clk_off = 1;
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 
+	pr_debug("clk_enabled =%d set_clk_off=%d\n", ctx->clk_enabled,
+			set_clk_off);
 	if (ctx->clk_enabled && set_clk_off) {
 		ctx->clk_enabled = 0;
 		mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_SUSPEND);
@@ -291,6 +302,11 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 		return;
 	}
 
+	if (ctx->autorefresh_init) {
+		pr_debug("Completing read pointer done\n");
+		complete_all(&ctx->readptr_done);
+	}
+
 	vsync_time = ktime_get();
 	ctl->vsync_cnt++;
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
@@ -303,7 +319,7 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 	}
 
 	if (!ctx->vsync_enabled) {
-		if (ctx->rdptr_enabled)
+		if (ctx->rdptr_enabled && !ctx->autorefresh_init)
 			ctx->rdptr_enabled--;
 
 		/* keep clk on during kickoff */
@@ -396,7 +412,7 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 				schedule_work(&ctx->pp_done_work);
 		}
 		wake_up_all(&ctx->pp_waitq);
-	} else {
+	} else if (!ctl->cmd_autorefresh_en) {
 		pr_err("%s: should not have pingpong interrupt!\n", __func__);
 	}
 
@@ -745,6 +761,97 @@ static int mdss_mdp_cmd_panel_on(struct mdss_mdp_ctl *ctl,
 	return rc;
 }
 
+static int __mdss_mdp_cmd_configure_autorefresh(struct mdss_mdp_ctl *ctl, int
+		frame_cnt, bool delayed)
+{
+	struct mdss_mdp_cmd_ctx *ctx;
+	int enable = frame_cnt ? 1 : 0;
+
+	if (!ctl || !ctl->mixer_left) {
+		pr_err("invalid ctl structure\n");
+		return -ENODEV;
+	}
+	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return -ENODEV;
+	}
+
+	if (frame_cnt == ctl->autorefresh_frame_cnt) {
+		pr_err("No change to the refresh count\n");
+		return 0;
+	}
+	pr_debug("%s enable = %d frame_cnt = %d clk_cnt=%d\n", __func__,
+			enable, frame_cnt, ctx->autorefresh_init);
+
+	mutex_lock(&ctx->autorefresh_mtx);
+
+	if (enable) {
+		if (delayed) {
+			ctx->autorefresh_pending = frame_cnt;
+		} else {
+			if (!ctx->autorefresh_init) {
+				ctx->autorefresh_init = 1;
+				mdss_mdp_cmd_clk_on(ctx);
+			}
+			mdss_mdp_pingpong_write(ctl->mixer_left->pingpong_base,
+					MDSS_MDP_REG_PP_AUTOREFRESH_CONFIG,
+					(enable << 31) |
+					(frame_cnt));
+			/*
+			 * This manual kickoff is needed to actually start the
+			 * autorefresh feature. The h/w relies on one commit
+			 * before it starts counting the read ptrs to trigger
+			 * the frames.
+			 */
+			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
+			ctl->autorefresh_frame_cnt = frame_cnt;
+			ctl->cmd_autorefresh_en = 1;
+		}
+
+	} else {
+		if (ctx->autorefresh_init) {
+			/*
+			 * Safe to turn off the feature. The clocks will be on
+			 * at this time since the feature was enabled.
+			 */
+
+			mdss_mdp_pingpong_write(ctl->mixer_left->pingpong_base,
+					MDSS_MDP_REG_PP_AUTOREFRESH_CONFIG, 0);
+		}
+
+		ctx->autorefresh_init = 0;
+		ctl->autorefresh_frame_cnt = 0;
+		ctl->cmd_autorefresh_en = 0;
+		ctx->autorefresh_pending = 0;
+	}
+
+	mutex_unlock(&ctx->autorefresh_mtx);
+
+	return 0;
+}
+
+/*
+ * This function will be called from the sysfs node to enable and disable the
+ * feature.
+ */
+int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *ctl, int frame_cnt)
+{
+
+	return __mdss_mdp_cmd_configure_autorefresh(ctl, frame_cnt, true);
+}
+
+/*
+ * This function is called from the commit thread. This function will check if
+ * there was are any pending requests from the sys fs node for the feature and
+ * if so then it will enable in the h/w.
+ */
+int mdss_mdp_cmd_enable_cmd_autorefresh(struct mdss_mdp_ctl *ctl,
+		int frame_cnt)
+{
+	return __mdss_mdp_cmd_configure_autorefresh(ctl, frame_cnt, false);
+}
+
 /*
  * There are 3 partial update possibilities
  * left only ==> enable left pingpong_done
@@ -773,6 +880,7 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 		return -EPERM;
 	}
 
+	reinit_completion(&ctx->readptr_done);
 	/* sctl will be null for right only in the case of Partial update */
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
@@ -820,6 +928,16 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 
 	mdss_mdp_cmd_set_sync_ctx(ctl, sctl);
 
+	if (ctx->autorefresh_init) {
+		/*
+		 * If autorefresh is enabled then do not queue the frame till
+		 * the next read ptr is done otherwise we might get a pp done
+		 * immediately for the past autorefresh frame instead.
+		 */
+		pr_debug("Wait for read pointer done before enabling PP irq\n");
+		wait_for_completion(&ctx->readptr_done);
+	}
+
 	mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
 	if (sctx)
 		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, sctx->pp_num);
@@ -828,7 +946,14 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 			ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_109)
 		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_INTF_RESTORE, NULL);
 
-	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);	/* Kickoff */
+	if (!ctx->autorefresh_pending && !ctl->cmd_autorefresh_en) {
+		/* Kickoff */
+		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
+	} else {
+		pr_debug("Enabling autorefresh in hardware.\n");
+		mdss_mdp_cmd_enable_cmd_autorefresh(ctl,
+				ctx->autorefresh_pending);
+	}
 
 	mdss_mdp_ctl_perf_set_transaction_status(ctl,
 		PERF_SW_COMMIT_STATE, PERF_STATUS_DONE);
@@ -1002,6 +1127,12 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	pr_debug("%s: transition from %d --> %d\n", __func__,
 		ctx->panel_power_state, panel_power_state);
 
+	if (ctl->cmd_autorefresh_en) {
+		int pre_suspend = ctx->autorefresh_pending;
+		mdss_mdp_cmd_enable_cmd_autorefresh(ctl, 0);
+		ctx->autorefresh_pending = pre_suspend;
+	}
+
 	if (__mdss_mdp_cmd_is_panel_power_on_interactive(ctx)) {
 		if (mdss_panel_is_power_on_lp(panel_power_state)) {
 			/*
@@ -1152,12 +1283,15 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 	ctx->pp_timeout_report_cnt = 0;
 	init_waitqueue_head(&ctx->pp_waitq);
 	init_completion(&ctx->stop_comp);
+	init_completion(&ctx->readptr_done);
 	spin_lock_init(&ctx->clk_lock);
 	spin_lock_init(&ctx->koff_lock);
 	mutex_init(&ctx->clk_mtx);
+	mutex_init(&ctx->autorefresh_mtx);
 	INIT_WORK(&ctx->clk_work, clk_ctrl_work);
 	INIT_WORK(&ctx->pp_done_work, pingpong_done_work);
 	atomic_set(&ctx->pp_done_cnt, 0);
+	ctx->autorefresh_init = 0;
 	INIT_LIST_HEAD(&ctx->vsync_handlers);
 
 	ctx->intf_recovery.fxn = mdss_mdp_cmd_intf_recovery;

@@ -250,6 +250,9 @@ struct mdss_mdp_ctl {
 	u8 roi_changed;
 	u8 valid_roi;
 
+	int cmd_autorefresh_en;
+	int autorefresh_frame_cnt;
+
 	int (*start_fnc) (struct mdss_mdp_ctl *ctl);
 	int (*stop_fnc) (struct mdss_mdp_ctl *ctl, int panel_power_state);
 	int (*prepare_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
@@ -1038,5 +1041,9 @@ int  mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_wait_for_xin_halt(u32 xin_id, bool is_vbif_nrt);
 void mdss_mdp_set_ot_limit(struct mdss_mdp_set_ot_params *params,
 	bool is_rot, bool is_wb, bool is_yuv);
+int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *ctl,
+		int frame_cnt);
+int mdss_mdp_ctl_cmd_autorefresh_enable(struct mdss_mdp_ctl *ctl,
+		int frame_cnt);
 
 #endif /* MDSS_MDP_H */
