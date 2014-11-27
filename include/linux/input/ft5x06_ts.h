@@ -42,6 +42,14 @@ struct ft5x06_psensor_platform_data {
 	struct ft5x06_ts_data *data;
 };
 
+struct ft5x06_gesture_platform_data {
+	int gesture_enable_to_set;	/* enable/disable gesture */
+	int in_pocket;	/* whether in pocket mode or not */
+	struct device *dev;
+	struct class *gesture_class;
+	struct ft5x06_ts_data *data;
+};
+
 struct ft5x06_ts_platform_data {
 	struct fw_upgrade_info info;
 	const char *name;
@@ -69,6 +77,7 @@ struct ft5x06_ts_platform_data {
 	bool i2c_pull_up;
 	bool ignore_id_check;
 	bool psensor_support;
+	bool gesture_support;
 	int (*power_init) (bool);
 	int (*power_on) (bool);
 };
