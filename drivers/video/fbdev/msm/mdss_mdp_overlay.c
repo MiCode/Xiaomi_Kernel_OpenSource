@@ -2366,7 +2366,116 @@ static ssize_t mdss_mdp_dyn_pu_store(struct device *dev,
 
 	return count;
 }
+static ssize_t mdss_cmd_autorefresh_enabled(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_mdp_ctl *ctl;
 
+	if (!mfd) {
+		pr_err("Invalid mfd structure\n");
+		return -EINVAL;
+	}
+
+	ctl = mfd_to_ctl(mfd);
+	if (!ctl) {
+		pr_err("Invalid ctl structure\n");
+		return -EINVAL;
+	}
+
+
+	if (mfd->panel_info->type != MIPI_CMD_PANEL) {
+		pr_err("Panel doesnt support autorefresh\n");
+		ret = -EINVAL;
+	} else {
+		ret = snprintf(buf, PAGE_SIZE, "%d\n",
+				ctl->autorefresh_frame_cnt);
+	}
+	return ret;
+}
+
+static inline int mdss_validate_autorefresh_param(int frame_cnt,
+		struct mdss_mdp_ctl *ctl)
+{
+	int rc = 0;
+
+	if (frame_cnt == ctl->autorefresh_frame_cnt) {
+		/* No parameters were changed */
+		rc = -EINVAL;
+		pr_debug("No change to autorefresh parameters\n");
+		goto no_change;
+	}
+
+	/* Check for correctness. Frame cnt length is 16bits */
+	if (frame_cnt < 0 || frame_cnt >= BIT(16)) {
+		rc = -EINVAL;
+		pr_err("Invalid frame_cnt=%d passed to autorefresh\n",
+				frame_cnt);
+		goto no_change;
+	}
+
+	pr_debug("Setting autorefresh_enable=%d frame_cnt=%d\n",
+			ctl->cmd_autorefresh_en,
+			frame_cnt);
+
+no_change:
+	return rc;
+}
+
+static ssize_t mdss_set_cmd_autorefresh(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t len)
+{
+	u32 data = 0;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_mdp_ctl *ctl;
+
+	if (!mfd) {
+		pr_err("Invalid mfd structure\n");
+		len = 0;
+		goto mode_fail;
+	}
+
+	ctl = mfd_to_ctl(mfd);
+	if (!ctl) {
+		pr_err("Invalid ctl structure\n");
+		len = 0;
+		goto mode_fail;
+	}
+
+	if (mfd->panel_info->type != MIPI_CMD_PANEL) {
+		pr_err("Panel doesnt support autorefresh\n");
+		len = 0;
+		goto mode_fail;
+	}
+
+	if (1 != sscanf(buf, "%d", &data)) {
+		pr_err("Not able to read video autorefresh value\n");
+	} else if (!mdss_validate_autorefresh_param(data, ctl)) {
+		if (ctl->autorefresh_frame_cnt) {
+			mfd->mdp_sync_pt_data.threshold = 2;
+			mfd->mdp_sync_pt_data.retire_threshold = 0;
+		} else {
+			mfd->mdp_sync_pt_data.threshold = 1;
+			mfd->mdp_sync_pt_data.retire_threshold = 1;
+		}
+		mdss_mdp_ctl_cmd_autorefresh_enable(ctl,
+				data);
+	}
+	pr_debug("Setting video autorefresh=%d cnt=%d\n",
+			ctl->cmd_autorefresh_en,
+			data);
+
+mode_fail:
+	return len;
+}
+
+
+static DEVICE_ATTR(msm_cmd_autorefresh_en, S_IRUGO | S_IWUSR,
+		mdss_cmd_autorefresh_enabled,
+		mdss_set_cmd_autorefresh);
 static DEVICE_ATTR(vsync_event, S_IRUGO, mdss_mdp_vsync_show_event, NULL);
 static DEVICE_ATTR(ad, S_IRUGO | S_IWUSR | S_IWGRP, mdss_mdp_ad_show,
 	mdss_mdp_ad_store);
@@ -2377,6 +2486,7 @@ static struct attribute *mdp_overlay_sysfs_attrs[] = {
 	&dev_attr_vsync_event.attr,
 	&dev_attr_ad.attr,
 	&dev_attr_dyn_pu.attr,
+	&dev_attr_msm_cmd_autorefresh_en.attr,
 	NULL,
 };
 
