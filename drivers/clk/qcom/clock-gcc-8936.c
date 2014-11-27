@@ -464,7 +464,8 @@ static struct pll_clk a53ss_cci_pll = {
 };
 
 static struct pll_freq_tbl apcs_c0_pll_freq[] = {
-	F_APCS_PLL(998400000,  52, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 998400000,  52, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1113600000,  58, 0x0, 0x1, 0x0, 0x0, 0x0),
 };
 
 static struct pll_clk a53ss_c0_pll = {
