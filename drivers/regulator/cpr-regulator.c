@@ -274,7 +274,7 @@ struct cpr_regulator {
 	u32		timer_cons_up;
 	u32		timer_cons_down;
 	u32		irq_line;
-	u32		step_quotient;
+	u32		*step_quotient;
 	u32		up_threshold;
 	u32		down_threshold;
 	u32		idle_clocks;
@@ -572,12 +572,24 @@ static void cpr_corner_save(struct cpr_regulator *cpr_vreg, int corner)
 
 static void cpr_corner_restore(struct cpr_regulator *cpr_vreg, int corner)
 {
-	u32 gcnt, ctl, irq, ro_sel;
+	u32 gcnt, ctl, irq, ro_sel, step_quot;
 	int fuse_corner = cpr_vreg->corner_map[corner];
+	int i;
 
 	ro_sel = cpr_vreg->cpr_fuse_ro_sel[fuse_corner];
 	gcnt = cpr_vreg->gcnt | (cpr_vreg->cpr_fuse_target_quot[fuse_corner] -
 					cpr_vreg->quot_adjust[corner]);
+
+	/* Program the step quotient and idle clocks */
+	step_quot = ((cpr_vreg->idle_clocks & RBCPR_STEP_QUOT_IDLE_CLK_MASK)
+			<< RBCPR_STEP_QUOT_IDLE_CLK_SHIFT) |
+		(cpr_vreg->step_quotient[fuse_corner]
+			& RBCPR_STEP_QUOT_STEPQUOT_MASK);
+	cpr_write(cpr_vreg, REG_RBCPR_STEP_QUOT, step_quot);
+
+	/* Clear the target quotient value and gate count of all ROs */
+	for (i = 0; i < CPR_NUM_RING_OSC; i++)
+		cpr_write(cpr_vreg, REG_RBCPR_GCNT_TARGET(i), 0);
 
 	cpr_write(cpr_vreg, REG_RBCPR_GCNT_TARGET(ro_sel), gcnt);
 	ctl = cpr_vreg->save_ctl[corner];
@@ -1149,12 +1161,6 @@ static int cpr_config(struct cpr_regulator *cpr_vreg, struct device *dev)
 	gcnt = (gcnt & RBCPR_GCNT_TARGET_GCNT_MASK) <<
 			RBCPR_GCNT_TARGET_GCNT_SHIFT;
 	cpr_vreg->gcnt = gcnt;
-
-	/* Program the step quotient and idle clocks */
-	val = ((cpr_vreg->idle_clocks & RBCPR_STEP_QUOT_IDLE_CLK_MASK)
-			<< RBCPR_STEP_QUOT_IDLE_CLK_SHIFT) |
-		(cpr_vreg->step_quotient & RBCPR_STEP_QUOT_STEPQUOT_MASK);
-	cpr_write(cpr_vreg, REG_RBCPR_STEP_QUOT, val);
 
 	/* Program the delay count for the timer */
 	val = (cpr_vreg->ref_clk_khz * cpr_vreg->timer_delay_us) / 1000;
@@ -2919,6 +2925,59 @@ static int cpr_init_ceiling_floor_override_voltages(
 	return rc;
 }
 
+static int cpr_init_step_quotient(struct platform_device *pdev,
+		  struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	int len = 0;
+	u32 step_quot[CPR_NUM_RING_OSC];
+	int i, rc;
+
+	if (!of_find_property(of_node, "qcom,cpr-step-quotient", &len)) {
+		cpr_err(cpr_vreg, "qcom,cpr-step-quotient property missing\n");
+		return -EINVAL;
+	}
+
+	if (len == sizeof(u32)) {
+		/* Single step quotient used for all ring oscillators. */
+		rc = of_property_read_u32(of_node, "qcom,cpr-step-quotient",
+					step_quot);
+		if (rc) {
+			cpr_err(cpr_vreg, "could not read qcom,cpr-step-quotient, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
+		     i++)
+			cpr_vreg->step_quotient[i] = step_quot[0];
+	} else if (len == sizeof(u32) * CPR_NUM_RING_OSC) {
+		/* Unique step quotient used per ring oscillator. */
+		rc = of_property_read_u32_array(of_node,
+			"qcom,cpr-step-quotient", step_quot, CPR_NUM_RING_OSC);
+		if (rc) {
+			cpr_err(cpr_vreg, "could not read qcom,cpr-step-quotient, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
+		     i++)
+			cpr_vreg->step_quotient[i]
+				= step_quot[cpr_vreg->cpr_fuse_ro_sel[i]];
+	} else {
+		cpr_err(cpr_vreg, "qcom,cpr-step-quotient has invalid length=%d\n",
+			len);
+		return -EINVAL;
+	}
+
+	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++)
+		cpr_debug(cpr_vreg, "step_quotient[%d]=%u\n", i,
+			cpr_vreg->step_quotient[i]);
+
+	return 0;
+}
+
 static int cpr_init_cpr_parameters(struct platform_device *pdev,
 					  struct cpr_regulator *cpr_vreg)
 {
@@ -2945,8 +3004,8 @@ static int cpr_init_cpr_parameters(struct platform_device *pdev,
 			  &cpr_vreg->irq_line, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-step-quotient",
-			  &cpr_vreg->step_quotient, rc);
+
+	rc = cpr_init_step_quotient(pdev, cpr_vreg);
 	if (rc)
 		return rc;
 
@@ -3333,12 +3392,15 @@ static int cpr_fuse_corner_array_alloc(struct device *dev,
 		len * (sizeof(*cpr_vreg->fuse_ceiling_volt)), GFP_KERNEL);
 	cpr_vreg->fuse_floor_volt = devm_kzalloc(dev,
 		len * (sizeof(*cpr_vreg->fuse_floor_volt)), GFP_KERNEL);
+	cpr_vreg->step_quotient = devm_kzalloc(dev,
+		len * sizeof(*cpr_vreg->step_quotient), GFP_KERNEL);
 
 	if (cpr_vreg->pvs_corner_v == NULL || cpr_vreg->cpr_fuse_ro_sel == NULL
 	    || cpr_vreg->fuse_ceiling_volt == NULL
 	    || cpr_vreg->fuse_floor_volt == NULL
 	    || cpr_vreg->vdd_mx_corner_map == NULL
-	    || cpr_vreg->cpr_fuse_target_quot == NULL) {
+	    || cpr_vreg->cpr_fuse_target_quot == NULL
+	    || cpr_vreg->step_quotient == NULL) {
 		cpr_err(cpr_vreg, "Could not allocate memory for CPR arrays\n");
 		return -ENOMEM;
 	}
