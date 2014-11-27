@@ -2431,8 +2431,9 @@ __init int intel_pmu_init(void)
 		pr_cont("Atom events, ");
 		break;
 
-	case 55: /* Atom 22nm "Silvermont" */
+	case 55: /* Valleyview2 "Silvermont" */
 	case 77: /* Avoton "Silvermont" */
+	case 76: /* Cherryview "Airmont" */
 		memcpy(hw_cache_event_ids, slm_hw_cache_event_ids,
 			sizeof(hw_cache_event_ids));
 		memcpy(hw_cache_extra_regs, slm_hw_cache_extra_regs,

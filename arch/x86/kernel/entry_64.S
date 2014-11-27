@@ -1224,6 +1224,46 @@ apicinterrupt IRQ_WORK_VECTOR \
 	irq_work_interrupt smp_irq_work_interrupt
 #endif
 
+.macro STOP_LBR
+#ifdef CONFIG_LBR_DUMP_ON_EXCEPTION
+	cmp $0, lbr_dump_disabled
+	jnz 1f
+	testl $3, CS(%rsp)	/* Kernel Space? */
+	jnz 1f
+	push %rax
+	push %rcx
+	push %rdx
+	movl $MSR_IA32_DEBUGCTLMSR, %ecx
+	rdmsr
+	and $~1, %eax		/* Disable LBR recording */
+	wrmsr
+	pop %rdx
+	pop %rcx
+	pop %rax
+1:
+#endif
+.endm
+
+.macro START_LBR
+#ifdef CONFIG_LBR_DUMP_ON_EXCEPTION
+	cmp $0, lbr_dump_disabled
+	jnz 1f
+	testl $3, CS(%rsp)	/* Kernel Space? */
+	jnz 1f
+	push %rax
+	push %rcx
+	push %rdx
+	movl $MSR_IA32_DEBUGCTLMSR, %ecx
+	rdmsr
+	or $1, %eax		/* Enable LBR recording */
+	wrmsr
+	pop %rdx
+	pop %rcx
+	pop %rax
+1:
+#endif
+.endm
+
 /*
  * Exception entry points.
  */
@@ -1291,12 +1331,14 @@ ENTRY(\sym)
 	PARAVIRT_ADJUST_EXCEPTION_FRAME
 	subq $ORIG_RAX-R15, %rsp
 	CFI_ADJUST_CFA_OFFSET ORIG_RAX-R15
+	STOP_LBR
 	call error_entry
 	DEFAULT_FRAME 0
 	movq %rsp,%rdi			/* pt_regs pointer */
 	movq ORIG_RAX(%rsp),%rsi	/* get error code */
 	movq $-1,ORIG_RAX(%rsp)		/* no syscall to restart */
 	call \do_sym
+	START_LBR
 	jmp error_exit			/* %ebx: no swapgs flag */
 	CFI_ENDPROC
 END(\sym)

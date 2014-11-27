@@ -1110,6 +1110,8 @@ EXPORT_PER_CPU_SYMBOL(__preempt_count);
 
 DEFINE_PER_CPU(struct task_struct *, fpu_owner_task);
 
+atomic_t lbr_dump_disabled = ATOMIC_INIT(0);
+
 /*
  * Special IST stacks which the CPU switches to when it calls
  * an IST-marked descriptor entry. Up to 7 stacks (hardware

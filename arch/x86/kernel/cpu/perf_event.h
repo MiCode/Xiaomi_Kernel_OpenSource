@@ -693,6 +693,8 @@ void intel_pmu_lbr_enable_all(void);
 
 void intel_pmu_lbr_disable_all(void);
 
+void intel_pmu_lbr_read_64(struct cpu_hw_events *cpuc);
+
 void intel_pmu_lbr_read(void);
 
 void intel_pmu_lbr_init_core(void);

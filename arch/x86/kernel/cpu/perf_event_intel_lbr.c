@@ -4,6 +4,7 @@
 #include <asm/perf_event.h>
 #include <asm/msr.h>
 #include <asm/insn.h>
+#include <asm/processor.h>
 
 #include "perf_event.h"
 
@@ -125,6 +126,30 @@ enum {
 
 static void intel_pmu_lbr_filter(struct cpu_hw_events *cpuc);
 
+#ifdef CONFIG_LBR_DUMP_ON_EXCEPTION
+static int __init lbr_dump_disable_setup(char *str)
+{
+	atomic_inc(&lbr_dump_disabled);
+
+	return 0;
+}
+early_param("lbr_dump_disable", lbr_dump_disable_setup);
+#endif
+
+/*
+ * LBR usage is exclusive, so need to disable "LBR Dump on exception" feature
+ * when Perf_event is using it on any core
+ */
+static inline void lbr_used_by_perf(bool used)
+{
+#ifdef CONFIG_LBR_DUMP_ON_EXCEPTION
+	if (used)
+		atomic_inc(&lbr_dump_disabled);
+	else
+		atomic_dec(&lbr_dump_disabled);
+#endif
+}
+
 /*
  * We only support LBR implementations that have FREEZE_LBRS_ON_PMI
  * otherwise it becomes near impossible to get a reliable stack.
@@ -134,6 +159,8 @@ static void __intel_pmu_lbr_enable(void)
 {
 	u64 debugctl;
 	struct cpu_hw_events *cpuc = &__get_cpu_var(cpu_hw_events);
+
+	lbr_used_by_perf(true);
 
 	if (cpuc->lbr_sel)
 		wrmsrl(MSR_LBR_SELECT, cpuc->lbr_sel->config);
@@ -146,6 +173,8 @@ static void __intel_pmu_lbr_enable(void)
 static void __intel_pmu_lbr_disable(void)
 {
 	u64 debugctl;
+
+	lbr_used_by_perf(false);
 
 	rdmsrl(MSR_IA32_DEBUGCTLMSR, debugctl);
 	debugctl &= ~(DEBUGCTLMSR_LBR | DEBUGCTLMSR_FREEZE_LBRS_ON_PMI);
@@ -278,7 +307,7 @@ static void intel_pmu_lbr_read_32(struct cpu_hw_events *cpuc)
  * is the same as the linear address, allowing us to merge the LIP and EIP
  * LBR formats.
  */
-static void intel_pmu_lbr_read_64(struct cpu_hw_events *cpuc)
+void intel_pmu_lbr_read_64(struct cpu_hw_events *cpuc)
 {
 	unsigned long mask = x86_pmu.lbr_nr - 1;
 	int lbr_format = x86_pmu.intel_cap.lbr_format;

@@ -15,7 +15,8 @@
 #include <linux/nmi.h>
 
 #include <asm/stacktrace.h>
-
+#include <asm/processor.h>
+#include "cpu/perf_event.h"
 
 #define N_EXCEPTION_STACKS_END \
 		(N_EXCEPTION_STACKS + DEBUG_STKSZ/EXCEPTION_STKSZ - 2)
@@ -244,6 +245,46 @@ show_stack_log_lvl(struct task_struct *task, struct pt_regs *regs,
 	show_trace_log_lvl(task, regs, sp, bp, log_lvl);
 }
 
+void show_lbrs(void)
+{
+#ifdef CONFIG_LBR_DUMP_ON_EXCEPTION
+	u64 debugctl;
+	int i, lbr_on;
+
+	rdmsrl(MSR_IA32_DEBUGCTLMSR, debugctl);
+	lbr_on = debugctl & DEBUGCTLMSR_LBR;
+
+	pr_info("Last Branch Records:");
+	if (atomic_read(&lbr_dump_disabled)) {
+		/*
+		 * Not enabled in cmdline
+		 * or used by Perf_event (Usage is exclusive)
+		 */
+		pr_cont(" (disabled)\n");
+	} else if (x86_pmu.lbr_nr == 0) {
+		/* new core: need to declare it in intel_pmu_init() */
+		pr_cont(" (x86_model unknown)\n");
+	} else if (lbr_on) {
+		/* LBR is irrelevant in case of simple Panic */
+		pr_cont(" (no exception)\n");
+	} else {
+		struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
+
+		intel_pmu_lbr_read_64(cpuc);
+
+		pr_cont("\n");
+		for (i = 0; i < cpuc->lbr_stack.nr; i++) {
+			pr_info("   to: [<%016llx>] ",
+				cpuc->lbr_entries[i].to);
+			print_symbol("%s\n", cpuc->lbr_entries[i].to);
+			pr_info(" from: [<%016llx>] ",
+				cpuc->lbr_entries[i].from);
+			print_symbol("%s\n", cpuc->lbr_entries[i].from);
+		}
+	}
+#endif
+}
+
 void show_regs(struct pt_regs *regs)
 {
 	int i;
@@ -262,6 +303,12 @@ void show_regs(struct pt_regs *regs)
 		unsigned int code_len = code_bytes;
 		unsigned char c;
 		u8 *ip;
+
+		/*
+		 * Called before show_stack_log_lvl() as it could trig
+		 * page_fault and reenable LBR
+		 */
+		show_lbrs();
 
 		printk(KERN_DEFAULT "Stack:\n");
 		show_stack_log_lvl(NULL, regs, (unsigned long *)sp,
