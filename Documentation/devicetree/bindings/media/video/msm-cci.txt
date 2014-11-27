@@ -64,6 +64,7 @@ Required properties:
     - "ovti,ov5645"
     - "ovti,ov7695"
     - "qcom,mt9m114"
+    - "shinetech,gc0310"
 - reg : should contain i2c slave address of the device
 - qcom,csiphy-sd-index : should contain csiphy instance that will used to
     receive sensor data
