@@ -23,6 +23,11 @@ struct dolby_param_data {
 	int32_t __user *data;
 };
 
+struct dolby_param_license {
+	int32_t dmid;
+	int32_t license_key;
+};
+
 #define SNDRV_DEVDEP_DAP_IOCTL_SET_PARAM\
 		_IOWR('U', 0x10, struct dolby_param_data)
 #define SNDRV_DEVDEP_DAP_IOCTL_GET_PARAM\
@@ -30,7 +35,7 @@ struct dolby_param_data {
 #define SNDRV_DEVDEP_DAP_IOCTL_DAP_COMMAND\
 		_IOWR('U', 0x13, struct dolby_param_data)
 #define SNDRV_DEVDEP_DAP_IOCTL_DAP_LICENSE\
-		_IOWR('U', 0x14, void *)
+		_IOWR('U', 0x14, struct dolby_param_license)
 #define SNDRV_DEVDEP_DAP_IOCTL_GET_VISUALIZER\
 		_IOR('U', 0x15, struct dolby_param_data)
 #endif
