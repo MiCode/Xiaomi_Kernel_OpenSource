@@ -686,15 +686,15 @@ static int hdmi_20nm_vco_enable(struct clk *c)
 	struct mdss_pll_resources *io = vco->priv;
 
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x00000000);
-	udelay(1);
+	udelay(100);
 	/* memory barrier */
 	mb();
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x00000003);
-	udelay(1);
+	udelay(100);
 	/* memory barrier */
 	mb();
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x00000009);
-	udelay(1);
+	udelay(100);
 	/* memory barrier */
 	mb();
 
@@ -704,7 +704,7 @@ static int hdmi_20nm_vco_enable(struct clk *c)
 	do {
 		ready_poll = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_RESET_SM);
 		time_out_loop++;
-		udelay(1);
+		udelay(10);
 	} while (((ready_poll  & (1 << 6)) == 0) &&
 		(time_out_loop < time_out_max));
 	if (time_out_loop >= time_out_max)
