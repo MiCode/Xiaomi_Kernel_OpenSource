@@ -680,9 +680,11 @@ static int i915_drm_thaw_early(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	intel_uncore_early_sanitize(dev);
-	intel_uncore_sanitize(dev);
-	intel_power_domains_init_hw(dev_priv);
+	if (!IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev)) {
+		intel_uncore_early_sanitize(dev);
+		intel_uncore_sanitize(dev);
+		intel_power_domains_init_hw(dev_priv);
+	}
 
 	dev_priv->thaw_early_done = true;
 
@@ -694,11 +696,14 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
 
-	if (!dev_priv->thaw_early_done) {
+	if (IS_VALLEYVIEW(dev) && !IS_CHERRYVIEW(dev)) {
 		intel_uncore_early_sanitize(dev);
 		intel_uncore_sanitize(dev);
 		intel_power_domains_init_hw(dev_priv);
 	}
+
+	if (!dev_priv->thaw_early_done)
+		i915_drm_thaw_early(dev);
 
 	dev_priv->thaw_early_done = false;
 
