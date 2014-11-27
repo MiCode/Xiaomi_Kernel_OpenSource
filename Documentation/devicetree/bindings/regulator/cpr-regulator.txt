@@ -171,6 +171,14 @@ Optional properties:
 					is present, and vise versa.
 - qcom,cpr-fuse-bp-cpr-disable:	Bit position of the bit to indicate if CPR should be disabled
 - qcom,cpr-fuse-bp-scheme:     Bit position of the bit to indicate if it's a global/local scheme
+- qcom,cpr-fuse-revision:	Array of 4 integer elements which define the location of the bits for
+				the CPR fusing revision fuse parameter.  The 4 elements are:
+				[0]: => the fuse row number of the bits
+				[1]: => LSB bit position of the bits
+				[2]: => the number of bits
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading
+				The fusing revision value is used to determine which specific adjustments
+				are required on some chips.
 - qcom,cpr-fuse-target-quot-size:	Array of target quotient parameter bit sizes in the primary
 				or redundant CPR fuse row for each fuse corner.  The elements in the
 				array are ordered from lowest voltage corner to highest voltage corner.
@@ -513,6 +521,7 @@ Example:
 		qcom,cpr-fuse-target-quot = <24 12 0>;
 		qcom,cpr-fuse-target-quot-size = <12 12 12>;
 		qcom,cpr-fuse-ro-sel = <54 38 41>;
+		qcom,cpr-fuse-revision = <140 26 2 0>;
 		qcom,cpr-fuse-redun-sel = <138 57 1 1 1>;
 		qcom,cpr-fuse-redun-row = <139 1>;
 		qcom,cpr-fuse-redun-target-quot = <24 12 0>;
