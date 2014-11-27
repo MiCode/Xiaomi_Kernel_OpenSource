@@ -1285,8 +1285,8 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		}
 #endif
 	}
-	if (&dev_priv->hdmi_audio_wq)
-		schedule_work(&dev_priv->hdmi_audio_wq);
+
+	schedule_work(&dev_priv->hdmi_audio_wq);
 
 #ifdef CONFIG_EXTCON
 	if (strlen(intel_connector->hotplug_switch.name) != 0) {
@@ -2048,9 +2048,6 @@ void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 	intel_dig_port->hdmi.hdmi_reg = hdmi_reg;
 	intel_dig_port->dp.output_reg = 0;
 
-	intel_hdmi_init_connector(intel_dig_port, intel_connector);
-	intel_connector->panel.fitting_mode = 0;
-
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 	INIT_WORK(&dev_priv->hdmi_audio_wq, i915_had_wq);
 	hdmi_priv = kzalloc(sizeof(struct hdmi_audio_priv), GFP_KERNEL);
@@ -2071,4 +2068,6 @@ void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 	}
 #endif
 
+	intel_hdmi_init_connector(intel_dig_port, intel_connector);
+	intel_connector->panel.fitting_mode = 0;
 }
