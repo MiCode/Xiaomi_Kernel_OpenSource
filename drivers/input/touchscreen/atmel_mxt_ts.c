@@ -3900,6 +3900,9 @@ static int mxt_suspend(struct device *dev)
 	if (input_dev->users)
 		mxt_stop(data);
 
+	/*ACPI will driver this pin when parse touch Method in IFWI*/
+	if (gpio_is_valid(data->pdata->gpio_reset))
+		gpio_free(data->pdata->gpio_reset);
 	mutex_unlock(&input_dev->mutex);
 
 	return 0;
@@ -3910,8 +3913,13 @@ static int mxt_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mxt_data *data = i2c_get_clientdata(client);
 	struct input_dev *input_dev = data->input_dev;
+	int ret;
 
 	mutex_lock(&input_dev->mutex);
+	ret = gpio_request(data->pdata->gpio_reset, "atml_gpio_rst");
+	/*skip this error, since GPIO-ACPI module will not release it*/
+	if (ret)
+		dev_info(&client->dev, "Can't request reset gpio\n");
 
 	if (input_dev->users)
 		mxt_start(data);
