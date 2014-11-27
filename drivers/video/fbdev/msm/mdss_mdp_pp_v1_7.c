@@ -83,6 +83,7 @@
 #define PGC_8B_ROUND BIT(1)
 #define PGC_ENABLE BIT(0)
 
+#define HIST_DATA_MASK 0xFFFFFF
 #define DITHER_MATRIX_OFF 0x14
 #define DITHER_MATRIX_INDEX 16
 #define DITHER_DEPTH_MAP_INDEX 9
@@ -103,6 +104,9 @@ static int pp_dither_get_config(char __iomem *base_addr, void *cfg_data,
 static int pp_dither_set_config(char __iomem *base_addr,
 		struct pp_sts_type *pp_sts, void *cfg_data,
 		u32 block_type);
+/* histogram prototypes */
+static int pp_hist_get_config(char __iomem *base_addr, void *cfg_data,
+			   u32 block_type, u32 disp_num);
 
 static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 		u32 *opmode, int side);
@@ -173,6 +177,10 @@ void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	/* HIST_LUT ops */
 	ops->pp_ops[HIST_LUT].pp_set_config = pp_hist_lut_set_config;
 	ops->pp_ops[HIST_LUT].pp_get_config = pp_hist_lut_get_config;
+
+	/* HIST ops */
+	ops->pp_ops[HIST].pp_set_config = NULL;
+	ops->pp_ops[HIST].pp_get_config = pp_hist_get_config;
 
 	/* Set opmode pointers */
 	ops->pp_opmode_config = pp_opmode_config;
@@ -448,6 +456,47 @@ bail_out:
 	pp_sts_set_split_bits(&pp_sts->dither_sts, dither_cfg_data->flags);
 
 	return 0;
+}
+
+static int pp_hist_get_config(char __iomem *base_addr, void *cfg_data,
+			   u32 block_type, u32 disp_num)
+{
+	int ret = 0, i = 0;
+	u32 sum = 0;
+	struct pp_hist_col_info *hist_info = NULL;
+
+	if (!base_addr || !cfg_data) {
+		pr_err("invalid params base_addr %p cfg_data %p\n",
+		       base_addr, cfg_data);
+		return -EINVAL;
+	}
+
+	hist_info = (struct pp_hist_col_info *) cfg_data;
+
+	switch (block_type) {
+	case SSPP_VIG:
+		pr_err("No hist support in SSPP VIG yet %d\n", block_type);
+		ret = -ENOTSUPP;
+		break;
+	case DSPP:
+		break;
+	default:
+		pr_err("Invalid block type %d\n", block_type);
+		ret = -EINVAL;
+		break;
+	}
+	if (ret) {
+		pr_err("Failed to read hist data ret %d\n", ret);
+		return ret;
+	}
+
+	for (i = 0; i < HIST_V_SIZE; i++) {
+		hist_info->data[i] = readl_relaxed(base_addr) & HIST_DATA_MASK;
+		base_addr += 0x4;
+		sum += hist_info->data[i];
+	}
+	hist_info->hist_cnt_read++;
+	return sum;
 }
 
 static int pp_gamut_get_config(char __iomem *base_addr, void *cfg_data,
