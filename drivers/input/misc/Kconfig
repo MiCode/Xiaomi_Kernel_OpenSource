@@ -847,5 +847,11 @@ config SENSORS_MC3430
 	 Say Y here if you want to enable the MC3430 acceleration sensor
 	 driver.
 
+config SENSORS_ISL29044A
+	tristate "INTERSIL P/L sensor"
+	depends on I2C
+	help
+	 This option enables support for the INTERSIL ISL29044A P/L sensor.
+
 endif
 
