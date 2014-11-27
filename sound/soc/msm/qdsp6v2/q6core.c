@@ -22,17 +22,9 @@
 #include <soc/qcom/smd.h>
 #include <soc/qcom/ocmem.h>
 #include <sound/q6core.h>
+#include <sound/audio_cal_utils.h>
 
 #define TIMEOUT_MS 1000
-
-#define MAX_META_INFO_SIZE 1024
-
-struct meta_info_t {
-	uint32_t nKeyValue;
-	uint32_t nBufferLength;
-	uint8_t *nBuffer;
-};
-
 /*
  * AVS bring up in the modem is optimitized for the new
  * Sub System Restart design and 100 milliseconds timeout
@@ -56,6 +48,7 @@ struct q6core_str {
 	} cmd_resp_payload;
 	struct avcs_cmd_rsp_get_low_power_segments_info_t lp_ocm_payload;
 	u32 param;
+	struct cal_type_data *cal_data;
 };
 
 static struct q6core_str q6core_lcl;
@@ -196,46 +189,51 @@ void ocm_core_open(void)
 int32_t core_set_license(uint32_t key, uint32_t module_id)
 {
 	struct avcs_cmd_set_license *cmd_setl = NULL;
-	struct meta_info_t metainfo;
+	struct audio_cal_info_metainfo *metainfo = NULL;
+	struct cal_block_data *cal_block = NULL;
 	int rc = 0, paycket_size = 0;
 
 	pr_debug("%s: key:0x%x, id:0x%x\n", __func__, key, module_id);
 
 	mutex_lock(&(q6core_lcl.cmd_lock));
-
-	metainfo.nKeyValue = key;
-	metainfo.nBuffer = NULL;
-	metainfo.nBufferLength = 0;
-	rc = 0;
-	if (rc != 0 || metainfo.nBufferLength <= 0 ||
-		metainfo.nBufferLength > MAX_META_INFO_SIZE) {
-		pr_err("%s: error getting metainfo size, err:0x%x, size:%d\n",
-					__func__, rc, metainfo.nBufferLength);
-		goto fail_cmd1;
+	if (q6core_lcl.cal_data == NULL) {
+		pr_err("%s: cal_data not initialized yet!!\n", __func__);
+		rc = -EINVAL;
+		goto unlock1;
 	}
 
-	metainfo.nBuffer = kzalloc(metainfo.nBufferLength, GFP_KERNEL);
-	if (metainfo.nBuffer == NULL) {
-		pr_err("%s: kzalloc for metainfo failed\n", __func__);
-		rc  = -ENOMEM;
-		goto fail_cmd1;
+	mutex_lock(&((q6core_lcl.cal_data)->lock));
+	cal_block = cal_utils_get_only_cal_block(q6core_lcl.cal_data);
+	if (cal_block == NULL || cal_block->cal_data.kvaddr == NULL ||
+					cal_block->cal_data.size <= 0) {
+		pr_err("%s: Invalid cal block to send", __func__);
+		rc = -EINVAL;
+		goto unlock2;
 	}
-	rc = 1;
-	if (rc) {
-		pr_err("%s: error getting metainfo err:%d\n", __func__, rc);
-		goto fail_cmd2;
+	metainfo = (struct audio_cal_info_metainfo *)cal_block->cal_info;
+	if (metainfo == NULL) {
+		pr_err("%s: No metainfo!!!", __func__);
+		rc = -EINVAL;
+		goto unlock2;
+	}
+	if (metainfo->nKey != key) {
+		pr_err("%s: metainfo key mismatch!!! found:%x, needed:%x\n",
+				__func__, metainfo->nKey, key);
+		rc = -EINVAL;
+		goto unlock2;
 	}
 
 	paycket_size = sizeof(struct avcs_cmd_set_license) +
-						metainfo.nBufferLength;
+						cal_block->cal_data.size;
 	/*round up total paycket_size to next 4 byte boundary*/
 	paycket_size = ((paycket_size + 0x3)>>2)<<2;
 
 	cmd_setl = kzalloc(paycket_size, GFP_KERNEL);
 	if (cmd_setl == NULL) {
-		pr_err("%s: kzalloc for cmd_set_license failed\n", __func__);
+		pr_err("%s: kzalloc for cmd_set_license failed for size %d\n",
+							__func__, paycket_size);
 		rc  = -ENOMEM;
-		goto fail_cmd2;
+		goto unlock2;
 	}
 
 	ocm_core_open();
@@ -254,12 +252,12 @@ int32_t core_set_license(uint32_t key, uint32_t module_id)
 	cmd_setl->hdr.opcode = AVCS_CMD_SET_LICENSE;
 	cmd_setl->id = module_id;
 	cmd_setl->overwrite = 1;
-	cmd_setl->size = metainfo.nBufferLength;
+	cmd_setl->size = cal_block->cal_data.size;
 	memcpy((uint8_t *)cmd_setl + sizeof(struct avcs_cmd_set_license),
-				metainfo.nBuffer, metainfo.nBufferLength);
+			cal_block->cal_data.kvaddr, cal_block->cal_data.size);
 	pr_info("%s: Set license opcode=0x%x ,key=0x%x, id =0x%x, size = %d\n",
 			__func__, cmd_setl->hdr.opcode,
-			metainfo.nKeyValue, cmd_setl->id, cmd_setl->size);
+			metainfo->nKey, cmd_setl->id, cmd_setl->size);
 	rc = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *)cmd_setl);
 	if (rc < 0)
 		pr_err("%s: SET_LICENSE failed op[0x%x]rc[%d]\n",
@@ -267,9 +265,9 @@ int32_t core_set_license(uint32_t key, uint32_t module_id)
 
 fail_cmd:
 	kfree(cmd_setl);
-fail_cmd2:
-	kfree(metainfo.nBuffer);
-fail_cmd1:
+unlock2:
+	mutex_unlock(&((q6core_lcl.cal_data)->lock));
+unlock1:
 	mutex_unlock(&(q6core_lcl.cmd_lock));
 
 	return rc;
@@ -280,7 +278,7 @@ int32_t core_get_license_status(uint32_t module_id)
 	struct avcs_cmd_get_license_validation_result get_lvr_cmd;
 	int ret = 0;
 
-	pr_info("%s: module_id 0x%x", __func__, module_id);
+	pr_debug("%s: module_id 0x%x", __func__, module_id);
 
 	mutex_lock(&(q6core_lcl.cmd_lock));
 	ocm_core_open();
@@ -446,7 +444,7 @@ uint32_t core_set_dolby_manufacturer_id(int manufacturer_id)
 {
 	struct adsp_dolby_manufacturer_id payload;
 	int rc = 0;
-	pr_info("%s: manufacturer_id :%d\n", __func__, manufacturer_id);
+	pr_debug("%s: manufacturer_id :%d\n", __func__, manufacturer_id);
 	mutex_lock(&(q6core_lcl.cmd_lock));
 	ocm_core_open();
 	if (q6core_lcl.core_handle_q) {
@@ -557,6 +555,89 @@ bail:
 	return ret;
 }
 
+static int q6core_alloc_cal(int32_t cal_type,
+				size_t data_size, void *data)
+{
+	int				ret = 0;
+	pr_debug("%s:\n", __func__);
+
+	ret = cal_utils_alloc_cal(data_size, data,
+		q6core_lcl.cal_data, 0, NULL);
+	if (ret < 0) {
+		pr_err("%s: cal_utils_alloc_block failed, ret = %d, cal type = %d!\n",
+			__func__, ret, cal_type);
+		ret = -EINVAL;
+	}
+	return ret;
+}
+
+static int q6core_dealloc_cal(int32_t cal_type,
+				size_t data_size, void *data)
+{
+	int				ret = 0;
+	pr_debug("%s:\n", __func__);
+
+	ret = cal_utils_dealloc_cal(data_size, data,
+		q6core_lcl.cal_data);
+	if (ret < 0) {
+		pr_err("%s: cal_utils_dealloc_block failed, ret = %d, cal type = %d!\n",
+			__func__, ret, cal_type);
+		ret = -EINVAL;
+	}
+	return ret;
+}
+
+static int q6core_set_cal(int32_t cal_type,
+	size_t data_size, void *data)
+{
+	int ret = 0;
+	pr_debug("%s:\n", __func__);
+
+	ret = cal_utils_set_cal(data_size, data,
+		q6core_lcl.cal_data, 0, NULL);
+	if (ret < 0) {
+		pr_err("%s: cal_utils_set_cal failed, ret = %d, cal type = %d!\n",
+		__func__, ret, cal_type);
+		ret = -EINVAL;
+	}
+	return ret;
+}
+
+static void q6core_delete_cal_data(void)
+{
+	pr_debug("%s:\n", __func__);
+
+	cal_utils_destroy_cal_types(1, &q6core_lcl.cal_data);
+	return;
+}
+
+
+static int q6core_init_cal_data(void)
+{
+	int ret = 0;
+	struct cal_type_info    cal_type_info = {
+		{AUDIO_CORE_METAINFO_CAL_TYPE,
+		{q6core_alloc_cal, q6core_dealloc_cal, NULL,
+		q6core_set_cal, NULL, NULL} },
+		{NULL, NULL, cal_utils_match_buf_num}
+	};
+	pr_debug("%s:\n", __func__);
+
+	ret = cal_utils_create_cal_types(1, &q6core_lcl.cal_data,
+		&cal_type_info);
+	if (ret < 0) {
+		pr_err("%s: could not create cal type!\n",
+			__func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	return ret;
+err:
+	q6core_delete_cal_data();
+	return ret;
+}
+
 static int __init core_init(void)
 {
 	init_waitqueue_head(&q6core_lcl.bus_bw_req_wait);
@@ -568,6 +649,9 @@ static int __init core_init(void)
 	q6core_lcl.cmd_resp_received_flag = FLAG_NONE;
 	mutex_init(&q6core_lcl.cmd_lock);
 
+	if (q6core_init_cal_data())
+		pr_err("%s: could not init cal data!\n", __func__);
+
 	return 0;
 }
 module_init(core_init);
@@ -575,6 +659,7 @@ module_init(core_init);
 static void __exit core_exit(void)
 {
 	mutex_destroy(&q6core_lcl.cmd_lock);
+	q6core_delete_cal_data();
 }
 module_exit(core_exit);
 MODULE_DESCRIPTION("ADSP core driver");
