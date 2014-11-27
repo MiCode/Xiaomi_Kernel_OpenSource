@@ -1247,6 +1247,65 @@ static int cpr_voltage_uplift_wa_inc_volt(struct cpr_regulator *cpr_vreg,
 	return rc;
 }
 
+static int cpr_adjust_init_voltages(struct device_node *of_node,
+				struct cpr_regulator *cpr_vreg)
+{
+	int tuple_count, tuple_match, i;
+	u32 index;
+	u32 volt_adjust = 0;
+	int len = 0;
+	int rc = 0;
+
+	if (!of_find_property(of_node, "qcom,cpr-init-voltage-adjustment",
+				&len)) {
+		/* No initial voltage adjustment needed. */
+		return 0;
+	}
+
+	if (cpr_vreg->cpr_fuse_map_count) {
+		if (cpr_vreg->cpr_fuse_map_match == FUSE_MAP_NO_MATCH) {
+			/*
+			 * No matching index to use for initial voltage
+			 * adjustment.
+			 */
+			return 0;
+		}
+		tuple_count = cpr_vreg->cpr_fuse_map_count;
+		tuple_match = cpr_vreg->cpr_fuse_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	if (len != cpr_vreg->num_fuse_corners * tuple_count * sizeof(u32)) {
+		cpr_err(cpr_vreg, "qcom,cpr-init-voltage-adjustment length=%d is invalid\n",
+			len);
+		return -EINVAL;
+	}
+
+	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++) {
+		index = tuple_match * cpr_vreg->num_fuse_corners
+				+ i - CPR_FUSE_CORNER_MIN;
+		rc = of_property_read_u32_index(of_node,
+			"qcom,cpr-init-voltage-adjustment", index,
+			&volt_adjust);
+		if (rc) {
+			cpr_err(cpr_vreg, "could not read qcom,cpr-init-voltage-adjustment index %u, rc=%d\n",
+				index, rc);
+			return rc;
+		}
+
+		if (volt_adjust) {
+			cpr_vreg->pvs_corner_v[i] += volt_adjust;
+			cpr_info(cpr_vreg, "adjusted initial voltage[%d]: %d -> %d uV\n",
+				i, cpr_vreg->pvs_corner_v[i] - volt_adjust,
+				cpr_vreg->pvs_corner_v[i]);
+		}
+	}
+
+	return rc;
+}
+
 /*
  * Property qcom,cpr-fuse-init-voltage specifies the fuse position of the
  * initial voltage for each fuse corner. MSB of the fuse value is a sign
@@ -1326,35 +1385,44 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 					fuse_sel[1], fuse_sel[2], fuse_sel[3]);
 		sign = (efuse_bits & (1 << (fuse_sel[2] - 1))) ? -1 : 1;
 		steps = efuse_bits & ((1 << (fuse_sel[2] - 1)) - 1);
-		cpr_debug(cpr_vreg,
-			"corner %d: sign = %d, steps = %d\n", i, sign, steps);
 		cpr_vreg->pvs_corner_v[i] =
 				ref_uv[i] + sign * steps * step_size_uv;
 		cpr_vreg->pvs_corner_v[i] = DIV_ROUND_UP(
 				cpr_vreg->pvs_corner_v[i],
 				cpr_vreg->step_volt) *
 				cpr_vreg->step_volt;
+		cpr_debug(cpr_vreg, "corner %d: sign = %d, steps = %d, volt = %d uV\n",
+			i, sign, steps, cpr_vreg->pvs_corner_v[i]);
+		fuse_sel += 4;
+	}
+
+	rc = cpr_adjust_init_voltages(of_node, cpr_vreg);
+	if (rc)
+		goto done;
+
+	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++) {
 		if (cpr_vreg->pvs_corner_v[i]
 		    > cpr_vreg->fuse_ceiling_volt[i]) {
 			cpr_info(cpr_vreg, "Warning: initial voltage[%d] %d above ceiling %d\n",
-						i, cpr_vreg->pvs_corner_v[i],
-						cpr_vreg->fuse_ceiling_volt[i]);
+				i, cpr_vreg->pvs_corner_v[i],
+				cpr_vreg->fuse_ceiling_volt[i]);
 			cpr_vreg->pvs_corner_v[i]
 				= cpr_vreg->fuse_ceiling_volt[i];
 		} else if (cpr_vreg->pvs_corner_v[i] <
 				cpr_vreg->fuse_floor_volt[i]) {
 			cpr_info(cpr_vreg, "Warning: initial voltage[%d] %d below floor %d\n",
-						i, cpr_vreg->pvs_corner_v[i],
-						cpr_vreg->fuse_floor_volt[i]);
+				i, cpr_vreg->pvs_corner_v[i],
+				cpr_vreg->fuse_floor_volt[i]);
 			cpr_vreg->pvs_corner_v[i]
 				= cpr_vreg->fuse_floor_volt[i];
 		}
-		fuse_sel += 4;
 	}
+
+done:
 	kfree(tmp);
 	kfree(ref_uv);
 
-	return 0;
+	return rc;
 }
 
 /*
@@ -1425,6 +1493,10 @@ static int cpr_pvs_single_bin_init(struct device_node *of_node,
 		cpr_vreg->pvs_corner_v[i] = tmp[cpr_vreg->pvs_bin *
 						stripe_size + i - 1];
 	kfree(tmp);
+
+	rc = cpr_adjust_init_voltages(of_node, cpr_vreg);
+	if (rc)
+		return rc;
 
 	return 0;
 }

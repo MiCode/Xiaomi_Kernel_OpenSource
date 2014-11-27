@@ -276,6 +276,21 @@ Optional properties:
 				before writing them into the CPR GCNT target control registers.
 				This property can be used to add or subtract static voltage margin from the
 				regulator managed by the CPR controller.
+- qcom,cpr-init-voltage-adjustment:  Array of integer tuples of initial voltage adjustments in microvolts to
+				add to the fused initial voltage values of each fuse corner.  The elements
+				in a tuple are ordered from lowest voltage corner to highest voltage corner.
+				Each tuple must be of the length defined by qcom,cpr-fuse-corners.  If the
+				qcom,cpr-fuse-version-map property is specified, then
+				qcom,cpr-init-voltage-adjustment must contain the same number of tuples as
+				qcom,cpr-fuse-version-map.  These tuples are then mapped one-to-one in the
+				order specified.  E.g. if the second qcom,cpr-fuse-version-map tuple matches
+				for a given device, then the initial voltage adjustments defined in the
+				second qcom,cpr-init-voltage-adjustment tuple will be applied.  If the
+				qcom,cpr-fuse-version-map property is not specified, then
+				qcom,cpr-init-voltage-adjustment must contain a single tuple which is then
+				applied unconditionally.  This property can be used to add or subtract
+				static initial voltage margin from the regulator managed by the CPR
+				controller.
 - qcom,cpr-clamp-timer-interval:	The number of 64 reference clock cycle blocks to delay for whenever
 					the clamp signal, sensor mask registers or sensor bypass registers
 					change.  The CPR controller loop is disabled during this delay.
@@ -610,6 +625,10 @@ Example:
 				<0 0 (-210)>,
 				<0 0 (-60)>,
 				<0 0 (-94)>;
+		qcom,cpr-init-voltage-adjustment =
+				<0 0 (-100000)>,
+				<0 0 (-100000)>,
+				<0 0 (-45000)>;
 
 		qcom,fuse-remap-base-row = <1000>;
 		qcom,fuse-remap-source =
