@@ -22,7 +22,7 @@
 		qcom,slave-id = <0x42 0xf0 0xa310>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
-		qcom,mount-angle = <90>;
+		qcom,mount-angle = <270>;
 		qcom,sensor-name = "gc0310";
 		cam_vana-supply = <&pm8909_l17>;
 		cam_vio-supply = <&pm8909_l6>;
