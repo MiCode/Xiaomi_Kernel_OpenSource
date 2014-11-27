@@ -57,6 +57,7 @@
 #define OUT_BUFFER_SIZE 56
 #define IN_BUFFER_SIZE 24
 #endif
+#define FRAME_NUM   (8)
 static DEFINE_MUTEX(session_lock);
 
 /* session id: 0 reserved */
@@ -509,6 +510,9 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 			pr_debug("%s: buffer already allocated\n", __func__);
 			return 0;
 		}
+
+		if (bufcnt != FRAME_NUM)
+			goto fail;
 		mutex_lock(&ac->cmd_lock);
 		buf = kzalloc(((sizeof(struct audio_buffer))*bufcnt),
 				GFP_KERNEL);
