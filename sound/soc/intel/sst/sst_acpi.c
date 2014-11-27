@@ -206,7 +206,7 @@ static const struct sst_lib_dnld_info  byt_lib_dnld_info = {
 static const struct sst_ipc_info cht_ipc_info = {
 	.use_32bit_ops = false,
 	.ipc_offset = 0,
-	.mbox_recv_off = 0x400,
+	.mbox_recv_off = 0x1000,
 };
 
 struct sst_platform_info cht_platform_data = {
@@ -611,6 +611,13 @@ int sst_acpi_probe(struct platform_device *pdev)
 
 	ctx->use_32bit_ops = ctx->pdata->ipc_info->use_32bit_ops;
 	ctx->mailbox_recv_offset = ctx->pdata->ipc_info->mbox_recv_off;
+	if (ctx->pci_id == SST_CHT_PCI_ID) {
+		ctx->mailbox_size = SST_MAILBOX_SIZE_CHT;
+		ctx->ipc_mailbox = ctx->ddr + SST_DDR_MAILBOX_BASE;
+	} else {
+		ctx->mailbox_size = SST_MAILBOX_SIZE;
+		ctx->ipc_mailbox = ctx->mailbox;
+	}
 
 	memcpy(&ctx->info, ctx->pdata->probe_data, sizeof(ctx->info));
 

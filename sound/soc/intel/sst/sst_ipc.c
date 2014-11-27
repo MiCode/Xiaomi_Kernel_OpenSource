@@ -186,7 +186,7 @@ void sst_post_message_mrfld(struct work_struct *work)
 	list_del(&msg->node);
 	pr_debug("sst: size: = %x\n", msg->mrfld_header.p.header_low_payload);
 	if (msg->mrfld_header.p.header_high.part.large)
-		memcpy_toio(sst_drv_ctx->mailbox + SST_MAILBOX_SEND,
+		memcpy_toio(sst_drv_ctx->ipc_mailbox + SST_MAILBOX_SEND,
 			    msg->mailbox_data, msg->mrfld_header.p.header_low_payload);
 
 	trace_sst_ipc("POST  ->", msg->mrfld_header.p.header_high.full,
@@ -241,7 +241,7 @@ void sst_post_message_mfld(struct work_struct *work)
 	list_del(&msg->node);
 	pr_debug("size: = %x\n", msg->header.part.data);
 	if (msg->header.part.large)
-		memcpy_toio(sst_drv_ctx->mailbox + SST_MAILBOX_SEND,
+		memcpy_toio(sst_drv_ctx->ipc_mailbox + SST_MAILBOX_SEND,
 			msg->mailbox_data, msg->header.part.data);
 
 	sst_shim_write(sst_drv_ctx->shim, sst_drv_ctx->ipc_reg.ipcx, msg->header.full);
@@ -279,7 +279,7 @@ int sst_sync_post_message_mrfld(struct ipc_post *msg)
 					msg->mrfld_header.p.header_high.full);
 	pr_debug("sst: size = 0x%x\n", msg->mrfld_header.p.header_low_payload);
 	if (msg->mrfld_header.p.header_high.part.large)
-		memcpy_toio(sst_drv_ctx->mailbox + SST_MAILBOX_SEND,
+		memcpy_toio(sst_drv_ctx->ipc_mailbox + SST_MAILBOX_SEND,
 			msg->mailbox_data, msg->mrfld_header.p.header_low_payload);
 
 	trace_sst_ipc("POST  ->", msg->mrfld_header.p.header_high.full,
@@ -321,7 +321,7 @@ int sst_sync_post_message_mfld(struct ipc_post *msg)
 	}
 	pr_debug("sst: Post message: header = %x\n", msg->header.full);
 	if (msg->header.part.large)
-		memcpy_toio(sst_drv_ctx->mailbox + SST_MAILBOX_SEND,
+		memcpy_toio(sst_drv_ctx->ipc_mailbox + SST_MAILBOX_SEND,
 			msg->mailbox_data, msg->header.part.data);
 	sst_shim_write(sst_drv_ctx->shim, sst_drv_ctx->ipc_reg.ipcx, msg->header.full);
 

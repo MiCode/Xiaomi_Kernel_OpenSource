@@ -110,7 +110,7 @@ static int sst_create_algo_ipc(struct snd_ppp_params *algo_params,
 			 - sizeof(algo_params->params) + algo_params->size;
 	u32 offset = 0;
 
-	if (ipc_msg_size > SST_MAILBOX_SIZE)
+	if (ipc_msg_size > sst_drv_ctx->mailbox_size)
 		return -ENOMEM;
 	if (sst_create_ipc_msg(msg, true))
 		return -ENOMEM;

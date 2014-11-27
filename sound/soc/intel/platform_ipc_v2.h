@@ -31,9 +31,12 @@
 #define MAX_LOOP_BACK_DWORDS 8
 /* IPC base address and mailbox, timestamp offsets */
 #define SST_MAILBOX_SIZE 0x0400
+#define SST_MAILBOX_SIZE_CHT 0x1000
+#define SST_DDR_MAILBOX_BASE     0x1000 /* Mailbox offset from IMR base */
 #define SST_MAILBOX_SEND 0x0000
 #define SST_TIME_STAMP 0x1800
 #define SST_TIME_STAMP_MRFLD 0x680
+#define SST_TIME_STAMP_CHT 0x0000
 #define SST_TIME_STAMP_BYT 0x800
 #define SST_RESERVED_OFFSET 0x1A00
 #define SST_SCU_LPE_MAILBOX 0x1000

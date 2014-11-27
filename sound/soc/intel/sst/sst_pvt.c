@@ -528,7 +528,8 @@ int sst_create_ipc_msg(struct ipc_post **arg, bool large)
 		return -ENOMEM;
 	}
 	if (large) {
-		msg->mailbox_data = kzalloc(SST_MAILBOX_SIZE, GFP_ATOMIC);
+		msg->mailbox_data = kzalloc(sst_drv_ctx->mailbox_size,
+						GFP_ATOMIC);
 		if (!msg->mailbox_data) {
 			kfree(msg);
 			pr_err("kzalloc mailbox_data failed");
