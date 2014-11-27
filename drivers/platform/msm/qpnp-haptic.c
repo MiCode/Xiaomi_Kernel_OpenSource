@@ -30,6 +30,7 @@
 
 #define QPNP_HAP_STATUS(b)		(b + 0x0A)
 #define QPNP_HAP_EN_CTL_REG(b)		(b + 0x46)
+#define QPNP_HAP_EN_CTL2_REG(b)		(b + 0x48)
 #define QPNP_HAP_ACT_TYPE_REG(b)	(b + 0x4C)
 #define QPNP_HAP_WAV_SHAPE_REG(b)	(b + 0x4D)
 #define QPNP_HAP_PLAY_MODE_REG(b)	(b + 0x4E)
@@ -109,6 +110,7 @@
 #define QPNP_HAP_BRAKE_PAT_LEN		4
 #define QPNP_HAP_PLAY_EN		0x80
 #define QPNP_HAP_EN			0x80
+#define QPNP_HAP_BRAKE_MASK		0xFE
 
 #define QPNP_HAP_TIMEOUT_MS_MAX		15000
 #define QPNP_HAP_STR_SIZE		20
@@ -117,9 +119,9 @@
 
 /* haptic debug register set */
 static u8 qpnp_hap_dbg_regs[] = {
-	0x0a, 0x0b, 0x0c, 0x46, 0x4c, 0x4d, 0x4e, 0x4f, 0x51, 0x52, 0x53,
-	0x54, 0x55, 0x56, 0x57, 0x58, 0x5c, 0x5e, 0x60, 0x61, 0x62, 0x63,
-	0x64, 0x65, 0x66, 0x67, 0x70
+	0x0a, 0x0b, 0x0c, 0x46, 0x48, 0x4c, 0x4d, 0x4e, 0x4f, 0x51, 0x52, 0x53,
+	0x54, 0x55, 0x56, 0x57, 0x58, 0x5c, 0x5e, 0x60, 0x61, 0x62, 0x63, 0x64,
+	0x65, 0x66, 0x67, 0x70
 };
 
 /*
@@ -198,6 +200,8 @@ struct qpnp_pwm_info {
  *  @ wf_update - waveform update flag
  *  @ pwm_cfg_state - pwm mode configuration state
  *  @ buffer_cfg_state - buffer mode configuration state
+ *  @ en_brake - brake state
+ *  @ sup_brake_pat - support custom brake pattern
  */
 struct qpnp_hap {
 	struct spmi_device *spmi;
@@ -236,6 +240,8 @@ struct qpnp_hap {
 	bool wf_update;
 	bool pwm_cfg_state;
 	bool buffer_cfg_state;
+	bool en_brake;
+	bool sup_brake_pat;
 };
 
 /* helper to read a pmic register */
@@ -1307,14 +1313,26 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 		return rc;
 
 	/* Configure BRAKE register */
-	for (i = QPNP_HAP_BRAKE_PAT_LEN - 1, reg = 0; i >= 0; i--) {
-		hap->brake_pat[i] &= QPNP_HAP_BRAKE_PAT_MASK;
-		temp = i << 1;
-		reg |= hap->brake_pat[i] << temp;
-	}
-	rc = qpnp_hap_write_reg(hap, &reg, QPNP_HAP_BRAKE_REG(hap->base));
+	rc = qpnp_hap_read_reg(hap, &reg, QPNP_HAP_EN_CTL2_REG(hap->base));
+	if (rc < 0)
+		return rc;
+	reg &= QPNP_HAP_BRAKE_MASK;
+	reg |= hap->en_brake;
+	rc = qpnp_hap_write_reg(hap, &reg, QPNP_HAP_EN_CTL2_REG(hap->base));
 	if (rc)
 		return rc;
+
+	if (hap->en_brake && hap->sup_brake_pat) {
+		for (i = QPNP_HAP_BRAKE_PAT_LEN - 1, reg = 0; i >= 0; i--) {
+			hap->brake_pat[i] &= QPNP_HAP_BRAKE_PAT_MASK;
+			temp = i << 1;
+			reg |= hap->brake_pat[i] << temp;
+		}
+		rc = qpnp_hap_write_reg(hap, &reg,
+					QPNP_HAP_BRAKE_REG(hap->base));
+		if (rc)
+			return rc;
+	}
 
 	/* Cache enable control register */
 	rc = qpnp_hap_read_reg(hap, &reg, QPNP_HAP_EN_CTL_REG(hap->base));
@@ -1534,15 +1552,23 @@ static int qpnp_hap_parse_dt(struct qpnp_hap *hap)
 	if (rc < 0)
 		return rc;
 
-	prop = of_find_property(spmi->dev.of_node,
-			"qcom,brake-pattern", &temp);
-	if (!prop) {
-		dev_err(&spmi->dev, "brake pattern not found");
-	} else if (temp != QPNP_HAP_BRAKE_PAT_LEN) {
-		dev_err(&spmi->dev, "Invalid length of brake pattern\n");
-		return -EINVAL;
-	} else
-		memcpy(hap->brake_pat, prop->value, QPNP_HAP_BRAKE_PAT_LEN);
+	hap->en_brake = of_property_read_bool(spmi->dev.of_node,
+				"qcom,en-brake");
+
+	if (hap->en_brake) {
+		prop = of_find_property(spmi->dev.of_node,
+				"qcom,brake-pattern", &temp);
+		if (!prop) {
+			dev_info(&spmi->dev, "brake pattern not found");
+		} else if (temp != QPNP_HAP_BRAKE_PAT_LEN) {
+			dev_err(&spmi->dev, "Invalid len of brake pattern\n");
+			return -EINVAL;
+		} else {
+			hap->sup_brake_pat = true;
+			memcpy(hap->brake_pat, prop->value,
+					QPNP_HAP_BRAKE_PAT_LEN);
+		}
+	}
 
 	hap->use_sc_irq = of_property_read_bool(spmi->dev.of_node,
 				"qcom,use-sc-irq");
