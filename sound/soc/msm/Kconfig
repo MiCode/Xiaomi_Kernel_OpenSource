@@ -96,6 +96,7 @@ config DOLBY_DAP
 config DTS_EAGLE
 	bool "Enable DTS Eagle Support"
 	depends on SND_SOC_MSM_QDSP6V2_INTF
+	select SND_HWDEP
 	help
 	 To add DTS Eagle support on QDSP6 targets.
 	 Eagle is a DTS pre/post processing
@@ -322,6 +323,7 @@ config SND_SOC_MSM8994
 	select MSM_ULTRASOUND
 	select DOLBY_DS2
 	select SND_HWDEP
+        select DTS_EAGLE
 	help
 	 To add support for SoC audio on MSM8994.
 	 This will enable sound soc drivers which
