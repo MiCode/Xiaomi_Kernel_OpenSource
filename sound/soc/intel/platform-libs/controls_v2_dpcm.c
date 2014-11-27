@@ -546,7 +546,7 @@ static void sst_find_and_send_pipe_algo(struct sst_data *sst,
 {
 	struct soc_bytes_ext *sb;
 	struct sst_algo_data *bc;
-	struct module *algo = NULL;
+	struct sst_module *algo = NULL;
 
 	pr_debug("Enter: %s, widget=%s\n", __func__, pipe);
 
@@ -857,7 +857,7 @@ static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst, int mut
 	struct soc_mixer_control *sm;
 	struct sst_gain_data *mc;
 	struct sst_gain_value *gv;
-	struct module *gain = NULL;
+	struct sst_module *gain = NULL;
 
 	list_for_each_entry(gain, &ids->gain_list, node) {
 		struct snd_kcontrol *kctl = gain->kctl;
@@ -1334,12 +1334,13 @@ static int sst_tone_generator_event(struct snd_soc_dapm_widget *w,
 	/* in case of tone generator, the params are combined with the ON cmd */
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		int len;
-		struct module *algo;
+		struct sst_module *algo;
 		struct soc_bytes_ext *sb;
 		struct sst_algo_data *bc;
 		struct sst_cmd_set_params *cmd;
 
-		algo = list_first_entry(&ids->algo_list, struct module, node);
+		algo = list_first_entry(&ids->algo_list, struct sst_module,
+									node);
 		if (algo == NULL)
 			return -EINVAL;
 		sb = (void *)algo->kctl->private_value;
@@ -1564,6 +1565,16 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 	SST_PATH_OUTPUT("media0_out", SST_TASK_MMX, SST_SWM_OUT_MEDIA0, sst_set_media_path),
 	SST_PATH_OUTPUT("media1_out", SST_TASK_MMX, SST_SWM_OUT_MEDIA1, sst_set_media_path),
 
+	/* Adding dummy widget for setting the task & pipeid for the cap path */
+	SST_PATH_OUTPUT("media2_out", SST_TASK_MMX, SST_SWM_OUT_PCM1,
+							SST_EVENT_TYPE_NONE),
+	SST_PATH_OUTPUT("media3_out", SST_TASK_MMX, SST_SWM_OUT_PCM2,
+							SST_EVENT_TYPE_NONE),
+	SST_PATH_INPUT("voip_in_media", SST_TASK_MMX, SST_SWM_IN_VOIP,
+							SST_EVENT_TYPE_NONE),
+	SST_PATH_OUTPUT("voip_out_media", SST_TASK_MMX, SST_SWM_OUT_VOIP,
+							SST_EVENT_TYPE_NONE),
+
 	/* SBA PCM Paths */
 	SST_PATH_INPUT("pcm0_in", SST_TASK_SBA, SST_SWM_IN_PCM0, sst_set_media_path),
 	SST_PATH_INPUT("pcm1_in", SST_TASK_SBA, SST_SWM_IN_PCM1, sst_set_media_path),
@@ -1674,8 +1685,9 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"pcm0_in", NULL, "media0_out"},
 	{"pcm1_in", NULL, "media1_out"},
 
-	{"Headset Capture", NULL, "pcm1_out"},
-	{"Headset Capture", NULL, "pcm2_out"},
+	{"Headset Capture", NULL, "media2_out"},
+	{"media2_out", NULL, "pcm1_out"},
+
 	{"pcm0_out", NULL, "pcm0_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("pcm0_out mix 0"),
 	{"pcm1_out", NULL, "pcm1_out mix 0"},
@@ -1693,8 +1705,10 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"sprot_loop_out", NULL, "sprot_loop_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("sprot_loop_out mix 0"),
 
-	{"voip_in", NULL, "VOIP Playback"},
-	{"VOIP Capture", NULL, "voip_out"},
+	{"voip_in_media", NULL, "VOIP Playback"},
+	{"voip_in", NULL, "voip_in_media"},
+	{"VOIP Capture", NULL, "voip_out_media"},
+	{"voip_out_media", NULL, "voip_out"},
 	{"voip_out", NULL, "voip_out mix 0"},
 	SST_SBA_MIXER_GRAPH_MAP("voip_out mix 0"),
 
@@ -2001,19 +2015,6 @@ static const struct snd_kcontrol_new sst_debug_controls[] = {
 		       sst_byte_control_get, sst_byte_control_set),
 };
 
-static inline bool is_sst_dapm_widget(struct snd_soc_dapm_widget *w)
-{
-	if ((w->id == snd_soc_dapm_pga) ||
-	    (w->id == snd_soc_dapm_aif_in) ||
-	    (w->id == snd_soc_dapm_aif_out) ||
-	    (w->id == snd_soc_dapm_input) ||
-	    (w->id == snd_soc_dapm_output) ||
-	    (w->id == snd_soc_dapm_mixer))
-		return true;
-	else
-		return false;
-}
-
 /**
  * sst_send_pipe_gains - send gains for the front-end DAIs
  *
@@ -2078,7 +2079,7 @@ int sst_send_pipe_gains(struct snd_soc_dai *dai, int stream, int mute)
 static int sst_fill_module_list(struct snd_kcontrol *kctl,
 	 struct snd_soc_dapm_widget *w, int type)
 {
-	struct module *module = NULL;
+	struct sst_module *module = NULL;
 	struct sst_ids *ids = w->priv;
 
 	module = devm_kzalloc(w->platform->dev, sizeof(*module), GFP_KERNEL);

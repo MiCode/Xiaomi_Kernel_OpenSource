@@ -30,7 +30,7 @@
 #define SST_FMT_MONO 0
 #define SST_FMT_STEREO 3
 
-struct module {
+struct sst_module {
 	struct snd_kcontrol *kctl;
 	struct list_head node;
 };
@@ -48,6 +48,18 @@ struct sst_ids {
 	struct sst_pcm_format *pcm_fmt;
 };
 
+static inline bool is_sst_dapm_widget(struct snd_soc_dapm_widget *w)
+{
+	if ((w->id == snd_soc_dapm_pga) ||
+	    (w->id == snd_soc_dapm_aif_in) ||
+	    (w->id == snd_soc_dapm_aif_out) ||
+	    (w->id == snd_soc_dapm_input) ||
+	    (w->id == snd_soc_dapm_output) ||
+	    (w->id == snd_soc_dapm_mixer))
+		return true;
+	else
+		return false;
+}
 
 #define SST_AIF_IN(wname, wevent)							\
 {	.id = snd_soc_dapm_aif_in, .name = wname, .sname = NULL,			\

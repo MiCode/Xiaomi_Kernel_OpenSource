@@ -37,6 +37,7 @@
 #include "platform_ipc_v2.h"
 #include "sst_platform.h"
 #include "sst_platform_pvt.h"
+#include "platform-libs/sst_widgets.h"
 
 struct device *sst_pdev;
 struct sst_device *sst_dsp;
@@ -203,16 +204,29 @@ int sst_fill_stream_params(void *substream,
 	struct sst_dev_stream_map *map;
 	struct snd_pcm_substream *pstream = NULL;
 	struct snd_compr_stream *cstream = NULL;
+	struct snd_soc_pcm_runtime *rtd = NULL;
+	struct snd_soc_dai *cpu_dai = NULL;
+	struct snd_soc_dapm_widget *w = NULL;
+	struct snd_soc_dapm_path *p = NULL;
 
 	map = ctx->pdata->pdev_strm_map;
 	map_size = ctx->pdata->strm_map_size;
 
-	if (is_compress == true)
+	if (is_compress == true) {
 		cstream = (struct snd_compr_stream *)substream;
-	else
+		rtd = cstream->private_data;
+	} else {
 		pstream = (struct snd_pcm_substream *)substream;
+		rtd = pstream->private_data;
+	}
 
 	str_params->stream_type = SST_STREAM_TYPE_MUSIC;
+
+	cpu_dai = rtd->cpu_dai;
+	if (cpu_dai == NULL) {
+		pr_err("%s: cpu_dai is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 	/* For pcm streams */
 	if (pstream) {
@@ -223,8 +237,40 @@ int sst_fill_stream_params(void *substream,
 			return -EINVAL;
 
 		str_params->stream_id = index;
-		str_params->device_type = map[index].device_id;
-		str_params->task = map[index].task_id;
+		w = (pstream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
+			cpu_dai->playback_widget : cpu_dai->capture_widget;
+
+		if (pstream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			list_for_each_entry(p, &w->sinks, list_source) {
+
+				pr_debug("connect %d is_widget %d\n",
+						p->connect,
+						is_sst_dapm_widget(p->sink));
+
+				if (p->connect && is_sst_dapm_widget(p->sink)) {
+					struct sst_ids *ids = p->sink->priv;
+					u8 devtype = ids->location_id >> 8;
+
+					pr_debug("widget type=%d name=%s\n",
+						p->sink->id, p->sink->name);
+					str_params->device_type = devtype;
+					str_params->task = ids->task_id;
+				}
+			}
+		} else if (pstream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+			list_for_each_entry(p, &w->sources, list_sink) {
+
+			if (p->connect && is_sst_dapm_widget(p->source)) {
+				struct sst_ids *ids = p->source->priv;
+				u8 devtype = ids->location_id >> 8;
+
+				pr_debug("cap widget type=%d name=%s\n",
+						p->source->id, p->source->name);
+				str_params->device_type = devtype;
+				str_params->task = ids->task_id;
+				}
+			}
+		}
 
 		if (str_params->device_type == SST_PROBE_IN)
 			str_params->stream_type = SST_STREAM_TYPE_PROBE;
@@ -245,8 +291,23 @@ int sst_fill_stream_params(void *substream,
 		if (index <= 0)
 			return -EINVAL;
 		str_params->stream_id = index;
-		str_params->device_type = map[index].device_id;
-		str_params->task = map[index].task_id;
+
+		if (cstream->direction == SND_COMPRESS_PLAYBACK) {
+			w = cpu_dai->playback_widget;
+
+			list_for_each_entry(p, &w->sinks, list_source) {
+				if (p->connect && is_sst_dapm_widget(p->sink)) {
+					struct sst_ids *ids = p->sink->priv;
+					u8 devtype = ids->location_id >> 8;
+
+					pr_debug("comp widget type=%d name=%s\n",
+						p->sink->id, p->sink->name);
+					str_params->device_type = devtype;
+					str_params->task = ids->task_id;
+				}
+			}
+		}
+
 		pr_debug("compress str_id = %d, device_type = 0x%x, task = %d",
 			 str_params->stream_id, str_params->device_type,
 			 str_params->task);
