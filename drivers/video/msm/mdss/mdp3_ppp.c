@@ -451,13 +451,23 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 		return 0;
 	}
 
-	/* Set FPS to mipi rate as currently there is no way to get this */
-	fps = panel_info->mipi.frame_rate;
-
 	for (i = 0; i < lcount; i++) {
 		req = &(lreq->req_list[i]);
 
 		mdp3_get_bpp_info(req->src.format, &bpp);
+
+		if ((bpp.bpp_pln == 1 || req->src.format == MDP_YCRYCB_H2V1) &&
+			req->src_rect.w >= 1920 && req->src_rect.h >= 1080) {
+			/* Above 1080p only 30fps video plaback is supported */
+			fps = 30;
+		} else {
+			/**
+			 * Set FPS to mipi rate as currently there is
+			 * no way to get this
+			 */
+			fps = panel_info->mipi.frame_rate;
+		}
+
 		src_read_bw = req->src_rect.w * req->src_rect.h *
 						bpp.bpp_num / bpp.bpp_den;
 		src_read_bw = mdp3_adjust_scale_factor(req,
