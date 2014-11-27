@@ -1930,6 +1930,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_mvc_buffer_layout layout;
 	struct v4l2_ctrl *temp_ctrl = NULL;
 	struct hal_profile_level profile_level;
+	struct hal_frame_size frame_sz;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -2136,9 +2137,26 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			rc = call_hfi_op(hdev, session_set_property, (void *)
 				inst->session, HAL_PARAM_VDEC_MULTI_STREAM,
 				pdata);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed disabling OUTPUT port : %d\n",
+					rc);
+				break;
+			}
+
+			frame_sz.buffer_type = HAL_BUFFER_OUTPUT2;
+			frame_sz.width = inst->prop.width[CAPTURE_PORT];
+			frame_sz.height = inst->prop.height[CAPTURE_PORT];
+			pdata = &frame_sz;
+			dprintk(VIDC_DBG,
+				"buffer type = %d width = %d, height = %d\n",
+				frame_sz.buffer_type, frame_sz.width,
+				frame_sz.height);
+			rc = call_hfi_op(hdev, session_set_property, (void *)
+				inst->session, HAL_PARAM_FRAME_SIZE, pdata);
 			if (rc)
 				dprintk(VIDC_ERR,
-					"Failed :Disabling OUTPUT port : %d\n",
+					"Failed setting OUTPUT2 size : %d\n",
 					rc);
 			break;
 		default:
