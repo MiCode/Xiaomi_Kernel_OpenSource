@@ -4215,12 +4215,20 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 		spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 		v_base = ctl_base + 0x1C;
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-		sum = pp_hist_read(v_base, hist_info);
+		if (pp_ops[HIST].pp_get_config)
+			sum = pp_ops[HIST].pp_get_config(v_base, hist_info,
+					DSPP, 0);
+		else
+			sum = pp_hist_read(v_base, hist_info);
+
 		/* if hist_v2 unlock HW when done reading */
 		if (is_hist_v2)
 			writel_relaxed(0, ctl_base);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-		if (expect_sum && sum != expect_sum) {
+		if (sum < 0) {
+			pr_err("failed to get the hist data, sum = %d\n", sum);
+			ret = sum;
+		} else if (expect_sum && sum != expect_sum) {
 			pr_debug("hist error: bin sum incorrect! (%d/%d)\n",
 				sum, expect_sum);
 			ret = -ENODATA;

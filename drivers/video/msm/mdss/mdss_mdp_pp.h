@@ -60,6 +60,7 @@ enum pp_features {
 	DITHER,
 	QSEED,
 	HIST_LUT,
+	HIST,
 	PP_FEATURE_MAX
 };
 
