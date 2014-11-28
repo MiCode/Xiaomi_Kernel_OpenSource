@@ -3000,6 +3000,10 @@ static int ci13xxx_exit_lpm(struct ci13xxx *udc, bool allow_sleep)
 	if (!udc)
 		return -ENODEV;
 
+	/* Make sure phy driver is done with its bus suspend handling */
+	if (udc->udc_driver->cancel_pending_suspend && allow_sleep)
+		udc->udc_driver->cancel_pending_suspend(udc);
+
 	/* Check if the controller is in low power mode state */
 	if (udc->udc_driver->in_lpm &&
 	    udc->udc_driver->in_lpm(udc) &&
