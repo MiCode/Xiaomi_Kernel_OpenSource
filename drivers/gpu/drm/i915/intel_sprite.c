@@ -429,17 +429,6 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		intel_plane->flags &= ~DRM_MODE_SET_DISPLAY_PLANE_UPDATE_ALPHA;
 	}
 
-	/* calculate the plane rrb2 */
-	if (intel_plane->flags & DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2) {
-		if (intel_plane->rrb2_enable)
-			intel_plane->reg.surf |=
-				PLANE_RESERVED_REG_BIT_2_ENABLE;
-		else
-			intel_plane->reg.surf &=
-				~PLANE_RESERVED_REG_BIT_2_ENABLE;
-		intel_plane->flags &= ~DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2;
-	}
-
 	switch (fb->pixel_format) {
 	case DRM_FORMAT_YUYV:
 		sprctl |= SP_FORMAT_YUV422 | SP_YUV_ORDER_YUYV;
@@ -683,7 +672,15 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	if ((sprite_ddl & mask) != (I915_READ(VLV_DDL(pipe)) & mask))
 		I915_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
 
+	intel_plane->reg.surf = I915_READ(SPSURF(pipe, plane));
+
+	if (intel_plane->rrb2_enable)
+		intel_plane->reg.surf |= PLANE_RESERVED_REG_BIT_2_ENABLE;
+	else
+		intel_plane->reg.surf &= ~PLANE_RESERVED_REG_BIT_2_ENABLE;
+
 	intel_plane->reg.cntr = sprctl;
+	intel_plane->reg.surf &= ~DISP_BASEADDR_MASK;
 	intel_plane->reg.surf |= i915_gem_obj_ggtt_offset(obj) + sprsurf_offset;
 	if (!dev_priv->atomic_update) {
 		I915_WRITE(SPCNTR(pipe, plane), sprctl);
@@ -2101,6 +2098,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 	intel_plane->pipe = pipe;
 	intel_plane->plane = plane;
 	intel_plane->rotate180 = false;
+	intel_plane->rrb2_enable = 0;
 	intel_plane->last_plane_state = INTEL_PLANE_STATE_DISABLED;
 	possible_crtcs = (1 << pipe);
 	ret = drm_plane_init(dev, &intel_plane->base, possible_crtcs,

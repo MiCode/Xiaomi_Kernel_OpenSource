@@ -10542,7 +10542,7 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 	struct drm_crtc *crtc = dev_priv->pipe_to_crtc_mapping[pipe];
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_disp_reg *reg;
-	int plane;
+	int plane = 0;
 
 	if (type == SPRITE_PLANE) {
 		reg = &intel_plane->reg;
@@ -10583,7 +10583,7 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 		I915_WRITE(SPLINOFF(pipe, plane), reg->linoff);
 		I915_WRITE(SPSIZE(pipe, plane),	reg->size);
 		I915_WRITE_BITS(SPCNTR(pipe, plane), reg->cntr, 0xFFFFFFF8);
-		I915_MODIFY_DISPBASE(SPSURF(pipe, plane), reg->surf);
+		I915_WRITE(SPSURF(pipe, plane), reg->surf);
 		if (intel_plane->pri_update) {
 			I915_WRITE(DSPCNTR(pipe), reg->dspcntr);
 			I915_MODIFY_DISPBASE(DSPSURF(pipe),
@@ -10599,8 +10599,6 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 		I915_MODIFY_DISPBASE(DSPSURF(pipe), reg->surf);
 		POSTING_READ(DSPCNTR(pipe));
 	}
-
-	/* Reset the register */
 	reg->surf = 0;
 }
 
@@ -10687,12 +10685,10 @@ int intel_set_disp_plane_update(struct drm_mode_set_display *disp,
 
 		/* pass rrb2 information */
 		if (disp->plane[i].update_flag &
-			DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2) {
-			intel_plane->flags |=
-				DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2;
+			DRM_MODE_SET_DISPLAY_PLANE_UPDATE_RRB2)
 			intel_plane->rrb2_enable =
 				disp->plane[i].rrb2_enable;
-		}
+
 		if (disp->plane[i].update_flag &
 			DRM_MODE_SET_DISPLAY_PLANE_UPDATE_ALPHA) {
 			intel_plane->flags |=
