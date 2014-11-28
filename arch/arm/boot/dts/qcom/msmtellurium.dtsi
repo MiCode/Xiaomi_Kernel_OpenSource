@@ -391,6 +391,37 @@
 		};
 	};
 
+	usb_otg: usb@78db000 {
+		compatible = "qcom,hsusb-otg";
+		reg = <0x78db000 0x400>, <0x6c000 0x200>;
+		reg-names = "core", "phy_csr";
+
+		interrupts = <0 134 0>,<0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
+
+		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
+		qcom,hsusb-otg-mode = <1>; /* DEVICE only */
+		qcom,hsusb-otg-otg-control = <2>; /* PMIC */
+		qcom,dp-manual-pullup;
+		qcom,hsusb-otg-disable-reset;
+		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
+		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
+
+		clocks = <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb_hs_system_clk>,
+			 <&clock_gcc clk_gcc_usb2a_phy_sleep_clk>,
+			 <&clock_rpm clk_xo_otg_clk>;
+		clock-names = "iface_clk", "core_clk", "sleep_clk",
+				"xo";
+	};
+
+	android_usb: android_usb@086000c8 {
+		compatible = "qcom,android-usb";
+		reg = <0x086000c8 0xc8>;
+		qcom,pm-qos-latency = <2 1001 12701>;
+		qcom,streaming-func = "mtp";
+	};
+
 	blsp1_uart2: serial@78b0000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78b0000 0x200>;
