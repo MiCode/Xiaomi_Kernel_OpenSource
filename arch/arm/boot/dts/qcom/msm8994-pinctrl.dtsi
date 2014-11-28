@@ -232,9 +232,9 @@
 		audio_ext_devices {
 			qcom,pins = <&gp 96>;
 			qcom,num-grp-pins = <1>;
-			label = "audio-ext-mic";
+			label = "audio-ext-speakers";
 			/* default state */
-			audio_ext_mic: audio_ext_mic {
+			audio_ext_speakers: audio_ext_speakers {
 				drive-strength = <2>;
 				bias-pull-up;
 			};
