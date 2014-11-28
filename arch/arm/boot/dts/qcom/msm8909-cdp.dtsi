@@ -66,21 +66,70 @@
 				atmel,bootldr-id = <0x06>;
 				atmel,check-panel-coordinates;
 				atmel,panel-coords = <0 0 566 1067>;
+				/* qHD resolution */
 				atmel,display-coords = <0 0 540 960>;
 				atmel,vkey-codes = <158 139 172 217>;
 				atmel,config = [
 					/* Object 6, Instance = 0 */
 					00 00 00 00 00 00
 					/* Object 38, Instance = 0 */
-					0F 04 01 1E 07 0D 00 00
+					0F 04 02 1B 0B 0E 00 00
+					/* Object 7, Instance = 0 */
+					20 10 32
+					/* Object 8, Instance = 0 */
+					1E 00 05 0A 00 00 0A 0A 00 00
+					/* Object 9, Instance = 0 */
+					83 00 00 13 0B 00 10 32 01 03
+					0C 07 02 00 04 05 02 0A 2B 04
+					36 02 E7 1D 26 12 8F 28 CF 50
+					11 05 32 32 00
+					/* Object 18, Instance = 0 */
+					00 00
+					/* Object 19, Instance = 0 */
+					00 00 00 00 00 00
+					/* Object 25, Instance = 0 */
+					00 00 00 00 00 00
+					/* Object 42, Instance = 0 */
+					03 3C 14 14 96 00 00 00
+					/* Object 46, Instance = 0 */
+					00 03 1C 1C 00 00 01 00 00
+					/* Object 47, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					/* Object 48, Instance = 0 */
+					01 03 52 00 00 00 00 00 00 00
+					10 1E 00 06 06 00 00 7C 04 64
+					00 00 00 05 00 2A 00 01 00 28
+					34 14 00 00 00 32 01 05 02 01
+					04 05 03 E7 1D 26 12 8F 28 CF
+					50 0A 05 02
+					/* Object 55, Instance = 0 */
+					00 00 00 00
+					];
+			};
+			atmel,cfg_2 {
+				atmel,family-id = <0x81>;
+				atmel,variant-id = <0x15>;
+				atmel,version = <0x11>;
+				atmel,build = <0xaa>;
+				atmel,bootldr-id = <0x06>;
+				atmel,check-panel-coordinates;
+				atmel,panel-coords = <0 0 508 880>;
+				/* wvga resolution */
+				atmel,display-coords = <0 0 480 800>;
+				atmel,vkey-codes = <158 172 139>;
+				atmel,config = [
+					/* Object 6, Instance = 0 */
+					00 00 00 00 00 00
+					/* Object 38, Instance = 0 */
+					00 00 01 1B 0B 0E 00 00
 					/* Object 7, Instance = 0 */
 					20 08 32
 					/* Object 8, Instance = 0 */
 					19 00 14 14 00 00 FF 00 00 00
 					/* Object 9, Instance = 0 */
 					83 00 00 13 0B 00 20 32 01 03
-					00 32 05 30 0A 05 0A 00 2B 04
-					36 02 04 2F F8 DC 00 00 40 00
+					00 32 05 30 0A 05 0A 00 70 03
+					FC 01 04 2F F8 DC 00 00 40 00
 					00 0A 00 00 02
 					/* Object 18, Instance = 0 */
 					00 00
@@ -88,6 +137,9 @@
 					00 00 00 00 00 00
 					/* Object 25, Instance = 0 */
 					03 00 18 79 A8 61
+					/* Object 58, Instance = 0 */
+					00 00 00 00 00 00 00 00 00 00
+					00
 					/* Object 42, Instance = 0 */
 					00 00 00 00 00 00 00 00
 					/* Object 46, Instance = 0 */
