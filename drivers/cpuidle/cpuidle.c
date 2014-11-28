@@ -494,6 +494,13 @@ EXPORT_SYMBOL_GPL(cpuidle_register);
 static void smp_callback(void *v)
 {
 	/* we already woke the CPU up, nothing more to do */
+#ifdef CONFIG_ARCH_HAS_CPU_RELAX
+	/* if the cpu is in lightest sleep, i.e, poll_idle(), we need set the
+	 * reschedule flag to get it out
+	 */
+	if (is_idle_task(current))
+		set_tsk_need_resched(current);
+#endif
 }
 
 /*
