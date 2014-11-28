@@ -1501,7 +1501,7 @@ void sst_post_download_mrfld(struct intel_sst_drv *ctx)
 	/* For mrfld, download all libraries the first time fw is
 	 * downloaded */
 	pr_debug("%s: lib_dwnld = %u\n", __func__, ctx->lib_dwnld_reqd);
-	if (ctx->lib_dwnld_reqd) {
+	if (ctx->lib_dwnld_reqd && ctx->info.use_elf != false) {
 		sst_load_all_modules_elf(ctx, sst_modules_mrfld, ARRAY_SIZE(sst_modules_mrfld));
 		ctx->lib_dwnld_reqd = false;
 	}

@@ -163,7 +163,7 @@ static const struct sst_info byt_fwparse_info = {
 
 
 static const struct sst_info cht_fwparse_info = {
-	.use_elf	= true,
+	.use_elf	= false,
 	.max_streams	= MAX_NUM_STREAMS_MRFLD,
 	.dma_max_len	= SST_MAX_DMA_LEN_MRFLD,
 	.iram_start	= SST_BYT_IRAM_PHY_START,
@@ -203,6 +203,10 @@ static const struct sst_lib_dnld_info  byt_lib_dnld_info = {
 #endif
 };
 
+static const struct sst_lib_dnld_info  cht_lib_dnld_info = {
+	.mod_ddr_dnld = false,
+};
+
 static const struct sst_ipc_info cht_ipc_info = {
 	.use_32bit_ops = false,
 	.ipc_offset = 0,
@@ -215,7 +219,7 @@ struct sst_platform_info cht_platform_data = {
 	.bdata = NULL,
 	.pdata = NULL,
 	.ipc_info = &cht_ipc_info,
-	.lib_info = NULL,
+	.lib_info = &cht_lib_dnld_info,
 	.start_recovery_timer = false,
 };
 
