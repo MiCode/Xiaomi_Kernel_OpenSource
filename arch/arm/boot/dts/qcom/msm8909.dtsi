@@ -18,7 +18,6 @@
 	compatible = "qcom,msm8909";
 	qcom,msm-id =	<245 0>,
 			<258 0>,
-			<259 0>,
 			<265 0>;
 	interrupt-parent = <&intc>;
 
@@ -118,7 +117,7 @@
 			label = "audio_mem";
 		};
 
-                cont_splash_mem: splash_region@83000000 {
+		cont_splash_mem: splash_region@83000000 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			reg = <0x0 0x83000000 0x0 0x900000>;
@@ -293,8 +292,6 @@
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
-			/*  73 9.60 MHz */
-			/* 381  50MHz */
 			<  762 /* 100 MHz */>,
 			< 1525 /* 200 MHz */>,
 			< 3051 /* 400 MHz */>,
