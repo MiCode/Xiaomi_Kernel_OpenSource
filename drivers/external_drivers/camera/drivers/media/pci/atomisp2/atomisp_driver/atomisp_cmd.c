@@ -1049,7 +1049,8 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 			WARN_ON(!vb);
 			if (vb)
 				pipe->frame_config_id[vb->i] = frame->isp_config_id;
-			if (asd->pending_capture_request > 0) {
+			if (css_pipe_id == IA_CSS_PIPE_ID_CAPTURE &&
+			    asd->pending_capture_request > 0) {
 				err = atomisp_css_offline_capture_configure(
 					asd,
 					asd->params.offline_parm.num_captures,
