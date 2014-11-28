@@ -110,6 +110,7 @@
 		qcom,cpr-fuse-row = <27 0>;
 		qcom,cpr-fuse-target-quot = <42 24 6>;
 		qcom,cpr-fuse-ro-sel = <54 54 54>;
+		qcom,cpr-quot-min-diff = <0>;
 		qcom,cpr-init-voltage-ref = <1050000 1150000 1350000>;
 		qcom,cpr-fuse-init-voltage =
 					<27 36 6 0>,
