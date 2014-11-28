@@ -2335,7 +2335,6 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 		return -EOPNOTSUPP;
 
 	mmc_host_clk_hold(host);
-	mmc_set_clock(host, host->f_init);
 
 	/*
 	 * before HW reset card, cache needs to be flushed. Otherwise
@@ -2343,6 +2342,8 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 	 * because card may be not in a good state
 	 */
 	mmc_cache_ctrl(host, 0);
+
+	mmc_set_clock(host, host->f_init);
 
 	host->ops->hw_reset(host);
 
