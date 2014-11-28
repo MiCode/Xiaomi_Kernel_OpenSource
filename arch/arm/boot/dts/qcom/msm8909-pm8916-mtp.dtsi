@@ -25,11 +25,13 @@
 		};
 	};
 
-	sound {
-		status = "disabled";
-		asoc-codec = <&stub_codec>;
-	};
+};
 
+&audio_codec_mtp {
+	status = "ok";
+	qcom,model = "msm8909-pm8916-snd-card";
+	asoc-codec = <&stub_codec>, <&pm8916_tombak_dig>;
+	asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
 };
 
 &sdhc_1 {

@@ -29,11 +29,13 @@
 			qcom,clk-gpio = <&pm8916_gpios 2 0>;
 		};
 	};
+};
 
-	sound {
-		status = "disabled";
-		asoc-codec = <&stub_codec>;
-	};
+&audio_codec {
+	status = "ok";
+	qcom,model = "msm8909-pm8916-snd-card";
+	asoc-codec = <&stub_codec>, <&pm8916_tombak_dig>;
+	asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
 };
 
 &dsi_hx8394d_720_vid {
