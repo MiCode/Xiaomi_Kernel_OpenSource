@@ -65,11 +65,40 @@ static int cht_otg_set_id_mux(struct cht_otg *otg_dev, int id)
 	hcd = bus_to_hcd(host);
 	xhci = hcd_to_xhci(hcd);
 
-	/* make sure host and device are in D0, when do phy transition */
+	/* HACK: PHY used in Cherrytrail is shared by both host and device
+	 * controller, it requires both host and device controller to be D0
+	 * for any action related to PHY transition */
 	pm_runtime_get_sync(host->controller);
 	pm_runtime_get_sync(gadget->dev.parent);
 
 	xhci_intel_phy_mux_switch(xhci, id);
+
+	pm_runtime_put(gadget->dev.parent);
+	pm_runtime_put(host->controller);
+
+	return 0;
+}
+
+static int cht_otg_set_vbus_valid(struct cht_otg *otg_dev, int vbus_valid)
+{
+	struct usb_bus *host = otg_dev->phy.otg->host;
+	struct usb_gadget *gadget = otg_dev->phy.otg->gadget;
+	struct usb_hcd *hcd;
+	struct xhci_hcd *xhci;
+
+	if (!host || !gadget || !gadget->dev.parent)
+		return -ENODEV;
+
+	hcd = bus_to_hcd(host);
+	xhci = hcd_to_xhci(hcd);
+
+	/* HACK: PHY used in Cherrytrail is shared by both host and device
+	 * controller, it requires both host and device controller to be D0
+	 * for any action related to PHY transition */
+	pm_runtime_get_sync(host->controller);
+	pm_runtime_get_sync(gadget->dev.parent);
+
+	xhci_intel_phy_vbus_valid(xhci, vbus_valid);
 
 	pm_runtime_put(gadget->dev.parent);
 	pm_runtime_put(host->controller);
@@ -96,11 +125,30 @@ static int cht_otg_start_host(struct otg_fsm *fsm, int on)
 	return retval;
 }
 
+static int cht_otg_start_gadget(struct otg_fsm *fsm, int on)
+{
+	struct usb_otg *otg = fsm->otg;
+	struct cht_otg *otg_dev = container_of(otg->phy, struct cht_otg, phy);
+	int retval;
+
+	dev_dbg(otg->phy->dev, "%s --->\n", __func__);
+
+	if (!otg->gadget)
+		return -ENODEV;
+
+	retval = cht_otg_set_vbus_valid(otg_dev, on);
+
+	dev_dbg(otg->phy->dev, "%s <---\n", __func__);
+
+	return retval;
+}
+
 /* SRP / HNP / ADP are not supported, only simple dual role function
  * start gadget function is not implemented as controller will take
  * care itself per VBUS event */
 static struct otg_fsm_ops cht_otg_ops = {
 	.start_host = cht_otg_start_host,
+	.start_gadget = cht_otg_start_gadget,
 };
 
 static int cht_otg_set_power(struct usb_phy *phy, unsigned mA)
