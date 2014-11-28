@@ -38,8 +38,11 @@ where board_id is a 32-bit integer whose bit values are defined as follows:
     bits  7-0  = Platform Type ID
 
 and the 'reserved' cell is a 32-bit integer whose bit values are defined as follows:
-    bits 31-16 = Reserved bits
-    bits 15-8  = DDR Size. For devices with DDR Size as 512MB the value is 0x1, default value as 0x0
+    bits 31-13 = Reserved Bits
+    bits 12-11 = Panel Detection. 00 - limit to HD, 01 - limit to 720p,
+		 10 - limit to qHD, 11 - limit to FWVGA
+    bits 10-8  = DDR Size. For devices with DDR Size as 512MB the value is 0x1,
+		 default value as 0x0
     bits 7-0   = Platform Subtype
 
 In the event that a given device tree is applicable to all hardware versions
