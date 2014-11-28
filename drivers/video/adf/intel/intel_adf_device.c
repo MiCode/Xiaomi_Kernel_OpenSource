@@ -332,6 +332,7 @@ static int intel_adf_device_validate(struct adf_device *dev,
 	struct intel_adf_post_custom_data *custom = cfg->custom_data;
 	struct intel_adf_config *custom_config;
 	struct intel_adf_overlay_engine *eng;
+	struct intel_adf_interface *intel_intf;
 	struct driver_state *state;
 	struct adf_interface *intf;
 	struct adf_buffer *buf;
@@ -349,7 +350,7 @@ static int intel_adf_device_validate(struct adf_device *dev,
 		return -EINVAL;
 	}
 
-	/*verify version*/
+	/* verify version */
 	if (custom->version != INTEL_ADF_VERSION) {
 		dev_err(dev->dev, "%s: version mismatch\n", __func__);
 		return -EINVAL;
@@ -357,7 +358,7 @@ static int intel_adf_device_validate(struct adf_device *dev,
 
 	n_configs = custom->n_configs;
 
-	/*verify custom size*/
+	/* verify custom size */
 	custom_size = sizeof(struct intel_adf_post_custom_data) +
 		n_configs * sizeof(struct intel_adf_config);
 	if (custom_size != cfg->custom_data_size) {
@@ -365,7 +366,7 @@ static int intel_adf_device_validate(struct adf_device *dev,
 		return -EINVAL;
 	}
 
-	/*allocate driver state*/
+	/* allocate driver state */
 	state = driver_state_create_and_init();
 	if (!state) {
 		dev_err(dev->dev, "%s: failed to allocate driver state\n",
@@ -373,17 +374,11 @@ static int intel_adf_device_validate(struct adf_device *dev,
 		return -ENOMEM;
 	}
 
-	/*verify custom configs*/
+	/* verify custom configs */
 	for (i = 0; i < n_configs; i++) {
 		custom_config = &custom->configs[i];
-		/*verify buffer id set in plane*/
-		if (custom_config->plane.buffer_id > n_bufs) {
-			dev_err(dev->dev, "%s: invalid custom buffer id %d\n",
-				__func__, custom_config->plane.buffer_id);
-			err = -EINVAL;
-			goto err;
-		}
-		/*verify interface id set in plane*/
+
+		/* verify interface id set in plane */
 		intf = idr_find(&dev->interfaces,
 			custom_config->interface_id);
 		if (!intf) {
@@ -394,13 +389,28 @@ static int intel_adf_device_validate(struct adf_device *dev,
 		}
 		driver_state_add_interface(state, to_intel_intf(intf));
 
-		/*get adf_buffer for this overlay*/
+		intel_intf = to_intel_intf(intf);
+
+		/* Validate the pipe properties if any */
+		if (intel_intf->pipe && intel_intf->pipe->ops &&
+				intel_intf->pipe->ops->pre_validate)
+			intel_intf->pipe->ops->pre_validate(intel_intf->pipe,
+					custom);
+
+		/* verify buffer id set in plane */
+		if (custom_config->plane.buffer_id > n_bufs) {
+			dev_err(dev->dev, "%s: invalid custom buffer id %d\n",
+				__func__, custom_config->plane.buffer_id);
+			err = -EINVAL;
+			goto err;
+		}
+		/* get adf_buffer for this overlay */
 		buf = &cfg->bufs[custom_config->plane.buffer_id];
 		mapping = &cfg->mappings[custom_config->plane.buffer_id];
 		eng = to_intel_eng(buf->overlay_engine);
 		driver_state_add_overlay_engine(state, eng);
 
-		/*create and queue a flip for this overlay*/
+		/* create and queue a flip for this overlay */
 		f = driver_state_create_add_flip(state, eng,
 			to_intel_intf(intf), buf, mapping,
 				&custom_config->plane, custom->zorder);
