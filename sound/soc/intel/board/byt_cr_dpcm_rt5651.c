@@ -48,8 +48,9 @@
 #define PLAT_CLK_FORCE_ON	1
 #define PLAT_CLK_FORCE_OFF	2
 
-#define BYT_T_JACK_RECHECK	1500 /* ms */
-#define BYT_T_BUTTONS_RECHECK	25 /* ms */
+#define BYT_T_JACK_RECHECK	300 /* ms */
+#define BYT_N_JACK_RECHECK	5
+#define BYT_T_BUTTONS_RECHECK	100 /* ms */
 
 /* 0 = 25MHz from crystal, 1 = 19.2MHz from PLL */
 #define PLAT_CLK_FREQ_XTAL	0
@@ -78,6 +79,7 @@ struct byt_drvdata {
 	struct delayed_work hs_buttons_recheck;
 	int t_jack_recheck;
 	int t_buttons_recheck;
+	int jack_hp_count;
 	struct mutex jack_mlock;
 	struct rt5651_gpios gpios;
 };
@@ -223,39 +225,31 @@ static int byt_hs_jack_check(struct byt_drvdata *drvdata, bool is_recheck)
 		if (!(jack->status & SND_JACK_HEADPHONE)) {
 			status = rt5651_headset_detect(codec, true);
 			if (status == RT5651_HEADPHO_DET) {
-				if (!is_recheck) {
-					pr_debug("%s: Headphones detected (preliminary).\n",
-						__func__);
-					jack->status |= SND_JACK_HEADPHONE;
+				if (drvdata->jack_hp_count > 0) {
+					pr_debug("%s: Headphones detected (preliminary, %d).\n",
+						__func__,
+						drvdata->jack_hp_count);
+					drvdata->jack_hp_count--;
 					schedule_delayed_work(
 						&drvdata->hs_jack_recheck,
 						drvdata->t_jack_recheck);
-				} else
-					BUG_ON(true);
+				} else {
+					pr_info("%s: Headphones present.\n",
+						__func__);
+					jack->status |= SND_JACK_HEADPHONE;
+					drvdata->jack_hp_count =
+						BYT_N_JACK_RECHECK;
+				}
 			} else if (status == RT5651_HEADSET_DET) {
 				pr_info("%s: Headset present.\n", __func__);
 				byt_set_mic_bias_ldo(codec, true,
 					&drvdata->jack_mlock);
 				jack->status |= SND_JACK_HEADSET;
+				drvdata->jack_hp_count = BYT_N_JACK_RECHECK;
 			} else
 				pr_warn("%s: No valid accessory present!\n",
 					__func__);
-		} else if (!(jack->status & SND_JACK_MICROPHONE)) {
-			status = rt5651_headset_detect(codec, true);
-			if (status == RT5651_HEADPHO_DET) {
-				pr_info("%s: Headphones present.\n", __func__);
-			} else if (status == RT5651_HEADSET_DET) {
-				pr_info("%s: Headset present (changed from Headphone).\n",
-					__func__);
-				byt_set_mic_bias_ldo(codec, true,
-					&drvdata->jack_mlock);
-				jack->status |= SND_JACK_HEADSET;
-			} else
-				pr_warn("%s: No valid accessory present!\n",
-					__func__);
-		} else
-			pr_warn("%s: Insert-interrupt while Headset present!\n",
-					__func__);
+		}
 	} else {
 		if (jack->status & SND_JACK_HEADPHONE) {
 			if (jack->status & SND_JACK_MICROPHONE) {
@@ -341,7 +335,7 @@ static inline struct snd_soc_codec *byt_get_codec(struct snd_soc_card *card)
 		}
 	}
 	if (found == false) {
-		pr_err("%s: Codec not found", __func__);
+		pr_err("%s: Codec not found!\n", __func__);
 		return NULL;
 	}
 	return codec;
@@ -478,7 +472,7 @@ static int byt_set_dai_fmt_pll(struct snd_soc_dai *codec_dai,
 	int ret;
 	unsigned int fmt;
 
-	pr_debug("%s: Enter.", __func__);
+	pr_debug("%s: Enter.\n", __func__);
 
 	/* Codec slave-mode */
 	fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
@@ -559,7 +553,7 @@ static void byt_export_gpio(struct gpio_desc *desc, char *name)
 
 static int byt_init(struct snd_soc_pcm_runtime *runtime)
 {
-	int ret, dir;
+	int ret, dir, count;
 	struct snd_soc_codec *codec;
 	struct snd_soc_card *card = runtime->card;
 	struct byt_drvdata *drvdata = snd_soc_card_get_drvdata(runtime->card);
@@ -673,35 +667,49 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		pr_warn("%s: GPIOs - JD-buttons: Not present!\n", __func__);
 	}
 
-
 	/* BYT-CR Audio Jack */
+	count = 0;
+	if (drvdata->gpios.jd_int2_gpio != RT5651_GPIO_NA) {
+		hs_gpio[count].gpio = drvdata->gpios.jd_int2_gpio;
+		hs_gpio[count].data = drvdata;
+		count++;
+	}
+
+	if (drvdata->gpios.jd_buttons_gpio != RT5651_GPIO_NA) {
+		hs_gpio[count].gpio = drvdata->gpios.jd_buttons_gpio;
+		hs_gpio[count].data = drvdata;
+		count++;
+	}
 
 	drvdata->t_jack_recheck = msecs_to_jiffies(BYT_T_JACK_RECHECK);
 	INIT_DELAYED_WORK(&drvdata->hs_jack_recheck, byt_hs_jack_recheck);
 	drvdata->t_buttons_recheck = msecs_to_jiffies(BYT_T_BUTTONS_RECHECK);
 	INIT_DELAYED_WORK(&drvdata->hs_buttons_recheck, byt_hs_buttons_recheck);
+	drvdata->jack_hp_count = 5;
 
-	ret = snd_soc_jack_new(codec, "BYT-CR Audio Jack",
-			SND_JACK_HEADSET | SND_JACK_BTN_0,
-			 &drvdata->jack);
-	if (ret) {
-		pr_err("%s: snd_soc_jack_new failed (ret = %d)!\n", __func__,
-			ret);
-		return ret;
+	if (!count) {
+		/* Someting wrong with ACPI configuration */
+		WARN(1, "Wrong ACPI configuration !");
+	} else {
+		ret = snd_soc_jack_new(codec, "BYT-CR Audio Jack",
+				SND_JACK_HEADSET | SND_JACK_BTN_0,
+				 &drvdata->jack);
+		if (ret) {
+			pr_err("%s: snd_soc_jack_new failed (ret = %d)!\n",
+				__func__, ret);
+			return ret;
+		}
+
+		ret = snd_soc_jack_add_gpios(&drvdata->jack, count,
+				&hs_gpio[0]);
+		if (ret) {
+			pr_err("%s: snd_soc_jack_add_gpios failed (ret = %d)!\n",
+				__func__, ret);
+			return ret;
+		}
+
+		snd_jack_set_key(drvdata->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
 	}
-
-	hs_gpio[0].gpio = drvdata->gpios.jd_int2_gpio;
-	hs_gpio[0].data = drvdata;
-	hs_gpio[1].gpio = drvdata->gpios.jd_buttons_gpio;
-	hs_gpio[1].data = drvdata;
-	ret = snd_soc_jack_add_gpios(&drvdata->jack, 2, &hs_gpio[0]);
-	if (ret) {
-		pr_err("%s: snd_soc_jack_add_gpios failed (ret = %d)!\n",
-			__func__, ret);
-		return ret;
-	}
-
-	snd_jack_set_key(drvdata->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
 
 	ret = snd_soc_add_card_controls(card, byt_mc_controls,
 					ARRAY_SIZE(byt_mc_controls));
@@ -709,13 +717,11 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		pr_err("%s: Unable to add card controls!\n", __func__);
 		return ret;
 	}
-
 	ret = snd_soc_dapm_sync(&card->dapm);
 	if (ret) {
 		pr_err("%s: snd_soc_dapm_sync failed!\n", __func__);
 		return ret;
 	}
-
 	return ret;
 }
 
@@ -730,7 +736,6 @@ static struct snd_pcm_hw_constraint_list constraints_8000_16000 = {
 	.count = ARRAY_SIZE(rates_8000_16000),
 	.list = rates_8000_16000,
 };
-
 static unsigned int rates_48000[] = {
 	48000,
 };
@@ -854,6 +859,10 @@ static int snd_byt_poweroff(struct device *dev)
 
 	return snd_soc_poweroff(dev);
 }
+#else
+#define snd_byt_prepare NULL
+#define snd_byt_complete NULL
+#define snd_byt_poweroff NULL
 #endif
 
 /* SoC card */
