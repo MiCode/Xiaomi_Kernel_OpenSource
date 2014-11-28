@@ -101,3 +101,7 @@
 		status = "disabled";
 	};
 };
+
+&audio_codec {
+	qcom,msm-micbias2-ext-cap;
+};
