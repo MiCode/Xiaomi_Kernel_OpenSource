@@ -429,7 +429,7 @@ static void __ref try_hotplug(struct cpu_hp *data)
 
 	mutex_lock(&managed_cpus_lock);
 	if (num_online_managed(data->cpus) > data->max_cpu_request) {
-		for (i = num_present_cpus() - 1; i >= 0; i--) {
+		for (i = num_present_cpus() - 1; i >= 0 && i < num_present_cpus(); i--) {
 			if (!cpumask_test_cpu(i, data->cpus) ||	!cpu_online(i))
 				continue;
 
