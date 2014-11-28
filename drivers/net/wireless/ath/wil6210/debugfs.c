@@ -572,8 +572,10 @@ static ssize_t wil_write_file_txmgmt(struct file *file, const char __user *buf,
 	if (!frame)
 		return -ENOMEM;
 
-	if (copy_from_user(frame, buf, len))
+	if (copy_from_user(frame, buf, len)) {
+		kfree(frame);
 		return -EIO;
+	}
 
 	rc = wil_cfg80211_mgmt_tx(wiphy, wdev, wdev->preset_chandef.chan,
 				true, 0, frame, len, true, false, NULL);
@@ -610,8 +612,10 @@ static ssize_t wil_write_file_wmi(struct file *file, const char __user *buf,
 		return -ENOMEM;
 
 	rc = simple_write_to_buffer(wmi, len, ppos, buf, len);
-	if (rc < 0)
+	if (rc < 0) {
+		kfree(wmi);
 		return rc;
+	}
 
 	cmd = &wmi[1];
 	cmdid = le16_to_cpu(wmi->id);
