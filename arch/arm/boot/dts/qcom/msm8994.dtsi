@@ -93,11 +93,11 @@
 			};
 			L1_I_0: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 			L1_D_0: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 		};
 
@@ -111,11 +111,11 @@
 			next-level-cache = <&L2_0>;
 			L1_I_1: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 			L1_D_1: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 		};
 
@@ -129,11 +129,11 @@
 			next-level-cache = <&L2_0>;
 			L1_I_2: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 			L1_D_2: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 		};
 
@@ -147,11 +147,11 @@
 			next-level-cache = <&L2_0>;
 			L1_I_3: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 			L1_D_3: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 		};
 
@@ -166,7 +166,7 @@
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
-			      qcom,dump-size = <0x240000>;		/*A57 Cluster L2 size is 1MB */
+			      qcom,dump-size = <0x280040>;		/*A57 Cluster L2 size is 1MB */
 			      power-domain = <&l2ccc_1>;
 			      L2_tlb_1: l2-tlb {
 					qcom,dump-size = <0x4000>;
@@ -180,11 +180,11 @@
 			};
 			L1_I_100: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0xd800>;
+				qcom,dump-size = <0xd840>;
 			};
 			L1_D_100: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 		};
 
@@ -204,11 +204,11 @@
 			};
 			L1_I_101: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0xd800>;
+				qcom,dump-size = <0xd840>;
 			};
 			L1_D_101: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 		};
 
@@ -228,11 +228,11 @@
 			};
 			L1_I_102: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0xd800>;
+				qcom,dump-size = <0xd840>;
 			};
 			L1_D_102: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 		};
 
@@ -252,11 +252,11 @@
 			};
 			L1_I_103: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0xd800>;
+				qcom,dump-size = <0xd840>;
 			};
 			L1_D_103: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0x9040>;
 			};
 		};
 	};
