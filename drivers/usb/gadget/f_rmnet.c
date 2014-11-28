@@ -525,6 +525,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 		}
 		break;
 	case USB_GADGET_XPORT_ETHER:
+		gether_enable_sg(&dev->gether_port, true);
 		net = gether_connect(&dev->gether_port);
 		if (IS_ERR(net)) {
 			pr_err("%s: gether_connect failed: err:%ld\n",
