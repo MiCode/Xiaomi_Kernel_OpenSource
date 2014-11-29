@@ -14,20 +14,25 @@
 
 #include <sound/soc.h>
 
+struct param_outband;
+
 #ifdef CONFIG_DTS_SRS_TM
 
 union srs_trumedia_params_u {
 	struct srs_trumedia_params srs_params;
-	unsigned short int raw_params[1];
+	__u16 raw_params[1];
 };
 
+void msm_dts_srs_tm_ion_memmap(struct param_outband *po_);
 void msm_dts_srs_tm_init(int port_id, int copp_idx);
 void msm_dts_srs_tm_deinit(int port_id);
 void msm_dts_srs_tm_add_controls(struct snd_soc_platform *platform);
 #else
-void msm_dts_srs_tm_init(int port_id, int copp_idx) { }
-void msm_dts_srs_tm_deinit(int port_id) { }
-void msm_dts_srs_tm_add_controls(struct snd_soc_platform *platform) { }
+static inline void msm_dts_srs_tm_ion_memmap(struct param_outband *po_) { }
+static inline void msm_dts_srs_tm_init(int port_id, int copp_idx) { }
+static inline void msm_dts_srs_tm_deinit(int port_id) { }
+static inline void msm_dts_srs_tm_add_controls(
+					struct snd_soc_platform *platform) { }
 
 #endif
 
