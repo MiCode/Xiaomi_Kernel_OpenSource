@@ -778,10 +778,10 @@ static int system_suspend_handler(struct notifier_block *nb,
 			if (activity[cpu].sensor_id < 0)
 				continue;
 
-			sensor_cancel_trip(activity[cpu].sensor_id,
-				&activity[cpu].hi_threshold);
-			sensor_cancel_trip(activity[cpu].sensor_id,
-				&activity[cpu].low_threshold);
+			sensor_activate_trip(activity[cpu].sensor_id,
+				&activity[cpu].hi_threshold, false);
+			sensor_activate_trip(activity[cpu].sensor_id,
+				&activity[cpu].low_threshold, false);
 		}
 		break;
 	default:
