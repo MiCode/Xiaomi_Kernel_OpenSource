@@ -125,6 +125,9 @@ size_t get_cal_info_size(int32_t cal_type)
 	case AUDIO_CORE_METAINFO_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_metainfo);
 		break;
+	case SRS_TRUMEDIA_CAL_TYPE:
+		size = 0;
+		break;
 	default:
 		pr_err("%s:Invalid cal type %d!",
 			__func__, cal_type);
@@ -233,6 +236,9 @@ size_t get_user_cal_type_size(int32_t cal_type)
 		size = 0;
 	case AUDIO_CORE_METAINFO_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_metainfo);
+		break;
+	case SRS_TRUMEDIA_CAL_TYPE:
+		size = 0;
 		break;
 	default:
 		pr_err("%s:Invalid cal type %d!",
