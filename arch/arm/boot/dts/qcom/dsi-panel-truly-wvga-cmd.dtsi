@@ -151,9 +151,9 @@
 		qcom,mdss-dsi-te-dcs-command = <1>;
 		qcom,mdss-dsi-te-check-enable;
 		qcom,mdss-dsi-te-using-te-pin;
-		qcom,mdss-dsi-panel-timings = [5D 12 0C 00 33 38 10 16 1E 03 04 00];
+		qcom,mdss-dsi-panel-timings = [7B 1A 10 00 3C 42 14 1C 15 03 04 00];
 		qcom,mdss-dsi-t-clk-post = <0x04>;
-		qcom,mdss-dsi-t-clk-pre = <0x1b>;
+		qcom,mdss-dsi-t-clk-pre = <0x1a>;
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <255>;
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
