@@ -1133,6 +1133,7 @@ struct i915_power_well {
 	bool hw_enabled;
 	unsigned long domains;
 	unsigned long data;
+	bool power_domain_disabled;
 	const struct i915_power_well_ops *ops;
 };
 

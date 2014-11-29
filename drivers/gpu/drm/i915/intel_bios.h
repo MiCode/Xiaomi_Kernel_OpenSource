@@ -693,6 +693,7 @@ int intel_parse_bios(struct drm_device *dev);
 #define	 DEVICE_TYPE_HDMI	0x60D2
 #define	 DEVICE_TYPE_DP		0x68C6
 #define	 DEVICE_TYPE_eDP	0x78C6
+#define	 DEVICE_TYPE_DP_HDMI_DVI	0x60D6
 
 #define  DEVICE_TYPE_CLASS_EXTENSION	(1 << 15)
 #define  DEVICE_TYPE_POWER_MANAGEMENT	(1 << 14)

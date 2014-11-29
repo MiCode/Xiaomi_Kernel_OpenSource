@@ -7006,6 +7006,11 @@ void intel_display_power_rpm_get(struct drm_i915_private *dev_priv,
 	mutex_lock(&power_domains->lock);
 
 	for_each_power_well(i, power_well, BIT(domain), power_domains) {
+		if (power_well->power_domain_disabled) {
+			DRM_DEBUG_KMS("Power Domain not supported: %s\n",
+				       power_well->name);
+			continue;
+		}
 		if (!power_well->count++) {
 			DRM_DEBUG_KMS("enabling %s\n", power_well->name);
 			power_well->ops->enable(dev_priv, power_well);
@@ -7035,8 +7040,13 @@ void intel_display_power_rpm_put(struct drm_i915_private *dev_priv,
 	power_domains->domain_use_count[domain]--;
 
 	for_each_power_well_rev(i, power_well, BIT(domain), power_domains) {
-		WARN_ON(!power_well->count);
+		if (power_well->power_domain_disabled) {
+			DRM_DEBUG_KMS("Power Domain not supported: %s\n",
+				       power_well->name);
+			continue;
+		}
 
+		WARN_ON(!power_well->count);
 		if (!--power_well->count && i915.disable_power_well) {
 			DRM_DEBUG_KMS("disabling %s\n", power_well->name);
 			power_well->hw_enabled = false;
@@ -7451,6 +7461,57 @@ static struct i915_power_well chv_power_wells[] = {
 	(power_domains)->power_well_count = ARRAY_SIZE(__power_wells);	\
 })
 
+static void cherryview_sanitize_power_well(struct drm_i915_private *dev_priv)
+{
+	struct i915_power_domains *power_domains = &dev_priv->power_domains;
+	struct i915_power_well *power_well;
+	int i;
+	bool port_bc_in_use = false, port_d_in_use = false;
+
+	for (i = 0; i < dev_priv->vbt.child_dev_num; i++) {
+		int dvo_port =
+			dev_priv->vbt.child_dev[i].common.dvo_port;
+		int devtype =
+			dev_priv->vbt.child_dev[i].common.device_type;
+
+		if (devtype & DEVICE_TYPE_eDP_BITS) {
+			switch (dvo_port) {
+			case DVO_PORT_DPB:
+			case DVO_PORT_DPC:
+				port_bc_in_use = true;
+				break;
+			case DVO_PORT_DPD:
+				port_d_in_use = true;
+				break;
+			default:
+				break;
+			}
+		}
+
+		if ((devtype == DEVICE_TYPE_HDMI ||
+			  devtype == DEVICE_TYPE_DP_HDMI_DVI ||
+			  devtype == DEVICE_TYPE_DP)) {
+			switch (dvo_port) {
+			case DVO_PORT_HDMIB:
+			case DVO_PORT_HDMIC:
+				port_bc_in_use = true;
+				break;
+			case DVO_PORT_HDMID:
+				port_d_in_use = true;
+			default:
+				break;
+			}
+		}
+	}
+
+	for_each_power_well(i, power_well, POWER_DOMAIN_MASK, power_domains) {
+		if (power_well->data == PUNIT_POWER_WELL_DPIO_CMN_BC)
+			power_well->power_domain_disabled = !port_bc_in_use;
+		if (power_well->data == PUNIT_POWER_WELL_DPIO_CMN_D)
+			power_well->power_domain_disabled = !port_d_in_use;
+	}
+}
+
 int intel_power_domains_init(struct drm_i915_private *dev_priv)
 {
 	struct i915_power_domains *power_domains = &dev_priv->power_domains;
@@ -7501,6 +7562,17 @@ static void intel_power_domains_resume(struct drm_i915_private *dev_priv)
 void intel_power_domains_init_hw(struct drm_i915_private *dev_priv)
 {
 	struct i915_power_domains *power_domains = &dev_priv->power_domains;
+
+	/*
+	 * Not all boards have the power to display phy connected and
+	 * trying to turn on the power well is leaving the hardware in
+	 * a strange state, this manifests itself in RC6 errors later
+	 * in the boot process. Thus we only enable the Display PHY0/1
+	 * power gating only if the ports related to PHY are in use, we
+	 * base this decision on how the VBT child nodes are populated.
+	 */
+	if (IS_CHERRYVIEW(dev_priv->dev))
+		cherryview_sanitize_power_well(dev_priv);
 
 	power_domains->initializing = true;
 	/* For now, we need the power well to be always enabled. */
