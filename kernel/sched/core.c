@@ -1849,14 +1849,16 @@ void sched_account_irqtime(int cpu, struct task_struct *curr,
 {
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long flags, nr_windows;
-	u64 cur_jiffies_ts;
+	u64 cur_jiffies_ts, now;
 
 	raw_spin_lock_irqsave(&rq->lock, flags);
 
+	now = sched_clock();
+	delta += (now - wallclock);
 	cur_jiffies_ts = get_jiffies_64();
 
 	if (is_idle_task(curr))
-		update_task_ravg(curr, rq, IRQ_UPDATE, wallclock, delta);
+		update_task_ravg(curr, rq, IRQ_UPDATE, now, delta);
 
 	nr_windows = cur_jiffies_ts - rq->irqload_ts;
 
