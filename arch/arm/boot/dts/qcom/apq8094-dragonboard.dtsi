@@ -239,6 +239,14 @@
 	status = "ok";
 };
 
+&ufs1 {
+	status = "ok";
+};
+
+&ufsphy1 {
+	status = "ok";
+};
+
 &usb_otg {
 	status = "ok";
 	reg = <0xf9a55000 0x400>,
