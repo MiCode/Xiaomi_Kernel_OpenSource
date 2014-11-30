@@ -55,12 +55,13 @@ struct msm_hsic_per {
 	struct clk			*phy_clk;
 	struct clk			*cal_clk;
 	struct regulator	*hsic_vdd;
-	bool				async_int;
+	int			async_int;
 	int			vdd_val[3];
 	struct regulator        *hsic_gdsc;
 	void __iomem		*regs;
-	int					irq;
-	atomic_t			in_lpm;
+	int			irq;
+	int			async_irq_no;
+	atomic_t		in_lpm;
 	struct wake_lock	wlock;
 	struct workqueue_struct *wq;
 	struct work_struct	suspend_w;
@@ -454,10 +455,17 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 			dev_err(mhsic->dev, "Failed to vote for bus scaling\n");
 	}
 
-	if (device_may_wakeup(mhsic->dev))
+	if (device_may_wakeup(mhsic->dev)) {
 		enable_irq_wake(mhsic->irq);
+		if (mhsic->async_irq_no)
+			enable_irq_wake(mhsic->async_irq_no);
+	}
 
 	atomic_set(&mhsic->in_lpm, 1);
+	/* If async irq present, enable while going into LPM */
+	if (mhsic->async_irq_no)
+		enable_irq(mhsic->async_irq_no);
+
 	enable_irq(mhsic->irq);
 	wake_unlock(&mhsic->wlock);
 
@@ -484,7 +492,6 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 		if (ret)
 			dev_err(mhsic->dev, "Failed to vote for bus scaling\n");
 	}
-
 	ret = regulator_set_voltage(mhsic->hsic_vdd, mhsic->vdd_val[MIN],
 							mhsic->vdd_val[MAX]);
 	if (ret < 0)
@@ -495,6 +502,7 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 		clk_prepare_enable(mhsic->iface_clk);
 		clk_prepare_enable(mhsic->core_clk);
 	}
+
 	clk_prepare_enable(mhsic->phy_clk);
 	clk_prepare_enable(mhsic->cal_clk);
 	clk_prepare_enable(mhsic->alt_core_clk);
@@ -526,15 +534,22 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 		msm_hsic_reset(mhsic);
 	}
 skip_phy_resume:
-	if (device_may_wakeup(mhsic->dev))
+	if (device_may_wakeup(mhsic->dev)) {
 		disable_irq_wake(mhsic->irq);
+		if (mhsic->async_irq_no)
+			disable_irq_wake(mhsic->async_irq_no);
+	}
 
 	atomic_set(&mhsic->in_lpm, 0);
 
 	if (mhsic->async_int) {
-		mhsic->async_int = false;
-		enable_irq(mhsic->irq);
+		enable_irq(mhsic->async_int);
+		mhsic->async_int = 0;
 	}
+
+	/* If Async irq present, keep it disable once out of LPM */
+	if (mhsic->async_irq_no)
+		disable_irq(mhsic->async_irq_no);
 
 	dev_info(mhsic->dev, "HSIC-USB exited from low power mode\n");
 
@@ -636,8 +651,9 @@ static irqreturn_t msm_udc_hsic_irq(int irq, void *data)
 	struct msm_hsic_per *mhsic = data;
 
 	if (atomic_read(&mhsic->in_lpm)) {
-		disable_irq_nosync(mhsic->irq);
-		mhsic->async_int = true;
+		pr_debug("%s(): HSIC IRQ:%d in LPM\n", __func__, irq);
+		disable_irq_nosync(irq);
+		mhsic->async_int = irq;
 		pm_request_resume(mhsic->dev);
 		return IRQ_HANDLED;
 	}
@@ -770,6 +786,13 @@ static int msm_hsic_probe(struct platform_device *pdev)
 		goto error;
 	}
 
+	mhsic->async_irq_no = platform_get_irq(pdev, 1);
+	if (mhsic->async_irq_no < 0) {
+		dev_err(&pdev->dev, "Unable to get async IRQ resource\n");
+		ret = mhsic->async_irq_no;
+		goto error;
+	}
+
 	mhsic->wq = alloc_workqueue("mhsic_wq", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 	if (!mhsic->wq) {
 		pr_err("%s: Unable to create workqueue mhsic wq\n",
@@ -828,7 +851,7 @@ static int msm_hsic_probe(struct platform_device *pdev)
 			msm_bus_scale_register_client(mhsic->bus_scale_table);
 		ret = msm_bus_scale_client_update_request(
 						mhsic->bus_perf_client, 1);
-		dev_debug(&pdev->dev, "bus scaling is enabled\n");
+		dev_dbg(&pdev->dev, "bus scaling is enabled\n");
 		if (ret)
 			dev_err(mhsic->dev, "Failed to vote for bus scaling\n");
 	}
@@ -854,11 +877,23 @@ static int msm_hsic_probe(struct platform_device *pdev)
 		goto udc_remove;
 	}
 
+	ret = request_irq(mhsic->async_irq_no, msm_udc_hsic_irq,
+					  IRQF_TRIGGER_HIGH, pdev->name, mhsic);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "request_irq failed\n");
+		ret = -ENODEV;
+		goto free_core_irq;
+	}
+
+	disable_irq(mhsic->async_irq_no);
+
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 
 	return 0;
+free_core_irq:
+	free_irq(mhsic->irq, mhsic);
 udc_remove:
 	udc_remove();
 	if (mhsic->bus_perf_client)
@@ -884,6 +919,9 @@ static int hsic_msm_remove(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 0);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
+
+	free_irq(mhsic->irq, mhsic);
+	free_irq(mhsic->async_irq_no, mhsic);
 
 	msm_hsic_init_vdd(mhsic, 0);
 	msm_hsic_enable_clocks(pdev, mhsic, 0);
