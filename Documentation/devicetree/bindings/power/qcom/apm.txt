@@ -1,0 +1,51 @@
+MSM Array Power Mux (msm-apm)
+
+In some MSM designs, the CPU and caches contain logic which can be powered by
+multiple rails. The APM controller exists to enable the selection of the power
+rail supplying these arrays. Since a given supply may drop below the array
+SRAM minimum operating voltage, the APM controller can be used to request a
+switch to a power supply that will guarantee logic state retention.
+
+Required properties
+- compatible:	"qcom,msm-apm"
+- reg:		Specifies physical base address and size of memory mapped regions
+		containing the APM controller, APCS CSR, APC PLL controller, and
+		SPM event registers.
+- reg-names:	List of strings identifying the reg property entries. This list must
+		contain: "pm-apcc-glb", "apcs-csr", "apc0-pll-ctl", "apc1-pll-ctl",
+		"apc0-cpu0-spm", "apc0-cpu1-spm", "apc1-cpu0-spm", "apc1-cpu1-spm",
+		"apc0-l2-spm", and "apc1-l2-spm".
+
+MSM APM Users
+
+Required properties:
+- qcom,apm-ctrl:		phandle of APM controller device node
+
+Example:
+	apc_apm: apm@099e0000 {
+		compatible = "qcom,msm-apm";
+		reg = <0x099e0000 0x1000>,
+			<0x09820000 0x10000>,
+			<0x06400050 0x8>,
+			<0x06480050 0x8>,
+			<0x09981068 0x8>,
+			<0x09991068 0x8>,
+			<0x099b1068 0x8>,
+			<0x099c1068 0x8>,
+			<0x099a1068 0x8>,
+			<0x099d1068 0x8>;
+		reg-names = "pm-apcc-glb",
+				"apcs-csr",
+				"apc0-pll-ctl",
+				"apc1-pll-ctl",
+				"apc0-cpu0-spm",
+				"apc0-cpu1-spm",
+				"apc1-cpu0-spm",
+				"apc1-cpu1-spm",
+				"apc0-l2-spm",
+				"apc1-l2-spm";
+
+	foo_user {
+		...
+		qcom,apm-ctrl = <&apc_apm>;
+	};
