@@ -955,10 +955,9 @@ static inline u64 sched_irqload(int cpu)
 		return 0;
 }
 
-#define SCHED_HIGH_IRQ_NS (10 * NSEC_PER_MSEC)
 static inline int sched_cpu_high_irqload(int cpu)
 {
-	return sched_irqload(cpu) >= SCHED_HIGH_IRQ_NS;
+	return sched_irqload(cpu) >= sysctl_sched_cpu_high_irqload;
 }
 
 #else	/* CONFIG_SCHED_HMP */

@@ -346,6 +346,13 @@ static struct ctl_table kern_table[] = {
 		.proc_handler   = sched_window_update_handler,
 	},
 	{
+		.procname       = "sched_cpu_high_irqload",
+		.data           = &sysctl_sched_cpu_high_irqload,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = proc_dointvec,
+	},
+	{
 		.procname       = "sched_ravg_hist_size",
 		.data           = &sysctl_sched_ravg_hist_size,
 		.maxlen         = sizeof(unsigned int),

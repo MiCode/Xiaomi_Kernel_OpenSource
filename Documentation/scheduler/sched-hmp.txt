@@ -1351,6 +1351,24 @@ frequency. Hence it is strongly advised to have all cpus in a cluster have the
 same value for mostly_idle_freq. For more details, see section on "Task
 packing" (sec 5.6).
 
+*** 7.22 sched_cpu_high_irqload
+
+Appears at: /proc/sys/kernel/sched_cpu_high_irqload
+
+Default value: 10000000 (10ms)
+
+The scheduler keeps a decaying average of the amount of irq and softirq activity
+seen on each CPU within a ten millisecond window. Note that this "irqload"
+(reported in the sched_cpu_load tracepoint) will be higher than the typical load
+in a single window since every time the window rolls over, the value is decayed
+by some fraction and then added to the irq/softirq time spent in the next
+window.
+
+When the irqload on a CPU exceeds the value of this tunable, the CPU is no
+longer eligible to be seen as mostly idle. This will affect the task placement
+logic described above, causing the scheduler to try and steer tasks away from
+the CPU.
+
 =========================
 8. HMP SCHEDULER TRACE POINTS
 =========================
