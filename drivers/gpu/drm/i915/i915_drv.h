@@ -367,10 +367,6 @@ struct drm_i915_error_state {
 		int num_requests;
 
 		/* our own tracking of ring head and tail */
-		struct intel_context *ring_context;
-		int size;
-		int space;
-		u32 last_retired_head;
 		u32 cpu_ring_head;
 		u32 cpu_ring_tail;
 
@@ -402,11 +398,9 @@ struct drm_i915_error_state {
 		} *ringbuffer, *batchbuffer, *wa_batchbuffer, *ctx, *hws_page;
 
 		struct drm_i915_error_request {
-			struct intel_context *ctx;
 			long jiffies;
-			u32 head;
-			u32 tail;
 			u32 seqno;
+			u32 tail;
 		} *requests;
 
 		struct {
