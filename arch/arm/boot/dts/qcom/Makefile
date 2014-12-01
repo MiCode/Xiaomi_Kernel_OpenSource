@@ -42,7 +42,18 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-sim.dtb \
 	msm8909-1gb-qrd-skue.dtb \
 	msm8909-1gb-cdp.dtb \
 	msm8909-1gb-mtp.dtb \
-	msm8909-rcm.dtb
+	msm8909-rcm.dtb \
+	msm8208-cdp.dtb \
+	msm8208-mtp.dtb \
+	msm8208-1gb-cdp.dtb \
+	msm8208-1gb-mtp.dtb \
+	msm8208-qrd-skua.dtb \
+	msm8208-qrd-skuc.dtb \
+	msm8208-qrd-skue.dtb \
+	msm8208-1gb-qrd-skua.dtb \
+	msm8208-1gb-qrd-skuc.dtb \
+	msm8208-1gb-qrd-skue.dtb \
+	msm8208-rcm.dtb
 dtb-$(CONFIG_ARCH_MSM8916) += msm8916-sim.dtb \
 	msm8916-rumi.dtb \
 	msm8916-cdp.dtb \
