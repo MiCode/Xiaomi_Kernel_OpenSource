@@ -18,6 +18,7 @@
 #include <linux/bitops.h>
 #include <linux/mutex.h>
 #include <linux/of_device.h>
+#include <linux/slab.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -31,7 +32,10 @@
 #include <sound/asound.h>
 #include <sound/pcm_params.h>
 #include <sound/q6core.h>
-#include <linux/slab.h>
+#include <sound/audio_cal_utils.h>
+#include <sound/msm-dts-eagle.h>
+#include <sound/audio_effects.h>
+#include <sound/hwdep.h>
 
 #include "msm-pcm-routing-v2.h"
 #include "msm-pcm-routing-devdep.h"
@@ -41,8 +45,6 @@
 #include "msm-ds2-dap-config.h"
 #include "q6voice.h"
 #include "sound/q6lsm.h"
-#include <sound/audio_cal_utils.h>
-#include "msm-dts-eagle.h"
 
 static int get_cal_path(int path_type);
 
@@ -138,10 +140,9 @@ static void msm_pcm_routing_cfg_pp(int port_id, int copp_idx, int topology,
 					__func__, topology, port_id, rc);
 		}
 		break;
-	case ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX_0:
-	case ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX_1:
+	case ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX:
 		pr_debug("%s: DTS_EAGLE_COPP_TOPOLOGY_ID\n", __func__);
-		msm_dts_eagle_init_post(port_id, copp_idx, topology);
+		msm_dts_eagle_init_post(port_id, copp_idx);
 		break;
 	default:
 		/* custom topology specific feature param handlers */
@@ -170,8 +171,7 @@ static void msm_pcm_routing_deinit_pp(int port_id, int topology)
 			msm_dolby_dap_deinit(port_id);
 		}
 		break;
-	case ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX_0:
-	case ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX_1:
+	case ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX:
 		pr_debug("%s: DTS_EAGLE_COPP_TOPOLOGY_ID\n", __func__);
 		msm_dts_eagle_deinit_post(port_id, topology);
 		break;
@@ -5714,6 +5714,7 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 				device_pp_params_mixer_controls,
 				ARRAY_SIZE(device_pp_params_mixer_controls));
 
+	msm_dts_eagle_add_controls(platform);
 	return 0;
 }
 
