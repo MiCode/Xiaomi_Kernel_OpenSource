@@ -849,42 +849,6 @@ fail:
 	return status;
 }
 
-int
-rndis_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
-		u32 vendorID, const char *manufacturer, struct eth_dev *dev)
-{
-	struct usb_function_instance *func_inst;
-	struct usb_function *func;
-	struct f_rndis_opts *opts;
-	int status;
-
-	/* allocate and initialize one new instance */
-	func_inst = usb_get_function_instance("rndis");
-	if (IS_ERR(func_inst))
-		return PTR_ERR(func_inst);
-
-	opts =  container_of(func_inst, struct f_rndis_opts, func_inst);
-	opts->vendor_id = vendorID;
-	opts->manufacturer = manufacturer;
-
-	func = usb_get_function(func_inst);
-	if (IS_ERR(func)) {
-		status = PTR_ERR(func);
-		goto err_put_func_inst;
-	}
-
-	status = usb_add_function(c, func);
-	if (status)
-		goto err_put_func;
-	return 0;
-
-err_put_func:
-	usb_put_function(func);
-err_put_func_inst:
-	usb_put_function_instance(func_inst);
-	return status;
-}
-
 void rndis_borrow_net(struct usb_function_instance *f, struct net_device *net)
 {
 	struct f_rndis_opts *opts;
