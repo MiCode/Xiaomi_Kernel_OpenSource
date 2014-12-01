@@ -1618,7 +1618,6 @@ i915_hangcheck_init(struct drm_device *dev)
 		dev_priv->ring[i].hangcheck.last_acthd = 0;
 		dev_priv->ring[i].hangcheck.ringid = i;
 		dev_priv->ring[i].hangcheck.dev = dev;
-		dev_priv->ring[i].hangcheck.forced_resubmission_cnt = 0;
 
 		INIT_DELAYED_WORK(&dev_priv->ring[i].hangcheck.work,
 			i915_hangcheck_sample);

@@ -241,17 +241,6 @@ struct intel_ring_hangcheck {
 	 * idleness
 	 */
 	u32 last_seqno;
-
-	/* Forced resubmission counter */
-	u32 forced_resubmission_cnt;
-
-	/*
-	 * Number of detections before forced resubmission is
-	 * carried out. Yes, this number is arbitrary and is based
-	 * on empirical evidence.
-	 */
-#define DRM_I915_FORCED_RESUBMISSION_THRESHOLD 2
-
 };
 
 struct intel_ringbuffer {
