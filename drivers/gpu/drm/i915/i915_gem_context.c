@@ -88,7 +88,6 @@
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
-#include "intel_lrc_tdr.h"
 
 /* This is a HW constraint. The value below is the largest known requirement
  * I've seen in a spec to date, and that was a workaround for a non-shipping
@@ -828,36 +827,4 @@ int i915_gem_context_destroy_ioctl(struct drm_device *dev, void *data,
 
 	DRM_DEBUG_DRIVER("HW context %d destroyed\n", args->ctx_id);
 	return 0;
-}
-
-enum context_submission_status
-i915_gem_context_get_current_context(struct intel_engine_cs *ring,
-				   struct intel_context **current_context)
-{
-	struct drm_i915_private *dev_priv;
-	enum context_submission_status status = CONTEXT_SUBMISSION_STATUS_OK;
-
-	if (!current_context || !ring) {
-		WARN(!ring, "Ring is null!\n");
-		return CONTEXT_SUBMISSION_STATUS_UNDEFINED;
-	}
-
-	dev_priv = ring->dev->dev_private;
-
-	if (i915.enable_execlists) {
-		status = intel_execlists_TDR_get_submitted_context(ring,
-				current_context);
-	} else {
-		*current_context = ring->last_context;
-		if (*current_context)
-			i915_gem_context_reference(*current_context);
-	}
-
-	if (!*current_context) {
-		/* Use default context if nothing has been submitted yet */
-		*current_context = ring->default_context;
-		i915_gem_context_reference(*current_context);
-	}
-
-	return status;
 }

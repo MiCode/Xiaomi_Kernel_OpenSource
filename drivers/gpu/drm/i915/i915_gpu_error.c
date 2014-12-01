@@ -984,7 +984,7 @@ static void i915_gem_record_rings(struct drm_device *dev,
 		} else
 			rbuf = ring->buffer;
 
-		error->ring[i].ring_context = rbuf->FIXME_lrc_ctx;
+		error->ring[i].ring_context = rbuf->ctx;
 		error->ring[i].size = rbuf->size;
 		error->ring[i].space = rbuf->space;
 		error->ring[i].last_retired_head = rbuf->last_retired_head;

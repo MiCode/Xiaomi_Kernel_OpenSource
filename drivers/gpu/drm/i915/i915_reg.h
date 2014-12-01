@@ -117,7 +117,6 @@
 #define  GEN6_GRDOM_MEDIA		(1 << 2)
 #define  GEN6_GRDOM_BLT			(1 << 3)
 #define  GEN6_GRDOM_VECS		(1 << 4)
-#define  GEN8_GRDOM_MEDIA2		(1 << 7)
 
 #define GEN8_SRID_0_2_0_PCI		0xf8
 
@@ -1325,6 +1324,8 @@ enum punit_power_well {
 # define VS_TIMER_DISPATCH				(1 << 6)
 # define MI_FLUSH_ENABLE				(1 << 12)
 # define ASYNC_FLIP_PERF_DISABLE			(1 << 14)
+# define MODE_IDLE					(1 << 9)
+# define STOP_RING					(1 << 8)
 
 #define GEN6_GT_MODE	0x20d0
 #define GEN7_GT_MODE	0x7008

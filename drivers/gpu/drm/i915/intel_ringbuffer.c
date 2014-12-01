@@ -84,9 +84,17 @@ bool intel_ring_stopped(struct intel_engine_cs *ring)
 
 void __intel_ring_advance(struct intel_engine_cs *ring)
 {
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	struct intel_ringbuffer *ringbuf = ring->buffer;
 
 	intel_ring_advance(ring);
+
+	/* Re-schedule the hangcheck timer each time the ring is given new work
+	* so that we can detect hangs caused by commands inserted directly
+	* to the ring as well as bad batch buffers */
+	if (!dev_priv->ums.mm_suspended &&
+	    dev_priv->ring[RCS].default_context->legacy_hw_ctx.initialized)
+		i915_queue_hangcheck(ring->dev, ring->id);
 
 	if (intel_ring_stopped(ring))
 		return;
@@ -452,10 +460,10 @@ static void ring_write_tail(struct intel_engine_cs *ring,
 	I915_WRITE_TAIL(ring, value);
 }
 
-int intel_ring_disable(struct intel_engine_cs *ring, struct intel_context *ctx)
+int intel_ring_disable(struct intel_engine_cs *ring)
 {
 	if (ring && ring->disable)
-		return ring->disable(ring, ctx);
+		return ring->disable(ring);
 	else {
 		DRM_ERROR("ring disable not supported\n");
 		return -EINVAL;
@@ -463,7 +471,7 @@ int intel_ring_disable(struct intel_engine_cs *ring, struct intel_context *ctx)
 }
 
 static int
-gen6_ring_disable(struct intel_engine_cs *ring, struct intel_context *ctx)
+gen6_ring_disable(struct intel_engine_cs *ring)
 {
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -493,10 +501,10 @@ gen6_ring_disable(struct intel_engine_cs *ring, struct intel_context *ctx)
 	return ((ring_ctl & RING_VALID) == 0) ? 0 : -EIO;
 }
 
-int intel_ring_enable(struct intel_engine_cs *ring, struct intel_context *ctx)
+int intel_ring_enable(struct intel_engine_cs *ring)
 {
 	if (ring && ring->enable)
-		return ring->enable(ring, ctx);
+		return ring->enable(ring);
 	else {
 		DRM_ERROR("ring enable not supported\n");
 		return -EINVAL;
@@ -504,7 +512,7 @@ int intel_ring_enable(struct intel_engine_cs *ring, struct intel_context *ctx)
 }
 
 static int
-gen6_ring_enable(struct intel_engine_cs *ring, struct intel_context *ctx)
+gen6_ring_enable(struct intel_engine_cs *ring)
 {
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -524,11 +532,10 @@ gen6_ring_enable(struct intel_engine_cs *ring, struct intel_context *ctx)
 	return ((ring_ctl & RING_VALID) == 0) ? -EIO : 0;
 }
 
-int intel_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
-		u32 flags)
+int intel_ring_save(struct intel_engine_cs *ring, u32 flags)
 {
 	if (ring && ring->save)
-		return ring->save(ring, ctx, ring->saved_state,
+		return ring->save(ring, ring->saved_state,
 			I915_RING_CONTEXT_SIZE, flags);
 	else {
 		DRM_ERROR("ring save not supported\n");
@@ -537,8 +544,8 @@ int intel_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
 }
 
 static int
-gen6_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
-			   uint32_t *data, uint32_t data_size, u32 flags)
+gen6_ring_save(struct intel_engine_cs *ring, uint32_t *data, uint32_t max,
+		u32 flags)
 {
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -555,58 +562,48 @@ gen6_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
 	WARN_ON(gen < 7);
 
 	/* Save common registers */
-	if (data_size < GEN7_COMMON_RING_CTX_SIZE)
+	if (max < COMMON_RING_CTX_SIZE)
 		return -EINVAL;
 
 	head = I915_READ_HEAD(ring);
 	tail = I915_READ_TAIL(ring);
 
-	/*
-	 * head_addr and tail_addr are the head and tail values
-	 * excluding ring wrapping information and aligned to DWORD
-	 * boundary
-	 */
 	head_addr = head & HEAD_ADDR;
 	tail_addr = tail & TAIL_ADDR;
 
-	/*
-	 * The head must always chase the tail.
-	 * If the tail is beyond the head then do not allow
-	 * the head to overtake it. If the tail is less than
-	 * the head then the tail has already wrapped and
-	 * there is no problem in advancing the head or even
-	 * wrapping the head back to 0 as worst case it will
-	 * become equal to tail
-	 */
-	if (head_addr <= tail_addr)
-		clamp_to_tail = 1;
-
 	if (flags & FORCE_ADVANCE) {
+		/* The head must always chase the tail.
+		* If the tail is beyond the head then do not allow
+		* the head to overtake it. If the tail is less than
+		* the head then the tail has already wrapped and
+		* there is no problem in advancing the head or even
+		* wrapping the head back to 0 as worst case it will
+		* become equal to tail */
+		if (head_addr <= tail_addr)
+			clamp_to_tail = 1;
 
-		/* Force head pointer to next QWORD boundary */
+		/* Force head to next QWORD boundary */
 		head_addr &= ~0x7;
 		head_addr += 8;
-		DRM_DEBUG_TDR("Forced head to 0x%08x\n", (unsigned int) head_addr);
 
+		if (clamp_to_tail && (head_addr > tail_addr)) {
+			head_addr = tail_addr;
+		} else if (head_addr >= ringbuf->size) {
+			/* Wrap head back to start if it exceeds ring size*/
+			head_addr = 0;
+		}
+
+		/* Update the register */
+		head &= ~HEAD_ADDR;
+		head |= (head_addr & HEAD_ADDR);
+
+		DRM_DEBUG_TDR("Forced head to 0x%08x\n", head);
 	} else if (head & 0x7) {
-
 		/* Ensure head pointer is pointing to a QWORD boundary */
-		DRM_DEBUG_TDR("Rounding up head 0x%08x\n", (unsigned int) head);
+		DRM_DEBUG_TDR("Rounding up head 0x%08x\n", head);
 		head += 0x7;
 		head &= ~0x7;
-		head_addr = head;
 	}
-
-	if (clamp_to_tail && (head_addr > tail_addr)) {
-		head_addr = tail_addr;
-	} else if (head_addr >= ringbuf->size) {
-		/* Wrap head back to start if it exceeds ring size*/
-		head_addr = 0;
-	}
-
-	/* Update the register */
-	head &= ~HEAD_ADDR;
-	head |= (head_addr & HEAD_ADDR);
 
 	/* Saved with enable = 0 */
 	data[idx++] = I915_READ_CTL(ring) & (RING_NR_PAGES | RING_REPORT_MASK);
@@ -636,7 +633,7 @@ gen6_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
 
 	switch (ring->id) {
 	case RCS:
-		if (data_size < (GEN7_COMMON_RING_CTX_SIZE + GEN7_RCS_RING_CTX_SIZE))
+		if (max < (COMMON_RING_CTX_SIZE + RCS_RING_CTX_SIZE))
 			return -EINVAL;
 
 		data[idx++] = I915_READ(RENDER_HWS_PGA_GEN7);
@@ -656,7 +653,7 @@ gen6_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
 		break;
 
 	case VCS:
-		if (data_size < (GEN7_COMMON_RING_CTX_SIZE + GEN7_VCS_RING_CTX_SIZE))
+		if (max < (COMMON_RING_CTX_SIZE + VCS_RING_CTX_SIZE))
 			return -EINVAL;
 
 		data[idx++] = I915_READ(BSD_HWS_PGA_GEN7);
@@ -672,7 +669,7 @@ gen6_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
 		break;
 
 	case BCS:
-		if (data_size < (GEN7_COMMON_RING_CTX_SIZE + GEN7_BCS_RING_CTX_SIZE))
+		if (max < (COMMON_RING_CTX_SIZE + BCS_RING_CTX_SIZE))
 			return -EINVAL;
 
 		data[idx++] = I915_READ(BLT_HWS_PGA_GEN7);
@@ -689,7 +686,7 @@ gen6_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
 		break;
 
 	case VECS:
-		if (data_size < (GEN7_COMMON_RING_CTX_SIZE + GEN7_VECS_RING_CTX_SIZE))
+		if (max < (COMMON_RING_CTX_SIZE + VECS_RING_CTX_SIZE))
 			return -EINVAL;
 
 		data[idx++] = I915_READ(VEBOX_HWS_PGA_GEN7);
@@ -710,10 +707,10 @@ gen6_ring_save(struct intel_engine_cs *ring, struct intel_context *ctx,
 	return 0;
 }
 
-int intel_ring_restore(struct intel_engine_cs *ring, struct intel_context *ctx)
+int intel_ring_restore(struct intel_engine_cs *ring)
 {
 	if (ring && ring->restore)
-		return ring->restore(ring, ctx, ring->saved_state,
+		return ring->restore(ring, ring->saved_state,
 			I915_RING_CONTEXT_SIZE);
 	else {
 		DRM_ERROR("ring restore not supported\n");
@@ -722,8 +719,8 @@ int intel_ring_restore(struct intel_engine_cs *ring, struct intel_context *ctx)
 }
 
 static int
-gen6_ring_restore(struct intel_engine_cs *ring, struct intel_context *ctx,
-		uint32_t *data, uint32_t data_size)
+gen6_ring_restore(struct intel_engine_cs *ring, uint32_t *data,
+			uint32_t max)
 {
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -734,10 +731,10 @@ gen6_ring_restore(struct intel_engine_cs *ring, struct intel_context *ctx,
 	* they were saved. */
 	switch (ring->id) {
 	case RCS:
-		if (data_size < (GEN7_COMMON_RING_CTX_SIZE + GEN7_RCS_RING_CTX_SIZE))
+		if (max < (COMMON_RING_CTX_SIZE + RCS_RING_CTX_SIZE))
 			return -EINVAL;
 
-		idx = GEN7_COMMON_RING_CTX_SIZE + GEN7_RCS_RING_CTX_SIZE - 1;
+		idx = COMMON_RING_CTX_SIZE + RCS_RING_CTX_SIZE - 1;
 
 		I915_WRITE(FF_SLICE_CS_CHICKEN2(ring->mmio_base),
 			_MASKED_BIT_ENABLE_ALL(data[idx--]));
@@ -764,10 +761,10 @@ gen6_ring_restore(struct intel_engine_cs *ring, struct intel_context *ctx,
 		break;
 
 	case VCS:
-		if (data_size < (GEN7_COMMON_RING_CTX_SIZE + GEN7_VCS_RING_CTX_SIZE))
+		if (max < (COMMON_RING_CTX_SIZE + VCS_RING_CTX_SIZE))
 			return -EINVAL;
 
-		idx = GEN7_COMMON_RING_CTX_SIZE + GEN7_VCS_RING_CTX_SIZE - 1;
+		idx = COMMON_RING_CTX_SIZE + VCS_RING_CTX_SIZE - 1;
 		I915_WRITE(RING_MAX_IDLE(ring->mmio_base), data[idx--]);
 		I915_WRITE(GEN6_VRSYNC, data[idx--]);
 		I915_WRITE(RING_MODE_GEN7(ring),
@@ -785,10 +782,10 @@ gen6_ring_restore(struct intel_engine_cs *ring, struct intel_context *ctx,
 		break;
 
 	case BCS:
-		if (data_size < (GEN7_COMMON_RING_CTX_SIZE + GEN7_BCS_RING_CTX_SIZE))
+		if (max < (COMMON_RING_CTX_SIZE + BCS_RING_CTX_SIZE))
 			return -EINVAL;
 
-		idx = GEN7_COMMON_RING_CTX_SIZE + GEN7_BCS_RING_CTX_SIZE - 1;
+		idx = COMMON_RING_CTX_SIZE + BCS_RING_CTX_SIZE - 1;
 
 		I915_WRITE(RING_MAX_IDLE(ring->mmio_base), data[idx--]);
 		I915_WRITE(GEN6_BVSYNC, data[idx--]);
@@ -808,10 +805,10 @@ gen6_ring_restore(struct intel_engine_cs *ring, struct intel_context *ctx,
 		break;
 
 	case VECS:
-		if (data_size < (GEN7_COMMON_RING_CTX_SIZE + GEN7_VECS_RING_CTX_SIZE))
+		if (max < (COMMON_RING_CTX_SIZE + VECS_RING_CTX_SIZE))
 			return -EINVAL;
 
-		idx = GEN7_COMMON_RING_CTX_SIZE + GEN7_VECS_RING_CTX_SIZE - 1;
+		idx = COMMON_RING_CTX_SIZE + VECS_RING_CTX_SIZE - 1;
 
 		I915_WRITE(GEN6_VEVSYNC, data[idx--]);
 		I915_WRITE(RING_MODE_GEN7(ring),
@@ -833,10 +830,10 @@ gen6_ring_restore(struct intel_engine_cs *ring, struct intel_context *ctx,
 	}
 
 	/* Restore common registers */
-	if (data_size < GEN7_COMMON_RING_CTX_SIZE)
+	if (max < COMMON_RING_CTX_SIZE)
 		return -EINVAL;
 
-	idx = GEN7_COMMON_RING_CTX_SIZE - 1;
+	idx = COMMON_RING_CTX_SIZE - 1;
 
 	I915_WRITE(RING_PP_DIR_BASE(ring), data[idx--]);
 	I915_WRITE(RING_PP_DIR_DCLV(ring), data[idx--]);
@@ -861,95 +858,19 @@ int intel_ring_invalidate_tlb(struct intel_engine_cs *ring)
 	}
 }
 
-void intel_gpu_reset_resample(struct intel_engine_cs *ring,
-		struct intel_context *ctx)
+void intel_ring_resample(struct intel_engine_cs *ring)
 {
-	if (!ring) {
-		WARN(!ring, "Ring is null! Could not resample!");
-		return;
-	}
-
-	if (i915.enable_execlists) {
-		struct drm_i915_private *dev_priv = ring->dev->dev_private;
-		uint32_t ring_tail;
-		uint32_t ring_head;
-		struct intel_ringbuffer *ringbuf;
-
-		if (!ctx) {
-			WARN(!ring, "Context is null! Could not resample!");
-			return;
-		}
-
-		/* Reset context based on ring state */
-		ring_tail = I915_READ_TAIL(ring) & TAIL_ADDR;
-		ring_head = I915_READ_HEAD(ring) & HEAD_ADDR;
-		ringbuf = ctx->engine[ring->id].ringbuf;
-
-		I915_WRITE_HEAD_CTX(ring, ctx, ring_head);
-		I915_WRITE_TAIL_CTX(ring, ctx, ring_tail);
-		ringbuf->head = ring_head;
-		ringbuf->tail = ring_tail;
-		ringbuf->last_retired_head = -1;
-		intel_ring_update_space(ringbuf);
-	}
-}
-
-void intel_gpu_engine_reset_resample(struct intel_engine_cs *ring,
-		struct intel_context *ctx)
-{
-	struct intel_ringbuffer *ringbuf = NULL;
-	struct drm_i915_private *dev_priv;
-
-	if (!ring) {
-		WARN(1, "Ring is null! Could not resample!");
-		return;
-	}
-
-	dev_priv = ring->dev->dev_private;
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_ringbuffer *ringbuf = ring->buffer;
 
 	if (!drm_core_check_feature(ring->dev, DRIVER_MODESET))
 		i915_kernel_lost_context(ring->dev);
 	else {
-
-		if (i915.enable_execlists) {
-			if (!ctx) {
-				WARN(1, "Context is null! Could not resample!");
-				return;
-			}
-
-			ringbuf = ctx->engine[ring->id].ringbuf;
-
-			/*
-			 * In gen8+ context head is restored during reset and
-			 * we can use it as a reference to set up the new
-			 * driver state.
-			 */
-			I915_READ_HEAD_CTX(ring, ctx, ringbuf->head);
-
-			/*
-			 * Do not resample tail in execlist mode.
-			 *
-			 * If we run in execlist mode there will be an execlist
-			 * queue in place to manage ring submissions. In that
-			 * case the hardware (and the current ring context
-			 * state) will be lagging behind the execlist queue.
-			 * Since the execlist queue depends on the tail value
-			 * of the ring buffer to keep track of the most recent
-			 * submission to the execlist queue we would be
-			 * breaking the execlist queue by overwriting this
-			 * value with the older tail value currently set in the
-			 * ring. Let the execlist queue handle the up to date
-			 * tail value and don't overwrite it with older values
-			 * from the current ring state.
-			 */
-		} else {
-			ringbuf = ring->buffer;
-			ringbuf->head = I915_READ_HEAD(ring);
-			ringbuf->tail = I915_READ_TAIL(ring) & TAIL_ADDR;
-		}
-
+		ringbuf->head = I915_READ_HEAD(ring);
+		ringbuf->tail = I915_READ_TAIL(ring) & TAIL_ADDR;
+		ringbuf->space = intel_ring_space(ringbuf);
 		ringbuf->last_retired_head = -1;
-		intel_ring_update_space(ringbuf);
 	}
 }
 
@@ -983,28 +904,22 @@ static void ring_setup_phys_status_page(struct intel_engine_cs *ring)
 static bool stop_ring(struct intel_engine_cs *ring)
 {
 	struct drm_i915_private *dev_priv = to_i915(ring->dev);
-	struct intel_context *ctx = ring->default_context;
 
 	if (!IS_GEN2(ring->dev)) {
-		I915_WRITE_MODE(ring, _MASKED_BIT_ENABLE(RING_MODE_STOP));
-		if (wait_for_atomic((I915_READ_MODE(ring) & RING_MODE_IDLE) != 0,
-				1000)) {
+		I915_WRITE_MODE(ring, _MASKED_BIT_ENABLE(STOP_RING));
+		if (wait_for_atomic((I915_READ_MODE(ring) & MODE_IDLE) != 0, 1000)) {
 			DRM_ERROR("%s :timed out trying to stop ring\n", ring->name);
 			return false;
 		}
 	}
 
-	if (I915_WRITE_CTL_CTX_MMIO(ring, ctx, 0))
-			return false;
-
-	if (I915_WRITE_HEAD_CTX_MMIO(ring, ctx, 0))
-			return false;
-
+	I915_WRITE_CTL(ring, 0);
+	I915_WRITE_HEAD(ring, 0);
 	ring->write_tail(ring, 0);
 
 	if (!IS_GEN2(ring->dev)) {
 		(void)I915_READ_CTL(ring);
-		I915_WRITE_MODE(ring, _MASKED_BIT_DISABLE(RING_MODE_STOP));
+		I915_WRITE_MODE(ring, _MASKED_BIT_DISABLE(STOP_RING));
 	}
 
 	return (I915_READ_HEAD(ring) & HEAD_ADDR) == 0;
@@ -1716,8 +1631,7 @@ static int gen6_ring_invalidate_tlb(struct intel_engine_cs *ring)
 	u32 reg;
 	int ret;
 
-	if ((INTEL_INFO(dev)->gen < 6) || (INTEL_INFO(dev)->gen >= 8) ||
-			(!ring->stop) || (!ring->start))
+	if ((INTEL_INFO(dev)->gen < 6) || (!ring->stop) || (!ring->start))
 		return -EINVAL;
 
 	/* stop the ring before sync_flush */
@@ -1727,10 +1641,6 @@ static int gen6_ring_invalidate_tlb(struct intel_engine_cs *ring)
 
 	/* Invalidate TLB */
 	reg = RING_INSTPM(ring->mmio_base);
-
-	/* ring should be idle before issuing a sync flush */
-	WARN_ON((I915_READ_MODE(ring) & RING_MODE_IDLE) == 0);
-
 	I915_WRITE(reg, _MASKED_BIT_ENABLE(INSTPM_TLB_INVALIDATE |
 				INSTPM_SYNC_FLUSH));
 	if (wait_for((I915_READ(reg) & INSTPM_SYNC_FLUSH) == 0, 1000))
@@ -1794,7 +1704,7 @@ void intel_ring_setup_status_page(struct intel_engine_cs *ring)
 		u32 reg = RING_INSTPM(ring->mmio_base);
 
 		/* ring should be idle before issuing a sync flush*/
-		WARN_ON((I915_READ_MODE(ring) & RING_MODE_IDLE) == 0);
+		WARN_ON((I915_READ_MODE(ring) & MODE_IDLE) == 0);
 
 		I915_WRITE(reg,
 			   _MASKED_BIT_ENABLE(INSTPM_TLB_INVALIDATE |
@@ -2266,8 +2176,7 @@ void intel_cleanup_ring_buffer(struct intel_engine_cs *ring)
 		return;
 
 	intel_stop_ring_buffer(ring);
-	WARN_ON(!IS_GEN2(ring->dev) &&
-			(I915_READ_MODE(ring) & RING_MODE_IDLE) == 0);
+	WARN_ON(!IS_GEN2(ring->dev) && (I915_READ_MODE(ring) & MODE_IDLE) == 0);
 
 	i915_sync_timeline_advance(ring);
 	i915_sync_timeline_destroy(ring);
@@ -2352,13 +2261,11 @@ static int ring_wait_for_space(struct intel_engine_cs *ring, int n)
 	/* force the tail write in case we have been skipping them */
 	__intel_ring_advance(ring);
 
-	/*
-	 * With GEM the hang check should kick us out of the loop,
+	/* With GEM the hangcheck timer should kick us out of the loop,
 	 * leaving it early runs the risk of corrupting GEM state (due
 	 * to running on almost untested codepaths). But on resume
 	 * timers don't work yet, so prevent a complete hang in that
-	 * case by choosing an insanely large timeout.
-	 */
+	 * case by choosing an insanely large timeout. */
 	end = jiffies + 60 * HZ;
 
 	ret = 0;

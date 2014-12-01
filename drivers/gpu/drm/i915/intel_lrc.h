@@ -27,7 +27,6 @@
 /* Execlists regs */
 #define RING_ELSP(ring)			((ring)->mmio_base+0x230)
 #define RING_EXECLIST_STATUS(ring)	((ring)->mmio_base+0x234)
-#define RING_EXECLIST_STATUS_CTX_ID(ring)	(RING_EXECLIST_STATUS(ring)+4)
 #define RING_CONTEXT_CONTROL(ring)	((ring)->mmio_base+0x244)
 #define RING_CONTEXT_STATUS_BUF(ring)	((ring)->mmio_base+0x370)
 #define RING_CONTEXT_STATUS_PTR(ring)	((ring)->mmio_base+0x3a0)
@@ -111,29 +110,5 @@ struct intel_ctx_submit_request {
 };
 
 void intel_execlists_handle_ctx_events(struct intel_engine_cs *ring);
-
-int intel_execlists_write_buffer_ctl(struct intel_engine_cs *ring,
-				struct intel_context *ctx,
-				u32 ctl);
-
-int intel_execlists_read_buffer_ctl(struct intel_engine_cs *ring,
-				struct intel_context *ctx,
-				u32 *ctl);
-
-int intel_execlists_write_tail(struct intel_engine_cs *ring,
-			  struct intel_context *ctx,
-			  u32 tail);
-
-int intel_execlists_read_tail(struct intel_engine_cs *ring,
-			 struct intel_context *ctx,
-			 u32 *tail);
-
-int intel_execlists_write_head(struct intel_engine_cs *ring,
-			  struct intel_context *ctx,
-			  u32 head);
-
-int intel_execlists_read_head(struct intel_engine_cs *ring,
-			 struct intel_context *ctx,
-			 u32 *head);
 
 #endif /* _INTEL_LRC_H_ */

@@ -446,59 +446,6 @@ out:
 		intel_runtime_pm_put(dev_priv);
 }
 
-/*
- * Typically, gen6_gt_force_wake_get is preferred since it's called
- * implicitly by the register read function. However, if we need GT not to
- * power down during a prolonged sequence and if we also need a force wake
- * function that can be called while holding spinlocks (i.e. that does not
- * call functions that could potentially sleep) then this force wake function
- * does the job. Call gen8_gt_force_wake_get at the beginning of the sequence
- * and gen8_gt_force_wake_put at the end.
- */
-void gen8_gt_force_wake_get(struct drm_i915_private *dev_priv)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&dev_priv->uncore.lock, flags);
-	if (IS_CHERRYVIEW(dev_priv->dev)) {
-		if (dev_priv->uncore.fw_rendercount++ == 0)
-			dev_priv->uncore.funcs.force_wake_get(dev_priv,
-							      FORCEWAKE_RENDER);
-		if (dev_priv->uncore.fw_mediacount++ == 0)
-			dev_priv->uncore.funcs.force_wake_get(dev_priv,
-							      FORCEWAKE_MEDIA);
-	} else {
-		if (dev_priv->uncore.forcewake_count++ == 0)
-			dev_priv->uncore.funcs.force_wake_get(dev_priv,
-							      FORCEWAKE_ALL);
-	}
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, flags);
-}
-
-/*
- * see gen8_gt_force_wake_get()
- */
-void gen8_gt_force_wake_put(struct drm_i915_private *dev_priv)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&dev_priv->uncore.lock, flags);
-	if (IS_CHERRYVIEW(dev_priv->dev)) {
-		if (--dev_priv->uncore.fw_rendercount == 0)
-			dev_priv->uncore.funcs.force_wake_put(dev_priv,
-							      FORCEWAKE_RENDER);
-		if (--dev_priv->uncore.fw_mediacount == 0)
-			dev_priv->uncore.funcs.force_wake_put(dev_priv,
-							      FORCEWAKE_MEDIA);
-	} else {
-		if (--dev_priv->uncore.forcewake_count == 0)
-			dev_priv->uncore.funcs.force_wake_put(dev_priv,
-							      FORCEWAKE_ALL);
-	}
-	spin_unlock_irqrestore(&dev_priv->uncore.lock, flags);
-}
-
-
 void assert_force_wake_inactive(struct drm_i915_private *dev_priv)
 {
 	if (!dev_priv->uncore.funcs.force_wake_get)
@@ -1171,34 +1118,6 @@ static int ironlake_do_reset(struct drm_device *dev)
 	return 0;
 }
 
-static inline int wait_for_gpu_reset(struct drm_i915_private *dev_priv)
-{
-#define _CND ((__raw_i915_read32(dev_priv, GEN6_GDRST) & GEN6_GRDOM_FULL) == 0)
-
-	/*
-	 * Spin waiting for the device to ack the reset request.
-	 * Times out after 500 ms
-	 * */
-	return wait_for(_CND, 500);
-
-#undef _CND
-}
-
-static inline int wait_for_engine_reset(struct drm_i915_private *dev_priv,
-		unsigned int grdom)
-{
-#define _CND ((__raw_i915_read32(dev_priv, GEN6_GDRST) & grdom) == 0)
-
-	/*
-	 * Spin waiting for the device to ack the reset request.
-	 * Times out after 500 us
-	 * */
-	return wait_for_atomic_us(_CND, 500);
-
-#undef _CND
-}
-
-
 static int gen6_do_reset(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1211,7 +1130,10 @@ static int gen6_do_reset(struct drm_device *dev)
 	 * the read
 	 */
 	__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_FULL);
-	ret = wait_for_gpu_reset(dev_priv);
+
+	/* Spin waiting for the device to ack the reset request */
+	ret = wait_for((__raw_i915_read32(dev_priv, GEN6_GDRST) &
+					GEN6_GRDOM_FULL) == 0, 500);
 
 	intel_uncore_forcewake_reset(dev, true);
 
@@ -1245,16 +1167,6 @@ int intel_gpu_reset(struct drm_device *dev)
 	dev_priv->gpu_error.total_resets++;
 	DRM_DEBUG_TDR("total_resets %ld\n", dev_priv->gpu_error.total_resets);
 
-	if (!ret) {
-		char *reset_event[2];
-
-		reset_event[1] = NULL;
-		reset_event[0] = kasprintf(GFP_KERNEL, "%s", "GPU RESET=0");
-		kobject_uevent_env(&dev->primary->kdev->kobj,
-				KOBJ_CHANGE, reset_event);
-		kfree(reset_event[0]);
-	}
-
 	return ret;
 }
 
@@ -1264,6 +1176,8 @@ static int gen6_do_engine_reset(struct drm_device *dev,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret = -ENODEV;
 	unsigned long irqflags;
+	char *reset_event[2];
+	reset_event[1] = NULL;
 
 	/* Hold uncore.lock across reset to prevent any register access
 	 * with forcewake not set correctly
@@ -1280,64 +1194,54 @@ static int gen6_do_engine_reset(struct drm_device *dev,
 		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_RENDER);
 		dev_priv->ring[RCS].hangcheck.total++;
 
-		ret = wait_for_engine_reset(dev_priv, GEN6_GRDOM_RENDER);
-
-		DRM_DEBUG_TDR("RCS Reset\n");
+		/* Spin waiting for the device to ack the reset request */
+		ret = wait_for_atomic_us((__raw_i915_read32(dev_priv,
+			GEN6_GDRST)
+			& GEN6_GRDOM_RENDER) == 0, 500);
 		break;
 
 	case BCS:
 		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_BLT);
 		dev_priv->ring[BCS].hangcheck.total++;
 
-		ret = wait_for_engine_reset(dev_priv, GEN6_GRDOM_BLT);
-
-		DRM_DEBUG_TDR("BCS Reset\n");
+		/* Spin waiting for the device to ack the reset request */
+		ret = wait_for_atomic_us((__raw_i915_read32(dev_priv,
+			GEN6_GDRST)
+			& GEN6_GRDOM_BLT) == 0, 500);
 		break;
 
 	case VCS:
 		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_MEDIA);
 		dev_priv->ring[VCS].hangcheck.total++;
 
-		ret = wait_for_engine_reset(dev_priv, GEN6_GRDOM_MEDIA);
-
-		DRM_DEBUG_TDR("VCS Reset\n");
+		/* Spin waiting for the device to ack the reset request */
+		ret = wait_for_atomic_us((__raw_i915_read32(dev_priv,
+			GEN6_GDRST)
+			& GEN6_GRDOM_MEDIA) == 0, 500);
 		break;
 
 	case VECS:
 		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN6_GRDOM_VECS);
 		dev_priv->ring[VECS].hangcheck.total++;
 
-		ret = wait_for_engine_reset(dev_priv, GEN6_GRDOM_VECS);
-
-		DRM_DEBUG_TDR("VECS Reset\n");
-		break;
-
-	case VCS2:
-		__raw_i915_write32(dev_priv, GEN6_GDRST, GEN8_GRDOM_MEDIA2);
-		dev_priv->ring[VCS2].hangcheck.total++;
-
-		ret = wait_for_engine_reset(dev_priv, GEN8_GRDOM_MEDIA2);
-
-		DRM_DEBUG_TDR("VCS2 Reset\n");
+		/* Spin waiting for the device to ack the reset request */
+		ret = wait_for_atomic_us((__raw_i915_read32(dev_priv,
+			GEN6_GDRST)
+			& GEN6_GRDOM_VECS) == 0, 500);
 		break;
 
 	default:
-		DRM_ERROR("Unexpected Engine %d\n", engine);
+		DRM_ERROR("Unexpected Engine\n");
 		break;
 	}
 
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, irqflags);
 
-	if (!ret) {
-		char *reset_event[2];
-
-		/* Do uevent outside of spinlock as uevent can sleep */
-		reset_event[1] = NULL;
-		reset_event[0] = kasprintf(GFP_KERNEL, "RESET RING=%d", engine);
-		kobject_uevent_env(&dev->primary->kdev->kobj,
-			KOBJ_CHANGE, reset_event);
-		kfree(reset_event[0]);
-	}
+	/* Do uevent outside of spinlock as uevent can sleep */
+	reset_event[0] = kasprintf(GFP_KERNEL, "RESET RING=%d", engine);
+	kobject_uevent_env(&dev->primary->kdev->kobj,
+		KOBJ_CHANGE, reset_event);
+	kfree(reset_event[0]);
 
 	return ret;
 }
@@ -1347,8 +1251,10 @@ int intel_gpu_engine_reset(struct drm_device *dev, enum intel_ring_id engine)
 	/* Reset an individual engine */
 	int ret = -ENODEV;
 
+	if (!dev)
+		return -EINVAL;
+
 	switch (INTEL_INFO(dev)->gen) {
-	case 8:
 	case 7:
 	case 6:
 		ret = gen6_do_engine_reset(dev, engine);
