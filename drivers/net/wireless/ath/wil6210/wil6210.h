@@ -126,6 +126,7 @@ struct RGF_ICR {
 	#define BIT_DMA_EP_TX_ICR_TX_DONE_N(n)	BIT(n+1) /* n = [0..23] */
 #define RGF_DMA_EP_RX_ICR		(0x881bd0) /* struct RGF_ICR */
 	#define BIT_DMA_EP_RX_ICR_RX_DONE	BIT(0)
+	#define BIT_DMA_EP_RX_ICR_RX_HTRSH	BIT(1)
 #define RGF_DMA_EP_MISC_ICR		(0x881bec) /* struct RGF_ICR */
 	#define BIT_DMA_EP_MISC_ICR_RX_HTRSH	BIT(0)
 	#define BIT_DMA_EP_MISC_ICR_TX_NO_ACT	BIT(1)
@@ -472,6 +473,7 @@ struct wil6210_priv {
 
 void wil_dbg_trace(struct wil6210_priv *wil, const char *fmt, ...);
 void wil_err(struct wil6210_priv *wil, const char *fmt, ...);
+void wil_err_ratelimited(struct wil6210_priv *wil, const char *fmt, ...);
 void wil_info(struct wil6210_priv *wil, const char *fmt, ...);
 #define wil_dbg(wil, fmt, arg...) do { \
 	netdev_dbg(wil_to_ndev(wil), fmt, ##arg); \
