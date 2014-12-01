@@ -744,6 +744,13 @@ static void update_cpu_topology(struct device *dev)
 	core_ptr->entity_count = cluster_cnt;
 	core_ptr->cluster_id = -1;
 	core_ptr->sync_cluster = false;
+
+	sync_cluster_id = get_sync_cluster(dev, &sync_cluster_cnt);
+	if (!sync_cluster_id) {
+		devm_kfree(dev, core_ptr);
+		core_ptr = NULL;
+		return;
+	}
 	temp_ptr = devm_kzalloc(dev, sizeof(struct cluster_info) * cluster_cnt,
 					GFP_KERNEL);
 	if (!temp_ptr) {
@@ -752,8 +759,6 @@ static void update_cpu_topology(struct device *dev)
 		core_ptr = NULL;
 		return;
 	}
-
-	sync_cluster_id = get_sync_cluster(dev, &sync_cluster_cnt);
 
 	for (i = 0; i < cluster_cnt; i++) {
 		pr_debug("Cluster_ID:%d CPU's:%lu\n", cluster_id[i],
