@@ -1733,7 +1733,7 @@ static int i2c_msm_blk_xfer(struct i2c_msm_ctrl *ctrl)
 
 	/* tx_cnt > 0 always */
 	blk->complete_mask = QUP_MAX_OUTPUT_DONE_FLAG;
-	if (&ctrl->xfer.rx_cnt)
+	if (ctrl->xfer.rx_cnt)
 		blk->complete_mask |= QUP_MAX_INPUT_DONE_FLAG;
 
 	/* initialize block mode for new transfer */
