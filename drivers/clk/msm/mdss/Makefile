@@ -7,3 +7,4 @@ obj-$(CONFIG_MSM_MDSS_PLL) += mdss-dsi-pll-20nm.o
 obj-$(CONFIG_MSM_MDSS_PLL) += mdss-edp-pll-28hpm.o
 obj-$(CONFIG_MSM_MDSS_PLL) += mdss-hdmi-pll-28hpm.o
 obj-$(CONFIG_MSM_MDSS_PLL) += mdss-hdmi-pll-20nm.o
+obj-$(CONFIG_MSM_MDSS_PLL) += mdss-hdmi-pll-14nm.o
