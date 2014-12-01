@@ -223,8 +223,9 @@
 #define SH_CSS_BINARY_ID_IF_TO_REF_STRIPED                  258
 #define SH_CSS_BINARY_ID_VIDEO_IF_TO_OSYS                   259
 #define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS_C0_STRIPED        260
-#define SH_CSS_BINARY_ID_IF_TO_YUVP1_C0                     261
-#define SH_CSS_BINARY_ID_IF_TO_XNR_PRIMARY                  262
+#define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS_C0                261
+#define SH_CSS_BINARY_ID_IF_TO_YUVP1_C0                     262
+#define SH_CSS_BINARY_ID_IF_TO_XNR_PRIMARY                  263
 
 #define XMEM_WIDTH_BITS              HIVE_ISP_DDR_WORD_BITS
 #define XMEM_SHORTS_PER_WORD         (HIVE_ISP_DDR_WORD_BITS/16)

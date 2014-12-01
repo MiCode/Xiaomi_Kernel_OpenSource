@@ -2009,3 +2009,7 @@
 #define HIVE_ICACHE_sp_critical_NUM_SEGMENTS  1
 
 #endif /* _sp_map_h_ */
+extern void sh_css_dump_sp_dmem(void);
+void sh_css_dump_sp_dmem(void)
+{
+}
