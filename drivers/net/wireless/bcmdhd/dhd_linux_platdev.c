@@ -151,6 +151,46 @@ int wifi_platform_bus_enumerate(wifi_adapter_info_t *adapter, bool device_presen
 
 }
 
+#define MAC_ADDRESS_LEN 12
+static int wifi_get_external_mac_addr(unsigned char *buf)
+{
+	int ret = 0;
+	int i;
+	struct file *fp = NULL;
+	unsigned char c_mac[MAC_ADDRESS_LEN];
+	char fname[] = "/config/wifi/mac.txt";
+
+	DHD_TRACE(("%s Enter\n", __func__));
+
+	fp = dhd_os_open_image(fname);
+	if (fp == NULL) {
+		DHD_ERROR(("%s: unable to open %s\n", __func__, fname));
+		return 1;
+	}
+
+	if (dhd_os_get_image_block(c_mac, MAC_ADDRESS_LEN, fp)
+	    != MAC_ADDRESS_LEN){
+		DHD_ERROR(("%s: Error reading from %s\n", __func__, fname));
+		dhd_os_close_image(fp);
+		return 1;
+	}
+	dhd_os_close_image(fp);
+
+	for (i = 0; i < MAC_ADDRESS_LEN; i += 2) {
+		c_mac[i] = bcm_isdigit(c_mac[i]) ?
+			c_mac[i]-'0' : bcm_toupper(c_mac[i])-'A'+10;
+		c_mac[i+1] = bcm_isdigit(c_mac[i+1]) ?
+			c_mac[i+1]-'0' : bcm_toupper(c_mac[i+1])-'A'+10;
+
+		buf[i/2] = c_mac[i]*16 + c_mac[i+1];
+	}
+
+	DHD_TRACE(("%s: read from file mac address: %x:%x:%x:%x:%x:%x\n",
+		   __func__, buf[0], buf[1], buf[2], buf[3], buf[4], buf[5]));
+
+	return ret;
+}
+
 int wifi_platform_get_mac_addr(wifi_adapter_info_t *adapter, unsigned char *buf)
 {
 	struct wifi_platform_data *plat_data;
@@ -225,6 +265,7 @@ static int wifi_plat_dev_drv_probe_acpi(struct platform_device *pdev)
 	ASSERT(dhd_wifi_platdata != NULL);
 	ASSERT(dhd_wifi_platdata->num_adapters == 1);
 	adapter = &dhd_wifi_platdata->adapters[0];
+	dhd_wlan_control.get_mac_addr = wifi_get_external_mac_addr;
 	adapter->wifi_plat_data = (void *)&dhd_wlan_control;
 
 	if (ACPI_HANDLE(&pdev->dev)) {
