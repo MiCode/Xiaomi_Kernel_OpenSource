@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -153,6 +153,8 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 		pll_res->pll_interface_type = MDSS_HDMI_PLL_20NM;
 	} else if (!strcmp(compatible_stream, "qcom,mdss_hdmi_pll_8992")) {
 		pll_res->pll_interface_type = MDSS_HDMI_PLL_20NM;
+	} else if (!strcmp(compatible_stream, "qcom,mdss_hdmi_pll_thulium")) {
+		pll_res->pll_interface_type = MDSS_HDMI_PLL_14NM;
 	} else {
 		goto err;
 	}
@@ -192,6 +194,9 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 		rc = hdmi_pll_clock_register(pdev, pll_res);
 	case MDSS_HDMI_PLL_20NM:
 		rc = hdmi_20nm_pll_clock_register(pdev, pll_res);
+		break;
+	case MDSS_HDMI_PLL_14NM:
+		rc = hdmi_14nm_pll_clock_register(pdev, pll_res);
 		break;
 	case MDSS_UNKNOWN_PLL:
 	default:
@@ -394,6 +399,7 @@ static const struct of_device_id mdss_pll_dt_match[] = {
 	{.compatible = "qcom,mdss_hdmi_pll_8994"},
 	{.compatible = "qcom,mdss_dsi_pll_8992"},
 	{.compatible = "qcom,mdss_hdmi_pll_8992"},
+	{.compatible = "qcom,mdss_hdmi_pll_thulium"},
 	{.compatible = "qcom,mdss_dsi_pll_8916"},
 	{.compatible = "qcom,mdss_dsi_pll_8939"},
 	{.compatible = "qcom,mdss_dsi_pll_8909"},
