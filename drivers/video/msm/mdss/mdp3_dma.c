@@ -654,9 +654,12 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 		dma->dma_config_source(dma);
 		if (data) {
 			panel = (struct mdss_panel_data *)data;
-			if (panel->event_handler)
+			if (panel->event_handler) {
 				panel->event_handler(panel,
 					MDSS_EVENT_ENABLE_PARTIAL_ROI, NULL);
+				panel->event_handler(panel,
+					MDSS_EVENT_DSI_STREAM_SIZE, NULL);
+			}
 		}
 		dma->update_src_cfg = false;
 	}
