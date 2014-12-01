@@ -283,7 +283,19 @@ static void dsi_on_post(struct intel_pipe *pipe)
 static void dsi_pre_validate(struct intel_pipe *pipe,
 		struct intel_adf_post_custom_data *custom)
 {
-	if (custom->n_configs > 1 && pipe->status.maxfifo_enabled) {
+	struct intel_adf_config *custom_config;
+	u8 i = 0, planes_enabled = 0;
+
+	for (i = 0; i < custom->n_configs; i++) {
+		custom_config = &custom->configs[i];
+
+		/* Get the number of planes enabled */
+		if (custom_config->type == INTEL_ADF_CONFIG_PLANE)
+			planes_enabled++;
+	}
+
+	/* If we are moving to multiple plane then disable maxfifo */
+	if (planes_enabled > 1 && pipe->status.maxfifo_enabled) {
 		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
 		pipe->status.maxfifo_enabled = false;
 		pipe->status.wait_vblank = true;
