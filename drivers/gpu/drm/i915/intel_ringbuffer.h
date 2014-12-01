@@ -65,6 +65,8 @@ struct  intel_hw_status_page {
 			GEN8_RING_CONTEXT_SIZE)
 
 #define WATCHDOG_ENABLE 0
+#define RCS_WATCHDOG_DISABLE 1
+#define VCS_WATCHDOG_DISABLE 0xFFFFFFFF
 
 #define I915_READ_TAIL(ring) I915_READ(RING_TAIL((ring)->mmio_base))
 #define I915_WRITE_TAIL(ring, val) I915_WRITE(RING_TAIL((ring)->mmio_base), val)
@@ -408,7 +410,7 @@ struct intel_engine_cs {
 
 	/*
 	 * Watchdog timer threshold values
-	 * only RCS, VCS, VCS2 rings have watchdog timeout support
+	 * only RCS, VCS rings have watchdog timeout support
 	 */
 	uint32_t watchdog_threshold;
 
@@ -566,14 +568,8 @@ int intel_ring_invalidate_tlb(struct intel_engine_cs *ring);
 static inline int intel_ring_supports_watchdog(struct intel_engine_cs *ring)
 {
 	/* Return 1 if the ring supports watchdog reset, otherwise 0 */
-	if (ring) {
-		int ret;
-
-		ret = (ring->id == RCS || ring->id == VCS || ring->id == VCS2);
-		DRM_DEBUG_TDR("%s %s support watchdog timeout\n",
-				ring->name, ret?"does":"does NOT");
-		return ret;
-	}
+	if (ring)
+		return ring->id == RCS || ring->id == VCS;
 
 	return 0;
 }
