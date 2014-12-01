@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,4 +38,7 @@ int hdmi_pll_clock_register(struct platform_device *pdev,
 
 int hdmi_20nm_pll_clock_register(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
+
+int hdmi_14nm_pll_clock_register(struct platform_device *pdev,
+				 struct mdss_pll_resources *pll_res);
 #endif
