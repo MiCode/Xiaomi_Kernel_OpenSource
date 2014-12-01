@@ -350,16 +350,6 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 
 	sprctl |= SP_ENABLE;
 	regs->dspcntr = sprctl;
-	/* when in maxfifo display control register cannot be modified */
-	if (intel_pipe->status.maxfifo_enabled &&
-					regs->dspcntr != prev_sprctl) {
-		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-		intel_pipe->status.maxfifo_enabled = false;
-		intel_pipe->status.wait_vblank = true;
-		intel_pipe->status.vsync_counter =
-				intel_pipe->ops->get_vsync_counter(intel_pipe,
-								   0);
-	}
 	linear_offset = src_y * buf->stride + src_x * bpp;
 	sprsurf_offset = vlv_compute_page_offset(&src_x, &src_y,
 			buf->tiling_mode, bpp, buf->stride);
@@ -390,6 +380,18 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 			regs->linearoff = linear_offset;
 		}
 	}
+
+	/* when in maxfifo display control register cannot be modified */
+	if (intel_pipe->status.maxfifo_enabled &&
+					regs->dspcntr != prev_sprctl) {
+		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		intel_pipe->status.maxfifo_enabled = false;
+		intel_pipe->status.wait_vblank = true;
+		intel_pipe->status.vsync_counter =
+				intel_pipe->ops->get_vsync_counter(intel_pipe,
+								   0);
+	}
+
 	return 0;
 }
 

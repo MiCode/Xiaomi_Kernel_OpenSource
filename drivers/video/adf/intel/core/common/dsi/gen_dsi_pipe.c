@@ -278,7 +278,6 @@ static void dsi_on_post(struct intel_pipe *pipe)
 	}
 	if (dsi_pipe->ops.on_post)
 		dsi_pipe->ops.on_post(dsi_pipe);
-	intel_pipe_vblank_evade(pipe);
 }
 
 static void dsi_pre_validate(struct intel_pipe *pipe,
@@ -304,6 +303,7 @@ static void dsi_pre_post(struct intel_pipe *pipe)
 	}
 	if (dsi_pipe->ops.pre_post)
 		dsi_pipe->ops.pre_post(dsi_pipe);
+	intel_pipe_vblank_evade(pipe);
 }
 
 static u32 dsi_get_supported_events(struct intel_pipe *pipe)
