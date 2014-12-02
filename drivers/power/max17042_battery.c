@@ -86,6 +86,10 @@
 #define DEGREE_TO_TENTHS_DEGREE(c) (c * 10)
 #define ACPI_BATTERY_SENSOR_NAME "STR3"
 
+#define MAX17042_SOFT_POR_CMD	0x000F	/* Maxim soft POR command */
+#define MAXIM_FGCONFIG_ACPI_TABLE_NAME	"BCFG"
+#define ACPI_FG_NAME_LEN	8
+
 struct max17042_chip {
 	struct i2c_client *client;
 	struct regmap *regmap;
@@ -531,13 +535,16 @@ static inline void max17042_write_model_data(struct max17042_chip *chip,
 }
 
 static inline void max17042_read_model_data(struct max17042_chip *chip,
-					u8 addr, u32 *data, int size)
+					u8 addr, u16 *data, int size)
 {
 	struct regmap *map = chip->regmap;
 	int i;
+	unsigned int val;
 
-	for (i = 0; i < size; i++)
-		regmap_read(map, addr + i, &data[i]);
+	for (i = 0; i < size; i++) {
+		regmap_read(map, addr + i, &val);
+		data[i] = val;
+	}
 }
 
 static inline int max17042_model_data_compare(struct max17042_chip *chip,
@@ -560,7 +567,7 @@ static int max17042_init_model(struct max17042_chip *chip)
 {
 	int ret;
 	int table_size = ARRAY_SIZE(chip->pdata->config_data->cell_char_tbl);
-	u32 *temp_data;
+	u16 *temp_data;
 
 	temp_data = kcalloc(table_size, sizeof(*temp_data), GFP_KERNEL);
 	if (!temp_data)
@@ -588,7 +595,7 @@ static int max17042_verify_model_lock(struct max17042_chip *chip)
 {
 	int i;
 	int table_size = ARRAY_SIZE(chip->pdata->config_data->cell_char_tbl);
-	u32 *temp_data;
+	u16 *temp_data;
 	int ret = 0;
 
 	temp_data = kcalloc(table_size, sizeof(*temp_data), GFP_KERNEL);
@@ -665,6 +672,58 @@ static void max17042_reset_vfsoc0_reg(struct max17042_chip *chip)
 	regmap_write(map, MAX17042_VFSOC0Enable, VFSOC0_UNLOCK);
 	max17042_write_verify_reg(map, MAX17042_VFSOC0, vfSoc);
 	regmap_write(map, MAX17042_VFSOC0Enable, VFSOC0_LOCK);
+}
+
+
+static void enable_soft_POR(struct max17042_chip *chip)
+{
+	unsigned int val = 0;
+	struct regmap *map = chip->regmap;
+
+	regmap_write(map, MAX17042_MLOCKReg1, val);
+	regmap_write(map, MAX17042_MLOCKReg2, val);
+	regmap_write(map, MAX17042_STATUS, val);
+
+	regmap_read(map, MAX17042_MLOCKReg1, &val);
+	if (val)
+		dev_err(&chip->client->dev, "MLOCKReg1 read failed\n");
+
+	regmap_read(map, MAX17042_MLOCKReg2, &val);
+	if (val)
+		dev_err(&chip->client->dev, "MLOCKReg2 read failed\n");
+
+	regmap_read(map, MAX17042_STATUS, &val);
+	if (val)
+		dev_err(&chip->client->dev, "STATUS read failed\n");
+
+	/* send POR command */
+	regmap_write(map, MAX17042_VFSOC0Enable, MAX17042_SOFT_POR_CMD);
+	mdelay(2);
+
+	regmap_read(map, MAX17042_STATUS, &val);
+	if (val & STATUS_POR_BIT)
+		dev_info(&chip->client->dev, "SoftPOR done!\n");
+	else
+		dev_err(&chip->client->dev, "SoftPOR failed\n");
+}
+
+static void reset_max17042(struct max17042_chip *chip)
+{
+	struct regmap *map = chip->regmap;
+
+	/* do soft power reset */
+	enable_soft_POR(chip);
+
+	/* After Power up, the MAX17042 requires 500mS in order
+	 * to perform signal debouncing and initial SOC reporting
+	 */
+	msleep(500);
+
+	regmap_write(map, MAX17042_CONFIG, 0x2210);
+
+	/* adjust Temperature gain and offset */
+	regmap_write(map, MAX17042_TGAIN, chip->pdata->config_data->tgain);
+	regmap_write(map, MAX17042_TOFF, chip->pdata->config_data->toff);
 }
 
 static void max17042_load_new_capacity_params(struct max17042_chip *chip)
@@ -767,6 +826,10 @@ static int max17042_init_chip(struct max17042_chip *chip)
 	int ret;
 	int val;
 
+	/* reset the maxim chp */
+	reset_max17042(chip);
+
+	/* Set por values */
 	max17042_override_por_values(chip);
 	/* After Power up, the MAX17042 requires 500mS in order
 	 * to perform signal debouncing and initial SOC reporting
@@ -865,6 +928,80 @@ static void max17042_init_worker(struct work_struct *work)
 	chip->init_complete = 1;
 }
 
+
+
+#ifdef CONFIG_ACPI
+
+struct max170xx_acpi_fg_config {
+	struct acpi_table_header acpi_header;
+	char fg_name[ACPI_FG_NAME_LEN];
+	char battid[BATTID_LEN];
+	u16 size;
+	u16 checksum;
+	struct max17042_config_data cdata;
+};
+
+static struct max17042_config_data *
+max17042_get_acpi_cdata(struct device *dev)
+{
+	struct max170xx_acpi_fg_config *acpi_tbl = NULL;
+	struct max17042_config_data *cdata;
+	char *name = MAXIM_FGCONFIG_ACPI_TABLE_NAME;
+	acpi_size tbl_size;
+	acpi_status status;
+
+	/* read the fg config table from acpi */
+	status = acpi_get_table_with_size(name , 0,
+			(struct acpi_table_header **)&acpi_tbl, &tbl_size);
+	if (ACPI_FAILURE(status)) {
+		dev_err(dev, "%s:%s table not found!!\n", __func__, name);
+		return NULL;
+	}
+	dev_info(dev, "%s: %s table found, size=%d\n",
+				__func__, name, (int)tbl_size);
+
+	/* validate the table size */
+	if (tbl_size <  sizeof(struct max170xx_acpi_fg_config)) {
+		dev_err(dev, "%s:%s table incomplete!!\n", __func__, name);
+		dev_info(dev, "%s: table_size=%d, structure_size=%lu\n",
+			__func__, (int)tbl_size,
+			sizeof(struct max170xx_acpi_fg_config));
+		return NULL;
+	}
+
+	cdata = devm_kzalloc(dev, sizeof(*cdata), GFP_KERNEL);
+	if (!cdata) {
+		dev_err(dev, "%s:Memory allocation failed\n", __func__);
+		return NULL;
+	}
+
+	memcpy(cdata, &acpi_tbl->cdata, sizeof(struct max17042_config_data));
+
+	return cdata;
+}
+
+static struct max17042_config_data *
+max17042_get_fg_config_data(struct device *dev)
+{
+	struct max17042_config_data *cdata;
+
+	cdata = max17042_get_acpi_cdata(dev);
+	if (cdata)
+		dev_info(dev, "%s: Got fg config data from acpi\n",
+			__func__);
+	else
+		dev_err(dev, "%s:Failed to get acpi fg config\n",
+		__func__);
+	return cdata;
+}
+#else /* CONFIG_ACPI */
+static struct max17042_config_data *
+max17042_get_fg_config_data(struct device *dev)
+{
+	return NULL;
+}
+#endif /* CONFIG_ACPI */
+
 #ifdef CONFIG_OF
 static struct max17042_platform_data *
 max17042_get_pdata(struct device *dev)
@@ -943,6 +1080,9 @@ max17042_get_pdata(struct device *dev)
 	pdata->temp_min = 0;
 	pdata->temp_max = 600;
 #endif
+	pdata->config_data = max17042_get_fg_config_data(dev);
+	if (pdata->config_data)
+		pdata->enable_por_init = true;
 	return pdata;
 }
 #endif
