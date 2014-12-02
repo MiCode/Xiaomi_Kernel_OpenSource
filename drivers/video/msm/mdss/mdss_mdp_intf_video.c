@@ -902,7 +902,6 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP ||
 				pdata->panel_info.dfps_update
 				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
-			bool wait4vsync;
 			unsigned long flags;
 			if (!ctx->timegen_en) {
 				pr_err("TG is OFF. DFPS mode invalid\n");
@@ -910,27 +909,24 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			}
 
 			/*
-			 * MDP INTF registers are double buffered starting from
-			 * MDP v1.5. No need to wait for vsync on these targets.
+			 * there is possibility that the time of mdp flush
+			 * bit set and the time of dsi flush bit are cross
+			 * vsync boundary. therefore wait4vsync is needed
+			 * to guarantee both flush bits are set within same
+			 * vsync period regardless of mdp revision.
 			 */
-			wait4vsync = (mdata->mdp_rev < MDSS_MDP_HW_REV_105);
-
-			if (wait4vsync) {
-				rc = mdss_mdp_video_dfps_wait4vsync(ctl);
-				if (rc < 0) {
-					pr_err("Error during wait4vsync\n");
-					return rc;
-				}
+			rc = mdss_mdp_video_dfps_wait4vsync(ctl);
+			if (rc < 0) {
+				pr_err("Error during wait4vsync\n");
+				return rc;
 			}
 
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 			spin_lock_irqsave(&ctx->dfps_lock, flags);
 
-			if (wait4vsync) {
-				rc = mdss_mdp_video_dfps_check_line_cnt(ctl);
-				if (rc < 0)
-					goto exit_dfps;
-			}
+			rc = mdss_mdp_video_dfps_check_line_cnt(ctl);
+			if (rc < 0)
+				goto exit_dfps;
 
 			rc = mdss_mdp_video_fps_update(ctx, pdata, new_fps);
 			if (rc < 0) {
@@ -959,7 +955,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			 * MDP INTF registers support DB on targets
 			 * starting from MDP v1.5.
 			 */
-			if (!wait4vsync)
+			if (mdata->mdp_rev >= MDSS_MDP_HW_REV_105)
 				mdss_mdp_video_timegen_flush(ctl, sctx);
 
 exit_dfps:
