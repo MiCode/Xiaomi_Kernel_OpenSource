@@ -122,7 +122,7 @@ static int hbtp_input_create_input_dev(struct hbtp_input_absinfo *absinfo)
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
-	for (i = KEY_ESC; i <= KEY_MICMUTE; i++)
+	for (i = KEY_HOME; i <= KEY_MICMUTE; i++)
 		__set_bit(i, input_dev->keybit);
 
 	/* For multi touch */
