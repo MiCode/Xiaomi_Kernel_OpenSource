@@ -2950,6 +2950,13 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 		}
 
 		/*
+		 * If we're getting trouble reclaiming, start doing writepage
+		 * even in laptop mode.
+		 */
+		if (sc.priority < DEF_PRIORITY - 2)
+			sc.may_writepage = 1;
+
+		/*
 		 * Now scan the zone in the dma->highmem direction, stopping
 		 * at the last zone which needs scanning.
 		 *
@@ -3019,13 +3026,6 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 						       &nr_attempted))
 					raise_priority = false;
 			}
-
-			/*
-			 * If we're getting trouble reclaiming, start doing
-			 * writepage even in laptop mode.
-			 */
-			if (sc.priority < DEF_PRIORITY - 2)
-				sc.may_writepage = 1;
 
 			if (!zone_reclaimable(zone)) {
 				if (end_zone && end_zone == i)
