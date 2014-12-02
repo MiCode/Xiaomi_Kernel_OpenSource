@@ -1355,8 +1355,9 @@ void u_bam_data_start_rndis_ipa(void)
 	pr_debug("%s\n", __func__);
 
 	if (!is_ipa_rndis_net_on) {
-		struct bam_data_port *port =
-			bam2bam_data_ports[RNDIS_QC_ACTIVE_PORT];
+		int port_num = u_bam_data_func_to_port(USB_FUNC_RNDIS,
+							RNDIS_QC_ACTIVE_PORT);
+		struct bam_data_port *port = bam2bam_data_ports[port_num];
 
 		if (port->rndis_s == RNDIS_SOFT_DISABLE)
 			port->rndis_s = RNDIS_SOFT_ENABLE;
@@ -1371,15 +1372,15 @@ void u_bam_data_stop_rndis_ipa(void)
 	pr_debug("%s\n", __func__);
 
 	if (is_ipa_rndis_net_on) {
-		struct bam_data_port *port =
-			bam2bam_data_ports[RNDIS_QC_ACTIVE_PORT];
+		int port_num = u_bam_data_func_to_port(USB_FUNC_RNDIS,
+							RNDIS_QC_ACTIVE_PORT);
+		struct bam_data_port *port = bam2bam_data_ports[port_num];
 
 		rndis_ipa_reset_trigger();
 		bam_data_stop_endless_tx(port);
 		port->rndis_s = RNDIS_SOFT_DISABLE;
 		rndis_data.adaptor_disable = true;
-		bam_data_disconnect(port->port_usb,
-					RNDIS_QC_ACTIVE_PORT);
+		bam_data_disconnect(port->port_usb, port_num);
 	}
 }
 
