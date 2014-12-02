@@ -39,7 +39,7 @@ static struct msm_camera_i2c_reg_array adp1660_release_array[] = {
 
 static struct msm_camera_i2c_reg_array adp1660_low_array[] = {
 	{0x08, 0x04},
-	{0x06, 0x1E},
+	{0x06, 0x28},
 	{0x01, 0xBD},
 	{0x0f, 0x01},
 };
