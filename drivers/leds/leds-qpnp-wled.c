@@ -458,10 +458,8 @@ restore_brightness:
 	qpnp_wled_set_level(wled, wled->cdev.brightness);
 	if (!wled->cdev.brightness) {
 		rc = qpnp_wled_module_en(wled, wled->ctrl_base, false);
-		if (rc) {
+		if (rc)
 			dev_err(&wled->spmi->dev, "wled enable failed\n");
-			return rc;
-		}
 	}
 unlock_mutex:
 	mutex_unlock(&wled->lock);
@@ -763,7 +761,7 @@ static void qpnp_wled_work(struct work_struct *work)
 		rc = qpnp_wled_set_level(wled, level);
 		if (rc) {
 			dev_err(&wled->spmi->dev, "wled set level failed\n");
-			return;
+			goto unlock_mutex;
 		}
 	}
 
@@ -772,8 +770,9 @@ static void qpnp_wled_work(struct work_struct *work)
 	if (rc) {
 		dev_err(&wled->spmi->dev, "wled %sable failed\n",
 					level ? "en" : "dis");
-		return;
+		goto unlock_mutex;
 	}
+unlock_mutex:
 	mutex_unlock(&wled->lock);
 }
 
