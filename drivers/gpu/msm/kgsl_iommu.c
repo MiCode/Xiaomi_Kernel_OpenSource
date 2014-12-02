@@ -1702,6 +1702,53 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 	return ret;
 }
 
+/*
+ * _create_sg_no_large_pages - Create a sg list from a given sg list w/o
+ * greater that 64K pages
+ * @memdesc - The memory descriptor containing the sg
+ *
+ * Returns the new sg list else error pointer on failure
+ */
+struct scatterlist *_create_sg_no_large_pages(struct kgsl_memdesc *memdesc)
+{
+	struct page *page;
+	struct scatterlist *s, *s_temp, *sg_temp;
+	int sglen_alloc = 0;
+	uint64_t offset;
+	int i;
+
+	for_each_sg(memdesc->sg, s, memdesc->sglen, i) {
+		if (SZ_1M <= s->length)
+			sglen_alloc += s->length >> 16;
+		else
+			sglen_alloc++;
+	}
+	/* No large pages were detected */
+	if (sglen_alloc == memdesc->sglen)
+		return NULL;
+
+	sg_temp = kgsl_malloc(sglen_alloc * sizeof(struct scatterlist));
+	if (NULL == sg_temp)
+		return ERR_PTR(-ENOMEM);
+
+	sg_init_table(sg_temp, sglen_alloc);
+	s_temp = sg_temp;
+
+	for_each_sg(memdesc->sg, s, memdesc->sglen, i) {
+		page = sg_page(s);
+		if (SZ_1M <= s->length) {
+			for (offset = 0; offset < s->length; s_temp++) {
+				sg_set_page(s_temp, page, SZ_64K, offset);
+				offset += SZ_64K;
+			}
+		} else {
+			sg_set_page(s_temp, page, s->length, 0);
+			s_temp++;
+		}
+	}
+	return sg_temp;
+}
+
 static int
 kgsl_iommu_map(struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc)
@@ -1713,6 +1760,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	unsigned int protflags;
 	struct kgsl_device *device = pt->mmu->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct scatterlist *sg_temp = NULL;
 
 	BUG_ON(NULL == iommu_pt);
 
@@ -1726,24 +1774,33 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	if (memdesc->priv & KGSL_MEMDESC_PRIVILEGED)
 		protflags |= IOMMU_PRIV;
 
+	sg_temp = _create_sg_no_large_pages(memdesc);
+	if (IS_ERR(sg_temp))
+		return PTR_ERR(sg_temp);
+
 	if (kgsl_memdesc_is_secured(memdesc) && kgsl_mmu_is_secured(pt->mmu)) {
 		mutex_lock(&device->mutex);
 		ret = kgsl_active_count_get(device);
 		if (!ret) {
 			ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr,
-					  memdesc->sg, size, protflags);
+				sg_temp ? sg_temp : memdesc->sg,
+				size, protflags);
 			kgsl_active_count_put(device);
 		}
 		mutex_unlock(&device->mutex);
 	} else
 		ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr,
-				memdesc->sg, size, protflags);
+				sg_temp ? sg_temp : memdesc->sg,
+				size, protflags);
 	if (ret) {
 		KGSL_CORE_ERR("iommu_map_range(%p, %x, %p, %zd, %x) err: %d\n",
-			iommu_pt->domain, iommu_virt_addr, memdesc->sg, size,
+			iommu_pt->domain, iommu_virt_addr,
+			sg_temp ? sg_temp : memdesc->sg, size,
 			protflags, ret);
+		kgsl_free(sg_temp);
 		return ret;
 	}
+	kgsl_free(sg_temp);
 	if (kgsl_memdesc_has_guard_page(memdesc)) {
 		ret = iommu_map(iommu_pt->domain, iommu_virt_addr + size,
 				page_to_phys(kgsl_guard_page), PAGE_SIZE,
