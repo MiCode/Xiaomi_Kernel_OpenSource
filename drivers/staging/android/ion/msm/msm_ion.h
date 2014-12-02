@@ -154,8 +154,8 @@ int msm_ion_secure_table(struct sg_table *table);
 
 int msm_ion_unsecure_table(struct sg_table *table);
 int msm_ion_hyp_assign_call(struct sg_table *table,
-				u64 *source_vm_list, u32 source_list_size,
-				u64 *dest_vm_list, u32 dest_list_size);
+				u32 *source_vm_list, u32 source_list_size,
+				u32 *dest_vm_list, u32 dest_list_size);
 #else
 static inline struct ion_client *msm_ion_client_create(const char *name)
 {
@@ -186,8 +186,8 @@ static inline int msm_ion_unsecure_table(struct sg_table *table)
 }
 
 static inline int msm_ion_hyp_assign_call(struct sg_table *table,
-				u64 *source_vm_list, u32 source_list_size,
-				u64 *dest_vm_list, u32 dest_list_size)
+				u32 *source_vm_list, u32 source_list_size,
+				u32 *dest_vm_list, u32 dest_list_size)
 {
 	return -ENODEV;
 }
