@@ -134,6 +134,7 @@ void mdss_panel_debugfsinfo_to_panelinfo(struct mdss_panel_info *panel_info)
 		pinfo->xres = pinfo->debugfs_info->xres;
 		pinfo->yres = pinfo->debugfs_info->yres;
 		pinfo->lcdc = pinfo->debugfs_info->lcdc;
+		pinfo->panel_max_vtotal = mdss_panel_get_vtotal(pinfo);
 		pinfo->mipi.frame_rate = pinfo->debugfs_info->frame_rate;
 		pdata = pdata->next;
 	} while (pdata);
