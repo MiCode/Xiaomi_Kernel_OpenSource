@@ -607,8 +607,9 @@ static void branch_clk_disable(struct clk *c)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	/* Wait for clock to disable before continuing. */
-	branch_clk_halt_check(c, branch->halt_check, CBCR_REG(branch),
-				BRANCH_OFF);
+	if (!branch->no_halt_check_on_disable)
+		branch_clk_halt_check(c, branch->halt_check, CBCR_REG(branch),
+					BRANCH_OFF);
 
 	if (branch->toggle_memory) {
 		branch_clk_set_flags(c, CLKFLAG_NORETAIN_MEM);
