@@ -120,6 +120,12 @@ static int synaptics_rmi4_resume(struct device *dev);
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
+static ssize_t synaptics_rmi4_set_abs_x_axis(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t synaptics_rmi4_set_abs_y_axis(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+
 static ssize_t synaptics_rmi4_f01_productinfo_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 
@@ -361,6 +367,12 @@ static struct device_attribute attrs[] = {
 	__ATTR(reset, (S_IWUSR | S_IWGRP),
 			NULL,
 			synaptics_rmi4_f01_reset_store),
+	__ATTR(set_abs_x_axis, (S_IWUSR | S_IWGRP),
+			NULL,
+			synaptics_rmi4_set_abs_x_axis),
+	__ATTR(set_abs_y_axis, (S_IWUSR | S_IWGRP),
+			NULL,
+			synaptics_rmi4_set_abs_y_axis),
 	__ATTR(productinfo, S_IRUGO,
 			synaptics_rmi4_f01_productinfo_show,
 			synaptics_rmi4_store_error),
@@ -659,6 +671,42 @@ static ssize_t synaptics_rmi4_full_pm_cycle_store(struct device *dev,
 		return -EINVAL;
 
 	rmi4_data->full_pm_cycle = input > 0 ? 1 : 0;
+
+	return count;
+}
+
+static ssize_t synaptics_rmi4_set_abs_x_axis(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%u", &input) != 1)
+		return -EINVAL;
+
+	if (input == 0)
+		return -EINVAL;
+
+	input_set_abs_params(rmi4_data->input_dev, ABS_MT_POSITION_X,
+			0, input, 0, 0);
+
+	return count;
+}
+
+static ssize_t synaptics_rmi4_set_abs_y_axis(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int input;
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%u", &input) != 1)
+		return -EINVAL;
+
+	if (input == 0)
+		return -EINVAL;
+
+	input_set_abs_params(rmi4_data->input_dev, ABS_MT_POSITION_Y,
+			0, input, 0, 0);
 
 	return count;
 }
