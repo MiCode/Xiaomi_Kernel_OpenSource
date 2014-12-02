@@ -95,6 +95,10 @@ static int dsi_calc_mnp(u32 dsi_clk, struct dsi_mnp *dsi_mnp)
 	u32 calc_m;
 	u32 calc_p;
 	u32 m_seed;
+	u32 m_start;
+	u32 m_limit;
+	u32 n_limit;
+	u32 p_limit;
 
 	/* dsi_clk is expected in KHZ */
 	if (dsi_clk < 300000 || dsi_clk > 1150000) {
@@ -102,18 +106,36 @@ static int dsi_calc_mnp(u32 dsi_clk, struct dsi_mnp *dsi_mnp)
 		return -ECHRNG;
 	}
 
-	ref_clk = 25000;
+	if (IS_CHERRYVIEW()) {
+		ref_clk = 100000;
+		m_start = 70;
+		m_limit = 96;
+		n_limit = 4;
+		p_limit = 6;
+	} else if (IS_VALLEYVIEW()) {
+		ref_clk = 25000;
+		m_start = 62;
+		m_limit = 92;
+		n_limit = 1;
+		p_limit = 6;
+	} else {
+		pr_err("unsupported platform\n");
+		return -ECHRNG;
+	}
+
 	target_dsi_clk = dsi_clk;
 	error = 0xFFFFFFFF;
 	tmp_error = 0xFFFFFFFF;
 	calc_m = 0;
 	calc_p = 0;
 
-	for (m = 62; m <= 92; m++) {
-		for (p = 2; p <= 6; p++) {
-			/* Find the optimal m and p divisors
-			   with minimal error +/- the required clock */
-			calc_dsi_clk = (m * ref_clk) / p;
+	for (m = m_start; m <= m_limit; m++) {
+		for (p = 2; p <= p_limit; p++) {
+			/*
+			 * Find the optimal m and p divisors with
+			 * minimal error +/- the required clock
+			 */
+			calc_dsi_clk = (m * ref_clk) / (p * n_limit);
 			if (calc_dsi_clk == target_dsi_clk) {
 				calc_m = m;
 				calc_p = p;
@@ -134,10 +156,20 @@ static int dsi_calc_mnp(u32 dsi_clk, struct dsi_mnp *dsi_mnp)
 	}
 
 	m_seed = lfsr_converts[calc_m - 62];
-	n = 1;
+	n = n_limit;
 	dsi_mnp->dsi_pll_ctrl = 1 << (DSI_PLL_P1_POST_DIV_SHIFT + calc_p - 2);
-	dsi_mnp->dsi_pll_div = (n - 1) << DSI_PLL_N1_DIV_SHIFT |
-		m_seed << DSI_PLL_M1_DIV_SHIFT;
+
+	/*
+	 * For CHT, n variable is expcted to have a value of 4.
+	 * dsi pll programming will change when value of n changes.
+	 */
+	if (IS_CHERRYVIEW())
+		dsi_mnp->dsi_pll_div = (n/2) << DSI_PLL_N1_DIV_SHIFT |
+			m_seed << DSI_PLL_M1_DIV_SHIFT;
+	else
+		dsi_mnp->dsi_pll_div = (n - 1) << DSI_PLL_N1_DIV_SHIFT |
+			m_seed << DSI_PLL_M1_DIV_SHIFT;
+
 
 	return 0;
 }
