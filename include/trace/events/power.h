@@ -827,6 +827,54 @@ DEFINE_EVENT(kpm_module2, track_iowait,
 	TP_ARGS(cpu, cycles, io_busy, iowait)
 );
 
+DECLARE_EVENT_CLASS(cpu_modes,
+
+	TP_PROTO(unsigned int cpu, unsigned int max_load,
+		unsigned int single_cycles, unsigned int total_load,
+		unsigned int multi_cycles, unsigned int mode,
+		unsigned int cpu_cnt),
+
+	TP_ARGS(cpu, max_load, single_cycles, total_load, multi_cycles,
+								mode, cpu_cnt),
+
+	TP_STRUCT__entry(
+		__field(u32, cpu)
+		__field(u32, max_load)
+		__field(u32, single_cycles)
+		__field(u32, total_load)
+		__field(u32, multi_cycles)
+		__field(u32, mode)
+		__field(u32, cpu_cnt)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->max_load = max_load;
+		__entry->single_cycles = single_cycles;
+		__entry->total_load = total_load;
+		__entry->multi_cycles = multi_cycles;
+		__entry->mode = mode;
+		__entry->cpu_cnt = cpu_cnt;
+	),
+
+	TP_printk("CPU:%u ml=%4u sc=%4u tl=%4u mc=%4u mode=%4u cpu_cnt=%u",
+		(unsigned int)__entry->cpu, (unsigned int)__entry->max_load,
+		(unsigned int)__entry->single_cycles,
+		(unsigned int)__entry->total_load,
+		(unsigned int)__entry->multi_cycles,
+		(unsigned int)__entry->mode,
+		(unsigned int)__entry->cpu_cnt)
+);
+
+DEFINE_EVENT(cpu_modes, cpu_mode_detect,
+	TP_PROTO(unsigned int cpu, unsigned int max_load,
+		unsigned int single_cycles, unsigned int total_load,
+		unsigned int multi_cycles, unsigned int mode,
+		unsigned int cpu_cnt),
+	TP_ARGS(cpu, max_load, single_cycles, total_load, multi_cycles,
+								mode, cpu_cnt)
+);
+
 #endif /* _TRACE_POWER_H */
 
 /* This part must be outside protection */
