@@ -546,6 +546,13 @@ config MSM_PACMAN
 	  This driver allows reconfiguration of the Bus Access Manager
 	  Low Speed Peripheral (BLSP) ownership.
 
+config MSM_PERFORMANCE
+	tristate "Core control driver to support userspace hotplug requests"
+	help
+	  This driver is used to provide CPU hotplug support to userspace.
+	  It ensures that no more than a user specified number of CPUs stay
+	  online at any given point in time.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM

@@ -95,6 +95,19 @@ enum mdp_split_mode {
 	MDP_SPLIT_MODE_DST,
 };
 
+/**
+ * enum mdp_mmap_type - Lists the possible mmap type in the device
+ *
+ * @MDP_FB_MMAP_NONE: Unknown type.
+ * @MDP_FB_MMAP_ION_ALLOC:   Use ION allocate a buffer for mmap
+ * @MDP_FB_MMAP_PHYSICAL_ALLOC:  Use physical buffer for mmap
+ */
+enum mdp_mmap_type {
+	MDP_FB_MMAP_NONE,
+	MDP_FB_MMAP_ION_ALLOC,
+	MDP_FB_MMAP_PHYSICAL_ALLOC,
+};
+
 struct disp_info_type_suspend {
 	int op_enable;
 	int panel_power_state;
@@ -274,6 +287,8 @@ struct msm_fb_data_type {
 	u32 wait_for_kickoff;
 	u32 thermal_level;
 	int doze_mode;
+
+	int fb_mmap_type;
 };
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
