@@ -231,6 +231,15 @@ static struct v4l2_queryctrl ci_v4l2_controls[] = {
 		.default_value = 0,
 	},
 	{
+		.id = V4L2_CID_EXPOSURE_AUTO_PRIORITY,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Exposure auto priority",
+		.minimum = V4L2_EXPOSURE_AUTO,
+		.maximum = V4L2_EXPOSURE_APERTURE_PRIORITY,
+		.step = 1,
+		.default_value = V4L2_EXPOSURE_AUTO,
+	},
+	{
 		.id = V4L2_CID_SCENE_MODE,
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.name = "scene mode",
@@ -2153,6 +2162,7 @@ static int atomisp_s_ctrl(struct file *file, void *fh,
 	switch (control->id) {
 	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
 	case V4L2_CID_EXPOSURE:
+	case V4L2_CID_EXPOSURE_AUTO_PRIORITY:
 	case V4L2_CID_SCENE_MODE:
 	case V4L2_CID_ISO_SENSITIVITY:
 	case V4L2_CID_ISO_SENSITIVITY_AUTO:
