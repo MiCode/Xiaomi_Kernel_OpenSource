@@ -1027,18 +1027,18 @@ void rndis_flow_control(u8 confignr, bool enable_flow_control)
 	params = &rndis_per_dev_params[confignr];
 	pr_debug("%s(): params->state:%x\n", __func__, params->state);
 	if (enable_flow_control) {
-		if (is_rndis_ipa_supported() &&
-			params->state == RNDIS_DATA_INITIALIZED) {
-			u_bam_data_stop_rndis_ipa();
+		if (is_rndis_ipa_supported()) {
+			if (params->state == RNDIS_DATA_INITIALIZED)
+				u_bam_data_stop_rndis_ipa();
 		} else {
 			netif_carrier_off(params->dev);
 			netif_stop_queue(params->dev);
 		}
 		params->state = RNDIS_INITIALIZED;
 	} else {
-		if (is_rndis_ipa_supported() &&
-			params->state != RNDIS_DATA_INITIALIZED) {
-			u_bam_data_start_rndis_ipa();
+		if (is_rndis_ipa_supported()) {
+			if (params->state != RNDIS_DATA_INITIALIZED)
+				u_bam_data_start_rndis_ipa();
 		} else {
 			netif_carrier_on(params->dev);
 			if (netif_running(params->dev))
