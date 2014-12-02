@@ -25,18 +25,28 @@ config ADF_INTEL
 	help
 	  Enable ADF compatible Intel display driver.
 
-choice
-	prompt "Intel Gen Platform"
+config ADF_INTEL_VLV
+	bool "Valleyview/Cherryview"
 	depends on ADF_INTEL
-	default ADF_INTEL_VLV
+	default y
 	help
-	  The ADF driver supports multiple Intel GEN platforms. Select the targeted one.
+	  Choose this option for common code on VLV/CHT platforms.
 
-	config ADF_INTEL_VLV
-		bool "Valleyview"
-		help
-		  Intel VLV SoC Platform.
-endchoice
+	  Google has come up with a new display framework called ADF. Intel
+	  linux display team has come up with a new driver based on the ADF
+	  framework. This options is for commond code for VLV/CHT in the ADF
+	  compliant driver.
+
+config ADF_INTEL_CHV
+	bool "Only Cherryview specific"
+	depends on ADF_INTEL_VLV
+	help
+	  Choose this option for specific code required for CHT platform.
+
+	  Google has come up with a new display framework called ADF. Intel
+	  linux display team has come up with a new driver based on the ADF
+	  framework. This options is for specific code for CHT in the ADF
+	  compliant driver.
 
 config ADF_INTEL_FBDEV
 	depends on ADF_INTEL && ADF_FBDEV
