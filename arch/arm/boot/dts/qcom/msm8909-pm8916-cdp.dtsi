@@ -11,6 +11,10 @@
  * GNU General Public License for more details.
  */
 
+#include "msm8909-pm8916.dtsi"
+#include "msm8909-pinctrl.dtsi"
+#include "msm8909-pm8916-camera-sensor-cdp.dtsi"
+
 &soc {
 	i2c@78b9000 {
 		synaptics@20 {
