@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,16 +10,27 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+&msm_gpu {
 
-#include "msm8909-cdp.dtsi"
-#include "msm8909-pm8909.dtsi"
-#include "msm8909-pm8909-cdp.dtsi"
-#include "msm8909-gpu-qhd.dtsi"
+	/* Power levels */
+	qcom,gpu-pwrlevels {
 
-/ {
-	model = "Qualcomm Technologies, Inc. MSM8909-PM8909 QHD CDP";
-	compatible = "qcom,msm8909-cdp", "qcom,msm8909", "qcom,cdp";
-	qcom,board-id= <1 0x1100>;
+		qcom,gpu-pwrlevel@0 {
+			reg = <0>;
+			qcom,gpu-freq = <307200000>;
+			qcom,bus-freq = <3>;
+		};
+
+		qcom,gpu-pwrlevel@1 {
+			reg = <1>;
+			qcom,gpu-freq = <200000000>;
+			qcom,bus-freq = <1>;
+		};
+
+		qcom,gpu-pwrlevel@2 {
+			reg = <2>;
+			qcom,gpu-freq = <19200000>;
+			qcom,bus-freq = <0>;
+		};
+	};
 };
-
