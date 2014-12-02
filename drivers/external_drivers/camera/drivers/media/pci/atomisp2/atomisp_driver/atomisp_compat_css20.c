@@ -3020,10 +3020,14 @@ int atomisp_get_css_frame_info(struct atomisp_sub_device *asd,
 {
 	struct ia_css_pipe_info info;
 	int pipe_index = atomisp_get_pipe_index(asd, source_pad);
-	int stream_index = (pipe_index == IA_CSS_PIPE_ID_YUVPP) ?
+	int stream_index;
+	if (ATOMISP_SOC_CAMERA(asd))
+		stream_index = atomisp_source_pad_to_stream_id(asd, source_pad);
+	else {
+		stream_index = (pipe_index == IA_CSS_PIPE_ID_YUVPP) ?
 			   ATOMISP_INPUT_STREAM_VIDEO :
 			   atomisp_source_pad_to_stream_id(asd, source_pad);
-
+	}
 	ia_css_pipe_get_info(asd->stream_env[stream_index]
 		.pipes[pipe_index], &info);
 	switch (source_pad) {

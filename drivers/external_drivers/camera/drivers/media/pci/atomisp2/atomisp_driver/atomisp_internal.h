@@ -169,6 +169,15 @@
 	&& asd->isp->inputs[asd->input_curr].camera_caps-> \
 	   sensor[asd->sensor_curr].stream_num == 1   \
 	&& ATOMISP_CSS_SUPPORT_YUVPP)
+/*
+ * ATOMISP_SOC_CAMERA
+ * This is to differentiate between ext-isp and soc camera in
+ * Moorefield/Baytrail platform.
+ */
+#define ATOMISP_SOC_CAMERA(asd)  \
+	(asd->isp->inputs[asd->input_curr].type == SOC_CAMERA \
+	&& asd->isp->inputs[asd->input_curr].camera_caps-> \
+	   sensor[asd->sensor_curr].stream_num == 1)
 
 #define ATOMISP_DEPTH_SENSOR_STREAMON_COUNT 2
 
