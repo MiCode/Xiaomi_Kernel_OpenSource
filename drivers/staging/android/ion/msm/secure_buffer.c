@@ -209,8 +209,8 @@ static void destroy_info_list(struct info_list *info_list)
 }
 
 int msm_ion_hyp_assign_call(struct sg_table *table,
-			u64 *source_vm_list, u32 source_list_size,
-			u64 *dest_vm_list, u32 dest_list_size)
+			u32 *source_vm_list, u32 source_list_size,
+			u32 *dest_vm_list, u32 dest_list_size)
 {
 	struct info_list *info_list = NULL;
 	int ret;
