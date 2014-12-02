@@ -224,22 +224,6 @@ static void venus_hfi_sim_modify_cmd_packet(u8 *packet,
 	}
 }
 
-/* Read as "for each 'thing' in a set of 'thingies'" */
-#define venus_hfi_for_each_thing(__device, __thing, __thingy) \
-	for (__thing = &(__device)->res->__thingy##_set.__thingy##_tbl[0]; \
-		__thing < &(__device)->res->__thingy##_set.__thingy##_tbl[0] + \
-			(__device)->res->__thingy##_set.count; \
-		++__thing) \
-
-#define venus_hfi_for_each_regulator(__device, __rinfo) \
-	venus_hfi_for_each_thing(__device, __rinfo, regulator)
-
-#define venus_hfi_for_each_clock(__device, __cinfo) \
-	venus_hfi_for_each_thing(__device, __cinfo, clock)
-
-#define venus_hfi_for_each_bus(__device, __binfo) \
-	venus_hfi_for_each_thing(__device, __binfo, bus)
-
 static int venus_hfi_acquire_regulator(struct regulator_info *rinfo)
 {
 	int rc = 0;
@@ -307,13 +291,8 @@ static int venus_hfi_hand_off_regulators(struct venus_hfi_device *device)
 
 	return rc;
 err_reg_handoff_failed:
-	venus_hfi_for_each_regulator(device, rinfo) {
-		if (!c)
-			break;
-
+	venus_hfi_for_each_regulator_reverse_continue(device, rinfo, c)
 		venus_hfi_acquire_regulator(rinfo);
-		--c;
-	}
 
 	return rc;
 }
@@ -3697,7 +3676,7 @@ static void venus_hfi_deinit_regulators(struct venus_hfi_device *device)
 
 	/* No need to regulator_put. Regulators automatically freed
 	 * thanks to devm_regulator_get */
-	venus_hfi_for_each_regulator(device, rinfo)
+	venus_hfi_for_each_regulator_reverse(device, rinfo)
 		rinfo->regulator = NULL;
 }
 
@@ -3882,13 +3861,8 @@ static int venus_hfi_enable_regulators(struct venus_hfi_device *device)
 	return 0;
 
 err_reg_enable_failed:
-	venus_hfi_for_each_regulator(device, rinfo) {
-		if (!c)
-			break;
-
+	venus_hfi_for_each_regulator_reverse_continue(device, rinfo, c)
 		venus_hfi_disable_regulator(rinfo);
-		--c;
-	}
 
 	return rc;
 }
@@ -3899,7 +3873,7 @@ static int venus_hfi_disable_regulators(struct venus_hfi_device *device)
 
 	dprintk(VIDC_DBG, "Disabling regulators\n");
 
-	venus_hfi_for_each_regulator(device, rinfo)
+	venus_hfi_for_each_regulator_reverse(device, rinfo)
 		venus_hfi_disable_regulator(rinfo);
 
 	return 0;
