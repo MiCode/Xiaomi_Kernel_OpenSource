@@ -281,6 +281,7 @@ static void msm_hs_bus_voting(struct msm_hs_port *msm_uport, unsigned int vote);
 static struct msm_hs_port *msm_hs_get_hs_port(int port_index);
 static void msm_hs_queue_rx_desc(struct msm_hs_port *msm_uport);
 static int disconnect_rx_endpoint(struct msm_hs_port *msm_uport);
+static int msm_hs_pm_resume(struct device *dev);
 
 #define UARTDM_TO_MSM(uart_port) \
 	container_of((uart_port), struct msm_hs_port, uport)
@@ -2255,6 +2256,12 @@ void msm_hs_request_clock_on(struct uart_port *uport)
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	msm_hs_resource_vote(UARTDM_TO_MSM(uport));
 
+	if (msm_uport->pm_state != MSM_HS_PM_ACTIVE) {
+		MSM_HS_WARN("%s(): %p runtime PM callback not invoked",
+			__func__, uport->dev);
+		msm_hs_pm_resume(uport->dev);
+	}
+
 	/* Clear the flag */
 	if (msm_uport->obs)
 		atomic_set(&msm_uport->client_req_state, 0);
@@ -3019,6 +3026,8 @@ static int msm_hs_pm_resume(struct device *dev)
 
 	if (!msm_uport)
 		goto err_resume;
+	if (msm_uport->pm_state == MSM_HS_PM_ACTIVE)
+		return 0;
 	if (!atomic_read(&msm_uport->client_req_state))
 		toggle_wakeup_interrupt(msm_uport);
 	msm_hs_clk_bus_vote(msm_uport);
@@ -3042,6 +3051,7 @@ static int msm_hs_pm_sys_suspend_noirq(struct device *dev)
 	if (IS_ERR_OR_NULL(msm_uport))
 		return -ENODEV;
 
+	MSM_HS_DBG("%s(): suspending", __func__);
 	prev_pwr_state = msm_uport->pm_state;
 	uport	= &(msm_uport->uport);
 	mutex_lock(&msm_uport->mtx);
