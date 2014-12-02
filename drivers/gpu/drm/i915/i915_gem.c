@@ -2141,7 +2141,8 @@ i915_gem_shrink_all(struct drm_i915_private *dev_priv)
 {
 	i915_gem_evict_everything(dev_priv->dev);
 	return i915_gem_shrink(dev_priv, LONG_MAX,
-			       I915_SHRINK_BOUND | I915_SHRINK_UNBOUND);
+			       I915_SHRINK_BOUND | I915_SHRINK_UNBOUND |
+			       I915_SHRINK_PURGEABLE);
 }
 
 static int
@@ -5494,6 +5495,7 @@ static bool i915_gem_shrinker_lock(struct drm_device *dev, bool *unlock)
 	return true;
 }
 
+#if 0
 static int num_vma_bound(struct drm_i915_gem_object *obj)
 {
 	struct i915_vma *vma;
@@ -5505,6 +5507,7 @@ static int num_vma_bound(struct drm_i915_gem_object *obj)
 
 	return count;
 }
+#endif
 
 static unsigned long
 i915_gem_shrinker_count(struct shrinker *shrinker, struct shrink_control *sc)
@@ -5526,7 +5529,7 @@ i915_gem_shrinker_count(struct shrinker *shrinker, struct shrink_control *sc)
 
 	list_for_each_entry(obj, &dev_priv->mm.bound_list, global_list) {
 		if (!i915_gem_obj_is_pinned(obj) &&
-		    obj->pages_pin_count == num_vma_bound(obj))
+		    obj->pages_pin_count == 0)
 			count += obj->base.size >> PAGE_SHIFT;
 	}
 
@@ -5611,11 +5614,13 @@ i915_gem_shrinker_scan(struct shrinker *shrinker, struct shrink_control *sc)
 				I915_SHRINK_BOUND |
 				I915_SHRINK_UNBOUND |
 				I915_SHRINK_PURGEABLE);
+#if 0
 	if (freed < sc->nr_to_scan)
 		freed += i915_gem_shrink(dev_priv,
 					 sc->nr_to_scan - freed,
 					 I915_SHRINK_BOUND |
 					 I915_SHRINK_UNBOUND);
+#endif
 	if (unlock)
 		mutex_unlock(&dev->struct_mutex);
 
