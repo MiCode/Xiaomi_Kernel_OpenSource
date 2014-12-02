@@ -117,7 +117,8 @@ enum pmic_arb_cmd_op_code {
 
 /* Maximum number of support PMIC peripherals */
 #define PMIC_ARB_MAX_PERIPHS		256
-#define PMIC_ARB_MAX_CHNL		128
+#define PMIC_ARB_PERIPHS_CHNL_DEFAULT	128
+#define PMIC_ARB_PERIPHS_INTR_DEFAULT	128
 #define PMIC_ARB_PERIPH_ID_VALID	(1 << 15)
 #define PMIC_ARB_TIMEOUT_US		100
 #define PMIC_ARB_MAX_TRANS_BYTES	(8)
@@ -210,8 +211,10 @@ struct spmi_pmic_arb_dev {
 	spinlock_t		lock;
 	u8			ee;
 	u8			channel;
-	u8			min_apid;
-	u8			max_apid;
+	u16			max_peripherals;
+	u16			min_intr_apid;
+	u16			max_intr_apid;
+	u16			max_periph_intrs;
 	u16			periph_id_map[PMIC_ARB_MAX_PERIPHS];
 	u32			mapping_table[SPMI_MAPPING_TABLE_LEN];
 	const struct spmi_pmic_arb_ver *ver;
@@ -682,7 +685,8 @@ static void dbg_dump_bad_irq_request(struct spmi_pmic_arb_dev *pmic_arb,
 	dump_stack();
 
 	dev_info(pmic_arb->dev, "APID => PPID mapping table:\n");
-	for (apid = pmic_arb->min_apid; apid <= pmic_arb->max_apid; ++apid)
+	for (apid = pmic_arb->min_intr_apid;
+		apid <= pmic_arb->max_intr_apid; ++apid)
 		if (is_apid_valid(pmic_arb, apid))
 			dev_info(pmic_arb->dev, "0x%02x => 0x%03x\n", apid,
 					get_peripheral_id(pmic_arb, apid));
@@ -722,11 +726,12 @@ static uint32_t map_peripheral_id(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 
 		pmic_arb->periph_id_map[apid] = ppid | PMIC_ARB_PERIPH_ID_VALID;
 
-		if (apid > pmic_arb->max_apid)
-			pmic_arb->max_apid = apid;
+		if ((apid < pmic_arb->max_periph_intrs)
+			&& (apid > pmic_arb->max_intr_apid))
+			pmic_arb->max_intr_apid = apid;
 
-		if (apid < pmic_arb->min_apid)
-			pmic_arb->min_apid = apid;
+		if (apid < pmic_arb->min_intr_apid)
+			pmic_arb->min_intr_apid = apid;
 
 		return apid;
 	}
@@ -751,8 +756,9 @@ static int pmic_arb_pic_enable(struct spmi_controller *ctrl,
 	dev_dbg(pmic_arb->dev, "PIC enable, apid:0x%x, sid:0x%x, pid:0x%x\n",
 				apid, spec->slave, spec->per);
 
-	if ((apid < pmic_arb->min_apid) || (apid > pmic_arb->max_apid) ||
-					(!is_apid_valid(pmic_arb, apid))) {
+	if ((apid < pmic_arb->min_intr_apid) ||
+		(apid > pmic_arb->max_intr_apid) ||
+		(!is_apid_valid(pmic_arb, apid))) {
 		dbg_dump_bad_irq_request(pmic_arb, apid,
 				PMIC_ARB_TO_PPID(spec->slave, spec->per),
 				"enable irq: invalid apid");
@@ -789,8 +795,9 @@ static int pmic_arb_pic_disable(struct spmi_controller *ctrl,
 	dev_dbg(pmic_arb->dev, "PIC disable, apid:0x%x, sid:0x%x, pid:0x%x\n",
 				apid, spec->slave, spec->per);
 
-	if ((apid < pmic_arb->min_apid) || (apid > pmic_arb->max_apid) ||
-					(!is_apid_valid(pmic_arb, apid))) {
+	if ((apid < pmic_arb->min_intr_apid) ||
+		(apid > pmic_arb->max_intr_apid) ||
+		(!is_apid_valid(pmic_arb, apid))) {
 		dbg_dump_bad_irq_request(pmic_arb, apid,
 				PMIC_ARB_TO_PPID(spec->slave, spec->per),
 				"disable irq: invalid apid");
@@ -880,8 +887,8 @@ __pmic_arb_periph_irq(int irq, void *dev_id, bool show)
 	u32 ret = IRQ_NONE;
 	u32 status;
 
-	int first = pmic_arb->min_apid >> 5;
-	int last = pmic_arb->max_apid >> 5;
+	int first = pmic_arb->min_intr_apid >> 5;
+	int last = pmic_arb->max_intr_apid >> 5;
 	int i, j;
 
 	dev_dbg(pmic_arb->dev, "Peripheral interrupt detected\n");
@@ -938,8 +945,8 @@ static int pmic_arb_intr_priv_data(struct spmi_controller *ctrl,
 static int pmic_arb_mapping_data_show(struct seq_file *file, void *unused)
 {
 	struct spmi_pmic_arb_dev *pmic_arb = file->private;
-	int first = pmic_arb->min_apid;
-	int last = pmic_arb->max_apid;
+	int first = pmic_arb->min_intr_apid;
+	int last = pmic_arb->max_intr_apid;
 	int i;
 
 	for (i = first; i <= last; ++i) {
@@ -1016,9 +1023,9 @@ static struct qpnp_local_int spmi_pmic_arb_intr_cb = {
 
 static int pmic_arb_chnl_tbl_create(struct spmi_pmic_arb_dev *pmic_arb)
 {
-	u8  chnl;
+	u16  chnl;
 	/* size: 12bit entries = 4bit SID + 8bit periph ID */
-	u32 tbl_sz = (1 << 12) * sizeof(chnl);
+	u32 tbl_sz = (1 << 12);
 
 	pmic_arb->ppid_2_chnl_tbl = devm_kzalloc(pmic_arb->dev, tbl_sz,
 								GFP_KERNEL);
@@ -1033,7 +1040,7 @@ static int pmic_arb_chnl_tbl_create(struct spmi_pmic_arb_dev *pmic_arb)
 	 * to SID + PID (PPID). We create an invert of that table here for
 	 * optimization of mapping SID+PID to channel number.
 	 */
-	for (chnl = 0; chnl < PMIC_ARB_MAX_CHNL; ++chnl) {
+	for (chnl = 0; chnl < pmic_arb->max_peripherals; ++chnl) {
 		u32 regval = readl_relaxed(pmic_arb->base +
 						PMIC_ARB_REG_CHNL(chnl));
 		u8  sid  = (regval >> 16) & 0xF;
@@ -1147,6 +1154,12 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	ret = spmi_pmic_arb_get_property(pdev, "qcom,pmic-arb-max-peripherals",
+					&prop);
+	if (ret)
+		prop = PMIC_ARB_PERIPHS_CHNL_DEFAULT;
+	pmic_arb->max_peripherals = prop;
+
 	ret = pmic_arb_version_specific_init(pmic_arb, pdev);
 	if (ret)
 		return ret;
@@ -1180,7 +1193,8 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 		return -ENODEV;
 	pmic_arb->ee = (u8)prop;
 
-	ret = spmi_pmic_arb_get_property(pdev, "qcom,pmic-arb-channel", &prop);
+	ret = spmi_pmic_arb_get_property(pdev, "qcom,pmic-arb-channel-num",
+					&prop);
 	if (ret)
 		return -ENODEV;
 	pmic_arb->channel = (u8)prop;
@@ -1195,8 +1209,14 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 		}
 	}
 
-	pmic_arb->max_apid = 0;
-	pmic_arb->min_apid = PMIC_ARB_MAX_PERIPHS - 1;
+	ret = spmi_pmic_arb_get_property(pdev,
+			"qcom,pmic-arb-max-periph-interrupts", &prop);
+	if (ret)
+		prop = PMIC_ARB_PERIPHS_INTR_DEFAULT;
+
+	pmic_arb->max_periph_intrs = prop;
+	pmic_arb->max_intr_apid = 0;
+	pmic_arb->min_intr_apid = PMIC_ARB_MAX_PERIPHS - 1;
 
 	platform_set_drvdata(pdev, pmic_arb);
 	spmi_set_ctrldata(&pmic_arb->controller, pmic_arb);
