@@ -1827,6 +1827,10 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 		goto config_err;
 	}
 	atomic_set(&is_initialized, 1);
+	if (!atomic_read(&is_ssr)) {
+		/* offline charging mode */
+		ipa_proxy_clk_unvote();
+	}
 	atomic_set(&is_ssr, 0);
 
 	pr_info("rmnet_ipa completed initialization\n");
@@ -2017,6 +2021,12 @@ static int ssr_notifier_cb(struct notifier_block *this,
 				&& atomic_read(&is_ssr))
 				platform_driver_register(&rmnet_ipa_driver);
 			pr_info("IPA AFTER_POWERUP handling is complete\n");
+			return NOTIFY_DONE;
+		}
+		if (SUBSYS_BEFORE_POWERUP == code) {
+			pr_info("IPA received MPSS BEFORE_POWERUP\n");
+			ipa_proxy_clk_vote();
+			pr_info("IPA BEFORE_POWERUP handling is complete\n");
 			return NOTIFY_DONE;
 		}
 	}

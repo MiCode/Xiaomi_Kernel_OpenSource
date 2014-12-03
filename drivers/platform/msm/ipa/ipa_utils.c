@@ -4425,18 +4425,32 @@ bool ipa_is_client_handle_valid(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_is_client_handle_valid);
 
 /**
- * ipa_q6_init_done() - called when q6 ipa initialization is done
+ * ipa_proxy_clk_unvote() - called to remove IPA clock proxy vote
  *
  * Return value: none
  */
-void ipa_q6_init_done(void)
+void ipa_proxy_clk_unvote(void)
 {
 	if (ipa_is_ready() && ipa_ctx->q6_proxy_clk_vote_valid) {
 		ipa_dec_client_disable_clks();
 		ipa_ctx->q6_proxy_clk_vote_valid = false;
 	}
 }
-EXPORT_SYMBOL(ipa_q6_init_done);
+EXPORT_SYMBOL(ipa_proxy_clk_unvote);
+
+/**
+ * ipa_proxy_clk_vote() - called to add IPA clock proxy vote
+ *
+ * Return value: none
+ */
+void ipa_proxy_clk_vote(void)
+{
+	if (ipa_is_ready() && !ipa_ctx->q6_proxy_clk_vote_valid) {
+		ipa_inc_client_enable_clks();
+		ipa_ctx->q6_proxy_clk_vote_valid = true;
+	}
+}
+EXPORT_SYMBOL(ipa_proxy_clk_vote);
 
 /**
  * ipa_get_hw_type() - Return IPA HW version
