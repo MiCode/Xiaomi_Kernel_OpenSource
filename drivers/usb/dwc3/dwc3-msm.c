@@ -2439,10 +2439,17 @@ static void dwc3_id_work(struct work_struct *w)
 		mdwc->ext_inuse = (ret == 0);
 	}
 
-	if (!mdwc->ext_inuse) { /* notify OTG */
+	if (mdwc->ext_inuse) {
+		/* MHL cable: stop peripheral */
+		mdwc->ext_xceiv.id = DWC3_ID_FLOAT;
+		mdwc->ext_xceiv.bsv = false;
+	} else {
+		/* A cable: start host */
 		mdwc->ext_xceiv.id = mdwc->id_state;
-		dwc3_resume_work(&mdwc->resume_work.work);
 	}
+
+	/* notify OTG */
+	dwc3_resume_work(&mdwc->resume_work.work);
 }
 
 static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
