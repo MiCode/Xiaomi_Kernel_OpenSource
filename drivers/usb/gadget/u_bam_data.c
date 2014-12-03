@@ -855,18 +855,15 @@ static void configure_usb_data_fifo(u8 idx, struct usb_ep *ep,
 }
 
 /* Start RX transfers according to pipe_type */
-static inline int bam_data_start_rx_transfers(struct bam_data_ch_info *d,
+static inline void bam_data_start_rx_transfers(struct bam_data_ch_info *d,
 				struct bam_data_port *port)
 {
-
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
 		d->src_pipe_type == USB_BAM_PIPE_BAM2BAM) {
 		bam_data_start_endless_rx(port);
 	} else {
 		bam_data_start_rx(port);
 	}
-
-	return 0;
 }
 
 static void bam2bam_data_connect_work(struct work_struct *w)
@@ -1317,16 +1314,16 @@ void bam_data_start_rx_tx(u8 port_num)
 		goto out;
 	}
 
+	spin_unlock_irqrestore(&port->port_lock, flags);
+
 	/* queue in & out requests */
 	pr_debug("%s: Starting rx", __func__);
-	spin_unlock_irqrestore(&port->port_lock, flags);
-	if (bam_data_start_rx_transfers(d, port))
-		goto out;
-	spin_lock_irqsave(&port->port_lock, flags);
+	bam_data_start_rx_transfers(d, port);
 
 	pr_debug("%s: Starting tx", __func__);
 	bam_data_start_endless_tx(port);
 
+	return;
 out:
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
