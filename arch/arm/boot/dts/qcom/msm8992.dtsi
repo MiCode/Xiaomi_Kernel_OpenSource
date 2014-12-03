@@ -1934,6 +1934,18 @@
 		qcom,pm-qos-latency = <2 1001 30001>;
 		qcom,android-usb-uicc-nluns = /bits/ 8 <1>;
 	};
+
+	audio_heap {
+		compatible = "qcom,msm-shared-memory";
+		qcom,proc-id = <1>;
+		linux,contiguous-region = <&audio_mem>;
+	};
+
+	adsp_heap {
+		compatible = "qcom,msm-shared-memory";
+		qcom,proc-id = <1>;
+		linux,contiguous-region = <&adsp_mem>;
+	};
 };
 
 &gdsc_usb30 {
