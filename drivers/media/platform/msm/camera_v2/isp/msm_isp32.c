@@ -1256,6 +1256,21 @@ static int msm_vfe32_stats_check_streams(
 static void msm_vfe32_stats_cfg_comp_mask(struct vfe_device *vfe_dev,
 	uint32_t stats_mask, uint8_t enable)
 {
+	uint32_t i = 0;
+	atomic_t *stats_comp;
+	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
+	stats_mask = stats_mask & 0x7F;
+
+	for (i = 0;
+		i < vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask; i++) {
+		stats_comp = &stats_data->stats_comp_mask[i];
+		if (enable)
+			atomic_add(stats_mask, stats_comp);
+		else
+			atomic_sub(stats_mask, stats_comp);
+		ISP_DBG("%s: comp_mask: %x\n",
+			__func__, atomic_read(&stats_data->stats_comp_mask[i]));
+	}
 	return;
 }
 
