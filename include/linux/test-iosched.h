@@ -128,6 +128,8 @@ struct test_request {
  * @check_test_result_fn: Test specific test result checking
  *			callback
  * @get_test_case_str_fn: Test specific function to get the test name
+ * @test_duration:	A jiffies value saved for timing
+ *			calculations
  * @data:		Test specific private data
  */
 struct test_info {
@@ -138,6 +140,7 @@ struct test_info {
 	check_test_result_fn *check_test_result_fn;
 	post_test_fn *post_test_fn;
 	get_test_case_str_fn *get_test_case_str_fn;
+	unsigned long test_duration;
 	void *data;
 };
 
