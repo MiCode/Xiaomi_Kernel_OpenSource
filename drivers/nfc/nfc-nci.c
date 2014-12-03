@@ -762,6 +762,60 @@ int nfc_ioctl_nfcc_mode(struct file *filp, unsigned int cmd, unsigned long arg)
 }
 
 /*
+ * Inside nfc_ioctl_nfcc_efuse
+ *
+ * @brief   nfc_ioctl_nfcc_efuse
+ *
+ */
+int nfc_ioctl_nfcc_efuse(struct file *filp, unsigned int cmd,
+				unsigned long arg)
+{
+	int r = 0;
+	unsigned short slave_addr = 0xE;
+	unsigned short curr_addr;
+	unsigned char efuse_addr  = EFUSE_REG;
+	unsigned char efuse_value = 0xFF;
+
+	struct qca199x_dev *qca199x_dev = filp->private_data;
+
+	curr_addr = qca199x_dev->client->addr;
+	qca199x_dev->client->addr = slave_addr;
+
+	r = nfc_i2c_write(qca199x_dev->client,
+				&efuse_addr, 1);
+	if (r < 0) {
+		/* Restore original NFCC slave I2C address */
+		qca199x_dev->client->addr = curr_addr;
+		dev_err(&qca199x_dev->client->dev,
+		"ERROR_WRITE_FAIL : i2c write fail\n");
+		return -EIO;
+	}
+
+	/*
+	 * NFCC chip needs to be at least
+	 * 10usec high before make it low
+	 */
+	usleep_range(10, 15);
+
+	r = i2c_master_recv(qca199x_dev->client, &efuse_value,
+					sizeof(efuse_value));
+	if (r < 0) {
+		/* Restore original NFCC slave I2C address */
+		qca199x_dev->client->addr = curr_addr;
+		dev_err(&qca199x_dev->client->dev,
+		"ERROR_I2C_RCV_FAIL : i2c recv fail\n");
+		return -EIO;
+	}
+
+	dev_dbg(&qca199x_dev->client->dev, "%s : EFUSE_VALUE %02x\n",
+	__func__, efuse_value);
+
+	/* Restore original NFCC slave I2C address */
+	qca199x_dev->client->addr = curr_addr;
+	return efuse_value;
+}
+
+/*
  * Inside nfc_ioctl_nfcc_version
  *
  * @brief   nfc_ioctl_nfcc_version
@@ -934,7 +988,7 @@ int nfc_ioctl_core_reset_ntf(struct file *filp, unsigned int cmd,
 static long nfc_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
 {
 	int r = 0;
-
+	struct qca199x_dev *qca199x_dev = pfile->private_data;
 	switch (cmd) {
 
 	case NFC_SET_PWR:
@@ -955,6 +1009,14 @@ static long nfc_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
 		break;
 	case NFCC_INITIAL_CORE_RESET_NTF:
 		r = nfc_ioctl_core_reset_ntf(pfile, cmd, arg);
+		break;
+	case NFC_GET_EFUSE:
+		r = nfc_ioctl_nfcc_efuse(pfile, cmd, arg);
+		if (r < 0) {
+			r = 0xFF;
+			dev_err(&qca199x_dev->client->dev,
+			"nfc_ioctl : FAILED TO READ EFUSE TYPE\n");
+		}
 		break;
 	default:
 		r = -ENOIOCTLCMD;

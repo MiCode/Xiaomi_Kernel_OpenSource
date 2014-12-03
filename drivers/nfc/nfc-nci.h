@@ -60,6 +60,7 @@ struct devicemode {
 #define SET_RX_BLOCK	_IOW(0xE9, 0x04, unsigned int)
 #define SET_EMULATOR_TEST_POINT		_IOW(0xE9, 0x05, unsigned int)
 #define NFCC_VERSION				_IOW(0xE9, 0x08, unsigned int)
+#define NFC_GET_EFUSE				_IOW(0xE9, 0x09, unsigned int)
 #define NFCC_INITIAL_CORE_RESET_NTF		_IOW(0xE9, 0x10, unsigned int)
 
 #define NFC_MAX_I2C_TRANSFER	(0x0400)
