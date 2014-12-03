@@ -3470,7 +3470,8 @@ int atomisp_set_parameters(struct video_device *vdev,
 		/* indicate to CSS that we have parameters to be updated */
 		asd->params.css_update_params_needed = true;
 
-		if (asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream) {
+		if (asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream &&
+		    asd->streaming == ATOMISP_DEVICE_STREAMING_ENABLED) {
 			atomisp_css_update_isp_params(asd);
 			asd->params.css_update_params_needed = false;
 		}

@@ -1765,6 +1765,12 @@ static int atomisp_streamon(struct file *file, void *fh,
 		dev_err(isp->dev, "acc extension failed to load\n");
 		goto out;
 	}
+
+	if (asd->params.css_update_params_needed) {
+		atomisp_css_update_isp_params(asd);
+		asd->params.css_update_params_needed = false;
+	}
+
 	ret = atomisp_css_start(asd, css_pipe_id, false);
 	if (ret)
 		goto out;
