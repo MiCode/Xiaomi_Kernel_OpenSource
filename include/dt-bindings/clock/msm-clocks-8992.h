@@ -297,6 +297,7 @@
 #define clk_esc1_clk_src 0x3b0afa42
 #define clk_extpclk_clk_src 0xb2c31abd
 #define clk_hdmi_clk_src 0xb40aeea9
+#define clk_hdmi_20nm_vco_clk 0xacaed5e6
 #define clk_vsync_clk_src 0xecb43940
 #define clk_rbbmtimer_clk_src 0x17649ecc
 #define clk_camss_cci_cci_ahb_clk 0x12aec62d
@@ -383,6 +384,9 @@
 #define clk_indirect_path_div2_clk_8994 0x21cdcc22
 #define clk_ndiv_clk_8994 0x39f41978
 #define clk_dsi_vco_clk_8994 0x976ed967
+#define clk_mdss_pixel_clk_mux 0xf261a1a6
+#define clk_mdss_byte_clk_mux 0x64a23fa0
+#define clk_mdss_dsi1_vco_clk_src 0xfcd15658
 
 /* clock_cpu controlled clocks */
 #define clk_a57_clk 0x6c7dc3ea

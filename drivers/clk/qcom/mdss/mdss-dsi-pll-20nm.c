@@ -603,7 +603,8 @@ int dsi_pll_clock_register_20nm(struct platform_device *pdev,
 		mdss_dsi1_vco_clk_src.priv = pll_res;
 	}
 
-	if (pll_res->target_id == MDSS_PLL_TARGET_8994) {
+	if ((pll_res->target_id == MDSS_PLL_TARGET_8994) ||
+			(pll_res->target_id == MDSS_PLL_TARGET_8992)) {
 		if (pll_res->index) {
 			rc = of_msm_clock_register(pdev->dev.of_node,
 					mdss_dsi_pll_1_cc_8994,
