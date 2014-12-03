@@ -5344,23 +5344,6 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 		if (wiphy->bands[i])
 			request->rates[i] =
 				(1 << wiphy->bands[i]->n_bitrates) - 1;
-	if (info->attrs[NL80211_ATTR_SCAN_SUPP_RATES]) {
-		nla_for_each_nested(attr,
-				    info->attrs[NL80211_ATTR_SCAN_SUPP_RATES],
-				    tmp) {
-			enum ieee80211_band band = nla_type(attr);
-			if (band < 0 || band >= IEEE80211_NUM_BANDS) {
-				err = -EINVAL;
-				goto out_free;
-			}
-			err = ieee80211_get_ratemask(wiphy->bands[band],
-						     nla_data(attr),
-						     nla_len(attr),
-						     &request->rates[band]);
-			if (err)
-				goto out_free;
-		}
-	}
 
 	for (i = 0; i < IEEE80211_NUM_BANDS; i++)
 		if (wiphy->bands[i])
