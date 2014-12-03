@@ -1117,6 +1117,7 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	union IpaHwWdiCommonChCmdData_t disable;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+	u32 prod_hdl;
 
 	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
@@ -1152,11 +1153,30 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 		result = -EPERM;
 		goto uc_timeout;
 	}
+
+	/**
+	 * To avoid data stall during continuous SAP on/off before
+	 * setting delay to IPA Consumer pipe, remove delay and enable
+	 * holb on IPA Producer pipe
+	 */
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
 		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
-		ep_cfg_ctrl.ipa_ep_delay = true;
 		ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+
+		prod_hdl = ipa_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
+		if (ipa_ctx->ep[prod_hdl].valid == 1) {
+			result = ipa_disable_data_path(prod_hdl);
+			if (result) {
+				IPAERR("disable data path failed\n");
+				IPAERR("res=%d clnt=%d\n",
+					result, prod_hdl);
+				result = -EPERM;
+				goto uc_timeout;
+			}
+		}
+		usleep(IPA_UC_POLL_SLEEP_USEC * IPA_UC_POLL_SLEEP_USEC);
 	}
+
 	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
 	if (wait_for_completion_timeout
 		(&ipa_ctx->uc_ctx.uc_completion, 10*HZ) == 0) {
@@ -1172,6 +1192,13 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 		result = -EFAULT;
 		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
+	}
+
+	/* Set the delay after disabling IPA Producer pipe */
+	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
+		ep_cfg_ctrl.ipa_ep_delay = true;
+		ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
 	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 
@@ -1302,6 +1329,31 @@ int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 	init_completion(&ipa_ctx->uc_ctx.uc_completion);
 	ipa_ctx->uc_ctx.pending_cmd = ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp;
 	wmb();
+
+	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		IPADBG("Post suspend event first for IPA Producer\n");
+		IPADBG("Client: %d clnt_hdl: %d\n", ep->client, clnt_hdl);
+		ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
+		if (wait_for_completion_timeout
+				(&ipa_ctx->uc_ctx.uc_completion,
+					10 * HZ) == 0) {
+			IPAERR("uc timed out on suspend ep=%d.\n",
+				clnt_hdl);
+			result = -EFAULT;
+			ipa_ctx->uc_ctx.uc_failed = true;
+			mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
+			goto uc_timeout;
+		}
+		if (ipa_ctx->uc_ctx.uc_status !=
+					IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
+			IPAERR("cmd failed on suspend ep=%d status=%d.\n",
+				clnt_hdl, ipa_ctx->uc_ctx.uc_status);
+			result = -EFAULT;
+			mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
+			goto uc_timeout;
+		}
+	}
+
 	memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
 		ep_cfg_ctrl.ipa_ep_suspend = true;
@@ -1320,22 +1372,27 @@ int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 		else
 			IPADBG("client (ep: %d) delayed\n", clnt_hdl);
 	}
-	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
-	if (wait_for_completion_timeout
-		(&ipa_ctx->uc_ctx.uc_completion, 10*HZ) == 0) {
-		IPAERR("uc timed out on suspend ep=%d.\n", clnt_hdl);
-		result = -EFAULT;
-		ipa_ctx->uc_ctx.uc_failed = true;
-		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
-		goto uc_timeout;
+
+	if (IPA_CLIENT_IS_CONS(ep->client)) {
+		ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
+		if (wait_for_completion_timeout
+				(&ipa_ctx->uc_ctx.uc_completion, 10*HZ) == 0) {
+			IPAERR("uc timed out on suspend ep=%d.\n", clnt_hdl);
+			result = -EFAULT;
+			ipa_ctx->uc_ctx.uc_failed = true;
+			mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
+			goto uc_timeout;
+		}
+		if (ipa_ctx->uc_ctx.uc_status !=
+					IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
+			IPAERR("cmd failed on suspend ep=%d status=%d.\n",
+				clnt_hdl, ipa_ctx->uc_ctx.uc_status);
+			result = -EFAULT;
+			mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
+			goto uc_timeout;
+		}
 	}
-	if (ipa_ctx->uc_ctx.uc_status != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
-		IPAERR("cmd failed on suspend ep=%d status=%d.\n", clnt_hdl,
-				ipa_ctx->uc_ctx.uc_status);
-		result = -EFAULT;
-		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
-		goto uc_timeout;
-	}
+
 	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 
 	ipa_ctx->tag_process_before_gating = true;
