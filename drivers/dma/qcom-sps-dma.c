@@ -100,6 +100,7 @@ struct qbam_device {
 struct qbam_pipe {
 	u32				index;
 	struct sps_pipe			*handle;
+	struct sps_connect		cfg;
 	u32				num_descriptors;
 	u32				sps_connect_flags;
 	u32				sps_register_event_flags;
@@ -113,7 +114,6 @@ struct qbam_pipe {
  * @error last error that took place on the current pending_desc
  */
 struct qbam_channel {
-	bool				is_connected;
 	struct qbam_pipe		bam_pipe;
 
 	struct dma_chan			chan;
@@ -128,23 +128,13 @@ struct qbam_channel {
 			container_of(dma_chan, struct qbam_channel, chan)
 #define qbam_err(qbam_dev, fmt ...) dev_err(qbam_dev->dma_dev.dev, fmt)
 
-/* qbam_free_chan - disconnect channel
- *
- * Just as qbam_alloc_chan() allocates nothing, qbam_free_chan() frees nothing.
- * It only disconnect the channel, and freeing is done at qbam_remove() time.
- * The reason is that we use this function for flushing channels on errors
- * and the only way to flush a channel is to disconnect and reconnect it.
- */
-static void qbam_free_chan(struct dma_chan *chan)
+/*  qbam_disconnect_chan - disconnect a channel */
+static int qbam_disconnect_chan(struct qbam_channel *qbam_chan)
 {
-	struct qbam_channel *qbam_chan = DMA_TO_QBAM_CHAN(chan);
-	struct qbam_device  *qbam_dev  = qbam_chan->qbam_dev;
+	struct qbam_device  *qbam_dev    = qbam_chan->qbam_dev;
 	struct sps_pipe     *pipe_handle = qbam_chan->bam_pipe.handle;
 	struct sps_connect   pipe_config_no_irq = {.options = SPS_O_POLL};
 	int ret;
-
-	if (!qbam_chan->is_connected)
-		return;
 
 	/*
 	 * SW workaround:
@@ -162,13 +152,33 @@ static void qbam_free_chan(struct dma_chan *chan)
 	if (ret)
 		qbam_err(qbam_dev, "error:%d sps_disconnect(pipe:%d)\n",
 			 ret, qbam_chan->bam_pipe.index);
-	qbam_chan->is_connected = false;
+
+	return ret;
+}
+
+/*  qbam_free_chan - disconnect channel and free its resources */
+static void qbam_free_chan(struct dma_chan *chan)
+{
+	struct qbam_channel *qbam_chan = DMA_TO_QBAM_CHAN(chan);
+	struct qbam_device  *qbam_dev  = qbam_chan->qbam_dev;
+	struct sps_connect  *pipe_cfg  = &qbam_chan->bam_pipe.cfg;
+
+	if (qbam_disconnect_chan(qbam_chan))
+		qbam_err(qbam_dev,
+			"error free_chan() faild to disconnect(pipe:%d)\n",
+			qbam_chan->bam_pipe.index);
+
+	dma_free_coherent(qbam_dev->dma_dev.dev, pipe_cfg->desc.size,
+			 pipe_cfg->desc.base, pipe_cfg->desc.phys_base);
 
 	if (qbam_chan->pending_desc) {
 		kfree(qbam_chan->pending_desc->xfer_bufs);
 		kfree(qbam_chan->pending_desc);
 		qbam_chan->pending_desc = NULL;
 	}
+
+	sps_free_endpoint(qbam_chan->bam_pipe.handle);
+	qbam_chan->bam_pipe.handle = NULL;
 }
 
 static struct dma_chan *qbam_dma_xlate(struct of_phandle_args *dma_spec,
@@ -342,17 +352,10 @@ static void qbam_error_callback(struct sps_event_notify *notify)
 		 qbam_chan->bam_pipe.index);
 }
 
-/*
- * qbam_slave_cfg - configure BAM pipe based on dma config values
- *
- * @cfg only cares about cfg->direction
- */
-static int qbam_slave_cfg(struct qbam_channel *qbam_chan,
-						struct dma_slave_config *cfg)
+static int qbam_connect_chan(struct qbam_channel *qbam_chan)
 {
 	int ret = 0;
 	struct qbam_device       *qbam_dev = qbam_chan->qbam_dev;
-	struct sps_connect pipe_cfg;
 	struct sps_register_event bam_eot_event = {
 		.mode		= SPS_TRIGGER_CALLBACK,
 		.options	= qbam_chan->bam_pipe.sps_register_event_flags,
@@ -365,73 +368,27 @@ static int qbam_slave_cfg(struct qbam_channel *qbam_chan,
 		.user		= qbam_chan,
 		};
 
-	ret = sps_get_config(qbam_chan->bam_pipe.handle, &pipe_cfg);
-	if (ret) {
-		qbam_err(qbam_dev, "error:%d sps_get_config(0x%p)\n",
-			 ret, qbam_chan->bam_pipe.handle);
-		goto need_free_endpoint;
-	}
-
-	if (!qbam_dev->handle) {
-		ret = qbam_init_bam_handle(qbam_dev);
-		if (ret)
-			return ret;
-	}
-
-	qbam_chan->direction = cfg->direction;
-	if (cfg->direction == DMA_MEM_TO_DEV) {
-		pipe_cfg.source          = SPS_DEV_HANDLE_MEM;
-		pipe_cfg.destination     = qbam_dev->handle;
-		pipe_cfg.mode            = SPS_MODE_DEST;
-		pipe_cfg.src_pipe_index  = 0;
-		pipe_cfg.dest_pipe_index = qbam_chan->bam_pipe.index;
-	} else {
-		pipe_cfg.source          = qbam_dev->handle;
-		pipe_cfg.destination     = SPS_DEV_HANDLE_MEM;
-		pipe_cfg.mode            = SPS_MODE_SRC;
-		pipe_cfg.src_pipe_index  = qbam_chan->bam_pipe.index;
-		pipe_cfg.dest_pipe_index = 0;
-	}
-	pipe_cfg.options   = qbam_chan->bam_pipe.sps_connect_flags;
-	pipe_cfg.desc.size = (qbam_chan->bam_pipe.num_descriptors + 1) *
-						 sizeof(struct sps_iovec);
-	/* managed dma_alloc_coherent() */
-	pipe_cfg.desc.base =
-		dmam_alloc_coherent(qbam_dev->dma_dev.dev, pipe_cfg.desc.size,
-					&pipe_cfg.desc.phys_base, GFP_KERNEL);
-	if (!pipe_cfg.desc.base) {
-		qbam_err(qbam_dev,
-			"error dma_alloc_coherent(desc-sz:%lu * n-descs:%d)\n",
-			sizeof(struct sps_iovec),
-			qbam_chan->bam_pipe.num_descriptors);
-		ret = -ENOMEM;
-		goto need_free_endpoint;
-	}
-
-	ret = sps_connect(qbam_chan->bam_pipe.handle, &pipe_cfg);
+	ret = sps_connect(qbam_chan->bam_pipe.handle, &qbam_chan->bam_pipe.cfg);
 	if (ret) {
 		qbam_err(qbam_dev, "error:%d sps_connect(pipe:%d)\n", ret,
 			 qbam_chan->bam_pipe.index);
-		goto need_dealloc;
+		return ret;
 	}
 
 	ret = sps_register_event(qbam_chan->bam_pipe.handle, &bam_eot_event);
 	if (ret) {
-		qbam_err(qbam_dev, "error:%d sps_register_event(pipe:%d)\n",
+		qbam_err(qbam_dev, "error:%d sps_register_event(eot@pipe:%d)\n",
 			 ret, qbam_chan->bam_pipe.index);
 		goto need_disconnect;
 	}
 
-	ret = sps_register_event(qbam_chan->bam_pipe.handle,
-						&bam_error_event);
+	ret = sps_register_event(qbam_chan->bam_pipe.handle, &bam_error_event);
 	if (ret) {
-		qbam_err(qbam_dev,
-			 "error:%d sps_register_event(pipe:%d err-event)\n",
+		qbam_err(qbam_dev, "error:%d sps_register_event(err@pipe:%d)\n",
 			 ret, qbam_chan->bam_pipe.index);
 		goto need_disconnect;
 	}
 
-	qbam_chan->is_connected = true;
 	return 0;
 
 need_disconnect:
@@ -439,14 +396,87 @@ need_disconnect:
 	if (ret)
 		qbam_err(qbam_dev, "error:%d sps_disconnect(pipe:%d)\n", ret,
 			 qbam_chan->bam_pipe.index);
-need_dealloc:
-	dma_free_coherent(qbam_dev->dma_dev.dev, pipe_cfg.desc.size,
-			 pipe_cfg.desc.base, pipe_cfg.desc.phys_base);
-need_free_endpoint:
-	sps_free_endpoint(qbam_chan->bam_pipe.handle);
+	return ret;
+}
 
-	qbam_chan->is_connected = false;
-	qbam_chan->bam_pipe.handle = NULL;
+/*
+ * qbam_slave_cfg - configure and connect a BAM pipe
+ *
+ * @cfg only cares about cfg->direction
+ */
+static int qbam_slave_cfg(struct qbam_channel *qbam_chan,
+						struct dma_slave_config *cfg)
+{
+	int ret = 0;
+	struct qbam_device *qbam_dev = qbam_chan->qbam_dev;
+	struct sps_connect *pipe_cfg = &qbam_chan->bam_pipe.cfg;
+
+	if (!qbam_dev->handle) {
+		ret = qbam_init_bam_handle(qbam_dev);
+		if (ret)
+			return ret;
+	}
+
+	ret = sps_get_config(qbam_chan->bam_pipe.handle,
+						&qbam_chan->bam_pipe.cfg);
+	if (ret) {
+		qbam_err(qbam_dev, "error:%d sps_get_config(0x%p)\n",
+			 ret, qbam_chan->bam_pipe.handle);
+		return ret;
+	}
+
+	qbam_chan->direction = cfg->direction;
+	if (cfg->direction == DMA_MEM_TO_DEV) {
+		pipe_cfg->source          = SPS_DEV_HANDLE_MEM;
+		pipe_cfg->destination     = qbam_dev->handle;
+		pipe_cfg->mode            = SPS_MODE_DEST;
+		pipe_cfg->src_pipe_index  = 0;
+		pipe_cfg->dest_pipe_index = qbam_chan->bam_pipe.index;
+	} else {
+		pipe_cfg->source          = qbam_dev->handle;
+		pipe_cfg->destination     = SPS_DEV_HANDLE_MEM;
+		pipe_cfg->mode            = SPS_MODE_SRC;
+		pipe_cfg->src_pipe_index  = qbam_chan->bam_pipe.index;
+		pipe_cfg->dest_pipe_index = 0;
+	}
+	pipe_cfg->options   =  qbam_chan->bam_pipe.sps_connect_flags;
+	pipe_cfg->desc.size = (qbam_chan->bam_pipe.num_descriptors + 1) *
+						 sizeof(struct sps_iovec);
+	/* managed dma_alloc_coherent() */
+	pipe_cfg->desc.base = dmam_alloc_coherent(qbam_dev->dma_dev.dev,
+						  pipe_cfg->desc.size,
+						  &pipe_cfg->desc.phys_base,
+						  GFP_KERNEL);
+	if (!pipe_cfg->desc.base) {
+		qbam_err(qbam_dev,
+			"error dma_alloc_coherent(desc-sz:%lu * n-descs:%d)\n",
+			sizeof(struct sps_iovec),
+			qbam_chan->bam_pipe.num_descriptors);
+		return -ENOMEM;
+	}
+
+	ret = qbam_connect_chan(qbam_chan);
+	if (ret)
+		dma_free_coherent(qbam_dev->dma_dev.dev, pipe_cfg->desc.size,
+				 pipe_cfg->desc.base, pipe_cfg->desc.phys_base);
+
+	return ret;
+}
+
+static int qbam_flush_chan(struct qbam_channel *qbam_chan)
+{
+	int ret = qbam_disconnect_chan(qbam_chan);
+	if (ret) {
+		qbam_err(qbam_chan->qbam_dev,
+			 "error: disconnect flush(pipe:%d\n)",
+			 qbam_chan->bam_pipe.index);
+		return ret;
+	}
+	ret = qbam_connect_chan(qbam_chan);
+	if (ret)
+		qbam_err(qbam_chan->qbam_dev,
+			 "error: reconnect flush(pipe:%d\n)",
+			 qbam_chan->bam_pipe.index);
 	return ret;
 }
 
@@ -466,7 +496,9 @@ static int qbam_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 	case DMA_SLAVE_CONFIG:
 		ret = qbam_slave_cfg(qbam_chan, (struct dma_slave_config *)arg);
 		break;
-
+	case DMA_TERMINATE_ALL:
+		ret = qbam_flush_chan(qbam_chan);
+		break;
 	default:
 		ret = -ENXIO;
 		qbam_err(qbam_chan->qbam_dev,
@@ -532,8 +564,7 @@ static struct dma_async_tx_descriptor *qbam_prep_slave_sg(struct dma_chan *chan,
 		return ERR_PTR(-ENOMEM);
 	}
 
-	qbam_desc->xfer_bufs = kzalloc(sizeof(*qbam_desc->xfer_bufs) * sg_len,
-								GFP_KERNEL);
+	qbam_desc->xfer_bufs = kzalloc(sizeof(*xfer) * sg_len, GFP_KERNEL);
 	if (!qbam_desc->xfer_bufs) {
 		kfree(qbam_desc);
 		qbam_err(qbam_dev,
@@ -633,7 +664,6 @@ static void qbam_pipes_free(struct qbam_device *qbam_dev)
 	list_for_each_entry_safe(qbam_chan_cur, qbam_chan_next,
 			&qbam_dev->dma_dev.channels, chan.device_node) {
 		qbam_free_chan(&qbam_chan_cur->chan);
-		sps_free_endpoint(qbam_chan_cur->bam_pipe.handle);
 		list_del(&qbam_chan_cur->chan.device_node);
 		kfree(qbam_chan_cur);
 	}
