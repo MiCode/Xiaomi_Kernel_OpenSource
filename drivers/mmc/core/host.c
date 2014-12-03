@@ -179,7 +179,7 @@ void mmc_host_clk_hold(struct mmc_host *host)
  *	mmc_host_may_gate_card - check if this card may be gated
  *	@card: card to check.
  */
-static bool mmc_host_may_gate_card(struct mmc_card *card)
+bool mmc_host_may_gate_card(struct mmc_card *card)
 {
 	/* If there is no card we may gate it */
 	if (!card)
