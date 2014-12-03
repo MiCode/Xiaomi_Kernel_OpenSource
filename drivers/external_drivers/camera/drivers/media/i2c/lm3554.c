@@ -190,6 +190,7 @@ static void lm3554_hw_reset(struct i2c_client *client)
 
 	gpio_set_value(pdata->gpio_reset, 1);
 	msleep(50);
+	dev_info(&client->dev, "flash led reset successfully\n");
 }
 
 static void lm3554_flash_off_delay(long unsigned int arg)
