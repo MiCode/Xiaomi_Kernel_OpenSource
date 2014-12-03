@@ -1849,7 +1849,7 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 static int hdmi_tx_pinctrl_set_state(struct hdmi_tx_ctrl *hdmi_ctrl,
 			enum hdmi_tx_power_module_type module, bool active)
 {
-	struct pinctrl_state *pin_state;
+	struct pinctrl_state *pin_state = NULL;
 	int rc = -EFAULT;
 	struct dss_module_power *power_data = NULL;
 	u64 cur_pin_states;
