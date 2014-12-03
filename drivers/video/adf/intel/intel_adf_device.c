@@ -378,6 +378,10 @@ static int intel_adf_device_validate(struct adf_device *dev,
 	for (i = 0; i < n_configs; i++) {
 		custom_config = &custom->configs[i];
 
+		/* In case of panel fitter dont proceed as there is no buf */
+		if (custom_config->type == INTEL_ADF_CONFIG_PANELFITTER)
+			continue;
+
 		/* verify interface id set in plane */
 		intf = idr_find(&dev->interfaces,
 			custom_config->interface_id);
