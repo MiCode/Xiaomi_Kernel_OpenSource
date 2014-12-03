@@ -27,6 +27,13 @@ static void do_devfreq_resume(struct work_struct *work);
 static void do_devfreq_notify(struct work_struct *work);
 
 /*
+ * These variables are used to keep the latest data
+ * returned by kgsl_devfreq_get_dev_status
+ */
+static struct xstats last_xstats;
+static struct devfreq_dev_status last_status = { .private_data = &last_xstats };
+
+/*
  * kgsl_pwrscale_sleep - notify governor that device is going off
  * @device: The device
  *
@@ -61,6 +68,7 @@ void kgsl_pwrscale_wake(struct kgsl_device *device)
 	/* clear old stats before waking */
 	memset(&device->pwrscale.accum_stats, 0,
 		sizeof(device->pwrscale.accum_stats));
+	memset(&last_xstats, 0, sizeof(last_xstats));
 
 	/* and any hw activity from waking up*/
 	device->ftbl->power_stats(device, &stats);
@@ -263,13 +271,6 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_devfreq_target);
-
-/*
- * These variables are used to keep the latest data
- * returned by kgsl_devfreq_get_dev_status
- */
-struct xstats last_xstats;
-struct devfreq_dev_status last_status = { .private_data = &last_xstats };
 
 /*
  * kgsl_devfreq_get_dev_status - devfreq_dev_profile.get_dev_status callback
@@ -488,8 +489,10 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 		((pwr_level->bus_freq + pwr->bus_mod) > pwr_level->bus_min))
 			pwr->bus_mod--;
 
-	if (pwr->bus_mod != b)
+	if (pwr->bus_mod != b) {
+		pwr->bus_percent_ab = device->pwrscale.bus_profile.percent_ab;
 		kgsl_pwrctrl_buslevel_update(device, true);
+	}
 
 	mutex_unlock(&device->mutex);
 	return 0;

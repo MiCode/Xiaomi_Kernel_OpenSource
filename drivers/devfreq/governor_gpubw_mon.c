@@ -63,14 +63,14 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 	priv->bus.total_time += stats.total_time;
 	priv->bus.gpu_time += stats.busy_time;
 	priv->bus.ram_time += b.ram_time;
-	priv->bus.ram_time += b.ram_wait;
+	priv->bus.ram_wait += b.ram_wait;
 
 	level = devfreq_get_freq_level(df, stats.current_frequency);
 
 	if (priv->bus.total_time < LONG_FLOOR)
 		return result;
 
-	norm_cycles = (unsigned int)priv->bus.ram_time /
+	norm_cycles = (unsigned int)(priv->bus.ram_time + priv->bus.ram_wait) /
 			(unsigned int) priv->bus.total_time;
 	gpu_percent = (100 * (unsigned int)priv->bus.gpu_time) /
 			(unsigned int) priv->bus.total_time;
@@ -100,6 +100,7 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 	priv->bus.total_time = 0;
 	priv->bus.gpu_time = 0;
 	priv->bus.ram_time = 0;
+	priv->bus.ram_wait = 0;
 
 	return result;
 }

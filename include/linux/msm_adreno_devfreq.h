@@ -32,6 +32,7 @@ struct devfreq_msm_adreno_tz_data {
 	struct {
 		u64 total_time;
 		u64 ram_time;
+		u64 ram_wait;
 		u64 gpu_time;
 		u32 num;
 		u32 max;
@@ -59,12 +60,13 @@ struct msm_adreno_extended_profile {
 
 struct msm_busmon_extended_profile {
 	u32 flag;
+	unsigned long percent_ab;
 	struct devfreq_msm_adreno_tz_data *private_data;
 	struct devfreq_dev_profile profile;
 };
 
 #ifdef CONFIG_DEVFREQ_GOV_MSM_GPUBW_MON
-int devfreq_vbif_update_bw(void);
+int devfreq_vbif_update_bw(unsigned long ib, unsigned long ab);
 int devfreq_vbif_register_callback(void *);
 #endif
 
