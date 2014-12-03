@@ -1987,7 +1987,7 @@
 		gpios = <&msmgpio 36 0>, <&msmgpio 37 0>, <&msmgpio 38 0>, <&msmgpio 39 0>, <&msmgpio 40 0>;
 		qcom,has-48mhz-xo;
 		qcom,has-pronto-hw;
-		qcom,wcnss-pm = <11 21 1200 1 1>;
+		qcom,wcnss-pm = <11 21 1200 1 1 6>;
 	};
 
 	qcom,ocmem@fdd00000 {
