@@ -1498,7 +1498,7 @@ static void boost_kick_cpus(void)
 	}
 }
 
-static inline int sched_boost(void)
+int sched_boost(void)
 {
 	return boost_refcount > 0;
 }
@@ -2249,11 +2249,6 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 					&rq->active_balance_work);
 }
 
-static inline int capacity(struct rq *rq)
-{
-	return rq->capacity;
-}
-
 static inline int nr_big_tasks(struct rq *rq)
 {
 	return rq->nr_big_tasks;
@@ -2312,11 +2307,6 @@ static inline int is_big_task(struct task_struct *p)
 static inline int nr_big_tasks(struct rq *rq)
 {
 	return 0;
-}
-
-static inline int capacity(struct rq *rq)
-{
-	return SCHED_LOAD_SCALE;
 }
 
 #endif	/* CONFIG_SCHED_HMP */
