@@ -521,6 +521,11 @@ static ssize_t profile_assignments_read(struct file *filep,
 
 	mutex_lock(&device->mutex);
 
+	if (profile->assignment_count == 0) {
+		mutex_unlock(&device->mutex);
+		return 0;
+	}
+
 	buf = kmalloc(max_size, GFP_KERNEL);
 	if (!buf) {
 		mutex_unlock(&device->mutex);
