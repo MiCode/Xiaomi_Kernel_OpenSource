@@ -1137,7 +1137,8 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		break;
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_REQ_SET_CONTROL_LINE_STATE:
-		pr_debug("%s: USB_CDC_REQ_SET\n", __func__);
+		pr_debug("%s: USB_CDC_REQ_SET_CONTROL_LINE_STATE: DTR:%d\n",
+				__func__, w_value & ACM_CTRL_DTR ? 1 : 0);
 		if (dev->port.notify_modem) {
 			port_num = rmnet_ports[dev->port_num].ctrl_xport_num;
 			dev->port.notify_modem(&dev->port, port_num, w_value);
