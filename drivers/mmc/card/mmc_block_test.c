@@ -20,6 +20,7 @@
 #include <linux/mmc/host.h>
 #include <linux/delay.h>
 #include <linux/test-iosched.h>
+#include <linux/jiffies.h>
 #include "queue.h"
 
 #define MODULE_NAME "mmc_block_test"
@@ -32,6 +33,28 @@
 #define PACKED_HDR_RW_MASK 0x0000FF00
 #define PACKED_HDR_NUM_REQS_MASK 0x00FF0000
 #define PACKED_HDR_BITS_16_TO_29_SET 0x3FFF0000
+/* the desired long test size to be written or read */
+#define LONG_TEST_MAX_NUM_BYTES (50*1024*1024) /* 50MB */
+/* request queue limitation is 128 requests, and we leave 10 spare requests */
+#define TEST_MAX_REQUESTS 118
+#define LONG_TEST_MAX_NUM_REQS	(LONG_TEST_MAX_NUM_BYTES / \
+		(TEST_MAX_BIOS_PER_REQ * sizeof(int) * BIO_U32_SIZE))
+/* this doesn't allow the test requests num to be greater than the maximum */
+#define LONG_TEST_ACTUAL_NUM_REQS  \
+			((TEST_MAX_REQUESTS < LONG_TEST_MAX_NUM_REQS) ? \
+				TEST_MAX_REQUESTS : LONG_TEST_MAX_NUM_REQS)
+#define MB_MSEC_RATIO_APPROXIMATION ((1024 * 1024) / 1000)
+/* actual number of bytes in test */
+#define LONG_TEST_ACTUAL_BYTE_NUM  (LONG_TEST_ACTUAL_NUM_REQS *  \
+			(TEST_MAX_BIOS_PER_REQ * sizeof(int) * BIO_U32_SIZE))
+/* actual number of MiB in test multiplied by 10, for single digit precision*/
+#define LONG_TEST_ACTUAL_MB_NUM_X_10 ((LONG_TEST_ACTUAL_BYTE_NUM * 10) / \
+					(1024 * 1024))
+/* extract integer value */
+#define LONG_TEST_SIZE_INTEGER (LONG_TEST_ACTUAL_MB_NUM_X_10 / 10)
+/* and calculate the MiB value fraction */
+#define LONG_TEST_SIZE_FRACTION (LONG_TEST_ACTUAL_MB_NUM_X_10 - \
+		(LONG_TEST_SIZE_INTEGER * 10))
 
 #define test_pr_debug(fmt, args...) pr_debug("%s: "fmt"\n", MODULE_NAME, args)
 #define test_pr_info(fmt, args...) pr_info("%s: "fmt"\n", MODULE_NAME, args)
@@ -101,6 +124,7 @@ enum mmc_block_test_testcases {
 	TEST_PACK_MIX_PACKED_NO_PACKED_PACKED,
 	TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED,
 	PACKING_CONTROL_MAX_TESTCASE = TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED,
+	TEST_LONG_SEQUENTIAL_READ,
 };
 
 enum mmc_block_test_group {
@@ -118,6 +142,7 @@ struct mmc_block_test_debug {
 	struct dentry *send_invalid_packed_test;
 	struct dentry *random_test_seed;
 	struct dentry *packing_control_test;
+	struct dentry *long_sequential_read_test;
 };
 
 struct mmc_block_test_data {
@@ -496,6 +521,8 @@ static char *get_test_case_str(struct test_data *td)
 		return "\nTest packing control - mix: pack -> no pack -> pack";
 	case TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED:
 		return "\nTest packing control - mix: no pack->pack->no pack";
+	case TEST_LONG_SEQUENTIAL_READ:
+		return "Test long sequential read";
 	default:
 		 return "Unknown testcase";
 	}
@@ -752,8 +779,10 @@ static int prepare_request_add_write_reqs(struct test_data *td,
 	test_pr_info("%s: Adding %d write requests, first req_id=%d", __func__,
 		     num_requests, td->wr_rd_next_req_id);
 
-	for (i = 1; i <= num_requests; i++) {
-		start_sec = td->start_sector + 4096 * td->num_of_write_bios;
+	for (i = 1 ; i <= num_requests ; i++) {
+		start_sec =
+			td->start_sector + sizeof(int) *
+			BIO_U32_SIZE * td->num_of_write_bios;
 		if (is_random)
 			pseudo_rnd_num_of_bios(bio_seed, &num_bios);
 		else
@@ -1073,7 +1102,8 @@ static int prepare_partial_followed_by_abort(struct test_data *td,
 		if (i > (num_requests / 2))
 			is_err_expected = 1;
 
-		start_address = td->start_sector + 4096 * td->num_of_write_bios;
+		start_address = td->start_sector +
+			sizeof(int) * BIO_U32_SIZE * td->num_of_write_bios;
 		ret = test_iosched_add_wr_rd_test_req(is_err_expected, WRITE,
 				start_address, (i % 5) + 1, TEST_PATTERN_5A,
 				NULL);
@@ -1175,6 +1205,45 @@ static int get_num_requests(struct test_data *td)
 		num_requests = test_packed_trigger;
 
 	return num_requests;
+}
+
+static int prepare_long_test_requests(struct test_data *td)
+{
+
+	int ret;
+	int start_sec;
+	int j;
+	int test_direction;
+
+	if (td)
+		start_sec = td->start_sector;
+	else {
+		test_pr_err("%s: NULL td\n", __func__);
+		return -EINVAL;
+	}
+
+	test_direction = READ;
+
+	test_pr_info("%s: Adding %d read requests, first req_id=%d", __func__,
+		     LONG_TEST_ACTUAL_NUM_REQS, td->wr_rd_next_req_id);
+
+	for (j = 0; j < LONG_TEST_ACTUAL_NUM_REQS; j++) {
+
+		ret = test_iosched_add_wr_rd_test_req(0, test_direction,
+						start_sec,
+						TEST_MAX_BIOS_PER_REQ,
+						TEST_NO_PATTERN, NULL);
+		if (ret) {
+			test_pr_err("%s: failed to add a bio request",
+				     __func__);
+			return ret;
+		}
+
+		start_sec +=
+			(TEST_MAX_BIOS_PER_REQ * sizeof(int) * BIO_U32_SIZE);
+	}
+
+	return 0;
 }
 
 /*
@@ -1285,9 +1354,12 @@ static int prepare_test(struct test_data *td)
 		ret = prepare_packed_control_tests_requests(td, 0,
 			test_packed_trigger, is_random);
 		break;
+	case TEST_LONG_SEQUENTIAL_READ:
+		ret = prepare_long_test_requests(td);
+		break;
 	default:
 		test_pr_info("%s: Invalid test case...", __func__);
-		return -EINVAL;
+		ret = -EINVAL;
 	}
 
 	return ret;
@@ -1809,6 +1881,95 @@ const struct file_operations write_packing_control_test_ops = {
 	.read = write_packing_control_test_read,
 };
 
+static ssize_t long_sequential_read_test_write(struct file *file,
+				const char __user *buf,
+				size_t count,
+				loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+	unsigned int mtime, integer, fraction;
+
+	test_pr_info("%s: -- Long Sequential Read TEST --", __func__);
+
+	sscanf(buf, "%d", &number);
+
+	if (number <= 0)
+		number = 1;
+
+	memset(&mbtd->test_info, 0, sizeof(struct test_info));
+	mbtd->test_group = TEST_GENERAL_GROUP;
+
+	mbtd->test_info.data = mbtd;
+	mbtd->test_info.prepare_test_fn = prepare_test;
+	mbtd->test_info.get_test_case_str_fn = get_test_case_str;
+
+	for (i = 0 ; i < number ; ++i) {
+		test_pr_info("%s: Cycle # %d / %d", __func__, i+1, number);
+		test_pr_info("%s: ====================", __func__);
+
+		mbtd->test_info.testcase = TEST_LONG_SEQUENTIAL_READ;
+		mbtd->is_random = NON_RANDOM_TEST;
+		ret = test_iosched_start_test(&mbtd->test_info);
+		if (ret)
+			break;
+
+		mtime = jiffies_to_msecs(mbtd->test_info.test_duration);
+
+		test_pr_info("%s: time is %u msec, size is %u.%u MiB",
+			__func__, mtime, LONG_TEST_SIZE_INTEGER,
+			      LONG_TEST_SIZE_FRACTION);
+
+		/* we first multiply in order not to lose precision */
+		mtime *= MB_MSEC_RATIO_APPROXIMATION;
+		/* divide values to get a MiB/sec integer value with one
+		   digit of precision. Multiply by 10 for one digit precision
+		 */
+		fraction = integer = (LONG_TEST_ACTUAL_BYTE_NUM * 10) / mtime;
+		integer /= 10;
+		/* and calculate the MiB value fraction */
+		fraction -= integer * 10;
+
+		test_pr_info("%s: Throughput: %u.%u MiB/sec\n"
+			, __func__, integer, fraction);
+
+		/* Allow FS requests to be dispatched */
+		msleep(1000);
+	}
+
+	return count;
+}
+
+static ssize_t long_sequential_read_test_read(struct file *file,
+			       char __user *buffer,
+			       size_t count,
+			       loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nlong_sequential_read_test\n"
+		 "=========\n"
+		 "Description:\n"
+		 "This test runs the following scenarios\n"
+		 "- Long Sequential Read Test: this test measures read "
+		 "throughput at the driver level by sequentially reading many "
+		 "large requests.\n");
+
+	if (message_repeat == 1) {
+		message_repeat = 0;
+		return strnlen(buffer, count);
+	} else
+		return 0;
+}
+
+const struct file_operations long_sequential_read_test_ops = {
+	.open = test_open,
+	.write = long_sequential_read_test_write,
+	.read = long_sequential_read_test_read,
+};
+
 static void mmc_block_test_debugfs_cleanup(void)
 {
 	debugfs_remove(mbtd->debug.random_test_seed);
@@ -1816,6 +1977,7 @@ static void mmc_block_test_debugfs_cleanup(void)
 	debugfs_remove(mbtd->debug.err_check_test);
 	debugfs_remove(mbtd->debug.send_invalid_packed_test);
 	debugfs_remove(mbtd->debug.packing_control_test);
+	debugfs_remove(mbtd->debug.long_sequential_read_test);
 }
 
 static int mmc_block_test_debugfs_init(void)
@@ -1875,6 +2037,16 @@ static int mmc_block_test_debugfs_init(void)
 					&write_packing_control_test_ops);
 
 	if (!mbtd->debug.packing_control_test)
+		goto err_nomem;
+
+	mbtd->debug.long_sequential_read_test = debugfs_create_file(
+					"long_sequential_read_test",
+					S_IRUGO | S_IWUGO,
+					tests_root,
+					NULL,
+					&long_sequential_read_test_ops);
+
+	if (!mbtd->debug.long_sequential_read_test)
 		goto err_nomem;
 
 	return 0;
