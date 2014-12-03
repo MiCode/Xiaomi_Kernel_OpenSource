@@ -280,6 +280,8 @@ struct mmc_card {
 #define MMC_QUIRK_SEC_ERASE_TRIM_BROKEN (1<<10)	/* Skip secure for erase/trim */
 #define MMC_QUIRK_BROKEN_IRQ_POLLING	(1<<11)	/* Polling SDIO_CCCR_INTx could create a fake interrupt */
 #define MMC_QUIRK_TRIM_BROKEN	(1<<12)		/* Skip trim */
+						/* byte mode */
+#define MMC_QUIRK_INAND_DATA_TIMEOUT  (1<<13)   /* For incorrect data timeout */
 
 
 	unsigned int		erase_size;	/* erase size in sectors */
