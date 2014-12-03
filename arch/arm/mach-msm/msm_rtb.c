@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,7 @@
 #include <linux/string.h>
 #include <linux/atomic.h>
 #include <linux/of.h>
-#include <asm/io.h>
+#include <linux/io.h>
 #include <asm-generic/sizes.h>
 #include <mach/memory.h>
 #include <mach/msm_rtb.h>
@@ -36,20 +36,20 @@
 #define RTB_COMPAT_STR	"qcom,msm-rtb"
 
 /* Write
- * 1) 3 bytes sentinel
+ * 1) 11 bytes sentinel
  * 2) 1 bytes of log type
- * 3) 4 bytes of where the caller came from
+ * 3) 8 bytes of where the caller came from
  * 4) 4 bytes index
- * 4) 4 bytes extra data from the caller
+ * 4) 8 bytes extra data from the caller
  *
- * Total = 16 bytes.
+ * Total = 32 bytes.
  */
 struct msm_rtb_layout {
-	unsigned char sentinel[3];
+	unsigned char sentinel[11];
 	unsigned char log_type;
-	void *caller;
-	unsigned long idx;
-	void *data;
+	uint32_t idx;
+	uint64_t caller;
+	uint64_t data;
 } __attribute__ ((__packed__));
 
 
@@ -70,7 +70,7 @@ DEFINE_PER_CPU(atomic_t, msm_rtb_idx_cpu);
 static atomic_t msm_rtb_idx;
 #endif
 
-struct msm_rtb_state msm_rtb = {
+static struct msm_rtb_state msm_rtb = {
 	.filter = 1 << LOGK_LOGBUF,
 	.enabled = 1,
 };
@@ -109,24 +109,24 @@ static void msm_rtb_write_type(enum logk_event_type log_type,
 	start->log_type = (char)log_type;
 }
 
-static void msm_rtb_write_caller(void *caller, struct msm_rtb_layout *start)
+static void msm_rtb_write_caller(uint64_t caller, struct msm_rtb_layout *start)
 {
 	start->caller = caller;
 }
 
-static void msm_rtb_write_idx(unsigned long idx,
+static void msm_rtb_write_idx(uint32_t idx,
 				struct msm_rtb_layout *start)
 {
 	start->idx = idx;
 }
 
-static void msm_rtb_write_data(void *data, struct msm_rtb_layout *start)
+static void msm_rtb_write_data(uint64_t data, struct msm_rtb_layout *start)
 {
 	start->data = data;
 }
 
-static void uncached_logk_pc_idx(enum logk_event_type log_type, void *caller,
-				 void *data, int idx)
+static void uncached_logk_pc_idx(enum logk_event_type log_type, uint64_t caller,
+				 uint64_t data, int idx)
 {
 	struct msm_rtb_layout *start;
 
@@ -145,13 +145,10 @@ static void uncached_logk_pc_idx(enum logk_event_type log_type, void *caller,
 static void uncached_logk_timestamp(int idx)
 {
 	unsigned long long timestamp;
-	void *timestamp_upper, *timestamp_lower;
 	timestamp = sched_clock();
-	timestamp_lower = (void *)lower_32_bits(timestamp);
-	timestamp_upper = (void *)upper_32_bits(timestamp);
-
-	uncached_logk_pc_idx(LOGK_TIMESTAMP|LOGTYPE_NOPC, timestamp_lower,
-			     timestamp_upper, idx);
+	uncached_logk_pc_idx(LOGK_TIMESTAMP|LOGTYPE_NOPC,
+			(uint64_t)lower_32_bits(timestamp),
+			(uint64_t)upper_32_bits(timestamp), idx);
 }
 
 #if defined(CONFIG_MSM_RTB_SEPARATE_CPUS)
@@ -213,7 +210,8 @@ int notrace uncached_logk_pc(enum logk_event_type log_type, void *caller,
 
 	i = msm_rtb_get_idx();
 
-	uncached_logk_pc_idx(log_type, caller, data, i);
+	uncached_logk_pc_idx(log_type, (uint64_t)((unsigned long) caller),
+				(uint64_t)((unsigned long) data), i);
 
 	return 1;
 }
@@ -225,7 +223,7 @@ noinline int notrace uncached_logk(enum logk_event_type log_type, void *data)
 }
 EXPORT_SYMBOL(uncached_logk);
 
-int msm_rtb_probe(struct platform_device *pdev)
+static int msm_rtb_probe(struct platform_device *pdev)
 {
 	struct msm_rtb_platform_data *d = pdev->dev.platform_data;
 #if defined(CONFIG_MSM_RTB_SEPARATE_CPUS)
@@ -297,7 +295,6 @@ static struct of_device_id msm_match_table[] = {
 	{.compatible = RTB_COMPAT_STR},
 	{},
 };
-EXPORT_COMPAT(RTB_COMPAT_STR);
 
 static struct platform_driver msm_rtb_driver = {
 	.driver         = {
