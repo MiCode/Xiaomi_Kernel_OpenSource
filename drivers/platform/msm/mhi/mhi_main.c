@@ -1302,20 +1302,22 @@ int mhi_poll_inbound(struct mhi_client_handle *client_handle,
 					(union mhi_xfer_pkt *)pending_trb);
 		result->flags = pending_trb->info;
 		result->transaction_status = MHI_STATUS_SUCCESS;
+		ret_val = delete_element(local_chan_ctxt,
+					&local_chan_ctxt->ack_rp,
+					&local_chan_ctxt->rp, NULL);
+		if (ret_val != MHI_STATUS_SUCCESS) {
+			mhi_log(MHI_MSG_ERROR,
+				"Internal Failure, inconsistent ring state, ret %d chan %d\n",
+				ret_val, chan);
+			result->payload_buf = 0;
+			result->bytes_xferd = 0;
+			result->transaction_status = MHI_STATUS_ERROR;
+		}
 	} else {
 		result->payload_buf = 0;
 		result->bytes_xferd = 0;
 		result->transaction_status = MHI_STATUS_SUCCESS;
-	}
-	ret_val = delete_element(local_chan_ctxt, &local_chan_ctxt->ack_rp,
-				&local_chan_ctxt->rp, NULL);
-	if (ret_val != MHI_STATUS_SUCCESS) {
-		mhi_log(MHI_MSG_ERROR,
-			"Failed to remove from inbound ring ret %d chan %d\n",
-			ret_val, chan);
-		result->payload_buf = 0;
-		result->bytes_xferd = 0;
-		result->transaction_status = MHI_STATUS_SUCCESS;
+		ret_val = MHI_STATUS_RING_EMPTY;
 	}
 	mutex_unlock(chan_mutex);
 	return ret_val;
