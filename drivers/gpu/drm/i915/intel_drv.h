@@ -497,6 +497,12 @@ struct intel_crtc {
 	struct clrmgr_status *color_status;
 
 	struct intel_mmio_flip mmio_flip;
+
+	/*
+	 * save the frame counter at enable sequence to make sure one frame has
+	 * been sent before disable sequence.
+	 */
+	u32 hw_frm_cnt_at_enable;
 };
 
 struct intel_plane_wm_parameters {

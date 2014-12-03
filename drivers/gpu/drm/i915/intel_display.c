@@ -5372,6 +5372,7 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_encoder *encoder;
+	struct intel_dsi *intel_dsi;
 	int pipe = intel_crtc->pipe;
 	int plane = intel_crtc->plane;
 	bool is_dsi;
@@ -5475,6 +5476,24 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 
 	/* Underruns don't raise interrupts, so check manually. */
 	i9xx_check_fifo_underruns(dev);
+
+	for_each_encoder_on_crtc(dev, crtc, encoder) {
+		if (encoder->type != INTEL_OUTPUT_DSI)
+			continue;
+
+		intel_dsi = enc_to_intel_dsi(&encoder->base);
+		if (is_cmd_mode(intel_dsi)) {
+			/*
+			 * save the current pipe counter. During disable use
+			 * this variable to check if at least one frame has
+			 * been sent. If no frame is sent and MIPI is disabled
+			 * in command mode, then pipe gets stuck.
+			 */
+			intel_crtc->hw_frm_cnt_at_enable =
+					I915_READ(PIPEFRAME(pipe));
+		}
+		break;
+	}
 }
 
 static void i9xx_set_pll_dividers(struct intel_crtc *crtc)
@@ -5615,12 +5634,38 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct intel_encoder *encoder;
+	struct intel_dsi *intel_dsi;
 	int pipe = intel_crtc->pipe;
 	bool all_pipe_disabled;
 	u32 val;
 
 	if (!intel_crtc->active)
 		return;
+
+	for_each_encoder_on_crtc(dev, crtc, encoder) {
+		if (encoder->type != INTEL_OUTPUT_DSI)
+			continue;
+
+		intel_dsi = enc_to_intel_dsi(&encoder->base);
+		if (is_cmd_mode(intel_dsi) &&
+			(intel_crtc->hw_frm_cnt_at_enable ==
+					I915_READ(PIPEFRAME(pipe)))) {
+
+			intel_dsi_update_panel_fb(encoder);
+
+			/*
+			 * wait for ~2 frames for TE interrupt and sending one
+			 * frame.
+			 */
+			msleep(40);
+
+			if (intel_crtc->hw_frm_cnt_at_enable ==
+					I915_READ(PIPEFRAME(pipe)))
+				DRM_ERROR("Pipe is stuck for DSI cmd mode.");
+		}
+
+		break;
+	}
 
 	/*
 	 * Gen2 reports pipe underruns whenever all planes are disabled.
