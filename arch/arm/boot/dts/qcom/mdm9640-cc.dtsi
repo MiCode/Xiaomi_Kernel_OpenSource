@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -938,14 +938,12 @@
 		compatible = "qcom,gate-clk";
 		qcom,en-offset = <GCC_APCS_CLOCK_SLEEP_ENA_VOTE>;
 		qcom,en-bit = <13>;
-		qcom,always-on;
 	};
 
 	bimc_apss_axi_clk_sleep: bimc_apss_axi_clk_sleep {
 		compatible = "qcom,gate-clk";
 		qcom,en-offset = <GCC_APCS_CLOCK_SLEEP_ENA_VOTE>;
 		qcom,en-bit = <15>;
-		qcom,always-on;
 	};
 
 	gcc_blsp1_ahb_clk: gcc_blsp1_ahb_clk {
