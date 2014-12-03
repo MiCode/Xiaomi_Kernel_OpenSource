@@ -701,9 +701,11 @@ void msm_cpp_do_tasklet(unsigned long data)
 	}
 }
 
-static void cpp_get_clk_freq_tbl(struct clk *clk, struct cpp_hw_info *hw_info)
+static void cpp_get_clk_freq_tbl(struct clk *clk, struct cpp_hw_info *hw_info,
+	uint32_t min_clk_rate)
 {
-	uint32_t count;
+	uint32_t i;
+	uint32_t idx = 0;
 	signed long freq_tbl_entry = 0;
 
 	if ((clk == NULL) || (hw_info == NULL) || (clk->ops == NULL) ||
@@ -712,15 +714,23 @@ static void cpp_get_clk_freq_tbl(struct clk *clk, struct cpp_hw_info *hw_info)
 		return;
 	}
 
-	for (count = 0; count < MAX_FREQ_TBL; count++) {
-		freq_tbl_entry = clk->ops->list_rate(clk, count);
-		if (freq_tbl_entry >= 0)
-			hw_info->freq_tbl[count] = freq_tbl_entry;
-		else
+	for (i = 0; i < MAX_FREQ_TBL; i++) {
+		freq_tbl_entry = clk->ops->list_rate(clk, i);
+		pr_info("entry=%ld\n", freq_tbl_entry);
+		if (freq_tbl_entry >= 0) {
+			if (freq_tbl_entry >= min_clk_rate) {
+				hw_info->freq_tbl[idx++] = freq_tbl_entry;
+				pr_err("tbl[%d]=%ld\n", idx-1, freq_tbl_entry);
+			}
+		} else {
+			pr_info("freq table returned invalid entry/end %ld\n",
+				freq_tbl_entry);
 			break;
+		}
 	}
 
-	hw_info->freq_tbl_count = count;
+	pr_debug("%s: idx %d", __func__, idx);
+	hw_info->freq_tbl_count = idx;
 }
 
 static int cpp_init_hardware(struct cpp_device *cpp_dev)
@@ -866,7 +876,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		goto req_irq_fail;
 	}
 	cpp_get_clk_freq_tbl(cpp_dev->cpp_clk[msm_cpp_core_clk_idx],
-		&cpp_dev->hw_info);
+		&cpp_dev->hw_info, cpp_dev->min_clk_rate);
 	pr_debug("CPP HW Caps: 0x%x\n", cpp_dev->hw_info.cpp_hw_caps);
 	msm_camera_io_w(0x1, cpp_dev->vbif_base + 0x4);
 	cpp_dev->taskletq_idx = 0;
@@ -2790,9 +2800,15 @@ static int msm_cpp_get_clk_info(struct cpp_device *cpp_dev,
 	for (i = 0; i < count; i++) {
 		cpp_clk_info[i].clk_rate = (rates[i] == 0) ?
 				(long)-1 : rates[i];
-		CPP_DBG("clk_rate[%d] = %ld\n", i, cpp_clk_info[i].clk_rate);
+		pr_info("clk_rate[%d] = %ld\n", i, cpp_clk_info[i].clk_rate);
 	}
 	cpp_dev->num_clk = count;
+	rc = of_property_read_u32(of_node, "qcom,min-clock-rate",
+				  &cpp_dev->min_clk_rate);
+	if (rc < 0) {
+		pr_err("min-clk-rate not defined, setting it to 0\n");
+		cpp_dev->min_clk_rate = 0;
+	}
 	return 0;
 }
 

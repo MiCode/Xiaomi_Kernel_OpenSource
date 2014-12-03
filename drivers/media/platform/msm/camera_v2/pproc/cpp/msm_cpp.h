@@ -205,6 +205,7 @@ struct cpp_device {
 	struct ion_client *client;
 	struct kref refcount;
 	uint32_t num_clk;
+	uint32_t min_clk_rate;
 
 	/* Reusing proven tasklet from msm isp */
 	atomic_t irq_cnt;
