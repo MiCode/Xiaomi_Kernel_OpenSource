@@ -67,7 +67,8 @@ imx_read_reg(struct i2c_client *client, u16 len, u16 reg, u16 *val)
 {
 	struct i2c_msg msg[2];
 	u16 data[IMX_SHORT_MAX];
-	int err, i;
+	int ret, i;
+	int retry = 0;
 
 	if (len > IMX_BYTE_MAX) {
 		dev_err(&client->dev, "%s error, invalid data length\n",
@@ -75,27 +76,33 @@ imx_read_reg(struct i2c_client *client, u16 len, u16 reg, u16 *val)
 		return -EINVAL;
 	}
 
-	memset(msg, 0 , sizeof(msg));
-	memset(data, 0 , sizeof(data));
+	do {
+		memset(msg, 0 , sizeof(msg));
+		memset(data, 0 , sizeof(data));
 
-	msg[0].addr = client->addr;
-	msg[0].flags = 0;
-	msg[0].len = I2C_MSG_LENGTH;
-	msg[0].buf = (u8 *)data;
-	/* high byte goes first */
-	data[0] = cpu_to_be16(reg);
+		msg[0].addr = client->addr;
+		msg[0].flags = 0;
+		msg[0].len = I2C_MSG_LENGTH;
+		msg[0].buf = (u8 *)data;
+		/* high byte goes first */
+		data[0] = cpu_to_be16(reg);
 
-	msg[1].addr = client->addr;
-	msg[1].len = len;
-	msg[1].flags = I2C_M_RD;
-	msg[1].buf = (u8 *)data;
+		msg[1].addr = client->addr;
+		msg[1].len = len;
+		msg[1].flags = I2C_M_RD;
+		msg[1].buf = (u8 *)data;
 
-	err = i2c_transfer(client->adapter, msg, 2);
-	if (err != 2) {
-		if (err >= 0)
-			err = -EIO;
-		goto error;
-	}
+		ret = i2c_transfer(client->adapter, msg, 2);
+		if (ret != 2) {
+			dev_err(&client->dev,
+			  "retrying i2c read from offset 0x%x error %d... %d\n",
+			  reg, ret, retry);
+			msleep(20);
+		}
+	} while (ret != 2 && retry++ < I2C_RETRY_COUNT);
+
+	if (ret != 2)
+		return -EIO;
 
 	/* high byte comes first */
 	if (len == IMX_8BIT) {
@@ -107,26 +114,29 @@ imx_read_reg(struct i2c_client *client, u16 len, u16 reg, u16 *val)
 	}
 
 	return 0;
-
-error:
-	dev_err(&client->dev, "read from offset 0x%x error %d", reg, err);
-	return err;
 }
 
 static int imx_i2c_write(struct i2c_client *client, u16 len, u8 *data)
 {
 	struct i2c_msg msg;
-	const int num_msg = 1;
 	int ret;
+	int retry = 0;
 
-	msg.addr = client->addr;
-	msg.flags = 0;
-	msg.len = len;
-	msg.buf = data;
+	do {
+		msg.addr = client->addr;
+		msg.flags = 0;
+		msg.len = len;
+		msg.buf = data;
 
-	ret = i2c_transfer(client->adapter, &msg, 1);
+		ret = i2c_transfer(client->adapter, &msg, 1);
+		if (ret != 1) {
+			dev_err(&client->dev,
+				"retrying i2c write transfer... %d\n", retry);
+				msleep(20);
+		}
+	} while (ret != 1 && retry++ < I2C_RETRY_COUNT);
 
-	return ret == num_msg ? 0 : -EIO;
+	return ret == 1 ? 0 : -EIO;
 }
 
 int
