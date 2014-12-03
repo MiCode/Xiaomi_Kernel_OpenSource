@@ -32,16 +32,30 @@
 
 #include "danipc_lowlevel.h"
 
+/* Almost Full(AF) interrupt threshold */
 #define AF_THRESHOLD		0x7d
 
+/* IPC FIFO interrupt register offsets */
 #define FIFO_THR_AF_CFG_F0	0x34
 #define CDU_INT0_MASK_F0	0x44
 #define CDU_INT0_ENABLE_F0	0x4c
 #define CDU_INT0_CLEAR_F0	0x64
 
+/* Almost Full(AF) interrupt indication bit */
 #define IPC_INTR_FIFO_AF	5
 #define IPC_INTR(intr)		(1 << (intr))
 
+/* Allocation of IPC FIFOS among CPU cores is evident from
+ * Platform specific dts file.
+ */
+#define TCSR_IPC0_CDU0_INT0_MUX	0x1
+#define TCSR_IPC0_CDU0_INT1_MUX	0x2
+
+/* Mux IPC0_CDU0 interrupts to APPS. As APPS receives
+ * all its messages from FIFOs in TCSR_IPC0_CDU0 alone.
+ */
+#define APPS_IPC_FIFO_INT	(TCSR_IPC0_CDU0_INT0_MUX | \
+				 TCSR_IPC0_CDU0_INT1_MUX)
 
 /* IPC and Linux coexistence.
  * IPC uses/needs physical addresses with bit 31 set while Linux obviously
@@ -224,8 +238,8 @@ void danipc_init_irq(struct net_device *dev, struct danipc_priv *priv)
 	__raw_writel_no_log(~IPC_INTR(IPC_INTR_FIFO_AF),
 				(void *)(base_addr + CDU_INT0_MASK_F0));
 
-	/* Enable passing all IPC interrupts. */
-	__raw_writel_no_log(~0, krait_ipc_mux);
+	/* Route interrupts from TCSR to APPS (only relevant to APPS-FIFO) */
+	__raw_writel_no_log(APPS_IPC_FIFO_INT, krait_ipc_mux);
 }
 
 
