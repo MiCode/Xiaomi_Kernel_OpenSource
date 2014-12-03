@@ -1621,7 +1621,7 @@ static int ims_pcu_identify_type(struct ims_pcu *pcu, u8 *device_id)
 
 static int ims_pcu_init_application_mode(struct ims_pcu *pcu)
 {
-	static atomic_t device_no = ATOMIC_INIT(0);
+	static atomic_t device_no = ATOMIC_INIT(-1);
 
 	const struct ims_pcu_device_info *info;
 	u8 device_id;
@@ -1653,7 +1653,7 @@ static int ims_pcu_init_application_mode(struct ims_pcu *pcu)
 	}
 
 	/* Device appears to be operable, complete initialization */
-	pcu->device_no = atomic_inc_return(&device_no) - 1;
+	pcu->device_no = atomic_inc_return(&device_no);
 
 	error = ims_pcu_setup_backlight(pcu);
 	if (error)
