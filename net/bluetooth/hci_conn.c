@@ -1,6 +1,7 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
-   Copyright (c) 2000-2001, 2010, Code Aurora Forum. All rights reserved.
+   Copyright (c) 2000-2001, 2010, 2014, Code Aurora Forum. All rights
+   reserved.
 
    Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>
 
@@ -502,6 +503,7 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type, bdaddr_t *dst,
 int hci_conn_del(struct hci_conn *conn)
 {
 	struct hci_dev *hdev = conn->hdev;
+	__u8 type;
 
 	BT_DBG("%s hcon %p handle %d", hdev->name, conn, conn->handle);
 
@@ -537,7 +539,9 @@ int hci_conn_del(struct hci_conn *conn)
 		amp_mgr_put(conn->amp_mgr);
 
 	hci_conn_hash_del(hdev, conn);
-	if (hdev->notify)
+
+	type = conn->type;
+	if (hdev->notify && (type == SCO_LINK || type == ESCO_LINK))
 		hdev->notify(hdev, HCI_NOTIFY_CONN_DEL);
 
 	skb_queue_purge(&conn->data_q);
