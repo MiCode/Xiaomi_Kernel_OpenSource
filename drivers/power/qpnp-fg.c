@@ -119,6 +119,7 @@ enum fg_mem_setting_index {
 	FG_MEM_BCL_LM_THRESHOLD,
 	FG_MEM_BCL_MH_THRESHOLD,
 	FG_MEM_TERM_CURRENT,
+	FG_MEM_IRQ_VOLT_EMPTY,
 	FG_MEM_SETTING_MAX,
 };
 
@@ -151,6 +152,7 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(BCL_LM_THRESHOLD, 0x47C,   2,      50),
 	SETTING(BCL_MH_THRESHOLD, 0x47C,   3,      752),
 	SETTING(TERM_CURRENT,	 0x40C,   2,      250),
+	SETTING(IRQ_VOLT_EMPTY,	 0x458,   3,      3350),
 };
 
 #define DATA(_idx, _address, _offset, _length,  _value)	\
@@ -1950,6 +1952,22 @@ static void update_bcl_thresholds(struct fg_chip *chip)
 			data[lm_offset], data[mh_offset]);
 }
 
+#define VOLT_UV_TO_VOLTCMP8(volt_uv)	\
+			((volt_uv - 2500000) / 9766)
+static int update_irq_volt_empty(struct fg_chip *chip)
+{
+	u8 data;
+	int volt_mv = settings[FG_MEM_IRQ_VOLT_EMPTY].value;
+
+	data = (u8)VOLT_UV_TO_VOLTCMP8(volt_mv * 1000);
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("voltage = %d, converted_raw = %04x\n", volt_mv, data);
+	return fg_mem_write(chip, &data,
+			settings[FG_MEM_IRQ_VOLT_EMPTY].address, 1,
+			settings[FG_MEM_IRQ_VOLT_EMPTY].offset, 0);
+}
+
 #define CURRENT_UA_TO_ADC_RAW(cur_ua)	\
 			(cur_ua * LSB_16B_DENMTR / LSB_16B_NUMRTR)
 static int update_iterm(struct fg_chip *chip)
@@ -1990,6 +2008,7 @@ static int fg_of_init(struct fg_chip *chip)
 		chip->use_thermal_coefficients = true;
 	}
 	OF_READ_SETTING(FG_MEM_RESUME_SOC, "resume-soc", rc, 1);
+	OF_READ_SETTING(FG_MEM_IRQ_VOLT_EMPTY, "irq-volt-empty-mv", rc, 1);
 
 	/* Get the use-otp-profile property */
 	chip->use_otp_profile = of_property_read_bool(
@@ -2611,6 +2630,7 @@ static int fg_hw_init(struct fg_chip *chip)
 	int rc = 0;
 
 	update_iterm(chip);
+	update_irq_volt_empty(chip);
 	update_bcl_thresholds(chip);
 	rc = fg_set_auto_recharge(chip);
 	if (rc) {

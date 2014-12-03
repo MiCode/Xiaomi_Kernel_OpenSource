@@ -57,6 +57,14 @@ Parent node optional properties:
 					property is in milliamps and should be
 					positive (e.g. 100mA to terminate at
 					-100mA).
+- qcom,irq-volt-empty-mv:		The voltage threshold that the empty
+					soc interrupt will be triggered. When
+					the empty soc interrupt fires, battery
+					soc will be pulled to 0 and the
+					userspace will be notified via the
+					power supply framework. The userspace
+					will read 0% soc and immediately
+					shutdown.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
