@@ -135,6 +135,10 @@
 	};
 };
 
+&pmi8994_charger {
+	qcom,charging-disabled;
+};
+
 &i2c_2 {
 	synaptics@20 {
 		compatible = "synaptics,dsx";
