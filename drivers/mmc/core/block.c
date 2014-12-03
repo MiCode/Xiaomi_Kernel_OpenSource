@@ -892,6 +892,7 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 		}
 
 		card->ext_csd.part_config = part_config;
+		card->part_curr = part_type;
 
 		ret = mmc_blk_part_switch_post(card, main_md->part_curr);
 	}
@@ -1478,6 +1479,7 @@ static void mmc_blk_cqe_complete_rq(struct mmc_queue *mq, struct request *req)
 	unsigned long flags;
 	bool put_card;
 	int err;
+	bool is_dcmd = false;
 
 	mmc_cqe_post_req(host, mrq);
 
@@ -1505,15 +1507,20 @@ static void mmc_blk_cqe_complete_rq(struct mmc_queue *mq, struct request *req)
 	spin_lock_irqsave(q->queue_lock, flags);
 
 	mq->in_flight[mmc_issue_type(mq, req)] -= 1;
+	atomic_dec(&host->active_reqs);
 
 	put_card = (mmc_tot_in_flight(mq) == 0);
 
 	mmc_cqe_check_busy(mq);
 
+	is_dcmd = (mmc_issue_type(mq, req) ==  MMC_ISSUE_DCMD);
+
 	spin_unlock_irqrestore(q->queue_lock, flags);
 
 	if (!mq->cqe_busy)
 		blk_mq_run_hw_queues(q, true);
+
+	mmc_cqe_clk_scaling_stop_busy(host, true, is_dcmd);
 
 	if (put_card)
 		mmc_put_card(mq->card, &mq->ctx);
@@ -1593,11 +1600,20 @@ static int mmc_blk_cqe_issue_flush(struct mmc_queue *mq, struct request *req)
 static int mmc_blk_cqe_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 {
 	struct mmc_queue_req *mqrq = req_to_mmc_queue_req(req);
+	int err = 0;
 
 	mmc_blk_data_prep(mq, mqrq, 0, NULL, NULL);
 	mqrq->brq.mrq.req = req;
 
-	return mmc_blk_cqe_start_req(mq->card->host, &mqrq->brq.mrq);
+	mmc_deferred_scaling(mq->card->host);
+	mmc_cqe_clk_scaling_start_busy(mq, mq->card->host, true);
+
+	err =  mmc_blk_cqe_start_req(mq->card->host, &mqrq->brq.mrq);
+
+	if (err)
+		mmc_cqe_clk_scaling_stop_busy(mq->card->host, true, false);
+
+	return err;
 }
 
 static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
@@ -2009,12 +2025,14 @@ static void mmc_blk_mq_poll_completion(struct mmc_queue *mq,
 static void mmc_blk_mq_dec_in_flight(struct mmc_queue *mq, struct request *req)
 {
 	struct request_queue *q = req->q;
+	struct mmc_host *host = mq->card->host;
 	unsigned long flags;
 	bool put_card;
 
 	spin_lock_irqsave(q->queue_lock, flags);
 
 	mq->in_flight[mmc_issue_type(mq, req)] -= 1;
+	atomic_dec(&host->active_reqs);
 
 	put_card = (mmc_tot_in_flight(mq) == 0);
 

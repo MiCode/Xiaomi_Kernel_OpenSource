@@ -291,6 +291,7 @@ static blk_status_t mmc_mq_queue_rq(struct blk_mq_hw_ctx *hctx,
 	mq->busy = true;
 
 	mq->in_flight[issue_type] += 1;
+	atomic_inc(&host->active_reqs);
 	get_card = (mmc_tot_in_flight(mq) == 1);
 	cqe_retune_ok = (mmc_cqe_qcnt(mq) == 1);
 
@@ -330,6 +331,7 @@ static blk_status_t mmc_mq_queue_rq(struct blk_mq_hw_ctx *hctx,
 
 		spin_lock_irq(q->queue_lock);
 		mq->in_flight[issue_type] -= 1;
+		atomic_dec(&host->active_reqs);
 		if (mmc_tot_in_flight(mq) == 0)
 			put_card = true;
 		mq->busy = false;

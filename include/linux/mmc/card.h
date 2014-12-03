@@ -316,6 +316,12 @@ struct mmc_card {
 	struct mmc_host		*host;		/* the host this device belongs to */
 	struct device		dev;		/* the device */
 	u32			ocr;		/* the current OCR setting */
+	unsigned long		clk_scaling_lowest;	/* lowest scaleable
+							 * frequency
+							 */
+	unsigned long		clk_scaling_highest;	/* highest scaleable
+							 * frequency
+							 */
 	unsigned int		rca;		/* relative card address of device */
 	unsigned int		type;		/* card type */
 #define MMC_TYPE_MMC		0		/* MMC card */
@@ -393,6 +399,7 @@ struct mmc_card {
 	unsigned int		bouncesz;	/* Bounce buffer size */
 	struct notifier_block   reboot_notify;
 	enum mmc_pon_type	pon_type;
+	u8 cached_ext_csd;
 	struct mmc_bkops_info bkops;
 };
 

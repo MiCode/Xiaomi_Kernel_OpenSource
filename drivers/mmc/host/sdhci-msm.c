@@ -1986,6 +1986,7 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	u32 *clk_table = NULL;
 	int ice_clk_table_len;
 	u32 *ice_clk_table = NULL;
+	const char *lower_bus_speed = NULL;
 	enum of_gpio_flags flags = OF_GPIO_ACTIVE_LOW;
 	int bus_clk_table_len;
 	u32 *bus_clk_table = NULL;
@@ -2048,6 +2049,28 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 		pdata->ice_clk_min = pdata->sup_ice_clk_table[1];
 		dev_dbg(dev, "supported ICE clock rates (Hz): max: %u min: %u\n",
 				pdata->ice_clk_max, pdata->ice_clk_min);
+	}
+
+	if (sdhci_msm_dt_get_array(dev, "qcom,devfreq,freq-table",
+			&msm_host->mmc->clk_scaling.pltfm_freq_table,
+			&msm_host->mmc->clk_scaling.pltfm_freq_table_sz, 0))
+		pr_debug("%s: no clock scaling frequencies were supplied\n",
+							dev_name(dev));
+	else if (!msm_host->mmc->clk_scaling.pltfm_freq_table ||
+			!msm_host->mmc->clk_scaling.pltfm_freq_table_sz)
+		dev_err(dev, "bad dts clock scaling frequencies\n");
+
+	/*
+	 * Few hosts can support DDR52 mode at the same lower
+	 * system voltage corner as high-speed mode. In such cases,
+	 * it is always better to put it in DDR mode which will
+	 * improve the performance without any power impact.
+	 */
+	if (!of_property_read_string(np, "qcom,scaling-lower-bus-speed-mode",
+			&lower_bus_speed)) {
+		if (!strcmp(lower_bus_speed, "DDR52"))
+			msm_host->mmc->clk_scaling.lower_bus_speed_mode |=
+					MMC_SCALING_LOWER_DDR52_MODE;
 	}
 
 	pdata->vreg_data = devm_kzalloc(dev, sizeof(struct
@@ -5217,7 +5240,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= msm_host->pdata->caps2;
 	msm_host->mmc->caps2 |= MMC_CAP2_BOOTPART_NOACC;
 	msm_host->mmc->caps2 |= MMC_CAP2_HS400_POST_TUNING;
-	//msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
+	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
 	msm_host->mmc->caps2 |= MMC_CAP2_SANITIZE;
 	msm_host->mmc->caps2 |= MMC_CAP2_MAX_DISCARD_SIZE;
 	msm_host->mmc->caps2 |= MMC_CAP2_SLEEP_AWAKE;
