@@ -306,7 +306,6 @@ static struct alpha_pll_clk mmpll3 = {
 DEFINE_EXT_CLK(mmpll3_out_main, &mmpll3.c);
 
 static struct clk_freq_tbl ftbl_axi_clk_src[] = {
-	F_MM(  75000000,     mmsscc_gpll0,    8,    0,     0),
 	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
 	F_MM( 300000000,     mmsscc_gpll0,    2,    0,     0),
 	F_MM( 363000000,  mmpll1_out_main,    2,    0,     0),
@@ -314,7 +313,6 @@ static struct clk_freq_tbl ftbl_axi_clk_src[] = {
 };
 
 static struct clk_freq_tbl ftbl_axi_clk_src_v2[] = {
-	F_MM(  75000000,     mmsscc_gpll0,    8,    0,     0),
 	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
 	F_MM( 333430000,  mmpll1_out_main,  3.5,    0,     0),
 	F_MM( 466800000,  mmpll1_out_main,  2.5,    0,     0),
