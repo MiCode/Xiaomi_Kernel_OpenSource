@@ -40,6 +40,7 @@
 
 #define TEMP_BASE_POINT 35
 #define TEMP_MAX_POINT 95
+#define CPU_HOTPLUG_LIMIT 80
 #define CPU_BIT_MASK(cpu) BIT(cpu)
 #define DEFAULT_TEMP 40
 #define DEFAULT_LOW_HYST_TEMP 10
@@ -145,8 +146,14 @@ static void set_threshold(struct cpu_activity_info *cpu_node)
 	if (cpu_node->sensor_id < 0)
 		return;
 
-	set_and_activate_threshold(cpu_node->sensor_id,
-		&cpu_node->hi_threshold);
+	/*
+	 * Set the threshold only if we are below the hotplug limit
+	 * Adding more work at this high temperature range, seems to
+	 * fail hotplug notifications.
+	 */
+	if (cpu_node->hi_threshold.temp < CPU_HOTPLUG_LIMIT)
+		set_and_activate_threshold(cpu_node->sensor_id,
+			&cpu_node->hi_threshold);
 
 	set_and_activate_threshold(cpu_node->sensor_id,
 		&cpu_node->low_threshold);
