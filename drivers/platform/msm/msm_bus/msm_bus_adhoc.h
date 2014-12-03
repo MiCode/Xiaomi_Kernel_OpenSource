@@ -138,4 +138,12 @@ extern int msm_bus_of_get_static_rules(struct platform_device *pdev,
 extern int msm_rules_update_path(struct list_head *input_list,
 				struct list_head *output_list);
 extern void print_all_rules(void);
+#ifdef CONFIG_DEBUG_BUS_VOTER
+int msm_bus_floor_init(struct device *dev);
+#else
+static inline int msm_bus_floor_init(struct device *dev)
+{
+	return 0;
+}
+#endif /* CONFIG_DBG_BUS_VOTER */
 #endif /* _ARCH_ARM_MACH_MSM_BUS_ADHOC_H */

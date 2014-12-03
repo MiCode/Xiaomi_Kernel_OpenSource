@@ -171,4 +171,21 @@ static inline void msm_bus_cl_clear_pdata(struct msm_bus_scale_pdata *pdata)
 {
 }
 #endif
+
+#ifdef CONFIG_DEBUG_BUS_VOTER
+int msm_bus_floor_vote_context(const char *name, u64 floor_hz,
+						bool active_only);
+int msm_bus_floor_vote(const char *name, u64 floor_hz);
+#else
+static inline int msm_bus_floor_vote(const char *name, u64 floor_hz)
+{
+	return -EINVAL;
+}
+
+static inline int msm_bus_floor_vote_context(const char *name, u64 floor_hz,
+						bool active_only)
+{
+	return -EINVAL;
+}
+#endif /*defined(CONFIG_DEBUG_BUS_VOTER) && defined(CONFIG_BUS_TOPOLOGY_ADHOC)*/
 #endif /*_ARCH_ARM_MACH_MSM_BUS_H*/
