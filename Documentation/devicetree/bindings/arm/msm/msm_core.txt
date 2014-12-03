@@ -28,10 +28,6 @@ Optional properties:
                  is no change in threshold. If this property is not
                  present, the power is recalculated only on
                  temperature threshold notifications.
--qcom,throttling-temp: Temperature threshold for cpu frequency mitigation.
-                 The value should be set same as the threshold temperature
-                 in thermal module - 5 C, such that there is a bandwidth to
-                 control the cores before frequency mitigation happens.
 
 [Second level nodes]
 Required properties to define per core characteristics:
