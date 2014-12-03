@@ -4575,9 +4575,9 @@ int atomisp_css_isr_thread(struct atomisp_device *isp,
 		asd = __get_atomisp_subdev(current_event.event.pipe,
 					isp, &stream_id);
 		if (!asd) {
-			dev_err(isp->dev, "%s:no subdev.event:%d",  __func__,
-					current_event.event.type);
-			return -EINVAL;
+			dev_warn(isp->dev, "%s:no subdev.event:%d",  __func__,
+				current_event.event.type);
+			continue;
 		}
 
 		atomisp_css_temp_pipe_to_pipe_id(asd, &current_event);
@@ -4636,6 +4636,12 @@ int atomisp_css_isr_thread(struct atomisp_device *isp,
 			break;
 		}
 	}
+	/* There is some new FW event which is not with a valid pipeline,
+	 * in this case, driver should just skip it(not handle it) instead of
+	 * failing on it.
+	 */
+	if (!asd)
+		return 0;
 	/* If there are no buffers queued then
 	 * delete wdt timer. */
 	if (!atomisp_buffers_queued(asd))
