@@ -468,3 +468,5 @@
 &gdsc_oxili_gx {
 	status = "okay";
 };
+
+#include "msmtellurium-regulator.dtsi"
