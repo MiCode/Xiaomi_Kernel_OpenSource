@@ -21,7 +21,6 @@
  * Author: Jenny TC <jenny.tc@intel.com>
  * Author: Yegnesh Iyer <yegnesh.s.iyer@intel.com>
  */
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -880,9 +879,7 @@ static int get_charger_type(void)
 static void handle_internal_usbphy_notifications(int mask)
 {
 	struct power_supply_cable_props cap = {0};
-	int evt;
-
-	evt = USB_EVENT_CHARGER;
+	int evt = -1;
 
 	if (mask) {
 		cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
@@ -903,15 +900,33 @@ static void handle_internal_usbphy_notifications(int mask)
 
 	switch (cap.chrg_type) {
 	case POWER_SUPPLY_CHARGER_TYPE_USB_SDP:
+		if (cap.chrg_evt == POWER_SUPPLY_CHARGER_EVENT_CONNECT)
+			evt =  USB_EVENT_VBUS;
+		else
+			evt =  USB_EVENT_NONE;
 		cap.ma = LOW_POWER_CHRG_CURRENT;
 		break;
-	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
 	case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
+		if (cap.chrg_evt == POWER_SUPPLY_CHARGER_EVENT_CONNECT)
+			evt =  USB_EVENT_VBUS;
+		else
+			evt =  USB_EVENT_NONE;
+		cap.ma = HIGH_POWER_CHRG_CURRENT;
+		break;
+	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
 	case POWER_SUPPLY_CHARGER_TYPE_SE1:
 	case POWER_SUPPLY_CHARGER_TYPE_USB_ACA:
+		cap.ma = HIGH_POWER_CHRG_CURRENT;
+		break;
 	case POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK:
-	case POWER_SUPPLY_CHARGER_TYPE_AC:
 	case POWER_SUPPLY_CHARGER_TYPE_ACA_A:
+		cap.ma = HIGH_POWER_CHRG_CURRENT;
+		if (cap.chrg_evt == POWER_SUPPLY_CHARGER_EVENT_CONNECT)
+			evt = USB_EVENT_ID;
+		else
+			evt = USB_EVENT_NONE;
+		break;
+	case POWER_SUPPLY_CHARGER_TYPE_AC:
 	case POWER_SUPPLY_CHARGER_TYPE_ACA_B:
 	case POWER_SUPPLY_CHARGER_TYPE_ACA_C:
 	case POWER_SUPPLY_CHARGER_TYPE_MHL:
@@ -928,15 +943,11 @@ static void handle_internal_usbphy_notifications(int mask)
 			cap.ma);
 	if (cap.chrg_evt == POWER_SUPPLY_CHARGER_EVENT_DISCONNECT)
 		chc.charger_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
-	atomic_notifier_call_chain(&chc.otg->notifier,
-			USB_EVENT_CHARGER, &cap);
 
-	if (cap.chrg_evt == POWER_SUPPLY_CHARGER_EVENT_CONNECT)
-		atomic_notifier_call_chain(&chc.otg->notifier,
-			USB_EVENT_VBUS, NULL);
-	else
-		atomic_notifier_call_chain(&chc.otg->notifier,
-			USB_EVENT_NONE, NULL);
+	atomic_notifier_call_chain(&chc.otg->notifier,
+				USB_EVENT_CHARGER, &cap);
+	if (evt >= 0)
+		atomic_notifier_call_chain(&chc.otg->notifier, evt, NULL);
 }
 
 static void handle_batttemp_interrupt(u16 int_reg, u16 stat_reg)
@@ -984,10 +995,12 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 		 */
 		if (mask) {
 			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x1);
-			if (chc.vbus_state == VBUS_ENABLE)
+			if (chc.vbus_state == VBUS_ENABLE) {
+				if (chc.otg->set_vbus)
+					chc.otg->set_vbus(chc.otg, true);
 				atomic_notifier_call_chain(&chc.otg->notifier,
-								USB_EVENT_ID,
-								&mask);
+						USB_EVENT_ID, &mask);
+			}
 		} else if ((int_reg & BIT_POS(PMIC_INT_USBIDFLTDET)) &&
 				chc.otg_mode_enabled) {
 			/* WA for OTG ID removal: PMIC interprets ID removal
@@ -996,10 +1009,12 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 			 * In order to avoid ctyp detection flow, disable otg
 			 * mode during vbus turn off event
 			 */
-			if (chc.vbus_state == VBUS_ENABLE)
+			if (chc.vbus_state == VBUS_ENABLE) {
+				if (chc.otg->set_vbus)
+					chc.otg->set_vbus(chc.otg, false);
 				atomic_notifier_call_chain(&chc.otg->notifier,
-								USB_EVENT_NONE,
-								NULL);
+						USB_EVENT_NONE, NULL);
+			}
 			pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x0);
 
 		}

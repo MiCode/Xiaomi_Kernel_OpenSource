@@ -216,11 +216,6 @@
 
 static struct power_supply *fg_psy;
 
-struct bq24192_otg_event {
-	struct list_head node;
-	bool is_enable;
-};
-
 enum bq24192_chrgr_stat {
 	BQ24192_CHRGR_STAT_UNKNOWN,
 	BQ24192_CHRGR_STAT_CHARGING,
@@ -243,16 +238,12 @@ struct bq24192_chip {
 	struct delayed_work chrg_full_wrkr;
 	struct delayed_work chrg_temp_wrkr;
 	struct delayed_work irq_wrkr;
-	struct work_struct otg_evt_work;
-	struct notifier_block	otg_nb;
-	struct list_head	otg_queue;
 	struct mutex event_lock;
 	struct power_supply_cable_props cap;
 	struct power_supply_cable_props cached_cap;
 	struct usb_phy *transceiver;
 	/* Wake lock to prevent platform from going to S3 when charging */
 	struct wake_lock wakelock;
-	spinlock_t otg_queue_lock;
 
 
 	enum bq24192_chrgr_stat chgr_stat;
@@ -1734,40 +1725,6 @@ sched_task_work:
 	schedule_delayed_work(&chip->chrg_task_wrkr, jiffy);
 }
 
-static void bq24192_otg_evt_worker(struct work_struct *work)
-{
-	struct bq24192_chip *chip =
-	    container_of(work, struct bq24192_chip, otg_evt_work);
-	struct bq24192_otg_event *evt, *tmp;
-	unsigned long flags;
-	int ret = 0;
-
-	dev_info(&chip->client->dev, "%s\n", __func__);
-
-	spin_lock_irqsave(&chip->otg_queue_lock, flags);
-	list_for_each_entry_safe(evt, tmp, &chip->otg_queue, node) {
-		list_del(&evt->node);
-		spin_unlock_irqrestore(&chip->otg_queue_lock, flags);
-
-		dev_info(&chip->client->dev,
-			"%s:%d state=%d\n", __FILE__, __LINE__,
-				evt->is_enable);
-
-		mutex_lock(&chip->event_lock);
-		ret = bq24192_turn_otg_vbus(chip, evt->is_enable);
-		mutex_unlock(&chip->event_lock);
-
-		if (ret < 0)
-			dev_err(&chip->client->dev, "VBUS ON FAILED:\n");
-
-		spin_lock_irqsave(&chip->otg_queue_lock, flags);
-		kfree(evt);
-
-	}
-	spin_unlock_irqrestore(&chip->otg_queue_lock, flags);
-}
-
-
 static void bq24192_temp_update_worker(struct work_struct *work)
 {
 	struct bq24192_chip *chip =
@@ -1834,123 +1791,28 @@ temp_wrkr_error:
 	return;
 }
 
-static int otg_handle_notification(struct notifier_block *nb,
-				   unsigned long event, void *param)
-{
-	struct bq24192_chip *chip =
-	    container_of(nb, struct bq24192_chip, otg_nb);
-	struct bq24192_otg_event *evt;
 
-	dev_info(&chip->client->dev, "OTG notification: %lu\n", event);
-
-	if ((event != USB_EVENT_DRIVE_VBUS) &&
-		(event != USB_EVENT_ID) &&
-		(event != USB_EVENT_NONE))
-		return NOTIFY_DONE;
-
-	if ((event == USB_EVENT_DRIVE_VBUS) && (!param))
-		return NOTIFY_DONE;
-
-	evt = kzalloc(sizeof(*evt), GFP_ATOMIC);
-	if (!evt) {
-		dev_err(&chip->client->dev,
-			"failed to allocate memory for OTG event\n");
-		return NOTIFY_DONE;
-	}
-
-	if (event == USB_EVENT_DRIVE_VBUS)
-		evt->is_enable = *(bool *)param;
-	else if (event == USB_EVENT_ID) /* treat id short as drive vbus evt */
-		evt->is_enable = true;
-	else	/* treat cable disconnect event as stop vbus evt */
-		evt->is_enable = false;
-
-	dev_info(&chip->client->dev, "evt->is_enable is %d\n", evt->is_enable);
-	INIT_LIST_HEAD(&evt->node);
-
-	spin_lock(&chip->otg_queue_lock);
-	list_add_tail(&evt->node, &chip->otg_queue);
-	spin_unlock(&chip->otg_queue_lock);
-
-	queue_work(system_nrt_wq, &chip->otg_evt_work);
-	return NOTIFY_OK;
-}
-
-static void bq24192_usb_otg_enable(struct usb_phy *phy)
+static void bq24192_usb_otg_enable(struct usb_phy *phy, int on)
 {
 	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
 	int ret, id_value = -1;
 
 	mutex_lock(&chip->event_lock);
-	if (phy->vbus_state == VBUS_DISABLED)
-		chip->a_bus_enable = false;
-	else
-		chip->a_bus_enable = true;
+	ret =  bq24192_turn_otg_vbus(chip, on);
 	mutex_unlock(&chip->event_lock);
-
-	if (phy->get_id_status) {
-		/* get_id_status will store 0 in id_value if otg device is
-		 * connected
-		 */
-		ret = phy->get_id_status(phy, &id_value);
-		if (ret < 0) {
-			dev_warn(&chip->client->dev,
-				"otg get ID status failed:%d\n", ret);
-			return;
-		} else if (id_value != 0) {
-			/* otg vbus should not be enabled or disabled if
-			 * otg device is not connected
-			 */
-			return;
-		}
-	} else {
-		dev_err(&chip->client->dev, "get_id_status is not defined for usb_phy");
-		return;
-	}
-
-	mutex_lock(&chip->event_lock);
-
-	if (phy->vbus_state == VBUS_DISABLED) {
-		dev_info(&chip->client->dev, "OTG Disable");
-		ret = bq24192_turn_otg_vbus(chip, false);
-		if (ret < 0)
-			dev_err(&chip->client->dev, "VBUS OFF FAILED:\n");
-	} else {
-		dev_info(&chip->client->dev, "OTG Enable");
-		ret = bq24192_turn_otg_vbus(chip, true);
-		if (ret < 0)
-			dev_err(&chip->client->dev, "VBUS ON FAILED:\n");
-	}
-
-	mutex_unlock(&chip->event_lock);
+	if (ret < 0)
+		dev_err(&chip->client->dev, "VBUS mode(%d) failed\n", on);
 }
 
-static inline int register_otg_notification(struct bq24192_chip *chip)
+static inline int register_otg_vbus(struct bq24192_chip *chip)
 {
 
-	int retval;
-
-	INIT_LIST_HEAD(&chip->otg_queue);
-	INIT_WORK(&chip->otg_evt_work, bq24192_otg_evt_worker);
-	spin_lock_init(&chip->otg_queue_lock);
-
-	chip->otg_nb.notifier_call = otg_handle_notification;
-
-	/*
-	 * Get the USB transceiver instance
-	 */
 	chip->transceiver = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (!chip->transceiver) {
 		dev_err(&chip->client->dev, "Failed to get the USB transceiver\n");
 		return -EINVAL;
 	}
-	chip->transceiver->a_bus_drop = bq24192_usb_otg_enable;
-	retval = usb_register_notifier(chip->transceiver, &chip->otg_nb);
-	if (retval) {
-		dev_err(&chip->client->dev,
-			"failed to register otg notifier\n");
-		return -EINVAL;
-	}
+	chip->transceiver->set_vbus = bq24192_usb_otg_enable;
 
 	return 0;
 }
@@ -2219,10 +2081,10 @@ static int bq24192_probe(struct i2c_client *client,
 	/*
 	 * Register to get USB transceiver events
 	 */
-	ret = register_otg_notification(chip);
+	ret = register_otg_vbus(chip);
 	if (ret) {
 		dev_err(&chip->client->dev,
-					"REGISTER OTG NOTIFICATION FAILED\n");
+					"REGISTER OTG VBUS failed\n");
 	}
 
 	return 0;
