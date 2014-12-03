@@ -1407,6 +1407,8 @@
 		compatible = "qcom,cnss";
 		wlan-en-gpio = <&msm_gpio 95 0>;
 		vdd-wlan-supply = <&wlan_vreg>;
+		vdd-wlan-io-supply = <&pmd9635_l6>;
+		vdd-wlan-sp2t-supply = <&pmd9635_l12>;
 		qcom,notify-modem-status;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cnss_default>;
