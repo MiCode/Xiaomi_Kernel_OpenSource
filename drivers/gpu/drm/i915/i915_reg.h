@@ -3916,6 +3916,7 @@ enum punit_power_well {
 #define   PIPECONF_INTERLACED_DBL_ILK		(4 << 21) /* ilk/snb only */
 #define   PIPECONF_PFIT_PF_INTERLACED_DBL_ILK	(5 << 21) /* ilk/snb only */
 #define   PIPECONF_INTERLACE_MODE_MASK		(7 << 21)
+#define   PIPECONF_MIPI_DSR_ENABLE		(1 << 20)
 #define   PIPECONF_EDP_RR_MODE_SWITCH		(1 << 20)
 #define   PIPECONF_EDP_RR_MODE_SWITCH_VLV	(1 << 14)
 #define   PIPECONF_CXSR_DOWNCLOCK	(1<<16)

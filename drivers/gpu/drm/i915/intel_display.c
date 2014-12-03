@@ -41,6 +41,7 @@
 #include <drm/drm_crtc_helper.h>
 #include <linux/dma_remapping.h>
 #include "intel_clrmgr.h"
+#include "intel_dsi.h"
 
 #define DIV_ROUND_CLOSEST_ULL(ll, d)	\
 	({ unsigned long long _tmp = (ll)+(d)/2; do_div(_tmp, d); _tmp; })
@@ -2108,6 +2109,8 @@ static void intel_enable_pipe(struct intel_crtc *crtc)
 	enum transcoder cpu_transcoder = intel_pipe_to_cpu_transcoder(dev_priv,
 								      pipe);
 	enum pipe pch_transcoder;
+	struct intel_encoder *encoder;
+	struct intel_dsi *intel_dsi;
 	int reg;
 	u32 val;
 
@@ -2148,7 +2151,19 @@ static void intel_enable_pipe(struct intel_crtc *crtc)
 		return;
 	}
 
-	I915_WRITE(reg, val | PIPECONF_ENABLE);
+	for_each_encoder_on_crtc(dev, &crtc->base, encoder) {
+		if (encoder->type == INTEL_OUTPUT_DSI) {
+			intel_dsi = enc_to_intel_dsi(&encoder->base);
+			if (intel_dsi && is_cmd_mode(intel_dsi)) {
+				val = val | PIPECONF_MIPI_DSR_ENABLE;
+				I915_WRITE(reg, val);
+			}
+			break;
+		}
+	}
+
+	val = val | PIPECONF_ENABLE;
+	I915_WRITE(reg, val);
 	POSTING_READ(reg);
 }
 
@@ -2169,6 +2184,10 @@ static void intel_disable_pipe(struct drm_i915_private *dev_priv,
 {
 	enum transcoder cpu_transcoder = intel_pipe_to_cpu_transcoder(dev_priv,
 								      pipe);
+	struct intel_encoder *encoder;
+	struct intel_dsi *intel_dsi;
+	struct drm_crtc *crtc = dev_priv->pipe_to_crtc_mapping[pipe];
+	struct drm_device *dev = crtc->dev;
 	int reg;
 	u32 val;
 
@@ -2188,6 +2207,15 @@ static void intel_disable_pipe(struct drm_i915_private *dev_priv,
 	val = I915_READ(reg);
 	if ((val & PIPECONF_ENABLE) == 0)
 		return;
+
+	for_each_encoder_on_crtc(dev, crtc, encoder) {
+		if (encoder->type == INTEL_OUTPUT_DSI) {
+			intel_dsi = enc_to_intel_dsi(&encoder->base);
+			if (intel_dsi && is_cmd_mode(intel_dsi))
+				val = val & ~PIPECONF_MIPI_DSR_ENABLE;
+			break;
+		}
+	}
 
 	I915_WRITE(reg, val & ~PIPECONF_ENABLE);
 	intel_wait_for_pipe_off(dev_priv->dev, pipe);
