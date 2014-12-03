@@ -1719,7 +1719,7 @@ static int i915_dpst_status(struct seq_file *m, void *unused)
 		   dev_priv->dpst.blc_adjustment * 100 / DPST_MAX_FACTOR);
 
 	seq_printf(m, "IE modification table: %s\n",
-		   blm_hist_ctl & IE_MOD_TABLE_ENABLE ?
+		   blm_hist_ctl & dev_priv->dpst.ie_mod_table_enable ?
 		   "enabled" : "disabled");
 
 	blm_hist_ctl |= BIN_REG_FUNCTION_SELECT_IE;

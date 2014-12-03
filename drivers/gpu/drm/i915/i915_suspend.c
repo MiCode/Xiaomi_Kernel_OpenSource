@@ -197,7 +197,8 @@ void i915_save_dpst_regs(struct drm_i915_private *dev_priv)
 
 	/* Disable image enhancement table so we do not apply invalid
 	 * data when we resume */
-	dev_priv->regfile.saveBLM_HIST_CTL &= ~IE_MOD_TABLE_ENABLE;
+	dev_priv->regfile.saveBLM_HIST_CTL &=
+		~(dev_priv->dpst.ie_mod_table_enable);
 }
 
 void i915_restore_dpst_regs(struct drm_i915_private *dev_priv)

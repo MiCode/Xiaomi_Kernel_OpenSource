@@ -1662,6 +1662,7 @@ struct drm_i915_private {
 		u32 blc_adjustment;
 		u32 gb_delay;
 		u32 init_image_res;
+		u32 ie_mod_table_enable;
 		bool user_enable;	/* user client wishes to enable */
 		bool kernel_disable;	/* kernel override wishes to disable */
 		bool enabled;		/* actual functional state */

@@ -142,7 +142,8 @@ i915_dpst_disable_hist_interrupt(struct drm_device *dev)
 	/* Disable histogram logic */
 	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
 	blm_hist_ctl &= ~IE_HISTOGRAM_ENABLE;
-	blm_hist_ctl &= ~IE_MOD_TABLE_ENABLE;
+	blm_hist_ctl &= ~(dev_priv->dpst.ie_mod_table_enable);
+
 	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, blm_hist_ctl);
 
 	/* DPST interrupt in DE_IER register is disabled in irq_uninstall */
@@ -234,7 +235,8 @@ i915_dpst_apply_luma(struct drm_device *dev,
 
 	/* Enable Image Enhancement Table */
 	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
-	blm_hist_ctl |= IE_MOD_TABLE_ENABLE | ENHANCEMENT_MODE_MULT;
+	blm_hist_ctl |= dev_priv->dpst.ie_mod_table_enable |
+		ENHANCEMENT_MODE_MULT;
 	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, blm_hist_ctl);
 
 	return 0;
@@ -247,7 +249,8 @@ i915_dpst_save_luma(struct drm_device *dev)
 
 	/* Only save if user mode has indeed applied valid settings which
 	 * we determine by checking that the IE mod table was enabled */
-	if (!(I915_READ(dev_priv->dpst.reg.blm_hist_ctl) & IE_MOD_TABLE_ENABLE))
+	if (!(I915_READ(dev_priv->dpst.reg.blm_hist_ctl) &
+				dev_priv->dpst.ie_mod_table_enable))
 		return;
 
 	/* IE mod table entries are saved in the hardware even if the table
@@ -277,7 +280,8 @@ i915_dpst_restore_luma(struct drm_device *dev)
 	/* IE mod table entries are saved in the hardware even if the table
 	 * is disabled, so we only need to re-enable the table */
 	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
-	blm_hist_ctl |= IE_MOD_TABLE_ENABLE | ENHANCEMENT_MODE_MULT;
+	blm_hist_ctl |= dev_priv->dpst.ie_mod_table_enable |
+		ENHANCEMENT_MODE_MULT;
 	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, blm_hist_ctl);
 }
 
@@ -372,11 +376,13 @@ i915_dpst_update_registers(struct drm_device *dev)
 		dev_priv->dpst.reg.blm_hist_guard = BLM_HIST_GUARD;
 		dev_priv->dpst.reg.blm_hist_bin = BLM_HIST_BIN;
 		dev_priv->dpst.reg.blm_hist_bin_count_mask = BIN_COUNT_MASK_4M;
+		dev_priv->dpst.ie_mod_table_enable = IE_MOD_TABLE_ENABLE;
 	} else if (IS_VALLEYVIEW(dev)) {
 		dev_priv->dpst.reg.blm_hist_ctl = VLV_BLC_HIST_CTL(PIPE_A);
 		dev_priv->dpst.reg.blm_hist_guard = VLV_BLC_HIST_GUARD(PIPE_A);
 		dev_priv->dpst.reg.blm_hist_bin = VLV_BLC_HIST_BIN(PIPE_A);
 		dev_priv->dpst.reg.blm_hist_bin_count_mask = BIN_COUNT_MASK_4M;
+		dev_priv->dpst.ie_mod_table_enable = VLV_IE_MOD_TABLE_ENABLE;
 	} else if (IS_BROADWELL(dev)) {
 		dev_priv->dpst.reg.blm_hist_ctl =
 				BDW_DPST_CTL_PIPE(dev_priv->dpst.pipe);
@@ -386,6 +392,7 @@ i915_dpst_update_registers(struct drm_device *dev)
 				BDW_DPST_BIN_PIPE(dev_priv->dpst.pipe);
 		dev_priv->dpst.reg.blm_hist_bin_count_mask =
 				BIN_COUNT_MASK_16M;
+		dev_priv->dpst.ie_mod_table_enable = IE_MOD_TABLE_ENABLE;
 	} else {
 		DRM_ERROR("DPST not supported on this platform\n");
 		return -EINVAL;
