@@ -164,6 +164,12 @@
 	};
 };
 
+&pm8909_vadc {
+	chan@30 {
+		qcom,scale-function = <6>;
+	};
+};
+
 &pm8909_chg {
 	qcom,vddmax-mv = <4350>;
 	qcom,vddsafe-mv = <4380>;
