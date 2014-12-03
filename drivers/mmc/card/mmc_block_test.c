@@ -501,91 +501,91 @@ static char *get_test_case_str(struct test_data *td)
 		return NULL;
 	}
 
-	switch (td->test_info.testcase) {
+switch (td->test_info.testcase) {
 	case TEST_STOP_DUE_TO_FLUSH:
-		return " stop due to flush";
+		return "\"stop due to flush\"";
 	case TEST_STOP_DUE_TO_FLUSH_AFTER_MAX_REQS:
-		return " stop due to flush after max-1 reqs";
+		return "\"stop due to flush after max-1 reqs\"";
 	case TEST_STOP_DUE_TO_READ:
-		return " stop due to read";
+		return "\"stop due to read\"";
 	case TEST_STOP_DUE_TO_READ_AFTER_MAX_REQS:
-		return "Test stop due to read after max-1 reqs";
+		return "\"stop due to read after max-1 reqs\"";
 	case TEST_STOP_DUE_TO_EMPTY_QUEUE:
-		return "Test stop due to empty queue";
+		return "\"stop due to empty queue\"";
 	case TEST_STOP_DUE_TO_MAX_REQ_NUM:
-		return "Test stop due to max req num";
+		return "\"stop due to max req num\"";
 	case TEST_STOP_DUE_TO_THRESHOLD:
-		return "Test stop due to exceeding threshold";
+		return "\"stop due to exceeding threshold\"";
 	case TEST_RET_ABORT:
-		return "Test err_check return abort";
+		return "\"err_check return abort\"";
 	case TEST_RET_PARTIAL_FOLLOWED_BY_SUCCESS:
-		return "Test err_check return partial followed by success";
+		return "\"err_check return partial followed by success\"";
 	case TEST_RET_PARTIAL_FOLLOWED_BY_ABORT:
-		return "Test err_check return partial followed by abort";
+		return "\"err_check return partial followed by abort\"";
 	case TEST_RET_PARTIAL_MULTIPLE_UNTIL_SUCCESS:
-		return "Test err_check return partial multiple until success";
+		return "\"err_check return partial multiple until success\"";
 	case TEST_RET_PARTIAL_MAX_FAIL_IDX:
-		return "Test err_check return partial max fail index";
+		return "\"err_check return partial max fail index\"";
 	case TEST_RET_RETRY:
-		return "Test err_check return retry";
+		return "\"err_check return retry\"";
 	case TEST_RET_CMD_ERR:
-		return "Test err_check return cmd error";
+		return "\"err_check return cmd error\"";
 	case TEST_RET_DATA_ERR:
-		return "Test err_check return data error";
+		return "\"err_check return data error\"";
 	case TEST_HDR_INVALID_VERSION:
-		return "Test invalid - wrong header version";
+		return "\"invalid - wrong header version\"";
 	case TEST_HDR_WRONG_WRITE_CODE:
-		return "Test invalid - wrong write code";
+		return "\"invalid - wrong write code\"";
 	case TEST_HDR_INVALID_RW_CODE:
-		return "Test invalid - wrong R/W code";
+		return "\"invalid - wrong R/W code\"";
 	case TEST_HDR_DIFFERENT_ADDRESSES:
-		return "Test invalid - header different addresses";
+		return "\"invalid - header different addresses\"";
 	case TEST_HDR_REQ_NUM_SMALLER_THAN_ACTUAL:
-		return "Test invalid - header req num smaller than actual";
+		return "\"invalid - header req num smaller than actual\"";
 	case TEST_HDR_REQ_NUM_LARGER_THAN_ACTUAL:
-		return "Test invalid - header req num larger than actual";
+		return "\"invalid - header req num larger than actual\"";
 	case TEST_HDR_CMD23_PACKED_BIT_SET:
-		return "Test invalid - header cmd23 packed bit set";
+		return "\"invalid - header cmd23 packed bit set\"";
 	case TEST_CMD23_MAX_PACKED_WRITES:
-		return "Test invalid - cmd23 max packed writes";
+		return "\"invalid - cmd23 max packed writes\"";
 	case TEST_CMD23_ZERO_PACKED_WRITES:
-		return "Test invalid - cmd23 zero packed writes";
+		return "\"invalid - cmd23 zero packed writes\"";
 	case TEST_CMD23_PACKED_BIT_UNSET:
-		return "Test invalid - cmd23 packed bit unset";
+		return "\"invalid - cmd23 packed bit unset\"";
 	case TEST_CMD23_REL_WR_BIT_SET:
-		return "Test invalid - cmd23 rel wr bit set";
+		return "\"invalid - cmd23 rel wr bit set\"";
 	case TEST_CMD23_BITS_16TO29_SET:
-		return "Test invalid - cmd23 bits [16-29] set";
+		return "\"invalid - cmd23 bits [16-29] set\"";
 	case TEST_CMD23_HDR_BLK_NOT_IN_COUNT:
-		return "Test invalid - cmd23 header block not in count";
+		return "\"invalid - cmd23 header block not in count\"";
 	case TEST_PACKING_EXP_N_OVER_TRIGGER:
-		return "\nTest packing control - pack n";
+		return "\"packing control - pack n\"";
 	case TEST_PACKING_EXP_N_OVER_TRIGGER_FB_READ:
-		return "\nTest packing control - pack n followed by read";
+		return "\"packing control - pack n followed by read\"";
 	case TEST_PACKING_EXP_N_OVER_TRIGGER_FLUSH_N:
-		return "\nTest packing control - pack n followed by flush";
+		return "\"packing control - pack n followed by flush\"";
 	case TEST_PACKING_EXP_ONE_OVER_TRIGGER_FB_READ:
-		return "\nTest packing control - pack one followed by read";
+		return "\"packing control - pack one followed by read\"";
 	case TEST_PACKING_EXP_THRESHOLD_OVER_TRIGGER:
-		return "\nTest packing control - pack threshold";
+		return "\"packing control - pack threshold\"";
 	case TEST_PACKING_NOT_EXP_LESS_THAN_TRIGGER_REQUESTS:
-		return "\nTest packing control - no packing";
+		return "\"packing control - no packing\"";
 	case TEST_PACKING_NOT_EXP_TRIGGER_REQUESTS:
-		return "\nTest packing control - no packing, trigger requests";
+		return "\"packing control - no packing, trigger requests\"";
 	case TEST_PACKING_NOT_EXP_TRIGGER_READ_TRIGGER:
-		return "\nTest packing control - no pack, trigger-read-trigger";
+		return "\"packing control - no pack, trigger-read-trigger\"";
 	case TEST_PACKING_NOT_EXP_TRIGGER_FLUSH_TRIGGER:
-		return "\nTest packing control- no pack, trigger-flush-trigger";
+		return "\"packing control- no pack, trigger-flush-trigger\"";
 	case TEST_PACK_MIX_PACKED_NO_PACKED_PACKED:
-		return "\nTest packing control - mix: pack -> no pack -> pack";
+		return "\"packing control - mix: pack -> no pack -> pack\"";
 	case TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED:
 		return "\nTest packing control - mix: no pack->pack->no pack";
 	case TEST_LONG_SEQUENTIAL_READ:
-		return "Test long sequential read";
+		return "\"long sequential read\"";
 	case TEST_LONG_SEQUENTIAL_WRITE:
-		return "Test long sequential write";
+		return "\"long sequential write\"";
 	default:
-		 return "Unknown testcase";
+		return " Unknown testcase";
 	}
 
 	return NULL;
