@@ -2957,8 +2957,13 @@
 				<55 512 0 0>,
 				<55 512 120000 1200000>,
 				<55 512 393600 3936000>;
-		clock-names = "core_clk";
-		clocks = <&clock_rpm clk_qseecom_ce1_clk>;
+		clock-names = "core_clk", "ufs_core_clk_src", "ufs_core_clk",
+			      "ufs_bus_clk", "ufs_iface_clk";
+		clocks = <&clock_rpm clk_qseecom_ce1_clk>,
+                         <&clock_gcc clk_ufs_axi_clk_src>,
+                         <&clock_gcc clk_gcc_ufs_axi_clk>,
+                         <&clock_gcc clk_gcc_sys_noc_ufs_axi_clk>,
+			 <&clock_gcc clk_gcc_ufs_ahb_clk>;
 		qcom,ce-opp-freq = <171430000>;
 	};
 
