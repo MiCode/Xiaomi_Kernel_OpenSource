@@ -129,6 +129,7 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 #define WLAN_BOOTSTRAP_DELAY	10
 #define EVICT_BIN_MAX_SIZE      (512*1024)
 #define CNSS_PINCTRL_STATE_ACTIVE "default"
+#define BUS_ACTIVITY_TIMEOUT	1000
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
@@ -269,6 +270,10 @@ static struct cnss_data {
 	u32 bdata_seg_count;
 	struct segment_memory bdata_seg_mem[MAX_NUM_OF_SEGMENTS];
 	int wlan_bootstrap_gpio;
+	atomic_t auto_suspended;
+	bool monitor_wake_intr;
+	atomic_t auto_suspend_prevent_count;
+	unsigned long last_activity;
 } *penv;
 
 static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
@@ -1327,7 +1332,7 @@ static int cnss_wlan_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 	if (!wdriver)
 		goto out;
 
-	if (wdriver->suspend) {
+	if (wdriver->suspend && !atomic_read(&penv->auto_suspended)) {
 		ret = wdriver->suspend(pdev, state);
 
 		if (penv->pcie_link_state) {
@@ -1335,6 +1340,7 @@ static int cnss_wlan_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 			penv->saved_state = pci_store_saved_state(pdev);
 		}
 	}
+	penv->monitor_wake_intr = false;
 
 out:
 	return ret;
@@ -1352,6 +1358,17 @@ static int cnss_wlan_pci_resume(struct pci_dev *pdev)
 	if (!wdriver)
 		goto out;
 
+	if (atomic_read(&penv->auto_suspended) && !penv->pcie_link_down_ind) {
+		if (msm_pcie_pm_control(MSM_PCIE_RESUME,
+			cnss_get_pci_dev_bus_number(pdev),
+			pdev, NULL, PM_OPTIONS)) {
+			pr_err("%s: Failed to resume PCIe link\n", __func__);
+			ret = -EAGAIN;
+			goto out;
+		}
+		atomic_set(&penv->auto_suspended, 0);
+		penv->pcie_link_state = PCIE_LINK_UP;
+	}
 	if (wdriver->resume && !penv->pcie_link_down_ind) {
 		if (penv->saved_state)
 			pci_load_and_free_saved_state(pdev,
@@ -1460,21 +1477,48 @@ void cnss_schedule_recovery_work(void)
 }
 EXPORT_SYMBOL(cnss_schedule_recovery_work);
 
-void cnss_pci_link_down_cb(struct msm_pcie_notify *notify)
+void auto_resume_work_handler(struct work_struct *auto_resume)
+{
+	cnss_auto_resume();
+}
+
+DECLARE_WORK(auto_resume_work, auto_resume_work_handler);
+
+void cnss_pci_events_cb(struct msm_pcie_notify *notify)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&pci_link_down_lock, flags);
-	if (penv->pcie_link_down_ind) {
-		pr_debug("PCI link down recovery is in progress, ignore!\n");
-		spin_unlock_irqrestore(&pci_link_down_lock, flags);
+	if (notify == NULL)
 		return;
-	}
-	penv->pcie_link_down_ind = true;
-	spin_unlock_irqrestore(&pci_link_down_lock, flags);
 
-	pr_err("PCI link down, schedule recovery\n");
-	schedule_work(&recovery_work);
+	switch (notify->event) {
+
+	case MSM_PCIE_EVENT_LINKDOWN:
+		spin_lock_irqsave(&pci_link_down_lock, flags);
+		if (penv->pcie_link_down_ind) {
+			pr_debug("PCI link down recovery is in progress, ignore!\n");
+			spin_unlock_irqrestore(&pci_link_down_lock, flags);
+			return;
+		}
+		penv->pcie_link_down_ind = true;
+		spin_unlock_irqrestore(&pci_link_down_lock, flags);
+
+		pr_err("PCI link down, schedule recovery\n");
+		schedule_work(&recovery_work);
+		break;
+
+	case MSM_PCIE_EVENT_WAKEUP:
+		if (penv->monitor_wake_intr &&
+			atomic_read(&penv->auto_suspended)) {
+			penv->monitor_wake_intr = false;
+			schedule_work(&auto_resume_work);
+		}
+		break;
+
+	default:
+		pr_err("cnss: invalid event from PCIe callback %d\n",
+			notify->event);
+	}
 }
 
 void cnss_wlan_pci_link_down(void)
@@ -1714,10 +1758,11 @@ again:
 		}
 	}
 
-	penv->event_reg.events = MSM_PCIE_EVENT_LINKDOWN;
+	penv->event_reg.events = MSM_PCIE_EVENT_LINKDOWN |
+			MSM_PCIE_EVENT_WAKEUP;
 	penv->event_reg.user = pdev;
 	penv->event_reg.mode = MSM_PCIE_TRIGGER_CALLBACK;
-	penv->event_reg.callback = cnss_pci_link_down_cb;
+	penv->event_reg.callback = cnss_pci_events_cb;
 	penv->event_reg.options = MSM_PCIE_CONFIG_NO_RECOVERY;
 	ret = msm_pcie_register_event(&penv->event_reg);
 	if (ret) {
@@ -1813,6 +1858,9 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 	}
 	penv->pcie_link_state = PCIE_LINK_DOWN;
 	penv->driver_status = CNSS_UNINITIALIZED;
+	atomic_set(&penv->auto_suspend_prevent_count, 0);
+	penv->monitor_wake_intr = false;
+	atomic_set(&penv->auto_suspended, 0);
 
 	msm_pcie_deregister_event(&penv->event_reg);
 
@@ -2732,6 +2780,162 @@ void *cnss_get_fw_ptr(void)
 }
 EXPORT_SYMBOL(cnss_get_fw_ptr);
 #endif
+
+int cnss_auto_suspend(void)
+{
+	int ret = 0;
+	struct pci_dev *pdev;
+	struct cnss_wlan_driver *wdriver;
+	pm_message_t state;
+
+	if (!penv || !penv->driver)
+		return -ENODEV;
+
+	if (atomic_read(&penv->auto_suspended)) {
+		pr_err("cnss: trying to auto suspend, but is already suspended\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	wdriver = penv->driver;
+
+	if (!wdriver->suspend || penv->pcie_link_down_ind
+		|| penv->recovery_in_progress) {
+		pr_err("cnss: suspend not registered or link down or in recovery %d %d\n",
+			penv->pcie_link_down_ind, penv->recovery_in_progress);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	pdev = penv->pdev;
+	state.event = PM_EVENT_SUSPEND;
+
+	ret = wdriver->suspend(pdev, state);
+	if (ret) {
+		pr_err("%s: auto suspend failed %d\n", __func__, ret);
+		ret = -EAGAIN;
+		goto out;
+	}
+
+	if (penv->pcie_link_state) {
+		pci_save_state(pdev);
+		penv->saved_state = pci_store_saved_state(pdev);
+		if (msm_pcie_pm_control(MSM_PCIE_SUSPEND,
+			cnss_get_pci_dev_bus_number(pdev),
+			pdev, NULL, PM_OPTIONS)) {
+			pr_err("%s: Failed to shutdown PCIe link\n", __func__);
+			ret = -EAGAIN;
+			goto out;
+		}
+	}
+	atomic_set(&penv->auto_suspended, 1);
+	penv->monitor_wake_intr = true;
+	penv->pcie_link_state = PCIE_LINK_DOWN;
+
+out:
+	return ret;
+}
+EXPORT_SYMBOL(cnss_auto_suspend);
+
+int cnss_auto_resume(void)
+{
+	int ret = 0;
+	struct pci_dev *pdev;
+	struct cnss_wlan_driver *wdriver;
+
+	if (!penv || !penv->driver)
+		return -ENODEV;
+
+	if (!atomic_read(&penv->auto_suspended)) {
+		pr_err("cnss: trying to auto resume, but not suspended\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	wdriver = penv->driver;
+
+	if (!wdriver->resume || penv->pcie_link_down_ind
+		|| penv->recovery_in_progress) {
+		pr_err("cnss: resume not registered or link down or in recovery %d %d\n",
+			penv->pcie_link_down_ind, penv->recovery_in_progress);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	pdev = penv->pdev;
+
+	if (!penv->pcie_link_state) {
+		if (msm_pcie_pm_control(MSM_PCIE_RESUME,
+			    cnss_get_pci_dev_bus_number(pdev),
+			    pdev, NULL, PM_OPTIONS)) {
+			pr_err("%s: Failed to resume PCIe link\n", __func__);
+			ret = -EAGAIN;
+			goto out;
+		}
+		penv->pcie_link_state = PCIE_LINK_UP;
+	}
+
+	if (penv->saved_state)
+		pci_load_and_free_saved_state(pdev,
+			&penv->saved_state);
+
+	pci_restore_state(pdev);
+
+	ret = wdriver->resume(pdev);
+	if (ret)
+		pr_err("%s: Failed to resume wlan driver\n", __func__);
+
+	atomic_set(&penv->auto_suspended, 0);
+out:
+	return ret;
+}
+EXPORT_SYMBOL(cnss_auto_resume);
+
+
+int cnss_prevent_auto_suspend(const char *caller_func)
+{
+	if (!penv || !penv->driver)
+		return -ENODEV;
+
+	atomic_inc_return(&penv->auto_suspend_prevent_count);
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_prevent_auto_suspend);
+
+int cnss_allow_auto_suspend(const char *caller_func)
+{
+	if (!penv || !penv->driver)
+		return -ENODEV;
+
+	atomic_dec_return(&penv->auto_suspend_prevent_count);
+	penv->last_activity = jiffies;
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_allow_auto_suspend);
+
+int cnss_is_auto_suspend_allowed(const char *caller_func)
+{
+	int count;
+	unsigned long timeout;
+
+	timeout = penv->last_activity + msecs_to_jiffies(BUS_ACTIVITY_TIMEOUT);
+
+	if (!penv || !penv->driver)
+		return -ENODEV;
+
+	count = atomic_read(&penv->auto_suspend_prevent_count);
+	if (!count && time_after(jiffies, timeout)) {
+		pr_err("cnss: Auto suspend allowed");
+		return 0;
+
+	} else if (!count)
+		return -EAGAIN;
+
+	return count;
+}
+EXPORT_SYMBOL(cnss_is_auto_suspend_allowed);
 
 module_init(cnss_initialize);
 module_exit(cnss_exit);

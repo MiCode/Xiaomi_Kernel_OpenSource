@@ -165,4 +165,9 @@ static inline void wcnss_prealloc_check_memory_leak(void) {}
 
 
 extern int msm_pcie_enumerate(u32 rc_idx);
+extern int cnss_auto_suspend(void);
+extern int cnss_auto_resume(void);
+extern int cnss_prevent_auto_suspend(const char *caller_func);
+extern int cnss_allow_auto_suspend(const char *caller_func);
+extern int cnss_is_auto_suspend_allowed(const char *caller_func);
 #endif /* _NET_CNSS_H_ */
