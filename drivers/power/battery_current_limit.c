@@ -281,11 +281,11 @@ static int bcl_cpufreq_callback(struct notifier_block *nfb,
 			max_freq = (gbcl->bcl_monitor_type
 				== BCL_IBAT_MONITOR_TYPE) ? gbcl->btm_freq_max
 				: gbcl->bcl_p_freq_max;
-			pr_debug("Requesting Max freq:%d for CPU%d\n",
-				max_freq, policy->cpu);
-			cpufreq_verify_within_limits(policy, 0,
-				max_freq);
 		}
+		pr_debug("Requesting Max freq:%u for CPU%d\n",
+			max_freq, policy->cpu);
+		cpufreq_verify_within_limits(policy, 0,
+			max_freq);
 		break;
 	}
 
