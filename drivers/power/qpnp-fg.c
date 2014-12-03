@@ -943,8 +943,29 @@ out:
 	return rc;
 }
 
-#define DEFAULT_CAPACITY 50
-#define MISSING_CAPACITY 100
+#define SOC_EMPTY	BIT(3)
+static bool fg_is_batt_empty(struct fg_chip *chip)
+{
+	u8 fg_soc_sts;
+	int rc;
+
+	rc = fg_read(chip, &fg_soc_sts,
+				 INT_RT_STS(chip->soc_base), 1);
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->soc_base), rc);
+		return false;
+	}
+
+	if (fg_debug_mask & FG_IRQS)
+		pr_info("fg soc sts 0x%x\n", fg_soc_sts);
+
+	return (fg_soc_sts & SOC_EMPTY) != 0;
+}
+
+#define EMPTY_CAPACITY		0
+#define DEFAULT_CAPACITY	50
+#define MISSING_CAPACITY	100
 static int get_prop_capacity(struct fg_chip *chip)
 {
 	u8 cap[2];
@@ -954,7 +975,12 @@ static int get_prop_capacity(struct fg_chip *chip)
 		return MISSING_CAPACITY;
 	if (!chip->profile_loaded && !chip->use_otp_profile)
 		return DEFAULT_CAPACITY;
-
+	if (fg_is_batt_empty(chip)) {
+		if (fg_debug_mask & FG_POWER_SUPPLY)
+			pr_info_ratelimited("capacity: %d, EMPTY\n",
+					EMPTY_CAPACITY);
+		return EMPTY_CAPACITY;
+	}
 	while (tries < MAX_TRIES_SOC) {
 		rc = fg_read(chip, cap,
 				chip->soc_base + SOC_MONOTONIC_SOC, 2);
