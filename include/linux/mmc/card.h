@@ -231,6 +231,7 @@ enum mmc_packed_stop_reasons {
 	REL_WRITE,
 	THRESHOLD,
 	LARGE_SEC_ALIGN,
+	RANDOM,
 	MAX_REASONS,
 };
 
