@@ -160,8 +160,17 @@ struct blk_dev_test_type {
  * struct test_data - global test iosched data
  * @queue:		The test IO scheduler requests list
  * @test_queue:		The test requests list
- * @next_req:		Points to the next request to be
- *			dispatched from the test requests list
+ * @dispatched_queue:   The queue contains requests dispatched
+ *			from @test_queue
+ * @reinsert_queue:     The queue contains reinserted from underlying
+ *			driver requests
+ * @urgent_queue:       The queue contains requests for urgent delivery
+ *			These requests will be delivered before @test_queue
+ *			and @reinsert_queue requests
+ * @test_count:         Number of requests in the @test_queue
+ * @dispatched_count:   Number of requests in the @dispatched_queue
+ * @reinsert_count:     Number of requests in the @reinsert_queue
+ * @urgent_count:       Number of requests in the @urgent_queue
  * @wait_q:		A wait queue for waiting for the test
  *			requests completion
  * @test_state:		Indicates if there is a running test.
@@ -194,7 +203,13 @@ struct blk_dev_test_type {
 struct test_data {
 	struct list_head queue;
 	struct list_head test_queue;
-	struct test_request *next_req;
+	struct list_head dispatched_queue;
+	struct list_head reinsert_queue;
+	struct list_head urgent_queue;
+	unsigned int  test_count;
+	unsigned int  dispatched_count;
+	unsigned int  reinsert_count;
+	unsigned int  urgent_count;
 	wait_queue_head_t wait_q;
 	enum test_state test_state;
 	enum test_results test_result;
@@ -209,6 +224,7 @@ struct test_data {
 	struct test_info test_info;
 	bool fs_wr_reqs_during_test;
 	bool ignore_round;
+	bool notified_urgent;
 };
 
 extern int test_iosched_start_test(struct test_info *t_info);
@@ -217,6 +233,9 @@ extern int test_iosched_add_unique_test_req(int is_err_expcted,
 		enum req_unique_type req_unique,
 		int start_sec, int nr_sects, rq_end_io_fn *end_req_io);
 extern int test_iosched_add_wr_rd_test_req(int is_err_expcted,
+	      int direction, int start_sec,
+	      int num_bios, int pattern, rq_end_io_fn *end_req_io);
+extern struct test_request *test_iosched_create_test_req(int is_err_expcted,
 	      int direction, int start_sec,
 	      int num_bios, int pattern, rq_end_io_fn *end_req_io);
 
@@ -233,4 +252,9 @@ void test_iosched_register(struct blk_dev_test_type *bdt);
 
 void test_iosched_unregister(struct blk_dev_test_type *bdt);
 
+extern struct test_data *test_get_test_data(void);
+
+void test_iosched_add_urgent_req(struct test_request *test_rq);
+
+int test_is_req_urgent(struct request *rq);
 #endif /* _LINUX_TEST_IOSCHED_H */
