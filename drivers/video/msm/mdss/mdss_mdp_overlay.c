@@ -575,10 +575,9 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_format_params *fmt;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_mixer *mixer = NULL;
-	u32 pipe_type, mixer_mux, len;
+	u32 pipe_type, mixer_mux;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
-	struct mdp_histogram_start_req hist;
 	int ret;
 	u32 bwc_enabled;
 	u32 rot90;
@@ -891,51 +890,10 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
 		memcpy(&pipe->pp_cfg, &req->overlay_pp_cfg,
 					sizeof(struct mdp_overlay_pp_params));
-		len = pipe->pp_cfg.igc_cfg.len;
-		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_IGC_CFG) &&
-						(len == IGC_LUT_ENTRIES)) {
-			ret = copy_from_user(pipe->pp_res.igc_c0_c1,
-					pipe->pp_cfg.igc_cfg.c0_c1_data,
-					sizeof(uint32_t) * len);
-			if (ret) {
-				ret = -ENOMEM;
-				goto exit_fail;
-			}
-			ret = copy_from_user(pipe->pp_res.igc_c2,
-					pipe->pp_cfg.igc_cfg.c2_data,
-					sizeof(uint32_t) * len);
-			if (ret) {
-				ret = -ENOMEM;
-				goto exit_fail;
-			}
-			pipe->pp_cfg.igc_cfg.c0_c1_data =
-							pipe->pp_res.igc_c0_c1;
-			pipe->pp_cfg.igc_cfg.c2_data = pipe->pp_res.igc_c2;
-		}
-		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_CFG) {
-			if (pipe->pp_cfg.hist_cfg.ops & MDP_PP_OPS_ENABLE) {
-				hist.block = pipe->pp_cfg.hist_cfg.block;
-				hist.frame_cnt =
-					pipe->pp_cfg.hist_cfg.frame_cnt;
-				hist.bit_mask = pipe->pp_cfg.hist_cfg.bit_mask;
-				hist.num_bins = pipe->pp_cfg.hist_cfg.num_bins;
-				mdss_mdp_hist_start(&hist);
-			} else if (pipe->pp_cfg.hist_cfg.ops &
-							MDP_PP_OPS_DISABLE) {
-				mdss_mdp_hist_stop(pipe->pp_cfg.hist_cfg.block);
-			}
-		}
-		len = pipe->pp_cfg.hist_lut_cfg.len;
-		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_LUT_CFG) &&
-						(len == ENHIST_LUT_ENTRIES)) {
-			ret = copy_from_user(pipe->pp_res.hist_lut,
-					pipe->pp_cfg.hist_lut_cfg.data,
-					sizeof(uint32_t) * len);
-			if (ret) {
-				ret = -ENOMEM;
-				goto exit_fail;
-			}
-			pipe->pp_cfg.hist_lut_cfg.data = pipe->pp_res.hist_lut;
+		ret = mdss_mdp_pp_sspp_config(pipe);
+		if (ret) {
+			pr_err("failed to configure pp params ret %d\n", ret);
+			goto exit_fail;
 		}
 	}
 

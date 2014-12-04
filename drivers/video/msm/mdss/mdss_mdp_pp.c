@@ -6017,3 +6017,69 @@ int mdss_mdp_calib_config_buffer(struct mdp_calib_config_buffer *cfg,
 	kfree(buff_org);
 	return ret;
 }
+
+int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
+{
+	struct mdp_histogram_start_req hist;
+	u32 len = 0;
+	int ret = 0;
+
+	if (!pipe) {
+		pr_err("invalid params %p\n", pipe);
+		return -EINVAL;
+	}
+
+	len = pipe->pp_cfg.igc_cfg.len;
+	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_IGC_CFG)) {
+		if (len == IGC_LUT_ENTRIES) {
+			ret = copy_from_user(pipe->pp_res.igc_c0_c1,
+					pipe->pp_cfg.igc_cfg.c0_c1_data,
+					sizeof(uint32_t) * len);
+			if (ret) {
+				pr_err("failed to copy the igc c0_c1 data\n");
+				ret = -EFAULT;
+				goto exit_fail;
+			}
+			ret = copy_from_user(pipe->pp_res.igc_c2,
+					pipe->pp_cfg.igc_cfg.c2_data,
+					sizeof(uint32_t) * len);
+			if (ret) {
+				ret = -EFAULT;
+				pr_err("failed to copy the igc c2 data\n");
+				goto exit_fail;
+			}
+			pipe->pp_cfg.igc_cfg.c0_c1_data =
+							pipe->pp_res.igc_c0_c1;
+			pipe->pp_cfg.igc_cfg.c2_data = pipe->pp_res.igc_c2;
+		} else
+			pr_warn("invalid length of IGC len %d\n", len);
+	}
+	if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_CFG) {
+		if (pipe->pp_cfg.hist_cfg.ops & MDP_PP_OPS_ENABLE) {
+			hist.block = pipe->pp_cfg.hist_cfg.block;
+			hist.frame_cnt =
+				pipe->pp_cfg.hist_cfg.frame_cnt;
+			hist.bit_mask = pipe->pp_cfg.hist_cfg.bit_mask;
+			hist.num_bins = pipe->pp_cfg.hist_cfg.num_bins;
+			mdss_mdp_hist_start(&hist);
+		} else if (pipe->pp_cfg.hist_cfg.ops &
+						MDP_PP_OPS_DISABLE) {
+			mdss_mdp_hist_stop(pipe->pp_cfg.hist_cfg.block);
+		}
+	}
+	len = pipe->pp_cfg.hist_lut_cfg.len;
+	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_LUT_CFG) &&
+					(len == ENHIST_LUT_ENTRIES)) {
+		ret = copy_from_user(pipe->pp_res.hist_lut,
+				pipe->pp_cfg.hist_lut_cfg.data,
+				sizeof(uint32_t) * len);
+		if (ret) {
+			ret = -EFAULT;
+			pr_err("failed to copy the hist lut\n");
+			goto exit_fail;
+		}
+		pipe->pp_cfg.hist_lut_cfg.data = pipe->pp_res.hist_lut;
+	}
+exit_fail:
+	return ret;
+}
