@@ -1285,8 +1285,15 @@ exit:
 		_dhd_pno_reinitialize_prof(dhd, _params, DHD_PNO_LEGACY_MODE);
 exit_no_clear:
 	/* clear mode in case of error */
-	if (err < 0)
-		_pno_state->pno_mode &= ~DHD_PNO_LEGACY_MODE;
+	if (err < 0) {
+		int ret = dhd_pno_clean(dhd);
+		if (ret < 0) {
+			 DHD_ERROR(("%s : failed to call dhd_pno_clean (err: %d)\n",
+			 	__FUNCTION__, ret));
+		} else {
+			_pno_state->pno_mode &= ~DHD_PNO_LEGACY_MODE;
+		}
+	}
 	return err;
 }
 int
@@ -2095,8 +2102,15 @@ dhd_pno_set_for_gscan(dhd_pub_t *dhd, struct dhd_pno_gscan_params *gscan_params)
 
 exit:
 	/* clear mode in case of error */
-	if (err < 0)
-		_pno_state->pno_mode &= ~DHD_PNO_GSCAN_MODE;
+	if (err < 0) {
+		int ret = dhd_pno_clean(dhd);
+		if (ret < 0) {
+			 DHD_ERROR(("%s : failed to call dhd_pno_clean (err: %d)\n",
+			 	__FUNCTION__, ret));
+		} else {
+			_pno_state->pno_mode &= ~DHD_PNO_GSCAN_MODE;
+		}
+	}
 	kfree(pssid_list);
 	kfree(p_pfn_significant_bssid);
 	kfree(p_pfn_bssid);
