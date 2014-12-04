@@ -242,6 +242,7 @@
 #define ARM_SMMU_CB_FAR_HI		0x64
 #define ARM_SMMU_CB_FSYNR0		0x68
 #define ARM_SMMU_CB_S1_TLBIASID		0x610
+#define ARM_SMMU_CB_S1_TLBIALL		0x618
 #define ARM_SMMU_CB_ATS1PR_LO		0x800
 #define ARM_SMMU_CB_ATS1PR_HI		0x804
 #define ARM_SMMU_CB_ATSR		0x8f0
@@ -347,6 +348,13 @@
 #define ACTLR_QCOM_NSH_SHIFT		30
 #define ACTLR_QCOM_NSH			1
 
+#define ARM_SMMU_IMPL_DEF0(smmu) \
+	((smmu)->base + (2 * (1 << (smmu)->pgshift)))
+#define ARM_SMMU_IMPL_DEF1(smmu) \
+	((smmu)->base + (6 * (1 << (smmu)->pgshift)))
+#define IMPL_DEF1_MICRO_MMU_CTRL	0
+#define MICRO_MMU_CTRL_LOCAL_HALT_REQ	(1 << 2)
+#define MICRO_MMU_CTRL_IDLE		(1 << 3)
 
 #define FSR_IGN				(FSR_AFF | FSR_ASF | \
 					 FSR_TLBMCF | FSR_TLBLKF)
@@ -412,6 +420,7 @@ struct arm_smmu_device {
 
 #define ARM_SMMU_OPT_SECURE_CFG_ACCESS (1 << 0)
 #define ARM_SMMU_OPT_INVALIDATE_ON_MAP (1 << 1)
+#define ARM_SMMU_OPT_HALT_AND_TLB_ON_ATOS  (1 << 2)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -478,6 +487,7 @@ struct arm_smmu_option_prop {
 static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SECURE_CFG_ACCESS, "calxeda,smmu-secure-config-access" },
 	{ ARM_SMMU_OPT_INVALIDATE_ON_MAP, "qcom,smmu-invalidate-on-map" },
+	{ ARM_SMMU_OPT_HALT_AND_TLB_ON_ATOS, "qcom,halt-and-tlb-on-atos" },
 	{ 0, NULL},
 };
 
@@ -1834,6 +1844,34 @@ static phys_addr_t arm_smmu_iova_to_phys_soft(struct iommu_domain *domain,
 	return __pfn_to_phys(pte_pfn(pte)) | (iova & ~PAGE_MASK);
 }
 
+static int arm_smmu_halt(struct arm_smmu_device *smmu)
+{
+	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
+	u32 tmp;
+
+	writel_relaxed(MICRO_MMU_CTRL_LOCAL_HALT_REQ,
+		impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+
+	if (readl_poll_timeout_atomic(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL,
+					tmp, (tmp & MICRO_MMU_CTRL_IDLE),
+					0, 30000)) {
+		dev_err(smmu->dev, "Couldn't halt SMMU!\n");
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+static void arm_smmu_resume(struct arm_smmu_device *smmu)
+{
+	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
+	u32 reg;
+
+	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	reg &= ~MICRO_MMU_CTRL_LOCAL_HALT_REQ;
+	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+}
+
 static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 					dma_addr_t iova)
 {
@@ -1845,12 +1883,20 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	u32 tmp;
 	u64 phys;
 	unsigned long flags;
+	bool need_halt_and_tlb =
+		smmu->options & ARM_SMMU_OPT_HALT_AND_TLB_ON_ATOS;
 
 	arm_smmu_enable_clocks(smmu);
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 
 	spin_lock_irqsave(&smmu->atos_lock, flags);
+
+	if (need_halt_and_tlb) {
+		if (arm_smmu_halt(smmu))
+			goto err_unlock;
+		writel_relaxed(0, cb_base + ARM_SMMU_CB_S1_TLBIALL);
+	}
 
 	if (smmu->version == 1) {
 		u32 reg = iova & ~0xfff;
@@ -1864,16 +1910,17 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 
 	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
 				!(tmp & ATSR_ACTIVE), 5, 50)) {
-		spin_unlock_irqrestore(&smmu->atos_lock, flags);
 		dev_err(dev,
 			"iova to phys timed out on 0x%pa. Falling back to software table walk.\n",
 			&iova);
-		arm_smmu_disable_clocks(smmu);
-		return arm_smmu_iova_to_phys_soft(domain, iova);
+		goto err_resume;
 	}
 
 	phys = readl_relaxed(cb_base + ARM_SMMU_CB_PAR_LO);
 	phys |= ((u64) readl_relaxed(cb_base + ARM_SMMU_CB_PAR_HI)) << 32;
+
+	if (need_halt_and_tlb)
+		arm_smmu_resume(smmu);
 
 	spin_unlock_irqrestore(&smmu->atos_lock, flags);
 
@@ -1887,6 +1934,14 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 
 	arm_smmu_disable_clocks(smmu);
 	return phys;
+
+err_resume:
+	if (need_halt_and_tlb)
+		arm_smmu_resume(smmu);
+err_unlock:
+	spin_unlock_irqrestore(&smmu->atos_lock, flags);
+	arm_smmu_disable_clocks(smmu);
+	return arm_smmu_iova_to_phys_soft(domain, iova);
 }
 
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
