@@ -2997,7 +2997,7 @@ static int kgsl_setup_dma_buf(struct kgsl_mem_entry *entry,
 
 	attach = dma_buf_attach(dmabuf, device->dev);
 	if (IS_ERR_OR_NULL(attach)) {
-		ret = PTR_ERR(attach);
+		ret = attach ? PTR_ERR(attach) : -EINVAL;
 		goto out;
 	}
 
@@ -3054,14 +3054,11 @@ static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
 	int fd = param->fd;
 	struct dma_buf *dmabuf;
 
-	if (!param->len || param->offset)
-		return -EINVAL;
-
 	dmabuf = dma_buf_get(fd);
-	if (IS_ERR_OR_NULL(dmabuf)) {
-		ret = PTR_ERR(dmabuf);
-		return ret ? ret : -EINVAL;
-	}
+
+	if (IS_ERR_OR_NULL(dmabuf))
+		return (dmabuf == NULL) ? -EINVAL : PTR_ERR(dmabuf);
+
 	ret = kgsl_setup_dma_buf(entry, pagetable, device, dmabuf);
 	if (ret)
 		dma_buf_put(dmabuf);
