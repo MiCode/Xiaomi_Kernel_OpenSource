@@ -564,6 +564,25 @@ static void dwc3_suspend_phy(struct dwc3 *dwc, bool suspend)
 	dwc3_writel(dwc->regs, GUSB3PIPECTL0, data);
 }
 
+/*
+ * dwc3_disable_multi_packet - disable reception multi-packet
+ * thresholding in order to support burst size 0 per SYNOPSIS
+ * requirement.
+ */
+static void dwc3_disable_multi_packet(struct dwc3 *dwc)
+{
+	u32			reg;
+
+	reg = dwc3_readl(dwc->regs, DWC3_GRXTHRCFG);
+	if (reg) {
+		reg &= ~DWC3_GRXTHRCFG_USBRXPKTCNTSEL;
+		reg &= ~DWC3_GRXTHRCFG_USBRXPKTCNT_MASK;
+		reg &= ~DWC3_GRXTHRCFG_USBMAXRXBURSTSIZE_MASK;
+
+		dwc3_writel(dwc->regs, DWC3_GRXTHRCFG, reg);
+	}
+}
+
 static int dwc3_handle_otg_notification(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
@@ -968,6 +987,8 @@ static int dwc3_resume_common(struct device *dev)
 	usb_phy_init(dwc->usb2_phy);
 
 	spin_lock_irqsave(&dwc->lock, flags);
+
+	dwc3_disable_multi_packet(dwc);
 
 	dwc3_suspend_phy(dwc, false);
 
