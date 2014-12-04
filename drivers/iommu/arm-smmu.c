@@ -1902,10 +1902,8 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		u32 reg = iova & ~0xfff;
 		writel_relaxed(reg, cb_base + ARM_SMMU_CB_ATS1PR_LO);
 	} else {
-		u32 reg = iova & ~0xfff;
-		writel_relaxed(reg, cb_base + ARM_SMMU_CB_ATS1PR_LO);
-		reg = (iova & ~0xfff) >> 32;
-		writel_relaxed(reg, cb_base + ARM_SMMU_CB_ATS1PR_HI);
+		u64 reg = iova & ~0xfff;
+		writeq_relaxed(reg, cb_base + ARM_SMMU_CB_ATS1PR_LO);
 	}
 
 	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
