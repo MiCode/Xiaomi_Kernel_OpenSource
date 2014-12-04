@@ -376,7 +376,8 @@ static void _reg_ion_mem(void)
 	rc = msm_audio_ion_alloc("DTS_EAGLE", &_ion_client, &_ion_handle,
 			    ION_MEM_SIZE, &_po.paddr, &_po.size, &_po.kvaddr);
 	if (rc)
-		eagle_drv_err("%s: msm audio ion alloc failed",	__func__);
+		eagle_drv_err("%s: msm audio ion alloc failed with %i",
+				__func__, rc);
 }
 
 static void _unreg_ion_mem(void)
@@ -384,7 +385,8 @@ static void _unreg_ion_mem(void)
 	int rc;
 	rc = msm_audio_ion_free(_ion_client, _ion_handle);
 	if (rc)
-		eagle_drv_err("%s: msm audio ion free failed", __func__);
+		eagle_drv_err("%s: msm audio ion alloc failed with %i",
+				__func__, rc);
 }
 
 static void _reg_ion_mem_NT(void)
@@ -822,12 +824,18 @@ int msm_dts_eagle_handle_asm(struct dts_eagle_param_desc *depd, char *buf,
 			buf_ = (u32 *)&_depc[offset];
 		}
 		if (isALSA) {
-			if (depd->size == 2)
-				*(long *)buf++ = (long)*(__u16 *)buf_;
-			else {
-				u32 *pbuf = (u32 *)buf_;
-				for (i = 0; i < (depd->size >> 2); i++)
-					*(long *)buf++ = (long)*pbuf++;
+			if (depd->size == 2) {
+				*(long *)buf = (long)*(__u16 *)buf_;
+				eagle_asm_dbg("%s: asm out 16 bit value %li",
+						__func__, *(long *)buf);
+			} else {
+				s32 *pbuf = (s32 *)buf_;
+				long *bufl = (long *)buf;
+				for (i = 0; i < (depd->size >> 2); i++) {
+					*bufl++ = (long)*pbuf++;
+					eagle_asm_dbg("%s: asm out value %li",
+							 __func__, *(bufl-1));
+				}
 			}
 		} else {
 			memcpy(buf, buf_, depd->size);
@@ -851,10 +859,16 @@ DTS_EAGLE_IOCTL_GET_PARAM_PRE_EXIT:
 		if (isALSA) {
 			if (depd->size == 2) {
 				*(__u16 *)&_depc[offset] = (__u16)*(long *)buf;
+				eagle_asm_dbg("%s: asm in 16 bit value %li",
+						__func__, *(long *)buf);
 			} else {
-				u32 *pbuf = (u32 *)&_depc[offset];
-				for (i = 0; i < (depd->size >> 2); i++)
-					*pbuf++ = (u32)*(long *)buf++;
+				s32 *pbuf = (s32 *)&_depc[offset];
+				long *bufl = (long *)buf;
+				for (i = 0; i < (depd->size >> 2); i++) {
+					*pbuf++ = (s32)*bufl++;
+					eagle_asm_dbg("%s: asm in value %i",
+							__func__, *(pbuf-1));
+				}
 			}
 		} else {
 			memcpy(&_depc[offset], buf, depd->size);

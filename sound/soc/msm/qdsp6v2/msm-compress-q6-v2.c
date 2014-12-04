@@ -81,6 +81,15 @@ const DECLARE_TLV_DB_LINEAR(msm_compr_vol_gain, 0,
 
 #define MAX_NUMBER_OF_STREAMS 2
 
+/*
+ * Max size for getting DTS EAGLE Param through kcontrol
+ * Safe for both 32 and 64 bit platforms
+ * 64 = size of kcontrol value array on 64 bit platform
+ * 4 = size of parameters Eagle expects before cast to 64 bits
+ * 40 = size of dts_eagle_param_desc + module_id cast to 64 bits
+ */
+#define DTS_EAGLE_MAX_PARAM_SIZE_FOR_ALSA ((64 * 4) - 40)
+
 struct msm_compr_gapless_state {
 	bool set_next_stream_id;
 	int32_t stream_opened[MAX_NUMBER_OF_STREAMS];
@@ -2164,11 +2173,18 @@ static int msm_compr_audio_effects_config_get(struct snd_kcontrol *kcontrol,
 		values[2] = (long)audio_effects->query.size;
 		values[3] = (long)audio_effects->query.offset;
 		values[4] = (long)audio_effects->query.device;
+		if (values[2] > DTS_EAGLE_MAX_PARAM_SIZE_FOR_ALSA) {
+			pr_err("%s: DTS_EAGLE_MODULE parameter's requested size (%li) too large (max size is %i)\n",
+				__func__, values[2],
+				DTS_EAGLE_MAX_PARAM_SIZE_FOR_ALSA);
+			return -EINVAL;
+		}
 		msm_dts_eagle_handle_asm(NULL, (void *)&values[1],
 					 true, true, prtd->audio_client, NULL);
 		break;
 	default:
-		break;
+		pr_err("%s: Invalid effects config module\n", __func__);
+		return -EINVAL;
 	}
 	return 0;
 }
@@ -2185,7 +2201,6 @@ static int msm_compr_query_audio_effect_put(struct snd_kcontrol *kcontrol,
 	struct msm_compr_audio *prtd = NULL;
 	long *values = &(ucontrol->value.integer.value[0]);
 
-	pr_debug("%s\n", __func__);
 	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
 		pr_err("%s Received out of bounds fe_id %lu\n",
 			__func__, fe_id);
@@ -2203,12 +2218,9 @@ static int msm_compr_query_audio_effect_put(struct snd_kcontrol *kcontrol,
 		return -EINVAL;
 	}
 	if (prtd->compr_passthr != LEGACY_PCM) {
-		pr_debug("%s: No effects for compr_type[%d]\n",
+		pr_err("%s: No effects for compr_type[%d]\n",
 			__func__, prtd->compr_passthr);
-		return 0;
-	} else {
-		pr_debug("%s: Effects supported for compr_type[%d]\n",
-			 __func__, prtd->compr_passthr);
+		return -EPERM;
 	}
 	audio_effects->query.mod_id = (u32)*values++;
 	audio_effects->query.parm_id = (u32)*values++;
@@ -2230,7 +2242,6 @@ static int msm_compr_query_audio_effect_get(struct snd_kcontrol *kcontrol,
 	struct msm_compr_audio *prtd = NULL;
 	long *values = &(ucontrol->value.integer.value[0]);
 
-	pr_debug("%s\n", __func__);
 	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
 		pr_err("%s Received out of bounds fe_id %lu\n",
 			__func__, fe_id);
@@ -2697,7 +2708,7 @@ static int msm_compr_add_query_audio_effect_control(
 	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name, rtd->pcm->device);
 	fe_query_audio_effect_control[0].name = mixer_str;
 	fe_query_audio_effect_control[0].private_value = rtd->dai_link->be_id;
-	pr_debug("Registering new mixer ctl %s\n", mixer_str);
+	pr_debug("%s: registering new mixer ctl %s\n", __func__, mixer_str);
 	snd_soc_add_platform_controls(rtd->platform,
 				fe_query_audio_effect_control,
 				ARRAY_SIZE(fe_query_audio_effect_control));
