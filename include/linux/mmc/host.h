@@ -80,6 +80,12 @@ struct mmc_ios {
 #define MMC_SET_DRIVER_TYPE_D	3
 };
 
+/* states to represent load on the host */
+enum mmc_load {
+	MMC_LOAD_HIGH,
+	MMC_LOAD_LOW,
+};
+
 struct mmc_host_ops {
 	/*
 	 * 'enable' is called when the host is claimed and 'disable' is called
@@ -152,6 +158,7 @@ struct mmc_host_ops {
 
 	unsigned long (*get_max_frequency)(struct mmc_host *host);
 	unsigned long (*get_min_frequency)(struct mmc_host *host);
+	int	(*notify_load)(struct mmc_host *, enum mmc_load);
 };
 
 struct mmc_card;
@@ -422,6 +429,7 @@ struct mmc_host {
 		bool		initialized;
 		bool		in_progress;
 		struct delayed_work work;
+		enum mmc_load	state;
 	} clk_scaling;
 	unsigned long		private[0] ____cacheline_aligned;
 };
