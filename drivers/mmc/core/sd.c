@@ -1151,6 +1151,7 @@ static void mmc_sd_remove(struct mmc_host *host)
 
 	mmc_claim_host(host);
 	host->card = NULL;
+	mmc_exit_clk_scaling(host);
 	mmc_release_host(host);
 }
 
@@ -1217,6 +1218,12 @@ static int _mmc_sd_suspend(struct mmc_host *host)
 
 	BUG_ON(!host);
 	BUG_ON(!host->card);
+
+	/*
+	 * Disable clock scaling before suspend and enable it after resume so
+	 * as to avoid clock scaling decisions kicking in during this window.
+	 */
+	mmc_disable_clk_scaling(host);
 
 	mmc_claim_host(host);
 
@@ -1323,6 +1330,13 @@ static int mmc_sd_runtime_suspend(struct mmc_host *host)
 		pr_err("%s: error %d doing aggressive suspend\n",
 			mmc_hostname(host), err);
 
+	/*
+	 * We have done full initialization of the card,
+	 * reset the clk scale stats and current frequency.
+	 */
+	if (mmc_can_scale_clk(host))
+		mmc_init_clk_scaling(host);
+
 	return err;
 }
 
@@ -1337,6 +1351,10 @@ static int mmc_sd_runtime_resume(struct mmc_host *host)
 	if (err && err != -ENOMEDIUM)
 		pr_err("%s: error %d doing runtime resume\n",
 			mmc_hostname(host), err);
+
+	/* Initialize clock scaling only for high frequency modes */
+	if (mmc_card_uhs(host->card))
+		mmc_init_clk_scaling(host);
 
 	return 0;
 }
