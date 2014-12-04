@@ -291,7 +291,7 @@ static struct sensors_classdev sensors_light_cdev = {
 	.max_range = "60000",
 	.resolution = "0.0125",
 	.sensor_power = "0.20",
-	.min_delay = 0, /* in microseconds */
+	.min_delay = 30000, /* in microseconds */
 	.fifo_reserved_event_count = 0,
 	.fifo_max_event_count = 0,
 	.enabled = 0,
@@ -312,7 +312,7 @@ static struct sensors_classdev sensors_proximity_cdev = {
 	.max_range = "5",
 	.resolution = "5.0",
 	.sensor_power = "3",
-	.min_delay = 0, /* in microseconds */
+	.min_delay = 30000, /* in microseconds */
 	.fifo_reserved_event_count = 0,
 	.fifo_max_event_count = 0,
 	.enabled = 0,
@@ -1236,9 +1236,9 @@ static int apds993x_set_als_poll_delay(struct i2c_client *client,
 	pr_debug("%s: val=%d\n", __func__, val);
 	mutex_lock(&data->op_mutex);
 
-	/* minimum 3ms */
-	if (val < 3)
-		val = 3;
+	/* minimum 30ms */
+	if (val < 30)
+		val = 30;
 	data->als_poll_delay = val;
 
 	if (data->als_poll_delay >= 100)
