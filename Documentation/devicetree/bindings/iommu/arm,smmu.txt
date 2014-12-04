@@ -54,6 +54,10 @@ conditions.
                   implementations that require a TLB invalidate
                   operation to occur at map time.
 
+- qcom,halt-and-tlb-on-atos : Enable proper handling of buffy
+                  implementations that require a halt and TLB invalidate
+                  before performing ATOS operations.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified
