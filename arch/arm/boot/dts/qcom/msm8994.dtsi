@@ -2385,7 +2385,7 @@
 		      <0xf9904000 0x19000>;
 		interrupt-names = "qup_irq", "bam_irq";
 		interrupts = <0 96 0>, <0 238 0>;
-		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-out = <400000>;
 		qcom,clk-freq-in  = <19200000>;
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
