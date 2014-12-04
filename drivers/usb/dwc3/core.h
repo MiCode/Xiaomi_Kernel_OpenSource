@@ -186,6 +186,10 @@
 /* Global User Control Register */
 #define DWC3_GUCTL_REFCLKPER		(0x3FF << 22)
 
+/* Host waits for DTCT value before timeout. Recommended to be POR value */
+#define DWC3_GUCTL_DTCT(n) ((n) << 9)
+#define DWC3_GUCTL_DTCT_MASK (2 << 9)
+
 /* Global Debug LTSSM Register */
 #define DWC3_GDBGLTSSM_LINKSTATE_MASK	(0xF << 22)
 
