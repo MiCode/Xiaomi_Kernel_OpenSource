@@ -651,10 +651,10 @@
 		qcom,cpr-init-voltage-ref = <800000 900000 1000000 1225000>;
 		qcom,cpr-init-voltage-step = <10000>;
 
-		qcom,cpr-corner-map = <1 1 2 2 3 3 3 3 4>;
+		qcom,cpr-corner-map = <1 1 2 2 3 3 4 4 4>;
 		qcom,cpr-voltage-ceiling-override =
 				<0xFFFFFFFF 0  800000  800000  900000  900000
-					      1000000 1000000 1000000 1000000
+					      1000000 1000000 1180000 1180000
 					      1180000>;
 
 		qcom,cpr-scaled-init-voltage-as-ceiling;
@@ -671,7 +671,7 @@
 				<8   960000000>,
 				<9  1248000000>;
 		qcom,cpr-speed-bin-max-corners =
-				<0xFFFFFFFF 0 2 4 8 9>;
+				<0xFFFFFFFF 0 2 4 6 9>;
 	};
 
 	apc1_vreg_corner: regulator@f901a000 {
