@@ -956,7 +956,7 @@ static ssize_t codec_debug_write(struct file *filp,
 
 	lbuf[cnt] = '\0';
 
-	if (!strncmp(access_str, "poke", 6)) {
+	if (!strcmp(access_str, "slimslave_poke")) {
 		/* write */
 		rc = get_parameters(lbuf, param, 2);
 		if ((param[0] <= 0x3FF) && (param[1] <= 0xFF) &&
@@ -965,7 +965,7 @@ static ssize_t codec_debug_write(struct file *filp,
 				param[1]);
 		else
 			rc = -EINVAL;
-	} else if (!strncmp(access_str, "peek", 6)) {
+	} else if (!strcmp(access_str, "slimslave_peek")) {
 		/* read */
 		rc = get_parameters(lbuf, param, 1);
 		if ((param[0] <= 0x3FF) && (rc == 0))
@@ -1982,15 +1982,15 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	debugCodec = wcd9xxx;
 
 	debugfs_wcd9xxx_dent = debugfs_create_dir
-		("wcd9310_slimbus_interface_device", 0);
+		("wcd9xxx_core", 0);
 	if (!IS_ERR(debugfs_wcd9xxx_dent)) {
-		debugfs_peek = debugfs_create_file("peek",
+		debugfs_peek = debugfs_create_file("slimslave_peek",
 		S_IFREG | S_IRUGO, debugfs_wcd9xxx_dent,
-		(void *) "peek", &codec_debug_ops);
+		(void *) "slimslave_peek", &codec_debug_ops);
 
-		debugfs_poke = debugfs_create_file("poke",
+		debugfs_poke = debugfs_create_file("slimslave_poke",
 		S_IFREG | S_IRUGO, debugfs_wcd9xxx_dent,
-		(void *) "poke", &codec_debug_ops);
+		(void *) "slimslave_poke", &codec_debug_ops);
 	}
 #endif
 
