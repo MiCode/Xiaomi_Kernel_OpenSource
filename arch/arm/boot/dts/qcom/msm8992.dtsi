@@ -1655,7 +1655,7 @@
 	};
 
 	tsens: tsens@fc4a8000 {
-		compatible = "qcom,msm8994-tsens";
+		compatible = "qcom,msm8992-tsens";
 		reg = <0xfc4a8000 0x2000>,
 		      <0xfc4bc000 0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
@@ -1663,7 +1663,7 @@
 		interrupt-names = "tsens-upper-lower";
 		qcom,sensors = <13>;
 		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200>;
-		qcom,sensor-id = <0 1 2 3 5 6 7 8 9 10 11 12 13>;
+		qcom,sensor-id = <0 1 2 3 4 5 7 9 10 11 12 13 14>;
 	};
 
 	ocmem: qcom,ocmem@fdd00000 {
