@@ -1295,12 +1295,6 @@ static int ehci_hub_control (
 							temp | PORT_SUSPEND,
 							sreg);
 				}
-				spin_unlock_irq(&ehci->lock);
-				ehci_halt(ehci);
-				spin_lock_irq(&ehci->lock);
-				temp = ehci_readl(ehci, status_reg);
-				temp |= selector << 16;
-				ehci_writel(ehci, temp, status_reg);
 
 				spin_unlock_irqrestore(&ehci->lock, flags);
 				ehci_halt(ehci);
