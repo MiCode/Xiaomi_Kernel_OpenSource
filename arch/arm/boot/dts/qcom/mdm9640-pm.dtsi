@@ -66,7 +66,7 @@
 				qcom,ss-power = <5000>;
 				qcom,energy-overhead = <60350000>;
 				qcom,time-overhead = <7300>;
-				qcom,min-child-idx = <1>;
+				qcom,min-child-idx = <2>;
 				qcom,notify-rpm;
 			};
 
@@ -76,6 +76,15 @@
 
 				qcom,pm-cpu-level@0 {
 					reg = <0>;
+					qcom,spm-cpu-mode = "wfi";
+					qcom,latency-us = <100>;
+					qcom,ss-power = <8000>;
+					qcom,energy-overhead = <100000>;
+					qcom,time-overhead = <1>;
+				};
+
+				qcom,pm-cpu-level@1 {
+					reg = <1>;
 					qcom,spm-cpu-mode = "standalone_pc";
 					qcom,latency-us = <2000>;
 					qcom,ss-power = <5000>;
@@ -83,8 +92,8 @@
 					qcom,time-overhead = <3000>;
 				};
 
-				qcom,pm-cpu-level@1 {
-					reg = <1>;
+				qcom,pm-cpu-level@2 {
+					reg = <2>;
 					qcom,spm-cpu-mode = "pc";
 					qcom,latency-us = <30000>;
 					qcom,ss-power = <5000>;
