@@ -599,6 +599,14 @@
 		qcom,acc-sel-l1-bit-size = <1>;
 	};
 
+	wlan_vreg: wlan_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pm8994_gpios 9 0>;
+	};
+
 	apc0_vreg_corner: regulator@f9019000 {
 		compatible = "qcom,cpr-regulator";
 		reg = <0xf9019000 0x1000>, <0xf900d064 4>, <0xfc4bc000 0x1000>;

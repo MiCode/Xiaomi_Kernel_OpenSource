@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+/memreserve/ 0x00000000 0x00001000;
+
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/msm-clocks-8992.h>
 
@@ -810,6 +812,20 @@
 			"pcie_0_slv_axi_clk", "pcie_0_ldo", "pcie_0_phy_reset";
 
 		max-clock-frequency-hz = <125000000>, <0>, <1011000>, <0>, <0>, <0>, <0>, <0>;
+	};
+
+	qcom,cnss {
+		compatible = "qcom,cnss";
+		wlan-bootstrap-gpio = <&msm_gpio 112 0>;
+		wlan-en-gpio = <&msm_gpio 113 0>;
+		vdd-wlan-supply = <&wlan_vreg>;
+		vdd-wlan-io-supply = <&pm8994_s4>;
+		vdd-wlan-xtal-supply = <&pm8994_l30>;
+		qcom,notify-modem-status;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cnss_default>;
+		qcom,wlan-rc-num = <0>;
+		qcom,wlan-ramdump-dynamic = <0x200000>;
 	};
 
 	ipa_hw: qcom,ipa@fd4c0000 {
