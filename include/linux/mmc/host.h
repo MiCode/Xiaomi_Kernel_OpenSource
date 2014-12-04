@@ -156,6 +156,10 @@ struct mmc_host_ops {
 	 */
 	int	(*multi_io_quirk)(struct mmc_card *card,
 				  unsigned int direction, int blk_size);
+
+	unsigned long (*get_max_frequency)(struct mmc_host *host);
+	unsigned long (*get_min_frequency)(struct mmc_host *host);
+
 	int	(*notify_load)(struct mmc_host *, enum mmc_load);
 };
 
@@ -303,6 +307,7 @@ struct mmc_host {
 #define MMC_CAP2_SDIO_IRQ_NOTHREAD (1 << 17)
 #define MMC_CAP2_NO_WRITE_PROTECT (1 << 18)	/* No physical write protect pin, assume that card is always read-write */
 #define MMC_CAP2_PACKED_WR_CONTROL (1 << 19)	/* Allow write packing control */
+#define MMC_CAP2_CLK_SCALE	(1 << 20)	/* Allow dynamic clk scaling */
 #define MMC_CAP2_NONHOTPLUG	(1 << 25)	/*Don't support hotplug*/
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
@@ -407,23 +412,6 @@ struct mmc_host {
 	} embedded_sdio_data;
 #endif
 
-	struct {
-		unsigned long	busy_time_us;
-		unsigned long	window_time;
-		unsigned long	curr_freq;
-		unsigned long	polling_delay_ms;
-		unsigned int	up_threshold;
-		unsigned int	down_threshold;
-		ktime_t		start_busy;
-		bool		enable;
-		bool		initialized;
-		bool		in_progress;
-		/* freq. transitions are not allowed in invalid state */
-		bool		invalid_state;
-		struct delayed_work work;
-		enum mmc_load	state;
-	} clk_scaling;
-
 	/*
 	 * Set to 1 to just stop the SDCLK to the card without
 	 * actually disabling the clock from it's source.
@@ -441,7 +429,19 @@ struct mmc_host {
 	} perf;
 	bool perf_enable;
 #endif
-
+	struct {
+		unsigned long	busy_time_us;
+		unsigned long	window_time;
+		unsigned long	curr_freq;
+		unsigned long	polling_delay_ms;
+		unsigned int	up_threshold;
+		unsigned int	down_threshold;
+		ktime_t		start_busy;
+		bool		enable;
+		bool		initialized;
+		bool		in_progress;
+		struct delayed_work work;
+	} clk_scaling;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
