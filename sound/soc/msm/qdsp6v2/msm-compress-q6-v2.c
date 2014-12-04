@@ -207,6 +207,7 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 {
 	struct msm_compr_audio *prtd;
 	int rc = 0;
+	uint32_t avg_vol;
 
 	pr_debug("%s: volume_l %d volume_r %d\n",
 		__func__, volume_l, volume_r);
@@ -215,12 +216,32 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 		return -EPERM;
 	}
 	prtd = cstream->runtime->private_data;
-	if (prtd && prtd->audio_client) {
-		if (prtd->compr_passthr != LEGACY_PCM) {
-			pr_debug("%s: No volume config for passthrough %d\n",
-				 __func__, prtd->compr_passthr);
-			return rc;
-		}
+
+	if (!prtd || !prtd->audio_client) {
+		pr_err("%s: invalid session prtd or no audio client", __func__);
+		return rc;
+	}
+
+	if (prtd->compr_passthr != LEGACY_PCM) {
+		pr_debug("%s: No volume config for passthrough %d\n",
+			 __func__, prtd->compr_passthr);
+		return rc;
+	}
+	if (prtd->num_channels > 2) {
+		/*
+		 * Currently the left and right gains are averaged an applied
+		 * to all channels. This might not be desirable. But currently,
+		 * there exists no API in userspace to send a list of gains for
+		 * each channel either. If such an API does become available,
+		 * the mixer control must be updated to accept more than 2
+		 * channel gains.
+		 *
+		 */
+		pr_debug("%s: call q6asm_set_volume for multichannel\n",
+			 __func__);
+		avg_vol = (volume_l + volume_r) / 2;
+		rc = q6asm_set_volume(prtd->audio_client, avg_vol);
+	} else {
 		pr_debug("%s: call q6asm_set_lrgain\n", __func__);
 		rc = q6asm_set_lrgain(prtd->audio_client, volume_l, volume_r);
 		if (rc < 0)
@@ -233,6 +254,10 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 					__func__);
 		}
 	}
+
+	if (rc < 0)
+		pr_err("%s: Send vol gain command failed rc=%d\n",
+		       __func__, rc);
 
 	return rc;
 }
