@@ -447,6 +447,9 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ 0, NULL},
 };
 
+static int arm_smmu_halt(struct arm_smmu_device *smmu);
+static void arm_smmu_resume(struct arm_smmu_device *smmu);
+
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
 	return container_of(dom, struct arm_smmu_domain, domain);
@@ -1320,6 +1323,11 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	unsigned long va;
 
 	spin_lock_irqsave(&smmu->atos_lock, flags);
+	if (arm_smmu_halt(smmu)) {
+		phys = 0;
+		goto out_unlock;
+	}
+
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 
 	/* ATS1 registers can only be written atomically */
@@ -1334,20 +1342,23 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		dev_err(dev,
 			"iova to phys timed out on %pad. Falling back to software table walk.\n",
 			&iova);
-		spin_unlock_irqrestore(&smmu->atos_lock, flags);
-		return ops->iova_to_phys(ops, iova);
+		phys = ops->iova_to_phys(ops, iova);
+		goto out_resume;
 	}
 
 	phys = readq_relaxed(cb_base + ARM_SMMU_CB_PAR);
 	if (phys & CB_PAR_F) {
 		dev_err(dev, "translation fault!\n");
 		dev_err(dev, "PAR = 0x%llx\n", phys);
-		spin_unlock_irqrestore(&smmu->atos_lock, flags);
-		return 0;
+		phys = 0;
+	} else {
+		phys = (phys & (PHYS_MASK & ~0xfffULL)) | (iova & 0xfff);
 	}
-
+out_resume:
+	arm_smmu_resume(smmu);
+out_unlock:
 	spin_unlock_irqrestore(&smmu->atos_lock, flags);
-	return (phys & (PHYS_MASK & ~0xfffULL)) | (iova & 0xfff);
+	return phys;
 }
 
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
