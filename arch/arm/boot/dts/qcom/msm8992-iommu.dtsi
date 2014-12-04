@@ -36,6 +36,7 @@
 				<22 512 0 1000>;
 
 		status = "ok";
+		vdd-supply = <&gdsc_mdss>;
 		clocks = <&clock_mmss clk_mdss_axi_clk>,
 			<&clock_mmss clk_mdss_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
@@ -126,6 +127,7 @@
 
 &venus_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_venus>;
 	clocks = <&clock_mmss clk_venus0_axi_clk>,
 		<&clock_mmss clk_venus0_ahb_clk>,
 		<&clock_mmss clk_venus0_vcodec0_clk>;
@@ -201,6 +203,7 @@
 
 &jpeg_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_jpeg>;
 	qcom,needs-alt-core-clk;
 	qcom,needs-alt-iface-clk;
 	clocks = <&clock_mmss clk_camss_jpeg_jpeg_axi_clk>,
@@ -244,6 +247,8 @@
 
 &kgsl_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_oxili_cx>;
+	qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
 	qcom,iommu-secure-id = <18>;
 	clocks = <&clock_mmss clk_oxili_gfx3d_clk>,
 		<&clock_mmss clk_oxilicx_ahb_clk>;
@@ -298,6 +303,7 @@
 
 &vfe_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_vfe>;
 	qcom,needs-alt-core-clk;
 	qcom,needs-alt-iface-clk;
 	clocks = <&clock_mmss clk_camss_vfe_vfe_axi_clk>,
@@ -345,6 +351,7 @@
 
 &cpp_iommu {
 	status = "ok";
+	vdd-supply = <&gdsc_cpp>;
         qcom,needs-alt-core-clk;
         qcom,needs-alt-iface-clk;
 	clocks = <&clock_mmss clk_camss_vfe_cpp_axi_clk>,
