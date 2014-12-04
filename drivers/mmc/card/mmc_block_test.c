@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 
 #define MODULE_NAME "mmc_block_test"
 #define TEST_MAX_SECTOR_RANGE		(600*1024*1024) /* 600 MB */
-#define TEST_MAX_BIOS_PER_REQ		120
+#define TEST_MAX_BIOS_PER_REQ		128
 #define CMD23_PACKED_BIT	(1 << 30)
 #define LARGE_PRIME_1	1103515367
 #define LARGE_PRIME_2	35757
@@ -33,28 +33,30 @@
 #define PACKED_HDR_RW_MASK 0x0000FF00
 #define PACKED_HDR_NUM_REQS_MASK 0x00FF0000
 #define PACKED_HDR_BITS_16_TO_29_SET 0x3FFF0000
-/* the desired long test size to be written or read */
-#define LONG_TEST_MAX_NUM_BYTES (50*1024*1024) /* 50MB */
+/* the desired long test size to be read */
+#define LONG_READ_TEST_MAX_NUM_BYTES (50*1024*1024) /* 50MB */
+/* the minimum amount of requests that will be created */
+#define LONG_WRITE_TEST_MIN_NUM_REQS 200 /* 100MB */
 /* request queue limitation is 128 requests, and we leave 10 spare requests */
 #define TEST_MAX_REQUESTS 118
-#define LONG_TEST_MAX_NUM_REQS	(LONG_TEST_MAX_NUM_BYTES / \
+#define LONG_READ_TEST_MAX_NUM_REQS	(LONG_READ_TEST_MAX_NUM_BYTES / \
 		(TEST_MAX_BIOS_PER_REQ * sizeof(int) * BIO_U32_SIZE))
 /* this doesn't allow the test requests num to be greater than the maximum */
-#define LONG_TEST_ACTUAL_NUM_REQS  \
-			((TEST_MAX_REQUESTS < LONG_TEST_MAX_NUM_REQS) ? \
-				TEST_MAX_REQUESTS : LONG_TEST_MAX_NUM_REQS)
+#define LONG_READ_TEST_ACTUAL_NUM_REQS  \
+			((TEST_MAX_REQUESTS < LONG_READ_TEST_MAX_NUM_REQS) ? \
+				TEST_MAX_REQUESTS : LONG_READ_TEST_MAX_NUM_REQS)
 #define MB_MSEC_RATIO_APPROXIMATION ((1024 * 1024) / 1000)
 /* actual number of bytes in test */
-#define LONG_TEST_ACTUAL_BYTE_NUM  (LONG_TEST_ACTUAL_NUM_REQS *  \
+#define LONG_READ_NUM_BYTES  (LONG_READ_TEST_ACTUAL_NUM_REQS *  \
 			(TEST_MAX_BIOS_PER_REQ * sizeof(int) * BIO_U32_SIZE))
 /* actual number of MiB in test multiplied by 10, for single digit precision*/
-#define LONG_TEST_ACTUAL_MB_NUM_X_10 ((LONG_TEST_ACTUAL_BYTE_NUM * 10) / \
-					(1024 * 1024))
+#define BYTE_TO_MB_x_10(x) ((x * 10) / (1024 * 1024))
 /* extract integer value */
-#define LONG_TEST_SIZE_INTEGER (LONG_TEST_ACTUAL_MB_NUM_X_10 / 10)
+#define LONG_TEST_SIZE_INTEGER(x) (BYTE_TO_MB_x_10(x) / 10)
 /* and calculate the MiB value fraction */
-#define LONG_TEST_SIZE_FRACTION (LONG_TEST_ACTUAL_MB_NUM_X_10 - \
-		(LONG_TEST_SIZE_INTEGER * 10))
+#define LONG_TEST_SIZE_FRACTION(x) (BYTE_TO_MB_x_10(x) - \
+		(LONG_TEST_SIZE_INTEGER(x) * 10))
+#define LONG_WRITE_TEST_SLEEP_TIME_MS 5
 
 #define test_pr_debug(fmt, args...) pr_debug("%s: "fmt"\n", MODULE_NAME, args)
 #define test_pr_info(fmt, args...) pr_info("%s: "fmt"\n", MODULE_NAME, args)
@@ -1272,13 +1274,12 @@ static int get_num_requests(struct test_data *td)
 	return num_requests;
 }
 
-static int prepare_long_test_requests(struct test_data *td)
+static int prepare_long_read_test_requests(struct test_data *td)
 {
 
 	int ret;
 	int start_sec;
 	int j;
-	int test_direction;
 
 	if (td)
 		start_sec = td->start_sector;
@@ -1287,23 +1288,18 @@ static int prepare_long_test_requests(struct test_data *td)
 		return -EINVAL;
 	}
 
-	if (td->test_info.testcase == TEST_LONG_SEQUENTIAL_WRITE)
-		test_direction = WRITE;
-	else
-		test_direction = READ;
+	test_pr_info("%s: Adding %d read requests, first req_id=%d", __func__,
+		     LONG_READ_TEST_ACTUAL_NUM_REQS, td->wr_rd_next_req_id);
 
-	test_pr_info("%s: Adding %d write requests, first req_id=%d", __func__,
-		     LONG_TEST_ACTUAL_NUM_REQS, td->wr_rd_next_req_id);
+	for (j = 0; j < LONG_READ_TEST_ACTUAL_NUM_REQS; j++) {
 
-	for (j = 0; j < LONG_TEST_ACTUAL_NUM_REQS; j++) {
-
-		ret = test_iosched_add_wr_rd_test_req(0, test_direction,
+		ret = test_iosched_add_wr_rd_test_req(0, READ,
 						start_sec,
 						TEST_MAX_BIOS_PER_REQ,
 						TEST_NO_PATTERN, NULL);
 		if (ret) {
-			test_pr_err("%s: failed to add a bio request",
-				     __func__);
+			test_pr_err("%s: failed to add a read request, err = %d"
+				    , __func__, ret);
 			return ret;
 		}
 
@@ -1423,10 +1419,8 @@ static int prepare_test(struct test_data *td)
 			test_packed_trigger, is_random);
 		break;
 	case TEST_LONG_SEQUENTIAL_WRITE:
-		ret = prepare_long_test_requests(td);
-		break;
 	case TEST_LONG_SEQUENTIAL_READ:
-		ret = prepare_long_test_requests(td);
+		ret = prepare_long_read_test_requests(td);
 		break;
 	default:
 		test_pr_info("%s: Invalid test case...", __func__);
@@ -2149,7 +2143,7 @@ static ssize_t long_sequential_read_test_write(struct file *file,
 	int ret = 0;
 	int i = 0;
 	int number = -1;
-	unsigned int mtime, integer, fraction;
+	unsigned long mtime, integer, fraction;
 
 	test_pr_info("%s: -- Long Sequential Read TEST --", __func__);
 
@@ -2177,21 +2171,22 @@ static ssize_t long_sequential_read_test_write(struct file *file,
 
 		mtime = jiffies_to_msecs(mbtd->test_info.test_duration);
 
-		test_pr_info("%s: time is %u msec, size is %u.%u MiB",
-			__func__, mtime, LONG_TEST_SIZE_INTEGER,
-			      LONG_TEST_SIZE_FRACTION);
+		test_pr_info("%s: time is %lu msec, size is %u.%u MiB",
+			__func__, mtime,
+			LONG_TEST_SIZE_INTEGER(LONG_READ_NUM_BYTES),
+			LONG_TEST_SIZE_FRACTION(LONG_READ_NUM_BYTES));
 
 		/* we first multiply in order not to lose precision */
 		mtime *= MB_MSEC_RATIO_APPROXIMATION;
 		/* divide values to get a MiB/sec integer value with one
 		   digit of precision. Multiply by 10 for one digit precision
 		 */
-		fraction = integer = (LONG_TEST_ACTUAL_BYTE_NUM * 10) / mtime;
+		fraction = integer = (LONG_READ_NUM_BYTES * 10) / mtime;
 		integer /= 10;
 		/* and calculate the MiB value fraction */
 		fraction -= integer * 10;
 
-		test_pr_info("%s: Throughput: %u.%u MiB/sec\n"
+		test_pr_info("%s: Throughput: %lu.%lu MiB/sec\n"
 			, __func__, integer, fraction);
 
 		/* Allow FS requests to be dispatched */
@@ -2230,6 +2225,72 @@ const struct file_operations long_sequential_read_test_ops = {
 	.read = long_sequential_read_test_read,
 };
 
+static void long_seq_write_free_end_io_fn(struct request *rq, int err)
+{
+	struct test_request *test_rq =
+		(struct test_request *)rq->elv.priv[0];
+	struct test_data *ptd = test_get_test_data();
+
+	BUG_ON(!test_rq);
+
+	spin_lock_irq(&ptd->lock);
+	list_del_init(&test_rq->queuelist);
+	ptd->dispatched_count--;
+	__blk_put_request(ptd->req_q, test_rq->rq);
+	spin_unlock_irq(&ptd->lock);
+
+	kfree(test_rq->bios_buffer);
+	kfree(test_rq);
+	mbtd->completed_req_count++;
+
+	check_test_completion();
+}
+
+static int run_long_seq_write(struct test_data *td)
+{
+	int ret = 0;
+	int i;
+
+	td->test_count = 0;
+	mbtd->completed_req_count = 0;
+
+	test_pr_info("%s: Adding at least %d write requests, first req_id=%d",
+		     __func__, LONG_WRITE_TEST_MIN_NUM_REQS,
+		     td->wr_rd_next_req_id);
+
+	do {
+		for (i = 0; i < TEST_MAX_REQUESTS; i++) {
+			/*
+			 * since our requests come from a pool containing 128
+			 * requests, we don't want to exhaust this quantity,
+			 * therefore we add up to TEST_MAX_REQUESTS (which
+			 * includes a safety margin) and then call the mmc layer
+			 * to fetch them
+			 */
+			if (td->test_count > TEST_MAX_REQUESTS)
+				break;
+
+			ret = test_iosched_add_wr_rd_test_req(0, WRITE,
+				  td->start_sector, TEST_MAX_BIOS_PER_REQ,
+				  TEST_PATTERN_5A,
+				  long_seq_write_free_end_io_fn);
+			 if (ret) {
+				test_pr_err("%s: failed to create write request"
+					    , __func__);
+				break;
+			}
+		}
+
+		__blk_run_queue(td->req_q);
+
+	} while (mbtd->completed_req_count < LONG_WRITE_TEST_MIN_NUM_REQS);
+
+	test_pr_info("%s: completed %d requests", __func__,
+		     mbtd->completed_req_count);
+
+	return ret;
+}
+
 static ssize_t long_sequential_write_test_write(struct file *file,
 				const char __user *buf,
 				size_t count,
@@ -2238,7 +2299,7 @@ static ssize_t long_sequential_write_test_write(struct file *file,
 	int ret = 0;
 	int i = 0;
 	int number = -1;
-	unsigned int mtime, integer, fraction;
+	unsigned long mtime, integer, fraction, byte_count;
 
 	test_pr_info("%s: -- Long Sequential Write TEST --", __func__);
 
@@ -2251,13 +2312,16 @@ static ssize_t long_sequential_write_test_write(struct file *file,
 	mbtd->test_group = TEST_GENERAL_GROUP;
 
 	mbtd->test_info.data = mbtd;
-	mbtd->test_info.prepare_test_fn = prepare_test;
 	mbtd->test_info.get_test_case_str_fn = get_test_case_str;
+	mbtd->test_info.run_test_fn = run_long_seq_write;
 
 	for (i = 0 ; i < number ; ++i) {
 		test_pr_info("%s: Cycle # %d / %d", __func__, i+1, number);
 		test_pr_info("%s: ====================", __func__);
 
+		integer = 0;
+		fraction = 0;
+		mbtd->test_info.test_byte_count = 0;
 		mbtd->test_info.testcase = TEST_LONG_SEQUENTIAL_WRITE;
 		mbtd->is_random = NON_RANDOM_TEST;
 		ret = test_iosched_start_test(&mbtd->test_info);
@@ -2265,22 +2329,23 @@ static ssize_t long_sequential_write_test_write(struct file *file,
 			break;
 
 		mtime = jiffies_to_msecs(mbtd->test_info.test_duration);
+		byte_count = mbtd->test_info.test_byte_count;
 
-		test_pr_info("%s: time is %u msec, size is %u.%u MiB",
-			__func__, mtime, LONG_TEST_SIZE_INTEGER,
-			      LONG_TEST_SIZE_FRACTION);
+		test_pr_info("%s: time is %lu msec, size is %lu.%lu MiB",
+			__func__, mtime, LONG_TEST_SIZE_INTEGER(byte_count),
+			      LONG_TEST_SIZE_FRACTION(byte_count));
 
 		/* we first multiply in order not to lose precision */
 		mtime *= MB_MSEC_RATIO_APPROXIMATION;
 		/* divide values to get a MiB/sec integer value with one
 		   digit of precision
 		 */
-		fraction = integer = (LONG_TEST_ACTUAL_BYTE_NUM * 10) / mtime;
+		fraction = integer = (byte_count * 10) / mtime;
 		integer /= 10;
 		/* and calculate the MiB value fraction */
 		fraction -= integer * 10;
 
-		test_pr_info("%s: Throughput: %u.%u MiB/sec\n",
+		test_pr_info("%s: Throughput: %lu.%lu MiB/sec\n",
 			__func__, integer, fraction);
 
 		/* Allow FS requests to be dispatched */
