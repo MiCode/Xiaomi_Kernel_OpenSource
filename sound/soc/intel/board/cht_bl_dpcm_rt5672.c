@@ -851,6 +851,7 @@ static int snd_cht_prepare(struct device *dev)
 static void snd_cht_complete(struct device *dev)
 {
 	pr_debug("In %s\n", __func__);
+	vlv2_plat_configure_clock(VLV2_PLAT_CLK_AUDIO, PLAT_CLK_FORCE_OFF);
 	snd_soc_resume(dev);
 }
 
