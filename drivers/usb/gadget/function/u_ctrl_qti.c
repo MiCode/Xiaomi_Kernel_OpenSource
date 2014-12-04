@@ -278,6 +278,10 @@ void gqti_ctrl_disconnect(void *gr, u8 port_num)
 	atomic_set(&port->connected, 0);
 	atomic_set(&port->line_state, 0);
 	spin_lock_irqsave(&port->lock, flags);
+
+	/* reset ipa eps to -1 */
+	port->ipa_prod_idx = -1;
+	port->ipa_cons_idx = -1;
 	port->port_usb = NULL;
 
 	if (g_rmnet) {
@@ -571,6 +575,12 @@ static long qti_ctrl_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 		val = atomic_read(&port->connected);
 		if (!val) {
 			pr_err("EP_LOOKUP failed - not connected");
+			ret = -EAGAIN;
+			break;
+		}
+
+		if (port->ipa_prod_idx == -1 && port->ipa_cons_idx == -1) {
+			pr_err("EP_LOOKUP failed - ipa pipes were not updated\n");
 			ret = -EAGAIN;
 			break;
 		}
