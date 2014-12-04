@@ -3935,6 +3935,11 @@ static void ipa_init_mem_partition_v2_5(void)
 	IPADBG("NAT OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(nat_ofst),
 		IPA_MEM_PART(nat_size));
 
+	IPA_MEM_PART(uc_info_ofst) = IPA_MEM_v2_5_RAM_UC_INFO_OFST;
+	IPA_MEM_PART(uc_info_size) = IPA_MEM_v2_5_RAM_UC_INFO_SIZE;
+	IPADBG("UC INFO OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(uc_info_ofst),
+		IPA_MEM_PART(uc_info_size));
+
 	IPA_MEM_PART(ofst_start) = IPA_MEM_v2_5_RAM_OFST_START;
 	IPADBG("RAM OFST 0x%x\n", IPA_MEM_PART(ofst_start));
 
@@ -4043,11 +4048,6 @@ static void ipa_init_mem_partition_v2_5(void)
 	IPA_MEM_PART(apps_v6_flt_size) = IPA_MEM_v2_5_RAM_APPS_V6_FLT_SIZE;
 	IPADBG("V6 APPS FLT OFST 0x%x SIZE 0x%x\n",
 		IPA_MEM_PART(apps_v6_flt_ofst), IPA_MEM_PART(apps_v6_flt_size));
-
-	IPA_MEM_PART(uc_info_ofst) = IPA_MEM_v2_5_RAM_UC_INFO_OFST;
-	IPA_MEM_PART(uc_info_size) = IPA_MEM_v2_5_RAM_UC_INFO_SIZE;
-	IPADBG("V6 UC INFO OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(uc_info_ofst),
-		IPA_MEM_PART(uc_info_size));
 
 	IPA_MEM_PART(end_ofst) = IPA_MEM_v2_5_RAM_END_OFST;
 	IPA_MEM_PART(apps_v4_rt_ofst) = IPA_MEM_v2_5_RAM_APPS_V4_RT_OFST;

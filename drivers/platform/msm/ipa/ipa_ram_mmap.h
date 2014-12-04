@@ -202,6 +202,12 @@
 /*
  * IPA v2.5 SRAM memory layout:
  * +----------------+
+ * |    UC INFO     |
+ * +----------------+
+ * |    CANARY      |
+ * +----------------+
+ * |    CANARY      |
+ * +----------------+
  * | V4 FLT HDR     |
  * +----------------+
  * |    CANARY      |
@@ -246,11 +252,22 @@
  * +----------------+
  * |    CANARY      |
  * +----------------+
- * |   UC INFO      |
- * +----------------+
  */
-#define IPA_MEM_v2_5_RAM_OFST_START 128
-#define IPA_MEM_v2_5_RAM_V4_FLT_OFST IPA_MEM_v2_5_RAM_OFST_START
+
+#define IPA_MEM_v2_5_RAM_UC_MEM_SIZE 128
+#define IPA_MEM_v2_5_RAM_UC_INFO_OFST IPA_MEM_v2_5_RAM_UC_MEM_SIZE
+#define IPA_MEM_v2_5_RAM_UC_INFO_SIZE 512
+
+/* uC info 4B aligned */
+#if (IPA_MEM_v2_5_RAM_UC_INFO_OFST & 3)
+#error uC info is not 4B aligned
+#endif
+
+#define IPA_MEM_v2_5_RAM_OFST_START (IPA_MEM_v2_5_RAM_UC_INFO_OFST + \
+	IPA_MEM_v2_5_RAM_UC_INFO_SIZE)
+
+#define IPA_MEM_v2_5_RAM_V4_FLT_OFST (IPA_MEM_v2_5_RAM_OFST_START + \
+	2 * IPA_MEM_CANARY_SIZE)
 #define IPA_MEM_v2_5_RAM_V4_FLT_SIZE 88
 
 /* V4 filtering header table is 8B aligned */
@@ -310,7 +327,7 @@
 
 #define IPA_MEM_v2_5_RAM_APPS_HDR_OFST (IPA_MEM_v2_5_RAM_MODEM_HDR_OFST + \
 	IPA_MEM_v2_5_RAM_MODEM_HDR_SIZE)
-#define IPA_MEM_v2_5_RAM_APPS_HDR_SIZE 72
+#define IPA_MEM_v2_5_RAM_APPS_HDR_SIZE 0
 
 /* header table is 8B aligned */
 #if (IPA_MEM_v2_5_RAM_APPS_HDR_OFST & 7)
@@ -364,17 +381,8 @@
 #error filtering rule is not 4B aligned
 #endif
 
-#define IPA_MEM_v2_5_RAM_UC_INFO_OFST (IPA_MEM_v2_5_RAM_APPS_V6_FLT_OFST + \
+#define IPA_MEM_v2_5_RAM_END_OFST (IPA_MEM_v2_5_RAM_APPS_V6_FLT_OFST + \
 	IPA_MEM_v2_5_RAM_APPS_V6_FLT_SIZE + IPA_MEM_CANARY_SIZE)
-#define IPA_MEM_v2_5_RAM_UC_INFO_SIZE 292
-
-/* uC info 4B aligned */
-#if (IPA_MEM_v2_5_RAM_UC_INFO_OFST & 3)
-#error uC info is not 4B aligned
-#endif
-
-#define IPA_MEM_v2_5_RAM_END_OFST (IPA_MEM_v2_5_RAM_UC_INFO_OFST + \
-	IPA_MEM_v2_5_RAM_UC_INFO_SIZE)
 #define IPA_MEM_v2_5_RAM_APPS_V4_RT_OFST IPA_MEM_v2_5_RAM_END_OFST
 #define IPA_MEM_v2_5_RAM_APPS_V4_RT_SIZE 0
 #define IPA_MEM_v2_5_RAM_APPS_V6_RT_OFST IPA_MEM_v2_5_RAM_END_OFST
