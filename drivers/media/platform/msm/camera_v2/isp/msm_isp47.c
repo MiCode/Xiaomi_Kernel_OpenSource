@@ -281,10 +281,7 @@ static void msm_vfe47_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_vfe47_init_qos_parms(vfe_dev);
 	msm_vfe47_init_vbif_parms(vfe_dev);
 	msm_vfe47_init_danger_safe_parms(vfe_dev);
-	/* MODULE_LENS_CGC_OVERRIDE */
-	msm_camera_io_w(0x00000383, vfe_dev->vfe_base + 0x2C);
-	/* MODULE_COLOR_CGC_OVERRIDE */
-	msm_camera_io_w(0x0000001C, vfe_dev->vfe_base + 0x34);
+
 	/* BUS_CFG */
 	msm_camera_io_w(0x00000001, vfe_dev->vfe_base + 0x84);
 	/* IRQ_MASK/CLEAR */
