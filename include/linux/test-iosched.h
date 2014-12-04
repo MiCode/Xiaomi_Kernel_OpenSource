@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,6 +132,8 @@ struct test_request {
  * @test_duration:	A jiffies value saved for timing
  *			calculations
  * @data:		Test specific private data
+ * @test_byte_count:	Total number of bytes dispatched in
+ *			the test
  */
 struct test_info {
 	int testcase;
@@ -144,6 +146,7 @@ struct test_info {
 	unsigned long test_duration;
 	get_rq_disk_fn *get_rq_disk_fn;
 	void *data;
+	unsigned long test_byte_count;
 };
 
 /**
@@ -231,6 +234,7 @@ struct test_data {
 
 extern int test_iosched_start_test(struct test_info *t_info);
 extern void test_iosched_mark_test_completion(void);
+extern void check_test_completion(void);
 extern int test_iosched_add_unique_test_req(int is_err_expcted,
 		enum req_unique_type req_unique,
 		int start_sec, int nr_sects, rq_end_io_fn *end_req_io);
