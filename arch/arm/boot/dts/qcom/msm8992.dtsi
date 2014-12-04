@@ -965,6 +965,36 @@
 		status = "disabled";
 	};
 
+	qcom,rmtfs_sharedmem@00000000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x00000000 0x00180000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+	};
+
+	qcom,dsp_sharedmem@00000000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x00000000 0x00010000>;
+		reg-names = "rfsa_dsp";
+		qcom,client-id = <0x011013ec>;
+		linux,contiguous-region = <&adsp_mem>;
+	};
+
+	qcom,mdm_sharedmem@00000000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x00000000 0x00010000>;
+		reg-names = "rfsa_mdm";
+		qcom,client-id = <0x011013ed>;
+	};
+
+	qcom,sensors_sharedmem@00000000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x00000000 0x00010000>;
+		reg-names = "rfsa_sensor";
+		qcom,client-id = <0x011013ee>;
+		linux,contiguous-region = <&adsp_mem>;
+	};
+
 	qcom,venus@fdce0000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0xfdce0000 0x4000>;
