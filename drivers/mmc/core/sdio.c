@@ -187,6 +187,23 @@ static int sdio_read_cccr(struct mmc_card *card, u32 ocr)
 				card->sw_caps.sd3_drv_type |= SD_DRIVER_TYPE_C;
 			if (data & SDIO_DRIVE_SDTD)
 				card->sw_caps.sd3_drv_type |= SD_DRIVER_TYPE_D;
+
+			ret = mmc_io_rw_direct(card, 0, 0,
+				SDIO_CCCR_INTERRUPT_EXTENSION, 0, &data);
+			if (ret)
+				goto out;
+			if (data & SDIO_SUPPORT_ASYNC_INTR) {
+				if (card->host->caps2 &
+				    MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE) {
+					data |= SDIO_ENABLE_ASYNC_INTR;
+					ret = mmc_io_rw_direct(card, 1, 0,
+						SDIO_CCCR_INTERRUPT_EXTENSION,
+						data, NULL);
+					if (ret)
+						goto out;
+					card->cccr.async_intr_sup = 1;
+				}
+			}
 		}
 
 		/* if no uhs mode ensure we check for high speed */
