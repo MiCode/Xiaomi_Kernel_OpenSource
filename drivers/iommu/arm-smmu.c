@@ -388,6 +388,8 @@ struct arm_smmu_device {
 	/* Specific to QCOM */
 	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
 	unsigned int			num_impl_def_attach_registers;
+
+	spinlock_t			atos_lock;
 };
 
 enum arm_smmu_context_fmt {
@@ -1312,10 +1314,12 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	struct io_pgtable_ops *ops= smmu_domain->pgtbl_ops;
 	struct device *dev = smmu->dev;
 	void __iomem *cb_base;
+	unsigned long flags;
 	u32 tmp;
 	u64 phys;
 	unsigned long va;
 
+	spin_lock_irqsave(&smmu->atos_lock, flags);
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 
 	/* ATS1 registers can only be written atomically */
@@ -1330,6 +1334,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		dev_err(dev,
 			"iova to phys timed out on %pad. Falling back to software table walk.\n",
 			&iova);
+		spin_unlock_irqrestore(&smmu->atos_lock, flags);
 		return ops->iova_to_phys(ops, iova);
 	}
 
@@ -1337,9 +1342,11 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	if (phys & CB_PAR_F) {
 		dev_err(dev, "translation fault!\n");
 		dev_err(dev, "PAR = 0x%llx\n", phys);
+		spin_unlock_irqrestore(&smmu->atos_lock, flags);
 		return 0;
 	}
 
+	spin_unlock_irqrestore(&smmu->atos_lock, flags);
 	return (phys & GENMASK_ULL(39, 12)) | (iova & 0xfff);
 }
 
@@ -1997,6 +2004,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	smmu->dev = dev;
+	spin_lock_init(&smmu->atos_lock);
 
 	of_id = of_match_node(arm_smmu_of_match, dev->of_node);
 	data = of_id->data;
