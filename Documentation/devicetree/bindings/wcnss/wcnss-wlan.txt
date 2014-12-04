@@ -50,6 +50,7 @@ in TX data path.
 	1200   -  WCN XO settling time (usec)
 	1      -  WCN RPM power collapse enabled
 	1      -  WCN standalone power collapse enabled
+	6      -  GPIO strength value
 
 
 Example:
@@ -88,5 +89,5 @@ Example:
                    <&clock_debug clk_gcc_debug_mux>,
                    <&clock_gcc clk_wcnss_m_clk>;
         clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
-	qcom,wcnss-pm = <11 21 1200 1 1>;
+	qcom,wcnss-pm = <11 21 1200 1 1 6>;
     };
