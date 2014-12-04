@@ -93,6 +93,7 @@ static void desc_set_defaults(unsigned int irq, struct irq_desc *desc, int node,
 	desc_smp_init(desc, node);
 #ifdef CONFIG_SMP
 	INIT_LIST_HEAD(&desc->affinity_notify);
+	INIT_WORK(&desc->affinity_work, irq_affinity_notify);
 #endif
 }
 

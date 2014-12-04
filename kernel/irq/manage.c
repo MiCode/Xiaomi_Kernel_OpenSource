@@ -216,7 +216,7 @@ int irq_set_affinity_hint(unsigned int irq, const struct cpumask *m)
 }
 EXPORT_SYMBOL_GPL(irq_set_affinity_hint);
 
-static void irq_affinity_notify(struct work_struct *work)
+void irq_affinity_notify(struct work_struct *work)
 {
 	struct irq_desc *desc =
 			container_of(work, struct irq_desc, affinity_work);
@@ -343,8 +343,6 @@ setup_affinity(unsigned int irq, struct irq_desc *desc, struct cpumask *mask)
 		if (cpumask_intersects(mask, nodemask))
 			cpumask_and(mask, mask, nodemask);
 	}
-	INIT_LIST_HEAD(&desc->affinity_notify);
-	INIT_WORK(&desc->affinity_work, irq_affinity_notify);
 	irq_do_set_affinity(&desc->irq_data, mask, false);
 	return 0;
 }
