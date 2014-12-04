@@ -141,7 +141,8 @@ struct smbchg_chip {
 	bool				dc_present;
 	bool				usb_present;
 	bool				batt_present;
-	bool				otg_retries;
+	int				otg_retries;
+	ktime_t				otg_enable_time;
 	bool				aicl_deglitch_on;
 
 	/* jeita and temperature */
@@ -2479,6 +2480,8 @@ static int smbchg_otg_regulator_enable(struct regulator_dev *rdev)
 			OTG_EN, OTG_EN);
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n", rc);
+	else
+		chip->otg_enable_time = ktime_get();
 	pr_smb(PR_STATUS, "Enabling OTG Boost\n");
 	return rc;
 }
@@ -3362,10 +3365,15 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 /**
  * otg_oc_handler() - called when the usb otg goes over current
  */
-#define NUM_OTG_RETRIES			1
+#define NUM_OTG_RETRIES			5
+#define OTG_OC_RETRY_DELAY_US		50000
 static irqreturn_t otg_oc_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
+	s64 elapsed_us = ktime_us_delta(ktime_get(), chip->otg_enable_time);
+
+	if (elapsed_us > OTG_OC_RETRY_DELAY_US)
+		chip->otg_retries = 0;
 
 	pr_smb(PR_INTERRUPT, "triggered\n");
 	/*
@@ -3378,13 +3386,15 @@ static irqreturn_t otg_oc_handler(int irq, void *_chip)
 	 */
 	if (chip->otg_retries < NUM_OTG_RETRIES) {
 		chip->otg_retries += 1;
-		pr_smb(PR_STATUS, "Retrying OTG enable. Try #%d\n",
-							chip->otg_retries);
+		pr_smb(PR_STATUS,
+			"Retrying OTG enable. Try #%d, elapsed_us %lld\n",
+						chip->otg_retries, elapsed_us);
 		smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
 							OTG_EN, 0);
 		msleep(20);
 		smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
 							OTG_EN, OTG_EN);
+		chip->otg_enable_time = ktime_get();
 	}
 	return IRQ_HANDLED;
 }
