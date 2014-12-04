@@ -22,7 +22,7 @@ CONTENTS
    5.3 Scheduler Tick
    5.4 Load Balancer
    5.5 Real Time Tasks
-   5.6 Stop-Class Tasks
+   5.6 Task packing
 6. Frequency Guidance
    6.1 Per-CPU Window-Based Stats
    6.1 Per-task Window-Based Stats
@@ -571,15 +571,19 @@ both tasks and CPUs to aid in the placement of tasks.
   the scheduler is tracking the demand of each task it can make an educated
   guess as to whether a CPU will become idle in the near future.
 
-  There are two tunable parameters which are used to determine whether
+  There are three tunable parameters which are used to determine whether
   a CPU is mostly idle:
 
   /sys/devices/system/cpu/cpuX/sched_mostly_idle_nr_run
   /sys/devices/system/cpu/cpuX/sched_mostly_idle_load
+  /sys/devices/system/cpu/cpuX/sched_mostly_idle_freq
 
   Note that these tunables are per-cpu. If a CPU does not have more than
   sched_mostly_idle_nr_run runnable tasks and is not more than
   sched_mostly_idle_load percent busy, it is considered mostly idle.
+  Additionally if a cpu's sched_mostly_idle_freq is non-zero and its current
+  frequency is less than threshold, then scheduler will attempt to pack
+  tasks on the most power-efficient cpu in the cluster.
 
 - spill threshold
 
@@ -893,6 +897,71 @@ is to place them on a cpu where they can be run immediately.
 HMP scheduler brings in a change which avoids fast-path and always resorts to
 slow-path. Further cpu with lowest power-rating from candidate list of cpus is
 chosen as cpu for placing waking real-time task.
+
+*** 5.6 Task packing
+
+Task packing is letting one cpu take up more than one task in an attempt to
+improve power (and in some cases performance). Power benefit is derived by
+avoiding wakeup cost for idle cpus from their deep sleep states. For example,
+consider a system with one cpu busy while other cpus are idle and in deep
+sleep state. A small task in this situation needs to be placed on a suitable
+cpu. Placing the small task on the busy cpu will likely not hurt its
+performance (it is after all a low-demand task) while helping gain on power
+because we avoid the cost associated with waking idle cpu from deep sleep
+state.
+
+Task packing can have good or bad implications for power and performance.
+
+a. Power implications
+
+As described in the small task wakeup example, task packing can be beneficial
+for power. However, the adverse impact on power can arise when packing on one
+cpu can increase its busy time and hence result in frequency raise.
+
+b. Performance implications
+
+The most obvious negative impact on performance because of packing is
+increased scheduling latencies for tasks that can occur. Positive impact on
+performance from packing has also been seen. This arises from the fact
+that a waking task, when woken to busy cpu because of packing, will incur very
+low latency to run immediately, when compared to being woken to a idle cpu in
+deep sleep state. In later case, task has to wait for cpu to exit sleep state,
+considerable enough in some cases to hurt performance.
+
+Packing thus is a delicate matter to play with! The following parameters control
+packing behavior.
+
+- sched_small_task
+	This parameter specifies demand threshold below which a task will be
+classified as "small". As described in Sec 5.2 ("Task Wakeup and
+select_best_cpu()"), for small tasks wakeups, a busy cpu is prefered as target
+rather than idle cpu.
+
+- mostly_idle_load and mostly_idle_nr_run
+
+These are per-cpu parameters that define mostly_idle thresholds for a cpu. A cpu
+whose load < mostly_idle_load AND whose nr_running is < mostly_idle_nr_run is
+classified as mostly_idle. See further description of "mostly_idle" thresholds
+in Sec 5.
+
+- mostly_idle_freq
+
+This is a per-cpu parameter. If non-zero for a cpu which is part of a cluster
+and cluster current frequency is less than this threshold, then scheduler will
+poack all tasks on a single cpu in cluster. The cpu chosen is the first most
+power-efficient cpu found while scanning cluster's online cpus.
+
+For some low band of frequency, spread of task on all available cpus can be
+groslly power-inefficient. As an example, consider two tasks that each need
+500MHz. Packing them on one cpu could lead to 1GHz. In spread case, we incur
+cost of two cpus running at 500MHz, while in packed case, we incur the cost of
+one cpu running at 1GHz. Based on the silicon characteristics, where leakage
+power can be dominant factor, former can be worse on power rather than latter.
+Running at slow frequency (in spread case) can actually makes it worse on
+leakage power (especially if 500MHz and 1GHz share the same voltage point).
+sched_mostly_idle_freq is set based on silicon characteristics and can provide
+a winning argument for both power and performance.
+
 
 =====================
 6. FREQUENCY GUIDANCE
@@ -1270,6 +1339,17 @@ are classified as "heavy" tasks. Task's ravg.demand attribute is used for this
 comparison. Scheduler will request a raise in cpu frequency when heavy tasks
 wakeup after at least one window of sleep, where window size is defined by
 sched_ravg_window. Value 0 will disable this feature.
+
+** 7.21 sched_mostly_idle_freq
+
+Appears at: /sys/devices/system/cpu/cpuX/sched_mostly_idle_freq
+
+Default value: 0
+
+This tunable is intended to achieve task packing behavior based on cluster
+frequency. Hence it is strongly advised to have all cpus in a cluster have the
+same value for mostly_idle_freq. For more details, see section on "Task
+packing" (sec 5.6).
 
 =========================
 8. HMP SCHEDULER TRACE POINTS
