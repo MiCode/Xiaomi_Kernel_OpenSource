@@ -1095,11 +1095,11 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 	case MDSS_MDP_HW_REV_109:
 	case MDSS_MDP_HW_REV_110:
 		mdss_set_quirk(mdata, MDSS_QUIRK_BWCPANIC);
-		mdata->max_target_zorder = MDSS_MDP_MAX_STAGE;
+		mdata->max_target_zorder = 7; /* excluding base layer */
 		mdata->max_cursor_size = 128;
 		break;
 	default:
-		mdata->max_target_zorder = MDSS_MDP_STAGE_4;
+		mdata->max_target_zorder = 4; /* excluding base layer */
 		mdata->max_cursor_size = 64;
 	}
 }
