@@ -830,10 +830,6 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	total_sizedwords += (secured_ctxt) ? 26 : 0;
 
-	/* Add two dwords for the CP_INTERRUPT */
-	total_sizedwords +=
-		(drawctxt || (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) ?  2 : 0;
-
 	/* context rollover */
 	if (adreno_is_a3xx(adreno_dev))
 		total_sizedwords += 3;
@@ -968,7 +964,11 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * set and hence the rb timestamp will be used in else statement below.
 	 */
 	*ringcmds++ = cp_type3_packet(CP_EVENT_WRITE, 3);
-	*ringcmds++ = CACHE_FLUSH_TS;
+
+	if (drawctxt || (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
+		*ringcmds++ = CACHE_FLUSH_TS | (1 << 31);
+	else
+		*ringcmds++ = CACHE_FLUSH_TS;
 
 	if (drawctxt && !(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
 		*ringcmds++ = gpuaddr + KGSL_MEMSTORE_OFFSET(context_id,
@@ -982,11 +982,6 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		*ringcmds++ = gpuaddr + KGSL_MEMSTORE_RB_OFFSET(rb,
 							eoptimestamp);
 		*ringcmds++ = timestamp;
-	}
-
-	if (drawctxt || (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
-		*ringcmds++ = cp_type3_packet(CP_INTERRUPT, 1);
-		*ringcmds++ = CP_INTERRUPT_RB;
 	}
 
 	if (adreno_is_a3xx(adreno_dev)) {
