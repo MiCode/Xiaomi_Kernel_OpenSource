@@ -1734,6 +1734,7 @@ static void mmc_remove(struct mmc_host *host)
 
 	mmc_claim_host(host);
 	host->card = NULL;
+	mmc_exit_clk_scaling(host);
 	mmc_release_host(host);
 }
 
@@ -1787,6 +1788,12 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 
 	if (mmc_card_suspended(host->card))
 		goto out;
+
+	/*
+	 * Disable clock scaling before suspend and enable it after resume so
+	 * as to avoid clock scaling decisions kicking in during this window.
+	 */
+	mmc_disable_clk_scaling(host);
 
 	if (mmc_card_doing_bkops(host->card)) {
 		err = mmc_stop_bkops(host->card);
@@ -1844,15 +1851,25 @@ static int _mmc_resume(struct mmc_host *host)
 
 	mmc_claim_host(host);
 
-	if (!mmc_card_suspended(host->card))
+	if (!mmc_card_suspended(host->card)) {
+		mmc_release_host(host);
 		goto out;
+	}
 
 	mmc_power_up(host, host->card->ocr);
 	err = mmc_init_card(host, host->card->ocr, host->card);
 	mmc_card_clr_suspended(host->card);
 
-out:
 	mmc_release_host(host);
+
+	/*
+	 * We have done full initialization of the card,
+	 * reset the clk scale stats and current frequency.
+	 */
+	if (mmc_can_scale_clk(host))
+		mmc_init_clk_scaling(host);
+
+out:
 	return err;
 }
 
@@ -1934,9 +1951,15 @@ static int mmc_power_restore(struct mmc_host *host)
 {
 	int ret;
 
+	/* Disable clk scaling to avoid switching frequencies intermittently */
+	mmc_disable_clk_scaling(host);
+
 	mmc_claim_host(host);
 	ret = mmc_init_card(host, host->card->ocr, host->card);
 	mmc_release_host(host);
+
+	if (mmc_can_scale_clk(host))
+		mmc_init_clk_scaling(host);
 
 	return ret;
 }
@@ -2008,6 +2031,10 @@ int mmc_attach_mmc(struct mmc_host *host)
 	mmc_claim_host(host);
 	if (err)
 		goto remove_card;
+
+	/* Initialize clock scaling only for high frequency modes */
+	if (mmc_card_hs200(host->card) || mmc_card_ddr_mode(host->card))
+		mmc_init_clk_scaling(host);
 
 	return 0;
 
