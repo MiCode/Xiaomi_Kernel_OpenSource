@@ -477,6 +477,7 @@ struct mmc_host {
 		bool		initialized;
 		bool		in_progress;
 		struct delayed_work work;
+		enum mmc_load	state;
 	} clk_scaling;
 	unsigned long		private[0] ____cacheline_aligned;
 };
