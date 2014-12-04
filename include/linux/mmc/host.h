@@ -310,6 +310,8 @@ struct mmc_host {
 #define MMC_CAP2_NO_WRITE_PROTECT (1 << 18)	/* No physical write protect pin, assume that card is always read-write */
 #define MMC_CAP2_PACKED_WR_CONTROL (1 << 19)	/* Allow write packing control */
 #define MMC_CAP2_CLK_SCALE	(1 << 20)	/* Allow dynamic clk scaling */
+/* Allows Asynchronous SDIO irq while card is in 4-bit mode */
+#define MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE (1 << 21)
 #define MMC_CAP2_NONHOTPLUG	(1 << 25)	/*Don't support hotplug*/
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
