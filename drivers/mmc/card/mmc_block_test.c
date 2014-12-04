@@ -60,6 +60,8 @@
 #define test_pr_info(fmt, args...) pr_info("%s: "fmt"\n", MODULE_NAME, args)
 #define test_pr_err(fmt, args...) pr_err("%s: "fmt"\n", MODULE_NAME, args)
 
+#define NEW_REQ_TEST_SLEEP_TIME 1
+#define NEW_REQ_TEST_NUM_BIOS 64
 enum is_random {
 	NON_RANDOM_TEST,
 	RANDOM_TEST,
@@ -126,6 +128,8 @@ enum mmc_block_test_testcases {
 	PACKING_CONTROL_MAX_TESTCASE = TEST_PACK_MIX_NO_PACKED_PACKED_NO_PACKED,
 	TEST_LONG_SEQUENTIAL_READ,
 	TEST_LONG_SEQUENTIAL_WRITE,
+
+	TEST_NEW_REQ_NOTIFICATION,
 };
 
 enum mmc_block_test_group {
@@ -135,6 +139,7 @@ enum mmc_block_test_group {
 	TEST_ERR_CHECK_GROUP,
 	TEST_SEND_INVALID_GROUP,
 	TEST_PACKING_CONTROL_GROUP,
+	TEST_NEW_NOTIFICATION_GROUP,
 };
 
 struct mmc_block_test_debug {
@@ -145,6 +150,7 @@ struct mmc_block_test_debug {
 	struct dentry *packing_control_test;
 	struct dentry *long_sequential_read_test;
 	struct dentry *long_sequential_write_test;
+	struct dentry *new_req_notification_test;
 };
 
 struct mmc_block_test_data {
@@ -176,6 +182,8 @@ struct mmc_block_test_data {
 	struct test_info test_info;
 	/* mmc block device test */
 	struct blk_dev_test_type bdt;
+
+	unsigned int  completed_req_count;
 };
 
 static struct mmc_block_test_data *mbtd;
@@ -584,6 +592,8 @@ switch (td->test_info.testcase) {
 		return "\"long sequential read\"";
 	case TEST_LONG_SEQUENTIAL_WRITE:
 		return "\"long sequential write\"";
+	case TEST_NEW_REQ_NOTIFICATION:
+		return "\"new request notification test\"";
 	default:
 		return " Unknown testcase";
 	}
@@ -1521,6 +1531,153 @@ static int validate_packed_commands_settings(void)
 	return 0;
 }
 
+/*
+ * new_req_post_test() - Do post test operations for
+ * new_req_notification test: disable the statistics and clear
+ * the feature flags.
+ * @td		The test_data for the new_req test that has
+ *		ended.
+ */
+static int new_req_post_test(struct test_data *td)
+{
+	struct mmc_queue *mq;
+
+	if (!td || !td->req_q)
+		goto exit;
+
+	mq = (struct mmc_queue *)td->req_q->queuedata;
+
+	if (!mq || !mq->card)
+		goto exit;
+
+	test_pr_info("Completed %d requests",
+			mbtd->completed_req_count);
+
+exit:
+	return 0;
+}
+
+/*
+ * check_new_req_result() - Print out the number of completed
+ * requests. Assigned to the check_test_result_fn pointer,
+ * therefore the name.
+ * @td		The test_data for the new_req test that has
+ *		ended.
+ */
+static int check_new_req_result(struct test_data *td)
+{
+	test_pr_info("%s: Test results: Completed %d requests",
+			__func__, mbtd->completed_req_count);
+	return 0;
+}
+
+/*
+ * new_req_free_end_io_fn() - Remove request from queuelist and
+ * free request's allocated memory. Used as a call-back
+ * assigned to end_io member in request struct.
+ * @rq		The request to be freed
+ * @err		Unused
+ */
+static void new_req_free_end_io_fn(struct request *rq, int err)
+{
+	struct test_request *test_rq =
+		(struct test_request *)rq->elv.priv[0];
+	struct test_data *ptd = test_get_test_data();
+
+	BUG_ON(!test_rq);
+
+	spin_lock_irq(&ptd->lock);
+	list_del_init(&test_rq->queuelist);
+	ptd->dispatched_count--;
+	spin_unlock_irq(&ptd->lock);
+
+	__blk_put_request(ptd->req_q, test_rq->rq);
+	kfree(test_rq->bios_buffer);
+	kfree(test_rq);
+	mbtd->completed_req_count++;
+}
+
+static int prepare_new_req(struct test_data *td)
+{
+	struct request_queue *q = td->req_q;
+	struct mmc_queue *mq = (struct mmc_queue *)q->queuedata;
+
+	mmc_blk_init_packed_statistics(mq->card);
+	mbtd->completed_req_count = 0;
+
+	return 0;
+}
+
+static int run_new_req(struct test_data *ptd)
+{
+	int ret = 0;
+	int i;
+	unsigned int requests_count = 2;
+	unsigned int bio_num;
+	struct test_request *test_rq = NULL;
+
+	while (1) {
+		for (i = 0; i < requests_count; i++) {
+			bio_num =  TEST_MAX_BIOS_PER_REQ;
+			test_rq = test_iosched_create_test_req(0, READ,
+					ptd->start_sector,
+					bio_num, TEST_PATTERN_5A,
+					new_req_free_end_io_fn);
+			if (test_rq) {
+				spin_lock_irq(ptd->req_q->queue_lock);
+				list_add_tail(&test_rq->queuelist,
+					      &ptd->test_queue);
+				ptd->test_count++;
+				spin_unlock_irq(ptd->req_q->queue_lock);
+			} else {
+				test_pr_err("%s: failed to create read request",
+					     __func__);
+				ret = -ENODEV;
+				break;
+			}
+		}
+
+		__blk_run_queue(ptd->req_q);
+		/* wait while a mmc layer will send all requests in test_queue*/
+		while (!list_empty(&ptd->test_queue))
+			msleep(NEW_REQ_TEST_SLEEP_TIME);
+
+		/* test finish criteria */
+		if (mbtd->completed_req_count > 1000) {
+			if (ptd->dispatched_count)
+				continue;
+			else
+				break;
+		}
+
+		for (i = 0; i < requests_count; i++) {
+			bio_num =  NEW_REQ_TEST_NUM_BIOS;
+			test_rq = test_iosched_create_test_req(0, READ,
+					ptd->start_sector,
+					bio_num, TEST_PATTERN_5A,
+					new_req_free_end_io_fn);
+			if (test_rq) {
+				spin_lock_irq(ptd->req_q->queue_lock);
+				list_add_tail(&test_rq->queuelist,
+					      &ptd->test_queue);
+				ptd->test_count++;
+				spin_unlock_irq(ptd->req_q->queue_lock);
+			} else {
+				test_pr_err("%s: failed to create read request",
+					     __func__);
+				ret = -ENODEV;
+				break;
+			}
+		}
+		__blk_run_queue(ptd->req_q);
+	}
+
+	test_iosched_mark_test_completion();
+	test_pr_info("%s: EXIT: %d code", __func__, ret);
+
+	return ret;
+}
+
 static bool message_repeat;
 static int test_open(struct inode *inode, struct file *file)
 {
@@ -2126,6 +2283,73 @@ const struct file_operations long_sequential_write_test_ops = {
 	.read = long_sequential_write_test_read,
 };
 
+static ssize_t new_req_notification_test_write(struct file *file,
+				const char __user *buf,
+				size_t count,
+				loff_t *ppos)
+{
+	int ret = 0;
+	int i = 0;
+	int number = -1;
+
+	test_pr_info("%s: -- new_req_notification TEST --", __func__);
+
+	sscanf(buf, "%d", &number);
+
+	if (number <= 0)
+		number = 1;
+
+	mbtd->test_group = TEST_NEW_NOTIFICATION_GROUP;
+
+	memset(&mbtd->test_info, 0, sizeof(struct test_info));
+
+	mbtd->test_info.data = mbtd;
+	mbtd->test_info.prepare_test_fn = prepare_new_req;
+	mbtd->test_info.check_test_result_fn = check_new_req_result;
+	mbtd->test_info.get_test_case_str_fn = get_test_case_str;
+	mbtd->test_info.run_test_fn = run_new_req;
+	mbtd->test_info.timeout_msec = 10 * 60 * 1000; /* 1 min */
+	mbtd->test_info.post_test_fn = new_req_post_test;
+
+	for (i = 0 ; i < number ; ++i) {
+		test_pr_info("%s: Cycle # %d / %d", __func__, i+1, number);
+		test_pr_info("%s: ===================", __func__);
+		test_pr_info("%s: start test case TEST_NEW_REQ_NOTIFICATION",
+			      __func__);
+		mbtd->test_info.testcase = TEST_NEW_REQ_NOTIFICATION;
+		ret = test_iosched_start_test(&mbtd->test_info);
+		if (ret) {
+			test_pr_info("%s: break from new_req tests loop",
+				      __func__);
+			break;
+		}
+	}
+	return count;
+}
+
+static ssize_t new_req_notification_test_read(struct file *file,
+			       char __user *buffer,
+			       size_t count,
+			       loff_t *offset)
+{
+	memset((void *)buffer, 0, count);
+
+	snprintf(buffer, count,
+		 "\nnew_req_notification_test\n========================\n"
+		 "Description:\n"
+		 "This test checks following scenarious\n"
+		 "- new request arrives after a NULL request was sent to the "
+		 "mmc_queue,\n"
+		 "which is waiting for completion of a former request\n");
+
+	return strnlen(buffer, count);
+}
+
+const struct file_operations new_req_notification_test_ops = {
+	.open = test_open,
+	.write = new_req_notification_test_write,
+	.read = new_req_notification_test_read,
+};
 
 static void mmc_block_test_debugfs_cleanup(void)
 {
@@ -2136,6 +2360,7 @@ static void mmc_block_test_debugfs_cleanup(void)
 	debugfs_remove(mbtd->debug.packing_control_test);
 	debugfs_remove(mbtd->debug.long_sequential_read_test);
 	debugfs_remove(mbtd->debug.long_sequential_write_test);
+	debugfs_remove(mbtd->debug.new_req_notification_test);
 }
 
 static int mmc_block_test_debugfs_init(void)
@@ -2195,6 +2420,16 @@ static int mmc_block_test_debugfs_init(void)
 					&write_packing_control_test_ops);
 
 	if (!mbtd->debug.packing_control_test)
+		goto err_nomem;
+
+	mbtd->debug.new_req_notification_test =
+		debugfs_create_file("new_req_notification_test",
+				    S_IRUGO | S_IWUGO,
+				    tests_root,
+				    NULL,
+				    &new_req_notification_test_ops);
+
+	if (!mbtd->debug.new_req_notification_test)
 		goto err_nomem;
 
 	mbtd->debug.long_sequential_read_test = debugfs_create_file(
