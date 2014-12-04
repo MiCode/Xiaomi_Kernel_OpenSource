@@ -440,6 +440,90 @@
 		qcom,rtb-size = <0x100000>;
 	};
 
+	jtag_fuse: jtagfuse@fc4be024 {
+		compatible = "qcom,jtag-fuse";
+		reg = <0xfc4be024 0x8>;
+		reg-names = "fuse-base";
+	};
+
+	jtag_mm0: jtagmm@fb840000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfb840000 0x1000>,
+		      <0xfb810000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+	};
+
+	jtag_mm1: jtagmm@fb940000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfb940000 0x1000>,
+		      <0xfb910000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+	};
+
+	jtag_mm2: jtagmm@fba40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfba40000 0x1000>,
+		      <0xfba10000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+	};
+
+	jtag_mm3: jtagmm@fbb40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfbb40000 0x1000>,
+		      <0xfbb10000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+	};
+
+	jtag_mm4: jtagmm@fbc40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfbc40000 0x1000>,
+		      <0xfbc10000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU4>;
+	};
+
+	jtag_mm5: jtagmm@fbd40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0xfbd40000 0x1000>,
+		      <0xfbd10000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU5>;
+	};
+
 	qcom,sps {
 		compatible = "qcom,msm_sps";
 		qcom,pipe-attr-ee;
