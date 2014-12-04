@@ -445,6 +445,8 @@ struct arm_smmu_device {
 
 	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
 	unsigned int			num_impl_def_attach_registers;
+
+	spinlock_t			atos_lock;
 };
 
 struct arm_smmu_cfg {
@@ -1848,7 +1850,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 
-	spin_lock_irqsave(&smmu_domain->lock, flags);
+	spin_lock_irqsave(&smmu->atos_lock, flags);
 
 	if (smmu->version == 1) {
 		u32 reg = iova & ~0xfff;
@@ -1862,7 +1864,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 
 	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
 				!(tmp & ATSR_ACTIVE), 5, 50)) {
-		spin_unlock_irqrestore(&smmu_domain->lock, flags);
+		spin_unlock_irqrestore(&smmu->atos_lock, flags);
 		dev_err(dev,
 			"iova to phys timed out on 0x%pa. Falling back to software table walk.\n",
 			&iova);
@@ -1873,7 +1875,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	phys = readl_relaxed(cb_base + ARM_SMMU_CB_PAR_LO);
 	phys |= ((u64) readl_relaxed(cb_base + ARM_SMMU_CB_PAR_HI)) << 32;
 
-	spin_unlock_irqrestore(&smmu_domain->lock, flags);
+	spin_unlock_irqrestore(&smmu->atos_lock, flags);
 
 	if (phys & CB_PAR_F) {
 		dev_err(dev, "translation fault on %s!\n", dev_name(dev));
@@ -2411,6 +2413,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	}
 	smmu->dev = dev;
 	mutex_init(&smmu->attach_lock);
+	spin_lock_init(&smmu->atos_lock);
 
 	of_id = of_match_node(arm_smmu_of_match, dev->of_node);
 	smmu->version = (enum arm_smmu_arch_version)of_id->data;
