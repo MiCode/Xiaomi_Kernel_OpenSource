@@ -12,6 +12,7 @@
 
 #include "mhi_sys.h"
 #include "mhi_hwio.h"
+#include "mhi_trace.h"
 
 static void conditional_chan_db_write(
 				struct mhi_device_ctxt *mhi_dev_ctxt, u32 chan)
@@ -656,6 +657,7 @@ static enum MHI_STATUS process_stt_work_item(
 
 	mhi_log(MHI_MSG_INFO, "Transitioning to %d\n",
 				(int)cur_work_item);
+	trace_mhi_state(cur_work_item);
 	switch (cur_work_item) {
 	case STATE_TRANSITION_BHI:
 		ret_val = process_bhi_transition(mhi_dev_ctxt, cur_work_item);
