@@ -543,18 +543,14 @@ struct i2c_msm_prof_event {
 	u8              dump_func_id;
 };
 
-enum i2c_msm_err_bit_field {
-	I2C_MSM_ERR_NACK = 0,
+enum i2c_msm_err {
+	I2C_MSM_NO_ERR = 0,
+	I2C_MSM_ERR_NACK,
 	I2C_MSM_ERR_ARB_LOST,
 	I2C_MSM_ERR_BUS_ERR,
 	I2C_MSM_ERR_TIMEOUT,
 	I2C_MSM_ERR_CORE_CLK,
 	I2C_MSM_ERR_OVR_UNDR_RUN,
-	I2C_MSM_ERR_INVALID_WRITE,
-	I2C_MSM_ERR_INVALID_TAG,
-	I2C_MSM_ERR_INVALID_READ_ADDR,
-	I2C_MSM_ERR_INVALID_READ_SEQ,
-	I2C_MSM_ERR_FAILED,
 };
 
 /*
@@ -585,7 +581,7 @@ struct i2c_msm_xfer {
 	struct i2c_msm_xfer_buf    cur_buf;
 	u32                        timeout;
 	bool                       last_is_rx;
-	enum i2c_msm_err_bit_field err;
+	enum i2c_msm_err           err;
 	struct i2c_msm_prof_event  event[I2C_MSM_PROF_MAX_EVNTS];
 	atomic_t                   event_cnt;
 	atomic_t                   is_active;
