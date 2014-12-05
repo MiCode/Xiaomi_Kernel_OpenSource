@@ -933,6 +933,9 @@ static int lm3554_remove(struct i2c_client *client)
 
 	media_entity_cleanup(&flash->sd.entity);
 	v4l2_device_unregister_subdev(sd);
+#ifdef CONFIG_GMIN_INTEL_MID
+	atomisp_gmin_remove_subdev(sd);
+#endif
 
 	del_timer_sync(&flash->flash_off_delay);
 
