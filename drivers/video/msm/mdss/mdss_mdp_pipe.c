@@ -1091,13 +1091,23 @@ static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 			continue;
 
 		mixer = ctl->mixer_left;
-		if (!mixer || mixer->rotator_mode)
+		if (mixer && mixer->rotator_mode)
 			continue;
 
 		mixercfg = mdss_mdp_get_mixercfg(mixer);
-		if ((mixercfg & stage_off_mask) && ctl->play_cnt) {
-			pr_err("BUG. pipe%d is active. mcfg:0x%x mask:0x%x\n",
-				pipe->num, mixercfg, stage_off_mask);
+		if (mixercfg & stage_off_mask) {
+			pr_err("IN USE: mixer=%d pipe=%d mcfg:0x%x mask:0x%x\n",
+				mixer->num, pipe->num,
+				mixercfg, stage_off_mask);
+			BUG();
+		}
+
+		mixer = ctl->mixer_right;
+		mixercfg = mdss_mdp_get_mixercfg(mixer);
+		if (mixercfg & stage_off_mask) {
+			pr_err("IN USE: mixer=%d pipe=%d mcfg:0x%x mask:0x%x\n",
+				mixer->num, pipe->num,
+				mixercfg, stage_off_mask);
 			BUG();
 		}
 	}
