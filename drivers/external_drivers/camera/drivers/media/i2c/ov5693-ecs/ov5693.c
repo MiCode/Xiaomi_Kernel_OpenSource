@@ -2018,6 +2018,9 @@ static int ov5693_remove(struct i2c_client *client)
 	dev->platform_data->csi_cfg(sd, 0);
 
 	v4l2_device_unregister_subdev(sd);
+#ifdef CONFIG_GMIN_INTEL_MID
+	atomisp_gmin_remove_subdev(sd);
+#endif
 	media_entity_cleanup(&dev->sd.entity);
 	kfree(dev);
 
