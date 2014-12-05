@@ -37,9 +37,11 @@ Optional Properties:
   - qcom,<supply-name>-voltage-level: specifies voltage levels for supply.
     Should be specified in pairs (max, min, optimal), units uV.
   - clkreq-gpio: CLKREQ GPIO specified by PCIe spec.
-  - pinctrl-names: The state name of the pin configuration. Only
-    support: "default"
+  - pinctrl-names: The state name of the pin configuration.
+    supports: "default", "sleep"
   - pinctrl-0: For details of pinctrl properties, please refer to:
+    "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+  - pinctrl-1: For details of pinctrl properties, please refer to:
     "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
   - clocks: list of clock phandles
   - clock-names: list of names of clock inputs.
@@ -123,8 +125,9 @@ Example:
 		qcom,vreg-1.8-voltage-level = <1800000 1800000 1000>;
 		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
 
-		pinctrl-names = "default";
+		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default &pcie0_wake_default>;
+		pinctrl-1 = <&pcie0_clkreq_sleep &pcie0_perst_sleep &pcie0_wake_sleep>;
 
 		clocks = <&clock_gcc clk_gcc_pcie_0_pipe_clk>,
 			<&clock_rpm clk_ln_bb_clk>,
