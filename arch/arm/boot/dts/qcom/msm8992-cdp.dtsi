@@ -87,6 +87,10 @@
 	status = "ok";
 };
 
+&pmi8994_haptics {
+	status = "okay";
+};
+
 &pm8994_gpios {
 	gpio@c200 { /* GPIO 3 */
 		qcom,mode = <0>;		/* Digital in */
