@@ -2851,9 +2851,13 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 		if (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_200) {
 			mpq_num = mdss_mdp_mpq_pipe_num_map(pipe->num);
 			mixercfg |= stage << (3 * mpq_num);
-		} else if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
-			pipe->num == MDSS_MDP_SSPP_RGB3) {
-			/* Add 2 to account for Cursor & Border bits */
+		} else if ((stage < MDSS_MDP_STAGE_6) &&
+			(pipe->num == MDSS_MDP_SSPP_VIG3 ||
+			 pipe->num == MDSS_MDP_SSPP_RGB3)) {
+			/*
+			 * STAGE_6 require extension register
+			 * Add 2 to account for Cursor & Border bits
+			 */
 			mixercfg |= stage << ((3 * pipe->num)+2);
 		} else if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
 			mixercfg_extn |= stage << (20 + (6 *
@@ -2894,8 +2898,6 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 		mixercfg |= MDSS_MDP_LM_CURSOR_OUT;
 
 update_mixer:
-	pr_debug("mixer=%d mixer_cfg=%x\n", mixer->num, mixercfg);
-
 	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER3)
 		ctl->flush_bits |= BIT(20);
 	else if (mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK)
@@ -2916,6 +2918,9 @@ update_mixer:
 	/* Program ctl layer extension bits */
 	mdss_mdp_ctl_write(ctl, off + MDSS_MDP_REG_CTL_LAYER_EXTN_OFFSET,
 		mixercfg_extn);
+
+	pr_debug("mixer=%d mixer_cfg=0%x mixercfg_extn=0x%x\n",
+		mixer->num, mixercfg, mixercfg_extn);
 }
 
 int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
