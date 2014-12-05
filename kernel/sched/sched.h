@@ -731,6 +731,11 @@ unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock);
 
+static inline int capacity(struct rq *rq)
+{
+	return rq->capacity;
+}
+
 static inline void
 inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 {
@@ -761,6 +766,11 @@ dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 #else	/* CONFIG_SCHED_HMP */
 
 static inline int pct_task_load(struct task_struct *p) { return 0; }
+
+static inline int capacity(struct rq *rq)
+{
+	return SCHED_LOAD_SCALE;
+}
 
 static inline void
 inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
@@ -856,6 +866,7 @@ extern void set_hmp_defaults(void);
 extern unsigned int power_cost_at_freq(int cpu, unsigned int freq);
 extern void reset_all_window_stats(u64 window_start, unsigned int window_size);
 extern void boost_kick(int cpu);
+extern int sched_boost(void);
 
 #else /* CONFIG_SCHED_HMP */
 
