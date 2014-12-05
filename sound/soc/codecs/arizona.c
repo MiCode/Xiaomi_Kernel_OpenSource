@@ -769,7 +769,7 @@ int arizona_put_anc_input(struct snd_kcontrol *kcontrol,
 	int sel = ucontrol->value.enumerated.item[0];
 	unsigned int val, mask, shift;
 
-	if (sel >= e->max)
+	if (sel >= e->items)
 		return -EINVAL;
 
 	switch (e->reg) {

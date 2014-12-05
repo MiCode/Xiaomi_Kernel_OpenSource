@@ -2407,7 +2407,7 @@ int wm_adsp2_init(struct wm_adsp *adsp, struct mutex *fw_lock)
 		for (i = 0; i < adsp->num_firmwares; i++)
 			ctl_names[i] = adsp->firmwares[i].name;
 
-		wm_adsp_fw_enum[adsp->num - 1].max = adsp->num_firmwares;
+		wm_adsp_fw_enum[adsp->num - 1].items = adsp->num_firmwares;
 		wm_adsp_fw_enum[adsp->num - 1].texts = ctl_names;
 	}
 
