@@ -46,8 +46,10 @@
 #define CV_PAD_MODE_MASK	(0xF << 16)
 
 #define CV_GPIO_CFG_MASK	(BIT(8) | BIT(9) | BIT(10))
+#define CV_GPIO_TXRX_EN		(0 << 8)
 #define CV_GPIO_TX_EN		(1 << 8)
 #define CV_GPIO_RX_EN		(2 << 8)
+#define CV_GPIO_HZ			(3 << 8)
 
 #define CV_INV_RX_DATA		BIT(6)
 
@@ -1031,6 +1033,91 @@ static void chv_irq_ack(struct irq_data *d)
 {
 }
 
+static void chv_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
+{
+	struct chv_gpio *cg = container_of(chip, struct chv_gpio, chip);
+	int i;
+	unsigned long flags;
+	u32 ctrl0, ctrl1, offs;
+	void __iomem *reg;
+	const char *label;
+	char *config;
+	char *int_type;
+	u32 value;
+
+	spin_lock_irqsave(&cg->lock, flags);
+
+	reg = chv_gpio_reg(chip, 0, CV_INT_STAT_REG);
+	seq_printf(s, "\tCV_INT_STAT_REG: 0x%x\n", chv_readl(reg));
+
+	reg = chv_gpio_reg(chip, 0, CV_INT_MASK_REG);
+	seq_printf(s, "\tCV_INT_MASK_REG: 0x%x\n", chv_readl(reg));
+
+	for (i = 0; i < 16; i++)
+		seq_printf(s, "\tintline: %d, offset: %d\n",
+				i, cg->intr_lines[i]);
+
+	for (i = 0; i < chip->ngpio; i++) {
+		if (cg->pad_info[i].family < 0) {
+			seq_printf(s, "\tgpio-%-3d Invalid\n", i + chip->base);
+			continue;
+		}
+
+		label = gpiochip_is_requested(chip, i);
+		if (!label)
+			label = "Unrequested";
+
+		offs = FAMILY0_PAD_REGS_OFF +
+		      FAMILY_PAD_REGS_SIZE * (i / MAX_FAMILY_PAD_GPIO_NO) +
+		      GPIO_REGS_SIZE * (i % MAX_FAMILY_PAD_GPIO_NO);
+
+		ctrl0 = chv_readl(chv_gpio_reg(chip, i, CV_PADCTRL0_REG));
+		ctrl1 = chv_readl(chv_gpio_reg(chip, i, CV_PADCTRL1_REG));
+
+		value = ctrl0 & CV_GPIO_CFG_MASK;
+		if (value < CV_GPIO_RX_EN)
+			config = "out ";
+		else if (value == CV_GPIO_RX_EN)
+			config = "in  ";
+		else if (value == CV_GPIO_HZ)
+			config = "Hi-Z";
+		else
+			config = "    ";
+
+		value = ctrl1 & CV_INT_CFG_MASK;
+		if (value == CV_INTR_DISABLE)
+			int_type = "disabled  ";
+		else if (value == CV_TRIG_EDGE_FALLING)
+			int_type = "falling   ";
+		else if (value == CV_TRIG_EDGE_RISING)
+			int_type = "rising    ";
+		else if (value == CV_TRIG_EDGE_BOTH)
+			int_type = "both      ";
+		else if (value == CV_TRIG_LEVEL)
+			int_type = (ctrl1 & CV_INV_RX_DATA) ?
+				"level-low " : "level-high";
+		else
+			int_type = "          ";
+
+		seq_printf(s, "\tgpio-%-3d (%-20.20s) %s %s pad-%-3d ",
+			i + chip->base,
+			label,
+			config,
+			(ctrl0 & CV_GPIO_RX_STAT) ? "high" : "low ",
+			cg->pad_info[i].pad);
+		seq_printf(s, "offset:0x%03x mux:%d \t%s IntSel:%d ",
+			offs,
+			(ctrl0 & CV_PAD_MODE_MASK) >> 16,
+			int_type,
+			(ctrl0 & CV_INT_SEL_MASK) >> 28);
+		seq_printf(s, "\t ctrl0: 0x%-8x ctrl1: 0x%-8x\n",
+			ctrl0,
+			ctrl1);
+	}
+	spin_unlock_irqrestore(&cg->lock, flags);
+}
+
+
 static void chv_irq_shutdown(struct irq_data *d)
 {
 	struct chv_gpio *cg = irq_data_get_irq_chip_data(d);
@@ -1193,6 +1280,7 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 	gc->get = chv_gpio_get;
 	gc->set = chv_gpio_set;
 	gc->to_irq = chv_gpio_to_irq;
+	gc->dbg_show = chv_gpio_dbg_show;
 	gc->base = -1;
 	gc->can_sleep = 0;
 	gc->dev = dev;
