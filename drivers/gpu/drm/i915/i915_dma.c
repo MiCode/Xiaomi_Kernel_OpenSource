@@ -1889,6 +1889,13 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 
 	intel_init_runtime_pm(dev_priv);
 
+	/*
+	 * Taking RPM reference here for device to stay awake till first
+	 * modeset happens. Will help initialize DPST properly.
+	*/
+	if (IS_VALLEYVIEW(dev) && !IS_CHERRYVIEW(dev))
+		intel_runtime_pm_get(dev_priv);
+
 	i915_perfmon_setup(dev_priv);
 
 	i915_perfmon_cleanup(dev_priv);

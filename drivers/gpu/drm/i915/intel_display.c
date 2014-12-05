@@ -11998,10 +11998,8 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 
 	/* DO it only once */
 	if (IS_VALLEYVIEW(dev))
-		if (dev_priv->is_first_modeset) {
+		if (dev_priv->is_first_modeset)
 			program_pfi_credits(dev_priv, true);
-			dev_priv->is_first_modeset = false;
-		}
 
 	/* crtc->mode is already used by the ->mode_set callbacks, hence we need
 	 * to set it here already despite that we pass it down the callchain.
@@ -12028,6 +12026,15 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 
 	if (dev_priv->display.modeset_global_resources)
 		dev_priv->display.modeset_global_resources(dev);
+
+	/* DO it only once */
+	if (IS_VALLEYVIEW(dev))
+		if (dev_priv->is_first_modeset) {
+			/* This will drop reference taken in i915_driver_load */
+			if (!IS_CHERRYVIEW(dev))
+				intel_runtime_pm_put(dev_priv);
+			dev_priv->is_first_modeset = false;
+		}
 
 	/* Set up the DPLL and any encoders state that needs to adjust or depend
 	 * on the DPLL.
