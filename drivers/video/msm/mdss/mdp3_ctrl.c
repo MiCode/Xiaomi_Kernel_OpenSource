@@ -676,6 +676,8 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		goto on_error;
 	}
 
+	mdp3_dma_pp_resume(mdp3_session->dma);
+
 	rc = mdp3_ppp_init();
 	if (rc) {
 		pr_err("ppp init failed\n");
@@ -1509,6 +1511,9 @@ static int mdp3_csc_config(struct mdp3_session_data *session,
 	ccs.post_bv = data->csc_data.csc_post_bv;
 	ccs.pre_lv = data->csc_data.csc_pre_lv;
 	ccs.post_lv = data->csc_data.csc_post_lv;
+
+	/* cache one copy of setting for suspend/resume reconfiguring */
+	session->dma->ccs_cache = *data;
 
 	mutex_lock(&session->lock);
 	mdp3_clk_enable(1, 0);
