@@ -225,6 +225,35 @@ struct v4l2_subdev *atomisp_gmin_find_subdev(struct i2c_adapter *adapter,
 }
 EXPORT_SYMBOL_GPL(atomisp_gmin_find_subdev);
 
+int atomisp_gmin_remove_subdev(struct v4l2_subdev *sd)
+{
+	int i, j;
+
+	if (!sd)
+		return 0;
+
+	for (i = 0; i < MAX_SUBDEVS; i++) {
+		if (pdata.subdevs[i].subdev == sd) {
+			for (j = i + 1; j <= MAX_SUBDEVS; j++)
+				pdata.subdevs[j - 1] = pdata.subdevs[j];
+		}
+		if (gmin_subdevs[i].subdev == sd) {
+			if (gmin_subdevs[i].gpio0)
+				gpiod_put(gmin_subdevs[i].gpio0);
+			gmin_subdevs[i].gpio0 = NULL;
+			if (gmin_subdevs[i].gpio1)
+				gpiod_put(gmin_subdevs[i].gpio1);
+			gmin_subdevs[i].gpio1 = NULL;
+			if (pmic_id == PMIC_REGULATOR) {
+				regulator_put(gmin_subdevs[i].v1p8_reg);
+				regulator_put(gmin_subdevs[i].v2p8_reg);
+			}
+			gmin_subdevs[i].subdev = NULL;
+		}
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(atomisp_gmin_remove_subdev);
 
 struct gmin_cfg_var {
 	const char *name, *val;
