@@ -128,7 +128,7 @@
 
 	qcom,mss@4080000 {
 		vdd_cx-supply = <&pm8916_s1_corner>;
-		vdd_mx-supply = <&pm8916_l3>;
+		vdd_mx-supply = <&pm8916_l3_corner_ao>;
 		vdd_pll-supply = <&pm8916_l7>;
 	};
 
