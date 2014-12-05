@@ -835,6 +835,9 @@ static int atomisp_subdev_probe(struct atomisp_device *isp)
 static void atomisp_unregister_entities(struct atomisp_device *isp)
 {
 	unsigned int i;
+#ifdef CONFIG_GMIN_INTEL_MID
+	struct v4l2_subdev *sd, *next;
+#endif
 
 	for (i = 0; i < isp->num_of_streams; i++)
 		atomisp_subdev_unregister_entities(&isp->asd[i]);
@@ -842,6 +845,11 @@ static void atomisp_unregister_entities(struct atomisp_device *isp)
 	atomisp_file_input_unregister_entities(&isp->file_dev);
 	for (i = 0; i < ATOMISP_CAMERA_NR_PORTS; i++)
 		atomisp_mipi_csi2_unregister_entities(&isp->csi2_port[i]);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	list_for_each_entry_safe(sd, next, &isp->v4l2_dev.subdevs, list)
+		v4l2_device_unregister_subdev(sd);
+#endif
 
 	v4l2_device_unregister(&isp->v4l2_dev);
 	media_device_unregister(&isp->media_dev);
