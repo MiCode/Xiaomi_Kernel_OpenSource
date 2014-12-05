@@ -2292,20 +2292,27 @@ static void mdss_mdp_ctl_split_display_enable(int enable,
 }
 
 static void mdss_mdp_ctl_dst_split_display_enable(int enable,
-	struct mdss_mdp_ctl *ctl)
+		struct mdss_mdp_ctl *ctl)
 {
 	u32 config = 0, cntl = 0;
+
+	if (ctl->mdata->nppb == 0) {
+		pr_err("No PPB to enable PP split\n");
+		BUG();
+	}
 
 	mdss_mdp_ctl_split_display_enable(enable, ctl, NULL);
 
 	if (enable) {
-		config = BIT(16); /* Set horizontal split*/
+		/* Set slave intf */
+		config = ((ctl->intf_num + 1) - MDSS_MDP_INTF0) << 20;
+		config |= BIT(16); /* Set horizontal split*/
 		cntl = BIT(5); /* enable dst split*/
 	}
+
 	writel_relaxed(config, ctl->mdata->mdp_base +
-		MDSS_MDP_REG_PPB0_CONFIG);
-	writel_relaxed(cntl, ctl->mdata->mdp_base +
-		MDSS_MDP_REG_PPB0_CNTL);
+			ctl->mdata->ppb[0].cfg_off);
+	writel_relaxed(cntl, ctl->mdata->mdp_base + ctl->mdata->ppb[0].ctl_off);
 }
 
 int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)

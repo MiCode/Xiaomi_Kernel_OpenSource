@@ -169,6 +169,7 @@ static int mdss_mdp_parse_dt_prefill(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
+static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_cdm(struct platform_device *pdev);
 
 /**
@@ -1758,6 +1759,10 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = mdss_mdp_parse_dt_ppb_off(pdev);
+	if (rc)
+		pr_debug("Info in device tree: ppb offset not configured\n");
+
 	rc = mdss_mdp_parse_dt_cdm(pdev);
 	if (rc)
 		pr_debug("CDM offset not found in device tree\n");
@@ -2861,6 +2866,31 @@ static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev)
 parse_done:
 	kfree(ad_offsets);
 	return rc;
+}
+
+static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	u32 len, index;
+	const u32 *arr;
+	arr = of_get_property(pdev->dev.of_node, "qcom,mdss-ppb-off", &len);
+	if (arr) {
+		mdata->nppb = len / sizeof(u32);
+		mdata->ppb = devm_kzalloc(&mdata->pdev->dev,
+				sizeof(struct mdss_mdp_ppb) *
+				mdata->nppb, GFP_KERNEL);
+
+		if (mdata->ppb == NULL)
+			return -ENOMEM;
+
+		for (index = 0; index <  mdata->nppb; index++) {
+			mdata->ppb[index].ctl_off = be32_to_cpu(arr[index]);
+			mdata->ppb[index].cfg_off =
+				mdata->ppb[index].ctl_off + 4;
+		}
+		return 0;
+	}
+	return -EINVAL;
 }
 
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
