@@ -1867,6 +1867,7 @@ struct drm_i915_private {
 
 
 	bool video_disabled;
+	uint32_t request_uniq;
 
 	/*
 	 * NOTE: This is the dri1/ums dungeon, don't add stuff here. Your patch
@@ -2108,6 +2109,8 @@ struct drm_i915_gem_request {
 	/** deferred free list for dereferencing from IRQ context */
 	struct list_head delay_free_list;
 	uint32_t delay_free_count;
+
+	uint32_t uniq;
 };
 
 void i915_gem_request_free(struct kref *req_ref);
