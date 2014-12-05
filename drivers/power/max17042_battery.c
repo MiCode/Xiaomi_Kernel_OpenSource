@@ -85,6 +85,7 @@
 #define MC_TO_DEGREE(mC) (mC / 1000)
 #define DEGREE_TO_TENTHS_DEGREE(c) (c * 10)
 #define ACPI_BATTERY_SENSOR_NAME "STR3"
+#define MAX17042_DEFAULT_TEMP_MAX 450 /* 45 Degree Celcius */
 
 #define MAX17042_SOFT_POR_CMD	0x000F	/* Maxim soft POR command */
 #define MAXIM_FGCONFIG_ACPI_TABLE_NAME	"BCFG"
@@ -1037,7 +1038,7 @@ max17042_get_pdata(struct device *dev)
 #ifdef CONFIG_POWER_SUPPLY_CHARGER
 	struct ps_batt_chg_prof batt_prof;
 	struct ps_pse_mod_prof *pse_prof;
-	int ret;
+	int ret, i, temp_mon_ranges;
 #endif
 	if (!IS_ENABLED(CONFIG_ACPI))
 		return dev->platform_data;
@@ -1063,6 +1064,21 @@ max17042_get_pdata(struct device *dev)
 		if (pse_prof) {
 			pdata->vmin = pse_prof->low_batt_mV;
 			pdata->vmax = pse_prof->voltage_max;
+			temp_mon_ranges = min_t(u16, pse_prof->temp_mon_ranges,
+						BATT_TEMP_NR_RNG);
+			for (i = 0; i < temp_mon_ranges; ++i) {
+				if (pse_prof->temp_mon_range[i].full_chrg_cur)
+					break;
+			}
+			if (i < temp_mon_ranges)
+				pdata->temp_max = DEGREE_TO_TENTHS_DEGREE(
+					pse_prof->temp_mon_range[i].
+						temp_up_lim);
+			else
+				pdata->temp_max = MAX17042_DEFAULT_TEMP_MAX;
+
+			pdata->temp_min = DEGREE_TO_TENTHS_DEGREE(
+				pse_prof->temp_low_lim);
 			snprintf(pdata->battid, (BATTID_LEN+1),
 				"%s", pse_prof->batt_id);
 		}
@@ -1072,8 +1088,6 @@ max17042_get_pdata(struct device *dev)
 				pdata->battid);
 	snprintf(pdata->serial_num, (SERIAL_NUM_LEN + 1), "%s",
 				pdata->battid + MODEL_NAME_LEN);
-	pdata->temp_min = 0;
-	pdata->temp_max = 600;
 #else
 	pdata->vmin = 3300; /* 3.3V */
 	pdata->vmax = 4350;
