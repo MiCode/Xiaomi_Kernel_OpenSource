@@ -4299,9 +4299,9 @@ int q6asm_dts_eagle_set(struct audio_client *ac, int param_id, int size,
 			rc = -EINVAL;
 			goto fail_cmd;
 		}
-		if (size + CMD_OB_HDR_SZ > po->size) {
+		if (size + APR_CMD_OB_HDR_SZ > po->size) {
 			pr_err("DTS_EAGLE_ASM - %s: ion alloc of size %zu too small for size requested %i.\n",
-				__func__, po->size, size + CMD_OB_HDR_SZ);
+				__func__, po->size, size + APR_CMD_OB_HDR_SZ);
 			rc = -EINVAL;
 			goto fail_cmd;
 		}
@@ -4342,7 +4342,7 @@ int q6asm_dts_eagle_get(struct audio_client *ac, int param_id, int size,
 {
 	struct asm_dts_eagle_param_get *ad;
 	int rc = 0, *ob_params = NULL;
-	int sz = sizeof(struct asm_dts_eagle_param) + CMD_GET_HDR_SZ +
+	int sz = sizeof(struct asm_dts_eagle_param) + APR_CMD_GET_HDR_SZ +
 		 (po ? 0 : size);
 
 	if (!ac || ac->apr == NULL || size <= 0 || !data) {
@@ -4365,7 +4365,7 @@ int q6asm_dts_eagle_get(struct audio_client *ac, int param_id, int size,
 	ad->param.mem_map_handle = 0;
 	ad->param.module_id = m_id;
 	ad->param.param_id = param_id;
-	ad->param.param_max_size = size + CMD_GET_HDR_SZ;
+	ad->param.param_max_size = size + APR_CMD_GET_HDR_SZ;
 	ad->param.reserved = 0;
 	atomic_set(&ac->cmd_state, 1);
 
@@ -4398,9 +4398,9 @@ int q6asm_dts_eagle_get(struct audio_client *ac, int param_id, int size,
 			rc = -EINVAL;
 			goto fail_cmd;
 		}
-		if (size + CMD_OB_HDR_SZ > po->size) {
+		if (size + APR_CMD_OB_HDR_SZ > po->size) {
 			pr_err("DTS_EAGLE_ASM - %s: ion alloc of size %zu too small for size requested %i.\n",
-				__func__, po->size, size + CMD_OB_HDR_SZ);
+				__func__, po->size, size + APR_CMD_OB_HDR_SZ);
 			rc = -EINVAL;
 			goto fail_cmd;
 		}

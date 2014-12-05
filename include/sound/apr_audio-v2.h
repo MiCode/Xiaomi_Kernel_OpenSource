@@ -16,6 +16,18 @@
 
 #include <linux/qdsp6v2/apr.h>
 
+/* size of header needed for passing data out of band */
+#define APR_CMD_OB_HDR_SZ  12
+
+/* size of header needed for getting data */
+#define APR_CMD_GET_HDR_SZ 16
+
+struct param_outband {
+	size_t       size;
+	void        *kvaddr;
+	phys_addr_t  paddr;
+};
+
 #define ADSP_ADM_VERSION    0x00070000
 
 #define ADM_CMD_SHARED_MEM_MAP_REGIONS    0x00010322
@@ -7111,18 +7123,6 @@ struct asm_dts_eagle_param_get {
 	struct apr_hdr	hdr;
 	struct asm_stream_cmd_get_pp_params_v2 param;
 } __packed;
-
-struct param_outband {
-	size_t       size;
-	void        *kvaddr;
-	phys_addr_t  paddr;
-};
-
-/* size of header needed for passing data out of band */
-#define CMD_OB_HDR_SZ  12
-
-/* size of header needed for getting data */
-#define CMD_GET_HDR_SZ 16
 
 /* LSM Specific */
 #define VW_FEAT_DIM					(39)

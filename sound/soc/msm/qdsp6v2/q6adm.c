@@ -250,10 +250,10 @@ int adm_dts_eagle_set(int port_id, int copp_idx, int param_id,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (size + CMD_OB_HDR_SZ > this_adm.outband_memmap.size) {
+	if (size + APR_CMD_OB_HDR_SZ > this_adm.outband_memmap.size) {
 		pr_err("DTS_EAGLE_ADM - %s: ion alloc of size %zu too small for size requested %i.\n",
 			__func__, this_adm.outband_memmap.size,
-			size + CMD_OB_HDR_SZ);
+			size + APR_CMD_OB_HDR_SZ);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -338,10 +338,10 @@ int adm_dts_eagle_get(int port_id, int copp_idx, int param_id,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (size + CMD_OB_HDR_SZ > this_adm.outband_memmap.size) {
+	if (size + APR_CMD_OB_HDR_SZ > this_adm.outband_memmap.size) {
 		pr_err("DTS_EAGLE_ADM - %s: ion alloc of size %zu too small for size requested %i.\n",
 			__func__, this_adm.outband_memmap.size,
-			size + CMD_OB_HDR_SZ);
+			size + APR_CMD_OB_HDR_SZ);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
