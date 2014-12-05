@@ -40,6 +40,7 @@
 #include <linux/usb/otg.h>
 #include <linux/acpi.h>
 #include <linux/gpio/consumer.h>
+#include <linux/completion.h>
 
 #include <asm/intel_em_config.h>
 
@@ -213,6 +214,7 @@
 
 /* Max no. of tries to reset the bq24192i WDT */
 #define MAX_RESET_WDT_RETRY 8
+#define VBUS_DET_TIMEOUT msecs_to_jiffies(50) /* 50 msec */
 
 static struct power_supply *fg_psy;
 
@@ -242,6 +244,7 @@ struct bq24192_chip {
 	struct power_supply_cable_props cap;
 	struct power_supply_cable_props cached_cap;
 	struct usb_phy *transceiver;
+	struct completion vbus_detect;
 	/* Wake lock to prevent platform from going to S3 when charging */
 	struct wake_lock wakelock;
 
@@ -1293,7 +1296,7 @@ static inline int bq24192_set_cv(struct bq24192_chip *chip, int cv)
 
 static inline int bq24192_set_inlmt(struct bq24192_chip *chip, int inlmt)
 {
-	int regval;
+	int regval, timeout;
 
 	dev_warn(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, inlmt);
 	chip->inlmt = inlmt;
@@ -1301,6 +1304,16 @@ static inline int bq24192_set_inlmt(struct bq24192_chip *chip, int inlmt)
 
 	if (regval < 0)
 		return regval;
+
+	/* Wait for VBUS if inlimit > 0 */
+	if (inlmt > 0) {
+		timeout = wait_for_completion_timeout(&chip->vbus_detect,
+					VBUS_DET_TIMEOUT);
+		if (timeout == 0)
+			dev_warn(&chip->client->dev,
+				"VBUS Detect timedout. Setting INLIMIT");
+	}
+
 
 	return bq24192_write_reg(chip->client, BQ24192_INPUT_SRC_CNTL_REG,
 				regval);
@@ -1560,6 +1573,16 @@ static void bq24192_irq_worker(struct work_struct *work)
 		dev_err(&chip->client->dev, "STATUS register read failed:\n");
 
 	dev_info(&chip->client->dev, "STATUS reg %x\n", reg_status);
+
+	/*
+	 * On VBUS detect set completion to wake waiting thread. On VBUS
+	 * disconnect, re-init completion so that setting INLIMIT would be
+	 * delayed till VBUS is detected.
+	 */
+	if (reg_status & SYSTEM_STAT_VBUS_HOST)
+		complete(&chip->vbus_detect);
+	else
+		reinit_completion(&chip->vbus_detect);
 
 	reg_status &= SYSTEM_STAT_CHRG_DONE;
 
@@ -2037,6 +2060,7 @@ static int bq24192_probe(struct i2c_client *client,
 	/* Initialize the wakelock */
 	wake_lock_init(&chip->wakelock, WAKE_LOCK_SUSPEND,
 						"ctp_charger_wakelock");
+	init_completion(&chip->vbus_detect);
 
 	/* register bq24192 usb with power supply subsystem */
 	if (!chip->pdata->slave_mode) {
