@@ -12,6 +12,10 @@
 #ifndef _SOC_QCOM_GLINK_PRIVATE_H_
 #define _SOC_QCOM_GLINK_PRIVATE_H_
 
+#ifdef INIT_COMPLETION
+#define reinit_completion(x) INIT_COMPLETION(*(x))
+#endif /* INIT_COMPLETION */
+
 /* Logging Macros */
 enum {
 	QCOM_GLINK_INFO = 1U << 0,

@@ -1720,8 +1720,8 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			return -EAGAIN;
 		} else {
 			/* request intent of correct size */
-			INIT_COMPLETION(ctx->int_req_ack_complete);
-			INIT_COMPLETION(ctx->int_req_complete);
+			reinit_completion(&ctx->int_req_ack_complete);
+			reinit_completion(&ctx->int_req_complete);
 			ret = ctx->transport_ptr->ops->tx_cmd_rx_intent_req(
 				ctx->transport_ptr->ops, ctx->lcid, size);
 			if (ret)
@@ -1740,7 +1740,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			/* wait for the rx_intent from remote side */
 			do {
 				wait_for_completion(&ctx->int_req_complete);
-				INIT_COMPLETION(ctx->int_req_complete);
+				reinit_completion(&ctx->int_req_complete);
 			} while (ch_pop_remote_rx_intent(ctx, size, &riid));
 		}
 	}
