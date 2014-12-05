@@ -300,7 +300,7 @@ struct mdss_mdp_ctl {
 	void *priv_data;
 	void *intf_ctx[2];
 	u32 wb_type;
-	bool prg_fet;
+	u32 prg_fet;
 
 	struct mdss_mdp_writeback *wb;
 
