@@ -34,6 +34,7 @@ struct pil_priv;
  * This defaults to ioremap if not specified.
  * @unmap_fw_mem: Custom function used to undo mapping by map_fw_mem.
  * This defaults to iounmap if not specified.
+ * @shutdown_fail: Set if PIL op for shutting down subsystem fails.
  */
 struct pil_desc {
 	const char *name;
@@ -49,6 +50,7 @@ struct pil_desc {
 	void * (*map_fw_mem)(phys_addr_t phys, size_t size, void *data);
 	void (*unmap_fw_mem)(void *virt, size_t size, void *data);
 	void *map_data;
+	bool shutdown_fail;
 };
 
 /**
