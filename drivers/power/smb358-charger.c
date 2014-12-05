@@ -1269,7 +1269,7 @@ static int apsd_complete(struct smb358_charger *chip, u8 status)
 	dev_dbg(chip->dev, "APSD complete. USB type detected=%d chg_present=%d",
 						type, chip->chg_present);
 
-	power_supply_set_charge_type(chip->usb_psy, type);
+	power_supply_set_supply_type(chip->usb_psy, type);
 
 	 /* SMB is now done sampling the D+/D- lines, indicate USB driver */
 	dev_dbg(chip->dev, "%s updating usb_psy present=%d", __func__,
