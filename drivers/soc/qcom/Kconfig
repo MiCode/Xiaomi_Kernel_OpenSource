@@ -601,6 +601,12 @@ config MSM_PERFORMANCE
 	  It ensures that no more than a user specified number of CPUs stay
 	  online at any given point in time.
 
+config QCOM_NPA_DUMP
+	bool "Read NPA dump from the RPM memory"
+	depends on DEBUG_FS
+	help
+	  Read the NPA dump from RPM memory through debugfs.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
