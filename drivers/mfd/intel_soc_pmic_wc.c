@@ -528,6 +528,59 @@ static void wc_set_adc_pdata(void)
 			sizeof(wc_adc_pdata), 0);
 }
 
+static acpi_handle pmic_handle(void)
+{
+	return ACPI_HANDLE(intel_soc_pmic_dev());
+}
+
+static int acpi_get_lpat_table(int **lpat)
+{
+	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
+	union acpi_object *obj_p, *obj_e;
+	int i, ret = 0;
+	acpi_status status;
+
+	if (!acpi_has_method(pmic_handle(), "LPAT"))
+		return -ENODEV;
+
+	status = acpi_evaluate_object(pmic_handle(), "LPAT", NULL, &buffer);
+	if (ACPI_FAILURE(status)) {
+		dev_err(intel_soc_pmic_dev(), "evaluate LPAT failed\n");
+		return -EINVAL;
+	}
+	obj_p = (union acpi_object *)buffer.pointer;
+	if (!obj_p || (obj_p->type != ACPI_TYPE_PACKAGE) ||
+	    (obj_p->package.count % 2) || (obj_p->package.count < 4)) {
+		dev_err(intel_soc_pmic_dev(), "Invalid LPAT data\n");
+		ret = -ENODEV;
+		goto err;
+	}
+
+	*lpat = devm_kmalloc(intel_soc_pmic_dev(),
+			    sizeof(**lpat) * obj_p->package.count, GFP_KERNEL);
+	if (!*lpat) {
+		dev_err(intel_soc_pmic_dev(), "No mem for lpat\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	for (i = 0; i < obj_p->package.count; i++) {
+		obj_e = &obj_p->package.elements[i];
+		if (obj_e->type != ACPI_TYPE_INTEGER) {
+			dev_err(intel_soc_pmic_dev(), "LPAT invalid data\n");
+			ret = -EINVAL;
+			goto err;
+		}
+		(*lpat)[i] = obj_e->integer.value;
+	}
+
+	ret = i;
+
+err:
+	kfree(buffer.pointer);
+	return ret;
+}
+
 static void wcove_set_ccsm_config(void)
 {
 	static struct intel_pmic_ccsm_platform_data pdata;
