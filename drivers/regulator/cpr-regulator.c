@@ -150,6 +150,10 @@
 
 #define SPEED_BIN_NONE			UINT_MAX
 
+#define FUSE_REVISION_UNKNOWN		(-1)
+#define FUSE_MAP_NO_MATCH		(-1)
+#define FUSE_PARAM_MATCH_ANY		0xFFFFFFFF
+
 #define FLAGS_IGNORE_1ST_IRQ_STATUS	BIT(0)
 #define FLAGS_SET_MIN_VOLTAGE		BIT(1)
 #define FLAGS_UPLIFT_QUOT_VOLT		BIT(2)
@@ -240,6 +244,9 @@ struct cpr_regulator {
 	bool		cpr_fuse_disable;
 	bool		cpr_fuse_local;
 	bool		cpr_fuse_redundant;
+	int		cpr_fuse_revision;
+	int		cpr_fuse_map_count;
+	int		cpr_fuse_map_match;
 	int		*cpr_fuse_target_quot;
 	int		*cpr_fuse_ro_sel;
 	int		gcnt;
@@ -267,7 +274,7 @@ struct cpr_regulator {
 	u32		timer_cons_up;
 	u32		timer_cons_down;
 	u32		irq_line;
-	u32		step_quotient;
+	u32		*step_quotient;
 	u32		up_threshold;
 	u32		down_threshold;
 	u32		idle_clocks;
@@ -344,6 +351,9 @@ static u64 cpr_read_efuse_row(struct cpr_regulator *cpr_vreg, u32 row_num,
 		u32 row_data[2];
 		u32 status;
 	} rsp;
+
+	if (cpr_vreg->remapped_row && row_num >= cpr_vreg->remapped_row_base)
+		return cpr_read_remapped_efuse_row(cpr_vreg, row_num);
 
 	if (cpr_vreg->remapped_row && row_num >= cpr_vreg->remapped_row_base)
 		return cpr_read_remapped_efuse_row(cpr_vreg, row_num);
@@ -565,12 +575,24 @@ static void cpr_corner_save(struct cpr_regulator *cpr_vreg, int corner)
 
 static void cpr_corner_restore(struct cpr_regulator *cpr_vreg, int corner)
 {
-	u32 gcnt, ctl, irq, ro_sel;
+	u32 gcnt, ctl, irq, ro_sel, step_quot;
 	int fuse_corner = cpr_vreg->corner_map[corner];
+	int i;
 
 	ro_sel = cpr_vreg->cpr_fuse_ro_sel[fuse_corner];
 	gcnt = cpr_vreg->gcnt | (cpr_vreg->cpr_fuse_target_quot[fuse_corner] -
 					cpr_vreg->quot_adjust[corner]);
+
+	/* Program the step quotient and idle clocks */
+	step_quot = ((cpr_vreg->idle_clocks & RBCPR_STEP_QUOT_IDLE_CLK_MASK)
+			<< RBCPR_STEP_QUOT_IDLE_CLK_SHIFT) |
+		(cpr_vreg->step_quotient[fuse_corner]
+			& RBCPR_STEP_QUOT_STEPQUOT_MASK);
+	cpr_write(cpr_vreg, REG_RBCPR_STEP_QUOT, step_quot);
+
+	/* Clear the target quotient value and gate count of all ROs */
+	for (i = 0; i < CPR_NUM_RING_OSC; i++)
+		cpr_write(cpr_vreg, REG_RBCPR_GCNT_TARGET(i), 0);
 
 	cpr_write(cpr_vreg, REG_RBCPR_GCNT_TARGET(ro_sel), gcnt);
 	ctl = cpr_vreg->save_ctl[corner];
@@ -1143,12 +1165,6 @@ static int cpr_config(struct cpr_regulator *cpr_vreg, struct device *dev)
 			RBCPR_GCNT_TARGET_GCNT_SHIFT;
 	cpr_vreg->gcnt = gcnt;
 
-	/* Program the step quotient and idle clocks */
-	val = ((cpr_vreg->idle_clocks & RBCPR_STEP_QUOT_IDLE_CLK_MASK)
-			<< RBCPR_STEP_QUOT_IDLE_CLK_SHIFT) |
-		(cpr_vreg->step_quotient & RBCPR_STEP_QUOT_STEPQUOT_MASK);
-	cpr_write(cpr_vreg, REG_RBCPR_STEP_QUOT, val);
-
 	/* Program the delay count for the timer */
 	val = (cpr_vreg->ref_clk_khz * cpr_vreg->timer_delay_us) / 1000;
 	cpr_write(cpr_vreg, REG_RBCPR_TIMER_INTERVAL, val);
@@ -1240,6 +1256,65 @@ static int cpr_voltage_uplift_wa_inc_volt(struct cpr_regulator *cpr_vreg,
 	return rc;
 }
 
+static int cpr_adjust_init_voltages(struct device_node *of_node,
+				struct cpr_regulator *cpr_vreg)
+{
+	int tuple_count, tuple_match, i;
+	u32 index;
+	u32 volt_adjust = 0;
+	int len = 0;
+	int rc = 0;
+
+	if (!of_find_property(of_node, "qcom,cpr-init-voltage-adjustment",
+				&len)) {
+		/* No initial voltage adjustment needed. */
+		return 0;
+	}
+
+	if (cpr_vreg->cpr_fuse_map_count) {
+		if (cpr_vreg->cpr_fuse_map_match == FUSE_MAP_NO_MATCH) {
+			/*
+			 * No matching index to use for initial voltage
+			 * adjustment.
+			 */
+			return 0;
+		}
+		tuple_count = cpr_vreg->cpr_fuse_map_count;
+		tuple_match = cpr_vreg->cpr_fuse_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	if (len != cpr_vreg->num_fuse_corners * tuple_count * sizeof(u32)) {
+		cpr_err(cpr_vreg, "qcom,cpr-init-voltage-adjustment length=%d is invalid\n",
+			len);
+		return -EINVAL;
+	}
+
+	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++) {
+		index = tuple_match * cpr_vreg->num_fuse_corners
+				+ i - CPR_FUSE_CORNER_MIN;
+		rc = of_property_read_u32_index(of_node,
+			"qcom,cpr-init-voltage-adjustment", index,
+			&volt_adjust);
+		if (rc) {
+			cpr_err(cpr_vreg, "could not read qcom,cpr-init-voltage-adjustment index %u, rc=%d\n",
+				index, rc);
+			return rc;
+		}
+
+		if (volt_adjust) {
+			cpr_vreg->pvs_corner_v[i] += volt_adjust;
+			cpr_info(cpr_vreg, "adjusted initial voltage[%d]: %d -> %d uV\n",
+				i, cpr_vreg->pvs_corner_v[i] - volt_adjust,
+				cpr_vreg->pvs_corner_v[i]);
+		}
+	}
+
+	return rc;
+}
+
 /*
  * Property qcom,cpr-fuse-init-voltage specifies the fuse position of the
  * initial voltage for each fuse corner. MSB of the fuse value is a sign
@@ -1319,35 +1394,44 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 					fuse_sel[1], fuse_sel[2], fuse_sel[3]);
 		sign = (efuse_bits & (1 << (fuse_sel[2] - 1))) ? -1 : 1;
 		steps = efuse_bits & ((1 << (fuse_sel[2] - 1)) - 1);
-		cpr_debug(cpr_vreg,
-			"corner %d: sign = %d, steps = %d\n", i, sign, steps);
 		cpr_vreg->pvs_corner_v[i] =
 				ref_uv[i] + sign * steps * step_size_uv;
 		cpr_vreg->pvs_corner_v[i] = DIV_ROUND_UP(
 				cpr_vreg->pvs_corner_v[i],
 				cpr_vreg->step_volt) *
 				cpr_vreg->step_volt;
+		cpr_debug(cpr_vreg, "corner %d: sign = %d, steps = %d, volt = %d uV\n",
+			i, sign, steps, cpr_vreg->pvs_corner_v[i]);
+		fuse_sel += 4;
+	}
+
+	rc = cpr_adjust_init_voltages(of_node, cpr_vreg);
+	if (rc)
+		goto done;
+
+	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++) {
 		if (cpr_vreg->pvs_corner_v[i]
 		    > cpr_vreg->fuse_ceiling_volt[i]) {
 			cpr_info(cpr_vreg, "Warning: initial voltage[%d] %d above ceiling %d\n",
-						i, cpr_vreg->pvs_corner_v[i],
-						cpr_vreg->fuse_ceiling_volt[i]);
+				i, cpr_vreg->pvs_corner_v[i],
+				cpr_vreg->fuse_ceiling_volt[i]);
 			cpr_vreg->pvs_corner_v[i]
 				= cpr_vreg->fuse_ceiling_volt[i];
 		} else if (cpr_vreg->pvs_corner_v[i] <
 				cpr_vreg->fuse_floor_volt[i]) {
 			cpr_info(cpr_vreg, "Warning: initial voltage[%d] %d below floor %d\n",
-						i, cpr_vreg->pvs_corner_v[i],
-						cpr_vreg->fuse_floor_volt[i]);
+				i, cpr_vreg->pvs_corner_v[i],
+				cpr_vreg->fuse_floor_volt[i]);
 			cpr_vreg->pvs_corner_v[i]
 				= cpr_vreg->fuse_floor_volt[i];
 		}
-		fuse_sel += 4;
 	}
+
+done:
 	kfree(tmp);
 	kfree(ref_uv);
 
-	return 0;
+	return rc;
 }
 
 /*
@@ -1418,6 +1502,10 @@ static int cpr_pvs_single_bin_init(struct device_node *of_node,
 		cpr_vreg->pvs_corner_v[i] = tmp[cpr_vreg->pvs_bin *
 						stripe_size + i - 1];
 	kfree(tmp);
+
+	rc = cpr_adjust_init_voltages(of_node, cpr_vreg);
+	if (rc)
+		return rc;
 
 	return 0;
 }
@@ -1851,6 +1939,119 @@ static int cpr_reduce_ceiling_voltage(struct cpr_regulator *cpr_vreg,
 }
 
 /*
+ * Adjust the per-virtual-corner open loop voltage with an offset specfied by a
+ * device-tree property. This must be called after open-loop voltage scaling.
+ */
+static int cpr_virtual_corner_voltage_adjust(struct cpr_regulator *cpr_vreg,
+						struct device *dev)
+{
+	char *prop_name = "qcom,cpr-virtual-corner-init-voltage-adjustment";
+	int i, rc, tuple_count, tuple_match, index, len;
+	u32 voltage_adjust;
+
+	if (!of_find_property(dev->of_node, prop_name, &len)) {
+		cpr_debug(cpr_vreg, "%s not specified\n", prop_name);
+		return 0;
+	}
+
+	if (cpr_vreg->cpr_fuse_map_count) {
+		if (cpr_vreg->cpr_fuse_map_match == FUSE_MAP_NO_MATCH) {
+			/* No matching index to use for voltage adjustment. */
+			return 0;
+		}
+		tuple_count = cpr_vreg->cpr_fuse_map_count;
+		tuple_match = cpr_vreg->cpr_fuse_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	if (len != cpr_vreg->num_corners * tuple_count * sizeof(u32)) {
+		cpr_err(cpr_vreg, "%s length=%d is invalid\n", prop_name,
+			len);
+		return -EINVAL;
+	}
+
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++) {
+		index = tuple_match * cpr_vreg->num_corners
+				+ i - CPR_CORNER_MIN;
+		rc = of_property_read_u32_index(dev->of_node, prop_name,
+						index, &voltage_adjust);
+		if (rc) {
+			cpr_err(cpr_vreg, "could not read %s index %u, rc=%d\n",
+				prop_name, index, rc);
+			return rc;
+		}
+
+		if (voltage_adjust) {
+			cpr_vreg->open_loop_volt[i] += (int)voltage_adjust;
+			cpr_info(cpr_vreg, "corner=%d adjusted open-loop voltage=%d\n",
+				i, cpr_vreg->open_loop_volt[i]);
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * Adjust the per-virtual-corner quot with an offset specfied by a
+ * device-tree property. This must be called after the quot-scaling adjustments
+ * are completed.
+ */
+static int cpr_virtual_corner_quot_adjust(struct cpr_regulator *cpr_vreg,
+						struct device *dev)
+{
+	char *prop_name = "qcom,cpr-virtual-corner-quotient-adjustment";
+	int i, rc, tuple_count, tuple_match, index, len;
+	u32 quot_adjust;
+
+	if (!of_find_property(dev->of_node, prop_name, &len)) {
+		cpr_debug(cpr_vreg, "%s not specified\n", prop_name);
+		return 0;
+	}
+
+	if (cpr_vreg->cpr_fuse_map_count) {
+		if (cpr_vreg->cpr_fuse_map_match == FUSE_MAP_NO_MATCH) {
+			/* No matching index to use for quotient adjustment. */
+			return 0;
+		}
+		tuple_count = cpr_vreg->cpr_fuse_map_count;
+		tuple_match = cpr_vreg->cpr_fuse_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	if (len != cpr_vreg->num_corners * tuple_count * sizeof(u32)) {
+		cpr_err(cpr_vreg, "%s length=%d is invalid\n", prop_name,
+			len);
+		return -EINVAL;
+	}
+
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++) {
+		index = tuple_match * cpr_vreg->num_corners
+				+ i - CPR_CORNER_MIN;
+		rc = of_property_read_u32_index(dev->of_node, prop_name,
+						index, &quot_adjust);
+		if (rc) {
+			cpr_err(cpr_vreg, "could not read %s index %u, rc=%d\n",
+				prop_name, index, rc);
+			return rc;
+		}
+
+		if (quot_adjust) {
+			cpr_vreg->quot_adjust[i] -= (int)quot_adjust;
+			cpr_info(cpr_vreg, "corner=%d adjusted quotient=%d\n",
+					i,
+			cpr_vreg->cpr_fuse_target_quot[cpr_vreg->corner_map[i]]
+						- cpr_vreg->quot_adjust[i]);
+		}
+	}
+
+	return 0;
+}
+
+/*
  * cpr_get_corner_quot_adjustment() -- get the quot_adjust for each corner.
  *
  * Get the virtual corner to fuse corner mapping and virtual corner to APC clock
@@ -1958,8 +2159,6 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 		return rc;
 	}
 
-	cpr_parse_pvs_version_fuse(cpr_vreg, dev->of_node);
-
 	corner_max = kzalloc((cpr_vreg->num_fuse_corners + 1)
 				* sizeof(*corner_max), GFP_KERNEL);
 	freq_max = kzalloc((cpr_vreg->num_fuse_corners + 1) * sizeof(*freq_max),
@@ -1977,15 +2176,17 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	 */
 	match_found = false;
 	for (i = 0; i < size; i += cpr_vreg->num_fuse_corners + 2) {
-		if (tmp[i] == cpr_vreg->speed_bin &&
-		    tmp[i + 1] == cpr_vreg->pvs_version) {
-			for (j = CPR_FUSE_CORNER_MIN;
-			     j <= cpr_vreg->num_fuse_corners; j++)
-				corner_max[j]
-					= tmp[i + 2 + j - CPR_FUSE_CORNER_MIN];
-			match_found = true;
-			break;
-		}
+		if (tmp[i] != cpr_vreg->speed_bin &&
+		    tmp[i] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		if (tmp[i + 1] != cpr_vreg->pvs_version &&
+		    tmp[i + 1] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		for (j = CPR_FUSE_CORNER_MIN;
+		     j <= cpr_vreg->num_fuse_corners; j++)
+			corner_max[j] = tmp[i + 2 + j - CPR_FUSE_CORNER_MIN];
+		match_found = true;
+		break;
 	}
 	kfree(tmp);
 
@@ -2163,21 +2364,39 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 			}
 		}
 	}
+
+	rc = cpr_virtual_corner_quot_adjust(cpr_vreg, dev);
+	if (rc) {
+		cpr_err(cpr_vreg, "count not adjust virtual-corner quot rc=%d\n",
+			rc);
+		goto free_arrays;
+	}
+
 	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++)
 		cpr_info(cpr_vreg, "adjusted quotient[%d] = %d\n", i,
 			cpr_vreg->cpr_fuse_target_quot[cpr_vreg->corner_map[i]]
 			- cpr_vreg->quot_adjust[i]);
+
 	maps_valid = true;
 
 free_arrays:
 	if (!rc) {
+
 		rc = cpr_get_open_loop_voltage(cpr_vreg, dev, corner_max,
 						freq_map, maps_valid);
-		if (rc)
+		if (rc) {
 			cpr_err(cpr_vreg, "could not fill open loop voltage array, rc=%d\n",
+				rc);
+			goto free_arrays_1;
+		}
+
+		rc = cpr_virtual_corner_voltage_adjust(cpr_vreg, dev);
+		if (rc)
+			cpr_err(cpr_vreg, "count not adjust virtual-corner voltage rc=%d\n",
 				rc);
 	}
 
+free_arrays_1:
 	kfree(max_factor);
 	kfree(scaling);
 	kfree(freq_map);
@@ -2223,6 +2442,215 @@ static int cpr_check_redundant(struct platform_device *pdev,
 	return 0;
 }
 
+static int cpr_read_fuse_revision(struct platform_device *pdev,
+		     struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	u32 fuse_sel[4];
+	int rc;
+
+	if (of_find_property(of_node, "qcom,cpr-fuse-revision", NULL)) {
+		rc = of_property_read_u32_array(of_node,
+			"qcom,cpr-fuse-revision", fuse_sel, 4);
+		if (rc < 0) {
+			cpr_err(cpr_vreg, "qcom,cpr-fuse-revision read failed: rc=%d\n",
+				rc);
+			return rc;
+		}
+		cpr_vreg->cpr_fuse_revision
+			= cpr_read_efuse_param(cpr_vreg, fuse_sel[0],
+					fuse_sel[1], fuse_sel[2], fuse_sel[3]);
+		cpr_info(cpr_vreg, "fuse revision = %d\n",
+			cpr_vreg->cpr_fuse_revision);
+	} else {
+		cpr_vreg->cpr_fuse_revision = FUSE_REVISION_UNKNOWN;
+	}
+
+	return 0;
+}
+
+static int cpr_read_ro_select(struct platform_device *pdev,
+				     struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	int rc = 0;
+	u32 cpr_fuse_row[2];
+	char *ro_sel_str;
+	int *bp_ro_sel;
+	int i;
+
+	bp_ro_sel
+		= kzalloc((cpr_vreg->num_fuse_corners + 1) * sizeof(*bp_ro_sel),
+			GFP_KERNEL);
+	if (!bp_ro_sel) {
+		cpr_err(cpr_vreg, "could not allocate memory for temp array\n");
+		return -ENOMEM;
+	}
+
+	if (cpr_vreg->cpr_fuse_redundant) {
+		rc = of_property_read_u32_array(of_node,
+				"qcom,cpr-fuse-redun-row",
+				cpr_fuse_row, 2);
+		ro_sel_str = "qcom,cpr-fuse-redun-ro-sel";
+	} else {
+		rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-row",
+				cpr_fuse_row, 2);
+		ro_sel_str = "qcom,cpr-fuse-ro-sel";
+	}
+	if (rc)
+		goto error;
+
+	rc = of_property_read_u32_array(of_node, ro_sel_str,
+		&bp_ro_sel[CPR_FUSE_CORNER_MIN], cpr_vreg->num_fuse_corners);
+	if (rc) {
+		cpr_err(cpr_vreg, "%s read error, rc=%d\n", ro_sel_str, rc);
+		goto error;
+	}
+
+	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++)
+		cpr_vreg->cpr_fuse_ro_sel[i]
+			= cpr_read_efuse_param(cpr_vreg, cpr_fuse_row[0],
+				bp_ro_sel[i], CPR_FUSE_RO_SEL_BITS,
+				cpr_fuse_row[1]);
+
+error:
+	kfree(bp_ro_sel);
+
+	return rc;
+}
+
+static int cpr_find_fuse_map_match(struct platform_device *pdev,
+				     struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	int i, j, rc, tuple_size;
+	int len = 0;
+	u32 *tmp, val, ro;
+
+	/* Specify default no match case. */
+	cpr_vreg->cpr_fuse_map_match = FUSE_MAP_NO_MATCH;
+	cpr_vreg->cpr_fuse_map_count = 0;
+
+	if (!of_find_property(of_node, "qcom,cpr-fuse-version-map", &len)) {
+		/* No mapping present. */
+		return 0;
+	}
+
+	tuple_size = cpr_vreg->num_fuse_corners + 3;
+	cpr_vreg->cpr_fuse_map_count = len / (sizeof(u32) * tuple_size);
+
+	if (len == 0 || len % (sizeof(u32) * tuple_size)) {
+		cpr_err(cpr_vreg, "qcom,cpr-fuse-version-map length=%d is invalid\n",
+			len);
+		return -EINVAL;
+	}
+
+	tmp = kzalloc(len, GFP_KERNEL);
+	if (!tmp) {
+		cpr_err(cpr_vreg, "could not allocate memory for temp array\n");
+		return -ENOMEM;
+	}
+
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-version-map",
+				tmp, cpr_vreg->cpr_fuse_map_count * tuple_size);
+	if (rc) {
+		cpr_err(cpr_vreg, "could not read qcom,cpr-fuse-version-map, rc=%d\n",
+			rc);
+		goto done;
+	}
+
+	/*
+	 * qcom,cpr-fuse-version-map tuple format:
+	 * <speed_bin, pvs_version, cpr_fuse_revision, ro_sel[1], ...,
+	 *  ro_sel[n]> for n == number of fuse corners
+	 */
+	for (i = 0; i < cpr_vreg->cpr_fuse_map_count; i++) {
+		if (tmp[i * tuple_size] != cpr_vreg->speed_bin
+		    && tmp[i * tuple_size] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		if (tmp[i * tuple_size + 1] != cpr_vreg->pvs_version
+		    && tmp[i * tuple_size + 1] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		if (tmp[i * tuple_size + 2] != cpr_vreg->cpr_fuse_revision
+		    && tmp[i * tuple_size + 2] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		for (j = 0; j < cpr_vreg->num_fuse_corners; j++) {
+			val = tmp[i * tuple_size + 3 + j];
+			ro = cpr_vreg->cpr_fuse_ro_sel[j + CPR_FUSE_CORNER_MIN];
+			if (val != ro && val != FUSE_PARAM_MATCH_ANY)
+				break;
+		}
+		if (j == cpr_vreg->num_fuse_corners) {
+			cpr_vreg->cpr_fuse_map_match = i;
+			break;
+		}
+	}
+
+	if (cpr_vreg->cpr_fuse_map_match != FUSE_MAP_NO_MATCH)
+		cpr_debug(cpr_vreg, "qcom,cpr-fuse-version-map tuple match found: %d\n",
+			cpr_vreg->cpr_fuse_map_match);
+	else
+		cpr_debug(cpr_vreg, "qcom,cpr-fuse-version-map tuple match not found\n");
+
+done:
+	kfree(tmp);
+	return rc;
+}
+
+static int cpr_adjust_target_quots(struct platform_device *pdev,
+					struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	int tuple_count, tuple_match, i;
+	u32 index;
+	u32 quot_adjust = 0;
+	int len = 0;
+	int rc = 0;
+
+	if (!of_find_property(of_node, "qcom,cpr-quotient-adjustment", &len)) {
+		/* No static quotient adjustment needed. */
+		return 0;
+	}
+
+	if (cpr_vreg->cpr_fuse_map_count) {
+		if (cpr_vreg->cpr_fuse_map_match == FUSE_MAP_NO_MATCH) {
+			/* No matching index to use for quotient adjustment. */
+			return 0;
+		}
+		tuple_count = cpr_vreg->cpr_fuse_map_count;
+		tuple_match = cpr_vreg->cpr_fuse_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	if (len != cpr_vreg->num_fuse_corners * tuple_count * sizeof(u32)) {
+		cpr_err(cpr_vreg, "qcom,cpr-quotient-adjustment length=%d is invalid\n",
+			len);
+		return -EINVAL;
+	}
+
+	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++) {
+		index = tuple_match * cpr_vreg->num_fuse_corners
+				+ i - CPR_FUSE_CORNER_MIN;
+		rc = of_property_read_u32_index(of_node,
+			"qcom,cpr-quotient-adjustment", index, &quot_adjust);
+		if (rc) {
+			cpr_err(cpr_vreg, "could not read qcom,cpr-quotient-adjustment index %u, rc=%d\n",
+				index, rc);
+			return rc;
+		}
+
+		if (quot_adjust) {
+			cpr_vreg->cpr_fuse_target_quot[i] += quot_adjust;
+			cpr_info(cpr_vreg, "Corner[%d]: adjusted target quot = %d\n",
+				i, cpr_vreg->cpr_fuse_target_quot[i]);
+		}
+	}
+
+	return rc;
+}
+
 static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				     struct cpr_regulator *cpr_vreg)
 {
@@ -2230,27 +2658,22 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	int i, rc = 0;
 	bool scheme_fuse_valid = false;
 	bool disable_fuse_valid = false;
-	char *targ_quot_str, *ro_sel_str;
+	char *targ_quot_str;
 	u32 cpr_fuse_row[2];
 	u32 bp_cpr_disable, bp_scheme;
 	size_t len;
 	int *bp_target_quot;
-	int *bp_ro_sel;
 	u64 fuse_bits, fuse_bits_2;
-	u32 *quot_adjust;
 	u32 *target_quot_size;
 	struct cpr_quot_scale *quot_scale;
 
 	len = cpr_vreg->num_fuse_corners + 1;
 
 	bp_target_quot = kzalloc(len * sizeof(*bp_target_quot), GFP_KERNEL);
-	bp_ro_sel = kzalloc(len * sizeof(*bp_ro_sel), GFP_KERNEL);
-	quot_adjust = kzalloc(len * sizeof(*quot_adjust), GFP_KERNEL);
 	target_quot_size = kzalloc(len * sizeof(*target_quot_size), GFP_KERNEL);
 	quot_scale = kzalloc(len * sizeof(*quot_scale), GFP_KERNEL);
 
-	if (bp_target_quot == NULL || bp_ro_sel == NULL || quot_adjust == NULL
-	    || target_quot_size == NULL || quot_scale == NULL) {
+	if (!bp_target_quot || !target_quot_size || !quot_scale) {
 		cpr_err(cpr_vreg,
 			"Could not allocate memory for fuse parsing arrays\n");
 		rc = -ENOMEM;
@@ -2262,12 +2685,10 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				"qcom,cpr-fuse-redun-row",
 				cpr_fuse_row, 2);
 		targ_quot_str = "qcom,cpr-fuse-redun-target-quot";
-		ro_sel_str = "qcom,cpr-fuse-redun-ro-sel";
 	} else {
 		rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-row",
 				cpr_fuse_row, 2);
 		targ_quot_str = "qcom,cpr-fuse-target-quot";
-		ro_sel_str = "qcom,cpr-fuse-ro-sel";
 	}
 	if (rc)
 		goto error;
@@ -2331,13 +2752,6 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			quot_scale[i].offset = 0;
 			quot_scale[i].multiplier = 1;
 		}
-	}
-
-	rc = of_property_read_u32_array(of_node, ro_sel_str,
-		&bp_ro_sel[CPR_FUSE_CORNER_MIN], cpr_vreg->num_fuse_corners);
-	if (rc < 0) {
-		cpr_err(cpr_vreg, "missing %s: rc=%d\n", ro_sel_str, rc);
-		goto error;
 	}
 
 	/* Read the control bits of eFuse */
@@ -2428,10 +2842,6 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	}
 
 	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++) {
-		cpr_vreg->cpr_fuse_ro_sel[i]
-			= cpr_read_efuse_param(cpr_vreg, cpr_fuse_row[0],
-				bp_ro_sel[i], CPR_FUSE_RO_SEL_BITS,
-				cpr_fuse_row[1]);
 		cpr_vreg->cpr_fuse_target_quot[i]
 			= cpr_read_efuse_param(cpr_vreg, cpr_fuse_row[0],
 				bp_target_quot[i], target_quot_size[i],
@@ -2445,17 +2855,9 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			cpr_vreg->cpr_fuse_target_quot[i]);
 	}
 
-	rc = of_property_read_u32_array(of_node, "qcom,cpr-quotient-adjustment",
-		&quot_adjust[CPR_FUSE_CORNER_MIN], cpr_vreg->num_fuse_corners);
-	if (!rc) {
-		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
-		     i++) {
-			cpr_vreg->cpr_fuse_target_quot[i] += quot_adjust[i];
-			cpr_info(cpr_vreg,
-				"Corner[%d]: adjusted target quot = %d\n",
-				i, cpr_vreg->cpr_fuse_target_quot[i]);
-		}
-	}
+	rc = cpr_adjust_target_quots(pdev, cpr_vreg);
+	if (rc)
+		goto error;
 
 	if (cpr_vreg->flags & FLAGS_UPLIFT_QUOT_VOLT) {
 		cpr_voltage_uplift_wa_inc_quot(cpr_vreg, of_node);
@@ -2483,12 +2885,17 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		 */
 		int *quot = cpr_vreg->cpr_fuse_target_quot;
 		int highest_fuse_corner = cpr_vreg->num_fuse_corners;
+		u32 min_diff_quot;
 		bool valid_fuse = true;
+
+		min_diff_quot = CPR_FUSE_MIN_QUOT_DIFF;
+		of_property_read_u32(of_node, "qcom,cpr-quot-min-diff",
+							&min_diff_quot);
 
 		if (quot[highest_fuse_corner] > quot[highest_fuse_corner - 1]) {
 			if ((quot[highest_fuse_corner]
 				- quot[highest_fuse_corner - 1])
-					<= CPR_FUSE_MIN_QUOT_DIFF)
+					<= min_diff_quot)
 				valid_fuse = false;
 		} else {
 			valid_fuse = false;
@@ -2503,8 +2910,6 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 
 error:
 	kfree(bp_target_quot);
-	kfree(bp_ro_sel);
-	kfree(quot_adjust);
 	kfree(target_quot_size);
 	kfree(quot_scale);
 
@@ -2575,15 +2980,16 @@ static int cpr_fill_override_voltage(struct cpr_regulator *cpr_vreg,
 	 * and pvs_version values.
 	 */
 	for (i = 0; i < size; i += cpr_vreg->num_corners + 2) {
-		if (tmp[i] == cpr_vreg->speed_bin &&
-		    tmp[i + 1] == cpr_vreg->pvs_version) {
-			for (j = CPR_CORNER_MIN;
-			     j <= cpr_vreg->num_corners; j++)
-				virtual_limit[j]
-					= tmp[i + 2 + j - CPR_FUSE_CORNER_MIN];
-			match_found = true;
-			break;
-		}
+		if (tmp[i] != cpr_vreg->speed_bin &&
+		    tmp[i] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		if (tmp[i + 1] != cpr_vreg->pvs_version &&
+		    tmp[i + 1] != FUSE_PARAM_MATCH_ANY)
+			continue;
+		for (j = CPR_CORNER_MIN; j <= cpr_vreg->num_corners; j++)
+			virtual_limit[j] = tmp[i + 2 + j - CPR_FUSE_CORNER_MIN];
+		match_found = true;
+		break;
 	}
 	kfree(tmp);
 
@@ -2661,6 +3067,59 @@ static int cpr_init_ceiling_floor_override_voltages(
 	return rc;
 }
 
+static int cpr_init_step_quotient(struct platform_device *pdev,
+		  struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	int len = 0;
+	u32 step_quot[CPR_NUM_RING_OSC];
+	int i, rc;
+
+	if (!of_find_property(of_node, "qcom,cpr-step-quotient", &len)) {
+		cpr_err(cpr_vreg, "qcom,cpr-step-quotient property missing\n");
+		return -EINVAL;
+	}
+
+	if (len == sizeof(u32)) {
+		/* Single step quotient used for all ring oscillators. */
+		rc = of_property_read_u32(of_node, "qcom,cpr-step-quotient",
+					step_quot);
+		if (rc) {
+			cpr_err(cpr_vreg, "could not read qcom,cpr-step-quotient, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
+		     i++)
+			cpr_vreg->step_quotient[i] = step_quot[0];
+	} else if (len == sizeof(u32) * CPR_NUM_RING_OSC) {
+		/* Unique step quotient used per ring oscillator. */
+		rc = of_property_read_u32_array(of_node,
+			"qcom,cpr-step-quotient", step_quot, CPR_NUM_RING_OSC);
+		if (rc) {
+			cpr_err(cpr_vreg, "could not read qcom,cpr-step-quotient, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
+		     i++)
+			cpr_vreg->step_quotient[i]
+				= step_quot[cpr_vreg->cpr_fuse_ro_sel[i]];
+	} else {
+		cpr_err(cpr_vreg, "qcom,cpr-step-quotient has invalid length=%d\n",
+			len);
+		return -EINVAL;
+	}
+
+	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++)
+		cpr_debug(cpr_vreg, "step_quotient[%d]=%u\n", i,
+			cpr_vreg->step_quotient[i]);
+
+	return 0;
+}
+
 static int cpr_init_cpr_parameters(struct platform_device *pdev,
 					  struct cpr_regulator *cpr_vreg)
 {
@@ -2687,8 +3146,8 @@ static int cpr_init_cpr_parameters(struct platform_device *pdev,
 			  &cpr_vreg->irq_line, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-step-quotient",
-			  &cpr_vreg->step_quotient, rc);
+
+	rc = cpr_init_step_quotient(pdev, cpr_vreg);
 	if (rc)
 		return rc;
 
@@ -3075,12 +3534,15 @@ static int cpr_fuse_corner_array_alloc(struct device *dev,
 		len * (sizeof(*cpr_vreg->fuse_ceiling_volt)), GFP_KERNEL);
 	cpr_vreg->fuse_floor_volt = devm_kzalloc(dev,
 		len * (sizeof(*cpr_vreg->fuse_floor_volt)), GFP_KERNEL);
+	cpr_vreg->step_quotient = devm_kzalloc(dev,
+		len * sizeof(*cpr_vreg->step_quotient), GFP_KERNEL);
 
 	if (cpr_vreg->pvs_corner_v == NULL || cpr_vreg->cpr_fuse_ro_sel == NULL
 	    || cpr_vreg->fuse_ceiling_volt == NULL
 	    || cpr_vreg->fuse_floor_volt == NULL
 	    || cpr_vreg->vdd_mx_corner_map == NULL
-	    || cpr_vreg->cpr_fuse_target_quot == NULL) {
+	    || cpr_vreg->cpr_fuse_target_quot == NULL
+	    || cpr_vreg->step_quotient == NULL) {
 		cpr_err(cpr_vreg, "Could not allocate memory for CPR arrays\n");
 		return -ENOMEM;
 	}
@@ -3112,7 +3574,6 @@ static int cpr_voltage_plan_init(struct platform_device *pdev,
 	}
 
 	cpr_parse_cond_min_volt_fuse(cpr_vreg, of_node);
-	cpr_parse_speed_bin_fuse(cpr_vreg, of_node);
 	rc = cpr_voltage_uplift_enable_check(cpr_vreg, of_node);
 	if (rc < 0) {
 		cpr_err(cpr_vreg, "voltage uplift enable check failed, %d\n",
@@ -3435,6 +3896,28 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	rc = cpr_check_redundant(pdev, cpr_vreg);
 	if (rc) {
 		cpr_err(cpr_vreg, "Could not check redundant fuse: rc=%d\n",
+			rc);
+		goto err_out;
+	}
+
+	rc = cpr_read_fuse_revision(pdev, cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "Could not read fuse revision: rc=%d\n", rc);
+		goto err_out;
+	}
+
+	cpr_parse_speed_bin_fuse(cpr_vreg, dev->of_node);
+	cpr_parse_pvs_version_fuse(cpr_vreg, dev->of_node);
+
+	rc = cpr_read_ro_select(pdev, cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "Could not read RO select: rc=%d\n", rc);
+		goto err_out;
+	}
+
+	rc = cpr_find_fuse_map_match(pdev, cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "Could not determine fuse mapping match: rc=%d\n",
 			rc);
 		goto err_out;
 	}

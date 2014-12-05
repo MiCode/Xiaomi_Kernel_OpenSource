@@ -24,6 +24,9 @@
 #include <sound/q6afe-v2.h>
 #include <sound/audio_cal_utils.h>
 
+#include "msm-dts-srs-tm-config.h"
+
+
 #include <sound/asound.h>
 #include "msm-dts-eagle.h"
 
@@ -382,19 +385,20 @@ fail_cmd:
 	return ret;
 }
 
-int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
+int srs_trumedia_open(int port_id, int copp_idx, __s32 srs_tech_id,
 		      void *srs_params)
 {
 	struct adm_cmd_set_pp_params_inband_v5 *adm_params = NULL;
-	int ret = 0, sz = 0;
-	int port_idx;
+	struct adm_cmd_set_pp_params_v5 *adm_params_ = NULL;
+	__s32 sz = 0, param_id, module_id = SRS_TRUMEDIA_MODULE_ID, outband = 0;
+	int ret = 0, port_idx;
 
 	pr_debug("SRS - %s", __func__);
 
 	port_id = afe_convert_virtual_to_portid(port_id);
 	port_idx = adm_validate_and_get_port_index(port_id);
 	if (port_idx < 0) {
-		pr_err("%s: Invalid port_id 0x%x\n", __func__, port_id);
+		pr_err("%s: Invalid port_id %#x\n", __func__, port_id);
 		return -EINVAL;
 	}
 	switch (srs_tech_id) {
@@ -411,7 +415,7 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 		adm_params->payload_size =
 			sizeof(struct srs_trumedia_params_GLOBAL) +
 			sizeof(struct adm_param_data_v5);
-		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS;
+		param_id = SRS_TRUMEDIA_PARAMS;
 		adm_params->params.param_size =
 				sizeof(struct srs_trumedia_params_GLOBAL);
 		glb_params = (struct srs_trumedia_params_GLOBAL *)
@@ -419,12 +423,6 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 			sizeof(struct adm_cmd_set_pp_params_inband_v5));
 		memcpy(glb_params, srs_params,
 			sizeof(struct srs_trumedia_params_GLOBAL));
-		pr_debug("SRS - %s: Global params - 1 = %x, 2 = %x, 3 = %x, 4 = %x, 5 = %x, 6 = %x, 7 = %x, 8 = %x\n",
-				__func__, (int)glb_params->v1,
-				(int)glb_params->v2, (int)glb_params->v3,
-				(int)glb_params->v4, (int)glb_params->v5,
-				(int)glb_params->v6, (int)glb_params->v7,
-				(int)glb_params->v8);
 		break;
 	}
 	case SRS_ID_WOWHD: {
@@ -440,7 +438,7 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 		adm_params->payload_size =
 			sizeof(struct srs_trumedia_params_WOWHD) +
 			sizeof(struct adm_param_data_v5);
-		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS_WOWHD;
+		param_id = SRS_TRUMEDIA_PARAMS_WOWHD;
 		adm_params->params.param_size =
 				sizeof(struct srs_trumedia_params_WOWHD);
 		whd_params = (struct srs_trumedia_params_WOWHD *)
@@ -448,13 +446,6 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 			sizeof(struct adm_cmd_set_pp_params_inband_v5));
 		memcpy(whd_params, srs_params,
 				sizeof(struct srs_trumedia_params_WOWHD));
-		pr_debug("SRS - %s: WOWHD params - 1 = %x, 2 = %x, 3 = %x, 4 = %x, 5 = %x, 6 = %x, 7 = %x, 8 = %x, 9 = %x, 10 = %x, 11 = %x\n",
-			 __func__, (int)whd_params->v1,
-			(int)whd_params->v2, (int)whd_params->v3,
-			(int)whd_params->v4, (int)whd_params->v5,
-			(int)whd_params->v6, (int)whd_params->v7,
-			(int)whd_params->v8, (int)whd_params->v9,
-			(int)whd_params->v10, (int)whd_params->v11);
 		break;
 	}
 	case SRS_ID_CSHP: {
@@ -470,7 +461,7 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 		adm_params->payload_size =
 			sizeof(struct srs_trumedia_params_CSHP) +
 			sizeof(struct adm_param_data_v5);
-		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS_CSHP;
+		param_id = SRS_TRUMEDIA_PARAMS_CSHP;
 		adm_params->params.param_size =
 				sizeof(struct srs_trumedia_params_CSHP);
 		chp_params = (struct srs_trumedia_params_CSHP *)
@@ -478,12 +469,6 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 			sizeof(struct adm_cmd_set_pp_params_inband_v5));
 		memcpy(chp_params, srs_params,
 				sizeof(struct srs_trumedia_params_CSHP));
-		pr_debug("SRS - %s: CSHP params - 1 = %x, 2 = %x, 3 = %x, 4 = %x, 5 = %x, 6 = %x, 7 = %x, 8 = %x, 9 = %x\n",
-				__func__, (int)chp_params->v1,
-				(int)chp_params->v2, (int)chp_params->v3,
-				(int)chp_params->v4, (int)chp_params->v5,
-				(int)chp_params->v6, (int)chp_params->v7,
-				(int)chp_params->v8, (int)chp_params->v9);
 		break;
 	}
 	case SRS_ID_HPF: {
@@ -499,7 +484,7 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 		adm_params->payload_size =
 			sizeof(struct srs_trumedia_params_HPF) +
 			sizeof(struct adm_param_data_v5);
-		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS_HPF;
+		param_id = SRS_TRUMEDIA_PARAMS_HPF;
 		adm_params->params.param_size =
 				sizeof(struct srs_trumedia_params_HPF);
 		hpf_params = (struct srs_trumedia_params_HPF *)
@@ -507,35 +492,35 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 			sizeof(struct adm_cmd_set_pp_params_inband_v5));
 		memcpy(hpf_params, srs_params,
 			sizeof(struct srs_trumedia_params_HPF));
-		pr_debug("SRS - %s: HPF params - 1 = %x\n", __func__,
-				(int)hpf_params->v1);
 		break;
 	}
-	case SRS_ID_PEQ: {
-		struct srs_trumedia_params_PEQ *peq_params = NULL;
-		sz = sizeof(struct adm_cmd_set_pp_params_inband_v5) +
-			sizeof(struct srs_trumedia_params_PEQ);
-		adm_params = kzalloc(sz, GFP_KERNEL);
-		if (!adm_params) {
+	case SRS_ID_AEQ: {
+		int *update_params_ptr = (int *)this_adm.outband_memmap.kvaddr;
+		outband = 1;
+		adm_params = kzalloc(sizeof(struct adm_cmd_set_pp_params_v5),
+				     GFP_KERNEL);
+		adm_params_ = (struct adm_cmd_set_pp_params_v5 *)adm_params;
+		if (!adm_params_) {
 			pr_err("%s, adm params memory alloc failed\n",
 				__func__);
 			return -ENOMEM;
 		}
-		adm_params->payload_size =
-				sizeof(struct srs_trumedia_params_PEQ) +
-				sizeof(struct adm_param_data_v5);
-		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS_PEQ;
-		adm_params->params.param_size =
-				sizeof(struct srs_trumedia_params_PEQ);
-		peq_params = (struct srs_trumedia_params_PEQ *)
-			((u8 *)adm_params +
-			sizeof(struct adm_cmd_set_pp_params_inband_v5));
-		memcpy(peq_params, srs_params,
-				sizeof(struct srs_trumedia_params_PEQ));
-		pr_debug("SRS - %s: PEQ params - 1 = %x 2 = %x, 3 = %x, 4 = %x\n",
-			__func__, (int)peq_params->v1,
-			(int)peq_params->v2, (int)peq_params->v3,
-			(int)peq_params->v4);
+
+		sz = sizeof(struct srs_trumedia_params_AEQ);
+		if (update_params_ptr == NULL) {
+			pr_err("ADM_SRS_TRUMEDIA - %s: null memmap for AEQ params\n",
+				__func__);
+			ret = -EINVAL;
+			goto fail_cmd;
+		}
+		param_id = SRS_TRUMEDIA_PARAMS_AEQ;
+		*update_params_ptr++ = module_id;
+		*update_params_ptr++ = param_id;
+		*update_params_ptr++ = sz;
+		memcpy(update_params_ptr, srs_params, sz);
+
+		adm_params_->payload_size = sz + 12;
+
 		break;
 	}
 	case SRS_ID_HL: {
@@ -551,7 +536,7 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 		adm_params->payload_size =
 			sizeof(struct srs_trumedia_params_HL) +
 			sizeof(struct adm_param_data_v5);
-		adm_params->params.param_id = SRS_TRUMEDIA_PARAMS_HL;
+		param_id = SRS_TRUMEDIA_PARAMS_HL;
 		adm_params->params.param_size =
 			sizeof(struct srs_trumedia_params_HL);
 		hl_params = (struct srs_trumedia_params_HL *)
@@ -559,11 +544,30 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 			sizeof(struct adm_cmd_set_pp_params_inband_v5));
 		memcpy(hl_params, srs_params,
 				sizeof(struct srs_trumedia_params_HL));
-		pr_debug("SRS - %s: HL params - 1 = %x, 2 = %x, 3 = %x, 4 = %x, 5 = %x, 6 = %x, 7 = %x\n",
-				__func__, (int)hl_params->v1,
-				(int)hl_params->v2, (int)hl_params->v3,
-				(int)hl_params->v4, (int)hl_params->v5,
-				(int)hl_params->v6, (int)hl_params->v7);
+		break;
+	}
+	case SRS_ID_GEQ: {
+		struct srs_trumedia_params_GEQ *geq_params = NULL;
+		sz = sizeof(struct adm_cmd_set_pp_params_inband_v5) +
+			sizeof(struct srs_trumedia_params_GEQ);
+		adm_params = kzalloc(sz, GFP_KERNEL);
+		if (!adm_params) {
+			pr_err("%s, adm params memory alloc failed\n",
+				__func__);
+			return -ENOMEM;
+		}
+		adm_params->payload_size =
+			sizeof(struct srs_trumedia_params_GEQ) +
+			sizeof(struct adm_param_data_v5);
+		param_id = SRS_TRUMEDIA_PARAMS_GEQ;
+		adm_params->params.param_size =
+			sizeof(struct srs_trumedia_params_GEQ);
+		geq_params = (struct srs_trumedia_params_GEQ *)
+			((u8 *)adm_params +
+			sizeof(struct adm_cmd_set_pp_params_inband_v5));
+		memcpy(geq_params, srs_params,
+			sizeof(struct srs_trumedia_params_GEQ));
+		pr_err("SRS - %s: GEQ params prepared\n", __func__);
 		break;
 	}
 	default:
@@ -572,7 +576,6 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 
 	adm_params->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	adm_params->hdr.pkt_size = sz;
 	adm_params->hdr.src_svc = APR_SVC_ADM;
 	adm_params->hdr.src_domain = APR_DOMAIN_APPS;
 	adm_params->hdr.src_port = port_id;
@@ -582,27 +585,41 @@ int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 			atomic_read(&this_adm.copp.id[port_idx][copp_idx]);
 	adm_params->hdr.token = port_idx << 16 | copp_idx;
 	adm_params->hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
-	adm_params->payload_addr_lsw = 0;
-	adm_params->payload_addr_msw = 0;
-	adm_params->mem_map_handle = 0;
+	if (outband) {
+		adm_params->hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE, sizeof(
+					      struct adm_cmd_set_pp_params_v5));
+		adm_params->payload_addr_lsw = lower_32_bits(
+						this_adm.outband_memmap.paddr);
+		adm_params->payload_addr_msw = upper_32_bits(
+						this_adm.outband_memmap.paddr);
+		adm_params->mem_map_handle = atomic_read(&this_adm.
+					mem_map_cal_handles[ADM_SRS_TRUMEDIA]);
+	} else {
+		adm_params->hdr.pkt_size = sz;
+		adm_params->payload_addr_lsw = 0;
+		adm_params->payload_addr_msw = 0;
+		adm_params->mem_map_handle = 0;
 
-	adm_params->params.module_id = SRS_TRUMEDIA_MODULE_ID;
-	adm_params->params.reserved = 0;
+		adm_params->params.module_id = module_id;
+		adm_params->params.param_id = param_id;
+		adm_params->params.reserved = 0;
+	}
 
 	pr_debug("SRS - %s: Command was sent now check Q6 - port id = %d, size %d, module id %x, param id %x.\n",
 			__func__, adm_params->hdr.dest_port,
-			adm_params->payload_size, adm_params->params.module_id,
-			adm_params->params.param_id);
+			adm_params->payload_size, module_id, param_id);
 
+	atomic_set(&this_adm.copp.stat[port_idx][copp_idx], 0);
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *)adm_params);
 	if (ret < 0) {
-		pr_err("SRS - %s: ADM enable for port %d failed %d\n",
-			__func__, port_id, ret);
+		pr_err("SRS - %s: ADM enable for port %d failed\n", __func__,
+			port_id);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
 	/* Wait for the callback with copp id */
-	ret = wait_event_timeout(this_adm.copp.wait[port_idx][copp_idx], 1,
+	ret = wait_event_timeout(this_adm.copp.wait[port_idx][copp_idx],
+			atomic_read(&this_adm.copp.stat[port_idx][copp_idx]),
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s: SRS set params timed out port = %d\n",
@@ -1865,7 +1882,6 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		if (res < 0)
 			pr_err("%s: DTS_EAGLE mmap did not work!", __func__);
 	}
-
 	if (this_adm.copp.adm_delay[port_idx][copp_idx] &&
 		perf_mode == LEGACY_PCM_MODE) {
 		atomic_set(&this_adm.copp.adm_delay_stat[port_idx][copp_idx],
@@ -1878,6 +1894,19 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	if (atomic_read(&this_adm.copp.cnt[port_idx][copp_idx]) == 0) {
 		pr_debug("%s: open ADM: port_idx: %d, copp_idx: %d\n", __func__,
 			 port_idx, copp_idx);
+	if (( topology == SRS_TRUMEDIA_TOPOLOGY_ID) && !perf_mode) {
+		int res;
+		atomic_set(&this_adm.mem_map_cal_index, ADM_SRS_TRUMEDIA);
+		msm_dts_srs_tm_ion_memmap(&this_adm.outband_memmap);
+		res = adm_memory_map_regions(&this_adm.outband_memmap.paddr, 0,
+		(uint32_t *)&this_adm.outband_memmap.size, 1);
+		if (res < 0) {
+			pr_err("%s: SRS adm_memory_map_regions failed ! addr = 0x%p, size = %d\n",
+			 __func__, (void*)this_adm.outband_memmap.paddr,
+		(uint32_t)this_adm.outband_memmap.size);
+		}
+	}
+
 		open.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 						   APR_HDR_LEN(APR_HDR_SIZE),
 						   APR_PKT_VER);
@@ -2155,6 +2184,20 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 		copp_id = adm_get_copp_id(port_idx, copp_idx);
 		pr_debug("%s: Closing ADM port_idx:%d copp_idx:%d copp_id:0x%x\n",
 			 __func__, port_idx, copp_idx, copp_id);
+		if ((!perf_mode) && (this_adm.outband_memmap.paddr != 0) &&
+			(atomic_read(&this_adm.copp.topology[port_idx][copp_idx]) ==
+			SRS_TRUMEDIA_TOPOLOGY_ID)) {
+			atomic_set(&this_adm.mem_map_cal_index,
+				ADM_SRS_TRUMEDIA);
+			ret = adm_memory_unmap_regions();
+			if (ret < 0) {
+				pr_err("%s: adm mem unmmap err %d",
+					__func__, ret);
+			} else {
+				atomic_set(&this_adm.mem_map_cal_handles
+					   [ADM_SRS_TRUMEDIA], 0);
+			}
+		}
 
 		if ((!perf_mode) && (this_adm.outband_memmap.paddr != 0)) {
 			atomic_set(&this_adm.mem_map_cal_index, ADM_DTS_EAGLE);
@@ -2513,6 +2556,10 @@ static int adm_init_cal_data(void)
 		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{DTS_EAGLE_CAL_TYPE,
+		{NULL, NULL, NULL, NULL, NULL, NULL} },
+		{NULL, NULL, cal_utils_match_buf_num} },
+
+		{{SRS_TRUMEDIA_CAL_TYPE,
 		{NULL, NULL, NULL, NULL, NULL, NULL} },
 		{NULL, NULL, cal_utils_match_buf_num} }
 	};

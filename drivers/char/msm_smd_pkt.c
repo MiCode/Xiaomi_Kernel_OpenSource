@@ -390,7 +390,7 @@ static long smd_pkt_ioctl(struct file *file, unsigned int cmd,
 }
 
 ssize_t smd_pkt_read(struct file *file,
-		       char __user *buf,
+		       char __user *_buf,
 		       size_t count,
 		       loff_t *ppos)
 {
@@ -399,6 +399,7 @@ ssize_t smd_pkt_read(struct file *file,
 	int pkt_size;
 	struct smd_pkt_dev *smd_pkt_devp;
 	unsigned long flags;
+	void *buf;
 
 	smd_pkt_devp = file->private_data;
 
@@ -421,6 +422,10 @@ ssize_t smd_pkt_read(struct file *file,
 	D_READ("Begin %s on smd_pkt_dev id:%d buffer_size %zu\n",
 		__func__, smd_pkt_devp->i, count);
 
+	buf = kmalloc(count, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
 wait_for_packet:
 	r = wait_event_interruptible(smd_pkt_devp->ch_read_wait_queue,
 				     !smd_pkt_devp->ch ||
@@ -432,6 +437,7 @@ wait_for_packet:
 	if (smd_pkt_devp->has_reset) {
 		mutex_unlock(&smd_pkt_devp->rx_lock);
 		E_SMD_PKT_SSR(smd_pkt_devp);
+		kfree(buf);
 		return notify_reset(smd_pkt_devp);
 	}
 
@@ -439,6 +445,7 @@ wait_for_packet:
 		mutex_unlock(&smd_pkt_devp->rx_lock);
 		pr_err_ratelimited("%s on a closed smd_pkt_dev id:%d\n",
 			__func__, smd_pkt_devp->i);
+		kfree(buf);
 		return -EINVAL;
 	}
 
@@ -450,6 +457,7 @@ wait_for_packet:
 			pr_err_ratelimited("%s: wait_event_interruptible on smd_pkt_dev id:%d ret %i\n",
 				__func__, smd_pkt_devp->i, r);
 		}
+		kfree(buf);
 		return r;
 	}
 
@@ -466,6 +474,7 @@ wait_for_packet:
 	if (pkt_size < 0) {
 		pr_err_ratelimited("%s: Error %d obtaining packet size for Channel %s",
 				__func__, pkt_size, smd_pkt_devp->ch_name);
+		kfree(buf);
 		return pkt_size;
 	}
 
@@ -474,12 +483,13 @@ wait_for_packet:
 			__func__, smd_pkt_devp->i,
 			pkt_size, count);
 		mutex_unlock(&smd_pkt_devp->rx_lock);
+		kfree(buf);
 		return -ETOOSMALL;
 	}
 
 	bytes_read = 0;
 	do {
-		r = smd_read_user_buffer(smd_pkt_devp->ch,
+		r = smd_read(smd_pkt_devp->ch,
 					 (buf + bytes_read),
 					 (pkt_size - bytes_read));
 		if (r < 0) {
@@ -490,6 +500,7 @@ wait_for_packet:
 			}
 			pr_err_ratelimited("%s Error while reading %d\n",
 				__func__, r);
+			kfree(buf);
 			return r;
 		}
 		bytes_read += r;
@@ -500,6 +511,7 @@ wait_for_packet:
 		if (smd_pkt_devp->has_reset) {
 			mutex_unlock(&smd_pkt_devp->rx_lock);
 			E_SMD_PKT_SSR(smd_pkt_devp);
+			kfree(buf);
 			return notify_reset(smd_pkt_devp);
 		}
 	} while (pkt_size != bytes_read);
@@ -518,8 +530,14 @@ wait_for_packet:
 	spin_unlock_irqrestore(&smd_pkt_devp->pa_spinlock, flags);
 	mutex_unlock(&smd_pkt_devp->ch_lock);
 
+	r = copy_to_user(_buf, buf, bytes_read);
+	if (r) {
+		kfree(buf);
+		return -EFAULT;
+	}
 	D_READ("Finished %s on smd_pkt_dev id:%d  %d bytes\n",
 		__func__, smd_pkt_devp->i, bytes_read);
+	kfree(buf);
 
 	/* check and wakeup read threads waiting on this device */
 	check_and_wakeup_reader(smd_pkt_devp);
@@ -528,13 +546,14 @@ wait_for_packet:
 }
 
 ssize_t smd_pkt_write(struct file *file,
-		       const char __user *buf,
+		       const char __user *_buf,
 		       size_t count,
 		       loff_t *ppos)
 {
 	int r = 0, bytes_written;
 	struct smd_pkt_dev *smd_pkt_devp;
 	DEFINE_WAIT(write_wait);
+	void *buf;
 
 	smd_pkt_devp = file->private_data;
 
@@ -557,12 +576,23 @@ ssize_t smd_pkt_write(struct file *file,
 	D_WRITE("Begin %s on smd_pkt_dev id:%d data_size %zu\n",
 		__func__, smd_pkt_devp->i, count);
 
+	buf = kmalloc(count, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	r = copy_from_user(buf, _buf, count);
+	if (r) {
+		kfree(buf);
+		return -EFAULT;
+	}
+
 	mutex_lock(&smd_pkt_devp->tx_lock);
 	if (!smd_pkt_devp->blocking_write) {
 		if (smd_write_avail(smd_pkt_devp->ch) < count) {
 			pr_err_ratelimited("%s: Not enough space in smd_pkt_dev id:%d\n",
 				   __func__, smd_pkt_devp->i);
 			mutex_unlock(&smd_pkt_devp->tx_lock);
+			kfree(buf);
 			return -ENOMEM;
 		}
 	}
@@ -572,6 +602,7 @@ ssize_t smd_pkt_write(struct file *file,
 		mutex_unlock(&smd_pkt_devp->tx_lock);
 		pr_err_ratelimited("%s: Error:%d in smd_pkt_dev id:%d @ smd_write_start\n",
 			__func__, r, smd_pkt_devp->i);
+		kfree(buf);
 		return r;
 	}
 
@@ -590,11 +621,12 @@ ssize_t smd_pkt_write(struct file *file,
 		if (smd_pkt_devp->has_reset) {
 			mutex_unlock(&smd_pkt_devp->tx_lock);
 			E_SMD_PKT_SSR(smd_pkt_devp);
+			kfree(buf);
 			return notify_reset(smd_pkt_devp);
 		} else {
 			r = smd_write_segment(smd_pkt_devp->ch,
 					      (void *)(buf + bytes_written),
-					      (count - bytes_written), 1);
+					      (count - bytes_written));
 			if (r < 0) {
 				mutex_unlock(&smd_pkt_devp->tx_lock);
 				if (smd_pkt_devp->has_reset) {
@@ -603,6 +635,7 @@ ssize_t smd_pkt_write(struct file *file,
 				}
 				pr_err_ratelimited("%s on smd_pkt_dev id:%d failed r:%d\n",
 					__func__, smd_pkt_devp->i, r);
+				kfree(buf);
 				return r;
 			}
 			bytes_written += r;
@@ -613,6 +646,7 @@ ssize_t smd_pkt_write(struct file *file,
 	D_WRITE("Finished %s on smd_pkt_dev id:%d %zu bytes\n",
 		__func__, smd_pkt_devp->i, count);
 
+	kfree(buf);
 	return count;
 }
 

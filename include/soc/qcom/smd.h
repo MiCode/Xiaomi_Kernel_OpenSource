@@ -84,10 +84,6 @@ int smd_close(smd_channel_t *ch);
 /* passing a null pointer for data reads and discards */
 int smd_read(smd_channel_t *ch, void *data, int len);
 int smd_read_from_cb(smd_channel_t *ch, void *data, int len);
-/* Same as smd_read() but takes a data buffer from userspace
- * The function might sleep.  Only safe to call from user context
- */
-int smd_read_user_buffer(smd_channel_t *ch, void *data, int len);
 
 /* Write to stream channels may do a partial write and return
 ** the length actually written.
@@ -95,10 +91,6 @@ int smd_read_user_buffer(smd_channel_t *ch, void *data, int len);
 ** it will return the requested length written or an error.
 */
 int smd_write(smd_channel_t *ch, const void *data, int len);
-/* Same as smd_write() but takes a data buffer from userspace
- * The function might sleep.  Only safe to call from user context
- */
-int smd_write_user_buffer(smd_channel_t *ch, const void *data, int len);
 
 int smd_write_avail(smd_channel_t *ch);
 int smd_read_avail(smd_channel_t *ch);
@@ -172,7 +164,6 @@ int smd_write_start(smd_channel_t *ch, int len);
  * @ch: channel to write packet to
  * @data: buffer of data to write
  * @len: length of data buffer
- * @user_buf: (0) - buffer from kernelspace    (1) - buffer from userspace
  *
  * Returns:
  *      number of bytes written
@@ -180,8 +171,7 @@ int smd_write_start(smd_channel_t *ch, int len);
  *      -EINVAL - invalid length
  *      -ENOEXEC - transaction not started
  */
-int smd_write_segment(smd_channel_t *ch, const void *data, int len,
-		      int user_buf);
+int smd_write_segment(smd_channel_t *ch, const void *data, int len);
 
 /* Completes a packet transaction.  Do not call from interrupt context.
  *
@@ -278,18 +268,7 @@ static inline int smd_read_from_cb(smd_channel_t *ch, void *data, int len)
 	return -ENODEV;
 }
 
-static inline int smd_read_user_buffer(smd_channel_t *ch, void *data, int len)
-{
-	return -ENODEV;
-}
-
 static inline int smd_write(smd_channel_t *ch, const void *data, int len)
-{
-	return -ENODEV;
-}
-
-static inline int
-smd_write_user_buffer(smd_channel_t *ch, const void *data, int len)
 {
 	return -ENODEV;
 }
@@ -353,7 +332,7 @@ static inline int smd_write_start(smd_channel_t *ch, int len)
 }
 
 static inline int
-smd_write_segment(smd_channel_t *ch, const void *data, int len, int user_buf)
+smd_write_segment(smd_channel_t *ch, const void *data, int len)
 {
 	return -ENODEV;
 }

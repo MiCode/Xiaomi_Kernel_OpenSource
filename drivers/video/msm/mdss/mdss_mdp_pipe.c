@@ -511,13 +511,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	if (rc)
 		return rc;
 
-	/*
-	 * Don't want to allow SMP changes for backend composition pipes
-	 * inorder to preserve SMPs as much as possible.
-	 * On the contrary for non backend composition pipes we should
-	 * allow SMP allocations to prevent composition failures.
-	 */
-	force_alloc = !(pipe->flags & MDP_BACKEND_COMPOSITION);
+	force_alloc = pipe->flags & MDP_SMP_FORCE_ALLOC;
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	if (!is_unused_smp_allowed()) {
@@ -1745,7 +1739,7 @@ int mdss_mdp_pipe_is_staged(struct mdss_mdp_pipe *pipe)
 static inline void __mdss_mdp_pipe_program_pixel_extn_helper(
 	struct mdss_mdp_pipe *pipe, u32 plane, u32 off)
 {
-	u32 src_h = pipe->src.h >> pipe->vert_deci;
+	u32 src_h = (pipe->src.h + (1 << pipe->vert_deci) - 1) >> pipe->vert_deci;
 	u32 mask = 0xFF;
 
 	/*
