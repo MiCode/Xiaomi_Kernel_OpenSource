@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 
 #include "mhi_sys.h"
+#include "mhi_trace.h"
 
 
 irqreturn_t mhi_msi_handlr(int irq_number, void *dev_id)
@@ -30,6 +31,7 @@ irqreturn_t mhi_msi_handlr(int irq_number, void *dev_id)
 	mhi_dev_ctxt->msi_counter[IRQ_TO_MSI(mhi_dev_ctxt, irq_number)]++;
 	mhi_log(MHI_MSG_VERBOSE,
 		"Got MSI 0x%x\n", IRQ_TO_MSI(mhi_dev_ctxt, irq_number));
+	trace_mhi_msi(IRQ_TO_MSI(mhi_dev_ctxt, irq_number));
 	switch (IRQ_TO_MSI(mhi_dev_ctxt, irq_number)) {
 	case 0:
 	case 1:
