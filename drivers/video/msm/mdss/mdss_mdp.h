@@ -253,7 +253,7 @@ struct mdss_mdp_ctl {
 
 	void *priv_data;
 	u32 wb_type;
-	bool prg_fet;
+	u32 prg_fet;
 };
 
 struct mdss_mdp_mixer {

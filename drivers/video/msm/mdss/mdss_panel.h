@@ -532,33 +532,6 @@ static inline int mdss_panel_get_htotal(struct mdss_panel_info *pinfo, bool
 		pinfo->lcdc.h_pulse_width;
 }
 
-/**
- * mdss_mdp_max_fetch_lines: - Number of fetch lines in vertical front porch
- * @pinfo:	Pointer to panel info containing all panel information
- *
- * Returns the number of fetch lines in vertical front porch at which mdp
- * can start fetching the next frame.
- *
- * In some cases, vertical front porch is too high. In such cases limit
- * the mdp fetch lines  as the last 12 lines of vertical front porch.
- */
-static inline int mdss_mdp_max_fetch_lines(struct mdss_panel_info *pinfo)
-{
-	int fetch_lines;
-	int v_total, vfp_start;
-
-	v_total = mdss_panel_get_vtotal(pinfo);
-	vfp_start = (pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width +
-			pinfo->yres);
-
-	fetch_lines = v_total - vfp_start;
-
-	if (fetch_lines > MDSS_MDP_MAX_FETCH)
-		fetch_lines = MDSS_MDP_MAX_FETCH;
-
-	return fetch_lines;
-}
-
 int mdss_register_panel(struct platform_device *pdev,
 	struct mdss_panel_data *pdata);
 
