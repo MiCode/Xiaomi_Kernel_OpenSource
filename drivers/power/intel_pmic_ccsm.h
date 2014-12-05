@@ -237,10 +237,8 @@
 #define TT_CHGRENVAL_ADDR		0X3C
 #define TT_CHGRDISVAL_ADDR		0X3D
 
-#ifdef CONFIG_ACPI
 #define MTHRMIRQ1_CCSM_MASK		0x90
 #define MTHRMIRQ2_CCSM_MASK		0x3
-#endif
 
 /*Interrupt registers*/
 #define BATT_CHR_BATTDET_MASK	(1 << 2)

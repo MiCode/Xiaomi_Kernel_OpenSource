@@ -161,26 +161,6 @@ enum {
 
 struct intel_soc_pmic whiskey_cove_pmic;
 
-static struct temp_lookup th05_lookup_tbl[] = {
-	{2241, 125, 0}, {2541, 120, 0},
-	{2893, 115, 0}, {3307, 110, 0},
-	{3774, 105, 0}, {4130, 100, 0},
-	{4954, 95, 0}, {5178, 90, 0},
-	{6612, 85, 0}, {7768, 80, 0},
-	{8905, 75, 0}, {10360, 70, 0},
-	{12080, 65, 0}, {14110, 60, 0},
-	{16540, 55, 0}, {19450, 50, 0},
-	{22890, 45, 0}, {27260, 40, 0},
-	{32520, 35, 0}, {38980, 30, 0},
-	{47000, 25, 0}, {56980, 20, 0},
-	{69500, 15, 0}, {85320, 10, 0},
-	{105400, 5, 0}, {131200, 0, 0},
-	{164500, -5, 0}, {207800, -10, 0},
-	{264700, -15, 0}, {340200, -20, 0},
-	{441500, -25, 0}, {579000, -30, 0},
-	{766900, -35, 0}, {1027000, -40, 0},
-};
-
 static struct pmic_regs pmic_wcove_regmap = {
 	.pmic_id = 0x00,
 	.pmic_irqlvl1 = WC_IRQLVL1_ADDR,
@@ -551,12 +531,19 @@ static void wc_set_adc_pdata(void)
 static void wcove_set_ccsm_config(void)
 {
 	static struct intel_pmic_ccsm_platform_data pdata;
+	int *lpat;
+	int adc_tbl_cnt;
 	pdata.intmap = wc_intmap;
 	pdata.intmap_size = ARRAY_SIZE(wc_intmap);
 	pdata.reg_map = &pmic_wcove_regmap;
-	pdata.max_tbl_row_cnt =
-			ARRAY_SIZE(th05_lookup_tbl);
-	pdata.adc_tbl = th05_lookup_tbl;
+
+	adc_tbl_cnt = acpi_get_lpat_table(&lpat);
+
+	if (adc_tbl_cnt > 0) {
+		pdata.max_tbl_row_cnt = adc_tbl_cnt;
+		pdata.adc_tbl = (struct temp_lookup *)lpat;
+	}
+
 	intel_soc_pmic_set_pdata("wcove_ccsm", &pdata,
 		sizeof(pdata), 0);
 }

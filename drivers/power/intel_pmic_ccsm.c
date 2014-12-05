@@ -51,22 +51,10 @@
 #define HVDCP_POWER_CHRG_CURRENT 1500
 #define HIGH_POWER_CHRG_CURRENT 2000
 #define LOW_POWER_CHRG_CURRENT 500
-#define OHM_MULTIPLIER		10
 
 #define INTERNAL_PHY_SUPPORTED(model) \
 	((model == INTEL_PMIC_SCOVE) || (model == INTEL_PMIC_WCOVE))
 
-#define is_valid_temp(tmp)\
-	(!(tmp > chc.pdata->adc_tbl[0].temp ||\
-	tmp < chc.pdata->adc_tbl[chc.pdata->max_tbl_row_cnt - 1].temp))
-#define is_valid_adc_code(val)\
-	(!(val < chc.pdata->adc_tbl[0].temp_resistance ||\
-	val > chc.pdata->adc_tbl\
-		[chc.pdata->max_tbl_row_cnt - 1].temp_resistance))
-#define CONVERT_ADC_TO_TEMP(adc_val, temp)\
-	adc_temp_conv(adc_val, temp, ADC_TO_TEMP)
-#define CONVERT_TEMP_TO_ADC(temp, adc_val)\
-	adc_temp_conv(temp, adc_val, TEMP_TO_ADC)
 #define NEED_ZONE_SPLIT(bprof)\
 	 ((bprof->temp_mon_ranges < MIN_BATT_PROF))
 #define NEXT_ZONE_OFFSET 2
@@ -83,6 +71,10 @@
 #define IS_RID_A(rid) (rid > RID_A_MIN && rid < RID_A_MAX)
 #define IS_RID_B(rid) (rid > RID_B_MIN && rid < RID_B_MAX)
 #define IS_RID_C(rid) (rid > RID_C_MIN && rid < RID_C_MAX)
+
+#define KELVIN_OFFSET	2732
+#define DECI_KELVIN_TO_CELSIUS(t) ((t - KELVIN_OFFSET) / 10)
+#define CELSIUS_TO_DECI_KELVIN(t) ((t * 10) + KELVIN_OFFSET)
 
 /* Type definitions */
 static void pmic_bat_zone_changed(void);
@@ -138,68 +130,50 @@ static void lookup_regval(u16 tbl[][2], size_t size, u16 in_val, u8 *out_val)
 	*out_val = (u8)tbl[i-1][1];
 }
 
-static int interpolate_y(int dx1x0, int dy1y0, int dxx0, int y0)
+/* Return temperature from raw value */
+static int raw_to_temp(struct temp_lookup *adc_tbl, int count, int raw)
 {
-	return y0 + DIV_ROUND_CLOSEST((dxx0 * dy1y0), dx1x0);
-}
+	int i, delta_temp, delta_raw, temp;
 
-static int interpolate_x(int dy1y0, int dx1x0, int dyy0, int x0)
-{
-	return x0 + DIV_ROUND_CLOSEST((dyy0 * dx1x0), dy1y0);
-}
-
-static int adc_temp_conv(int in_val, int *out_val, int conv)
-{
-	int tbl_row_cnt, i;
-	struct temp_lookup *adc_temp_tbl;
-
-	if (!chc.pdata) {
-		dev_err(chc.dev, "ADC-lookup table not yet available\n");
-		return -ERANGE;
+	for (i = 0; i < count - 1; i++) {
+		if ((raw >= adc_tbl[i].raw && raw <= adc_tbl[i+1].raw) ||
+			(raw <= adc_tbl[i].raw && raw >= adc_tbl[i+1].raw))
+			break;
 	}
 
-	tbl_row_cnt = chc.pdata->max_tbl_row_cnt;
-	adc_temp_tbl = chc.pdata->adc_tbl;
+	if (i == count - 1)
+		return -ENOENT;
 
-	if (conv == ADC_TO_TEMP) {
-		if (!is_valid_adc_code(in_val))
-			return -ERANGE;
+	delta_temp = adc_tbl[i+1].temp - adc_tbl[i].temp;
+	delta_raw = adc_tbl[i+1].raw - adc_tbl[i].raw;
+	temp = adc_tbl[i].temp +
+		(raw - adc_tbl[i].raw) * delta_temp / delta_raw;
 
-		if (in_val == adc_temp_tbl[tbl_row_cnt-1].temp_resistance)
-			i = tbl_row_cnt - 1;
-		else {
-			for (i = 0; i < tbl_row_cnt; ++i)
-				if (in_val < adc_temp_tbl[i].temp_resistance)
-					break;
-		}
+	return DECI_KELVIN_TO_CELSIUS(temp);
+}
 
-		*out_val = interpolate_y((adc_temp_tbl[i].temp_resistance
-				- adc_temp_tbl[i - 1].temp_resistance),
-				(adc_temp_tbl[i].temp
-				- adc_temp_tbl[i - 1].temp),
-				(in_val - adc_temp_tbl[i - 1].temp_resistance),
-				adc_temp_tbl[i - 1].temp);
-	} else {
-		if (!is_valid_temp(in_val))
-			return -ERANGE;
+/* Return raw value from temperature through LPAT table */
+static unsigned long temp_to_raw(
+	struct temp_lookup *adc_tbl, int count, int temp)
+{
+	int i, delta_temp, delta_raw, raw;
 
-		if (in_val == adc_temp_tbl[tbl_row_cnt-1].temp)
-			i = tbl_row_cnt - 1;
-		else {
-			for (i = 0; i < tbl_row_cnt; ++i)
-				if (in_val > adc_temp_tbl[i].temp)
-					break;
-		}
+	temp = CELSIUS_TO_DECI_KELVIN(temp);
 
-		*((short int *)out_val) =
-		    interpolate_x((adc_temp_tbl[i].temp
-					- adc_temp_tbl[i - 1].temp),
-				  (adc_temp_tbl[i].temp_resistance
-				   - adc_temp_tbl[i - 1].temp_resistance),
-				  (in_val - adc_temp_tbl[i - 1].temp),
-				  adc_temp_tbl[i - 1].temp_resistance);
+	for (i = 0; i < count - 1; i++) {
+		if (temp >= adc_tbl[i].temp && temp <= adc_tbl[i+1].temp)
+			break;
 	}
-	return 0;
+
+	if (i == count - 1)
+		return -ENOENT;
+
+	delta_temp = adc_tbl[i+1].temp - adc_tbl[i].temp;
+	delta_raw = adc_tbl[i+1].raw - adc_tbl[i].raw;
+	raw = adc_tbl[i].raw +
+		(temp - adc_tbl[i].temp) * delta_raw / delta_temp;
+
+	return raw;
 }
 
 static int pmic_read_reg(u16 addr, u8 *val)
@@ -535,9 +509,10 @@ static void pmic_bat_zone_changed(void)
 		chc.batt_health = POWER_SUPPLY_HEALTH_GOOD;
 
 	psy_bat = get_psy_battery();
-
 	if (psy_bat && psy_bat->external_power_changed)
 		psy_bat->external_power_changed(psy_bat);
+	else
+		power_supply_changed(psy_bat);
 
 	return;
 }
@@ -641,7 +616,7 @@ static inline int update_zone_temp(int zone, u16 adc_val)
 	int ret;
 	u16 addr_tzone;
 
-	if (chc.pmic_model != INTEL_PMIC_BCOVE) {
+	if (chc.pmic_model == INTEL_PMIC_SCOVE) {
 		/* to take care of address-discontinuity of zone-registers */
 		if (zone >= 3)
 			zone += 1;
@@ -777,7 +752,7 @@ int intel_pmic_get_battery_pack_temp(int *temp)
 
 	iio_channel_release(indio_chan);
 
-	return CONVERT_ADC_TO_TEMP(val, temp);
+	return raw_to_temp(chc.pdata->adc_tbl, chc.pdata->max_tbl_row_cnt, val);
 }
 
 static int pmic_get_usbid(void)
@@ -1069,7 +1044,7 @@ static void pmic_event_worker(struct work_struct *work)
 		if (evt->pwrsrc_int)
 			handle_pwrsrc_interrupt(evt->pwrsrc_int,
 						evt->pwrsrc_int_stat);
-		if (evt->battemp_int_stat)
+		if (evt->battemp_int)
 			handle_batttemp_interrupt(evt->battemp_int,
 						evt->battemp_int_stat);
 		kfree(evt);
@@ -1162,16 +1137,14 @@ static irqreturn_t pmic_thread_handler(int id, void *data)
  *
  * Returns temp zone alert value
  */
-static u16 get_tempzone_val(u16 resi_val, int temp)
+static u16 get_tempzone_val(u32 resi_val, int temp)
 {
 	u8 cursel = 0, hys = 0;
-	u16 trsh = 0, count = 0, bsr_num = 0;
-	u16 adc_thold = 0, tempzone_val = 0;
+	u16 trsh = 0, count = 0;
+	u32 adc_thold = 0, bsr_num = 0;
+	u32 tempzone_val = 0;
 	s16 hyst = 0;
 	int retval;
-
-	/* multiply to convert into Ohm*/
-	resi_val *= OHM_MULTIPLIER;
 
 	/* CUR = max(floor(log2(round(ADCNORM/2^5)))-7,0)
 	 * TRSH = round(ADCNORM/(2^(4+CUR)))
@@ -1205,15 +1178,13 @@ static u16 get_tempzone_val(u16 resi_val, int temp)
 		temp += 2;
 
 	/* retrieve the resistance corresponding to temp with hysteresis */
-	retval = CONVERT_TEMP_TO_ADC(temp, (int *)&adc_thold);
-	if (unlikely(retval)) {
+	adc_thold = temp_to_raw(chc.pdata->adc_tbl,
+			chc.pdata->max_tbl_row_cnt, temp);
+	if (adc_thold == -ENOENT) {
 		dev_err(chc.dev,
-			"Error converting temperature for zone\n");
-		return retval;
+			"No ADC look up entry for temp:%d\n", temp);
+		return adc_thold;
 	}
-
-	/* multiply to convert into Ohm*/
-	adc_thold *= OHM_MULTIPLIER;
 
 	hyst = (resi_val - adc_thold);
 
@@ -1223,16 +1194,14 @@ static u16 get_tempzone_val(u16 resi_val, int temp)
 		hys = 0;
 	/* Clamp hys to 4-bit value */
 	hys = clamp_t(u8, hys, 0, 15);
-
 	tempzone_val = (hys << 12) | (cursel << 9) | trsh;
-
 	return tempzone_val;
 }
 
 static int pmic_ccsm_pse_prof_init(void)
 {
 	int ret = 0, i, temp_mon_ranges;
-	u16 adc_val;
+	u32 adc_val;
 	u8 reg_val;
 	int max_hw_zones = 5;
 	struct ps_pse_mod_prof *bcprof = chc.actual_bcprof;
@@ -1244,15 +1213,14 @@ static int pmic_ccsm_pse_prof_init(void)
 	for (i = 0; i < temp_mon_ranges; ++i) {
 
 		/* Configure battery temperature zone */
-		ret = CONVERT_TEMP_TO_ADC
-				(bcprof->temp_mon_range[i].temp_up_lim,
-				(int *)&adc_val);
-
-		if (unlikely(ret)) {
+		adc_val = temp_to_raw(chc.pdata->adc_tbl,
+				chc.pdata->max_tbl_row_cnt,
+				bcprof->temp_mon_range[i].temp_up_lim);
+		if (adc_val == -ENOENT) {
 			dev_err(chc.dev,
-				"Temperature conversion error for zone %d\n",
-				i);
-			return ret;
+				"No ADC look up entry for temp:%d\n",
+					bcprof->temp_mon_range[i].temp_up_lim);
+			return adc_val;
 		}
 
 		if (chc.pmic_model != INTEL_PMIC_BCOVE) {
@@ -1261,7 +1229,7 @@ static int pmic_ccsm_pse_prof_init(void)
 			 */
 			adc_val = get_tempzone_val(adc_val,
 					bcprof->temp_mon_range[i].temp_up_lim);
-			dev_info(chc.dev,
+			dev_dbg(chc.dev,
 					"adc-val:%x configured for temp:%d\n",
 					adc_val,
 					bcprof->temp_mon_range[i].temp_up_lim);
@@ -1294,17 +1262,21 @@ static int pmic_ccsm_pse_prof_init(void)
 
 		/* Write lowest temp limit */
 		if (i == (bcprof->temp_mon_ranges - 1)) {
-			ret = CONVERT_TEMP_TO_ADC(bcprof->temp_low_lim,
-							(int *)&adc_val);
-			if (unlikely(ret)) {
-				dev_err(chc.dev, "Error converting low lim temp!!\n");
-				return ret;
+			adc_val = temp_to_raw(chc.pdata->adc_tbl,
+					chc.pdata->max_tbl_row_cnt,
+					bcprof->temp_low_lim);
+
+			if (adc_val == -ENOENT) {
+				dev_err(chc.dev,
+					"No ADC look up entry for temp:%d\n",
+						bcprof->temp_low_lim);
+				return adc_val;
 			}
 
 			if (chc.pmic_model != INTEL_PMIC_BCOVE) {
 				adc_val = get_tempzone_val(adc_val,
 						bcprof->temp_low_lim);
-				dev_info(chc.dev,
+				dev_dbg(chc.dev,
 					"adc-val:%x configured for temp:%d\n",
 					adc_val, bcprof->temp_low_lim);
 			}
@@ -1710,6 +1682,8 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 			goto otg_req_failed;
 		}
 	}
+
+	pmic_write_reg(chc.reg_map->pmic_mthrmirq1, MTHRMIRQ1_CCSM_MASK);
 
 	ret = pmic_check_initial_events();
 	if (ret)

@@ -2,9 +2,8 @@
 #define __INTEL_PMIC_CCSM_H__
 
 struct temp_lookup {
-	int temp_resistance;
 	int temp;
-	int temp_err;
+	int raw;
 };
 
 struct pmic_regs {
