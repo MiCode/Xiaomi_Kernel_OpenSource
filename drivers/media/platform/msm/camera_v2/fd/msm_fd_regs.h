@@ -14,8 +14,6 @@
 #define __MSM_FD_REGS_H__
 
 /* FD core registers */
-#define MSM_FD_VERSION (0x38)
-
 #define MSM_FD_CONTROL (0x00)
 #define MSM_FD_CONTROL_SRST   (1 << 0)
 #define MSM_FD_CONTROL_RUN    (1 << 1)
@@ -85,6 +83,8 @@
 
 /* FD misc registers */
 #define MSM_FD_MISC_HW_VERSION (0x00)
+#define MSM_FD_MISC_CGC_DISABLE (0x04)
+#define MSM_FD_HW_STOP          (0x08)
 
 #define MSM_FD_MISC_SW_RESET (0x10)
 #define MSM_FD_MISC_SW_RESET_SET (1 << 0)
@@ -117,6 +117,16 @@
 #define MSM_FD_MISC_VBIF_DONE_STATUS (0x34)
 #define MSM_FD_MISC_VBIF_DONE_STATUS_WRITE (1 << 0)
 #define MSM_FD_MISC_VBIF_DONE_STATUS_READ  (1 << 1)
+
+#define MSM_FD_MISC_IRQ_MASK (0x50)
+
+#define MSM_FD_MISC_IRQ_STATUS (0x54)
+#define MSM_FD_MISC_IRQ_STATUS_HALT_REQ (1 << 0)
+#define MSM_FD_MISC_IRQ_STATUS_CORE_IRQ (1 << 1)
+
+#define MSM_FD_MISC_IRQ_CLEAR (0x58)
+#define MSM_FD_MISC_IRQ_CLEAR_HALT (1 << 0)
+#define MSM_FD_MISC_IRQ_CLEAR_CORE (1 << 1)
 
 #define MSM_FD_MISC_TEST_BUS_SEL (0x40)
 #define MSM_FD_MISC_TEST_BUS_SEL_TEST_MODE_MASK  (0xF)

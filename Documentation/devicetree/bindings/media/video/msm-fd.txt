@@ -16,7 +16,9 @@ Required properties:
     - "fd_core" - FD CORE hardware register set.
     - "fd_misc" - FD MISC hardware register set.
     - "fd_vbif" - FD VBIF hardware register set.
-- interrupts: should contain the fd interrupts.
+- interrupts: should contain the fd interrupts. From fd cores with
+  revisions 0x10010000 and higher, power collapse sequence is required.
+  Face detection wrapper irq is needed to perform power collapse.
 - interrupt-names: should specify relevant names to each interrupts
   property defined.
 - vdd-supply: phandle to GDSC regulator controlling face detection hw.
@@ -33,7 +35,7 @@ Optional properties:
   If we want to have different operating clock frequencies we can define
   rate levels. They should be defined in incremental order.
 
-Example:
+Example revisions 0x10000000..0x10010000:
 
     qcom,fd@fd878000 {
         compatible = "qcom,face-detection";
@@ -54,3 +56,26 @@ Example:
 			<200000000 200000000 150000000 40000000>,
 			<400000000 400000000 333000000 80000000>;
     };
+
+Example revision 0x10010000 and above:
+
+    qcom,fd@fd878000 {
+        compatible = "qcom,face-detection";
+        reg = <0xfd878000 0x800>,
+              <0xfd87c000 0x800>,
+              <0xfd860000 0x1000>;
+        reg-names = "fd_core", "fd_misc", "fd_vbif";
+        interrupts = <0 316 0>;
+        interrupt-names = "fd";
+        vdd-supply = <&gdsc_fd>;
+        clocks = <&clock_mmss clk_fd_core_clk>,
+	         <&clock_mmss clk_fd_core_uar_clk>,
+	         <&clock_mmss clk_fd_axi_clk>,
+	         <&clock_mmss clk_fd_ahb_clk>;
+        clock-names = "fd_core_clk", "fd_core_uar_clk",
+                      "fd_axi_clk", "fd_ahb_clk";
+        clock-rates = <60000000 60000000 75000000 40000000>,
+                      <200000000 200000000 150000000 40000000>,
+                      <400000000 400000000 333000000 80000000>;
+   };
+

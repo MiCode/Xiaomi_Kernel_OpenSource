@@ -1194,23 +1194,6 @@ static void msm_fd_wq_handler(struct work_struct *work)
 }
 
 /*
- * msm_fd_irq - Fd device irq handler.
- * @irq: Pointer to work struct.
- * @dev_id: Pointer to fd device.
- */
-static irqreturn_t msm_fd_irq(int irq, void *dev_id)
-{
-	struct msm_fd_device *fd = dev_id;
-
-	if (msm_fd_hw_is_finished(fd))
-		queue_work(fd->work_queue, &fd->work);
-	else
-		dev_err(fd->dev, "Something wrong! FD still running\n");
-
-	return IRQ_HANDLED;
-}
-
-/*
  * fd_probe - Fd device probe method.
  * @pdev: Pointer fd platform device.
  */
@@ -1226,6 +1209,8 @@ static int fd_probe(struct platform_device *pdev)
 
 	mutex_init(&fd->lock);
 	spin_lock_init(&fd->slock);
+	init_completion(&fd->hw_halt_completion);
+	INIT_LIST_HEAD(&fd->buf_queue);
 	fd->dev = &pdev->dev;
 
 	/* Get resources */
@@ -1255,29 +1240,21 @@ static int fd_probe(struct platform_device *pdev)
 		goto error_iommu_get;
 	}
 
-	fd->irq_num = platform_get_irq(pdev, 0);
-	if (fd->irq_num < 0) {
-		dev_err(&pdev->dev, "Can not get fd irq resource\n");
-		ret = -ENODEV;
-		goto error_irq_request;
+	/* Get face detect hw before read engine revision */
+	ret = msm_fd_hw_get(fd, 0);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Fail to get hw\n");
+		goto error_iommu_get;
 	}
+	fd->hw_revision = msm_fd_hw_get_revision(fd);
 
-	ret = devm_request_irq(&pdev->dev, fd->irq_num, msm_fd_irq,
-		IRQF_TRIGGER_RISING, dev_name(&pdev->dev), fd);
-	if (ret) {
-		dev_err(&pdev->dev, "Can not claim IRQ %d\n", fd->irq_num);
-		goto error_irq_request;
-	}
+	msm_fd_hw_put(fd);
 
-	fd->work_queue = alloc_workqueue(MSM_FD_DRV_NAME,
-		WQ_HIGHPRI | WQ_NON_REENTRANT | WQ_UNBOUND, 0);
-	if (!fd->work_queue) {
-		dev_err(&pdev->dev, "Can not register workqueue\n");
-		ret = -ENOMEM;
-		goto error_alloc_workqueue;
+	ret = msm_fd_hw_request_irq(pdev, fd, msm_fd_wq_handler);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Fail request irq\n");
+		goto error_request_irq;
 	}
-	INIT_WORK(&fd->work, msm_fd_wq_handler);
-	INIT_LIST_HEAD(&fd->buf_queue);
 
 	/* v4l2 device */
 	ret = v4l2_device_register(&pdev->dev, &fd->v4l2_dev);
@@ -1311,10 +1288,8 @@ static int fd_probe(struct platform_device *pdev)
 error_video_register:
 	v4l2_device_unregister(&fd->v4l2_dev);
 error_v4l2_register:
-	destroy_workqueue(fd->work_queue);
-error_alloc_workqueue:
-	devm_free_irq(&pdev->dev, fd->irq_num, fd);
-error_irq_request:
+	msm_fd_hw_release_irq(fd);
+error_request_irq:
 	msm_fd_hw_put_iommu(fd);
 error_iommu_get:
 	msm_fd_hw_put_clocks(fd);
@@ -1341,9 +1316,8 @@ static int fd_device_remove(struct platform_device *pdev)
 		return 0;
 	}
 	video_unregister_device(&fd->video);
-	destroy_workqueue(fd->work_queue);
 	v4l2_device_unregister(&fd->v4l2_dev);
-	devm_free_irq(&pdev->dev, fd->irq_num, fd);
+	msm_fd_hw_release_irq(fd);
 	msm_fd_hw_put_iommu(fd);
 	msm_fd_hw_put_clocks(fd);
 	regulator_put(fd->vdd);
