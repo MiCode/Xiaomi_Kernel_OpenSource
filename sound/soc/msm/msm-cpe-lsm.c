@@ -36,6 +36,20 @@
 
 #define MSM_CPE_LAB_THREAD_TIMEOUT (3 * (HZ/10))
 
+#define MSM_CPE_LSM_GRAB_LOCK(lock, name)		\
+{						\
+	pr_debug("%s: %s lock acquire\n",	\
+		 __func__, name);		\
+	mutex_lock(lock);			\
+}
+
+#define MSM_CPE_LSM_REL_LOCK(lock, name)		\
+{						\
+	pr_debug("%s: %s lock release\n",	\
+		 __func__, name);		\
+	mutex_unlock(lock);			\
+}
+
 /* Conventional and unconventional sample rate supported */
 static unsigned int supported_sample_rates[] = {
 	8000, 16000
@@ -87,6 +101,7 @@ struct cpe_priv {
 struct cpe_lsm_data {
 	struct device *dev;
 	struct cpe_lsm_session *lsm_session;
+	struct mutex lsm_api_lock;
 
 	wait_queue_head_t event_wait;
 	atomic_t event_avail;
@@ -228,6 +243,64 @@ static int msm_cpe_afe_port_cntl(
 	return rc;
 }
 
+static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct cpe_lsm_data *lsm_d = cpe_get_lsm_data(substream);
+	struct cpe_priv *cpe = cpe_get_private_data(substream);
+	struct wcd_cpe_lsm_ops *lsm_ops;
+	struct cpe_lsm_session *session;
+	struct wcd_cpe_lsm_lab *lab_sess;
+	int rc;
+
+	if (!cpe || !cpe->core_handle) {
+		dev_err(rtd->dev,
+			"%s: Invalid private data\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (!lsm_d || !lsm_d->lsm_session) {
+		dev_err(rtd->dev,
+			"%s: Invalid session data\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	lsm_ops = &cpe->lsm_ops;
+	session = lsm_d->lsm_session;
+	lab_sess = &session->lab;
+
+	if (lab_sess->thread_status == MSM_LSM_LAB_THREAD_RUNNING) {
+		dev_dbg(rtd->dev, "%s: stopping lab thread\n",
+			__func__);
+		rc = kthread_stop(session->lsm_lab_thread);
+
+		/* Wait for the lab thread to exit */
+		rc = wait_for_completion_timeout(
+				&lab_sess->thread_complete,
+				MSM_CPE_LAB_THREAD_TIMEOUT);
+		if (!rc) {
+			dev_err(rtd->dev,
+				"%s: Wait for lab thread timedout\n",
+				__func__);
+			lab_sess->thread_status = MSM_LSM_LAB_THREAD_ERROR;
+			return -ETIMEDOUT;
+		}
+
+		lab_sess->thread_status = MSM_LSM_LAB_THREAD_STOP;
+		rc = lsm_ops->lsm_lab_stop(cpe->core_handle, session);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: Lab stop failed, error = %d\n",
+				__func__, rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
 /*
  * msm_cpe_lab_thread: Initiated on KW detection
  * @data: lab data
@@ -257,7 +330,8 @@ static int msm_cpe_lab_thread(void *data)
 		pr_err("%s: Handle to %s is invalid\n",
 			__func__,
 			(!core) ? "core" : "cpe");
-		return 0;
+		rc = -EINVAL;
+		goto done;
 	}
 
 	lsm_ops = &cpe->lsm_ops;
@@ -266,28 +340,37 @@ static int msm_cpe_lab_thread(void *data)
 	if (lsm_ops->lsm_lab_data_channel_read == NULL ||
 		lsm_ops->lsm_lab_data_channel_read_status == NULL) {
 			pr_err("%s: slim ops not present\n", __func__);
-			return -EINVAL;
+			rc = -EINVAL;
+			goto done;
 	}
 
 	if (!hw_params || !substream || !cpe) {
 		pr_err("%s: Lab thread pointers NULL\n", __func__);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto done;
 	}
 
-	rc = lsm_ops->lsm_lab_data_channel_read(core, lab->lsm_s,
+	if (!kthread_should_stop()) {
+		rc = lsm_ops->lsm_lab_data_channel_read(core, lab->lsm_s,
 					lab->pcm_buf[0].phys,
 					lab->pcm_buf[0].mem,
 					hw_params->buf_sz);
-	if (rc) {
-		pr_err("%s:Slim read error %d\n", __func__, rc);
-		return rc;
+		if (rc) {
+			pr_err("%s:Slim read error %d\n", __func__, rc);
+			goto done;
+		}
+
+		cur_buf = &lab->pcm_buf[0];
+		next_buf = &lab->pcm_buf[1];
+	} else {
+		pr_debug("%s: LAB stopped before starting read\n",
+			 __func__);
+		goto done;
 	}
 
-	lab->thread_status = MSM_LSM_LAB_THREAD_RUNNING;
-	cur_buf = &lab->pcm_buf[0];
-	next_buf = &lab->pcm_buf[1];
+	while (!kthread_should_stop() &&
+	       lab->thread_status != MSM_LSM_LAB_THREAD_ERROR) {
 
-	do {
 		rc = lsm_ops->lsm_lab_data_channel_read(core, lab->lsm_s,
 						next_buf->phys,
 						next_buf->mem,
@@ -319,7 +402,7 @@ static int msm_cpe_lab_thread(void *data)
 				next_buf = &lab->pcm_buf[buf_count + 1];
 				buf_count++;
 			}
-			pr_debug("%s: Cur buf = %pa Next Buf = %pa\n"
+			pr_debug("%s: Cur buf = %p Next Buf = %p\n"
 				 " buf count = 0x%x\n",
 				 __func__, cur_buf, next_buf, buf_count);
 		} else {
@@ -327,11 +410,10 @@ static int msm_cpe_lab_thread(void *data)
 				__func__, done_len);
 		}
 		done_len = 0;
-	} while (!kthread_should_stop() &&
-		 lab->thread_status != MSM_LSM_LAB_THREAD_ERROR);
+	}
 
+done:
 	pr_debug("%s: Exiting LAB thread\n", __func__);
-
 	complete(&lab->thread_complete);
 
 	return 0;
@@ -407,6 +489,7 @@ static int msm_cpe_lsm_open(struct snd_pcm_substream *substream)
 		rc = -ENOMEM;
 		goto fail_return;
 	}
+	mutex_init(&lsm_d->lsm_api_lock);
 
 	lsm_d->lsm_session = lsm_ops->lsm_alloc_session(cpe->core_handle,
 					lsm_d, msm_cpe_process_event_status);
@@ -418,6 +501,9 @@ static int msm_cpe_lsm_open(struct snd_pcm_substream *substream)
 		rc = -EINVAL;
 		goto fail_session_alloc;
 	}
+	/* Explicitly Assign the LAB thread to STOP state */
+	lsm_d->lsm_session->lab.thread_status = MSM_LSM_LAB_THREAD_STOP;
+	lsm_d->lsm_session->started = false;
 
 	dev_dbg(rtd->dev, "%s: allocated session with id = %d\n",
 		__func__, lsm_d->lsm_session->id);
@@ -443,6 +529,7 @@ fail_open_tx:
 	lsm_ops->lsm_dealloc_session(cpe->core_handle, lsm_d->lsm_session);
 
 fail_session_alloc:
+	mutex_destroy(&lsm_d->lsm_api_lock);
 	kfree(lsm_d);
 fail_return:
 	return rc;
@@ -489,25 +576,17 @@ static int msm_cpe_lsm_close(struct snd_pcm_substream *substream)
 	afe_ops = &cpe->afe_ops;
 	afe_cfg = &(lsm_d->lsm_session->afe_port_cfg);
 
-	if (lab_sess->thread_status == MSM_LSM_LAB_THREAD_RUNNING) {
-		/*
-		 * Close invoked while buferring is in progress.
-		 * Gracefully terminate the buferring before closing
-		 * the device.
-		 */
-		pr_err("%s: close when bufferring is in progress\n", __func__);
-		rc = kthread_stop(session->lsm_lab_thread);
-
-		/* Wait for the lab thread to exit */
-		rc = wait_for_completion_timeout(
-				&lab_sess->thread_complete,
-				MSM_CPE_LAB_THREAD_TIMEOUT);
-		if (!rc) {
-			dev_err(rtd->dev,
-				"%s: Wait for lab thread timedout\n",
-				__func__);
-			return -ETIMEDOUT;
-		}
+	/*
+	 * If driver is closed without stopping LAB,
+	 * explicitly stop LAB before cleaning up the
+	 * driver resources.
+	 */
+	rc = msm_cpe_lsm_lab_stop(substream);
+	if (rc) {
+		dev_err(rtd->dev,
+			"%s: Failed to stop lab, error = %d\n",
+			__func__, rc);
+		return rc;
 	}
 
 	rc = msm_cpe_afe_port_cntl(substream,
@@ -524,6 +603,7 @@ static int msm_cpe_lsm_close(struct snd_pcm_substream *substream)
 	}
 	lsm_ops->lsm_dealloc_session(cpe->core_handle, session);
 	runtime->private_data = NULL;
+	mutex_destroy(&lsm_d->lsm_api_lock);
 	kfree(lsm_d);
 
 	return rc;
@@ -574,6 +654,7 @@ done:
  *
  * Perform dedicated listen functions like register sound model,
  * deregister sound model, etc
+ * Called with lsm_api_lock acquired.
  */
 static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			 unsigned int cmd, void *arg)
@@ -615,39 +696,26 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			__func__, "SNDRV_LSM_STOP_LAB",
 			lab_sess->lab_enable,
 			lab_sess->thread_status);
+
 		if (lab_sess->lab_enable &&
-			lab_sess->thread_status != MSM_LSM_LAB_THREAD_STOP) {
-			rc = 1;
+		    lab_sess->thread_status != MSM_LSM_LAB_THREAD_STOP) {
 			atomic_inc(&lab_sess->abort_read);
 			wake_up(&lab_sess->period_wait);
-			if (lab_sess->thread_status !=
-			    MSM_LSM_LAB_THREAD_ERROR) {
-				rc = kthread_stop(session->lsm_lab_thread);
-				pr_debug("%s: Thread stop rc%x\n",
-					 __func__, rc);
-			}
-
-			/* Wait for the lab thread to exit */
-			rc = wait_for_completion_timeout(
-					&lab_sess->thread_complete,
-					MSM_CPE_LAB_THREAD_TIMEOUT);
-			if (!rc) {
+			rc = msm_cpe_lsm_lab_stop(substream);
+			if (rc) {
 				dev_err(rtd->dev,
-					"%s: Wait for lab thread timedout\n",
-					__func__);
-				return -ETIMEDOUT;
+					"%s: stop LAB failed, error = %d\n",
+					__func__, rc);
+				return rc;
 			}
-
-			rc = lsm_ops->lsm_lab_stop(cpe->core_handle, session);
-			if (rc)
-				pr_err("%s: Lab stop status %d\n",
-				       __func__, rc);
-		} else {
-			pr_err("%s:Stop Lab failed\n", __func__);
-			return -EINVAL;
+		} else if (!lab_sess->lab_enable) {
+			dev_dbg(rtd->dev,
+				"%s: LAB already stopped\n",
+				__func__);
 		}
-		return rc;
-	break;
+
+		break;
+
 	case SNDRV_LSM_LAB_CONTROL:
 		if (copy_from_user(&lab_sess->lab_enable, (void *)arg,
 				   sizeof(u32))) {
@@ -692,6 +760,19 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			snd_pcm_set_runtime_buffer(substream,
 						   &substream->dma_buffer);
 		} else {
+			/*
+			 * It is possible that lab is still enabled
+			 * when trying to de-allocate the lab buffer.
+			 * Make sure to disable lab before de-allocating
+			 * the lab buffer.
+			 */
+			rc = msm_cpe_lsm_lab_stop(substream);
+			if (rc) {
+				dev_err(rtd->dev,
+					"%s: LAB stop failed, error = %d\n",
+					__func__, rc);
+				return rc;
+			}
 			rc = lsm_ops->lsm_lab_control(cpe->core_handle,
 					session,
 					lab_sess->hw_params.buf_sz,
@@ -782,6 +863,20 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			"%s: %s\n",
 			__func__, "SNDRV_LSM_DEREG_SND_MODEL");
 		if (lab_sess->lab_enable) {
+			/*
+			 * It is possible that lab is still enabled
+			 * when trying to deregister sound model.
+			 * Make sure to disable lab before de-allocating
+			 * the lab buffer.
+			 */
+			rc = msm_cpe_lsm_lab_stop(substream);
+			if (rc) {
+				dev_err(rtd->dev,
+					"%s: LAB stop failed, error = %d\n",
+					__func__, rc);
+				return rc;
+			}
+
 			rc = lsm_ops->lsm_lab_control(cpe->core_handle,
 					session, lab_sess->hw_params.buf_sz,
 					lab_sess->hw_params.period_count,
@@ -791,6 +886,7 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 				       __func__, rc);
 			}
 		}
+
 		rc = lsm_ops->lsm_deregister_snd_model(
 				cpe->core_handle, session);
 		if (rc != 0) {
@@ -828,9 +924,21 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		}
 
 		user = arg;
+
+		/*
+		 * Release the api lock before wait to allow
+		 * other IOCTLs to be invoked while waiting
+		 * for event
+		 */
+		MSM_CPE_LSM_REL_LOCK(&lsm_d->lsm_api_lock,
+				     "lsm_api_lock");
+
 		rc = wait_event_freezable(lsm_d->event_wait,
 				(atomic_read(&lsm_d->event_avail) == 1) ||
 				(atomic_read(&lsm_d->event_stop) == 1));
+
+		MSM_CPE_LSM_GRAB_LOCK(&lsm_d->lsm_api_lock,
+				      "lsm_api_lock");
 
 		if (!rc) {
 			if (atomic_read(&lsm_d->event_avail) == 1) {
@@ -882,6 +990,7 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 				__func__, rc);
 			return rc;
 		}
+		session->started = true;
 		break;
 
 	case SNDRV_LSM_STOP:
@@ -905,6 +1014,7 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 
 			return rc;
 		}
+		session->started = false;
 		break;
 
 	case SNDRV_LSM_SET_PARAMS:
@@ -999,6 +1109,13 @@ static int msm_cpe_lsm_lab_start(struct snd_pcm_substream *substream,
 	lsm_ops = &cpe->lsm_ops;
 	lab_sess = &session->lab;
 
+	if (!session->started) {
+		dev_dbg(rtd->dev,
+			"%s: Session is stopped, cannot start LAB\n",
+			__func__);
+		return 0;
+	}
+
 	INIT_COMPLETION(lab_sess->thread_complete);
 
 	if (lab_sess->lab_enable &&
@@ -1010,6 +1127,14 @@ static int msm_cpe_lsm_lab_start(struct snd_pcm_substream *substream,
 		"scheduling LAB thread\n", __func__);
 		lsm_ops->lsm_lab_data_channel_open(
 			cpe->core_handle, session);
+
+		/*
+		 * Even though thread might be only scheduled and
+		 * not currently running, mark the internal driver
+		 * status to running so driver can cancel this thread
+		 * if it needs to before the thread gets chance to run.
+		 */
+		lab_sess->thread_status = MSM_LSM_LAB_THREAD_RUNNING;
 		session->lsm_lab_thread = kthread_run(
 				msm_cpe_lab_thread,
 				&session->lab,
@@ -1054,6 +1179,9 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
+	MSM_CPE_LSM_GRAB_LOCK(&lsm_d->lsm_api_lock,
+			      "lsm_api_lock");
+
 	session = lsm_d->lsm_session;
 	lsm_ops = &cpe->lsm_ops;
 	lab_sess = &session->lab;
@@ -1067,7 +1195,8 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 				"%s: copy from user failed, size %zd\n",
 				__func__,
 				sizeof(struct snd_lsm_sound_model_v2));
-			return -EFAULT;
+			err = -EFAULT;
+			goto done;
 		}
 
 		err = msm_cpe_lsm_ioctl_shared(substream, cmd,
@@ -1085,7 +1214,8 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 				"%s: event status copy from user failed, size %zd\n",
 				__func__,
 				sizeof(struct snd_lsm_event_status));
-			return -EFAULT;
+			err = -EFAULT;
+			goto done;
 		}
 		u_pld_size = sizeof(struct snd_lsm_event_status) +
 				u_event_status.payload_size;
@@ -1095,7 +1225,8 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 			dev_err(rtd->dev,
 				"%s: No memory for event status\n",
 				__func__);
-			return -ENOMEM;
+			err = -ENOMEM;
+			goto done;
 		} else {
 			event_status->payload_size =
 				u_event_status.payload_size;
@@ -1108,7 +1239,8 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 				"%s: copy to user failed\n",
 				__func__);
 			kfree(event_status);
-			return -EFAULT;
+			err = -EFAULT;
+			goto done;
 		}
 
 		msm_cpe_lsm_lab_start(substream, event_status);
@@ -1125,7 +1257,8 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 				"%s: %s: copy_from_user failed, size = %zd\n",
 				__func__, "SNDRV_LSM_SET_PARAMS",
 				sizeof(det_params));
-			return -EFAULT;
+			err = -EFAULT;
+			goto done;
 		}
 
 		err = msm_cpe_lsm_ioctl_shared(substream, cmd,
@@ -1136,6 +1269,10 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);
 		break;
 	}
+
+done:
+	MSM_CPE_LSM_REL_LOCK(&lsm_d->lsm_api_lock,
+			     "lsm_api_lock");
 	return err;
 }
 
@@ -1206,6 +1343,9 @@ static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
+	MSM_CPE_LSM_GRAB_LOCK(&lsm_d->lsm_api_lock,
+			      "lsm_api_lock");
+
 	session = lsm_d->lsm_session;
 	lsm_ops = &cpe->lsm_ops;
 	lab_sess = &session->lab;
@@ -1225,7 +1365,8 @@ static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 				"%s: copy from user failed, size %zd\n",
 				__func__,
 				sizeof(snd_model32));
-			return -EFAULT;
+			err = -EFAULT;
+			goto done;
 		}
 
 		snd_model.data = compat_ptr(snd_model32.data);
@@ -1263,7 +1404,8 @@ static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 				"%s: event status copy from user failed, size %zd\n",
 				__func__,
 				sizeof(struct snd_lsm_event_status));
-			return -EFAULT;
+			err = -EFAULT;
+			goto done;
 		}
 
 		u_pld_size = sizeof(struct snd_lsm_event_status) +
@@ -1273,7 +1415,8 @@ static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 			dev_err(rtd->dev,
 				"%s: No memory for event status\n",
 				__func__);
-			return -ENOMEM;
+			err = -ENOMEM;
+			goto done;
 		} else {
 			event_status->payload_size =
 				u_event_status32.payload_size;
@@ -1312,7 +1455,8 @@ static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 				__func__);
 			kfree(event_status);
 			kfree(udata_32);
-			return -EFAULT;
+			err = -EFAULT;
+			goto done;
 		}
 
 		msm_cpe_lsm_lab_start(substream, event_status);
@@ -1356,6 +1500,9 @@ static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);
 		break;
 	}
+done:
+	MSM_CPE_LSM_REL_LOCK(&lsm_d->lsm_api_lock,
+			     "lsm_api_lock");
 	return err;
 }
 

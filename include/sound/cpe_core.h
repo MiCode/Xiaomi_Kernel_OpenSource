@@ -92,6 +92,7 @@ struct cpe_lsm_session {
 	u8 num_confidence_levels;
 	struct task_struct *lsm_lab_thread;
 	struct wcd_cpe_lsm_lab lab;
+	bool started;
 };
 
 struct wcd_cpe_afe_ops {
