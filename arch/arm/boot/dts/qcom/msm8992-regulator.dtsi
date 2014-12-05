@@ -648,6 +648,11 @@
 					<139 46 6 0>,
 					<139 40 6 0>,
 					<139 52 6 0>;
+		qcom,cpr-fuse-quot-offset =
+					<27 50 6 0>,
+					<27 50 6 0>,
+					<138 48 6 0>,
+					<138 54 7 0>;
 		qcom,cpr-init-voltage-ref = <800000 900000 1000000 1225000>;
 		qcom,cpr-init-voltage-step = <10000>;
 
@@ -724,6 +729,11 @@
 					<140 48 6 0>,
 					<140 42 6 0>,
 					<140 54 6 0>;
+		qcom,cpr-fuse-quot-offset =
+					<27 56 6 0>,
+					<27 56 6 0>,
+					<139 58 6 0>,
+					<140 0 7 0>;
 		qcom,cpr-init-voltage-ref = <900000 900000 1000000 1225000>;
 		qcom,cpr-init-voltage-step = <10000>;
 
