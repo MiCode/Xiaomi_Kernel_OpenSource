@@ -675,3 +675,126 @@ int pp_pgc_lut_cache_params(struct mdp_pgc_lut_data *config,
 	}
 	return ret;
 }
+
+static int pp_pa_cache_params_v1_7(struct mdp_pa_v2_cfg_data *config,
+				   struct mdss_pp_res_type *mdss_pp_res)
+{
+	struct mdss_pp_res_type_v1_7 *res_cache;
+	struct mdp_pa_data_v1_7 *pa_cache_data, pa_usr_config;
+	int disp_num, ret = 0;
+
+	if (!config || !mdss_pp_res) {
+		pr_err("Invalid param config %p pp_res %p\n",
+			config, mdss_pp_res);
+		return -EINVAL;
+	}
+
+	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
+			(config->block >= MDP_BLOCK_MAX)) {
+		pr_err("Invalid config block %d\n", config->block);
+		return -EINVAL;
+	}
+
+	if (!mdss_pp_res->pp_data_res) {
+		pr_err("Invalid pp_data_res %p\n", mdss_pp_res->pp_data_res);
+		return -EINVAL;
+	}
+
+	res_cache = mdss_pp_res->pp_data_res;
+	if (config->flags & MDP_PP_OPS_READ) {
+		pr_err("Read op is not supported\n");
+		return -EINVAL;
+	}
+
+	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+	mdss_pp_res->pa_v2_disp_cfg[disp_num] = *config;
+	pa_cache_data = &res_cache->pa_v17_data[disp_num];
+	mdss_pp_res->pa_v2_disp_cfg[disp_num].cfg_payload =
+		(void *) pa_cache_data;
+
+	if (copy_from_user(&pa_usr_config, config->cfg_payload,
+			   sizeof(pa_usr_config))) {
+		pr_err("Failed to copy v1_7 PA\n");
+		ret = -EFAULT;
+		goto pa_config_exit;
+	}
+
+	if ((config->flags & MDP_PP_OPS_DISABLE)) {
+		pr_debug("Disable PA\n");
+		ret = 0;
+		goto pa_config_exit;
+	}
+
+	if (!(config->flags & MDP_PP_OPS_WRITE)) {
+		pr_debug("op for PA %d\n", config->flags);
+		ret = 0;
+		goto pa_config_exit;
+	}
+
+	memcpy(pa_cache_data, &pa_usr_config, sizeof(pa_usr_config));
+	/* Copy six zone LUT if six zone is enabled to be written */
+	if (config->flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
+		if (pa_usr_config.six_zone_len != MDP_SIX_ZONE_LUT_SIZE) {
+			pr_err("Invalid six zone size, actual %d max %d\n",
+					pa_usr_config.six_zone_len,
+					MDP_SIX_ZONE_LUT_SIZE);
+			ret = -EINVAL;
+			goto pa_config_exit;
+		}
+
+		ret = copy_from_user(&res_cache->six_zone_lut_p0[disp_num][0],
+				     pa_usr_config.six_zone_curve_p0,
+				     pa_usr_config.six_zone_len * sizeof(u32));
+		if (ret) {
+			pr_err("copying six_zone_curve_p0 lut from userspace failed size %zd ret %d\n",
+				(sizeof(u32) * pa_usr_config.six_zone_len),
+				ret);
+			ret = -EFAULT;
+			goto pa_config_exit;
+		}
+		pa_cache_data->six_zone_curve_p0 =
+			&res_cache->six_zone_lut_p0[disp_num][0];
+		ret = copy_from_user(&res_cache->six_zone_lut_p1[disp_num][0],
+				     pa_usr_config.six_zone_curve_p1,
+				     pa_usr_config.six_zone_len * sizeof(u32));
+		if (ret) {
+			pr_err("copying six_zone_curve_p1 lut from userspace failed size %zd ret %d\n",
+				(sizeof(u32) * pa_usr_config.six_zone_len),
+				ret);
+			ret = -EFAULT;
+			goto pa_config_exit;
+		}
+		pa_cache_data->six_zone_curve_p1 =
+			&res_cache->six_zone_lut_p1[disp_num][0];
+	}
+
+pa_config_exit:
+	if (ret || config->flags & MDP_PP_OPS_DISABLE) {
+		pa_cache_data->six_zone_len = 0;
+		pa_cache_data->six_zone_curve_p0 = NULL;
+		pa_cache_data->six_zone_curve_p1 = NULL;
+	}
+	return ret;
+}
+
+int pp_pa_cache_params(struct mdp_pa_v2_cfg_data *config,
+			struct mdss_pp_res_type *mdss_pp_res)
+{
+	int ret = 0;
+	if (!config || !mdss_pp_res) {
+		pr_err("invalid param config %p pp_res %p\n",
+			config, mdss_pp_res);
+		return -EINVAL;
+	}
+	switch (config->version) {
+	case mdp_pa_v1_7:
+		ret = pp_pa_cache_params_v1_7(config, mdss_pp_res);
+		break;
+	default:
+		pr_err("unsupported pa version %d\n",
+			config->version);
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
