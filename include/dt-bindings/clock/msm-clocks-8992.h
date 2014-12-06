@@ -16,7 +16,6 @@
 /* clock_rpm controlled clocks */
 #define clk_ce1_clk 0x42229c55
 #define clk_ce2_clk 0x7b80e25b
-#define clk_ce3_clk 0xb7c009b6
 #define clk_cxo_clk_src 0x79e95308
 #define clk_pnoc_clk 0x4325d220
 #define clk_ocmemgx_clk 0xc91618fb
@@ -41,7 +40,6 @@
 #define clk_bimc_msmbus_a_clk 0x71d1a499
 #define clk_ce1_a_clk 0x44a833fe
 #define clk_ce2_a_clk 0x6a30b14b
-#define clk_ce3_a_clk 0xa67fa700
 #define clk_cnoc_msmbus_clk 0x62228b5d
 #define clk_cnoc_msmbus_a_clk 0x67442955
 #define clk_cxo_clk_src_ao 0x64eb6004
@@ -62,7 +60,6 @@
 #define clk_ln_bb_a_clk 0xc7257ea8
 #define clk_mcd_ce1_clk 0xbb615d26
 #define clk_mcd_ce2_clk 0x6ed5c723
-#define clk_mcd_ce3_clk 0x607c2bd3
 #define clk_mmssnoc_ahb_clk 0xccd4bd4c
 #define clk_mmssnoc_ahb_a_clk 0x3f1a62ce
 #define clk_ocmemgx_core_clk 0xaad7dbe5
@@ -76,15 +73,12 @@
 #define clk_pnoc_sps_clk 0xd482ecc7
 #define clk_qcedev_ce1_clk 0x293f97b0
 #define clk_qcedev_ce2_clk 0x816b3fec
-#define clk_qcedev_ce3_clk 0xbfa406c1
 #define clk_qcrypto_ce1_clk 0xa6ac14df
 #define clk_qcrypto_ce2_clk 0x8728364d
-#define clk_qcrypto_ce3_clk 0x0dce9a93
 #define clk_qdss_clk 0x1492202a
 #define clk_qdss_a_clk 0xdd121669
 #define clk_qseecom_ce1_clk 0xaa858373
 #define clk_qseecom_ce2_clk 0x7768a8d3
-#define clk_qseecom_ce3_clk 0xf277bf96
 #define clk_rf_clk1 0xaabeea5a
 #define clk_rf_clk1_ao 0x72a10cb8
 #define clk_rf_clk1_pin 0x8f463562
@@ -95,15 +89,12 @@
 #define clk_rf_clk2_pin_ao 0x2d75eb4d
 #define clk_scm_ce1_clk 0xd8ebcc62
 #define clk_scm_ce2_clk 0x5f97c3fc
-#define clk_scm_ce3_clk 0xc52c879f
 #define clk_snoc_msmbus_clk 0xe6900bb6
 #define clk_snoc_msmbus_a_clk 0x5d4683bd
 #define clk_gcc_ce1_ahb_m_clk 0x2eb28c01
 #define clk_gcc_ce1_axi_m_clk 0xc174dfba
 #define clk_gcc_ce2_ahb_m_clk 0xe57ce2b1
 #define clk_gcc_ce2_axi_m_clk 0x4feb55e3
-#define clk_gcc_ce3_ahb_m_clk 0x527880ff
-#define clk_gcc_ce3_axi_m_clk 0xc8e9a915
 #define clk_rpm_debug_mux 0x25cd1f3a
 #define clk_gcc_bimc_kpss_axi_m_clk 0x1e86d73e
 #define clk_gcc_mmss_bimc_gfx_m_clk 0xcf06f534
