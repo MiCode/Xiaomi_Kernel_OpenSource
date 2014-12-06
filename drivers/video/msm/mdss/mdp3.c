@@ -370,7 +370,7 @@ int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
 
 	for (i = 0; i < MDP3_CLIENT_MAX; i++) {
 		total_ab += bus_handle->ab[i];
-		total_ib += bus_handle->ab[i];
+		total_ib += bus_handle->ib[i];
 	}
 
 	if ((total_ab | total_ib) == 0) {
@@ -950,6 +950,35 @@ int mdp3_dynamic_clock_gating_ctrl(int enable)
 	if (rc)
 		pr_warn("fail to turn off MDP core clks\n");
 
+	return rc;
+}
+
+int mdp3_qos_remapper_setup(void)
+{
+	int rc = 0;
+
+	rc = mdp3_clk_update(MDP3_CLK_AHB, 1);
+	rc |= mdp3_clk_update(MDP3_CLK_AXI, 1);
+	rc |= mdp3_clk_update(MDP3_CLK_MDP_CORE, 1);
+	if (rc) {
+		pr_err("fail to turn on MDP core clks\n");
+		return rc;
+	}
+
+	/* Program MDP QOS Remapper */
+	MDP3_REG_WRITE(MDP3_DMA_P_QOS_REMAPPER, 0x1A9);
+	MDP3_REG_WRITE(MDP3_DMA_P_WATERMARK_0, 0x0);
+	MDP3_REG_WRITE(MDP3_DMA_P_WATERMARK_1, 0x0);
+	MDP3_REG_WRITE(MDP3_DMA_P_WATERMARK_2, 0x0);
+	MDP3_REG_WRITE(MDP3_PANIC_LUT0, 0xFFFF);
+	MDP3_REG_WRITE(MDP3_PANIC_ROBUST_CTRL, 0x1);
+	MDP3_REG_WRITE(MDP3_ROBUST_LUT, 0xFF00);
+
+	rc = mdp3_clk_update(MDP3_CLK_AHB, 0);
+	rc |= mdp3_clk_update(MDP3_CLK_AXI, 0);
+	rc |= mdp3_clk_update(MDP3_CLK_MDP_CORE, 0);
+	if (rc)
+		pr_warn("fail to turn off MDP core clks\n");
 	return rc;
 }
 
@@ -1718,6 +1747,7 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 	struct mdss_panel_info *panel_info = &pdata->panel_info;
 	struct mdp3_bus_handle_map *bus_handle;
 	u64 ab, ib;
+	u32 vtotal;
 	int rc;
 
 	pr_debug("mdp3__continuous_splash_on\n");
@@ -1733,10 +1763,13 @@ static int mdp3_continuous_splash_on(struct mdss_panel_data *pdata)
 		pr_err("invalid bus handle %d\n", bus_handle->handle);
 		return -EINVAL;
 	}
+	vtotal = panel_info->yres + panel_info->lcdc.v_back_porch +
+		panel_info->lcdc.v_front_porch +
+		panel_info->lcdc.v_pulse_width;
 
-	ab = panel_info->xres * panel_info->yres * 4 * 2;
+	ab = panel_info->xres * vtotal * 4;
 	ab *= panel_info->mipi.frame_rate;
-	ib = (ab * 3) / 2;
+	ib = ab;
 	rc = mdp3_bus_scale_set_quota(MDP3_CLIENT_DMA_P, ab, ib);
 	bus_handle->restore_ab[MDP3_CLIENT_DMA_P] = ab;
 	bus_handle->restore_ib[MDP3_CLIENT_DMA_P] = ib;
