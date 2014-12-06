@@ -30,7 +30,6 @@
 			qcom,base-offset = <0x5000>;
 			qcom,qos-off = <0x80>;
 			qcom,bus-type = <1>;
-			qcom,bypass-qos-prg;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpm  clk_snoc_msmbus_clk>,
 			      <&clock_rpm  clk_snoc_msmbus_a_clk>;
@@ -52,7 +51,6 @@
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
 			qcom,util-fact = <153>;
-			qcom,bypass-qos-prg;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpm  clk_bimc_msmbus_clk>,
 			      <&clock_rpm  clk_bimc_msmbus_a_clk>;
@@ -99,7 +97,6 @@
 			qcom,bus-type = <1>;
 			qcom,qos-off = <0x80>;
 			qcom,util-fact = <153>;
-			qcom,bypass-qos-prg;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_mmss  clk_mmss_s0_axi_clk>,
 			      <&clock_mmss  clk_mmss_s0_axi_clk>;
@@ -188,7 +185,7 @@
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
 			qcom,ap-owned;
-			qcom,connections = <&slv_ebi &slv_appss_l2 &slv_bimc_snoc>;
+			qcom,connections = <&slv_ebi &slv_bimc_snoc>;
 		};
 
 
@@ -199,7 +196,7 @@
 			qcom,buswidth = <16>;
 			qcom,qport = <2>;
 			qcom,qos-mode = "bypass";
-			qcom,connections = <&slv_ebi &slv_appss_l2 &slv_bimc_snoc>;
+			qcom,connections = <&slv_ebi &slv_bimc_snoc>;
 			qcom,ap-owned;
 		};
 
@@ -211,7 +208,7 @@
 			qcom,buswidth = <8>;
 			qcom,qport = <3>;
 			qcom,qos-mode = "bypass";
-			qcom,connections = <&slv_ebi &slv_appss_l2>;
+			qcom,connections = <&slv_ebi>;
 			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_BIMC>;
 		};
 
@@ -225,14 +222,6 @@
 			qcom,slv-rpm-id = <ICBID_SLAVE_EBI1>;
 		};
 
-
-		slv_appss_l2: slv-appss-l2 {
-			cell-id = <MSM_BUS_SLAVE_AMPSS_L2>;
-			label = "slv-appss-l2";
-			qcom,bus-dev = <&fab_bimc>;
-			qcom,buswidth = <8>;
-			qcom,slv-rpm-id = <ICBID_SLAVE_APPSS_L2>;
-		};
 
 
 		slv_bimc_snoc: slv-bimc-snoc {
@@ -330,23 +319,23 @@
 		};
 
 
-		mas_vfe: mas-vfe {
-			cell-id = <MSM_BUS_MASTER_VFE>;
-			label = "mas-vfe";
-			qcom,bus-dev = <&fab_mnoc>;
-			qcom,buswidth = <16>;
-			qcom,qport = <6>;
-			qcom,qos-mode = "bypass";
-			qcom,connections = <&slv_mnoc_bimc>;
-			qcom,ap-owned;
-		};
-
 		mas_cpp: mas-cpp {
 			cell-id = <MSM_BUS_MASTER_CPP>;
 			label = "mas-cpp";
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,buswidth = <16>;
 			qcom,qport = <5>;
+			qcom,qos-mode = "bypass";
+			qcom,connections = <&slv_mnoc_bimc>;
+			qcom,ap-owned;
+		};
+
+		mas_vfe: mas-vfe {
+			cell-id = <MSM_BUS_MASTER_VFE>;
+			label = "mas-vfe";
+			qcom,bus-dev = <&fab_mnoc>;
+			qcom,buswidth = <16>;
+			qcom,qport = <6>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,ap-owned;
@@ -589,20 +578,6 @@
 		};
 
 
-		mas_crypto_c2: mas-crypto-c2 {
-			cell-id = <MSM_BUS_MASTER_CRYPTO_CORE2>;
-			label = "mas-crypto-c2";
-			qcom,bus-dev = <&fab_snoc>;
-			qcom,buswidth = <8>;
-			qcom,qos-mode = "fixed";
-			qcom,qport = <9>;
-			qcom,prio1 = <1>;
-			qcom,prio0 = <1>;
-			qcom,connections = <&slv_lpass &slv_usb3 &slv_snoc_bimc
-				&slv_ocimem &slv_snoc_ovirt &slv_snoc_pnoc>;
-			qcom,ap-owned;
-		};
-
 
 		mas_lpass_proc: mas-lpass-proc {
 			cell-id = <MSM_BUS_MASTER_LPASS_PROC>;
@@ -656,18 +631,6 @@
 		};
 
 
-		mas_pcie_1: mas-pcie-1 {
-			cell-id = <MSM_BUS_MASTER_PCIE_1>;
-			label = "mas-pcie-1";
-			qcom,bus-dev = <&fab_snoc>;
-			qcom,buswidth = <8>;
-			qcom,qport = <16>;
-			qcom,qos-mode = "fixed";
-			qcom,prio1 = <1>;
-			qcom,prio0 = <1>;
-			qcom,connections = <&slv_kpss_ahb &slv_snoc_bimc &slv_ocimem>;
-			qcom,ap-owned;
-		};
 
 
 		mas_qdss_etr: mas-qdss-etr {
@@ -683,19 +646,6 @@
 			qcom,ap-owned;
 		};
 
-
-		mas_ufs: mas-ufs {
-			cell-id = <MSM_BUS_MASTER_UFS>;
-			label = "mas-ufs";
-			qcom,bus-dev = <&fab_snoc>;
-			qcom,buswidth = <8>;
-			qcom,qos-mode = "fixed";
-			qcom,prio1 = <1>;
-			qcom,prio0 = <1>;
-			qcom,connections = <&slv_snoc_bimc &slv_snoc_cnoc &slv_ocimem
-				&slv_snoc_ovirt>;
-			qcom,ap-owned;
-		};
 
 
 		mas_usb3: mas-usb3 {
@@ -819,14 +769,6 @@
 			qcom,slv-rpm-id = <ICBID_SLAVE_PCIE_0>;
 		};
 
-
-		slv_pcie_1: slv-pcie-1 {
-			cell-id = <MSM_BUS_SLAVE_PCIE_1>;
-			label = "slv-pcie-1";
-			qcom,bus-dev = <&fab_snoc>;
-			qcom,buswidth = <8>;
-			qcom,slv-rpm-id = <ICBID_SLAVE_PCIE_1>;
-		};
 
 
 		/* ovirt Devices */
@@ -1155,14 +1097,14 @@
 			label = "mas-rpm-sys";
 			qcom,bus-dev = <&fab_cnoc>;
 			qcom,buswidth = <8>;
-			qcom,connections = <&slv_clk_ctl &slv_crypto_2_cfg
-				&slv_security &slv_tcsr &slv_tlmm &slv_crypto_0_cfg
+			qcom,connections = <&slv_clk_ctl &slv_security
+				&slv_tcsr &slv_tlmm &slv_crypto_0_cfg
 				&slv_crypto_1_cfg &slv_imem_cfg &slv_message_ram
 				&slv_bimc_cfg &slv_cnoc_mnoc_mmss_cfg &slv_spdm_wrapper
 				&slv_dehr_cfg &slv_mpm &slv_qdss_cfg  &slv_pnoc_cfg
 				&slv_snoc_cfg &slv_snoc_mpu_cfg &slv_ebi1_dll_cfg
 				&slv_phy_apu_cfg &slv_ebi1_phy_cfg &slv_pcie_0_cfg
-				&slv_pcie_1_cfg  &slv_spss_geni_ir &slv_ufs_cfg &slv_cnoc_snoc>;
+				&slv_spss_geni_ir &slv_ufs_cfg &slv_cnoc_snoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_RPM_SYS>;
 		};
 
@@ -1192,13 +1134,13 @@
 			label = "mas-tic";
 			qcom,bus-dev = <&fab_cnoc>;
 			qcom,buswidth = <8>;
-			qcom,connections = <&slv_clk_ctl &slv_crypto_2_cfg &slv_security
+			qcom,connections = <&slv_clk_ctl &slv_security
 				&slv_tcsr &slv_tlmm &slv_crypto_0_cfg &slv_crypto_1_cfg
 				&slv_imem_cfg &slv_message_ram &slv_bimc_cfg &slv_boot_rom
 				&slv_cnoc_mnoc_mmss_cfg &slv_spdm_wrapper &slv_dehr_cfg
 				&slv_mpm &slv_qdss_cfg  &slv_pnoc_cfg &slv_snoc_cfg
 				&slv_snoc_mpu_cfg &slv_ebi1_dll_cfg &slv_phy_apu_cfg
-				&slv_ebi1_phy_cfg &slv_rpm &slv_pcie_0_cfg &slv_pcie_1_cfg
+				&slv_ebi1_phy_cfg &slv_rpm &slv_pcie_0_cfg
 				&slv_spss_geni_ir &slv_ufs_cfg &slv_cnoc_snoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_TIC>;
 		};
@@ -1209,13 +1151,13 @@
 			label = "mas-snoc-cnoc";
 			qcom,bus-dev = <&fab_cnoc>;
 			qcom,buswidth = <8>;
-			qcom,connections = <&slv_clk_ctl &slv_crypto_2_cfg &slv_security
+			qcom,connections = <&slv_clk_ctl &slv_security
 				&slv_tcsr &slv_tlmm &slv_crypto_0_cfg &slv_crypto_1_cfg
 				&slv_imem_cfg &slv_message_ram &slv_bimc_cfg &slv_boot_rom
 				&slv_cnoc_mnoc_mmss_cfg &slv_spdm_wrapper &slv_dehr_cfg
 				&slv_mpm &slv_qdss_cfg  &slv_pnoc_cfg &slv_snoc_cfg
 				&slv_snoc_mpu_cfg &slv_ebi1_dll_cfg &slv_phy_apu_cfg
-				&slv_ebi1_phy_cfg &slv_rpm &slv_pcie_0_cfg &slv_pcie_1_cfg
+				&slv_ebi1_phy_cfg &slv_rpm &slv_pcie_0_cfg
 				&slv_spss_geni_ir &slv_ufs_cfg>;
 			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_CNOC>;
 		};
@@ -1226,13 +1168,13 @@
 			label = "mas-qdss-dap";
 			qcom,bus-dev = <&fab_cnoc>;
 			qcom,buswidth = <8>;
-			qcom,connections = <&slv_clk_ctl &slv_crypto_2_cfg &slv_security
+			qcom,connections = <&slv_clk_ctl &slv_security
 				&slv_tcsr &slv_tlmm &slv_crypto_0_cfg &slv_crypto_1_cfg
 				&slv_imem_cfg &slv_message_ram &slv_bimc_cfg &slv_boot_rom
 				&slv_cnoc_mnoc_mmss_cfg &slv_spdm_wrapper &slv_dehr_cfg
 				&slv_mpm &slv_qdss_cfg  &slv_pnoc_cfg &slv_snoc_cfg
 				&slv_snoc_mpu_cfg &slv_ebi1_dll_cfg &slv_phy_apu_cfg
-				&slv_ebi1_phy_cfg &slv_rpm &slv_pcie_0_cfg &slv_pcie_1_cfg
+				&slv_ebi1_phy_cfg &slv_rpm &slv_pcie_0_cfg
 				&slv_spss_geni_ir &slv_ufs_cfg &slv_cnoc_snoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_QDSS_DAP>;
 		};
