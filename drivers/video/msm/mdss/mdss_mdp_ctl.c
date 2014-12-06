@@ -24,11 +24,9 @@
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
-#include "mdss_debug.h"
 #include "mdss_mdp_trace.h"
 #include "mdss_debug.h"
 
-static void mdss_mdp_xlog_mixer_reg(struct mdss_mdp_ctl *ctl);
 static inline u64 fudge_factor(u64 val, u32 numer, u32 denom)
 {
 	u64 result = (val * (u64)numer);
@@ -3070,6 +3068,8 @@ update_mixer:
 	pr_debug("mixer=%d cfg=0%08x cfg_extn=0x%08x op_mode=0x%08x w=%d h=%d\n",
 		mixer->num, mixercfg, mixercfg_extn,
 		mixer_op_mode, mixer->roi.w, mixer->roi.h);
+	MDSS_XLOG(mixer->num, mixercfg, mixercfg_extn, mixer_op_mode,
+		mixer->roi.h, mixer->roi.w);
 }
 
 int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
@@ -3644,8 +3644,6 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	}
 	ATRACE_END("postproc_programming");
 
-	mdss_mdp_xlog_mixer_reg(ctl);
-
 	ATRACE_BEGIN("frame_ready");
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_CFG_DONE);
 	if (commit_cb)
@@ -3970,19 +3968,4 @@ int mdss_mdp_mixer_handoff(struct mdss_mdp_ctl *ctl, u32 num,
 	}
 
 	return rc;
-}
-
-static void mdss_mdp_xlog_mixer_reg(struct mdss_mdp_ctl *ctl)
-{
-	int i, off;
-	u32 data[MDSS_MDP_INTF_MAX_LAYERMIXER];
-
-	for (i = 0; i < MDSS_MDP_INTF_MAX_LAYERMIXER; i++) {
-		off =  MDSS_MDP_REG_CTL_LAYER(i);
-		data[i] = mdss_mdp_ctl_read(ctl, off);
-	}
-	MDSS_XLOG(data[MDSS_MDP_INTF_LAYERMIXER0],
-		data[MDSS_MDP_INTF_LAYERMIXER1],
-		data[MDSS_MDP_INTF_LAYERMIXER2],
-		data[MDSS_MDP_INTF_LAYERMIXER3], off);
 }
