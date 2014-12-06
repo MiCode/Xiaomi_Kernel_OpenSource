@@ -482,10 +482,19 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
 			a3xx_snapshot_cp_meq, NULL);
 
-	/* Shader working/shadow memory */
-	snapshot = kgsl_snapshot_add_section(device,
+	/* Skip shader memory dump for these chipsets: 8974, 8x26, 8x10 */
+	if (adreno_is_a330(adreno_dev) ||
+		adreno_is_a330v2(adreno_dev) ||
+		adreno_is_a305b(adreno_dev) ||
+		adreno_is_a305c(adreno_dev)	) {
+		KGSL_DRV_ERR(device,
+		"Skipping shader memory dump\n");
+	} else {
+		/* Shader working/shadow memory */
+		snapshot = kgsl_snapshot_add_section(device,
 			KGSL_SNAPSHOT_SECTION_DEBUG, snapshot, remain,
 			a3xx_snapshot_shader_memory, NULL);
+	}
 
 
 	/* CP PFP and PM4 */
