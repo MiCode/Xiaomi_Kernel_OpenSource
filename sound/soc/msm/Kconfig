@@ -287,6 +287,7 @@ config SND_SOC_MSM8909
 	select MSM_QDSP6_APRV3
 	select MSM_QDSP6V2_CODECS
 	select SND_HWDEP
+	select DOLBY_DS2
 	help
 	 To add support for SoC audio on MSM8909.
 	 This will enable sound soc drivers which
