@@ -304,6 +304,7 @@ static void compr_event_handler(uint32_t opcode,
 	uint32_t sample_rate = 0;
 	int bytes_available, stream_id;
 	uint32_t stream_index;
+	unsigned long flags;
 
 	pr_debug("%s opcode =%08x\n", __func__, opcode);
 	switch (opcode) {
@@ -476,12 +477,17 @@ static void compr_event_handler(uint32_t opcode,
 	case RESET_EVENTS:
 		pr_err("%s: Received reset events CB, move to error state",
 			__func__);
-		spin_lock(&prtd->lock);
+		spin_lock_irqsave(&prtd->lock, flags);
 		snd_compr_fragment_elapsed(cstream);
 		prtd->copied_total = prtd->bytes_received;
 		atomic_set(&prtd->error, 1);
 		wake_up(&prtd->drain_wait);
-		spin_unlock(&prtd->lock);
+		if (atomic_read(&prtd->eos)) {
+			pr_debug("%s:unblock eos wait queues", __func__);
+			wake_up(&prtd->eos_wait);
+			atomic_set(&prtd->eos, 0);
+		}
+		spin_unlock_irqrestore(&prtd->lock, flags);
 		break;
 	default:
 		pr_debug("%s: Not Supported Event opcode[0x%x]\n",
@@ -1249,7 +1255,9 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 
 		/* Wait indefinitely for  DRAIN. Flush can also signal this*/
 		rc = wait_event_interruptible(prtd->eos_wait,
-					      (prtd->cmd_ack || prtd->cmd_interrupt));
+						(prtd->cmd_ack ||
+						prtd->cmd_interrupt ||
+						atomic_read(&prtd->error)));
 
 		if (rc < 0)
 			pr_err("%s: EOS wait failed\n", __func__);
@@ -1259,6 +1267,11 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 
 		if (prtd->cmd_interrupt)
 			rc = -EINTR;
+
+		if (atomic_read(&prtd->error)) {
+			pr_err("%s: Got RESET EVENTS notification, return\n", __func__);
+			rc = -ENETRESET;
+		}
 
 		/*FIXME : what if a flush comes while PC is here */
 		if (rc == 0) {
