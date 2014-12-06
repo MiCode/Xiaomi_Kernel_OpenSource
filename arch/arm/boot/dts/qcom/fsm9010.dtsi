@@ -12,6 +12,7 @@
 
 #include "skeleton.dtsi"
 #include <dt-bindings/clock/fsm-clocks-9010.h>
+
 / {
 	model = "Qualcomm Technologies, Inc. FSM9010";
 	compatible = "qcom,fsm9010";
@@ -110,6 +111,18 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
 		         <&clock_gcc clk_gcc_sdcc1_apps_clk>;
+
+		vdd-supply = <&dummy_vreg>;
+		qcom,vdd-voltage-level = <2950000 2950000>;
+		qcom,vdd-current-level = <200 500000>;
+
+		vdd-io-supply = <&dummy_vreg>;
+		qcom,vdd-io-always-on;
+		qcom,vdd-io-voltage-level = <1800000 1800000>;
+		qcom,vdd-io-current-level = <200 154000>;
+
+		qcom,clk-rates = <400000>;
+		qcom,nonremovable;
 		status = "disable";
 	};
 
@@ -191,9 +204,8 @@
 		clkreq-gpio = <&msm_gpio 88 0>;
 
 		gdsc-vdd-supply = <&gdsc_pcie_0>;
-		vreg-1.8-supply = <&summit_l12>;
-		vreg-0.9-supply = <&summit_l3>;
-		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
+		vreg-1.8-supply = <&stub_regulator_1p8v>;
+		vreg-0.9-supply = <&stub_regulator_1v>;
 
 		clocks = <&clock_gcc clk_gcc_pcie_0_pipe_clk>,
 			<&clock_rpm clk_ln_bb_clk>,
@@ -270,9 +282,8 @@
 		clkreq-gpio = <&msm_gpio 86 0>;
 
 		gdsc-vdd-supply = <&gdsc_pcie_1>;
-		vreg-1.8-supply = <&summit_l12>;
-		vreg-0.9-supply = <&summit_l3>;
-		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
+		vreg-1.8-supply = <&stub_regulator_1p8v>;
+		vreg-0.9-supply = <&stub_regulator_1v>;
 
 		clocks = <&clock_gcc clk_gcc_pcie_1_pipe_clk>,
 			<&clock_rpm clk_ln_bb_clk>,
@@ -384,3 +395,5 @@
 		};
 	};
 };
+
+#include "fsm9010-regulator.dtsi"
