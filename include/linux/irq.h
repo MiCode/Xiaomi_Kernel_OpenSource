@@ -457,12 +457,6 @@ extern void irq_chip_ack_parent(struct irq_data *data);
 extern int irq_chip_retrigger_hierarchy(struct irq_data *data);
 #endif
 
-static inline void irq_chip_write_msi_msg(struct irq_data *data,
-					  struct msi_msg *msg)
-{
-	data->chip->irq_write_msi_msg(data, msg);
-}
-
 /* Handling of unhandled and spurious interrupts: */
 extern void note_interrupt(unsigned int irq, struct irq_desc *desc,
 			   irqreturn_t action_ret);
