@@ -1002,10 +1002,16 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		if ((lab_sess->lab_enable &&
 		     lab_sess->thread_status ==
 		     MSM_LSM_LAB_THREAD_RUNNING)) {
-			pr_err("%s:session could not be stopped,disable lab\n"
-				, __func__);
-			return -EINVAL;
+			/* Explicitly stop LAB */
+			rc = msm_cpe_lsm_lab_stop(substream);
+			if (rc) {
+				dev_err(rtd->dev,
+					"%s: lab_stop failed, err = %d\n",
+					__func__, rc);
+				return rc;
+			}
 		}
+
 		rc = lsm_ops->lsm_stop(cpe->core_handle, session);
 		if (rc != 0) {
 			dev_err(rtd->dev,
