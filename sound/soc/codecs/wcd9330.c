@@ -45,6 +45,12 @@ enum {
 	VI_SENSE_2,
 	VI_SENSE_MAX,
 	BUS_DOWN,
+	ADC1_TXFE,
+	ADC2_TXFE,
+	ADC3_TXFE,
+	ADC4_TXFE,
+	ADC5_TXFE,
+	ADC6_TXFE,
 };
 
 #define TOMTOM_MAD_SLIMBUS_TX_PORT 12
@@ -2826,10 +2832,12 @@ static int tomtom_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct tomtom_priv *priv = snd_soc_codec_get_drvdata(codec);
 	u16 adc_reg;
 	u16 tx_fe_clkdiv_reg;
 	u8 tx_fe_clkdiv_mask;
 	u8 init_bit_shift;
+	u8 bit_pos;
 
 	pr_debug("%s %d\n", __func__, event);
 
@@ -2839,36 +2847,42 @@ static int tomtom_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		tx_fe_clkdiv_reg = TOMTOM_A_TX_1_2_TXFE_CLKDIV;
 		tx_fe_clkdiv_mask = 0x0F;
 		init_bit_shift = 7;
+		bit_pos = ADC1_TXFE;
 		break;
 	case TOMTOM_A_TX_2_GAIN:
 		adc_reg = TOMTOM_A_TX_1_2_TEST_CTL;
 		tx_fe_clkdiv_reg = TOMTOM_A_TX_1_2_TXFE_CLKDIV;
 		tx_fe_clkdiv_mask = 0xF0;
 		init_bit_shift = 6;
+		bit_pos = ADC2_TXFE;
 		break;
 	case TOMTOM_A_TX_3_GAIN:
 		adc_reg = TOMTOM_A_TX_3_4_TEST_CTL;
 		init_bit_shift = 7;
 		tx_fe_clkdiv_reg = TOMTOM_A_TX_3_4_TXFE_CKDIV;
 		tx_fe_clkdiv_mask = 0x0F;
+		bit_pos = ADC3_TXFE;
 		break;
 	case TOMTOM_A_TX_4_GAIN:
 		adc_reg = TOMTOM_A_TX_3_4_TEST_CTL;
 		init_bit_shift = 6;
 		tx_fe_clkdiv_reg = TOMTOM_A_TX_3_4_TXFE_CKDIV;
 		tx_fe_clkdiv_mask = 0xF0;
+		bit_pos = ADC4_TXFE;
 		break;
 	case TOMTOM_A_TX_5_GAIN:
 		adc_reg = TOMTOM_A_TX_5_6_TEST_CTL;
 		init_bit_shift = 7;
 		tx_fe_clkdiv_reg = TOMTOM_A_TX_5_6_TXFE_CKDIV;
 		tx_fe_clkdiv_mask = 0x0F;
+		bit_pos = ADC5_TXFE;
 		break;
 	case TOMTOM_A_TX_6_GAIN:
 		adc_reg = TOMTOM_A_TX_5_6_TEST_CTL;
 		init_bit_shift = 6;
 		tx_fe_clkdiv_reg = TOMTOM_A_TX_5_6_TXFE_CKDIV;
 		tx_fe_clkdiv_mask = 0xF0;
+		bit_pos = ADC6_TXFE;
 		break;
 	default:
 		pr_err("%s: Error, invalid adc register\n", __func__);
@@ -2879,6 +2893,7 @@ static int tomtom_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMU:
 		snd_soc_update_bits(codec, tx_fe_clkdiv_reg, tx_fe_clkdiv_mask,
 				    0x0);
+		set_bit(bit_pos, &priv->status_mask);
 		tomtom_codec_enable_adc_block(codec, 1);
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift,
 				1 << init_bit_shift);
@@ -3591,6 +3606,42 @@ static int tomtom_enable_mbhc_micbias(struct snd_soc_codec *codec, bool enable,
 	return rc;
 }
 
+static void txfe_clkdiv_update(struct snd_soc_codec *codec)
+{
+	struct tomtom_priv *priv = snd_soc_codec_get_drvdata(codec);
+
+	if (test_bit(ADC1_TXFE, &priv->status_mask)) {
+		snd_soc_update_bits(codec, TOMTOM_A_TX_1_2_TXFE_CLKDIV,
+				    0x0F, 0x05);
+		clear_bit(ADC1_TXFE, &priv->status_mask);
+	}
+	if (test_bit(ADC2_TXFE, &priv->status_mask)) {
+		snd_soc_update_bits(codec, TOMTOM_A_TX_1_2_TXFE_CLKDIV,
+				    0xF0, 0x50);
+		clear_bit(ADC2_TXFE, &priv->status_mask);
+	}
+	if (test_bit(ADC3_TXFE, &priv->status_mask)) {
+		snd_soc_update_bits(codec, TOMTOM_A_TX_3_4_TXFE_CKDIV,
+				    0x0F, 0x05);
+		clear_bit(ADC3_TXFE, &priv->status_mask);
+	}
+	if (test_bit(ADC4_TXFE, &priv->status_mask)) {
+		snd_soc_update_bits(codec, TOMTOM_A_TX_3_4_TXFE_CKDIV,
+				    0xF0, 0x50);
+		clear_bit(ADC4_TXFE, &priv->status_mask);
+	}
+	if (test_bit(ADC5_TXFE, &priv->status_mask)) {
+		snd_soc_update_bits(codec, TOMTOM_A_TX_5_6_TXFE_CKDIV,
+				    0x0F, 0x05);
+		clear_bit(ADC5_TXFE, &priv->status_mask);
+	}
+	if (test_bit(ADC6_TXFE, &priv->status_mask)) {
+		snd_soc_update_bits(codec, TOMTOM_A_TX_5_6_TXFE_CKDIV,
+				    0xF0, 0x50);
+		clear_bit(ADC6_TXFE, &priv->status_mask);
+	}
+}
+
 static void tx_hpf_corner_freq_callback(struct work_struct *work)
 {
 	struct delayed_work *hpf_delayed_work;
@@ -3618,9 +3669,7 @@ static void tx_hpf_corner_freq_callback(struct work_struct *work)
 	 * front-end enablement, they will be restored back to the
 	 * default
 	 */
-	snd_soc_update_bits(codec, TOMTOM_A_TX_1_2_TXFE_CLKDIV, 0xFF, 0x55);
-	snd_soc_update_bits(codec, TOMTOM_A_TX_3_4_TXFE_CKDIV, 0xFF, 0x55);
-	snd_soc_update_bits(codec, TOMTOM_A_TX_5_6_TXFE_CKDIV, 0xFF, 0x55);
+	txfe_clkdiv_update(codec);
 
 	snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x30, hpf_cut_of_freq << 4);
 }
@@ -4096,6 +4145,7 @@ static int tomtom_codec_enable_anc(struct snd_soc_dapm_widget *w,
 				TOMTOM_A_CDC_CLK_ANC_RESET_CTL, 0x0C, 0x00);
 		if (!hwdep_cal)
 			release_firmware(fw);
+		txfe_clkdiv_update(codec);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		msleep(40);
