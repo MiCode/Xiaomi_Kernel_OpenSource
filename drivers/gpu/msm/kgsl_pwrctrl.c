@@ -1368,14 +1368,10 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		if (vector->dst == MSM_BUS_SLAVE_EBI_CH0 &&
 				vector->ib != 0) {
 			if (i < KGSL_MAX_BUSLEVELS)
-				/*
-				 * Want to convert bytes to Mbytes,
-				 * but msm_bus_of.c uses a strange macro
-				 *  #define KBTOB(a) (a * 1000ULL)
-				 * thats why 1024*1000, not 1024*1024
-				 */
+				/* Convert bytes to Mbytes. */
 				ib_votes[i] =
-					DIV_ROUND_UP_ULL(vector->ib, 1024000);
+					DIV_ROUND_UP_ULL(vector->ib, 1048576)
+					- 1;
 
 			for (k = 0; k < n; k++)
 				if (vector->ib == pwr->bus_ib[k]) {
