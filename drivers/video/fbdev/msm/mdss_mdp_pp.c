@@ -222,19 +222,6 @@ static int mdss_mdp_hscl_filter[] = {
 #define PP_SSPP		0
 #define PP_DSPP		1
 
-#define PP_STS_PA_HUE_MASK		0x2
-#define PP_STS_PA_SAT_MASK		0x4
-#define PP_STS_PA_VAL_MASK		0x8
-#define PP_STS_PA_CONT_MASK		0x10
-#define PP_STS_PA_MEM_PROTECT_EN	0x20
-#define PP_STS_PA_MEM_COL_SKIN_MASK	0x40
-#define PP_STS_PA_MEM_COL_FOL_MASK	0x80
-#define PP_STS_PA_MEM_COL_SKY_MASK	0x100
-#define PP_STS_PA_SIX_ZONE_HUE_MASK	0x200
-#define PP_STS_PA_SIX_ZONE_SAT_MASK	0x400
-#define PP_STS_PA_SIX_ZONE_VAL_MASK	0x800
-#define PP_STS_PA_SAT_ZERO_EXP_EN	0x1000
-
 #define PP_AD_BAD_HW_NUM 255
 
 #define PP_AD_STATE_INIT	0x2
@@ -1694,14 +1681,27 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 
 	pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
 
-	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
-		pa_v2_cfg_data = &mdss_pp_res->pa_v2_disp_cfg[disp_num];
-		pp_pa_v2_config(flags, base + MDSS_MDP_REG_DSPP_PA_BASE, pp_sts,
-				&pa_v2_cfg_data->pa_v2_data,
-				PP_DSPP);
-	} else
-		pp_pa_config(flags, base + MDSS_MDP_REG_DSPP_PA_BASE, pp_sts,
-				&mdss_pp_res->pa_disp_cfg[disp_num]);
+	if (flags & PP_FLAGS_DIRTY_PA) {
+		if (!pp_ops[PA].pp_set_config) {
+			if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
+				pa_v2_cfg_data =
+					&mdss_pp_res->pa_v2_disp_cfg[disp_num];
+				pp_pa_v2_config(flags,
+					base + MDSS_MDP_REG_DSPP_PA_BASE,
+					pp_sts,
+					&pa_v2_cfg_data->pa_v2_data,
+					PP_DSPP);
+			} else
+				pp_pa_config(flags,
+					base + MDSS_MDP_REG_DSPP_PA_BASE,
+					pp_sts,
+					&mdss_pp_res->pa_disp_cfg[disp_num]);
+		} else {
+			pp_ops[PA].pp_set_config(base, pp_sts,
+					&mdss_pp_res->pa_v2_disp_cfg[disp_num],
+					DSPP);
+		}
+	}
 
 	if (flags & PP_FLAGS_DIRTY_PCC) {
 		if (!pp_ops[PCC].pp_set_config)
@@ -1910,7 +1910,11 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	mutex_lock(&mdss_pp_mutex);
 
 	flags = mdss_pp_res->pp_disp_flags[disp_num];
-	pa_v2_flags = mdss_pp_res->pa_v2_disp_cfg[disp_num].pa_v2_data.flags;
+	if (pp_ops[PA].pp_set_config)
+		pa_v2_flags = mdss_pp_res->pa_v2_disp_cfg[disp_num].flags;
+	else
+		pa_v2_flags =
+			mdss_pp_res->pa_v2_disp_cfg[disp_num].pa_v2_data.flags;
 
 	/*
 	 * If a LUT based PP feature needs to be reprogrammed during resume,
@@ -1987,7 +1991,10 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 	if (pp_sts.pa_sts & PP_STS_ENABLE) {
 		flags |= PP_FLAGS_DIRTY_PA;
 		pa_v2_cache_cfg = &mdss_pp_res->pa_v2_disp_cfg[disp_num];
-		if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
+		if (pp_ops[PA].pp_set_config) {
+			if (!(pa_v2_cache_cfg->flags & MDP_PP_OPS_DISABLE))
+				pa_v2_cache_cfg->flags |= MDP_PP_OPS_WRITE;
+		} else if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
 			if (!(pa_v2_cache_cfg->pa_v2_data.flags
 						& MDP_PP_OPS_DISABLE))
 				pa_v2_cache_cfg->pa_v2_data.flags |=
@@ -2461,6 +2468,7 @@ int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config,
 	char __iomem *pa_addr;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdp_pa_v2_cfg_data *pa_v2_cache = NULL;
+	uint32_t flags = 0;
 
 	if (mdata->mdp_rev < MDSS_MDP_HW_REV_103)
 		return -EINVAL;
@@ -2469,8 +2477,12 @@ int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config,
 		(config->block >= MDP_BLOCK_MAX))
 		return -EINVAL;
 
-	if ((config->pa_v2_data.flags & MDSS_PP_SPLIT_MASK) ==
-							MDSS_PP_SPLIT_MASK) {
+	if (pp_ops[PA].pp_set_config)
+		flags = config->flags;
+	else
+		flags = config->pa_v2_data.flags;
+
+	if ((flags & MDSS_PP_SPLIT_MASK) == MDSS_PP_SPLIT_MASK) {
 		pr_warn("Can't set both split bits\n");
 		return -EINVAL;
 	}
@@ -2478,7 +2490,7 @@ int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config,
 	mutex_lock(&mdss_pp_mutex);
 	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
 
-	if (config->pa_v2_data.flags & MDP_PP_OPS_READ) {
+	if (flags & MDP_PP_OPS_READ) {
 		ret = pp_get_dspp_num(disp_num, &dspp_num);
 		if (ret) {
 			pr_err("no dspp connects to disp %d\n",
@@ -2489,28 +2501,50 @@ int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config,
 		pa_addr = mdss_mdp_get_dspp_addr_off(dspp_num);
 		if (IS_ERR(pa_addr)) {
 			ret = PTR_ERR(pa_addr);
-			goto pa_config_exit;
-		} else
+			goto pa_clk_off;
+		}
+		if (pp_ops[PA].pp_get_config) {
+			ret = pp_ops[PA].pp_get_config(pa_addr, config,
+					DSPP, disp_num);
+			if (ret)
+				pr_err("PA get config failed %d\n", ret);
+		} else {
 			pa_addr += MDSS_MDP_REG_DSPP_PA_BASE;
-		ret = pp_read_pa_v2_regs(pa_addr,
-				&config->pa_v2_data,
-				disp_num);
-		if (ret)
-			goto pa_config_exit;
-		*copyback = 1;
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-	} else {
-		if (config->pa_v2_data.flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
-			ret = pp_copy_pa_six_zone_lut(config, disp_num);
+			ret = pp_read_pa_v2_regs(pa_addr,
+					&config->pa_v2_data,
+					disp_num);
 			if (ret)
 				goto pa_config_exit;
+			*copyback = 1;
 		}
-		pa_v2_cache = &mdss_pp_res->pa_v2_disp_cfg[disp_num];
-		*pa_v2_cache = *config;
-		pa_v2_cache->pa_v2_data.six_zone_curve_p0 =
-			&mdss_pp_res->six_zone_lut_curve_p0[disp_num][0];
-		pa_v2_cache->pa_v2_data.six_zone_curve_p1 =
-			&mdss_pp_res->six_zone_lut_curve_p1[disp_num][0];
+pa_clk_off:
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+	} else {
+		if (pp_ops[PA].pp_set_config) {
+			pr_debug("version of PA is %d\n", config->version);
+			ret = pp_pa_cache_params(config, mdss_pp_res);
+			if (ret) {
+				pr_err("PA config failed version %d ret %d\n",
+					config->version, ret);
+				ret = -EFAULT;
+				goto pa_config_exit;
+			}
+		} else {
+			if (flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
+				ret = pp_copy_pa_six_zone_lut(config, disp_num);
+				if (ret) {
+					pr_err("PA copy six zone lut failed ret %d\n",
+						ret);
+					goto pa_config_exit;
+				}
+			}
+			pa_v2_cache = &mdss_pp_res->pa_v2_disp_cfg[disp_num];
+			*pa_v2_cache = *config;
+			pa_v2_cache->pa_v2_data.six_zone_curve_p0 =
+				mdss_pp_res->six_zone_lut_curve_p0[disp_num];
+			pa_v2_cache->pa_v2_data.six_zone_curve_p1 =
+				mdss_pp_res->six_zone_lut_curve_p1[disp_num];
+		}
 		mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PA;
 	}
 

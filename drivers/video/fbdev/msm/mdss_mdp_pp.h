@@ -26,6 +26,25 @@
 #define PP_STS_GAMUT_FIRST	0x2
 #define PP_STS_PA_LUT_FIRST	0x4
 
+#define PP_STS_PA_HUE_MASK		0x2
+#define PP_STS_PA_SAT_MASK		0x4
+#define PP_STS_PA_VAL_MASK		0x8
+#define PP_STS_PA_CONT_MASK		0x10
+#define PP_STS_PA_MEM_PROTECT_EN	0x20
+#define PP_STS_PA_MEM_COL_SKIN_MASK	0x40
+#define PP_STS_PA_MEM_COL_FOL_MASK	0x80
+#define PP_STS_PA_MEM_COL_SKY_MASK	0x100
+#define PP_STS_PA_SIX_ZONE_HUE_MASK	0x200
+#define PP_STS_PA_SIX_ZONE_SAT_MASK	0x400
+#define PP_STS_PA_SIX_ZONE_VAL_MASK	0x800
+#define PP_STS_PA_SAT_ZERO_EXP_EN	0x1000
+#define PP_STS_PA_MEM_PROT_HUE_EN	0x2000
+#define PP_STS_PA_MEM_PROT_SAT_EN	0x4000
+#define PP_STS_PA_MEM_PROT_VAL_EN	0x8000
+#define PP_STS_PA_MEM_PROT_CONT_EN	0x10000
+#define PP_STS_PA_MEM_PROT_BLEND_EN	0x20000
+#define PP_STS_PA_MEM_PROT_SIX_EN	0x40000
+
 /* Demo mode macros */
 #define MDSS_SIDE_NONE	0
 #define MDSS_SIDE_LEFT	1
@@ -103,6 +122,8 @@ struct mdss_pp_res_type_v1_7 {
 	u32 igc_table_c0_c1[MDSS_BLOCK_DISP_NUM][IGC_LUT_ENTRIES];
 	u32 igc_table_c2[MDSS_BLOCK_DISP_NUM][IGC_LUT_ENTRIES];
 	u32 hist_lut[MDSS_BLOCK_DISP_NUM][ENHIST_LUT_ENTRIES];
+	u32 six_zone_lut_p0[MDSS_BLOCK_DISP_NUM][MDP_SIX_ZONE_LUT_SIZE];
+	u32 six_zone_lut_p1[MDSS_BLOCK_DISP_NUM][MDP_SIX_ZONE_LUT_SIZE];
 	struct mdp_pgc_lut_data_v1_7 pgc_dspp_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pgc_lut_data_v1_7 pgc_lm_v17_data[MDSS_BLOCK_LM_NUM];
 	struct mdp_igc_lut_data_v1_7 igc_v17_data[MDSS_BLOCK_DISP_NUM];
@@ -110,6 +131,7 @@ struct mdss_pp_res_type_v1_7 {
 	struct mdp_dither_data_v1_7 dither_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_gamut_data_v1_7 gamut_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pcc_data_v1_7 pcc_v17_data[MDSS_BLOCK_DISP_NUM];
+	struct mdp_pa_data_v1_7 pa_v17_data[MDSS_BLOCK_DISP_NUM];
 };
 
 struct mdss_pp_res_type {

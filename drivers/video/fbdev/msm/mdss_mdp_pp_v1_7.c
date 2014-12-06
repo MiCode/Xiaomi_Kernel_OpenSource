@@ -92,6 +92,67 @@ static u32 dither_matrix[DITHER_MATRIX_INDEX] = {
 static u32 dither_depth_map[DITHER_DEPTH_MAP_INDEX] = {
 	0, 0, 0, 0, 0, 1, 2, 3, 3};
 
+#define PA_DSPP_GLOBAL_OFF 0x238
+#define PA_DSPP_MEM_COL_SKIN_P0_OFF 0x254
+#define PA_DSPP_MEM_COL_SKIN_P2_OFF 0x318
+#define PA_DSPP_MEM_COL_SKY_P0_OFF 0x268
+#define PA_DSPP_MEM_COL_SKY_P2_OFF 0x320
+#define PA_DSPP_MEM_COL_FOL_P0_OFF 0x27C
+#define PA_DSPP_MEM_COL_FOL_P2_OFF 0x328
+#define PA_SIX_ZONE_LUT_OFF 0x248
+#define PA_SIX_ZONE_REGION_OFF 0x250
+#define PA_SIX_ZONE_ADJ_OFF 0x330
+#define PA_VIG_GLOBAL_OFF 0x310
+#define PA_VIG_MEM_COL_SKIN_P0_OFF 0x288
+#define PA_VIG_MEM_COL_SKIN_P2_OFF 0x418
+#define PA_VIG_MEM_COL_SKY_P0_OFF 0x29C
+#define PA_VIG_MEM_COL_SKY_P2_OFF 0x420
+#define PA_VIG_MEM_COL_FOL_P0_OFF 0x2B0
+#define PA_VIG_MEM_COL_FOL_P2_OFF 0x428
+#define PA_DSPP_HOLD_OFF 0x314
+#define PA_VIG_HOLD_OFF 0x414
+#define PA_GLOBAL_HUE_MASK 0xFFF
+#define PA_GLOBAL_SAT_MASK 0xFFFF
+#define PA_GLOBAL_VAL_MASK 0xFF
+#define PA_GLOBAL_CONT_MASK 0xFF
+#define PA_MEM_COL_ADJ_P0_MASK 0xFFFF07FF
+#define PA_MEM_COL_HUE_REGION_MASK 0x7FF07FF
+#define PA_MEM_COL_SAT_REGION_MASK 0xFFFFFF
+#define PA_MEM_COL_VAL_REGION_MASK 0xFFFFFF
+#define PA_SIX_ZONE_INDEX_UPDATE BIT(26)
+#define PA_SIX_ZONE_VALUE_UPDATE BIT(25)
+#define PA_SIX_ZONE_CURVE_MASK 0xFFF
+#define PA_SIX_ZONE_ADJ_P0_MASK 0xFFFF
+#define PA_HOLD_MASK 0x3
+#define PA_HOLD_SAT_SHIFT 0
+#define PA_HOLD_VAL_SHIFT 2
+#define PA_HOLD_SKIN_SHIFT 0
+#define PA_HOLD_SKY_SHIFT 4
+#define PA_HOLD_FOL_SHIFT 8
+#define PA_HOLD_SIX_ZONE_SHIFT 12
+#define PA_HOLD_SKIN_MASK 0xF
+#define PA_HOLD_SKY_MASK 0xF0
+#define PA_HOLD_FOL_MASK 0xF00
+#define PA_HOLD_SIX_ZONE_MASK 0xF000
+#define PA_DSPP_OP_ENABLE BIT(20)
+#define PA_DSPP_OP_HUE_MASK BIT(25)
+#define PA_DSPP_OP_SAT_MASK BIT(26)
+#define PA_DSPP_OP_VAL_MASK BIT(27)
+#define PA_DSPP_OP_CONT_MASK BIT(28)
+#define PA_DSPP_OP_SAT_ZERO_EXP_EN BIT(1)
+#define PA_DSPP_OP_SIX_ZONE_HUE_MASK BIT(29)
+#define PA_DSPP_OP_SIX_ZONE_SAT_MASK BIT(30)
+#define PA_DSPP_OP_SIX_ZONE_VAL_MASK BIT(31)
+#define PA_DSPP_OP_MEM_COL_SKIN_MASK BIT(5)
+#define PA_DSPP_OP_MEM_COL_FOL_MASK BIT(6)
+#define PA_DSPP_OP_MEM_COL_SKY_MASK BIT(7)
+#define PA_DSPP_OP_MEM_PROT_HUE_EN BIT(22)
+#define PA_DSPP_OP_MEM_PROT_SAT_EN BIT(23)
+#define PA_DSPP_OP_MEM_PROT_VAL_EN BIT(24)
+#define PA_DSPP_OP_MEM_PROT_CONT_EN BIT(18)
+#define PA_DSPP_OP_MEM_PROT_BLEND_EN BIT(3)
+#define PA_DSPP_OP_MEM_PROT_SIX_EN BIT(17)
+
 static struct mdss_pp_res_type_v1_7 config_data;
 
 static int pp_hist_lut_get_config(char __iomem *base_addr, void *cfg_data,
@@ -123,6 +184,13 @@ static int pp_pcc_set_config(char __iomem *base_addr,
 			u32 block_type);
 static int pp_pcc_get_config(char __iomem *base_addr, void *cfg_data,
 				u32 block_type, u32 disp_num);
+/* PA prototypes */
+static int pp_pa_set_config(char __iomem *base_addr,
+			struct pp_sts_type *pp_sts, void *cfg_data,
+			u32 block_type);
+static int pp_pa_get_config(char __iomem *base_addr, void *cfg_data,
+				u32 block_type, u32 disp_num);
+static void pp_pa_update_dspp_opmode(int pa_sts, u32 *opmode);
 
 static int pp_igc_set_config(char __iomem *base_addr,
 		struct pp_sts_type *pp_sts, void *cfg_data,
@@ -155,8 +223,8 @@ void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	ops->pp_ops[GC].pp_get_config = pp_pgc_get_config;
 
 	/* PA ops */
-	ops->pp_ops[PA].pp_set_config = NULL;
-	ops->pp_ops[PA].pp_get_config = NULL;
+	ops->pp_ops[PA].pp_set_config = pp_pa_set_config;
+	ops->pp_ops[PA].pp_get_config = pp_pa_get_config;
 
 	/* Gamut ops */
 	ops->pp_ops[GAMUT].pp_set_config = pp_gamut_set_config;
@@ -203,6 +271,8 @@ static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 	case SSPP_VIG:
 		break;
 	case DSPP:
+		if (pp_sts_is_enabled(pp_sts->pa_sts, side))
+			pp_pa_update_dspp_opmode(pp_sts->pa_sts, opmode);
 		if (pp_sts_is_enabled(pp_sts->igc_sts, side))
 			*opmode |= IGC_DSPP_OP_MODE_EN;
 		if (pp_sts->enhist_sts & PP_STS_ENABLE) {
@@ -887,6 +957,614 @@ static int pp_pcc_get_config(char __iomem *base_addr, void *cfg_data,
 	}
 
 	return 0;
+}
+
+static inline void pp_pa_set_global_adj_regs(char __iomem *base_addr,
+				struct mdp_pa_data_v1_7 *pa_data, u32 flags,
+				int block_type)
+{
+	char __iomem *addr = NULL;
+
+	if (block_type == DSPP)
+		addr = base_addr + PA_DSPP_GLOBAL_OFF;
+	else
+		addr = base_addr + PA_VIG_GLOBAL_OFF;
+
+	if (flags & MDP_PP_PA_HUE_ENABLE)
+		writel_relaxed((pa_data->global_hue_adj &
+				PA_GLOBAL_HUE_MASK), addr);
+	addr += 4;
+	if (flags & MDP_PP_PA_SAT_ENABLE)
+		writel_relaxed((pa_data->global_sat_adj &
+				PA_GLOBAL_SAT_MASK), addr);
+	addr += 4;
+	if (flags & MDP_PP_PA_VAL_ENABLE)
+		writel_relaxed((pa_data->global_val_adj &
+				PA_GLOBAL_VAL_MASK), addr);
+	addr += 4;
+	if (flags & MDP_PP_PA_CONT_ENABLE)
+		writel_relaxed((pa_data->global_cont_adj &
+				PA_GLOBAL_CONT_MASK), addr);
+}
+
+static void pp_pa_set_mem_col_regs(char __iomem *mem_col_p0_addr,
+				char __iomem *mem_col_p2_addr,
+				struct mdp_pa_mem_col_data_v1_7 *mem_col_data)
+{
+	writel_relaxed((mem_col_data->color_adjust_p0 &
+			PA_MEM_COL_ADJ_P0_MASK), mem_col_p0_addr);
+	mem_col_p0_addr += 4;
+	writel_relaxed(mem_col_data->color_adjust_p1, mem_col_p0_addr);
+	mem_col_p0_addr += 4;
+	writel_relaxed((mem_col_data->hue_region &
+			PA_MEM_COL_HUE_REGION_MASK), mem_col_p0_addr);
+	mem_col_p0_addr += 4;
+	writel_relaxed((mem_col_data->sat_region &
+			PA_MEM_COL_SAT_REGION_MASK), mem_col_p0_addr);
+	mem_col_p0_addr += 4;
+	writel_relaxed((mem_col_data->val_region &
+			PA_MEM_COL_VAL_REGION_MASK), mem_col_p0_addr);
+
+	writel_relaxed(mem_col_data->color_adjust_p2, mem_col_p2_addr);
+	mem_col_p2_addr += 4;
+	writel_relaxed(mem_col_data->blend_gain, mem_col_p2_addr);
+}
+
+static void pp_pa_set_mem_col(char __iomem *base_addr,
+				struct mdp_pa_data_v1_7 *pa_data, u32 flags,
+				int block_type, uint32_t *pa_hold,
+				uint32_t *pa_hold_mask)
+{
+	uint32_t sat_hold = 0, val_hold = 0, mem_col_hold = 0;
+	u32 skin_p0_off = 0, skin_p2_off = 0;
+	u32 sky_p0_off = 0, sky_p2_off = 0;
+	u32 fol_p0_off = 0, fol_p2_off = 0;
+	char __iomem *mem_col_p0_addr = NULL;
+	char __iomem *mem_col_p2_addr = NULL;
+	if (block_type == DSPP) {
+		skin_p0_off = PA_DSPP_MEM_COL_SKIN_P0_OFF;
+		skin_p2_off = PA_DSPP_MEM_COL_SKIN_P2_OFF;
+		sky_p0_off = PA_DSPP_MEM_COL_SKY_P0_OFF;
+		sky_p2_off = PA_DSPP_MEM_COL_SKY_P2_OFF;
+		fol_p0_off = PA_DSPP_MEM_COL_FOL_P0_OFF;
+		fol_p2_off = PA_DSPP_MEM_COL_FOL_P2_OFF;
+	} else {
+		skin_p0_off = PA_VIG_MEM_COL_SKIN_P0_OFF;
+		skin_p2_off = PA_VIG_MEM_COL_SKIN_P2_OFF;
+		sky_p0_off = PA_VIG_MEM_COL_SKY_P0_OFF;
+		sky_p2_off = PA_VIG_MEM_COL_SKY_P2_OFF;
+		fol_p0_off = PA_VIG_MEM_COL_FOL_P0_OFF;
+		fol_p2_off = PA_VIG_MEM_COL_FOL_P2_OFF;
+	}
+	/* Update skin zone memory color registers */
+	if (flags & MDP_PP_PA_SKIN_ENABLE) {
+		mem_col_p0_addr = base_addr + skin_p0_off;
+		mem_col_p2_addr = base_addr + skin_p2_off;
+		pp_pa_set_mem_col_regs(mem_col_p0_addr, mem_col_p2_addr,
+				       &pa_data->skin_cfg);
+		sat_hold = (pa_data->skin_cfg.sat_hold & PA_HOLD_MASK) <<
+			    PA_HOLD_SAT_SHIFT;
+		val_hold = (pa_data->skin_cfg.val_hold & PA_HOLD_MASK) <<
+			    PA_HOLD_VAL_SHIFT;
+		mem_col_hold = (sat_hold | val_hold) << PA_HOLD_SKIN_SHIFT;
+		*pa_hold |= mem_col_hold;
+		*pa_hold_mask |= PA_HOLD_SKIN_MASK;
+	}
+	/* Update sky zone memory color registers */
+	if (flags & MDP_PP_PA_SKY_ENABLE) {
+		mem_col_p0_addr = base_addr + sky_p0_off;
+		mem_col_p2_addr = base_addr + sky_p2_off;
+		pp_pa_set_mem_col_regs(mem_col_p0_addr, mem_col_p2_addr,
+				       &pa_data->sky_cfg);
+		sat_hold = (pa_data->sky_cfg.sat_hold & PA_HOLD_MASK) <<
+			    PA_HOLD_SAT_SHIFT;
+		val_hold = (pa_data->sky_cfg.val_hold & PA_HOLD_MASK) <<
+			    PA_HOLD_VAL_SHIFT;
+		mem_col_hold = (sat_hold | val_hold) << PA_HOLD_SKY_SHIFT;
+		*pa_hold |= mem_col_hold;
+		*pa_hold_mask |= PA_HOLD_SKY_MASK;
+	}
+	/* Update foliage zone memory color registers */
+	if (flags & MDP_PP_PA_FOL_ENABLE) {
+		mem_col_p0_addr = base_addr + fol_p0_off;
+		mem_col_p2_addr = base_addr + fol_p2_off;
+		pp_pa_set_mem_col_regs(mem_col_p0_addr, mem_col_p2_addr,
+				       &pa_data->fol_cfg);
+		sat_hold = (pa_data->fol_cfg.sat_hold & PA_HOLD_MASK) <<
+			    PA_HOLD_SAT_SHIFT;
+		val_hold = (pa_data->fol_cfg.val_hold & PA_HOLD_MASK) <<
+			    PA_HOLD_VAL_SHIFT;
+		mem_col_hold = (sat_hold | val_hold) << PA_HOLD_FOL_SHIFT;
+		*pa_hold |= mem_col_hold;
+		*pa_hold_mask |= PA_HOLD_FOL_MASK;
+	}
+}
+
+static void pp_pa_set_six_zone(char __iomem *base_addr,
+				struct mdp_pa_data_v1_7 *pa_data,
+				u32 flags,
+				uint32_t *pa_hold,
+				uint32_t *pa_hold_mask)
+{
+	u32 data, i;
+	char __iomem *addr = base_addr + PA_SIX_ZONE_LUT_OFF;
+	uint32_t sat_hold = 0, val_hold = 0, mem_col_hold = 0;
+	/* Update six zone memory color registers */
+	if (flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
+		if (!pa_data->six_zone_len || !pa_data->six_zone_curve_p0 ||
+		    !pa_data->six_zone_curve_p1) {
+			pr_err("Invalid six zone data: len %d curve_p0 %p curve_p1 %p\n",
+			       pa_data->six_zone_len,
+			       pa_data->six_zone_curve_p0,
+			       pa_data->six_zone_curve_p1);
+			return;
+		}
+
+		writel_relaxed((pa_data->six_zone_curve_p1[0] &
+				PA_SIX_ZONE_CURVE_MASK), addr + 4);
+		/* Index Update to trigger auto-incrementing LUT accesses */
+		data = PA_SIX_ZONE_INDEX_UPDATE;
+		writel_relaxed((pa_data->six_zone_curve_p0[0] &
+				PA_SIX_ZONE_CURVE_MASK) | data, addr);
+
+		/* Remove Index Update */
+		for (i = 1; i < MDP_SIX_ZONE_LUT_SIZE; i++) {
+			writel_relaxed((pa_data->six_zone_curve_p1[i] &
+					PA_SIX_ZONE_CURVE_MASK), addr + 4);
+			writel_relaxed((pa_data->six_zone_curve_p0[i] &
+					PA_SIX_ZONE_CURVE_MASK), addr);
+		}
+		addr = base_addr + PA_SIX_ZONE_REGION_OFF;
+		writel_relaxed(pa_data->six_zone_thresh, addr);
+
+		addr = base_addr + PA_SIX_ZONE_ADJ_OFF;
+		writel_relaxed((pa_data->six_zone_adj_p0 &
+				PA_SIX_ZONE_ADJ_P0_MASK), addr);
+		addr += 4;
+		writel_relaxed(pa_data->six_zone_adj_p1, addr);
+
+		sat_hold = (pa_data->six_zone_sat_hold & PA_HOLD_MASK) <<
+			    PA_HOLD_SAT_SHIFT;
+		val_hold = (pa_data->six_zone_val_hold & PA_HOLD_MASK) <<
+			    PA_HOLD_VAL_SHIFT;
+		mem_col_hold = (sat_hold | val_hold) << PA_HOLD_SIX_ZONE_SHIFT;
+		*pa_hold |= mem_col_hold;
+		*pa_hold_mask |= PA_HOLD_SIX_ZONE_MASK;
+	}
+}
+
+static void pp_pa_set_sts(struct pp_sts_type *pp_sts,
+				struct mdp_pa_data_v1_7 *pa_data,
+				int enable_flag,
+				int block_type)
+{
+	pp_sts->pa_sts = 0;
+
+	if (enable_flag & MDP_PP_OPS_ENABLE)
+		pp_sts->pa_sts |= PP_STS_ENABLE;
+	else if (enable_flag & MDP_PP_OPS_DISABLE) {
+		pp_sts->pa_sts &= ~PP_STS_ENABLE;
+		if (block_type == DSPP)
+			pp_sts_set_split_bits(&pp_sts->pa_sts, enable_flag);
+		return;
+	}
+
+	/* Global HSV STS update */
+	if (pa_data->mode & MDP_PP_PA_HUE_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_HUE_MASK;
+	if (pa_data->mode & MDP_PP_PA_SAT_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_SAT_MASK;
+	if (pa_data->mode & MDP_PP_PA_VAL_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_VAL_MASK;
+	if (pa_data->mode & MDP_PP_PA_CONT_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_CONT_MASK;
+	if (pa_data->mode & MDP_PP_PA_SAT_ZERO_EXP_EN)
+		pp_sts->pa_sts |= PP_STS_PA_SAT_ZERO_EXP_EN;
+
+	/* Memory Protect STS update */
+	if (pa_data->mode & MDP_PP_PA_MEM_PROT_HUE_EN)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_HUE_EN;
+	if (pa_data->mode & MDP_PP_PA_MEM_PROT_SAT_EN)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_SAT_EN;
+	if (pa_data->mode & MDP_PP_PA_MEM_PROT_VAL_EN)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_VAL_EN;
+	if (pa_data->mode & MDP_PP_PA_MEM_PROT_CONT_EN)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_CONT_EN;
+	if (pa_data->mode & MDP_PP_PA_MEM_PROT_BLEND_EN)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_BLEND_EN;
+	if ((block_type == DSPP) &&
+			(pa_data->mode & MDP_PP_PA_MEM_PROT_SIX_EN))
+		pp_sts->pa_sts |= PP_STS_PA_MEM_PROT_SIX_EN;
+
+	/* Memory Color STS update */
+	if (pa_data->mode & MDP_PP_PA_MEM_COL_SKIN_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_COL_SKIN_MASK;
+	if (pa_data->mode & MDP_PP_PA_MEM_COL_SKY_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_COL_SKY_MASK;
+	if (pa_data->mode & MDP_PP_PA_MEM_COL_FOL_MASK)
+		pp_sts->pa_sts |= PP_STS_PA_MEM_COL_FOL_MASK;
+
+	/* Six Zone STS update */
+	if (block_type == DSPP) {
+		if (pa_data->mode & MDP_PP_PA_SIX_ZONE_HUE_MASK)
+			pp_sts->pa_sts |= PP_STS_PA_SIX_ZONE_HUE_MASK;
+		if (pa_data->mode & MDP_PP_PA_SIX_ZONE_SAT_MASK)
+			pp_sts->pa_sts |= PP_STS_PA_SIX_ZONE_SAT_MASK;
+		if (pa_data->mode & MDP_PP_PA_SIX_ZONE_VAL_MASK)
+			pp_sts->pa_sts |= PP_STS_PA_SIX_ZONE_VAL_MASK;
+
+		pp_sts_set_split_bits(&pp_sts->pa_sts, enable_flag);
+	}
+}
+
+static int pp_pa_set_config(char __iomem *base_addr,
+			struct pp_sts_type *pp_sts, void *cfg_data,
+			u32 block_type)
+{
+	struct mdp_pa_v2_cfg_data *pa_cfg_data = NULL;
+	struct mdp_pa_data_v1_7 *pa_data = NULL;
+	uint32_t pa_hold = 0, pa_hold_mask = 0, pa_hold_tmp;
+	char __iomem *pa_hold_addr = NULL;
+	int ret = 0;
+
+	if (!base_addr || !cfg_data || !pp_sts) {
+		pr_err("invalid params base_addr %p cfg_data %p pp_sts_type %p\n",
+		      base_addr, cfg_data, pp_sts);
+		return -EINVAL;
+	}
+	if ((block_type != DSPP) && (block_type != SSPP_VIG)) {
+		pr_err("Invalid block type %d\n", block_type);
+		return -EINVAL;
+	}
+
+	pa_cfg_data = (struct mdp_pa_v2_cfg_data *) cfg_data;
+	if (pa_cfg_data->version != mdp_pa_v1_7) {
+		pr_err("invalid pa version %d\n", pa_cfg_data->version);
+		return -EINVAL;
+	}
+	if (!(pa_cfg_data->flags & ~(MDP_PP_OPS_READ))) {
+		pr_info("only read ops is set %d", pa_cfg_data->flags);
+		return 0;
+	}
+	pa_data = pa_cfg_data->cfg_payload;
+	if (!pa_data) {
+		pr_err("invalid payload for pa %p\n", pa_data);
+		return -EINVAL;
+	}
+
+	if (!(pa_cfg_data->flags & MDP_PP_OPS_WRITE)) {
+		pr_warn("No write flag enabled for PA flags %d\n",
+			pa_cfg_data->flags);
+		return 0;
+	}
+
+	pp_pa_set_global_adj_regs(base_addr, pa_data, pa_cfg_data->flags,
+			block_type);
+	pp_pa_set_mem_col(base_addr, pa_data, pa_cfg_data->flags,
+			block_type, &pa_hold, &pa_hold_mask);
+	if (block_type == DSPP)
+		pp_pa_set_six_zone(base_addr, pa_data, pa_cfg_data->flags,
+				   &pa_hold, &pa_hold_mask);
+
+	/*
+	 * Only modify the PA hold bits for PA features that have
+	 * been updated.
+	 */
+	if (block_type == DSPP)
+		pa_hold_addr = base_addr + PA_DSPP_HOLD_OFF;
+	else
+		pa_hold_addr = base_addr + PA_VIG_HOLD_OFF;
+	pa_hold_tmp = readl_relaxed(pa_hold_addr);
+	pa_hold_tmp &= ~pa_hold_mask;
+	pa_hold |= pa_hold_tmp;
+	writel_relaxed(pa_hold, pa_hold_addr);
+
+	pp_pa_set_sts(pp_sts, pa_data, pa_cfg_data->flags, block_type);
+
+	return ret;
+}
+
+static inline void pp_pa_get_global_adj_regs(char __iomem *base_addr,
+				struct mdp_pa_data_v1_7 *pa_data, u32 flags,
+				int block_type)
+{
+	char __iomem *addr = NULL;
+
+	if (block_type == DSPP)
+		addr = base_addr + PA_DSPP_GLOBAL_OFF;
+	else
+		addr = base_addr + PA_VIG_GLOBAL_OFF;
+
+	if (flags & MDP_PP_PA_HUE_ENABLE)
+		pa_data->global_hue_adj = readl_relaxed(addr) &
+					  PA_GLOBAL_HUE_MASK;
+	addr += 4;
+	if (flags & MDP_PP_PA_SAT_ENABLE)
+		pa_data->global_sat_adj = readl_relaxed(addr) &
+					  PA_GLOBAL_SAT_MASK;
+	addr += 4;
+	if (flags & MDP_PP_PA_VAL_ENABLE)
+		pa_data->global_val_adj = readl_relaxed(addr) &
+					  PA_GLOBAL_VAL_MASK;
+	addr += 4;
+	if (flags & MDP_PP_PA_CONT_ENABLE)
+		pa_data->global_cont_adj = readl_relaxed(addr) &
+					  PA_GLOBAL_CONT_MASK;
+}
+
+static inline void pp_pa_get_mem_col_regs(char __iomem *mem_col_p0_addr,
+				char __iomem *mem_col_p2_addr,
+				struct mdp_pa_mem_col_data_v1_7 *mem_col_data)
+{
+	mem_col_data->color_adjust_p0 = readl_relaxed(mem_col_p0_addr) &
+					PA_MEM_COL_ADJ_P0_MASK;
+	mem_col_p0_addr += 4;
+	mem_col_data->color_adjust_p1 = readl_relaxed(mem_col_p0_addr);
+	mem_col_p0_addr += 4;
+	mem_col_data->hue_region = readl_relaxed(mem_col_p0_addr) &
+				   PA_MEM_COL_HUE_REGION_MASK;
+	mem_col_p0_addr += 4;
+	mem_col_data->sat_region = readl_relaxed(mem_col_p0_addr) &
+				   PA_MEM_COL_SAT_REGION_MASK;
+	mem_col_p0_addr += 4;
+	mem_col_data->val_region = readl_relaxed(mem_col_p0_addr) &
+				   PA_MEM_COL_VAL_REGION_MASK;
+
+	mem_col_data->color_adjust_p2 = readl_relaxed(mem_col_p2_addr);
+	mem_col_p2_addr += 4;
+	mem_col_data->blend_gain = readl_relaxed(mem_col_p2_addr);
+}
+
+static inline void pp_pa_get_mem_col(char __iomem *base_addr,
+				struct mdp_pa_data_v1_7 *pa_data, u32 flags,
+				int block_type,
+				uint32_t pa_hold)
+{
+	uint32_t mem_col_hold = 0;
+	u32 skin_p0_off = 0, skin_p2_off = 0;
+	u32 sky_p0_off = 0, sky_p2_off = 0;
+	u32 fol_p0_off = 0, fol_p2_off = 0;
+	char __iomem *mem_col_p0_addr = NULL;
+	char __iomem *mem_col_p2_addr = NULL;
+	if (block_type == DSPP) {
+		skin_p0_off = PA_DSPP_MEM_COL_SKIN_P0_OFF;
+		skin_p2_off = PA_DSPP_MEM_COL_SKIN_P2_OFF;
+		sky_p0_off = PA_DSPP_MEM_COL_SKY_P0_OFF;
+		sky_p2_off = PA_DSPP_MEM_COL_SKY_P2_OFF;
+		fol_p0_off = PA_DSPP_MEM_COL_FOL_P0_OFF;
+		fol_p2_off = PA_DSPP_MEM_COL_FOL_P2_OFF;
+	} else {
+		skin_p0_off = PA_VIG_MEM_COL_SKIN_P0_OFF;
+		skin_p2_off = PA_VIG_MEM_COL_SKIN_P2_OFF;
+		sky_p0_off = PA_VIG_MEM_COL_SKY_P0_OFF;
+		sky_p2_off = PA_VIG_MEM_COL_SKY_P2_OFF;
+		fol_p0_off = PA_VIG_MEM_COL_FOL_P0_OFF;
+		fol_p2_off = PA_VIG_MEM_COL_FOL_P2_OFF;
+	}
+	/* Update skin zone memory color registers */
+	if (flags & MDP_PP_PA_SKIN_ENABLE) {
+		mem_col_p0_addr = base_addr + skin_p0_off;
+		mem_col_p2_addr = base_addr + skin_p2_off;
+		pp_pa_get_mem_col_regs(mem_col_p0_addr, mem_col_p2_addr,
+				       &pa_data->skin_cfg);
+		mem_col_hold = pa_hold >> PA_HOLD_SKIN_SHIFT;
+		pa_data->skin_cfg.sat_hold = (mem_col_hold >>
+				PA_HOLD_SAT_SHIFT) & PA_HOLD_MASK;
+		pa_data->skin_cfg.val_hold = (mem_col_hold >>
+				PA_HOLD_VAL_SHIFT) & PA_HOLD_MASK;
+	}
+	/* Update sky zone memory color registers */
+	if (flags & MDP_PP_PA_SKY_ENABLE) {
+		mem_col_p0_addr = base_addr + sky_p0_off;
+		mem_col_p2_addr = base_addr + sky_p2_off;
+		pp_pa_get_mem_col_regs(mem_col_p0_addr, mem_col_p2_addr,
+				       &pa_data->sky_cfg);
+		mem_col_hold = pa_hold >> PA_HOLD_SKY_SHIFT;
+		pa_data->sky_cfg.sat_hold = (mem_col_hold >>
+				PA_HOLD_SAT_SHIFT) & PA_HOLD_MASK;
+		pa_data->sky_cfg.val_hold = (mem_col_hold >>
+				PA_HOLD_VAL_SHIFT) & PA_HOLD_MASK;
+	}
+	/* Update foliage zone memory color registers */
+	if (flags & MDP_PP_PA_FOL_ENABLE) {
+		mem_col_p0_addr = base_addr + fol_p0_off;
+		mem_col_p2_addr = base_addr + fol_p2_off;
+		pp_pa_get_mem_col_regs(mem_col_p0_addr, mem_col_p2_addr,
+				       &pa_data->fol_cfg);
+		mem_col_hold = pa_hold >> PA_HOLD_FOL_SHIFT;
+		pa_data->sky_cfg.sat_hold = (mem_col_hold >>
+				PA_HOLD_SAT_SHIFT) & PA_HOLD_MASK;
+		pa_data->sky_cfg.val_hold = (mem_col_hold >>
+				PA_HOLD_VAL_SHIFT) & PA_HOLD_MASK;
+	}
+}
+
+static inline int pp_pa_get_six_zone(char __iomem *base_addr,
+				struct mdp_pa_data_v1_7 *pa_data, u32 flags,
+				u32 pa_hold)
+{
+	uint32_t six_zone_sz = 0, six_zone_buf_sz = 0;
+	u32 data = 0;
+	char __iomem *addr = base_addr + PA_SIX_ZONE_LUT_OFF;
+	uint32_t *six_zone_read_buf = NULL;
+	uint32_t *six_zone_p0 = NULL, *six_zone_p1 = NULL;
+	uint32_t six_zone_hold = 0;
+	int ret = 0, i;
+
+	if (pa_data->six_zone_len != MDP_SIX_ZONE_LUT_SIZE) {
+		pr_err("Invalid six zone length %d\n",
+			pa_data->six_zone_len);
+		return -EINVAL;
+	}
+	six_zone_sz = pa_data->six_zone_len * sizeof(uint32_t);
+
+	if (!access_ok(VERIFY_WRITE, pa_data->six_zone_curve_p0,
+			six_zone_sz)) {
+		pr_err("invalid six_zone_curve_p0 addr for sz %d\n",
+			six_zone_sz);
+		return -EFAULT;
+	}
+	if (!access_ok(VERIFY_WRITE, pa_data->six_zone_curve_p1,
+			six_zone_sz)) {
+		pr_err("invalid six_zone_curve_p1 addr for sz %d\n",
+			six_zone_sz);
+		return -EFAULT;
+	}
+
+	six_zone_buf_sz = 2 * six_zone_sz;
+	six_zone_read_buf = kzalloc(six_zone_buf_sz, GFP_KERNEL);
+	if (!six_zone_read_buf) {
+		pr_err("allocation failed for six zone lut size %d\n",
+			six_zone_buf_sz);
+		ret = -ENOMEM;
+		goto six_zone_exit;
+	}
+	six_zone_p0 = six_zone_read_buf;
+	six_zone_p1 = &six_zone_read_buf[MDP_SIX_ZONE_LUT_SIZE];
+
+	data = PA_SIX_ZONE_VALUE_UPDATE | PA_SIX_ZONE_INDEX_UPDATE;
+	writel_relaxed(data, addr);
+
+	for (i = 0; i < MDP_SIX_ZONE_LUT_SIZE; i++) {
+		six_zone_p1[i] = readl_relaxed(addr + 4) &
+				 PA_SIX_ZONE_CURVE_MASK;
+		six_zone_p0[i] = readl_relaxed(addr) &
+				 PA_SIX_ZONE_CURVE_MASK;
+	}
+
+	addr = base_addr + PA_SIX_ZONE_REGION_OFF;
+	pa_data->six_zone_thresh = readl_relaxed(addr);
+
+	addr = base_addr + PA_SIX_ZONE_ADJ_OFF;
+	pa_data->six_zone_adj_p0 = readl_relaxed(addr) &
+				   PA_SIX_ZONE_ADJ_P0_MASK;
+	addr += 4;
+	pa_data->six_zone_adj_p1 = readl_relaxed(addr);
+
+	if (copy_to_user(pa_data->six_zone_curve_p0, six_zone_p0,
+			 six_zone_sz)) {
+		pr_err("Failed to copy six zone p0 data\n");
+		ret = -EFAULT;
+		goto six_zone_memory_exit;
+	}
+	if (copy_to_user(pa_data->six_zone_curve_p1, six_zone_p1,
+			 six_zone_sz)) {
+		pr_err("Failed to copy six zone p1 data\n");
+		ret = -EFAULT;
+		goto six_zone_memory_exit;
+	}
+
+	six_zone_hold = pa_hold >> PA_HOLD_SIX_ZONE_SHIFT;
+	pa_data->six_zone_sat_hold = (six_zone_hold >> PA_HOLD_SAT_SHIFT) &
+				     PA_HOLD_MASK;
+	pa_data->six_zone_val_hold = (six_zone_hold >> PA_HOLD_VAL_SHIFT) &
+				     PA_HOLD_MASK;
+
+six_zone_memory_exit:
+	kfree(six_zone_read_buf);
+six_zone_exit:
+	return ret;
+}
+
+static int pp_pa_get_config(char __iomem *base_addr, void *cfg_data,
+				u32 block_type, u32 disp_num)
+{
+	struct mdp_pa_v2_cfg_data *pa_cfg_data = NULL;
+	struct mdp_pa_data_v1_7 pa_data;
+	int ret = 0;
+	uint32_t pa_hold = 0;
+	char __iomem *pa_hold_addr = NULL;
+
+	if (!base_addr || !cfg_data) {
+		pr_err("invalid params base_addr %p cfg_data %p\n",
+		      base_addr, cfg_data);
+		return -EINVAL;
+	}
+	if ((block_type != DSPP) && (block_type != SSPP_VIG)) {
+		pr_err("Invalid block type %d\n", block_type);
+		return -EINVAL;
+	}
+
+	pa_cfg_data = (struct mdp_pa_v2_cfg_data *) cfg_data;
+	if (pa_cfg_data->version != mdp_pa_v1_7) {
+		pr_err("invalid pa version %d\n", pa_cfg_data->version);
+		return -EINVAL;
+	}
+
+	if (copy_from_user(&pa_data, pa_cfg_data->cfg_payload,
+			sizeof(pa_data))) {
+		pr_err("copy from user failed for pa data\n");
+		return -EFAULT;
+	}
+
+	if (block_type == DSPP)
+		pa_hold_addr = base_addr + PA_DSPP_HOLD_OFF;
+	else
+		pa_hold_addr = base_addr + PA_VIG_HOLD_OFF;
+	pa_hold = readl_relaxed(pa_hold_addr);
+
+	if ((block_type == DSPP) &&
+	    (pa_cfg_data->flags & MDP_PP_PA_SIX_ZONE_ENABLE)) {
+		ret = pp_pa_get_six_zone(base_addr,
+				   &pa_data,
+				   pa_cfg_data->flags,
+				   pa_hold);
+		if (ret) {
+			pr_err("six zone read failed ret %d\n", ret);
+			return ret;
+		}
+	}
+	pp_pa_get_global_adj_regs(base_addr, &pa_data, pa_cfg_data->flags,
+			block_type);
+	pp_pa_get_mem_col(base_addr, &pa_data, pa_cfg_data->flags,
+			block_type, pa_hold);
+
+	ret = copy_to_user(pa_cfg_data->cfg_payload, &pa_data, sizeof(pa_data));
+	if (ret) {
+		pr_err("Failed to copy PA data to user\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+static void pp_pa_update_dspp_opmode(int pa_sts, u32 *opmode)
+{
+	*opmode |= PA_DSPP_OP_ENABLE;
+	if (pa_sts & PP_STS_PA_HUE_MASK)
+		*opmode |= PA_DSPP_OP_HUE_MASK;
+	if (pa_sts & PP_STS_PA_SAT_MASK)
+		*opmode |= PA_DSPP_OP_SAT_MASK;
+	if (pa_sts & PP_STS_PA_VAL_MASK)
+		*opmode |= PA_DSPP_OP_VAL_MASK;
+	if (pa_sts & PP_STS_PA_CONT_MASK)
+		*opmode |= PA_DSPP_OP_CONT_MASK;
+	if (pa_sts & PP_STS_PA_SAT_ZERO_EXP_EN)
+		*opmode |= PA_DSPP_OP_SAT_ZERO_EXP_EN;
+	if (pa_sts & PP_STS_PA_MEM_COL_SKIN_MASK)
+		*opmode |= PA_DSPP_OP_MEM_COL_SKIN_MASK;
+	if (pa_sts & PP_STS_PA_MEM_COL_FOL_MASK)
+		*opmode |= PA_DSPP_OP_MEM_COL_FOL_MASK;
+	if (pa_sts & PP_STS_PA_MEM_COL_SKY_MASK)
+		*opmode |= PA_DSPP_OP_MEM_COL_SKY_MASK;
+	if (pa_sts & PP_STS_PA_SIX_ZONE_HUE_MASK)
+		*opmode |= PA_DSPP_OP_SIX_ZONE_HUE_MASK;
+	if (pa_sts & PP_STS_PA_SIX_ZONE_SAT_MASK)
+		*opmode |= PA_DSPP_OP_SIX_ZONE_SAT_MASK;
+	if (pa_sts & PP_STS_PA_SIX_ZONE_VAL_MASK)
+		*opmode |= PA_DSPP_OP_SIX_ZONE_VAL_MASK;
+	if (pa_sts & PP_STS_PA_MEM_PROT_HUE_EN)
+		*opmode |= PA_DSPP_OP_MEM_PROT_HUE_EN;
+	if (pa_sts & PP_STS_PA_MEM_PROT_SAT_EN)
+		*opmode |= PA_DSPP_OP_MEM_PROT_SAT_EN;
+	if (pa_sts & PP_STS_PA_MEM_PROT_VAL_EN)
+		*opmode |= PA_DSPP_OP_MEM_PROT_VAL_EN;
+	if (pa_sts & PP_STS_PA_MEM_PROT_CONT_EN)
+		*opmode |= PA_DSPP_OP_MEM_PROT_CONT_EN;
+	if (pa_sts & PP_STS_PA_MEM_PROT_BLEND_EN)
+		*opmode |= PA_DSPP_OP_MEM_PROT_BLEND_EN;
+	if (pa_sts & PP_STS_PA_MEM_PROT_SIX_EN)
+		*opmode |= PA_DSPP_OP_MEM_PROT_SIX_EN;
 }
 
 static int pp_igc_set_config(char __iomem *base_addr,

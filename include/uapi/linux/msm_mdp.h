@@ -356,26 +356,6 @@ struct msmfb_writeback_data {
 #define MDP_PP_IGC_FLAG_ROM0	0x10
 #define MDP_PP_IGC_FLAG_ROM1	0x20
 
-#define MDP_PP_PA_HUE_ENABLE		0x10
-#define MDP_PP_PA_SAT_ENABLE		0x20
-#define MDP_PP_PA_VAL_ENABLE		0x40
-#define MDP_PP_PA_CONT_ENABLE		0x80
-#define MDP_PP_PA_SIX_ZONE_ENABLE	0x100
-#define MDP_PP_PA_SKIN_ENABLE		0x200
-#define MDP_PP_PA_SKY_ENABLE		0x400
-#define MDP_PP_PA_FOL_ENABLE		0x800
-#define MDP_PP_PA_HUE_MASK		0x1000
-#define MDP_PP_PA_SAT_MASK		0x2000
-#define MDP_PP_PA_VAL_MASK		0x4000
-#define MDP_PP_PA_CONT_MASK		0x8000
-#define MDP_PP_PA_SIX_ZONE_HUE_MASK	0x10000
-#define MDP_PP_PA_SIX_ZONE_SAT_MASK	0x20000
-#define MDP_PP_PA_SIX_ZONE_VAL_MASK	0x40000
-#define MDP_PP_PA_MEM_COL_SKIN_MASK	0x80000
-#define MDP_PP_PA_MEM_COL_SKY_MASK	0x100000
-#define MDP_PP_PA_MEM_COL_FOL_MASK	0x200000
-#define MDP_PP_PA_MEM_PROTECT_EN	0x400000
-#define MDP_PP_PA_SAT_ZERO_EXP_EN	0x800000
 
 #define MDSS_PP_DSPP_CFG	0x000
 #define MDSS_PP_SSPP_CFG	0x100
@@ -473,17 +453,43 @@ struct mdp_pa_mem_col_cfg {
 	uint32_t val_region;
 };
 
-struct mdp_pa_mem_col_cfg_v1_7 {
-	uint32_t color_adjust_p0;
-	uint32_t color_adjust_p1;
-	uint32_t color_adjust_p2;
-	uint32_t blend_gain;
-	uint32_t hue_region;
-	uint32_t sat_region;
-	uint32_t val_region;
-};
-
 #define MDP_SIX_ZONE_LUT_SIZE		384
+
+/* PA Write/Read extension flags */
+#define MDP_PP_PA_HUE_ENABLE		0x10
+#define MDP_PP_PA_SAT_ENABLE		0x20
+#define MDP_PP_PA_VAL_ENABLE		0x40
+#define MDP_PP_PA_CONT_ENABLE		0x80
+#define MDP_PP_PA_SIX_ZONE_ENABLE	0x100
+#define MDP_PP_PA_SKIN_ENABLE		0x200
+#define MDP_PP_PA_SKY_ENABLE		0x400
+#define MDP_PP_PA_FOL_ENABLE		0x800
+
+/* PA masks */
+/* Masks used in PA v1_7 only */
+#define MDP_PP_PA_MEM_PROT_HUE_EN	0x1
+#define MDP_PP_PA_MEM_PROT_SAT_EN	0x2
+#define MDP_PP_PA_MEM_PROT_VAL_EN	0x4
+#define MDP_PP_PA_MEM_PROT_CONT_EN	0x8
+#define MDP_PP_PA_MEM_PROT_SIX_EN	0x10
+#define MDP_PP_PA_MEM_PROT_BLEND_EN	0x20
+/* Masks used in all PAv2 versions */
+#define MDP_PP_PA_HUE_MASK		0x1000
+#define MDP_PP_PA_SAT_MASK		0x2000
+#define MDP_PP_PA_VAL_MASK		0x4000
+#define MDP_PP_PA_CONT_MASK		0x8000
+#define MDP_PP_PA_SIX_ZONE_HUE_MASK	0x10000
+#define MDP_PP_PA_SIX_ZONE_SAT_MASK	0x20000
+#define MDP_PP_PA_SIX_ZONE_VAL_MASK	0x40000
+#define MDP_PP_PA_MEM_COL_SKIN_MASK	0x80000
+#define MDP_PP_PA_MEM_COL_SKY_MASK	0x100000
+#define MDP_PP_PA_MEM_COL_FOL_MASK	0x200000
+#define MDP_PP_PA_MEM_PROTECT_EN	0x400000
+#define MDP_PP_PA_SAT_ZERO_EXP_EN	0x800000
+
+/* Flags for setting PA saturation and value hold */
+#define MDP_PP_PA_LEFT_HOLD		0x1
+#define MDP_PP_PA_RIGHT_HOLD		0x2
 
 struct mdp_pa_v2_data {
 	/* Mask bits for PA features */
@@ -501,27 +507,46 @@ struct mdp_pa_v2_data {
 	uint32_t *six_zone_curve_p1;
 };
 
+struct mdp_pa_mem_col_data_v1_7 {
+	uint32_t color_adjust_p0;
+	uint32_t color_adjust_p1;
+	uint32_t color_adjust_p2;
+	uint32_t blend_gain;
+	uint8_t sat_hold;
+	uint8_t val_hold;
+	uint32_t hue_region;
+	uint32_t sat_region;
+	uint32_t val_region;
+};
+
 struct mdp_pa_data_v1_7 {
+	uint32_t mode;
 	uint32_t global_hue_adj;
 	uint32_t global_sat_adj;
 	uint32_t global_val_adj;
 	uint32_t global_cont_adj;
-	struct mdp_pa_mem_col_cfg_v1_7 skin_cfg;
-	struct mdp_pa_mem_col_cfg_v1_7 sky_cfg;
-	struct mdp_pa_mem_col_cfg_v1_7 fol_cfg;
-	uint32_t six_zone_len;
+	struct mdp_pa_mem_col_data_v1_7 skin_cfg;
+	struct mdp_pa_mem_col_data_v1_7 sky_cfg;
+	struct mdp_pa_mem_col_data_v1_7 fol_cfg;
 	uint32_t six_zone_thresh;
 	uint32_t six_zone_adj_p0;
 	uint32_t six_zone_adj_p1;
+	uint8_t six_zone_sat_hold;
+	uint8_t six_zone_val_hold;
+	uint32_t six_zone_len;
 	uint32_t *six_zone_curve_p0;
 	uint32_t *six_zone_curve_p1;
+};
+
+enum {
+	mdp_pa_v1_7 = 0x1,
+	mdp_pa_vmax,
 };
 
 struct mdp_pa_v2_cfg_data {
 	uint32_t version;
 	uint32_t block;
 	uint32_t flags;
-	uint32_t mode;
 	struct mdp_pa_v2_data pa_v2_data;
 	void *cfg_payload;
 };
