@@ -734,8 +734,9 @@
 				"int_aer_legacy", "int_pls_link_up",
 				"int_pls_link_down", "int_bridge_flush_n";
 
-		pinctrl-names = "default";
+		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pcie1_clkreq_default &pcie1_perst_default &pcie1_wake_default>;
+		pinctrl-1 = <&pcie1_clkreq_default &pcie1_perst_default &pcie1_wake_sleep>;
 
 		perst-gpio = <&msm_gpio 35 0>;
 		wake-gpio = <&msm_gpio 37 0>;

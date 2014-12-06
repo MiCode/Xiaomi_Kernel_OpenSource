@@ -1276,6 +1276,11 @@
 				drive-strength = <2>;
 				bias-pull-down;
 			};
+
+			pcie1_wake_sleep: pcie1_wake_sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
 		};
 
 		pmx_sec_aux_pcm {
