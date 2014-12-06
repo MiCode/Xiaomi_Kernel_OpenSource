@@ -320,6 +320,7 @@ struct qpnp_lbc_chip {
 	bool				fastchg_on;
 	bool				cfg_use_external_charger;
 	bool				cfg_chgr_led_support;
+	bool				cfg_bms_controlled_charging;
 	unsigned int			cfg_warm_bat_chg_ma;
 	unsigned int			cfg_cool_bat_chg_ma;
 	unsigned int			cfg_safe_voltage_mv;
@@ -1214,7 +1215,8 @@ static int get_prop_capacity(struct qpnp_lbc_chip *chip)
 				&& charger_in
 				&& !chip->cfg_charging_disabled
 				&& chip->cfg_soc_resume_limit
-				&& ret.intval <= chip->cfg_soc_resume_limit) {
+				&& ret.intval <= chip->cfg_soc_resume_limit
+				&& !chip->cfg_bms_controlled_charging) {
 			pr_debug("resuming charging at %d%% soc\n",
 					ret.intval);
 			if (!chip->cfg_disable_vbatdet_based_recharge)
@@ -1489,9 +1491,10 @@ static int qpnp_batt_power_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
+		mutex_lock(&chip->chg_enable_lock);
+
 		if (val->intval == POWER_SUPPLY_STATUS_FULL &&
 				!chip->cfg_float_charge) {
-			mutex_lock(&chip->chg_enable_lock);
 
 			/* Disable charging */
 			rc = qpnp_lbc_charger_enable(chip, SOC, 0);
@@ -1518,8 +1521,29 @@ static int qpnp_batt_power_set_property(struct power_supply *psy,
 						&chip->irqs[CHG_VBAT_DET_LO]);
 			}
 
-			mutex_unlock(&chip->chg_enable_lock);
 		}
+
+		if (chip->cfg_bms_controlled_charging) {
+			switch (val->intval) {
+			case POWER_SUPPLY_STATUS_CHARGING:
+				chip->chg_done = false;
+				pr_debug("resuming charging by bms\n");
+				if (!chip->cfg_disable_vbatdet_based_recharge)
+					qpnp_lbc_vbatdet_override(chip,
+								OVERRIDE_0);
+				qpnp_lbc_charger_enable(chip, SOC, 1);
+				break;
+			case POWER_SUPPLY_STATUS_DISCHARGING:
+				chip->chg_done = false;
+				pr_debug("status = DISCHARGING chg_done = %d\n",
+						chip->chg_done);
+				break;
+			default:
+				break;
+			}
+		}
+
+		mutex_unlock(&chip->chg_enable_lock);
 		break;
 	case POWER_SUPPLY_PROP_COOL_TEMP:
 		rc = qpnp_lbc_configure_jeita(chip, psp, val->intval);
@@ -2012,6 +2036,10 @@ static int qpnp_charger_read_dt_props(struct qpnp_lbc_chip *chip)
 	chip->cfg_chgr_led_support =
 			of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,chgr-led-support");
+
+	chip->cfg_bms_controlled_charging =
+			of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,bms-controlled-charging");
 
 	/* Disable charging when faking battery values */
 	if (chip->cfg_use_fake_battery)
