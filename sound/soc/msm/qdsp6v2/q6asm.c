@@ -2350,6 +2350,12 @@ static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
 	open.postprocopo_id = overwrite_topology ?
 			      topology : open.postprocopo_id;
 	ac->topology = open.postprocopo_id;
+
+	/* For DTS EAGLE only, force 24 bit */
+	if ((open.postprocopo_id == ASM_STREAM_POSTPROC_TOPO_ID_DTS_HPX) ||
+	     (open.postprocopo_id == ASM_STREAM_POSTPROC_TOPO_ID_HPX_MASTER))
+		open.bits_per_sample = 24;
+
 	switch (wr_format) {
 	case FORMAT_LINEAR_PCM:
 	case FORMAT_MULTI_CHANNEL_LINEAR_PCM:

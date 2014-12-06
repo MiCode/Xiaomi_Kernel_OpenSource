@@ -23,15 +23,6 @@
 #define MAX_PP_PARAMS_SZ		128
 #define WAIT_TIMEDOUT_DURATION_SECS	1
 
-struct msm_nt_eff_all_config {
-	struct bass_boost_params bass_boost;
-	struct virtualizer_params virtualizer;
-	struct reverb_params reverb;
-	struct eq_params equalizer;
-	struct soft_volume_params saplus_vol;
-	struct soft_volume_params topo_switch_vol;
-};
-
 struct q6audio_effects {
 	wait_queue_head_t		read_wait;
 	wait_queue_head_t		write_wait;
@@ -402,15 +393,30 @@ static long audio_effects_set_pp_param(struct q6audio_effects *effects,
 			      (long *)&values[1], SOFT_VOLUME_INSTANCE_2);
 		break;
 	case DTS_EAGLE_MODULE_ENABLE:
-		pr_debug("%s: DTS_EAGLE_MODULE_BYPASS\n", __func__);
+		pr_debug("%s: DTS_EAGLE_MODULE_ENABLE\n", __func__);
 		if (msm_audio_effects_is_effmodule_supp_in_top(
 			effects_module, effects->ac->topology)) {
+			/*
+			 * HPX->OFF: first disable HPX and then
+			 * enable SA+
+			 * HPX->ON: first disable SA+ and then
+			 * enable HPX
+			 */
+			bool hpx_state = (bool)values[1];
+			if (hpx_state)
+				msm_audio_effects_enable_extn(effects->ac,
+					&(effects->audio_effects),
+					false);
 			msm_dts_eagle_enable_asm(effects->ac,
-				(bool)values[1],
+				hpx_state,
 				AUDPROC_MODULE_ID_DTS_HPX_PREMIX);
 			msm_dts_eagle_enable_asm(effects->ac,
-				(bool)values[1],
+				hpx_state,
 				AUDPROC_MODULE_ID_DTS_HPX_POSTMIX);
+			if (!hpx_state)
+				msm_audio_effects_enable_extn(effects->ac,
+					&(effects->audio_effects),
+					true);
 		}
 		break;
 	default:

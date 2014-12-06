@@ -226,6 +226,12 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 		if (rc < 0)
 			pr_err("%s: Send LR gain command failed rc=%d\n",
 				__func__, rc);
+		else {
+			if (msm_dts_eagle_set_stream_gain(prtd->audio_client,
+							volume_l, volume_r))
+				pr_err("%s: DTS_EAGLE send stream gain failed\n",
+					__func__);
+		}
 	}
 
 	return rc;

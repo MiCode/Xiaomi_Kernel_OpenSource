@@ -359,14 +359,14 @@ static int _is_port_open_and_eagle(int pid)
 static int _isNTDevice(u32 device)
 {
 	if (device &
-	    ((1 << AUDIO_DEVICE_OUT_BLUETOOTH_SCO) |
-	     (1 << AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET) |
-	     (1 << AUDIO_DEVICE_OUT_BLUETOOTH_SCO_CARKIT) |
-	     (1 << AUDIO_DEVICE_OUT_BLUETOOTH_A2DP) |
-	     (1 << AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES) |
-	     (1 << AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER))) {
+		((1 << AUDIO_DEVICE_OUT_BLUETOOTH_SCO) |
+		(1 << AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET) |
+		(1 << AUDIO_DEVICE_OUT_BLUETOOTH_SCO_CARKIT) |
+		(1 << AUDIO_DEVICE_OUT_BLUETOOTH_A2DP) |
+		(1 << AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES) |
+		(1 << AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER) |
+		(1 << AUDIO_DEVICE_OUT_AUX_DIGITAL)))
 		return 1;
-	}
 	return 0;
 }
 
@@ -1519,6 +1519,18 @@ int msm_dts_eagle_deinit_master_module(struct audio_client *ac)
 	msm_dts_eagle_deinit_post(-1, 0);
 	_clear_audioclient();
 	return 0;
+}
+
+/**
+ * msm_dts_eagle_is_hpx_on() - Check if HPX effects are On
+ *
+ * Check if HPX effects are On
+ *
+ * Return: On/Off.
+ */
+int msm_dts_eagle_is_hpx_on(void)
+{
+	return _is_hpx_enabled;
 }
 
 /**
