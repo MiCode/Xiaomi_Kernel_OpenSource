@@ -356,6 +356,16 @@ config CRYPTO_DEV_OTA_CRYPTO
 	  To compile this driver as a module, choose M here: the
 	  module will be called ota_crypto.
 
+config CRYPTO_DEV_QCOM_ICE
+	tristate "Inline Crypto Module"
+	default n
+	help
+	  This driver supports Inline Crypto Engine for QTI chipsets, MSM8994
+	  and later, to accelerate crypto operations for storage needs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ice.
+
 config CRYPTO_DEV_TEGRA_AES
 	tristate "Support for TEGRA AES hw engine"
 	depends on ARCH_TEGRA
