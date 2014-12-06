@@ -18,6 +18,7 @@
 #include "mdss_rotator_internal.h"
 #include "mdss_panel.h"
 #include "mdss_mdp_trace.h"
+#include "mdss_debug.h"
 
 /*
  * if BWC enabled and format is H1V2 or 420, do not use site C or I.
@@ -547,6 +548,7 @@ static void mdss_mdp_writeback_intr_done(void *arg)
 	spin_unlock(&ctx->wb_lock);
 
 	complete_all(&ctx->wb_comp);
+	MDSS_XLOG(ctx->wb_num, ctx->type, ctx->xin_id, ctx->intf_num);
 }
 
 static bool mdss_mdp_traffic_shaper_helper(struct mdss_mdp_ctl *ctl,
@@ -774,6 +776,8 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
 	wmb();
 
+	MDSS_XLOG(ctx->wb_num, ctx->type, ctx->xin_id, ctx->intf_num,
+		ctx->dst_rect.w, ctx->dst_rect.h);
 	pr_debug("ctx%d type:%d xin_id:%d intf_num:%d start\n",
 		ctx->wb_num, ctx->type, ctx->xin_id, ctx->intf_num);
 
