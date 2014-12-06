@@ -2308,7 +2308,12 @@ unsigned int __read_mostly sched_init_task_load_pelt;
 unsigned int __read_mostly sched_init_task_load_windows;
 unsigned int __read_mostly sysctl_sched_init_task_load_pct = 15;
 
-unsigned int __read_mostly sysctl_sched_min_runtime = 200000000; /* 200 ms */
+/*
+ * Keep these two below in sync. One is in unit of ns and the
+ * other in unit of us.
+ */
+unsigned int __read_mostly sysctl_sched_min_runtime = 0; /* 0 ms */
+u64 __read_mostly sched_min_runtime = 0; /* 0 ms */
 
 static inline unsigned int task_load(struct task_struct *p)
 {
@@ -3276,6 +3281,10 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	if (ret || !write || !sched_enable_hmp)
 		return ret;
 
+	if (data == &sysctl_sched_min_runtime) {
+		sched_min_runtime = ((u64) sysctl_sched_min_runtime) * 1000;
+		return 0;
+	}
 	if ((sysctl_sched_downmigrate_pct > sysctl_sched_upmigrate_pct) ||
 				*data > 100) {
 		*data = old_val;
@@ -3375,10 +3384,6 @@ static int lower_power_cpu_available(struct task_struct *p, int cpu)
 	int i;
 	int lowest_power_cpu = task_cpu(p);
 	int lowest_power = power_cost(p, task_cpu(p));
-	u64 delta = sched_clock() - p->run_start;
-
-	if (delta < sysctl_sched_min_runtime)
-		return 0;
 
 	/* Is a lower-powered idle CPU available which will fit this task? */
 	for_each_cpu_and(i, tsk_cpus_allowed(p), cpu_online_mask) {
@@ -3395,6 +3400,7 @@ static int lower_power_cpu_available(struct task_struct *p, int cpu)
 }
 
 static inline int is_cpu_throttling_imminent(int cpu);
+static inline int is_task_migration_throttled(struct task_struct *p);
 
 /*
  * Check if a task is on the "wrong" cpu (i.e its current cpu is not the ideal
@@ -3428,6 +3434,7 @@ static inline int migration_needed(struct rq *rq, struct task_struct *p)
 		return MOVE_TO_BIG_CPU;
 
 	if (sched_enable_power_aware &&
+	    !is_task_migration_throttled(p) &&
 	    is_cpu_throttling_imminent(cpu_of(rq)) &&
 	    lower_power_cpu_available(p, cpu_of(rq)))
 		return MOVE_TO_POWER_EFFICIENT_CPU;
@@ -3502,6 +3509,13 @@ static inline int is_cpu_throttling_imminent(int cpu)
 	return throttling;
 }
 
+static inline int is_task_migration_throttled(struct task_struct *p)
+{
+	u64 delta = sched_clock() - p->run_start;
+
+	return delta < sched_min_runtime;
+}
+
 unsigned int cpu_temp(int cpu)
 {
 	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
@@ -3569,6 +3583,11 @@ static inline int nr_big_tasks(struct rq *rq)
 }
 
 static inline int is_cpu_throttling_imminent(int cpu)
+{
+	return 0;
+}
+
+static inline int is_task_migration_throttled(struct task_struct *p)
 {
 	return 0;
 }
@@ -7491,6 +7510,8 @@ static inline int sg_capacity_factor(struct lb_env *env, struct sched_group *gro
 static enum group_type group_classify(
 struct sched_group *group, struct sg_lb_stats *sgs, struct lb_env *env)
 {
+	int cpu;
+
 	if (sgs->sum_nr_running > sgs->group_capacity_factor) {
 		env->flags &= ~LBF_PWR_ACTIVE_BALANCE;
 		return group_overloaded;
@@ -7503,13 +7524,16 @@ struct sched_group *group, struct sg_lb_stats *sgs, struct lb_env *env)
 
 
 	/* Mark a less power-efficient CPU as busy only if we haven't
-	 * seen a busy group yet. We want to prioritize spreading
-	 * work over power optimization. */
+	 * seen a busy group yet and we are close to throttling. We want to
+	 * prioritize spreading work over power optimization.
+	 */
+	cpu = cpumask_first(sched_group_cpus(group));
 	if ((capacity(env->dst_rq) == group_rq_capacity(group)) &&
 	    sgs->sum_nr_running && (env->idle != CPU_NOT_IDLE) &&
 	    power_cost_at_freq(env->dst_cpu, 0) <
-	    power_cost_at_freq(cpumask_first(sched_group_cpus(group)), 0) &&
-	    is_cpu_throttling_imminent(cpumask_first(sched_group_cpus(group)))) {
+	    power_cost_at_freq(cpu, 0) &&
+	    !is_task_migration_throttled(cpu_rq(cpu)->curr) &&
+	    is_cpu_throttling_imminent(cpu)) {
 		env->flags |= LBF_PWR_ACTIVE_BALANCE;
 		return group_ea;
 	}

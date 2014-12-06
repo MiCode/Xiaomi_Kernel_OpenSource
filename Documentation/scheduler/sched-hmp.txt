@@ -1254,7 +1254,7 @@ idle CPUs which are not completely idle, increasing task packing behavior.
 
 Appears at: /proc/sys/kernel/sched_min_runtime
 
-Default value: 200000000 (200ms)
+Default value: 0 (0 ms)
 
 This tunable helps avouid frequent migration of task on account of
 energy-awareness. During scheduler tick, a check is made (in migration_needed())
@@ -1267,6 +1267,8 @@ is used in migration_needed() to avoid "frequent" migrations. Once a task has
 been associated with a cpu (in either running or runnable state) for more than
 'sched_min_vruntime' ns, it is considered eligible for migration in tick path on
 account of energy awareness reasons.
+The same logic also applies to the load balancer path to avoid frequent
+migrations due to energy awareness.
 
 =========================
 8. HMP SCHEDULER TRACE POINTS
