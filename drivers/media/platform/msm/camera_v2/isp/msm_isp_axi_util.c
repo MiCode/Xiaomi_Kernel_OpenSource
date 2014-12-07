@@ -2007,3 +2007,30 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	}
 	return;
 }
+int msm_isp_user_buf_done(struct vfe_device *vfe_dev,
+	struct msm_isp_event_data *buf_cmd)
+{
+	int rc = 0;
+	struct msm_isp_event_data buf_event;
+	memset(&buf_event, 0, sizeof(buf_event));
+	buf_event.input_intf = buf_cmd->input_intf;
+	buf_event.frame_id = buf_cmd->frame_id;
+	buf_event.timestamp = buf_cmd->timestamp;
+	buf_event.u.buf_done.session_id =
+	  buf_cmd->u.buf_done.session_id;
+	buf_event.u.buf_done.stream_id =
+	  buf_cmd->u.buf_done.stream_id;
+	buf_event.u.buf_done.output_format =
+	  buf_cmd->u.buf_done.output_format;
+	buf_event.u.buf_done.buf_idx =
+	  buf_cmd->u.buf_done.buf_idx;
+	buf_event.u.buf_done.handle =
+	   buf_cmd->u.buf_done.handle;
+
+	vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
+			buf_event.u.buf_done.handle,
+			buf_event.u.buf_done.buf_idx,
+			&buf_event.timestamp, buf_event.frame_id,
+			buf_event.u.buf_done.output_format);
+	return rc;
+}

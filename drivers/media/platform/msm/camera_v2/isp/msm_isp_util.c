@@ -781,6 +781,11 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case MSM_SD_NOTIFY_FREEZE:
 		vfe_dev->isp_sof_debug = 0;
 		break;
+	case VIDIOC_MSM_ISP_BUF_DONE:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_user_buf_done(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
 	case MSM_SD_SHUTDOWN:
 		while (vfe_dev->vfe_open_cnt != 0)
 			msm_isp_close_node(sd, NULL);
@@ -825,6 +830,35 @@ static long msm_isp_ioctl_compat(struct v4l2_subdev *sd,
 		rc = msm_isp_proc_cmd_list(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->realtime_mutex);
 		break;
+	}
+	case VIDIOC_MSM_ISP_BUF_DONE: {
+		struct msm_isp_event_data buf_event;
+		struct msm_isp_event_data32 *buf_event32;
+		memset(&buf_event, 0, sizeof(buf_event));
+		buf_event32 =
+		  (struct msm_isp_event_data32 *)arg;
+		buf_event.input_intf = buf_event32->input_intf;
+		buf_event.frame_id = buf_event32->frame_id;
+		buf_event.timestamp.tv_sec =
+				buf_event32->timestamp.tv_sec;
+		buf_event.timestamp.tv_usec =
+				buf_event32->timestamp.tv_usec;
+		buf_event.mono_timestamp.tv_sec =
+				buf_event32->mono_timestamp.tv_sec;
+		buf_event.mono_timestamp.tv_usec =
+				buf_event32->mono_timestamp.tv_usec;
+		buf_event.u.buf_done.session_id =
+		  buf_event32->u.buf_done.session_id;
+		buf_event.u.buf_done.stream_id =
+		  buf_event32->u.buf_done.stream_id;
+		buf_event.u.buf_done.output_format =
+			buf_event32->u.buf_done.output_format;
+		buf_event.u.buf_done.buf_idx =
+			buf_event32->u.buf_done.buf_idx;
+		buf_event.u.buf_done.handle =
+			buf_event32->u.buf_done.handle;
+		cmd = VIDIOC_MSM_ISP_BUF_DONE;
+		return msm_isp_ioctl_unlocked(sd, cmd, &buf_event);
 	}
 	default:
 		return msm_isp_ioctl_unlocked(sd, cmd, arg);
