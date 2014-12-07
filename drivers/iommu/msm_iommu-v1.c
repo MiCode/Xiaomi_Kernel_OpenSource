@@ -740,6 +740,12 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	mb();
 }
 
+#ifdef CONFIG_IOMMU_PGTABLES_L2
+#define INITIAL_REDIRECT_VAL 1
+#else
+#define INITIAL_REDIRECT_VAL 0
+#endif
+
 static int msm_iommu_domain_init(struct iommu_domain *domain)
 {
 	struct msm_iommu_priv *priv;
@@ -748,7 +754,7 @@ static int msm_iommu_domain_init(struct iommu_domain *domain)
 	if (!priv)
 		goto fail_nomem;
 
-	priv->pt.redirect = 1;
+	priv->pt.redirect = INITIAL_REDIRECT_VAL;
 
 	INIT_LIST_HEAD(&priv->list_attached);
 	if (msm_iommu_pagetable_alloc(&priv->pt))
