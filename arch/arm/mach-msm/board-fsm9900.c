@@ -40,6 +40,10 @@
 #define FSM9900_QDSP6_2_DEBUG_DUMP_PHYS	0x25300000
 #define FSM9900_SCLTE_DEBUG_DUMP_PHYS	0x25180000
 #define FSM9900_SCLTE_DEBUG_TRACE_PHYS	0x1f100000
+#define FSM9900_SCLTE_CDU_PHYS		0x1d000000
+#define FSM9900_SCLTE_CB_TRACE_PHYS	0x3aa00000
+#define FSM9900_SCLTE_RF_CAL_PHYS	0x3a000000
+#define FSM9900_SCLTE_ETH_TRACE_PHYS	0x2fe8c000
 
 #define FSM9900_UIO_VERSION "1.0"
 
@@ -51,12 +55,16 @@ static struct of_dev_auxdata fsm9900_auxdata_lookup[] __initdata = {
 
 static struct uio_info fsm9900_uio_info[] = {
 	{
-		.name = "fsm9900-uio",
+		.name = "fsm9900-uio0",
+		.version = FSM9900_UIO_VERSION,
+	},
+	{
+		.name = "fsm9900-uio1",
 		.version = FSM9900_UIO_VERSION,
 	},
 };
 
-static struct resource fsm9900_uio_resources[] = {
+static struct resource fsm9900_uio0_resources[] = {
 	{
 		.start = FSM9900_QDSP6_0_DEBUG_DUMP_PHYS,
 		.end   = FSM9900_QDSP6_0_DEBUG_DUMP_PHYS + SZ_512K - 1,
@@ -89,14 +97,56 @@ static struct resource fsm9900_uio_resources[] = {
 	},
 };
 
-static struct platform_device fsm9900_uio_device = {
+static struct platform_device fsm9900_uio0_device = {
 	.name = "uio_pdrv",
-	.id = -1,
+	.id = 0,
 	.dev = {
-		.platform_data = &fsm9900_uio_info
+		.platform_data = &fsm9900_uio_info[0]
 	},
-	.num_resources = 5,
-	.resource = fsm9900_uio_resources,
+	.num_resources = ARRAY_SIZE(fsm9900_uio0_resources),
+	.resource = fsm9900_uio0_resources,
+};
+
+static struct resource fsm9900_uio1_resources[] = {
+	{
+		.start = FSM9900_SCLTE_CDU_PHYS,
+		.end   = FSM9900_SCLTE_CDU_PHYS + SZ_16M - 1,
+		.name  = "sclte_cdu",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9900_SCLTE_CB_TRACE_PHYS,
+		.end   = FSM9900_SCLTE_CB_TRACE_PHYS + SZ_2M - 1,
+		.name  = "sclte_cb_trace",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9900_SCLTE_RF_CAL_PHYS,
+		.end   = FSM9900_SCLTE_RF_CAL_PHYS + SZ_8M + SZ_2M - 1,
+		.name  = "sclte_rf_cal",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9900_SCLTE_ETH_TRACE_PHYS,
+		.end   = FSM9900_SCLTE_ETH_TRACE_PHYS + SZ_1M - 1,
+		.name  = "sclte_eth_trace",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device fsm9900_uio1_device = {
+	.name = "uio_pdrv",
+	.id = 1,
+	.dev = {
+		.platform_data = &fsm9900_uio_info[1]
+	},
+	.num_resources = ARRAY_SIZE(fsm9900_uio1_resources),
+	.resource = fsm9900_uio1_resources,
+};
+
+static struct platform_device *fsm9900_uio_devices[] = {
+	&fsm9900_uio0_device,
+	&fsm9900_uio1_device,
 };
 
 static const char mac_addr_prop_name[] = "mac-address";
@@ -118,7 +168,8 @@ void __init fsm9900_add_drivers(void)
 		msm_clock_init(&fsm9900_dummy_clock_init_data);
 	else
 		msm_clock_init(&fsm9900_clock_init_data);
-	platform_device_register(&fsm9900_uio_device);
+	platform_add_devices(fsm9900_uio_devices,
+			     ARRAY_SIZE(fsm9900_uio_devices));
 }
 
 static void __init fsm9900_map_io(void)
