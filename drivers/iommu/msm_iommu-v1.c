@@ -740,7 +740,7 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	mb();
 }
 
-static int msm_iommu_domain_init(struct iommu_domain *domain, int flags)
+static int msm_iommu_domain_init(struct iommu_domain *domain)
 {
 	struct msm_iommu_priv *priv;
 
@@ -748,9 +748,7 @@ static int msm_iommu_domain_init(struct iommu_domain *domain, int flags)
 	if (!priv)
 		goto fail_nomem;
 
-#ifdef CONFIG_IOMMU_PGTABLES_L2
-	priv->pt.redirect = flags & MSM_IOMMU_DOMAIN_PT_CACHEABLE;
-#endif
+	priv->pt.redirect = 1;
 
 	INIT_LIST_HEAD(&priv->list_attached);
 	if (msm_iommu_pagetable_alloc(&priv->pt))
@@ -1451,6 +1449,66 @@ static void msm_iommu_build_dump_regs_table(void)
 	DUMP_REG_INIT(DUMP_REG_CBFRSYNRA_N, CBFRSYNRA, 1, DRT_GLOBAL_REG_N);
 }
 
+#ifdef CONFIG_IOMMU_PGTABLES_L2
+static void __do_set_redirect(struct iommu_domain *domain, void *data)
+{
+	struct msm_iommu_priv *priv;
+	int *no_redirect = data;
+
+	mutex_lock(&msm_iommu_lock);
+	priv = domain->priv;
+	priv->pt.redirect = !(*no_redirect);
+	mutex_unlock(&msm_iommu_lock);
+}
+
+static void __do_get_redirect(struct iommu_domain *domain, void *data)
+{
+	struct msm_iommu_priv *priv;
+	int *no_redirect = data;
+
+	mutex_lock(&msm_iommu_lock);
+	priv = domain->priv;
+	*no_redirect = !priv->pt.redirect;
+	mutex_unlock(&msm_iommu_lock);
+}
+
+#else
+
+static void __do_set_redirect(struct iommu_domain *domain, void *data)
+{
+}
+
+static void __do_get_redirect(struct iommu_domain *domain, void *data)
+{
+}
+#endif
+
+static int msm_iommu_domain_set_attr(struct iommu_domain *domain,
+				enum iommu_attr attr, void *data)
+{
+	switch (attr) {
+	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
+		__do_set_redirect(domain, data);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int msm_iommu_domain_get_attr(struct iommu_domain *domain,
+				enum iommu_attr attr, void *data)
+{
+	switch (attr) {
+	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
+		__do_get_redirect(domain, data);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static struct iommu_ops msm_iommu_ops = {
 	.domain_init = msm_iommu_domain_init,
 	.domain_destroy = msm_iommu_domain_destroy,
@@ -1464,6 +1522,8 @@ static struct iommu_ops msm_iommu_ops = {
 	.domain_has_cap = msm_iommu_domain_has_cap,
 	.get_pt_base_addr = msm_iommu_get_pt_base_addr,
 	.pgsize_bitmap = MSM_IOMMU_PGSIZES,
+	.domain_set_attr = msm_iommu_domain_set_attr,
+	.domain_get_attr = msm_iommu_domain_get_attr,
 };
 
 static int __init msm_iommu_init(void)
