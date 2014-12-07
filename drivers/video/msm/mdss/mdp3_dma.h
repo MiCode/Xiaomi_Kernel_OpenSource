@@ -16,6 +16,7 @@
 
 #include <linux/notifier.h>
 #include <linux/sched.h>
+#include <linux/msm_mdp.h>
 
 #define MDP_HISTOGRAM_BL_SCALE_MAX 1024
 #define MDP_HISTOGRAM_BL_LEVEL_MAX 255
@@ -274,6 +275,8 @@ struct mdp3_dma {
 
 	struct mdp3_dma_cursor cursor;
 	struct mdp3_dma_color_correct_config ccs_config;
+	struct mdp_csc_cfg_data ccs_cache;
+
 	struct mdp3_dma_lut_config lut_config;
 	struct mdp3_dma_histogram_config histogram_config;
 	int histo_state;
@@ -371,6 +374,8 @@ struct mdp3_intf {
 };
 
 int mdp3_dma_init(struct mdp3_dma *dma);
+
+void mdp3_dma_pp_resume(struct mdp3_dma *dma);
 
 int mdp3_intf_init(struct mdp3_intf *intf);
 
