@@ -3073,8 +3073,8 @@ void gen8_gt_force_wake_get(struct drm_i915_private *dev_priv);
 void gen8_gt_force_wake_put(struct drm_i915_private *dev_priv);
 
 /* intel_sideband.c */
-u32 vlv_punit_read(struct drm_i915_private *dev_priv, u8 addr);
-void vlv_punit_write(struct drm_i915_private *dev_priv, u8 addr, u32 val);
+u32 vlv_punit_read(struct drm_i915_private *dev_priv, u32 addr);
+void vlv_punit_write(struct drm_i915_private *dev_priv, u32 addr, u32 val);
 u32 vlv_nc_read(struct drm_i915_private *dev_priv, u8 addr);
 u32 vlv_gpio_read(struct drm_i915_private *dev_priv, u8 core_offset, u32 reg);
 void vlv_gpio_write(struct drm_i915_private *dev_priv, u8 core_offset,
