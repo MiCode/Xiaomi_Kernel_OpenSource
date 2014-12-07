@@ -234,6 +234,25 @@ static void wcd9xxx_disable_clock_block(struct wcd9xxx_resmgr *resmgr)
 	pr_debug("%s: leave\n", __func__);
 }
 
+static void wcd9xxx_resmgr_cdc_specific_get_clk(struct wcd9xxx_resmgr *resmgr,
+						int clk_users)
+{
+	/* Caller of this funcion should have acquired
+	 *  BG_CLK lock
+	 */
+	WCD9XXX_BG_CLK_UNLOCK(resmgr);
+	if (clk_users) {
+		if (resmgr->resmgr_cb &&
+		    resmgr->resmgr_cb->cdc_rco_ctrl) {
+			while (clk_users--)
+				resmgr->resmgr_cb->cdc_rco_ctrl(resmgr->codec,
+								true);
+		}
+	}
+	/* Acquire BG_CLK lock before return */
+	WCD9XXX_BG_CLK_LOCK(resmgr);
+}
+
 void wcd9xxx_resmgr_post_ssr(struct wcd9xxx_resmgr *resmgr)
 {
 	int old_bg_audio_users, old_bg_mbhc_users;
@@ -270,9 +289,12 @@ void wcd9xxx_resmgr_post_ssr(struct wcd9xxx_resmgr *resmgr)
 			wcd9xxx_resmgr_get_clk_block(resmgr, WCD9XXX_CLK_MCLK);
 	}
 
-	if (old_clk_rco_users) {
+	if (resmgr->codec_type == WCD9XXX_CDC_TYPE_TOMTOM) {
+		wcd9xxx_resmgr_cdc_specific_get_clk(resmgr, old_clk_rco_users);
+	} else if (old_clk_rco_users) {
 		while (old_clk_rco_users--)
-			wcd9xxx_resmgr_get_clk_block(resmgr, WCD9XXX_CLK_RCO);
+			wcd9xxx_resmgr_get_clk_block(resmgr,
+					WCD9XXX_CLK_RCO);
 	}
 	WCD9XXX_BG_CLK_UNLOCK(resmgr);
 	pr_debug("%s: leave\n", __func__);
@@ -645,6 +667,8 @@ void wcd9xxx_resmgr_get_clk_block(struct wcd9xxx_resmgr *resmgr,
 			   resmgr->clk_type == WCD9XXX_CLK_RCO) {
 			/* RCO to MCLK switch, with RCO still powered on */
 			if (resmgr->codec_type == WCD9XXX_CDC_TYPE_TOMTOM) {
+				wcd9xxx_resmgr_notifier_call(resmgr,
+						WCD9XXX_EVENT_PRE_MCLK_ON);
 				snd_soc_update_bits(codec,
 						WCD9XXX_A_BIAS_CENTRAL_BG_CTL,
 						0x40, 0x00);
@@ -655,6 +679,8 @@ void wcd9xxx_resmgr_get_clk_block(struct wcd9xxx_resmgr *resmgr,
 				snd_soc_update_bits(codec,
 						WCD9XXX_A_CLK_BUFF_EN1,
 						0x08, 0x00);
+				wcd9xxx_resmgr_notifier_call(resmgr,
+						WCD9XXX_EVENT_POST_MCLK_ON);
 			} else {
 				/* if RCO is enabled, switch from it */
 				WARN_ON(!(snd_soc_read(resmgr->codec,
@@ -741,12 +767,16 @@ void wcd9xxx_resmgr_put_clk_block(struct wcd9xxx_resmgr *resmgr,
 							WCD9XXX_A_CLK_BUFF_EN1,
 							0x01, 0x00);
 				} else {
+					wcd9xxx_resmgr_notifier_call(resmgr,
+						WCD9XXX_EVENT_PRE_MCLK_OFF);
 					snd_soc_update_bits(codec,
 							WCD9XXX_A_CLK_BUFF_EN1,
 							0x08, 0x08);
 					snd_soc_update_bits(codec,
 							WCD9XXX_A_CLK_BUFF_EN1,
 							0x01, 0x00);
+					wcd9xxx_resmgr_notifier_call(resmgr,
+						WCD9XXX_EVENT_POST_MCLK_OFF);
 				}
 			} else {
 				/* disable clock */
@@ -1034,6 +1064,7 @@ int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 			struct wcd9xxx_pdata *pdata,
 			struct wcd9xxx_micbias_setting *micbias_pdata,
 			struct wcd9xxx_reg_address *reg_addr,
+			const struct wcd9xxx_resmgr_cb *resmgr_cb,
 			enum wcd9xxx_cdc_type cdc_type)
 {
 	WARN(ARRAY_SIZE(wcd9xxx_event_string) != WCD9XXX_EVENT_LAST + 1,
@@ -1048,6 +1079,7 @@ int wcd9xxx_resmgr_init(struct wcd9xxx_resmgr *resmgr,
 	resmgr->pdata = pdata;
 	resmgr->micbias_pdata = micbias_pdata;
 	resmgr->reg_addr = reg_addr;
+	resmgr->resmgr_cb = resmgr_cb;
 
 	INIT_LIST_HEAD(&resmgr->update_bit_cond_h);
 
