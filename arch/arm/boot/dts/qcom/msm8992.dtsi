@@ -2121,67 +2121,68 @@
 		sensor_information1: qcom,sensor-information@1 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor1";
-			qcom,alias-name = "cpu4";
 		};
 
 		sensor_information2: qcom,sensor-information@2 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor2";
-			qcom,alias-name = "cpu5";
+			qcom,alias-name = "pop_mem";
 		};
 
 		sensor_information3: qcom,sensor-information@3 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor3";
-			qcom,alias-name = "cpu0-1";
 		};
 
 		sensor_information4: qcom,sensor-information@4 {
 			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor5";
-			qcom,alias-name = "cpu2";
+			qcom,sensor-name = "tsens_tz_sensor4";
 		};
 
 		sensor_information5: qcom,sensor-information@5 {
 			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor6";
-			qcom,alias-name = "cpu3";
+			qcom,sensor-name = "tsens_tz_sensor5";
 		};
 
 		sensor_information6: qcom,sensor-information@6 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor7";
-			qcom,alias-name = "gpu";
+			qcom,alias-name = "cpu0-1";
 		};
 
 		sensor_information7: qcom,sensor-information@7 {
 			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor8";
+			qcom,sensor-name = "tsens_tz_sensor9";
+			qcom,alias-name = "cpu2";
 		};
 
 		sensor_information8: qcom,sensor-information@8 {
 			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor9";
+			qcom,sensor-name = "tsens_tz_sensor10";
+			qcom,alias-name = "cpu3";
 		};
 
 		sensor_information9: qcom,sensor-information@9 {
 			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor10";
+			qcom,sensor-name = "tsens_tz_sensor11";
 		};
 
 		sensor_information10: qcom,sensor-information@10 {
 			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor11";
+			qcom,sensor-name = "tsens_tz_sensor12";
+			qcom,alias-name = "gpu";
 		};
 
 		sensor_information11: qcom,sensor-information@11 {
 			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor12";
+			qcom,sensor-name = "tsens_tz_sensor13";
+			qcom,alias-name = "cpu4";
 		};
 
 		sensor_information12: qcom,sensor-information@12 {
 			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor13";
+			qcom,sensor-name = "tsens_tz_sensor14";
+			qcom,alias-name = "cpu5";
 		};
 
                 sensor_information13: qcom,sensor-information@13 {
@@ -2220,9 +2221,9 @@
 		qcom,core-control-mask = <0x3e>;
 		qcom,hotplug-temp = <105>;
 		qcom,hotplug-temp-hysteresis = <20>;
-		qcom,cpu-sensors = "tsens_tz_sensor3", "tsens_tz_sensor3",
-				   "tsens_tz_sensor5", "tsens_tz_sensor6",
-				   "tsens_tz_sensor1", "tsens_tz_sensor2";
+		qcom,cpu-sensors = "tsens_tz_sensor7", "tsens_tz_sensor7",
+				   "tsens_tz_sensor9", "tsens_tz_sensor10",
+				   "tsens_tz_sensor13", "tsens_tz_sensor14";
 		qcom,freq-mitigation-temp = <105>;
 		qcom,freq-mitigation-temp-hysteresis = <20>;
 		qcom,freq-mitigation-value = <302400>;
