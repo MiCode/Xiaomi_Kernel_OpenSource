@@ -307,7 +307,34 @@ static ssize_t mdp3_vsync_show_event(struct device *dev,
 	return rc;
 }
 
+static ssize_t mdp3_packpattern_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdp3_session_data *mdp3_session = NULL;
+	int rc;
+	u32 pattern = 0;
+
+	if (!mfd || !mfd->mdp.private1)
+		return -EAGAIN;
+
+	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
+
+	pattern = mdp3_session->dma->output_config.pack_pattern;
+
+	pr_debug("fb%d pack_pattern c= %d.", mfd->index, pattern);
+	rc = scnprintf(buf, PAGE_SIZE, "packpattern=%d \n", pattern);
+	return rc;
+}
+
 static DEVICE_ATTR(vsync_event, S_IRUGO, mdp3_vsync_show_event, NULL);
+static DEVICE_ATTR(packpattern, S_IRUGO, mdp3_packpattern_show, NULL);
+
+static struct attribute *generic_attrs[] = {
+	&dev_attr_packpattern.attr,
+	NULL,
+};
 
 static struct attribute *vsync_fs_attrs[] = {
 	&dev_attr_vsync_event.attr,
@@ -316,6 +343,10 @@ static struct attribute *vsync_fs_attrs[] = {
 
 static struct attribute_group vsync_fs_attr_group = {
 	.attrs = vsync_fs_attrs,
+};
+
+static struct attribute_group generic_attr_group = {
+	.attrs = generic_attrs,
 };
 
 static int mdp3_ctrl_clk_enable(struct msm_fb_data_type *mfd, int enable)
@@ -1932,6 +1963,11 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	rc = sysfs_create_group(&dev->kobj, &vsync_fs_attr_group);
 	if (rc) {
 		pr_err("vsync sysfs group creation failed, ret=%d\n", rc);
+		goto init_done;
+	}
+	rc = sysfs_create_group(&dev->kobj, &generic_attr_group);
+	if (rc) {
+		pr_err("generic sysfs group creation failed, ret=%d\n", rc);
 		goto init_done;
 	}
 
