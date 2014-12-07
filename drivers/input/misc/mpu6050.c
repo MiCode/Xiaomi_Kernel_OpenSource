@@ -2296,6 +2296,8 @@ static int mpu_check_chip_type(struct mpu6050_sensor *sensor,
 		sensor->chip_type = INV_MPU6500;
 	else if (!strcmp(id->name, "mpu6xxx"))
 		sensor->chip_type = INV_MPU6050;
+	else if (!strcmp(id->name, "mpu6880"))
+		sensor->chip_type = INV_MPU6050;
 	else
 		return -EPERM;
 
@@ -3031,6 +3033,7 @@ static UNIVERSAL_DEV_PM_OPS(mpu6050_pm, mpu6050_suspend, mpu6050_resume, NULL);
 
 static const struct i2c_device_id mpu6050_ids[] = {
 	{ "mpu6050", 0 },
+	{ "mpu6880", 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, mpu6050_ids);
