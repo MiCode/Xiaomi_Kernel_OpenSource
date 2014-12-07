@@ -835,7 +835,7 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 	}
 	if (rc > tx_size)
 		rc = tx_size;
-	rc = smd_write_segment(ch->smd_ch, data_start, rc, 0);
+	rc = smd_write_segment(ch->smd_ch, data_start, rc);
 	if (rc < 0) {
 		pr_err("%s: write segment failed %d\n", __func__, rc);
 		srcu_read_unlock(&einfo->ssr_sync, rcu_id);
