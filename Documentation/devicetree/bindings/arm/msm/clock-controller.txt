@@ -9,11 +9,30 @@ Minor differences between hardware revisions are handled in code by re-using
 the compatible string to indicate the revision.
 
 Required properties:
-- compatible:		Must be one of "qcom,gcc-<target>",
-			"qcom,mmsscc-<target>", "qcom,debugcc-<target>",
-			"qcom,lpasscc-<target>", "qcom,gcc-mdss-<target>"
-			or "qcom,mmsscc-mdss-<target>".
-			<target> is the name of the Qualcomm SoC.
+- compatible:		Must be one of following,
+			"qcom,gcc-8916"
+			"qcom,gcc-8936"
+			"qcom,gcc-8909"
+			"qcom,gcc-8992"
+			"qcom,gcc-8994"
+			"qcom,gcc-8994v2"
+			"qcom,rpmcc-8994"
+			"qcom,rpmcc-8992"
+			"qcom,rpmcc-8916"
+			"qcom,rpmcc-8936"
+			"qcom,rpmcc-8909"
+			"qcom,cc-debug-8916"
+			"qcom,cc-debug-8936"
+			"qcom,cc-debug-8909"
+			"qcom,cc-debug-8992"
+			"qcom,cc-debug-8994"
+			"qcom,gcc-mdss-8936"
+			"qcom,gcc-mdss-8909"
+			"qcom,gcc-mdss-8916"
+			"qcom,mmsscc-8994v2"
+			"qcom,mmsscc-8994"
+			"qcom,mmsscc-8992"
+
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Currently,
