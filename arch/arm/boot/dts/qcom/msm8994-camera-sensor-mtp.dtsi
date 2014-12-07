@@ -207,7 +207,6 @@
 		cam_vio-supply = <&pm8994_lvs1>;
 		cam_vana-supply = <&pm8994_l29>;
 		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
-		qcom,cam-vreg-type = <0 1 0>;
 		qcom,cam-vreg-min-voltage = <1200000 0 2800000>;
 		qcom,cam-vreg-max-voltage = <1200000 0 2800000>;
 		qcom,cam-vreg-op-mode = <105000 0 80000>;
@@ -237,9 +236,9 @@
 		clock-names = "cam_src_clk", "cam_clk";
 	};
 
-	eeprom2: qcom,eeprom@a0 {
-		cell-index = <0>;
-		reg = <0xa0>;
+	eeprom2: qcom,eeprom@2 {
+		cell-index = <2>;
+		reg = <2>;
 		qcom,eeprom-name = "onsemi_cat24c32";
 		compatible = "qcom,eeprom";
 		qcom,slave-addr = <0xa0>;
@@ -252,7 +251,6 @@
 
 		cam_vio-supply = <&pm8994_lvs1>;
 		qcom,cam-vreg-name = "cam_vio";
-		qcom,cam-vreg-type = <1>;
 		qcom,cam-vreg-min-voltage = <0>;
 		qcom,cam-vreg-max-voltage = <0>;
 		qcom,cam-vreg-op-mode = <0>;
