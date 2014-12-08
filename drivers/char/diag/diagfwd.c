@@ -1060,6 +1060,64 @@ int diag_check_common_cmd(struct diag_pkt_header_t *header)
 	return 0;
 }
 
+static int diag_cmd_chk_stats(unsigned char *src_buf, int src_len,
+			      unsigned char *dest_buf, int dest_len)
+{
+	int payload = 0;
+	int write_len = 0;
+	struct diag_pkt_header_t *header = NULL;
+	struct diag_cmd_stats_rsp_t rsp;
+
+	if (!src_buf || src_len < sizeof(struct diag_pkt_header_t) ||
+	    !dest_buf || dest_len < sizeof(rsp))
+		return -EINVAL;
+
+	header = (struct diag_pkt_header_t *)src_buf;
+
+	if (header->cmd_code != DIAG_CMD_DIAG_SUBSYS ||
+	    header->subsys_id != DIAG_SS_DIAG)
+		return -EINVAL;
+
+	switch (header->subsys_cmd_code) {
+	case DIAG_CMD_OP_GET_MSG_ALLOC:
+		payload = driver->msg_stats.alloc_count;
+		break;
+	case DIAG_CMD_OP_GET_MSG_DROP:
+		payload = driver->msg_stats.drop_count;
+		break;
+	case DIAG_CMD_OP_RESET_MSG_STATS:
+		diag_record_stats(DATA_TYPE_F3, PKT_RESET);
+		break;
+	case DIAG_CMD_OP_GET_LOG_ALLOC:
+		payload = driver->log_stats.alloc_count;
+		break;
+	case DIAG_CMD_OP_GET_LOG_DROP:
+		payload = driver->log_stats.drop_count;
+		break;
+	case DIAG_CMD_OP_RESET_LOG_STATS:
+		diag_record_stats(DATA_TYPE_LOG, PKT_RESET);
+		break;
+	case DIAG_CMD_OP_GET_EVENT_ALLOC:
+		payload = driver->event_stats.alloc_count;
+		break;
+	case DIAG_CMD_OP_GET_EVENT_DROP:
+		payload = driver->event_stats.drop_count;
+		break;
+	case DIAG_CMD_OP_RESET_EVENT_STATS:
+		diag_record_stats(DATA_TYPE_EVENT, PKT_RESET);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	memcpy(&rsp.header, header, sizeof(struct diag_pkt_header_t));
+	rsp.payload = payload;
+	write_len = sizeof(rsp);
+	memcpy(dest_buf, &rsp, sizeof(rsp));
+
+	return write_len;
+}
+
 int diag_process_apps_pkt(unsigned char *buf, int len)
 {
 	int i;
@@ -1216,6 +1274,12 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 			encode_rsp_and_send(13);
 			return 0;
 		}
+	}
+	write_len = diag_cmd_chk_stats(buf, len, driver->apps_rsp_buf,
+				       DIAG_MAX_RSP_SIZE);
+	if (write_len > 0) {
+		encode_rsp_and_send(write_len - 1);
+		return 0;
 	}
 #endif
 	return packet_type;
