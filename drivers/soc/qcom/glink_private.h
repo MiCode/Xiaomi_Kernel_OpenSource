@@ -604,4 +604,199 @@ void glink_get_ch_intent_info(struct channel_ctx *ch_ctx,
  */
 int glink_ssr(const char *subsystem);
 
+/**
+ * struct rwref_lock - Read/Write Reference Lock
+ *
+ * kref:	reference count
+ * read_count:	number of readers that own the lock
+ * write_count:	number of writers (max 1) that own the lock
+ * count_zero:	used for internal signaling for non-atomic locks
+ *
+ * A Read/Write Reference Lock is a combination of a read/write spinlock and a
+ * refence count.  The main difference is that no locks are held in the
+ * critical section and the lifetime of the object is guaranteed.
+ *
+ * Read Locking
+ * Multiple readers may access the lock at any given time and a read lock will
+ * also ensure that the object exists for the life of the lock.
+ *
+ * rwref_read_get()
+ *     use resource in "critical section" (no locks are held)
+ * rwref_read_put()
+ *
+ * Write Locking
+ * A single writer may access the lock at any given time and a write lock will
+ * also ensure that the object exists for the life of the lock.
+ *
+ * rwref_write_get()
+ *     use resource in "critical section" (no locks are held)
+ * rwref_write_put()
+ *
+ * Reference Lock
+ * To ensure the lifetime of the lock (and not affect the read or write lock),
+ * a simple reference can be done.  By default, rwref_lock_init() will set the
+ * reference count to 1.
+ *
+ * rwref_lock_init()  Reference count is 1
+ * rwref_get()        Reference count is 2
+ * rwref_put()        Reference count is 1
+ * rwref_put()        Reference count goes to 0 and object is destroyed
+ */
+struct rwref_lock {
+	struct kref kref;
+	unsigned read_count;
+	unsigned write_count;
+	spinlock_t lock;
+	struct completion count_zero;
+
+	void (*release)(struct rwref_lock *);
+};
+
+/**
+ * rwref_lock_release() - Initialize rwref_lock
+ * lock_ptr:	pointer to lock structure
+ */
+static inline void rwref_lock_release(struct kref *kref_ptr)
+{
+	struct rwref_lock *lock_ptr;
+
+	BUG_ON(kref_ptr == NULL);
+
+	lock_ptr = container_of(kref_ptr, struct rwref_lock, kref);
+	if (lock_ptr->release)
+		lock_ptr->release(lock_ptr);
+}
+
+/**
+ * rwref_lock_init() - Initialize rwref_lock
+ * lock_ptr:	pointer to lock structure
+ * release:	release function called when reference count goes to 0
+ */
+static inline void rwref_lock_init(struct rwref_lock *lock_ptr,
+		void (*release)(struct rwref_lock *))
+{
+	BUG_ON(lock_ptr == NULL);
+
+	kref_init(&lock_ptr->kref);
+	lock_ptr->read_count = 0;
+	lock_ptr->write_count = 0;
+	spin_lock_init(&lock_ptr->lock);
+	init_completion(&lock_ptr->count_zero);
+	lock_ptr->release = release;
+}
+
+/**
+ * rwref_get() - gains a reference count for the object
+ * lock_ptr:	pointer to lock structure
+ */
+static inline void rwref_get(struct rwref_lock *lock_ptr)
+{
+	BUG_ON(lock_ptr == NULL);
+
+	kref_get(&lock_ptr->kref);
+}
+
+/**
+ * rwref_put() - puts a reference count for the object
+ * lock_ptr:	pointer to lock structure
+ *
+ * If the reference count goes to zero, the release function is called.
+ */
+static inline void rwref_put(struct rwref_lock *lock_ptr)
+{
+	BUG_ON(lock_ptr == NULL);
+
+	kref_put(&lock_ptr->kref, rwref_lock_release);
+}
+
+/**
+ * rwref_read_get() - gains a reference count for a read operation
+ * lock_ptr:	pointer to lock structure
+ *
+ * Multiple readers may acquire the lock as long as the write count is zero.
+ */
+static inline void rwref_read_get(struct rwref_lock *lock_ptr)
+{
+	unsigned long flags;
+
+	BUG_ON(lock_ptr == NULL);
+
+	kref_get(&lock_ptr->kref);
+	while (1) {
+		spin_lock_irqsave(&lock_ptr->lock, flags);
+		if (lock_ptr->write_count == 0) {
+			lock_ptr->read_count++;
+			spin_unlock_irqrestore(&lock_ptr->lock, flags);
+			break;
+		}
+		spin_unlock_irqrestore(&lock_ptr->lock, flags);
+		wait_for_completion(&lock_ptr->count_zero);
+	}
+}
+
+/**
+ * rwref_read_put() - returns a reference count for a read operation
+ * lock_ptr:	pointer to lock structure
+ *
+ * Must be preceded by a call to rwref_read_get().
+ */
+static inline void rwref_read_put(struct rwref_lock *lock_ptr)
+{
+	unsigned long flags;
+
+	BUG_ON(lock_ptr == NULL);
+
+	spin_lock_irqsave(&lock_ptr->lock, flags);
+	BUG_ON(lock_ptr->read_count == 0);
+	if (--lock_ptr->read_count == 0)
+		complete(&lock_ptr->count_zero);
+	spin_unlock_irqrestore(&lock_ptr->lock, flags);
+	kref_put(&lock_ptr->kref, rwref_lock_release);
+}
+
+/**
+ * rwref_write_get() - gains a reference count for a write operation
+ * lock_ptr:	pointer to lock structure
+ *
+ * Only one writer may acquire the lock as long as the reader count is zero.
+ */
+static inline void rwref_write_get(struct rwref_lock *lock_ptr)
+{
+	unsigned long flags;
+
+	BUG_ON(lock_ptr == NULL);
+
+	kref_get(&lock_ptr->kref);
+	while (1) {
+		spin_lock_irqsave(&lock_ptr->lock, flags);
+		if (lock_ptr->read_count == 0 && lock_ptr->write_count == 0) {
+			lock_ptr->write_count++;
+			spin_unlock_irqrestore(&lock_ptr->lock, flags);
+			break;
+		}
+		spin_unlock_irqrestore(&lock_ptr->lock, flags);
+		wait_for_completion(&lock_ptr->count_zero);
+	}
+}
+
+/**
+ * rwref_write_put() - returns a reference count for a write operation
+ * lock_ptr:	pointer to lock structure
+ *
+ * Must be preceded by a call to rwref_write_get().
+ */
+static inline void rwref_write_put(struct rwref_lock *lock_ptr)
+{
+	unsigned long flags;
+
+	BUG_ON(lock_ptr == NULL);
+
+	spin_lock_irqsave(&lock_ptr->lock, flags);
+	BUG_ON(lock_ptr->write_count != 1);
+	if (--lock_ptr->write_count == 0)
+		complete(&lock_ptr->count_zero);
+	spin_unlock_irqrestore(&lock_ptr->lock, flags);
+	kref_put(&lock_ptr->kref, rwref_lock_release);
+}
+
 #endif /* _SOC_QCOM_GLINK_PRIVATE_H_ */
