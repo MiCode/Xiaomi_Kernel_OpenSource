@@ -294,6 +294,22 @@ Optional properties:
 				applied unconditionally.  This property can be used to add or subtract
 				static initial voltage margin from the regulator managed by the CPR
 				controller.
+- qcom,cpr-quot-offset-adjustment:	Array of integer tuples of target quotient offset adjustments to add
+				to the fused quotient offsets of each fuse corner. The elements in a tuple
+				are ordered from lowest voltage corner to highest voltage corner. Each tuple
+				must be of length defined by qcom,cpr-fuse-corners. If the qcom,cpr-fuse-version-map
+				property is specified, then qcom,cpr-quot-offset-adjustment must contain the
+				same number of tuples as qcom,cpr-fuse-version-map.  These tuples are then
+				mapped one-to-one in the order specified.  E.g. if the second
+				qcom,cpr-fuse-version-map tuple matches for a given device, then the quotient
+				offset adjustments defined in the second qcom,cpr-quot-offset-adjustment tuple
+				will be applied. If the qcom,cpr-fuse-version-map property is not specified,
+				then qcom,cpr-quot-offset-adjustment must contain a single tuple which is then
+				applied unconditionally.  If this property is specified, then the quotient
+				offset adjustment values are added to the target quotient offset values read
+				from fuses.
+				This property can be used to add or subtract static quotient offset margin from
+				the regulator managed by the CPR controller.
 - qcom,cpr-clamp-timer-interval:	The number of 64 reference clock cycle blocks to delay for whenever
 					the clamp signal, sensor mask registers or sensor bypass registers
 					change.  The CPR controller loop is disabled during this delay.
@@ -514,6 +530,25 @@ Optional properties:
 - qcom,cpr-quot-min-diff:	Integer which defines the minimum target-quotient difference between
 				the highest and (highest - 1) fuse corner to keep CPR enabled. If this
 				property is not specified a default value of 50 is used.
+- qcom,cpr-fuse-quot-offset:	Array of quadruples in which each quadruple specifies a fuse location to
+				read in order to get the quotient offset for a fuse corner. The fuse values
+				are encoded as the difference between quotients of that fuse corner and its
+				adjacent lower fuse corner divided by an unpacking multiplier.
+				At present, the multiplier is assumed to be same as that of the value defined
+				under qcom,cpr-fuse-target-quot-scale.
+				The 4 elements in one quadruple are:
+				[0]: => the fuse row number of the bits
+				[1]: => LSB bit position of the bits
+				[2]: => number of the bits
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading
+				The quadruples are ordered from the lowest fuse corner to the highest
+				fuse corner.
+				Quotient offset read from the fuse locations above can be overridden with
+				the property qcom,cpr-quot-adjust-scaling-factor-max.
+- qcom,cpr-redun-fuse-quot-offset: Array of quadruples in which each quadruple specifies a fuse location to
+				read in order to get the redundant quotient offset for a fuse corner. This
+				property is the same as qcom,cpr-fuse-quot-offset except that it is only
+				utilized if a chip is configured to use the redundant set of fuse values.
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
@@ -631,6 +666,16 @@ Example:
 				<0 1>,
 				<0 1>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <0 650 650>;
+		qcom,cpr-fuse-quot-offset =
+				<138 53 5 0>,
+				<138 53 5 0>,
+				<138 48 5 0>,
+				<138 58 5 0>;
+		qcom,cpr-fuse-redun-quot-offset =
+				<200 53 5 0>,
+				<200 53 5 0>,
+				<200 48 5 0>,
+				<200 58 5 0>;
 		qcom,cpr-fuse-init-voltage =
 				<27 36 6 0>,
 				<27 18 6 0>,
@@ -659,6 +704,8 @@ Example:
 				<0 0 (-210)>,
 				<0 0 (-60)>,
 				<0 0 (-94)>;
+		qcom,cpr-quot-offset-adjustment =
+				<0 0 (-5)>;
 		qcom,cpr-init-voltage-adjustment =
 				<0 0 (-100000)>,
 				<0 0 (-100000)>,
