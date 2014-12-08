@@ -142,8 +142,16 @@ module_param(max_clients, uint, 0);
 /* Timer variables */
 static struct timer_list drain_timer;
 static int timer_in_progress;
-void *buf_hdlc;
-static int buf_hdlc_ctxt;
+
+struct diag_apps_data_t {
+	void *buf;
+	uint32_t len;
+	int ctxt;
+};
+
+static struct diag_apps_data_t hdlc_data;
+static struct diag_apps_data_t non_hdlc_data;
+static struct mutex apps_data_mutex;
 
 #define DIAGPKT_MAX_DELAYED_RSP 0xFFFF
 
@@ -189,27 +197,30 @@ static void drain_timer_func(unsigned long data)
 	queue_work(driver->diag_wq , &(driver->diag_drain_work));
 }
 
-void diag_drain_work_fn(struct work_struct *work)
+static void diag_drain_apps_data(struct diag_apps_data_t *data)
 {
 	int err = 0;
+
+	if (!data || !data->buf)
+		return;
+
+	err = diag_mux_write(DIAG_LOCAL_PROC, data->buf, data->len,
+			     data->ctxt);
+	if (err)
+		diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
+
+	data->buf = NULL;
+	data->len = 0;
+}
+
+void diag_drain_work_fn(struct work_struct *work)
+{
 	timer_in_progress = 0;
 
-	mutex_lock(&driver->diagchar_mutex);
-	if (buf_hdlc) {
-		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
-				     buf_hdlc_ctxt);
-		if (err)
-			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
-		buf_hdlc = NULL;
-#ifdef DIAG_DEBUG
-		pr_debug("diag: Number of bytes written "
-				 "from timer is %d ", driver->used);
-#endif
-		driver->used = 0;
-	}
-
-	mutex_unlock(&driver->diagchar_mutex);
-
+	mutex_lock(&apps_data_mutex);
+	diag_drain_apps_data(&hdlc_data);
+	diag_drain_apps_data(&non_hdlc_data);
+	mutex_unlock(&apps_data_mutex);
 }
 
 void check_drain_timer(void)
@@ -846,6 +857,7 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len,
 	int max_len = 0;
 	uint8_t retry_count = 0;
 	uint8_t max_retries = 3;
+	uint16_t payload = 0;
 	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 
@@ -866,6 +878,17 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len,
 
 	if (driver->cb_buf_len != 0)
 		return -EAGAIN;
+
+	if (driver->hdlc_disabled) {
+		payload = *(uint16_t *)(buf + 2);
+		driver->cb_buf_len = payload;
+		/*
+		 * Adding 4 bytes for start (1 byte), version (1 byte) and
+		 * payload (2 bytes)
+		 */
+		memcpy(driver->cb_buf, buf + 4, payload);
+		goto send_data;
+	}
 
 	if (hdlc_flag) {
 		if (HDLC_OUT_BUF_SIZE < len) {
@@ -1583,8 +1606,203 @@ long diagchar_ioctl(struct file *filp,
 		break;
 	case DIAG_IOCTL_REGISTER_CALLBACK:
 		result = diag_ioctl_register_callback(ioarg);
+		break;
 	}
 	return result;
+}
+
+static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
+				       int pkt_type)
+{
+	int err = 0;
+	int ret = PKT_DROP;
+	struct diag_apps_data_t *data = &hdlc_data;
+	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
+	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
+	/*
+	 * The maximum encoded size of the buffer can be atmost twice the length
+	 * of the packet. Add three bytes foe footer - 16 bit CRC (2 bytes) +
+	 * delimiter (1 byte).
+	 */
+	const uint32_t max_encoded_size = ((2 * len) + 3);
+
+	if (!buf || len <= 0) {
+		pr_err("diag: In %s, invalid buf: %p len: %d\n",
+		       __func__, buf, len);
+		return -EIO;
+	}
+
+	if (DIAG_MAX_HDLC_BUF_SIZE < max_encoded_size) {
+		pr_err_ratelimited("diag: In %s, encoded data is larger %d than the buffer size %d\n",
+		       __func__, max_encoded_size, DIAG_MAX_HDLC_BUF_SIZE);
+		return -EBADMSG;
+	}
+
+	send.state = DIAG_STATE_START;
+	send.pkt = buf;
+	send.last = (void *)(buf + len - 1);
+	send.terminate = 1;
+
+	if (!data->buf)
+		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
+					  POOL_TYPE_HDLC);
+	if (!data->buf) {
+		ret = PKT_DROP;
+		goto fail_ret;
+	}
+
+	if ((DIAG_MAX_HDLC_BUF_SIZE - data->len) <= max_encoded_size) {
+		err = diag_mux_write(DIAG_LOCAL_PROC, data->buf, data->len,
+				     data->ctxt);
+		if (err) {
+			ret = -EIO;
+			goto fail_free_buf;
+		}
+		data->buf = NULL;
+		data->len = 0;
+		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
+					  POOL_TYPE_HDLC);
+		if (!data->buf) {
+			ret = PKT_DROP;
+			goto fail_ret;
+		}
+	}
+
+	enc.dest = data->buf + data->len;
+	enc.dest_last = (void *)(data->buf + data->len + max_encoded_size);
+	diag_hdlc_encode(&send, &enc);
+
+	/*
+	 * This is to check if after HDLC encoding, we are still within
+	 * the limits of aggregation buffer. If not, we write out the
+	 * current buffer and start aggregation in a newly allocated
+	 * buffer.
+	 */
+	if ((uintptr_t)enc.dest >= (uintptr_t)(data->buf +
+					       DIAG_MAX_HDLC_BUF_SIZE)) {
+		err = diag_mux_write(DIAG_LOCAL_PROC, data->buf, data->len,
+				     data->ctxt);
+		if (err) {
+			ret = -EIO;
+			goto fail_free_buf;
+		}
+		data->buf = NULL;
+		data->len = 0;
+		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
+					 POOL_TYPE_HDLC);
+		if (!data->buf) {
+			ret = PKT_DROP;
+			goto fail_ret;
+		}
+
+		enc.dest = data->buf + data->len;
+		enc.dest_last = (void *)(data->buf + data->len +
+					 max_encoded_size);
+		diag_hdlc_encode(&send, &enc);
+	}
+
+	data->len = (((uintptr_t)enc.dest - (uintptr_t)data->buf) <
+			DIAG_MAX_HDLC_BUF_SIZE) ?
+			((uintptr_t)enc.dest - (uintptr_t)data->buf) :
+			DIAG_MAX_HDLC_BUF_SIZE;
+
+	if (pkt_type == DATA_TYPE_RESPONSE) {
+		err = diag_mux_write(DIAG_LOCAL_PROC, data->buf, data->len,
+				     data->ctxt);
+		if (err) {
+			ret = -EIO;
+			goto fail_free_buf;
+		}
+		data->buf = NULL;
+		data->len = 0;
+	}
+
+	return PKT_ALLOC;
+
+fail_free_buf:
+	diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
+	data->buf = NULL;
+	data->len = 0;
+
+fail_ret:
+	return ret;
+}
+
+static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
+					   int pkt_type)
+{
+	int err = 0;
+	int ret = PKT_DROP;
+	struct diag_pkt_frame_t header;
+	struct diag_apps_data_t *data = &non_hdlc_data;
+	uint32_t write_len = 0;
+	/*
+	 * The maximum packet size, when the data is non hdlc encoded is equal
+	 * to the size of the packet frame header and the length. Add 1 for the
+	 * delimiter 0x7E at the end.
+	 */
+	const uint32_t max_pkt_size = sizeof(header) + len + 1;
+
+	if (!buf || len <= 0) {
+		pr_err("diag: In %s, invalid buf: %p len: %d\n",
+		       __func__, buf, len);
+		return -EIO;
+	}
+
+	if (!data->buf) {
+		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
+					  POOL_TYPE_HDLC);
+		if (!data->buf) {
+			ret = PKT_DROP;
+			goto fail_ret;
+		}
+	}
+
+	if ((DIAG_MAX_HDLC_BUF_SIZE - data->len) <= max_pkt_size) {
+		err = diag_mux_write(DIAG_LOCAL_PROC, data->buf, data->len,
+				     data->ctxt);
+		if (err) {
+			ret = -EIO;
+			goto fail_free_buf;
+		}
+		data->buf = NULL;
+		data->len = 0;
+		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
+					  POOL_TYPE_HDLC);
+		if (!data->buf) {
+			ret = PKT_DROP;
+			goto fail_ret;
+		}
+	}
+
+	header.start = CONTROL_CHAR;
+	header.version = 1;
+	header.length = len;
+	memcpy(data->buf, &header, sizeof(header));
+	write_len += sizeof(header);
+	memcpy(data->buf + write_len, buf, len);
+	write_len += sizeof(len);
+	*(uint8_t *)(data->buf + write_len) = CONTROL_CHAR;
+	write_len += sizeof(uint8_t);
+	data->len += write_len;
+	if (pkt_type == DATA_TYPE_RESPONSE) {
+		err = diag_mux_write(DIAG_LOCAL_PROC, data->buf, data->len,
+				     data->ctxt);
+		if (err) {
+			ret = -EIO;
+			goto fail_free_buf;
+		}
+	}
+
+	return PKT_ALLOC;
+
+fail_free_buf:
+	diagmem_free(driver, data->buf, POOL_TYPE_HDLC);
+	data->buf = NULL;
+	data->len = 0;
+
+fail_ret:
+	return ret;
 }
 
 static int diag_user_process_dci_data(const char __user *buf, int len)
@@ -1743,7 +1961,10 @@ static int diag_user_process_callback_hdlc_data(const char __user *buf, int len)
 	if (!remote_proc) {
 		wait_event_interruptible(driver->wait_q,
 					 (driver->in_busy_pktdata == 0));
-		diag_process_hdlc((void *)user_space_data, len);
+		if (driver->hdlc_disabled)
+			diag_process_non_hdlc_pkt(user_space_data, len);
+		else
+			diag_process_hdlc_pkt((void *)user_space_data, len);
 		diagmem_free(driver, user_space_data, mempool);
 		user_space_data = NULL;
 		return 0;
@@ -1820,7 +2041,14 @@ static int diag_user_process_userspace_data(const char __user *buf, int len)
 
 	/* send masks to local processor now */
 	if (!remote_proc) {
-		diag_process_hdlc((void *)(driver->user_space_data_buf), len);
+		if (driver->hdlc_disabled == 0)
+			diag_process_hdlc_pkt((void *)
+				(driver->user_space_data_buf),
+				len);
+		else
+			diag_process_non_hdlc_pkt((char *)
+				(driver->user_space_data_buf),
+				len);
 		return 0;
 	}
 
@@ -1839,29 +2067,14 @@ static int diag_user_process_userspace_data(const char __user *buf, int len)
 static int diag_user_process_apps_data(const char __user *buf, int len,
 				       int pkt_type)
 {
-	int err = 0;
 	int ret = 0;
 	int stm_size = 0;
 	const int mempool = POOL_TYPE_COPY;
 	unsigned char *user_space_data = NULL;
-	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
-	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
-	/*
-	 * The maximum encoded size of the buffer can be atmost twice the length
-	 * of the packet. Add three bytes foe footer - 16 bit CRC (2 bytes) +
-	 * delimiter (1 byte).
-	 */
-	const uint32_t max_encoded_size = ((2 * len) + 3);
 
 	if (!buf || len <= 0 || len > DIAG_MAX_RSP_SIZE) {
 		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
 				   __func__, buf, len);
-		return -EBADMSG;
-	}
-
-	if (DIAG_MAX_HDLC_BUF_SIZE < max_encoded_size) {
-		pr_err("diag: In %s, encoded data is larger %d than the buffer size %d\n",
-		       __func__, max_encoded_size, DIAG_MAX_HDLC_BUF_SIZE);
 		return -EBADMSG;
 	}
 
@@ -1884,12 +2097,14 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 		return -ENOMEM;
 	}
 
-	mutex_lock(&driver->diagchar_mutex);
-	err = copy_from_user(user_space_data, buf, len);
-	if (err) {
+	ret = copy_from_user(user_space_data, buf, len);
+	if (ret) {
 		pr_alert("diag: In %s, unable to copy data from userspace, err: %d\n",
-			 __func__, err);
-		goto fail_free_copy;
+			 __func__, ret);
+		diagmem_free(driver, user_space_data, mempool);
+		user_space_data = NULL;
+		diag_record_stats(pkt_type, PKT_DROP);
+		return -EBADMSG;
 	}
 
 	if (driver->stm_state[APPS_DATA] &&
@@ -1902,107 +2117,35 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 		}
 		diagmem_free(driver, user_space_data, mempool);
 		user_space_data = NULL;
-		mutex_unlock(&driver->diagchar_mutex);
+
 		return 0;
 	}
 
-	send.state = DIAG_STATE_START;
-	send.pkt = user_space_data;
-	send.last = (void *)(user_space_data + len - 1);
-	send.terminate = 1;
-
-	if (!buf_hdlc)
-		buf_hdlc = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
-					 POOL_TYPE_HDLC);
-	if (!buf_hdlc) {
-		ret = -ENOMEM;
-		driver->used = 0;
-		goto fail_free_copy;
+	mutex_lock(&apps_data_mutex);
+	mutex_lock(&driver->hdlc_disable_mutex);
+	if (driver->hdlc_disabled) {
+		ret = diag_process_apps_data_non_hdlc(user_space_data, len,
+						      pkt_type);
+	} else {
+		ret = diag_process_apps_data_hdlc(user_space_data, len,
+						  pkt_type);
 	}
-
-	if ((DIAG_MAX_HDLC_BUF_SIZE - driver->used) <= max_encoded_size) {
-		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
-				     buf_hdlc_ctxt);
-		if (err) {
-			ret = -EIO;
-			goto fail_free_hdlc;
-		}
-		buf_hdlc = NULL;
-		driver->used = 0;
-		buf_hdlc = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
-					 POOL_TYPE_HDLC);
-		if (!buf_hdlc) {
-			ret = -ENOMEM;
-			goto fail_free_copy;
-		}
-	}
-
-	enc.dest = buf_hdlc + driver->used;
-	enc.dest_last = (void *)(buf_hdlc + driver->used + max_encoded_size);
-	diag_hdlc_encode(&send, &enc);
-
-	/*
-	 * This is to check if after HDLC encoding, we are still within
-	 * the limits of aggregation buffer. If not, we write out the
-	 * current buffer and start aggregation in a newly allocated
-	 * buffer.
-	 */
-	if ((uintptr_t)enc.dest >= (uintptr_t)(buf_hdlc +
-					       DIAG_MAX_HDLC_BUF_SIZE)) {
-		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
-				     buf_hdlc_ctxt);
-		if (err) {
-			ret = -EIO;
-			goto fail_free_hdlc;
-		}
-		buf_hdlc = NULL;
-		driver->used = 0;
-		buf_hdlc = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
-					 POOL_TYPE_HDLC);
-		if (!buf_hdlc) {
-			ret = -ENOMEM;
-			goto fail_free_copy;
-		}
-		enc.dest = buf_hdlc + driver->used;
-		enc.dest_last = (void *)(buf_hdlc + driver->used +
-					 max_encoded_size);
-		diag_hdlc_encode(&send, &enc);
-	}
-
-	driver->used = (((uintptr_t)enc.dest - (uintptr_t)buf_hdlc) <
-						DIAG_MAX_HDLC_BUF_SIZE) ?
-			((uintptr_t)enc.dest - (uintptr_t)buf_hdlc) :
-						DIAG_MAX_HDLC_BUF_SIZE;
-	if (pkt_type == DATA_TYPE_RESPONSE) {
-		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
-				     buf_hdlc_ctxt);
-		if (err) {
-			ret = -EIO;
-			goto fail_free_hdlc;
-		}
-		buf_hdlc = NULL;
-		driver->used = 0;
-	}
+	mutex_unlock(&driver->hdlc_disable_mutex);
+	mutex_unlock(&apps_data_mutex);
 
 	diagmem_free(driver, user_space_data, mempool);
 	user_space_data = NULL;
-	diag_record_stats(pkt_type, PKT_ALLOC);
-	mutex_unlock(&driver->diagchar_mutex);
 
 	check_drain_timer();
 
-	return 0;
+	if (ret == PKT_DROP)
+		diag_record_stats(pkt_type, PKT_DROP);
+	else if (ret == PKT_ALLOC)
+		diag_record_stats(pkt_type, PKT_ALLOC);
+	else
+		return ret;
 
-fail_free_hdlc:
-	diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
-	buf_hdlc = NULL;
-	driver->used = 0;
-fail_free_copy:
-	diagmem_free(driver, user_space_data, mempool);
-	user_space_data = NULL;
-	diag_record_stats(pkt_type, PKT_DROP);
-	mutex_unlock(&driver->diagchar_mutex);
-	return ret;
+	return 0;
 }
 
 static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
@@ -2510,6 +2653,8 @@ int mask_request_validate(unsigned char mask_buf[])
 		case 0x12: /* DIAG_SUBSYS_DIAG_SERV */
 			if ((ss_cmd == 0) || (ss_cmd == 0x6) || (ss_cmd == 0x7))
 				return 1;
+			else if (ss_cmd == 0x218) /* HDLC Disabled Command*/
+				return 0;
 			break;
 		case 0x13: /* DIAG_SUBSYS_FS */
 			if ((ss_cmd == 0) || (ss_cmd == 0x1))
@@ -2619,10 +2764,10 @@ static int __init diagchar_init(void)
 		return -ENOMEM;
 	kmemleak_not_leak(driver);
 
-	driver->used = 0;
 	timer_in_progress = 0;
 	driver->delayed_rsp_id = 0;
 	driver->debug_flag = 1;
+	driver->hdlc_disabled = 0;
 	driver->dci_state = DIAG_DCI_NO_ERROR;
 	setup_timer(&drain_timer, drain_timer_func, 1234);
 	driver->poolsize = poolsize;
@@ -2650,14 +2795,30 @@ static int __init diagchar_init(void)
 	driver->in_busy_pktdata = 0;
 	driver->in_busy_dcipktdata = 0;
 	driver->rsp_buf_ctxt = SET_BUF_CTXT(APPS_DATA, SMD_CMD_TYPE, 1);
-	buf_hdlc_ctxt = SET_BUF_CTXT(APPS_DATA, SMD_DATA_TYPE, 1);
+	hdlc_data.ctxt = SET_BUF_CTXT(APPS_DATA, SMD_DATA_TYPE, 1);
+	hdlc_data.len = 0;
+	non_hdlc_data.ctxt = SET_BUF_CTXT(APPS_DATA, SMD_DATA_TYPE, 1);
+	non_hdlc_data.len = 0;
+	mutex_init(&driver->hdlc_disable_mutex);
 	mutex_init(&driver->diagchar_mutex);
 	mutex_init(&driver->delayed_rsp_mutex);
+	mutex_init(&apps_data_mutex);
 	init_waitqueue_head(&driver->wait_q);
 	init_waitqueue_head(&driver->smd_wait_q);
 	INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
 	diag_ws_init();
 	diag_stats_init();
+
+	driver->incoming_pkt.capacity = DIAG_MAX_REQ_SIZE;
+	driver->incoming_pkt.data = kzalloc(DIAG_MAX_REQ_SIZE, GFP_KERNEL);
+	if (!driver->incoming_pkt.data)
+		goto fail;
+	kmemleak_not_leak(driver->incoming_pkt.data);
+	driver->incoming_pkt.processing = 0;
+	driver->incoming_pkt.read_len = 0;
+	driver->incoming_pkt.remaining = 0;
+	driver->incoming_pkt.total_len = 0;
+
 	ret = diag_real_time_info_init();
 	if (ret)
 		goto fail;

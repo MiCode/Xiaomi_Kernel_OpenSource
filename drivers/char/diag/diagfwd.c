@@ -62,6 +62,8 @@ static uint8_t common_cmds[DIAG_NUM_COMMON_CMD] = {
 	DIAG_CMD_LOG_ON_DMND
 };
 
+static uint8_t hdlc_timer_in_progress;
+
 /* Determine if this device uses a device tree */
 #ifdef CONFIG_OF
 static int has_device_tree(void)
@@ -377,8 +379,10 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 		return 0;
 	}
 
+	mutex_lock(&driver->hdlc_disable_mutex);
+
 	if (!smd_info->encode_hdlc) {
-		/* If the data is already hdlc encoded */
+		/* If the data is already hdlc encoded*/
 		if (smd_info->buf_in_1 == buf) {
 			in_busy_ptr = &smd_info->in_busy_1;
 			ctxt = smd_info->buf_in_1_ctxt;
@@ -388,16 +392,13 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 		} else {
 			pr_err("diag: In %s, no match for in_busy_1, peripheral: %d\n",
 				__func__, smd_info->peripheral);
-			return -EIO;
+			err = -EIO;
+			goto end;
 		}
 		write_buf = buf;
 		success = 1;
-	} else {
-		/* The data is raw and needs to be hdlc encoded */
-		write_length = check_bufsize_for_encoding(smd_info, buf,
-							  total_recd);
-		if (write_length < 0)
-			return write_length;
+	} else if (driver->hdlc_disabled) {
+		/* The data is raw and and on APPS side HDLC is disabled */
 		if (smd_info->buf_in_1_raw == buf) {
 			write_buf = smd_info->buf_in_1;
 			in_busy_ptr = &smd_info->in_busy_1;
@@ -409,17 +410,50 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 		} else {
 			pr_err("diag: In %s, no match for in_busy_1, peripheral: %d\n",
 				__func__, smd_info->peripheral);
-			return -EIO;
+			err = -EIO;
+			goto end;
+		}
+
+		if (total_recd > IN_BUF_SIZE) {
+			pr_err("diag: In %s, incoming data too large, total_recd: %d\n",
+					__func__, total_recd);
+			err = -ENOMEM;
+			goto end;
+		}
+		write_length = total_recd;
+		write_buf = buf;
+		success = 1;
+	} else {
+		/* The data is raw and needs to be hdlc encoded */
+		write_length = check_bufsize_for_encoding(smd_info, buf,
+						  total_recd);
+		if (write_length < 0) {
+			mutex_unlock(&driver->hdlc_disable_mutex);
+			return write_length;
+		}
+		if (smd_info->buf_in_1_raw == buf) {
+			write_buf = smd_info->buf_in_1;
+			in_busy_ptr = &smd_info->in_busy_1;
+			ctxt = smd_info->buf_in_1_ctxt;
+		} else if (smd_info->buf_in_2_raw == buf) {
+			write_buf = smd_info->buf_in_2;
+			in_busy_ptr = &smd_info->in_busy_2;
+			ctxt = smd_info->buf_in_2_ctxt;
+		} else {
+			pr_err("diag: In %s, no match for in_busy_1, peripheral: %d\n",
+				__func__, smd_info->peripheral);
+			err = -EIO;
+			goto end;
 		}
 		success = diag_add_hdlc_encoding(smd_info, buf,
-						 total_recd, write_buf,
-						 &write_length);
+						total_recd, write_buf,
+						&write_length);
 	}
 
 	if (!success) {
 		pr_err_ratelimited("diag: smd data write unsuccessful, success: %d\n",
 				   success);
-		return 0;
+		goto end;
 	}
 
 	if (write_length > 0) {
@@ -434,7 +468,9 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 		spin_unlock_irqrestore(&smd_info->in_busy_lock, flags);
 	}
 
-	return 0;
+end:
+	mutex_unlock(&driver->hdlc_disable_mutex);
+	return err;
 }
 
 static int diag_smd_resize_buf(struct diag_smd_info *smd_info, void **buf,
@@ -711,20 +747,21 @@ void diag_read_smd_work_fn(struct work_struct *work)
 	diag_smd_send_req(smd_info);
 }
 
-void encode_rsp_and_send(int buf_length)
+static void pack_rsp_and_send(unsigned char *buf, int len)
 {
-	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
-	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
-	unsigned char *rsp_ptr = driver->encoded_rsp_buf;
-	int err, retry_count = 0;
+	int err;
+	int retry_count = 0;
+	uint32_t write_len = 0;
 	unsigned long flags;
+	unsigned char *rsp_ptr = driver->encoded_rsp_buf;
+	struct diag_pkt_frame_t header;
 
-	if (!rsp_ptr)
+	if (!rsp_ptr || !buf)
 		return;
 
-	if (buf_length > DIAG_MAX_RSP_SIZE || buf_length < 0) {
+	if (len > DIAG_MAX_RSP_SIZE || len < 0) {
 		pr_err("diag: In %s, invalid len %d, permissible len %d\n",
-		       __func__, buf_length, DIAG_MAX_RSP_SIZE);
+		       __func__, len, DIAG_MAX_RSP_SIZE);
 		return;
 	}
 
@@ -757,12 +794,81 @@ void encode_rsp_and_send(int buf_length)
 		return;
 	}
 
+	driver->rsp_buf_busy = 1;
+	header.start = CONTROL_CHAR;
+	header.version = 1;
+	header.length = len;
+	memcpy(rsp_ptr, &header, sizeof(header));
+	write_len += sizeof(header);
+	memcpy(rsp_ptr + write_len, buf, len);
+	write_len += len;
+	*(uint8_t *)(rsp_ptr + write_len) = CONTROL_CHAR;
+	write_len += sizeof(uint8_t);
+
+	err = diag_mux_write(DIAG_LOCAL_PROC, rsp_ptr, write_len,
+			     driver->rsp_buf_ctxt);
+	if (err) {
+		pr_err("diag: In %s, unable to write to mux, err: %d\n",
+		       __func__, err);
+		spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
+		driver->rsp_buf_busy = 0;
+		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
+	}
+}
+
+static void encode_rsp_and_send(unsigned char *buf, int len)
+{
+	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
+	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
+	unsigned char *rsp_ptr = driver->encoded_rsp_buf;
+	int err, retry_count = 0;
+	unsigned long flags;
+
+	if (!rsp_ptr || !buf)
+		return;
+
+	if (len > DIAG_MAX_RSP_SIZE || len < 0) {
+		pr_err("diag: In %s, invalid len %d, permissible len %d\n",
+		       __func__, len, DIAG_MAX_RSP_SIZE);
+		return;
+	}
+
+	/*
+	 * Keep trying till we get the buffer back. It should probably
+	 * take one or two iterations. When this loops till UINT_MAX, it
+	 * means we did not get a write complete for the previous
+	 * response.
+	 */
+	while (retry_count < UINT_MAX) {
+		if (!driver->rsp_buf_busy)
+			break;
+		/*
+		 * Wait for sometime and try again. The value 10000 was chosen
+		 * empirically as an optimum value for USB to complete a write
+		 */
+		usleep_range(10000, 10100);
+		retry_count++;
+
+		/*
+		 * There can be a race conditon that clears the data ready flag
+		 * for responses. Make sure we don't miss previous wakeups for
+		 * draining responses when we are in Memory Device Mode.
+		 */
+		if (driver->logging_mode == MEMORY_DEVICE_MODE)
+			chk_logging_wakeup();
+	}
+
+	if (driver->rsp_buf_busy) {
+		pr_err("diag: unable to get hold of response buffer\n");
+		return;
+	}
+
 	spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
 	driver->rsp_buf_busy = 1;
 	spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
 	send.state = DIAG_STATE_START;
-	send.pkt = driver->apps_rsp_buf;
-	send.last = (void *)(driver->apps_rsp_buf + buf_length);
+	send.pkt = buf;
+	send.last = (void *)(buf + len - 1);
 	send.terminate = 1;
 	enc.dest = rsp_ptr;
 	enc.dest_last = (void *)(rsp_ptr + DIAG_MAX_HDLC_BUF_SIZE - 1);
@@ -777,7 +883,15 @@ void encode_rsp_and_send(int buf_length)
 		driver->rsp_buf_busy = 0;
 		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
 	}
-	memset(driver->apps_rsp_buf, '\0', DIAG_MAX_RSP_SIZE);
+	memset(buf, '\0', DIAG_MAX_RSP_SIZE);
+}
+
+void diag_send_rsp(unsigned char *buf, int len)
+{
+	if (driver->hdlc_disabled)
+		pack_rsp_and_send(buf, len);
+	else
+		encode_rsp_and_send(buf, len);
 }
 
 void diag_update_pkt_buffer(unsigned char *buf, uint32_t len, int type)
@@ -1118,10 +1232,50 @@ static int diag_cmd_chk_stats(unsigned char *src_buf, int src_len,
 	return write_len;
 }
 
+static int diag_cmd_disable_hdlc(unsigned char *src_buf, int src_len,
+				 unsigned char *dest_buf, int dest_len)
+{
+	struct diag_pkt_header_t *header = NULL;
+	struct diag_cmd_hdlc_disable_rsp_t rsp;
+	int write_len = 0;
+
+	if (!src_buf || src_len < sizeof(*header) ||
+	    !dest_buf || dest_len < sizeof(rsp)) {
+		return -EIO;
+	}
+
+	header = (struct diag_pkt_header_t *)src_buf;
+	if (header->cmd_code != DIAG_CMD_DIAG_SUBSYS ||
+	    header->subsys_id != DIAG_SS_DIAG ||
+	    header->subsys_cmd_code != DIAG_CMD_OP_HDLC_DISABLE) {
+		return -EINVAL;
+	}
+
+	memcpy(&rsp.header, header, sizeof(struct diag_pkt_header_t));
+	rsp.framing_version = 1;
+	rsp.result = 0;
+	write_len = sizeof(rsp);
+	memcpy(dest_buf, &rsp, sizeof(rsp));
+
+	return write_len;
+}
+
+static void diag_send_error_rsp(unsigned char *buf, int len)
+{
+	/* -1 to accomodate the first byte 0x13 */
+	if (len > (DIAG_MAX_RSP_SIZE - 1)) {
+		pr_err("diag: cannot send err rsp, huge length: %d\n", len);
+		return;
+	}
+
+	*(uint8_t *)driver->apps_rsp_buf = DIAG_CMD_ERROR;
+	memcpy((driver->apps_rsp_buf + sizeof(uint8_t)), buf, len);
+	diag_send_rsp(driver->apps_rsp_buf, len + 1);
+}
+
 int diag_process_apps_pkt(unsigned char *buf, int len)
 {
 	int i;
-	int packet_type = 1;
 	int mask_ret;
 	int write_len = 0;
 	unsigned char *temp = NULL;
@@ -1135,7 +1289,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 	/* Check if the command is a supported mask command */
 	mask_ret = diag_process_apps_masks(buf, len);
 	if (mask_ret > 0) {
-		encode_rsp_and_send(mask_ret - 1);
+		diag_send_rsp(driver->apps_rsp_buf, mask_ret);
 		return 0;
 	}
 
@@ -1165,13 +1319,13 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		for (i = 0; i < 4; i++)
 			*(driver->apps_rsp_buf+i) = *(buf+i);
 		*(uint32_t *)(driver->apps_rsp_buf+4) = DIAG_MAX_REQ_SIZE;
-		encode_rsp_and_send(7);
+		diag_send_rsp(driver->apps_rsp_buf, 8);
 		return 0;
 	} else if ((*buf == 0x4b) && (*(buf+1) == 0x12) &&
 		(*(uint16_t *)(buf+2) == DIAG_DIAG_STM)) {
 		len = diag_process_stm_cmd(buf, driver->apps_rsp_buf);
 		if (len > 0) {
-			encode_rsp_and_send(len - 1);
+			diag_send_rsp(driver->apps_rsp_buf, len);
 			return 0;
 		}
 		return len;
@@ -1180,7 +1334,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 	else if ((cpu_is_msm8x60() || chk_apps_master()) && (*buf == 0x3A)) {
 		/* send response back */
 		driver->apps_rsp_buf[0] = *buf;
-		encode_rsp_and_send(0);
+		diag_send_rsp(driver->apps_rsp_buf, 1);
 		msleep(5000);
 		/* call download API */
 		msm_set_restart_mode(RESTART_DLOAD);
@@ -1200,7 +1354,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 			for (i = 0; i < 13; i++)
 				driver->apps_rsp_buf[i+3] = 0;
 
-			encode_rsp_and_send(15);
+			diag_send_rsp(driver->apps_rsp_buf, 16);
 			return 0;
 		}
 	}
@@ -1209,7 +1363,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		(*(buf+2) == 0x04) && (*(buf+3) == 0x0)) {
 		memcpy(driver->apps_rsp_buf, buf, 4);
 		driver->apps_rsp_buf[4] = wrap_enabled;
-		encode_rsp_and_send(4);
+		diag_send_rsp(driver->apps_rsp_buf, 5);
 		return 0;
 	}
 	/* Wrap the Delayed Rsp ID */
@@ -1218,7 +1372,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		wrap_enabled = true;
 		memcpy(driver->apps_rsp_buf, buf, 4);
 		driver->apps_rsp_buf[4] = wrap_count;
-		encode_rsp_and_send(5);
+		diag_send_rsp(driver->apps_rsp_buf, 6);
 		return 0;
 	}
 	/* Log on Demand Rsp */
@@ -1227,7 +1381,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 						   driver->apps_rsp_buf,
 						   DIAG_MAX_RSP_SIZE);
 		if (write_len > 0)
-			encode_rsp_and_send(write_len - 1);
+			diag_send_rsp(driver->apps_rsp_buf, write_len);
 		return 0;
 	}
 	/* Mobile ID Rsp */
@@ -1238,7 +1392,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 						   driver->apps_rsp_buf,
 						   DIAG_MAX_RSP_SIZE);
 		if (write_len > 0) {
-			encode_rsp_and_send(write_len - 1);
+			diag_send_rsp(driver->apps_rsp_buf, write_len - 1);
 			return 0;
 		}
 	}
@@ -1258,7 +1412,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 			for (i = 0; i < 55; i++)
 				driver->apps_rsp_buf[i] = 0;
 
-			encode_rsp_and_send(54);
+			diag_send_rsp(driver->apps_rsp_buf, 55);
 			return 0;
 		}
 		/* respond to 0x7c command */
@@ -1271,34 +1425,47 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 							 chk_config_get_id();
 			*(unsigned char *)(driver->apps_rsp_buf + 12) = '\0';
 			*(unsigned char *)(driver->apps_rsp_buf + 13) = '\0';
-			encode_rsp_and_send(13);
+			diag_send_rsp(driver->apps_rsp_buf, 14);
 			return 0;
 		}
 	}
 	write_len = diag_cmd_chk_stats(buf, len, driver->apps_rsp_buf,
 				       DIAG_MAX_RSP_SIZE);
 	if (write_len > 0) {
-		encode_rsp_and_send(write_len - 1);
+		diag_send_rsp(driver->apps_rsp_buf, write_len);
+		return 0;
+	}
+	write_len = diag_cmd_disable_hdlc(buf, len, driver->apps_rsp_buf,
+					  DIAG_MAX_RSP_SIZE);
+	if (write_len > 0) {
+		/*
+		 * This mutex lock is necessary since we need to drain all the
+		 * pending buffers from peripherals which may be HDLC encoded
+		 * before disabling HDLC encoding on Apps processor.
+		 */
+		mutex_lock(&driver->hdlc_disable_mutex);
+		diag_send_rsp(driver->apps_rsp_buf, write_len);
+		/*
+		 * Set the value of hdlc_disabled after sending the response to
+		 * the tools. This is required since the tools is expecting a
+		 * HDLC encoded reponse for this request.
+		 */
+		pr_debug("diag: In %s, disabling HDLC encoding\n",
+		       __func__);
+		driver->hdlc_disabled = 1;
+		mutex_unlock(&driver->hdlc_disable_mutex);
 		return 0;
 	}
 #endif
-	return packet_type;
+
+	/* We have now come to the end of the function. */
+	if (chk_apps_only())
+		diag_send_error_rsp(buf, len);
+
+	return 0;
 }
 
-static void diag_send_error_rsp(int len)
-{
-	/* -1 to accomodate the first byte 0x13 */
-	if (len > (DIAG_MAX_RSP_SIZE - 1)) {
-		pr_err("diag: cannot send err rsp, huge length: %d\n", len);
-		return;
-	}
-
-	*(uint8_t *)driver->apps_rsp_buf = DIAG_CMD_ERROR;
-	memcpy((driver->apps_rsp_buf + sizeof(uint8_t)), driver->hdlc_buf, len);
-	encode_rsp_and_send(len);
-}
-
-void diag_process_hdlc(void *data, unsigned len)
+void diag_process_hdlc_pkt(void *data, unsigned len)
 {
 	int err = 0;
 	int ret = 0;
@@ -1361,8 +1528,6 @@ void diag_process_hdlc(void *data, unsigned len)
 					    driver->hdlc_buf_len);
 		if (err < 0)
 			goto fail;
-		else if (err == 1 && chk_apps_only())
-			diag_send_error_rsp(driver->hdlc_buf_len);
 	} else {
 		goto end;
 	}
@@ -1510,10 +1675,175 @@ static int diagfwd_mux_close(int id, int mode)
 						flags);
 			}
 		}
+		/* Re enable HDLC encoding */
+		pr_debug("diag: In %s, re-enabling HDLC encoding\n",
+		       __func__);
+		driver->hdlc_disabled = 0;
 	}
 	queue_work(driver->diag_real_time_wq,
 		   &driver->diag_real_time_work);
 	return 0;
+}
+
+static uint8_t hdlc_reset;
+
+static void hdlc_reset_timer_start(void)
+{
+	if (!hdlc_timer_in_progress) {
+		hdlc_timer_in_progress = 1;
+		mod_timer(&driver->hdlc_reset_timer,
+			  jiffies + msecs_to_jiffies(200));
+	}
+}
+
+static void hdlc_reset_timer_func(unsigned long data)
+{
+	/* ALRK To Do */
+	pr_err("diag: In %s, re-enabling HDLC encoding\n",
+		       __func__);
+	if (hdlc_reset)
+		driver->hdlc_disabled = 0;
+}
+
+static void diag_hdlc_start_recovery(unsigned char *buf, int len)
+{
+	int i;
+	static uint32_t bad_byte_counter;
+	unsigned char *start_ptr = NULL;
+
+	hdlc_reset = 1;
+	hdlc_reset_timer_start();
+
+	for (i = 0; i < len; i++) {
+		if (buf[i] == CONTROL_CHAR && (i +
+				sizeof(struct diag_pkt_frame_t)
+				<= (len - 1))) {
+			if (buf[i+1] == 1) {
+				start_ptr = &buf[i];
+				break;
+			}
+		}
+		bad_byte_counter++;
+		if (bad_byte_counter > (DIAG_MAX_REQ_SIZE +
+				sizeof(struct diag_pkt_frame_t) + 1)) {
+			bad_byte_counter = 0;
+			pr_err("diag: In %s, re-enabling HDLC encoding\n",
+					__func__);
+			driver->hdlc_disabled = 0;
+			return;
+		}
+	}
+
+	if (start_ptr) {
+		/* Discard any partial packet reads */
+		driver->incoming_pkt.processing = 0;
+		diag_process_non_hdlc_pkt(start_ptr, len - i);
+	}
+}
+
+void diag_process_non_hdlc_pkt(unsigned char *buf, int len)
+{
+	int err = 0;
+	uint16_t pkt_len = 0;
+	uint32_t read_bytes = 0;
+	const uint32_t header_len = sizeof(struct diag_pkt_frame_t);
+	struct diag_pkt_frame_t *actual_pkt = NULL;
+	unsigned char *data_ptr = NULL;
+	struct diag_partial_pkt_t *partial_pkt = &driver->incoming_pkt;
+
+	if (!buf || len <= 0)
+		return;
+
+	if (!partial_pkt->processing)
+		goto start;
+
+	if (partial_pkt->remaining > len) {
+		if ((partial_pkt->read_len + len) > partial_pkt->capacity) {
+			pr_err("diag: Invalid length %d, %d received in %s\n",
+			       partial_pkt->read_len, len, __func__);
+			goto end;
+		}
+		memcpy(partial_pkt->data + partial_pkt->read_len, buf, len);
+		read_bytes += len;
+		buf += read_bytes;
+		partial_pkt->read_len += len;
+		partial_pkt->remaining -= len;
+	} else {
+		if ((partial_pkt->read_len + partial_pkt->remaining) >
+						partial_pkt->capacity) {
+			pr_err("diag: Invalid length during partial read %d, %d received in %s\n",
+			       partial_pkt->read_len,
+			       partial_pkt->remaining, __func__);
+			goto end;
+		}
+		memcpy(partial_pkt->data + partial_pkt->read_len, buf,
+						partial_pkt->remaining);
+		read_bytes += partial_pkt->remaining;
+		buf += read_bytes;
+		partial_pkt->read_len += partial_pkt->remaining;
+		partial_pkt->remaining = 0;
+	}
+
+	if (partial_pkt->remaining == 0) {
+		actual_pkt = (struct diag_pkt_frame_t *)(partial_pkt->data);
+		data_ptr = partial_pkt->data + header_len;
+		if (*(uint8_t *)(data_ptr + actual_pkt->length) != CONTROL_CHAR)
+			diag_hdlc_start_recovery(buf, len);
+		err = diag_process_apps_pkt(data_ptr,
+					    actual_pkt->length);
+		if (err) {
+			pr_err("diag: In %s, unable to process incoming data packet, err: %d\n",
+			       __func__, err);
+			goto end;
+		}
+		partial_pkt->read_len = 0;
+		partial_pkt->total_len = 0;
+		partial_pkt->processing = 0;
+		goto start;
+	}
+	goto end;
+
+start:
+	while (read_bytes < len) {
+		actual_pkt = (struct diag_pkt_frame_t *)buf;
+		pkt_len = actual_pkt->length;
+
+		if (actual_pkt->start != CONTROL_CHAR) {
+			diag_hdlc_start_recovery(buf, len);
+			diag_send_error_rsp(buf, len);
+			goto end;
+		}
+
+		if (pkt_len + header_len > partial_pkt->capacity) {
+			pr_err("diag: In %s, incoming data is too large for the request buffer %d\n",
+			       __func__, pkt_len);
+			diag_hdlc_start_recovery(buf, len);
+			break;
+		}
+
+		if ((pkt_len + header_len) > (len - read_bytes)) {
+			partial_pkt->read_len = len - read_bytes;
+			partial_pkt->total_len = pkt_len + header_len;
+			partial_pkt->remaining = partial_pkt->total_len -
+						 partial_pkt->read_len;
+			partial_pkt->processing = 1;
+			memcpy(partial_pkt->data, buf, partial_pkt->read_len);
+			break;
+		}
+		data_ptr = buf + header_len;
+		if (*(uint8_t *)(data_ptr + actual_pkt->length) != CONTROL_CHAR)
+			diag_hdlc_start_recovery(buf, len);
+		else
+			hdlc_reset = 0;
+		err = diag_process_apps_pkt(data_ptr,
+					    actual_pkt->length);
+		if (err)
+			break;
+		read_bytes += header_len + pkt_len + 1;
+		buf += header_len + pkt_len + 1; /* advance to next pkt */
+	}
+end:
+	return;
 }
 
 static int diagfwd_mux_read_done(unsigned char *buf, int len, int ctxt)
@@ -1521,7 +1851,11 @@ static int diagfwd_mux_read_done(unsigned char *buf, int len, int ctxt)
 	if (!buf || len <= 0)
 		return -EINVAL;
 
-	diag_process_hdlc(buf, len);
+	if (!driver->hdlc_disabled)
+		diag_process_hdlc_pkt(buf, len);
+	else
+		diag_process_non_hdlc_pkt(buf, len);
+
 	diag_mux_queue_read(ctxt);
 	return 0;
 }
@@ -2157,6 +2491,7 @@ int diagfwd_init(void)
 			      GFP_KERNEL);
 	if (!hdlc_decode)
 		goto err;
+	setup_timer(&driver->hdlc_reset_timer, hdlc_reset_timer_func, 0);
 	kmemleak_not_leak(hdlc_decode);
 	driver->encoded_rsp_len = 0;
 	driver->rsp_buf_busy = 0;

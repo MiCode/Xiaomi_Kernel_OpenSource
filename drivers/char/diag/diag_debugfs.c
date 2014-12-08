@@ -183,7 +183,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Buffering Mode on WCNSS: %d\n"
 		"Buffering Mode on SENSORS: %d\n"
 		"logging_mode: %d\n"
-		"rsp_in_busy: %d\n",
+		"rsp_in_busy: %d\n"
+		"hdlc disabled: %d\n",
 		driver->smd_data[MODEM_DATA].ch,
 		driver->smd_data[LPASS_DATA].ch,
 		driver->smd_data[WCNSS_DATA].ch,
@@ -315,7 +316,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->buffering_mode[WCNSS_DATA].mode,
 		driver->buffering_mode[SENSORS_DATA].mode,
 		driver->logging_mode,
-		driver->rsp_buf_busy);
+		driver->rsp_buf_busy,
+		driver->hdlc_disabled);
 
 #ifdef CONFIG_DIAG_OVER_USB
 	ret += scnprintf(buf+ret, buf_size-ret,

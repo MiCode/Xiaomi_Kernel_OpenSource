@@ -138,6 +138,8 @@
 #define DIAG_CMD_OP_GET_EVENT_DROP	0x2E
 #define DIAG_CMD_OP_RESET_EVENT_STATS	0x2D
 
+#define DIAG_CMD_OP_HDLC_DISABLE	0x218
+
 #define BAD_PARAM_RESPONSE_MESSAGE 20
 
 #define MODE_CMD	41
@@ -332,6 +334,27 @@ struct diag_cmd_stats_rsp_t {
 	uint32_t payload;
 };
 
+struct diag_cmd_hdlc_disable_rsp_t {
+	struct diag_pkt_header_t header;
+	uint8_t framing_version;
+	uint8_t result;
+};
+
+struct diag_pkt_frame_t {
+	uint8_t start;
+	uint8_t version;
+	uint16_t length;
+};
+
+struct diag_partial_pkt_t {
+	uint32_t total_len;
+	uint32_t read_len;
+	uint32_t remaining;
+	uint32_t capacity;
+	uint8_t processing;
+	unsigned char *data;
+} __packed;
+
 /*
  * High level structure for storing Diag masks.
  *
@@ -454,7 +477,6 @@ struct diagchar_dev {
 	unsigned int poolsize_dci;
 	unsigned int poolsize_user;
 	unsigned int debug_flag;
-	int used;
 	/* Buffers for masks */
 	struct mutex diag_cntl_mutex;
 	/* Members for Sending response */
@@ -483,12 +505,14 @@ struct diagchar_dev {
 	struct diag_pkt_stats_t event_stats;
 	/* buffer for updating mask to peripherals */
 	unsigned char *buf_feature_mask_update;
+	uint8_t hdlc_disabled;
+	struct mutex hdlc_disable_mutex;
+	struct timer_list hdlc_reset_timer;
 	struct mutex diag_hdlc_mutex;
 	unsigned char *hdlc_buf;
 	uint32_t hdlc_buf_len;
 	unsigned char *apps_rsp_buf;
-	unsigned hdlc_count;
-	unsigned hdlc_escape;
+	struct diag_partial_pkt_t incoming_pkt;
 	int in_busy_pktdata;
 	/* Variables for non real time mode */
 	int real_time_mode[DIAG_NUM_PROC];
