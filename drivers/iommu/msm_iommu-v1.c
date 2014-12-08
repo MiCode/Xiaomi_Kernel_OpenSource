@@ -1526,9 +1526,13 @@ static int msm_iommu_domain_set_attr(struct iommu_domain *domain,
 static int msm_iommu_domain_get_attr(struct iommu_domain *domain,
 				enum iommu_attr attr, void *data)
 {
+	struct msm_iommu_priv *priv = domain->priv;
 	switch (attr) {
 	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
 		__do_get_redirect(domain, data);
+		break;
+	case DOMAIN_ATTR_PT_BASE_ADDR:
+		*((phys_addr_t *)data) = virt_to_phys(priv->pt.fl_table);
 		break;
 	default:
 		return -EINVAL;
