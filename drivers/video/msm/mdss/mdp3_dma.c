@@ -574,19 +574,6 @@ static int mdp3_dmap_ccs_config(struct mdp3_dma *dma,
 	return 0;
 }
 
-/*  Invoked from ctrl_on. */
-void mdp3_dma_pp_resume(struct mdp3_dma *dma)
-{
-	/*
-	 * if dma->ccs_config.ccs_enable is set then DMA PP block was enabled
-	 * via user space IOCTL.
-	 * Then set dma->ccs_config.ccs_dirty flag
-	 * Then PP block will be reconfigured when next kickoff comes.
-	 */
-	if (dma->ccs_config.ccs_enable)
-		dma->ccs_config.ccs_dirty = true;
-}
-
 static int mdp3_dmap_lut_config(struct mdp3_dma *dma,
 			struct mdp3_dma_lut_config *config,
 			struct fb_cmap *cmap)

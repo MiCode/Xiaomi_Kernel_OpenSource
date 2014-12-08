@@ -373,8 +373,6 @@ struct mdp3_intf {
 
 int mdp3_dma_init(struct mdp3_dma *dma);
 
-void mdp3_dma_pp_resume(struct mdp3_dma *dma);
-
 int mdp3_intf_init(struct mdp3_intf *intf);
 
 void mdp3_dma_callback_enable(struct mdp3_dma *dma, int type);

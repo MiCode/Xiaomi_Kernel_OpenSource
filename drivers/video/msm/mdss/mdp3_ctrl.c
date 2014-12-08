@@ -37,8 +37,9 @@ static int mdp3_ctrl_vsync_enable(struct msm_fb_data_type *mfd, int enable);
 static int mdp3_ctrl_get_intf_type(struct msm_fb_data_type *mfd);
 static int mdp3_ctrl_lut_read(struct msm_fb_data_type *mfd,
 				struct mdp_rgb_lut_data *cfg);
-static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
+static int mdp3_ctrl_lut_config(struct msm_fb_data_type *mfd,
 				struct mdp_rgb_lut_data *cfg);
+static void mdp3_ctrl_pp_resume(struct msm_fb_data_type *mfd);
 static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd);
 
 u32 mdp_lut_inverse16[MDP_LUT_SIZE] = {
@@ -648,6 +649,7 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 
 	if (mdp3_session->intf->active) {
 		pr_debug("continuous splash screen, initialized already\n");
+		mdp3_session->status = 1;
 		goto on_error;
 	}
 
@@ -700,8 +702,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		goto on_error;
 	}
 
-	mdp3_dma_pp_resume(mdp3_session->dma);
-
 	rc = mdp3_ppp_init();
 	if (rc) {
 		pr_err("ppp init failed\n");
@@ -717,9 +717,10 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 
 	mdp3_session->first_commit = true;
 
+	mdp3_session->status = 1;
+
+	mdp3_ctrl_pp_resume(mfd);
 on_error:
-	if (!rc)
-		mdp3_session->status = 1;
 	mutex_unlock(&mdp3_session->lock);
 	return rc;
 }
@@ -1602,10 +1603,12 @@ static int mdp3_pp_ioctl(struct msm_fb_data_type *mfd,
 			ret = mdp3_ctrl_lut_read(mfd,
 						&(lut->data.rgb_lut_data));
 		else
-			ret = mdp3_ctrl_lut_update(mfd,
+			ret = mdp3_ctrl_lut_config(mfd,
 						&(lut->data.rgb_lut_data));
 		if (ret)
-			pr_err("%s: invalid rgb lut data\n", __func__);
+			pr_err("RGB LUT ioctl failed\n");
+		else
+			ret = copy_to_user(argp, &mdp_pp, sizeof(mdp_pp));
 		break;
 
 	default:
@@ -1684,6 +1687,23 @@ static int mdp3_validate_lut_data(struct fb_cmap *cmap)
 	return 0;
 }
 
+static inline int mdp3_copy_lut_buffer(struct fb_cmap *dst, struct fb_cmap *src)
+{
+	if (!dst || !src || !dst->red || !dst->blue || !dst->green ||
+		!src->red || !src->green || !src->blue) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	dst->start = src->start;
+	dst->len = src->len;
+
+	memcpy(dst->red,   src->red,   MDP_LUT_SIZE * sizeof(u16));
+	memcpy(dst->green, src->green, MDP_LUT_SIZE * sizeof(u16));
+	memcpy(dst->blue,  src->blue,  MDP_LUT_SIZE * sizeof(u16));
+	return 0;
+}
+
 static int mdp3_alloc_lut_buffer(struct platform_device *pdev, void **cmap)
 {
 	struct fb_cmap *map;
@@ -1747,7 +1767,7 @@ static void mdp3_free_lut_buffer(struct platform_device *pdev, void **cmap)
 	map = NULL;
 }
 
-static void mdp3_lut_combine_gain(struct fb_cmap *cmap, struct mdp3_dma *dma)
+static int mdp3_lut_combine_gain(struct fb_cmap *cmap, struct mdp3_dma *dma)
 {
 	int i = 0;
 	u32 r = 0, g = 0, b = 0;
@@ -1757,7 +1777,7 @@ static void mdp3_lut_combine_gain(struct fb_cmap *cmap, struct mdp3_dma *dma)
 		!dma->gc_cmap->blue || !dma->hist_cmap->red ||
 		!dma->hist_cmap->green || !dma->hist_cmap->blue) {
 		pr_err("Invalid params\n");
-		return;
+		return -EINVAL;
 	}
 
 	for (i = 1; i < MDP_LUT_SIZE; i++) {
@@ -1772,17 +1792,17 @@ static void mdp3_lut_combine_gain(struct fb_cmap *cmap, struct mdp3_dma *dma)
 		cmap->green[i] = (g >> 16) & 0xFF;
 		cmap->blue[i]  = (b >> 16) & 0xFF;
 	}
+	return 0;
 }
 
-static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
-				struct mdp_rgb_lut_data *cfg)
+/* Called from within pp_lock and session lock locked context */
+static int mdp3_ctrl_lut_update_locked(struct msm_fb_data_type *mfd,
+				struct fb_cmap *cmap)
 {
 	int rc = 0;
-	bool data_validated = false;
 	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
 	struct mdp3_dma *dma;
 	struct mdp3_dma_lut_config lut_config;
-	struct fb_cmap *cmap;
 
 	dma = mdp3_session->dma;
 
@@ -1790,6 +1810,50 @@ static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
 		pr_err("Config LUT not defined!\n");
 		return -EINVAL;
 	}
+
+	lut_config.lut_enable = 7;
+	lut_config.lut_sel = mdp3_session->lut_sel;
+	lut_config.lut_position = 1;
+	lut_config.lut_dirty = true;
+
+	if (!mdp3_session->status) {
+		pr_err("display off!\n");
+		return -EPERM;
+	}
+
+	mdp3_clk_enable(1, 0);
+	rc = dma->config_lut(dma, &lut_config, cmap);
+	mdp3_clk_enable(0, 0);
+	if (rc)
+		pr_err("mdp3_ctrl_lut_update_locked failed\n");
+
+	mdp3_session->lut_sel = (mdp3_session->lut_sel + 1) % 2;
+	return rc;
+}
+
+/* Called from within pp_lock locked context */
+static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
+				struct fb_cmap *cmap)
+{
+	int rc = 0;
+	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+
+	mutex_lock(&mdp3_session->lock);
+	rc = mdp3_ctrl_lut_update_locked(mfd, cmap);
+	mutex_unlock(&mdp3_session->lock);
+	return rc;
+}
+
+static int mdp3_ctrl_lut_config(struct msm_fb_data_type *mfd,
+				struct mdp_rgb_lut_data *cfg)
+{
+	int rc = 0;
+	bool data_validated = false;
+	struct mdp3_session_data *mdp3_session = mfd->mdp.private1;
+	struct mdp3_dma *dma;
+	struct fb_cmap *cmap;
+
+	dma = mdp3_session->dma;
 
 	if (cfg->cmap.start + cfg->cmap.len > MDP_LUT_SIZE) {
 		pr_err("Invalid arguments\n");
@@ -1856,8 +1920,11 @@ static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
 						goto exit_err;
 					}
 				}
-				memcpy(dma->gc_cmap, cmap,
-						sizeof(struct fb_cmap));
+				rc = mdp3_copy_lut_buffer(dma->gc_cmap, cmap);
+				if (rc) {
+					pr_err("Could not store GC to cache\n");
+					goto exit_err;
+				}
 			}
 			break;
 		case mdp_rgb_lut_hist:
@@ -1901,8 +1968,11 @@ static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
 						goto exit_err;
 					}
 				}
-				memcpy(dma->hist_cmap, cmap,
-						sizeof(struct fb_cmap));
+				rc = mdp3_copy_lut_buffer(dma->hist_cmap, cmap);
+				if (rc) {
+					pr_err("Could not cache Hist LUT\n");
+					goto exit_err;
+				}
 			}
 			break;
 		default:
@@ -1916,32 +1986,16 @@ static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
 	 * of each the individual LUTs need to be applied onto a single LUT
 	 * and applied in HW
 	 */
-	if (dma->lut_sts & MDP3_LUT_HIST_GC_EN)
-		mdp3_lut_combine_gain(cmap, dma);
-
-	lut_config.lut_enable = 7;
-	lut_config.lut_sel = mdp3_session->lut_sel;
-	lut_config.lut_position = 1;
-	lut_config.lut_dirty = true;
-
-	mutex_lock(&mdp3_session->lock);
-
-	if (!mdp3_session->status) {
-		pr_err("display off!\n");
-		mutex_unlock(&mdp3_session->lock);
-		rc = -EPERM;
+	if ((dma->lut_sts & MDP3_LUT_HIST_EN) &&
+		(dma->lut_sts & MDP3_LUT_GC_EN)) {
+		rc = mdp3_lut_combine_gain(cmap, dma);
+		pr_err("Combing gains failed rc = %d\n", rc);
 		goto exit_err;
 	}
 
-	mdp3_clk_enable(1, 0);
-	rc = dma->config_lut(dma, &lut_config, cmap);
-	mdp3_clk_enable(0, 0);
+	rc = mdp3_ctrl_lut_update(mfd, cmap);
 	if (rc)
-		pr_err("mdp3_ctrl_lut_update failed\n");
-
-	mdp3_session->lut_sel = (mdp3_session->lut_sel + 1) % 2;
-
-	mutex_unlock(&mdp3_session->lock);
+		pr_err("Updating LUT failed! rc = %d\n", rc);
 exit_err:
 	mutex_unlock(&mdp3_session->pp_lock);
 	mdp3_free_lut_buffer(mfd->pdev, (void **) &cmap);
@@ -1988,6 +2042,66 @@ static int mdp3_ctrl_lut_read(struct msm_fb_data_type *mfd,
 								MDP_LUT_SIZE);
 	mutex_unlock(&mdp3_session->pp_lock);
 	return rc;
+}
+
+/*  Invoked from ctrl_on with session lock locked context */
+static void mdp3_ctrl_pp_resume(struct msm_fb_data_type *mfd)
+{
+	struct mdp3_session_data *mdp3_session;
+	struct mdp3_dma *dma;
+	struct fb_cmap *cmap;
+	int rc = 0;
+
+	mdp3_session = mfd->mdp.private1;
+	dma = mdp3_session->dma;
+
+	/*
+	 * if dma->ccs_config.ccs_enable is set then DMA PP block was enabled
+	 * via user space IOCTL.
+	 * Then set dma->ccs_config.ccs_dirty flag
+	 * Then PP block will be reconfigured when next kickoff comes.
+	 */
+	if (dma->ccs_config.ccs_enable)
+		dma->ccs_config.ccs_dirty = true;
+
+	/*
+	 * If gamma correction was enabled then we program the LUT registers
+	 * with the last configuration data before suspend. If gamma correction
+	 * is not enabled then we do not program anything. The LUT from
+	 * histogram processing algorithms will program hardware based on new
+	 * frame data if they are enabled.
+	 */
+	mutex_lock(&mdp3_session->pp_lock);
+	if (dma->lut_sts & MDP3_LUT_GC_EN) {
+
+		rc = mdp3_alloc_lut_buffer(mfd->pdev, (void **)&cmap);
+		if (rc) {
+			pr_err("No memory for GC LUT, rc = %d\n", rc);
+			goto exit_err;
+		}
+
+		if (dma->lut_sts & MDP3_LUT_HIST_EN) {
+			rc = mdp3_lut_combine_gain(cmap, dma);
+			if (rc) {
+				pr_err("Combining the gain failed rc=%d\n", rc);
+				goto exit_err;
+			}
+		} else {
+			rc = mdp3_copy_lut_buffer(cmap, dma->gc_cmap);
+			if (rc) {
+				pr_err("Updating GC failed rc = %d\n", rc);
+				goto exit_err;
+			}
+		}
+
+		rc = mdp3_ctrl_lut_update_locked(mfd, cmap);
+		if (rc)
+			pr_err("GC Lut update failed rc=%d\n", rc);
+exit_err:
+		mdp3_free_lut_buffer(mfd->pdev, (void **)&cmap);
+	}
+
+	mutex_unlock(&mdp3_session->pp_lock);
 }
 
 static int mdp3_overlay_prepare(struct msm_fb_data_type *mfd,
