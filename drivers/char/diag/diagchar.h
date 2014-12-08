@@ -128,10 +128,24 @@
 #define DIAG_CMD_OP_SET_MSG_MASK	4
 #define DIAG_CMD_OP_SET_ALL_MSG_MASK	5
 
+#define DIAG_CMD_OP_GET_MSG_ALLOC       0x33
+#define DIAG_CMD_OP_GET_MSG_DROP	0x30
+#define DIAG_CMD_OP_RESET_MSG_STATS	0x2F
+#define DIAG_CMD_OP_GET_LOG_ALLOC	0x31
+#define DIAG_CMD_OP_GET_LOG_DROP	0x2C
+#define DIAG_CMD_OP_RESET_LOG_STATS	0x2B
+#define DIAG_CMD_OP_GET_EVENT_ALLOC	0x32
+#define DIAG_CMD_OP_GET_EVENT_DROP	0x2E
+#define DIAG_CMD_OP_RESET_EVENT_STATS	0x2D
+
 #define BAD_PARAM_RESPONSE_MESSAGE 20
 
 #define MODE_CMD	41
 #define RESET_ID	2
+
+#define PKT_DROP	0
+#define PKT_ALLOC	1
+#define PKT_RESET	2
 
 #define FEATURE_MASK_LEN	2
 
@@ -308,6 +322,16 @@ struct diag_request {
 };
 #endif
 
+struct diag_pkt_stats_t {
+	uint32_t alloc_count;
+	uint32_t drop_count;
+};
+
+struct diag_cmd_stats_rsp_t {
+	struct diag_pkt_header_t header;
+	uint32_t payload;
+};
+
 /*
  * High level structure for storing Diag masks.
  *
@@ -454,6 +478,9 @@ struct diagchar_dev {
 	struct mutex mode_lock;
 	unsigned char *user_space_data_buf;
 	uint8_t user_space_data_busy;
+	struct diag_pkt_stats_t msg_stats;
+	struct diag_pkt_stats_t log_stats;
+	struct diag_pkt_stats_t event_stats;
 	/* buffer for updating mask to peripherals */
 	unsigned char *buf_feature_mask_update;
 	struct mutex diag_hdlc_mutex;
@@ -536,5 +563,7 @@ void diag_cmd_remove_reg(struct diag_cmd_reg_entry_t *entry, uint8_t proc);
 void diag_cmd_remove_reg_by_pid(int pid);
 void diag_cmd_remove_reg_by_proc(int proc);
 int diag_cmd_chk_polling(struct diag_cmd_reg_entry_t *entry);
+
+void diag_record_stats(int type, int flag);
 
 #endif

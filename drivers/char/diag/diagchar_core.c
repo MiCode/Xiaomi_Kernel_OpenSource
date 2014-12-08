@@ -438,6 +438,48 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	return 0;
 }
 
+void diag_record_stats(int type, int flag)
+{
+	struct diag_pkt_stats_t *pkt_stats = NULL;
+
+	switch (type) {
+	case DATA_TYPE_EVENT:
+		pkt_stats = &driver->event_stats;
+		break;
+	case DATA_TYPE_F3:
+		pkt_stats = &driver->msg_stats;
+		break;
+	case DATA_TYPE_LOG:
+		pkt_stats = &driver->log_stats;
+		break;
+	case DATA_TYPE_RESPONSE:
+		pr_err_ratelimited("diag: In %s, dropping response. This shouldn't happen\n",
+				   __func__);
+		return;
+	default:
+		pr_err_ratelimited("diag: In %s, invalid pkt_type: %d\n",
+				   __func__, type);
+		return;
+	}
+
+	switch (flag) {
+	case PKT_ALLOC:
+		atomic_add(1, (atomic_t *)&pkt_stats->alloc_count);
+		break;
+	case PKT_DROP:
+		atomic_add(1, (atomic_t *)&pkt_stats->drop_count);
+		break;
+	case PKT_RESET:
+		atomic_set((atomic_t *)&pkt_stats->alloc_count, 0);
+		atomic_set((atomic_t *)&pkt_stats->drop_count, 0);
+		break;
+	default:
+		pr_err_ratelimited("diag: In %s, invalid flag: %d\n",
+				   __func__, flag);
+		return;
+	}
+}
+
 void diag_get_timestamp(char *time_str)
 {
 	struct timeval t;
@@ -1837,8 +1879,10 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	}
 
 	user_space_data = diagmem_alloc(driver, len, mempool);
-	if (!user_space_data)
+	if (!user_space_data) {
+		diag_record_stats(pkt_type, PKT_DROP);
 		return -ENOMEM;
+	}
 
 	mutex_lock(&driver->diagchar_mutex);
 	err = copy_from_user(user_space_data, buf, len);
@@ -1942,6 +1986,7 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 
 	diagmem_free(driver, user_space_data, mempool);
 	user_space_data = NULL;
+	diag_record_stats(pkt_type, PKT_ALLOC);
 	mutex_unlock(&driver->diagchar_mutex);
 
 	check_drain_timer();
@@ -1955,6 +2000,7 @@ fail_free_hdlc:
 fail_free_copy:
 	diagmem_free(driver, user_space_data, mempool);
 	user_space_data = NULL;
+	diag_record_stats(pkt_type, PKT_DROP);
 	mutex_unlock(&driver->diagchar_mutex);
 	return ret;
 }
@@ -2240,6 +2286,21 @@ void diag_ws_init()
 	spin_lock_init(&driver->md_ws.lock);
 
 	spin_lock_init(&driver->ws_lock);
+}
+
+static void diag_stats_init(void)
+{
+	if (!driver)
+		return;
+
+	driver->msg_stats.alloc_count = 0;
+	driver->msg_stats.drop_count = 0;
+
+	driver->log_stats.alloc_count = 0;
+	driver->log_stats.drop_count = 0;
+
+	driver->event_stats.alloc_count = 0;
+	driver->event_stats.drop_count = 0;
 }
 
 void diag_ws_on_notify()
@@ -2596,6 +2657,7 @@ static int __init diagchar_init(void)
 	init_waitqueue_head(&driver->smd_wait_q);
 	INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
 	diag_ws_init();
+	diag_stats_init();
 	ret = diag_real_time_info_init();
 	if (ret)
 		goto fail;
