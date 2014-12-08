@@ -230,6 +230,8 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 	else
 		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH,
 			LMH_GET_INTENSITY), &desc_arg);
+	/* Have memory barrier before we access the TZ data */
+	mb();
 	if (ret) {
 		pr_err("Error in SCM v%d read call. err:%d\n",
 				(is_scm_armv8()) ? 8 : 7, ret);
@@ -526,6 +528,8 @@ static int lmh_get_sensor_list(void)
 		else
 			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_LMH,
 				LMH_GET_SENSORS), &desc_arg);
+		/* Have memory barrier before we access the TZ data */
+		mb();
 		if (ret < 0) {
 			pr_err("Error in SCM v%d call. err:%d\n",
 					(is_scm_armv8()) ? 8 : 7, ret);
@@ -661,6 +665,8 @@ static int lmh_get_dev_info(void)
 				LMH_GET_PROFILES), &desc_arg);
 			size = desc_arg.ret[0];
 		}
+		/* Have memory barrier before we access the TZ data */
+		mb();
 		if (ret) {
 			pr_err("Error in SCM v%d get Profile call. err:%d\n",
 					(is_scm_armv8()) ? 8 : 7, ret);
