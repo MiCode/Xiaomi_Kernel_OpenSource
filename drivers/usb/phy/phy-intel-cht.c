@@ -27,6 +27,7 @@
 #include <linux/usb.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/hcd.h>
+#include <linux/extcon.h>
 
 #include "../host/xhci.h"
 #include "../host/xhci-intel-cap.h"
@@ -41,6 +42,15 @@
 static const char driver_name[] = "intel-cht-otg";
 
 static struct cht_otg *cht_otg_dev;
+
+static int edev_state_to_id(struct extcon_dev *evdev)
+{
+	int state;
+
+	state = extcon_get_cable_state(evdev, "USB-Host");
+
+	return !evdev->state;
+}
 
 static int cht_otg_set_id_mux(struct cht_otg *otg_dev, int id)
 {
@@ -186,7 +196,11 @@ static int cht_otg_start(struct platform_device *pdev)
 	fsm->otg = otg_dev->phy.otg;
 	mutex_init(&fsm->lock);
 
-	fsm->id = 1;
+	/* Initialize the id value from extcon dev or default 1 */
+	if (otg_dev->cable_nb.edev)
+		fsm->id = edev_state_to_id(otg_dev->cable_nb.edev);
+	else
+		fsm->id = 1;
 	otg_statemachine(fsm);
 
 	dev_dbg(&pdev->dev, "initial ID pin set to %d\n", fsm->id);
@@ -386,6 +400,25 @@ static ssize_t store_otg_id(struct device *_dev,
 }
 static DEVICE_ATTR(otg_id, S_IWUSR|S_IWGRP, NULL, store_otg_id);
 
+static int cht_handle_extcon_otg_event(struct notifier_block *nb,
+					unsigned long event, void *param)
+{
+	struct extcon_dev *edev = param;
+	int id = edev_state_to_id(edev);
+
+	if (!cht_otg_dev)
+		return NOTIFY_DONE;
+
+	dev_info(cht_otg_dev->phy.dev, "[extcon notification]: USB-Host: %s\n",
+			id ? "Disconnected" : "connected");
+
+	/* update id value and schedule fsm work to start/stop host per id */
+	cht_otg_dev->fsm.id = id;
+	schedule_work(&cht_otg_dev->fsm_work);
+
+	return NOTIFY_OK;
+}
+
 static int cht_otg_probe(struct platform_device *pdev)
 {
 	struct cht_otg *cht_otg;
@@ -433,6 +466,13 @@ static int cht_otg_probe(struct platform_device *pdev)
 	cht_otg_dev->nb.notifier_call = cht_otg_handle_notification;
 	usb_register_notifier(&cht_otg_dev->phy, &cht_otg_dev->nb);
 
+	/* Register on extcon for OTG event too */
+	cht_otg_dev->id_nb.notifier_call = cht_handle_extcon_otg_event;
+	status = extcon_register_interest(&cht_otg_dev->cable_nb, NULL,
+					"USB-Host", &cht_otg_dev->id_nb);
+	if (status)
+		dev_warn(&pdev->dev, "failed to register extcon notifier\n");
+
 	/* init otg-fsm */
 	status = cht_otg_start(pdev);
 	if (status) {
@@ -466,6 +506,7 @@ err3:
 	device_remove_file(&pdev->dev, &dev_attr_cht_otg_state);
 err2:
 	cht_otg_stop(pdev);
+	extcon_unregister_interest(&cht_otg_dev->cable_nb);
 	usb_remove_phy(&cht_otg_dev->phy);
 err1:
 	kfree(cht_otg->phy.otg);
@@ -480,6 +521,7 @@ static int cht_otg_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_cht_otg_state);
 
 	cht_otg_stop(pdev);
+	extcon_unregister_interest(&cht_otg_dev->cable_nb);
 	usb_remove_phy(&cht_otg_dev->phy);
 
 	kfree(cht_otg_dev->phy.otg);

@@ -25,6 +25,8 @@ struct cht_otg {
 	struct usb_phy phy;
 	struct otg_fsm fsm;
 	struct notifier_block nb;
+	struct extcon_specific_cable_nb cable_nb;
+	struct notifier_block id_nb;
 	struct work_struct fsm_work;
 	void __iomem *regs;
 };
