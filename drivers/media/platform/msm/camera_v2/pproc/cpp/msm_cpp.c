@@ -1797,21 +1797,19 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
 {
 	struct msm_cpp_frame_info_t *frame = NULL;
-	struct msm_cpp_frame_info_t *u_frame_info =
-	  (struct msm_cpp_frame_info_t *)ioctl_ptr->ioctl_ptr;
 	int32_t rc = 0;
 
 	frame = msm_cpp_get_frame(ioctl_ptr);
 	if (!frame) {
 		pr_err("%s: Error allocating frame\n", __func__);
-		rc = -EINVAL;
+		return -ENOMEM;
 	} else {
 		rc = msm_cpp_cfg_frame(cpp_dev, frame);
 	}
 
 	ioctl_ptr->trans_code = rc;
 
-	if (copy_to_user((void __user *)u_frame_info->status, &rc,
+	if (copy_to_user((void __user *)frame->status, &rc,
 		sizeof(int32_t)))
 		pr_err("error cannot copy error\n");
 
@@ -2460,6 +2458,7 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 
 	/* Convert the 32 bit pointer to 64 bit pointer */
 	new_frame->cookie = compat_ptr(new_frame32->cookie);
+	new_frame->status = compat_ptr(new_frame32->status);
 	cpp_cmd_msg_64bit = compat_ptr(new_frame32->cpp_cmd_msg);
 	if ((new_frame->msg_len == 0) ||
 		(new_frame->msg_len > MSM_CPP_MAX_FRAME_LENGTH)) {
@@ -2594,7 +2593,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 			rc = msm_cpp_cfg_frame(cpp_dev, cpp_frame);
 		else {
 			pr_err("%s: Error getting frame\n", __func__);
-			rc = -EINVAL;
+			return -ENOMEM;
 		}
 
 		kp_ioctl.trans_code = rc;
@@ -2602,7 +2601,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		/* Convert the 32 bit pointer to 64 bit pointer */
 		status = compat_ptr(u32_frame_info->status);
 
-		if (copy_to_user((void __user *)status, &rc,
+		if (copy_to_user((void __user *)cpp_frame->status, &rc,
 			sizeof(int32_t)))
 			pr_err("error cannot copy error\n");
 
