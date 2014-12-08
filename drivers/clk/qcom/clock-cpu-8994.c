@@ -1458,8 +1458,6 @@ static void init_v2_data(void)
 	a57_div_clk.data.min_div = 8;
 	a57_div_clk.data.max_div = 8;
 	a57_div_clk.data.div = 8;
-	a53_clk.hw_low_power_ctrl = true;
-	a57_clk.hw_low_power_ctrl = true;
 	a57_pll0.no_prepared_reconfig = true;
 	a57_pll1.no_prepared_reconfig = true;
 	a53_pll0.no_prepared_reconfig = true;
