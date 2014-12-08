@@ -384,7 +384,6 @@ struct intel_pipe_wm {
 
 struct intel_mmio_flip {
 	struct drm_i915_gem_request *req;
-	u32 ring_id;
 };
 
 struct intel_disp_reg {

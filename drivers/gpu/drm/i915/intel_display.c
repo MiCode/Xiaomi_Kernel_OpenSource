@@ -10437,7 +10437,7 @@ void intel_notify_mmio_flip(struct intel_engine_cs *ring)
 		if (mmio_flip->req == NULL)
 			continue;
 
-		if (ring->id != mmio_flip->ring_id)
+		if (i915_gem_request_get_ring(mmio_flip->req) != ring)
 			continue;
 
 		if (i915_seqno_passed(seqno, i915_gem_request_get_seqno(mmio_flip->req))) {
@@ -10476,7 +10476,6 @@ static int intel_queue_mmio_flip(struct drm_device *dev,
 	spin_lock_irqsave(&dev_priv->mmio_flip_lock, irq_flags);
 	i915_gem_request_assign(&intel_crtc->mmio_flip.req,
 				obj->last_write_req);
-	intel_crtc->mmio_flip.ring_id = obj->ring->id;
 	spin_unlock_irqrestore(&dev_priv->mmio_flip_lock, irq_flags);
 
 	/*
