@@ -797,10 +797,6 @@ void intel_init_drrs_idleness_detection(struct drm_device *dev,
 	dev_priv->drrs.drrs_work = work;
 }
 
-#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
-
-static struct drm_device *gdev;
-
 /* Check for current runtime state */
 bool i915_is_device_active(struct drm_device *drm_dev)
 {
@@ -841,6 +837,10 @@ bool i915_is_device_suspending(struct drm_device *drm_dev)
 	else
 		return false;
 }
+
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+
+static struct drm_device *gdev;
 
 /* HDMI Audio HAD and Display interfaces */
 bool ospm_power_is_hw_on(int hw_islands)

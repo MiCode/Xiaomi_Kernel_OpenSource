@@ -2099,12 +2099,6 @@ i915_gem_shrink(struct drm_i915_private *dev_priv,
 	if (flags & I915_SHRINK_BOUND) {
 		struct list_head still_in_list;
 
-	/*
-	 * Making sure device is resumed with rpm get, since fence registers
-	 * are accessed for bound_list.
-	 */
-	intel_runtime_pm_get(dev_priv);
-
 		INIT_LIST_HEAD(&still_in_list);
 		while (count < target && !list_empty(&dev_priv->mm.bound_list)) {
 			struct drm_i915_gem_object *obj;
@@ -2115,6 +2109,16 @@ i915_gem_shrink(struct drm_i915_private *dev_priv,
 			list_move_tail(&obj->global_list, &still_in_list);
 
 			if (!i915_gem_object_is_purgeable(obj) && purgeable_only)
+				continue;
+
+			/*
+			 * Skip the unbinding of objects, possessing a fence
+			 * register, if the device in the suspended state.
+			 * Otherwise device has to be resumed before an access
+			 * is made to the fence register on unbinding.
+			 */
+			if (i915_is_device_suspended(dev_priv->dev) &&
+			    (obj->fence_reg != I915_FENCE_REG_NONE))
 				continue;
 
 			drm_gem_object_reference(&obj->base);
@@ -2129,8 +2133,6 @@ i915_gem_shrink(struct drm_i915_private *dev_priv,
 			drm_gem_object_unreference(&obj->base);
 		}
 		list_splice(&still_in_list, &dev_priv->mm.bound_list);
-	intel_runtime_pm_put(dev_priv);
-
 	}
 
 	return count;

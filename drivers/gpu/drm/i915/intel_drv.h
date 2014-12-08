@@ -1149,6 +1149,7 @@ void intel_update_drrs(struct drm_device *dev);
 void intel_disable_drrs(struct drm_device *dev);
 extern void vlv_modify_rc6_promotion_timer(struct drm_i915_private *dev_priv,
 					    bool media_active);
+bool i915_is_device_suspended(struct drm_device *drm_dev);
 
 /* intel_sdvo.c */
 bool intel_sdvo_init(struct drm_device *dev, uint32_t sdvo_reg, bool is_sdvob);
