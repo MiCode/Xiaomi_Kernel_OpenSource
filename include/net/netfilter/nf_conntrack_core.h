@@ -86,4 +86,9 @@ extern spinlock_t nf_conntrack_locks[CONNTRACK_LOCKS];
 
 extern spinlock_t nf_conntrack_expect_lock;
 
+struct sip_list {
+	struct nf_queue_entry *entry;
+	struct list_head list;
+};
+
 #endif /* _NF_CONNTRACK_CORE_H */
