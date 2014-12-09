@@ -262,6 +262,7 @@ struct bq24192_chip {
 	int batt_status;
 	int bat_health;
 	int cntl_state;
+	int cntl_state_max;
 	int irq;
 	bool is_charger_enabled;
 	bool is_charging_enabled;
@@ -1254,6 +1255,7 @@ static inline int bq24192_enable_charger(
 {
 	int ret = 0;
 
+#ifndef CONFIG_RAW_CC_THROTTLE
 	/*stop charger for throttle state 3, by putting it in HiZ mode*/
 	if (chip->cntl_state == 0x3) {
 		ret = bq24192_reg_read_modify(chip->client,
@@ -1266,6 +1268,13 @@ static inline int bq24192_enable_charger(
 		else
 			ret = bq24192_enable_charging(chip, val);
 	}
+#else
+	if (val)
+		ret = bq24192_reg_read_modify(chip->client,
+			BQ24192_INPUT_SRC_CNTL_REG,
+				INPUT_SRC_CNTL_EN_HIZ, false);
+#endif
+
 
 	dev_warn(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, val);
 
@@ -1446,8 +1455,14 @@ static int bq24192_usb_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_MIN_TEMP:
 		chip->min_temp = val->intval;
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
+		chip->cntl_state_max = val->intval;
+		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
-		chip->cntl_state = val->intval;
+		if (val->intval < chip->cntl_state_max)
+			chip->cntl_state = val->intval;
+		else
+			ret = -EINVAL;
 		break;
 	default:
 		ret = -ENODATA;
@@ -1512,11 +1527,11 @@ static int bq24192_usb_get_property(struct power_supply *psy,
 		val->intval = (bq24192_get_charger_health() ==
 				POWER_SUPPLY_HEALTH_GOOD);
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
+		val->intval = chip->cntl_state_max;
+		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
 		val->intval = chip->cntl_state;
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
-		val->intval = chip->pdata->num_throttle_states;
 		break;
 	case POWER_SUPPLY_PROP_MAX_TEMP:
 		val->intval = chip->max_temp;
@@ -1680,12 +1695,18 @@ static void bq24192_task_worker(struct work_struct *work)
 		goto sched_task_work;
 	}
 
+#ifndef CONFIG_RAW_CC_THROTTLE
 	if (!(chip->cntl_state == 0x3)) {
 		/* Clear the charger from Hi-Z */
 		ret = bq24192_clear_hiz(chip);
 		if (ret < 0)
 			dev_warn(&chip->client->dev, "HiZ clear failed:\n");
 	}
+#else
+	ret = bq24192_clear_hiz(chip);
+	if (ret < 0)
+		dev_warn(&chip->client->dev, "HiZ clear failed:\n");
+#endif
 
 	/* Modify the VINDPM */
 
