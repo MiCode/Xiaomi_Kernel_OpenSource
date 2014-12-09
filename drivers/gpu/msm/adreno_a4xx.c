@@ -596,8 +596,10 @@ static void a4xx_enable_hwcg(struct kgsl_device *device)
 	 * Disabling HW clock gating + NAP enabled combination has
 	 * minimal power impact. So this option is chosen over disabling
 	 * SP/TP power collapse.
+	 * Revisions of A430 which chipid 2 and above do not have the issue.
 	 */
-	if (adreno_is_a430(adreno_dev))
+	if (adreno_is_a430(adreno_dev) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) < 2))
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0);
 	else
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0xAAAAAAAA);
