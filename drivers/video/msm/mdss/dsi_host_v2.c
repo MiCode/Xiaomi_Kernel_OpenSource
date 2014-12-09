@@ -653,14 +653,25 @@ int msm_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	return rc;
 }
 
+/* MIPI_DSI_MRPS, Maximum Return Packet Size */
+static char max_pktsize[2] = {0x00, 0x00}; /* LSB tx first, 10 bytes */
+
+static struct dsi_cmd_desc pkt_size_cmd = {
+	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0, sizeof(max_pktsize)},
+	max_pktsize,
+};
+
 int msm_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_buf *rp, int rlen)
 {
-	u32 *lp, data;
-	int i, off, cnt;
+	u32 *lp, data, *temp;
+	int i, j = 0, off, cnt;
 	unsigned char *ctrl_base = dsi_host_private->dsi_base;
+	char reg[16];
+	int repeated_bytes = 0;
 
 	lp = (u32 *)rp->data;
+	temp = (u32 *)reg;
 	cnt = rlen;
 	cnt += 3;
 	cnt >>= 2;
@@ -668,16 +679,52 @@ int msm_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (cnt > 4)
 		cnt = 4; /* 4 x 32 bits registers only */
 
+	if (rlen == 4)
+		rp->read_cnt = 4;
+	else
+		rp->read_cnt = (max_pktsize[0] + 6);
+
+	if (rp->read_cnt > 16) {
+		int bytes_shifted, data_lost = 0, rem_header_bytes = 0;
+		/* Any data more than 16 bytes will be shifted out */
+		bytes_shifted = rp->read_cnt - rlen;
+		if (bytes_shifted >= 4)
+			data_lost = bytes_shifted - 4; /* remove dcs header */
+		else
+			rem_header_bytes = 4 - bytes_shifted; /* rem header */
+		/*
+		 * (rp->len - 4) -> current rx buffer data length.
+		 * If data_lost > 0, then ((rp->len - 4) - data_lost) will be
+		 * the number of repeating bytes.
+		 * If data_lost == 0, then ((rp->len - 4) + rem_header_bytes)
+		 * will be the number of bytes repeating in between rx buffer
+		 * and the current RDBK_DATA registers. We need to skip the
+		 * repeating bytes.
+		 */
+		repeated_bytes = (rp->len - 4) - data_lost + rem_header_bytes;
+	}
+
 	off = DSI_RDBK_DATA0;
 	off += ((cnt - 1) * 4);
 
 	for (i = 0; i < cnt; i++) {
 		data = (u32)MIPI_INP(ctrl_base + off);
-		*lp++ = ntohl(data); /* to network byte order */
+		/* to network byte order */
+		if (!repeated_bytes)
+			*lp++ = ntohl(data);
+		else
+			*temp++ = ntohl(data);
 		pr_debug("%s: data = 0x%x and ntohl(data) = 0x%x\n",
 					 __func__, data, ntohl(data));
 		off -= 4;
-		rp->len += sizeof(*lp);
+		if (rlen == 4)
+			rp->len += sizeof(*lp);
+	}
+
+	/* Skip duplicates and append other data to the rx buffer */
+	if (repeated_bytes) {
+		for (i = repeated_bytes; i < 16; i++)
+			rp->data[j++] = reg[i];
 	}
 
 	return rlen;
@@ -769,14 +816,6 @@ static int msm_dsi_parse_rx_response(struct dsi_buf *rp)
 	return rc;
 }
 
-/* MIPI_DSI_MRPS, Maximum Return Packet Size */
-static char max_pktsize[2] = {0x00, 0x00}; /* LSB tx first, 10 bytes */
-
-static struct dsi_cmd_desc pkt_size_cmd = {
-	{DTYPE_MAX_PKTSIZE, 1, 0, 0, 0, sizeof(max_pktsize)},
-	max_pktsize,
-};
-
 static int msm_dsi_set_max_packet_size(struct mdss_dsi_ctrl_pdata *ctrl,
 						int size)
 {
@@ -814,10 +853,23 @@ static int msm_dsi_cmds_rx_1(struct mdss_dsi_ctrl_pdata *ctrl,
 {
 	int rc;
 	struct dsi_buf *tp, *rp;
+	int rx_byte = 0;
+
+	if (rlen <= 2)
+		rx_byte = 4;
+	else
+		rx_byte = DSI_MAX_BYTES_TO_READ;
 
 	tp = &ctrl->tx_buf;
 	rp = &ctrl->rx_buf;
 	mdss_dsi_buf_init(rp);
+	rc = msm_dsi_set_max_packet_size(ctrl, rlen);
+	if (rc) {
+		pr_err("%s: dsi_set_max_pkt failed\n", __func__);
+		rc = -EINVAL;
+		goto dsi_cmds_rx_1_error;
+	}
+
 	mdss_dsi_buf_init(tp);
 
 	rc = mdss_dsi_cmd_dma_add(tp, cmds);
@@ -840,10 +892,12 @@ static int msm_dsi_cmds_rx_1(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 
 	if (rlen <= DSI_SHORT_PKT_DATA_SIZE) {
-		msm_dsi_cmd_dma_rx(ctrl, rp, rlen);
+		msm_dsi_cmd_dma_rx(ctrl, rp, rx_byte);
 	} else {
-		msm_dsi_cmd_dma_rx(ctrl, rp, rlen + DSI_HOST_HDR_SIZE);
-		rp->len = rlen + DSI_HOST_HDR_SIZE;
+		msm_dsi_cmd_dma_rx(ctrl, rp, rx_byte);
+		rp->len = rx_byte - 2;	/*2 bytes for CRC*/
+		rp->len = rp->len - (DSI_MAX_PKT_SIZE - rlen);
+		rp->data = rp->start + (16 - (rlen + 2 + DSI_HOST_HDR_SIZE));
 	}
 	rc = msm_dsi_parse_rx_response(rp);
 
@@ -860,16 +914,15 @@ static int msm_dsi_cmds_rx_2(struct mdss_dsi_ctrl_pdata *ctrl,
 {
 	int rc;
 	struct dsi_buf *tp, *rp;
-	int pkt_size, data_bytes, total;
+	int pkt_size, data_bytes, dlen, end = 0, diff;
 
 	tp = &ctrl->tx_buf;
 	rp = &ctrl->rx_buf;
 	mdss_dsi_buf_init(rp);
 	pkt_size = DSI_MAX_PKT_SIZE;
 	data_bytes = MDSS_DSI_LEN;
-	total = 0;
 
-	while (true) {
+	while (!end) {
 		rc = msm_dsi_set_max_packet_size(ctrl, pkt_size);
 		if (rc)
 			break;
@@ -880,7 +933,7 @@ static int msm_dsi_cmds_rx_2(struct mdss_dsi_ctrl_pdata *ctrl,
 			pr_err("%s: dsi_cmd_dma_add failed\n", __func__);
 			rc = -EINVAL;
 			break;
-	}
+		}
 		rc = msm_dsi_wait4video_eng_busy(ctrl);
 		if (rc) {
 			pr_err("%s: wait4video_eng failed\n", __func__);
@@ -894,19 +947,32 @@ static int msm_dsi_cmds_rx_2(struct mdss_dsi_ctrl_pdata *ctrl,
 		}
 
 		msm_dsi_cmd_dma_rx(ctrl, rp, DSI_MAX_BYTES_TO_READ);
+		if (rlen <= data_bytes) {
+			diff = data_bytes - rlen;
+			end = 1;
+		} else {
+			diff = 0;
+			rlen -= data_bytes;
+		}
+		dlen = DSI_MAX_BYTES_TO_READ - 2;
+		dlen -= diff;
+		rp->data += dlen;
+		rp->len += dlen;
 
-		rp->data += DSI_MAX_BYTES_TO_READ - DSI_HOST_HDR_SIZE;
-		total += data_bytes;
-		if (total >= rlen)
-			break;
-
-		data_bytes = DSI_MAX_BYTES_TO_READ - DSI_HOST_HDR_SIZE;
-		pkt_size += data_bytes;
+		if (!end) {
+			data_bytes = 14;
+			if (rlen < data_bytes)
+				pkt_size += rlen;
+			else
+				pkt_size += data_bytes;
+		}
+		pr_debug("%s: rp data=%x len=%d dlen=%d diff=%d\n",
+			 __func__, (int) (unsigned long) rp->data,
+			 rp->len, dlen, diff);
 	}
 
 	if (!rc) {
 		rp->data = rp->start;
-		rp->len = rlen + DSI_HOST_HDR_SIZE;
 		rc = msm_dsi_parse_rx_response(rp);
 	}
 
