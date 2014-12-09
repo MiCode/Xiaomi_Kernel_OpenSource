@@ -503,6 +503,25 @@ void kgsl_context_dump(struct kgsl_context *context)
 }
 EXPORT_SYMBOL(kgsl_context_dump);
 
+/* Allocate a new context ID */
+int _kgsl_get_context_id(struct kgsl_device *device,
+		struct kgsl_context *context)
+{
+	int id;
+
+	idr_preload(GFP_KERNEL);
+	write_lock(&device->context_lock);
+	id = idr_alloc(&device->context_idr, context, 1,
+		KGSL_MEMSTORE_MAX, GFP_NOWAIT);
+	write_unlock(&device->context_lock);
+	idr_preload_end();
+
+	if (id > 0)
+		context->id = id;
+
+	return id;
+}
+
 /**
  * kgsl_context_init() - helper to initialize kgsl_context members
  * @dev_priv: the owner of the context
@@ -519,28 +538,31 @@ EXPORT_SYMBOL(kgsl_context_dump);
 int kgsl_context_init(struct kgsl_device_private *dev_priv,
 			struct kgsl_context *context)
 {
-	int ret = 0, id;
 	struct kgsl_device *device = dev_priv->device;
 	char name[64];
+	int ret = 0, id;
 
-	idr_preload(GFP_KERNEL);
-	write_lock(&device->context_lock);
-	id = idr_alloc(&device->context_idr, context, 1, 0, GFP_NOWAIT);
-	context->id = id;
-	write_unlock(&device->context_lock);
-	idr_preload_end();
-	if (id < 0) {
-		ret = id;
-		goto fail;
+	id = _kgsl_get_context_id(device, context);
+	if (id == -ENOSPC) {
+		/*
+		 * Before declaring that there are no contexts left try
+		 * flushing the event workqueue just in case there are
+		 * detached contexts waiting to finish
+		 */
+
+		mutex_unlock(&device->mutex);
+		flush_workqueue(device->events_wq);
+		mutex_lock(&device->mutex);
+		id = _kgsl_get_context_id(device, context);
 	}
 
-	/* MAX - 1, there is one memdesc in memstore for device info */
-	if (id >= KGSL_MEMSTORE_MAX) {
-		KGSL_DRV_INFO(device, "cannot have more than %zu "
-				"ctxts due to memstore limitation\n",
+	if (id < 0) {
+		if (id == -ENOSPC)
+			KGSL_DRV_INFO(device,
+				"cannot have more than %zu contexts due to memstore limitation\n",
 				KGSL_MEMSTORE_MAX);
-		ret = -ENOSPC;
-		goto fail_free_id;
+
+		return id;
 	}
 
 	kref_init(&context->refcount);
@@ -551,7 +573,7 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	 */
 	if (!kgsl_process_private_get(dev_priv->process_priv)) {
 		ret = -EBADF;
-		goto fail_free_id;
+		goto out;
 	}
 	context->device = dev_priv->device;
 	context->dev_priv = dev_priv;
@@ -560,18 +582,19 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 
 	ret = kgsl_sync_timeline_create(context);
 	if (ret)
-		goto fail_free_id;
+		goto out;
 
 	snprintf(name, sizeof(name), "context-%d", id);
 	kgsl_add_event_group(&context->events, context, name,
 		kgsl_readtimestamp, context);
 
-	return 0;
-fail_free_id:
-	write_lock(&device->context_lock);
-	idr_remove(&dev_priv->device->context_idr, id);
-	write_unlock(&device->context_lock);
-fail:
+out:
+	if (ret) {
+		write_lock(&device->context_lock);
+		idr_remove(&dev_priv->device->context_idr, id);
+		write_unlock(&device->context_lock);
+	}
+
 	return ret;
 }
 EXPORT_SYMBOL(kgsl_context_init);
