@@ -329,8 +329,8 @@
 };
 
 &pmx_mdss {
-	qcom,num-grp-pins = <3>;
-	qcom,pins = <&gp 97>, <&gp 25>, <&gp 37>;
+	qcom,num-grp-pins = <2>;
+	qcom,pins = <&gp 25>, <&gp 37>;
 };
 
 &pmx_mdss_te {
@@ -344,7 +344,6 @@
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
-	qcom,platform-enable-gpio = <&msm_gpio 97 0>;
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 	qcom,platform-bklight-en-gpio = <&msm_gpio 37 0>;
 };
