@@ -1,0 +1,75 @@
+Binding for RGB LEDs connected to AW2013.
+
+AWINIC AW2013 RGB LED driver is used to provide red/green/blue
+led blink or glowing to notify user for different system events,
+such as missed call, new sms, low battery. AW2013 RGB LED is
+connected through I2C.
+
+Required properties:
+ - compatible		: should be compatible = "awinic,aw2013"
+ - reg			: i2c slave address of the device
+ - vdd-supply		: Power supply needed to power up the device
+ - vcc-supply		: Power source required to power up i2c bus
+
+LED required sub-node properties:
+ - aw2013,name		: name of the LED
+ - aw2013,id		: id of the LED
+ - aw2013,max-brightness: max brightness set of the LED
+ - aw2013,max-current	: max current set of the LED
+ - aw2013,rise-time-ms	: the rise time when led in breathe mode
+ - aw2013,hold-time-ms	: the hold time when led in breathe mode
+ - aw2013,fall-time-ms	: the fall time when led in breathe mode
+ - aw2013,off-time-ms	: the off time when led in breathe mode
+			The definition of each time described as
+			shown in figure:
+
+			         /-----------\
+			        /      |      \
+			       /|      |      |\
+			      / |      |      | \-----------
+			        |hold_time_ms |      |
+			        |             |      |
+			  rise_time_ms  fall_time_ms |
+			                        off_time_ms
+
+Example:
+
+	aw2013@45 {
+		compatible = "awinic,aw2013";
+		reg = <0x45>;
+		vdd-supply = <&pm8909_l17>;
+		vcc-supply = <&pm8909_l6>;
+
+		aw2013,red {
+			aw2013,name = "red";
+			aw2013,id = <0>;
+			aw2013,max-brightness = <255>;
+			aw2013,max-current = <1>;
+			aw2013,rise-time-ms = <2>;
+			aw2013,hold-time-ms = <1>;
+			aw2013,fall-time-ms = <2>;
+			aw2013,off-time-ms = <1>;
+		};
+
+		aw2013,green {
+			aw2013,name = "green";
+			aw2013,id = <1>;
+			aw2013,max-brightness = <255>;
+			aw2013,max-current = <1>;
+			aw2013,rise-time-ms = <2>;
+			aw2013,hold-time-ms = <1>;
+			aw2013,fall-time-ms = <2>;
+			aw2013,off-time-ms = <1>;
+		};
+
+		aw2013,blue {
+			aw2013,name = "blue";
+			aw2013,id = <2>;
+			aw2013,max-brightness = <255>;
+			aw2013,max-current = <1>;
+			aw2013,rise-time-ms = <2>;
+			aw2013,hold-time-ms = <1>;
+			aw2013,fall-time-ms = <2>;
+			aw2013,off-time-ms = <1>;
+		};
+	};
