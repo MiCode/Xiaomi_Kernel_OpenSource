@@ -47,6 +47,8 @@
 #define BCL_VBAT_TRIP           0x68
 #define BCL_IBAT_TRIP           0x69
 
+#define BCL_CONSTANT_NUM        32
+
 #define READ_CONV_FACTOR(_node, _key, _val, _ret, _dest) do { \
 		_ret = of_property_read_u32(_node, _key, &_val); \
 		if (_ret) { \
@@ -144,7 +146,10 @@ static void convert_vbat_to_adc_val(int *val)
 	if (!bcl_perph)
 		return;
 	perph_data = &bcl_perph->param[BCL_PARAM_VOLTAGE];
-	*val = *val / perph_data->scaling_factor;
+	*val = (*val * 100 / (100 + perph_data->gain_factor_num
+		* BCL_CONSTANT_NUM
+		/ perph_data->gain_factor_den))
+		/ perph_data->scaling_factor;
 	return;
 }
 
@@ -156,8 +161,9 @@ static void convert_adc_to_vbat_val(int *val)
 		return;
 	perph_data = &bcl_perph->param[BCL_PARAM_VOLTAGE];
 	*val = (*val * perph_data->scaling_factor)
-		* (1 + perph_data->gain_factor_num
-		/ perph_data->gain_factor_den);
+		* (100 + perph_data->gain_factor_num
+		* BCL_CONSTANT_NUM  / perph_data->gain_factor_den)
+		/ 100;
 	return;
 }
 
@@ -168,7 +174,11 @@ static void convert_ibat_to_adc_val(int *val)
 	if (!bcl_perph)
 		return;
 	perph_data = &bcl_perph->param[BCL_PARAM_CURRENT];
-	*val /= perph_data->scaling_factor;
+	*val /= (*val * 100 / (100 + perph_data->gain_factor_num
+		* BCL_CONSTANT_NUM / perph_data->offset_factor_den)
+		- perph_data->offset_factor_num
+		/ perph_data->offset_factor_den)
+		/  perph_data->scaling_factor;
 	return;
 }
 
@@ -179,10 +189,11 @@ static void convert_adc_to_ibat_val(int *val)
 	if (!bcl_perph)
 		return;
 	perph_data = &bcl_perph->param[BCL_PARAM_CURRENT];
-	*val = (*val * perph_data->scaling_factor +
-		perph_data->offset_factor_num / perph_data->offset_factor_den)
-		* (1 + perph_data->gain_factor_num
-		/ perph_data->gain_factor_den);
+	*val = (*val * perph_data->scaling_factor
+		+ perph_data->offset_factor_num
+		/ perph_data->offset_factor_den)
+		* (100 + perph_data->gain_factor_num
+		* BCL_CONSTANT_NUM / perph_data->offset_factor_den) / 100;
 	return;
 }
 
