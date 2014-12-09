@@ -39,7 +39,7 @@ in TX data path.
         1200   -  WCN XO settling time (usec)
         1      -  WCN RPM power collapse enabled
         1      -  WCN standalone power collapse enabled
-
+        6      -  GPIO strength value
 
 Example:
 
@@ -64,5 +64,5 @@ Example:
         qcom,has-48mhz-xo;
         qcom,has-pronto-hw;
         qcom,wcnss-adc_tm = <&pm8226_adc_tm>;
-	qcom,wcnss-pm = <11 21 1200 1 1>;
+	qcom,wcnss-pm = <11 21 1200 1 1 6>;
     };

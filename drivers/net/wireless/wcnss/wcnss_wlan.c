@@ -1948,13 +1948,13 @@ static void wcnss_send_pm_config(struct work_struct *worker)
 		return;
 	}
 
-	pr_debug("%s:size=%d: <%d, %d, %d, %d, %d>\n", __func__,
+	pr_debug("%s:size=%d: <%d, %d, %d, %d, %d %d>\n", __func__,
 			prop_len, *payload, *(payload+1), *(payload+2),
-			*(payload+3), *(payload+4));
+			*(payload+3), *(payload+4), *(payload+5));
 
 	hdr = (struct smd_msg_hdr *)msg;
 	hdr->msg_type = WCNSS_PM_CONFIG_REQ;
-	hdr->msg_len = sizeof(struct smd_msg_hdr) + prop_len;
+	hdr->msg_len = sizeof(struct smd_msg_hdr) + (prop_len * sizeof(int));
 
 	rc = wcnss_smd_tx(msg, hdr->msg_len);
 	if (rc < 0)
