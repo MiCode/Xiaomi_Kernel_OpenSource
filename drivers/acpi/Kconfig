@@ -409,6 +409,13 @@ config WC_PMIC_OPREGION
 	depends on INTEL_SOC_PMIC
 	help
 	  This config adds ACPI operation region support for WhiskeyCove PMIC.
+
+config DC_PMIC_OPREGION
+	bool "ACPI operation region support for Dollar Cove PMIC"
+	depends on INTEL_SOC_PMIC
+	help
+	  This config adds ACPI operation region support for DollarCove PMIC.
+
 endif
 
 endif	# ACPI

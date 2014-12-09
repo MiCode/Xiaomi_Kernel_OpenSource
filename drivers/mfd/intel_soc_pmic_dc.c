@@ -244,6 +244,9 @@ static struct mfd_cell dollar_cove_dev[] = {
 		.num_resources = ARRAY_SIZE(battery_resources),
 		.resources = battery_resources,
 	},
+	{
+		.name = "dollar_cove_region",
+	},
 	{NULL, },
 };
 
