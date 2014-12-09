@@ -70,6 +70,12 @@ enum {
 	MDP3_CLIENT_MAX,
 };
 
+enum {
+	DI_PARTITION_NUM = 0,
+	DI_DOMAIN_NUM = 1,
+	DI_MAX,
+};
+
 struct mdp3_bus_handle_map {
 	struct msm_bus_vectors *bus_vector;
 	struct msm_bus_paths *usecases;
@@ -98,6 +104,19 @@ struct mdp3_iommu_ctx_map {
 	char *ctx_name;
 	struct device *ctx;
 	int attached;
+};
+
+struct mdp3_iommu_meta {
+	struct rb_node node;
+	struct ion_handle *handle;
+	struct rb_root iommu_maps;
+	struct kref ref;
+	struct sg_table *table;
+	struct dma_buf *dbuf;
+	int mapped_size;
+	unsigned long size;
+	dma_addr_t iova_addr;
+	unsigned long flags;
 };
 
 #define MDP3_MAX_INTR 28
@@ -139,6 +158,7 @@ struct mdp3_hw_resource {
 	struct mdp3_dma dma[MDP3_DMA_MAX];
 	struct mdp3_intf intf[MDP3_DMA_OUTPUT_SEL_MAX];
 
+	struct rb_root iommu_root;
 	spinlock_t irq_lock;
 	u32 irq_ref_count[MDP3_MAX_INTR];
 	u32 irq_mask;
@@ -166,6 +186,7 @@ struct mdp3_img_data {
 	dma_addr_t addr;
 	u32 len;
 	u32 flags;
+	u32 padding;
 	int p_need;
 	struct file *srcp_file;
 	struct ion_handle *srcp_ihdl;
@@ -185,8 +206,8 @@ int mdp3_clk_set_rate(int clk_type, unsigned long clk_rate, int client);
 int mdp3_clk_enable(int enable, int dsi_clk);
 int mdp3_res_update(int enable, int dsi_clk, int client);
 int mdp3_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
-int mdp3_put_img(struct mdp3_img_data *data);
-int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data);
+int mdp3_put_img(struct mdp3_img_data *data, int client);
+int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data, int client);
 int mdp3_iommu_enable(void);
 int mdp3_iommu_disable(void);
 int mdp3_iommu_is_attached(void);
