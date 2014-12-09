@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011,2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,6 @@ struct rq_data {
 	unsigned long rq_poll_last_jiffy;
 	unsigned long rq_poll_total_jiffies;
 	unsigned long def_timer_last_jiffy;
-	unsigned int def_interval;
 	unsigned int hotplug_disabled;
 	int64_t def_start_time;
 	struct attribute_group *attr_group;
