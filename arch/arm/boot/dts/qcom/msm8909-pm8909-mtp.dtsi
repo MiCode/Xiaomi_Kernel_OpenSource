@@ -101,3 +101,6 @@
 	};
 };
 
+&audio_codec_mtp {
+	qcom,msm-micbias2-ext-cap;
+};
