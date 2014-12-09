@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,7 @@ struct rmnet_vnd_private_s {
 
 	rwlock_t flow_map_lock;
 	struct list_head flow_head;
+	struct rmnet_map_flow_mapping_s root_flow;
 };
 
 #define RMNET_VND_FC_QUEUED      0
@@ -1024,6 +1025,11 @@ int rmnet_vnd_do_flow_control(struct net_device *dev,
 		BUG();
 
 	read_lock(&dev_conf->flow_map_lock);
+	if (map_flow_id == 0xFFFFFFFF) {
+		itm = &(dev_conf->root_flow);
+		goto nolookup;
+	}
+
 	itm = _rmnet_vnd_get_flow_map(dev_conf, map_flow_id);
 
 	if (!itm) {
@@ -1031,8 +1037,23 @@ int rmnet_vnd_do_flow_control(struct net_device *dev,
 		     map_flow_id);
 		goto fcdone;
 	}
+
+nolookup:
 	if (v4_seq == 0 || v4_seq >= atomic_read(&(itm->v4_seq))) {
 		atomic_set(&(itm->v4_seq), v4_seq);
+		if (map_flow_id == 0xFFFFFFFF) {
+			LOGD("Setting VND TX queue state to %d", enable);
+			/* Although we expect similar number of enable/disable
+			 * commands, optimize for the disable. That is more
+			 * latency sensitive than enable
+			 */
+			if (unlikely(enable))
+				netif_wake_queue(dev);
+			else
+				netif_stop_queue(dev);
+			trace_rmnet_fc_map(0xFFFFFFFF, 0, enable);
+			goto fcdone;
+		}
 		for (i = 0; i < RMNET_MAP_FLOW_NUM_TC_HANDLE; i++) {
 			if (itm->tc_flow_valid[i] == 1) {
 				LOGD("Found [%s][0x%08X][%d:0x%08X]",
