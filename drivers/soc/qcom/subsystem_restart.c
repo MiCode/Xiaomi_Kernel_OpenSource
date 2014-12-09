@@ -1272,15 +1272,15 @@ static int __get_gpio(struct subsys_desc *desc, const char *prop,
 }
 
 static int __get_irq(struct subsys_desc *desc, const char *prop,
-		unsigned int *irq)
+		unsigned int *irq, int *gpio)
 {
-	int ret, gpio, irql;
+	int ret, gpiol, irql;
 
-	ret = __get_gpio(desc, prop, &gpio);
+	ret = __get_gpio(desc, prop, &gpiol);
 	if (ret)
 		return ret;
 
-	irql = gpio_to_irq(gpio);
+	irql = gpio_to_irq(gpiol);
 
 	if (irql == -ENOENT)
 		irql = -ENXIO;
@@ -1290,6 +1290,8 @@ static int __get_irq(struct subsys_desc *desc, const char *prop,
 				prop);
 		return irql;
 	} else {
+		if (gpio)
+			*gpio = gpiol;
 		*irq = irql;
 	}
 
@@ -1304,15 +1306,17 @@ static int subsys_parse_devicetree(struct subsys_desc *desc)
 	struct platform_device *pdev = container_of(desc->dev,
 					struct platform_device, dev);
 
-	ret = __get_irq(desc, "qcom,gpio-err-fatal", &desc->err_fatal_irq);
+	ret = __get_irq(desc, "qcom,gpio-err-fatal", &desc->err_fatal_irq,
+							&desc->err_fatal_gpio);
 	if (ret && ret != -ENOENT)
 		return ret;
 
-	ret = __get_irq(desc, "qcom,gpio-err-ready", &desc->err_ready_irq);
+	ret = __get_irq(desc, "qcom,gpio-err-ready", &desc->err_ready_irq,
+							NULL);
 	if (ret && ret != -ENOENT)
 		return ret;
 
-	ret = __get_irq(desc, "qcom,gpio-stop-ack", &desc->stop_ack_irq);
+	ret = __get_irq(desc, "qcom,gpio-stop-ack", &desc->stop_ack_irq, NULL);
 	if (ret && ret != -ENOENT)
 		return ret;
 
