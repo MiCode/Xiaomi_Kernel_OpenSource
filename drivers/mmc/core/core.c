@@ -125,6 +125,42 @@ static inline void mmc_should_fail_request(struct mmc_host *host,
 
 #endif /* CONFIG_FAIL_MMC_REQUEST */
 
+static inline void
+mmc_clk_scaling_update_state(struct mmc_host *host, struct mmc_request *mrq)
+{
+	if (mrq) {
+		switch (mrq->cmd->opcode) {
+		case MMC_READ_SINGLE_BLOCK:
+		case MMC_READ_MULTIPLE_BLOCK:
+		case MMC_WRITE_BLOCK:
+		case MMC_WRITE_MULTIPLE_BLOCK:
+			host->clk_scaling.invalid_state = false;
+			break;
+		default:
+			host->clk_scaling.invalid_state = true;
+			break;
+		}
+	} else {
+		/*
+		 * force clock scaling transitions,
+		 * if other conditions are met
+		 */
+		host->clk_scaling.invalid_state = false;
+	}
+
+	return;
+}
+
+static inline void mmc_update_clk_scaling(struct mmc_host *host)
+{
+	if (host->clk_scaling.enable && !host->clk_scaling.invalid_state) {
+		host->clk_scaling.busy_time_us +=
+			ktime_to_us(ktime_sub(ktime_get(),
+					host->clk_scaling.start_busy));
+		host->clk_scaling.start_busy = ktime_get();
+	}
+}
+
 static inline void mmc_complete_cmd(struct mmc_request *mrq)
 {
 	if (mrq->cap_cmd_during_tfr && !completion_done(&mrq->cmd_completion))
@@ -158,10 +194,8 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 #ifdef CONFIG_MMC_PERF_PROFILING
 	ktime_t diff;
 #endif
-	if (host->card && host->clk_scaling.enable)
-		host->clk_scaling.busy_time_us +=
-			ktime_to_us(ktime_sub(ktime_get(),
-					host->clk_scaling.start_busy));
+	if (host->card)
+		mmc_update_clk_scaling(host);
 
 	/* Flag re-tuning needed on CRC errors */
 	if ((cmd->opcode != MMC_SEND_TUNING_BLOCK &&
@@ -387,8 +421,11 @@ static int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 		 * frequency will be done after current thread
 		 * releases host.
 		 */
-		mmc_clk_scaling(host, false);
-		host->clk_scaling.start_busy = ktime_get();
+		mmc_clk_scaling_update_state(host, mrq);
+		if (!host->clk_scaling.invalid_state) {
+			mmc_clk_scaling(host, false);
+			host->clk_scaling.start_busy = ktime_get();
+		}
 	}
 
 	__mmc_start_request(host, mrq);
@@ -2995,7 +3032,8 @@ static bool mmc_is_vaild_state_for_clk_scaling(struct mmc_host *host)
 	 * this mode.
 	 */
 	if (!card || (mmc_card_mmc(card) &&
-			card->part_curr == EXT_CSD_PART_CONFIG_ACC_RPMB))
+			card->part_curr == EXT_CSD_PART_CONFIG_ACC_RPMB)
+			|| host->clk_scaling.invalid_state)
 		goto out;
 
 	if (mmc_send_status(card, &status)) {
