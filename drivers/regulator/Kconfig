@@ -814,35 +814,15 @@ config REGULATOR_CPR3_MMSS
 	  initial voltage values out of hardware fuses and CPR target quotient
 	  values out of device tree.
 
-config REGULATOR_STUB
-	tristate "Stub Regulator"
+config REGULATOR_KRYO
+	bool "Kryo regulator driver"
+	depends on OF
 	help
-	  This driver adds stub regulator support. The driver is absent of any
-	  real hardware based implementation. It allows for clients to register
-	  their regulator device constraints and use all of the standard
-	  regulator interfaces. This is useful for bringing up new platforms
-	  when the real hardware based implementation may not be yet available.
-	  Clients can use the real regulator device names with proper
-	  constraint checking while the real driver is being developed.
-
-config REGULATOR_PROXY_CONSUMER
-	bool "Boot time regulator proxy consumer support"
-	help
-	  This driver provides support for boot time regulator proxy requests.
-	  It can enforce a specified voltage range, set a minimum current,
-	  and/or keep a regulator enabled.  It is needed in circumstances where
-	  reducing one or more of these three quantities will cause hardware to
-	  stop working if performed before the driver managing the hardware has
-	  probed.
-
-config REGULATOR_MEM_ACC
-	tristate "QTI Memory accelerator regulator driver"
-	help
-	 Say y here to enable the memory accelerator driver for Qualcomm
-	 Technologies (QTI) chips. The accelerator controls delays applied
-	 for memory accesses.
-	 This driver configures the power-mode (corner) for the memory
-	 accelerator.
+	  Some MSM designs have CPUs that can be directly powered from a common
+	  voltage rail via a Block Head Switch (BHS) or an LDO whose output voltage
+	  can be configured for use when certain power constraints are met.
+	  Say yes to support management of LDO and BHS modes for the clusters in the
+	  CPU subsystem.
 
 endif
 
