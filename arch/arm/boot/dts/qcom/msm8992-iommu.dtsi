@@ -61,7 +61,8 @@
 						0xb0
 						0xb1>;
 
-		qcom,iommu-bfb-regs =  <0x204c
+		qcom,iommu-bfb-regs =  <0x2000
+					0x204c
 					0x2060
 					0x2514
 					0x2540
@@ -79,7 +80,8 @@
 					0x2010
 					0x2014>;
 
-		qcom,iommu-bfb-data =  <0x7fffff
+		qcom,iommu-bfb-data =  <0x3
+					0x7fffff
 					0x1777
 					0x0
 					0x4
@@ -133,7 +135,8 @@
 		<&clock_mmss clk_venus0_vcodec0_clk>;
 	clock-names = "core_clk", "iface_clk", "alt_core_clk";
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qcom,iommu-bfb-regs =  <0x2000
+				0x204c
 				0x2060
 				0x2514
 				0x2540
@@ -153,7 +156,8 @@
 				0x2018
 				0x201c>;
 
-	qcom,iommu-bfb-data =  <0x7ffffff
+	qcom,iommu-bfb-data =  <0x3
+				0x7ffffff
 				0x1555
 				0x0
 				0x4
@@ -212,7 +216,8 @@
 		<&clock_mmss clk_camss_top_ahb_clk>;
 	clock-names = "core_clk", "iface_clk", "alt_iface_clk", "alt_core_clk";
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qcom,iommu-bfb-regs =  <0x2000
+				0x204c
 				0x2060
 				0x2514
 				0x2540
@@ -228,7 +233,8 @@
 				0x2008
 				0x200c>;
 
-	qcom,iommu-bfb-data =  <0x3ffff
+	qcom,iommu-bfb-data =  <0x3
+				0x3ffff
 				0x1555
 				0x0
 				0x4
@@ -254,7 +260,8 @@
 		<&clock_mmss clk_oxilicx_ahb_clk>;
 	clock-names = "core_clk", "iface_clk";
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qcom,iommu-bfb-regs =  <0x2000
+				0x204c
 				0x2060
 				0x2514
 				0x2540
@@ -268,23 +275,46 @@
 				0x2414
 				0x2494
 				0x2008
-				0x2600>;
+				0x2600
+				0x2604
+				0x2608
+				0x260c
+				0x2610
+				0x2614
+				0x2618
+				0x261c
+				0x2620
+				0x2624
+				0x2628
+				0x262c>;
 
 	qcom,iommu-bfb-data =  <0x3
+				0x3
 				0x1555
 				0x0
-				0x8
+				0x0
 				0x10
 				0x0
 				0x120
+				0x120
+				0x10
 				0x0
-				0x20
 				0x0
 				0x0
 				0x1
-				0x101
 				0x0
-				0x8000>;
+				0x00000007
+				0x0
+				0x20
+				0x20
+				0xc
+				0x0
+				0x0
+				0x0
+				0x10
+				0x0
+				0x0
+				0x10>;
 
 	qcom,iommu-ctx@fdb18000 {
 		qcom,iommu-ctx-sids = <0 1>;
@@ -312,7 +342,8 @@
 		<&clock_mmss clk_camss_top_ahb_clk>;
 	clock-names = "core_clk", "iface_clk", "alt_iface_clk", "alt_core_clk";
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qcom,iommu-bfb-regs =  <0x2000
+				0x204c
 				0x2060
 				0x2514
 				0x2540
@@ -330,7 +361,8 @@
 				0x2010
 				0x2014>;
 
-	qcom,iommu-bfb-data =  <0xfffff
+	qcom,iommu-bfb-data =  <0x3
+				0xfffff
 				0x1555
 				0x0
 				0x4
@@ -360,7 +392,8 @@
                 <&clock_mmss clk_camss_top_ahb_clk>;
 	clock-names = "core_clk", "iface_clk", "alt_iface_clk", "alt_core_clk";
 
-	qcom,iommu-bfb-regs =  <0x204c
+	qcom,iommu-bfb-regs =  <0x2000
+				0x204c
 				0x2060
 				0x2514
 				0x2540
@@ -376,7 +409,8 @@
 				0x2008
 				0x200c>;
 
-	qcom,iommu-bfb-data =  <0x3ff
+	qcom,iommu-bfb-data =  <0x3
+				0x3ff
 				0x1555
 				0x0
 				0x00000004
