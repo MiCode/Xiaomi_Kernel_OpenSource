@@ -772,6 +772,7 @@ enum {
 	mdp_lut_igc,
 	mdp_lut_pgc,
 	mdp_lut_hist,
+	mdp_lut_rgb,
 	mdp_lut_max,
 };
 
@@ -792,6 +793,20 @@ struct mdp_pgc_lut_data {
 	struct mdp_ar_gc_lut_data *b_data;
 };
 
+/*
+ * mdp_rgb_lut_data is used to provide parameters for configuring the
+ * generic RGB lut in case of gamma correction or other LUT updation usecases
+ */
+struct mdp_rgb_lut_data {
+	uint32_t flags;
+	uint32_t lut_type;
+	struct fb_cmap cmap;
+};
+
+enum {
+	mdp_rgb_lut_gc,
+	mdp_rgb_lut_hist,
+};
 
 struct mdp_lut_cfg_data {
 	uint32_t lut_type;
@@ -799,6 +814,7 @@ struct mdp_lut_cfg_data {
 		struct mdp_igc_lut_data igc_lut_data;
 		struct mdp_pgc_lut_data pgc_lut_data;
 		struct mdp_hist_lut_data hist_lut_data;
+		struct mdp_rgb_lut_data rgb_lut_data;
 	} data;
 };
 
