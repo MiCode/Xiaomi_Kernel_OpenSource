@@ -1009,14 +1009,13 @@ int psy_charger_throttle_charger(struct power_supply *psy,
 	if (!IS_PRESENT(psy))
 		return 0;
 
-	if (state < 0 || state > MAX_THROTTLE_STATE(psy))
+	if (state < 0 || state >= MAX_THROTTLE_STATE(psy))
 		return -EINVAL;
 
 	mutex_lock(&psy_chrgr.evt_lock);
 
 	switch THROTTLE_ACTION(psy, state)
 	{
-
 		case PSY_THROTTLE_DISABLE_CHARGER:
 			SET_MAX_CC(psy, 0);
 			disable_charger(psy);
@@ -1026,10 +1025,10 @@ int psy_charger_throttle_charger(struct power_supply *psy,
 			disable_charging(psy);
 			break;
 		case PSY_THROTTLE_CC_LIMIT:
-			SET_MAX_CC(psy, THROTTLE_CC_VALUE(psy, state));
+			SET_MAX_CC(psy, THROTTLE_VALUE(psy, state));
 			break;
 		case PSY_THROTTLE_INPUT_LIMIT:
-			set_inlmt(psy, THROTTLE_CC_VALUE(psy, state));
+			set_inlmt(psy, THROTTLE_VALUE(psy, state));
 			break;
 		default:
 			pr_err("%s:Invalid throttle action for %s\n",
@@ -1059,6 +1058,9 @@ int power_supply_register_charger(struct power_supply *psy)
 		INIT_WORK(&psy_chrgr.algo_trigger_work, trigger_algo_psy_class);
 		psy_chrgr.is_cable_evt_reg = true;
 	}
+
+	SET_MAX_THROTTLE_STATE(psy);
+
 	return ret;
 }
 EXPORT_SYMBOL(power_supply_register_charger);

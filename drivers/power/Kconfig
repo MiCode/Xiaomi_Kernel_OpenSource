@@ -37,6 +37,11 @@ config POWER_SUPPLY_BATTID
          framework. The framework would allow different battery identification
          drivers to interface with power supply subsystem. Also it allows consumer
          drivers to register for notification from the power_supply subsystem.
+config RAW_CC_THROTTLE
+	bool "Raw Charge Current Throttle"
+	help
+	  Say Y here to enable raw charge current throttling. This feature will
+	  expose n states where n is defined as (max_current_mA/100_mA)
 
 config POWER_SUPPLY_DEBUG
 	bool "Power supply debug"

@@ -209,21 +209,42 @@ static inline int get_ps_int_property(struct power_supply *psy,
 	(bat_cache.health != bat_prop.health) || \
 	(bat_cache.throttle_state != bat_prop.throttle_state))
 
-#define THROTTLE_ACTION(psy, state)\
-		(((psy->throttle_states)+state)->throttle_action)
-
 #define MAX_THROTTLE_STATE(psy)\
-		((psy->num_throttle_states))
+		(get_ps_int_property(psy,\
+			POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX))
 
 #define CURRENT_THROTTLE_STATE(psy)\
 		(get_ps_int_property(psy,\
 			POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT))
 
+#ifndef CONFIG_RAW_CC_THROTTLE
+
+#define THROTTLE_ACTION(psy, state)\
+		(((psy->throttle_states)+state)->throttle_action)
+
+#define THROTTLE_VALUE(psy, state)\
+		(((psy->throttle_states)+state)->throttle_val)
+#define SET_MAX_THROTTLE_STATE(psy) \
+		(set_ps_int_property(psy,\
+			POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX,\
+			psy->num_throttle_states + 1))
+#else
+#define RAW_CC_STEP 100 /* 100 ma*/
+#define THROTTLE_ACTION(psy, state)\
+		(CURRENT_THROTTLE_STATE(psy) < (MAX_THROTTLE_STATE(psy) - 1) ?\
+			PSY_THROTTLE_CC_LIMIT : PSY_THROTTLE_DISABLE_CHARGING)
+
+#define THROTTLE_VALUE(psy, state)\
+		((MAX_THROTTLE_STATE(psy) - CURRENT_THROTTLE_STATE(psy) - 1) * \
+			RAW_CC_STEP)
+#define SET_MAX_THROTTLE_STATE(psy)\
+		(set_ps_int_property(psy,\
+			POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX,\
+			DIV_ROUND_CLOSEST(MAX_CC(psy), RAW_CC_STEP) + 1))
+#endif
+
 #define CURRENT_THROTTLE_ACTION(psy)\
 		THROTTLE_ACTION(psy, CURRENT_THROTTLE_STATE(psy))
-
-#define THROTTLE_CC_VALUE(psy, state)\
-		(((psy->throttle_states)+state)->throttle_val)
 
 #define IS_CHARGER_CAN_BE_ENABLED(psy) \
 	(CURRENT_THROTTLE_ACTION(psy) != PSY_THROTTLE_DISABLE_CHARGER)
