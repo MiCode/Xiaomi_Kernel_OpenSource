@@ -50,6 +50,9 @@
 
 #define KGSL_MAX_BUSLEVELS	20
 
+#define DEFAULT_BUS_P 25
+#define DEFAULT_BUS_DIV (100 / DEFAULT_BUS_P)
+
 struct clk_pair {
 	const char *name;
 	uint map;
@@ -96,6 +99,7 @@ static struct clk_pair clks[KGSL_MAX_CLKS] = {
 
 static unsigned int ib_votes[KGSL_MAX_BUSLEVELS];
 static int last_vote_buslevel;
+static int max_vote_buslevel;
 
 static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					int requested_state);
@@ -112,6 +116,29 @@ static void kgsl_pwrctrl_request_state(struct kgsl_device *device,
 static unsigned int kgsl_get_bw(void)
 {
 	return ib_votes[last_vote_buslevel];
+}
+
+/**
+ * _ab_buslevel_update() - Return latest msm bus AB vote
+ * @pwr: Pointer to the kgsl_pwrctrl struct
+ * @ab: Pointer to be updated with the calculated AB vote
+ */
+static void _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
+				unsigned long *ab)
+{
+	unsigned int ib = ib_votes[last_vote_buslevel];
+	unsigned int max_bw = ib_votes[max_vote_buslevel];
+	if (!ab)
+		return;
+	if (ib == 0)
+		*ab = 0;
+	else if (!pwr->bus_percent_ab)
+		*ab = DEFAULT_BUS_P * ib / 100;
+	else
+		*ab = (pwr->bus_percent_ab * max_bw) / 100;
+
+	if (*ab > ib)
+		*ab = ib;
 }
 
 /**
@@ -167,6 +194,7 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int cur = pwr->pwrlevels[pwr->active_pwrlevel].bus_freq;
 	int buslevel = 0;
+	unsigned long ab;
 	if (!pwr->pcl)
 		return;
 	/* the bus should be ON to update the active frequency */
@@ -186,10 +214,12 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	}
 	trace_kgsl_buslevel(device, pwr->active_pwrlevel, buslevel);
 	last_vote_buslevel = buslevel;
+	/* buslevel is the IB vote, update the AB */
+	_ab_buslevel_update(pwr, &ab);
 	/* vote for ocmem */
 	msm_bus_scale_client_update_request(pwr->pcl, buslevel);
 	/* ask a governor to vote on behalf of us */
-	devfreq_vbif_update_bw();
+	devfreq_vbif_update_bw(ib_votes[last_vote_buslevel], ab);
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
 
@@ -255,6 +285,7 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	 * frequency increases.
 	 */
 	pwr->bus_mod = 0;
+	pwr->bus_percent_ab = 0;
 	kgsl_pwrctrl_buslevel_update(device, true);
 
 	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
@@ -1367,11 +1398,15 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		struct msm_bus_vectors *vector = &usecase->vectors[0];
 		if (vector->dst == MSM_BUS_SLAVE_EBI_CH0 &&
 				vector->ib != 0) {
-			if (i < KGSL_MAX_BUSLEVELS)
+
+			if (i < KGSL_MAX_BUSLEVELS) {
 				/* Convert bytes to Mbytes. */
 				ib_votes[i] =
 					DIV_ROUND_UP_ULL(vector->ib, 1048576)
 					- 1;
+				if (ib_votes[i] > ib_votes[max_vote_buslevel])
+					max_vote_buslevel = i;
+			}
 
 			for (k = 0; k < n; k++)
 				if (vector->ib == pwr->bus_ib[k]) {

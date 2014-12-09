@@ -98,6 +98,7 @@ struct kgsl_pwr_constraint {
  * @pm_qos_wakeup_latency - allowed CPU latency in microseconds during wakeup
  * @bus_control - true if the bus calculation is independent
  * @bus_mod - modifier from the current power level for the bus vote
+ * @bus_percent_ab - current percent of total possible bus usage
  * @bus_index - default bus index into the bus_ib table
  * @bus_ib - the set of unique ib requests needed for the bus calculation
  * @constraint - currently active power constraint
@@ -131,6 +132,7 @@ struct kgsl_pwrctrl {
 	unsigned int pm_qos_wakeup_latency;
 	bool bus_control;
 	int bus_mod;
+	unsigned int bus_percent_ab;
 	struct device *devbw;
 	unsigned int bus_index[KGSL_MAX_PWRLEVELS];
 	uint64_t bus_ib[KGSL_MAX_PWRLEVELS];

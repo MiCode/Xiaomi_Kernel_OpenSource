@@ -16,6 +16,8 @@
 #include "governor.h"
 
 unsigned long (*extern_get_bw)(void) = NULL;
+unsigned long *dev_ab;
+static unsigned long dev_ib;
 
 DEFINE_MUTEX(df_lock);
 static struct devfreq *df;
@@ -29,12 +31,15 @@ static int devfreq_vbif_get_freq(struct devfreq *df,
 				unsigned long *freq,
 				u32 *flag)
 {
-	if (extern_get_bw) {
-		*freq = extern_get_bw();
-		return 0;
-	} else {
-		return -ENODEV;
+	/* If the IB isn't set yet, check if it should be non-zero. */
+	if (!dev_ib && extern_get_bw) {
+		dev_ib = extern_get_bw();
+		if (dev_ab)
+			*dev_ab = dev_ib / 4;
 	}
+
+	*freq = dev_ib;
+	return 0;
 }
 
 /*
@@ -47,14 +52,15 @@ void devfreq_vbif_register_callback(void *p)
 	extern_get_bw = p;
 }
 
-
-int devfreq_vbif_update_bw(void)
+int devfreq_vbif_update_bw(unsigned long ib, unsigned long ab)
 {
 	int ret = 0;
 
 	mutex_lock(&df_lock);
 	if (df) {
 		mutex_lock(&df->lock);
+		dev_ib = ib;
+		*dev_ab = ab;
 		ret = update_devfreq(df);
 		mutex_unlock(&df->lock);
 	}
@@ -66,14 +72,24 @@ static int devfreq_vbif_ev_handler(struct devfreq *devfreq,
 					unsigned int event, void *data)
 {
 	int ret;
+	struct devfreq_dev_status stat;
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
 		mutex_lock(&df_lock);
 		df = devfreq;
+		if (df->profile->get_dev_status)
+			ret = df->profile->get_dev_status(df->dev.parent,
+					&stat);
+		else
+			ret = 0;
+		if (ret || !stat.private_data)
+			pr_warn("Device doesn't take AB votes!\n");
+		else
+			dev_ab = stat.private_data;
 		mutex_unlock(&df_lock);
 
-		ret = devfreq_vbif_update_bw();
+		ret = devfreq_vbif_update_bw(0, 0);
 		if (ret) {
 			pr_err("Unable to update BW! Gov start failed!\n");
 			return ret;
