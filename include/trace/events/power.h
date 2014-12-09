@@ -359,6 +359,31 @@ TRACE_EVENT(clock_set_parent,
 	TP_printk("%s parent=%s", __get_str(name), __get_str(parent_name))
 );
 
+TRACE_EVENT(clock_state,
+
+	TP_PROTO(const char *name, unsigned long prepare_count,
+		unsigned long count, unsigned long rate),
+
+	TP_ARGS(name, prepare_count, count, rate),
+
+	TP_STRUCT__entry(
+		__string(name,			name)
+		__field(unsigned long,		prepare_count)
+		__field(unsigned long,		count)
+		__field(unsigned long,		rate)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->prepare_count = prepare_count;
+		__entry->count = count;
+		__entry->rate = rate;
+	),
+
+	TP_printk("%s\t[%lu:%lu]\t%lu", __get_str(name), __entry->prepare_count,
+					__entry->count, __entry->rate)
+);
+
 /*
  * The power domain events are used for power domains transitions
  */
