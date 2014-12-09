@@ -22,6 +22,63 @@
 
 #define NUM_DSI_INTF 2
 
+int mdss_panel_debugfs_fbc_setup(struct mdss_panel_debugfs_info *debugfs_info,
+	struct mdss_panel_info *panel_info, struct dentry *parent)
+{
+	struct dentry *fbc_root;
+
+	fbc_root = debugfs_create_dir("fbc", parent);
+	if (IS_ERR_OR_NULL(fbc_root)) {
+		pr_err("Debugfs create fbc dir failed with error: %ld\n",
+					PTR_ERR(fbc_root));
+		return -ENODEV;
+	}
+
+	debugfs_create_u32("enable", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.enabled);
+	debugfs_create_u32("bpp", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.target_bpp);
+	debugfs_create_u32("packing", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.comp_mode);
+	debugfs_create_u32("quant_err", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.qerr_enable);
+	debugfs_create_u32("bias", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.cd_bias);
+	debugfs_create_u32("pat_mode", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.pat_enable);
+	debugfs_create_u32("vlc_mode", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.vlc_enable);
+	debugfs_create_u32("bflc_mode", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.bflc_enable);
+	debugfs_create_u32("hline_budget", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.line_x_budget);
+	debugfs_create_u32("budget_ctrl", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.block_x_budget);
+	debugfs_create_u32("block_budget", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.block_budget);
+	debugfs_create_u32("lossless_thd", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.lossless_mode_thd);
+	debugfs_create_u32("lossy_thd", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.lossy_mode_thd);
+	debugfs_create_u32("rgb_thd", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.lossy_rgb_thd);
+	debugfs_create_u32("lossy_mode_idx", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.lossy_mode_idx);
+	debugfs_create_u32("slice_height", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.slice_height);
+	debugfs_create_u32("pred_mode", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.pred_mode);
+	debugfs_create_u32("enc_mode", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.enc_mode);
+	debugfs_create_u32("max_pred_err", 0644, fbc_root,
+			(u32 *)&debugfs_info->fbc.max_pred_err);
+
+	debugfs_info->fbc  = panel_info->fbc;
+
+	return 0;
+
+}
+
 int mdss_panel_debugfs_setup(struct mdss_panel_info *panel_info, struct dentry
 		*parent, char *dsi_str)
 {
@@ -63,6 +120,9 @@ int mdss_panel_debugfs_setup(struct mdss_panel_info *panel_info, struct dentry
 
 	debugfs_create_u32("frame_rate", 0644, parent,
 			(u32 *)&debugfs_info->frame_rate);
+
+	mdss_panel_debugfs_fbc_setup(debugfs_info, panel_info,
+		debugfs_info->root);
 
 	debugfs_info->xres = panel_info->xres;
 	debugfs_info->yres = panel_info->yres;
@@ -135,6 +195,7 @@ void mdss_panel_debugfsinfo_to_panelinfo(struct mdss_panel_info *panel_info)
 		pinfo->yres = pinfo->debugfs_info->yres;
 		pinfo->lcdc = pinfo->debugfs_info->lcdc;
 		pinfo->panel_max_vtotal = mdss_panel_get_vtotal(pinfo);
+		pinfo->fbc = pinfo->debugfs_info->fbc;
 		pinfo->mipi.frame_rate = pinfo->debugfs_info->frame_rate;
 		pdata = pdata->next;
 	} while (pdata);
