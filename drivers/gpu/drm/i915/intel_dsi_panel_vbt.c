@@ -668,6 +668,8 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	u32 ths_prepare_ns, tclk_trail_ns;
 	u32 tclk_prepare_clkzero, ths_prepare_hszero, pclk;
 	u32 lp_to_hs_switch, hs_to_lp_switch;
+	u32 computed_ddr;
+	u16 burst_mode_ratio;
 
 	DRM_DEBUG_KMS("\n");
 
@@ -715,6 +717,38 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	intel_dsi->pclk = pclk;
 
 	bitrate = (pclk * bits_per_pixel) / intel_dsi->lane_count;
+
+	/*
+	 * Burst Mode Ratio
+	 * Target ddr frequency from VBT / non burst ddr freq
+	 * multiply by 100 to preserve remainder
+	 */
+	if (((intel_dsi->video_mode_format == VIDEO_MODE_BURST) ||
+			is_cmd_mode(intel_dsi)) &&
+			(mipi_config->target_burst_mode_freq)) {
+
+		computed_ddr = (mode->clock * bits_per_pixel) /
+							intel_dsi->lane_count;
+
+		if (computed_ddr == 0) {
+			DRM_ERROR("computed ddr clock should not be zero\n");
+			return false;
+		}
+
+		if (mipi_config->target_burst_mode_freq < computed_ddr) {
+			DRM_ERROR("DDR clock is less than computed\n");
+			return false;
+		}
+
+		burst_mode_ratio = DIV_ROUND_UP(
+					mipi_config->target_burst_mode_freq
+							* 100, computed_ddr);
+
+		mode->clock = DIV_ROUND_UP(mode->clock * burst_mode_ratio, 100);
+	} else
+		burst_mode_ratio = 100;
+
+	intel_dsi->burst_mode_ratio = burst_mode_ratio;
 
 	switch (intel_dsi->escape_clk_div) {
 	case 0:

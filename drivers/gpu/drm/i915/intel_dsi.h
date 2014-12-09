@@ -487,6 +487,7 @@ struct intel_dsi {
 	/* timeouts in byte clocks */
 	u16 lp_rx_timeout;
 	u16 turn_arnd_val;
+	u16 burst_mode_ratio;
 	u16 rst_timer_val;
 	u16 hs_to_lp_count;
 	u16 clk_lp_to_hs_count;
@@ -508,6 +509,16 @@ struct intel_dsi {
 static inline struct intel_dsi *enc_to_intel_dsi(struct drm_encoder *encoder)
 {
 	return container_of(encoder, struct intel_dsi, base.base);
+}
+
+static inline bool is_vid_mode(struct intel_dsi *intel_dsi)
+{
+	return intel_dsi->operation_mode == INTEL_DSI_VIDEO_MODE;
+}
+
+static inline bool is_cmd_mode(struct intel_dsi *intel_dsi)
+{
+	return intel_dsi->operation_mode == INTEL_DSI_COMMAND_MODE;
 }
 
 extern void vlv_enable_dsi_pll(struct intel_encoder *encoder);

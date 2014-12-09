@@ -63,16 +63,6 @@ struct intel_dsi *intel_attached_dsi(struct drm_connector *connector)
 			    struct intel_dsi, base);
 }
 
-static inline bool is_vid_mode(struct intel_dsi *intel_dsi)
-{
-	return intel_dsi->operation_mode == INTEL_DSI_VIDEO_MODE;
-}
-
-static inline bool is_cmd_mode(struct intel_dsi *intel_dsi)
-{
-	return intel_dsi->operation_mode == INTEL_DSI_COMMAND_MODE;
-}
-
 static void intel_dsi_hot_plug(struct intel_encoder *encoder)
 {
 	DRM_DEBUG_KMS("\n");
@@ -638,9 +628,11 @@ static u16 txclkesc(u32 divider, unsigned int us)
 }
 
 /* return pixels in terms of txbyteclkhs */
-static u16 txbyteclkhs(u16 pixels, int bpp, int lane_count)
+static u32 txbyteclkhs(u32 pixels, int bpp, int lane_count,
+					u16 burst_mode_ratio)
 {
-	return DIV_ROUND_UP(DIV_ROUND_UP(pixels * bpp, 8), lane_count);
+	return DIV_ROUND_UP_ULL((u64)pixels * bpp * burst_mode_ratio,
+						8 * lane_count * 100);
 }
 
 static void set_dsi_timings(struct drm_encoder *encoder,
@@ -683,10 +675,12 @@ static void set_dsi_timings(struct drm_encoder *encoder,
 	vbp = mode->vtotal - mode->vsync_end;
 
 	/* horizontal values are in terms of high speed byte clock */
-	hactive = txbyteclkhs(hactive, bpp, lane_count);
-	hfp = txbyteclkhs(hfp, bpp, lane_count);
-	hsync = txbyteclkhs(hsync, bpp, lane_count);
-	hbp = txbyteclkhs(hbp, bpp, lane_count);
+	hactive = txbyteclkhs(hactive, bpp, lane_count,
+					intel_dsi->burst_mode_ratio);
+	hfp = txbyteclkhs(hfp, bpp, lane_count, intel_dsi->burst_mode_ratio);
+	hsync = txbyteclkhs(hsync, bpp, lane_count,
+					intel_dsi->burst_mode_ratio);
+	hbp = txbyteclkhs(hbp, bpp, lane_count, intel_dsi->burst_mode_ratio);
 
 	do {
 		I915_WRITE(MIPI_HACTIVE_AREA_COUNT(pipe), hactive);
@@ -808,13 +802,15 @@ static void intel_dsi_mode_set(struct intel_encoder *intel_encoder)
 		if (is_vid_mode(intel_dsi) &&
 			intel_dsi->video_mode_format == VIDEO_MODE_BURST) {
 			I915_WRITE(MIPI_HS_TX_TIMEOUT(pipe),
-			   txbyteclkhs(adjusted_mode->htotal, bpp,
-				       intel_dsi->lane_count) + 1);
+					txbyteclkhs(adjusted_mode->htotal, bpp,
+					intel_dsi->lane_count,
+					intel_dsi->burst_mode_ratio) + 1);
 		} else {
 			I915_WRITE(MIPI_HS_TX_TIMEOUT(pipe),
-			   txbyteclkhs(adjusted_mode->vtotal *
-				       adjusted_mode->htotal,
-				       bpp, intel_dsi->lane_count) + 1);
+					txbyteclkhs(adjusted_mode->vtotal *
+					adjusted_mode->htotal,
+					bpp, intel_dsi->lane_count,
+					intel_dsi->burst_mode_ratio) + 1);
 		}
 
 		I915_WRITE(MIPI_LP_RX_TIMEOUT(pipe), intel_dsi->lp_rx_timeout);
