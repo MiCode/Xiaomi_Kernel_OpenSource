@@ -766,4 +766,12 @@
 		qcom,cpr-speed-bin-max-corners =
 				<0xFFFFFFFF 0 1 5 8 15>;
 	};
+
+	bt_vreg: bt_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "bt_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pm8994_gpios 9 0>;
+	};
 };
