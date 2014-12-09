@@ -1,0 +1,201 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "skeleton.dtsi"
+#include <dt-bindings/clock/msm-clocks-vpipa.h>
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM VPIPA";
+	compatible = "qcom,msmvpipa";
+	qcom,msm-id = <234 0x10000>, <235 0x10000>, <236 0x10000>,
+		      <237 0x10000>, <238 0x10000>;
+	interrupt-parent = <&intc>;
+
+	soc: soc { };
+};
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
+
+	intc: interrupt-controller@b000000 {
+		compatible = "qcom,msm-qgic2";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		reg = <0x0b000000 0x1000>,
+		      <0x0b002000 0x1000>;
+	};
+
+	qcom,msm-imem@8600000 {
+		compatible = "qcom,msm-imem";
+		reg = <0x8600000 0x1000>; /* Address and size of IMEM */
+		ranges = <0x0 0x8600000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		mem_dump_table@10 {
+			compatible = "qcom,msm-imem-mem_dump_table";
+			reg = <0x10 8>;
+		};
+
+		restart_reason@65c {
+			compatible = "qcom,msm-imem-restart_reason";
+			reg = <0x65c 4>;
+		};
+
+		boot_stats@6b0 {
+			compatible = "qcom,msm-imem-boot_stats";
+			reg = <0x6b0 32>;
+		};
+
+		pil@94c {
+			compatible = "qcom,msm-imem-pil";
+			reg = <0x94c 200>;
+		};
+	};
+
+	timer@b020000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		compatible = "arm,armv7-timer-mem";
+		reg = <0xb020000 0x1000>;
+		clock-frequency = <19200000>;
+
+		frame@b021000 {
+			frame-number = <0>;
+			interrupts = <0 7 0x4>,
+				     <0 6 0x4>;
+			reg = <0xb021000 0x1000>,
+			      <0xb022000 0x1000>;
+		};
+
+		frame@b023000 {
+			frame-number = <1>;
+			interrupts = <0 8 0x4>;
+			reg = <0xb023000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@b024000 {
+			frame-number = <2>;
+			interrupts = <0 9 0x4>;
+			reg = <0xb024000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@b025000 {
+			frame-number = <3>;
+			interrupts = <0 10 0x4>;
+			reg = <0xb025000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@b026000 {
+			frame-number = <4>;
+			interrupts = <0 11 0x4>;
+			reg = <0xb026000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@b027000 {
+			frame-number = <5>;
+			interrupts = <0 12 0x4>;
+			reg = <0xb027000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@b028000 {
+			frame-number = <6>;
+			interrupts = <0 13 0x4>;
+			reg = <0xb028000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@b029000 {
+			frame-number = <7>;
+			interrupts = <0 14 0x4>;
+			reg = <0xb029000 0x1000>;
+			status = "disabled";
+		};
+	};
+
+	clock_gcc: qcom,gcc@1800000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_rpm: qcom,rpmcc@1800000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	blsp1_uart1: serial@78af000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x78af000 0x200>;
+		interrupts = <0 107 0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+		status = "disabled";
+	};
+
+	blsp1_uart2: serial@78b0000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x78b0000 0x200>;
+		interrupts = <0 108 0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+		status = "disabled";
+	};
+
+	qcom,sps {
+		compatible = "qcom,msm_sps_4k";
+		qcom,device-type = <3>;
+		qcom,pipe-attr-ee;
+	};
+
+	ipa_hw: qcom,ipa@07900000 {
+		compatible = "qcom,ipa";
+		reg = <0x07900000 0x4EFFC>,
+		      <0x07904000 0x26934>;
+		reg-names = "ipa-base", "bam-base";
+		interrupts = <0 31 0>,
+		             <0 34 0>;
+		interrupt-names = "ipa-irq", "bam-irq";
+		qcom,ipa-hw-ver = <5>; /* IPA core version = IPAv2.0 */
+		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		clock-names = "core_clk";
+		clocks = <&clock_rpm clk_ipa_a_clk>;
+	};
+
+	qcom,clock-a7@0b011050 {
+		compatible = "qcom,clock-a7-vpipa";
+		reg = <0x0b011050 0x8>;
+		reg-names = "rcg-base";
+
+		clock-names = "clk-1", "clk-5";
+		qcom,speed0-bin-v0 =
+			<         0 0>,
+			< 400000000 4>,
+			< 793000000 5>,
+			<1160000000 7>;
+
+		status = "disabled";
+	};
+};
+
+#include "msmvpipa-regulator.dtsi"
