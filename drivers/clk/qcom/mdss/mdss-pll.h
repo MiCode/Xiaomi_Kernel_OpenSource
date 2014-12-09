@@ -62,7 +62,9 @@ struct mdss_pll_resources {
 	void __iomem	*gdsc_base;
 	void __iomem	*dyn_pll_base;
 
+	bool	is_init_locked;
 	s64	vco_current_rate;
+	s64	vco_locking_rate;
 	s64	vco_ref_clk_rate;
 
 	/*
