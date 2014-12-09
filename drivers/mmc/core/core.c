@@ -403,8 +403,13 @@ EXPORT_SYMBOL(mmc_start_bkops);
  */
 static void mmc_wait_data_done(struct mmc_request *mrq)
 {
+	unsigned long flags;
+	struct mmc_context_info *context_info = &mrq->host->context_info;
+
+	spin_lock_irqsave(&context_info->lock, flags);
 	mrq->host->context_info.is_done_rcv = true;
 	wake_up_interruptible(&mrq->host->context_info.wait);
+	spin_unlock_irqrestore(&context_info->lock, flags);
 }
 
 static void mmc_wait_done(struct mmc_request *mrq)
@@ -465,6 +470,7 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 	struct mmc_command *cmd;
 	struct mmc_context_info *context_info = &host->context_info;
 	int err;
+	bool is_done_rcv = false;
 	unsigned long flags;
 
 	while (1) {
@@ -472,9 +478,10 @@ static int mmc_wait_for_data_req_done(struct mmc_host *host,
 				(context_info->is_done_rcv ||
 				 context_info->is_new_req));
 		spin_lock_irqsave(&context_info->lock, flags);
+		is_done_rcv = context_info->is_done_rcv;
 		context_info->is_waiting_last_req = false;
 		spin_unlock_irqrestore(&context_info->lock, flags);
-		if (context_info->is_done_rcv) {
+		if (is_done_rcv) {
 			context_info->is_done_rcv = false;
 			context_info->is_new_req = false;
 			cmd = mrq->cmd;
