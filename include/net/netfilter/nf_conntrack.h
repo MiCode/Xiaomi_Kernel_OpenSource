@@ -17,6 +17,7 @@
 #include <linux/bitops.h>
 #include <linux/compiler.h>
 #include <linux/atomic.h>
+#include <linux/list.h>
 
 #include <linux/netfilter/nf_conntrack_tcp.h>
 #include <linux/netfilter/nf_conntrack_dccp.h>
@@ -25,6 +26,14 @@
 #include <net/netfilter/ipv6/nf_conntrack_icmpv6.h>
 
 #include <net/netfilter/nf_conntrack_tuple.h>
+
+#define SIP_LIST_ELEMENTS	2
+
+struct sip_length {
+	int msg_length[SIP_LIST_ELEMENTS];
+	int skb_len[SIP_LIST_ELEMENTS];
+	int data_len[SIP_LIST_ELEMENTS];
+};
 
 /* per conntrack: protocol private data */
 union nf_conntrack_proto {
@@ -113,6 +122,12 @@ struct nf_conn {
 #if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
 	unsigned long nattype_entry;
 #endif
+
+	struct list_head sip_segment_list;
+	const char *dptr_prev;
+	struct sip_length segment;
+	bool sip_original_dir;
+	bool sip_reply_dir;
 
 	/* Storage reserved for other modules, must be the last member */
 	union nf_conntrack_proto proto;

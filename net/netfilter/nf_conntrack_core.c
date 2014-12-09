@@ -202,6 +202,9 @@ destroy_conntrack(struct nf_conntrack *nfct)
 	struct nf_conn *ct = (struct nf_conn *)nfct;
 	struct net *net = nf_ct_net(ct);
 	struct nf_conntrack_l4proto *l4proto;
+	struct sip_list *sip_node = NULL;
+	struct list_head *sip_node_list;
+	struct list_head *sip_node_save_list;
 
 	pr_debug("destroy_conntrack(%p)\n", ct);
 	NF_CT_ASSERT(atomic_read(&nfct->use) == 0);
@@ -218,6 +221,16 @@ destroy_conntrack(struct nf_conntrack *nfct)
 	rcu_read_unlock();
 
 	spin_lock_bh(&nf_conntrack_lock);
+
+	list_for_each_safe(sip_node_list, sip_node_save_list,
+		    &ct->sip_segment_list)
+	{
+		sip_node = list_entry(sip_node_list, struct sip_list, list);
+		pr_debug("freeing item in the SIP list\n");
+		list_del(&(sip_node->list));
+		kfree(sip_node);
+	}
+
 	/* Expectations will have been removed in clean_from_lists,
 	 * except TFTP can create an expectation on the first packet,
 	 * before connection is in the list, so we need to clean here,
@@ -825,6 +838,9 @@ init_conntrack(struct net *net, struct nf_conn *tmpl,
 			     GFP_ATOMIC);
 
 	spin_lock_bh(&nf_conntrack_lock);
+
+	INIT_LIST_HEAD(&(ct->sip_segment_list));
+
 	exp = nf_ct_find_expectation(net, zone, tuple);
 	if (exp) {
 		pr_debug("conntrack: expectation arrives ct=%p exp=%p\n",
