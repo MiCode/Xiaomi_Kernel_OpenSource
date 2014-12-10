@@ -741,6 +741,17 @@
 			};
 		};
 
+		cnss_pins {
+			qcom,pins = <&gp 112>, <&gp 113>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <0>;
+			label = "cnss_pins";
+			cnss_default: default {
+				drive-strength = <16>;
+				bias-pull-down;
+			};
+		};
+
 		pmx_i2c_2 {
 			qcom,pins = <&gp 6>, <&gp 7>; /* SDA, SCL */
 			qcom,num-grp-pins = <2>;
