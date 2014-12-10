@@ -109,6 +109,7 @@ static DEFINE_CLK_VOTER(ocmemgx_msmbus_a_clk, &ocmemgx_a_clk.c, INT_MAX);
 static DEFINE_CLK_VOTER(oxili_gfx3d_clk_src, &gfx3d_clk_src.c, INT_MAX);
 static DEFINE_CLK_VOTER(pnoc_keepalive_a_clk, &pnoc_a_clk.c, INT_MAX);
 static DEFINE_CLK_VOTER(pnoc_msmbus_clk, &pnoc_clk.c, INT_MAX);
+static DEFINE_CLK_VOTER(pnoc_modem_clk, &pnoc_clk.c, INT_MAX);
 static DEFINE_CLK_VOTER(pnoc_msmbus_a_clk, &pnoc_a_clk.c, INT_MAX);
 static DEFINE_CLK_VOTER(pnoc_pm_clk, &pnoc_clk.c, INT_MAX);
 static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, 0);
@@ -225,6 +226,7 @@ static struct clk_lookup msm_clocks_rpm_8992[] = {
 	CLK_LIST(oxili_gfx3d_clk_src),
 	CLK_LIST(pnoc_keepalive_a_clk),
 	CLK_LIST(pnoc_msmbus_clk),
+	CLK_LIST(pnoc_modem_clk),
 	CLK_LIST(pnoc_msmbus_a_clk),
 	CLK_LIST(pnoc_pm_clk),
 	CLK_LIST(pnoc_sps_clk),
