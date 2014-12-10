@@ -347,7 +347,7 @@ static irqreturn_t pmic_irq_thread(int irq, void *data)
 		if (test_bit(i % 32, &(pmic->irq_mask[i / 32])))
 			continue;
 
-		if (pmic_regmap_read(&pmic->irq_regmap[i].status)) {
+		if (pmic_regmap_read(&pmic->irq_regmap[i].status) > 0) {
 			pmic_regmap_write(&pmic->irq_regmap[i].ack,
 				pmic->irq_regmap[i].ack.mask);
 			handle_nested_irq(pmic->irq_base + i);

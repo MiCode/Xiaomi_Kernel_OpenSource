@@ -177,7 +177,7 @@ static int crystal_cove_init(void)
 
 struct intel_soc_pmic crystal_cove_pmic = {
 	.label		= "crystal cove",
-	.irq_flags	= IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+	.irq_flags	= IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 	.init		= crystal_cove_init,
 	.cell_dev	= crystal_cove_dev,
 	.irq_regmap	= crystal_cove_irqregmap,
