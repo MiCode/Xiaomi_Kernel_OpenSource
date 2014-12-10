@@ -2993,6 +2993,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	int boost = sched_boost();
 	int cstate, min_cstate = INT_MAX;
 	int prefer_idle = reason ? 1 : sysctl_sched_prefer_idle;
+	int curr_cpu = smp_processor_id();
 
 	trace_sched_task_load(p, small_task, boost, reason, sync, prefer_idle);
 
@@ -3058,9 +3059,14 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		/*
 		 * Partition CPUs based on whether they are completely idle
 		 * or not. For completely idle CPUs we choose the one in
-		 * the lowest C-state and then break ties with power cost
+		 * the lowest C-state and then break ties with power cost.
+		 *
+		 * For sync wakeups we only consider the waker CPU as idle if
+		 * prefer_idle is set. Otherwise if prefer_idle is unset sync
+		 * wakeups will get biased away from the waker CPU.
 		 */
-		if (idle_cpu(i)) {
+		if (idle_cpu(i) || (sync && i == curr_cpu && prefer_idle &&
+				    cpu_rq(i)->nr_running == 1)) {
 			if (cstate > min_cstate)
 				continue;
 
