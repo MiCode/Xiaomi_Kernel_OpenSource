@@ -352,7 +352,7 @@ parse_lfp_backlight(struct drm_i915_private *dev_priv, struct bdb_header *bdb)
 
 	dev_priv->vbt.backlight.pwm_freq_hz = entry->pwm_freq_hz;
 	dev_priv->vbt.backlight.active_low_pwm = entry->active_low_pwm;
-	if (dev_priv->vbt_version < 191)
+	if (bdb->version < 191)
 		dev_priv->vbt.backlight.controller = DISPLAY_DDI_BKL_CNTL;
 	else {
 		dev_priv->vbt.backlight.pin = brightness->pin;
@@ -1298,7 +1298,6 @@ intel_parse_bios(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct pci_dev *pdev = dev->pdev;
 	struct bdb_header *bdb = NULL;
-	struct vbt_header *vbt;
 	u8 __iomem *bios = NULL;
 
 	if (HAS_PCH_NOP(dev))
@@ -1312,8 +1311,6 @@ intel_parse_bios(struct drm_device *dev)
 		bdb = validate_vbt((char *)dev_priv->opregion.header, OPREGION_SIZE,
 				   (struct vbt_header *)dev_priv->opregion.vbt,
 				   "OpRegion");
-		vbt = (struct vbt_header *)dev_priv->opregion.vbt;
-		dev_priv->vbt_version = vbt->version;
 	}
 
 	if (bdb == NULL) {

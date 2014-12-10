@@ -1643,7 +1643,6 @@ struct drm_i915_private {
 	struct i915_drrs drrs;
 	struct intel_opregion opregion;
 	struct intel_vbt_data vbt;
-	u16 vbt_version;
 	bool scaling_reqd;
 
 	struct kobject memtrack_kobj;
