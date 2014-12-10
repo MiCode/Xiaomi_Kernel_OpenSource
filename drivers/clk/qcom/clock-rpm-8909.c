@@ -50,7 +50,6 @@
 /* XO clock */
 #define BB_CLK1_ID		1
 #define BB_CLK2_ID		2
-#define RF_CLK1_ID		4
 #define RF_CLK2_ID		5
 
 static void __iomem *virt_base;
@@ -69,12 +68,10 @@ DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
 /* SMD_XO_BUFFER */
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk1, bb_clk1_a, BB_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk2, bb_clk2_a, BB_CLK2_ID);
-DEFINE_CLK_RPM_SMD_XO_BUFFER(rf_clk1, rf_clk1_a, RF_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(rf_clk2, rf_clk2_a, RF_CLK2_ID);
 
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk1_pin, bb_clk1_a_pin, BB_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk2_pin, bb_clk2_a_pin, BB_CLK2_ID);
-DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(rf_clk1_pin, rf_clk1_a_pin, RF_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(rf_clk2_pin, rf_clk2_a_pin, RF_CLK2_ID);
 
 /* Voter clocks */
@@ -164,12 +161,10 @@ static struct clk_lookup msm_clocks_rpm[] = {
 
 	CLK_LIST(bb_clk1),
 	CLK_LIST(bb_clk2),
-	CLK_LIST(rf_clk1),
 	CLK_LIST(rf_clk2),
 
 	CLK_LIST(bb_clk1_pin),
 	CLK_LIST(bb_clk2_pin),
-	CLK_LIST(rf_clk1_pin),
 	CLK_LIST(rf_clk2_pin),
 
 	/* RPM debug Mux*/
