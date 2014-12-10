@@ -63,90 +63,70 @@ static uint8_t stats_pingpong_offset_map[] = {
 	(VFE44_STATS_BASE(idx) + 0x4 * \
 	(~(ping_pong >> (stats_pingpong_offset_map[idx])) & 0x1))
 
-#define VFE44_VBIF_CLKON                    0x4
-#define VFE44_VBIF_IN_RD_LIM_CONF0          0xB0
-#define VFE44_VBIF_IN_RD_LIM_CONF1          0xB4
-#define VFE44_VBIF_IN_RD_LIM_CONF2          0xB8
-#define VFE44_VBIF_IN_WR_LIM_CONF0          0xC0
-#define VFE44_VBIF_IN_WR_LIM_CONF1          0xC4
-#define VFE44_VBIF_IN_WR_LIM_CONF2          0xC8
-#define VFE44_VBIF_OUT_RD_LIM_CONF0         0xD0
-#define VFE44_VBIF_OUT_WR_LIM_CONF0         0xD4
-#define VFE44_VBIF_DDR_OUT_MAX_BURST        0xD8
-#define VFE44_VBIF_OCMEM_OUT_MAX_BURST      0xDC
-#define VFE44_VBIF_ARB_CTL                  0xF0
-#define VFE44_VBIF_ROUND_ROBIN_QOS_ARB      0x124
-#define VFE44_VBIF_OUT_AXI_AMEMTYPE_CONF0   0x160
-#define VFE44_VBIF_OUT_AXI_AMEMTYPE_CONF1   0x164
-#define VFE44_VBIF_OUT_AXI_AOOO_EN          0x178
-#define VFE44_VBIF_OUT_AXI_AOOO             0x17C
-
-#define VFE44_BUS_BDG_QOS_CFG_0     0x000002C4
-#define VFE44_BUS_BDG_QOS_CFG_1     0x000002C8
-#define VFE44_BUS_BDG_QOS_CFG_2     0x000002CC
-#define VFE44_BUS_BDG_QOS_CFG_3     0x000002D0
-#define VFE44_BUS_BDG_QOS_CFG_4     0x000002D4
-#define VFE44_BUS_BDG_QOS_CFG_5     0x000002D8
-#define VFE44_BUS_BDG_QOS_CFG_6     0x000002DC
-#define VFE44_BUS_BDG_QOS_CFG_7     0x000002E0
-
 #define VFE44_CLK_IDX 2
 static struct msm_cam_clk_info msm_vfe44_clk_info[VFE_CLK_INFO_MAX];
 
-static void msm_vfe44_init_qos_parms(struct vfe_device *vfe_dev)
+static int32_t msm_vfe44_init_dt_parms(struct vfe_device *vfe_dev,
+				struct msm_vfe_hw_init_parms *dt_parms)
 {
 	void __iomem *vfebase = vfe_dev->vfe_base;
+	struct device_node *of_node;
+	int32_t i = 0 , rc = 0;
+	uint32_t *dt_settings = NULL, *dt_regs = NULL, dt_entries = 0;
 
-	if (vfe_dev->vfe_hw_version == VFE44_8084V1_VERSION) {
-		msm_camera_io_w(0xFEA9FEA9, vfebase + VFE44_BUS_BDG_QOS_CFG_0);
-		msm_camera_io_w(0xFEA9FEA9, vfebase + VFE44_BUS_BDG_QOS_CFG_1);
-		msm_camera_io_w(0xFEA9FEA9, vfebase + VFE44_BUS_BDG_QOS_CFG_2);
-		msm_camera_io_w(0xFEA9FEA9, vfebase + VFE44_BUS_BDG_QOS_CFG_3);
-		msm_camera_io_w(0xFEA9FEA9, vfebase + VFE44_BUS_BDG_QOS_CFG_4);
-		msm_camera_io_w(0xFEA9FEA9, vfebase + VFE44_BUS_BDG_QOS_CFG_5);
-		msm_camera_io_w(0xFEA9FEA9, vfebase + VFE44_BUS_BDG_QOS_CFG_6);
-		msm_camera_io_w(0x0001FEA9, vfebase + VFE44_BUS_BDG_QOS_CFG_7);
+	of_node = vfe_dev->pdev->dev.of_node;
+
+	rc = of_property_read_u32(of_node, dt_parms->entries,
+		&dt_entries);
+	if (rc < 0 || !dt_entries) {
+		pr_err("%s: NO QOS entries found\n", __func__);
+		return -EINVAL;
 	} else {
-		BUG();
-		pr_err("%s: QOS is NOT configured for HW Version %x\n",
-			__func__, vfe_dev->vfe_hw_version);
+		dt_settings = kzalloc(sizeof(uint32_t) * dt_entries,
+			GFP_KERNEL);
+		if (!dt_settings) {
+			pr_err("%s:%d No memory\n", __func__, __LINE__);
+			return -ENOMEM;
+		}
+		dt_regs = kzalloc(sizeof(uint32_t) * dt_entries,
+			GFP_KERNEL);
+		if (!dt_regs) {
+			pr_err("%s:%d No memory\n", __func__, __LINE__);
+			kfree(dt_settings);
+			return -ENOMEM;
+		}
+		rc = of_property_read_u32_array(of_node, dt_parms->regs,
+			dt_regs, dt_entries);
+		if (rc < 0) {
+			pr_err("%s: NO QOS BUS BDG info\n", __func__);
+			kfree(dt_settings);
+			kfree(dt_regs);
+			return -EINVAL;
+		} else {
+			if (dt_parms->settings) {
+				rc = of_property_read_u32_array(of_node,
+					dt_parms->settings,
+					dt_settings, dt_entries);
+				if (rc < 0) {
+					pr_err("%s: NO QOS settings\n",
+						__func__);
+					kfree(dt_settings);
+					kfree(dt_regs);
+				} else {
+					for (i = 0; i < dt_entries; i++) {
+						msm_camera_io_w(dt_settings[i],
+							vfebase + dt_regs[i]);
+					}
+					kfree(dt_settings);
+					kfree(dt_regs);
+				}
+			} else {
+				kfree(dt_settings);
+				kfree(dt_regs);
+			}
+		}
 	}
-}
-
-static void msm_vfe44_init_vbif_parms_8084_v1(struct vfe_device *vfe_dev)
-{
-	void __iomem *vfe_vbif_base = vfe_dev->vfe_vbif_base;
-	msm_camera_io_w(0x1,
-		vfe_vbif_base + VFE44_VBIF_CLKON);
-	msm_camera_io_w(0x00100000,
-		vfe_vbif_base + VFE44_VBIF_IN_RD_LIM_CONF0);
-	msm_camera_io_w(0x00001000,
-		vfe_vbif_base + VFE44_VBIF_IN_RD_LIM_CONF1);
-	msm_camera_io_w(0x10000010,
-		vfe_vbif_base + VFE44_VBIF_IN_RD_LIM_CONF2);
-	msm_camera_io_w(0x10000010,
-		vfe_vbif_base + VFE44_VBIF_IN_WR_LIM_CONF0);
-	msm_camera_io_w(0x10100000,
-		vfe_vbif_base + VFE44_VBIF_IN_WR_LIM_CONF1);
-	msm_camera_io_w(0x00101000,
-		vfe_vbif_base + VFE44_VBIF_IN_WR_LIM_CONF2);
-	msm_camera_io_w(0x3,
-		vfe_vbif_base + VFE44_VBIF_ROUND_ROBIN_QOS_ARB);
-}
-
-static void msm_vfe44_init_vbif_parms(struct vfe_device *vfe_dev)
-{
-	switch (vfe_dev->vfe_hw_version) {
-	case VFE44_8084V1_VERSION:
-		msm_vfe44_init_vbif_parms_8084_v1(vfe_dev);
-		break;
-	default:
-		BUG();
-		pr_err("%s: VBIF is NOT configured for HW Version %x\n",
-			__func__, vfe_dev->vfe_hw_version);
-		break;
-	}
-
+	return 0;
 }
 
 static int msm_vfe44_init_hardware(struct vfe_device *vfe_dev)
@@ -247,8 +227,24 @@ static void msm_vfe44_release_hardware(struct vfe_device *vfe_dev)
 
 static void msm_vfe44_init_hardware_reg(struct vfe_device *vfe_dev)
 {
-	msm_vfe44_init_qos_parms(vfe_dev);
-	msm_vfe44_init_vbif_parms(vfe_dev);
+	struct msm_vfe_hw_init_parms qos_parms;
+	struct msm_vfe_hw_init_parms vbif_parms;
+	struct msm_vfe_hw_init_parms ds_parms;
+
+	qos_parms.entries = "qos-entries";
+	qos_parms.regs = "qos-regs";
+	qos_parms.settings = "qos-settings";
+	vbif_parms.entries = "vbif-entries";
+	vbif_parms.regs = "vbif-regs";
+	vbif_parms.settings = "vbif-settings";
+	ds_parms.entries = "ds-entries";
+	ds_parms.regs = "ds-regs";
+	ds_parms.settings = "ds-settings";
+
+	msm_vfe44_init_dt_parms(vfe_dev, &qos_parms);
+	msm_vfe44_init_dt_parms(vfe_dev, &ds_parms);
+	msm_vfe44_init_dt_parms(vfe_dev, &vbif_parms);
+
 	/* BUS_CFG */
 	msm_camera_io_w(0x10000001, vfe_dev->vfe_base + 0x50);
 	msm_camera_io_w(0xE00000F1, vfe_dev->vfe_base + 0x28);
