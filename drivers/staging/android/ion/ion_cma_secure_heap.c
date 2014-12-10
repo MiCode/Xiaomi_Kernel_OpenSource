@@ -33,11 +33,19 @@
 
 #define ION_CMA_ALLOCATE_FAILED NULL
 
+struct ion_secure_cma_non_contig_info {
+	dma_addr_t phys;
+	int len;
+	struct list_head entry;
+};
+
 struct ion_secure_cma_buffer_info {
 	dma_addr_t phys;
 	struct sg_table *table;
 	bool is_cached;
 	int len;
+	struct list_head non_contig_list;
+	unsigned long ncelems;
 };
 
 struct ion_cma_alloc_chunk {
@@ -495,17 +503,148 @@ err:
 	return ION_CMA_ALLOCATE_FAILED;
 }
 
+static void __ion_secure_cma_free_non_contig(struct ion_cma_secure_heap *sheap,
+					struct ion_secure_cma_buffer_info *info)
+{
+	struct ion_secure_cma_non_contig_info *nc_info, *temp;
+
+	list_for_each_entry_safe(nc_info, temp, &info->non_contig_list, entry) {
+		ion_secure_cma_free_from_pool(sheap, nc_info->phys,
+								nc_info->len);
+		list_del(&nc_info->entry);
+		kfree(nc_info);
+	}
+}
+
 static void __ion_secure_cma_free(struct ion_cma_secure_heap *sheap,
 				struct ion_secure_cma_buffer_info *info,
 				bool release_memory)
 {
-	if (release_memory)
-		ion_secure_cma_free_from_pool(sheap, info->phys, info->len);
+	if (release_memory) {
+		if (info->ncelems)
+			__ion_secure_cma_free_non_contig(sheap, info);
+		else
+			ion_secure_cma_free_from_pool(sheap, info->phys,
+								info->len);
+	}
 	sg_free_table(info->table);
 	kfree(info->table);
 	kfree(info);
 }
 
+static struct ion_secure_cma_buffer_info *__ion_secure_cma_allocate_non_contig(
+			struct ion_heap *heap, struct ion_buffer *buffer,
+			unsigned long len, unsigned long align,
+			unsigned long flags)
+{
+	struct ion_cma_secure_heap *sheap =
+		container_of(heap, struct ion_cma_secure_heap, heap);
+	struct ion_secure_cma_buffer_info *info;
+	int ret;
+	unsigned long alloc_size = len;
+	struct ion_secure_cma_non_contig_info *nc_info, *temp;
+	unsigned long ncelems = 0;
+	struct scatterlist *sg;
+	unsigned long total_allocated = 0;
+
+	dev_dbg(sheap->dev, "Request buffer allocation len %ld\n", len);
+
+	info = kzalloc(sizeof(struct ion_secure_cma_buffer_info), GFP_KERNEL);
+	if (!info) {
+		dev_err(sheap->dev, "Can't allocate buffer info\n");
+		return ION_CMA_ALLOCATE_FAILED;
+	}
+
+	INIT_LIST_HEAD(&info->non_contig_list);
+	info->table = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+	if (!info->table) {
+		dev_err(sheap->dev, "Fail to allocate sg table\n");
+		goto err;
+	}
+	mutex_lock(&sheap->alloc_lock);
+	while (total_allocated < len) {
+		if (alloc_size < SZ_1M) {
+			pr_err("Cannot allocate less than 1MB\n");
+			goto err2;
+		}
+		nc_info = kzalloc(sizeof(struct ion_secure_cma_non_contig_info),
+						GFP_KERNEL);
+		if (!nc_info) {
+			dev_err(sheap->dev,
+				"Can't allocate non contig buffer info\n");
+			goto err2;
+		}
+		ret = ion_secure_cma_alloc_from_pool(sheap, &nc_info->phys,
+								alloc_size);
+		if (ret) {
+retry:
+			ret = ion_secure_cma_add_to_pool(sheap, alloc_size,
+									false);
+			if (ret) {
+				alloc_size = alloc_size / 2;
+				if (!IS_ALIGNED(alloc_size, SZ_1M))
+					alloc_size = round_down(alloc_size,
+								SZ_1M);
+				kfree(nc_info);
+				continue;
+			}
+			ret = ion_secure_cma_alloc_from_pool(sheap,
+						&nc_info->phys, alloc_size);
+			if (ret) {
+				/*
+				 * Lost the race with the shrinker, try again
+				 */
+				goto retry;
+			}
+		}
+		nc_info->len = alloc_size;
+		list_add_tail(&nc_info->entry, &info->non_contig_list);
+		ncelems++;
+		total_allocated += alloc_size;
+		alloc_size = min(alloc_size, len - total_allocated);
+	}
+	mutex_unlock(&sheap->alloc_lock);
+	atomic_add(total_allocated, &sheap->total_allocated);
+
+	nc_info = list_first_entry_or_null(&info->non_contig_list,
+			struct ion_secure_cma_non_contig_info, entry);
+	if (!nc_info) {
+		pr_err("%s: Unable to find first entry of non contig list\n",
+								__func__);
+		goto err1;
+	}
+	info->phys = nc_info->phys;
+	info->len = total_allocated;
+	info->ncelems = ncelems;
+
+	ret = sg_alloc_table(info->table, ncelems, GFP_KERNEL);
+	if (unlikely(ret))
+		goto err1;
+
+	sg = info->table->sgl;
+	list_for_each_entry(nc_info, &info->non_contig_list, entry) {
+		sg_set_page(sg, phys_to_page(nc_info->phys), nc_info->len, 0);
+		sg_dma_address(sg) = nc_info->phys;
+		sg = sg_next(sg);
+	}
+	buffer->priv_virt = info;
+	dev_dbg(sheap->dev, "Allocate buffer %p\n", buffer);
+	return info;
+
+err2:
+	mutex_unlock(&sheap->alloc_lock);
+err1:
+	list_for_each_entry_safe(nc_info, temp, &info->non_contig_list,
+								entry) {
+		list_del(&nc_info->entry);
+		kfree(nc_info);
+	}
+	kfree(info->table);
+err:
+	kfree(info);
+	return ION_CMA_ALLOCATE_FAILED;
+
+}
 static int ion_secure_cma_allocate(struct ion_heap *heap,
 			    struct ion_buffer *buffer,
 			    unsigned long len, unsigned long align,
@@ -513,6 +652,7 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 {
 	unsigned long secure_allocation = flags & ION_FLAG_SECURE;
 	struct ion_secure_cma_buffer_info *buf = NULL;
+	unsigned long allow_non_contig = flags & ION_FLAG_ALLOW_NON_CONTIG;
 
 	if (!secure_allocation) {
 		pr_err("%s: non-secure allocation disallowed from heap %s %lx\n",
@@ -531,11 +671,14 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 			__func__, heap->name);
 		return -ENOMEM;
 	}
-
 	trace_ion_secure_cma_allocate_start(heap->name, len, align, flags);
-	buf = __ion_secure_cma_allocate(heap, buffer, len, align, flags);
+	if (!allow_non_contig)
+		buf = __ion_secure_cma_allocate(heap, buffer, len, align,
+									flags);
+	else
+		buf = __ion_secure_cma_allocate_non_contig(heap, buffer, len,
+								align, flags);
 	trace_ion_secure_cma_allocate_end(heap->name, len, align, flags);
-
 	if (buf) {
 		int ret;
 
