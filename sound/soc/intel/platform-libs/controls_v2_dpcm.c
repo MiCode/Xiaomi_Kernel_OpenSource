@@ -60,6 +60,155 @@ static inline void sst_fill_byte_control(char *param,
 #endif
 }
 
+unsigned int sst_soc_read(struct snd_soc_platform *platform,
+			unsigned int reg)
+{
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+
+	pr_debug("%s: reg[%d] = %#x\n", __func__, reg, sst->widget[reg]);
+	BUG_ON(reg > (SST_NUM_WIDGETS - 1));
+	return sst->widget[reg];
+}
+
+int sst_soc_write(struct snd_soc_platform *platform,
+		  unsigned int reg, unsigned int val)
+{
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+
+	pr_debug("%s: reg[%d] = %#x\n", __func__, reg, val);
+	BUG_ON(reg > (SST_NUM_WIDGETS - 1));
+	sst->widget[reg] = val;
+	return 0;
+}
+
+unsigned int sst_reg_read(struct sst_data *sst, unsigned int reg,
+			  unsigned int shift, unsigned int max)
+{
+	unsigned int mask = (1 << fls(max)) - 1;
+
+	return (sst->widget[reg] >> shift) & mask;
+}
+
+unsigned int sst_reg_write(struct sst_data *sst, unsigned int reg,
+			   unsigned int shift, unsigned int max,
+			   unsigned int val)
+{
+	unsigned int mask = (1 << fls(max)) - 1;
+
+	val &= mask;
+	val <<= shift;
+	sst->widget[reg] &= ~(mask << shift);
+	sst->widget[reg] |= val;
+	return val;
+}
+
+int sst_mix_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wl = dapm_kcontrol_get_wlist(kcontrol);
+	struct snd_soc_dapm_widget *widget = wl->widgets[0];
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(widget->platform);
+	unsigned int mask = (1 << fls(mc->max)) - 1;
+	unsigned int val;
+	int connect;
+	struct snd_soc_dapm_update update;
+
+	pr_debug("%s called set %#lx for %s\n", __func__,
+			ucontrol->value.integer.value[0], widget->name);
+
+	val = sst_reg_write(sst, mc->reg, mc->shift, mc->max,
+					ucontrol->value.integer.value[0]);
+	connect = !!val;
+
+	dapm_kcontrol_set_value(kcontrol, val);
+	update.kcontrol = kcontrol;
+	update.reg = mc->reg;
+	update.mask = mask << mc->shift;
+	update.val = val;
+
+	snd_soc_dapm_mixer_update_power(widget->dapm, kcontrol,
+						connect, &update);
+	return 0;
+}
+
+int sst_mix_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wl = dapm_kcontrol_get_wlist(kcontrol);
+	struct snd_soc_dapm_widget *w = wl->widgets[0];
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+
+	ucontrol->value.integer.value[0] = !!sst_reg_read(sst, mc->reg,
+							mc->shift, mc->max);
+	return 0;
+}
+
+int sst_byte_control_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+
+	pr_debug("in %s\n", __func__);
+	memcpy(ucontrol->value.bytes.data, sst->byte_stream, SST_MAX_BIN_BYTES);
+	print_hex_dump_bytes(__func__, DUMP_PREFIX_OFFSET,
+			     (const void *)sst->byte_stream, 32);
+	return 0;
+}
+
+static int sst_check_binary_input(char *stream)
+{
+	struct snd_sst_bytes_v2 *bytes = (struct snd_sst_bytes_v2 *)stream;
+
+	if (bytes->len == 0 || bytes->len > 1000) {
+		pr_err("length out of bounds %d\n", bytes->len);
+		return -EINVAL;
+	}
+	if (bytes->type == 0 || bytes->type > SND_SST_BYTES_GET) {
+		pr_err("type out of bounds: %d\n", bytes->type);
+		return -EINVAL;
+	}
+	if (bytes->block > 1) {
+		pr_err("block invalid %d\n", bytes->block);
+		return -EINVAL;
+	}
+	if (bytes->task_id == SST_TASK_ID_NONE ||
+			bytes->task_id > SST_TASK_ID_MAX) {
+		pr_err("taskid invalid %d\n", bytes->task_id);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int sst_byte_control_set(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	int ret = 0;
+
+	pr_debug("in %s\n", __func__);
+	mutex_lock(&sst->lock);
+	memcpy(sst->byte_stream, ucontrol->value.bytes.data, SST_MAX_BIN_BYTES);
+	if (0 != sst_check_binary_input(sst->byte_stream)) {
+		mutex_unlock(&sst->lock);
+		return -EINVAL;
+	}
+	print_hex_dump_bytes(__func__, DUMP_PREFIX_OFFSET,
+			     (const void *)sst->byte_stream, 32);
+
+	ret = sst_dsp->ops->set_generic_params(SST_SET_BYTE_STREAM,
+						sst->byte_stream);
+	mutex_unlock(&sst->lock);
+
+	return ret;
+}
+
 static int sst_fill_and_send_cmd_unlocked(struct sst_data *sst,
 				 u8 ipc_msg, u8 block, u8 task_id, u8 pipe_id,
 				 void *cmd_data, u16 len)
