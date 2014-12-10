@@ -26,6 +26,13 @@ enum buf_type {
 	VECTOR,
 };
 
+enum xprt_ids {
+	SMEM_XPRT_ID = 100,
+	SMD_TRANS_XPRT_ID = 200,
+	LLOOP_XPRT_ID = 300,
+	MOCK_XPRT_ID = 400,
+};
+
 #define GCAP_SIGNALS	BIT(0)
 #define GCAP_INTENTLESS	BIT(1)
 
@@ -63,11 +70,11 @@ struct glink_transport_if {
 
 	/* channel state */
 	int (*tx_cmd_ch_open)(struct glink_transport_if *if_ptr, uint32_t lcid,
-			const char *name);
+			const char *name, uint16_t req_xprt);
 	int (*tx_cmd_ch_close)(struct glink_transport_if *if_ptr,
 			uint32_t lcid);
 	void (*tx_cmd_ch_remote_open_ack)(struct glink_transport_if *if_ptr,
-			uint32_t rcid);
+			uint32_t rcid, uint16_t xprt_resp);
 	void (*tx_cmd_ch_remote_close_ack)(struct glink_transport_if *if_ptr,
 			uint32_t rcid);
 	int (*ssr)(struct glink_transport_if *if_ptr);
@@ -100,10 +107,6 @@ struct glink_transport_if {
 	int (*poll)(struct glink_transport_if *if_ptr, uint32_t lcid);
 	int (*mask_rx_irq)(struct glink_transport_if *if_ptr, uint32_t lcid,
 			bool mask, void *pstruct);
-
-	/* channel migration */
-	void (*ch_migrating)(struct glink_transport_if *if_ptr, uint32_t lcid,
-			uint32_t rcid);
 
 	/*
 	 * Keep data pointers at the end of the structure after all function

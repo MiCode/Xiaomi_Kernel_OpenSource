@@ -113,9 +113,9 @@ struct glink_core_if {
 
 	/* channel management */
 	void (*rx_cmd_ch_remote_open)(struct glink_transport_if *if_ptr,
-			uint32_t rcid, const char *name);
+			uint32_t rcid, const char *name, uint16_t req_xprt);
 	void (*rx_cmd_ch_open_ack)(struct glink_transport_if *if_ptr,
-			uint32_t lcid);
+			uint32_t lcid, uint16_t xprt_resp);
 	void (*rx_cmd_ch_remote_close)(struct glink_transport_if *if_ptr,
 			uint32_t rcid);
 	void (*rx_cmd_ch_close_ack)(struct glink_transport_if *if_ptr,
@@ -140,12 +140,6 @@ struct glink_core_if {
 
 	/* channel scheduling */
 	void (*tx_resume)(struct glink_transport_if *if_ptr);
-
-	/* channel migration */
-	bool (*local_ch_exists)(struct glink_transport_if *if_ptr,
-				const char *name);
-	bool (*remote_ch_exists)(struct glink_transport_if *if_ptr,
-				 const char *name);
 };
 
 int glink_core_register_transport(struct glink_transport_if *if_ptr,

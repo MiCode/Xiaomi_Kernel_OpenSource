@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/module.h>
@@ -43,6 +44,10 @@
  * @ssr_sync:	Synchronizes SSR with any ongoing activity that might conflict.
  * @in_ssr:	Prevents new activity that might conflict with an active SSR.
  * @ssr_work:	Ends SSR processing after giving SMD a chance to wrap up SSR.
+ * @smd_ch:	Private SMD channel for channel migration.
+ * @smd_lock:	Serializes write access to @smd_ch.
+ * @ch_open:	Indicates that @smd_ch is fully open.
+ * @work:	Work item for processing migration data.
  *
  * Each transport registered with the core is represented by a single instance
  * of this structure which allows for complete management of the transport.
@@ -56,6 +61,10 @@ struct edge_info {
 	struct srcu_struct ssr_sync;
 	bool in_ssr;
 	struct delayed_work ssr_work;
+	smd_channel_t *smd_ch;
+	struct mutex smd_lock;
+	bool ch_open;
+	struct work_struct work;
 };
 
 /**
@@ -63,6 +72,7 @@ struct edge_info {
  * @node:		For chaining this channel on list for its edge.
  * @name:		The name of this channel.
  * @lcid:		The local channel id the core uses for this channel.
+ * @rcid:		The true remote channel id for this channel.
  * @wait_for_probe:	This channel is waiting for a probe from SMD.
  * @had_probed:		This channel probed in the past and may skip probe.
  * @edge:		Handle to the edge_info this channel is associated with.
@@ -77,11 +87,14 @@ struct edge_info {
  * @intent_req:		Flag indicating if an intent has been requested for rx.
  * @is_closing:		Flag indicating this channel is currently in the closing
  *			state.
+ * @local_legacy:	The local side of the channel is in legacy mode.
+ * @remote_legacy:	The remote side of the channel is in legacy mode.
  */
 struct channel {
 	struct list_head node;
 	char name[GLINK_NAME_SIZE];
 	uint32_t lcid;
+	uint32_t rcid;
 	bool wait_for_probe;
 	bool had_probed;
 	struct edge_info *edge;
@@ -95,6 +108,8 @@ struct channel {
 	struct intent_info *cur_intent;
 	bool intent_req;
 	bool is_closing;
+	bool local_legacy;
+	bool remote_legacy;
 };
 
 /**
@@ -166,6 +181,161 @@ static struct glink_core_version versions[] = {
 static LIST_HEAD(pdrv_list);
 static DEFINE_MUTEX(pdrv_list_mutex);
 
+static void process_data_event(struct work_struct *work);
+static int add_platform_driver(struct channel *ch);
+
+/**
+ * process_migration_event() - process a migration event task
+ * @work:	The migration task to process.
+ */
+static void process_migration_event(struct work_struct *work)
+{
+	struct command {
+		uint32_t cmd;
+		uint32_t id;
+		uint32_t priority;
+	};
+	struct command cmd;
+	struct edge_info *einfo;
+	struct channel *ch;
+	int pkt_size;
+	int read_avail;
+	char name[GLINK_NAME_SIZE];
+	bool found;
+
+	einfo = container_of(work, struct edge_info, work);
+
+	while (smd_read_avail(einfo->smd_ch)) {
+		found = false;
+		pkt_size = smd_cur_packet_size(einfo->smd_ch);
+		read_avail = smd_read_avail(einfo->smd_ch);
+
+		if (pkt_size != read_avail)
+			continue;
+
+		smd_read(einfo->smd_ch, &cmd, sizeof(cmd));
+		if (cmd.cmd == 0) {
+			smd_read(einfo->smd_ch, name, GLINK_NAME_SIZE);
+
+			list_for_each_entry(ch, &einfo->channels, node) {
+				if (!strcmp(name, ch->name)) {
+					found = true;
+					break;
+				}
+			}
+
+			if (!found) {
+				ch = kzalloc(sizeof(*ch), GFP_KERNEL);
+				if (!ch) {
+					pr_err("%s: channel struct allocation failed\n",
+								__func__);
+					continue;
+				}
+				strlcpy(ch->name, name, GLINK_NAME_SIZE);
+				ch->edge = einfo;
+				INIT_LIST_HEAD(&ch->intents);
+				INIT_LIST_HEAD(&ch->used_intents);
+				mutex_init(&ch->intents_lock);
+				INIT_WORK(&ch->work, process_data_event);
+				ch->wq = create_singlethread_workqueue(
+								ch->name);
+				if (!ch->wq) {
+					pr_err("%s: channel workqueue create failed\n",
+								__func__);
+					kfree(ch);
+					continue;
+				}
+				list_add_tail(&ch->node, &einfo->channels);
+			}
+
+			if (ch->remote_legacy) {
+				cmd.cmd = 1;
+				cmd.priority = SMD_TRANS_XPRT_ID;
+				mutex_lock(&einfo->smd_lock);
+				while (smd_write_avail(einfo->smd_ch) <
+								sizeof(cmd))
+					msleep(20);
+				smd_write(einfo->smd_ch, &cmd, sizeof(cmd));
+				mutex_unlock(&einfo->smd_lock);
+				continue;
+			}
+
+			ch->rcid = cmd.id;
+			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_open(
+								&einfo->xprt_if,
+								cmd.id,
+								name,
+								cmd.priority);
+		} else if (cmd.cmd == 1) {
+			list_for_each_entry(ch, &einfo->channels, node)
+				if (cmd.id == ch->lcid)
+					break;
+			add_platform_driver(ch);
+			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(
+								&einfo->xprt_if,
+								cmd.id,
+								cmd.priority);
+		} else if (cmd.cmd == 2) {
+			if (!ch->remote_legacy) {
+				einfo->xprt_if.glink_core_if_ptr->
+							rx_cmd_ch_remote_close(
+								&einfo->xprt_if,
+								cmd.id);
+			} else {
+				cmd.cmd = 3;
+				mutex_lock(&einfo->smd_lock);
+				while (smd_write_avail(einfo->smd_ch) <
+								sizeof(cmd))
+					msleep(20);
+				smd_write(einfo->smd_ch, &cmd, sizeof(cmd));
+				mutex_unlock(&einfo->smd_lock);
+			}
+		} else if (cmd.cmd == 3) {
+			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
+								&einfo->xprt_if,
+								cmd.id);
+		}
+	}
+}
+
+/**
+ * migration_notify() - process an event from the smd channel for ch migration
+ * @priv:	The edge the event occurred on.
+ * @event:	The event to process
+ */
+static void migration_notify(void *priv, unsigned event)
+{
+	struct edge_info *einfo = priv;
+
+	switch (event) {
+	case SMD_EVENT_DATA:
+		schedule_work(&einfo->work);
+		break;
+	case SMD_EVENT_OPEN:
+		einfo->ch_open = true;
+		break;
+	case SMD_EVENT_CLOSE:
+		einfo->ch_open = false;
+		break;
+	}
+}
+
+static int migration_probe(struct platform_device *pdev)
+{
+	int i;
+	struct edge_info *einfo;
+
+	for (i = 0; i < NUM_EDGES; ++i)
+		if (pdev->id == edge_infos[i].smd_edge)
+			break;
+
+	einfo = &edge_infos[i];
+	smd_named_open_on_edge("GLINK_CTRL", einfo->smd_edge, &einfo->smd_ch,
+						einfo, migration_notify);
+
+	return 0;
+}
+
 /**
  * ssr_work_func() - process the end of ssr
  * @work:	The ssr task to finish.
@@ -198,7 +368,7 @@ static void process_tx_done(struct work_struct *work)
 	einfo = ch->edge;
 	kfree(ch_work);
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_tx_done(&einfo->xprt_if,
-								ch->lcid,
+								ch->rcid,
 								riid,
 								false);
 }
@@ -217,8 +387,10 @@ static void process_open_event(struct work_struct *work)
 	ch = ch_work->ch;
 	einfo = ch->edge;
 	kfree(ch_work);
-	einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(&einfo->xprt_if,
-								ch->lcid);
+	if (ch->remote_legacy)
+		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(
+						&einfo->xprt_if,
+						ch->lcid, SMD_TRANS_XPRT_ID);
 }
 
 /**
@@ -235,9 +407,11 @@ static void process_close_event(struct work_struct *work)
 	ch = ch_work->ch;
 	einfo = ch->edge;
 	kfree(ch_work);
-	einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_close(
+	if (ch->remote_legacy)
+		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_close(
 								&einfo->xprt_if,
-								ch->lcid);
+								ch->rcid);
+	ch->rcid = 0;
 }
 
 /**
@@ -271,7 +445,7 @@ static void process_status_event(struct work_struct *work)
 		sigs |= SMD_RI_SIG;
 
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_remote_sigs(&einfo->xprt_if,
-								ch->lcid,
+								ch->rcid,
 								sigs);
 }
 
@@ -289,11 +463,14 @@ static void process_reopen_event(struct work_struct *work)
 	ch = ch_work->ch;
 	einfo = ch->edge;
 	kfree(ch_work);
-	einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_close(
+	if (ch->remote_legacy) {
+		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_close(
+								&einfo->xprt_if,
+								ch->rcid);
+		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
 								&einfo->xprt_if,
 								ch->lcid);
-	einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(&einfo->xprt_if,
-								ch->lcid);
+	}
 }
 
 /**
@@ -330,7 +507,7 @@ static void process_data_event(struct work_struct *work)
 				einfo->xprt_if.glink_core_if_ptr->
 						rx_cmd_remote_rx_intent_req(
 								&einfo->xprt_if,
-								ch->lcid,
+								ch->rcid,
 								pkt_size);
 				return;
 			}
@@ -340,7 +517,7 @@ static void process_data_event(struct work_struct *work)
 		read_avail = smd_read_avail(ch->smd_ch);
 		intent = einfo->xprt_if.glink_core_if_ptr->rx_get_pkt_ctx(
 							&einfo->xprt_if,
-							ch->lcid,
+							ch->rcid,
 							liid);
 		if (!intent->data && einfo->intentless) {
 			intent->data = kmalloc(pkt_size, GFP_KERNEL);
@@ -359,7 +536,7 @@ static void process_data_event(struct work_struct *work)
 		}
 		einfo->xprt_if.glink_core_if_ptr->rx_put_pkt_ctx(
 							&einfo->xprt_if,
-							ch->lcid,
+							ch->rcid,
 							intent,
 							read_avail == pkt_size);
 	}
@@ -434,9 +611,15 @@ static void channel_probe_body(struct channel *ch)
 	smd_named_open_on_edge(ch->name, einfo->smd_edge, &ch->smd_ch, ch,
 								smd_notify);
 	smd_disable_read_intr(ch->smd_ch);
-	einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_open(&einfo->xprt_if,
-								ch->lcid,
-								ch->name);
+	if (ch->remote_legacy || !ch->rcid) {
+		ch->remote_legacy = true;
+		ch->rcid = ch->lcid + 128;
+		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_open(
+							&einfo->xprt_if,
+							ch->rcid,
+							ch->name,
+							SMD_TRANS_XPRT_ID);
+	}
 }
 
 static int channel_probe(struct platform_device *pdev)
@@ -622,17 +805,25 @@ static uint32_t set_version(struct glink_transport_if *if_ptr, uint32_t version,
  * @if_ptr:	The transport to transmit on.
  * @lcid:	The local channel id to encode.
  * @name:	The channel name to encode.
+ * @req_xprt:	The transport the core would like to migrate this channel to.
  *
  * Return: 0 on success or standard Linux error code.
  */
 static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
-			  const char *name)
+			  const char *name, uint16_t req_xprt)
 {
+	struct command {
+		uint32_t cmd;
+		uint32_t id;
+		uint32_t priority;
+	};
+	struct command cmd;
 	struct edge_info *einfo;
 	struct channel *ch;
 	bool found = false;
 	int rcu_id;
-	int ret;
+	int ret = 0;
+	int len;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
@@ -676,7 +867,31 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 
 	ch->lcid = lcid;
 
-	ret = add_platform_driver(ch);
+	if (einfo->ch_open) {
+		cmd.cmd = 0;
+		cmd.id = lcid;
+		cmd.priority = req_xprt;
+		len = strlen(name) + 1;
+		len += sizeof(cmd);
+		mutex_lock(&einfo->smd_lock);
+		while (smd_write_avail(einfo->smd_ch) < len)
+			msleep(20);
+		smd_write_start(einfo->smd_ch, len);
+		smd_write_segment(einfo->smd_ch, &cmd, sizeof(cmd));
+		smd_write_segment(einfo->smd_ch, name, strlen(name) + 1);
+		smd_write_end(einfo->smd_ch);
+		mutex_unlock(&einfo->smd_lock);
+	} else {
+		/*
+		 * max of 64 channels, the 128 offset puts the rcid out of the
+		 * range the remote might use
+		 */
+		ch->rcid = lcid + 128;
+		ch->local_legacy = true;
+		ch->remote_legacy = true;
+		ret = add_platform_driver(ch);
+	}
+
 	srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 	return ret;
 }
@@ -690,6 +905,12 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
  */
 static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 {
+	struct command {
+		uint32_t cmd;
+		uint32_t id;
+		uint32_t reserved;
+	};
+	struct command cmd;
 	struct edge_info *einfo;
 	struct channel *ch;
 	struct intent_info *intent;
@@ -708,10 +929,20 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 			break;
 	}
 
+	if (!ch->remote_legacy) {
+		cmd.cmd = 2;
+		cmd.id = lcid;
+		mutex_lock(&einfo->smd_lock);
+		while (smd_write_avail(einfo->smd_ch) < sizeof(cmd))
+			msleep(20);
+		smd_write(einfo->smd_ch, &cmd, sizeof(cmd));
+		mutex_unlock(&einfo->smd_lock);
+	}
 	ch->is_closing = true;
 	flush_workqueue(ch->wq);
 	smd_close(ch->smd_ch);
 	ch->smd_ch = NULL;
+	ch->local_legacy = false;
 
 	mutex_lock(&ch->intents_lock);
 	while (!list_empty(&ch->intents)) {
@@ -738,13 +969,42 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
  *				 and transmit
  * @if_ptr:	The transport to transmit on.
  * @rcid:	The remote channel id to encode.
- *
- * The remote side doesn't speak G-Link.  The core is acking an open command
- * we faked.  Do nothing.
+ * @xprt_resp:	The response to a transport migration request.
  */
 static void tx_cmd_ch_remote_open_ack(struct glink_transport_if *if_ptr,
-				      uint32_t rcid)
+				      uint32_t rcid, uint16_t xprt_resp)
 {
+	struct command {
+		uint32_t cmd;
+		uint32_t id;
+		uint32_t priority;
+	};
+	struct command cmd;
+	struct edge_info *einfo;
+	struct channel *ch;
+
+	einfo = container_of(if_ptr, struct edge_info, xprt_if);
+
+	if (!einfo->ch_open)
+		return;
+
+	list_for_each_entry(ch, &einfo->channels, node)
+		if (ch->rcid == rcid)
+			break;
+
+	if (ch->remote_legacy)
+		return;
+
+	cmd.cmd = 1;
+	cmd.id = ch->rcid;
+	cmd.priority = xprt_resp;
+
+	mutex_lock(&einfo->smd_lock);
+	while (smd_write_avail(einfo->smd_ch) < sizeof(cmd))
+		msleep(20);
+
+	smd_write(einfo->smd_ch, &cmd, sizeof(cmd));
+	mutex_unlock(&einfo->smd_lock);
 }
 
 /**
@@ -752,13 +1012,35 @@ static void tx_cmd_ch_remote_open_ack(struct glink_transport_if *if_ptr,
  *				  and transmit
  * @if_ptr:	The transport to transmit on.
  * @rcid:	The remote channel id to encode.
- *
- * The remote side doesn't speak G-Link.  The core is acking a close command
- * we faked.  Do nothing.
  */
 static void tx_cmd_ch_remote_close_ack(struct glink_transport_if *if_ptr,
 				       uint32_t rcid)
 {
+	struct command {
+		uint32_t cmd;
+		uint32_t id;
+		uint32_t reserved;
+	};
+	struct command cmd;
+	struct edge_info *einfo;
+	struct channel *ch;
+
+	einfo = container_of(if_ptr, struct edge_info, xprt_if);
+	list_for_each_entry(ch, &einfo->channels, node) {
+		if (rcid == ch->rcid)
+			break;
+	}
+
+	if (!ch->remote_legacy) {
+		cmd.cmd = 3;
+		cmd.id = rcid;
+		mutex_lock(&einfo->smd_lock);
+		while (smd_write_avail(einfo->smd_ch) < sizeof(cmd))
+			msleep(20);
+		smd_write(einfo->smd_ch, &cmd, sizeof(cmd));
+		mutex_unlock(&einfo->smd_lock);
+	}
+	ch->remote_legacy = false;
 }
 
 /**
@@ -778,6 +1060,8 @@ static int ssr(struct glink_transport_if *if_ptr)
 	einfo->in_ssr = true;
 	synchronize_srcu(&einfo->ssr_sync);
 
+	einfo->ch_open = false;
+
 	list_for_each_entry(ch, &einfo->channels, node) {
 		if (!ch->smd_ch)
 			continue;
@@ -785,6 +1069,9 @@ static int ssr(struct glink_transport_if *if_ptr)
 		flush_workqueue(ch->wq);
 		smd_close(ch->smd_ch);
 		ch->smd_ch = NULL;
+		ch->local_legacy = false;
+		ch->remote_legacy = false;
+		ch->rcid = 0;
 
 		mutex_lock(&ch->intents_lock);
 		while (!list_empty(&ch->intents)) {
@@ -1046,11 +1333,11 @@ static int tx_cmd_rx_intent_req(struct glink_transport_if *if_ptr,
 	}
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_rx_intent_req_ack(
 								&einfo->xprt_if,
-								ch->lcid,
+								ch->rcid,
 								true);
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_remote_rx_intent_put(
 							&einfo->xprt_if,
-							ch->lcid,
+							ch->rcid,
 							ch->next_intent_id++,
 							size);
 	return 0;
@@ -1222,6 +1509,14 @@ static void init_xprt_cfg(struct edge_info *einfo)
 	einfo->xprt_cfg.max_iid = SZ_1;
 }
 
+static struct platform_driver migration_driver = {
+	.probe		= migration_probe,
+	.driver		= {
+		.name	= "GLINK_CTRL",
+		.owner	= THIS_MODULE,
+	},
+};
+
 static int __init glink_smd_xprt_init(void)
 {
 	int i;
@@ -1234,7 +1529,9 @@ static int __init glink_smd_xprt_init(void)
 		init_xprt_if(einfo);
 		INIT_LIST_HEAD(&einfo->channels);
 		init_srcu_struct(&einfo->ssr_sync);
+		mutex_init(&einfo->smd_lock);
 		INIT_DELAYED_WORK(&einfo->ssr_work, ssr_work_func);
+		INIT_WORK(&einfo->work, process_migration_event);
 		rc = glink_core_register_transport(&einfo->xprt_if,
 							&einfo->xprt_cfg);
 		if (rc)
@@ -1246,6 +1543,8 @@ static int __init glink_smd_xprt_init(void)
 			einfo->xprt_if.glink_core_if_ptr->link_up(
 							&einfo->xprt_if);
 	}
+
+	platform_driver_register(&migration_driver);
 
 	return 0;
 }
