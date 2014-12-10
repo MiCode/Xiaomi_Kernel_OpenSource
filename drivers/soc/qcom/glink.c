@@ -30,6 +30,7 @@
 
 /**
  * struct glink_core_xprt_ctx - transport representation structure
+ * @xprt_state_lhb0:		controls read/write access to transport state
  * @list_node:			used to chain this transport in a global
  *				transport list
  * @name:			name of this transport
@@ -60,6 +61,7 @@
  * @tx_ready:			list of all channels ready to transmit
  */
 struct glink_core_xprt_ctx {
+	struct rwref_lock xprt_state_lhb0;
 	struct list_head list_node;
 	char name[GLINK_NAME_SIZE];
 	char edge[GLINK_NAME_SIZE];
@@ -87,6 +89,7 @@ struct glink_core_xprt_ctx {
 
 /**
  * Channel Context
+ * @xprt_state_lhb0:	controls read/write access to channel state
  * @port_list_node:	channel list node used by transport "channels" list
  * @tx_ready_list_node:	channels that have data ready to transmit
  * @name:		name of the channel
@@ -126,6 +129,7 @@ struct glink_core_xprt_ctx {
  * @rsigs:				Remote signals
  */
 struct channel_ctx {
+	struct rwref_lock ch_state_lhc0;
 	struct list_head port_list_node;
 	struct list_head tx_ready_list_node;
 	char name[GLINK_NAME_SIZE];
