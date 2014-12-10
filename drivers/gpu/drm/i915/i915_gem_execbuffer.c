@@ -1152,6 +1152,10 @@ i915_gem_ringbuffer_submission(struct i915_execbuffer_params *params,
 
 	i915_gem_execbuffer_move_to_active(vmas, ring);
 
+	/* Make sure the OLR hasn't advanced (which would indicate a flush
+	 * of the work in progress which in turn would be a Bad Thing). */
+	WARN_ON(ring->outstanding_lazy_request != params->request);
+
 	ret = dev_priv->gt.do_execfinal(params);
 	if (ret)
 		goto error;
@@ -1192,6 +1196,10 @@ int i915_gem_ringbuffer_submission_final(struct i915_execbuffer_params *params)
 	}
 
 	intel_runtime_pm_get(dev_priv);
+
+	/* Request matches? */
+	WARN_ON(ring->outstanding_lazy_request != params->request);
+	WARN_ON(params->request == NULL);
 
 	/* Start watchdog timer */
 	if (params->args_flags & I915_EXEC_ENABLE_WATCHDOG) {
@@ -1245,7 +1253,7 @@ int i915_gem_ringbuffer_submission_final(struct i915_execbuffer_params *params)
 
 	/* Flag this request as being active on the ring so the watchdog
 	 * code knows where to look if things go wrong. */
-	ret = i915_write_active_request(ring, intel_ring_get_request(ring));
+	ret = i915_write_active_request(ring, params->request);
 	if (ret) {
 		DRM_DEBUG_DRIVER("Failed to tag request on ring %d (%d)\n",
 				 ring->id, ret);
@@ -1571,6 +1579,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	ret = dev_priv->gt.alloc_request(ring, ctx);
 	if (ret)
 		goto err;
+	params->request = ring->outstanding_lazy_request;
 
 	/* Save assorted stuff away to pass through to *_submission_final() */
 	params->dev                     = dev;
@@ -1608,7 +1617,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		 * User interrupts will be enabled to make sure that
 		 * the timeline is signalled on completion.
 		 */
-		ret = i915_sync_create_fence(ring, intel_ring_get_request(ring),
+		ret = i915_sync_create_fence(ring, params->request,
 					     &fd_fence_complete,
 					     args->flags & I915_EXEC_RING_MASK);
 		if (ret) {

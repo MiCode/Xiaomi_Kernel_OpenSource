@@ -1554,6 +1554,7 @@ struct i915_execbuffer_params {
 	uint32_t                        instp_mask;
 	int                             instp_mode;
 	struct intel_context            *ctx;
+	struct drm_i915_gem_request     *request;
 };
 
 struct drm_i915_private {
