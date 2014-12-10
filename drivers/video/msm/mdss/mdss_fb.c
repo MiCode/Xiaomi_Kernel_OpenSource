@@ -699,6 +699,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	struct mdss_panel_data *pdata;
 	struct fb_info *fbi;
 	int rc;
+	u32 cell_index = 0;
 
 	if (fbi_list_index >= MAX_FBI_LIST)
 		return -ENOMEM;
@@ -706,6 +707,11 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	pdata = dev_get_platdata(&pdev->dev);
 	if (!pdata)
 		return -EPROBE_DEFER;
+
+	of_property_read_u32(pdev->dev.of_node, "cell-index", &cell_index);
+	if (cell_index > fbi_list_index)
+		return -EPROBE_DEFER;
+
 
 	/*
 	 * alloc framebuffer info + par data
