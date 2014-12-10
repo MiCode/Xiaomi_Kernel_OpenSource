@@ -25,6 +25,7 @@
 #include <linux/version.h>
 #include <linux/power/dc_xpwr_battery.h>
 #include <linux/power/dc_xpwr_charger.h>
+#include <linux/regulator/intel_dollar_cove_pmic.h>
 
 #include <asm/intel_em_config.h>
 #include <linux/extcon/extcon-dc-pwrsrc.h>
@@ -249,6 +250,18 @@ static struct mfd_cell dollar_cove_dev[] = {
 	},
 	{
 		.name = "dollar_cove_region",
+	},
+	{
+		.name = "dcovex_regulator",
+		.id = DCOVEX_ID_LDO2 + 1,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+	{
+		.name = "dcovex_regulator",
+		.id = DCOVEX_ID_LDO3 + 1,
+		.num_resources = 0,
+		.resources = NULL,
 	},
 	{NULL, },
 };

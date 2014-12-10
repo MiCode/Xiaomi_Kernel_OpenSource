@@ -25,6 +25,7 @@
 #include <linux/platform_device.h>
 #include <asm/cpu_device_id.h>
 #include <linux/regulator/intel_whiskey_cove_pmic.h>
+#include <linux/regulator/intel_dollar_cove_pmic.h>
 
 struct acpi_ids { char *hid; char *uid; };
 
@@ -70,8 +71,10 @@ free:
 }
 
 /* vsdcard regulator */
-static struct regulator_init_data ccove_vsdcard_data = {
+static struct regulator_init_data vmmc_data = {
 	.constraints = {
+		.min_uV = 3300000,
+		.max_uV = 3300000,
 		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
 	},
@@ -82,13 +85,13 @@ static struct regulator_init_data ccove_vsdcard_data = {
 static struct fixed_voltage_config ccove_vsdcard = {
 	.supply_name	= "gpio_vsdcard",
 	.microvolts	= 3300000,
-	.init_data	= &ccove_vsdcard_data,
+	.init_data	= &vmmc_data,
 };
 
 /* vsdio regulator */
-static struct regulator_init_data ccove_vsdio_data = {
+static struct regulator_init_data vqmmc_data = {
 	.constraints = {
-		.min_uV			= 1700000,
+		.min_uV			= 1800000,
 		.max_uV			= 3300000,
 		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
 					REGULATOR_CHANGE_STATUS,
@@ -122,10 +125,10 @@ static struct gpio_regulator_config ccove_vsdio = {
 	.states		= ccove_vsdio_states,
 	.nr_states	= ARRAY_SIZE(ccove_vsdio_states),
 	.type		= REGULATOR_VOLTAGE,
-	.init_data	= &ccove_vsdio_data,
+	.init_data	= &vqmmc_data,
 };
 
-static void intel_setup_ccove_sd_regulators(void)
+static void intel_setup_crystal_cove_sd_regulators(void)
 {
 	struct device *dev = NULL;
 	struct acpi_ids *sdhc_ids;
@@ -205,11 +208,47 @@ static void intel_setup_whiskey_cove_sd_regulators(void)
 		sizeof(struct wcove_regulator_info), WCOVE_ID_VSDIO + 1);
 }
 
+/*************************************************************
+*
+* DCOVE SD card related regulator
+*
+*************************************************************/
+static struct regulator_init_data dcovex_vmmc_data;
+static struct regulator_init_data dcovex_vqmmc_data;
+
+static struct dcovex_regulator_info dcove_vmmc_info = {
+	.init_data = &dcovex_vmmc_data,
+};
+
+static struct dcovex_regulator_info dcove_vqmmc_info = {
+	.init_data = &dcovex_vqmmc_data,
+};
+
+static void intel_setup_dollar_cove_sd_regulators(void)
+{
+	memcpy((void *)&dcovex_vmmc_data, (void *)&vmmc_data,
+				sizeof(struct regulator_init_data));
+	memcpy((void *)&dcovex_vqmmc_data, (void *)&vqmmc_data,
+				sizeof(struct regulator_init_data));
+
+	/* set enable time for vqmmc regulator, stabilize power rail */
+	dcovex_vqmmc_data.constraints.enable_time = 10000;
+
+	dcovex_vmmc_data.constraints.name = "LDO_2";
+	dcovex_vqmmc_data.constraints.name = "LDO_3";
+
+	/* register SD card regulator for dollar cove PMIC */
+	intel_soc_pmic_set_pdata("dcovex_regulator", &dcove_vmmc_info,
+		sizeof(struct dcovex_regulator_info), DCOVEX_ID_LDO2 + 1);
+	intel_soc_pmic_set_pdata("dcovex_regulator", &dcove_vqmmc_info,
+		sizeof(struct dcovex_regulator_info), DCOVEX_ID_LDO3 + 1);
+}
+
 static int __init sdio_regulator_init(void)
 {
-	intel_setup_ccove_sd_regulators();
-
+	intel_setup_crystal_cove_sd_regulators();
 	intel_setup_whiskey_cove_sd_regulators();
+	intel_setup_dollar_cove_sd_regulators();
 
 	return 0;
 }
