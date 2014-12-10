@@ -3344,7 +3344,7 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	core_res = &msm8x10_wcd->wcd9xxx_res;
 	ret = wcd9xxx_resmgr_init(&msm8x10_wcd_priv->resmgr,
 				codec, core_res, NULL, &pdata->micbias,
-				NULL, WCD9XXX_CDC_TYPE_HELICON);
+				NULL, NULL, WCD9XXX_CDC_TYPE_HELICON);
 	if (ret) {
 		dev_err(codec->dev,
 				"%s: wcd9xxx init failed %d\n",

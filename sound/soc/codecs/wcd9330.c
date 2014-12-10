@@ -8490,6 +8490,10 @@ static int tomtom_codec_vote_max_bw(struct snd_soc_codec *codec,
 			bw_ops, true);
 }
 
+static const struct wcd9xxx_resmgr_cb resmgr_cb = {
+	.cdc_rco_ctrl = tomtom_codec_internal_rco_ctrl,
+};
+
 static const struct wcd_cpe_cdc_cb cpe_cb = {
 	.cdc_clk_en = tomtom_codec_internal_rco_ctrl,
 	.cpe_clk_en = tomtom_codec_fll_enable,
@@ -8567,7 +8571,7 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = wcd9xxx_resmgr_init(&tomtom->resmgr, codec, core_res, pdata,
 				  &pdata->micbias, &tomtom_reg_address,
-				  WCD9XXX_CDC_TYPE_TOMTOM);
+				  &resmgr_cb, WCD9XXX_CDC_TYPE_TOMTOM);
 	if (ret) {
 		pr_err("%s: wcd9xxx init failed %d\n", __func__, ret);
 		goto err_nomem_slimch;

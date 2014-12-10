@@ -6401,7 +6401,7 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = wcd9xxx_resmgr_init(&tapan->resmgr, codec, core_res, pdata,
 				  &pdata->micbias, &tapan_reg_address,
-				  WCD9XXX_CDC_TYPE_TAPAN);
+				  NULL, WCD9XXX_CDC_TYPE_TAPAN);
 	if (ret) {
 		pr_err("%s: wcd9xxx init failed %d\n", __func__, ret);
 		return ret;
