@@ -1509,7 +1509,8 @@ static int bq24192_usb_get_property(struct power_supply *psy,
 		}
 		break;
 	case POWER_SUPPLY_PROP_ENABLE_CHARGER:
-		val->intval = chip->is_charger_enabled;
+		val->intval = (bq24192_get_charger_health() ==
+				POWER_SUPPLY_HEALTH_GOOD);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
 		val->intval = chip->cntl_state;

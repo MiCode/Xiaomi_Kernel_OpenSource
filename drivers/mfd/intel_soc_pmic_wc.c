@@ -470,7 +470,7 @@ struct intel_pmic_irqregmap whiskey_cove_irqregmap[] = {
 		{THRM1IRQ, 7, 1, INTEL_PMIC_REG_W1C},
 	},
 	{ /* Ext. Chrgr */
-		{MIRQLVL1, 4, 0x1, 0},
+		{MCHGRIRQ, 0, 0x1, 0},
 		{CHGRIRQ, 0, 1, INTEL_PMIC_REG_W1C},
 		{CHGRIRQ, 0, 1, INTEL_PMIC_REG_W1C},
 	},
