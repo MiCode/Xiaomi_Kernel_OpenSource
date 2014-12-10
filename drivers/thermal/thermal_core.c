@@ -292,7 +292,7 @@ static void sensor_update_work(struct work_struct *work)
 	mutex_unlock(&sensor->lock);
 }
 
-/* May be called in an interrupt context.
+/* Should not be called in an interrupt context.
  * Do NOT call sensor_set_trip from this function
  */
 int thermal_sensor_trip(struct thermal_zone_device *tz,
@@ -307,6 +307,8 @@ int thermal_sensor_trip(struct thermal_zone_device *tz,
 
 	if (list_empty(&tz->sensor.threshold_list))
 		return 0;
+
+	mutex_lock(&tz->sensor.lock);
 
 	list_for_each_entry_safe(pos, var, &tz->sensor.threshold_list, list) {
 		if ((pos->trip != trip) || (!pos->active))
@@ -325,6 +327,8 @@ int thermal_sensor_trip(struct thermal_zone_device *tz,
 			pos->notify(trip, temp, pos->data);
 		}
 	}
+
+	mutex_unlock(&tz->sensor.lock);
 
 	schedule_work(&tz->sensor.work);
 
