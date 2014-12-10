@@ -24,6 +24,7 @@
 #include <linux/alarmtimer.h>
 #include <linux/bitops.h>
 #include <linux/leds.h>
+#include <linux/debugfs.h>
 
 #define CREATE_MASK(NUM_BITS, POS) \
 	((unsigned char) (((1 << (NUM_BITS)) - 1) << (POS)))
@@ -366,6 +367,7 @@ struct qpnp_lbc_chip {
 	struct qpnp_vadc_chip		*vadc_dev;
 	struct qpnp_adc_tm_chip		*adc_tm_dev;
 	struct led_classdev		led_cdev;
+	struct dentry			*debug_root;
 };
 
 static void qpnp_lbc_enable_irq(struct qpnp_lbc_chip *chip,
@@ -1924,6 +1926,81 @@ static int qpnp_lbc_misc_init(struct qpnp_lbc_chip *chip)
 	return rc;
 }
 
+static int show_lbc_config(struct seq_file *m, void *data)
+{
+	struct qpnp_lbc_chip *chip = m->private;
+
+	seq_printf(m, "cfg_charging_disabled\t=\t%d\n"
+			"cfg_btc_disabled\t=\t%d\n"
+			"cfg_use_fake_battery\t=\t%d\n"
+			"cfg_use_external_charger\t=\t%d\n"
+			"cfg_chgr_led_support\t=\t%d\n"
+			"cfg_bms_controlled_charging\t=\t%d\n"
+			"cfg_warm_bat_chg_ma\t=\t%d\n"
+			"cfg_cool_bat_chg_ma\t=\t%d\n"
+			"cfg_safe_voltage_mv\t=\t%d\n"
+			"cfg_max_voltage_mv\t=\t%d\n"
+			"cfg_min_voltage_mv\t=\t%d\n"
+			"cfg_charger_detect_eoc\t=\t%d\n"
+			"cfg_disable_vbatdet_based_recharge\t=\t%d\n"
+			"cfg_batt_weak_voltage_uv\t=\t%d\n"
+			"cfg_warm_bat_mv\t=\t%d\n"
+			"cfg_cool_bat_mv\t=\t%d\n"
+			"cfg_hot_batt_p\t=\t%d\n"
+			"cfg_cold_batt_p\t=\t%d\n"
+			"cfg_thermal_levels\t=\t%d\n"
+			"cfg_safe_current\t=\t%d\n"
+			"cfg_tchg_mins\t=\t%d\n"
+			"cfg_bpd_detection\t=\t%d\n"
+			"cfg_warm_bat_decidegc\t=\t%d\n"
+			"cfg_cool_bat_decidegc\t=\t%d\n"
+			"cfg_soc_resume_limit\t=\t%d\n"
+			"cfg_float_charge\t=\t%d\n",
+			chip->cfg_charging_disabled,
+			chip->cfg_btc_disabled,
+			chip->cfg_use_fake_battery,
+			chip->cfg_use_external_charger,
+			chip->cfg_chgr_led_support,
+			chip->cfg_bms_controlled_charging,
+			chip->cfg_warm_bat_chg_ma,
+			chip->cfg_cool_bat_chg_ma,
+			chip->cfg_safe_voltage_mv,
+			chip->cfg_max_voltage_mv,
+			chip->cfg_min_voltage_mv,
+			chip->cfg_charger_detect_eoc,
+			chip->cfg_disable_vbatdet_based_recharge,
+			chip->cfg_batt_weak_voltage_uv,
+			chip->cfg_warm_bat_mv,
+			chip->cfg_cool_bat_mv,
+			chip->cfg_hot_batt_p,
+			chip->cfg_cold_batt_p,
+			chip->cfg_thermal_levels,
+			chip->cfg_safe_current,
+			chip->cfg_tchg_mins,
+			chip->cfg_bpd_detection,
+			chip->cfg_warm_bat_decidegc,
+			chip->cfg_cool_bat_decidegc,
+			chip->cfg_soc_resume_limit,
+			chip->cfg_float_charge);
+
+	return 0;
+}
+
+static int qpnp_lbc_config_open(struct inode *inode, struct file *file)
+{
+	struct qpnp_lbc_chip *chip = inode->i_private;
+
+	return single_open(file, show_lbc_config, chip);
+}
+
+static const struct file_operations qpnp_lbc_config_debugfs_ops = {
+	.owner		= THIS_MODULE,
+	.open		= qpnp_lbc_config_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 #define OF_PROP_READ(chip, prop, qpnp_dt_property, retval, optional)	\
 do {									\
 	if (retval)							\
@@ -2071,6 +2148,39 @@ static int qpnp_charger_read_dt_props(struct qpnp_lbc_chip *chip)
 		}
 	}
 
+	pr_debug("vddmax-mv=%d, vddsafe-mv=%d, vinmin-mv=%d, ibatsafe-ma=$=%d\n",
+			chip->cfg_max_voltage_mv,
+			chip->cfg_safe_voltage_mv,
+			chip->cfg_min_voltage_mv,
+			chip->cfg_safe_current);
+	pr_debug("warm-bat-decidegc=%d, cool-bat-decidegc=%d, batt-hot-percentage=%d, batt-cold-percentage=%d\n",
+			chip->cfg_warm_bat_decidegc,
+			chip->cfg_cool_bat_decidegc,
+			chip->cfg_hot_batt_p,
+			chip->cfg_cold_batt_p);
+	pr_debug("tchg-mins=%d, vbatweak-uv=%d, resume-soc=%d\n",
+			chip->cfg_tchg_mins,
+			chip->cfg_batt_weak_voltage_uv,
+			chip->cfg_soc_resume_limit);
+	pr_debug("bpd-detection=%d, ibatmax-warm-ma=%d, ibatmax-cool-ma=%d, warm-bat-mv=%d, cool-bat-mv=%d\n",
+			chip->cfg_bpd_detection,
+			chip->cfg_warm_bat_chg_ma,
+			chip->cfg_cool_bat_chg_ma,
+			chip->cfg_warm_bat_mv,
+			chip->cfg_cool_bat_mv);
+	pr_debug("btc-disabled=%d, charging-disabled=%d, use-default-batt-values=%d, float-charge=%d\n",
+			chip->cfg_btc_disabled,
+			chip->cfg_charging_disabled,
+			chip->cfg_use_fake_battery,
+			chip->cfg_float_charge);
+	pr_debug("charger-detect-eoc=%d, disable-vbatdet-based-recharge=%d, chgr-led-support=%d, bms-controlled-charging=%d\n",
+			chip->cfg_charger_detect_eoc,
+			chip->cfg_disable_vbatdet_based_recharge,
+			chip->cfg_chgr_led_support,
+			chip->cfg_bms_controlled_charging);
+	pr_debug("use-external-charger=%d, thermal_levels=%d\n",
+			chip->cfg_use_external_charger,
+			chip->cfg_thermal_levels);
 	return rc;
 }
 
@@ -2740,6 +2850,20 @@ static int qpnp_lbc_probe(struct spmi_device *spmi)
 		alarm_start_relative(&chip->vddtrim_alarm, kt);
 	}
 
+	chip->debug_root = debugfs_create_dir("qpnp_lbc", NULL);
+	if (!chip->debug_root)
+		pr_err("Couldn't create debug dir\n");
+
+	if (chip->debug_root) {
+		struct dentry *ent;
+
+		ent = debugfs_create_file("lbc_config", S_IFREG | S_IRUGO,
+					  chip->debug_root, chip,
+					  &qpnp_lbc_config_debugfs_ops);
+		if (!ent)
+			pr_err("Couldn't create lbc_config debug file\n");
+	}
+
 	pr_info("Probe chg_dis=%d bpd=%d usb=%d batt_pres=%d batt_volt=%d soc=%d\n",
 			chip->cfg_charging_disabled,
 			chip->cfg_bpd_detection,
@@ -2766,6 +2890,7 @@ static int qpnp_lbc_remove(struct spmi_device *spmi)
 		alarm_cancel(&chip->vddtrim_alarm);
 		cancel_work_sync(&chip->vddtrim_work);
 	}
+	debugfs_remove_recursive(chip->debug_root);
 	if (chip->bat_if_base)
 		power_supply_unregister(&chip->batt_psy);
 	mutex_destroy(&chip->jeita_configure_lock);
