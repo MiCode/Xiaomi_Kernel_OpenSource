@@ -686,6 +686,10 @@ rndis_function_bind_config(struct android_usb_function *f,
 	rndis_opts = container_of(rndis->f_rndis_inst,
 		struct f_rndis_opts, func_inst);
 
+	/* re-name RNDIS NET device to avoid conflict with USB modem device */
+	snprintf(rndis_opts->net->name,
+			sizeof(rndis_opts->net->name), "%s%%d", "rndis");
+
 	rndis_opts->vendor_id = rndis->vendorID;
 	rndis_opts->manufacturer = rndis->manufacturer;
 
