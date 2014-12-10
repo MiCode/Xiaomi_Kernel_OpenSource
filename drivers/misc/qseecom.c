@@ -79,6 +79,8 @@
 #define QSEECOM_SEND_CMD_CRYPTO_TIMEOUT	2000
 #define QSEECOM_LOAD_APP_CRYPTO_TIMEOUT	2000
 #define TWO 2
+#define QSEECOM_ICE_CE_NUM 10
+#define QSEECOM_ICE_FDE_KEY_INDEX 0
 
 enum qseecom_clk_definitions {
 	CLK_DFAB = 0,
@@ -96,6 +98,8 @@ enum qseecom_client_handle_type {
 enum qseecom_ce_hw_instance {
 	CLK_QSEE = 0,
 	CLK_CE_DRV,
+	CLK_ICE,
+	CLK_INVALID,
 };
 
 static struct class *driver_class;
@@ -174,6 +178,7 @@ struct qseecom_control {
 	uint32_t qsee_perf_client;
 	struct qseecom_clk qsee;
 	struct qseecom_clk ce_drv;
+	struct qseecom_clk ce_ice;
 
 	bool support_bus_scaling;
 	bool support_fde;
@@ -247,6 +252,7 @@ static int qsee_vote_for_clock(struct qseecom_dev_handle *, int32_t);
 static void qsee_disable_clock_vote(struct qseecom_dev_handle *, int32_t);
 static int __qseecom_enable_clk(enum qseecom_ce_hw_instance ce);
 static void __qseecom_disable_clk(enum qseecom_ce_hw_instance ce);
+static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce);
 
 static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			const void *req_buf, void *resp_buf)
@@ -3075,13 +3081,16 @@ static int __qseecom_enable_clk(enum qseecom_ce_hw_instance ce)
 	int rc = 0;
 	struct qseecom_clk *qclk = NULL;
 
-	if (qseecom.no_clock_support)
+	if (qseecom.no_clock_support && (ce != CLK_ICE))
 		return 0;
 
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
 	if (ce == CLK_CE_DRV)
 		qclk = &qseecom.ce_drv;
+	if (ce == CLK_ICE)
+		qclk = &qseecom.ce_ice;
+
 	if (qclk == NULL) {
 		pr_err("CLK type not supported\n");
 		return -EINVAL;
@@ -3140,11 +3149,13 @@ static void __qseecom_disable_clk(enum qseecom_ce_hw_instance ce)
 {
 	struct qseecom_clk *qclk;
 
-	if (qseecom.no_clock_support)
+	if (qseecom.no_clock_support && (ce != CLK_ICE))
 		return;
 
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
+	else if (ce == CLK_ICE)
+		qclk = &qseecom.ce_ice;
 	else
 		qclk = &qseecom.ce_drv;
 
@@ -3581,6 +3592,7 @@ static int __qseecom_get_ce_pipe_info(
 	int ret, i;
 	switch (usage) {
 	case QSEOS_KM_USAGE_DISK_ENCRYPTION:
+	case QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION:
 		if (qseecom.support_fde) {
 			*pipe = qseecom.ce_info.disk_encrypt_pipe;
 			for (i = 0;
@@ -3907,11 +3919,18 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 		pr_err("Failed to generate key on storage: %d\n", ret);
 		goto free_buf;
 	}
+
 	for (i = 0; i < qseecom.ce_info.hlos_num_ce_hw_instances;
 			i++) {
 		set_key_ireq.qsee_command_id = QSEOS_SET_KEY;
-		set_key_ireq.ce = ce_hw[i];
-		set_key_ireq.pipe = pipe;
+		if (create_key_req.usage ==
+				QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
+			set_key_ireq.ce = QSEECOM_ICE_CE_NUM;
+			set_key_ireq.pipe = QSEECOM_ICE_FDE_KEY_INDEX;
+		} else {
+			set_key_ireq.ce = ce_hw[i];
+			set_key_ireq.pipe = pipe;
+		}
 		set_key_ireq.flags = flags;
 
 		/* set both PIPE_ENC and PIPE_ENC_XTS*/
@@ -3925,9 +3944,26 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 				(void *)create_key_req.hash32,
 				QSEECOM_HASH_SIZE);
 
+		if (create_key_req.usage ==
+					QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
+			if (qseecom.ce_ice.instance == CLK_INVALID) {
+				if (__qseecom_init_clk(CLK_ICE)) {
+					pr_err("Failed to get storage clocks\n");
+					goto free_buf;
+				}
+				__qseecom_enable_clk(CLK_ICE);
+			}
+		}
+
 		ret = __qseecom_set_clear_ce_key(data,
 					create_key_req.usage,
 					&set_key_ireq);
+
+		if (create_key_req.usage ==
+			QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
+			__qseecom_disable_clk(CLK_ICE);
+			break;
+		}
 		if (ret) {
 			pr_err("Failed to create key: pipe %d, ce %d: %d\n",
 				pipe, ce_hw[i], ret);
@@ -4003,16 +4039,39 @@ static int qseecom_wipe_key(struct qseecom_dev_handle *data,
 		j < qseecom.ce_info.hlos_num_ce_hw_instances;
 		j++) {
 		clear_key_ireq.qsee_command_id = QSEOS_SET_KEY;
-		clear_key_ireq.ce = ce_hw[j];
-		clear_key_ireq.pipe = pipe;
+		if (wipe_key_req.usage ==
+				QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
+			clear_key_ireq.ce = QSEECOM_ICE_CE_NUM;
+			clear_key_ireq.pipe = QSEECOM_ICE_FDE_KEY_INDEX;
+		} else {
+			clear_key_ireq.ce = ce_hw[i];
+			clear_key_ireq.pipe = pipe;
+		}
 		clear_key_ireq.flags = flags;
 		clear_key_ireq.pipe_type = QSEOS_PIPE_ENC|QSEOS_PIPE_ENC_XTS;
 		for (i = 0; i < QSEECOM_KEY_ID_SIZE; i++)
 			clear_key_ireq.key_id[i] = QSEECOM_INVALID_KEY_ID;
 		memset((void *)clear_key_ireq.hash32, 0, QSEECOM_HASH_SIZE);
 
+		if (wipe_key_req.usage == QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
+			if (qseecom.ce_ice.instance == CLK_INVALID) {
+				if (__qseecom_init_clk(CLK_ICE)) {
+					pr_err("Failed to get storage clocks\n");
+					goto free_buf;
+				}
+				__qseecom_enable_clk(CLK_ICE);
+			}
+		}
+
 		ret = __qseecom_set_clear_ce_key(data, wipe_key_req.usage,
 					&clear_key_ireq);
+
+		if (wipe_key_req.usage ==
+			QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
+			__qseecom_disable_clk(CLK_ICE);
+			break;
+		}
+
 		if (ret) {
 			pr_err("Failed to wipe key: pipe %d, ce %d: %d\n",
 				pipe, ce_hw[j], ret);
@@ -5099,6 +5158,15 @@ static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce)
 		qclk->instance = CLK_CE_DRV;
 		break;
 	};
+	case CLK_ICE: {
+		core_clk_src = "ufs_core_clk_src";
+		core_clk = "ufs_core_clk";
+		iface_clk = "ufs_iface_clk";
+		bus_clk = "ufs_bus_clk";
+		qclk = &qseecom.ce_ice;
+		qclk->instance = CLK_ICE;
+		break;
+	};
 	default:
 		pr_err("Invalid ce hw instance: %d!\n", ce);
 		return -EIO;
@@ -5117,19 +5185,22 @@ static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce)
 	/* Get CE3 src core clk. */
 	qclk->ce_core_src_clk = clk_get(pdev, core_clk_src);
 	if (!IS_ERR(qclk->ce_core_src_clk)) {
-		rc = clk_set_rate(qclk->ce_core_src_clk,
+		if (ce != CLK_ICE) {
+			rc = clk_set_rate(qclk->ce_core_src_clk,
 						qseecom.ce_opp_freq_hz);
-		if (rc) {
-			clk_put(qclk->ce_core_src_clk);
-			qclk->ce_core_src_clk = NULL;
-			pr_err("Unable to set the core src clk @%uMhz.\n",
+			if (rc) {
+				clk_put(qclk->ce_core_src_clk);
+				qclk->ce_core_src_clk = NULL;
+				pr_err("Unable to set the core src clk @%uMhz.\n",
 					qseecom.ce_opp_freq_hz/CE_CLK_DIV);
-			return -EIO;
+				return -EIO;
+			}
 		}
 	} else {
 		pr_warn("Unable to get CE core src clk, set to NULL\n");
 		qclk->ce_core_src_clk = NULL;
 	}
+
 	/* Get CE core clk */
 	qclk->ce_core_clk = clk_get(pdev, core_clk);
 	if (IS_ERR(qclk->ce_core_clk)) {
@@ -5172,6 +5243,8 @@ static void __qseecom_deinit_clk(enum qseecom_ce_hw_instance ce)
 
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
+	else if (ce == CLK_ICE)
+		qclk = &qseecom.ce_ice;
 	else
 		qclk = &qseecom.ce_drv;
 
@@ -5191,6 +5264,7 @@ static void __qseecom_deinit_clk(enum qseecom_ce_hw_instance ce)
 		clk_put(qclk->ce_core_src_clk);
 		qclk->ce_core_src_clk = NULL;
 	}
+	qclk->instance = CLK_INVALID;
 }
 
 static int qseecom_probe(struct platform_device *pdev)
@@ -5221,6 +5295,13 @@ static int qseecom_probe(struct platform_device *pdev)
 	qseecom.ce_drv.ce_clk = NULL;
 	qseecom.ce_drv.ce_core_src_clk = NULL;
 	qseecom.ce_drv.ce_bus_clk = NULL;
+
+	qseecom.ce_ice.instance = CLK_INVALID;
+	qseecom.ce_ice.ce_core_clk = NULL;
+	qseecom.ce_ice.ce_clk = NULL;
+	qseecom.ce_ice.ce_core_src_clk = NULL;
+	qseecom.ce_ice.ce_bus_clk = NULL;
+	qseecom.ce_ice.clk_access_cnt = 0;
 
 	rc = alloc_chrdev_region(&qseecom_device_no, 0, 1, QSEECOM_DEV);
 	if (rc < 0) {
