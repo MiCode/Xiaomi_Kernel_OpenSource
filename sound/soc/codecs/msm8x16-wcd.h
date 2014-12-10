@@ -235,6 +235,7 @@ struct msm8x16_wcd_priv {
 	/* cal info for codec */
 	struct fw_info *fw_data;
 	struct blocking_notifier_head notifier;
+	unsigned long status_mask;
 
 };
 
