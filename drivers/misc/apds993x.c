@@ -2623,14 +2623,14 @@ static int apds993x_probe(struct i2c_client *client,
 	}
 
 	/* Register to Input Device */
-	data->input_dev_als = input_allocate_device();
+	data->input_dev_als = devm_input_allocate_device(&client->dev);
 	if (!data->input_dev_als) {
 		err = -ENOMEM;
 		pr_err("%s: Failed to allocate input device als\n", __func__);
 		goto exit_free_irq;
 	}
 
-	data->input_dev_ps = input_allocate_device();
+	data->input_dev_ps = devm_input_allocate_device(&client->dev);
 	if (!data->input_dev_ps) {
 		err = -ENOMEM;
 		pr_err("%s: Failed to allocate input device ps\n", __func__);
@@ -2659,13 +2659,13 @@ static int apds993x_probe(struct i2c_client *client,
 		err = -ENOMEM;
 		pr_err("%s: Unable to register input device ps: %s\n",
 				__func__, data->input_dev_ps->name);
-		goto exit_unregister_dev_als;
+		goto exit_free_dev_ps;
 	}
 
 	/* Register sysfs hooks */
 	err = sysfs_create_group(&client->dev.kobj, &apds993x_attr_group);
 	if (err)
-		goto exit_unregister_dev_ps;
+		goto exit_free_dev_ps;
 
 	/* Register for sensor ioctl */
 	err = misc_register(&apds993x_ps_device);
@@ -2728,10 +2728,6 @@ exit_unregister_ps_ioctl:
 	misc_deregister(&apds993x_ps_device);
 exit_remove_sysfs_group:
 	sysfs_remove_group(&client->dev.kobj, &apds993x_attr_group);
-exit_unregister_dev_ps:
-	input_unregister_device(data->input_dev_ps);
-exit_unregister_dev_als:
-	input_unregister_device(data->input_dev_als);
 exit_free_dev_ps:
 exit_free_dev_als:
 exit_free_irq:
@@ -2760,9 +2756,6 @@ static int apds993x_remove(struct i2c_client *client)
 	misc_deregister(&apds993x_ps_device);
 
 	sysfs_remove_group(&client->dev.kobj, &apds993x_attr_group);
-
-	input_unregister_device(data->input_dev_ps);
-	input_unregister_device(data->input_dev_als);
 
 	free_irq(client->irq, data);
 
