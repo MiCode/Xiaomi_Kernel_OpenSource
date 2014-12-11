@@ -63,11 +63,14 @@ struct ice_device {
 
 static void qcom_ice_low_power_mode_enable(struct ice_device *ice_dev)
 {
+	u32 regval;
+	regval = qcom_ice_readl(ice_dev, QCOM_ICE_REGS_ADVANCED_CONTROL);
 	/*
 	 * Enable low power mode sequence
 	 * [0]-0, [1]-0, [2]-0, [3]-E, [4]-0, [5]-0, [6]-0, [7]-0
 	 */
-	qcom_ice_writel(ice_dev, 0x7000, QCOM_ICE_REGS_ADVANCED_CONTROL);
+	regval |= 0x7000;
+	qcom_ice_writel(ice_dev, regval, QCOM_ICE_REGS_ADVANCED_CONTROL);
 	/*
 	 * Ensure previous instructions was completed before issuing next
 	 * ICE initialization/optimization instruction
@@ -114,7 +117,10 @@ static void qcom_ice_optimization_enable(struct ice_device *ice_dev)
 
 	/* ICE HPG requires sleep before writing */
 	udelay(5);
-	qcom_ice_writel(ice_dev, 0xF, QCOM_ICE_REGS_ENDIAN_SWAP);
+	regval = 0;
+	regval = qcom_ice_readl(ice_dev, QCOM_ICE_REGS_ENDIAN_SWAP);
+	regval |= 0xF;
+	qcom_ice_writel(ice_dev, regval, QCOM_ICE_REGS_ENDIAN_SWAP);
 	/*
 	 * Ensure previous instructions was completed before issuing next
 	 * ICE initialization/optimization instruction
@@ -465,13 +471,12 @@ static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
 
 	qcom_ice_low_power_mode_enable(ice_dev);
 
-	/*
-	 * ICE optimization sequence qcom_ice_optimization_enable(ice_dev)
-	 * is not required during boot up. This would be called from
-	 * qcom_ice_config is called.
-	 * However, we need to enable interrupts here.
-	 */
+	qcom_ice_optimization_enable(ice_dev);
+	qcom_ice_enable(ice_dev);
+	qcom_ice_enable_test_bus_config(ice_dev);
+	ice_dev->is_ice_enabled = true;
 	qcom_ice_enable_intr(ice_dev);
+
 	ice_dev->success_cb(ice_dev->host_controller_data,
 						ICE_INIT_COMPLETION);
 	return;
@@ -529,6 +534,8 @@ static void qcom_ice_finish_power_collapse(void *data, async_cookie_t cookie)
 		qcom_ice_enable_test_bus_config(ice_dev);
 
 		qcom_ice_optimization_enable(ice_dev);
+		qcom_ice_enable(ice_dev);
+
 		/*
 		 * When ICE resets, it wipes all of keys from LUTs
 		 * ICE driver should call TZ to restore keys
@@ -566,7 +573,9 @@ static int  qcom_ice_resume(struct platform_device *pdev)
 	if (!ice_dev)
 		return -EINVAL;
 
-	async_schedule(qcom_ice_finish_power_collapse, ice_dev);
+	if (ice_dev->success_cb && ice_dev->host_controller_data)
+		ice_dev->success_cb(ice_dev->host_controller_data,
+				ICE_RESUME_COMPLETION);
 
 	return 0;
 }
@@ -601,7 +610,8 @@ static int qcom_ice_reset(struct  platform_device *pdev)
 
 	ice_dev->is_clear_irq_pending = true;
 
-	return qcom_ice_resume(pdev);
+	async_schedule(qcom_ice_finish_power_collapse, ice_dev);
+	return 0;
 }
 EXPORT_SYMBOL(qcom_ice_reset);
 
@@ -657,18 +667,6 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 		}
 
 		if (crypto_data->key_index >= 0) {
-			if (!ice_dev->is_ice_enabled) {
-				/*
-				 * When we get here, ICE is already in low power
-				 * mode Keys would be already set by TrustZone
-				 * So we need to run ICE optimization sequence
-				 * and enable ICE once.
-				 */
-				qcom_ice_optimization_enable(ice_dev);
-				qcom_ice_enable(ice_dev);
-				qcom_ice_enable_test_bus_config(ice_dev);
-				ice_dev->is_ice_enabled = true;
-			}
 
 			memcpy(&setting->crypto_data, crypto_data,
 					sizeof(struct ice_crypto_setting));
