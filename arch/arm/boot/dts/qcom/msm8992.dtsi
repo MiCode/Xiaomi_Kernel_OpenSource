@@ -2533,7 +2533,7 @@
 	android_usb {
 		compatible = "qcom,android-usb";
 		reg = <0xfe80f0c8 0xc8>;
-		qcom,pm-qos-latency = <2 1001 30001>;
+		qcom,pm-qos-latency = <61 637 1261>;
 		qcom,android-usb-uicc-nluns = /bits/ 8 <1>;
 	};
 
