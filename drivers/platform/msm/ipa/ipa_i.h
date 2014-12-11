@@ -750,16 +750,162 @@ struct ipa_tag_completion {
 
 struct ipa_controller;
 
-/** struct ipa_uc_ctx - IPA uC context
- * @uc_inited: Indicates if uC inteface has been initialized
+/**
+ *  @brief   Enum value determined based on the feature it
+ *           corresponds to
+ *  +----------------+----------------+
+ *  |    3 bits      |     5 bits     |
+ *  +----------------+----------------+
+ *  |   HW_FEATURE   |     OPCODE     |
+ *  +----------------+----------------+
+ *
+ */
+#define FEATURE_ENUM_VAL(feature, opcode) ((feature << 5) | opcode)
+#define EXTRACT_UC_FEATURE(value) (value >> 5)
+
+#define IPA_HW_NUM_FEATURES 0x8
+
+/**
+ * enum ipa_hw_features - Values that represent the features supported in IPA HW
+ * @IPA_HW_FEATURE_COMMON : Feature related to common operation of IPA HW
+ * @IPA_HW_FEATURE_MHI : Feature related to MHI operation in IPA HW
+ * @IPA_HW_FEATURE_WDI : Feature related to WDI operation in IPA HW
+*/
+enum ipa_hw_features {
+	IPA_HW_FEATURE_COMMON = 0x0,
+	IPA_HW_FEATURE_MHI    = 0x1,
+	IPA_HW_FEATURE_WDI    = 0x3,
+	IPA_HW_FEATURE_MAX    = IPA_HW_NUM_FEATURES
+};
+
+/**
+ * struct IpaHwSharedMemCommonMapping_t - Structure referring to the common
+ * section in 128B shared memory located in offset zero of SW Partition in IPA
+ * SRAM.
+ * @cmdOp : CPU->HW command opcode. See IPA_CPU_2_HW_COMMANDS
+ * @cmdParams : CPU->HW command parameter. The parameter filed can hold 32 bits
+ * of parameters (immediate parameters) and point on structure in system memory
+ * (in such case the address must be accessible for HW)
+ * @responseOp : HW->CPU response opcode. See IPA_HW_2_CPU_RESPONSES
+ * @responseParams : HW->CPU response parameter. The parameter filed can hold 32
+ * bits of parameters (immediate parameters) and point on structure in system
+ * memory
+ * @eventOp : HW->CPU event opcode. See IPA_HW_2_CPU_EVENTS
+ * @eventParams : HW->CPU event parameter. The parameter filed can hold 32 bits of
+ * parameters (immediate parameters) and point on structure in system memory
+ * @firstErrorAddress : Contains the address of first error-source on SNOC
+ * @hwState : State of HW. The state carries information regarding the error type.
+ * @warningCounter : The warnings counter. The counter carries information regarding
+ * non fatal errors in HW
+ * @interfaceVersionCommon : The Common interface version as reported by HW
+ *
+ * The shared memory is used for communication between IPA HW and CPU.
+ */
+struct IpaHwSharedMemCommonMapping_t {
+	u8  cmdOp;
+	u8  reserved_01;
+	u16 reserved_03_02;
+	u32 cmdParams;
+	u8  responseOp;
+	u8  reserved_09;
+	u16 reserved_0B_0A;
+	u32 responseParams;
+	u8  eventOp;
+	u8  reserved_11;
+	u16 reserved_13_12;
+	u32 eventParams;
+	u32 reserved_1B_18;
+	u32 firstErrorAddress;
+	u8  hwState;
+	u8  warningCounter;
+	u16 reserved_23_22;
+	u16 interfaceVersionCommon;
+	u16 reserved_27_26;
+} __packed;
+
+/**
+ * union IpaHwFeatureInfoData_t - parameters for stats/config blob
+ *
+ * @offset : Location of a feature within the EventInfoData
+ * @size : Size of the feature
+ */
+union IpaHwFeatureInfoData_t {
+	struct IpaHwFeatureInfoParams_t {
+		u32 offset:16;
+		u32 size:16;
+	} __packed params;
+	u32 raw32b;
+} __packed;
+
+/**
+ * struct IpaHwEventInfoData_t - Structure holding the parameters for
+ * statistics and config info
+ *
+ * @baseAddrOffset : Base Address Offset of the statistics or config
+ * structure from IPA_WRAPPER_BASE
+ * @IpaHwFeatureInfoData_t : Location and size of each feature within
+ * the statistics or config structure
+ *
+ * @note    Information about each feature in the featureInfo[]
+ * array is populated at predefined indices per the IPA_HW_FEATURES
+ * enum definition
+ */
+struct IpaHwEventInfoData_t {
+	u32 baseAddrOffset;
+	union IpaHwFeatureInfoData_t featureInfo[IPA_HW_NUM_FEATURES];
+} __packed;
+
+/**
+ * struct IpaHwEventLogInfoData_t - Structure holding the parameters for
+ * IPA_HW_2_CPU_EVENT_LOG_INFO Event
+ *
+ * @featureMask : Mask indicating the features enabled in HW.
+ * Refer IPA_HW_FEATURE_MASK
+ * @circBuffBaseAddrOffset : Base Address Offset of the Circular Event
+ * Log Buffer structure
+ * @statsInfo : Statistics related information
+ * @configInfo : Configuration related information
+ *
+ * @note    The offset location of this structure from IPA_WRAPPER_BASE
+ * will be provided as Event Params for the IPA_HW_2_CPU_EVENT_LOG_INFO
+ * Event
+ */
+struct IpaHwEventLogInfoData_t {
+	u32 featureMask;
+	u32 circBuffBaseAddrOffset;
+	struct IpaHwEventInfoData_t statsInfo;
+	struct IpaHwEventInfoData_t configInfo;
+
+} __packed;
+
+/**
+ * struct ipa_uc_hdlrs - IPA uC callback functions
+ * @ipa_uc_loaded_hdlr: Function handler when uC is loaded
+ * @ipa_uc_event_hdlr: Event handler function
+ * @ipa_uc_response_hdlr: Response handler function
+ * @ipa_uc_event_log_info_hdlr: Log event handler function
+ */
+struct ipa_uc_hdlrs {
+	void (*ipa_uc_loaded_hdlr)(void);
+	void (*ipa_uc_event_hdlr)
+		(struct IpaHwSharedMemCommonMapping_t *uc_sram_mmio);
+	int (*ipa_uc_response_hdlr)
+		(struct IpaHwSharedMemCommonMapping_t *uc_sram_mmio,
+		u32 *uc_status);
+	void (*ipa_uc_event_log_info_hdlr)
+		(struct IpaHwEventLogInfoData_t *uc_event_top_mmio);
+};
+
+/**
+ * struct ipa_uc_ctx - IPA uC context
+ * @uc_inited: Indicates if uC interface has been initialized
  * @uc_loaded: Indicates if uC has loaded
  * @uc_failed: Indicates if uC has failed / returned an error
- * @uc_lock: uC inteface lock to allow only one uC interaction at a time
+ * @uc_lock: uC interface lock to allow only one uC interaction at a time
  * @uc_completation: Completion mechanism to wait for uC commands
  * @uc_sram_mmio: Pointer to uC mapped memory
  * @pending_cmd: The last command sent waiting to be ACKed
  * @uc_status: The last status provided by the uC
- * @wdi_dma_pool: DMA pool used for WDI operations
  */
 struct ipa_uc_ctx {
 	bool uc_inited;
@@ -768,12 +914,23 @@ struct ipa_uc_ctx {
 	struct mutex uc_lock;
 	struct completion uc_completion;
 	struct IpaHwSharedMemCommonMapping_t *uc_sram_mmio;
+	struct IpaHwEventLogInfoData_t *uc_event_top_mmio;
+	u32 uc_event_top_ofst;
 	u32 pending_cmd;
 	u32 uc_status;
+};
+
+/**
+ * struct ipa_uc_wdi_ctx
+ * @wdi_dma_pool: DMA pool used for WDI operations
+ * @wdi_uc_top_ofst:
+ * @wdi_uc_top_mmio:
+ * @wdi_uc_stats_ofst:
+ * @wdi_uc_stats_mmio:
+ */
+struct ipa_uc_wdi_ctx {
 	/* WDI specific fields */
 	struct dma_pool *wdi_dma_pool;
-	u32 wdi_uc_top_ofst;
-	struct IpaHwEventLogInfoData_t *wdi_uc_top_mmio;
 	u32 wdi_uc_stats_ofst;
 	struct IpaHwStatsWDIInfoData_t *wdi_uc_stats_mmio;
 };
@@ -856,6 +1013,8 @@ struct ipa_sps_pm {
  * @enable_clock_scaling: clock scaling is enabled ?
  * @curr_ipa_clk_rate: ipa_clk current rate
  * @wcstats: wlan common buffer stats
+ * @uc_ctx: uC interface context
+ * @uc_wdi_ctx: WDI specific fields for uC interface
 
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -939,6 +1098,8 @@ struct ipa_context {
 	struct ipa_wlan_comm_memb wc_memb;
 
 	struct ipa_uc_ctx uc_ctx;
+
+	struct ipa_uc_wdi_ctx uc_wdi_ctx;
 };
 
 /**
@@ -1248,9 +1409,15 @@ int ipa_init_q6_smem(void);
 
 int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
 			 enum ipa_client_type ipa_client);
+
 int ipa_uc_interface_init(void);
 int ipa_uc_reset_pipe(enum ipa_client_type ipa_client);
+int ipa_uc_state_check(void);
+int ipa_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
+		    bool polling_mode, unsigned long timeout_jiffies);
 void ipa_register_panic_hdlr(void);
+void ipa_uc_register_handlers(enum ipa_hw_features feature,
+			      struct ipa_uc_hdlrs *hdlrs);
 int create_nat_device(void);
 int ipa_uc_notify_clk_state(bool enabled);
 #endif /* _IPA_I_H_ */
