@@ -50,8 +50,12 @@ static void mhi_update_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
 		mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan].
 				mhi_trb_write_ptr = val;
 	} else if (mhi_dev_ctxt->event_db_addr == io_addr) {
-		mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[chan].
+		if (chan < EVENT_RINGS_ALLOCATED)
+			mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[chan].
 				mhi_event_write_ptr = val;
+		else
+			mhi_log(MHI_MSG_ERROR,
+				"Bad EV ring index: %lx\n", chan);
 	}
 }
 
@@ -334,10 +338,9 @@ enum MHI_STATUS mhi_register_channel(struct mhi_client_handle **client_handle,
 
 	mhi_log(MHI_MSG_VERBOSE,
 		"Successfuly registered chan 0x%x\n", chan);
-	return ret_val;
-
 error_handle:
 	return ret_val;
+
 }
 EXPORT_SYMBOL(mhi_register_channel);
 
@@ -410,8 +413,7 @@ enum MHI_STATUS mhi_add_elements_to_event_rings(
 				event_ring_state);
 			ret_val = mhi_init_event_ring(mhi_dev_ctxt,
 				EV_EL_PER_RING,
-				mhi_dev_ctxt->
-					alloced_ev_rings[PRIMARY_EVENT_RING]);
+				PRIMARY_EVENT_RING);
 			if (MHI_STATUS_SUCCESS != ret_val) {
 
 				mhi_log(MHI_MSG_ERROR,
@@ -425,7 +427,7 @@ enum MHI_STATUS mhi_add_elements_to_event_rings(
 		mhi_log(MHI_MSG_ERROR,
 			"Event ring initialized ringing, EV DB to resume\n");
 		ring_ev_db(mhi_dev_ctxt,
-			mhi_dev_ctxt->alloced_ev_rings[PRIMARY_EVENT_RING]);
+			PRIMARY_EVENT_RING);
 		break;
 	case STATE_TRANSITION_AMSS:
 		MHI_GET_EVENT_RING_INFO(EVENT_RING_STATE_FIELD,
@@ -434,8 +436,7 @@ enum MHI_STATUS mhi_add_elements_to_event_rings(
 		if (MHI_EVENT_RING_UINIT == event_ring_state) {
 			ret_val = mhi_init_event_ring(mhi_dev_ctxt,
 				EV_EL_PER_RING,
-				mhi_dev_ctxt->
-					alloced_ev_rings[IPA_OUT_EV_RING]);
+				IPA_OUT_EV_RING);
 			if (MHI_STATUS_SUCCESS != ret_val) {
 				mhi_log(MHI_MSG_ERROR,
 					"Failed to add ev el on event ring\n");
@@ -443,7 +444,7 @@ enum MHI_STATUS mhi_add_elements_to_event_rings(
 			}
 			ret_val = mhi_init_event_ring(mhi_dev_ctxt,
 				EV_EL_PER_RING,
-				mhi_dev_ctxt->alloced_ev_rings[IPA_IN_EV_RING]);
+				IPA_IN_EV_RING);
 			if (MHI_STATUS_SUCCESS != ret_val) {
 				mhi_log(MHI_MSG_ERROR,
 					"Failed to add ev el on event ring\n");
@@ -456,12 +457,8 @@ enum MHI_STATUS mhi_add_elements_to_event_rings(
 				mhi_dev_ctxt->ev_ring_props[IPA_IN_EV_RING],
 				MHI_EVENT_RING_INIT);
 		}
-		ring_ev_db(mhi_dev_ctxt,
-			mhi_dev_ctxt->alloced_ev_rings[SOFTWARE_EV_RING]);
-		ring_ev_db(mhi_dev_ctxt,
-			mhi_dev_ctxt->alloced_ev_rings[IPA_OUT_EV_RING]);
-		ring_ev_db(mhi_dev_ctxt,
-			mhi_dev_ctxt->alloced_ev_rings[IPA_IN_EV_RING]);
+		ring_ev_db(mhi_dev_ctxt, IPA_OUT_EV_RING);
+		ring_ev_db(mhi_dev_ctxt, IPA_IN_EV_RING);
 		break;
 	default:
 		mhi_log(MHI_MSG_ERROR,
@@ -784,6 +781,9 @@ static enum MHI_STATUS parse_inbound(struct mhi_device_ctxt *mhi_dev_ctxt,
 			cb_info.result = &client_handle->result;
 			cb_info.chan = chan;
 			client_handle->client_info.mhi_client_cb(&cb_info);
+		} else {
+			mhi_log(MHI_MSG_VERBOSE,
+				"No client registered chan %d\n", chan);
 		}
 	} else  {
 		/* IN Hardware channel with no client

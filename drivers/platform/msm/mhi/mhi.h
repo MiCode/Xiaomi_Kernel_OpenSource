@@ -356,7 +356,7 @@ struct mhi_control_seg {
 	union mhi_cmd_pkt cmd_trb_list[NR_OF_CMD_RINGS][CMD_EL_PER_RING + 1];
 	struct mhi_cmd_ctxt mhi_cmd_ctxt_list[NR_OF_CMD_RINGS];
 	struct mhi_chan_ctxt mhi_cc_list[MHI_MAX_CHANNELS];
-	struct mhi_event_ctxt mhi_ec_list[MHI_MAX_CHANNELS];
+	struct mhi_event_ctxt mhi_ec_list[EVENT_RINGS_ALLOCATED];
 	u32 padding;
 };
 
