@@ -1212,7 +1212,7 @@ static int  intel_enable_rps_boost(struct drm_device *dev)
  * Returns 0 if the request was found within the alloted time. Else returns the
  * errno with remaining time filled in timeout argument.
  */
-static int __wait_request(struct drm_i915_gem_request *req,
+int __wait_request(struct drm_i915_gem_request *req,
 			  unsigned reset_counter,
 			  bool interruptible,
 			  struct timespec *timeout,

@@ -10410,6 +10410,12 @@ static int intel_postpone_flip(struct drm_i915_gem_object *obj)
 	if (i915_seqno_passed(ring->get_seqno(ring, true),
 			      i915_gem_request_get_seqno(obj->last_write_req)))
 		return 0;
+	else {
+		if (!__wait_request(obj->last_write_req,
+			atomic_read(&dev_priv->gpu_error.reset_counter), true,
+			NULL, NULL))
+			return 0;
+	}
 
 	ret = i915_gem_check_olr(obj->last_write_req);
 	if (ret)

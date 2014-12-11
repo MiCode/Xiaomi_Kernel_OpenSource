@@ -2591,6 +2591,11 @@ void i915_gem_load(struct drm_device *dev);
 unsigned long i915_gem_shrink(struct drm_i915_private *dev_priv,
 			      long target,
 			      unsigned flags);
+int __wait_request(struct drm_i915_gem_request *req,
+			unsigned reset_counter,
+			bool interruptible,
+			struct timespec *timeout,
+			struct drm_i915_file_private *file_priv);
 #define I915_SHRINK_PURGEABLE 0x1
 #define I915_SHRINK_UNBOUND 0x2
 #define I915_SHRINK_BOUND 0x4
