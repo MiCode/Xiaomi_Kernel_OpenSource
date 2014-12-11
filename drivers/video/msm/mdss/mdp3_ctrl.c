@@ -39,6 +39,7 @@ static int mdp3_ctrl_lut_read(struct msm_fb_data_type *mfd,
 				struct mdp_rgb_lut_data *cfg);
 static int mdp3_ctrl_lut_update(struct msm_fb_data_type *mfd,
 				struct mdp_rgb_lut_data *cfg);
+static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd);
 
 u32 mdp_lut_inverse16[MDP_LUT_SIZE] = {
 0, 65536, 32768, 21845, 16384, 13107, 10923, 9362, 8192, 7282, 6554, 5958,
@@ -752,17 +753,29 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 
 	mdp3_histogram_stop(mdp3_session, MDP_BLOCK_DMA_P);
 
+	if (mdp3_session->in_splash_screen) {
+		rc = mdp3_session->dma->stop(mdp3_session->dma,
+						mdp3_session->intf);
+		if (rc)
+			pr_debug("fail to stop the MDP3 dma\n");
+		/* Wait for TG to turn off */
+		msleep(20);
+		mfd->panel_info->cont_splash_enabled = 0;
+	}
+
 	if (panel->event_handler)
 		rc = panel->event_handler(panel, MDSS_EVENT_BLANK, NULL);
 	if (rc)
 		pr_err("fail to turn off the panel\n");
 
-	rc = mdp3_session->dma->stop(mdp3_session->dma, mdp3_session->intf);
-	if (rc)
-		pr_debug("fail to stop the MDP3 dma\n");
-	/* Wait for TG to turn off */
-	msleep(20);
-
+	if (!(mdp3_session->in_splash_screen)) {
+		rc = mdp3_session->dma->stop(mdp3_session->dma,
+						mdp3_session->intf);
+		if (rc)
+			pr_debug("fail to stop the MDP3 dma\n");
+		/* Wait for TG to turn off */
+		msleep(20);
+	}
 	mdp3_irq_deregister();
 
 	pr_debug("mdp3_ctrl_off stop clock\n");
