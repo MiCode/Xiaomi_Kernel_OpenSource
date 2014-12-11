@@ -1328,14 +1328,23 @@ static int power_ctrl(struct v4l2_subdev *sd, bool flag)
 	if (dev->platform_data->power_ctrl)
 		return dev->platform_data->power_ctrl(sd, flag);
 
+	/* This driver assumes "internal DVDD, PWDNB tied to DOVDD".
+	 * In this set up only gpio0 (XSHUTDN) should be available
+	 * but in some products (for example ECS) gpio1 (PWDNB) is
+	 * also available. If gpio1 is available we emulate it being
+	 * tied to DOVDD here. */
 	if (flag) {
 		ret = dev->platform_data->v2p8_ctrl(sd, 1);
+		dev->platform_data->gpio1_ctrl(sd, 1);
 		if (ret == 0) {
 			ret = dev->platform_data->v1p8_ctrl(sd, 1);
-			if (ret)
+			if (ret) {
+				dev->platform_data->gpio1_ctrl(sd, 0);
 				ret = dev->platform_data->v2p8_ctrl(sd, 0);
+			}
 		}
 	} else {
+		dev->platform_data->gpio1_ctrl(sd, 0);
 		ret = dev->platform_data->v1p8_ctrl(sd, 0);
 		ret |= dev->platform_data->v2p8_ctrl(sd, 0);
 	}
@@ -1356,14 +1365,6 @@ static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 		return dev->platform_data->gpio_ctrl(sd, flag);
 
 	ret = dev->platform_data->gpio0_ctrl(sd, flag);
-
-	/* The OV5693 has two enable inputs: XSHUTDN and RESETB, both
-	 * are active low, both must be high to enable the device.
-	 * And they can be enabled in either order.  The datasheet
-	 * even suggests that one be tied high, and some modules do
-	 * that.  Basically: allow the second GPIO to be missing in
-	 * the DSDT and ignore an error here. */
-	dev->platform_data->gpio1_ctrl(sd, flag);
 
 	return ret;
 }
