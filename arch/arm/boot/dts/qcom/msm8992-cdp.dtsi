@@ -303,6 +303,24 @@
 	};
 };
 
+&slim_msm {
+	tomtom_codec {
+		qcom,cdc-micbias1-ext-cap;
+		qcom,cdc-micbias3-ext-cap;
+		qcom,cdc-micbias4-ext-cap;
+		cdc-vdd-spkdrv-supply = <&pmi8994_boost_pin_ctrl>;
+		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-current = <600000>;
+
+		cdc-vdd-spkdrv-2-supply = <&pmi8994_boost_pin_ctrl>;
+		qcom,cdc-vdd-spkdrv-2-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-2-current = <600000>;
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv",
+					      "cdc-vdd-spkdrv-2";
+	};
+};
+
 &i2c_5 {
 	silabs4705@11 { /* SiLabs FM chip, slave id 0x11*/
 		status = "ok";
@@ -331,6 +349,15 @@
 };
 
 &pm8994_mpps {
+	mpp@a100 { /* MPP 2 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
+
 	mpp@a300 { /* MPP 4 */
 		/* HDMI_5v_vreg regulator enable */
 		qcom,mode = <1>;		/* Digital output */
@@ -428,6 +455,16 @@
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
+	};
+
+	sound {
+		qcom,model = "msm8994-tomtom-cdp-snd-card";
+		qcom,cdc-micbias2-headset-only;
+		qcom,us-euro-gpios = <&pm8994_mpps 2 0>;
+		qcom,mbhc-audio-jack-type = "6-pole-jack";
+		qcom,hdmi-audio-rx;
+		asoc-codec = <&stub_codec>, <&hdmi_audio>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
 	};
 };
 
