@@ -241,7 +241,6 @@ static int bcl_set_low_vbat(int thresh_value)
 static int bcl_access_monitor_enable(bool enable)
 {
 	int ret = 0, i = 0;
-	int8_t val = 0;
 	struct bcl_peripheral_data *perph_data = NULL;
 
 	mutex_lock(&bcl_enable_mutex);
@@ -269,12 +268,6 @@ static int bcl_access_monitor_enable(bool enable)
 			cancel_work_sync(&perph_data->isr_work);
 			perph_data->state = BCL_PARAM_INACTIVE;
 		}
-	}
-	val = (enable) ? BIT(7) : 0;
-	ret = bcl_write_register(BCL_MONITOR_EN, val);
-	if (ret) {
-		pr_err("Error accessing BCL peripheral. err:%d\n", ret);
-		goto access_exit;
 	}
 	bcl_perph->enabled = enable;
 
@@ -906,6 +899,11 @@ static int bcl_probe(struct spmi_device *spmi)
 	ret = bcl_monitor_disable();
 	if (ret) {
 		pr_err("Error disabling BCL. err:%d", ret);
+		goto bcl_probe_exit;
+	}
+	ret = bcl_write_register(BCL_MONITOR_EN, BIT(7));
+	if (ret) {
+		pr_err("Error accessing BCL peripheral. err:%d\n", ret);
 		goto bcl_probe_exit;
 	}
 
