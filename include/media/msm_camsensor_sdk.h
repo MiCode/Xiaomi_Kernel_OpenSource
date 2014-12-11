@@ -292,6 +292,8 @@ struct region_params_t {
 	*/
 	uint16_t step_bound[2];
 	uint16_t code_per_step;
+	/* qvalue for converting float type numbers to integer format */
+	uint32_t qvalue;
 };
 
 struct reg_settings_t {

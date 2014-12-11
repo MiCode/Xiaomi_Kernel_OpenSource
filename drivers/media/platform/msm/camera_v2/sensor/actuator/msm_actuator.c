@@ -25,6 +25,7 @@ DEFINE_MSM_MUTEX(msm_actuator_mutex);
 #define PARK_LENS_LONG_STEP 7
 #define PARK_LENS_MID_STEP 5
 #define PARK_LENS_SMALL_STEP 3
+#define MAX_QVALUE 4096
 
 static struct v4l2_file_operations msm_actuator_v4l2_subdev_fops;
 static int32_t msm_actuator_power_up(struct msm_actuator_ctrl_t *a_ctrl);
@@ -441,6 +442,7 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 	struct msm_actuator_set_info_t *set_info)
 {
 	int16_t code_per_step = 0;
+	uint32_t qvalue = 0;
 	int16_t cur_code = 0;
 	int16_t step_index = 0, region_index = 0;
 	uint16_t step_boundary = 0;
@@ -476,12 +478,18 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 		region_index++) {
 		code_per_step =
 			a_ctrl->region_params[region_index].code_per_step;
+		qvalue =
+			a_ctrl->region_params[region_index].qvalue;
 		step_boundary =
 			a_ctrl->region_params[region_index].
 			step_bound[MOVE_NEAR];
 		for (; step_index <= step_boundary;
 			step_index++) {
-			cur_code += code_per_step;
+			if (qvalue > 1 && qvalue <= MAX_QVALUE)
+				cur_code = step_index * code_per_step / qvalue;
+			else
+				cur_code = step_index * code_per_step;
+			cur_code += set_info->af_tuning_params.initial_code;
 			if (cur_code < max_code_size)
 				a_ctrl->step_position_table[step_index] =
 					cur_code;
@@ -494,6 +502,8 @@ static int32_t msm_actuator_init_step_table(struct msm_actuator_ctrl_t *a_ctrl,
 						step_index] =
 						max_code_size;
 			}
+			CDBG("step_position_table[%d] = %d", step_index,
+				a_ctrl->step_position_table[step_index]);
 		}
 	}
 	CDBG("Exit\n");
