@@ -154,6 +154,14 @@ Optional Properties:
 				Please go through the documentation for PMIC gpio
 				configuration details:
 				Documentation/devicetree/bindings/gpio/qpnp-pin.txt
+- qcom,parallel-charging-enabled: A bool property which enables SMB1360 to
+				operate in the parallel mode. SMB1360 acts
+				as the primary charger.
+- qcom,max-parallel-current-ma: This is the max charging current which can be
+				drawn from the secondary charger. If this is
+				not specified this value defaults to 540mA.
+				The overall current charging current is
+				1500mA(from SMB) + qcom,max-parallel-current-ma.
 
 Example:
 	i2c@f9967000 {
