@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -177,6 +177,33 @@ struct emac_hw_stats {
 	u64 tx_col;             /* collisions */
 };
 
+enum emac_hw_flags {
+	EMAC_FLAG_HW_PROMISC_EN,
+	EMAC_FLAG_HW_VLANSTRIP_EN,
+	EMAC_FLAG_HW_MULTIALL_EN,
+	EMAC_FLAG_HW_LOOPBACK_EN,
+	EMAC_FLAG_HW_PTP_CAP,
+	EMAC_FLAG_HW_PTP_EN,
+	EMAC_FLAG_HW_TS_RX_EN,
+	EMAC_FLAG_HW_TS_TX_EN,
+};
+
+enum emac_adapter_flags {
+	EMAC_FLAG_ADPT_STATE_RESETTING,
+	EMAC_FLAG_ADPT_STATE_DOWN,
+	EMAC_FLAG_ADPT_STATE_WATCH_DOG,
+	EMAC_FLAG_ADPT_TASK_REINIT_REQ,
+	EMAC_FLAG_ADPT_TASK_LSC_REQ,
+	EMAC_FLAG_ADPT_TASK_CHK_SGMII_REQ,
+};
+
+/* emac shorthand bitops macros */
+#define TEST_FLAG(OBJ, FLAG)	test_bit(EMAC_FLAG_ ## FLAG,  &((OBJ)->flags))
+#define SET_FLAG(OBJ,  FLAG)	set_bit(EMAC_FLAG_ ## FLAG,   &((OBJ)->flags))
+#define CLR_FLAG(OBJ,  FLAG)	clear_bit(EMAC_FLAG_ ## FLAG, &((OBJ)->flags))
+#define TEST_N_SET_FLAG(OBJ, FLAG) \
+			test_and_set_bit(EMAC_FLAG_ ## FLAG,  &((OBJ)->flags))
+
 struct emac_hw {
 	void __iomem *reg_addr[NUM_EMAC_REG_BASES];
 
@@ -236,20 +263,6 @@ struct emac_hw {
 	u32                 preamble;
 	unsigned long       flags;
 };
-
-#define EMAC_HW_FLAG_PROMISC_EN          0
-#define EMAC_HW_FLAG_VLANSTRIP_EN        1
-#define EMAC_HW_FLAG_MULTIALL_EN         2
-#define EMAC_HW_FLAG_LOOPBACK_EN         3
-
-#define EMAC_HW_FLAG_PTP_CAP             4
-#define EMAC_HW_FLAG_PTP_EN              5
-#define EMAC_HW_FLAG_TS_RX_EN            6
-#define EMAC_HW_FLAG_TS_TX_EN            7
-
-#define CHK_HW_FLAG(_flag)              CHK_FLAG(hw, HW, _flag)
-#define SET_HW_FLAG(_flag)              SET_FLAG(hw, HW, _flag)
-#define CLI_HW_FLAG(_flag)              CLI_FLAG(hw, HW, _flag)
 
 /* RSS hstype Definitions */
 #define EMAC_RSS_HSTYP_IPV4_EN           0x00000001
@@ -693,29 +706,6 @@ struct emac_adapter {
 	u16             msg_enable;
 	unsigned long   flags;
 };
-
-#define EMAC_ADPT_FLAG_STATE_RESETTING          16
-#define EMAC_ADPT_FLAG_STATE_DOWN               17
-#define EMAC_ADPT_FLAG_STATE_WATCH_DOG          18
-
-#define EMAC_ADPT_FLAG_TASK_REINIT_REQ          19
-#define EMAC_ADPT_FLAG_TASK_LSC_REQ             20
-#define EMAC_ADPT_FLAG_TASK_CHK_SGMII_REQ       21
-
-#define CHK_ADPT_FLAG(_flag)           CHK_FLAG(adpt, ADPT, _flag)
-#define SET_ADPT_FLAG(_flag)           SET_FLAG(adpt, ADPT, _flag)
-#define CLI_ADPT_FLAG(_flag)           CLI_FLAG(adpt, ADPT, _flag)
-#define CHK_AND_SET_ADPT_FLAG(_flag)   CHK_AND_SET_FLAG(adpt, ADPT, _flag)
-
-/* definitions for flags */
-#define CHK_FLAG(_st, _type, _flag) \
-		test_bit((EMAC_##_type##_FLAG_##_flag), &((_st)->flags))
-#define SET_FLAG(_st, _type, _flag) \
-		set_bit((EMAC_##_type##_FLAG_##_flag), &((_st)->flags))
-#define CLI_FLAG(_st, _type, _flag) \
-		clear_bit((EMAC_##_type##_FLAG_##_flag), &((_st)->flags))
-#define CHK_AND_SET_FLAG(_st, _type, _flag) \
-		test_and_set_bit((EMAC_##_type##_FLAG_##_flag), &((_st)->flags))
 
 /* default to trying for four seconds */
 #define EMAC_TRY_LINK_TIMEOUT     (4 * HZ)

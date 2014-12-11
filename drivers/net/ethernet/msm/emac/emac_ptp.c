@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,12 +189,12 @@ static int emac_hw_config_tx_tstamp(struct emac_hw *hw, bool enable)
 		emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1,
 				  TX_TS_ENABLE, TX_TS_ENABLE);
 		wmb();
-		SET_HW_FLAG(TS_TX_EN);
+		SET_FLAG(hw, HW_TS_TX_EN);
 	} else {
 		emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1,
 				  TX_TS_ENABLE, 0);
 		wmb();
-		CLI_HW_FLAG(TS_TX_EN);
+		CLR_FLAG(hw, HW_TS_TX_EN);
 	}
 
 	return 0;
@@ -211,9 +211,9 @@ static int emac_hw_config_rx_tstamp(struct emac_hw *hw, bool enable)
 				  TS_RX_FIFO_SYNC_RST, 0);
 		wmb();
 
-		SET_HW_FLAG(TS_RX_EN);
+		SET_FLAG(hw, HW_TS_RX_EN);
 	} else {
-		CLI_HW_FLAG(TS_RX_EN);
+		CLR_FLAG(hw, HW_TS_RX_EN);
 	}
 
 	return 0;
@@ -221,9 +221,9 @@ static int emac_hw_config_rx_tstamp(struct emac_hw *hw, bool enable)
 
 static int emac_hw_1588_core_disable(struct emac_hw *hw)
 {
-	if (CHK_HW_FLAG(TS_RX_EN))
+	if (TEST_FLAG(hw, HW_TS_RX_EN))
 		emac_hw_config_rx_tstamp(hw, false);
-	if (CHK_HW_FLAG(TS_TX_EN))
+	if (TEST_FLAG(hw, HW_TS_TX_EN))
 		emac_hw_config_tx_tstamp(hw, false);
 
 	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1,
@@ -235,7 +235,7 @@ static int emac_hw_1588_core_disable(struct emac_hw *hw)
 	emac_reg_w32(hw, EMAC_1588, EMAC_P1588_PTP_EXPANDED_INT_MASK, 0);
 	wmb();
 
-	CLI_HW_FLAG(PTP_EN);
+	CLR_FLAG(hw, HW_PTP_EN);
 	return 0;
 }
 
@@ -297,7 +297,7 @@ static int emac_hw_1588_core_enable(struct emac_hw *hw,
 				  GRANDMASTER_MODE | GM_PPS_SYNC, 0);
 	wmb();
 
-	SET_HW_FLAG(PTP_EN);
+	SET_FLAG(hw, HW_PTP_EN);
 	return 0;
 }
 
@@ -401,7 +401,7 @@ int emac_ptp_config(struct emac_hw *hw)
 
 	spin_lock_irqsave(&hw->ptp_lock, flag);
 
-	if (CHK_HW_FLAG(PTP_EN))
+	if (TEST_FLAG(hw, HW_PTP_EN))
 		goto unlock_out;
 
 	hw->frac_ns_adj = get_frac_ns_adj_from_tbl(hw);
@@ -432,7 +432,7 @@ int emac_ptp_stop(struct emac_hw *hw)
 
 	spin_lock_irqsave(&hw->ptp_lock, flag);
 
-	if (CHK_HW_FLAG(PTP_EN))
+	if (TEST_FLAG(hw, HW_PTP_EN))
 		ret = emac_hw_1588_core_disable(hw);
 
 	hw->ptp_intr_mask = 0;
@@ -477,7 +477,7 @@ static int emac_ptp_settime(struct emac_hw *hw, const struct timespec *ts)
 	unsigned long flag;
 
 	spin_lock_irqsave(&hw->ptp_lock, flag);
-	if (!CHK_HW_FLAG(PTP_EN))
+	if (!TEST_FLAG(hw, HW_PTP_EN))
 		ret = -EPERM;
 	else
 		rtc_settime(hw, ts);
@@ -492,7 +492,7 @@ static int emac_ptp_gettime(struct emac_hw *hw, struct timespec *ts)
 	unsigned long flag;
 
 	spin_lock_irqsave(&hw->ptp_lock, flag);
-	if (!CHK_HW_FLAG(PTP_EN))
+	if (!TEST_FLAG(hw, HW_PTP_EN))
 		ret = -EPERM;
 	else
 		rtc_gettime(hw, ts);
@@ -507,7 +507,7 @@ int emac_ptp_adjtime(struct emac_hw *hw, s64 delta)
 	unsigned long flag;
 
 	spin_lock_irqsave(&hw->ptp_lock, flag);
-	if (!CHK_HW_FLAG(PTP_EN))
+	if (!TEST_FLAG(hw, HW_PTP_EN))
 		ret = -EPERM;
 	else
 		rtc_adjtime(hw, delta);
@@ -522,7 +522,7 @@ int emac_tstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 	struct emac_hw *hw = &adpt->hw;
 	struct hwtstamp_config cfg;
 
-	if (!CHK_HW_FLAG(PTP_EN))
+	if (!TEST_FLAG(hw, HW_PTP_EN))
 		return -EPERM;
 
 	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
@@ -533,7 +533,7 @@ int emac_tstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 		emac_hw_config_tx_tstamp(hw, false);
 		break;
 	case HWTSTAMP_TX_ON:
-		if (CHK_HW_FLAG(TS_TX_EN))
+		if (TEST_FLAG(hw, HW_TS_TX_EN))
 			break;
 
 		emac_hw_config_tx_tstamp(hw, true);
@@ -548,7 +548,7 @@ int emac_tstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 		break;
 	default:
 		cfg.rx_filter = HWTSTAMP_FILTER_ALL;
-		if (CHK_HW_FLAG(TS_RX_EN))
+		if (TEST_FLAG(hw, HW_TS_RX_EN))
 			break;
 
 		emac_hw_config_rx_tstamp(hw, true);
@@ -758,9 +758,9 @@ static int emac_ptp_sysfs_mode_set(
 	if (mode == hw->ptp_mode)
 		goto out;
 
-	if (CHK_HW_FLAG(PTP_EN)) {
-		bool rx_tstamp_enable = CHK_HW_FLAG(TS_RX_EN);
-		bool tx_tstamp_enable = CHK_HW_FLAG(TS_TX_EN);
+	if (TEST_FLAG(hw, HW_PTP_EN)) {
+		bool rx_tstamp_enable = TEST_FLAG(hw, HW_TS_RX_EN);
+		bool tx_tstamp_enable = TEST_FLAG(hw, HW_TS_TX_EN);
 
 		emac_hw_1588_core_disable(hw);
 		emac_hw_1588_core_enable(hw, mode, hw->ptp_clk_mode,
@@ -791,7 +791,7 @@ static int emac_ptp_sysfs_frac_ns_adj_show(
 	int count = PAGE_SIZE;
 	int retval;
 
-	if (!CHK_HW_FLAG(PTP_EN))
+	if (!TEST_FLAG(hw, HW_PTP_EN))
 		return -EPERM;
 
 	retval = scnprintf(buf, count, "%d\n", adpt->hw.frac_ns_adj);
@@ -809,7 +809,7 @@ static int emac_ptp_sysfs_frac_ns_adj_set(
 	struct emac_hw *hw = &adpt->hw;
 	s32 adj;
 
-	if (!CHK_HW_FLAG(PTP_EN))
+	if (!TEST_FLAG(hw, HW_PTP_EN))
 		return -EPERM;
 
 	if (kstrtos32(buf, 0, &adj))
