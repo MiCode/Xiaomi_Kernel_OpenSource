@@ -108,7 +108,7 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 	mhi_reg_write_field(mhi_dev_ctxt, mhi_dev_ctxt->mmio_addr, MHICFG,
 				MHICFG_NER_MASK, MHICFG_NER_SHIFT,
-				MHI_MAX_CHANNELS);
+				EVENT_RINGS_ALLOCATED);
 
 	pcie_dword_val = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 			(uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list);

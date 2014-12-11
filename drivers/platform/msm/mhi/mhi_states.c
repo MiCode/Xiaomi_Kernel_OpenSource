@@ -752,64 +752,6 @@ int mhi_state_change_thread(void *ctxt)
 }
 
 /**
- * mhi_reset_channel - Reset for a single MHI channel
- *
- * @client_handle device context
- *
- */
-enum MHI_STATUS mhi_reset_channel(struct mhi_client_handle *client_handle)
-{
-	enum MHI_STATUS ret_val;
-	struct mhi_chan_ctxt *cur_ctxt = NULL;
-	struct mhi_device_ctxt *mhi_dev_ctxt = NULL;
-	u32 chan_id = 0;
-	struct mhi_ring *cur_ring = NULL;
-
-	chan_id = client_handle->chan;
-	mhi_dev_ctxt = client_handle->mhi_dev_ctxt;
-
-	if (chan_id > (MHI_MAX_CHANNELS - 1) || NULL == mhi_dev_ctxt) {
-		mhi_log(MHI_MSG_ERROR, "Bad input parameters\n");
-		return MHI_STATUS_ERROR;
-	}
-
-	mutex_lock(&mhi_dev_ctxt->mhi_chan_mutex[chan_id]);
-
-	/* We need to reset the channel completley, we will assume that our
-	 * base is correct*/
-	cur_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan_id];
-	cur_ring = &mhi_dev_ctxt->mhi_local_event_ctxt[chan_id];
-	memset(cur_ring->base, 0, sizeof(char)*cur_ring->len);
-
-	if (IS_HARDWARE_CHANNEL(chan_id)) {
-		ret_val = mhi_init_chan_ctxt(cur_ctxt,
-				mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
-					     (uintptr_t)cur_ring->base),
-					     (uintptr_t)cur_ring->base,
-					     MAX_NR_TRBS_PER_HARD_CHAN,
-					     (chan_id % 2) ? MHI_IN : MHI_OUT,
-			      (chan_id % 2) ? IPA_IN_EV_RING : IPA_OUT_EV_RING,
-					     cur_ring);
-	} else {
-		ret_val = mhi_init_chan_ctxt(cur_ctxt,
-				mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
-					     (uintptr_t)cur_ring->base),
-					     (uintptr_t)cur_ring->base,
-					     MAX_NR_TRBS_PER_SOFT_CHAN,
-					     (chan_id % 2) ? MHI_IN : MHI_OUT,
-					     SOFTWARE_EV_RING,
-					     cur_ring);
-	}
-
-	if (MHI_STATUS_SUCCESS != ret_val)
-		mhi_log(MHI_MSG_ERROR, "Failed to reset chan ctxt\n");
-
-
-	mutex_unlock(&mhi_dev_ctxt->mhi_chan_mutex[chan_id]);
-	return ret_val;
-}
-
-/**
  * mhi_init_state_transition - Add a new state transition work item to
  *			the state transition thread work item list.
  *
