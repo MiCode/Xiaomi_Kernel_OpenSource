@@ -54,6 +54,7 @@
 
 &i2c_0 { /* BLSP1 QUP2 */
 	/delete-node/ mcube@4c;
+	/delete-node/ intersil@44;
 
 	mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
 		compatible = "invn,mpu6880", "invn,mpu6050";
@@ -69,5 +70,22 @@
 		invn,place = "Landscape Right Back Side";
 		invn,gpio-int = <&msm_gpio 115 0x2>;
 		invn,vdd-min-uv = <1750000>;
+	};
+
+	capella@60 { /* Ambient light and proximity sensor */
+		compatible = "capella,cm36682", "capella,cm36283";
+		reg = <0x60>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <113 0x2>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		capella,use-polling;
+		capella,interrupt-gpio = <&msm_gpio 113 0x2>;
+		capella,levels = <0x0A 0xA0 0xE1 0x140 0x280 0x500 0xA28 0x16A8 0x1F40 0x2800>;
+		capella,ps_close_thd_set = <0x26>;
+		capella,ps_away_thd_set = <0x5>;
+		capella,ls_cmd = <0x04>; /* ALS_IT=80ms, INT_PERS=2 */
+		capella,ps_conf1_val = <0x0006>;
+		capella,ps_conf3_val = <0x3010>;
 	};
 };
