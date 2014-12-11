@@ -22,6 +22,7 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/io.h>
+#include <linux/uaccess.h>
 
 #include <asm/pmc_atom.h>
 
@@ -43,7 +44,15 @@ struct pmc_bit_map {
 	u32 d3_sts_bit;
 	u32 fn_dis_bit;
 };
+struct pmc_counters {
+	u64 prev_s0ir_tmr;
+	u64 prev_s0i1_tmr;
+	u64 prev_s0i2_tmr;
+	u64 prev_s0i3_tmr;
+	u64 prev_s0_tmr;
+};
 
+struct pmc_counters s0ix_counters = {0, 0, 0, 0, 0};
 static  struct pmc_bit_map *dev_map;
 static  struct pmc_bit_map *pss_map;
 static int dev_num;
@@ -290,28 +299,72 @@ static int pmc_sleep_tmr_show(struct seq_file *s, void *unused)
 	struct pmc_dev *pmc = s->private;
 	u64 s0ir_tmr, s0i1_tmr, s0i2_tmr, s0i3_tmr, s0_tmr;
 
-	s0ir_tmr = (u64)pmc_reg_read(pmc, PMC_S0IR_TMR) << PMC_TMR_SHIFT;
-	s0i1_tmr = (u64)pmc_reg_read(pmc, PMC_S0I1_TMR) << PMC_TMR_SHIFT;
-	s0i2_tmr = (u64)pmc_reg_read(pmc, PMC_S0I2_TMR) << PMC_TMR_SHIFT;
-	s0i3_tmr = (u64)pmc_reg_read(pmc, PMC_S0I3_TMR) << PMC_TMR_SHIFT;
 	s0_tmr = (u64)pmc_reg_read(pmc, PMC_S0_TMR) << PMC_TMR_SHIFT;
+	s0_tmr = s0_tmr - s0ix_counters.prev_s0_tmr;
+	do_div(s0_tmr, MSEC_PER_SEC);
 
-	seq_printf(s, "S0IR Residency:\t%lldus\n", s0ir_tmr);
-	seq_printf(s, "S0I1 Residency:\t%lldus\n", s0i1_tmr);
-	seq_printf(s, "S0I2 Residency:\t%lldus\n", s0i2_tmr);
-	seq_printf(s, "S0I3 Residency:\t%lldus\n", s0i3_tmr);
-	seq_printf(s, "S0   Residency:\t%lldus\n", s0_tmr);
+	s0ir_tmr = (u64)pmc_reg_read(pmc, PMC_S0IR_TMR) << PMC_TMR_SHIFT;
+	s0ir_tmr = s0ir_tmr -  s0ix_counters.prev_s0ir_tmr;
+	do_div(s0ir_tmr, MSEC_PER_SEC);
+
+	s0i1_tmr = (u64)pmc_reg_read(pmc, PMC_S0I1_TMR) << PMC_TMR_SHIFT;
+	s0i1_tmr = s0i1_tmr -  s0ix_counters.prev_s0i1_tmr;
+	do_div(s0i1_tmr, MSEC_PER_SEC);
+
+	s0i2_tmr = (u64)pmc_reg_read(pmc, PMC_S0I2_TMR) << PMC_TMR_SHIFT;
+	s0i2_tmr = s0i2_tmr - s0ix_counters.prev_s0i2_tmr;
+	do_div(s0i2_tmr, MSEC_PER_SEC);
+
+	s0i3_tmr = (u64)pmc_reg_read(pmc, PMC_S0I3_TMR) << PMC_TMR_SHIFT;
+	s0i3_tmr =  s0i3_tmr -  s0ix_counters.prev_s0i3_tmr;
+	do_div(s0i3_tmr, MSEC_PER_SEC);
+
+	seq_puts(s , "       Residency Time\n");
+	seq_printf(s , "S0:  %13.2llu ms\n", s0_tmr);
+	seq_printf(s , "S0IR:%13.2llu ms\n", s0ir_tmr);
+	seq_printf(s , "S0I1:%13.2llu ms\n", s0i1_tmr);
+	seq_printf(s , "S0I2:%13.2llu ms\n", s0i2_tmr);
+	seq_printf(s , "S0I3:%13.2llu ms\n", s0i3_tmr);
 	return 0;
 }
+static ssize_t pmc_sleep_tmr_write(struct file *file,
+		const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	char buf[32];
+	struct pmc_dev *pmc = &pmc_device;
+	int buf_size = min(count, sizeof(buf)-1);
+	char *clear_msg = "clear";
+	int clear_msg_len = strlen(clear_msg);
 
+	if (copy_from_user(buf, userbuf, buf_size))
+		return -EFAULT;
+
+	buf[buf_size] = 0;
+	if (((clear_msg_len + 1) == buf_size) &&
+		!strncmp(buf, clear_msg, clear_msg_len)) {
+		s0ix_counters.prev_s0ir_tmr =
+			(u64)pmc_reg_read(pmc, PMC_S0IR_TMR) << PMC_TMR_SHIFT;
+		s0ix_counters.prev_s0i1_tmr =
+			(u64)pmc_reg_read(pmc, PMC_S0I1_TMR) << PMC_TMR_SHIFT;
+		s0ix_counters.prev_s0i2_tmr =
+			(u64)pmc_reg_read(pmc, PMC_S0I2_TMR) << PMC_TMR_SHIFT;
+		s0ix_counters.prev_s0i3_tmr =
+			(u64)pmc_reg_read(pmc, PMC_S0I3_TMR) << PMC_TMR_SHIFT;
+		s0ix_counters.prev_s0_tmr =
+			(u64)pmc_reg_read(pmc, PMC_S0_TMR) << PMC_TMR_SHIFT;
+	}
+	return buf_size;
+}
 static int pmc_sleep_tmr_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, pmc_sleep_tmr_show, inode->i_private);
 }
 
+
 static const struct file_operations pmc_sleep_tmr_ops = {
 	.open		= pmc_sleep_tmr_open,
 	.read		= seq_read,
+	.write		= pmc_sleep_tmr_write,
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
