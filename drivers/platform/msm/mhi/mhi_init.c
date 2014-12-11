@@ -31,17 +31,11 @@ static enum MHI_STATUS mhi_create_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_dev_ctxt->nr_of_cmdc = NR_OF_CMD_RINGS;
 
 	mhi_dev_ctxt->alloced_ev_rings[PRIMARY_EVENT_RING] = 0;
-	mhi_dev_ctxt->alloced_ev_rings[SOFTWARE_EV_RING] =
-						SOFTWARE_EV_RING;
-	mhi_dev_ctxt->alloced_ev_rings[IPA_OUT_EV_RING] =
-						MHI_CLIENT_IP_HW_0_OUT;
-	mhi_dev_ctxt->alloced_ev_rings[IPA_IN_EV_RING] =
-						MHI_CLIENT_IP_HW_0_IN;
+	mhi_dev_ctxt->alloced_ev_rings[IPA_OUT_EV_RING] = IPA_OUT_EV_RING;
+	mhi_dev_ctxt->alloced_ev_rings[IPA_IN_EV_RING] = IPA_IN_EV_RING;
+
 	MHI_SET_EVENT_RING_INFO(EVENT_RING_POLLING,
 			mhi_dev_ctxt->ev_ring_props[PRIMARY_EVENT_RING],
-			MHI_EVENT_POLLING_ENABLED);
-	MHI_SET_EVENT_RING_INFO(EVENT_RING_POLLING,
-			mhi_dev_ctxt->ev_ring_props[SOFTWARE_EV_RING],
 			MHI_EVENT_POLLING_ENABLED);
 	MHI_SET_EVENT_RING_INFO(EVENT_RING_POLLING,
 			mhi_dev_ctxt->ev_ring_props[IPA_OUT_EV_RING],
@@ -50,7 +44,7 @@ static enum MHI_STATUS mhi_create_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt)
 			mhi_dev_ctxt->ev_ring_props[IPA_IN_EV_RING],
 			MHI_EVENT_POLLING_DISABLED);
 
-	for (i = 0; i < MAX_NR_MSI; ++i) {
+	for (i = 0; i < EVENT_RINGS_ALLOCATED; ++i) {
 		MHI_SET_EVENT_RING_INFO(EVENT_RING_MSI_VEC,
 				mhi_dev_ctxt->ev_ring_props[i],
 				i);
@@ -461,7 +455,7 @@ static enum MHI_STATUS mhi_init_contexts(struct mhi_device_ctxt *mhi_dev_ctxt)
 				(uintptr_t)trb_list,
 				MAX_NR_TRBS_PER_HARD_CHAN,
 				(i % 2) ? MHI_IN : MHI_OUT,
-				i,
+				EVENT_RINGS_ALLOCATED - (MHI_MAX_CHANNELS - i),
 				&mhi_dev_ctxt->mhi_local_chan_ctxt[i]);
 		}
 	}
