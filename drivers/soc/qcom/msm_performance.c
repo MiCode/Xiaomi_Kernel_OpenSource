@@ -248,7 +248,7 @@ static int set_cpu_min_freq(const char *buf, const struct kernel_param *kp)
 	for (i = 0; i < ntokens; i += 2) {
 		if (sscanf(cp, "%u:%u", &cpu, &val) != 2)
 			return -EINVAL;
-		if (cpu > num_present_cpus())
+		if (cpu > (num_present_cpus() - 1))
 			return -EINVAL;
 
 		i_cpu_stats = &per_cpu(cpu_stats, cpu);
@@ -331,7 +331,7 @@ static int set_cpu_max_freq(const char *buf, const struct kernel_param *kp)
 	for (i = 0; i < ntokens; i += 2) {
 		if (sscanf(cp, "%u:%u", &cpu, &val) != 2)
 			return -EINVAL;
-		if (cpu > num_present_cpus())
+		if (cpu > (num_present_cpus() - 1))
 			return -EINVAL;
 
 		i_cpu_stats = &per_cpu(cpu_stats, cpu);
