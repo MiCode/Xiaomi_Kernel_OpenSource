@@ -1401,8 +1401,10 @@ static int __power_up(struct v4l2_subdev *sd)
 	if (ret)
 		goto fail_clk;
 
-	/* according to DS, 20ms is needed between PWDN and i2c access */
-	msleep(20);
+	/* Value reached through experimentation. The DS specifies a much
+	 * lower value but when using a smaller value the I2C bus sometimes
+	 * locks up permanently when starting the camera. */
+	msleep(30);
 
 	return 0;
 
