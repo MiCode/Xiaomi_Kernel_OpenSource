@@ -29,6 +29,10 @@ Optional properties:
 			"afe_pwr_suspend" : Disabled configuration of AFE power pin.
 			"disp_vsn_active" : Active configuration of display VSN pin.
 			"disp_vsn_suspend" : Disable configuration of display VSN pin.
+ - jdi,panel-model		: string type for panel model number
+ - jdi,afe-version		: string type for AFE version
+ - jdi,pitch-type		: string type to indicate sensor pitch type, e.g. "fp" for fine pitch, "np" for normal pitch, etc..
+ - jdi,afe-vendor		: string type to indicate AFE IC vendor, e.g. "rohm", "sitronix", etc..
 
 Example:
 
@@ -51,6 +55,9 @@ Example:
 			pinctrl-3 = <&afe_pwr_suspend>;
 			pinctrl-4 = <&disp_vsn_active>;
 			pinctrl-5 = <&disp_vsn_suspend>;
+			jdi,panel-model = "fhd_5_A230ADEV";
+			jdi,afe-version = "v3";
+			jdi,pitch-type = "np";
 		};
 	};
 

@@ -34,6 +34,7 @@
 
 /* define */
 #define DEVICE_NAME   "jdi-bu21150"
+#define SYSFS_PROPERTY_PATH   "afe_properties"
 #define REG_READ_DATA (0x0400)
 #define MAX_FRAME_SIZE (8*1024+16)  /* byte */
 #define SPI_HEADER_SIZE (3)
@@ -69,6 +70,7 @@ struct bu21150_data {
 	/* frame work */
 	u8 frame_work[MAX_FRAME_SIZE];
 	struct bu21150_ioctl_get_frame_data frame_work_get;
+	struct kobject *bu21150_obj;
 	/* waitq */
 	u8 frame_waitq_flag;
 	wait_queue_head_t frame_waitq;
@@ -82,6 +84,10 @@ struct bu21150_data {
 	int rst_gpio;
 	int afe_pwr_gpio;
 	int disp_vsn_gpio;
+	const char *panel_model;
+	const char *afe_version;
+	const char *pitch_type;
+	const char *afe_vendor;
 };
 
 struct ser_req {
@@ -124,6 +130,58 @@ static bool parse_dtsi(struct device *dev, struct bu21150_data *ts);
 /* static variables */
 static struct spi_device *g_client_bu21150;
 static int g_io_opened;
+
+static ssize_t bu21150_hallib_name_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+	int index = snprintf(buf, PAGE_SIZE, "libafehal");
+
+	if (ts->afe_vendor)
+		index += snprintf(buf + index, PAGE_SIZE, "_%s",
+							ts->afe_vendor);
+	if (ts->panel_model)
+		index += snprintf(buf + index, PAGE_SIZE, "_%s",
+							ts->panel_model);
+
+	if (ts->afe_version)
+		index += snprintf(buf + index, PAGE_SIZE, "_%s",
+							ts->afe_version);
+
+	if (ts->pitch_type)
+		index += snprintf(buf + index, PAGE_SIZE, "_%s",
+							ts->pitch_type);
+
+	return index;
+}
+
+static ssize_t bu21150_cfg_name_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+
+	int index = snprintf(buf, PAGE_SIZE, "hbtp");
+
+	if (ts->afe_vendor)
+		index += snprintf(buf + index, PAGE_SIZE, "_%s",
+							ts->afe_vendor);
+	if (ts->panel_model)
+		index += snprintf(buf + index, PAGE_SIZE, "_%s",
+							ts->panel_model);
+	if (ts->afe_version)
+		index += snprintf(buf + index, PAGE_SIZE, "_%s",
+							ts->afe_version);
+	if (ts->pitch_type)
+		index += snprintf(buf + index, PAGE_SIZE, "_%s",
+							ts->pitch_type);
+
+	return index;
+}
+
+static struct kobj_attribute bu21150_prop_attrs[] = {
+	__ATTR(hallib_name, S_IRUGO, bu21150_hallib_name_show, NULL),
+	__ATTR(cfg_name, S_IRUGO, bu21150_cfg_name_show, NULL),
+};
 
 static const struct of_device_id g_bu21150_psoc_match_table[] = {
 	{	.compatible = "jdi,bu21150", },
@@ -507,7 +565,7 @@ err_get_vdd_dig:
 static int bu21150_probe(struct spi_device *client)
 {
 	struct bu21150_data *ts;
-	int rc;
+	int rc, i;
 
 	ts = kzalloc(sizeof(struct bu21150_data), GFP_KERNEL);
 	if (!ts) {
@@ -574,8 +632,29 @@ static int bu21150_probe(struct spi_device *client)
 
 	dev_set_drvdata(&client->dev, ts);
 
+	ts->bu21150_obj = kobject_create_and_add(SYSFS_PROPERTY_PATH, NULL);
+	if (!ts->bu21150_obj) {
+		dev_err(&client->dev, "unable to create kobject\n");
+		goto err_create_and_add_kobj;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(bu21150_prop_attrs); i++) {
+		rc = sysfs_create_file(ts->bu21150_obj,
+						&bu21150_prop_attrs[i].attr);
+		if (rc) {
+			dev_err(&client->dev, "failed to create attributes\n");
+			goto err_create_sysfs;
+		}
+	}
+
 	return 0;
 
+err_create_sysfs:
+	for (i--; i >= 0; i--)
+		sysfs_remove_file(ts->bu21150_obj, &bu21150_prop_attrs[i].attr);
+	kobject_put(ts->bu21150_obj);
+err_create_and_add_kobj:
+	misc_deregister(&g_bu21150_misc_device);
 err_register_misc:
 	destroy_workqueue(ts->workq);
 err_create_wq:
@@ -595,7 +674,12 @@ err_parse_dt:
 static int bu21150_remove(struct spi_device *client)
 {
 	struct bu21150_data *ts = spi_get_drvdata(client);
+	int i;
 
+	for (i = 0; i < ARRAY_SIZE(bu21150_prop_attrs); i++)
+		sysfs_remove_file(ts->bu21150_obj,
+					&bu21150_prop_attrs[i].attr);
+	kobject_put(ts->bu21150_obj);
 	misc_deregister(&g_bu21150_misc_device);
 	bu21150_power_enable(ts, false);
 	bu21150_regulator_config(ts, false);
@@ -1053,11 +1137,36 @@ static bool parse_dtsi(struct device *dev, struct bu21150_data *ts)
 {
 	enum of_gpio_flags dummy;
 	struct device_node *np = dev->of_node;
+	int rc;
 
 	ts->irq_gpio = of_get_named_gpio_flags(np,
 		"irq-gpio", 0, &dummy);
 	ts->rst_gpio = of_get_named_gpio_flags(np,
 		"rst-gpio", 0, &dummy);
+
+	rc = of_property_read_string(np, "jdi,panel-model", &ts->panel_model);
+	if (rc < 0 && rc != EINVAL) {
+		dev_err(&ts->client->dev, "Unable to read panel model\n");
+		return false;
+	}
+
+	rc = of_property_read_string(np, "jdi,afe-version", &ts->afe_version);
+	if (rc < 0 && rc != -EINVAL) {
+		dev_err(&ts->client->dev, "Unable to read AFE version\n");
+		return false;
+	}
+
+	rc = of_property_read_string(np, "jdi,pitch-type", &ts->pitch_type);
+	if (rc < 0 && rc != EINVAL) {
+		dev_err(&ts->client->dev, "Unable to read pitch type\n");
+		return false;
+	}
+
+	rc = of_property_read_string(np, "jdi,afe-vendor", &ts->afe_vendor);
+	if (rc < 0 && rc != EINVAL) {
+		dev_err(&ts->client->dev, "Unable to read AFE vendor\n");
+		return false;
+	}
 
 	return true;
 }
