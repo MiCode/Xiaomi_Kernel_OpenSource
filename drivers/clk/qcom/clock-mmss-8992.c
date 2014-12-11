@@ -1465,7 +1465,7 @@ static struct branch_clk camss_jpeg_dma_clk = {
 
 static struct branch_clk camss_jpeg_jpeg0_clk = {
 	.cbcr_reg = CAMSS_JPEG_JPEG0_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "camss_jpeg_jpeg0_clk",
