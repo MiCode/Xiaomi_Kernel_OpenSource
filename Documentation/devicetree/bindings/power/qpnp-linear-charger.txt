@@ -101,6 +101,12 @@ Parent node optional properties:
 					charging. BMS and charger communicates
 					with each other via power_supply
 					framework.
+- qcom,parallel-charger			This is a bool property to indicate the
+					LBC will operate as a secondary charger
+					in the parallel mode. If this is enabled
+					the charging operations will be controlled by
+					the primary-charger.
+
 
 Sub node required structure:
 - A qcom,charger node must be a child of an SPMI node that has specified
