@@ -13,6 +13,7 @@ semantics.
 	"qcom,msm-tlmm-8226"
 	"qcom,msm-tlmm-8974"
 	"qcom,msm-tlmm-mdm9640"
+	"qcom,msm-tlmm-vpipa"
  - reg: Base address of the pin controller hardware module and length of
    the address space it occupies.
 

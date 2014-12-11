@@ -1,0 +1,206 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* Stub Regulators */
+&soc {
+	pmd9635_s1: regulator-s1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_s1";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <700000>;
+		regulator-max-microvolt = <1100000>;
+	};
+
+	pmd9635_s2: regulator-s2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_s2";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1250000>;
+		regulator-max-microvolt = <1250000>;
+	};
+
+	pmd9635_s3: regulator-s3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_s3";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1025000>;
+		regulator-max-microvolt = <1025000>;
+	};
+
+	pmd9635_s4: regulator-s4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_s4";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1850000>;
+		regulator-max-microvolt = <1850000>;
+	};
+
+	/* PMD9635 S5 = VDD_CX supply */
+	pmd9635_s5_corner: regulator-s5-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_s5_corner";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pmd9635_s5_corner_ao: regulator-s5-corner-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_s5_corner_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pmd9635_s5_floor_corner: regulator-s5-floor-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_s5_floor_corner";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pmd9635_l1: regulator-l1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l1";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1225000>;
+		regulator-max-microvolt = <1225000>;
+	};
+
+	pmd9635_l2: regulator-l2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l2";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	pmd9635_l3: regulator-l3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l3";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1000000>;
+		regulator-max-microvolt = <1000000>;
+	};
+
+	pmd9635_l4: regulator-l4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l4";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <950000>;
+		regulator-max-microvolt = <950000>;
+	};
+
+	pmd9635_l5: regulator-l5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l5";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmd9635_l6: regulator-l6 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l6";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmd9635_l7: regulator-l7 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l7";
+		qcom,hpm-min-load = <5000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmd9635_l8: regulator-l8 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l8";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	/* PMD9635 L9 = VDD_MX supply */
+	pmd9635_l9_corner: regulator-l9-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l9_corner";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pmd9635_l10: regulator-l10 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l10";
+		qcom,hpm-min-load = <5000>;
+		regulator-min-microvolt = <3200000>;
+		regulator-max-microvolt = <3200000>;
+	};
+
+	pmd9635_l11: regulator-l11 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l11";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmd9635_l12: regulatorl12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l12";
+		qcom,hpm-min-load = <5000>;
+		regulator-min-microvolt = <2700000>;
+		regulator-max-microvolt = <2700000>;
+	};
+
+	pmd9635_l13: regulator-l13 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l13";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmd9635_l14: regulator-l14 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l14";
+		qcom,hpm-min-load = <5000>;
+		regulator-min-microvolt = <2700000>;
+		regulator-max-microvolt = <2700000>;
+	};
+
+	pmd9635_l15: regulator-l15 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l15";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmd9635_l16: regulator-l16 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "9635_l16";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <950000>;
+		regulator-max-microvolt = <950000>;
+	};
+
+	spi_eth_vreg: spi_eth_phy_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "ethernet_phy";
+		regulator-always-on;
+	};
+};

@@ -71,6 +71,9 @@ SoCs:
 - MDM9640
   compatible = "qcom,mdm9640"
 
+- VPIPA
+  compatible = "qcom,msmvpipa"
+
 - FSM9010
   compatible = "qcom,fsm9010"
 
@@ -198,3 +201,4 @@ compatible = "qcom,fsm9010-cdp"
 compatible = "qcom,fsm9010-mtp"
 compatible = "qcom,fsm9900-cdp"
 compatible = "qcom,fsm9900-mtp"
+compatible = "qcom,msmvpipa-sim"
