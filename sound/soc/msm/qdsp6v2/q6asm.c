@@ -3634,10 +3634,11 @@ int q6asm_stream_media_format_block_flac(struct audio_client *ac,
 	struct asm_flac_fmt_blk_v2 fmt;
 	int rc = 0;
 
-	pr_debug("%s :session[%d]rate[%d]ch[%d]size[%d]\n", __func__,
-		ac->session, cfg->sample_rate, cfg->ch_cfg, cfg->sample_size);
+	pr_debug("%s :session[%d] rate[%d] ch[%d] size[%d] stream_id[%d]\n",
+		__func__, ac->session, cfg->sample_rate, cfg->ch_cfg,
+		cfg->sample_size, stream_id);
 
-	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
+	q6asm_stream_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE, stream_id);
 	atomic_set(&ac->cmd_state, 1);
 
 	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2;
