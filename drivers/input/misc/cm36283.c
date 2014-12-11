@@ -1316,7 +1316,7 @@ static int lightsensor_setup(struct cm36283_info *lpi)
 	int ret;
 	int range;
 
-	lpi->ls_input_dev = input_allocate_device();
+	lpi->ls_input_dev = devm_input_allocate_device(&lpi->i2c_client->dev);
 	if (!lpi->ls_input_dev) {
 		pr_err(
 			"[LS][CM36283 error]%s: could not allocate ls input device\n",
@@ -1337,10 +1337,7 @@ static int lightsensor_setup(struct cm36283_info *lpi)
 		goto err_free_ls_input_device;
 	}
 
-	return ret;
-
 err_free_ls_input_device:
-	input_free_device(lpi->ls_input_dev);
 	return ret;
 }
 
@@ -1348,7 +1345,7 @@ static int psensor_setup(struct cm36283_info *lpi)
 {
 	int ret;
 
-	lpi->ps_input_dev = input_allocate_device();
+	lpi->ps_input_dev = devm_input_allocate_device(&lpi->i2c_client->dev);
 	if (!lpi->ps_input_dev) {
 		pr_err(
 			"[PS][CM36283 error]%s: could not allocate ps input device\n",
@@ -1368,10 +1365,7 @@ static int psensor_setup(struct cm36283_info *lpi)
 		goto err_free_ps_input_device;
 	}
 
-	return ret;
-
 err_free_ps_input_device:
-	input_free_device(lpi->ps_input_dev);
 	return ret;
 }
 
@@ -1704,14 +1698,14 @@ static int cm36283_probe(struct i2c_client *client,
 	if (ret < 0) {
 		pr_err("[PS][CM36283 error]%s: psensor_setup error!!\n",
 			__func__);
-		goto err_psensor_setup;
+		goto err_lightsensor_setup;
 	}
 
 	ret = create_sysfs_interfaces(&lpi->ls_input_dev->dev, light_attr,
 			ARRAY_SIZE(light_attr));
 	if (ret < 0) {
 		dev_err(&client->dev, "failed to create sysfs\n");
-		goto err_input_cleanup;
+		goto err_lightsensor_setup;
 	}
 
 	ret = create_sysfs_interfaces(&lpi->ps_input_dev->dev, proximity_attr,
@@ -1753,12 +1747,6 @@ err_proximity_sysfs_cleanup:
 err_light_sysfs_cleanup:
 	remove_sysfs_interfaces(&lpi->ls_input_dev->dev, light_attr,
 			ARRAY_SIZE(light_attr));
-err_input_cleanup:
-	input_unregister_device(lpi->ps_input_dev);
-	input_free_device(lpi->ps_input_dev);
-err_psensor_setup:
-	input_unregister_device(lpi->ls_input_dev);
-	input_free_device(lpi->ls_input_dev);
 err_lightsensor_setup:
 err_cm36283_setup:
 	cm36283_power_set(lpi, false);

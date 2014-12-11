@@ -7161,7 +7161,7 @@ static int bma2x2_probe(struct i2c_client *client,
 	atomic_set(&data->delay, BMA2X2_MAX_DELAY);
 	atomic_set(&data->enable, 0);
 
-	dev = input_allocate_device();
+	dev = devm_input_allocate_device(&client->dev);
 	if (!dev) {
 		dev_err(&client->dev,
 			"Cannot allocate input device\n");
@@ -7169,12 +7169,12 @@ static int bma2x2_probe(struct i2c_client *client,
 		goto free_irq_exit;
 	}
 
-	dev_interrupt = input_allocate_device();
+	dev_interrupt = devm_input_allocate_device(&client->dev);
 	if (!dev_interrupt) {
 		dev_err(&client->dev,
 			"Cannot allocate input interrupt device\n");
 		err = -ENOMEM;
-		goto free_input_dev_exit;
+		goto free_irq_exit;
 	}
 
 	/* only value events reported */
@@ -7190,7 +7190,7 @@ static int bma2x2_probe(struct i2c_client *client,
 	if (err < 0) {
 		dev_err(&client->dev,
 			"Cannot register input device\n");
-		goto free_input_interrupt_dev_exit;
+		goto free_irq_exit;
 	}
 
 	/* all interrupt generated events are moved to interrupt input devices*/
@@ -7218,7 +7218,7 @@ static int bma2x2_probe(struct i2c_client *client,
 	if (err < 0) {
 		dev_err(&client->dev,
 			"Cannot register input interrupt device\n");
-		goto unregister_input_dev_exit;
+		goto free_irq_exit;
 	}
 
 	data->dev_interrupt = dev_interrupt;
@@ -7230,7 +7230,7 @@ static int bma2x2_probe(struct i2c_client *client,
 		err = PTR_ERR(data->g_sensor_class);
 		data->g_sensor_class = NULL;
 		dev_err(&client->dev, "could not allocate g_sensor_class\n");
-		goto unregister_input_interrupt_dev_exit;
+		goto free_irq_exit;
 	}
 
 	data->g_sensor_dev = device_create(data->g_sensor_class,
@@ -7394,16 +7394,6 @@ destroy_g_sensor_class_exit:
 	class_destroy(data->g_sensor_class);
 #endif
 
-#if defined(CONFIG_SIG_MOTION) || defined(CONFIG_DOUBLE_TAP)
-unregister_input_interrupt_dev_exit:
-#endif
-	input_unregister_device(dev_interrupt);
-unregister_input_dev_exit:
-	input_unregister_device(dev);
-free_input_interrupt_dev_exit:
-	input_free_device(dev_interrupt);
-free_input_dev_exit:
-	input_free_device(dev);
 free_irq_exit:
 disable_power_exit:
 	bma2x2_power_ctl(data, false);
@@ -7472,17 +7462,9 @@ static int bma2x2_remove(struct i2c_client *client)
 
 	bma2x2_sig_motion_disable(data);
 
-	if (data->dev_interrupt) {
-		input_unregister_device(data->dev_interrupt);
-		input_free_device(data->dev_interrupt);
-	}
-
-	if (data->input) {
+	if (data->input)
 		sysfs_remove_group(&data->input->dev.kobj,
 				&bma2x2_attribute_group);
-		input_unregister_device(data->input);
-		input_free_device(data->input);
-	}
 
 	bma2x2_set_enable(&client->dev, 0);
 	bma2x2_power_deinit(data);
