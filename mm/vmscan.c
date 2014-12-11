@@ -2777,7 +2777,8 @@ static bool prepare_kswapd_sleep(pg_data_t *pgdat, int order, long remaining,
  */
 static bool kswapd_shrink_zone(struct zone *zone,
 			       struct scan_control *sc,
-			       unsigned long lru_pages)
+			       unsigned long lru_pages,
+			       unsigned long *nr_attempted)
 {
 	unsigned long nr_slab;
 	struct reclaim_state *reclaim_state = current->reclaim_state;
@@ -2792,6 +2793,9 @@ static bool kswapd_shrink_zone(struct zone *zone,
 	reclaim_state->reclaimed_slab = 0;
 	nr_slab = shrink_slab(&shrink, sc->nr_scanned, lru_pages);
 	sc->nr_reclaimed += reclaim_state->reclaimed_slab;
+
+	/* Account for the number of pages attempted to reclaim */
+	*nr_attempted += sc->nr_to_reclaim;
 
 	return sc->nr_scanned >= sc->nr_to_reclaim;
 }
@@ -2837,7 +2841,9 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 
 	do {
 		unsigned long lru_pages = 0;
+		unsigned long nr_attempted = 0;
 		bool raise_priority = true;
+		bool pgdat_needs_compaction = (order > 0);
 
 		sc.nr_reclaimed = 0;
 
@@ -2887,7 +2893,21 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 		for (i = 0; i <= end_zone; i++) {
 			struct zone *zone = pgdat->node_zones + i;
 
+			if (!populated_zone(zone))
+				continue;
+
 			lru_pages += zone_reclaimable_pages(zone);
+
+			/*
+			 * If any zone is currently balanced then kswapd will
+			 * not call compaction as it is expected that the
+			 * necessary pages are already available.
+			 */
+			if (pgdat_needs_compaction &&
+					zone_watermark_ok(zone, order,
+						low_wmark_pages(zone),
+						*classzone_idx, 0))
+				pgdat_needs_compaction = false;
 		}
 
 		/*
@@ -2956,7 +2976,8 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 				 * already being scanned that high
 				 * watermark would be met at 100% efficiency.
 				 */
-				if (kswapd_shrink_zone(zone, &sc, lru_pages))
+				if (kswapd_shrink_zone(zone, &sc, lru_pages,
+						       &nr_attempted))
 					raise_priority = false;
 			}
 
@@ -3009,6 +3030,13 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 			break;
 
 		/*
+		 * Compact if necessary and kswapd is reclaiming at least the
+		 * high watermark number of pages as requsted
+		 */
+		if (pgdat_needs_compaction && sc.nr_reclaimed > nr_attempted)
+			compact_pgdat(pgdat, order);
+
+		/*
 		 * Raise priority if scanning rate is too low or there was no
 		 * progress in reclaiming pages
 		 */
@@ -3016,33 +3044,6 @@ static unsigned long balance_pgdat(pg_data_t *pgdat, int order,
 			sc.priority--;
 	} while (sc.priority >= 0 &&
 		 !pgdat_balanced(pgdat, order, *classzone_idx));
-
-	/*
-	 * If kswapd was reclaiming at a higher order, it has the option of
-	 * sleeping without all zones being balanced. Before it does, it must
-	 * ensure that the watermarks for order-0 on *all* zones are met and
-	 * that the congestion flags are cleared. The congestion flag must
-	 * be cleared as kswapd is the only mechanism that clears the flag
-	 * and it is potentially going to sleep here.
-	 */
-	if (order) {
-		int zones_need_compaction = 1;
-
-		for (i = 0; i <= end_zone; i++) {
-			struct zone *zone = pgdat->node_zones + i;
-
-			if (!populated_zone(zone))
-				continue;
-
-			/* Check if the memory needs to be defragmented. */
-			if (zone_watermark_ok(zone, order,
-				    low_wmark_pages(zone), *classzone_idx, 0))
-				zones_need_compaction = 0;
-		}
-
-		if (zones_need_compaction)
-			compact_pgdat(pgdat, order);
-	}
 
 out:
 	/*
