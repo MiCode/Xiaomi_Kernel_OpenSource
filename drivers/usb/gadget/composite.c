@@ -661,6 +661,17 @@ static int set_config(struct usb_composite_dev *cdev,
 			descriptors = f->fs_descriptors;
 		}
 
+		/*
+		 * some gadget functions don't support super speed mode, so they
+		 * don't provide ss descriptors.
+		 */
+		if (!descriptors) {
+			INFO(cdev, "function %s doesn't support %s\n",
+				f->name, usb_speed_string(gadget->speed));
+			cdev->config = NULL;
+			return -ENODEV;
+		}
+
 		for (; *descriptors; ++descriptors) {
 			struct usb_endpoint_descriptor *ep;
 			int addr;
