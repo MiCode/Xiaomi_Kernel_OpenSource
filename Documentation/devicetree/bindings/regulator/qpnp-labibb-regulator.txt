@@ -1,0 +1,162 @@
+QTI's LAB (LCD/AMOLED BOOST)/IBB (Inverting Buck-Boost) Regulator
+
+LAB can be used as a standalone positive boost power supply for general purpose
+applications. IBB can be used as a standalone negative power supply for general
+applications. Also, LAB and IBB can be used together to provide power supply for
+display panels, LCD or AMOLED.
+
+Required properties:
+- compatible:			Must be "qcom,qpnp-labibb-regulator"
+- spmi-dev-container:		Must be present.
+- qpnp,qpnp-labibb-mode:	A string used to specify the working mode of LAB/IBB regulators when bootloader does not turned on the display panel.
+				Could be "lcd", "amoled" or "stand-alone".
+				"lcd" means using LAB and IBB regulators together as lcd mode.
+				"amoled" means using LAB and IBB regulators together as amoled mode.
+				"stand-alone" means using LAB and IBB regulators as stand alone regulators.
+
+Sub LAB node required structure:
+- reg:				Specifies the SPMI address and size for this peripheral
+- reg-names:			Register names. Must be "lab"
+- regulator-name:		A string used to describe the regulator
+- regulator-min-microvolt:	Minimum voltage in microvolts supported by this regulator.
+- regulator-max-microvolt:	Maximum voltage in microvolts supported by this regulator.
+
+- qcom,qpnp-lab-min-voltage:	The voltage in microvolts this LAB regulator suppored
+- qcom,qpnp-lab-step-size:	The step size in microvolts of LAB regulator
+- qcom,qpnp-lab-slew-rate:	The time in us it takes for the regulator to change votlage value in one step.
+
+- qcom,qpnp-lab-init-voltage:	The default initial voltage when the bootloader does not turn on LAB regulator.
+- qcom,qpnp-lab-init-amoled-voltage: The default voltage when LAB regualtor working in amoled mode and the output voltage register of value 0
+- qcom,qpnp-lab-init-lcd-voltage: The default voltage when LAB regulator working in lcd mode and the output voltage register of value 0
+- qcom,qpnp-lab-soft-start:	The soft start time in us of LAB regulator. Supported value are 200, 400, 600 and 800.
+
+- qcom,qpnp-lab-switching-clock-frequency:	The PWM switching clock frequency in kHz of Lab regulator, supported value are
+						3200, 	2740, 	2400,  	2130, 	1920, 	1750,	1600,	1480,	1370,	1280,
+						1200,	1130,	1070,	1010,	960,	910.
+- qcom,qpnp-lab-limit-maximum-current:		The maximum inductor current limit in mA of LAB regulator. Supported value are 200, 400, 600 and 800.
+
+- qcom,qpnp-lab-ps-threshold:	The threshold in mA of Pulse Skipe Mode for LAB regulator, supported value are 20, 30, 40 and 50.
+- qcom,qpnp-lab-pfet-size:	FET size in percentage of PFET. Supported value are 25, 50, 75, 100.
+- qcom,qpnp-lab-nfet-size:	FET size in percentage of NFET. Supported value are 25, 50, 75, 100.
+- qcom,qpnp-lab-max-precharge-time:	Precharge time in us of LAB regulator. Supproted value are 200, 300, 400 and 500.
+
+Sub LAB node optional structure:
+- qcom,qpnp-lab-max-precharge-enable:		If this propert is present, fast precharge is enabled. Otherwise, it is disabled.
+- qcom,qpnp-lab-ring-suppression-enable:	If this property is present, low noise PS mode will be enabled for LAB regulator. Otherwise, it will be disabled.
+- qcom,qpnp-lab-ps-enable:		If this proerty is present, pulse skip mode will be enabled for LAB regulator. Othwise, pulse skip mode will be disabled for LAB regulator.
+- qcom,qpnp-lab-full-pull-down:		If this property, the pull down strength of LAB regulator will full. Otherwise, the pull down strength will be half.
+- qcom,qpnp-lab-pull-down-enable:	If this property is present, pull down is enabled for LAB regulator. Otherwise, pull down is disabled for LAB regulator.
+- qcom,qpnp-lab-limit-max-current-enable:	If this property is present, maximum inductor current constraint is put for LAB regulator. Otherwise, There is no maximum current constraint.
+- qcom,qpnp-lab-use-default-voltage:		When bootloader does not turn on LAB regulator and this property is present, value specified in qcom,qpnp-lab-init-voltage is the default init voltage when the voltage output register is of value 0. Otherwise, we need to enable the output override bit in voltage output register.
+
+Sub IBB node required structure:
+- reg:				Specifies the SPMI address and size for this peripheral
+- reg-names:			Register names. Must be "ibb"
+- regulator-name:		A string used to describe the regulator
+- regulator-min-microvolt:	Minimum voltage in microvolts supported by this regulator.
+- regulator-max-microvolt:	Maximum voltage in microvolts supported by this regulator.
+
+- qcom,qpnp-ibb-min-voltage:	The voltage in microvolts this IBB regulator suppored
+- qcom,qpnp-ibb-step-size:	The step size in microvolts of IBB regulator
+- qcom,qpnp-ibb-slew-rate:	The time in us it takes for the regulator to change votlage value in one step.
+- qcom,qpnp-ibb-soft-start:	The soft start time in us of IBB regulator.
+
+- qcom,qpnp-ibb-init-voltage:	The default initial voltage  when the bootloader does not turn on LAB regulator.
+- qcom,qpnp-lab-init-amoled-voltage: The default voltage when IBB regulator working in amoled mode and the output voltage register of value 0
+- qcom,qpnp-lab-init-lcd-voltage: The default voltage when IBB regulator working in lcd mode and the output voltage register of value 0
+
+- qcom,qpnp-ibb-discharge-resistor:	The discharge resistor in Kilo Ohm who controls the soft start time. Supported values are 300, 64, 32 and 16.
+- qcom,qpnp-ibb-lab-pwrup-delay:	The delay in us of IBB regulator during power up. Supported value are 1250, 2500, 5000 and 10000.
+- qcom,qpnp-ibb-lab-pwrdn-delay:	The delay in us of IBB regulator during power down. Supported value are 1250, 2500, 5000 and 10000.
+
+- qcom,qpnp-ibb-switching-clock-frequency:	The PWM switching clock frequency in kHz of IBB regulator, supported value are
+						3200, 	2740, 	2400,  	2130, 	1920, 	1750,	1600,	1480,	1370,	1280,
+						1200,	1130,	1070,	1010,	960,	910.
+- qcom,qpnp-ibb-limit-maximum-current:		The maximum inductor current limit in mA of IBB regulator. Supported value are
+						0,	50,	100,	150,	200,	250,	300,	350,	400,	450,
+						500,	550,	600,	650,	700,	750,	800,	850,	900,	950,
+						1000,	1050,	1100,	1150,	1200,	1250,	1300,	1350,	1400,	1450,	1500,	1550.
+- qcom,qpnp-ibb-debounce-cycle:			The debounce cycle of IBB regulator. Supported value are 8, 16, 32 and 64.
+
+Sub IBB node optional structure:
+- qcom,qpnp-ibb-en-discharge:			If this property is present, discharge will be enabled for IBB regulator. Otherwise, it will be disabled.
+- qcom,qpnp-ibb-ring-suppression-enable:	If this property is present, low noise PS mode will be enabled for IBB regulator. Otherwise, it will be disabled.
+- qcom,qpnp-ibb-ps-enable:		If this proerty is present, pulse skip mode will be enabled for IBB regulator. Othwise, pulse skip mode will be disabled for IBB regulator.
+- qcom,qpnp-ibb-full-pull-down:		If this property is present, the pull down strength of IBB regulator will full. Otherwise, the pull down strength will be half.
+- qcom,qpnp-ibb-pull-down-enable:	If this property is present, pull down is enabled for IBB regulator. Otherwise, pull down is disabled for IBB regulator.
+- qcom,qpnp-ibb-limit-max-current-enable:	If this property is present, maximum inductor current constraint is put for IBB regulator. Otherwise, There is no maximum current constraint.
+- qcom,qpnp-ibb-use-default-voltage:		When bootloader does not turn on IBB regulator and this property is present, value specified in qcom,qpnp-ibb-init-voltage is the default init voltage when the voltage output register is of value 0. Otherwise, we need to enable the output override bit in voltage output register.
+
+Example:
+	qcom,pmi8994@3 {
+		qpnp-labibb-regulator {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-labibb-regulator";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qpnp,qpnp-labibb-mode = "lcd";
+
+			lab_regulator: qcom,lab@de00 {
+				reg = <0xde00 0x100>;
+				reg-names = "lab";
+				regulator-name = "lab_reg";
+
+				regulator-min-microvolt = <4600000>;
+				regulator-max-microvolt = <6000000>;
+
+				qcom,qpnp-lab-min-voltage = <4600000>;
+				qcom,qpnp-lab-step-size = <100000>;
+				qcom,qpnp-lab-slew-rate = <5000>;
+				qcom,qpnp-lab-use-default-voltage;
+				qcom,qpnp-lab-init-voltage = <5500000>;
+				qcom,qpnp-lab-init-amoled-voltage = <4600000>;
+				qcom,qpnp-lab-init-lcd-voltage = <5500000>;
+
+				qcom,qpnp-lab-soft-start = <400>;
+
+				qcom,qpnp-lab-full-pull-down;
+				qcom,qpnp-lab-pull-down-enable;
+				qcom,qpnp-lab-switching-clock-frequency = <1600>;
+				qcom,qpnp-lab-limit-maximum-current = <800>;
+				qcom,qpnp-lab-limit-max-current-enable;
+				qcom,qpnp-lab-ps-threshold = <40>;
+				qcom,qpnp-lab-ps-enable;
+				qcom,qpnp-lab-nfet-size = <100>;
+				qcom,qpnp-lab-pfet-size = <100>;
+				qcom,qpnp-lab-max-precharge-time = <200>;
+			};
+
+			ibb_regulator: qcom,ibb@dc00 {
+				reg = <0xdc00 0x100>;
+				reg-names = "ibb_reg";
+				regulator-name = "ibb_reg";
+
+				regulator-min-microvolt = <4600000>;
+				regulator-max-microvolt = <6000000>;
+
+				qcom,qpnp-ibb-min-voltage = <1400000>;
+				qcom,qpnp-ibb-step-size = <100000>;
+				qcom,qpnp-ibb-slew-rate = <2000000>;
+				qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-voltage = <5500000>;
+				qcom,qpnp-ibb-init-amoled-voltage = <4000000>;
+				qcom,qpnp-ibb-init-lcd-voltage = <5500000>;
+
+				qcom,qpnp-ibb-soft-start = <400>;
+
+				qcom,qpnp-ibb-discharge-resistor = <300>;
+				qcom,qpnp-ibb-lab-pwrup-delay = <10000>;
+				qcom,qpnp-ibb-lab-pwrdn-delay = <10000>;
+				qcom,qpnp-ibb-en-discharge;
+
+				qcom,qpnp-ibb-full-pull-down;
+				qcom,qpnp-ibb-pull-down-enable;
+				qcom,qpnp-ibb-switching-clock-frequency = <1480>;
+				qcom,qpnp-ibb-limit-maximum-current = <1550>;
+				qcom,qpnp-ibb-debounce-cycle = <16>;
+				qcom,qpnp-ibb-limit-max-current-enable;
+				qcom,qpnp-ibb-ps-enable;
+			};
+
+		};
+	};
