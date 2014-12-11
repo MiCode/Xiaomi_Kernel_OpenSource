@@ -2,7 +2,7 @@ Capella cm36283 L/P sensor
 
 Required properties:
 
- - compatible		: Should be "capella,cm36283".
+ - compatible		: Should be "capella,cm36283" or "capella,cm36682".
  - reg				: i2c slave address of the device.
  - interrupt-parent	: Parent of interrupt.
  - interrupts		: L/P sample interrupt to indicate new data ready.
