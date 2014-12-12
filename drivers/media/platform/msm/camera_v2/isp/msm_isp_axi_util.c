@@ -1494,6 +1494,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	int    ext_read =
 		axi_data->src_info[VFE_PIX_0].input_mux == EXTERNAL_READ;
+	int    num_streams_to_wait = 0;
 
 	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM ||
 		stream_cfg_cmd->num_streams == 0)
@@ -1534,12 +1535,14 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		if (!wait_for_complete_for_this_stream) {
 			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);
 			stream_info->state = INACTIVE;
+		} else {
+			num_streams_to_wait++;
 		}
 		wait_for_complete |= wait_for_complete_for_this_stream;
 	}
 	if (wait_for_complete) {
 		rc = msm_isp_axi_wait_for_cfg_done(vfe_dev, camif_update,
-			stream_cfg_cmd->num_streams);
+			num_streams_to_wait);
 		if (rc < 0) {
 			pr_err("%s: wait for config done failed\n", __func__);
 			for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
