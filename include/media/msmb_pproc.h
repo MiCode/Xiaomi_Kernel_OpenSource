@@ -165,6 +165,7 @@ struct msm_cpp_frame_info_t {
 	int32_t *status;
 	int32_t duplicate_output;
 	uint32_t duplicate_identity;
+	uint8_t we_disable;
 	struct msm_cpp_buffer_info_t input_buffer_info;
 	struct msm_cpp_buffer_info_t output_buffer_info[2];
 	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
@@ -337,6 +338,7 @@ struct msm_cpp_frame_info32_t {
 	compat_int_t status;
 	int32_t duplicate_output;
 	uint32_t duplicate_identity;
+	uint8_t we_disable;
 	struct msm_cpp_buffer_info_t input_buffer_info;
 	struct msm_cpp_buffer_info_t output_buffer_info[2];
 	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
