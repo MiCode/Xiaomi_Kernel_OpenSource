@@ -169,6 +169,7 @@ struct bam_ch_info {
 	unsigned int		max_num_pkts_pending_with_bam;
 	unsigned int		max_bytes_pending_with_bam;
 	unsigned int		delayed_bam_mux_write_done;
+	unsigned int		pending_pkts_for_host;
 };
 
 struct gbam_port {
@@ -441,6 +442,7 @@ static void gbam_write_data_tohost(struct gbam_port *port)
 			break;
 		}
 		d->to_host++;
+		d->pending_pkts_for_host++;
 	}
 	spin_unlock_irqrestore(&port->port_lock_dl, flags);
 }
@@ -668,6 +670,7 @@ static void gbam_epin_complete(struct usb_ep *ep, struct usb_request *req)
 	spin_lock(&port->port_lock_dl);
 	d = &port->data_ch;
 	list_add_tail(&req->list, &d->tx_idle);
+	d->pending_pkts_for_host--;
 	spin_unlock(&port->port_lock_dl);
 
 	queue_work(gbam_wq, &d->write_tohost_w);
@@ -1905,6 +1908,7 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				"dpkts_to_modem:  %lu\n"
 				"dpkts_pwith_bam: %u\n"
 				"dbytes_pwith_bam: %u\n"
+				"dpkts_pfor_host: %u\n"
 				"to_usbhost_dcnt:  %u\n"
 				"tomodem__dcnt:  %u\n"
 				"rx_flow_control_disable_count: %u\n"
@@ -1921,6 +1925,7 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				d->to_host, d->to_modem,
 				d->pending_pkts_with_bam,
 				d->pending_bytes_with_bam,
+				d->pending_pkts_for_host,
 				d->tohost_drp_cnt, d->tomodem_drp_cnt,
 				d->rx_flow_control_disable,
 				d->rx_flow_control_enable,
@@ -1973,6 +1978,7 @@ static ssize_t gbam_reset_stats(struct file *file, const char __user *buf,
 		d->max_num_pkts_pending_with_bam = 0;
 		d->max_bytes_pending_with_bam = 0;
 		d->delayed_bam_mux_write_done = 0;
+		d->pending_pkts_for_host = 0;
 
 		spin_unlock(&port->port_lock_dl);
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
@@ -2173,6 +2179,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		d->max_num_pkts_pending_with_bam = 0;
 		d->max_bytes_pending_with_bam = 0;
 		d->delayed_bam_mux_write_done = 0;
+		d->pending_pkts_for_host = 0;
 	}
 
 	spin_unlock(&port->port_lock_dl);
