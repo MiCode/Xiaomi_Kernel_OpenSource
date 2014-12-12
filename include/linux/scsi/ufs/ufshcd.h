@@ -334,6 +334,7 @@ struct ufs_hba_variant_ops {
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
 	int	(*crypto_engine_cfg)(struct ufs_hba *, unsigned int);
+	int	(*crypto_engine_reset)(struct ufs_hba *);
 	int	(*crypto_engine_eh)(struct ufs_hba *);
 	int	(*crypto_engine_get_err)(struct ufs_hba *);
 	void	(*crypto_engine_reset_err)(struct ufs_hba *);
