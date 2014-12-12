@@ -56,10 +56,9 @@ Optional Properties:
 				"HS200_1p2v" - indicates that host can support HS200 at 1.2v.
 				"DDR_1p8v" - indicates that host can support DDR mode at 1.8v.
 				"DDR_1p2v" - indicates that host can support DDR mode at 1.2v.
-	- qcom,cpu-dma-latency-us: specifies acceptable DMA latency in microseconds. There is
-				   no default value that the driver assumes if this property
-				   is not specified. So if this property is not specified,
-				   then SDHC driver will not vote for PM QOS.
+	- qcom,cpu-dma-latency-us: specifies acceptable DMA latency in microseconds.
+				Default value is 200 ms. If this property specified as 0,
+				then SDHC driver will not vote for PM QOS.
         - qcom,dat1-mpm-int:    specifies MPM interrupt number (e.g. sdhc_2 node below)
 				corresponding to DAT1 line of SDHC (used only if slot has dedicated
 				DAT1 MSM pin (not GPIO))
