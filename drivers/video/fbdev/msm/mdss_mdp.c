@@ -59,6 +59,7 @@
 
 #define AXI_HALT_TIMEOUT_US	0x4000
 #define AUTOSUSPEND_TIMEOUT_MS	200
+#define DEFAULT_MDP_PIPE_WIDTH 2048
 
 struct mdss_data_type *mdss_res;
 
@@ -1394,6 +1395,8 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT("max_bandwidth_low=%u\n", mdata->max_bw_low);
 	if (mdata->max_bw_high)
 		SPRINT("max_bandwidth_high=%u\n", mdata->max_bw_high);
+	if (mdata->max_pipe_width)
+		SPRINT("max_pipe_width=%d\n", mdata->max_pipe_width);
 	if (mdata->max_mixer_width)
 		SPRINT("max_mixer_width=%d\n", mdata->max_mixer_width);
 	if (mdata->max_bw_per_pipe)
@@ -2829,6 +2832,12 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	if (rc)
 		pr_debug("number of channels property not specified\n");
 
+	rc = of_property_read_u32(pdev->dev.of_node,
+			"qcom,max-pipe-width", &mdata->max_pipe_width);
+	if (rc) {
+		pr_debug("max pipe width not specified. Using default value\n");
+		mdata->max_pipe_width = DEFAULT_MDP_PIPE_WIDTH;
+	}
 	return 0;
 }
 

@@ -248,6 +248,7 @@ struct mdss_data_type {
 	u32 nmixers_intf;
 	u32 nmixers_wb;
 	u32 max_mixer_width;
+	u32 max_pipe_width;
 
 	struct mdss_mdp_ctl *ctl_off;
 	u32 nctl;
