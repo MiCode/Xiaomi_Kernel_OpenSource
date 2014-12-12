@@ -427,6 +427,9 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				qcom,mdss-pipe-dma-off
 - qcom,mdss-has-dst-split:	Boolean property to indicate if destination
 				split feature is available or not in the target.
+- qcom,max-pipe-width:		This value specifies the maximum MDP SSPP width
+				the device supports. If not specified, a default value
+				of 2048 will be applied.
 
 Optional subnodes:
 Child nodes representing the frame buffer virtual devices.
@@ -519,6 +522,7 @@ Example:
 		qcom,max-bandwidth-low-kbps = <2300000>;
 		qcom,max-bandwidth-high-kbps = <3000000>;
 		qcom,max-mixer-width = <2048>;
+		qcom,max-pipe-width = <2048>;
 		qcom,max-clk-rate = <320000000>;
 		qcom,vbif-settings = <0x0004 0x00000001>,
 				     <0x00D8 0x00000707>;
