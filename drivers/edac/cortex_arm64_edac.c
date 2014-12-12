@@ -125,7 +125,7 @@ struct erp_drvdata {
 	int apply_cti_pmu_wa;
 };
 
-static struct erp_drvdata *abort_handler_drvdata, *panic_handler_drvdata;
+static struct erp_drvdata *panic_handler_drvdata;
 
 struct erp_local_data {
 	struct erp_drvdata *drv;
@@ -235,14 +235,14 @@ static void ca53_parse_cpumerrsr(struct erp_local_data *ed)
 	if (!A53_CPUMERRSR_VALID(cpumerrsr))
 		return;
 
+	if (A53_CPUMERRSR_FATAL(cpumerrsr))
+		ed->err = DBE;
+
 	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A53 CPU%d L1 %s Error detected\n",
 					 smp_processor_id(), err_name[ed->err]);
-
 	ca53_ca57_print_error_state_regs();
-	if (A53_CPUMERRSR_FATAL(cpumerrsr)) {
+	if (ed->err == DBE)
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
-		ed->err = DBE;
-	}
 
 	cpuid = A53_CPUMERRSR_CPUID(cpumerrsr);
 
@@ -306,13 +306,14 @@ static void ca53_parse_l2merrsr(struct erp_local_data *ed)
 	if (!A53_L2MERRSR_VALID(l2merrsr))
 		return;
 
+	if (A53_L2MERRSR_FATAL(l2merrsr))
+		ed->err = DBE;
+
 	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA53 L2 %s Error detected\n",
 							err_name[ed->err]);
 	ca53_ca57_print_error_state_regs();
-	if (A53_L2MERRSR_FATAL(l2merrsr)) {
+	if (ed->err == DBE)
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
-		ed->err = DBE;
-	}
 
 	cpuid = A53_L2MERRSR_CPUID(l2merrsr);
 
@@ -362,13 +363,14 @@ static void ca57_parse_cpumerrsr(struct erp_local_data *ed)
 	if (!A57_CPUMERRSR_VALID(cpumerrsr))
 		return;
 
+	if (A57_CPUMERRSR_FATAL(cpumerrsr))
+		ed->err = DBE;
+
 	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A57 CPU%d L1 %s Error detected\n",
 					 smp_processor_id(), err_name[ed->err]);
 	ca53_ca57_print_error_state_regs();
-	if (A57_CPUMERRSR_FATAL(cpumerrsr)) {
+	if (ed->err == DBE)
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
-		ed->err = DBE;
-	}
 
 	bank = A57_CPUMERRSR_BANK(cpumerrsr);
 
@@ -426,13 +428,14 @@ static void ca57_parse_l2merrsr(struct erp_local_data *ed)
 	if (!A57_L2MERRSR_VALID(l2merrsr))
 		return;
 
+	if (A57_L2MERRSR_FATAL(l2merrsr))
+		ed->err = DBE;
+
 	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA57 L2 %s Error detected\n",
 							err_name[ed->err]);
 	ca53_ca57_print_error_state_regs();
-	if (A57_L2MERRSR_FATAL(l2merrsr)) {
+	if (ed->err == DBE)
 		edac_printk(KERN_CRIT, EDAC_CPU, "Fatal error\n");
-		ed->err = DBE;
-	}
 
 	cpuid = A57_L2MERRSR_CPUID(l2merrsr);
 
@@ -605,16 +608,6 @@ static irqreturn_t arm64_cci_handler(int irq, void *drvdata)
 	errors[CCI_UE].func(drv->edev_ctl, 0, CCI, errors[CCI_UE].msg);
 
 	return IRQ_HANDLED;
-}
-
-void arm64_erp_local_dbe_handler(void)
-{
-	if (abort_handler_drvdata) {
-		struct erp_local_data errdata;
-		errdata.err = DBE;
-		errdata.drv = abort_handler_drvdata;
-		arm64_erp_local_handler(&errdata);
-	}
 }
 
 static inline u32 armv8pmu_pmcr_read(void)
@@ -993,14 +986,6 @@ out_irq:
 		goto out_dev;
 	}
 
-	/*
-	 * abort_handler_drvdata points to erp_drvdata structure used for
-	 * reporting information on double-bit errors. There should only ever
-	 * be one.
-	 * */
-	WARN_ON(abort_handler_drvdata);
-
-	abort_handler_drvdata = drv;
 	panic_handler_drvdata = drv;
 
 	return 0;
