@@ -1627,7 +1627,7 @@ static int ap3426_probe(struct i2c_client *client,
 			ARRAY_SIZE(power_config), true);
 	if (res) {
 		dev_err(&client->dev, "power up sensor failed.\n");
-		goto out;
+		goto err_power_config;
 	}
 
 	res = sensor_pinctrl_init(&client->dev, &pin_config);
@@ -1759,6 +1759,9 @@ err_init_device:
 	device_init_wakeup(&client->dev, 0);
 err_check_device:
 err_pinctrl_init:
+	sensor_power_config(&client->dev, power_config,
+			ARRAY_SIZE(power_config), false);
+err_power_config:
 	sensor_power_deinit(&client->dev, power_config,
 			ARRAY_SIZE(power_config));
 out:
