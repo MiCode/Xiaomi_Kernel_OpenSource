@@ -20,6 +20,9 @@ Optional properties:
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly
   used for QoS, VBIF, etc. presets for video.
+- qcom,qdss-presets : list of physical address and memory allocation size pairs.
+  when fw_debug_mode is set as HFI_DEBUG_MODE_QDSS, all firmware messages will be
+  written to QDSS memory.
 - qcom,msm-bus-clients : list of bus clients/consumer each listed as a node.
   The format of the node should follow the layout specified by the bus provider
   for bus consumers at Documentation/devicetree/bindings/arm/msm/msm_bus.txt.
@@ -128,6 +131,8 @@ Example:
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;
+		qcom,qdss-presets = <0xFC307000 0x1000>,
+			<0xFC322000 0x1000>;
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
 		clock-names = "foo_clk", "bar_clk", "baz_clk";
 		qcom,clock-configs = <0x3 0x1 0x0>;
