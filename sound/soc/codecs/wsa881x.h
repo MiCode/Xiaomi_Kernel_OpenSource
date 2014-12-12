@@ -14,22 +14,16 @@
 #define _WSA881X_H
 
 #include <linux/regmap.h>
-#include "wsa881x-registers-analog.h"
+#include <sound/soc.h>
+#include "wsa881x-registers.h"
 
-#define WSA881X_I2C_SPK0_SLAVE0_ADDR	0x0E
-#define WSA881X_I2C_SPK0_SLAVE1_ADDR	0x44
-#define WSA881X_I2C_SPK1_SLAVE0_ADDR	0x0F
-#define WSA881X_I2C_SPK1_SLAVE1_ADDR	0x45
+#define WSA881X_MAX_SWR_PORTS   4
 
-#define WSA881X_I2C_SPK0_SLAVE0	0
-#define WSA881X_I2C_SPK1_SLAVE0	1
-#define MAX_WSA881X_DEVICE 4
-#define WSA881X_DIGITAL_SLAVE 0
-#define WSA881X_ANALOG_SLAVE 1
+extern int wsa881x_set_channel_map(struct snd_soc_codec *codec, u8 *port,
+				u8 num_port, unsigned int *ch_mask,
+				unsigned int *ch_rate);
 
-extern const u8 wsa881x_ana_reg_readable[WSA881X_CACHE_SIZE];
-extern const struct reg_default wsa881x_ana_reg_defaults[WSA881X_CACHE_SIZE];
-extern struct regmap_config wsa881x_ana_regmap_config[MAX_WSA881X_DEVICE];
-int wsa881x_get_client_index(void);
+extern const u8 wsa881x_reg_readable[WSA881X_CACHE_SIZE];
+extern struct regmap_config wsa881x_regmap_config;
 
 #endif /* _WSA881X_H */
