@@ -515,7 +515,7 @@ static inline int cpu_is_msm8974pro_ac(void)
 
 static inline int cpu_is_msm8909(void)
 {
-#if defined(CONFIG_ARCH_MSM8909) || defined(CONFIG_ARCH_MDMFERRUM)
+#ifdef CONFIG_ARCH_MSM8909
 	enum msm_cpu cpu = socinfo_get_msm_cpu();
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);

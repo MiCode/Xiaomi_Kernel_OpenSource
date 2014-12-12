@@ -206,10 +206,6 @@ dtb-$(CONFIG_ARCH_MDM9640) += mdm9640-sim.dtb \
 	mdm9640-nand-cdp.dtb \
 	mdm9640-mtp.dtb
 dtb-$(CONFIG_ARCH_MSMVPIPA) += msmvpipa-sim.dtb
-dtb-$(CONFIG_ARCH_MDMFERRUM) += mdmferrum-sim.dtb \
-	mdmferrum-rumi.dtb \
-	mdmferrum-cdp.dtb \
-	mdmferrum-mtp.dtb
 dtb-$(CONFIG_ARCH_APQ8084) += apq8084-v1.0-old-pwr-grid-liquid.dtb \
 	apq8084-v1.1-old-pwr-grid-liquid.dtb \
 	apq8084-v1.1-liquid.dtb \
