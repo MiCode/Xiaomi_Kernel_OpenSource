@@ -30,7 +30,6 @@
 #include <linux/mutex.h>
 #include <linux/kref.h>
 #include "hmm_common.h"
-#include "hmm/hmm_vm.h"
 #include "hmm/hmm_bo.h"
 
 #define ALLOC_PAGE_FAIL_NUM		5

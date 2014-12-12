@@ -25,7 +25,7 @@
 
 #include "mmu/isp_mmu.h"
 #include "mmu/sh_mmu_mrfld.h"
-#include "hmm/hmm_bo_dev.h"
+#include "hmm/hmm_bo.h"
 #include "hmm/hmm.h"
 
 #include "atomisp_compat.h"

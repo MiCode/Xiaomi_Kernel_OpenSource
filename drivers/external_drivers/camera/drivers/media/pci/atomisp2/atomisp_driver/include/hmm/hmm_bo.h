@@ -29,9 +29,17 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
-#include <linux/kref.h>
-#include "hmm_common.h"
-#include "hmm/hmm_vm.h"
+#include "mmu/isp_mmu.h"
+#include "hmm/hmm_common.h"
+#include "ia_css_types.h"
+
+#define	check_bodev_null_return(bdev, exp)	\
+		check_null_return(bdev, exp, \
+			"NULL hmm_bo_device.\n")
+
+#define	check_bodev_null_return_void(bdev)	\
+		check_null_return_void(bdev, \
+			"NULL hmm_bo_device.\n")
 
 #define	check_bo_status_yes_goto(bo, _status, label) \
 	var_not_equal_goto((bo->status & (_status)), (_status), \
@@ -44,6 +52,10 @@
 			label, \
 			"HMM buffer status contains %s.\n", \
 			#_status)
+
+#define rbtree_node_to_hmm_bo(root_node)	\
+	container_of((root_node), struct hmm_buffer_object, node)
+
 #define	list_to_hmm_bo(list_ptr)	\
 	list_entry((list_ptr), struct hmm_buffer_object, list)
 
@@ -59,21 +71,12 @@
 #define	HMM_MAX_ORDER		3
 #define	HMM_MIN_ORDER		0
 
-struct hmm_bo_device;
+#define	ISP_VM_START	0x0
+#define	ISP_VM_SIZE	(0x7FFFFFFF)	/* 2G address space */
+#define	ISP_PTR_NULL	NULL
 
-/*
- * buffer object type.
- *
- *	HMM_BO_PRIVATE:
- *	pages are allocated by driver itself.
- *	HMM_BO_SHARE:
- *	pages are allocated by other component. currently: video driver.
- *	HMM_BO_USER:
- *	pages are allocated in user space process.
- *	HMM_BO_ION:
- *	pages are allocated through ION.
- *
- */
+#define	HMM_BO_DEVICE_INITED	0x1
+
 enum hmm_bo_type {
 	HMM_BO_PRIVATE,
 	HMM_BO_SHARE,
@@ -90,7 +93,9 @@ enum hmm_page_type {
 	HMM_PAGE_TYPE_GENERAL,
 };
 
-#define	HMM_BO_VM_ALLOCED	0x1
+#define	HMM_BO_MASK		0x1
+#define	HMM_BO_FREE		0x0
+#define	HMM_BO_ALLOCED	0x1
 #define	HMM_BO_PAGE_ALLOCED	0x2
 #define	HMM_BO_BINDED		0x4
 #define	HMM_BO_MMAPED		0x8
@@ -100,6 +105,31 @@ enum hmm_page_type {
 #define	HMM_BO_MEM_TYPE_USER     0x1
 #define	HMM_BO_MEM_TYPE_PFN      0x2
 
+struct hmm_bo_device {
+	struct isp_mmu		mmu;
+
+	/* start/pgnr/size is used to record the virtual memory of this bo */
+	unsigned int start;
+	unsigned int pgnr;
+	unsigned int size;
+
+	/* list lock is used to protect the entire_bo_list */
+	spinlock_t	list_lock;
+#ifdef CONFIG_ION
+	struct ion_client	*iclient;
+#endif
+	int flag;
+
+	/* linked list for entire buffer object */
+	struct list_head entire_bo_list;
+	/* rbtree for maintain entire allocated vm */
+	struct rb_root allocated_rbtree;
+	/* rbtree for maintain entire free vm */
+	struct rb_root free_rbtree;
+	struct mutex rbtree_mutex;
+	struct kmem_cache *bo_cache;
+};
+
 struct hmm_page_object {
 	struct page		*page;
 	enum hmm_page_type	type;
@@ -108,100 +138,55 @@ struct hmm_page_object {
 struct hmm_buffer_object {
 	struct hmm_bo_device	*bdev;
 	struct list_head	list;
-	struct kref		kref;
+	struct kref	kref;
 
 	/* mutex protecting this BO */
 	struct mutex		mutex;
 	enum hmm_bo_type	type;
 	struct hmm_page_object	*page_obj;	/* physical pages */
-	unsigned int		pgnr;	/* page number */
-	int			from_highmem;
-	int			mmap_count;
-	struct hmm_vm_node	*vm_node;
+	int		from_highmem;
+	int		mmap_count;
 #ifdef CONFIG_ION
 	struct ion_handle	*ihandle;
 #endif
-	int			status;
-	int         mem_type;
+	int		status;
+	int		mem_type;
 	void		*vmap_addr; /* kernel virtual address by vmap */
+
+	struct rb_node	node;
+	unsigned int	start;
+	unsigned int	end;
+	unsigned int	pgnr;
 	/*
-	 * release callback for releasing buffer object.
-	 *
-	 * usually set to the release function to release the
-	 * upper level buffer object which has hmm_buffer_object
-	 * embedded in. if the hmm_buffer_object is dynamically
-	 * created by hmm_bo_create, release will set to kfree.
-	 *
+	 * When insert a bo which has the same pgnr with an existed
+	 * bo node in the free_rbtree, using "prev & next" pointer
+	 * to maintain a bo linked list instead of insert this bo
+	 * into free_rbtree directly, it will make sure each node
+	 * in free_rbtree has different pgnr.
+	 * "prev & next" default is NULL.
 	 */
-	void (*release)(struct hmm_buffer_object *bo);
+	struct hmm_buffer_object	*prev;
+	struct hmm_buffer_object	*next;
 };
 
-/*
- * use this function to initialize pre-allocated hmm_buffer_object.
- *
- * the hmm_buffer_object use reference count to manage its life cycle.
- *
- * bo->kref is inited to 1.
- *
- * use hmm_bo_ref/hmm_bo_unref increase/decrease the reference count,
- * and hmm_bo_unref will free resource of buffer object (but not the
- * buffer object itself as it can be both pre-allocated or dynamically
- * allocated) when reference reaches 0.
- *
- * see detailed description of hmm_bo_ref/hmm_bo_unref below.
- *
- * as hmm_buffer_object may be used as an embedded object in an upper
- * level object, a release callback must be provided. if it is
- * embedded in upper level object, set release call back to release
- * function of that object. if no upper level object, set release
- * callback to NULL.
- *
- * ex:
- *	struct hmm_buffer_object bo;
- *	hmm_bo_init(bdev, &bo, pgnr, NULL);
- *
- * or
- *	struct my_buffer_object {
- *		struct hmm_buffer_object bo;
- *		...
- *	};
- *
- *	void my_buffer_release(struct hmm_buffer_object *bo)
- *	{
- *		struct my_buffer_object *my_bo =
- *			container_of(bo, struct my_buffer_object, bo);
- *
- *		...	// release resource in my_buffer_object
- *
- *		kfree(my_bo);
- *	}
- *
- *	struct my_buffer_object *my_bo =
- *		kmalloc(sizeof(*my_bo), GFP_KERNEL);
- *
- *	hmm_bo_init(bdev, &my_bo->bo, pgnr, my_buffer_release);
- *	...
- *
- *	hmm_bo_unref(&my_bo->bo);
- */
-int hmm_bo_init(struct hmm_bo_device *bdev,
-		struct hmm_buffer_object *bo,
-		unsigned int pgnr,
-		void (*release)(struct hmm_buffer_object *));
+struct hmm_buffer_object *hmm_bo_alloc(struct hmm_bo_device *bdev,
+				unsigned int pgnr);
+
+void hmm_bo_release(struct hmm_buffer_object *bo);
+
+int hmm_bo_device_init(struct hmm_bo_device *bdev,
+				struct isp_mmu_client *mmu_driver,
+				unsigned int vaddr_start, unsigned int size);
 
 /*
- * use these functions to dynamically alloc hmm_buffer_object.
- *
- * hmm_bo_init will called for that allocated buffer object, and
- * the release callback is set to kfree.
- *
- * ex:
- *	hmm_buffer_object *bo = hmm_bo_create(bdev, pgnr);
- *	...
- *	hmm_bo_unref(bo);
+ * clean up all hmm_bo_device related things.
  */
-struct hmm_buffer_object *hmm_bo_create(struct hmm_bo_device *bdev,
-		int pgnr);
+void hmm_bo_device_exit(struct hmm_bo_device *bdev);
+
+/*
+ * whether the bo device is inited or not.
+ */
+int hmm_bo_device_inited(struct hmm_bo_device *bdev);
 
 /*
  * increse buffer object reference.
@@ -245,24 +230,15 @@ void hmm_bo_unref(struct hmm_buffer_object *bo);
 
 
 /*
- * put buffer object to unactivated status, meaning put it into
- * bo->bdev->free_bo_list, but not destroy it.
- *
- * this can be used to instead of hmm_bo_destroy if there are
- * lots of petential hmm_bo_init/hmm_bo_destroy operations with
- * the same buffer object size. using this with hmm_bo_device_get_bo
- * can improve performace as lots of memory allocation/free are
- * avoided..
+ * allocate/free physical pages for the bo. will try to alloc mem
+ * from highmem if from_highmem is set, and type indicate that the
+ * pages will be allocated by using video driver (for share buffer)
+ * or by ISP driver itself.
  */
-void hmm_bo_unactivate(struct hmm_buffer_object *bo);
-int hmm_bo_activated(struct hmm_buffer_object *bo);
 
-/*
- * allocate/free virtual address space for the bo.
- */
-int hmm_bo_alloc_vm(struct hmm_buffer_object *bo);
-void hmm_bo_free_vm(struct hmm_buffer_object *bo);
-int hmm_bo_vm_allocated(struct hmm_buffer_object *bo);
+
+int hmm_bo_allocated(struct hmm_buffer_object *bo);
+
 
 /*
  * allocate/free physical pages for the bo. will try to alloc mem
@@ -319,5 +295,29 @@ int hmm_bo_mmap(struct vm_area_struct *vma,
 
 extern struct hmm_pool	dynamic_pool;
 extern struct hmm_pool	reserved_pool;
+
+/*
+ * find the buffer object by its virtual address vaddr.
+ * return NULL if no such buffer object found.
+ */
+struct hmm_buffer_object *hmm_bo_device_search_start(
+		struct hmm_bo_device *bdev, ia_css_ptr vaddr);
+
+/*
+ * find the buffer object by its virtual address.
+ * it does not need to be the start address of one bo,
+ * it can be an address within the range of one bo.
+ * return NULL if no such buffer object found.
+ */
+struct hmm_buffer_object *hmm_bo_device_search_in_range(
+		struct hmm_bo_device *bdev, ia_css_ptr vaddr);
+
+/*
+ * find the buffer object with kernel virtual address vaddr.
+ * return NULL if no such buffer object found.
+ */
+struct hmm_buffer_object *hmm_bo_device_search_vmap_start(
+		struct hmm_bo_device *bdev, const void *vaddr);
+
 
 #endif

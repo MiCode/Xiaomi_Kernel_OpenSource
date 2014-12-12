@@ -80,8 +80,6 @@ atomisp-$(postfix)-objs := \
 		atomisp_driver/mmu/sh_mmu_mrfld.o \
 		atomisp_driver/hmm/hmm.o \
 		atomisp_driver/hmm/hmm_bo.o \
-		atomisp_driver/hmm/hmm_bo_dev.o \
-		atomisp_driver/hmm/hmm_vm.o \
 		atomisp_driver/hmm/hmm_reserved_pool.o \
 		atomisp_driver/hmm/hmm_dynamic_pool.o \
 		atomisp_driver/hrt/hive_isp_css_mm_hrt.o \
