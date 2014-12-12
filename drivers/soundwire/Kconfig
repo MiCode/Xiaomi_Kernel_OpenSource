@@ -1,0 +1,9 @@
+#
+# SOUNDWIRE driver configuration
+#
+menuconfig SOUNDWIRE
+	bool "Soundwire support"
+	help
+	  Soundwire is a two wire interface for audio to connect
+	  simple peripheral components in mobile devices.
+

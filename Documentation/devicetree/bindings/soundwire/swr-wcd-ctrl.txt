@@ -1,0 +1,21 @@
+Qualcomm Technologies Inc WCD Codec SoundWire controller
+
+Required properties:
+
+ - compatible : should be "qcom,swr-wcd"
+
+ - ea-addr : Unique device address(48 bits) of Soundwire slave device node.
+		In the below example, wsa881x is soundwire slave device for
+		which the ea-addr is [00 00 00 00 00 00]
+
+Optional property:
+
+ Example:
+	swr_master {
+		compatible = "qcom,swr-wcd";
+
+		wsa881x {
+			compatible = "qcom,wsa881x";
+			ea-addr = [00 00 00 00 00 00];
+		};
+	};
