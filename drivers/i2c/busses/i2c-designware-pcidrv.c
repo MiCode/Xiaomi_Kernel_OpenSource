@@ -335,7 +335,17 @@ static struct pci_driver dw_i2c_driver = {
 	},
 };
 
-module_pci_driver(dw_i2c_driver);
+static int __init dw_i2c_init_driver(void)
+{
+	return pci_register_driver(&dw_i2c_driver);
+}
+fs_initcall(dw_i2c_init_driver);
+
+static void __exit dw_i2c_exit_driver(void)
+{
+	pci_unregister_driver(&dw_i2c_driver);
+}
+module_exit(dw_i2c_exit_driver);
 
 MODULE_AUTHOR("Baruch Siach <baruch@tkos.co.il>");
 MODULE_DESCRIPTION("Synopsys DesignWare PCI I2C bus adapter");
