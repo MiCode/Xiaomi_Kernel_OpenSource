@@ -362,6 +362,13 @@ int ufs_qcom_ice_reset(struct ufs_qcom_host *qcom_host)
 		err = -ETIMEDOUT;
 	}
 
+	if (qcom_host->ice.state != UFS_QCOM_ICE_STATE_ACTIVE) {
+		dev_err(qcom_host->hba->dev,
+			"%s: error. ice.state (%d) is not in active state\n",
+			__func__, qcom_host->ice.state);
+		err = -EINVAL;
+	}
+
 out:
 	return err;
 }
