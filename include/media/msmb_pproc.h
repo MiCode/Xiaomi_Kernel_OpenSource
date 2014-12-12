@@ -168,6 +168,7 @@ struct msm_cpp_frame_info_t {
 	struct msm_cpp_buffer_info_t input_buffer_info;
 	struct msm_cpp_buffer_info_t output_buffer_info[2];
 	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
+	uint32_t reserved;
 };
 
 struct msm_cpp_pop_stream_info_t {
@@ -339,6 +340,7 @@ struct msm_cpp_frame_info32_t {
 	struct msm_cpp_buffer_info_t input_buffer_info;
 	struct msm_cpp_buffer_info_t output_buffer_info[2];
 	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
+	uint32_t reserved;
 };
 
 struct msm_cpp_clock_settings32_t {

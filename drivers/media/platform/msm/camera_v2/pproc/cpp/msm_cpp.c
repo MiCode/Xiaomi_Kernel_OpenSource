@@ -1209,6 +1209,7 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev)
 				(processed_frame->identity & 0xFFFF);
 			buff_mgr_info.frame_id = processed_frame->frame_id;
 			buff_mgr_info.timestamp = processed_frame->timestamp;
+			buff_mgr_info.reserved = processed_frame->reserved;
 			buff_mgr_info.index =
 				processed_frame->output_buffer_info[0].index;
 			rc = msm_cpp_buffer_ops(cpp_dev,
@@ -2354,6 +2355,7 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 		new_frame32->tnr_scratch_buffer_info[1];
 	new_frame->duplicate_output = new_frame32->duplicate_output;
 	new_frame->duplicate_identity = new_frame32->duplicate_identity;
+	new_frame->reserved = new_frame32->reserved;
 
 	/* Convert the 32 bit pointer to 64 bit pointer */
 	new_frame->cookie = compat_ptr(new_frame32->cookie);
@@ -2425,6 +2427,7 @@ static void get_compat_frame_from_64bit(struct msm_cpp_frame_info_t *frame,
 	k32_frame->output_buffer_info[1] = frame->output_buffer_info[1];
 	k32_frame->duplicate_output = frame->duplicate_output;
 	k32_frame->duplicate_identity = frame->duplicate_identity;
+	k32_frame->reserved = frame->reserved;
 	k32_frame->cookie = ptr_to_compat(frame->cookie);
 }
 

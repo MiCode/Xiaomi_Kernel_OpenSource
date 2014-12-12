@@ -7,6 +7,7 @@ struct msm_buf_mngr_info {
 	uint32_t frame_id;
 	struct timeval timestamp;
 	uint32_t index;
+	uint32_t reserved;
 };
 
 struct v4l2_subdev *msm_buf_mngr_get_subdev(void);
@@ -33,6 +34,7 @@ struct msm_buf_mngr_info32_t {
 	uint32_t frame_id;
 	struct compat_timeval timestamp;
 	uint32_t index;
+	uint32_t reserved;
 };
 
 #define VIDIOC_MSM_BUF_MNGR_GET_BUF32 \
