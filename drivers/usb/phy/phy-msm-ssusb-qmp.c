@@ -612,14 +612,13 @@ static int msm_ssphy_qmp_set_params(struct usb_phy *uphy)
 static int msm_ssphy_power_enable(struct msm_ssphy_qmp *phy, bool on)
 {
 	bool host = phy->phy.flags & PHY_HOST_MODE;
-	bool chg_connected = phy->phy.flags & PHY_CHARGER_CONNECTED;
 	int ret = 0;
 
 	/*
 	 * Turn off the phy's LDOs when cable is disconnected for device mode
 	 * with external vbus_id indication.
 	 */
-	if (!host && !chg_connected && !phy->cable_connected) {
+	if (!host && !phy->cable_connected) {
 		if (on) {
 			ret = regulator_enable(phy->vdd);
 			if (ret)
