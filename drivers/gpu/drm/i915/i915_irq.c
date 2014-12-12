@@ -4003,8 +4003,10 @@ static int ironlake_irq_postinstall(struct drm_device *dev)
 
 static void valleyview_display_irqs_install(struct drm_i915_private *dev_priv)
 {
+	struct drm_device *dev = dev_priv->dev;
 	u32 pipestat_mask;
 	u32 iir_mask;
+	int pipe;
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 	u32 lpe_status_clear;
 #endif
@@ -4012,8 +4014,8 @@ static void valleyview_display_irqs_install(struct drm_i915_private *dev_priv)
 	pipestat_mask = PIPESTAT_INT_STATUS_MASK |
 			PIPE_FIFO_UNDERRUN_STATUS;
 
-	I915_WRITE(PIPESTAT(PIPE_A), pipestat_mask);
-	I915_WRITE(PIPESTAT(PIPE_B), pipestat_mask);
+	for_each_pipe(pipe)
+		I915_WRITE(PIPESTAT(pipe), pipestat_mask);
 	POSTING_READ(PIPESTAT(PIPE_A));
 
 	/* Enable the DPST interrupt also */
@@ -4023,16 +4025,22 @@ static void valleyview_display_irqs_install(struct drm_i915_private *dev_priv)
 			SPRITE1_FLIP_DONE_INT_STATUS_VLV |
 			PIPE_DPST_EVENT_STATUS;
 
-	i915_enable_pipestat(dev_priv, PIPE_A, pipestat_mask |
-					       PIPE_GMBUS_INTERRUPT_STATUS);
-	i915_enable_pipestat(dev_priv, PIPE_B, pipestat_mask);
+	i915_enable_pipestat(dev_priv, PIPE_A, PIPE_GMBUS_INTERRUPT_STATUS);
+	for_each_pipe(pipe)
+		i915_enable_pipestat(dev_priv, pipe, pipestat_mask);
 
 	iir_mask = I915_DISPLAY_PORT_INTERRUPT |
 			I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
 			I915_DISPLAY_PIPE_B_EVENT_INTERRUPT;
+
+	if (IS_CHERRYVIEW(dev))
+		iir_mask |= I915_DISPLAY_PIPE_C_EVENT_INTERRUPT;
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 	iir_mask |=	(I915_LPE_PIPE_A_INTERRUPT |
 			I915_LPE_PIPE_B_INTERRUPT);
+
+	if (IS_CHERRYVIEW(dev))
+		iir_mask |= I915_LPE_PIPE_C_INTERRUPT;
 #endif
 	dev_priv->irq_mask &= ~iir_mask;
 
@@ -4045,6 +4053,9 @@ static void valleyview_display_irqs_install(struct drm_i915_private *dev_priv)
 			I915_HDMI_AUDIO_BUFFER_DONE;
 	I915_WRITE(I915_LPE_AUDIO_HDMI_STATUS_A, lpe_status_clear);
 	I915_WRITE(I915_LPE_AUDIO_HDMI_STATUS_B, lpe_status_clear);
+
+	if (IS_CHERRYVIEW(dev))
+		I915_WRITE(I915_LPE_AUDIO_HDMI_STATUS_C, lpe_status_clear);
 #endif
 
 	POSTING_READ(VLV_IER);
@@ -4052,12 +4063,17 @@ static void valleyview_display_irqs_install(struct drm_i915_private *dev_priv)
 
 static void valleyview_display_irqs_uninstall(struct drm_i915_private *dev_priv)
 {
+	struct drm_device *dev = dev_priv->dev;
 	u32 pipestat_mask;
 	u32 iir_mask;
+	int pipe;
 
 	iir_mask = I915_DISPLAY_PORT_INTERRUPT |
 		   I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
 		   I915_DISPLAY_PIPE_B_EVENT_INTERRUPT;
+
+	if (IS_CHERRYVIEW(dev))
+		iir_mask |= I915_DISPLAY_PIPE_C_EVENT_INTERRUPT;
 
 	dev_priv->irq_mask |= iir_mask;
 	I915_WRITE(VLV_IER, ~dev_priv->irq_mask);
@@ -4070,14 +4086,15 @@ static void valleyview_display_irqs_uninstall(struct drm_i915_private *dev_priv)
 			PIPE_CRC_DONE_INTERRUPT_STATUS |
 			PIPE_DPST_EVENT_STATUS;
 
-	i915_disable_pipestat(dev_priv, PIPE_A, pipestat_mask |
-					        PIPE_GMBUS_INTERRUPT_STATUS);
-	i915_disable_pipestat(dev_priv, PIPE_B, pipestat_mask);
+	i915_disable_pipestat(dev_priv, PIPE_A, PIPE_GMBUS_INTERRUPT_STATUS);
+	for_each_pipe(pipe)
+		i915_disable_pipestat(dev_priv, pipe, pipestat_mask);
 
 	pipestat_mask = PIPESTAT_INT_STATUS_MASK |
 			PIPE_FIFO_UNDERRUN_STATUS;
-	I915_WRITE(PIPESTAT(PIPE_A), pipestat_mask);
-	I915_WRITE(PIPESTAT(PIPE_B), pipestat_mask);
+
+	for_each_pipe(pipe)
+		I915_WRITE(PIPESTAT(pipe), pipestat_mask);
 	POSTING_READ(PIPESTAT(PIPE_A));
 }
 
