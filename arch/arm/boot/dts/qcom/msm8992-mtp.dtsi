@@ -254,6 +254,19 @@
 	};
 };
 
+&pm8994_mpps {
+	mpp@a300 { /* MPP 4 */
+		/* HDMI_5v_vreg regulator enable */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		qcom,invert = <0>;
+		status = "okay";
+	};
+};
+
 &pmi8994_gpios {
 	gpio@c400 {	/* GPIO 5  OTG SWITCH EN */
 		qcom,mode = <1>;	/* DIGITAL OUT */
