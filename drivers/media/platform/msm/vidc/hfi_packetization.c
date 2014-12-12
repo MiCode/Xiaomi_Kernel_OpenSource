@@ -976,6 +976,54 @@ int create_pkt_cmd_session_set_property(
 
 		break;
 	}
+	case HAL_PARAM_BUFFER_SIZE_ACTUAL:
+	{
+		struct hfi_buffer_size_actual *hfi;
+		struct hal_buffer_size_actual *prop =
+			(struct hal_buffer_size_actual *) pdata;
+		u32 buffer_type;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_BUFFER_SIZE_ACTUAL;
+
+		hfi = (struct hfi_buffer_size_actual *)
+			&pkt->rg_property_data[1];
+		hfi->buffer_size = prop->buffer_size;
+
+		buffer_type = get_hfi_buffer(prop->buffer_type);
+		if (buffer_type)
+			hfi->buffer_type = buffer_type;
+		else
+			return -EINVAL;
+
+		pkt->size += sizeof(u32) + sizeof(struct
+				hfi_buffer_count_actual);
+		break;
+	}
+	case HAL_PARAM_BUFFER_DISPLAY_HOLD_COUNT_ACTUAL:
+	{
+		struct hfi_buffer_display_hold_count_actual *hfi;
+		struct hal_buffer_display_hold_count_actual *prop =
+			(struct hal_buffer_display_hold_count_actual *) pdata;
+		u32 buffer_type;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_BUFFER_DISPLAY_HOLD_COUNT_ACTUAL;
+
+		hfi = (struct hfi_buffer_display_hold_count_actual *)
+			&pkt->rg_property_data[1];
+		hfi->hold_count = prop->hold_count;
+
+		buffer_type = get_hfi_buffer(prop->buffer_type);
+		if (buffer_type)
+			hfi->buffer_type = buffer_type;
+		else
+			return -EINVAL;
+
+		pkt->size += sizeof(u32) + sizeof(struct
+				hfi_buffer_count_actual);
+		break;
+	}
 	case HAL_PARAM_NAL_STREAM_FORMAT_SELECT:
 	{
 		struct hfi_nal_stream_format_select *hfi;
@@ -1961,7 +2009,7 @@ struct hfi_packetization_ops *get_venus_3_x_ops(void)
 
 	hfi_venus_3_x = hfi_default;
 
-	/* Override new HFI functions for HFI_3XX here. */
+	/* Override new HFI functions for HFI_PACKETIZATION_3XX here. */
 
 	return &hfi_venus_3_x;
 }
