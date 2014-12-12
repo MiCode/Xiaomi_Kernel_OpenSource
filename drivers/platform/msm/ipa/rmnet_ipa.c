@@ -62,6 +62,9 @@ u32 apps_to_ipa_hdl, ipa_to_apps_hdl; /* get handler from ipa */
 static int wwan_add_ul_flt_rule_to_ipa(void);
 static int wwan_del_ul_flt_rule_to_ipa(void);
 
+static void wake_tx_queue(struct work_struct *work);
+static DECLARE_WORK(ipa_tx_wakequeue_work, wake_tx_queue);
+
 enum wwan_device_status {
 	WWAN_DEVICE_INACTIVE = 0,
 	WWAN_DEVICE_ACTIVE   = 1
@@ -1578,6 +1581,12 @@ void q6_deinitialize_rm(void)
 	destroy_workqueue(ipa_rm_q6_workqueue);
 }
 
+static void wake_tx_queue(struct work_struct *work)
+{
+	if (ipa_netdevs[0])
+		netif_wake_queue(ipa_netdevs[0]);
+}
+
 /**
  * ipa_rm_resource_granted() - Called upon
  * IPA_RM_RESOURCE_GRANTED event. Wakes up queue is was stopped.
@@ -1590,7 +1599,7 @@ void q6_deinitialize_rm(void)
 static void ipa_rm_resource_granted(void *dev)
 {
 	IPAWANDBG("Resource Granted - starting queue\n");
-	netif_start_queue(dev);
+	schedule_work(&ipa_tx_wakequeue_work);
 }
 
 /**
@@ -1884,6 +1893,7 @@ static int ipa_wwan_remove(struct platform_device *pdev)
 	if (ret < 0)
 		IPAWANERR("Error deleting resource %d, ret=%d\n",
 		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
+	cancel_work_sync(&ipa_tx_wakequeue_work);
 	free_netdev(ipa_netdevs[0]);
 	ipa_netdevs[0] = NULL;
 	/* No need to remove wwan_ioctl during SSR */
