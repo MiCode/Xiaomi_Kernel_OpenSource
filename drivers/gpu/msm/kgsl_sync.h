@@ -49,6 +49,10 @@ void kgsl_sync_timeline_destroy(struct kgsl_context *context);
 struct kgsl_sync_fence_waiter *kgsl_sync_fence_async_wait(int fd,
 	void (*func)(void *priv), void *priv);
 int kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_waiter *waiter);
+static inline void kgsl_sync_fence_log(struct sync_fence *fence)
+{
+	sync_fence_log(fence);
+}
 #else
 static inline int kgsl_add_fence_event(struct kgsl_device *device,
 	u32 context_id, u32 timestamp, void __user *data, int len,
@@ -78,6 +82,10 @@ static inline int
 kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_waiter *waiter)
 {
 	return 1;
+}
+
+static inline void kgsl_sync_fence_log(struct sync_fence *fence)
+{
 }
 
 #endif
