@@ -145,10 +145,7 @@ ifneq ($(CONFIG_BCMDHD_SDIO),)
   DHDCFLAGS += -DMAX_HDR_READ=128
   DHDCFLAGS += -DDHD_FIRSTREAD=128
 
-# Disabling SAR (Specific Absorption Rate) testing API since Broadcom
-# doesn't provide necessary extern function defines with upstream
-# opensource driver
-#  DHDCFLAGS += -DSAR_SUPPORT
+  DHDCFLAGS += -DSAR_SUPPORT
 endif
 
 ifneq ($(CONFIG_BCMDHD_PCIE),)
@@ -161,10 +158,7 @@ ifneq ($(CONFIG_BCMDHD_PCIE),)
 # Disable watchdog thread
   DHDCFLAGS += -DCUSTOM_DHD_WATCHDOG_MS=0
 
-# Disabling SAR (Specific Absorption Rate) testing API since Broadcom
-# doesn't provide necessary extern function defines with upstream
-# opensource driver
-#  DHDCFLAGS += -DSAR_SUPPORT
+  DHDCFLAGS += -DSAR_SUPPORT
 endif
 endif
 
