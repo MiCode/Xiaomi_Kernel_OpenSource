@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -168,11 +168,20 @@ struct mdp_pa_cfg_data32 {
 	struct mdp_pa_cfg32 pa_data;
 };
 
+struct mdp_igc_lut_data_v1_7_32 {
+	uint32_t table_fmt;
+	uint32_t len;
+	compat_caddr_t c0_c1_data;
+	compat_caddr_t c2_data;
+};
+
 struct mdp_igc_lut_data32 {
 	uint32_t block;
+	uint32_t version;
 	uint32_t len, ops;
 	compat_caddr_t c0_c1_data;
 	compat_caddr_t c2_data;
+	compat_caddr_t cfg_payload;
 };
 
 struct mdp_hist_lut_data32 {
