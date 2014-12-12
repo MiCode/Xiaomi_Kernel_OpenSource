@@ -308,7 +308,7 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		src_w = req->src_rect.w >> req->horz_deci;
 		src_h = req->src_rect.h >> req->vert_deci;
 
-		if (src_w > mdata->max_mixer_width) {
+		if (src_w > mdata->max_pipe_width) {
 			pr_err("invalid source width=%d HDec=%d\n",
 					req->src_rect.w, req->horz_deci);
 			return -EINVAL;
@@ -2040,9 +2040,13 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	buf->num_planes = 1;
 	mdss_mdp_pipe_unmap(pipe);
 
-	if (fbi->var.xres > mdata->max_mixer_width || is_split_lm(mfd)) {
+	if (fbi->var.xres > mdata->max_pipe_width || is_split_lm(mfd)) {
+		/*
+		 * TODO: Need to revisit the function for panels with width more
+		 * than max_pipe_width and less than max_mixer_width.
+		 */
 		ret = mdss_mdp_overlay_get_fb_pipe(mfd, &pipe,
-					   MDSS_MDP_MIXER_MUX_RIGHT);
+				MDSS_MDP_MIXER_MUX_RIGHT);
 		if (ret) {
 			pr_err("unable to allocate right base pipe\n");
 			goto pan_display_error;
