@@ -692,4 +692,13 @@ config INPUT_SOC_BUTTON_ARRAY
 	  To compile this driver as a module, choose M here: the
 	  module will be called soc_button_array.
 
+config INPUT_INTEL_MID_VIBRA
+        tristate "Support for Intel MID Vibrator"
+        help
+        This option enables support for Intel Mid Vibrator Driver. Say Y
+        here if you want to enable the vibrator functionality for CTP
+
+        To compile this driver as a module, choose M here. The module will
+        be called intel_mid_vibra.
+
 endif

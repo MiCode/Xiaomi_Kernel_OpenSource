@@ -66,3 +66,5 @@ obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o
 obj-$(CONFIG_INPUT_SOC_BUTTON_ARRAY)	+= soc_button_array.o
+intel-mid-vibra-objs := intel_mid_vibra.o intel_mid_vibra_acpi.o
+obj-$(CONFIG_INPUT_INTEL_MID_VIBRA)    += intel-mid-vibra.o
