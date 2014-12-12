@@ -1404,7 +1404,7 @@ Logged when selecting the best CPU to run a task (select_best_cpu() for fair
 class tasks, find_lowest_rq_hmp() for RT tasks) and load balancing
 (update_sg_lb_stats()).
 
-<idle>-0     [004] d.h3 12700.711541: sched_cpu_load: cpu 0 idle 1 mostly_idle 1 nr_run 0 nr_big 0 nr_small 0 lsf 1945 capacity 1045 cr_avg 0 fcur 199200 fmax 940800 power_cost 1045 cstate 1
+<idle>-0     [004] d.h3 12700.711541: sched_cpu_load: cpu 0 idle 1 mostly_idle 1 nr_run 0 nr_big 0 nr_small 0 lsf 1945 capacity 1045 cr_avg 0 irqload 4456 fcur 199200 fmax 940800 power_cost 1045 cstate 1
 
 - cpu: the CPU being described
 - idle: boolean indicating whether the CPU is idle
@@ -1417,6 +1417,7 @@ class tasks, find_lowest_rq_hmp() for RT tasks) and load balancing
 - capacity: capacity of CPU (based on max possible frequency and efficiency)
 - cr_avg: cumulative runnable average, instantaneous sum of the demand (either
   PELT or window-based) of all the runnable task on a CPU (ns)
+- irqload: decaying average of irq activity on CPU (ns)
 - fcur: current CPU frequency (Khz)
 - fmax: max CPU frequency (but not maximum _possible_ frequency) (KHz)
 - power_cost: cost of running this CPU at the current frequency
