@@ -191,9 +191,9 @@ struct kgsl_mem_entry {
 	unsigned int id;
 	struct kgsl_process_private *priv;
 	int pending_free;
-	struct kgsl_device_private *dev_priv;
 };
 
+struct kgsl_device_private;
 struct kgsl_event_group;
 
 typedef void (*kgsl_event_func)(struct kgsl_device *, struct kgsl_event_group *,
