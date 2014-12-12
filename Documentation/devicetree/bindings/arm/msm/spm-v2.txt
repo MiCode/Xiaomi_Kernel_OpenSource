@@ -57,9 +57,6 @@ Optional properties
 - qcom,use-qchannel-for-pc: Boolean property to specify if qchannel should be
 	ignored when entering power collapse. If this property is set qchannel
 	will not be ignored in power collapse.
-- qcom,supports-rpm-hs: Indicates that this SPM instance allow handshake with
-RPM processor when executing the sleep command in the SPM sequence. Supported
-only on SAW2 v3.0 and above.
 
 Example 1:
 	qcom,spm@f9089000 {
