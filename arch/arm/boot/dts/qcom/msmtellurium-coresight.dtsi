@@ -16,6 +16,8 @@
 		reg = <0x826000 0x1000>,
 		      <0x884000 0x15000>;
 		reg-names = "tmc-base", "bam-base";
+		interrupts = <0 166 0>;
+		interrupt-names = "byte-cntr-irq";
 
 		qcom,memory-size = <0x100000>;
 
