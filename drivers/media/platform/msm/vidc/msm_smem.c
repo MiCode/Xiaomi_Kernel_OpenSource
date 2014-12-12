@@ -179,6 +179,7 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	if (flags & SMEM_SECURE) {
 		size = ALIGN(size, SZ_1M);
 		align = ALIGN(align, SZ_1M);
+		flags |= ION_FLAG_ALLOW_NON_CONTIG;
 	}
 
 	if (is_iommu_present(client->res)) {
