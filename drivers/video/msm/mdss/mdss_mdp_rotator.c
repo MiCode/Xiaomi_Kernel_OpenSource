@@ -530,7 +530,7 @@ static int __mdss_mdp_rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 	rot->params_changed = 0;
 
 	smp_count = mdss_mdp_smp_calc_num_blocks(pipe);
-	if (smp_count > rot_pipe->current_smp_size)
+	if (smp_count != rot_pipe->current_smp_size)
 		mdss_mdp_smp_release(pipe);
 
 	ret = mdss_mdp_smp_reserve(pipe);
