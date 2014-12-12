@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * Copyright (C) 1994 Martin Schaller
  *
  * 2001 - Documented with DocBook
@@ -582,11 +582,38 @@ static int __to_user_csc_cfg_data(
 	return 0;
 }
 
+static int __from_user_igc_lut_data_v17(
+		struct mdp_igc_lut_data32 __user *igc_lut32,
+		struct mdp_igc_lut_data __user *igc_lut)
+{
+	struct mdp_igc_lut_data_v1_7_32 igc_cfg_payload_32;
+	struct mdp_igc_lut_data_v1_7 igc_cfg_payload;
+
+	if (copy_from_user(&igc_cfg_payload_32,
+			   compat_ptr(igc_lut32->cfg_payload),
+			   sizeof(igc_cfg_payload_32))) {
+		pr_err("failed to copy payload from user for igc\n");
+		return -EFAULT;
+	}
+	igc_cfg_payload.c0_c1_data = compat_ptr(igc_cfg_payload_32.c0_c1_data);
+	igc_cfg_payload.c2_data = compat_ptr(igc_cfg_payload_32.c2_data);
+	igc_cfg_payload.len = igc_cfg_payload_32.len;
+	igc_cfg_payload.table_fmt = igc_cfg_payload_32.table_fmt;
+	if (copy_to_user(igc_lut->cfg_payload, &igc_cfg_payload,
+			 sizeof(igc_cfg_payload))) {
+		pr_err("failed to copy payload to user for igc\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
 static int __from_user_igc_lut_data(
 		struct mdp_igc_lut_data32 __user *igc_lut32,
 		struct mdp_igc_lut_data __user *igc_lut)
 {
 	uint32_t data;
+	uint32_t version = mdp_igc_vmax;
+	int ret = 0;
 
 	if (copy_in_user(&igc_lut->block,
 			&igc_lut32->block,
@@ -596,16 +623,35 @@ static int __from_user_igc_lut_data(
 			sizeof(uint32_t)) ||
 	    copy_in_user(&igc_lut->ops,
 			&igc_lut32->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&igc_lut->version,
+			&igc_lut32->version,
 			sizeof(uint32_t)))
 		return -EFAULT;
 
-	if (get_user(data, &igc_lut32->c0_c1_data) ||
-	    put_user(compat_ptr(data), &igc_lut->c0_c1_data) ||
-	    get_user(data, &igc_lut32->c2_data) ||
-	    put_user(compat_ptr(data), &igc_lut->c2_data))
+	if (get_user(version, &igc_lut32->version)) {
+		pr_err("failed to copy the version for IGC\n");
 		return -EFAULT;
+	}
 
-	return 0;
+	switch (version) {
+	case mdp_igc_v1_7:
+		ret = __from_user_igc_lut_data_v17(igc_lut32, igc_lut);
+		if (ret)
+			pr_err("failed to copy payload for igc version %d ret %d\n",
+				version, ret);
+		break;
+	default:
+		pr_debug("version not supported fallback to legacy %d\n",
+			 version);
+		if (get_user(data, &igc_lut32->c0_c1_data) ||
+		    put_user(compat_ptr(data), &igc_lut->c0_c1_data) ||
+		    get_user(data, &igc_lut32->c2_data) ||
+		    put_user(compat_ptr(data), &igc_lut->c2_data))
+			return -EFAULT;
+		break;
+	}
+	return ret;
 }
 
 static int __to_user_igc_lut_data(
@@ -1804,6 +1850,14 @@ static int __from_user_pp_init_data(
 	return 0;
 }
 
+static u32 __pp_compat_size_igc(void)
+{
+	u32 alloc_size = 0;
+	/* When we have mutiple versions pick largest struct size */
+	alloc_size = sizeof(struct mdp_igc_lut_data_v1_7);
+	return alloc_size;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1820,7 +1874,8 @@ static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 			sizeof(uint32_t)))
 			return -EFAULT;
 
-		if (lut_type == mdp_lut_pgc) {
+		switch (lut_type)  {
+		case mdp_lut_pgc:
 			pgc_data32 = compat_ptr((uintptr_t)
 				&pp32->data.lut_cfg_data.data.pgc_lut_data);
 			if (copy_from_user(&num_r_stages,
@@ -1869,11 +1924,29 @@ static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					((unsigned long) *pp +
 					sizeof(struct msmfb_mdp_pp) +
 					r_size + g_size);
-		} else {
+			break;
+		case mdp_lut_igc:
+			alloc_size += __pp_compat_size_igc();
 			*pp = compat_alloc_user_space(alloc_size);
-			if (NULL == *pp)
+			if (NULL == *pp) {
+				pr_err("failed to alloc from user size %d for igc\n",
+					alloc_size);
 				return -ENOMEM;
+			}
 			memset(*pp, 0, alloc_size);
+			(*pp)->data.lut_cfg_data.data.igc_lut_data.cfg_payload
+					= (void *)((unsigned long)(*pp) +
+					   sizeof(struct msmfb_mdp_pp));
+			break;
+		default:
+			*pp = compat_alloc_user_space(alloc_size);
+			if (NULL == *pp) {
+				pr_err("failed to alloc from user size %d for lut_type %d\n",
+					alloc_size, lut_type);
+				return -ENOMEM;
+			}
+			memset(*pp, 0, alloc_size);
+			break;
 		}
 	} else {
 		*pp = compat_alloc_user_space(alloc_size);
