@@ -1672,20 +1672,22 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	char *internal1_text = "Internal1";
 	char *internal2_text = "Internal2";
 	char *internal3_text = "Internal3";
+	char *external_text = "External";
 	enum wcd9xxx_notify_event e_post_off, e_pre_on, e_post_on;
 
 	dev_dbg(codec->dev, "%s %d\n", __func__, event);
-	switch (w->reg) {
-	case MSM8X10_WCD_A_MICB_1_CTL:
+
+	if ((strnstr(w->name, internal1_text, 30)) ||
+	    (strnstr(w->name, internal2_text, 30)) ||
+	    (strnstr(w->name, internal3_text, 30)) ||
+	    (strnstr(w->name, external_text, 30))) {
 		micb_int_reg = MSM8X10_WCD_A_MICB_1_INT_RBIAS;
 		e_pre_on = WCD9XXX_EVENT_PRE_MICBIAS_1_ON;
 		e_post_on = WCD9XXX_EVENT_POST_MICBIAS_1_ON;
 		e_post_off = WCD9XXX_EVENT_POST_MICBIAS_1_OFF;
-		break;
-	default:
+	} else {
 		dev_err(codec->dev,
-			"%s: Error, invalid micbias register 0x%x\n",
-			__func__, w->reg);
+			"%s: Error, invalid micbias %s\n", __func__, w->name);
 		return -EINVAL;
 	}
 
@@ -1703,9 +1705,9 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 
 		/* Always pull up TxFe for TX2 to Micbias */
 		snd_soc_update_bits(codec, micb_int_reg, 0x04, 0x04);
-		snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_CTL,
+		if (++msm8x10_wcd->micb_en_count == 1)
+			snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_CTL,
 					0x80, 0x80);
-		msm8x10_wcd->micb_en_count++;
 		pr_debug("%s micb_en_count : %d", __func__,
 				msm8x10_wcd->micb_en_count);
 		break;
@@ -1715,12 +1717,11 @@ static int msm8x10_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		wcd9xxx_resmgr_notifier_call(&msm8x10_wcd->resmgr, e_post_on);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		if (msm8x10_wcd->micb_en_count > 0)
-			msm8x10_wcd->micb_en_count--;
+		if (--msm8x10_wcd->micb_en_count == 0)
+			snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_CTL,
+					0x80, 0x00);
 		pr_debug("%s micb_en_count : %d", __func__,
 				msm8x10_wcd->micb_en_count);
-		snd_soc_update_bits(codec, MSM8X10_WCD_A_MICB_1_CTL,
-					0x80, 0x00);
 		/* Let MBHC module know so micbias switch to be off */
 		wcd9xxx_resmgr_notifier_call(&msm8x10_wcd->resmgr, e_post_off);
 
@@ -2534,23 +2535,23 @@ static const struct snd_soc_dapm_widget msm8x10_wcd_dapm_widgets[] = {
 
 	SND_SOC_DAPM_INPUT("AMIC1"),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS Internal1",
-		MSM8X10_WCD_A_MICB_1_CTL, 7, 0,
+		SND_SOC_NOPM, 7, 0,
 		msm8x10_wcd_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS Internal2",
-		MSM8X10_WCD_A_MICB_1_CTL, 7, 0,
+		SND_SOC_NOPM, 7, 0,
 		msm8x10_wcd_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS Internal3",
-		MSM8X10_WCD_A_MICB_1_CTL, 7, 0,
+		SND_SOC_NOPM, 7, 0,
 		msm8x10_wcd_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS External",
-		MSM8X10_WCD_A_MICB_1_CTL, 7, 0,
+		SND_SOC_NOPM, 7, 0,
 		msm8x10_wcd_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MICBIAS_E(DAPM_MICBIAS_EXTERNAL_STANDALONE,
-		MSM8X10_WCD_A_MICB_1_CTL,
+		SND_SOC_NOPM,
 		7, 0, msm8x10_wcd_codec_enable_micbias,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
@@ -2823,7 +2824,6 @@ static int msm8x10_wcd_enable_mbhc_micbias(struct snd_soc_codec *codec,
 					   enum wcd9xxx_micbias_num micb_num)
 {
 	int rc;
-	struct msm8x10_wcd_priv *msm8x10_wcd = snd_soc_codec_get_drvdata(codec);
 
 	if (micb_num != MBHC_MICBIAS1) {
 		rc = -EINVAL;
@@ -2834,12 +2834,6 @@ static int msm8x10_wcd_enable_mbhc_micbias(struct snd_soc_codec *codec,
 		rc = snd_soc_dapm_force_enable_pin(&codec->dapm,
 			DAPM_MICBIAS_EXTERNAL_STANDALONE);
 	else {
-		if (msm8x10_wcd->micb_en_count > 1) {
-			msm8x10_wcd->micb_en_count--;
-			pr_debug("%s micb_en_count : %d", __func__,
-					msm8x10_wcd->micb_en_count);
-			return 0;
-		}
 		rc = snd_soc_dapm_disable_pin(&codec->dapm,
 			DAPM_MICBIAS_EXTERNAL_STANDALONE);
 	}
