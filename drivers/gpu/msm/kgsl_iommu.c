@@ -1909,7 +1909,7 @@ static int kgsl_iommu_flush_pt(struct kgsl_mmu *mmu)
 
 	/* For v0 SMMU GPU needs to be idle for tlb invalidate as well */
 	if (msm_soc_version_supports_iommu_v0()) {
-		ret = kgsl_idle(mmu->device);
+		ret = adreno_spin_idle(mmu->device);
 		if (ret)
 			return ret;
 	}
@@ -1981,7 +1981,11 @@ static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu,
 
 	pt_base = kgsl_iommu_get_pt_base_addr(mmu, pt);
 
-	ret = kgsl_idle(mmu->device);
+	/*
+	 * Taking the liberty to spin idle since this codepath
+	 * is invoked when we can spin safely for it to be idle
+	 */
+	ret = adreno_spin_idle(mmu->device);
 	if (ret)
 		return ret;
 
