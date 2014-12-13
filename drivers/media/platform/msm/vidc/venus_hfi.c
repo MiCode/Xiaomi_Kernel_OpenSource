@@ -3463,8 +3463,8 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 	venus_hfi_for_each_clock(device, cl) {
 		int i = 0;
 
-		dprintk(VIDC_DBG, "%s: scalable? %d, gate-able? %d\n", cl->name,
-			!!cl->count, cl->has_gating);
+		dprintk(VIDC_DBG, "%s: scalable? %d\n",
+				cl->name, !!cl->count);
 		for (i = 0; i < cl->count; ++i) {
 			dprintk(VIDC_DBG,
 				"\tload = %d, freq = %d codecs supported 0x%x\n",

@@ -82,7 +82,6 @@ Optional properties:
 
   The bitmap is defined as:
   scalable = 0x1 (if the driver should vary the clock's frequency based on load)
-  gate-able = 0x2 (if the driver should disable the clock if no load)
 - qcom,sw-power-collapse = A bool indicating if video hardware core can be
   power collapsed in idle state.
 - qcom,early-fw-load = A bool indicating if video firmware should be loaded
