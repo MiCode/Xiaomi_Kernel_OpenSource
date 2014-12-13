@@ -100,6 +100,11 @@
 		qcom,saw2-pmic-data1 = <0x00030000>;
 		qcom,saw2-pmic-data4 = <0x00010080>;
 		qcom,saw2-pmic-data5 = <0x00010000>;
+		qcom,vctl-timeout-us = <50>;
+		qcom,vctl-port = <0x0>;
+		qcom,phase-port = <0x1>;
+		qcom,pfm-port = <0x2>;
+		qcom,cpu-vctl-mask = <0xf>;
 		qcom,saw2-spm-cmd-ret = [00 03 00 0f];
 		qcom,saw2-spm-cmd-gdhs = [00 20 32 6b c0 e0 d0 42 03 50
 				4e 02 02 d0 e0 c0 22 6b 02 32 50 0f];
