@@ -758,6 +758,8 @@ void ipa_qmi_service_exit(void)
 	}
 
 	/* qmi-client */
+
+	/* Unregister from events */
 	ret = qmi_svc_event_notifier_unregister(IPA_Q6_SERVICE_SVC_ID,
 				IPA_Q6_SVC_VERS,
 				IPA_Q6_SERVICE_INS_ID, &ipa_q6_clnt_nb);
@@ -765,6 +767,9 @@ void ipa_qmi_service_exit(void)
 		IPAWANERR(
 		"Error qmi_svc_event_notifier_unregister service %d, ret=%d\n",
 		IPA_Q6_SERVICE_SVC_ID, ret);
+
+	/* Release client handle */
+	ipa_q6_clnt_svc_exit(0);
 
 	if (ipa_clnt_req_workqueue) {
 		destroy_workqueue(ipa_clnt_req_workqueue);
