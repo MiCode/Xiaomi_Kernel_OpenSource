@@ -29,8 +29,14 @@
 #include "msm_fd_hw.h"
 #include "msm_fd_regs.h"
 
+/* After which revision halt for engine is needed */
+#define MSM_FD_HALT_FROM_REV 0x10010000
+/* Face detection workqueue name */
+#define MSM_FD_WORQUEUE_NAME "face-detection"
 /* Face detection processing timeout in ms */
 #define MSM_FD_PROCESSING_TIMEOUT_MS 500
+/* Face detection halt timeout in ms */
+#define MSM_FD_HALT_TIMEOUT_MS 100
 
 /* Fd iommu partition definition */
 static struct msm_iova_partition msm_fd_fw_partition = {
@@ -292,7 +298,7 @@ static inline void msm_fd_hw_run(struct msm_fd_device *fd)
  *
  * NOTE: If finish bit is not set, we should not read the result.
  */
-int msm_fd_hw_is_finished(struct msm_fd_device *fd)
+static int msm_fd_hw_is_finished(struct msm_fd_device *fd)
 {
 	u32 reg;
 
@@ -305,13 +311,53 @@ int msm_fd_hw_is_finished(struct msm_fd_device *fd)
  * msm_fd_hw_is_runnig - Check if fd hw engine is busy.
  * @fd: Pointer to fd device.
  */
-int msm_fd_hw_is_runnig(struct msm_fd_device *fd)
+static int msm_fd_hw_is_runnig(struct msm_fd_device *fd)
 {
 	u32 reg;
 
 	reg = msm_fd_hw_read_reg(fd, MSM_FD_IOMEM_CORE, MSM_FD_CONTROL);
 
 	return reg & MSM_FD_CONTROL_RUN;
+}
+
+/*
+ * msm_fd_hw_misc_irq_is_halt - Check if fd received misc halt irq.
+ * @fd: Pointer to fd device.
+ */
+static int msm_fd_hw_misc_irq_is_halt(struct msm_fd_device *fd)
+{
+	u32 reg;
+
+	reg = msm_fd_hw_read_reg(fd, MSM_FD_IOMEM_MISC,
+		MSM_FD_MISC_IRQ_STATUS);
+
+	return reg & MSM_FD_MISC_IRQ_STATUS_HALT_REQ;
+}
+
+/*
+* msm_fd_hw_misc_clear_all_irq - Clear all misc irq statuses.
+* @fd: Pointer to fd device.
+*/
+static void msm_fd_hw_misc_clear_all_irq(struct msm_fd_device *fd)
+{
+	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_MISC, MSM_FD_MISC_IRQ_CLEAR,
+		MSM_FD_MISC_IRQ_CLEAR_HALT | MSM_FD_MISC_IRQ_CLEAR_CORE);
+}
+
+/*
+ * msm_fd_hw_get_revision - Get hw revision and store in to device.
+ * @fd: Pointer to fd device.
+ */
+int msm_fd_hw_get_revision(struct msm_fd_device *fd)
+{
+	u32 reg;
+
+	reg = msm_fd_hw_read_reg(fd, MSM_FD_IOMEM_MISC,
+		MSM_FD_MISC_HW_VERSION);
+
+	dev_dbg(fd->dev, "Face detection hw revision 0x%x\n", reg);
+
+	return reg;
 }
 
 /*
@@ -405,12 +451,170 @@ void msm_fd_hw_get_result_angle_pose(struct msm_fd_device *fd, int idx,
 }
 
 /*
+ * msm_fd_hw_halt_needed - Check if fd core halt is needed.
+ * @fd: Pointer to fd device.
+ */
+static int msm_fd_hw_halt_needed(struct msm_fd_device *fd)
+{
+	return fd->hw_revision >= MSM_FD_HALT_FROM_REV;
+}
+
+/*
+ * msm_fd_hw_halt - Halt fd core.
+ * @fd: Pointer to fd device.
+ */
+static void msm_fd_hw_halt(struct msm_fd_device *fd)
+{
+	unsigned long time;
+
+	if (msm_fd_hw_halt_needed(fd)) {
+		init_completion(&fd->hw_halt_completion);
+
+		msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_MISC, MSM_FD_HW_STOP, 1);
+
+		time = wait_for_completion_timeout(&fd->hw_halt_completion,
+			msecs_to_jiffies(MSM_FD_HALT_TIMEOUT_MS));
+		if (!time)
+			dev_err(fd->dev, "Face detection halt timeout\n");
+
+	}
+}
+
+/*
+ * msm_fd_hw_misc_irq_needed - Check if misc irq is needed
+ * @fd: Pointer to fd device.
+ */
+static int msm_fd_hw_misc_irq_needed(struct msm_fd_device *fd)
+{
+	return msm_fd_hw_halt_needed(fd);
+}
+
+/*
+ * msm_fd_core_irq - Face detection core irq handler.
+ * @irq: Irq number.
+ * @dev_id: Pointer to fd device.
+ */
+static irqreturn_t msm_fd_hw_core_irq(int irq, void *dev_id)
+{
+	struct msm_fd_device *fd = dev_id;
+
+	if (msm_fd_hw_is_finished(fd))
+		queue_work(fd->work_queue, &fd->work);
+	else
+		dev_err(fd->dev, "Something wrong! FD still running\n");
+
+	return IRQ_HANDLED;
+}
+
+/*
+ * msm_fd_wrap_irq - Face detection wrapper irq handler.
+ * @irq: Irq number.
+ * @dev_id: Pointer to fd device.
+ */
+static irqreturn_t msm_fd_hw_wrap_irq(int irq, void *dev_id)
+{
+	struct msm_fd_device *fd = dev_id;
+
+	if (msm_fd_hw_misc_irq_is_halt(fd))
+		complete_all(&fd->hw_halt_completion);
+
+	msm_fd_hw_misc_clear_all_irq(fd);
+
+	return IRQ_HANDLED;
+}
+
+/*
+ * msm_fd_hw_request_irq - Configure and enable vbif interface.
+ * @pdev: Pointer to platform device.
+ * @fd: Pointer to fd device.
+ * @work_func: Pointer to work func used for irq bottom half.
+ */
+int msm_fd_hw_request_irq(struct platform_device *pdev,
+	struct msm_fd_device *fd, work_func_t work_func)
+{
+	int ret;
+
+	fd->core_irq_num = platform_get_irq(pdev, 0);
+	if (fd->core_irq_num < 0) {
+		dev_err(fd->dev, "Can not get fd core irq resource\n");
+		ret = -ENODEV;
+		goto error_core_irq;
+	}
+
+	ret = devm_request_irq(fd->dev, fd->core_irq_num, msm_fd_hw_core_irq,
+		IRQF_TRIGGER_RISING, dev_name(fd->dev), fd);
+	if (ret) {
+		dev_err(&pdev->dev, "Can not claim core IRQ %d\n",
+			fd->core_irq_num);
+		goto error_core_irq;
+	}
+
+	/* If vbif is shared we will need wrapper irq for releasing vbif */
+	fd->core_irq_num = -1;
+	if (msm_fd_hw_misc_irq_needed(fd)) {
+		fd->wrap_irq_num = platform_get_irq(pdev, 1);
+		if (fd->core_irq_num < 0) {
+			dev_err(fd->dev, "Can not get fd wrap irq resource\n");
+			ret = -ENODEV;
+			goto error_wrap_irq;
+		}
+
+		ret = devm_request_irq(fd->dev, fd->wrap_irq_num,
+			msm_fd_hw_wrap_irq, IRQF_TRIGGER_RISING,
+			dev_name(&pdev->dev), fd);
+		if (ret) {
+			dev_err(fd->dev, "Can not claim wrapper IRQ %d\n",
+				fd->wrap_irq_num);
+			goto error_wrap_irq;
+		}
+	}
+
+	fd->work_queue = alloc_workqueue(MSM_FD_WORQUEUE_NAME,
+		WQ_HIGHPRI | WQ_NON_REENTRANT | WQ_UNBOUND, 0);
+	if (!fd->work_queue) {
+		dev_err(fd->dev, "Can not register workqueue\n");
+		ret = -ENOMEM;
+		goto error_alloc_workqueue;
+	}
+	INIT_WORK(&fd->work, work_func);
+
+	return 0;
+
+error_alloc_workqueue:
+	if (fd->wrap_irq_num >= 0)
+		devm_free_irq(fd->dev, fd->wrap_irq_num, fd);
+error_wrap_irq:
+	devm_free_irq(&pdev->dev, fd->core_irq_num, fd);
+error_core_irq:
+	return ret;
+}
+
+/*
+ * msm_fd_hw_release_irq - Free core and wrap irq.
+ * @fd: Pointer to fd device.
+ */
+void msm_fd_hw_release_irq(struct msm_fd_device *fd)
+{
+	if (fd->core_irq_num >= 0) {
+		devm_free_irq(fd->dev, fd->core_irq_num, fd);
+		fd->core_irq_num = -1;
+	}
+	if (fd->wrap_irq_num >= 0) {
+		devm_free_irq(fd->dev, fd->wrap_irq_num, fd);
+		fd->wrap_irq_num = -1;
+	}
+	if (fd->work_queue) {
+		destroy_workqueue(fd->work_queue);
+		fd->work_queue = NULL;
+	}
+}
+
+/*
  * msm_fd_hw_vbif_register - Configure and enable vbif interface.
  * @fd: Pointer to fd device.
  */
 void msm_fd_hw_vbif_register(struct msm_fd_device *fd)
 {
-
 	msm_fd_hw_reg_set(fd, MSM_FD_IOMEM_VBIF,
 		MSM_FD_VBIF_CLKON, 0x1);
 
@@ -854,6 +1058,7 @@ void msm_fd_hw_put(struct msm_fd_device *fd)
 	BUG_ON(fd->ref_count == 0);
 
 	if (--fd->ref_count == 0) {
+		msm_fd_hw_halt(fd);
 		msm_fd_hw_vbif_unregister(fd);
 		msm_fd_hw_bus_release(fd);
 		msm_fd_hw_disable_clocks(fd);
