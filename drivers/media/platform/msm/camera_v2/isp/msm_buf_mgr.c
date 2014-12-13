@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,6 +120,7 @@ static void msm_isp_copy_planes_from_v4l2_buffer(
 	for (i = 0; i < qbuf_buf->num_planes; i++) {
 		qbuf_buf->planes[i].addr = v4l2_buf->m.planes[i].m.userptr;
 		qbuf_buf->planes[i].offset = v4l2_buf->m.planes[i].data_offset;
+		qbuf_buf->planes[i].length = v4l2_buf->m.planes[i].length;
 	}
 }
 
@@ -131,6 +132,7 @@ static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 	struct msm_isp_buffer_mapped_info *mapped_info;
 	struct buffer_cmd *buf_pending = NULL;
 	int domain_num;
+	uint32_t accu_length = 0;
 
 	if (buf_mgr->secure_enable == NON_SECURE_MODE)
 		domain_num = buf_mgr->iommu_domain_num;
@@ -156,7 +158,8 @@ static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 			ion_free(buf_mgr->client, mapped_info->handle);
 			goto ion_map_error;
 		}
-		mapped_info->paddr += qbuf_buf->planes[i].offset;
+		mapped_info->paddr += accu_length;
+		accu_length += qbuf_buf->planes[i].length;
 		CDBG("%s: plane: %d addr:%lu\n",
 			__func__, i, (unsigned long)mapped_info->paddr);
 
