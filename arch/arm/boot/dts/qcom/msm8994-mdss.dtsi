@@ -211,7 +211,7 @@
 
 		qcom,platform-strength-ctrl = [77 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
-		qcom,platform-regulator-settings = [03 05 03 00 20 07 01];
+		qcom,platform-regulator-settings = [03 02 03 00 10 07 01];
 		qcom,platform-lane-config = [02 00 00 00 20 00 00 01 88
 			02 00 00 00 40 00 00 01 88
 			02 00 00 40 20 00 00 01 88
