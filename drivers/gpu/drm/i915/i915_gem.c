@@ -5136,9 +5136,6 @@ i915_gem_init_hw(struct drm_device *dev)
 		i915_gem_cleanup_ringbuffer(dev);
 	}
 
-	if (ret == 0)
-		intel_chv_huc_load(dev);
-
 	return ret;
 }
 
@@ -5202,6 +5199,9 @@ int i915_gem_init(struct drm_device *dev)
 	}
 	mutex_unlock(&dev->struct_mutex);
 
+	if (ret == 0)
+		intel_chv_huc_load(dev);
+
 	/* Allow hardware batchbuffers unless told otherwise, but not for KMS. */
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		dev_priv->dri1.allow_batchbuffer = 1;
@@ -5248,6 +5248,9 @@ i915_gem_entervt_ioctl(struct drm_device *dev, void *data,
 		mutex_unlock(&dev->struct_mutex);
 		return ret;
 	}
+
+	if (ret == 0)
+		intel_chv_huc_load(dev);
 
 	BUG_ON(!list_empty(&dev_priv->gtt.base.active_list));
 

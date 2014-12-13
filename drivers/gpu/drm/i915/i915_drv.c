@@ -752,7 +752,8 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 		drm_mode_config_reset(dev);
 
 		mutex_lock(&dev->struct_mutex);
-		if (i915_gem_init_hw(dev)) {
+		ret = i915_gem_init_hw(dev);
+		if (ret) {
 			DRM_ERROR("failed to re-initialize GPU, declaring wedged!\n");
 			atomic_set_mask(I915_WEDGED, &dev_priv->gpu_error.reset_counter);
 		}
@@ -762,6 +763,10 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 		drm_irq_install(dev, dev->pdev->irq);
 
 		intel_modeset_init_hw(dev);
+
+		/* We need to load HuC after enabling irq */
+		if (ret == 0)
+			intel_chv_huc_load(dev);
 
 		if (!IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev)
 						|| display_is_on(dev)) {
@@ -1238,6 +1243,9 @@ int i915_reset(struct drm_device *dev)
 			DRM_ERROR("Failed hw init on reset %d\n", ret);
 			goto exit_locked;
 		}
+
+		if (ret == 0)
+			intel_chv_huc_load(dev);
 
 		if (i915.enable_execlists)
 			for_each_ring(ring, dev_priv, i) {
