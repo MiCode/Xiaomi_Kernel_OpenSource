@@ -2326,6 +2326,13 @@
 		};
 	};
 
+	qcom,lmh {
+		compatible = "qcom,lmh";
+		interrupts = <0 332 4>;
+		reg = <0xF9117000 0x4>;
+		qcom,lmh-trim-err-offset = <18>;
+	};
+
 	usb3: ssusb@f9200000 {
 		compatible = "qcom,dwc-usb3-msm";
 		status = "disabled";
