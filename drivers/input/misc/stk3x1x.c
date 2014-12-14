@@ -913,7 +913,7 @@ static ssize_t stk_als_code_show(struct device *dev, struct device_attribute *at
     return scnprintf(buf, PAGE_SIZE, "%d\n", reading);
 }
 
-static ssize_t stk_als_enable_set(struct sensors_classdev *sensors_cdev,
+static int stk_als_enable_set(struct sensors_classdev *sensors_cdev,
 						unsigned int enabled)
 {
 	struct stk3x1x_data *als_data = container_of(sensors_cdev,
@@ -1044,7 +1044,7 @@ static inline void stk_als_delay_store_fir(struct stk3x1x_data *ps_data)
 	ps_data->fir.sum = 0;
 }
 
-static ssize_t stk_als_poll_delay_set(struct sensors_classdev *sensors_cdev,
+static int stk_als_poll_delay_set(struct sensors_classdev *sensors_cdev,
 						unsigned int delay_msec)
 {
 	struct stk3x1x_data *als_data = container_of(sensors_cdev,
@@ -1175,7 +1175,7 @@ static ssize_t stk_ps_code_show(struct device *dev, struct device_attribute *att
     return scnprintf(buf, PAGE_SIZE, "%d\n", reading);
 }
 
-static ssize_t stk_ps_enable_set(struct sensors_classdev *sensors_cdev,
+static int stk_ps_enable_set(struct sensors_classdev *sensors_cdev,
 						unsigned int enabled)
 {
 	struct stk3x1x_data *ps_data = container_of(sensors_cdev,
@@ -2364,19 +2364,19 @@ static int stk3x1x_probe(struct i2c_client *client,
 		goto err_als_input_allocate;
 	}
 
-	ps_data->als_input_dev = input_allocate_device();
+	ps_data->als_input_dev = devm_input_allocate_device(&client->dev);
 	if (ps_data->als_input_dev==NULL)
 	{
 		printk(KERN_ERR "%s: could not allocate als device\n", __func__);
 		err = -ENOMEM;
 		goto err_als_input_allocate;
 	}
-	ps_data->ps_input_dev = input_allocate_device();
+	ps_data->ps_input_dev = devm_input_allocate_device(&client->dev);
 	if (ps_data->ps_input_dev==NULL)
 	{
 		printk(KERN_ERR "%s: could not allocate ps device\n", __func__);
 		err = -ENOMEM;
-		goto err_ps_input_allocate;
+		goto err_als_input_allocate;
 	}
 	ps_data->als_input_dev->name = ALS_NAME;
 	ps_data->ps_input_dev->name = PS_NAME;
@@ -2388,20 +2388,20 @@ static int stk3x1x_probe(struct i2c_client *client,
 	if (err<0)
 	{
 		printk(KERN_ERR "%s: can not register als input device\n", __func__);
-		goto err_als_input_register;
+		goto err_als_input_allocate;
 	}
 	err = input_register_device(ps_data->ps_input_dev);
 	if (err<0)
 	{
 		printk(KERN_ERR "%s: can not register ps input device\n", __func__);
-		goto err_ps_input_register;
+		goto err_als_input_allocate;
 	}
 
 	err = sysfs_create_group(&ps_data->als_input_dev->dev.kobj, &stk_als_attribute_group);
 	if (err < 0)
 	{
 		printk(KERN_ERR "%s:could not create sysfs group for als\n", __func__);
-		goto err_als_sysfs_create_group;
+		goto err_als_input_allocate;
 	}
 	err = sysfs_create_group(&ps_data->ps_input_dev->dev.kobj, &stk_ps_attribute_group);
 	if (err < 0)
@@ -2497,14 +2497,6 @@ err_stk3x1x_setup_irq:
 	sysfs_remove_group(&ps_data->ps_input_dev->dev.kobj, &stk_ps_attribute_group);
 err_ps_sysfs_create_group:
 	sysfs_remove_group(&ps_data->als_input_dev->dev.kobj, &stk_als_attribute_group);
-err_als_sysfs_create_group:
-	input_unregister_device(ps_data->ps_input_dev);
-err_ps_input_register:
-	input_unregister_device(ps_data->als_input_dev);
-err_als_input_register:
-	input_free_device(ps_data->ps_input_dev);
-err_ps_input_allocate:
-	input_free_device(ps_data->als_input_dev);
 err_als_input_allocate:
 #ifdef STK_POLL_PS
     wake_lock_destroy(&ps_data->ps_nosuspend_wl);
@@ -2533,10 +2525,6 @@ static int stk3x1x_remove(struct i2c_client *client)
 #endif
 	sysfs_remove_group(&ps_data->ps_input_dev->dev.kobj, &stk_ps_attribute_group);
 	sysfs_remove_group(&ps_data->als_input_dev->dev.kobj, &stk_als_attribute_group);
-	input_unregister_device(ps_data->ps_input_dev);
-	input_unregister_device(ps_data->als_input_dev);
-	input_free_device(ps_data->ps_input_dev);
-	input_free_device(ps_data->als_input_dev);
 #ifdef STK_POLL_PS
 	wake_lock_destroy(&ps_data->ps_nosuspend_wl);
 #endif
