@@ -720,7 +720,7 @@
 		interrupts = <0 145 0 0 146 0>;
 		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
 
-		qcom,pronto-vddmx-supply = <&pm8909_l3>;
+		qcom,pronto-vddmx-supply = <&pm8909_l3_corner_ao>;
 		qcom,pronto-vddcx-supply = <&pm8909_s1_corner>;
 		qcom,pronto-vddpx-supply = <&pm8909_l7>;
 		qcom,iris-vddxo-supply   = <&pm8909_l7>;
@@ -745,7 +745,6 @@
 
 		qcom,wlan-rx-buff-count = <512>;
 		qcom,has-autodetect-xo;
-		qcom,is-pronto-vt;
 		qcom,is-pronto-v3;
 		qcom,has-pronto-hw;
 		qcom,wcnss-adc_tm = <&pm8909_adc_tm>;

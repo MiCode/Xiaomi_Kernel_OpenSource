@@ -107,7 +107,7 @@
 	};
 
 	qcom,wcnss-wlan@a000000 {
-		qcom,pronto-vddmx-supply = <&pm8916_l3>;
+		qcom,pronto-vddmx-supply = <&pm8916_l3_corner_ao>;
 		qcom,pronto-vddcx-supply = <&pm8916_s1_corner>;
 		qcom,pronto-vddpx-supply = <&pm8916_l7>;
 		qcom,iris-vddxo-supply   = <&pm8916_l7>;
