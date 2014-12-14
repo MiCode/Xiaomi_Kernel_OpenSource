@@ -41,7 +41,7 @@
 #include <scsi/ufs/ioctl.h>
 #include <linux/devfreq.h>
 #include <linux/nls.h>
-
+#include <linux/of.h>
 #include <linux/scsi/ufs/ufshcd.h>
 #include <linux/scsi/ufs/unipro.h>
 #include "ufshci.h"
@@ -161,6 +161,8 @@
 #define UFS_IOCTL_BLKROSET      BLKROSET
 
 #define UFSHCD_PM_QOS_UNVOTE_TIMEOUT_US	(10000) /* microseconds */
+
+#define UFSHCD_DEFAULT_LANES_PER_DIRECTION		2
 
 #define ufshcd_toggle_vreg(_dev, _vreg, _on)				\
 	({                                                              \
@@ -8186,6 +8188,20 @@ static void ufshcd_clkscaling_init_sysfs(struct ufs_hba *hba)
 		dev_err(hba->dev, "Failed to create sysfs for clkscale_enable\n");
 }
 
+static void ufshcd_init_lanes_per_dir(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	int ret;
+
+	ret = of_property_read_u32(dev->of_node, "lanes-per-direction",
+		&hba->lanes_per_direction);
+	if (ret) {
+		dev_dbg(hba->dev,
+			"%s: failed to read lanes-per-direction, ret=%d\n",
+			__func__, ret);
+		hba->lanes_per_direction = UFSHCD_DEFAULT_LANES_PER_DIRECTION;
+	}
+}
 /**
  * ufshcd_init - Driver initialization routine
  * @hba: per-adapter instance
@@ -8208,6 +8224,8 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	hba->mmio_base = mmio_base;
 	hba->irq = irq;
+
+	ufshcd_init_lanes_per_dir(hba);
 
 	err = ufshcd_hba_init(hba);
 	if (err)
