@@ -918,12 +918,21 @@ static void max17042_init_worker(struct work_struct *work)
 	struct max17042_chip *chip = container_of(work,
 				struct max17042_chip, work);
 	int ret;
+	u32 val;
 
 	/* Initialize registers according to values from the platform data */
 	if (chip->pdata->enable_por_init && chip->pdata->config_data) {
 		ret = max17042_init_chip(chip);
 		if (ret)
 			return;
+	}
+
+	/* Enable and Configure IRQs after initializing the FG */
+	if (chip->client->irq) {
+		regmap_read(chip->regmap, MAX17042_CONFIG, &val);
+		val |= CONFIG_ALRT_BIT_ENBL;
+		regmap_write(chip->regmap, MAX17042_CONFIG, val);
+		max17042_set_soc_threshold(chip, 1);
 	}
 
 	chip->init_complete = 1;
