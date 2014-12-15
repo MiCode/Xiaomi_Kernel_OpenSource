@@ -30,6 +30,17 @@ enum {
 };
 
 /**
+ * G-Link Open Options
+ *
+ * Used to define the glink_open_config::options field which is passed into
+ * glink_open().
+ */
+enum {
+	GLINK_OPT_INITIAL_XPORT = BIT(0),
+	GLINK_OPT_RX_INTENT_NOTIF = BIT(1),
+};
+
+/**
  * Open configuration.
  *
  * priv:	Private data passed into user callbacks

@@ -140,6 +140,12 @@ struct glink_core_if {
 
 	/* channel scheduling */
 	void (*tx_resume)(struct glink_transport_if *if_ptr);
+
+	/* channel migration */
+	bool (*local_ch_exists)(struct glink_transport_if *if_ptr,
+				const char *name);
+	bool (*remote_ch_exists)(struct glink_transport_if *if_ptr,
+				 const char *name);
 };
 
 int glink_core_register_transport(struct glink_transport_if *if_ptr,
