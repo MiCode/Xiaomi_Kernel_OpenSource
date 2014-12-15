@@ -21,7 +21,7 @@
 #define GLINK_MAX_PKT_SIZE SZ_1M
 
 /**
- * G-LINK Port State Notification Values
+ * G-Link Port State Notification Values
  */
 enum {
 	GLINK_CONNECTED,

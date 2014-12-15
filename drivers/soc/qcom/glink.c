@@ -65,6 +65,7 @@
  * @qos_req_active:		a vote is active with the PM QoS system
  * @tx_path_activity:		transmit activity has occurred
  * @pm_qos_work:		removes PM QoS vote due to inactivity
+ * @xprt_dbgfs_lock_lhb3:	debugfs channel structure lock
  */
 struct glink_core_xprt_ctx {
 	struct rwref_lock xprt_state_lhb0;
@@ -506,7 +507,7 @@ err:
 /**
  * xprt_lcid_to_ch_ctx() - lookup a channel by local id
  * @xprt_ctx:	Transport to search for a matching channel.
- * @lcid:	Local channel identifier corresponding to the desired cahnnel.
+ * @lcid:	Local channel identifier corresponding to the desired channel.
  *
  * Return: The channel corresponding to @lcid or NULL if a matching channel
  *	is not found.
@@ -533,7 +534,7 @@ static struct channel_ctx *xprt_lcid_to_ch_ctx(
 /**
  * xprt_rcid_to_ch_ctx() - lookup a channel by remote id
  * @xprt_ctx:	Transport to search for a matching channel.
- * @rcid:	Remote channel identifier corresponding to the desired cahnnel.
+ * @rcid:	Remote channel identifier corresponding to the desired channel.
  *
  * Return: The channel corresponding to @rcid or NULL if a matching channel
  *	is not found.
@@ -1782,14 +1783,12 @@ int glink_close(void *handle)
 
 	ctx->pending_delete = true;
 	if (ctx->transport_ptr->local_state != GLINK_XPRT_DOWN) {
-		/* send close command */
 		ret = ctx->transport_ptr->ops->tx_cmd_ch_close(
 				ctx->transport_ptr->ops,
 				ctx->lcid);
 	} else {
 		ret = 0;
 		complete(&ctx->ch_close_complete);
-
 	}
 
 	return ret;
@@ -2833,7 +2832,7 @@ static void glink_core_rx_cmd_ch_remote_close(
  * glink_core_rx_cmd_ch_close_ack() - Receive locally-request close ack
  *
  * if_ptr:	Pointer to transport instance
- * rcid:	Remote Channel ID
+ * lcid:	Local Channel ID
  */
 static void glink_core_rx_cmd_ch_close_ack(struct glink_transport_if *if_ptr,
 	uint32_t lcid)
