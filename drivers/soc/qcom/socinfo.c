@@ -506,12 +506,6 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* Terbium ID */
 	[266] = {MSM_CPU_TERBIUM, "MSMTERBIUM"},
 
-	/* Nickel ID */
-	[268] = {MSM_CPU_NICKEL, "MSMNICKEL"},
-	[269] = {MSM_CPU_NICKEL, "MSMNICKEL"},
-	[270] = {MSM_CPU_NICKEL, "MSMNICKEL"},
-	[271] = {MSM_CPU_NICKEL, "APQNICKEL"},
-
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -1029,10 +1023,6 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msmtellurium()) {
 		dummy_socinfo.id = 264;
 		strlcpy(dummy_socinfo.build_id, "msmtellurium - ",
-			sizeof(dummy_socinfo.build_id));
-	} else if (early_machine_is_msmnickel()) {
-		dummy_socinfo.id = 268;
-		strlcpy(dummy_socinfo.build_id, "msmnickel - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 
