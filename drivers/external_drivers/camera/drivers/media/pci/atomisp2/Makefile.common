@@ -260,6 +260,7 @@ INCLUDES += -I$(srctree)/$(src)/css/isp/kernels \
 	    -I$(srctree)/$(src)/css/runtime/event/interface \
 	    -I$(srctree)/$(src)/css/runtime/eventq/interface \
 	    -I$(srctree)/$(src)/css/base/refcount/interface \
+	    -I$(srctree)/$(src)/css/runtime/tagger/interface \
 	    -I$(srctree)/$(src)/css/host \
 	    -I$(srctree)/$(src)/css/runtime/queue/interface \
 	    -I$(srctree)/$(src)/css/runtime/inputfifo/interface \
