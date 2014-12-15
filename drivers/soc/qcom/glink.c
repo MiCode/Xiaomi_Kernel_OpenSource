@@ -115,6 +115,8 @@ struct glink_core_xprt_ctx {
  * @notify_rx_intent_req: Request from remote side for an intent
  * @notify_rxv:		RX notification function (for io buffer chain)
  * @notify_rx_sigs:	RX signal change notification
+ * @notify_rx_abort:	Channel close RX Intent aborted
+ * @notify_tx_abort:	Channel close TX aborted
  *
  * @transport_ptr:	Transport this channel uses
  * @lcid:		Local channel ID
