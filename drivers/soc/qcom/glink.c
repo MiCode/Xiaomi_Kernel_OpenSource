@@ -129,6 +129,7 @@ struct glink_core_xprt_ctx {
  * @tx_pending_remote_done:		Transmitted, waiting for remote done
  * @lsigs:				Local signals
  * @rsigs:				Remote signals
+ * @pending_delete:			waiting for channel to be deleted
  */
 struct channel_ctx {
 	struct rwref_lock ch_state_lhc0;
@@ -186,6 +187,7 @@ struct channel_ctx {
 
 	uint32_t lsigs;
 	uint32_t rsigs;
+	bool pending_delete;
 };
 
 static struct glink_core_if core_impl;
@@ -1223,7 +1225,7 @@ check_ctx:
 	spin_lock_irqsave(&xprt_ctx->xprt_ctx_lock_lhb1, flags);
 	list_for_each_entry_safe(entry, temp, &xprt_ctx->channels,
 		    port_list_node)
-		if (!strcmp(entry->name, name)) {
+		if (!strcmp(entry->name, name) && !entry->pending_delete) {
 			spin_unlock_irqrestore(&xprt_ctx->xprt_ctx_lock_lhb1,
 					flags);
 			kfree(ctx);
@@ -1758,6 +1760,7 @@ int glink_close(void *handle)
 		__func__, ctx->local_open_state);
 	ctx->local_open_state = GLINK_CHANNEL_CLOSING;
 
+	ctx->pending_delete = true;
 	if (ctx->transport_ptr->local_state != GLINK_XPRT_DOWN) {
 		/* send close command */
 		ret = ctx->transport_ptr->ops->tx_cmd_ch_close(
@@ -2779,6 +2782,7 @@ static void glink_core_rx_cmd_ch_remote_close(
 	if_ptr->tx_cmd_ch_remote_close_ack(if_ptr, rcid);
 
 	spin_lock_irqsave(&ctx->transport_ptr->xprt_ctx_lock_lhb1, flags);
+	ctx->pending_delete = true;
 	if (ch_is_fully_closed(ctx)) {
 		if (!list_empty(&ctx->port_list_node))
 			list_del_init(&ctx->port_list_node);
