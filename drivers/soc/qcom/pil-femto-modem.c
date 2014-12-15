@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -317,6 +317,7 @@ static int pil_femto_modem_start(struct femto_modem_data *drv)
 
 	/* MBA must load, else we can't load any firmware images */
 	SET_SYSFS_VALUE(drv, mba_status, MODEM_STATUS_MBA_LOADING);
+	drv->q6->desc.fw_name = drv->q6->desc.name;
 	ret = pil_boot(&drv->q6->desc);
 	if (ret) {
 		SET_SYSFS_VALUE(drv, mba_status, MODEM_STATUS_MBA_ERROR);
@@ -369,7 +370,7 @@ static int pil_femto_modem_start(struct femto_modem_data *drv)
 			/* Have to change the descriptor name so it boots the
 			 * correct file.
 			 */
-			image->desc.name = pmi_name;
+			image->desc.name = image->desc.fw_name = pmi_name;
 
 			/* Try to boot the image. */
 			ret = pil_boot(&image->desc);
