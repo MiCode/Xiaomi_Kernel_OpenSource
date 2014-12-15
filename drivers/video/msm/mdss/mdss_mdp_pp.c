@@ -757,15 +757,29 @@ static void pp_sharp_config(char __iomem *addr,
 
 }
 
+static void pp_vig_pipe_opmode_config(struct pp_sts_type *pp_sts, u32 *opmode)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if ((mdata->mdp_rev < MDSS_MDP_HW_REV_103) &&
+	    (pp_sts->pa_sts & PP_STS_ENABLE))
+		*opmode |= MDSS_MDP_VIG_OP_PA_EN;
+	else if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103)
+		pp_update_pa_v2_vig_opmode(pp_sts,
+				opmode);
+
+	if (pp_sts->enhist_sts & PP_STS_ENABLE)
+		/* Enable HistLUT and PA */
+		*opmode |= MDSS_MDP_VIG_OP_HIST_LUTV_EN |
+			   MDSS_MDP_VIG_OP_PA_EN;
+}
+
 static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
-	u32 opmode = 0;
 	unsigned long flags = 0;
 	char __iomem *offset;
 	struct mdss_data_type *mdata;
-	u32 current_opmode;
-	u32 csc_reset;
-	u32 dcm_state = DCM_UNINIT;
+	u32 dcm_state = DCM_UNINIT, current_opmode, csc_reset;
 
 	pr_debug("pnum=%x\n", pipe->num);
 
@@ -773,32 +787,30 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 
 	mdata = mdss_mdp_get_mdata();
 	if ((pipe->flags & MDP_OVERLAY_PP_CFG_EN) &&
-		(pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_CSC_CFG)) {
-			opmode |= !!(pipe->pp_cfg.csc_cfg.flags &
-						MDP_CSC_FLAG_ENABLE) << 17;
-			opmode |= !!(pipe->pp_cfg.csc_cfg.flags &
-						MDP_CSC_FLAG_YUV_IN) << 18;
-			opmode |= !!(pipe->pp_cfg.csc_cfg.flags &
-						MDP_CSC_FLAG_YUV_OUT) << 19;
-			/*
-			 * TODO: Allow pipe to be programmed whenever new CSC is
-			 * applied (i.e. dirty bit)
-			 */
-			mdss_mdp_csc_setup_data(MDSS_MDP_BLOCK_SSPP, pipe->num,
-					&pipe->pp_cfg.csc_cfg);
-	} else {
-		if (pipe->src_fmt->is_yuv) {
-			opmode |= (0 << 19) |	/* DST_DATA=RGB */
-				  (1 << 18) |	/* SRC_DATA=YCBCR */
-				  (1 << 17);	/* CSC_1_EN */
-			/*
-			 * TODO: Needs to be part of dirty bit logic: if there
-			 * is a previously configured pipe need to re-configure
-			 * CSC matrix
-			 */
-			mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num,
-					   MDSS_MDP_CSC_YUV2RGB);
-		}
+	    (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_CSC_CFG)) {
+		*op |= !!(pipe->pp_cfg.csc_cfg.flags &
+				MDP_CSC_FLAG_ENABLE) << 17;
+		*op |= !!(pipe->pp_cfg.csc_cfg.flags &
+				MDP_CSC_FLAG_YUV_IN) << 18;
+		*op |= !!(pipe->pp_cfg.csc_cfg.flags &
+				MDP_CSC_FLAG_YUV_OUT) << 19;
+		/*
+		 * TODO: Allow pipe to be programmed whenever new CSC is
+		 * applied (i.e. dirty bit)
+		 */
+		mdss_mdp_csc_setup_data(MDSS_MDP_BLOCK_SSPP, pipe->num,
+				&pipe->pp_cfg.csc_cfg);
+	} else if (pipe->src_fmt->is_yuv) {
+		*op |= (0 << 19) |	/* DST_DATA=RGB */
+			(1 << 18) |	/* SRC_DATA=YCBCR */
+			(1 << 17);	/* CSC_1_EN */
+		/*
+		 * TODO: Needs to be part of dirty bit logic: if there
+		 * is a previously configured pipe need to re-configure
+		 * CSC matrix
+		 */
+		mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num,
+				MDSS_MDP_CSC_YUV2RGB);
 	}
 
 	/* Update CSC state only if tuning mode is enable */
@@ -807,50 +819,44 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		csc_reset = 0xFFF0FFFF;
 		current_opmode = readl_relaxed(pipe->base +
 						MDSS_MDP_REG_VIG_OP_MODE);
-		*op |= ((current_opmode & csc_reset) | opmode);
+		*op |= (current_opmode & csc_reset);
 		return 0;
 	}
 
-	pp_hist_setup(&opmode, MDSS_PP_SSPP_CFG | pipe->num, pipe->mixer_left);
+	/* Histogram collection enabled checked inside pp_hist_setup */
+	pp_hist_setup(op, MDSS_PP_SSPP_CFG | pipe->num, pipe->mixer_left);
 
-	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
-		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_CFG) &&
-				(mdata->mdp_rev < MDSS_MDP_HW_REV_103)) {
-			flags = PP_FLAGS_DIRTY_PA;
-			pp_pa_config(flags,
+	if (!(pipe->flags & MDP_OVERLAY_PP_CFG_EN)) {
+		pr_debug("Overlay PP CFG enable not set\n");
+		return 0;
+	}
+
+	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_CFG) &&
+			(mdata->mdp_rev < MDSS_MDP_HW_REV_103)) {
+		flags = PP_FLAGS_DIRTY_PA;
+		pp_pa_config(flags,
 				pipe->base + MDSS_MDP_REG_VIG_PA_BASE,
 				&pipe->pp_res.pp_sts,
 				&pipe->pp_cfg.pa_cfg);
-
-			if (pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)
-				opmode |= MDSS_MDP_VIG_OP_PA_EN;
-		}
-		if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_V2_CFG) &&
+	}
+	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_V2_CFG) &&
 			(mdata->mdp_rev >= MDSS_MDP_HW_REV_103)) {
-			flags = PP_FLAGS_DIRTY_PA;
-			pp_pa_v2_config(flags,
+		flags = PP_FLAGS_DIRTY_PA;
+		pp_pa_v2_config(flags,
 				pipe->base + MDSS_MDP_REG_VIG_PA_BASE,
 				&pipe->pp_res.pp_sts,
 				&pipe->pp_cfg.pa_v2_cfg,
 				PP_SSPP);
-			pp_update_pa_v2_vig_opmode(&pipe->pp_res.pp_sts,
-						&opmode);
+	}
 
-			if (pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)
-				opmode |= MDSS_MDP_VIG_OP_PA_EN;
-		}
-
-		if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_LUT_CFG) {
-			pp_enhist_config(PP_FLAGS_DIRTY_ENHIST,
+	if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_LUT_CFG) {
+		pp_enhist_config(PP_FLAGS_DIRTY_ENHIST,
 				pipe->base + MDSS_MDP_REG_VIG_HIST_LUT_BASE,
 				&pipe->pp_res.pp_sts,
 				&pipe->pp_cfg.hist_lut_cfg);
-		}
 	}
 
 	if (pipe->pp_res.pp_sts.enhist_sts & PP_STS_ENABLE) {
-		/* Enable HistLUT and PA */
-		opmode |= BIT(10) | BIT(4);
 		if (!(pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)) {
 			/* Program default value */
 			offset = pipe->base + MDSS_MDP_REG_VIG_PA_BASE;
@@ -861,7 +867,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		}
 	}
 
-	*op |= opmode;
+	pp_vig_pipe_opmode_config(&pipe->pp_res.pp_sts, op);
 
 	return 0;
 }
@@ -869,6 +875,8 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 static void pp_update_pa_v2_vig_opmode(struct pp_sts_type *pp_sts,
 				u32 *opmode)
 {
+	if (pp_sts->pa_sts & PP_STS_ENABLE)
+		*opmode |= MDSS_MDP_VIG_OP_PA_EN;
 	if (pp_sts->pa_sts & PP_STS_PA_HUE_MASK)
 		*opmode |= MDSS_MDP_VIG_OP_PA_HUE_MASK;
 	if (pp_sts->pa_sts & PP_STS_PA_SAT_MASK)
@@ -887,6 +895,16 @@ static void pp_update_pa_v2_vig_opmode(struct pp_sts_type *pp_sts,
 		*opmode |= MDSS_MDP_VIG_OP_PA_MEM_COL_SKY_MASK;
 	if (pp_sts->pa_sts & PP_STS_PA_MEM_COL_FOL_MASK)
 		*opmode |= MDSS_MDP_VIG_OP_PA_MEM_COL_FOL_MASK;
+}
+
+static int pp_rgb_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
+{
+	return 0;
+}
+
+static int pp_dma_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
+{
+	return 0;
 }
 
 static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
@@ -1165,11 +1183,27 @@ int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		return -ENODEV;
 
 	ret = mdss_mdp_scale_setup(pipe);
-	if (ret)
+	if (ret) {
+		pr_err("scale setup on pipe %d type %d failed ret %d\n",
+			pipe->num, pipe->type, ret);
 		return -EINVAL;
+	}
 
-	if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG)
+	switch (pipe->type) {
+	case MDSS_MDP_PIPE_TYPE_VIG:
 		ret = pp_vig_pipe_setup(pipe, op);
+		break;
+	case MDSS_MDP_PIPE_TYPE_RGB:
+		ret = pp_rgb_pipe_setup(pipe, op);
+		break;
+	case MDSS_MDP_PIPE_TYPE_DMA:
+		ret = pp_dma_pipe_setup(pipe, op);
+		break;
+	default:
+		pr_debug("no PP setup for pipe type %d\n",
+			 pipe->type);
+		break;
+	}
 
 	return ret;
 }
