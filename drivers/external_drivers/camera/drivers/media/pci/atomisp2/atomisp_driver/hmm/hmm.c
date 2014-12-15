@@ -28,6 +28,7 @@
 #include <linux/mm.h>
 #include <linux/highmem.h>	/* for kmap */
 #include <linux/io.h>		/* for page_to_phys */
+#include <linux/sysfs.h>
 
 #include "hmm/hmm.h"
 #include "hmm/hmm_pool.h"
@@ -49,6 +50,138 @@ struct hmm_pool	reserved_pool;
 static ia_css_ptr dummy_ptr;
 struct _hmm_mem_stat hmm_mem_stat;
 
+const char *hmm_bo_type_strings[HMM_BO_LAST] = {
+	"p", /* private */
+	"s", /* shared */
+	"u", /* user */
+#ifdef CONFIG_ION
+	"i", /* ion */
+#endif
+};
+
+static ssize_t bo_show(struct device *dev, struct device_attribute *attr,
+			char *buf, struct list_head *bo_list)
+{
+	ssize_t ret = 0;
+	struct hmm_buffer_object *bo;
+	unsigned long flags;
+	int i;
+	long total[HMM_BO_LAST] = { 0 };
+	long count[HMM_BO_LAST] = { 0 };
+	int index1 = 0;
+	int index2 = 0;
+
+	ret = scnprintf(buf, PAGE_SIZE, "type pgnr\n");
+	if (ret <= 0)
+		return 0;
+
+	index1 += ret;
+
+	spin_lock_irqsave(&bo_device.list_lock, flags);
+	list_for_each_entry(bo, bo_list, list) {
+		ret = scnprintf(buf + index1, PAGE_SIZE - index1,
+				"%s %d\n",
+				hmm_bo_type_strings[bo->type], bo->pgnr);
+
+		total[bo->type] += bo->pgnr;
+		count[bo->type]++;
+		if (ret > 0)
+			index1 += ret;
+	}
+	spin_unlock_irqrestore(&bo_device.list_lock, flags);
+
+	for (i = 0; i < HMM_BO_LAST; i++) {
+		if (count[i]) {
+			ret = scnprintf(buf + index1 + index2,
+				PAGE_SIZE - index1 - index2,
+				"%ld %s buffer objects: %ld KB\n",
+				count[i], hmm_bo_type_strings[i], total[i] * 4);
+			if (ret > 0)
+				index2 += ret;
+		}
+	}
+
+	/* Add trailing zero, not included by scnprintf */
+	return index1 + index2 + 1;
+}
+
+static ssize_t active_bo_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return bo_show(dev, attr, buf, &bo_device.active_bo_list);
+}
+
+static ssize_t free_bo_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return bo_show(dev, attr, buf, &bo_device.free_bo_list);
+}
+
+static ssize_t reserved_pool_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	ssize_t ret = 0;
+
+	struct hmm_reserved_pool_info *pinfo = reserved_pool.pool_info;
+	unsigned long flags;
+
+	if (!pinfo || !pinfo->initialized)
+		return 0;
+
+	spin_lock_irqsave(&pinfo->list_lock, flags);
+	ret = scnprintf(buf, PAGE_SIZE, "%d out of %d pages available\n",
+					pinfo->index, pinfo->pgnr);
+	spin_unlock_irqrestore(&pinfo->list_lock, flags);
+
+	if (ret > 0)
+		ret++; /* Add trailing zero, not included by scnprintf */
+
+	return ret;
+};
+
+static ssize_t dynamic_pool_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	ssize_t ret = 0;
+
+	struct hmm_dynamic_pool_info *pinfo = dynamic_pool.pool_info;
+	unsigned long flags;
+
+	if (!pinfo || !pinfo->initialized)
+		return 0;
+
+	spin_lock_irqsave(&pinfo->list_lock, flags);
+	ret = scnprintf(buf, PAGE_SIZE, "%d (max %d) pages available\n",
+					pinfo->pgnr, pinfo->pool_size);
+	spin_unlock_irqrestore(&pinfo->list_lock, flags);
+
+	if (ret > 0)
+		ret++; /* Add trailing zero, not included by scnprintf */
+
+	return ret;
+};
+
+static DEVICE_ATTR(active_bo, S_IRUGO, active_bo_show, NULL);
+static DEVICE_ATTR(free_bo, S_IRUGO, free_bo_show, NULL);
+static DEVICE_ATTR(reserved_pool, S_IRUGO, reserved_pool_show, NULL);
+static DEVICE_ATTR(dynamic_pool, S_IRUGO, dynamic_pool_show, NULL);
+
+static struct attribute *sysfs_attrs_ctrl[] = {
+	&dev_attr_active_bo.attr,
+	&dev_attr_free_bo.attr,
+	&dev_attr_reserved_pool.attr,
+	&dev_attr_dynamic_pool.attr,
+	NULL
+};
+
+static struct attribute_group atomisp_attribute_group[] = {
+	{.attrs = sysfs_attrs_ctrl },
+};
+
 int hmm_init(void)
 {
 	int ret;
@@ -67,11 +200,21 @@ int hmm_init(void)
 	 */
 	dummy_ptr = hmm_alloc(1, HMM_BO_PRIVATE, 0, 0, HMM_UNCACHED);
 
+	if (!ret) {
+		ret = sysfs_create_group(&atomisp_dev->kobj,
+				atomisp_attribute_group);
+		if (ret)
+			dev_err(atomisp_dev,
+				"%s Failed to create sysfs\n", __func__);
+	}
+
 	return ret;
 }
 
 void hmm_cleanup(void)
 {
+	sysfs_remove_group(&atomisp_dev->kobj, atomisp_attribute_group);
+
 	/*
 	 * free dummy memory first
 	 */
