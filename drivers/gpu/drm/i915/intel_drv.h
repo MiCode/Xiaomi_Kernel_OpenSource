@@ -989,7 +989,9 @@ enum pipe vlv_power_sequencer_pipe(struct intel_dp *intel_dp);
 
 /* intel_dsi.c */
 bool intel_dsi_init(struct drm_device *dev);
-void intel_dsi_update_panel_fb(struct intel_encoder *encoder);
+int intel_dsi_update_panel_fb(struct intel_encoder *encoder);
+int intel_dsi_send_fb_on_crtc(struct drm_crtc *crtc);
+struct intel_encoder *intel_dsi_is_enc_on_crtc_cmd_mode(struct drm_crtc *crtc);
 
 /* intel_dvo.c */
 void intel_dvo_init(struct drm_device *dev);

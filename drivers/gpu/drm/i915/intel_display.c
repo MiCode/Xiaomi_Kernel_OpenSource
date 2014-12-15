@@ -2898,9 +2898,13 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	if (INTEL_INFO(dev)->gen >= 4) {
 		intel_crtc->reg.surf = i915_gem_obj_ggtt_offset(obj) +
 						intel_crtc->dspaddr_offset;
-		if (!dev_priv->atomic_update)
+
+		if (!dev_priv->atomic_update) {
 			I915_MODIFY_DISPBASE(DSPSURF(plane),
 				intel_crtc->reg.surf);
+			intel_dsi_send_fb_on_crtc(crtc);
+		}
+
 		if (rotate) {
 			intel_crtc->reg.tileoff =
 				(((y + fb->height - 1) << 16) |
@@ -10762,6 +10766,8 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 		I915_MODIFY_DISPBASE(DSPSURF(pipe), reg->surf);
 		POSTING_READ(DSPCNTR(pipe));
 	}
+
+	intel_dsi_send_fb_on_crtc(&intel_crtc->base);
 	reg->surf = 0;
 }
 
@@ -11109,15 +11115,26 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	ret = intel_set_disp_calc_flip(disp, dev, file_priv, intel_crtc);
 
 	/* Check if we need to a vblank, if so wait for vblank */
-	if (dev_priv->wait_vbl) {
-		if (dev_priv->vblcount ==
-			atomic_read(&dev->vblank[intel_crtc->pipe].count)) {
-			intel_wait_for_vblank(dev, intel_crtc->pipe);
+	if (intel_dsi_is_enc_on_crtc_cmd_mode(crtc)) {
+		/*
+		 * In case of cmd mode the flips are triggered by software
+		 * when mem write command is sent and hence the flips
+		 * are already atomic.
+		 *
+		 * TBD: if more than one atomic flip is requested by user space
+		 * within a blank then need to detect it and make sure it is
+		 * queued.
+		 */
+	} else {
+		if (dev_priv->wait_vbl) {
+			if (dev_priv->vblcount == atomic_read(
+					&dev->vblank[intel_crtc->pipe].count)) {
+				intel_wait_for_vblank(dev, intel_crtc->pipe);
+			}
+			dev_priv->wait_vbl = false;
 		}
-		dev_priv->wait_vbl = false;
+		intel_pipe_vblank_evade(crtc);
 	}
-
-	intel_pipe_vblank_evade(crtc);
 
 	/* Commit to registers */
 	ret = intel_set_disp_commit_regs(disp, dev, intel_crtc);

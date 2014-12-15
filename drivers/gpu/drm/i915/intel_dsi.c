@@ -63,6 +63,24 @@ struct intel_dsi *intel_attached_dsi(struct drm_connector *connector)
 			    struct intel_dsi, base);
 }
 
+struct intel_encoder *intel_dsi_is_enc_on_crtc_cmd_mode(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct intel_encoder *encoder;
+	struct intel_dsi *intel_dsi;
+
+	for_each_encoder_on_crtc(dev, crtc, encoder) {
+		if (encoder->type != INTEL_OUTPUT_DSI)
+			continue;
+
+		intel_dsi = enc_to_intel_dsi(&encoder->base);
+		if (is_cmd_mode(intel_dsi))
+			return encoder;
+	}
+
+	return NULL;
+}
+
 static void intel_dsi_hot_plug(struct intel_encoder *encoder)
 {
 	DRM_DEBUG_KMS("\n");
@@ -672,12 +690,22 @@ static void intel_dsi_get_config(struct intel_encoder *encoder,
 	pipe_config->port_clock = dev_priv->vbt.lfp_lvds_vbt_mode->clock;
 }
 
-void intel_dsi_update_panel_fb(struct intel_encoder *encoder)
+int intel_dsi_update_panel_fb(struct intel_encoder *encoder)
 {
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	unsigned char uc_data[] = {MIPI_DCS_WRITE_MEMORY_START};
 
-	dsi_send_dcs_cmd(intel_dsi, 0, uc_data, sizeof(uc_data), true);
+	return dsi_send_dcs_cmd(intel_dsi, 0, uc_data, sizeof(uc_data), true);
+}
+
+int intel_dsi_send_fb_on_crtc(struct drm_crtc *crtc)
+{
+	struct intel_encoder *encoder = intel_dsi_is_enc_on_crtc_cmd_mode(crtc);
+
+	if (encoder)
+		return intel_dsi_update_panel_fb(encoder);
+
+	return 0;
 }
 
 static enum drm_mode_status

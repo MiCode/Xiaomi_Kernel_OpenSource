@@ -71,6 +71,20 @@ static bool intel_pipe_update_start(struct intel_crtc *crtc, uint32_t *start_vbl
 	if (WARN_ON(drm_vblank_get(dev, pipe)))
 		return false;
 
+	if (intel_dsi_is_enc_on_crtc_cmd_mode(&crtc->base)) {
+		/*
+		 * In case of cmd mode the flips are triggered by software
+		 * when mem write command is sent and hence the flips
+		 * are already atomic.
+		 *
+		 * TBD: if more than one flip is requested by user space
+		 * for a frame, then need to figure it and make mem_write is
+		 * sent for the last flip.
+		 */
+		*start_vbl_count = dev->driver->get_vblank_counter(dev, pipe);
+		return false;
+	}
+
 	local_irq_disable();
 
 	trace_i915_pipe_update_start(crtc, min, max);
@@ -160,6 +174,8 @@ static void intel_update_primary_plane(struct drm_plane *dplane,
 				I915_READ(dspreg) & ~DISPLAY_PLANE_ENABLE);
 			I915_WRITE(DSPSURF(plane),
 				I915_READ(DSPSURF(plane)));
+
+			intel_dsi_send_fb_on_crtc(&intel_crtc->base);
 		}
 		dev_priv->plane_stat &=
 				~VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
@@ -686,6 +702,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		I915_WRITE(SPCNTR(pipe, plane), sprctl);
 		I915_MODIFY_DISPBASE(SPSURF(pipe, plane),
 			i915_gem_obj_ggtt_offset(obj) + sprsurf_offset);
+
+		intel_dsi_send_fb_on_crtc(crtc);
 	}
 
 	dev_priv->plane_stat |= VLV_UPDATEPLANE_STAT_SP_PER_PIPE(pipe, plane);
