@@ -57,6 +57,7 @@
  * @max_level: maximum cooling level. One less than total number of valid
  *	cpufreq frequencies.
  * @allowed_cpus: all the cpus involved for this cpufreq_cooling_device.
+ * @node: list_head to link all cpufreq_cooling_device together.
  *
  * This structure is required for keeping information of each registered
  * cpufreq_cooling_device.
