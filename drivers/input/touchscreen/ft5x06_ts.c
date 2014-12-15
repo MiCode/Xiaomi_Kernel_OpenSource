@@ -2175,7 +2175,8 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	err = input_register_device(input_dev);
 	if (err) {
 		dev_err(&client->dev, "Input device registration failed\n");
-		goto free_inputdev;
+		input_free_device(input_dev);
+		return err;
 	}
 
 	if (pdata->power_init) {
@@ -2534,9 +2535,6 @@ pwr_deinit:
 		ft5x06_power_init(data, false);
 unreg_inputdev:
 	input_unregister_device(input_dev);
-free_inputdev:
-	input_free_device(input_dev);
-	input_dev = NULL;
 	return err;
 }
 
@@ -2560,7 +2558,6 @@ static int ft5x06_ts_remove(struct i2c_client *client)
 		device_init_wakeup(&client->dev, 0);
 		sensors_classdev_unregister(&data->psensor_pdata->ps_cdev);
 		input_unregister_device(data->psensor_pdata->input_psensor_dev);
-		input_free_device(data->psensor_pdata->input_psensor_dev);
 		devm_kfree(&client->dev, data->psensor_pdata);
 		data->psensor_pdata = NULL;
 	}
