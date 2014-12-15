@@ -167,6 +167,11 @@ struct drm_i915_obj_pid_info {
 	struct list_head virt_addr_head;
 };
 
+struct get_obj_stats_buf {
+	struct pid_stat_entry *entry;
+	struct drm_i915_error_state_buf *m;
+};
+
 #define err_printf(e, ...) i915_error_printf(e, __VA_ARGS__)
 #define err_puts(e, s) i915_error_puts(e, s)
 
@@ -528,12 +533,53 @@ static void i915_obj_pidarray_validate(struct drm_gem_object *gem_obj)
 }
 
 static int
-i915_describe_obj(struct drm_i915_error_state_buf *m,
+i915_describe_obj(struct get_obj_stats_buf *obj_stat_buf,
 		struct drm_i915_gem_object *obj)
 {
 	struct i915_vma *vma;
-	struct drm_i915_obj_pid_info *pid_entry;
+	struct drm_i915_obj_pid_info *pid_info_entry;
 	struct drm_i915_obj_virt_addr *virt_entry;
+	struct drm_i915_error_state_buf *m = obj_stat_buf->m;
+	struct pid_stat_entry *pid_entry = obj_stat_buf->entry;
+	struct per_file_obj_mem_info *stats = &pid_entry->stats;
+	struct drm_hash_item *hash_item;
+	int obj_shared_count = 0;
+	bool duplicate_obj = false;
+
+	if (obj->base.name) {
+		if (drm_ht_find_item(&pid_entry->namelist,
+				(unsigned long)obj->base.name, &hash_item)) {
+			struct name_entry *entry =
+				kzalloc(sizeof(*entry), GFP_NOWAIT);
+			if (entry == NULL) {
+				DRM_ERROR("alloc failed\n");
+				return -ENOMEM;
+			}
+			entry->hash_item.key = obj->base.name;
+			drm_ht_insert_item(&pid_entry->namelist,
+					   &entry->hash_item);
+			list_add_tail(&entry->head, &pid_entry->namefree);
+			list_for_each_entry(pid_info_entry, &obj->pid_info,
+					head)
+				obj_shared_count++;
+
+			if (WARN_ON(obj_shared_count == 0))
+				return -EINVAL;
+		} else
+			duplicate_obj = true;
+	} else
+		obj_shared_count = 1;
+
+	if (!duplicate_obj && !obj->stolen &&
+			(obj->madv != __I915_MADV_PURGED) &&
+			(i915_obj_get_shmem_pages_alloced(obj) != 0)) {
+		if (obj_shared_count > 1)
+			stats->phys_space_shared_proportion +=
+				obj->base.size/obj_shared_count;
+		else
+			stats->phys_space_allocated_priv +=
+				obj->base.size;
+	}
 
 	err_printf(m,
 		"%p: %7zdK  %s    %s     %s      %s     %s      %s       %s     ",
@@ -566,12 +612,12 @@ i915_describe_obj(struct drm_i915_error_state_buf *m,
 	if (list_empty(&obj->vma_list))
 		err_puts(m, "                  ");
 
-	list_for_each_entry(pid_entry, &obj->pid_info, head) {
+	list_for_each_entry(pid_info_entry, &obj->pid_info, head) {
 		err_printf(m, " (%d: %d:",
-			   pid_entry->tgid,
-			   pid_entry->open_handle_count);
+			   pid_info_entry->tgid,
+			   pid_info_entry->open_handle_count);
 		list_for_each_entry(virt_entry,
-				    &pid_entry->virt_addr_head, head) {
+				    &pid_info_entry->virt_addr_head, head) {
 			if (virt_entry->user_virt_addr & 1)
 				err_printf(m, " %p",
 				(void *)(virt_entry->user_virt_addr & ~1));
@@ -594,7 +640,7 @@ static int
 i915_drm_gem_obj_info(int id, void *ptr, void *data)
 {
 	struct drm_i915_gem_object *obj = ptr;
-	struct drm_i915_error_state_buf *m = data;
+	struct get_obj_stats_buf *obj_stat_buf = data;
 	int ret;
 
 	if (obj->pid_info.next == NULL) {
@@ -608,7 +654,7 @@ i915_drm_gem_obj_info(int id, void *ptr, void *data)
 		return 0;
 	}
 	i915_obj_pidarray_validate(&obj->base);
-	ret = i915_describe_obj(m, obj);
+	ret = i915_describe_obj(obj_stat_buf, obj);
 
 	return ret;
 }
@@ -619,7 +665,7 @@ i915_drm_gem_object_per_file_summary(int id, void *ptr, void *data)
 	struct pid_stat_entry *pid_entry = data;
 	struct drm_i915_gem_object *obj = ptr;
 	struct per_file_obj_mem_info *stats = &pid_entry->stats;
-	struct drm_i915_obj_pid_info *entry;
+	struct drm_i915_obj_pid_info *pid_info_entry;
 	struct drm_hash_item *hash_item;
 	int obj_shared_count = 0;
 
@@ -652,15 +698,17 @@ i915_drm_gem_object_per_file_summary(int id, void *ptr, void *data)
 			drm_ht_insert_item(&pid_entry->namelist,
 					&entry->hash_item);
 			list_add_tail(&entry->head, &pid_entry->namefree);
+
+			list_for_each_entry(pid_info_entry, &obj->pid_info,
+					head)
+				obj_shared_count++;
+			if (WARN_ON(obj_shared_count == 0))
+				return -EINVAL;
 		} else {
 			DRM_DEBUG("Duplicate obj with name %d for process %s\n",
 				obj->base.name, stats->process_name);
 			return 0;
 		}
-		list_for_each_entry(entry, &obj->pid_info, head)
-			obj_shared_count++;
-		if (WARN_ON(obj_shared_count == 0))
-			return -EINVAL;
 
 		DRM_DEBUG("Obj: %p, shared count =%d\n",
 			&obj->base, obj_shared_count);
@@ -761,13 +809,18 @@ __i915_get_drm_clients_info(struct drm_i915_error_state_buf *m,
 			if (new_entry == NULL) {
 				DRM_ERROR("alloc failed\n");
 				ret = -ENOMEM;
-				goto out;
+				break;
 			}
 			new_entry->tgid = tgid;
 			new_entry->pid_num = pid_num;
+			ret = drm_ht_create(&new_entry->namelist,
+				      DRM_MAGIC_HASH_ORDER);
+			if (ret) {
+				kfree(new_entry);
+				break;
+			}
+
 			list_add_tail(&new_entry->head, &per_pid_stats);
-			drm_ht_create(&new_entry->namelist,
-				DRM_MAGIC_HASH_ORDER);
 			INIT_LIST_HEAD(&new_entry->namefree);
 			new_entry->stats.process_name = file_priv->process_name;
 			pid_entry = new_entry;
@@ -863,7 +916,6 @@ __i915_get_drm_clients_info(struct drm_i915_error_state_buf *m,
 	err_printf(m, "\nTotal used GFX Shmem Physical space %8zdK\n",
 		   dev_priv->mm.phys_mem_total/1024);
 
-out:
 	if (ret)
 		return ret;
 	if (m->bytes == 0 && m->err)
@@ -872,35 +924,89 @@ out:
 	return 0;
 }
 
+#define NUM_SPACES 100
+#define INITIAL_SPACES_STR(x) #x
+#define SPACES_STR(x) INITIAL_SPACES_STR(x)
+
 static int
 __i915_gem_get_obj_info(struct drm_i915_error_state_buf *m,
 			struct drm_device *dev, struct pid *tgid)
 {
 	struct drm_file *file;
-	int pid_num, ret = 0;
+	struct drm_i915_file_private *file_priv_reqd = NULL;
+	int bytes_copy, ret = 0;
+	struct pid_stat_entry pid_entry;
+	struct name_entry *entry, *next;
+
+	pid_entry.stats.phys_space_shared_proportion = 0;
+	pid_entry.stats.phys_space_allocated_priv = 0;
+	pid_entry.tgid = tgid;
+	pid_entry.pid_num = pid_nr(tgid);
+	ret = drm_ht_create(&pid_entry.namelist, DRM_MAGIC_HASH_ORDER);
+	if (ret)
+		return ret;
+
+	INIT_LIST_HEAD(&pid_entry.namefree);
+
+	/*
+	 * Fill up initial few bytes with spaces, to insert summary data later
+	 * on
+	 */
+	err_printf(m, "%"SPACES_STR(NUM_SPACES)"s\n", " ");
 
 	list_for_each_entry(file, &dev->filelist, lhead) {
 		struct drm_i915_file_private *file_priv = file->driver_priv;
+		struct get_obj_stats_buf obj_stat_buf;
 
-		pid_num = pid_nr(file_priv->tgid);
+		obj_stat_buf.entry = &pid_entry;
+		obj_stat_buf.m = m;
 
 		if (file_priv->tgid != tgid)
 			continue;
 
-		err_puts(m, "\n\n  PID  process\n");
-
-		err_printf(m, "%5d  %s\n",
-			   pid_num, file_priv->process_name);
-
+		file_priv_reqd = file_priv;
 		err_puts(m,
 			"\n Obj Identifier       Size Pin Tiling Dirty Shared Vmap Stolen Mappable  AllocState Global/PP  GttOffset (PID: handle count: user virt addrs)\n");
 		spin_lock(&file->table_lock);
 		ret = idr_for_each(&file->object_idr,
-				&i915_drm_gem_obj_info, m);
+				&i915_drm_gem_obj_info, &obj_stat_buf);
 		spin_unlock(&file->table_lock);
 		if (ret)
 			break;
 	}
+
+	if (file_priv_reqd) {
+		int space_remaining;
+
+		/* Reset the bytes counter to buffer beginning */
+		bytes_copy = m->bytes;
+		m->bytes = 0;
+
+		err_printf(m, "\n  PID    GfxMem   Process\n");
+		err_printf(m, "%5d %8zdK ", pid_nr(file_priv_reqd->tgid),
+			   (pid_entry.stats.phys_space_shared_proportion +
+			    pid_entry.stats.phys_space_allocated_priv)/1024);
+
+		space_remaining = NUM_SPACES - m->bytes - 1;
+		if (strlen(file_priv_reqd->process_name) > space_remaining)
+			file_priv_reqd->process_name[space_remaining] = '\0';
+
+		err_printf(m, "%s\n", file_priv_reqd->process_name);
+
+		/* Reinstate the previous saved value of bytes counter */
+		m->bytes = bytes_copy;
+	} else
+		WARN(1, "drm file corresponding to tgid:%d not found\n",
+			pid_nr(tgid));
+
+	list_for_each_entry_safe(entry, next,
+				 &pid_entry.namefree, head) {
+		list_del(&entry->head);
+		drm_ht_remove_item(&pid_entry.namelist,
+				   &entry->hash_item);
+		kfree(entry);
+	}
+	drm_ht_remove(&pid_entry.namelist);
 
 	if (ret)
 		return ret;
