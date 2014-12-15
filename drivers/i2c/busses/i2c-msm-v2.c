@@ -259,13 +259,13 @@ static u8 *i2c_msm_buf_to_ptr(struct i2c_msm_xfer_buf *buf)
  */
 static const struct i2c_msm_tag tag_lookup_table[2][2][2] = {
 	{{{QUP_TAG2_DATA_WRITE                                   , 2},
-	   {QUP_TAG2_DATA_READ_N_STOP                             , 2} },
+	   {QUP_TAG2_DATA_READ                                   , 2} },
 	/* last buffer */
 	  {{QUP_TAG2_DATA_WRITE_N_STOP                            , 2},
 	   {QUP_TAG2_DATA_READ_N_STOP                             , 2} } } ,
 	/* new addr */
 	 {{{QUP_TAG2_START | (QUP_TAG2_DATA_WRITE           << 16), 4},
-	   {QUP_TAG2_START | (QUP_TAG2_DATA_READ_N_STOP     << 16), 4} },
+	   {QUP_TAG2_START | (QUP_TAG2_DATA_READ            << 16), 4} },
 	/* last buffer + new addr */
 	  {{QUP_TAG2_START | (QUP_TAG2_DATA_WRITE_N_STOP    << 16), 4},
 	   {QUP_TAG2_START | (QUP_TAG2_DATA_READ_N_STOP     << 16), 4} } },
@@ -2630,14 +2630,8 @@ static bool i2c_msm_xfer_next_buf(struct i2c_msm_ctrl *ctrl)
 		cur_buf->len    = min_t(size_t, bc_rem, ctrl->ver.max_buf_size);
 		cur_buf->prcsed_bc += cur_buf->len;
 
-		/*
-		 * workaround! due to HW issue, a stop is issued after every
-		 * read. Once we here we know that this is not the first
-		 * buffer of the current message. And if the current message
-		 * is Rx then the previous buffers was Rx as well, we already
-		 * issued a stop, and we need to issue a start.
-		 */
-		i2c_msm_xfer_create_cur_tag(ctrl, cur_buf->is_rx);
+		/* No Start is required if it is not a first buffer in msg */
+		i2c_msm_xfer_create_cur_tag(ctrl, false);
 	} else {
 		/* first buffer in a new message */
 		if (cur_buf->is_init) {
