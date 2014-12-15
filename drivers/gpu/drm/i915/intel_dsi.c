@@ -202,9 +202,15 @@ static void intel_dsi_port_enable(struct intel_encoder *encoder)
 
 		I915_WRITE(MIPI_PORT_CTRL(0), temp);
 
-		temp = I915_READ(MIPI_PORT_CTRL(1));
-		temp = temp | port_control;
-		I915_WRITE(MIPI_PORT_CTRL(1), temp);
+		if (pipe && IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3)) {
+			intel_dsi->port_ctrl_reg_val |= port_control;
+			I915_WRITE(MIPI_PORT_CTRL(1),
+						intel_dsi->port_ctrl_reg_val);
+		} else {
+			temp = I915_READ(MIPI_PORT_CTRL(1));
+			temp = temp | port_control;
+			I915_WRITE(MIPI_PORT_CTRL(1), temp);
+		}
 
 		if ((intel_dsi->dual_link & MIPI_DUAL_LINK_FRONT_BACK) &&
 			((IS_CHERRYVIEW(dev_priv->dev) && STEP_FROM(STEP_B0)) ||
@@ -221,10 +227,17 @@ static void intel_dsi_port_enable(struct intel_encoder *encoder)
 	/* Enable the ports */
 
 	do {
-		temp = I915_READ(MIPI_PORT_CTRL(pipe));
-		temp |= is_cmd_mode(intel_dsi) ?
+		if (pipe && IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3)) {
+			intel_dsi->port_ctrl_reg_val |= is_cmd_mode(intel_dsi) ?
 					TEARING_EFFECT_GPIO : DPI_ENABLE;
-		I915_WRITE(MIPI_PORT_CTRL(pipe), temp);
+			I915_WRITE(MIPI_PORT_CTRL(pipe),
+						intel_dsi->port_ctrl_reg_val);
+		} else {
+			temp = I915_READ(MIPI_PORT_CTRL(pipe));
+			temp |= is_cmd_mode(intel_dsi) ?
+					TEARING_EFFECT_GPIO : DPI_ENABLE;
+			I915_WRITE(MIPI_PORT_CTRL(pipe), temp);
+		}
 
 		pipe = PIPE_B;
 	} while (--count > 0);
@@ -384,8 +397,14 @@ static void intel_dsi_port_disable(struct intel_encoder *encoder)
 
 	wait_for_dsi_fifo_empty(intel_dsi);
 
-	I915_WRITE(MIPI_PORT_CTRL(pipe), 0);
-	POSTING_READ(MIPI_PORT_CTRL(pipe));
+	if (pipe && IS_CHERRYVIEW(dev_priv->dev) && STEP_TO(STEP_B3)) {
+		/* cht hw issue that MIPI port C reg cannot be read */
+		I915_WRITE(MIPI_PORT_CTRL(pipe), 0);
+		intel_dsi->port_ctrl_reg_val = 0;
+	} else {
+		I915_WRITE(MIPI_PORT_CTRL(pipe), 0);
+		POSTING_READ(MIPI_PORT_CTRL(pipe));
+	}
 
 	if (intel_dsi->dual_link) {
 		I915_WRITE(MIPI_PORT_CTRL(pipe ? 0 : 1), 0);

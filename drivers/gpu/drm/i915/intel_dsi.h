@@ -506,6 +506,9 @@ struct intel_dsi {
 
 	u8 dual_link;
 	u8 pixel_overlap;
+
+	/* cht hw issue that MIPI port C reg cannot be read */
+	u32 port_ctrl_reg_val;
 };
 
 static inline struct intel_dsi *enc_to_intel_dsi(struct drm_encoder *encoder)
