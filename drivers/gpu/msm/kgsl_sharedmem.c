@@ -393,7 +393,7 @@ static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
 	/* we certainly do not expect the hostptr to still be mapped */
 	BUG_ON(memdesc->hostptr);
 
-	if (memdesc->sg)
+	if (sglen && memdesc->sg)
 		for_each_sg(memdesc->sg, sg, sglen, i)
 			__free_pages(sg_page(sg), get_order(sg->length));
 }
@@ -660,7 +660,9 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			 */
 			memdesc->sglen = sglen;
 			memdesc->size = (size - len);
-			sg_mark_end(&memdesc->sg[sglen - 1]);
+
+			if (sglen > 0)
+				sg_mark_end(&memdesc->sg[sglen - 1]);
 
 			KGSL_CORE_ERR(
 				"Out of memory: only allocated %zuKB of %zuKB requested\n",
