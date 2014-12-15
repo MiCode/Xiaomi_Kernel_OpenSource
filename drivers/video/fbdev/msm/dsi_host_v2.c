@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1444,7 +1444,8 @@ static int msm_dsi_debug_init(void)
 
 	rc = mdss_debug_register_base("dsi0",
 				dsi_host_private->dsi_base,
-				dsi_host_private->dsi_reg_size);
+				dsi_host_private->dsi_reg_size,
+				NULL);
 
 	return rc;
 }

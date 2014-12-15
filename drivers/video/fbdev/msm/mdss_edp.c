@@ -832,7 +832,7 @@ static int mdss_edp_get_base_address(struct mdss_edp_drv_pdata *edp_drv)
 		(int)edp_drv, (int)edp_drv->base, edp_drv->base_size);
 
 	mdss_debug_register_base("edp",
-			edp_drv->base, edp_drv->base_size);
+			edp_drv->base, edp_drv->base_size, NULL);
 
 	return 0;
 }

@@ -1767,7 +1767,7 @@ static int mdp3_debug_init(struct platform_device *pdev)
 				&mdp3_debug_dump_stats_fops);
 
 	rc = mdss_debug_register_base(NULL, mdp3_res->mdp_base ,
-					mdp3_res->mdp_reg_size);
+					mdp3_res->mdp_reg_size, NULL);
 
 	return rc;
 }

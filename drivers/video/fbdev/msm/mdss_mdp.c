@@ -978,9 +978,11 @@ static void mdss_debug_enable_clock(int on)
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
-static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
+static int mdss_mdp_debug_init(struct platform_device *pdev,
+	struct mdss_data_type *mdata)
 {
 	int rc;
+	struct mdss_debug_base *dbg_blk;
 
 	mdata->debug_inf.debug_enable_clock = mdss_debug_enable_clock;
 
@@ -994,8 +996,11 @@ static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
 		return rc;
 	}
 
-	mdss_debug_register_io("mdp", &mdata->mdss_io);
-	mdss_debug_register_io("vbif", &mdata->vbif_io);
+	mdss_debug_register_io("mdp", &mdata->mdss_io, &dbg_blk);
+	mdss_debug_register_dump_range(pdev, dbg_blk, "qcom,regs-dump-mdp",
+		"qcom,regs-dump-names-mdp");
+
+	mdss_debug_register_io("vbif", &mdata->vbif_io, NULL);
 
 	return 0;
 }
@@ -1499,7 +1504,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		goto probe_done;
 	}
 
-	rc = mdss_mdp_debug_init(mdata);
+	rc = mdss_mdp_debug_init(pdev, mdata);
 	if (rc) {
 		pr_err("unable to initialize mdp debugging\n");
 		goto probe_done;
