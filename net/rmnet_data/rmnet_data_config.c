@@ -1164,6 +1164,12 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 			continue;
 		}
 		if (cfg->refcount && (cfg->egress_dev == dev)) {
+			/* Make sure the device is down before clearing any of
+			 * the mappings. Otherwise we could see a potential
+			 * race condition if packets are actively being
+			 * transmitted.
+			 */
+			dev_close(vndev);
 			rmnet_unset_logical_endpoint_config(vndev,
 						  RMNET_LOCAL_LOGICAL_ENDPOINT);
 			rmnet_free_vnd_later(i);
