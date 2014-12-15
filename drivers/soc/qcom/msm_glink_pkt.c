@@ -697,23 +697,27 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 		GLINK_PKT_ERR("%s on NULL device\n", __func__);
 		return -EINVAL;
 	}
-	GLINK_PKT_INFO("Begin %s() on glink_pkt_dev id:%d\n",
-						__func__, devp->i);
+	GLINK_PKT_INFO("Begin %s() on dev id:%d by [%s]\n",
+				__func__, devp->i, current->comm);
 	file->private_data = devp;
 
 	mutex_lock(&devp->ch_lock);
-
-	devp->handle = glink_open(&devp->open_cfg);
-	if (IS_ERR_OR_NULL(devp->handle)) {
-		GLINK_PKT_ERR("%s: open failed xprt[%s] edge[%s] name[%s]\n",
+	if (!devp->handle) {
+		devp->handle = glink_open(&devp->open_cfg);
+		if (IS_ERR_OR_NULL(devp->handle)) {
+			GLINK_PKT_ERR(
+				"%s: open failed xprt[%s] edge[%s] name[%s]\n",
 				__func__, devp->open_cfg.transport,
 				devp->open_cfg.edge, devp->open_cfg.name);
-		ret = -ENODEV;
+			ret = -ENODEV;
+		}
+		wakeup_source_init(&devp->pa_ws, devp->open_cfg.name);
+		INIT_WORK(&devp->packet_arrival_work, packet_arrival_worker);
 	}
-	wakeup_source_init(&devp->pa_ws, devp->open_cfg.name);
-	INIT_WORK(&devp->packet_arrival_work, packet_arrival_worker);
+	devp->ref_cnt++;
 	mutex_unlock(&devp->ch_lock);
-	GLINK_PKT_INFO("END %s() on glink_pkt_dev id:%d\n", __func__, devp->i);
+	GLINK_PKT_INFO("END %s() on dev id:%d ref_cnt[%d]\n",
+					__func__, devp->i, devp->ref_cnt);
 	return ret;
 }
 
@@ -730,16 +734,23 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 {
 	int ret = 0;
 	struct glink_pkt_dev *devp = file->private_data;
-	GLINK_PKT_INFO("%s() on glink_pkt_dev id:%d\n", __func__, devp->i);
+	GLINK_PKT_INFO("%s() on dev id:%d by [%s] ref_cnt[%d]\n",
+			__func__, devp->i, current->comm, devp->ref_cnt);
 
 	mutex_lock(&devp->ch_lock);
-	ret = glink_close(devp->handle);
-	if (ret)
-		GLINK_PKT_ERR("%s: close failed ret[%d]\n", __func__, ret);
-	devp->handle = NULL;
-	devp->poll_mode = 0;
-	devp->ws_locked = 0;
-	wakeup_source_trash(&devp->pa_ws);
+	if (devp->ref_cnt > 0)
+		devp->ref_cnt--;
+
+	if (devp->handle && devp->ref_cnt == 0) {
+		ret = glink_close(devp->handle);
+		if (ret)
+			GLINK_PKT_ERR("%s: close failed ret[%d]\n",
+						__func__, ret);
+		devp->handle = NULL;
+		devp->poll_mode = 0;
+		devp->ws_locked = 0;
+		wakeup_source_trash(&devp->pa_ws);
+	}
 	mutex_unlock(&devp->ch_lock);
 
 	return ret;
