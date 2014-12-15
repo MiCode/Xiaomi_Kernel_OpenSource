@@ -26,6 +26,7 @@
 #include "glink_private.h"
 
 #define GLINK_SSR_REPLY_TIMEOUT	(HZ / 2)
+#define GLINK_SSR_EVENT_INIT ~0
 
 /* Global restart counter */
 static uint32_t sequence_number;
@@ -78,6 +79,7 @@ struct subsys_info {
 	struct list_head subsystem_list_node;
 	struct list_head notify_list;
 	int notify_list_len;
+	bool link_up;
 };
 
 /**
@@ -143,7 +145,7 @@ struct ssr_notify_data {
 	uint32_t seq_num;
 };
 
-static int restart_notifier_cb(struct notifier_block *this,
+static int glink_ssr_restart_notifier_cb(struct notifier_block *this,
 				  unsigned long code,
 				  void *data);
 static void print_subsystem_list(void);
@@ -176,13 +178,20 @@ static void glink_ssr_link_state_cb(struct glink_link_state_cb_info *cb_info,
 		return;
 	}
 
-	GLINK_INFO("<SSR> %s: %s:%s\n", __func__, cb_info->edge,
-			cb_info->transport);
-
 	ss_info = get_info_for_edge(cb_info->edge);
 
-	if (ss_info && cb_info->link_state == GLINK_LINK_STATE_UP)
+	if (ss_info && cb_info->link_state == GLINK_LINK_STATE_UP) {
+		GLINK_INFO("<SSR> %s: LINK UP %s:%s\n", __func__, cb_info->edge,
+				cb_info->transport);
 		configure_and_open_channel(ss_info);
+		ss_info->link_up = true;
+	} else {
+		GLINK_INFO("<SSR> %s: LINK DOWN %s:%s\n", __func__,
+				cb_info->edge,
+				cb_info->transport);
+		ss_info->link_up = false;
+		ss_info->handle = NULL;
+	}
 }
 
 /**
@@ -324,7 +333,7 @@ bool glink_ssr_notify_rx_intent_req(void *handle, const void *priv,
 }
 
 /**
- * restart_notifier_cb() - SSR restart notifier callback function
+ * glink_ssr_restart_notifier_cb() - SSR restart notifier callback function
  * @this:	Notifier block used by the SSR framework
  * @code:	The SSR code for which stage of restart is occurring
  * @data:	Structure containing private data - not used here.
@@ -334,7 +343,7 @@ bool glink_ssr_notify_rx_intent_req(void *handle, const void *priv,
  *
  * Return: Status of SSR handling
  */
-static int restart_notifier_cb(struct notifier_block *this,
+static int glink_ssr_restart_notifier_cb(struct notifier_block *this,
 				  unsigned long code,
 				  void *data)
 {
@@ -387,15 +396,23 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 	struct do_cleanup_msg *do_cleanup_data;
 	void *handle;
 	int wait_ret;
+	int ret;
 
 	if (!ss_info) {
 		GLINK_ERR("<SSR> %s: ss_info structure invalid\n", __func__);
 		return -EINVAL;
 	}
 
+	/*
+	 * No locking is needed here because ss_info->notify_list_len is
+	 * only modified during setup.
+	 */
 	atomic_set(&responses_remaining, ss_info->notify_list_len);
 	init_waitqueue_head(&waitqueue);
 	notifications_successful = true;
+
+	GLINK_DBG("<SSR> %s: responses remaining at start[%d]\n",
+			__func__, atomic_read(&responses_remaining));
 
 	list_for_each_entry(ss_leaf_entry, &ss_info->notify_list,
 			notify_list_node) {
@@ -415,6 +432,21 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 		handle = ss_info_channel->handle;
 		ss_leaf_entry->cb_data = ss_info_channel->cb_data;
 
+		if (IS_ERR_OR_NULL(ss_info_channel->handle) ||
+			ss_info_channel->cb_data->event != GLINK_CONNECTED ||
+				!ss_info_channel->link_up) {
+
+			GLINK_INFO("<SSR> %s: %s:%s %s[%d], %s[%p], %s[%d]\n",
+				__func__, ss_leaf_entry->edge, "Not connected",
+				"resp. remaining",
+				atomic_read(&responses_remaining), "handle",
+				ss_info_channel->handle, "link_up",
+				ss_info_channel->link_up);
+
+			atomic_dec(&responses_remaining);
+			continue;
+		}
+
 		do_cleanup_data = kmalloc(sizeof(struct do_cleanup_msg),
 				GFP_KERNEL);
 		if (!do_cleanup_data) {
@@ -431,16 +463,32 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 				do_cleanup_data->name_len + 1);
 		ss_leaf_entry->cb_data->version = 0;
 		ss_leaf_entry->cb_data->seq_num = sequence_number;
-		sequence_number++;
 
-		glink_queue_rx_intent(handle, (void *)ss_leaf_entry->cb_data,
+		ret = glink_queue_rx_intent(handle,
+				(void *)ss_leaf_entry->cb_data,
 				sizeof(struct cleanup_done_msg));
-		GLINK_INFO("<SSR> %s: Queued intent of size %zu\n",
-				__func__, sizeof(struct cleanup_done_msg));
+		if (ret) {
+			GLINK_ERR("<SSR> %s: queue_rx_intent failed, ret[%d]\n",
+					__func__, ret);
+			kfree(do_cleanup_data);
+			if (strcmp(ss_leaf_entry->ssr_name, "rpm"))
+				subsystem_restart(ss_leaf_entry->ssr_name);
+			continue;
+		}
 
 		glink_tx(handle, (void *)ss_leaf_entry->cb_data,
 				(void *)do_cleanup_data,
 				sizeof(struct do_cleanup_msg), true);
+		if (ret) {
+			GLINK_ERR("<SSR> %s: tx failed, ret[%d]\n",
+					__func__, ret);
+			kfree(do_cleanup_data);
+			if (strcmp(ss_leaf_entry->ssr_name, "rpm"))
+				subsystem_restart(ss_leaf_entry->ssr_name);
+			continue;
+		}
+
+		sequence_number++;
 	}
 
 	wait_ret = wait_event_timeout(waitqueue,
@@ -455,7 +503,10 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 				"failed to respond. Restarting.");
 
 			notifications_successful = false;
-			subsystem_restart(ss_leaf_entry->ssr_name);
+
+			/* Check for RPM, as it can't be restarted */
+			if (strcmp(ss_leaf_entry->ssr_name, "rpm"))
+				subsystem_restart(ss_leaf_entry->ssr_name);
 		}
 	}
 	complete(&notifications_successful_complete);
@@ -486,6 +537,7 @@ static int configure_and_open_channel(struct subsys_info *ss_info)
 		return -ENOMEM;
 	}
 	cb_data->responded = false;
+	cb_data->event = GLINK_SSR_EVENT_INIT;
 	ss_info->cb_data = cb_data;
 
 	memset(&open_cfg, 0, sizeof(struct glink_open_config));
@@ -507,6 +559,7 @@ static int configure_and_open_channel(struct subsys_info *ss_info)
 		GLINK_ERR("<SSR> %s:%s %s: unable to open channel\n",
 				 open_cfg.edge, open_cfg.name, __func__);
 		kfree(cb_data);
+		cb_data = NULL;
 		return -ENOMEM;
 	}
 	ss_info->handle = handle;
@@ -701,6 +754,9 @@ static int glink_ssr_probe(struct platform_device *pdev)
 	ss_info->link_info->transport = xprt;
 	ss_info->link_info->edge = edge;
 	ss_info->link_info->glink_link_state_notif_cb = glink_ssr_link_state_cb;
+	ss_info->link_up = false;
+	ss_info->handle = NULL;
+	ss_info->cb_data = NULL;
 
 	link_state_handle = glink_register_link_state_cb(ss_info->link_info,
 			NULL);
@@ -720,7 +776,7 @@ static int glink_ssr_probe(struct platform_device *pdev)
 	}
 
 	nb->subsystem = subsys_name;
-	nb->nb.notifier_call = restart_notifier_cb;
+	nb->nb.notifier_call = glink_ssr_restart_notifier_cb;
 
 	handle = subsys_notif_register_notifier(nb->subsystem, &nb->nb);
 	if (IS_ERR_OR_NULL(handle)) {
