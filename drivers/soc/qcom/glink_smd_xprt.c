@@ -63,7 +63,8 @@ struct edge_info {
  * @node:		For chaining this channel on list for its edge.
  * @name:		The name of this channel.
  * @lcid:		The local channel id the core uses for this channel.
- * @pdrv:		The platform driver for the smd device for this channel.
+ * @wait_for_probe:	This channel is waiting for a probe from SMD.
+ * @had_probed:		This channel probed in the past and may skip probe.
  * @edge:		Handle to the edge_info this channel is associated with.
  * @smd_ch:		Handle to the underlying smd channel.
  * @intents:		List of active intents on this channel.
@@ -81,7 +82,8 @@ struct channel {
 	struct list_head node;
 	char name[GLINK_NAME_SIZE];
 	uint32_t lcid;
-	struct platform_driver pdrv;
+	bool wait_for_probe;
+	bool had_probed;
 	struct edge_info *edge;
 	smd_channel_t *smd_ch;
 	struct list_head intents;
@@ -119,6 +121,16 @@ struct channel_work {
 	struct work_struct work;
 };
 
+/**
+ * struct pdrvs - Tracks a platform driver and its use among channels
+ * @node:	For tracking in the pdrv_list.
+ * @pdrv:	The platform driver to track.
+ */
+struct pdrvs {
+	struct list_head node;
+	struct platform_driver pdrv;
+};
+
 static uint32_t negotiate_features_v1(struct glink_transport_if *if_ptr,
 				      const struct glink_core_version *version,
 				      uint32_t features);
@@ -150,6 +162,9 @@ static struct edge_info edge_infos[NUM_EDGES] = {
 static struct glink_core_version versions[] = {
 	{1, 0x00, negotiate_features_v1},
 };
+
+static LIST_HEAD(pdrv_list);
+static DEFINE_MUTEX(pdrv_list_mutex);
 
 /**
  * ssr_work_func() - process the end of ssr
@@ -411,24 +426,139 @@ static void smd_notify(void *priv, unsigned event)
 	}
 }
 
-static int channel_probe(struct platform_device *pdev)
+static void channel_probe_body(struct channel *ch)
 {
-	struct channel *ch;
-	struct platform_driver *drv;
 	struct edge_info *einfo;
 
-	drv = container_of(pdev->dev.driver, struct platform_driver, driver);
-	ch = container_of(drv, struct channel, pdrv);
 	einfo = ch->edge;
-
 	smd_named_open_on_edge(ch->name, einfo->smd_edge, &ch->smd_ch, ch,
 								smd_notify);
 	smd_disable_read_intr(ch->smd_ch);
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_open(&einfo->xprt_if,
 								ch->lcid,
 								ch->name);
+}
+
+static int channel_probe(struct platform_device *pdev)
+{
+	struct channel *ch;
+	struct edge_info *einfo;
+	int i;
+	bool found = false;
+
+	for (i = 0; i < NUM_EDGES; ++i) {
+		if (edge_infos[i].smd_edge == pdev->id) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found)
+		return -EPROBE_DEFER;
+
+	einfo = &edge_infos[i];
+
+	found = false;
+	list_for_each_entry(ch, &einfo->channels, node) {
+		if (!strcmp(pdev->name, ch->name)) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found)
+		return -EPROBE_DEFER;
+
+	if (!ch->wait_for_probe)
+		return -EPROBE_DEFER;
+
+	ch->wait_for_probe = false;
+	ch->had_probed = true;
+
+	channel_probe_body(ch);
 
 	return 0;
+}
+
+static int dummy_probe(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static struct platform_driver dummy_driver = {
+	.probe = dummy_probe,
+	.driver = {
+		.name = "dummydriver12345",
+		.owner = THIS_MODULE,
+	},
+};
+
+static struct platform_device dummy_device = {
+	.name = "dummydriver12345",
+};
+
+/**
+ * add_platform_driver() - register the needed platform driver for a channel
+ * @ch:	The channel that needs a platform driver registered.
+ *
+ * SMD channels are unique by name/edge tuples, but the platform driver can
+ * only specify the name of the channel, so multiple unique SMD channels can
+ * be covered under one platform driver.  Therfore we need to smartly manage
+ * the muxing of channels on platform drivers.
+ *
+ * Return: Success or standard linux error code.
+ */
+static int add_platform_driver(struct channel *ch)
+{
+	struct pdrvs *pdrv;
+	bool found = false;
+	int ret = 0;
+	static bool first = true;
+
+	mutex_lock(&pdrv_list_mutex);
+	ch->wait_for_probe = true;
+	list_for_each_entry(pdrv, &pdrv_list, node) {
+		if (!strcmp(ch->name, pdrv->pdrv.driver.name)) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		pdrv = kzalloc(sizeof(*pdrv), GFP_KERNEL);
+		if (!pdrv) {
+			ret = -ENOMEM;
+			ch->wait_for_probe = false;
+			goto out;
+		}
+		pdrv->pdrv.driver.name = ch->name;
+		pdrv->pdrv.driver.owner = THIS_MODULE;
+		pdrv->pdrv.probe = channel_probe;
+		list_add_tail(&pdrv->node, &pdrv_list);
+		ret = platform_driver_register(&pdrv->pdrv);
+		if (ret) {
+			list_del(&pdrv->node);
+			kfree(pdrv);
+			ch->wait_for_probe = false;
+		}
+	} else {
+		if (ch->had_probed)
+			channel_probe_body(ch);
+		/*
+		 * channel_probe might have seen the device we want, but
+		 * returned EPROBE_DEFER so we need to kick the deferred list
+		 */
+		platform_driver_register(&dummy_driver);
+		if (first) {
+			platform_device_register(&dummy_device);
+			first = false;
+		}
+		platform_driver_unregister(&dummy_driver);
+	}
+
+out:
+	mutex_unlock(&pdrv_list_mutex);
+	return ret;
 }
 
 /**
@@ -528,9 +658,6 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 			return -ENOMEM;
 		}
 		strlcpy(ch->name, name, GLINK_NAME_SIZE);
-		ch->pdrv.driver.name = ch->name;
-		ch->pdrv.driver.owner = THIS_MODULE;
-		ch->pdrv.probe = channel_probe;
 		ch->edge = einfo;
 		INIT_LIST_HEAD(&ch->intents);
 		INIT_LIST_HEAD(&ch->used_intents);
@@ -549,7 +676,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 
 	ch->lcid = lcid;
 
-	ret = platform_driver_register(&ch->pdrv);
+	ret = add_platform_driver(ch);
 	srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 	return ret;
 }
@@ -585,7 +712,6 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 	flush_workqueue(ch->wq);
 	smd_close(ch->smd_ch);
 	ch->smd_ch = NULL;
-	platform_driver_unregister(&ch->pdrv);
 
 	mutex_lock(&ch->intents_lock);
 	while (!list_empty(&ch->intents)) {
@@ -659,7 +785,6 @@ static int ssr(struct glink_transport_if *if_ptr)
 		flush_workqueue(ch->wq);
 		smd_close(ch->smd_ch);
 		ch->smd_ch = NULL;
-		platform_driver_unregister(&ch->pdrv);
 
 		mutex_lock(&ch->intents_lock);
 		while (!list_empty(&ch->intents)) {
