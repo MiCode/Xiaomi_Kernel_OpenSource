@@ -41,8 +41,7 @@ if (ipc_router_glink_xprt_debug_mask) \
 #endif
 
 #define MIN_FRAG_SZ (IPC_ROUTER_HDR_SIZE + sizeof(union rr_control_msg))
-#define MAX_CH_NAME_LEN 20
-#define IPC_RTR_XPRT_NAME_LEN (MAX_CH_NAME_LEN + 12)
+#define IPC_RTR_XPRT_NAME_LEN (2 * GLINK_NAME_SIZE)
 #define DEFAULT_NUM_INTENTS 5
 #define DEFAULT_RX_INTENT_SIZE 2048
 /**
@@ -50,7 +49,7 @@ if (ipc_router_glink_xprt_debug_mask) \
  * @list: IPC router's GLINK XPRT list.
  * @ch_name: GLink Channel Name.
  * @edge: Edge between the local node and the remote node.
- * @glink_xprt_name: Physical Transport Name as identified by Glink.
+ * @transport: Physical Transport Name as identified by Glink.
  * @ipc_rtr_xprt_name: XPRT Name to be registered with IPC Router.
  * @xprt: IPC Router XPRT structure to contain XPRT specific info.
  * @ch_hndl: Opaque Channel handle returned by GLink.
@@ -65,9 +64,9 @@ if (ipc_router_glink_xprt_debug_mask) \
  */
 struct ipc_router_glink_xprt {
 	struct list_head list;
-	char ch_name[MAX_CH_NAME_LEN];
+	char ch_name[GLINK_NAME_SIZE];
 	char edge[GLINK_NAME_SIZE];
-	char glink_xprt_name[GLINK_NAME_SIZE];
+	char transport[GLINK_NAME_SIZE];
 	char ipc_rtr_xprt_name[IPC_RTR_XPRT_NAME_LEN];
 	struct msm_ipc_router_xprt xprt;
 	void *ch_hndl;
@@ -108,16 +107,16 @@ static void glink_xprt_close_event(struct work_struct *work);
  * ipc_router_glink_xprt_config - Config. Info. of each GLINK XPRT
  * @ch_name:		Name of the GLINK endpoint exported by GLINK driver.
  * @edge:		Edge between the local node and remote node.
- * @glink_xprt_name:	Physical Transport Name as identified by GLINK.
+ * @transport:	Physical Transport Name as identified by GLINK.
  * @ipc_rtr_xprt_name:	XPRT Name to be registered with IPC Router.
  * @link_id:		Network Cluster ID to which this XPRT belongs to.
  * @xprt_version:	IPC Router header version supported by this XPRT.
  * @disable_pil_loading:Disable PIL Loading of the subsystem.
  */
 struct ipc_router_glink_xprt_config {
-	char ch_name[MAX_CH_NAME_LEN];
+	char ch_name[GLINK_NAME_SIZE];
 	char edge[GLINK_NAME_SIZE];
-	char glink_xprt_name[GLINK_NAME_SIZE];
+	char transport[GLINK_NAME_SIZE];
 	char ipc_rtr_xprt_name[IPC_RTR_XPRT_NAME_LEN];
 	uint32_t link_id;
 	unsigned xprt_version;
@@ -132,9 +131,21 @@ static LIST_HEAD(glink_xprt_list);
 static void pil_vote_load_worker(struct work_struct *work);
 static void pil_vote_unload_worker(struct work_struct *work);
 static struct workqueue_struct *glink_xprt_wq;
-static struct delayed_work glink_xprt_open_work;
 
 static bool is_pil_loading_disabled(char *edge);
+
+static void glink_xprt_link_state_cb(struct glink_link_state_cb_info *cb_info,
+				     void *priv);
+static struct glink_link_info glink_xprt_link_info = {
+			NULL, NULL, glink_xprt_link_state_cb};
+static void *glink_xprt_link_state_notif_handle;
+
+struct xprt_state_work_info {
+	char edge[GLINK_NAME_SIZE];
+	char transport[GLINK_NAME_SIZE];
+	uint32_t link_state;
+	struct work_struct work;
+};
 
 #define OVERFLOW_ADD_UNSIGNED(type, a, b) \
 	(((type)~0 - (a)) < (b) ? true : false)
@@ -278,7 +289,7 @@ static struct rr_packet *glink_xprt_copy_data(struct read_work *rx_work)
 
 		skb = alloc_skb(buf_size, GFP_KERNEL);
 		if (!skb) {
-			IPC_RTR_ERR("%s: Couldn't alloc skb of size %d\n",
+			IPC_RTR_ERR("%s: Couldn't alloc skb of size %zu\n",
 				    __func__, buf_size);
 			release_pkt(pkt);
 			return NULL;
@@ -307,7 +318,11 @@ static void glink_xprt_read_data(struct work_struct *work)
 	}
 	mutex_unlock(&glink_xprtp->ss_reset_lock);
 
-	D("%s %d bytes @ %p\n", __func__, rx_work->iovec_size, rx_work->iovec);
+	D("%s %zu bytes @ %p\n", __func__, rx_work->iovec_size, rx_work->iovec);
+	if (rx_work->iovec_size <= DEFAULT_RX_INTENT_SIZE)
+		glink_queue_rx_intent(glink_xprtp->ch_hndl, (void *)glink_xprtp,
+				      DEFAULT_RX_INTENT_SIZE);
+
 	pkt = glink_xprt_copy_data(rx_work);
 	if (!pkt) {
 		IPC_RTR_ERR("%s: Error copying data\n", __func__);
@@ -542,7 +557,7 @@ static bool glink_xprt_notify_rx_intent_req(void *handle, const void *priv,
 	qrx_intent_work = kmalloc(sizeof(struct queue_rx_intent_work),
 				  GFP_KERNEL);
 	if (!qrx_intent_work) {
-		IPC_RTR_ERR("%s: Couldn't queue rx_intent of %d bytes\n",
+		IPC_RTR_ERR("%s: Couldn't queue rx_intent of %zu bytes\n",
 			    __func__, sz);
 		return false;
 	}
@@ -595,41 +610,102 @@ static void glink_xprt_notify_state(void *handle, const void *priv,
 	}
 }
 
-static void glink_xprt_open_worker(struct work_struct *work)
+static void glink_xprt_ch_open(struct ipc_router_glink_xprt *glink_xprtp)
 {
+	struct glink_open_config open_cfg = {0};
+
+	if (!IS_ERR_OR_NULL(glink_xprtp->ch_hndl))
+		return;
+
+	open_cfg.transport = glink_xprtp->transport;
+	open_cfg.edge = glink_xprtp->edge;
+	open_cfg.name = glink_xprtp->ch_name;
+	open_cfg.notify_rx = NULL;
+	open_cfg.notify_rxv = glink_xprt_notify_rxv;
+	open_cfg.notify_tx_done = glink_xprt_notify_tx_done;
+	open_cfg.notify_state = glink_xprt_notify_state;
+	open_cfg.notify_rx_intent_req = glink_xprt_notify_rx_intent_req;
+	open_cfg.priv = glink_xprtp;
+
+	glink_xprtp->ch_hndl =  glink_open(&open_cfg);
+	if (IS_ERR_OR_NULL(glink_xprtp->ch_hndl))
+		IPC_RTR_ERR("%s:%s:%s %s: unable to open channel\n",
+			    open_cfg.transport, open_cfg.edge,
+			    open_cfg.name, __func__);
+}
+
+/**
+ * glink_xprt_link_state_worker() - Function to handle link state updates
+ * @work: Pointer to the work item in the link_state_work_info.
+ *
+ * This worker function is scheduled when there is a link state update. Since
+ * the loopback server registers for all transports, it receives all link state
+ * updates about all transports that get registered in the system.
+ */
+static void glink_xprt_link_state_worker(struct work_struct *work)
+{
+	struct xprt_state_work_info *xs_info =
+		container_of(work, struct xprt_state_work_info, work);
 	struct ipc_router_glink_xprt *glink_xprtp;
-	bool all_ch_opened = true;
-	struct glink_open_config open_cfg;
 
-	mutex_lock(&glink_xprt_list_lock_lha1);
-	list_for_each_entry(glink_xprtp, &glink_xprt_list, list) {
-		if (!IS_ERR_OR_NULL(glink_xprtp->ch_hndl))
-			continue;
-
-		open_cfg.transport = glink_xprtp->glink_xprt_name;
-		open_cfg.edge = glink_xprtp->edge;
-		open_cfg.name = glink_xprtp->ch_name;
-		open_cfg.notify_rx = NULL;
-		open_cfg.notify_rxv = glink_xprt_notify_rxv;
-		open_cfg.notify_tx_done = glink_xprt_notify_tx_done;
-		open_cfg.notify_state = glink_xprt_notify_state;
-		open_cfg.notify_rx_intent_req = glink_xprt_notify_rx_intent_req;
-		open_cfg.priv = glink_xprtp;
-
-		glink_xprtp->ch_hndl =  glink_open(&open_cfg);
-		if (IS_ERR_OR_NULL(glink_xprtp->ch_hndl)) {
-			IPC_RTR_ERR("%s:%s:%s %s: unable to open channel\n",
-				    open_cfg.transport, open_cfg.edge,
-				    open_cfg.name, __func__);
-			all_ch_opened = false;
+	if (xs_info->link_state == GLINK_LINK_STATE_UP) {
+		D("%s: LINK_STATE_UP %s:%s\n",
+		  __func__, xs_info->edge, xs_info->transport);
+		mutex_lock(&glink_xprt_list_lock_lha1);
+		list_for_each_entry(glink_xprtp, &glink_xprt_list, list) {
+			if (strcmp(glink_xprtp->edge, xs_info->edge) ||
+			    strcmp(glink_xprtp->transport, xs_info->transport))
+				continue;
+			glink_xprt_ch_open(glink_xprtp);
 		}
+		mutex_unlock(&glink_xprt_list_lock_lha1);
+	} else if (xs_info->link_state == GLINK_LINK_STATE_DOWN) {
+		D("%s: LINK_STATE_DOWN %s:%s\n",
+		  __func__, xs_info->edge, xs_info->transport);
+		mutex_lock(&glink_xprt_list_lock_lha1);
+		list_for_each_entry(glink_xprtp, &glink_xprt_list, list) {
+			if (strcmp(glink_xprtp->edge, xs_info->edge) ||
+			    strcmp(glink_xprtp->transport, xs_info->transport)
+			    || IS_ERR_OR_NULL(glink_xprtp->ch_hndl))
+				continue;
+			glink_close(glink_xprtp->ch_hndl);
+		}
+		mutex_unlock(&glink_xprt_list_lock_lha1);
+
 	}
-	mutex_unlock(&glink_xprt_list_lock_lha1);
-	if (!all_ch_opened)
-		queue_delayed_work(glink_xprt_wq, &glink_xprt_open_work,
-				   10 * HZ);
-	else
-		D("%s: All Channels opened\n", __func__);
+	kfree(xs_info);
+	return;
+}
+
+/**
+ * glink_xprt_link_state_cb() - Callback to receive link state updates
+ * @cb_info: Information containing link & its state.
+ * @priv: Private data passed during the link state registration.
+ *
+ * This function is called by the GLINK core to notify the IPC Router
+ * regarding the link state updates. This function is registered with the
+ * GLINK core by IPC Router during glink_register_link_state_cb().
+ */
+static void glink_xprt_link_state_cb(struct glink_link_state_cb_info *cb_info,
+				      void *priv)
+{
+	struct xprt_state_work_info *xs_info;
+
+	if (!cb_info)
+		return;
+
+	D("%s: %s:%s\n", __func__, cb_info->edge, cb_info->transport);
+	xs_info = kmalloc(sizeof(*xs_info), GFP_KERNEL);
+	if (!xs_info) {
+		IPC_RTR_ERR("%s: Error allocating xprt state info\n", __func__);
+		return;
+	}
+
+	strlcpy(xs_info->edge, cb_info->edge, GLINK_NAME_SIZE);
+	strlcpy(xs_info->transport, cb_info->transport, GLINK_NAME_SIZE);
+	xs_info->link_state = cb_info->link_state;
+	INIT_WORK(&xs_info->work, glink_xprt_link_state_worker);
+	queue_work(glink_xprt_wq, &xs_info->work);
 }
 
 /**
@@ -653,7 +729,7 @@ static int ipc_router_glink_config_init(
 		IPC_RTR_ERR("%s:%s:%s:%s glink_xprtp alloc failed\n",
 			    __func__, glink_xprt_config->ch_name,
 			    glink_xprt_config->edge,
-			    glink_xprt_config->glink_xprt_name);
+			    glink_xprt_config->transport);
 		return -ENOMEM;
 	}
 
@@ -664,10 +740,10 @@ static int ipc_router_glink_config_init(
 				glink_xprt_config->disable_pil_loading;
 
 	strlcpy(glink_xprtp->ch_name, glink_xprt_config->ch_name,
-		MAX_CH_NAME_LEN);
+		GLINK_NAME_SIZE);
 	strlcpy(glink_xprtp->edge, glink_xprt_config->edge, GLINK_NAME_SIZE);
-	strlcpy(glink_xprtp->glink_xprt_name,
-		glink_xprt_config->glink_xprt_name, GLINK_NAME_SIZE);
+	strlcpy(glink_xprtp->transport,
+		glink_xprt_config->transport, GLINK_NAME_SIZE);
 	strlcpy(glink_xprtp->ipc_rtr_xprt_name,
 		glink_xprt_config->ipc_rtr_xprt_name, IPC_RTR_XPRT_NAME_LEN);
 	glink_xprtp->xprt.name = glink_xprtp->ipc_rtr_xprt_name;
@@ -687,13 +763,13 @@ static int ipc_router_glink_config_init(
 
 	scnprintf(xprt_wq_name, GLINK_NAME_SIZE, "%s_%s_%s",
 			glink_xprtp->ch_name, glink_xprtp->edge,
-			glink_xprtp->glink_xprt_name);
+			glink_xprtp->transport);
 	glink_xprtp->xprt_wq = create_singlethread_workqueue(xprt_wq_name);
 	if (IS_ERR_OR_NULL(glink_xprtp->xprt_wq)) {
 		IPC_RTR_ERR("%s:%s:%s:%s wq alloc failed\n",
 			    __func__, glink_xprt_config->ch_name,
 			    glink_xprt_config->edge,
-			    glink_xprt_config->glink_xprt_name);
+			    glink_xprt_config->transport);
 		kfree(glink_xprtp);
 		return -EFAULT;
 	}
@@ -702,7 +778,8 @@ static int ipc_router_glink_config_init(
 	list_add(&glink_xprtp->list, &glink_xprt_list);
 	mutex_unlock(&glink_xprt_list_lock_lha1);
 
-	queue_delayed_work(glink_xprt_wq, &glink_xprt_open_work, 0);
+	glink_xprt_link_state_notif_handle = glink_register_link_state_cb(
+						&glink_xprt_link_info, NULL);
 	return 0;
 }
 
@@ -723,13 +800,13 @@ static int parse_devicetree(struct device_node *node,
 	char *key;
 	const char *ch_name;
 	const char *edge;
-	const char *glink_xprt;
+	const char *transport;
 
 	key = "qcom,ch-name";
 	ch_name = of_get_property(node, key, NULL);
 	if (!ch_name)
 		goto error;
-	strlcpy(glink_xprt_config->ch_name, ch_name, MAX_CH_NAME_LEN);
+	strlcpy(glink_xprt_config->ch_name, ch_name, GLINK_NAME_SIZE);
 
 	key = "qcom,xprt-remote";
 	edge = of_get_property(node, key, NULL);
@@ -738,10 +815,10 @@ static int parse_devicetree(struct device_node *node,
 	strlcpy(glink_xprt_config->edge, edge, GLINK_NAME_SIZE);
 
 	key = "qcom,glink-xprt";
-	glink_xprt = of_get_property(node, key, NULL);
-	if (!glink_xprt)
+	transport = of_get_property(node, key, NULL);
+	if (!transport)
 		goto error;
-	strlcpy(glink_xprt_config->glink_xprt_name, glink_xprt,
+	strlcpy(glink_xprt_config->transport, transport,
 		GLINK_NAME_SIZE);
 
 	key = "qcom,xprt-linkid";
@@ -764,7 +841,7 @@ static int parse_devicetree(struct device_node *node,
 					of_property_read_bool(node, key);
 
 	scnprintf(glink_xprt_config->ipc_rtr_xprt_name, IPC_RTR_XPRT_NAME_LEN,
-		  "%s_%s", edge, glink_xprt_config->ch_name);
+		  "%s_%s", edge, ch_name);
 
 	return 0;
 
@@ -826,7 +903,6 @@ static int __init ipc_router_glink_xprt_init(void)
 {
 	int rc;
 
-	INIT_DELAYED_WORK(&glink_xprt_open_work, glink_xprt_open_worker);
 	glink_xprt_wq = create_singlethread_workqueue("glink_xprt_wq");
 	if (IS_ERR_OR_NULL(glink_xprt_wq)) {
 		pr_err("%s: create_singlethread_workqueue failed\n", __func__);
