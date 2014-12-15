@@ -1423,9 +1423,10 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 	}
 
 	if (dwc3_gadget_is_suspended(dwc)) {
-		dwc3_gadget_wakeup(&dwc->gadget);
+		if (dwc->gadget.remote_wakeup)
+			dwc3_gadget_wakeup(&dwc->gadget);
 		spin_unlock_irqrestore(&dwc->lock, flags);
-		return -EAGAIN;
+		return dwc->gadget.remote_wakeup ? -EAGAIN : -ENOTSUPP;
 	}
 
 	dev_vdbg(dwc->dev, "queing request %p to %s length %d\n",
