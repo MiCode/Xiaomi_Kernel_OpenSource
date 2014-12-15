@@ -11,8 +11,72 @@
  */
 
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/msm/msm-bus-rule-ops.h>
 
 &soc {
+        static-rules {
+                compatible = "qcom,msm-bus-static-bw-rules";
+
+                rule0 {
+                        qcom,src-nodes = <&mas_apps_proc>;
+                        qcom,src-field = <FLD_CLK>;
+                        qcom,src-op = <OP_LE>;
+                        qcom,thresh = <200000>;
+                        qcom,mode = <THROTTLE_ON>;
+                        qcom,dest-node = <&mas_apps_proc>;
+                        qcom,dest-bw = <600000>;
+                };
+
+
+                rule1 {
+                        qcom,src-nodes = <&mas_apps_proc>;
+                        qcom,src-field = <FLD_CLK>;
+                        qcom,src-op = <OP_LE>;
+                        qcom,thresh = <400000>;
+                        qcom,mode = <THROTTLE_ON>;
+                        qcom,dest-node = <&mas_apps_proc>;
+                        qcom,dest-bw = <1200000>;
+                };
+
+                rule2 {
+                        qcom,src-nodes = <&mas_apps_proc>;
+                        qcom,src-field = <FLD_CLK>;
+                        qcom,src-op = <OP_GT>;
+                        qcom,thresh = <400000>;
+                        qcom,mode = <THROTTLE_OFF>;
+                        qcom,dest-node = <&mas_apps_proc>;
+                };
+
+                rule3 {
+                        qcom,src-nodes = <&mas_oxili>;
+                        qcom,src-field = <FLD_CLK>;
+                        qcom,src-op = <OP_LE>;
+                        qcom,thresh = <200000>;
+                        qcom,mode = <THROTTLE_ON>;
+                        qcom,dest-node = <&mas_oxili>;
+                        qcom,dest-bw = <600000>;
+                };
+
+                rule4 {
+                        qcom,src-nodes = <&mas_oxili>;
+                        qcom,src-field = <FLD_CLK>;
+                        qcom,src-op = <OP_LE>;
+                        qcom,thresh = <400000>;
+                        qcom,mode = <THROTTLE_ON>;
+                        qcom,dest-node = <&mas_oxili>;
+                        qcom,dest-bw = <1200000>;
+                };
+
+                rule5 {
+                        qcom,src-nodes = <&mas_oxili>;
+                        qcom,src-field = <FLD_CLK>;
+                        qcom,src-op = <OP_GT>;
+                        qcom,thresh = <400000>;
+                        qcom,mode = <THROTTLE_OFF>;
+                        qcom,dest-node = <&mas_oxili>;
+                };
+        };
+
 	/* Version = 2 */
 	ad_hoc_bus: ad-hoc-bus {
 		compatible = "qcom,msm-bus-device";
@@ -109,6 +173,9 @@
 			qcom,prio-lvl = <0>;
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
+			qcom,ws = <10000>;
+			qcom,gp = <5000>;
+			qcom,thmp = <50>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_APPSS_PROC>;
 		};
@@ -124,6 +191,9 @@
 			qcom,prio-lvl = <0>;
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
+			qcom,ws = <10000>;
+			qcom,gp = <5000>;
+			qcom,thmp = <50>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_GFX3D>;
 		};
