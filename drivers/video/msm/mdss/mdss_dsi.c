@@ -2059,18 +2059,20 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	}
 
 	if (pinfo->pdest == DISPLAY_1) {
-		mdss_debug_register_io("dsi0_ctrl", &ctrl_pdata->ctrl_io);
-		mdss_debug_register_io("dsi0_phy", &ctrl_pdata->phy_io);
+		mdss_debug_register_io("dsi0_ctrl", &ctrl_pdata->ctrl_io, NULL);
+		mdss_debug_register_io("dsi0_phy", &ctrl_pdata->phy_io, NULL);
 		if (ctrl_pdata->shared_ctrl_data->phy_regulator_io.len)
 			mdss_debug_register_io("dsi0_phy_regulator",
-			  &ctrl_pdata->shared_ctrl_data->phy_regulator_io);
+				&ctrl_pdata->shared_ctrl_data->phy_regulator_io,
+				NULL);
 		ctrl_pdata->ndx = 0;
 	} else {
-		mdss_debug_register_io("dsi1_ctrl", &ctrl_pdata->ctrl_io);
-		mdss_debug_register_io("dsi1_phy", &ctrl_pdata->phy_io);
+		mdss_debug_register_io("dsi1_ctrl", &ctrl_pdata->ctrl_io, NULL);
+		mdss_debug_register_io("dsi1_phy", &ctrl_pdata->phy_io, NULL);
 		if (ctrl_pdata->shared_ctrl_data->phy_regulator_io.len)
 			mdss_debug_register_io("dsi1_phy_regulator",
-			  &ctrl_pdata->shared_ctrl_data->phy_regulator_io);
+			  &ctrl_pdata->shared_ctrl_data->phy_regulator_io,
+			  NULL);
 		ctrl_pdata->ndx = 1;
 	}
 

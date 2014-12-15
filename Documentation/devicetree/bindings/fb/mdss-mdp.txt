@@ -362,6 +362,22 @@ Optional properties:
 				The offsets are calculated from the "mdp_phys" base address
 				specified. The number of offsets should match the
 				number of ping pong buffers available in the hardware.
+- qcom,regs-dump-mdp:		This array represents the registers offsets that
+				will be dumped from the mdp when the debug logging
+				is enabled; each entry in the table is an start and
+				end offset from the MDP addres "mdp_phys", the
+				format of each entry is as follows:
+				<start_offset end_offset>
+				Ex:
+				<0x01000 0x01404>
+				Will dump the MDP registers
+				from the address: "mdp_phys + 0x01000"
+				to the address: "mdp_phys + 0x01404"
+- qcom,regs-dump-names-mdp:	This array represents the tag that will be used
+				for each of the entries defined within regs-dump.
+				Note that each tag matches with one of the
+				regs-dump entries in the same order as they
+				are defined.
 
 Fudge Factors:			Fudge factors are used to boost demand for
 				resources like bus bandswidth, clk rate etc. to
