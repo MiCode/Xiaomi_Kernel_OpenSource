@@ -2428,14 +2428,7 @@ static void glink_core_link_up(struct glink_transport_if *if_ptr)
 static void glink_core_link_down(struct glink_transport_if *if_ptr)
 {
 	struct glink_core_xprt_ctx *xprt_ptr = if_ptr->glink_core_priv;
-	/*
-	 * TODO - this re-init isn't necessary as it is done in
-	 * glink_core_register_transport().  This should be scaled down to only
-	 * what is necessary and *all* of the necessary initialization should
-	 * occur in glink_core_register_transport().
-	 *
-	 *  https://community.qualcomm.com/message/162820
-	 */
+
 	rwref_write_get(&xprt_ptr->xprt_state_lhb0);
 	xprt_ptr->next_lcid = 1;
 	xprt_ptr->local_state = GLINK_XPRT_DOWN;
