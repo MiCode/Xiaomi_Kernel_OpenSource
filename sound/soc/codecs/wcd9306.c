@@ -6207,6 +6207,12 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 	wcd9xxx_resmgr_post_ssr(&tapan->resmgr);
 
+	wcd9xxx_resmgr_rm_cond_update_bits(
+				&tapan->resmgr,
+				WCD9XXX_COND_HPH_MIC,
+				TAPAN_A_MICB_2_CTL, 7,
+				false);
+
 	wcd9xxx_mbhc_deinit(&tapan->mbhc);
 
 	if (TAPAN_IS_1_0(wcd9xxx->version))
