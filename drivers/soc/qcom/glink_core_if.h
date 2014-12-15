@@ -130,7 +130,7 @@ struct glink_core_if {
 	void (*rx_cmd_remote_rx_intent_put)(struct glink_transport_if *if_ptr,
 			uint32_t rcid, uint32_t riid, size_t size);
 	void (*rx_cmd_tx_done)(struct glink_transport_if *if_ptr, uint32_t rcid,
-			uint32_t riid);
+			uint32_t riid, bool reuse);
 	void (*rx_cmd_remote_rx_intent_req)(struct glink_transport_if *if_ptr,
 			uint32_t rcid, size_t size);
 	void (*rx_cmd_rx_intent_req_ack)(struct glink_transport_if *if_ptr,

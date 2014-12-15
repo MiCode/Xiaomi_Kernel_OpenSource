@@ -318,7 +318,7 @@ static void glink_xprt_read_data(struct work_struct *work)
 				   IPC_ROUTER_XPRT_EVENT_DATA, pkt);
 	release_pkt(pkt);
 out_read_data:
-	glink_rx_done(glink_xprtp->ch_hndl, rx_work->iovec);
+	glink_rx_done(glink_xprtp->ch_hndl, rx_work->iovec, false);
 	kfree(rx_work);
 }
 
@@ -508,7 +508,7 @@ static void glink_xprt_notify_rxv(void *handle, const void *priv,
 	rx_work = kmalloc(sizeof(struct read_work), GFP_KERNEL);
 	if (!rx_work) {
 		IPC_RTR_ERR("%s: couldn't allocate read_work\n", __func__);
-		glink_rx_done(glink_xprtp->ch_hndl, ptr);
+		glink_rx_done(glink_xprtp->ch_hndl, ptr, true);
 		return;
 	}
 

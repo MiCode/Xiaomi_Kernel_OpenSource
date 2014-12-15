@@ -415,7 +415,7 @@ ssize_t glink_pkt_read(struct file *file,
 	BUG_ON(ret != 0);
 
 	ret = pkt->size;
-	glink_rx_done(devp->handle, pkt->data);
+	glink_rx_done(devp->handle, pkt->data, false);
 	kfree(pkt);
 
 	mutex_lock(&devp->ch_lock);
@@ -540,7 +540,7 @@ static void glink_pkt_vm_close(struct vm_area_struct *vma)
 	GLINK_PKT_INFO("%s [vma=%08lx-%08lx]\n",
 			__func__, vma->vm_start, vma->vm_end);
 	kfree(info->backup_buf);
-	glink_rx_done(info->handle, info->buf);
+	glink_rx_done(info->handle, info->buf, false);
 	kfree(info);
 }
 

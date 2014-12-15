@@ -67,7 +67,8 @@ struct edge_info {
  * @edge:		Handle to the edge_info this channel is associated with.
  * @smd_ch:		Handle to the underlying smd channel.
  * @intents:		List of active intents on this channel.
- * @intents_lock:	Lock to protect @intents.
+ * @used_intents:	List of consumed intents on this channel.
+ * @intents_lock:	Lock to protect @intents and @used_intents.
  * @next_intent_id:	The next id to use for generated intents.
  * @wq:			Handle for running tasks.
  * @work:		Task to process received data.
@@ -84,6 +85,7 @@ struct channel {
 	struct edge_info *edge;
 	smd_channel_t *smd_ch;
 	struct list_head intents;
+	struct list_head used_intents;
 	struct mutex intents_lock;
 	uint32_t next_intent_id;
 	struct workqueue_struct *wq;
@@ -182,7 +184,8 @@ static void process_tx_done(struct work_struct *work)
 	kfree(ch_work);
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_tx_done(&einfo->xprt_if,
 								ch->lcid,
-								riid);
+								riid,
+								false);
 }
 
 /**
@@ -334,7 +337,9 @@ static void process_data_event(struct work_struct *work)
 		intent->write_offset += read_avail;
 		intent->pkt_size += read_avail;
 		if (read_avail == pkt_size && !einfo->intentless) {
-			kfree(ch->cur_intent);
+			mutex_lock(&ch->intents_lock);
+			list_add_tail(&ch->cur_intent->node, &ch->used_intents);
+			mutex_unlock(&ch->intents_lock);
 			ch->cur_intent = NULL;
 		}
 		einfo->xprt_if.glink_core_if_ptr->rx_put_pkt_ctx(
@@ -528,6 +533,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 		ch->pdrv.probe = channel_probe;
 		ch->edge = einfo;
 		INIT_LIST_HEAD(&ch->intents);
+		INIT_LIST_HEAD(&ch->used_intents);
 		mutex_init(&ch->intents_lock);
 		INIT_WORK(&ch->work, process_data_event);
 		ch->wq = create_singlethread_workqueue(ch->name);
@@ -584,6 +590,12 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 	mutex_lock(&ch->intents_lock);
 	while (!list_empty(&ch->intents)) {
 		intent = list_first_entry(&ch->intents, struct intent_info,
+									node);
+		list_del(&intent->node);
+		kfree(intent);
+	}
+	while (!list_empty(&ch->used_intents)) {
+		intent = list_first_entry(&ch->used_intents, struct intent_info,
 									node);
 		list_del(&intent->node);
 		kfree(intent);
@@ -657,6 +669,13 @@ static int ssr(struct glink_transport_if *if_ptr)
 			list_del(&intent->node);
 			kfree(intent);
 		}
+		while (!list_empty(&ch->used_intents)) {
+			intent = list_first_entry(&ch->used_intents,
+							struct intent_info,
+							node);
+			list_del(&intent->node);
+			kfree(intent);
+		}
 		mutex_unlock(&ch->intents_lock);
 		ch->is_closing = false;
 	}
@@ -667,6 +686,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 
 /**
  * allocate_rx_intent() - allocate/reserve space for RX Intent
+ * @if_ptr:	The transport the intent is associated with.
  * @size:	size of intent.
  * @intent:	Pointer to the intent structure.
  *
@@ -678,7 +698,8 @@ static int ssr(struct glink_transport_if *if_ptr)
  *
  * Return: 0 on success or standard Linux error code.
  */
-static int allocate_rx_intent(size_t size, struct glink_core_rx_intent *intent)
+static int allocate_rx_intent(struct glink_transport_if *if_ptr, size_t size,
+			      struct glink_core_rx_intent *intent)
 {
 	void *t;
 
@@ -695,11 +716,13 @@ static int allocate_rx_intent(size_t size, struct glink_core_rx_intent *intent)
 
 /**
  * deallocate_rx_intent() - Deallocate space created for RX Intent
+ * @if_ptr:	The transport the intent is associated with.
  * @intent:	Pointer to the intent structure.
  *
  * Return: 0 on success or standard Linux error code.
  */
-static int deallocate_rx_intent(struct glink_core_rx_intent *intent)
+static int deallocate_rx_intent(struct glink_transport_if *if_ptr,
+				struct glink_core_rx_intent *intent)
 {
 	if (!intent || !intent->data)
 		return -EINVAL;
@@ -769,12 +792,32 @@ static int tx_cmd_local_rx_intent(struct glink_transport_if *if_ptr,
  * @if_ptr:	The transport to transmit on.
  * @lcid:	The local channel id to encode.
  * @liid:	The local intent id to encode.
- *
- * The remote side doesn't speak G-Link, so ignore rx_done.
+ * @reuse:	Reuse the consumed intent.
  */
 static void tx_cmd_local_rx_done(struct glink_transport_if *if_ptr,
-				 uint32_t lcid, uint32_t liid)
+				 uint32_t lcid, uint32_t liid, bool reuse)
 {
+	struct edge_info *einfo;
+	struct channel *ch;
+	struct intent_info *i;
+
+	einfo = container_of(if_ptr, struct edge_info, xprt_if);
+	list_for_each_entry(ch, &einfo->channels, node) {
+		if (lcid == ch->lcid)
+			break;
+	}
+	mutex_lock(&ch->intents_lock);
+	list_for_each_entry(i, &ch->used_intents, node) {
+		if (i->liid == liid) {
+			list_del(&i->node);
+			if (reuse)
+				list_add_tail(&i->node, &ch->intents);
+			else
+				kfree(i);
+			break;
+		}
+	}
+	mutex_unlock(&ch->intents_lock);
 }
 
 /**
