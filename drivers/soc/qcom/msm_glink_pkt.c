@@ -648,6 +648,16 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 
 	GLINK_PKT_INFO("%s: ioctl command 0x%x\n", __func__, cmd);
 	switch (cmd) {
+	case TIOCMGET:
+		ret = glink_sigs_local_get(devp->handle);
+		GLINK_PKT_INFO("%s: TIOCMGET on dev_id[%d] ret[0x%x]\n",
+						__func__, devp->i, ret);
+		break;
+	case TIOCMSET:
+		GLINK_PKT_INFO("%s: TIOCMSET on dev_id[%d] arg[%lu]\n",
+						__func__, devp->i, arg);
+		ret = glink_sigs_set(devp->handle, arg);
+		break;
 	case GLINK_PKT_IOCTL_QUEUE_RX_INTENT:
 		ret = get_user(size, (size_t *)arg);
 		GLINK_PKT_INFO("%s: QUEUE_RX_INTENT size[%zu]\n",
