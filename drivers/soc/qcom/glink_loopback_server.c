@@ -812,49 +812,67 @@ void glink_lpbsrv_notify_state(void *handle, const void *priv, unsigned event)
 	LBSRV_INFO("%s:%s:%s %s: event[%d]\n",
 			tmp_ch_info->transport, tmp_ch_info->edge,
 			tmp_ch_info->name, __func__, event);
-	if (event == GLINK_CONNECTED && tmp_ch_info->type == CTL) {
-		ret = glink_queue_rx_intent(handle, priv, sizeof(struct req));
-		LBSRV_INFO("%s:%s:%s %s: QUEUE RX INTENT size[%zu] ret[%d]\n",
-			   tmp_ch_info->transport, tmp_ch_info->edge,
-			   tmp_ch_info->name, __func__, sizeof(struct req),
-			   ret);
-	}
-
-	if (event == GLINK_CONNECTED && tmp_ch_info->type == DATA) {
-		mutex_lock(&tmp_ch_info->ch_info_lock);
-		tmp_ch_info->fully_opened = true;
-		tmp_work_info = tmp_ch_info->queue_rx_intent_work_info;
-		tmp_ch_info->queue_rx_intent_work_info = NULL;
-		mutex_unlock(&tmp_ch_info->ch_info_lock);
-
-		if (tmp_work_info) {
-			delay_ms = calc_delay_ms(tmp_work_info->random_delay,
-						 tmp_work_info->delay_ms);
-			queue_delayed_work(glink_lbsrv_wq, &tmp_work_info->work,
-					   msecs_to_jiffies(delay_ms));
-		}
-	} else if (
-		(event == GLINK_LOCAL_DISCONNECTED ||
-		 event == GLINK_REMOTE_DISCONNECTED) &&
-		tmp_ch_info->type == DATA) {
-
-		mutex_lock(&tmp_ch_info->ch_info_lock);
-		tmp_ch_info->fully_opened = false;
-
-		/*
-		 * If the state has changed to LOCAL_DISCONNECTED,
-		 * the channel has been fully closed and can now be
-		 * re-opened. If the handle value is -EBUSY, an earlier
-		 * open request failed because the channel was in the process
-		 * of closing. Requeue the work from the open request.
-		 */
-		if (event == GLINK_LOCAL_DISCONNECTED &&
-		    tmp_ch_info->handle == ERR_PTR(-EBUSY))
+	if (tmp_ch_info->type == CTL) {
+		if (event == GLINK_CONNECTED) {
+			ret = glink_queue_rx_intent(handle,
+					priv, sizeof(struct req));
+			LBSRV_INFO(
+				"%s:%s:%s %s: QUEUE RX INTENT size[%zu] ret[%d]\n",
+				tmp_ch_info->transport,
+				tmp_ch_info->edge,
+				tmp_ch_info->name,
+				__func__, sizeof(struct req), ret);
+		} else if (event == GLINK_LOCAL_DISCONNECTED) {
 			queue_delayed_work(glink_lbsrv_wq,
+					&tmp_ch_info->open_work,
+					msecs_to_jiffies(0));
+		} else if (event == GLINK_REMOTE_DISCONNECTED)
+			if (!IS_ERR_OR_NULL(tmp_ch_info->handle))
+				queue_delayed_work(glink_lbsrv_wq,
+					&tmp_ch_info->close_work, 0);
+	} else if (tmp_ch_info->type == DATA) {
+
+		if (event == GLINK_CONNECTED) {
+			mutex_lock(&tmp_ch_info->ch_info_lock);
+			tmp_ch_info->fully_opened = true;
+			tmp_work_info = tmp_ch_info->queue_rx_intent_work_info;
+			tmp_ch_info->queue_rx_intent_work_info = NULL;
+			mutex_unlock(&tmp_ch_info->ch_info_lock);
+
+			if (tmp_work_info) {
+				delay_ms = calc_delay_ms(
+						tmp_work_info->random_delay,
+						tmp_work_info->delay_ms);
+				queue_delayed_work(glink_lbsrv_wq,
+						&tmp_work_info->work,
+						msecs_to_jiffies(delay_ms));
+			}
+		} else if (event == GLINK_LOCAL_DISCONNECTED ||
+			event == GLINK_REMOTE_DISCONNECTED) {
+
+			mutex_lock(&tmp_ch_info->ch_info_lock);
+			tmp_ch_info->fully_opened = false;
+			/*
+			* If the state has changed to LOCAL_DISCONNECTED,
+			* the channel has been fully closed and can now be
+			* re-opened. If the handle value is -EBUSY, an earlier
+			* open request failed because the channel was in the
+			* process of closing. Requeue the work from the open
+			* request.
+			*/
+			if (event == GLINK_LOCAL_DISCONNECTED &&
+				tmp_ch_info->handle == ERR_PTR(-EBUSY)) {
+				queue_delayed_work(glink_lbsrv_wq,
 				&tmp_ch_info->open_work,
 				msecs_to_jiffies(0));
-
-		mutex_unlock(&tmp_ch_info->ch_info_lock);
+			}
+			if (event == GLINK_REMOTE_DISCONNECTED)
+				if (!IS_ERR_OR_NULL(tmp_ch_info->handle))
+					queue_delayed_work(
+					glink_lbsrv_wq,
+					&tmp_ch_info->close_work, 0);
+			mutex_unlock(&tmp_ch_info->ch_info_lock);
+		}
 	}
 }
 
@@ -1173,31 +1191,9 @@ static void glink_lbsrv_link_state_worker(struct work_struct *work)
 		}
 		mutex_unlock(&ctl_ch_list_lock);
 	} else if (ls_info->link_state == GLINK_LINK_STATE_DOWN) {
-		LBSRV_INFO("%s: LINK_STATE_UP %s:%s\n",
+		LBSRV_INFO("%s: LINK_STATE_DOWN %s:%s\n",
 			  __func__, ls_info->edge, ls_info->transport);
-		mutex_lock(&data_ch_list_lock);
-		list_for_each_entry(tmp_ch_info, &data_ch_list, list) {
-			if (strcmp(tmp_ch_info->edge, ls_info->edge) ||
-			    strcmp(tmp_ch_info->transport,
-				    ls_info->transport) ||
-			    IS_ERR_OR_NULL(tmp_ch_info->handle))
-				continue;
-			queue_delayed_work(glink_lbsrv_wq,
-					   &tmp_ch_info->close_work, 0);
-		}
-		mutex_unlock(&data_ch_list_lock);
 
-		mutex_lock(&ctl_ch_list_lock);
-		list_for_each_entry(tmp_ch_info, &ctl_ch_list, list) {
-			if (strcmp(tmp_ch_info->edge, ls_info->edge) ||
-			    strcmp(tmp_ch_info->transport,
-				    ls_info->transport) ||
-			    IS_ERR_OR_NULL(tmp_ch_info->handle))
-				continue;
-			queue_delayed_work(glink_lbsrv_wq,
-					   &tmp_ch_info->close_work, 0);
-		}
-		mutex_unlock(&ctl_ch_list_lock);
 	}
 	kfree(ls_info);
 	return;
