@@ -727,6 +727,8 @@ static void __apply_additional_pipe_config(
 		    .enable_reduced_pipe = true;
 		stream_env->pipe_configs[pipe_id]
 		    .enable_dz = false;
+		if (ATOMISP_SOC_CAMERA(asd))
+			stream_env->pipe_configs[pipe_id].enable_dz = true;
 
 		if (asd->params.video_dis_en) {
 			stream_env->pipe_extra_configs[pipe_id]
@@ -740,7 +742,10 @@ static void __apply_additional_pipe_config(
 		break;
 	case IA_CSS_PIPE_ID_YUVPP:
 	case IA_CSS_PIPE_ID_COPY:
-		stream_env->pipe_configs[pipe_id].enable_dz = false;
+		if (ATOMISP_SOC_CAMERA(asd))
+			stream_env->pipe_configs[pipe_id].enable_dz = true;
+		else
+			stream_env->pipe_configs[pipe_id].enable_dz = false;
 		break;
 	case IA_CSS_PIPE_ID_ACC:
 		stream_env->pipe_configs[pipe_id].mode = IA_CSS_PIPE_MODE_ACC;
