@@ -85,6 +85,7 @@ struct glink_core_xprt_ctx {
 
 	struct mutex tx_ready_mutex_lhb2;
 	struct list_head tx_ready;
+	struct mutex xprt_dbgfs_lock_lhb3;
 };
 
 /**
@@ -1237,8 +1238,10 @@ check_ctx:
 	}
 	spin_unlock_irqrestore(&xprt_ctx->xprt_ctx_lock_lhb1, flags);
 	rwref_write_put(&xprt_ctx->xprt_state_lhb0);
+	mutex_lock(&xprt_ctx->xprt_dbgfs_lock_lhb3);
 	if (ctx != NULL)
 		glink_debugfs_add_channel(ctx, xprt_ctx);
+	mutex_unlock(&xprt_ctx->xprt_dbgfs_lock_lhb3);
 	return ctx;
 }
 
@@ -2253,6 +2256,7 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 	INIT_LIST_HEAD(&xprt_ptr->channels);
 	INIT_LIST_HEAD(&xprt_ptr->tx_ready);
 	mutex_init(&xprt_ptr->tx_ready_mutex_lhb2);
+	mutex_init(&xprt_ptr->xprt_dbgfs_lock_lhb3);
 	INIT_WORK(&xprt_ptr->tx_work, tx_work_func);
 	xprt_ptr->tx_wq = create_singlethread_workqueue("glink_tx");
 	if (IS_ERR_OR_NULL(xprt_ptr->tx_wq)) {
@@ -2717,6 +2721,9 @@ static void glink_core_rx_cmd_ch_remote_close(
 			list_del_init(&ctx->port_list_node);
 		spin_unlock_irqrestore(&ctx->transport_ptr->xprt_ctx_lock_lhb1,
 					flags);
+		mutex_lock(&ctx->transport_ptr->xprt_dbgfs_lock_lhb3);
+		glink_debugfs_remove_channel(ctx, ctx->transport_ptr);
+		mutex_unlock(&ctx->transport_ptr->xprt_dbgfs_lock_lhb3);
 		flush_workqueue(if_ptr->glink_core_priv->tx_wq);
 		rwref_put(&ctx->ch_state_lhc0);
 	} else {
@@ -2764,6 +2771,9 @@ static void glink_core_rx_cmd_ch_close_ack(struct glink_transport_if *if_ptr,
 			list_del_init(&ctx->port_list_node);
 		spin_unlock_irqrestore(
 				&ctx->transport_ptr->xprt_ctx_lock_lhb1, flags);
+		mutex_lock(&ctx->transport_ptr->xprt_dbgfs_lock_lhb3);
+		glink_debugfs_remove_channel(ctx, ctx->transport_ptr);
+		mutex_unlock(&ctx->transport_ptr->xprt_dbgfs_lock_lhb3);
 
 	} else {
 		spin_unlock_irqrestore(&ctx->transport_ptr->xprt_ctx_lock_lhb1,
