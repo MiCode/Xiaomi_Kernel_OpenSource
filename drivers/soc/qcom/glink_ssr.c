@@ -30,6 +30,12 @@
 /* Global restart counter */
 static uint32_t sequence_number;
 
+/* Flag indicating if responses were received for all SSR notifications */
+static bool notifications_successful;
+
+/* Completion for setting notifications_successful */
+struct completion notifications_successful_complete;
+
 /**
  * enum ssr_command - G-Link SSR protocol commands
  */
@@ -389,6 +395,7 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 
 	atomic_set(&responses_remaining, ss_info->notify_list_len);
 	init_waitqueue_head(&waitqueue);
+	notifications_successful = true;
 
 	list_for_each_entry(ss_leaf_entry, &ss_info->notify_list,
 			notify_list_node) {
@@ -446,9 +453,12 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 			GLINK_ERR("%s %s: Subsystem %s %s\n",
 				"<SSR>", __func__, ss_leaf_entry->edge,
 				"failed to respond. Restarting.");
+
+			notifications_successful = false;
 			subsystem_restart(ss_leaf_entry->ssr_name);
 		}
 	}
+	complete(&notifications_successful_complete);
 	return 0;
 }
 
@@ -585,6 +595,27 @@ static void print_subsystem_list(void)
 		}
 	}
 }
+
+/**
+ * glink_ssr_wait_cleanup_done() - Get the value of the
+ *                                 notifications_successful flag.
+ * @timeout_multiplier: timeout multiplier for waiting on all processors
+ *
+ * Return: True if cleanup_done received from all processors, false otherwise
+ */
+bool glink_ssr_wait_cleanup_done(unsigned ssr_timeout_multiplier)
+{
+	int wait_ret =
+		wait_for_completion_timeout(&notifications_successful_complete,
+			ssr_timeout_multiplier * GLINK_SSR_REPLY_TIMEOUT);
+	INIT_COMPLETION(notifications_successful_complete);
+
+	if (!notifications_successful || !wait_ret)
+		return false;
+	else
+		return true;
+}
+EXPORT_SYMBOL(glink_ssr_wait_cleanup_done);
 
 /**
  * glink_ssr_probe() - G-Link SSR platform device probe function
@@ -787,6 +818,8 @@ static int glink_ssr_init(void)
 				"glink_ssr driver registration failed", ret);
 
 	print_subsystem_list();
+	notifications_successful = false;
+	init_completion(&notifications_successful_complete);
 	return 0;
 }
 

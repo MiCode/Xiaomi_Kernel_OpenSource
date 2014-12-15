@@ -349,6 +349,16 @@ int glink_get_channel_id_for_handle(void *handle);
 char *glink_get_channel_name_for_handle(void *handle);
 
 /**
+ * glink_ssr_wait_cleanup_done() - Get the value of the
+ *                                 notifications_successful flag in glink_ssr.
+ * @timeout_multiplier: timeout multiplier for waiting on all processors
+ *
+ *
+ * Return: True if cleanup_done received from all processors, false otherwise
+ */
+bool glink_ssr_wait_cleanup_done(unsigned ssr_timeout_multiplier);
+
+/**
  * glink_debugfs_init() - initialize glink debugfs directory
  *
  * Return: error code or success.
