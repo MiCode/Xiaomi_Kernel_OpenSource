@@ -137,6 +137,10 @@ operations, which are defined by the client:
  * notify_state() - Notify the client that the channel's state has changed
  * notify_rx_intent_req() - Notify the client whether their request for a
                             receive intent was granted
+ * notify_rx_abort() - During channel close, return structures associated
+                       with receive intents to the client
+ * notify_tx_abort() - During channel close, return structures associated
+                       with TX packets to the client
 
 Buffer ownership is transferred between the local G-Link and the remote G-Link
 using message passing. A typical transmit sequence is as follows:
@@ -282,6 +286,7 @@ struct glink_transport_if {
                         uint32_t rcid);
         void (*tx_cmd_ch_remote_close_ack)(struct glink_transport_if *if_ptr,
                         uint32_t rcid);
+        int (*ssr)(struct glink_transport_if *if_ptr);
 
         /* channel data */
         int (*allocate_rx_intent)(size_t size,
@@ -808,16 +813,180 @@ receiving a Version Command.
 
 Packets
 =======
+
 Packets are scheduled in a round-robin fashion from all active channels. Large
 packets can be fragmented by the transport to ensure fairness between channels
 and ensure latency.
 
 Channel Migration
 =================
+
 The G-Link core has the capability of selecting the best transport available on
 an edge-by-edge basis. The transport is selected based upon a pre-defined
 transport priority and from optional transport selection information passed in
 by the client in the glink_open_config structure.
+
+Subsystem Restart (SSR)
+=======================
+
+In order to properly clean up channel state and recover buffer ownership
+consistently across different physical transports, G-Link requires an
+additional SSR notification system on top of the existing SSR framework. The
+notification system is a star topology with the application processor as the
+master. When a subsystem is restarted, all other subsystems are notified by the
+application processor and must respond after cleaning up all affected channels
+before the SSR event is allowed to continue.
+
+The solution has four components:
+ 1. Target-specific configuration for each subsystem, which consists of a list
+    of which subsystems should be notified in the event of SSR, specified in
+    Device Tree
+ 2. SSR module that uses the G-Link Client API to isolate SSR functionality,
+    and handles calls to the SSR Framework, Device Tree parsing, etc.
+ 3. SSR notification messages between the application processor and
+    other subsystems, which will be exchanged using G-Link.
+ 4. SSR API:
+     a. glink_ssr(const char *subsystem_name) - G-Link Client API
+     b. ssr(struct glink_transport_if *if_ptr) - Transport Interface
+
+1. Target-specific configuration using Device Tree
+--------------------------------------------------
+The target-specific configuration provides the G-Link SSR module with a list
+of subsystems that should be notified in the event of SSR. This is necessary
+to simplify handling of cases where there are multiple SoCs in one device -
+there is no need to notify a subsystem on a second SoC of a restart in the
+first SoC. The configuration also provides a mapping of the subsystem's name
+in the SSR framework to its name as a G-Link edge, and allows the specification
+of a transport for each notification. The figures below provide an example:
+
++----+      +------+        +-------------------+
+|SSR |----->|G-Link|------->|Subsystem A        |
+|Name|      |Name  |        |Subsystem B: xprt x|
++----+      +------+        |Subsystem C        |
+                            +-------------------+
+
++-------+      +------+        +--------------+
+|"modem"|----->|"mpss"|------->|"wcnss"       |
++-------+      +------+        |"lpass": "smd"|
+                               |"dsps"        |
+                               +--------------+
+
+The above configuration tells the G-Link SSR module to notify all subsystems
+on G-Link edges "wcnss", "lpass", and "dsps" that the subsystem on edge "mpss"
+has restarted, and to send the notifications to the "lpass" edge on the "smd"
+transport.
+
+2. G-Link SSR Module (glink_ssr)
+--------------------------------
+This module is a G-Link client which handles notifications from the SSR
+framework on the application processor and triggers local clean-up in response
+to these notifications by calling glink_ssr(const char *subsystem). This
+module also sends notifications to any subsystems that need to be notified of
+the SSR event, and ensures that they respond within the standard timeout (500
+ms). If the subsystem fails to respond, it is restarted.
+
+3. G-Link SSR Messages
+----------------------
+When an SSR event occurs, the application processor notifies all necessary
+subsystems by sending a "do_cleanup" message. After the subsystem performs the
+necessary clean-up, it sends back a "cleanup_done" message. If the
+"cleanup_done" message for a given subsystem is not received within the
+standard timeout (500 ms), the subsystem is restarted.
+
+SSR "do_cleanup" Message
+------------------------
++-----------------+-----------------------+------------------------------+
+| Element         | Type                  | Description                  |
++=================+=======================+==============================+
+| version         | uint32_t              | G-Link SSR Protocol Version  |
++-----------------+-----------------------+------------------------------+
+| command         | uint32_t              | do_cleanup message (0)       |
++-----------------+-----------------------+------------------------------+
+| sequence_number | uint32_t              | Sequence number              |
++-----------------+-----------------------+------------------------------+
+| name_len        | uint32_t              | Name length of the subsystem |
+|                 |                       | being restarted              |
++-----------------+-----------------------+------------------------------+
+| name            | char[GLINK_NAME_SIZE] | NULL-terminated name of the  |
+|                 |                       | subsystem being restarted    |
+|                 |                       | (GLINK_NAME_SIZE == 32)      |
++-----------------+-----------------------+------------------------------+
+
+SSR "cleanup_done" Message
+--------------------------
++-----------------+-----------------------+------------------------------+
+| Element         | Type                  | Description                  |
++=================+=======================+==============================+
+| version         | uint32_t              | G-Link SSR Protocol Version  |
++-----------------+-----------------------+------------------------------+
+| response        | uint32_t              | cleanup_done message (1)     |
++-----------------+-----------------------+------------------------------+
+| sequence_number | uint32_t              | Sequence number              |
++-----------------+-----------------------+------------------------------+
+
+G-Link SSR Protocol Sequence Diagram
+------------------------------------
+                   +------+       +------+
++---------+        |G-Link|       |G-Link|                         +----------+
+|SSR      |        |SSR   |       |Client|       +---------+       |Remote    |
+|Framework|        |Module|       |API   |       |Transport|       |Processors|
++---------+        +------+       +------+       +---------+       +----------+
+     |                |              |               |                  |
+     | SSR            |              |               |                  |
+     | Notification   |              |               |                  |
+     +--------------->|              |               |                  |
+     |                |              |               |                  |
+     |                |              |               |                  |
+     |                |              |               |                  |
+     |                | do_cleanup   |               |                  |
+     |                +------------------------------------------------>|
+     |                |              |               |                  |
+     |                | glink_ssr(subsystem)         |                  |
+     |                +------------->|               |                  |
+     |                |              |               |                  |
+     |                |              |               |                  |
+     |                |              | ssr(if_ptr)   |                  |
+     |                |              +-------------->|                  |
+     |                |              |               |                  |
+     |                |              |               |                  |
+     |                |              |               |                  |
+     |                |              |               |     cleanup_done |
+     |                |<------------------------------------------------+
+     |                |              |               |                  |
+     |                |              |               |                  |
+     |                |              |               |                  |
+     |  ssr(subsystem)|              |               |                  |
+     |<---------------+              |               |                  |
+     |                |              |               |                  |
+     |    +-----------+---------+    |               |                  |
+     |    |If no cleanup_done   |    |               |                  |
+     |    |response is received,|    |               |                  |
+     |    |restart the subsystem|    |               |                  |
+     |    +-----------+---------+    |               |                  |
+     |                |              |               |                  |
+     |                |              |               |                  |
+     |                |              |               |                  |
+     |                |              |               |                  |
+     |                |              |               |                  |
++---------+        +------+       +------+       +---------+       +----------+
+|SSR      |        |G-Link|       |G-Link|       |Transport|       |Remote    |
+|Framework|        |SSR   |       |Client|       +---------+       |Processors|
++---------+        |Module|       |API   |                         +----------+
+                   +------+       +------+
+
+4. SSR API
+----------
+glink_ssr(const char *subsystem_name)
+-------------------------------------
+Called by the G-Link SSR Module, this function calls into the transport using
+ssr(struct glink_transport_if *if_ptr) to allow the transport to perform any
+necessary clean-up, and simulates receiving a remote close from the restarting
+subsystem for all channels on the affected edge.
+
+ssr(struct glink_transport_if *if_ptr)
+--------------------------------------
+The ssr() function is part of the Transport Interface, and as mentioned above is
+used to perform any necessary clean-up on the transport.
 
 Known issues
 ============
@@ -840,11 +1009,6 @@ Round-Robin Scheduling
 Add deficit round-robin schedule to ensure fairness between channels that have
 a large number of small packets and channels that are sending the maximum
 MTU-sized packets.
-
-Subsystem Restart (SSR) Support
--------------------------------
-Support for SSR needs to be added. We will need to enchance SSR to allow
-for edges to be reset.
 
 Transport Filter Internal API
 -----------------------------
