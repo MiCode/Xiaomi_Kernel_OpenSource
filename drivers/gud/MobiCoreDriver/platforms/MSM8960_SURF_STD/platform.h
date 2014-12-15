@@ -83,7 +83,9 @@ static inline int smc_fastcall(void *fc_generic, size_t size)
 	ret = scm_call2(
 		SCM_MOBIOS_FNID(SCM_SVC_MOBICORE, SCM_CMD_MOBICORE),
 		&desc);
-	
+
+	dmac_flush_range(scm_buf, scm_buf + size);
+
 	memcpy(fc_generic, scm_buf, size);
 	kfree(scm_buf);
 	return ret;
