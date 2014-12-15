@@ -67,7 +67,12 @@ enum mdss_dbg_xlog_flag {
 	trace_mdp_trace_counter(current->tgid, name, value)
 
 #ifdef CONFIG_DEBUG_FS
+
+#define MDSS_DEBUG_BASE_MAX 10
+
 struct mdss_debug_base {
+	struct list_head head; /* head of this node */
+	struct list_head dump_list; /* head to the list with dump ranges */
 	struct mdss_debug_data *mdd;
 	char name[80];
 	void __iomem *base;
@@ -76,14 +81,25 @@ struct mdss_debug_base {
 	size_t max_offset;
 	char *buf;
 	size_t buf_len;
-	struct list_head head;
-	u32 *reg_dump;
+	u32 *reg_dump; /* address for the mem dump if no ranges used */
 };
 
 struct mdss_debug_data {
 	struct dentry *root;
 	struct dentry *perf;
 	struct list_head base_list;
+};
+
+struct dump_offset {
+	u32 start;
+	u32 end;
+};
+
+struct range_dump_node {
+	struct list_head head; /* head of this node */
+	u32 *reg_dump; /* address for the mem dump */
+	char range_name[40]; /* name of this range */
+	struct dump_offset offset; /* range to dump */
 };
 
 #define DEFINE_MDSS_DEBUGFS_SEQ_FOPS(__prefix)				\
@@ -102,7 +118,10 @@ static const struct file_operations __prefix ## _fops = {		\
 int mdss_debugfs_init(struct mdss_data_type *mdata);
 int mdss_debugfs_remove(struct mdss_data_type *mdata);
 int mdss_debug_register_base(const char *name, void __iomem *base,
-				    size_t max_offset);
+	size_t max_offset, struct mdss_debug_base **dbg_blk);
+void mdss_debug_register_dump_range(struct platform_device *pdev,
+	struct mdss_debug_base *blk_base, const char *ranges_prop,
+	const char *name_prop);
 int mdss_misr_set(struct mdss_data_type *mdata, struct mdp_misr *req,
 			struct mdss_mdp_ctl *ctl);
 int mdss_misr_get(struct mdss_data_type *mdata, struct mdp_misr *resp,
@@ -121,7 +140,10 @@ static inline int mdss_debugfs_remove(struct mdss_data_type *mdata)
 	return 0;
 }
 static inline int mdss_debug_register_base(const char *name, void __iomem *base,
-					size_t max_offset) { return 0; }
+	size_t max_offset, struct mdss_debug_base **dbg_blk) { return 0; }
+static inline void mdss_debug_register_dump_range(struct platform_device *pdev,
+	struct mdss_debug_base *blk_base, const char *ranges_prop,
+	const char *name_prop) { return 0; }
 static inline int mdss_misr_set(struct mdss_data_type *mdata,
 					struct mdp_misr *req,
 					struct mdss_mdp_ctl *ctl)
@@ -143,9 +165,10 @@ static inline int  mdss_xlog_tout_handler_iommu(struct iommu_domain *domain,
 #endif
 
 static inline int mdss_debug_register_io(const char *name,
-		struct dss_io_data *io_data)
+		struct dss_io_data *io_data, struct mdss_debug_base **dbg_blk)
 {
-	return mdss_debug_register_base(name, io_data->base, io_data->len);
+	return mdss_debug_register_base(name, io_data->base, io_data->len,
+		dbg_blk);
 }
 
 #endif /* MDSS_DEBUG_H */
