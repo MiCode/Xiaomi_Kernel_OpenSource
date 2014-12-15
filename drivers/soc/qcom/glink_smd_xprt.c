@@ -1020,7 +1020,6 @@ static uint32_t negotiate_features_v1(struct glink_transport_if *if_ptr,
 */
 static void init_xprt_if(struct edge_info *einfo)
 {
-	einfo->xprt_if.ssr = ssr;
 	einfo->xprt_if.tx_cmd_version = tx_cmd_version;
 	einfo->xprt_if.tx_cmd_version_ack = tx_cmd_version_ack;
 	einfo->xprt_if.set_version = set_version;
@@ -1028,6 +1027,7 @@ static void init_xprt_if(struct edge_info *einfo)
 	einfo->xprt_if.tx_cmd_ch_close = tx_cmd_ch_close;
 	einfo->xprt_if.tx_cmd_ch_remote_open_ack = tx_cmd_ch_remote_open_ack;
 	einfo->xprt_if.tx_cmd_ch_remote_close_ack = tx_cmd_ch_remote_close_ack;
+	einfo->xprt_if.ssr = ssr;
 	einfo->xprt_if.allocate_rx_intent = allocate_rx_intent;
 	einfo->xprt_if.deallocate_rx_intent = deallocate_rx_intent;
 	einfo->xprt_if.tx_cmd_local_rx_intent = tx_cmd_local_rx_intent;
