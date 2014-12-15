@@ -752,8 +752,6 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 
 	mdp3_ctrl_clk_enable(mfd, 1);
 
-	mdp3_histogram_stop(mdp3_session, MDP_BLOCK_DMA_P);
-
 	if (mdp3_session->in_splash_screen) {
 		rc = mdp3_session->dma->stop(mdp3_session->dma,
 						mdp3_session->intf);
