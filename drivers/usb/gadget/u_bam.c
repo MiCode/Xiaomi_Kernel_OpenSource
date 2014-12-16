@@ -105,9 +105,9 @@ module_param(bam_mux_rx_req_size, ulong, S_IRUGO);
 static unsigned int dl_intr_threshold = DL_INTR_THRESHOLD;
 module_param(dl_intr_threshold, uint, S_IRUGO | S_IWUSR);
 
-#define BAM_CH_OPENED			BIT(0)
-#define BAM_CH_READY			BIT(1)
-#define BAM_CH_WRITE_INPROGRESS		BIT(2)
+#define BAM_CH_OPENED			0
+#define BAM_CH_READY			1
+#define BAM_CH_WRITE_INPROGRESS		2
 
 enum u_bam_event_type {
 	U_BAM_DISCONNECT_E = 0,
