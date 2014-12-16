@@ -196,6 +196,7 @@ Optional properties:
 -qcom,cmb-elem-size: specifies the CMB element size supported by each monitor
 		     connected to the aggregator on each port. Should be specified
 		     in pairs (port, cmb element size).
+-qcom,inst-id : QMI instance id for remote ETMs.
 Examples:
 
 1. Sinks
