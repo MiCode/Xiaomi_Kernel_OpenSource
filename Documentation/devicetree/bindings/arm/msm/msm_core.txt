@@ -7,6 +7,7 @@ scheduling decision.
 The required nodes for the Energy-aware driver are:
 
 - compatible:    "qcom,apss-core-ea"
+- reg:           Physical address mapped to this device
 
 Required properties:
 - qcom,core-mapping: Parent node that lists characteristics of
@@ -44,8 +45,9 @@ Optional properties to define per core characteristics:
 
 Example
 
-qcom,msm-core {
+qcom,msm-core@0xfc4b0000 {
 	compatible = "qcom,apss-core-ea";
+	reg = <0xfc4b0000 0x1000>;
 	qcom,low-hyst-temp = <10>;
 	qcom,high-hyst-temp = <5>;
 	qcom,polling-interval = <50>;

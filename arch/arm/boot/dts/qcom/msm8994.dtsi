@@ -3200,8 +3200,9 @@
 		linux,contiguous-region = <&adsp_mem>;
 	};
 
-	qcom,msm-core {
+	qcom,msm-core@fc4b8000 {
 		compatible = "qcom,apss-core-ea";
+		reg = <0xfc4b8000 0x1000>;
 		qcom,low-hyst-temp = <10>;
 		qcom,high-hyst-temp = <5>;
 		qcom,polling-interval = <50>;
