@@ -42,9 +42,10 @@
 		label = "MDSS DSI CTRL->0";
 		cell-index = <0>;
 		reg = <0x1ac8000 0x25c>,
-		      <0x1ac8500 0x2b0>,
+		      <0x1ac8500 0x280>,
+		      <0x1ac8780 0x30>,
 		      <0x193e000 0x30>;
-		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
+		reg-names = "dsi_ctrl", "dsi_phy", "dsi_phy_regulator", "mmss_misc_phys";
 		qcom,dsi-irq-line;
 		interrupts = <0 80 0>;
 
