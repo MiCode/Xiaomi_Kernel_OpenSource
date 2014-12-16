@@ -278,18 +278,17 @@ static __ref int do_sampling(void *data)
 
 		for_each_online_cpu(cpu) {
 			cpu_node = &activity[cpu];
-			if (prev_temp[cpu] == cpu_node->temp)
-				goto unlock;
-
-			prev_temp[cpu] = cpu_node->temp;
-			cpu_node->low_threshold.temp = cpu_node->temp
+			if (prev_temp[cpu] != cpu_node->temp) {
+				prev_temp[cpu] = cpu_node->temp;
+				cpu_node->low_threshold.temp = cpu_node->temp
 							- low_hyst_temp;
-			cpu_node->hi_threshold.temp = cpu_node->temp
+				cpu_node->hi_threshold.temp = cpu_node->temp
 							+ high_hyst_temp;
-			set_threshold(cpu_node);
-			trace_temp_threshold(cpu, cpu_node->temp,
-				cpu_node->hi_threshold.temp,
-				cpu_node->low_threshold.temp);
+				set_threshold(cpu_node);
+				trace_temp_threshold(cpu, cpu_node->temp,
+					cpu_node->hi_threshold.temp,
+					cpu_node->low_threshold.temp);
+			}
 		}
 		if (!poll_ms)
 			goto unlock;
