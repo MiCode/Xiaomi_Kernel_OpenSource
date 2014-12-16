@@ -283,9 +283,11 @@ int msm_spm_turn_on_cpu_rail(struct device_node *vctl_node,
 	if (base) {
 		/*
 		 * Program Q2S to disable SPM legacy mode and ignore Q2S
-		 * channel requests
+		 * channel requests.
+		 * bit[1] = qchannel_ignore = 1
+		 * bit[2] = spm_legacy_mode = 0
 		 */
-		writel_relaxed(0x1, base);
+		writel_relaxed(0x2, base);
 		mb();
 		iounmap(base);
 	}
