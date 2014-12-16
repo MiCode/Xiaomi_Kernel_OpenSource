@@ -3027,6 +3027,18 @@ static int kgsl_setup_dma_buf(struct kgsl_mem_entry *entry,
 	entry->memdesc.sglen = 0;
 
 	for (s = entry->memdesc.sg; s != NULL; s = sg_next(s)) {
+		int priv = (entry->memdesc.priv & KGSL_MEMDESC_SECURE) ? 1 : 0;
+
+		/*
+		 * Check that each chunk of of the sg table matches the secure
+		 * flag.
+		 */
+
+		if (PagePrivate(sg_page(s)) != priv) {
+			ret = -EPERM;
+			goto out;
+		}
+
 		entry->memdesc.size += s->length;
 		entry->memdesc.sglen++;
 	}

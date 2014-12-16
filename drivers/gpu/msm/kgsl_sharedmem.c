@@ -924,7 +924,7 @@ int kgsl_cma_alloc_coherent(struct kgsl_device *device,
 		goto err;
 	}
 
-	result = memdesc_sg_phys(memdesc, memdesc->physaddr, size);
+	result = memdesc_sg_dma(memdesc, memdesc->physaddr, size);
 	if (result)
 		goto err;
 
@@ -1020,7 +1020,7 @@ int kgsl_cma_alloc_secure(struct kgsl_device *device,
 		goto err;
 	}
 
-	result = memdesc_sg_phys(memdesc, memdesc->physaddr, size);
+	result = memdesc_sg_dma(memdesc, memdesc->physaddr, size);
 	if (result)
 		goto err;
 
@@ -1028,6 +1028,9 @@ int kgsl_cma_alloc_secure(struct kgsl_device *device,
 
 	if (result != 0)
 		goto err;
+
+	/* Set the private bit to indicate that we've secured this */
+	SetPagePrivate(sg_page(memdesc->sg));
 
 	memdesc->priv |= KGSL_MEMDESC_TZ_LOCKED;
 
@@ -1051,5 +1054,6 @@ static void kgsl_cma_unlock_secure(struct kgsl_memdesc *memdesc)
 	if (memdesc->size == 0 || !(memdesc->priv & KGSL_MEMDESC_TZ_LOCKED))
 		return;
 
-	scm_lock_chunk(memdesc, 0);
+	if (!scm_lock_chunk(memdesc, 0))
+		ClearPagePrivate(sg_page(memdesc->sg));
 }

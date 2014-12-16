@@ -155,6 +155,36 @@ memdesc_sg_phys(struct kgsl_memdesc *memdesc,
 	return 0;
 }
 
+/**
+ * memdesg_sg_dma() - Turn a dma_addr (from CMA) into a sg table
+ * @memdesc: Pointer to the memdesc structure
+ * @addr: Physical address from the dma_alloc function
+ * @size: Size of the chunk
+ *
+ * Create a sg table for the contigious chunk specified by addr and size.
+ */
+static inline int
+memdesc_sg_dma(struct kgsl_memdesc *memdesc,
+		phys_addr_t addr, size_t size)
+{
+	struct page *page = phys_to_page(addr);
+
+	memdesc->sg = kgsl_malloc(sizeof(struct scatterlist));
+	if (memdesc->sg == NULL)
+		return -ENOMEM;
+
+	sg_set_page(memdesc->sg, page, size, 0);
+
+	/*
+	 * Continuing a grand tradition of doing it wrong this should be the
+	 * dma_addr_t and not the phys_addr_t. But everything downstream of us
+	 * assume this is a phys_addr_t so we do this.
+	 */
+
+	sg_dma_address(memdesc->sg) = addr;
+	return 0;
+}
+
 /*
  * kgsl_memdesc_is_global - is this a globally mapped buffer?
  * @memdesc: the memdesc
