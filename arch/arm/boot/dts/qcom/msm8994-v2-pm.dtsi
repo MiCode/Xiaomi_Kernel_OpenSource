@@ -479,10 +479,15 @@
 			<52 212>, /* lfps_rxterm_irq for pwr_event_irq */
 			<55 172>, /* usb1_hs_async_wakeup_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
+			<0xff 20>,  /* arch_timer */
+			<0xff 23>,  /* ARM64 Single-Bit Error PMU IRQ */
 			<0xff 33>,  /* APCC_qgicL2PerfMonIrptReq */
 			<0xff 34>,  /* APCC_qgicL2ErrorIrptReq */
 			<0xff 35>,  /* WDT_barkInt */
 			<0xff 40>,  /* qtimer_phy_irq */
+			<0xff 48>,  /* cpr */
+			<0xff 51>,  /* cpr */
+			<0xff 54>,  /* CCI error IRQ */
 			<0xff 56>,  /* modem_watchdog */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
 			<0xff 58>,  /* mss_to_apps_irq(1) */
@@ -504,6 +509,7 @@
 			<0xff 126>,  /* bam_irq[0] */
 			<0xff 155>,  /* sdcc_irq[0] */
 			<0xff 163>,  /* usb30_ee1_irq */
+			<0xff 164>,  /* sps */
 			<0xff 170>,  /* sdcc_pwr_cmd_irq */
 			<0xff 173>, /* o_wcss_apss_smd_hi */
 			<0xff 174>, /* o_wcss_apss_smd_med */
@@ -533,12 +539,36 @@
 			<0xff 206>, /* rpm_ipc(26) */
 			<0xff 207>, /* rpm_ipc(27) */
 			<0xff 211>, /* usb_dwc3_otg */
+			<0xff 212>,  /* msm_dwc3 */
+			<0xff 215>,  /* fc388000.qcom,cpu-bwmon */
+			<0xff 224>,  /* spdm_bw_hyp */
 			<0xff 240>, /* summary_irq_kpss */
+			<0xff 261>,  /* msm_iommu_global_cfg */
+			<0xff 263>,  /* msm_iommu_global_client */
 			<0xff 268>, /* bam_irq[1] */
 			<0xff 270>, /* bam_irq[0] */
 			<0xff 271>, /* bam_irq[0] */
+			<0xff 272>,  /* msm_iommu_secure_irq */
+			<0xff 273>,  /* msm_iommu_nonsecure_irq */
+			<0xff 275>,  /* int_msi */
+			<0xff 283>,  /* int_pls_err */
+			<0xff 284>,  /* int_aer_legacy */
+			<0xff 286>,  /* int_pls_link_down */
+			<0xff 298>,  /* msm_iommu_nonsecure_irq */
+			<0xff 302>,  /* coresight-tmc-etr */
+			<0xff 303>,  /* int_msi */
+			<0xff 310>,  /* int_pls_err */
+			<0xff 311>,  /* int_aer_legacy */
+			<0xff 313>,  /* int_pls_link_down */
+			<0xff 329>,  /* sps */
 			<0xff 332>, /* sps */
 			<0xff 333>, /* ipa */
+			<0xff 348>,  /* fd878000.qcom,fd */
+			<0xff 350>,  /* msm_iommu_nonsecure_irq */
+			<0xff 360>,  /* ARM64 primary DBE IRQ */
+			<0xff 361>,  /* ARM64 secondary DBE IRQ */
+			<0xff 362>,  /* ARM64 primary ext IRQ */
+			<0xff 363>,  /* ARM64 secondary ext IRQ */
 			<0xff 364>; /* lmh_interrupt */
 
 		qcom,gpio-parent = <&msm_gpio>;
