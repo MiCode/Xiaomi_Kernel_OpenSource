@@ -22,6 +22,8 @@ config OF_IOMMU
 # MSM_IOMMU always gets selected by whoever wants it.
 config MSM_IOMMU
 	bool
+	select ARM_DMA_USE_IOMMU if ARM
+	select ARM64_DMA_USE_IOMMU if ARM64
 
 # MSM IOMMUv0 support
 config MSM_IOMMU_V0
