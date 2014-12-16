@@ -22,6 +22,7 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/err.h>
+#include <linux/cpu.h>
 #include <soc/qcom/spm.h>
 #include "spm_driver.h"
 
@@ -681,6 +682,18 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 
 	for_each_cpu(cpu, &dev->mask)
 		per_cpu(cpu_vctl_device, cpu) = dev;
+
+	cpu = get_cpu_id(pdev->dev.of_node);
+
+	/* For CPUs that are online, the SPM has to be programmed for
+	 * clockgating mode to ensure that it can use SPM for entering these
+	 * low power modes.
+	 */
+	get_online_cpus();
+	if ((cpu >= 0) && (cpu < num_possible_cpus()) && (cpu_online(cpu)))
+		msm_spm_config_low_power_mode(dev, MSM_SPM_MODE_CLOCK_GATING,
+				false);
+	put_online_cpus();
 
 	return ret;
 
