@@ -1000,18 +1000,100 @@ pa_config_exit:
 	return ret;
 }
 
-int pp_pa_cache_params(struct mdp_pa_v2_cfg_data *config,
-			struct mdss_pp_res_type *mdss_pp_res)
+static int pp_pa_cache_params_pipe_v1_7(struct mdp_pa_v2_cfg_data *config,
+			struct mdss_mdp_pipe *pipe)
 {
+	struct mdp_pa_data_v1_7 *pa_cache_data, pa_usr_config;
 	int ret = 0;
-	if (!config || !mdss_pp_res) {
-		pr_err("invalid param config %p pp_res %p\n",
-			config, mdss_pp_res);
+
+	if (!config || !pipe) {
+		pr_err("Invalid param config %p pipe %p\n",
+			config, pipe);
 		return -EINVAL;
 	}
+
+	if (config->flags & MDP_PP_OPS_DISABLE) {
+		pr_debug("Disable PA on pipe %d\n", pipe->num);
+		goto pa_cache_pipe_exit;
+	}
+
+	if (config->flags & MDP_PP_OPS_READ) {
+		pr_err("Read op is not supported\n");
+		return -EINVAL;
+	}
+
+	if (copy_from_user(&pa_usr_config,
+			   config->cfg_payload,
+			   sizeof(struct mdp_pa_data_v1_7))) {
+		ret = -EFAULT;
+		pr_err("Failed to copy pa usr cfg_payload\n");
+		goto pa_cache_pipe_exit;
+	}
+
+	pa_cache_data = pipe->pp_res.pa_cfg_payload;
+	if (!pa_cache_data) {
+		pa_cache_data = kzalloc(sizeof(struct mdp_pa_data_v1_7),
+					GFP_KERNEL);
+		if (!pa_cache_data) {
+			pr_err("failed to allocate cache_data\n");
+			ret = -ENOMEM;
+			goto pa_cache_pipe_exit;
+		} else
+			pipe->pp_res.pa_cfg_payload = pa_cache_data;
+	}
+
+	*pa_cache_data = pa_usr_config;
+
+	/* No six zone in SSPP */
+	pa_cache_data->six_zone_len = 0;
+	pa_cache_data->six_zone_curve_p0 = NULL;
+	pa_cache_data->six_zone_curve_p1 = NULL;
+
+pa_cache_pipe_exit:
+	if (ret || (config->flags & MDP_PP_OPS_DISABLE)) {
+		kfree(pipe->pp_res.pa_cfg_payload);
+		pipe->pp_res.pa_cfg_payload = NULL;
+	}
+	pipe->pp_cfg.pa_v2_cfg_data.cfg_payload = pipe->pp_res.pa_cfg_payload;
+	return ret;
+}
+
+int pp_pa_cache_params(struct mdp_pa_v2_cfg_data *config,
+			struct mdp_pp_cache_res *res_cache)
+{
+	int ret = 0;
+	if (!config || !res_cache) {
+		pr_err("invalid param config %p pp_res %p\n",
+			config, res_cache);
+		return -EINVAL;
+	}
+	if (res_cache->block != SSPP_VIG && res_cache->block != DSPP) {
+		pr_err("invalid block for PA %d\n", res_cache->block);
+		return -EINVAL;
+	}
+	if (!res_cache->mdss_pp_res && !res_cache->pipe_res) {
+		pr_err("NULL payload for block %d mdss_pp_res %p pipe_res %p\n",
+			res_cache->block, res_cache->mdss_pp_res,
+			res_cache->pipe_res);
+		return -EINVAL;
+	}
+
 	switch (config->version) {
 	case mdp_pa_v1_7:
-		ret = pp_pa_cache_params_v1_7(config, mdss_pp_res);
+		if (res_cache->block == DSPP) {
+			ret = pp_pa_cache_params_v1_7(config,
+					res_cache->mdss_pp_res);
+			if (ret)
+				pr_err("failed to cache PA params for DSPP ret %d\n",
+					ret);
+		} else {
+			ret = pp_pa_cache_params_pipe_v1_7(config,
+					res_cache->pipe_res);
+			if (ret)
+				pr_err("failed to cache PA params for SSPP ret %d\n",
+					ret);
+
+		}
 		break;
 	default:
 		pr_err("unsupported pa version %d\n",
