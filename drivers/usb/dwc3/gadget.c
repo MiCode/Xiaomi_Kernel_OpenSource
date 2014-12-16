@@ -63,9 +63,10 @@
 static int bulk_ep_xfer_timeout_ms;
 module_param(bulk_ep_xfer_timeout_ms, int, S_IRUGO | S_IWUSR);
 
+#define bulk_ep_xfer_timeout_ns (bulk_ep_xfer_timeout_ms * NSEC_PER_MSEC)
 static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc);
 static int dwc3_gadget_wakeup_int(struct dwc3 *dwc);
-
+static void dwc3_restart_hrtimer(struct dwc3 *dwc);
 
 struct dwc3_usb_gadget {
 	struct work_struct wakeup_work;
@@ -1268,8 +1269,8 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param,
 
 		if (usb_endpoint_xfer_bulk(dep->endpoint.desc) &&
 						bulk_ep_xfer_timeout_ms) {
-			hrtimer_start(&dep->xfer_timer, ktime_set(0,
-				bulk_ep_xfer_timeout_ms * NSEC_PER_MSEC),
+			hrtimer_start(&dep->xfer_timer,
+				ktime_set(0, bulk_ep_xfer_timeout_ns),
 				HRTIMER_MODE_REL);
 		}
 	}
@@ -1727,7 +1728,7 @@ static int dwc3_gadget_wakeup_int(struct dwc3 *dwc)
 	default:
 		dev_dbg(dwc->dev, "can't wakeup from link state %d\n",
 				link_state);
-		ret = -EINVAL;
+		dwc3_restart_hrtimer(dwc);
 		goto out;
 	}
 
@@ -2286,6 +2287,33 @@ out:
 	return HRTIMER_NORESTART;
 }
 
+static void dwc3_restart_hrtimer(struct dwc3 *dwc)
+{
+	int i;
+	struct dwc3_ep	*dep;
+
+	if (!bulk_ep_xfer_timeout_ms)
+		return;
+
+	for (i = 0; i < dwc->num_out_eps; i++) {
+		dep = dwc->eps[i];
+
+		/* check if bulk-out endpoint is enabled or not */
+		if (dep && dep->endpoint.desc &&
+			usb_endpoint_xfer_bulk(dep->endpoint.desc) &&
+			!dep->direction && (dep->flags & DWC3_EP_ENABLED)) {
+
+			if (!hrtimer_active(&dep->xfer_timer)) {
+				pr_debug("%s(): restart hrtimer of (%s)\n",
+						__func__, dep->name);
+				hrtimer_start(&dep->xfer_timer,
+					ktime_set(0, bulk_ep_xfer_timeout_ns),
+					HRTIMER_MODE_REL);
+			}
+		}
+	}
+}
+
 static int dwc3_gadget_init_hw_endpoints(struct dwc3 *dwc,
 		u8 num, u32 direction)
 {
@@ -2589,8 +2617,8 @@ static void dwc3_endpoint_transfer_complete(struct dwc3 *dwc,
 		if (event->status & DEPEVT_STATUS_LST)
 			hrtimer_try_to_cancel(&dep->xfer_timer);
 		else if (!clean_busy && (dwc->link_state != DWC3_LINK_STATE_U3))
-			hrtimer_start(&dep->xfer_timer, ktime_set(0,
-				bulk_ep_xfer_timeout_ms * NSEC_PER_MSEC),
+			hrtimer_start(&dep->xfer_timer,
+				ktime_set(0, bulk_ep_xfer_timeout_ns),
 				HRTIMER_MODE_REL);
 	}
 
@@ -3094,6 +3122,9 @@ static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 		/* Clear OTG suspend state */
 		if (dwc->enable_bus_suspend)
 			usb_phy_set_suspend(dwc->dotg->otg.phy, 0);
+
+		/* restart bulk-out timer if needed */
+		dwc3_restart_hrtimer(dwc);
 
 		/*
 		 * gadget_driver resume function might require some dwc3-gadget
