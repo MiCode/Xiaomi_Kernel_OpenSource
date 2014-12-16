@@ -55,6 +55,16 @@
 		interrupts = <1 14 0xff00>;
 		qcom,apply-cti-pmu-wa;
 	};
+
+	cci@f9100000 {
+		pmu@a000 {
+			interrupts = <0 7 0>,
+				     <0 7 0>,
+				     <0 7 0>,
+				     <0 7 0>,
+				     <0 7 0>;
+		};
+	};
 };
 
 &pm8994_s8 {
