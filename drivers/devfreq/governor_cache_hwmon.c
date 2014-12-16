@@ -133,9 +133,9 @@ static unsigned long measure_mrps_and_set_irq(struct cache_hwmon_node *node,
 	preempt_enable();
 
 	dev_dbg(hw->df->dev.parent,
-		"stat H=%3lu, M=%3lu, T=%3lu, b=%3u, f=%4lu, us=%d\n",
-		 stat->mrps[HIGH], stat->mrps[MED],
-		 stat->mrps[HIGH] + stat->mrps[MED],
+		"stat H=%3lu, M=%3lu, L=%3lu, T=%3lu, b=%3u, f=%4lu, us=%d\n",
+		 stat->mrps[HIGH], stat->mrps[MED], stat->mrps[LOW],
+		 stat->mrps[HIGH] + stat->mrps[MED] + stat->mrps[LOW],
 		 stat->busy_percent, hw->df->previous_freq / 1000, us);
 
 	return 0;
