@@ -39,7 +39,8 @@ static inline const struct dma_map_ops *__generic_dma_ops(struct device *dev)
 		return dev->archdata.dma_ops;
 }
 
-static inline void set_dma_ops(struct device *dev, struct dma_map_ops *ops)
+static inline void set_dma_ops(struct device *dev,
+			const struct dma_map_ops *ops)
 {
 	dev->archdata.dma_ops = ops;
 }
