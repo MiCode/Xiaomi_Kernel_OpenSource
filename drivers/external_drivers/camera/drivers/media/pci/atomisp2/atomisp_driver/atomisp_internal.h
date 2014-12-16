@@ -150,25 +150,12 @@
  */
 #define ATOMISP_MAX_ISR_LATENCY	1000
 
-/*
- * Add new YUVPP pipe for SOC sensor.
- * a.ATOMISP_CSS_SUPPORT_YUVPP = 1
- *    the css support YUVPP for SOC sensor.
- * b.ATOMISP_CSS_SUPPORT_YUVPP = 0
- *    the css no support YUVPP for SOC sensor
- * c.Now, the FW has some issue about YUVPP pipe. so I disable YUVPP pipe for
- *   SOC sensor
- */
-#define ATOMISP_CSS_SUPPORT_YUVPP     0
+/* Add new YUVPP pipe for SOC sensor. */
+#define ATOMISP_CSS_SUPPORT_YUVPP     1
 
 #define ATOMISP_CSS_OUTPUT_SECOND_INDEX     1
 #define ATOMISP_CSS_OUTPUT_DEFAULT_INDEX    0
 
-#define ATOMISP_USE_YUVPP(asd)  \
-	(asd->isp->inputs[asd->input_curr].type == SOC_CAMERA \
-	&& asd->isp->inputs[asd->input_curr].camera_caps-> \
-	   sensor[asd->sensor_curr].stream_num == 1   \
-	&& ATOMISP_CSS_SUPPORT_YUVPP)
 /*
  * ATOMISP_SOC_CAMERA
  * This is to differentiate between ext-isp and soc camera in
@@ -178,6 +165,9 @@
 	(asd->isp->inputs[asd->input_curr].type == SOC_CAMERA \
 	&& asd->isp->inputs[asd->input_curr].camera_caps-> \
 	   sensor[asd->sensor_curr].stream_num == 1)
+
+#define ATOMISP_USE_YUVPP(asd)  \
+	(ATOMISP_SOC_CAMERA(asd) && ATOMISP_CSS_SUPPORT_YUVPP)
 
 #define ATOMISP_DEPTH_SENSOR_STREAMON_COUNT 2
 
