@@ -265,7 +265,6 @@ static struct usb_device_descriptor device_desc = {
 	.bDeviceClass         = USB_CLASS_PER_INTERFACE,
 	.idVendor             = __constant_cpu_to_le16(VENDOR_ID),
 	.idProduct            = __constant_cpu_to_le16(PRODUCT_ID),
-	.bcdDevice            = __constant_cpu_to_le16(0xffff),
 	.bNumConfigurations   = 1,
 };
 
@@ -3221,7 +3220,8 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		 */
 		cdev->desc.idVendor = device_desc.idVendor;
 		cdev->desc.idProduct = device_desc.idProduct;
-		cdev->desc.bcdDevice = device_desc.bcdDevice;
+		if (device_desc.bcdDevice)
+			cdev->desc.bcdDevice = device_desc.bcdDevice;
 		cdev->desc.bDeviceClass = device_desc.bDeviceClass;
 		cdev->desc.bDeviceSubClass = device_desc.bDeviceSubClass;
 		cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
