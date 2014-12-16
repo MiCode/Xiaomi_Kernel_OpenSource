@@ -637,11 +637,11 @@ static int fg_sub_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 		if (!offset) {
 			rc = fg_read(chip, rd_data,
 					chip->mem_base + MEM_INTF_RD_DATA0,
-					(len > BUF_LEN) ? BUF_LEN : len);
+					min(len, BUF_LEN));
 		} else {
 			rc = fg_read(chip, rd_data,
 				chip->mem_base + MEM_INTF_RD_DATA0 + offset,
-				BUF_LEN - offset);
+				min(len, BUF_LEN - offset));
 
 			/* manually set address to allow continous reads */
 			address += BUF_LEN;
