@@ -793,6 +793,8 @@ static int ngd_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 			wbuf[txn.len++] = (u8) (slc->prop.dataf << 5) |
 					(sb->laddr & 0x1f);
 			wbuf[txn.len] = slc->seglen;
+			if (slc->srch && slc->prop.prot == SLIM_PUSH)
+				slc->prop.prot = SLIM_PULL;
 			if (slc->coeff == SLIM_COEFF_3)
 				wbuf[txn.len] |= 1 << 5;
 			wbuf[txn.len++] |= slc->prop.auxf << 6;
