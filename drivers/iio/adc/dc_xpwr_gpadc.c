@@ -48,7 +48,10 @@
 #define ADC_EN_MASK			0xF1
 
 #define DC_PMIC_ADC_CNTL_REG		0x84
+
 #define DC_PMIC_TSP_CNTL_REG		0x85
+#define ADC_GPIO0_OUTPUT_CURRENT	0xB4
+
 #define ADC_PMIC_TEMP_DATAH_REG		0x56
 #define ADC_PMIC_TEMP_DATAL_REG		0x57
 #define ADC_TSP_DATAH_REG		0x58
@@ -73,7 +76,8 @@
 #define ADC_NON_BAT_CUR_DATAL_MASK	0x0F
 
 #define ADC_TS_PIN_CNRTL_REG           0x84
-#define ADC_TS_PIN_ON                  0xF3
+#define ADC_TS_PIN_ON                  0xF2
+
 
 #define DEV_NAME			"dollar_cove_adc"
 
@@ -204,7 +208,7 @@ static int dc_xpwr_gpadc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, indio_dev);
 	mutex_init(&info->lock);
 
-	/* Current Source from TS pin always ON */
+	/* Use TS current source */
 	intel_soc_pmic_writeb(ADC_TS_PIN_CNRTL_REG, ADC_TS_PIN_ON);
 
 	/*
@@ -213,6 +217,9 @@ static int dc_xpwr_gpadc_probe(struct platform_device *pdev)
 	 * must be enabled all the time.
 	 */
 	intel_soc_pmic_writeb(DC_PMIC_ADC_EN_REG, ADC_EN_MASK);
+
+	/* Set the GPIO0 ADC output current */
+	intel_soc_pmic_writeb(DC_PMIC_TSP_CNTL_REG, ADC_GPIO0_OUTPUT_CURRENT);
 
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = pdev->name;
