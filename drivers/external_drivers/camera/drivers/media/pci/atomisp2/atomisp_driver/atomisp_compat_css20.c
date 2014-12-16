@@ -2216,6 +2216,7 @@ void atomisp_css_enable_continuous(struct atomisp_sub_device *asd,
 	 */
 	if (ATOMISP_USE_YUVPP(asd)) {
 		stream_env->stream_config.continuous = 0;
+		stream_env->stream_config.online = 1;
 		return;
 	}
 
