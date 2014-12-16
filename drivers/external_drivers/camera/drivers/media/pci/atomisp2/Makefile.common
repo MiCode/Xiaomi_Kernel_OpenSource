@@ -178,7 +178,7 @@ atomisp-$(postfix)-objs := \
 		css/camera/pipe/src/pipe_util.o \
 		css/camera/pipe/src/pipe_stagedesc.o \
 		css/runtime/isp_param/src/isp_param.o \
-		css/runtime/bufq/src/bufq.o
+		css/runtime/bufq/src/bufq.o \
 
 ifneq ($(ISP2401_NEW_INPUT_SYSTEM), )
 atomisp-$(postfix)-objs += \
@@ -190,7 +190,8 @@ atomisp-$(postfix)-objs += \
         css/css_2401_system/host/ibuf_ctrl.o \
         css/css_2401_system/host/csi_rx.o \
         css/css_2401_system/host/isys_stream2mmio.o \
-	css/runtime/isys/src/isys_stream2mmio_rmgr.o
+	css/runtime/isys/src/isys_stream2mmio_rmgr.o \
+	css/css_2401_system/host/isys_irq.o
 else
 atomisp-$(postfix)-objs += \
 	css/$(css_common_folder)/host/input_formatter.o \
