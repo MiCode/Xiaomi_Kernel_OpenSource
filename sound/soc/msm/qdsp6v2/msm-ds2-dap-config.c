@@ -157,11 +157,11 @@ struct audio_rx_cal_data {
 static struct ds2_dap_params_s ds2_dap_params[DOLBY_MAX_CACHE];
 
 struct ds2_device_mapping {
-	int32_t device_id;
-	int port_id;
+	int32_t device_id; /* audio_out_... */
+	int port_id; /* afe port. constant for a target variant. routing-v2*/
 	/*Only one Dolby COPP  for a specific port*/
-	int copp_idx;
-	int cache_dev;
+	int copp_idx; /* idx for the copp port on which ds2 is active */
+	int cache_dev; /* idx to a shared parameter array dependent on device*/
 	uint32_t stream_ref_count;
 	bool active;
 	void *cal_data;
