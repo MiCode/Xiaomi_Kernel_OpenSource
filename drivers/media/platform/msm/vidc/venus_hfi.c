@@ -244,9 +244,6 @@ static int venus_hfi_acquire_regulator(struct regulator_info *rinfo)
 {
 	int rc = 0;
 
-	dprintk(VIDC_DBG,
-		"Acquire regulator control from HW: %s\n", rinfo->name);
-
 	if (rinfo->has_hw_power_collapse) {
 		rc = regulator_set_mode(rinfo->regulator,
 				REGULATOR_MODE_NORMAL);
@@ -259,6 +256,12 @@ static int venus_hfi_acquire_regulator(struct regulator_info *rinfo)
 			dprintk(VIDC_WARN,
 				"Failed to acquire regulator control : %s\n",
 					rinfo->name);
+		} else {
+
+			dprintk(VIDC_DBG,
+					"Acquire regulator control from HW: %s\n",
+					rinfo->name);
+
 		}
 	}
 	WARN_ON(!regulator_is_enabled(rinfo->regulator));
@@ -269,17 +272,20 @@ static int venus_hfi_hand_off_regulator(struct regulator_info *rinfo)
 {
 	int rc = 0;
 
-	dprintk(VIDC_DBG,
-		"Hand off regulator control to HW: %s\n", rinfo->name);
-
 	if (rinfo->has_hw_power_collapse) {
 		rc = regulator_set_mode(rinfo->regulator,
 				REGULATOR_MODE_FAST);
-		if (rc)
+		if (rc) {
 			dprintk(VIDC_WARN,
-				"Failed to hand off regulator control : %s\n",
+				"Failed to hand off regulator control: %s\n",
 					rinfo->name);
+		} else {
+			dprintk(VIDC_DBG,
+					"Hand off regulator control to HW: %s\n",
+					rinfo->name);
+		}
 	}
+
 	return rc;
 }
 
