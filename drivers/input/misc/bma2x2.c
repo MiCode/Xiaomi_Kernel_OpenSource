@@ -72,8 +72,6 @@
 #define SLOPE_X_INDEX               5
 #define SLOPE_Y_INDEX               6
 #define SLOPE_Z_INDEX               7
-#define BMA2X2_MIN_DELAY            1
-#define BMA2X2_MAX_DELAY            200
 #define BMA2X2_RANGE_SET            3 /* +/- 2G */
 #define BMA2X2_RANGE_SHIFT          4 /* shift 4 bits for 2G */
 #define BMA2X2_BW_SET               12 /* 125HZ  */
@@ -1371,8 +1369,8 @@ static const struct interrupt_map_t int_map[] = {
 #define BMA2x2_VIO_MAX_UV       3400000
 
 /* Polling delay in msecs */
-#define POLL_INTERVAL_MIN_MS	1
-#define POLL_INTERVAL_MAX_MS	10000
+#define POLL_INTERVAL_MIN_MS	5
+#define POLL_INTERVAL_MAX_MS	4000
 #define POLL_DEFAULT_INTERVAL_MS 200
 
 struct bma2x2_type_map_t {
@@ -1530,6 +1528,7 @@ static struct sensors_classdev sensors_cdev = {
 		.resolution = "0.156",	/* 15.63mg */
 		.sensor_power = "0.13",	/* typical value */
 		.min_delay = POLL_INTERVAL_MIN_MS * 1000, /* in microseconds */
+		.max_latency = POLL_INTERVAL_MAX_MS,
 		.fifo_reserved_event_count = 0,
 		.fifo_max_event_count = 0,
 		.enabled = 0,
@@ -5065,8 +5064,8 @@ static ssize_t bma2x2_delay_store(struct device *dev,
 	error = kstrtoul(buf, 10, &data);
 	if (error)
 		return error;
-	if (data > BMA2X2_MAX_DELAY)
-		data = BMA2X2_MAX_DELAY;
+	if (data > POLL_INTERVAL_MAX_MS)
+		data = POLL_INTERVAL_MAX_MS;
 	atomic_set(&bma2x2->delay, (unsigned int) data);
 
 	return count;
@@ -5169,10 +5168,10 @@ static int bma2x2_cdev_poll_delay(struct sensors_classdev *sensors_cdev,
 	struct bma2x2_data *data = container_of(sensors_cdev,
 					struct bma2x2_data, cdev);
 
-	if (delay_ms < BMA2X2_MIN_DELAY)
-		delay_ms = BMA2X2_MIN_DELAY;
-	if (delay_ms > BMA2X2_MAX_DELAY)
-		delay_ms = BMA2X2_MAX_DELAY;
+	if (delay_ms < POLL_INTERVAL_MIN_MS)
+		delay_ms = POLL_INTERVAL_MIN_MS;
+	if (delay_ms > POLL_INTERVAL_MAX_MS)
+		delay_ms = POLL_INTERVAL_MAX_MS;
 	atomic_set(&data->delay, (unsigned int) delay_ms);
 
 	return 0;
@@ -7158,7 +7157,7 @@ static int bma2x2_probe(struct i2c_client *client,
 #ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
 	INIT_DELAYED_WORK(&data->work, bma2x2_work_func);
 #endif
-	atomic_set(&data->delay, BMA2X2_MAX_DELAY);
+	atomic_set(&data->delay, POLL_DEFAULT_INTERVAL_MS);
 	atomic_set(&data->enable, 0);
 
 	dev = devm_input_allocate_device(&client->dev);
