@@ -1031,10 +1031,14 @@ static int pmic_chrg_probe(struct platform_device *pdev)
 				"%s:OTG VBUS gpio request failed,gpio=%d\n",
 				__func__, info->pdata->otg_gpio);
 		} else {
+			/* By default disable the VBUS during gpio request */
 			gpio_direction_output(info->pdata->otg_gpio, 0);
 			dev_info(&info->pdev->dev,
 				"%s:Successfuly enabled otg_gpio=%d\n",
 				__func__, info->pdata->otg_gpio);
+			/* Schedule the worker thread to enable the VBUS based
+			 * on usb id during boot.
+			 */
 			schedule_work(&info->otg_work);
 		}
 	}

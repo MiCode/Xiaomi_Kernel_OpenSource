@@ -33,6 +33,7 @@
 #include <linux/wakelock.h>
 #include <linux/mfd/intel_soc_pmic.h>
 #include <linux/extcon/extcon-dc-pwrsrc.h>
+#include <linux/gpio.h>
 
 #define DC_PS_STAT_REG			0x00
 #define PS_STAT_VBUS_TRIGGER		(1 << 0)
@@ -97,6 +98,8 @@
 #define PWRSRC_DRV_NAME			"dollar_cove_pwrsrc"
 
 #define PWRSRC_EXTCON_CABLE_USB		"USB"
+#define PWRSRC_GPIO_MUX_SEL_PMIC	0
+#define PWRSRC_GPIO_MUX_SEL_SOC		1
 
 enum {
 	VBUS_FALLING_IRQ = 0,
@@ -117,6 +120,8 @@ struct dc_pwrsrc_info {
 	struct extcon_dev *edev;
 	struct usb_phy		*otg;
 	struct notifier_block	id_nb;
+	struct notifier_block	extcon_nb;
+	struct extcon_specific_cable_nb cable_obj;
 	struct wake_lock	wakelock;
 	bool is_sdp;
 	bool id_short;
@@ -272,6 +277,15 @@ static int handle_chrg_det_event(struct dc_pwrsrc_info *info)
 notify_otg_em:
 	if (!vbus_attach) {	/* disconnevt event */
 		if (notify_otg) {
+			/*
+			 * During OTG the D+/D- line will be connected to SOC.
+			 * On charger disconnect, change these line back to
+			 * PMIC for next BC detection.
+			 */
+			if (info->pdata->gpio_mux_cntl != NULL)
+				gpiod_set_value(info->pdata->gpio_mux_cntl,
+					PWRSRC_GPIO_MUX_SEL_PMIC);
+
 			atomic_notifier_call_chain(&info->otg->notifier,
 				vbus_mask ? USB_EVENT_VBUS : USB_EVENT_NONE,
 				NULL);
@@ -289,9 +303,14 @@ notify_otg_em:
 			wake_lock(&info->wakelock);
 		if (notify_otg) {
 			/*
-			 * TODO:close mux path to switch
-			 * b/w device mode and host mode.
+			 * By default the D+/D- will be connected to pmic
+			 * for BC detection. Hence change the mux to connect
+			 * these lines to SOC.
 			 */
+			if (info->pdata->gpio_mux_cntl != NULL)
+				gpiod_set_value(info->pdata->gpio_mux_cntl,
+					PWRSRC_GPIO_MUX_SEL_SOC);
+
 			atomic_notifier_call_chain(&info->otg->notifier,
 				vbus_mask ? USB_EVENT_VBUS : USB_EVENT_NONE,
 				NULL);
@@ -442,6 +461,47 @@ static int pwrsrc_extcon_registration(struct dc_pwrsrc_info *info)
 	return ret;
 }
 
+static bool is_usb_host_mode(struct extcon_dev *evdev)
+{
+	return !!evdev->state;
+}
+
+static int dc_pwrsrc_handle_extcon_event(struct notifier_block *nb,
+				   unsigned long event, void *param)
+{
+	struct dc_pwrsrc_info *info =
+	    container_of(nb, struct dc_pwrsrc_info, extcon_nb);
+	struct extcon_dev *edev = param;
+	int usb_host = is_usb_host_mode(edev);
+
+	dev_info(&info->pdev->dev,
+		"[extcon notification] evt:USB-Host val:%s\n",
+		usb_host ? "Connected" : "Disconnected");
+
+	/*
+	 * in case of id short(usb_host = 1)
+	 * enable vbus else disable vbus.
+	 */
+	info->id_short = usb_host;
+	/*
+	 * By default the D+/D- will be connected to pmic
+	 * for BC detection. Hence change the mux to connect
+	 * these lines to SOC.
+	 */
+	if (info->pdata->gpio_mux_cntl != NULL) {
+		dev_info(&info->pdev->dev, "%s:id_short=%d\n",
+				__func__, info->id_short);
+		if (info->id_short)
+			gpiod_set_value(info->pdata->gpio_mux_cntl,
+					PWRSRC_GPIO_MUX_SEL_SOC);
+		else
+			gpiod_set_value(info->pdata->gpio_mux_cntl,
+					PWRSRC_GPIO_MUX_SEL_PMIC);
+	}
+
+	return NOTIFY_OK;
+}
+
 static int dc_xpwr_pwrsrc_probe(struct platform_device *pdev)
 {
 	struct dc_pwrsrc_info *info;
@@ -483,6 +543,40 @@ static int dc_xpwr_pwrsrc_probe(struct platform_device *pdev)
 							info->irq[i], ret);
 			goto intr_reg_failed;
 		}
+	}
+
+
+	dev_info(&info->pdev->dev, "%s: gpio_mux_cntl=%d\n",
+			__func__, desc_to_gpio(info->pdata->gpio_mux_cntl));
+	if (info->pdata->gpio_mux_cntl != NULL) {
+		if (gpio_request(desc_to_gpio(info->pdata->gpio_mux_cntl),
+					"USB_MUX")) {
+			dev_err(&info->pdev->dev,
+				"%s:USB Mux gpio request failed,gpio=%d\n",
+				__func__,
+				desc_to_gpio(info->pdata->gpio_mux_cntl));
+			goto intr_reg_failed;
+		}
+		gpiod_direction_output(info->pdata->gpio_mux_cntl,
+					PWRSRC_GPIO_MUX_SEL_PMIC);
+		dev_info(&info->pdev->dev,
+				"%s:Successfuly enabled gpio_mux_cntl=%d\n",
+				__func__,
+				desc_to_gpio(info->pdata->gpio_mux_cntl));
+
+		info->extcon_nb.notifier_call = dc_pwrsrc_handle_extcon_event;
+		ret = extcon_register_interest(&info->cable_obj, NULL,
+					"USB-Host", &info->extcon_nb);
+		if (ret)
+			dev_err(&pdev->dev, "failed to register extcon notifier\n");
+
+		if (info->cable_obj.edev)
+			info->id_short = is_usb_host_mode(info->cable_obj.edev);
+		if (info->id_short)
+			gpiod_set_value(info->pdata->gpio_mux_cntl,
+					PWRSRC_GPIO_MUX_SEL_SOC);
+		dev_info(&info->pdev->dev, "%s: id_short=%d\n",
+				__func__, info->id_short);
 	}
 
 	/* Unmask VBUS interrupt */

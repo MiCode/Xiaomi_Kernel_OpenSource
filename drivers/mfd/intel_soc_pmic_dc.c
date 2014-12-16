@@ -35,6 +35,9 @@
 
 #define XPOWER_DEFAULT_TEMP_MAX 45
 
+#define GPIO_USB_MUX_INDEX	1
+#define GPIO_OTG_VBUS_INDEX	2
+
 enum {
 	VBUS_FALLING_IRQ = 2,
 	VBUS_RISING_IRQ,
@@ -408,6 +411,7 @@ static void platform_set_battery_data(struct dollarcove_fg_pdata *pdata,
 static void dc_xpwr_chrg_pdata(void)
 {
 	static struct dollarcove_chrg_pdata pdata;
+	struct gpio_desc *gpio_desc;
 
 	pdata.max_cc = 2000;
 	pdata.max_cv = 4350;
@@ -418,8 +422,14 @@ static void dc_xpwr_chrg_pdata(void)
 	pdata.def_max_temp = 55;
 	pdata.def_min_temp = 0;
 
-	/* Deprecated: DC does not handle GPIO for VBUS */
-	pdata.otg_gpio = -1;
+	gpio_desc = devm_gpiod_get_index(dollar_cove_pmic.dev,
+			"pmic_res", GPIO_OTG_VBUS_INDEX);
+	if (IS_ERR(gpio_desc))
+		pdata.otg_gpio = -1;
+	else {
+		pdata.otg_gpio = desc_to_gpio(gpio_desc);
+		gpiod_put(gpio_desc);
+	}
 
 	platform_init_chrg_params(&pdata);
 
@@ -570,6 +580,15 @@ static void dc_xpwr_pwrsrc_pdata(void)
 	 * PMIC itself.
 	 */
 	pdata.en_chrg_det = true;
+
+	/* Get the gpio based uab mux which will be used to switch usb D+/D-
+	 * data line between SOC for data communication and PMIC for charger
+	 * detection functionality.
+	 */
+	pdata.gpio_mux_cntl = devm_gpiod_get_index(dollar_cove_pmic.dev,
+				"pmic_res", GPIO_USB_MUX_INDEX);
+	if (IS_ERR(pdata.gpio_mux_cntl))
+		pdata.gpio_mux_cntl = NULL;
 
 	intel_soc_pmic_set_pdata("dollar_cove_pwrsrc",
 				 (void *)&pdata, sizeof(pdata), 0);
