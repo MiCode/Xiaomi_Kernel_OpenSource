@@ -116,34 +116,44 @@ struct sdhci_host {
  * Read Transfer Active/ Write Transfer Active may be not
  * de-asserted after end of transaction. Issue reset for DAT line.
  */
-#define SDHCI_QUIRK2_RDWR_TX_ACTIVE_EOT                 (1<<4)
+#define SDHCI_QUIRK2_RDWR_TX_ACTIVE_EOT			(1<<9)
 /*
  * Slow interrupt clearance at 400KHz may cause
  * host controller driver interrupt handler to
  * be called twice.
  */
-#define SDHCI_QUIRK2_SLOW_INT_CLR			(1<<5)
-/* Controller has nonstandard clock management */
-#define SDHCI_QUIRK_NONSTANDARD_CLOCK			(1<<17)
+#define SDHCI_QUIRK2_SLOW_INT_CLR			(1<<10)
+/*
+ * If the base clock can be scalable, then there should be no further
+ * clock dividing as the input clock itself will be scaled down to
+ * required frequency.
+ */
+#define SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK		(1<<11)
+/*
+ * Dont use the max_discard_to in sdhci driver so that the maximum discard
+ * unit gets picked by the mmc queue. Otherwise, it takes a long time for
+ * secure discard kind of operations to complete.
+ */
+#define SDHCI_QUIRK2_USE_MAX_DISCARD_SIZE		(1<<12)
 /*
  * Ignore data timeout error for R1B commands as there will be no
  * data associated and the busy timeout value for these commands
  * could be lager than the maximum timeout value that controller
  * can handle.
  */
-#define SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD		(1<<9)
+#define SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD		(1<<13)
 /*
  * The preset value registers are not properly initialized by
  * some hardware and hence preset value must not be enabled for
  * such controllers.
  */
-#define SDHCI_QUIRK2_BROKEN_PRESET_VALUE		(1<<10)
+#define SDHCI_QUIRK2_BROKEN_PRESET_VALUE		(1<<14)
 /*
  * Some controllers define the usage of 0xF in data timeout counter
  * register (0x2E) which is actually a reserved bit as per
  * specification.
  */
-#define SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT		(1<<11)
+#define SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT		(1<<15)
 /*
  * This is applicable for controllers that advertize timeout clock
  * value in capabilities register (bit 5-0) as just 50MHz whereas the
@@ -156,24 +166,24 @@ struct sdhci_host {
  * will be used in such cases to avoid controller mulplication when timeout is
  * calculated based on the base clock.
  */
-#define SDHCI_QUIRK2_DIVIDE_TOUT_BY_4 (1 << 11)
+#define SDHCI_QUIRK2_DIVIDE_TOUT_BY_4			(1<<16)
 
 /*
  * Some SDHC controllers are unable to handle data-end bit error in
  * 1-bit mode of SDIO.
  */
-#define SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR             (1<<9)
+#define SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR             (1<<17)
 
 /*
  * Some SDHC controllers do not require data buffers alignment, skip
  * the bounce buffer logic when preparing data
  */
-#define SDHCI_QUIRK2_ADMA_SKIP_DATA_ALIGNMENT		(1<<17)
+#define SDHCI_QUIRK2_ADMA_SKIP_DATA_ALIGNMENT		(1<<18)
 
 /* Controller has nonstandard clock management */
-#define SDHCI_QUIRK_NONSTANDARD_CLOCK			(1<<18)
+#define SDHCI_QUIRK_NONSTANDARD_CLOCK			(1<<19)
 /* Capability register bit-63 indicates HS400 support */
-#define SDHCI_QUIRK2_CAPS_BIT63_FOR_HS400		(1<<19)
+#define SDHCI_QUIRK2_CAPS_BIT63_FOR_HS400		(1<<20)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
