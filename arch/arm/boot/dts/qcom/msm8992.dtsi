@@ -1183,14 +1183,18 @@
 		clocks = <&clock_rpm clk_div_clk1>;
 		qcom,cdc-mclk-gpios = <&pm8994_gpios 15 0>;
 		qcom,tomtom-mclk-clk-freq = <9600000>;
-		pinctrl-names = "mi2s-sleep",
+		pinctrl-names = "sleep",
+				"auxpcm-active",
 				"mi2s-active",
-				"auxpcm-sleep",
-				"auxpcm-active";
-		pinctrl-0 = <&pri_mi2s_sleep>, <&pri_mi2s_sd0_sleep>;
-		pinctrl-1 = <&pri_mi2s_active>, <&pri_mi2s_sd0_active>;
-		pinctrl-2 = <&sec_aux_pcm_sleep>, <&sec_aux_pcm_din_sleep>;
-		pinctrl-3 = <&sec_aux_pcm_active>, <&sec_aux_pcm_din_active>;
+				"active";
+		pinctrl-0 = <&pri_mi2s_sleep>, <&pri_mi2s_sd0_sleep>,
+				<&sec_aux_pcm_sleep>, <&sec_aux_pcm_din_sleep>;
+		pinctrl-1 = <&pri_mi2s_sleep>, <&pri_mi2s_sd0_sleep>,
+				<&sec_aux_pcm_active>, <&sec_aux_pcm_din_active>;
+		pinctrl-2 = <&pri_mi2s_active>, <&pri_mi2s_sd0_active>,
+				<&sec_aux_pcm_sleep>, <&sec_aux_pcm_din_sleep>;
+		pinctrl-3 = <&pri_mi2s_active>, <&pri_mi2s_sd0_active>,
+				<&sec_aux_pcm_active>, <&sec_aux_pcm_din_active>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>;
