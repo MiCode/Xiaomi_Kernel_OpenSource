@@ -32,5 +32,6 @@
 #define DUAL_ROLE_CFG1_POLL_TIMEOUT	1000
 
 extern int xhci_intel_vendor_cap_init(struct xhci_hcd *xhci);
+extern int xhci_intel_phy_vbus_valid(struct xhci_hcd *xhci, int vbus_valid);
 extern int xhci_intel_phy_mux_switch(struct xhci_hcd *xhci, int is_device_on);
 extern void xhci_intel_clr_internal_pme_flag(struct xhci_hcd *xhci);

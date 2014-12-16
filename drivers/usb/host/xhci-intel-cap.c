@@ -59,6 +59,29 @@ int xhci_intel_vendor_cap_init(struct xhci_hcd *xhci)
 	return 0;
 }
 
+/* Only used for device mode */
+int xhci_intel_phy_vbus_valid(struct xhci_hcd *xhci, int vbus_valid)
+{
+	u32		data;
+
+	if (!xhci || !xhci->phy_mux_regs)
+		return -ENODEV;
+
+	xhci_dbg(xhci, "vbus valid for phy mux is %d\n", vbus_valid);
+
+	data = readl(xhci->phy_mux_regs + DUAL_ROLE_CFG0);
+
+	if (vbus_valid)
+		data |= SW_VBUS_VALID;
+	else
+		data &= ~SW_VBUS_VALID;
+
+	writel(data, xhci->phy_mux_regs + DUAL_ROLE_CFG0);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(xhci_intel_phy_vbus_valid);
+
 int xhci_intel_phy_mux_switch(struct xhci_hcd *xhci, int is_device_on)
 {
 	unsigned long	timeout;
@@ -81,9 +104,9 @@ int xhci_intel_phy_mux_switch(struct xhci_hcd *xhci, int is_device_on)
 	 * for device mode */
 	data = readl(xhci->phy_mux_regs + DUAL_ROLE_CFG0);
 	if (is_device_on)
-		data |= (SW_IDPIN | SW_VBUS_VALID);
+		data |= SW_IDPIN;
 	else
-		data &= ~(SW_IDPIN | SW_VBUS_VALID);
+		data &= ~SW_IDPIN;
 	writel(data, xhci->phy_mux_regs + DUAL_ROLE_CFG0);
 
 	/* Polling CFG1 for safety, most case it takes about 600ms to finish
