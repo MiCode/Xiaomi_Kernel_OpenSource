@@ -56,6 +56,7 @@
 
 #define CRYSTAL_COVE 0x0
 #define WHISKEY_COVE 0x1
+#define DOLLAR_COVE 0x2
 
 struct pmic_gpio_data {
 	int type;

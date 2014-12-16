@@ -473,12 +473,27 @@ static void dc_xpwr_pwrsrc_pdata(void)
 				 (void *)&pdata, sizeof(pdata), 0);
 }
 
+static struct pmic_gpio_data dollar_cove_gpio_data = {
+	.type = DOLLAR_COVE,
+	.num_gpio = 2,
+	.num_vgpio = 0x5e,
+};
+
+static void dc_set_gpio_pdata(void)
+{
+	intel_soc_pmic_set_pdata("dollar_cove_gpio",
+				(void *)&dollar_cove_gpio_data,
+				sizeof(dollar_cove_gpio_data), 0);
+}
+
+
 static int dollar_cove_init(void)
 {
 	pr_info("Dollar Cove: IC_TYPE 0x%02X\n", intel_soc_pmic_readb(0x03));
 	dc_xpwr_chrg_pdata();
 	dc_xpwr_pwrsrc_pdata();
 	dc_xpwr_fg_pdata();
+	dc_set_gpio_pdata();
 
 	return 0;
 }

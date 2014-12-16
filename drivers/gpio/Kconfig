@@ -427,7 +427,7 @@ config GPIO_INTEL_SOC_PMIC
 	depends on INTEL_SOC_PMIC
 	help
 	  Support for GPIO pins on Intel SoC PMIC, such as Crystal
-	  Cove.
+	  Cove, Whiskey Cove, Dollar Cove etc.
 	  Say Y if you have a tablet with Intel SoC (e.g. Baytrail)
 	  inside.
 

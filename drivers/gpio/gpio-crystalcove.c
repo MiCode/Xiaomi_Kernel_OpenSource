@@ -290,18 +290,20 @@ static int crystalcove_gpio_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct platform_device_id pmic_gpio_id_table[] = {
-	{ "crystal_cove_gpio", },
-	{ "whiskey_cove_gpio", },
+static struct platform_device_id crystalcove_gpio_id_table[] = {
+	{ .name = "crystal_cove_gpio" },
+	{ .name = "whiskey_cove_gpio" },
+	{},
 };
 static struct platform_driver crystalcove_gpio_driver = {
 	.probe = crystalcove_gpio_probe,
 	.driver = {
 		.name = "crystal_cove_gpio",
 	},
-	.id_table = pmic_gpio_id_table,
+	.id_table = crystalcove_gpio_id_table,
 };
 
+MODULE_DEVICE_TABLE(platform, crystalcove_gpio_id_table);
 module_platform_driver(crystalcove_gpio_driver);
 
 MODULE_AUTHOR("Yang, Bin <bin.yang@intel.com>");
