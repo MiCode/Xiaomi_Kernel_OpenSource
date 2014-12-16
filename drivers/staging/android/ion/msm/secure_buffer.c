@@ -132,6 +132,17 @@ static int secure_buffer_change_table(struct sg_table *table, int lock)
 		ret = secure_buffer_change_chunk(virt_to_phys(chunk_list),
 				nchunks, V2_CHUNK_SIZE, lock);
 
+		if (!ret) {
+			/*
+			 * Set or clear the private page flag to communicate the
+			 * status of the chunk to other entities
+			 */
+			if (lock)
+				SetPagePrivate(sg_page(sg));
+			else
+				ClearPagePrivate(sg_page(sg));
+		}
+
 		kfree(chunk_list);
 	}
 
