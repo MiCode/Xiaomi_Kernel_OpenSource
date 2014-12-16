@@ -1837,7 +1837,7 @@ static int lis3dh_acc_input_init(struct lis3dh_acc_data *acc)
 
 	if (!acc->pdata->enable_int)
 		INIT_DELAYED_WORK(&acc->input_work, lis3dh_acc_input_work_func);
-	acc->input_dev = input_allocate_device();
+	acc->input_dev = devm_input_allocate_device(&acc->client->dev);
 	if (!acc->input_dev) {
 		err = -ENOMEM;
 		dev_err(&acc->client->dev, "input device allocation failed\n");
@@ -1876,21 +1876,13 @@ static int lis3dh_acc_input_init(struct lis3dh_acc_data *acc)
 		dev_err(&acc->client->dev,
 				"unable to register input device %s\n",
 				acc->input_dev->name);
-		goto err1;
+		goto err0;
 	}
 
 	return 0;
 
-err1:
-	input_free_device(acc->input_dev);
 err0:
 	return err;
-}
-
-static void lis3dh_acc_input_cleanup(struct lis3dh_acc_data *acc)
-{
-	input_unregister_device(acc->input_dev);
-	input_free_device(acc->input_dev);
 }
 
 static int lis3dh_pinctrl_init(struct lis3dh_acc_data *acc)
@@ -2173,7 +2165,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	if (err < 0) {
 		dev_err(&client->dev,
 		   "device LIS3DH_ACC_DEV_NAME sysfs register failed\n");
-		goto err_input_cleanup;
+		goto err_power_off;
 	}
 
 	acc->cdev = lis3dh_acc_cdev;
@@ -2244,8 +2236,6 @@ err_unreg_sensor_class:
 	sensors_classdev_unregister(&acc->cdev);
 err_remove_sysfs_int:
 	remove_sysfs_interfaces(&client->dev);
-err_input_cleanup:
-	lis3dh_acc_input_cleanup(acc);
 err_power_off:
 	lis3dh_acc_device_power_off(acc);
 err_regulator_init:
@@ -2275,7 +2265,6 @@ static int lis3dh_acc_remove(struct i2c_client *client)
 		free_irq(acc->irq2, acc);
 
 	sensors_classdev_unregister(&acc->cdev);
-	lis3dh_acc_input_cleanup(acc);
 	lis3dh_acc_config_regulator(acc, false);
 	remove_sysfs_interfaces(&client->dev);
 
