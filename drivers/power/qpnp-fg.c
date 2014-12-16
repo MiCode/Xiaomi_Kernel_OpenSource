@@ -2634,9 +2634,13 @@ static int soc_to_setpoint(int soc)
 #define THERMAL_COEFF_OFFSET	0x2
 #define I_TERM_QUAL_BIT		BIT(1)
 #define PATCH_NEG_CURRENT_BIT	BIT(3)
+#define KI_COEFF_PRED_FULL_ADDR		0x408
+#define KI_COEFF_PRED_FULL_4_0_MSB	0x88
+#define KI_COEFF_PRED_FULL_4_0_LSB	0x00
 static int fg_hw_init(struct fg_chip *chip)
 {
 	u8 resume_soc;
+	u8 data[4];
 	int rc = 0;
 
 	update_iterm(chip);
@@ -2697,6 +2701,10 @@ static int fg_hw_init(struct fg_chip *chip)
 
 	fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, I_TERM_QUAL_BIT,
 			I_TERM_QUAL_BIT, 0);
+
+	data[0] = KI_COEFF_PRED_FULL_4_0_LSB;
+	data[1] = KI_COEFF_PRED_FULL_4_0_MSB;
+	fg_mem_write(chip, data, KI_COEFF_PRED_FULL_ADDR, 2, 2, 0);
 
 	return 0;
 }
