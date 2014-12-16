@@ -3404,7 +3404,8 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	}
 	if (parallel_psy)
 		power_supply_set_present(parallel_psy, false);
-	if (chip->parallel.avail && chip->enable_aicl_wake) {
+	if (chip->parallel.avail && chip->aicl_done_irq
+			&& chip->enable_aicl_wake) {
 		disable_irq_wake(chip->aicl_done_irq);
 		chip->enable_aicl_wake = false;
 		smbchg_aicl_deglitch_wa_check(chip);
@@ -3439,8 +3440,10 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	}
 	if (parallel_psy)
 		power_supply_set_present(parallel_psy, true);
-	if (chip->parallel.avail && !chip->enable_aicl_wake) {
-		enable_irq_wake(chip->aicl_done_irq);
+
+	if (chip->parallel.avail && chip->aicl_done_irq
+			&& !chip->enable_aicl_wake) {
+		rc = enable_irq_wake(chip->aicl_done_irq);
 		chip->enable_aicl_wake = true;
 	}
 }
@@ -4394,6 +4397,10 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			enable_irq_wake(chip->otg_fail_irq);
 			enable_irq_wake(chip->otg_oc_irq);
 			enable_irq_wake(chip->usbid_change_irq);
+			if (chip->parallel.avail && chip->usb_present) {
+				rc = enable_irq_wake(chip->aicl_done_irq);
+				chip->enable_aicl_wake = true;
+			}
 			break;
 		case SMBCHG_DC_CHGPTH_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->dcin_uv_irq,
