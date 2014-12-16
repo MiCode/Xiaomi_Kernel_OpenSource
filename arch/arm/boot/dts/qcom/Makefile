@@ -242,7 +242,9 @@ dtb-$(CONFIG_ARCH_MSM8994) += msm8994-v1-sim.dtb \
 dtb-$(CONFIG_ARCH_MSM8992) += msm8992-sim.dtb \
 	msm8992-rumi.dtb \
 	msm8992-cdp.dtb \
-	msm8992-mtp.dtb
+	msm8992-mtp.dtb \
+	msm8992-pmi8994-pm8004-cdp.dtb \
+	msm8992-pmi8994-pm8004-mtp.dtb
 
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
 ifneq ($(DTB_NAMES),)

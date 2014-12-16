@@ -1,0 +1,54 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only chipset-specific property overrides should be placed
+ * inside this file.
+ */
+
+#include "msm-pm8004.dtsi"
+
+/ {
+	qcom,pmic-id = <0x10009 0x1000A 0x1000C 0x0>;
+};
+
+&rpm_bus {
+	rpm-regulator-smpb2 {
+		status = "disabled";
+	};
+
+	rpm-regulator-smpc2 {
+		status = "okay";
+		regulator-s2-corner {
+			status = "okay";
+		};
+
+		regulator-s2-floor-corner {
+			status = "okay";
+		};
+	};
+};
+
+/*
+ * Override PMI8994 resources with proper PM8004 resources for
+ * MSM8992 with PM8004.
+ */
+
+&soc {
+	qcom,msm-thermal {
+		vdd-gfx-supply = <&pm8004_s2_floor_corner>;
+	};
+};
+
+&gdsc_oxili_gx {
+	parent-supply = <&pm8004_s2_corner>;
+};
