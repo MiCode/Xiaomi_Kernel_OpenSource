@@ -134,7 +134,8 @@ static unsigned long measure_mrps_and_set_irq(struct cache_hwmon_node *node,
 
 	dev_dbg(hw->df->dev.parent,
 		"stat H=%3lu, M=%3lu, T=%3lu, b=%3u, f=%4lu, us=%d\n",
-		 stat->high, stat->med, stat->high + stat->med,
+		 stat->mrps[HIGH], stat->mrps[MED],
+		 stat->mrps[HIGH] + stat->mrps[MED],
 		 stat->busy_percent, hw->df->previous_freq / 1000, us);
 
 	return 0;
@@ -146,9 +147,9 @@ static void compute_cache_freq(struct cache_hwmon_node *node,
 	unsigned long new_mhz;
 	unsigned int busy;
 
-	new_mhz = mrps->high * node->cycles_per_high_req
-		+ mrps->med * node->cycles_per_med_req
-		+ mrps->low * node->cycles_per_low_req;
+	new_mhz = mrps->mrps[HIGH] * node->cycles_per_high_req
+		+ mrps->mrps[MED] * node->cycles_per_med_req
+		+ mrps->mrps[LOW] * node->cycles_per_low_req;
 
 	busy = max(node->min_busy, mrps->busy_percent);
 	busy = min(node->max_busy, busy);
@@ -278,9 +279,9 @@ static int start_monitoring(struct devfreq *df)
 
 	node->prev_ts = ktime_get();
 	node->prev_mhz = 0;
-	mrps.high = (df->previous_freq / 1000) - node->guard_band_mhz;
-	mrps.high /= node->cycles_per_high_req;
-	mrps.med = mrps.low = 0;
+	mrps.mrps[HIGH] = (df->previous_freq / 1000) - node->guard_band_mhz;
+	mrps.mrps[HIGH] /= node->cycles_per_high_req;
+	mrps.mrps[MED] = mrps.mrps[LOW] = 0;
 
 	ret = hw->start_hwmon(hw, &mrps);
 	if (ret) {

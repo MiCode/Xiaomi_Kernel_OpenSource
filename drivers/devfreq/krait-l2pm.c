@@ -328,9 +328,9 @@ static unsigned long meas_mrps_and_set_irq(struct cache_hwmon *hw,
 	mon_enable(L2_M_REQ_MON);
 	mon_enable(L2_CYC_MON);
 
-	mrps->high = t_mrps - m_mrps;
-	mrps->med = m_mrps;
-	mrps->low = 0;
+	mrps->mrps[HIGH] = t_mrps - m_mrps;
+	mrps->mrps[MED] = m_mrps;
+	mrps->mrps[LOW] = 0;
 	mrps->busy_percent = mult_frac(l2_cyc, 1000, us) * 100 / f;
 
 	return 0;
@@ -363,7 +363,7 @@ static int start_mrps_hwmon(struct cache_hwmon *hw, struct mrps_stats *mrps)
 	mon_disable(L2_M_REQ_MON);
 	mon_disable(L2_CYC_MON);
 
-	limit = mrps_to_count(mrps->high, hw->df->profile->polling_ms, 0);
+	limit = mrps_to_count(mrps->mrps[HIGH], hw->df->profile->polling_ms, 0);
 	prev_req_start_val = mon_set_limit(L2_H_REQ_MON, limit);
 	mon_set_limit(L2_M_REQ_MON, 0xFFFFFFFF);
 	mon_set_limit(L2_CYC_MON, 0xFFFFFFFF);
