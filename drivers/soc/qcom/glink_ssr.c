@@ -661,7 +661,7 @@ bool glink_ssr_wait_cleanup_done(unsigned ssr_timeout_multiplier)
 	int wait_ret =
 		wait_for_completion_timeout(&notifications_successful_complete,
 			ssr_timeout_multiplier * GLINK_SSR_REPLY_TIMEOUT);
-	INIT_COMPLETION(notifications_successful_complete);
+	reinit_completion(&notifications_successful_complete);
 
 	if (!notifications_successful || !wait_ret)
 		return false;
