@@ -948,7 +948,12 @@ static inline u64 sched_irqload(int cpu)
 	s64 delta;
 
 	delta = get_jiffies_64() - rq->irqload_ts;
-	BUG_ON(delta < 0);
+	/*
+	 * Current context can be preempted by irq and rq->irqload_ts can be
+	 * updated by irq context so that delta can be negative.
+	 * But this is okay and we can safely return as this means there
+	 * was recent irq occurrence.
+	 */
 
 	if (delta < SCHED_HIGH_IRQ_TIMEOUT)
 		return rq->avg_irqload;
