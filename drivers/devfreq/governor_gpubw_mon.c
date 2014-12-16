@@ -53,6 +53,12 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 	int act_level;
 	int norm_cycles;
 	int gpu_percent;
+	/*
+	 * Normalized AB should at max usage be the gpu_bimc frequency in MHz.
+	 * Start with a reasonable value and let the system push it up to max.
+	 */
+	static int norm_ab_max = 300;
+	int norm_ab;
 
 	stats.private_data = &b;
 
@@ -95,6 +101,15 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 			bus_profile->flag = DEVFREQ_FLAG_FAST_HINT;
 		else if (norm_cycles < priv->bus.down[act_level] && level)
 			bus_profile->flag = DEVFREQ_FLAG_SLOW_HINT;
+	}
+
+	/* Re-calculate the AB percentage for a new IB vote */
+	if (bus_profile->flag) {
+		norm_ab =  (unsigned int)priv->bus.ram_time /
+			(unsigned int) priv->bus.total_time;
+		if (norm_ab > norm_ab_max)
+			norm_ab_max = norm_ab;
+		bus_profile->percent_ab = (100 * norm_ab) / norm_ab_max;
 	}
 
 	priv->bus.total_time = 0;
