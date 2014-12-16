@@ -286,7 +286,7 @@ static inline int glink_queue_rx_intent(void *handle, const void *pkt_priv,
 	return -ENODEV;
 }
 
-static inline int glink_rx_done(void *handle, const void *ptr)
+static inline int glink_rx_done(void *handle, const void *ptr, bool reuse)
 {
 	return -ENODEV;
 }
