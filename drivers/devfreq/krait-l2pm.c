@@ -267,6 +267,7 @@ static struct bw_hwmon cpubw_hwmon = {
 /* ********** Cache reqs specific code  ********** */
 
 static u32 prev_req_start_val;
+static int cache_irq;
 
 static void mon_mrps_init(void)
 {
@@ -335,14 +336,27 @@ static unsigned long meas_mrps_and_set_irq(struct cache_hwmon *hw,
 	return 0;
 }
 
-static bool is_valid_mrps_irq(struct cache_hwmon *hw)
+static irqreturn_t mon_intr_handler(int irq, void *dev)
 {
-	return mon_overflow(L2_H_REQ_MON) || mon_overflow(L2_M_REQ_MON);
+	if (mon_overflow(L2_H_REQ_MON) || mon_overflow(L2_M_REQ_MON)) {
+		update_cache_hwmon(dev);
+		return IRQ_HANDLED;
+	}
+	return IRQ_NONE;
 }
 
 static int start_mrps_hwmon(struct cache_hwmon *hw, struct mrps_stats *mrps)
 {
 	u32 limit;
+	int ret;
+
+	ret = request_threaded_irq(cache_irq, NULL, mon_intr_handler,
+			  IRQF_ONESHOT | IRQF_SHARED,
+			  "cache_hwmon", hw);
+	if (ret) {
+		pr_err("Unable to register interrupt handler!\n");
+		return ret;
+	}
 
 	mon_mrps_init();
 	mon_disable(L2_H_REQ_MON);
@@ -366,6 +380,8 @@ static int start_mrps_hwmon(struct cache_hwmon *hw, struct mrps_stats *mrps)
 
 static void stop_mrps_hwmon(struct cache_hwmon *hw)
 {
+	disable_irq(cache_irq);
+	free_irq(cache_irq, hw);
 	global_mon_enable(false);
 	mon_disable(L2_H_REQ_MON);
 	mon_disable(L2_M_REQ_MON);
@@ -377,7 +393,6 @@ static void stop_mrps_hwmon(struct cache_hwmon *hw)
 static struct cache_hwmon mrps_hwmon = {
 	.start_hwmon = &start_mrps_hwmon,
 	.stop_hwmon = &stop_mrps_hwmon,
-	.is_valid_irq = &is_valid_mrps_irq,
 	.meas_mrps_and_set_irq = &meas_mrps_and_set_irq,
 };
 
@@ -405,7 +420,7 @@ static int krait_l2pm_driver_probe(struct platform_device *pdev)
 	if (ret)
 		pr_err("CPUBW hwmon registration failed\n");
 
-	mrps_hwmon.irq = bw_irq;
+	cache_irq = bw_irq;
 	mrps_hwmon.of_node = of_parse_phandle(dev->of_node, "qcom,target-dev",
 					      0);
 	if (!mrps_hwmon.of_node)
