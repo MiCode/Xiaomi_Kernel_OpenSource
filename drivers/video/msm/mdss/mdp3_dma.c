@@ -510,7 +510,7 @@ static int mdp3_dmap_ccs_config_internal(struct mdp3_dma *dma,
 static void mdp3_ccs_update(struct mdp3_dma *dma, bool from_kickoff)
 {
 	u32 cc_config;
-	int updated = 0;
+	bool ccs_updated = false, lut_updated = false;
 	struct mdp3_dma_ccs ccs;
 
 	cc_config = MDP3_REG_READ(MDP3_REG_DMA_P_COLOR_CORRECT_CONFIG);
@@ -526,8 +526,15 @@ static void mdp3_ccs_update(struct mdp3_dma *dma, bool from_kickoff)
 		cc_config |= dma->ccs_config.post_bias_sel << 7;
 		cc_config |= dma->ccs_config.pre_limit_sel << 8;
 		cc_config |= dma->ccs_config.post_limit_sel << 9;
-		dma->ccs_config.ccs_dirty = false;
-		updated = 1;
+		/*
+		 * CCS dirty flag should be reset when call is made from frame
+		 * kickoff, or else upon resume the flag would be dirty and LUT
+		 * config could call this function thereby causing no register
+		 * programming for CCS, which will cause screen to go dark
+		 */
+		if (from_kickoff)
+			dma->ccs_config.ccs_dirty = false;
+		ccs_updated = true;
 	}
 
 	if (dma->lut_config.lut_dirty) {
@@ -536,22 +543,20 @@ static void mdp3_ccs_update(struct mdp3_dma *dma, bool from_kickoff)
 		cc_config |= dma->lut_config.lut_position << 4;
 		cc_config |= dma->lut_config.lut_sel << 10;
 		dma->lut_config.lut_dirty = false;
-		updated = 1;
+		lut_updated = true;
 	}
-	if (updated) {
-		if (from_kickoff) {
-			ccs.mv = dma->ccs_cache.csc_data.csc_mv;
-			ccs.pre_bv = dma->ccs_cache.csc_data.csc_pre_bv;
-			ccs.post_bv = dma->ccs_cache.csc_data.csc_post_bv;
-			ccs.pre_lv = dma->ccs_cache.csc_data.csc_pre_lv;
-			ccs.post_lv = dma->ccs_cache.csc_data.csc_post_lv;
 
-			mdp3_dmap_ccs_config_internal(dma,
-					&dma->ccs_config, &ccs);
-		}
+	if (ccs_updated && from_kickoff) {
+		ccs.mv = dma->ccs_cache.csc_data.csc_mv;
+		ccs.pre_bv = dma->ccs_cache.csc_data.csc_pre_bv;
+		ccs.post_bv = dma->ccs_cache.csc_data.csc_post_bv;
+		ccs.pre_lv = dma->ccs_cache.csc_data.csc_pre_lv;
+		ccs.post_lv = dma->ccs_cache.csc_data.csc_post_lv;
+		mdp3_dmap_ccs_config_internal(dma, &dma->ccs_config, &ccs);
+	}
 
+	if (lut_updated || ccs_updated) {
 		MDP3_REG_WRITE(MDP3_REG_DMA_P_COLOR_CORRECT_CONFIG, cc_config);
-
 		/*
 		 * Make sure ccs configuration update is done before continuing
 		 * with the DMA transfer
