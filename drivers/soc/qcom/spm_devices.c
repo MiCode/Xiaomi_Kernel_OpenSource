@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,8 +181,7 @@ static void msm_spm_config_q2s(struct msm_spm_device *dev, unsigned int mode)
 	}
 
 	val = spm_legacy_mode << 2 | qchannel_ignore << 1;
-	__raw_writel(val, dev->q2s_reg);
-	mb();
+	spm_raw_write(val, dev->q2s_reg);
 }
 
 static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
@@ -288,8 +287,7 @@ int msm_spm_turn_on_cpu_rail(struct device_node *vctl_node,
 		 * bit[1] = qchannel_ignore = 1
 		 * bit[2] = spm_legacy_mode = 0
 		 */
-		writel_relaxed(0x2, base);
-		mb();
+		spm_write_relaxed(0x2, base);
 		iounmap(base);
 	}
 
@@ -302,14 +300,12 @@ int msm_spm_turn_on_cpu_rail(struct device_node *vctl_node,
 
 	/* Set the CPU supply regulator voltage */
 	val = (val & 0xFF);
-	writel_relaxed(val, base + vctl_offset);
-	mb();
+	spm_write_relaxed(val, base + vctl_offset);
 	udelay(timeout);
 
 	/* Enable the CPU supply regulator*/
 	val = 0x30080;
-	writel_relaxed(val, base + vctl_offset);
-	mb();
+	spm_write_relaxed(val, base + vctl_offset);
 	udelay(timeout);
 
 	iounmap(base);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,9 @@ enum {
 
 struct msm_spm_device;
 struct device_node;
+
+#define spm_raw_write(v, a)	({ __raw_writel(v, a); __raw_readl(a); })
+#define spm_write_relaxed(v, c)	({ writel_relaxed(v, c); readl_relaxed(c); })
 
 #if defined(CONFIG_MSM_SPM)
 
