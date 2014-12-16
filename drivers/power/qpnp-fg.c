@@ -120,6 +120,7 @@ enum fg_mem_setting_index {
 	FG_MEM_BCL_MH_THRESHOLD,
 	FG_MEM_TERM_CURRENT,
 	FG_MEM_IRQ_VOLT_EMPTY,
+	FG_MEM_CUTOFF_VOLTAGE,
 	FG_MEM_SETTING_MAX,
 };
 
@@ -154,6 +155,7 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(BCL_MH_THRESHOLD, 0x47C,   3,      752),
 	SETTING(TERM_CURRENT,	 0x40C,   2,      250),
 	SETTING(IRQ_VOLT_EMPTY,	 0x458,   3,      3350),
+	SETTING(CUTOFF_VOLTAGE,	 0x40C,   0,      3400),
 };
 
 #define DATA(_idx, _address, _offset, _length,  _value)	\
@@ -1979,6 +1981,23 @@ static int update_irq_volt_empty(struct fg_chip *chip)
 
 #define MICROUNITS_TO_ADC_RAW(units)	\
 			div64_s64(units * LSB_16B_DENMTR, LSB_16B_NUMRTR)
+static int update_cutoff_voltage(struct fg_chip *chip)
+{
+	u8 data[2];
+	u16 converted_voltage_raw;
+	s64 voltage_mv = settings[FG_MEM_CUTOFF_VOLTAGE].value;
+
+	converted_voltage_raw = (s16)MICROUNITS_TO_ADC_RAW(voltage_mv * 1000);
+	data[0] = cpu_to_le16(converted_voltage_raw) & 0xFF;
+	data[1] = cpu_to_le16(converted_voltage_raw) >> 8;
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("voltage = %lld, converted_raw = %04x, data = %02x %02x\n",
+			voltage_mv, converted_voltage_raw, data[0], data[1]);
+	return fg_mem_write(chip, data, settings[FG_MEM_CUTOFF_VOLTAGE].address,
+				2, settings[FG_MEM_CUTOFF_VOLTAGE].offset, 0);
+}
+
 static int update_iterm(struct fg_chip *chip)
 {
 	u8 data[2];
@@ -2010,6 +2029,7 @@ static int fg_of_init(struct fg_chip *chip)
 	OF_READ_SETTING(FG_MEM_BCL_MH_THRESHOLD, "bcl-mh-threshold-ma",
 		rc, 1);
 	OF_READ_SETTING(FG_MEM_TERM_CURRENT, "fg-iterm-ma", rc, 1);
+	OF_READ_SETTING(FG_MEM_CUTOFF_VOLTAGE, "fg-cutoff-voltage-mv", rc, 1);
 	data = of_get_property(chip->spmi->dev.of_node,
 			"qcom,thermal-coefficients", &len);
 	if (data && len == THERMAL_COEFF_N_BYTES) {
@@ -2644,6 +2664,7 @@ static int fg_hw_init(struct fg_chip *chip)
 	int rc = 0;
 
 	update_iterm(chip);
+	update_cutoff_voltage(chip);
 	update_irq_volt_empty(chip);
 	update_bcl_thresholds(chip);
 	rc = fg_set_auto_recharge(chip);
