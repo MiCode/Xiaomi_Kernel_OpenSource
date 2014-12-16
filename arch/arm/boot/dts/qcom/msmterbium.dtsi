@@ -203,6 +203,7 @@
 };
 
 #include "msmterbium-pinctrl.dtsi"
+#include "msmterbium-ion.dtsi"
 
 &soc {
 	#address-cells = <1>;
