@@ -723,8 +723,6 @@ static void msm_vfe32_cfg_framedrop(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info)
 {
 	uint32_t framedrop_pattern = 0, framedrop_period = 0;
-	uint32_t rdi_reg_cfg;
-	int32_t val = 0;
 
 	if (stream_info->runtime_init_frame_drop == 0) {
 		framedrop_pattern = stream_info->framedrop_pattern;
@@ -747,32 +745,6 @@ static void msm_vfe32_cfg_framedrop(struct vfe_device *vfe_dev,
 		msm_camera_io_w(framedrop_period, vfe_dev->vfe_base + 0x518);
 		msm_camera_io_w(framedrop_pattern, vfe_dev->vfe_base + 0x51C);
 		msm_camera_io_w(framedrop_pattern, vfe_dev->vfe_base + 0x520);
-	} else if (stream_info->stream_src == RDI_INTF_0 ||
-			stream_info->stream_src == RDI_INTF_1 ||
-			stream_info->stream_src == RDI_INTF_2) {
-		if (stream_info->runtime_init_frame_drop) {
-			rdi_reg_cfg = msm_camera_io_r(
-			vfe_dev->vfe_base +
-			VFE32_RDI_BASE(stream_info->stream_src - VFE_SRC_MAX));
-			val = ((stream_info->runtime_init_frame_drop + 1) << 20)
-					| 0x1000000;
-			rdi_reg_cfg |= val;
-			msm_camera_io_w(rdi_reg_cfg, vfe_dev->vfe_base +
-			VFE32_RDI_BASE(stream_info->stream_src - VFE_SRC_MAX));
-		} else if (0 == stream_info->runtime_init_frame_drop) {
-			rdi_reg_cfg = msm_camera_io_r(
-			vfe_dev->vfe_base +
-			VFE32_RDI_BASE(stream_info->stream_src - VFE_SRC_MAX));
-			if (stream_info->framedrop_period == 0 ||
-				stream_info->framedrop_period == 1)
-				rdi_reg_cfg = 0xFE0FFFFF & rdi_reg_cfg;
-			else
-				rdi_reg_cfg = 0xFF0FFFFF & rdi_reg_cfg;
-			val = stream_info->framedrop_period << 20;
-			rdi_reg_cfg = rdi_reg_cfg | val;
-			msm_camera_io_w(rdi_reg_cfg, vfe_dev->vfe_base +
-			VFE32_RDI_BASE(stream_info->stream_src - VFE_SRC_MAX));
-		}
 	}
 	msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x260);
 }
