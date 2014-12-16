@@ -2270,6 +2270,10 @@
 		qcom,limit-temp = <60>;
 		qcom,temp-hysteresis = <10>;
 		qcom,therm-reset-temp = <115>;
+		qcom,disable-ocr;
+		qcom,disable-psm;
+		qcom,disable-gfx-phase-ctrl;
+		qcom,disable-cx-phase-ctrl;
 		qcom,freq-step = <2>;
 		qcom,freq-control-mask = <0x3f>;
 		qcom,core-limit-temp = <80>;
