@@ -2265,7 +2265,7 @@
 
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
-		qcom,sensor-id = <3>;
+		qcom,sensor-id = <7>;
 		qcom,poll-ms = <250>;
 		qcom,limit-temp = <60>;
 		qcom,temp-hysteresis = <10>;
@@ -2280,14 +2280,14 @@
 		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-mask = <0x3e>;
 		qcom,hotplug-temp = <105>;
-		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,hotplug-temp-hysteresis = <40>;
 		qcom,cpu-sensors = "tsens_tz_sensor7", "tsens_tz_sensor7",
 				   "tsens_tz_sensor9", "tsens_tz_sensor10",
 				   "tsens_tz_sensor13", "tsens_tz_sensor14";
-		qcom,freq-mitigation-temp = <105>;
+		qcom,freq-mitigation-temp = <95>;
 		qcom,freq-mitigation-temp-hysteresis = <20>;
-		qcom,freq-mitigation-value = <302400>;
-		qcom,freq-mitigation-control-mask = <0x31>;
+		qcom,freq-mitigation-value = <768000>;
+		qcom,freq-mitigation-control-mask = <0x30>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
 		qcom,vdd-restriction-temp = <5>;
