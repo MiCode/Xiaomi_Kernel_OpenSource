@@ -409,6 +409,7 @@ struct mdss_pipe_pp_res {
 	u32 hist_lut[ENHIST_LUT_ENTRIES];
 	struct pp_hist_col_info hist;
 	struct pp_sts_type pp_sts;
+	void *pa_cfg_payload;
 };
 
 struct mdss_mdp_pipe_smp_map {

@@ -842,11 +842,17 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_V2_CFG) &&
 			(mdata->mdp_rev >= MDSS_MDP_HW_REV_103)) {
 		flags = PP_FLAGS_DIRTY_PA;
-		pp_pa_v2_config(flags,
+		if (!pp_ops[PA].pp_set_config)
+			pp_pa_v2_config(flags,
 				pipe->base + MDSS_MDP_REG_VIG_PA_BASE,
 				&pipe->pp_res.pp_sts,
 				&pipe->pp_cfg.pa_v2_cfg,
 				PP_SSPP);
+		else
+			pp_ops[PA].pp_set_config(pipe->base,
+				&pipe->pp_res.pp_sts,
+				&pipe->pp_cfg.pa_v2_cfg_data,
+				SSPP_VIG);
 	}
 
 	if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_LUT_CFG) {
@@ -867,7 +873,11 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		}
 	}
 
-	pp_vig_pipe_opmode_config(&pipe->pp_res.pp_sts, op);
+	if (pp_driver_ops.pp_opmode_config)
+		pp_driver_ops.pp_opmode_config(SSPP_VIG, &pipe->pp_res.pp_sts,
+					       op, 0);
+	else
+		pp_vig_pipe_opmode_config(&pipe->pp_res.pp_sts, op);
 
 	return 0;
 }
@@ -1217,6 +1227,7 @@ void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
 			hist_info = &pipe->pp_res.hist;
 			pp_hist_disable(hist_info);
 		}
+		kfree(pipe->pp_res.pa_cfg_payload);
 		kfree(pipe->pp_cfg.igc_cfg.cfg_payload);
 		memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
 		memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
@@ -2438,6 +2449,7 @@ int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config,
 	char __iomem *pa_addr;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdp_pa_v2_cfg_data *pa_v2_cache = NULL;
+	struct mdp_pp_cache_res res_cache;
 	uint32_t flags = 0;
 
 	if (mdata->mdp_rev < MDSS_MDP_HW_REV_103)
@@ -2492,7 +2504,10 @@ pa_clk_off:
 	} else {
 		if (pp_ops[PA].pp_set_config) {
 			pr_debug("version of PA is %d\n", config->version);
-			ret = pp_pa_cache_params(config, mdss_pp_res);
+			res_cache.block = DSPP;
+			res_cache.mdss_pp_res = mdss_pp_res;
+			res_cache.pipe_res = NULL;
+			ret = pp_pa_cache_params(config, &res_cache);
 			if (ret) {
 				pr_err("PA config failed version %d ret %d\n",
 					config->version, ret);
@@ -6078,6 +6093,19 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 			goto exit_fail;
 		}
 		pipe->pp_cfg.hist_lut_cfg.data = pipe->pp_res.hist_lut;
+	}
+	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_V2_CFG) &&
+	    (pp_ops[PA].pp_set_config)) {
+		cache_res.block = SSPP_VIG;
+		cache_res.mdss_pp_res = NULL;
+		cache_res.pipe_res = pipe;
+		ret = pp_pa_cache_params(&pipe->pp_cfg.pa_v2_cfg_data,
+					 &cache_res);
+		if (ret) {
+			pr_err("Failed to cache PA params on pipe %d, ret %d\n",
+				pipe->num, ret);
+			goto exit_fail;
+		}
 	}
 exit_fail:
 	if (ret) {

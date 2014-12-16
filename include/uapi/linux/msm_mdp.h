@@ -617,6 +617,8 @@ struct mdp_overlay_pp_params {
 	struct mdp_sharp_cfg sharp_cfg;
 	struct mdp_histogram_cfg hist_cfg;
 	struct mdp_hist_lut_data hist_lut_cfg;
+	/* PAv2 cfg data for PA 2.x versions */
+	struct mdp_pa_v2_cfg_data pa_v2_cfg_data;
 };
 
 /**

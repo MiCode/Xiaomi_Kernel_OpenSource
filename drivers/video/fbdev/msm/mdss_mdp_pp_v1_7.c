@@ -152,6 +152,20 @@ static u32 dither_depth_map[DITHER_DEPTH_MAP_INDEX] = {
 #define PA_DSPP_OP_MEM_PROT_CONT_EN BIT(18)
 #define PA_DSPP_OP_MEM_PROT_BLEND_EN BIT(3)
 #define PA_DSPP_OP_MEM_PROT_SIX_EN BIT(17)
+#define PA_VIG_OP_HUE_MASK BIT(25)
+#define PA_VIG_OP_SAT_MASK BIT(26)
+#define PA_VIG_OP_VAL_MASK BIT(27)
+#define PA_VIG_OP_CONT_MASK BIT(28)
+#define PA_VIG_OP_MEM_PROT_HUE_EN BIT(12)
+#define PA_VIG_OP_MEM_PROT_SAT_EN BIT(13)
+#define PA_VIG_OP_MEM_PROT_VAL_EN BIT(14)
+#define PA_VIG_OP_MEM_PROT_CONT_EN BIT(15)
+#define PA_VIG_OP_MEM_COL_SKIN_MASK BIT(5)
+#define PA_VIG_OP_MEM_COL_FOL_MASK BIT(6)
+#define PA_VIG_OP_MEM_COL_SKY_MASK BIT(7)
+#define PA_VIG_OP_MEM_PROT_BLEND_EN BIT(1)
+#define PA_VIG_OP_ENABLE BIT(4)
+#define PA_VIG_OP_SAT_ZERO_EXP_EN BIT(2)
 
 static struct mdss_pp_res_type_v1_7 config_data;
 
@@ -191,6 +205,7 @@ static int pp_pa_set_config(char __iomem *base_addr,
 static int pp_pa_get_config(char __iomem *base_addr, void *cfg_data,
 				u32 block_type, u32 disp_num);
 static void pp_pa_update_dspp_opmode(int pa_sts, u32 *opmode);
+static void pp_pa_update_vig_opmode(int pa_sts, u32 *opmode);
 
 static int pp_igc_set_config(char __iomem *base_addr,
 		struct pp_sts_type *pp_sts, void *cfg_data,
@@ -269,6 +284,8 @@ static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 	case SSPP_DMA:
 		break;
 	case SSPP_VIG:
+		if (pp_sts->pa_sts & PP_STS_ENABLE)
+			pp_pa_update_vig_opmode(pp_sts->pa_sts, opmode);
 		break;
 	case DSPP:
 		if (pp_sts_is_enabled(pp_sts->pa_sts, side))
@@ -959,7 +976,7 @@ static int pp_pcc_get_config(char __iomem *base_addr, void *cfg_data,
 	return 0;
 }
 
-static inline void pp_pa_set_global_adj_regs(char __iomem *base_addr,
+static void pp_pa_set_global_adj_regs(char __iomem *base_addr,
 				struct mdp_pa_data_v1_7 *pa_data, u32 flags,
 				int block_type)
 {
@@ -1142,10 +1159,16 @@ static void pp_pa_set_sts(struct pp_sts_type *pp_sts,
 
 	if (enable_flag & MDP_PP_OPS_ENABLE)
 		pp_sts->pa_sts |= PP_STS_ENABLE;
-	else if (enable_flag & MDP_PP_OPS_DISABLE) {
+	/* Disable takes priority over all flags */
+	if (enable_flag & MDP_PP_OPS_DISABLE) {
 		pp_sts->pa_sts &= ~PP_STS_ENABLE;
 		if (block_type == DSPP)
 			pp_sts_set_split_bits(&pp_sts->pa_sts, enable_flag);
+		return;
+	}
+
+	if (!pa_data) {
+		pr_err("PA cfg payload is null, enable flag %d\n", enable_flag);
 		return;
 	}
 
@@ -1226,6 +1249,11 @@ static int pp_pa_set_config(char __iomem *base_addr,
 		pr_info("only read ops is set %d", pa_cfg_data->flags);
 		return 0;
 	}
+	if (pa_cfg_data->flags & MDP_PP_OPS_DISABLE) {
+		pr_debug("Disable PA");
+		goto pa_set_sts;
+	}
+
 	pa_data = pa_cfg_data->cfg_payload;
 	if (!pa_data) {
 		pr_err("invalid payload for pa %p\n", pa_data);
@@ -1259,12 +1287,13 @@ static int pp_pa_set_config(char __iomem *base_addr,
 	pa_hold |= pa_hold_tmp;
 	writel_relaxed(pa_hold, pa_hold_addr);
 
+pa_set_sts:
 	pp_pa_set_sts(pp_sts, pa_data, pa_cfg_data->flags, block_type);
 
 	return ret;
 }
 
-static inline void pp_pa_get_global_adj_regs(char __iomem *base_addr,
+static void pp_pa_get_global_adj_regs(char __iomem *base_addr,
 				struct mdp_pa_data_v1_7 *pa_data, u32 flags,
 				int block_type)
 {
@@ -1292,7 +1321,7 @@ static inline void pp_pa_get_global_adj_regs(char __iomem *base_addr,
 					  PA_GLOBAL_CONT_MASK;
 }
 
-static inline void pp_pa_get_mem_col_regs(char __iomem *mem_col_p0_addr,
+static void pp_pa_get_mem_col_regs(char __iomem *mem_col_p0_addr,
 				char __iomem *mem_col_p2_addr,
 				struct mdp_pa_mem_col_data_v1_7 *mem_col_data)
 {
@@ -1315,7 +1344,7 @@ static inline void pp_pa_get_mem_col_regs(char __iomem *mem_col_p0_addr,
 	mem_col_data->blend_gain = readl_relaxed(mem_col_p2_addr);
 }
 
-static inline void pp_pa_get_mem_col(char __iomem *base_addr,
+static void pp_pa_get_mem_col(char __iomem *base_addr,
 				struct mdp_pa_data_v1_7 *pa_data, u32 flags,
 				int block_type,
 				uint32_t pa_hold)
@@ -1379,7 +1408,7 @@ static inline void pp_pa_get_mem_col(char __iomem *base_addr,
 	}
 }
 
-static inline int pp_pa_get_six_zone(char __iomem *base_addr,
+static int pp_pa_get_six_zone(char __iomem *base_addr,
 				struct mdp_pa_data_v1_7 *pa_data, u32 flags,
 				u32 pa_hold)
 {
@@ -1526,6 +1555,37 @@ static int pp_pa_get_config(char __iomem *base_addr, void *cfg_data,
 	}
 
 	return 0;
+}
+
+static void pp_pa_update_vig_opmode(int pa_sts, u32 *opmode)
+{
+	*opmode |= PA_VIG_OP_ENABLE;
+	if (pa_sts & PP_STS_PA_HUE_MASK)
+		*opmode |= PA_VIG_OP_HUE_MASK;
+	if (pa_sts & PP_STS_PA_SAT_MASK)
+		*opmode |= PA_VIG_OP_SAT_MASK;
+	if (pa_sts & PP_STS_PA_VAL_MASK)
+		*opmode |= PA_VIG_OP_VAL_MASK;
+	if (pa_sts & PP_STS_PA_CONT_MASK)
+		*opmode |= PA_VIG_OP_CONT_MASK;
+	if (pa_sts & PP_STS_PA_SAT_ZERO_EXP_EN)
+		*opmode |= PA_VIG_OP_SAT_ZERO_EXP_EN;
+	if (pa_sts & PP_STS_PA_MEM_COL_SKIN_MASK)
+		*opmode |= PA_VIG_OP_MEM_COL_SKIN_MASK;
+	if (pa_sts & PP_STS_PA_MEM_COL_FOL_MASK)
+		*opmode |= PA_VIG_OP_MEM_COL_FOL_MASK;
+	if (pa_sts & PP_STS_PA_MEM_COL_SKY_MASK)
+		*opmode |= PA_VIG_OP_MEM_COL_SKY_MASK;
+	if (pa_sts & PP_STS_PA_MEM_PROT_HUE_EN)
+		*opmode |= PA_VIG_OP_MEM_PROT_HUE_EN;
+	if (pa_sts & PP_STS_PA_MEM_PROT_SAT_EN)
+		*opmode |= PA_VIG_OP_MEM_PROT_SAT_EN;
+	if (pa_sts & PP_STS_PA_MEM_PROT_VAL_EN)
+		*opmode |= PA_VIG_OP_MEM_PROT_VAL_EN;
+	if (pa_sts & PP_STS_PA_MEM_PROT_CONT_EN)
+		*opmode |= PA_VIG_OP_MEM_PROT_CONT_EN;
+	if (pa_sts & PP_STS_PA_MEM_PROT_BLEND_EN)
+		*opmode |= PA_VIG_OP_MEM_PROT_BLEND_EN;
 }
 
 static void pp_pa_update_dspp_opmode(int pa_sts, u32 *opmode)
