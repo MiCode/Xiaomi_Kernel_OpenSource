@@ -4304,10 +4304,6 @@ int __sdhci_add_host(struct sdhci_host *host)
 
 	}
 
-	ret = mmc_add_host(mmc);
-	if (ret)
-		goto unled;
-
 	if (host->quirks2 & SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR) {
 		host->ier = (host->ier & ~SDHCI_INT_DATA_END_BIT);
 		sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
@@ -4335,6 +4331,10 @@ int __sdhci_add_host(struct sdhci_host *host)
 		"CMDQ" : "legacy");
 
 	sdhci_enable_card_detection(host);
+
+	ret = mmc_add_host(mmc);
+	if (ret)
+		goto unled;
 
 	return 0;
 
