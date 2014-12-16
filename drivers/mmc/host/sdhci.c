@@ -4026,7 +4026,6 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	if (caps[0] & SDHCI_ASYNC_INTR)
 		host->async_int_supp = true;
-	mmc_add_host(mmc);
 
 	if (host->quirks2 & SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR)
 		sdhci_clear_set_irqs(host, SDHCI_INT_DATA_END_BIT, 0);
@@ -4039,6 +4038,7 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	sdhci_enable_card_detection(host);
 
+	mmc_add_host(mmc);
 	return 0;
 
 #ifdef SDHCI_USE_LEDS_CLASS
