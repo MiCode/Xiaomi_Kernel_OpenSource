@@ -1250,6 +1250,24 @@ Non-small tasks will prefer to wake up on idle CPUs if this tunable is set to 1.
 If the tunable is set to 0, non-small tasks will prefer to wake up on mostly
 idle CPUs which are not completely idle, increasing task packing behavior.
 
+** 7.24 sched_min_runtime
+
+Appears at: /proc/sys/kernel/sched_min_runtime
+
+Default value: 200000000 (200ms)
+
+This tunable helps avouid frequent migration of task on account of
+energy-awareness. During scheduler tick, a check is made (in migration_needed())
+whether the running task needs to be migrated to a "better" cpu, which could
+either offer better performance or power. When deciding to migrate task on
+account of power, we want to avoid "frequent" migration of task (say every
+tick), which could be add more overhead for comparatively little gains. A task's
+'run_start' attribute is set when it starts running on a cpu. This information
+is used in migration_needed() to avoid "frequent" migrations. Once a task has
+been associated with a cpu (in either running or runnable state) for more than
+'sched_min_vruntime' ns, it is considered eligible for migration in tick path on
+account of energy awareness reasons.
+
 =========================
 8. HMP SCHEDULER TRACE POINTS
 =========================
