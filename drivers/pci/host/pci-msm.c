@@ -524,6 +524,10 @@ struct msm_pcie_dev_t {
 	void				 *ipc_log;
 	void				*ipc_log_long;
 	void				*ipc_log_dump;
+	bool				use_pinctrl;
+	struct pinctrl			*pinctrl;
+	struct pinctrl_state		*pins_default;
+	struct pinctrl_state		*pins_sleep;
 	struct msm_pcie_device_info   pcidev_table[MAX_DEVICE_NUM];
 };
 
@@ -1070,6 +1074,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->cfg_access ? "" : "not");
 	pr_alert("use_msi is %d\n",
 		dev->use_msi);
+	pr_alert("use_pinctrl is %d\n",
+		dev->use_pinctrl);
 	pr_alert("user_suspend is %d\n",
 		dev->user_suspend);
 	pr_alert("disable_pc is %d",
@@ -4342,6 +4348,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].wake_counter = 0;
 	msm_pcie_dev[rc_idx].power_on = false;
 	msm_pcie_dev[rc_idx].use_msi = false;
+	msm_pcie_dev[rc_idx].use_pinctrl = false;
 	msm_pcie_dev[rc_idx].bridge_found = false;
 	memcpy(msm_pcie_dev[rc_idx].vreg, msm_pcie_vreg_info,
 				sizeof(msm_pcie_vreg_info));
@@ -4375,6 +4382,36 @@ static int msm_pcie_probe(struct platform_device *pdev)
 
 	if (ret)
 		goto decrease_rc_num;
+
+	msm_pcie_dev[rc_idx].pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(msm_pcie_dev[rc_idx].pinctrl))
+		PCIE_ERR(&msm_pcie_dev[rc_idx],
+			"PCIe: RC%d failed to get pinctrl\n",
+			rc_idx);
+	else
+		msm_pcie_dev[rc_idx].use_pinctrl = true;
+
+	if (msm_pcie_dev[rc_idx].use_pinctrl) {
+		msm_pcie_dev[rc_idx].pins_default =
+			pinctrl_lookup_state(msm_pcie_dev[rc_idx].pinctrl,
+						"default");
+		if (IS_ERR(msm_pcie_dev[rc_idx].pins_default)) {
+			PCIE_ERR(&msm_pcie_dev[rc_idx],
+				"PCIe: RC%d could not get pinctrl default state\n",
+				rc_idx);
+			msm_pcie_dev[rc_idx].pins_default = NULL;
+		}
+
+		msm_pcie_dev[rc_idx].pins_sleep =
+			pinctrl_lookup_state(msm_pcie_dev[rc_idx].pinctrl,
+						"sleep");
+		if (IS_ERR(msm_pcie_dev[rc_idx].pins_sleep)) {
+			PCIE_ERR(&msm_pcie_dev[rc_idx],
+				"PCIe: RC%d could not get pinctrl sleep state\n",
+				rc_idx);
+			msm_pcie_dev[rc_idx].pins_sleep = NULL;
+		}
+	}
 
 	ret = msm_pcie_gpio_init(&msm_pcie_dev[rc_idx]);
 	if (ret) {
@@ -4626,6 +4663,10 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 
 		msm_pcie_disable(pcie_dev, PM_PIPE_CLK | PM_CLK | PM_VREG);
 
+	if (pcie_dev->use_pinctrl && pcie_dev->pins_sleep)
+		pinctrl_select_state(pcie_dev->pinctrl,
+					pcie_dev->pins_sleep);
+
 	return ret;
 }
 
@@ -4672,6 +4713,10 @@ static int msm_pcie_pm_resume(struct pci_dev *dev,
 	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
 
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
+
+	if (pcie_dev->use_pinctrl && pcie_dev->pins_default)
+		pinctrl_select_state(pcie_dev->pinctrl,
+					pcie_dev->pins_default);
 
 	spin_lock_irqsave(&pcie_dev->cfg_lock,
 				pcie_dev->irqsave_flags);
