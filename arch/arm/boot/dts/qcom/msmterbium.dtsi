@@ -204,6 +204,7 @@
 
 #include "msmterbium-pinctrl.dtsi"
 #include "msmterbium-ion.dtsi"
+#include "msmterbium-iommu.dtsi"
 
 &soc {
 	#address-cells = <1>;

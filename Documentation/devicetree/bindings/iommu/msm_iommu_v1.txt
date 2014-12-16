@@ -38,7 +38,9 @@ Optional properties:
 - List of sub nodes, one for each of the translation context banks supported.
   Each sub node has the following required properties:
 
-  - compatible : "qcom,msm-smmu-v1-ctx"
+  - compatible : one of:
+	- "qcom,msm-smmu-v1-ctx"
+	- "qcom,msm-smmu-v2-ctx"
   - reg : offset and length of the register set for the context bank.
   - interrupts : should contain the context bank interrupt. If this is
     a secure context bank, this should be a list of 2 3-tuples where
