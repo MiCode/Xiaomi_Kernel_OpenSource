@@ -315,3 +315,5 @@
 		qcom,btm-channel-number = <0x68>;
 	};
 };
+
+#include "msm8909-pm8916-pm.dtsi"
