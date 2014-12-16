@@ -363,3 +363,5 @@
 		       <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 	};
 };
+
+#include "msmterbium-regulator.dtsi"

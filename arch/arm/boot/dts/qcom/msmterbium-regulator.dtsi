@@ -1,0 +1,311 @@
+/*
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* Stub regulators */
+
+/ {
+	pmterbium_s1: regulator-s1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s1";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <900000>;
+		regulator-max-microvolt = <900000>;
+	};
+
+	pmterbium_s1_corner: regulator-s1-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s1_corner";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pmterbium_s1_corner_ao: regulator-s1-corner-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s1_corner_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	/* PMterbium S2B + 4B = 2 phase VDD_APC1 supply */
+	pmterbium_s2: regulator-s2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s2";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <900000>;
+		regulator-max-microvolt = <900000>;
+	};
+
+	/* PMterbium S2 = 1 phase VDD_CX supply */
+	pmterbium_s2_corner: regulator-s2-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s2_corner";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pmterbium_s2_corner_ao: regulator-s2-corner-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s2_corner_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pmterbium_s2_floor_corner: regulator-pmterbium-s2-floor-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmterbium_s2_floor_corner";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pmterbium_s3: regulator-s3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s3";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1325000>;
+		regulator-max-microvolt = <1325000>;
+	};
+
+	pmterbium_s4: regulator-s4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s4";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <2050000>;
+		regulator-max-microvolt = <2050000>;
+	};
+
+	/* PMterbium S5A = 1 phase VDD_APC0 supply */
+	pmterbium_s5: regulator-s5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s5";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <900000>;
+		regulator-max-microvolt = <900000>;
+	};
+
+	/* PMterbium S5B = 1 phase VDD_GFX supply */
+	pmterbium_s5_corner: regulator-s5-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s5_corner";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pmterbium_s5_corner_ao: regulator-s5-corner-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s5_corner_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	/* PMterbium S6 = 1 phase VDD_MX supply */
+	pmterbium_s6_corner: regulator-s6-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s6_corner";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pmterbium_s6_corner_ao: regulator-s6-corner-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_s6_corner_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	pmterbium_l1: regulator-l1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l1";
+		parent-supply = <&pmterbium_s3>;
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	pmterbium_l2: regulator-l2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l2";
+		parent-supply = <&pmterbium_s3>;
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	pmterbium_l3: regulator-l3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l3";
+		parent-supply = <&pmterbium_s3>;
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1100000>;
+		regulator-max-microvolt = <1100000>;
+	};
+
+	pmterbium_l4: regulator-l4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l4";
+		parent-supply = <&pmterbium_s4>;
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmterbium_l5: regulator-l5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l5";
+		parent-supply = <&pmterbium_s4>;
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmterbium_l6: regulator-l6 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l6";
+		parent-supply = <&pmterbium_s4>;
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmterbium_l7: regulator-l7 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l7";
+		parent-supply = <&pmterbium_s4>;
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmterbium_l7_ao: regulator-l7-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l7_ao";
+		parent-supply = <&pmterbium_s4>;
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmterbium_l8: regulator-l8 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l8";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2900000>;
+		regulator-max-microvolt = <2900000>;
+	};
+
+	pmterbium_l9: regulator-l9 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l9";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	pmterbium_l10: regulator-l10 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l10";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+	};
+
+	pmterbium_l11: regulator-l11 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l11";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2950000>;
+		regulator-max-microvolt = <2950000>;
+	};
+
+	pmterbium_l12: regulator-l12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l12";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2950000>;
+		regulator-max-microvolt = <2950000>;
+	};
+
+	pmterbium_l13: regulator-l13 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l13";
+		qcom,hpm-min-load = <5000>;
+		regulator-min-microvolt = <3075000>;
+		regulator-max-microvolt = <3075000>;
+	};
+
+	pmterbium_l14: regulator-l14 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l14";
+		qcom,hpm-min-load = <5000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	pmterbium_l15: regulator-l15 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l15";
+		qcom,hpm-min-load = <5000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	pmterbium_l16: regulator-l16 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l16";
+		qcom,hpm-min-load = <5000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmterbium_l17: regulator-l17 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l17";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2850000>;
+		regulator-max-microvolt = <2850000>;
+	};
+
+	pmterbium_l19: regulator-l19 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l19";
+		parent-supply = <&pmterbium_s3>;
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1300000>;
+		regulator-max-microvolt = <1300000>;
+	};
+
+	pmterbium_l22: regulator-l22 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l22";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+	};
+
+	pmterbium_l23: regulator-l23 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "terbium_l23";
+		parent-supply = <&pmterbium_s3>;
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+};
