@@ -489,6 +489,7 @@ static int msm_bus_apply_rules(struct list_head *list, bool after_clk_commit)
 							rule->lim_bw);
 		if (ret)
 			MSM_BUS_ERR("Failed to set limiter for %d", rule->id);
+		trace_bus_rules_apply(rule->id, rule->lim_bw, throttle_en);
 	}
 
 	return ret;
