@@ -35,6 +35,12 @@
 #define FSM9900_MAC1_FUSE_PHYS	0xFC4B8448
 #define FSM9900_MAC_FUSE_SIZE	0x10
 
+#define FSM9900_FSM_ID_FUSE_PHYS	0xFC4BC0A0
+#define FSM9900_FSM_ID_FUSE_SIZE	0x2
+
+#define FSM_ID_MASK	0x000FFFFF
+#define FSM_ID_FSM9900	0x0080f
+
 #define FSM9900_QDSP6_0_DEBUG_DUMP_PHYS	0x25200000
 #define FSM9900_QDSP6_1_DEBUG_DUMP_PHYS	0x25280000
 #define FSM9900_QDSP6_2_DEBUG_DUMP_PHYS	0x25300000
@@ -44,6 +50,8 @@
 #define FSM9900_SCLTE_CB_TRACE_PHYS	0x3aa00000
 #define FSM9900_SCLTE_RF_CAL_PHYS	0x3a000000
 #define FSM9900_SCLTE_ETH_TRACE_PHYS	0x2fe8c000
+#define FSM9900_SCLTE_DDR_PHYS		0x00100000
+#define FSM9900_SCLTE_GEN_DBG_PHYS	0xf6000000
 
 #define FSM9900_UIO_VERSION "1.0"
 
@@ -60,6 +68,10 @@ static struct uio_info fsm9900_uio_info[] = {
 	},
 	{
 		.name = "fsm9900-uio1",
+		.version = FSM9900_UIO_VERSION,
+	},
+	{
+		.name = "fsm9900-uio2",
 		.version = FSM9900_UIO_VERSION,
 	},
 };
@@ -144,6 +156,31 @@ static struct platform_device fsm9900_uio1_device = {
 	.resource = fsm9900_uio1_resources,
 };
 
+static struct resource fsm9900_uio2_resources[] = {
+	{
+		.start = FSM9900_SCLTE_DDR_PHYS,
+		.end   = FSM9900_SCLTE_DDR_PHYS + 181 * SZ_1M - 1,
+		.name  = "sclte_ddr",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9900_SCLTE_GEN_DBG_PHYS,
+		.end   = FSM9900_SCLTE_GEN_DBG_PHYS + SZ_32M - 1,
+		.name  = "sclte_gen_dbg",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device fsm9900_uio2_device = {
+	.name = "uio_pdrv",
+	.id = 2,
+	.dev = {
+		.platform_data = &fsm9900_uio_info[2]
+	},
+	.num_resources = ARRAY_SIZE(fsm9900_uio2_resources),
+	.resource = fsm9900_uio2_resources,
+};
+
 static struct platform_device *fsm9900_uio_devices[] = {
 	&fsm9900_uio0_device,
 	&fsm9900_uio1_device,
@@ -153,6 +190,24 @@ static const char mac_addr_prop_name[] = "mac-address";
 
 void __init fsm9900_reserve(void)
 {
+}
+
+static bool is_fsm9900(void)
+{
+	void __iomem *fuse_reg;
+	u32 fsm_id;
+
+	fuse_reg = ioremap(FSM9900_FSM_ID_FUSE_PHYS,
+			   FSM9900_FSM_ID_FUSE_SIZE);
+	if (!fuse_reg) {
+		pr_err("failed to ioremap fuse to read fsm id");
+		return false;
+	}
+
+	fsm_id = ioread16(fuse_reg) & FSM_ID_MASK;
+	iounmap(fuse_reg);
+
+	return (fsm_id == FSM_ID_FSM9900) ? true : false;
 }
 
 /*
@@ -170,6 +225,8 @@ void __init fsm9900_add_drivers(void)
 		msm_clock_init(&fsm9900_clock_init_data);
 	platform_add_devices(fsm9900_uio_devices,
 			     ARRAY_SIZE(fsm9900_uio_devices));
+	if (is_fsm9900())
+		platform_device_register(&fsm9900_uio2_device);
 }
 
 static void __init fsm9900_map_io(void)
