@@ -1496,6 +1496,7 @@
 		compatible = "qcom,kraitbw-l2pm";
 		interrupts = <0 1 1>;
 		qcom,bytes-per-beat = <8>;
+		qcom,target-dev = <&cache>;
 	};
 
 	devfreq-cpufreq {
