@@ -413,6 +413,7 @@ int ipa_suspend_resource_sync(enum ipa_rm_resource_name resource)
 			res = -EINVAL;
 			continue;
 		}
+		ipa_ctx->resume_on_connect[client] = false;
 		if (ipa_ctx->ep[ipa_ep_idx].client == client &&
 		    ipa_should_pipe_be_suspended(client)) {
 			if (ipa_ctx->ep[ipa_ep_idx].valid) {
@@ -421,8 +422,7 @@ int ipa_suspend_resource_sync(enum ipa_rm_resource_name resource)
 				suspend.ipa_ep_suspend = true;
 				ipa_cfg_ep_ctrl(ipa_ep_idx, &suspend);
 				pipe_suspended = true;
-		    }
-		    ipa_ctx->resume_on_connect[client] = false;
+			}
 		}
 	}
 	/* Sleep ~1 msec */
@@ -478,6 +478,7 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 			res = -EINVAL;
 			continue;
 		}
+		ipa_ctx->resume_on_connect[client] = false;
 		if (ipa_ctx->ep[ipa_ep_idx].client == client &&
 		    ipa_should_pipe_be_suspended(client)) {
 			if (ipa_ctx->ep[ipa_ep_idx].valid) {
@@ -485,8 +486,7 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 				memset(&suspend, 0, sizeof(suspend));
 				suspend.ipa_ep_suspend = true;
 				ipa_cfg_ep_ctrl(ipa_ep_idx, &suspend);
-		    }
-		    ipa_ctx->resume_on_connect[client] = false;
+			}
 		}
 	}
 
@@ -534,6 +534,12 @@ int ipa_resume_resource(enum ipa_rm_resource_name resource)
 			res = -EINVAL;
 			continue;
 		}
+		/*
+		 * The related ep, will be resumed on connect
+		 * while its resource is granted
+		 */
+		ipa_ctx->resume_on_connect[client] = true;
+		IPADBG("%d will be resumed on connect.\n", client);
 		if (ipa_ctx->ep[ipa_ep_idx].client == client &&
 		    ipa_should_pipe_be_suspended(client)) {
 			if (ipa_ctx->ep[ipa_ep_idx].valid) {
@@ -541,14 +547,6 @@ int ipa_resume_resource(enum ipa_rm_resource_name resource)
 				suspend.ipa_ep_suspend = false;
 				ipa_cfg_ep_ctrl(ipa_ep_idx, &suspend);
 			}
-			/*
-			 * The related ep, will be resumed on connect
-			 * while its resource is granted
-			 */
-			ipa_ctx->resume_on_connect[client] =
-				true;
-			IPADBG("%d will be resumed on connect.\n",
-					client);
 		}
 	}
 
