@@ -236,7 +236,7 @@ static int __init vuport_init(void)
 {
 	return platform_driver_register(&vuport_driver);
 }
-subsys_initcall(vuport_init);
+fs_initcall(vuport_init);
 
 static void __exit vuport_exit(void)
 {
