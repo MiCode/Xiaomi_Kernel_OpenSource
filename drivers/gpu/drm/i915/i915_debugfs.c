@@ -1897,6 +1897,11 @@ static int i915_gem_framebuffer_info(struct seq_file *m, void *data)
 		return ret;
 
 	ifbdev = dev_priv->fbdev;
+	if (!ifbdev) {
+		mutex_unlock(&dev->mode_config.mutex);
+		return -ENOMEM;
+	}
+
 	fb = to_intel_framebuffer(ifbdev->helper.fb);
 
 	seq_printf(m, "fbcon size: %d x %d, depth %d, %d bpp, refcount %d, obj ",
@@ -3331,9 +3336,14 @@ static int pipe_crc_set_source(struct drm_device *dev, enum pipe pipe,
 			       enum intel_pipe_crc_source source)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_pipe_crc *pipe_crc = &dev_priv->pipe_crc[pipe];
+	struct intel_pipe_crc *pipe_crc = NULL;
 	u32 val = 0; /* shut up gcc */
 	int ret;
+
+	if ((pipe < PIPE_A) || (pipe >= I915_MAX_PIPES))
+		return -EINVAL;
+
+	pipe_crc = &dev_priv->pipe_crc[pipe];
 
 	if (pipe_crc->source == source)
 		return 0;
