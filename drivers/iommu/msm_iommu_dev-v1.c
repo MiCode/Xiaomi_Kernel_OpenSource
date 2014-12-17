@@ -223,14 +223,6 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	drvdata->halt_enabled = of_property_read_bool(pdev->dev.of_node,
 						      "qcom,iommu-enable-halt");
 
-	ret = of_platform_populate(pdev->dev.of_node,
-				   msm_iommu_ctx_match_table,
-				   NULL, &pdev->dev);
-	if (ret) {
-		pr_err("Failed to create iommu context device\n");
-		goto fail;
-	}
-
 	msm_iommu_add_drv(drvdata);
 	return 0;
 
@@ -456,7 +448,12 @@ static int msm_iommu_probe(struct platform_device *pdev)
 					global_client_irq, ret);
 	}
 
-	return 0;
+	ret = of_platform_populate(pdev->dev.of_node, msm_iommu_ctx_match_table,
+				   NULL, &pdev->dev);
+	if (ret)
+		pr_err("Failed to create iommu context device\n");
+
+	return ret;
 }
 
 static int msm_iommu_remove(struct platform_device *pdev)
