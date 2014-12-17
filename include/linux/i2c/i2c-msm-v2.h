@@ -77,9 +77,9 @@ enum i2c_msm_qup_state {
 /* Register:QUP_STATE fields */
 enum {
 	QUP_STATE_MASK          = 3U,
-	QUP_STATE_VALID         = 1U << 2,
-	QUP_I2C_MAST_GEN        = 1U << 4,
-	QUP_I2C_FLUSH           = 1U << 6,
+	QUP_STATE_VALID         = BIT(2),
+	QUP_I2C_MAST_GEN        = BIT(4),
+	QUP_I2C_FLUSH           = BIT(6),
 	QUP_I2C_STATUS_RESET    = 0x42,
 };
 
@@ -90,54 +90,54 @@ enum {
 	QUP_MINI_CORE_I2C_VAL   = 0x200,
 	QUP_N_MASK              = 0x1F,
 	QUP_N_VAL               = 0x7, /* 0xF for A family */
-	QUP_NO_OUPUT            = 1U << 6,
-	QUP_NO_INPUT            = 1U << 7,
-	QUP_APP_CLK_ON_EN       = 1U << 12,
-	QUP_CORE_CLK_ON_EN      = 1U << 13,
-	QUP_FIFO_CLK_GATE_EN    = 1U << 14,
+	QUP_NO_OUPUT            = BIT(6),
+	QUP_NO_INPUT            = BIT(7),
+	QUP_APP_CLK_ON_EN       = BIT(12),
+	QUP_CORE_CLK_ON_EN      = BIT(13),
+	QUP_FIFO_CLK_GATE_EN    = BIT(14),
 };
 
 /* Register:QUP_OPERATIONAL fields */
 enum {
-	QUP_INPUT_FIFO_NOT_EMPTY = 1U << 5,
-	QUP_OUTPUT_SERVICE_FLAG  = 1U << 8,
-	QUP_INPUT_SERVICE_FLAG   = 1U << 9,
-	QUP_MAX_OUTPUT_DONE_FLAG = 1U << 10,
-	QUP_MAX_INPUT_DONE_FLAG  = 1U << 11,
+	QUP_INPUT_FIFO_NOT_EMPTY = BIT(5),
+	QUP_OUTPUT_SERVICE_FLAG  = BIT(8),
+	QUP_INPUT_SERVICE_FLAG   = BIT(9),
+	QUP_MAX_OUTPUT_DONE_FLAG = BIT(10),
+	QUP_MAX_INPUT_DONE_FLAG  = BIT(11),
 	QUP_OUT_BLOCK_WRITE_REQ  = BIT(12),
 	QUP_IN_BLOCK_READ_REQ    = BIT(13),
 };
 
 /* Register:QUP_OPERATIONAL_MASK fields */
 enum {
-	QUP_INPUT_SERVICE_MASK  = 1U << 9,
-	QUP_OUTPUT_SERVICE_MASK = 1U << 8,
+	QUP_INPUT_SERVICE_MASK  = BIT(9),
+	QUP_OUTPUT_SERVICE_MASK = BIT(8),
 };
 
 /* Register:QUP_IO_MODES fields */
 enum {
-	QUP_OUTPUT_MODE         = 3U << 10,
-	QUP_INPUT_MODE          = 3U << 12,
-	QUP_UNPACK_EN           = 1U << 14,
-	QUP_PACK_EN             = 1U << 15,
-	QUP_OUTPUT_BIT_SHIFT_EN = 1U << 16,
+	QUP_OUTPUT_MODE         = BIT(10) | BIT(11),
+	QUP_INPUT_MODE          = BIT(12) | BIT(13),
+	QUP_UNPACK_EN           = BIT(14),
+	QUP_PACK_EN             = BIT(15),
+	QUP_OUTPUT_BIT_SHIFT_EN = BIT(16),
 };
 
 /* Register:QUP_I2C_STATUS (a.k.a I2C_MASTER_STATUS) fields */
 enum {
-	QUP_BUS_ERROR           = 1U << 2,
-	QUP_PACKET_NACKED       = 1U << 3,
-	QUP_ARB_LOST            = 1U << 4,
-	QUP_INVALID_WRITE	= 1U << 5,
-	QUP_FAILED		= 3U << 6,
-	QUP_BUS_ACTIVE          = 1U << 8,
-	QUP_BUS_MASTER          = 1U << 9,
-	QUP_INVALID_TAG         = 1U << 23,
-	QUP_INVALID_READ_ADDR   = 1U << 24,
-	QUP_INVALID_READ_SEQ    = 1U << 25,
-	QUP_I2C_SDA             = 1U << 26,
-	QUP_I2C_SCL             = 1U << 27,
-	QUP_MSTR_STTS_ERR_MASK  = 0x38000FC,
+	QUP_BUS_ERROR           = BIT(2),
+	QUP_PACKET_NACKED       = BIT(3),
+	QUP_ARB_LOST            = BIT(4),
+	QUP_INVALID_WRITE       = BIT(5),
+	QUP_FAILED              = BIT(6),
+	QUP_BUS_ACTIVE          = BIT(8),
+	QUP_BUS_MASTER          = BIT(9),
+	QUP_INVALID_TAG         = BIT(23),
+	QUP_INVALID_READ_ADDR   = BIT(24),
+	QUP_INVALID_READ_SEQ    = BIT(25),
+	QUP_I2C_SDA             = BIT(26),
+	QUP_I2C_SCL             = BIT(27),
+	QUP_MSTR_STTS_ERR_MASK  = 0x380003C,
 };
 
 /* Register:QUP_I2C_MASTER_CONFIG fields */
@@ -153,20 +153,20 @@ enum {
 
 /* Register:QUP_ERROR_FLAGS_EN flags */
 enum {
-	QUP_OUTPUT_OVER_RUN_ERR_EN  = 1U << 5,
-	QUP_INPUT_UNDER_RUN_ERR_EN  = 1U << 4,
-	QUP_OUTPUT_UNDER_RUN_ERR_EN = 1U << 3,
-	QUP_INPUT_OVER_RUN_ERR_EN   = 1U << 2,
+	QUP_OUTPUT_OVER_RUN_ERR_EN  = BIT(5),
+	QUP_INPUT_UNDER_RUN_ERR_EN  = BIT(4),
+	QUP_OUTPUT_UNDER_RUN_ERR_EN = BIT(3),
+	QUP_INPUT_OVER_RUN_ERR_EN   = BIT(2),
 };
 
 /* Status, Error flags */
 enum {
-	I2C_STATUS_WR_BUFFER_FULL  = 1U << 0,
-	I2C_STATUS_BUS_ACTIVE      = 1U << 8,
-	I2C_STATUS_BUS_MASTER      = 1U << 9,
+	I2C_STATUS_WR_BUFFER_FULL  = BIT(0),
+	I2C_STATUS_BUS_ACTIVE      = BIT(8),
+	I2C_STATUS_BUS_MASTER      = BIT(9),
 	I2C_STATUS_ERROR_MASK      = 0x38000FC,
-	QUP_I2C_NACK_FLAG          = 1U << 3,
-	QUP_IN_NOT_EMPTY           = 1U << 5,
+	QUP_I2C_NACK_FLAG          = BIT(3),
+	QUP_IN_NOT_EMPTY           = BIT(5),
 	QUP_ERR_FLGS_MASK           = 0x3C,
 };
 
@@ -176,24 +176,11 @@ enum {
 	I2C_CLK_FORCED_LOW_STATE    = 5,
 };
 
-/* Controller's hardware versions */
-enum i2c_msm_ctrl_ver_num {
-	/* Values local to this driver */
-	I2C_MSM_CTRL_VER_UNKNOWN = 0,
-	I2C_MSM_CTRL_VER_A,
-	I2C_MSM_CTRL_VER_B,
-	/* Values to compare against HW registers */
-	I2C_MSM_CTRL_VER_B_MIN   = 0X20010000,
-	I2C_MSM_CTRL_VER_B_V1    = 0X20010001,
-	I2C_MSM_CTRL_VER_B_V2    = 0X20020000,
-	I2C_MSM_CTRL_VER_B_MAX   = 0X30000000,
-};
-
 /* Controller's power state */
-enum msm_i2c_power_state {
-	MSM_I2C_PM_ACTIVE,
-	MSM_I2C_PM_SUSPENDED,
-	MSM_I2C_PM_SYS_SUSPENDED
+enum i2c_msm_power_state {
+	I2C_MSM_PM_RT_ACTIVE,
+	I2C_MSM_PM_RT_SUSPENDED,
+	I2C_MSM_PM_SYS_SUSPENDED
 };
 
 /*
@@ -225,8 +212,10 @@ enum msm_i2c_power_state {
 #define QUP_TAG2_START_STOP        (0x8AULL)
 #define QUP_TAG2_INPUT_EOT         (0x93ULL)
 #define QUP_TAG2_FLUSH_STOP        (0x96ULL)
+#define QUP_BUF_OVERHD_BC          (2)
+#define QUP_MAX_BUF_SZ             (256)
 
-enum msm_spi_clk_path_vec_idx {
+enum i2c_msm_clk_path_vec_idx {
 	I2C_MSM_CLK_PATH_SUSPEND_VEC,
 	I2C_MSM_CLK_PATH_RESUME_VEC,
 };
@@ -393,8 +382,6 @@ struct i2c_msm_xfer_mode_bam {
  *          the rest of the fields contain the data.
  * @input_fifo_sz input fifo size in bytes
  * @output_fifo_sz output fifo size in bytes
- * @tx_bc   keeps track of number of bytes written to fifo per client request
- * @rx_bc   keeps track of number of bytes read from fifo per client request
  * @in_rem  remaining u32 entries in input FIFO before empty
  * @out_rem remaining u32 entries in output FIFO before full
  * @out_buf buffer for collecting bytes to four bytes groups (u32) before
@@ -402,11 +389,8 @@ struct i2c_msm_xfer_mode_bam {
  * @out_buf_idx next free index in out_buf. 0..3
  */
 struct i2c_msm_xfer_mode_fifo {
-	struct i2c_msm_xfer_mode ops;
 	size_t                   input_fifo_sz;
 	size_t                   output_fifo_sz;
-	size_t                   tx_bc;
-	size_t                   rx_bc;
 	size_t                   in_rem;
 	size_t                   out_rem;
 	u8                       out_buf[4];
@@ -415,6 +399,7 @@ struct i2c_msm_xfer_mode_fifo {
 
 /* i2c_msm_xfer_mode_blk: operations and state of Block mode
  *
+ * @is_init when true, struct is initialized and requires mem free on exit
  * @in_blk_sz size of input/rx block
  * @out_blk_sz size of output/tx block
  * @tx_cache internal buffer to store tx data
@@ -427,7 +412,7 @@ struct i2c_msm_xfer_mode_fifo {
  *  xfer is complete.
  */
 struct i2c_msm_xfer_mode_blk {
-	struct i2c_msm_xfer_mode ops;
+	bool                     is_init;
 	size_t                   in_blk_sz;
 	size_t                   out_blk_sz;
 	u8                       *tx_cache;
@@ -447,43 +432,6 @@ enum i2c_msm_xfer_mode_id {
 	I2C_MSM_XFER_MODE_NONE, /* keep last as a counter */
 };
 
-/*
- * i2c_msm_ctrl_ver: info that is different between i2c controller versions
- *
- * @destroy  Called once on exit.  Deallocate transfer modes
- * @init     Initialises the controller.
- * @teardown Teardown the controller and the transfer modes.
- * @reset    Reset the controller (SW reset)
- * @choose_mode    Chooses a transfer mode of the xfer_mode[].
- * @post_xfer      Steps to do after data transfer is done. It updates the error
- *                 value if needed, and waits until the HW is truly done.
- * @max_rx_cnt  Max bytes per transfer.
- * @max_tx_cnt Max bytes per transfer.
- * @max_buf_size   Number of bytes max between tags.
- * @msg_ovrhd_bc   Message overhead byte cnt = 4.
- * @buf_ovrhd_bc   Buffer  overhead byte cnt = 2.
- * @xfer_mode      Array of available transfer modes. struct i2c_msm_xfer_mode
- *                 is a "base class" to the particular transfer mode.
- */
-struct i2c_msm_ctrl_ver {
-	void			  (*destroy)    (struct i2c_msm_ctrl *);
-	int			  (*init)       (struct i2c_msm_ctrl *);
-	void			  (*teardown)   (struct i2c_msm_ctrl *);
-	int			  (*reset)      (struct i2c_msm_ctrl *);
-	int			  (*init_rsrcs) (struct platform_device *,
-						 struct i2c_msm_ctrl *);
-	enum i2c_msm_xfer_mode_id (*choose_mode)(struct i2c_msm_ctrl *);
-	int			  (*post_xfer)  (struct i2c_msm_ctrl *,
-								int err);
-
-	int			  max_rx_cnt;
-	int			  max_tx_cnt;
-	int			  max_buf_size;
-	int			  msg_ovrhd_bc;
-	int			  buf_ovrhd_bc;
-
-	struct i2c_msm_xfer_mode *xfer_mode[I2C_MSM_XFER_MODE_NONE];
-};
 
 struct i2c_msm_dbgfs {
 	struct dentry             *root;
@@ -542,7 +490,7 @@ struct i2c_msm_resources {
 };
 
 #define I2C_MSM_PINCTRL_ACTIVE       "i2c_active"
-#define I2C_MSM_PINCTRL_SUSPEND        "i2c_sleep"
+#define I2C_MSM_PINCTRL_SUSPEND      "i2c_sleep"
 
 /*
  * i2c_msm_xfer_buf: current xfer position and preprocessed tags
@@ -551,7 +499,7 @@ struct i2c_msm_resources {
  *          i2c_msm_xfer_next_buf()
  * @msg_idx   index of the message that the buffer is pointing to
  * @byte_idx  index of first byte in the current buffer
- * @prcsed_bc count of bytes processed from the current message. This value
+ * @end_idx   count of bytes processed from the current message. This value
  *            is compared against len to find out if buffer is done processing.
  * @len       number of bytes in current buffer.
  * @is_rx when true, current buffer is pointing to a i2c read operation.
@@ -563,9 +511,9 @@ struct i2c_msm_resources {
 struct i2c_msm_xfer_buf {
 	bool                       is_init;
 	int                        msg_idx;
-	size_t                     byte_idx;
-	size_t                     prcsed_bc;
-	size_t                     len;
+	int                        byte_idx;
+	int                        end_idx;
+	int                        len;
 	bool                       is_rx;
 	bool                       is_last;
 	u16                        slv_addr;
@@ -638,6 +586,9 @@ struct i2c_msm_xfer {
 	atomic_t                   event_cnt;
 	atomic_t                   is_active;
 	struct mutex               mtx;
+	struct i2c_msm_xfer_mode_fifo	fifo;
+	struct i2c_msm_xfer_mode_blk	blk;
+	struct i2c_msm_xfer_mode_bam	bam;
 };
 
 /*
@@ -655,12 +606,11 @@ struct i2c_msm_xfer {
 struct i2c_msm_ctrl {
 	struct device             *dev;
 	struct i2c_adapter         adapter;
-	struct i2c_msm_ctrl_ver    ver;
 	struct i2c_msm_xfer        xfer;
 	struct i2c_msm_dbgfs       dbgfs;
 	struct i2c_msm_resources   rsrcs;
 	u32                        mstr_clk_ctl;
-	enum msm_i2c_power_state   pwr_state;
+	enum i2c_msm_power_state   pwr_state;
 };
 
 /* Enum for the profiling event types */
