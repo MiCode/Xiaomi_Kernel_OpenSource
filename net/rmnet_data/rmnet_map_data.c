@@ -21,6 +21,7 @@
 #include <linux/rmnet_data.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
+#include <linux/time.h>
 #include <linux/net_map.h>
 #include <linux/ip.h>
 #include <linux/ipv6.h>
@@ -39,6 +40,12 @@
 RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_MAPD);
 
 /* ***************** Local Definitions ************************************** */
+
+long agg_time_limit __read_mostly = 1000000L;
+module_param(agg_time_limit, long, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(agg_time_limit, "Maximum time packets sit in the agg buf");
+
+
 struct agg_work {
 	struct delayed_work work;
 	struct rmnet_phys_ep_conf_s *config;
@@ -184,6 +191,8 @@ static void rmnet_map_flush_packet_queue(struct work_struct *work)
 			skb = config->agg_skb;
 			agg_count = config->agg_count;
 			config->agg_skb = 0;
+			config->agg_count = 0;
+			memset(&(config->agg_time), 0, sizeof(struct timespec));
 		}
 		config->agg_state = RMNET_MAP_AGG_IDLE;
 	} else {
@@ -216,6 +225,7 @@ void rmnet_map_aggregate(struct sk_buff *skb,
 	struct agg_work *work;
 	unsigned long flags;
 	struct sk_buff *agg_skb;
+	struct timespec t, diff;
 	int size, rc, agg_count = 0;
 
 
@@ -235,6 +245,7 @@ new_packet:
 		if (!config->agg_skb) {
 			config->agg_skb = 0;
 			config->agg_count = 0;
+			memset(&(config->agg_time), 0, sizeof(struct timespec));
 			spin_unlock_irqrestore(&config->agg_lock, flags);
 			rmnet_stats_agg_pkts(1);
 			trace_rmnet_map_aggregate(skb, 0);
@@ -244,20 +255,26 @@ new_packet:
 			return;
 		}
 		config->agg_count = 1;
+		getnstimeofday(&(config->agg_time));
 		trace_rmnet_start_aggregation(skb);
 		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_AGG_CPY_EXPAND);
 		goto schedule;
 	}
+	getnstimeofday(&t);
+	diff = timespec_sub(t, config->agg_time);
 
-	if (skb->len > (config->egress_agg_size - config->agg_skb->len)) {
+	if (skb->len > (config->egress_agg_size - config->agg_skb->len)
+	    || (config->agg_count >= config->egress_agg_count)
+	    ||  (diff.tv_sec > 0) || (diff.tv_nsec > agg_time_limit)) {
 		rmnet_stats_agg_pkts(config->agg_count);
-		if (config->agg_count > 1)
-			LOGL("Agg count: %d", config->agg_count);
 		agg_skb = config->agg_skb;
 		agg_count = config->agg_count;
 		config->agg_skb = 0;
 		config->agg_count = 0;
+		memset(&(config->agg_time), 0, sizeof(struct timespec));
 		spin_unlock_irqrestore(&config->agg_lock, flags);
+		LOGL("delta t: %ld.%09lu\tcount: %d", diff.tv_sec,
+		     diff.tv_nsec, agg_count);
 		trace_rmnet_map_aggregate(skb, agg_count);
 		rc = dev_queue_xmit(agg_skb);
 		rmnet_stats_queue_xmit(rc,
