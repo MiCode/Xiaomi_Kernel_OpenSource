@@ -74,7 +74,7 @@
 #define SLOPE_Z_INDEX               7
 #define BMA2X2_RANGE_SET            3 /* +/- 2G */
 #define BMA2X2_RANGE_SHIFT          4 /* shift 4 bits for 2G */
-#define BMA2X2_BW_SET               12 /* 125HZ  */
+#define BMA2X2_BW_SET               13 /* 250HZ  */
 
 #define I2C_RETRY_DELAY()           usleep_range(1000, 2000)
 /* wait 2ms for calibration ready */
@@ -4832,6 +4832,30 @@ static int bma2x2_read_accel_xyz(struct i2c_client *client,
 	return comres;
 }
 
+static void bma2x2_report_axis_data(struct bma2x2_data *bma2x2)
+{
+	struct bma2x2acc acc;
+	ktime_t ts;
+	int err;
+
+	ts = ktime_get();
+	err = bma2x2_read_accel_xyz(bma2x2->bma2x2_client,
+			bma2x2->sensor_type, &acc);
+	if (err < 0) {
+		dev_err(&bma2x2->bma2x2_client->dev,
+			"read accel data failed! err = %d\n", err);
+		return;
+	}
+	input_report_abs(bma2x2->input, ABS_X, acc.x);
+	input_report_abs(bma2x2->input, ABS_Y, acc.y);
+	input_report_abs(bma2x2->input, ABS_Z, acc.z);
+	input_event(bma2x2->input, EV_SYN, SYN_TIME_SEC,
+			ktime_to_timespec(ts).tv_sec);
+	input_event(bma2x2->input, EV_SYN, SYN_TIME_NSEC,
+			ktime_to_timespec(ts).tv_nsec);
+	input_sync(bma2x2->input);
+}
+
 #ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
 static void bma2x2_work_func(struct work_struct *work)
 {
@@ -4840,11 +4864,7 @@ static void bma2x2_work_func(struct work_struct *work)
 	static struct bma2x2acc acc;
 	unsigned long delay = msecs_to_jiffies(atomic_read(&bma2x2->delay));
 
-	bma2x2_read_accel_xyz(bma2x2->bma2x2_client, bma2x2->sensor_type, &acc);
-	input_report_abs(bma2x2->input, ABS_X, acc.x);
-	input_report_abs(bma2x2->input, ABS_Y, acc.y);
-	input_report_abs(bma2x2->input, ABS_Z, acc.z);
-	input_sync(bma2x2->input);
+	bma2x2_report_axis_data(bma2x2);
 	mutex_lock(&bma2x2->value_mutex);
 	bma2x2->value = acc;
 	mutex_unlock(&bma2x2->value_mutex);
@@ -5064,6 +5084,8 @@ static ssize_t bma2x2_delay_store(struct device *dev,
 	error = kstrtoul(buf, 10, &data);
 	if (error)
 		return error;
+	if (data < POLL_INTERVAL_MIN_MS)
+		data = POLL_INTERVAL_MIN_MS;
 	if (data > POLL_INTERVAL_MAX_MS)
 		data = POLL_INTERVAL_MAX_MS;
 	atomic_set(&bma2x2->delay, (unsigned int) data);
@@ -6604,12 +6626,7 @@ static void bma2x2_irq_work_func(struct work_struct *work)
 	bma2x2_get_interruptstatus2(bma2x2->bma2x2_client, &status);
 
 	if ((status&0x80) == 0x80) {
-		bma2x2_read_accel_xyz(bma2x2->bma2x2_client,
-					bma2x2->sensor_type, &acc);
-		input_report_abs(bma2x2->input, ABS_X, acc.x);
-		input_report_abs(bma2x2->input, ABS_Y, acc.y);
-		input_report_abs(bma2x2->input, ABS_Z, acc.z);
-		input_sync(bma2x2->input);
+		bma2x2_report_axis_data(bma2x2);
 		mutex_lock(&bma2x2->value_mutex);
 		bma2x2->value = acc;
 		mutex_unlock(&bma2x2->value_mutex);
