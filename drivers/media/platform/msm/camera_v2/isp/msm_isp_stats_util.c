@@ -76,6 +76,7 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 	int32_t rc = 0, frame_id = 0, drop_buffer = 0;
 	struct msm_isp_stats_event *stats_event = NULL;
 	struct msm_isp_sw_framskip *sw_skip = NULL;
+	unsigned long flags;
 
 	if (!vfe_dev || !done_buf || !ts || !buf_event || !stream_info ||
 		!comp_stats_type_mask) {
@@ -105,18 +106,26 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 		}
 	}
 
+	spin_lock_irqsave(&done_buf->lock, flags);
 	rc = vfe_dev->buf_mgr->ops->buf_divert(
 		vfe_dev->buf_mgr, done_buf->bufq_handle,
 		done_buf->buf_idx, &ts->buf_time,
 		frame_id);
 	if (rc != 0) {
+		ISP_DBG("%s: vfe_id %d buf_id %d bufq %x put_cnt 1\n", __func__,
+			vfe_dev->pdev->id, done_buf->buf_idx,
+			done_buf->bufq_handle);
 		*comp_stats_type_mask |=
 			1 << stream_info->stats_type;
 		stats_event->stats_buf_idxs
 			[stream_info->stats_type] =
 			done_buf->buf_idx;
+		done_buf->frame_id = frame_id;
+		spin_unlock_irqrestore(&done_buf->lock, flags);
 		return rc;
 	}
+	spin_unlock_irqrestore(&done_buf->lock, flags);
+
 	if (drop_buffer) {
 		vfe_dev->buf_mgr->ops->put_buf(
 			vfe_dev->buf_mgr,
@@ -130,9 +139,9 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 	if (!stream_info->composite_flag) {
 		stats_event->stats_mask =
 			1 << stream_info->stats_type;
-		ISP_DBG("%s: stats frameid: 0x%x %d\n",
+		ISP_DBG("%s: stats frameid: 0x%x %d bufq %x\n",
 			__func__, buf_event->frame_id,
-			stream_info->stats_type);
+			stream_info->stats_type, done_buf->bufq_handle);
 		msm_isp_send_event(vfe_dev,
 			ISP_EVENT_STATS_NOTIFY +
 			stream_info->stats_type,
@@ -160,7 +169,6 @@ static int32_t msm_isp_stats_configure(struct vfe_device *vfe_dev,
 	memset(&buf_event, 0, sizeof(struct msm_isp_event_data));
 	buf_event.timestamp = ts->event_time;
 	buf_event.frame_id = vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
-	buf_event.input_intf = VFE_PIX_0;
 	pingpong_status = vfe_dev->hw_info->
 		vfe_ops.stats_ops.get_pingpong_status(vfe_dev);
 
