@@ -142,7 +142,7 @@
 		cell-index = <0>;
 		reg = 	<0xfd994000 0x260>,
 			<0xfd994500 0x280>,
-			<0xfd998780 0x30>,
+			<0xfd994780 0x30>,
 			<0xfd828000 0x108>;
 		reg-names = "dsi_ctrl", "dsi_phy", "dsi_phy_regulator", "mmss_misc_phys";
 		gdsc-supply = <&gdsc_mdss>;
@@ -250,9 +250,10 @@
 		label = "MDSS DSI CTRL->1";
 		cell-index = <1>;
 		reg = 	<0xfd996000 0x260>,
-			<0xfd996500 0x2b0>,
+			<0xfd996500 0x280>,
+			<0xfd994780 0x30>,
 			<0xfd828000 0x108>;
-		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
+		reg-names = "dsi_ctrl", "dsi_phy", "dsi_phy_regulator", "mmss_misc_phys";
 		gdsc-supply = <&gdsc_mdss>;
 		vdd-supply = <&pm8994_l14>;
 		vddio-supply = <&pm8994_l12>;
