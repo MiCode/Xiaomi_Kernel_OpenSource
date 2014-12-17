@@ -1906,7 +1906,7 @@ static int msm_bus_bimc_port_unhalt(uint32_t haltid, uint8_t mport)
 static int msm_bus_bimc_limit_mport(struct msm_bus_node_device_type *info,
 				void __iomem *qos_base, uint32_t qos_off,
 				uint32_t qos_delta, uint32_t qos_freq,
-				bool enable_lim, u64 lim_bw)
+				int enable_lim, u64 lim_bw)
 {
 	int mode;
 	int i;
@@ -1916,7 +1916,7 @@ static int msm_bus_bimc_limit_mport(struct msm_bus_node_device_type *info,
 		return 0;
 	}
 
-	if (enable_lim && lim_bw) {
+	if ((enable_lim == THROTTLE_ON) && lim_bw) {
 		mode =  BIMC_QOS_MODE_LIMITER;
 
 		if (!info->node_info->lim_bw) {
