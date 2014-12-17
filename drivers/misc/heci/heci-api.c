@@ -229,7 +229,7 @@ dev->print_log(dev, "%s(): there is some msg in in_process_list, read it\n", __f
 
 dev->print_log(dev, "%s(): before wait_event_interruptible\n", __func__);
 	if (wait_event_interruptible(cl->rx_wait,
-			(dev->dev_state == HECI_DEV_ENABLED && 
+			(dev->dev_state == HECI_DEV_ENABLED &&
 			(cl->read_rb || HECI_CL_INITIALIZING == cl->state || HECI_CL_DISCONNECTED == cl->state || HECI_CL_DISCONNECTING == cl->state)))) {
 		printk(KERN_ALERT "%s(): woke up not in success; sig. pending = %d signal = %08lX\n", __func__, signal_pending(current), current->pending.signal.sig[0]);
 		return	-ERESTARTSYS;
@@ -630,6 +630,9 @@ EXPORT_SYMBOL_GPL(heci_register);
 
 void heci_deregister(struct heci_device *dev)
 {
+	if (heci_misc_device.parent == NULL)
+		return;
+
 	heci_dbgfs_deregister(dev);
 	misc_deregister(&heci_misc_device);
 	heci_misc_device.parent = NULL;
