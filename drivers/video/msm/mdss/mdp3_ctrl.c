@@ -354,11 +354,54 @@ static ssize_t mdp3_packpattern_show(struct device *dev,
 	return rc;
 }
 
+static ssize_t mdp3_dyn_pu_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = fbi->par;
+	struct mdp3_session_data *mdp3_session = NULL;
+	int ret, state;
+
+	if (!mfd || !mfd->mdp.private1)
+		return -EAGAIN;
+
+	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
+	state = (mdp3_session->dyn_pu_state >= 0) ? mdp3_session->dyn_pu_state : -1;
+	ret = scnprintf(buf, PAGE_SIZE, "%d", state);
+	return ret;
+}
+
+static ssize_t mdp3_dyn_pu_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = fbi->par;
+	struct mdp3_session_data *mdp3_session = NULL;
+	int ret, dyn_pu;
+
+	if (!mfd || !mfd->mdp.private1)
+		return -EAGAIN;
+
+	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
+	ret = kstrtoint(buf, 10, &dyn_pu);
+	if (ret) {
+		pr_err("Invalid input for partial udpate: ret = %d\n", ret);
+		return ret;
+	}
+
+	mdp3_session->dyn_pu_state = dyn_pu;
+	sysfs_notify(&dev->kobj, NULL, "dyn_pu");
+	return count;
+}
+
 static DEVICE_ATTR(vsync_event, S_IRUGO, mdp3_vsync_show_event, NULL);
 static DEVICE_ATTR(packpattern, S_IRUGO, mdp3_packpattern_show, NULL);
+static DEVICE_ATTR(dyn_pu, S_IRUGO | S_IWUSR | S_IWGRP, mdp3_dyn_pu_show,
+		mdp3_dyn_pu_store);
 
 static struct attribute *generic_attrs[] = {
 	&dev_attr_packpattern.attr,
+	&dev_attr_dyn_pu.attr,
 	NULL,
 };
 
@@ -2441,6 +2484,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	}
 
 	mdp3_session->vsync_before_commit = true;
+	mdp3_session->dyn_pu_state = mfd->panel_info->partial_update_enabled;
 init_done:
 	if (IS_ERR_VALUE(rc))
 		kfree(mdp3_session);
