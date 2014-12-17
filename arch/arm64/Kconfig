@@ -316,6 +316,16 @@ config ARM64_A57_ERRATA_832075
 	  c) Following the branch instruction, there are six or more loads
 	  to device memory locations
 
+config ARM64_SEV_IN_LOCK_UNLOCK
+	bool "Add explicit SEV in the spinlock unlock code path"
+	def_bool ARCH_MSM8994
+	help
+	  In certain unexplained cases, the stlr alone might not wakeup
+	  the processor waiting in WFE on a spinlock.
+	  Add an explicity dsb and SEV in write_unlock, read_unlock
+	  and spin_unlock to ensure that the core waiting on the lock
+	  wakes up from WFE.
+
 config SMP
 	bool "Symmetric Multi-Processing"
 	help

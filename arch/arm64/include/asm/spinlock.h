@@ -86,6 +86,10 @@ static inline void arch_spin_unlock(arch_spinlock_t *lock)
 {
 	asm volatile(
 "	stlrh	%w1, %0\n"
+#ifdef CONFIG_ARM64_SEV_IN_LOCK_UNLOCK
+"	dsb sy\n"
+"	sev\n"
+#endif
 	: "=Q" (lock->owner)
 	: "r" (lock->owner + 1)
 	: "memory");
@@ -155,6 +159,10 @@ static inline void arch_write_unlock(arch_rwlock_t *rw)
 {
 	asm volatile(
 	"	stlr	%w1, %0\n"
+#ifdef CONFIG_ARM64_SEV_IN_LOCK_UNLOCK
+	"	dsb sy\n"
+	"	sev\n"
+#endif
 	: "=Q" (rw->lock) : "r" (0) : "memory");
 }
 
@@ -198,6 +206,10 @@ static inline void arch_read_unlock(arch_rwlock_t *rw)
 	"1:	ldxr	%w0, %2\n"
 	"	sub	%w0, %w0, #1\n"
 	"	stlxr	%w1, %w0, %2\n"
+#ifdef CONFIG_ARM64_SEV_IN_LOCK_UNLOCK
+	"	dsb sy\n"
+	"	sev\n"
+#endif
 	"	cbnz	%w1, 1b\n"
 	: "=&r" (tmp), "=&r" (tmp2), "+Q" (rw->lock)
 	:
