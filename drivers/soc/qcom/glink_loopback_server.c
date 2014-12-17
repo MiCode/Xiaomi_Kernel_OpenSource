@@ -152,7 +152,7 @@ struct ctl_ch_info {
 };
 
 static struct ctl_ch_info ctl_ch_tbl[] = {
-	{"LOCAL_LOOPBACK_SRV", "local_loopback", "local_loopback_xprt"},
+	{"LOCAL_LOOPBACK_SRV", "local", "lloop"},
 	{"LOOPBACK_CTL_APSS", "mpss", "smem"},
 	{"LOOPBACK_CTL_APSS", "lpass", "smem"},
 };
@@ -306,7 +306,7 @@ int glink_lbsrv_handle_open_req(struct ch_info *rx_ch_info,
 	char *temp;
 
 	strlcpy(name, req.ch_name, MAX_NAME_LEN);
-	if (!strcmp(rx_ch_info->edge, "local_loopback")) {
+	if (!strcmp(rx_ch_info->transport, "lloop")) {
 		temp = strnstr(name, "_CLNT", MAX_NAME_LEN);
 		if (temp)
 			*temp = '\0';
@@ -338,7 +338,7 @@ int glink_lbsrv_handle_close_req(struct ch_info *rx_ch_info,
 	char *temp;
 
 	strlcpy(name, req.ch_name, MAX_NAME_LEN);
-	if (!strcmp(rx_ch_info->edge, "local_loopback")) {
+	if (!strcmp(rx_ch_info->transport, "lloop")) {
 		temp = strnstr(name, "_CLNT", MAX_NAME_LEN);
 		if (temp)
 			*temp = '\0';
@@ -365,7 +365,7 @@ int glink_lbsrv_handle_queue_rx_intent_config_req(struct ch_info *rx_ch_info,
 	uint32_t delay_ms;
 
 	strlcpy(name, req.ch_name, MAX_NAME_LEN);
-	if (!strcmp(rx_ch_info->edge, "local_loopback")) {
+	if (!strcmp(rx_ch_info->transport, "lloop")) {
 		temp = strnstr(name, "_CLNT", MAX_NAME_LEN);
 		if (temp)
 			*temp = '\0';
@@ -431,7 +431,7 @@ int glink_lbsrv_handle_tx_config_req(struct ch_info *rx_ch_info,
 	char *temp;
 
 	strlcpy(name, req.ch_name, MAX_NAME_LEN);
-	if (!strcmp(rx_ch_info->edge, "local_loopback")) {
+	if (!strcmp(rx_ch_info->transport, "lloop")) {
 		temp = strnstr(name, "_CLNT", MAX_NAME_LEN);
 		if (temp)
 			*temp = '\0';
@@ -466,7 +466,7 @@ int glink_lbsrv_handle_rx_done_config_req(struct ch_info *rx_ch_info,
 	char *temp;
 
 	strlcpy(name, req.ch_name, MAX_NAME_LEN);
-	if (!strcmp(rx_ch_info->edge, "local_loopback")) {
+	if (!strcmp(rx_ch_info->transport, "lloop")) {
 		temp = strnstr(name, "_CLNT", MAX_NAME_LEN);
 		if (temp)
 			*temp = '\0';
