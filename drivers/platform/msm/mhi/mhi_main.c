@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/completion.h>
+#include <linux/pm_runtime.h>
 
 #include "mhi_sys.h"
 #include "mhi.h"
@@ -234,6 +235,7 @@ enum MHI_STATUS mhi_open_channel(struct mhi_client_handle *client_handle)
 	chan = client_handle->chan;
 	mhi_log(MHI_MSG_INFO,
 		"Entered: Client opening chan 0x%x\n", chan);
+	init_completion(&client_handle->chan_open_complete);
 	mhi_dev_ctxt = client_handle->mhi_dev_ctxt;
 	switch (mhi_dev_ctxt->dev_exec_env) {
 	case MHI_EXEC_ENV_PBL:
@@ -314,9 +316,6 @@ enum MHI_STATUS mhi_register_channel(struct mhi_client_handle **client_handle,
 
 	(*client_handle)->user_data = UserData;
 
-	init_completion(&(*client_handle)->chan_reset_complete);
-	init_completion(&(*client_handle)->chan_open_complete);
-
 	(*client_handle)->cb_mod = 1;
 	(*client_handle)->chan_status = 0;
 	(*client_handle)->magic = MHI_HANDLE_MAGIC;
@@ -353,6 +352,7 @@ void mhi_close_channel(struct mhi_client_handle *mhi_handle)
 		return;
 	chan = mhi_handle->chan;
 	mhi_log(MHI_MSG_INFO, "Client attempting to close chan 0x%x\n", chan);
+	init_completion(&mhi_handle->chan_reset_complete);
 	index = mhi_handle->device_index;
 	if (!atomic_read(&mhi_handle->mhi_dev_ctxt->flags.pending_ssr)) {
 		ret_val = mhi_send_cmd(mhi_handle->mhi_dev_ctxt,
@@ -362,15 +362,14 @@ void mhi_close_channel(struct mhi_client_handle *mhi_handle)
 				"Failed to send reset cmd for chan %d ret %d\n",
 				chan, ret_val);
 		}
-		r = wait_for_completion_interruptible_timeout(
+		r = wait_for_completion_timeout(
 				&mhi_handle->chan_reset_complete,
 				msecs_to_jiffies(MHI_MAX_CMD_TIMEOUT));
 
-		if (0 == r || -ERESTARTSYS == r) {
+		if (!r)
 			mhi_log(MHI_MSG_ERROR,
 					"Failed to reset chan %d ret %d\n",
 					chan, r);
-		}
 	} else {
 		/*
 		 * Assumption: Device is not playing with our
@@ -473,87 +472,62 @@ enum MHI_STATUS mhi_add_elements_to_event_rings(
 	return ret_val;
 }
 
-static enum MHI_STATUS mhi_wake_dev_from_m3(
-		struct mhi_device_ctxt *mhi_dev_ctxt)
+void mhi_update_chan_db(struct mhi_device_ctxt *mhi_dev_ctxt,
+					  u32 chan)
 {
-	int r = 0;
-	if (!atomic_cmpxchg(&mhi_dev_ctxt->flags.m0_work_enabled, 0, 1)) {
-		mhi_log(MHI_MSG_INFO,
-			"Initiating M0 work...\n");
-		if (atomic_read(&mhi_dev_ctxt->flags.pending_resume)) {
-			mhi_log(MHI_MSG_INFO,
-			"Resume is pending, quitting ...\n");
-			atomic_set(&mhi_dev_ctxt->flags.m0_work_enabled, 0);
-			__pm_stay_awake(&mhi_dev_ctxt->w_lock);
-			__pm_relax(&mhi_dev_ctxt->w_lock);
-			return MHI_STATUS_SUCCESS;
+	u64 db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
+		(uintptr_t)mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp);
+	mhi_dev_ctxt->mhi_chan_db_order[chan]++;
+	if (IS_HARDWARE_CHANNEL(chan) && (chan % 2)) {
+		if (unlikely(mhi_xfer_db_interval != 0)) {
+			if ((mhi_dev_ctxt->
+				mhi_chan_cntr[chan].pkts_xferd %
+					mhi_xfer_db_interval) == 0)
+				mhi_process_db(mhi_dev_ctxt,
+					mhi_dev_ctxt->channel_db_addr,
+						chan, db_value);
+		} else {
+			if ((mhi_dev_ctxt->
+				mhi_chan_cntr[chan].pkts_xferd %
+					MHI_XFER_DB_INTERVAL) == 0)
+				mhi_process_db(mhi_dev_ctxt,
+					mhi_dev_ctxt->channel_db_addr,
+						chan, db_value);
 		}
-		r = queue_work(mhi_dev_ctxt->work_queue,
-		     &mhi_dev_ctxt->m0_work);
-		if (!r)
-			mhi_log(MHI_MSG_CRITICAL,
-				"Failed to start M0 work.\n");
 	} else {
-		mhi_log(MHI_MSG_VERBOSE,
-			"M0 work pending.\n");
+		mhi_process_db(mhi_dev_ctxt,
+		     mhi_dev_ctxt->channel_db_addr,
+		     chan, db_value);
 	}
-	return MHI_STATUS_SUCCESS;
 }
 
 static enum MHI_STATUS mhi_notify_device(
 			struct mhi_device_ctxt *mhi_dev_ctxt, u32 chan)
 {
 	unsigned long flags = 0;
-	u64 db_value;
 	struct mhi_chan_ctxt *chan_ctxt;
+	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
 	chan_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan];
+
 	spin_lock_irqsave(&mhi_dev_ctxt->db_write_lock[chan], flags);
 	if (likely(((MHI_STATE_M0 == mhi_dev_ctxt->mhi_state) ||
 		(MHI_STATE_M1 == mhi_dev_ctxt->mhi_state)) &&
 		(chan_ctxt->mhi_chan_state != MHI_CHAN_STATE_ERROR) &&
 		!mhi_dev_ctxt->flags.pending_M3)) {
-
-		mhi_dev_ctxt->mhi_chan_db_order[chan]++;
-		db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
-			(uintptr_t)mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp);
-		if (IS_HARDWARE_CHANNEL(chan) && (chan % 2)) {
-			if (unlikely(mhi_xfer_db_interval != 0)) {
-				if ((mhi_dev_ctxt->
-					mhi_chan_cntr[chan].pkts_xferd %
-						mhi_xfer_db_interval) == 0) {
-					mhi_process_db(mhi_dev_ctxt,
-						mhi_dev_ctxt->channel_db_addr,
-							chan, db_value);
-				}
-			} else {
-				if ((mhi_dev_ctxt->
-					mhi_chan_cntr[chan].pkts_xferd %
-						MHI_XFER_DB_INTERVAL) == 0) {
-					mhi_process_db(mhi_dev_ctxt,
-						mhi_dev_ctxt->channel_db_addr,
-							chan, db_value);
-				}
-			}
-		} else {
-			mhi_process_db(mhi_dev_ctxt,
-			     mhi_dev_ctxt->channel_db_addr,
-			     chan, db_value);
-		}
+		mhi_update_chan_db(mhi_dev_ctxt, chan);
 	} else {
 		mhi_log(MHI_MSG_VERBOSE,
-			"Wakeup, pending data MHI state %d, chan state %d\n",
-			mhi_dev_ctxt->mhi_state, chan_ctxt->mhi_chan_state);
-		if (mhi_dev_ctxt->flags.pending_M3 ||
-		    mhi_dev_ctxt->mhi_state == MHI_STATE_M3) {
-			mhi_wake_dev_from_m3(mhi_dev_ctxt);
-		}
+			"Wakeup, pending data state %d chan state %d\n",
+						mhi_dev_ctxt->mhi_state,
+						chan_ctxt->mhi_chan_state);
+		ret_val = MHI_STATUS_SUCCESS;
 	}
 	spin_unlock_irqrestore(&mhi_dev_ctxt->db_write_lock[chan], flags);
 	/*
 	 * If there are no clients still sending we can trigger our
 	 * inactivity timer
 	 */
-	return MHI_STATUS_SUCCESS;
+	return ret_val;
 }
 
 enum MHI_STATUS mhi_queue_xfer(struct mhi_client_handle *client_handle,
@@ -574,6 +548,7 @@ enum MHI_STATUS mhi_queue_xfer(struct mhi_client_handle *client_handle,
 			"Client buffer is of invalid length\n");
 	mhi_dev_ctxt = client_handle->mhi_dev_ctxt;
 	chan = client_handle->chan;
+	pm_runtime_get(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 
 	/* Bump up the vote for pending data */
 	read_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
@@ -617,10 +592,10 @@ enum MHI_STATUS mhi_queue_xfer(struct mhi_client_handle *client_handle,
 	}
 
 	mhi_notify_device(mhi_dev_ctxt, chan);
-	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
-	return MHI_STATUS_SUCCESS;
 error:
 	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
+	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 	return ret_val;
 }
 EXPORT_SYMBOL(mhi_queue_xfer);
@@ -649,6 +624,7 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 			chan, cmd);
 
 	mhi_assert_device_wake(mhi_dev_ctxt);
+	pm_runtime_get(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 	/*
 	 * If there is a cmd pending a struct device confirmation,
 	 * do not send anymore for this channel
@@ -725,16 +701,13 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 		mhi_dev_ctxt->cmd_ring_order++;
 		mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr, 0,
 								db_value);
-	} else {
-		mhi_log(MHI_MSG_INFO,
-			"Waking dev from M3 for cmd %d on chan %d\n",
-			 cmd, chan);
-		mhi_wake_dev_from_m3(mhi_dev_ctxt);
 	}
 
 	mhi_log(MHI_MSG_VERBOSE, "Sent command 0x%x for chan %d\n",
 								cmd, chan);
 	mutex_unlock(&mhi_dev_ctxt->mhi_cmd_mutex_list[PRIMARY_CMD_RING]);
+	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 
 	mhi_log(MHI_MSG_INFO, "Exited.\n");
 	return MHI_STATUS_SUCCESS;
