@@ -18,6 +18,7 @@
 #define _I2C_MSM_V2_H
 
 #include <linux/bitops.h>
+#include <linux/dmaengine.h>
 
 enum msm_i2_debug_level {
 	MSM_ERR,	/* Error messages only. Always on */
@@ -190,9 +191,9 @@ enum i2c_msm_power_state {
  * that max length is 8 bytes.
  */
 #define I2C_MSM_TAG2_MAX_LEN            (4)
-#define I2C_MSM_BAM_CONS_SZ             (64) /* consumer pipe n entries */
-#define I2C_MSM_BAM_PROD_SZ             (32) /* producer pipe n entries */
-#define I2C_MSM_BAM_DESC_ARR_SIZ  (I2C_MSM_BAM_CONS_SZ + I2C_MSM_BAM_PROD_SZ)
+#define I2C_MSM_DMA_TX_SZ             (64) /* tx chan n entries */
+#define I2C_MSM_DMA_RX_SZ             (32) /* rx chan n entries */
+#define I2C_MSM_DMA_DESC_ARR_SIZ  (I2C_MSM_DMA_TX_SZ + I2C_MSM_DMA_RX_SZ)
 #define I2C_MSM_REG_2_STR_BUF_SZ        (128)
 /* Optimal value to hold the error strings */
 #define I2C_MSM_MAX_ERR_BUF_SZ		(256)
@@ -232,14 +233,6 @@ extern const char * const i2c_msm_mode_str_tbl[];
 struct i2c_msm_ctrl;
 
 /*
- * i2c_msm_xfer_mode: transfer modes such as FIFO and BAM define these callbacks
- */
-struct i2c_msm_xfer_mode {
-	void                     (*teardown)(struct i2c_msm_ctrl *);
-	int                      (*xfer)    (struct i2c_msm_ctrl *);
-};
-
-/*
  *  i2c_msm_dma_mem: utility struct which holds both physical and virtual addr
  */
 struct i2c_msm_dma_mem {
@@ -258,106 +251,95 @@ struct i2c_msm_tag {
 };
 
 /*
- * i2c_msm_bam_tag: similar to struct i2c_msm_tag but holds physical address.
+ * i2c_msm_dma_tag: similar to struct i2c_msm_tag but holds physical address.
  *
  * @buf physical address of entry in the tag_arr of
- *          struct i2c_msm_xfer_mode_bam
+ *          struct i2c_msm_xfer_mode_dma
  * @len tag len.
  *
- * Hold the information from i2c_msm_bam_xfer_prepare() which is used by
- * i2c_msm_bam_xfer_process() and freed by i2c_msm_bam_xfer_unprepare()
+ * Hold the information from i2c_msm_dma_xfer_prepare() which is used by
+ * i2c_msm_dma_xfer_process() and freed by i2c_msm_dma_xfer_unprepare()
  */
-struct i2c_msm_bam_tag {
+struct i2c_msm_dma_tag {
 	dma_addr_t             buf;
 	size_t                 len;
 };
 
 /*
- * i2c_msm_bam_buf: dma mapped pointer to i2c_msg data buffer and related tag
+ * i2c_msm_dma_buf: dma mapped pointer to i2c_msg data buffer and related tag
  * @vir_addr ptr to i2c_msg buf beginning or with offset (when buf len > 256)
  */
-struct i2c_msm_bam_buf {
+struct i2c_msm_dma_buf {
 	struct i2c_msm_dma_mem   ptr;
 	enum dma_data_direction  dma_dir;
 	size_t                   len;
 	bool                     is_rx;
 	bool                     is_last;
-	struct i2c_msm_bam_tag   tag;
+	struct i2c_msm_dma_tag   tag;
+	/* DMA API */
+	struct scatterlist	sg_list[2];
 };
 
 /*
- * i2c_msm_bam_pipe: per pipe info
+ * i2c_msm_dma_chan: per channel info
  *
- * @is_init true when the pipe is initialized and requires eventual teardown.
- * @name pipe name (consumer/producer) for debugging.
- * @desc_cnt_max size of descriptors space
+ * @is_init true when the channel is initialized and requires eventual teardown.
+ * @name channel name (tx/rx) for debugging.
  * @desc_cnt_cur number of occupied descriptors
  */
-struct i2c_msm_bam_pipe {
+struct i2c_msm_dma_chan {
 	bool                     is_init;
-	struct sps_pipe         *handle;
-	struct sps_connect       config;
 	const char              *name;
-	size_t                   desc_cnt_max;
 	size_t                   desc_cnt_cur;
+	struct dma_chan         *dma_chan;
+	enum dma_transfer_direction dir;
 };
 
-enum i2c_msm_bam_pipe_dir {
-	I2C_MSM_BAM_CONS = 0,
-	I2C_MSM_BAM_PROD = 1,
+enum i2c_msm_dma_chan_dir {
+	I2C_MSM_DMA_TX,
+	I2C_MSM_DMA_RX,
+	I2C_MSM_DMA_CNT,
 };
 
-static const char * const i2c_msm_bam_pipe_name[] = {"consumer", "producer"};
+enum i2c_msm_dma_state {
+	I2C_MSM_DMA_INIT_NONE, /* Uninitialized  DMA */
+	I2C_MSM_DMA_INIT_CORE, /* Core init not channels, memory Allocated */
+	I2C_MSM_DMA_INIT_CHAN, /* Both Core and channels are init */
+};
 
 /*
- * struct i2c_msm_xfer_mode_bam: bam mode configuration and work space
+ * struct i2c_msm_xfer_mode_dma: DMA mode configuration and work space
  *
- * @is_init true when BAM and its pipes are fully initialized.
- * @is_core_init true when BAM core is initialised.
- * @ops     "base class" of i2c_msm_xfer_mode_bam. Contains the operations while
- *          the rest of the fields contain the data.
- * @deregister_required deregister is required when this driver has registerd
- *          the BAM device. When another kernel module has registered BAM
- *          prior to this driver, then deregister is not required.
- * @buf_arr_cnt current number of vaid buffers in buf_arr. The valid buffers
+ * @state   specifies the DMA core and channel initialization states.
+ * @buf_arr_cnt current number of valid buffers in buf_arr. The valid buffers
  *          are at index 0..buf_arr_cnt excluding buf_arr_cnt.
  * @buf_arr array of descriptors which point to the user's buffer
  *     virtual and physical address, and hold meta data about the buffer
  *     and respective tag.
  * @tag_arr array of tags in DMAable memory. Holds a tag per buffer of the same
  *          index, that is tag_arr[i] is related to buf_arr[i]. Also, tag_arr[i]
- *          is queued in the consumer pipe just befor buf_arr[i] is queued in
- *          the consumer (output buf) or producer pipe (input buffer).
- * @eot_n_flush_stop_tags EOT and flush-stop tags to be queued to the consumer
- *          bam pipe after the last transfer when it is a read.
- * @input_tag hw is placing input tags in the producer pipe on read operations.
- *          The value of these tags is "don't care" from bam transfer
+ *          is queued in the tx channel just befor buf_arr[i] is queued in
+ *          the tx (output buf) or rx channel (input buffer).
+ * @eot_n_flush_stop_tags EOT and flush-stop tags to be queued to the tx
+ *          DMA channel after the last transfer when it is a read.
+ * @input_tag hw is placing input tags in the rx channel on read operations.
+ *          The value of these tags is "don't care" from DMA transfer
  *          perspective. Thus, this single buffer is used for all the input
  *          tags. The field is used as write only.
- * @mem pointer to platform data describing the BAM's register space.
  */
-struct i2c_msm_xfer_mode_bam {
-	struct i2c_msm_xfer_mode ops;
-	bool                     is_init;
-	bool                     is_core_init;
-	bool                     deregister_required;
-
+struct i2c_msm_xfer_mode_dma {
+	enum i2c_msm_dma_state   state;
 	size_t                   buf_arr_cnt;
-	struct i2c_msm_bam_buf   buf_arr[I2C_MSM_BAM_DESC_ARR_SIZ];
+	struct i2c_msm_dma_buf   buf_arr[I2C_MSM_DMA_DESC_ARR_SIZ];
 	struct i2c_msm_dma_mem   tag_arr;
 	struct i2c_msm_dma_mem   eot_n_flush_stop_tags;
 	struct i2c_msm_dma_mem   input_tag;
-
-	struct resource         *mem;
-	void __iomem            *base;
-	ulong                    handle;
-	u32                      irq;
-	struct i2c_msm_bam_pipe  pipe[2];
+	struct i2c_msm_dma_chan  chan[I2C_MSM_DMA_CNT];
 };
 
 /*
- * I2C_MSM_BAM_TAG_MEM_SZ includes the following fields of
- * struct i2c_msm_xfer_mode_bam (in order):
+ * I2C_MSM_DMA_TAG_MEM_SZ includes the following fields of
+ * struct i2c_msm_xfer_mode_dma (in order):
  *
  * Buffer of DMA memory:
  * +-----------+---------+-----------+-----------+----+-----------+
@@ -365,20 +347,20 @@ struct i2c_msm_xfer_mode_bam {
  * +-----------+---------+-----------+-----------+----+-----------+
  *
  * Why +2?
- * One tag buffer for the input tags. This is a write only buffer for BAM, it is
+ * One tag buffer for the input tags. This is a write only buffer for DMA, it is
  *    used to read the tags of the input fifo. We let them overwrite each other,
  *    since it is a throw-away from the driver's perspective.
  * Second tag buffer for the EOT and flush-stop tags. This is a read only
- *    buffer (from BAM perspective). It is used to put EOT and flush-stop at the
+ *    buffer (from DMA perspective). It is used to put EOT and flush-stop at the
  *    end of every transaction.
  */
-#define I2C_MSM_BAM_TAG_MEM_SZ  \
-	((I2C_MSM_BAM_DESC_ARR_SIZ + 2) * I2C_MSM_TAG2_MAX_LEN)
+#define I2C_MSM_DMA_TAG_MEM_SZ  \
+	((I2C_MSM_DMA_DESC_ARR_SIZ + 2) * I2C_MSM_TAG2_MAX_LEN)
 
 /*
  * i2c_msm_xfer_mode_fifo: operations and state of FIFO mode
  *
- * @ops     "base class" of i2c_msm_xfer_mode_bam. Contains the operations while
+ * @ops     "base class" of i2c_msm_xfer_mode_dma. Contains the operations while
  *          the rest of the fields contain the data.
  * @input_fifo_sz input fifo size in bytes
  * @output_fifo_sz output fifo size in bytes
@@ -428,7 +410,7 @@ struct i2c_msm_xfer_mode_blk {
 enum i2c_msm_xfer_mode_id {
 	I2C_MSM_XFER_MODE_FIFO,
 	I2C_MSM_XFER_MODE_BLOCK,
-	I2C_MSM_XFER_MODE_BAM,
+	I2C_MSM_XFER_MODE_DMA,
 	I2C_MSM_XFER_MODE_NONE, /* keep last as a counter */
 };
 
@@ -469,8 +451,6 @@ struct qup_i2c_clk_path_vote {
  * @base I2C controller virtual base address
  * @clk_freq_in core clock frequency in Hz
  * @clk_freq_out bus clock frequency in Hz
- * @bam_pipe_idx_cons index of BAM's consumer pipe
- * @bam_pipe_idx_prod index of BAM's producer pipe
  */
 struct i2c_msm_resources {
 	struct resource             *mem;
@@ -482,8 +462,6 @@ struct i2c_msm_resources {
 	struct qup_i2c_clk_path_vote clk_path_vote;
 	int                          irq;
 	bool                         disable_dma;
-	u32                          bam_pipe_idx_cons;
-	u32                          bam_pipe_idx_prod;
 	struct pinctrl              *pinctrl;
 	struct pinctrl_state        *gpio_state_active;
 	struct pinctrl_state        *gpio_state_suspend;
@@ -588,7 +566,7 @@ struct i2c_msm_xfer {
 	struct mutex               mtx;
 	struct i2c_msm_xfer_mode_fifo	fifo;
 	struct i2c_msm_xfer_mode_blk	blk;
-	struct i2c_msm_xfer_mode_bam	bam;
+	struct i2c_msm_xfer_mode_dma	dma;
 };
 
 /*
@@ -631,26 +609,26 @@ enum i2c_msm_prof_evnt_type {
 };
 
 #ifdef CONFIG_I2C_MSM_PROF_DBG
-extern void i2c_msm_dbgfs_init(struct i2c_msm_ctrl *ctrl);
+void i2c_msm_dbgfs_init(struct i2c_msm_ctrl *ctrl);
 
-extern void i2c_msm_dbgfs_teardown(struct i2c_msm_ctrl *ctrl);
+void i2c_msm_dbgfs_teardown(struct i2c_msm_ctrl *ctrl);
 
 /* diagonisis the i2c registers and dump the errors accordingly */
-extern const char *i2c_msm_dbg_tag_to_str(const struct i2c_msm_tag *tag,
+const char *i2c_msm_dbg_tag_to_str(const struct i2c_msm_tag *tag,
 						char *buf, size_t buf_len);
 
-extern void i2c_msm_prof_evnt_dump(struct i2c_msm_ctrl *ctrl);
+void i2c_msm_prof_evnt_dump(struct i2c_msm_ctrl *ctrl);
 
 /* function definitions to be used from the i2c-msm-v2-debug file */
-extern void i2c_msm_prof_evnt_add(struct i2c_msm_ctrl *ctrl,
+void i2c_msm_prof_evnt_add(struct i2c_msm_ctrl *ctrl,
 				enum msm_i2_debug_level dbg_level,
 				enum i2c_msm_prof_evnt_type event,
 				u64 data0, u32 data1, u32 data2);
 
-extern int i2c_msm_dbg_qup_reg_dump(struct i2c_msm_ctrl *ctrl);
+int i2c_msm_dbg_qup_reg_dump(struct i2c_msm_ctrl *ctrl);
 
-extern const char *
-i2c_msm_dbg_bam_tag_to_str(const struct i2c_msm_bam_tag *bam_tag, char *buf,
+const char *
+i2c_msm_dbg_dma_tag_to_str(const struct i2c_msm_dma_tag *dma_tag, char *buf,
 								size_t buf_len);
 #else
 /* use dummy functions */
@@ -665,7 +643,7 @@ static inline const char *i2c_msm_dbg_tag_to_str(const struct i2c_msm_tag *tag,
 static inline void i2c_msm_prof_evnt_dump(struct i2c_msm_ctrl *ctrl) {}
 
 /* function definitions to be used from the i2c-msm-v2-debug file */
-void i2c_msm_prof_evnt_add(struct i2c_msm_ctrl *ctrl,
+static inline void i2c_msm_prof_evnt_add(struct i2c_msm_ctrl *ctrl,
 				enum msm_i2_debug_level dbg_level,
 				enum i2c_msm_prof_evnt_type event,
 				u64 data0, u32 data1, u32 data2) {}
@@ -674,8 +652,8 @@ static inline int i2c_msm_dbg_qup_reg_dump(struct i2c_msm_ctrl *ctrl)
 {
 	return true;
 }
-static inline const char *i2c_msm_dbg_bam_tag_to_str(const struct
-			i2c_msm_bam_tag * bam_tag, char *buf, size_t buf_len)
+static inline const char *i2c_msm_dbg_dma_tag_to_str(const struct
+			i2c_msm_dma_tag * dma_tag, char *buf, size_t buf_len)
 {
 	return NULL;
 }
