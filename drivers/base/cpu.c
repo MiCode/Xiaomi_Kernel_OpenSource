@@ -277,13 +277,52 @@ static ssize_t __ref store_sched_mostly_idle_nr_run(struct device *dev,
 	return err;
 }
 
+static ssize_t show_sched_prefer_idle(struct device *dev,
+		 struct device_attribute *attr, char *buf)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	ssize_t rc;
+	int cpunum;
+	int prefer_idle;
+
+	cpunum = cpu->dev.id;
+
+	prefer_idle = sched_get_cpu_prefer_idle(cpunum);
+
+	rc = snprintf(buf, PAGE_SIZE-2, "%d\n", prefer_idle);
+
+	return rc;
+}
+
+static ssize_t __ref store_sched_prefer_idle(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	int cpuid = cpu->dev.id;
+	int prefer_idle, err;
+
+	err = kstrtoint(strstrip((char *)buf), 0, &prefer_idle);
+	if (err)
+		return err;
+
+	err = sched_set_cpu_prefer_idle(cpuid, prefer_idle);
+	if (err >= 0)
+		err = count;
+
+	return err;
+}
+
 static DEVICE_ATTR(sched_mostly_idle_freq, 0664, show_sched_mostly_idle_freq,
 						store_sched_mostly_idle_freq);
 static DEVICE_ATTR(sched_mostly_idle_load, 0664, show_sched_mostly_idle_load,
 						store_sched_mostly_idle_load);
 static DEVICE_ATTR(sched_mostly_idle_nr_run, 0664,
 		show_sched_mostly_idle_nr_run, store_sched_mostly_idle_nr_run);
-#endif
+static DEVICE_ATTR(sched_prefer_idle, 0664,
+		show_sched_prefer_idle, store_sched_prefer_idle);
+
+#endif	/* CONFIG_SCHED_HMP */
 
 /*
  * Print cpu online, possible, present, and system maps
@@ -465,6 +504,9 @@ int __cpuinit register_cpu(struct cpu *cpu, int num)
 	if (!error)
 		error = device_create_file(&cpu->dev,
 					 &dev_attr_sched_mostly_idle_freq);
+	if (!error)
+		error = device_create_file(&cpu->dev,
+					 &dev_attr_sched_prefer_idle);
 #endif
 
 	return error;
