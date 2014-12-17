@@ -2,7 +2,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm Technologies, Inc. MSM SDHCI Platform
  * driver source file
  *
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,7 +41,23 @@
 
 #include "sdhci-pltfm.h"
 
+#define CORE_POWER		0x0
+#define CORE_SW_RST		(1 << 7)
+
 #define SDHCI_VER_100		0x2B
+#define CORE_MCI_DATA_CNT	0x30
+#define CORE_MCI_STATUS		0x34
+#define CORE_MCI_FIFO_CNT	0x44
+
+#define CORE_VERSION_STEP_MASK		0x0000FFFF
+#define CORE_VERSION_MINOR_MASK		0x0FFF0000
+#define CORE_VERSION_MINOR_SHIFT	16
+#define CORE_VERSION_MAJOR_MASK		0xF0000000
+#define CORE_VERSION_MAJOR_SHIFT	28
+#define CORE_VERSION_TARGET_MASK	0x000000FF
+
+#define CORE_GENERICS			0x70
+#define SWITCHABLE_SIGNALLING_VOL	(1 << 29)
 
 #define CORE_VERSION_MAJOR_MASK		0xF0000000
 #define CORE_VERSION_MAJOR_SHIFT	28
@@ -50,16 +66,11 @@
 #define HC_MODE_EN		0x1
 #define FF_CLK_SW_RST_DIS	(1 << 13)
 
-#define CORE_GENERICS		0x70
-#define SWITCHABLE_SIGNALLING_VOL (1 << 29)
-
-#define CORE_POWER		0x0
-#define CORE_SW_RST		(1 << 7)
-
 #define CORE_MCI_VERSION	0x050
 #define CORE_TESTBUS_CONFIG	0x0CC
 #define CORE_TESTBUS_ENA	(1 << 3)
-#define CORE_SDCC_DEBUG_REG	0x124
+#define CORE_TESTBUS_SEL2_BIT	4
+#define CORE_TESTBUS_SEL2	(1 << CORE_TESTBUS_SEL2_BIT)
 
 #define CORE_PWRCTL_STATUS	0xDC
 #define CORE_PWRCTL_MASK	0xE0
@@ -103,6 +114,9 @@
 #define CORE_HC_SELECT_IN_HS400	(6 << 19)
 #define CORE_HC_SELECT_IN_MASK	(7 << 19)
 
+#define CORE_VENDOR_SPEC_ADMA_ERR_ADDR0	0x114
+#define CORE_VENDOR_SPEC_ADMA_ERR_ADDR1	0x118
+
 #define CORE_VENDOR_SPEC_CAPABILITIES0	0x11C
 #define CORE_8_BIT_SUPPORT		(1 << 18)
 #define CORE_3_3V_SUPPORT		(1 << 24)
@@ -110,8 +124,7 @@
 #define CORE_1_8V_SUPPORT		(1 << 26)
 #define CORE_SYS_BUS_SUPPORT_64_BIT	BIT(28)
 
-#define CORE_VENDOR_SPEC_ADMA_ERR_ADDR0	0x114
-#define CORE_VENDOR_SPEC_ADMA_ERR_ADDR1	0x118
+#define CORE_SDCC_DEBUG_REG		0x124
 
 #define CORE_CSR_CDC_CTLR_CFG0		0x130
 #define CORE_SW_TRIG_FULL_CALIB		(1 << 16)
@@ -148,14 +161,6 @@
 #define CORE_DDR_CONFIG		0x1B8
 #define DDR_CONFIG_POR_VAL	0x80040853
 
-
-#define CORE_MCI_DATA_CNT 0x30
-#define CORE_MCI_STATUS 0x34
-#define CORE_MCI_FIFO_CNT 0x44
-
-#define CORE_TESTBUS_SEL2_BIT	4
-#define CORE_TESTBUS_SEL2	(1 << CORE_TESTBUS_SEL2_BIT)
-
 /* 512 descriptors */
 #define SDHCI_MSM_MAX_SEGMENTS  (1 << 9)
 #define SDHCI_MSM_MMC_CLK_GATE_DELAY	200 /* msecs */
@@ -163,8 +168,6 @@
 #define CORE_FREQ_100MHZ	(100 * 1000 * 1000)
 
 #define INVALID_TUNING_PHASE	-1
-
-#define CORE_VERSION_TARGET_MASK	0x000000FF
 
 #define NUM_TUNING_PHASES		16
 #define MAX_DRV_TYPES_SUPPORTED_HS200	3
