@@ -89,6 +89,7 @@
 			focaltech,fw-delay-era-flsh-ms = <2000>;
 			focaltech,fw-auto-cal;
 			focaltech,ignore-id-check;
+			focaltech,gesture-support;
 		};
 
 	};
