@@ -3145,7 +3145,8 @@ int regulator_allow_bypass(struct regulator *regulator, bool enable)
 	if (enable && !regulator->bypass) {
 		rdev->bypass_count++;
 
-		if (rdev->bypass_count == rdev->open_count) {
+		if (rdev->bypass_count == rdev->open_count -
+		    rdev->open_offset) {
 			ret = rdev->desc->ops->set_bypass(rdev, enable);
 			if (ret != 0)
 				rdev->bypass_count--;
@@ -3154,7 +3155,8 @@ int regulator_allow_bypass(struct regulator *regulator, bool enable)
 	} else if (!enable && regulator->bypass) {
 		rdev->bypass_count--;
 
-		if (rdev->bypass_count != rdev->open_count) {
+		if (rdev->bypass_count != rdev->open_count -
+		    rdev->open_offset) {
 			ret = rdev->desc->ops->set_bypass(rdev, enable);
 			if (ret != 0)
 				rdev->bypass_count++;
@@ -3647,6 +3649,46 @@ static int reg_debug_enable_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(reg_enable_fops, reg_debug_enable_get,
 			reg_debug_enable_set, "%llu\n");
 
+static int reg_debug_bypass_enable_get(void *data, u64 *val)
+{
+	struct regulator *regulator = data;
+	struct regulator_dev *rdev = regulator->rdev;
+	bool enable = false;
+	int rc = 0;
+
+	mutex_lock(&rdev->mutex);
+	if (rdev->desc->ops->get_bypass) {
+		rc = rdev->desc->ops->get_bypass(rdev, &enable);
+		if (rc)
+			pr_err("get_bypass() failed, rc=%d\n", rc);
+	} else {
+		enable = (rdev->bypass_count == rdev->open_count
+			  - rdev->open_offset);
+	}
+	mutex_unlock(&rdev->mutex);
+
+	*val = enable;
+
+	return rc;
+}
+
+static int reg_debug_bypass_enable_set(void *data, u64 val)
+{
+	struct regulator *regulator = data;
+	struct regulator_dev *rdev = regulator->rdev;
+	int ret = 0;
+
+	mutex_lock(&rdev->mutex);
+	rdev->open_offset = 0;
+	mutex_unlock(&rdev->mutex);
+
+	ret = regulator_allow_bypass(data, val);
+
+	return ret;
+}
+DEFINE_SIMPLE_ATTRIBUTE(reg_bypass_enable_fops, reg_debug_bypass_enable_get,
+			reg_debug_bypass_enable_set, "%llu\n");
+
 static int reg_debug_fdisable_set(void *data, u64 val)
 {
 	int err_info;
@@ -3881,6 +3923,7 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 		goto error;
 	}
 
+	rdev->open_offset = 1;
 	reg_ops = rdev->desc->ops;
 	mode = S_IRUGO | S_IWUSR;
 	/* Enabled File */
@@ -3889,6 +3932,21 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 						reg, &reg_enable_fops);
 	if (IS_ERR(err_ptr)) {
 		pr_err("Error-Could not create enable file\n");
+		debugfs_remove_recursive(rdev->debugfs);
+		goto error;
+	}
+
+	mode = 0;
+	/* Bypass Enable File */
+	if (reg_ops->set_bypass)
+		mode = S_IWUSR | S_IRUGO;
+
+	if (mode)
+		err_ptr = debugfs_create_file("bypass", mode,
+					      rdev->debugfs, reg,
+					      &reg_bypass_enable_fops);
+	if (IS_ERR(err_ptr)) {
+		pr_err("Error-Could not create bypass enable file\n");
 		debugfs_remove_recursive(rdev->debugfs);
 		goto error;
 	}

@@ -333,6 +333,7 @@ struct regulator_dev {
 	int exclusive;
 	u32 use_count;
 	u32 open_count;
+	u32 open_offset;
 	u32 bypass_count;
 
 	/* lists we belong to */
