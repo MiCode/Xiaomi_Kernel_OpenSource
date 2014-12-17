@@ -2634,7 +2634,9 @@ static void __configure_capture_pp_input(struct atomisp_sub_device *asd,
 	ver_ds_factor = CEIL_DIV(height >> 1,
 			pipe_configs->output_info[0].res.height);
 
-	if (hor_ds_factor != ver_ds_factor) {
+	if (asd->isp->media_dev.hw_revision <
+	    (ATOMISP_HW_REVISION_ISP2401 << ATOMISP_HW_REVISION_SHIFT) &&
+	    hor_ds_factor != ver_ds_factor) {
 		dev_warn(asd->isp->dev,
 				"Cropping for capture due to FW limitation");
 		return;
