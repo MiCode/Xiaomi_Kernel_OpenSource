@@ -14,6 +14,9 @@
 #include "mhi_hwio.h"
 #include "mhi_trace.h"
 
+#include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
+
 static void conditional_chan_db_write(
 				struct mhi_device_ctxt *mhi_dev_ctxt, u32 chan)
 {
@@ -111,14 +114,7 @@ static enum MHI_STATUS process_m0_transition(
 	unsigned long flags;
 	int ret_val;
 	mhi_log(MHI_MSG_INFO, "Entered\n");
-	ret_val = cancel_delayed_work(&mhi_dev_ctxt->m3_work);
-	if (ret_val) {
-		atomic_set(&mhi_dev_ctxt->flags.m3_work_enabled, 0);
-		mhi_log(MHI_MSG_INFO, "M3 work was cancelled\n");
-	} else {
-		mhi_log(MHI_MSG_INFO,
-		"M3 work NOT cancelled, either running or never started\n");
-	}
+
 	if (mhi_dev_ctxt->mhi_state == MHI_STATE_M2) {
 		mhi_dev_ctxt->counters.m2_m0++;
 	} else if (mhi_dev_ctxt->mhi_state == MHI_STATE_M3) {
@@ -175,6 +171,7 @@ static enum MHI_STATUS process_m1_transition(
 {
 	unsigned long flags = 0;
 	int ret_val = 0;
+	int r = 0;
 	mhi_log(MHI_MSG_INFO,
 			"Processing M1 state transition from state %d\n",
 			mhi_dev_ctxt->mhi_state);
@@ -213,15 +210,20 @@ static enum MHI_STATUS process_m1_transition(
 							0);
 	if (ret_val)
 		mhi_log(MHI_MSG_INFO, "Failed to update bus request\n");
-	if (!atomic_cmpxchg(&mhi_dev_ctxt->flags.m3_work_enabled, 0, 1)) {
-		mhi_log(MHI_MSG_INFO, "Starting M3 deferred work\n");
-		ret_val = queue_delayed_work(mhi_dev_ctxt->work_queue,
-				     &mhi_dev_ctxt->m3_work,
-				     msecs_to_jiffies(m3_timer_val_ms));
-		if (ret_val == 0)
-			mhi_log(MHI_MSG_CRITICAL,
-				"Failed to start M3 delayed work.\n");
+
+	mhi_log(MHI_MSG_INFO, "Start Deferred Suspend usage_count: %d\n",
+		atomic_read(
+		&mhi_dev_ctxt->dev_info->plat_dev->dev.power.usage_count));
+
+	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	r = pm_request_autosuspend(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	if (r) {
+		mhi_log(MHI_MSG_ERROR, "Failed to remove counter ret %d\n", r);
+		mhi_log(MHI_MSG_ERROR, "Usage counter is %d\n",
+		atomic_read(
+		&mhi_dev_ctxt->dev_info->plat_dev->dev.power.usage_count));
 	}
+
 	return MHI_STATUS_SUCCESS;
 }
 
@@ -269,17 +271,7 @@ static enum MHI_STATUS mhi_process_link_down(
 	mhi_deassert_device_wake(mhi_dev_ctxt);
 	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 
-	r = cancel_delayed_work_sync(&mhi_dev_ctxt->m3_work);
-	if (r) {
-		atomic_set(&mhi_dev_ctxt->flags.m3_work_enabled, 0);
-		mhi_log(MHI_MSG_INFO, "M3 work cancelled\n");
-	}
 
-	r = cancel_work_sync(&mhi_dev_ctxt->m0_work);
-	if (r) {
-		atomic_set(&mhi_dev_ctxt->flags.m0_work_enabled, 0);
-		mhi_log(MHI_MSG_INFO, "M0 work cancelled\n");
-	}
 	mhi_dev_ctxt->flags.stop_threads = 1;
 
 	while (!mhi_dev_ctxt->ev_thread_stopped) {
@@ -541,10 +533,10 @@ enum MHI_STATUS start_chan_sync(struct mhi_client_handle *client_handle)
 			MHI_CLIENT_SAHARA_OUT, ret_val);
 		return ret_val;
 	}
-	r = wait_for_completion_interruptible_timeout(
+	r = wait_for_completion_timeout(
 			&client_handle->chan_open_complete,
 			msecs_to_jiffies(MHI_MAX_CMD_TIMEOUT));
-	if (0 == r || -ERESTARTSYS == r) {
+	if (!r) {
 		mhi_log(MHI_MSG_ERROR,
 				"Failed to start chan %d ret %d\n",
 				client_handle->chan, r);
@@ -600,7 +592,19 @@ static enum MHI_STATUS process_sbl_transition(
 				struct mhi_device_ctxt *mhi_dev_ctxt,
 				enum STATE_TRANSITION cur_work_item)
 {
+	int r;
 	mhi_log(MHI_MSG_INFO, "Processing SBL state transition\n");
+
+	pm_runtime_set_autosuspend_delay(&mhi_dev_ctxt->dev_info->plat_dev->dev,
+					 MHI_RPM_AUTOSUSPEND_TMR_VAL_MS);
+	pm_runtime_use_autosuspend(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	r = pm_runtime_set_active(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	if (r) {
+		mhi_log(MHI_MSG_ERROR,
+		"Failed to activate runtime pm ret %d\n", r);
+	}
+	pm_runtime_enable(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	mhi_log(MHI_MSG_INFO, "Enabled runtime pm\n");
 	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_SBL;
 	wmb();
 	enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);
@@ -612,6 +616,7 @@ static enum MHI_STATUS process_amss_transition(
 				enum STATE_TRANSITION cur_work_item)
 {
 	enum MHI_STATUS ret_val;
+
 	mhi_log(MHI_MSG_INFO, "Processing AMSS state transition\n");
 	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_AMSS;
 	atomic_inc(&mhi_dev_ctxt->flags.data_pending);
@@ -843,30 +848,6 @@ enum MHI_STATUS mhi_init_state_transition(struct mhi_device_ctxt *mhi_dev_ctxt,
 	return ret_val;
 }
 
-void delayed_m3(struct work_struct *work)
-{
-	int r;
-	struct delayed_work *del_work = to_delayed_work(work);
-	struct mhi_device_ctxt *mhi_dev_ctxt = container_of(del_work,
-					struct mhi_device_ctxt, m3_work);
-	r = mhi_initiate_m3(mhi_dev_ctxt);
-	if (r)
-		mhi_log(MHI_MSG_INFO, "Failed to initiate M3 ret: %d\n", r);
-
-}
-
-void m0_work(struct work_struct *work)
-{
-	struct mhi_device_ctxt *mhi_dev_ctxt =
-		container_of(work, struct mhi_device_ctxt, m0_work);
-	if (!atomic_read(&mhi_dev_ctxt->flags.pending_resume)) {
-		mhi_log(MHI_MSG_INFO, "No pending resume, initiating M0.\n");
-		mhi_initiate_m0(mhi_dev_ctxt);
-	} else {
-		mhi_log(MHI_MSG_INFO, "Pending resume, quitting.\n");
-	}
-}
-
 int mhi_initiate_m0(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int r = 0;
@@ -939,7 +920,6 @@ int mhi_initiate_m0(struct mhi_device_ctxt *mhi_dev_ctxt)
 		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 	}
 exit:
-	atomic_set(&mhi_dev_ctxt->flags.m0_work_enabled, 0);
 	mutex_unlock(&mhi_dev_ctxt->pm_lock);
 	mhi_log(MHI_MSG_INFO, "Exited...\n");
 	return r;
@@ -949,7 +929,7 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 
 	unsigned long flags;
-	int r;
+	int r = 0;
 	int abort_m3 = 0;
 
 	mhi_log(MHI_MSG_INFO,
@@ -982,6 +962,7 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 		if (0 == r || -ERESTARTSYS == r) {
 			mhi_log(MHI_MSG_INFO,
 				"MDM failed to come out of M2.\n");
+			r = -EAGAIN;
 			goto exit;
 		}
 		break;
@@ -991,7 +972,7 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 				mhi_dev_ctxt->mhi_state,
 				mhi_dev_ctxt->flags.link_up);
 		if (mhi_dev_ctxt->flags.link_up)
-			r = -EPERM;
+			r = -EAGAIN;
 		else
 			r = 0;
 		goto exit;
@@ -1009,11 +990,13 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 			__pm_stay_awake(&mhi_dev_ctxt->w_lock);
 			__pm_relax(&mhi_dev_ctxt->w_lock);
 		abort_m3 = 1;
+		r = -EAGAIN;
 		goto exit;
 	}
 
 	if (atomic_read(&mhi_dev_ctxt->flags.data_pending)) {
 		abort_m3 = 1;
+		r = -EAGAIN;
 		goto exit;
 	}
 	r = hrtimer_cancel(&mhi_dev_ctxt->m1_timer);
@@ -1025,9 +1008,7 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 	if (mhi_dev_ctxt->flags.pending_M0) {
 		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
-		mhi_log(MHI_MSG_INFO,
-			"Pending M0 detected, aborting M3 procedure\n");
-		r = -EPERM;
+		r = -EAGAIN;
 		goto exit;
 	}
 	mhi_dev_ctxt->flags.pending_M3 = 1;
@@ -1072,7 +1053,6 @@ exit:
 		ring_all_chan_dbs(mhi_dev_ctxt);
 		atomic_dec(&mhi_dev_ctxt->flags.data_pending);
 	}
-	atomic_set(&mhi_dev_ctxt->flags.m3_work_enabled, 0);
 	mhi_dev_ctxt->flags.pending_M3 = 0;
 	mutex_unlock(&mhi_dev_ctxt->pm_lock);
 	return r;

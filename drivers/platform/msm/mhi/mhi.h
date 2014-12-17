@@ -392,8 +392,6 @@ struct mhi_flags {
 	u32 kill_threads;
 	atomic_t data_pending;
 	atomic_t events_pending;
-	atomic_t m0_work_enabled;
-	atomic_t m3_work_enabled;
 	atomic_t pending_resume;
 	atomic_t pending_ssr;
 	atomic_t pending_powerup;
@@ -460,10 +458,7 @@ struct mhi_device_ctxt {
 	rwlock_t xfer_lock;
 	struct hrtimer m1_timer;
 	ktime_t m1_timeout;
-	struct delayed_work m3_work;
-	struct work_struct m0_work;
-
-	struct workqueue_struct *work_queue;
+	ktime_t ul_acc_tmr_timeout;
 	struct mhi_chan_counters mhi_chan_cntr[MHI_MAX_CHANNELS];
 	u32 ev_counter[MHI_MAX_CHANNELS];
 	u32 bus_client;
@@ -574,8 +569,6 @@ int mhi_cpu_notifier_cb(struct notifier_block *nfb, unsigned long action,
 enum MHI_STATUS init_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt);
 enum MHI_STATUS mhi_turn_off_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt);
 enum MHI_STATUS mhi_turn_on_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt);
-void delayed_m3(struct work_struct *work);
-void m0_work(struct work_struct *work);
 int mhi_initiate_m0(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_set_bus_request(struct mhi_device_ctxt *mhi_dev_ctxt,
@@ -592,5 +585,8 @@ void mhi_reg_write(struct mhi_device_ctxt *mhi_dev_ctxt,
 u32 mhi_reg_read(void __iomem *io_addr, uintptr_t io_offset);
 u32 mhi_reg_read_field(void __iomem *io_addr, uintptr_t io_offset,
 			 u32 mask, u32 shift);
+void mhi_exit_m2(struct mhi_device_ctxt *mhi_dev_ctxt);
+int mhi_runtime_suspend(struct device *dev);
+int mhi_runtime_resume(struct device *dev);
 
 #endif
