@@ -1345,7 +1345,8 @@ static int fast_chg(struct smb358_charger *chip, u8 status)
 static int chg_term(struct smb358_charger *chip, u8 status)
 {
 	dev_dbg(chip->dev, "%s\n", __func__);
-	chip->batt_full = !!status;
+	if (!chip->iterm_disabled)
+		chip->batt_full = !!status;
 	return 0;
 }
 
