@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1815,6 +1815,9 @@ int mdp3_iommu_ctrl(int enable)
 {
 	int rc;
 
+	if (mdp3_res->allow_iommu_update == false)
+		return 0;
+
 	if (enable)
 		rc = mdp3_iommu_enable();
 	else
@@ -2157,8 +2160,20 @@ static int mdp3_panel_register_done(struct mdss_panel_data *pdata)
 	 * continue splash screen. This would have happened in
 	 * res_update in continuous_splash_on without this flag.
 	 */
-	mdp3_res->allow_iommu_update = true;
+	if (pdata->panel_info.cont_splash_enabled == false)
+		mdp3_res->allow_iommu_update = true;
+
 	return rc;
+}
+
+int mdp3_splash_done(struct mdss_panel_info *panel_info)
+{
+	if (panel_info->cont_splash_enabled) {
+		pr_err("continuous splash is on and splash done called\n");
+		return -EINVAL;
+	}
+	mdp3_res->allow_iommu_update = true;
+	return 0;
 }
 
 static int mdp3_debug_dump_stats_show(struct seq_file *s, void *v)

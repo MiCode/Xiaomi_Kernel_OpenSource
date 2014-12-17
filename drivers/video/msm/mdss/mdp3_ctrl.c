@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -812,6 +812,7 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 		/* Wait for TG to turn off */
 		msleep(20);
 		mfd->panel_info->cont_splash_enabled = 0;
+		mdp3_splash_done(mfd->panel_info);
 	}
 
 	if (panel->event_handler)
@@ -913,7 +914,7 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 	mdp3_session->first_commit = true;
 	mfd->panel_info->cont_splash_enabled = 0;
 	mdp3_session->in_splash_screen = 0;
-
+	mdp3_splash_done(mfd->panel_info);
 reset_error:
 	mutex_unlock(&mdp3_session->lock);
 	return rc;
