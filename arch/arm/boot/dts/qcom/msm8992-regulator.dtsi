@@ -769,6 +769,10 @@
 					       900000 1000000 1000000 1000000
 					      1160000 1160000 1160000 1160000
 					      1160000 1160000 1225000>;
+		qcom,cpr-fuse-version-map =
+				<0xffffffff 0xffffffff 1 4 4 4 4>;
+		qcom,cpr-init-voltage-adjustment =
+				<(-25000) (-25000) (-25000) (-25000)>;
 
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;
