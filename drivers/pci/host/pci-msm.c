@@ -220,7 +220,11 @@
 #define PCIE20_AER_ERR_SRC_ID_REG		0x134
 
 #define PCIE_VENDOR_ID_RCP		 0x17cb
+#ifdef CONFIG_ARCH_MDM9640
+#define PCIE_DEVICE_ID_RCP		 0x0301
+#else
 #define PCIE_DEVICE_ID_RCP		 0x0300
+#endif
 
 #define RD 0
 #define WR 1
