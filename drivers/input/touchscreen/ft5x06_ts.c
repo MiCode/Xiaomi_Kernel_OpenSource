@@ -85,7 +85,28 @@
 #define FT_PSENSOR_FAR_TO_NEAR	0
 #define FT_PSENSOR_NEAR_TO_FAR	1
 #define FT_PSENSOR_ORIGINAL_STATE_FAR	1
-#define FT_PSENSOR_WAKEUP_TIMEOUT	100
+#define FT_PSENSOR_WAKEUP_TIMEOUT	500
+
+/* gesture register address*/
+#define FT_REG_GESTURE_ENABLE	0xD0
+#define FT_REG_GESTURE_OUTPUT	0xD3
+
+/* gesture register bits*/
+#define FT_GESTURE_DOUBLECLICK_COORD_X		100
+#define FT_GESTURE_DOUBLECLICK_COORD_Y		100
+#define FT_GESTURE_WAKEUP_TIMEOUT		500
+#define FT_GESTURE_DEFAULT_TRACKING_ID		0x0A
+#define FT_GESTURE_DOUBLECLICK_ID		0x24
+#define FT_GESTURE_POINTER_NUM_MAX		128
+#define FT_GESTURE_POINTER_SIZEOF		4
+#define FT_GESTURE_ID_FLAG_SIZE			1
+#define FT_GESTURE_POINTER_NUM_FLAG_SIZE	1
+/* 6 bytes are taken to mark which gesture is supported in firmware */
+#define FT_GESTURE_SET_FLAG_SIZE		6
+#define I2C_TRANSFER_MAX_BYTE			255
+#define FT_GESTURE_DATA_HEADER	(FT_GESTURE_ID_FLAG_SIZE + \
+				FT_GESTURE_POINTER_NUM_FLAG_SIZE + \
+				FT_GESTURE_SET_FLAG_SIZE)
 
 /* power register bits*/
 #define FT_PMODE_ACTIVE		0x00
@@ -222,6 +243,7 @@ struct ft5x06_ts_data {
 	struct input_dev *input_dev;
 	const struct ft5x06_ts_platform_data *pdata;
 	struct ft5x06_psensor_platform_data *psensor_pdata;
+	struct ft5x06_gesture_platform_data *gesture_pdata;
 	struct regulator *vdd;
 	struct regulator *vcc_i2c;
 	char fw_name[FT_FW_NAME_MAX_LEN];
@@ -246,6 +268,9 @@ struct ft5x06_ts_data {
 	struct pinctrl_state *pinctrl_state_release;
 };
 
+static int ft5x06_ts_start(struct device *dev);
+static int ft5x06_ts_stop(struct device *dev);
+
 static struct sensors_classdev __maybe_unused sensors_proximity_cdev = {
 	.name = "ft5x06-proximity",
 	.vendor = "FocalTech",
@@ -267,6 +292,11 @@ static struct sensors_classdev __maybe_unused sensors_proximity_cdev = {
 static inline bool ft5x06_psensor_support_enabled(void)
 {
 	return config_enabled(CONFIG_TOUCHSCREEN_FT5X06_PSENSOR);
+}
+
+static inline bool ft5x06_gesture_support_enabled(void)
+{
+	return config_enabled(CONFIG_TOUCHSCREEN_FT5X06_GESTURE);
 }
 
 static int ft5x06_i2c_read(struct i2c_client *client, char *writebuf,
@@ -390,7 +420,7 @@ static int ft5x06_read_tp_psensor_data(struct ft5x06_ts_data *data)
 {
 	u8 psensor_status;
 	char tmp;
-	int ret = 0;
+	int ret = 1;
 
 	ft5x0x_read_reg(data->client,
 			FT_REG_PSENSOR_STATUS, &psensor_status);
@@ -404,9 +434,9 @@ static int ft5x06_read_tp_psensor_data(struct ft5x06_ts_data *data)
 						FT_PSENSOR_NEAR_TO_FAR;
 
 	if (tmp != data->psensor_pdata->tp_psensor_data) {
-		dev_info(&data->client->dev,
+		dev_debug(&data->client->dev,
 				"%s sensor data changed\n", __func__);
-		ret = 1;
+		ret = 0;
 	}
 	return ret;
 }
@@ -418,6 +448,201 @@ static int ft5x06_psensor_enable_set(struct sensors_classdev *sensors_cdev,
 }
 
 static int ft5x06_read_tp_psensor_data(struct ft5x06_ts_data *data)
+{
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_FT5X06_GESTURE
+static ssize_t ft5x06_gesture_enable_to_set_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+			data->gesture_pdata->gesture_enable_to_set);
+}
+
+static ssize_t ft5x06_gesture_enable_to_set_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+	unsigned long value = 0;
+	int ret;
+
+	if (data->suspended)
+		return -EINVAL;
+
+	ret = kstrtoul(buf, 16, &value);
+	if (ret < 0) {
+		dev_err(dev, "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
+		return ret;
+	}
+
+	if (1 == value)
+		data->gesture_pdata->gesture_enable_to_set = 1;
+	else
+		data->gesture_pdata->gesture_enable_to_set = 0;
+	return size;
+}
+
+static DEVICE_ATTR(enable, 0664,
+		ft5x06_gesture_enable_to_set_show,
+		ft5x06_gesture_enable_to_set_store);
+
+static int ft5x06_entry_pocket(struct device *dev)
+{
+	return ft5x06_ts_stop(dev);
+}
+
+static int ft5x06_leave_pocket(struct device *dev)
+{
+	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+	int err;
+	ft5x06_ts_start(dev);
+
+	if (ft5x06_gesture_support_enabled() && device_may_wakeup(dev) &&
+		data->pdata->gesture_support &&
+		data->gesture_pdata->gesture_enable_to_set) {
+		ft5x0x_write_reg(data->client, FT_REG_GESTURE_ENABLE, 1);
+		err = enable_irq_wake(data->client->irq);
+		if (err)
+			dev_err(&data->client->dev,
+				"%s: set_irq_wake failed\n", __func__);
+	}
+	return err;
+}
+
+static ssize_t gesture_in_pocket_mode_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+			data->gesture_pdata->in_pocket);
+}
+
+static ssize_t gesture_in_pocket_mode_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+	unsigned long value = 0;
+	int ret;
+
+	ret = kstrtoul(buf, 16, &value);
+	if (ret < 0) {
+		dev_err(dev, "%s:kstrtoul failed, ret=0x%x\n",
+			__func__, ret);
+		return ret;
+	}
+	if (1 == value) {
+		data->gesture_pdata->in_pocket = 1;
+		ft5x06_entry_pocket(dev);
+	} else if (0 == value) {
+		ft5x06_leave_pocket(dev);
+		data->gesture_pdata->in_pocket = 0;
+	}
+	return size;
+}
+
+static DEVICE_ATTR(pocket, 0664,
+		gesture_in_pocket_mode_show,
+		gesture_in_pocket_mode_store);
+
+static int ft5x06_report_gesture_doubleclick(struct input_dev *ip_dev)
+{
+	int i;
+	for (i = 0; i < 2; i++) {
+		input_mt_slot(ip_dev, FT_GESTURE_DEFAULT_TRACKING_ID);
+		input_mt_report_slot_state(ip_dev, MT_TOOL_FINGER, 1);
+		input_report_abs(ip_dev, ABS_MT_POSITION_X,
+					FT_GESTURE_DOUBLECLICK_COORD_X);
+		input_report_abs(ip_dev, ABS_MT_POSITION_Y,
+					FT_GESTURE_DOUBLECLICK_COORD_Y);
+		input_mt_report_pointer_emulation(ip_dev, false);
+		input_sync(ip_dev);
+		input_mt_slot(ip_dev, FT_GESTURE_DEFAULT_TRACKING_ID);
+		input_mt_report_slot_state(ip_dev, MT_TOOL_FINGER, 0);
+		input_mt_report_pointer_emulation(ip_dev, false);
+		input_sync(ip_dev);
+	}
+	return 0;
+}
+
+static int ft5x06_report_gesture(struct i2c_client *i2c_client,
+		struct input_dev *ip_dev)
+{
+	int i, temp, gesture_data_size;
+	int gesture_coord_x, gesture_coord_y;
+	int ret = -1;
+	short pointnum = 0;
+	unsigned char buf[FT_GESTURE_POINTER_NUM_MAX *
+			FT_GESTURE_POINTER_SIZEOF + FT_GESTURE_DATA_HEADER];
+
+	buf[0] = FT_REG_GESTURE_OUTPUT;
+	ret = ft5x06_i2c_read(i2c_client, buf, 1,
+				buf, FT_GESTURE_DATA_HEADER);
+	if (ret < 0) {
+		dev_err(&i2c_client->dev, "%s read touchdata failed.\n",
+			__func__);
+		return ret;
+	}
+
+	/* FW support doubleclick */
+	if (FT_GESTURE_DOUBLECLICK_ID == buf[0]) {
+		ft5x06_report_gesture_doubleclick(ip_dev);
+		return 0;
+	}
+
+	pointnum = (short)(buf[1]) & 0xff;
+	gesture_data_size = pointnum * FT_GESTURE_POINTER_SIZEOF +
+			FT_GESTURE_DATA_HEADER;
+	buf[0] = FT_REG_GESTURE_OUTPUT;
+	temp = gesture_data_size / I2C_TRANSFER_MAX_BYTE;
+	for (i = 0; i < temp; i++)
+		ret = ft5x06_i2c_read(i2c_client, buf, ((i == 0) ? 1 : 0),
+			buf + I2C_TRANSFER_MAX_BYTE * i, I2C_TRANSFER_MAX_BYTE);
+	ret = ft5x06_i2c_read(i2c_client, buf, ((temp == 0) ? 1 : 0),
+			buf + I2C_TRANSFER_MAX_BYTE * temp,
+			gesture_data_size - I2C_TRANSFER_MAX_BYTE * temp);
+	if (ret < 0) {
+		dev_err(&i2c_client->dev, "%s read touchdata failed.\n",
+			__func__);
+		return ret;
+	}
+
+	for (i = 0; i < pointnum; i++) {
+		gesture_coord_x = (((s16) buf[FT_GESTURE_DATA_HEADER +
+				(FT_GESTURE_POINTER_SIZEOF * i)]) & 0x0F) << 8 |
+				(((s16) buf[FT_GESTURE_DATA_HEADER + 1 +
+				(FT_GESTURE_POINTER_SIZEOF * i)]) & 0xFF);
+		gesture_coord_y = (((s16) buf[FT_GESTURE_DATA_HEADER + 2 +
+				(FT_GESTURE_POINTER_SIZEOF * i)]) & 0x0F) << 8 |
+				(((s16) buf[FT_GESTURE_DATA_HEADER + 3 +
+				(FT_GESTURE_POINTER_SIZEOF * i)]) & 0xFF);
+		input_mt_slot(ip_dev, FT_GESTURE_DEFAULT_TRACKING_ID);
+		input_mt_report_slot_state(ip_dev, MT_TOOL_FINGER, 1);
+		input_report_abs(ip_dev, ABS_MT_POSITION_X, gesture_coord_x);
+		input_report_abs(ip_dev, ABS_MT_POSITION_Y, gesture_coord_y);
+		input_mt_report_pointer_emulation(ip_dev, false);
+		input_sync(ip_dev);
+	}
+	input_mt_slot(ip_dev, FT_GESTURE_DEFAULT_TRACKING_ID);
+	input_mt_report_slot_state(ip_dev, MT_TOOL_FINGER, 0);
+	input_mt_report_pointer_emulation(ip_dev, false);
+	input_sync(ip_dev);
+
+	return 0;
+}
+#else
+static DEVICE_ATTR(pocket, 0664, NULL, NULL);
+static DEVICE_ATTR(enable, 0664, NULL, NULL);
+
+static int ft5x06_report_gesture(struct i2c_client *i2c_client,
+		struct input_dev *ip_dev)
 {
 	return 0;
 }
@@ -466,7 +691,7 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	struct input_dev *ip_dev;
 	int rc, i;
 	u32 id, x, y, status, num_touches;
-	u8 reg, *buf;
+	u8 reg, *buf, gesture_is_active;
 	bool update_input = false;
 
 	if (!data) {
@@ -480,7 +705,7 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support &&
 		data->psensor_pdata->tp_psensor_opened) {
 		rc = ft5x06_read_tp_psensor_data(data);
-		if (rc) {
+		if (!rc) {
 			if (data->suspended)
 				pm_wakeup_event(&data->client->dev,
 					FT_PSENSOR_WAKEUP_TIMEOUT);
@@ -495,7 +720,18 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 			return IRQ_HANDLED;
 	}
 
-	/**
+	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support) {
+		ft5x0x_read_reg(data->client, FT_REG_GESTURE_ENABLE,
+					&gesture_is_active);
+		if (gesture_is_active) {
+			pm_wakeup_event(&(data->client->dev),
+					FT_GESTURE_WAKEUP_TIMEOUT);
+			ft5x06_report_gesture(data->client, ip_dev);
+			return IRQ_HANDLED;
+		}
+	}
+
+	/*
 	 * Read touch data start from register FT_REG_DEV_MODE.
 	 * The touch x/y value start from FT_TOUCH_X_H/L_POS and
 	 * FT_TOUCH_Y_H/L_POS in buf.
@@ -786,32 +1022,77 @@ err_pinctrl_get:
 }
 
 #ifdef CONFIG_PM
-static int ft5x06_ts_suspend(struct device *dev)
+static int ft5x06_ts_start(struct device *dev)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
-	char txbuf[2], i;
 	int err;
 
-	if (data->loading_fw) {
-		dev_info(dev, "Firmware loading in process...\n");
-		return 0;
+	if (data->pdata->power_on) {
+		err = data->pdata->power_on(true);
+		if (err) {
+			dev_err(dev, "power on failed");
+			return err;
+		}
+	} else {
+		err = ft5x06_power_on(data, true);
+		if (err) {
+			dev_err(dev, "power on failed");
+			return err;
+		}
 	}
 
-	if (data->suspended) {
-		dev_info(dev, "Already in suspend state\n");
-		return 0;
+	if (data->ts_pinctrl) {
+		err = pinctrl_select_state(data->ts_pinctrl,
+				data->pinctrl_state_active);
+		if (err < 0)
+			dev_err(dev, "Cannot get active pinctrl state\n");
 	}
 
-	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support &&
-		device_may_wakeup(dev) &&
-		data->psensor_pdata->tp_psensor_opened) {
-		err = enable_irq_wake(data->client->irq);
+	err = ft5x06_gpio_configure(data, true);
+	if (err < 0) {
+		dev_err(&data->client->dev,
+			"failed to put gpios in resue state\n");
+		goto err_gpio_configuration;
+	}
+
+	if (gpio_is_valid(data->pdata->reset_gpio)) {
+		gpio_set_value_cansleep(data->pdata->reset_gpio, 0);
+		msleep(data->pdata->hard_rst_dly);
+		gpio_set_value_cansleep(data->pdata->reset_gpio, 1);
+	}
+
+	msleep(data->pdata->soft_rst_dly);
+
+	enable_irq(data->client->irq);
+	data->suspended = false;
+
+	return 0;
+
+err_gpio_configuration:
+	if (data->ts_pinctrl) {
+		err = pinctrl_select_state(data->ts_pinctrl,
+					data->pinctrl_state_suspend);
+		if (err < 0)
+			dev_err(dev, "Cannot get suspend pinctrl state\n");
+	}
+	if (data->pdata->power_on) {
+		err = data->pdata->power_on(false);
 		if (err)
-			dev_err(&data->client->dev,
-				"%s: set_irq_wake failed\n", __func__);
-		data->suspended = true;
-		return err;
+			dev_err(dev, "power off failed");
+	} else {
+		err = ft5x06_power_on(data, false);
+		if (err)
+			dev_err(dev, "power off failed");
 	}
+	return err;
+}
+
+static int ft5x06_ts_stop(struct device *dev)
+{
+	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+	char txbuf[2];
+	int i, err;
+
 	disable_irq(data->client->irq);
 
 	/* release all touches */
@@ -886,6 +1167,49 @@ pwr_off_fail:
 	return err;
 }
 
+static int ft5x06_ts_suspend(struct device *dev)
+{
+	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+	int err;
+
+	if (data->loading_fw) {
+		dev_info(dev, "Firmware loading in process...\n");
+		return 0;
+	}
+
+	if (data->suspended) {
+		dev_info(dev, "Already in suspend state\n");
+		return 0;
+	}
+
+	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support &&
+		device_may_wakeup(dev) &&
+		data->psensor_pdata->tp_psensor_opened) {
+
+		err = enable_irq_wake(data->client->irq);
+		if (err)
+			dev_err(&data->client->dev,
+				"%s: set_irq_wake failed\n", __func__);
+		data->suspended = true;
+		return err;
+	}
+
+	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support &&
+		device_may_wakeup(dev) &&
+		data->gesture_pdata->gesture_enable_to_set) {
+
+		ft5x0x_write_reg(data->client, FT_REG_GESTURE_ENABLE, 1);
+		err = enable_irq_wake(data->client->irq);
+		if (err)
+			dev_err(&data->client->dev,
+				"%s: set_irq_wake failed\n", __func__);
+		data->suspended = true;
+		return err;
+	}
+
+	return ft5x06_ts_stop(dev);
+}
+
 static int ft5x06_ts_resume(struct device *dev)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
@@ -908,65 +1232,38 @@ static int ft5x06_ts_resume(struct device *dev)
 		return err;
 	}
 
-	if (data->pdata->power_on) {
-		err = data->pdata->power_on(true);
-		if (err) {
-			dev_err(dev, "power on failed");
-			return err;
-		}
-	} else {
-		err = ft5x06_power_on(data, true);
-		if (err) {
-			dev_err(dev, "power on failed");
-			return err;
-		}
+	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support &&
+		device_may_wakeup(dev) &&
+		!(data->gesture_pdata->in_pocket) &&
+		data->gesture_pdata->gesture_enable_to_set) {
+
+		ft5x0x_write_reg(data->client, FT_REG_GESTURE_ENABLE, 0);
+		err = disable_irq_wake(data->client->irq);
+		if (err)
+			dev_err(dev, "%s: disable_irq_wake failed\n",
+				__func__);
+		data->suspended = false;
+		return err;
 	}
 
-	if (data->ts_pinctrl) {
-		err = pinctrl_select_state(data->ts_pinctrl,
-				data->pinctrl_state_active);
-		if (err < 0)
-			dev_err(dev, "Cannot get active pinctrl state\n");
+	err = ft5x06_ts_start(dev);
+	if (err < 0)
+		return err;
+
+	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support &&
+		device_may_wakeup(dev) &&
+		data->gesture_pdata->in_pocket &&
+		data->gesture_pdata->gesture_enable_to_set) {
+
+		ft5x0x_write_reg(data->client, FT_REG_GESTURE_ENABLE, 0);
+		err = disable_irq_wake(data->client->irq);
+		if (err)
+			dev_err(dev, "%s: disable_irq_wake failed\n",
+				__func__);
+		data->suspended = false;
+		data->gesture_pdata->in_pocket = 0;
 	}
-
-	err = ft5x06_gpio_configure(data, true);
-	if (err < 0) {
-		dev_err(&data->client->dev,
-			"failed to put gpios in resue state\n");
-		goto err_gpio_configuration;
-	}
-
-	if (gpio_is_valid(data->pdata->reset_gpio)) {
-		gpio_set_value_cansleep(data->pdata->reset_gpio, 0);
-		msleep(data->pdata->hard_rst_dly);
-		gpio_set_value_cansleep(data->pdata->reset_gpio, 1);
-	}
-
-	msleep(data->pdata->soft_rst_dly);
-
-	enable_irq(data->client->irq);
-
-	data->suspended = false;
-
 	return 0;
-
-err_gpio_configuration:
-	if (data->ts_pinctrl) {
-		err = pinctrl_select_state(data->ts_pinctrl,
-					data->pinctrl_state_suspend);
-		if (err < 0)
-			dev_err(dev, "Cannot get suspend pinctrl state\n");
-	}
-	if (data->pdata->power_on) {
-		err = data->pdata->power_on(false);
-		if (err)
-			dev_err(dev, "power off failed");
-	} else {
-		err = ft5x06_power_on(data, false);
-		if (err)
-			dev_err(dev, "power off failed");
-	}
-	return err;
 }
 
 static const struct dev_pm_ops ft5x06_ts_pm_ops = {
@@ -1750,6 +2047,10 @@ static int ft5x06_parse_dt(struct device *dev,
 
 	pdata->psensor_support = of_property_read_bool(np,
 						"focaltech,psensor-support");
+
+	pdata->gesture_support = of_property_read_bool(np,
+						"focaltech,gesture-support");
+
 	rc = of_property_read_u32(np, "focaltech,family-id", &temp_val);
 	if (!rc)
 		pdata->family_id = temp_val;
@@ -1786,6 +2087,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 {
 	struct ft5x06_ts_platform_data *pdata;
 	struct ft5x06_psensor_platform_data *psensor_pdata;
+	struct ft5x06_gesture_platform_data *gesture_pdata;
 	struct ft5x06_ts_data *data;
 	struct input_dev *input_dev;
 	struct input_dev *psensor_input_dev;
@@ -1962,6 +2264,11 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		goto free_gpio;
 	}
 
+	if (data->pdata->psensor_support && data->pdata->gesture_support) {
+		dev_err(&client->dev,
+			"Unsupport psensor & gesture at the same time\n");
+		goto irq_free;
+	}
 	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support) {
 		device_init_wakeup(&client->dev, 1);
 		psensor_pdata = devm_kzalloc(&client->dev,
@@ -2006,10 +2313,55 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 			goto unregister_psensor_input_device;
 	}
 
+	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support) {
+		device_init_wakeup(&client->dev, 1);
+		gesture_pdata = devm_kzalloc(&client->dev,
+				sizeof(struct ft5x06_gesture_platform_data),
+				GFP_KERNEL);
+		if (!gesture_pdata) {
+			dev_err(&client->dev, "Failed to allocate memory\n");
+			goto free_psensor_class_sysfs;
+		}
+		data->gesture_pdata = gesture_pdata;
+		gesture_pdata->data = data;
+
+		gesture_pdata->gesture_class =
+					class_create(THIS_MODULE, "gesture");
+		if (IS_ERR(gesture_pdata->gesture_class)) {
+			err = PTR_ERR(gesture_pdata->gesture_class);
+			dev_err(&client->dev, "Failed to create class.\n");
+			goto free_gesture_pdata;
+		}
+
+		gesture_pdata->dev = device_create(gesture_pdata->gesture_class,
+				NULL, 0, NULL, "gesture_ft5x06");
+		if (IS_ERR(gesture_pdata->dev)) {
+			err = PTR_ERR(gesture_pdata->dev);
+			dev_err(&client->dev, "Failed to create device.\n");
+			goto free_gesture_class;
+		}
+
+		dev_set_drvdata(gesture_pdata->dev, data);
+		err = device_create_file(gesture_pdata->dev,
+					&dev_attr_enable);
+		if (err) {
+			dev_err(gesture_pdata->dev,
+					"sys file creation failed\n");
+			goto free_gesture_dev;
+		}
+		err = device_create_file(gesture_pdata->dev,
+					&dev_attr_pocket);
+		if (err) {
+			dev_err(gesture_pdata->dev,
+					"sys file creation failed\n");
+			goto free_enable_sys;
+		}
+	}
+
 	err = device_create_file(&client->dev, &dev_attr_fw_name);
 	if (err) {
 		dev_err(&client->dev, "sys file creation failed\n");
-		goto free_psensor_class_sysfs;
+		goto free_pocket_sys;
 	}
 
 	err = device_create_file(&client->dev, &dev_attr_update_fw);
@@ -2120,6 +2472,23 @@ free_update_fw_sys:
 	device_remove_file(&client->dev, &dev_attr_update_fw);
 free_fw_name_sys:
 	device_remove_file(&client->dev, &dev_attr_fw_name);
+free_pocket_sys:
+	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support)
+		device_remove_file(&client->dev, &dev_attr_pocket);
+free_enable_sys:
+	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support)
+		device_remove_file(&client->dev, &dev_attr_enable);
+free_gesture_dev:
+	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support)
+		device_destroy(gesture_pdata->gesture_class, 0);
+free_gesture_class:
+	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support)
+		class_destroy(gesture_pdata->gesture_class);
+free_gesture_pdata:
+	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support) {
+		devm_kfree(&client->dev, gesture_pdata);
+		data->gesture_pdata = NULL;
+	}
 free_psensor_class_sysfs:
 	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support)
 		sensors_classdev_unregister(&psensor_pdata->ps_cdev);
@@ -2135,7 +2504,11 @@ free_psensor_pdata:
 		data->psensor_pdata = NULL;
 	}
 irq_free:
-	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support)
+	if ((ft5x06_psensor_support_enabled() &&
+		data->pdata->psensor_support) ||
+		(ft5x06_gesture_support_enabled() &&
+		data->pdata->gesture_support))
+
 		device_init_wakeup(&client->dev, 0);
 	free_irq(client->irq, data);
 free_gpio:
@@ -2176,6 +2549,16 @@ static int ft5x06_ts_remove(struct i2c_client *client)
 {
 	struct ft5x06_ts_data *data = i2c_get_clientdata(client);
 	int retval;
+
+	if (ft5x06_gesture_support_enabled() && data->pdata->gesture_support) {
+		device_init_wakeup(&client->dev, 0);
+		device_remove_file(&client->dev, &dev_attr_pocket);
+		device_remove_file(&client->dev, &dev_attr_enable);
+		device_destroy(data->gesture_pdata->gesture_class, 0);
+		class_destroy(data->gesture_pdata->gesture_class);
+		devm_kfree(&client->dev, data->gesture_pdata);
+		data->gesture_pdata = NULL;
+	}
 
 	if (ft5x06_psensor_support_enabled() && data->pdata->psensor_support) {
 
