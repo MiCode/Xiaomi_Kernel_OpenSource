@@ -15,6 +15,7 @@
 #include <linux/pm.h>
 #include <linux/fs.h>
 #include <linux/hrtimer.h>
+#include <linux/pm_runtime.h>
 
 #include "mhi_sys.h"
 #include "mhi.h"
@@ -46,11 +47,6 @@ int mhi_pci_suspend(struct pci_dev *pcie_dev, pm_message_t state)
 	mhi_log(MHI_MSG_INFO, "Entered, sys state %d, MHI state %d\n",
 			state.event, mhi_dev_ctxt->mhi_state);
 	atomic_set(&mhi_dev_ctxt->flags.pending_resume, 1);
-	r = cancel_work_sync(&mhi_dev_ctxt->m0_work);
-	if (!r) {
-		atomic_set(&mhi_dev_ctxt->flags.m0_work_enabled, 0);
-		mhi_log(MHI_MSG_INFO, "M0 work cancelled\n");
-	}
 
 	r = mhi_initiate_m3(mhi_dev_ctxt);
 
@@ -58,8 +54,29 @@ int mhi_pci_suspend(struct pci_dev *pcie_dev, pm_message_t state)
 		return r;
 
 	atomic_set(&mhi_dev_ctxt->flags.pending_resume, 0);
-	mhi_log(MHI_MSG_ERROR, "Failing suspend sequence ret: %d\n",
-						r);
+	mhi_log(MHI_MSG_INFO, "Exited, ret %d\n", r);
+	return r;
+}
+
+int mhi_runtime_suspend(struct device *dev)
+{
+	int r = 0;
+	struct mhi_device_ctxt *mhi_dev_ctxt = dev->platform_data;
+	mhi_log(MHI_MSG_INFO, "Runtime Suspend - Entered\n");
+	r = mhi_initiate_m3(mhi_dev_ctxt);
+	pm_runtime_mark_last_busy(dev);
+	mhi_log(MHI_MSG_INFO, "Runtime Suspend - Exited\n");
+	return r;
+}
+
+int mhi_runtime_resume(struct device *dev)
+{
+	int r = 0;
+	struct mhi_device_ctxt *mhi_dev_ctxt = dev->platform_data;
+	mhi_log(MHI_MSG_INFO, "Runtime Resume - Entered\n");
+	r = mhi_initiate_m0(mhi_dev_ctxt);
+	pm_runtime_mark_last_busy(dev);
+	mhi_log(MHI_MSG_INFO, "Runtime Resume - Exited\n");
 	return r;
 }
 

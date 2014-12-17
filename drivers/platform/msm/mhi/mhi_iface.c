@@ -18,6 +18,7 @@
 #include <linux/msm-bus.h>
 #include <linux/delay.h>
 #include <linux/debugfs.h>
+#include <linux/pm_runtime.h>
 
 #define CREATE_TRACE_POINTS
 #include "mhi_trace.h"
@@ -157,6 +158,8 @@ int mhi_ctxt_init(struct mhi_pcie_dev_info *mhi_pcie_dev)
 
 	mhi_pcie_dev->mhi_ctxt.mmio_addr = mhi_pcie_dev->core.bar0_base;
 	pcie_device->dev.platform_data = &mhi_pcie_dev->mhi_ctxt;
+	mhi_pcie_dev->mhi_ctxt.dev_info->plat_dev->dev.platform_data =
+						&mhi_pcie_dev->mhi_ctxt;
 	if (mhi_pcie_dev->mhi_ctxt.base_state == STATE_TRANSITION_BHI) {
 		ret_val = bhi_probe(mhi_pcie_dev);
 		if (ret_val) {
@@ -188,6 +191,12 @@ msi_config_err:
 	pci_disable_device(pcie_device);
 	return ret_val;
 }
+
+static const struct dev_pm_ops pm_ops = {
+	.runtime_suspend = mhi_runtime_suspend,
+	.runtime_resume = mhi_runtime_resume,
+	.runtime_idle = NULL,
+};
 
 static struct pci_driver mhi_pcie_driver = {
 	.name = "mhi_pcie_drv",
@@ -247,6 +256,7 @@ static struct platform_driver mhi_plat_driver = {
 		.name		= "mhi",
 		.owner		= THIS_MODULE,
 		.of_match_table	= mhi_plat_match,
+		.pm = &pm_ops,
 	},
 };
 
