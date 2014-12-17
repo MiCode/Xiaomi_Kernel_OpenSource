@@ -860,7 +860,7 @@ static int __init rmnet_init(void)
 	rmnet_clear_timeout_us();
 
 	n = 0;
-	while (n < BAM_DMUX_NUM_CHANNELS) {
+	while (n <= BAM_DMUX_DATA_REV_RMNET_8) {
 		if ((n > BAM_DMUX_DATA_RMNET_7) &&
 		    (n < BAM_DMUX_DATA_REV_RMNET_0)) {
 			n++;
