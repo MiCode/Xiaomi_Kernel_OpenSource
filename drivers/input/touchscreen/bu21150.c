@@ -1145,26 +1145,26 @@ static bool parse_dtsi(struct device *dev, struct bu21150_data *ts)
 		"rst-gpio", 0, &dummy);
 
 	rc = of_property_read_string(np, "jdi,panel-model", &ts->panel_model);
-	if (rc < 0 && rc != EINVAL) {
-		dev_err(&ts->client->dev, "Unable to read panel model\n");
+	if (rc < 0 && rc != -EINVAL) {
+		dev_err(dev, "Unable to read panel model\n");
 		return false;
 	}
 
 	rc = of_property_read_string(np, "jdi,afe-version", &ts->afe_version);
 	if (rc < 0 && rc != -EINVAL) {
-		dev_err(&ts->client->dev, "Unable to read AFE version\n");
+		dev_err(dev, "Unable to read AFE version\n");
 		return false;
 	}
 
 	rc = of_property_read_string(np, "jdi,pitch-type", &ts->pitch_type);
-	if (rc < 0 && rc != EINVAL) {
-		dev_err(&ts->client->dev, "Unable to read pitch type\n");
+	if (rc < 0 && rc != -EINVAL) {
+		dev_err(dev, "Unable to read pitch type\n");
 		return false;
 	}
 
 	rc = of_property_read_string(np, "jdi,afe-vendor", &ts->afe_vendor);
-	if (rc < 0 && rc != EINVAL) {
-		dev_err(&ts->client->dev, "Unable to read AFE vendor\n");
+	if (rc < 0 && rc != -EINVAL) {
+		dev_err(dev, "Unable to read AFE vendor\n");
 		return false;
 	}
 
