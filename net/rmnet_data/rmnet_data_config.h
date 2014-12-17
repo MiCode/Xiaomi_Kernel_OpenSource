@@ -59,6 +59,7 @@ struct rmnet_logical_ep_conf_s {
  *                  aggregation
  * @tail_spacing: Guaranteed padding (bytes) when de-aggregating ingress frames
  * @agg_time: Wall clock time when aggregated frame was created
+ * @agg_last: Last time the aggregation routing was invoked
  */
 struct rmnet_phys_ep_conf_s {
 	struct net_device *dev;
@@ -70,12 +71,17 @@ struct rmnet_phys_ep_conf_s {
 	/* MAP specific */
 	uint16_t egress_agg_size;
 	uint16_t egress_agg_count;
+	uint8_t tail_spacing;
+	/* MAP aggregation state machine
+	 *  - This is not sctrictly configuration and is updated at runtime
+	 *    Make sure all of these are protected by the agg_lock
+	 */
 	spinlock_t agg_lock;
 	struct sk_buff *agg_skb;
 	uint8_t agg_state;
 	uint8_t agg_count;
-	uint8_t tail_spacing;
 	struct timespec agg_time;
+	struct timespec agg_last;
 };
 
 int rmnet_config_init(void);
