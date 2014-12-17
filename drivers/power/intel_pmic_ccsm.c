@@ -998,6 +998,8 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 	if ((int_reg & BIT_POS(PMIC_INT_USBIDDET)) &&
 			(chc.vbus_state == VBUS_ENABLE)) {
 		mask = !!(stat_reg & BIT_POS(PMIC_INT_USBIDDET));
+		if (chc.otg->set_vbus)
+			chc.otg->set_vbus(chc.otg, true);
 		atomic_notifier_call_chain(&chc.otg->notifier,
 				USB_EVENT_ID, &mask);
 	}
@@ -1524,14 +1526,19 @@ static int vbus_set_cur_state(struct thermal_cooling_device *tcd,
 	 */
 	mutex_lock(&pmic_lock);
 	if ((pmic_get_usbid() == RID_GND) && (chc.vbus_state != new_state)) {
-		if (!new_state)
+		if (!new_state) {
+			if (chc.otg->set_vbus)
+				chc.otg->set_vbus(chc.otg, true);
 			atomic_notifier_call_chain(&chc.otg->notifier,
 						USB_EVENT_ID,
 						NULL);
-		else
+		} else {
+			if (chc.otg->set_vbus)
+				chc.otg->set_vbus(chc.otg, false);
 			atomic_notifier_call_chain(&chc.otg->notifier,
 						USB_EVENT_NONE,
 						NULL);
+		}
 	}
 
 	chc.vbus_state = new_state;
