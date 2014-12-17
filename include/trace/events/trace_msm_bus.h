@@ -263,14 +263,14 @@ TRACE_EVENT(bus_agg_clk,
 
 TRACE_EVENT(bus_rules_apply,
 
-	TP_PROTO(int rule_id, unsigned long long limit_bw, bool throttle_en),
+	TP_PROTO(int rule_id, unsigned long long limit_bw, int throttle_en),
 
 	TP_ARGS(rule_id, limit_bw, throttle_en),
 
 	TP_STRUCT__entry(
 		__field(int, rule_id)
 		__field(u64, limit_bw)
-		__field(bool, throttle_en)
+		__field(int, throttle_en)
 	),
 
 	TP_fast_assign(

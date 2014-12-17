@@ -198,6 +198,12 @@ static void get_qos_params(
 	of_property_read_u32(dev_node, "qcom,prio0",
 						&node_info->qos_params.prio0);
 
+	of_property_read_u32(dev_node, "qcom,reg-prio1",
+					&node_info->qos_params.reg_prio1);
+
+	of_property_read_u32(dev_node, "qcom,reg-prio0",
+					&node_info->qos_params.reg_prio0);
+
 	of_property_read_u32(dev_node, "qcom,prio-rd",
 					&node_info->qos_params.prio_rd);
 

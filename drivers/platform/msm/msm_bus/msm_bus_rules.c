@@ -189,10 +189,7 @@ static bool check_rule(struct rules_def *rule,
 	case OP_GE:
 	{
 		u64 src_field = get_field(rule, inp->id);
-		if (!src_field)
-			ret = false;
-		else
-			ret = do_compare_op(src_field, rule->rule_ops.thresh,
+		ret = do_compare_op(src_field, rule->rule_ops.thresh,
 							rule->rule_ops.op);
 		break;
 	}
@@ -303,6 +300,16 @@ static bool ops_equal(int op1, int op2)
 	return ret;
 }
 
+static bool is_throttle_rule(int mode)
+{
+	bool ret = true;
+
+	if (mode == THROTTLE_OFF)
+		ret = false;
+
+	return ret;
+}
+
 static int node_rules_compare(void *priv, struct list_head *a,
 					struct list_head *b)
 {
@@ -333,10 +340,16 @@ static int node_rules_compare(void *priv, struct list_head *a,
 			}
 		} else
 			ret = ra->rule_ops.op - rb->rule_ops.op;
+	} else if (is_throttle_rule(ra->rule_ops.mode) &&
+				is_throttle_rule(rb->rule_ops.mode)) {
+		if (ra->rule_ops.mode == THROTTLE_ON)
+			ret = -1;
+		else
+			ret = 1;
 	} else if ((ra->rule_ops.mode == THROTTLE_OFF) &&
-		(rb->rule_ops.mode == THROTTLE_ON)) {
+		is_throttle_rule(rb->rule_ops.mode)) {
 		ret = 1;
-	} else if ((ra->rule_ops.mode == THROTTLE_ON) &&
+	} else if (is_throttle_rule(ra->rule_ops.mode) &&
 		(rb->rule_ops.mode == THROTTLE_OFF)) {
 		ret = -1;
 	}
