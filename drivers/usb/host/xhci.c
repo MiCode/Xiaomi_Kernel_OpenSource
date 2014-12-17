@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/dmi.h>
 #include <linux/dma-mapping.h>
+#include <linux/platform_device.h>
 
 #include "xhci.h"
 #include "xhci-trace.h"
@@ -692,6 +693,11 @@ void xhci_stop(struct usb_hcd *hcd)
 	spin_unlock_irq(&xhci->lock);
 
 	xhci_cleanup_msix(xhci);
+
+	if (xhci->ext_dev) {
+		platform_device_unregister(xhci->ext_dev);
+		xhci->ext_dev = NULL;
+	}
 
 	/* Deleting Compliance Mode Recovery Timer */
 	if ((xhci->quirks & XHCI_COMP_MODE_QUIRK) &&
@@ -4875,7 +4881,19 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	if (retval)
 		goto error;
 	xhci_dbg(xhci, "Called HCD init\n");
+
+	/* Register a platform device to extend xHCI's vendor capabilities */
+	if (xhci->ext_dev) {
+		xhci->ext_dev->dev.parent = dev;
+		retval = platform_device_add(xhci->ext_dev);
+		if (retval)
+			goto error1;
+	}
+
 	return 0;
+
+error1:
+	xhci_mem_cleanup(xhci);
 error:
 	kfree(xhci);
 	return retval;

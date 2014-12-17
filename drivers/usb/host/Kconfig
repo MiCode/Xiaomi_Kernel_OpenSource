@@ -26,6 +26,15 @@ config USB_XHCI_HCD
 
 if USB_XHCI_HCD
 
+config USB_XHCI_INTEL_PLATFORM
+	tristate "xHCI Intel extended capability driver"
+	help
+	  Enable Intel xHCI platform driver. Some Intel xHCI contains some Intel
+	  extended capability registers to support more functionalities. e.g.
+	  HSIC, SSIC PHY support.
+
+	  If unsure, say N.
+
 config USB_XHCI_PLATFORM
 	tristate
 

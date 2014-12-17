@@ -1588,6 +1588,7 @@ struct xhci_hcd {
 	u32			port_status_u0;
 /* Compliance Mode Timer Triggered every 2 seconds */
 #define COMP_MODE_RCVRY_MSECS 2000
+	struct platform_device	*ext_dev;
 };
 
 /* convert between an HCD pointer and the corresponding EHCI_HCD */

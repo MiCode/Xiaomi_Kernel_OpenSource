@@ -23,6 +23,7 @@
 #include <linux/pci.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
 
 #include "xhci.h"
 #include "xhci-trace.h"
@@ -167,6 +168,14 @@ static void xhci_pci_quirks(struct device *dev, struct xhci_hcd *xhci)
 		xhci->quirks |= XHCI_RESET_ON_RESUME;
 	if (pdev->vendor == PCI_VENDOR_ID_VIA)
 		xhci->quirks |= XHCI_RESET_ON_RESUME;
+
+	if (pdev->vendor == PCI_VENDOR_ID_INTEL &&
+			pdev->device == PCI_DEVICE_ID_INTEL_CHT_XHCI) {
+		xhci->ext_dev = platform_device_alloc("xhci-cht",
+						PLATFORM_DEVID_AUTO);
+		if (!xhci->ext_dev)
+			xhci_err(xhci, "can't create xhci-cht\n");
+	}
 }
 
 /* called during probe() after chip reset completes */
