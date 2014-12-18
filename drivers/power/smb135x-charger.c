@@ -1952,19 +1952,6 @@ static void smb135x_external_power_changed(struct power_supply *psy)
 		dev_err(chip->dev, "could not set usb online, rc=%d\n", rc);
 }
 
-static int smb135x_chg_otg_regulator_enable(struct regulator_dev *rdev)
-{
-	int rc = 0;
-	struct smb135x_chg *chip = rdev_get_drvdata(rdev);
-
-	chip->otg_oc_count = 0;
-	rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, OTG_EN);
-	if (rc < 0)
-		dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n", rc);
-
-	return rc;
-}
-
 static bool elapsed_msec_greater(struct timeval *start_time,
 				struct timeval *end_time, int ms)
 {
@@ -1977,84 +1964,109 @@ static bool elapsed_msec_greater(struct timeval *start_time,
 }
 
 #define MAX_STEP_MS		10
-static int smb135x_chg_otg_regulator_enable_rev2(struct regulator_dev *rdev)
+static int smb135x_chg_otg_enable(struct smb135x_chg *chip)
 {
 	int rc = 0;
-	struct smb135x_chg *chip = rdev_get_drvdata(rdev);
 	int restart_count = 0;
 	struct timeval time_a, time_b, time_c, time_d;
 
-	/*
-	 * Workaround for a hardware bug where the OTG needs to be enabled
-	 * disabled and enabled for it to be actually enabled. The time between
-	 * each step should be atmost MAX_STEP_MS
-	 *
-	 * Note that if enable-disable executes within the timeframe
-	 * but the final enable takes more than MAX_STEP_ME, we treat it as
-	 * the first enable and try disabling again. We don't want
-	 * to issue enable back to back.
-	 *
-	 * Notice the instances when time is captured and the successive
-	 * steps.
-	 * timeA-enable-timeC-disable-timeB-enable-timeD.
-	 * When
-	 * (timeB - timeA) < MAX_STEP_MS AND (timeC - timeD) < MAX_STEP_MS
-	 * then it is guaranteed that the successive steps
-	 * must have executed within MAX_STEP_MS
-	 */
-	do_gettimeofday(&time_a);
-	chip->otg_oc_count = 0;
+	if (chip->revision == REV_2) {
+		/*
+		 * Workaround for a hardware bug where the OTG needs to be
+		 * enabled disabled and enabled for it to be actually enabled.
+		 * The time between each step should be atmost MAX_STEP_MS
+		 *
+		 * Note that if enable-disable executes within the timeframe
+		 * but the final enable takes more than MAX_STEP_ME, we treat
+		 * it as the first enable and try disabling again. We don't
+		 * want to issue enable back to back.
+		 *
+		 * Notice the instances when time is captured and the
+		 * successive steps.
+		 * timeA-enable-timeC-disable-timeB-enable-timeD.
+		 * When
+		 * (timeB - timeA) < MAX_STEP_MS AND
+		 *			(timeC - timeD) < MAX_STEP_MS
+		 * then it is guaranteed that the successive steps
+		 * must have executed within MAX_STEP_MS
+		 */
+		do_gettimeofday(&time_a);
 restart_from_enable:
-	/* first step - enable otg */
-	rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, OTG_EN);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n", rc);
-		return rc;
-	}
+		/* first step - enable otg */
+		rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, OTG_EN);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n",
+					rc);
+			return rc;
+		}
 
 restart_from_disable:
-	/* second step - disable otg */
-	do_gettimeofday(&time_c);
-	rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, 0);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n", rc);
-		return rc;
-	}
-	do_gettimeofday(&time_b);
-
-	if (elapsed_msec_greater(&time_a, &time_b, MAX_STEP_MS)) {
-		restart_count++;
-		if (restart_count > 10) {
-			dev_err(chip->dev,
-				"Couldn't enable OTG restart_count=%d\n",
-				restart_count);
-			return -EAGAIN;
+		/* second step - disable otg */
+		do_gettimeofday(&time_c);
+		rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, 0);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n",
+					rc);
+			return rc;
 		}
+		do_gettimeofday(&time_b);
+
+		if (elapsed_msec_greater(&time_a, &time_b, MAX_STEP_MS)) {
+			restart_count++;
+			if (restart_count > 10) {
+				dev_err(chip->dev,
+						"Couldn't enable OTG restart_count=%d\n",
+						restart_count);
+				return -EAGAIN;
+			}
+			time_a = time_b;
+			pr_debug("restarting from first enable\n");
+			goto restart_from_enable;
+		}
+
+		/* third step (first step in case of a failure) - enable otg */
 		time_a = time_b;
-		pr_debug("restarting from first enable\n");
-		goto restart_from_enable;
-	}
-
-	/* third step (first step in case of a failure) - enable otg */
-	time_a = time_b;
-	rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, OTG_EN);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n", rc);
-		return rc;
-	}
-	do_gettimeofday(&time_d);
-
-	if (elapsed_msec_greater(&time_c, &time_d, MAX_STEP_MS)) {
-		restart_count++;
-		if (restart_count > 10) {
-			dev_err(chip->dev,
-				"Couldn't enable OTG restart_count=%d\n",
-				restart_count);
-			return -EAGAIN;
+		rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, OTG_EN);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n",
+					rc);
+			return rc;
 		}
-		pr_debug("restarting from disable\n");
-		goto restart_from_disable;
+		do_gettimeofday(&time_d);
+
+		if (elapsed_msec_greater(&time_c, &time_d, MAX_STEP_MS)) {
+			restart_count++;
+			if (restart_count > 10) {
+				dev_err(chip->dev,
+						"Couldn't enable OTG restart_count=%d\n",
+						restart_count);
+				return -EAGAIN;
+			}
+			pr_debug("restarting from disable\n");
+			goto restart_from_disable;
+		}
+	} else {
+		rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, OTG_EN);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n",
+					rc);
+			return rc;
+		}
 	}
+
+	return rc;
+}
+
+static int smb135x_chg_otg_regulator_enable(struct regulator_dev *rdev)
+{
+	int rc = 0;
+	struct smb135x_chg *chip = rdev_get_drvdata(rdev);
+
+	chip->otg_oc_count = 0;
+	rc = smb135x_chg_otg_enable(chip);
+	if (rc)
+		dev_err(chip->dev, "Couldn't enable otg regulator rc=%d\n", rc);
+
 	return rc;
 }
 
@@ -2087,12 +2099,6 @@ static int smb135x_chg_otg_regulator_is_enable(struct regulator_dev *rdev)
 
 struct regulator_ops smb135x_chg_otg_reg_ops = {
 	.enable		= smb135x_chg_otg_regulator_enable,
-	.disable	= smb135x_chg_otg_regulator_disable,
-	.is_enabled	= smb135x_chg_otg_regulator_is_enable,
-};
-
-struct regulator_ops smb135x_chg_otg_reg_ops_rev2 = {
-	.enable		= smb135x_chg_otg_regulator_enable_rev2,
 	.disable	= smb135x_chg_otg_regulator_disable,
 	.is_enabled	= smb135x_chg_otg_regulator_is_enable,
 };
@@ -2259,11 +2265,7 @@ static int smb135x_regulator_init(struct smb135x_chg *chip)
 	if (init_data->constraints.name) {
 		chip->otg_vreg.rdesc.owner = THIS_MODULE;
 		chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
-		if (chip->revision == REV_2)
-			chip->otg_vreg.rdesc.ops =
-				&smb135x_chg_otg_reg_ops_rev2;
-		else
-			chip->otg_vreg.rdesc.ops = &smb135x_chg_otg_reg_ops;
+		chip->otg_vreg.rdesc.ops = &smb135x_chg_otg_reg_ops;
 		chip->otg_vreg.rdesc.name = init_data->constraints.name;
 
 		cfg.dev = chip->dev;
@@ -2432,7 +2434,7 @@ static int otg_oc_handler(struct smb135x_chg *chip, u8 rt_stat)
 
 	++chip->otg_oc_count;
 	if (chip->otg_oc_count < MAX_OTG_RETRY) {
-		rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, OTG_EN);
+		rc = smb135x_chg_otg_enable(chip);
 		if (rc < 0)
 			dev_err(chip->dev, "Couldn't enable  OTG mode rc=%d\n",
 				rc);
