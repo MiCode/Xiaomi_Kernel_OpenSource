@@ -524,14 +524,6 @@
 			qcom,always-send-voltage;
 		};
 	};
-
-	usb_otg_switch: usb-otg-switch {
-		compatible = "regulator-fixed";
-		regulator-name = "usb_otg_vreg";
-		vin-supply = <&smbcharger_external_otg>;
-		enable-active-high;
-		gpio = <&pmi8994_gpios 5 0>;
-	};
 };
 
 &pmi8994_charger {
@@ -573,8 +565,8 @@
 	};
 };
 
-/* CPR controlled regulators */
 &soc {
+/* CPR controlled regulators */
 	mem_acc0_vreg_corner: mem-acc0-regulator {
 		compatible = "qcom,mem-acc-regulator";
 		reg = <0xf9112144 0x4>;
@@ -597,14 +589,6 @@
 		qcom,corner-acc-map = <1 1 0 0>;
 		qcom,acc-sel-l1-bit-pos = <1>;
 		qcom,acc-sel-l1-bit-size = <1>;
-	};
-
-	wlan_vreg: wlan_vreg {
-		compatible = "regulator-fixed";
-		regulator-name = "wlan_vreg";
-		startup-delay-us = <4000>;
-		enable-active-high;
-		gpio = <&pm8994_gpios 9 0>;
 	};
 
 	apc0_vreg_corner: regulator@f9019000 {
@@ -775,9 +759,26 @@
 				<0xFFFFFFFF 0 1 5 8 15>;
 	};
 
+/* Miscellaneous regulators */
+	usb_otg_switch: usb-otg-switch {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_otg_vreg";
+		vin-supply = <&smbcharger_external_otg>;
+		enable-active-high;
+		gpio = <&pmi8994_gpios 5 0>;
+	};
+
 	bt_vreg: bt_vreg {
 		compatible = "regulator-fixed";
 		regulator-name = "bt_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pm8994_gpios 9 0>;
+	};
+
+	wlan_vreg: wlan_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_vreg";
 		startup-delay-us = <4000>;
 		enable-active-high;
 		gpio = <&pm8994_gpios 9 0>;
