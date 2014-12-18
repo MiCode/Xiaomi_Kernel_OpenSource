@@ -2213,6 +2213,20 @@
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
 	};
 
+	qcom,msm-rng@f9bff000 {
+		compatible = "qcom,msm-rng";
+		reg = <0xf9bff000 0x200>;
+		qcom,msm-bus,name = "msm-rng-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<88 618 0 0>,
+				<88 618 0 800>;
+		qcom,msm-rng-iface-clk;
+		clocks = <&clock_gcc clk_gcc_prng_ahb_clk>;
+		clock-names = "iface_clk";
+        };
+
 	qcom,qseecom@6500000 {
 		compatible = "qcom,qseecom";
 		reg = <0x6500000 0x500000>;
