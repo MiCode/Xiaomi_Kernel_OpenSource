@@ -1690,7 +1690,8 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 		}
 	}
 
-	pmic_write_reg(chc.reg_map->pmic_mthrmirq1, MTHRMIRQ1_CCSM_MASK);
+	intel_soc_pmic_writeb(chc.reg_map->pmic_mthrmirq1,
+						~MTHRMIRQ1_CCSM_MASK);
 
 	ret = pmic_check_initial_events();
 	if (ret)

@@ -237,7 +237,7 @@
 #define TT_CHGRENVAL_ADDR		0X3C
 #define TT_CHGRDISVAL_ADDR		0X3D
 
-#define MTHRMIRQ1_CCSM_MASK		0x90
+#define MTHRMIRQ1_CCSM_MASK		0x80
 #define MTHRMIRQ2_CCSM_MASK		0x3
 
 /*Interrupt registers*/
