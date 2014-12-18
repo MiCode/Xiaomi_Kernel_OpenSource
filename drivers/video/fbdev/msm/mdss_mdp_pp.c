@@ -167,26 +167,6 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 	240127568, 241176160, 242224752, 243273344,
 	243273344, 244321936, 245370528, 246419120};
 
-static int mdss_mdp_hscl_filter[] = {
-	0, 0,  0, 512,  0,  0, 0, 0,
-	-1, 4, -13, 511, 14, -4, 1, 0,
-	-2, 8, -25, 509, 30, -9, 2, -1,
-	-3, 11, -36, 505, 46, -14, 4, -1,
-	-4, 15, -46, 498, 64, -19, 5, -1,
-	-4, 17, -55, 491, 82, -25, 7, -1,
-	-5, 20, -62, 482, 101, -30, 8, -2,
-	-5, 21, -68, 471, 121, -36, 10, -2,
-	-6, 23, -73, 458, 142, -41, 12, -3,
-	-6, 24, -77, 444, 163, -47, 14, -3,
-	-6, 25, -80, 429, 185, -53, 15, -3,
-	-6, 26, -82, 412, 207, -58, 17, -4,
-	-6, 26, -83, 395, 229, -63, 19, -5,
-	-6, 26, -83, 376, 251, -67, 20, -5,
-	-6, 25, -82, 357, 273, -71, 21, -5,
-	-6, 25, -80, 337, 294, -76, 23, -5,
-	-5, 24, -78, 315, 315, -78, 24, -5
-};
-
 
 #define MDSS_MDP_PA_SIZE		0xC
 #define MDSS_MDP_SIX_ZONE_SIZE		0xC
@@ -880,8 +860,6 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 			writel_relaxed(0, offset + 12);
 		}
 	}
-	if (pipe->hscl_en)
-		opmode |= BIT(20);
 
 	*op |= opmode;
 
@@ -911,57 +889,6 @@ static void pp_update_pa_v2_vig_opmode(struct pp_sts_type *pp_sts,
 		*opmode |= MDSS_MDP_VIG_OP_PA_MEM_COL_FOL_MASK;
 }
 
-void mdss_mdp_hscl_init(struct mdss_mdp_pipe *pipe)
-{
-	u32 data;
-	int i, *filter;
-
-	filter = mdss_mdp_hscl_filter;
-	for (i = 0; i < HORSCALER_COEFF_NUM; i++) {
-		writel_relaxed(i, pipe->base + MDSS_MDP_REG_HSCALE_COEFF_IDX);
-		data = (filter[0] & 0x1F) + ((filter[1] << 5) & 0x7E0) +
-				((filter[2] << 11) & 0x7F800) +
-				((filter[3] << 19) & 0x1FF80000);
-		writel_relaxed(data, pipe->base + MDSS_MDP_REG_HSCALE_COEFF_0N);
-		data = (filter[4] & 0x3FF) + ((filter[5] << 10) & 0x3FC00) +
-				((filter[6] << 18) & 0xFC0000) +
-				((filter[7] << 24) & 0x1F000000);
-		writel_relaxed(data, pipe->base + MDSS_MDP_REG_HSCALE_COEFF_1N);
-		filter += 8;
-	}
-}
-
-static int mdss_mdp_hscl_setup(struct mdss_mdp_pipe *pipe)
-{
-	u32 phase_step, phase_init, preload, left_ext_pels;
-	u32 bank_idx = 0;
-
-	if (pipe->dst.w == pipe->src.w) {
-		pipe->hscl_en = false;
-		return 0;
-	}
-
-	phase_step = pipe->scale.phase_step_x[0];
-	phase_init = ((phase_step - (1 << PHASE_STEP_SHIFT))) / 2;
-
-	if ((phase_init +  (1 << (PHASE_STEP_SHIFT - 1))) > 0)
-		left_ext_pels = 3;
-	else
-		left_ext_pels = 4;
-
-	preload = HORSCALER_NUM_FILTER_TAPS - left_ext_pels;
-	writel_relaxed(bank_idx, pipe->base + MDSS_MDP_REG_HSCALE_CTL);
-	writel_relaxed(phase_init,
-		pipe->base + MDSS_MDP_REG_HSCALE_INIT_PHASE);
-	writel_relaxed(phase_step,
-		pipe->base + MDSS_MDP_REG_HSCALE_PHASE_STEP);
-	writel_relaxed(preload,
-		pipe->base + MDSS_MDP_REG_HSCALE_COEFF_PRELOAD);
-	pipe->hscl_en = true;
-
-	return 0;
-}
-
 static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 {
 	u32 scale_config = 0;
@@ -979,10 +906,6 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 	mdata = mdss_mdp_get_mdata();
 
 	mdss_mdp_pp_get_dcm_state(pipe, &dcm_state);
-
-	if ((mdata->mdp_rev == MDSS_MDP_HW_REV_200) &&
-		(pipe->type == MDSS_MDP_PIPE_TYPE_VIG))
-		return mdss_mdp_hscl_setup(pipe);
 
 	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102 && pipe->src_fmt->is_yuv)
 		filter_mode = MDSS_MDP_SCALE_FILTER_CA;
