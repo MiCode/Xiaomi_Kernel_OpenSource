@@ -917,6 +917,36 @@ DEFINE_SIMPLE_ATTRIBUTE(ufsdbg_dme_peer_read_ops,
 			ufsdbg_dme_peer_set_attr_id,
 			"%llu\n");
 
+static int ufsdbg_dbg_print_en_read(void *data, u64 *attr_val)
+{
+	struct ufs_hba *hba = data;
+
+	if (!hba)
+		return -EINVAL;
+
+	*attr_val = (u64)hba->ufshcd_dbg_print;
+	return 0;
+}
+
+static int ufsdbg_dbg_print_en_set(void *data, u64 attr_id)
+{
+	struct ufs_hba *hba = data;
+
+	if (!hba)
+		return -EINVAL;
+
+	if (attr_id & ~UFSHCD_DBG_PRINT_ALL)
+		return -EINVAL;
+
+	hba->ufshcd_dbg_print = (u32)attr_id;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(ufsdbg_dbg_print_en_ops,
+			ufsdbg_dbg_print_en_read,
+			ufsdbg_dbg_print_en_set,
+			"%llu\n");
+
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
 	if (!hba) {
@@ -1018,6 +1048,17 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	if (!hba->debugfs_files.dme_peer_read) {
 		dev_err(hba->dev,
 			"%s:  failed create dme_peer_read debugfs entry\n",
+			__func__);
+		goto err;
+	}
+
+	hba->debugfs_files.dbg_print_en =
+		debugfs_create_file("dbg_print_en", S_IRUSR | S_IWUSR,
+				    hba->debugfs_files.debugfs_root, hba,
+				    &ufsdbg_dbg_print_en_ops);
+	if (!hba->debugfs_files.dbg_print_en) {
+		dev_err(hba->dev,
+			"%s:  failed create dbg_print_en debugfs entry\n",
 			__func__);
 		goto err;
 	}
