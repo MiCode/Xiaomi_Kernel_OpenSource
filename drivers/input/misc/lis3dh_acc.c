@@ -77,10 +77,10 @@
 #define LIS3DH_FIFO_SIZE	32
 #define LIS3DH_TIME_MS_TO_NS	1000000L
 
-#define SENSITIVITY_2G		1	/**	mg/LSB	*/
-#define SENSITIVITY_4G		2	/**	mg/LSB	*/
-#define SENSITIVITY_8G		4	/**	mg/LSB	*/
-#define SENSITIVITY_16G		12	/**	mg/LSB	*/
+#define SENSITIVITY_2G		1	/**	sensitivity scale	*/
+#define SENSITIVITY_4G		2	/**	sensitivity scale	*/
+#define SENSITIVITY_8G		4	/**	sensitivity scale	*/
+#define SENSITIVITY_16G		12	/**	sensitivity scale	*/
 
 /* Accelerometer Sensor Operating Mode */
 #define LIS3DH_ACC_ENABLE	0x01
@@ -299,7 +299,7 @@ static struct sensors_classdev lis3dh_acc_cdev = {
 	.handle = SENSORS_ACCELERATION_HANDLE,
 	.type = SENSOR_TYPE_ACCELEROMETER,
 	.max_range = "156.8",
-	.resolution = "0.01",
+	.resolution = "0.000598144", /* m/s^2 */
 	.sensor_power = "0.01",
 	.min_delay = 10000,
 	.max_delay = 6400,
@@ -1083,14 +1083,9 @@ static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 	if (err < 0)
 		return err;
 
-	hw_d[0] = (((s16) ((acc_data[1] << 8) | acc_data[0])) >> 4);
-	hw_d[1] = (((s16) ((acc_data[3] << 8) | acc_data[2])) >> 4);
-	hw_d[2] = (((s16) ((acc_data[5] << 8) | acc_data[4])) >> 4);
-
-	hw_d[0] = hw_d[0] * acc->sensitivity;
-	hw_d[1] = hw_d[1] * acc->sensitivity;
-	hw_d[2] = hw_d[2] * acc->sensitivity;
-
+	hw_d[0] = (((s16) ((acc_data[1] << 8) | acc_data[0])));
+	hw_d[1] = (((s16) ((acc_data[3] << 8) | acc_data[2])));
+	hw_d[2] = (((s16) ((acc_data[5] << 8) | acc_data[4])));
 
 	xyz[0] = ((acc->pdata->negate_x) ? (-hw_d[acc->pdata->axis_map_x])
 		   : (hw_d[acc->pdata->axis_map_x]));
@@ -1098,6 +1093,10 @@ static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 		   : (hw_d[acc->pdata->axis_map_y]));
 	xyz[2] = ((acc->pdata->negate_z) ? (-hw_d[acc->pdata->axis_map_z])
 		   : (hw_d[acc->pdata->axis_map_z]));
+
+	xyz[0] = xyz[0] * acc->sensitivity;
+	xyz[1] = xyz[1] * acc->sensitivity;
+	xyz[2] = xyz[2] * acc->sensitivity;
 
 	dev_dbg(&acc->client->dev, "%s read x=%d, y=%d, z=%d\n",
 				LIS3DH_ACC_DEV_NAME, xyz[0], xyz[1], xyz[2]);
