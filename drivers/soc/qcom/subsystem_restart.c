@@ -1575,18 +1575,31 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 					&subsys->desc->sysmon_pid))
 			pr_debug("Reading sysmon-id for %s failed\n",
 								desc->name);
+
+		subsys->desc->edge = of_get_property(ofnode, "qcom,edge",
+									NULL);
+		if (!subsys->desc->edge)
+			pr_debug("Reading qcom,edge for %s failed\n",
+								desc->name);
 	}
 
 	ret = sysmon_notifier_register(desc);
 	if (ret < 0)
 		goto err_sysmon_notifier;
 
+	if (subsys->desc->edge) {
+		ret = sysmon_glink_register(desc);
+		if (ret < 0)
+			goto err_sysmon_glink_register;
+	}
 	mutex_lock(&subsys_list_lock);
 	INIT_LIST_HEAD(&subsys->list);
 	list_add_tail(&subsys->list, &subsys_list);
 	mutex_unlock(&subsys_list_lock);
 
 	return subsys;
+err_sysmon_glink_register:
+	sysmon_notifier_unregister(subsys->desc);
 err_sysmon_notifier:
 	if (ofnode)
 		subsys_free_irqs(subsys);
@@ -1631,6 +1644,8 @@ void subsys_unregister(struct subsys_device *subsys)
 		subsys_debugfs_remove(subsys);
 		subsys_char_device_remove(subsys);
 		sysmon_notifier_unregister(subsys->desc);
+		if (subsys->desc->edge)
+			sysmon_glink_unregister(subsys->desc);
 		put_device(&subsys->dev);
 	}
 }

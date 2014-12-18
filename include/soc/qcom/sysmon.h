@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,7 +57,7 @@ enum ssctl_ssr_event_driven_enum_type {
 	SSCTL_SSR_EVENT_DRIVEN_ENUM_TYPE_MAX_ENUM_VAL = 2147483647
 };
 
-#ifdef CONFIG_MSM_SYSMON_COMM
+#if defined(CONFIG_MSM_SYSMON_COMM) || defined(CONFIG_MSM_SYSMON_GLINK_COMM)
 extern int sysmon_send_event(struct subsys_desc *dest_desc,
 			struct subsys_desc *event_desc,
 			enum subsys_notif_type notif);
@@ -72,6 +72,8 @@ extern int sysmon_send_shutdown(struct subsys_desc *dest_desc);
 extern int sysmon_send_shutdown_no_qmi(struct subsys_desc *dest_desc);
 extern int sysmon_notifier_register(struct subsys_desc *desc);
 extern void sysmon_notifier_unregister(struct subsys_desc *desc);
+extern int sysmon_glink_register(struct subsys_desc *desc);
+extern void sysmon_glink_unregister(struct subsys_desc *desc);
 #else
 static inline int sysmon_send_event(struct subsys_desc *dest_desc,
 					struct subsys_desc *event_desc,
@@ -108,6 +110,13 @@ static inline int sysmon_notifier_register(struct subsys_desc *desc)
 	return 0;
 }
 static inline void sysmon_notifier_unregister(struct subsys_desc *desc)
+{
+}
+static inline int sysmon_glink_register(struct subsys_desc *desc)
+{
+	return 0;
+}
+static inline void sysmon_glink_unregister(struct subsys_desc *desc)
 {
 }
 #endif

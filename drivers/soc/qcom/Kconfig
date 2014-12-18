@@ -407,15 +407,14 @@ config MSM_IPC_ROUTER_HSIC_XPRT
 	  registers the transport with IPC Router and enable message
 	  exchange.
 
-config MSM_IPC_ROUTER_MHI_XPRT
-	depends on MSM_MHI
-	depends on IPC_ROUTER
-	bool "MSM MHI XPRT Layer"
+config MSM_SYSMON_GLINK_COMM
+	bool "MSM System Monitor communication support using GLINK transport"
+	depends on MSM_GLINK && MSM_SUBSYSTEM_RESTART
 	help
-	  MHI Transport Layer that enables off-chip communication of
-	  IPC Router. When the MHI endpoint becomes available, this layer
-	  registers the transport with IPC Router and enable message
-	  exchange.
+	  This option adds support for MSM System Monitor APIs using the GLINK
+	  transport layer. The APIs provided may be used for notifying
+	  subsystems within the SoC about other subsystems' power-up/down
+	  state-changes.
 
 config MSM_IPC_ROUTER_GLINK_XPRT
 	depends on MSM_GLINK
