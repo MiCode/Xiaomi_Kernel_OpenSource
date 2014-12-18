@@ -1237,6 +1237,8 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 			  ep->connect.desc.base,
 			  ep->connect.desc.phys_base);
 	sps_free_endpoint(ep->ep_hdl);
+	if (ep->sys->repl_wq)
+		flush_workqueue(ep->sys->repl_wq);
 	if (IPA_CLIENT_IS_CONS(ep->client))
 		ipa_cleanup_rx(ep->sys);
 
@@ -1793,6 +1795,8 @@ static void ipa_cleanup_rx(struct ipa_sys_context *sys)
 {
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 	struct ipa_rx_pkt_wrapper *r;
+	u32 head;
+	u32 tail;
 
 	list_for_each_entry_safe(rx_pkt, r,
 				 &sys->head_desc_list, link) {
@@ -1801,6 +1805,20 @@ static void ipa_cleanup_rx(struct ipa_sys_context *sys)
 			sys->rx_buff_sz, DMA_FROM_DEVICE);
 		sys->free_skb(rx_pkt->data.skb);
 		kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt);
+	}
+
+	if (sys->repl.cache) {
+		head = atomic_read(&sys->repl.head_idx);
+		tail = atomic_read(&sys->repl.tail_idx);
+		while (head != tail) {
+			rx_pkt = sys->repl.cache[head];
+			dma_unmap_single(ipa_ctx->pdev, rx_pkt->data.dma_addr,
+					sys->rx_buff_sz, DMA_FROM_DEVICE);
+			sys->free_skb(rx_pkt->data.skb);
+			kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt);
+			head = (head + 1) % sys->repl.capacity;
+		}
+		kfree(sys->repl.cache);
 	}
 }
 
