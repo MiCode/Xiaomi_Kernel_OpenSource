@@ -299,6 +299,7 @@ struct mdss_data_type {
 
 	u32 enable_bw_release;
 	u32 enable_rotator_bw_release;
+	u32 serialize_wait4pp;
 
 	struct mdss_hw_settings *hw_settings;
 
