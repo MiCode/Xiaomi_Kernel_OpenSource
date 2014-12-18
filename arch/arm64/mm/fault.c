@@ -370,7 +370,7 @@ static int __kprobes do_translation_fault(unsigned long addr,
  */
 static int do_bad(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 {
-	arm64_erp_local_dbe_handler();
+	arm64_check_cache_ecc(NULL);
 	return 1;
 }
 
