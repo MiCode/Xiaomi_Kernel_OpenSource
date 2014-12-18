@@ -553,7 +553,7 @@
 			compatible = "qcom,spm-regulator";
 			reg = <0x3200 0x100>;
 			regulator-name = "pm8994_s11";
-			regulator-min-microvolt = <725000>;
+			regulator-min-microvolt = <700000>;
 			regulator-max-microvolt = <1225000>;
 			qcom,cpu-num = <4>;
 		};
