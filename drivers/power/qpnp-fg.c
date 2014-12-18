@@ -122,6 +122,9 @@ enum fg_mem_setting_index {
 	FG_MEM_IRQ_VOLT_EMPTY,
 	FG_MEM_CUTOFF_VOLTAGE,
 	FG_MEM_VBAT_EST_DIFF,
+	FG_MEM_DELTA_SOC,
+	FG_MEM_SOC_MAX,
+	FG_MEM_SOC_MIN,
 	FG_MEM_SETTING_MAX,
 };
 
@@ -160,6 +163,9 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(IRQ_VOLT_EMPTY,	 0x458,   3,      3350),
 	SETTING(CUTOFF_VOLTAGE,	 0x40C,   0,      3400),
 	SETTING(VBAT_EST_DIFF,	 0x000,   0,      30),
+	SETTING(DELTA_SOC,	 0x450,   3,      1),
+	SETTING(SOC_MAX,	 0x458,   1,      85),
+	SETTING(SOC_MIN,	 0x458,   2,      15),
 };
 
 #define DATA(_idx, _address, _offset, _length,  _value)	\
@@ -2060,6 +2066,9 @@ static int fg_of_init(struct fg_chip *chip)
 	OF_READ_SETTING(FG_MEM_RESUME_SOC, "resume-soc", rc, 1);
 	OF_READ_SETTING(FG_MEM_IRQ_VOLT_EMPTY, "irq-volt-empty-mv", rc, 1);
 	OF_READ_SETTING(FG_MEM_VBAT_EST_DIFF, "vbat-estimate-diff-mv", rc, 1);
+	OF_READ_SETTING(FG_MEM_DELTA_SOC, "fg-delta-soc", rc, 1);
+	OF_READ_SETTING(FG_MEM_SOC_MAX, "fg-soc-max", rc, 1);
+	OF_READ_SETTING(FG_MEM_SOC_MIN, "fg-soc-min", rc, 1);
 
 	/* Get the use-otp-profile property */
 	chip->use_otp_profile = of_property_read_bool(
@@ -2725,15 +2734,28 @@ static int fg_hw_init(struct fg_chip *chip)
 		}
 	}
 
-	if (chip->sw_rbias_ctrl) {
-		rc = fg_mem_masked_write(chip, SOC_CNFG,
-				0xFF,
-				soc_to_setpoint(DELTA_SOC_PERCENT),
-				SOC_DELTA_OFFSET);
-		if (rc) {
-			pr_err("failed to write to memif rc=%d\n", rc);
-			return rc;
-		}
+	rc = fg_mem_masked_write(chip, settings[FG_MEM_DELTA_SOC].address, 0xFF,
+			soc_to_setpoint(settings[FG_MEM_DELTA_SOC].value),
+			settings[FG_MEM_DELTA_SOC].offset);
+	if (rc) {
+		pr_err("failed to write delta soc rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_mem_masked_write(chip, settings[FG_MEM_SOC_MAX].address, 0xFF,
+			soc_to_setpoint(settings[FG_MEM_SOC_MAX].value),
+			settings[FG_MEM_SOC_MAX].offset);
+	if (rc) {
+		pr_err("failed to write soc_max rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_mem_masked_write(chip, settings[FG_MEM_SOC_MIN].address, 0xFF,
+			soc_to_setpoint(settings[FG_MEM_SOC_MIN].value),
+			settings[FG_MEM_SOC_MIN].offset);
+	if (rc) {
+		pr_err("failed to write soc_min rc=%d\n", rc);
+		return rc;
 	}
 
 	if (chip->use_thermal_coefficients) {
