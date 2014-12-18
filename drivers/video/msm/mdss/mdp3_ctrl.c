@@ -1989,8 +1989,10 @@ static int mdp3_ctrl_lut_config(struct msm_fb_data_type *mfd,
 	if ((dma->lut_sts & MDP3_LUT_HIST_EN) &&
 		(dma->lut_sts & MDP3_LUT_GC_EN)) {
 		rc = mdp3_lut_combine_gain(cmap, dma);
-		pr_err("Combing gains failed rc = %d\n", rc);
-		goto exit_err;
+		if (rc) {
+			pr_err("Combining gains failed rc = %d\n", rc);
+			goto exit_err;
+		}
 	}
 
 	rc = mdp3_ctrl_lut_update(mfd, cmap);
