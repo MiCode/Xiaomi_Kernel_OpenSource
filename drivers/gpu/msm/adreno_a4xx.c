@@ -649,6 +649,27 @@ static void a4xx_protect_init(struct adreno_device *adreno_dev)
 	/* VPC registers */
 	adreno_set_protected_registers(adreno_dev, &index, 0xE60, 1);
 
+	if (adreno_is_a430(adreno_dev)) {
+		/*
+		 * Protect additional registers that should not be
+		 * accessed by GPU
+		 */
+		adreno_set_protected_registers(adreno_dev, &index, 0x2c00, 10);
+		adreno_set_protected_registers(adreno_dev, &index, 0x3000, 7);
+		adreno_set_protected_registers(adreno_dev, &index, 0x3080, 6);
+		adreno_set_protected_registers(adreno_dev, &index, 0x3140, 11);
+		adreno_set_protected_registers(adreno_dev, &index, 0x3940, 10);
+		adreno_set_protected_registers(adreno_dev, &index, 0x3D40, 9);
+		adreno_set_protected_registers(adreno_dev, &index, 0x3F40, 7);
+		adreno_set_protected_registers(adreno_dev, &index, 0x3FC0, 6);
+	} else if (adreno_is_a420(adreno_dev)) {
+		/*
+		 * Protect XPU range and range of registers that may fall
+		 * under XPU protection
+		 */
+		adreno_set_protected_registers(adreno_dev, &index, 0x3300, 8);
+	}
+
 	/* SMMU registers */
 	iommu_regs = kgsl_mmu_get_prot_regs(&device->mmu);
 	if (iommu_regs)
