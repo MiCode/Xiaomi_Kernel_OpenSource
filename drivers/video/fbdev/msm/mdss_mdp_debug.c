@@ -343,6 +343,8 @@ int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 			&mdss_debugfs_buffers_fops);
 	debugfs_create_file("stat", 0644, mdd->root, mdata,
 			&mdss_debugfs_stats_fops);
+	debugfs_create_u32("serialize_wait4pp", 0644, mdd->root,
+		(u32 *)&mdata->serialize_wait4pp);
 
 	return 0;
 }

@@ -1652,6 +1652,8 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		mdss_mdp_set_roi(ctl, &temp_data);
 	}
 
+	if (ctl->wait_pingpong && mdp5_data->mdata->serialize_wait4pp)
+		mdss_mdp_display_wait4pingpong(ctl, true);
 
 	/*
 	 * Setup pipe in solid fill before unstaging,
