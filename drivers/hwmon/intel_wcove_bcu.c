@@ -45,6 +45,7 @@ static DEFINE_MUTEX(bcu_update_lock);
 struct wcpmic_bcu_info {
 	struct device *dev;
 	struct platform_device *pdev;
+	struct delayed_work vwarnb_irq_work;
 	int irq;
 };
 
@@ -338,6 +339,24 @@ static inline int wcove_bcu_action_voltage_drop(void)
 	return 0;
 }
 
+/**
+ * wcove_bcu_vwarnb_irq_work: delayed work queue function, which is used to
+ * unmask (enable) the VWARN2 interrupt after the specified delay time while
+ * scheduling.
+ */
+static void wcove_bcu_vwarnb_irq_work(struct work_struct *work)
+{
+	int ret = 0;
+	struct wcpmic_bcu_info *info = container_of(work,
+						struct wcpmic_bcu_info,
+						vwarnb_irq_work.work);
+
+	/* Unmasking BCU VWARNB Interrupt, for the next interrupt occurrence */
+	ret = intel_soc_pmic_clearb(MBCUIRQ_REG, (u8)MVWARNB);
+	if (ret)
+		dev_err(info->dev, "Error in unmasking vwarnb interrupt\n");
+}
+
 static void wcove_bcu_handle_vwarnb_event(void *dev_data, u8 status)
 {
 	int beh_data, ret;
@@ -359,7 +378,28 @@ static void wcove_bcu_handle_vwarnb_event(void *dev_data, u8 status)
 			if (ret)
 				goto fail;
 		}
+	} else {
+
+		dev_warn(info->dev, "VWARNB Event has occured\n");
+		/**
+		 * Masking BCU VWARNB Interrupt, to avoid multiple VWARNB
+		 * interrupt occurrence continuously.
+		 */
+		ret = intel_soc_pmic_setb(MBCUIRQ_REG, (u8)MVWARNB);
+		if (ret) {
+			dev_err(info->dev, "Error in masking vwarnb interrupt\n");
+			goto fail;
+		}
+
+		cancel_delayed_work_sync(&info->vwarnb_irq_work);
+		/**
+		 * Schedule the work to re-enable the VWARN2 interrupt after
+		 * 30sec delay
+		 */
+		schedule_delayed_work(&info->vwarnb_irq_work,
+					VWARNB_INTR_EN_DELAY);
 	}
+
 	return;
 fail:
 	dev_err(info->dev, "Register read/write failed:func:%s()\n", __func__);
@@ -404,7 +444,6 @@ static void wcove_bcu_handle_vwarn_event(void *dev_data, int event)
 	dev_dbg(info->dev, "SBCUIRQ_REG: %x\n", irq_status);
 
 	if (event == VWARNB) {
-		dev_info(info->dev, "VWARNB Event has occured\n");
 		wcove_bcu_handle_vwarnb_event(dev_data, irq_status);
 	} else if (event == VWARNA) {
 		dev_info(info->dev, "VWARNA Event has occured\n");
@@ -525,6 +564,8 @@ static int wcove_bcu_probe(struct platform_device *pdev)
 	/* enable voltage and current trip points */
 	wcove_bcu_enable_trip_points(info);
 
+	INIT_DELAYED_WORK(&info->vwarnb_irq_work, wcove_bcu_vwarnb_irq_work);
+
 	/* Create debufs for the basincove bcu registers */
 	wcove_bcu_create_debugfs(info);
 	return 0;
@@ -546,6 +587,7 @@ static int wcove_bcu_remove(struct platform_device *pdev)
 	if (info) {
 		free_irq(info->irq, info);
 		wcove_bcu_remove_debugfs(info);
+		cancel_delayed_work_sync(&info->vwarnb_irq_work);
 		hwmon_device_unregister(info->dev);
 		devm_kfree(&pdev->dev, (void *)info);
 	}

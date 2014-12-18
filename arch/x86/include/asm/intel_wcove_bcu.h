@@ -72,6 +72,9 @@
 /* Max number register from platform config */
 #define MAX_BCUCFG_REGS         10
 
+/* delay interval for unmasking vwarnb interrupt */
+#define VWARNB_INTR_EN_DELAY    (30 * HZ)
+
 /* check whether bit is sticky or not by checking bit 2 */
 #define IS_BCUDISB_STICKY(data)		(!!(data & B2))
 
