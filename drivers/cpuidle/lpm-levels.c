@@ -42,6 +42,7 @@
 #include <asm/arch_timer.h>
 #include <asm/cacheflush.h>
 #include "lpm-levels.h"
+#include "lpm-workarounds.h"
 #include <trace/events/power.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>
@@ -587,6 +588,13 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	level = &cluster->levels[cluster->last_level];
 	if (level->notify_rpm) {
 		msm_rpm_exit_sleep();
+
+		/* If RPM bumps up CX to turbo, unvote CX turbo vote
+		 * during exit of rpm assisted power collapse to
+		 * reduce the power impact
+		 */
+
+		lpm_wa_cx_unvote_send();
 		msm_mpm_exit_sleep(from_idle);
 	}
 
