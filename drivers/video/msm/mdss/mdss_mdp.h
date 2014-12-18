@@ -43,8 +43,6 @@
 #define MAX_DOWNSCALE_RATIO	4
 #define MAX_UPSCALE_RATIO	20
 #define MAX_DECIMATION		4
-#define HORSCALER_NUM_FILTER_TAPS	8
-#define HORSCALER_COEFF_NUM		17
 #define MDP_MIN_VBP		4
 #define MDP_MIN_FETCH		9
 #define MAX_FREE_LIST_SIZE	12
@@ -460,7 +458,6 @@ struct mdss_mdp_pipe {
 	u8 overfetch_disable;
 	u32 transp;
 	u32 bg_color;
-	u32 hscl_en;
 
 	struct msm_fb_data_type *mfd;
 	struct mdss_mdp_mixer *mixer_left;
@@ -941,8 +938,6 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req);
 int mdss_mdp_hist_stop(u32 block);
 int mdss_mdp_hist_collect(struct mdp_histogram_data *hist);
 void mdss_mdp_hist_intr_done(u32 isr);
-
-void mdss_mdp_hscl_init(struct mdss_mdp_pipe *pipe);
 
 int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 				struct mdss_ad_init_cfg *init_cfg);
