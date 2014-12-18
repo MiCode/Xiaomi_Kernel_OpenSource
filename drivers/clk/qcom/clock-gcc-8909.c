@@ -2362,6 +2362,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_mdss_vsync_clk.c, 0x01fb },
 		{ &gcc_mdss_byte0_clk.c, 0x01fc },
 		{ &gcc_mdss_esc0_clk.c, 0x01fd },
+		{ &wcnss_m_clk.c, 0x0198},
 	),
 	.c = {
 		.dbg_name = "gcc_debug_mux",
@@ -2496,6 +2497,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_bimc_gpu_clk),
 	CLK_LIST(gcc_venus0_core0_vcodec0_clk),
 	CLK_LIST(gcc_usb_hs_phy_cfg_ahb_clk),
+	CLK_LIST(wcnss_m_clk),
 
 	/* Crypto clocks */
 	CLK_LIST(gcc_crypto_clk),
