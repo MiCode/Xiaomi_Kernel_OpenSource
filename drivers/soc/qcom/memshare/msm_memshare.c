@@ -212,7 +212,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 
 	switch (code) {
 
-	case SUBSYS_BEFORE_POWERUP:
+	case SUBSYS_AFTER_POWERUP:
 		pr_err("memshare: Modem Restart has happened\n");
 		free_mem_clients(DHMS_MEM_PROC_MPSS_V01);
 		break;
