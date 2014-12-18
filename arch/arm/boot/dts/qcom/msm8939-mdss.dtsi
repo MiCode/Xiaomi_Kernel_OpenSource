@@ -83,6 +83,7 @@
 		qcom,mdss-no-hist-vote;
 		qcom,mdss-ad-off = <0x0079000>;
 		qcom,mdss-ppb-off = <0x0000420>;
+		qcom,mdss-slave-pingpong-off = <0x00071800>;
 
 		vdd-cx-supply = <&pm8916_s2_corner>;
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
