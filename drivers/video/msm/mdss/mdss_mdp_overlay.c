@@ -236,7 +236,7 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		min_dst_size = 2;
 	}
 
-	if (req->z_order >= mdata->max_target_zorder) {
+	if (req->z_order >= (mdata->max_target_zorder + MDSS_MDP_STAGE_0)) {
 		pr_err("zorder %d out of range\n", req->z_order);
 		return -ERANGE;
 	}
