@@ -109,6 +109,7 @@
 #include "msm-gdsc-8916.dtsi"
 #include "msm8952-coresight.dtsi"
 #include "msm8952-bus.dtsi"
+#include "msm8952-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
