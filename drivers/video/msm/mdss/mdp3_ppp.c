@@ -475,8 +475,8 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 		mdp3_get_bpp_info(req->src.format, &bpp);
 
 		if ((bpp.bpp_pln == 1 || req->src.format == MDP_YCRYCB_H2V1) &&
-			req->src_rect.w >= 1920 && req->src_rect.h >= 1080) {
-			/* Above 1080p only 30fps video plaback is supported */
+			req->src_rect.w >= 1280 && req->src_rect.h >= 720) {
+			/* Above 720p only 30fps video plaback is supported */
 			fps = 30;
 		} else {
 			/**
