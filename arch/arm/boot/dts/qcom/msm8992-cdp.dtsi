@@ -100,6 +100,11 @@
 	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 };
 
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
+};
+
 &pmx_hdmi_cec {
 	qcom,num-grp-pins = <1>;
 	qcom,pins = <&gp 31>;
