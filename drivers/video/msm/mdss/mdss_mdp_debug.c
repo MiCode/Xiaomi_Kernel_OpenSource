@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -348,6 +348,8 @@ int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 			&mdss_debugfs_buffers_fops);
 	debugfs_create_file("stat", 0644, mdd->root, mdata,
 			&mdss_debugfs_stats_fops);
+	debugfs_create_bool("serialize_wait4pp", 0644, mdd->root,
+		(u32 *)&mdata->serialize_wait4pp);
 
 	return 0;
 }

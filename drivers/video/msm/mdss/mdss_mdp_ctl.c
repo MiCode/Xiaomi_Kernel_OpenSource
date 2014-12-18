@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3372,23 +3372,37 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 	return ret;
 }
 
-int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl, bool use_lock)
 {
+	struct mdss_mdp_ctl *sctl = NULL;
 	int ret;
 
-	ret = mutex_lock_interruptible(&ctl->lock);
-	if (ret)
-		return ret;
+	if (use_lock) {
+		ret = mutex_lock_interruptible(&ctl->lock);
+		if (ret)
+			return ret;
+	}
 
-	if (!mdss_mdp_ctl_is_power_on(ctl)) {
-		mutex_unlock(&ctl->lock);
+	if (!mdss_mdp_ctl_is_power_on(ctl) || !ctl->wait_pingpong) {
+		if (use_lock)
+			mutex_unlock(&ctl->lock);
 		return 0;
 	}
 
-	if (ctl->wait_pingpong)
-		ret = ctl->wait_pingpong(ctl, NULL);
+	ATRACE_BEGIN("wait_pingpong");
+	ctl->wait_pingpong(ctl, NULL);
+	ATRACE_END("wait_pingpong");
 
-	mutex_unlock(&ctl->lock);
+	sctl = mdss_mdp_get_split_ctl(ctl);
+
+	if (sctl && sctl->wait_pingpong) {
+		ATRACE_BEGIN("wait_pingpong sctl");
+		sctl->wait_pingpong(sctl, NULL);
+		ATRACE_END("wait_pingpong sctl");
+	}
+
+	if (use_lock)
+		mutex_unlock(&ctl->lock);
 
 	return ret;
 }
@@ -3512,17 +3526,9 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
 	ATRACE_END("frame_ready");
 
-	if (ctl->wait_pingpong) {
-		ATRACE_BEGIN("wait_pingpong");
-		ctl->wait_pingpong(ctl, NULL);
-		ATRACE_END("wait_pingpong");
+	if (ctl->wait_pingpong && !mdata->serialize_wait4pp)
+		mdss_mdp_display_wait4pingpong(ctl, false);
 
-		if (sctl && sctl->wait_pingpong) {
-			ATRACE_BEGIN("wait_pingpong sctl");
-			sctl->wait_pingpong(sctl, NULL);
-			ATRACE_END("wait_pingpong sctl");
-		}
-	}
 	if (commit_cb)
 		commit_cb->commit_cb_fnc(MDP_COMMIT_STAGE_READY_FOR_KICKOFF,
 			commit_cb->data);
