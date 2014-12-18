@@ -71,6 +71,12 @@ Parent node optional properties:
 					the fuel gauge will try to count SoC so
 					that the battery SoC will be 0 when it
 					is 3400mV.
+- qcom,fg-vbat-estimate-diff-mv:	If the estimated voltage based on SoC
+					and battery current/resistance differs
+					from the actual voltage by more than
+					this amount, the fuel gauge will
+					redo the first SoC estimate when the
+					driver probes.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
