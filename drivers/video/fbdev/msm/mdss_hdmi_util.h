@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -207,6 +207,19 @@
 #define HDMI_CEC_RD_TOTAL_RANGE          (0x00000368)
 #define HDMI_CEC_RD_ERR_RESP_LO          (0x0000036C)
 #define HDMI_CEC_WR_CHECK_CONFIG         (0x00000370)
+#define HDMI_DDC_INT_CTRL0               (0x00000430)
+#define HDMI_DDC_INT_CTRL1               (0x00000434)
+#define HDMI_DDC_INT_CTRL2               (0x00000438)
+#define HDMI_DDC_INT_CTRL3               (0x0000043C)
+#define HDMI_DDC_INT_CTRL4               (0x00000440)
+#define HDMI_DDC_INT_CTRL5               (0x00000444)
+#define HDMI_SCRAMBLER_STATUS_DDC_CTRL   (0x00000464)
+#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL    (0x00000468)
+#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL2   (0x0000046C)
+#define HDMI_SCRAMBLER_STATUS_DDC_STATUS        (0x00000470)
+#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_STATUS  (0x00000474)
+#define HDMI_SCRAMBLER_STATUS_DDC_TIMER_STATUS2 (0x00000478)
+#define HDMI_HW_DDC_CTRL                 (0x000004CC)
 
 /* HDMI PHY Registers */
 #define HDMI_PHY_ANA_CFG0                (0x00000000)
@@ -232,11 +245,54 @@
 #define LPASS_LPAIF_RDDMA_CTL0           (0xFE152000)
 #define LPASS_LPAIF_RDDMA_PER_CNT0       (0x00000014)
 
+/* TX major version that supports scrambling */
+#define HDMI_TX_SCRAMBLER_MIN_TX_VERSION 0x04
+
+/* HDMI SCDC register offsets */
+#define HDMI_SCDC_UPDATE_0              0x10
+#define HDMI_SCDC_UPDATE_1              0x11
+#define HDMI_SCDC_TMDS_CONFIG           0x20
+#define HDMI_SCDC_SCRAMBLER_STATUS      0x21
+#define HDMI_SCDC_CONFIG_0              0x30
+#define HDMI_SCDC_STATUS_FLAGS_0        0x40
+#define HDMI_SCDC_STATUS_FLAGS_1        0x41
+#define HDMI_SCDC_ERR_DET_0_L           0x50
+#define HDMI_SCDC_ERR_DET_0_H           0x51
+#define HDMI_SCDC_ERR_DET_1_L           0x52
+#define HDMI_SCDC_ERR_DET_1_H           0x53
+#define HDMI_SCDC_ERR_DET_2_L           0x54
+#define HDMI_SCDC_ERR_DET_2_H           0x55
+#define HDMI_SCDC_ERR_DET_CHECKSUM      0x56
+
 enum hdmi_tx_feature_type {
 	HDMI_TX_FEAT_EDID,
 	HDMI_TX_FEAT_HDCP,
 	HDMI_TX_FEAT_CEC,
 	HDMI_TX_FEAT_MAX,
+};
+
+enum hdmi_tx_scdc_access_type {
+	HDMI_TX_SCDC_SCRAMBLING_STATUS,
+	HDMI_TX_SCDC_SCRAMBLING_ENABLE,
+	HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE,
+	HDMI_TX_SCDC_CLOCK_DET_STATUS,
+	HDMI_TX_SCDC_CH0_LOCK_STATUS,
+	HDMI_TX_SCDC_CH1_LOCK_STATUS,
+	HDMI_TX_SCDC_CH2_LOCK_STATUS,
+	HDMI_TX_SCDC_CH0_ERROR_COUNT,
+	HDMI_TX_SCDC_CH1_ERROR_COUNT,
+	HDMI_TX_SCDC_CH2_ERROR_COUNT,
+	HDMI_TX_SCDC_READ_ENABLE,
+	HDMI_TX_SCDC_MAX,
+};
+
+enum hdmi_tx_ddc_timer_type {
+	HDMI_TX_DDC_TIMER_HDCP2P2_RD_MSG,
+	HDMI_TX_DDC_TIMER_SCRAMBLER_STATUS,
+	HDMI_TX_DDC_TIMER_UPDATE_FLAGS,
+	HDMI_TX_DDC_TIMER_STATUS_FLAGS,
+	HDMI_TX_DDC_TIMER_CED,
+	HDMI_TX_DDC_TIMER_MAX,
 };
 
 struct hdmi_tx_ddc_ctrl {
@@ -268,9 +324,14 @@ void *hdmi_get_featuredata_from_sysfs_dev(struct device *device, u32 type);
 
 /* DDC */
 void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *);
-int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *);
+int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *, u32 version);
 int hdmi_ddc_write(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
 int hdmi_ddc_read_seg(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
 int hdmi_ddc_read(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
+
+int hdmi_scdc_read(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 *val);
+int hdmi_scdc_write(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 val);
+int hdmi_setup_ddc_timers(struct hdmi_tx_ddc_ctrl *ctrl,
+			  u32 type, u32 to_in_num_lines);
 
 #endif /* __HDMI_UTIL_H__ */
