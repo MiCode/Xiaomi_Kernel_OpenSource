@@ -596,7 +596,7 @@
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <13>;
 
-		qcom,cpr-voltage-ceiling = <800000 900000 1000000 1180000>;
+		qcom,cpr-voltage-ceiling = <900000 900000 1000000 1180000>;
 		qcom,cpr-voltage-floor =   <700000 725000  840000 1000000>;
 		vdd-apc-supply = <&pm8994_s8>;
 
@@ -656,7 +656,7 @@
 
 		qcom,cpr-corner-map = <1 2 2 2 3 3 3 4 4 4 4 4 4>;
 		qcom,cpr-voltage-ceiling-override =
-				<0xFFFFFFFF 0  800000  900000  900000  900000
+				<0xFFFFFFFF 0  900000  900000  900000  900000
 					      1000000 1000000 1000000 1115000
 					      1115000 1180000 1180000 1180000
 					      1180000>;
