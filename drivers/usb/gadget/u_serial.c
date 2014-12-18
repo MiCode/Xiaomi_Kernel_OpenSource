@@ -615,11 +615,24 @@ static void gs_rx_push(struct work_struct *w)
 		port->read_started--;
 	}
 
-	/* Push from tty to ldisc; without low_latency set this is handled by
-	 * a workqueue, so we won't get callbacks and can hold port_lock
+	/*
+	 * Push from tty to ldisc:
+	 * With low_latency set to 0:
+	 * this is handled by a workqueue, so we won't get callbacks
+	 * (tty->ops->flush_chars i.e. gs_flush_chars) and can hold
+	 * port_lock.
+	 * With low_latency set to 1:
+	 * gs_flush_chars (tty->ops->flush_chars) is called synchronosly
+	 * with port_lock held. Hence we need to release it temporarily
+	 * to avoid recursive spinlock.
 	 */
-	if (do_push)
+	if (do_push) {
+		if (port->port.low_latency)
+			spin_unlock(&port->port_lock);
 		tty_flip_buffer_push(&port->port);
+		if (port->port.low_latency)
+			spin_lock(&port->port_lock);
+	}
 
 	/* We want our data queue to become empty ASAP, keeping data
 	 * in the tty and ldisc (not here).  If we couldn't push any
