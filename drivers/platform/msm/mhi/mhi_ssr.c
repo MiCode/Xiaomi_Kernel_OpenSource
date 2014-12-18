@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,8 +50,8 @@ static int mhi_ssr_notify_cb(struct notifier_block *nb,
 	case SUBSYS_BEFORE_SHUTDOWN:
 		mhi_log(MHI_MSG_INFO,
 			"Received Subsystem event BEFORE_SHUTDOWN\n");
-		atomic_set(&mhi_dev_ctxt->flags.pending_ssr, 1);
 		mhi_notify_clients(mhi_dev_ctxt, MHI_CB_MHI_DISABLED);
+		atomic_set(&mhi_dev_ctxt->flags.pending_ssr, 1);
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
 		mhi_log(MHI_MSG_INFO,
