@@ -1129,6 +1129,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 		ctx->autorefresh_pending = pre_suspend;
 	}
 
+	mutex_lock(&ctl->offlock);
 	if (__mdss_mdp_cmd_is_panel_power_on_interactive(ctx)) {
 		if (mdss_panel_is_power_on_lp(panel_power_state)) {
 			/*
@@ -1218,6 +1219,7 @@ end:
 		ctx->panel_power_state = panel_power_state;
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
 				ctx->rdptr_enabled, XLOG_FUNC_EXIT);
+	mutex_unlock(&ctl->offlock);
 	pr_debug("%s:-\n", __func__);
 
 	return ret;
