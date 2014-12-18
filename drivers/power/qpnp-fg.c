@@ -2633,6 +2633,7 @@ static int soc_to_setpoint(int soc)
 #define THERMAL_COEFF_ADDR	0x444
 #define THERMAL_COEFF_OFFSET	0x2
 #define I_TERM_QUAL_BIT		BIT(1)
+#define PATCH_NEG_CURRENT_BIT	BIT(3)
 static int fg_hw_init(struct fg_chip *chip)
 {
 	u8 resume_soc;
@@ -2644,6 +2645,15 @@ static int fg_hw_init(struct fg_chip *chip)
 	rc = fg_set_auto_recharge(chip);
 	if (rc) {
 		pr_err("Couldn't set auto recharge in FG\n");
+		return rc;
+	}
+
+	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
+			PATCH_NEG_CURRENT_BIT,
+			PATCH_NEG_CURRENT_BIT,
+			EXTERNAL_SENSE_OFFSET);
+	if (rc) {
+		pr_err("failed to write patch current bit rc=%d\n", rc);
 		return rc;
 	}
 
