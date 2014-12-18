@@ -2253,6 +2253,8 @@ static int fg_remove(struct spmi_device *spmi)
 {
 	struct fg_chip *chip = dev_get_drvdata(&spmi->dev);
 
+	cancel_delayed_work_sync(&chip->update_sram_data);
+	cancel_delayed_work_sync(&chip->update_temp_work);
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
 	cancel_work_sync(&chip->batt_profile_init);
 	cancel_work_sync(&chip->dump_sram);
@@ -2886,7 +2888,7 @@ static int fg_probe(struct spmi_device *spmi)
 	rc = fg_init_irqs(chip);
 	if (rc) {
 		pr_err("failed to request interrupts %d\n", rc);
-		goto power_supply_unregister;
+		goto cancel_work;
 	}
 
 	chip->batt_type = default_batt_type;
@@ -2929,7 +2931,7 @@ static int fg_probe(struct spmi_device *spmi)
 	rc = fg_hw_init(chip);
 	if (rc) {
 		pr_err("failed to hw init rc = %d\n", rc);
-		goto cancel_jeita_work;
+		goto power_supply_unregister;
 	}
 
 	/* release memory access if necessary */
@@ -2942,10 +2944,14 @@ static int fg_probe(struct spmi_device *spmi)
 
 	return rc;
 
-cancel_jeita_work:
-	cancel_delayed_work_sync(&chip->update_jeita_setting);
 power_supply_unregister:
 	power_supply_unregister(&chip->bms_psy);
+cancel_work:
+	cancel_delayed_work_sync(&chip->update_jeita_setting);
+	cancel_delayed_work_sync(&chip->update_sram_data);
+	cancel_delayed_work_sync(&chip->update_temp_work);
+	cancel_work_sync(&chip->batt_profile_init);
+	cancel_work_sync(&chip->dump_sram);
 of_init_fail:
 	mutex_destroy(&chip->rw_lock);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
