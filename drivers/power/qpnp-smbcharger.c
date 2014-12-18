@@ -138,7 +138,7 @@ struct smbchg_chip {
 	int				dc_suspended;
 	int				wake_reasons;
 	int				previous_soc;
-	bool				usb_online;
+	int				usb_online;
 	bool				dc_present;
 	bool				usb_present;
 	bool				batt_present;
