@@ -3128,6 +3128,13 @@ static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 		dwc3_restart_hrtimer(dwc);
 
 		/*
+		 * set state to U0 as function level resume is trying to queue
+		 * notification over USB interrupt endpoint which would fail
+		 * due to state is not being updated.
+		 */
+		dwc->link_state = DWC3_LINK_STATE_U0;
+
+		/*
 		 * gadget_driver resume function might require some dwc3-gadget
 		 * operations, such as ep_enable. Hence, dwc->lock must be
 		 * released.
@@ -3135,6 +3142,7 @@ static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 		spin_unlock(&dwc->lock);
 		dwc->gadget_driver->resume(&dwc->gadget);
 		spin_lock(&dwc->lock);
+		return;
 	}
 
 	dwc->link_state = DWC3_LINK_STATE_U0;
