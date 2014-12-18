@@ -487,7 +487,7 @@ asmlinkage void __exception do_sp_pc_abort(unsigned long addr,
 	info.si_errno = 0;
 	info.si_code  = BUS_ADRALN;
 	info.si_addr  = (void __user *)addr;
-	arm64_notify_die("", regs, &info, esr);
+	arm64_notify_die("SP or PC abort", regs, &info, esr);
 }
 
 static struct fault_info debug_fault_info[] = {
