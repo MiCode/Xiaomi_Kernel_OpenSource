@@ -197,7 +197,15 @@ struct mdp_ar_gc_lut_data32 {
 	uint32_t offset;
 };
 
+struct mdp_pgc_lut_data_v1_7_32 {
+	uint32_t  len;
+	compat_caddr_t c0_data;
+	compat_caddr_t c1_data;
+	compat_caddr_t c2_data;
+};
+
 struct mdp_pgc_lut_data32 {
+	uint32_t version;
 	uint32_t block;
 	uint32_t flags;
 	uint8_t num_r_stages;
@@ -206,6 +214,7 @@ struct mdp_pgc_lut_data32 {
 	compat_caddr_t r_data;
 	compat_caddr_t g_data;
 	compat_caddr_t b_data;
+	compat_caddr_t cfg_payload;
 };
 
 struct mdp_lut_cfg_data32 {

@@ -716,7 +716,32 @@ static int __to_user_ar_gc_lut_data(
 	return 0;
 }
 
-static int __from_user_pgc_lut_data(
+
+static int __from_user_pgc_lut_data_v1_7(
+			struct mdp_pgc_lut_data32 __user *pgc_lut32,
+			struct mdp_pgc_lut_data __user *pgc_lut)
+{
+	struct mdp_pgc_lut_data_v1_7_32 pgc_cfg_payload_32;
+	struct mdp_pgc_lut_data_v1_7 pgc_cfg_payload;
+	if (copy_from_user(&pgc_cfg_payload_32,
+			   compat_ptr(pgc_lut32->cfg_payload),
+			   sizeof(pgc_cfg_payload_32))) {
+		pr_err("failed to copy from user the pgc32 payload\n");
+		return -EFAULT;
+	}
+	pgc_cfg_payload.c0_data = compat_ptr(pgc_cfg_payload_32.c0_data);
+	pgc_cfg_payload.c1_data = compat_ptr(pgc_cfg_payload_32.c1_data);
+	pgc_cfg_payload.c2_data = compat_ptr(pgc_cfg_payload_32.c2_data);
+	pgc_cfg_payload.len = pgc_cfg_payload_32.len;
+	if (copy_to_user(pgc_lut->cfg_payload, &pgc_cfg_payload,
+			 sizeof(pgc_cfg_payload))) {
+		pr_err("failed to copy to user pgc payload\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
+static int __from_user_pgc_lut_data_legacy(
 			struct mdp_pgc_lut_data32 __user *pgc_lut32,
 			struct mdp_pgc_lut_data __user *pgc_lut)
 {
@@ -729,23 +754,6 @@ static int __from_user_pgc_lut_data(
 	uint8_t num_r_stages, num_g_stages, num_b_stages;
 	int i;
 
-	if (copy_in_user(&pgc_lut->block,
-			&pgc_lut32->block,
-			sizeof(uint32_t)) ||
-	    copy_in_user(&pgc_lut->flags,
-			&pgc_lut32->flags,
-			sizeof(uint32_t)) ||
-	    copy_in_user(&pgc_lut->num_r_stages,
-			&pgc_lut32->num_r_stages,
-			sizeof(uint8_t)) ||
-	    copy_in_user(&pgc_lut->num_g_stages,
-			&pgc_lut32->num_g_stages,
-			sizeof(uint8_t)) ||
-	    copy_in_user(&pgc_lut->num_b_stages,
-			&pgc_lut32->num_b_stages,
-			sizeof(uint8_t)))
-		return -EFAULT;
-
 	if (copy_from_user(&num_r_stages,
 			&pgc_lut32->num_r_stages,
 			sizeof(uint8_t)) ||
@@ -756,6 +764,14 @@ static int __from_user_pgc_lut_data(
 			&pgc_lut32->num_b_stages,
 			sizeof(uint8_t)))
 		return -EFAULT;
+
+	if (num_r_stages > GC_LUT_SEGMENTS || num_b_stages > GC_LUT_SEGMENTS
+	    || num_r_stages > GC_LUT_SEGMENTS || !num_r_stages || !num_b_stages
+	    || !num_g_stages) {
+		pr_err("invalid number of stages r_stages %d b_stages %d g_stages %d\n",
+		       num_r_stages, num_b_stages, num_r_stages);
+		return -EFAULT;
+	}
 
 	r_data_temp32 = compat_ptr((uintptr_t)pgc_lut32->r_data);
 	r_data_temp = pgc_lut->r_data;
@@ -786,8 +802,55 @@ static int __from_user_pgc_lut_data(
 				&b_data_temp[i]))
 			return -EFAULT;
 	}
-
 	return 0;
+}
+
+static int __from_user_pgc_lut_data(
+			struct mdp_pgc_lut_data32 __user *pgc_lut32,
+			struct mdp_pgc_lut_data __user *pgc_lut)
+{
+	u32 version = mdp_pgc_vmax;
+	int ret = 0;
+
+	if (copy_in_user(&pgc_lut->block,
+			&pgc_lut32->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pgc_lut->flags,
+			&pgc_lut32->flags,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pgc_lut->num_r_stages,
+			&pgc_lut32->num_r_stages,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&pgc_lut->num_g_stages,
+			&pgc_lut32->num_g_stages,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&pgc_lut->num_b_stages,
+			&pgc_lut32->num_b_stages,
+			sizeof(uint8_t)) ||
+	    copy_in_user(&pgc_lut->version,
+			&pgc_lut32->version,
+			sizeof(uint32_t)))
+		return -EFAULT;
+	if (copy_from_user(&version, &pgc_lut32->version, sizeof(u32))) {
+		pr_err("version copying failed\n");
+		return -EFAULT;
+	}
+	switch (version) {
+	case mdp_pgc_v1_7:
+		ret = __from_user_pgc_lut_data_v1_7(pgc_lut32, pgc_lut);
+		if (ret)
+			pr_err("failed to copy pgc v17\n");
+		break;
+	default:
+		pr_debug("version %d not supported fallback to legacy\n",
+			 version);
+		ret = __from_user_pgc_lut_data_legacy(pgc_lut32, pgc_lut);
+		if (ret)
+			pr_err("copy from user pgc lut legacy failed ret %d\n",
+				ret);
+		break;
+	}
+	return ret;
 }
 
 static int __to_user_pgc_lut_data(
@@ -1858,16 +1921,21 @@ static u32 __pp_compat_size_igc(void)
 	return alloc_size;
 }
 
+static u32 __pp_compat_size_pgc(void)
+{
+	u32 tbl_sz_max = 0;
+	tbl_sz_max =  3 * GC_LUT_SEGMENTS * sizeof(struct mdp_ar_gc_lut_data);
+	tbl_sz_max += sizeof(struct mdp_pgc_lut_data_v1_7);
+	return tbl_sz_max;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
 {
-	uint32_t alloc_size = 0, lut_type, r_size, g_size, b_size;
-	struct mdp_pgc_lut_data32 __user *pgc_data32;
-	uint8_t num_r_stages, num_g_stages, num_b_stages;
+	uint32_t alloc_size = 0, lut_type, pgc_size = 0;
 
 	alloc_size = sizeof(struct msmfb_mdp_pp);
-
 	if (op == mdp_op_lut_cfg) {
 		if (copy_from_user(&lut_type,
 			&pp32->data.lut_cfg_data.lut_type,
@@ -1876,35 +1944,10 @@ static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 
 		switch (lut_type)  {
 		case mdp_lut_pgc:
-			pgc_data32 = compat_ptr((uintptr_t)
-				&pp32->data.lut_cfg_data.data.pgc_lut_data);
-			if (copy_from_user(&num_r_stages,
-				&pgc_data32->num_r_stages,
-				sizeof(uint8_t)) ||
-			    copy_from_user(&num_g_stages,
-				&pgc_data32->num_g_stages,
-				sizeof(uint8_t)) ||
-			    copy_from_user(&num_b_stages,
-				&pgc_data32->num_b_stages,
-				sizeof(uint8_t)))
-				return -EFAULT;
 
-			if (num_r_stages > GC_LUT_SEGMENTS ||
-			    num_g_stages > GC_LUT_SEGMENTS ||
-			    num_b_stages > GC_LUT_SEGMENTS ||
-			    num_r_stages <= 0 ||
-			    num_g_stages <= 0 ||
-			    num_b_stages <= 0)
-				return -EINVAL;
-
-			r_size = num_r_stages *
+			pgc_size = GC_LUT_SEGMENTS *
 				sizeof(struct mdp_ar_gc_lut_data);
-			g_size = num_g_stages *
-				sizeof(struct mdp_ar_gc_lut_data);
-			b_size = num_b_stages *
-				sizeof(struct mdp_ar_gc_lut_data);
-
-			alloc_size += r_size + g_size + b_size;
+			alloc_size += __pp_compat_size_pgc();
 
 			*pp = compat_alloc_user_space(alloc_size);
 			if (NULL == *pp)
@@ -1918,12 +1961,17 @@ static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 			(*pp)->data.lut_cfg_data.data.pgc_lut_data.g_data =
 					(struct mdp_ar_gc_lut_data *)
 					((unsigned long) *pp +
-					sizeof(struct msmfb_mdp_pp) + r_size);
+					sizeof(struct msmfb_mdp_pp) +
+					pgc_size);
 			(*pp)->data.lut_cfg_data.data.pgc_lut_data.b_data =
 					(struct mdp_ar_gc_lut_data *)
 					((unsigned long) *pp +
 					sizeof(struct msmfb_mdp_pp) +
-					r_size + g_size);
+					(2 * pgc_size));
+			(*pp)->data.lut_cfg_data.data.pgc_lut_data.cfg_payload
+					 = (void *)((unsigned long) *pp +
+					sizeof(struct msmfb_mdp_pp) +
+					(3 * pgc_size));
 			break;
 		case mdp_lut_igc:
 			alloc_size += __pp_compat_size_igc();
