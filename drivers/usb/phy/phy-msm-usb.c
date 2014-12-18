@@ -703,13 +703,15 @@ static int msm_otg_reset(struct usb_phy *phy)
 	 * USB PHY and Link reset also reset the USB BAM.
 	 * Thus perform reset operation only once to avoid
 	 * USB BAM reset on other cases e.g. USB cable disconnections.
+	 * If hardware reported error then it must be reset for recovery.
 	 */
-	if (pdata->disable_reset_on_disconnect) {
-		if (motg->reset_counter)
-			return 0;
-		else
-			motg->reset_counter++;
+	if (motg->err_event_seen) {
+		dev_info(phy->dev, "performing USB h/w reset for recovery\n");
+		motg->err_event_seen = false;
+	} else if (pdata->disable_reset_on_disconnect && motg->reset_counter) {
+		return 0;
 	}
+	motg->reset_counter++;
 
 	ret = msm_otg_phy_reset(motg);
 	if (ret) {
