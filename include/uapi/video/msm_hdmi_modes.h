@@ -259,4 +259,24 @@ static inline void MSM_HDMI_MODES_SET_SUPP_TIMINGS(
 	}
 }
 
+static inline int hdmi_tx_get_v_total(const struct msm_hdmi_mode_timing_info *t)
+{
+	if (t) {
+		return t->active_v + t->front_porch_v + t->pulse_width_v +
+			t->back_porch_v;
+	}
+
+	return 0;
+}
+
+static inline int hdmi_tx_get_h_total(const struct msm_hdmi_mode_timing_info *t)
+{
+	if (t) {
+		return t->active_h + t->front_porch_h + t->pulse_width_h +
+			t->back_porch_h;
+	}
+
+	return 0;
+}
+
 #endif /* _UAPI_MSM_HDMI_MODES_H__ */

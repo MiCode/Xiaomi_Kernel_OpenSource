@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,10 +17,70 @@
 
 #define RESOLUTION_NAME_STR_LEN 30
 
+#define HDMI_SCDC_UNKNOWN_REGISTER        "Unknown register"
+
 static struct msm_hdmi_mode_timing_info
 	hdmi_supported_video_mode_lut[HDMI_VFRMT_MAX];
 
 static char res_buf[RESOLUTION_NAME_STR_LEN];
+
+static void hdmi_scrambler_status_timer_setup(struct hdmi_tx_ddc_ctrl *ctrl,
+					     u32 to_in_num_lines)
+{
+	u32 reg_val;
+
+	DSS_REG_W(ctrl->io, HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL,
+						to_in_num_lines);
+	DSS_REG_W(ctrl->io, HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL2,
+						0xFFFF);
+	reg_val = DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL5);
+	reg_val |= BIT(10);
+	DSS_REG_W(ctrl->io, HDMI_DDC_INT_CTRL5, reg_val);
+
+	reg_val = DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL2);
+	/* Trigger interrupt if scrambler status is 0 or DDC failure */
+	reg_val |= BIT(10);
+	reg_val &= 0x18000;
+	reg_val |= (0x2 << 15);
+	DSS_REG_W(ctrl->io, HDMI_DDC_INT_CTRL2, reg_val);
+
+	/* Enable DDC access */
+	reg_val = DSS_REG_R(ctrl->io, HDMI_HW_DDC_CTRL);
+
+	reg_val &= ~0x300;
+	reg_val |= (0x1 << 8);
+	DSS_REG_W(ctrl->io, HDMI_HW_DDC_CTRL, reg_val);
+}
+
+static inline char *hdmi_scdc_reg2string(u32 type)
+{
+	switch (type) {
+	case HDMI_TX_SCDC_SCRAMBLING_STATUS:
+		return "HDMI_TX_SCDC_SCRAMBLING_STATUS";
+	case HDMI_TX_SCDC_SCRAMBLING_ENABLE:
+		return "HDMI_TX_SCDC_SCRAMBLING_ENABLE";
+	case HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE:
+		return "HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE";
+	case HDMI_TX_SCDC_CLOCK_DET_STATUS:
+		return "HDMI_TX_SCDC_CLOCK_DET_STATUS";
+	case HDMI_TX_SCDC_CH0_LOCK_STATUS:
+		return "HDMI_TX_SCDC_CH0_LOCK_STATUS";
+	case HDMI_TX_SCDC_CH1_LOCK_STATUS:
+		return "HDMI_TX_SCDC_CH1_LOCK_STATUS";
+	case HDMI_TX_SCDC_CH2_LOCK_STATUS:
+		return "HDMI_TX_SCDC_CH2_LOCK_STATUS";
+	case HDMI_TX_SCDC_CH0_ERROR_COUNT:
+		return "HDMI_TX_SCDC_CH0_ERROR_COUNT";
+	case HDMI_TX_SCDC_CH1_ERROR_COUNT:
+		return "HDMI_TX_SCDC_CH1_ERROR_COUNT";
+	case HDMI_TX_SCDC_CH2_ERROR_COUNT:
+		return "HDMI_TX_SCDC_CH2_ERROR_COUNT";
+	case HDMI_TX_SCDC_READ_ENABLE:
+		return"HDMI_TX_SCDC_READ_ENABLE";
+	default:
+		return HDMI_SCDC_UNKNOWN_REGISTER;
+	}
+}
 
 const char *msm_hdmi_mode_2string(u32 mode)
 {
@@ -454,9 +514,11 @@ void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_REF, (1 << 16) | (19 << 0));
 } /* hdmi_ddc_config */
 
-int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
+int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl, u32 version)
 {
 	u32 ddc_int_ctrl;
+	u32 ddc_timer_int;
+	bool scrambler_timer_off = false;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -472,7 +534,44 @@ int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	}
 
 	DEV_DBG("%s: ddc_int_ctrl=%04x\n", __func__, ddc_int_ctrl);
+	if (version < HDMI_TX_SCRAMBLER_MIN_TX_VERSION)
+		goto end;
 
+	ddc_timer_int = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL2);
+	if (ddc_timer_int & BIT(12)) {
+		/* DDC_INT_CTRL2.SCRAMBLER_STATUS_NOT is set */
+		DEV_ERR("%s: Sink cannot descramble the signal\n",
+							__func__);
+		/* Clear interrupt */
+		ddc_timer_int |= BIT(14);
+		DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL2,
+							ddc_timer_int);
+		scrambler_timer_off = true;
+	}
+
+	ddc_timer_int = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL5);
+	if (ddc_timer_int & BIT(8)) {
+		/*
+		 * DDC_INT_CTRL5.SCRAMBLER_STATUS_DDC_REQ_TIMEOUT
+		 * is set
+		 */
+		DEV_ERR(
+		"%s: DDC timeout while reading SCRAMBLER STATUS\n",
+						__func__);
+		ddc_timer_int |= BIT(13);
+		DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL5,
+							ddc_timer_int);
+		scrambler_timer_off = true;
+	}
+
+	/* Disable scrambler status timer if it has been acknowledged */
+	if (scrambler_timer_off) {
+		u32 regval = DSS_REG_R_ND(ddc_ctrl->io,
+						HDMI_HW_DDC_CTRL);
+		regval &= 0x300;
+		DSS_REG_W_ND(ddc_ctrl->io, HDMI_HW_DDC_CTRL, regval);
+	}
+end:
 	return 0;
 } /* hdmi_ddc_isr */
 
@@ -755,20 +854,10 @@ again:
 	 *    STOP0 = 0x0 (do NOT insert STOP bit)
 	 *    CNT0 = 0x1 (single byte transaction excluding address)
 	 */
-	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_TRANS0, BIT(12) | BIT(16));
-
-	/*
-	 * 5. Write to HDMI_I2C_TRANSACTION1 with the following fields set in
-	 *    order to handle characteristics of portion #3
-	 *    RW1 = 0x1 (read)
-	 *    START1 = 0x1 (insert START bit)
-	 *    STOP1 = 0x1 (insert STOP bit)
-	 *    CNT1 = data_len   (0xN (write N bytes of data))
-	 *    Byte count for second transition (excluding the first
-	 *    Byte which is usually the address)
-	 */
-	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_TRANS1,
-		BIT(13) | ((ddc_data->data_len-1) << 16));
+	reg_val = (ddc_data->data_len + 1) << 16;
+	reg_val |= BIT(12);
+	reg_val |= BIT(13);
+	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_TRANS0, reg_val);
 
 	/* Trigger the I2C transfer */
 	/*
@@ -780,7 +869,7 @@ again:
 	 *    GO = 0x1 (kicks off hardware)
 	 */
 	reinit_completion(&ddc_ctrl->ddc_sw_done);
-	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_CTRL, BIT(0) | BIT(20));
+	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_CTRL, BIT(0));
 
 	time_out_count = wait_for_completion_timeout(
 		&ddc_ctrl->ddc_sw_done, HZ/2);
@@ -834,3 +923,213 @@ again:
 error:
 	return status;
 } /* hdmi_ddc_write */
+
+
+int hdmi_scdc_read(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 *val)
+{
+	struct hdmi_tx_ddc_data data = {0};
+	int rc = 0;
+	u8 data_buf[2] = {0};
+
+	if (!ctrl || !ctrl->io || !val) {
+		DEV_ERR("%s: Bad Parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	if (data_type >= HDMI_TX_SCDC_MAX) {
+		DEV_ERR("%s: Unsupported data type\n", __func__);
+		return -EINVAL;
+	}
+
+	data.what = hdmi_scdc_reg2string(data_type);
+	data.dev_addr = 0xA8;
+	data.no_align = true;
+	data.retry = 1;
+	data.data_buf = data_buf;
+
+	switch (data_type) {
+	case HDMI_TX_SCDC_SCRAMBLING_STATUS:
+		data.data_len = 1;
+		data.request_len = 1;
+		data.offset = HDMI_SCDC_SCRAMBLER_STATUS;
+		break;
+	case HDMI_TX_SCDC_SCRAMBLING_ENABLE:
+	case HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE:
+		data.data_len = 1;
+		data.request_len = 1;
+		data.offset = HDMI_SCDC_TMDS_CONFIG;
+		break;
+	case HDMI_TX_SCDC_CLOCK_DET_STATUS:
+	case HDMI_TX_SCDC_CH0_LOCK_STATUS:
+	case HDMI_TX_SCDC_CH1_LOCK_STATUS:
+	case HDMI_TX_SCDC_CH2_LOCK_STATUS:
+		data.data_len = 1;
+		data.request_len = 1;
+		data.offset = HDMI_SCDC_STATUS_FLAGS_0;
+		break;
+	case HDMI_TX_SCDC_CH0_ERROR_COUNT:
+		data.data_len = 2;
+		data.request_len = 2;
+		data.offset = HDMI_SCDC_ERR_DET_0_L;
+		break;
+	case HDMI_TX_SCDC_CH1_ERROR_COUNT:
+		data.data_len = 2;
+		data.request_len = 2;
+		data.offset = HDMI_SCDC_ERR_DET_1_L;
+		break;
+	case HDMI_TX_SCDC_CH2_ERROR_COUNT:
+		data.data_len = 2;
+		data.request_len = 2;
+		data.offset = HDMI_SCDC_ERR_DET_2_L;
+		break;
+	case HDMI_TX_SCDC_READ_ENABLE:
+		data.data_len = 1;
+		data.request_len = 1;
+		data.offset = HDMI_SCDC_CONFIG_0;
+		break;
+	default:
+		break;
+	}
+
+	rc = hdmi_ddc_read(ctrl, &data);
+	if (rc) {
+		DEV_ERR("%s: DDC Read failed for %s\n", __func__, data.what);
+		return rc;
+	}
+
+	switch (data_type) {
+	case HDMI_TX_SCDC_SCRAMBLING_STATUS:
+		*val = (data_buf[0] & BIT(0)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_SCRAMBLING_ENABLE:
+		*val = (data_buf[0] & BIT(0)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE:
+		*val = (data_buf[0] & BIT(1)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_CLOCK_DET_STATUS:
+		*val = (data_buf[0] & BIT(0)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_CH0_LOCK_STATUS:
+		*val = (data_buf[0] & BIT(1)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_CH1_LOCK_STATUS:
+		*val = (data_buf[0] & BIT(2)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_CH2_LOCK_STATUS:
+		*val = (data_buf[0] & BIT(3)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_CH0_ERROR_COUNT:
+	case HDMI_TX_SCDC_CH1_ERROR_COUNT:
+	case HDMI_TX_SCDC_CH2_ERROR_COUNT:
+		if (data_buf[1] & BIT(7))
+			*val = (data_buf[0] | ((data_buf[1] & 0x7F) << 8));
+		else
+			*val = 0;
+		break;
+	case HDMI_TX_SCDC_READ_ENABLE:
+		*val = (data_buf[0] & BIT(0)) ? 1 : 0;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+int hdmi_scdc_write(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 val)
+{
+	struct hdmi_tx_ddc_data data = {0};
+	struct hdmi_tx_ddc_data rdata = {0};
+	int rc = 0;
+	u8 data_buf[2] = {0};
+	u8 read_val = 0;
+
+	if (!ctrl || !ctrl->io) {
+		DEV_ERR("%s: Bad Parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	if (data_type >= HDMI_TX_SCDC_MAX) {
+		DEV_ERR("%s: Unsupported data type\n", __func__);
+		return -EINVAL;
+	}
+
+	data.what = hdmi_scdc_reg2string(data_type);
+	data.dev_addr = 0xA8;
+	data.no_align = true;
+	data.retry = 1;
+	data.data_buf = data_buf;
+
+	switch (data_type) {
+	case HDMI_TX_SCDC_SCRAMBLING_ENABLE:
+	case HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE:
+		rdata.what = "TMDS CONFIG";
+		rdata.dev_addr = 0xA8;
+		rdata.no_align = true;
+		rdata.retry = 2;
+		rdata.data_buf = &read_val;
+		rdata.data_len = 1;
+		rdata.offset = HDMI_SCDC_TMDS_CONFIG;
+		rdata.request_len = 1;
+		rc = hdmi_ddc_read(ctrl, &rdata);
+		if (rc) {
+			DEV_ERR("%s: scdc read failed\n", __func__);
+			return rc;
+		}
+		if (data_type == HDMI_TX_SCDC_SCRAMBLING_ENABLE) {
+			data_buf[0] = ((((u8)(read_val & 0xFF)) & (~BIT(0))) |
+				       ((u8)(val & BIT(0))));
+		} else {
+			data_buf[0] = ((((u8)(read_val & 0xFF)) & (~BIT(1))) |
+				       (((u8)(val & BIT(0))) << 1));
+		}
+		data.data_len = 1;
+		data.request_len = 1;
+		data.offset = HDMI_SCDC_TMDS_CONFIG;
+		break;
+	case HDMI_TX_SCDC_READ_ENABLE:
+		data.data_len = 1;
+		data.request_len = 1;
+		data.offset = HDMI_SCDC_CONFIG_0;
+		data_buf[0] = (u8)(val & 0x1);
+		break;
+	default:
+		DEV_ERR("%s Cannot write to read only reg (%d)\n", __func__,
+			data_type);
+		return -EINVAL;
+	}
+
+	rc = hdmi_ddc_write(ctrl, &data);
+	if (rc) {
+		DEV_ERR("%s: DDC Read failed for %s\n", __func__, data.what);
+		return rc;
+	}
+
+	return 0;
+}
+
+int hdmi_setup_ddc_timers(struct hdmi_tx_ddc_ctrl *ctrl,
+			  u32 type, u32 to_in_num_lines)
+{
+	if (!ctrl) {
+		DEV_ERR("%s: Invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	if (type >= HDMI_TX_DDC_TIMER_MAX) {
+		DEV_ERR("%s: Invalid timer type %d\n", __func__, type);
+		return -EINVAL;
+	}
+
+	switch (type) {
+	case HDMI_TX_DDC_TIMER_SCRAMBLER_STATUS:
+		hdmi_scrambler_status_timer_setup(ctrl, to_in_num_lines);
+		break;
+	default:
+		DEV_ERR("%s: %d type not supported\n", __func__, type);
+		return -EINVAL;
+	}
+
+	return 0;
+}

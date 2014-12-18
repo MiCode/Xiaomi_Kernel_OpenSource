@@ -61,6 +61,20 @@
 	((d & 0xff) + ((d >> 8) & 0xff) +	\
 	((d >> 16) & 0xff) + ((d >> 24) & 0xff))
 
+
+/*
+ * Pixel Clock to TMDS Character Rate Ratios.
+ */
+#define HDMI_TX_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO 2
+#define HDMI_TX_YUV422_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
+#define HDMI_TX_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
+
+#define HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ 340000
+#define HDMI_TX_SCRAMBLER_TIMEOUT_USEC 200000
+
+#define HDMI_TX_KHZ_TO_HZ 1000
+#define HDMI_TX_MHZ_TO_HZ 1000000
+
 /* Enable HDCP by default */
 static bool hdcp_feature_on = true;
 
@@ -235,6 +249,39 @@ static const struct hdmi_tx_audio_acr_arry hdmi_tx_audio_acr_lut[] = {
 		{9408, 247500}, {10240, 247500}, {18816, 247500},
 		{20480, 247500} } },
 };
+
+static int hdmi_tx_get_version(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	int rc;
+	int reg_val;
+	struct dss_io_data *io;
+
+	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_HPD_PM, true);
+	if (rc) {
+		DEV_ERR("%s: Failed to read HDMI version\n", __func__);
+		goto fail;
+	}
+
+	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+	if (!io->base) {
+		DEV_ERR("%s: core io not inititalized\n", __func__);
+		rc = -EINVAL;
+		goto fail;
+	}
+
+	reg_val = DSS_REG_R(io, HDMI_VERSION);
+	reg_val = (reg_val & 0xF0000000) >> 28;
+	hdmi_ctrl->hdmi_tx_ver = reg_val;
+
+	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_HPD_PM, false);
+	if (rc) {
+		DEV_ERR("%s: FAILED to disable power\n", __func__);
+		goto fail;
+	}
+
+fail:
+	return rc;
+}
 
 int register_hdmi_cable_notification(struct hdmi_cable_notify *handler)
 {
@@ -1461,11 +1508,9 @@ static int hdmi_tx_video_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (hdmi_ctrl->vid_cfg.avi_iframe.pixel_format == MDP_Y_CBCR_H2V2)
 		div = 1;
 
-	total_h = (timing->active_h >> div) + (timing->front_porch_h >> div) +
-		(timing->back_porch_h >> div) + (timing->pulse_width_h >> div)
-		- 1;
-	total_v = timing->active_v + timing->front_porch_v +
-		timing->back_porch_v + timing->pulse_width_v - 1;
+	total_h = (hdmi_tx_get_h_total(timing) >> div) - 1;
+	total_v = hdmi_tx_get_v_total(timing) - 1;
+
 	if (((total_v << 16) & 0xE0000000) || (total_h & 0xFFFFE000)) {
 		DEV_ERR("%s: total v=%d or h=%d is larger than supported\n",
 			__func__, total_v, total_h);
@@ -2740,6 +2785,107 @@ static void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	DEV_INFO("HDMI Audio: Disabled\n");
 } /* hdmi_tx_audio_off */
 
+static int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	int rc = 0;
+	u32 rate = 0;
+	u32 reg_val = 0;
+	bool scrambler_on = false;
+	struct dss_io_data *io = NULL;
+	const struct msm_hdmi_mode_timing_info *timing = NULL;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: Bad input parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+	if (!io->base) {
+		DEV_ERR("%s: core io is not initialized\n", __func__);
+		return -EINVAL;
+	}
+
+	timing = hdmi_ctrl->vid_cfg.timing;
+	if (!timing) {
+		DEV_ERR("%s: Invalid timing info\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Scrambling is supported from HDMI TX 4.0 */
+	if (hdmi_ctrl->hdmi_tx_ver < HDMI_TX_SCRAMBLER_MIN_TX_VERSION) {
+		DEV_DBG("%s: HDMI TX does not support scrambling\n", __func__);
+		return 0;
+	}
+
+	switch (hdmi_ctrl->vid_cfg.avi_iframe.pixel_format) {
+	case MDP_Y_CBCR_H2V2:
+		rate = timing->pixel_freq /
+			HDMI_TX_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+		break;
+	case MDP_Y_CBCR_H2V1:
+		rate = timing->pixel_freq /
+			HDMI_TX_YUV422_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+		break;
+	default:
+		rate = timing->pixel_freq /
+			HDMI_TX_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+		break;
+	}
+
+	if (rate > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ) {
+		scrambler_on = true;
+	} else {
+		if (hdmi_edid_get_sink_scrambler_support(
+				hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]))
+			scrambler_on = true;
+	}
+
+	if (scrambler_on) {
+		reg_val = DSS_REG_R(io, HDMI_CTRL);
+		reg_val |= BIT(31); /* Enable Update DATAPATH_MODE */
+		reg_val |= BIT(28); /* Set SCRAMBLER_EN bit */
+
+		DSS_REG_W(io, HDMI_CTRL, reg_val);
+
+		rc = hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
+				     HDMI_TX_SCDC_SCRAMBLING_ENABLE,
+				     0x1);
+	} else {
+		rc = hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
+				     HDMI_TX_SCDC_SCRAMBLING_ENABLE,
+				     0x0);
+	}
+
+	if (rc) {
+		DEV_ERR("%s: SCDC write failed\n", __func__);
+		return rc;
+	}
+
+	/*
+	 * Setup hardware to periodically check for scrambler status bit on the
+	 * sink. Sink should set this bit with in 200ms after scrambler is
+	 * enabled.
+	 */
+	if (scrambler_on) {
+		u64 mult;
+		u64 div;
+		/* calculate number of lines sent in 200ms */
+		mult = HDMI_TX_SCRAMBLER_TIMEOUT_USEC *
+			((u64)timing->pixel_freq * HDMI_TX_KHZ_TO_HZ);
+		div = hdmi_tx_get_v_total(timing) * HDMI_TX_MHZ_TO_HZ;
+		if (div)
+			do_div(mult, div);
+		else
+			mult = 0;
+
+		rc = hdmi_setup_ddc_timers(&hdmi_ctrl->ddc_ctrl,
+					   HDMI_TX_DDC_TIMER_SCRAMBLER_STATUS,
+					   (u32)mult);
+	}
+
+	return rc;
+}
+
 static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	int rc = 0;
@@ -2782,6 +2928,12 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_tx_set_spd_infoframe(hdmi_ctrl);
 	}
 
+	rc = hdmi_tx_setup_scrambler(hdmi_ctrl);
+	if (rc) {
+		DEV_ERR("%s: Scrambler setup failed\n", __func__);
+		hdmi_tx_set_mode(hdmi_ctrl, false);
+		return rc;
+	}
 	/* todo: CEC */
 
 	DEV_INFO("%s: HDMI Core: Initialized\n", __func__);
@@ -3185,7 +3337,8 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 		queue_work(hdmi_ctrl->workq, &hdmi_ctrl->hpd_int_work);
 	}
 
-	if (hdmi_ddc_isr(&hdmi_ctrl->ddc_ctrl))
+	if (hdmi_ddc_isr(&hdmi_ctrl->ddc_ctrl,
+		hdmi_ctrl->hdmi_tx_ver))
 		DEV_ERR("%s: hdmi_ddc_isr failed\n", __func__);
 
 	if (hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC])
@@ -4172,7 +4325,6 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 	struct device_node *of_node = pdev->dev.of_node;
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
 	struct mdss_panel_cfg *pan_cfg = NULL;
-
 	if (!of_node) {
 		DEV_ERR("%s: FAILED: of_node not found\n", __func__);
 		rc = -ENODEV;
@@ -4234,6 +4386,13 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 	if (rc) {
 		DEV_ERR("%s: FAILED: hdmi_tx_dev_init. rc=%d\n", __func__, rc);
 		goto failed_dev_init;
+	}
+
+	rc = hdmi_tx_get_version(hdmi_ctrl);
+	if (rc) {
+		DEV_ERR("%s: FAILED: hdmi_tx_get_version. rc=%d\n",
+			__func__, rc);
+		goto failed_reg_panel;
 	}
 
 	rc = hdmi_tx_register_panel(hdmi_ctrl);
