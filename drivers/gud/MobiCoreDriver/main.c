@@ -41,6 +41,7 @@
 #include <net/tcp_states.h>
 #include <net/af_unix.h>
 
+
 #include "main.h"
 #include "fastcall.h"
 
@@ -51,6 +52,10 @@
 #include "debug.h"
 #include "logging.h"
 #include "build_tag.h"
+
+#if defined(MC_CRYPTO_CLOCK_MANAGEMENT) && defined(MC_USE_DEVICE_TREE)
+#include <linux/platform_device.h>
+#endif
 
 /* Define a MobiCore device structure for use with dev_debug() etc */
 struct device_driver mcd_debug_name = {
@@ -434,7 +439,8 @@ int mc_get_buffer(struct mc_instance *instance,
 	MCDRV_DBG_VERBOSE(mcd, "size %ld -> order %d --> %ld (2^n pages)",
 			  len, order, allocated_size);
 
-	addr = (void *)__get_free_pages(GFP_USER | __GFP_ZERO, order);
+	addr = (void *)__get_free_pages(GFP_USER | __GFP_ZERO | __GFP_COMP,
+					order);
 
 	if (addr == NULL) {
 		MCDRV_DBG_WARN(mcd, "get_free_pages failed");
@@ -1521,9 +1527,69 @@ bool mc_sleep_ready(void)
 #endif
 }
 
-/* Linux Driver Module Macros */
+#if defined(MC_CRYPTO_CLOCK_MANAGEMENT) && defined(MC_USE_DEVICE_TREE)
+static int mcd_probe(struct platform_device *pdev)
+{
+	mcd->of_node = pdev->dev.of_node;
+	mobicore_init();
+	return 0;
+}
+
+static int mcd_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static int mcd_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	return 0;
+}
+
+static int mcd_resume(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static struct of_device_id mcd_match[] = {
+	{
+		.compatible = "qcom,qcrypto",
+	},
+	{}
+};
+
+static struct platform_driver mc_plat_driver = {
+	.probe = mcd_probe,
+	.remove = mcd_remove,
+	.suspend = mcd_suspend,
+	.resume = mcd_resume,
+	.driver = {
+		.name = "mcd",
+		.owner = THIS_MODULE,
+		.of_match_table = mcd_match,
+	},
+};
+
+static int mobicore_register(void)
+{
+	return platform_driver_register(&mc_plat_driver);
+}
+
+static void mobicore_unregister(void)
+{
+	platform_driver_unregister(&mc_plat_driver);
+	mobicore_exit();
+}
+
+module_init(mobicore_register);
+module_exit(mobicore_unregister);
+
+#else
+
 module_init(mobicore_init);
 module_exit(mobicore_exit);
+
+#endif
+
 MODULE_AUTHOR("Trustonic Limited");
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MobiCore driver");
