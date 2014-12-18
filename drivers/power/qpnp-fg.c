@@ -286,6 +286,8 @@ struct fg_chip {
 	struct fg_wakeup_source	memif_wakeup_source;
 	struct fg_wakeup_source	profile_wakeup_source;
 	bool			first_profile_loaded;
+	struct fg_wakeup_source	update_temp_wakeup_source;
+	struct fg_wakeup_source	update_sram_wakeup_source;
 	bool			profile_loaded;
 	bool			use_otp_profile;
 	bool			battery_missing;
@@ -1189,6 +1191,7 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 	s16 temp;
 	int battid_valid = fg_is_batt_id_valid(chip);
 
+	fg_stay_awake(&chip->update_sram_wakeup_source);
 	for (i = 1; i < FG_DATA_MAX; i++) {
 		if (chip->profile_loaded && i >= FG_DATA_CPRED_VOLTAGE)
 			continue;
@@ -1245,6 +1248,7 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 	} else {
 		*resched_ms = SRAM_PERIOD_NO_ID_UPDATE_MS;
 	}
+	fg_relax(&chip->update_sram_wakeup_source);
 }
 
 static void update_sram_data_work(struct work_struct *work)
@@ -1266,16 +1270,18 @@ static void update_sram_data_work(struct work_struct *work)
 #define BATT_TEMP_ON		0x16
 #define BATT_TEMP_OFF		0x01
 #define TEMP_PERIOD_UPDATE_MS		10000
+#define TEMP_PERIOD_TIMEOUT_MS		3000
 static void update_temp_data(struct work_struct *work)
 {
 	s16 temp;
 	u8 reg[2];
 	bool tried_again = false;
-	int rc, ret, timeout = MEM_IF_TIMEOUT_MS;
+	int rc, ret, timeout = TEMP_PERIOD_TIMEOUT_MS;
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				update_temp_work.work);
 
+	fg_stay_awake(&chip->update_temp_wakeup_source);
 	if (chip->sw_rbias_ctrl) {
 		INIT_COMPLETION(chip->sram_access_revoked);
 		rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
@@ -1334,6 +1340,7 @@ out:
 	schedule_delayed_work(
 		&chip->update_temp_work,
 		msecs_to_jiffies(TEMP_PERIOD_UPDATE_MS));
+	fg_relax(&chip->update_temp_wakeup_source);
 }
 
 static void update_jeita_setting(struct work_struct *work)
@@ -2262,6 +2269,8 @@ static int fg_remove(struct spmi_device *spmi)
 	mutex_destroy(&chip->rw_lock);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
 	wakeup_source_trash(&chip->profile_wakeup_source.source);
+	wakeup_source_trash(&chip->update_temp_wakeup_source.source);
+	wakeup_source_trash(&chip->update_sram_wakeup_source.source);
 	dev_set_drvdata(&spmi->dev, NULL);
 	return 0;
 }
@@ -2809,6 +2818,10 @@ static int fg_probe(struct spmi_device *spmi)
 			"qpnp_fg_memaccess");
 	wakeup_source_init(&chip->profile_wakeup_source.source,
 			"qpnp_fg_profile");
+	wakeup_source_init(&chip->update_temp_wakeup_source.source,
+			"qpnp_fg_update_temp");
+	wakeup_source_init(&chip->update_sram_wakeup_source.source,
+			"qpnp_fg_update_sram");
 	mutex_init(&chip->rw_lock);
 	INIT_DELAYED_WORK(&chip->update_jeita_setting, update_jeita_setting);
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data_work);
@@ -2956,6 +2969,8 @@ of_init_fail:
 	mutex_destroy(&chip->rw_lock);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
 	wakeup_source_trash(&chip->profile_wakeup_source.source);
+	wakeup_source_trash(&chip->update_temp_wakeup_source.source);
+	wakeup_source_trash(&chip->update_sram_wakeup_source.source);
 	return rc;
 }
 
@@ -2995,8 +3010,8 @@ static int fg_suspend(struct device *dev)
 	if (!chip->sw_rbias_ctrl)
 		return 0;
 
-	cancel_delayed_work_sync(&chip->update_temp_work);
-	cancel_delayed_work_sync(&chip->update_sram_data);
+	cancel_delayed_work(&chip->update_temp_work);
+	cancel_delayed_work(&chip->update_sram_data);
 
 	return 0;
 }
