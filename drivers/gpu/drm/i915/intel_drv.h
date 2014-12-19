@@ -598,6 +598,7 @@ struct cxsr_latency {
 #define to_intel_encoder(x) container_of(x, struct intel_encoder, base)
 #define to_intel_framebuffer(x) container_of(x, struct intel_framebuffer, base)
 #define to_intel_plane(x) container_of(x, struct intel_plane, base)
+#define intel_fb_obj(x) (x ? to_intel_framebuffer(x)->obj : NULL)
 
 /* HDMI bits are shared with the DP bits */
 #define   HDMIB_HOTPLUG_LIVE_STATUS             (1 << 29)
