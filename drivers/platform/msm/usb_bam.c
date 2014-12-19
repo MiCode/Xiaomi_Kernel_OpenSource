@@ -1190,18 +1190,26 @@ int usb_bam_connect(int idx, u32 *bam_pipe_idx)
 		return -EINVAL;
 	}
 
+	cur_bam = pipe_connect->bam_type;
+	cur_mode = pipe_connect->bam_mode;
+
 	spin_lock(&usb_bam_lock);
 	/* Check if BAM requires RESET before connect and reset of first pipe */
 	if ((pdata->reset_on_connect[pipe_connect->bam_type] == true) &&
 	    (ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0)) {
 		spin_unlock(&usb_bam_lock);
+
+		if (cur_bam == CI_CTRL)
+			msm_hw_bam_disable(1);
+
 		sps_device_reset(ctx.h_bam[pipe_connect->bam_type]);
+
+		if (cur_bam == CI_CTRL)
+			msm_hw_bam_disable(0);
+
 		spin_lock(&usb_bam_lock);
 	}
 	spin_unlock(&usb_bam_lock);
-
-	cur_bam = pipe_connect->bam_type;
-	cur_mode = pipe_connect->bam_mode;
 
 	/* Set the BAM mode (host/device) according to connected pipe */
 	info[cur_bam].cur_bam_mode = pipe_connect->bam_mode;
