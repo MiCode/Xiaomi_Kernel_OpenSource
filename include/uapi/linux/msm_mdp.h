@@ -225,6 +225,12 @@ enum {
 #define MDP_TRANSP_NOP 0xffffffff
 #define MDP_ALPHA_NOP 0xff
 
+/*
+ * MDP_DEINTERLACE & MDP_SHARPENING Flags are not valid for MDP3
+ * so using them together for MDP_SMART_BLIT.
+ */
+#define MDP_SMART_BLIT			0xC0000000
+
 #define MDP_FB_PAGE_PROTECTION_NONCACHED         (0)
 #define MDP_FB_PAGE_PROTECTION_WRITECOMBINE      (1)
 #define MDP_FB_PAGE_PROTECTION_WRITETHROUGHCACHE (2)
