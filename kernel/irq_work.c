@@ -198,6 +198,6 @@ static __init int irq_work_init_cpu_notifier(void)
 	register_cpu_notifier(&cpu_notify);
 	return 0;
 }
-device_initcall(irq_work_init_cpu_notifier);
+early_initcall(irq_work_init_cpu_notifier);
 
 #endif /* CONFIG_HOTPLUG_CPU */
