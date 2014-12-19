@@ -94,11 +94,11 @@
 };
 
 &dsi_hx8394d_720_vid {
-	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 2 0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 };
 
 &dsi_hx8394d_qhd_vid {
-	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 2 0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 };
 
 &pm8916_chg {
@@ -146,12 +146,8 @@
 	};
 
 	mpp@a100 { /* MPP 2 */
-		/* Backlight PWM */
-		qcom,mode = <1>;		/* Digital output */
-		qcom,invert = <0>;		/* Disable invert */
-		qcom,src-sel = <4>;		/* DTEST1 */
-		qcom,vin-sel = <0>;		/* VPH_PWR */
-		qcom,master-en = <1>;		/* Enable MPP */
+		/* HR LED */
+		status = "disabled";
 	};
 
 	mpp@a200 { /* MPP 3 */
@@ -160,8 +156,12 @@
 	};
 
 	mpp@a300 { /* MPP 4 */
-		/* HR LED */
-		status = "disabled";
+		/* Backlight PWM */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,invert = <0>;		/* Disable invert */
+		qcom,src-sel = <4>;		/* DTEST1 */
+		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,master-en = <1>;		/* Enable MPP */
 	};
 };
 
