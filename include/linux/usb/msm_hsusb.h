@@ -426,6 +426,9 @@ struct msm_otg_platform_data {
  * host_suspend_wait: wait_queue on which USB core waits for USB entering lpm
 	     in host bus suspend case.
  * @id_state: Indicates USBID line status.
+ * @dbg_idx: Dynamic debug buffer Index.
+ * @dbg_lock: Dynamic debug buffer Lock.
+ * @buf: Dynamic Debug Buffer.
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -570,6 +573,13 @@ struct msm_otg {
 	bool phy_irq_pending;
 	wait_queue_head_t	host_suspend_wait;
 	enum usb_id_state id_state;
+/* Maximum debug message length */
+#define DEBUG_MSG_LEN   128UL
+/* Maximum number of messages */
+#define DEBUG_MAX_MSG   256UL
+	unsigned int dbg_idx;
+	rwlock_t dbg_lock;
+	char (buf[DEBUG_MAX_MSG])[DEBUG_MSG_LEN];   /* buffer */
 };
 
 struct ci13xxx_platform_data {
@@ -704,6 +714,16 @@ void msm_hw_bam_disable(bool bam_disable);
 static inline void msm_hw_bam_disable(bool bam_disable)
 {
 }
+#endif
+
+/* CONFIG_PM_RUNTIME */
+#ifdef CONFIG_PM_RUNTIME
+static inline int get_pm_runtime_counter(struct device *dev)
+{
+	return atomic_read(&dev->power.usage_count);
+}
+#else /* !CONFIG_PM_RUNTIME */
+static inline int get_pm_runtime_counter(struct device *dev) { return -ENOSYS; }
 #endif
 
 #ifdef CONFIG_USB_DWC3_MSM
