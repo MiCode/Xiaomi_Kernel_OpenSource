@@ -266,13 +266,16 @@ extern long compat_qseecom_ioctl(struct file *file,
 			struct compat_qseecom_update_key_userinfo_req)
 
 #define COMPAT_QSEECOM_QTEEC_IOCTL_OPEN_SESSION_REQ \
-	_IOWR(QSEECOM_IOC_MAGIC, 30, struct compat_qseecom_qteec_req)
+	_IOWR(QSEECOM_IOC_MAGIC, 30, struct compat_qseecom_qteec_modfd_req)
 
 #define COMPAT_QSEECOM_QTEEC_IOCTL_CLOSE_SESSION_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 31, struct compat_qseecom_qteec_req)
 
 #define COMPAT_QSEECOM_QTEEC_IOCTL_INVOKE_MODFD_CMD_REQ \
-	_IOWR(QSEECOM_IOC_MAGIC, 32, struct compat_qseecom_qteec_req)
+	_IOWR(QSEECOM_IOC_MAGIC, 32, struct compat_qseecom_qteec_modfd_req)
+
+#define COMPAT_QSEECOM_QTEEC_IOCTL_REQUEST_CANCELLATION_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 33, struct compat_qseecom_qteec_modfd_req)
 
 #endif
 #endif /* _UAPI_COMPAT_QSEECOM_H_ */
