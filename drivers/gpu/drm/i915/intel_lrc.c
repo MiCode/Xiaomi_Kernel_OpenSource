@@ -737,6 +737,23 @@ static void execlists_fetch_requests(struct intel_engine_cs *ring,
 			break;
 		}
 	}
+
+	if (IS_GEN8(ring->dev)) {
+		/* Make sure we never cause a lite restore with HEAD == TAIL */
+		if ((*req0) && ((*req0)->elsp_submitted == 1)) {
+			/*
+			 * Consume the buffer NOOPs to ensure HEAD != TAIL when
+			 * submitting. elsp_submitted can only be >1 after
+			 * reset, in which case we don't need the workaround as
+			 * a lite restore will not occur.
+			 */
+			struct intel_ringbuffer *ringbuf;
+
+			ringbuf = (*req0)->ctx->engine[ring->id].ringbuf;
+			(*req0)->tail += 8;
+			(*req0)->tail &= ringbuf->size - 1;
+		}
+	}
 }
 
 static void execlists_context_unqueue(struct intel_engine_cs *ring)
@@ -996,6 +1013,17 @@ static int execlists_context_queue(struct intel_engine_cs *ring,
 
 	req->ring = ring;
 	req->tail = tail;
+
+	if (IS_GEN8(ring->dev)) {
+		struct intel_ringbuffer *ringbuf = to->engine[ring->id].ringbuf;
+		/*
+		 * Here are two extra NOOPs as padding to avoid lite restore of
+		 * a context with HEAD==TAIL.
+		 */
+		intel_logical_ring_emit(ringbuf, MI_NOOP);
+		intel_logical_ring_emit(ringbuf, MI_NOOP);
+		intel_logical_ring_advance(ringbuf);
+	}
 
 	intel_runtime_pm_get(dev_priv);
 
@@ -1927,6 +1955,14 @@ int intel_logical_ring_begin(struct intel_ringbuffer *ringbuf, int num_dwords)
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
+
+	if (IS_GEN8(dev))
+		/*
+		 * Reserve space for 2 NOOPs at the end of each request to be
+		 * used as a workaround for not being allowed to do lite
+		 * restore with HEAD==TAIL.
+		 */
+		num_dwords += 2;
 
 	ret = i915_gem_check_wedge(&dev_priv->gpu_error,
 				   dev_priv->mm.interruptible, ring);
