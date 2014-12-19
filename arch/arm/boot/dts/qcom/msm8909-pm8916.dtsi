@@ -89,6 +89,11 @@
 					<7 1190400000>,
 					<8 1248000000>,
 					<9 1305600000>;
+		qcom,speed-bin-fuse-sel = <1 34 3 0>;
+		qcom,cpr-speed-bin-max-corners =
+					<0 0 2 4 9>,
+					<2 0 2 4 6>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <1400>;
 	};
 
 	qcom,gcc@1800000 {
