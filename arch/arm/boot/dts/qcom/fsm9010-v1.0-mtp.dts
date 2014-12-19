@@ -22,7 +22,7 @@
 
 
 &soc {
-	serial@f991f000 {
+	blsp1_uart3: serial@f9920000 {
 		status = "ok";
 	};
 

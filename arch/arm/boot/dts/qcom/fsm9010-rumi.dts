@@ -21,8 +21,7 @@
 };
 
 &soc {
-	serial@f991f000 {
-		qcom,bus-speed-mode = "";
+	blsp1_uart2: serial@f991f000 {
 		status = "ok";
 	};
 
