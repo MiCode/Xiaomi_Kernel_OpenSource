@@ -121,10 +121,10 @@
 				reg = <0>;
 				label = "l2-cache-active";
 				qcom,spm-l2-mode = "active";
-				qcom,latency-us = <400>;
-				qcom,ss-power = <390>;
-				qcom,energy-overhead = <435000>;
-				qcom,time-overhead = <750>;
+				qcom,latency-us = <270>;
+				qcom,ss-power = <455>;
+				qcom,energy-overhead = <250621>;
+				qcom,time-overhead = <500>;
 			};
 
 			qcom,pm-cluster-level@1{
@@ -132,9 +132,9 @@
 				label = "l2-gdhs";
 				qcom,spm-l2-mode = "gdhs";
 				qcom,latency-us = <500>;
-				qcom,ss-power = <370>;
-				qcom,energy-overhead = <465000>;
-				qcom,time-overhead = <800>;
+				qcom,ss-power = <427>;
+				qcom,energy-overhead = <431578>;
+				qcom,time-overhead = <900>;
 				qcom,min-child-idx = <1>;
 			};
 
@@ -142,10 +142,10 @@
 				reg = <2>;
 				label = "l2-pc";
 				qcom,spm-l2-mode = "pc";
-				qcom,latency-us = <11030>;
-				qcom,ss-power = <310>;
-				qcom,energy-overhead = <800000>;
-				qcom,time-overhead = <2000>;
+				qcom,latency-us = <10800>;
+				qcom,ss-power = <400>;
+				qcom,energy-overhead = <760239>;
+				qcom,time-overhead = <1500>;
 				qcom,min-child-idx = <2>;
 				qcom,notify-rpm;
 			};
@@ -159,28 +159,28 @@
 					reg = <0>;
 					qcom,spm-cpu-mode = "wfi";
 					qcom,latency-us = <1>;
-					qcom,ss-power = <470>;
+					qcom,ss-power = <473>;
 					qcom,energy-overhead = <100000>;
-					qcom,time-overhead = <60>;
+					qcom,time-overhead = <50>;
 				};
 
 				qcom,pm-cpu-level@1 {
 					reg = <1>;
 					qcom,spm-cpu-mode = "standalone_pc";
-					qcom,latency-us = <365>;
-					qcom,ss-power = <410>;
-					qcom,energy-overhead = <400000>;
-					qcom,time-overhead = <680>;
+					qcom,latency-us = <240>;
+					qcom,ss-power = <467>;
+					qcom,energy-overhead = <202781>;
+					qcom,time-overhead = <420>;
 					qcom,use-broadcast-timer;
 				};
 
 				qcom,pm-cpu-level@2 {
 					reg = <2>;
 					qcom,spm-cpu-mode = "pc";
-					qcom,latency-us = <400>;
-					qcom,ss-power = <390>;
-					qcom,energy-overhead = <435000>;
-					qcom,time-overhead = <750>;
+					qcom,latency-us = <270>;
+					qcom,ss-power = <455>;
+					qcom,energy-overhead = <250621>;
+					qcom,time-overhead = <500>;
 					qcom,use-broadcast-timer;
 				};
 			};
