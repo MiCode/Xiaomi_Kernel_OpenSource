@@ -443,54 +443,197 @@ static int __to_user_pcc_coeff(
 	return 0;
 }
 
+static int __from_user_pcc_coeff_v17(
+			struct mdp_pcc_cfg_data32 __user *pcc_cfg32,
+			struct mdp_pcc_cfg_data __user *pcc_cfg)
+{
+	struct mdp_pcc_data_v1_7_32 pcc_cfg_payload32;
+	struct mdp_pcc_data_v1_7 pcc_cfg_payload;
+
+	if (copy_from_user(&pcc_cfg_payload32,
+			   compat_ptr(pcc_cfg32->cfg_payload),
+			   sizeof(struct mdp_pcc_data_v1_7_32))) {
+		pr_err("failed to copy payload for pcc from user\n");
+		return -EFAULT;
+	}
+
+	pcc_cfg_payload.r.b = pcc_cfg_payload32.r.b;
+	pcc_cfg_payload.r.g = pcc_cfg_payload32.r.g;
+	pcc_cfg_payload.r.c = pcc_cfg_payload32.r.c;
+	pcc_cfg_payload.r.r = pcc_cfg_payload32.r.r;
+	pcc_cfg_payload.r.gb = pcc_cfg_payload32.r.gb;
+	pcc_cfg_payload.r.rb = pcc_cfg_payload32.r.rb;
+	pcc_cfg_payload.r.rg = pcc_cfg_payload32.r.rg;
+	pcc_cfg_payload.r.rgb = pcc_cfg_payload32.r.rgb;
+
+	pcc_cfg_payload.g.b = pcc_cfg_payload32.g.b;
+	pcc_cfg_payload.g.g = pcc_cfg_payload32.g.g;
+	pcc_cfg_payload.g.c = pcc_cfg_payload32.g.c;
+	pcc_cfg_payload.g.r = pcc_cfg_payload32.g.r;
+	pcc_cfg_payload.g.gb = pcc_cfg_payload32.g.gb;
+	pcc_cfg_payload.g.rb = pcc_cfg_payload32.g.rb;
+	pcc_cfg_payload.g.rg = pcc_cfg_payload32.g.rg;
+	pcc_cfg_payload.g.rgb = pcc_cfg_payload32.g.rgb;
+
+	pcc_cfg_payload.b.b = pcc_cfg_payload32.b.b;
+	pcc_cfg_payload.b.g = pcc_cfg_payload32.b.g;
+	pcc_cfg_payload.b.c = pcc_cfg_payload32.b.c;
+	pcc_cfg_payload.b.r = pcc_cfg_payload32.b.r;
+	pcc_cfg_payload.b.gb = pcc_cfg_payload32.b.gb;
+	pcc_cfg_payload.b.rb = pcc_cfg_payload32.b.rb;
+	pcc_cfg_payload.b.rg = pcc_cfg_payload32.b.rg;
+	pcc_cfg_payload.b.rgb = pcc_cfg_payload32.b.rgb;
+
+	if (copy_to_user(pcc_cfg->cfg_payload, &pcc_cfg_payload,
+			 sizeof(pcc_cfg_payload))) {
+		pr_err("failed to copy payload for pcc to user\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
 static int __from_user_pcc_cfg_data(
 			struct mdp_pcc_cfg_data32 __user *pcc_cfg32,
 			struct mdp_pcc_cfg_data __user *pcc_cfg)
 {
+	u32 version;
+
 	if (copy_in_user(&pcc_cfg->block,
 			&pcc_cfg32->block,
 			sizeof(uint32_t)) ||
 	    copy_in_user(&pcc_cfg->ops,
 			&pcc_cfg32->ops,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&pcc_cfg->version,
+			&pcc_cfg32->version,
 			sizeof(uint32_t)))
 		return -EFAULT;
 
-	if (__from_user_pcc_coeff(
-			compat_ptr((uintptr_t)&pcc_cfg32->r),
-			&pcc_cfg->r) ||
-	    __from_user_pcc_coeff(
-			compat_ptr((uintptr_t)&pcc_cfg32->g),
-			&pcc_cfg->g) ||
-	    __from_user_pcc_coeff(
-			compat_ptr((uintptr_t)&pcc_cfg32->b),
-			&pcc_cfg->b))
+	if (copy_from_user(&version, &pcc_cfg32->version, sizeof(u32))) {
+		pr_err("failed to copy version for pcc\n");
 		return -EFAULT;
+	}
+
+	switch (version) {
+	case mdp_pcc_v1_7:
+		if (__from_user_pcc_coeff_v17(pcc_cfg32, pcc_cfg)) {
+			pr_err("failed to copy pcc v17 data\n");
+			return -EFAULT;
+		}
+		break;
+	default:
+		pr_debug("pcc version %d not supported use legacy\n", version);
+		if (__from_user_pcc_coeff(
+				compat_ptr((uintptr_t)&pcc_cfg32->r),
+				&pcc_cfg->r) ||
+		    __from_user_pcc_coeff(
+				compat_ptr((uintptr_t)&pcc_cfg32->g),
+				&pcc_cfg->g) ||
+		    __from_user_pcc_coeff(
+				compat_ptr((uintptr_t)&pcc_cfg32->b),
+				&pcc_cfg->b))
+			return -EFAULT;
+		break;
+	}
+	return 0;
+}
+
+static int __to_user_pcc_coeff_v1_7(
+			struct mdp_pcc_cfg_data32 __user *pcc_cfg32,
+			struct mdp_pcc_cfg_data __user *pcc_cfg)
+{
+	struct mdp_pcc_data_v1_7_32 pcc_cfg_payload32;
+	struct mdp_pcc_data_v1_7 pcc_cfg_payload;
+
+	if (copy_from_user(&pcc_cfg_payload,
+			   pcc_cfg->cfg_payload,
+			   sizeof(struct mdp_pcc_data_v1_7))) {
+		pr_err("failed to copy payload for pcc from user\n");
+		return -EFAULT;
+	}
+
+	pcc_cfg_payload32.r.b = pcc_cfg_payload.r.b;
+	pcc_cfg_payload32.r.g = pcc_cfg_payload.r.g;
+	pcc_cfg_payload32.r.c = pcc_cfg_payload.r.c;
+	pcc_cfg_payload32.r.r = pcc_cfg_payload.r.r;
+	pcc_cfg_payload32.r.gb = pcc_cfg_payload.r.gb;
+	pcc_cfg_payload32.r.rb = pcc_cfg_payload.r.rb;
+	pcc_cfg_payload32.r.rg = pcc_cfg_payload.r.rg;
+	pcc_cfg_payload32.r.rgb = pcc_cfg_payload.r.rgb;
+
+	pcc_cfg_payload32.g.b = pcc_cfg_payload.g.b;
+	pcc_cfg_payload32.g.g = pcc_cfg_payload.g.g;
+	pcc_cfg_payload32.g.c = pcc_cfg_payload.g.c;
+	pcc_cfg_payload32.g.r = pcc_cfg_payload.g.r;
+	pcc_cfg_payload32.g.gb = pcc_cfg_payload.g.gb;
+	pcc_cfg_payload32.g.rb = pcc_cfg_payload.g.rb;
+	pcc_cfg_payload32.g.rg = pcc_cfg_payload.g.rg;
+	pcc_cfg_payload32.g.rgb = pcc_cfg_payload.g.rgb;
+
+	pcc_cfg_payload32.b.b = pcc_cfg_payload.b.b;
+	pcc_cfg_payload32.b.g = pcc_cfg_payload.b.g;
+	pcc_cfg_payload32.b.c = pcc_cfg_payload.b.c;
+	pcc_cfg_payload32.b.r = pcc_cfg_payload.b.r;
+	pcc_cfg_payload32.b.gb = pcc_cfg_payload.b.gb;
+	pcc_cfg_payload32.b.rb = pcc_cfg_payload.b.rb;
+	pcc_cfg_payload32.b.rg = pcc_cfg_payload.b.rg;
+	pcc_cfg_payload32.b.rgb = pcc_cfg_payload.b.rgb;
+
+	if (copy_to_user(compat_ptr(pcc_cfg32->cfg_payload),
+			 &pcc_cfg_payload32,
+			 sizeof(pcc_cfg_payload32))) {
+		pr_err("failed to copy payload for pcc to user\n");
+		return -EFAULT;
+	}
 
 	return 0;
 }
+
 
 static int __to_user_pcc_cfg_data(
 			struct mdp_pcc_cfg_data32 __user *pcc_cfg32,
 			struct mdp_pcc_cfg_data __user *pcc_cfg)
 {
-	if (copy_in_user(&pcc_cfg32->block,
-			&pcc_cfg->block,
-			sizeof(uint32_t)) ||
-	    copy_in_user(&pcc_cfg32->ops,
-			&pcc_cfg->ops,
-			sizeof(uint32_t)))
-		return -EFAULT;
+	u32 version;
+	u32 ops;
 
-	if (__to_user_pcc_coeff(
-			compat_ptr((uintptr_t)&pcc_cfg32->r),
-			&pcc_cfg->r) ||
-	    __to_user_pcc_coeff(
-			compat_ptr((uintptr_t)&pcc_cfg32->g),
-			&pcc_cfg->g) ||
-	    __to_user_pcc_coeff(
-			compat_ptr((uintptr_t)&pcc_cfg32->b),
-			&pcc_cfg->b))
+	if (copy_from_user(&ops, &pcc_cfg->ops, sizeof(u32))) {
+		pr_err("failed to copy op for pcc\n");
 		return -EFAULT;
+	}
+
+	if (!(ops & MDP_PP_OPS_READ)) {
+		pr_debug("Read op is not set. Skipping compat copyback\n");
+		return 0;
+	}
+
+	if (copy_from_user(&version, &pcc_cfg->version, sizeof(u32))) {
+		pr_err("failed to copy version for pcc\n");
+		return -EFAULT;
+	}
+
+	switch (version) {
+	case mdp_pcc_v1_7:
+		if (__to_user_pcc_coeff_v1_7(pcc_cfg32, pcc_cfg)) {
+			pr_err("failed to copy pcc v1_7 data\n");
+			return -EFAULT;
+		}
+		break;
+	default:
+		pr_debug("version invalid, fallback to legacy\n");
+
+		if (__to_user_pcc_coeff(
+				compat_ptr((uintptr_t)&pcc_cfg32->r),
+				&pcc_cfg->r) ||
+		    __to_user_pcc_coeff(
+				compat_ptr((uintptr_t)&pcc_cfg32->g),
+				&pcc_cfg->g) ||
+		    __to_user_pcc_coeff(
+				compat_ptr((uintptr_t)&pcc_cfg32->b),
+				&pcc_cfg->b))
+			return -EFAULT;
+		break;
+	}
 
 	return 0;
 }
@@ -1929,6 +2072,12 @@ static u32 __pp_compat_size_pgc(void)
 	return tbl_sz_max;
 }
 
+static u32 __pp_compat_size_pcc(void)
+{
+	/* if new version of PCC is added return max struct size */
+	return sizeof(struct mdp_pcc_data_v1_7);
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1936,7 +2085,8 @@ static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 	uint32_t alloc_size = 0, lut_type, pgc_size = 0;
 
 	alloc_size = sizeof(struct msmfb_mdp_pp);
-	if (op == mdp_op_lut_cfg) {
+	switch (op) {
+	case  mdp_op_lut_cfg:
 		if (copy_from_user(&lut_type,
 			&pp32->data.lut_cfg_data.lut_type,
 			sizeof(uint32_t)))
@@ -1996,13 +2146,27 @@ static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 			memset(*pp, 0, alloc_size);
 			break;
 		}
-	} else {
+		break;
+	case mdp_op_pcc_cfg:
+		alloc_size += __pp_compat_size_pcc();
+		*pp = compat_alloc_user_space(alloc_size);
+		if (NULL == *pp) {
+			pr_err("alloc from user size %d for pcc fail\n",
+				alloc_size);
+			return -ENOMEM;
+		}
+		memset(*pp, 0, alloc_size);
+		(*pp)->data.pcc_cfg_data.cfg_payload =
+				(void *)((unsigned long)(*pp) +
+				 sizeof(struct msmfb_mdp_pp));
+		break;
+	default:
 		*pp = compat_alloc_user_space(alloc_size);
 		if (NULL == *pp)
 			return -ENOMEM;
 		memset(*pp, 0, alloc_size);
+		break;
 	}
-
 	return 0;
 }
 

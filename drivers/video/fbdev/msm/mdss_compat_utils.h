@@ -100,10 +100,19 @@ struct mdp_pcc_coeff32 {
 	uint32_t c, r, g, b, rr, gg, bb, rg, gb, rb, rgb_0, rgb_1;
 };
 
+struct mdp_pcc_coeff_v1_7_32 {
+	uint32_t c, r, g, b, rg, gb, rb, rgb;
+};
+
+struct mdp_pcc_data_v1_7_32 {
+	struct mdp_pcc_coeff_v1_7_32 r, g, b;
+};
 struct mdp_pcc_cfg_data32 {
+	uint32_t version;
 	uint32_t block;
 	uint32_t ops;
 	struct mdp_pcc_coeff32 r, g, b;
+	compat_caddr_t cfg_payload;
 };
 
 struct mdp_csc_cfg32 {
