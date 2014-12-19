@@ -1537,9 +1537,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@87900000 {
+	qcom_seecom: qseecom@87e00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x87900000 0x300000>;
+		reg = <0x87e00000 0x80000>;
 		reg-names = "secapp-region";
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,hlos-ce-hw-instance = <0>;
