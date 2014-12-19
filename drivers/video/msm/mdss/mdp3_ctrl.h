@@ -66,6 +66,7 @@ struct mdp3_session_data {
 	int vsync_enabled;
 	atomic_t vsync_countdown; /* Used to count down  */
 	bool in_splash_screen;
+	bool esd_recovery;
 
 	bool dma_active;
 	struct completion dma_completion;

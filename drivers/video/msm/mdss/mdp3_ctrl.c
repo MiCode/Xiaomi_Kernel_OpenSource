@@ -716,6 +716,8 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	mdp3_session->clk_on = 1;
 
 	mdp3_session->first_commit = true;
+	if (mfd->panel_info->panel_dead)
+		mdp3_session->esd_recovery = true;
 
 	mdp3_session->status = 1;
 
@@ -1119,9 +1121,11 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 	}
 
 	mdp3_session->vsync_before_commit = 0;
-	if (!splash_done && (panel && panel->set_backlight)) {
+	if ((!splash_done && (panel && panel->set_backlight)) ||
+					mdp3_session->esd_recovery == true ) {
 		panel->set_backlight(panel, panel->panel_info.bl_max);
 		splash_done = true;
+		mdp3_session->esd_recovery = false;
 	}
 
 	mutex_unlock(&mdp3_session->lock);
