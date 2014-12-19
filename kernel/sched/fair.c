@@ -7550,7 +7550,8 @@ struct sched_group *group, struct sg_lb_stats *sgs, struct lb_env *env)
 	 * prioritize spreading work over power optimization.
 	 */
 	cpu = cpumask_first(sched_group_cpus(group));
-	if ((capacity(env->dst_rq) == group_rq_capacity(group)) &&
+	if (sched_enable_power_aware &&
+	    (capacity(env->dst_rq) == group_rq_capacity(group)) &&
 	    sgs->sum_nr_running && (env->idle != CPU_NOT_IDLE) &&
 	    power_cost_at_freq(env->dst_cpu, 0) <
 	    power_cost_at_freq(cpu, 0) &&
