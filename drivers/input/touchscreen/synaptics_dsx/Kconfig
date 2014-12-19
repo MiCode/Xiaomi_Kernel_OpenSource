@@ -1,0 +1,85 @@
+#
+# Synaptics DSX touchscreen driver configuration
+#
+config TOUCHSCREEN_SYNAPTICS_DSX
+	tristate "Synaptics DSX touchscreen"
+	default y
+	help
+	  Say Y here if you have a Synaptics DSX touchscreen connected
+	  to your system.
+	  If unsure, say N.
+
+if TOUCHSCREEN_SYNAPTICS_DSX
+
+config TOUCHSCREEN_SYNAPTICS_DSX_I2C
+        bool "RMI over I2C"
+        depends on I2C
+        help
+          Say Y here to enable Synaptics I2C bus interface when
+          touchscreen controller is connected with HOST using I2C
+          bus.
+	  If unsure, say N.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_SPI
+        bool "RMI over SPI"
+        depends on SPI_MASTER
+        help
+          Say Y here to enable Synaptics SPI bus interface when
+          touchscreen controller is connected with HOST using SPI
+          bus.
+	  If unsure, say N.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_RMI_HID_I2C
+        bool "HID over I2C"
+        depends on I2C
+        help
+          Say Y here to enable Synaptics HID I2C bus interface when
+          touchscreen controller is connected with HOST using I2C
+          bus and using hid protocol.
+	  If unsure, say N.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_RMI_DEV
+        tristate "Synaptics DSX RMI device module"
+        depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+        help
+          Say Y here to enable support for direct RMI register access.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called synaptics_dsx_rmi_dev.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_ACTIVE_PEN
+        tristate "Synaptics DSX active pen module"
+        depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+        help
+          Say Y here to enable support for active pen functionalities.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called synaptics_dsx_active_pen.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_PROXIMITY
+        tristate "Synaptics DSX proximity module"
+        depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+        help
+          Say Y here to enable support for proximity functionalities.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called synaptics_dsx_proximity.
+
+config TOUCHSCREEN_SYNAPTICS_DSX_DEBUG
+        tristate "Synaptics DSX debug module"
+        depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE
+        help
+          Say Y here to enable support for firmware debug functionalities.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called synaptics_dsx_debug.
+
+endif
