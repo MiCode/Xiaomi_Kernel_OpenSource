@@ -1,0 +1,1 @@
+../../../atomisp_driver/hrt/device_access.c
