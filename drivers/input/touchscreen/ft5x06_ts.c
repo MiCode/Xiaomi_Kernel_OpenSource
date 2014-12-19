@@ -434,7 +434,7 @@ static int ft5x06_read_tp_psensor_data(struct ft5x06_ts_data *data)
 						FT_PSENSOR_NEAR_TO_FAR;
 
 	if (tmp != data->psensor_pdata->tp_psensor_data) {
-		dev_debug(&data->client->dev,
+		dev_dbg(&data->client->dev,
 				"%s sensor data changed\n", __func__);
 		ret = 0;
 	}
