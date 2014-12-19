@@ -2665,7 +2665,6 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct intel_framebuffer *intel_fb;
 	struct drm_i915_gem_object *obj;
 	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 	int plane = intel_crtc->plane;
@@ -2679,9 +2678,11 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	int pixel_size;
 	int plane_ddl, plane_prec_multi;
 
+	obj = intel_fb_obj(fb);
+	if (WARN_ON(obj == NULL))
+		return;
+
 	pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
-	intel_fb = to_intel_framebuffer(fb);
-	obj = intel_fb->obj;
 
 	if (!dev_priv->atomic_update)
 		intel_update_watermarks(crtc);
@@ -2943,15 +2944,15 @@ static void ironlake_update_primary_plane(struct drm_crtc *crtc,
 	struct drm_device *dev = crtc->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct intel_framebuffer *intel_fb;
 	struct drm_i915_gem_object *obj;
 	int plane = intel_crtc->plane;
 	unsigned long linear_offset;
 	u32 dspcntr;
 	u32 reg;
 
-	intel_fb = to_intel_framebuffer(fb);
-	obj = intel_fb->obj;
+	obj = intel_fb_obj(fb);
+	if (WARN_ON(obj == NULL))
+		return;
 
 	intel_update_watermarks(crtc);
 
