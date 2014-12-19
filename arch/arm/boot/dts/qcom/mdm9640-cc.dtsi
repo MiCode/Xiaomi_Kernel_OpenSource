@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -843,6 +843,7 @@
 
 	usb30_mock_utmi_clk_src {
 		qcom,freq-tbl =
+			<  19200000    1    0    0     0 &xo>,
 			<  60000000   10    0    0     0 &gpll0_out_main>,
 			<>;
 	};
