@@ -792,7 +792,7 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 	if (labibb->mode != QPNP_LABIBB_STANDALONE_MODE) {
 		val = LAB_MODULE_RDY_EN;
 
-		rc = qpnp_labibb_write(labibb, labibb->ibb_base +
+		rc = qpnp_labibb_write(labibb, labibb->lab_base +
 			REG_LAB_MODULE_RDY, &val, 1);
 
 		if (rc) {
