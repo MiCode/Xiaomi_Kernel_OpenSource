@@ -45,7 +45,9 @@ struct mdss_dbg_xlog {
 	u32 xlog_enable;
 	u32 panic_on_err;
 	u32 enable_reg_dump;
+	struct work_struct xlog_dump_work;
 	struct mdss_debug_base *blk_arr[MDSS_DEBUG_BASE_MAX];
+	bool work_panic;
 } mdss_dbg_xlog;
 
 static inline bool mdss_xlog_is_enabled(u32 flag)
@@ -364,7 +366,15 @@ static void mdss_xlog_dump_array(struct mdss_debug_base *blk_arr[],
 		panic(name);
 }
 
-void mdss_xlog_tout_handler_default(const char *name, ...)
+static void xlog_debug_work(struct work_struct *work)
+{
+
+	mdss_xlog_dump_array(mdss_dbg_xlog.blk_arr,
+		ARRAY_SIZE(mdss_dbg_xlog.blk_arr),
+		mdss_dbg_xlog.work_panic, "xlog_workitem");
+}
+
+void mdss_xlog_tout_handler_default(bool queue, const char *name, ...)
 {
 	int i, index = 0;
 	bool dead = false;
@@ -375,6 +385,9 @@ void mdss_xlog_tout_handler_default(const char *name, ...)
 	u32 blk_len;
 
 	if (!mdss_xlog_is_enabled(MDSS_XLOG_DEFAULT))
+		return;
+
+	if (queue && work_pending(&mdss_dbg_xlog.xlog_dump_work))
 		return;
 
 	blk_arr = &mdss_dbg_xlog.blk_arr[0];
@@ -399,7 +412,13 @@ void mdss_xlog_tout_handler_default(const char *name, ...)
 	}
 	va_end(args);
 
-	mdss_xlog_dump_array(blk_arr, blk_len, dead, name);
+	if (queue) {
+		/* schedule work to dump later */
+		mdss_dbg_xlog.work_panic = dead;
+		schedule_work(&mdss_dbg_xlog.xlog_dump_work);
+	} else {
+		mdss_xlog_dump_array(blk_arr, blk_len, dead, name);
+	}
 }
 
 static int mdss_xlog_dump_open(struct inode *inode, struct file *file)
@@ -455,6 +474,9 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 		mdss_dbg_xlog.xlog = NULL;
 		return -ENODEV;
 	}
+
+	INIT_WORK(&mdss_dbg_xlog.xlog_dump_work, xlog_debug_work);
+	mdss_dbg_xlog.work_panic = false;
 
 	debugfs_create_file("dump", 0644, mdss_dbg_xlog.xlog, NULL,
 						&mdss_xlog_fops);
