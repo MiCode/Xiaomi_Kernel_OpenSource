@@ -1031,6 +1031,23 @@ static int chv_irq_wake(struct irq_data *d, unsigned on)
 
 static void chv_irq_ack(struct irq_data *d)
 {
+	struct chv_gpio *cg = irq_data_get_irq_chip_data(d);
+	u32 offset = irqd_to_hwirq(d);
+	struct gpio_pad_info *pad_info = cg->pad_info + offset;
+	void __iomem *stat_reg = chv_gpio_reg(&cg->chip, 0, CV_INT_STAT_REG);
+	unsigned long flags;
+
+	spin_lock_irqsave(&cg->lock, flags);
+
+	/* Ack if this GPIO has valid interrupt line */
+	if (pad_info->interrupt_line >= 0) {
+		chv_writel(BIT(pad_info->interrupt_line), stat_reg);
+	} else {
+		dev_warn(&cg->pdev->dev,
+			"Trying to ack GPIO intr which is not allocated\n");
+	}
+
+	spin_unlock_irqrestore(&cg->lock, flags);
 }
 
 static void chv_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
@@ -1160,10 +1177,10 @@ static void chv_gpio_irq_dispatch(struct chv_gpio *cg)
 	mask_reg = chv_gpio_reg(&cg->chip, 0, CV_INT_MASK_REG);
 	while ((pending = (chv_readl(reg) & chv_readl(mask_reg) & 0xFFFF))) {
 		intr_line = __ffs(pending);
-		mask = BIT(intr_line);
-		chv_writel(mask, reg);
 		offset = cg->intr_lines[intr_line];
 		if (unlikely(offset < 0)) {
+			mask = BIT(intr_line);
+			chv_writel(mask, reg);
 			dev_warn(&cg->pdev->dev, "unregistered shared irq\n");
 			continue;
 		}
