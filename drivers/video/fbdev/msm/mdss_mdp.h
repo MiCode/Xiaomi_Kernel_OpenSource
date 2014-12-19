@@ -277,7 +277,7 @@ struct mdss_mdp_ctl {
 	u8 roi_changed;
 	u8 valid_roi;
 
-	int cmd_autorefresh_en;
+	bool cmd_autorefresh_en;
 	int autorefresh_frame_cnt;
 
 	struct blocking_notifier_head notifier_head;

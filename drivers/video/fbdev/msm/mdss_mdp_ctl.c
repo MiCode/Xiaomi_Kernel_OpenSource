@@ -1991,8 +1991,7 @@ int mdss_mdp_ctl_cmd_autorefresh_enable(struct mdss_mdp_ctl *ctl,
 {
 	int ret = 0;
 	if (ctl->panel_data->panel_info.type == MIPI_CMD_PANEL) {
-		mdss_mdp_cmd_set_autorefresh_mode(ctl,
-				frame_cnt);
+		ret = mdss_mdp_cmd_set_autorefresh_mode(ctl, frame_cnt);
 	} else {
 		pr_err("Mode not supported for this panel\n");
 		ret = -EINVAL;
