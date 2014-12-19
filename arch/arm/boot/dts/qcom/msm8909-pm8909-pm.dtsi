@@ -317,6 +317,7 @@
 		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
 		qcom,synced-clocks;
+		qcom,tz-flushes-cache;
 	};
 
 	qcom,cpu-sleep-status@b088008{
