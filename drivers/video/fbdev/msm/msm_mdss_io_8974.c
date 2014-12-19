@@ -330,7 +330,8 @@ static void mdss_dsi_20nm_phy_regulator_enable(struct mdss_dsi_ctrl_pdata
 	}
 
 	if (pd->reg_ldo_mode) {
-		MIPI_OUTP(phy_io_base + MDSS_DSI_DSIPHY_LDO_CNTRL, 0x1d);
+		MIPI_OUTP(ctrl_pdata->phy_io.base + MDSS_DSI_DSIPHY_LDO_CNTRL,
+			0x1d);
 	} else {
 		MIPI_OUTP(phy_io_base + MDSS_DSI_DSIPHY_REGULATOR_CTRL_1,
 			pd->regulator[1]);
@@ -342,7 +343,8 @@ static void mdss_dsi_20nm_phy_regulator_enable(struct mdss_dsi_ctrl_pdata
 			pd->regulator[4]);
 		MIPI_OUTP(phy_io_base + MDSS_DSI_DSIPHY_REGULATOR_CAL_PWR_CFG,
 			pd->regulator[6]);
-		MIPI_OUTP(phy_io_base + MDSS_DSI_DSIPHY_LDO_CNTRL, 0x00);
+		MIPI_OUTP(ctrl_pdata->phy_io.base + MDSS_DSI_DSIPHY_LDO_CNTRL,
+			0x00);
 		MIPI_OUTP(phy_io_base + MDSS_DSI_DSIPHY_REGULATOR_CTRL_0,
 			pd->regulator[0]);
 	}
