@@ -410,6 +410,9 @@ struct msm_otg_platform_data {
 	     pm_done is set to true.
  * @ext_id_irq: IRQ for ID interrupt.
  * @phy_irq_pending: Gets set when PHY IRQ arrives in LPM.
+ * @dbg_idx: Dynamic debug buffer Index.
+ * @dbg_lock: Dynamic debug buffer Lock.
+ * @buf: Dynamic Debug Buffer.
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -551,6 +554,13 @@ struct msm_otg {
 	int ext_id_irq;
 	bool phy_irq_pending;
 	wait_queue_head_t	host_suspend_wait;
+/* Maximum debug message length */
+#define DEBUG_MSG_LEN   128UL
+/* Maximum number of messages */
+#define DEBUG_MAX_MSG   256UL
+	unsigned int dbg_idx;
+	rwlock_t dbg_lock;
+	char (buf[DEBUG_MAX_MSG])[DEBUG_MSG_LEN];   /* buffer */
 };
 
 struct ci13xxx_platform_data {
@@ -684,6 +694,16 @@ void msm_hw_bam_disable(bool bam_disable);
 static inline void msm_hw_bam_disable(bool bam_disable)
 {
 }
+#endif
+
+/* CONFIG_PM_RUNTIME */
+#ifdef CONFIG_PM_RUNTIME
+static inline int get_pm_runtime_counter(struct device *dev)
+{
+	return atomic_read(&dev->power.usage_count);
+}
+#else /* !CONFIG_PM_RUNTIME */
+static inline int get_pm_runtime_counter(struct device *dev) { return -ENOSYS; }
 #endif
 
 #ifdef CONFIG_USB_DWC3_MSM
