@@ -28,6 +28,7 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+static void *g_fctrl;
 int32_t msm_led_i2c_trigger_get_subdev_id(struct msm_led_flash_ctrl_t *fctrl,
 	void *arg)
 {
@@ -663,9 +664,27 @@ static int set_led_status(void *data, u64 val)
 	if (val == 0) {
 		pr_debug("set_led_status: val is disable");
 		rc = msm_flash_led_off(fctrl);
+		if (rc < 0) {
+			pr_err("%s led_off failed line %d\n", __func__, __LINE__);
+			return rc;
+		}
+		rc = msm_flash_led_release(fctrl);
+		if (rc < 0) {
+			pr_err("%s led_release failed line %d\n", __func__, __LINE__);
+			return rc;
+		}
 	} else {
 		pr_debug("set_led_status: val is enable");
+		rc = msm_flash_led_init(fctrl);
+		if (rc < 0) {
+			pr_err("%s led_init failed line %d\n", __func__, __LINE__);
+			return rc;
+		}
 		rc = msm_flash_led_low(fctrl);
+		if (rc < 0) {
+			pr_err("%s led_low failed line %d\n", __func__, __LINE__);
+			return rc;
+		}
 	}
 
 	return rc;
@@ -674,6 +693,49 @@ static int set_led_status(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(ledflashdbg_fops,
 	NULL, set_led_status, "%llu\n");
 #endif
+
+static void msm_led_i2c_torch_brightness_set(struct led_classdev *led_cdev,
+				enum led_brightness value)
+{
+	struct msm_led_flash_ctrl_t *fctrl = NULL;
+
+	if (g_fctrl == NULL)
+		return;
+
+	fctrl = (struct msm_led_flash_ctrl_t *) g_fctrl;
+
+	if (value > LED_OFF) {
+		if (fctrl->func_tbl->flash_led_init)
+			fctrl->func_tbl->flash_led_init(fctrl);
+		if (fctrl->func_tbl->flash_led_low)
+			fctrl->func_tbl->flash_led_low(fctrl);
+	} else {
+		if (fctrl->func_tbl->flash_led_off)
+			fctrl->func_tbl->flash_led_off(fctrl);
+		if (fctrl->func_tbl->flash_led_release)
+			fctrl->func_tbl->flash_led_release(fctrl);
+	}
+};
+
+static struct led_classdev msm_torch_i2c_led = {
+	.name			= "torch-light",
+	.brightness_set	= msm_led_i2c_torch_brightness_set,
+	.brightness		= LED_OFF,
+};
+
+static int32_t msm_i2c_torch_create_classdev(struct device *dev ,
+				void *data)
+{
+	int rc;
+	msm_led_i2c_torch_brightness_set(&msm_torch_i2c_led, LED_OFF);
+	rc = led_classdev_register(dev, &msm_torch_i2c_led);
+	if (rc) {
+		pr_err("Failed to register led dev. rc = %d\n", rc);
+		return rc;
+	}
+
+	return 0;
+};
 
 int msm_flash_i2c_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
@@ -731,6 +793,13 @@ int msm_flash_i2c_probe(struct i2c_client *client,
 	if (!dentry)
 		pr_err("Failed to create the debugfs ledflash file");
 #endif
+	/* Assign Global flash control sturcture for local usage */
+	g_fctrl = (void *) fctrl;
+	rc = msm_i2c_torch_create_classdev(&(client->dev), NULL);
+	if (rc) {
+		pr_err("%s failed to create classdev %d\n", __func__, __LINE__);
+		return rc;
+	}
 	CDBG("%s:%d probe success\n", __func__, __LINE__);
 	return 0;
 
