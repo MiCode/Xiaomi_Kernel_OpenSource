@@ -73,6 +73,9 @@ struct dw8250_acpi_desc {
 #define BYT_PRV_CLK_N_VAL_SHIFT		16
 #define BYT_PRV_CLK_UPDATE		(1 << 31)
 
+#define BYT_GENERAL_REG			0x808
+#define BYT_GENERAL_DIS_RTS_N_OVERRIDE	(1 << 3)
+
 static void byt_set_termios(struct uart_port *p, struct ktermios *termios,
 			    struct ktermios *old)
 {
@@ -122,6 +125,16 @@ static void byt_set_termios(struct uart_port *p, struct ktermios *termios,
 	writel(reg, p->membase + BYT_PRV_CLK);
 	reg |= BYT_PRV_CLK_EN | BYT_PRV_CLK_UPDATE;
 	writel(reg, p->membase + BYT_PRV_CLK);
+
+	/*
+	 * If auto-handshake mechanism is enabled,
+	 * disable rts_n override
+	 */
+	reg = readl(p->membase + BYT_GENERAL_REG);
+	reg &= ~BYT_GENERAL_DIS_RTS_N_OVERRIDE;
+	if (termios->c_cflag & CRTSCTS)
+		reg |= BYT_GENERAL_DIS_RTS_N_OVERRIDE;
+	writel(reg, p->membase + BYT_GENERAL_REG);
 
 	serial8250_do_set_termios(p, termios, old);
 }
