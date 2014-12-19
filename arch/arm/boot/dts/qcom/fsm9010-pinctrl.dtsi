@@ -32,6 +32,17 @@
 			};
 		};
 
+		blsp1_uart3_active {
+		qcom,pins = <&gp 10>, <&gp 11>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "blsp1_uart3_active";
+			hsuart3_active: hsuart3_active {
+				drive-strength = <8>; /* 8MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
 		pcie0_clkreq {
 			qcom,pins = <&gp 88>;
 			qcom,num-grp-pins = <1>;

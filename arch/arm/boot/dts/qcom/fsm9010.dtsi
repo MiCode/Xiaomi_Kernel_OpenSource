@@ -79,6 +79,8 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_uart3_apps_clk>,
 		<&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hsuart3_active>;
 		status = "disabled";
 		interrupts = <0 96 0>;
 	};
