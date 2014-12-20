@@ -27,6 +27,7 @@
 #define MSM_PCIE_MAX_PIPE_CLK 1
 
 #define MAX_RC_NUM 2
+#define MAX_DEVICE_NUM 20
 
 #ifdef CONFIG_ARM_LPAE
 #define PCIE_UPPER_ADDR(addr) ((u32)((addr) >> 32))
@@ -178,6 +179,15 @@ struct msm_pcie_irq_info_t {
 	uint32_t          num;
 };
 
+/* PCIe device info structure */
+struct msm_pcie_device_info {
+	u32			bdf;
+	struct pci_dev		*dev;
+	int			domain;
+	void __iomem		*conf_base;
+	unsigned long		phy_address;
+};
+
 /* msm pcie device structure */
 struct msm_pcie_dev_t {
 	struct platform_device       *pdev;
@@ -245,7 +255,9 @@ struct msm_pcie_dev_t {
 	bool                         suspending;
 	ulong                        wake_counter;
 	ulong                        req_exit_l1_counter;
-	u32			     ep_shadow[PCIE_CONF_SPACE_DW];
+	struct msm_pcie_device_info  pcidev_table[MAX_DEVICE_NUM];
+	u32			     current_bdf;
+	u32		ep_shadow[MAX_DEVICE_NUM][PCIE_CONF_SPACE_DW];
 	u32                          rc_shadow[PCIE_CONF_SPACE_DW];
 	bool                         shadow_en;
 	struct msm_pcie_register_event *event_reg;
