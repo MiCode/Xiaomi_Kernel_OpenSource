@@ -255,14 +255,25 @@ struct mdp_dither_cfg_data32 {
 	uint32_t b_cb_depth;
 };
 
+struct mdp_gamut_data_v1_7_32 {
+	uint32_t mode;
+	uint32_t tbl_size[MDP_GAMUT_TABLE_NUM_V1_7];
+	compat_caddr_t c0_data[MDP_GAMUT_TABLE_NUM_V1_7];
+	compat_caddr_t c1_c2_data[MDP_GAMUT_TABLE_NUM_V1_7];
+	uint32_t  tbl_scale_off_sz[MDP_GAMUT_SCALE_OFF_TABLE_NUM];
+	compat_caddr_t scale_off_data[MDP_GAMUT_SCALE_OFF_TABLE_NUM];
+};
+
 struct mdp_gamut_cfg_data32 {
 	uint32_t block;
 	uint32_t flags;
+	uint32_t version;
 	uint32_t gamut_first;
 	uint32_t tbl_size[MDP_GAMUT_TABLE_NUM];
 	compat_caddr_t r_tbl[MDP_GAMUT_TABLE_NUM];
 	compat_caddr_t g_tbl[MDP_GAMUT_TABLE_NUM];
 	compat_caddr_t b_tbl[MDP_GAMUT_TABLE_NUM];
+	compat_caddr_t cfg_payload;
 };
 
 struct mdp_calib_config_data32 {
