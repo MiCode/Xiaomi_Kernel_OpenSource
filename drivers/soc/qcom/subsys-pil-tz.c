@@ -843,12 +843,9 @@ static irqreturn_t subsys_wdog_bite_irq_handler(int irq, void *dev_id)
 {
 	struct pil_tz_data *d = subsys_to_data(dev_id);
 
-	pr_err("Watchdog bite received from %s!\n", d->subsys_desc.name);
-	if (subsys_get_crash_status(d->subsys)) {
-		pr_err("%s: Ignoring wdog bite IRQ, restart in progress\n",
-							d->subsys_desc.name);
+	if (subsys_get_crash_status(d->subsys))
 		return IRQ_HANDLED;
-	}
+	pr_err("Watchdog bite received from %s!\n", d->subsys_desc.name);
 
 	if (d->subsys_desc.system_debug &&
 			!gpio_get_value(d->subsys_desc.err_fatal_gpio))
