@@ -371,7 +371,14 @@ ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 		core_clk_rate = DEFAULT_CLK_RATE_HZ;
 
 	core_clk_cycles_per_us = core_clk_rate / USEC_PER_SEC;
-	ufshcd_writel(hba, core_clk_cycles_per_us, REG_UFS_SYS1CLK_1US);
+	if (ufshcd_readl(hba, REG_UFS_SYS1CLK_1US) != core_clk_cycles_per_us) {
+		ufshcd_writel(hba, core_clk_cycles_per_us, REG_UFS_SYS1CLK_1US);
+		/*
+		 * make sure above write gets applied before we return from
+		 * this function.
+		 */
+		mb();
+	}
 
 	core_clk_period_in_ns = NSEC_PER_SEC / core_clk_rate;
 	core_clk_period_in_ns <<= OFFSET_CLK_NS_REG;
@@ -421,9 +428,17 @@ ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 		goto out_error;
 	}
 
-	/* this register 2 fields shall be written at once */
-	ufshcd_writel(hba, core_clk_period_in_ns | tx_clk_cycles_per_us,
-						REG_UFS_TX_SYMBOL_CLK_NS_US);
+	if (ufshcd_readl(hba, REG_UFS_TX_SYMBOL_CLK_NS_US) !=
+	    (core_clk_period_in_ns | tx_clk_cycles_per_us)) {
+		/* this register 2 fields shall be written at once */
+		ufshcd_writel(hba, core_clk_period_in_ns | tx_clk_cycles_per_us,
+			      REG_UFS_TX_SYMBOL_CLK_NS_US);
+		/*
+		 * make sure above write gets applied before we return from
+		 * this function.
+		 */
+		mb();
+	}
 	goto out;
 
 out_error:
