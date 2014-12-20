@@ -102,7 +102,7 @@ static int msm_hdmi_audio_codec_rx_dai_startup(
 		dev_err(dai->dev,
 			"%s() HDMI cable is not connected (ret val = %d)\n",
 			__func__, msm_hdmi_audio_codec_return_value);
-		ret = -EAGAIN;
+		ret = -ENODEV;
 	}
 
 	return ret;
@@ -131,7 +131,7 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		dev_err(dai->dev,
 			"%s() HDMI cable is not connected (ret val = %d)\n",
 			__func__, msm_hdmi_audio_codec_return_value);
-		return -EAGAIN;
+		return -ENODEV;
 	}
 
 	/*refer to HDMI spec CEA-861-E: Table 28 Audio InfoFrame Data Byte 4*/
