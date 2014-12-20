@@ -982,6 +982,8 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		uint32_t *hi_tbl_ptr = NULL, *lo_tbl_ptr = NULL;
 		uint32_t hi_val, lo_val, lo_val1;
 		if (reg_cfg_cmd->cmd_type == VFE_READ_DMI_64BIT) {
+			reg_cfg_cmd->u.dmi_info.len =
+				reg_cfg_cmd->u.dmi_info.len / 2;
 			if (reg_cfg_cmd->u.dmi_info.hi_tbl_offset +
 				reg_cfg_cmd->u.dmi_info.len -
 					sizeof(uint32_t) > cmd_len) {
