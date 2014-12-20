@@ -576,12 +576,16 @@ static void dsi_pll_disable(struct clk *c)
 	return;
 }
 
-static void pll_20nm_config_common_block(void __iomem *pll_base)
+static void pll_20nm_config_common_block_1(void __iomem *pll_base)
 {
 	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_PLL_VCOTAIL_EN, 0x82);
 	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_BIAS_EN_CLKBUFLR_EN, 0x2a);
 	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_BIAS_EN_CLKBUFLR_EN, 0x2b);
 	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_RESETSM_CNTRL3, 0x02);
+}
+
+static void pll_20nm_config_common_block_2(void __iomem *pll_base)
+{
 	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_SYS_CLK_CTRL, 0x40);
 	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_IE_TRIM, 0x0F);
 	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_IP_TRIM, 0x0F);
@@ -976,7 +980,9 @@ int pll_20nm_vco_enable_seq(struct mdss_pll_resources *dsi_pll_res)
 		return -EINVAL;
 	}
 
-	pll_20nm_config_common_block(dsi_pll_res->pll_base);
+	pll_20nm_config_common_block_1(dsi_pll_res->pll_1_base);
+	pll_20nm_config_common_block_1(dsi_pll_res->pll_base);
+	pll_20nm_config_common_block_2(dsi_pll_res->pll_base);
 	pll_20nm_config_loop_bw(dsi_pll_res->pll_base);
 
 	pll_20nm_vco_rate_calc(&vco_calc, dsi_pll_res->vco_current_rate,
