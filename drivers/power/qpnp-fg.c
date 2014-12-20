@@ -1977,20 +1977,20 @@ static int update_irq_volt_empty(struct fg_chip *chip)
 			settings[FG_MEM_IRQ_VOLT_EMPTY].offset, 0);
 }
 
-#define CURRENT_UA_TO_ADC_RAW(cur_ua)	\
-			(cur_ua * LSB_16B_DENMTR / LSB_16B_NUMRTR)
+#define MICROUNITS_TO_ADC_RAW(units)	\
+			div64_s64(units * LSB_16B_DENMTR, LSB_16B_NUMRTR)
 static int update_iterm(struct fg_chip *chip)
 {
 	u8 data[2];
 	u16 converted_current_raw;
-	int current_ma = -settings[FG_MEM_TERM_CURRENT].value;
+	s64 current_ma = -settings[FG_MEM_TERM_CURRENT].value;
 
-	converted_current_raw = (u16)CURRENT_UA_TO_ADC_RAW(current_ma * 1000);
+	converted_current_raw = (s16)MICROUNITS_TO_ADC_RAW(current_ma * 1000);
 	data[0] = cpu_to_le16(converted_current_raw) & 0xFF;
 	data[1] = cpu_to_le16(converted_current_raw) >> 8;
 
 	if (fg_debug_mask & FG_STATUS)
-		pr_info("current = %d, converted_raw = %04x, data = %02x %02x\n",
+		pr_info("current = %lld, converted_raw = %04x, data = %02x %02x\n",
 			current_ma, converted_current_raw, data[0], data[1]);
 	return fg_mem_write(chip, data, settings[FG_MEM_TERM_CURRENT].address,
 				2, settings[FG_MEM_TERM_CURRENT].offset, 0);
