@@ -187,6 +187,9 @@ static void repopulate_stats(int cpu)
 	int temp_point;
 	struct cpu_pstate_pwr *pt =  per_cpu(ptable, cpu);
 
+	if (!pt)
+		return;
+
 	if (cpu_node->temp < TEMP_BASE_POINT)
 		temp_point = 0;
 	else if (cpu_node->temp > TEMP_MAX_POINT)
