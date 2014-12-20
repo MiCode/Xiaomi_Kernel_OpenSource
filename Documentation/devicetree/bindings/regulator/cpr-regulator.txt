@@ -263,6 +263,16 @@ Optional properties:
 				that matches against the fuse values read from hardware will be used.
 				This property is used by several properties to provide an index into
 				their lists.
+- qcom,cpr-allowed:		Integer values that specifies whether the closed loop CPR is allowed or
+				not for a particular fuse revision. If the qcom,cpr-fuse-version-map
+				property is specified, then qcom,cpr-allowed must contain the same number
+				of integers as that of the number of tuples in qcom,cpr-fuse-version-map.
+				If the integer value has a value 0 for a particular fuse revision, then it
+				is treated as if the closed loop operation is disabled in the fuse. If the
+				integer value has a value 1 for a particular fuse revision, then the closed
+				loop operation is enabled for that fuse revision. If nothing is specified
+				for a particular fuse revision, then the closed loop operation is enabled
+				for that fuse revision by default.
 - qcom,cpr-quotient-adjustment:	Array of integer tuples of target quotient adjustments to add to the fused
 				quotients of each fuse corner.  The elements in a tuple are ordered from
 				lowest voltage corner to highest voltage corner.  Each tuple must be of
@@ -671,6 +681,10 @@ Example:
 			<0 0 0 100 0 0 0 0 0 0 0 0>,
 			<0 0 0 0 0 0 0 0 0 0 0 (-300)>,
 			<0 0 0 (-60) 0 0 0 0 0 0 0 0>;
+		qcom,cpr-allowed =
+			<0>,
+			<1>,
+			<1>;
 
 		qcom,fuse-remap-base-row = <1000>;
 		qcom,fuse-remap-source =
