@@ -658,11 +658,19 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	}
 
 	/*
-	 * Enable DSI clocks.
-	 * This is also enable the DSI core power block and reset/setup
-	 * DSI phy
+	 * Enable DSI bus clocks prior to resetting and initializing DSI
+	 * Phy. Phy and ctrl setup need to be done before enabling the link
+	 * clocks.
 	 */
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 1);
+	if (!pdata->panel_info.ulps_suspend_enabled) {
+		mdss_dsi_phy_sw_reset(ctrl_pdata);
+		mdss_dsi_phy_init(ctrl_pdata);
+		mdss_dsi_ctrl_setup(ctrl_pdata);
+	}
+
+	/* DSI link clocks need to be on prior to ctrl sw reset */
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_LINK_CLKS, 1);
 	mdss_dsi_sw_reset(ctrl_pdata, true);
 
 	/*

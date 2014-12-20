@@ -42,7 +42,7 @@
 
 static struct dsi_clk_desc dsi_pclk;
 
-static void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
+void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	u32 ctrl_rev;
 	if (ctrl == NULL) {
@@ -343,7 +343,7 @@ static void mdss_dsi_20nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	mdss_dsi_20nm_phy_config(ctrl_pdata);
 }
 
-static void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
+void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	u32 ctrl_rev;
 
@@ -1224,20 +1224,10 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		}
 
 		/*
-		 * Phy software reset should not be done for:
-		 * 1.) Idle screen power collapse use-case. Issue a phy software
-		 *     reset only when unblanking the panel in this case.
-		 * 2.) When ULPS during suspend is enabled.
+		 * Phy and controller setup is needed if coming out of idle
+		 * power collapse with clamps enabled.
 		 */
-		if (pdata->panel_info.blank_state == MDSS_PANEL_BLANK_BLANK &&
-			!pdata->panel_info.ulps_suspend_enabled)
-			mdss_dsi_phy_sw_reset(ctrl);
-
-		/*
-		 * Phy and controller setup need not be done during bootup
-		 * when continuous splash screen is enabled.
-		 */
-		if (!pdata->panel_info.cont_splash_enabled) {
+		if (ctrl->mmss_clamp) {
 			mdss_dsi_phy_init(ctrl);
 			mdss_dsi_ctrl_setup(ctrl);
 		}
