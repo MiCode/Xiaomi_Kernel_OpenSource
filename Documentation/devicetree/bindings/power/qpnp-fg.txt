@@ -65,6 +65,12 @@ Parent node optional properties:
 					power supply framework. The userspace
 					will read 0% soc and immediately
 					shutdown.
+- qcom,fg-cutoff-voltage-mv:		The voltage where the fuel gauge will
+					steer the SOC to be zero. For example,
+					if the cutoff voltage is set to 3400mv,
+					the fuel gauge will try to count SoC so
+					that the battery SoC will be 0 when it
+					is 3400mV.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
