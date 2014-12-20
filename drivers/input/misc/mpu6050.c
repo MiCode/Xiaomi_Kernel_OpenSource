@@ -118,6 +118,8 @@ struct axis_data {
  *  @accel_poll_ms:	accelerometer polling delay
  *  @accel_latency_ms:	max latency for accelerometer batching
  *  @gyro_latency_ms:	max latency for gyroscope batching
+ *  @accel_en:	accelerometer enabling flag
+ *  @gyro_en:	gyroscope enabling flag
  *  @use_poll:		use polling mode instead of  interrupt mode
  *  @motion_det_en:	motion detection wakeup is enabled
  *  @batch_accel:	accelerometer is working on batch mode
@@ -153,6 +155,8 @@ struct mpu6050_sensor {
 	u32 accel_poll_ms;
 	u32 accel_latency_ms;
 	u32 gyro_latency_ms;
+	atomic_t accel_en;
+	atomic_t gyro_en;
 	bool use_poll;
 	bool motion_det_en;
 	bool batch_accel;
@@ -751,7 +755,6 @@ static void mpu6050_accel_work_fn(struct work_struct *work)
 	sensor = container_of((struct delayed_work *)work,
 				struct mpu6050_sensor, accel_poll_work);
 
-	mutex_lock(&sensor->op_lock);
 	timestamp = ktime_get();
 	mpu6050_read_accel_data(sensor, &sensor->axis);
 	mpu6050_remap_accel_data(&sensor->axis, sensor->pdata->place);
@@ -771,9 +774,9 @@ static void mpu6050_accel_work_fn(struct work_struct *work)
 		ktime_to_timespec(timestamp).tv_nsec);
 	input_sync(sensor->accel_dev);
 
-	schedule_delayed_work(&sensor->accel_poll_work,
-		msecs_to_jiffies(sensor->accel_poll_ms));
-	mutex_unlock(&sensor->op_lock);
+	if (atomic_read(&sensor->accel_en))
+		schedule_delayed_work(&sensor->accel_poll_work,
+			msecs_to_jiffies(sensor->accel_poll_ms));
 }
 
 /**
@@ -792,7 +795,6 @@ static void mpu6050_gyro_work_fn(struct work_struct *work)
 	sensor = container_of((struct delayed_work *)work,
 				struct mpu6050_sensor, gyro_poll_work);
 
-	mutex_lock(&sensor->op_lock);
 	timestamp = ktime_get();
 	mpu6050_read_gyro_data(sensor, &sensor->axis);
 	mpu6050_remap_gyro_data(&sensor->axis, sensor->pdata->place);
@@ -812,9 +814,9 @@ static void mpu6050_gyro_work_fn(struct work_struct *work)
 		ktime_to_timespec(timestamp).tv_nsec);
 	input_sync(sensor->gyro_dev);
 
-	schedule_delayed_work(&sensor->gyro_poll_work,
-		msecs_to_jiffies(sensor->gyro_poll_ms));
-	mutex_unlock(&sensor->op_lock);
+	if (atomic_read(&sensor->gyro_en))
+		schedule_delayed_work(&sensor->gyro_poll_work,
+			msecs_to_jiffies(sensor->gyro_poll_ms));
 }
 
 /**
@@ -1245,7 +1247,9 @@ static int mpu6050_gyro_set_enable(struct mpu6050_sensor *sensor, bool enable)
 			schedule_delayed_work(&sensor->gyro_poll_work,
 				msecs_to_jiffies(sensor->gyro_poll_ms));
 		}
+		atomic_set(&sensor->gyro_en, 1);
 	} else {
+		atomic_set(&sensor->gyro_en, 0);
 		if (sensor->batch_gyro) {
 			ret = mpu6050_set_fifo_int(sensor,
 				sensor->cfg.accel_enable, false);
@@ -1929,7 +1933,9 @@ static int mpu6050_accel_set_enable(struct mpu6050_sensor *sensor, bool enable)
 			schedule_delayed_work(&sensor->accel_poll_work,
 				msecs_to_jiffies(sensor->accel_poll_ms));
 		}
+		atomic_set(&sensor->accel_en, 1);
 	} else {
+		atomic_set(&sensor->accel_en, 0);
 		if (sensor->batch_accel) {
 			ret = mpu6050_set_fifo_int(sensor,
 				false, sensor->cfg.gyro_enable);
@@ -2631,6 +2637,8 @@ static int mpu6050_probe(struct i2c_client *client,
 	}
 
 	sensor->cfg.is_asleep = false;
+	atomic_set(&sensor->accel_en, 0);
+	atomic_set(&sensor->gyro_en, 0);
 	ret = mpu6050_init_config(sensor);
 	if (ret) {
 		dev_err(&client->dev, "Failed to set default config\n");
