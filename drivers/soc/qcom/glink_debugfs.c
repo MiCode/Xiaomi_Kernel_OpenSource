@@ -312,10 +312,6 @@ void glink_debugfs_remove_channel(struct channel_ctx *ch_ctx,
 	char *edge_name;
 	ch_rm_dbgfs.curr_name = glink_get_ch_name(ch_ctx);
 	edge_name = glink_get_xprt_edge_name(xprt_ctx);
-	if (!strcmp(edge_name, "local_loopback"))
-		edge_name = "lloop";
-	else if (!strcmp(edge_name, "local"))
-		edge_name = "mock";
 	ch_rm_dbgfs.par_name = edge_name;
 	glink_debugfs_remove_recur(&ch_rm_dbgfs);
 }
@@ -349,10 +345,6 @@ void glink_debugfs_add_channel(struct channel_ctx *ch_ctx,
 				ch_name);
 		return;
 	}
-	if (!strcmp(edge_name, "local_loopback"))
-		edge_name = "lloop";
-	else if (!strcmp(edge_name, "local"))
-		edge_name = "mock";
 
 	ch_dbgfs.curr_name = edge_name;
 	ch_dbgfs.par_name = "channel";
@@ -392,10 +384,6 @@ void glink_debugfs_add_xprt(struct glink_core_xprt_ctx *xprt_ctx)
 	xprt_dbgfs.b_dir_create = true;
 	glink_debugfs_create(xprt_name, NULL, &xprt_dbgfs, NULL, false);
 	xprt_dbgfs.curr_name = "channel";
-	if (!strcmp(edge_name, "local_loopback"))
-		edge_name = "lloop";
-	else if (!strcmp(edge_name, "local"))
-		edge_name = "mock";
 	glink_debugfs_create(edge_name, NULL, &xprt_dbgfs, NULL, false);
 }
 EXPORT_SYMBOL(glink_debugfs_add_xprt);
@@ -417,9 +405,9 @@ static void glink_dfs_create_channel_list(struct seq_file *s)
 	int count = 0;
 	/*
 	* formatted, human readable channel state output, ie:
-	* NAME               |LCID|RCID|XPRT      |STATE|TX |RX |LINT-Q|RINT-Q|
+	* NAME               |LCID|RCID|XPRT |STATE   |TX |RX |LINT-Q|RINT-Q|
 	* --------------------------------------------------------------------
-	* LOCAL_LOOPBACK_CLNT|2 |1 |local_loopback_xprt|OPENED  |-38|-38|5  |6|
+	* LOCAL_LOOPBACK_CLNT|2   |1   |lloop|OPENED  | - | - |5     |6     |
 	* N.B. Number of TX & RX Packets not implemented yet. -ENOSYS is printed
 	*/
 	seq_printf(s, "%-20s|%-4s|%-4s|%-19s|%-7s|%-3s|%-3s|%-5s|%-5s|\n",
