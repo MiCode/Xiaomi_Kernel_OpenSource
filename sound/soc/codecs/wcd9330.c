@@ -56,7 +56,10 @@ enum {
 #define TOMTOM_MAD_SLIMBUS_TX_PORT 12
 #define TOMTOM_MAD_AUDIO_FIRMWARE_PATH "wcd9320/wcd9320_mad_audio.bin"
 #define TOMTOM_VALIDATE_RX_SBPORT_RANGE(port) ((port >= 16) && (port <= 23))
+#define TOMTOM_VALIDATE_TX_SBPORT_RANGE(port) ((port >= 0) && (port <= 15))
 #define TOMTOM_CONVERT_RX_SBPORT_ID(port) (port - 16) /* RX1 port ID = 0 */
+#define TOMTOM_BIT_ADJ_SHIFT_PORT1_6 4
+#define TOMTOM_BIT_ADJ_SHIFT_PORT7_10 5
 
 #define TOMTOM_HPH_PA_SETTLE_COMP_ON 5000
 #define TOMTOM_HPH_PA_SETTLE_COMP_OFF 13000
@@ -5739,6 +5742,65 @@ static void tomtom_set_rxsb_port_format(struct snd_pcm_hw_params *params,
 	}
 }
 
+static void tomtom_set_tx_sb_port_format(struct snd_pcm_hw_params *params,
+					 struct snd_soc_dai *dai)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	struct tomtom_priv *tomtom_p = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_codec_dai_data *cdc_dai;
+	struct wcd9xxx_ch *ch;
+	int port;
+	u8 bit_sel, bit_shift;
+	u16 sb_ctl_reg;
+
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		bit_sel = 0x2;
+		tomtom_p->dai[dai->id].bit_width = 16;
+		break;
+	case SNDRV_PCM_FORMAT_S24_LE:
+		bit_sel = 0x0;
+		tomtom_p->dai[dai->id].bit_width = 24;
+		break;
+	default:
+		dev_err(codec->dev, "%s: Invalid format %d\n", __func__,
+			params_format(params));
+		return;
+	}
+
+	cdc_dai = &tomtom_p->dai[dai->id];
+
+	list_for_each_entry(ch, &cdc_dai->wcd9xxx_ch_list, list) {
+		port = wcd9xxx_get_slave_port(ch->ch_num);
+
+		if (IS_ERR_VALUE(port) ||
+		    !TOMTOM_VALIDATE_TX_SBPORT_RANGE(port)) {
+			dev_warn(codec->dev,
+				 "%s: invalid port ID %d returned for TX DAI\n",
+				 __func__, port);
+			return;
+		}
+
+		if (port < 6) /* 6 = SLIMBUS TX7 */
+			bit_shift = TOMTOM_BIT_ADJ_SHIFT_PORT1_6;
+		else if (port < 10)
+			bit_shift = TOMTOM_BIT_ADJ_SHIFT_PORT7_10;
+		else {
+			dev_warn(codec->dev,
+				 "%s: port ID %d bitwidth is fixed\n",
+				 __func__, port);
+			return;
+		}
+
+		sb_ctl_reg = (TOMTOM_A_CDC_CONN_TX_SB_B1_CTL + port);
+
+		dev_dbg(codec->dev, "%s: reg %x bit_sel %x bit_shift %x\n",
+			__func__, sb_ctl_reg, bit_sel, bit_shift);
+		snd_soc_update_bits(codec, sb_ctl_reg, 0x3 <<
+				    bit_shift, bit_sel << bit_shift);
+	}
+}
+
 static int tomtom_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
 			    struct snd_soc_dai *dai)
@@ -5830,6 +5892,11 @@ static int tomtom_hw_params(struct snd_pcm_substream *substream,
 					    0x20, i2s_bit_mode << 5);
 			snd_soc_update_bits(codec, TOMTOM_A_CDC_CLK_TX_I2S_CTL,
 					    0x07, tx_fs_rate);
+		} else {
+			/* only generic ports can have sample bit adjustment */
+			if (dai->id != AIF4_VIFEED &&
+			    dai->id != AIF4_MAD_TX)
+				tomtom_set_tx_sb_port_format(params, dai);
 		}
 
 		break;
