@@ -1086,7 +1086,7 @@ high-performance CPU).
 
 Appears at: /proc/sys/kernel/sched_enable_power_aware
 
-Default value: 1
+Default value: 0
 
 Controls whether or not per-CPU power values are used in determining
 task placement. If this is disabled, tasks are simply placed on the
