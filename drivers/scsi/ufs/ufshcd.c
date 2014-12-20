@@ -7967,7 +7967,7 @@ static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
 	hba->pm_qos.is_suspended = !scale_up;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-	if (hba->vops->clk_scale_notify)
+	if (clk_state_changed && hba->vops->clk_scale_notify)
 		hba->vops->clk_scale_notify(hba);
 out:
 	if (clk_state_changed)
