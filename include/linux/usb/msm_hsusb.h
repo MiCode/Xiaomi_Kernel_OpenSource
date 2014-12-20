@@ -527,8 +527,7 @@ struct msm_otg {
 #define PHY_RETENTIONED			BIT(1)
 #define XO_SHUTDOWN			BIT(2)
 #define CLOCKS_DOWN			BIT(3)
-#define PHY_REGULATORS_LPM		BIT(4)
-#define PHY_VDD_MINIMIZED		BIT(5)
+#define PHY_REGULATORS_LPM	BIT(4)
 	int reset_counter;
 	unsigned long b_last_se0_sess;
 	unsigned long tmouts;
