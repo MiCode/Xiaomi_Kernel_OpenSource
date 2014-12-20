@@ -1598,11 +1598,48 @@ static int __to_user_dither_cfg_data(
 	return 0;
 }
 
+static int __from_user_gamut_cfg_data_v17(
+			struct mdp_gamut_cfg_data32 __user *gamut_cfg32,
+			struct mdp_gamut_cfg_data __user *gamut_cfg)
+{
+	struct mdp_gamut_data_v1_7 gamut_cfg_payload;
+	struct mdp_gamut_data_v1_7_32 gamut_cfg_payload32;
+	u32 i = 0;
+
+	if (copy_from_user(&gamut_cfg_payload32,
+			   compat_ptr(gamut_cfg32->cfg_payload),
+			   sizeof(gamut_cfg_payload32))) {
+		pr_err("failed to copy the gamut payload from userspace\n");
+		return -EFAULT;
+	}
+	gamut_cfg_payload.mode = gamut_cfg_payload32.mode;
+	for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
+		gamut_cfg_payload.tbl_size[i] =
+			gamut_cfg_payload32.tbl_size[i];
+		gamut_cfg_payload.c0_data[i] =
+			compat_ptr(gamut_cfg_payload32.c0_data[i]);
+		gamut_cfg_payload.c1_c2_data[i] =
+			compat_ptr(gamut_cfg_payload32.c1_c2_data[i]);
+	}
+	for (i = 0; i < MDP_GAMUT_SCALE_OFF_TABLE_NUM; i++) {
+		gamut_cfg_payload.tbl_scale_off_sz[i] =
+			gamut_cfg_payload32.tbl_scale_off_sz[i];
+		gamut_cfg_payload.scale_off_data[i] =
+			compat_ptr(gamut_cfg_payload32.scale_off_data[i]);
+	}
+	if (copy_to_user(gamut_cfg->cfg_payload, &gamut_cfg_payload,
+			 sizeof(gamut_cfg_payload))) {
+		pr_err("failed to copy the gamut payload to userspace\n");
+		return -EFAULT;
+	}
+	return 0;
+}
+
 static int __from_user_gamut_cfg_data(
 			struct mdp_gamut_cfg_data32 __user *gamut_cfg32,
 			struct mdp_gamut_cfg_data __user *gamut_cfg)
 {
-	uint32_t data;
+	uint32_t data, version;
 	int i;
 
 	if (copy_in_user(&gamut_cfg->block,
@@ -1616,31 +1653,50 @@ static int __from_user_gamut_cfg_data(
 			sizeof(uint32_t)) ||
 	    copy_in_user(&gamut_cfg->tbl_size[0],
 			&gamut_cfg32->tbl_size[0],
-			MDP_GAMUT_TABLE_NUM * sizeof(uint32_t)))
+			MDP_GAMUT_TABLE_NUM * sizeof(uint32_t)) ||
+	    copy_in_user(&gamut_cfg->version,
+			&gamut_cfg32->version,
+			sizeof(uint32_t)))
 		return 0;
 
+	if (copy_from_user(&version, &gamut_cfg32->version, sizeof(u32))) {
+		pr_err("failed to copy the version info\n");
+		return -EFAULT;
+	}
+
+	switch (version) {
+	case mdp_gamut_v1_7:
+		if (__from_user_gamut_cfg_data_v17(gamut_cfg32, gamut_cfg)) {
+			pr_err("failed to get the gamut data for version %d\n",
+				version);
+			return -EFAULT;
+		}
+		break;
+	default:
+		pr_debug("version invalid fallback to legacy\n");
 	/* The Gamut LUT data contains 3 static arrays for R, G, and B
 	 * gamut data. Each these arrays contains pointers dynamic arrays
 	 * which hold the gamut LUTs for R, G, and B. Must copy the array of
 	 * pointers from 32 bit to 64 bit addresses. */
-	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
-		if (get_user(data, &gamut_cfg32->r_tbl[i]) ||
-		    put_user(compat_ptr(data), &gamut_cfg->r_tbl[i]))
-			return -EFAULT;
-	}
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			if (get_user(data, &gamut_cfg32->r_tbl[i]) ||
+			    put_user(compat_ptr(data), &gamut_cfg->r_tbl[i]))
+				return -EFAULT;
+		}
 
-	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
-		if (get_user(data, &gamut_cfg32->g_tbl[i]) ||
-		    put_user(compat_ptr(data), &gamut_cfg->g_tbl[i]))
-			return -EFAULT;
-	}
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			if (get_user(data, &gamut_cfg32->g_tbl[i]) ||
+			    put_user(compat_ptr(data), &gamut_cfg->g_tbl[i]))
+				return -EFAULT;
+		}
 
-	for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
-		if (get_user(data, &gamut_cfg32->b_tbl[i]) ||
-		    put_user(compat_ptr(data), &gamut_cfg->b_tbl[i]))
-			return -EFAULT;
+		for (i = 0; i < MDP_GAMUT_TABLE_NUM; i++) {
+			if (get_user(data, &gamut_cfg32->b_tbl[i]) ||
+			    put_user(compat_ptr(data), &gamut_cfg->b_tbl[i]))
+				return -EFAULT;
+		}
+		break;
 	}
-
 	return 0;
 }
 
@@ -2078,6 +2134,11 @@ static u32 __pp_compat_size_pcc(void)
 	return sizeof(struct mdp_pcc_data_v1_7);
 }
 
+static u32 __pp_compat_size_gamut(void)
+{
+	return sizeof(struct mdp_gamut_data_v1_7);
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -2157,6 +2218,19 @@ static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 		}
 		memset(*pp, 0, alloc_size);
 		(*pp)->data.pcc_cfg_data.cfg_payload =
+				(void *)((unsigned long)(*pp) +
+				 sizeof(struct msmfb_mdp_pp));
+		break;
+	case mdp_op_gamut_cfg:
+		alloc_size += __pp_compat_size_gamut();
+		*pp = compat_alloc_user_space(alloc_size);
+		if (NULL == *pp) {
+			pr_err("alloc from user size %d for pcc fail\n",
+				alloc_size);
+			return -ENOMEM;
+		}
+		memset(*pp, 0, alloc_size);
+		(*pp)->data.gamut_cfg_data.cfg_payload =
 				(void *)((unsigned long)(*pp) +
 				 sizeof(struct msmfb_mdp_pp));
 		break;
