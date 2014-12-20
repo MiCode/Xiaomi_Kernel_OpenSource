@@ -886,7 +886,6 @@ static inline void clear_reserved(int cpu)
 }
 
 extern unsigned int sched_enable_hmp;
-extern unsigned int sched_enable_power_aware;
 
 int mostly_idle_cpu(int cpu);
 extern void check_for_migration(struct rq *rq, struct task_struct *p);

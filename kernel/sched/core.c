@@ -1078,7 +1078,7 @@ static int __init set_sched_enable_power_aware(char *str)
 
 	get_option(&str, &enable_power_aware);
 
-	sched_enable_power_aware = !!enable_power_aware;
+	sysctl_sched_enable_power_aware = !!enable_power_aware;
 
 	return 0;
 }
