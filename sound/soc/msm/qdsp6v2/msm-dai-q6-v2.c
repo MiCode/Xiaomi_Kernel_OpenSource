@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2012,7 +2012,8 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
 			SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_96000 |
 			SNDRV_PCM_RATE_192000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				   SNDRV_PCM_FMTBIT_S24_LE,
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min = 8000,
@@ -2029,7 +2030,8 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 			.aif_name = "SLIMBUS_1_TX",
 			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
 			SNDRV_PCM_RATE_48000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				   SNDRV_PCM_FMTBIT_S24_LE,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
@@ -2047,7 +2049,8 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
 			SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_96000 |
 			SNDRV_PCM_RATE_192000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				   SNDRV_PCM_FMTBIT_S24_LE,
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min = 8000,
@@ -2064,7 +2067,8 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 			.aif_name = "SLIMBUS_3_TX",
 			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
 			SNDRV_PCM_RATE_48000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				   SNDRV_PCM_FMTBIT_S24_LE,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
@@ -2081,7 +2085,8 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 			.aif_name = "SLIMBUS_4_TX",
 			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
 			SNDRV_PCM_RATE_48000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				   SNDRV_PCM_FMTBIT_S24_LE,
 			.channels_min = 2,
 			.channels_max = 4,
 			.rate_min = 8000,
@@ -2099,7 +2104,8 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
 			SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_96000 |
 			SNDRV_PCM_RATE_192000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				   SNDRV_PCM_FMTBIT_S24_LE,
 			.channels_min = 1,
 			.channels_max = 8,
 			.rate_min = 8000,
@@ -2116,7 +2122,8 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 			.aif_name = "SLIMBUS_6_TX",
 			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
 			SNDRV_PCM_RATE_48000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				   SNDRV_PCM_FMTBIT_S24_LE,
 			.channels_min = 1,
 			.channels_max = 2,
 			.rate_min = 8000,
