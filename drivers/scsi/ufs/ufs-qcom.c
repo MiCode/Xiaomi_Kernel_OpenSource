@@ -397,7 +397,14 @@ static int ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
 		core_clk_rate = DEFAULT_CLK_RATE_HZ;
 
 	core_clk_cycles_per_us = core_clk_rate / USEC_PER_SEC;
-	ufshcd_writel(hba, core_clk_cycles_per_us, REG_UFS_SYS1CLK_1US);
+	if (ufshcd_readl(hba, REG_UFS_SYS1CLK_1US) != core_clk_cycles_per_us) {
+		ufshcd_writel(hba, core_clk_cycles_per_us, REG_UFS_SYS1CLK_1US);
+		/*
+		 * make sure above write gets applied before we return from
+		 * this function.
+		 */
+		mb();
+	}
 
 	if (ufs_qcom_cap_qunipro(host))
 		goto out;
@@ -450,9 +457,17 @@ static int ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
 		goto out_error;
 	}
 
-	/* this register 2 fields shall be written at once */
-	ufshcd_writel(hba, core_clk_period_in_ns | tx_clk_cycles_per_us,
-						REG_UFS_TX_SYMBOL_CLK_NS_US);
+	if (ufshcd_readl(hba, REG_UFS_TX_SYMBOL_CLK_NS_US) !=
+	    (core_clk_period_in_ns | tx_clk_cycles_per_us)) {
+		/* this register 2 fields shall be written at once */
+		ufshcd_writel(hba, core_clk_period_in_ns | tx_clk_cycles_per_us,
+			      REG_UFS_TX_SYMBOL_CLK_NS_US);
+		/*
+		 * make sure above write gets applied before we return from
+		 * this function.
+		 */
+		mb();
+	}
 
 	if (update_link_startup_timer) {
 		ufshcd_writel(hba, ((core_clk_rate / MSEC_PER_SEC) * 100),
