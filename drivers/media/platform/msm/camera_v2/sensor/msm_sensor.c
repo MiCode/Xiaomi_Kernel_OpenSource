@@ -298,6 +298,8 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 		goto FREE_SLAVE_INFO;
 	}
 
+	count /= sizeof(uint32_t);
+
 	if (count > MSM_SENSOR_NUM_ID_INFO_DATA) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto FREE_SLAVE_INFO;
