@@ -60,6 +60,7 @@ struct subsys_desc {
 	irqreturn_t (*stop_ack_handler) (int irq, void *dev_id);
 	irqreturn_t (*wdog_bite_handler) (int irq, void *dev_id);
 	int is_not_loadable;
+	int err_fatal_gpio;
 	unsigned int err_fatal_irq;
 	unsigned int err_ready_irq;
 	unsigned int stop_ack_irq;
