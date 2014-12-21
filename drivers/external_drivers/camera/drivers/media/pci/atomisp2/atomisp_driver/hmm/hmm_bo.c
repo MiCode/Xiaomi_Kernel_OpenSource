@@ -1106,6 +1106,7 @@ void *hmm_bo_vmap(struct hmm_buffer_object *bo, bool cached)
 
 	bo->vmap_addr = vmap(pages, bo->pgnr, VM_MAP, cached ? PAGE_KERNEL : PAGE_KERNEL_NOCACHE);
 	if (unlikely(!bo->vmap_addr)) {
+		atomisp_kernel_free(pages);
 		mutex_unlock(&bo->mutex);
 		dev_err(atomisp_dev, "vmap failed...\n");
 		return NULL;
