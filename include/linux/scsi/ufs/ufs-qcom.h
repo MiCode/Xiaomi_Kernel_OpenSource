@@ -180,6 +180,13 @@ struct ufs_qcom_ice_data {
 	bool crypto_engine_err;
 };
 
+/* Host controller hardware version: major.minor.step */
+struct ufs_hw_version {
+	u16 step;
+	u16 minor;
+	u8 major;
+};
+
 struct ufs_qcom_host {
 	struct phy *generic_phy;
 	struct ufs_hba *hba;
@@ -192,6 +199,9 @@ struct ufs_qcom_host {
 	bool is_lane_clks_enabled;
 	bool sec_cfg_updated;
 	struct ufs_qcom_ice_data ice;
+	void __iomem *dev_ref_clk_ctrl_mmio;
+	bool is_dev_ref_clk_enabled;
+	struct ufs_hw_version hw_ver;
 };
 
 #define ufs_qcom_is_link_off(hba) ufshcd_is_link_off(hba)

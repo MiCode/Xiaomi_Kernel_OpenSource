@@ -1198,8 +1198,8 @@
 
 	ufsphy1: ufsphy@fc597000 {
 			compatible = "qcom,ufs-phy-qmp-20nm";
-			reg = <0xfc597000 0xda8>, <0xfd512074 0x4>;
-			reg-names = "phy_mem", "dev_ref_clk_ctrl_mem";
+			reg = <0xfc597000 0xda8>;
+			reg-names = "phy_mem";
 			#phy-cells = <0>;
 			vdda-phy-supply = <&pm8994_l28>;
 			vdda-pll-supply = <&pm8994_l12>;
@@ -1221,7 +1221,7 @@
 
 	ufs1: ufshc@fc594000 {
 			compatible = "qcom,ufshc";
-			reg = <0xfc594000 0x2500>;
+			reg = <0xfc594000 0x2500>, <0xfd512074 0x4>;
 			interrupts = <0 265 0>;
 			phys = <&ufsphy1>;
 			phy-names = "ufsphy";
