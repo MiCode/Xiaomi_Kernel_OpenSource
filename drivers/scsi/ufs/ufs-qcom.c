@@ -304,18 +304,20 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba, bool status)
 		 * is initialized.
 		 */
 		err = ufs_qcom_enable_lane_clks(host);
+		if (!err && host->ice.pdev) {
+			err = ufs_qcom_ice_init(host);
+			if (err) {
+				dev_err(hba->dev, "%s: ICE init failed (%d)\n",
+					__func__, err);
+				err = -EINVAL;
+			}
+		}
+
 		break;
 	case POST_CHANGE:
 		/* check if UFS PHY moved from DISABLED to HIBERN8 */
 		err = ufs_qcom_check_hibern8(hba);
 		ufs_qcom_enable_hw_clk_gating(hba);
-		if (!err) {
-			err = ufs_qcom_ice_reset(host);
-			if (err)
-				dev_err(hba->dev,
-					"%s: ufs_qcom_ice_reset() failed %d\n",
-					__func__, err);
-		}
 
 		break;
 	default:
@@ -608,6 +610,20 @@ int ufs_qcom_crytpo_engine_cfg(struct ufs_hba *hba, unsigned int task_tag)
 		goto out;
 
 	err = ufs_qcom_ice_cfg(host, lrbp->cmd);
+out:
+	return err;
+}
+
+static
+int ufs_qcom_crytpo_engine_reset(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = hba->priv;
+	int err = 0;
+
+	if (!host->ice.pdev)
+		goto out;
+
+	err = ufs_qcom_ice_reset(host);
 out:
 	return err;
 }
@@ -1175,15 +1191,6 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
 	hba->caps |= UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
 	ufs_qcom_setup_clocks(hba, true);
-	if (host->ice.pdev) {
-		err = ufs_qcom_ice_init(host);
-		if (err) {
-			dev_err(dev, "%s: ICE driver initialization failed (%d)\n",
-				__func__, err);
-			device_remove_file(dev, &host->bus_vote.max_bus_bw);
-			goto out_disable_phy;
-		}
-	}
 
 	if (hba->dev->id < MAX_UFS_QCOM_HOSTS)
 		ufs_qcom_hosts[hba->dev->id] = host;
@@ -1351,6 +1358,7 @@ const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.resume			= ufs_qcom_resume,
 	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
 	.crypto_engine_cfg	= ufs_qcom_crytpo_engine_cfg,
+	.crypto_engine_reset	= ufs_qcom_crytpo_engine_reset,
 	.crypto_engine_eh	= ufs_qcom_crypto_engine_eh,
 	.crypto_engine_get_err	= ufs_qcom_crypto_engine_get_err,
 	.crypto_engine_reset_err = ufs_qcom_crypto_engine_reset_err,

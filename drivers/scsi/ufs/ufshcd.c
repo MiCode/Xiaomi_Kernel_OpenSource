@@ -5853,8 +5853,21 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 	/* Establish the link again and restore the device */
 	err = ufshcd_probe_hba(hba);
 
-	if (!err && (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL))
+	if (!err && (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)) {
 		err = -EIO;
+		goto out;
+	}
+
+	if (hba->vops->crypto_engine_reset) {
+		err = hba->vops->crypto_engine_reset(hba);
+		if (err) {
+			dev_err(hba->dev,
+				"%s: failed to reset crypto engine %d\n",
+				__func__, err);
+			goto out;
+		}
+	}
+
 out:
 	if (err)
 		dev_err(hba->dev, "%s: Host init failed %d\n", __func__, err);
