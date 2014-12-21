@@ -189,3 +189,16 @@ void __init msm_map_mdm9640_io(void)
 	iotable_init(mdm9640_io_desc, ARRAY_SIZE(mdm9640_io_desc));
 }
 #endif /* CONFIG_ARCH_MDM9640 */
+
+#ifdef CONFIG_ARCH_MSMVPIPA
+static struct map_desc msmvpipa_io_desc[] __initdata = {
+#ifdef CONFIG_DEBUG_MSMVPIPA_UART
+	MSM_DEVICE(DEBUG_UART),
+#endif
+};
+
+void __init msm_map_msmvpipa_io(void)
+{
+	iotable_init(msmvpipa_io_desc, ARRAY_SIZE(msmvpipa_io_desc));
+}
+#endif /* CONFIG_ARCH_MSMVPIPA */

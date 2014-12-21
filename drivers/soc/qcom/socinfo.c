@@ -1008,6 +1008,10 @@ static void * __init setup_dummy_socinfo(void)
 		dummy_socinfo.id = 238;
 		strlcpy(dummy_socinfo.build_id, "mdm9640 - ",
 			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msmvpipa()) {
+		dummy_socinfo.id = 238;
+		strlcpy(dummy_socinfo.build_id, "msmvpipa - ",
+			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msm8994()) {
 		dummy_socinfo.id = 207;
 		strlcpy(dummy_socinfo.build_id, "msm8994 - ",

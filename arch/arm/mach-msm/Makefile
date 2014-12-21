@@ -43,6 +43,7 @@ obj-$(CONFIG_ARCH_MSM8610) += clock-dsi-8610.o
 obj-$(CONFIG_ARCH_MDM9630) += clock-9630.o
 obj-$(CONFIG_ARCH_MDM9640) += board-9640.o
 obj-$(CONFIG_ARCH_MDMFERRUM) += board-8909.o
+obj-$(CONFIG_ARCH_MSMVPIPA) += board-vpipa.o
 obj-$(CONFIG_MSM_PM) += ext-buck-control.o
 
 CFLAGS_msm_vibrator.o += -Idrivers/staging/android

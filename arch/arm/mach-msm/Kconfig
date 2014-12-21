@@ -253,6 +253,22 @@ config ARCH_MDM9640
 	select MSM_RPM_LOG
 	select MSM_RPM_STATS_LOG
 
+config ARCH_MSMVPIPA
+	bool "MSMVPIPA"
+	select ARM_GIC
+	select CPU_V7
+	select REGULATOR
+	select HAVE_ARM_ARCH_TIMER
+	select MSM_SPM_V2
+	select MSM_NOPM
+	select MEMORY_HOLE_CARVEOUT
+	select QMI_ENCDEC
+	select MSM_CORTEX_A7
+	select PINCTRL
+	select PINCTRL_MSM_TLMM
+	select USE_PINCTRL_IRQ
+	select MSM_IRQ
+
 config ARCH_MDMFERRUM
 	bool "MDMFERRUM"
 	select ARM_GIC
@@ -436,6 +452,7 @@ config PHYS_OFFSET
 	default "0x0b600000" if ARCH_FSM9010
 	default "0x00000000" if ARCH_MDM9630
 	default "0x80000000" if ARCH_MDM9640
+	default "0x80000000" if ARCH_MSMVPIPA
 	default "0x00200000" if !MSM_STACKED_MEMORY
 	default "0x10000000"
 
@@ -552,6 +569,16 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 9640 devices.
+		  This is useful as this makes kernel to print console message
+		  early.
+
+	config DEBUG_MSMVPIPA_UART
+		bool "Kernel low-level debugging messages via MSM VPIPA UART"
+		depends on ARCH_MSMVPIPA
+		select MSM_HAS_DEBUG_UART_HS_V14
+		help
+		  Say Y here if you want the debug print routines to direct
+		  their output to the serial port on MSM VPIPA devices.
 		  This is useful as this makes kernel to print console message
 		  early.
 
