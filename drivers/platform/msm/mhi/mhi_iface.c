@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+
 #include <linux/pci.h>
 #include <linux/gpio.h>
 #include <linux/module.h>
@@ -17,6 +18,9 @@
 #include <linux/msm-bus.h>
 #include <linux/delay.h>
 #include <linux/debugfs.h>
+
+#define CREATE_TRACE_POINTS
+#include "mhi_trace.h"
 
 #include "mhi_sys.h"
 #include "mhi.h"
