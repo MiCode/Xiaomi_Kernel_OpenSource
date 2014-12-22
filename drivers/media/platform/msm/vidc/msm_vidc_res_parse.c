@@ -758,25 +758,23 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 		struct msm_vidc_platform_resources *res)
 {
 	int rc = 0;
-	struct context_bank_info *cb;
-	struct device_node *np = dev->of_node;
+	struct context_bank_info *cb = NULL;
+	struct device_node *np = NULL;
 
 	if (!dev || !res) {
 		dprintk(VIDC_ERR, "%s - invalid inputs\n", __func__);
 		return -EINVAL;
 	}
 
+	np = dev->of_node;
 	cb = devm_kzalloc(dev, sizeof(*cb), GFP_KERNEL);
 	if (!cb) {
 		dprintk(VIDC_ERR, "%s - Failed to allocate cb\n", __func__);
 		return -ENOMEM;
 	}
-	list_add_tail(&cb->list, &res->context_banks);
 
-	if (!np) {
-		dprintk(VIDC_ERR, "%s - invalid of_node\n", __func__);
-		return -EINVAL;
-	}
+	INIT_LIST_HEAD(&cb->list);
+	list_add_tail(&cb->list, &res->context_banks);
 
 	rc = of_property_read_string(np, "label", &cb->name);
 	if (rc) {
@@ -785,8 +783,7 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 		rc = 0;
 	}
 
-	dprintk(VIDC_DBG, "%s: context bank has name %s\n",
-		__func__, cb->name);
+	dprintk(VIDC_DBG, "%s: context bank has name %s\n", __func__, cb->name);
 	rc = of_property_read_u32_array(np, "virtual-addr-pool",
 			(u32 *)&cb->addr_range, 2);
 	if (rc) {
@@ -823,34 +820,36 @@ err_populate_cb:
 int msm_vidc_probe_sub_devices(struct platform_device *pdev)
 {
 	struct msm_vidc_core *core;
-	struct device *dev;
 	int rc = 0;
 
 	if (!pdev) {
 		dprintk(VIDC_ERR, "Invalid platform device\n");
 		return -EINVAL;
+	} else if (!pdev->dev.parent) {
+		dprintk(VIDC_ERR, "Failed to find a parent for %s\n",
+				dev_name(&pdev->dev));
+		return -ENODEV;
 	}
 
-	dev = pdev->dev.parent;
-	core = dev->platform_data;
-
-	if (!dev || !core) {
-		dprintk(VIDC_ERR, "%s - invalid dev (%p) or core(%p)\n",
-				__func__, dev, core);
+	core = dev_get_drvdata(pdev->dev.parent);
+	if (!core) {
+		dprintk(VIDC_ERR, "Failed to find cookie in parent device %s",
+				dev_name(pdev->dev.parent));
 		return -EINVAL;
 	}
 
+	dprintk(VIDC_DBG, "Probing %s\n", dev_name(&pdev->dev));
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,fw-context-bank")) {
 		if (core->resources.use_non_secure_pil) {
 			struct context_bank_info *cb;
 
-			cb = devm_kzalloc(dev, sizeof(*cb), GFP_KERNEL);
+			cb = devm_kzalloc(&pdev->dev, sizeof(*cb), GFP_KERNEL);
 			if (!cb) {
 				dprintk(VIDC_ERR, "alloc venus cb failed\n");
 				return -ENOMEM;
 			}
-			cb->dev = &pdev->dev;
 
+			cb->dev = &pdev->dev;
 			rc = venus_boot_init(&core->resources, cb);
 			if (rc) {
 				dprintk(VIDC_ERR,
