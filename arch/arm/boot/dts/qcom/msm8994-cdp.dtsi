@@ -734,10 +734,6 @@
 	 pinctrl-0 = <&uart_console_sleep>;
 };
 
-&ufs_ice {
-	status = "ok";
-};
-
 &ufsphy1 {
 	status = "ok";
 };

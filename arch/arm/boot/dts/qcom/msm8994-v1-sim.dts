@@ -80,10 +80,6 @@
 	status = "ok";
 };
 
-&ufs_ice {
-	status = "ok";
-};
-
 &ufsphy1 {
 	status = "ok";
 };
