@@ -12,6 +12,7 @@
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/init.h>
+#include <linux/clockchips.h>
 #include <linux/console.h>
 #include <linux/cpu.h>
 #include <linux/syscalls.h>
@@ -237,6 +238,9 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 		log_suspend_abort_reason("Disabling non-boot cpus failed");
 		goto Enable_cpus;
 	}
+
+	/* quiesce timer, sched_timer etc */
+	clockevents_notify(CLOCK_EVT_NOTIFY_SUSPEND, NULL);
 
 	arch_suspend_disable_irqs();
 	BUG_ON(!irqs_disabled());
