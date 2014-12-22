@@ -55,7 +55,7 @@
 #define APDS993X_COE_C	70	/* 0.70 without glass window */
 #define APDS993X_COE_D	142	/* 1.42 without glass window */
 #define APDS993X_DF	52
-#define ALS_MAX_RANGE	60000
+#define ALS_MAX_RANGE	40000
 
 #define APDS_CAL_SKIP_COUNT     5
 #define APDS_MAX_CAL	(10 + APDS_CAL_SKIP_COUNT)
@@ -705,7 +705,7 @@ static int LuxCalculation(struct i2c_client *client, int ch0data, int ch1data)
 		return -1; 	/* don't report first, change gain may help */
 	}
 
-	luxValue = ((IAC * apds993x_ga * APDS993X_DF) / 100) * 65 / 10 /
+	luxValue = ((IAC * apds993x_ga * APDS993X_DF) / 100) /
 		((apds993x_als_integration_tb[data->als_atime_index] /
 		  100) * apds993x_als_again_tb[data->als_again_index]);
 
@@ -764,7 +764,6 @@ static void apds993x_change_als_threshold(struct i2c_client *client)
 	struct apds993x_data *data = i2c_get_clientdata(client);
 	int ch0data, ch1data, v;
 	int luxValue=0;
-	int err;
 	unsigned char change_again=0;
 	unsigned char control_data=0;
 	unsigned char lux_is_valid=1;
@@ -784,8 +783,6 @@ static void apds993x_change_als_threshold(struct i2c_client *client)
 		/* don't report, the lux is invalid value */
 		lux_is_valid = 0;
 		luxValue = data->als_prev_lux;
-		if (data->als_reduce)
-			lux_is_valid = 1;
 			/* report anyway since this is the lowest gain */
 	}
 
@@ -852,22 +849,11 @@ static void apds993x_change_als_threshold(struct i2c_client *client)
 		if (data->als_again_index != APDS993X_ALS_GAIN_1X) {
 			data->als_again_index--;
 			change_again = 1;
-		} else {
-			err = i2c_smbus_write_byte_data(client,
-					CMD_BYTE|APDS993X_CONFIG_REG,
-					APDS993X_ALS_REDUCE);
-			if (err >= 0)
-				data->als_reduce = 1;
 		}
 	} else if (data->als_data <=
 		   ((apds993x_als_res_tb[data->als_atime_index] * 10) / 100)) {
 		/* increase AGAIN if possible */
-		if (data->als_reduce) {
-			err = i2c_smbus_write_byte_data(client,
-					CMD_BYTE|APDS993X_CONFIG_REG, 0);
-			if (err >= 0)
-				data->als_reduce = 0;
-		} else if (data->als_again_index != APDS993X_ALS_GAIN_120X) {
+		if (data->als_again_index != APDS993X_ALS_GAIN_120X) {
 			data->als_again_index++;
 			change_again = 1;
 		}
@@ -911,7 +897,6 @@ static void apds993x_als_polling_work_handler(struct work_struct *work)
 	struct i2c_client *client=data->client;
 	int ch0data, ch1data, pdata, v;
 	int luxValue=0;
-	int err;
 	unsigned char change_again=0;
 	unsigned char control_data=0;
 	unsigned char lux_is_valid=1;
@@ -933,8 +918,6 @@ static void apds993x_als_polling_work_handler(struct work_struct *work)
 		/* don't report, this is invalid lux value */
 		lux_is_valid = 0;
 		luxValue = data->als_prev_lux;
-		if (data->als_reduce)
-			lux_is_valid = 1;
 			/* report anyway since this is the lowest gain */
 	}
 	/*
@@ -988,22 +971,11 @@ static void apds993x_als_polling_work_handler(struct work_struct *work)
 		if (data->als_again_index != APDS993X_ALS_GAIN_1X) {
 			data->als_again_index--;
 			change_again = 1;
-		} else {
-			err = i2c_smbus_write_byte_data(client,
-					CMD_BYTE|APDS993X_CONFIG_REG,
-					APDS993X_ALS_REDUCE);
-			if (err >= 0)
-				data->als_reduce = 1;
 		}
 	} else if (data->als_data <=
 		   (apds993x_als_res_tb[data->als_atime_index] * 10) / 100) {
 		/* increase AGAIN if possible */
-		if (data->als_reduce) {
-			err = i2c_smbus_write_byte_data(client,
-					CMD_BYTE|APDS993X_CONFIG_REG, 0);
-			if (err >= 0)
-				data->als_reduce = 0;
-		} else if (data->als_again_index != APDS993X_ALS_GAIN_120X) {
+		if (data->als_again_index != APDS993X_ALS_GAIN_120X) {
 			data->als_again_index++;
 			change_again = 1;
 		}
