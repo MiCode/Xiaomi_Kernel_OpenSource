@@ -500,6 +500,19 @@ void __dsi_pll_disable(void __iomem *pll_base)
 	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_RESETSM_CNTRL3, 0x06);
 }
 
+static void pll_20nm_config_powerdown(void __iomem *pll_base)
+{
+	if (!pll_base) {
+		pr_err("Invalid pll base.\n");
+		return;
+	}
+
+	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_SYS_CLK_CTRL, 0x00);
+	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_CMN_MODE, 0x01);
+	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_PLL_VCOTAIL_EN, 0x82);
+	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_BIAS_EN_CLKBUFLR_EN, 0x02);
+}
+
 static int dsi_pll_enable(struct clk *c)
 {
 	int i, rc;
@@ -522,7 +535,7 @@ static int dsi_pll_enable(struct clk *c)
 	}
 	/* Disable PLL1 to avoid current leakage while toggling MDSS GDSC */
 	if (dsi_pll_res->pll_1_base)
-		__dsi_pll_disable(dsi_pll_res->pll_1_base);
+		pll_20nm_config_powerdown(dsi_pll_res->pll_1_base);
 
 	if (rc) {
 		mdss_pll_resource_enable(dsi_pll_res, false);
@@ -531,20 +544,6 @@ static int dsi_pll_enable(struct clk *c)
 	dsi_pll_res->pll_on = true;
 
 	return rc;
-}
-
-
-static void pll_20nm_config_powerdown(void __iomem *pll_base)
-{
-	if (!pll_base) {
-		pr_err("Invalid pll base.\n");
-		return;
-	}
-
-	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_SYS_CLK_CTRL, 0x00);
-	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_CMN_MODE, 0x01);
-	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_PLL_VCOTAIL_EN, 0x82);
-	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_BIAS_EN_CLKBUFLR_EN, 0x02);
 }
 
 static void dsi_pll_disable(struct clk *c)
@@ -564,7 +563,7 @@ static void dsi_pll_disable(struct clk *c)
 
 	/* Disable PLL1 to avoid current leakage while toggling MDSS GDSC */
 	if (dsi_pll_res->pll_1_base)
-		__dsi_pll_disable(dsi_pll_res->pll_1_base);
+		pll_20nm_config_powerdown(dsi_pll_res->pll_1_base);
 
 	pll_20nm_config_powerdown(dsi_pll_res->pll_base);
 
