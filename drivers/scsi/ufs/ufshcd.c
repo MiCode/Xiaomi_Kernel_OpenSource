@@ -223,6 +223,8 @@ enum {
 	UFSHCD_INT_CLEAR,
 };
 
+#define DEFAULT_UFSHCD_DBG_PRINT_EN	UFSHCD_DBG_PRINT_ALL
+
 #define ufshcd_set_eh_in_progress(h) \
 	(h->eh_flags |= UFSHCD_EH_IN_PROGRESS)
 #define ufshcd_eh_in_progress(h) \
@@ -389,6 +391,9 @@ static void ufshcd_print_clk_freqs(struct ufs_hba *hba)
 	struct ufs_clk_info *clki;
 	struct list_head *head = &hba->clk_list_head;
 
+	if (!(hba->ufshcd_dbg_print & UFSHCD_DBG_PRINT_CLK_FREQ_EN))
+		return;
+
 	if (!head || list_empty(head))
 		return;
 
@@ -405,6 +410,9 @@ static void ufshcd_print_uic_err_hist(struct ufs_hba *hba,
 {
 	int i;
 
+	if (!(hba->ufshcd_dbg_print & UFSHCD_DBG_PRINT_UIC_ERR_HIST_EN))
+		return;
+
 	for (i = 0; i < UIC_ERR_REG_HIST_LENGTH; i++) {
 		int p = (i + err_hist->pos - 1) % UIC_ERR_REG_HIST_LENGTH;
 
@@ -417,6 +425,9 @@ static void ufshcd_print_uic_err_hist(struct ufs_hba *hba,
 
 static void ufshcd_print_host_regs(struct ufs_hba *hba)
 {
+	if (!(hba->ufshcd_dbg_print & UFSHCD_DBG_PRINT_HOST_REGS_EN))
+		return;
+
 	/*
 	 * hex_dump reads its data without the readl macro. This might
 	 * cause inconsistency issues on some platform, as the printed
@@ -455,6 +466,9 @@ void ufshcd_print_trs(struct ufs_hba *hba, unsigned long bitmap, bool pr_prdt)
 	int prdt_length;
 	int tag;
 
+	if (!(hba->ufshcd_dbg_print & UFSHCD_DBG_PRINT_TRS_EN))
+		return;
+
 	for_each_set_bit(tag, &bitmap, hba->nutrs) {
 		lrbp = &hba->lrb[tag];
 
@@ -488,6 +502,9 @@ static void ufshcd_print_tmrs(struct ufs_hba *hba, unsigned long bitmap)
 	struct utp_task_req_desc *tmrdp;
 	int tag;
 
+	if (!(hba->ufshcd_dbg_print & UFSHCD_DBG_PRINT_TMRS_EN))
+		return;
+
 	for_each_set_bit(tag, &bitmap, hba->nutmrs) {
 		tmrdp = &hba->utmrdl_base_addr[tag];
 		dev_err(hba->dev, "TM[%d] - Task Management Header", tag);
@@ -520,6 +537,9 @@ static void ufshcd_print_pwr_info(struct ufs_hba *hba)
 		"SLOWAUTO_MODE",
 		"INVALID MODE",
 	};
+
+	if (!(hba->ufshcd_dbg_print & UFSHCD_DBG_PRINT_PWR_EN))
+		return;
 
 	dev_err(hba->dev, "%s:[RX, TX]: gear=[%d, %d], lane[%d, %d], pwr[%s, %s], rate = %d\n",
 		 __func__,
@@ -8164,6 +8184,9 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	/* Get Interrupt bit mask per version */
 	hba->intr_mask = ufshcd_get_intr_mask(hba);
+
+	/* Enable debug prints */
+	hba->ufshcd_dbg_print = DEFAULT_UFSHCD_DBG_PRINT_EN;
 
 	err = ufshcd_set_dma_mask(hba);
 	if (err) {

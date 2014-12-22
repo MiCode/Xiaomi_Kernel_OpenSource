@@ -294,6 +294,7 @@ struct debugfs_files {
 	struct dentry *power_mode;
 	struct dentry *dme_local_read;
 	struct dentry *dme_peer_read;
+	struct dentry *dbg_print_en;
 	u32 dme_local_attr_id;
 	u32 dme_peer_attr_id;
 #ifdef CONFIG_UFS_FAULT_INJECTION
@@ -411,6 +412,20 @@ enum clk_gating_state {
 	REQ_CLKS_OFF,
 	REQ_CLKS_ON,
 };
+
+/* UFS Host Controller debug print bitmask */
+#define UFSHCD_DBG_PRINT_CLK_FREQ_EN		UFS_BIT(0)
+#define UFSHCD_DBG_PRINT_UIC_ERR_HIST_EN	UFS_BIT(1)
+#define UFSHCD_DBG_PRINT_HOST_REGS_EN		UFS_BIT(2)
+#define UFSHCD_DBG_PRINT_TRS_EN			UFS_BIT(3)
+#define UFSHCD_DBG_PRINT_TMRS_EN		UFS_BIT(4)
+#define UFSHCD_DBG_PRINT_PWR_EN			UFS_BIT(5)
+
+#define UFSHCD_DBG_PRINT_ALL						   \
+		(UFSHCD_DBG_PRINT_CLK_FREQ_EN		|		   \
+		 UFSHCD_DBG_PRINT_UIC_ERR_HIST_EN	|		   \
+		 UFSHCD_DBG_PRINT_HOST_REGS_EN | UFSHCD_DBG_PRINT_TRS_EN | \
+		 UFSHCD_DBG_PRINT_TMRS_EN | UFSHCD_DBG_PRINT_PWR_EN)
 
 /**
  * struct ufs_clk_gating - UFS clock gating related info
@@ -577,6 +592,7 @@ struct ufshcd_pm_qos {
  * @hibern8_on_idle: UFS Hibern8 on idle related data
  * @ufs_stats: ufshcd statistics to be used via debugfs
  * @debugfs_files: debugfs files associated with the ufs stats
+ * @ufshcd_dbg_print: Bitmask for enabling debug prints
  */
 struct ufs_hba {
 	void __iomem *mmio_base;
@@ -750,6 +766,9 @@ struct ufs_hba {
 
 	/* Number of requests aborts */
 	int req_abort_count;
+
+	/* Bitmask for enabling debug prints */
+	u32 ufshcd_dbg_print;
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
