@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,6 +201,46 @@ static u8 qpnp_flash_led_ctrl_dbg_regs[] = {
 	0x4A, 0x4B, 0x4F, 0x51, 0x52, 0x54, 0x55, 0x5A
 };
 
+static int
+qpnp_flash_led_get_max_avail_current(struct flash_node_data *flash_node,
+					struct qpnp_flash_led *led)
+{
+	union power_supply_propval prop;
+	int max_curr_avail_ma;
+	int rc;
+
+	if (!led->battery_psy)
+		led->battery_psy = power_supply_get_by_name("battery");
+
+	if (led->battery_psy) {
+		rc = led->battery_psy->get_property(led->battery_psy,
+				POWER_SUPPLY_PROP_FLASH_CURRENT_MAX,
+				&prop);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"Failed to get power supply property\n");
+			return -EINVAL;
+		}
+
+		if (!prop.intval) {
+			dev_err(&led->spmi_dev->dev,
+				"battery too low for flash\n");
+			return 0;
+		}
+	} else {
+		dev_err(&led->spmi_dev->dev,
+			"failed to query power supply battery device\n");
+		return -EINVAL;
+	}
+	max_curr_avail_ma = (int)(prop.intval / FLASH_LED_UA_PER_MA);
+	max_curr_avail_ma = max_curr_avail_ma / 2;
+
+	if (max_curr_avail_ma > flash_node->max_current)
+		max_curr_avail_ma = flash_node->max_current;
+
+	return max_curr_avail_ma;
+}
+
 static ssize_t qpnp_led_strobe_type_store(struct device *dev,
 			struct device_attribute *attr,
 			const char *buf, size_t count)
@@ -258,12 +298,67 @@ static ssize_t qpnp_flash_led_dump_regs_show(struct device *dev,
 	return count;
 }
 
+static ssize_t qpnp_flash_led_current_derate_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct qpnp_flash_led *led;
+	struct flash_node_data *flash_node;
+	unsigned long val;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	ssize_t ret;
+
+	ret = kstrtoul(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	flash_node = container_of(led_cdev, struct flash_node_data, cdev);
+	led = dev_get_drvdata(&flash_node->spmi_dev->dev);
+
+	/*'0' for disable derate feature; non-zero to enable derate feature */
+	if (val == 0)
+		led->pdata->power_detect_en = false;
+	else
+		led->pdata->power_detect_en = true;
+
+	return count;
+}
+
+static ssize_t qpnp_flash_led_max_current_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct qpnp_flash_led *led;
+	struct flash_node_data *flash_node;
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	int max_curr_avail_ma;
+	flash_node = container_of(led_cdev, struct flash_node_data, cdev);
+	led = dev_get_drvdata(&flash_node->spmi_dev->dev);
+
+	if (led->pdata->power_detect_en) {
+		max_curr_avail_ma =
+			qpnp_flash_led_get_max_avail_current(flash_node, led);
+
+		if (max_curr_avail_ma < 0)
+			return -EINVAL;
+		else
+			max_curr_avail_ma = (int)flash_node->max_current;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", max_curr_avail_ma);
+}
+
 static struct device_attribute qpnp_flash_led_attrs[] = {
 	__ATTR(strobe, (S_IRUGO | S_IWUSR | S_IWGRP),
 				NULL,
 				qpnp_led_strobe_type_store),
 	__ATTR(reg_dump, (S_IRUGO | S_IWUSR | S_IWGRP),
 				qpnp_flash_led_dump_regs_show,
+				NULL),
+	__ATTR(enable_current_derate, (S_IRUGO | S_IWUSR | S_IWGRP),
+				NULL,
+				qpnp_flash_led_current_derate_store),
+	__ATTR(max_allowed_current, (S_IRUGO | S_IWUSR | S_IWGRP),
+				qpnp_flash_led_max_current_show,
 				NULL),
 };
 
@@ -450,7 +545,6 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 			return -EINVAL;
 		}
 	}
-
 	return 0;
 }
 
@@ -466,9 +560,8 @@ static void qpnp_flash_led_work(struct work_struct *work)
 				struct flash_node_data, work);
 	struct qpnp_flash_led *led =
 			dev_get_drvdata(&flash_node->spmi_dev->dev);
-	union power_supply_propval prop;
 	int rc, brightness = flash_node->cdev.brightness;
-	u16 max_curr_avail_ma;
+	int max_curr_avail_ma;
 	u8 val;
 
 	mutex_lock(&led->flash_led_lock);
@@ -482,8 +575,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 	flash_node->prgm_current = brightness;
 
 	if (flash_node->boost_regulator && !flash_node->flash_on) {
-		if (regulator_count_voltages(flash_node->boost_regulator)
-									> 0) {
+		if (regulator_count_voltages(flash_node->boost_regulator) > 0) {
 			rc = regulator_set_voltage(flash_node->boost_regulator,
 				flash_node->boost_voltage_max,
 				flash_node->boost_voltage_max);
@@ -563,37 +655,24 @@ static void qpnp_flash_led_work(struct work_struct *work)
 		}
 	} else if (flash_node->type == FLASH) {
 		if (led->pdata->power_detect_en) {
-			if (!led->battery_psy)
-				led->battery_psy =
-					power_supply_get_by_name("battery");
-
-			if (led->battery_psy) {
-				led->battery_psy->get_property(led->battery_psy,
-					POWER_SUPPLY_PROP_FLASH_CURRENT_MAX,
-					&prop);
-				if (!prop.intval) {
-					dev_err(&led->spmi_dev->dev,
-						"battery too low for flash\n");
-					goto exit_flash_led_work;
-				}
-			} else {
+			max_curr_avail_ma =
+				qpnp_flash_led_get_max_avail_current
+							(flash_node, led);
+			if (max_curr_avail_ma < 0) {
 				dev_err(&led->spmi_dev->dev,
-					"failed to query battery level\n");
+					"Failed to get Max available curr\n");
 				goto exit_flash_led_work;
-			}
-
-			max_curr_avail_ma = (u16)(prop.intval /
-							FLASH_LED_UA_PER_MA);
-			max_curr_avail_ma = max_curr_avail_ma / 2;
-
-			if (max_curr_avail_ma < flash_node->prgm_current) {
-				dev_err(&led->spmi_dev->dev,
-					"battery only supports %d mA.\n",
-					max_curr_avail_ma);
-				flash_node->prgm_current = max_curr_avail_ma;
+			} else {
+				if (max_curr_avail_ma <
+					flash_node->prgm_current) {
+					dev_err(&led->spmi_dev->dev,
+						"battery only supports %d mA.\n",
+						max_curr_avail_ma);
+					flash_node->prgm_current =
+						(u16) max_curr_avail_ma;
+				}
 			}
 		}
-
 		val = (u8)((flash_node->duration - FLASH_DURATION_DIVIDER)
 						/ FLASH_DURATION_DIVIDER);
 		rc = qpnp_led_masked_write(led->spmi_dev,
