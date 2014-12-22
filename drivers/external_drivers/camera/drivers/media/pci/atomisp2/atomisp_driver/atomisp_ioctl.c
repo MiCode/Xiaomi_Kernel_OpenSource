@@ -1003,7 +1003,8 @@ int atomisp_alloc_css_stat_bufs(struct atomisp_sub_device *asd,
 	int count;
 	unsigned int i;
 
-	if (list_empty(&asd->s3a_stats)) {
+	if (list_empty(&asd->s3a_stats) &&
+		asd->params.curr_grid_info.s3a_grid.enable) {
 		count = ATOMISP_CSS_Q_DEPTH +
 		        ATOMISP_S3A_BUF_QUEUE_DEPTH_FOR_HAL;
 		dev_dbg(isp->dev, "allocating %d 3a buffers\n", count);
@@ -1024,7 +1025,8 @@ int atomisp_alloc_css_stat_bufs(struct atomisp_sub_device *asd,
 		}
 	}
 
-	if (list_empty(&asd->dis_stats)) {
+	if (list_empty(&asd->dis_stats) &&
+		asd->params.curr_grid_info.dvs_grid.enable) {
 		count = ATOMISP_CSS_Q_DEPTH + 1;
 		dev_dbg(isp->dev, "allocating %d dis buffers\n", count);
 		while (count--) {
