@@ -13,7 +13,7 @@ Required properties:
 - reg-names:		Names of the bases for the above registers. Expected
 			bases are:
 			"apcs-c0-rcg-base", "apcs-c1-rcg-base",
-			"apcs-cci-rcg-base", "efuse"
+			"apcs-cci-rcg-base", "efuse", "efuse1", "efuse2"
 - vdd-c0-supply:	The regulator powering the little cluster
 - vdd-c1-supply:	The regulator powering the big cluster
 - vdd-cci-supply:	The regulator powering the CCI cluster
@@ -40,7 +40,8 @@ Example:
 		      <0xf900f000 0x1000>,
 		      <0xf9112000 0x1000>;
 		reg-names = "apcs-c0-rcg-base", "apcs-c1-rcg-base",
-			     "apcs-cci-rcg-base", "efuse";
+			     "apcs-cci-rcg-base", "efuse", "efuse1",
+				"efuse2";
                 vdd-c0-supply = <&apc_vreg_corner>;
 		vdd-c1-supply = <&apc_vreg_corner>;
 		vdd-cci-supply = <&apc_vreg_corner>;
