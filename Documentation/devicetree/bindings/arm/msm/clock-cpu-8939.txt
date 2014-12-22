@@ -1,0 +1,73 @@
+Qualcomm MSM8939 CPU clock tree
+
+clock-cpu-8939 is a device that represents the MSM8939 or MSM8952 CPU
+subsystem clock tree. It lists the various power supplies that need to be
+scaled when the clocks are scaled and also other HW specific parameters like
+fmax tables, avs settings table, etc.
+
+Required properties:
+- compatible:		Must be one of "qcom,clock-cpu-8939" or
+			"qcom,cpu-clock-8952"
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		Names of the bases for the above registers. Expected
+			bases are:
+			"apcs-c0-rcg-base", "apcs-c1-rcg-base",
+			"apcs-cci-rcg-base", "efuse", "efuse1", "efuse2"
+- vdd-c0-supply:	The regulator powering the little cluster
+- vdd-c1-supply:	The regulator powering the big cluster
+- vdd-cci-supply:	The regulator powering the CCI cluster
+- qcom,speedX-bin-vY-ZZZ:
+			A table of CPU frequency (Hz) to voltage (corner)
+			mapping that represents the max frequency possible
+			for each supported voltage level for a CPU. 'X' is
+			the speed bin into which the device falls into - a
+			bin will have unique frequency-voltage relationships.
+			'Y' is the characterization version, implying that
+			characterization (deciding what speed bin a device
+			falls into) methods and/or encoding may change. The
+			values 'X' and 'Y' are read from efuse registers, and
+			the right table is picked from multiple possible tables.
+			'ZZZ' can be c1, c0 or cci depending on whether the table
+			is for the big cluster, little cluster or cci.
+Example:
+	clock_cpu: qcom,cpu-clock-8939@f9015000 {
+		compatible = "qcom,cpu-clock-8939";
+		reg = <0xf9015000 0x1000>,
+		      <0xf9016000 0x1000>,
+		      <0xf9011000 0x1000>,
+		      <0xf900d000 0x1000>,
+		      <0xf900f000 0x1000>,
+		      <0xf9112000 0x1000>;
+		reg-names = "apcs-c0-rcg-base", "apcs-c1-rcg-base",
+			     "apcs-cci-rcg-base", "efuse", "efuse1",
+				"efuse2";
+                vdd-c0-supply = <&apc_vreg_corner>;
+		vdd-c1-supply = <&apc_vreg_corner>;
+		vdd-cci-supply = <&apc_vreg_corner>;
+		qcom,speed0-bin-v0-c0 =
+			<         0 0>,
+			< 384000000 1>,
+			< 787200000 2>,
+			<1286400000 3>;
+		qcom,speed0-bin-v0-c1 =
+			<         0 0>,
+			< 384000000 1>,
+			< 787200000 2>,
+			<1785600000 3>;
+		qcom,speed0-bin-v0-cci =
+			<         0 0>,
+			< 150000000 1>,
+			< 300000000 2>,
+			< 600000000 3>;
+		clocks = <&clock_gcc clk_gpll0_ao>,
+			<&clock_gcc clk_a53ss_c0_pll>,
+			<&clock_gcc clk_gpll0_ao>,
+			<&clock_gcc clk_a53ss_c1_pll>,
+			<&clock_gcc clk_gpll0_ao>,
+			<&clock_gcc clk_a53ss_cci_pll>;
+			clock-names = "clk-c0-4", "clk-c0-5",
+			"clk-c1-4", "clk-c1-5",
+			"clk-cci-4", "clk-cci-5";
+		#clock-cells = <1>;
+};
