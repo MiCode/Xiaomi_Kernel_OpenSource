@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -171,8 +171,8 @@ static void get_speed_bin(struct platform_device *pdev, int *bin,
 								int *version)
 {
 	struct resource *res;
-	void __iomem *base;
-	u32 pte_efuse;
+	void __iomem *base, *base1, *base2;
+	u32 pte_efuse, pte_efuse1, pte_efuse2;
 
 	*bin = 0;
 	*version = 0;
@@ -196,6 +196,43 @@ static void get_speed_bin(struct platform_device *pdev, int *bin,
 
 	*bin = (pte_efuse >> 2) & 0x7;
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse1");
+	if (!res) {
+		dev_info(&pdev->dev,
+			 "No PVS version available. Defaulting to 0!\n");
+		goto out;
+	}
+
+	base1 = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!base1) {
+		dev_warn(&pdev->dev,
+			 "Unable to read efuse1 data. Defaulting to 0!\n");
+		goto out;
+	}
+
+	pte_efuse1 = readl_relaxed(base1);
+	devm_iounmap(&pdev->dev, base1);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse2");
+	if (!res) {
+		dev_info(&pdev->dev,
+			 "No PVS version available. Defaulting to 0!\n");
+		goto out;
+	}
+
+	base2 = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!base2) {
+		dev_warn(&pdev->dev,
+			 "Unable to read efuse2 data. Defaulting to 0!\n");
+		goto out;
+	}
+
+	pte_efuse2 = readl_relaxed(base2);
+	devm_iounmap(&pdev->dev, base2);
+
+	*version = ((pte_efuse1 >> 29 & 0x1) | ((pte_efuse2 >> 18 & 0x3) << 1));
+
+out:
 	dev_info(&pdev->dev, "Speed bin: %d PVS Version: %d\n", *bin,
 								*version);
 }
