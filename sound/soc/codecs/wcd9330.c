@@ -6432,7 +6432,7 @@ static int tomtom_codec_ear_dac_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int tomtom_codec_iir_mux_event(struct snd_soc_dapm_widget *w,
+static int tomtom_codec_set_iir_gain(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
@@ -6440,11 +6440,35 @@ static int tomtom_codec_iir_mux_event(struct snd_soc_dapm_widget *w,
 	pr_debug("%s: event = %d\n", __func__, event);
 
 	switch (event) {
-	case SND_SOC_DAPM_POST_PMU:
-		snd_soc_write(codec, w->reg, snd_soc_read(codec, w->reg));
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		snd_soc_write(codec, w->reg, snd_soc_read(codec, w->reg));
+	case SND_SOC_DAPM_POST_PMU: /* fall through */
+	case SND_SOC_DAPM_PRE_PMD:
+		if (strnstr(w->name, "IIR1", sizeof("IIR1"))) {
+			snd_soc_write(codec, TOMTOM_A_CDC_IIR1_GAIN_B1_CTL,
+				      snd_soc_read(codec,
+					      TOMTOM_A_CDC_IIR1_GAIN_B1_CTL));
+			snd_soc_write(codec, TOMTOM_A_CDC_IIR1_GAIN_B2_CTL,
+				      snd_soc_read(codec,
+					      TOMTOM_A_CDC_IIR1_GAIN_B2_CTL));
+			snd_soc_write(codec, TOMTOM_A_CDC_IIR1_GAIN_B3_CTL,
+				      snd_soc_read(codec,
+					      TOMTOM_A_CDC_IIR1_GAIN_B3_CTL));
+			snd_soc_write(codec, TOMTOM_A_CDC_IIR1_GAIN_B4_CTL,
+				      snd_soc_read(codec,
+					      TOMTOM_A_CDC_IIR1_GAIN_B4_CTL));
+		} else {
+			snd_soc_write(codec, TOMTOM_A_CDC_IIR2_GAIN_B1_CTL,
+				      snd_soc_read(codec,
+					      TOMTOM_A_CDC_IIR2_GAIN_B1_CTL));
+			snd_soc_write(codec, TOMTOM_A_CDC_IIR2_GAIN_B2_CTL,
+				      snd_soc_read(codec,
+					      TOMTOM_A_CDC_IIR2_GAIN_B2_CTL));
+			snd_soc_write(codec, TOMTOM_A_CDC_IIR2_GAIN_B3_CTL,
+				      snd_soc_read(codec,
+					      TOMTOM_A_CDC_IIR2_GAIN_B3_CTL));
+			snd_soc_write(codec, TOMTOM_A_CDC_IIR2_GAIN_B4_CTL,
+				      snd_soc_read(codec,
+					      TOMTOM_A_CDC_IIR2_GAIN_B4_CTL));
+		}
 		break;
 	}
 	return 0;
@@ -6977,41 +7001,29 @@ static const struct snd_soc_dapm_widget tomtom_dapm_widgets[] = {
 		SND_SOC_DAPM_POST_PMD),
 
 	/* Sidetone */
-	SND_SOC_DAPM_MUX_E("IIR1 INP1 MUX", TOMTOM_A_CDC_IIR1_GAIN_B1_CTL, 0, 0,
-		&iir1_inp1_mux,  tomtom_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
 
-	SND_SOC_DAPM_MUX_E("IIR1 INP2 MUX", TOMTOM_A_CDC_IIR1_GAIN_B2_CTL, 0, 0,
-		&iir1_inp2_mux,  tomtom_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX("IIR1 INP2 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp2_mux),
 
-	SND_SOC_DAPM_MUX_E("IIR1 INP3 MUX", TOMTOM_A_CDC_IIR1_GAIN_B3_CTL, 0, 0,
-		&iir1_inp3_mux,  tomtom_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX("IIR1 INP3 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp3_mux),
 
-	SND_SOC_DAPM_MUX_E("IIR1 INP4 MUX", TOMTOM_A_CDC_IIR1_GAIN_B4_CTL, 0, 0,
-		&iir1_inp4_mux,  tomtom_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX("IIR1 INP4 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp4_mux),
 
-	SND_SOC_DAPM_MIXER("IIR1", TOMTOM_A_CDC_CLK_SD_CTL, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER_E("IIR1", TOMTOM_A_CDC_CLK_SD_CTL, 0, 0, NULL, 0,
+		tomtom_codec_set_iir_gain, SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_PRE_PMD),
 
-	SND_SOC_DAPM_MUX_E("IIR2 INP1 MUX", TOMTOM_A_CDC_IIR2_GAIN_B1_CTL, 0, 0,
-		&iir2_inp1_mux,  tomtom_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX("IIR2 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir2_inp1_mux),
 
-	SND_SOC_DAPM_MUX_E("IIR2 INP2 MUX", TOMTOM_A_CDC_IIR2_GAIN_B2_CTL, 0, 0,
-		&iir2_inp2_mux,  tomtom_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX("IIR2 INP2 MUX", SND_SOC_NOPM, 0, 0, &iir2_inp2_mux),
 
-	SND_SOC_DAPM_MUX_E("IIR2 INP3 MUX", TOMTOM_A_CDC_IIR2_GAIN_B3_CTL, 0, 0,
-		&iir2_inp3_mux,  tomtom_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX("IIR2 INP3 MUX", SND_SOC_NOPM, 0, 0, &iir2_inp3_mux),
 
-	SND_SOC_DAPM_MUX_E("IIR2 INP4 MUX", TOMTOM_A_CDC_IIR2_GAIN_B4_CTL, 0, 0,
-		&iir2_inp4_mux,  tomtom_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX("IIR2 INP4 MUX", SND_SOC_NOPM, 0, 0, &iir2_inp4_mux),
 
-	SND_SOC_DAPM_MIXER("IIR2", TOMTOM_A_CDC_CLK_SD_CTL, 1, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER_E("IIR2", TOMTOM_A_CDC_CLK_SD_CTL, 1, 0, NULL, 0,
+		tomtom_codec_set_iir_gain, SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_PRE_PMD),
 
 	/* AUX PGA */
 	SND_SOC_DAPM_ADC_E("AUX_PGA_Left", NULL, TOMTOM_A_RX_AUX_SW_CTL, 7, 0,
