@@ -89,6 +89,8 @@ struct csid_device {
 	struct clk *csid_clk[CSID_NUM_CLK_MAX];
 	uint32_t csid_clk_index;
 	uint32_t csid_max_clk;
+	uint32_t csid_sof_debug;
+	uint32_t csid_lane_cnt;
 };
 
 #define VIDIOC_MSM_CSID_RELEASE \

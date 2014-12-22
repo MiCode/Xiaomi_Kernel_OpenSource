@@ -505,8 +505,13 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 	struct msm_isp_event_data sof_event;
 	switch (frame_src) {
 	case VFE_PIX_0:
-		ISP_DBG("%s: PIX0 frame id: %u\n", __func__,
-			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+		if (vfe_dev->isp_sof_debug < 5)
+			pr_err("%s: PIX0 frame id: %u\n", __func__,
+				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+		else
+			ISP_DBG("%s: PIX0 frame id: %u\n", __func__,
+				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
+		vfe_dev->isp_sof_debug++;
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id++;
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id == 0)
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 1;
