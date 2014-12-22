@@ -7618,7 +7618,7 @@ struct sched_group *group, struct sg_lb_stats *sgs, struct lb_env *env)
 	 * seen a busy group yet and we are close to throttling. We want to
 	 * prioritize spreading work over power optimization.
 	 */
-	cpu = cpumask_first(sched_group_cpus(group));
+	cpu = group_first_cpu(group);
 	if (sysctl_sched_enable_power_aware &&
 	    (capacity(env->dst_rq) == group_rq_capacity(group)) &&
 	    sgs->sum_nr_running && (env->idle != CPU_NOT_IDLE) &&
@@ -7739,8 +7739,13 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 		return false;
 	}
 
-	if (env->flags & LBF_PWR_ACTIVE_BALANCE)
+	if (env->flags & LBF_PWR_ACTIVE_BALANCE) {
+		if (power_cost_at_freq(group_first_cpu(sg), 0) <=
+		    power_cost_at_freq(group_first_cpu(sds->busiest), 0))
+			return false;
+
 		return true;
+	}
 
 	if (sgs->avg_load <= busiest->avg_load)
 		return false;
