@@ -384,6 +384,14 @@
 				>;
 		interrupt-names = "silabs_fm_int", "silabs_fm_status_int";
 	};
+
+	smb1357-charger@1c {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x1c>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-thresh-mv = <100>;
+	};
 };
 
 &soc {
