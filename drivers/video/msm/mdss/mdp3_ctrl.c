@@ -1423,6 +1423,7 @@ static int mdp3_histogram_stop(struct mdp3_session_data *session,
 	mutex_lock(&session->histo_lock);
 
 	if (!session->histo_status) {
+		pr_debug("mdp3_histogram_stop already stopped!");
 		ret = 0;
 		goto histogram_stop_err;
 	}
@@ -1452,20 +1453,20 @@ static int mdp3_histogram_collect(struct mdp3_session_data *session,
 		return -EINVAL;
 	}
 
+	mutex_lock(&session->histo_lock);
+
+	if (!session->histo_status) {
+		pr_debug("mdp3_histogram_collect not started\n");
+		mutex_unlock(&session->histo_lock);
+		return -EPROTO;
+	}
+
+	mutex_unlock(&session->histo_lock);
+
 	if (!session->clk_on) {
 		pr_debug("mdp/dsi clock off currently\n");
 		return -EPERM;
 	}
-
-	mutex_lock(&session->histo_lock);
-
-	if (!session->histo_status) {
-		pr_err("mdp3_histogram_collect not started\n");
-		mutex_unlock(&session->histo_lock);
-		return -EPERM;
-	}
-
-	mutex_unlock(&session->histo_lock);
 
 	mdp3_clk_enable(1, 0);
 	ret = session->dma->get_histo(session->dma);
@@ -2169,7 +2170,7 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 	req = &mdp3_session->req_overlay;
 
 	if (!mdp3_session->status && cmd != MSMFB_METADATA_GET &&
-		cmd != MSMFB_HISTOGRAM_STOP) {
+		cmd != MSMFB_HISTOGRAM_STOP && cmd != MSMFB_HISTOGRAM) {
 		pr_err("mdp3_ctrl_ioctl_handler, display off!\n");
 		return -EPERM;
 	}
