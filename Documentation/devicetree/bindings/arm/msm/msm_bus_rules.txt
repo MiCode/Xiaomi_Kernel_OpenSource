@@ -22,8 +22,9 @@ conditions to be monitored. The mandatory properties for the rules are
 - qcom,src-op:			The operand to be used when evaluating a node's
 				bandwidth vote with a threshold.Possible values
 				are OP_LE/OP_LT/OP_GT/OP_GE.
-- qcom,thresh:			The threshold in Kbytes/s to be used in vote
-				evaluation.
+- qcom,thresh:			The threshold in Kbytes/s (in FLD_IB/FLD_AB
+				case) or KHz (in FLD_CLK case) to be used in
+				vote evaluation.
 - qcom,mode:			The QoS mode to be applied when this rule's
 				criterion are satisfied. Possible values are
 				THROTTLE_ON/THROTTLE_OFF
