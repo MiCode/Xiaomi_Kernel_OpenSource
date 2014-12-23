@@ -66,10 +66,12 @@
 		regulator-max-microvolt = <3>;
 
 		qcom,acc-sel-l1-bit-pos = <0>;
-		qcom,corner-acc-map = <0 1 1>;
-		qcom,l1-config-skip-fuse-sel = <0 52 1 1 0>;
-		qcom,skip-l2-custom-on-l1;
-		qcom,l2-acc-custom-data = <0x0 0x3000 0x3000>;
+		qcom,corner-acc-map = <0 0 1>;
+		qcom,l2-acc-custom-data = <0x0 0x0 0x3000>;
+
+		qcom,override-acc-fuse-sel = <0 30 1 1 0>;
+		qcom,override-corner-acc-map = <0 1 1>;
+		qcom,override-l2-acc-custom-data = <0x0 0x3000 0x3000>;
 	};
 
 	apc_vreg_corner: regulator@b018000 {
