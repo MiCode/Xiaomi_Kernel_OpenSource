@@ -211,12 +211,13 @@
 
 		qcom,platform-strength-ctrl = [77 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
-		qcom,platform-regulator-settings = [03 02 03 00 10 07 01];
-		qcom,platform-lane-config = [02 00 00 00 20 00 00 01 88
-			02 00 00 00 40 00 00 01 88
-			02 00 00 40 20 00 00 01 88
-			02 00 00 40 00 00 00 01 88
-			00 00 00 80 00 00 00 01 88];
+		qcom,platform-regulator-settings = [03 03 03 00 20 07 01];
+		qcom,platform-lane-config = [
+			02 a0 00 00 20 00 00 01 46
+			02 a0 00 00 40 00 00 01 46
+			02 a0 00 40 20 00 00 01 46
+			02 a0 00 40 00 00 00 01 46
+			00 a0 00 80 00 00 00 01 46];
 
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
 		qcom,mmss-phyreset-ctrl-offset = <0x108>;
@@ -326,12 +327,13 @@
 
 		qcom,platform-strength-ctrl = [77 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
-		qcom,platform-regulator-settings = [03 05 03 00 20 07 01];
-		qcom,platform-lane-config = [02 00 00 00 20 00 00 01 88
-			02 00 00 00 40 00 00 01 88
-			02 00 00 40 20 00 00 01 88
-			02 00 00 40 00 00 00 01 88
-			00 00 00 80 00 00 00 01 88];
+		qcom,platform-regulator-settings = [03 03 03 00 20 07 01];
+		qcom,platform-lane-config = [
+			02 a0 00 00 20 00 00 01 46
+			02 a0 00 00 40 00 00 01 46
+			02 a0 00 40 20 00 00 01 46
+			02 a0 00 40 00 00 00 01 46
+			00 a0 00 80 00 00 00 01 46];
 
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
 		qcom,mmss-phyreset-ctrl-offset = <0x108>;
