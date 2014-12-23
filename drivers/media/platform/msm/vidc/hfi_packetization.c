@@ -311,6 +311,7 @@ int create_pkt_cmd_sys_release_resource(
 
 	switch (resource_hdr->resource_id) {
 	case VIDC_RESOURCE_OCMEM:
+	case VIDC_RESOURCE_VMEM:
 		pkt->resource_type = HFI_RESOURCE_OCMEM;
 		break;
 	default:
