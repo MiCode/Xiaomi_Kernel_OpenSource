@@ -41,6 +41,7 @@ static int mdp3_ctrl_lut_config(struct msm_fb_data_type *mfd,
 				struct mdp_rgb_lut_data *cfg);
 static void mdp3_ctrl_pp_resume(struct msm_fb_data_type *mfd);
 static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd);
+static int mdp3_ctrl_get_pack_pattern(u32 imgType);
 
 u32 mdp_lut_inverse16[MDP_LUT_SIZE] = {
 0, 65536, 32768, 21845, 16384, 13107, 10923, 9362, 8192, 7282, 6554, 5958,
@@ -348,6 +349,10 @@ static ssize_t mdp3_packpattern_show(struct device *dev,
 	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
 
 	pattern = mdp3_session->dma->output_config.pack_pattern;
+
+	/* If pattern was found to be 0 then get pattern for fb imagetype */
+	if (!pattern)
+		pattern = mdp3_ctrl_get_pack_pattern(mfd->fb_imgType);
 
 	pr_debug("fb%d pack_pattern c= %d.", mfd->index, pattern);
 	rc = scnprintf(buf, PAGE_SIZE, "packpattern=%d \n", pattern);
