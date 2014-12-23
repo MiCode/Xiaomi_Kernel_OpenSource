@@ -1657,7 +1657,6 @@ int _ipa_init_sram_v2_5(void)
 							IPA_MEM_CANARY_VAL);
 	IPA_SRAM_SET(IPA_MEM_PART(modem_hdr_proc_ctx_ofst), IPA_MEM_CANARY_VAL);
 	IPA_SRAM_SET(IPA_MEM_PART(modem_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(apps_v4_flt_ofst), IPA_MEM_CANARY_VAL);
 	IPA_SRAM_SET(IPA_MEM_PART(end_ofst), IPA_MEM_CANARY_VAL);
 
 	iounmap(ipa_sram_mmio);
