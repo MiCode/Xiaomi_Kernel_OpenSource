@@ -146,6 +146,19 @@ static void set_threshold(struct cpu_activity_info *cpu_node)
 		return;
 
 	/*
+	 * Before operating on the threshold structure which is used by
+	 * thermal core ensure that the sensor is disabled to prevent
+	 * incorrect operations on the sensor list maintained by thermal code.
+	 */
+	sensor_activate_trip(cpu_node->sensor_id,
+			&cpu_node->hi_threshold, false);
+	sensor_activate_trip(cpu_node->sensor_id,
+			&cpu_node->low_threshold, false);
+
+	cpu_node->hi_threshold.temp = cpu_node->temp + high_hyst_temp;
+	cpu_node->low_threshold.temp = cpu_node->temp - low_hyst_temp;
+
+	/*
 	 * Set the threshold only if we are below the hotplug limit
 	 * Adding more work at this high temperature range, seems to
 	 * fail hotplug notifications.
@@ -292,10 +305,6 @@ static __ref int do_sampling(void *data)
 			cpu_node = &activity[cpu];
 			if (prev_temp[cpu] != cpu_node->temp) {
 				prev_temp[cpu] = cpu_node->temp;
-				cpu_node->low_threshold.temp = cpu_node->temp
-							- low_hyst_temp;
-				cpu_node->hi_threshold.temp = cpu_node->temp
-							+ high_hyst_temp;
 				set_threshold(cpu_node);
 				trace_temp_threshold(cpu, cpu_node->temp,
 					cpu_node->hi_threshold.temp,
