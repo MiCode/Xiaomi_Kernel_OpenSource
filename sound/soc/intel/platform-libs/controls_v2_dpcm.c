@@ -532,7 +532,7 @@ static int sst_voice_mode_put(struct snd_kcontrol *kcontrol,
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
 	struct soc_enum *e = (void *)kcontrol->private_value;
 	struct snd_soc_dapm_widget *w;
-	unsigned int max = e->max - 1;
+	unsigned int max = e->items - 1;
 	unsigned int val, orig;
 	int i;
 

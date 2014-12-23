@@ -2357,6 +2357,14 @@ static struct snd_soc_dapm_widget *dapm_find_widget(
 	return NULL;
 }
 
+struct snd_soc_dapm_widget *snd_soc_dapm_find_widget(
+			struct snd_soc_dapm_context *dapm, const char *pin,
+			bool search_other_contexts)
+{
+	return dapm_find_widget(dapm, pin, search_other_contexts);
+}
+EXPORT_SYMBOL_GPL(snd_soc_dapm_find_widget);
+
 static int snd_soc_dapm_set_pin(struct snd_soc_dapm_context *dapm,
 				const char *pin, int status)
 {
