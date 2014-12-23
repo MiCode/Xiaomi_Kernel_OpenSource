@@ -169,7 +169,7 @@
                  */
                 qcom,ocmem-bus-client {
                         qcom,msm-bus,name = "gpu-ocmem";
-                        qcom,msm-bus,num-cases = <8>;
+                        qcom,msm-bus,num-cases = <7>;
                         qcom,msm-bus,num-paths = <1>;
                         qcom,msm-bus,vectors-KBps =
 				<89 662 0 9600000>,     /* gpu=600 */
