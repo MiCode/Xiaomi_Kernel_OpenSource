@@ -595,7 +595,8 @@ static void process_remote_open(struct edge_info *einfo, uint16_t rcid,
 	einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_open(
 						&einfo->xprt_if,
 						rcid,
-						name);
+						name,
+						SMEM_XPRT_ID);
 }
 
 /**
@@ -781,7 +782,8 @@ static void rx_worker(struct kthread_work *work)
 		case OPEN_ACK_CMD:
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(
 								&einfo->xprt_if,
-								cmd.param1);
+								cmd.param1,
+								SMEM_XPRT_ID);
 			break;
 		case RX_INTENT_CMD:
 			for (i = 0; i < cmd.param2; ++i) {
@@ -964,11 +966,12 @@ static uint32_t set_version(struct glink_transport_if *if_ptr, uint32_t version,
  * @if_ptr:	The transport to transmit on.
  * @lcid:	The local channel id to encode.
  * @name:	The channel name to encode.
+ * @req_xprt:	The transport the core would like to migrate this channel to.
  *
  * Return: 0 on success or standard Linux error code.
  */
 static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
-			  const char *name)
+			  const char *name, uint16_t req_xprt)
 {
 	struct command {
 		uint16_t id;
@@ -1054,9 +1057,10 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
  *				 and transmit
  * @if_ptr:	The transport to transmit on.
  * @rcid:	The remote channel id to encode.
+ * @xprt_resp:	The response to a transport migration request.
  */
 static void tx_cmd_ch_remote_open_ack(struct glink_transport_if *if_ptr,
-				     uint32_t rcid)
+				     uint32_t rcid, uint16_t xprt_resp)
 {
 	struct command {
 		uint16_t id;
