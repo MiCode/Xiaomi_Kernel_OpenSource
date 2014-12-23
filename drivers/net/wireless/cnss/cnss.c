@@ -1197,6 +1197,17 @@ static ssize_t wlan_setup_show(struct device *dev,
 static DEVICE_ATTR(wlan_setup, S_IRUSR,
 			wlan_setup_show, NULL);
 
+static int cnss_wlan_is_codeswap_supported(u16 revision)
+{
+	switch (revision) {
+	case QCA6174_FW_3_0:
+	case QCA6174_FW_3_2:
+		return 0;
+	default:
+		return 1;
+	}
+}
+
 static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 			       const struct pci_device_id *id)
 {
@@ -1269,8 +1280,7 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 		goto err_pcie_suspend;
 	}
 
-	if (penv->revision_id != QCA6174_FW_3_0 ||
-		penv->revision_id != QCA6174_FW_3_2) {
+	if (cnss_wlan_is_codeswap_supported(penv->revision_id)) {
 		pr_debug("Code-swap not enabled: %d\n", penv->revision_id);
 		goto err_pcie_suspend;
 	}
@@ -1282,6 +1292,7 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 		goto err_pcie_suspend;
 	}
 
+	memset(cpu_addr, 0, EVICT_BIN_MAX_SIZE);
 	cnss_seg_info = devm_kzalloc(dev, sizeof(*cnss_seg_info),
 							GFP_KERNEL);
 	if (!cnss_seg_info) {
@@ -1724,8 +1735,7 @@ again:
 	}
 	penv->pcie_link_state = PCIE_LINK_UP;
 
-	if (penv->revision_id == QCA6174_FW_3_0 ||
-		penv->revision_id == QCA6174_FW_3_2)
+	if (!cnss_wlan_is_codeswap_supported(penv->revision_id))
 		cnss_wlan_memory_expansion();
 
 	if (wdrv->probe) {
