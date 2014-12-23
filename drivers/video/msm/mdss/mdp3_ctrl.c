@@ -1333,10 +1333,17 @@ int mdp3_validate_scale_config(struct mdp_bl_scale_data *data)
 int mdp3_validate_csc_data(struct mdp_csc_cfg_data *data)
 {
 	int i;
+	bool mv_valid = false;
 	for (i = 0; i < 9; i++) {
 		if (data->csc_data.csc_mv[i] >=
 				MDP_HISTOGRAM_CSC_MATRIX_MAX)
 			return -EINVAL;
+		if ((!mv_valid) && (data->csc_data.csc_mv[i] != 0))
+			mv_valid = true;
+	}
+	if (!mv_valid) {
+		pr_err("%s: black screen data! csc_mv is all 0s\n", __func__);
+		return -EINVAL;
 	}
 	for (i = 0; i < 3; i++) {
 		if (data->csc_data.csc_pre_bv[i] >=
