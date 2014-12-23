@@ -2233,6 +2233,11 @@
 		qcom,ce-opp-freq = <171430000>;
 	};
 
+	qcom_tzlog: tz-log@fe80f720 {
+		compatible = "qcom,tz-log";
+		reg = <0xfe80f720 0x2000>;
+	};
+
 	qcom,sensor-information {
 		compatible = "qcom,sensor-information";
 		sensor_information0: qcom,sensor-information@0 {
