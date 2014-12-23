@@ -460,6 +460,7 @@ struct smp_operations msm8936_smp_ops __initdata = {
 #ifdef CONFIG_HOTPLUG
 	.cpu_die = msm_cpu_die,
 	.cpu_kill = msm_cpu_kill,
+	.cpu_disable = msm_cpu_disable,
 #endif
 };
 
@@ -482,7 +483,6 @@ struct smp_operations msm8960_smp_ops __initdata = {
 #ifdef CONFIG_HOTPLUG
 	.cpu_die = msm_cpu_die,
 	.cpu_kill = msm_cpu_kill,
-	.cpu_disable = msm_cpu_disable,
 #endif
 };
 
