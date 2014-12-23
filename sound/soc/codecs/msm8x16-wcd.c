@@ -1730,7 +1730,7 @@ static const struct snd_kcontrol_new dec2_mux =
 	MSM8X16_WCD_DEC_ENUM("DEC2 MUX Mux", dec2_mux_enum);
 
 static const struct snd_kcontrol_new rdac2_mux =
-	MSM8X16_WCD_DEC_ENUM("RDAC2 MUX Mux", rdac2_mux_enum);
+	SOC_DAPM_ENUM("RDAC2 MUX Mux", rdac2_mux_enum);
 
 static const struct snd_kcontrol_new iir1_inp1_mux =
 	SOC_DAPM_ENUM("IIR1 INP1 Mux", iir1_inp1_mux_enum);
