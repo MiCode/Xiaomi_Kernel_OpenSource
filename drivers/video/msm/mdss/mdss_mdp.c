@@ -1391,6 +1391,13 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT("max_bandwidth_high=%u\n", mdata->max_bw_high);
 	if (mdata->max_mixer_width)
 		SPRINT("max_mixer_width=%d\n", mdata->max_mixer_width);
+	if (mdata->max_bw_per_pipe)
+		SPRINT("max_pipe_bw=%u\n", mdata->max_bw_per_pipe);
+	if (mdata->max_mdp_clk_rate)
+		SPRINT("max_mdp_clk=%u\n", mdata->max_mdp_clk_rate);
+	if (mdata->clk_factor.numer)
+		SPRINT("clk_fudge_factor=%u,%u\n", mdata->clk_factor.numer,
+			mdata->clk_factor.denom);
 	SPRINT("features=");
 	if (mdata->has_bwc)
 		SPRINT(" bwc");
