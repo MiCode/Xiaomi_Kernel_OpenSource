@@ -405,19 +405,19 @@ static void glink_dfs_create_channel_list(struct seq_file *s)
 	int count = 0;
 	/*
 	* formatted, human readable channel state output, ie:
-	* NAME               |LCID|RCID|XPRT |STATE   |TX |RX |LINT-Q|RINT-Q|
+	* NAME               |LCID|RCID|XPRT|EDGE|LSTATE |RSTATE|LINT-Q|RINT-Q|
 	* --------------------------------------------------------------------
-	* LOCAL_LOOPBACK_CLNT|2   |1   |lloop|OPENED  | - | - |5     |6     |
+	* LOCAL_LOOPBACK_CLNT|2   |1  |lloop|local|OPENED|OPENED|5     |6    |
 	* N.B. Number of TX & RX Packets not implemented yet. -ENOSYS is printed
 	*/
-	seq_printf(s, "%-20s|%-4s|%-4s|%-19s|%-7s|%-3s|%-3s|%-5s|%-5s|\n",
+	seq_printf(s, "%-20s|%-4s|%-4s|%-10s|%-6s|%-7s|%-7s|%-5s|%-5s|\n",
 								"NAME",
 								"LCID",
 								"RCID",
 								"XPRT",
-								"STATE",
-								"TX",
-								"RX",
+								"EDGE",
+								"LSTATE",
+								"RSTATE",
 								"LINTQ",
 								"RINTQ");
 	seq_puts(s,
@@ -430,17 +430,17 @@ static void glink_dfs_create_channel_list(struct seq_file *s)
 		ch_ctx = glink_ch_ctx_iterator_next(&ch_iter);
 		while (ch_ctx != NULL) {
 			count++;
-			seq_printf(s, "%-20s|%-4i|%-4i|%-19s|%-7s|",
+			seq_printf(s, "%-20s|%-4i|%-4i|%-10s|%-6s|%-7s|",
 					glink_get_ch_name(ch_ctx),
 					glink_get_ch_lcid(ch_ctx),
 					glink_get_ch_rcid(ch_ctx),
 					glink_get_ch_xprt_name(ch_ctx),
-					glink_get_ch_state(ch_ctx));
-			seq_printf(s, "%-3i|%-3i|%-5i|%-5i|\n",
-				glink_get_ch_tx_pkt_count(ch_ctx),
-				glink_get_ch_rx_pkt_count(ch_ctx),
-				glink_get_ch_lintents_queued(ch_ctx),
-				glink_get_ch_rintents_queued(ch_ctx));
+					glink_get_ch_edge_name(ch_ctx),
+					glink_get_ch_lstate(ch_ctx));
+			seq_printf(s, "%-7s|%-5i|%-5i|\n",
+			(glink_get_ch_rstate(ch_ctx) ? "OPENED" : "CLOSED"),
+			glink_get_ch_lintents_queued(ch_ctx),
+			glink_get_ch_rintents_queued(ch_ctx));
 
 			ch_ctx = glink_ch_ctx_iterator_next(&ch_iter);
 		}

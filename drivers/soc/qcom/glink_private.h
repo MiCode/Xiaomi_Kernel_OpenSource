@@ -558,12 +558,20 @@ int glink_get_ch_lcid(struct channel_ctx *ch_ctx);
 int glink_get_ch_rcid(struct channel_ctx *ch_ctx);
 
 /**
- * glink_get_ch_state() - get the channel state
+ * glink_get_ch_lstate() - get the local channel state
  * @ch_ctx:	pointer to the channel context.
  *
- * Return: name of the channel state, NULL in case of invalid input
+ * Return: name of the local channel state, NULL in case of invalid input
  */
-const char *glink_get_ch_state(struct channel_ctx *ch_ctx);
+const char *glink_get_ch_lstate(struct channel_ctx *ch_ctx);
+
+/**
+ * glink_get_ch_rstate() - get the remote channel state
+ * @ch_ctx:	pointer to the channel context.
+ *
+ * Return: true if remote side is opened false otherwise
+ */
+bool glink_get_ch_rstate(struct channel_ctx *ch_ctx);
 
 /**
  * glink_get_ch_xprt_name() - get the name of the transport to which
