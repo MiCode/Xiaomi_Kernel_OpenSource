@@ -112,10 +112,14 @@ static void print_flags(struct seq_file *s, const struct flag_entry *table,
 static void cmdbatch_print(struct seq_file *s, struct kgsl_cmdbatch *cmdbatch)
 {
 	struct kgsl_cmdbatch_sync_event *sync_event;
-	unsigned long flags;
 
-	/* print fences first, since they block this cmdbatch */
-	spin_lock_irqsave(&cmdbatch->lock, flags);
+	/*
+	 * print fences first, since they block this cmdbatch.
+	 * We may have cmdbatch timer running, which also uses
+	 * same lock, take a lock with software interrupt disabled (bh)
+	 * to avoid spin lock recursion.
+	 */
+	spin_lock_bh(&cmdbatch->lock);
 
 	list_for_each_entry(sync_event, &cmdbatch->synclist, node) {
 		/*
@@ -128,7 +132,7 @@ static void cmdbatch_print(struct seq_file *s, struct kgsl_cmdbatch *cmdbatch)
 		seq_puts(s, "\n");
 	}
 
-	spin_unlock_irqrestore(&cmdbatch->lock, flags);
+	spin_unlock_bh(&cmdbatch->lock);
 
 	/* if this flag is set, there won't be an IB */
 	if (cmdbatch->flags & KGSL_CONTEXT_SYNC)
