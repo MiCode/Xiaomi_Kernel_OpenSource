@@ -1628,7 +1628,7 @@ void *glink_open(const struct glink_open_config *cfg)
 
 	/* confirm required notification parameters */
 	if (!(cfg->notify_rx || cfg->notify_rxv) || !cfg->notify_tx_done ||
-			!cfg->notify_state || !cfg->notify_rx_intent_req) {
+			!cfg->notify_state) {
 		GLINK_ERR("%s: Incorrect notification parameters\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
