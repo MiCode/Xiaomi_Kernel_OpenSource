@@ -1713,14 +1713,14 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		best_lpm_nonsibling_cstate = INT_MAX;
 	int cluster_cost, i, cstate;
 	u64 load;
-
+	int prev_cpu = task_cpu(p);
 	struct cpumask search_cpus;
 	int cpu = smp_processor_id();
 
 	cpumask_and(&search_cpus,  tsk_cpus_allowed(p), cpu_online_mask);
 
 	if (cpumask_empty(&search_cpus))
-		return task_cpu(p);
+		return prev_cpu;
 
 	/*
 	 * If a CPU is doing a sync wakeup and it only has one currently
@@ -1731,6 +1731,17 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		return cpu;
 
 	cluster_cost = power_cost(p, cpu);
+	/*
+	 * Optimization to steer task towards the previous CPU
+	 * if it belongs to the waker cluster and it is not idle
+	 * but mostly idle.
+	 *
+	 */
+	if (cpumask_test_cpu(prev_cpu, &search_cpus) &&
+		!power_delta_exceeded(power_cost(p, prev_cpu), cluster_cost) &&
+		!cpu_rq(prev_cpu)->cstate &&
+		mostly_idle_cpu_sync(prev_cpu, sync))
+		return prev_cpu;
 
 	/*
 	 * 1. Least-loaded CPU in the same cluster which is not in a low
@@ -1754,17 +1765,21 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 				     mostly_idle_cpu_sync(i, sync),
 				     power_cost(p, i));
 
-		if (power_cost(p, i) == cluster_cost) {
+		if (!power_delta_exceeded(power_cost(p, i), cluster_cost)) {
 			/* This CPU is within the same cluster as the waker. */
 			if (cstate) {
-				if (cstate < best_lpm_sibling_cstate) {
+				if (cstate < best_lpm_sibling_cstate ||
+					 (cstate == best_lpm_sibling_cstate &&
+					  i == prev_cpu)) {
 					best_lpm_sibling_cpu = i;
 					best_lpm_sibling_cstate = cstate;
 				}
 				continue;
 			}
-			if (load < best_nonlpm_sibling_load &&
-			    !spill_threshold_crossed(p, rq, i, sync)) {
+			if ((load < best_nonlpm_sibling_load ||
+				(load == best_nonlpm_sibling_load &&
+				 i == prev_cpu)) &&
+				!spill_threshold_crossed(p, rq, i, sync)) {
 				best_nonlpm_sibling_cpu = i;
 				best_nonlpm_sibling_load = load;
 			}
@@ -1773,14 +1788,18 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 
 		/* This CPU is not within the same cluster as the waker. */
 		if (cstate) {
-			if (cstate < best_lpm_nonsibling_cstate) {
+			if (cstate < best_lpm_nonsibling_cstate ||
+				(cstate == best_lpm_nonsibling_cstate &&
+				 i == prev_cpu)) {
 				best_lpm_nonsibling_cpu = i;
 				best_lpm_nonsibling_cstate = cstate;
 			}
 			continue;
 		}
-		if (load < best_nonlpm_nonsibling_load &&
-		    !spill_threshold_crossed(p, rq, i, sync)) {
+		if ((load < best_nonlpm_nonsibling_load ||
+			(load == best_nonlpm_nonsibling_load &&
+			 i == prev_cpu)) &&
+			!spill_threshold_crossed(p, rq, i, sync)) {
 			best_nonlpm_nonsibling_cpu = i;
 			best_nonlpm_nonsibling_load = load;
 		}
@@ -1879,7 +1898,9 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		if (!task_will_fit(p, i)) {
 			if (mostly_idle_cpu_sync(i, sync)) {
 				load = cpu_load_sync(i, sync);
-				if (load < min_fallback_load) {
+				if (load < min_fallback_load ||
+				    (load == min_fallback_load &&
+				     i == prev_cpu)) {
 					min_fallback_load = load;
 					fallback_idle_cpu = i;
 				}
@@ -1931,10 +1952,12 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 				continue;
 			}
 
-			if (cpu_cost < min_idle_cost) {
+			if (cpu_cost < min_idle_cost ||
+			    (cpu_cost == min_idle_cost && i == prev_cpu)) {
 				min_idle_cost = cpu_cost;
 				min_cstate_cpu = i;
 			}
+
 			continue;
 		}
 
@@ -1957,7 +1980,8 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		 * This is rare but when it does happen opt for the
 		 * more power efficient CPU option.
 		 */
-		if (cpu_cost < min_busy_cost) {
+		if (cpu_cost < min_busy_cost ||
+		    (cpu_cost == min_busy_cost && i == prev_cpu)) {
 			min_busy_cost = cpu_cost;
 			best_cpu = i;
 		}
