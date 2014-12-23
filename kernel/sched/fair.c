@@ -1762,6 +1762,7 @@ static unsigned int power_cost(struct task_struct *p, int cpu)
 static int best_small_task_cpu(struct task_struct *p, int sync)
 {
 	int best_busy_cpu = -1, best_fallback_cpu = -1;
+	int best_mi_cpu = -1;
 	int min_cost_cpu = -1, min_cstate_cpu = -1;
 	int min_cstate = INT_MAX;
 	int min_fallback_cpu_cost = INT_MAX;
@@ -1769,12 +1770,13 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 	int i, cstate, cpu_cost;
 	u64 load, min_busy_load = ULLONG_MAX;
 	int cost_list[nr_cpu_ids];
+	int prev_cpu = task_cpu(p);
 	struct cpumask search_cpus;
 
 	cpumask_and(&search_cpus,  tsk_cpus_allowed(p), cpu_online_mask);
 
 	if (cpumask_empty(&search_cpus))
-		return task_cpu(p);
+		return prev_cpu;
 
 	/* Take a first pass to find the lowest power cost CPU. This
 	   will avoid a potential O(n^2) search */
@@ -1785,7 +1787,8 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 				     sched_irqload(i), power_cost(p, i));
 
 		cpu_cost = power_cost(p, i);
-		if (cpu_cost < min_cost) {
+		if (cpu_cost < min_cost ||
+		    (cpu_cost == min_cost && i == prev_cpu)) {
 			min_cost = cpu_cost;
 			min_cost_cpu = i;
 		}
@@ -1793,11 +1796,14 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		cost_list[i] = cpu_cost;
 	}
 
-	/* Optimization to steer task towards the minimum power
-	   cost CPU. The tradeoff is that we may have to check
-	   the same information again in pass 2 */
+	/*
+	 * Optimization to steer task towards the minimum power cost
+	 * CPU if it's the task's previous CPU. The tradeoff is that
+	 * we may have to check the same information again in pass 2.
+	 */
 	if (!cpu_rq(min_cost_cpu)->cstate &&
-	    mostly_idle_cpu_sync(min_cost_cpu, sync))
+	    mostly_idle_cpu_sync(min_cost_cpu, sync) &&
+	    min_cost_cpu == prev_cpu)
 		return min_cost_cpu;
 
 	for_each_cpu(i, &search_cpus) {
@@ -1805,7 +1811,9 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		cstate = rq->cstate;
 
 		if (power_delta_exceeded(cost_list[i], min_cost)) {
-			if (cost_list[i] < min_fallback_cpu_cost) {
+			if (cost_list[i] < min_fallback_cpu_cost ||
+			    (cost_list[i] == min_fallback_cpu_cost &&
+			     i == prev_cpu)) {
 				best_fallback_cpu = i;
 				min_fallback_cpu_cost = cost_list[i];
 			}
@@ -1813,24 +1821,32 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		}
 
 		if (idle_cpu(i) && cstate && !sched_cpu_high_irqload(i)) {
-			if (cstate < min_cstate) {
+			if (cstate < min_cstate ||
+			    (cstate == min_cstate && i == prev_cpu)) {
 				min_cstate_cpu = i;
 				min_cstate = cstate;
 			}
 			continue;
 		}
 
-		if (mostly_idle_cpu_sync(i, sync))
-			return i;
+		if (mostly_idle_cpu_sync(i, sync)) {
+			if (best_mi_cpu == -1 || i == prev_cpu)
+				best_mi_cpu = i;
+			continue;
+		}
 
 		load = cpu_load_sync(i, sync);
 		if (!spill_threshold_crossed(p, rq, i, sync)) {
-			if (load < min_busy_load) {
+			if (load < min_busy_load ||
+			    (load == min_busy_load && i == prev_cpu)) {
 				min_busy_load = load;
 				best_busy_cpu = i;
 			}
 		}
 	}
+
+	if (best_mi_cpu != -1)
+		return best_mi_cpu;
 
 	if (min_cstate_cpu != -1)
 		return min_cstate_cpu;
@@ -1975,7 +1991,9 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		if (!task_will_fit(p, i)) {
 			if (mostly_idle_cpu_sync(i, sync)) {
 				load = cpu_load_sync(i, sync);
-				if (load < min_fallback_load) {
+				if (load < min_fallback_load ||
+				    (load == min_fallback_load &&
+				     i == prev_cpu)) {
 					min_fallback_load = load;
 					fallback_idle_cpu = i;
 				}
@@ -2038,10 +2056,12 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 				continue;
 			}
 
-			if (cpu_cost < min_idle_cost) {
+			if (cpu_cost < min_idle_cost ||
+			    (cpu_cost == min_idle_cost && i == prev_cpu)) {
 				min_idle_cost = cpu_cost;
 				min_cstate_cpu = i;
 			}
+
 			continue;
 		}
 
@@ -2064,7 +2084,8 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		 * This is rare but when it does happen opt for the
 		 * more power efficient CPU option.
 		 */
-		if (cpu_cost < min_busy_cost) {
+		if (cpu_cost < min_busy_cost ||
+		    (cpu_cost == min_busy_cost && i == prev_cpu)) {
 			min_busy_cost = cpu_cost;
 			best_cpu = i;
 		}
