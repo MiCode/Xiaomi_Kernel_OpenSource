@@ -471,8 +471,8 @@ static enum pwr_path_type smbchg_get_pwr_path(struct smbchg_chip *chip)
 #define IDEV_STS			0x8
 #define RT_STS				0x10
 #define USBID_MSB			0xE
-#define USBIN_UV_BIT			0x0
-#define USBIN_OV_BIT			0x1
+#define USBIN_UV_BIT			BIT(0)
+#define USBIN_OV_BIT			BIT(1)
 #define FMB_STS_MASK			SMB_MASK(3, 0)
 #define USBID_GND_THRESHOLD		0x495
 static bool is_otg_present(struct smbchg_chip *chip)
@@ -530,8 +530,8 @@ static bool is_otg_present(struct smbchg_chip *chip)
 #define DCIN_UNREG			BIT(1)
 #define DCIN_LV				BIT(0)
 #define INPUT_STS			0x0D
-#define DCIN_UV_BIT			0x0
-#define DCIN_OV_BIT			0x1
+#define DCIN_UV_BIT			BIT(0)
+#define DCIN_OV_BIT			BIT(1)
 static bool is_dc_present(struct smbchg_chip *chip)
 {
 	int rc;
