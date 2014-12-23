@@ -796,6 +796,44 @@ static int ufs_qcom_update_bus_bw_vote(struct ufs_qcom_host *host)
 	return err;
 }
 
+#define UFS_REF_CLK_EN	(1 << 5)
+static void ufs_qcom_enable_dev_ref_clk(struct ufs_qcom_host *host, bool enable)
+{
+	if (host->dev_ref_clk_ctrl_mmio &&
+	    (enable ^ host->is_dev_ref_clk_enabled)) {
+		u32 temp = readl_relaxed(host->dev_ref_clk_ctrl_mmio);
+
+		if (enable)
+			temp |= UFS_REF_CLK_EN;
+		else
+			temp &= ~UFS_REF_CLK_EN;
+
+		/*
+		 * If we are here to disable this clock it might be immediately
+		 * after entering into hibern8 in which case we need to make
+		 * sure that device ref_clk is active at least 1us after the
+		 * hibern8 enter.
+		 */
+		if (!enable)
+			udelay(1);
+
+		writel_relaxed(temp, host->dev_ref_clk_ctrl_mmio);
+
+		/* ensure that ref_clk is enabled/disabled before we return */
+		wmb();
+
+		/*
+		 * If we call hibern8 exit after this, we need to make sure that
+		 * device ref_clk is stable for at least 1us before the hibern8
+		 * exit command.
+		 */
+		if (enable)
+			udelay(1);
+
+		host->is_dev_ref_clk_enabled = enable;
+	}
+}
+
 static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 				bool status,
 				struct ufs_pa_layer_attr *dev_max_params,
@@ -839,6 +877,10 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 			goto out;
 		}
 
+		/* enable the device ref clock before changing to HS mode */
+		if (!ufshcd_is_hs_mode(&hba->pwr_info) &&
+			ufshcd_is_hs_mode(dev_req_params))
+			ufs_qcom_enable_dev_ref_clk(host, true);
 		break;
 	case POST_CHANGE:
 		if (!ufs_qcom_cfg_timers(hba, dev_req_params->gear_rx,
@@ -866,6 +908,11 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		memcpy(&host->dev_req_params,
 				dev_req_params, sizeof(*dev_req_params));
 		ufs_qcom_update_bus_bw_vote(host);
+
+		/* disable the device ref clock if entered PWM mode */
+		if (ufshcd_is_hs_mode(&hba->pwr_info) &&
+			!ufshcd_is_hs_mode(dev_req_params))
+			ufs_qcom_enable_dev_ref_clk(host, false);
 		break;
 	default:
 		ret = -EINVAL;
@@ -886,18 +933,15 @@ out:
  */
 static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 {
-	u8 major;
-	u16 minor, step;
+	struct ufs_qcom_host *host = hba->priv;
 
-	ufs_qcom_get_controller_revision(hba, &major, &minor, &step);
-
-	if (major == 0x1) {
+	if (host->hw_ver.major == 0x1) {
 		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP
 			      | UFSHCD_QUIRK_BROKEN_LCC
 			      | UFSHCD_QUIRK_DME_PEER_ACCESS_AUTO_MODE);
 
-		if ((minor == 0x001) && (step == 0x0001))
+		if (host->hw_ver.minor == 0x001 && host->hw_ver.step == 0x0001)
 			hba->quirks |= UFSHCD_QUIRK_BROKEN_INTR_AGGR;
 	}
 }
@@ -1002,8 +1046,9 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on)
 			ufs_qcom_phy_disable_iface_clk(host->generic_phy);
 			goto out;
 		}
-		/* enable the device ref clock */
-		ufs_qcom_phy_enable_dev_ref_clk(host->generic_phy);
+		/* enable the device ref clock for HS mode*/
+		if (ufshcd_is_hs_mode(&hba->pwr_info))
+			ufs_qcom_enable_dev_ref_clk(host, true);
 		vote = host->bus_vote.saved_vote;
 		if (vote == host->bus_vote.min_bw_vote)
 			ufs_qcom_update_bus_bw_vote(host);
@@ -1014,7 +1059,7 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on)
 			/* turn off UFS local PHY ref_clk */
 			ufs_qcom_phy_disable_ref_clk(host->generic_phy);
 			/* disable device ref_clk */
-			ufs_qcom_phy_disable_dev_ref_clk(host->generic_phy);
+			ufs_qcom_enable_dev_ref_clk(host, false);
 		}
 		vote = host->bus_vote.min_bw_vote;
 	}
@@ -1122,7 +1167,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 {
 	int err;
 	struct device *dev = hba->dev;
+	struct platform_device *pdev = to_platform_device(dev);
 	struct ufs_qcom_host *host;
+	struct resource *res;
 
 	if (strlen(android_boot_dev) && strcmp(android_boot_dev, dev_name(dev)))
 		return -ENODEV;
@@ -1185,12 +1232,29 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	if (err)
 		goto out_disable_phy;
 
+	ufs_qcom_get_controller_revision(hba, &host->hw_ver.major,
+		&host->hw_ver.minor, &host->hw_ver.step);
 	ufs_qcom_advertise_quirks(hba);
 
 	hba->caps |= UFSHCD_CAP_CLK_GATING | UFSHCD_CAP_CLK_SCALING;
 	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
 	hba->caps |= UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
 	ufs_qcom_setup_clocks(hba, true);
+
+	/* "dev_ref_clk_ctrl_mem" is optional resource */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!res) {
+		dev_dbg(dev, "%s: dev_ref_clk_ctrl_mem resource not found\n",
+			__func__);
+	} else {
+		host->dev_ref_clk_ctrl_mmio = devm_ioremap_resource(dev, res);
+		if (IS_ERR(host->dev_ref_clk_ctrl_mmio)) {
+			dev_warn(dev,
+				"%s: could not map dev_ref_clk_ctrl_mmio, err %ld\n",
+				__func__, PTR_ERR(host->dev_ref_clk_ctrl_mmio));
+			host->dev_ref_clk_ctrl_mmio = NULL;
+		}
+	}
 
 	if (hba->dev->id < MAX_UFS_QCOM_HOSTS)
 		ufs_qcom_hosts[hba->dev->id] = host;

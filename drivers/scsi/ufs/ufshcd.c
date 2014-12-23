@@ -43,7 +43,6 @@
 #include <linux/nls.h>
 
 #include <linux/scsi/ufs/ufshcd.h>
-#include <linux/scsi/ufs/unipro.h>
 #include "ufshci.h"
 #include "ufs_quirks.h"
 #include "debugfs.h"

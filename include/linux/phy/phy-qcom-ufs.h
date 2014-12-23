@@ -61,7 +61,6 @@ struct ufs_qcom_phy {
 	struct list_head list;
 	struct device *dev;
 	void __iomem *mmio;
-	void __iomem *dev_ref_clk_ctrl_mmio;
 	struct clk *tx_iface_clk;
 	struct clk *rx_iface_clk;
 	bool is_iface_clk_enabled;
@@ -69,7 +68,6 @@ struct ufs_qcom_phy {
 	struct clk *ref_clk_parent;
 	struct clk *ref_clk;
 	bool is_ref_clk_enabled;
-	bool is_dev_ref_clk_enabled;
 	struct ufs_qcom_phy_vreg vdda_pll;
 	struct ufs_qcom_phy_vreg vdda_phy;
 	struct ufs_qcom_phy_vreg vddp_ref_clk;
