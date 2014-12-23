@@ -466,6 +466,7 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 	}
 	if (lreq->req_list[0].flags & MDP_SOLID_FILL) {
 		/* Do not update BW for solid fill */
+		ATRACE_END(__func__);
 		return 0;
 	}
 
