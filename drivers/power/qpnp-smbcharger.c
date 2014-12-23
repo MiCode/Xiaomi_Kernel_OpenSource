@@ -1799,7 +1799,7 @@ static int smbchg_dcin_ilim_config(struct smbchg_chip *chip, int offset, int ma)
 {
 	int i, rc;
 
-	for (i = ARRAY_SIZE(ilim_ma_table); i >= 0; i--) {
+	for (i = ARRAY_SIZE(ilim_ma_table) - 1; i >= 0; i--) {
 		if (ma >= ilim_ma_table[i])
 			break;
 	}
