@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -432,7 +432,7 @@
 				qcom,qpnp-lab-init-amoled-voltage = <4600000>;
 				qcom,qpnp-lab-init-lcd-voltage = <5500000>;
 
-				qcom,qpnp-lab-soft-start = <400>;
+				qcom,qpnp-lab-soft-start = <800>;
 
 				qcom,qpnp-lab-full-pull-down;
 				qcom,qpnp-lab-pull-down-enable;
@@ -462,11 +462,11 @@
 				qcom,qpnp-ibb-init-amoled-voltage = <4000000>;
 				qcom,qpnp-ibb-init-lcd-voltage = <5500000>;
 
-				qcom,qpnp-ibb-soft-start = <10000>;
+				qcom,qpnp-ibb-soft-start = <1000>;
 
 				qcom,qpnp-ibb-discharge-resistor = <300>;
-				qcom,qpnp-ibb-lab-pwrup-delay = <10000>;
-				qcom,qpnp-ibb-lab-pwrdn-delay = <10000>;
+				qcom,qpnp-ibb-lab-pwrup-delay = <4000>;
+				qcom,qpnp-ibb-lab-pwrdn-delay = <4000>;
 				qcom,qpnp-ibb-en-discharge;
 
 				qcom,qpnp-ibb-full-pull-down;
