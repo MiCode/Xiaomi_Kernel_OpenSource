@@ -3174,7 +3174,7 @@
 			qcom,low-threshold-uamp = <2000000>;
 			qcom,high-threshold-uamp = <3500000>;
 			qcom,mitigation-freq-khz = <768000>;
-			qcom,vph-high-threshold-uv = <3900000>;
+			qcom,vph-high-threshold-uv = <3700000>;
 			qcom,vph-low-threshold-uv = <3600000>;
 			qcom,thermal-handle = <&msm_thermal_freq>;
 		};
