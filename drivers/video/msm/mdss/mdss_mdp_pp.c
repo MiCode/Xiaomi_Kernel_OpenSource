@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -341,6 +341,7 @@ static int pp_ad_linearize_bl(struct mdss_ad_info *ad, u32 bl, u32 *bl_out,
 static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 		int *ad_bl_out);
 static int pp_num_to_side(struct mdss_mdp_ctl *ctl, u32 num);
+static int pp_update_pcc_pipe_setup(struct mdss_mdp_pipe *pipe, u32 location);
 
 static u32 last_sts, last_state;
 
@@ -780,6 +781,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	char __iomem *offset;
 	struct mdss_data_type *mdata;
 	u32 dcm_state = DCM_UNINIT, current_opmode, csc_reset;
+	int ret = 0;
 
 	pr_debug("pnum=%x\n", pipe->num);
 
@@ -873,6 +875,12 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		}
 	}
 
+	if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PCC_CFG) {
+		ret = pp_update_pcc_pipe_setup(pipe, SSPP_VIG);
+		if (ret)
+			pr_err("error in enabling the pcc ret %d pipe type %d pipe num %d\n",
+				ret, pipe->type, pipe->num);
+	}
 	if (pp_driver_ops.pp_opmode_config)
 		pp_driver_ops.pp_opmode_config(SSPP_VIG, &pipe->pp_res.pp_sts,
 					       op, 0);
@@ -909,11 +917,37 @@ static void pp_update_pa_v2_vig_opmode(struct pp_sts_type *pp_sts,
 
 static int pp_rgb_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
+	int ret = 0;
+
+	if (!pipe) {
+		pr_err("invalid param pipe %p\n", pipe);
+		return -EINVAL;
+	}
+	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN &&
+	    pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PCC_CFG) {
+		ret = pp_update_pcc_pipe_setup(pipe, SSPP_RGB);
+		if (ret)
+			pr_err("error in enabling the pcc ret %d pipe type %d pipe num %d\n",
+				ret, pipe->type, pipe->num);
+	}
 	return 0;
 }
 
 static int pp_dma_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 {
+	int ret = 0;
+
+	if (!pipe) {
+		pr_err("invalid param pipe %p\n", pipe);
+		return -EINVAL;
+	}
+	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN &&
+	    pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PCC_CFG) {
+		ret = pp_update_pcc_pipe_setup(pipe, SSPP_DMA);
+		if (ret)
+			pr_err("error in enabling the pcc ret %d pipe type %d pipe num %d\n",
+				ret, pipe->type, pipe->num);
+	}
 	return 0;
 }
 
@@ -1229,6 +1263,7 @@ void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
 		}
 		kfree(pipe->pp_res.pa_cfg_payload);
 		kfree(pipe->pp_cfg.igc_cfg.cfg_payload);
+		kfree(pipe->pp_res.pcc_cfg_payload);
 		memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
 		memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
 	}
@@ -2779,6 +2814,7 @@ int mdss_mdp_pcc_config(struct mdp_pcc_cfg_data *config,
 	u32 disp_num, dspp_num = 0;
 	char __iomem *addr;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdp_pp_cache_res res_cache;
 
 	if ((config->block < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(config->block >= MDP_BLOCK_MAX))
@@ -2832,7 +2868,10 @@ pcc_clk_off:
 	} else {
 		if (pp_ops[PCC].pp_set_config) {
 			pr_debug("version of pcc is %d\n", config->version);
-			ret = pp_pcc_cache_params(config, mdss_pp_res);
+			res_cache.block = DSPP;
+			res_cache.mdss_pp_res = mdss_pp_res;
+			res_cache.pipe_res = NULL;
+			ret = pp_pcc_cache_params(config, &res_cache);
 			if (ret) {
 				pr_err("pcc config failed version %d ret %d\n",
 					config->version, ret);
@@ -6007,6 +6046,31 @@ int mdss_mdp_calib_config_buffer(struct mdp_calib_config_buffer *cfg,
 	return ret;
 }
 
+static int sspp_cache_location(u32 pipe_type, enum pp_config_block *block)
+{
+	int ret = 0;
+
+	if (!block) {
+		pr_err("invalid params %p\n", block);
+		return -EINVAL;
+	}
+	switch (pipe_type) {
+	case MDSS_MDP_PIPE_TYPE_VIG:
+		*block = SSPP_VIG;
+		break;
+	case MDSS_MDP_PIPE_TYPE_RGB:
+		*block = SSPP_RGB;
+		break;
+	case MDSS_MDP_PIPE_TYPE_DMA:
+		*block = SSPP_DMA;
+	default:
+		pr_err("invalid pipe type %d\n", pipe_type);
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
 int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 {
 	struct mdp_histogram_start_req hist;
@@ -6022,18 +6086,11 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 	len = pipe->pp_cfg.igc_cfg.len;
 	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_IGC_CFG)) {
 		if (pp_ops[IGC].pp_set_config) {
-			switch (pipe->type) {
-			case MDSS_MDP_PIPE_TYPE_VIG:
-				cache_res.block = SSPP_VIG;
-				break;
-			case MDSS_MDP_PIPE_TYPE_RGB:
-				cache_res.block = SSPP_RGB;
-				break;
-			case MDSS_MDP_PIPE_TYPE_DMA:
-				cache_res.block = SSPP_DMA;
-			default:
-				pr_err("invalid pipe type %d\n", pipe->type);
-				ret = -EINVAL;
+			ret = sspp_cache_location(pipe->type,
+						&cache_res.block);
+			if (ret) {
+				pr_err("invalid cache res block for igc ret %d\n",
+					ret);
 				goto exit_fail;
 			}
 			cache_res.mdss_pp_res = NULL;
@@ -6107,6 +6164,24 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 			goto exit_fail;
 		}
 	}
+	if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PCC_CFG
+	    && pp_ops[PCC].pp_set_config) {
+		ret = sspp_cache_location(pipe->type,
+					&cache_res.block);
+		if (ret) {
+			pr_err("invalid cache res block for pcc ret %d\n",
+				ret);
+			goto exit_fail;
+		}
+		cache_res.mdss_pp_res = NULL;
+		cache_res.pipe_res = pipe;
+		ret = pp_pcc_cache_params(&pipe->pp_cfg.pcc_cfg_data,
+					  &cache_res);
+		if (ret) {
+			pr_err("failed to cache the pcc params ret %d\n", ret);
+			goto exit_fail;
+		}
+	}
 exit_fail:
 	if (ret) {
 		pr_err("VIG PP setup failed on pipe %d type %d ret %d\n",
@@ -6114,5 +6189,58 @@ exit_fail:
 		pipe->pp_cfg.config_ops = 0;
 	}
 
+	return ret;
+}
+
+static int pp_update_pcc_pipe_setup(struct mdss_mdp_pipe *pipe, u32 location)
+{
+	int ret = 0;
+	struct mdss_data_type *mdata = NULL;
+	char __iomem *pipe_base = NULL;
+
+	if (!pipe) {
+		pr_err("invalid param pipe %p\n", pipe);
+		return -EINVAL;
+	}
+
+	mdata = mdss_mdp_get_mdata();
+	pipe_base = pipe->base;
+	switch (location) {
+	case SSPP_VIG:
+		if (mdata->pp_block_off.vig_pcc_off == U32_MAX) {
+			pr_err("invalid offset for vig pcc %d\n",
+				U32_MAX);
+			ret = -EINVAL;
+			goto exit_sspp_setup;
+		}
+		pipe_base += mdata->pp_block_off.vig_pcc_off;
+		break;
+	case SSPP_RGB:
+		if (mdata->pp_block_off.rgb_pcc_off == U32_MAX) {
+			pr_err("invalid offset for rgb pcc %d\n",
+				U32_MAX);
+			ret = -EINVAL;
+			goto exit_sspp_setup;
+		}
+		pipe_base += mdata->pp_block_off.rgb_pcc_off;
+		break;
+	case SSPP_DMA:
+		if (mdata->pp_block_off.dma_pcc_off == U32_MAX) {
+			pr_err("invalid offset for dma pcc %d\n",
+				U32_MAX);
+			ret = -EINVAL;
+			goto exit_sspp_setup;
+		}
+		pipe_base += mdata->pp_block_off.dma_pcc_off;
+		break;
+	default:
+		pr_err("invalid location for PCC %d\n",
+			location);
+		ret = -EINVAL;
+		goto exit_sspp_setup;
+	}
+	pp_ops[PCC].pp_set_config(pipe_base, &pipe->pp_res.pp_sts,
+		&pipe->pp_cfg.pcc_cfg_data, location);
+exit_sspp_setup:
 	return ret;
 }

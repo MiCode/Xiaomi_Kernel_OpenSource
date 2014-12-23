@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,7 @@ int pp_dither_cache_params(struct mdp_dither_cfg_data *config,
 int pp_gamut_cache_params(struct mdp_gamut_cfg_data *config,
 			  struct mdss_pp_res_type *mdss_pp_res);
 int pp_pcc_cache_params(struct mdp_pcc_cfg_data *config,
-			  struct mdss_pp_res_type *mdss_pp_res);
+			  struct mdp_pp_cache_res *res_cache);
 int pp_pa_cache_params(struct mdp_pa_v2_cfg_data *config,
 			  struct mdp_pp_cache_res *res_cache);
 

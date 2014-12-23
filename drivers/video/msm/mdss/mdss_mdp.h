@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -410,6 +410,7 @@ struct mdss_pipe_pp_res {
 	struct pp_hist_col_info hist;
 	struct pp_sts_type pp_sts;
 	void *pa_cfg_payload;
+	void *pcc_cfg_payload;
 };
 
 struct mdss_mdp_pipe_smp_map {

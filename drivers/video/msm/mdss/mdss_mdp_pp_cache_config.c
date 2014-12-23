@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -425,6 +425,58 @@ int pp_gamut_cache_params(struct mdp_gamut_cfg_data *config,
 	return ret;
 }
 
+static int pp_pcc_cache_params_pipe_v1_7(struct mdp_pcc_cfg_data *config,
+				      struct mdss_mdp_pipe *pipe)
+{
+	struct mdp_pcc_data_v1_7 *v17_cache_data = NULL, v17_usr_config;
+
+	if (!pipe || !config) {
+		pr_err("invalid params pipe %p config %p\n", pipe, config);
+		return -EINVAL;
+	}
+
+	if (config->ops & MDP_PP_OPS_DISABLE) {
+		pr_debug("disable ops set cleanup payload\n");
+		goto cleanup;
+	}
+	if (copy_from_user(&v17_usr_config, config->cfg_payload,
+			   sizeof(v17_usr_config))) {
+		pr_err("failed to copy v17 pcc\n");
+		return -EFAULT;
+	}
+
+	if (config->ops & MDP_PP_OPS_READ) {
+		pr_err("read ops not supported\n");
+		return -EINVAL;
+	}
+
+	if (!(config->ops & MDP_PP_OPS_WRITE)) {
+		pr_debug("write ops not set value of flag is %d\n",
+			config->ops);
+		goto cleanup;
+	}
+
+	v17_cache_data = pipe->pp_res.pcc_cfg_payload;
+	if (!v17_cache_data) {
+		v17_cache_data = kzalloc(sizeof(struct mdp_pcc_data_v1_7),
+						GFP_KERNEL);
+		pipe->pp_res.pcc_cfg_payload = v17_cache_data;
+	}
+	if (!v17_cache_data) {
+		pr_err("failed to allocate the pcc cache data\n");
+		return -ENOMEM;
+	}
+	memcpy(v17_cache_data, &v17_usr_config, sizeof(v17_usr_config));
+	pipe->pp_cfg.pcc_cfg_data.cfg_payload = v17_cache_data;
+cleanup:
+	if (config->ops & MDP_PP_OPS_DISABLE) {
+		kfree(pipe->pp_res.pcc_cfg_payload);
+		pipe->pp_res.pcc_cfg_payload = NULL;
+		pipe->pp_cfg.pcc_cfg_data.cfg_payload = NULL;
+	}
+	return 0;
+}
+
 static int pp_pcc_cache_params_v1_7(struct mdp_pcc_cfg_data *config,
 				      struct mdss_pp_res_type *mdss_pp_res)
 {
@@ -481,17 +533,39 @@ pcc_config_exit:
 }
 
 int pp_pcc_cache_params(struct mdp_pcc_cfg_data *config,
-			  struct mdss_pp_res_type *mdss_pp_res)
+			struct mdp_pp_cache_res *res_cache)
 {
 	int ret = 0;
-	if (!config || !mdss_pp_res) {
+	if (!config || !res_cache) {
 		pr_err("invalid param config %p pp_res %p\n",
-			config, mdss_pp_res);
+			config, res_cache);
+		return -EINVAL;
+	}
+	if (res_cache->block < SSPP_RGB || res_cache->block > DSPP) {
+		pr_err("invalid block for PCC %d\n", res_cache->block);
+		return -EINVAL;
+	}
+	if (!res_cache->mdss_pp_res && !res_cache->pipe_res) {
+		pr_err("NULL payload for block %d mdss_pp_res %p pipe_res %p\n",
+			res_cache->block, res_cache->mdss_pp_res,
+			res_cache->pipe_res);
 		return -EINVAL;
 	}
 	switch (config->version) {
 	case mdp_pcc_v1_7:
-		ret = pp_pcc_cache_params_v1_7(config, mdss_pp_res);
+		if (res_cache->block == DSPP) {
+			ret = pp_pcc_cache_params_v1_7(config,
+					res_cache->mdss_pp_res);
+			if (ret)
+				pr_err("caching for DSPP failed for PCC ret %d\n",
+					ret);
+		} else {
+			ret = pp_pcc_cache_params_pipe_v1_7(config,
+						res_cache->pipe_res);
+			if (ret)
+				pr_err("caching for SSPP failed for PCC ret %d block %d\n",
+					ret, res_cache->block);
+		}
 		break;
 	default:
 		pr_err("unsupported pcc version %d\n",
