@@ -116,6 +116,10 @@ Parent node Optional properties
 			The possible values are 1 to 16.
 - qcom,batt-aging-comp : A boolean that defines if battery aging compensation
 			is enabled.
+- qcom,use-reported-soc : Bool property to enable the reported_soc logic. To
+			enable this feature, qcom,resume-soc must be defined as
+			a proper value. The BMS is also required to control the
+			charging, discharging and recharging.
 
 qcom,batt-pres-status node required properties:
 - reg : offset and length of the PMIC LBC battery interface BATT_PRES_STATUS
