@@ -402,6 +402,7 @@ struct mdp_qseed_cfg_data {
 #define MDP_OVERLAY_PP_HIST_CFG        0x20
 #define MDP_OVERLAY_PP_HIST_LUT_CFG    0x40
 #define MDP_OVERLAY_PP_PA_V2_CFG       0x80
+#define MDP_OVERLAY_PP_PCC_CFG	       0x100
 
 #define MDP_CSC_FLAG_ENABLE	0x1
 #define MDP_CSC_FLAG_YUV_IN	0x2
@@ -607,6 +608,37 @@ struct mdp_hist_lut_data {
 	void *cfg_payload;
 };
 
+enum {
+	mdp_pcc_v1_7 = 0x1,
+	mdp_pcc_vmax,
+};
+
+struct mdp_pcc_coeff {
+	uint32_t c, r, g, b, rr, gg, bb, rg, gb, rb, rgb_0, rgb_1;
+};
+
+struct mdp_pcc_coeff_v1_7 {
+	uint32_t c, r, g, b, rg, gb, rb, rgb;
+};
+
+struct mdp_pcc_data_v1_7 {
+	struct mdp_pcc_coeff_v1_7 r, g, b;
+};
+
+struct mdp_pcc_cfg_data {
+	uint32_t version;
+	uint32_t block;
+	uint32_t ops;
+	struct mdp_pcc_coeff r, g, b;
+	void *cfg_payload;
+};
+
+enum {
+	mdp_lut_igc,
+	mdp_lut_pgc,
+	mdp_lut_hist,
+	mdp_lut_max,
+};
 struct mdp_overlay_pp_params {
 	uint32_t config_ops;
 	struct mdp_csc_cfg csc_cfg;
@@ -619,6 +651,7 @@ struct mdp_overlay_pp_params {
 	struct mdp_hist_lut_data hist_lut_cfg;
 	/* PAv2 cfg data for PA 2.x versions */
 	struct mdp_pa_v2_cfg_data pa_v2_cfg_data;
+	struct mdp_pcc_cfg_data pcc_cfg_data;
 };
 
 /**
@@ -874,37 +907,6 @@ struct mdp_histogram_data {
 	uint32_t *extra_info;
 };
 
-enum {
-	mdp_pcc_v1_7 = 0x1,
-	mdp_pcc_vmax,
-};
-
-struct mdp_pcc_coeff {
-	uint32_t c, r, g, b, rr, gg, bb, rg, gb, rb, rgb_0, rgb_1;
-};
-
-struct mdp_pcc_coeff_v1_7 {
-	uint32_t c, r, g, b, rg, gb, rb, rgb;
-};
-
-struct mdp_pcc_data_v1_7 {
-	struct mdp_pcc_coeff_v1_7 r, g, b;
-};
-
-struct mdp_pcc_cfg_data {
-	uint32_t version;
-	uint32_t block;
-	uint32_t ops;
-	struct mdp_pcc_coeff r, g, b;
-	void *cfg_payload;
-};
-
-enum {
-	mdp_lut_igc,
-	mdp_lut_pgc,
-	mdp_lut_hist,
-	mdp_lut_max,
-};
 
 #define GC_LUT_ENTRIES_V1_7	512
 
