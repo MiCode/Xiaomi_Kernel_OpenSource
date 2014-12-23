@@ -154,6 +154,7 @@ static DEFINE_CLK_BRANCH_VOTER(xo_lpm_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_pil_pronto_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_pil_mss_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_wlan_clk, &xo_clk_src.c);
+static DEFINE_CLK_BRANCH_VOTER(xo_pil_lpass_clk, &xo_clk_src.c);
 
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
@@ -2795,6 +2796,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(xo_pil_mss_clk),
 	CLK_LIST(xo_pil_pronto_clk),
 	CLK_LIST(xo_wlan_clk),
+	CLK_LIST(xo_pil_lpass_clk),
 
 	CLK_LIST(snoc_msmbus_clk),
 	CLK_LIST(snoc_msmbus_a_clk),

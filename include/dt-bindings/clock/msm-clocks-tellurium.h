@@ -256,6 +256,7 @@
 #define clk_xo_pil_mss_clk			0xe97a8354
 #define clk_xo_pil_pronto_clk			0x89dae6d0
 #define clk_xo_wlan_clk				0x0116b76f
+#define clk_xo_pil_lpass_clk			0xb72aa4c9
 #define clk_bb_clk1				0xf5304268
 #define clk_bb_clk1_a				0xfa113810
 #define clk_bb_clk1_pin				0x6dd0a779
