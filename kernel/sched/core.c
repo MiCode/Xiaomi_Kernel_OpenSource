@@ -2459,10 +2459,12 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	pre_big_small_task_count_change(cpu_possible_mask);
 	for_each_cpu(i, cpus) {
 		struct rq *rq = cpu_rq(i);
+		u64 max_possible_capacity;
 
 		rq->capacity = compute_capacity(i);
-		rq->max_possible_capacity = rq->capacity *
-				rq->max_possible_freq / rq->max_freq;
+		max_possible_capacity = div_u64(((u64) rq->capacity) *
+					rq->max_possible_freq, rq->max_freq);
+		rq->max_possible_capacity = (int) max_possible_capacity;
 		rq->load_scale_factor = compute_load_scale_factor(i);
 	}
 
