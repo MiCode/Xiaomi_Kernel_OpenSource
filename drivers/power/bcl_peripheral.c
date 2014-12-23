@@ -34,6 +34,8 @@
 #define BCL_MONITOR_EN          0x46
 #define BCL_VBAT_VALUE          0x54
 #define BCL_IBAT_VALUE          0x55
+#define BCL_VBAT_CP_VALUE       0x56
+#define BCL_IBAT_CP_VALUE       0x57
 #define BCL_VBAT_MIN            0x58
 #define BCL_IBAT_MAX            0x59
 #define BCL_V_GAIN_BAT          0x60
@@ -47,7 +49,11 @@
 #define BCL_VBAT_TRIP           0x68
 #define BCL_IBAT_TRIP           0x69
 
+
 #define BCL_CONSTANT_NUM        32
+
+
+#define BCL_READ_RETRY_LIMIT    3
 
 #define READ_CONV_FACTOR(_node, _key, _val, _ret, _dest) do { \
 		_ret = of_property_read_u32(_node, _key, &_val); \
@@ -402,13 +408,25 @@ bcl_read_exit:
 
 static int bcl_read_ibat(int *adc_value)
 {
-	int ret = 0;
-	int8_t val = 0;
+	int ret = 0, timeout = 0;
+	int8_t val = 0, val_cp = 0;
 
 	*adc_value = (int)val;
-	ret = bcl_read_register(BCL_IBAT_VALUE, &val);
-	if (ret) {
-		pr_err("BCL register read error. err:%d\n", ret);
+	do {
+		ret = bcl_read_register(BCL_IBAT_VALUE, &val);
+		if (ret) {
+			pr_err("BCL register read error. err:%d\n", ret);
+			goto bcl_read_exit;
+		}
+		ret = bcl_read_register(BCL_IBAT_CP_VALUE, &val_cp);
+		if (ret) {
+			pr_err("BCL compare register read error. err:%d\n",
+			ret);
+			goto bcl_read_exit;
+		}
+	} while (val != val_cp && timeout++ < BCL_READ_RETRY_LIMIT);
+	if (val != val_cp) {
+		ret = -1;
 		goto bcl_read_exit;
 	}
 	*adc_value = (int)val;
@@ -421,13 +439,25 @@ bcl_read_exit:
 
 static int bcl_read_vbat(int *adc_value)
 {
-	int ret = 0;
-	int8_t val = 0;
+	int ret = 0, timeout = 0;
+	int8_t val = 0, val_cp = 0;
 
 	*adc_value = (int)val;
-	ret = bcl_read_register(BCL_VBAT_VALUE, &val);
-	if (ret) {
-		pr_err("BCL register read error. err:%d\n", ret);
+	do {
+		ret = bcl_read_register(BCL_VBAT_VALUE, &val);
+		if (ret) {
+			pr_err("BCL register read error. err:%d\n", ret);
+			goto bcl_read_exit;
+		}
+		ret = bcl_read_register(BCL_VBAT_CP_VALUE, &val_cp);
+		if (ret) {
+			pr_err("BCL compare register read error. err:%d\n",
+			ret);
+			goto bcl_read_exit;
+		}
+	} while (val != val_cp && timeout++ < BCL_READ_RETRY_LIMIT);
+	if (val != val_cp) {
+		ret = -1;
 		goto bcl_read_exit;
 	}
 	*adc_value = (int)val;
