@@ -120,12 +120,25 @@
 	};
 
 	clock_gcc: qcom,gcc@1800000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,gcc-tellurium";
+		reg = <0x1800000 0x80000>,
+			<0xb116000 0x00040>,
+			<0xb016000 0x00040>,
+			<0xb1d0000 0x00040>;
+		reg-names = "cc_base", "apcs_c0_base",
+			"apcs_c1_base", "apcs_cci_base";
+		vdd_dig-supply = <&pmtellurium_s2_corner>;
+		vdd_sr2_dig-supply = <&pmtellurium_s2_corner_ao>;
+		vdd_sr2_pll-supply = <&pmtellurium_l7_ao>;
+		vdd_hf_dig-supply = <&pmtellurium_s2_corner_ao>;
+		vdd_hf_pll-supply = <&pmtellurium_l7_ao>;
 		#clock-cells = <1>;
 	};
 
 	clock_debug: qcom,cc-debug@1874000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,cc-debug-tellurium";
+		reg = <0x1874000 0x4>;
+		reg-names = "cc_base";
 		#clock-cells = <1>;
 	};
 
