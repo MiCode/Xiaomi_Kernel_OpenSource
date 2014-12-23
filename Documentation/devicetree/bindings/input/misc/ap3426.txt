@@ -17,7 +17,7 @@ Required properties:
  - pinctrl-1		: Should specify pin control groups used for this sensor.
  - di,irq-gpio		: GPIO pin for interrupt of this device.
  - di,als-cal		: Coefficient to calibrate this device for specific board.
- - di,als-gain		: ALS gain configuration for the device. 0 for 32768,
+ - di,als-gain		: Default als gain configuration for the device. 0 for 32768,
 		1 for 8192, 2 for 2048 and 3 for 512.
  - di,als-persist	: Interrupt persist configuration for the device. It indicates
 		how much conversion cycles will trigger ALS interrupt. The maximum value
@@ -35,8 +35,8 @@ Optional properties:
  - di,ps-distance-table	: Calibrated ADC value of proximity sensor to indicate the distance of
 		the object in centimeter. The value in this table should in descend order and the
 		maximum value is 1023. Use default value if not exist.
- - di,als-sensitivity	: Ambient light sensitivity in lux. This value configures how much light
-		intensity change will trigger an light sensor event. The maximum value is 1023.
+ - di,als-sensitivity	: Ambient light sensitivity in lux. This array configures how much light
+		intensity change will trigger a light sensor event. The array size should be 4.
  - di,wakeup-threshold	: This value configures the threshold in centimeter that can wake up
 		SoC when system is suspended. This value should between 0 and
 		ARRAY_SIZE(di,ps-distance-table).
@@ -63,8 +63,8 @@ i2c@78b5000 { /* BLSP1 QUP1 */
 		di,ps-led-driver = <3>;
 		di,ps-mean-time = <0>;
 		di,ps-integrated-time = <0>;
-		di,ps-distance-table = <887, 282, 111, 78, 53, 46>;
-		di,als-sensitivity = <50>;
+		di,ps-distance-table = <887 282 111 78 53 46>;
+		di,als-sensitivity = <200 40 10 1>;
 		di,wakeup-threshold = <4>;
 	};
 };
