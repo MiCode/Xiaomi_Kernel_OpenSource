@@ -1,7 +1,7 @@
 /*
    BlueZ - Bluetooth protocol stack for Linux
    Copyright (C) 2000-2001 Qualcomm Incorporated
-   Copyright (C) 2014 The Linux Foundation. All rights reserved.
+   Copyright (C) 2014-2015 The Linux Foundation. All rights reserved.
 
    Written 2000,2001 by Maxim Krasnyansky <maxk@qualcomm.com>
 
@@ -361,8 +361,5 @@ int sco_init(void);
 void sco_exit(void);
 
 void bt_sock_reclassify_lock(struct sock *sk, int proto);
-
-int get_rome_version(struct usb_device *udev);
-int rome_download(struct usb_device *udev);
 
 #endif /* __BLUETOOTH_H */
