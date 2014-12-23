@@ -121,6 +121,7 @@ enum fg_mem_setting_index {
 	FG_MEM_TERM_CURRENT,
 	FG_MEM_IRQ_VOLT_EMPTY,
 	FG_MEM_CUTOFF_VOLTAGE,
+	FG_MEM_VBAT_EST_DIFF,
 	FG_MEM_SETTING_MAX,
 };
 
@@ -132,6 +133,8 @@ enum fg_mem_data_index {
 	FG_DATA_CURRENT,
 	FG_DATA_BATT_ESR,
 	FG_DATA_BATT_ESR_COUNT,
+	/* values below this only gets read once per profile reload */
+	FG_DATA_CPRED_VOLTAGE,
 	FG_DATA_BATT_ID,
 	FG_DATA_BATT_ID_INFO,
 	FG_DATA_MAX,
@@ -156,6 +159,7 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(TERM_CURRENT,	 0x40C,   2,      250),
 	SETTING(IRQ_VOLT_EMPTY,	 0x458,   3,      3350),
 	SETTING(CUTOFF_VOLTAGE,	 0x40C,   0,      3400),
+	SETTING(VBAT_EST_DIFF,	 0x000,   0,      30),
 };
 
 #define DATA(_idx, _address, _offset, _length,  _value)	\
@@ -174,6 +178,7 @@ static struct fg_mem_data fg_data[FG_DATA_MAX] = {
 	DATA(CURRENT,         0x5CC,   3,      2,     -EINVAL),
 	DATA(BATT_ESR,        0x554,   2,      2,     -EINVAL),
 	DATA(BATT_ESR_COUNT,  0x558,   2,      2,     -EINVAL),
+	DATA(CPRED_VOLTAGE,   0x540,   0,      2,     -EINVAL),
 	DATA(BATT_ID,         0x594,   1,      1,     -EINVAL),
 	DATA(BATT_ID_INFO,    0x594,   3,      1,     -EINVAL),
 };
@@ -274,6 +279,7 @@ struct fg_chip {
 	struct power_supply	*batt_psy;
 	struct fg_wakeup_source	memif_wakeup_source;
 	struct fg_wakeup_source	profile_wakeup_source;
+	bool			first_profile_loaded;
 	bool			profile_loaded;
 	bool			use_otp_profile;
 	bool			battery_missing;
@@ -1178,6 +1184,8 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 	int battid_valid = fg_is_batt_id_valid(chip);
 
 	for (i = 1; i < FG_DATA_MAX; i++) {
+		if (chip->profile_loaded && i >= FG_DATA_CPRED_VOLTAGE)
+			continue;
 		rc = fg_mem_read(chip, reg, fg_data[i].address,
 			fg_data[i].len, fg_data[i].offset,
 			(i+1 == FG_DATA_MAX) ? 0 : 1);
@@ -1192,6 +1200,7 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 		switch (i) {
 		case FG_DATA_OCV:
 		case FG_DATA_VOLTAGE:
+		case FG_DATA_CPRED_VOLTAGE:
 			fg_data[i].value = div_u64(
 					(u64)(u16)temp * LSB_16B_NUMRTR,
 					LSB_16B_DENMTR);
@@ -1549,6 +1558,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
 
 	if (batt_missing) {
 		chip->battery_missing = true;
+		chip->profile_loaded = false;
 		chip->batt_type = missing_batt_type;
 	} else {
 		if (!chip->use_otp_profile) {
@@ -1651,6 +1661,10 @@ do {									\
 				" property rc = %d\n", rc);		\
 } while (0)
 
+#define V_PREDICTED_ADDR		0x540
+#define V_CURRENT_PREDICTED_OFFSET	0
+
+
 #define LOW_LATENCY	BIT(6)
 #define PROFILE_LOAD_TIMEOUT_MS		5000
 #define BATT_PROFILE_OFFSET		0x4C0
@@ -1666,7 +1680,7 @@ static int fg_batt_profile_init(struct fg_chip *chip)
 	struct device_node *node = chip->spmi->dev.of_node;
 	struct device_node *batt_node, *profile_node;
 	const char *data, *batt_type_str, *old_batt_type;
-	bool tried_again = false;
+	bool tried_again = false, vbat_in_range;
 	u8 reg = 0;
 
 wait:
@@ -1744,25 +1758,31 @@ wait:
 		goto no_profile;
 	}
 
-	if ((reg & PROFILE_INTEGRITY_BIT)
+	vbat_in_range = abs(fg_data[FG_DATA_VOLTAGE].value
+				- fg_data[FG_DATA_CPRED_VOLTAGE].value)
+				< settings[FG_MEM_VBAT_EST_DIFF].value * 1000;
+	if ((reg & PROFILE_INTEGRITY_BIT) && vbat_in_range
 			&& memcmp(chip->batt_profile, data, len - 4) == 0) {
 		if (fg_debug_mask & FG_STATUS)
 			pr_info("Battery profiles same, using default\n");
 		if (fg_est_dump)
 			schedule_work(&chip->dump_sram);
 		goto done;
-	} else {
-		if (fg_debug_mask & FG_STATUS) {
-			pr_info("Battery profiles differ, using new profile\n");
-			print_hex_dump(KERN_INFO, "FG: loaded profile: ",
-					DUMP_PREFIX_NONE, 16, 1,
-					chip->batt_profile, len, false);
-		}
-		old_batt_type = chip->batt_type;
-		chip->batt_type = loading_batt_type;
-		if (chip->power_supply_registered)
-			power_supply_changed(&chip->bms_psy);
 	}
+	if ((fg_debug_mask & FG_STATUS) && !vbat_in_range)
+		pr_info("Vbat out of range: v_current_pred: %d, v:%d\n",
+				fg_data[FG_DATA_CPRED_VOLTAGE].value,
+				fg_data[FG_DATA_VOLTAGE].value);
+	if (fg_debug_mask & FG_STATUS) {
+		pr_info("Using new profile\n");
+		print_hex_dump(KERN_INFO, "FG: loaded profile: ",
+				DUMP_PREFIX_NONE, 16, 1,
+				chip->batt_profile, len, false);
+	}
+	old_batt_type = chip->batt_type;
+	chip->batt_type = loading_batt_type;
+	if (chip->power_supply_registered)
+		power_supply_changed(&chip->bms_psy);
 
 	memcpy(chip->batt_profile, data, len);
 
@@ -1815,7 +1835,7 @@ wait:
 	 * If this is not the first time a profile has been loaded, sleep for
 	 * 3 seconds to make sure the NO_OTP_RELOAD is cleared in memory
 	 */
-	if (chip->profile_loaded)
+	if (chip->first_profile_loaded)
 		msleep(3000);
 
 	mutex_lock(&chip->rw_lock);
@@ -1904,6 +1924,7 @@ done:
 		chip->batt_type = fg_batt_type;
 	else
 		chip->batt_type = batt_type_str;
+	chip->first_profile_loaded = true;
 	chip->profile_loaded = true;
 	chip->battery_missing = is_battery_missing(chip);
 	if (chip->power_supply_registered)
@@ -2038,6 +2059,7 @@ static int fg_of_init(struct fg_chip *chip)
 	}
 	OF_READ_SETTING(FG_MEM_RESUME_SOC, "resume-soc", rc, 1);
 	OF_READ_SETTING(FG_MEM_IRQ_VOLT_EMPTY, "irq-volt-empty-mv", rc, 1);
+	OF_READ_SETTING(FG_MEM_VBAT_EST_DIFF, "vbat-estimate-diff-mv", rc, 1);
 
 	/* Get the use-otp-profile property */
 	chip->use_otp_profile = of_property_read_bool(
