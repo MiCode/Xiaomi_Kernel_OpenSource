@@ -70,6 +70,7 @@ static int debug;
 module_param(debug, int, 0600);
 
 #define MAX_CONFIG_LEN 256
+#define MAX_BUF_SIZE  (6 * 65536)
 static char mux_base_config[MAX_CONFIG_LEN];
 /* refcounting if mux is activated ... need to think of a better way */
 static int activated;
@@ -1700,6 +1701,7 @@ static struct gsm_dlci *gsm_dlci_alloc(struct gsm_mux *gsm, int addr)
 	dlci->t1.data = (unsigned long)dlci;
 	tty_port_init(&dlci->port);
 	dlci->port.ops = &gsm_port_ops;
+	tty_buffer_set_limit(&dlci->port, MAX_BUF_SIZE);
 	dlci->gsm = gsm;
 	dlci->addr = addr;
 	dlci->adaption = gsm->adaption;
@@ -2572,6 +2574,7 @@ static int gsmld_open(struct tty_struct *tty)
 
 	tty->disc_data = gsm;
 	tty->receive_room = 65536;
+	tty_buffer_set_limit(tty->port, MAX_BUF_SIZE);
 
 	/* Attach the initial passive connection */
 	gsm->encoding = 1;
@@ -3223,7 +3226,6 @@ static int gsmtty_install(struct tty_driver *driver, struct tty_struct *tty)
 		mutex_unlock(&gsm->mutex);
 		return ret;
 	}
-
 	dlci_get(dlci);
 	dlci_get(gsm->dlci[0]);
 	mux_get(gsm);
@@ -3485,7 +3487,6 @@ static void gsmtty_throttle(struct tty_struct *tty)
 	if (tty->termios.c_cflag & CRTSCTS)
 		dlci->modem_tx &= ~TIOCM_DTR;
 	dlci->throttled = 1;
-	pr_err(DRVNAME ": > Throttled\n");
 	/* Send an MSC with DTR cleared */
 	gsmtty_modem_update(dlci, 0);
 }
@@ -3498,7 +3499,6 @@ static void gsmtty_unthrottle(struct tty_struct *tty)
 	if (tty->termios.c_cflag & CRTSCTS)
 		dlci->modem_tx |= TIOCM_DTR;
 	dlci->throttled = 0;
-	pr_err(DRVNAME ": < unThrottled\n");
 	/* Send an MSC with DTR set */
 	gsmtty_modem_update(dlci, 0);
 }
