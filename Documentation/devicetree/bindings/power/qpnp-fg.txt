@@ -77,6 +77,16 @@ Parent node optional properties:
 					this amount, the fuel gauge will
 					redo the first SoC estimate when the
 					driver probes.
+- qcom,fg-delta-soc:			How many percent the monotonic SoC must
+					change before a new delta_soc interrupt
+					is asserted. If this value is raised
+					above 3-4, some period workarounds may
+					not function well, so it's best to
+					leave this at 1 or 2%.
+- qcom,fg-max-soc:			The percent SoC threshold at which the
+					HIGH_SOC interrupt will be asserted.
+- qcom,fg-min-soc:			The percent SoC threshold at which the
+					LOW_SOC interrupt will be asserted.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
