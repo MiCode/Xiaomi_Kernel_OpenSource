@@ -692,13 +692,14 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	int max_ports;
 	unsigned long flags;
 	u32 temp, status;
-	int retval = 0;
+	int i, retval = 0;
 	__le32 __iomem **port_array;
 	int slot_id;
 	struct xhci_bus_state *bus_state;
 	u16 link_state = 0;
 	u16 wake_mask = 0;
 	u16 timeout = 0;
+	u16 selector = 0;
 
 	max_ports = xhci_get_ports(hcd, &port_array);
 	bus_state = &xhci->bus_state[hcd_index(hcd)];
@@ -770,6 +771,8 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			link_state = (wIndex & 0xff00) >> 3;
 		if (wValue == USB_PORT_FEAT_REMOTE_WAKE_MASK)
 			wake_mask = wIndex & 0xff00;
+		if (wValue == USB_PORT_FEAT_TEST)
+			selector = (wIndex & 0xff00) >> 8;
 		/* The MSB of wIndex is the U1/U2 timeout */
 		timeout = (wIndex & 0xff00) >> 8;
 		wIndex &= 0xff;
@@ -944,6 +947,59 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 			temp &= ~PORT_U2_TIMEOUT_MASK;
 			temp |= PORT_U2_TIMEOUT(timeout);
 			writel(temp, port_array[wIndex] + PORTPMSC);
+			break;
+		case USB_PORT_FEAT_TEST:
+			/* 4.19.6 Port Test Modes (USB2 Test Mode) */
+			if (hcd->speed != HCD_USB2)
+				goto error;
+
+			/* FIXME: Test_Force_Enable case to be implemented */
+			if (!selector || selector > 4)
+				goto error;
+
+			/* Disable all Device Slots */
+			for (i = 0; i < MAX_HC_SLOTS; i++) {
+				if (!xhci->dcbaa->dev_context_ptrs[i])
+					continue;
+
+				if (xhci_queue_slot_control(xhci,
+						TRB_DISABLE_SLOT, i)) {
+					xhci_err(xhci,
+						"Disable slot[%d] fail!\n", i);
+						goto error;
+					}
+				xhci_dbg(xhci, "Disable Slot[%d].\n", i);
+			}
+
+			/* Put all ports to the Disable state by clear PP */
+			xhci_dbg(xhci, "Disable all port (PP = 0)\n");
+			for (i = 0; i < max_ports; i++) {
+				temp = readl(port_array[i]);
+				temp &= ~PORT_POWER;
+				writel(temp, port_array[i]);
+			}
+
+			/* Stop the controller */
+			xhci_dbg(xhci, "Stop controller\n");
+			temp = readl(&xhci->op_regs->command);
+			temp &= ~CMD_RUN;
+			writel(temp, &xhci->op_regs->command);
+
+			if (xhci_handshake(xhci, &xhci->op_regs->status,
+				STS_HALT, STS_HALT, XHCI_MAX_HALT_USEC)) {
+				xhci_warn(xhci, "Stop controller timeout\n");
+				return -ETIMEDOUT;
+			}
+
+			/* Disable runtime PM for test mode */
+			pm_runtime_forbid(hcd->self.controller);
+
+			/* Set PORTPMSC.PTC field for selected test mode */
+			xhci_dbg(xhci, "Enter Test Mode: %d\n", selector);
+			temp = readl(port_array[wIndex] + PORTPMSC);
+			temp |= selector << 28;
+			writel(temp, port_array[wIndex] + PORTPMSC);
+
 			break;
 		default:
 			goto error;
