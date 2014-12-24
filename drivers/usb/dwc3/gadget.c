@@ -2123,6 +2123,7 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	}
 
 	pm_runtime_get_sync(dwc->dev);
+	dbg_event(0xFF, "GdgStrt Begin", 0);
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	if (dwc->gadget_driver) {
@@ -2149,6 +2150,7 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	pm_runtime_put(dwc->dev);
+	dbg_event(0xFF, "GdgStrt End", 0);
 
 	return 0;
 

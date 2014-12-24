@@ -1937,17 +1937,19 @@ static void dwc3_resume_work(struct work_struct *w)
 	/* handle any event that was queued while work was already running */
 	if (!atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: notifying xceiv event\n", __func__);
+		dbg_event(0xFF, "RWrk !lpm", 0);
 		if (mdwc->otg_xceiv)
 			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
 							DWC3_EVENT_XCEIV_STATE);
 		return;
 	}
 
-	dbg_event(0xFF, "ReWr flag", atomic_read(&mdwc->pm_suspended));
 	/* bail out if system resume in process, else initiate RESUME */
 	if (atomic_read(&mdwc->pm_suspended)) {
+		dbg_event(0xFF, "RWrk PMSus", 0);
 		mdwc->resume_pending = true;
 	} else {
+		dbg_event(0xFF, "RWrk !PMSus", mdwc->otg_xceiv ? 1 : 0);
 		pm_runtime_get_sync(mdwc->dev);
 		if (mdwc->otg_xceiv) {
 			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
@@ -1957,7 +1959,6 @@ static void dwc3_resume_work(struct work_struct *w)
 			pm_runtime_resume(&dwc->xhci->dev);
 		}
 
-		dbg_event(0xFF, "ReWr Else", mdwc->otg_xceiv ? 1 : 0);
 		pm_runtime_put_noidle(mdwc->dev);
 		if (mdwc->otg_xceiv)
 			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
@@ -2035,6 +2036,8 @@ static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
+	dbg_event(0xFF, "PWR IRQ", atomic_read(&dwc->in_lpm));
+
 	if (atomic_read(&dwc->in_lpm))
 		dwc3_resume_work(&mdwc->resume_work.work);
 	else
@@ -2218,6 +2221,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 			 * Set debouncing delay to 120ms. Otherwise battery
 			 * charging CDP complaince test fails if delay > 120ms.
 			 */
+			dbg_event(0xFF, "Q RW (vbus)", val->intval);
 			schedule_delayed_work(&mdwc->resume_work, 12);
 		}
 		break;
@@ -2401,6 +2405,8 @@ static void dwc3_id_work(struct work_struct *w)
 		mdwc->ext_xceiv.id = mdwc->id_state;
 		dwc3_resume_work(&mdwc->resume_work.work);
 	}
+
+	dbg_event(0xFF, "RW (id)", 0);
 }
 
 static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
