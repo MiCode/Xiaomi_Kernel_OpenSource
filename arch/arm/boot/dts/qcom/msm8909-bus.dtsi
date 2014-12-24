@@ -135,9 +135,10 @@
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
-			clock-names = "bus_clk", "bus_a_clk";
+			clock-names = "bus_clk", "bus_a_clk", "bus_qos_clk";
 			clocks = <&clock_rpm  clk_snoc_msmbus_clk>,
-				<&clock_rpm  clk_snoc_msmbus_a_clk>;
+				<&clock_rpm  clk_snoc_msmbus_a_clk>,
+				<&clock_gcc clk_gcc_snoc_qosgen_clk>;
 
 			coresight-id = <50>;
 			coresight-name = "coresight-snoc";
