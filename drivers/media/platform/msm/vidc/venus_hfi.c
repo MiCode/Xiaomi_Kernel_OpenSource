@@ -1436,6 +1436,21 @@ enum hal_default_properties venus_hfi_get_default_properties(void *dev)
 	return prop;
 }
 
+static enum hal_hfi_version venus_hfi_get_version(void *dev)
+{
+	struct venus_hfi_device *device = (struct venus_hfi_device *) dev;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "%s invalid device\n", __func__);
+		return -EINVAL;
+	}
+
+	if (device->packetization_type == HFI_PACKETIZATION_3XX) {
+		return HAL_VIDEO_3X;
+	} else
+		return HAL_VIDEO_2X;
+}
+
 static int venus_hfi_halt_axi(struct venus_hfi_device *device)
 {
 	u32 reg;
@@ -4324,6 +4339,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->suspend = venus_hfi_suspend;
 	hdev->get_core_clock_rate = venus_hfi_get_core_clock_rate;
 	hdev->get_default_properties = venus_hfi_get_default_properties;
+	hdev->get_version = venus_hfi_get_version;
 }
 
 int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
