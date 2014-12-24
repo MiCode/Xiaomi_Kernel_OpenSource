@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/msm-bus-board.h>
+#include <trace/events/trace_msm_bus.h>
 #include "msm_bus_core.h"
 #include "msm_bus_noc.h"
 #include "msm_bus_adhoc.h"
@@ -196,6 +197,8 @@ static void noc_set_qos_mode(void __iomem *base, uint32_t qos_off,
 		uint32_t mport, uint32_t qos_delta, uint8_t mode,
 		uint8_t perm_mode)
 {
+	trace_bus_noc_set_qos_mode((long)base, qos_off, mport, qos_delta, mode,
+			perm_mode);
 	if (mode < NOC_QOS_MODE_MAX &&
 		((1 << mode) & perm_mode)) {
 		uint32_t reg_val;
