@@ -840,12 +840,23 @@ static int __init msm_bus_debugfs_init(void)
 	}
 
 	list_for_each_entry(cldata, &cl_list, list) {
-		if (cldata->pdata->name == NULL) {
-			MSM_BUS_DBG("Client name not found\n");
-			continue;
+		if (cldata->pdata) {
+			if (cldata->pdata->name == NULL) {
+				MSM_BUS_DBG("Client name not found\n");
+				continue;
+			}
+			cldata->file = msm_bus_dbg_create(cldata->
+				pdata->name, S_IRUGO, clients, cldata->clid);
+		} else if (cldata->handle) {
+			if (cldata->handle->name == NULL) {
+				MSM_BUS_DBG("Client doesn't have a name\n");
+				continue;
+			}
+			cldata->file = debugfs_create_file(cldata->handle->name,
+							S_IRUGO, clients,
+							(void *)cldata->handle,
+							&client_data_fops);
 		}
-		cldata->file = msm_bus_dbg_create(cldata->
-			pdata->name, S_IRUGO, clients, cldata->clid);
 	}
 
 	mutex_lock(&msm_bus_dbg_fablist_lock);
