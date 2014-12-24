@@ -155,22 +155,48 @@ static DEFINE_CLK_BRANCH_VOTER(xo_pil_pronto_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_pil_mss_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_wlan_clk, &xo_clk_src.c);
 
+static unsigned int soft_vote_gpll0;
+
+/* PLL_ACTIVE_FLAG bit of GCC_GPLL0_MODE register
+ * gets set from PLL voting FSM.It indicates when
+ * FSM has enabled the PLL and PLL should be locked.
+ */
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
 	.en_mask = BIT(0),
 	.status_reg = (void __iomem *)GPLL0_STATUS,
 	.status_mask = BIT(17),
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.parent = &xo_clk_src.c,
 		.rate = 800000000,
 		.dbg_name = "gpll0_clk_src",
-		.ops = &clk_ops_pll_vote,
+		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(gpll0_clk_src.c),
 	},
 };
 
 DEFINE_EXT_CLK(gpll0_out_aux_clk_src, &gpll0_clk_src.c);
+
+/* Don't vote for xo if using this clock to allow xo shutdown */
+static struct pll_vote_clk gpll0_ao_clk_src = {
+	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
+	.en_mask = BIT(0),
+	.status_reg = (void __iomem *)GPLL0_STATUS,
+	.status_mask = BIT(17),
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.parent = &xo_a_clk_src.c,
+		.rate = 800000000,
+		.dbg_name = "gpll0_ao_clk_src",
+		.ops = &clk_ops_pll_acpu_vote,
+		CLK_INIT(gpll0_ao_clk_src.c),
+	},
+};
 
 static struct pll_vote_clk gpll6_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
@@ -2840,6 +2866,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(rf_clk2_a_pin),
 
 	CLK_LIST(gpll0_clk_src),
+	CLK_LIST(gpll0_ao_clk_src),
 	CLK_LIST(gpll6_clk_src),
 	CLK_LIST(gpll4_clk_src),
 	CLK_LIST(gpll3_clk_src),
