@@ -804,6 +804,86 @@ static struct ov5693_reg const ov5693_2592x1944_30fps[] = {
 	{OV5693_TOK_TERM, 0, 0}
 };
 
+/*
+ * 11:9 Full FOV Output, expected FOV Res: 2346x1920
+ * ISP Effect Res: 1408x1152
+ * Sensor out: 1424x1168, DS From: 2380x1952
+ */
+static struct ov5693_reg const ov5693_1424x1168_30fps[] = {
+	{OV5693_8BIT, 0x3501, 0x3b}, /* long exposure[15:8] */
+	{OV5693_8BIT, 0x3502, 0x80}, /* long exposure[7:0] */
+	{OV5693_8BIT, 0x3708, 0xe2},
+	{OV5693_8BIT, 0x3709, 0xc3},
+	{OV5693_8BIT, 0x3800, 0x00}, /* TIMING_X_ADDR_START */
+	{OV5693_8BIT, 0x3801, 0x78}, /* 110 */
+	{OV5693_8BIT, 0x3802, 0x00}, /* TIMING_Y_ADDR_START */
+	{OV5693_8BIT, 0x3803, 0x02}, /* 2 */
+	{OV5693_8BIT, 0x3804, 0x09}, /* TIMING_X_ADDR_END */
+	{OV5693_8BIT, 0x3805, 0xc5}, /* 2501 */
+	{OV5693_8BIT, 0x3806, 0x07}, /* TIMING_Y_ADDR_END */
+	{OV5693_8BIT, 0x3807, 0xa1}, /* 1953 */
+	{OV5693_8BIT, 0x3808, 0x05}, /* TIMING_X_OUTPUT_SIZE */
+	{OV5693_8BIT, 0x3809, 0x90}, /* 1424 */
+	{OV5693_8BIT, 0x380a, 0x04}, /* TIMING_Y_OUTPUT_SIZE */
+	{OV5693_8BIT, 0x380b, 0x90}, /* 1168 */
+	{OV5693_8BIT, 0x380c, 0x0a}, /* TIMING_HTS */
+	{OV5693_8BIT, 0x380d, 0x80},
+	{OV5693_8BIT, 0x380e, 0x07}, /* TIMING_VTS */
+	{OV5693_8BIT, 0x380f, 0xc0},
+	{OV5693_8BIT, 0x3810, 0x00}, /* TIMING_ISP_X_WIN */
+	{OV5693_8BIT, 0x3811, 0x02}, /* 2 */
+	{OV5693_8BIT, 0x3812, 0x00}, /* TIMING_ISP_Y_WIN */
+	{OV5693_8BIT, 0x3813, 0x00}, /* 0 */
+	{OV5693_8BIT, 0x3814, 0x11}, /* TIME_X_INC */
+	{OV5693_8BIT, 0x3815, 0x11}, /* TIME_Y_INC */
+	{OV5693_8BIT, 0x3820, 0x00},
+	{OV5693_8BIT, 0x3821, 0x1e},
+	{OV5693_8BIT, 0x5002, 0x00},
+	{OV5693_8BIT, 0x5041, 0x84}, /* scale is auto enabled */
+	{OV5693_8BIT, 0x0100, 0x01},
+	{OV5693_TOK_TERM, 0, 0}
+};
+
+/*
+ * 3:2 Full FOV Output, expected FOV Res: 2560x1706
+ * ISP Effect Res: 720x480
+ * Sensor out: 736x496, DS From 2616x1764
+ */
+static struct ov5693_reg const ov5693_736x496_30fps[] = {
+	{OV5693_8BIT, 0x3501, 0x3b}, /* long exposure[15:8] */
+	{OV5693_8BIT, 0x3502, 0x80}, /* long exposure[7:0] */
+	{OV5693_8BIT, 0x3708, 0xe2},
+	{OV5693_8BIT, 0x3709, 0xc3},
+	{OV5693_8BIT, 0x3800, 0x00}, /* TIMING_X_ADDR_START */
+	{OV5693_8BIT, 0x3801, 0x02}, /* 2 */
+	{OV5693_8BIT, 0x3802, 0x00}, /* TIMING_Y_ADDR_START */
+	{OV5693_8BIT, 0x3803, 0x62}, /* 98 */
+	{OV5693_8BIT, 0x3804, 0x0a}, /* TIMING_X_ADDR_END */
+	{OV5693_8BIT, 0x3805, 0x3b}, /* 2619 */
+	{OV5693_8BIT, 0x3806, 0x07}, /* TIMING_Y_ADDR_END */
+	{OV5693_8BIT, 0x3807, 0x43}, /* 1859 */
+	{OV5693_8BIT, 0x3808, 0x02}, /* TIMING_X_OUTPUT_SIZE */
+	{OV5693_8BIT, 0x3809, 0xe0}, /* 736 */
+	{OV5693_8BIT, 0x380a, 0x01}, /* TIMING_Y_OUTPUT_SIZE */
+	{OV5693_8BIT, 0x380b, 0xf0}, /* 496 */
+	{OV5693_8BIT, 0x380c, 0x0a}, /* TIMING_HTS */
+	{OV5693_8BIT, 0x380d, 0x80},
+	{OV5693_8BIT, 0x380e, 0x07}, /* TIMING_VTS */
+	{OV5693_8BIT, 0x380f, 0xc0},
+	{OV5693_8BIT, 0x3810, 0x00}, /* TIMING_ISP_X_WIN */
+	{OV5693_8BIT, 0x3811, 0x02}, /* 2 */
+	{OV5693_8BIT, 0x3812, 0x00}, /* TIMING_ISP_Y_WIN */
+	{OV5693_8BIT, 0x3813, 0x00}, /* 0 */
+	{OV5693_8BIT, 0x3814, 0x11}, /* TIME_X_INC */
+	{OV5693_8BIT, 0x3815, 0x11}, /* TIME_Y_INC */
+	{OV5693_8BIT, 0x3820, 0x00},
+	{OV5693_8BIT, 0x3821, 0x1e},
+	{OV5693_8BIT, 0x5002, 0x00},
+	{OV5693_8BIT, 0x5041, 0x84}, /* scale is auto enabled */
+	{OV5693_8BIT, 0x0100, 0x01},
+	{OV5693_TOK_TERM, 0, 0}
+};
+
 struct ov5693_resolution ov5693_res_preview[] = {
 	{
 		.desc = "ov5693_1616x1216_30fps",
@@ -851,6 +931,34 @@ struct ov5693_resolution ov5693_res_preview[] = {
 #define N_RES_PREVIEW (ARRAY_SIZE(ov5693_res_preview))
 
 struct ov5693_resolution ov5693_res_still[] = {
+	{
+		.desc = "ov5693_736x496_30fps",
+		.width = 736,
+		.height = 496,
+		.pix_clk_freq = 160,
+		.fps = 30,
+		.used = 0,
+		.pixels_per_line = 2688,
+		.lines_per_frame = 1984,
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.bin_mode = 0,
+		.regs = ov5693_736x496_30fps,
+	},
+	{
+		.desc = "ov5693_1424x1168_30fps",
+		.width = 1424,
+		.height = 1168,
+		.pix_clk_freq = 160,
+		.fps = 30,
+		.used = 0,
+		.pixels_per_line = 2688,
+		.lines_per_frame = 1984,
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.bin_mode = 0,
+		.regs = ov5693_1424x1168_30fps,
+	},
 	{
 		.desc = "ov5693_1616x1216_30fps",
 		.width = 1616,
