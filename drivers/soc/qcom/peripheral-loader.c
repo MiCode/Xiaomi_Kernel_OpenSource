@@ -653,6 +653,9 @@ int pil_boot(struct pil_desc *desc)
 	const struct firmware *fw;
 	struct pil_priv *priv = desc->priv;
 
+	if (desc->shutdown_fail)
+		pil_err(desc, "Subsystem shutdown failed previously!\n");
+
 	/* Reinitialize for new image */
 	pil_release_mmap(desc);
 
@@ -763,8 +766,12 @@ void pil_shutdown(struct pil_desc *desc)
 {
 	struct pil_priv *priv = desc->priv;
 
-	if (desc->ops->shutdown)
-		desc->ops->shutdown(desc);
+	if (desc->ops->shutdown) {
+		if (desc->ops->shutdown(desc))
+			desc->shutdown_fail = true;
+		else
+			desc->shutdown_fail = false;
+	}
 
 	if (desc->proxy_unvote_irq) {
 		disable_irq(desc->proxy_unvote_irq);
