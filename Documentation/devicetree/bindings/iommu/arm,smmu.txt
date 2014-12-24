@@ -58,6 +58,10 @@ conditions.
                   implementations that require a halt and TLB invalidate
                   before performing ATOS operations.
 
+- qcom,register-save : Enable register saving awareness.  This causes the
+                  driver to assume that configuration registers will retain
+                  their values across gdsc power gating.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified

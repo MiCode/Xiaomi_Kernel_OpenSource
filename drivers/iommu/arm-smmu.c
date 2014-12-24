@@ -421,6 +421,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_SECURE_CFG_ACCESS (1 << 0)
 #define ARM_SMMU_OPT_INVALIDATE_ON_MAP (1 << 1)
 #define ARM_SMMU_OPT_HALT_AND_TLB_ON_ATOS  (1 << 2)
+#define ARM_SMMU_OPT_REGISTER_SAVE	(1 << 3)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -488,6 +489,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SECURE_CFG_ACCESS, "calxeda,smmu-secure-config-access" },
 	{ ARM_SMMU_OPT_INVALIDATE_ON_MAP, "qcom,smmu-invalidate-on-map" },
 	{ ARM_SMMU_OPT_HALT_AND_TLB_ON_ATOS, "qcom,halt-and-tlb-on-atos" },
+	{ ARM_SMMU_OPT_REGISTER_SAVE, "qcom,register-save" },
 	{ 0, NULL},
 };
 
@@ -719,31 +721,6 @@ static void __arm_smmu_free_bitmap(unsigned long *map, int idx)
 	clear_bit(idx, map);
 }
 
-static int arm_smmu_enable_clocks(struct arm_smmu_device *smmu)
-{
-	int i, ret = 0;
-
-	for (i = 0; i < smmu->num_clocks; ++i) {
-		ret = clk_prepare_enable(smmu->clocks[i]);
-		if (ret) {
-			dev_err(smmu->dev, "Couldn't enable clock #%d\n", i);
-			while (i--)
-				clk_disable_unprepare(smmu->clocks[i]);
-			break;
-		}
-	}
-
-	return ret;
-}
-
-static void arm_smmu_disable_clocks(struct arm_smmu_device *smmu)
-{
-	int i;
-
-	for (i = 0; i < smmu->num_clocks; ++i)
-		clk_disable_unprepare(smmu->clocks[i]);
-}
-
 static int arm_smmu_enable_regulators(struct arm_smmu_device *smmu)
 {
 	if (!smmu->gdsc)
@@ -758,6 +735,36 @@ static int arm_smmu_disable_regulators(struct arm_smmu_device *smmu)
 		return 0;
 
 	return regulator_disable(smmu->gdsc);
+}
+
+static int arm_smmu_enable_clocks(struct arm_smmu_device *smmu)
+{
+	int i, ret = 0;
+
+	arm_smmu_enable_regulators(smmu);
+
+	for (i = 0; i < smmu->num_clocks; ++i) {
+		ret = clk_prepare_enable(smmu->clocks[i]);
+		if (ret) {
+			dev_err(smmu->dev, "Couldn't enable clock #%d\n", i);
+			while (i--)
+				clk_disable_unprepare(smmu->clocks[i]);
+			arm_smmu_disable_regulators(smmu);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static void arm_smmu_disable_clocks(struct arm_smmu_device *smmu)
+{
+	int i;
+
+	for (i = 0; i < smmu->num_clocks; ++i)
+		clk_disable_unprepare(smmu->clocks[i]);
+
+	arm_smmu_disable_regulators(smmu);
 }
 
 /* Wait for any pending TLB invalidations to complete */
@@ -1440,7 +1447,8 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	mutex_lock(&smmu->attach_lock);
 	if (!smmu->attach_count++) {
-		arm_smmu_enable_regulators(smmu);
+		if (!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE))
+			arm_smmu_enable_regulators(smmu);
 		arm_smmu_enable_clocks(smmu);
 		arm_smmu_device_reset(smmu);
 		arm_smmu_impl_def_programming(smmu);
@@ -1496,7 +1504,8 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 err_disable_clocks:
 	arm_smmu_disable_clocks(smmu);
 	mutex_lock(&smmu->attach_lock);
-	if (!--smmu->attach_count)
+	if (!--smmu->attach_count &&
+		(!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE)))
 		arm_smmu_disable_regulators(smmu);
 	mutex_unlock(&smmu->attach_lock);
 	return ret;
@@ -1509,7 +1518,8 @@ static void arm_smmu_power_off(struct arm_smmu_device *smmu)
 	writel_relaxed(sCR0_CLIENTPD,
 		ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
 	arm_smmu_disable_clocks(smmu);
-	arm_smmu_disable_regulators(smmu);
+	if (!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE))
+		arm_smmu_disable_regulators(smmu);
 }
 
 static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
