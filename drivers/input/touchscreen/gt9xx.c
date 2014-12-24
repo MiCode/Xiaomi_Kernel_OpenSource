@@ -529,11 +529,13 @@ static int gt9xx_ts_remove(struct i2c_client *client)
 
 static const struct i2c_device_id gt9xx_ts_id[] = {
 	{ "GODX0911", 0 },
+	{ "GOOD9271", 0 },
 	{ }
 };
 
 static struct acpi_device_id gt9xx_acpi_match[] = {
 	{ "GODX0911", 0 },
+	{ "GOOD9271", 0 },
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, gt9xx_acpi_match);
