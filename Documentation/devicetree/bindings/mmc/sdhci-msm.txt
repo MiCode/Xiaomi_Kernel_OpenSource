@@ -48,6 +48,8 @@ Optional Properties:
 	- qcom,nonhotplug - specifies the card in slot is not hot pluggable.
 			    if card lost or removed manually at runtime, don't retry
 			    to redetect it until next reboot probe.
+	- qcom,no-1p8v - specifies the system physically doesn't support 1.8v, even if the
+			  host does.
 	- qcom,bus-speed-mode - specifies supported bus speed modes by host.
 				The supported bus speed modes are :
 				"HS400_1p8v" - indicates that host can support HS400 at 1.8v.
