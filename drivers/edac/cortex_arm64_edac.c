@@ -119,10 +119,12 @@ struct erp_drvdata {
 	void __iomem *cci_base;
 	u32 mem_perf_counter;
 	struct notifier_block nb_pm;
+	struct notifier_block nb_cpu_wa;
 	struct notifier_block nb_cpu;
 	struct notifier_block nb_panic;
 	struct work_struct work;
 	int apply_cti_pmu_wa;
+	unsigned int sbe_irq;
 };
 
 static struct erp_drvdata *panic_handler_drvdata;
@@ -782,6 +784,12 @@ static void arm64_enable_pmu_irq(void *data)
 	enable_percpu_irq(irq, IRQ_TYPE_NONE);
 }
 
+static void arm64_disable_pmu_irq(void *data)
+{
+	unsigned int irq = *(unsigned int *)data;
+	disable_percpu_irq(irq);
+}
+
 static void check_sbe_event(struct erp_drvdata *drv)
 {
 	unsigned int partnum = read_cpuid_part_number();
@@ -825,10 +833,28 @@ static int msm_cti_pmu_wa_cpu_notify(struct notifier_block *self,
 					unsigned long action, void *hcpu)
 {
 	struct erp_drvdata *drv = container_of(self, struct erp_drvdata,
-								nb_cpu);
+								nb_cpu_wa);
 	switch (action) {
 	case CPU_ONLINE:
 		schedule_work_on((unsigned long)hcpu, &drv->work);
+		break;
+	};
+
+	return NOTIFY_OK;
+}
+
+static int arm64_edac_pmu_cpu_notify(struct notifier_block *self,
+					unsigned long action, void *hcpu)
+{
+	struct erp_drvdata *drv = container_of(self, struct erp_drvdata,
+								nb_cpu);
+	switch (action & ~CPU_TASKS_FROZEN) {
+	case CPU_STARTING:
+		sbe_enable_event(drv);
+		arm64_enable_pmu_irq(&drv->sbe_irq);
+		break;
+	case CPU_DYING:
+		arm64_disable_pmu_irq(&drv->sbe_irq);
 		break;
 	};
 
@@ -959,6 +985,7 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 								sbe_irq, rc);
 		goto out_irq;
 	}
+	drv->sbe_irq = sbe_irq;
 
 	drv->apply_cti_pmu_wa = of_property_read_bool(pdev->dev.of_node,
 						"qcom,apply-cti-pmu-wa");
@@ -971,11 +998,13 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 				       &drv->nb_panic);
 	arm64_pmu_irq_handled_externally();
 	if (drv->apply_cti_pmu_wa) {
-		drv->nb_cpu.notifier_call = msm_cti_pmu_wa_cpu_notify;
-		register_cpu_notifier(&drv->nb_cpu);
+		drv->nb_cpu_wa.notifier_call = msm_cti_pmu_wa_cpu_notify;
+		register_cpu_notifier(&drv->nb_cpu_wa);
 		schedule_on_each_cpu(msm_enable_cti_pmu_workaround);
 		INIT_WORK(&drv->work, msm_enable_cti_pmu_workaround);
 	}
+	drv->nb_cpu.notifier_call = arm64_edac_pmu_cpu_notify;
+	register_cpu_notifier(&drv->nb_cpu);
 	on_each_cpu(sbe_enable_event, drv, 1);
 	on_each_cpu(arm64_enable_pmu_irq, &sbe_irq, 1);
 
