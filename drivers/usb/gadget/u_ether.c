@@ -462,7 +462,7 @@ clean:
 	}
 
 	if (queue)
-		queue_work_on(0, uether_wq, &dev->rx_work);
+		queue_work(uether_wq, &dev->rx_work);
 }
 
 static int prealloc(struct list_head *list,
@@ -2003,7 +2003,7 @@ static void uether_debugfs_exit(struct eth_dev *dev)
 
 static int __init gether_init(void)
 {
-	uether_wq = alloc_workqueue("uether", WQ_CPU_INTENSIVE, 1);
+	uether_wq  = create_singlethread_workqueue("uether");
 	if (!uether_wq) {
 		pr_err("%s: Unable to create workqueue: uether\n", __func__);
 		return -ENOMEM;
