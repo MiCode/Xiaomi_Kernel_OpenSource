@@ -119,9 +119,16 @@ static const u32 pri_supported_formats[] = {
 	DRM_FORMAT_ABGR2101010,
 };
 
+#if defined(CONFIG_ADF_INTEL_CHV)
+static const u32 pri_supported_transforms[] = {
+	INTEL_ADF_TRANSFORM_FLIPH,
+	INTEL_ADF_TRANSFORM_ROT180,
+};
+#else
 static const u32 pri_supported_transforms[] = {
 	INTEL_ADF_TRANSFORM_ROT180,
 };
+#endif
 
 static const u32 pri_supported_blendings[] = {
 	INTEL_PLANE_BLENDING_NONE,
@@ -325,19 +332,39 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 	dspaddr_offset = vlv_compute_page_offset(&src_x, &src_y,
 				buf->tiling_mode, bpp, regs->stride);
 	regs->linearoff -= dspaddr_offset;
-	if (config->transform & INTEL_ADF_TRANSFORM_ROT180) {
+	regs->tileoff = (src_y << 16) | src_x;
+
+	/*
+	 * H mirroring available on PIPE B Pri and sp plane only
+	 * For CHV, FLIPH and 180 are mutually exclusive
+	 */
+	if ((intel_adf_get_platform_id() == gen_cherryview) &&
+	    STEP_FROM(pipeline->dc_stepping, STEP_B0))
+		regs->dspcntr &= ~(DISPPLANE_H_MIRROR_ENABLE |
+				   DISPPLANE_180_ROTATION_ENABLE);
+	else
+		regs->dspcntr &= ~DISPPLANE_180_ROTATION_ENABLE;
+
+	switch (config->transform) {
+	case INTEL_ADF_TRANSFORM_FLIPH:
+		if ((intel_adf_get_platform_id() == gen_cherryview) &&
+		    STEP_FROM(pipeline->dc_stepping, STEP_B0) &&
+		    (pipe == PIPE_B)) {
+			regs->dspcntr |= DISPPLANE_H_MIRROR_ENABLE;
+			regs->tileoff = (src_y << 16) | (src_x + buf->w - 1);
+			regs->linearoff += ((buf->w - 1) * bpp);
+		}
+		break;
+	case INTEL_ADF_TRANSFORM_ROT180:
 		regs->dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
 		regs->linearoff =  regs->linearoff + (buf->h - 1) *
-						regs->stride + buf->w * bpp;
+			regs->stride + buf->w * bpp;
 		regs->tileoff = (((src_y + buf->h - 1) << 16) |
-							(src_x + buf->w - 1));
-	} else {
-		regs->dspcntr &= ~DISPPLANE_180_ROTATION_ENABLE;
-		regs->tileoff = (src_y << 16) | src_x;
+				 (src_x + buf->w - 1));
+		break;
 	}
 
 	regs->surfaddr = (buf->gtt_offset_in_pages + dspaddr_offset);
-
 	return 0;
 }
 

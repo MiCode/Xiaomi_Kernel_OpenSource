@@ -294,12 +294,13 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 	u32 bpp = 0, prev_bpp = 0;
 	u32 sprctl, prev_sprctl;
 	u32 mask, shift;
-	u32 dst_w = (config->dst_w & VLV_SP_12BIT_MASK) - 1;
-	u32 dst_h = (config->dst_h & VLV_SP_12BIT_MASK) - 1;
 	u32 src_x = config->src_x & VLV_SP_12BIT_MASK;
 	u32 src_y = config->src_y & VLV_SP_12BIT_MASK;
 	u32 dst_x = config->dst_x & VLV_SP_12BIT_MASK;
 	u32 dst_y = config->dst_y & VLV_SP_12BIT_MASK;
+	u32 dst_w = (config->dst_w & VLV_SP_12BIT_MASK) - 1;
+	u32 dst_h = (config->dst_h & VLV_SP_12BIT_MASK) - 1;
+	u32 src_w = (config->src_w & VLV_SP_12BIT_MASK) - 1;
 	u8 i = 0;
 
 	/*
@@ -381,36 +382,54 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 
 	sprctl |= SP_ENABLE;
 	regs->dspcntr = sprctl;
+
+	if (buf->tiling_mode != I915_TILING_NONE)
+		regs->dspcntr |= SP_TILED;
+	else
+		regs->dspcntr &= ~SP_TILED;
+
 	linear_offset = src_y * buf->stride + src_x * bpp;
 	sprsurf_offset = vlv_compute_page_offset(&src_x, &src_y,
 			buf->tiling_mode, bpp, buf->stride);
 	linear_offset -= sprsurf_offset;
 
+	regs->linearoff = linear_offset;
 	regs->stride = buf->stride;
 	regs->pos = ((dst_y << 16) | dst_x);
 	regs->size = (dst_h << 16) | dst_w;
-	regs->surfaddr = (buf->gtt_offset_in_pages + sprsurf_offset);
+	regs->tileoff = (src_y << 16) | src_x;
 
-	if (buf->tiling_mode != I915_TILING_NONE) {
-		regs->dspcntr |= SP_TILED;
-		if (config->transform & INTEL_ADF_TRANSFORM_ROT180) {
-			regs->dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
-			regs->tileoff = ((src_y + dst_h) << 16) |
-							(src_x + dst_w);
-		} else {
-			regs->dspcntr &= ~DISPPLANE_180_ROTATION_ENABLE;
-			regs->tileoff = (src_y << 16) | src_x;
+	/*
+	 * H mirroring available on PIPE B Pri and sp plane only
+	 * For CHV, FLIPH and 180 are mutually exclusive
+	 */
+	if ((intel_adf_get_platform_id() == gen_cherryview) &&
+	    STEP_FROM(pipeline->dc_stepping, STEP_B0))
+		regs->dspcntr &= ~(DISPPLANE_H_MIRROR_ENABLE |
+				   DISPPLANE_180_ROTATION_ENABLE);
+	else
+		regs->dspcntr &= ~DISPPLANE_180_ROTATION_ENABLE;
+
+	switch (config->transform) {
+	case INTEL_ADF_TRANSFORM_FLIPH:
+		if ((intel_adf_get_platform_id() == gen_cherryview) &&
+		    STEP_FROM(pipeline->dc_stepping, STEP_B0) &&
+		    (pipe == PIPE_B)) {
+			regs->dspcntr |= DISPPLANE_H_MIRROR_ENABLE;
+			regs->tileoff = (src_y << 16) | (src_x + src_w - 1);
+			regs->linearoff += ((src_w - 1) * bpp);
 		}
-	} else {
-		if (config->transform & INTEL_ADF_TRANSFORM_ROT180) {
-			regs->dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
-			regs->linearoff = linear_offset + dst_h *
-					regs->stride + (dst_w + 1) * bpp;
-		} else {
-			regs->dspcntr &= ~DISPPLANE_180_ROTATION_ENABLE;
-			regs->linearoff = linear_offset;
-		}
+		break;
+	case INTEL_ADF_TRANSFORM_ROT180:
+		regs->dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
+		regs->linearoff =  regs->linearoff + (dst_h - 1) *
+			regs->stride + dst_w * bpp;
+		regs->tileoff = (((src_y + dst_h - 1) << 16) |
+			(src_x + dst_w - 1));
+		break;
 	}
+
+	regs->surfaddr = (buf->gtt_offset_in_pages + sprsurf_offset);
 
 	/* when in maxfifo display control register cannot be modified */
 	if (vlv_config->status.maxfifo_enabled &&
@@ -697,9 +716,16 @@ static const u32 sprite_supported_formats[] = {
 	DRM_FORMAT_ABGR2101010,
 };
 
+#if defined(CONFIG_ADF_INTEL_VLV) && !defined(CONFIG_ADF_INTEL_CHV)
 static const u32 sprite_supported_transforms[] = {
 	INTEL_ADF_TRANSFORM_ROT180,
 };
+#elif defined(CONFIG_ADF_INTEL_CHV)
+static const u32 sprite_supported_transforms[] = {
+	INTEL_ADF_TRANSFORM_FLIPH,
+	INTEL_ADF_TRANSFORM_ROT180,
+};
+#endif
 
 static const u32 sprite_supported_blendings[] = {
 	INTEL_PLANE_BLENDING_NONE,

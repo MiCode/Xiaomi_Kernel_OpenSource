@@ -3989,6 +3989,7 @@ extern int chv_cursor_offsets[];
 #define   DISPPLANE_180_ROTATION_ENABLE		(1<<15)
 #define   DISPPLANE_TRICKLE_FEED_DISABLE	(1<<14) /* Ironlake */
 #define   DISPPLANE_TILED			(1<<10)
+#define   DISPPLANE_H_MIRROR_ENABLE		(1<<8)
 #define _DSPAADDR		(VLV_DISPLAY_BASE + 0x70184)
 #define _DSPASTRIDE		(VLV_DISPLAY_BASE + 0x70188)
 #define _DSPAPOS		(VLV_DISPLAY_BASE + 0x7018C) /* reserved */
