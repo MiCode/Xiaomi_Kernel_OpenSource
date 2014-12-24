@@ -241,7 +241,8 @@
 
 &pm8909_bms {
 	status = "okay";
-	qcom,resume-soc = <99>;
+	qcom,resume-soc = <95>;
+	qcom,use-reported-soc;
 	qcom,force-bms-active-on-charger;
 	qcom,battery-data = <&qrd_batterydata>;
 };
