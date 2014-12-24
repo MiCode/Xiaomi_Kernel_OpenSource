@@ -75,7 +75,7 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 	}
 	debugfs_create_file("dump", 0644, mdss_dbg_xlog.xlog, NULL,
 						&mdss_xlog_fops);
-	debugfs_create_bool("enable", 0644, mdss_dbg_xlog.xlog,
+	debugfs_create_u32("enable", 0644, mdss_dbg_xlog.xlog,
 			    &mdss_dbg_xlog.xlog_enable);
 	debugfs_create_bool("panic", 0644, mdss_dbg_xlog.xlog,
 			    &mdss_dbg_xlog.panic_on_err);
@@ -84,7 +84,13 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 	return 0;
 }
 
-void mdss_xlog(const char *name, ...)
+static inline bool mdss_xlog_is_enabled(u32 flag)
+{
+	return (flag & mdss_dbg_xlog.xlog_enable) ||
+		(flag == MDSS_XLOG_ALL && mdss_dbg_xlog.xlog_enable);
+}
+
+void mdss_xlog(const char *name, int flag, ...)
 {
 	unsigned long flags;
 	int i, val = 0;
@@ -92,7 +98,7 @@ void mdss_xlog(const char *name, ...)
 	struct tlog *log;
 	ktime_t time;
 
-	if (!mdss_dbg_xlog.xlog_enable)
+	if (!mdss_xlog_is_enabled(flag))
 		return;
 
 	spin_lock_irqsave(&mdss_dbg_xlog.xlock, flags);
@@ -104,7 +110,7 @@ void mdss_xlog(const char *name, ...)
 	log->name = name;
 	log->data_cnt = 0;
 
-	va_start(args, name);
+	va_start(args, flag);
 	for (i = 0; i < MDSS_XLOG_MAX_DATA; i++) {
 
 		val = va_arg(args, int);
@@ -124,16 +130,13 @@ void mdss_xlog(const char *name, ...)
 	spin_unlock_irqrestore(&mdss_dbg_xlog.xlock, flags);
 }
 
-void mdss_xlog_dump(void)
+static void mdss_xlog_dump(void)
 {
 	int i, n, d_cnt, off;
 	unsigned long flags;
 	unsigned long rem_nsec;
 	struct tlog *log;
 	char xlog_buf[MDSS_XLOG_BUF_MAX];
-
-	if (!mdss_dbg_xlog.xlog_enable)
-		return;
 
 	spin_lock_irqsave(&mdss_dbg_xlog.xlock, flags);
 	i = mdss_dbg_xlog.first;
@@ -156,39 +159,45 @@ void mdss_xlog_dump(void)
 	spin_unlock_irqrestore(&mdss_dbg_xlog.xlock, flags);
 }
 
-void mdss_xlog_tout_handler(const char *name, ...)
+static void mdss_dump_reg_by_blk(const char *blk_name)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_debug_data *mdd = mdata->debug_inf.debug_data;
 	struct mdss_debug_base *blk_base, *tmp;
+
+	if (!mdd)
+		return;
+
+	list_for_each_entry_safe(blk_base, tmp, &mdd->base_list, head) {
+		if (blk_base->name &&
+			!strcmp(blk_base->name, blk_name))
+			mdss_dump_reg(blk_base,
+				mdss_dbg_xlog.enable_reg_dump);
+	}
+}
+
+void mdss_xlog_tout_handler_default(const char *name, ...)
+{
 	int i, dead = 0;
 	va_list args;
 	char *blk_name = NULL;
 
-	if (!mdss_dbg_xlog.xlog_enable)
+	if (!mdss_xlog_is_enabled(MDSS_XLOG_DEFAULT))
 		return;
 
 	va_start(args, name);
 	for (i = 0; i < MDSS_XLOG_MAX_DATA; i++) {
-
 		blk_name = va_arg(args, char*);
 		if (IS_ERR_OR_NULL(blk_name))
 			break;
 
-		list_for_each_entry_safe(blk_base, tmp, &mdd->base_list, head) {
+		mdss_dump_reg_by_blk(blk_name);
 
-			if (blk_base->name &&
-				!strcmp(blk_base->name, blk_name))
-
-				mdss_dump_reg(blk_base,
-					mdss_dbg_xlog.enable_reg_dump);
-		}
 		if (!strcmp(blk_name, "panic"))
 			dead = 1;
 	}
 	va_end(args);
 
-	MDSS_XLOG(0xffff, 0xffff, 0xffff, 0xffff, 0xffff);
 	mdss_xlog_dump();
 
 	if (dead && mdss_dbg_xlog.panic_on_err)
