@@ -1,7 +1,7 @@
 /*
  * Japan Display Inc. BU21150 touch screen driver.
  *
- * Copyright (C) 2013-2014 Japan Display Inc.
+ * Copyright (C) 2013-2015 Japan Display Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -24,10 +24,15 @@
 
 /* return value */
 #define BU21150_UNBLOCK     (5)
+#define BU21150_TIMEOUT     (6)
 
 /* ioctl(IOCTL_CMD_RESET) */
 #define BU21150_RESET_LOW   (0)
 #define BU21150_RESET_HIGH  (1)
+
+/* ioctl(IOCTL_CMD_SET_TIMEOUT) */
+#define BU21150_TIMEOUT_DISABLE (0)
+#define BU21150_TIMEOUT_ENABLE  (1)
 
 /* struct */
 struct bu21150_ioctl_get_frame_data {
@@ -40,6 +45,11 @@ struct bu21150_ioctl_spi_data {
 	unsigned long addr;
 	char __user *buf;
 	unsigned int count;
+};
+
+struct bu21150_ioctl_timeout_data {
+	unsigned int timeout_enb_flag;
+	unsigned int report_interval_us;
 };
 
 /* commands */
@@ -55,6 +65,8 @@ struct bu21150_ioctl_spi_data {
 #define BU21150_IOCTL_CMD_SUSPEND         _IO(BU21150_IO_TYPE, 0x06)
 #define BU21150_IOCTL_CMD_RESUME          _IO(BU21150_IO_TYPE, 0x07)
 #define BU21150_IOCTL_CMD_UNBLOCK_RELEASE _IO(BU21150_IO_TYPE, 0x08)
+#define BU21150_IOCTL_CMD_SET_TIMEOUT     _IO(BU21150_IO_TYPE, 0x09)
+#define BU21150_IOCTL_CMD_SET_SCAN_MODE   _IO(BU21150_IO_TYPE, 0x0A)
 
 #endif /* _BU21150_H_ */
 
