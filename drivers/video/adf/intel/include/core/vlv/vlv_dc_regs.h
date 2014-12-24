@@ -396,6 +396,25 @@ extern int chv_cursor_offsets[];
 #define VLV_IOSF_DATA				(VLV_DISPLAY_BASE + 0x2104)
 #define VLV_IOSF_ADDR				(VLV_DISPLAY_BASE + 0x2108)
 
+
+#define TOTAL_NO_OF_GPIOS			284
+#define NO_OF_NORTH_CORE_GPIOS			73
+#define NO_OF_EAST_CORE_GPIOS			27
+#define NO_OF_SOUTH_WEST_CORE_GPIOS		98
+#define NO_OF_SOUTH_EAST_CORE_GPIOS		86
+
+#define GPIO_REGS_SIZE				8
+#define MAX_FAMILY_PAD_GPIO_NO			15
+#define FAMILY0_PAD_REGS_BASE			0x4400
+#define FAMILY_PAD_REGS_SIZE			0x400
+
+#define PAD_CONF0_OFFSET			0
+#define PAD_CONF1_OFFSET			4
+
+#define IOSF_PORT_GPIO_EC			0xA8
+#define IOSF_PORT_GPIO_SEC			0x48
+#define IOSF_PORT_GPIO_SWC			0xB2
+
 /* See configdb bunit SB addr map */
 #define BUNIT_REG_BISOC				0x11
 

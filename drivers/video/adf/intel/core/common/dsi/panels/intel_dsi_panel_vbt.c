@@ -303,11 +303,71 @@ static u8 *mipi_exec_delay(struct dsi_pipe *dsi_pipe, u8 *data)
 	return data;
 }
 
+static u8 *chv_mipi_exec_gpio(struct dsi_pipe *dsi_pipe, u8 *data)
+{
+	u8 gpio, action;
+	u32 function, pad;
+	u32 port;
+	u16 familyno, padno;
+
+	/*
+	 * Skipping the first byte as it is of no
+	 * interest for android in new version
+	 */
+	if (dsi_pipe->config.dsi->seq_version >= 3)
+		data++;
+
+	gpio = *data++;
+
+	/* pull up/down */
+	action = *data++;
+
+	if (gpio > (TOTAL_NO_OF_GPIOS - 1)) {
+		pr_err("%s: Unsupported gpio index for CHV\n", __func__);
+		return NULL;
+	}
+	if (gpio >= 0 && gpio <= (NO_OF_NORTH_CORE_GPIOS - 1))
+		port = IOSF_PORT_GPIO_NC;
+	else if (gpio >= NO_OF_NORTH_CORE_GPIOS && gpio <=
+		((NO_OF_NORTH_CORE_GPIOS + NO_OF_EAST_CORE_GPIOS) - 1)) {
+		port = IOSF_PORT_GPIO_EC;
+		gpio = gpio - NO_OF_NORTH_CORE_GPIOS;
+	} else if (gpio >= (NO_OF_NORTH_CORE_GPIOS + NO_OF_EAST_CORE_GPIOS) &&
+		gpio <= ((NO_OF_NORTH_CORE_GPIOS + NO_OF_EAST_CORE_GPIOS +
+		NO_OF_SOUTH_WEST_CORE_GPIOS) - 1)) {
+		port = IOSF_PORT_GPIO_SWC;
+		gpio = gpio - (NO_OF_NORTH_CORE_GPIOS + NO_OF_EAST_CORE_GPIOS);
+	} else if (gpio >= (NO_OF_NORTH_CORE_GPIOS + NO_OF_EAST_CORE_GPIOS +
+		NO_OF_SOUTH_WEST_CORE_GPIOS &&
+		gpio <= (TOTAL_NO_OF_GPIOS - 1))) {
+		port = IOSF_PORT_GPIO_SEC;
+		gpio = gpio - (NO_OF_NORTH_CORE_GPIOS + NO_OF_EAST_CORE_GPIOS +
+		NO_OF_SOUTH_WEST_CORE_GPIOS);
+	}
+
+	familyno = gpio / MAX_FAMILY_PAD_GPIO_NO;
+	padno = gpio % MAX_FAMILY_PAD_GPIO_NO;
+	pad = FAMILY0_PAD_REGS_BASE + (FAMILY_PAD_REGS_SIZE * familyno) +
+			(GPIO_REGS_SIZE * padno) + PAD_CONF0_OFFSET;
+	function = pad + PAD_CONF1_OFFSET;
+	vlv_gpio_write(port, function, 0x00000000);
+	vlv_gpio_write(port, pad, 0x00008100 |
+				(action << 1));
+
+	return data;
+}
+
 static u8 *mipi_exec_gpio(struct dsi_pipe *dsi_pipe, u8 *data)
 {
 	u8 gpio, action;
-	u16 function, pad;
-	u32 val, port;
+	u32 function, pad;
+	u32 port;
+	u32 val;
+
+	if (IS_CHERRYVIEW()) {
+		data = chv_mipi_exec_gpio(dsi_pipe, data);
+		goto out;
+	}
 
 	/*
 	 * Skipping the first byte as it is of no
@@ -350,7 +410,7 @@ static u8 *mipi_exec_gpio(struct dsi_pipe *dsi_pipe, u8 *data)
 
 	/* pull up/down */
 	vlv_gpio_write(port, pad, val);
-
+out:
 	return data;
 }
 
