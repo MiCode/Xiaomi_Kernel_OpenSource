@@ -808,6 +808,8 @@ static struct ov5693_reg const ov5693_2592x1944_30fps[] = {
  * 11:9 Full FOV Output, expected FOV Res: 2346x1920
  * ISP Effect Res: 1408x1152
  * Sensor out: 1424x1168, DS From: 2380x1952
+ *
+ * WA: Left Offset: 8, Hor scal: 64
  */
 static struct ov5693_reg const ov5693_1424x1168_30fps[] = {
 	{OV5693_8BIT, 0x3501, 0x3b}, /* long exposure[15:8] */
@@ -815,11 +817,11 @@ static struct ov5693_reg const ov5693_1424x1168_30fps[] = {
 	{OV5693_8BIT, 0x3708, 0xe2},
 	{OV5693_8BIT, 0x3709, 0xc3},
 	{OV5693_8BIT, 0x3800, 0x00}, /* TIMING_X_ADDR_START */
-	{OV5693_8BIT, 0x3801, 0x78}, /* 110 */
+	{OV5693_8BIT, 0x3801, 0x50}, /* 80 */
 	{OV5693_8BIT, 0x3802, 0x00}, /* TIMING_Y_ADDR_START */
 	{OV5693_8BIT, 0x3803, 0x02}, /* 2 */
 	{OV5693_8BIT, 0x3804, 0x09}, /* TIMING_X_ADDR_END */
-	{OV5693_8BIT, 0x3805, 0xc5}, /* 2501 */
+	{OV5693_8BIT, 0x3805, 0xdd}, /* 2525 */
 	{OV5693_8BIT, 0x3806, 0x07}, /* TIMING_Y_ADDR_END */
 	{OV5693_8BIT, 0x3807, 0xa1}, /* 1953 */
 	{OV5693_8BIT, 0x3808, 0x05}, /* TIMING_X_OUTPUT_SIZE */
