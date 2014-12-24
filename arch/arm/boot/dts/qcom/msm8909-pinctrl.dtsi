@@ -172,7 +172,7 @@
 			};
 			cdc_pdm_lines_sus: pdm_lines_off {
 				drive-strength = <2>;
-				bias-disable;
+				bias-pull-down;
 			};
 		};
 
