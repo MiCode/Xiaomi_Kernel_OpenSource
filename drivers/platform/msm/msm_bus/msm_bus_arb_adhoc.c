@@ -19,9 +19,11 @@
 #include <linux/msm-bus.h>
 #include "msm_bus_core.h"
 #include "msm_bus_adhoc.h"
+#include <trace/events/trace_msm_bus.h>
 
 #define NUM_CL_HANDLES	50
 #define NUM_LNODES	3
+#define MAX_STR_CL	50
 
 struct bus_search_type {
 	struct list_head link;
@@ -943,6 +945,7 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 	MSM_BUS_DBG("%s: cl: %u index: %d curr: %d num_paths: %d\n", __func__,
 		cl, index, client->curr, client->pdata->usecase->num_paths);
 
+	msm_bus_dbg_client_data(client->pdata, index , cl);
 	for (i = 0; i < pdata->usecase->num_paths; i++) {
 		src = client->pdata->usecase[index].vectors[i].src;
 		dest = client->pdata->usecase[index].vectors[i].dst;
@@ -972,12 +975,135 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 		if (log_transaction)
 			getpath_debug(src, lnode, pdata->active_only);
 	}
-	msm_bus_dbg_client_data(client->pdata, index , cl);
+	trace_bus_update_request_end(pdata->name);
 exit_update_request:
 	mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
 }
 
+static void free_cl_mem(struct msm_bus_client_handle *cl)
+{
+	if (cl) {
+		kfree(cl->name);
+		kfree(cl);
+		cl = NULL;
+	}
+}
+
+static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
+{
+	int ret = 0;
+	char *test_cl = "test-client";
+	bool log_transaction = false;
+
+	mutex_lock(&msm_bus_adhoc_lock);
+
+	if (!cl) {
+		MSM_BUS_ERR("%s: Invalid client handle %p", __func__, cl);
+		ret = -ENXIO;
+		goto exit_update_request;
+	}
+
+	if (!strcmp(test_cl, cl->name))
+		log_transaction = true;
+
+	msm_bus_dbg_rec_transaction(cl, ab, ib);
+
+	if ((cl->cur_ib == ib) && (cl->cur_ab == ab)) {
+		MSM_BUS_DBG("%s:no change in request", cl->name);
+		goto exit_update_request;
+	}
+
+	ret = update_path(cl->mas, cl->slv, ib, ab, cl->cur_ib, cl->cur_ab,
+						cl->first_hop, cl->active_only);
+
+	if (ret) {
+		MSM_BUS_ERR("%s: Update path failed! %d active_only %d\n",
+				__func__, ret, cl->active_only);
+		goto exit_update_request;
+	}
+
+	cl->cur_ib = ib;
+	cl->cur_ab = ab;
+
+	if (log_transaction)
+		getpath_debug(cl->mas, cl->first_hop, cl->active_only);
+	trace_bus_update_request_end(cl->name);
+exit_update_request:
+	mutex_unlock(&msm_bus_adhoc_lock);
+
+	return ret;
+}
+
+static void unregister_adhoc(struct msm_bus_client_handle *cl)
+{
+	mutex_lock(&msm_bus_adhoc_lock);
+	if (!cl) {
+		MSM_BUS_ERR("%s: Null cl handle passed unregister\n",
+				__func__);
+		goto exit_unregister_client;
+	}
+
+	MSM_BUS_DBG("%s: Unregistering client %p", __func__, cl);
+
+	remove_path(cl->mas, cl->slv, cl->cur_ib, cl->cur_ab,
+				cl->first_hop, cl->active_only);
+
+	msm_bus_dbg_remove_client(cl);
+	kfree(cl);
+exit_unregister_client:
+	mutex_unlock(&msm_bus_adhoc_lock);
+	return;
+}
+
+
+static struct msm_bus_client_handle*
+register_adhoc(uint32_t mas, uint32_t slv, char *name, bool active_only)
+{
+	struct msm_bus_client_handle *client = NULL;
+	int len = 0;
+
+	mutex_lock(&msm_bus_adhoc_lock);
+
+	if (!(mas && slv && name)) {
+		pr_err("%s: Error: src dst name num_paths are required",
+								 __func__);
+		goto exit_register;
+	}
+
+	client = kzalloc(sizeof(struct msm_bus_client_handle), GFP_KERNEL);
+	if (!client) {
+		MSM_BUS_ERR("%s: Error allocating client data", __func__);
+		goto exit_register;
+	}
+
+	len = strnlen(name, MAX_STR_CL);
+	client->name = kzalloc(len, GFP_KERNEL);
+	if (!client->name) {
+		MSM_BUS_ERR("%s: Error allocating client name buf", __func__);
+		free_cl_mem(client);
+		goto exit_register;
+	}
+	strlcpy(client->name, name, MAX_STR_CL);
+	client->active_only = active_only;
+
+	client->mas = mas;
+	client->slv = slv;
+	client->first_hop = getpath(client->mas, client->slv);
+	if (client->first_hop < 0) {
+		MSM_BUS_ERR("%s:Failed to find path.src %d dest %d",
+			__func__, client->mas, client->slv);
+		free_cl_mem(client);
+		goto exit_register;
+	}
+
+	MSM_BUS_DBG("%s:Client handle %p %s", __func__, client,
+						client->name);
+	msm_bus_dbg_add_client(client);
+exit_register:
+	mutex_unlock(&msm_bus_adhoc_lock);
+	return client;
+}
 /**
  *  msm_bus_arb_setops_adhoc() : Setup the bus arbitration ops
  *  @ arb_ops: pointer to the arb ops.
@@ -987,4 +1113,8 @@ void msm_bus_arb_setops_adhoc(struct msm_bus_arb_ops *arb_ops)
 	arb_ops->register_client = register_client_adhoc;
 	arb_ops->update_request = update_request_adhoc;
 	arb_ops->unregister_client = unregister_client_adhoc;
+
+	arb_ops->register_cl = register_adhoc;
+	arb_ops->unregister = unregister_adhoc;
+	arb_ops->update_bw = update_bw_adhoc;
 }
