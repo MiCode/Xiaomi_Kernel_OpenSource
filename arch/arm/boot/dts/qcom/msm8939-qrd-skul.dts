@@ -21,3 +21,35 @@
 	qcom,board-id = <0x11000b 5>;
 };
 
+&i2c_4 {
+	smb1357_otg_vreg: smb1357-charger@57 {
+		compatible = "qcom,smb1357-charger";
+		reg = <0x57>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <62 8>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+
+		qcom,bmd-algo-disabled;
+		qcom,float-voltage-mv = <4400>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mv = <100>;
+		regulator-name = "smb1357_otg_vreg";
+		qcom,soft-vfloat-comp-disabled;
+		qcom,thermal-mitigation = <1500 700 600 0>;
+
+		qcom,bms-psy-name = "bms";
+		qcom,iterm-disabled;
+		qcom,inhibit-disabled;
+		qcom,bms-controlled-charging;
+	};
+};
+
+&pm8916_chg {
+	status = "ok";
+	qcom,use-external-charger;
+};
+
+&pm8916_bms {
+	status = "ok";
+};
