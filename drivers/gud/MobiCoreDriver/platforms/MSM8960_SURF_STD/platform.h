@@ -36,30 +36,32 @@
 #define SCM_SVC_MOBICORE		250
 #define SCM_CMD_MOBICORE		1
 
-#ifdef CONFIG_ARM64
+#include <soc/qcom/qseecomi.h>
+#include <linux/slab.h>
+#include <linux/io.h>
+#include <linux/mm.h>
+#include <asm/cacheflush.h>
+#include <linux/errno.h>
 
-	#include <soc/qcom/qseecomi.h>
-	#include <linux/slab.h>
-	#include <linux/io.h>
-	#include <linux/mm.h>
-	#include <asm/cacheflush.h>
-	#include <linux/errno.h>
+#define SCM_MOBIOS_FNID(s, c) (((((s) & 0xFF) << 8) | ((c) & 0xFF)) | 0x33000000)
 
-	#define SCM_MOBIOS_FNID(s, c) (((((s) & 0xFF) << 8) | ((c) & 0xFF)) | 0x33000000)
+#define TZ_EXECUTIVE_EXT_ID_PARAM_ID \
+	TZ_SYSCALL_CREATE_PARAM_ID_4( \
+		TZ_SYSCALL_PARAM_TYPE_BUF_RW, TZ_SYSCALL_PARAM_TYPE_VAL, \
+		TZ_SYSCALL_PARAM_TYPE_BUF_RW, TZ_SYSCALL_PARAM_TYPE_VAL)
 
-	#define TZ_EXECUTIVE_EXT_ID_PARAM_ID \
-		TZ_SYSCALL_CREATE_PARAM_ID_4( \
-			TZ_SYSCALL_PARAM_TYPE_BUF_RW, TZ_SYSCALL_PARAM_TYPE_VAL, \
-			TZ_SYSCALL_PARAM_TYPE_BUF_RW, TZ_SYSCALL_PARAM_TYPE_VAL)
+/* from following file */
+#define SCM_SVC_MOBICORE		250
+#define SCM_CMD_MOBICORE		1
 
-#endif
 
 extern int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 		    void *resp_buf, size_t resp_len);
 
 static inline int smc_fastcall(void *fc_generic, size_t size)
 {
-#ifdef CONFIG_ARM64
+    if (is_scm_armv8())
+    {
 	struct scm_desc desc = {0};
 	int ret;
 	void* scm_buf = NULL;
@@ -82,11 +84,13 @@ static inline int smc_fastcall(void *fc_generic, size_t size)
 	memcpy(fc_generic, scm_buf, size);
 	kfree(scm_buf);
 	return ret;
-#else
+    }
+    else
+    {
 	return scm_call(SCM_SVC_MOBICORE, SCM_CMD_MOBICORE,
 			fc_generic, size,
 			fc_generic, size);
-#endif
+    }
 }
 
 /* Enable mobicore mem traces */
