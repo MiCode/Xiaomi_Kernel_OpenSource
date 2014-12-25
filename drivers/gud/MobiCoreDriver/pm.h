@@ -1,18 +1,24 @@
 /*
- * Header file of MobiCore Driver Kernel Module.
+ * Copyright (c) 2013 TRUSTONIC LIMITED
+ * All Rights Reserved.
  *
- * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
- * <-- Copyright Trustonic Limited 2013 -->
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
-
 #ifndef _MC_PM_H_
 #define _MC_PM_H_
 
 #include "main.h"
+#ifdef MC_BL_NOTIFIER
+#include <asm/bL_switcher.h>
+#endif
+
 
 #define NO_SLEEP_REQ	0
 #define REQ_TO_SLEEP	1

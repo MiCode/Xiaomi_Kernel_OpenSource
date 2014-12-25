@@ -1,41 +1,42 @@
 /*
- * The MobiCore Driver Kernel Module is a Linux device driver, which represents
+ * Copyright (c) 2013-2014 TRUSTONIC LIMITED
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * 3. Neither the name of the TRUSTONIC LIMITED nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/*
+ * The <t-base Driver Kernel Module is a Linux device driver, which represents
  * the command proxy on the lowest layer to the secure world (Swd). Additional
  * services like memory allocation via mmap and generation of a MMU tables for
  * given virtual memory are also supported. IRQ functionality receives
  * information from the SWd in the non secure world (NWd).
- * As customary the driver is handled as linux device driver with "open",
+ * As customary the driver is handled as Linux device driver with "open",
  * "close" and "ioctl" commands. Access to the driver is possible after the
- * device "/dev/mobicore" has been opened.
- * The MobiCore Driver Kernel Module must be installed via
- * "insmod mcDrvModule.ko".
- *
- * <-- Copyright Giesecke & Devrient GmbH 2010-2012 -->
- * <-- Copyright Trustonic Limited 2013 -->
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *	notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *	notice, this list of conditions and the following disclaimer in the
- *	documentation and/or other materials provided with the distribution.
- * 3. The name of the author may not be used to endorse or promote
- *	products derived from this software without specific prior
- *	written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
- * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * devices "/dev/mobicore" and "/dev/mobicore-user" have been created.
  */
 
 #ifndef _MC_LINUX_H_
@@ -83,10 +84,10 @@ struct mc_ioctl_info {
  * already. I.e. Daemon was restarted.
  */
 struct mc_ioctl_map {
-	size_t		len;	/* Buffer length */
+	uint32_t	len;	/* Buffer length */
 	uint32_t	handle;	/* WSM handle */
 	uint64_t	phys_addr; /* physical address of WSM (or 0) */
-	unsigned long	addr;	/* Virtual address */
+	uint32_t	rfu;
 	bool		reused;	/* if WSM memory was reused, or new allocated */
 };
 
