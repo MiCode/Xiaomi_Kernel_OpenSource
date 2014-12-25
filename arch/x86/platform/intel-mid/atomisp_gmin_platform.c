@@ -511,10 +511,8 @@ int gmin_v1p8_ctrl(struct v4l2_subdev *subdev, int on)
 		return 0;
 	gs->v1p8_on = on;
 
-	if (v1p8_gpio >= 0) {
+	if (v1p8_gpio >= 0)
 		gpio_set_value(v1p8_gpio, on);
-		return 0;
-	}
 
 	if (gs->v1p8_reg) {
 		if (on)
@@ -536,6 +534,15 @@ int gmin_v1p8_ctrl(struct v4l2_subdev *subdev, int on)
 		if (!ret)
 			ret = intel_soc_pmic_writeb(LDO11_REG, val);
 		return ret;
+	}
+
+	if (pmic_id == PMIC_CRYSTALCOVE) {
+		if (on)
+			return intel_soc_pmic_writeb(CRYSTAL_1P8V_REG,
+								CRYSTAL_ON);
+		else
+			return intel_soc_pmic_writeb(CRYSTAL_1P8V_REG,
+								CRYSTAL_OFF);
 	}
 
 	if (pmic_id == PMIC_WHISKEYCOVE) {
@@ -572,10 +579,8 @@ int gmin_v2p8_ctrl(struct v4l2_subdev *subdev, int on)
 		return 0;
 	gs->v2p8_on = on;
 
-	if (v2p8_gpio >= 0) {
+	if (v2p8_gpio >= 0)
 		gpio_set_value(v2p8_gpio, on);
-		return 0;
-	}
 
 	if (gs->v2p8_reg) {
 		if (on)
