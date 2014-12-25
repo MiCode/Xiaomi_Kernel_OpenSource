@@ -194,9 +194,17 @@ static int cht_otg_set_host(struct usb_otg *otg, struct usb_bus *host)
 	/* once host registered, then kick statemachine to move
 	 * to A_HOST if id is grounded */
 	otg_dev->fsm.a_bus_drop = 0;
-	otg_dev->fsm.a_bus_req = 1;
+	otg_dev->fsm.a_bus_req = 0;
 
-	otg_statemachine(&otg_dev->fsm);
+	/* check default ID value when host registered */
+	if (otg_dev->cable_nb.edev)
+		otg_dev->fsm.id = edev_state_to_id(otg_dev->cable_nb.edev);
+
+	/* if gadget is registered already then kick the state machine.
+	 * Only trigger the mode switch once both host and device are
+	 * registered */
+	if (otg_dev->phy.otg->gadget)
+		otg_statemachine(&otg_dev->fsm);
 
 	return 0;
 }
@@ -220,8 +228,11 @@ static int cht_otg_set_peripheral(struct usb_otg *otg,
 
 	otg_dev->fsm.b_bus_req = 1;
 
-	/* kick statemachine */
-	otg_statemachine(&otg_dev->fsm);
+	/* if host is registered already then kick the state machine.
+	 * Only trigger the mode switch once both host and device are
+	 * registered */
+	if (otg_dev->phy.otg->host)
+		otg_statemachine(&otg_dev->fsm);
 
 	return 0;
 }
@@ -244,11 +255,8 @@ static int cht_otg_start(struct platform_device *pdev)
 	fsm->otg = otg_dev->phy.otg;
 	mutex_init(&fsm->lock);
 
-	/* Initialize the id value from extcon dev or default 1 */
-	if (otg_dev->cable_nb.edev)
-		fsm->id = edev_state_to_id(otg_dev->cable_nb.edev);
-	else
-		fsm->id = 1;
+	/* Initialize the id value to default 1 */
+	fsm->id = 1;
 	otg_statemachine(fsm);
 
 	dev_dbg(&pdev->dev, "initial ID pin set to %d\n", fsm->id);
@@ -268,10 +276,15 @@ static void cht_otg_stop(struct platform_device *pdev)
 static int cht_otg_handle_notification(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
+	struct usb_bus *host;
+	struct usb_gadget *gadget;
 	int state;
 
 	if (!cht_otg_dev)
 		return NOTIFY_BAD;
+
+	host = cht_otg_dev->phy.otg->host;
+	gadget = cht_otg_dev->phy.otg->gadget;
 
 	switch (event) {
 	/* USB_EVENT_VBUS: vbus valid event */
@@ -279,16 +292,20 @@ static int cht_otg_handle_notification(struct notifier_block *nb,
 		dev_info(cht_otg_dev->phy.dev, "USB_EVENT_VBUS vbus valid\n");
 		if (cht_otg_dev->fsm.id)
 			cht_otg_dev->fsm.b_sess_vld = 1;
-		else
-			cht_otg_dev->fsm.a_vbus_vld = 1;
-		schedule_work(&cht_otg_dev->fsm_work);
+		/* don't kick the state machine if host or device controller
+		 * is not registered. Just wait to kick it when set_host or
+		 * set_peripheral.*/
+		if (host && gadget)
+			schedule_work(&cht_otg_dev->fsm_work);
 		state = NOTIFY_OK;
 		break;
 	/* USB_EVENT_ID: id was grounded */
 	case USB_EVENT_ID:
 		dev_info(cht_otg_dev->phy.dev, "USB_EVENT_ID id ground\n");
 		cht_otg_dev->fsm.id = 0;
-		schedule_work(&cht_otg_dev->fsm_work);
+		/* Same as above */
+		if (host && gadget)
+			schedule_work(&cht_otg_dev->fsm_work);
 		state = NOTIFY_OK;
 		break;
 	/* USB_EVENT_NONE: no events or cable disconnected */
@@ -301,7 +318,9 @@ static int cht_otg_handle_notification(struct notifier_block *nb,
 			cht_otg_dev->fsm.b_sess_vld = 0;
 		else
 			dev_err(cht_otg_dev->phy.dev, "why USB_EVENT_NONE?\n");
-		schedule_work(&cht_otg_dev->fsm_work);
+		/* Same as above */
+		if (host && gadget)
+			schedule_work(&cht_otg_dev->fsm_work);
 		state = NOTIFY_OK;
 		break;
 	default:
@@ -453,16 +472,26 @@ static int cht_handle_extcon_otg_event(struct notifier_block *nb,
 {
 	struct extcon_dev *edev = param;
 	int id = edev_state_to_id(edev);
+	struct usb_bus *host;
+	struct usb_gadget *gadget;
 
 	if (!cht_otg_dev)
 		return NOTIFY_DONE;
+
+	host = cht_otg_dev->phy.otg->host;
+	gadget = cht_otg_dev->phy.otg->gadget;
 
 	dev_info(cht_otg_dev->phy.dev, "[extcon notification]: USB-Host: %s\n",
 			id ? "Disconnected" : "connected");
 
 	/* update id value and schedule fsm work to start/stop host per id */
 	cht_otg_dev->fsm.id = id;
-	schedule_work(&cht_otg_dev->fsm_work);
+
+	/* don't kick the state machine if host or device controller
+	 * is not registered. Just wait to kick it when set_host or
+	 * set_peripheral.*/
+	if (host && gadget)
+		schedule_work(&cht_otg_dev->fsm_work);
 
 	return NOTIFY_OK;
 }
