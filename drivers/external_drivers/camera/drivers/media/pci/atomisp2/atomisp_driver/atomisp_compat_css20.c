@@ -3354,12 +3354,14 @@ int atomisp_css_preview_configure_pp_input(
 	struct atomisp_stream_env *stream_env =
 		&asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL];
 	__configure_preview_pp_input(asd, width, height,
-			IA_CSS_PIPE_ID_PREVIEW);
+		ATOMISP_USE_YUVPP(asd) ?
+		IA_CSS_PIPE_ID_YUVPP : IA_CSS_PIPE_ID_PREVIEW);
 
 	if (width > stream_env->pipe_configs[IA_CSS_PIPE_ID_CAPTURE].
 					capt_pp_in_res.width)
-		__configure_capture_pp_input(asd,
-				     width, height, IA_CSS_PIPE_ID_CAPTURE);
+		__configure_capture_pp_input(asd, width, height,
+			ATOMISP_USE_YUVPP(asd) ?
+		IA_CSS_PIPE_ID_YUVPP : IA_CSS_PIPE_ID_CAPTURE);
 	return 0;
 }
 
@@ -3367,7 +3369,9 @@ int atomisp_css_capture_configure_pp_input(
 				struct atomisp_sub_device *asd,
 				unsigned int width, unsigned int height)
 {
-	__configure_capture_pp_input(asd, width, height, IA_CSS_PIPE_ID_CAPTURE);
+	__configure_capture_pp_input(asd, width, height,
+		ATOMISP_USE_YUVPP(asd) ?
+		IA_CSS_PIPE_ID_YUVPP : IA_CSS_PIPE_ID_CAPTURE);
 	return 0;
 }
 
@@ -3379,12 +3383,14 @@ int atomisp_css_video_configure_pp_input(
 		&asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL];
 
 	__configure_video_pp_input(asd, width, height,
-			IA_CSS_PIPE_ID_VIDEO);
+		ATOMISP_USE_YUVPP(asd) ?
+		IA_CSS_PIPE_ID_YUVPP : IA_CSS_PIPE_ID_VIDEO);
 
 	if (width > stream_env->pipe_configs[IA_CSS_PIPE_ID_CAPTURE].
 					capt_pp_in_res.width)
-		__configure_capture_pp_input(asd,
-				     width, height, IA_CSS_PIPE_ID_CAPTURE);
+		__configure_capture_pp_input(asd, width, height,
+			ATOMISP_USE_YUVPP(asd) ?
+			IA_CSS_PIPE_ID_YUVPP : IA_CSS_PIPE_ID_CAPTURE);
 	return 0;
 }
 
