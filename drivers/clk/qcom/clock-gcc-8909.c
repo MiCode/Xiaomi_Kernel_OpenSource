@@ -2566,14 +2566,6 @@ static void register_opp_for_dev(struct platform_device *pdev)
 		"Failed to add OPP levels for dev\n");
 }
 
-static struct clk_lookup msm_clocks_mcd[] = {
-	/* Add crypto driver clocks */
-	CLK_LOOKUP_OF("core_clk",     gcc_crypto_clk,         "mcd"),
-	CLK_LOOKUP_OF("iface_clk",    gcc_crypto_ahb_clk,     "mcd"),
-	CLK_LOOKUP_OF("bus_clk",      gcc_crypto_axi_clk,     "mcd"),
-	CLK_LOOKUP_OF("core_clk_src", crypto_clk_src,         "mcd"),
-};
-
 static int msm_gcc_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -2659,14 +2651,6 @@ static int msm_gcc_probe(struct platform_device *pdev)
 				ARRAY_SIZE(msm_clocks_lookup));
 	if (ret)
 		return ret;
-
-	ret =  of_msm_clock_register(pdev->dev.of_node, msm_clocks_mcd,
-					ARRAY_SIZE(msm_clocks_mcd));
-	if (ret) {
-		dev_err(&pdev->dev,
-			"Failed to register crypto clocks for mcd\n");
-		return ret;
-	}
 
 	clk_set_rate(&apss_ahb_clk_src.c, 19200000);
 	clk_prepare_enable(&apss_ahb_clk_src.c);
