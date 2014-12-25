@@ -170,7 +170,7 @@ static int ipa_generate_hdr_proc_ctx_hw_tbl(u32 hdr_sys_addr,
  * __ipa_commit_hdr() commits hdr to hardware
  * This function needs to be called with a locked mutex.
  */
-int __ipa_commit_hdr_v1(void)
+int __ipa_commit_hdr_v1_1(void)
 {
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer *mem;
