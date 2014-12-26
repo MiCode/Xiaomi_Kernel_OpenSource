@@ -2080,7 +2080,7 @@ static int venus_hfi_interface_queues_init(struct venus_hfi_device *dev)
 				dev->iface_q_table.align_virtual_addr, i);
 		venus_hfi_set_queue_hdr_defaults(iface_q->q_hdr);
 	}
-	if ((msm_fw_debug_mode & HFI_DEBUG_MODE_QDSS) && num_entries) {
+	if ((msm_vidc_fw_debug_mode & HFI_DEBUG_MODE_QDSS) && num_entries) {
 		rc = venus_hfi_alloc(dev, (void *) mem_addr,
 				ALIGNED_QDSS_SIZE, 1, 0,
 				HAL_BUFFER_INTERNAL_CMD_QUEUE);
@@ -2597,12 +2597,12 @@ err_create_pkt:
 static void venus_hfi_set_default_sys_properties(
 		struct venus_hfi_device *device)
 {
-	if (venus_hfi_sys_set_debug(device, msm_fw_debug))
+	if (venus_hfi_sys_set_debug(device, msm_vidc_fw_debug))
 		dprintk(VIDC_WARN, "Setting fw_debug msg ON failed\n");
 	if (venus_hfi_sys_set_idle_message(device,
 		device->res->sys_idle_indicator || msm_vidc_sys_idle_indicator))
 		dprintk(VIDC_WARN, "Setting idle response ON failed\n");
-	if (venus_hfi_sys_set_power_control(device, msm_fw_low_power_mode))
+	if (venus_hfi_sys_set_power_control(device, msm_vidc_fw_low_power_mode))
 		dprintk(VIDC_WARN, "Setting h/w power collapse ON failed\n");
 }
 
@@ -2690,9 +2690,9 @@ static int venus_hfi_session_end(void *session)
 		return -EINVAL;
 	}
 	sess = session;
-	if (msm_fw_coverage) {
+	if (msm_vidc_fw_coverage) {
 		if (venus_hfi_sys_set_coverage(sess->device,
-				msm_fw_coverage))
+				msm_vidc_fw_coverage))
 			dprintk(VIDC_WARN, "Fw_coverage msg ON failed\n");
 	}
 	return venus_hfi_send_session_cmd(session,
@@ -3833,7 +3833,7 @@ static int venus_hfi_enable_hw_power_collapse(struct venus_hfi_device *device)
 {
 	int rc = 0;
 
-	if (!msm_fw_low_power_mode) {
+	if (!msm_vidc_fw_low_power_mode) {
 		dprintk(VIDC_DBG, "Not enabling hardware power collapse\n");
 		return 0;
 	}

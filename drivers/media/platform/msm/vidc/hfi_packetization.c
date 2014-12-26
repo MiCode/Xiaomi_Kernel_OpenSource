@@ -234,8 +234,8 @@ int create_pkt_cmd_sys_debug_config(
 	hfi = (struct hfi_debug_config *) &pkt->rg_property_data[1];
 	hfi->debug_config = mode;
 	hfi->debug_mode = HFI_DEBUG_MODE_QUEUE;
-	if (msm_fw_debug_mode <= HFI_DEBUG_MODE_QDSS)
-		hfi->debug_mode = msm_fw_debug_mode;
+	if (msm_vidc_fw_debug_mode <= HFI_DEBUG_MODE_QDSS)
+		hfi->debug_mode = msm_vidc_fw_debug_mode;
 	return 0;
 }
 
