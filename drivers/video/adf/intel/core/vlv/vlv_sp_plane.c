@@ -485,8 +485,15 @@ static int vlv_sp_validate(struct intel_plane *planeptr,
 
 	clip.x1 = 0;
 	clip.y1 = 0;
-	clip.x2 = mode.hdisplay;
-	clip.y2 = mode.vdisplay;
+	if (intel_pipe->pipe_reg.pfit_control & PFIT_ENABLE) {
+		clip.x2 = (((intel_pipe->pipe_reg.scaling_src_size >> 16) &
+					0x0000FFFF) + 1);
+		clip.y2 = (((intel_pipe->pipe_reg.scaling_src_size) &
+					0x0000FFFF) + 1);
+	} else {
+		clip.x2 = mode.hdisplay;
+		clip.y2 = mode.vdisplay;
+	}
 
 	if (get_format_config(buf->format, &format_config, &bpp,
 				config->alpha)) {
