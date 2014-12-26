@@ -161,3 +161,9 @@
 
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 };
+
+&pm8909_vadc {
+	chan@30 {
+		qcom,scale-function = <13>;
+	};
+};
