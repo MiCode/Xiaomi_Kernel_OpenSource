@@ -374,6 +374,7 @@
 	};
 
 	mdss_hdmi_tx: qcom,hdmi_tx@fd9a0000{
+		status = "ok";
 		cell-index = <0>;
 		compatible = "qcom,hdmi-tx";
 
@@ -397,6 +398,8 @@
 				<&clock_mmss clk_mdss_extpclk_clk>;
 		clock-names = "mdp_core_clk", "iface_clk",
 				"core_clk", "alt_iface_clk", "extp_clk";
+
+		qcom,hdmi-tx-hpd = <&pm8994_mpps 4 0>;
 		qcom,mdss-fb-map = <&mdss_fb1>;
 		hdmi_audio: qcom,msm-hdmi-audio-rx {
 			compatible = "qcom,msm-hdmi-audio-codec-rx";
