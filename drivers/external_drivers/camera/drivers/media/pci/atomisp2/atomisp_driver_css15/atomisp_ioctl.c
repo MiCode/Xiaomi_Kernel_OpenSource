@@ -965,9 +965,8 @@ int __atomisp_reqbufs(struct file *file, void *fh,
 
 	if (req->count == 0) {
 		mutex_lock(&pipe->capq.vb_lock);
-		if (!list_empty(&pipe->capq.stream)) {
+		if (!list_empty(&pipe->capq.stream))
 			videobuf_queue_cancel(&pipe->capq);
-		}
 		atomisp_videobuf_free_queue(&pipe->capq);
 		mutex_unlock(&pipe->capq.vb_lock);
 		return 0;
@@ -1386,13 +1385,11 @@ static int atomisp_streamon(struct file *file, void *fh,
 		    atomisp_subdev_source_pad(vdev)
 		    == ATOMISP_SUBDEV_PAD_SOURCE_CAPTURE) {
 			if (asd->run_mode->val == ATOMISP_RUN_MODE_VIDEO)
-			    dev_dbg(isp->dev,
-				"SDV last video raw buffer id: %u\n",
-				asd->latest_preview_exp_id);
+				dev_dbg(isp->dev, "SDV last video raw buffer id: %u\n",
+					asd->latest_preview_exp_id);
 			else
-			    dev_dbg(isp->dev,
-				"ZSL last preview raw buffer id: %u\n",
-				asd->latest_preview_exp_id);
+				dev_dbg(isp->dev, "ZSL last preview raw buffer id: %u\n",
+					asd->latest_preview_exp_id);
 
 			if (asd->delayed_init != ATOMISP_DELAYED_INIT_DONE) {
 				flush_work(&asd->delayed_init_work);
@@ -2216,11 +2213,7 @@ static int atomisp_s_parm_file(struct file *file, void *fh,
 }
 
 static long atomisp_vidioc_default(struct file *file, void *fh,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 	bool valid_prio, unsigned int cmd, void *arg)
-#else
-	bool valid_prio, int cmd, void *arg)
-#endif
 {
 	struct video_device *vdev = video_devdata(file);
 	struct atomisp_device *isp = video_get_drvdata(vdev);

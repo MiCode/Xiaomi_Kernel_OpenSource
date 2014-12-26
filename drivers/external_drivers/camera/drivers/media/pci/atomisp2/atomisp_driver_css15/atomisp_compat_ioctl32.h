@@ -95,7 +95,7 @@ struct atomisp_morph_table32 {
 struct v4l2_framebuffer32 {
 	__u32			capability;
 	__u32			flags;
-	compat_uptr_t 		base;
+	compat_uptr_t		base;
 	struct v4l2_pix_format	fmt;
 };
 

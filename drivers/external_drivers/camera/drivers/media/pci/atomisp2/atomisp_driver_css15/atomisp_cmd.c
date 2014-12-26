@@ -292,8 +292,8 @@ static int write_target_freq_to_hw(struct atomisp_device *isp,
 	timeout = 10;
 	while (((isp_sspm1 >> ISP_FREQ_STAT_OFFSET) != ratio) && timeout) {
 		isp_sspm1 = intel_mid_msgbus_read32(PUNIT_PORT, ISPSSPM1);
-		dev_dbg(isp->dev, "waiting for ISPSSPM1 status bit to be "
-				"0x%x.\n", new_freq);
+		dev_dbg(isp->dev, "waiting for ISPSSPM1 status bit to be 0x%x.\n",
+			new_freq);
 		udelay(100);
 		timeout--;
 	}
@@ -928,153 +928,148 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 	}
 
 	switch (buf_type) {
-		case CSS_BUFFER_TYPE_3A_STATISTICS:
-			/* ignore error in case of 3a statistics for now */
-			if (isp->sw_contex.invalid_s3a) {
-				requeue = true;
-				isp->sw_contex.invalid_s3a = 0;
-				break;
-			}
-			/* update the 3A data to ISP context */
-			if (!error)
-				atomisp_css_get_3a_statistics(asd, &buffer);
-
-			asd->s3a_bufs_in_css[css_pipe_id]--;
-
-			atomisp_3a_stats_ready_event(asd);
+	case CSS_BUFFER_TYPE_3A_STATISTICS:
+		/* ignore error in case of 3a statistics for now */
+		if (isp->sw_contex.invalid_s3a) {
+			requeue = true;
+			isp->sw_contex.invalid_s3a = 0;
 			break;
-		case CSS_BUFFER_TYPE_DIS_STATISTICS:
-			/* ignore error in case of dis statistics for now */
-			if (isp->sw_contex.invalid_dis) {
-				requeue = true;
-				isp->sw_contex.invalid_dis = 0;
-				break;
-			}
-			if (!error)
-				atomisp_css_get_dis_statistics(asd, &buffer);
+		}
+		/* update the 3A data to ISP context */
+		if (!error)
+			atomisp_css_get_3a_statistics(asd, &buffer);
 
-			asd->dis_bufs_in_css--;
+		asd->s3a_bufs_in_css[css_pipe_id]--;
+
+		atomisp_3a_stats_ready_event(asd);
+		break;
+	case CSS_BUFFER_TYPE_DIS_STATISTICS:
+		/* ignore error in case of dis statistics for now */
+		if (isp->sw_contex.invalid_dis) {
+			requeue = true;
+			isp->sw_contex.invalid_dis = 0;
 			break;
-		case CSS_BUFFER_TYPE_VF_OUTPUT_FRAME:
-			if (isp->sw_contex.invalid_vf_frame) {
-				error = true;
-				isp->sw_contex.invalid_vf_frame = 0;
-				dev_dbg(isp->dev, "%s css has marked this "
-					"vf frame as invalid\n", __func__);
-			}
+		}
+		if (!error)
+			atomisp_css_get_dis_statistics(asd, &buffer);
 
-			pipe->buffers_in_css--;
-			frame = buffer.css_buffer.data.frame;
-			if (!frame) {
-				WARN_ON(1);
-				break;
-			}
+		asd->dis_bufs_in_css--;
+		break;
+	case CSS_BUFFER_TYPE_VF_OUTPUT_FRAME:
+		if (isp->sw_contex.invalid_vf_frame) {
+			error = true;
+			isp->sw_contex.invalid_vf_frame = 0;
+			dev_dbg(isp->dev, "%s css has marked this vf frame as invalid\n",
+				__func__);
+		}
+
+		pipe->buffers_in_css--;
+		frame = buffer.css_buffer.data.frame;
+		if (!frame) {
+			WARN_ON(1);
+			break;
+		}
 #ifdef CSS20
-			if (!frame->valid)
-				error = true;
+		if (!frame->valid)
+			error = true;
 #endif
 
-			if (asd->params.flash_state ==
-			    ATOMISP_FLASH_ONGOING) {
-				if (frame->flash_state
-				    == CSS_FRAME_FLASH_STATE_PARTIAL)
-					dev_dbg(isp->dev, "%s thumb partially "
-						"flashed\n", __func__);
-				else if (frame->flash_state
-					 == CSS_FRAME_FLASH_STATE_FULL)
-					dev_dbg(isp->dev, "%s thumb completely "
-						"flashed\n", __func__);
-				else
-					dev_dbg(isp->dev, "%s thumb no flash "
-						"in this frame\n", __func__);
-			}
-			vb = atomisp_css_frame_to_vbuf(pipe, frame);
-			WARN_ON(!vb);
+		if (asd->params.flash_state ==
+		    ATOMISP_FLASH_ONGOING) {
+			if (frame->flash_state
+			    == CSS_FRAME_FLASH_STATE_PARTIAL)
+				dev_dbg(isp->dev, "%s thumb partially flashed\n",
+					__func__);
+			else if (frame->flash_state
+				 == CSS_FRAME_FLASH_STATE_FULL)
+				dev_dbg(isp->dev, "%s thumb completely flashed\n",
+					__func__);
+			else
+				dev_dbg(isp->dev, "%s thumb no flash in this frame\n",
+					__func__);
+		}
+		vb = atomisp_css_frame_to_vbuf(pipe, frame);
+		WARN_ON(!vb);
+		break;
+	case CSS_BUFFER_TYPE_OUTPUT_FRAME:
+		if (isp->sw_contex.invalid_frame) {
+			error = true;
+			isp->sw_contex.invalid_frame = 0;
+			dev_dbg(isp->dev, "%s css has marked this frame as invalid\n",
+				__func__);
+		}
+		pipe->buffers_in_css--;
+		frame = buffer.css_buffer.data.frame;
+		if (!frame) {
+			WARN_ON(1);
 			break;
-		case CSS_BUFFER_TYPE_OUTPUT_FRAME:
-			if (isp->sw_contex.invalid_frame) {
-				error = true;
-				isp->sw_contex.invalid_frame = 0;
-				dev_dbg(isp->dev, "%s css has marked this "
-					"frame as invalid\n", __func__);
-			}
-			pipe->buffers_in_css--;
-			frame = buffer.css_buffer.data.frame;
-			if (!frame) {
-				WARN_ON(1);
-				break;
-			}
+		}
 
 #ifdef CSS20
-			if (!frame->valid)
-				error = true;
+		if (!frame->valid)
+			error = true;
 #endif
-			vb = atomisp_css_frame_to_vbuf(pipe, frame);
-			if (!vb) {
-				WARN_ON(1);
-				break;
-			}
+		vb = atomisp_css_frame_to_vbuf(pipe, frame);
+		if (!vb) {
+			WARN_ON(1);
+			break;
+		}
 
-			if (asd->params.flash_state ==
-			    ATOMISP_FLASH_ONGOING) {
-				if (frame->flash_state
-				    == CSS_FRAME_FLASH_STATE_PARTIAL) {
-					asd->frame_status[vb->i] =
-						ATOMISP_FRAME_STATUS_FLASH_PARTIAL;
-					dev_dbg(isp->dev,
-						 "%s partially flashed\n",
-						 __func__);
-				} else if (frame->flash_state
-					   == CSS_FRAME_FLASH_STATE_FULL) {
-					asd->frame_status[vb->i] =
-						ATOMISP_FRAME_STATUS_FLASH_EXPOSED;
-					asd->params.num_flash_frames--;
-					dev_dbg(isp->dev,
-						 "%s completely flashed\n",
+		if (asd->params.flash_state ==
+		    ATOMISP_FLASH_ONGOING) {
+			if (frame->flash_state
+			    == CSS_FRAME_FLASH_STATE_PARTIAL) {
+				asd->frame_status[vb->i] =
+					ATOMISP_FRAME_STATUS_FLASH_PARTIAL;
+				dev_dbg(isp->dev, "%s partially flashed\n",
+					 __func__);
+			} else if (frame->flash_state
+				   == CSS_FRAME_FLASH_STATE_FULL) {
+				asd->frame_status[vb->i] =
+					ATOMISP_FRAME_STATUS_FLASH_EXPOSED;
+				asd->params.num_flash_frames--;
+				dev_dbg(isp->dev, "%s completely flashed\n",
 						 __func__);
 				} else {
 					asd->frame_status[vb->i] =
 						ATOMISP_FRAME_STATUS_OK;
-					dev_dbg(isp->dev,
-						 "%s no flash in this frame\n",
+					dev_dbg(isp->dev, "%s no flash in this frame\n",
 						 __func__);
 				}
 
-				/* Check if flashing sequence is done */
-				if (asd->frame_status[vb->i] ==
-					ATOMISP_FRAME_STATUS_FLASH_EXPOSED)
-					asd->params.flash_state =
-						ATOMISP_FLASH_DONE;
-			} else {
-				asd->frame_status[vb->i] =
-					ATOMISP_FRAME_STATUS_OK;
+			/* Check if flashing sequence is done */
+			if (asd->frame_status[vb->i] ==
+				ATOMISP_FRAME_STATUS_FLASH_EXPOSED)
+				asd->params.flash_state =
+					ATOMISP_FLASH_DONE;
+		} else {
+			asd->frame_status[vb->i] =
+				ATOMISP_FRAME_STATUS_OK;
+		}
+
+		asd->params.last_frame_status =
+			asd->frame_status[vb->i];
+
+		if (asd->continuous_mode->val) {
+			unsigned int exp_id = frame->exp_id;
+
+			if (css_pipe_id == CSS_PIPE_ID_PREVIEW ||
+			    css_pipe_id == CSS_PIPE_ID_VIDEO) {
+				asd->latest_preview_exp_id = exp_id;
+			} else if (css_pipe_id ==
+					CSS_PIPE_ID_CAPTURE) {
+				if (asd->run_mode->val ==
+				    ATOMISP_RUN_MODE_VIDEO)
+					dev_dbg(isp->dev, "SDV capture raw buffer id: %u\n",
+						exp_id);
+				else
+					dev_dbg(isp->dev, "ZSL capture raw buffer id: %u\n",
+						exp_id);
 			}
-
-			asd->params.last_frame_status =
-				asd->frame_status[vb->i];
-
-			if (asd->continuous_mode->val) {
-				unsigned int exp_id = frame->exp_id;
-
-				if (css_pipe_id == CSS_PIPE_ID_PREVIEW ||
-				    css_pipe_id == CSS_PIPE_ID_VIDEO) {
-					asd->latest_preview_exp_id = exp_id;
-				} else if (css_pipe_id ==
-						CSS_PIPE_ID_CAPTURE) {
-					if (asd->run_mode->val ==
-					    ATOMISP_RUN_MODE_VIDEO)
-					    dev_dbg(isp->dev,
-						    "SDV capture raw buffer id: %u\n",
-						    exp_id);
-					else
-					    dev_dbg(isp->dev,
-						    "ZSL capture raw buffer id: %u\n",
-						    exp_id);
-				}
-			}
-			break;
-		default:
-			break;
+		}
+		break;
+	default:
+		break;
 	}
 	if (vb) {
 		get_buf_timestamp(&vb->ts);
@@ -3918,13 +3913,13 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 			r.height = f->fmt.pix.height;
 
 			if (source_pad == ATOMISP_SUBDEV_PAD_SOURCE_PREVIEW)
-			    capture_comp = atomisp_subdev_get_rect(
+				capture_comp = atomisp_subdev_get_rect(
 					&asd->subdev, NULL,
 					V4L2_SUBDEV_FORMAT_ACTIVE,
 					ATOMISP_SUBDEV_PAD_SOURCE_VIDEO,
 					V4L2_SEL_TGT_COMPOSE);
 			else
-			    capture_comp = atomisp_subdev_get_rect(
+				capture_comp = atomisp_subdev_get_rect(
 					&asd->subdev, NULL,
 					V4L2_SUBDEV_FORMAT_ACTIVE,
 					ATOMISP_SUBDEV_PAD_SOURCE_CAPTURE,
@@ -4472,17 +4467,17 @@ int atomisp_source_pad_to_stream_id(struct atomisp_sub_device *asd,
 		stream_id = ATOMISP_INPUT_STREAM_VIDEO;
 	else {
 		switch (source_pad) {
-			case ATOMISP_SUBDEV_PAD_SOURCE_CAPTURE:
-				stream_id = ATOMISP_INPUT_STREAM_CAPTURE;
-				break;
-			case ATOMISP_SUBDEV_PAD_SOURCE_VF:
-				stream_id = ATOMISP_INPUT_STREAM_POSTVIEW;
-				break;
-			case ATOMISP_SUBDEV_PAD_SOURCE_PREVIEW:
-				stream_id = ATOMISP_INPUT_STREAM_PREVIEW;
-				break;
-			default:
-				stream_id = ATOMISP_INPUT_STREAM_GENERAL;
+		case ATOMISP_SUBDEV_PAD_SOURCE_CAPTURE:
+			stream_id = ATOMISP_INPUT_STREAM_CAPTURE;
+			break;
+		case ATOMISP_SUBDEV_PAD_SOURCE_VF:
+			stream_id = ATOMISP_INPUT_STREAM_POSTVIEW;
+			break;
+		case ATOMISP_SUBDEV_PAD_SOURCE_PREVIEW:
+			stream_id = ATOMISP_INPUT_STREAM_PREVIEW;
+			break;
+		default:
+			stream_id = ATOMISP_INPUT_STREAM_GENERAL;
 		}
 	}
 

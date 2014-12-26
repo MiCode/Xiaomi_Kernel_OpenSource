@@ -58,11 +58,13 @@
 #define	ISP_PARAM_MMAP_OFFSET	0xfffff000
 
 #define MAGIC_CHECK(is, should)	\
-	if (unlikely((is) != (should))) { \
-		printk(KERN_ERR "magic mismatch: %x (expected %x)\n", \
-			is, should); \
-		BUG(); \
-	}
+	do { \
+		if (unlikely((is) != (should))) { \
+			pr_err("magic mismatch: %x (expected %x)\n", \
+				is, should); \
+			BUG(); \
+		} \
+	} while (0)
 
 /*
  * Videobuf ops
@@ -759,8 +761,7 @@ int atomisp_videobuf_mmap_mapper(struct videobuf_queue *q,
 
 	MAGIC_CHECK(q->int_ops->magic, MAGIC_QTYPE_OPS);
 	if (!(vma->vm_flags & VM_WRITE) || !(vma->vm_flags & VM_SHARED)) {
-		dev_err(isp->dev, "map appl bug: PROT_WRITE and MAP_SHARED "
-				  "are required\n");
+		dev_err(isp->dev, "map appl bug: PROT_WRITE and MAP_SHARED are required\n");
 		return -EINVAL;
 	}
 
@@ -785,11 +786,7 @@ int atomisp_videobuf_mmap_mapper(struct videobuf_queue *q,
 		    buf->boff == offset) {
 			vm_mem = buf->priv;
 			ret = frame_mmap(isp, vm_mem->vaddr, vma);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 			vma->vm_flags |= VM_IO|VM_DONTEXPAND|VM_DONTDUMP;
-#else
-			vma->vm_flags |= VM_DONTEXPAND | VM_RESERVED;
-#endif
 			break;
 		}
 	}
@@ -817,7 +814,6 @@ static int remove_pad_from_frame(struct atomisp_device *isp,
 		return -ENOMEM;
 	}
 
-//#define ISP_LEFT_PAD			128	/* equal to 2*NWAY */
 	load += ISP_LEFT_PAD;
 	for (i = 0; i < height; i++) {
 		ret = hrt_isp_css_mm_load(load, buffer, width*sizeof(load));
@@ -884,8 +880,7 @@ static int atomisp_mmap(struct file *file, struct vm_area_struct *vma)
 		raw_virt_addr->data_bytes = new_size;
 
 		if (size != PAGE_ALIGN(new_size)) {
-			dev_err(isp->dev, "incorrect size for mmap ISP"
-				 " Raw Frame\n");
+			dev_err(isp->dev, "incorrect size for mmap ISP Raw Frame\n");
 			ret = -EINVAL;
 			goto error;
 		}
@@ -897,11 +892,7 @@ static int atomisp_mmap(struct file *file, struct vm_area_struct *vma)
 			goto error;
 		}
 		raw_virt_addr->data_bytes = origin_size;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 		vma->vm_flags |= VM_IO|VM_DONTEXPAND|VM_DONTDUMP;
-#else
-		vma->vm_flags |= VM_RESERVED;
-#endif
 		mutex_unlock(&isp->mutex);
 		return 0;
 	}

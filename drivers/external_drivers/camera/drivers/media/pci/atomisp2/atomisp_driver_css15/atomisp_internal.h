@@ -55,7 +55,7 @@
 #define IS_BYT (INTEL_MID_BOARD(1, PHONE, BYT) || \
 	INTEL_MID_BOARD(1, TABLET, BYT))
 #define IS_MFLD (INTEL_MID_BOARD(1, PHONE, MFLD) || \
-        INTEL_MID_BOARD(1, TABLET, MFLD))
+	INTEL_MID_BOARD(1, TABLET, MFLD))
 
 #define MAX_STREAM_NUM	2
 
@@ -131,6 +131,11 @@
  * time is typically ~2000 us.
  */
 #define ATOMISP_MAX_ISR_LATENCY	1000
+
+/* Declared in hmm.c. */
+extern bool atomisp_hmm_is_2400;
+
+extern raw_spinlock_t pci_config_lock;
 
 struct atomisp_input_subdev {
 	unsigned int type;

@@ -66,7 +66,7 @@ MODULE_PARM_DESC(dypool_enable,
 		"dynamic memory pool enable/disable (default:disable)");
 
 /* cross componnet debug message flag */
-int dbg_level = 0;
+int dbg_level;
 module_param(dbg_level, int, 0644);
 MODULE_PARM_DESC(dbg_level, "debug message on/off (default:off)");
 
@@ -603,8 +603,9 @@ static int atomisp_csi_lane_config(struct atomisp_device *isp)
 	u32 port_config_mask;
 	int port3_lanes_shift;
 
- 	if (isp->media_dev.hw_revision <
-	    ATOMISP_HW_REVISION_ISP2401_LEGACY << ATOMISP_HW_REVISION_SHIFT) {
+	if (isp->media_dev.hw_revision <
+		ATOMISP_HW_REVISION_ISP2401_LEGACY <<
+		ATOMISP_HW_REVISION_SHIFT) {
 		/* Merrifield */
 		port_config_mask = MRFLD_PORT_CONFIG_MASK;
 		port3_lanes_shift = MRFLD_PORT3_LANES_SHIFT;
@@ -615,7 +616,8 @@ static int atomisp_csi_lane_config(struct atomisp_device *isp)
 	}
 
 	if (isp->media_dev.hw_revision <
-	    ATOMISP_HW_REVISION_ISP2401 << ATOMISP_HW_REVISION_SHIFT) {
+		ATOMISP_HW_REVISION_ISP2401 <<
+		ATOMISP_HW_REVISION_SHIFT) {
 		/* Merrifield / Moorefield legacy input system */
 		nportconfigs = MRFLD_PORT_CONFIG_NUM;
 	} else {
@@ -752,7 +754,7 @@ static int atomisp_subdev_probe(struct atomisp_device *isp)
 			 * pixel_format.
 			 */
 			isp->inputs[isp->input_cnt].frame_size.pixel_format = 0;
-			sensor_pdata = (struct camera_sensor_platform_data*)
+			sensor_pdata = (struct camera_sensor_platform_data *)
 					board_info->platform_data;
 			if (sensor_pdata->get_camera_caps)
 				isp->inputs[isp->input_cnt].camera_caps =
@@ -1130,9 +1132,6 @@ static bool is_valid_device(struct pci_dev *dev,
 #endif /* ISP2400 */
 }
 
-/* Declared in hmm.c. */
-extern bool atomisp_hmm_is_2400;
-
 #define ATOM_ISP_PCI_BAR	0
 
 static int atomisp_pci_probe(struct pci_dev *dev,
@@ -1157,9 +1156,8 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 	atomisp_dev = &dev->dev;
 
 	pdata = atomisp_get_platform_data();
-	if (pdata == NULL) {
+	if (pdata == NULL)
 		dev_warn(&dev->dev, "no platform data available\n");
-	}
 
 	err = pcim_enable_device(dev);
 	if (err) {

@@ -681,7 +681,7 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 	if (!access_ok(VERIFY_READ, up, sizeof(struct atomisp_parameters32)))
 			return -EFAULT;
 
-	while(n-- > 0) {
+	while (n-- > 0) {
 		compat_uptr_t *src = (compat_uptr_t *)up + n;
 		uintptr_t *dst = (uintptr_t *)kp + n;
 
