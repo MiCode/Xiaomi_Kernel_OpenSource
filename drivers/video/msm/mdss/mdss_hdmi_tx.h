@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,7 +89,6 @@ struct hdmi_tx_ctrl {
 	u32 hpd_feature_on;
 	u32 hpd_initialized;
 	u32 vote_hdmi_core_on;
-	u32 res_info_id;
 	u8  timing_gen_on;
 	u8  mhl_hpd_on;
 
