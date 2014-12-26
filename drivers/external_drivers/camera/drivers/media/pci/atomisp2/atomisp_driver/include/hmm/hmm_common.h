@@ -77,8 +77,8 @@
  * res_size:  reserved mem pool size, being allocated from system at system boot time.
  *		res_size >= res_cnt.
  * sys_size:  system mem pool size, being allocated from system at camera running time.
- * 	      dyc_size:  dynamic mem pool size.
- * 	      dyc_thr:   dynamic mem pool high watermark.
+ *		dyc_size:  dynamic mem pool size.
+ *		dyc_thr:   dynamic mem pool high watermark.
  *		dyc_size <= dyc_thr.
  * usr_size:  user ptr mem size.
  *

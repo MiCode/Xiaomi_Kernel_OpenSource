@@ -697,7 +697,7 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 	if (!access_ok(VERIFY_READ, up, sizeof(struct atomisp_parameters32)))
 			return -EFAULT;
 
-	while(n-- > 0) {
+	while (n-- > 0) {
 		compat_uptr_t *src = (compat_uptr_t *)up + n;
 		uintptr_t *dst = (uintptr_t *)kp + n;
 
@@ -1028,7 +1028,7 @@ long atomisp_do_compat_ioctl(struct file *file,
 		break;
 	case ATOMISP_IOC_G_METADATA_BY_TYPE:
 		err = get_atomisp_metadata_by_type_stat32(&karg.md_with_type,
-		                                          up);
+							up);
 		break;
 	case ATOMISP_IOC_S_SENSOR_AE_BRACKETING_LUT:
 		err = get_atomisp_sensor_ae_bracketing_lut(&karg.lut, up);
@@ -1090,7 +1090,7 @@ long atomisp_do_compat_ioctl(struct file *file,
 		break;
 	case ATOMISP_IOC_G_METADATA_BY_TYPE:
 		err = put_atomisp_metadata_by_type_stat32(&karg.md_with_type,
-		                                          up);
+							up);
 		break;
 	}
 

@@ -480,7 +480,8 @@ int atomisp_acc_load_extensions(struct atomisp_sub_device *asd)
 
 			if (acc_fw->flags & acc_flag_to_pipe[i].flag) {
 				ret = atomisp_css_load_acc_extension(asd,
-					acc_fw->fw,acc_flag_to_pipe[i].pipe_id,
+					acc_fw->fw,
+					acc_flag_to_pipe[i].pipe_id,
 					acc_fw->type);
 				if (ret) {
 					i--;

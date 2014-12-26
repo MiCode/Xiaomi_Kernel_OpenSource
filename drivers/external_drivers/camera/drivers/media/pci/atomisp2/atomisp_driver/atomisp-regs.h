@@ -148,7 +148,7 @@
 #define ISP_FREQ_266MHZ				0x10a
 #define ISP_FREQ_200MHZ				0xc8
 #define HPLL_FREQ				0x640
-#define HPLL_FREQ_CR        			0x7D0
+#define HPLL_FREQ_CR				0x7D0
 
 #if defined(ISP2401)
 #define ISP_FREQ_MAX	ISP_FREQ_320MHZ

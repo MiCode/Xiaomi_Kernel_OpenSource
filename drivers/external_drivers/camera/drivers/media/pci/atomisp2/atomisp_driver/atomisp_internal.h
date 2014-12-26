@@ -318,6 +318,8 @@ struct atomisp_device {
 #define v4l2_dev_to_atomisp_device(dev) \
 	container_of(dev, struct atomisp_device, v4l2_dev)
 
+extern raw_spinlock_t pci_config_lock;
+
 extern struct device *atomisp_dev;
 
 extern void *atomisp_kernel_malloc(size_t bytes);

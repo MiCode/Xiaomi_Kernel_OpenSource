@@ -84,7 +84,6 @@
 #define atomisp_css_dvs_6axis_config	ia_css_dvs_6axis_config
 #define atomisp_css_fw_info	ia_css_fw_info
 #define atomisp_css_formats_config	ia_css_formats_config
-typedef struct ia_css_isp_3a_statistics atomisp_css_3a_data;
 
 #define CSS_PIPE_ID_PREVIEW	IA_CSS_PIPE_ID_PREVIEW
 #define CSS_PIPE_ID_COPY	IA_CSS_PIPE_ID_COPY
@@ -181,7 +180,7 @@ struct atomisp_css_env {
 };
 
 struct atomisp_s3a_buf {
-	atomisp_css_3a_data *s3a_data;
+	struct ia_css_isp_3a_statistics *s3a_data;
 	struct ia_css_isp_3a_statistics_map *s3a_map;
 	struct list_head list;
 };

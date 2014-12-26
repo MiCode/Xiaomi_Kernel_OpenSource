@@ -503,14 +503,13 @@ const struct atomisp_format_bridge atomisp_output_fmts[] = {
 		.mbus_code = V4L2_MBUS_FMT_BGR565_2X8_LE,
 		.sh_fmt = CSS_FRAME_FORMAT_RGB565,
 		.description = "16 RGB 5-6-5"
-	},{
+	}, {
 		.pixelformat = V4L2_PIX_FMT_JPEG,
 		.depth = 8,
 		.mbus_code = V4L2_MBUS_FMT_JPEG_1X8,
 		.sh_fmt = CSS_FRAME_FORMAT_BINARY_8,
 		.description = "JPEG"
-	},
-	{
+	}, {
 	/* This is a custom format being used by M10MO to send the RAW data */
 		.pixelformat = V4L2_PIX_FMT_CUSTOM_M10MO_RAW,
 		.depth = 8,
@@ -1006,7 +1005,7 @@ int atomisp_alloc_css_stat_bufs(struct atomisp_sub_device *asd,
 	if (list_empty(&asd->s3a_stats) &&
 		asd->params.curr_grid_info.s3a_grid.enable) {
 		count = ATOMISP_CSS_Q_DEPTH +
-		        ATOMISP_S3A_BUF_QUEUE_DEPTH_FOR_HAL;
+			ATOMISP_S3A_BUF_QUEUE_DEPTH_FOR_HAL;
 		dev_dbg(isp->dev, "allocating %d 3a buffers\n", count);
 		while (count--) {
 			s3a_buf = kzalloc(sizeof(struct atomisp_s3a_buf), GFP_KERNEL);
@@ -1053,7 +1052,7 @@ int atomisp_alloc_css_stat_bufs(struct atomisp_sub_device *asd,
 			count = ATOMISP_CSS_Q_DEPTH +
 				ATOMISP_METADATA_QUEUE_DEPTH_FOR_HAL;
 			dev_dbg(isp->dev, "allocating %d metadata buffers for type %d\n",
-			        count, i);
+				count, i);
 			while (count--) {
 				md_buf = kzalloc(sizeof(struct atomisp_metadata_buf),
 						 GFP_KERNEL);
@@ -1090,7 +1089,7 @@ error:
 
 	for (i = 0; i < ATOMISP_METADATA_TYPE_NUM; i++) {
 		list_for_each_entry_safe(md_buf, _md_buf, &asd->metadata[i],
-		                         list) {
+					list) {
 			atomisp_css_free_metadata_buffer(md_buf);
 			list_del(&md_buf->list);
 			kfree(md_buf);
@@ -1117,17 +1116,17 @@ int __atomisp_reqbufs(struct file *file, void *fh,
 
 	if (req->count == 0) {
 		mutex_lock(&pipe->capq.vb_lock);
-		if (!list_empty(&pipe->capq.stream)) {
+		if (!list_empty(&pipe->capq.stream))
 			videobuf_queue_cancel(&pipe->capq);
-		}
+
 		atomisp_videobuf_free_queue(&pipe->capq);
 		mutex_unlock(&pipe->capq.vb_lock);
 		/* clear request config id */
-		memset(pipe->frame_request_config_id,
-		       0, VIDEO_MAX_FRAME * sizeof(unsigned int));
-		memset(pipe->frame_params,
-		       0, VIDEO_MAX_FRAME *
-		          sizeof(struct atomisp_css_params_with_list *));
+		memset(pipe->frame_request_config_id, 0,
+			VIDEO_MAX_FRAME * sizeof(unsigned int));
+		memset(pipe->frame_params, 0,
+			VIDEO_MAX_FRAME *
+			sizeof(struct atomisp_css_params_with_list *));
 		return 0;
 	}
 
@@ -1331,7 +1330,7 @@ done:
 		pipe->frame_request_config_id[buf->index] = buf->reserved2 &
 					~ATOMISP_BUFFER_HAS_PER_FRAME_SETTING;
 		dev_dbg(isp->dev, "This buffer requires per_frame setting which has isp_config_id %d\n",
-		        pipe->frame_request_config_id[buf->index]);
+			pipe->frame_request_config_id[buf->index]);
 	} else {
 		pipe->frame_request_config_id[buf->index] = 0;
 	}
@@ -1707,13 +1706,11 @@ static int atomisp_streamon(struct file *file, void *fh,
 		    atomisp_subdev_source_pad(vdev)
 		    == ATOMISP_SUBDEV_PAD_SOURCE_CAPTURE) {
 			if (asd->run_mode->val == ATOMISP_RUN_MODE_VIDEO)
-			    dev_dbg(isp->dev,
-				"SDV last video raw buffer id: %u\n",
-				asd->latest_preview_exp_id);
+				dev_dbg(isp->dev, "SDV last video raw buffer id: %u\n",
+					asd->latest_preview_exp_id);
 			else
-			    dev_dbg(isp->dev,
-				"ZSL last preview raw buffer id: %u\n",
-				asd->latest_preview_exp_id);
+				dev_dbg(isp->dev, "ZSL last preview raw buffer id: %u\n",
+					asd->latest_preview_exp_id);
 
 			if (asd->delayed_init == ATOMISP_DELAYED_INIT_QUEUED) {
 				flush_work(&asd->delayed_init_work);
@@ -2628,11 +2625,7 @@ static int atomisp_s_parm_file(struct file *file, void *fh,
 }
 
 static long atomisp_vidioc_default(struct file *file, void *fh,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 	bool valid_prio, unsigned int cmd, void *arg)
-#else
-	bool valid_prio, int cmd, void *arg)
-#endif
 {
 	struct video_device *vdev = video_devdata(file);
 	struct atomisp_device *isp = video_get_drvdata(vdev);

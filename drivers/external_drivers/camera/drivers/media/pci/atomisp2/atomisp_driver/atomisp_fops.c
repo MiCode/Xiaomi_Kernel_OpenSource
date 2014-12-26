@@ -54,11 +54,13 @@
 #define	ISP_PARAM_MMAP_OFFSET	0xfffff000
 
 #define MAGIC_CHECK(is, should)	\
-	if (unlikely((is) != (should))) { \
-		printk(KERN_ERR "magic mismatch: %x (expected %x)\n", \
-			is, should); \
-		BUG(); \
-	}
+	do { \
+		if (unlikely((is) != (should))) { \
+			pr_err("magic mismatch: %x (expected %x)\n", \
+				is, should); \
+			BUG(); \
+		} \
+	} while (0)
 
 /*
  * Videobuf ops
@@ -167,7 +169,7 @@ static int atomisp_q_metadata_buffers_to_css(struct atomisp_sub_device *asd,
 			metadata_list = &asd->metadata_ready[md_type];
 		} else {
 			dev_warn(asd->isp->dev, "%s: No metadata buffers available for type %d!\n",
-			         __func__, md_type);
+				__func__, md_type);
 			return -EINVAL;
 		}
 
@@ -181,7 +183,7 @@ static int atomisp_q_metadata_buffers_to_css(struct atomisp_sub_device *asd,
 			return -EINVAL;
 		} else {
 			list_add_tail(&metadata_buf->list,
-			              &asd->metadata_in_css[md_type]);
+					&asd->metadata_in_css[md_type]);
 		}
 		asd->metadata_bufs_in_css[stream_id][css_pipe_id]++;
 	}
@@ -204,12 +206,12 @@ int atomisp_q_s3a_buffers_to_css(struct atomisp_sub_device *asd,
 			s3a_list = &asd->s3a_stats_ready;
 		} else {
 			dev_warn(asd->isp->dev, "%s: No s3a buffers available!\n",
-			         __func__);
+				__func__);
 			return -EINVAL;
 		}
 
 		s3a_buf = list_entry(s3a_list->next, struct atomisp_s3a_buf,
-		                     list);
+					list);
 		list_del_init(&s3a_buf->list);
 		exp_id = s3a_buf->s3a_data->exp_id;
 
@@ -223,7 +225,7 @@ int atomisp_q_s3a_buffers_to_css(struct atomisp_sub_device *asd,
 			list_add_tail(&s3a_buf->list, &asd->s3a_stats_in_css);
 			if (s3a_list == &asd->s3a_stats_ready)
 				dev_warn(asd->isp->dev, "%s: drop one s3a stat which has exp_id %d!\n",
-				         __func__, exp_id);
+					__func__, exp_id);
 		}
 
 		asd->s3a_bufs_in_css[css_pipe_id]++;
@@ -244,7 +246,7 @@ int atomisp_q_dis_buffers_to_css(struct atomisp_sub_device *asd,
 		if (list_empty(&asd->dis_stats)) {
 			spin_unlock_irqrestore(&asd->dis_stats_lock, irqflags);
 			dev_warn(asd->isp->dev, "%s: No dis buffers available!\n",
-			         __func__);
+				__func__);
 			return -EINVAL;
 		}
 
@@ -350,7 +352,7 @@ static int atomisp_qbuffers_to_css_for_all_pipes(struct atomisp_sub_device *asd)
 			css_preview_pipe_id);
 	}
 
-	buf_type = atomisp_get_css_buf_type( asd, css_capture_pipe_id,
+	buf_type = atomisp_get_css_buf_type(asd, css_capture_pipe_id,
 			atomisp_subdev_source_pad(&capture_pipe->vdev));
 	input_stream_id = ATOMISP_INPUT_STREAM_GENERAL;
 	atomisp_q_video_buffers_to_css(asd, capture_pipe,
@@ -678,11 +680,11 @@ static int atomisp_init_pipe(struct atomisp_video_pipe *pipe)
 	INIT_LIST_HEAD(&pipe->activeq_out);
 	INIT_LIST_HEAD(&pipe->buffers_waiting_for_param);
 	INIT_LIST_HEAD(&pipe->per_frame_params);
-	memset(pipe->frame_request_config_id,
-	       0, VIDEO_MAX_FRAME * sizeof(unsigned int));
-	memset(pipe->frame_params,
-	       0, VIDEO_MAX_FRAME *
-	          sizeof(struct atomisp_css_params_with_list *));
+	memset(pipe->frame_request_config_id, 0,
+		VIDEO_MAX_FRAME * sizeof(unsigned int));
+	memset(pipe->frame_params, 0,
+		VIDEO_MAX_FRAME *
+		sizeof(struct atomisp_css_params_with_list *));
 
 	return 0;
 }
@@ -1038,8 +1040,7 @@ int atomisp_videobuf_mmap_mapper(struct videobuf_queue *q,
 
 	MAGIC_CHECK(q->int_ops->magic, MAGIC_QTYPE_OPS);
 	if (!(vma->vm_flags & VM_WRITE) || !(vma->vm_flags & VM_SHARED)) {
-		dev_err(isp->dev, "map appl bug: PROT_WRITE and MAP_SHARED "
-				  "are required\n");
+		dev_err(isp->dev, "map appl bug: PROT_WRITE and MAP_SHARED are required\n");
 		return -EINVAL;
 	}
 
@@ -1064,11 +1065,7 @@ int atomisp_videobuf_mmap_mapper(struct videobuf_queue *q,
 		    buf->boff == offset) {
 			vm_mem = buf->priv;
 			ret = frame_mmap(isp, vm_mem->vaddr, vma);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 			vma->vm_flags |= VM_IO|VM_DONTEXPAND|VM_DONTDUMP;
-#else
-			vma->vm_flags |= VM_DONTEXPAND | VM_RESERVED;
-#endif
 			break;
 		}
 	}
@@ -1096,7 +1093,6 @@ static int remove_pad_from_frame(struct atomisp_device *isp,
 		return -ENOMEM;
 	}
 
-//#define ISP_LEFT_PAD			128	/* equal to 2*NWAY */
 	load += ISP_LEFT_PAD;
 	for (i = 0; i < height; i++) {
 		ret = hrt_isp_css_mm_load(load, buffer, width*sizeof(load));
@@ -1173,8 +1169,7 @@ static int atomisp_mmap(struct file *file, struct vm_area_struct *vma)
 		raw_virt_addr->data_bytes = new_size;
 
 		if (size != PAGE_ALIGN(new_size)) {
-			dev_err(isp->dev, "incorrect size for mmap ISP"
-				 " Raw Frame\n");
+			dev_err(isp->dev, "incorrect size for mmap ISP  Raw Frame\n");
 			ret = -EINVAL;
 			goto error;
 		}
@@ -1186,11 +1181,7 @@ static int atomisp_mmap(struct file *file, struct vm_area_struct *vma)
 			goto error;
 		}
 		raw_virt_addr->data_bytes = origin_size;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 		vma->vm_flags |= VM_IO|VM_DONTEXPAND|VM_DONTDUMP;
-#else
-		vma->vm_flags |= VM_RESERVED;
-#endif
 		rt_mutex_unlock(&isp->mutex);
 		return 0;
 	}

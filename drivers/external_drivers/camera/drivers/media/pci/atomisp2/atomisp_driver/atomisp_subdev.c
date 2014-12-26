@@ -497,11 +497,11 @@ int atomisp_subdev_set_selection(struct v4l2_subdev *sd,
 		 * ratio = width / height
 		 *
 		 * if ratio_output < ratio_sensor:
-		 * 	effect_width = sensor_height * out_width / out_height;
-		 * 	effect_height = sensor_height;
+		 *	effect_width = sensor_height * out_width / out_height;
+		 *	effect_height = sensor_height;
 		 * else
-		 * 	effect_width = sensor_width;
-		 * 	effect_height = sensor_width * out_height / out_width;
+		 *	effect_width = sensor_width;
+		 *	effect_height = sensor_width * out_height / out_width;
 		 *
 		 */
 		if (r->width * crop[ATOMISP_SUBDEV_PAD_SINK]->height <
@@ -1055,7 +1055,7 @@ static void atomisp_init_subdev_pipe(struct atomisp_sub_device *asd,
 	       0, VIDEO_MAX_FRAME * sizeof(unsigned int));
 	memset(pipe->frame_params,
 	       0, VIDEO_MAX_FRAME *
-	          sizeof(struct atomisp_css_params_with_list *));
+		sizeof(struct atomisp_css_params_with_list *));
 }
 
 /*
@@ -1219,7 +1219,7 @@ void atomisp_subdev_cleanup_pending_events(struct atomisp_sub_device *asd)
 	unsigned int i, pending_event;
 
 	list_for_each_entry_safe(fh, fh_tmp,
-	                         &asd->subdev.devnode->fh_list, list) {
+		&asd->subdev.devnode->fh_list, list) {
 		pending_event = v4l2_event_pending(fh);
 		for (i = 0; i < pending_event; i++)
 			v4l2_event_dequeue(fh, &event, 1);

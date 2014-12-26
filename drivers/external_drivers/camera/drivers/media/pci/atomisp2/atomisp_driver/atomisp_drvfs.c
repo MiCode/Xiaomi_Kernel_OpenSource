@@ -41,11 +41,11 @@ struct _iunit_debug {
 	struct atomisp_device	*isp;
 	unsigned int		dbglvl;
 	unsigned int		dbgfun;
-	unsigned int 		dbgopt;
+	unsigned int		dbgopt;
 };
 
 #define OPTION_BIN_LIST			(1<<0)
-#define OPTION_BIN_RUN 			(1<<1)
+#define OPTION_BIN_RUN			(1<<1)
 #define OPTION_MEM_STAT			(1<<2)
 #define OPTION_VALID			(OPTION_BIN_LIST \
 					| OPTION_BIN_RUN \

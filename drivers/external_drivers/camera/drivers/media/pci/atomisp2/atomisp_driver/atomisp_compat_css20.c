@@ -58,7 +58,6 @@
  * #4684168, if concurrency access happened, system may hard hang.
  */
 static DEFINE_SPINLOCK(mmio_lock);
-extern raw_spinlock_t pci_config_lock;
 
 enum frame_info_type {
 	ATOMISP_CSS_VF_FRAME,
@@ -397,7 +396,7 @@ static void __dump_pipe_config(struct atomisp_sub_device *asd,
 }
 
 static void __dump_stream_config(struct atomisp_sub_device *asd,
-        struct atomisp_stream_env *stream_env)
+				struct atomisp_stream_env *stream_env)
 {
 	struct atomisp_device *isp = asd->isp;
 	struct ia_css_stream_config *s_config;
@@ -786,40 +785,40 @@ static bool is_pipe_valid_to_current_run_mode(struct atomisp_sub_device *asd,
 		return true;
 
 	switch (asd->run_mode->val) {
-		case ATOMISP_RUN_MODE_STILL_CAPTURE:
-			if (pipe_id == IA_CSS_PIPE_ID_CAPTURE)
+	case ATOMISP_RUN_MODE_STILL_CAPTURE:
+		if (pipe_id == IA_CSS_PIPE_ID_CAPTURE)
+			return true;
+		else
+			return false;
+	case ATOMISP_RUN_MODE_PREVIEW:
+		if (!asd->continuous_mode->val) {
+			if (pipe_id == IA_CSS_PIPE_ID_PREVIEW)
 				return true;
 			else
 				return false;
-		case ATOMISP_RUN_MODE_PREVIEW:
-			if (!asd->continuous_mode->val) {
-				if (pipe_id == IA_CSS_PIPE_ID_PREVIEW)
-					return true;
-				else
-					return false;
-			}
-			/* fall through to ATOMISP_RUN_MODE_CONTINUOUS_CAPTURE */
-		case ATOMISP_RUN_MODE_CONTINUOUS_CAPTURE:
-			if (pipe_id == IA_CSS_PIPE_ID_CAPTURE ||
-			    pipe_id == IA_CSS_PIPE_ID_PREVIEW)
+		}
+		/* fall through to ATOMISP_RUN_MODE_CONTINUOUS_CAPTURE */
+	case ATOMISP_RUN_MODE_CONTINUOUS_CAPTURE:
+		if (pipe_id == IA_CSS_PIPE_ID_CAPTURE ||
+		    pipe_id == IA_CSS_PIPE_ID_PREVIEW)
+			return true;
+		else
+			return false;
+	case ATOMISP_RUN_MODE_VIDEO:
+		if (!asd->continuous_mode->val) {
+			if (pipe_id == IA_CSS_PIPE_ID_VIDEO ||
+			    pipe_id == IA_CSS_PIPE_ID_YUVPP)
 				return true;
 			else
 				return false;
-		case ATOMISP_RUN_MODE_VIDEO:
-			if (!asd->continuous_mode->val) {
-				if (pipe_id == IA_CSS_PIPE_ID_VIDEO ||
-				    pipe_id == IA_CSS_PIPE_ID_YUVPP)
-					return true;
-				else
-					return false;
-			}
-			/* fall through to ATOMISP_RUN_MODE_SDV */
-		case ATOMISP_RUN_MODE_SDV:
-			if (pipe_id == IA_CSS_PIPE_ID_CAPTURE ||
-			    pipe_id == IA_CSS_PIPE_ID_VIDEO)
-				return true;
-			else
-				return false;
+		}
+		/* fall through to ATOMISP_RUN_MODE_SDV */
+	case ATOMISP_RUN_MODE_SDV:
+		if (pipe_id == IA_CSS_PIPE_ID_CAPTURE ||
+		    pipe_id == IA_CSS_PIPE_ID_VIDEO)
+			return true;
+		else
+			return false;
 	}
 
 	return false;
@@ -1429,15 +1428,15 @@ void atomisp_css_update_isp_params_on_pipe(struct atomisp_sub_device *asd,
 	}
 
 	dev_dbg(asd->isp->dev, "%s: apply parameter for ia_css_frame %p with isp_config_id %d on pipe %p.\n",
-	        __func__, asd->params.config.output_frame,
-	        asd->params.config.isp_config_id, pipe);
+		__func__, asd->params.config.output_frame,
+		asd->params.config.isp_config_id, pipe);
 
 	ret = ia_css_stream_set_isp_config_on_pipe(
 			asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream,
 			&asd->params.config, pipe);
 	if (ret != IA_CSS_SUCCESS)
 		dev_warn(asd->isp->dev, "%s: ia_css_stream_set_isp_config_on_pipe failed %d\n",
-		         __func__, ret);
+			__func__, ret);
 	atomisp_isp_parameters_clean_up(&asd->params.config);
 }
 
@@ -1625,19 +1624,19 @@ void atomisp_css_free_stat_buffers(struct atomisp_sub_device *asd)
 
 	for (i = 0; i < ATOMISP_METADATA_TYPE_NUM; i++) {
 		list_for_each_entry_safe(md_buf, _md_buf,
-		                         &asd->metadata[i], list) {
+					&asd->metadata[i], list) {
 			atomisp_css_free_metadata_buffer(md_buf);
 			list_del(&md_buf->list);
 			kfree(md_buf);
 		}
 		list_for_each_entry_safe(md_buf, _md_buf,
-		                         &asd->metadata_in_css[i], list) {
+					&asd->metadata_in_css[i], list) {
 			atomisp_css_free_metadata_buffer(md_buf);
 			list_del(&md_buf->list);
 			kfree(md_buf);
 		}
 		list_for_each_entry_safe(md_buf, _md_buf,
-		                         &asd->metadata_ready[i], list) {
+					&asd->metadata_ready[i], list) {
 			atomisp_css_free_metadata_buffer(md_buf);
 			list_del(&md_buf->list);
 			kfree(md_buf);
@@ -2661,8 +2660,7 @@ static void __configure_preview_pp_input(struct atomisp_sub_device *asd,
 	struct ia_css_resolution  *effective_res =
 		&stream_config->input_config.effective_res;
 
-	const struct bayer_ds_factor bds_fct[] =
-		{{2, 1}, {3, 2}, {5, 4}};
+	const struct bayer_ds_factor bds_fct[] = {{2, 1}, {3, 2}, {5, 4} };
 	/*
 	 * BZ201033: YUV decimation factor of 4 causes couple of rightmost
 	 * columns to be shaded. Remove this factor to work around the CSS bug.
@@ -2781,8 +2779,8 @@ static void __configure_video_pp_input(struct atomisp_sub_device *asd,
 	struct ia_css_resolution  *effective_res =
 		&stream_config->input_config.effective_res;
 
-	const struct bayer_ds_factor bds_factors[] =
-		{{8, 1}, {6, 1}, {4, 1}, {3, 1}, {2, 1}, {3, 2}};
+	const struct bayer_ds_factor bds_factors[] = {
+		{8, 1}, {6, 1}, {4, 1}, {3, 1}, {2, 1}, {3, 2} };
 	unsigned int i;
 
 	if (width == 0 && height == 0)
@@ -4569,15 +4567,15 @@ int atomisp_css_isr_thread(struct atomisp_device *isp,
 		if (current_event.event.type == IA_CSS_EVENT_TYPE_FW_ERROR) {
 			/* Received FW error signal, trigger WDT to recover */
 			dev_err(isp->dev, "%s: ISP reports FW_ERROR event, error code %d!!!!",
-			        __func__, current_event.event.fw_error);
+				__func__, current_event.event.fw_error);
 			for (i = 0; i < isp->num_of_streams; i++)
 				atomisp_wdt_stop(&isp->asd[i], 0);
 			atomisp_wdt((unsigned long)isp);
 			return -EINVAL;
 		} else if (current_event.event.type == IA_CSS_EVENT_TYPE_FW_WARNING) {
 			dev_warn(isp->dev, "%s: ISP reports warning, code is %d, exp_id %d\n",
-			        __func__, current_event.event.fw_warning,
-			        current_event.event.exp_id);
+				__func__, current_event.event.fw_warning,
+				current_event.event.exp_id);
 			continue;
 		}
 

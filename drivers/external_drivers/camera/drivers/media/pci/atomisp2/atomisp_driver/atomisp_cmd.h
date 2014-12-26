@@ -45,6 +45,10 @@ struct atomisp_css_frame;
 #define INTR_IER		24
 #define INTR_IIR		16
 
+#ifdef CONFIG_GMIN_INTEL_MID
+extern int atomisp_punit_hpll_freq;
+#endif
+
 /*
  * Helper function
  */

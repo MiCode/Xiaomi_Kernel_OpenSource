@@ -87,7 +87,7 @@ TRACE_EVENT(camera_debug,
 
 #undef TRACE_INCLUDE_PATH
 #undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_PATH .
+#define TRACE_INCLUDE_PATH (.)
 #define TRACE_INCLUDE_FILE   atomisp_trace_event
 /* This part must be outside protection */
 #include <trace/define_trace.h>

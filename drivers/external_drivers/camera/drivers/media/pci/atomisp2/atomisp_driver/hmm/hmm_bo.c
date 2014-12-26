@@ -991,7 +991,7 @@ int hmm_bo_bind(struct hmm_buffer_object *bo)
 map_err:
 	/* unbind the physical pages with related virtual address space */
 	virt = bo->vm_node->start;
-	for ( ; i > 0; i--) {
+	for (; i > 0; i--) {
 		isp_mmu_unmap(&bdev->mmu, virt, 1);
 		virt += pgnr_to_size(1);
 	}
@@ -1259,11 +1259,7 @@ int hmm_bo_mmap(struct vm_area_struct *vma, struct hmm_buffer_object *bo)
 	vma->vm_private_data = bo;
 
 	vma->vm_ops = &hmm_bo_vm_ops;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 	vma->vm_flags |= VM_IO|VM_DONTEXPAND|VM_DONTDUMP;
-#else
-	vma->vm_flags |= (VM_RESERVED | VM_IO);
-#endif
 
 	/*
 	 * call hmm_bo_vm_open explictly.

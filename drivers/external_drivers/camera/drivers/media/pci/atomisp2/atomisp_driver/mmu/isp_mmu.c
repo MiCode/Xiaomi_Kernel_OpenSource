@@ -561,7 +561,6 @@ int isp_mmu_init(struct isp_mmu *mmu, struct isp_mmu_client *driver)
 
 #ifdef USE_KMEM_CACHE
 	mmu->tbl_cache = kmem_cache_create("iopte_cache", ISP_PAGE_SIZE,
-						//ISP_L1PT_PTES, SLAB_HWCACHE_ALIGN,
 					   ISP_PAGE_SIZE, SLAB_HWCACHE_ALIGN,
 					   NULL);
 	if (!mmu->tbl_cache)
