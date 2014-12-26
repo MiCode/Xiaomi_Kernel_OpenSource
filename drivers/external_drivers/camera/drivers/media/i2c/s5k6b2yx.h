@@ -72,7 +72,7 @@
 #define S5K6B2YX_COARSE_INTEGRATION_TIME_MARGIN	6
 #define S5K6B2YX_COARSE_INTEGRATION_TIME_MIN	1
 
-#define S5K6B2YX_MAX_EXPOSURE_SUPPORTED (0xffff - S5K6B2YX_COARSE_INTEGRATION_TIME_MARGIN)
+#define S5K6B2YX_MAX_EXPOSURE_SUPPORTED		(0xffff - S5K6B2YX_COARSE_INTEGRATION_TIME_MARGIN)
 #define S5K6B2YX_MAX_GLOBAL_GAIN_SUPPORTED	0x0200
 #define S5K6B2YX_MIN_GLOBAL_GAIN_SUPPORTED	0x0020
 
@@ -329,7 +329,8 @@ struct s5k6b2yx_control {
 static struct s5k6b2yx_reg const s5k6b2yx_init_config[] = {
 	/* Vendor specific */
 	{ S5K6B2YX_8BIT, 0x31d3, 0x01 }, /* efuse read en */
-	{ S5K6B2YX_8BIT, 0x3426, 0x3a }, /* [4]corr_en[3:2]gain_b_sel,[1:0]gain_r_sel */
+	/* [4]corr_en[3:2]gain_b_sel,[1:0]gain_r_sel */
+	{ S5K6B2YX_8BIT, 0x3426, 0x3a },
 	{ S5K6B2YX_8BIT, 0x340d, 0x30 }, /* efuse clock off */
 
 	{ S5K6B2YX_8BIT, 0x3067, 0x25 }, /* adc_sat[mV]=617mV */
@@ -343,9 +344,11 @@ static struct s5k6b2yx_reg const s5k6b2yx_init_config[] = {
 	{ S5K6B2YX_8BIT, 0x3085, 0xf0 }, /* rdv_option; LOB_PLA enable */
 	{ S5K6B2YX_8BIT, 0x3068, 0x55 }, /* ms[15:8]; x4~ */
 	{ S5K6B2YX_8BIT, 0x3069, 0x00 }, /* ms[7:0]; x1~x4 */
-	{ S5K6B2YX_8BIT, 0x3063, 0x08 }, /* cds_option[15:8];[11]ldb nmos sw enable=1 */
+	/* cds_option[15:8];[11]ldb nmos sw enable=1 */
+	{ S5K6B2YX_8BIT, 0x3063, 0x08 },
 	{ S5K6B2YX_8BIT, 0x3064, 0x00 }, /* cds_option[7:0]; */
-	{ S5K6B2YX_8BIT, 0x3010, 0x04 }, /* FD start 2->4 for low lux fluctuation */
+	/* FD start 2->4 for low lux fluctuation */
+	{ S5K6B2YX_8BIT, 0x3010, 0x04 },
 
 	{ S5K6B2YX_8BIT, 0x3247, 0x11 }, /*[4] fadlc_blst_en */
 	{ S5K6B2YX_8BIT, 0x3083, 0x00 }, /* blst_en_cintr = 16 */
@@ -363,7 +366,8 @@ static struct s5k6b2yx_reg const s5k6b2yx_init_config[] = {
 	{ S5K6B2YX_8BIT, 0x3354, 0x00 },
 
 	/* others */
-	{ S5K6B2YX_8BIT, 0x7339, 0x03 }, /* [2]dphy_en1, [1]dphy_en0, [0] dhpy_en_clk */
+	/* [2]dphy_en1, [1]dphy_en0, [0] dhpy_en_clk */
+	{ S5K6B2YX_8BIT, 0x7339, 0x03 },
 	{ S5K6B2YX_8BIT, 0x0202, 0x03 },
 	{ S5K6B2YX_8BIT, 0x0203, 0x88 }, /* TBD: Coarse_integration_time */
 	{ S5K6B2YX_8BIT, 0x0204, 0x00 },
@@ -431,7 +435,8 @@ static struct s5k6b2yx_reg const s5k6b2yx_184x104_15fps[] = {
 	{ S5K6B2YX_8BIT, 0x7247, 0x01}, /* adlc_option (20121116) */
 
 	/* Remove Dark Band (20121031) */
-	{ S5K6B2YX_8BIT, 0x7412, 0x09}, /* streaming_enable_time_alv (103.9usec) */
+	/* streaming_enable_time_alv (103.9usec) */
+	{ S5K6B2YX_8BIT, 0x7412, 0x09},
 	{ S5K6B2YX_8BIT, 0x7413, 0xB9},
 	{ S5K6B2YX_8BIT, 0x7430, 0x05}, /* cintc_default_1_alv */
 	{ S5K6B2YX_8BIT, 0x7432, 0x02}, /* cintc_default_2_alv */
@@ -470,8 +475,8 @@ static struct s5k6b2yx_reg const s5k6b2yx_184x104_15fps[] = {
 
 	/* G + R Setting (20120813) */
 	/* Vision Senser Data = 0.5*Gr + 0.5*R */
-	{ S5K6B2YX_8BIT, 0x6029, 0x02}, /* [2:0] : 1bit integer, 2bit fraction */
-	{ S5K6B2YX_8BIT, 0x602A, 0x02}, /* [2:0] : 1bit integer, 2bit fraction */
+	{ S5K6B2YX_8BIT, 0x6029, 0x02}, /* [2:0] : 1bit integer, 2bit fraction*/
+	{ S5K6B2YX_8BIT, 0x602A, 0x02}, /* [2:0] : 1bit integer, 2bit fraction*/
 
 
 	/* For Analog Gain 16x (20120904) */
@@ -487,8 +492,8 @@ static struct s5k6b2yx_reg const s5k6b2yx_184x104_15fps[] = {
 	{ S5K6B2YX_8BIT, 0x7352, 0x49},
 	{ S5K6B2YX_8BIT, 0x7353, 0x00},
 	{ S5K6B2YX_8BIT, 0x7354, 0x00},
-
-	{ S5K6B2YX_8BIT, 0x7339, 0x03}, /* [2]dphy_en1, [1]dphy_en0, [0] dhpy_en_clk */
+	/* [2]dphy_en1, [1]dphy_en0, [0] dhpy_en_clk */
+	{ S5K6B2YX_8BIT, 0x7339, 0x03},
 #ifdef VISION_MODE_TEST_PATTERN
 	{ S5K6B2YX_8BIT, 0x7203, 0x42}, /* to enable test pattern */
 #endif
@@ -499,7 +504,8 @@ static struct s5k6b2yx_reg const s5k6b2yx_184x104_15fps[] = {
 static struct s5k6b2yx_reg const s5k6b2yx_1936x1096_30fps[] = {
     /* Vendor specific */
 	{ S5K6B2YX_8BIT, 0x31d3, 0x01 }, /* efuse read en */
-	{ S5K6B2YX_8BIT, 0x3426, 0x3a }, /* [4]corr_en[3:2]gain_b_sel,[1:0]gain_r_sel */
+	/* [4]corr_en[3:2]gain_b_sel,[1:0]gain_r_sel */
+	{ S5K6B2YX_8BIT, 0x3426, 0x3a },
 	{ S5K6B2YX_8BIT, 0x340d, 0x30 }, /* efuse clock off */
 
 	{ S5K6B2YX_8BIT, 0x3067, 0x25 }, /* adc_sat[mV]=617mV */
@@ -513,9 +519,11 @@ static struct s5k6b2yx_reg const s5k6b2yx_1936x1096_30fps[] = {
 	{ S5K6B2YX_8BIT, 0x3085, 0xf0 }, /* rdv_option; LOB_PLA enable */
 	{ S5K6B2YX_8BIT, 0x3068, 0x55 }, /* ms[15:8]; x4~ */
 	{ S5K6B2YX_8BIT, 0x3069, 0x00 }, /* ms[7:0]; x1~x4 */
-	{ S5K6B2YX_8BIT, 0x3063, 0x08 }, /* cds_option[15:8];[11]ldb nmos sw enable=1 */
+	/* cds_option[15:8];[11]ldb nmos sw enable=1 */
+	{ S5K6B2YX_8BIT, 0x3063, 0x08 },
 	{ S5K6B2YX_8BIT, 0x3064, 0x00 }, /* cds_option[7:0]; */
-	{ S5K6B2YX_8BIT, 0x3010, 0x04 }, /* FD start 2->4 for low lux fluctuation */
+	/* FD start 2->4 for low lux fluctuation */
+	{ S5K6B2YX_8BIT, 0x3010, 0x04 },
 
 	{ S5K6B2YX_8BIT, 0x3247, 0x11 }, /*[4] fadlc_blst_en */
 	{ S5K6B2YX_8BIT, 0x3083, 0x00 }, /* blst_en_cintr = 16 */
@@ -533,7 +541,8 @@ static struct s5k6b2yx_reg const s5k6b2yx_1936x1096_30fps[] = {
 	{ S5K6B2YX_8BIT, 0x3354, 0x00 },
 
 	/* others */
-	{ S5K6B2YX_8BIT, 0x7339, 0x03 }, /* [2]dphy_en1, [1]dphy_en0, [0] dhpy_en_clk */
+	/* [2]dphy_en1, [1]dphy_en0, [0] dhpy_en_clk */
+	{ S5K6B2YX_8BIT, 0x7339, 0x03 },
 	{ S5K6B2YX_8BIT, 0x0202, 0x03 },
 	{ S5K6B2YX_8BIT, 0x0203, 0x88 }, /* TBD: Coarse_integration_time */
 	{ S5K6B2YX_8BIT, 0x0204, 0x00 },

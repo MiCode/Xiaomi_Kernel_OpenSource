@@ -1909,12 +1909,12 @@ struct imx_resolution imx134_res_still[] = {
 		.width = 3280,
 		.height = 2464,
 		.fps_options = {
-                        {
+			{
 				/* WORKAROUND for FW performance limitation */
-                                 .fps = 8,
-                                 .pixels_per_line = 6400,
-                                 .lines_per_frame = 5312,
-                        },
+				 .fps = 8,
+				 .pixels_per_line = 6400,
+				 .lines_per_frame = 5312,
+			},
 			{
 				 .fps = 30,
 				 .pixels_per_line = 3600,

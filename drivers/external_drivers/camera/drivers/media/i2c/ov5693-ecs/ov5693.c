@@ -236,12 +236,12 @@ static int vcm_detect(struct i2c_client *client)
 {
 	int i, ret;
 	struct i2c_msg msg;
-        u16 data0=0, data;
-	for(i=0; i<4; i++) {
+	u16 data0 = 0, data;
+	for (i = 0; i < 4; i++) {
 		msg.addr = VCM_ADDR;
 		msg.flags = I2C_M_RD;
 		msg.len = sizeof(data);
-		msg.buf = (u8*)&data;
+		msg.buf = (u8 *)&data;
 		ret = i2c_transfer(client->adapter, &msg, 1);
 
 		/* DW9714 always fails the first read and returns
@@ -400,8 +400,9 @@ static int ov5693_write_reg_array(struct i2c_client *client,
 			}
 			err = __ov5693_buf_reg_array(client, &ctrl, next);
 			if (err) {
-				dev_err(&client->dev, "%s: write error, aborted\n",
-					 __func__);
+				dev_err(&client->dev,
+					"%s: write error, aborted\n",
+					__func__);
 				return err;
 			}
 			break;
@@ -509,13 +510,13 @@ static int ov5693_get_intg_factor(struct i2c_client *client,
 	buf->crop_vertical_end = reg_val;
 
 	ret = ov5693_read_reg(client, OV5693_16BIT,
-					OV5693_HORIZONTAL_OUTPUT_SIZE_H, &reg_val);
+				OV5693_HORIZONTAL_OUTPUT_SIZE_H, &reg_val);
 	if (ret)
 		return ret;
 	buf->output_width = reg_val;
 
 	ret = ov5693_read_reg(client, OV5693_16BIT,
-					OV5693_VERTICAL_OUTPUT_SIZE_H, &reg_val);
+				OV5693_VERTICAL_OUTPUT_SIZE_H, &reg_val);
 	if (ret)
 		return ret;
 	buf->output_height = reg_val;
@@ -533,15 +534,15 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov5693_device *dev = to_ov5693_sensor(sd);
-	u16 vts,hts;
-	int ret,exp_val;
+	u16 vts, hts;
+	int ret, exp_val;
 
 	hts = ov5693_res[dev->fmt_idx].pixels_per_line;
 	vts = ov5693_res[dev->fmt_idx].lines_per_frame;
 
 	/* group hold */
 	ret = ov5693_write_reg(client, OV5693_8BIT,
-                                       OV5693_GROUP_ACCESS, 0x00);
+				       OV5693_GROUP_ACCESS, 0x00);
 	if (ret) {
 		dev_err(&client->dev, "%s: write %x error, aborted\n",
 			__func__, OV5693_GROUP_ACCESS);
@@ -552,14 +553,16 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	if (coarse_itg > vts - OV5693_INTEGRATION_TIME_MARGIN)
 		vts = (u16) coarse_itg + OV5693_INTEGRATION_TIME_MARGIN;
 
-	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_TIMING_VTS_H, (vts >> 8) & 0xFF);
+	ret = ov5693_write_reg(client, OV5693_8BIT,
+				OV5693_TIMING_VTS_H, (vts >> 8) & 0xFF);
 	if (ret) {
 		dev_err(&client->dev, "%s: write %x error, aborted\n",
 			__func__, OV5693_TIMING_VTS_H);
 		return ret;
 	}
 
-	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_TIMING_VTS_L, vts & 0xFF);
+	ret = ov5693_write_reg(client, OV5693_8BIT,
+				OV5693_TIMING_VTS_L, vts & 0xFF);
 	if (ret) {
 		dev_err(&client->dev, "%s: write %x error, aborted\n",
 			__func__, OV5693_TIMING_VTS_L);
@@ -607,15 +610,17 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 		int setvalue = 0;
 
 		/*
-		*  for sensor metadata only support 1x/2x digital gain, to support
-		*  sensor metadata we need switch from MWB gain to digital gain
+		*  for sensor metadata only support 1x/2x digital gain,
+		*  to support sensor metadata we need switch from MWB gain
+		*  to digital gain
 		*/
 		if (digitgain == 2048)
 			setvalue = 1;
 		else
 			setvalue = 0;
 
-		ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_AGC_H, setvalue);
+		ret = ov5693_write_reg(client, OV5693_8BIT,
+					OV5693_AGC_H, setvalue);
 		if (ret) {
 			dev_err(&client->dev, "%s: write %x error, aborted\n",
 				__func__, OV5693_AGC_H);
@@ -889,7 +894,8 @@ int ad5823_t_focus_vcm(struct v4l2_subdev *sd, u16 val)
 		return ret;
 
 	/* set reg VCM_CODE_MSB Bit[1:0] */
-	vcm_code = (vcm_code & VCM_CODE_MSB_MASK) | ((val >> 8) & ~VCM_CODE_MSB_MASK);
+	vcm_code = (vcm_code & VCM_CODE_MSB_MASK) |
+		((val >> 8) & ~VCM_CODE_MSB_MASK);
 	ret = ad5823_i2c_write(client, AD5823_REG_VCM_CODE_MSB, vcm_code);
 	if (ret)
 		return ret;
@@ -1241,7 +1247,7 @@ static int ov5693_init(struct v4l2_subdev *sd)
 	dev->vcm_update = false;
 
 	if (dev->vcm == VCM_AD5823) {
-		ret = vcm_ad_i2c_wr8(client, 0x01, 0x01); // vcm init test
+		ret = vcm_ad_i2c_wr8(client, 0x01, 0x01); /* vcm init test */
 		if (ret)
 			dev_err(&client->dev,
 				"vcm reset failed\n");
@@ -1251,7 +1257,8 @@ static int ov5693_init(struct v4l2_subdev *sd)
 		if (ret)
 			dev_err(&client->dev,
 				"vcm enable ringing failed\n");
-		ret = ad5823_i2c_write(client, AD5823_REG_MODE, AD5823_ARC_RES1);
+		ret = ad5823_i2c_write(client, AD5823_REG_MODE,
+					AD5823_ARC_RES1);
 		if (ret)
 			dev_err(&client->dev,
 				"vcm change mode failed\n");
@@ -1262,7 +1269,7 @@ static int ov5693_init(struct v4l2_subdev *sd)
 	N_RES = N_RES_PREVIEW;
 
 	/*change initial focus value for ad5823*/
-	if(dev->vcm == VCM_AD5823) {
+	if (dev->vcm == VCM_AD5823) {
 		dev->focus = AD5823_INIT_FOCUS_POS;
 		ov5693_t_focus_abs(sd, AD5823_INIT_FOCUS_POS);
 	} else {
@@ -1970,7 +1977,8 @@ static int ov5693_probe(struct i2c_client *client,
 	 * via config. */
 	i2c = gmin_get_var_int(&client->dev, "I2CAddr", -1);
 	if (i2c != -1) {
-		dev_info(&client->dev, "Overriding firmware-provided I2C address (0x%x) with 0x%x\n",
+		dev_info(&client->dev,
+		"Overriding firmware-provided I2C address (0x%x) with 0x%x\n",
 			 client->addr, i2c);
 		client->addr = i2c;
 	}

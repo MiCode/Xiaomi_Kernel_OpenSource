@@ -128,7 +128,8 @@ int ad5823_t_focus_vcm(struct v4l2_subdev *sd, u16 val)
 		return ret;
 
 	/* set reg VCM_CODE_MSB Bit[1:0] */
-	vcm_code = (vcm_code & VCM_CODE_MSB_MASK) | ((val >> 8) & ~VCM_CODE_MSB_MASK);
+	vcm_code = (vcm_code & VCM_CODE_MSB_MASK) |
+			((val >> 8) & ~VCM_CODE_MSB_MASK);
 	ret = ad5823_i2c_write(client, AD5823_REG_VCM_CODE_MSB, vcm_code);
 	if (ret)
 		return ret;
@@ -201,7 +202,7 @@ int ad5823_q_focus_abs(struct v4l2_subdev *sd, s32 *value)
 	if (val & ATOMISP_FOCUS_STATUS_MOVING)
 		*value  = ad5823_dev.focus - ad5823_dev.number_of_steps;
 	else
-		*value  = ad5823_dev.focus ;
+		*value  = ad5823_dev.focus;
 
 	return 0;
 }

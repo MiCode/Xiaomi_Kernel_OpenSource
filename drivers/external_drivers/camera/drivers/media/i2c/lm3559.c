@@ -33,8 +33,8 @@
 
 struct lm3559_ctrl_id {
 	struct v4l2_queryctrl qc;
-	int (*s_ctrl) (struct v4l2_subdev *sd, __u32 val);
-	int (*g_ctrl) (struct v4l2_subdev *sd, __s32 *val);
+	int (*s_ctrl)(struct v4l2_subdev *sd, __u32 val);
+	int (*g_ctrl)(struct v4l2_subdev *sd, __s32 *val);
 };
 
 /* Registers */
@@ -729,7 +729,7 @@ static int __lm3559_s_power(struct lm3559 *flash, int power)
 	}
 	gpio_set_value(pdata->gpio_reset, power);
 	gpio_free(pdata->gpio_reset);
-	usleep_range(100, 100);
+	usleep_range(100, 100 + 1);
 
 	if (power) {
 		/* Setup default values. This makes sure that the chip

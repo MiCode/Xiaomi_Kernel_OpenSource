@@ -94,36 +94,44 @@
 #define OV5693_SC_CMMN_CHIP_ID_L		0x300B
 #define OV5693_SC_CMMN_SCCB_ID			0x300C
 #define OV5693_SC_CMMN_SUB_ID			0x302A /* process, version*/
+/*Bit[7:4] Group control, Bit[3:0] Group ID*/
+#define OV5693_GROUP_ACCESS			0x3208
+/*
+*Bit[3:0] Bit[19:16] of exposure,
+*remaining 16 bits lies in Reg0x3501&Reg0x3502
+*/
+#define OV5693_EXPOSURE_H			0x3500
+#define OV5693_EXPOSURE_M			0x3501
+#define OV5693_EXPOSURE_L			0x3502
+/*Bit[1:0] means Bit[9:8] of gain*/
+#define OV5693_AGC_H				0x350A
+#define OV5693_AGC_L				0x350B /*Bit[7:0] of gain*/
 
-#define OV5693_GROUP_ACCESS							0x3208 /*Bit[7:4] Group control, Bit[3:0] Group ID*/
-
-#define OV5693_EXPOSURE_H							0x3500 /*Bit[3:0] Bit[19:16] of exposure, remaining 16 bits lies in Reg0x3501&Reg0x3502*/
-#define OV5693_EXPOSURE_M							0x3501
-#define OV5693_EXPOSURE_L							0x3502
-#define OV5693_AGC_H								0x350A /*Bit[1:0] means Bit[9:8] of gain*/
-#define OV5693_AGC_L								0x350B /*Bit[7:0] of gain*/
-
-#define OV5693_HORIZONTAL_START_H					0x3800 /*Bit[11:8]*/
-#define OV5693_HORIZONTAL_START_L					0x3801 /*Bit[7:0]*/
-#define OV5693_VERTICAL_START_H						0x3802 /*Bit[11:8]*/
-#define OV5693_VERTICAL_START_L						0x3803 /*Bit[7:0]*/
-#define OV5693_HORIZONTAL_END_H						0x3804 /*Bit[11:8]*/
-#define OV5693_HORIZONTAL_END_L						0x3805 /*Bit[7:0]*/
-#define OV5693_VERTICAL_END_H						0x3806 /*Bit[11:8]*/
-#define OV5693_VERTICAL_END_L						0x3807 /*Bit[7:0]*/
-#define OV5693_HORIZONTAL_OUTPUT_SIZE_H				0x3808 /*Bit[3:0]*/
-#define OV5693_HORIZONTAL_OUTPUT_SIZE_L				0x3809 /*Bit[7:0]*/
-#define OV5693_VERTICAL_OUTPUT_SIZE_H				0x380a /*Bit[3:0]*/
-#define OV5693_VERTICAL_OUTPUT_SIZE_L				0x380b /*Bit[7:0]*/
-#define OV5693_TIMING_HTS_H							0x380C  /*High 8-bit, and low 8-bit HTS address is 0x380d*/
-#define OV5693_TIMING_HTS_L							0x380D  /*High 8-bit, and low 8-bit HTS address is 0x380d*/
-#define OV5693_TIMING_VTS_H							0x380e  /*High 8-bit, and low 8-bit HTS address is 0x380f*/
-#define OV5693_TIMING_VTS_L							0x380f  /*High 8-bit, and low 8-bit HTS address is 0x380f*/
+#define OV5693_HORIZONTAL_START_H		0x3800 /*Bit[11:8]*/
+#define OV5693_HORIZONTAL_START_L		0x3801 /*Bit[7:0]*/
+#define OV5693_VERTICAL_START_H			0x3802 /*Bit[11:8]*/
+#define OV5693_VERTICAL_START_L			0x3803 /*Bit[7:0]*/
+#define OV5693_HORIZONTAL_END_H			0x3804 /*Bit[11:8]*/
+#define OV5693_HORIZONTAL_END_L			0x3805 /*Bit[7:0]*/
+#define OV5693_VERTICAL_END_H			0x3806 /*Bit[11:8]*/
+#define OV5693_VERTICAL_END_L			0x3807 /*Bit[7:0]*/
+#define OV5693_HORIZONTAL_OUTPUT_SIZE_H		0x3808 /*Bit[3:0]*/
+#define OV5693_HORIZONTAL_OUTPUT_SIZE_L		0x3809 /*Bit[7:0]*/
+#define OV5693_VERTICAL_OUTPUT_SIZE_H		0x380a /*Bit[3:0]*/
+#define OV5693_VERTICAL_OUTPUT_SIZE_L		0x380b /*Bit[7:0]*/
+/*High 8-bit, and low 8-bit HTS address is 0x380d*/
+#define OV5693_TIMING_HTS_H			0x380C
+/*High 8-bit, and low 8-bit HTS address is 0x380d*/
+#define OV5693_TIMING_HTS_L			0x380D
+/*High 8-bit, and low 8-bit HTS address is 0x380f*/
+#define OV5693_TIMING_VTS_H			0x380e
+/*High 8-bit, and low 8-bit HTS address is 0x380f*/
+#define OV5693_TIMING_VTS_L			0x380f
 
 #define OV5693_MWB_RED_GAIN_H			0x3400
 #define OV5693_MWB_GREEN_GAIN_H			0x3402
 #define OV5693_MWB_BLUE_GAIN_H			0x3404
-#define OV5693_MWB_GAIN_MAX				0x0fff
+#define OV5693_MWB_GAIN_MAX			0x0fff
 
 #define OV5693_START_STREAMING			0x01
 #define OV5693_STOP_STREAMING			0x00
@@ -206,9 +214,9 @@ struct ov5693_control {
 };
 
 enum vcm_type {
-       VCM_UNKNOWN,
-       VCM_AD5823,
-       VCM_DW9714,
+	VCM_UNKNOWN,
+	VCM_AD5823,
+	VCM_DW9714,
 };
 
 /*
@@ -550,9 +558,9 @@ static struct ov5693_reg const ov5693_736x496[] = {
 	{OV5693_8BIT, 0x3809, 0xe0},
 	{OV5693_8BIT, 0x380a, 0x01},
 	{OV5693_8BIT, 0x380b, 0xf0},
-	{OV5693_8BIT, 0x380c, 0x0a}, //hts
+	{OV5693_8BIT, 0x380c, 0x0a}, /*hts*/
 	{OV5693_8BIT, 0x380d, 0x80},
-	{OV5693_8BIT, 0x380e, 0x07}, //vts
+	{OV5693_8BIT, 0x380e, 0x07}, /*vts*/
 	{OV5693_8BIT, 0x380f, 0xc0},
 	{OV5693_8BIT, 0x3811, 0x08},
 	{OV5693_8BIT, 0x3813, 0x02},
@@ -578,9 +586,9 @@ static struct ov5693_reg const ov5693_736x496[] = {
 	{OV5693_8BIT, 0x3809, 0xe0},
 	{OV5693_8BIT, 0x380a, 0x01},
 	{OV5693_8BIT, 0x380b, 0xf0},
-	{OV5693_8BIT, 0x380c, 0x0d}, //hts
+	{OV5693_8BIT, 0x380c, 0x0d},
 	{OV5693_8BIT, 0x380d, 0xb0},
-	{OV5693_8BIT, 0x380e, 0x05}, //vts
+	{OV5693_8BIT, 0x380e, 0x05},
 	{OV5693_8BIT, 0x380f, 0xf2},
 	{OV5693_8BIT, 0x3811, 0x08},
 	{OV5693_8BIT, 0x3813, 0x02},
@@ -635,9 +643,9 @@ static struct ov5693_reg const ov5693_1296x736[] = {
 	{OV5693_8BIT, 0x3809, 0x10},
 	{OV5693_8BIT, 0x380a, 0x02},
 	{OV5693_8BIT, 0x380b, 0xe0},
-	{OV5693_8BIT, 0x380c, 0x0d}, //hts
+	{OV5693_8BIT, 0x380c, 0x0d}, /*hts*/
 	{OV5693_8BIT, 0x380d, 0xb0},
-	{OV5693_8BIT, 0x380e, 0x05}, //vts
+	{OV5693_8BIT, 0x380e, 0x05}, /*vts*/
 	{OV5693_8BIT, 0x380f, 0xf2},
 	{OV5693_8BIT, 0x3811, 0x08},
 	{OV5693_8BIT, 0x3813, 0x02},
@@ -662,9 +670,9 @@ static struct ov5693_reg const ov5693_1636p_30fps[] = {
 	{OV5693_8BIT, 0x3809, 0x64},
 	{OV5693_8BIT, 0x380a, 0x04},
 	{OV5693_8BIT, 0x380b, 0x48},
-	{OV5693_8BIT, 0x380c, 0x0a}, //hts
+	{OV5693_8BIT, 0x380c, 0x0a}, /*hts*/
 	{OV5693_8BIT, 0x380d, 0x80},
-	{OV5693_8BIT, 0x380e, 0x07}, //vts
+	{OV5693_8BIT, 0x380e, 0x07}, /*vts*/
 	{OV5693_8BIT, 0x380f, 0xc0},
 	{OV5693_8BIT, 0x3811, 0x02},
 	{OV5693_8BIT, 0x3813, 0x02},

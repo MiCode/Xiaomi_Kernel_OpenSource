@@ -98,13 +98,16 @@ static int csi_xactor_s_stream(struct v4l2_subdev *sd, int enable)
 		(0xc5180000 | (lane<<16) | (((pause_en) ? 7 : 0)<<8))
 
 		if (strcmp(client->name, CSI_XACTOR_A_NAME) == 0) {
-			dev_dbg(&client->dev, "set stream on to %d port a\n", enable);
+			dev_dbg(&client->dev, "set stream on to %d port a\n",
+				enable);
 			xactor_on = CSI_XACTOR_PAUSE(1, !enable);
 		} else if (strcmp(client->name, CSI_XACTOR_B_NAME) == 0) {
-			dev_dbg(&client->dev, "set stream on to %d port b\n", enable);
+			dev_dbg(&client->dev, "set stream on to %d port b\n",
+				enable);
 			xactor_on = CSI_XACTOR_PAUSE(2, !enable);
 		} else if (strcmp(client->name, CSI_XACTOR_C_NAME) == 0) {
-			dev_dbg(&client->dev, "set stream on to %d port c\n", enable);
+			dev_dbg(&client->dev, "set stream on to %d port c\n",
+				enable);
 			xactor_on = CSI_XACTOR_PAUSE(4, !enable);
 		} else {
 			dev_err(&client->dev, "xactor driver doesn't match!\n");
@@ -113,12 +116,14 @@ static int csi_xactor_s_stream(struct v4l2_subdev *sd, int enable)
 
 		base = phys_to_virt(CSI_XACTOR_UNPAUSE_REG_ADDR);
 		if (!base) {
-			dev_dbg(&client->dev, "Failed to phys_to_virt(CSI_XACTOR_UNPAUSE_REG_ADDR)\n");
+			dev_dbg(&client->dev,
+		"Failed to phys_to_virt(CSI_XACTOR_UNPAUSE_REG_ADDR)\n");
 			return -EINVAL;
 		}
 
 		if (enable) {
-			dev_dbg(&client->dev, "waiting  for sensor to start sending data\n");
+			dev_dbg(&client->dev,
+				"waiting  for sensor to start sending data\n");
 			usleep_range(40000000, 55000000);
 		}
 
@@ -216,7 +221,7 @@ static int csi_xactor_g_mbus_fmt(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct csi_xactor_device *dev = to_csi_xactor_dev(sd);
 	struct atomisp_input_stream_info *stream_info =
-		(struct atomisp_input_stream_info*)fmt->reserved;
+		(struct atomisp_input_stream_info *)fmt->reserved;
 
 	if (!fmt)
 		return -EINVAL;
@@ -256,7 +261,7 @@ static int csi_xactor_s_mbus_fmt(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct camera_mipi_info *info = v4l2_get_subdev_hostdata(sd);
 	struct atomisp_input_stream_info *stream_info =
-		(struct atomisp_input_stream_info*)fmt->reserved;
+		(struct atomisp_input_stream_info *)fmt->reserved;
 
 	if (!fmt)
 		return -EINVAL;
@@ -280,7 +285,8 @@ static int csi_xactor_s_power(struct v4l2_subdev *sd, int on)
 	return 0;
 }
 
-static long csi_xactor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
+static long csi_xactor_ioctl(struct v4l2_subdev *sd,
+			unsigned int cmd, void *arg)
 {
 	switch (cmd) {
 	case ATOMISP_IOC_S_EXPOSURE:
@@ -362,7 +368,7 @@ csi_xactor_get_pad_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 {
 	struct csi_xactor_device *dev = to_csi_xactor_dev(sd);
 	struct v4l2_mbus_framefmt *format =
-			__csi_xactor_get_pad_format(dev, fh, fmt->pad, fmt->which);
+		__csi_xactor_get_pad_format(dev, fh, fmt->pad, fmt->which);
 
 	fmt->format = *format;
 
@@ -515,7 +521,7 @@ static int csi_xactor_probe(struct i2c_client *client,
 			goto out_free;
 	}
 
-	switch(mode) {
+	switch (mode) {
 	case MODE_PIXTER:
 		dev_info(&client->dev, "Driver in Pixter mode\n");
 		break;
@@ -523,8 +529,9 @@ static int csi_xactor_probe(struct i2c_client *client,
 		dev_info(&client->dev, "Driver in SLE CSI xactor mode\n");
 		break;
 	default:
-		dev_err(&client->dev, "Mode %d is not supported setting to default mode.\n",
-				mode);
+		dev_err(&client->dev,
+			"Mode %d is not supported setting to default mode.\n",
+			mode);
 		mode = MODE_DEFAULT;
 		break;
 	}
@@ -559,17 +566,17 @@ static int csi_xactor_probe(struct i2c_client *client,
 	csi = v4l2_get_subdev_hostdata(&dev->sd);
 
 	if (csi->port == ATOMISP_CAMERA_PORT_PRIMARY)
-	    name[0] = 'a';
-	else if(csi->port == ATOMISP_CAMERA_PORT_SECONDARY)
-	    name[0] = 'b';
+		name[0] = 'a';
+	else if (csi->port == ATOMISP_CAMERA_PORT_SECONDARY)
+		name[0] = 'b';
 	else
-	    name[0] = 'c';
+		name[0] = 'c';
 
 	snprintf(dev->sd.name, sizeof(dev->sd.name), "%s%s %d-%04x",
 		"xactor", name,
 		i2c_adapter_id(client->adapter), client->addr);
 
-        dev_info(&client->dev, "%s dev->sd.name: %s\n", __func__, dev->sd.name);
+	dev_info(&client->dev, "%s dev->sd.name: %s\n", __func__, dev->sd.name);
 
 	dev->sd.entity.ops = &csi_xactor_entity_ops;
 	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;

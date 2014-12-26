@@ -354,8 +354,8 @@ static int mt9e013_write_reg_array(struct i2c_client *client,
 					       next->reg.sreg, next->val,
 					       next->val2);
 			if (err) {
-				v4l2_err(client, "%s: rwm error, "
-						"aborted\n", __func__);
+				v4l2_err(client,
+				"%s: rwm error,aborted\n", __func__);
 				return err;
 			}
 			break;
@@ -445,7 +445,7 @@ static int mt9e013_q_focus_abs(struct v4l2_subdev *sd, s32 *value)
 	if (val & ATOMISP_FOCUS_STATUS_MOVING)
 		*value  = dev->focus - dev->number_of_steps;
 	else
-		*value  = dev->focus ;
+		*value  = dev->focus;
 
 	return 0;
 }
@@ -598,8 +598,8 @@ __mt9e013_otp_read(struct v4l2_subdev *sd, const struct mt9e013_reg *type,
 		ret = mt9e013_read_reg(client, MT9E013_16BIT,
 				       MT9E013_OTP_READY_REG, &ready);
 		if (ret) {
-			v4l2_err(client, "%s: failed to read OTP memory "
-					 "status\n", __func__);
+			v4l2_err(client,
+			"%s: failed to read OTP memory status\n", __func__);
 			return ret;
 		}
 		if (ready & MT9E013_OTP_READY_REG_DONE)
@@ -686,8 +686,8 @@ static u8 *mt9e013_fuseid_read(struct v4l2_subdev *sd)
 	fuseid = kmalloc(sizeof(*fuseid) * MT9E013_FUSEID_SIZE, GFP_KERNEL);
 
 	if (!fuseid) {
-		v4l2_err(client, "%s: no memory available when reading "
-				 "FUSEID.\n", __func__);
+		v4l2_err(client,
+		"%s: no memory available when reading FUSEID.\n", __func__);
 		return ERR_PTR(-ENOMEM);
 	}
 
@@ -810,8 +810,8 @@ static int __mt9e013_init(struct v4l2_subdev *sd, u32 val)
 		dev->keeps_focus_pos = fw_version >= PR3_3_FW;
 	}
 	if (!dev->keeps_focus_pos) {
-		v4l2_warn(sd, "VCM does not maintain focus position in standby"
-			      "mode, using software workaround\n");
+		v4l2_warn(sd,
+		"VCM does not maintain focus position in standby mode, using software workaround\n");
 	}
 
 	return ret;
@@ -1714,9 +1714,11 @@ static int mt9e013_s_stream(struct v4l2_subdev *sd, int enable)
 		if (!dev->keeps_focus_pos) {
 			struct mt9e013_reg mt9e013_stream_enable[] = {
 				mt9e013_streaming[0],
-				{MT9E013_16BIT, {0x30F2}, 0x0000}, /* VCM_NEW_CODE */
+				/* VCM_NEW_CODE */
+				{MT9E013_16BIT, {0x30F2}, 0x0000},
 				INIT_VCM_CONTROL,
-				{MT9E013_16BIT, {0x30F2}, 0x0000}, /* VCM_NEW_CODE */
+				/* VCM_NEW_CODE */
+				{MT9E013_16BIT, {0x30F2}, 0x0000},
 				{MT9E013_TOK_DELAY, {0}, 60},
 				{MT9E013_TOK_TERM, {0}, 0}
 			};
@@ -1724,9 +1726,11 @@ static int mt9e013_s_stream(struct v4l2_subdev *sd, int enable)
 			mt9e013_stream_enable[1].val = dev->focus + 1;
 			mt9e013_stream_enable[3].val = dev->focus;
 
-			ret = mt9e013_write_reg_array(client, mt9e013_stream_enable);
+			ret = mt9e013_write_reg_array(client,
+							mt9e013_stream_enable);
 		} else {
-			ret = mt9e013_write_reg_array(client, mt9e013_streaming);
+			ret = mt9e013_write_reg_array(client,
+							mt9e013_streaming);
 		}
 
 		if (ret != 0) {

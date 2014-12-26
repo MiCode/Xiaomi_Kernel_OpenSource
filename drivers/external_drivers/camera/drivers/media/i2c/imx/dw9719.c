@@ -189,7 +189,7 @@ int dw9719_t_focus_rel(struct v4l2_subdev *sd, s32 value)
 
 int dw9719_q_focus_abs(struct v4l2_subdev *sd, s32 *value)
 {
-	*value  = dw9719_dev.focus ;
+	*value = dw9719_dev.focus;
 	return 0;
 }
 int dw9719_t_vcm_slew(struct v4l2_subdev *sd, s32 value)

@@ -146,7 +146,8 @@ int imx_t_focus_abs(struct v4l2_subdev *sd, s32 value)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 	value = clamp(value, 0, DW9719_MAX_FOCUS_POS);
-	ret = dw9719_i2c_wr16(client, DW9719_VCM_CURRENT, DW9719_MAX_FOCUS_POS - value);
+	ret = dw9719_i2c_wr16(client, DW9719_VCM_CURRENT,
+				DW9719_MAX_FOCUS_POS - value);
 	if (ret < 0)
 		return ret;
 	getnstimeofday(&dw9719_dev.focus_time);
@@ -161,7 +162,7 @@ int imx_t_focus_rel(struct v4l2_subdev *sd, s32 value)
 
 int imx_q_focus_abs(struct v4l2_subdev *sd, s32 *value)
 {
-	*value  = dw9719_dev.focus ;
+	*value = dw9719_dev.focus;
 	return 0;
 }
 int imx_t_vcm_slew(struct v4l2_subdev *sd, s32 value)

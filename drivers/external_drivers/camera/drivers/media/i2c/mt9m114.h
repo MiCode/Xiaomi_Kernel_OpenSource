@@ -84,26 +84,26 @@
 /* sensor coarse integration time register */
 #define MISENSOR_COARSE_INTEGRATION_TIME 0xC83C
 
-//registers
+/* registers */
 #define REG_SW_RESET                    0x301A
 #define REG_SW_STREAM                   0xDC00
 #define REG_SCCB_CTRL                   0x3100
 #define REG_SC_CMMN_CHIP_ID             0x0000
-#define REG_V_START                     0xc800 //16bits
-#define REG_H_START                     0xc802 //16bits
-#define REG_V_END                       0xc804 //16bits
-#define REG_H_END                       0xc806 //16bits
-#define REG_PIXEL_CLK                   0xc808 //32bits
-#define REG_TIMING_VTS                  0xc812 //16bits
-#define REG_TIMING_HTS                  0xc814 //16bits
-#define REG_WIDTH                       0xC868 //16bits
-#define REG_HEIGHT                      0xC86A //16bits
-#define REG_EXPO_COARSE                 0x3012 //16bits
-#define REG_EXPO_FINE                   0x3014 //16bits
+#define REG_V_START                     0xc800 /* 16bits */
+#define REG_H_START                     0xc802 /* 16bits */
+#define REG_V_END                       0xc804 /* 16bits */
+#define REG_H_END                       0xc806 /* 16bits */
+#define REG_PIXEL_CLK                   0xc808 /* 32bits */
+#define REG_TIMING_VTS                  0xc812 /* 16bits */
+#define REG_TIMING_HTS                  0xc814 /* 16bits */
+#define REG_WIDTH                       0xC868 /* 16bits */
+#define REG_HEIGHT                      0xC86A /* 16bits */
+#define REG_EXPO_COARSE                 0x3012 /* 16bits */
+#define REG_EXPO_FINE                   0x3014 /* 16bits */
 #define REG_GAIN                        0x305E
 #define REG_ANALOGGAIN                  0x305F
-#define REG_ADDR_ACESSS                 0x098E //logical_address_access
-#define REG_COMM_Register               0x0080 //command_register
+#define REG_ADDR_ACESSS                 0x098E /* logical_address_access */
+#define REG_COMM_Register               0x0080 /* command_register */
 
 #define SENSOR_DETECTED		1
 #define SENSOR_NOT_DETECTED	0
@@ -493,11 +493,11 @@ static const struct i2c_device_id mt9m114_id[] = {
 };
 
 static struct misensor_reg const mt9m114_exitstandby[] = {
-	 {MISENSOR_16BIT,  0x098E, 0xDC00},
-     // exit-standby
-     {MISENSOR_8BIT,  0xDC00, 0x54},
-	 {MISENSOR_16BIT,  0x0080, 0x8002},
-	 {MISENSOR_TOK_TERM, 0, 0}
+	{MISENSOR_16BIT,  0x098E, 0xDC00},
+	/* exit-standby */
+	{MISENSOR_8BIT,  0xDC00, 0x54},
+	{MISENSOR_16BIT,  0x0080, 0x8002},
+	{MISENSOR_TOK_TERM, 0, 0}
 };
 
 static struct misensor_reg const mt9m114_exp_win[5][5] = {
@@ -913,218 +913,259 @@ static struct misensor_reg const mt9m114_common[] = {
 	{MISENSOR_TOK_TERM, 0, 0}
 };
 #else
-// [1296x976_30fps] - Intel
+/* [1296x976_30fps] - Intel */
 static struct misensor_reg const mt9m114_960P_init[] = {
 	{MISENSOR_16BIT, 0x098E, 0x1000},
-	{MISENSOR_8BIT, 0xC97E, 0x01},	  //cam_sysctl_pll_enable = 1
-	{MISENSOR_16BIT, 0xC980, 0x0128}, //cam_sysctl_pll_divider_m_n = 276
-	{MISENSOR_16BIT, 0xC982, 0x0700}, //cam_sysctl_pll_divider_p = 1792
-	{MISENSOR_16BIT, 0xC800, 0x0000}, //cam_sensor_cfg_y_addr_start = 0
-	{MISENSOR_16BIT, 0xC802, 0x0000}, //cam_sensor_cfg_x_addr_start = 0
-	{MISENSOR_16BIT, 0xC804, 0x03CF}, //cam_sensor_cfg_y_addr_end = 971
-	{MISENSOR_16BIT, 0xC806, 0x050F}, //cam_sensor_cfg_x_addr_end = 1291
-	{MISENSOR_16BIT, 0xC808, 0x02DC}, //cam_sensor_cfg_pixclk = 48000000
+	{MISENSOR_8BIT, 0xC97E, 0x01},	  /* cam_sysctl_pll_enable = 1 */
+	{MISENSOR_16BIT, 0xC980, 0x0128}, /* cam_sysctl_pll_divider_m_n = 276 */
+	{MISENSOR_16BIT, 0xC982, 0x0700}, /* cam_sysctl_pll_divider_p = 1792 */
+	{MISENSOR_16BIT, 0xC800, 0x0000}, /* cam_sensor_cfg_y_addr_start = 0 */
+	{MISENSOR_16BIT, 0xC802, 0x0000}, /* cam_sensor_cfg_x_addr_start = 0 */
+	{MISENSOR_16BIT, 0xC804, 0x03CF}, /* cam_sensor_cfg_y_addr_end = 971 */
+	{MISENSOR_16BIT, 0xC806, 0x050F}, /* cam_sensor_cfg_x_addr_end = 1291 */
+	{MISENSOR_16BIT, 0xC808, 0x02DC}, /* cam_sensor_cfg_pixclk = 48000000 */
 	{MISENSOR_16BIT, 0xC80A, 0x6C00},
-	{MISENSOR_16BIT, 0xC80C, 0x0001}, //cam_sensor_cfg_row_speed = 1
-	{MISENSOR_16BIT, 0xC80E, 0x00DB}, //cam_sensor_cfg_fine_integ_time_min = 219
-	{MISENSOR_16BIT, 0xC810, 0x05B3}, //cam_sensor_cfg_fine_integ_time_max = 1459
-	{MISENSOR_16BIT, 0xC812, 0x03F6}, //cam_sensor_cfg_frame_length_lines = 1006
-	{MISENSOR_16BIT, 0xC814, 0x063E}, //cam_sensor_cfg_line_length_pck = 1590
-	{MISENSOR_16BIT, 0xC816, 0x0060}, //cam_sensor_cfg_fine_correction = 96
-	{MISENSOR_16BIT, 0xC818, 0x03C3}, //cam_sensor_cfg_cpipe_last_row = 963
-	{MISENSOR_16BIT, 0xC826, 0x0020}, //cam_sensor_cfg_reg_0_data = 32
-	{MISENSOR_16BIT, 0xC834, 0x0000}, //cam_sensor_control_read_mode = 0
-	{MISENSOR_16BIT, 0xC854, 0x0000}, //cam_crop_window_xoffset = 0
-	{MISENSOR_16BIT, 0xC856, 0x0000}, //cam_crop_window_yoffset = 0
-	{MISENSOR_16BIT, 0xC858, 0x0508}, //cam_crop_window_width = 1280
-	{MISENSOR_16BIT, 0xC85A, 0x03C8}, //cam_crop_window_height = 960
-	{MISENSOR_8BIT,  0xC85C, 0x03},   //cam_crop_cropmode = 3
-	{MISENSOR_16BIT, 0xC868, 0x0508}, //cam_output_width = 1280
-	{MISENSOR_16BIT, 0xC86A, 0x03C8}, //cam_output_height = 960
+	{MISENSOR_16BIT, 0xC80C, 0x0001}, /* cam_sensor_cfg_row_speed = 1 */
+	/* cam_sensor_cfg_fine_integ_time_min = 219 */
+	{MISENSOR_16BIT, 0xC80E, 0x00DB},
+	/* cam_sensor_cfg_fine_integ_time_max = 1459 */
+	{MISENSOR_16BIT, 0xC810, 0x05B3},
+	/* cam_sensor_cfg_frame_length_lines = 1006 */
+	{MISENSOR_16BIT, 0xC812, 0x03F6},
+	/* cam_sensor_cfg_line_length_pck = 1590 */
+	{MISENSOR_16BIT, 0xC814, 0x063E},
+	/* cam_sensor_cfg_fine_correction = 96 */
+	{MISENSOR_16BIT, 0xC816, 0x0060},
+	/* cam_sensor_cfg_cpipe_last_row = 963 */
+	{MISENSOR_16BIT, 0xC818, 0x03C3},
+	{MISENSOR_16BIT, 0xC826, 0x0020}, /* cam_sensor_cfg_reg_0_data = 32 */
+	{MISENSOR_16BIT, 0xC834, 0x0000}, /* cam_sensor_control_read_mode = 0 */
+	{MISENSOR_16BIT, 0xC854, 0x0000}, /* cam_crop_window_xoffset = 0 */
+	{MISENSOR_16BIT, 0xC856, 0x0000}, /* cam_crop_window_yoffset = 0 */
+	{MISENSOR_16BIT, 0xC858, 0x0508}, /* cam_crop_window_width = 1280 */
+	{MISENSOR_16BIT, 0xC85A, 0x03C8}, /* cam_crop_window_height = 960 */
+	{MISENSOR_8BIT,  0xC85C, 0x03},   /* cam_crop_cropmode = 3 */
+	{MISENSOR_16BIT, 0xC868, 0x0508}, /* cam_output_width = 1280 */
+	{MISENSOR_16BIT, 0xC86A, 0x03C8}, /* cam_output_height = 960 */
 	{MISENSOR_TOK_TERM, 0, 0},
 };
 
-//[1296x976_30fps_768Mbps]
+/* [1296x976_30fps_768Mbps] */
 static struct misensor_reg const mt9m114_976P_init[] = {
 	{MISENSOR_16BIT, 0x98E, 0x1000},
-	{MISENSOR_8BIT, 0xC97E, 0x01},	  //cam_sysctl_pll_enable = 1
-	{MISENSOR_16BIT, 0xC980, 0x0128}, //cam_sysctl_pll_divider_m_n = 276
-	{MISENSOR_16BIT, 0xC982, 0x0700}, //cam_sysctl_pll_divider_p = 1792
-	{MISENSOR_16BIT, 0xC800, 0x0000}, //cam_sensor_cfg_y_addr_start = 0
-	{MISENSOR_16BIT, 0xC802, 0x0000}, //cam_sensor_cfg_x_addr_start = 0
-	{MISENSOR_16BIT, 0xC804, 0x03CF}, //cam_sensor_cfg_y_addr_end = 975
-	{MISENSOR_16BIT, 0xC806, 0x050F}, //cam_sensor_cfg_x_addr_end = 1295
-	{MISENSOR_32BIT, 0xC808, 0x2DC6C00}, //cam_sensor_cfg_pixclk = 480000
-	{MISENSOR_16BIT, 0xC80C, 0x0001}, //cam_sensor_cfg_row_speed = 1
-	{MISENSOR_16BIT, 0xC80E, 0x00DB}, //cam_sensor_cfg_fine_integ_time_min = 219
-	{MISENSOR_16BIT, 0xC810, 0x05B3}, //0x062E //cam_sensor_cfg_fine_integ_time_max = 1459
-	{MISENSOR_16BIT, 0xC812, 0x03E5}, //0x074C //cam_sensor_cfg_frame_length_lines = 1006
-	{MISENSOR_16BIT, 0xC814, 0x0644}, //0x06B1 /cam_sensor_cfg_line_length_pck = 1590
-	{MISENSOR_16BIT, 0xC816, 0x0060}, //cam_sensor_cfg_fine_correction = 96
-	{MISENSOR_16BIT, 0xC818, 0x03C3}, //cam_sensor_cfg_cpipe_last_row = 963
-	{MISENSOR_16BIT, 0xC826, 0x0020}, //cam_sensor_cfg_reg_0_data = 32
-	{MISENSOR_16BIT, 0xC834, 0x0000}, //cam_sensor_control_read_mode = 0
-	{MISENSOR_16BIT, 0xC854, 0x0000}, //cam_crop_window_xoffset = 0
-	{MISENSOR_16BIT, 0xC856, 0x0000}, //cam_crop_window_yoffset = 0
-	{MISENSOR_16BIT, 0xC858, 0x0508}, //cam_crop_window_width = 1288
-	{MISENSOR_16BIT, 0xC85A, 0x03C8}, //cam_crop_window_height = 968
-	{MISENSOR_8BIT, 0xC85C, 0x03}, //cam_crop_cropmode = 3
-	{MISENSOR_16BIT, 0xC868, 0x0508}, //cam_output_width = 1288
-	{MISENSOR_16BIT, 0xC86A, 0x03C8}, //cam_output_height = 968
-	{MISENSOR_8BIT, 0xC878, 0x00}, //0x0E //cam_aet_aemode = 0
+	{MISENSOR_8BIT, 0xC97E, 0x01},	  /* cam_sysctl_pll_enable = 1 */
+	{MISENSOR_16BIT, 0xC980, 0x0128}, /* cam_sysctl_pll_divider_m_n = 276 */
+	{MISENSOR_16BIT, 0xC982, 0x0700}, /* cam_sysctl_pll_divider_p = 1792 */
+	{MISENSOR_16BIT, 0xC800, 0x0000}, /* cam_sensor_cfg_y_addr_start = 0 */
+	{MISENSOR_16BIT, 0xC802, 0x0000}, /* cam_sensor_cfg_x_addr_start = 0 */
+	{MISENSOR_16BIT, 0xC804, 0x03CF}, /* cam_sensor_cfg_y_addr_end = 975 */
+	{MISENSOR_16BIT, 0xC806, 0x050F}, /* cam_sensor_cfg_x_addr_end = 1295 */
+	{MISENSOR_32BIT, 0xC808, 0x2DC6C00},/* cam_sensor_cfg_pixclk = 480000*/
+	{MISENSOR_16BIT, 0xC80C, 0x0001}, /* cam_sensor_cfg_row_speed = 1 */
+	/* cam_sensor_cfg_fine_integ_time_min = 219 */
+	{MISENSOR_16BIT, 0xC80E, 0x00DB},
+	 /* 0x062E //cam_sensor_cfg_fine_integ_time_max = 1459 */
+	{MISENSOR_16BIT, 0xC810, 0x05B3},
+	/* 0x074C //cam_sensor_cfg_frame_length_lines = 1006 */
+	{MISENSOR_16BIT, 0xC812, 0x03E5},
+	/* 0x06B1 /cam_sensor_cfg_line_length_pck = 1590 */
+	{MISENSOR_16BIT, 0xC814, 0x0644},
+	/* cam_sensor_cfg_fine_correction = 96 */
+	{MISENSOR_16BIT, 0xC816, 0x0060},
+	/* cam_sensor_cfg_cpipe_last_row = 963 */
+	{MISENSOR_16BIT, 0xC818, 0x03C3},
+	{MISENSOR_16BIT, 0xC826, 0x0020}, /* cam_sensor_cfg_reg_0_data = 32 */
+	{MISENSOR_16BIT, 0xC834, 0x0000}, /* cam_sensor_control_read_mode = 0 */
+	{MISENSOR_16BIT, 0xC854, 0x0000}, /* cam_crop_window_xoffset = 0 */
+	{MISENSOR_16BIT, 0xC856, 0x0000}, /* cam_crop_window_yoffset = 0 */
+	{MISENSOR_16BIT, 0xC858, 0x0508}, /* cam_crop_window_width = 1288 */
+	{MISENSOR_16BIT, 0xC85A, 0x03C8}, /* cam_crop_window_height = 968 */
+	{MISENSOR_8BIT, 0xC85C, 0x03}, /* cam_crop_cropmode = 3 */
+	{MISENSOR_16BIT, 0xC868, 0x0508}, /* cam_output_width = 1288 */
+	{MISENSOR_16BIT, 0xC86A, 0x03C8}, /* cam_output_height = 968 */
+	{MISENSOR_8BIT, 0xC878, 0x00}, /* 0x0E //cam_aet_aemode = 0 */
 	{MISENSOR_TOK_TERM, 0, 0}
 };
 
-// [1296x864_30fps]
+/* [1296x864_30fps] */
 static struct misensor_reg const mt9m114_864P_init[] = {
 	{MISENSOR_16BIT, 0x98E, 0x1000},
-	{MISENSOR_8BIT, 0xC97E, 0x01},	  //cam_sysctl_pll_enable = 1
-	{MISENSOR_16BIT, 0xC980, 0x0128}, //cam_sysctl_pll_divider_m_n = 276
-	{MISENSOR_16BIT, 0xC982, 0x0700}, //cam_sysctl_pll_divider_p = 1792
-	{MISENSOR_16BIT, 0xC800, 0x0038}, //cam_sensor_cfg_y_addr_start = 56
-	{MISENSOR_16BIT, 0xC802, 0x0000}, //cam_sensor_cfg_x_addr_start = 0
-	{MISENSOR_16BIT, 0xC804, 0x0397}, //cam_sensor_cfg_y_addr_end = 919
-	{MISENSOR_16BIT, 0xC806, 0x050F}, //cam_sensor_cfg_x_addr_end = 1295
-	{MISENSOR_32BIT, 0xC808, 0x2DC6C00}, //cam_sensor_cfg_pixclk = 48000000
-	{MISENSOR_16BIT, 0xC80C, 0x0001}, //cam_sensor_cfg_row_speed = 1
-	{MISENSOR_16BIT, 0xC80E, 0x00DB}, //cam_sensor_cfg_fine_integ_time_min = 219
-	{MISENSOR_16BIT, 0xC810, 0x05BD}, //cam_sensor_cfg_fine_integ_time_max = 1469
-	{MISENSOR_16BIT, 0xC812, 0x03E8}, //cam_sensor_cfg_frame_length_lines = 1000
-	{MISENSOR_16BIT, 0xC814, 0x0640}, //cam_sensor_cfg_line_length_pck = 1600
-	{MISENSOR_16BIT, 0xC816, 0x0060}, //cam_sensor_cfg_fine_correction = 96
-	{MISENSOR_16BIT, 0xC818, 0x035B}, //cam_sensor_cfg_cpipe_last_row = 859
-	{MISENSOR_16BIT, 0xC826, 0x0020}, //cam_sensor_cfg_reg_0_data = 32
-	{MISENSOR_16BIT, 0xC834, 0x0000}, //cam_sensor_control_read_mode = 0
-	{MISENSOR_16BIT, 0xC854, 0x0000}, //cam_crop_window_xoffset = 0
-	{MISENSOR_16BIT, 0xC856, 0x0000}, //cam_crop_window_yoffset = 0
-	{MISENSOR_16BIT, 0xC858, 0x0508}, //cam_crop_window_width = 1288
-	{MISENSOR_16BIT, 0xC85A, 0x0358}, //cam_crop_window_height = 856
-	{MISENSOR_8BIT, 0xC85C, 0x03}, //cam_crop_cropmode = 3
-	{MISENSOR_16BIT, 0xC868, 0x0508}, //cam_output_width = 1288
-	{MISENSOR_16BIT, 0xC86A, 0x0358}, //cam_output_height = 856
-	{MISENSOR_8BIT, 0xC878, 0x00}, //0x0E //cam_aet_aemode = 0
+	{MISENSOR_8BIT, 0xC97E, 0x01},	  /* cam_sysctl_pll_enable = 1 */
+	{MISENSOR_16BIT, 0xC980, 0x0128}, /* cam_sysctl_pll_divider_m_n = 276 */
+	{MISENSOR_16BIT, 0xC982, 0x0700}, /* cam_sysctl_pll_divider_p = 1792 */
+	{MISENSOR_16BIT, 0xC800, 0x0038}, /* cam_sensor_cfg_y_addr_start = 56 */
+	{MISENSOR_16BIT, 0xC802, 0x0000}, /* cam_sensor_cfg_x_addr_start = 0 */
+	{MISENSOR_16BIT, 0xC804, 0x0397}, /* cam_sensor_cfg_y_addr_end = 919 */
+	{MISENSOR_16BIT, 0xC806, 0x050F}, /* cam_sensor_cfg_x_addr_end = 1295 */
+	/* cam_sensor_cfg_pixclk = 48000000 */
+	{MISENSOR_32BIT, 0xC808, 0x2DC6C00},
+	{MISENSOR_16BIT, 0xC80C, 0x0001}, /* cam_sensor_cfg_row_speed = 1 */
+	/* cam_sensor_cfg_fine_integ_time_min = 219 */
+	{MISENSOR_16BIT, 0xC80E, 0x00DB},
+	/* cam_sensor_cfg_fine_integ_time_max = 1469 */
+	{MISENSOR_16BIT, 0xC810, 0x05BD},
+	/* cam_sensor_cfg_frame_length_lines = 1000 */
+	{MISENSOR_16BIT, 0xC812, 0x03E8},
+	/* cam_sensor_cfg_line_length_pck = 1600 */
+	{MISENSOR_16BIT, 0xC814, 0x0640},
+	/* cam_sensor_cfg_fine_correction = 96 */
+	{MISENSOR_16BIT, 0xC816, 0x0060},
+	/* cam_sensor_cfg_cpipe_last_row = 859 */
+	{MISENSOR_16BIT, 0xC818, 0x035B},
+	{MISENSOR_16BIT, 0xC826, 0x0020}, /* cam_sensor_cfg_reg_0_data = 32 */
+	{MISENSOR_16BIT, 0xC834, 0x0000}, /* cam_sensor_control_read_mode = 0 */
+	{MISENSOR_16BIT, 0xC854, 0x0000}, /* cam_crop_window_xoffset = 0 */
+	{MISENSOR_16BIT, 0xC856, 0x0000}, /* cam_crop_window_yoffset = 0 */
+	{MISENSOR_16BIT, 0xC858, 0x0508}, /* cam_crop_window_width = 1288 */
+	{MISENSOR_16BIT, 0xC85A, 0x0358}, /* cam_crop_window_height = 856 */
+	{MISENSOR_8BIT, 0xC85C, 0x03}, /* cam_crop_cropmode = 3 */
+	{MISENSOR_16BIT, 0xC868, 0x0508}, /* cam_output_width = 1288 */
+	{MISENSOR_16BIT, 0xC86A, 0x0358}, /* cam_output_height = 856 */
+	{MISENSOR_8BIT, 0xC878, 0x00}, /* 0x0E //cam_aet_aemode = 0 */
 	{MISENSOR_TOK_TERM, 0, 0}
 };
 
-// [1296x736_30fps]
+/* [1296x736_30fps] */
 static struct misensor_reg const mt9m114_736P_init[] = {
 	{MISENSOR_16BIT, 0x98E, 0x1000},
-	{MISENSOR_8BIT, 0xC97E, 0x01},	  //cam_sysctl_pll_enable = 1
-	{MISENSOR_16BIT, 0xC980, 0x011F}, //cam_sysctl_pll_divider_m_n = 287
-	{MISENSOR_16BIT, 0xC982, 0x0700}, //cam_sysctl_pll_divider_p = 1792
-	{MISENSOR_16BIT, 0xC800, 0x0078}, //cam_sensor_cfg_y_addr_start = 120
-	{MISENSOR_16BIT, 0xC802, 0x0000}, //cam_sensor_cfg_x_addr_start = 0
-	{MISENSOR_16BIT, 0xC804, 0x0357}, //cam_sensor_cfg_y_addr_end = 855
-	{MISENSOR_16BIT, 0xC806, 0x050F}, //cam_sensor_cfg_x_addr_end = 1295
-	{MISENSOR_32BIT, 0xC808, 0x237A07F}, //cam_sensor_cfg_pixclk = 37199999
-	{MISENSOR_16BIT, 0xC80C, 0x0001}, //cam_sensor_cfg_row_speed = 1
-	{MISENSOR_16BIT, 0xC80E, 0x00DB}, //cam_sensor_cfg_fine_integ_time_min = 219
-	{MISENSOR_16BIT, 0xC810, 0x05BD}, //0x062E //cam_sensor_cfg_fine_integ_time_max = 1469
-	{MISENSOR_16BIT, 0xC812, 0x0307}, //0x074C //cam_sensor_cfg_frame_length_lines = 775
-	{MISENSOR_16BIT, 0xC814, 0x0640}, //0x06B1 /cam_sensor_cfg_line_length_pck = 1600
-	{MISENSOR_16BIT, 0xC816, 0x0060}, //cam_sensor_cfg_fine_correction = 96
-	{MISENSOR_16BIT, 0xC818, 0x02DB}, //cam_sensor_cfg_cpipe_last_row = 731
-	{MISENSOR_16BIT, 0xC826, 0x0020}, //cam_sensor_cfg_reg_0_data = 32
-	{MISENSOR_16BIT, 0xC834, 0x0000}, //cam_sensor_control_read_mode = 0
-	{MISENSOR_16BIT, 0xC854, 0x0000}, //cam_crop_window_xoffset = 0
-	{MISENSOR_16BIT, 0xC856, 0x0000}, //cam_crop_window_yoffset = 0
-	{MISENSOR_16BIT, 0xC858, 0x0508}, //cam_crop_window_width = 1288
-	{MISENSOR_16BIT, 0xC85A, 0x02D8}, //cam_crop_window_height = 728
-	{MISENSOR_8BIT, 0xC85C, 0x03}, //cam_crop_cropmode = 3
-	{MISENSOR_16BIT, 0xC868, 0x0508}, //cam_output_width = 1288
-	{MISENSOR_16BIT, 0xC86A, 0x02D8}, //cam_output_height = 728
-	{MISENSOR_8BIT, 0xC878, 0x00}, //0x0E //cam_aet_aemode = 0
+	{MISENSOR_8BIT, 0xC97E, 0x01},	  /* cam_sysctl_pll_enable = 1 */
+	{MISENSOR_16BIT, 0xC980, 0x011F}, /* cam_sysctl_pll_divider_m_n = 287 */
+	{MISENSOR_16BIT, 0xC982, 0x0700}, /* cam_sysctl_pll_divider_p = 1792 */
+	{MISENSOR_16BIT, 0xC800, 0x0078}, /* cam_sensor_cfg_y_addr_start = 120*/
+	{MISENSOR_16BIT, 0xC802, 0x0000}, /* cam_sensor_cfg_x_addr_start = 0 */
+	{MISENSOR_16BIT, 0xC804, 0x0357}, /* cam_sensor_cfg_y_addr_end = 855 */
+	{MISENSOR_16BIT, 0xC806, 0x050F}, /* cam_sensor_cfg_x_addr_end = 1295 */
+	{MISENSOR_32BIT, 0xC808, 0x237A07F}, /* cam_sensor_cfg_pixclk=37199999*/
+	{MISENSOR_16BIT, 0xC80C, 0x0001}, /* cam_sensor_cfg_row_speed = 1 */
+	/* cam_sensor_cfg_fine_integ_time_min = 219 */
+	{MISENSOR_16BIT, 0xC80E, 0x00DB},
+	/* 0x062E //cam_sensor_cfg_fine_integ_time_max = 1469 */
+	{MISENSOR_16BIT, 0xC810, 0x05BD},
+	/* 0x074C //cam_sensor_cfg_frame_length_lines = 775 */
+	{MISENSOR_16BIT, 0xC812, 0x0307},
+	/* 0x06B1 /cam_sensor_cfg_line_length_pck = 1600 */
+	{MISENSOR_16BIT, 0xC814, 0x0640},
+	/* cam_sensor_cfg_fine_correction = 96 */
+	{MISENSOR_16BIT, 0xC816, 0x0060},
+	/* cam_sensor_cfg_cpipe_last_row = 731 */
+	{MISENSOR_16BIT, 0xC818, 0x02DB},
+	{MISENSOR_16BIT, 0xC826, 0x0020}, /* cam_sensor_cfg_reg_0_data = 32 */
+	{MISENSOR_16BIT, 0xC834, 0x0000}, /* cam_sensor_control_read_mode = 0 */
+	{MISENSOR_16BIT, 0xC854, 0x0000}, /* cam_crop_window_xoffset = 0 */
+	{MISENSOR_16BIT, 0xC856, 0x0000}, /* cam_crop_window_yoffset = 0 */
+	{MISENSOR_16BIT, 0xC858, 0x0508}, /* cam_crop_window_width = 1288 */
+	{MISENSOR_16BIT, 0xC85A, 0x02D8}, /* cam_crop_window_height = 728 */
+	{MISENSOR_8BIT, 0xC85C, 0x03}, /* cam_crop_cropmode = 3 */
+	{MISENSOR_16BIT, 0xC868, 0x0508}, /* cam_output_width = 1288 */
+	{MISENSOR_16BIT, 0xC86A, 0x02D8}, /* cam_output_height = 728 */
+	{MISENSOR_8BIT, 0xC878, 0x00}, /* 0x0E //cam_aet_aemode = 0 */
 	{MISENSOR_TOK_TERM, 0, 0}
 };
 
-//[736x496_30fps_768Mbps]
+/* [736x496_30fps_768Mbps] */
 static struct misensor_reg const mt9m114_720_480P_init[] = {
 	{MISENSOR_16BIT, 0x98E, 0x1000},
-	{MISENSOR_8BIT, 0xC97E, 0x01},	  //cam_sysctl_pll_enable = 1
-	{MISENSOR_16BIT, 0xC980, 0x0128}, //cam_sysctl_pll_divider_m_n = 276
-	{MISENSOR_16BIT, 0xC982, 0x0700}, //cam_sysctl_pll_divider_p = 1792
-	{MISENSOR_16BIT, 0xC800, 0x00F0}, //cam_sensor_cfg_y_addr_start = 240
-	{MISENSOR_16BIT, 0xC802, 0x0118}, //cam_sensor_cfg_x_addr_start = 280
-	{MISENSOR_16BIT, 0xC804, 0x02DF}, //cam_sensor_cfg_y_addr_end = 735
-	{MISENSOR_16BIT, 0xC806, 0x03F7}, //cam_sensor_cfg_x_addr_end = 1015
-	{MISENSOR_32BIT, 0xC808, 0x2DC6C00}, //cam_sensor_cfg_pixclk = 48000000
-	{MISENSOR_16BIT, 0xC80C, 0x0001}, //cam_sensor_cfg_row_speed = 1
-	{MISENSOR_16BIT, 0xC80E, 0x00DB}, //cam_sensor_cfg_fine_integ_time_min = 219
-	{MISENSOR_16BIT, 0xC810, 0x05B3}, //0x062E //cam_sensor_cfg_fine_integ_time_max = 1459
-	{MISENSOR_16BIT, 0xC812, 0x03E5}, //0x074C //cam_sensor_cfg_frame_length_lines = 997
-	{MISENSOR_16BIT, 0xC814, 0x0644}, //0x06B1 /cam_sensor_cfg_line_length_pck = 1604
-	{MISENSOR_16BIT, 0xC816, 0x0060}, //cam_sensor_cfg_fine_correction = 96
-	{MISENSOR_16BIT, 0xC818, 0x03C3}, //cam_sensor_cfg_cpipe_last_row = 963
-	{MISENSOR_16BIT, 0xC826, 0x0020}, //cam_sensor_cfg_reg_0_data = 32
-	{MISENSOR_16BIT, 0xC834, 0x0000}, //cam_sensor_control_read_mode = 0
-	{MISENSOR_16BIT, 0xC854, 0x0000}, //cam_crop_window_xoffset = 0
-	{MISENSOR_16BIT, 0xC856, 0x0000}, //cam_crop_window_yoffset = 0
-	{MISENSOR_16BIT, 0xC858, 0x02D8}, //cam_crop_window_width = 728
-	{MISENSOR_16BIT, 0xC85A, 0x01E8}, //cam_crop_window_height = 488
-	{MISENSOR_8BIT, 0xC85C, 0x03}, //cam_crop_cropmode = 3
-	{MISENSOR_16BIT, 0xC868, 0x02D8}, //cam_output_width = 728
-	{MISENSOR_16BIT, 0xC86A, 0x01E8}, //cam_output_height = 488
-	{MISENSOR_8BIT, 0xC878, 0x00}, //0x0E //cam_aet_aemode = 0
+	{MISENSOR_8BIT, 0xC97E, 0x01},	  /* cam_sysctl_pll_enable = 1 */
+	{MISENSOR_16BIT, 0xC980, 0x0128}, /* cam_sysctl_pll_divider_m_n = 276 */
+	{MISENSOR_16BIT, 0xC982, 0x0700}, /* cam_sysctl_pll_divider_p = 1792 */
+	{MISENSOR_16BIT, 0xC800, 0x00F0}, /* cam_sensor_cfg_y_addr_start = 240*/
+	{MISENSOR_16BIT, 0xC802, 0x0118}, /* cam_sensor_cfg_x_addr_start = 280*/
+	{MISENSOR_16BIT, 0xC804, 0x02DF}, /* cam_sensor_cfg_y_addr_end = 735 */
+	{MISENSOR_16BIT, 0xC806, 0x03F7}, /* cam_sensor_cfg_x_addr_end = 1015 */
+	/* cam_sensor_cfg_pixclk = 48000000 */
+	{MISENSOR_32BIT, 0xC808, 0x2DC6C00},
+	{MISENSOR_16BIT, 0xC80C, 0x0001}, /* cam_sensor_cfg_row_speed = 1 */
+	/* cam_sensor_cfg_fine_integ_time_min = 219 */
+	{MISENSOR_16BIT, 0xC80E, 0x00DB},
+	/* 0x062E //cam_sensor_cfg_fine_integ_time_max = 1459 */
+	{MISENSOR_16BIT, 0xC810, 0x05B3},
+	/* 0x074C //cam_sensor_cfg_frame_length_lines = 997 */
+	{MISENSOR_16BIT, 0xC812, 0x03E5},
+	/* 0x06B1 /cam_sensor_cfg_line_length_pck = 1604 */
+	{MISENSOR_16BIT, 0xC814, 0x0644},
+	/* cam_sensor_cfg_fine_correction = 96 */
+	{MISENSOR_16BIT, 0xC816, 0x0060},
+	{MISENSOR_16BIT, 0xC818, 0x03C3}, /* cam_sensor_cfg_cpipe_last_row=963*/
+	{MISENSOR_16BIT, 0xC826, 0x0020}, /* cam_sensor_cfg_reg_0_data = 32 */
+	{MISENSOR_16BIT, 0xC834, 0x0000}, /* cam_sensor_control_read_mode = 0*/
+	{MISENSOR_16BIT, 0xC854, 0x0000}, /* cam_crop_window_xoffset = 0 */
+	{MISENSOR_16BIT, 0xC856, 0x0000}, /* cam_crop_window_yoffset = 0 */
+	{MISENSOR_16BIT, 0xC858, 0x02D8}, /* cam_crop_window_width = 728 */
+	{MISENSOR_16BIT, 0xC85A, 0x01E8}, /* cam_crop_window_height = 488 */
+	{MISENSOR_8BIT, 0xC85C, 0x03}, /* cam_crop_cropmode = 3 */
+	{MISENSOR_16BIT, 0xC868, 0x02D8}, /* cam_output_width = 728 */
+	{MISENSOR_16BIT, 0xC86A, 0x01E8}, /* cam_output_height = 488 */
+	{MISENSOR_8BIT, 0xC878, 0x00}, /* 0x0E //cam_aet_aemode = 0 */
 	{MISENSOR_TOK_TERM, 0, 0}
 };
 
 static struct misensor_reg const mt9m114_common[] = {
 	/* reset */
 	{MISENSOR_16BIT,  0x301A, 0x0234},
-	//LOAD = Step2-PLL_Timing      //PLL and Timing
-	{MISENSOR_16BIT, 0x098E, 0x1000}, // LOGICAL_ADDRESS_ACCESS
-	{MISENSOR_8BIT, 0xC97E, 0x01},    //cam_sysctl_pll_enable = 1
-	{MISENSOR_16BIT, 0xC980, 0x0128}, //cam_sysctl_pll_divider_m_n = 276
-	{MISENSOR_16BIT, 0xC982, 0x0700}, //cam_sysctl_pll_divider_p = 1792
-	{MISENSOR_16BIT, 0xC800, 0x0000}, //cam_sensor_cfg_y_addr_start = 216
-	{MISENSOR_16BIT, 0xC802, 0x0000}, //cam_sensor_cfg_x_addr_start = 168
-	{MISENSOR_16BIT, 0xC804, 0x03CD}, //cam_sensor_cfg_y_addr_end = 761
-	{MISENSOR_16BIT, 0xC806, 0x050D}, //cam_sensor_cfg_x_addr_end = 1127
-	{MISENSOR_16BIT, 0xC808, 0x02DC}, //cam_sensor_cfg_pixclk = 24000000
+	/* LOAD = Step2-PLL_Timing      //PLL and Timing */
+	{MISENSOR_16BIT, 0x098E, 0x1000}, /* LOGICAL_ADDRESS_ACCESS */
+	{MISENSOR_8BIT, 0xC97E, 0x01},    /* cam_sysctl_pll_enable = 1 */
+	{MISENSOR_16BIT, 0xC980, 0x0128}, /* cam_sysctl_pll_divider_m_n = 276 */
+	{MISENSOR_16BIT, 0xC982, 0x0700}, /* cam_sysctl_pll_divider_p = 1792 */
+	{MISENSOR_16BIT, 0xC800, 0x0000}, /* cam_sensor_cfg_y_addr_start = 216*/
+	{MISENSOR_16BIT, 0xC802, 0x0000}, /* cam_sensor_cfg_x_addr_start = 168*/
+	{MISENSOR_16BIT, 0xC804, 0x03CD}, /* cam_sensor_cfg_y_addr_end = 761 */
+	{MISENSOR_16BIT, 0xC806, 0x050D}, /* cam_sensor_cfg_x_addr_end = 1127 */
+	{MISENSOR_16BIT, 0xC808, 0x02DC}, /* cam_sensor_cfg_pixclk = 24000000 */
 	{MISENSOR_16BIT, 0xC80A, 0x6C00},
-	{MISENSOR_16BIT, 0xC80C, 0x0001}, //cam_sensor_cfg_row_speed = 1
-	{MISENSOR_16BIT, 0xC80E, 0x01C3}, //cam_sensor_cfg_fine_integ_time_min = 219
-	{MISENSOR_16BIT, 0xC810, 0x03F7}, //cam_sensor_cfg_fine_integ_time_max = 1149
-	{MISENSOR_16BIT, 0xC812, 0x0500}, //cam_sensor_cfg_frame_length_lines = 625
-	{MISENSOR_16BIT, 0xC814, 0x04E2}, //cam_sensor_cfg_line_length_pck = 1280
-	{MISENSOR_16BIT, 0xC816, 0x00E0}, //cam_sensor_cfg_fine_correction = 96
-	{MISENSOR_16BIT, 0xC818, 0x01E3}, //cam_sensor_cfg_cpipe_last_row = 541
-	{MISENSOR_16BIT, 0xC826, 0x0020}, //cam_sensor_cfg_reg_0_data = 32
-	{MISENSOR_16BIT, 0xC834, 0x0330}, //cam_sensor_control_read_mode = 0
-	{MISENSOR_16BIT, 0xC854, 0x0000}, //cam_crop_window_xoffset = 0
-	{MISENSOR_16BIT, 0xC856, 0x0000}, //cam_crop_window_yoffset = 0
-	{MISENSOR_16BIT, 0xC858, 0x0280}, //cam_crop_window_width = 952
-	{MISENSOR_16BIT, 0xC85A, 0x01E0}, //cam_crop_window_height = 538
-	{MISENSOR_8BIT, 0xC85C, 0x03},    //cam_crop_cropmode = 3
-	{MISENSOR_16BIT, 0xC868, 0x0280}, //cam_output_width = 952
-	{MISENSOR_16BIT, 0xC86A, 0x01E0}, //cam_output_height = 538
-	//LOAD = Step3-Recommended     //Patch,Errata and Sensor optimization Setting
-	{MISENSOR_16BIT, 0x316A, 0x8270}, // DAC_TXLO_ROW
-	{MISENSOR_16BIT, 0x316C, 0x8270}, // DAC_TXLO
-	{MISENSOR_16BIT, 0x3ED0, 0x2305}, // DAC_LD_4_5
-	{MISENSOR_16BIT, 0x3ED2, 0x77CF}, // DAC_LD_6_7
-	{MISENSOR_16BIT, 0x316E, 0x8202}, // DAC_ECL
-	{MISENSOR_16BIT, 0x3180, 0x87FF}, // DELTA_DK_CONTROL
-	{MISENSOR_16BIT, 0x30D4, 0x6080}, // COLUMN_CORRECTION
-	{MISENSOR_16BIT, 0xA802, 0x0008}, // AE_TRACK_MODE
-	{MISENSOR_16BIT, 0x3E14, 0xFF39}, // SAMP_COL_PUP2
-	{MISENSOR_16BIT, 0x31E0, 0x0003}, // PIX_DEF_ID
-	//LOAD = Step8-Features		//Ports, special features, etc.
-	{MISENSOR_16BIT, 0x098E, 0x0000}, // LOGICAL_ADDRESS_ACCESS
-	{MISENSOR_16BIT, 0x001E, 0x0777}, // PAD_SLEW
-	{MISENSOR_16BIT, 0x098E, 0x0000}, // LOGICAL_ADDRESS_ACCESS
-	{MISENSOR_16BIT, 0xC984, 0x8001}, // CAM_PORT_OUTPUT_CONTROL
-	{MISENSOR_16BIT, 0xC988, 0x0F00}, // CAM_PORT_MIPI_TIMING_T_HS_ZERO
-	{MISENSOR_16BIT, 0xC98A, 0x0B07}, // CAM_PORT_MIPI_TIMING_T_HS_EXIT_HS_TRAIL
-	{MISENSOR_16BIT, 0xC98C, 0x0D01}, // CAM_PORT_MIPI_TIMING_T_CLK_POST_CLK_PRE
-	{MISENSOR_16BIT, 0xC98E, 0x071D}, // CAM_PORT_MIPI_TIMING_T_CLK_TRAIL_CLK_ZERO
-	{MISENSOR_16BIT, 0xC990, 0x0006}, // CAM_PORT_MIPI_TIMING_T_LPX
-	{MISENSOR_16BIT, 0xC992, 0x0A0C}, // CAM_PORT_MIPI_TIMING_INIT_TIMING
-	{MISENSOR_16BIT, 0x3C5A, 0x0009}, // MIPI_DELAY_TRIM
-	{MISENSOR_16BIT, 0xC86C, 0x0210}, // CAM_OUTPUT_FORMAT
-	{MISENSOR_16BIT, 0xA804, 0x0000}, // AE_TRACK_ALGO
-	//default exposure
-	{MISENSOR_16BIT, 0x3012, 0x0110}, // COMMAND_REGISTER
+	{MISENSOR_16BIT, 0xC80C, 0x0001}, /* cam_sensor_cfg_row_speed = 1 */
+	/* cam_sensor_cfg_fine_integ_time_min = 219 */
+	{MISENSOR_16BIT, 0xC80E, 0x01C3},
+	/* cam_sensor_cfg_fine_integ_time_max = 1149 */
+	{MISENSOR_16BIT, 0xC810, 0x03F7},
+	/* cam_sensor_cfg_frame_length_lines = 625 */
+	{MISENSOR_16BIT, 0xC812, 0x0500},
+	/* cam_sensor_cfg_line_length_pck = 1280 */
+	{MISENSOR_16BIT, 0xC814, 0x04E2},
+	/* cam_sensor_cfg_fine_correction = 96 */
+	{MISENSOR_16BIT, 0xC816, 0x00E0},
+	/* cam_sensor_cfg_cpipe_last_row = 541 */
+	{MISENSOR_16BIT, 0xC818, 0x01E3},
+	{MISENSOR_16BIT, 0xC826, 0x0020}, /* cam_sensor_cfg_reg_0_data = 32 */
+	{MISENSOR_16BIT, 0xC834, 0x0330}, /* cam_sensor_control_read_mode = 0 */
+	{MISENSOR_16BIT, 0xC854, 0x0000}, /* cam_crop_window_xoffset = 0 */
+	{MISENSOR_16BIT, 0xC856, 0x0000}, /* cam_crop_window_yoffset = 0 */
+	{MISENSOR_16BIT, 0xC858, 0x0280}, /* cam_crop_window_width = 952 */
+	{MISENSOR_16BIT, 0xC85A, 0x01E0}, /* cam_crop_window_height = 538 */
+	{MISENSOR_8BIT, 0xC85C, 0x03},    /* cam_crop_cropmode = 3 */
+	{MISENSOR_16BIT, 0xC868, 0x0280}, /* cam_output_width = 952 */
+	{MISENSOR_16BIT, 0xC86A, 0x01E0}, /* cam_output_height = 538 */
+	/* LOAD = Step3-Recommended
+	 * Patch,Errata and Sensor optimization Setting */
+	{MISENSOR_16BIT, 0x316A, 0x8270}, /* DAC_TXLO_ROW */
+	{MISENSOR_16BIT, 0x316C, 0x8270}, /* DAC_TXLO */
+	{MISENSOR_16BIT, 0x3ED0, 0x2305}, /* DAC_LD_4_5 */
+	{MISENSOR_16BIT, 0x3ED2, 0x77CF}, /* DAC_LD_6_7 */
+	{MISENSOR_16BIT, 0x316E, 0x8202}, /* DAC_ECL */
+	{MISENSOR_16BIT, 0x3180, 0x87FF}, /* DELTA_DK_CONTROL */
+	{MISENSOR_16BIT, 0x30D4, 0x6080}, /* COLUMN_CORRECTION */
+	{MISENSOR_16BIT, 0xA802, 0x0008}, /* AE_TRACK_MODE */
+	{MISENSOR_16BIT, 0x3E14, 0xFF39}, /* SAMP_COL_PUP2 */
+	{MISENSOR_16BIT, 0x31E0, 0x0003}, /* PIX_DEF_ID */
+	/* LOAD = Step8-Features	//Ports, special features, etc. */
+	{MISENSOR_16BIT, 0x098E, 0x0000}, /* LOGICAL_ADDRESS_ACCESS */
+	{MISENSOR_16BIT, 0x001E, 0x0777}, /* PAD_SLEW */
+	{MISENSOR_16BIT, 0x098E, 0x0000}, /* LOGICAL_ADDRESS_ACCESS */
+	{MISENSOR_16BIT, 0xC984, 0x8001}, /* CAM_PORT_OUTPUT_CONTROL */
+	{MISENSOR_16BIT, 0xC988, 0x0F00}, /* CAM_PORT_MIPI_TIMING_T_HS_ZERO */
+	/* CAM_PORT_MIPI_TIMING_T_HS_EXIT_HS_TRAIL */
+	{MISENSOR_16BIT, 0xC98A, 0x0B07},
+	/* CAM_PORT_MIPI_TIMING_T_CLK_POST_CLK_PRE */
+	{MISENSOR_16BIT, 0xC98C, 0x0D01},
+	/* CAM_PORT_MIPI_TIMING_T_CLK_TRAIL_CLK_ZERO */
+	{MISENSOR_16BIT, 0xC98E, 0x071D},
+	{MISENSOR_16BIT, 0xC990, 0x0006}, /* CAM_PORT_MIPI_TIMING_T_LPX */
+	{MISENSOR_16BIT, 0xC992, 0x0A0C}, /* CAM_PORT_MIPI_TIMING_INIT_TIMING */
+	{MISENSOR_16BIT, 0x3C5A, 0x0009}, /* MIPI_DELAY_TRIM */
+	{MISENSOR_16BIT, 0xC86C, 0x0210}, /* CAM_OUTPUT_FORMAT */
+	{MISENSOR_16BIT, 0xA804, 0x0000}, /* AE_TRACK_ALGO */
+	/* default exposure */
+	{MISENSOR_16BIT, 0x3012, 0x0110}, /* COMMAND_REGISTER */
 	{MISENSOR_TOK_TERM, 0, 0},
 
 };

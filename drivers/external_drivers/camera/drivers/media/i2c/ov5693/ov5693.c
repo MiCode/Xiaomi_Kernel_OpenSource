@@ -897,7 +897,8 @@ static int ov5693_s_mbus_fmt(struct v4l2_subdev *sd,
 		goto done;
 	}
 
-	ret = ov5693_write_reg_array(client, dev->ov5693_res[dev->fmt_idx].regs);
+	ret = ov5693_write_reg_array(client,
+					dev->ov5693_res[dev->fmt_idx].regs);
 	if (ret) {
 		dev_err(&client->dev, "ov5693 write fmt register err.\n");
 		goto done;

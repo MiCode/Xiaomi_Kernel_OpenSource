@@ -694,7 +694,8 @@ static const struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT, 0x578F, 0x01}, /* DPC CTRL0F */
 	{OV8858_8BIT, 0x5790, 0x01}, /* DPC CTRL10 */
 	{OV8858_8BIT, 0x5901, 0x00}, /* VAP CTRL01 = default */
-	{OV8858_8BIT, 0x5A08, 0x00}, /* WINC CTRL08 = embedded data in 1st line*/
+	/* WINC CTRL08 = embedded data in 1st line*/
+	{OV8858_8BIT, 0x5A08, 0x00},
 	{OV8858_8BIT, 0x5B00, 0x02}, /* OTP CTRL00 */
 	{OV8858_8BIT, 0x5B01, 0x10}, /* OTP CTRL01 */
 	{OV8858_8BIT, 0x5B02, 0x03}, /* OTP CTRL02 */

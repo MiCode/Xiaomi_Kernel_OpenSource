@@ -196,7 +196,7 @@ int drv201_q_focus_abs(struct v4l2_subdev *sd, s32 *value)
 	if (val & ATOMISP_FOCUS_STATUS_MOVING)
 		*value  = drv201_dev.focus - drv201_dev.number_of_steps;
 	else
-		*value  = drv201_dev.focus ;
+		*value  = drv201_dev.focus;
 
 	return 0;
 }

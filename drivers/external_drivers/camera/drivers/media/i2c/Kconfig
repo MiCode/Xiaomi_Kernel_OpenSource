@@ -38,11 +38,17 @@ config VIDEO_M10MO
 	  It currently depends on internal V4L2 extensions defined in
 	  atomisp driver.
 
+          It currently only works with the atomisp driver.
+
 config VIDEO_M10MO_FAKE_SFI_TABLE
 	bool "Add fake SFI entry for Fujitsu M10MO on VV board + AOB"
 	depends on VIDEO_M10MO
 	---help---
 	  Enable this when working with VV board with Fujitsu AOB.
+
+	  This is FAKE SFI table.
+
+	  Please note:
 
 	  Not needed if device IFWI already has M10MO in the SFI table.
 
@@ -62,7 +68,9 @@ config VIDEO_OV8830
        depends on I2C && VIDEO_V4L2 && VIDEO_ATOMISP
        ---help---
          This is a Video4Linux2 sensor-level driver for the Omnivision
-         ov8830 8MP RAW sensor.
+         ov8830 RAW sensor.
+
+	 OV8830 is a 8M raw sensor.
 
          It currently only works with the atomisp driver.
 
@@ -71,7 +79,9 @@ config VIDEO_OV8858
        depends on I2C && VIDEO_V4L2 && VIDEO_ATOMISP
        ---help---
          This is a Video4Linux2 sensor-level driver for the Omnivision
-         ov8858 8MP RAW sensor.
+         ov8858 RAW sensor.
+
+	 OV8858 is a 8M raw sensor.
 
          It currently only works with the atomisp driver.
 
@@ -79,7 +89,10 @@ config VIDEO_CSI_XACTOR
         tristate "csi xactor"
         depends on I2C && VIDEO_V4L2 && VIDEO_ATOMISP
         ---help---
-          Use this if you need to send data through external csi data generator
+          Use this if you need to send data through external csi data
+	  generator.
+
+	  CSI Xactor module.
 
           To compile this driver as a module, choose M here.
 
@@ -129,6 +142,8 @@ config VIDEO_MT9M114
          mt9m114 1.3 Mpixel camera.
 
          mt9m114 is video camrea sensor.
+
+         It currently only works with the atomisp driver.
 config VIDEO_MT9V113
        tristate "Aptina mt9v113 sensor support"
        depends on I2C && VIDEO_V4L2
@@ -167,7 +182,12 @@ config VIDEO_PIXTER
        depends on I2C && VIDEO_V4L2
        ---help---
          This is a Video4Linux2 sensor-level driver for Pixter2+.
+
+	 Pixter 2+ MIPI CSI simulator.
+
          Pixter 2+ is a MIPI CSI simulator.
+
+         It currently only works with the atomisp driver.
 
 config VIDEO_OV680
        tristate "OV680 external ISP support"

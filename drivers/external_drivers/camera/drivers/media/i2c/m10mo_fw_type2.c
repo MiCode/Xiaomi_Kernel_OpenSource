@@ -137,7 +137,8 @@ static int m10mo_set_burst_capture(struct v4l2_subdev *sd)
 	ret = m10mo_request_mode_change(sd, M10MO_PARAMETER_MODE);
 	if (ret)
 		return ret;
-	ret = m10mo_wait_mode_change(sd, M10MO_PARAMETER_MODE, M10MO_INIT_TIMEOUT);
+	ret = m10mo_wait_mode_change(sd, M10MO_PARAMETER_MODE,
+					M10MO_INIT_TIMEOUT);
 	if (ret)
 		return ret;
 
@@ -182,10 +183,11 @@ static int m10mo_set_still_capture_fw_type2(struct v4l2_subdev *sd)
 
 	/* Setting before switching to capture mode */
 	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_PARAM, CAPP_MAIN_IMAGE_SIZE,
-			  resolutions[mode][M10MO_MODE_CAPTURE_INDEX][dev->capture_res_idx].command);
+resolutions[mode][M10MO_MODE_CAPTURE_INDEX][dev->capture_res_idx].command);
 	if (ret)
 		goto out;
-	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL, CAPC_MODE, 0);/* Single Capture*/
+	/* Single Capture*/
+	ret = m10mo_writeb(sd, CATEGORY_CAPTURE_CTRL, CAPC_MODE, 0);
 	if (ret)
 		goto out;
 
@@ -261,7 +263,8 @@ int m10mo_streamoff_fw_type2(struct v4l2_subdev *sd)
 
 	if (dev->mode == M10MO_SINGLE_CAPTURE_MODE) {
 		/* Exit capture mode and back to monitor mode */
-		ret = m10mo_writeb(sd, CATEGORY_SYSTEM, SYSTEM_INT_ENABLE, 0x01);
+		ret = m10mo_writeb(sd, CATEGORY_SYSTEM,
+				SYSTEM_INT_ENABLE, 0x01);
 		if (ret)
 			goto out;
 		ret = __m10mo_monitor_mode_set(sd);
@@ -278,7 +281,8 @@ int m10mo_streamoff_fw_type2(struct v4l2_subdev *sd)
 		if (ret)
 			goto out;
 		/* Restart monitor mode. */
-		ret = m10mo_writeb(sd, CATEGORY_SYSTEM, SYSTEM_INT_ENABLE, 0x01);
+		ret = m10mo_writeb(sd, CATEGORY_SYSTEM,
+				SYSTEM_INT_ENABLE, 0x01);
 		if (ret)
 			return ret;
 		ret = __m10mo_monitor_mode_set(sd);

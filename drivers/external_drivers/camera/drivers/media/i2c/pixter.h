@@ -72,7 +72,7 @@
 #define PIXTER_SETTING_START	0x80000008
 
 #define PIXTER_RONLY		S_IRUSR
-#define PIXTER_RW			S_IRUSR | S_IWUSR
+#define PIXTER_RW		(S_IRUSR | S_IWUSR)
 
 enum pixter_image_format {
 	PIXTER_UNKNOWN_FMT,

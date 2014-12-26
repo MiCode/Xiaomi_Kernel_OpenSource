@@ -189,7 +189,7 @@ int dw9714_q_focus_abs(struct v4l2_subdev *sd, s32 *value)
 	if (val & ATOMISP_FOCUS_STATUS_MOVING)
 		*value  = dw9714_dev.focus - dw9714_dev.number_of_steps;
 	else
-		*value  = dw9714_dev.focus ;
+		*value  = dw9714_dev.focus;
 
 	return 0;
 }

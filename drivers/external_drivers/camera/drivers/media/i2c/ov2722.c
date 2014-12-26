@@ -408,7 +408,7 @@ static long __ov2722_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 		return ret;
 
 	hts = dev->pixels_per_line;
-	vts = dev->lines_per_frame;;
+	vts = dev->lines_per_frame;
 
 	if ((coarse_itg + OV2722_COARSE_INTG_TIME_MAX_MARGIN) > vts)
 		vts = coarse_itg + OV2722_COARSE_INTG_TIME_MAX_MARGIN;
@@ -611,8 +611,8 @@ struct ov2722_control ov2722_controls[] = {
 
 static int ov2722_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct ov2722_device *dev = container_of(ctrl->handler, struct ov2722_device,
-			ctrl_handler);
+	struct ov2722_device *dev = container_of(ctrl->handler,
+			struct ov2722_device, ctrl_handler);
 	unsigned int val;
 
 	switch (ctrl->id) {
@@ -726,7 +726,7 @@ static int power_ctrl(struct v4l2_subdev *sd, bool flag)
 		if (ret == 0) {
 			ret = dev->platform_data->v1p8_ctrl(sd, 1);
 			if (ret)
-			   dev->platform_data->v2p8_ctrl(sd, 0);
+				dev->platform_data->v2p8_ctrl(sd, 0);
 		}
 	} else {
 		ret = dev->platform_data->v1p8_ctrl(sd, 0);
@@ -1430,9 +1430,8 @@ static int __ov2722_init_ctrl_handler(struct ov2722_device *dev)
 					      &v4l2_ctrl_link_freq,
 					      NULL);
 
-	if (dev->ctrl_handler.error || dev->link_freq == NULL) {
+	if (dev->ctrl_handler.error || dev->link_freq == NULL)
 		return dev->ctrl_handler.error;
-	}
 
 	dev->sd.ctrl_handler = hdl;
 

@@ -45,7 +45,8 @@ static struct pixter_format_bridge format_bridge[] = {
 	{"GRBG8", V4L2_MBUS_FMT_SGRBG8_1X8, ATOMISP_INPUT_FORMAT_RAW_8, 8},
 	{"GBRG8", V4L2_MBUS_FMT_SGBRG8_1X8, ATOMISP_INPUT_FORMAT_RAW_8, 8},
 	{"BGGR8", V4L2_MBUS_FMT_SBGGR8_1X8, ATOMISP_INPUT_FORMAT_RAW_8, 8},
-	{"YUV422_8", V4L2_MBUS_FMT_UYVY8_1X16, ATOMISP_INPUT_FORMAT_YUV422_8, 16},
+	{"YUV422_8", V4L2_MBUS_FMT_UYVY8_1X16,
+		ATOMISP_INPUT_FORMAT_YUV422_8, 16},
 	{"YUV420_8", 0x8001/*For YUV420*/, ATOMISP_INPUT_FORMAT_YUV420_8, 16},
 };
 
@@ -58,26 +59,41 @@ static struct pixter_dbgfs dbgfs[] = {
 	{"timing", "root", DBGFS_DIR, 0, 0},
 	{"fps_ovrd", "fps", DBGFS_FILE, PIXTER_RW, dev_off(dbg_fps.fps_ovrd)},
 	{"fps", "fps", DBGFS_FILE, PIXTER_RW, dev_off(dbg_fps.fps)},
-	{"blank_ovrd", "blank", DBGFS_FILE, PIXTER_RW, dev_off(dbg_blank.blank_ovrd)},
+	{"blank_ovrd", "blank",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_blank.blank_ovrd)},
 	{"h_blank", "blank", DBGFS_FILE, PIXTER_RW, dev_off(dbg_blank.h_blank)},
-	{"v_blank_pre", "blank", DBGFS_FILE, PIXTER_RW, dev_off(dbg_blank.v_blank_pre)},
-	{"v_blank_post", "blank", DBGFS_FILE, PIXTER_RW, dev_off(dbg_blank.v_blank_post)},
-	{"mipi_clk", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.mipi_clk)},
-	{"cont_hs_clk", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.cont_hs_clk)},
-	{"timing_ovrd", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.timing_ovrd)},
+	{"v_blank_pre", "blank",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_blank.v_blank_pre)},
+	{"v_blank_post", "blank",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_blank.v_blank_post)},
+	{"mipi_clk", "timing",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.mipi_clk)},
+	{"cont_hs_clk", "timing",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.cont_hs_clk)},
+	{"timing_ovrd", "timing",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.timing_ovrd)},
 	{"pre", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.pre)},
 	{"post", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.post)},
 	{"gap", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.gap)},
 	{"ck_lpx", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.ck_lpx)},
-	{"ck_prep", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.ck_prep)},
-	{"ck_zero", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.ck_zero)},
-	{"ck_trail", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.ck_trail)},
-	{"dat_lpx", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_lpx)},
-	{"dat_prep", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_prep)},
-	{"dat_zero", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_zero)},
-	{"dat_trail", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_trail)},
-	{"twakeup", "timing", DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.twakeup)},
-	{"mipi_lanes_num", "timing", DBGFS_FILE, PIXTER_RONLY, dev_off(dbg_timing.mipi_lanes_num)},
+	{"ck_prep", "timing",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.ck_prep)},
+	{"ck_zero", "timing",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.ck_zero)},
+	{"ck_trail", "timing",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.ck_trail)},
+	{"dat_lpx", "timing",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_lpx)},
+	{"dat_prep", "timing",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_prep)},
+	{"dat_zero", "timing",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_zero)},
+	{"dat_trail", "timing",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.dat_trail)},
+	{"twakeup", "timing",
+		DBGFS_FILE, PIXTER_RW, dev_off(dbg_timing.twakeup)},
+	{"mipi_lanes_num", "timing",
+		DBGFS_FILE, PIXTER_RONLY, dev_off(dbg_timing.mipi_lanes_num)},
 };
 
 static u32 pixter_get_tx_freq_sel(u32 *freq)
@@ -150,7 +166,7 @@ static int pixter_read_buf(struct v4l2_subdev *sd,
 	int ret = 0;
 
 	for (i = 0; i < size; i += 4) {
-		ret = pixter_read_reg(sd, addr + i, (u32*)((u8*)buf + i));
+		ret = pixter_read_reg(sd, addr + i, (u32 *)((u8 *)buf + i));
 		if (ret)
 			break;
 	}
@@ -229,7 +245,7 @@ static int pixter_config_rx(struct v4l2_subdev *sd)
 	if (dev->dbg_blank.blank_ovrd) {
 		h_blank = dev->dbg_blank.h_blank;
 		line_bits = 1000 * (width_bits + h_blank *
-                        format_bridge[setting->vc[vc].format].bpp);
+			format_bridge[setting->vc[vc].format].bpp);
 		line_interval = line_bits / bit_rate;
 		v_blank_pre = dev->dbg_blank.v_blank_pre;
 		v_blank_post = dev->dbg_blank.v_blank_post;
@@ -295,7 +311,8 @@ static int pixter_config_tx(struct v4l2_subdev *sd)
 		pixter_read_reg(sd, PIXTER_TX_STATUS(ch), &reg_val);
 		if (reg_val & PIXTER_TX_READY)
 			break;
-		usleep_range(10000, 10000);
+		/*usleep_range should not use min == max args*/
+		usleep_range(10000, 10000 + 1);
 		cnt--;
 	}
 	if (cnt == 0) {
@@ -479,7 +496,7 @@ static u32 pixter_try_mbus_fmt_locked(struct v4l2_subdev *sd,
 	struct pixter_device *dev = to_pixter_dev(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct atomisp_input_stream_info *stream_info =
-		(struct atomisp_input_stream_info*)fmt->reserved;
+		(struct atomisp_input_stream_info *)fmt->reserved;
 	struct pixter_setting *settings = dev->settings;
 	struct pixter_vc_setting *vc_setting = dev->vc_setting;
 	u32 vc, i, j;
@@ -558,7 +575,7 @@ static int pixter_g_mbus_fmt(struct v4l2_subdev *sd,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct pixter_device *dev = to_pixter_dev(sd);
 	struct atomisp_input_stream_info *stream_info =
-		(struct atomisp_input_stream_info*)fmt->reserved;
+		(struct atomisp_input_stream_info *)fmt->reserved;
 	struct pixter_setting *setting;
 	u32 vc;
 
@@ -590,7 +607,7 @@ static int pixter_s_mbus_fmt(struct v4l2_subdev *sd,
 	struct pixter_device *dev = to_pixter_dev(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct atomisp_input_stream_info *stream_info =
-		(struct atomisp_input_stream_info*)fmt->reserved;
+		(struct atomisp_input_stream_info *)fmt->reserved;
 
 	if (!fmt)
 		return -EINVAL;
@@ -784,12 +801,13 @@ static int pixter_s_power(struct v4l2_subdev *sd, int on)
 	return 0;
 }
 
-static ssize_t pixter_dbgfs_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
+static ssize_t pixter_dbgfs_read(struct file *file, char __user *buf,
+					size_t size, loff_t *ppos)
 {
 	struct pixter_dbgfs_data *data = file->f_inode->i_private;
 	struct pixter_device *dev = data->dev;
 	ssize_t ret = 0;
-	u32 *val = (u32*) data->ptr;
+	u32 *val = (u32 *) data->ptr;
 	u32 i;
 
 	char *str = kzalloc(1024, GFP_KERNEL);
@@ -826,16 +844,18 @@ out:
 	return ret;
 }
 
-static ssize_t pixter_dbgfs_write(struct file *file, const char __user *buf, size_t size, loff_t *ppos)
+static ssize_t pixter_dbgfs_write(struct file *file, const char __user *buf,
+					size_t size, loff_t *ppos)
 {
 	struct pixter_dbgfs_data *data = file->f_inode->i_private;
 	struct pixter_device *dev = data->dev;
-	u32 *val = (u32*) data->ptr;
+	u32 *val = (u32 *) data->ptr;
 	char str[16] = {0};
 	ssize_t ret;
+	int sf_ret;
 
 	ret =  simple_write_to_buffer(str, 16, ppos, buf, size);
-	sscanf(str, "%d", val);
+	sf_ret = sscanf(str, "%d", val);
 	if (val == &dev->dbg_timing.timing_ovrd && *val == 0)
 		pixter_config_tx(&dev->sd);
 
@@ -1029,14 +1049,14 @@ static int pixter_probe(struct i2c_client *client,
 	 */
 	if (dev->mipi_info->port == ATOMISP_CAMERA_PORT_PRIMARY)
 		pixter_name = PIXTER_0;
-	else if(dev->mipi_info->port == ATOMISP_CAMERA_PORT_SECONDARY)
+	else if (dev->mipi_info->port == ATOMISP_CAMERA_PORT_SECONDARY)
 		pixter_name = PIXTER_1;
 	else
 		pixter_name = PIXTER_2;
 	snprintf(dev->sd.name, sizeof(dev->sd.name), "%s %d-%04x",
 		pixter_name, i2c_adapter_id(client->adapter), client->addr);
 
-        dev_info(&client->dev, "%s dev->sd.name: %s\n", __func__, dev->sd.name);
+	dev_info(&client->dev, "%s dev->sd.name: %s\n", __func__, dev->sd.name);
 
 	dev->sd.entity.ops = &pixter_entity_ops;
 	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
@@ -1080,7 +1100,7 @@ static int pixter_probe(struct i2c_client *client,
 			continue;
 		parent = dbgfs_data[j].entry;
 		dbgfs_data[i].dev = dev;
-		dbgfs_data[i].ptr = (u8*)dev + dbgfs[i].offset;
+		dbgfs_data[i].ptr = (u8 *)dev + dbgfs[i].offset;
 		if (dbgfs[i].type == DBGFS_DIR)
 			dbgfs_data[i].entry = debugfs_create_dir(dbgfs[i].name,
 				parent);

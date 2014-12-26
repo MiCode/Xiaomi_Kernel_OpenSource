@@ -35,8 +35,8 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
 
-#define M10MO_NAME 			"m10mo"
-#define M10MO_ADDR   			0x1f
+#define M10MO_NAME			"m10mo"
+#define M10MO_ADDR			0x1f
 #define M10MO_I2C_RETRY			5
 #define M10MO_MIPI_FREQ_0			(963000000/2)
 #define M10MO_MIPI_FREQ_1			(980700000/2)
@@ -47,10 +47,10 @@
 #define M10MO_MIN_EV -2000
 #define M10MO_MAX_EV  3000
 #define M10MO_EV_STEP 500
-#define M10MO_FLICKER_AUTO 		0x00
-#define M10MO_FLICKER_50HZ 		0x01
-#define M10MO_FLICKER_60HZ 		0x02
-#define M10MO_FLICKER_OFF 		0x03
+#define M10MO_FLICKER_AUTO		0x00
+#define M10MO_FLICKER_50HZ		0x01
+#define M10MO_FLICKER_60HZ		0x02
+#define M10MO_FLICKER_OFF		0x03
 #define M10MO_METERING_CENTER		0x00
 #define M10MO_METERING_SPOT		0x01
 #define M10MO_METERING_AVERAGE		0x02
@@ -72,7 +72,7 @@
  * bits 31-16: numerator, bits 15-0: denominator
  */
 
-#define M10MO_F_NUMBER_DEFAULT 		0x16000a
+#define M10MO_F_NUMBER_DEFAULT		0x16000a
 
 /*
  * f-number range bits definition:
@@ -82,7 +82,7 @@
  * bits 7-0: min f-number denominator
  */
 
-#define M10MO_F_NUMBER_RANGE 		0x160a160a
+#define M10MO_F_NUMBER_RANGE		0x160a160a
 #define M10MO_FOCAL_LENGTH_NUM		369
 #define M10MO_FOCAL_LENGTH_DEM		100
 #define M10MO_F_NUMBER_DEFAULT_NUM	22
@@ -116,10 +116,10 @@
 
 #define M10MO_GET_CLOCK_RATE_MODE(arg)	((arg >> M10MO_CLOCK_RATE_MODE_OFFSET) & M10MO_MASK)
 #define M10MO_GET_MIPI_FREQ_MODE(arg)	((arg >> M10MO_MIPI_FREQ_MODE_OFFSET) & M10MO_MASK)
-#define M10MO_GET_FOCUS_MODE(arg)		((arg >> M10MO_AF_MODE_OFFSET) & M10MO_MASK)
+#define M10MO_GET_FOCUS_MODE(arg)	((arg >> M10MO_AF_MODE_OFFSET) & M10MO_MASK)
 #define M10MO_GET_RESOLUTION_MODE(arg)	((arg >> M10MO_RESOLUTION_MODE_OFFSET) & M10MO_MASK)
 #define M10MO_SHOT_MODES_SUPPORTED(arg)	(arg & M10MO_SHOT_MODE_SUPPORT)
-#define M10MO_GET_MIPI_PACKET_SIZE_IDX(arg) ((arg >> M10MO_MIPI_PACKET_SIZE_OFFSET) & M10MO_MASK)
+#define M10MO_GET_MIPI_PACKET_SIZE_IDX(arg)	((arg >> M10MO_MIPI_PACKET_SIZE_OFFSET) & M10MO_MASK)
 
 #define M10MO_METADATA_WIDTH	2048
 #define M10MO_METADATA_HEIGHT	4
@@ -168,13 +168,15 @@ struct m10mo_mipi_params {
 };
 
 struct m10mo_fw_ops {
-	int (*set_run_mode) (struct v4l2_subdev *sd);
-	int (*set_burst_mode) (struct v4l2_subdev *sd, unsigned int val);
-	int (*stream_off) (struct v4l2_subdev *sd);
-	int (*single_capture_process) (struct v4l2_subdev *sd);
-	int (*try_mbus_fmt) (struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *fmt, bool update_fmt);
-	int (*set_mbus_fmt) (struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *fmt);
-	int (*test_pattern) (struct v4l2_subdev *sd, u8 val);
+	int (*set_run_mode)(struct v4l2_subdev *sd);
+	int (*set_burst_mode)(struct v4l2_subdev *sd, unsigned int val);
+	int (*stream_off)(struct v4l2_subdev *sd);
+	int (*single_capture_process)(struct v4l2_subdev *sd);
+	int (*try_mbus_fmt)(struct v4l2_subdev *sd,
+			struct v4l2_mbus_framefmt *fmt, bool update_fmt);
+	int (*set_mbus_fmt)(struct v4l2_subdev *sd,
+			struct v4l2_mbus_framefmt *fmt);
+	int (*test_pattern)(struct v4l2_subdev *sd, u8 val);
 };
 
 struct m10mo_device {
@@ -219,13 +221,13 @@ struct m10mo_device {
 	u8 shot_mode;
 };
 
-enum hdr_options{
+enum hdr_options {
 	STOP_HDR_MODE,
 	START_HDR_MODE,
 	RESUME_PREVIEW_IN_HDR_MODE
 };
 
-enum lls_options{
+enum lls_options {
 	STOP_LLS_MODE,
 	START_LLS_MODE,
 	RESUME_PREVIEW_IN_LLS_MODE
@@ -234,7 +236,8 @@ enum lls_options{
 #define to_m10mo_sensor(x) container_of(x, struct m10mo_device, sd)
 
 int m10mo_memory_read(struct v4l2_subdev *sd, u16 len, u32 addr, u8 *val);
-int m10mo_memory_write(struct v4l2_subdev *sd, u8 cmd, u16 len, u32 addr, u8 *val);
+int m10mo_memory_write(struct v4l2_subdev *sd, u8 cmd,
+				u16 len, u32 addr, u8 *val);
 int m10mo_writeb(struct v4l2_subdev *sd, u8 category, u8 reg, u32 val);
 int m10mo_writew(struct v4l2_subdev *sd, u8 category, u8 reg, u32 val);
 int m10mo_writel(struct v4l2_subdev *sd, u8 category, u8 reg, u32 val);
@@ -245,9 +248,12 @@ int m10mo_setup_flash_controller(struct v4l2_subdev *sd);
 int m10mo_request_mode_change(struct v4l2_subdev *sd, u8 requested_mode);
 int m10mo_wait_mode_change(struct v4l2_subdev *sd, u8 mode, u32 timeout);
 int __m10mo_param_mode_set(struct v4l2_subdev *sd);
-int __m10mo_update_stream_info(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *fmt);
-int __m10mo_try_mbus_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *fmt, bool update_fmt);
-int __m10mo_set_mbus_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *fmt);
+int __m10mo_update_stream_info(struct v4l2_subdev *sd,
+				struct v4l2_mbus_framefmt *fmt);
+int __m10mo_try_mbus_fmt(struct v4l2_subdev *sd,
+			struct v4l2_mbus_framefmt *fmt, bool update_fmt);
+int __m10mo_set_mbus_fmt(struct v4l2_subdev *sd,
+				struct v4l2_mbus_framefmt *fmt);
 int m10mo_test_pattern_start(struct v4l2_subdev *sd);
 
 int get_resolution_index(const struct m10mo_resolution *res,
@@ -364,9 +370,9 @@ extern const struct m10mo_fw_ops fw_type2_ops;
 #define MONITOR_COLOR_EFFECT	0x0b
 #define MONITOR_ZSL_MODE_STATUS	0x5f
 #define REG_NORMAL_MONITOR	0x00
-#define REG_ZSL_MONITOR 	0x01
+#define REG_ZSL_MONITOR	0x01
 #define ZSL_MODE		0x6e
-#define ZSL_INTERVAL 		0x6f
+#define ZSL_INTERVAL		0x6f
 
 #define COLOR_EFFECT_NONE	0x00
 #define COLOR_EFFECT_ON		0x01
@@ -402,10 +408,10 @@ extern const struct m10mo_fw_ops fw_type2_ops;
 /* In other type firmware movie mode is 0x00 */
 #define CAP_MODE_MOVIE		0x00
 
-#define ZSL_TRANSFER_NO 	0x16
+#define ZSL_TRANSFER_NO	0x16
 #define CAP_NV12_MODE		0x0a
 #define START_DUAL_STATUS	0x1f
-#define START_DUAL_CAPTURE 	0x05
+#define START_DUAL_CAPTURE	0x05
 
 #define DUAL_CAPTURE_SINGLE_CAPTURE_START	0x01
 #define DUAL_CAPTURE_HDR_CAPTURE_START		0x01

@@ -445,7 +445,8 @@ static int mt9m114_set_suspend(struct v4l2_subdev *sd)
 #ifndef CONFIG_GMIN_INTEL_MID /* FIXME! */
 	return mt9m114_write_reg_array(client, mt9m114_suspend, POST_POLLING);
 #else
-	return mt9m114_write_reg_array(client, mt9m114_standby_reg, POST_POLLING);
+	return mt9m114_write_reg_array(client,
+			mt9m114_standby_reg, POST_POLLING);
 #endif
 }
 #ifndef CONFIG_GMIN_INTEL_MID /* FIXME! */
@@ -1053,20 +1054,20 @@ static int mt9m114_set_mbus_fmt(struct v4l2_subdev *sd,
 }
 
 /* TODO: Update to SOC functions, remove exposure and gain */
-static int mt9m114_g_focal(struct v4l2_subdev *sd, s32 * val)
+static int mt9m114_g_focal(struct v4l2_subdev *sd, s32 *val)
 {
 	*val = (MT9M114_FOCAL_LENGTH_NUM << 16) | MT9M114_FOCAL_LENGTH_DEM;
 	return 0;
 }
 
-static int mt9m114_g_fnumber(struct v4l2_subdev *sd, s32 * val)
+static int mt9m114_g_fnumber(struct v4l2_subdev *sd, s32 *val)
 {
 	/*const f number for mt9m114*/
 	*val = (MT9M114_F_NUMBER_DEFAULT_NUM << 16) | MT9M114_F_NUMBER_DEM;
 	return 0;
 }
 
-static int mt9m114_g_fnumber_range(struct v4l2_subdev *sd, s32 * val)
+static int mt9m114_g_fnumber_range(struct v4l2_subdev *sd, s32 *val)
 {
 	*val = (MT9M114_F_NUMBER_DEFAULT_NUM << 24) |
 		(MT9M114_F_NUMBER_DEM << 16) |
@@ -1075,7 +1076,7 @@ static int mt9m114_g_fnumber_range(struct v4l2_subdev *sd, s32 * val)
 }
 
 /* Horizontal flip the image. */
-static int mt9m114_g_hflip(struct v4l2_subdev *sd, s32 * val)
+static int mt9m114_g_hflip(struct v4l2_subdev *sd, s32 *val)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(sd);
 	int ret;
@@ -1089,7 +1090,7 @@ static int mt9m114_g_hflip(struct v4l2_subdev *sd, s32 * val)
 	return 0;
 }
 
-static int mt9m114_g_vflip(struct v4l2_subdev *sd, s32 * val)
+static int mt9m114_g_vflip(struct v4l2_subdev *sd, s32 *val)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(sd);
 	int ret;
@@ -1163,92 +1164,98 @@ static int mt9m114_g_2a_status(struct v4l2_subdev *sd, s32 *val)
 static long mt9m114_s_exposure(struct v4l2_subdev *sd,
 			       struct atomisp_exposure *exposure)
 {
-    struct i2c_client *client = v4l2_get_subdevdata(sd);
-    struct mt9m114_device *dev = to_mt9m114_sensor(sd);
-    int ret = 0;
-    unsigned int coarse_integration = 0;
-    unsigned int fine_integration = 0;
-    unsigned int FLines = 0;
-    unsigned int FrameLengthLines = 0; //ExposureTime.FrameLengthLines;
-    unsigned int AnalogGain, DigitalGain;
-    u32 AnalogGainToWrite = 0;
-    u16 exposure_local[3];
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
+	int ret = 0;
+	unsigned int coarse_integration = 0;
+	unsigned int fine_integration = 0;
+	unsigned int FLines = 0;
+	unsigned int FrameLengthLines = 0; /* ExposureTime.FrameLengthLines; */
+	unsigned int AnalogGain, DigitalGain;
+	u32 AnalogGainToWrite = 0;
+	u16 exposure_local[3];
 
-    dev_dbg(&client->dev, "%s(0x%X 0x%X 0x%X)\n", __func__,
+	dev_dbg(&client->dev, "%s(0x%X 0x%X 0x%X)\n", __func__,
 		    exposure->integration_time[0], exposure->gain[0],
 		    exposure->gain[1]);
 
-    coarse_integration = exposure->integration_time[0];
-//    fine_integration = ExposureTime.FineIntegrationTime;
-//    FrameLengthLines = ExposureTime.FrameLengthLines;
-    FLines = mt9m114_res[dev->res].lines_per_frame;
-    AnalogGain = exposure->gain[0];
-    DigitalGain = exposure->gain[1];
+	coarse_integration = exposure->integration_time[0];
+	/* fine_integration = ExposureTime.FineIntegrationTime; */
+	/* FrameLengthLines = ExposureTime.FrameLengthLines; */
+	FLines = mt9m114_res[dev->res].lines_per_frame;
+	AnalogGain = exposure->gain[0];
+	DigitalGain = exposure->gain[1];
 	if (!dev->streamon) {
 		/*Save the first exposure values while stream is off*/
 		dev->first_exp = coarse_integration;
 		dev->first_gain = AnalogGain;
 		dev->first_diggain = DigitalGain;
 	}
-    //DigitalGain = 0x400 * (((u16) DigitalGain) >> 8) + ((unsigned int)(0x400 * (((u16) DigitalGain) & 0xFF)) >>8);
+	/* DigitalGain = 0x400 * (((u16) DigitalGain) >> 8) +
+	((unsigned int)(0x400 * (((u16) DigitalGain) & 0xFF)) >>8); */
 
-    //set frame length
-    if (FLines < coarse_integration + 6)
-        FLines = coarse_integration + 6;
-    if (FLines < FrameLengthLines)
-        FLines = FrameLengthLines;
-    ret = mt9m114_write_reg(client, MISENSOR_16BIT, 0x300A, FLines);
+	/* set frame length */
+	if (FLines < coarse_integration + 6)
+		FLines = coarse_integration + 6;
+	if (FLines < FrameLengthLines)
+		FLines = FrameLengthLines;
+	ret = mt9m114_write_reg(client, MISENSOR_16BIT, 0x300A, FLines);
 	if (ret) {
 		v4l2_err(client, "%s: fail to set FLines\n", __func__);
 		return -EINVAL;
 	}
 
-    //set coarse/fine integration
-    exposure_local[0] = REG_EXPO_COARSE;
-    exposure_local[1] = (u16)coarse_integration;
-    exposure_local[2] = (u16)fine_integration;
-    // 3A provide real exposure time. should not translate to any value here.
-    ret = mt9m114_write_reg(client, MISENSOR_16BIT, REG_EXPO_COARSE, (u16)(coarse_integration));
-    if (ret) {
-		 v4l2_err(client, "%s: fail to set exposure time\n", __func__);
-		 return -EINVAL;
-    }
-
-     /*
-    // set analog/digital gain
-    switch(AnalogGain)
-    {
-      case 0:
-          AnalogGainToWrite = 0x0;
-          break;
-      case 1:
-          AnalogGainToWrite = 0x20;
-          break;
-      case 2:
-          AnalogGainToWrite = 0x60;
-          break;
-      case 4:
-          AnalogGainToWrite = 0xA0;
-          break;
-      case 8:
-          AnalogGainToWrite = 0xE0;
-          break;
-      default:
-          AnalogGainToWrite = 0x20;
-          break;
-    }
-    */
-   if (DigitalGain >= 16 || DigitalGain <= 1)
-        DigitalGain = 1;
-   // AnalogGainToWrite = (u16)((DigitalGain << 12) | AnalogGainToWrite);
-   AnalogGainToWrite = (u16)((DigitalGain << 12) | (u16)AnalogGain);
-   ret = mt9m114_write_reg(client, MISENSOR_16BIT, REG_GAIN, AnalogGainToWrite);
-   if (ret) {
-		v4l2_err(client, "%s: fail to set AnalogGainToWrite\n", __func__);
+	/* set coarse/fine integration */
+	exposure_local[0] = REG_EXPO_COARSE;
+	exposure_local[1] = (u16)coarse_integration;
+	exposure_local[2] = (u16)fine_integration;
+	/* 3A provide real exposure time.
+		should not translate to any value here. */
+	ret = mt9m114_write_reg(client, MISENSOR_16BIT,
+			REG_EXPO_COARSE, (u16)(coarse_integration));
+	if (ret) {
+		v4l2_err(client, "%s: fail to set exposure time\n", __func__);
 		return -EINVAL;
-   }
+	}
 
-    return ret;
+	/*
+	// set analog/digital gain
+	switch(AnalogGain)
+	{
+	case 0:
+	  AnalogGainToWrite = 0x0;
+	  break;
+	case 1:
+	  AnalogGainToWrite = 0x20;
+	  break;
+	case 2:
+	  AnalogGainToWrite = 0x60;
+	  break;
+	case 4:
+	  AnalogGainToWrite = 0xA0;
+	  break;
+	case 8:
+	  AnalogGainToWrite = 0xE0;
+	  break;
+	default:
+	  AnalogGainToWrite = 0x20;
+	  break;
+	}
+	*/
+	if (DigitalGain >= 16 || DigitalGain <= 1)
+		DigitalGain = 1;
+	/* AnalogGainToWrite =
+		(u16)((DigitalGain << 12) | AnalogGainToWrite); */
+	AnalogGainToWrite = (u16)((DigitalGain << 12) | (u16)AnalogGain);
+	ret = mt9m114_write_reg(client, MISENSOR_16BIT,
+					REG_GAIN, AnalogGainToWrite);
+	if (ret) {
+		v4l2_err(client, "%s: fail to set AnalogGainToWrite\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	return ret;
 }
 
 static long mt9m114_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
@@ -1260,6 +1267,7 @@ static long mt9m114_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	default:
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -1304,7 +1312,8 @@ static int mt9m114_s_exposure_metering(struct v4l2_subdev *sd, s32 val)
 
 	switch (val) {
 	case V4L2_EXPOSURE_METERING_SPOT:
-		ret = mt9m114_write_reg_array(client, mt9m114_exp_average, NO_POLLING);
+		ret = mt9m114_write_reg_array(client, mt9m114_exp_average,
+						NO_POLLING);
 		if (ret) {
 			dev_err(&client->dev, "write exp_average reg err.\n");
 			return ret;
@@ -1312,7 +1321,8 @@ static int mt9m114_s_exposure_metering(struct v4l2_subdev *sd, s32 val)
 		break;
 	case V4L2_EXPOSURE_METERING_CENTER_WEIGHTED:
 	default:
-		ret = mt9m114_write_reg_array(client, mt9m114_exp_center, NO_POLLING);
+		ret = mt9m114_write_reg_array(client, mt9m114_exp_center,
+						NO_POLLING);
 		if (ret) {
 			dev_err(&client->dev, "write exp_default reg err");
 			return ret;
@@ -1336,7 +1346,7 @@ static int mt9m114_s_exposure_selection(struct v4l2_subdev *sd,
 	int grid_width, grid_height;
 	int grid_left, grid_top, grid_right, grid_bottom;
 	int win_left, win_top, win_right, win_bottom;
-	int i,j;
+	int i, j;
 	int ret;
 
 	if (sel->which != V4L2_SUBDEV_FORMAT_TRY &&
@@ -1422,9 +1432,8 @@ static int mt9m114_s_ev(struct v4l2_subdev *sd, s32 val)
 	/* EV value only support -2 to 2
 	 * 0: 0x37, 1:0x47, 2:0x57, -1:0x27, -2:0x17
 	 */
-	if (val < -2 || val > 2) {
+	if (val < -2 || val > 2)
 		return -EINVAL;
-	}
 	luma += 0x10 * val;
 	dev_dbg(&c->dev, "%s val:%d luma:0x%x\n", __func__, val, luma);
 	err = mt9m114_write_reg(c, MISENSOR_16BIT, 0x098E, 0xC87A);
@@ -1434,7 +1443,8 @@ static int mt9m114_s_ev(struct v4l2_subdev *sd, s32 val)
 	}
 	err = mt9m114_write_reg(c, MISENSOR_8BIT, 0xC87A, (u32)luma);
 	if (err) {
-		dev_err(&c->dev, "%s write target_average_luma failed\n", __func__);
+		dev_err(&c->dev, "%s write target_average_luma failed\n",
+			__func__);
 		return err;
 	}
 	udelay(10);
@@ -1455,7 +1465,8 @@ static int mt9m114_g_ev(struct v4l2_subdev *sd, s32 *val)
 	}
 	err = mt9m114_read_reg(c, MISENSOR_8BIT, 0xC87A, &luma);
 	if (err) {
-		dev_err(&c->dev, "%s read target_average_luma failed\n", __func__);
+		dev_err(&c->dev, "%s read target_average_luma failed\n",
+			__func__);
 		return err;
 	}
 	luma -= 0x17;
@@ -2096,7 +2107,7 @@ static int mt9m114_g_skip_frames(struct v4l2_subdev *sd, u32 *frames)
 	return 0;
 }
 static const struct v4l2_subdev_video_ops mt9m114_video_ops = {
-#ifdef CONFIG_GMIN_INTEL_MID 
+#ifdef CONFIG_GMIN_INTEL_MID
 	.s_parm = mt9m114_s_parm,
 #endif
 	.try_mbus_fmt = mt9m114_try_mbus_fmt,
@@ -2105,7 +2116,7 @@ static const struct v4l2_subdev_video_ops mt9m114_video_ops = {
 	.s_stream = mt9m114_s_stream,
 	.enum_framesizes = mt9m114_enum_framesizes,
 	.enum_frameintervals = mt9m114_enum_frameintervals,
-#ifdef CONFIG_GMIN_INTEL_MID 
+#ifdef CONFIG_GMIN_INTEL_MID
 	.g_frame_interval = mt9m114_g_frame_interval,
 #endif
 };
@@ -2115,14 +2126,14 @@ static struct v4l2_subdev_sensor_ops mt9m114_sensor_ops = {
 };
 
 static const struct v4l2_subdev_core_ops mt9m114_core_ops = {
-#ifndef CONFIG_GMIN_INTEL_MID 
+#ifndef CONFIG_GMIN_INTEL_MID
 	.g_chip_ident = mt9m114_g_chip_ident,
 #endif
 	.queryctrl = mt9m114_queryctrl,
 	.g_ctrl = mt9m114_g_ctrl,
 	.s_ctrl = mt9m114_s_ctrl,
 	.s_power = mt9m114_s_power,
-#ifdef CONFIG_GMIN_INTEL_MID 
+#ifdef CONFIG_GMIN_INTEL_MID
 	.ioctl = mt9m114_ioctl,
 #endif
 };
@@ -2170,7 +2181,7 @@ static int mt9m114_probe(struct i2c_client *client,
 {
 	struct mt9m114_device *dev;
 	int ret = 0;
-#ifdef CONFIG_GMIN_INTEL_MID 
+#ifdef CONFIG_GMIN_INTEL_MID
 	void *pdata;
 #endif
 	/* Setup sensor configuration structure */
@@ -2181,7 +2192,7 @@ static int mt9m114_probe(struct i2c_client *client,
 	}
 
 	v4l2_i2c_subdev_init(&dev->sd, client, &mt9m114_ops);
-#ifdef CONFIG_GMIN_INTEL_MID 
+#ifdef CONFIG_GMIN_INTEL_MID
 	pdata = client->dev.platform_data;
 	if (ACPI_COMPANION(&client->dev))
 		pdata = gmin_camera_platform_data(&dev->sd,
@@ -2214,7 +2225,7 @@ static int mt9m114_probe(struct i2c_client *client,
 	/*TODO add format code here*/
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
-#ifdef CONFIG_GMIN_INTEL_MID 
+#ifdef CONFIG_GMIN_INTEL_MID
 	dev->format.code = V4L2_MBUS_FMT_SGRBG10_1X10;
 	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
 #endif
@@ -2224,7 +2235,7 @@ static int mt9m114_probe(struct i2c_client *client,
 		mt9m114_remove(client);
 		return ret;
 	}
-#ifndef CONFIG_GMIN_INTEL_MID 
+#ifndef CONFIG_GMIN_INTEL_MID
 	/* set res index to be invalid */
 	dev->res = -1;
 #endif
@@ -2232,11 +2243,11 @@ static int mt9m114_probe(struct i2c_client *client,
 }
 
 MODULE_DEVICE_TABLE(i2c, mt9m114_id);
-#ifdef CONFIG_GMIN_INTEL_MID 
+#ifdef CONFIG_GMIN_INTEL_MID
 static struct acpi_device_id mt9m114_acpi_match[] = {
 	{ "INT33F0" },
 	{ "CRMT1040" },
-        {},
+	{},
 };
 MODULE_DEVICE_TABLE(acpi, mt9m114_acpi_match);
 #endif
@@ -2244,7 +2255,7 @@ static struct i2c_driver mt9m114_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "mt9m114",
-#ifdef CONFIG_GMIN_INTEL_MID 
+#ifdef CONFIG_GMIN_INTEL_MID
 		.acpi_match_table = ACPI_PTR(mt9m114_acpi_match),
 #endif
 	},

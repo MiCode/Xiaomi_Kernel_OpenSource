@@ -417,7 +417,8 @@ static const struct mt9e013_reg mt9e013_reset_register[] = {
 };
 
 static const struct mt9e013_reg mt9e013_raw_10[] = {
-	{MT9E013_16BIT, {0x0112}, 0x0A0A}, /* CCP_DATA_FORMAT, set to RAW10 mode */
+	/* CCP_DATA_FORMAT, set to RAW10 mode */
+	{MT9E013_16BIT, {0x0112}, 0x0A0A},
 	{MT9E013_TOK_TERM, {0}, 0}
 };
 

@@ -28,7 +28,8 @@
 #include <media/m10mo_atomisp.h>
 #include "m10mo.h"
 
-static inline int spi_xmit(struct spi_device *spi, const u8 *addr, const int len)
+static inline int spi_xmit(struct spi_device *spi,
+				const u8 *addr, const int len)
 {
 	int ret;
 	struct spi_message msg;

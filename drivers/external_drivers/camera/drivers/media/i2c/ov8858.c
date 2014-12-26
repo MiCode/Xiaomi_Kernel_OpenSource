@@ -340,7 +340,8 @@ static int __ov8858_update_frame_timing(struct v4l2_subdev *sd,
 		__func__, *hts);
 
 	/* HTS = pixel_per_line / 2 */
-	ret = ov8858_write_reg(client, OV8858_16BIT, OV8858_TIMING_HTS, *hts >> 1);
+	ret = ov8858_write_reg(client, OV8858_16BIT,
+				OV8858_TIMING_HTS, *hts >> 1);
 	if (ret)
 		return ret;
 	dev_dbg(&client->dev, "%s OV8858_TIMING_VTS=0x%04x\n",

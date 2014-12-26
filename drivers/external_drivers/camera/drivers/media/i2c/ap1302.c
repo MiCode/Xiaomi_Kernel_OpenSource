@@ -31,7 +31,8 @@
 #include <media/v4l2-device.h>
 #include "ap1302.h"
 
-#define to_ap1302_device(sub_dev) container_of(sub_dev, struct ap1302_device, sd)
+#define to_ap1302_device(sub_dev) \
+		container_of(sub_dev, struct ap1302_device, sd)
 
 /* Static definitions */
 static struct regmap_config ap1302_reg16_config = {
@@ -200,10 +201,10 @@ static int ap1302_i2c_read_reg(struct v4l2_subdev *sd,
 	}
 	if (len == AP1302_REG16)
 		dev_dbg(&client->dev, "read_reg[0x%04X] = 0x%04X\n",
-			reg, *(u16*)val);
+			reg, *(u16 *)val);
 	else
 		dev_dbg(&client->dev, "read_reg[0x%04X] = 0x%08X\n",
-			reg, *(u32*)val);
+			reg, *(u32 *)val);
 	return ret;
 }
 
@@ -264,7 +265,7 @@ static int ap1302_read_context_reg(struct v4l2_subdev *sd,
 	if (reg_addr == 0)
 		return -EINVAL;
 	return ap1302_i2c_read_reg(sd, reg_addr, len,
-			    ((u8*)&dev->cntx_config[context]) + offset);
+			    ((u8 *)&dev->cntx_config[context]) + offset);
 }
 
 static int ap1302_write_context_reg(struct v4l2_subdev *sd,
@@ -275,7 +276,7 @@ static int ap1302_write_context_reg(struct v4l2_subdev *sd,
 	if (reg_addr == 0)
 		return -EINVAL;
 	return ap1302_i2c_write_reg(sd, reg_addr, len,
-			*(u32*)(((u8*)&dev->cntx_config[context]) + offset));
+			*(u32 *)(((u8 *)&dev->cntx_config[context]) + offset));
 }
 
 static int ap1302_dump_context_reg(struct v4l2_subdev *sd,
@@ -287,7 +288,7 @@ static int ap1302_dump_context_reg(struct v4l2_subdev *sd,
 	dev_dbg(&client->dev, "Dump registers for context[%d]:\n", context);
 	for (i = 0; i < ARRAY_SIZE(context_info); i++) {
 		struct ap1302_context_info *info = &context_info[i];
-		u8 *var = (u8*)&dev->cntx_config[context] + info->offset;
+		u8 *var = (u8 *)&dev->cntx_config[context] + info->offset;
 		/* Snapshot context does not have s1_sensor_mode register. */
 		if (context == CONTEXT_SNAPSHOT &&
 			info->offset == CNTX_S1_SENSOR_MODE)
@@ -295,10 +296,10 @@ static int ap1302_dump_context_reg(struct v4l2_subdev *sd,
 		ap1302_read_context_reg(sd, context, info->offset, info->len);
 		if (info->len == AP1302_REG16)
 			dev_dbg(&client->dev, "context.%s = 0x%04X (%d)\n",
-				info->name, *(u16*)var, *(u16*)var);
+				info->name, *(u16 *)var, *(u16 *)var);
 		else
 			dev_dbg(&client->dev, "context.%s = 0x%08X (%d)\n",
-				info->name, *(u32*)var, *(u32*)var);
+				info->name, *(u32 *)var, *(u32 *)var);
 	}
 	return 0;
 }
@@ -350,7 +351,7 @@ static int ap1302_load_firmware(struct v4l2_subdev *sd)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ap1302_device *dev = to_ap1302_device(sd);
 	const struct ap1302_firmware *fw;
-	const u8* fw_data;
+	const u8 *fw_data;
 	u16 reg_val = 0;
 	u16 win_pos = 0;
 	int ret;
@@ -360,7 +361,7 @@ static int ap1302_load_firmware(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "firmware not requested.\n");
 		return -EINVAL;
 	}
-	fw = (const struct ap1302_firmware*) dev->fw->data;
+	fw = (const struct ap1302_firmware *) dev->fw->data;
 	if (dev->fw->size != (sizeof(*fw) + fw->total_size)) {
 		dev_err(&client->dev, "firmware size does not match.\n");
 		return -EINVAL;
@@ -368,7 +369,7 @@ static int ap1302_load_firmware(struct v4l2_subdev *sd)
 	/* The fw binary contains a header of struct ap1302_firmware.
 	   Following the header is the bootdata of AP1302.
 	   The bootdata pointer can be referenced as &fw[1]. */
-	fw_data = (u8*)&fw[1];
+	fw_data = (u8 *)&fw[1];
 
 	/* Clear crc register. */
 	ret = ap1302_i2c_write_reg(sd, REG_SIP_CRC, AP1302_REG16, 0xFFFF);
@@ -388,7 +389,7 @@ static int ap1302_load_firmware(struct v4l2_subdev *sd)
 		return ret;
 
 	/* Wait 1ms for PLL to lock. */
-	msleep(1);
+	msleep(20);
 
 	/* Load the rest of bootdata content. */
 	ret = ap1302_write_fw_window(sd, &win_pos, fw_data + fw->pll_init_size,
@@ -571,7 +572,7 @@ static int ap1302_match_resolution(struct ap1302_context_res *res,
 		mismatch = abs(w0 * h1 - w1 * h0) * 8192 / w1 / h0;
 		if (mismatch > 8192 * AP1302_MAX_RATIO_MISMATCH / 100)
 			continue;
-		distance = (w0 *h1 + w1 * h0) * 8192 / w1 / h1;
+		distance = (w0 * h1 + w1 * h0) * 8192 / w1 / h1;
 		if (distance < min_distance) {
 			min_distance = distance;
 			idx = i;
@@ -641,7 +642,7 @@ static int ap1302_set_mbus_fmt(struct v4l2_subdev *sd,
 	struct ap1302_device *dev = to_ap1302_device(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct atomisp_input_stream_info *stream_info =
-		(struct atomisp_input_stream_info*)fmt->reserved;
+		(struct atomisp_input_stream_info *)fmt->reserved;
 	enum ap1302_contexts context, main_context;
 
 	mutex_lock(&dev->input_lock);
@@ -862,7 +863,8 @@ static int ap1302_s_stream(struct v4l2_subdev *sd, int enable)
 
 	mutex_lock(&dev->input_lock);
 	context = ap1302_get_context(sd);
-	dev_dbg(&client->dev, "ap1302_s_stream. context=%d enable=%d\n", context, enable);
+	dev_dbg(&client->dev, "ap1302_s_stream. context=%d enable=%d\n",
+			context, enable);
 	/* Switch context */
 	ap1302_i2c_read_reg(sd, REG_CTRL,
 			    AP1302_REG16, &reg_val);

@@ -131,7 +131,7 @@ static int m10mo_set_flash_address(struct v4l2_subdev *sd, u32 addr)
 static u32 m10mo_get_pll_cfg(u32 freq)
 {
 	u32 ret;
-	switch(freq) {
+	switch (freq) {
 	case 24000000:
 		ret = PLL_SETTINGS_24MHZ;
 		break;
@@ -183,24 +183,27 @@ static int m10mo_to_fw_access_mode(struct m10mo_device *m10mo_dev)
 	int err;
 
 	err = m10mo_memory_write(sd, M10MO_MEMORY_WRITE_8BIT, SZ_64,
-				 PORT_SETTINGS0_ADDR , (u8 *)buf_port_settings0_m10mo);
+				 PORT_SETTINGS0_ADDR,
+				(u8 *)buf_port_settings0_m10mo);
 	if (err)
 		goto fail;
 
-	usleep_range(PORT_SETTING_DELAY, PORT_SETTING_DELAY);
+	usleep_range(PORT_SETTING_DELAY, PORT_SETTING_DELAY + 1);
 
 	err = m10mo_memory_write(sd, M10MO_MEMORY_WRITE_8BIT, SZ_64,
-				 PORT_SETTINGS1_ADDR, (u8 *)buf_port_settings1_m10mo);
+				 PORT_SETTINGS1_ADDR,
+				(u8 *)buf_port_settings1_m10mo);
 	if (err)
 		goto fail;
 
-	usleep_range(PORT_SETTING_DELAY, PORT_SETTING_DELAY);
+	usleep_range(PORT_SETTING_DELAY, PORT_SETTING_DELAY + 1);
 
 	err = m10mo_memory_write(sd, M10MO_MEMORY_WRITE_8BIT, SZ_64,
-				 PORT_SETTINGS2_ADDR, (u8 *)buf_port_settings2_m10mo);
+				 PORT_SETTINGS2_ADDR,
+				(u8 *)buf_port_settings2_m10mo);
 	if (err)
 		goto fail;
-	usleep_range(PORT_SETTING_DELAY, PORT_SETTING_DELAY);
+	usleep_range(PORT_SETTING_DELAY, PORT_SETTING_DELAY + 1);
 
 	err = m10mo_writel(sd, CATEGORY_FLASHROM,
 			   REG_PLL_VALUES,
@@ -248,7 +251,7 @@ static int m10mo_memory_dump(struct m10mo_device *m10mo_dev, u16 len,
 		err = i2c_transfer(client->adapter, &msg, 1);
 		if (err == 1)
 			break;
-		usleep_range(I2C_DELAY, I2C_DELAY);
+		usleep_range(I2C_DELAY, I2C_DELAY + 1);
 	}
 
 	if (err != 1)
@@ -261,7 +264,7 @@ static int m10mo_memory_dump(struct m10mo_device *m10mo_dev, u16 len,
 		err = i2c_transfer(client->adapter, &msg, 1);
 		if (err == 1)
 			break;
-		usleep_range(I2C_DELAY, I2C_DELAY);
+		usleep_range(I2C_DELAY, I2C_DELAY + 1);
 	}
 
 	if (err != 1)
@@ -355,7 +358,8 @@ static void m10mo_gen_log_name(char *name, char *prefix)
 	static long long time;
 
 	time = ktime_to_ms(ktime_get());
-	snprintf(name, M10MO_FW_LOG_MAX_NAME_LEN, "%s_%lld%s", prefix, time, M10MO_FW_LOG_SUFFIX);
+	snprintf(name, M10MO_FW_LOG_MAX_NAME_LEN, "%s_%lld%s",
+			prefix, time, M10MO_FW_LOG_SUFFIX);
 }
 
 int m10mo_dump_string_log3(struct v4l2_subdev *sd)
@@ -401,7 +405,8 @@ int m10mo_dump_string_log3(struct v4l2_subdev *sd)
 	if (ret < 0)
 		goto out_mem_free;
 
-	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ADD_SHOW, LOG_ADD_SHOW_INIT_VALUE);
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+			LOG_ADD_SHOW, LOG_ADD_SHOW_INIT_VALUE);
 	if (ret < 0)
 		goto out_mem_free;
 
@@ -410,22 +415,25 @@ int m10mo_dump_string_log3(struct v4l2_subdev *sd)
 		if (ret < 0)
 			goto out_mem_free;
 
-		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_OUTPUT_STR);
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+				LOG_ACT, LOG_ACT_OUTPUT_STR);
 		if (ret < 0)
 			goto out_mem_free;
 
 		do {
-			ret = m10mo_readb(sd, CATEGORY_LOGLEDFLASH, LOG_STR_LEN, &len);
+			ret = m10mo_readb(sd, CATEGORY_LOGLEDFLASH,
+						LOG_STR_LEN, &len);
 			if (ret < 0)
 				goto out_mem_free;
-			msleep(10);
+			msleep(20);
 			count_len++;
 		} while ((len == MAX_LOG_STR_LEN) && (count_len < 10));
 
 		if (len == MIN_LOG_STR_LEN) {
 			goto out_mem_free;
 		} else {
-			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH, LOG_STR_ADD3, &addr);
+			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH,
+						LOG_STR_ADD3, &addr);
 			if (ret < 0)
 				goto out_mem_free;
 
@@ -493,7 +501,8 @@ int m10mo_dump_string_log2_3(struct v4l2_subdev *sd)
 		goto out_close;
 	}
 
-	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_MODE, LOG_ANALYZE_MODE2);
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+				LOG_MODE, LOG_ANALYZE_MODE2);
 	if (ret < 0)
 		goto out_mem_free;
 
@@ -502,12 +511,14 @@ int m10mo_dump_string_log2_3(struct v4l2_subdev *sd)
 		if (ret < 0)
 			goto out_mem_free;
 
-		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_OUTPUT_STR);
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+					LOG_ACT, LOG_ACT_OUTPUT_STR);
 		if (ret < 0)
 			goto out_mem_free;
 
 		do {
-			ret = m10mo_readw(sd, CATEGORY_LOGLEDFLASH, LOG_DATA_LEN1, &len);
+			ret = m10mo_readw(sd, CATEGORY_LOGLEDFLASH,
+						LOG_DATA_LEN1, &len);
 			if (ret < 0)
 				goto out_mem_free;
 		} while (len == MAX_LOG_STR_LEN_LOG2);
@@ -519,25 +530,29 @@ int m10mo_dump_string_log2_3(struct v4l2_subdev *sd)
 			if (len > MAX_LOG_STR_LEN_LOG2)
 				len = MAX_LOG_STR_LEN_LOG2;
 
-			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH, LOG_STR_ADD3, &addr);
+			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH,
+						LOG_STR_ADD3, &addr);
 			if (ret < 0)
 				goto out_mem_free;
 
 			unit_count =  len / I2C_MEM_READ_SIZE;
 			for (i = 0; i <= unit_count; i += I2C_MEM_READ_SIZE) {
 				if ((len - i) <= I2C_MEM_READ_SIZE) {
-					ret = m10mo_memory_read(sd, len - i, addr + i, buf);
+					ret = m10mo_memory_read(sd, len - i,
+								addr + i, buf);
 					if (ret < 0)
 						goto out_mem_free;
 
 					vfs_write(fp, buf, len - i, &fp->f_pos);
 					break;
 				} else {
-					ret = m10mo_memory_read(sd, I2C_MEM_READ_SIZE, addr + i, buf);
+					ret = m10mo_memory_read(sd,
+					I2C_MEM_READ_SIZE, addr + i, buf);
 					if (ret < 0)
 						goto out_mem_free;
 
-					vfs_write(fp, buf, I2C_MEM_READ_SIZE, &fp->f_pos);
+					vfs_write(fp, buf,
+						I2C_MEM_READ_SIZE, &fp->f_pos);
 				}
 			}
 		}
@@ -594,7 +609,8 @@ int m10mo_dump_string_log2_2(struct v4l2_subdev *sd)
 		goto out_close;
 	}
 
-	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_MODE, LOG_ANALYZE_MODE1);
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+				LOG_MODE, LOG_ANALYZE_MODE1);
 	if (ret < 0)
 		goto out_mem_free;
 
@@ -603,12 +619,14 @@ int m10mo_dump_string_log2_2(struct v4l2_subdev *sd)
 		if (ret < 0)
 			goto out_mem_free;
 
-		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_OUTPUT_STR);
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+					LOG_ACT, LOG_ACT_OUTPUT_STR);
 		if (ret < 0)
 			goto out_mem_free;
 
 		do {
-			ret = m10mo_readw(sd, CATEGORY_LOGLEDFLASH, LOG_DATA_LEN1, &len);
+			ret = m10mo_readw(sd, CATEGORY_LOGLEDFLASH,
+						LOG_DATA_LEN1, &len);
 			if (ret < 0)
 				goto out_mem_free;
 		} while (len == MAX_LOG_STR_LEN_LOG2);
@@ -620,25 +638,29 @@ int m10mo_dump_string_log2_2(struct v4l2_subdev *sd)
 			if (len > MAX_LOG_STR_LEN_LOG2)
 				len = MAX_LOG_STR_LEN_LOG2;
 
-			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH, LOG_STR_ADD3, &addr);
+			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH,
+						LOG_STR_ADD3, &addr);
 			if (ret < 0)
 				goto out_mem_free;
 
 			unit_count =  len / I2C_MEM_READ_SIZE;
 			for (i = 0; i <= unit_count; i += I2C_MEM_READ_SIZE) {
 				if ((len - i) <= I2C_MEM_READ_SIZE) {
-					ret = m10mo_memory_read(sd, len - i, addr + i, buf);
+					ret = m10mo_memory_read(sd, len - i,
+								addr + i, buf);
 					if (ret < 0)
 						goto out_mem_free;
 
 					vfs_write(fp, buf, len - i, &fp->f_pos);
 					break;
 				} else {
-					ret = m10mo_memory_read(sd, I2C_MEM_READ_SIZE, addr + i, buf);
+					ret = m10mo_memory_read(sd,
+					I2C_MEM_READ_SIZE, addr + i, buf);
 					if (ret < 0)
 						goto out_mem_free;
 
-					vfs_write(fp, buf, I2C_MEM_READ_SIZE, &fp->f_pos);
+					vfs_write(fp, buf,
+						I2C_MEM_READ_SIZE, &fp->f_pos);
 				}
 			}
 		}
@@ -694,7 +716,8 @@ int m10mo_dump_string_log2_1(struct v4l2_subdev *sd)
 		goto out_close;
 	}
 
-	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_MODE, LOG_ANALYZE_MODE0);
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+			LOG_MODE, LOG_ANALYZE_MODE0);
 	if (ret < 0)
 		goto out_mem_free;
 
@@ -702,7 +725,8 @@ int m10mo_dump_string_log2_1(struct v4l2_subdev *sd)
 	if (ret < 0)
 		goto out_mem_free;
 
-	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ADD_SHOW, LOG_ADD_SHOW_INIT_VALUE);
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+				LOG_ADD_SHOW, LOG_ADD_SHOW_INIT_VALUE);
 	if (ret < 0)
 		goto out_mem_free;
 
@@ -711,12 +735,14 @@ int m10mo_dump_string_log2_1(struct v4l2_subdev *sd)
 		if (ret < 0)
 			goto out_mem_free;
 
-		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_OUTPUT_STR);
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+					LOG_ACT, LOG_ACT_OUTPUT_STR);
 		if (ret < 0)
 			goto out_mem_free;
 
 		do {
-			ret = m10mo_readw(sd, CATEGORY_LOGLEDFLASH, LOG_DATA_LEN1, &len);
+			ret = m10mo_readw(sd, CATEGORY_LOGLEDFLASH,
+							LOG_DATA_LEN1, &len);
 			if (ret < 0)
 				goto out_mem_free;
 		} while (len == MAX_LOG_STR_LEN_LOG2);
@@ -728,25 +754,29 @@ int m10mo_dump_string_log2_1(struct v4l2_subdev *sd)
 			if (len > MAX_LOG_STR_LEN_LOG2)
 				len = MAX_LOG_STR_LEN_LOG2;
 
-			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH, LOG_STR_ADD3, &addr);
+			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH,
+					LOG_STR_ADD3, &addr);
 			if (ret < 0)
 				goto out_mem_free;
 
 			unit_count =  len / I2C_MEM_READ_SIZE;
 			for (i = 0; i <= unit_count; i += I2C_MEM_READ_SIZE) {
 				if ((len - i) <= I2C_MEM_READ_SIZE) {
-					ret = m10mo_memory_read(sd, len - i, addr + i, buf);
+					ret = m10mo_memory_read(sd, len - i,
+								addr + i, buf);
 					if (ret < 0)
 						goto out_mem_free;
 
 					vfs_write(fp, buf, len - i, &fp->f_pos);
 					break;
 				} else {
-					ret = m10mo_memory_read(sd, I2C_MEM_READ_SIZE, addr + i, buf);
+					ret = m10mo_memory_read(sd,
+					I2C_MEM_READ_SIZE, addr + i, buf);
 					if (ret < 0)
 						goto out_mem_free;
 
-					vfs_write(fp, buf, I2C_MEM_READ_SIZE, &fp->f_pos);
+					vfs_write(fp, buf,
+						I2C_MEM_READ_SIZE, &fp->f_pos);
 				}
 			}
 		}
@@ -802,7 +832,8 @@ int m10mo_dump_string_log1(struct v4l2_subdev *sd)
 		goto out_close;
 	}
 
-	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_MODE, LOG_STANDARD_MODE);
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+				LOG_MODE, LOG_STANDARD_MODE);
 	if (ret < 0)
 		goto out_mem_free;
 
@@ -810,7 +841,8 @@ int m10mo_dump_string_log1(struct v4l2_subdev *sd)
 	if (ret < 0)
 		goto out_mem_free;
 
-	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ADD_SHOW, LOG_ADD_SHOW_INIT_VALUE);
+	ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+				LOG_ADD_SHOW, LOG_ADD_SHOW_INIT_VALUE);
 	if (ret < 0)
 		goto out_mem_free;
 
@@ -819,22 +851,25 @@ int m10mo_dump_string_log1(struct v4l2_subdev *sd)
 		if (ret < 0)
 			goto out_mem_free;
 
-		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH, LOG_ACT, LOG_ACT_OUTPUT_STR);
+		ret = m10mo_writeb(sd, CATEGORY_LOGLEDFLASH,
+					LOG_ACT, LOG_ACT_OUTPUT_STR);
 		if (ret < 0)
 			goto out_mem_free;
 
 		do {
-			ret = m10mo_readb(sd, CATEGORY_LOGLEDFLASH, LOG_STR_LEN, &len);
+			ret = m10mo_readb(sd, CATEGORY_LOGLEDFLASH,
+							LOG_STR_LEN, &len);
 			if (ret < 0)
 				goto out_mem_free;
-			msleep(10);
+			msleep(20);
 			count_len++;
 		} while ((len == MAX_LOG_STR_LEN) && (count_len < 10));
 
 		if (len == MIN_LOG_STR_LEN) {
 				goto out_mem_free;
 		} else {
-			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH, LOG_STR_ADD3, &addr);
+			ret = m10mo_readl(sd, CATEGORY_LOGLEDFLASH,
+						LOG_STR_ADD3, &addr);
 			if (ret < 0)
 				goto out_mem_free;
 
@@ -889,7 +924,7 @@ int m10mo_get_isp_fw_version_string(struct m10mo_device *dev,
 		dev_err(&client->dev, "Read mode transition fail: %d\n", err);
 		return err;
 	}
-	msleep(10);
+	msleep(20);
 
 	memset(buf, 0, len);
 	if ((fw_address_id < 0) ||
@@ -1066,7 +1101,8 @@ int m10mo_flash_write_block(struct m10mo_device *dev, u32 target_addr,
 		return ret;
 	}
 
-	ret = m10mo_wait_operation_complete(sd, REG_FLASH_WRITE, PROGRAMMING_TIMEOUT);
+	ret = m10mo_wait_operation_complete(sd, REG_FLASH_WRITE,
+						PROGRAMMING_TIMEOUT);
 
 	return ret;
 }
@@ -1117,7 +1153,7 @@ static int m10mo_sio_write(struct m10mo_device *m10mo_dev, u8 *buf)
 	ret = m10mo_writeb(sd, CATEGORY_FLASHROM, REG_RAM_START,
 			   REG_RAM_START_SDRAM);
 	if (ret) {
-		dev_err(&client->dev, "start sio mode failed \n");
+		dev_err(&client->dev, "start sio mode failed\n");
 		return ret;
 	}
 
@@ -1126,14 +1162,14 @@ static int m10mo_sio_write(struct m10mo_device *m10mo_dev, u8 *buf)
 	if (ret)
 		return ret;
 
-	usleep_range(30000, 30000);  /* TDB: is that required */
+	usleep_range(30000, 30000 + 1);  /* TDB: is that required */
 
 	ret = m10mo_dev->spi->write(m10mo_dev->spi->spi_device,
 				    buf, FW_SIZE, SIO_BLOCK_SIZE);
 	if (ret)
 		return ret;
 
-	msleep(5); /* TDB: is that required */
+	msleep(20); /* TDB: is that required */
 
 	/* Flash address to 0*/
 	ret = m10mo_set_flash_address(sd, 0);
@@ -1143,7 +1179,7 @@ static int m10mo_sio_write(struct m10mo_device *m10mo_dev, u8 *buf)
 	/* Programming size */
 	ret = m10mo_writel(sd, CATEGORY_FLASHROM, REG_DATA_TRANS_SIZE, FW_SIZE);
 	if (ret) {
-		dev_err(&client->dev, "set sio programming size failed \n");
+		dev_err(&client->dev, "set sio programming size failed\n");
 		return ret;
 	}
 
@@ -1227,7 +1263,8 @@ int m10mo_program_device(struct m10mo_device *m10mo_dev)
 		}
 	} else {
 		for (i = 0 ; i < FW_SIZE; i = i + FLASH_BLOCK_SIZE) {
-			dev_dbg(&client->dev, "Writing block %d\n", i / FLASH_BLOCK_SIZE);
+			dev_dbg(&client->dev, "Writing block %d\n",
+					i / FLASH_BLOCK_SIZE);
 			ret = m10mo_flash_write_block(m10mo_dev,
 						      i, (u8 *)&fw->data[i],
 						      FLASH_BLOCK_SIZE);

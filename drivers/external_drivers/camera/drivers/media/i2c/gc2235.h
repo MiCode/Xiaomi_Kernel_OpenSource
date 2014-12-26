@@ -98,8 +98,8 @@
 #define GC2235_H_CROP_START_L		0x94
 #define GC2235_V_OUTSIZE_H		0x95
 #define GC2235_V_OUTSIZE_L		0x96
-#define GC2235_H_OUTSIZE_H 		0x97
-#define GC2235_H_OUTSIZE_L 		0x98
+#define GC2235_H_OUTSIZE_H		0x97
+#define GC2235_H_OUTSIZE_L		0x98
 
 #define GC2235_HB_H			0x5
 #define GC2235_HB_L			0x6

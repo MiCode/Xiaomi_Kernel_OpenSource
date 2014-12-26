@@ -33,8 +33,8 @@
 
 struct lm3642_ctrl_id {
 	struct v4l2_queryctrl qc;
-	int (*s_ctrl) (struct v4l2_subdev *sd, __u32 val);
-	int (*g_ctrl) (struct v4l2_subdev *sd, __s32 *val);
+	int (*s_ctrl)(struct v4l2_subdev *sd, __u32 val);
+	int (*g_ctrl)(struct v4l2_subdev *sd, __s32 *val);
 };
 
 /* Registers */
@@ -365,7 +365,7 @@ static int lm3642_s_flash_mode(struct v4l2_subdev *sd, u32 new_mode)
 	return lm3642_set_mode(flash, mode);
 }
 
-static int lm3642_g_flash_mode(struct v4l2_subdev *sd, s32 * val)
+static int lm3642_g_flash_mode(struct v4l2_subdev *sd, s32 *val)
 {
 	struct lm3642 *flash = to_lm3642(sd);
 	*val = flash->mode;

@@ -56,6 +56,6 @@ struct dw9718_device {
 
 #define DW9718_SACT_MULT_TWO		0x00
 #define DW9718_SACT_PERIOD_8_8MS	0x19
-#define DW9718_SACT_DEFAULT_VAL 	0x60
+#define DW9718_SACT_DEFAULT_VAL		0x60
 
 #endif /* __DW9718_H__ */

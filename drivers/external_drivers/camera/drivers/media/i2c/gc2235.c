@@ -279,7 +279,7 @@ static int gc2235_get_intg_factor(struct i2c_client *client,
 	ret =  gc2235_read_reg(client, GC2235_8BIT,
 					GC2235_H_CROP_START_H, &reg_val_h);
 	ret =  gc2235_read_reg(client, GC2235_8BIT,
-                                        GC2235_H_CROP_START_L, &reg_val);
+					GC2235_H_CROP_START_L, &reg_val);
 	if (ret)
 		return ret;
 
@@ -288,7 +288,7 @@ static int gc2235_get_intg_factor(struct i2c_client *client,
 	ret =  gc2235_read_reg(client, GC2235_8BIT,
 					GC2235_V_CROP_START_H, &reg_val_h);
 	ret =  gc2235_read_reg(client, GC2235_8BIT,
-                                        GC2235_V_CROP_START_L, &reg_val);
+					GC2235_V_CROP_START_L, &reg_val);
 	if (ret)
 		return ret;
 
@@ -297,7 +297,7 @@ static int gc2235_get_intg_factor(struct i2c_client *client,
 	ret = gc2235_read_reg(client, GC2235_8BIT,
 					GC2235_H_OUTSIZE_H, &reg_val_h);
 	ret = gc2235_read_reg(client, GC2235_8BIT,
-                                        GC2235_H_OUTSIZE_L, &reg_val);
+					GC2235_H_OUTSIZE_L, &reg_val);
 	if (ret)
 		return ret;
 	buf->output_width = ((u16)reg_val_h << 8) | (u16)reg_val;
@@ -305,7 +305,7 @@ static int gc2235_get_intg_factor(struct i2c_client *client,
 	ret = gc2235_read_reg(client, GC2235_8BIT,
 					GC2235_V_OUTSIZE_H, &reg_val_h);
 	ret = gc2235_read_reg(client, GC2235_8BIT,
-                                        GC2235_V_OUTSIZE_L, &reg_val);
+					GC2235_V_OUTSIZE_L, &reg_val);
 	if (ret)
 		return ret;
 	buf->output_height = ((u16)reg_val_h << 8) | (u16)reg_val;
@@ -318,23 +318,23 @@ static int gc2235_get_intg_factor(struct i2c_client *client,
 	ret = gc2235_read_reg(client, GC2235_8BIT,
 					GC2235_HB_H, &reg_val_h);
 	ret = gc2235_read_reg(client, GC2235_8BIT,
-                                        GC2235_HB_L, &reg_val);
+					GC2235_HB_L, &reg_val);
 	if (ret)
 		return ret;
 
 	dummy = ((u16)reg_val_h << 8) | (u16)reg_val;
 
 	ret = gc2235_read_reg(client, GC2235_8BIT,
-                                        GC2235_SH_DELAY_H, &reg_val_h);
+					GC2235_SH_DELAY_H, &reg_val_h);
 	ret = gc2235_read_reg(client, GC2235_8BIT,
-                                        GC2235_SH_DELAY_L, &reg_val);
+					GC2235_SH_DELAY_L, &reg_val);
 
 	buf->line_length_pck = buf->output_width + 16 + dummy +
 				(((u16)reg_val_h << 8) | (u16)reg_val) + 4;
 	ret = gc2235_read_reg(client, GC2235_8BIT,
 					GC2235_VB_H, &reg_val_h);
 	ret = gc2235_read_reg(client, GC2235_8BIT,
-                                        GC2235_VB_L, &reg_val);
+					GC2235_VB_L, &reg_val);
 	if (ret)
 		return ret;
 
@@ -354,7 +354,7 @@ static long __gc2235_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	u16 coarse_integration = (u16)coarse_itg;
 	int ret = 0;
-	u16 expo_coarse_h,expo_coarse_l, gain_val = 0xF0, gain_val2 = 0xF0;
+	u16 expo_coarse_h, expo_coarse_l, gain_val = 0xF0, gain_val2 = 0xF0;
 	expo_coarse_h = coarse_integration>>8;
 	expo_coarse_l = coarse_integration & 0xff;
 

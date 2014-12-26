@@ -51,7 +51,8 @@
  * line 0 effective data size(byte): 76
  * line 1 effective data size(byte): 113
  */
-static const uint32_t imx135_embedded_effective_size[IMX135_EMBEDDED_DATA_LINE_NUM]
+static const uint32_t
+	imx135_embedded_effective_size[IMX135_EMBEDDED_DATA_LINE_NUM]
 	=  {76, 113};
 
 static enum atomisp_bayer_order imx_bayer_order_mapping[] = {
@@ -1140,11 +1141,13 @@ static int imx_s_ctrl(struct v4l2_ctrl *ctrl)
 		ret = imx_test_pattern(&dev->sd);
 		break;
 	case V4L2_CID_VFLIP:
-		dev_dbg(&client->dev, "%s: CID_VFLIP:%d.\n", __func__, ctrl->val);
+		dev_dbg(&client->dev, "%s: CID_VFLIP:%d.\n",
+			__func__, ctrl->val);
 		ret = imx_v_flip(&dev->sd, ctrl->val);
 		break;
 	case V4L2_CID_HFLIP:
-		dev_dbg(&client->dev, "%s: CID_HFLIP:%d.\n", __func__, ctrl->val);
+		dev_dbg(&client->dev, "%s: CID_HFLIP:%d.\n",
+			__func__, ctrl->val);
 		ret = imx_h_flip(&dev->sd, ctrl->val);
 		break;
 	case V4L2_CID_FOCUS_ABSOLUTE:
@@ -1654,7 +1657,8 @@ static int imx_s_mbus_fmt(struct v4l2_subdev *sd,
 	res = &dev->curr_res_table[dev->fmt_idx];
 
 	/* Adjust the FPS selection based on the resolution selected */
-	dev->fps_index = __imx_nearest_fps_index(dev->targetfps, res->fps_options);
+	dev->fps_index = __imx_nearest_fps_index(dev->targetfps,
+						res->fps_options);
 	dev->fps = res->fps_options[dev->fps_index].fps;
 	dev->regs = res->fps_options[dev->fps_index].regs;
 	if (!dev->regs)
@@ -1718,7 +1722,8 @@ static int imx_s_mbus_fmt(struct v4l2_subdev *sd,
 	 */
 	switch (dev->sensor_id) {
 	case IMX135_ID:
-		ret = imx_read_reg(client, 2, IMX135_OUTPUT_DATA_FORMAT_REG, &data);
+		ret = imx_read_reg(client, 2,
+				IMX135_OUTPUT_DATA_FORMAT_REG, &data);
 		if (ret)
 			goto out;
 		/*
@@ -1788,7 +1793,8 @@ static int imx_detect(struct i2c_client *client, u16 *id, u8 *revision)
 		return -ENODEV;
 	}
 
-	if (*id == IMX132_ID || *id == IMX175_ID || *id == IMX208_ID || *id == IMX219_ID)
+	if (*id == IMX132_ID || *id == IMX175_ID ||
+		*id == IMX208_ID || *id == IMX219_ID)
 		goto found;
 
 	if (imx_read_reg(client, IMX_16BIT, IMX134_135_CHIP_ID, id)) {
@@ -1930,7 +1936,8 @@ static int imx_enum_frameintervals(struct v4l2_subdev *sd,
 	fival->width = dev->curr_res_table[i].width;
 	fival->height = dev->curr_res_table[i].height;
 	fival->discrete.numerator = 1;
-	fival->discrete.denominator = dev->curr_res_table[i].fps_options[index].fps;
+	fival->discrete.denominator =
+			dev->curr_res_table[i].fps_options[index].fps;
 	mutex_unlock(&dev->input_lock);
 	return 0;
 out:
@@ -2265,15 +2272,17 @@ static int __imx_s_frame_interval(struct v4l2_subdev *sd,
 		 * with current setting, not use this one, as may have
 		 * unexpected result, e.g. PLL, IQ.
 		 */
-		dev_dbg(&client->dev, "Sensor is streaming, not apply new sensor setting\n");
+		dev_dbg(&client->dev,
+			"Sensor is streaming, not apply new sensor setting\n");
 		if (fps > res->fps_options[dev->fps_index].fps) {
 			/*
 			 * Does not support increase fps based on low fps
 			 * setting, as the high fps setting could not be used,
 			 * and fps requested is above current setting fps.
 			 */
-			dev_warn(&client->dev, "Could not support fps: %d, keep current: %d.\n",
-					fps, dev->fps);
+			dev_warn(&client->dev,
+			"Could not support fps: %d, keep current: %d.\n",
+			fps, dev->fps);
 			return 0;
 		}
 	} else {
@@ -2305,9 +2314,9 @@ static int __imx_s_frame_interval(struct v4l2_subdev *sd,
 		 * 2: consider use pixel per line for more range?
 		 */
 		if (dev->lines_per_frame * dev->fps / fps >
-				MAX_LINES_PER_FRAME) {
+			MAX_LINES_PER_FRAME) {
 			dev_warn(&client->dev,
-					"adjust lines_per_frame out of range, try to use max value.\n");
+		"adjust lines_per_frame out of range, try to use max value.\n");
 			lines_per_frame = MAX_LINES_PER_FRAME;
 		} else {
 			lines_per_frame = lines_per_frame * dev->fps / fps;

@@ -69,7 +69,8 @@ static int s5k6b2yx_read_reg(struct i2c_client *client, u16 len,
 	int retry_cnt = 5;
 
 	if (len > S5K6B2YX_BYTE_MAX) {
-		dev_err(&client->dev, "%s error, invalid data length\n", __func__);
+		dev_err(&client->dev,
+			"%s error, invalid data length\n", __func__);
 		return -EINVAL;
 	}
 
@@ -136,7 +137,7 @@ static int s5k6b2yx_i2c_write(struct i2c_client *client, u16 len, u8 *data)
 }
 
 static int s5k6b2yx_write_reg(struct i2c_client *client, u16 data_length,
-								u16 reg, u16 val)
+							u16 reg, u16 val)
 {
 	int ret;
 	unsigned char data[4] = {0};
@@ -145,7 +146,8 @@ static int s5k6b2yx_write_reg(struct i2c_client *client, u16 data_length,
 	int retry_cnt = 5;
 
 	if (data_length != S5K6B2YX_8BIT && data_length != S5K6B2YX_16BIT) {
-		dev_err(&client->dev, "%s error, invalid data_length\n", __func__);
+		dev_err(&client->dev,
+			"%s error, invalid data_length\n", __func__);
 		return -EINVAL;
 	}
 
@@ -264,7 +266,8 @@ static int s5k6b2yx_write_reg_array(struct i2c_client *client,
 		case S5K6B2YX_TOK_DELAY:
 			err = __s5k6b2yx_flush_reg_array(client, &ctrl);
 			if (err) {
-				dev_err(&client->dev, "%s: write error\n", __func__);
+				dev_err(&client->dev,
+					"%s: write error\n", __func__);
 				return err;
 			}
 			msleep(next->val);
@@ -278,13 +281,15 @@ static int s5k6b2yx_write_reg_array(struct i2c_client *client,
 								next)) {
 				err = __s5k6b2yx_flush_reg_array(client, &ctrl);
 				if (err) {
-					dev_err(&client->dev, "%s: write error\n", __func__);
+					dev_err(&client->dev,
+						"%s: write error\n", __func__);
 					return err;
 				}
 			}
 			err = __s5k6b2yx_buf_reg_array(client, &ctrl, next);
 			if (err) {
-				dev_err(&client->dev, "%s: write error\n", __func__);
+				dev_err(&client->dev,
+					"%s: write error\n", __func__);
 				return err;
 			}
 			break;
@@ -494,7 +499,8 @@ static int s5k6b2yx_get_intg_factor(struct i2c_client *client,
 	pll_multiplier = data[0];
 
 	memset(data, 0, S5K6B2YX_INTG_BUF_COUNT * sizeof(u16));
-	ret = s5k6b2yx_read_reg(client, 2, S5K6B2YX_FINE_INTEGRATION_TIME, data);
+	ret = s5k6b2yx_read_reg(client, 2,
+				S5K6B2YX_FINE_INTEGRATION_TIME, data);
 	if (ret)
 		return ret;
 	fine_integration_time = data[0];
@@ -520,7 +526,8 @@ static int s5k6b2yx_get_intg_factor(struct i2c_client *client,
 	buf->coarse_integration_time_max_margin =
 			S5K6B2YX_COARSE_INTEGRATION_TIME_MARGIN;
 	buf->fine_integration_time_min = S5K6B2YX_FINE_INTG_TIME_MIN;
-	buf->fine_integration_time_max_margin = S5K6B2YX_FINE_INTG_TIME_MAX_MARGIN;
+	buf->fine_integration_time_max_margin =
+				S5K6B2YX_FINE_INTG_TIME_MAX_MARGIN;
 	buf->fine_integration_time_def = S5K6B2YX_FINE_INTG_TIME_MIN;
 	buf->line_length_pck = line_length_pck;
 	buf->frame_length_lines = frame_length_lines;
@@ -551,12 +558,14 @@ static int s5k6b2yx_get_intg_factor(struct i2c_client *client,
 		return ret;
 	buf->crop_vertical_end = data[0];
 
-	ret = s5k6b2yx_read_reg(client, 2, S5K6B2YX_HORIZONTAL_OUTPUT_SIZE_H, data);
+	ret = s5k6b2yx_read_reg(client, 2,
+				S5K6B2YX_HORIZONTAL_OUTPUT_SIZE_H, data);
 	if (ret)
 		return ret;
 	buf->output_width = data[0];
 
-	ret = s5k6b2yx_read_reg(client, 2, S5K6B2YX_VERTICAL_OUTPUT_SIZE_H, data);
+	ret = s5k6b2yx_read_reg(client, 2,
+				S5K6B2YX_VERTICAL_OUTPUT_SIZE_H, data);
 	if (ret)
 		return ret;
 	buf->output_height = data[0];
@@ -789,14 +798,16 @@ static int s5k6b2yx_t_hflip(struct v4l2_subdev *sd, int value)
 	/* enable group hold */
 	ret = s5k6b2yx_write_reg_array(c, s5k6b2yx_param_hold);
 
-	ret = s5k6b2yx_read_reg(c, S5K6B2YX_8BIT, S5K6B2YX_IMG_ORIENTATION, &val);
+	ret = s5k6b2yx_read_reg(c, S5K6B2YX_8BIT,
+				S5K6B2YX_IMG_ORIENTATION, &val);
 	if (ret)
 		return ret;
 	if (value)
 		val |= S5K6B2YX_HFLIP_BIT;
 	else
 		val &= ~S5K6B2YX_HFLIP_BIT;
-	ret = s5k6b2yx_write_reg(c, S5K6B2YX_8BIT, S5K6B2YX_IMG_ORIENTATION, val);
+	ret = s5k6b2yx_write_reg(c, S5K6B2YX_8BIT,
+				S5K6B2YX_IMG_ORIENTATION, val);
 	if (ret)
 		return ret;
 
@@ -818,14 +829,16 @@ static int s5k6b2yx_t_vflip(struct v4l2_subdev *sd, int value)
 	/* enable group hold */
 	ret = s5k6b2yx_write_reg_array(c, s5k6b2yx_param_hold);
 
-	ret = s5k6b2yx_read_reg(c, S5K6B2YX_8BIT, S5K6B2YX_IMG_ORIENTATION, &val);
+	ret = s5k6b2yx_read_reg(c, S5K6B2YX_8BIT,
+				S5K6B2YX_IMG_ORIENTATION, &val);
 	if (ret)
 		return ret;
 	if (value)
 		val |= S5K6B2YX_VFLIP_BIT;
 	else
 		val &= ~S5K6B2YX_VFLIP_BIT;
-	ret = s5k6b2yx_write_reg(c, S5K6B2YX_8BIT, S5K6B2YX_IMG_ORIENTATION, val);
+	ret = s5k6b2yx_write_reg(c, S5K6B2YX_8BIT,
+				S5K6B2YX_IMG_ORIENTATION, val);
 	if (ret)
 		return ret;
 
@@ -980,7 +993,8 @@ static struct s5k6b2yx_control s5k6b2yx_controls[] = {
 };
 #define N_CONTROLS (ARRAY_SIZE(s5k6b2yx_controls))
 
-static long __s5k6b2yx_set_exposure(struct v4l2_subdev *sd, u16 coarse_itg, u16 gain)
+static long __s5k6b2yx_set_exposure(struct v4l2_subdev *sd,
+					u16 coarse_itg, u16 gain)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
@@ -1251,8 +1265,8 @@ static int s5k6b2yx_recovery(struct v4l2_subdev *sd)
 	if (ret)
 		return ret;
 
-	ret = s5k6b2yx_write_reg(client, S5K6B2YX_8BIT, S5K6B2YX_IMG_ORIENTATION,
-								dev->flip);
+	ret = s5k6b2yx_write_reg(client, S5K6B2YX_8BIT,
+			S5K6B2YX_IMG_ORIENTATION, dev->flip);
 	if (ret)
 		return ret;
 
@@ -1289,9 +1303,11 @@ static int s5k6b2yx_s_stream(struct v4l2_subdev *sd, int enable)
 			}
 		}
 		if (dev->mode == CAM_SW_STBY)
-			ret = s5k6b2yx_write_reg_array(client, s5k6b2yx_streaming);
+			ret = s5k6b2yx_write_reg_array(client,
+							s5k6b2yx_streaming);
 		else
-			ret = s5k6b2yx_write_reg_array(client, s5k6b2yx_vis_streaming);
+			ret = s5k6b2yx_write_reg_array(client,
+							s5k6b2yx_vis_streaming);
 		if (ret) {
 			mutex_unlock(&dev->input_lock);
 			return ret;
@@ -1300,9 +1316,11 @@ static int s5k6b2yx_s_stream(struct v4l2_subdev *sd, int enable)
 		dev->streaming = 1;
 	} else {
 		if (dev->mode == CAM_SW_STBY)
-			ret = s5k6b2yx_write_reg_array(client, s5k6b2yx_suspend);
+			ret = s5k6b2yx_write_reg_array(client,
+							s5k6b2yx_suspend);
 		else
-			ret = s5k6b2yx_write_reg_array(client, s5k6b2yx_vis_suspend);
+			ret = s5k6b2yx_write_reg_array(client,
+							s5k6b2yx_vis_suspend);
 		if (ret != 0) {
 			mutex_unlock(&dev->input_lock);
 			return ret;
@@ -1426,7 +1444,8 @@ s5k6b2yx_get_pad_format(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh,
 {
 	struct s5k6b2yx_device *dev = to_s5k6b2yx_sensor(sd);
 	struct v4l2_mbus_framefmt *format =
-			__s5k6b2yx_get_pad_format(dev, fh, fmt->pad, fmt->which);
+			__s5k6b2yx_get_pad_format(dev, fh,
+						fmt->pad, fmt->which);
 
 	fmt->format = *format;
 
@@ -1662,7 +1681,8 @@ static int s5k6b2yx_probe(struct i2c_client *client,
 
 	ret = __s5k6b2yx_init_ctrl_handler(dev);
 	if (ret) {
-		dev_err(&client->dev, "%s: init ctrl handler fail!!\n", __func__);
+		dev_err(&client->dev,
+			"%s: init ctrl handler fail!!\n", __func__);
 		goto out_ctrl_handler_free;
 	}
 

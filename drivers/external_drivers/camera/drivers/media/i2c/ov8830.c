@@ -595,9 +595,8 @@ static int __ov8830_set_exposure(struct v4l2_subdev *sd, int exposure, int gain,
 		gain,
 		dig_gain);
 
-	if (!(exposure && gain)) {
+	if (!(exposure && gain))
 		return 0;
-	}
 
 	/* Update frame timings. Expsure must be minimum <  vts-14 */
 	ret = __ov8830_update_frame_timing(sd, exposure, hts, vts);
@@ -771,7 +770,7 @@ static int power_up(struct v4l2_subdev *sd)
 
 	/* Minumum delay is 8192 clock cycles before first i2c transaction,
 	 * which is 1.37 ms at the lowest allowed clock rate 6 MHz */
-	msleep(2);
+	msleep(20);
 	return 0;
 
 fail_clk:
@@ -1164,11 +1163,11 @@ static int __ov8830_try_mbus_fmt(struct v4l2_subdev *sd,
 	} else {
 		idx = nearest_resolution_index(sd, fmt->width, fmt->height);
 
-		/*
-		 * nearest_resolution_index() doesn't return smaller resolutions.
-		 * If it fails, it means the requested resolution is higher than we
-		 * can support. Fallback to highest possible resolution in this case.
-		 */
+	/*
+	 * nearest_resolution_index() doesn't return smaller resolutions.
+	 * If it fails, it means the requested resolution is higher than we
+	 * can support. Fallback to highest possible resolution in this case.
+	 */
 		if (idx == -1)
 			idx = dev->entries_curr_table - 1;
 
@@ -1815,10 +1814,13 @@ static const struct v4l2_ctrl_config ctrls[] = {
 		.id = V4L2_CID_FOCAL_ABSOLUTE,
 		.name = "Focal lenght",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = (OV8830_FOCAL_LENGTH_NUM << 16) | OV8830_FOCAL_LENGTH_DEM,
-		.max = (OV8830_FOCAL_LENGTH_NUM << 16) | OV8830_FOCAL_LENGTH_DEM,
+		.min = (OV8830_FOCAL_LENGTH_NUM << 16) |
+						OV8830_FOCAL_LENGTH_DEM,
+		.max = (OV8830_FOCAL_LENGTH_NUM << 16) |
+						OV8830_FOCAL_LENGTH_DEM,
 		.step = 1,
-		.def = (OV8830_FOCAL_LENGTH_NUM << 16) | OV8830_FOCAL_LENGTH_DEM,
+		.def = (OV8830_FOCAL_LENGTH_NUM << 16) |
+						OV8830_FOCAL_LENGTH_DEM,
 		.flags = V4L2_CTRL_FLAG_READ_ONLY,
 	}, {
 		/* This one is crap, too. For compatibility use only. */
@@ -1826,10 +1828,13 @@ static const struct v4l2_ctrl_config ctrls[] = {
 		.id = V4L2_CID_FNUMBER_ABSOLUTE,
 		.name = "F-number",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = (OV8830_F_NUMBER_DEFAULT_NUM << 16) | OV8830_F_NUMBER_DEM,
-		.max = (OV8830_F_NUMBER_DEFAULT_NUM << 16) | OV8830_F_NUMBER_DEM,
+		.min = (OV8830_F_NUMBER_DEFAULT_NUM << 16) |
+			OV8830_F_NUMBER_DEM,
+		.max = (OV8830_F_NUMBER_DEFAULT_NUM << 16) |
+			OV8830_F_NUMBER_DEM,
 		.step = 1,
-		.def = (OV8830_F_NUMBER_DEFAULT_NUM << 16) | OV8830_F_NUMBER_DEM,
+		.def = (OV8830_F_NUMBER_DEFAULT_NUM << 16) |
+			OV8830_F_NUMBER_DEM,
 		.flags = V4L2_CTRL_FLAG_READ_ONLY,
 	}, {
 		/*
@@ -1840,10 +1845,19 @@ static const struct v4l2_ctrl_config ctrls[] = {
 		.id = V4L2_CID_FNUMBER_RANGE,
 		.name = "F-number range",
 		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = (OV8830_F_NUMBER_DEFAULT_NUM << 24) | (OV8830_F_NUMBER_DEM << 16) | (OV8830_F_NUMBER_DEFAULT_NUM << 8) | OV8830_F_NUMBER_DEM,
-		.max = (OV8830_F_NUMBER_DEFAULT_NUM << 24) | (OV8830_F_NUMBER_DEM << 16) | (OV8830_F_NUMBER_DEFAULT_NUM << 8) | OV8830_F_NUMBER_DEM,
+		.min = (OV8830_F_NUMBER_DEFAULT_NUM << 24) |
+			(OV8830_F_NUMBER_DEM << 16) |
+			(OV8830_F_NUMBER_DEFAULT_NUM << 8) |
+			OV8830_F_NUMBER_DEM,
+		.max = (OV8830_F_NUMBER_DEFAULT_NUM << 24) |
+			(OV8830_F_NUMBER_DEM << 16) |
+			(OV8830_F_NUMBER_DEFAULT_NUM << 8) |
+			OV8830_F_NUMBER_DEM,
 		.step = 1,
-		.def = (OV8830_F_NUMBER_DEFAULT_NUM << 24) | (OV8830_F_NUMBER_DEM << 16) | (OV8830_F_NUMBER_DEFAULT_NUM << 8) | OV8830_F_NUMBER_DEM,
+		.def = (OV8830_F_NUMBER_DEFAULT_NUM << 24) |
+			(OV8830_F_NUMBER_DEM << 16) |
+			(OV8830_F_NUMBER_DEFAULT_NUM << 8) |
+			OV8830_F_NUMBER_DEM,
 		.flags = V4L2_CTRL_FLAG_READ_ONLY,
 	}, {
 		.ops = &ctrl_ops,

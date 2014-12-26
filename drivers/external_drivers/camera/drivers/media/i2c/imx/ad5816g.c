@@ -109,7 +109,7 @@ int ad5816g_vcm_power_up(struct v4l2_subdev *sd)
 	  * t1(1ms) -Time from VDD high to first i2c cmd
 	  * t2(100us) - exit power-down mode time
 	  */
-	usleep_range(1100, 1100);
+	usleep_range(1100, 2200);
 	/* Detect device */
 	ret = ad5816g_i2c_rd8(client, AD5816G_IC_INFO, &ad5816g_id);
 	if (ret < 0)
@@ -203,7 +203,7 @@ int ad5816g_q_focus_abs(struct v4l2_subdev *sd, s32 *value)
 	if (val & ATOMISP_FOCUS_STATUS_MOVING)
 		*value  = ad5816g_dev.focus - ad5816g_dev.number_of_steps;
 	else
-		*value  = ad5816g_dev.focus ;
+		*value = ad5816g_dev.focus;
 
 	return 0;
 }

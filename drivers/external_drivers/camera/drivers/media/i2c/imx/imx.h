@@ -217,7 +217,7 @@ struct imx_vcm {
 };
 
 struct imx_otp {
-	void *(*otp_read)(struct v4l2_subdev *sd, u8 dev_addr,
+	void * (*otp_read)(struct v4l2_subdev *sd, u8 dev_addr,
 		u32 start_addr, u32 size);
 	u32 start_addr;
 	u32 size;
