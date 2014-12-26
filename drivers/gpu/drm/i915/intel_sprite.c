@@ -525,8 +525,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 				true, src_w != crtc_w || src_h != crtc_h);
 	}
 
-	if (intel_plane->rotate180 &&
-			(pipe == 0))
+	if (intel_plane->rotate180)
 		rotate = true;
 
 	/* Sizes are 0 based */

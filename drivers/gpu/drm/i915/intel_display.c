@@ -2768,7 +2768,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		BUG();
 	}
 
-	if (intel_crtc->rotate180 && (pipe == 0))
+	if (intel_crtc->rotate180)
 		rotate = true;
 
 	if (INTEL_INFO(dev)->gen >= 4) {
