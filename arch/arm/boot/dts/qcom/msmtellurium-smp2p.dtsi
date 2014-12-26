@@ -31,7 +31,7 @@
 		reg = <0x0b011008 0x4>;
 		qcom,remote-pid = <2>;
 		qcom,irq-bitmask = <0x400>;
-		interrupts = <0 158 1>;
+		interrupts = <0 291 1>;
 	};
 
 	smp2pgpio_smp2p_7_in: qcom,smp2pgpio-smp2p-7-in {
