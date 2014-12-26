@@ -154,7 +154,6 @@ struct hdmi_tx_ctrl {
 	u32 hpd_feature_on;
 	u32 hpd_initialized;
 	u32 vote_hdmi_core_on;
-	u32 res_info_id;
 	u8  timing_gen_on;
 	u8  mhl_hpd_on;
 

@@ -961,72 +961,6 @@ static ssize_t hdmi_tx_sysfs_wta_avi_cn_bits(struct device *dev,
 	return ret;
 } /* hdmi_tx_sysfs_wta_cn_bits */
 
-static ssize_t hdmi_tx_sysfs_wta_res_info(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	int rc, res_info_id;
-	ssize_t ret = strnlen(buf, PAGE_SIZE);
-	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
-
-	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
-
-	if (!hdmi_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -EINVAL;
-	}
-
-	rc = kstrtoint(buf, 10, &res_info_id);
-	if (rc) {
-		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
-		return rc;
-	}
-
-	if (res_info_id >= 0 && res_info_id < HDMI_VFRMT_MAX)
-		hdmi_ctrl->res_info_id = res_info_id;
-	else
-		hdmi_ctrl->res_info_id = 0;
-
-	DEV_DBG("%s: %d\n", __func__, hdmi_ctrl->res_info_id);
-	return ret;
-}
-
-static ssize_t hdmi_tx_sysfs_rda_res_info(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	ssize_t ret;
-	struct msm_hdmi_mode_timing_info info = {0};
-	struct hdmi_tx_ctrl *hdmi_ctrl =
-		hdmi_tx_get_drvdata_from_sysfs_dev(dev);
-	u32 size = sizeof(info) < PAGE_SIZE ? sizeof(info) : PAGE_SIZE;
-
-	if (!hdmi_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -EINVAL;
-	}
-
-	if (!hdmi_ctrl->res_info_id)
-		return -EINVAL;
-
-	ret = hdmi_get_supported_mode(&info, &hdmi_ctrl->ds_data,
-		hdmi_ctrl->res_info_id);
-
-	if (ret)
-		return -EINVAL;
-
-	memcpy(buf, &info, size);
-
-	DEV_DBG("%s: %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
-		__func__,
-		info.video_format, info.active_h, info.front_porch_h,
-		info.pulse_width_h, info.back_porch_h, info.active_low_h,
-		info.active_v, info.front_porch_v, info.pulse_width_v,
-		info.back_porch_v, info.active_low_v, info.pixel_freq,
-		info.refresh_rate, info.interlaced, info.supported,
-		info.ar);
-
-	return size;
-}
-
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_tx_sysfs_rda_connected, NULL);
 static DEVICE_ATTR(video_mode, S_IRUGO, hdmi_tx_sysfs_rda_video_mode, NULL);
 static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_hpd,
@@ -1038,8 +972,6 @@ static DEVICE_ATTR(product_description, S_IRUGO | S_IWUSR,
 	hdmi_tx_sysfs_wta_product_description);
 static DEVICE_ATTR(avi_itc, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_itc);
 static DEVICE_ATTR(avi_cn0_1, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_cn_bits);
-static DEVICE_ATTR(res_info, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_res_info,
-	hdmi_tx_sysfs_wta_res_info);
 
 static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_connected.attr,
@@ -1049,7 +981,6 @@ static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_product_description.attr,
 	&dev_attr_avi_itc.attr,
 	&dev_attr_avi_cn0_1.attr,
-	&dev_attr_res_info.attr,
 	NULL,
 };
 static struct attribute_group hdmi_tx_fs_attrs_group = {
