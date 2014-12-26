@@ -264,9 +264,6 @@ static void ipa_wq_handle_tx(struct work_struct *work)
  * @in_atomic:  whether caller is in atomic context
  *
  * - Allocate tx_packet wrapper
- * - Allocate a bounce buffer due to HW constrains
- *   (This buffer will be used for the DMA command)
- * - Copy the data (desc->pyld) to the bounce buffer
  * - transfer data to the IPA
  * - after the transfer was done the SPS will
  *   notify the sending user via ipa_sps_irq_comp_tx()
@@ -293,29 +290,8 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 	}
 
 	if (!desc->dma_address_valid) {
-		if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0)) {
-			WARN_ON(desc->len > 512);
-
-			/*
-			 * Due to a HW limitation, we need to make sure that
-			 * the packet does not cross a 1KB boundary
-			 */
-			tx_pkt->bounce = dma_pool_alloc(
-				ipa_ctx->dma_pool,
-				mem_flag, &dma_address);
-			if (!tx_pkt->bounce) {
-				dma_address = 0;
-			} else {
-				WARN_ON(!ipa_straddle_boundary
-					((u32)dma_address,
-					(u32)dma_address + desc->len - 1,
-					1024));
-				memcpy(tx_pkt->bounce, desc->pyld, desc->len);
-			}
-		} else {
-			dma_address = dma_map_single(ipa_ctx->pdev, desc->pyld,
-				desc->len, DMA_TO_DEVICE);
-		}
+		dma_address = dma_map_single(ipa_ctx->pdev, desc->pyld,
+			desc->len, DMA_TO_DEVICE);
 	} else {
 		dma_address = desc->dma_address;
 		tx_pkt->no_unmap_dma = true;
@@ -369,12 +345,7 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 fail_sps_send:
 	list_del(&tx_pkt->link);
 	spin_unlock_bh(&sys->spinlock);
-	if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0))
-		dma_pool_free(ipa_ctx->dma_pool, tx_pkt->bounce,
-				dma_address);
-	else
-		dma_unmap_single(ipa_ctx->pdev, dma_address, desc->len,
-				DMA_TO_DEVICE);
+	dma_unmap_single(ipa_ctx->pdev, dma_address, desc->len, DMA_TO_DEVICE);
 fail_dma_map:
 	kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 fail_mem_alloc:
@@ -391,8 +362,6 @@ fail_mem_alloc:
  * This function is used for system-to-bam connection.
  * - SPS driver expect struct sps_transfer which will contain all the data
  *   for a transaction
- * - The sps_transfer struct will be pointing to bounce buffers for
- *   its DMA command (immediate command and data)
  * - ipa_tx_pkt_wrapper will be used for each ipa
  *   descriptor (allocated from wrappers cache)
  * - The wrapper struct will be configured for each ipa-desc payload and will
@@ -479,35 +448,11 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		tx_pkt->mem.size = desc[i].len;
 
 		if (!desc->dma_address_valid) {
-			if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0)) {
-				WARN_ON(tx_pkt->mem.size > 512);
-
-				/*
-				 * Due to a HW limitation, we need to make sure
-				 * that the packet does not cross a
-				 * 1KB boundary
-				 */
-				tx_pkt->bounce =
-				dma_pool_alloc(ipa_ctx->dma_pool,
-					       mem_flag,
-					       &tx_pkt->mem.phys_base);
-				if (!tx_pkt->bounce) {
-					tx_pkt->mem.phys_base = 0;
-				} else {
-					WARN_ON(!ipa_straddle_boundary(
-						(u32)tx_pkt->mem.phys_base,
-						(u32)tx_pkt->mem.phys_base +
-						tx_pkt->mem.size - 1, 1024));
-					memcpy(tx_pkt->bounce, tx_pkt->mem.base,
-						tx_pkt->mem.size);
-				}
-			} else {
-				tx_pkt->mem.phys_base =
-					dma_map_single(ipa_ctx->pdev,
-					tx_pkt->mem.base,
-					tx_pkt->mem.size,
-					DMA_TO_DEVICE);
-			}
+			tx_pkt->mem.phys_base =
+				dma_map_single(ipa_ctx->pdev,
+				tx_pkt->mem.base,
+				tx_pkt->mem.size,
+				DMA_TO_DEVICE);
 		} else {
 			tx_pkt->mem.phys_base = desc->dma_address;
 			tx_pkt->no_unmap_dma = true;
@@ -525,7 +470,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		tx_pkt->user2 = desc[i].user2;
 
 		/*
-		 * Point the iovec to the bounce buffer and
+		 * Point the iovec to the buffer and
 		 * add this packet to system pipe context.
 		 */
 		iovec->addr = tx_pkt->mem.phys_base;
@@ -565,14 +510,9 @@ failure:
 	for (j = 0; j < i; j++) {
 		next_pkt = list_next_entry(tx_pkt, link);
 		list_del(&tx_pkt->link);
-		if (unlikely(ipa_ctx->ipa_hw_type == IPA_HW_v1_0))
-			dma_pool_free(ipa_ctx->dma_pool,
-					tx_pkt->bounce,
-					tx_pkt->mem.phys_base);
-		else
-			dma_unmap_single(ipa_ctx->pdev, tx_pkt->mem.phys_base,
-					tx_pkt->mem.size,
-					DMA_TO_DEVICE);
+		dma_unmap_single(ipa_ctx->pdev, tx_pkt->mem.phys_base,
+				tx_pkt->mem.size,
+				DMA_TO_DEVICE);
 		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 		tx_pkt = next_pkt;
 	}

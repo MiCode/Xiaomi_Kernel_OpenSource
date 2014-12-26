@@ -100,25 +100,6 @@ static struct dentry *dfile_rm_stats;
 static char dbg_buff[IPA_MAX_MSG_LEN];
 static s8 ep_reg_idx;
 
-int _ipa_read_gen_reg_v1_0(char *buff, int max_len)
-{
-	return scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-			"IPA_VERSION=0x%x\n"
-			"IPA_COMP_HW_VERSION=0x%x\n"
-			"IPA_ROUTE=0x%x\n"
-			"IPA_FILTER=0x%x\n"
-			"IPA_SHARED_MEM_SIZE=0x%x\n"
-			"IPA_HEAD_OF_LINE_BLOCK_EN=0x%x\n",
-			ipa_read_reg(ipa_ctx->mmio, IPA_VERSION_OFST),
-			ipa_read_reg(ipa_ctx->mmio, IPA_COMP_HW_VERSION_OFST),
-			ipa_read_reg(ipa_ctx->mmio, IPA_ROUTE_OFST_v1_0),
-			ipa_read_reg(ipa_ctx->mmio, IPA_FILTER_OFST_v1_0),
-			ipa_read_reg(ipa_ctx->mmio,
-				IPA_SHARED_MEM_SIZE_OFST_v1_0),
-			ipa_read_reg(ipa_ctx->mmio,
-				IPA_HEAD_OF_LINE_BLOCK_EN_OFST));
-}
-
 int _ipa_read_gen_reg_v1_1(char *buff, int max_len)
 {
 	return scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
@@ -242,26 +223,6 @@ static ssize_t ipa_write_ep_reg(struct file *file, const char __user *buf,
 	ep_reg_idx = option;
 
 	return count;
-}
-
-int _ipa_read_ep_reg_v1_0(char *buf, int max_len, int pipe)
-{
-	return scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
-			"IPA_ENDP_INIT_NAT_%u=0x%x\n"
-			"IPA_ENDP_INIT_HDR_%u=0x%x\n"
-			"IPA_ENDP_INIT_MODE_%u=0x%x\n"
-			"IPA_ENDP_INIT_AGGR_%u=0x%x\n"
-			"IPA_ENDP_INIT_ROUTE_%u=0x%x\n",
-			pipe, ipa_read_reg(ipa_ctx->mmio,
-				IPA_ENDP_INIT_NAT_N_OFST_v1_0(pipe)),
-				pipe, ipa_read_reg(ipa_ctx->mmio,
-				IPA_ENDP_INIT_HDR_N_OFST_v1_0(pipe)),
-				pipe, ipa_read_reg(ipa_ctx->mmio,
-				IPA_ENDP_INIT_MODE_N_OFST_v1_0(pipe)),
-				pipe, ipa_read_reg(ipa_ctx->mmio,
-				IPA_ENDP_INIT_AGGR_N_OFST_v1_0(pipe)),
-				pipe, ipa_read_reg(ipa_ctx->mmio,
-				IPA_ENDP_INIT_ROUTE_N_OFST_v1_0(pipe)));
 }
 
 int _ipa_read_ep_reg_v1_1(char *buf, int max_len, int pipe)
@@ -1194,13 +1155,13 @@ static ssize_t ipa_read_wdi(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
-void _ipa_write_dbg_cnt_v1(int option)
+void _ipa_write_dbg_cnt_v1_1(int option)
 {
 	if (option == 1)
-		ipa_write_reg(ipa_ctx->mmio, IPA_DEBUG_CNT_CTRL_N_OFST_v1(0),
+		ipa_write_reg(ipa_ctx->mmio, IPA_DEBUG_CNT_CTRL_N_OFST_v1_1(0),
 				IPA_DBG_CNTR_ON);
 	else
-		ipa_write_reg(ipa_ctx->mmio, IPA_DEBUG_CNT_CTRL_N_OFST_v1(0),
+		ipa_write_reg(ipa_ctx->mmio, IPA_DEBUG_CNT_CTRL_N_OFST_v1_1(0),
 				IPA_DBG_CNTR_OFF);
 }
 
@@ -1238,15 +1199,15 @@ static ssize_t ipa_write_dbg_cnt(struct file *file, const char __user *buf,
 	return count;
 }
 
-int _ipa_read_dbg_cnt_v1(char *buf, int max_len)
+int _ipa_read_dbg_cnt_v1_1(char *buf, int max_len)
 {
 	int regval;
 
 	regval = ipa_read_reg(ipa_ctx->mmio,
-			IPA_DEBUG_CNT_REG_N_OFST_v1(0));
+			IPA_DEBUG_CNT_REG_N_OFST_v1_1(0));
 
 	return scnprintf(buf, max_len,
-				"IPA_DEBUG_CNT_REG_0=0x%x\n", regval);
+			"IPA_DEBUG_CNT_REG_0=0x%x\n", regval);
 }
 
 int _ipa_read_dbg_cnt_v2_0(char *buf, int max_len)

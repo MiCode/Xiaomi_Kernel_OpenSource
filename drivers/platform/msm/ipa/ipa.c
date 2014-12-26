@@ -40,9 +40,6 @@
 			       x == IPA_MODE_MOBILE_AP_WLAN)
 #define IPA_CNOC_CLK_RATE (75 * 1000 * 1000UL)
 #define IPA_A5_MUX_HEADER_LENGTH (8)
-#define IPA_DMA_POOL_SIZE (512)
-#define IPA_DMA_POOL_ALIGNMENT (4)
-#define IPA_DMA_POOL_BOUNDARY (1024)
 #define IPA_ROUTING_RULE_BYTE_SIZE (4)
 #define IPA_BAM_CNFG_BITS_VALv1_1 (0x7FFFE004)
 #define IPA_BAM_CNFG_BITS_VALv2_0 (0xFFFFE004)
@@ -2319,7 +2316,7 @@ void _ipa_enable_clks_v2_0(void)
 	}
 }
 
-void _ipa_enable_clks_v1(void)
+void _ipa_enable_clks_v1_1(void)
 {
 
 	if (ipa_cnoc_clk) {
@@ -2408,7 +2405,7 @@ void ipa_enable_clks(void)
 		WARN_ON(1);
 }
 
-void _ipa_disable_clks_v1(void)
+void _ipa_disable_clks_v1_1(void)
 {
 
 	if (ipa_inactivity_clk)
@@ -2577,7 +2574,6 @@ static int ipa_setup_bam_cfg(const struct ipa_plat_drv_res *res)
 	if (!ipa_bam_mmio)
 		return -ENOMEM;
 	switch (ipa_ctx->ipa_hw_type) {
-	case IPA_HW_v1_0:
 	case IPA_HW_v1_1:
 		reg_val = IPA_BAM_CNFG_BITS_VALv1_1;
 		break;
@@ -3166,21 +3162,11 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		result = -ENOMEM;
 		goto fail_rx_pkt_wrapper_cache;
 	}
-	/*
-	 * setup DMA pool 4 byte aligned, don't cross 1k boundaries, nominal
-	 * size 512 bytes
-	 * This is an issue with IPA HW v1.0 only.
-	 */
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0) {
-		ipa_ctx->dma_pool = dma_pool_create("ipa_1k",
-				ipa_ctx->pdev,
-				IPA_DMA_POOL_SIZE, IPA_DMA_POOL_ALIGNMENT,
-				IPA_DMA_POOL_BOUNDARY);
-	} else {
-		ipa_ctx->dma_pool = dma_pool_create("ipa_tx", ipa_ctx->pdev,
-			IPA_NUM_DESC_PER_SW_TX * sizeof(struct sps_iovec),
-			0, 0);
-	}
+
+	/* Setup DMA pool */
+	ipa_ctx->dma_pool = dma_pool_create("ipa_tx", ipa_ctx->pdev,
+		IPA_NUM_DESC_PER_SW_TX * sizeof(struct sps_iovec),
+		0, 0);
 	if (!ipa_ctx->dma_pool) {
 		IPAERR("cannot alloc DMA pool.\n");
 		result = -ENOMEM;
@@ -3416,11 +3402,6 @@ fail_empty_rt_tbl:
 			  ipa_ctx->empty_rt_tbl_mem.phys_base);
 fail_apps_pipes:
 	idr_destroy(&ipa_ctx->ipa_idr);
-	/*
-	 * DMA pool need to be released only for IPA HW v1.0 only.
-	 */
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_0)
-		dma_pool_destroy(ipa_ctx->dma_pool);
 fail_dma_pool:
 	kmem_cache_destroy(ipa_ctx->rx_pkt_wrapper_cache);
 fail_rx_pkt_wrapper_cache:

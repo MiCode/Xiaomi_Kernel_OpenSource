@@ -382,7 +382,7 @@ proc_err:
  *
  * Returns:	0 on success, negative on failure
  */
-static int ipa_generate_rt_hw_tbl_v1(enum ipa_ip_type ip,
+static int ipa_generate_rt_hw_tbl_v1_1(enum ipa_ip_type ip,
 		struct ipa_mem_buffer *mem)
 {
 	u32 hdr_sz;
@@ -464,7 +464,7 @@ static void __ipa_reap_sys_rt_tbls(enum ipa_ip_type ip)
 	}
 }
 
-int __ipa_commit_rt_v1(enum ipa_ip_type ip)
+int __ipa_commit_rt_v1_1(enum ipa_ip_type ip)
 {
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer *mem;
@@ -495,7 +495,7 @@ int __ipa_commit_rt_v1(enum ipa_ip_type ip)
 		goto fail_alloc_cmd;
 	}
 
-	if (ipa_generate_rt_hw_tbl_v1(ip, mem)) {
+	if (ipa_generate_rt_hw_tbl_v1_1(ip, mem)) {
 		IPAERR("fail to generate RT HW TBL ip %d\n", ip);
 		goto fail_hw_tbl_gen;
 	}
