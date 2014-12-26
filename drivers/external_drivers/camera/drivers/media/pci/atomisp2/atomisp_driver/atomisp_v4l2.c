@@ -356,6 +356,22 @@ done:
 	return 0;
 }
 
+
+/*WA for DDR DVFS enable/disable*/
+void punit_ddr_dvfs_enable(bool enable)
+{
+	int reg = intel_mid_msgbus_read32(PUNIT_PORT, MRFLD_ISPSSDVFS);
+
+	if (enable) {
+		reg &= ~(MRFLD_BIT0 | MRFLD_BIT1);
+	} else {
+		reg |= (MRFLD_BIT0);
+		reg &= ~(MRFLD_BIT1);
+	}
+
+	intel_mid_msgbus_write32(PUNIT_PORT, MRFLD_ISPSSDVFS, reg);
+}
+
 /* Workaround for pmu_nc_set_power_state not ready in MRFLD */
 int atomisp_mrfld_power_down(struct atomisp_device *isp)
 {
@@ -367,6 +383,9 @@ int atomisp_mrfld_power_down(struct atomisp_device *isp)
 	reg_value &= ~MRFLD_ISPSSPM0_ISPSSC_MASK;
 	reg_value |= MRFLD_ISPSSPM0_IUNIT_POWER_OFF;
 	intel_mid_msgbus_write32(PUNIT_PORT, MRFLD_ISPSSPM0, reg_value);
+
+	/*WA:Enable DVFS*/
+	punit_ddr_dvfs_enable(true);
 
 	/*
 	 * There should be no iunit access while power-down is
@@ -399,6 +418,10 @@ int atomisp_mrfld_power_up(struct atomisp_device *isp)
 {
 	unsigned long timeout;
 	u32 reg_value;
+
+	/*WA for PUNIT, if DVFS enabled, ISP timeout observed*/
+	punit_ddr_dvfs_enable(false);
+	msleep(20);
 
 	/* writing 0x0 to ISPSSPM0 bit[1:0] to power off the IUNIT */
 	reg_value = intel_mid_msgbus_read32(PUNIT_PORT, MRFLD_ISPSSPM0);

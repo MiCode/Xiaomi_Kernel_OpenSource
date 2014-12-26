@@ -111,6 +111,9 @@
 #define MRFLD_ISPSSPM0_ISPSSC_MASK     0x3
 #define MRFLD_ISPSSPM0_IUNIT_POWER_ON  0
 #define MRFLD_ISPSSPM0_IUNIT_POWER_OFF 0x3
+#define MRFLD_ISPSSDVFS			0x13F
+#define MRFLD_BIT0			0x0001
+#define MRFLD_BIT1			0x0002
 
 /* MRFLD CSI lane configuration related */
 #define MRFLD_PORT_CONFIG_NUM  8
