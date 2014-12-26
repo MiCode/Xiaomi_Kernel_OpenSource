@@ -717,7 +717,7 @@ out:
 		rc = fg_release_access(chip);
 		if (rc) {
 			pr_err("failed to set mem access bit\n");
-			return -EIO;
+			rc = -EIO;
 		}
 	}
 
