@@ -15,6 +15,7 @@
  */
 
 #include <linux/types.h>
+#include <linux/time.h>
 #include <linux/spinlock.h>
 
 #ifndef _RMNET_DATA_CONFIG_H_
@@ -57,6 +58,7 @@ struct rmnet_logical_ep_conf_s {
  *                  Smaller of the two parameters above are chosen for
  *                  aggregation
  * @tail_spacing: Guaranteed padding (bytes) when de-aggregating ingress frames
+ * @agg_time: Wall clock time when aggregated frame was created
  */
 struct rmnet_phys_ep_conf_s {
 	struct net_device *dev;
@@ -73,6 +75,7 @@ struct rmnet_phys_ep_conf_s {
 	uint8_t agg_state;
 	uint8_t agg_count;
 	uint8_t tail_spacing;
+	struct timespec agg_time;
 };
 
 int rmnet_config_init(void);
