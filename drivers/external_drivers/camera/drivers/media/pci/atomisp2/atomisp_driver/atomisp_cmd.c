@@ -2778,8 +2778,7 @@ void atomisp_apply_css_parameters(
 	if (arg->dp_config)
 		atomisp_css_set_dp_config(asd, &css_param->dp_config);
 
-	if (arg->dz_config &&
-		atomisp_check_zoom_region(asd, arg) == true)
+	if (arg->dz_config && (asd->run_mode->val != ATOMISP_RUN_MODE_VIDEO))
 		atomisp_css_set_dz_config(asd, &css_param->dz_config);
 
 	if (arg->nr_config)
