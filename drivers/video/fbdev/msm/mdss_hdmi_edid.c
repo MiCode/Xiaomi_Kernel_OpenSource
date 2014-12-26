@@ -117,6 +117,7 @@ struct hdmi_edid_ctrl {
 	u16 audio_latency;
 	u16 video_latency;
 	u32 present_3d;
+	u32 page_id;
 	u8 audio_data_block[MAX_NUMBER_ADB * MAX_AUDIO_DATA_BLOCK_SIZE];
 	int adb_size;
 	u8 spkr_alloc_data_block[MAX_SPKR_ALLOC_DATA_BLOCK_SIZE];
@@ -245,6 +246,103 @@ static ssize_t hdmi_edid_sysfs_rda_modes(struct device *dev,
 	return ret;
 } /* hdmi_edid_sysfs_rda_modes */
 static DEVICE_ATTR(edid_modes, S_IRUGO, hdmi_edid_sysfs_rda_modes, NULL);
+
+static ssize_t hdmi_edid_sysfs_wta_res_info(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int rc, page_id;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct hdmi_edid_ctrl *edid_ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = kstrtoint(buf, 10, &page_id);
+	if (rc) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	edid_ctrl->page_id = page_id;
+
+	DEV_DBG("%s: %d\n", __func__, edid_ctrl->page_id);
+	return ret;
+}
+
+static ssize_t hdmi_edid_sysfs_rda_res_info(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	u32 no_of_elem;
+	u32 i = 0, j, page;
+	char *buf_dbg = buf;
+	struct msm_hdmi_mode_timing_info info = {0};
+	struct hdmi_edid_ctrl *edid_ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+	u32 size_to_write = sizeof(info);
+	struct disp_mode_info *minfo = NULL;
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	minfo = edid_ctrl->sink_data.disp_mode_list;
+	no_of_elem = edid_ctrl->sink_data.num_of_elements;
+
+	if (edid_ctrl->page_id > MSM_HDMI_INIT_RES_PAGE) {
+		page = MSM_HDMI_INIT_RES_PAGE;
+		while (page < edid_ctrl->page_id) {
+			j = 1;
+			while (sizeof(info) * j < PAGE_SIZE) {
+				i++;
+				j++;
+				minfo++;
+			}
+			page++;
+		}
+	}
+
+	for (; i < no_of_elem && size_to_write < PAGE_SIZE; i++) {
+		ret = hdmi_get_supported_mode(&info,
+			edid_ctrl->init_data.ds_data,
+			minfo->video_format);
+
+		minfo++;
+		if (ret || !info.supported)
+			continue;
+
+		memcpy(buf, &info, sizeof(info));
+
+		buf += sizeof(info);
+		size_to_write += sizeof(info);
+	}
+
+	for (i = sizeof(info); i < size_to_write; i += sizeof(info)) {
+		struct msm_hdmi_mode_timing_info info_dbg = {0};
+
+		memcpy(&info_dbg, buf_dbg, sizeof(info_dbg));
+
+		DEV_DBG("%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+			info_dbg.video_format, info_dbg.active_h,
+			info_dbg.front_porch_h, info_dbg.pulse_width_h,
+			info_dbg.back_porch_h, info_dbg.active_low_h,
+			info_dbg.active_v, info_dbg.front_porch_v,
+			info_dbg.pulse_width_v, info_dbg.back_porch_v,
+			info_dbg.active_low_v, info_dbg.pixel_freq,
+			info_dbg.refresh_rate, info_dbg.interlaced,
+			info_dbg.supported, info_dbg.ar);
+
+		buf_dbg += sizeof(info_dbg);
+	}
+
+	return size_to_write - sizeof(info);
+}
+static DEVICE_ATTR(res_info, S_IRUGO | S_IWUSR, hdmi_edid_sysfs_rda_res_info,
+	hdmi_edid_sysfs_wta_res_info);
 
 static ssize_t hdmi_edid_sysfs_rda_audio_latency(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -401,6 +499,7 @@ static struct attribute *hdmi_edid_fs_attrs[] = {
 	&dev_attr_spkr_alloc_data_block.attr,
 	&dev_attr_edid_audio_latency.attr,
 	&dev_attr_edid_video_latency.attr,
+	&dev_attr_res_info.attr,
 	NULL,
 };
 
@@ -1755,6 +1854,8 @@ int hdmi_edid_read(void *input)
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
+
+	edid_ctrl->page_id = MSM_HDMI_INIT_RES_PAGE;
 
 	edid_buf = edid_ctrl->edid_buf;
 
