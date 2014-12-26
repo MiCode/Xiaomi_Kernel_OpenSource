@@ -763,7 +763,8 @@ static void smbchg_check_and_notify_fg_soc(struct smbchg_chip *chip)
 		&& get_prop_batt_status(chip)
 			== POWER_SUPPLY_STATUS_CHARGING) {
 		pr_smb(PR_STATUS, "Adjusting battery soc in FG\n");
-		set_property_on_fg(chip, POWER_SUPPLY_PROP_CHARGE_FULL, 1);
+		set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
+				POWER_SUPPLY_STATUS_FULL);
 	}
 }
 
