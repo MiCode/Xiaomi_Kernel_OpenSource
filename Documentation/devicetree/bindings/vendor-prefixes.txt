@@ -39,6 +39,7 @@ intercontrol	Inter Control Group
 invn	InvenSense Inc.
 lattice	Lattice Semiconductor.
 linux	Linux-specific binding
+liteon	Lite-On Technology Corporation
 kionix	Kionix Inc.
 marvell	Marvell Technology Group Ltd.
 maxim	Maxim Integrated Products
