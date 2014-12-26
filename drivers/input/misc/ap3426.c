@@ -856,6 +856,13 @@ static void ap3426_report_work(struct work_struct *work)
 	unsigned int status;
 
 	mutex_lock(&di->ops_lock);
+
+	/* avoid fake interrupt */
+	if (!di->power_enabled) {
+		dev_dbg(&di->i2c->dev, "fake interrupt triggered\n");
+		goto exit;
+	}
+
 	rc = regmap_read(di->regmap, AP3426_REG_INT_FLAG, &status);
 	if (rc) {
 		dev_err(&di->i2c->dev, "read %d failed.(%d)\n",
@@ -864,12 +871,6 @@ static void ap3426_report_work(struct work_struct *work)
 	}
 
 	dev_dbg(&di->i2c->dev, "interrupt issued status=0x%x.\n", status);
-
-	if (!(status & AP3426_PS_INT_MASK)) {
-		dev_dbg(&di->i2c->dev, "not a proximity event\n");
-		if (atomic_dec_and_test(&di->wake_count))
-			pm_relax(&di->i2c->dev);
-	}
 
 	/* als interrupt issueed */
 	if ((status & AP3426_ALS_INT_MASK) && (di->als_enabled)) {
@@ -884,22 +885,17 @@ static void ap3426_report_work(struct work_struct *work)
 		if (rc)
 			goto exit;
 		dev_dbg(&di->i2c->dev, "process ps data done!\n");
+		pm_wakeup_event(&di->input_proximity->dev, 200);
 	}
 
 exit:
+	if (atomic_dec_and_test(&di->wake_count))
+		pm_relax(&di->i2c->dev);
+
 	/* clear interrupt */
-	if (regmap_write(di->regmap, AP3426_REG_INT_FLAG, 0x0))
-		dev_err(&di->i2c->dev, "clear interrupt failed\n");
-
-	/* sensor event processing done */
-	if (status & AP3426_PS_INT_MASK) {
-		dev_dbg(&di->i2c->dev, "proximity data processing done!\n");
-		if (atomic_dec_and_test(&di->wake_count))
-			pm_relax(&di->i2c->dev);
-
-		/* Hold a 200ms wake lock to allow framework handle it */
-		if (di->ps_enabled)
-			pm_wakeup_event(&di->input_proximity->dev, 200);
+	if (di->power_enabled) {
+		if (regmap_write(di->regmap, AP3426_REG_INT_FLAG, 0x0))
+			dev_err(&di->i2c->dev, "clear interrupt failed\n");
 	}
 
 	mutex_unlock(&di->ops_lock);
@@ -1739,6 +1735,7 @@ static int ap3426_probe(struct i2c_client *client,
 
 	sensor_power_config(&client->dev, power_config,
 			ARRAY_SIZE(power_config), false);
+	di->power_enabled = false;
 
 	dev_info(&client->dev, "ap3426 successfully probed!\n");
 
@@ -1774,12 +1771,6 @@ static int ap3426_remove(struct i2c_client *client)
 
 	sensors_classdev_unregister(&di->ps_cdev);
 	sensors_classdev_unregister(&di->als_cdev);
-
-	if (di->input_light)
-		input_unregister_device(di->input_light);
-
-	if (di->input_proximity)
-		input_unregister_device(di->input_proximity);
 
 	destroy_workqueue(di->workqueue);
 	device_init_wakeup(&di->i2c->dev, 0);
