@@ -112,6 +112,12 @@ Optional Properties:
 - qcom,float-voltage-mv		Float Voltage in mV - the maximum voltage up
 				to which the battery is charged. Supported
 				range 3600mV to 4500mV
+- qcom,float-voltage-comp	Specifies the JEITA float voltage compensation.
+				Value ranges from 0 to 63.
+- qcom,fastchg-current-ma	Specifies the fast charge current in mA. Supported
+				range is from 300mA to 3000mA.
+- qcom,fastchg-current-comp	Specifies the fast charge current compensation in
+				mA. Supported values are 250, 700, 900 and 1200mA.
 - qcom,charging-timeout-mins	Maximum duration in minutes that a single
 				charge cycle may last.  Supported values are:
 				0, 192, 384, 768, and 1536.  A value of 0
