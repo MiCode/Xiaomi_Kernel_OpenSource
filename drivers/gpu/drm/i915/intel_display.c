@@ -4827,8 +4827,13 @@ static void haswell_crtc_enable(struct drm_crtc *crtc)
 
 	drm_crtc_vblank_on(crtc);
 
-	if (I915_HAS_DPST(dev))
-		i915_dpst_display_on(dev);
+	if (I915_HAS_DPST(dev)) {
+		for_each_encoder_on_crtc(dev, crtc, encoder) {
+			if (encoder->type == INTEL_OUTPUT_EDP ||
+			    encoder->type == INTEL_OUTPUT_DSI)
+				i915_dpst_display_on(dev);
+		}
+	}
 }
 
 static void ironlake_pfit_disable(struct intel_crtc *crtc)
@@ -4923,9 +4928,13 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 	if (!intel_crtc->active)
 		return;
 
-	if (I915_HAS_DPST(dev))
-		i915_dpst_display_off(dev);
-
+	if (I915_HAS_DPST(dev)) {
+		for_each_encoder_on_crtc(dev, crtc, encoder) {
+			if (encoder->type == INTEL_OUTPUT_EDP ||
+			    encoder->type == INTEL_OUTPUT_DSI)
+				i915_dpst_display_off(dev);
+		}
+	}
 	intel_crtc_disable_planes(crtc);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder) {
@@ -5447,8 +5456,13 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	drm_crtc_vblank_on(crtc);
 
 	/* Update DPST context after mode change */
-	if (I915_HAS_DPST(dev))
-		i915_dpst_display_on(dev);
+	if (I915_HAS_DPST(dev)) {
+		for_each_encoder_on_crtc(dev, crtc, encoder) {
+			if (encoder->type == INTEL_OUTPUT_EDP ||
+			    encoder->type == INTEL_OUTPUT_DSI)
+				i915_dpst_display_on(dev);
+		}
+	}
 
 	/* Underruns don't raise interrupts, so check manually. */
 	i9xx_check_fifo_underruns(dev);
@@ -5656,8 +5670,13 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	if (IS_VALLEYVIEW(dev))
 		intel_vlv_edp_psr_disable(dev);
 
-	if (I915_HAS_DPST(dev))
-		i915_dpst_display_off(dev);
+	if (I915_HAS_DPST(dev)) {
+		for_each_encoder_on_crtc(dev, crtc, encoder) {
+			if (encoder->type == INTEL_OUTPUT_EDP ||
+			    encoder->type == INTEL_OUTPUT_DSI)
+				i915_dpst_display_off(dev);
+		}
+	}
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
 		encoder->disable(encoder);
