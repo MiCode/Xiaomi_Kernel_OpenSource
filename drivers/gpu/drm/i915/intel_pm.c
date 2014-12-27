@@ -6564,7 +6564,7 @@ bool intel_display_power_enabled_unlocked(struct drm_i915_private *dev_priv,
 	is_enabled = true;
 
 	for_each_power_well_rev(i, power_well, BIT(domain), power_domains) {
-		if (power_well->always_on)
+		if (power_well->always_on || power_well->power_domain_disabled)
 			continue;
 
 		if (!power_well->hw_enabled) {
