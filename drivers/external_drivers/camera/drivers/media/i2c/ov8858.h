@@ -122,6 +122,11 @@
 #define OV8858_SHORT_GAIN			0x350C
 #define OV8858_SHORT_DIGI_GAIN			0x350E
 
+#define OV8858_FORMAT1				0x3820
+#define OV8858_FORMAT2				0x3821
+
+#define OV8858_FLIP_ENABLE			0x06
+
 #define OV8858_MWB_RED_GAIN_H			0x5032
 #define OV8858_MWB_GREEN_GAIN_H			0x5034
 #define OV8858_MWB_BLUE_GAIN_H			0x5036
@@ -176,6 +181,9 @@ struct ov8858_vcm {
 #define OV8858_TOK_MASK				0xFFF0
 
 #define MAX_FPS_OPTIONS_SUPPORTED		3
+
+#define OV8858_DEPTH_COMP_CONST			3200
+#define OV8858_DEPTH_VTS_CONST			2573
 
 enum ov8858_tok_type {
 	OV8858_8BIT  = 0x0001,
@@ -250,6 +258,10 @@ struct ov8858_device {
 	u16 lines_per_frame;
 	u8 fps;
 	u8 *otp_data;
+	/* Prevent the framerate from being lowered in low light scenes. */
+	int limit_exposure_flag;
+	bool hflip;
+	bool vflip;
 
 	const struct ov8858_reg *regs;
 	struct ov8858_vcm *vcm_driver;
@@ -334,7 +346,7 @@ static struct ov8858_vcm ov8858_vcms[] = {
 #define OV8858_RES_WIDTH_MAX	3280
 #define OV8858_RES_HEIGHT_MAX	2464
 
-static const struct ov8858_reg ov8858_BasicSettings[] = {
+static struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT, 0x0103, 0x01}, /* software_reset */
 	{OV8858_8BIT, 0x0100, 0x00}, /* software_standby */
 	/* PLL settings */
@@ -572,8 +584,8 @@ static const struct ov8858_reg ov8858_BasicSettings[] = {
 	{OV8858_8BIT, 0x3813, 0x02}, /* v_win offset low */
 	{OV8858_8BIT, 0x3814, 0x01}, /* h_odd_inc */
 	{OV8858_8BIT, 0x3815, 0x01}, /* h_even_inc */
-	{OV8858_8BIT, 0x3820, 0x46}, /* format1 */
-	{OV8858_8BIT, 0x3821, 0x00}, /* format2 */
+	{OV8858_8BIT, 0x3820, 0x00}, /* format1 */
+	{OV8858_8BIT, 0x3821, 0x40}, /* format2 */
 	{OV8858_8BIT, 0x382A, 0x01}, /* v_odd_inc */
 	{OV8858_8BIT, 0x382B, 0x01}, /* v_even_inc */
 
@@ -783,10 +795,10 @@ static const struct ov8858_reg ov8858_1080P_60[] = {
 	{OV8858_8BIT, 0x3809, 0x90}, /* h_output_size low */
 	{OV8858_8BIT, 0x380A, 0x04}, /* v_output_size high */
 	{OV8858_8BIT, 0x380B, 0x48}, /* v_output_size low */
-	{OV8858_8BIT, 0x380C, 0x08}, /* horizontal timing size high */
-	{OV8858_8BIT, 0x380D, 0x78}, /* horizontal timing size low */
+	{OV8858_8BIT, 0x380C, 0x07}, /* horizontal timing size high */
+	{OV8858_8BIT, 0x380D, 0x94}, /* horizontal timing size low */
 	{OV8858_8BIT, 0x380E, 0x04}, /* vertical timing size high */
-	{OV8858_8BIT, 0x380F, 0x7f}, /* vertical timing size low */
+	{OV8858_8BIT, 0x380F, 0xEC}, /* vertical timing size low */
 	{OV8858_8BIT, 0x4022, 0x07}, /* Anchor left end = 0x072D */
 	{OV8858_8BIT, 0x4023, 0x2D}, /* Anchor left end = 0x072D */
 	{OV8858_8BIT, 0x4024, 0x07}, /* Anchor right start = 0x079E */
@@ -895,15 +907,15 @@ static struct ov8858_resolution ov8858_res_video[] = {
 		.fps_options =  {
 			{
 				.fps = 60,
-				.pixels_per_line = 4366,
-				.lines_per_frame = 1151,
+				.pixels_per_line = 3880,
+				.lines_per_frame = 1260,
 			},
 			{
 			}
 		},
 	},
 	{
-		 .desc = "ov8858_6M_STILL",
+		 .desc = "ov8858_6M_VIDEO",
 		 .width = 3280,
 		 .height = 1852,
 		 .used = 0,
