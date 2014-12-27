@@ -5441,14 +5441,14 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 			encoder->enable(encoder);
 	}
 
-	/* Update DPST context after mode change */
-	if (I915_HAS_DPST(dev))
-		i915_dpst_display_on(dev);
-
 	intel_crtc_enable_planes(crtc);
 	intel_update_drrs(dev);
 
 	drm_crtc_vblank_on(crtc);
+
+	/* Update DPST context after mode change */
+	if (I915_HAS_DPST(dev))
+		i915_dpst_display_on(dev);
 
 	/* Underruns don't raise interrupts, so check manually. */
 	i9xx_check_fifo_underruns(dev);
