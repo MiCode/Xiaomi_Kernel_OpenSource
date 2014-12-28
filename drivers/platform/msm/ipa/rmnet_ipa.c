@@ -1910,16 +1910,79 @@ static int ipa_wwan_remove(struct platform_device *pdev)
 	return 0;
 }
 
+/**
+* rmnet_ipa_ap_suspend() - suspend callback for runtime_pm
+* @dev: pointer to device
+*
+* This callback will be invoked by the runtime_pm framework when an AP suspend
+* operation is invoked, usually by pressing a suspend button.
+*
+* Returns -EAGAIN to runtime_pm framework in case there are pending packets
+* in the Tx queue. This will postpone the suspend operation until all the
+* pending packets will be transmitted.
+*
+* In case there are no packets to send, releases the WWAN0_PROD entity.
+* As an outcome, the number of IPA active clients should be decremented
+* until IPA clocks can be gated.
+*/
+static int rmnet_ipa_ap_suspend(struct device *dev)
+{
+	struct net_device *netdev = ipa_netdevs[0];
+	struct wwan_private *wwan_ptr = netdev_priv(netdev);
+
+	IPAWANDBG("Enter...\n");
+	/* Do not allow A7 to suspend in case there are oustanding packets */
+	if (atomic_read(&wwan_ptr->outstanding_pkts) != 0) {
+		IPAWANDBG("Outstanding packets, postponing AP suspend.\n");
+		return -EAGAIN;
+	}
+
+	/* Make sure that there is no Tx operation ongoing */
+	netif_tx_lock(netdev);
+	ipa_rm_release_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
+	netif_tx_unlock(netdev);
+	IPAWANDBG("Exit\n");
+
+	return 0;
+}
+
+/**
+* rmnet_ipa_ap_resume() - resume callback for runtime_pm
+* @dev: pointer to device
+*
+* This callback will be invoked by the runtime_pm framework when an AP resume
+* operation is invoked.
+*
+* Enables the network interface queue and returns success to the
+* runtime_pm framwork.
+*/
+static int rmnet_ipa_ap_resume(struct device *dev)
+{
+	struct net_device *netdev = ipa_netdevs[0];
+
+	IPAWANDBG("Enter...\n");
+	netif_wake_queue(netdev);
+	IPAWANDBG("Exit\n");
+
+	return 0;
+}
+
 static const struct of_device_id rmnet_ipa_dt_match[] = {
 	{.compatible = "qcom,rmnet-ipa"},
 	{},
 };
 MODULE_DEVICE_TABLE(of, rmnet_ipa_dt_match);
 
+static const struct dev_pm_ops rmnet_ipa_pm_ops = {
+	.suspend_noirq = rmnet_ipa_ap_suspend,
+	.resume_noirq = rmnet_ipa_ap_resume,
+};
+
 static struct platform_driver rmnet_ipa_driver = {
 	.driver = {
 		.name = "rmnet_ipa",
 		.owner = THIS_MODULE,
+		.pm = &rmnet_ipa_pm_ops,
 		.of_match_table = rmnet_ipa_dt_match,
 	},
 	.probe = ipa_wwan_probe,
