@@ -385,6 +385,7 @@
 			"camss_vfe_cpp_ahb_clk", "camss_vfe_cpp_axi_clk",
 			"camss_vfe_cpp_clk","micro_iface_clk", "camss_ahb_clk";
 		qcom,clock-rates = <0 465000000 0 0 465000000 0 0>;
+		qcom,min-clock-rate = <465000000>;
 	};
 
 	qcom,fd@fd878000 {
