@@ -988,24 +988,25 @@ static int test_dispatch_from(struct request_queue *q,
 	struct test_request *test_rq;
 	struct request *rq;
 	int ret = 0;
+	unsigned long flags;
 
 	if (!ptd)
 		goto err;
 
-	spin_lock_irq(&ptd->lock);
+	spin_lock_irqsave(&ptd->lock, flags);
 	if (!list_empty(queue)) {
 		test_rq = list_entry(queue->next, struct test_request,
 				queuelist);
 		rq = test_rq->rq;
 		if (!rq) {
 			pr_err("%s: null request,return", __func__);
-			spin_unlock_irq(&ptd->lock);
+			spin_unlock_irqrestore(&ptd->lock, flags);
 			goto err;
 		}
 		list_move_tail(&test_rq->queuelist, &ptd->dispatched_queue);
 		ptd->dispatched_count++;
 		(*count)--;
-		spin_unlock_irq(&ptd->lock);
+		spin_unlock_irqrestore(&ptd->lock, flags);
 
 		print_req(rq);
 		elv_dispatch_sort(q, rq);
@@ -1013,7 +1014,7 @@ static int test_dispatch_from(struct request_queue *q,
 		ret = 1;
 		goto err;
 	}
-	spin_unlock_irq(&ptd->lock);
+	spin_unlock_irqrestore(&ptd->lock, flags);
 
 err:
 	return ret;
