@@ -261,7 +261,7 @@
 			qcom,smd-edge = <1>;
 			qcom,smd-irq-offset = <0x0>;
 			qcom,smd-irq-bitmask = <0x100>;
-			interrupts = <0 156 1>;
+			interrupts = <0 289 1>;
 			label = "adsp";
 		};
 
@@ -270,7 +270,7 @@
 			qcom,smsm-edge = <1>;
 			qcom,smsm-irq-offset = <0x0>;
 			qcom,smsm-irq-bitmask = <0x200>;
-			interrupts = <0 157 1>;
+			interrupts = <0 290 1>;
 		};
 
 		qcom,smd-rpm {
