@@ -215,6 +215,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define PCIE_1_AUX_CMD_RCGR                              (0x1B80)
 #define PCIE_PHY_1_PHY_BCR                               (0x1B94)
 #define PCIE_PHY_1_BCR                                   (0x1B98)
+#define UFS_BCR                                          (0x1D40)
 #define UFS_AXI_CBCR                                     (0x1D48)
 #define UFS_AHB_CBCR                                     (0x1D4C)
 #define UFS_TX_CFG_CBCR                                  (0x1D50)
@@ -2336,6 +2337,7 @@ static struct branch_clk gcc_ufs_ahb_clk = {
 };
 
 static struct branch_clk gcc_ufs_axi_clk = {
+	.bcr_reg = UFS_BCR,
 	.cbcr_reg = UFS_AXI_CBCR,
 	.has_sibling = 0,
 	.base = &virt_base,
