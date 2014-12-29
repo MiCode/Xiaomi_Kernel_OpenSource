@@ -1,0 +1,23 @@
+* LPM Workarounds
+
+The required properties are:
+
+- compatible: "qcom,lpm-workarounds"
+
+The optional properties are:
+
+- qcom,lpm-wa-cx-turbo-unvote: Indicates the workaround to unvote CX turbo
+	vote when system is coming out of rpm assisted power collaspe.
+	lpm-cx-supply is required if this is present.
+
+- lpm-cx-supply:  will hold handle for CX regulator supply which is used
+	to unvote.
+
+Example:
+
+qcom,lpm-workarounds {
+	compatible = "qcom,lpm-workarounds";
+
+	lpm-cx-supply = <&pm8916_s2_corner>;
+	qcom,lpm-wa-cx-turbo-unvote;
+}
