@@ -458,6 +458,7 @@
 		clock-names = "core_clk", "core0_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x0>;
 		qcom,sw-power-collapse;
+		qcom,enable-minimum-voting;
 		qcom,load-freq-tbl =
 			<244800 266670000 0xffffffff>, /* 1080p@30 Decode */
 			<244800 307200000 0x55555555>, /* 1080p@30 Encode */
