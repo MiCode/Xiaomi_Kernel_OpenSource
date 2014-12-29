@@ -39,6 +39,7 @@ struct ps_temp_chg_table {
 
 #define BATTID_STR_LEN		8
 #define BATT_TEMP_NR_RNG	6
+#define BATTID_UNKNOWN		"UNKNOWNB"
 /* Charging Profile */
 struct ps_pse_mod_prof {
 	/* battery id */

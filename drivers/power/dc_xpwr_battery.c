@@ -44,6 +44,7 @@
 #include <linux/iio/consumer.h>
 #include <linux/mfd/intel_soc_pmic.h>
 #include <linux/power/dc_xpwr_battery.h>
+#include <linux/power/battery_id.h>
 
 #define DC_PS_STAT_REG			0x00
 #define PS_STAT_VBUS_TRIGGER		(1 << 0)
@@ -499,6 +500,10 @@ static int pmic_fg_battery_health(struct pmic_fg_info *info)
 {
 	int temp, vocv;
 	int ret, health = POWER_SUPPLY_HEALTH_UNKNOWN;
+
+	/* Health cannot be predicted for an unknown (invalid) battery. */
+	if (!strncmp(info->pdata->battid, BATTID_UNKNOWN, BATTID_STR_LEN))
+		goto health_read_fail;
 
 	ret = pmic_fg_get_btemp(info, &temp);
 	if (ret < 0)

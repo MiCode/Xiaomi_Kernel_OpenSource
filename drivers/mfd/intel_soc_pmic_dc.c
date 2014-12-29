@@ -28,6 +28,7 @@
 
 #include <asm/intel_em_config.h>
 #include <linux/extcon/extcon-dc-pwrsrc.h>
+#include <linux/power/battery_id.h>
 
 #include "intel_soc_pmic_core.h"
 
@@ -332,8 +333,10 @@ static void *platform_get_batt_charge_profile(void)
 	ret = get_batt_prop(&ps_batt_chrg_prof);
 	pse_mod_prof = (struct ps_pse_mod_prof *)
 					ps_batt_chrg_prof.batt_prof;
-	if (ret < 0 && pse_mod_prof)
-		strcpy(pse_mod_prof->batt_id, "UNKNOWNB");
+	if ((ret < 0 || ps_batt_chrg_prof.chrg_prof_type == CHRG_PROF_NONE)
+		&& pse_mod_prof)
+			snprintf(pse_mod_prof->batt_id, (BATTID_LEN+1),
+				"%s", BATTID_UNKNOWN);
 
 	return &ps_batt_chrg_prof;
 }
@@ -422,11 +425,13 @@ static void dc_xpwr_fg_pdata(void)
 	int i;
 	int scaled_capacity;
 
-	if (pse_mod_prof)
+	if (ps_batt_chrg_prof.chrg_prof_type == CHRG_PROF_NONE
+		|| (!pse_mod_prof))
+		snprintf(pdata.battid, (BATTID_LEN+1),
+			"%s", BATTID_UNKNOWN);
+	else
 		memcpy(pdata.battid, pse_mod_prof->batt_id,
 				strlen(pse_mod_prof->batt_id));
-	else
-		memcpy(pdata.battid, "INTN0001", strlen("INTN0001"));
 
 	platform_set_battery_data(&pdata, &ps_batt_chrg_prof);
 	pdata.max_temp = 55;
