@@ -35,9 +35,9 @@ int glink_rpm_rx_poll(void *handle);
 
 /**
  * glink_rpm_mask_rx_interrupt() - Mask or unmask the RPM receive interrupt
- * @handle: Channel handle in which this operation is performed.
- * @mask: Flag to mask or unmask the interrupt.
- * @pstruct: Pointer to any platform specific data.
+ * @handle:	Channel handle in which this operation is performed.
+ * @mask:	Flag to mask or unmask the interrupt.
+ * @pstruct:	Pointer to any platform specific data.
  *
  * This function is used to mask or unmask the receive interrupt from RPM.
  * "mask" set to true indicates masking the interrupt and when set to false
