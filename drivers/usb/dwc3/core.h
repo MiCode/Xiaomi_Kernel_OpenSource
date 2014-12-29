@@ -47,6 +47,7 @@
 #include <linux/mm.h>
 #include <linux/debugfs.h>
 #include <linux/hrtimer.h>
+#include <linux/wait.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -799,6 +800,7 @@ struct dwc3_scratchpad_array {
  * @bh_completion_time: time taken for taklet completion
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
+ * @wait_linkstate: waitqueue for waiting LINK to move into required state
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -926,6 +928,7 @@ struct dwc3 {
 	unsigned                irq_completion_time[MAX_INTR_STATS];
 	unsigned                irq_event_count[MAX_INTR_STATS];
 	unsigned                irq_dbg_index;
+	wait_queue_head_t	wait_linkstate;
 };
 
 /* -------------------------------------------------------------------------- */
