@@ -18,6 +18,7 @@
 #define clk_cxo_dwc3_clk			0xf79c19f6
 
 /* clock_gcc controlled clocks */
+#define clk_gcc_blsp1_uart3_apps_clk            0xc3298bd7
 #define clk_gcc_blsp1_uart1_apps_clk            0xc7c62f90
 #define clk_gcc_blsp1_ahb_clk                   0x8caa5b4f
 #define clk_gcc_sdcc1_ahb_clk                   0x691e0caa
