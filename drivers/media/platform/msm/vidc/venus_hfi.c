@@ -1459,7 +1459,6 @@ static unsigned long venus_hfi_get_clock_rate(struct clock_info *clock,
 		if (matches)
 			freq = table[i].freq;
 	}
-	dprintk(VIDC_PROF, "Required clock rate = %lu\n", freq);
 	return freq;
 }
 
@@ -1734,6 +1733,9 @@ static int venus_hfi_scale_clocks(void *dev, int load, int codecs_enabled)
 					rate, cl->name, rc);
 				break;
 			}
+
+			dprintk(VIDC_PROF, "Scaling clock %s to %lu\n",
+					cl->name, rate);
 		}
 	}
 
@@ -3559,6 +3561,14 @@ static inline int venus_hfi_prepare_enable_clks(struct venus_hfi_device *device)
 	}
 
 	venus_hfi_for_each_clock(device, cl) {
+		/*
+		 * For the clocks we control, set the rate prior to preparing
+		 * them.  Since we don't really have a load at this point, scale
+		 * it to the lowest frequency possible
+		 */
+		if (cl->count)
+			clk_set_rate(cl->clk, clk_round_rate(cl->clk, 0));
+
 		rc = clk_prepare_enable(cl->clk);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to enable clocks\n");
