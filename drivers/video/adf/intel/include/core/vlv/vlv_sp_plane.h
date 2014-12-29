@@ -24,6 +24,8 @@ struct sp_plane_regs_value {
 	u32 stride;
 	u32 pos;
 	u32 size;
+	u32 const_alpha;
+	u32 blend;
 	unsigned long linearoff;
 	unsigned long tileoff;
 	unsigned long surfaddr;
@@ -43,6 +45,8 @@ struct vlv_sp_plane {
 	struct intel_plane base;
 	u32 offset;
 	bool enabled;
+	bool alpha_updated;
+	bool blend_updated;
 	struct vlv_sp_plane_context ctx;
 };
 

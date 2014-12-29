@@ -154,6 +154,7 @@ static int get_format_config(u32 drm_format, u32 *config, u8 *bpp,
 			break;
 		}
 	}
+
 	if (alpha)
 		return ret;
 
@@ -257,6 +258,8 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 	u32 mask;
 	u32 pidx = pri_plane->ctx.plane;
 	u32 format_config = 0;
+	u8 alpha = 0x0;
+	bool cons_alpha = 0;
 	u8 bpp = 0, prev_bpp = 0;
 	u8 i = 0;
 
@@ -340,6 +343,30 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 		regs->canvas_col = color;
 	}
 
+	/*
+	 * Constant Alpha and PreMul alpha setting.
+	 */
+	if ((intel_adf_get_platform_id() == gen_cherryview) &&
+		    STEP_FROM(pipeline->dc_stepping, STEP_B0) &&
+		    (pipe == PIPE_B)) {
+
+		alpha = (config->alpha & 0xFF);
+
+		if (config->blending == INTEL_PLANE_BLENDING_COVERAGE)
+			cons_alpha = true;
+		else
+			cons_alpha = false;
+
+		if (alpha != REG_READ(CHT_PRIMB_CONSTALPHA)) {
+			regs->const_alpha = (cons_alpha ? (1 << 31) : 0) |
+				alpha;
+			regs->blend = cons_alpha ? CHT_PIPE_B_BLEND_ANDROID :
+				CHT_PIPE_B_BLEND_LEGACY;
+			pri_plane->alpha_updated = true;
+			pri_plane->blend_updated = true;
+		}
+	}
+
 	regs->stride = buf->stride;
 	regs->linearoff = src_y * regs->stride + src_x * bpp;
 	dspaddr_offset = vlv_compute_page_offset(&src_x, &src_y,
@@ -412,7 +439,14 @@ static void vlv_pri_flip(struct intel_plane *plane,
 		REG_WRITE(CHT_PIPE_B_CANVAS_REG, regs->canvas_col);
 		pri_plane->canvas_updated = false;
 	}
-
+	if (pri_plane->alpha_updated) {
+		REG_WRITE(CHT_PRIMB_CONSTALPHA, regs->const_alpha);
+		pri_plane->alpha_updated = false;
+	}
+	if (pri_plane->blend_updated) {
+		REG_WRITE(CHT_PIPEB_BLEND_CONFIG, regs->blend);
+		pri_plane->blend_updated = false;
+	}
 	REG_WRITE(pri_plane->offset, regs->dspcntr);
 	I915_MODIFY_DISPBASE(pri_plane->surf_offset, regs->surfaddr);
 	REG_POSTING_READ(pri_plane->surf_offset);

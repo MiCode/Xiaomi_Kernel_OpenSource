@@ -162,8 +162,10 @@ static int get_format_config(u32 drm_format, u32 *format, u32 *bpp,
 			break;
 		}
 	}
+
 	if (alpha)
 		return ret;
+
 	switch (*format) {
 	case DISPPLANE_BGRA888:
 		*format = DISPPLANE_BGRX888;
@@ -301,6 +303,8 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 	u32 dst_w = (config->dst_w & VLV_SP_12BIT_MASK) - 1;
 	u32 dst_h = (config->dst_h & VLV_SP_12BIT_MASK) - 1;
 	u32 src_w = (config->src_w & VLV_SP_12BIT_MASK) - 1;
+	u32 alpha = 0x0;
+	bool cons_alpha = 0;
 	u8 i = 0;
 
 	/*
@@ -382,6 +386,32 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 
 	sprctl |= SP_ENABLE;
 	regs->dspcntr = sprctl;
+
+	/*
+	 * Constant Alpha and PreMul alpha setting.
+	 */
+	if ((intel_adf_get_platform_id() == gen_cherryview) &&
+		    STEP_FROM(pipeline->dc_stepping, STEP_B0)) {
+
+		alpha = (config->alpha & 0xFF);
+
+		if (config->blending == INTEL_PLANE_BLENDING_COVERAGE)
+			cons_alpha = true;
+		else
+			cons_alpha = false;
+
+		if (alpha != REG_READ(SPCONSTALPHA(pipe, plane))) {
+			regs->const_alpha = (cons_alpha ? (1 << 31) : 0) |
+				alpha;
+			regs->blend = cons_alpha ? CHT_PIPE_B_BLEND_ANDROID :
+				CHT_PIPE_B_BLEND_LEGACY;
+			splane->alpha_updated = true;
+
+			/* CHT has blending support on PIPEB only */
+			if (pipe == PIPE_B)
+				splane->blend_updated = true;
+		}
+	}
 
 	if (buf->tiling_mode != I915_TILING_NONE)
 		regs->dspcntr |= SP_TILED;
@@ -614,11 +644,19 @@ static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 	REG_WRITE(SPTILEOFF(pipe, plane), regs->tileoff);
 	REG_WRITE(SPLINOFF(pipe, plane), regs->linearoff);
 	REG_WRITE(SPSIZE(pipe, plane), regs->size);
+	if (splane->alpha_updated) {
+		REG_WRITE(SPCONSTALPHA(pipe, plane), regs->const_alpha);
+		splane->alpha_updated = false;
+	}
+	if (splane->blend_updated) {
+		REG_WRITE(CHT_PIPEB_BLEND_CONFIG, regs->blend);
+		splane->blend_updated = false;
+	}
 	REG_WRITE(SPCNTR(pipe, plane), regs->dspcntr);
-
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), regs->surfaddr);
 	REG_POSTING_READ(SPSURF(pipe, plane));
 	splane->enabled = true;
+
 	/* Check for reserved register bit 2 */
 	val = REG_READ(SPSURF(pipe, plane));
 	if (config->flags & INTEL_ADF_PLANE_HW_PRIVATE_1) {

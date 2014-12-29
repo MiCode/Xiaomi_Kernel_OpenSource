@@ -26,6 +26,8 @@ struct pri_plane_regs_value {
 	u32 dspcntr;
 	u32 stride;
 	u32 canvas_col;
+	u32 const_alpha;
+	u32 blend;
 	unsigned long linearoff;
 	unsigned long tileoff;
 	unsigned long surfaddr;
@@ -58,6 +60,8 @@ struct vlv_pri_plane {
 	bool enabled;
 	bool canvas_updated;
 	u32 canvas_col;
+	bool alpha_updated;
+	bool blend_updated;
 	struct vlv_pri_plane_context ctx;
 };
 
