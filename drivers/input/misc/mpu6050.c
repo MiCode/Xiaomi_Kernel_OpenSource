@@ -630,11 +630,11 @@ static void mpu6050_read_single_event(struct mpu6050_sensor *sensor)
 			sensor->pdata->place);
 		shift = mpu_accel_fs_shift[sensor->cfg.accel_fs];
 		input_report_abs(sensor->accel_dev, ABS_X,
-			(sensor->axis.x >> shift));
+			(sensor->axis.x << shift));
 		input_report_abs(sensor->accel_dev, ABS_Y,
-			(sensor->axis.y >> shift));
+			(sensor->axis.y << shift));
 		input_report_abs(sensor->accel_dev, ABS_Z,
-			(sensor->axis.z >> shift));
+			(sensor->axis.z << shift));
 		input_sync(sensor->accel_dev);
 	}
 
@@ -761,11 +761,11 @@ static void mpu6050_accel_work_fn(struct work_struct *work)
 
 	shift = mpu_accel_fs_shift[sensor->cfg.accel_fs];
 	input_report_abs(sensor->accel_dev, ABS_X,
-		(sensor->axis.x >> shift));
+		(sensor->axis.x << shift));
 	input_report_abs(sensor->accel_dev, ABS_Y,
-		(sensor->axis.y >> shift));
+		(sensor->axis.y << shift));
 	input_report_abs(sensor->accel_dev, ABS_Z,
-		(sensor->axis.z >> shift));
+		(sensor->axis.z << shift));
 	input_event(sensor->accel_dev,
 			EV_SYN, SYN_TIME_SEC,
 			ktime_to_timespec(timestamp).tv_sec);
@@ -1522,11 +1522,11 @@ static void mpu6050_flush_fifo(struct mpu6050_sensor *sensor)
 
 			shift = mpu_accel_fs_shift[sensor->cfg.accel_fs];
 			input_report_abs(sensor->accel_dev, ABS_X,
-				(sensor->axis.x >> shift));
+				(sensor->axis.x << shift));
 			input_report_abs(sensor->accel_dev, ABS_Y,
-				(sensor->axis.y >> shift));
+				(sensor->axis.y << shift));
 			input_report_abs(sensor->accel_dev, ABS_Z,
-				(sensor->axis.z >> shift));
+				(sensor->axis.z << shift));
 			input_event(sensor->accel_dev,
 				EV_SYN, SYN_TIME_SEC,
 				(int)sec);
