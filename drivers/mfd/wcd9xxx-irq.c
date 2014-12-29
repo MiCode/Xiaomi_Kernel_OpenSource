@@ -166,6 +166,7 @@ bool wcd9xxx_lock_sleep(
 		pr_debug("%s: holding wake lock\n", __func__);
 		pm_qos_update_request(&wcd9xxx_res->pm_qos_req,
 				      msm_cpuidle_get_deep_idle_latency());
+		pm_stay_awake(wcd9xxx_res->dev);
 	}
 	mutex_unlock(&wcd9xxx_res->pm_lock);
 
@@ -204,6 +205,7 @@ void wcd9xxx_unlock_sleep(
 			wcd9xxx_res->pm_state = WCD9XXX_PM_SLEEPABLE;
 		pm_qos_update_request(&wcd9xxx_res->pm_qos_req,
 				PM_QOS_DEFAULT_VALUE);
+		pm_relax(wcd9xxx_res->dev);
 	}
 	mutex_unlock(&wcd9xxx_res->pm_lock);
 	wake_up_all(&wcd9xxx_res->pm_wq);
