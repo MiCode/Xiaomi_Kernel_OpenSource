@@ -122,6 +122,7 @@ struct inv_mpu6050_state {
 	struct i2c_client *client;
 	struct inv_mpu6050_platform_data plat_data;
 	DECLARE_KFIFO(timestamps, long long, TIMESTAMP_FIFO_SIZE);
+	struct gpio_desc *gpiod;
 };
 
 /*register and associated bit definition*/
@@ -192,6 +193,7 @@ struct inv_mpu6050_state {
 
 #define INV_MPU6050_REG_WHOAMI			0x75
 #define INV_MPU6500_UNIQUE_ID			0x70
+#define INV_MPU6050_UNIQUE_ID			0x68
 
 /* scan element definition */
 enum inv_mpu6050_scan {

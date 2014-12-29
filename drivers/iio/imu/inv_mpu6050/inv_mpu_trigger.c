@@ -11,6 +11,8 @@
 * GNU General Public License for more details.
 */
 
+#include <linux/gpio/consumer.h>
+#include <linux/gpio.h>
 #include "inv_mpu_iio.h"
 
 static void inv_scan_query(struct iio_dev *indio_dev)
@@ -115,6 +117,8 @@ int inv_mpu6050_probe_trigger(struct iio_dev *indio_dev)
 {
 	int ret;
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
+	struct gpio_desc *gpiod;
+	struct device *dev = &st->client->dev;
 
 	st->trig = iio_trigger_alloc("%s-dev%d",
 					indio_dev->name,
@@ -122,6 +126,14 @@ int inv_mpu6050_probe_trigger(struct iio_dev *indio_dev)
 	if (st->trig == NULL) {
 		ret = -ENOMEM;
 		goto error_ret;
+	}
+
+	/* Get interrupt GPIO pin number */
+	gpiod = devm_gpiod_get_index(dev, "inv_mup6050_gpio_int", 0);
+	if (!IS_ERR(gpiod)) {
+		gpiod_direction_input(gpiod);
+		st->client->irq = gpiod_to_irq(gpiod);
+		st->gpiod = gpiod;
 	}
 
 	ret = request_threaded_irq(st->client->irq, inv_mpu6050_irq_handler,

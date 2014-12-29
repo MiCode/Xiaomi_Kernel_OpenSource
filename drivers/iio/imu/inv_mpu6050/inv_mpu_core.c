@@ -657,7 +657,8 @@ static int inv_check_and_setup_chip(struct inv_mpu6050_state *st,
 		dev_err(&st->client->dev, "Error reading WhoAmI\n");
 		return result;
 	}
-	if (result != INV_MPU6500_UNIQUE_ID) {
+	if ((result != INV_MPU6500_UNIQUE_ID) &&
+			(result != INV_MPU6050_UNIQUE_ID)) {
 		dev_err(&st->client->dev, "Not a valid MPU6500 device %x\n",
 								result);
 		return -ENOSYS;
@@ -824,6 +825,7 @@ MODULE_DEVICE_TABLE(i2c, inv_mpu_id);
 
 static const struct acpi_device_id inv_acpi_match[] = {
 	{"INVN6500", 0},
+	{"INVN6050", 0},
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, inv_acpi_match);
