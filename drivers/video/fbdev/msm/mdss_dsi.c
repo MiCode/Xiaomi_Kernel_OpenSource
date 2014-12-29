@@ -2079,6 +2079,9 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		ctrl_pdata->ndx = 1;
 	}
 
+	panel_debug_register_base("panel",
+		ctrl_pdata->ctrl_base, ctrl_pdata->reg_size);
+
 	pr_debug("%s: Panel data initialized\n", __func__);
 	return 0;
 }
