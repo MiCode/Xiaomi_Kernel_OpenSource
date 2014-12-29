@@ -236,7 +236,12 @@ void trigger_cpu_pwr_stats_calc(void)
 			sensor_get_temp(cpu_node->sensor_id, &cpu_node->temp);
 		prev_temp[cpu] = cpu_node->temp;
 
-		if (activate_power_table && cpu_node->sp->table)
+		/*
+		 * Do not populate/update stats before policy and ptable have
+		 * been updated.
+		 */
+		if (activate_power_table && cpu_stats[cpu].ptable
+			&& cpu_node->sp->table)
 			repopulate_stats(cpu);
 	}
 	spin_unlock(&update_lock);
