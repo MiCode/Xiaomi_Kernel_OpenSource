@@ -777,6 +777,11 @@ void wcd9xxx_resmgr_put_clk_block(struct wcd9xxx_resmgr *resmgr,
 							0x01, 0x00);
 					wcd9xxx_resmgr_notifier_call(resmgr,
 						WCD9XXX_EVENT_POST_MCLK_OFF);
+					/* CLK Mux changed to RCO, notify that
+					 * RCO is ON
+					 */
+					wcd9xxx_resmgr_notifier_call(resmgr,
+						WCD9XXX_EVENT_POST_RCO_ON);
 				}
 			} else {
 				/* disable clock */
