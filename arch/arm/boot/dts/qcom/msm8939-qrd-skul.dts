@@ -34,6 +34,7 @@
 		qcom,float-voltage-mv = <4400>;
 		qcom,charging-timeout = <1536>;
 		qcom,recharge-thresh-mv = <100>;
+		qcom,fastchg-ma = <2500>;
 		regulator-name = "smb1357_otg_vreg";
 		qcom,soft-vfloat-comp-disabled;
 		qcom,thermal-mitigation = <1500 700 600 0>;
