@@ -745,6 +745,16 @@ config SENSORS_AP3426
 	  To compile this driver as a module, choose M here: the
 	  module will be called ap3426.
 
+config SENSORS_LTR553
+	tristate "LTR553 light and proximity device driver"
+	depends on I2C
+	help
+	  Say Y here if you want to enable the LTR553 light and
+	  proximity sensor driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ltr553.
+
 config SENSORS_MMC3416X
 	tristate "MMC3416xPJ 3-axis magnetic sensor driver"
 	depends on I2C
