@@ -17,13 +17,19 @@
 #ifdef CONFIG_MSM_GLINK
 
 /**
- * glink_rpm_rx_poll() - Poll and receive any available packet
- * @handle: Channel handle in which this operation is performed.
+ * glink_rpm_rx_poll() - Poll and receive any available events
+ * @handle:	Channel handle in which this operation is performed.
  *
- * This function is used to poll and receive the packet while the receive
- * interrupt from RPM is disabled.
+ * This function is used to poll and receive events and packets while the
+ * receive interrupt from RPM is disabled.
  *
- * Return: 0 on success, standard Linux error codes on failure.
+ * Note that even if a return value > 0 is returned indicating that some events
+ * were processed, clients should only use the notification functions passed
+ * into glink_open() to determine if an entire packet has been received since
+ * some events may be internal details that are not visible to clients.
+ *
+ * Return: 0 for no packets available; > 0 for events available; standard
+ * Linux error codes on failure.
  */
 int glink_rpm_rx_poll(void *handle);
 
