@@ -350,6 +350,11 @@ static void ufshcd_resume_clkscaling(struct ufs_hba *hba);
 static void ufshcd_suspend_clkscaling(struct ufs_hba *hba);
 static void ufshcd_release_all(struct ufs_hba *hba);
 
+static inline bool ufshcd_valid_tag(struct ufs_hba *hba, int tag)
+{
+	return tag >= 0 && tag < hba->nutrs;
+}
+
 static inline int ufshcd_enable_irq(struct ufs_hba *hba)
 {
 	int ret = 0;
@@ -2532,6 +2537,12 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	hba = shost_priv(host);
 
 	tag = cmd->request->tag;
+	if (!ufshcd_valid_tag(hba, tag)) {
+		dev_err(hba->dev,
+			"%s: invalid command tag %d: cmd=0x%p, cmd->request=0x%p",
+			__func__, tag, cmd, cmd->request);
+		BUG();
+	}
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	switch (hba->ufshcd_state) {
@@ -5907,6 +5918,13 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	host = cmd->device->host;
 	hba = shost_priv(host);
 	tag = cmd->request->tag;
+	if (!ufshcd_valid_tag(hba, tag)) {
+		dev_err(hba->dev,
+			"%s: invalid command tag %d: cmd=0x%p, cmd->request=0x%p",
+			__func__, tag, cmd, cmd->request);
+		BUG();
+	}
+
 	lrbp = &hba->lrb[tag];
 
 	UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_TASK_ABORT);
@@ -5926,8 +5944,8 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	/* If command is already aborted/completed, return SUCCESS */
 	if (!(test_bit(tag, &hba->outstanding_reqs))) {
 		dev_err(hba->dev,
-			"%s: cmd already completed, outstanding=0x%lx, doorbell=0x%x\n",
-			__func__, hba->outstanding_reqs, reg);
+			"%s: cmd at tag %d already completed, outstanding=0x%lx, doorbell=0x%x\n",
+			__func__, tag, hba->outstanding_reqs, reg);
 		goto out;
 	}
 
