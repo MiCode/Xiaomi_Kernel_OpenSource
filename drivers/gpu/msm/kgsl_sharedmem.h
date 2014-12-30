@@ -318,6 +318,9 @@ static inline int kgsl_allocate_global(struct kgsl_device *device,
 {
 	int ret;
 
+	if (size == 0)
+		return -EINVAL;
+
 	memdesc->flags = flags;
 	memdesc->priv = priv;
 
