@@ -23,7 +23,7 @@ struct mdp_pp_cache_res {
 };
 
 int pp_hist_lut_cache_params(struct mdp_hist_lut_data *config,
-			  struct mdss_pp_res_type *mdss_pp_res);
+			  struct mdp_pp_cache_res *res_cache);
 
 int pp_dither_cache_params(struct mdp_dither_cfg_data *config,
 			  struct mdss_pp_res_type *mdss_pp_res);

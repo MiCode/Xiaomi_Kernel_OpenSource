@@ -858,20 +858,26 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	}
 
 	if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_LUT_CFG) {
-		pp_enhist_config(PP_FLAGS_DIRTY_ENHIST,
+		flags = PP_FLAGS_DIRTY_ENHIST;
+		if (!pp_ops[HIST_LUT].pp_set_config) {
+			pp_enhist_config(flags,
 				pipe->base + MDSS_MDP_REG_VIG_HIST_LUT_BASE,
 				&pipe->pp_res.pp_sts,
 				&pipe->pp_cfg.hist_lut_cfg);
-	}
-
-	if (pipe->pp_res.pp_sts.enhist_sts & PP_STS_ENABLE) {
-		if (!(pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)) {
-			/* Program default value */
-			offset = pipe->base + MDSS_MDP_REG_VIG_PA_BASE;
-			writel_relaxed(0, offset);
-			writel_relaxed(0, offset + 4);
-			writel_relaxed(0, offset + 8);
-			writel_relaxed(0, offset + 12);
+			if ((pipe->pp_res.pp_sts.enhist_sts & PP_STS_ENABLE) &&
+			    !(pipe->pp_res.pp_sts.pa_sts & PP_STS_ENABLE)) {
+				/* Program default value */
+				offset = pipe->base + MDSS_MDP_REG_VIG_PA_BASE;
+				writel_relaxed(0, offset);
+				writel_relaxed(0, offset + 4);
+				writel_relaxed(0, offset + 8);
+				writel_relaxed(0, offset + 12);
+			}
+		} else {
+			pp_ops[HIST_LUT].pp_set_config(pipe->base,
+				&pipe->pp_res.pp_sts,
+				&pipe->pp_cfg.hist_lut_cfg,
+				SSPP_VIG);
 		}
 	}
 
@@ -1264,6 +1270,7 @@ void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
 		kfree(pipe->pp_res.pa_cfg_payload);
 		kfree(pipe->pp_res.igc_cfg_payload);
 		kfree(pipe->pp_res.pcc_cfg_payload);
+		kfree(pipe->pp_res.hist_lut_cfg_payload);
 		memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
 		memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
 	}
@@ -1762,6 +1769,16 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 				base + MDSS_MDP_REG_DSPP_HIST_LUT_BASE,
 				pp_sts,
 				&mdss_pp_res->enhist_disp_cfg[disp_num]);
+
+			if ((pp_sts->enhist_sts & PP_STS_ENABLE) &&
+			    !(pp_sts->pa_sts & PP_STS_ENABLE)) {
+				/* Program default value */
+				addr = base + MDSS_MDP_REG_DSPP_PA_BASE;
+				writel_relaxed(0, addr);
+				writel_relaxed(0, addr + 4);
+				writel_relaxed(0, addr + 8);
+				writel_relaxed(0, addr + 12);
+			}
 		} else {
 			/* Pass dspp num using block */
 			mdss_pp_res->enhist_disp_cfg[disp_num].block = dspp_num;
@@ -1770,15 +1787,6 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		}
 	}
 
-	if (pp_sts->enhist_sts & PP_STS_ENABLE &&
-			!(pp_sts->pa_sts & PP_STS_ENABLE)) {
-		/* Program default value */
-		addr = base + MDSS_MDP_REG_DSPP_PA_BASE;
-		writel_relaxed(0, addr);
-		writel_relaxed(0, addr + 4);
-		writel_relaxed(0, addr + 8);
-		writel_relaxed(0, addr + 12);
-	}
 	if (flags & PP_FLAGS_DIRTY_DITHER) {
 		if (!pp_ops[DITHER].pp_set_config) {
 			pp_dither_config(addr, pp_sts,
@@ -3482,6 +3490,7 @@ int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config,
 	int i, ret = 0;
 	u32 disp_num, dspp_num = 0;
 	char __iomem *hist_addr = NULL, *base_addr = NULL;
+	struct mdp_pp_cache_res res_cache;
 
 	if ((PP_BLOCK(config->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(PP_BLOCK(config->block) >= MDP_BLOCK_MAX))
@@ -3529,7 +3538,10 @@ hist_lut_clk_off:
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	} else {
 		if (pp_ops[HIST_LUT].pp_set_config) {
-			ret = pp_hist_lut_cache_params(config, mdss_pp_res);
+			res_cache.block = DSPP;
+			res_cache.mdss_pp_res = mdss_pp_res;
+			res_cache.pipe_res = NULL;
+			ret = pp_hist_lut_cache_params(config, &res_cache);
 			if (ret) {
 				pr_err("hist_lut config failed version %d ret %d\n",
 					config->version, ret);
@@ -6201,18 +6213,36 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 			mdss_mdp_hist_stop(pipe->pp_cfg.hist_cfg.block);
 		}
 	}
-	len = pipe->pp_cfg.hist_lut_cfg.len;
-	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_LUT_CFG) &&
-					(len == ENHIST_LUT_ENTRIES)) {
-		ret = copy_from_user(pipe->pp_res.hist_lut,
-				pipe->pp_cfg.hist_lut_cfg.data,
-				sizeof(uint32_t) * len);
-		if (ret) {
-			ret = -EFAULT;
-			pr_err("failed to copy the hist lut\n");
-			goto exit_fail;
+	if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_HIST_LUT_CFG) {
+		if (!pp_ops[HIST_LUT].pp_set_config) {
+			len = pipe->pp_cfg.hist_lut_cfg.len;
+			if (len != ENHIST_LUT_ENTRIES) {
+				ret = -EINVAL;
+				pr_err("Invalid hist lut len: %d\n", len);
+				goto exit_fail;
+			}
+			ret = copy_from_user(pipe->pp_res.hist_lut,
+					pipe->pp_cfg.hist_lut_cfg.data,
+					sizeof(uint32_t) * len);
+			if (ret) {
+				ret = -EFAULT;
+				pr_err("failed to copy the hist lut\n");
+				goto exit_fail;
+			}
+			pipe->pp_cfg.hist_lut_cfg.data = pipe->pp_res.hist_lut;
+		} else {
+			cache_res.block = SSPP_VIG;
+			cache_res.mdss_pp_res = NULL;
+			cache_res.pipe_res = pipe;
+			ret = pp_hist_lut_cache_params(
+					&pipe->pp_cfg.hist_lut_cfg,
+					&cache_res);
+			if (ret) {
+				pr_err("Failed to cache Hist LUT params on pipe %d, ret %d\n",
+						pipe->num, ret);
+				goto exit_fail;
+			}
 		}
-		pipe->pp_cfg.hist_lut_cfg.data = pipe->pp_res.hist_lut;
 	}
 	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_V2_CFG) &&
 	    (pp_ops[PA].pp_set_config)) {

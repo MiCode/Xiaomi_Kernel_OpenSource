@@ -427,6 +427,7 @@ struct mdss_pipe_pp_res {
 	void *pa_cfg_payload;
 	void *pcc_cfg_payload;
 	void *igc_cfg_payload;
+	void *hist_lut_cfg_payload;
 };
 
 struct mdss_mdp_pipe_smp_map {
