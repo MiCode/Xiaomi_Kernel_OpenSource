@@ -1403,7 +1403,6 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_UPDATE_NOW,
-	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_ESR_COUNT,
 };
 
@@ -1453,12 +1452,6 @@ static int fg_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_UPDATE_NOW:
 		val->intval = 0;
 		break;
-	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		if (get_prop_capacity(chip) == 100)
-			val->intval = 1;
-		else
-			val->intval = 0;
-		break;
 	default:
 		return -EINVAL;
 	}
@@ -1484,8 +1477,8 @@ static int fg_power_set_property(struct power_supply *psy,
 		if (val->intval)
 			update_sram_data(chip, &unused);
 		break;
-	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		if (val->intval)
+	case POWER_SUPPLY_PROP_STATUS:
+		if (val->intval == POWER_SUPPLY_STATUS_FULL)
 			rc = fg_configure_soc(chip);
 		break;
 	default:
