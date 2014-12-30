@@ -192,6 +192,17 @@
 			};
 		};
 
+		vdd_spkdrv {
+			qcom,pins = <&gp 4>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "vdd_spkdrv";
+			vdd_spkdrv_default: vdd_spkdrv_default {
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+
 		/* QDSD pin type */
 		qdsd: qdsd {
 			/* 0-> clk, 1 -> cmd, 2->data0, 3->data1, 4->data2, 5->data3 */
