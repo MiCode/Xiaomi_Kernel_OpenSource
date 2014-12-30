@@ -806,7 +806,7 @@ int mdss_iommu_ctrl(int enable)
 		 */
 		if (!mdata->iommu_attached && !mdata->handoff_pending) {
 			if (mdata->needs_iommu_bw_vote)
-				mdss_bus_scale_set_quota(MDSS_HW_IOMMU,
+				mdss_bus_scale_set_quota(MDSS_IOMMU_RT,
 					SZ_1M, SZ_1M);
 			rc = mdss_iommu_attach(mdata);
 		}
@@ -817,7 +817,7 @@ int mdss_iommu_ctrl(int enable)
 			if (mdata->iommu_ref_cnt == 0) {
 				rc = mdss_iommu_dettach(mdata);
 				if (mdata->needs_iommu_bw_vote)
-					mdss_bus_scale_set_quota(MDSS_HW_IOMMU,
+					mdss_bus_scale_set_quota(MDSS_IOMMU_RT,
 						0, 0);
 			}
 		} else {
