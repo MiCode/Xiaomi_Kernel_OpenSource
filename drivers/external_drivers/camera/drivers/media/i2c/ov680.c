@@ -14,16 +14,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <linux/atomisp.h>
-#include <linux/delay.h>
-#include <linux/firmware.h>
-#include <linux/i2c.h>
-#include <linux/module.h>
-#include <linux/moduleparam.h>
-#include <linux/string.h>
-#include <linux/types.h>
-#include <media/v4l2-ctrls.h>
-#include <media/v4l2-device.h>
 #include "ov680.h"
 
 #define to_ov680_device(sub_dev) container_of(sub_dev, struct ov680_device, sd)
@@ -465,6 +455,130 @@ static int ov680_load_firmware(struct v4l2_subdev *sd)
 	dev_info(&client->dev, "firmware load successfully.\n");
 	return ret;
 }
+static int __power_ctrl(struct v4l2_subdev *sd, int on)
+{
+#ifdef CONFIG_GMIN_INTEL_MID
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+#endif
+	struct ov680_device *dev = to_ov680_device(sd);
+	int ret = 0;
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, on);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (dev->platform_data->v2p8_ctrl) {
+		ret = dev->platform_data->v2p8_ctrl(sd, on);
+		if (ret) {
+			dev_err(&client->dev,
+				"failed to power %s 2.8v power rail\n",
+				on ? "up" : "down");
+			return ret;
+		}
+	}
+
+	if (dev->platform_data->v1p8_ctrl) {
+		ret = dev->platform_data->v1p8_ctrl(sd, on);
+		if (ret) {
+			dev_err(&client->dev,
+				"failed to power %s 1.8v power rail\n",
+				on ? "up" : "down");
+			if (dev->platform_data->v2p8_ctrl)
+				dev->platform_data->v2p8_ctrl(sd, 0);
+			return ret;
+		}
+	}
+
+	if (on)
+		msleep(20); /* Wait for power lines to stabilize */
+#endif
+	return ret;
+
+}
+static int __gpio_ctrl(struct v4l2_subdev *sd, int on)
+{
+#ifdef CONFIG_GMIN_INTEL_MID
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+#endif
+	struct ov680_device *dev = to_ov680_device(sd);
+	int ret = 0;
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, on);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (on) {
+		/* fsa642 gpio */
+		ret = dev->platform_data->gpio2_ctrl(sd, 1);
+		if (ret)
+			goto gpio2_fail;
+
+		/*
+		 * FIXME: setting gpio0 to 0 is not necessary for MOOR DR,
+		 * but needed for CHT DR so far. remove this when both
+		 * platforms are tested working correctly.
+		 */
+		/* camera_2_3_rst gpio */
+		ret = dev->platform_data->gpio0_ctrl(sd, 0);
+		if (ret)
+			goto gpio0_fail;
+		msleep(40);
+		/* camera_2_3_rst gpio */
+		ret = dev->platform_data->gpio0_ctrl(sd, 1);
+		if (ret)
+			goto gpio0_fail;
+		msleep(40);
+	} else {
+		dev->platform_data->gpio0_ctrl(sd, 0);
+		dev->platform_data->gpio2_ctrl(sd, 0);
+	}
+
+	return 0;
+
+gpio0_fail:
+	dev->platform_data->gpio2_ctrl(sd, 0); /* fsa642 gpio */
+gpio2_fail:
+	dev_err(&client->dev, "failed to set gpio %s.\n", on ? "on" : "off");
+#endif
+	return ret;
+}
+static int __flisclk_ctrl(struct v4l2_subdev *sd, int on)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov680_device *dev = to_ov680_device(sd);
+	int ret = 0;
+
+	if (dev->platform_data->flisclk_ctrl) {
+		ret = dev->platform_data->flisclk_ctrl(sd, on);
+		if (ret) {
+			dev_err(&client->dev,
+				"%s - platform flisclk0 %s error.\n", __func__,
+				on ? "on" : "off");
+			return ret;
+		}
+	}
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (dev->platform_data->flisclk1_ctrl) {
+		dev->platform_data->flisclk1_ctrl(sd, on);
+		if (ret) {
+			dev_err(&client->dev,
+				"%s - platform flisclk1 %s error.\n", __func__,
+				on ? "on" : "off");
+			if (on)
+				dev->platform_data->flisclk_ctrl(sd, 0);
+		}
+	}
+#endif
+	return ret;
+}
 
 static int __ov680_s_power(struct v4l2_subdev *sd, int on, int load_fw)
 {
@@ -474,34 +588,25 @@ static int __ov680_s_power(struct v4l2_subdev *sd, int on, int load_fw)
 
 	dev_info(&client->dev, "%s - on-%d.\n", __func__, on);
 
-	/* clock control */
-	/*
-	 * WA: If the app did not disable the clock before exit,
-	 * driver has to disable it firstly, or the clock cannot
-	 * be enabled any more after device enter sleep.
-	 */
-	if (dev->power_on && on)
-		dev->platform_data->flisclk_ctrl(sd, 0);
-
-	ret = dev->platform_data->flisclk_ctrl(sd, on);
+	ret = __flisclk_ctrl(sd, on);
 	if (ret) {
 		dev_err(&client->dev,
 			"%s - set clock error.\n", __func__);
 		return ret;
 	}
 
-	ret = dev->platform_data->power_ctrl(sd, on);
+	ret = __power_ctrl(sd, on);
 	if (ret) {
 		dev_err(&client->dev,
 			"ov680_s_power error. on=%d ret=%d\n", on, ret);
-		return ret;
+		goto pwr_fail;
 	}
 
-	ret = dev->platform_data->gpio_ctrl(sd, on);
+	ret = __gpio_ctrl(sd, on);
 	if (ret) {
 		dev_err(&client->dev,
 			"%s - gpio control failed\n", __func__);
-		return ret;
+		goto gpio_fail;
 	}
 
 	dev->power_on = on;
@@ -518,6 +623,15 @@ static int __ov680_s_power(struct v4l2_subdev *sd, int on, int load_fw)
 #endif
 	}
 
+	return 0;
+
+gpio_fail:
+	if (on)
+		__power_ctrl(sd, 0);
+pwr_fail:
+	if (on)
+		__flisclk_ctrl(sd, 0);
+
 	return ret;
 }
 
@@ -531,7 +645,7 @@ static int ov680_s_power(struct v4l2_subdev *sd, int on)
 	ret = __ov680_s_power(sd, on, 0);
 	mutex_unlock(&dev->input_lock);
 
-	dev_dbg(&client->dev, "%s -flag =%d,  ret = %d\n", __func__, on, ret);
+	dev_dbg(&client->dev, "%s -on =%d,  ret = %d\n", __func__, on, ret);
 
 	return ret;
 }
@@ -1256,8 +1370,6 @@ static int ov680_probe(struct i2c_client *client,
 	const struct ov680_firmware *ov680_fw_header;
 	unsigned int ov680_fw_data_size;
 
-	dev_info(&client->dev, "ov680 probe called.\n");
-
 	/* allocate device & init sub device */
 	dev = devm_kzalloc(&client->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -1303,14 +1415,40 @@ static int ov680_probe(struct i2c_client *client,
 
 	v4l2_i2c_subdev_init(&(dev->sd), client, &ov680_ops);
 
-	if (client->dev.platform_data) {
-		ret = ov680_s_config(&dev->sd, client->dev.platform_data);
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (ACPI_COMPANION(&client->dev)) {
+		struct camera_sensor_platform_data *pdata;
+		pdata = gmin_camera_platform_data(&dev->sd,
+					ATOMISP_INPUT_FORMAT_YUV422_8, -1);
+		if (!pdata) {
+			dev_err(&client->dev,
+				"%s: failed to get acpi platform data\n",
+				__func__);
+			goto out_free;
+		}
+		ret = ov680_s_config(&dev->sd, pdata);
 		if (ret) {
-			dev_dbg(&client->dev, "s_config failed\n");
+			dev_err(&client->dev,
+				"%s: failed to set config\n", __func__);
+			goto out_free;
+		}
+		ret = atomisp_register_i2c_module(&dev->sd, pdata, SOC_CAMERA);
+		if (ret) {
+			dev_err(&client->dev,
+				"%s: failed to register subdev\n", __func__);
 			goto out_free;
 		}
 	}
-
+#else
+	if (client->dev.platform_data) {
+		ret = ov680_s_config(&dev->sd, client->dev.platform_data);
+		if (ret) {
+			dev_err(&client->dev,
+				"%s: failed to set config\n", __func__);
+			goto out_free;
+		}
+	}
+#endif
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
 	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
@@ -1354,7 +1492,17 @@ out_free:
 out_free_dev:
 	return ret;
 }
-
+/*
+ * FIXME: HACK making ov680 as ov2722 device it.because there is no official
+ * id allocated yet for ov680 now.
+ */
+#ifdef CONFIG_GMIN_INTEL_MID
+static struct acpi_device_id ov680_acpi_match[] = {
+	{ "INT33FB" }, /* same id with ov2722 */
+	{},
+};
+MODULE_DEVICE_TABLE(acpi, ov680_acpi_match);
+#endif
 static const struct i2c_device_id ov680_id[] = {
 	{OV680_NAME, 0},
 	{}
@@ -1365,6 +1513,9 @@ static struct i2c_driver ov680_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = OV680_NAME,
+#ifdef CONFIG_GMIN_INTEL_MID
+		.acpi_match_table = ACPI_PTR(ov680_acpi_match),
+#endif
 	},
 	.probe = ov680_probe,
 	.remove = ov680_remove,

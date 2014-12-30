@@ -26,12 +26,24 @@
 #include <linux/videodev2.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/types.h>
+#include <linux/firmware.h>
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/string.h>
+#include <linux/types.h>
+#include <linux/clk.h>
+#include <linux/acpi.h>
 
 #include <media/media-entity.h>
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
+
+#ifdef CONFIG_GMIN_INTEL_MID
+#include <linux/atomisp_gmin_platform.h>
+#else
+#include <media/v4l2-chip-ident.h>
+#endif
 
 #define OV680_NAME "ov680"
 #define OV680_CHIP_ID 0x680
