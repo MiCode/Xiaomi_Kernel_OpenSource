@@ -169,6 +169,16 @@ config MSM_MHI_UCI
 	  read, write and ioctl operations to communicate with the
 	  attached device.
 
+config MSM_MHI_DEV
+        tristate "Modem Device Interface Driver"
+	depends on EP_PCIE && IPA
+        help
+          This kernel module is used to interact with PCIe Root complex
+          supporting MHI protocol. MHI is a data transmission protocol
+          involving communication between a host and a device over shared
+          memory. MHI interacts with the IPA for supporting transfers
+	  on the HW accelerated channels between Host and device.
+
 config PFT
 	bool "Per-File-Tagger driver"
 	default n
