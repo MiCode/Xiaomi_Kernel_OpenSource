@@ -757,10 +757,14 @@ hsw_write##x(struct drm_i915_private *dev_priv, off_t reg, u##x val, bool trace)
 	REG_WRITE_FOOTER; \
 }
 
-static const u32 gen8_shadowed_regs[] = {
+static const u32 common_shadowed_regs[] = {
 	FORCEWAKE_MT,
 	GEN6_RPNSWREQ,
 	GEN6_RC_VIDEO_FREQ,
+	/* TODO: Other registers are not yet used */
+};
+
+static const u32 gen8_shadowed_regs[] = {
 	RING_TAIL(RENDER_RING_BASE),
 	RING_TAIL(GEN6_BSD_RING_BASE),
 	RING_TAIL(VEBOX_RING_BASE),
@@ -771,9 +775,15 @@ static const u32 gen8_shadowed_regs[] = {
 static bool is_gen8_shadowed(struct drm_i915_private *dev_priv, u32 reg)
 {
 	int i;
-	for (i = 0; i < ARRAY_SIZE(gen8_shadowed_regs); i++)
-		if (reg == gen8_shadowed_regs[i])
+	for (i = 0; i < ARRAY_SIZE(common_shadowed_regs); i++)
+		if (reg == common_shadowed_regs[i])
 			return true;
+
+	if (!IS_CHERRYVIEW(dev_priv->dev)) {
+		for (i = 0; i < ARRAY_SIZE(gen8_shadowed_regs); i++)
+			if (reg == gen8_shadowed_regs[i])
+				return true;
+	}
 
 	return false;
 }

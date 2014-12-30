@@ -326,7 +326,8 @@ static void execlists_elsp_write(struct intel_engine_cs *ring,
 	 * because that function calls intel_runtime_pm_get(), which might sleep.
 	 * Instead, we do the runtime_pm_get/put when creating/destroying requests.
 	 */
-	gen8_gt_force_wake_get(dev_priv);
+	if (!IS_CHERRYVIEW(dev_priv->dev))
+		gen8_gt_force_wake_get(dev_priv);
 
 	I915_WRITE(RING_ELSP(ring), desc[1]);
 	I915_WRITE(RING_ELSP(ring), desc[0]);
@@ -338,7 +339,8 @@ static void execlists_elsp_write(struct intel_engine_cs *ring,
 	POSTING_READ(RING_EXECLIST_STATUS(ring));
 
 	/* Release Force Wakeup (see the big comment above). */
-	gen8_gt_force_wake_put(dev_priv);
+	if (!IS_CHERRYVIEW(dev_priv->dev))
+		gen8_gt_force_wake_put(dev_priv);
 }
 
 /*
