@@ -393,4 +393,7 @@ u32 msm_iommu_get_mair1(void);
 u32 msm_iommu_get_prrr(void);
 u32 msm_iommu_get_nmrr(void);
 
+#define TLB_SYNC_TIMEOUT 1
+void msm_iommu_register_notify(struct notifier_block *nb);
+
 #endif
