@@ -30,9 +30,17 @@ struct intel_adf_context *adf_ctx;
 static int intel_adf_init(void)
 {
 	struct pci_dev *i915_pci_dev;
+	int adf_enabled;
 	pr_err("ADF: %s\n", __func__);
 
 	i915_pci_dev = i915_adf_get_pci_dev();
+
+	adf_enabled = i915_adf_driver_initialize();
+	if (!adf_enabled) {
+		pr_err("%s:adf disabled in kernel parameter\n", __func__);
+		return -EBUSY;
+	}
+
 	adf_ctx = intel_adf_context_create(i915_pci_dev);
 	if (IS_ERR(adf_ctx)) {
 		pr_err("%s:failed to create ADF context\n", __func__);
