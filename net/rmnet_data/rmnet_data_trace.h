@@ -240,6 +240,71 @@ TRACE_EVENT(rmnet_map_checksum_uplink_packet,
 		__get_str(name), __entry->res)
 )
 
+DECLARE_EVENT_CLASS(rmnet_physdev_action_template,
+
+	TP_PROTO(struct net_device *dev),
+
+	TP_ARGS(dev),
+
+	TP_STRUCT__entry(
+		__string(name, dev->name)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, dev->name);
+	),
+
+	TP_printk("Physical dev=%s", __get_str(name))
+)
+
+DEFINE_EVENT(rmnet_physdev_action_template, rmnet_unregister_cb_unhandled,
+
+	TP_PROTO(struct net_device *dev),
+
+	TP_ARGS(dev)
+);
+
+DEFINE_EVENT(rmnet_physdev_action_template, rmnet_unregister_cb_entry,
+
+	TP_PROTO(struct net_device *dev),
+
+	TP_ARGS(dev)
+);
+
+DEFINE_EVENT(rmnet_physdev_action_template, rmnet_unregister_cb_exit,
+
+	TP_PROTO(struct net_device *dev),
+
+	TP_ARGS(dev)
+);
+
+DEFINE_EVENT(rmnet_physdev_action_template, rmnet_unregister_cb_clear_vnds,
+
+	TP_PROTO(struct net_device *dev),
+
+	TP_ARGS(dev)
+);
+
+DEFINE_EVENT(rmnet_physdev_action_template, rmnet_unregister_cb_clear_lepcs,
+
+	TP_PROTO(struct net_device *dev),
+
+	TP_ARGS(dev)
+);
+
+DEFINE_EVENT(rmnet_physdev_action_template, rmnet_associate,
+
+	TP_PROTO(struct net_device *dev),
+
+	TP_ARGS(dev)
+);
+
+DEFINE_EVENT(rmnet_physdev_action_template, rmnet_unassociate,
+
+	TP_PROTO(struct net_device *dev),
+
+	TP_ARGS(dev)
+);
 #endif /* _RMNET_DATA_TRACE_H_ */
 
 /* This part must be outside protection */
