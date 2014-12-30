@@ -23,6 +23,9 @@ static inline void __cpuinit arch_counter_set_user_access(void)
 	/* disable user access to everything */
 	cntkctl &= ~((3 << 8) | (7 << 0));
 
+	/* Enable user access to the virtual counter */
+	cntkctl |= (1 << 1);
+
 	asm volatile("mcr p15, 0, %0, c14, c1, 0" : : "r" (cntkctl));
 }
 #else
