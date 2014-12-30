@@ -303,6 +303,12 @@ vlv_power_sequencer_kick(struct intel_dp *intel_dp,
 	enum intel_display_power_domain power_domain;
 	uint32_t DP;
 
+	if (I915_READ(intel_dp->output_reg) & DP_PORT_EN) {
+		DRM_DEBUG_DRIVER(
+		"Skip power sequencer kick since port is active\n");
+		return;
+	}
+
 	/* Preserve the BIOS-computed detected bit. This is
 	 * supposed to be read-only.
 	 */
