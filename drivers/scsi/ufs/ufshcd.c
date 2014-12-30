@@ -6380,6 +6380,13 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	host = cmd->device->host;
 	hba = shost_priv(host);
 	tag = cmd->request->tag;
+	if (!ufshcd_valid_tag(hba, tag)) {
+		dev_err(hba->dev,
+			"%s: invalid command tag %d: cmd=0x%p, cmd->request=0x%p",
+			__func__, tag, cmd, cmd->request);
+		BUG();
+	}
+
 	lrbp = &hba->lrb[tag];
 
 	UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_TASK_ABORT);
