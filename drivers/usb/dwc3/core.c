@@ -1046,9 +1046,18 @@ static int dwc3_resume(struct device *dev)
 	return dwc3_resume_common(dev);
 }
 
+static void dwc3_complete(struct device *dev)
+{
+	/* HACK: in S3->S0 resume process, trigger runtime resume to avoid
+	 * missing events during the time that runtime pm is disabled */
+	pm_runtime_get(dev);
+	pm_runtime_put(dev);
+}
+
 static const struct dev_pm_ops dwc3_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_suspend, dwc3_resume)
 	SET_RUNTIME_PM_OPS(dwc3_runtime_suspend, dwc3_runtime_resume, NULL)
+	.complete = dwc3_complete,
 };
 
 #define DWC3_PM_OPS	&(dwc3_dev_pm_ops)
