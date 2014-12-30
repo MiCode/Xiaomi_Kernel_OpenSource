@@ -5310,7 +5310,7 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 			lrbp->cmd = NULL;
 			/* Clear pending transfer requests */
 			ufshcd_clear_cmd(hba, index);
-			__clear_bit(index, &hba->outstanding_reqs);
+			ufshcd_outstanding_req_clear(hba, index);
 			clear_bit_unlock(index, &hba->lrb_in_use);
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
@@ -5319,7 +5319,7 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 			if (hba->dev_cmd.complete) {
 				ufshcd_add_command_trace(hba, index,
 							"dev_failed");
-				__clear_bit(index, &hba->outstanding_reqs);
+				ufshcd_outstanding_req_clear(hba, index);
 				complete(hba->dev_cmd.complete);
 			}
 		}
