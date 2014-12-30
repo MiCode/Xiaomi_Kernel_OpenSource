@@ -16,4 +16,7 @@
 /include/ "dsi-panel-nt35596-1080p-video.dtsi"
 /include/ "dsi-panel-nt35590-720p-cmd.dtsi"
 /include/ "dsi-panel-ssd2080m-720p-video.dtsi"
+/include/ "dsi-panel-auo-720p-video.dtsi"
 /include/ "dsi-panel-jdi-1080p-video.dtsi"
+/include/ "dsi-panel-sharp-R69431-720p-video.dtsi"
+/include/ "dsi-panel-auo-nt35521-720p-video.dtsi"

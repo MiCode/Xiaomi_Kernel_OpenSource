@@ -18,7 +18,6 @@
 	interrupt-parent = <&intc>;
 
 	aliases {
-		serial6 = &uart6;
 		spi0 = &spi_0;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
@@ -83,6 +82,12 @@
 		interrupts = <0 208 0>;
 		qcom,direct-connect-irqs = <8>;
 	};
+
+        w1-gpio {
+                compatible = "qcom,w1-gpio";
+                qcom,gpio-pin = <567>; /* BAT_ID Connects to mpp-8*/
+                qcom,is-open-drain = <0>;
+        };
 
 	qcom,mpm2-sleep-counter@fc4a3000 {
 		compatible = "qcom,mpm2-sleep-counter";
@@ -186,7 +191,7 @@
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 			<0x6 0x2>,
 			<0x7C0 0x3>;
-		qcom,max-hw-load = <352800>; /* 720p @ 30 + 1080p @ 30 */
+		qcom,max-hw-load = <730800>; /* 720p @ 30 + 1080p @ 30 */
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
 				qcom,vidc-domain-phandle = <&venus_domain_ns>;
@@ -231,39 +236,6 @@
 		reg = <0xf995e000 0x1000>;
 		interrupts = <0 114 0>;
 		status = "disabled";
-	};
-
-	uart6: uart@f9922000 { /*BLSP #1, UART #6 */
-		compatible = "qcom,msm-hsuart-v14";
-		status = "ok";
-		reg = <0xf9922000 0x1C0>,
-			<0xf9904000 0x19000>;
-		reg-names = "core_mem", "bam_mem";
-		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
-		#address-cells = <0>;
-		interrupt-parent = <&uart6>;
-		interrupts = <0 1 2>;
-		#interrupt-cells = <1>;
-		interrupt-map-mask = <0xffffffff>;
-		interrupt-map = <0 &intc 0 112 0
-				1 &intc 0 238 0
-				2 &msmgpio 21 0>;
-		qcom,tx-gpio = <&msmgpio 20 0x00>;
-		qcom,rx-gpio = <&msmgpio 21 0x00>;
-		qcom,cts-gpio = <&msmgpio 22 0x00>;
-		qcom,rfr-gpio = <&msmgpio 23 0x00>;
-
-		qcom,inject-rx-on-wakeup = <1>;
-		qcom,rx-char-to-inject = <0xFD>;
-
-		qcom,bam-tx-ep-pipe-index = <10>;
-		qcom,bam-rx-ep-pipe-index = <11>;
-		qcom,msm-bus,name = "uart6";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-				<86 512 0 0>,
-				<86 512 500 800>;
 	};
 
 	qcom,msm-imem@fe805000 {
@@ -318,7 +290,7 @@
 		qcom,vdd-voltage-level = <1 5 7>;
 
 		qcom,hsusb-otg-phy-init-seq =
-			<0x44 0x80 0x68 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
+			<0x44 0x80 0x6c 0x81 0x34 0x82 0x13 0x83 0xffffffff>;
 		qcom,hsusb-otg-phy-type = <2>;
 		qcom,hsusb-otg-mode = <1>;
 		qcom,hsusb-otg-otg-control = <2>;
@@ -679,8 +651,8 @@
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf9017000 0x1000>;
 		interrupts = <0 3 0>, <0 4 0>;
-		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,bark-time = <20000>;
+		qcom,pet-time = <15000>;
 		qcom,ipi-ping;
 	};
 
@@ -1036,6 +1008,21 @@
 		qcom,scl-gpio = <&msmgpio 19 0>;
 	};
 
+	i2c@f9928000 { /* BLSP1 QUP6 */
+                cell-index = <6>;
+                compatible = "qcom,i2c-qup";
+                #address-cells = <1>;
+                #size-cells = <0>;
+                reg-names = "qup_phys_addr";
+                reg = <0xf9928000 0x1000>;
+                interrupt-names = "qup_err_intr";
+                interrupts = <0 100 0>;
+                qcom,i2c-bus-freq = <384000>;
+                qcom,i2c-src-freq = <19200000>;
+                qcom,sda-gpio = <&msmgpio 22 0>;
+                qcom,scl-gpio = <&msmgpio 23 0>;
+        };
+
 	qcom,acpuclk@f9011050 {
 		compatible = "qcom,acpuclk-a7";
 		reg = <0xf9011050 0x8>;
@@ -1300,15 +1287,16 @@
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,hlos-ce-hw-instance = <0>;
 		qcom,qsee-ce-hw-instance = <0>;
+		qcom,support-bus-scaling;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,active-only = <0>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
-				<55 512 3936000 393600>,
-				<55 512 3936000 393600>,
-				<55 512 3936000 393600>;
+				<55 512 0 0>,
+				<55 512 120000 1200000>,
+				<55 512 393600 3936000>;
 	};
 
 	qcom,qcrypto@fd404000 {
@@ -1450,7 +1438,7 @@
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <1>;
-		qcom,hw-settle-time = <2>;
+		qcom,hw-settle-time = <0xf>;
 		qcom,fast-avg-setup = <0>;
 	};
 
@@ -1497,8 +1485,8 @@
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <1>;
-		qcom,hw-settle-time = <2>;
-		qcom,fast-avg-setup = <3>;
+		qcom,hw-settle-time = <0xf>;
+		qcom,fast-avg-setup = <0>;
 		qcom,btm-channel-number = <0x48>;
 	};
 

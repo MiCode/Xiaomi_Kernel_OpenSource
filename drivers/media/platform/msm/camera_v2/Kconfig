@@ -110,6 +110,14 @@ config S5K3L1YX
 		snapshot config = 4000 * 3000 at 20 fps,
 		hfr video at 60, 90 and 120 fps.
 
+config S5K3H2YX
+	bool "Sensor S5K3H2YX (BAYER 8M)"
+	depends on MSMB_CAMERA
+	---help---
+		Samsung 8 MP Bayer Sensor with auto focus, uses
+		4 mipi lanes, preview config = 1632 * 1224 at 30 fps,
+		snapshot config = 3264 * 2448 at 22 fps.
+
 config IMX135
 	bool "Sensor IMX135 (BAYER 12M)"
 	depends on MSMB_CAMERA
@@ -145,6 +153,15 @@ config OV9724
 		preview and snapshot config at 1280*720 at 30 fps,
 		hfr video at 60, 90 and 120 fps. This sensor driver does
 		not support auto focus.
+
+config OV9760
+	bool "Sensor OV9760 (BAYER 1.6M)"
+	depends on MSMB_CAMERA
+	---help---
+		OmniVision 1.6 MP Bayer Sensor, supports 1 mipi lanes,
+		preview and snapshot config at 1280*720 at 30 fps,
+		hfr video at 60, 90 and 120 fps. This sensor driver does
+		support auto focus.
 
 config HI256
         bool "Hynix hi256 (YUV 2MP)"

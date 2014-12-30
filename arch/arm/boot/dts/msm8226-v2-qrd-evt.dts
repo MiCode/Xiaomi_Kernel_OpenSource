@@ -21,9 +21,17 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_nt35590_720_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_auo_720_vid>;
 };
 
-&dsi_nt35590_720_vid {
+&dsi_auo_720_vid {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_sharp_720_vid {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_auo_nt35521_720_vid {
 	qcom,cont-splash-enabled;
 };

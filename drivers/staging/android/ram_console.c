@@ -55,7 +55,7 @@ static int __devinit ram_console_probe(struct platform_device *pdev)
 	struct ram_console_platform_data *pdata = pdev->dev.platform_data;
 	struct persistent_ram_zone *prz;
 
-	prz = persistent_ram_init_ringbuffer(&pdev->dev, true);
+	prz = persistent_ram_init_ringbuffer(&pdev->dev, false);
 	if (IS_ERR(prz))
 		return PTR_ERR(prz);
 
@@ -65,7 +65,6 @@ static int __devinit ram_console_probe(struct platform_device *pdev)
 		if (bootinfo)
 			bootinfo_size = strlen(bootinfo);
 	}
-
 	ram_console_zone = prz;
 	ram_console.data = prz;
 
@@ -100,9 +99,6 @@ static ssize_t ram_console_read_old(struct file *file, char __user *buf,
 	const char *old_log = persistent_ram_old(prz);
 	char *str;
 	int ret;
-
-	if (dmesg_restrict && !capable(CAP_SYSLOG))
-		return -EPERM;
 
 	/* Main last_kmsg log */
 	if (pos < old_log_size) {
@@ -154,7 +150,6 @@ static int __init ram_console_late_init(void)
 {
 	struct proc_dir_entry *entry;
 	struct persistent_ram_zone *prz = ram_console_zone;
-
 	if (!prz)
 		return 0;
 

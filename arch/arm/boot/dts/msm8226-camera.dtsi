@@ -136,7 +136,7 @@
 };
 
 &master0 {
-	qcom,hw-thigh = <20>;
+	qcom,hw-thigh = <22>;
 	qcom,hw-tlow = <28>;
 	qcom,hw-tsu-sto = <21>;
 	qcom,hw-tsu-sta = <21>;

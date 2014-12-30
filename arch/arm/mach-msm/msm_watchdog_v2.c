@@ -82,6 +82,22 @@ module_param(enable, int, 0);
 static long WDT_HZ = 32765;
 module_param(WDT_HZ, long, 0);
 
+static int wdog_fire;
+static int wdog_fire_set(const char *val, struct kernel_param *kp);
+module_param_call(wdog_fire, wdog_fire_set, param_get_int,
+                        &wdog_fire, 0644);
+
+static int wdog_fire_set(const char *val, struct kernel_param *kp)
+{
+       if (smp_processor_id() != 0) {
+               printk("disable all other cpus first\n");
+               return 0;
+       }
+
+       local_irq_disable();
+       while (1);
+}
+
 static void pet_watchdog_work(struct work_struct *work);
 static void init_watchdog_work(struct work_struct *work);
 
@@ -132,6 +148,23 @@ static int panic_wdog_handler(struct notifier_block *this,
 				wdog_dd->base + WDT0_BITE_TIME);
 		__raw_writel(1, wdog_dd->base + WDT0_RST);
 	}
+
+	/* Suspend wdog until all stacks are printed */
+	if (enable) {
+		__raw_writel(1, wdog_dd->base + WDT0_RST);
+		__raw_writel(0, wdog_dd->base + WDT0_EN);
+		mb();
+	}
+
+	printk(KERN_INFO "Stack trace dump:\n");
+	show_state_filter(0);
+
+	if (enable) {
+		__raw_writel(1, wdog_dd->base + WDT0_EN);
+		__raw_writel(1, wdog_dd->base + WDT0_RST);
+		mb();
+	}
+
 	return NOTIFY_DONE;
 }
 
@@ -334,6 +367,22 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 	if (wdog_dd->do_ipi_ping)
 		dump_cpu_alive_mask(wdog_dd);
 	printk(KERN_INFO "Causing a watchdog bite!");
+
+        if (enable) {
+                __raw_writel(1, wdog_dd->base + WDT0_RST);
+                __raw_writel(0, wdog_dd->base + WDT0_EN);
+                mb();
+        }
+
+        printk(KERN_INFO "Stack trace dump:\n");
+        show_state_filter(0);
+
+        if (enable) {
+                __raw_writel(1, wdog_dd->base + WDT0_EN);
+                __raw_writel(1, wdog_dd->base + WDT0_RST);
+                mb();
+        }
+
 	__raw_writel(1, wdog_dd->base + WDT0_BITE_TIME);
 	mb();
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
@@ -434,7 +483,7 @@ static void init_watchdog_work(struct work_struct *work)
 	configure_bark_dump(wdog_dd);
 	timeout = (wdog_dd->bark_time * WDT_HZ)/1000;
 	__raw_writel(timeout, wdog_dd->base + WDT0_BARK_TIME);
-	__raw_writel(timeout + 3*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
+	__raw_writel(timeout + 10*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
 
 	wdog_dd->panic_blk.notifier_call = panic_wdog_handler;
 	atomic_notifier_chain_register(&panic_notifier_list,

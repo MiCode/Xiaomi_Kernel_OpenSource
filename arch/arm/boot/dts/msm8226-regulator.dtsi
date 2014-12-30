@@ -88,7 +88,7 @@
 		qcom,cpr-fuse-uplift-sel = <22 53 1 0 0>;
 		qcom,cpr-uplift-voltage = <50000>;
 		qcom,cpr-uplift-quotient = <0 0 120>;
-		qcom,cpr-uplift-max-volt = <1350000>;
+		qcom,cpr-uplift-max-volt = <1330000>;
 		qcom,cpr-uplift-speed-bin = <1>;
 		qcom,speed-bin-fuse-sel = <22 0 3 0>;
 		qcom,cpr-corner-map = <1 1 2 2 3 3 3 3 3 3 3 3>;

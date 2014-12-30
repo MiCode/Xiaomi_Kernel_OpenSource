@@ -27,7 +27,7 @@
 #define CCI_I2C_QUEUE_0_SIZE 64
 #define CCI_I2C_QUEUE_1_SIZE 16
 #define CYCLES_PER_MICRO_SEC 4915
-#define CCI_MAX_DELAY 10000
+#define CCI_MAX_DELAY 10000000
 
 #define CCI_TIMEOUT msecs_to_jiffies(100)
 

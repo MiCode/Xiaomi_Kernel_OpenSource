@@ -24,6 +24,9 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
+int main_cam_eeprom_index = 1;
+EXPORT_SYMBOL(main_cam_eeprom_index);
+
 DEFINE_MSM_MUTEX(msm_eeprom_mutex);
 
 int32_t msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
@@ -155,10 +158,99 @@ static const struct v4l2_subdev_internal_ops msm_eeprom_internal_ops = {
 	.close = msm_eeprom_close,
 };
 
-int32_t read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl)
+#define SUNNY_VENDOR_ID 0x01
+#define OFILM_VENDOR_ID 0x07
+#define OFILM_VCM_ALPS_ID 0x00
+#define OFILM_VCM_KSC_ID 0x02
+#define INVALID_EEPROM_PAGE_DATA_FLAG 0xFF
+#define IDPAGE_DATA_LENGTH 9
+int32_t check_eeprom_id(struct msm_eeprom_ctrl_t *e_ctrl)
 {
 	int rc = 0;
 	int j;
+	uint8_t memptr[IDPAGE_DATA_LENGTH]= {0};
+	struct msm_eeprom_board_info *eb_info = NULL;
+	struct eeprom_memory_map_t *emap = NULL;
+	if (!e_ctrl) {
+		pr_err("%s e_ctrl is NULL", __func__);
+		rc = -1;
+		return rc;
+	}
+	eb_info = e_ctrl->eboard_info;
+	emap = eb_info->eeprom_map;
+
+	if ((strcmp(eb_info->eeprom_name, "ofilm_owt8a01a") == 0) || (strcmp(eb_info->eeprom_name, "sunny_q8s02m") == 0)) {
+		for (j=0x10; j<=0x12; j++) {
+			if (emap[j].page.valid_size) {
+				e_ctrl->i2c_client.addr_type = emap[j].page.addr_t;
+				rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&(e_ctrl->i2c_client), 0x3A1C, 0, 1);
+				msleep(emap[j].page.delay);
+				if (rc < 0) {
+					pr_err("%s: page write failed\n", __func__);
+					return rc;
+				}
+			}
+			if (emap[j].page.valid_size) {
+				e_ctrl->i2c_client.addr_type = emap[j].page.addr_t;
+				rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&(e_ctrl->i2c_client), 0x0A00, 0x04, 1);
+				msleep(emap[j].page.delay);
+				if (rc < 0) {
+					pr_err("%s: page write failed\n", __func__);
+					return rc;
+				}
+			}
+			if (emap[j].page.valid_size) {
+				e_ctrl->i2c_client.addr_type = emap[j].page.addr_t;
+				rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&(e_ctrl->i2c_client), 0x0A02, j, 1);
+				msleep(emap[j].page.delay);
+				if (rc < 0) {
+					pr_err("%s: page write failed\n", __func__);
+					return rc;
+				}
+			}
+			if (emap[j].page.valid_size) {
+				e_ctrl->i2c_client.addr_type = emap[j].page.addr_t;
+				rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(&(e_ctrl->i2c_client), 0x0A00, 0x01, 1);
+				msleep(emap[j].page.delay);
+				if (rc < 0) {
+					pr_err("%s: page write failed\n", __func__);
+					return rc;
+				}
+			}
+			if (emap[j].mem.valid_size) {
+				e_ctrl->i2c_client.addr_type = emap[j].mem.addr_t;
+				rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_read_seq(&(e_ctrl->i2c_client), 0x0A04, memptr, IDPAGE_DATA_LENGTH);
+				if (rc < 0) {
+					pr_err("%s: read failed\n", __func__);
+					return rc;
+				}
+			}
+			//for (k=0; k<9; k++) {
+			//	pr_err("check_eeprom_id 111 (page %x) byte[%d] = %x", j, k, memptr[k]);
+			//}
+			if ((0==memptr[7]) && (OFILM_VENDOR_ID==memptr[6]) && (OFILM_VCM_KSC_ID==memptr[8])) {
+				main_cam_eeprom_index = 3;
+				break;
+			}
+			if ((0==memptr[7]) && (SUNNY_VENDOR_ID==memptr[6])) {
+				main_cam_eeprom_index = 2;
+				break;
+			}
+		}
+	}
+
+	pr_err("%s ret = %d", __func__, main_cam_eeprom_index);
+	return rc;
+}
+
+int32_t read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl)
+{
+	int rc = 0;
+	int i, j;
+	int q1v05a_check[11] = {0, 2, 0, 0, 5, 0, 0, 0, 0, 0, 0};
+	int q1v05a_blocks[11] = {0, 0, 16, 16, 0, 0, 16, 16, 16, 16, 0};
+	int owt8a01a_blocks[19] = {0, 0, 0, 0, 0, 0, 8, 0, 0, 8, 0, 0, 3, 0, 0, 0, 0, 0, 0};
+	int q8s02m_blocks[19] =    {0, 0, 0, 0, 0, 0, 8, 0, 0, 8, 0, 0, 3, 0, 0, 0, 0, 0, 0};
 	uint8_t *memptr = NULL;
 	struct msm_eeprom_board_info *eb_info = NULL;
 	struct eeprom_memory_map_t *emap = NULL;
@@ -172,6 +264,27 @@ int32_t read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl)
 	emap = eb_info->eeprom_map;
 
 	for (j = 0; j < eb_info->num_blocks; j++) {
+		if (strcmp(eb_info->eeprom_name, "ofilm_q1v05a") == 0) {
+			if (q1v05a_blocks[j] != 0) {
+				memptr += q1v05a_blocks[j];
+				continue;
+			}
+		}
+
+		if (strcmp(eb_info->eeprom_name, "ofilm_owt8a01a") == 0) {
+			if (owt8a01a_blocks[j] != 0) {
+				memptr += owt8a01a_blocks[j];
+				continue;
+			}
+		}
+
+		if (strcmp(eb_info->eeprom_name, "sunny_q8s02m") == 0) {
+			if (q8s02m_blocks[j] != 0) {
+				memptr += q8s02m_blocks[j];
+				continue;
+			}
+		}
+
 		if (emap[j].page.valid_size) {
 			e_ctrl->i2c_client.addr_type = emap[j].page.addr_t;
 			rc = e_ctrl->i2c_client.i2c_func_tbl->i2c_write(
@@ -214,6 +327,10 @@ int32_t read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl)
 			if (rc < 0) {
 				pr_err("%s: read failed\n", __func__);
 				return rc;
+			}
+			if (q1v05a_check[j] && ((memptr[0] & 0xc0) != 0x40)) {
+				for (i = 0; i < q1v05a_check[j]; i++)
+					q1v05a_blocks[j + i + 1] = 0;
 			}
 			memptr += emap[j].mem.valid_size;
 		}
@@ -901,6 +1018,8 @@ static int32_t msm_eeprom_platform_probe(struct platform_device *pdev)
 		pr_err("%s line %d\n", __func__, __LINE__);
 	for (j = 0; j < e_ctrl->num_bytes; j++)
 		CDBG("memory_data[%d] = 0x%X\n", j, e_ctrl->memory_data[j]);
+
+	rc = check_eeprom_id(e_ctrl);
 
 	rc = msm_camera_power_down(power_info, e_ctrl->eeprom_device_type,
 		&e_ctrl->i2c_client);

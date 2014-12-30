@@ -282,12 +282,7 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 	int rc;
 
 	src = pipe->src.w >> pipe->horz_deci;
-
-	if (pipe->scale.enable_pxl_ext)
-		return 0;
-	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
-	rc = mdss_mdp_calc_phase_step(src, pipe->dst.w,
-			&pipe->scale.phase_step_x[0]);
+	rc = mdss_mdp_calc_phase_step(src, pipe->dst.w, &pipe->phase_step_x);
 	if (rc) {
 		pr_err("Horizontal scaling calculation failed=%d! %d->%d\n",
 				rc, src, pipe->dst.w);
@@ -295,41 +290,14 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 	}
 
 	src = pipe->src.h >> pipe->vert_deci;
-	rc = mdss_mdp_calc_phase_step(src, pipe->dst.h,
-			&pipe->scale.phase_step_y[0]);
+	rc = mdss_mdp_calc_phase_step(src, pipe->dst.h, &pipe->phase_step_y);
 	if (rc) {
 		pr_err("Vertical scaling calculation failed=%d! %d->%d\n",
 				rc, src, pipe->dst.h);
 		return rc;
 	}
-	pipe->scale.init_phase_x[0] = (pipe->scale.phase_step_x[0] -
-					(1 << PHASE_STEP_SHIFT)) / 2;
-	pipe->scale.init_phase_y[0] = (pipe->scale.phase_step_y[0] -
-					(1 << PHASE_STEP_SHIFT)) / 2;
+
 	return 0;
-}
-
-static inline void __mdss_mdp_overlay_set_chroma_sample(
-	struct mdss_mdp_pipe *pipe)
-{
-	pipe->chroma_sample_v = pipe->chroma_sample_h = 0;
-
-	switch (pipe->src_fmt->chroma_sample) {
-	case MDSS_MDP_CHROMA_H1V2:
-		pipe->chroma_sample_v = 1;
-		break;
-	case MDSS_MDP_CHROMA_H2V1:
-		pipe->chroma_sample_h = 1;
-		break;
-	case MDSS_MDP_CHROMA_420:
-		pipe->chroma_sample_v = 1;
-		pipe->chroma_sample_h = 1;
-		break;
-	}
-	if (pipe->horz_deci)
-		pipe->chroma_sample_h = 0;
-	if (pipe->vert_deci)
-		pipe->chroma_sample_v = 0;
 }
 
 static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
@@ -474,10 +442,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->dst.h = req->dst_rect.h;
 	pipe->horz_deci = req->horz_deci;
 	pipe->vert_deci = req->vert_deci;
-
-	memcpy(&pipe->scale, &req->scale, sizeof(struct mdp_scale_data));
 	pipe->src_fmt = fmt;
-	__mdss_mdp_overlay_set_chroma_sample(pipe);
 
 	pipe->mixer_stage = req->z_order;
 	pipe->is_fg = req->is_fg;
@@ -493,8 +458,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		pr_debug("Unintended blend_op %d on layer with no alpha plane\n",
 			pipe->blend_op);
 
-	if (fmt->is_yuv && !(pipe->flags & MDP_SOURCE_ROTATED_90) &&
-			!pipe->scale.enable_pxl_ext) {
+	if (fmt->is_yuv && !(pipe->flags & MDP_SOURCE_ROTATED_90)) {
 		pipe->overfetch_disable = OVERFETCH_DISABLE_BOTTOM;
 
 		if (!(pipe->flags & MDSS_MDP_DUAL_PIPE) ||
@@ -562,7 +526,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	if ((pipe->flags & MDP_DEINTERLACE) && !pipe->scale.enable_pxl_ext) {
+	if (pipe->flags & MDP_DEINTERLACE) {
 		if (pipe->flags & MDP_SOURCE_ROTATED_90) {
 			pipe->src.x = DIV_ROUND_UP(pipe->src.x, 2);
 			pipe->src.x &= ~1;
@@ -2186,7 +2150,7 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 					  u32 cmd, void __user *argp)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	struct mdp_overlay *req = NULL;
+	struct mdp_overlay req;
 	int val, ret = -ENOSYS;
 	struct msmfb_metadata metadata;
 
@@ -2202,15 +2166,12 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		break;
 
 	case MSMFB_OVERLAY_GET:
-		req = kmalloc(sizeof(struct mdp_overlay), GFP_KERNEL);
-		if (!req)
-			return -ENOMEM;
-		ret = copy_from_user(req, argp, sizeof(*req));
+		ret = copy_from_user(&req, argp, sizeof(req));
 		if (!ret) {
-			ret = mdss_mdp_overlay_get(mfd, req);
+			ret = mdss_mdp_overlay_get(mfd, &req);
 
 			if (!IS_ERR_VALUE(ret))
-				ret = copy_to_user(argp, req, sizeof(*req));
+				ret = copy_to_user(argp, &req, sizeof(req));
 		}
 
 		if (ret)
@@ -2218,15 +2179,12 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		break;
 
 	case MSMFB_OVERLAY_SET:
-		req = kmalloc(sizeof(struct mdp_overlay), GFP_KERNEL);
-		if (!req)
-			return -ENOMEM;
-		ret = copy_from_user(req, argp, sizeof(*req));
+		ret = copy_from_user(&req, argp, sizeof(req));
 		if (!ret) {
-			ret = mdss_mdp_overlay_set(mfd, req);
+			ret = mdss_mdp_overlay_set(mfd, &req);
 
 			if (!IS_ERR_VALUE(ret))
-				ret = copy_to_user(argp, req, sizeof(*req));
+				ret = copy_to_user(argp, &req, sizeof(req));
 		}
 		if (ret)
 			pr_debug("OVERLAY_SET failed (%d)\n", ret);
@@ -2311,7 +2269,6 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		break;
 	}
 
-	kfree(req);
 	return ret;
 }
 

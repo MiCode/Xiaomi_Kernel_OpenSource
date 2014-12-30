@@ -1257,6 +1257,7 @@ struct input_dev {
 	const char *name;
 	const char *phys;
 	const char *uniq;
+	bool enabled;
 	struct input_id id;
 
 	unsigned long propbit[BITS_TO_LONGS(INPUT_PROP_CNT)];
@@ -1306,6 +1307,8 @@ struct input_dev {
 	void (*close)(struct input_dev *dev);
 	int (*flush)(struct input_dev *dev, struct file *file);
 	int (*event)(struct input_dev *dev, unsigned int type, unsigned int code, int value);
+	int (*enable)(struct input_dev *dev);
+	int (*disable)(struct input_dev *dev);
 
 	struct input_handle __rcu *grab;
 

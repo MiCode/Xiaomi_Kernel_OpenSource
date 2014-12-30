@@ -20,6 +20,10 @@
 #include <mach/rpm-regulator-smd.h>
 #include <linux/regulator/consumer.h>
 
+extern int main_cam_eeprom_index;
+const char main_cam_backup2_sensor_name[16] = "s5k3h2yx_q8s02m";
+const char main_cam_backup3_sensor_name[18] = "s5k3h2yx_omi8a02a";
+
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
@@ -74,6 +78,11 @@ static int32_t msm_sensor_get_sub_module_index(struct device_node *of_node,
 		if (rc < 0) {
 			pr_err("%s failed %d\n", __func__, __LINE__);
 			goto ERROR;
+		}
+		if (2==main_cam_eeprom_index) {
+			val = 4;
+		} else if (3==main_cam_eeprom_index) {
+			val = 2;
 		}
 		sensordata->sensor_info->
 			subdev_id[SUB_MODULE_ACTUATOR] = val;
@@ -727,6 +736,11 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 
 	rc = of_property_read_string(of_node, "qcom,sensor-name",
 		&sensordata->sensor_name);
+	if ((strcmp(sensordata->sensor_name, "s5k3h2yx_owt8a01a") == 0) && (2==main_cam_eeprom_index)) {
+		sensordata->sensor_name = main_cam_backup2_sensor_name;
+	} else if ((strcmp(sensordata->sensor_name, "s5k3h2yx_owt8a01a") == 0) && (3==main_cam_eeprom_index)) {
+		sensordata->sensor_name = main_cam_backup3_sensor_name;
+	}
 	CDBG("%s qcom,sensor-name %s, rc %d\n", __func__,
 		sensordata->sensor_name, rc);
 	if (rc < 0) {

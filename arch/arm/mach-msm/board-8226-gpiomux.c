@@ -91,6 +91,7 @@ static struct gpiomux_setting synaptics_reset_sus_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_DOWN,
+	.dir = GPIOMUX_OUT_LOW,
 };
 
 static struct gpiomux_setting gpio_keys_active = {
@@ -122,11 +123,11 @@ static struct gpiomux_setting gpio_spi_susp_config = {
 	.pull = GPIOMUX_PULL_DOWN,
 };
 
-static struct gpiomux_setting gpio_spi_cs_eth_config = {
+/*static struct gpiomux_setting gpio_spi_cs_eth_config = {
 	.func = GPIOMUX_FUNC_4,
 	.drv = GPIOMUX_DRV_6MA,
 	.pull = GPIOMUX_PULL_DOWN,
-};
+};*/
 
 static struct gpiomux_setting wcnss_5wire_suspend_cfg = {
 	.func = GPIOMUX_FUNC_GPIO,
@@ -144,18 +145,6 @@ static struct gpiomux_setting gpio_i2c_config = {
 	.func = GPIOMUX_FUNC_3,
 	.drv = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting gpio_uart_active_cfg = {
-	.func = GPIOMUX_FUNC_2,
-	.drv  = GPIOMUX_DRV_16MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting gpio_uart_suspend_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_2MA,
-	.pull = GPIOMUX_PULL_DOWN,
 };
 
 static struct msm_gpiomux_config msm_keypad_configs[] __initdata = {
@@ -270,9 +259,17 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		},
 	},
 	{
-		.gpio      = 22,		/* BLSP1 QUP1 SPI_CS_ETH */
+		.gpio      = 22,		/* BLSP1 QUP6 I2C_SDA */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_eth_config,
+			[GPIOMUX_ACTIVE] = &gpio_i2c_config,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
+		},
+	},
+	{
+		.gpio      = 23,		/* BLSP1 QUP6 I2C_SCL */
+		.settings = {
+			[GPIOMUX_ACTIVE] = &gpio_i2c_config,
+			[GPIOMUX_SUSPENDED] = &gpio_i2c_config,
 		},
 	},
 	{					/*  NFC   */
@@ -304,37 +301,6 @@ static struct msm_gpiomux_config msm_synaptics_configs[] __initdata = {
 		.settings = {
 			[GPIOMUX_ACTIVE] = &synaptics_int_act_cfg,
 			[GPIOMUX_SUSPENDED] = &synaptics_int_sus_cfg,
-		},
-	},
-};
-
-static struct msm_gpiomux_config msm_blsp1_uart6_configs[] __initdata = {
-	{
-		.gpio      = 20,		/* BLSP1 UART6 TX */
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
-			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
-		},
-	},
-	{
-		.gpio      = 21,		/* BLSP1 UART6 RX */
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
-			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
-		},
-	},
-	{
-		.gpio      = 22,		/* BLSP1 UART6 CTS */
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
-			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
-		},
-	},
-	{
-		.gpio      = 23,		/* BLSP1 UART6 RTS */
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
-			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
 		},
 	},
 };
@@ -851,6 +817,48 @@ static void msm_gpiomux_sdc3_install(void)
 static void msm_gpiomux_sdc3_install(void) {}
 #endif /* CONFIG_MMC_MSM_SDC3_SUPPORT */
 
+static struct gpiomux_setting hs_uart_sw_suspend_cfg = {
+        .func = GPIOMUX_FUNC_GPIO,
+        .drv = GPIOMUX_DRV_2MA,
+#ifdef CONFIG_MSM_UART_HS_USE_HS
+        .dir = GPIOMUX_OUT_LOW,
+#else
+        .dir = GPIOMUX_OUT_HIGH,
+#endif
+};
+
+static struct gpiomux_setting external_ovp_actv_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_8MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIOMUX_OUT_LOW,
+};
+
+static struct msm_gpiomux_config pm8226_ovp_configs[] __initdata = {
+	{
+		.gpio      = 109,
+		.settings = {
+			[GPIOMUX_ACTIVE]    = &external_ovp_actv_cfg,
+			[GPIOMUX_SUSPENDED] = NULL,
+		},
+	},
+};
+
+static void msm_gpiomux_extovp_install(void)
+{
+	msm_gpiomux_install(pm8226_ovp_configs,
+			    ARRAY_SIZE(pm8226_ovp_configs));
+}
+
+static struct msm_gpiomux_config hs_uart_sw_configs[] __initdata = {
+	{
+		.gpio = 31,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &hs_uart_sw_suspend_cfg,
+		},
+	},
+};
+
 void __init msm8226_init_gpiomux(void)
 {
 	int rc;
@@ -901,14 +909,15 @@ void __init msm8226_init_gpiomux(void)
 	msm_gpiomux_install(msm_auxpcm_configs,
 			ARRAY_SIZE(msm_auxpcm_configs));
 
-	msm_gpiomux_install(msm_blsp1_uart6_configs,
-			ARRAY_SIZE(msm_blsp1_uart6_configs));
-
 	if (of_board_is_cdp() || of_board_is_mtp() || of_board_is_xpm())
 		msm_gpiomux_install(usb_otg_sw_configs,
 					ARRAY_SIZE(usb_otg_sw_configs));
 
+	msm_gpiomux_install(hs_uart_sw_configs, ARRAY_SIZE(hs_uart_sw_configs));
+
 	msm_gpiomux_sdc3_install();
+
+	msm_gpiomux_extovp_install();
 
 	/*
 	 * HSIC STROBE gpio is also used by the ethernet. Install HSIC
