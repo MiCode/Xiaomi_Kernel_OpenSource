@@ -957,7 +957,7 @@ int mdp3_dynamic_clock_gating_ctrl(int enable)
 	return rc;
 }
 
-int mdp3_qos_remapper_setup(void)
+int mdp3_qos_remapper_setup(struct mdss_panel_data *panel)
 {
 	int rc = 0;
 
@@ -969,12 +969,18 @@ int mdp3_qos_remapper_setup(void)
 		return rc;
 	}
 
+	if (!panel)
+		return -EINVAL;
 	/* Program MDP QOS Remapper */
 	MDP3_REG_WRITE(MDP3_DMA_P_QOS_REMAPPER, 0x1A9);
 	MDP3_REG_WRITE(MDP3_DMA_P_WATERMARK_0, 0x0);
 	MDP3_REG_WRITE(MDP3_DMA_P_WATERMARK_1, 0x0);
 	MDP3_REG_WRITE(MDP3_DMA_P_WATERMARK_2, 0x0);
-	MDP3_REG_WRITE(MDP3_PANIC_LUT0, 0xFFFF);
+	/* PANIC setting depends on panel width*/
+	if (panel->panel_info.xres >= 720)
+		MDP3_REG_WRITE(MDP3_PANIC_LUT0, 0xFFFF);
+	else
+		MDP3_REG_WRITE(MDP3_PANIC_LUT0, 0x00FF);
 	MDP3_REG_WRITE(MDP3_PANIC_ROBUST_CTRL, 0x1);
 	MDP3_REG_WRITE(MDP3_ROBUST_LUT, 0xFF00);
 

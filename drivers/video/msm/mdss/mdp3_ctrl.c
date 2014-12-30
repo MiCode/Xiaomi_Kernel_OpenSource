@@ -710,7 +710,8 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	mdp3_ctrl_notifier_register(mdp3_session,
 		&mdp3_session->mfd->mdp_sync_pt_data.notifier);
 
-	mdp3_qos_remapper_setup();
+	panel = mdp3_session->panel;
+	mdp3_qos_remapper_setup(panel);
 	/* request bus bandwidth before DSI DMA traffic */
 	rc = mdp3_ctrl_res_req_bus(mfd, 1);
 	if (rc) {
@@ -730,7 +731,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		goto on_error;
 	}
 
-	panel = mdp3_session->panel;
 	if (panel->event_handler) {
 		rc = panel->event_handler(panel, MDSS_EVENT_LINK_READY, NULL);
 		rc |= panel->event_handler(panel, MDSS_EVENT_UNBLANK, NULL);
