@@ -1247,7 +1247,7 @@ the CPU.
 
 ** 7.23 sched_prefer_idle
 
-Appears at: /proc/sys/kernel/sched_prefer_idle
+Appears at: /sys/devices/system/cpu/cpuX/sched_prefer_idle
 
 Default value: 1
 
