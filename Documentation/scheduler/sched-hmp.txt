@@ -819,8 +819,13 @@ in Sec 5.
 
 This is a per-cpu parameter. If non-zero for a cpu which is part of a cluster
 and cluster current frequency is less than this threshold, then scheduler will
-poack all tasks on a single cpu in cluster. The cpu chosen is the first most
+pack all tasks on a single cpu in cluster. The cpu chosen is the first most
 power-efficient cpu found while scanning cluster's online cpus.
+
+- PF_WAKE_UP_IDLE
+	Any task that has this flag set in its 'task_struct.flags' field will be
+always woken to idle cpu. Further any task woken by such tasks will be also
+placed on idle cpu.
 
 For some low band of frequency, spread of task on all available cpus can be
 groslly power-inefficient. As an example, consider two tasks that each need
