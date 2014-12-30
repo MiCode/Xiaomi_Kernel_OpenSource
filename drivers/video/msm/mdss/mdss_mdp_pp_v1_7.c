@@ -62,10 +62,13 @@
 #define IGC_DATA_MASK (BIT(12) - 1)
 #define IGC_DSPP_OP_MODE_EN BIT(0)
 
-#define MDSS_MDP_DSPP_OP_PA_LUTV_FIRST_EN	BIT(21)
-#define REG_SSPP_VIG_HIST_LUT_BASE	0x1200
+#define HIST_LUT_VIG_OP_FIRST_EN	BIT(21)
+#define HIST_LUT_DSPP_OP_FIRST_EN	BIT(21)
+#define HIST_LUT_VIG_OP_ENABLE		BIT(10)
+#define HIST_LUT_DSPP_OP_ENABLE		BIT(19)
+#define REG_SSPP_VIG_HIST_LUT_BASE	0x1400
 #define REG_DSPP_HIST_LUT_BASE		0x1400
-#define REG_SSPP_VIG_HIST_SWAP_BASE	0x100
+#define REG_SSPP_VIG_HIST_SWAP_BASE	0x300
 #define REG_DSPP_HIST_SWAP_BASE		0x234
 #define ENHIST_LOWER_VALUE_MASK		0x3FF
 #define ENHIST_UPPER_VALUE_MASK		0x3FF0000
@@ -314,6 +317,12 @@ static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 	case SSPP_VIG:
 		if (pp_sts->pa_sts & PP_STS_ENABLE)
 			pp_pa_update_vig_opmode(pp_sts->pa_sts, opmode);
+		if (pp_sts->enhist_sts & PP_STS_ENABLE) {
+			*opmode |= HIST_LUT_VIG_OP_ENABLE |
+				  PA_VIG_OP_ENABLE;
+			if (pp_sts->enhist_sts & PP_STS_PA_LUT_FIRST)
+				*opmode |= HIST_LUT_VIG_OP_FIRST_EN;
+		}
 		break;
 	case DSPP:
 		if (pp_sts_is_enabled(pp_sts->pa_sts, side))
@@ -321,10 +330,10 @@ static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 		if (pp_sts_is_enabled(pp_sts->igc_sts, side))
 			*opmode |= IGC_DSPP_OP_MODE_EN;
 		if (pp_sts->enhist_sts & PP_STS_ENABLE) {
-			*opmode |= MDSS_MDP_DSPP_OP_HIST_LUTV_EN |
-				  MDSS_MDP_DSPP_OP_PA_EN;
+			*opmode |= HIST_LUT_DSPP_OP_ENABLE |
+				  PA_DSPP_OP_ENABLE;
 			if (pp_sts->enhist_sts & PP_STS_PA_LUT_FIRST)
-				*opmode |= MDSS_MDP_DSPP_OP_PA_LUTV_FIRST_EN;
+				*opmode |= HIST_LUT_DSPP_OP_FIRST_EN;
 		}
 		if (pp_sts_is_enabled(pp_sts->dither_sts, side))
 			*opmode |= MDSS_MDP_DSPP_OP_DST_DITHER_EN;
@@ -434,12 +443,16 @@ static int pp_hist_lut_set_config(char __iomem *base_addr,
 	}
 
 	lut_cfg_data = (struct mdp_hist_lut_data *) cfg_data;
-	if (lut_cfg_data->version != mdp_hist_lut_v1_7 ||
-	    !lut_cfg_data->cfg_payload) {
-		pr_err("invalid hist_lut version %d payload %p\n",
-		       lut_cfg_data->version, lut_cfg_data->cfg_payload);
+	if (lut_cfg_data->version != mdp_hist_lut_v1_7) {
+		pr_err("invalid hist_lut version %d\n", lut_cfg_data->version);
 		return -EINVAL;
 	}
+
+	if (lut_cfg_data->ops & MDP_PP_OPS_DISABLE) {
+		pr_debug("Disable Hist LUT\n");
+		goto bail_out;
+	}
+
 	if (!(lut_cfg_data->ops & ~(MDP_PP_OPS_READ))) {
 		pr_err("only read ops set for lut\n");
 		return ret;
@@ -449,6 +462,11 @@ static int pp_hist_lut_set_config(char __iomem *base_addr,
 		goto bail_out;
 	}
 	lut_data = lut_cfg_data->cfg_payload;
+	if (!lut_data) {
+		pr_err("invalid hist_lut cfg_payload %p\n", lut_data);
+		return -EINVAL;
+	}
+
 	if (lut_data->len != ENHIST_LUT_ENTRIES || !lut_data->data) {
 		pr_err("invalid hist_lut len %d data %p\n",
 		       lut_data->len, lut_data->data);

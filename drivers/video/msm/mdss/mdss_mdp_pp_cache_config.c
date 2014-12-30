@@ -134,18 +134,115 @@ static int pp_hist_lut_cache_params_v1_7(struct mdp_hist_lut_data *config,
 	return ret;
 }
 
-int pp_hist_lut_cache_params(struct mdp_hist_lut_data *config,
-			  struct mdss_pp_res_type *mdss_pp_res)
+static int pp_hist_lut_cache_params_pipe_v1_7(struct mdp_hist_lut_data *config,
+			struct mdss_mdp_pipe *pipe)
 {
+	struct mdp_hist_lut_data_v1_7 *hist_lut_cache_data;
+	struct mdp_hist_lut_data_v1_7 hist_lut_usr_config;
 	int ret = 0;
-	if (!config || !mdss_pp_res) {
-		pr_err("invalid param config %p pp_res %p\n",
-			config, mdss_pp_res);
+
+	if (!config || !pipe) {
+		pr_err("Invalid param config %p pipe %p\n",
+			config, pipe);
 		return -EINVAL;
 	}
+
+	if (config->ops & MDP_PP_OPS_DISABLE) {
+		pr_debug("Disable Hist LUT on pipe %d\n", pipe->num);
+		goto hist_lut_cache_pipe_exit;
+	}
+
+	if (config->ops & MDP_PP_OPS_READ) {
+		pr_err("Read op is not supported\n");
+		return -EINVAL;
+	}
+
+	if (copy_from_user(&hist_lut_usr_config,
+			   config->cfg_payload,
+			   sizeof(struct mdp_hist_lut_data_v1_7))) {
+		pr_err("Failed to copy usr cfg_payload\n");
+		ret = -EFAULT;
+		goto hist_lut_cache_pipe_exit;
+	}
+
+	hist_lut_cache_data = pipe->pp_res.hist_lut_cfg_payload;
+	if (!hist_lut_cache_data) {
+		hist_lut_cache_data = kzalloc(
+				sizeof(struct mdp_hist_lut_data_v1_7),
+				GFP_KERNEL);
+		if (!hist_lut_cache_data) {
+			pr_err("failed to allocate cache_data\n");
+			ret = -ENOMEM;
+			goto hist_lut_cache_pipe_exit;
+		} else
+			pipe->pp_res.hist_lut_cfg_payload = hist_lut_cache_data;
+	}
+
+	*hist_lut_cache_data = hist_lut_usr_config;
+
+	if (hist_lut_cache_data->len != ENHIST_LUT_ENTRIES) {
+		pr_err("Invalid Hist LUT length %d\n",
+			hist_lut_cache_data->len);
+		ret = -EINVAL;
+		goto hist_lut_cache_pipe_exit;
+	}
+
+	if (copy_from_user(pipe->pp_res.hist_lut,
+			   hist_lut_usr_config.data,
+			   sizeof(uint32_t) * hist_lut_cache_data->len)) {
+		pr_err("Failed to copy usr Hist LUT data\n");
+		ret = -EFAULT;
+		goto hist_lut_cache_pipe_exit;
+	}
+
+	hist_lut_cache_data->data = pipe->pp_res.hist_lut;
+
+hist_lut_cache_pipe_exit:
+	if (ret || (config->ops & MDP_PP_OPS_DISABLE)) {
+		kfree(pipe->pp_res.hist_lut_cfg_payload);
+		pipe->pp_res.hist_lut_cfg_payload = NULL;
+	}
+	pipe->pp_cfg.hist_lut_cfg.cfg_payload =
+			pipe->pp_res.hist_lut_cfg_payload;
+	return ret;
+}
+
+int pp_hist_lut_cache_params(struct mdp_hist_lut_data *config,
+			struct mdp_pp_cache_res *res_cache)
+{
+	int ret = 0;
+
+	if (!config || !res_cache) {
+		pr_err("invalid param config %p res_cache %p\n",
+			config, res_cache);
+		return -EINVAL;
+	}
+	if (res_cache->block != SSPP_VIG && res_cache->block != DSPP) {
+		pr_err("invalid block for Hist LUT %d\n", res_cache->block);
+		return -EINVAL;
+	}
+	if (!res_cache->mdss_pp_res && !res_cache->pipe_res) {
+		pr_err("NULL payload for block %d mdss_pp_res %p pipe_res %p\n",
+			res_cache->block, res_cache->mdss_pp_res,
+			res_cache->pipe_res);
+		return -EINVAL;
+	}
+
 	switch (config->version) {
 	case mdp_hist_lut_v1_7:
-		ret = pp_hist_lut_cache_params_v1_7(config, mdss_pp_res);
+		if (res_cache->block == DSPP) {
+			ret = pp_hist_lut_cache_params_v1_7(config,
+					res_cache->mdss_pp_res);
+			if (ret)
+				pr_err("failed to cache Hist LUT params for DSPP ret %d\n",
+					ret);
+		} else {
+			ret = pp_hist_lut_cache_params_pipe_v1_7(config,
+					res_cache->pipe_res);
+			if (ret)
+				pr_err("failed to cache Hist LUT params for SSPP ret %d\n",
+					ret);
+		}
 		break;
 	default:
 		pr_err("unsupported hist_lut version %d\n",
