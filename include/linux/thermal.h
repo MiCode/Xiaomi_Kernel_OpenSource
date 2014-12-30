@@ -173,6 +173,8 @@ struct sensor_info {
 	struct list_head threshold_list;
 	struct mutex lock;
 	struct work_struct work;
+	struct task_struct *sysfs_notify_thread;
+	struct completion sysfs_notify_complete;
 };
 
 /**
