@@ -323,9 +323,6 @@ static void ch_remove_tx_pending_remote_done(struct channel_ctx *ctx,
 static void glink_core_rx_cmd_rx_intent_req_ack(struct glink_transport_if
 					*if_ptr, uint32_t rcid, bool granted);
 
-static void glink_core_simulate_remote_close_for_xprt(
-		struct glink_core_xprt_ctx *xprt_ctx);
-
 static void glink_core_remote_close_common(struct channel_ctx *ctx);
 
 static void check_link_notifier_and_notify(struct glink_core_xprt_ctx *xprt_ptr,
@@ -359,9 +356,6 @@ int glink_ssr(const char *subsystem)
 				xprt_is_fully_opened(xprt_ctx)) {
 			GLINK_INFO_XPRT(xprt_ctx, "%s: SSR\n", __func__);
 			xprt_ctx->ops->ssr(xprt_ctx->ops);
-			check_link_notifier_and_notify(xprt_ctx,
-					GLINK_LINK_STATE_DOWN);
-			glink_core_simulate_remote_close_for_xprt(xprt_ctx);
 			transport_found = true;
 		}
 	}
@@ -402,36 +396,6 @@ static void glink_core_remote_close_common(struct channel_ctx *ctx)
 			"local state is already CLOSED");
 
 	ch_purge_intent_lists(ctx);
-}
-
-/**
- * glink_core_simulate_remote_close_for_xprt() - In the case of SSR,
- *                                               simulate receiving a remote
- *                                               close for all channels on a
- *                                               given transport.
- * xprt_ctx:	Pointer to transport instance
- */
-static void glink_core_simulate_remote_close_for_xprt(
-		struct glink_core_xprt_ctx *xprt_ctx)
-{
-	struct channel_ctx *entry;
-	unsigned long flags;
-
-	spin_lock_irqsave(&xprt_ctx->xprt_ctx_lock_lhb1, flags);
-	list_for_each_entry(entry, &xprt_ctx->channels, port_list_node) {
-		GLINK_INFO_CH(entry, "%s: Simulating remote close\n", __func__);
-		/*
-		 * NOTE:  unlocking here is fine as long as channels are not
-		 * removed from the transport.
-		 */
-		spin_unlock_irqrestore(&xprt_ctx->xprt_ctx_lock_lhb1, flags);
-		glink_core_remote_close_common(entry);
-		spin_lock_irqsave(&xprt_ctx->xprt_ctx_lock_lhb1, flags);
-
-		GLINK_INFO_CH(entry, "%s: Done simulating remote close\n",
-				__func__);
-	}
-	spin_unlock_irqrestore(&xprt_ctx->xprt_ctx_lock_lhb1, flags);
 }
 
 /**
@@ -2537,6 +2501,7 @@ static void glink_core_channel_cleanup(struct glink_core_xprt_ctx *xprt_ptr)
 {
 	unsigned long flags;
 	struct channel_ctx *ctx, *tmp_ctx;
+	struct channel_lcid *temp_lcid, *temp_lcid1;
 
 	spin_lock_irqsave(&xprt_ptr->xprt_ctx_lock_lhb1, flags);
 	list_for_each_entry_safe(ctx, tmp_ctx, &xprt_ptr->channels,
@@ -2544,7 +2509,8 @@ static void glink_core_channel_cleanup(struct glink_core_xprt_ctx *xprt_ptr)
 		rwref_get(&ctx->ch_state_lhc0);
 		spin_unlock_irqrestore(&xprt_ptr->xprt_ctx_lock_lhb1, flags);
 		if (!ch_is_fully_closed(ctx)) {
-			if (ctx->remote_opened) {
+			if (ctx->remote_opened &&
+			(ctx->local_open_state == GLINK_CHANNEL_CLOSED)) {
 				glink_core_remote_close_common(ctx);
 			} else {
 				glink_core_remote_close_common(ctx);
@@ -2584,6 +2550,11 @@ static void glink_core_channel_cleanup(struct glink_core_xprt_ctx *xprt_ptr)
 			GLINK_ERR_CH(ctx,
 				"channel local state [%d] remote_state [%d]\n",
 				ctx->local_open_state, ctx->remote_opened);
+		}
+		list_for_each_entry_safe(temp_lcid, temp_lcid1,
+				&xprt_ptr->free_lcid_list, list_node) {
+			list_del(&temp_lcid->list_node);
+			kfree(&temp_lcid->list_node);
 		}
 	}
 	spin_unlock_irqrestore(&xprt_ptr->xprt_ctx_lock_lhb1, flags);

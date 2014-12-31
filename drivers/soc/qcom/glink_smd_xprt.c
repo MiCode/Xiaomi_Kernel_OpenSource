@@ -1092,6 +1092,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 		ch->is_closing = false;
 	}
 
+	einfo->xprt_if.glink_core_if_ptr->link_down(&einfo->xprt_if);
 	schedule_delayed_work(&einfo->ssr_work, 5 * HZ);
 	return 0;
 }

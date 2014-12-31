@@ -1146,6 +1146,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 	einfo->rx_fifo_size = 0;
 	einfo->tx_ch_desc->write_index = 0;
 	einfo->rx_ch_desc->read_index = 0;
+	einfo->xprt_if.glink_core_if_ptr->link_down(&einfo->xprt_if);
 
 	return 0;
 }

@@ -301,6 +301,8 @@ void glink_ssr_notify_state(void *handle, const void *priv, unsigned event)
 		GLINK_INFO("<SSR> %s: event[%d]\n",
 				__func__, event);
 		cb_data->event = event;
+		if (event == GLINK_REMOTE_DISCONNECTED)
+			glink_close(handle);
 	}
 }
 
@@ -476,7 +478,7 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 			continue;
 		}
 
-		glink_tx(handle, (void *)ss_leaf_entry->cb_data,
+		ret = glink_tx(handle, (void *)ss_leaf_entry->cb_data,
 				(void *)do_cleanup_data,
 				sizeof(struct do_cleanup_msg), true);
 		if (ret) {
@@ -497,7 +499,8 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 
 	list_for_each_entry(ss_leaf_entry, &ss_info->notify_list,
 			notify_list_node) {
-		if (!wait_ret && !ss_leaf_entry->cb_data->responded) {
+		if (!wait_ret && !IS_ERR_OR_NULL(ss_leaf_entry->cb_data)
+				&& !ss_leaf_entry->cb_data->responded) {
 			GLINK_ERR("%s %s: Subsystem %s %s\n",
 				"<SSR>", __func__, ss_leaf_entry->edge,
 				"failed to respond. Restarting.");
