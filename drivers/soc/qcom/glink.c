@@ -257,11 +257,11 @@ static struct glink_core_xprt_ctx *find_open_transport(const char *edge,
 
 static bool xprt_is_fully_opened(struct glink_core_xprt_ctx *xprt);
 
-static struct channel_ctx *xprt_lcid_to_ch_ctx(
+static struct channel_ctx *xprt_lcid_to_ch_ctx_get(
 					struct glink_core_xprt_ctx *xprt_ctx,
 					uint32_t lcid);
 
-static struct channel_ctx *xprt_rcid_to_ch_ctx(
+static struct channel_ctx *xprt_rcid_to_ch_ctx_get(
 					struct glink_core_xprt_ctx *xprt_ctx,
 					uint32_t rcid);
 
@@ -488,14 +488,17 @@ err:
 }
 
 /**
- * xprt_lcid_to_ch_ctx() - lookup a channel by local id
+ * xprt_lcid_to_ch_ctx_get() - lookup a channel by local id
  * @xprt_ctx:	Transport to search for a matching channel.
  * @lcid:	Local channel identifier corresponding to the desired channel.
+ *
+ * If the channel is found, the reference count is incremented to ensure the
+ * lifetime of the channel context.  The caller must call rwref_put() when done.
  *
  * Return: The channel corresponding to @lcid or NULL if a matching channel
  *	is not found.
  */
-static struct channel_ctx *xprt_lcid_to_ch_ctx(
+static struct channel_ctx *xprt_lcid_to_ch_ctx_get(
 					struct glink_core_xprt_ctx *xprt_ctx,
 					uint32_t lcid)
 {
@@ -505,6 +508,7 @@ static struct channel_ctx *xprt_lcid_to_ch_ctx(
 	spin_lock_irqsave(&xprt_ctx->xprt_ctx_lock_lhb1, flags);
 	list_for_each_entry(entry, &xprt_ctx->channels, port_list_node)
 		if (entry->lcid == lcid) {
+			rwref_get(&entry->ch_state_lhc0);
 			spin_unlock_irqrestore(&xprt_ctx->xprt_ctx_lock_lhb1,
 					flags);
 			return entry;
@@ -515,14 +519,17 @@ static struct channel_ctx *xprt_lcid_to_ch_ctx(
 }
 
 /**
- * xprt_rcid_to_ch_ctx() - lookup a channel by remote id
+ * xprt_rcid_to_ch_ctx_get() - lookup a channel by remote id
  * @xprt_ctx:	Transport to search for a matching channel.
  * @rcid:	Remote channel identifier corresponding to the desired channel.
+ *
+ * If the channel is found, the reference count is incremented to ensure the
+ * lifetime of the channel context.  The caller must call rwref_put() when done.
  *
  * Return: The channel corresponding to @rcid or NULL if a matching channel
  *	is not found.
  */
-static struct channel_ctx *xprt_rcid_to_ch_ctx(
+static struct channel_ctx *xprt_rcid_to_ch_ctx_get(
 					struct glink_core_xprt_ctx *xprt_ctx,
 					uint32_t rcid)
 {
@@ -532,6 +539,7 @@ static struct channel_ctx *xprt_rcid_to_ch_ctx(
 	spin_lock_irqsave(&xprt_ctx->xprt_ctx_lock_lhb1, flags);
 	list_for_each_entry(entry, &xprt_ctx->channels, port_list_node)
 		if (entry->rcid == rcid) {
+			rwref_get(&entry->ch_state_lhc0);
 			spin_unlock_irqrestore(&xprt_ctx->xprt_ctx_lock_lhb1,
 					flags);
 			return entry;
@@ -2749,12 +2757,15 @@ static void glink_core_rx_cmd_version_ack(struct glink_transport_if *if_ptr,
 }
 
 /**
- * find_l_ctx() - find a local channel context based on a remote one
+ * find_l_ctx_get() - find a local channel context based on a remote one
  * @r_ctx:	The remote channel to use as a lookup key.
+ *
+ * If the channel is found, the reference count is incremented to ensure the
+ * lifetime of the channel context.  The caller must call rwref_put() when done.
  *
  * Return: The corresponding local ctx or NULL is not found.
  */
-static struct channel_ctx *find_l_ctx(struct channel_ctx *r_ctx)
+static struct channel_ctx *find_l_ctx_get(struct channel_ctx *r_ctx)
 {
 	struct glink_core_xprt_ctx *xprt;
 	struct channel_ctx *ctx;
@@ -2773,8 +2784,10 @@ static struct channel_ctx *find_l_ctx(struct channel_ctx *r_ctx)
 			list_for_each_entry(ctx, &xprt->channels,
 							port_list_node)
 				if (!strcmp(ctx->name, r_ctx->name) &&
-							ctx->local_xprt_req)
+							ctx->local_xprt_req) {
 					l_ctx = ctx;
+					rwref_get(&l_ctx->ch_state_lhc0);
+				}
 			spin_unlock_irqrestore(&xprt->xprt_ctx_lock_lhb1,
 									flags);
 			rwref_write_put(&xprt->xprt_state_lhb0);
@@ -2785,12 +2798,15 @@ static struct channel_ctx *find_l_ctx(struct channel_ctx *r_ctx)
 }
 
 /**
- * find_r_ctx() - find a remote channel context based on a local one
+ * find_r_ctx_get() - find a remote channel context based on a local one
  * @l_ctx:	The local channel to use as a lookup key.
+ *
+ * If the channel is found, the reference count is incremented to ensure the
+ * lifetime of the channel context.  The caller must call rwref_put() when done.
  *
  * Return: The corresponding remote ctx or NULL is not found.
  */
-static struct channel_ctx *find_r_ctx(struct channel_ctx *l_ctx)
+static struct channel_ctx *find_r_ctx_get(struct channel_ctx *l_ctx)
 {
 	struct glink_core_xprt_ctx *xprt;
 	struct channel_ctx *ctx;
@@ -2809,8 +2825,10 @@ static struct channel_ctx *find_r_ctx(struct channel_ctx *l_ctx)
 			list_for_each_entry(ctx, &xprt->channels,
 							port_list_node)
 				if (!strcmp(ctx->name, l_ctx->name) &&
-							ctx->remote_xprt_req)
+							ctx->remote_xprt_req) {
 					r_ctx = ctx;
+					rwref_get(&r_ctx->ch_state_lhc0);
+				}
 			spin_unlock_irqrestore(&xprt->xprt_ctx_lock_lhb1,
 									flags);
 			rwref_write_put(&xprt->xprt_state_lhb0);
@@ -2825,7 +2843,7 @@ static struct channel_ctx *find_r_ctx(struct channel_ctx *l_ctx)
  * @l_ctx:	The local channel to migrate.
  * @r_ctx:	The remote channel to migrate.
  *
- * One of the channel contexts can be NULL if not known, but atleast one ctx
+ * One of the channel contexts can be NULL if not known, but at least one ctx
  * must be provided.
  *
  * Return: Bool indicating if migration will occur.
@@ -2833,28 +2851,41 @@ static struct channel_ctx *find_r_ctx(struct channel_ctx *l_ctx)
 static bool will_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 {
 	uint16_t new_xprt;
+	bool migrate = false;
 
 	if (!r_ctx)
-		r_ctx = find_r_ctx(l_ctx);
+		r_ctx = find_r_ctx_get(l_ctx);
+	else
+		rwref_get(&r_ctx->ch_state_lhc0);
 	if (!r_ctx)
-		return false;
+		return migrate;
+
 	if (!l_ctx)
-		l_ctx = find_l_ctx(r_ctx);
+		l_ctx = find_l_ctx_get(r_ctx);
+	else
+		rwref_get(&l_ctx->ch_state_lhc0);
 	if (!l_ctx)
-		return false;
+		goto exit;
 
 	if (l_ctx->local_xprt_req == r_ctx->remote_xprt_req &&
 			l_ctx->local_xprt_req == l_ctx->transport_ptr->id)
-		return false;
+		goto exit;
 	if (l_ctx->no_migrate)
-		return false;
+		goto exit;
 
 	new_xprt = max(l_ctx->local_xprt_req, r_ctx->remote_xprt_req);
 
 	if (new_xprt == l_ctx->transport_ptr->id)
-		return false;
+		goto exit;
 
-	return true;
+	migrate = true;
+exit:
+	if (l_ctx)
+		rwref_put(&l_ctx->ch_state_lhc0);
+	if (r_ctx)
+		rwref_put(&r_ctx->ch_state_lhc0);
+
+	return migrate;
 }
 
 /**
@@ -2862,10 +2893,10 @@ static bool will_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
  * @l_ctx:	The local channel to migrate.
  * @r_ctx:	The remote channel to migrate.
  *
- * One of the channel contexts can be NULL if not known, but atleast one ctx
+ * One of the channel contexts can be NULL if not known, but at least one ctx
  * must be provided.
  *
- * Return: Bool indicating if migration occured.
+ * Return: Bool indicating if migration occurred.
  */
 static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 {
@@ -2875,30 +2906,38 @@ static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 	struct channel_lcid *flcid;
 	uint16_t best_xprt = USHRT_MAX;
 	struct channel_ctx *ctx_clone;
+	bool migrated = false;
 
 	if (!r_ctx)
-		r_ctx = find_r_ctx(l_ctx);
+		r_ctx = find_r_ctx_get(l_ctx);
+	else
+		rwref_get(&r_ctx->ch_state_lhc0);
 	if (!r_ctx)
-		return false;
+		return migrated;
+
 	if (!l_ctx)
-		l_ctx = find_l_ctx(r_ctx);
-	if (!l_ctx)
-		return false;
+		l_ctx = find_l_ctx_get(r_ctx);
+	else
+		rwref_get(&r_ctx->ch_state_lhc0);
+	if (!l_ctx) {
+		rwref_put(&l_ctx->ch_state_lhc0);
+		goto exit;
+	}
 
 	if (l_ctx->local_xprt_req == r_ctx->remote_xprt_req &&
 			l_ctx->local_xprt_req == l_ctx->transport_ptr->id)
-		return false;
+		goto exit;
 	if (l_ctx->no_migrate)
-		return false;
+		goto exit;
 
 	new_xprt = max(l_ctx->local_xprt_req, r_ctx->remote_xprt_req);
 
 	if (new_xprt == l_ctx->transport_ptr->id)
-		return false;
+		goto exit;
 
 	ctx_clone = kmalloc(sizeof(*ctx_clone), GFP_KERNEL);
 	if (!ctx_clone)
-		return false;
+		goto exit;
 
 	mutex_lock(&transport_list_lock_lha0);
 	list_for_each_entry(xprt, &transport_list, list_node)
@@ -2979,7 +3018,12 @@ static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 	l_ctx->transport_ptr->ops->tx_cmd_ch_open(l_ctx->transport_ptr->ops,
 					l_ctx->lcid, l_ctx->name, best_xprt);
 
-	return true;
+	migrated = true;
+exit:
+	rwref_put(&l_ctx->ch_state_lhc0);
+	rwref_put(&r_ctx->ch_state_lhc0);
+
+	return migrated;
 }
 
 /**
@@ -2992,7 +3036,7 @@ static uint16_t calculate_xprt_resp(struct channel_ctx *r_ctx)
 {
 	struct channel_ctx *l_ctx;
 
-	l_ctx = find_l_ctx(r_ctx);
+	l_ctx = find_l_ctx_get(r_ctx);
 	if (!l_ctx) {
 		r_ctx->remote_xprt_resp = r_ctx->transport_ptr->id;
 	} else if (r_ctx->remote_xprt_req == r_ctx->transport_ptr->id) {
@@ -3006,6 +3050,9 @@ static uint16_t calculate_xprt_resp(struct channel_ctx *r_ctx)
 			r_ctx->remote_xprt_resp = max(l_ctx->local_xprt_req,
 							r_ctx->remote_xprt_req);
 	}
+
+	if (l_ctx)
+		rwref_put(&l_ctx->ch_state_lhc0);
 
 	return r_ctx->remote_xprt_resp;
 }
@@ -3071,7 +3118,7 @@ static void glink_core_rx_cmd_ch_open_ack(struct glink_transport_if *if_ptr,
 {
 	struct channel_ctx *ctx;
 
-	ctx = xprt_lcid_to_ch_ctx(if_ptr->glink_core_priv, lcid);
+	ctx = xprt_lcid_to_ch_ctx_get(if_ptr->glink_core_priv, lcid);
 	if (!ctx) {
 		/* unknown LCID received - this shouldn't happen */
 		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
@@ -3084,6 +3131,7 @@ static void glink_core_rx_cmd_ch_open_ack(struct glink_transport_if *if_ptr,
 		GLINK_ERR_CH(ctx,
 			"%s: unexpected open ack receive for lcid. Current state: %u. Thread: %u\n",
 				__func__, ctx->local_open_state, current->pid);
+		rwref_put(&ctx->ch_state_lhc0);
 		return;
 	}
 
@@ -3101,6 +3149,7 @@ static void glink_core_rx_cmd_ch_open_ack(struct glink_transport_if *if_ptr,
 					__func__);
 		}
 	}
+	rwref_put(&ctx->ch_state_lhc0);
 }
 
 /**
@@ -3115,7 +3164,7 @@ static void glink_core_rx_cmd_ch_remote_close(
 	struct channel_ctx *ctx;
 	unsigned long flags;
 
-	ctx = xprt_rcid_to_ch_ctx(if_ptr->glink_core_priv, rcid);
+	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
 		/* unknown LCID received - this shouldn't happen */
 		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
@@ -3128,6 +3177,7 @@ static void glink_core_rx_cmd_ch_remote_close(
 		GLINK_ERR_CH(ctx,
 			"%s: unexpected remote close receive for rcid %u\n",
 			__func__, (unsigned)rcid);
+		rwref_put(&ctx->ch_state_lhc0);
 		return;
 	}
 
@@ -3151,6 +3201,7 @@ static void glink_core_rx_cmd_ch_remote_close(
 		spin_unlock_irqrestore(&ctx->transport_ptr->xprt_ctx_lock_lhb1,
 				flags);
 	}
+	rwref_put(&ctx->ch_state_lhc0);
 }
 
 /**
@@ -3165,7 +3216,7 @@ static void glink_core_rx_cmd_ch_close_ack(struct glink_transport_if *if_ptr,
 	struct channel_ctx *ctx;
 	unsigned long flags;
 
-	ctx = xprt_lcid_to_ch_ctx(if_ptr->glink_core_priv, lcid);
+	ctx = xprt_lcid_to_ch_ctx_get(if_ptr->glink_core_priv, lcid);
 	if (!ctx) {
 		/* unknown LCID received - this shouldn't happen */
 		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
@@ -3178,6 +3229,7 @@ static void glink_core_rx_cmd_ch_close_ack(struct glink_transport_if *if_ptr,
 		GLINK_ERR_CH(ctx,
 			"%s: unexpected close ack receive for lcid %u\n",
 			__func__, (unsigned)lcid);
+		rwref_put(&ctx->ch_state_lhc0);
 		return;
 	}
 
@@ -3212,6 +3264,7 @@ static void glink_core_rx_cmd_ch_close_ack(struct glink_transport_if *if_ptr,
 		flush_workqueue(if_ptr->glink_core_priv->tx_wq);
 		rwref_put(&ctx->ch_state_lhc0);
 	}
+	rwref_put(&ctx->ch_state_lhc0);
 }
 
 /**
@@ -3227,7 +3280,7 @@ static void glink_core_remote_rx_intent_put(struct glink_transport_if *if_ptr,
 {
 	struct channel_ctx *ctx;
 
-	ctx = xprt_rcid_to_ch_ctx(if_ptr->glink_core_priv, rcid);
+	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
 		/* unknown rcid received - this shouldn't happen */
 		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
@@ -3238,6 +3291,7 @@ static void glink_core_remote_rx_intent_put(struct glink_transport_if *if_ptr,
 
 	ch_push_remote_rx_intent(ctx, size, riid);
 	complete_all(&ctx->int_req_complete);
+	rwref_put(&ctx->ch_state_lhc0);
 }
 
 /**
@@ -3257,7 +3311,7 @@ static void glink_core_rx_cmd_remote_rx_intent_req(
 	struct channel_ctx *ctx;
 	bool cb_ret;
 
-	ctx = xprt_rcid_to_ch_ctx(if_ptr->glink_core_priv, rcid);
+	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
 		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
 				"%s: invalid rcid received %u\n", __func__,
@@ -3268,11 +3322,13 @@ static void glink_core_rx_cmd_remote_rx_intent_req(
 		GLINK_ERR_CH(ctx,
 			"%s: Notify function not defined for local channel",
 			__func__);
+		rwref_put(&ctx->ch_state_lhc0);
 		return;
 	}
 
 	cb_ret = ctx->notify_rx_intent_req(ctx, ctx->user_priv, size);
 	if_ptr->tx_cmd_remote_rx_intent_req_ack(if_ptr, ctx->lcid, cb_ret);
+	rwref_put(&ctx->ch_state_lhc0);
 }
 
 /**
@@ -3289,7 +3345,7 @@ static void glink_core_rx_cmd_rx_intent_req_ack(struct glink_transport_if
 {
 	struct channel_ctx *ctx;
 
-	ctx = xprt_rcid_to_ch_ctx(if_ptr->glink_core_priv, rcid);
+	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
 		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
 				"%s: Invalid rcid received %u\n", __func__,
@@ -3298,6 +3354,7 @@ static void glink_core_rx_cmd_rx_intent_req_ack(struct glink_transport_if
 	}
 	ctx->int_req_ack = granted;
 	complete_all(&ctx->int_req_ack_complete);
+	rwref_put(&ctx->ch_state_lhc0);
 }
 
 /**
@@ -3318,7 +3375,7 @@ static struct glink_core_rx_intent *glink_core_rx_get_pkt_ctx(
 	struct channel_ctx *ctx;
 	struct glink_core_rx_intent *intent_ptr;
 
-	ctx = xprt_rcid_to_ch_ctx(if_ptr->glink_core_priv, rcid);
+	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
 		/* unknown LCID received - this shouldn't happen */
 		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
@@ -3333,9 +3390,11 @@ static struct glink_core_rx_intent *glink_core_rx_get_pkt_ctx(
 		GLINK_ERR_CH(ctx,
 			"%s: L[%u]: No matching rx intent\n",
 			__func__, liid);
+		rwref_put(&ctx->ch_state_lhc0);
 		return NULL;
 	}
 
+	rwref_put(&ctx->ch_state_lhc0);
 	return intent_ptr;
 }
 
@@ -3365,7 +3424,7 @@ void glink_core_rx_put_pkt_ctx(struct glink_transport_if *if_ptr,
 	}
 
 	/* packet complete */
-	ctx = xprt_rcid_to_ch_ctx(if_ptr->glink_core_priv, rcid);
+	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
 		/* unknown LCID received - this shouldn't happen */
 		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
@@ -3389,6 +3448,7 @@ void glink_core_rx_put_pkt_ctx(struct glink_transport_if *if_ptr,
 				"%s: Error %ld linearizing vector\n", __func__,
 				PTR_ERR(intent_ptr->bounce_buf));
 			BUG();
+			rwref_put(&ctx->ch_state_lhc0);
 			return;
 		}
 	}
@@ -3408,6 +3468,7 @@ void glink_core_rx_put_pkt_ctx(struct glink_transport_if *if_ptr,
 				"%s: Unable to process rx data\n", __func__);
 		BUG();
 	}
+	rwref_put(&ctx->ch_state_lhc0);
 }
 
 /**
@@ -3423,7 +3484,7 @@ void glink_core_rx_cmd_tx_done(struct glink_transport_if *if_ptr,
 	struct channel_ctx *ctx;
 	struct glink_core_tx_pkt *tx_pkt;
 
-	ctx = xprt_rcid_to_ch_ctx(if_ptr->glink_core_priv, rcid);
+	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
 		/* unknown RCID received - this shouldn't happen */
 		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
@@ -3445,6 +3506,7 @@ void glink_core_rx_cmd_tx_done(struct glink_transport_if *if_ptr,
 		GLINK_ERR_CH(ctx, "%s: R[%u]: No matching tx\n",
 				__func__,
 				(unsigned)riid);
+		rwref_put(&ctx->ch_state_lhc0);
 		return;
 	}
 
@@ -3456,6 +3518,7 @@ void glink_core_rx_cmd_tx_done(struct glink_transport_if *if_ptr,
 								tx_pkt->riid);
 	ch_remove_tx_pending_remote_done(ctx, tx_pkt);
 	mutex_unlock(&ctx->tx_lists_mutex_lhc3);
+	rwref_put(&ctx->ch_state_lhc0);
 }
 
 /**
@@ -3656,7 +3719,7 @@ static void glink_core_rx_cmd_remote_sigs(struct glink_transport_if *if_ptr,
 	struct channel_ctx *ctx;
 	uint32_t old_sigs;
 
-	ctx = xprt_rcid_to_ch_ctx(if_ptr->glink_core_priv, rcid);
+	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
 		/* unknown LCID received - this shouldn't happen */
 		GLINK_ERR_XPRT(if_ptr->glink_core_priv,
@@ -3668,6 +3731,7 @@ static void glink_core_rx_cmd_remote_sigs(struct glink_transport_if *if_ptr,
 	if (!ch_is_fully_opened(ctx)) {
 		GLINK_ERR_CH(ctx, "%s: Channel is not fully opened\n",
 			__func__);
+		rwref_put(&ctx->ch_state_lhc0);
 		return;
 	}
 
@@ -3678,6 +3742,7 @@ static void glink_core_rx_cmd_remote_sigs(struct glink_transport_if *if_ptr,
 		GLINK_INFO_CH(ctx, "%s: notify rx sigs old:0x%x new:0x%x\n",
 				__func__, old_sigs, ctx->rsigs);
 	}
+	rwref_put(&ctx->ch_state_lhc0);
 }
 
 static struct glink_core_if core_impl = {
