@@ -95,6 +95,8 @@ struct smbchg_chip {
 	int				target_fastchg_current_ma;
 	int				fastchg_current_ma;
 	int				vfloat_mv;
+	int				fastchg_current_comp;
+	int				float_voltage_comp;
 	int				resume_delta_mv;
 	int				safety_time;
 	int				prechg_safety_time;
@@ -882,7 +884,7 @@ static int get_prop_batt_health(struct smbchg_chip *chip)
 		return POWER_SUPPLY_HEALTH_GOOD;
 }
 
-int usb_current_table[] = {
+static const int usb_current_table[] = {
 	300,
 	400,
 	450,
@@ -917,7 +919,7 @@ int usb_current_table[] = {
 	3000
 };
 
-int dc_current_table[] = {
+static const int dc_current_table[] = {
 	300,
 	400,
 	450,
@@ -944,6 +946,13 @@ int dc_current_table[] = {
 	1950,
 	1970,
 	2000,
+};
+
+static const int fcc_comp_table[] = {
+	250,
+	700,
+	900,
+	1200,
 };
 
 static int calc_thermal_limited_current(struct smbchg_chip *chip,
@@ -2172,6 +2181,49 @@ static int smbchg_calc_max_flash_current(struct smbchg_chip *chip)
 		"ibat_flash=%lld\n, ocv=%d, ibat=%d, rbatt=%d t_flash=%lld\n",
 		ibat_flash_ua, ocv_uv, ibat_ua, rbatt_uohm, total_flash_ua);
 	return (int)total_flash_ua;
+}
+
+#define FCC_CMP_CFG	0xF3
+#define FCC_COMP_MASK	SMB_MASK(1, 0)
+static int smbchg_fastchg_current_comp_set(struct smbchg_chip *chip,
+					int comp_current)
+{
+	int rc;
+	u8 i;
+
+	for (i = 0; i < ARRAY_SIZE(fcc_comp_table); i++)
+		if (comp_current == fcc_comp_table[i])
+			break;
+
+	if (i >= ARRAY_SIZE(fcc_comp_table))
+		return -EINVAL;
+
+	rc = smbchg_sec_masked_write(chip, chip->chgr_base + FCC_CMP_CFG,
+			FCC_COMP_MASK, i);
+
+	if (rc)
+		dev_err(chip->dev, "Couldn't set fastchg current comp rc = %d\n",
+			rc);
+
+	return rc;
+}
+
+#define FV_CMP_CFG	0xF5
+#define FV_COMP_MASK	SMB_MASK(5, 0)
+static int smbchg_float_voltage_comp_set(struct smbchg_chip *chip, int code)
+{
+	int rc;
+	u8 val;
+
+	val = code & FV_COMP_MASK;
+	rc = smbchg_sec_masked_write(chip, chip->chgr_base + FV_CMP_CFG,
+			FV_COMP_MASK, val);
+
+	if (rc)
+		dev_err(chip->dev, "Couldn't set float voltage comp rc = %d\n",
+			rc);
+
+	return rc;
 }
 
 #define VFLOAT_CFG_REG			0xF4
@@ -3698,7 +3750,7 @@ static inline int get_bpd(const char *name)
 #define PIN_SRC_SHIFT			0
 #define CHGR_CFG			0xFF
 #define RCHG_LVL_BIT			BIT(0)
-#define CFG_AFVC			0xF5
+#define CFG_AFVC			0xF6
 #define VFLOAT_COMP_ENABLE_MASK		SMB_MASK(2, 0)
 #define TR_RID_REG			0xFA
 #define FG_INPUT_FET_DELAY_BIT		BIT(3)
@@ -3818,6 +3870,32 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 			return rc;
 		}
 		pr_smb(PR_STATUS, "set vfloat to %d\n", chip->vfloat_mv);
+	}
+
+	/* set the fast charge current compensation */
+	if (chip->fastchg_current_comp != -EINVAL) {
+		rc = smbchg_fastchg_current_comp_set(chip,
+			chip->fastchg_current_comp);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set fastchg current comp rc = %d\n",
+				rc);
+			return rc;
+		}
+		pr_smb(PR_STATUS, "set fastchg current comp to %d\n",
+			chip->fastchg_current_comp);
+	}
+
+	/* set the float voltage compensation */
+	if (chip->float_voltage_comp != -EINVAL) {
+		rc = smbchg_float_voltage_comp_set(chip,
+			chip->float_voltage_comp);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set float voltage comp rc = %d\n",
+				rc);
+			return rc;
+		}
+		pr_smb(PR_STATUS, "set float voltage comp to %d\n",
+			chip->float_voltage_comp);
 	}
 
 	/* set iterm */
@@ -4153,6 +4231,10 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 	OF_PROP_READ(chip, chip->safety_time, "charging-timeout-mins", rc, 1);
 	OF_PROP_READ(chip, chip->rpara_uohm, "rparasitic-uohm", rc, 1);
 	OF_PROP_READ(chip, chip->prechg_safety_time, "precharging-timeout-mins",
+			rc, 1);
+	OF_PROP_READ(chip, chip->fastchg_current_comp, "fastchg-current-comp",
+			rc, 1);
+	OF_PROP_READ(chip, chip->float_voltage_comp, "float-voltage-comp",
 			rc, 1);
 	if (chip->safety_time != -EINVAL &&
 		(chip->safety_time > chg_time[ARRAY_SIZE(chg_time) - 1])) {
