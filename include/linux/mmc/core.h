@@ -40,6 +40,8 @@ struct mmc_command {
 #define MMC_RSP_SPI_B4	(1 << 9)		/* four data bytes */
 #define MMC_RSP_SPI_BUSY (1 << 10)		/* card may send busy */
 
+#define MMC_SKIP_TUNING (1 << 11)		/* skip tuning for this cmd */
+
 /*
  * These are the native response types, and correspond to valid bit
  * patterns of the above flags.  One additional valid pattern

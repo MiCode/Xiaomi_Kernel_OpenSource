@@ -84,15 +84,24 @@ static int mmc_io_rw_direct_host(struct mmc_host *host, int write, unsigned fn,
 	cmd.arg |= (write && out) ? 0x08000000 : 0x00000000;
 	cmd.arg |= addr << 9;
 	cmd.arg |= in;
-	cmd.flags = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_AC;
-
-	if (host->card &&
-		(host->card->quirks & MMC_QUIRK_NO_TUNING_IN_SLEEP))
-		err = mmc_wait_for_cmd(host, &cmd, 1);
+	if (host->card && (host->card->quirks & MMC_QUIRK_NO_TUNING_IN_SLEEP))
+		cmd.flags = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_AC |
+			MMC_SKIP_TUNING;
 	else
-		err = mmc_wait_for_cmd(host, &cmd, 0);
-	if (err)
-		return err;
+		cmd.flags = MMC_RSP_SPI_R5 | MMC_RSP_R5 | MMC_CMD_AC;
+
+	err = mmc_wait_for_cmd(host, &cmd, 0);
+	if (err) {
+		if (err != -ETIMEDOUT && (cmd.flags & MMC_SKIP_TUNING)) {
+			cmd.error = 0;
+			/* retry with doing tuning first */
+			cmd.flags &= ~MMC_SKIP_TUNING;
+			err = mmc_wait_for_cmd(host, &cmd, 0);
+			if (err)
+				return err;
+		} else
+			return err;
+	}
 
 	if (mmc_host_is_spi(host)) {
 		/* host driver already reported errors */

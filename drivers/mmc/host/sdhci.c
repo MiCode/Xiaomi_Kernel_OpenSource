@@ -1407,10 +1407,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		    !(present_state & (SDHCI_DOING_WRITE | SDHCI_DOING_READ)) &&
 		    (present_state & SDHCI_DATA_0_LVL_MASK)) {
 			if (mmc->card) {
-				if (mmc_card_sdio(mmc->card) &&
-					(mmc->card->quirks & MMC_QUIRK_NO_TUNING_IN_SLEEP) &&
-					(mrq->cmd->opcode == SD_IO_RW_DIRECT) &&
-					(mrq->cmd->retries > 0))
+				if (mrq->cmd->flags & MMC_SKIP_TUNING)
 					goto end_tuning;
 				if ((mmc->card->ext_csd.part_config & 0x07) ==
 					EXT_CSD_PART_CONFIG_ACC_RPMB)
@@ -2043,6 +2040,9 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 			ctrl &= ~SDHCI_CTRL_EXEC_TUNING;
 			sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 
+			sdhci_reset(host, SDHCI_RESET_CMD);
+			sdhci_reset(host, SDHCI_RESET_DATA);
+
 			err = -EIO;
 			goto out;
 		}
@@ -2085,6 +2085,9 @@ out:
 			host->tuning_count * HZ);
 		/* Tuning mode 1 limits the maximum data length to 4MB */
 		mmc->max_blk_count = (4 * 1024 * 1024) / mmc->max_blk_size;
+	} else if (err && host->mmc->card && (host->mmc->card->quirks &
+				MMC_QUIRK_NO_TUNING_IN_SLEEP)) {
+		pr_debug("%s: will do retuning\n", mmc_hostname(host->mmc));
 	} else if (host->flags & SDHCI_USING_RETUNING_TIMER) {
 		host->flags &= ~SDHCI_NEEDS_RETUNING;
 		/* Reload the new initial value for timer */
