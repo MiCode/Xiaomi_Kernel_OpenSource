@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1428,6 +1428,11 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		return;
 	}
 
+	if (!atomic_read(&cpp_timer.used)) {
+		pr_err("Delayed trigger, IRQ serviced\n");
+		return;
+	}
+
 	this_frame = cpp_timer.data.processed_frame;
 	pr_err("Starting timer to fire in %d ms. (jiffies=%lu)\n",
 		CPP_CMD_TIMEOUT_MS, jiffies);
@@ -1435,6 +1440,11 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS));
 	if (ret)
 		pr_err("error in mod_timer\n");
+
+	if (!atomic_read(&cpp_timer.used)) {
+		pr_err("Delayed trigger, IRQ serviced\n");
+		return;
+	}
 
 	pr_err("Rescheduling for identity=0x%x, frame_id=%03d\n",
 		this_frame->identity, this_frame->frame_id);
@@ -1481,7 +1491,6 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 			jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS));
 		if (ret)
 			pr_err("error in mod_timer\n");
-
 		msm_cpp_write(0x6, cpp_dev->base);
 		msm_cpp_dump_frame_cmd(process_frame);
 		msm_cpp_poll_rx_empty(cpp_dev->base);
