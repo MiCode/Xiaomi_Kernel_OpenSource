@@ -83,7 +83,11 @@
 #define PGC_8B_ROUND BIT(1)
 #define PGC_ENABLE BIT(0)
 
+#define HIST_V3_INTR_BIT_MASK 0xF33333
+#define HIST_CTL_OFF_DSPP_V1_7 0x210
+#define HIST_CTL_OFF_SSPP_V1_7 0x2C4
 #define HIST_DATA_OFF_DSPP_V1_7 0x1000
+#define HIST_DATA_OFF_SSPP_V1_7 0xA00
 #define HIST_DATA_MASK 0xFFFFFF
 #define DITHER_MATRIX_OFF 0x14
 #define DITHER_MATRIX_INDEX 16
@@ -183,6 +187,9 @@ static int pp_dither_set_config(char __iomem *base_addr,
 /* histogram prototypes */
 static int pp_hist_get_config(char __iomem *base_addr, void *cfg_data,
 			   u32 block_type, u32 disp_num);
+static int pp_get_hist_offset(u32 block, u32 *ctl_off);
+static int pp_get_hist_isr(u32 *isr_mask);
+static bool pp_is_sspp_hist_supp(void);
 
 static void pp_opmode_config(int location, struct pp_sts_type *pp_sts,
 		u32 *opmode, int side);
@@ -284,6 +291,10 @@ void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 
 	/* Set opmode pointers */
 	ops->pp_opmode_config = pp_opmode_config;
+
+	ops->get_hist_offset = pp_get_hist_offset;
+	ops->get_hist_isr_info = pp_get_hist_isr;
+	ops->is_sspp_hist_supp = pp_is_sspp_hist_supp;
 
 	return &config_data;
 }
@@ -579,8 +590,7 @@ static int pp_hist_get_config(char __iomem *base_addr, void *cfg_data,
 
 	switch (block_type) {
 	case SSPP_VIG:
-		pr_err("No hist support in SSPP VIG yet %d\n", block_type);
-		ret = -ENOTSUPP;
+		base_addr += HIST_DATA_OFF_SSPP_V1_7;
 		break;
 	case DSPP:
 		base_addr += HIST_DATA_OFF_DSPP_V1_7;
@@ -602,6 +612,45 @@ static int pp_hist_get_config(char __iomem *base_addr, void *cfg_data,
 	}
 	hist_info->hist_cnt_read++;
 	return sum;
+}
+
+static int pp_get_hist_offset(u32 block, u32 *ctl_off)
+{
+	int ret = 0;
+
+	if (!ctl_off) {
+		pr_err("invalid params ctl_off %p\n", ctl_off);
+		return -EINVAL;
+	}
+	switch (block) {
+	case SSPP_VIG:
+		*ctl_off = HIST_CTL_OFF_SSPP_V1_7;
+		break;
+	case DSPP:
+		*ctl_off = HIST_CTL_OFF_DSPP_V1_7;
+		break;
+	default:
+		pr_err("Invalid block type %d\n", block);
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
+static int pp_get_hist_isr(u32 *isr_mask)
+{
+	if (!isr_mask) {
+		pr_err("invalid params isr_mask %p\n", isr_mask);
+		return -EINVAL;
+	}
+
+	*isr_mask = HIST_V3_INTR_BIT_MASK;
+	return 0;
+}
+
+static bool pp_is_sspp_hist_supp(void)
+{
+	return true;
 }
 
 static int pp_gamut_get_config(char __iomem *base_addr, void *cfg_data,
