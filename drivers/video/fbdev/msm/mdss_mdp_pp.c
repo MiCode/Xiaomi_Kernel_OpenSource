@@ -6080,5 +6080,11 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 		pipe->pp_cfg.hist_lut_cfg.data = pipe->pp_res.hist_lut;
 	}
 exit_fail:
+	if (ret) {
+		pr_err("VIG PP setup failed on pipe %d type %d ret %d\n",
+				pipe->num, pipe->type, ret);
+		pipe->pp_cfg.config_ops = 0;
+	}
+
 	return ret;
 }
