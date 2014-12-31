@@ -609,7 +609,6 @@ static void msm_slim_rx_msgq_cb(struct sps_event_notify *notify)
 static int msm_slim_post_rx_msgq(struct msm_slim_ctrl *dev, int ix)
 {
 	int ret;
-	u32 flags = SPS_IOVEC_FLAG_INT;
 	struct msm_slim_endp *endpoint = &dev->rx_msgq;
 	struct sps_mem_buffer *mem = &endpoint->buf;
 	struct sps_pipe *pipe = endpoint->sps;
@@ -620,7 +619,7 @@ static int msm_slim_post_rx_msgq(struct msm_slim_ctrl *dev, int ix)
 
 	pr_debug("index:%d, virt:0x%p\n", ix, virt_addr);
 
-	ret = sps_transfer_one(pipe, phys_addr, 4, virt_addr, flags);
+	ret = sps_transfer_one(pipe, phys_addr, 4, virt_addr, 0);
 	if (ret)
 		dev_err(dev->dev, "transfer_one() failed 0x%x, %d\n", ret, ix);
 
@@ -679,7 +678,7 @@ int msm_slim_connect_endp(struct msm_slim_ctrl *dev,
 
 	if (notify) {
 		sps_descr_event.mode = SPS_TRIGGER_CALLBACK;
-		sps_descr_event.options = SPS_O_DESC_DONE;
+		sps_descr_event.options = SPS_O_EOT;
 		sps_descr_event.user = (void *)dev;
 		sps_descr_event.xfer_done = notify;
 
@@ -767,7 +766,7 @@ static int msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev, u32 pipe_reg)
 	config->source = dev->bam.hdl;
 	config->destination = SPS_DEV_HANDLE_MEM;
 	config->src_pipe_index = pipe_offset;
-	config->options = SPS_O_DESC_DONE | SPS_O_ERROR |
+	config->options = SPS_O_EOT | SPS_O_ERROR |
 				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
 
 	/* Allocate memory for the FIFO descriptors */

@@ -1057,6 +1057,7 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 	int timeout, ret = 0;
 	enum msm_ctrl_state cur_state = dev->state;
 	u32 laddr;
+	u32 rx_msgq;
 	u32 ngd_int = (NGD_INT_TX_NACKED_2 |
 			NGD_INT_MSG_BUF_CONTE | NGD_INT_MSG_TX_INVAL |
 			NGD_INT_IE_VE_CHG | NGD_INT_DEV_ERR |
@@ -1129,6 +1130,15 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 	 */
 	writel_relaxed(ngd_int, dev->base + NGD_INT_EN +
 				NGD_BASE(dev->ctrl.nr, dev->ver));
+
+	rx_msgq = readl_relaxed(ngd + NGD_RX_MSGQ_CFG);
+	/* Program with minimum value so that signal get
+	 * triggered immediately after receiving the message */
+	writel_relaxed(rx_msgq|SLIM_RX_MSGQ_TIMEOUT_VAL,
+					ngd + NGD_RX_MSGQ_CFG);
+	/* make sure register got updated */
+	mb();
+
 	/*
 	 * Enable NGD. Configure NGD in register acc. mode until master
 	 * announcement is received
@@ -1211,24 +1221,28 @@ static int ngd_slim_rx_msgq_thread(void *data)
 			ngd_slim_rx(dev, (u8 *)buffer);
 			continue;
 		}
-		ret = msm_slim_rx_msgq_get(dev, buffer, index);
-		if (ret) {
-			SLIM_ERR(dev, "rx_msgq_get() failed 0x%x\n", ret);
-			continue;
-		}
+		do {
+			ret = msm_slim_rx_msgq_get(dev, buffer, index);
+			if (ret) {
+				SLIM_ERR(dev, "rx_msgq_get() failed 0x%x\n",
+									ret);
+				break;
+			}
 
-		/* Wait for complete message */
-		if (index++ == 0) {
-			msg_len = *buffer & 0x1F;
-			mt = (buffer[0] >> 5) & 0x7;
-			mc = (buffer[0] >> 8) & 0xff;
-			dev_dbg(dev->dev, "MC: %x, MT: %x\n", mc, mt);
-		}
-		if ((index * 4) >= msg_len) {
+			/* Traverse first byte of message for message length */
+			if (index++ == 0) {
+				msg_len = *buffer & 0x1F;
+				mt = (buffer[0] >> 5) & 0x7;
+				mc = (buffer[0] >> 8) & 0xff;
+				dev_dbg(dev->dev, "MC: %x, MT: %x\n", mc, mt);
+			}
+			msg_len = (msg_len < 4) ? 0 : (msg_len - 4);
+		} while (msg_len);
+		if (!msg_len) {
 			index = 0;
 			ngd_slim_rx(dev, (u8 *)buffer);
-		} else
-			continue;
+		}
+		continue;
 	}
 	return 0;
 }

@@ -44,6 +44,7 @@
 
 #define MSM_SLIM_AUTOSUSPEND		MSEC_PER_SEC
 
+#define SLIM_RX_MSGQ_TIMEOUT_VAL	0x10000
 /*
  * Messages that can be received simultaneously:
  * Client reads, LPASS master responses, announcement messages
