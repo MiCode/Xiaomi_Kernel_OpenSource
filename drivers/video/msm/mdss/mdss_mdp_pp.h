@@ -97,6 +97,9 @@ struct mdp_pp_driver_ops {
 	struct mdp_pp_feature_ops pp_ops[PP_FEATURE_MAX];
 	void (*pp_opmode_config)(int location, struct pp_sts_type *pp_sts,
 			u32 *opmode, int side);
+	int (*get_hist_offset)(u32 block, u32 *ctl_off);
+	int (*get_hist_isr_info)(u32 *isr_mask);
+	bool (*is_sspp_hist_supp)(void);
 };
 
 struct mdss_pp_res_type_v1_7 {

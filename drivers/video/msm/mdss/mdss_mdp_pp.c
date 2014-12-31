@@ -1503,7 +1503,8 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 			goto error;
 		}
 		kick_base = MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
-	} else if (PP_LOCAT(block) == MDSS_PP_SSPP_CFG && is_hist_v1) {
+	} else if (PP_LOCAT(block) == MDSS_PP_SSPP_CFG &&
+		(is_hist_v1 || pp_driver_ops.get_hist_offset)) {
 		pipe = mdss_mdp_pipe_get(mdata, BIT(PP_BLOCK(block)));
 		if (IS_ERR_OR_NULL(pipe)) {
 			pr_debug("pipe DNE (%d)\n",
@@ -1512,7 +1513,10 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 			goto error;
 		}
 		/* HIST_EN & AUTO_CLEAR */
-		op_flags = BIT(8) + BIT(9);
+		if (is_hist_v1)
+			op_flags = BIT(8) + BIT(9);
+		else
+			op_flags = BIT(8);
 		hist_info = &pipe->pp_res.hist;
 		base = pipe->base;
 		kick_base = MDSS_MDP_REG_VIG_HIST_CTL_BASE;
@@ -2241,6 +2245,7 @@ int mdss_mdp_pp_init(struct device *dev)
 	struct mdss_mdp_pipe *vig;
 	struct pp_hist_col_info *hist;
 	void *ret_ptr = NULL;
+	u32 ctl_off = 0;
 
 	if (!mdata)
 		return -EPERM;
@@ -2256,6 +2261,17 @@ int mdss_mdp_pp_init(struct device *dev)
 			if (mdss_mdp_pp_dt_parse(dev))
 				pr_info("No PP info in device tree\n");
 
+			ret_ptr = pp_get_driver_ops(&pp_driver_ops);
+			if (IS_ERR(ret_ptr)) {
+				pr_err("pp_get_driver_ops failed, ret=%d\n",
+						(int) PTR_ERR(ret_ptr));
+				ret = PTR_ERR(ret_ptr);
+				goto pp_exit;
+			} else {
+				mdss_pp_res->pp_data_res = ret_ptr;
+				pp_ops = pp_driver_ops.pp_ops;
+			}
+
 			hist = devm_kzalloc(dev,
 					sizeof(struct pp_hist_col_info) *
 					mdata->ndspp,
@@ -2263,33 +2279,37 @@ int mdss_mdp_pp_init(struct device *dev)
 			if (hist == NULL) {
 				pr_err("dspp histogram allocation failed!\n");
 				ret = -ENOMEM;
-				devm_kfree(dev, mdss_pp_res);
-			} else {
-				for (i = 0; i < mdata->ndspp; i++) {
-					mutex_init(&hist[i].hist_mutex);
-					spin_lock_init(&hist[i].hist_lock);
-					hist[i].intr_shift = (i * 4) + 12;
+				goto pp_exit;
+			}
+			for (i = 0; i < mdata->ndspp; i++) {
+				mutex_init(&hist[i].hist_mutex);
+				spin_lock_init(&hist[i].hist_lock);
+				hist[i].intr_shift = (i * 4) + 12;
+				if (pp_driver_ops.get_hist_offset) {
+					ret = pp_driver_ops.get_hist_offset(
+						DSPP, &ctl_off);
+					if (ret) {
+						pr_err("get_hist_offset ret %d\n",
+							ret);
+						goto hist_exit;
+					}
+					hist[i].base =
+						i < mdata->ndspp ?
+						mdss_mdp_get_dspp_addr_off(i) +
+						ctl_off : NULL;
+				} else {
 					hist[i].base = i < mdata->ndspp ?
 						mdss_mdp_get_dspp_addr_off(i) +
 						MDSS_MDP_REG_DSPP_HIST_CTL_BASE
 						: NULL;
-					init_completion(&hist[i].comp);
-					init_completion(&hist[i].first_kick);
 				}
-				if (mdata->ndspp == 4)
-					hist[3].intr_shift = 22;
+				init_completion(&hist[i].comp);
+				init_completion(&hist[i].first_kick);
+			}
+			if (mdata->ndspp == 4)
+				hist[3].intr_shift = 22;
 
-				mdss_pp_res->dspp_hist = hist;
-			}
-			ret_ptr = pp_get_driver_ops(&pp_driver_ops);
-			if (IS_ERR(ret_ptr)) {
-				pr_err("pp_get_driver_ops failed, ret=%d\n",
-						(int) PTR_ERR(ret_ptr));
-				ret = PTR_ERR(ret_ptr);
-			} else {
-				mdss_pp_res->pp_data_res = ret_ptr;
-				pp_ops = pp_driver_ops.pp_ops;
-			}
+			mdss_pp_res->dspp_hist = hist;
 		}
 	}
 	if (mdata && mdata->vig_pipes) {
@@ -2298,12 +2318,32 @@ int mdss_mdp_pp_init(struct device *dev)
 			mutex_init(&vig[i].pp_res.hist.hist_mutex);
 			spin_lock_init(&vig[i].pp_res.hist.hist_lock);
 			vig[i].pp_res.hist.intr_shift = (vig[i].num * 4);
-			vig[i].pp_res.hist.base = vig[i].base +
-				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
+			if (i == 3)
+				vig[i].pp_res.hist.intr_shift = 10;
+			if (pp_driver_ops.get_hist_offset) {
+				ret = pp_driver_ops.get_hist_offset(
+					DSPP, &ctl_off);
+				if (ret) {
+					pr_err("get_hist_offset ret %d\n",
+						ret);
+					goto hist_exit;
+				}
+				vig[i].pp_res.hist.base = vig[i].base +
+					ctl_off;
+			} else {
+				vig[i].pp_res.hist.base = vig[i].base +
+					MDSS_MDP_REG_VIG_HIST_CTL_BASE;
+			}
 			init_completion(&vig[i].pp_res.hist.comp);
 			init_completion(&vig[i].pp_res.hist.first_kick);
 		}
 	}
+	mutex_unlock(&mdss_pp_mutex);
+	return ret;
+hist_exit:
+	devm_kfree(dev, hist);
+pp_exit:
+	devm_kfree(dev, mdss_pp_res);
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;
 }
@@ -3846,12 +3886,18 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	bool is_hist_v2 = mdata->mdp_rev >= MDSS_MDP_HW_REV_103;
+	bool sspp_hist_supp;
 
 	if (!mdss_is_ready())
 		return -EPROBE_DEFER;
 
-	if (is_hist_v2 && (PP_LOCAT(req->block) == MDSS_PP_SSPP_CFG)) {
+	if (pp_driver_ops.is_sspp_hist_supp)
+		sspp_hist_supp =  pp_driver_ops.is_sspp_hist_supp();
+	else
+		sspp_hist_supp = (mdata->mdp_rev < MDSS_MDP_HW_REV_103);
+
+	if (!sspp_hist_supp &&
+		(PP_LOCAT(req->block) == MDSS_PP_SSPP_CFG)) {
 		pr_warn("No histogram on SSPP\n");
 		ret = -EINVAL;
 		goto hist_exit;
@@ -3873,7 +3919,8 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 			pipe = mdss_mdp_pipe_get(mdata, BIT(i));
 			if (IS_ERR_OR_NULL(pipe))
 				continue;
-			if (pipe->num > MDSS_MDP_SSPP_VIG2) {
+			if ((pipe->num > MDSS_MDP_SSPP_VIG2) &&
+				(pipe->num != MDSS_MDP_SSPP_VIG3)) {
 				ret = -EINVAL;
 				pr_warn("Invalid Hist pipe (%d)\n", i);
 				mdss_mdp_pipe_unmap(pipe);
@@ -3996,9 +4043,11 @@ int mdss_mdp_hist_stop(u32 block)
 			if (IS_ERR_OR_NULL(pipe)) {
 				pr_warn("Invalid Hist pipe (%d)\n", i);
 				continue;
-			} else if (pipe->num > MDSS_MDP_SSPP_VIG2) {
+			} else if ((pipe->num > MDSS_MDP_SSPP_VIG2) &&
+				(pipe->num != MDSS_MDP_SSPP_VIG3)) {
 				mdss_mdp_pipe_unmap(pipe);
-				pr_warn("Invalid Hist pipe (%d)\n", i);
+				pr_warn("Invalid Hist pipe (%d) pipe->num (%d)\n",
+					i, pipe->num);
 				continue;
 			}
 			hist_info = &pipe->pp_res.hist;
@@ -4453,7 +4502,8 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			if (IS_ERR_OR_NULL(pipe)) {
 				pr_warn("Invalid Hist pipe (%d)\n", i);
 				continue;
-			} else if (pipe->num > MDSS_MDP_SSPP_VIG2) {
+			} else if ((pipe->num > MDSS_MDP_SSPP_VIG2) &&
+				(pipe->num != MDSS_MDP_SSPP_VIG3)) {
 				mdss_mdp_pipe_unmap(pipe);
 				pr_warn("Invalid Hist pipe (%d)\n", i);
 				continue;
@@ -4472,7 +4522,8 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			if (IS_ERR_OR_NULL(pipe)) {
 				pr_warn("Invalid Hist pipe (%d)\n", i);
 				continue;
-			} else if (pipe->num > MDSS_MDP_SSPP_VIG2) {
+			} else if ((pipe->num > MDSS_MDP_SSPP_VIG2) &&
+				(pipe->num != MDSS_MDP_SSPP_VIG3)) {
 				mdss_mdp_pipe_unmap(pipe);
 				pr_warn("Invalid Hist pipe (%d)\n", i);
 				continue;
@@ -4497,7 +4548,8 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			if (IS_ERR_OR_NULL(pipe)) {
 				pr_warn("Invalid Hist pipe (%d)\n", i);
 				continue;
-			} else if (pipe->num > MDSS_MDP_SSPP_VIG2) {
+			} else if ((pipe->num > MDSS_MDP_SSPP_VIG2) &&
+				(pipe->num != MDSS_MDP_SSPP_VIG3)) {
 				mdss_mdp_pipe_unmap(pipe);
 				pr_warn("Invalid Hist pipe (%d)\n", i);
 				continue;
@@ -4603,10 +4655,15 @@ static inline struct pp_hist_col_info *get_hist_info_from_isr(u32 *isr)
 			blk_idx = MDSS_MDP_SSPP_VIG1;
 			*isr &= ~(MDSS_MDP_HIST_INTR_VIG_1_DONE |
 				MDSS_MDP_HIST_INTR_VIG_1_RESET_DONE);
-		} else {
+		} else if (*isr & (MDSS_MDP_HIST_INTR_VIG_2_DONE |
+				MDSS_MDP_HIST_INTR_VIG_2_RESET_DONE)) {
 			blk_idx = MDSS_MDP_SSPP_VIG2;
 			*isr &= ~(MDSS_MDP_HIST_INTR_VIG_2_DONE |
 				MDSS_MDP_HIST_INTR_VIG_2_RESET_DONE);
+		} else {
+			blk_idx = MDSS_MDP_SSPP_VIG3;
+			*isr &= ~(MDSS_MDP_HIST_INTR_VIG_3_DONE |
+				MDSS_MDP_HIST_INTR_VIG_3_RESET_DONE);
 		}
 		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx));
 		if (IS_ERR_OR_NULL(pipe)) {
@@ -4637,6 +4694,8 @@ void mdss_mdp_hist_intr_done(u32 isr)
 	bool need_complete = false;
 	u32 isr_mask = (is_hist_v2) ? HIST_V2_INTR_BIT_MASK :
 			HIST_V1_INTR_BIT_MASK;
+	if (pp_driver_ops.get_hist_isr_info)
+		pp_driver_ops.get_hist_isr_info(&isr_mask);
 
 	isr &= isr_mask;
 	while (isr != 0) {
