@@ -246,6 +246,11 @@ enum hal_default_properties {
 	HAL_VIDEO_CONTINUE_DATA_TRANSFER = 0x00000002,
 };
 
+enum hal_hfi_version {
+	HAL_VIDEO_2X,
+	HAL_VIDEO_3X,
+};
+
 enum hal_video_codec {
 	HAL_VIDEO_CODEC_UNKNOWN  = 0x00000000,
 	HAL_VIDEO_CODEC_MVC      = 0x00000001,
@@ -1374,6 +1379,7 @@ struct hfi_device {
 	int (*suspend)(void *dev);
 	unsigned long (*get_core_clock_rate)(void *dev);
 	enum hal_default_properties (*get_default_properties)(void *dev);
+	enum hal_hfi_version (*get_version)(void *dev);
 };
 
 typedef void (*hfi_cmd_response_callback) (enum command_response cmd,
