@@ -3851,36 +3851,6 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 	if (!mdss_is_ready())
 		return -EPROBE_DEFER;
 
-	if ((PP_BLOCK(req->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
-		(PP_BLOCK(req->block) >= MDP_BLOCK_MAX))
-		return -EINVAL;
-
-	disp_num = PP_BLOCK(req->block) - MDP_LOGICAL_BLOCK_DISP_0;
-	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
-
-	if (!mixer_cnt) {
-		pr_err("%s, no dspp connects to disp %d\n",
-			__func__, disp_num);
-		ret = -EPERM;
-		goto hist_exit;
-	}
-	if (mixer_cnt > mdata->nmixers_intf) {
-		pr_err("%s, Too many dspp connects to disp %d\n",
-			__func__, mixer_cnt);
-		ret = -EPERM;
-		goto hist_exit;
-	}
-
-	ctl = mdata->mixer_intf[mixer_id[0]].ctl;
-	frame_size = (ctl->width * ctl->height);
-
-	if (!frame_size ||
-		((MDSS_MAX_HIST_BIN_SIZE / frame_size) < req->frame_cnt)) {
-		pr_err("%s, too many frames for given display size, %d\n",
-						__func__, req->frame_cnt);
-		ret = -EINVAL;
-		goto hist_exit;
-	}
 	if (is_hist_v2 && (PP_LOCAT(req->block) == MDSS_PP_SSPP_CFG)) {
 		pr_warn("No histogram on SSPP\n");
 		ret = -EINVAL;
@@ -3914,6 +3884,38 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 			mdss_mdp_pipe_unmap(pipe);
 		}
 	} else if (PP_LOCAT(req->block) == MDSS_PP_DSPP_CFG) {
+		if ((PP_BLOCK(req->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
+				(PP_BLOCK(req->block) >= MDP_BLOCK_MAX))
+			goto hist_stop_clk;
+
+		disp_num = PP_BLOCK(req->block) - MDP_LOGICAL_BLOCK_DISP_0;
+		mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
+
+		if (!mixer_cnt) {
+			pr_err("%s, no dspp connects to disp %d\n",
+					__func__, disp_num);
+			ret = -EPERM;
+			goto hist_stop_clk;
+		}
+		if (mixer_cnt > mdata->nmixers_intf) {
+			pr_err("%s, Too many dspp connects to disp %d\n",
+					__func__, mixer_cnt);
+			ret = -EPERM;
+			goto hist_stop_clk;
+		}
+
+		ctl = mdata->mixer_intf[mixer_id[0]].ctl;
+		frame_size = (ctl->width * ctl->height);
+
+		if (!frame_size ||
+			((MDSS_MAX_HIST_BIN_SIZE / frame_size) <
+			req->frame_cnt)) {
+			pr_err("%s, too many frames for given display size, %d\n",
+					__func__, req->frame_cnt);
+			ret = -EINVAL;
+			goto hist_stop_clk;
+		}
+
 		for (i = 0; i < mixer_cnt; i++) {
 			dspp_num = mixer_id[i];
 			if (dspp_num >= mdata->ndspp) {
@@ -3976,28 +3978,9 @@ int mdss_mdp_hist_stop(u32 block)
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
-	if ((PP_BLOCK(block) < MDP_LOGICAL_BLOCK_DISP_0) ||
-		(PP_BLOCK(block) >= MDP_BLOCK_MAX))
-		return -EINVAL;
-
 	if (!mdata)
 		return -EPERM;
 
-	disp_num = PP_BLOCK(block) - MDP_LOGICAL_BLOCK_DISP_0;
-	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
-
-	if (!mixer_cnt) {
-		pr_err("%s, no dspp connects to disp %d\n",
-			__func__, disp_num);
-		ret = -EPERM;
-		goto hist_stop_exit;
-	}
-	if (mixer_cnt > mdata->nmixers_intf) {
-		pr_err("%s, Too many dspp connects to disp %d\n",
-			__func__, mixer_cnt);
-		ret = -EPERM;
-		goto hist_stop_exit;
-	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	if (PP_LOCAT(block) == MDSS_PP_SSPP_CFG) {
 		i = MDSS_PP_ARG_MASK & block;
@@ -4025,6 +4008,26 @@ int mdss_mdp_hist_stop(u32 block)
 				goto hist_stop_clk;
 		}
 	} else if (PP_LOCAT(block) == MDSS_PP_DSPP_CFG) {
+		if ((PP_BLOCK(block) < MDP_LOGICAL_BLOCK_DISP_0) ||
+				(PP_BLOCK(block) >= MDP_BLOCK_MAX))
+			goto hist_stop_clk;
+
+		disp_num = PP_BLOCK(block) - MDP_LOGICAL_BLOCK_DISP_0;
+		mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
+
+		if (!mixer_cnt) {
+			pr_err("%s, no dspp connects to disp %d\n",
+					__func__, disp_num);
+			ret = -EPERM;
+			goto hist_stop_clk;
+		}
+		if (mixer_cnt > mdata->nmixers_intf) {
+			pr_err("%s, Too many dspp connects to disp %d\n",
+					__func__, mixer_cnt);
+			ret = -EPERM;
+			goto hist_stop_clk;
+		}
+
 		for (i = 0; i < mixer_cnt; i++) {
 			dspp_num = mixer_id[i];
 			if (dspp_num >= mdata->ndspp) {
@@ -4042,7 +4045,6 @@ int mdss_mdp_hist_stop(u32 block)
 	}
 hist_stop_clk:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-hist_stop_exit:
 	return ret;
 }
 
@@ -4193,11 +4195,12 @@ exit:
 
 static int pp_hist_collect(struct mdp_histogram_data *hist,
 				struct pp_hist_col_info *hist_info,
-				char __iomem *ctl_base, u32 expect_sum)
+				char __iomem *ctl_base, u32 expect_sum,
+				u32 block)
 {
 	int kick_ret, wait_ret, ret = 0;
 	u32 timeout, sum;
-	char __iomem *v_base;
+	char __iomem *v_base = NULL;
 	unsigned long flag;
 	struct mdss_pipe_pp_res *res;
 	struct mdss_mdp_pipe *pipe;
@@ -4280,17 +4283,22 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 	if (hist_info->col_state == HIST_READY) {
 		hist_info->col_state = HIST_IDLE;
 		spin_unlock_irqrestore(&hist_info->hist_lock, flag);
-		v_base = ctl_base + 0x1C;
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-		if (pp_ops[HIST].pp_get_config)
-			sum = pp_ops[HIST].pp_get_config(v_base, hist_info,
-					DSPP, 0);
-		else
+		if (pp_ops[HIST].pp_get_config) {
+			sum = pp_ops[HIST].pp_get_config(ctl_base, hist_info,
+					block, 0);
+		} else {
+			if (block == DSPP)
+				v_base = ctl_base +
+					MDSS_MDP_REG_DSPP_HIST_DATA_BASE;
+			else if (block == SSPP_VIG)
+				v_base = ctl_base +
+					MDSS_MDP_REG_VIG_HIST_CTL_BASE;
 			sum = pp_hist_read(v_base, hist_info);
-
+		}
 		/* if hist_v2 unlock HW when done reading */
 		if (is_hist_v2)
-			writel_relaxed(0, ctl_base);
+			writel_relaxed(0, hist_info->base);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 		if (sum < 0) {
 			pr_err("failed to get the hist data, sum = %d\n", sum);
@@ -4325,27 +4333,27 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	unsigned long flag;
 
-	if ((PP_BLOCK(hist->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
-		(PP_BLOCK(hist->block) >= MDP_BLOCK_MAX))
-		return -EINVAL;
-
-	disp_num = PP_BLOCK(hist->block) - MDP_LOGICAL_BLOCK_DISP_0;
-	hist_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
-
-	if (!hist_cnt) {
-		pr_err("%s, no dspp connects to disp %d\n",
-			__func__, disp_num);
-		ret = -EPERM;
-		goto hist_collect_exit;
-	}
-	if (hist_cnt > mdata->nmixers_intf) {
-		pr_err("%s, Too many dspp connects to disp %d\n",
-			__func__, hist_cnt);
-		ret = -EPERM;
-		goto hist_collect_exit;
-	}
-
 	if (PP_LOCAT(hist->block) == MDSS_PP_DSPP_CFG) {
+		if ((PP_BLOCK(hist->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
+				(PP_BLOCK(hist->block) >= MDP_BLOCK_MAX))
+			return -EINVAL;
+
+		disp_num = PP_BLOCK(hist->block) - MDP_LOGICAL_BLOCK_DISP_0;
+		hist_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
+
+		if (!hist_cnt) {
+			pr_err("%s, no dspp connects to disp %d\n",
+					__func__, disp_num);
+			ret = -EPERM;
+			goto hist_collect_exit;
+		}
+		if (hist_cnt > mdata->nmixers_intf) {
+			pr_err("%s, Too many dspp connects to disp %d\n",
+					__func__, hist_cnt);
+			ret = -EPERM;
+			goto hist_collect_exit;
+		}
+
 		for (i = 0; i < hist_cnt; i++) {
 			dspp_num = mixer_id[i];
 			if (dspp_num >= mdata->ndspp) {
@@ -4363,14 +4371,13 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 		}
 		for (i = 0; i < hist_cnt; i++) {
 			dspp_num = mixer_id[i];
-			ctl_base = mdss_mdp_get_dspp_addr_off(dspp_num) +
-				MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
+			ctl_base = mdss_mdp_get_dspp_addr_off(dspp_num);
 			exp_sum = (mdata->mixer_intf[dspp_num].width *
 					mdata->mixer_intf[dspp_num].height);
 			if (ret)
 				temp_ret = ret;
 			ret = pp_hist_collect(hist, hists[i], ctl_base,
-								exp_sum);
+				exp_sum, DSPP);
 			if (ret)
 				pr_debug("hist error: dspp[%d] collect %d\n",
 					dspp_num, ret);
@@ -4471,12 +4478,11 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 				continue;
 			}
 			hist_info = &pipe->pp_res.hist;
-			ctl_base = pipe->base +
-				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
+			ctl_base = pipe->base;
 			if (ret)
 				temp_ret = ret;
 			ret = pp_hist_collect(hist, hist_info, ctl_base,
-								exp_sum);
+				exp_sum, SSPP_VIG);
 			if (ret)
 				pr_debug("hist error: pipe[%d] collect: %d\n",
 					pipe->num, ret);
