@@ -421,7 +421,6 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 
 	entry->id = id;
 	entry->priv = process;
-	entry->dev_priv = dev_priv;
 
 	spin_lock(&process->mem_lock);
 	ret = kgsl_mem_entry_track_gpuaddr(process, entry);
@@ -930,8 +929,7 @@ static struct kgsl_process_private *kgsl_process_private_new(
 	return private;
 }
 
-static void process_release_memory(struct kgsl_device_private *dev_priv,
-		struct kgsl_process_private *private)
+static void process_release_memory(struct kgsl_process_private *private)
 {
 	struct kgsl_mem_entry *entry;
 	int next = 0;
@@ -949,7 +947,7 @@ static void process_release_memory(struct kgsl_device_private *dev_priv,
 		 * free a reference to this entry, other references are from
 		 * within kgsl so they will be freed eventually by kgsl
 		 */
-		if (entry->dev_priv == dev_priv && !entry->pending_free) {
+		if (!entry->pending_free) {
 			entry->pending_free = 1;
 			spin_unlock(&private->mem_lock);
 			kgsl_mem_entry_put(entry);
@@ -1008,7 +1006,7 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	 */
 	mutex_unlock(&kgsl_driver.process_mutex);
 
-	process_release_memory(dev_priv, private);
+	process_release_memory(private);
 
 	kgsl_process_private_put(private);
 }
