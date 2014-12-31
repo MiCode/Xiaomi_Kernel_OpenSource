@@ -327,6 +327,19 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 			intel_pipe->ops->get_vsync_counter(intel_pipe, 0);
 	}
 
+	/* Setting Canvas Color */
+	if ((intel_adf_get_platform_id() == gen_cherryview) &&
+	    STEP_FROM(pipeline->dc_stepping, STEP_B0) && (pipe == PIPE_B) &&
+	    (pri_plane->canvas_updated == true)) {
+		uint64_t color = 0;
+
+		/* BGR 8bpc ==> RGB 10bpc */
+		for (i = 0; i < 3; i++)
+			color |= ((((pri_plane->canvas_col >> (i*8)) &
+				    0xFF) * 1023/255) << ((2-i)*10));
+		regs->canvas_col = color;
+	}
+
 	regs->stride = buf->stride;
 	regs->linearoff = src_y * regs->stride + src_x * bpp;
 	dspaddr_offset = vlv_compute_page_offset(&src_x, &src_y,
@@ -395,6 +408,10 @@ static void vlv_pri_flip(struct intel_plane *plane,
 	REG_WRITE(pri_plane->stride_offset, regs->stride);
 	REG_WRITE(pri_plane->tiled_offset, regs->tileoff);
 	REG_WRITE(pri_plane->linear_offset, regs->linearoff);
+	if (pri_plane->canvas_updated) {
+		REG_WRITE(CHT_PIPE_B_CANVAS_REG, regs->canvas_col);
+		pri_plane->canvas_updated = false;
+	}
 
 	REG_WRITE(pri_plane->offset, regs->dspcntr);
 	I915_MODIFY_DISPBASE(pri_plane->surf_offset, regs->surfaddr);

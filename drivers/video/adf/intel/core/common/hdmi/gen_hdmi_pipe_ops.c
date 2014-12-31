@@ -184,6 +184,7 @@ void hdmi_pre_validate(struct intel_pipe *pipe,
 	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
 	pr_debug("ADF: HDMI: %s\n", __func__);
+	vlv_pipe_pre_validate(pipe, custom);
 	vlv_pm_pre_validate(intel_config, custom, pipeline, pipe);
 }
 

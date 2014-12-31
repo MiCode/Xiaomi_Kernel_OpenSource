@@ -25,6 +25,7 @@ enum {
 struct pri_plane_regs_value {
 	u32 dspcntr;
 	u32 stride;
+	u32 canvas_col;
 	unsigned long linearoff;
 	unsigned long tileoff;
 	unsigned long surfaddr;
@@ -55,7 +56,8 @@ struct vlv_pri_plane {
 	u32 tiled_offset;
 	u32 linear_offset;
 	bool enabled;
-
+	bool canvas_updated;
+	u32 canvas_col;
 	struct vlv_pri_plane_context ctx;
 };
 

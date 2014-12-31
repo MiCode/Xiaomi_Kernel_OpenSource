@@ -454,3 +454,29 @@ bool vlv_pipe_destroy(struct vlv_pipe *pipe)
 
 	return true;
 }
+
+/*
+ * Take interface level configurations to pipe varibles
+ * to use them in flip time.
+ */
+void vlv_pipe_pre_validate(struct intel_pipe *pipe,
+		struct intel_adf_post_custom_data *custom)
+{
+	struct intel_pipeline *pipeline = pipe->pipeline;
+	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
+	struct intel_adf_config *custom_cfg;
+	int i;
+
+	for (i = 0; i < custom->n_configs; i++) {
+		custom_cfg = &custom->configs[i];
+
+		if ((custom_cfg->type == INTEL_ADF_CONFIG_COLOR) &&
+		    (pipe->base.idx == PIPE_B) &&
+		    (custom_cfg->color.flags & INTEL_ADF_COLOR_CANVAS)) {
+
+			vlv_pipeline->pplane.canvas_updated = true;
+			vlv_pipeline->pplane.canvas_col =
+				custom_cfg->color.color;
+		}
+	}
+}

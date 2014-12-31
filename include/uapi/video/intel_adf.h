@@ -125,9 +125,19 @@ struct intel_adf_plane {
 	enum intel_adf_colorspace colorspace:8;
 };
 
+enum intel_adf_color_flags {
+	INTEL_ADF_COLOR_NONE		= 0x00000000,
+
+	/* Canvas color tob used by planes. */
+	INTEL_ADF_COLOR_CANVAS		= 0x00000001,
+
+	/* For future use  */
+	INTEL_ADF_COLOR_PRIVATE_1	= 0x00000002,
+};
+
 /* Configuration for describing a constant color plane */
 struct intel_adf_color {
-	/* Placeholder for future flags. Set to 0 */
+	/* Combination of flags from the intel_adf_color_flags enum */
 	__u32 flags;
 
 	/* device specific color format */

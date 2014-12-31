@@ -71,6 +71,8 @@ u32 vlv_pipe_set_event(struct vlv_pipe *pipe, u32 event, bool enabled);
 u32 vlv_pipe_get_event(struct vlv_pipe *pipe, u32 *event);
 void vlv_pipe_evade_vblank(struct vlv_pipe *pipe,
 		struct drm_mode_modeinfo *mode, bool *wait_for_vblank);
+void vlv_pipe_pre_validate(struct intel_pipe *pipe,
+		struct intel_adf_post_custom_data *custom);
 bool vlv_pipe_init(struct vlv_pipe *pipe, enum pipe enum_pipe);
 bool vlv_pipe_destroy(struct vlv_pipe *pipe);
 

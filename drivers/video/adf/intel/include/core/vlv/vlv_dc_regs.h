@@ -4261,6 +4261,8 @@ extern int chv_cursor_offsets[];
 #define SPCONSTALPHA(pipe, plane) _PIPE(pipe * 2 + plane, _SPACONSTALPHA, _SPBCONSTALPHA)
 #define SPGAMC(pipe, plane) _PIPE(pipe * 2 + plane, _SPAGAMC, _SPBGAMC)
 
+#define CHT_PIPE_B_CANVAS_REG	(VLV_DISPLAY_BASE + 0x61A04)
+
 #define	  PLANE_RESERVED_REG_BIT_2_ENABLE	(1 << 2)
 #define	SPRITE_FORCE_BOTTOM	(1<<2)
 #define	SPRITE_ZORDER_ENABLE	(1<<0)
