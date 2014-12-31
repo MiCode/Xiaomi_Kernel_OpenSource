@@ -83,6 +83,7 @@
 #define PGC_8B_ROUND BIT(1)
 #define PGC_ENABLE BIT(0)
 
+#define HIST_DATA_OFF_DSPP_V1_7 0x1000
 #define HIST_DATA_MASK 0xFFFFFF
 #define DITHER_MATRIX_OFF 0x14
 #define DITHER_MATRIX_INDEX 16
@@ -566,6 +567,7 @@ static int pp_hist_get_config(char __iomem *base_addr, void *cfg_data,
 		ret = -ENOTSUPP;
 		break;
 	case DSPP:
+		base_addr += HIST_DATA_OFF_DSPP_V1_7;
 		break;
 	default:
 		pr_err("Invalid block type %d\n", block_type);

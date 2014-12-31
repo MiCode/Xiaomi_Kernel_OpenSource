@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -267,6 +267,7 @@ enum mdss_mdp_sspp_chroma_samp_type {
 #define MDSS_MDP_REG_VIG_CSC_1_BASE			0x320
 
 #define MDSS_MDP_REG_VIG_HIST_CTL_BASE			0x2C4
+#define MDSS_MDP_REG_VIG_HIST_DATA_BASE			0x2E0
 #define MDSS_MDP_REG_VIG_HIST_LUT_BASE			0x2F0
 
 #define MDSS_MDP_SCALE_FILTER_NEAREST		0x0
@@ -456,6 +457,7 @@ enum mdss_mdp_dspp_index {
 #define MDSS_MDP_REG_DSPP_PCC_BASE			0x030
 #define MDSS_MDP_REG_DSPP_DITHER_DEPTH			0x150
 #define MDSS_MDP_REG_DSPP_HIST_CTL_BASE			0x210
+#define MDSS_MDP_REG_DSPP_HIST_DATA_BASE		0x22C
 #define MDSS_MDP_REG_DSPP_HIST_LUT_BASE			0x230
 #define MDSS_MDP_REG_DSPP_PA_BASE			0x238
 #define MDSS_MDP_REG_DSPP_SIX_ZONE_BASE			0x248
