@@ -76,6 +76,8 @@
 #define AP3426_ALS_INT_MASK		0x01
 #define AP3426_PS_INT_MASK		0x02
 
+#define ALS_GAIN_SWITCH_RATIO		80
+
 /* AP3426 ALS data is 16 bit */
 #define ALS_DATA_MASK		0xffff
 #define ALS_LOW_BYTE(data)	((data) & 0xff)
@@ -148,7 +150,6 @@ struct ap3426_data {
 	int			ps_cal;
 	int			als_gain;
 	int			als_persist;
-	unsigned int		als_sensitivity;
 	int			ps_gain;
 	int			ps_persist;
 	int			ps_led_driver;
@@ -176,6 +177,8 @@ static struct pinctrl_config pin_config = {
 };
 
 static int gain_table[] = { 32768, 8192, 2048, 512 };
+/* within 2% percent of jitter will trigger interrupt */
+static int sensitivity_table[] = { 3000, 400, 100, 1 };
 static int pmt_table[] = { 5, 10, 14, 19 }; /* 5.0 9.6, 14.1 18.7 */
 
 /* PS distance table */
@@ -457,23 +460,10 @@ static int ap3426_parse_dt(struct device *dev, struct ap3426_data *di)
 	}
 	di->ps_wakeup_threshold = value;
 
-	rc = of_property_read_u32(dp, "di,als-sensitivity", &value);
-	if (rc) {
-		dev_info(dev,
-			"di,als-sensitivity is not correctly set");
-		value = AP3426_ALS_SENSITIVITY;
-	}
-
-	/* formula to transfer sensitivity in lux to adc value */
-	di->als_sensitivity = (value * 10 << 16) /
-		(gain_table[di->als_gain] * di->als_cal);
-
-	if (di->als_sensitivity == 0) {
-		dev_info(dev,
-			"als sensitivity %d can't reach. Drop to highest.\n",
-			value);
-		di->als_sensitivity = 1;
-	}
+	rc = of_property_read_u32_array(dp, "di,als-sensitivity",
+			sensitivity_table, ARRAY_SIZE(sensitivity_table));
+	if (rc)
+		dev_info(dev, "read di,als-sensitivity failed. Drop to default\n");
 
 	rc = of_property_read_u32_array(dp, "di,ps-distance-table",
 			ps_distance_table, ARRAY_SIZE(ps_distance_table));
@@ -683,6 +673,120 @@ static int ap3426_calc_conversion_time(struct ap3426_data *di, int als_enabled,
 	return conversion_time;
 }
 
+/* update als gain and threshold */
+static int ap3426_als_update_setting(struct ap3426_data *di,
+		unsigned int raw_value)
+{
+	int i;
+	int rc;
+	unsigned int lux_pre;
+	unsigned int config;
+	unsigned int adc_threshold;
+	unsigned int adc_base;
+	int gain_index; /* new gain index */
+	u8 als_data[4];
+
+	lux_pre = (raw_value * gain_table[di->als_gain]) >> 16;
+
+	for (i = ARRAY_SIZE(gain_table) - 1; i >= 0; i--) {
+		if (lux_pre < gain_table[i] *  ALS_GAIN_SWITCH_RATIO / 100)
+			break;
+	}
+
+	gain_index = i < 0 ? 0 : i;
+
+	/*
+	 * Disable als and enable it again to avoid incorrect value.
+	 * Updating als gain during als measurement cycle will cause
+	 * incorrect light sensor adc value. The logic here is to handle
+	 * this scenario.
+	 */
+	if (di->als_gain != gain_index) {
+		/* read the system config register */
+		rc = regmap_read(di->regmap, AP3426_REG_CONFIG, &config);
+		if (rc) {
+			dev_err(&di->i2c->dev, "read %d failed.(%d)\n",
+					AP3426_REG_CONFIG, rc);
+			return rc;
+		}
+
+		/* disable als_sensor */
+		rc = regmap_write(di->regmap, AP3426_REG_CONFIG,
+				config & (~0x01));
+		if (rc) {
+			dev_err(&di->i2c->dev, "write %d failed.(%d)\n",
+					AP3426_REG_CONFIG, rc);
+			return rc;
+		}
+
+		/* set als gain */
+		rc = regmap_write(di->regmap, AP3426_REG_ALS_GAIN, i << 4);
+		if (rc) {
+			dev_err(&di->i2c->dev, "write %d register failed\n",
+					AP3426_REG_ALS_GAIN);
+			return rc;
+		}
+	}
+
+	adc_base = raw_value * gain_table[di->als_gain] / gain_table[i];
+	adc_threshold = ((10 * sensitivity_table[i]) << 16) /
+		(di->als_cal * gain_table[i]);
+	if (adc_threshold < 1)
+		adc_threshold = 1;
+
+	dev_dbg(&di->i2c->dev, "adc_base:%d adc_threshold:%d\n", adc_base,
+			adc_threshold);
+
+	/* lower threshold */
+	if (adc_base < adc_threshold) {
+		als_data[0] = 0x0;
+		als_data[1] = 0x0;
+	} else {
+		als_data[0] = ALS_LOW_BYTE(adc_base - adc_threshold);
+		als_data[1] = ALS_HIGH_BYTE(adc_base - adc_threshold);
+	}
+
+	/* upper threshold */
+	if (adc_base + adc_threshold > ALS_DATA_MASK) {
+		if (di->als_gain != 0) { /* trigger interrupt anyway */
+			als_data[2] = als_data[0];
+			als_data[3] = als_data[1];
+		} else {
+			als_data[2] = ALS_LOW_BYTE(ALS_DATA_MASK);
+			als_data[3] = ALS_HIGH_BYTE(ALS_DATA_MASK);
+		}
+	} else {
+		als_data[2] = ALS_LOW_BYTE(adc_base + adc_threshold);
+		als_data[3] = ALS_HIGH_BYTE(adc_base + adc_threshold);
+	}
+
+	rc = regmap_bulk_write(di->regmap, AP3426_REG_ALS_LOW_THRES_0,
+			als_data, 4);
+	if (rc) {
+		dev_err(&di->i2c->dev, "write %d failed.(%d)\n",
+				AP3426_REG_ALS_LOW_THRES_0, rc);
+		return rc;
+	}
+
+	dev_dbg(&di->i2c->dev, "als threshold: 0x%x 0x%x 0x%x 0x%x\n",
+			als_data[0], als_data[1], als_data[2],
+			als_data[3]);
+
+	/* Enable als again. */
+	if (di->als_gain != gain_index) {
+		rc = regmap_write(di->regmap, AP3426_REG_CONFIG, config | 0x01);
+		if (rc) {
+			dev_err(&di->i2c->dev, "write %d failed.(%d)\n",
+					AP3426_REG_CONFIG, rc);
+			return rc;
+		}
+
+		di->als_gain = i;
+	}
+
+	return 0;
+}
+
 /* Read raw data, convert it to human readable values, report it and
  * reconfigure the sensor.
  */
@@ -693,7 +797,7 @@ static int ap3426_process_data(struct ap3426_data *di, int als_ps)
 	int rc = 0;
 
 	unsigned int tmp;
-	u8 als_data[4];
+	u8 als_data[2];
 	int lux;
 
 	u8 ps_data[4];
@@ -722,7 +826,10 @@ static int ap3426_process_data(struct ap3426_data *di, int als_ps)
 		dev_dbg(&di->i2c->dev, "lux:%d als_data:0x%x-0x%x\n",
 				lux, als_data[0], als_data[1]);
 
-		if (lux != di->last_als)  {
+		tmp = als_data[0] | (als_data[1] << 8);
+		if (lux != di->last_als && ((tmp != ALS_DATA_MASK) ||
+					((tmp == ALS_DATA_MASK) &&
+					 (di->als_gain == 0)))) {
 			input_report_abs(di->input_light, ABS_MISC, lux);
 			input_event(di->input_light, EV_SYN, SYN_TIME_SEC,
 					ktime_to_timespec(timestamp).tv_sec);
@@ -732,39 +839,14 @@ static int ap3426_process_data(struct ap3426_data *di, int als_ps)
 		}
 
 		di->last_als = lux;
-		/* Set up threshold */
-		tmp = als_data[0] | (als_data[1] << 8);
 
-		/* lower threshold */
-		if (tmp < di->als_sensitivity) {
-			als_data[0] = 0x0;
-			als_data[1] = 0x0;
-		} else {
-			als_data[0] = ALS_LOW_BYTE(tmp - di->als_sensitivity);
-			als_data[1] = ALS_HIGH_BYTE(tmp - di->als_sensitivity);
-		}
+		dev_dbg(&di->i2c->dev, "previous als_gain:%d\n", di->als_gain);
 
-		/* upper threshold */
-		if (tmp + di->als_sensitivity > ALS_DATA_MASK) {
-			als_data[2] = 0xff;
-			als_data[3] = 0xff;
-		} else {
-			als_data[2] = ALS_LOW_BYTE(tmp + di->als_sensitivity);
-			als_data[3] = ALS_HIGH_BYTE(tmp + di->als_sensitivity);
-		}
-
-		rc = regmap_bulk_write(di->regmap, AP3426_REG_ALS_LOW_THRES_0,
-				als_data, 4);
+		rc = ap3426_als_update_setting(di, tmp);
 		if (rc) {
-			dev_err(&di->i2c->dev, "write %d failed.(%d)\n",
-					AP3426_REG_ALS_LOW_THRES_0, rc);
+			dev_err(&di->i2c->dev, "update setting failed\n");
 			goto exit;
 		}
-
-		dev_dbg(&di->i2c->dev, "als threshold: 0x%x 0x%x 0x%x 0x%x\n",
-				als_data[0], als_data[1], als_data[2],
-				als_data[3]);
-
 	} else { /* process ps value*/
 		rc = regmap_bulk_read(di->regmap, AP3426_REG_PS_DATA_LOW,
 				ps_data, 2);
@@ -860,6 +942,7 @@ static void ap3426_report_work(struct work_struct *work)
 	if (rc) {
 		dev_err(&di->i2c->dev, "read %d failed.(%d)\n",
 				AP3426_REG_INT_FLAG, rc);
+		status |= AP3426_PS_INT_MASK;
 		goto exit;
 	}
 
