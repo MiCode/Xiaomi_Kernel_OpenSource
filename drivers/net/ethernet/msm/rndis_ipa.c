@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1287,11 +1287,11 @@ void rndis_ipa_cleanup(void *private)
 	RNDIS_IPA_DEBUG("deregister Tx/Rx properties was successful\n");
 
 	retval = rndis_ipa_hdrs_destroy(rndis_ipa_ctx);
-	if (retval) {
-		RNDIS_IPA_ERROR("Fail to remove headers\n");
-		return;
-	}
-	RNDIS_IPA_DEBUG("RNDIS headers were removed from IPA core\n");
+	if (retval)
+		RNDIS_IPA_ERROR(
+			"Failed removing RNDIS headers from IPA core. Continue anyway\n");
+	else
+		RNDIS_IPA_DEBUG("RNDIS headers were removed from IPA core\n");
 
 	rndis_ipa_debugfs_destroy(rndis_ipa_ctx);
 	RNDIS_IPA_DEBUG("debugfs remove was done\n");
