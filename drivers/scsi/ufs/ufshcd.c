@@ -3984,8 +3984,8 @@ static int ufshcd_complete_dev_init(struct ufs_hba *hba)
 		goto out;
 	}
 
-	/* poll for max. 100 iterations for fDeviceInit flag to clear */
-	for (i = 0; i < 100 && !err && flag_res; i++) {
+	/* poll for max. 1000 iterations for fDeviceInit flag to clear */
+	for (i = 0; i < 1000 && !err && flag_res; i++) {
 		for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
 			err = ufshcd_query_flag(hba,
 					UPIU_QUERY_OPCODE_READ_FLAG,
