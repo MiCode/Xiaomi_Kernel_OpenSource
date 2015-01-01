@@ -1,7 +1,7 @@
 /*
  * Copyright (c) International Business Machines Corp., 2006
  * Copyright (c) Nokia Corporation, 2007
- * Copyright (c) 2014, Linux Foundation. All rights reserved.
+ * Copyright (c) 2014 - 2015, Linux Foundation. All rights reserved.
  * Linux Foundation chooses to take subject only to the GPLv2
  * license terms, and distributes only under these terms.
  *
@@ -152,8 +152,8 @@ static struct device_attribute dev_dt_threshold =
 static struct device_attribute dev_rd_threshold =
 	__ATTR(rd_threshold, S_IRUGO | S_IWUGO, dev_attribute_show,
 		   dev_attribute_store);
-static struct device_attribute dev_mtd_trigger_scan =
-	__ATTR(peb_scan, S_IRUGO | S_IWUSR,
+static struct device_attribute dev_mtd_trigger_scrub =
+	__ATTR(peb_scrub, S_IRUGO | S_IWUSR,
 		dev_attribute_show, dev_attribute_store);
 
 /**
@@ -396,8 +396,8 @@ static ssize_t dev_attribute_show(struct device *dev,
 		ret = sprintf(buf, "%d\n", ubi->dt_threshold);
 	else if (attr == &dev_rd_threshold)
 		ret = sprintf(buf, "%d\n", ubi->rd_threshold);
-	else if (attr == &dev_mtd_trigger_scan)
-		ret = sprintf(buf, "%d\n", ubi->scan_in_progress);
+	else if (attr == &dev_mtd_trigger_scrub)
+		ret = snprintf(buf, 3, "%d\n", ubi->scrub_in_progress);
 	else
 		ret = -EINVAL;
 
@@ -435,7 +435,7 @@ static ssize_t dev_attribute_store(struct device *dev,
 		else
 			pr_err("Max supported threshold value is %d",
 				   UBI_MAX_READCOUNTER);
-	} else if (attr == &dev_mtd_trigger_scan) {
+	} else if (attr == &dev_mtd_trigger_scrub) {
 		if (value != 1) {
 			pr_err("Invalid input. Echo 1 to start trigger");
 			goto out;
@@ -444,10 +444,12 @@ static ssize_t dev_attribute_store(struct device *dev,
 			pr_err("lookuptbl is null");
 			goto out;
 		}
-		ret = ubi_wl_scan_all(ubi);
+		ret = ubi_wl_scrub_all(ubi);
 	}
 
 out:
+	if (ret == 0)
+		ret = count;
 	ubi_put_device(ubi);
 	return ret;
 }
@@ -520,7 +522,7 @@ static int ubi_sysfs_init(struct ubi_device *ubi, int *ref)
 	err = device_create_file(&ubi->dev, &dev_rd_threshold);
 	if (err)
 		return err;
-	err = device_create_file(&ubi->dev, &dev_mtd_trigger_scan);
+	err = device_create_file(&ubi->dev, &dev_mtd_trigger_scrub);
 	return err;
 }
 
@@ -530,7 +532,7 @@ static int ubi_sysfs_init(struct ubi_device *ubi, int *ref)
  */
 static void ubi_sysfs_close(struct ubi_device *ubi)
 {
-	device_remove_file(&ubi->dev, &dev_mtd_trigger_scan);
+	device_remove_file(&ubi->dev, &dev_mtd_trigger_scrub);
 	device_remove_file(&ubi->dev, &dev_mtd_num);
 	device_remove_file(&ubi->dev, &dev_dt_threshold);
 	device_remove_file(&ubi->dev, &dev_rd_threshold);
