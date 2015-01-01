@@ -37,7 +37,6 @@ obj-$(CONFIG_PHY_QCOM_APQ8064_SATA)	+= phy-qcom-apq8064-sata.o
 obj-$(CONFIG_PHY_ROCKCHIP_USB) += phy-rockchip-usb.o
 obj-$(CONFIG_PHY_QCOM_IPQ806X_SATA)	+= phy-qcom-ipq806x-sata.o
 obj-$(CONFIG_SCSI_UFS_QCOM) 	+= phy-qcom-ufs.o
-obj-$(CONFIG_SCSI_UFS_QCOM) 	+= phy-qcom-ufs-qmp-28nm.o
 obj-$(CONFIG_SCSI_UFS_QCOM) 	+= phy-qcom-ufs-qmp-20nm.o
 obj-$(CONFIG_PHY_ST_SPEAR1310_MIPHY)	+= phy-spear1310-miphy.o
 obj-$(CONFIG_PHY_ST_SPEAR1340_MIPHY)	+= phy-spear1340-miphy.o
