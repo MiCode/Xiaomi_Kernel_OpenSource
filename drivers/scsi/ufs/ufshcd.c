@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -3975,8 +3975,8 @@ static int ufshcd_complete_dev_init(struct ufs_hba *hba)
 		goto out;
 	}
 
-	/* poll for max. 100 iterations for fDeviceInit flag to clear */
-	for (i = 0; i < 100 && !err && flag_res; i++) {
+	/* poll for max. 1000 iterations for fDeviceInit flag to clear */
+	for (i = 0; i < 1000 && !err && flag_res; i++) {
 		for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
 			err = ufshcd_query_flag(hba,
 					UPIU_QUERY_OPCODE_READ_FLAG,
