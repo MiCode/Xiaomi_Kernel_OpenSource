@@ -179,7 +179,7 @@ static void convert_ibat_to_adc_val(int *val)
 		return;
 	perph_data = &bcl_perph->param[BCL_PARAM_CURRENT];
 	*val /= (*val * 100 / (100 + perph_data->gain_factor_num
-		* BCL_CONSTANT_NUM / perph_data->offset_factor_den)
+		* BCL_CONSTANT_NUM / perph_data->gain_factor_den)
 		- perph_data->offset_factor_num
 		/ perph_data->offset_factor_den)
 		/  perph_data->scaling_factor;
@@ -197,7 +197,7 @@ static void convert_adc_to_ibat_val(int *val)
 		+ perph_data->offset_factor_num
 		/ perph_data->offset_factor_den)
 		* (100 + perph_data->gain_factor_num
-		* BCL_CONSTANT_NUM / perph_data->offset_factor_den) / 100;
+		* BCL_CONSTANT_NUM / perph_data->gain_factor_den) / 100;
 	return;
 }
 
