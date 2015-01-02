@@ -673,6 +673,8 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 		}
 	}
 
+	c->last_level = c->nlevels-1;
+
 	return c;
 
 failed_parse_cluster:
