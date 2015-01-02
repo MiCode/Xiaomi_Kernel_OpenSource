@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -156,10 +156,6 @@ static int kick_l2spm_8994(struct device_node *l2ccc_node,
 		cpu_relax();
 		usleep(100);
 	}
-
-	val = scm_io_read((u32)res.start);
-	val &= ~BIT(0);
-	scm_io_write((u32)res.start, val);
 
 bail_l2_pwr_bit:
 	iounmap(l2spm_base);
@@ -382,8 +378,10 @@ int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu)
 {
 
 	int ret = 0;
+	int val;
 	struct device_node *cpu_node, *acc_node, *l2_node, *l2ccc_node;
 	void __iomem *acc_reg, *ldo_bhs_reg;
+	struct resource res;
 
 	cpu_node = of_get_cpu_node(cpu, NULL);
 	if (!cpu_node)
@@ -466,8 +464,16 @@ int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu)
 	/* Assert PWRDUP */
 	writel_relaxed(0x0000008C, acc_reg + CPU_PWR_CTL);
 	mb();
-
 	iounmap(acc_reg);
+
+	ret = of_address_to_resource(l2ccc_node, 1, &res);
+	if (ret)
+		goto out_acc_reg;
+
+	val = scm_io_read((u32)res.start);
+	val &= BIT(0);
+	scm_io_write((u32)res.start, val);
+
 out_acc_reg:
 	iounmap(ldo_bhs_reg);
 out_bhs_reg:
