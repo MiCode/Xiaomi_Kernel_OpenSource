@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,6 +201,7 @@
 #define GTCU_AHB_CBCR			0x12044
 #define IPA_TBU_CBCR			0x120A0
 #define SYSTEM_MM_NOC_CMD_RCGR		0x3D000
+#define USB_FS_BCR			0x3F000
 
 #define RPM_MISC_CLK_TYPE		0x306b6c63
 #define RPM_BUS_CLK_TYPE		0x316b6c63
