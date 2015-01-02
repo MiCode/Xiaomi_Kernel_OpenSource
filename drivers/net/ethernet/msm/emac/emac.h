@@ -207,8 +207,6 @@ enum emac_adapter_flags {
 struct emac_hw {
 	void __iomem *reg_addr[NUM_EMAC_REG_BASES];
 
-	struct emac_adapter *adpt;
-
 	u16     devid;
 	u16     revid;
 
@@ -706,6 +704,11 @@ struct emac_adapter {
 	u16             msg_enable;
 	unsigned long   flags;
 };
+
+static inline struct emac_adapter *emac_hw_get_adap(struct emac_hw *hw)
+{
+	return container_of(hw, struct emac_adapter, hw);
+}
 
 /* default to trying for four seconds */
 #define EMAC_TRY_LINK_TIMEOUT     (4 * HZ)

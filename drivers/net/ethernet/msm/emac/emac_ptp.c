@@ -51,7 +51,7 @@ static const struct emac_tstamp_hw_delay emac_ptp_hw_delay[] = {
 
 static inline u32 get_rtc_ref_clkrate(struct emac_hw *hw)
 {
-	struct emac_adapter *adpt = hw->adpt;
+	struct emac_adapter *adpt = emac_hw_get_adap(hw);
 	struct emac_clk_info *clk_info = &adpt->clk_info[EMAC_125M_CLK];
 
 	return clk_get_rate(clk_info->clk);
@@ -154,7 +154,8 @@ static int emac_hw_adjust_tstamp_offset(struct emac_hw *hw,
 {
 	const struct emac_tstamp_hw_delay *delay_info;
 
-	delay_info = emac_get_ptp_hw_delay(link_speed, hw->adpt->phy_mode);
+	delay_info = emac_get_ptp_hw_delay(link_speed,
+					   emac_hw_get_adap(hw)->phy_mode);
 
 	if (clk_mode == emac_ptp_clk_mode_oc_one_step) {
 		u32 latency = (delay_info) ? delay_info->tx : 0;
@@ -247,7 +248,8 @@ static int emac_hw_1588_core_enable(struct emac_hw *hw,
 {
 	if ((clk_mode != emac_ptp_clk_mode_oc_one_step) &&
 	    (clk_mode != emac_ptp_clk_mode_oc_two_step)) {
-		emac_dbg(hw->adpt, hw, "invalid ptp clk mode %d\n", clk_mode);
+		emac_dbg(emac_hw_get_adap(hw), hw, "invalid ptp clk mode %d\n",
+			 clk_mode);
 		return -EINVAL;
 	}
 
@@ -378,7 +380,7 @@ static void rtc_ns_sync_pps_in(struct emac_hw *hw)
 
 	if (delta) {
 		rtc_adjtime(hw, delta);
-		emac_dbg(hw->adpt, intr,
+		emac_dbg(emac_hw_get_adap(hw), intr,
 			 "RTC_SYNC: gm_pps_tstamp_ns 0x%08x, adjust %lldns\n",
 			 ts, delta);
 	}
@@ -416,7 +418,7 @@ int emac_ptp_config(struct emac_hw *hw)
 	getnstimeofday(&ts);
 	rtc_settime(hw, &ts);
 
-	hw->adpt->irq_info[0].mask |= PTP_INT;
+	emac_hw_get_adap(hw)->irq_info[0].mask |= PTP_INT;
 	hw->ptp_intr_mask = PPS_IN;
 
 unlock_out:
@@ -436,7 +438,7 @@ int emac_ptp_stop(struct emac_hw *hw)
 		ret = emac_hw_1588_core_disable(hw);
 
 	hw->ptp_intr_mask = 0;
-	hw->adpt->irq_info[0].mask &= ~PTP_INT;
+	emac_hw_get_adap(hw)->irq_info[0].mask &= ~PTP_INT;
 
 	spin_unlock_irqrestore(&hw->ptp_lock, flag);
 
@@ -464,7 +466,8 @@ void emac_ptp_intr(struct emac_hw *hw)
 	isr = emac_reg_r32(hw, EMAC_1588, EMAC_P1588_PTP_EXPANDED_INT_STATUS);
 	status = isr & hw->ptp_intr_mask;
 
-	emac_dbg(hw->adpt, intr, "receive ptp interrupt: isr 0x%x\n", isr);
+	emac_dbg(emac_hw_get_adap(hw), intr,
+		 "receive ptp interrupt: isr 0x%x\n", isr);
 
 	if (status & PPS_IN)
 		emac_ptp_rtc_ns_sync(hw);
