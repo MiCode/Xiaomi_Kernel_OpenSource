@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3163,7 +3163,17 @@ static void i2c_msm_pm_suspend(struct device *dev)
 	i2c_msm_dbg(ctrl, MSM_DBG, "suspending...");
 	i2c_msm_pm_pinctrl_state(ctrl, false);
 	i2c_msm_clk_path_unvote(ctrl);
-	ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
+	/*
+	 * We implement system and runtime suspend in the same way. However
+	 * it is important for us to distinguish between them in when servicing
+	 * a transfer requests. If we get transfer request while in runtime
+	 * suspend we want to simply wake up and service that request. But if we
+	 * get a transfer request while system is suspending we want to bail
+	 * out on that request. This is why if we marked that we are in system
+	 * suspend, we do not want to override that state with runtime suspend.
+	 */
+	if (ctrl->pwr_state != MSM_I2C_PM_SYS_SUSPENDED)
+		ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
 	return;
 }
 
@@ -3191,12 +3201,12 @@ static int i2c_msm_pm_sys_suspend_noirq(struct device *dev)
 	int ret = 0;
 	struct i2c_msm_ctrl *ctrl = dev_get_drvdata(dev);
 	enum msm_i2c_power_state prev_state = ctrl->pwr_state;
-	i2c_msm_dbg(ctrl, MSM_DBG, "pm_sys_noirq: suspending...");
 
 	/* Acquire mutex to ensure current transaction is over */
 	mutex_lock(&ctrl->xfer.mtx);
 	ctrl->pwr_state = MSM_I2C_PM_SYS_SUSPENDED;
 	mutex_unlock(&ctrl->xfer.mtx);
+	i2c_msm_dbg(ctrl, MSM_DBG, "pm_sys_noirq: suspending...");
 
 	if (prev_state == MSM_I2C_PM_ACTIVE) {
 		i2c_msm_pm_suspend(dev);
