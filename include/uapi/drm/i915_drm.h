@@ -435,6 +435,7 @@ typedef struct drm_i915_irq_wait {
 #define I915_PARAM_CMD_PARSER_VERSION	 28
 #define I915_PARAM_HAS_DPST		 29
 #define I915_PARAM_EU_COUNT		 30
+#define I915_PARAM_MMAP_VERSION		 31
 
 typedef struct drm_i915_getparam {
 	int param;
@@ -582,6 +583,14 @@ struct drm_i915_gem_mmap {
 	 * This is a fixed-size type for 32/64 compatibility.
 	 */
 	__u64 addr_ptr;
+
+	/**
+	 * Flags for extended behaviour.
+	 *
+	 * Added in version 2.
+	 */
+	__u64 flags;
+#define I915_MMAP_WC 0x1
 };
 
 struct drm_i915_gem_mmap_gtt {
