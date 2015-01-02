@@ -115,6 +115,10 @@ static struct mfd_cell dollar_cove_ti_dev[] = {
 		.name = "intel_fg_iface",
 		.id = 0,
 	},
+	{
+		.name = "dc_ti_region",
+		.id = 0,
+	},
 	{NULL, },
 };
 

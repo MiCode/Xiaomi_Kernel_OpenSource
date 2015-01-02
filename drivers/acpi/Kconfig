@@ -416,6 +416,12 @@ config DC_PMIC_OPREGION
 	help
 	  This config adds ACPI operation region support for DollarCove PMIC.
 
+config DC_TI_PMIC_OPREGION
+	bool "ACPI operation region support for TI Dollar Cove PMIC"
+	depends on INTEL_SOC_PMIC
+	help
+	  This config adds ACPI operation region support for TI DollarCove PMIC.
+
 endif
 
 endif	# ACPI

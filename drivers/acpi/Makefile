@@ -91,4 +91,5 @@ obj-$(CONFIG_PMIC_OPREGION)	+= pmic_opregion/intel_soc_pmic_opregion.o
 obj-$(CONFIG_CRC_PMIC_OPREGION) += pmic_opregion/intel_soc_pmic_crc_opregion.o
 obj-$(CONFIG_WC_PMIC_OPREGION) += pmic_opregion/intel_soc_pmic_wc_opregion.o
 obj-$(CONFIG_DC_PMIC_OPREGION) += pmic_opregion/intel_soc_pmic_dc_opregion.o
+obj-$(CONFIG_DC_TI_PMIC_OPREGION) += pmic_opregion/intel_soc_pmic_dc_ti_opregion.o
 
