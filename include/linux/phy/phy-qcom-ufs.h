@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,26 +90,7 @@ struct ufs_qcom_phy {
 	 * before executing the hibern8 exit command.
 	 * Note that this quirk will help restoring the PHY state if even when
 	 * link in not kept in hibern8 during suspend.
-	 *
-	 * Here is the list of steps to save/restore the configuration:
-	 * Before entering into system suspend:
-	 *	1. Read Critical PCS SWI Registers  + less critical PHY CSR
-	 *	2. Read RMMI Attributes
-	 * Enter into system suspend
-	 * After exiting from system suspend:
-	 *	1. Set UFS_PHY_SOFT_RESET bit in UFS_CFG1 register of the UFS
-	 *	   Controller
-	 *	2. Write 0x01 to the UFS_PHY_POWER_DOWN_CONTROL register in the
-	 *	   UFS PHY
-	 *	3. Write back the values of the PHY SWI registers
-	 *	4. Clear UFS_PHY_SOFT_RESET bit in UFS_CFG1 register of the UFS
-	 *	   Controller
-	 *	5. Write 0x01 to the UFS_PHY_PHY_START in the UFS PHY. This will
-	 *	   start the PLL calibration and bring-up of the PHY.
-	 *	6. Write back the values to the PHY RMMI Attributes
-	 *	7. Wait for UFS_PHY_PCS_READY_STATUS[0] to be '1'
 	 */
-	#define UFS_QCOM_PHY_QUIRK_CFG_RESTORE		(1 << 0)
 
 	/*
 	* If UFS PHY power down is deasserted and power is restored to analog
@@ -118,7 +99,7 @@ struct ufs_qcom_phy {
 	* it to exit Hibern8. Disabling the rx_sigdet during power-up masks
 	* the glitch.
 	*/
-	#define UFS_QCOM_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE	(1 << 1)
+	#define UFS_QCOM_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE	BIT(0)
 
 	/*
 	* If UFS link is put into Hibern8 and if UFS PHY analog hardware is
@@ -127,7 +108,7 @@ struct ufs_qcom_phy {
 	* Enabling this quirk will help to solve above issue by doing
 	* custom PHY settings just before PHY analog power collapse.
 	*/
-	#define UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE	(1 << 2)
+	#define UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE	BIT(1)
 
 	char name[UFS_QCOM_PHY_NAME_LEN];
 	struct ufs_qcom_phy_calibration *cached_regs;
@@ -177,14 +158,11 @@ int ufs_qcom_phy_link_startup_post_change(struct phy *phy,
 			struct ufs_hba *hba);
 int ufs_qcom_phy_base_init(struct platform_device *pdev,
 			struct ufs_qcom_phy *ufs_qcom_phy_ops);
-int ufs_qcom_phy_is_cfg_restore_quirk_enabled(struct phy *phy);
 struct ufs_qcom_phy *get_ufs_qcom_phy(struct phy *generic_phy);
 int ufs_qcom_phy_start_serdes(struct phy *generic_phy);
 int ufs_qcom_phy_set_tx_lane_enable(struct phy *generic_phy, u32 tx_lanes);
 int ufs_qcom_phy_calibrate_phy(struct phy *generic_phy);
 int ufs_qcom_phy_is_pcs_ready(struct phy *generic_phy);
-int ufs_qcom_phy_save_configuration(struct phy *generic_phy);
-int ufs_qcom_phy_restore_configuration(struct phy *generic_phy);
 void ufs_qcom_phy_save_controller_version(struct phy *generic_phy,
 			u8 major, u16 minor, u16 step);
 int ufs_qcom_phy_power_on(struct phy *generic_phy);

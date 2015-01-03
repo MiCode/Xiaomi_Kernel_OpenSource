@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -529,22 +529,6 @@ void ufs_qcom_phy_disable_dev_ref_clk(struct phy *generic_phy)
 	ufs_qcom_phy_dev_ref_clk_ctrl(generic_phy, false);
 }
 
-void ufs_qcom_phy_restore_swi_regs(struct phy *generic_phy)
-{
-	int i;
-	struct ufs_qcom_phy *phy = get_ufs_qcom_phy(generic_phy);
-
-	for (i = 0; i < phy->cached_regs_table_size; i++) {
-		struct ufs_qcom_phy_calibration *table =
-			(struct ufs_qcom_phy_calibration *)phy->cached_regs;
-		writel_relaxed(table[i].cfg_value, phy->mmio +
-				table[i].reg_offset);
-	}
-
-	/* flush buffered writes */
-	mb();
-}
-
 /* Turn ON M-PHY RMMI interface clocks */
 int ufs_qcom_phy_enable_iface_clk(struct phy *generic_phy)
 {
@@ -583,13 +567,6 @@ void ufs_qcom_phy_disable_iface_clk(struct phy *generic_phy)
 		clk_disable_unprepare(phy->rx_iface_clk);
 		phy->is_iface_clk_enabled = false;
 	}
-}
-
-int ufs_qcom_phy_is_cfg_restore_quirk_enabled(struct phy *phy)
-{
-	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(phy);
-
-	return ufs_qcom_phy->quirks & UFS_QCOM_PHY_QUIRK_CFG_RESTORE;
 }
 
 int ufs_qcom_phy_start_serdes(struct phy *generic_phy)
@@ -688,38 +665,6 @@ int ufs_qcom_phy_is_pcs_ready(struct phy *generic_phy)
 
 	return ufs_qcom_phy->phy_spec_ops->
 			is_physical_coding_sublayer_ready(ufs_qcom_phy);
-}
-
-int ufs_qcom_phy_save_configuration(struct phy *generic_phy)
-{
-	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
-	int ret = 0;
-
-	if (!ufs_qcom_phy->phy_spec_ops->save_configuration) {
-		dev_err(ufs_qcom_phy->dev, "%s: save_configuration() callback is not supported\n",
-			__func__);
-		ret = -ENOTSUPP;
-	} else {
-		ufs_qcom_phy->phy_spec_ops->save_configuration(ufs_qcom_phy);
-	}
-
-	return ret;
-}
-
-int ufs_qcom_phy_restore_configuration(struct phy *generic_phy)
-{
-	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
-	int ret = 0;
-
-	if (!ufs_qcom_phy->phy_spec_ops->restore_configuration) {
-		dev_err(ufs_qcom_phy->dev, "%s: restore_configuration() callback is not supported\n",
-			__func__);
-		ret = -ENOTSUPP;
-	} else {
-		ufs_qcom_phy->phy_spec_ops->restore_configuration(ufs_qcom_phy);
-	}
-
-	return ret;
 }
 
 int ufs_qcom_phy_power_on(struct phy *generic_phy)

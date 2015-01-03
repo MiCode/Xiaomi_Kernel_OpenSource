@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -494,13 +494,6 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	 * rail and low noise analog power rail for PLL can be switched off.
 	 */
 	if (!ufs_qcom_is_link_active(hba)) {
-		if (ufs_qcom_phy_is_cfg_restore_quirk_enabled(phy) &&
-		    ufs_qcom_is_link_hibern8(hba)) {
-			ret = ufs_qcom_phy_save_configuration(phy);
-			if (ret)
-				dev_err(hba->dev, "%s: failed ufs_qcom_phy_save_configuration %d\n",
-					__func__, ret);
-		}
 		phy_power_off(phy);
 		ufs_qcom_ice_suspend(host);
 	}
@@ -509,67 +502,17 @@ out:
 	return ret;
 }
 
-static bool ufs_qcom_is_phy_config_restore_required(struct ufs_hba *hba)
-{
-	struct ufs_qcom_host *host = hba->priv;
-	struct phy *phy = host->generic_phy;
-
-	return ufs_qcom_phy_is_cfg_restore_quirk_enabled(phy)
-		&& ufshcd_is_link_hibern8(hba)
-		&& hba->is_sys_suspended;
-}
-
 static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_qcom_host *host = hba->priv;
 	struct phy *phy = host->generic_phy;
 	int err;
 
-	if (ufs_qcom_is_phy_config_restore_required(hba)) {
-		ufs_qcom_assert_reset(hba);
-		/* provide 1ms delay to let the reset pulse propagate */
-		usleep_range(1000, 1100);
-	}
-
 	err = phy_power_on(phy);
 	if (err) {
 		dev_err(hba->dev, "%s: failed enabling regs, err = %d\n",
 			__func__, err);
 		goto out;
-	}
-
-	if (ufs_qcom_is_phy_config_restore_required(hba)) {
-		ufs_qcom_phy_restore_swi_regs(phy);
-
-		/* De-assert PHY reset and start serdes */
-		ufs_qcom_deassert_reset(hba);
-
-		/*
-		 * after reset deassertion, phy will need all ref clocks,
-		 * voltage, current to settle down before starting serdes.
-		 */
-		usleep_range(1000, 1100);
-
-		err = ufs_qcom_phy_start_serdes(phy);
-		if (err) {
-			dev_err(hba->dev, "%s: ufs_qcom_phy_start_serdes() failed, err = %d\n",
-				__func__, err);
-			goto out;
-		}
-
-		err = ufs_qcom_phy_restore_configuration(phy);
-		if (err) {
-			dev_err(hba->dev, "%s: ufs_qcom_phy_restore_configuration() failed, err = %d\n",
-				__func__, err);
-			goto out;
-		}
-
-		err = ufs_qcom_phy_is_pcs_ready(phy);
-		if (err) {
-			dev_err(hba->dev, "%s: is_physical_coding_sublayer_ready() failed, err = %d\n",
-				__func__, err);
-			goto out;
-		}
 	}
 
 	err = ufs_qcom_ice_resume(host);
