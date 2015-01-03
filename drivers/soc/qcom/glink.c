@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2918,10 +2918,10 @@ static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 	if (!l_ctx)
 		l_ctx = find_l_ctx_get(r_ctx);
 	else
-		rwref_get(&r_ctx->ch_state_lhc0);
+		rwref_get(&l_ctx->ch_state_lhc0);
 	if (!l_ctx) {
-		rwref_put(&l_ctx->ch_state_lhc0);
-		goto exit;
+		rwref_put(&r_ctx->ch_state_lhc0);
+		return migrated;
 	}
 
 	if (l_ctx->local_xprt_req == r_ctx->remote_xprt_req &&
