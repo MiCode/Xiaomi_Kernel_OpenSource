@@ -831,6 +831,7 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 {
 	u8 major;
 	u16 minor, step;
+	struct ufs_qcom_host *host = hba->priv;
 
 	ufs_qcom_get_controller_revision(hba, &major, &minor, &step);
 
@@ -842,6 +843,16 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 
 		if ((minor == 0x001) && (step == 0x0001))
 			hba->quirks |= UFSHCD_QUIRK_BROKEN_INTR_AGGR;
+	}
+
+	if (major >= 0x2) {
+		hba->quirks |= UFSHCD_QUIRK_BROKEN_LCC;
+
+		if (!ufs_qcom_cap_qunipro(host))
+			/* Legacy UniPro mode still need following quirks */
+			hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
+				| UFSHCD_QUIRK_DME_PEER_ACCESS_AUTO_MODE
+				| UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP);
 	}
 }
 
