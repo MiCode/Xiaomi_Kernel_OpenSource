@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1942,9 +1942,9 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 	}
 
 	/* Make sure that there is no Tx operation ongoing */
-	netif_tx_lock(netdev);
+	netif_tx_lock_bh(netdev);
 	ipa_rm_release_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
-	netif_tx_unlock(netdev);
+	netif_tx_unlock_bh(netdev);
 	IPAWANDBG("Exit\n");
 
 	return 0;
