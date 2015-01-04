@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -545,11 +545,6 @@ static void ufs_test_random_async_query(void *data, async_cookie_t cookie)
 	case UPIU_QUERY_OPCODE_WRITE_DESC:
 		ret = ufshcd_query_descriptor(hba, UPIU_QUERY_OPCODE_READ_DESC,
 				QUERY_DESC_IDN_UNIT, 0, 0, desc_buf, &buff_len);
-		if (ret || op == UPIU_QUERY_OPCODE_READ_DESC)
-			break;
-
-		ret = ufshcd_query_descriptor(hba, UPIU_QUERY_OPCODE_WRITE_DESC,
-				QUERY_DESC_IDN_UNIT, 0, 0, desc_buf, &buff_len);
 		break;
 	case UPIU_QUERY_OPCODE_WRITE_ATTR:
 	case UPIU_QUERY_OPCODE_READ_ATTR:
@@ -614,6 +609,7 @@ static void scenario_free_end_io_fn(struct request *rq, int err)
 	spin_unlock_irq(&ptd->lock);
 
 	kfree(test_rq->bios_buffer);
+	test_iosched_free_test_req_data_buffer(test_rq);
 	kfree(test_rq);
 
 	if (err)
@@ -889,7 +885,7 @@ static void long_test_free_end_io_fn(struct request *rq, int err)
 		return;
 	}
 
-	kfree(test_rq->bios_buffer);
+	test_iosched_free_test_req_data_buffer(test_rq);
 	kfree(test_rq);
 	utd->completed_req_count++;
 
