@@ -368,7 +368,8 @@ static const struct of_device_id fg_match_table[] = {
 };
 
 static char *fg_supplicants[] = {
-	"battery"
+	"battery",
+	"bcl"
 };
 
 #define DEBUG_PRINT_BUFFER_SIZE 64

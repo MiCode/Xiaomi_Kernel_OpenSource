@@ -45,6 +45,9 @@ Optional parameters:
 - qcom,bcl-hotplug-list = <hotplug-phandle-list>: List of phandles to the cores
 		that are to be hotplugged, when battery current limit condition
 		is reached.
+- qcom,bcl-soc-hotplug-list: List of phandles to the cores that are to be hotplugged,
+		when battery SOC limit condition is reached.
+
 - qcom,bcl-no-bms: This is an optional node for BCL IAVAIL monitor mode.
 		If this property is defined, BCL IAVAIL monitor gets rbat value
 		from power supply battery module instead of bms module.
@@ -89,6 +92,9 @@ Optional nodes:
 		thermal driver places during vdd restriction. This frequency
 		value will be the lowest max frequency value the BCL driver can
 		request.
+	* qcom,soc-low-threshold: The battery SOC percentage threshold below which
+		mitigation needs to be applied.
+
 
 Example:
 	qcom,bcl {
