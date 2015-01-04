@@ -3333,100 +3333,84 @@ int msm_ipc_router_close(void)
 }
 
 #if defined(CONFIG_DEBUG_FS)
-static int dump_routing_table(char *buf, int max)
+static void dump_routing_table(struct seq_file *s)
 {
-	int i = 0, j;
+	int j;
 	struct msm_ipc_routing_table_entry *rt_entry;
 
+	seq_printf(s, "%-10s|%-20s|%-10s|\n",
+			"Node Id", "XPRT Name", "Next Hop");
+	seq_puts(s, "----------------------------------------------\n");
 	for (j = 0; j < RT_HASH_SIZE; j++) {
 		down_read(&routing_table_lock_lha3);
 		list_for_each_entry(rt_entry, &routing_table[j], list) {
 			down_read(&rt_entry->lock_lha4);
-			i += scnprintf(buf + i, max - i,
-				       "Node Id: 0x%08x\n", rt_entry->node_id);
-			if (rt_entry->node_id == IPC_ROUTER_NID_LOCAL) {
-				i += scnprintf(buf + i, max - i,
-				       "XPRT Name: Loopback\n");
-				i += scnprintf(buf + i, max - i,
-				       "Next Hop: %d\n", rt_entry->node_id);
-			} else {
-				i += scnprintf(buf + i, max - i,
-					"XPRT Name: %s\n",
-					rt_entry->xprt_info->xprt->name);
-				i += scnprintf(buf + i, max - i,
-					"Next Hop: 0x%08x\n",
-					rt_entry->xprt_info->remote_node_id);
-			}
-			i += scnprintf(buf + i, max - i, "\n");
+			seq_printf(s, "0x%08x|", rt_entry->node_id);
+			if (rt_entry->node_id == IPC_ROUTER_NID_LOCAL)
+				seq_printf(s, "%-20s|0x%08x|\n",
+				       "Loopback", rt_entry->node_id);
+			else
+				seq_printf(s, "%-20s|0x%08x|\n",
+				       rt_entry->xprt_info->xprt->name,
+				       rt_entry->node_id);
 			up_read(&rt_entry->lock_lha4);
 		}
 		up_read(&routing_table_lock_lha3);
 	}
-
-	return i;
 }
 
-static int dump_xprt_info(char *buf, int max)
+static void dump_xprt_info(struct seq_file *s)
 {
-	int i = 0;
 	struct msm_ipc_router_xprt_info *xprt_info;
 
+	seq_printf(s, "%-20s|%-10s|%-12s|%-15s|\n",
+			"XPRT Name", "Link ID",
+			"Initialized", "Remote Node Id");
+	seq_puts(s, "------------------------------------------------------------\n");
 	down_read(&xprt_info_list_lock_lha5);
-	list_for_each_entry(xprt_info, &xprt_info_list, list) {
-		i += scnprintf(buf + i, max - i, "XPRT Name: %s\n",
-			       xprt_info->xprt->name);
-		i += scnprintf(buf + i, max - i, "Link Id: %d\n",
-			       xprt_info->xprt->link_id);
-		i += scnprintf(buf + i, max - i, "Initialized: %s\n",
-			       (xprt_info->initialized ? "Y" : "N"));
-		i += scnprintf(buf + i, max - i, "Remote Node Id: 0x%08x\n",
+	list_for_each_entry(xprt_info, &xprt_info_list, list)
+		seq_printf(s, "%-20s|0x%08x|%-12s|0x%08x|\n",
+			       xprt_info->xprt->name,
+			       xprt_info->xprt->link_id,
+			       (xprt_info->initialized ? "Y" : "N"),
 			       xprt_info->remote_node_id);
-		i += scnprintf(buf + i, max - i, "\n");
-	}
 	up_read(&xprt_info_list_lock_lha5);
-
-	return i;
 }
 
-static int dump_servers(char *buf, int max)
+static void dump_servers(struct seq_file *s)
 {
-	int i = 0, j;
+	int j;
 	struct msm_ipc_server *server;
 	struct msm_ipc_server_port *server_port;
 
+	seq_printf(s, "%-11s|%-11s|%-11s|%-11s|\n",
+			"Service", "Instance", "Node_id", "Port_id");
+	seq_puts(s, "------------------------------------------------------------\n");
 	down_read(&server_list_lock_lha2);
 	for (j = 0; j < SRV_HASH_SIZE; j++) {
 		list_for_each_entry(server, &server_list[j], list) {
 			list_for_each_entry(server_port,
 					    &server->server_port_list,
-					    list) {
-				i += scnprintf(buf + i, max - i,
-					"Service: 0x%08x\n",
-					server->name.service);
-				i += scnprintf(buf + i, max - i,
-					"Instance: 0x%08x\n",
-					server->name.instance);
-				i += scnprintf(buf + i, max - i,
-					"Node_id: 0x%08x\n",
-					server_port->server_addr.node_id);
-				i += scnprintf(buf + i, max - i,
-					"Port_id: 0x%08x\n",
+					    list)
+				seq_printf(s, "0x%08x |0x%08x |0x%08x |0x%08x |\n",
+					server->name.service,
+					server->name.instance,
+					server_port->server_addr.node_id,
 					server_port->server_addr.port_id);
-				i += scnprintf(buf + i, max - i, "\n");
-			}
 		}
 	}
 	up_read(&server_list_lock_lha2);
-
-	return i;
 }
 
-static int dump_remote_ports(char *buf, int max)
+static void dump_remote_ports(struct seq_file *s)
 {
-	int i = 0, j, k;
+	int j, k;
 	struct msm_ipc_router_remote_port *rport_ptr;
 	struct msm_ipc_routing_table_entry *rt_entry;
 
+	seq_printf(s, "%-11s|%-11s|%-10s|\n",
+			"Node_id", "Port_id", "Quota_cnt");
+	seq_puts(s, "------------------------------------------------------------\n");
 	for (j = 0; j < RT_HASH_SIZE; j++) {
 		down_read(&routing_table_lock_lha3);
 		list_for_each_entry(rt_entry, &routing_table[j], list) {
@@ -3434,102 +3418,77 @@ static int dump_remote_ports(char *buf, int max)
 			for (k = 0; k < RP_HASH_SIZE; k++) {
 				list_for_each_entry(rport_ptr,
 					&rt_entry->remote_port_list[k],
-					list) {
-					i += scnprintf(buf + i, max - i,
-						"Node_id: 0x%08x\n",
-						rport_ptr->node_id);
-					i += scnprintf(buf + i, max - i,
-						"Port_id: 0x%08x\n",
-						rport_ptr->port_id);
-					i += scnprintf(buf + i, max - i,
-						"Quota_cnt: %d\n",
+					list)
+					seq_printf(s, "0x%08x |0x%08x |0x%08x|\n",
+						rport_ptr->node_id,
+						rport_ptr->port_id,
 						rport_ptr->tx_quota_cnt);
-				i += scnprintf(buf + i, max - i, "\n");
-				}
 			}
 			up_read(&rt_entry->lock_lha4);
 		}
 		up_read(&routing_table_lock_lha3);
 	}
-
-	return i;
 }
 
-static int dump_control_ports(char *buf, int max)
+static void dump_control_ports(struct seq_file *s)
 {
-	int i = 0;
 	struct msm_ipc_port *port_ptr;
 
+	seq_printf(s, "%-11s|%-11s|\n",
+			"Node_id", "Port_id");
+	seq_puts(s, "------------------------------------------------------------\n");
 	down_read(&control_ports_lock_lha5);
-	list_for_each_entry(port_ptr, &control_ports, list) {
-		i += scnprintf(buf + i, max - i, "Node_id: 0x%08x\n",
-			       port_ptr->this_port.node_id);
-		i += scnprintf(buf + i, max - i, "Port_id: 0x%08x\n",
-			       port_ptr->this_port.port_id);
-		i += scnprintf(buf + i, max - i, "\n");
-	}
+	list_for_each_entry(port_ptr, &control_ports, list)
+		seq_printf(s, "0x%08x |0x%08x |\n",
+			 port_ptr->this_port.node_id,
+			 port_ptr->this_port.port_id);
 	up_read(&control_ports_lock_lha5);
-
-	return i;
 }
 
-static int dump_local_ports(char *buf, int max)
+static void dump_local_ports(struct seq_file *s)
 {
-	int i = 0, j;
+	int j;
 	struct msm_ipc_port *port_ptr;
 
+	seq_printf(s, "%-11s|%-11s|\n",
+			"Node_id", "Port_id");
+	seq_puts(s, "------------------------------------------------------------\n");
 	down_read(&local_ports_lock_lhc2);
 	for (j = 0; j < LP_HASH_SIZE; j++) {
 		list_for_each_entry(port_ptr, &local_ports[j], list) {
 			mutex_lock(&port_ptr->port_lock_lhc3);
-			i += scnprintf(buf + i, max - i, "Node_id: 0x%08x\n",
-				       port_ptr->this_port.node_id);
-			i += scnprintf(buf + i, max - i, "Port_id: 0x%08x\n",
+			seq_printf(s, "0x%08x |0x%08x |\n",
+				       port_ptr->this_port.node_id,
 				       port_ptr->this_port.port_id);
-			i += scnprintf(buf + i, max - i, "# pkts tx'd %d\n",
-				       port_ptr->num_tx);
-			i += scnprintf(buf + i, max - i, "# pkts rx'd %d\n",
-				       port_ptr->num_rx);
-			i += scnprintf(buf + i, max - i, "# bytes tx'd %ld\n",
-				       port_ptr->num_tx_bytes);
-			i += scnprintf(buf + i, max - i, "# bytes rx'd %ld\n",
-				       port_ptr->num_rx_bytes);
 			mutex_unlock(&port_ptr->port_lock_lhc3);
-			i += scnprintf(buf + i, max - i, "\n");
 		}
 	}
 	up_read(&local_ports_lock_lhc2);
-
-	return i;
 }
 
-#define DEBUG_BUFMAX 4096
-static char debug_buffer[DEBUG_BUFMAX];
-
-static ssize_t debug_read(struct file *file, char __user *buf,
-			  size_t count, loff_t *ppos)
+static int debugfs_show(struct seq_file *s, void *data)
 {
-	int (*fill)(char *buf, int max) = file->private_data;
-	int bsize = fill(debug_buffer, DEBUG_BUFMAX);
-	return simple_read_from_buffer(buf, count, ppos, debug_buffer, bsize);
+	void (*show)(struct seq_file *) = s->private;
+	show(s);
+	return 0;
 }
 
 static int debug_open(struct inode *inode, struct file *file)
 {
-	file->private_data = inode->i_private;
-	return 0;
+	return single_open(file, debugfs_show, inode->i_private);
 }
 
 static const struct file_operations debug_ops = {
-	.read = debug_read,
 	.open = debug_open,
+	.release = single_release,
+	.read = seq_read,
+	.llseek = seq_lseek,
 };
 
-static void debug_create(const char *name, mode_t mode,
-			 struct dentry *dent,
-			 int (*fill)(char *buf, int max))
+static void debug_create(const char *name, struct dentry *dent,
+			 void (*show)(struct seq_file *))
 {
-	debugfs_create_file(name, mode, dent, fill, &debug_ops);
+	debugfs_create_file(name, 0444, dent, show, &debug_ops);
 }
 
 static void debugfs_init(void)
@@ -3540,18 +3499,12 @@ static void debugfs_init(void)
 	if (IS_ERR(dent))
 		return;
 
-	debug_create("dump_local_ports", 0444, dent,
-		      dump_local_ports);
-	debug_create("dump_remote_ports", 0444, dent,
-		      dump_remote_ports);
-	debug_create("dump_control_ports", 0444, dent,
-		      dump_control_ports);
-	debug_create("dump_servers", 0444, dent,
-		      dump_servers);
-	debug_create("dump_xprt_info", 0444, dent,
-		      dump_xprt_info);
-	debug_create("dump_routing_table", 0444, dent,
-		      dump_routing_table);
+	debug_create("dump_local_ports", dent, dump_local_ports);
+	debug_create("dump_remote_ports", dent, dump_remote_ports);
+	debug_create("dump_control_ports", dent, dump_control_ports);
+	debug_create("dump_servers", dent, dump_servers);
+	debug_create("dump_xprt_info", dent, dump_xprt_info);
+	debug_create("dump_routing_table", dent, dump_routing_table);
 }
 
 #else
