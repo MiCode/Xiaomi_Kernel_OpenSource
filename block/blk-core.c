@@ -1214,9 +1214,21 @@ EXPORT_SYMBOL(blk_make_request);
  *    Drivers often keep queueing requests until the hardware cannot accept
  *    more, when that condition happens we need to put the request back
  *    on the queue. Must be called with queue lock held.
+ *
+ * Return: true is request was requeued, false otherwise
  */
-void blk_requeue_request(struct request_queue *q, struct request *rq)
+bool blk_requeue_request(struct request_queue *q, struct request *rq)
 {
+	/*
+	 * Request could have timed out at this point and error handling is
+	 * now in progress so it is marked as completed. Do not allow to
+	 * requeue a completed request as this will cause the tag to end and
+	 * become -1. However, the request is still active and being used so tag
+	 * being -1 is not valid.
+	 */
+	if (blk_is_req_complete(rq))
+		return false;
+
 	blk_delete_timer(rq);
 	blk_clear_rq_complete(rq);
 	trace_block_rq_requeue(q, rq);
@@ -1237,6 +1249,7 @@ void blk_requeue_request(struct request_queue *q, struct request *rq)
 		q->dispatched_urgent = false;
 	}
 	elv_requeue_request(q, rq);
+	return true;
 }
 EXPORT_SYMBOL(blk_requeue_request);
 
