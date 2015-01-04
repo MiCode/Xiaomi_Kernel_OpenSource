@@ -2760,6 +2760,14 @@ static bool atomisp_check_zoom_region(
 
 	if ((w <= config.width) && (h <= config.height) && w > 0 && h > 0)
 		flag = true;
+	else
+		/* setting error zoom region */
+		dev_err(asd->isp->dev, "%s zoom region ERROR:dz_config:origin (%d,%d),region(%d,%d)eff_res(%d, %d)\n",
+				__func__, dz_config.zoom_region.origin.x,
+				dz_config.zoom_region.origin.y,
+				dz_config.zoom_region.resolution.width,
+				dz_config.zoom_region.resolution.height,
+				config.width, config.height);
 
 	return flag;
 }
@@ -2895,11 +2903,17 @@ static int __atomisp_cp_general_isp_parameters(
 				   sizeof(struct atomisp_css_dp_config)))
 			return -EFAULT;
 	if (asd->run_mode->val != ATOMISP_RUN_MODE_VIDEO) {
-		if (arg->dz_config &&
-			atomisp_check_zoom_region(asd, arg) == true)
-			if (copy_from_user(&css_param->dz_config, arg->dz_config,
-				   sizeof(struct atomisp_css_dz_config)))
-				return -EFAULT;
+		if (arg->dz_config) {
+			if (atomisp_check_zoom_region(asd, arg)) {
+				if (copy_from_user(&css_param->dz_config,
+					arg->dz_config,
+					sizeof(struct atomisp_css_dz_config)))
+					return -EFAULT;
+			} else {
+				dev_err(asd->isp->dev, "crop region error!");
+				return -EINVAL;
+			}
+		}
 	}
 
 	if (arg->nr_config)
