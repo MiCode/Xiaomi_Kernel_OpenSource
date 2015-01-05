@@ -80,6 +80,7 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
 	const struct flowi4 *fl4 = &fl->u.ip4;
 
 	xdst->u.rt.rt_iif = fl4->flowi4_iif;
+	xdst->u.rt.rt_uid = fl4->flowi4_uid;
 
 	xdst->u.dst.dev = dev;
 	dev_hold(dev);
