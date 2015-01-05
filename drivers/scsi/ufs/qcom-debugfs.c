@@ -15,6 +15,7 @@
 #include <linux/debugfs.h>
 #include "ufs-qcom.h"
 #include "qcom-debugfs.h"
+#include "debugfs.h"
 
 static void ufs_qcom_dbg_remove_debugfs(struct ufs_qcom_host *host);
 
@@ -48,6 +49,39 @@ DEFINE_SIMPLE_ATTRIBUTE(ufs_qcom_dbg_print_en_ops,
 			ufs_qcom_dbg_print_en_set,
 			"%llu\n");
 
+static int ufs_qcom_dbg_dbg_regs_show(struct seq_file *file, void *data)
+{
+	struct ufs_qcom_host *host = (struct ufs_qcom_host *)file->private;
+	bool dbg_print_reg = !!(host->dbg_print_en &
+				UFS_QCOM_DBG_PRINT_REGS_EN);
+
+	ufshcd_hold(host->hba, false);
+	pm_runtime_get_sync(host->hba->dev);
+
+	/* Temporarily override the debug print enable */
+	host->dbg_print_en |= UFS_QCOM_DBG_PRINT_REGS_EN;
+	ufs_qcom_print_hw_debug_reg_all(host->hba, file, ufsdbg_pr_buf_to_std);
+	/* Restore previous debug print enable value */
+	if (!dbg_print_reg)
+		host->dbg_print_en &= ~UFS_QCOM_DBG_PRINT_REGS_EN;
+
+	pm_runtime_put_sync(host->hba->dev);
+	ufshcd_release(host->hba, false);
+
+	return 0;
+}
+
+static int ufs_qcom_dbg_dbg_regs_open(struct inode *inode,
+					      struct file *file)
+{
+	return single_open(file, ufs_qcom_dbg_dbg_regs_show,
+				inode->i_private);
+}
+
+static const struct file_operations ufs_qcom_dbg_dbg_regs_desc = {
+	.open		= ufs_qcom_dbg_dbg_regs_open,
+	.read		= seq_read,
+};
 
 void ufs_qcom_dbg_add_debugfs(struct ufs_hba *hba, struct dentry *root)
 {
@@ -83,6 +117,18 @@ void ufs_qcom_dbg_add_debugfs(struct ufs_hba *hba, struct dentry *root)
 			__func__);
 		goto err;
 	}
+
+	host->debugfs_files.dbg_regs =
+		debugfs_create_file("debug-regs", S_IRUSR,
+				    host->debugfs_files.debugfs_root, host,
+				    &ufs_qcom_dbg_dbg_regs_desc);
+	if (!host->debugfs_files.dbg_regs) {
+		dev_err(host->hba->dev,
+			"%s: failed create dbg_regs debugfs entry\n",
+			__func__);
+		goto err;
+	}
+
 	return;
 
 err:

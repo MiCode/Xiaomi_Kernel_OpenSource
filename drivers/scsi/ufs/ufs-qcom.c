@@ -1579,9 +1579,9 @@ static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
 	return 0;
 }
 
-static void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba,
-		void *priv, void (*print_fn)(struct ufs_hba *hba,
-		int offset, int num_regs, char *str, void *priv))
+void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba, void *priv,
+		void (*print_fn)(struct ufs_hba *hba, int offset, int num_regs,
+				char *str, void *priv))
 {
 	u32 reg;
 	struct ufs_qcom_host *host;

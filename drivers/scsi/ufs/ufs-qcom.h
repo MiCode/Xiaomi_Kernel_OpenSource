@@ -239,6 +239,7 @@ struct ufs_qcom_ice_data {
 struct qcom_debugfs_files {
 	struct dentry *debugfs_root;
 	struct dentry *dbg_print_en;
+	struct dentry *dbg_regs;
 };
 #endif
 
@@ -298,6 +299,9 @@ ufs_qcom_get_debug_reg_offset(struct ufs_qcom_host *host, u32 reg)
 #define ufs_qcom_is_link_hibern8(hba) ufshcd_is_link_hibern8(hba)
 
 int ufs_qcom_testbus_config(struct ufs_qcom_host *host);
+void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba, void *priv,
+		void (*print_fn)(struct ufs_hba *hba, int offset, int num_regs,
+				char *str, void *priv));
 
 static inline bool ufs_qcom_cap_qunipro(struct ufs_qcom_host *host)
 {
