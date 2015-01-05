@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1065,6 +1065,9 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 
 	ufsdbg_setup_fault_injection(hba);
 
+	if (hba->vops && hba->vops->add_debugfs)
+		hba->vops->add_debugfs(hba, hba->debugfs_files.debugfs_root);
+
 	return;
 
 err:
@@ -1076,6 +1079,8 @@ err_no_root:
 
 void ufsdbg_remove_debugfs(struct ufs_hba *hba)
 {
+	if (hba->vops && hba->vops->remove_debugfs)
+		hba->vops->remove_debugfs(hba);
 	debugfs_remove_recursive(hba->debugfs_files.debugfs_root);
 	kfree(hba->ufs_stats.tag_stats);
 

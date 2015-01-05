@@ -30,6 +30,9 @@
 #include <linux/phy/phy-qcom-ufs.h>
 #include "ufshci.h"
 #include "ufs-qcom-ice.h"
+#include "qcom-debugfs.h"
+
+#define DEFAULT_UFS_QCOM_DBG_PRINT_EN	UFS_QCOM_DBG_PRINT_REGS_EN
 
 static struct ufs_qcom_host *ufs_qcom_hosts[MAX_UFS_QCOM_HOSTS];
 
@@ -1264,6 +1267,8 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	if (hba->dev->id < MAX_UFS_QCOM_HOSTS)
 		ufs_qcom_hosts[hba->dev->id] = host;
 
+	host->dbg_print_en |= DEFAULT_UFS_QCOM_DBG_PRINT_EN;
+
 	goto out;
 
 out_disable_phy:
@@ -1367,6 +1372,10 @@ out:
 static void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba)
 {
 	u32 reg;
+	struct ufs_qcom_host *host = hba->priv;
+
+	if (!(host->dbg_print_en & UFS_QCOM_DBG_PRINT_REGS_EN))
+		return;
 
 	ufs_qcom_dump_regs(hba, UFS_UFS_DBG_RD_REG_OCSC, 44,
 			"UFS_UFS_DBG_RD_REG_OCSC ");
@@ -1402,8 +1411,8 @@ static void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba)
 
 static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 {
-	ufs_qcom_dump_regs(hba, REG_UFS_SYS1CLK_1US, 5,
-			"REG_UFS_SYS1CLK_1US ");
+	ufs_qcom_dump_regs(hba, REG_UFS_SYS1CLK_1US, 16,
+			"HCI Vendor Specific Registers ");
 
 	ufs_qcom_print_hw_debug_reg_all(hba);
 }
@@ -1432,5 +1441,8 @@ const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.crypto_engine_get_err	= ufs_qcom_crypto_engine_get_err,
 	.crypto_engine_reset_err = ufs_qcom_crypto_engine_reset_err,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
+#ifdef CONFIG_DEBUG_FS
+	.add_debugfs		= ufs_qcom_dbg_add_debugfs,
+#endif
 };
 EXPORT_SYMBOL(ufs_hba_qcom_vops);
