@@ -1572,16 +1572,16 @@ static int ov5693_s_mbus_fmt(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
+	ret = startup(sd);
+	if (ret)
+		dev_err(&client->dev, "ov5693 startup err\n");
+
 	ret = ov5693_get_intg_factor(client, ov5693_info,
 					&ov5693_res[dev->fmt_idx]);
 	if (ret) {
 		dev_err(&client->dev, "failed to get integration_factor\n");
 		goto err;
 	}
-
-	ret = startup(sd);
-	if (ret)
-		dev_err(&client->dev, "ov5693 startup err\n");
 
 	ov5693_info->metadata_width = fmt->width * 10 / 8;
 	ov5693_info->metadata_height = 1;
