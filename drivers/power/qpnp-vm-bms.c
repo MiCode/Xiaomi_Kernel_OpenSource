@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1989,6 +1989,31 @@ static void calculate_reported_soc(struct qpnp_bms_chip *chip)
 	power_supply_changed(&chip->bms_psy);
 }
 
+static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
+{
+	int rc, vbat_uv;
+
+	rc = get_battery_voltage(chip, &vbat_uv);
+	if (rc < 0) {
+		pr_err("adc vbat failed err = %d\n", rc);
+		return soc;
+	}
+
+	/* only clamp when discharging */
+	if (is_battery_charging(chip))
+		return soc;
+
+	if (soc <= 0 && vbat_uv > chip->dt.cfg_v_cutoff_uv) {
+		pr_debug("clamping soc to 1, vbat (%d) > cutoff (%d)\n",
+					vbat_uv, chip->dt.cfg_v_cutoff_uv);
+		return 1;
+	} else {
+		pr_debug("not clamping, using soc = %d, vbat = %d and cutoff = %d\n",
+				soc, vbat_uv, chip->dt.cfg_v_cutoff_uv);
+		return soc;
+	}
+}
+
 #define UI_SOC_CATCHUP_TIME	(60)
 static void monitor_soc_work(struct work_struct *work)
 {
@@ -2035,6 +2060,9 @@ static void monitor_soc_work(struct work_struct *work)
 			}
 			new_soc = lookup_soc_ocv(chip, chip->last_ocv_uv,
 								batt_temp);
+			/* clamp soc due to BMS hw/sw immaturities */
+			new_soc = clamp_soc_based_on_voltage(chip, new_soc);
+
 			if (chip->calculated_soc != new_soc) {
 				pr_debug("SOC changed! new_soc=%d prev_soc=%d\n",
 						new_soc, chip->calculated_soc);
