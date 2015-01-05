@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -382,6 +382,8 @@ struct ufs_pwr_mode_info {
  * @crypto_engine_reset_err: resets the saved error status of
  *                         the cryptographic engine
  * @dbg_register_dump: used to dump controller debug information
+ * @add_debugfs: used to add debugfs entries
+ * @remove_debugfs: used to remove debugfs entries
  */
 struct ufs_hba_variant_ops {
 	const char *name;
@@ -404,6 +406,10 @@ struct ufs_hba_variant_ops {
 	int	(*crypto_engine_get_err)(struct ufs_hba *);
 	void	(*crypto_engine_reset_err)(struct ufs_hba *);
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
+#ifdef CONFIG_DEBUG_FS
+	void	(*add_debugfs)(struct ufs_hba *hba, struct dentry *root);
+	void	(*remove_debugfs)(struct ufs_hba *hba);
+#endif
 };
 
 /* clock gating state  */

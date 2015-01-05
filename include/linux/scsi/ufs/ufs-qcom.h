@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #define UFS_QCOM_H_
 
 #include <linux/phy/phy.h>
+#include <linux/scsi/ufs/ufshcd.h>
 
 #define MAX_UFS_QCOM_HOSTS	1
 #define MAX_U32                 (~(u32)0)
@@ -118,6 +119,11 @@ struct ufs_qcom_phy_vreg {
 	bool is_always_on;
 };
 
+/* QCOM UFS debug print bit mask */
+#define UFS_QCOM_DBG_PRINT_REGS_EN	BIT(0)
+
+#define UFS_QCOM_DBG_PRINT_ALL	UFS_QCOM_DBG_PRINT_REGS_EN
+
 static inline void
 ufs_qcom_get_controller_revision(struct ufs_hba *hba,
 				 u8 *major, u16 *minor, u16 *step)
@@ -187,6 +193,13 @@ struct ufs_hw_version {
 	u8 major;
 };
 
+#ifdef CONFIG_DEBUG_FS
+struct qcom_debugfs_files {
+	struct dentry *debugfs_root;
+	struct dentry *dbg_print_en;
+};
+#endif
+
 struct ufs_qcom_host {
 	struct phy *generic_phy;
 	struct ufs_hba *hba;
@@ -202,6 +215,11 @@ struct ufs_qcom_host {
 	void __iomem *dev_ref_clk_ctrl_mmio;
 	bool is_dev_ref_clk_enabled;
 	struct ufs_hw_version hw_ver;
+#ifdef CONFIG_DEBUG_FS
+	struct qcom_debugfs_files debugfs_files;
+#endif
+	/* Bitmask for enabling debug prints */
+	u32 dbg_print_en;
 };
 
 #define ufs_qcom_is_link_off(hba) ufshcd_is_link_off(hba)
