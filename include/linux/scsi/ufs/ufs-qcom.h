@@ -124,8 +124,11 @@ struct ufs_qcom_phy_vreg {
 
 /* QCOM UFS debug print bit mask */
 #define UFS_QCOM_DBG_PRINT_REGS_EN	BIT(0)
+#define UFS_QCOM_DBG_PRINT_ICE_REGS_EN	BIT(1)
 
-#define UFS_QCOM_DBG_PRINT_ALL	UFS_QCOM_DBG_PRINT_REGS_EN
+#define UFS_QCOM_DBG_PRINT_ALL	\
+	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_ICE_REGS_EN)
+
 
 static inline void
 ufs_qcom_get_controller_revision(struct ufs_hba *hba,
