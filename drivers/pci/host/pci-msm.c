@@ -161,6 +161,10 @@
 #define PCIE20_PARF_MHI_CLOCK_RESET_CTRL	0x174
 #define PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT   0x1A8
 #define PCIE20_PARF_LTSSM              0x1B0
+#define PCIE20_PARF_SID_OFFSET		0x234
+#define PCIE20_PARF_BDF_TRANSLATE_CFG	0x24C
+#define PCIE20_PARF_BDF_TRANSLATE_N	0x250
+
 
 #define PCIE20_ELBI_VERSION		0x00
 #define PCIE20_ELBI_SYS_CTRL	     0x04
@@ -238,6 +242,7 @@
 #define MSM_PCIE_MAX_PIPE_CLK 1
 #define MAX_RC_NUM 3
 #define MAX_DEVICE_NUM 20
+#define MAX_SHORT_BDF_NUM 16
 #define PCIE_TLP_RD_SIZE 0x5
 #define PCIE_MSI_NR_IRQS 256
 #define MSM_PCIE_MAX_MSI 32
@@ -416,6 +421,8 @@ struct msm_pcie_irq_info_t {
 struct msm_pcie_device_info {
 	u32			bdf;
 	struct pci_dev		*dev;
+	short			short_bdf;
+	u32			sid;
 	int			domain;
 	void __iomem		*conf_base;
 	unsigned long		phy_address;
@@ -483,11 +490,13 @@ struct msm_pcie_dev_t {
 	bool				common_clk_en;
 	bool				clk_power_manage_en;
 	bool				 aux_clk_sync;
+	bool				smmu_exist;
 	uint32_t			   n_fts;
 	bool				 ext_ref_clk;
 	bool				common_phy;
 	uint32_t			   ep_latency;
 	uint32_t			current_bdf;
+	short				current_short_bdf;
 	uint32_t			tlp_rd_size;
 	bool				 ep_wakeirq;
 
@@ -1440,6 +1449,10 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->msi_gicm_base);
 	pr_alert("bus_client: %d\n",
 		dev->bus_client);
+	pr_alert("current short bdf: %d\n",
+		dev->current_short_bdf);
+	pr_alert("smmu does %s exist\n",
+		dev->smmu_exist ? "" : "not");
 	pr_alert("n_fts: %d\n",
 		dev->n_fts);
 	pr_alert("common_phy: %d\n",
@@ -2931,6 +2944,8 @@ static void msm_pcie_iatu_config_all_ep(struct msm_pcie_dev_t *dev)
 
 static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 {
+	int i;
+
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
 	/*
@@ -2972,6 +2987,27 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 
 	PCIE_DBG(dev, "RC's PCIE20_CAP_DEVCTRLSTATUS:0x%x\n",
 		readl_relaxed(dev->dm_core + PCIE20_CAP_DEVCTRLSTATUS));
+
+	/* configure SMMU registers */
+	if (dev->smmu_exist) {
+		msm_pcie_write_reg(dev->parf,
+			PCIE20_PARF_BDF_TRANSLATE_CFG, 0);
+		msm_pcie_write_reg(dev->parf,
+			PCIE20_PARF_SID_OFFSET, 0);
+
+		if (dev->enumerated) {
+			for (i = 0; i < MAX_DEVICE_NUM; i++) {
+				if (dev->pcidev_table[i].dev &&
+					dev->pcidev_table[i].short_bdf) {
+					msm_pcie_write_reg(dev->parf,
+						PCIE20_PARF_BDF_TRANSLATE_N +
+						dev->pcidev_table[i].short_bdf
+						* 4,
+						dev->pcidev_table[i].bdf >> 16);
+				}
+			}
+		}
+	}
 }
 
 static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
@@ -3891,6 +3927,105 @@ static int msm_pcie_config_device_table(struct device *dev, void *pdev)
 	return ret;
 }
 
+int msm_pcie_configure_sid(struct device *dev, u32 *sid, int *domain)
+{
+	struct pci_dev *pcidev;
+	struct msm_pcie_dev_t *pcie_dev;
+	struct pci_bus *bus;
+	int i;
+	u32 bdf;
+
+	if (!dev) {
+		pr_err("%s: PCIe: endpoint device passed in is NULL\n",
+			__func__);
+		return MSM_PCIE_ERROR;
+	}
+
+	pcidev = to_pci_dev(dev);
+	if (!pcidev) {
+		pr_err("%s: PCIe: PCI device of endpoint is NULL\n",
+			__func__);
+		return MSM_PCIE_ERROR;
+	}
+
+	bus = pcidev->bus;
+	if (!bus) {
+		pr_err("%s: PCIe: Bus of PCI device is NULL\n",
+			__func__);
+		return MSM_PCIE_ERROR;
+	}
+
+	while (!pci_is_root_bus(bus))
+		bus = bus->parent;
+
+	pcie_dev = (struct msm_pcie_dev_t *)(bus->sysdata);
+	if (!pcie_dev) {
+		pr_err("%s: PCIe: Could not get PCIe structure\n",
+			__func__);
+		return MSM_PCIE_ERROR;
+	}
+
+	if (!pcie_dev->smmu_exist) {
+		PCIE_DBG(pcie_dev,
+			"PCIe: RC:%d: smmu does not exist\n",
+			pcie_dev->rc_idx);
+		return MSM_PCIE_ERROR;
+	}
+
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: device address is: %p\n",
+		pcie_dev->rc_idx, dev);
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: PCI device address is: %p\n",
+		pcie_dev->rc_idx, pcidev);
+
+	*domain = pcie_dev->rc_idx;
+
+	if (pcie_dev->current_short_bdf < (MAX_SHORT_BDF_NUM - 1)) {
+		pcie_dev->current_short_bdf++;
+	} else {
+		PCIE_ERR(pcie_dev,
+			"PCIe: RC%d: No more short BDF left\n",
+			pcie_dev->rc_idx);
+		return MSM_PCIE_ERROR;
+	}
+
+	bdf = BDF_OFFSET(pcidev->bus->number, pcidev->devfn);
+
+	for (i = 0; i < MAX_DEVICE_NUM; i++) {
+		if (pcie_dev->pcidev_table[i].bdf == bdf) {
+			*sid = (pcie_dev->rc_idx << 4) |
+				pcie_dev->current_short_bdf;
+
+			msm_pcie_write_reg(pcie_dev->parf,
+				PCIE20_PARF_BDF_TRANSLATE_N +
+				pcie_dev->current_short_bdf * 4,
+				bdf >> 16);
+
+			pcie_dev->pcidev_table[i].sid = *sid;
+			pcie_dev->pcidev_table[i].short_bdf =
+				pcie_dev->current_short_bdf;
+			break;
+		}
+	}
+
+	if (i == MAX_DEVICE_NUM) {
+		pcie_dev->current_short_bdf--;
+		PCIE_ERR(pcie_dev,
+			"PCIe: RC%d could not find BDF:%d\n",
+			pcie_dev->rc_idx, bdf);
+		return MSM_PCIE_ERROR;
+	}
+
+	PCIE_DBG(pcie_dev,
+		"PCIe: RC%d: Device: %02x:%02x.%01x received SID %d\n",
+		pcie_dev->rc_idx,
+		bdf >> 24,
+		bdf >> 19 & 0x1f,
+		bdf >> 16 & 0x07,
+		*sid);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_pcie_configure_sid);
 
 int msm_pcie_enumerate(u32 rc_idx)
 {
@@ -4829,6 +4964,13 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		"AUX clock is %s synchronous to Core clock.\n",
 		msm_pcie_dev[rc_idx].aux_clk_sync ? "" : "not");
 
+	msm_pcie_dev[rc_idx].smmu_exist =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,smmu-exist");
+	PCIE_DBG(&msm_pcie_dev[rc_idx],
+		"SMMU does %s exist.\n",
+		msm_pcie_dev[rc_idx].smmu_exist ? "" : "not");
+
 	msm_pcie_dev[rc_idx].ep_wakeirq =
 		of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,ep-wakeirq");
@@ -4945,6 +5087,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].suspending = false;
 	msm_pcie_dev[rc_idx].wake_counter = 0;
 	msm_pcie_dev[rc_idx].power_on = false;
+	msm_pcie_dev[rc_idx].current_short_bdf = 0;
 	msm_pcie_dev[rc_idx].use_msi = false;
 	msm_pcie_dev[rc_idx].use_pinctrl = false;
 	msm_pcie_dev[rc_idx].bridge_found = false;
@@ -4971,6 +5114,8 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	for (i = 0; i < MAX_DEVICE_NUM; i++) {
 		msm_pcie_dev[rc_idx].pcidev_table[i].bdf = 0;
 		msm_pcie_dev[rc_idx].pcidev_table[i].dev = NULL;
+		msm_pcie_dev[rc_idx].pcidev_table[i].short_bdf = 0;
+		msm_pcie_dev[rc_idx].pcidev_table[i].sid = 0;
 		msm_pcie_dev[rc_idx].pcidev_table[i].domain = rc_idx;
 		msm_pcie_dev[rc_idx].pcidev_table[i].conf_base = 0;
 		msm_pcie_dev[rc_idx].pcidev_table[i].phy_address = 0;
@@ -5170,6 +5315,8 @@ int __init pcie_init(void)
 	for (i = 0; i < MAX_RC_NUM * MAX_DEVICE_NUM; i++) {
 		msm_pcie_dev_tbl[i].bdf = 0;
 		msm_pcie_dev_tbl[i].dev = NULL;
+		msm_pcie_dev_tbl[i].short_bdf = 0;
+		msm_pcie_dev_tbl[i].sid = 0;
 		msm_pcie_dev_tbl[i].domain = -1;
 		msm_pcie_dev_tbl[i].conf_base = 0;
 		msm_pcie_dev_tbl[i].phy_address = 0;

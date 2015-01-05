@@ -81,6 +81,7 @@ Optional Properties:
     complex. This should be used in separate nodes from the main root
     complex nodes, and is the only property needed in that case.
   - qcom,common-phy: There is a common phy for all the Root Complexes.
+  - qcom,smmu-exist: PCIe uses a SMMU.
   - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
     stable after power on, before de-assert the PERST to the endpoint.
   - linux,pci-domain: For details of pci-domains properties, please refer to:
@@ -222,6 +223,7 @@ Example:
 		qcom,ext-ref-clk;
 		qcom,tlp-rd-size = <0x5>;
 		qcom,common-phy;
+		qcom,smmu-exist;
 		qcom,ep-latency = <100>;
 
 		iommus = <&anoc0_smmu>;
