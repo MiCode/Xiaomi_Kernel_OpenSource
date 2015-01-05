@@ -1,4 +1,5 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,9 +24,11 @@
  * of each of these registers
  */
 enum {
+	REG_UFS_QCOM_ICE_CFG		         = 0x2200,
 	REG_UFS_QCOM_ICE_CTRL_INFO_1_n           = 0x2204,
 	REG_UFS_QCOM_ICE_CTRL_INFO_2_n           = 0x2208,
 };
+#define NUM_QCOM_ICE_CTRL_INFO_n_REGS		32
 
 /* UFS QCOM ICE CTRL Info 2 register offset */
 enum {
@@ -73,6 +76,7 @@ int ufs_qcom_ice_reset(struct ufs_qcom_host *qcom_host);
 int ufs_qcom_ice_resume(struct ufs_qcom_host *qcom_host);
 int ufs_qcom_ice_suspend(struct ufs_qcom_host *qcom_host);
 int ufs_qcom_ice_get_status(struct ufs_qcom_host *qcom_host, int *ice_status);
+void ufs_qcom_ice_print_regs(struct ufs_qcom_host *qcom_host);
 #else
 inline int ufs_qcom_ice_get_dev(struct ufs_qcom_host *qcom_host)
 {
@@ -107,6 +111,10 @@ inline int ufs_qcom_ice_get_status(struct ufs_qcom_host *qcom_host,
 				   int *ice_status)
 {
 	return 0;
+}
+inline void ufs_qcom_ice_print_regs(struct ufs_qcom_host *qcom_host)
+{
+	return;
 }
 #endif /* CONFIG_SCSI_UFS_QCOM_ICE */
 
