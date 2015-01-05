@@ -1,8 +1,5 @@
 /*
  * Copyright (c) International Business Machines Corp., 2006
- * Copyright (c) 2014, Linux Foundation. All rights reserved.
- * Linux Foundation chooses to take subject only to the GPLv2
- * license terms, and distributes only under these terms.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -90,20 +87,7 @@
 #include <linux/crc32.h>
 #include <linux/math64.h>
 #include <linux/random.h>
-#include <linux/time.h>
 #include "ubi.h"
-
-#define set_aeb_default_values(aeb, ai)		\
-	do {					\
-		if (aeb->ec == UBI_UNKNOWN) {	\
-			aeb->ec = ai->mean_ec;	\
-			if (ai->mean_last_erase_time) \
-				aeb->last_erase_time = \
-					ai->mean_last_erase_time; \
-			else \
-				aeb->last_erase_time = UBI_DT_THRESHOLD / 2; \
-		}		\
-	} while (0)
 
 static int self_check_ai(struct ubi_device *ubi, struct ubi_attach_info *ai);
 
@@ -118,9 +102,6 @@ static struct ubi_vid_hdr *vidh;
  * @vol_id: the last used volume id for the PEB
  * @lnum: the last used LEB number for the PEB
  * @ec: erase counter of the physical eraseblock
- * @last_erase_time: last erase time stamp (%UBI_UNKNOWN if it
- *				is unknown)
- * @rc: read counter (%UBI_UNKNOWN if it is unknown)
  * @to_head: if not zero, add to the head of the list
  * @list: the list to add to
  *
@@ -136,8 +117,7 @@ static struct ubi_vid_hdr *vidh;
  * failure.
  */
 static int add_to_list(struct ubi_attach_info *ai, int pnum, int vol_id,
-		       int lnum, int ec, long last_erase_time, long rc,
-		       int to_head, struct list_head *list)
+		       int lnum, int ec, int to_head, struct list_head *list)
 {
 	struct ubi_ainf_peb *aeb;
 
@@ -159,9 +139,6 @@ static int add_to_list(struct ubi_attach_info *ai, int pnum, int vol_id,
 	aeb->vol_id = vol_id;
 	aeb->lnum = lnum;
 	aeb->ec = ec;
-	aeb->rc = rc;
-	aeb->last_erase_time = last_erase_time;
-
 	if (to_head)
 		list_add(&aeb->u.list, list);
 	else
@@ -174,17 +151,13 @@ static int add_to_list(struct ubi_attach_info *ai, int pnum, int vol_id,
  * @ai: attaching information
  * @pnum: physical eraseblock number to add
  * @ec: erase counter of the physical eraseblock
- * @last_erase_time: last erase time stamp (%UBI_UNKNOWN if it
- *			   is unknown)
- * @rc: read counter (%UBI_UNKNOWN if it is unknown)
  *
  * This function allocates a 'struct ubi_ainf_peb' object for a corrupted
  * physical eraseblock @pnum and adds it to the 'corr' list.  The corruption
  * was presumably not caused by a power cut. Returns zero in case of success
  * and a negative error code in case of failure.
  */
-static int add_corrupted(struct ubi_attach_info *ai, int pnum,
-			 int ec, long rc, long last_erase_time)
+static int add_corrupted(struct ubi_attach_info *ai, int pnum, int ec)
 {
 	struct ubi_ainf_peb *aeb;
 
@@ -197,8 +170,6 @@ static int add_corrupted(struct ubi_attach_info *ai, int pnum,
 	ai->corr_peb_count += 1;
 	aeb->pnum = pnum;
 	aeb->ec = ec;
-	aeb->rc = rc;
-	aeb->last_erase_time = last_erase_time;
 	list_add(&aeb->u.list, &ai->corr);
 	return 0;
 }
@@ -465,9 +436,6 @@ out_free_vidh:
  * @ai: attaching information
  * @pnum: the physical eraseblock number
  * @ec: erase counter
- * @last_erase_time: last erase time stamp (%UBI_UNKNOWN if it
- *			   is unknown)
- * @rc: read counter (%UBI_UNKNOWN if it is unknown)
  * @vid_hdr: the volume identifier header
  * @bitflips: if bit-flips were detected when this physical eraseblock was read
  *
@@ -479,8 +447,7 @@ out_free_vidh:
  * zero in case of success and a negative error code in case of failure.
  */
 int ubi_add_to_av(struct ubi_device *ubi, struct ubi_attach_info *ai, int pnum,
-		  int ec, long last_erase_time, long rc,
-		  const struct ubi_vid_hdr *vid_hdr, int bitflips)
+		  int ec, const struct ubi_vid_hdr *vid_hdr, int bitflips)
 {
 	int err, vol_id, lnum;
 	unsigned long long sqnum;
@@ -567,16 +534,12 @@ int ubi_add_to_av(struct ubi_device *ubi, struct ubi_attach_info *ai, int pnum,
 				return err;
 
 			err = add_to_list(ai, aeb->pnum, aeb->vol_id,
-					  aeb->lnum, aeb->ec,
-					  aeb->last_erase_time,
-					  aeb->rc, cmp_res & 4,
+					  aeb->lnum, aeb->ec, cmp_res & 4,
 					  &ai->erase);
 			if (err)
 				return err;
 
 			aeb->ec = ec;
-			aeb->last_erase_time = last_erase_time;
-			aeb->rc = rc;
 			aeb->pnum = pnum;
 			aeb->vol_id = vol_id;
 			aeb->lnum = lnum;
@@ -595,8 +558,7 @@ int ubi_add_to_av(struct ubi_device *ubi, struct ubi_attach_info *ai, int pnum,
 			 * previously.
 			 */
 			return add_to_list(ai, pnum, vol_id, lnum, ec,
-					   last_erase_time, rc, cmp_res & 4,
-					   &ai->erase);
+					   cmp_res & 4, &ai->erase);
 		}
 	}
 
@@ -614,8 +576,6 @@ int ubi_add_to_av(struct ubi_device *ubi, struct ubi_attach_info *ai, int pnum,
 		return -ENOMEM;
 
 	aeb->ec = ec;
-	aeb->last_erase_time = last_erase_time;
-	aeb->rc = rc;
 	aeb->pnum = pnum;
 	aeb->vol_id = vol_id;
 	aeb->lnum = lnum;
@@ -692,8 +652,6 @@ void ubi_remove_av(struct ubi_attach_info *ai, struct ubi_ainf_volume *av)
  * @ai: attaching information
  * @pnum: physical eraseblock number to erase;
  * @ec: erase counter value to write (%UBI_UNKNOWN if it is unknown)
- * @last_erase_time: last erase time stamp (%UBI_UNKNOWN if it
- *			   is unknown)
  *
  * This function erases physical eraseblock 'pnum', and writes the erase
  * counter header to it. This function should only be used on UBI device
@@ -702,8 +660,7 @@ void ubi_remove_av(struct ubi_attach_info *ai, struct ubi_ainf_volume *av)
  * case of failure.
  */
 static int early_erase_peb(struct ubi_device *ubi,
-			   const struct ubi_attach_info *ai,
-			   int pnum, int ec, long last_erase_time)
+			   const struct ubi_attach_info *ai, int pnum, int ec)
 {
 	int err;
 	struct ubi_ec_hdr *ec_hdr;
@@ -723,7 +680,7 @@ static int early_erase_peb(struct ubi_device *ubi,
 		return -ENOMEM;
 
 	ec_hdr->ec = cpu_to_be64(ec);
-	ec_hdr->last_erase_time = cpu_to_be64(last_erase_time);
+
 	err = ubi_io_sync_erase(ubi, pnum, 0);
 	if (err < 0)
 		goto out_free;
@@ -754,7 +711,6 @@ struct ubi_ainf_peb *ubi_early_get_peb(struct ubi_device *ubi,
 {
 	int err = 0;
 	struct ubi_ainf_peb *aeb, *tmp_aeb;
-	struct timeval tv;
 
 	if (!list_empty(&ai->free)) {
 		aeb = list_entry(ai->free.next, struct ubi_ainf_peb, u.list);
@@ -769,20 +725,15 @@ struct ubi_ainf_peb *ubi_early_get_peb(struct ubi_device *ubi,
 	 * so forth. We don't want to take care about bad eraseblocks here -
 	 * they'll be handled later.
 	 */
-	do_gettimeofday(&tv);
 	list_for_each_entry_safe(aeb, tmp_aeb, &ai->erase, u.list) {
 		if (aeb->ec == UBI_UNKNOWN)
 			aeb->ec = ai->mean_ec;
 
-		/* The last erase time resolution is in days */
-		err = early_erase_peb(ubi, ai, aeb->pnum,
-				  aeb->ec+1, tv.tv_sec / NUM_SEC_IN_DAY);
+		err = early_erase_peb(ubi, ai, aeb->pnum, aeb->ec+1);
 		if (err)
 			continue;
 
 		aeb->ec += 1;
-		aeb->last_erase_time = tv.tv_sec / NUM_SEC_IN_DAY;
-		aeb->rc = 0;
 		list_del(&aeb->u.list);
 		dbg_bld("return PEB %d, EC %d", aeb->pnum, aeb->ec);
 		return aeb;
@@ -869,8 +820,6 @@ static int scan_peb(struct ubi_device *ubi, struct ubi_attach_info *ai,
 		    int pnum, int *vid, unsigned long long *sqnum)
 {
 	long long uninitialized_var(ec);
-	long long uninitialized_var(rc);
-	long long uninitialized_var(last_erase_time);
 	int err, bitflips = 0, vol_id = -1, ec_err = 0;
 
 	dbg_bld("scan PEB %d", pnum);
@@ -896,13 +845,11 @@ static int scan_peb(struct ubi_device *ubi, struct ubi_attach_info *ai,
 	case UBI_IO_FF:
 		ai->empty_peb_count += 1;
 		return add_to_list(ai, pnum, UBI_UNKNOWN, UBI_UNKNOWN,
-				   UBI_UNKNOWN, UBI_UNKNOWN, UBI_UNKNOWN,
-				   0, &ai->erase);
+				   UBI_UNKNOWN, 0, &ai->erase);
 	case UBI_IO_FF_BITFLIPS:
 		ai->empty_peb_count += 1;
 		return add_to_list(ai, pnum, UBI_UNKNOWN, UBI_UNKNOWN,
-				   UBI_UNKNOWN, UBI_UNKNOWN, UBI_UNKNOWN,
-				   1, &ai->erase);
+				   UBI_UNKNOWN, 1, &ai->erase);
 	case UBI_IO_BAD_HDR_EBADMSG:
 	case UBI_IO_BAD_HDR:
 		/*
@@ -912,8 +859,6 @@ static int scan_peb(struct ubi_device *ubi, struct ubi_attach_info *ai,
 		 */
 		ec_err = err;
 		ec = UBI_UNKNOWN;
-		last_erase_time = UBI_UNKNOWN;
-		rc = UBI_UNKNOWN;
 		bitflips = 1;
 		break;
 	default:
@@ -933,16 +878,6 @@ static int scan_peb(struct ubi_device *ubi, struct ubi_attach_info *ai,
 		}
 
 		ec = be64_to_cpu(ech->ec);
-		last_erase_time = be64_to_cpu(ech->last_erase_time);
-		/*
-		 * Default value for read counter should be 0. If this is a
-		 * free or erased peb, the counter has no meaning.
-		 * If this peb is used, later code will schedule the peb for
-		 * scrubbing. We can afford erasing all used blocks in this
-		 * case as this is a rear case, and not doing so might have
-		 * destructive implication on the system.
-		 */
-		rc = 0;
 		if (ec > UBI_MAX_ERASECOUNTER) {
 			/*
 			 * Erase counter overflow. The EC headers have 64 bits
@@ -1027,32 +962,29 @@ static int scan_peb(struct ubi_device *ubi, struct ubi_attach_info *ai,
 		else if (!err)
 			/* This corruption is caused by a power cut */
 			err = add_to_list(ai, pnum, UBI_UNKNOWN,
-					  UBI_UNKNOWN, ec, last_erase_time, rc,
-					  1, &ai->erase);
+					  UBI_UNKNOWN, ec, 1, &ai->erase);
 		else
 			/* This is an unexpected corruption */
-			err = add_corrupted(ai, pnum, ec, rc, last_erase_time);
+			err = add_corrupted(ai, pnum, ec);
 		if (err)
 			return err;
-		goto adjust_mean_av_stat;
+		goto adjust_mean_ec;
 	case UBI_IO_FF_BITFLIPS:
 		err = add_to_list(ai, pnum, UBI_UNKNOWN, UBI_UNKNOWN,
-				  ec, last_erase_time, rc, 1, &ai->erase);
+				  ec, 1, &ai->erase);
 		if (err)
 			return err;
-		goto adjust_mean_av_stat;
+		goto adjust_mean_ec;
 	case UBI_IO_FF:
 		if (ec_err || bitflips)
 			err = add_to_list(ai, pnum, UBI_UNKNOWN,
-					  UBI_UNKNOWN, ec, last_erase_time, rc,
-					  1, &ai->erase);
+					  UBI_UNKNOWN, ec, 1, &ai->erase);
 		else
 			err = add_to_list(ai, pnum, UBI_UNKNOWN,
-					  UBI_UNKNOWN, ec, last_erase_time, 0,
-					  0, &ai->free);
+					  UBI_UNKNOWN, ec, 0, &ai->free);
 		if (err)
 			return err;
-		goto adjust_mean_av_stat;
+		goto adjust_mean_ec;
 	default:
 		ubi_err(ubi->ubi_num, "'ubi_io_read_vid_hdr()' returned unknown code %d",
 			err);
@@ -1078,8 +1010,7 @@ static int scan_peb(struct ubi_device *ubi, struct ubi_attach_info *ai,
 					vol_id, lnum);
 			}
 			err = add_to_list(ai, pnum, vol_id, lnum,
-					  ec, last_erase_time,
-					  rc, 1, &ai->erase);
+					  ec, 1, &ai->erase);
 			if (err)
 				return err;
 			return 0;
@@ -1098,8 +1029,7 @@ static int scan_peb(struct ubi_device *ubi, struct ubi_attach_info *ai,
 				"volume %d:%d found",
 				vol_id, lnum);
 			err = add_to_list(ai, pnum, vol_id, lnum,
-					  ec, last_erase_time,
-					  rc, 0, &ai->alien);
+					  ec, 0, &ai->alien);
 			if (err)
 				return err;
 			return 0;
@@ -1114,13 +1044,11 @@ static int scan_peb(struct ubi_device *ubi, struct ubi_attach_info *ai,
 	if (ec_err)
 		ubi_warn(ubi->ubi_num, "valid VID header but corrupted EC header at PEB %d",
 			 pnum);
-
-	err = ubi_add_to_av(ubi, ai, pnum, ec, last_erase_time,
-				UBI_DEF_RD_THRESHOLD, vidh, bitflips);
+	err = ubi_add_to_av(ubi, ai, pnum, ec, vidh, bitflips);
 	if (err)
 		return err;
 
-adjust_mean_av_stat:
+adjust_mean_ec:
 	if (!ec_err) {
 		ai->ec_sum += ec;
 		ai->ec_count += 1;
@@ -1128,8 +1056,6 @@ adjust_mean_av_stat:
 			ai->max_ec = ec;
 		if (ec < ai->min_ec)
 			ai->min_ec = ec;
-		ai->last_erase_time_sum += last_erase_time;
-		ai->last_erase_time_count++;
 	}
 
 	return 0;
@@ -1339,10 +1265,6 @@ static int scan_all(struct ubi_device *ubi, struct ubi_attach_info *ai,
 	if (ai->ec_count)
 		ai->mean_ec = div_u64(ai->ec_sum, ai->ec_count);
 
-	if (ai->last_erase_time_count)
-		ai->mean_last_erase_time = div_u64(ai->last_erase_time_sum,
-						   ai->last_erase_time_count);
-
 	err = late_analysis(ubi, ai);
 	if (err)
 		goto out_vidh;
@@ -1353,17 +1275,22 @@ static int scan_all(struct ubi_device *ubi, struct ubi_attach_info *ai,
 	 */
 	ubi_rb_for_each_entry(rb1, av, &ai->volumes, rb) {
 		ubi_rb_for_each_entry(rb2, aeb, &av->root, u.rb)
-			set_aeb_default_values(aeb, ai);
+			if (aeb->ec == UBI_UNKNOWN)
+				aeb->ec = ai->mean_ec;
 	}
 
-	list_for_each_entry(aeb, &ai->free, u.list)
-		set_aeb_default_values(aeb, ai);
+	list_for_each_entry(aeb, &ai->free, u.list) {
+		if (aeb->ec == UBI_UNKNOWN)
+			aeb->ec = ai->mean_ec;
+	}
 
 	list_for_each_entry(aeb, &ai->corr, u.list)
-		set_aeb_default_values(aeb, ai);
+		if (aeb->ec == UBI_UNKNOWN)
+			aeb->ec = ai->mean_ec;
 
 	list_for_each_entry(aeb, &ai->erase, u.list)
-		set_aeb_default_values(aeb, ai);
+		if (aeb->ec == UBI_UNKNOWN)
+			aeb->ec = ai->mean_ec;
 
 	err = self_check_ai(ubi, ai);
 	if (err)

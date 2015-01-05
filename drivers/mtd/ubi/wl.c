@@ -105,7 +105,6 @@
 #include <linux/crc32.h>
 #include <linux/freezer.h>
 #include <linux/kthread.h>
-#include <linux/time.h>
 #include "ubi.h"
 
 /* Number of physical eraseblocks reserved for wear-leveling purposes */
@@ -922,7 +921,6 @@ static int sync_erase(struct ubi_device *ubi, struct ubi_wl_entry *e,
 	int err;
 	struct ubi_ec_hdr *ec_hdr;
 	unsigned long long ec = e->ec;
-	struct timeval tv;
 
 	dbg_wl("erase PEB %d, old EC %llu", e->pnum, ec);
 
@@ -955,16 +953,11 @@ static int sync_erase(struct ubi_device *ubi, struct ubi_wl_entry *e,
 
 	ec_hdr->ec = cpu_to_be64(ec);
 
-	do_gettimeofday(&tv);
-	/* The last erase time resolution is in days */
-	ec_hdr->last_erase_time = cpu_to_be64(tv.tv_sec / NUM_SEC_IN_DAY);
 	err = ubi_io_write_ec_hdr(ubi, e->pnum, ec_hdr);
 	if (err)
 		goto out_free;
 
 	e->ec = ec;
-	e->last_erase_time = tv.tv_sec / NUM_SEC_IN_DAY;
-	e->rc = 0;
 	spin_lock(&ubi->wl_lock);
 	if (e->ec > ubi->max_ec)
 		ubi->max_ec = e->ec;
@@ -1166,8 +1159,6 @@ int ubi_wl_put_fm_peb(struct ubi_device *ubi, struct ubi_wl_entry *fm_e,
 		ubi->lookuptbl[pnum] = e;
 	} else {
 		e->ec = fm_e->ec;
-		e->rc = fm_e->rc;
-		e->last_erase_time = fm_e->last_erase_time;
 		kfree(fm_e);
 	}
 
@@ -2117,20 +2108,6 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 
 		e->pnum = aeb->pnum;
 		e->ec = aeb->ec;
-		e->last_erase_time = aeb->last_erase_time;
-		e->rc = aeb->rc;
-		if (!ubi->fm) {
-			if (e->rc < UBI_MAX_READCOUNTER) {
-				e->rc++;
-			} else {
-				ubi_err(ubi->ubi_num,
-				  "read counter overflow at PEB %d, RC %d",
-					e->pnum, e->rc);
-				kmem_cache_free(ubi_wl_entry_slab, e);
-				goto out_free;
-			}
-
-		}
 		ubi_assert(!ubi_is_fm_block(ubi, e->pnum));
 		ubi->lookuptbl[e->pnum] = e;
 		if (schedule_erase(ubi, e, aeb->vol_id, aeb->lnum, 0)) {
@@ -2151,20 +2128,6 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 
 		e->pnum = aeb->pnum;
 		e->ec = aeb->ec;
-		e->rc = aeb->rc;
-		if (!ubi->fm) {
-			if (e->rc < UBI_MAX_READCOUNTER) {
-				e->rc++;
-			} else {
-				ubi_err(ubi->ubi_num,
-					"rc overflow at PEB %d, RC %d",
-						e->pnum, e->rc);
-				kmem_cache_free(ubi_wl_entry_slab, e);
-				goto out_free;
-			}
-
-		}
-		e->last_erase_time = aeb->last_erase_time;
 		ubi_assert(e->ec >= 0);
 		ubi_assert(!ubi_is_fm_block(ubi, e->pnum));
 
@@ -2186,19 +2149,6 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 
 			e->pnum = aeb->pnum;
 			e->ec = aeb->ec;
-			e->rc = aeb->rc;
-			if (!ubi->fm) {
-				if (e->rc < UBI_MAX_READCOUNTER) {
-					e->rc++;
-				} else {
-					ubi_err(ubi->ubi_num,
-					 "rc overflow at PEB %d, RC %d",
-							e->pnum, e->rc);
-					kmem_cache_free(ubi_wl_entry_slab, e);
-					goto out_free;
-				}
-			}
-			e->last_erase_time = aeb->last_erase_time;
 			ubi->lookuptbl[e->pnum] = e;
 
 			if (!aeb->scrub) {
