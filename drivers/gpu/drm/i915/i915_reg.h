@@ -802,6 +802,8 @@ enum punit_power_well {
  * -----------------
  */
 #define DPIO_DEVFN			0
+#define GPIO_DEVFN			0
+#define GPS_DEVFN			0
 
 #define DPIO_CTL			(VLV_DISPLAY_BASE + 0x2110)
 #define  DPIO_MODSEL1			(1<<3) /* if ref clk b == 27 */
