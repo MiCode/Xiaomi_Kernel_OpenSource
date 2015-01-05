@@ -3989,10 +3989,15 @@ int atomisp_digital_zoom(struct atomisp_sub_device *asd, int flag,
 			return -EINVAL;
 
 		zoom = max_zoom - min_t(u32, max_zoom - 1, *value);
-
-		dev_dbg(isp->dev, "%s, zoom: %d\n", __func__, zoom);
 		atomisp_css_set_zoom_factor(asd, zoom);
-		atomisp_css_update_isp_params(asd);
+
+		if (asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream &&
+		    asd->streaming == ATOMISP_DEVICE_STREAMING_ENABLED) {
+			dev_dbg(isp->dev, "%s, zoom: %d\n", __func__, zoom);
+			atomisp_css_update_isp_params(asd);
+		} else {
+			asd->params.css_update_params_needed = true;
+		}
 	}
 
 	return 0;
