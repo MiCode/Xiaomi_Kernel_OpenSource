@@ -1597,7 +1597,15 @@ static void gbam2bam_suspend_work(struct work_struct *w)
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		usb_bam_register_start_stop_cbs(d->dst_connection_idx,
 						gbam_start, gbam_stop, port);
+
+		/*
+		 * release lock here because gbam_start() or
+		 * gbam_stop() called from usb_bam_suspend()
+		 * re-acquires port lock.
+		 */
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		usb_bam_suspend(&d->ipa_params);
+		spin_lock_irqsave(&port->port_lock, flags);
 	}
 
 exit:

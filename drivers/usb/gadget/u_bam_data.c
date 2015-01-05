@@ -1969,7 +1969,15 @@ static void bam2bam_data_suspend_work(struct work_struct *w)
 		usb_bam_register_start_stop_cbs(d->dst_connection_idx,
 						bam_data_start, bam_data_stop,
 						port);
+
+		/*
+		 * release lock here because bam_data_start() or
+		 * bam_data_stop() called from usb_bam_suspend()
+		 * re-acquires port lock.
+		 */
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		usb_bam_suspend(&d->ipa_params);
+		spin_lock_irqsave(&port->port_lock, flags);
 	}
 
 exit:
