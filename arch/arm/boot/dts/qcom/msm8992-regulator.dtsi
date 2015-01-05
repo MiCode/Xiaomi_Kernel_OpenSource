@@ -674,6 +674,24 @@
 				<0xFFFFFFFF 0  640000  655000  700000  735000
 					       800000  835000  850000  875000
 					       950000>;
+		qcom,cpr-fuse-version-map =
+				<0 0xffffffff 0 0 0 0 0>,
+				<0 0xffffffff 1 0 0 0 0>,
+				<0 0xffffffff 2 0 0 0 0>,
+				<0 0xffffffff 3 0 0 0 0>,
+				<1 0xffffffff 0 0 0 0 0>,
+				<1 0xffffffff 1 0 0 0 0>,
+				<1 0xffffffff 2 0 0 0 0>,
+				<1 0xffffffff 3 0 0 0 0>;
+		qcom,cpr-allowed =
+				<0>,
+				<0>,
+				<1>,
+				<1>,
+				<0>,
+				<0>,
+				<1>,
+				<1>;
 
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;
@@ -690,6 +708,7 @@
 				<9  1248000000>;
 		qcom,cpr-speed-bin-max-corners =
 				<0xFFFFFFFF 0 2 4 6 9>;
+		qcom,cpr-enable;
 	};
 
 	apc1_vreg_corner: regulator@f901a000 {
@@ -781,9 +800,20 @@
 					       850000  860000  880000  900000
 					       920000  935000 1000000>;
 		qcom,cpr-fuse-version-map =
-				<0xffffffff 0xffffffff 1 4 4 4 4>;
+				<0xffffffff 0xffffffff 0 4 4 4 4>,
+				<0xffffffff 0xffffffff 1 4 4 4 4>,
+				<0xffffffff 0xffffffff 2 4 4 4 4>,
+				<0xffffffff 0xffffffff 3 2 2 2 2>;
 		qcom,cpr-init-voltage-adjustment =
-				<(-25000) (-25000) (-25000) (-25000)>;
+				<0 0 0 0>,
+				<(-25000) (-25000) (-25000) (-25000)>,
+				<0 0 0 0>,
+				<0 0 0 0>;
+		qcom,cpr-allowed =
+				<0>,
+				<0>,
+				<1>,
+				<1>;
 
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;
@@ -806,6 +836,7 @@
 				<15 1824000000>;
 		qcom,cpr-speed-bin-max-corners =
 				<0xFFFFFFFF 0 1 5 8 15>;
+		qcom,cpr-enable;
 	};
 
 /* Miscellaneous regulators */
