@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1193,7 +1193,7 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 		return -ENODEV;
 	pmic_arb->ee = (u8)prop;
 
-	ret = spmi_pmic_arb_get_property(pdev, "qcom,pmic-arb-channel-num",
+	ret = spmi_pmic_arb_get_property(pdev, "qcom,pmic-arb-channel",
 					&prop);
 	if (ret)
 		return -ENODEV;
