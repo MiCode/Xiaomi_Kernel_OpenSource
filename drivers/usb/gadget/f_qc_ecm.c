@@ -69,6 +69,7 @@ struct f_ecm_qc {
 	struct qc_gether		port;
 	u8				ctrl_id, data_id;
 	enum transport_type		xport;
+	u8				port_num;
 	char				ethaddr[14];
 
 	struct usb_ep			*notify;
@@ -78,8 +79,6 @@ struct f_ecm_qc {
 	struct data_port		bam_port;
 	bool				ecm_mdm_ready_trigger;
 
-	const struct usb_endpoint_descriptor *in_ep_desc_backup;
-	const struct usb_endpoint_descriptor *out_ep_desc_backup;
 	bool				data_interface_up;
 };
 
@@ -448,72 +447,6 @@ static void ecm_qc_notify(struct f_ecm_qc *ecm)
 	ecm_qc_do_notify(ecm);
 }
 
-static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
-{
-	int ret;
-	u8 src_connection_idx, dst_connection_idx;
-	struct usb_composite_dev *cdev = dev->port.func.config->cdev;
-	struct usb_gadget *gadget = cdev->gadget;
-	enum peer_bam peer_bam = (dev->xport == USB_GADGET_XPORT_BAM2BAM_IPA) ?
-		IPA_P_BAM : A2_P_BAM;
-	int port_num;
-
-	port_num = (u_bam_data_func_to_port(USB_FUNC_ECM,
-					    ECM_QC_DEFAULT_PORT));
-	if (port_num < 0)
-		return port_num;
-	ret = bam2bam_data_port_select(port_num);
-	if (ret) {
-		pr_err("ecm_qc port select failed with err:%d\n", ret);
-		return ret;
-	}
-
-	dev->bam_port.cdev = cdev;
-	dev->bam_port.func = &dev->port.func;
-	dev->bam_port.in = dev->port.in_ep;
-	dev->bam_port.out = dev->port.out_ep;
-
-	/* currently we use the first connection */
-	src_connection_idx = usb_bam_get_connection_idx(gadget->name, peer_bam,
-		USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE, 0);
-	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, peer_bam,
-		PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE, 0);
-	if (src_connection_idx < 0 || dst_connection_idx < 0) {
-		pr_err("usb_bam_get_connection_idx failed\n");
-		return ret;
-	}
-	ret = bam_data_connect(&dev->bam_port, port_num,
-		dev->xport, src_connection_idx, dst_connection_idx,
-		USB_FUNC_ECM);
-	if (ret) {
-		pr_err("bam_data_connect failed: err:%d\n", ret);
-		return ret;
-	}
-
-
-	pr_debug("ecm bam connected\n");
-
-	dev->is_open = dev->ecm_mdm_ready_trigger ? true : false;
-	ecm_qc_notify(dev);
-
-	return 0;
-}
-
-static int ecm_qc_bam_disconnect(struct f_ecm_qc *dev)
-{
-	int port_num;
-	pr_debug("%s: dev:%p. Disconnect BAM.\n", __func__, dev);
-
-	__ecm->ecm_mdm_ready_trigger = false;
-	port_num = (u_bam_data_func_to_port(USB_FUNC_ECM,
-					    ECM_QC_DEFAULT_PORT));
-	if (port_num < 0)
-		return port_num;
-	bam_data_disconnect(&dev->bam_port, port_num);
-
-	return 0;
-}
-
 void *ecm_qc_get_ipa_rx_cb(void)
 {
 	return ipa_params.ecm_ipa_rx_dp_notify;
@@ -680,7 +613,8 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			 * path. Only after the BAM data path is disconnected,
 			 * we can disconnect the port from the network layer.
 			 */
-			ecm_qc_bam_disconnect(ecm);
+			bam_data_disconnect(&ecm->bam_port, USB_FUNC_ECM,
+					ecm->port_num);
 			if (ecm->xport != USB_GADGET_XPORT_BAM2BAM_IPA) {
 				gether_qc_disconnect_name(&ecm->port, "ecm0");
 			} else if (ecm->data_interface_up &&
@@ -723,8 +657,16 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				}
 			}
 
-			if (ecm_qc_bam_connect(ecm))
+			ecm->bam_port.cdev = cdev;
+			ecm->bam_port.func = &ecm->port.func;
+			ecm->bam_port.in = ecm->port.in_ep;
+			ecm->bam_port.out = ecm->port.out_ep;
+			if (bam_data_connect(&ecm->bam_port, ecm->xport,
+				ecm->port_num, USB_FUNC_ECM))
 				goto fail;
+
+			ecm->is_open =
+				ecm->ecm_mdm_ready_trigger ? true : false;
 		}
 
 		ecm->data_interface_up = alt;
@@ -763,7 +705,8 @@ static void ecm_qc_disable(struct usb_function *f)
 	DBG(cdev, "ecm deactivated\n");
 
 	if (ecm->port.in_ep->driver_data) {
-		ecm_qc_bam_disconnect(ecm);
+		bam_data_disconnect(&ecm->bam_port, USB_FUNC_ECM,
+				ecm->port_num);
 		if (ecm->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
 			gether_qc_disconnect_name(&ecm->port, "ecm0");
 	} else {
@@ -791,7 +734,6 @@ static void ecm_qc_suspend(struct usb_function *f)
 {
 	struct f_ecm_qc	*ecm = func_to_ecm_qc(f);
 	bool remote_wakeup_allowed;
-	int port_num;
 
 	/* Is DATA interface initialized? */
 	if (!ecm->data_interface_up) {
@@ -806,24 +748,11 @@ static void ecm_qc_suspend(struct usb_function *f)
 			f->config->cdev->gadget->remote_wakeup;
 
 	pr_debug("%s(): remote_wakeup:%d\n:", __func__, remote_wakeup_allowed);
-	if (remote_wakeup_allowed) {
-		port_num = (u_bam_data_func_to_port(USB_FUNC_ECM,
-						    ECM_QC_ACTIVE_PORT));
-		if (port_num < 0)
-			return;
-		bam_data_suspend(port_num);
-	} else {
-		/*
-		 * When remote wakeup is disabled, IPA BAM is disconnected
-		 * because it cannot send new data until the USB bus is resumed.
-		 * Endpoint descriptors info is saved before it gets reset by
-		 * the BAM disconnect API. This lets us restore this info when
-		 * the USB bus is resumed.
-		 */
-		ecm->in_ep_desc_backup  = ecm->bam_port.in->desc;
-		ecm->out_ep_desc_backup = ecm->bam_port.out->desc;
-		ecm_qc_bam_disconnect(ecm);
-	}
+	if (!remote_wakeup_allowed)
+		__ecm->ecm_mdm_ready_trigger = false;
+
+	bam_data_suspend(&ecm->bam_port, ecm->port_num, USB_FUNC_ECM,
+			remote_wakeup_allowed);
 
 	pr_debug("ecm suspended\n");
 }
@@ -832,7 +761,6 @@ static void ecm_qc_resume(struct usb_function *f)
 {
 	struct f_ecm_qc	*ecm = func_to_ecm_qc(f);
 	bool remote_wakeup_allowed;
-	int port_num;
 
 	if (!ecm->data_interface_up) {
 		pr_err("%s(): data interface was not up\n", __func__);
@@ -845,17 +773,12 @@ static void ecm_qc_resume(struct usb_function *f)
 		remote_wakeup_allowed =
 			f->config->cdev->gadget->remote_wakeup;
 
-	if (remote_wakeup_allowed) {
-		port_num = (u_bam_data_func_to_port(USB_FUNC_ECM,
-						    ECM_QC_ACTIVE_PORT));
-		if (port_num < 0)
-			return;
-		bam_data_resume(port_num);
-	} else {
-		/* Restore endpoint descriptors info. */
-		ecm->bam_port.in->desc  = ecm->in_ep_desc_backup;
-		ecm->bam_port.out->desc = ecm->out_ep_desc_backup;
-		ecm_qc_bam_connect(ecm);
+	bam_data_resume(&ecm->bam_port, ecm->port_num, USB_FUNC_ECM,
+			remote_wakeup_allowed);
+
+	if (!remote_wakeup_allowed) {
+		ecm->is_open = ecm->ecm_mdm_ready_trigger ? true : false;
+		ecm_qc_notify(ecm);
 	}
 
 	pr_debug("ecm resumed\n");
