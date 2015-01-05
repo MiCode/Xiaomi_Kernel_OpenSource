@@ -68,6 +68,12 @@ static void ufs_qcom_dump_regs(struct ufs_hba *hba, int offset, int len,
 			16, 4, hba->mmio_base + offset, len * 4, false);
 }
 
+static void ufs_qcom_dump_regs_wrapper(struct ufs_hba *hba, int offset, int len,
+		char *prefix, void *priv)
+{
+	ufs_qcom_dump_regs(hba, offset, len, prefix);
+}
+
 static int ufs_qcom_get_connected_tx_lanes(struct ufs_hba *hba, u32 *tx_lanes)
 {
 	int err = 0;
@@ -1394,44 +1400,56 @@ out:
 	return ret;
 }
 
-static void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba)
+void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba, void *priv,
+		void (*print_fn)(struct ufs_hba *hba, int offset, int num_regs,
+				char *str, void *priv))
 {
 	u32 reg;
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host;
 
+	if (unlikely(!hba)) {
+		pr_err("%s: hba is NULL\n", __func__);
+		return;
+	}
+	if (unlikely(!print_fn)) {
+		dev_err(hba->dev, "%s: print_fn is NULL\n", __func__);
+		return;
+	}
+
+	host = hba->priv;
 	if (!(host->dbg_print_en & UFS_QCOM_DBG_PRINT_REGS_EN))
 		return;
 
-	ufs_qcom_dump_regs(hba, UFS_UFS_DBG_RD_REG_OCSC, 44,
-			"UFS_UFS_DBG_RD_REG_OCSC ");
+	print_fn(hba, UFS_UFS_DBG_RD_REG_OCSC, 44,
+			"UFS_UFS_DBG_RD_REG_OCSC ", priv);
 
 	reg = ufshcd_readl(hba, REG_UFS_CFG1);
 	reg |= UFS_BIT(17);
 	ufshcd_writel(hba, reg, REG_UFS_CFG1);
 
-	ufs_qcom_dump_regs(hba, UFS_UFS_DBG_RD_EDTL_RAM, 32,
-			"UFS_UFS_DBG_RD_EDTL_RAM ");
-	ufs_qcom_dump_regs(hba, UFS_UFS_DBG_RD_DESC_RAM, 128,
-			"UFS_UFS_DBG_RD_DESC_RAM ");
-	ufs_qcom_dump_regs(hba, UFS_UFS_DBG_RD_PRDT_RAM, 64,
-			"UFS_UFS_DBG_RD_PRDT_RAM ");
+	print_fn(hba, UFS_UFS_DBG_RD_EDTL_RAM, 32,
+			"UFS_UFS_DBG_RD_EDTL_RAM ", priv);
+	print_fn(hba, UFS_UFS_DBG_RD_DESC_RAM, 128,
+			"UFS_UFS_DBG_RD_DESC_RAM ", priv);
+	print_fn(hba, UFS_UFS_DBG_RD_PRDT_RAM, 64,
+			"UFS_UFS_DBG_RD_PRDT_RAM ", priv);
 
 	ufshcd_writel(hba, (reg & ~UFS_BIT(17)), REG_UFS_CFG1);
 
-	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_UAWM, 4,
-			"UFS_DBG_RD_REG_UAWM ");
-	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_UARM, 4,
-			"UFS_DBG_RD_REG_UARM ");
-	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_TXUC, 48,
-			"UFS_DBG_RD_REG_TXUC ");
-	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_RXUC, 27,
-			"UFS_DBG_RD_REG_RXUC ");
-	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_DFC, 19,
-			"UFS_DBG_RD_REG_DFC ");
-	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_TRLUT, 34,
-			"UFS_DBG_RD_REG_TRLUT ");
-	ufs_qcom_dump_regs(hba, UFS_DBG_RD_REG_TMRLUT, 9,
-			"UFS_DBG_RD_REG_TMRLUT ");
+	print_fn(hba, UFS_DBG_RD_REG_UAWM, 4,
+			"UFS_DBG_RD_REG_UAWM ", priv);
+	print_fn(hba, UFS_DBG_RD_REG_UARM, 4,
+			"UFS_DBG_RD_REG_UARM ", priv);
+	print_fn(hba, UFS_DBG_RD_REG_TXUC, 48,
+			"UFS_DBG_RD_REG_TXUC ", priv);
+	print_fn(hba, UFS_DBG_RD_REG_RXUC, 27,
+			"UFS_DBG_RD_REG_RXUC ", priv);
+	print_fn(hba, UFS_DBG_RD_REG_DFC, 19,
+			"UFS_DBG_RD_REG_DFC ", priv);
+	print_fn(hba, UFS_DBG_RD_REG_TRLUT, 34,
+			"UFS_DBG_RD_REG_TRLUT ", priv);
+	print_fn(hba, UFS_DBG_RD_REG_TMRLUT, 9,
+			"UFS_DBG_RD_REG_TMRLUT ", priv);
 }
 
 static void ufs_qcom_enable_test_bus(struct ufs_qcom_host *host)
@@ -1570,7 +1588,7 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 	ufs_qcom_dump_regs(hba, REG_UFS_SYS1CLK_1US, 16,
 			"HCI Vendor Specific Registers ");
 
-	ufs_qcom_print_hw_debug_reg_all(hba);
+	ufs_qcom_print_hw_debug_reg_all(hba, NULL, ufs_qcom_dump_regs_wrapper);
 	ufs_qcom_testbus_read(hba);
 	ufs_qcom_ice_print_regs(host);
 }

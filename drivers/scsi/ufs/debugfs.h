@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,8 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba);
 
 void ufsdbg_remove_debugfs(struct ufs_hba *hba);
 void ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status);
+void ufsdbg_pr_buf_to_std(struct ufs_hba *hba, int offset, int num_regs,
+				char *str, void *priv);
 #else
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
@@ -36,6 +38,10 @@ void ufsdbg_remove_debugfs(struct ufs_hba *hba)
 {
 }
 void ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status)
+{
+}
+void ufsdbg_pr_buf_to_std(struct ufs_hba *hba, int offset, int num_regs,
+				char *str, void *priv)
 {
 }
 #endif

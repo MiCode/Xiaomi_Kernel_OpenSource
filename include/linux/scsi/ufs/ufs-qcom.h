@@ -219,6 +219,7 @@ struct qcom_debugfs_files {
 	struct dentry *testbus_en;
 	struct dentry *testbus_cfg;
 	struct dentry *testbus_bus;
+	struct dentry *dbg_regs;
 };
 #endif
 
@@ -264,6 +265,9 @@ struct ufs_qcom_host {
 #define ufs_qcom_is_link_hibern8(hba) ufshcd_is_link_hibern8(hba)
 
 int ufs_qcom_testbus_config(struct ufs_qcom_host *host);
+void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba, void *priv,
+		void (*print_fn)(struct ufs_hba *hba, int offset, int num_regs,
+				char *str, void *priv));
 
 #define MAX_PROP_NAME              32
 #define VDDA_PHY_MIN_UV            1000000
