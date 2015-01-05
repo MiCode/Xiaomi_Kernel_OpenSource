@@ -64,6 +64,8 @@ static void ipa_wq_rx_avail(struct work_struct *work);
 static void ipa_alloc_wlan_rx_common_cache(u32 size);
 static void ipa_cleanup_wlan_rx_common_cache(void);
 static void ipa_wq_repl_rx(struct work_struct *work);
+static void ipa_dma_memcpy_notify(struct ipa_sys_context *sys,
+		struct sps_iovec *iovec);
 
 static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 {
@@ -716,8 +718,9 @@ static int ipa_handle_rx_core(struct ipa_sys_context *sys, bool process_all,
 
 		if (iov.addr == 0)
 			break;
-
-		if (IPA_CLIENT_IS_WLAN_CONS(sys->ep->client))
+		if (IPA_CLIENT_IS_MEMCPY_DMA_CONS(sys->ep->client))
+			ipa_dma_memcpy_notify(sys, &iov);
+		else if (IPA_CLIENT_IS_WLAN_CONS(sys->ep->client))
 			ipa_wlan_wq_rx_common(sys, iov.size);
 		else
 			ipa_wq_rx_common(sys, iov.size);
@@ -2339,6 +2342,26 @@ static void ipa_wlan_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	ipa_replenish_wlan_rx_cache(sys);
 }
 
+static void ipa_dma_memcpy_notify(struct ipa_sys_context *sys,
+	struct sps_iovec *iovec)
+{
+	IPADBG("ENTER.\n");
+	if (unlikely(list_empty(&sys->head_desc_list))) {
+		IPAERR("descriptor list is empty!\n");
+		WARN_ON(1);
+		return;
+	}
+	if (!(iovec->flags & SPS_IOVEC_FLAG_EOT)) {
+		IPAERR("recieved unexpected event. sps flag is 0x%x\n"
+			, iovec->flags);
+		WARN_ON(1);
+		return;
+	}
+	sys->ep->client_notify(sys->ep->priv, IPA_RECEIVE,
+				(unsigned long)(iovec));
+	IPADBG("EXIT\n");
+}
+
 static void ipa_wq_rx_avail(struct work_struct *work)
 {
 	struct ipa_rx_pkt_wrapper *rx_pkt;
@@ -2447,6 +2470,8 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				sys->sps_callback = NULL;
 				sys->ep->status.status_ep = ipa_get_ep_mapping(
 						IPA_CLIENT_APPS_LAN_CONS);
+				if (IPA_CLIENT_IS_MEMCPY_DMA_PROD(in->client))
+					sys->ep->status.status_en = false;
 			} else {
 				sys->policy = IPA_POLICY_INTR_MODE;
 				sys->sps_option = (SPS_O_AUTO_ENABLE |
@@ -2539,6 +2564,26 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				sys->repl_hdlr = ipa_replenish_rx_cache;
+			} else if (in->client ==
+					IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS) {
+				IPADBG("assigning policy to client:%d",
+					in->client);
+				sys->ep->status.status_en = false;
+				sys->policy = IPA_POLICY_INTR_POLL_MODE;
+				sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
+					| SPS_O_ACK_TRANSFERS);
+				sys->sps_callback = ipa_sps_irq_rx_notify;
+				INIT_WORK(&sys->work, ipa_wq_handle_rx);
+				INIT_DELAYED_WORK(&sys->switch_to_intr_work,
+					switch_to_intr_rx_work_func);
+			} else if (in->client ==
+					IPA_CLIENT_MEMCPY_DMA_SYNC_CONS) {
+				IPADBG("assigning policy to client:%d",
+					in->client);
+				sys->ep->status.status_en = false;
+				sys->policy = IPA_POLICY_NOINTR_MODE;
+				sys->sps_option = SPS_O_AUTO_ENABLE |
+				SPS_O_ACK_TRANSFERS | SPS_O_POLL;
 			} else {
 				IPAERR("Need to install a RX pipe hdlr\n");
 				WARN_ON(1);
