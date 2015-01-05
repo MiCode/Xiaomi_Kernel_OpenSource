@@ -1789,6 +1789,8 @@ static void ufs_qcom_print_unipro_testbus(struct ufs_hba *hba)
 
 static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 {
+	struct ufs_qcom_host *host = hba->priv;
+
 	ufs_qcom_dump_regs(hba, REG_UFS_SYS1CLK_1US, 16,
 			"HCI Vendor Specific Registers ");
 
@@ -1798,6 +1800,8 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 	ufs_qcom_testbus_read(hba);
 	usleep_range(1000, 1100);
 	ufs_qcom_print_unipro_testbus(hba);
+	usleep_range(1000, 1100);
+	ufs_qcom_ice_print_regs(host);
 	usleep_range(1000, 1100);
 }
 
