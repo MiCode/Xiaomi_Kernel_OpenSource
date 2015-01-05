@@ -1355,29 +1355,37 @@ static struct glink_core_xprt_ctx *find_open_transport(const char *edge,
 	*best_id = USHRT_MAX;
 
 	mutex_lock(&transport_list_lock_lha0);
-	list_for_each_entry(xprt, &transport_list, list_node)
-		if (!strcmp(edge, xprt->edge)) {
-			if (first) {
-				first = false;
-				ret = NULL;
-			}
-			if (xprt_is_fully_opened(xprt)) {
-				if (xprt->id < *best_id) {
-					*best_id = xprt->id;
-					best_xprt = xprt;
-				}
-
-				if (name && !strcmp(name, xprt->name))
-					ret = xprt;
-			}
+	list_for_each_entry(xprt, &transport_list, list_node) {
+		if (strcmp(edge, xprt->edge))
+			continue;
+		if (first) {
+			first = false;
+			ret = NULL;
 		}
+		if (!xprt_is_fully_opened(xprt))
+			continue;
+
+		if (xprt->id < *best_id) {
+			*best_id = xprt->id;
+			best_xprt = xprt;
+		}
+
+		/*
+		 * Braces are required in this instacne because the else will
+		 * attach to the wrong if otherwise.
+		 */
+		if (name) {
+			if (!strcmp(name, xprt->name))
+				ret = xprt;
+		} else {
+			ret = best_xprt;
+		}
+	}
 
 	mutex_unlock(&transport_list_lock_lha0);
 
-	if (name && !ret)
+	if (IS_ERR_OR_NULL(ret))
 		return ret;
-	if (!name)
-		return best_xprt;
 	if (!initial_xprt)
 		*best_id = ret->id;
 
