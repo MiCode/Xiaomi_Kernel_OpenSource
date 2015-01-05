@@ -16,6 +16,8 @@
 #include "msm8939-qrd-skuk.dtsi"
 
 / {
+	model = "Qualcomm Technologies, Inc. MSM8939 QRD SKUK";
+	compatible = "qcom,msm8939-qrd-skuk", "qcom,msm8939-qrd", "qcom,msm8939", "qcom,qrd";
 	qcom,board-id = <0x1000b 5>, <0x2000b 5>;
 };
 
