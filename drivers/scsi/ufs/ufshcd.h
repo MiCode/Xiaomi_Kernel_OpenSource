@@ -318,6 +318,8 @@ struct ufs_pwr_mode_info {
  * @resume: called during host controller PM callback
  * @update_sec_cfg: called to restore host controller secure configuration
  * @dbg_register_dump: used to dump controller debug information
+ * @add_debugfs: used to add debugfs entries
+ * @remove_debugfs: used to remove debugfs entries
  * @crypto_engine_cfg: configure cryptographic engine according to tag parameter
  * @crypto_engine_eh: cryptographic engine error handling.
  *                Return true is it detects an error, false on
@@ -357,6 +359,10 @@ struct ufs_hba_variant_ops {
 	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
+#ifdef CONFIG_DEBUG_FS
+	void	(*add_debugfs)(struct ufs_hba *hba, struct dentry *root);
+	void	(*remove_debugfs)(struct ufs_hba *hba);
+#endif
 	int	(*crypto_engine_cfg)(struct ufs_hba *, unsigned int);
 	int	(*crypto_engine_reset)(struct ufs_hba *);
 	int	(*crypto_engine_eh)(struct ufs_hba *);

@@ -14,6 +14,8 @@
 #ifndef UFS_QCOM_H_
 #define UFS_QCOM_H_
 
+#include "ufshcd.h"
+
 #define MAX_UFS_QCOM_HOSTS	1
 #define MAX_U32                 (~(u32)0)
 #define MPHY_TX_FSM_STATE       0x41
@@ -233,6 +235,13 @@ struct ufs_qcom_ice_data {
 	bool crypto_engine_err;
 };
 
+#ifdef CONFIG_DEBUG_FS
+struct qcom_debugfs_files {
+	struct dentry *debugfs_root;
+	struct dentry *dbg_print_en;
+};
+#endif
+
 struct ufs_qcom_host {
 	/*
 	 * Set this capability if host controller supports the QUniPro mode
@@ -264,6 +273,9 @@ struct ufs_qcom_host {
 	void __iomem *dev_ref_clk_ctrl_mmio;
 	bool is_dev_ref_clk_enabled;
 	struct ufs_hw_version hw_ver;
+#ifdef CONFIG_DEBUG_FS
+	struct qcom_debugfs_files debugfs_files;
+#endif
 
 	u32 dev_ref_clk_en_mask;
 

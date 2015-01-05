@@ -24,7 +24,9 @@
 #include "ufs-qcom.h"
 #include "ufshci.h"
 #include "ufs-qcom-ice.h"
+#include "qcom-debugfs.h"
 #include "ufs_quirks.h"
+
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
 
@@ -1820,6 +1822,9 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.resume			= ufs_qcom_resume,
 	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
+#ifdef CONFIG_DEBUG_FS
+	.add_debugfs		= ufs_qcom_dbg_add_debugfs,
+#endif
 	.crypto_engine_cfg	= ufs_qcom_crytpo_engine_cfg,
 	.crypto_engine_reset	= ufs_qcom_crytpo_engine_reset,
 	.crypto_engine_eh	= ufs_qcom_crypto_engine_eh,
