@@ -2096,9 +2096,6 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 		INIT_LIST_HEAD(&ubi->pq[i]);
 	ubi->pq_head = 0;
 
-	ubi->rd_threshold = UBI_RD_THRESHOLD;
-	ubi->dt_threshold = UBI_DT_THRESHOLD;
-
 	list_for_each_entry_safe(aeb, tmp, &ai->erase, u.list) {
 		cond_resched();
 

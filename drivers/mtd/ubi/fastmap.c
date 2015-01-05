@@ -1,7 +1,5 @@
 /*
  * Copyright (c) 2012 Linutronix GmbH
- * Copyright (c) 2014, Linux Foundation. All rights reserved.
- *
  * Author: Richard Weinberger <richard@nod.at>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -732,9 +730,9 @@ static int ubi_attach_fastmap(struct ubi_device *ubi,
 		}
 
 		for (j = 0; j < be32_to_cpu(fm_eba->reserved_pebs); j++) {
-			int pnum = be32_to_cpu(fm_eba->peb_data[j].pnum);
+			int pnum = be32_to_cpu(fm_eba->pnum[j]);
 
-			if ((int)be32_to_cpu(fm_eba->peb_data[j].pnum) < 0)
+			if ((int)be32_to_cpu(fm_eba->pnum[j]) < 0)
 				continue;
 
 			aeb = NULL;
@@ -762,8 +760,7 @@ static int ubi_attach_fastmap(struct ubi_device *ubi,
 				}
 
 				aeb->lnum = j;
-				aeb->pnum =
-					be32_to_cpu(fm_eba->peb_data[j].pnum);
+				aeb->pnum = be32_to_cpu(fm_eba->pnum[j]);
 				aeb->ec = -1;
 				aeb->scrub = aeb->copy_flag = aeb->sqnum = 0;
 				list_add_tail(&aeb->u.list, &eba_orphans);
@@ -1281,12 +1278,11 @@ static int ubi_write_fastmap(struct ubi_device *ubi,
 			vol->vol_type == UBI_STATIC_VOLUME);
 
 		feba = (struct ubi_fm_eba *)(fm_raw + fm_pos);
-		fm_pos += sizeof(*feba) +
-			2 * (sizeof(__be32) * vol->reserved_pebs);
+		fm_pos += sizeof(*feba) + (sizeof(__be32) * vol->reserved_pebs);
 		ubi_assert(fm_pos <= ubi->fm_size);
 
 		for (j = 0; j < vol->reserved_pebs; j++)
-			feba->peb_data[j].pnum = cpu_to_be32(vol->eba_tbl[j]);
+			feba->pnum[j] = cpu_to_be32(vol->eba_tbl[j]);
 
 		feba->reserved_pebs = cpu_to_be32(j);
 		feba->magic = cpu_to_be32(UBI_FM_EBA_MAGIC);
