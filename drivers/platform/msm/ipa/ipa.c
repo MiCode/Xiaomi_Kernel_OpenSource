@@ -1497,6 +1497,10 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 				kfree(desc[index].user1);
 			retval = -EINVAL;
 		}
+
+		/* Ignoring TAG process timeout */
+		if (retval == -ETIME)
+			retval = 0;
 	}
 
 	kfree(desc);
