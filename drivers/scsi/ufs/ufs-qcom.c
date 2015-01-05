@@ -32,7 +32,24 @@
 #include "ufs-qcom-ice.h"
 #include "qcom-debugfs.h"
 
-#define DEFAULT_UFS_QCOM_DBG_PRINT_EN	UFS_QCOM_DBG_PRINT_REGS_EN
+#define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
+	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
+
+enum {
+	TSTBUS_UAWM,
+	TSTBUS_UARM,
+	TSTBUS_TXUC,
+	TSTBUS_RXUC,
+	TSTBUS_DFC,
+	TSTBUS_TRLUT,
+	TSTBUS_TMRLUT,
+	TSTBUS_OCSC,
+	TSTBUS_UTP_HCI,
+	TSTBUS_COMBINED,
+	TSTBUS_WRAPPER,
+	TSTBUS_UNIPRO,
+	TSTBUS_MAX,
+};
 
 static struct ufs_qcom_host *ufs_qcom_hosts[MAX_UFS_QCOM_HOSTS];
 
@@ -41,6 +58,7 @@ static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
 		const char *speed_mode);
 static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote);
 static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg);
+static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
 
 static void ufs_qcom_dump_regs(struct ufs_hba *hba, int offset, int len,
 		char *prefix)
@@ -1267,7 +1285,14 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	if (hba->dev->id < MAX_UFS_QCOM_HOSTS)
 		ufs_qcom_hosts[hba->dev->id] = host;
 
-	host->dbg_print_en |= DEFAULT_UFS_QCOM_DBG_PRINT_EN;
+	host->dbg_print_en |= UFS_QCOM_DEFAULT_DBG_PRINT_EN;
+	ufs_qcom_get_default_testbus_cfg(host);
+	err = ufs_qcom_testbus_config(host);
+	if (err) {
+		dev_warn(dev, "%s: failed to configure the testbus %d\n",
+				__func__, err);
+		err = 0;
+	}
 
 	goto out;
 
@@ -1409,6 +1434,135 @@ static void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba)
 			"UFS_DBG_RD_REG_TMRLUT ");
 }
 
+static void ufs_qcom_enable_test_bus(struct ufs_qcom_host *host)
+{
+	if (host->dbg_print_en & UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
+		ufshcd_rmwl(host->hba, TEST_BUS_EN, TEST_BUS_EN, REG_UFS_CFG1);
+	else
+		ufshcd_rmwl(host->hba, TEST_BUS_EN, 0, REG_UFS_CFG1);
+}
+
+static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host)
+{
+	/* provide a legal default configuration */
+	host->testbus.select_major = TSTBUS_UAWM;
+	host->testbus.select_minor = 1;
+}
+
+static bool ufs_qcom_testbus_cfg_is_ok(struct ufs_qcom_host *host)
+{
+	if (host->testbus.select_major >= TSTBUS_MAX) {
+		dev_err(host->hba->dev,
+			"%s: UFS_CFG1[TEST_BUS_SEL} may not equal 0x%05X\n",
+			__func__, host->testbus.select_major);
+		return false;
+	}
+
+	/*
+	 * Not performing check for each individual select_major
+	 * mappings of select_minor, since there is no harm in
+	 * configuring a non-existent select_minor
+	 */
+	if (host->testbus.select_major > 0x1F) {
+		dev_err(host->hba->dev,
+			"%s: 0x%05X is not a legal testbus option\n",
+			__func__, host->testbus.select_minor);
+		return false;
+	}
+
+	return true;
+}
+
+int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
+{
+	int reg;
+	int offset;
+	u32 mask = TEST_BUS_SUB_SEL_MASK;
+
+	if (!host)
+		return -EINVAL;
+
+	if (!ufs_qcom_testbus_cfg_is_ok(host))
+		return -EPERM;
+
+	switch (host->testbus.select_major) {
+	case TSTBUS_UAWM:
+		reg = UFS_TEST_BUS_CTRL_0;
+		offset = 24;
+		break;
+	case TSTBUS_UARM:
+		reg = UFS_TEST_BUS_CTRL_0;
+		offset = 16;
+		break;
+	case TSTBUS_TXUC:
+		reg = UFS_TEST_BUS_CTRL_0;
+		offset = 8;
+		break;
+	case TSTBUS_RXUC:
+		reg = UFS_TEST_BUS_CTRL_0;
+		offset = 0;
+		break;
+	case TSTBUS_DFC:
+		reg = UFS_TEST_BUS_CTRL_1;
+		offset = 24;
+		break;
+	case TSTBUS_TRLUT:
+		reg = UFS_TEST_BUS_CTRL_1;
+		offset = 16;
+		break;
+	case TSTBUS_TMRLUT:
+		reg = UFS_TEST_BUS_CTRL_1;
+		offset = 8;
+		break;
+	case TSTBUS_OCSC:
+		reg = UFS_TEST_BUS_CTRL_1;
+		offset = 0;
+		break;
+	case TSTBUS_WRAPPER:
+		reg = UFS_TEST_BUS_CTRL_2;
+		offset = 16;
+		break;
+	case TSTBUS_COMBINED:
+		reg = UFS_TEST_BUS_CTRL_2;
+		offset = 8;
+		break;
+	case TSTBUS_UTP_HCI:
+		reg = UFS_TEST_BUS_CTRL_2;
+		offset = 0;
+		break;
+	case TSTBUS_UNIPRO:
+		reg = UFS_UNIPRO_CFG;
+		offset = 1;
+		break;
+	/*
+	 * No need for a default case, since
+	 * ufs_qcom_testbus_cfg_is_ok() checks that the configuration
+	 * is legal
+	 */
+	}
+	mask <<= offset;
+	ufshcd_hold(host->hba, false);
+
+	pm_runtime_get_sync(host->hba->dev);
+	ufshcd_rmwl(host->hba, TEST_BUS_SEL,
+		    (u32)host->testbus.select_major << 19,
+		    REG_UFS_CFG1);
+	ufshcd_rmwl(host->hba, mask,
+		    (u32)host->testbus.select_minor << offset,
+		    reg);
+	ufs_qcom_enable_test_bus(host);
+
+	pm_runtime_put_sync(host->hba->dev);
+	ufshcd_release(host->hba, false);
+
+	return 0;
+}
+
+static void ufs_qcom_testbus_read(struct ufs_hba *hba)
+{
+	ufs_qcom_dump_regs(hba, UFS_TEST_BUS, 1, "UFS_TEST_BUS ");
+}
+
 static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = hba->priv;
@@ -1417,6 +1571,7 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 			"HCI Vendor Specific Registers ");
 
 	ufs_qcom_print_hw_debug_reg_all(hba);
+	ufs_qcom_testbus_read(hba);
 	ufs_qcom_ice_print_regs(host);
 }
 

@@ -16,6 +16,8 @@
 #include <linux/scsi/ufs/ufs-qcom.h>
 #include "qcom-debugfs.h"
 
+#define TESTBUS_CFG_BUFF_LINE_SIZE	sizeof("0xXY, 0xXY")
+
 static void ufs_qcom_dbg_remove_debugfs(struct ufs_qcom_host *host);
 
 static int ufs_qcom_dbg_print_en_read(void *data, u64 *attr_val)
@@ -46,6 +48,140 @@ static int ufs_qcom_dbg_print_en_set(void *data, u64 attr_id)
 DEFINE_SIMPLE_ATTRIBUTE(ufs_qcom_dbg_print_en_ops,
 			ufs_qcom_dbg_print_en_read,
 			ufs_qcom_dbg_print_en_set,
+			"%llu\n");
+
+static int ufs_qcom_dbg_testbus_en_read(void *data, u64 *attr_val)
+{
+	struct ufs_qcom_host *host = data;
+	bool enabled;
+
+	if (!host)
+		return -EINVAL;
+
+	enabled = !!(host->dbg_print_en & UFS_QCOM_DBG_PRINT_TEST_BUS_EN);
+	*attr_val = (u64)enabled;
+	return 0;
+}
+
+static int ufs_qcom_dbg_testbus_en_set(void *data, u64 attr_id)
+{
+	struct ufs_qcom_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	if (!!attr_id)
+		host->dbg_print_en |= UFS_QCOM_DBG_PRINT_TEST_BUS_EN;
+	else
+		host->dbg_print_en &= ~UFS_QCOM_DBG_PRINT_TEST_BUS_EN;
+
+	return ufs_qcom_testbus_config(host);
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(ufs_qcom_dbg_testbus_en_ops,
+			ufs_qcom_dbg_testbus_en_read,
+			ufs_qcom_dbg_testbus_en_set,
+			"%llu\n");
+
+static int ufs_qcom_dbg_testbus_cfg_show(struct seq_file *file, void *data)
+{
+	struct ufs_qcom_host *host = (struct ufs_qcom_host *)file->private;
+
+	seq_printf(file , "Current configuration: major=%d, minor=%d\n\n",
+			host->testbus.select_major, host->testbus.select_minor);
+
+	/* Print usage */
+	seq_puts(file,
+		"To change the test-bus configuration, write 'MAJ,MIN' where:\n"
+		"MAJ - major select\n"
+		"MIN - minor select\n\n");
+	return 0;
+}
+
+static ssize_t ufs_qcom_dbg_testbus_cfg_write(struct file *file,
+				const char __user *ubuf, size_t cnt,
+				loff_t *ppos)
+{
+	struct ufs_qcom_host *host = file->f_mapping->host->i_private;
+	char configuration[TESTBUS_CFG_BUFF_LINE_SIZE] = {0};
+	loff_t buff_pos = 0;
+	char *comma;
+	int ret = 0;
+	int major;
+	int minor;
+
+	cnt = simple_write_to_buffer(configuration, TESTBUS_CFG_BUFF_LINE_SIZE,
+		&buff_pos, ubuf, cnt);
+	if (cnt < 0) {
+		dev_err(host->hba->dev, "%s: failed to read user data\n",
+			__func__);
+		goto out;
+	}
+
+	comma = strnchr(configuration, TESTBUS_CFG_BUFF_LINE_SIZE, ',');
+	if (!comma || comma == configuration) {
+		dev_err(host->hba->dev,
+			"%s: error in configuration of testbus\n", __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (sscanf(configuration, "%i,%i", &major, &minor) != 2) {
+		dev_err(host->hba->dev,
+			"%s: couldn't parse input to 2 numeric values\n",
+			__func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	host->testbus.select_major = (u8)major;
+	host->testbus.select_minor = (u8)minor;
+
+	/*
+	 * Sanity check of the {major, minor} tuple is done in the
+	 * config function
+	 */
+	ret = ufs_qcom_testbus_config(host);
+	if (!ret)
+		dev_dbg(host->hba->dev,
+				"%s: New configuration: major=%d, minor=%d\n",
+				__func__, host->testbus.select_major,
+				host->testbus.select_minor);
+
+out:
+	return ret ? ret : cnt;
+}
+
+static int ufs_qcom_dbg_testbus_cfg_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufs_qcom_dbg_testbus_cfg_show,
+				inode->i_private);
+}
+
+static const struct file_operations ufs_qcom_dbg_testbus_cfg_desc = {
+	.open		= ufs_qcom_dbg_testbus_cfg_open,
+	.read		= seq_read,
+	.write		= ufs_qcom_dbg_testbus_cfg_write,
+};
+
+static int ufs_qcom_dbg_testbus_bus_read(void *data, u64 *attr_val)
+{
+	struct ufs_qcom_host *host = data;
+
+	if (!host)
+		return -EINVAL;
+
+	ufshcd_hold(host->hba, false);
+	pm_runtime_get_sync(host->hba->dev);
+	*attr_val = (u64)ufshcd_readl(host->hba, UFS_TEST_BUS);
+	pm_runtime_put_sync(host->hba->dev);
+	ufshcd_release(host->hba, false);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(ufs_qcom_dbg_testbus_bus_ops,
+			ufs_qcom_dbg_testbus_bus_read,
+			NULL,
 			"%llu\n");
 
 
@@ -83,6 +219,49 @@ void ufs_qcom_dbg_add_debugfs(struct ufs_hba *hba, struct dentry *root)
 			__func__);
 		goto err;
 	}
+
+	host->debugfs_files.testbus = debugfs_create_dir("testbus",
+					host->debugfs_files.debugfs_root);
+	if (!host->debugfs_files.testbus) {
+		dev_err(host->hba->dev,
+			"%s: failed create testbus directory\n",
+			__func__);
+		goto err;
+	}
+
+	host->debugfs_files.testbus_en =
+		debugfs_create_file("enable", S_IRUSR | S_IWUSR,
+				    host->debugfs_files.testbus, host,
+				    &ufs_qcom_dbg_testbus_en_ops);
+	if (!host->debugfs_files.testbus_en) {
+		dev_err(host->hba->dev,
+			"%s: failed create testbus_en debugfs entry\n",
+			__func__);
+		goto err;
+	}
+
+	host->debugfs_files.testbus_cfg =
+		debugfs_create_file("configuration", S_IRUSR | S_IWUSR,
+				    host->debugfs_files.testbus, host,
+				    &ufs_qcom_dbg_testbus_cfg_desc);
+	if (!host->debugfs_files.testbus_cfg) {
+		dev_err(host->hba->dev,
+			"%s: failed create testbus_cfg debugfs entry\n",
+			__func__);
+		goto err;
+	}
+
+	host->debugfs_files.testbus_bus =
+		debugfs_create_file("TEST_BUS", S_IRUSR,
+				    host->debugfs_files.testbus, host,
+				    &ufs_qcom_dbg_testbus_bus_ops);
+	if (!host->debugfs_files.testbus_bus) {
+		dev_err(host->hba->dev,
+			"%s: failed create testbus_bus debugfs entry\n",
+			__func__);
+		goto err;
+	}
+
 	return;
 
 err:
