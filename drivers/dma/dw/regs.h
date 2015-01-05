@@ -199,7 +199,6 @@ struct dw_dma_chan {
 	u8				priority;
 	enum dma_transfer_direction	direction;
 	bool				paused;
-	bool				initialized;
 
 	/* software emulation of the LLP transfers */
 	struct list_head	*tx_node_active;
