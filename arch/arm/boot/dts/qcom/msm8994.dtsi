@@ -1094,9 +1094,9 @@
 		interrupt-names = "hc_irq", "pwr_irq";
 
 		qcom,bus-width = <8>;
-		qcom,cpu-dma-latency-us = <301>;
+		qcom,cpu-dma-latency-us = <301 70>;
 		qcom,cpu-affinity = "affine_cores";
-		qcom,cpu-affinity-mask = <0x0f>;
+		qcom,cpu-affinity-mask = <0x0f 0xf0>;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
@@ -1133,9 +1133,9 @@
 			 <&clock_gcc clk_gcc_sdcc2_apps_clk>;
 
 		qcom,bus-width = <4>;
-		qcom,cpu-dma-latency-us = <301>;
+		qcom,cpu-dma-latency-us = <301 70>;
 		qcom,cpu-affinity = "affine_cores";
-		qcom,cpu-affinity-mask = <0x0f>;
+		qcom,cpu-affinity-mask = <0x0f 0xf0>;
 
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
@@ -1167,9 +1167,9 @@
 			 <&clock_gcc clk_gcc_sdcc3_apps_clk>;
 
 		qcom,bus-width = <4>;
-		qcom,cpu-dma-latency-us = <301>;
+		qcom,cpu-dma-latency-us = <301 70>;
 		qcom,cpu-affinity = "affine_cores";
-		qcom,cpu-affinity-mask = <0x0f>;
+		qcom,cpu-affinity-mask = <0x0f 0xf0>;
 
 		qcom,msm-bus,name = "sdhc3";
 		qcom,msm-bus,num-cases = <8>;
