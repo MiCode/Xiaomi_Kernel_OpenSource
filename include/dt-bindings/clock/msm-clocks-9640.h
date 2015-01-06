@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,6 +120,8 @@
 #define clk_gcc_mss_q6_bimc_axi_clk		&gcc_mss_q6_bimc_axi_clk
 #define clk_gcc_boot_rom_ahb_clk		&gcc_boot_rom_ahb_clk
 #define clk_gcc_prng_ahb_clk			&gcc_prng_ahb_clk
+#define clk_bimc_apss_axi_clk_sleep		&bimc_apss_axi_clk_sleep
+#define clk_apss_axi_clk_sleep			&apss_axi_clk_sleep
 
 /* a7pll */
 #define clk_a7pll_clk				&a7pll_clk
