@@ -1600,6 +1600,10 @@ static void check_link_notifier_and_notify(struct glink_core_xprt_ctx *xprt_ptr,
  * @cfg_ptr:	Open configuration structure (the structure is copied before
  *		glink_open returns).  All unused fields should be zero-filled.
  *
+ * This should not be called from link state callback context by clients.
+ * It is recommended that client should invoke this function from their own
+ * thread.
+ *
  * Return:  Pointer to channel on success, PTR_ERR() with standard Linux
  * error code on failure.
  */
