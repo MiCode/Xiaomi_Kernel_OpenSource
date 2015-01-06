@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +11,7 @@
  */
 
 #include "msm8992-pinctrl.dtsi"
+#include "msm8992-camera-sensor-mtp.dtsi"
 
 #include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
 #include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
