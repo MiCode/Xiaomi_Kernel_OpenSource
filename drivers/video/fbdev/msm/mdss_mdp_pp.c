@@ -6082,19 +6082,17 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 		pr_err("invalid params %p\n", pipe);
 		return -EINVAL;
 	}
-
+	cache_res.mdss_pp_res = NULL;
+	cache_res.pipe_res = pipe;
+	ret = sspp_cache_location(pipe->type, &cache_res.block);
+	if (ret) {
+		pr_err("invalid cache res block for igc ret %d\n",
+			ret);
+		goto exit_fail;
+	}
 	len = pipe->pp_cfg.igc_cfg.len;
 	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_IGC_CFG)) {
 		if (pp_ops[IGC].pp_set_config) {
-			ret = sspp_cache_location(pipe->type,
-						&cache_res.block);
-			if (ret) {
-				pr_err("invalid cache res block for igc ret %d\n",
-					ret);
-				goto exit_fail;
-			}
-			cache_res.mdss_pp_res = NULL;
-			cache_res.pipe_res = pipe;
 			ret = pp_igc_lut_cache_params(&pipe->pp_cfg.igc_cfg,
 						      &cache_res, false);
 			if (ret) {
@@ -6153,9 +6151,6 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 	}
 	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PA_V2_CFG) &&
 	    (pp_ops[PA].pp_set_config)) {
-		cache_res.block = SSPP_VIG;
-		cache_res.mdss_pp_res = NULL;
-		cache_res.pipe_res = pipe;
 		ret = pp_pa_cache_params(&pipe->pp_cfg.pa_v2_cfg_data,
 					 &cache_res);
 		if (ret) {
@@ -6166,15 +6161,6 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 	}
 	if (pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_PCC_CFG
 	    && pp_ops[PCC].pp_set_config) {
-		ret = sspp_cache_location(pipe->type,
-					&cache_res.block);
-		if (ret) {
-			pr_err("invalid cache res block for pcc ret %d\n",
-				ret);
-			goto exit_fail;
-		}
-		cache_res.mdss_pp_res = NULL;
-		cache_res.pipe_res = pipe;
 		ret = pp_pcc_cache_params(&pipe->pp_cfg.pcc_cfg_data,
 					  &cache_res);
 		if (ret) {
