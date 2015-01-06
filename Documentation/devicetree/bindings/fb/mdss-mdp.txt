@@ -449,6 +449,11 @@ Fudge Factors:			Fudge factors are used to boost demand for
 - qcom,max-pipe-width:		This value specifies the maximum MDP SSPP width
 				the device supports. If not specified, a default value
 				of 2048 will be applied.
+- qcom,mdss-slave-pingpong-off:	Offset address for the extra TE block which needs
+				to be programmed when pingpong split feature is enabled.
+				Offset is calculated from the "mdp_phys"
+				register value. Mandatory when qcom,mdss-has-dst-split
+				is enabled.
 
 Optional subnodes:
 - mdss_fb:		Child nodes representing the frame buffer virtual devices.
@@ -666,6 +671,7 @@ Example:
 					   0x00021500 0x00021700>;
 		qcom,mdss-cdm-off = <0x0007A200>;
 		qcom,mdss-ppb-off = <0x0000420>;
+		qcom,mdss-slave-pingpong-off = <0x00073000>
 
 		/* buffer parameters to calculate prefill bandwidth */
 		qcom,mdss-prefill-outstanding-buffer-bytes = <1024>;
