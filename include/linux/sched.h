@@ -2157,6 +2157,9 @@ sched_set_cpu_cstate(int cpu, int cstate, int wakeup_energy, int wakeup_latency)
 }
 #endif
 
+extern int sched_set_wake_up_idle(struct task_struct *p, int wake_up_idle);
+extern u32 sched_get_wake_up_idle(struct task_struct *p);
+
 #ifdef CONFIG_SCHED_HMP
 
 extern int sched_set_boost(int enable);
