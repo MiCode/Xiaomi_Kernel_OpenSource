@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,14 +41,14 @@ enum mdss_dbg_xlog_flag {
 	MDSS_XLOG_ALL = BIT(7),
 };
 
-#define MDSS_XLOG(...) mdss_xlog(__func__, MDSS_XLOG_DEFAULT, ##__VA_ARGS__, \
-		DATA_LIMITER)
+#define MDSS_XLOG(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_DEFAULT, \
+		##__VA_ARGS__, DATA_LIMITER)
 
 #define MDSS_XLOG_TOUT_HANDLER(...)	\
 	mdss_xlog_tout_handler_default(__func__, ##__VA_ARGS__, \
 		XLOG_TOUT_DATA_LIMITER)
 
-#define MDSS_XLOG_ALL(...) mdss_xlog(__func__, MDSS_XLOG_ALL, \
+#define MDSS_XLOG_ALL(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_ALL,	\
 		##__VA_ARGS__, DATA_LIMITER)
 
 
@@ -103,7 +103,7 @@ int mdss_misr_get(struct mdss_data_type *mdata, struct mdp_misr *resp,
 void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id);
 
 int mdss_create_xlog_debug(struct mdss_debug_data *mdd);
-void mdss_xlog(const char *name, int flag, ...);
+void mdss_xlog(const char *name, int line, int flag, ...);
 void mdss_dump_reg(struct mdss_debug_base *dbg, u32 reg_dump_flag);
 void mdss_xlog_tout_handler_default(const char *name, ...);
 #else
@@ -126,11 +126,10 @@ static inline void mdss_misr_crc_collect(struct mdss_data_type *mdata,
 						int block_id) { }
 
 static inline int create_xlog_debug(struct mdss_data_type *mdata) { return 0; }
-static inline void mdss_xlog(const char *name, ...) { }
 static inline void mdss_xlog_dump(void) { }
 static inline void mdss_dump_reg(struct mdss_debug_base *dbg,
 	u32 reg_dump_flag) { }
-static inline void mdss_xlog(const char *name, int flag...) { }
+static inline void mdss_xlog(const char *name, int line, int flag...) { }
 static inline void mdss_dsi_debug_check_te(struct mdss_panel_data *pdata) { }
 static inline void mdss_xlog_tout_handler_default(const char *name, ...) { }
 #endif
