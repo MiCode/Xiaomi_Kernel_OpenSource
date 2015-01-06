@@ -493,8 +493,8 @@ static void __dump_stream_config(struct atomisp_sub_device *asd,
 	dev_dbg(isp->dev, "stream_config.input_config.bayer_order=%d.\n",
 		s_config->input_config.bayer_order);
 
-	dev_dbg(isp->dev, "stream_config.2ppc=%d.\n",
-			s_config->two_pixels_per_clock);
+	dev_dbg(isp->dev, "stream_config.pixels_per_clock=%d.\n",
+			s_config->pixels_per_clock);
 	dev_dbg(isp->dev, "stream_config.online=%d.\n", s_config->online);
 	dev_dbg(isp->dev, "stream_config.continuous=%d.\n",
 			s_config->continuous);
@@ -2054,11 +2054,11 @@ void atomisp_css_input_set_two_pixels_per_clock(
 	int i;
 
 	if (asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]
-		.stream_config.two_pixels_per_clock == !!two_ppc)
+		.stream_config.pixels_per_clock == (two_ppc ? 2 : 1))
 		return;
 
 	asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]
-		.stream_config.two_pixels_per_clock = !!two_ppc;
+		.stream_config.pixels_per_clock = (two_ppc ? 2 : 1);
 	for (i = 0; i < IA_CSS_PIPE_ID_NUM; i++)
 		asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL]
 		.update_pipe[i] = true;
