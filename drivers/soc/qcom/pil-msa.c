@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,11 +69,17 @@
 #define MSS_RESTART_PARAM_ID		0x2
 #define MSS_RESTART_ID			0xA
 
+#define MSS_MAGIC			0XAABADEAD
+
 static int pbl_mba_boot_timeout_ms = 1000;
 module_param(pbl_mba_boot_timeout_ms, int, S_IRUGO | S_IWUSR);
 
 static int modem_auth_timeout_ms = 10000;
 module_param(modem_auth_timeout_ms, int, S_IRUGO | S_IWUSR);
+
+/* If set to 0xAABADEAD, MBA failures trigger a kernel panic */
+static uint modem_trigger_panic;
+module_param(modem_trigger_panic, uint, S_IRUGO | S_IWUSR);
 
 static void modem_log_rmb_regs(void __iomem *base)
 {
@@ -92,6 +98,9 @@ static void modem_log_rmb_regs(void __iomem *base)
 				readl_relaxed(base + RMB_PROTOCOL_VERSION));
 	pr_err("RMB_MBA_DEBUG_INFORMATION: %08x\n",
 			readl_relaxed(base + RMB_MBA_DEBUG_INFORMATION));
+
+	if (modem_trigger_panic == MSS_MAGIC)
+		panic("%s: System ramdump is needed!!!\n", __func__);
 }
 
 static int pil_mss_power_up(struct q6v5_data *drv)
