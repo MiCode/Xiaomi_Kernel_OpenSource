@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -118,7 +118,7 @@ enum pmic_arb_cmd_op_code {
 /* Maximum number of support PMIC peripherals */
 #define PMIC_ARB_MAX_PERIPHS		256
 #define PMIC_ARB_PERIPHS_CHNL_DEFAULT	128
-#define PMIC_ARB_PERIPHS_INTR_DEFAULT	128
+#define PMIC_ARB_PERIPHS_INTR_DEFAULT	256
 #define PMIC_ARB_PERIPH_ID_VALID	(1 << 15)
 #define PMIC_ARB_TIMEOUT_US		100
 #define PMIC_ARB_MAX_TRANS_BYTES	(8)
