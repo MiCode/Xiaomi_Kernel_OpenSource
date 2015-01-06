@@ -1,4 +1,4 @@
-/* Copyright (c) 2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 	mdss_mdp: qcom,mdss_mdp@fd900000 {
 		compatible = "qcom,mdss_mdp";
 		reg = <0xfd900000 0x90000>,
-		      <0xfd9c8000 0x1000>;
+		      <0xfd9c8000 0x004d4>;
 		reg-names = "mdp_phys", "vbif_phys";
 		interrupts = <0 83 0>;
 		vdd-supply = <&gdsc_mdss>;
@@ -142,6 +142,65 @@
 				    <0x013b0 0xccccc0c0>,
 				    <0x013b8 0xccccc0c0>,
 				    <0x013d0 0x00ccc000>;
+
+		qcom,regs-dump-mdp = <0x01000 0x01408>,
+				     <0x02000 0x02064>,
+				     <0x02200 0x02264>,
+				     <0x02400 0x02464>,
+				     <0x02600 0x02664>,
+				     <0x02800 0x02864>,
+				     <0x05000 0x05130>,
+				     <0x05200 0x05230>,
+				     <0x07000 0x07130>,
+				     <0x07200 0x07230>,
+				     <0x09000 0x09130>,
+				     <0x09200 0x09230>,
+				     <0x0b000 0x0b130>,
+				     <0x0b200 0x0b230>,
+				     <0x15000 0x15130>,
+				     <0x15200 0x15230>,
+				     <0x17000 0x17130>,
+				     <0x17200 0x17230>,
+				     <0x19000 0x19130>,
+				     <0x19200 0x19230>,
+				     <0x1b000 0x1b130>,
+				     <0x1b200 0x1b230>,
+				     <0x25000 0x2512C>,
+				     <0x27000 0x2712C>,
+				     <0x45000 0x4538c>,
+				     <0x46000 0x4638c>,
+				     <0x47000 0x4738c>,
+				     <0x48000 0x4838c>,
+				     <0x49000 0x4938c>,
+				     <0x4a000 0x4a38c>,
+				     <0x55000 0x5522c>,
+				     <0x57000 0x5722c>,
+				     <0x59000 0x5922c>,
+				     <0x5b000 0x5b22c>,
+				     <0x65000 0x652b4>,
+				     <0x65800 0x65ab4>,
+				     <0x66000 0x662b4>,
+				     <0x66800 0x66ab4>,
+				     <0x67000 0x672b4>,
+				     <0x6b800 0x6ba54>,
+				     <0x6c000 0x6c254>,
+				     <0x6c800 0x6ca54>,
+				     <0x71000 0x710d0>,
+				     <0x71800 0x718d0>;
+
+		qcom,regs-dump-names-mdp = "MDP",
+			"CTL_0",    "CTL_1", "CTL_2",   "CTL_3", "CTL_4",
+			"VIG0_SSPP", "VIG0",  "VIG1_SSPP", "VIG1",
+			"VIG2_SSPP", "VIG2",  "VIG3_SSPP", "VIG3",
+			"RGB0_SSPP", "RGB0",  "RGB1_SSPP", "RGB1",
+			"RGB2_SSPP", "RGB2",  "RGB3_SSPP", "RGB3",
+			"DMA0_SSPP", "DMA1_SSPP",
+			"LAYER_0", "LAYER_1", "LAYER_2",
+			"LAYER_3", "LAYER_4", "LAYER_5",
+			"DSPP_0",  "DSPP_1",  "DSPP_2", "DSPP_3",
+			"WB_0",    "WB_1",    "WB_2",   "WB_3",   "WB_4",
+			"INTF_1",  "INTF_2", "INTF_3",
+			"PP_0",    "PP_1";
 
 		/* buffer parameters to calculate prefill bandwidth */
 		qcom,mdss-prefill-outstanding-buffer-bytes = <2048>;
