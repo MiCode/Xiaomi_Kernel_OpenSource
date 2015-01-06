@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,8 @@ enum {
 #define WLAN_RF_DATA0_SHIFT		0
 #define WLAN_RF_DATA1_SHIFT		1
 #define WLAN_RF_DATA2_SHIFT		2
+#define PRONTO_PMU_OFFSET       0x1004
+#define WCNSS_PMU_CFG_GC_BUS_MUX_SEL_TOP   BIT(5)
 
 struct device *wcnss_wlan_get_device(void);
 void wcnss_get_monotonic_boottime(struct timespec *ts);
