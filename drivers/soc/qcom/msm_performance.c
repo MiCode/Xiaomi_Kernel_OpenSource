@@ -512,7 +512,8 @@ static void __ref try_hotplug(struct cpu_hp *data)
 		 * If power aware offlining fails due to power cost info
 		 * being unavaiable fall back to original implementation
 		 */
-		for (i = num_present_cpus() - 1; i >= 0; i--) {
+		for (i = num_present_cpus() - 1; i >= 0 &&
+						i < num_present_cpus(); i--) {
 			if (!cpumask_test_cpu(i, data->cpus) ||	!cpu_online(i))
 				continue;
 
