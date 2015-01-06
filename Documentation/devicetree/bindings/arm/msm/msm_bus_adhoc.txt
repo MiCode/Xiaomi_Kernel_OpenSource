@@ -85,6 +85,11 @@ qcom,prio-rd:		Read priority for a BIMC bus master (Can be 0/1/2)
 qcom,prio-wr:		Write priority for a BIMC bus master (Can be 0/1/2)
 qcom,prio0:		Priority low signal for a NoC bus master
 			(Can be 0/1/2).
+qcom,reg-prio1:		Regulator mode Priority high signal for a NoC bus master if the master port is in
+			regulator QoS mode
+qcom,reg-prio0:		Regulator Priority low signal for a NoC bus master if the master port is in
+			regulator Qos mode.
+			(Can be 0/1/2).
 qcom,prio1:		Priority high signal for a NoC bus master
 qcom,bw_buffer:		Optional parameter in KBytes used to specify a buffer value that should be added to
 			the voted bandwidth value to figure out the limiting bandwidth for a master port.
