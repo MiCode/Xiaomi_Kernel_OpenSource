@@ -58,8 +58,8 @@ Optional Properties:
 				"HS200_1p2v" - indicates that host can support HS200 at 1.2v.
 				"DDR_1p8v" - indicates that host can support DDR mode at 1.8v.
 				"DDR_1p2v" - indicates that host can support DDR mode at 1.2v.
-	- qcom,cpu-dma-latency-us: specifies acceptable DMA latency in microseconds.
-				Default value is 200 ms. If this property specified as 0,
+	- qcom,cpu-dma-latency-us: specifies array of acceptable DMA latencies in microseconds.
+				Default value is 200 us. If this property specified as 0,
 				then SDHC driver will not vote for PM QOS.
         - qcom,dat1-mpm-int:    specifies MPM interrupt number (e.g. sdhc_2 node below)
 				corresponding to DAT1 line of SDHC (used only if slot has dedicated
@@ -110,14 +110,14 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	  "affine_irq" - PM_QOS_REQ_AFFINE_IRQ request type shall update/apply
 	  the vote only to that CPU to which this IRQ's affinity is set to.
 	  "affine_cores" - PM_QOS_REQ_AFFINE_CORES request type is used for
-	  targets that have little cluster and will update/apply the vote to
-	  all the cores in the little cluster.
+	  targets that have big/little architecture and will update/apply the vote
+	  to all the cores in the respective cluster.
 	  The default CPU affinity mode is PM_QOS_REQ_AFFINE_IRQ to maintain
 	  backward compatibility.
 
-	- qcom,cpu-affinity-mask: this is a bitmap that specifies little cluster CPU
-	  cores used for PM QoS voting. This is parsed only for pm QoS request type of
-	  PM_QOS_REQ_AFFINE_CORES ("affine_cores").
+	- qcom,cpu-affinity-mask: this is an array of bitmap that specifies
+	  big/little cluster CPU cores used for PM QoS voting. This is parsed only
+	  for pm QoS request type of PM_QOS_REQ_AFFINE_CORES ("affine_cores").
 
 Example:
 
