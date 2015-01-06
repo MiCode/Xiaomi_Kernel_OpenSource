@@ -567,7 +567,7 @@ static void process_data_event(struct work_struct *work)
 	struct channel *ch;
 	struct edge_info *einfo;
 	struct glink_core_rx_intent *intent;
-	int pkt_size;
+	int pkt_remaining;
 	int read_avail;
 	struct intent_info *i;
 	uint32_t liid;
@@ -576,11 +576,14 @@ static void process_data_event(struct work_struct *work)
 	einfo = ch->edge;
 
 	while (!ch->is_closing && smd_read_avail(ch->smd_ch)) {
-		pkt_size = smd_cur_packet_size(ch->smd_ch);
+		pkt_remaining = smd_cur_packet_size(ch->smd_ch);
+		GLINK_DBG("%s <SMDXPRT> Reading packet chunk %u '%s' %u:%u\n",
+				__func__, pkt_remaining, ch->name, ch->lcid,
+				ch->rcid);
 		if (!ch->cur_intent && !einfo->intentless) {
 			mutex_lock(&ch->intents_lock);
 			list_for_each_entry(i, &ch->intents, node) {
-				if (i->size >= pkt_size) {
+				if (i->size >= pkt_remaining) {
 					list_del(&i->node);
 					ch->cur_intent = i;
 					break;
@@ -588,12 +591,15 @@ static void process_data_event(struct work_struct *work)
 			}
 			mutex_unlock(&ch->intents_lock);
 			if (!ch->cur_intent) {
+				GLINK_DBG("%s %s Reqesting intent '%s' %u:%u\n",
+						__func__, "<SMDXPRT>", ch->name,
+						ch->lcid, ch->rcid);
 				ch->intent_req = true;
 				einfo->xprt_if.glink_core_if_ptr->
 						rx_cmd_remote_rx_intent_req(
 								&einfo->xprt_if,
 								ch->rcid,
-								pkt_size);
+								pkt_remaining);
 				return;
 			}
 		}
@@ -605,25 +611,29 @@ static void process_data_event(struct work_struct *work)
 							ch->rcid,
 							liid);
 		if (!intent->data && einfo->intentless) {
-			intent->data = kmalloc(pkt_size, GFP_KERNEL);
-			if (!intent->data)
+			intent->data = kmalloc(pkt_remaining, GFP_KERNEL);
+			if (!intent->data) {
+				GLINK_DBG("%s %s kmalloc failed '%s' %u:%u\n",
+					__func__, "<SMDXPRT>", ch->name,
+					ch->lcid, ch->rcid);
 				continue;
+			}
 		}
 		smd_read(ch->smd_ch, intent->data + intent->write_offset,
 								read_avail);
 		intent->write_offset += read_avail;
 		intent->pkt_size += read_avail;
-		if (read_avail == pkt_size && !einfo->intentless) {
+		if (read_avail == pkt_remaining && !einfo->intentless) {
 			mutex_lock(&ch->intents_lock);
 			list_add_tail(&ch->cur_intent->node, &ch->used_intents);
 			mutex_unlock(&ch->intents_lock);
 			ch->cur_intent = NULL;
 		}
 		einfo->xprt_if.glink_core_if_ptr->rx_put_pkt_ctx(
-							&einfo->xprt_if,
-							ch->rcid,
-							intent,
-							read_avail == pkt_size);
+						&einfo->xprt_if,
+						ch->rcid,
+						intent,
+						read_avail == pkt_remaining);
 	}
 }
 
