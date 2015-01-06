@@ -48,7 +48,7 @@
 #define USB_WAKE_LOCK_TIMEOUT	(5 * HZ)
 
 #define USBINPUTICC100VAL	100
-#define HVDCP_POWER_CHRG_CURRENT 1500
+#define CDP_INPUT_CURRENT_LIMIT 1500
 #define HIGH_POWER_CHRG_CURRENT 2000
 #define LOW_POWER_CHRG_CURRENT 500
 
@@ -886,7 +886,7 @@ static void handle_internal_usbphy_notifications(int mask)
 			evt =  USB_EVENT_VBUS;
 		else
 			evt =  USB_EVENT_NONE;
-		cap.ma = HIGH_POWER_CHRG_CURRENT;
+		cap.ma = CDP_INPUT_CURRENT_LIMIT;
 		break;
 	case POWER_SUPPLY_CHARGER_TYPE_USB_DCP:
 	case POWER_SUPPLY_CHARGER_TYPE_SE1:
