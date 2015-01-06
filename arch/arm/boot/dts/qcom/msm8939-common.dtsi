@@ -676,7 +676,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
-				<55 512 787200 1600000>; /* 49.2MHz & 100MHz */
+				<55 512 393600 800000>; /* 49.2MHz & 100MHz */
 		clocks = <&clock_gcc clk_crypto_clk_src>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
 			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
@@ -706,7 +706,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
-				<55 512 3936000 393600>;
+				<55 512 393600 800000>; /* 49.2MHz & 100MHz */
 		clocks = <&clock_gcc clk_crypto_clk_src>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
 			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
