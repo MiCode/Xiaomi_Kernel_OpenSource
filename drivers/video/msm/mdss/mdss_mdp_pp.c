@@ -1262,7 +1262,7 @@ void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
 			pp_hist_disable(hist_info);
 		}
 		kfree(pipe->pp_res.pa_cfg_payload);
-		kfree(pipe->pp_cfg.igc_cfg.cfg_payload);
+		kfree(pipe->pp_res.igc_cfg_payload);
 		kfree(pipe->pp_res.pcc_cfg_payload);
 		memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
 		memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));

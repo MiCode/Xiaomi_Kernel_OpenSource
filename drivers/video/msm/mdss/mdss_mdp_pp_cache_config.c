@@ -756,7 +756,7 @@ static int pp_igc_lut_cache_params_pipe_v1_7(struct mdp_igc_lut_data *config,
 			ret = -EINVAL;
 			goto igc_config_exit;
 		}
-		v17_cache_data = pipe->pp_cfg.igc_cfg.cfg_payload;
+		v17_cache_data = pipe->pp_res.igc_cfg_payload;
 		if (!v17_cache_data)
 			v17_cache_data = kzalloc(sizeof(
 						 struct mdp_igc_lut_data_v1_7),
@@ -766,6 +766,7 @@ static int pp_igc_lut_cache_params_pipe_v1_7(struct mdp_igc_lut_data *config,
 			ret = -ENOMEM;
 			goto igc_config_exit;
 		} else {
+			pipe->pp_res.igc_cfg_payload = v17_cache_data;
 			pipe->pp_cfg.igc_cfg.cfg_payload = v17_cache_data;
 		}
 		v17_cache_data->c0_c1_data = pipe->pp_res.igc_c0_c1;
@@ -806,6 +807,7 @@ igc_config_exit:
 	if (ret || (config->ops & MDP_PP_OPS_DISABLE)) {
 		kfree(v17_cache_data);
 		pipe->pp_cfg.igc_cfg.cfg_payload = NULL;
+		pipe->pp_res.igc_cfg_payload = NULL;
 	}
 	return ret;
 }
