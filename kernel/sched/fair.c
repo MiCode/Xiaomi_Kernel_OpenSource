@@ -3593,8 +3593,12 @@ static inline int nr_big_tasks(struct rq *rq)
 static inline int is_cpu_throttling_imminent(int cpu)
 {
 	int throttling = 0;
-	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
+	struct cpu_pwr_stats *per_cpu_info;
 
+	if (sched_feat(FORCE_CPU_THROTTLING_IMMINENT))
+		return 1;
+
+	per_cpu_info = get_cpu_pwr_stats();
 	if (per_cpu_info)
 		throttling = per_cpu_info[cpu].throttling;
 	return throttling;
