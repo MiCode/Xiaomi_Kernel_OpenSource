@@ -9,7 +9,7 @@ Required properties:
 - reg : offset and length of the PMIC Arbiter Configuration register map.
 - interrupts : the PMIC Arbiter interrupt.
 - qcom,pmic-arb-ee : the execution environment (EE) identifier.
-- qcom,pmic-arb-channel-num : the assigned channel number for channel registers.
+- qcom,pmic-arb-channel : the assigned channel number for channel registers.
 
 Optional properties:
 - qcom,not-wakeup : boolean property which indicates that SPMI PMIC interrupts
