@@ -286,6 +286,14 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		if (hvc_status) {
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
+			mutex_lock(&devfreqs_lock);
+			/*
+			 * the spdm device probe will fail so remove it from
+			 * the list  to prevent accessing a deleted pointer in
+			 * the future
+			 * */
+			list_del(&spdm_data->list);
+			mutex_unlock(&devfreqs_lock);
 			return -EINVAL;
 		}
 		devfreq_monitor_start(devfreq);
