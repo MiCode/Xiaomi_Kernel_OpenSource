@@ -843,6 +843,7 @@
 
 	usb30_mock_utmi_clk_src {
 		qcom,freq-tbl =
+			<  19200000    1    0    0     0 &xo>,
 			<  60000000   10    0    0     0 &gpll0_out_main>,
 			<>;
 	};
