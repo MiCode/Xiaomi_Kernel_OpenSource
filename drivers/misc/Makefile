@@ -63,3 +63,4 @@ obj-$(CONFIG_DGNSS)             += dgnss/
 obj-$(CONFIG_PWM)               += pwm/
 obj-$(CONFIG_MONZA_X)           += monza_x.o
 obj-$(CONFIG_PI3USB30532_MUX)	+= pi3usb30532_mux.o
+obj-$(CONFIG_INTEL_WCOVE_GPIO) 	+= intel_wcove_gpio.o

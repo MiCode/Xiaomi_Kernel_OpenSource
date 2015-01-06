@@ -544,6 +544,14 @@ config PI3USB30532_MUX
 
 	  Say Y here to enable support for pi2usb3052 mux
 
+config INTEL_WCOVE_GPIO
+        bool "Intel Whiskey Cove PMIC GPIO driver"
+        help
+          This enables intel whiskeycove pmic gpio driver, which is used
+          to control the vbus, vconn and vchrg_in pins.
+
+          Say Y here to enable support for Intel Wcove PMIC gpio driver
+
 source "drivers/misc/pwm/Kconfig"
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
