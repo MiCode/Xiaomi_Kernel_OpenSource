@@ -368,16 +368,19 @@ static int ctl_ch_probe(struct platform_device *pdev)
 {
 	int i;
 	struct edge_info *einfo;
+	int ret = 0;
 
 	for (i = 0; i < NUM_EDGES; ++i)
 		if (pdev->id == edge_infos[i].smd_edge)
 			break;
 
 	einfo = &edge_infos[i];
-	smd_named_open_on_edge("GLINK_CTRL", einfo->smd_edge, &einfo->smd_ch,
-						einfo, ctl_ch_notify);
-
-	return 0;
+	ret = smd_named_open_on_edge("GLINK_CTRL", einfo->smd_edge,
+			&einfo->smd_ch, einfo, ctl_ch_notify);
+	if (ret != 0)
+		SMDXPRT_ERR("%s Opening failed %d for %d:'GLINK_CTRL'\n",
+				__func__, ret, einfo->smd_edge);
+	return ret;
 }
 
 /**
@@ -653,12 +656,19 @@ static void smd_data_ch_notify(void *priv, unsigned event)
 static void data_ch_probe_body(struct channel *ch)
 {
 	struct edge_info *einfo;
+	int ret;
 
 	einfo = ch->edge;
 	SMDXPRT_DBG("%s Opening SMD channel %d:'%s'\n", __func__,
 			einfo->smd_edge, ch->name);
-	smd_named_open_on_edge(ch->name, einfo->smd_edge, &ch->smd_ch, ch,
-							smd_data_ch_notify);
+
+	ret = smd_named_open_on_edge(ch->name, einfo->smd_edge, &ch->smd_ch, ch,
+			smd_data_ch_notify);
+	if (ret != 0) {
+		SMDXPRT_ERR("%s Opening failed %d for %d:'%s'\n",
+				__func__, ret, einfo->smd_edge, ch->name);
+		return;
+	}
 	smd_disable_read_intr(ch->smd_ch);
 	if (ch->remote_legacy || !ch->rcid) {
 		ch->remote_legacy = true;
