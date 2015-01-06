@@ -50,6 +50,7 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 	{ "LPE0F28", 0 },
 	{ "80860F28", 0 },
 	{ "LPE0F281", 0 },
+	{ "10TI3100", 0 },
 	{ "TIMC0F28", 0 },
 	{ "DMA0F28", 0 },
 	{ "ADMA0F28", 0 },
