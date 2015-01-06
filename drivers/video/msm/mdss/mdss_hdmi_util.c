@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,169 @@
 #define RESOLUTION_NAME_STR_LEN 30
 
 static char res_buf[RESOLUTION_NAME_STR_LEN];
+
+static struct msm_hdmi_mode_timing_info hdmi_resv_timings[
+		RESERVE_VFRMT_END - HDMI_VFRMT_RESERVE1 + 1];
+
+static int hdmi_get_resv_timing_info(
+	struct msm_hdmi_mode_timing_info *mode, int id)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(hdmi_resv_timings); i++) {
+		struct msm_hdmi_mode_timing_info *info = &hdmi_resv_timings[i];
+		if (info->video_format == id) {
+			*mode = *info;
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
+int hdmi_set_resv_timing_info(struct msm_hdmi_mode_timing_info *mode)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(hdmi_resv_timings); i++) {
+		struct msm_hdmi_mode_timing_info *info = &hdmi_resv_timings[i];
+		if (info->video_format == 0) {
+			*info = *mode;
+			info->video_format = HDMI_VFRMT_RESERVE1 + i;
+			return info->video_format;
+		}
+	}
+
+	return -ENOMEM;
+}
+
+void hdmi_reset_resv_timing_info(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(hdmi_resv_timings); i++) {
+		struct msm_hdmi_mode_timing_info *info = &hdmi_resv_timings[i];
+		info->video_format = 0;
+	}
+}
+
+int msm_hdmi_get_timing_info(
+	struct msm_hdmi_mode_timing_info *mode, int id)
+{
+	int ret = 0;
+
+	switch (id) {
+	case HDMI_VFRMT_640x480p60_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_640x480p60_4_3);
+		break;
+	case HDMI_VFRMT_720x480p60_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_720x480p60_4_3);
+		break;
+	case HDMI_VFRMT_720x480p60_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_720x480p60_16_9);
+		break;
+	case HDMI_VFRMT_1280x720p60_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1280x720p60_16_9);
+		break;
+	case HDMI_VFRMT_1920x1080i60_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1920x1080i60_16_9);
+		break;
+	case HDMI_VFRMT_1440x480i60_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1440x480i60_4_3);
+		break;
+	case HDMI_VFRMT_1440x480i60_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1440x480i60_16_9);
+		break;
+	case HDMI_VFRMT_1920x1080p60_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1920x1080p60_16_9);
+		break;
+	case HDMI_VFRMT_720x576p50_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_720x576p50_4_3);
+		break;
+	case HDMI_VFRMT_720x576p50_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_720x576p50_16_9);
+		break;
+	case HDMI_VFRMT_1280x720p50_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1280x720p50_16_9);
+		break;
+	case HDMI_VFRMT_1440x576i50_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1440x576i50_4_3);
+		break;
+	case HDMI_VFRMT_1440x576i50_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1440x576i50_16_9);
+		break;
+	case HDMI_VFRMT_1920x1080p50_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1920x1080p50_16_9);
+		break;
+	case HDMI_VFRMT_1920x1080p24_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1920x1080p24_16_9);
+		break;
+	case HDMI_VFRMT_1920x1080p25_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1920x1080p25_16_9);
+		break;
+	case HDMI_VFRMT_1920x1080p30_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1920x1080p30_16_9);
+		break;
+	case HDMI_VFRMT_3840x2160p30_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_3840x2160p30_16_9);
+		break;
+	case HDMI_VFRMT_3840x2160p25_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_3840x2160p25_16_9);
+		break;
+	case HDMI_VFRMT_3840x2160p24_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_3840x2160p24_16_9);
+		break;
+	case HDMI_VFRMT_4096x2160p24_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_4096x2160p24_16_9);
+		break;
+	case HDMI_VFRMT_1024x768p60_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1024x768p60_4_3);
+		break;
+	case HDMI_VFRMT_1280x1024p60_5_4:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1280x1024p60_5_4);
+		break;
+	case HDMI_VFRMT_2560x1600p60_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_2560x1600p60_16_9);
+		break;
+	case HDMI_VFRMT_800x600p60_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_800x600p60_4_3);
+		break;
+	case HDMI_VFRMT_848x480p60_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_848x480p60_16_9);
+		break;
+	case HDMI_VFRMT_1280x960p60_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1280x960p60_4_3);
+		break;
+	case HDMI_VFRMT_1360x768p60_16_9:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1360x768p60_16_9);
+		break;
+	case HDMI_VFRMT_1440x900p60_16_10:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1440x900p60_16_10);
+		break;
+	case HDMI_VFRMT_1400x1050p60_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1400x1050p60_4_3);
+		break;
+	case HDMI_VFRMT_1680x1050p60_16_10:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1680x1050p60_16_10);
+		break;
+	case HDMI_VFRMT_1600x1200p60_4_3:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1600x1200p60_4_3);
+		break;
+	case HDMI_VFRMT_1920x1200p60_16_10:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1920x1200p60_16_10);
+		break;
+	case HDMI_VFRMT_1366x768p60_16_10:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1366x768p60_16_10);
+		break;
+	case HDMI_VFRMT_1280x800p60_16_10:
+		MSM_HDMI_MODES_GET_DETAILS(mode, HDMI_VFRMT_1280x800p60_16_10);
+		break;
+	default:
+		ret = hdmi_get_resv_timing_info(mode, id);
+	}
+
+	return ret;
+}
 
 int hdmi_get_supported_mode(struct msm_hdmi_mode_timing_info *info,
 	struct hdmi_util_ds_data *ds_data, u32 mode)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -748,6 +748,7 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 	const u8 *data_buf, u32 *disp_mode)
 {
 	u32	aspect_ratio_4_3    = false;
+	u32	aspect_ratio_5_4    = false;
 	u32	interlaced          = false;
 	u32	active_h            = 0;
 	u32	active_v            = 0;
@@ -756,6 +757,52 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 	u32	ndx                 = 0;
 	u32	img_size_h          = 0;
 	u32	img_size_v          = 0;
+	u32	pixel_clk           = 0;
+	u32	front_porch_h       = 0;
+	u32	front_porch_v       = 0;
+	u32	pulse_width_h       = 0;
+	u32	pulse_width_v       = 0;
+	u32	active_low_h        = 0;
+	u32	active_low_v        = 0;
+
+	/*
+	 * Pixel clock/ 10,000
+	 * LSB stored in byte 0 and MSB stored in byte 1
+	 */
+	pixel_clk = (u32) (data_buf[0x0] | (data_buf[0x1] << 8));
+
+	/* store pixel clock in /1000 terms */
+	pixel_clk *= 10;
+
+	/*
+	 * byte 0x8 -- Horizontal Front Porch - contains lower 8 bits
+	 * byte 0xb (bits 6, 7) -- contains upper 2 bits
+	 */
+	front_porch_h = (u32) (data_buf[0x8] |
+		(data_buf[0xb] & (0x3 << 6)) << 2);
+
+	/*
+	 * byte 0x9 -- Horizontal pulse width - contains lower 8 bits
+	 * byte 0xb (bits 4, 5) -- contains upper 2 bits
+	 */
+	pulse_width_h = (u32) (data_buf[0x9] |
+		(data_buf[0xb] & (0x3 << 4)) << 4);
+
+	/*
+	 * byte 0xa -- Vertical front porch -- stored in Upper Nibble,
+	 * contains lower 4 bits.
+	 * byte 0xb (bits 2, 3) -- contains upper 2 bits
+	 */
+	front_porch_v = (u32) (((data_buf[0xa] & (0xF << 4)) >> 4) |
+		(data_buf[0xb] & (0x3 << 2)) << 2);
+
+	/*
+	 * byte 0xa -- Vertical pulse width -- stored in Lower Nibble,
+	 * contains lower 4 bits.
+	 * byte 0xb (bits 0, 1) -- contains upper 2 bits
+	 */
+	pulse_width_v = (u32) ((data_buf[0xa] & 0xF) |
+		((data_buf[0xb] & 0x3) << 4));
 
 	/*
 	 * * See VESA Spec
@@ -812,6 +859,8 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 	 */
 	aspect_ratio_4_3 = (abs(img_size_h * 3 - img_size_v * 4) < 5) ? 1 : 0;
 
+	aspect_ratio_5_4 = (abs(img_size_h * 4 - img_size_v * 5) < 5) ? 1 : 0;
+
 	/*
 	 * EDID_TIMING_DESC_INTERLACE[0x11:7]: Relative Offset to the EDID
 	 * detailed timing descriptors - Interlace flag
@@ -823,6 +872,11 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 	 * CEA 861-D: interlaced bit is bit[7] of byte[0x11]
 	 */
 	interlaced = (data_buf[0x11] & 0x80) >> 7;
+
+	active_low_v = ((data_buf[0x11] & (0x7 << 2)) >> 2) == 0x7 ? 0 : 1;
+
+	active_low_h = ((data_buf[0x11] & BIT(1)) &&
+				(data_buf[0x11] & BIT(4))) ? 0 : 1;
 
 	DEV_DBG("%s: A[%ux%u] B[%ux%u] V[%ux%u] %s\n", __func__,
 		active_h, active_v, blank_h, blank_v, img_size_h, img_size_v,
@@ -867,10 +921,43 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 		}
 	}
 
-	if (*disp_mode == HDMI_VFRMT_FORCE_32BIT)
-		DEV_INFO("%s: *no mode* found\n", __func__);
-	else
+	if (*disp_mode == HDMI_VFRMT_FORCE_32BIT) {
+		struct msm_hdmi_mode_timing_info timing = {0};
+		u64 rr_tmp = pixel_clk * 1000 * 1000;
+		u64 frame_data = (blank_h + active_h) *
+			(blank_v + active_v);
+		int rc = 0;
+
+		DEV_DBG("%s: found new mode\n", __func__);
+
+		do_div(rr_tmp, frame_data);
+
+		timing.active_h      = active_h;
+		timing.front_porch_h = front_porch_h;
+		timing.pulse_width_h = pulse_width_h;
+		timing.back_porch_h  = blank_h -
+					(front_porch_h + pulse_width_h);
+		timing.active_low_h  = active_low_h;
+		timing.active_v      = active_v;
+		timing.front_porch_v = front_porch_v;
+		timing.pulse_width_v = pulse_width_v;
+		timing.back_porch_v  = blank_v -
+					(front_porch_v + pulse_width_v);
+		timing.active_low_v  = active_low_v;
+		timing.pixel_freq    = pixel_clk;
+		timing.refresh_rate  = (u32) rr_tmp;
+		timing.interlaced    = interlaced;
+		timing.supported     = true;
+		timing.ar            = aspect_ratio_4_3 ? HDMI_RES_AR_4_3 :
+					(aspect_ratio_5_4 ? HDMI_RES_AR_5_4 :
+						HDMI_RES_AR_16_9);
+
+		rc = hdmi_set_resv_timing_info(&timing);
+		if (!IS_ERR_VALUE(rc))
+			*disp_mode = rc;
+	} else {
 		DEV_DBG("%s: mode found:%d\n", __func__, *disp_mode);
+	}
 } /* hdmi_edid_detail_desc */
 
 static void hdmi_edid_add_sink_3d_format(struct hdmi_edid_sink_data *sink_data,
@@ -1505,6 +1592,8 @@ int hdmi_edid_read(void *input)
 		sizeof(edid_ctrl->spkr_alloc_data_block));
 	edid_ctrl->adb_size = 0;
 	edid_ctrl->sadb_size = 0;
+
+	hdmi_reset_resv_timing_info();
 
 	status = hdmi_edid_read_block(edid_ctrl, 0, edid_buf);
 	if (status || !hdmi_edid_check_header(edid_buf)) {
