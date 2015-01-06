@@ -281,7 +281,6 @@ enum {
 	USER = BIT(0),
 	THERMAL = BIT(1),
 	CURRENT = BIT(2),
-	SOC = BIT(3),
 };
 
 enum path_type {
@@ -1292,6 +1291,22 @@ static int smb135x_set_appropriate_current(struct smb135x_chg *chip,
 	return rc;
 }
 
+static int smb135x_charging_enable(struct smb135x_chg *chip, int enable)
+{
+	int rc;
+
+	rc = smb135x_masked_write(chip, CMD_CHG_REG,
+				CMD_CHG_EN, enable ? CMD_CHG_EN : 0);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't set CHG_ENABLE_BIT enable = %d rc = %d\n",
+			enable, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int __smb135x_charging(struct smb135x_chg *chip, int enable)
 {
 	int rc = 0;
@@ -1303,13 +1318,11 @@ static int __smb135x_charging(struct smb135x_chg *chip, int enable)
 		return -EINVAL;
 	}
 
-
-	rc = smb135x_masked_write(chip, CMD_CHG_REG,
-			CMD_CHG_EN, enable ? CMD_CHG_EN : 0);
+	rc = smb135x_charging_enable(chip, enable);
 	if (rc < 0) {
 		dev_err(chip->dev,
-			"Couldn't set CHG_ENABLE_BIT enable = %d rc = %d\n",
-			enable, rc);
+			"Couldn't %s charging  rc = %d\n",
+			enable ? "enable" : "disable", rc);
 		return rc;
 	}
 	chip->chg_enabled = enable;
@@ -1447,9 +1460,9 @@ static int smb135x_battery_set_property(struct power_supply *psy,
 		}
 		switch (val->intval) {
 		case POWER_SUPPLY_STATUS_FULL:
-			rc = smb135x_path_suspend(chip, USB, SOC, true);
+			rc = smb135x_charging_enable(chip, false);
 			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't set usb suspend rc = %d\n",
+				dev_err(chip->dev, "Couldn't disable charging rc = %d\n",
 						rc);
 			} else {
 				chip->chg_done_batt_full = true;
@@ -1465,9 +1478,9 @@ static int smb135x_battery_set_property(struct power_supply *psy,
 					chip->chg_done_batt_full);
 			break;
 		case POWER_SUPPLY_STATUS_CHARGING:
-			rc = smb135x_path_suspend(chip, USB, SOC, false);
+			rc = smb135x_charging_enable(chip, true);
 			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't disable usb suspend rc = %d\n",
+				dev_err(chip->dev, "Couldn't enable charging rc = %d\n",
 						rc);
 			} else {
 				chip->chg_done_batt_full = false;
@@ -2383,9 +2396,9 @@ static int recharge_handler(struct smb135x_chg *chip, u8 rt_stat)
 	pr_debug("rt_stat = 0x%02x\n", rt_stat);
 
 	if (chip->bms_controlled_charging) {
-		rc = smb135x_path_suspend(chip, USB, SOC, false);
+		rc = smb135x_charging_enable(chip, true);
 		if (rc < 0)
-			dev_err(chip->dev, "Couldn't disable usb suspend rc = %d\n",
+			dev_err(chip->dev, "Couldn't enable charging rc = %d\n",
 					rc);
 	}
 
@@ -2569,13 +2582,10 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 			usb_type_name, usb_supply_type, reg);
 	if (chip->usb_psy) {
 		if (chip->bms_controlled_charging) {
-			/*
-			 * Disable SOC based USB suspend to enable charging on
-			 * USB insertion.
-			 */
-			rc = smb135x_path_suspend(chip, USB, SOC, false);
+			/* enable charging on USB insertion */
+			rc = smb135x_charging_enable(chip, true);
 			if (rc < 0)
-				dev_err(chip->dev, "Couldn't disable usb suspend rc = %d\n",
+				dev_err(chip->dev, "Couldn't enable charging rc = %d\n",
 						rc);
 		}
 		pr_debug("setting usb psy type = %d\n", usb_supply_type);
