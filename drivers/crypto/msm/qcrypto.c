@@ -56,7 +56,7 @@
  */
 #define MAX_ALIGN_SIZE  0x40
 
-#define QCRYPTO_HIGH_BANDWIDTH_TIMEOUT 1000
+#define QCRYPTO_HIGH_BANDWIDTH_TIMEOUT 10
 
 /* are FIPS self tests done ?? */
 static bool is_fips_qcrypto_tests_done;
