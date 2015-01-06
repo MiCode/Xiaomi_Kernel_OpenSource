@@ -233,7 +233,7 @@ static const struct file_operations mdss_reg_fops = {
 };
 
 int mdss_debug_register_base(const char *name, void __iomem *base,
-			     size_t max_offset)
+	size_t max_offset, struct mdss_debug_base **dbg_blk)
 {
 	struct mdss_data_type *mdata = mdss_res;
 	struct mdss_debug_data *mdd;
@@ -241,6 +241,9 @@ int mdss_debug_register_base(const char *name, void __iomem *base,
 	struct dentry *ent_off, *ent_reg;
 	char dn[80] = "";
 	int prefix_len = 0;
+
+	if (dbg_blk)
+		(*dbg_blk) = NULL;
 
 	if (!mdata || !mdata->debug_inf.debug_data)
 		return -ENODEV;
@@ -276,7 +279,13 @@ int mdss_debug_register_base(const char *name, void __iomem *base,
 		goto reg_fail;
 	}
 
+	/* Initialize list to make sure check for null list will be valid */
+	INIT_LIST_HEAD(&dbg->dump_list);
+
 	list_add(&dbg->head, &mdd->base_list);
+
+	if (dbg_blk)
+		(*dbg_blk) = dbg;
 
 	return 0;
 reg_fail:
@@ -284,6 +293,87 @@ reg_fail:
 off_fail:
 	kfree(dbg);
 	return -ENODEV;
+}
+
+static void parse_dump_range_name(struct device_node *node,
+	int total_names, int index, char *range_name, u32 range_size,
+	const char *name_prop)
+{
+	int rc = 0;
+	const char *st = NULL;
+
+	if ((total_names > 0) && (index < total_names)) {
+		rc = of_property_read_string_index(node,
+			name_prop, index, &st);
+		if (rc) {
+			pr_err("%s: error reading name. index=%d, rc=%d\n",
+				__func__, index, rc);
+			goto error;
+		}
+		snprintf(range_name, range_size, "%s", st);
+		return;
+	}
+
+error:
+	snprintf(range_name, range_size, "%s", "<no named range>");
+}
+
+static int parse_dt_xlog_dump_list(const u32 *arr, int count,
+	struct list_head *xlog_dump_list, int total_names,
+	struct platform_device *pdev, const char *name_prop)
+{
+	struct range_dump_node *xlog_node;
+	u32 len;
+	int i;
+
+	for (i = 0, len = count * 2; i < len; i += 2) {
+		xlog_node = kzalloc(sizeof(*xlog_node), GFP_KERNEL);
+		if (!xlog_node)
+			return -ENOMEM;
+
+		xlog_node->offset.start = be32_to_cpu(arr[i]);
+		xlog_node->offset.end = be32_to_cpu(arr[i + 1]);
+		parse_dump_range_name(pdev->dev.of_node, total_names, i/2,
+			xlog_node->range_name,
+			ARRAY_SIZE(xlog_node->range_name), name_prop);
+
+		list_add_tail(&xlog_node->head, xlog_dump_list);
+	}
+
+	return 0;
+}
+
+void mdss_debug_register_dump_range(struct platform_device *pdev,
+	struct mdss_debug_base *blk_base, const char *ranges_prop,
+	const char *name_prop)
+{
+	int total_dump_names, mdp_len;
+	const u32 *mdp_arr;
+
+	if (!blk_base || !ranges_prop || !name_prop)
+		return;
+
+	/* Get the property with the name of the ranges */
+	total_dump_names = of_property_count_strings(pdev->dev.of_node,
+		name_prop);
+	if (total_dump_names < 0) {
+		pr_warn("%s: dump names not found. rc=%d\n", __func__,
+			total_dump_names);
+		total_dump_names = 0;
+	}
+
+	mdp_arr = of_get_property(pdev->dev.of_node, ranges_prop,
+			&mdp_len);
+	if (!mdp_arr) {
+		pr_warn("No xlog range dump found, continue\n");
+		mdp_len = 0;
+	} else {
+		/* 2 is the number of entries per row to calculate the rows */
+		mdp_len /= 2 * sizeof(u32);
+		parse_dt_xlog_dump_list(mdp_arr, mdp_len,
+			&blk_base->dump_list, total_dump_names, pdev,
+				name_prop);
+	}
 }
 
 static ssize_t mdss_debug_factor_write(struct file *file,

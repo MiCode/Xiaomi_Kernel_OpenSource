@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1878,7 +1878,7 @@ static int mdp3_debug_init(struct platform_device *pdev)
 				&mdp3_debug_dump_stats_fops);
 
 	rc = mdss_debug_register_base(NULL, mdp3_res->mdp_base ,
-					mdp3_res->mdp_reg_size);
+					mdp3_res->mdp_reg_size, NULL);
 
 	return rc;
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4274,9 +4274,8 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 		DEV_DBG("%s: Add child devices.\n", __func__);
 	}
 
-	if (mdss_debug_register_base("hdmi",
-			hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO].base,
-			hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO].len))
+	if (mdss_debug_register_io("hdmi",
+		&hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO], NULL))
 		DEV_WARN("%s: hdmi_tx debugfs register failed\n", __func__);
 
 	if (hdmi_ctrl->panel_data.panel_info.cont_splash_enabled) {
