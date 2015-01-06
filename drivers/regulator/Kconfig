@@ -600,5 +600,13 @@ config REGULATOR_CRYSTAL_COVE
            Choose this if platform has CRYSTAL COVE pmic and you need
            voltage regulator driver.
 
+config REGULATOR_WHISKEY_COVE
+        bool "Voltage regulator driver for WHISKEY COVE Power Management IC"
+        ---help---
+           Select for the voltage regulator driver on WHISKEY_COVE PMIC.
+           WHISKEY COVE pmic is used in some variation of CHT platform.
+           Choose this if platform has WHISKEY COVE pmic and you need
+           voltage regulator driver.
+
 endif
 
