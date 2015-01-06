@@ -1,4 +1,5 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,11 +19,44 @@
 #include <crypto/ice.h>
 
 #include "ufs-qcom-ice.h"
-
+#include "qcom-debugfs.h"
 
 #define UFS_QCOM_CRYPTO_LABEL "ufs-qcom-crypto"
 /* Timeout waiting for ICE initialization, that requires TZ access */
 #define UFS_QCOM_ICE_COMPLETION_TIMEOUT_MS 500
+
+#define UFS_QCOM_ICE_DEFAULT_DBG_PRINT_EN	0
+
+static void ufs_qcom_ice_dump_regs(struct ufs_qcom_host *qcom_host, int offset,
+					int len, char *prefix)
+{
+	print_hex_dump(KERN_ERR, prefix,
+			len > 4 ? DUMP_PREFIX_OFFSET : DUMP_PREFIX_NONE,
+			16, 4, qcom_host->hba->mmio_base + offset, len * 4,
+			false);
+}
+
+void ufs_qcom_ice_print_regs(struct ufs_qcom_host *qcom_host)
+{
+	int i;
+
+	if (!(qcom_host->dbg_print_en & UFS_QCOM_DBG_PRINT_ICE_REGS_EN))
+		return;
+
+	ufs_qcom_ice_dump_regs(qcom_host, REG_UFS_QCOM_ICE_CFG, 1,
+			"REG_UFS_QCOM_ICE_CFG ");
+	for (i = 0; i < NUM_QCOM_ICE_CTRL_INFO_n_REGS; i++) {
+		pr_err("REG_UFS_QCOM_ICE_CTRL_INFO_1_%d = 0x%08X\n", i,
+			ufshcd_readl(qcom_host->hba,
+				(REG_UFS_QCOM_ICE_CTRL_INFO_1_n + 8 * i)));
+
+		pr_err("REG_UFS_QCOM_ICE_CTRL_INFO_2_%d = 0x%08X\n", i,
+			ufshcd_readl(qcom_host->hba,
+				(REG_UFS_QCOM_ICE_CTRL_INFO_2_n + 8 * i)));
+
+	}
+
+}
 
 static void ufs_qcom_ice_success_cb(void *host_ctrl,
 				enum ice_event_completion evt)
@@ -189,6 +223,8 @@ int ufs_qcom_ice_init(struct ufs_qcom_host *qcom_host)
 			__func__, qcom_host->ice.state);
 		err = -EINVAL;
 	}
+
+	qcom_host->dbg_print_en |= UFS_QCOM_ICE_DEFAULT_DBG_PRINT_EN;
 
 out:
 	return err;
