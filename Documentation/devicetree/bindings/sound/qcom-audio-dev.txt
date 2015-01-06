@@ -284,6 +284,31 @@ Required properties:
 
  - interrupt-names :                       Name of interrupt on the parent
                                            interrupt controller
+
+* audio-ext-clk
+
+Required properties:
+
+ - compatible :                            "qcom,audio-ref-clk"
+
+ - qcom,audio-ref-clk-gpio  :               PMIC or APQ gpio that will be
+                                            requested to enable reference
+                                            or external clock.
+
+Optional properties:
+
+ - qcom,node_has_rpm_clock:                 Boolean property used to indicate
+                                            whether ref. clock can be enabled
+                                            with a gpio toggle or Kernel clock
+                                            API call.
+
+ - clock-names:                             Name of the PMIC clock that needs
+                                            to be enabled for audio ref clock.
+                                            This clock is set as parent.
+
+ - clocks:                                  phandle reference to the parent
+                                            clock.
+
 * audio_slimslave
 
 Required properties:
@@ -531,6 +556,15 @@ Example:
 		interrupt-parent = <&msmgpio>;
 		interrupts = <72 0>;
 		interrupt-names = "cdc-int";
+	};
+
+	clock_audio: audio_ext_clk {
+		compatible = "qcom,audio-ref-clk";
+		qcom,audio-ref-clk-gpios = <&pm8994_gpios 15 0>;
+		clock-names = "osr_clk";
+		clocks = <&clock_rpm clk_div_clk1>;
+		qcom,node_has_rpm_clock;
+		#clock-cells = <1>;
 	};
 
 	audio_slimslave {
