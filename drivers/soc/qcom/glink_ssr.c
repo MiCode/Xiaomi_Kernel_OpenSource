@@ -545,11 +545,14 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 				(void *)ss_leaf_entry->cb_data,
 				sizeof(struct cleanup_done_msg));
 		if (ret) {
-			GLINK_ERR("<SSR> %s: queue_rx_intent failed, ret[%d]\n",
-					__func__, ret);
+			GLINK_ERR("%s %s: %s, ret[%d], resp. remaining[%d]\n",
+					"<SSR>", __func__,
+					"queue_rx_intent failed", ret,
+					atomic_read(&responses_remaining));
 			kfree(do_cleanup_data);
 			if (strcmp(ss_leaf_entry->ssr_name, "rpm"))
 				subsystem_restart(ss_leaf_entry->ssr_name);
+			atomic_dec(&responses_remaining);
 			continue;
 		}
 
@@ -557,11 +560,13 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 				(void *)do_cleanup_data,
 				sizeof(struct do_cleanup_msg), true);
 		if (ret) {
-			GLINK_ERR("<SSR> %s: tx failed, ret[%d]\n",
-					__func__, ret);
+			GLINK_ERR("<SSR> %s: tx failed, ret[%d], %s[%d]\n",
+					__func__, ret, "resp. remaining",
+					atomic_read(&responses_remaining));
 			kfree(do_cleanup_data);
 			if (strcmp(ss_leaf_entry->ssr_name, "rpm"))
 				subsystem_restart(ss_leaf_entry->ssr_name);
+			atomic_dec(&responses_remaining);
 			continue;
 		}
 
