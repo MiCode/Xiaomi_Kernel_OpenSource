@@ -1178,7 +1178,7 @@ static void glink_ch_ctx_release(struct rwref_lock *ch_st_lock)
 			&ctx->transport_ptr->free_lcid_list);
 	ctx->transport_ptr = NULL;
 	kfree(ctx);
-	GLINK_INFO("%s: freed th channel ctx in pid [%d]\n", __func__,
+	GLINK_INFO("%s: freed the channel ctx in pid [%d]\n", __func__,
 			current->pid);
 	ctx = NULL;
 }
@@ -1710,8 +1710,8 @@ void *glink_open(const struct glink_open_config *cfg)
 		return ERR_PTR(ret);
 	}
 
-	GLINK_INFO_CH(ctx, "%s: Created channel, sent OPEN command. %s:%p\n",
-		__func__, "Handle address: ", ctx);
+	GLINK_INFO_CH(ctx, "%s: Created channel, sent OPEN command. ctx %p\n",
+			__func__, ctx);
 
 	return ctx;
 }
@@ -1774,8 +1774,7 @@ int glink_close(void *handle)
 	if (!ctx)
 		return -EINVAL;
 
-	GLINK_INFO_CH(ctx, "%s: Closing channel, handle address: %p\n",
-			__func__, ctx);
+	GLINK_INFO_CH(ctx, "%s: Closing channel, ctx: %p\n", __func__, ctx);
 	if (ctx->local_open_state == GLINK_CHANNEL_CLOSED)
 		return 0;
 
@@ -3096,6 +3095,8 @@ static void glink_core_rx_cmd_ch_remote_open(struct glink_transport_if *if_ptr,
 	xprt_resp = calculate_xprt_resp(ctx);
 
 	do_migrate = will_migrate(NULL, ctx);
+	GLINK_INFO_CH(ctx, "%s: remote: CLOSED->OPENED ; xprt req:resp %u:%u\n",
+			__func__, req_xprt, xprt_resp);
 
 	if (!do_migrate && ch_is_fully_opened(ctx))
 		ctx->notify_state(ctx, ctx->user_priv, GLINK_CONNECTED);
@@ -3180,6 +3181,7 @@ static void glink_core_rx_cmd_ch_remote_close(
 		rwref_put(&ctx->ch_state_lhc0);
 		return;
 	}
+	GLINK_INFO_CH(ctx, "%s: remote: OPENED->CLOSED\n", __func__);
 
 	glink_core_remote_close_common(ctx);
 
