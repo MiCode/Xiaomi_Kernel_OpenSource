@@ -2695,7 +2695,7 @@ static void mdss_mdp_parse_vbif_qos(struct platform_device *pdev)
 static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
-	u32 data;
+	u32 data, slave_pingpong_off;
 	const char *wfd_data;
 	int rc;
 	struct property *prop = NULL;
@@ -2762,6 +2762,18 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 
 	mdata->has_pingpong_split = of_property_read_bool(pdev->dev.of_node,
 		 "qcom,mdss-has-dst-split");
+
+	if (mdata->has_pingpong_split) {
+		rc = of_property_read_u32(pdev->dev.of_node,
+				"qcom,mdss-slave-pingpong-off",
+				&slave_pingpong_off);
+		if (rc) {
+			pr_err("Error in device tree: slave pingpong offset\n");
+			return rc;
+		}
+		mdata->slave_pingpong_base = mdata->mdss_io.base +
+			slave_pingpong_off;
+	}
 
 	/*
 	 * 2x factor on AB because bus driver will divide by 2
