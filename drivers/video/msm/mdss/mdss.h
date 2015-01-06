@@ -230,8 +230,10 @@ struct mdss_data_type {
 	u32 max_target_zorder;
 	u8  ncursor_pipes;
 	u32 max_cursor_size;
+
 	u32 nppb;
 	struct mdss_mdp_ppb *ppb;
+	char __iomem *slave_pingpong_base;
 
 	struct mdss_mdp_mixer *mixer_intf;
 	struct mdss_mdp_mixer *mixer_wb;
