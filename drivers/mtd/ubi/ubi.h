@@ -1,9 +1,6 @@
 /*
  * Copyright (c) International Business Machines Corp., 2006
  * Copyright (c) Nokia Corporation, 2006, 2007
- * Copyright (c) 2014 - 2015, Linux Foundation. All rights reserved.
- * Linux Foundation chooses to take subject only to the GPLv2
- * license terms, and distributes only under these terms.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -89,22 +86,6 @@
 #define UBI_UNKNOWN -1
 
 /*
- * This parameter defines the maximum read counter of eraseblocks
- * of UBI devices. When this threshold is exceeded, UBI starts performing
- * wear leveling by means of moving data from eraseblock with low erase
- * counter to eraseblocks with high erase counter.
- */
-#define UBI_RD_THRESHOLD 100000
-
-/*
- * This parameter defines the maximun interval (in days) between two
- * erasures of an eraseblock. When this interval is reached, UBI starts
- * performing wear leveling by means of moving data from eraseblock with
- * low erase  counter to eraseblocks with high erase counter.
- */
-#define UBI_DT_THRESHOLD 120
-
-/*
  * The UBI debugfs directory name pattern and maximum name length (3 for "ubi"
  * + 2 for the number plus 1 for the trailing zero byte.
  */
@@ -184,8 +165,6 @@ enum {
  * @u.rb: link in the corresponding (free/used) RB-tree
  * @u.list: link in the protection queue
  * @ec: erase counter
- * @last_erase_time: time stamp of the last erase opp
- * @rc: read counter
  * @pnum: physical eraseblock number
  *
  * This data structure is used in the WL sub-system. Each physical eraseblock
@@ -198,8 +177,6 @@ struct ubi_wl_entry {
 		struct list_head list;
 	} u;
 	int ec;
-	long last_erase_time;
-	int rc;
 	int pnum;
 };
 
@@ -484,10 +461,6 @@ struct ubi_debug_info {
  * @bgt_thread: background thread description object
  * @thread_enabled: if the background thread is enabled
  * @bgt_name: background thread name
- * @rd_threshold: read counter threshold See UBI_RD_THRESHOLD
- *				for more info
- * @dt_threshold: data retention threshold. See UBI_DT_THRESHOLD
- *				for more info
  * @scrub_in_progress: true while scheduling all device PEBs for scrub/erase
  * is in progress
  *
@@ -592,10 +565,7 @@ struct ubi_device {
 	struct task_struct *bgt_thread;
 	int thread_enabled;
 	char bgt_name[sizeof(UBI_BGT_NAME_PATTERN)+2];
-	int rd_threshold;
-	int dt_threshold;
 	bool scrub_in_progress;
-
 
 	/* I/O sub-system's stuff */
 	long long flash_size;
@@ -631,8 +601,6 @@ struct ubi_device {
 /**
  * struct ubi_ainf_peb - attach information about a physical eraseblock.
  * @ec: erase counter (%UBI_UNKNOWN if it is unknown)
- * @rc: read counter (%UBI_UNKNOWN if it is unknown)
- * @last_erase_time: last erase time stamp (%UBI_UNKNOWN if it is unknown)
  * @pnum: physical eraseblock number
  * @vol_id: ID of the volume this LEB belongs to
  * @lnum: logical eraseblock number
@@ -649,8 +617,6 @@ struct ubi_device {
  */
 struct ubi_ainf_peb {
 	int ec;
-	int rc;
-	long last_erase_time;
 	int pnum;
 	int vol_id;
 	int lnum;
