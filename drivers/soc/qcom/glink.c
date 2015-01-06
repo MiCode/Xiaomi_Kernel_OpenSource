@@ -2015,6 +2015,8 @@ int glink_rx_done(void *handle, const void *ptr, bool reuse)
 		ret = ctx->transport_ptr->ops->reuse_rx_intent(
 					ctx->transport_ptr->ops, liid_ptr);
 		if (ret) {
+			GLINK_ERR_CH(ctx, "%s: Intent reuse err %d for %p\n",
+					__func__, ret, ptr);
 			ret = -ENOBUFS;
 			reuse = false;
 			ctx->transport_ptr->ops->deallocate_rx_intent(
