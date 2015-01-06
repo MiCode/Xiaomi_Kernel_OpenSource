@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -701,7 +701,7 @@ int msm_dts_eagle_set_stream_gain(struct audio_client *ac, int lgain, int rgain)
 		 __func__, _vol_cmd_cnt, lgain, rgain);
 
 	if (_depc_size == 0) {
-		eagle_vol_err("%s: driver cache not initialized", __func__);
+		eagle_vol_dbg("%s: driver cache not initialized", __func__);
 		return -EINVAL;
 	}
 
