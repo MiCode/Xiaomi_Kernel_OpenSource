@@ -394,11 +394,13 @@ static int ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
 	static u32 hs_fr_table_rA[][2] = {
 		{UFS_HS_G1, 0x1F},
 		{UFS_HS_G2, 0x3e},
+		{UFS_HS_G3, 0x7D},
 	};
 
 	static u32 hs_fr_table_rB[][2] = {
 		{UFS_HS_G1, 0x24},
 		{UFS_HS_G2, 0x49},
+		{UFS_HS_G3, 0x92},
 	};
 
 	/*
