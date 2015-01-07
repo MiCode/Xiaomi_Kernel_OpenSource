@@ -3067,6 +3067,9 @@ i915_gem_wait_ioctl(struct drm_device *dev, void *data, struct drm_file *file)
 	unsigned reset_counter;
 	int ret = 0;
 
+	if (args->flags != 0)
+		return -EINVAL;
+
 	if (args->timeout_ns >= 0) {
 		timeout_stack = ns_to_timespec(args->timeout_ns);
 		timeout = &timeout_stack;
