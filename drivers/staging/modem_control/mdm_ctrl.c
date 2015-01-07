@@ -952,6 +952,10 @@ static int mdm_ctrl_module_remove(struct platform_device *pdev)
 		mdm->pdata->mdm.cleanup(mdm->pdata->modem_data);
 		mdm->pdata->cpu.cleanup(mdm->pdata->cpu_data);
 		mdm->pdata->pmic.cleanup(mdm->pdata->pmic_data);
+
+		kfree(mdm->pdata->cpu_data);
+		kfree(mdm->pdata->pmic_data);
+		kfree(mdm->pdata);
 	}
 
 	/* Unregister the device */

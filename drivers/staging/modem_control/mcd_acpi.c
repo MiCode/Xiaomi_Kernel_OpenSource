@@ -136,6 +136,7 @@ acpi_status get_acpi_param(acpi_handle handle, int type, char *id,
 	pr_err("%s: acpi_evaluate_object, status:%d\n", __func__, status);
 	if (ACPI_FAILURE(status)) {
 		pr_err("%s: ERROR %d evaluating ID:%s\n", __func__, status, id);
+		*result = NULL;
 		goto error;
 	}
 
@@ -143,6 +144,8 @@ acpi_status get_acpi_param(acpi_handle handle, int type, char *id,
 	if (!out_obj || out_obj->type != type) {
 		pr_err("%s: Invalid type:%d for Id:%s\n", __func__, type, id);
 		status = AE_BAD_PARAMETER;
+		kfree(out_obj);
+		*result = NULL;
 		goto error;
 	} else {
 		*result = out_obj;
@@ -216,6 +219,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 		       out_obj->string.pointer);
 		goto free_mdm_info;
 	}
+	kfree(out_obj);
 
 	mcd_reg_info->mdm_ver = MODEM_UNSUP;
 
@@ -231,6 +235,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	} else {
 		strncpy(config_name, out_obj->string.pointer, NAME_LEN - 1);
 	}
+	kfree(out_obj);
 
 	/* PMIC */
 	switch (mcd_reg_info->cpu_ver) {
@@ -263,6 +268,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	pr_info("%s: Retrieved PMIC values:Reg:%x, On:%x, Off:%x, Mask:%x\n",
 		__func__, pmic_data->chipctrl, pmic_data->chipctrlon,
 		pmic_data->chipctrloff, pmic_data->chipctrl_mask);
+	kfree(out_obj);
 
 	pr_info("%s: cpu info setup\n", __func__);
 	/*CPU Data*/
@@ -286,6 +292,7 @@ void *retrieve_acpi_modem_data(struct platform_device *pdev)
 	pmic_data->early_pwr_on = (int)item->integer.value;
 	item = &(out_obj->package.elements[1]);
 	pmic_data->early_pwr_off = (int)item->integer.value;
+	kfree(out_obj);
 
 	mcd_reg_info->cpu_data = cpu_data;
 	mcd_reg_info->pmic_data = pmic_data;
