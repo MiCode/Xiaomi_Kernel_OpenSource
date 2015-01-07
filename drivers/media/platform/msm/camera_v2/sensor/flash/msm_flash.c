@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -580,8 +580,13 @@ static long msm_flash_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_FLASH_CFG:
 		return msm_flash_config(fctrl, argp);
 	case MSM_SD_SHUTDOWN:
-		*(int *)argp = CFG_FLASH_RELEASE;
-		return msm_flash_config(fctrl, argp);
+		if (!fctrl->func_tbl) {
+			pr_err("fctrl->func_tbl NULL\n");
+			return -EINVAL;
+		} else {
+			*(int *)argp = CFG_FLASH_RELEASE;
+			return msm_flash_config(fctrl, argp);
+		}
 	default:
 		pr_err_ratelimited("invalid cmd %d\n", cmd);
 		return -ENOIOCTLCMD;
