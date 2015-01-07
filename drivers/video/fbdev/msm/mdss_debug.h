@@ -32,8 +32,8 @@
 #define MDSS_REG_BLOCK_NAME_LEN (5)
 
 enum mdss_dbg_reg_dump_flag {
-	MDSS_REG_DUMP_IN_LOG = BIT(0),
-	MDSS_REG_DUMP_IN_MEM = BIT(1),
+	MDSS_DBG_DUMP_IN_LOG = BIT(0),
+	MDSS_DBG_DUMP_IN_MEM = BIT(1),
 };
 
 enum mdss_dbg_xlog_flag {
@@ -41,6 +41,13 @@ enum mdss_dbg_xlog_flag {
 	MDSS_XLOG_IOMMU = BIT(1),
 	MDSS_XLOG_DBG = BIT(6),
 	MDSS_XLOG_ALL = BIT(7)
+};
+
+#define TEST_MASK(id, tp)	((id << 4) | (tp << 1) | BIT(0))
+struct debug_bus {
+	u32 wr_addr;
+	u32 block_id;
+	u32 test_id;
 };
 
 #define MDSS_XLOG(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_DEFAULT, \
