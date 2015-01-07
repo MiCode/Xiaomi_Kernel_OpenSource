@@ -533,6 +533,11 @@
 	qcom,use-otp-profile;
 };
 
+&pmi8994_charger {
+	qcom,dc-psy-type = "Wipower";
+	qcom,charge-unknown-battery;
+};
+
 &slim_msm {
 	tomtom_codec {
 		qcom,cdc-micbias1-ext-cap;
