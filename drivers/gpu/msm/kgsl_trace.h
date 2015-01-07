@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -852,6 +852,52 @@ TRACE_EVENT(kgsl_regwrite,
 		"d_name=%s reg=0x%x value=0x%x",
 		__get_str(device_name), __entry->offset, __entry->value
 	)
+);
+
+TRACE_EVENT(kgsl_popp_level,
+
+	TP_PROTO(struct kgsl_device *device, int level1, int level2),
+
+	TP_ARGS(device, level1, level2),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(int, level1)
+		__field(int, level2)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->level1 = level1;
+		__entry->level2 = level2;
+	),
+
+	TP_printk(
+		"d_name=%s old level=%d new level=%d",
+		__get_str(device_name), __entry->level1, __entry->level2)
+);
+
+TRACE_EVENT(kgsl_popp_mod,
+
+	TP_PROTO(struct kgsl_device *device, int x, int y),
+
+	TP_ARGS(device, x, y),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(int, x)
+		__field(int, y)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->x = x;
+		__entry->y = y;
+	),
+
+	TP_printk(
+		"d_name=%s GPU busy mod=%d bus busy mod=%d",
+		__get_str(device_name), __entry->x, __entry->y)
 );
 
 TRACE_EVENT(kgsl_register_event,
