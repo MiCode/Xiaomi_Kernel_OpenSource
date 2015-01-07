@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3252,6 +3252,14 @@ static void venus_hfi_process_msg_event_notify(
 		HFI_EVENT_SYS_ERROR) {
 
 		venus_hfi_set_state(device, VENUS_STATE_DEINIT);
+
+		/* Once SYS_ERROR received from HW, it is safe to halt the AXI.
+		 * With SYS_ERROR, Venus FW may have crashed and HW might be
+		 * active and causing unnecessary transactions. Hence it is
+		 * safe to stop all AXI transactions from venus sub-system. */
+		if (venus_hfi_halt_axi(device))
+			dprintk(VIDC_WARN,
+				"Failed to halt AXI after SYS_ERROR\n");
 
 		vsfr = (struct hfi_sfr_struct *)
 				device->sfr.align_virtual_addr;
