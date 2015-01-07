@@ -180,6 +180,7 @@ struct mdss_data_type {
 	u8 vsync_ena;
 
 	struct notifier_block gdsc_cb;
+	struct notifier_block tlb_timeout_cb;
 
 	u32 res_init;
 
