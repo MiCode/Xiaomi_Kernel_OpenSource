@@ -87,6 +87,19 @@ enum msm_vfe_frame_skip_pattern {
 	MAX_SKIP,
 };
 
+enum msm_vfe_testgen_color_pattern {
+	COLOR_BAR_8_COLOR,
+	UNICOLOR_WHITE,
+	UNICOLOR_YELLOW,
+	UNICOLOR_CYAN,
+	UNICOLOR_GREEN,
+	UNICOLOR_MAGENTA,
+	UNICOLOR_RED,
+	UNICOLOR_BLUE,
+	UNICOLOR_BLACK,
+	MAX_COLOR,
+};
+
 enum msm_vfe_camif_input {
 	CAMIF_DISABLED,
 	CAMIF_PAD_REG_INPUT,
@@ -117,6 +130,17 @@ struct msm_vfe_camif_cfg {
 	enum msm_vfe_camif_input camif_input;
 };
 
+struct msm_vfe_testgen_cfg {
+	uint32_t lines_per_frame;
+	uint32_t pixels_per_line;
+	uint32_t v_blank;
+	uint32_t h_blank;
+	enum ISP_START_PIXEL_PATTERN pixel_bayer_pattern;
+	uint32_t rotate_period;
+	enum msm_vfe_testgen_color_pattern color_bar_pattern;
+	uint32_t burst_num_frame;
+};
+
 enum msm_vfe_inputmux {
 	CAMIF,
 	TESTGEN,
@@ -132,6 +156,7 @@ enum msm_vfe_stats_composite_group {
 
 struct msm_vfe_pix_cfg {
 	struct msm_vfe_camif_cfg camif_cfg;
+	struct msm_vfe_testgen_cfg testgen_cfg;
 	struct msm_vfe_fetch_engine_cfg fetch_engine_cfg;
 	enum msm_vfe_inputmux input_mux;
 	enum ISP_START_PIXEL_PATTERN pixel_pattern;
