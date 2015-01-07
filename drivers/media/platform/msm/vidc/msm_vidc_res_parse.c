@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #include <linux/iommu.h>
 #include <linux/of.h>
 #include <linux/slab.h>
+#include <linux/sort.h>
 #include "msm_vidc_debug.h"
 #include "msm_vidc_resources.h"
 #include "msm_vidc_res_parse.h"
@@ -263,6 +264,14 @@ static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 	int num_elements = 0;
 	struct platform_device *pdev = res->pdev;
 
+	/* A comparator to compare loads (needed later on) */
+	int cmp(const void *a, const void *b)
+	{
+		/* want to sort in reverse so flip the comparison */
+		return ((struct load_freq_table *)b)->load -
+			((struct load_freq_table *)a)->load;
+	}
+
 	if (!of_find_property(pdev->dev.of_node, "qcom,load-freq-tbl", NULL)) {
 		/* qcom,load-freq-tbl is an optional property.  It likely won't
 		 * be present on cores that we can't clock scale on. */
@@ -295,6 +304,13 @@ static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 	}
 
 	res->load_freq_tbl_size = num_elements;
+
+	/* The entries in the DT might not be sorted (for aesthetic purposes).
+	 * Given that we expect the loads in descending order for our scaling
+	 * logic to work, just sort it ourselves
+	 */
+	sort(res->load_freq_tbl, res->load_freq_tbl_size,
+			sizeof(*res->load_freq_tbl), cmp, NULL);
 	return rc;
 }
 

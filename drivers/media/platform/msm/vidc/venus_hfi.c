@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1446,19 +1446,22 @@ static unsigned long venus_hfi_get_clock_rate(struct clock_info *clock,
 	struct load_freq_table *table = clock->load_freq_tbl;
 	unsigned long freq = table[0].freq;
 	int i;
-	bool matches = false;
 
 	if (!num_mbs_per_sec && num_rows > 1)
 		return table[num_rows - 1].freq;
 
 	for (i = 0; i < num_rows; i++) {
+		bool matches = venus_hfi_is_session_supported(
+			table[i].supported_codecs, codecs_enabled);
+		if (!matches)
+			continue;
+
 		if (num_mbs_per_sec > table[i].load)
 			break;
-		matches = venus_hfi_is_session_supported(
-			table[i].supported_codecs, codecs_enabled);
-		if (matches)
-			freq = table[i].freq;
+
+		freq = table[i].freq;
 	}
+
 	return freq;
 }
 
