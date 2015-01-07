@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +74,9 @@ enum {
 	UFS_UFS_DBG_RD_RESP_RAM			= 0x1800,
 	UFS_UFS_DBG_RD_EDTL_RAM			= 0x1900,
 };
+
+/* bit definitions for REG_UFS_CFG1 register */
+#define QUNIPRO_SEL	UFS_BIT(0)
 
 /* bit definitions for REG_UFS_CFG2 register */
 #define UAWM_HW_CGC_EN		(1 << 0)
@@ -181,6 +184,15 @@ struct ufs_qcom_ice_data {
 };
 
 struct ufs_qcom_host {
+	/*
+	 * Set this capability if host controller supports the QUniPro mode
+	 * and if driver wants the Host controller to operate in QUniPro mode.
+	 * Note: By default this capability will be kept enabled if host
+	 * controller supports the QUniPro mode.
+	 */
+	#define UFS_QCOM_CAP_QUNIPRO	UFS_BIT(0)
+	u32 caps;
+
 	struct phy *generic_phy;
 	struct ufs_hba *hba;
 	struct ufs_qcom_bus_vote bus_vote;
@@ -205,5 +217,13 @@ struct ufs_qcom_host {
 #define VDDA_PLL_MAX_UV            1800000
 #define VDDP_REF_CLK_MIN_UV        1200000
 #define VDDP_REF_CLK_MAX_UV        1200000
+
+static inline bool ufs_qcom_cap_qunipro(struct ufs_qcom_host *host)
+{
+	if (host->caps & UFS_QCOM_CAP_QUNIPRO)
+		return true;
+	else
+		return false;
+}
 
 #endif /* UFS_QCOM_H_ */

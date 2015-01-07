@@ -3,7 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufshcd.c
  * Copyright (C) 2011-2013 Samsung India Software Operations
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -804,15 +804,6 @@ ufshcd_config_intr_aggr(struct ufs_hba *hba, u8 cnt, u8 tmout)
 		      INT_AGGR_COUNTER_THLD_VAL(cnt) |
 		      INT_AGGR_TIMEOUT_VAL(tmout),
 		      REG_UTP_TRANSFER_REQ_INT_AGG_CONTROL);
-}
-
-static inline bool ufshcd_is_intr_aggr_allowed(struct ufs_hba *hba)
-{
-	if ((hba->caps & UFSHCD_CAP_INTR_AGGR) &&
-	    !(hba->quirks & UFSHCD_QUIRK_BROKEN_INTR_AGGR))
-		return true;
-	else
-		return false;
 }
 
 /**

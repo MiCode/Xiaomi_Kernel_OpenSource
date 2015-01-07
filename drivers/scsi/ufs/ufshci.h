@@ -110,8 +110,6 @@ enum {
 #define MANUFACTURE_ID_MASK	UFS_MASK(0xFFFF, 0)
 #define PRODUCT_ID_MASK		UFS_MASK(0xFFFF, 16)
 
-#define UFS_BIT(x)	(1L << (x))
-
 #define UTP_TRANSFER_REQ_COMPL			UFS_BIT(0)
 #define UIC_DME_END_PT_RESET			UFS_BIT(1)
 #define UIC_ERROR				UFS_BIT(2)

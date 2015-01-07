@@ -230,6 +230,15 @@ static int ufs_qcom_check_hibern8(struct ufs_hba *hba)
 	return err;
 }
 
+static void ufs_qcom_select_unipro_mode(struct ufs_qcom_host *host)
+{
+	ufshcd_rmwl(host->hba, QUNIPRO_SEL,
+		   ufs_qcom_cap_qunipro(host) ? QUNIPRO_SEL : 0,
+		   REG_UFS_CFG1);
+	/* make sure above configuration is applied before we return */
+	mb();
+}
+
 static int ufs_qcom_power_up_sequence(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = hba->priv;
@@ -271,6 +280,8 @@ static int ufs_qcom_power_up_sequence(struct ufs_hba *hba)
 	if (ret)
 		dev_err(hba->dev, "%s: is_physical_coding_sublayer_ready() failed, ret = %d\n",
 			__func__, ret);
+
+	ufs_qcom_select_unipro_mode(host);
 
 out:
 	return ret;
@@ -331,12 +342,13 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba, bool status)
 }
 
 /**
- * Returns non-zero for success (which rate of core_clk) and 0
- * in case of a failure
+ * Returns zero for success and non-zero in case of a failure
  */
-static unsigned long
-ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
+static int ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
+			       u32 hs, u32 rate, bool update_link_startup_timer)
 {
+	int ret = 0;
+	struct ufs_qcom_host *host = hba->priv;
 	struct ufs_clk_info *clki;
 	u32 core_clk_period_in_ns;
 	u32 tx_clk_cycles_per_us = 0;
@@ -360,6 +372,16 @@ ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 		{UFS_HS_G2, 0x49},
 	};
 
+	/*
+	 * The Qunipro controller does not use following registers:
+	 * SYS1CLK_1US_REG, TX_SYMBOL_CLK_1US_REG, CLK_NS_REG &
+	 * UFS_REG_PA_LINK_STARTUP_TIMER
+	 * But UTP controller uses SYS1CLK_1US_REG register for Interrupt
+	 * Aggregation logic.
+	*/
+	if (ufs_qcom_cap_qunipro(host) && !ufshcd_is_intr_aggr_allowed(hba))
+		goto out;
+
 	if (gear == 0) {
 		dev_err(hba->dev, "%s: invalid gear = %d\n", __func__, gear);
 		goto out_error;
@@ -376,6 +398,9 @@ ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 
 	core_clk_cycles_per_us = core_clk_rate / USEC_PER_SEC;
 	ufshcd_writel(hba, core_clk_cycles_per_us, REG_UFS_SYS1CLK_1US);
+
+	if (ufs_qcom_cap_qunipro(host))
+		goto out;
 
 	core_clk_period_in_ns = NSEC_PER_SEC / core_clk_rate;
 	core_clk_period_in_ns <<= OFFSET_CLK_NS_REG;
@@ -428,32 +453,34 @@ ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear, u32 hs, u32 rate)
 	/* this register 2 fields shall be written at once */
 	ufshcd_writel(hba, core_clk_period_in_ns | tx_clk_cycles_per_us,
 						REG_UFS_TX_SYMBOL_CLK_NS_US);
+
+	if (update_link_startup_timer) {
+		ufshcd_writel(hba, ((core_clk_rate / MSEC_PER_SEC) * 100),
+			      REG_UFS_PA_LINK_STARTUP_TIMER);
+		/*
+		 * make sure that this configuration is applied before
+		 * we return
+		 */
+		mb();
+	}
 	goto out;
 
 out_error:
-	core_clk_rate = 0;
+	ret = -EINVAL;
 out:
-	return core_clk_rate;
+	return ret;
 }
 
 static int ufs_qcom_link_startup_notify(struct ufs_hba *hba, bool status)
 {
-	unsigned long core_clk_rate = 0;
-	u32 core_clk_cycles_per_100ms;
-
 	switch (status) {
 	case PRE_CHANGE:
-		core_clk_rate = ufs_qcom_cfg_timers(hba, UFS_PWM_G1,
-						    SLOWAUTO_MODE, 0);
-		if (!core_clk_rate) {
+		if (ufs_qcom_cfg_timers(hba, UFS_PWM_G1, SLOWAUTO_MODE,
+					0, true)) {
 			dev_err(hba->dev, "%s: ufs_qcom_cfg_timers() failed\n",
 				__func__);
 			return -EINVAL;
 		}
-		core_clk_cycles_per_100ms =
-			(core_clk_rate / MSEC_PER_SEC) * 100;
-		ufshcd_writel(hba, core_clk_cycles_per_100ms,
-					REG_UFS_PA_LINK_STARTUP_TIMER);
 		break;
 	case POST_CHANGE:
 		ufs_qcom_link_startup_post_change(hba);
@@ -757,9 +784,9 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 
 		break;
 	case POST_CHANGE:
-		if (!ufs_qcom_cfg_timers(hba, dev_req_params->gear_rx,
+		if (ufs_qcom_cfg_timers(hba, dev_req_params->gear_rx,
 					dev_req_params->pwr_rx,
-					dev_req_params->hs_rate)) {
+					dev_req_params->hs_rate, false)) {
 			dev_err(hba->dev, "%s: ufs_qcom_cfg_timers() failed\n",
 				__func__);
 			/*
@@ -816,6 +843,18 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 		if ((minor == 0x001) && (step == 0x0001))
 			hba->quirks |= UFSHCD_QUIRK_BROKEN_INTR_AGGR;
 	}
+}
+
+static void ufs_qcom_set_caps(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = hba->priv;
+	u8 major;
+	u16 minor, step;
+
+	ufs_qcom_get_controller_revision(hba, &major, &minor, &step);
+
+	if (major >= 0x2)
+		host->caps = UFS_QCOM_CAP_QUNIPRO;
 }
 
 static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
@@ -1101,6 +1140,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	if (err)
 		goto out_disable_phy;
 
+	ufs_qcom_set_caps(hba);
 	ufs_qcom_advertise_quirks(hba);
 
 	hba->caps |= UFSHCD_CAP_CLK_GATING |
@@ -1155,7 +1195,7 @@ void ufs_qcom_clk_scale_notify(struct ufs_hba *hba)
 
 	ufs_qcom_cfg_timers(hba, dev_req_params->gear_rx,
 				dev_req_params->pwr_rx,
-				dev_req_params->hs_rate);
+				dev_req_params->hs_rate, false);
 	ufs_qcom_update_bus_bw_vote(host);
 }
 
