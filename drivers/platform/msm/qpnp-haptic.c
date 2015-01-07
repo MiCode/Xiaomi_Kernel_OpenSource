@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -936,11 +936,17 @@ static ssize_t qpnp_hap_play_mode_store(struct device *dev,
 	struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
 					 timed_dev);
 	char str[QPNP_HAP_STR_SIZE + 1];
-	int rc = 0, temp, old_mode;
+	int rc = 0, temp, old_mode, i;
 
 	if (snprintf(str, QPNP_HAP_STR_SIZE, "%s", buf) > QPNP_HAP_STR_SIZE)
 		return -EINVAL;
 
+	for (i = 0; i < strlen(str); i++) {
+		if (str[i] == ' ' || str[i] == '\n' || str[i] == '\t') {
+			str[i] = '\0';
+			break;
+		}
+	}
 	if (strcmp(str, "buffer") == 0)
 		temp = QPNP_HAP_BUFFER;
 	else if (strcmp(str, "direct") == 0)
