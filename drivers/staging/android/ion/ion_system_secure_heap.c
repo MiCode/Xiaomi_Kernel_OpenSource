@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,6 +200,7 @@ struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)
 		return ERR_PTR(-ENOMEM);
 	heap->heap.ops = &system_secure_heap_ops;
 	heap->heap.type = ION_HEAP_TYPE_SYSTEM_SECURE;
+	heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
 	heap->sys_heap = get_ion_heap(ION_SYSTEM_HEAP_ID);
 	return &heap->heap;
 }
