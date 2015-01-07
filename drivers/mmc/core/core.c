@@ -2444,6 +2444,42 @@ int mmc_hw_reset_check(struct mmc_host *host)
 }
 EXPORT_SYMBOL(mmc_hw_reset_check);
 
+static int mmc_sw_reset(struct mmc_host *host)
+{
+	struct mmc_card *card = host->card;
+
+	if (!host->bus_ops->power_restore)
+		return -EOPNOTSUPP;
+
+	if (!card)
+		return -EINVAL;
+
+	mmc_host_clk_hold(host);
+
+	/*
+	 * before HW reset card, cache needs to be flushed. Otherwise
+	 * the data in cache can be lost. But this flush may be failed
+	 * because card may be not in a good state
+	 */
+	mmc_cache_ctrl(host, 0);
+
+	mmc_host_clk_release(host);
+
+	mmc_power_cycle(host, host->card->ocr);
+
+	return host->bus_ops->power_restore(host);
+}
+
+int mmc_do_reset(struct mmc_host *host)
+{
+	int err;
+	err = mmc_hw_reset(host);
+	if (err == -EOPNOTSUPP)
+		return mmc_sw_reset(host);
+	return err;
+}
+EXPORT_SYMBOL(mmc_do_reset);
+
 static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 {
 	host->f_init = freq;

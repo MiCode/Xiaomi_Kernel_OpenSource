@@ -646,6 +646,31 @@ static const struct block_device_operations mmc_bdops = {
 #endif
 };
 
+static int mmc_rpmb_reset(struct mmc_host *host, u8 part_config)
+{
+	int err = 0;
+
+	if (!mmc_card_mmc(host->card))
+		return err;
+
+	if (((part_config & 0x07) == EXT_CSD_PART_CONFIG_ACC_RPMB) &&
+	    (mmc_card_hs200(host->card) || mmc_card_hs400(host->card))) {
+		pr_info("%s: disable eMMC HS200/HS400 on rpmb part\n",
+				__func__);
+		host->card->mmc_avail_type &= ~EXT_CSD_CARD_TYPE_HS200;
+		host->card->rpmb_hs200_reset = true;
+		err = mmc_do_reset(host);
+	} else if (((part_config & 0x07) != EXT_CSD_PART_CONFIG_ACC_RPMB) &&
+	    host->card->rpmb_hs200_reset) {
+		pr_info("%s: enable eMMC HS200 on non-rpmb part\n", __func__);
+		host->card->mmc_avail_type |= EXT_CSD_CARD_TYPE_HS200;
+		host->card->rpmb_hs200_reset = false;
+		err = mmc_do_reset(host);
+	}
+
+	return err;
+}
+
 static inline int mmc_blk_part_switch(struct mmc_card *card,
 				      struct mmc_blk_data *md)
 {
@@ -709,6 +734,10 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 
 		part_config &= ~EXT_CSD_PART_CONFIG_ACC_MASK;
 		part_config |= md->part_type;
+
+		if (mmc_rpmb_reset(card->host, part_config))
+			pr_warn("%s: eMMC rpmb reset failed\n",
+				mmc_hostname(card->host));
 
 		ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				 EXT_CSD_PART_CONFIG, part_config,
@@ -989,7 +1018,7 @@ static int mmc_blk_reset(struct mmc_blk_data *md, struct mmc_host *host,
 		return -EEXIST;
 
 	md->reset_done |= type;
-	err = mmc_hw_reset(host);
+	err = mmc_do_reset(host);
 	/* Ensure we switch back to the correct partition */
 	if (err != -EOPNOTSUPP) {
 		struct mmc_blk_data *main_md = mmc_get_drvdata(host->card);
