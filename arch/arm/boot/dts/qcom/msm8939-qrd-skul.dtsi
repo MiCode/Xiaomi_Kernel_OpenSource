@@ -62,4 +62,6 @@
 	};
 };
 
-
+&sdhc_2 {
+	status = "disabled";
+};
