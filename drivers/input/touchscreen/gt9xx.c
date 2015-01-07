@@ -34,6 +34,8 @@
 #endif
 
 #define GT9XX_MAX_TOUCHES		5
+#define GT9XX_REG_CONFIG_DATA		0x8047
+#define GT9XX_CONFIG_LENGTH		186
 
 enum gt9xx_status_bits {
 	/* bits 0 .. GT9XX_MAX_TOUCHES - 1 are use to track touches */
@@ -140,6 +142,58 @@ static void gt9xx_irq_enable(struct gt9xx_ts *ts)
 {
 	gpiod_lock_as_irq(ts->gpiod_int);
 	enable_irq(ts->client->irq);
+}
+
+static void gt9xx_send_cfg(struct gt9xx_ts *ts)
+{
+	int ret, i, raw_cfg_len, cfg_len;
+	u8 check_sum = 0, *config;
+	struct acpi_buffer buf = {ACPI_ALLOCATE_BUFFER, NULL};
+	union acpi_object *out;
+	acpi_handle handle;
+	acpi_status err;
+
+	handle = ACPI_HANDLE(&ts->client->dev);
+	if (!handle) {
+		dev_err(&ts->client->dev, "Cannot get ACPI handle");
+		return;
+	}
+
+	err = acpi_evaluate_object(handle, "_DSM", NULL, &buf);
+	out = buf.pointer;
+	if (ACPI_FAILURE(err) || !(out->type == ACPI_TYPE_BUFFER)) {
+		dev_info(&ts->client->dev, "Cannot get ACPI config buffer array");
+		return;
+	}
+
+	cfg_len = out->buffer.length;
+	if (cfg_len != GT9XX_CONFIG_LENGTH) {
+		dev_err(&ts->client->dev, "The length of the config buffer array is not correct");
+		goto out;
+	}
+
+	config = out->buffer.pointer;
+	raw_cfg_len = cfg_len - 2;
+
+	for (i = 0; i < raw_cfg_len; i++)
+		check_sum += config[i];
+	check_sum = (~check_sum) + 1;
+	if (check_sum != config[raw_cfg_len]) {
+		dev_err(&ts->client->dev, "The checksum of the config buffer array is not correct");
+		goto out;
+	}
+
+	if (config[raw_cfg_len + 1] != 1) {
+		dev_err(&ts->client->dev, "The Config_Fresh register needs to be set");
+		goto out;
+	}
+
+	ret = gt9xx_i2c_write(ts->client, GT9XX_REG_CONFIG_DATA, config, GT9XX_CONFIG_LENGTH);
+	dev_info(&ts->client->dev, "gt9xx sent the config. Status:%d", ret);
+	/* Let the firmware reconfigure itself, so sleep for 10ms */
+	usleep_range(10000, 11000);
+out:
+	kfree(buf.pointer);
 }
 
 static irqreturn_t gt9xx_irq_handler(int irq, void *arg)
@@ -359,6 +413,9 @@ static int gt9xx_acpi_probe(struct gt9xx_ts *ts)
 
 	/* reset the controller */
 	gt9xx_reset(ts);
+
+	/* send the _DSM ts configuration to the firmware */
+	gt9xx_send_cfg(ts);
 
 	return 0;
 }
