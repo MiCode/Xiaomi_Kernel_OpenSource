@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -587,7 +587,7 @@ static void ipa_q6_clnt_svc_arrive(struct work_struct *work)
 		return;
 	}
 	qmi_modem_init_fin = true;
-	ipa_proxy_clk_unvote();
+	ipa_q6_init_done();
 	IPAWANDBG("complete, qmi_modem_init_fin : %d\n",
 		qmi_modem_init_fin);
 
