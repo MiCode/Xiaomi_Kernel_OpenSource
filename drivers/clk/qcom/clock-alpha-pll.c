@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -456,6 +456,13 @@ static enum handoff alpha_pll_handoff(struct clk *c)
 		a_val = 0;
 
 	c->rate = compute_rate(pll, l_val, a_val);
+
+	/*
+	 * Unconditionally vote for the PLL; it might be on because of
+	 * another master's vote.
+	 */
+	if (pll->fsm_en_mask)
+		__alpha_pll_vote_enable(pll);
 
 	return HANDOFF_ENABLED_CLK;
 }
