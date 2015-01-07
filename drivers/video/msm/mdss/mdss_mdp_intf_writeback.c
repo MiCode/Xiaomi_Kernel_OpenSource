@@ -847,9 +847,9 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	INIT_LIST_HEAD(&ctx->vsync_handlers);
 
 	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR)
-		ctl->prepare_fnc = mdss_mdp_writeback_prepare_rot;
+		ctl->ops.prepare_fnc = mdss_mdp_writeback_prepare_rot;
 	else {  /* wfd or line mode */
-		ctl->prepare_fnc = mdss_mdp_writeback_prepare_wfd;
+		ctl->ops.prepare_fnc = mdss_mdp_writeback_prepare_wfd;
 
 		/* WB2 Intr Enable is BIT(2) in MDSS 1.8.0 */
 		if (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_108) {
@@ -857,11 +857,11 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 			ctx->intf_num = 2;
 		}
 	}
-	ctl->stop_fnc = mdss_mdp_writeback_stop;
-	ctl->display_fnc = mdss_mdp_writeback_display;
-	ctl->wait_fnc = mdss_mdp_wb_wait4comp;
-	ctl->add_vsync_handler = mdss_mdp_wb_add_vsync_handler;
-	ctl->remove_vsync_handler = mdss_mdp_wb_remove_vsync_handler;
+	ctl->ops.stop_fnc = mdss_mdp_writeback_stop;
+	ctl->ops.display_fnc = mdss_mdp_writeback_display;
+	ctl->ops.wait_fnc = mdss_mdp_wb_wait4comp;
+	ctl->ops.add_vsync_handler = mdss_mdp_wb_add_vsync_handler;
+	ctl->ops.remove_vsync_handler = mdss_mdp_wb_remove_vsync_handler;
 
 	ctx->is_vbif_nrt = mdss_mdp_is_vbif_nrt(ctl->mdata->mdp_rev);
 

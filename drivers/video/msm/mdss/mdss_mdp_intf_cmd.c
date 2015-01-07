@@ -1216,11 +1216,11 @@ panel_events:
 
 	pr_debug("%s: turn off panel\n", __func__);
 	ctl->priv_data = NULL;
-	ctl->stop_fnc = NULL;
-	ctl->display_fnc = NULL;
-	ctl->wait_pingpong = NULL;
-	ctl->add_vsync_handler = NULL;
-	ctl->remove_vsync_handler = NULL;
+	ctl->ops.stop_fnc = NULL;
+	ctl->ops.display_fnc = NULL;
+	ctl->ops.wait_pingpong = NULL;
+	ctl->ops.add_vsync_handler = NULL;
+	ctl->ops.remove_vsync_handler = NULL;
 
 end:
 	if (!IS_ERR_VALUE(ret))
@@ -1342,13 +1342,13 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 		return ret;
 	}
 
-	ctl->stop_fnc = mdss_mdp_cmd_stop;
-	ctl->display_fnc = mdss_mdp_cmd_kickoff;
-	ctl->wait_pingpong = mdss_mdp_cmd_wait4pingpong;
-	ctl->add_vsync_handler = mdss_mdp_cmd_add_vsync_handler;
-	ctl->remove_vsync_handler = mdss_mdp_cmd_remove_vsync_handler;
-	ctl->read_line_cnt_fnc = mdss_mdp_cmd_line_count;
-	ctl->restore_fnc = mdss_mdp_cmd_restore;
+	ctl->ops.stop_fnc = mdss_mdp_cmd_stop;
+	ctl->ops.display_fnc = mdss_mdp_cmd_kickoff;
+	ctl->ops.wait_pingpong = mdss_mdp_cmd_wait4pingpong;
+	ctl->ops.add_vsync_handler = mdss_mdp_cmd_add_vsync_handler;
+	ctl->ops.remove_vsync_handler = mdss_mdp_cmd_remove_vsync_handler;
+	ctl->ops.read_line_cnt_fnc = mdss_mdp_cmd_line_count;
+	ctl->ops.restore_fnc = mdss_mdp_cmd_restore;
 	pr_debug("%s:-\n", __func__);
 
 	return 0;

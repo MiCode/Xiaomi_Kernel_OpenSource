@@ -172,8 +172,8 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 	 * display reset not to be proper. Hence, wait for DMA_P done
 	 * for command mode panels before triggering BTA.
 	 */
-	if (ctl->wait_pingpong)
-		ctl->wait_pingpong(ctl, NULL);
+	if (ctl->ops.wait_pingpong)
+		ctl->ops.wait_pingpong(ctl, NULL);
 
 	pr_debug("%s: DSI ctrl wait for ping pong done\n", __func__);
 

@@ -83,8 +83,8 @@ void mdss_mdp_wfd_destroy(struct mdss_mdp_wfd *wfd)
 	if (!ctl)
 		return;
 
-	if (ctl->stop_fnc)
-		ctl->stop_fnc(ctl, 0);
+	if (ctl->ops.stop_fnc)
+		ctl->ops.stop_fnc(ctl, 0);
 
 	if (ctl->wb)
 		mdss_mdp_wb_free(ctl->wb);
@@ -199,8 +199,8 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	mixer->roi = (struct mdss_rect) {0, 0, mixer->width, mixer->height};
 	mixer->ctl = ctl;
 
-	if (ctl->start_fnc) {
-		ret = ctl->start_fnc(ctl);
+	if (ctl->ops.start_fnc) {
+		ret = ctl->ops.start_fnc(ctl);
 		if (ret) {
 			pr_err("wfd start failed %d\n", ret);
 			goto wfd_setup_error;
