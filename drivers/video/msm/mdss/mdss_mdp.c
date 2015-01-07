@@ -1061,6 +1061,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 	/* prevent disable of prefill calculations */
 	mdata->min_prefill_lines = 0xffff;
 
+	mdss_mdp_hw_rev_debug_caps_init(mdata);
+
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_107:
 		mdss_set_quirk(mdata, MDSS_QUIRK_ROTCDP);

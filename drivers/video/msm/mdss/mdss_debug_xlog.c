@@ -30,6 +30,7 @@
 
 #define XLOG_DEFAULT_PANIC 1
 #define XLOG_DEFAULT_REGDUMP 0x2 /* dump in RAM */
+#define XLOG_DEFAULT_DBGBUSDUMP 0x3 /* dump in LOG & RAM */
 
 #define MDSS_XLOG_ENTRY	256
 #define MDSS_XLOG_MAX_DATA 6
@@ -55,9 +56,12 @@ struct mdss_dbg_xlog {
 	u32 xlog_enable;
 	u32 panic_on_err;
 	u32 enable_reg_dump;
+	u32 enable_dbgbus_dump;
 	struct work_struct xlog_dump_work;
 	struct mdss_debug_base *blk_arr[MDSS_DEBUG_BASE_MAX];
 	bool work_panic;
+	bool work_dbgbus;
+	u32 *dbgbus_dump; /* address for the debug bus dump */
 } mdss_dbg_xlog;
 
 static inline bool mdss_xlog_is_enabled(u32 flag)
@@ -203,6 +207,72 @@ u32 get_dump_range(struct dump_offset *range_node, size_t max_offset)
 	return length;
 }
 
+static void mdss_dump_debug_bus(u32 bus_dump_flag,
+	u32 **dump_mem)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	bool in_log, in_mem;
+	u32 *dump_addr = NULL;
+	u32 status = 0;
+	struct debug_bus *head;
+	phys_addr_t phys = 0;
+	int list_size = mdata->dbg_bus_size;
+	int i;
+
+	if (!(mdata->dbg_bus && list_size))
+		return;
+
+	/* will keep in memory 4 entries of 4 bytes each */
+	list_size = (list_size * 4 * 4);
+
+	in_log = (bus_dump_flag & MDSS_DBG_DUMP_IN_LOG);
+	in_mem = (bus_dump_flag & MDSS_DBG_DUMP_IN_MEM);
+
+	if (in_mem) {
+		if (!(*dump_mem))
+			*dump_mem = dma_alloc_coherent(&mdata->pdev->dev,
+				list_size, &phys, GFP_KERNEL);
+
+		if (*dump_mem) {
+			dump_addr = *dump_mem;
+			pr_info("bus dump_addr:%p size:%d\n",
+				dump_addr, list_size);
+		} else {
+			in_mem = false;
+			pr_err("dump_mem: allocation fails\n");
+		}
+	}
+
+	pr_info("======== Debug bus DUMP =========\n");
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+	for (i = 0; i < mdata->dbg_bus_size; i++) {
+		head = mdata->dbg_bus + i;
+		writel_relaxed(TEST_MASK(head->block_id, head->test_id),
+				mdss_res->mdp_base + head->wr_addr);
+		wmb(); /* make sure test bits were written */
+		status = readl_relaxed(mdss_res->mdp_base +
+			head->wr_addr + 0x4);
+
+		if (in_log)
+			pr_err("waddr=0x%x blk=%d tst=%d val=0x%x\n",
+				head->wr_addr, head->block_id, head->test_id,
+				status);
+
+		if (dump_addr && in_mem) {
+			dump_addr[i*4]     = head->wr_addr;
+			dump_addr[i*4 + 1] = head->block_id;
+			dump_addr[i*4 + 2] = head->test_id;
+			dump_addr[i*4 + 3] = status;
+		}
+
+	}
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+
+	pr_info("========End Debug bus=========\n");
+
+}
+
 static void mdss_dump_reg(u32 reg_dump_flag,
 	char *addr, int len, u32 *dump_mem)
 {
@@ -212,8 +282,8 @@ static void mdss_dump_reg(u32 reg_dump_flag,
 	phys_addr_t phys = 0;
 	int i;
 
-	in_log = (reg_dump_flag & MDSS_REG_DUMP_IN_LOG);
-	in_mem = (reg_dump_flag & MDSS_REG_DUMP_IN_MEM);
+	in_log = (reg_dump_flag & MDSS_DBG_DUMP_IN_LOG);
+	in_mem = (reg_dump_flag & MDSS_DBG_DUMP_IN_MEM);
 
 	pr_info("reg_dump_flag=%d in_log=%d in_mem=%d\n", reg_dump_flag, in_log,
 		in_mem);
@@ -363,7 +433,7 @@ struct mdss_debug_base *get_dump_blk_addr(const char *blk_name)
 }
 
 static void mdss_xlog_dump_array(struct mdss_debug_base *blk_arr[],
-	u32 len, bool dead, const char *name)
+	u32 len, bool dead, const char *name, bool dump_dbgbus)
 {
 	int i;
 
@@ -375,6 +445,10 @@ static void mdss_xlog_dump_array(struct mdss_debug_base *blk_arr[],
 
 	mdss_xlog_dump_all();
 
+	if (dump_dbgbus)
+		mdss_dump_debug_bus(mdss_dbg_xlog.enable_dbgbus_dump,
+			&mdss_dbg_xlog.dbgbus_dump);
+
 	if (dead && mdss_dbg_xlog.panic_on_err)
 		panic(name);
 }
@@ -384,13 +458,15 @@ static void xlog_debug_work(struct work_struct *work)
 
 	mdss_xlog_dump_array(mdss_dbg_xlog.blk_arr,
 		ARRAY_SIZE(mdss_dbg_xlog.blk_arr),
-		mdss_dbg_xlog.work_panic, "xlog_workitem");
+		mdss_dbg_xlog.work_panic, "xlog_workitem",
+		mdss_dbg_xlog.work_dbgbus);
 }
 
 void mdss_xlog_tout_handler_default(bool queue, const char *name, ...)
 {
 	int i, index = 0;
 	bool dead = false;
+	bool dump_dbgbus = false;
 	va_list args;
 	char *blk_name = NULL;
 	struct mdss_debug_base *blk_base = NULL;
@@ -420,6 +496,9 @@ void mdss_xlog_tout_handler_default(bool queue, const char *name, ...)
 			index++;
 		}
 
+		if (!strcmp(blk_name, "dbg_bus"))
+			dump_dbgbus = true;
+
 		if (!strcmp(blk_name, "panic"))
 			dead = true;
 	}
@@ -428,9 +507,10 @@ void mdss_xlog_tout_handler_default(bool queue, const char *name, ...)
 	if (queue) {
 		/* schedule work to dump later */
 		mdss_dbg_xlog.work_panic = dead;
+		mdss_dbg_xlog.work_dbgbus = dump_dbgbus;
 		schedule_work(&mdss_dbg_xlog.xlog_dump_work);
 	} else {
-		mdss_xlog_dump_array(blk_arr, blk_len, dead, name);
+		mdss_xlog_dump_array(blk_arr, blk_len, dead, name, dump_dbgbus);
 	}
 }
 
@@ -499,10 +579,13 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 			    &mdss_dbg_xlog.panic_on_err);
 	debugfs_create_u32("reg_dump", 0644, mdss_dbg_xlog.xlog,
 			    &mdss_dbg_xlog.enable_reg_dump);
+	debugfs_create_u32("dbgbus_dump", 0644, mdss_dbg_xlog.xlog,
+			    &mdss_dbg_xlog.enable_dbgbus_dump);
 
 	mdss_dbg_xlog.xlog_enable = XLOG_DEFAULT_ENABLE;
 	mdss_dbg_xlog.panic_on_err = XLOG_DEFAULT_PANIC;
 	mdss_dbg_xlog.enable_reg_dump = XLOG_DEFAULT_REGDUMP;
+	mdss_dbg_xlog.enable_dbgbus_dump = XLOG_DEFAULT_DBGBUSDUMP;
 
 	pr_info("xlog_status: enable:%d, panic:%d, dump:%d\n",
 		mdss_dbg_xlog.xlog_enable, mdss_dbg_xlog.panic_on_err,
