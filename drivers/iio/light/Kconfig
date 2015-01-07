@@ -59,6 +59,17 @@ config CM3218X
 	 To compile this driver as a module, choose M here:
 	 the module will be called cm3218x.
 
+config CM3232
+	depends on I2C
+	tristate "CM3232 driver"
+	help
+	 Say Y here if you use cm3232.
+	 This option enables ambient light sensor using
+	 Capella Microsystems cm3232 device driver.
+
+	 To compile this driver as a module, choose M here:
+	 the module will be called cm3232.
+
 config CM36651
 	depends on I2C
 	tristate "CM36651 driver"

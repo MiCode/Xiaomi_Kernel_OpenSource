@@ -2076,6 +2076,12 @@ F:	security/capability.c
 F:	security/commoncap.c
 F:	kernel/capability.c
 
+CAPELLA MICROSYSTEMS LIGHT SENSOR DRIVER
+M:	Kevin Tsai <ktsai@capellamicro.com>
+S:	Maintained
+F:	drivers/iio/light/cm*
+F:	Documentation/devicetree/bindings/i2c/trivial-devices.txt
+
 CELL BROADBAND ENGINE ARCHITECTURE
 M:	Arnd Bergmann <arnd@arndb.de>
 L:	linuxppc-dev@lists.ozlabs.org
