@@ -175,6 +175,7 @@
 /* Global USB3 PIPE Control Register */
 #define DWC3_GUSB3PIPECTL_PHYSOFTRST	(1 << 31)
 #define DWC3_GUSB3PIPECTL_SUSPHY	(1 << 17)
+#define DWC3_GUSB3PIPECTL_P3P2TRANOK	(1 << 11)
 
 /* Global TX Fifo Size Register */
 #define DWC3_GTXFIFOSIZ_TXFDEF(n)	((n) & 0xffff)
@@ -744,6 +745,8 @@ struct dwc3 {
 
 	struct delayed_work	watchdog;
 	int			dpm_pulled_down;
+
+	unsigned int		quirks;
 };
 
 /* -------------------------------------------------------------------------- */

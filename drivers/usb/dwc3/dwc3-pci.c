@@ -42,6 +42,14 @@ struct dwc3_pci {
 	atomic_t		suspend_depth;
 };
 
+struct dwc3_pci_fixes {
+	unsigned int		quirks;
+};
+
+static const struct dwc3_pci_fixes dwc3_intel_cht = {
+	.quirks		= DWC3_QUIRK_P3P2TRAN_OK,
+};
+
 static int dwc3_pci_register_phys(struct dwc3_pci *glue)
 {
 	struct usb_phy_gen_xceiv_platform_data pdata;
@@ -145,6 +153,7 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 	int			ret = -ENOMEM;
 	struct device		*dev = &pci->dev;
 	struct dwc3_platform_data	pdata;
+	const struct dwc3_pci_fixes	*fixes;
 
 	memset(&pdata, 0x00, sizeof(pdata));
 
@@ -178,6 +187,10 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 	}
 
 	pdata.runtime_suspend = true;
+	fixes = (const struct dwc3_pci_fixes *)id->driver_data;
+	if (fixes)
+		pdata.quirks = fixes->quirks;
+
 	ret = platform_device_add_data(dwc3, &pdata, sizeof(pdata));
 	if (ret)
 		goto err1;
@@ -259,7 +272,10 @@ static const struct pci_device_id dwc3_pci_id_table[] = {
 	},
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BYT), },
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_MRFLD), },
-	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CHT), },
+	{
+		PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CHT),
+		.driver_data	= (kernel_ulong_t)&dwc3_intel_cht,
+	},
 	{  }	/* Terminating Entry */
 };
 MODULE_DEVICE_TABLE(pci, dwc3_pci_id_table);

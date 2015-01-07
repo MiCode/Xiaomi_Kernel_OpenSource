@@ -676,6 +676,7 @@ static int dwc3_probe(struct platform_device *pdev)
 		dwc->needs_fifo_resize = pdata->tx_fifo_resize;
 		dwc->dr_mode = pdata->dr_mode;
 		dwc->runtime_suspend = pdata->runtime_suspend;
+		dwc->quirks = pdata->quirks;
 	} else {
 		dwc->usb2_phy = devm_usb_get_phy(dev, USB_PHY_TYPE_USB2);
 		dwc->usb3_phy = devm_usb_get_phy(dev, USB_PHY_TYPE_USB3);
@@ -974,6 +975,7 @@ static int dwc3_resume_common(struct device *dev)
 {
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	unsigned long	flags;
+	u32		reg;
 
 	if (atomic_dec_return(&dwc->suspend_depth) > 0) {
 		dev_info(dev, "%s: skipping resume. suspend_depth = %d\n",
@@ -989,6 +991,17 @@ static int dwc3_resume_common(struct device *dev)
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	dwc3_disable_multi_packet(dwc);
+
+	/* According to a CHT silicon issue,set the bit to 1
+	 * every time controller is resumed back as a workaround
+	 * in order to make sure super speed connection succeed.
+	 */
+	if (dwc->quirks & DWC3_QUIRK_P3P2TRAN_OK) {
+		reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+		reg |= DWC3_GUSB3PIPECTL_P3P2TRANOK;
+		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+		udelay(500);
+	}
 
 	dwc3_suspend_phy(dwc, false);
 
