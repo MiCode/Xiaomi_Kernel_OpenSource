@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,6 +69,8 @@ static inline const char *mdss_mdp_format2str(u32 format)
 	return strings[format];
 }
 void mdss_mdp_dump(struct mdss_data_type *mdata);
+void mdss_mdp_hw_rev_debug_caps_init(struct mdss_data_type *mdata);
+
 
 #ifdef CONFIG_DEBUG_FS
 int mdss_mdp_debugfs_init(struct mdss_data_type *mdata);
