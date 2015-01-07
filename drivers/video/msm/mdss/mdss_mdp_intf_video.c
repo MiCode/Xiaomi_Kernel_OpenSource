@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -192,6 +192,11 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 		delay = POLL_TIME_USEC_FOR_LN_CNT;
 
 	while (1) {
+		if (!ctl || !ctx || !ctx->timegen_en) {
+			pr_warn("Target is in suspend state\n");
+			return;
+		}
+
 		line_cnt = mdss_mdp_video_line_count(ctl);
 
 		if ((line_cnt >= min_ln_cnt) && (line_cnt <
