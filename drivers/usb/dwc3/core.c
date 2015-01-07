@@ -160,11 +160,9 @@ static void dwc3_core_and_phy_soft_reset(struct dwc3 *dwc)
 	reg &= ~DWC3_GUSB3PIPECTL_PHYSOFTRST;
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
-	if (dwc->revision >= DWC3_REVISION_270A) {
-		reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
-		reg |= DWC3_GUSB3PIPECTL_DELAYP1TRANS;
-		dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
-	}
+	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
+	reg &= ~DWC3_GUSB3PIPECTL_DELAYP1TRANS;
+	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 
 	/* Assert USB2 PHY reset */
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
