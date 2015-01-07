@@ -1218,7 +1218,7 @@ static inline void adreno_set_protected_registers(
 
 	/* A430 has 24 registers (yay!).  Everything else has 16 (boo!) */
 
-	if (adreno_is_a430(adreno_dev))
+	if (adreno_is_a430(adreno_dev) || adreno_is_a418(adreno_dev))
 		BUG_ON(*index >= 24);
 	else
 		BUG_ON(*index >= 16);
