@@ -327,16 +327,12 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 void diag_usb_connect_all(void)
 {
 	int i = 0;
-	unsigned long flags;
 	struct diag_usb_info *usb_info = NULL;
 
 	for (i = 0; i < NUM_DIAG_USB_DEV; i++) {
 		usb_info = &diag_usb[i];
 		if (!usb_info->enabled)
 			continue;
-		spin_lock_irqsave(&usb_info->lock, flags);
-		usb_info->connected = 1;
-		spin_unlock_irqrestore(&usb_info->lock, flags);
 		usb_connect(usb_info);
 	}
 }
@@ -349,16 +345,12 @@ void diag_usb_connect_all(void)
 void diag_usb_disconnect_all(void)
 {
 	int i = 0;
-	unsigned long flags;
 	struct diag_usb_info *usb_info = NULL;
 
 	for (i = 0; i < NUM_DIAG_USB_DEV; i++) {
 		usb_info = &diag_usb[i];
 		if (!usb_info->enabled)
 			continue;
-		spin_lock_irqsave(&usb_info->lock, flags);
-		usb_info->connected = 0;
-		spin_unlock_irqrestore(&usb_info->lock, flags);
 		usb_disconnect(usb_info);
 	}
 }
