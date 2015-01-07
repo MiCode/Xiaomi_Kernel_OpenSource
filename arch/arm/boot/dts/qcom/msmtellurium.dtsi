@@ -644,7 +644,7 @@
 			<0x200a000 0x2100>;
 		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
 		interrupts = <0 190 0>;
-		qcom,pmic-arb-channel-num = <0>;
+		qcom,pmic-arb-channel = <0>;
 		qcom,pmic-arb-max-peripherals = <256>;
 		qcom,pmic-arb-max-periph-interrupts = <224>;
 		qcom,pmic-arb-ee = <0>;
