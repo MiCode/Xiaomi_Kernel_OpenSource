@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -242,5 +242,12 @@
 		qcom,masters = "APSS", "MPSS", "LPSS";
 		qcom,master-stats-version = <2>;
 		qcom,master-offset = <2560>;
+	};
+
+	qcom,clock-pm {
+		compatible = "qcom,clock-pm";
+		clocks = <&clock_gcc clk_apss_axi_clk_sleep>,
+				<&clock_gcc clk_bimc_apss_axi_clk_sleep>;
+		clock-names = "apss_axi", "bimc_apss_axi";
 	};
 };
