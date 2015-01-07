@@ -358,13 +358,13 @@ static struct mdss_rot_hw_resource *mdss_rotator_hw_alloc(
 		goto error;
 	}
 
-	hw->ctl->start_fnc = mdss_mdp_writeback_start;
+	hw->ctl->ops.start_fnc = mdss_mdp_writeback_start;
 	hw->ctl->power_state = MDSS_PANEL_POWER_ON;
 	hw->ctl->wb_type = MDSS_MDP_WB_CTL_TYPE_BLOCK;
 
 
-	if (hw->ctl->start_fnc)
-		ret = hw->ctl->start_fnc(hw->ctl);
+	if (hw->ctl->ops.start_fnc)
+		ret = hw->ctl->ops.start_fnc(hw->ctl);
 
 	if (ret)
 		goto error;
@@ -389,8 +389,8 @@ error:
 	if (!IS_ERR_OR_NULL(hw->pipe))
 		mdss_mdp_pipe_destroy(hw->pipe);
 	if (!IS_ERR_OR_NULL(hw->ctl)) {
-		if (hw->ctl->stop_fnc)
-			hw->ctl->stop_fnc(hw->ctl, MDSS_PANEL_POWER_OFF);
+		if (hw->ctl->ops.stop_fnc)
+			hw->ctl->ops.stop_fnc(hw->ctl, MDSS_PANEL_POWER_OFF);
 		mdss_mdp_ctl_free(hw->ctl);
 	}
 	devm_kfree(&mgr->pdev->dev, hw);
@@ -411,8 +411,8 @@ static void mdss_rotator_free_hw(struct mdss_rot_mgr *mgr,
 	ctl = mdss_mdp_ctl_mixer_switch(mixer->ctl,
 		MDSS_MDP_WB_CTL_TYPE_BLOCK);
 	if (ctl) {
-		if (ctl->stop_fnc)
-			ctl->stop_fnc(ctl, MDSS_PANEL_POWER_OFF);
+		if (ctl->ops.stop_fnc)
+			ctl->ops.stop_fnc(ctl, MDSS_PANEL_POWER_OFF);
 		mdss_mdp_ctl_free(ctl);
 	}
 

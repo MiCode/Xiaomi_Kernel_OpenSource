@@ -1652,7 +1652,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		mdss_mdp_set_roi(ctl, &temp_data);
 	}
 
-	if (ctl->wait_pingpong && mdp5_data->mdata->serialize_wait4pp)
+	if (ctl->ops.wait_pingpong && mdp5_data->mdata->serialize_wait4pp)
 		mdss_mdp_display_wait4pingpong(ctl, true);
 
 	/*
@@ -2220,13 +2220,13 @@ static void remove_underrun_vsync_handler(struct work_struct *work)
 	struct mdss_mdp_ctl *ctl =
 		container_of(work, typeof(*ctl), remove_underrun_handler);
 
-	if (!ctl || !ctl->remove_vsync_handler) {
+	if (!ctl || !ctl->ops.remove_vsync_handler) {
 		pr_err("ctl or vsync handler is NULL\n");
 		return;
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	rc = ctl->remove_vsync_handler(ctl,
+	rc = ctl->ops.remove_vsync_handler(ctl,
 			&ctl->recover_underrun_handler);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
@@ -2280,7 +2280,7 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 
 	if (!ctl)
 		return -ENODEV;
-	if (!ctl->add_vsync_handler || !ctl->remove_vsync_handler)
+	if (!ctl->ops.add_vsync_handler || !ctl->ops.remove_vsync_handler)
 		return -EOPNOTSUPP;
 	if (!ctl->panel_data->panel_info.cont_splash_enabled
 			&& !mdss_mdp_ctl_is_power_on(ctl)) {
@@ -2293,9 +2293,9 @@ int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	if (en)
-		rc = ctl->add_vsync_handler(ctl, &ctl->vsync_handler);
+		rc = ctl->ops.add_vsync_handler(ctl, &ctl->vsync_handler);
 	else
-		rc = ctl->remove_vsync_handler(ctl, &ctl->vsync_handler);
+		rc = ctl->ops.remove_vsync_handler(ctl, &ctl->vsync_handler);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	return rc;
@@ -4341,7 +4341,7 @@ static void __vsync_retire_work_handler(struct work_struct *work)
 	if (!mdp5_data->ctl || !mdp5_data->ctl->mfd)
 		return;
 
-	if (!mdp5_data->ctl->remove_vsync_handler)
+	if (!mdp5_data->ctl->ops.remove_vsync_handler)
 		return;
 
 	__vsync_retire_signal(mdp5_data->ctl->mfd, 1);
@@ -4358,7 +4358,7 @@ static void __vsync_retire_signal(struct msm_fb_data_type *mfd, int val)
 		mdp5_data->retire_cnt -= min(val, mdp5_data->retire_cnt);
 		if (mdp5_data->retire_cnt == 0) {
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-			mdp5_data->ctl->remove_vsync_handler(mdp5_data->ctl,
+			mdp5_data->ctl->ops.remove_vsync_handler(mdp5_data->ctl,
 					&mdp5_data->vsync_retire_handler);
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 		}
@@ -4381,7 +4381,7 @@ __vsync_retire_get_fence(struct msm_sync_pt_data *sync_pt_data)
 		return ERR_PTR(-ENODEV);
 
 	ctl = mdp5_data->ctl;
-	if (!ctl->add_vsync_handler)
+	if (!ctl->ops.add_vsync_handler)
 		return ERR_PTR(-EOPNOTSUPP);
 
 	if (!mdss_mdp_ctl_is_power_on(ctl)) {
@@ -4407,7 +4407,7 @@ static int __vsync_set_vsync_handler(struct msm_fb_data_type *mfd)
 		mdp5_data->vsync_retire_handler.enabled)
 		return 0;
 
-	if (!ctl->add_vsync_handler)
+	if (!ctl->ops.add_vsync_handler)
 		return -EOPNOTSUPP;
 
 	if (!mdss_mdp_ctl_is_power_on(ctl)) {
@@ -4415,7 +4415,7 @@ static int __vsync_set_vsync_handler(struct msm_fb_data_type *mfd)
 		return -EPERM;
 	}
 
-	rc = ctl->add_vsync_handler(ctl,
+	rc = ctl->ops.add_vsync_handler(ctl,
 			&mdp5_data->vsync_retire_handler);
 	return rc;
 }

@@ -638,13 +638,13 @@ static void recover_underrun_work(struct work_struct *work)
 	struct mdss_mdp_ctl *ctl =
 		container_of(work, typeof(*ctl), recover_work);
 
-	if (!ctl || !ctl->add_vsync_handler) {
+	if (!ctl || !ctl->ops.add_vsync_handler) {
 		pr_err("ctl or vsync handler is NULL\n");
 		return;
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	ctl->add_vsync_handler(ctl, &ctl->recover_underrun_handler);
+	ctl->ops.add_vsync_handler(ctl, &ctl->recover_underrun_handler);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
@@ -1361,13 +1361,13 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 		return ret;
 	}
 
-	ctl->stop_fnc = mdss_mdp_video_stop;
-	ctl->display_fnc = mdss_mdp_video_display;
-	ctl->wait_fnc = mdss_mdp_video_wait4comp;
-	ctl->read_line_cnt_fnc = mdss_mdp_video_line_count;
-	ctl->add_vsync_handler = mdss_mdp_video_add_vsync_handler;
-	ctl->remove_vsync_handler = mdss_mdp_video_remove_vsync_handler;
-	ctl->config_fps_fnc = mdss_mdp_video_config_fps;
+	ctl->ops.stop_fnc = mdss_mdp_video_stop;
+	ctl->ops.display_fnc = mdss_mdp_video_display;
+	ctl->ops.wait_fnc = mdss_mdp_video_wait4comp;
+	ctl->ops.read_line_cnt_fnc = mdss_mdp_video_line_count;
+	ctl->ops.add_vsync_handler = mdss_mdp_video_add_vsync_handler;
+	ctl->ops.remove_vsync_handler = mdss_mdp_video_remove_vsync_handler;
+	ctl->ops.config_fps_fnc = mdss_mdp_video_config_fps;
 
 	return 0;
 }
