@@ -954,13 +954,12 @@ rdev_set_ap_chanwidth(struct cfg80211_registered_device *rdev,
 }
 
 static inline int rdev_key_mgmt_set_pmk(struct cfg80211_registered_device *rdev,
-				   struct net_device *dev, u8 *pmk,
-				   size_t pmk_len)
+				   struct net_device *dev, u8 *pmk)
 {
 	int ret;
 
 	trace_rdev_key_mgmt_set_pmk(&rdev->wiphy, dev, pmk);
-	ret = rdev->ops->key_mgmt_set_pmk(&rdev->wiphy, dev, pmk, pmk_len);
+	ret = rdev->ops->key_mgmt_set_pmk(&rdev->wiphy, dev, pmk);
 	trace_rdev_return_int(&rdev->wiphy, ret);
 
 	return ret;
