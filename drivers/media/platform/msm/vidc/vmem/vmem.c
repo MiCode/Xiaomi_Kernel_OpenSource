@@ -274,7 +274,7 @@ static inline void __toggle_interrupts(struct vmem *v, bool enable)
 static void __enable_interrupts(struct vmem *v)
 {
 	pr_debug("Enabling interrupts\n");
-	enable_irq(vmem->irq);
+	enable_irq(v->irq);
 	__toggle_interrupts(v, true);
 }
 
@@ -282,7 +282,7 @@ static void __disable_interrupts(struct vmem *v)
 {
 	pr_debug("Disabling interrupts\n");
 	__toggle_interrupts(v, false);
-	disable_irq_nosync(vmem->irq);
+	disable_irq_nosync(v->irq);
 }
 
 /**
@@ -587,21 +587,21 @@ static inline void __uninit_resources(struct vmem *v,
 static int vmem_probe(struct platform_device *pdev)
 {
 	uint32_t version = 0, num_banks = 0, rc = 0;
+	struct vmem *v = NULL;
 
 	if (vmem) {
 		pr_err("Only one instance of %s allowed", pdev->name);
 		return -EEXIST;
 	}
 
-	vmem = devm_kzalloc(&pdev->dev, sizeof(*vmem), GFP_KERNEL);
-	if (!vmem) {
+	v = devm_kzalloc(&pdev->dev, sizeof(*v), GFP_KERNEL);
+	if (!v) {
 		pr_err("Failed allocate context memory in probe\n");
 		return -ENOMEM;
 	}
 
-	platform_set_drvdata(pdev, vmem);
 
-	rc = __init_resources(vmem, pdev);
+	rc = __init_resources(v, pdev);
 	if (rc) {
 		pr_err("Failed to read resources\n");
 		goto exit;
@@ -611,53 +611,58 @@ static int vmem_probe(struct platform_device *pdev)
 	 * For now, only support up to 4 banks. It's unrealistic that VMEM has
 	 * more banks than that (even in the future).
 	 */
-	if (vmem->num_banks > MAX_BANKS) {
+	if (v->num_banks > MAX_BANKS) {
 		pr_err("Number of banks (%d) exceeds what's supported (%d)\n",
-			vmem->num_banks, MAX_BANKS);
+			v->num_banks, MAX_BANKS);
 		rc = -ENOTSUPP;
 		goto exit;
 	}
 
 	/* Cross check the platform resources with what's available on chip */
-	rc = __power_on(vmem);
+	rc = __power_on(v);
 	if (rc) {
 		pr_err("Failed to power on (%d)\n", rc);
 		goto exit;
 	}
 
-	version = __readl(OCIMEM_HW_VERSION(vmem));
+	version = __readl(OCIMEM_HW_VERSION(v));
 	pr_debug("v%d.%d.%d\n", VERSION_MAJOR(version), VERSION_MINOR(version),
 			VERSION_STEP(version));
 
-	num_banks = PROFILE_BANKS(__readl(OCIMEM_HW_PROFILE(vmem)));
+	num_banks = PROFILE_BANKS(__readl(OCIMEM_HW_PROFILE(v)));
 	pr_debug("Found %d banks on chip\n", num_banks);
-	if (vmem->num_banks > num_banks) {
+	if (v->num_banks > num_banks) {
 		pr_err("Platform configuration of %d banks exceeds what's available on chip (%d)\n",
-				vmem->num_banks, num_banks);
+				v->num_banks, num_banks);
 		rc = -EINVAL;
 		goto disable_clocks;
 	}
 
-	if (vmem->num_banks * BYTES_PER_BANK >
-			resource_size(vmem->mem.resource)) {
+	if (v->num_banks * BYTES_PER_BANK >
+			resource_size(v->mem.resource)) {
 		pr_err("Too many banks in configuration\n");
 		rc = -E2BIG;
 		goto disable_clocks;
 	}
 
-	rc = devm_request_irq(&pdev->dev, vmem->irq, __irq_handler,
-			IRQF_TRIGGER_HIGH, "vmem", vmem);
+	rc = devm_request_irq(&pdev->dev, v->irq, __irq_handler,
+			IRQF_TRIGGER_HIGH, "vmem", v);
 	if (rc) {
 		pr_err("Failed to setup irq (%d)\n", rc);
 		goto disable_clocks;
 	}
 
-	__disable_interrupts(vmem);
+	__disable_interrupts(v);
 
-	/* Everything good so far, set up debugfs */
-	vmem->debugfs_root = vmem_debugfs_init(pdev);
+	/* Everything good so far, set up the global context and debug hooks */
+	pr_info("Up and running with %d banks of memory from %pR\n",
+			v->num_banks, &v->mem.resource);
+	v->debugfs_root = vmem_debugfs_init(pdev);
+	platform_set_drvdata(pdev, v);
+	vmem = v;
+
 disable_clocks:
-	__power_off(vmem);
+	__power_off(v);
 exit:
 	return rc;
 }
