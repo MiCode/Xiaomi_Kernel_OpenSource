@@ -176,7 +176,6 @@ struct close_ch_work {
 static int glink_ssr_restart_notifier_cb(struct notifier_block *this,
 				  unsigned long code,
 				  void *data);
-static void print_subsystem_list(void);
 static void delete_ss_info_notify_list(struct subsys_info *ss_info);
 static struct subsys_info *get_info_for_subsystem(const char *subsystem);
 static struct subsys_info *get_info_for_edge(const char *edge);
@@ -704,31 +703,6 @@ static void delete_ss_info_notify_list(struct subsys_info *ss_info)
 }
 
 /**
- * print_subsystem_list() - Display the global subsystem information list
- */
-static void print_subsystem_list(void)
-{
-	struct subsys_info *ss_info_entry;
-	struct subsys_info_leaf *ss_leaf_entry;
-
-	list_for_each_entry(ss_info_entry, &subsystem_list,
-			subsystem_list_node) {
-		GLINK_INFO("%s %s: info node: subsys:edge:xprt -> %s:%s:%s\n",
-			"<SSR>", __func__, ss_info_entry->ssr_name,
-			ss_info_entry->edge, ss_info_entry->xprt);
-
-		list_for_each_entry(ss_leaf_entry, &ss_info_entry->notify_list,
-				notify_list_node) {
-			GLINK_INFO("%s: %s: leaf/notify node: %s -> %s:%s:%s\n",
-					"<SSR>", __func__, "subsys:edge:xprt",
-					ss_leaf_entry->ssr_name,
-					ss_leaf_entry->edge,
-					ss_leaf_entry->xprt);
-		}
-	}
-}
-
-/**
  * glink_ssr_wait_cleanup_done() - Get the value of the
  *                                 notifications_successful flag.
  * @timeout_multiplier: timeout multiplier for waiting on all processors
@@ -954,7 +928,6 @@ static int glink_ssr_init(void)
 		GLINK_ERR("<SSR> %s: %s ret: %d\n", __func__,
 				"glink_ssr driver registration failed", ret);
 
-	print_subsystem_list();
 	notifications_successful = false;
 	init_completion(&notifications_successful_complete);
 	return 0;
