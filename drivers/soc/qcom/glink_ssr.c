@@ -651,7 +651,8 @@ static int configure_and_open_channel(struct subsys_info *ss_info)
 				 open_cfg.edge, open_cfg.name, __func__);
 		kfree(cb_data);
 		cb_data = NULL;
-		return -ENOMEM;
+		ss_info->cb_data = NULL;
+		return PTR_ERR(handle);
 	}
 	ss_info->handle = handle;
 	return 0;
