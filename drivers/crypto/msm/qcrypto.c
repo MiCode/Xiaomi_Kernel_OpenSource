@@ -1,6 +1,6 @@
 /* Qualcomm Crypto driver
  *
- * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,7 @@ enum qcrypto_bus_state {
 	BUS_BANDWIDTH_RELEASING,
 	BUS_BANDWIDTH_ALLOCATING,
 	BUS_SUSPENDED,
+	BUS_SUSPENDING,
 };
 
 struct crypto_stat {
@@ -227,7 +228,7 @@ static struct crypto_engine *_qrypto_find_pengine_device_hw
 	return entry;
 }
 
-int qcrypto_get_num_engines()
+int qcrypto_get_num_engines(void)
 {
 	struct crypto_priv *cp = &qcrypto_dev;
 	struct crypto_engine *entry = NULL;
@@ -2137,6 +2138,7 @@ static int _qcrypto_queue_req(struct crypto_priv *cp,
 			pengine = NULL;
 			break;
 		case BUS_SUSPENDED:
+		case BUS_SUSPENDING:
 		default:
 			pengine = NULL;
 			break;
@@ -4888,6 +4890,24 @@ err:
 	return rc;
 };
 
+static int _qcrypto_engine_in_use(struct crypto_engine *pengine)
+{
+	if (pengine->req || pengine->req_queue.qlen)
+		return 1;
+	else
+		return 0;
+}
+
+static void _qcrypto_do_suspending(struct crypto_engine *pengine)
+{
+	struct crypto_priv *cp = pengine->pcp;
+
+	if (cp->platform_support.bus_scale_table == NULL)
+		return;
+	del_timer_sync(&pengine->bw_reaper_timer);
+	qcrypto_ce_set_bus(pengine, false);
+}
+
 static int  _qcrypto_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	int ret = 0;
@@ -4915,9 +4935,20 @@ static int  _qcrypto_suspend(struct platform_device *pdev, pm_message_t state)
 			ret = -EBUSY;
 		break;
 	case BUS_HAS_BANDWIDTH:
+		if (_qcrypto_engine_in_use(pengine)) {
+			ret = -EBUSY;
+		} else {
+			pengine->bw_state = BUS_SUSPENDING;
+			spin_unlock_irqrestore(&cp->lock, flags);
+			_qcrypto_do_suspending(pengine);
+			spin_lock_irqsave(&cp->lock, flags);
+			pengine->bw_state = BUS_SUSPENDED;
+		}
+		break;
 	case BUS_BANDWIDTH_RELEASING:
 	case BUS_BANDWIDTH_ALLOCATING:
 	case BUS_SUSPENDED:
+	case BUS_SUSPENDING:
 	default:
 			ret = -EBUSY;
 			break;
@@ -4938,6 +4969,7 @@ static int  _qcrypto_resume(struct platform_device *pdev)
 	struct crypto_engine *pengine;
 	struct crypto_priv *cp;
 	unsigned long flags;
+	int ret = 0;
 
 	pengine = platform_get_drvdata(pdev);
 
@@ -4962,9 +4994,11 @@ static int  _qcrypto_resume(struct platform_device *pdev)
 				pengine->high_bw_req = true;
 			}
 		}
-	}
+	} else
+		ret = -EBUSY;
+
 	spin_unlock_irqrestore(&cp->lock, flags);
-	return 0;
+	return ret;
 }
 
 static struct of_device_id qcrypto_match[] = {
