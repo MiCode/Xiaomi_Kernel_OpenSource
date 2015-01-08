@@ -101,6 +101,7 @@ struct smbchg_chip {
 	int				safety_time;
 	int				prechg_safety_time;
 	int				bmd_pin_src;
+	int				jeita_temp_hard_limit;
 	bool				use_vfloat_adjustments;
 	bool				iterm_disabled;
 	bool				bmd_algo_disabled;
@@ -3821,6 +3822,8 @@ static inline int get_bpd(const char *name)
 #define AICL_WL_SEL_CFG			0xF5
 #define AICL_WL_SEL_MASK		SMB_MASK(1, 0)
 #define AICL_WL_SEL_45S		0
+#define CHGR_CCMP_CFG			0xFA
+#define JEITA_TEMP_HARD_LIMIT_BIT	BIT(5)
 static int smbchg_hw_init(struct smbchg_chip *chip)
 {
 	int rc, i;
@@ -4034,6 +4037,21 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 				rc);
 		else if (!(reg & SFT_EN_MASK))
 			chip->safety_timer_en = true;
+	}
+
+	/* configure jeita temperature hard limit */
+	if (chip->jeita_temp_hard_limit >= 0) {
+		rc = smbchg_sec_masked_write(chip,
+			chip->chgr_base + CHGR_CCMP_CFG,
+			JEITA_TEMP_HARD_LIMIT_BIT,
+			chip->jeita_temp_hard_limit
+			? 0 : JEITA_TEMP_HARD_LIMIT_BIT);
+		if (rc < 0) {
+			dev_err(chip->dev,
+				"Couldn't set jeita temp hard limit rc = %d\n",
+				rc);
+			return rc;
+		}
 	}
 
 	/* make the buck switch faster to prevent some vbus oscillation */
@@ -4332,6 +4350,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 	pr_smb(PR_STATUS, "parallel usb thr: %d, 9v thr: %d\n",
 			chip->parallel.min_current_thr_ma,
 			chip->parallel.min_9v_current_thr_ma);
+	OF_PROP_READ(chip, chip->jeita_temp_hard_limit,
+			"jeita-temp-hard-limit", rc, 1);
 
 	/* read boolean configuration properties */
 	chip->use_vfloat_adjustments = of_property_read_bool(node,
