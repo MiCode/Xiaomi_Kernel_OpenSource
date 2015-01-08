@@ -33,6 +33,26 @@
 #define SMD_CD_SIG BIT(29)
 #define SMD_RI_SIG BIT(28)
 
+/**
+ * enum command_types - commands send/received from remote system
+ * @CMD_OPEN:		Channel open request
+ * @CMD_OPEN_ACK:	Response to @CMD_OPEN
+ * @CMD_CLOSE:		Channel close request
+ * @CMD_CLOSE_ACK:	Response to @CMD_CLOSE
+ */
+enum command_types {
+	CMD_OPEN,
+	CMD_OPEN_ACK,
+	CMD_CLOSE,
+	CMD_CLOSE_ACK,
+};
+
+/*
+ * Max of 64 channels, the 128 offset puts the rcid out of the
+ * range the remote might use
+ */
+#define LEGACY_RCID_CHANNEL_OFFSET	128
+
 #define SMDXPRT_ERR(x...) GLINK_ERR("<SMDXPRT> " x)
 #define SMDXPRT_INFO(x...) GLINK_INFO("<SMDXPRT> " x)
 #define SMDXPRT_DBG(x...) GLINK_DBG("<SMDXPRT> " x)
@@ -223,7 +243,7 @@ static void process_ctl_event(struct work_struct *work)
 			continue;
 
 		smd_read(einfo->smd_ch, &cmd, sizeof(cmd));
-		if (cmd.cmd == 0) {
+		if (cmd.cmd == CMD_OPEN) {
 			smd_read(einfo->smd_ch, name, GLINK_NAME_SIZE);
 			SMDXPRT_INFO("%s RX OPEN '%s'\n", __func__, name);
 
@@ -261,7 +281,7 @@ static void process_ctl_event(struct work_struct *work)
 			if (ch->remote_legacy) {
 				SMDXPRT_DBG("%s SMD Remote Open '%s'\n",
 						__func__, name);
-				cmd.cmd = 1;
+				cmd.cmd = CMD_OPEN_ACK;
 				cmd.priority = SMD_TRANS_XPRT_ID;
 				mutex_lock(&einfo->smd_lock);
 				while (smd_write_avail(einfo->smd_ch) <
@@ -281,7 +301,7 @@ static void process_ctl_event(struct work_struct *work)
 								cmd.id,
 								name,
 								cmd.priority);
-		} else if (cmd.cmd == 1) {
+		} else if (cmd.cmd == CMD_OPEN_ACK) {
 			SMDXPRT_INFO("%s RX OPEN ACK lcid %u; xprt_req %u\n",
 				__func__, cmd.id, cmd.priority);
 
@@ -293,7 +313,7 @@ static void process_ctl_event(struct work_struct *work)
 								&einfo->xprt_if,
 								cmd.id,
 								cmd.priority);
-		} else if (cmd.cmd == 2) {
+		} else if (cmd.cmd == CMD_CLOSE) {
 			SMDXPRT_INFO("%s RX REMOTE CLOSE rcid %u\n", __func__,
 					cmd.id);
 			if (!ch->remote_legacy) {
@@ -304,7 +324,7 @@ static void process_ctl_event(struct work_struct *work)
 			} else {
 				SMDXPRT_INFO("%s Sim RX CLOSE ACK lcid %u\n",
 						__func__, cmd.id);
-				cmd.cmd = 3;
+				cmd.cmd = CMD_CLOSE_ACK;
 				mutex_lock(&einfo->smd_lock);
 				while (smd_write_avail(einfo->smd_ch) <
 								sizeof(cmd))
@@ -312,7 +332,7 @@ static void process_ctl_event(struct work_struct *work)
 				smd_write(einfo->smd_ch, &cmd, sizeof(cmd));
 				mutex_unlock(&einfo->smd_lock);
 			}
-		} else if (cmd.cmd == 3) {
+		} else if (cmd.cmd == CMD_CLOSE_ACK) {
 			SMDXPRT_INFO("%s RX CLOSE ACK lcid %u\n", __func__,
 					cmd.id);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
@@ -642,7 +662,7 @@ static void data_ch_probe_body(struct channel *ch)
 	smd_disable_read_intr(ch->smd_ch);
 	if (ch->remote_legacy || !ch->rcid) {
 		ch->remote_legacy = true;
-		ch->rcid = ch->lcid + 128;
+		ch->rcid = ch->lcid + LEGACY_RCID_CHANNEL_OFFSET;
 		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_open(
 							&einfo->xprt_if,
 							ch->rcid,
@@ -900,7 +920,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 	if (einfo->smd_ctl_ch_open) {
 		SMDXPRT_INFO("%s TX OPEN '%s' lcid %u reqxprt %u\n", __func__,
 				name, lcid, req_xprt);
-		cmd.cmd = 0;
+		cmd.cmd = CMD_OPEN;
 		cmd.id = lcid;
 		cmd.priority = req_xprt;
 		len = strlen(name) + 1;
@@ -916,11 +936,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 	} else {
 		SMDXPRT_INFO("%s Legacy Open '%s' lcid %u reqxprt %u\n",
 				__func__, name, lcid, req_xprt);
-		/*
-		 * max of 64 channels, the 128 offset puts the rcid out of the
-		 * range the remote might use
-		 */
-		ch->rcid = lcid + 128;
+		ch->rcid = lcid + LEGACY_RCID_CHANNEL_OFFSET;
 		ch->local_legacy = true;
 		ch->remote_legacy = true;
 		ret = add_platform_driver(ch);
@@ -965,7 +981,7 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 
 	if (!ch->remote_legacy) {
 		SMDXPRT_INFO("%s TX CLOSE lcid %u\n", __func__, lcid);
-		cmd.cmd = 2;
+		cmd.cmd = CMD_CLOSE;
 		cmd.id = lcid;
 		mutex_lock(&einfo->smd_lock);
 		while (smd_write_avail(einfo->smd_ch) < sizeof(cmd))
@@ -1038,7 +1054,7 @@ static void tx_cmd_ch_remote_open_ack(struct glink_transport_if *if_ptr,
 	SMDXPRT_INFO("%s TX OPEN ACK rcid %u xprt_resp %u\n", __func__, rcid,
 			xprt_resp);
 
-	cmd.cmd = 1;
+	cmd.cmd = CMD_OPEN_ACK;
 	cmd.id = ch->rcid;
 	cmd.priority = xprt_resp;
 
@@ -1076,7 +1092,7 @@ static void tx_cmd_ch_remote_close_ack(struct glink_transport_if *if_ptr,
 
 	if (!ch->remote_legacy) {
 		SMDXPRT_INFO("%s TX CLOSE ACK rcid %u\n", __func__, rcid);
-		cmd.cmd = 3;
+		cmd.cmd = CMD_CLOSE_ACK;
 		cmd.id = rcid;
 		mutex_lock(&einfo->smd_lock);
 		while (smd_write_avail(einfo->smd_ch) < sizeof(cmd))
