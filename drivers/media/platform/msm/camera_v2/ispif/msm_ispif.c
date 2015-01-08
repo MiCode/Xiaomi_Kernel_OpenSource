@@ -63,8 +63,8 @@ static void msm_ispif_io_dump_reg(struct ispif_device *ispif)
 static inline int msm_ispif_is_intf_valid(uint32_t csid_version,
 	uint8_t intf_type)
 {
-	return (csid_version <= CSID_VERSION_V22 && intf_type != VFE0) ?
-		false : true;
+	return ((csid_version <= CSID_VERSION_V22 && intf_type != VFE0) ||
+		(intf_type >= VFE_MAX)) ? false : true;
 }
 
 static struct msm_cam_clk_info ispif_8626_reset_clk_info[] = {
@@ -587,11 +587,6 @@ static int msm_ispif_config(struct ispif_device *ispif,
 
 	for (i = 0; i < params->num; i++) {
 		vfe_intf = params->entries[i].vfe_intf;
-		if (vfe_intf >= VFE_MAX) {
-			pr_err("%s: %d invalid i %d vfe_intf %d\n", __func__,
-				__LINE__, i, vfe_intf);
-			return -EINVAL;
-		}
 		if (!msm_ispif_is_intf_valid(ispif->csid_version,
 				vfe_intf)) {
 			pr_err("%s: invalid interface type\n", __func__);
