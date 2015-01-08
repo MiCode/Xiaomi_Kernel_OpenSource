@@ -94,7 +94,7 @@ int diag_mux_register(int proc, int ctx, struct diag_mux_ops *ops)
 	md_logger.ops[proc] = ops;
 	err = diag_md_register(proc, ctx, ops);
 	if (err) {
-		pr_err("diag: MUX: unable to register usb operations for proc: %d, err: %d\n",
+		pr_err("diag: MUX: unable to register md operations for proc: %d, err: %d\n",
 		       proc, err);
 		return err;
 	}

@@ -1425,7 +1425,17 @@ static int diagfwd_mux_open(int id, int mode)
 		return -EINVAL;
 	}
 
-	diag_reset_smd_data(RESET_AND_QUEUE);
+	if ((mode == DIAG_USB_MODE &&
+			driver->logging_mode == MEMORY_DEVICE_MODE) ||
+			(mode == DIAG_MEMORY_DEVICE_MODE &&
+				driver->logging_mode == USB_MODE)) {
+		/* In this case Diag shouldn't not reset the smd in_busy data.
+		 * If the reset of smd in_busy values happens then this will
+		 * lead to loss of data read over peripherals.
+		*/
+	} else {
+		diag_reset_smd_data(RESET_AND_QUEUE);
+	}
 	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
 		/* Poll SMD CNTL channels to check for data */
 		diag_smd_notify(&(driver->smd_cntl[i]), SMD_EVENT_DATA);
@@ -1450,21 +1460,25 @@ static int diagfwd_mux_close(int id, int mode)
 		return -EINVAL;
 	}
 
-	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
-		smd_info = &driver->smd_data[i];
-		spin_lock_irqsave(&smd_info->in_busy_lock, flags);
-		smd_info->in_busy_1 = 1;
-		smd_info->in_busy_2 = 1;
-		spin_unlock_irqrestore(&smd_info->in_busy_lock, flags);
-	}
-
-	if (driver->supports_separate_cmdrsp) {
-		for (i = 0; i < NUM_SMD_CMD_CHANNELS; i++) {
-			smd_info = &driver->smd_cmd[i];
+	if (driver->logging_mode == USB_MODE) {
+		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
+			smd_info = &driver->smd_data[i];
 			spin_lock_irqsave(&smd_info->in_busy_lock, flags);
 			smd_info->in_busy_1 = 1;
 			smd_info->in_busy_2 = 1;
 			spin_unlock_irqrestore(&smd_info->in_busy_lock, flags);
+		}
+
+		if (driver->supports_separate_cmdrsp) {
+			for (i = 0; i < NUM_SMD_CMD_CHANNELS; i++) {
+				smd_info = &driver->smd_cmd[i];
+				spin_lock_irqsave(&smd_info->in_busy_lock,
+						flags);
+				smd_info->in_busy_1 = 1;
+				smd_info->in_busy_2 = 1;
+				spin_unlock_irqrestore(&smd_info->in_busy_lock,
+						flags);
+			}
 		}
 	}
 	queue_work(driver->diag_real_time_wq,
