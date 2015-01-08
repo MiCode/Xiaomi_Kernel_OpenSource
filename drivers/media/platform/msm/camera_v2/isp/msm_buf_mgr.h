@@ -114,6 +114,9 @@ struct msm_isp_buf_ops {
 	int (*enqueue_buf)(struct msm_isp_buf_mgr *buf_mgr,
 		struct msm_isp_qbuf_info *info);
 
+	int (*dequeue_buf)(struct msm_isp_buf_mgr *buf_mgr,
+		struct msm_isp_qbuf_info *info);
+
 	int (*release_buf)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle);
 

@@ -270,7 +270,7 @@ static int msm_isp_buf_prepare(struct msm_isp_buf_mgr *buf_mgr,
 	return rc;
 }
 
-static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
+static int msm_isp_buf_unprepare_all(struct msm_isp_buf_mgr *buf_mgr,
 	uint32_t buf_handle)
 {
 	int rc = -1, i;
@@ -345,6 +345,36 @@ static int msm_isp_get_buf_by_index(struct msm_isp_buf_mgr *buf_mgr,
 	return rc;
 }
 
+static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
+	uint32_t buf_handle, int32_t buf_idx)
+{
+	struct msm_isp_bufq *bufq = NULL;
+	struct msm_isp_buffer *buf_info = NULL;
+	bufq = msm_isp_get_bufq(buf_mgr, buf_handle);
+	if (!bufq) {
+		pr_err("%s: Invalid bufq\n", __func__);
+		return -EINVAL;
+	}
+
+	buf_info = msm_isp_get_buf_ptr(buf_mgr, buf_handle, buf_idx);
+	if (!buf_info) {
+		pr_err("%s: buf not found\n", __func__);
+		return -EINVAL;
+	}
+	if (buf_info->state == MSM_ISP_BUFFER_STATE_UNUSED ||
+			buf_info->state == MSM_ISP_BUFFER_STATE_INITIALIZED)
+		return 0;
+
+	if (MSM_ISP_BUFFER_SRC_HAL == BUF_SRC(bufq->stream_id)) {
+		if (buf_info->state == MSM_ISP_BUFFER_STATE_DEQUEUED ||
+		buf_info->state == MSM_ISP_BUFFER_STATE_DIVERTED)
+			buf_mgr->vb2_ops->put_buf(buf_info->vb2_buf,
+				bufq->session_id, bufq->stream_id);
+	}
+	msm_isp_unprepare_v4l2_buf(buf_mgr, buf_info);
+
+	return 0;
+}
 
 static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	uint32_t bufq_handle, struct msm_isp_buffer **buf_info)
@@ -455,6 +485,18 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 					__func__, vb2_buf->v4l2_buf.index);
 				rc = -EINVAL;
 			}
+			if ((*buf_info) == NULL) {
+				buf_mgr->vb2_ops->put_buf(vb2_buf,
+					bufq->session_id, bufq->stream_id);
+				pr_err("%s: buf index %d not found!\n",
+					__func__, vb2_buf->v4l2_buf.index);
+				rc = -EINVAL;
+
+			}
+		} else {
+			pr_err("%s: No Buffer session_id: %d stream_id: %d\n",
+				__func__, bufq->session_id, bufq->stream_id);
+			rc = -EINVAL;
 		}
 		break;
 	case MSM_ISP_BUFFER_SRC_SCRATCH:
@@ -847,6 +889,30 @@ static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
 	return rc;
 }
 
+static int msm_isp_buf_dequeue(struct msm_isp_buf_mgr *buf_mgr,
+	struct msm_isp_qbuf_info *info)
+{
+	struct msm_isp_buffer *buf_info = NULL;
+	int rc = 0;
+
+	buf_info = msm_isp_get_buf_ptr(buf_mgr, info->handle, info->buf_idx);
+	if (!buf_info) {
+		pr_err("Invalid buffer dequeue\n");
+		return -EINVAL;
+	}
+
+	if (buf_info->state == MSM_ISP_BUFFER_STATE_DEQUEUED ||
+		buf_info->state == MSM_ISP_BUFFER_STATE_DIVERTED) {
+		pr_err("%s: Invalid state %d\n", __func__, buf_info->state);
+		return -EINVAL;
+	}
+	msm_isp_buf_unprepare(buf_mgr, info->handle, info->buf_idx);
+
+	buf_info->state = MSM_ISP_BUFFER_STATE_INITIALIZED;
+
+	return rc;
+}
+
 static int msm_isp_get_bufq_handle(struct msm_isp_buf_mgr *buf_mgr,
 	uint32_t session_id, uint32_t stream_id)
 {
@@ -943,7 +1009,7 @@ static int msm_isp_release_bufq(struct msm_isp_buf_mgr *buf_mgr,
 		return rc;
 	}
 
-	msm_isp_buf_unprepare(buf_mgr, bufq_handle);
+	msm_isp_buf_unprepare_all(buf_mgr, bufq_handle);
 
 	kfree(bufq->bufs);
 	msm_isp_free_buf_handle(buf_mgr, bufq_handle);
@@ -959,7 +1025,7 @@ static void msm_isp_release_all_bufq(
 		bufq = &buf_mgr->bufq[i];
 		if (!bufq->bufq_handle)
 			continue;
-		msm_isp_buf_unprepare(buf_mgr, bufq->bufq_handle);
+		msm_isp_buf_unprepare_all(buf_mgr, bufq->bufq_handle);
 
 		kfree(bufq->bufs);
 		msm_isp_free_buf_handle(buf_mgr, bufq->bufq_handle);
@@ -1100,6 +1166,11 @@ int msm_isp_proc_buf_cmd(struct msm_isp_buf_mgr *buf_mgr,
 		buf_mgr->ops->enqueue_buf(buf_mgr, qbuf_info);
 		break;
 	}
+	case VIDIOC_MSM_ISP_DEQUEUE_BUF: {
+		struct msm_isp_qbuf_info *qbuf_info = arg;
+		buf_mgr->ops->dequeue_buf(buf_mgr, qbuf_info);
+		break;
+	}
 	case VIDIOC_MSM_ISP_RELEASE_BUF: {
 		struct msm_isp_buf_request *buf_req = arg;
 		buf_mgr->ops->release_buf(buf_mgr, buf_req->handle);
@@ -1164,6 +1235,7 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
 static struct msm_isp_buf_ops isp_buf_ops = {
 	.request_buf = msm_isp_request_bufq,
 	.enqueue_buf = msm_isp_buf_enqueue,
+	.dequeue_buf = msm_isp_buf_dequeue,
 	.release_buf = msm_isp_release_bufq,
 	.get_bufq_handle = msm_isp_get_bufq_handle,
 	.get_buf_src = msm_isp_get_buf_src,
