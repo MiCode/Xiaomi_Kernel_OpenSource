@@ -212,6 +212,7 @@ static DEFINE_MUTEX(pdrv_list_mutex);
 
 static void process_data_event(struct work_struct *work);
 static int add_platform_driver(struct channel *ch);
+static void smd_data_ch_close(struct channel *ch);
 
 /**
  * process_ctl_event() - process a control channel event task
@@ -352,8 +353,26 @@ static void process_ctl_event(struct work_struct *work)
 				mutex_unlock(&einfo->smd_lock);
 			}
 		} else if (cmd.cmd == CMD_CLOSE_ACK) {
+			int rcu_id;
+
 			SMDXPRT_INFO("%s RX CLOSE ACK lcid %u\n", __func__,
 					cmd.id);
+
+			list_for_each_entry(ch, &einfo->channels, node) {
+				if (cmd.id == ch->lcid) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				GLINK_ERR("%s <SMDXPRT> LCID not found %u\n",
+						__func__, cmd.id);
+				continue;
+			}
+
+			rcu_id = srcu_read_lock(&einfo->ssr_sync);
+			smd_data_ch_close(ch);
+			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
 								&einfo->xprt_if,
 								cmd.id);
@@ -670,6 +689,42 @@ static void smd_data_ch_notify(void *priv, unsigned event)
 		queue_work(ch->wq, &work->work);
 		break;
 	}
+}
+
+/**
+ * smd_data_ch_close() - close and cleanup SMD data channel
+ * @ch:	Channel to cleanup
+ *
+ * Must be called with einfo->ssr_sync SRCU locked.
+ */
+static void smd_data_ch_close(struct channel *ch)
+{
+	struct intent_info *intent;
+
+	SMDXPRT_INFO("%s Closing SMD channel lcid %u\n", __func__, ch->lcid);
+
+	ch->is_closing = true;
+	flush_workqueue(ch->wq);
+
+	smd_close(ch->smd_ch);
+	ch->smd_ch = NULL;
+	ch->local_legacy = false;
+
+	mutex_lock(&ch->intents_lock);
+	while (!list_empty(&ch->intents)) {
+		intent = list_first_entry(&ch->intents, struct
+				intent_info, node);
+		list_del(&intent->node);
+		kfree(intent);
+	}
+	while (!list_empty(&ch->used_intents)) {
+		intent = list_first_entry(&ch->used_intents,
+				struct intent_info, node);
+		list_del(&intent->node);
+		kfree(intent);
+	}
+	mutex_unlock(&ch->intents_lock);
+	ch->is_closing = false;
 }
 
 static void data_ch_probe_body(struct channel *ch)
@@ -992,7 +1047,6 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 	struct command cmd;
 	struct edge_info *einfo;
 	struct channel *ch;
-	struct intent_info *intent;
 	int rcu_id;
 	bool found = false;
 
@@ -1025,31 +1079,9 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 			msleep(20);
 		smd_write(einfo->smd_ch, &cmd, sizeof(cmd));
 		mutex_unlock(&einfo->smd_lock);
+	} else {
+		smd_data_ch_close(ch);
 	}
-	ch->is_closing = true;
-	flush_workqueue(ch->wq);
-
-	SMDXPRT_INFO("%s Closing SMD channel lcid %u\n", __func__, lcid);
-	smd_close(ch->smd_ch);
-	ch->smd_ch = NULL;
-	ch->local_legacy = false;
-
-	mutex_lock(&ch->intents_lock);
-	while (!list_empty(&ch->intents)) {
-		intent = list_first_entry(&ch->intents, struct intent_info,
-									node);
-		list_del(&intent->node);
-		kfree(intent);
-	}
-	while (!list_empty(&ch->used_intents)) {
-		intent = list_first_entry(&ch->used_intents, struct intent_info,
-									node);
-		list_del(&intent->node);
-		kfree(intent);
-	}
-	mutex_unlock(&ch->intents_lock);
-	ch->is_closing = false;
-
 	srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 	return 0;
 }
