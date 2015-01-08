@@ -39,20 +39,24 @@
 
 /**
  * struct edge_info() - local information for managing an edge
- * @xprt_if:	The transport interface registered with the glink code
- *		associated with this edge.
- * @xprt_cfg:	The transport configuration for the glink core associated with
- *		this edge.
- * @smd_edge:	The smd edge value corresponding to this edge.
- * @channels:	A list of all the channels that currently exist on this edge.
- * @intentless:	Flag indicating this edge is intentless.
- * @ssr_sync:	Synchronizes SSR with any ongoing activity that might conflict.
- * @in_ssr:	Prevents new activity that might conflict with an active SSR.
- * @ssr_work:	Ends SSR processing after giving SMD a chance to wrap up SSR.
- * @smd_ch:	Private SMD channel for channel migration.
- * @smd_lock:	Serializes write access to @smd_ch.
- * @ch_open:	Indicates that @smd_ch is fully open.
- * @work:	Work item for processing migration data.
+ * @xprt_if:		The transport interface registered with the glink code
+ *			associated with this edge.
+ * @xprt_cfg:		The transport configuration for the glink core
+ *			associated with this edge.
+ * @smd_edge:		The smd edge value corresponding to this edge.
+ * @channels:		A list of all the channels that currently exist on this
+ *			edge.
+ * @intentless:		Flag indicating this edge is intentless.
+ * @ssr_sync:		Synchronizes SSR with any ongoing activity that might
+ *			conflict.
+ * @in_ssr:		Prevents new activity that might conflict with an active
+ *			SSR.
+ * @ssr_work:		Ends SSR processing after giving SMD a chance to wrap up
+ *			SSR.
+ * @smd_ch:		Private SMD channel for channel migration.
+ * @smd_lock:		Serializes write access to @smd_ch.
+ * @smd_ctl_ch_open:	Indicates that @smd_ch is fully open.
+ * @work:		Work item for processing migration data.
  *
  * Each transport registered with the core is represented by a single instance
  * of this structure which allows for complete management of the transport.
@@ -68,7 +72,7 @@ struct edge_info {
 	struct delayed_work ssr_work;
 	smd_channel_t *smd_ch;
 	struct mutex smd_lock;
-	bool ch_open;
+	bool smd_ctl_ch_open;
 	struct work_struct work;
 };
 
@@ -190,10 +194,10 @@ static void process_data_event(struct work_struct *work);
 static int add_platform_driver(struct channel *ch);
 
 /**
- * process_migration_event() - process a migration event task
+ * process_ctl_event() - process a control channel event task
  * @work:	The migration task to process.
  */
-static void process_migration_event(struct work_struct *work)
+static void process_ctl_event(struct work_struct *work)
 {
 	struct command {
 		uint32_t cmd;
@@ -319,11 +323,11 @@ static void process_migration_event(struct work_struct *work)
 }
 
 /**
- * migration_notify() - process an event from the smd channel for ch migration
+ * ctl_ch_notify() - process an event from the smd channel for ch migration
  * @priv:	The edge the event occurred on.
  * @event:	The event to process
  */
-static void migration_notify(void *priv, unsigned event)
+static void ctl_ch_notify(void *priv, unsigned event)
 {
 	struct edge_info *einfo = priv;
 
@@ -332,15 +336,15 @@ static void migration_notify(void *priv, unsigned event)
 		schedule_work(&einfo->work);
 		break;
 	case SMD_EVENT_OPEN:
-		einfo->ch_open = true;
+		einfo->smd_ctl_ch_open = true;
 		break;
 	case SMD_EVENT_CLOSE:
-		einfo->ch_open = false;
+		einfo->smd_ctl_ch_open = false;
 		break;
 	}
 }
 
-static int migration_probe(struct platform_device *pdev)
+static int ctl_ch_probe(struct platform_device *pdev)
 {
 	int i;
 	struct edge_info *einfo;
@@ -351,7 +355,7 @@ static int migration_probe(struct platform_device *pdev)
 
 	einfo = &edge_infos[i];
 	smd_named_open_on_edge("GLINK_CTRL", einfo->smd_edge, &einfo->smd_ch,
-						einfo, migration_notify);
+						einfo, ctl_ch_notify);
 
 	return 0;
 }
@@ -563,11 +567,11 @@ static void process_data_event(struct work_struct *work)
 }
 
 /**
- * smd_notify() - process an event from the smd channel
+ * smd_data_ch_notify() - process an event from the smd channel
  * @priv:	The channel the event occurred on.
  * @event:	The event to process
  */
-static void smd_notify(void *priv, unsigned event)
+static void smd_data_ch_notify(void *priv, unsigned event)
 {
 	struct channel *ch = priv;
 	struct channel_work *work;
@@ -626,7 +630,7 @@ static void smd_notify(void *priv, unsigned event)
 	}
 }
 
-static void channel_probe_body(struct channel *ch)
+static void data_ch_probe_body(struct channel *ch)
 {
 	struct edge_info *einfo;
 
@@ -634,7 +638,7 @@ static void channel_probe_body(struct channel *ch)
 	SMDXPRT_DBG("%s Opening SMD channel %d:'%s'\n", __func__,
 			einfo->smd_edge, ch->name);
 	smd_named_open_on_edge(ch->name, einfo->smd_edge, &ch->smd_ch, ch,
-								smd_notify);
+							smd_data_ch_notify);
 	smd_disable_read_intr(ch->smd_ch);
 	if (ch->remote_legacy || !ch->rcid) {
 		ch->remote_legacy = true;
@@ -683,7 +687,7 @@ static int channel_probe(struct platform_device *pdev)
 	ch->wait_for_probe = false;
 	ch->had_probed = true;
 
-	channel_probe_body(ch);
+	data_ch_probe_body(ch);
 
 	return 0;
 }
@@ -751,7 +755,8 @@ static int add_platform_driver(struct channel *ch)
 		}
 	} else {
 		if (ch->had_probed)
-			channel_probe_body(ch);
+			data_ch_probe_body(ch);
+
 		/*
 		 * channel_probe might have seen the device we want, but
 		 * returned EPROBE_DEFER so we need to kick the deferred list
@@ -892,7 +897,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 
 	ch->lcid = lcid;
 
-	if (einfo->ch_open) {
+	if (einfo->smd_ctl_ch_open) {
 		SMDXPRT_INFO("%s TX OPEN '%s' lcid %u reqxprt %u\n", __func__,
 				name, lcid, req_xprt);
 		cmd.cmd = 0;
@@ -1017,7 +1022,7 @@ static void tx_cmd_ch_remote_open_ack(struct glink_transport_if *if_ptr,
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
-	if (!einfo->ch_open)
+	if (!einfo->smd_ctl_ch_open)
 		return;
 
 	list_for_each_entry(ch, &einfo->channels, node)
@@ -1099,7 +1104,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 	einfo->in_ssr = true;
 	synchronize_srcu(&einfo->ssr_sync);
 
-	einfo->ch_open = false;
+	einfo->smd_ctl_ch_open = false;
 
 	list_for_each_entry(ch, &einfo->channels, node) {
 		if (!ch->smd_ch)
@@ -1550,7 +1555,7 @@ static void init_xprt_cfg(struct edge_info *einfo)
 }
 
 static struct platform_driver migration_driver = {
-	.probe		= migration_probe,
+	.probe		= ctl_ch_probe,
 	.driver		= {
 		.name	= "GLINK_CTRL",
 		.owner	= THIS_MODULE,
@@ -1571,7 +1576,7 @@ static int __init glink_smd_xprt_init(void)
 		init_srcu_struct(&einfo->ssr_sync);
 		mutex_init(&einfo->smd_lock);
 		INIT_DELAYED_WORK(&einfo->ssr_work, ssr_work_func);
-		INIT_WORK(&einfo->work, process_migration_event);
+		INIT_WORK(&einfo->work, process_ctl_event);
 		rc = glink_core_register_transport(&einfo->xprt_if,
 							&einfo->xprt_cfg);
 		if (rc)
