@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2008,7 +2008,9 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 				configure_usb_data_fifo(d->dst_bam_idx,
 					port->port_usb->in,
 					d->dst_pipe_type);
+				spin_unlock_irqrestore(&port->port_lock, flags);
 				msm_dwc3_reset_dbm_ep(port->port_usb->in);
+				spin_lock_irqsave(&port->port_lock, flags);
 		}
 		usb_bam_resume(&d->ipa_params);
 	}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -720,7 +720,9 @@ void ipa_data_resume(struct gadget_ipa_port *gp, u8 port_num)
 	if (msm_dwc3_reset_ep_after_lpm(gadget)) {
 		configure_fifo(port->src_bam_idx, port->port_usb->out);
 		configure_fifo(port->dst_bam_idx, port->port_usb->in);
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		msm_dwc3_reset_dbm_ep(port->port_usb->in);
+		spin_lock_irqsave(&port->port_lock, flags);
 		usb_bam_resume(&port->ipa_params);
 	}
 
