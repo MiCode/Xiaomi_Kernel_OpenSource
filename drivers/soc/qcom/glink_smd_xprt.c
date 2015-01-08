@@ -472,10 +472,6 @@ static void process_open_event(struct work_struct *work)
 	ch = ch_work->ch;
 	einfo = ch->edge;
 	kfree(ch_work);
-	if (ch->remote_legacy)
-		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(
-						&einfo->xprt_if,
-						ch->lcid, SMD_TRANS_XPRT_ID);
 }
 
 /**
@@ -1034,6 +1030,10 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 		ch->local_legacy = true;
 		ch->remote_legacy = true;
 		ret = add_platform_driver(ch);
+		if (!ret)
+			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(
+						&einfo->xprt_if,
+						ch->lcid, SMD_TRANS_XPRT_ID);
 	}
 
 	srcu_read_unlock(&einfo->ssr_sync, rcu_id);
