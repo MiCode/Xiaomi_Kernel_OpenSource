@@ -159,9 +159,43 @@ struct mdp_pa_v2_data32 {
 	compat_caddr_t six_zone_curve_p1;
 };
 
+struct mdp_pa_mem_col_data_v1_7_32 {
+	uint32_t color_adjust_p0;
+	uint32_t color_adjust_p1;
+	uint32_t color_adjust_p2;
+	uint32_t blend_gain;
+	uint8_t sat_hold;
+	uint8_t val_hold;
+	uint32_t hue_region;
+	uint32_t sat_region;
+	uint32_t val_region;
+};
+
+struct mdp_pa_data_v1_7_32 {
+	uint32_t mode;
+	uint32_t global_hue_adj;
+	uint32_t global_sat_adj;
+	uint32_t global_val_adj;
+	uint32_t global_cont_adj;
+	struct mdp_pa_mem_col_data_v1_7_32 skin_cfg;
+	struct mdp_pa_mem_col_data_v1_7_32 sky_cfg;
+	struct mdp_pa_mem_col_data_v1_7_32 fol_cfg;
+	uint32_t six_zone_thresh;
+	uint32_t six_zone_adj_p0;
+	uint32_t six_zone_adj_p1;
+	uint8_t six_zone_sat_hold;
+	uint8_t six_zone_val_hold;
+	uint32_t six_zone_len;
+	compat_caddr_t six_zone_curve_p0;
+	compat_caddr_t six_zone_curve_p1;
+};
+
 struct mdp_pa_v2_cfg_data32 {
+	uint32_t version;
 	uint32_t block;
+	uint32_t flags;
 	struct mdp_pa_v2_data32 pa_v2_data;
+	compat_caddr_t cfg_payload;
 };
 
 struct mdp_pa_cfg32 {
