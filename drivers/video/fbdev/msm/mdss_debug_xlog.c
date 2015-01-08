@@ -21,6 +21,15 @@
 #include "mdss_mdp.h"
 #include "mdss_debug.h"
 
+#ifdef CONFIG_FB_MSM_MDSS_XLOG_DEBUG
+#define XLOG_DEFAULT_ENABLE 1
+#else
+#define XLOG_DEFAULT_ENABLE 0
+#endif
+
+#define XLOG_DEFAULT_PANIC 1
+#define XLOG_DEFAULT_REGDUMP 0x2 /* dump in RAM */
+
 #define MDSS_XLOG_ENTRY	256
 #define MDSS_XLOG_MAX_DATA 6
 #define MDSS_XLOG_BUF_MAX 512
@@ -486,5 +495,14 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 			    &mdss_dbg_xlog.panic_on_err);
 	debugfs_create_u32("reg_dump", 0644, mdss_dbg_xlog.xlog,
 			    &mdss_dbg_xlog.enable_reg_dump);
+
+	mdss_dbg_xlog.xlog_enable = XLOG_DEFAULT_ENABLE;
+	mdss_dbg_xlog.panic_on_err = XLOG_DEFAULT_PANIC;
+	mdss_dbg_xlog.enable_reg_dump = XLOG_DEFAULT_REGDUMP;
+
+	pr_info("xlog_status: enable:%d, panic:%d, dump:%d\n",
+		mdss_dbg_xlog.xlog_enable, mdss_dbg_xlog.panic_on_err,
+		mdss_dbg_xlog.enable_reg_dump);
+
 	return 0;
 }
