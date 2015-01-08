@@ -306,8 +306,16 @@ static void process_ctl_event(struct work_struct *work)
 				__func__, cmd.id, cmd.priority);
 
 			list_for_each_entry(ch, &einfo->channels, node)
-				if (cmd.id == ch->lcid)
+				if (cmd.id == ch->lcid) {
+					found = true;
 					break;
+				}
+			if (!found) {
+				GLINK_ERR("%s <SMDXPRT> No channel match %u\n",
+						__func__, cmd.id);
+				continue;
+			}
+
 			add_platform_driver(ch);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(
 								&einfo->xprt_if,
@@ -316,12 +324,23 @@ static void process_ctl_event(struct work_struct *work)
 		} else if (cmd.cmd == CMD_CLOSE) {
 			SMDXPRT_INFO("%s RX REMOTE CLOSE rcid %u\n", __func__,
 					cmd.id);
-			if (!ch->remote_legacy) {
+			list_for_each_entry(ch, &einfo->channels, node)
+				if (cmd.id == ch->rcid) {
+					found = true;
+					break;
+				}
+
+			if (!found)
+				GLINK_ERR("%s <SMDXPRT> no matching rcid %u\n",
+						__func__, cmd.id);
+
+			if (found && !ch->remote_legacy) {
 				einfo->xprt_if.glink_core_if_ptr->
 							rx_cmd_ch_remote_close(
 								&einfo->xprt_if,
 								cmd.id);
 			} else {
+				/* not found or a legacy channel */
 				SMDXPRT_INFO("%s Sim RX CLOSE ACK lcid %u\n",
 						__func__, cmd.id);
 				cmd.cmd = CMD_CLOSE_ACK;
@@ -975,6 +994,7 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 	struct channel *ch;
 	struct intent_info *intent;
 	int rcu_id;
+	bool found = false;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
@@ -984,9 +1004,16 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 		return -EFAULT;
 	}
 
-	list_for_each_entry(ch, &einfo->channels, node) {
-		if (lcid == ch->lcid)
+	list_for_each_entry(ch, &einfo->channels, node)
+		if (lcid == ch->lcid) {
+			found = true;
 			break;
+		}
+
+	if (!found) {
+		GLINK_ERR("%s <SMDXPRT> LCID not found %u\n", __func__, lcid);
+		srcu_read_unlock(&einfo->ssr_sync, rcu_id);
+		return -ENODEV;
 	}
 
 	if (!ch->remote_legacy) {
@@ -1045,6 +1072,7 @@ static void tx_cmd_ch_remote_open_ack(struct glink_transport_if *if_ptr,
 	struct command cmd;
 	struct edge_info *einfo;
 	struct channel *ch;
+	bool found = false;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
@@ -1052,8 +1080,16 @@ static void tx_cmd_ch_remote_open_ack(struct glink_transport_if *if_ptr,
 		return;
 
 	list_for_each_entry(ch, &einfo->channels, node)
-		if (ch->rcid == rcid)
+		if (ch->rcid == rcid) {
+			found = true;
 			break;
+		}
+
+	if (!found) {
+		GLINK_ERR("%s <SMDXPRT> No matching SMD channel for rcid %u\n",
+				__func__, rcid);
+		return;
+	}
 
 	if (ch->remote_legacy) {
 		SMDXPRT_INFO("%s Legacy ch rcid %u xprt_resp %u\n", __func__,
@@ -1093,11 +1129,20 @@ static void tx_cmd_ch_remote_close_ack(struct glink_transport_if *if_ptr,
 	struct command cmd;
 	struct edge_info *einfo;
 	struct channel *ch;
+	bool found = false;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
-	list_for_each_entry(ch, &einfo->channels, node) {
-		if (rcid == ch->rcid)
+
+	list_for_each_entry(ch, &einfo->channels, node)
+		if (rcid == ch->rcid) {
+			found = true;
 			break;
+		}
+
+	if (!found) {
+		GLINK_ERR("%s <SMDXPRT> No matching SMD channel for rcid %u\n",
+				__func__, rcid);
+		return;
 	}
 
 	if (!ch->remote_legacy) {
