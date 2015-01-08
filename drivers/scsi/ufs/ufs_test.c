@@ -679,7 +679,7 @@ static void scenario_free_end_io_fn(struct request *rq, int err)
 	__blk_put_request(test_iosched->req_q, test_rq->rq);
 	spin_unlock_irq(&test_iosched->lock);
 
-	kfree(test_rq->bios_buffer);
+	test_iosched_free_test_req_data_buffer(test_rq);
 	kfree(test_rq);
 
 	if (err)
@@ -973,7 +973,7 @@ static void long_test_free_end_io_fn(struct request *rq, int err)
 		return;
 	}
 
-	kfree(test_rq->bios_buffer);
+	test_iosched_free_test_req_data_buffer(test_rq);
 	kfree(test_rq);
 	utd->completed_req_count++;
 
