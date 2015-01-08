@@ -440,12 +440,16 @@ static u8 *mipi_exec_spi(struct intel_dsi *intel_dsi, u8 *data)
 
 static u8 *mipi_exec_pmic(struct intel_dsi *intel_dsi, u8 *data)
 {
-	u8 pmic_page;
 	u32 register_address, register_data;
-	u32 data_mask, tmp;
+	int data_mask, tmp;
+	int ret;
 
-	data++;
-	pmic_page = *data++;
+	/*
+	 * First 3 bytes are not relevant for Linux.
+	 * Skipping the data field by 3 bytes to get
+	 * the PMIC register Address.
+	 */
+	data += 3;
 	register_address = *((u32 *)data);
 	data += 4;
 	register_data = *((u32 *)data);
@@ -454,10 +458,19 @@ static u8 *mipi_exec_pmic(struct intel_dsi *intel_dsi, u8 *data)
 	data += 4;
 
 	tmp = intel_soc_pmic_readb(register_address);
+	if (tmp < 0) {
+		DRM_ERROR("PMIC Read failed\n");
+		return ERR_PTR(tmp);
+	}
+
 	tmp &= ~data_mask;
 	register_data &= data_mask;
 	register_data |= tmp;
-	intel_soc_pmic_writeb(register_address, register_data);
+	ret = intel_soc_pmic_writeb(register_address, register_data);
+	if (ret < 0) {
+		DRM_ERROR("PMIC Write failed\n");
+		return ERR_PTR(ret);
+	}
 
 	return data;
 }
