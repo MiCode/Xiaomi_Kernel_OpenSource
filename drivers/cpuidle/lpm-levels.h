@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,6 +71,7 @@ struct lpm_cluster {
 	struct list_head child;
 	const char *cluster_name;
 	const char **name;
+	unsigned long aff_level; /* Affinity level of the node */
 	struct low_power_ops *lpm_dev;
 	int ndevices;
 	struct lpm_cluster_level levels[NR_LPM_LEVELS];

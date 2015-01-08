@@ -124,7 +124,7 @@ static int omap_enter_idle_coupled(struct cpuidle_device *dev,
 		 */
 		if ((cx->mpu_state == PWRDM_POWER_RET) &&
 			(cx->mpu_logic_state == PWRDM_POWER_OFF))
-				cpu_cluster_pm_enter();
+				cpu_cluster_pm_enter(0);
 	}
 
 	omap4_enter_lowpower(dev->cpu, cx->cpu_state);
@@ -149,7 +149,7 @@ static int omap_enter_idle_coupled(struct cpuidle_device *dev,
 	 */
 	if ((cx->mpu_state == PWRDM_POWER_RET) &&
 		(cx->mpu_logic_state == PWRDM_POWER_OFF))
-		cpu_cluster_pm_exit();
+		cpu_cluster_pm_exit(0);
 
 	clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu_id);
 

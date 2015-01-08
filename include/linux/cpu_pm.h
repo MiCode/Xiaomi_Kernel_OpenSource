@@ -71,8 +71,8 @@ int cpu_pm_register_notifier(struct notifier_block *nb);
 int cpu_pm_unregister_notifier(struct notifier_block *nb);
 int cpu_pm_enter(void);
 int cpu_pm_exit(void);
-int cpu_cluster_pm_enter(void);
-int cpu_cluster_pm_exit(void);
+int cpu_cluster_pm_enter(unsigned long aff_level);
+int cpu_cluster_pm_exit(unsigned long aff_level);
 
 #else
 
@@ -96,12 +96,12 @@ static inline int cpu_pm_exit(void)
 	return 0;
 }
 
-static inline int cpu_cluster_pm_enter(void)
+static inline int cpu_cluster_pm_enter(unsigned long aff_level)
 {
 	return 0;
 }
 
-static inline int cpu_cluster_pm_exit(void)
+static inline int cpu_cluster_pm_exit(unsigned long aff_level)
 {
 	return 0;
 }
