@@ -386,7 +386,6 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 		pr_err("APR: Service needs reset\n");
 		goto done;
 	}
-	svc->priv = priv;
 	svc->id = svc_id;
 	svc->dest_id = dest_id;
 	svc->client_id = client_id;
@@ -411,6 +410,7 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 			svc->fn = svc_fn;
 			if (svc->port_cnt)
 				svc->svc_cnt++;
+			svc->priv = priv;
 		}
 	}
 
