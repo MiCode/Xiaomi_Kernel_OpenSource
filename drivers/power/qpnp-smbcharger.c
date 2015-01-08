@@ -148,6 +148,7 @@ struct smbchg_chip {
 	ktime_t				otg_enable_time;
 	bool				aicl_deglitch_on;
 	bool				sw_esr_pulse_en;
+	bool				safety_timer_en;
 
 	/* jeita and temperature */
 	bool				batt_hot;
@@ -628,6 +629,7 @@ static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE,
 };
 
 #define CHGR_STS			0x0E
@@ -2290,6 +2292,38 @@ static int smbchg_float_voltage_get(struct smbchg_chip *chip)
 	return chip->vfloat_mv;
 }
 
+#define SFT_CFG				0xFD
+#define SFT_EN_MASK			SMB_MASK(5, 4)
+#define SFT_TO_MASK			SMB_MASK(3, 2)
+#define PRECHG_SFT_TO_MASK		SMB_MASK(1, 0)
+#define SFT_TIMER_DISABLE_BIT		BIT(5)
+#define PRECHG_SFT_TIMER_DISABLE_BIT	BIT(4)
+#define SAFETY_TIME_MINUTES_SHIFT	2
+static int smbchg_safety_timer_enable(struct smbchg_chip *chip, bool enable)
+{
+	int rc;
+	u8 reg;
+
+	if (enable == chip->safety_timer_en)
+		return 0;
+
+	if (enable)
+		reg = 0;
+	else
+		reg = SFT_TIMER_DISABLE_BIT | PRECHG_SFT_TIMER_DISABLE_BIT;
+
+	rc = smbchg_sec_masked_write(chip, chip->chgr_base + SFT_CFG,
+			SFT_EN_MASK, reg);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't %s safety timer rc = %d\n",
+			enable ? "enable" : "disable", rc);
+		return rc;
+	}
+	chip->safety_timer_en = enable;
+	return 0;
+}
+
 static int smbchg_battery_set_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       const union power_supply_propval *val)
@@ -2318,6 +2352,9 @@ static int smbchg_battery_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smbchg_float_voltage_set(chip, val->intval);
 		break;
+	case POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE:
+		rc = smbchg_safety_timer_enable(chip, val->intval);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -2336,6 +2373,7 @@ static int smbchg_battery_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+	case POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE:
 		rc = 1;
 		break;
 	default:
@@ -2398,6 +2436,9 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
 		val->intval = get_prop_batt_voltage_max_design(chip);
+		break;
+	case POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE:
+		val->intval = chip->safety_timer_en;
 		break;
 	default:
 		return -EINVAL;
@@ -3763,15 +3804,8 @@ static inline int get_bpd(const char *name)
 #define CHG_ITERM_MASK			SMB_MASK(2, 0)
 #define USB51_COMMAND_POL		BIT(2)
 #define USB51AC_CTRL			BIT(1)
-#define SFT_CFG				0xFD
 #define TR_8OR32B			0xFE
 #define BUCK_8_16_FREQ_BIT		BIT(0)
-#define SFT_EN_MASK			SMB_MASK(5, 4)
-#define SFT_TO_MASK			SMB_MASK(3, 2)
-#define PRECHG_SFT_TO_MASK		SMB_MASK(1, 0)
-#define SFT_TIMER_DISABLE_BIT		BIT(5)
-#define PRECHG_SFT_TIMER_DISABLE_BIT	BIT(4)
-#define SAFETY_TIME_MINUTES_SHIFT	2
 #define BM_CFG				0xF3
 #define BATT_MISSING_ALGO_BIT		BIT(2)
 #define BMD_PIN_SRC_MASK		SMB_MASK(1, 0)
@@ -3992,6 +4026,14 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 				rc);
 			return rc;
 		}
+		chip->safety_timer_en = true;
+	} else {
+		rc = smbchg_read(chip, &reg, chip->chgr_base + SFT_CFG, 1);
+		if (rc < 0)
+			dev_err(chip->dev, "Unable to read SFT_CFG rc = %d\n",
+				rc);
+		else if (!(reg & SFT_EN_MASK))
+			chip->safety_timer_en = true;
 	}
 
 	/* make the buck switch faster to prevent some vbus oscillation */
