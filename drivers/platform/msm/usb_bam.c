@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1293,8 +1293,8 @@ static inline int all_pipes_suspended(enum usb_ctrl cur_bam)
 		 __func__, info[cur_bam].pipes_suspended,
 		 ctx.pipes_enabled_per_bam[cur_bam]);
 
-	return (info[cur_bam].pipes_suspended * 2 ==
-			ctx.pipes_enabled_per_bam[cur_bam]);
+	return info[cur_bam].pipes_suspended ==
+			ctx.pipes_enabled_per_bam[cur_bam];
 }
 
 static void usb_bam_finish_suspend(enum usb_ctrl cur_bam)
@@ -1352,15 +1352,6 @@ static void usb_bam_finish_suspend(enum usb_ctrl cur_bam)
 
 			spin_unlock(&usb_bam_ipa_handshake_info_lock);
 			pr_debug("%s: Suspending pipe\n", __func__);
-			/* ACK on the last pipe */
-			if ((info[cur_bam].pipes_suspended + 1) * 2 ==
-			     ctx.pipes_enabled_per_bam[cur_bam] &&
-			     info[cur_bam].cur_cons_state ==
-			     IPA_RM_RESOURCE_RELEASED) {
-				ipa_rm_notify_completion(
-					IPA_RM_RESOURCE_RELEASED,
-					ipa_rm_resource_cons[cur_bam]);
-			}
 			spin_lock(&usb_bam_ipa_handshake_info_lock);
 			info[cur_bam].resume_src_idx[idx] =
 				info[cur_bam].suspend_src_idx[idx];
@@ -1377,6 +1368,17 @@ static void usb_bam_finish_suspend(enum usb_ctrl cur_bam)
 	info[cur_bam].pipes_to_suspend = 0;
 	info[cur_bam].pipes_resumed = 0;
 	spin_unlock(&usb_bam_ipa_handshake_info_lock);
+
+	/* ACK on the last pipe */
+	if (info[cur_bam].pipes_suspended ==
+	     ctx.pipes_enabled_per_bam[cur_bam] &&
+	     info[cur_bam].cur_cons_state ==
+	     IPA_RM_RESOURCE_RELEASED) {
+		ipa_rm_notify_completion(
+			IPA_RM_RESOURCE_RELEASED,
+			ipa_rm_resource_cons[cur_bam]);
+	}
+
 	pr_debug("%s: Starting LPM on Bus Suspend\n", __func__);
 
 	usb_bam_suspend_core(cur_bam, USB_BAM_DEVICE, 0);
@@ -1947,7 +1949,7 @@ static void usb_bam_finish_resume(struct work_struct *w)
 		info[cur_bam].pipes_resumed++;
 	}
 
-	if (info[cur_bam].pipes_resumed * 2 ==
+	if (info[cur_bam].pipes_resumed ==
 	      ctx.pipes_enabled_per_bam[cur_bam]) {
 		info[cur_bam].pipes_resumed = 0;
 		if (info[cur_bam].cur_cons_state == IPA_RM_RESOURCE_GRANTED) {
