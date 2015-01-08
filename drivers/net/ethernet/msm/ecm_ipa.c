@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1208,14 +1208,15 @@ static void ecm_ipa_tx_complete_notify(void *priv,
 		return;
 	}
 
-	ECM_IPA_DEBUG("Tx-complete, len=%d, skb->prot=%d, outstanding=%d\n",
-			skb->len, skb->protocol,
-			atomic_read(&ecm_ipa_ctx->outstanding_pkts));
-
 	if (!ecm_ipa_ctx) {
 		ECM_IPA_ERROR("ecm_ipa_ctx is NULL pointer\n");
 		return;
 	}
+
+	ECM_IPA_DEBUG("Tx-complete, len=%d, skb->prot=%d, outstanding=%d\n",
+			skb->len, skb->protocol,
+			atomic_read(&ecm_ipa_ctx->outstanding_pkts));
+
 	if (evt != IPA_WRITE_DONE) {
 		ECM_IPA_ERROR("unsupported event on Tx callback\n");
 		return;
