@@ -262,6 +262,11 @@ static struct msm_bus_node_info_type *get_node_info_data(
 	node_info->qport = get_arr(pdev, dev_node, "qcom,qport",
 			&node_info->num_qports);
 
+	ret = of_property_read_u32(dev_node, "qcom,agg-ports",
+				   &node_info->num_aggports);
+	if (ret)
+		node_info->num_aggports = node_info->num_qports;
+
 	if (of_get_property(dev_node, "qcom,connections", &size)) {
 		node_info->num_connections = size / sizeof(int);
 		node_info->connections = devm_kzalloc(&pdev->dev, size,

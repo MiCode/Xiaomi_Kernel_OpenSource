@@ -101,6 +101,7 @@ qcom,slv-rpm-id:	For non-AP owned device this is the RPM id for devices that are
 qcom,blacklist:         An array of phandles that represent devices that this device
 			cannot connect to either directly or via any number of
 			intermediate nodes.
+qcom,agg-ports:		The number of aggregation ports on the bus.
 
 
 The following properties are optional as collecting data via coresight might

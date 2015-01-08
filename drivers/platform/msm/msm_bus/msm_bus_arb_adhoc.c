@@ -432,8 +432,8 @@ static uint64_t arbitrate_bus_req(struct msm_bus_node_device_type *bus_dev,
 	}
 
 	/* Account for multiple channels if any */
-	if (bus_dev->node_info->num_qports > 1)
-		sum_ab = msm_bus_div64(bus_dev->node_info->num_qports,
+	if (bus_dev->node_info->num_aggports > 1)
+		sum_ab = msm_bus_div64(bus_dev->node_info->num_aggports,
 					sum_ab);
 
 	if (!bus_dev->node_info->buswidth) {
@@ -512,9 +512,9 @@ static uint64_t get_node_aggab(struct msm_bus_node_device_type *bus_dev)
 		for (i = 0; i < bus_dev->num_lnodes; i++)
 			agg_ab += bus_dev->lnode_list[i].lnode_ab[ctx];
 
-		if (bus_dev->node_info->num_qports > 1)
-			agg_ab = msm_bus_div64(bus_dev->node_info->num_qports,
-							agg_ab);
+		if (bus_dev->node_info->num_aggports > 1)
+			agg_ab = msm_bus_div64(bus_dev->node_info->num_aggports,
+						agg_ab);
 
 		max_agg_ab = max(max_agg_ab, agg_ab);
 	}

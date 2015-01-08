@@ -105,6 +105,7 @@ struct msm_bus_node_info_type {
 	uint64_t lim_bw;
 	uint32_t util_fact;
 	uint32_t vrail_comp;
+	uint32_t num_aggports;
 };
 
 struct msm_bus_node_device_type {
