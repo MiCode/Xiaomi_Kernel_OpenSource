@@ -2067,6 +2067,8 @@ static int bam_init(void)
 	void *a2_virt_addr;
 	int skip_iounmap = 0;
 
+	in_global_reset = 0;
+	in_ssr = 0;
 	vote_dfab();
 	/* init BAM */
 	a2_virt_addr = ioremap_nocache((unsigned long)(a2_phys_base),
