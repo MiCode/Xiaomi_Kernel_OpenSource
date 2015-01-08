@@ -552,6 +552,22 @@ static ssize_t mdss_fb_get_panel_info(struct device *dev,
 	return ret;
 }
 
+static ssize_t mdss_fb_get_panel_status(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = fbi->par;
+	int ret;
+	int panel_status;
+
+	panel_status = mdss_fb_send_panel_event(mfd,
+			MDSS_EVENT_DSI_PANEL_STATUS, NULL);
+	ret = scnprintf(buf, PAGE_SIZE, "panel_status=%s\n",
+		panel_status > 0 ? "alive" : "dead");
+
+	return ret;
+}
+
 /*
  * mdss_fb_lpm_enable() - Function to Control LowPowerMode
  * @mfd:	Framebuffer data structure for display
@@ -650,7 +666,8 @@ static DEVICE_ATTR(msm_fb_src_split_info, S_IRUGO, mdss_fb_get_src_split_info,
 	NULL);
 static DEVICE_ATTR(msm_fb_thermal_level, S_IRUGO | S_IWUSR,
 	mdss_fb_get_thermal_level, mdss_fb_set_thermal_level);
-
+static DEVICE_ATTR(msm_fb_panel_status, S_IRUGO,
+	mdss_fb_get_panel_status, NULL);
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
 	&dev_attr_msm_fb_split.attr,
@@ -660,6 +677,7 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_panel_info.attr,
 	&dev_attr_msm_fb_src_split_info.attr,
 	&dev_attr_msm_fb_thermal_level.attr,
+	&dev_attr_msm_fb_panel_status.attr,
 	NULL,
 };
 
