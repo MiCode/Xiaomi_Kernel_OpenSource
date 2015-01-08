@@ -2781,7 +2781,7 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_mixer *mixer;
 	struct fb_image *img = &cursor->image;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	struct mdp_overlay req;
+	struct mdp_overlay *req = NULL;
 	struct mdss_rect roi;
 	int ret = 0;
 	u32 xres = mfd->fbi->var.xres;
@@ -2879,24 +2879,30 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 	roi.w = min(xres - start_x, img->width - roi.x);
 	roi.h = min(yres - start_y, img->height - roi.y);
 
-	memset(&req, 0, sizeof(struct mdp_overlay));
-	req.pipe_type = PIPE_TYPE_CURSOR;
-	req.z_order = MDSS_MDP_STAGE_6;
+	req = kzalloc(sizeof(struct mdp_overlay), GFP_KERNEL);
+	if (!req) {
+		pr_err("not able to allocate memory for req\n");
+		goto done;
+	}
 
-	req.src.width = img->width;
-	req.src.height = img->height;
-	req.src.format = MDP_ARGB_8888;
+	req->pipe_type = PIPE_TYPE_CURSOR;
+	req->z_order = MDSS_MDP_STAGE_6;
 
-	mdss_mdp_set_rect(&req.src_rect, roi.x, roi.y, img->width, img->height);
-	mdss_mdp_set_rect(&req.dst_rect, start_x, start_y, roi.w, roi.h);
+	req->src.width = img->width;
+	req->src.height = img->height;
+	req->src.format = MDP_ARGB_8888;
 
-	req.bg_color = img->bg_color;
-	req.alpha = (img->fg_color & 0xff000000) >> 24;
-	if (req.alpha == 0xff)
-		req.blend_op = BLEND_OP_OPAQUE;
+	mdss_mdp_set_rect(&req->src_rect, roi.x, roi.y, img->width,
+			img->height);
+	mdss_mdp_set_rect(&req->dst_rect, start_x, start_y, roi.w, roi.h);
+
+	req->bg_color = img->bg_color;
+	req->alpha = (img->fg_color & 0xff000000) >> 24;
+	if (req->alpha == 0xff)
+		req->blend_op = BLEND_OP_OPAQUE;
 	else
-		req.blend_op = BLEND_OP_COVERAGE;
-	req.transp_mask = (img->bg_color & 0xffffff);
+		req->blend_op = BLEND_OP_COVERAGE;
+	req->transp_mask = (img->bg_color & 0xffffff);
 
 	if (mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
 		u32 cursor_addr;
@@ -2925,29 +2931,30 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 	}
 
 	if (start_x + roi.w <= left_lm_w) {
-		ret = mdss_mdp_cursor_pipe_setup(mfd, &req, CURSOR_PIPE_LEFT);
+		ret = mdss_mdp_cursor_pipe_setup(mfd, req, CURSOR_PIPE_LEFT);
 		mdss_mdp_curor_pipe_cleanup(mfd, CURSOR_PIPE_RIGHT);
 	} else if (start_x >= left_lm_w) {
-		ret = mdss_mdp_cursor_pipe_setup(mfd, &req, CURSOR_PIPE_RIGHT);
+		ret = mdss_mdp_cursor_pipe_setup(mfd, req, CURSOR_PIPE_RIGHT);
 		mdss_mdp_curor_pipe_cleanup(mfd, CURSOR_PIPE_LEFT);
 	} else {
-		mdss_mdp_set_rect(&req.dst_rect, start_x, start_y,
+		mdss_mdp_set_rect(&req->dst_rect, start_x, start_y,
 				(left_lm_w - start_x), roi.h);
-		mdss_mdp_set_rect(&req.src_rect, 0, 0, (left_lm_w -
+		mdss_mdp_set_rect(&req->src_rect, 0, 0, (left_lm_w -
 				start_x), img->height);
-		ret = mdss_mdp_cursor_pipe_setup(mfd, &req, CURSOR_PIPE_LEFT);
+		ret = mdss_mdp_cursor_pipe_setup(mfd, req, CURSOR_PIPE_LEFT);
 		if (ret)
 			goto done;
 
-		mdss_mdp_set_rect(&req.dst_rect, left_lm_w, start_y, ((start_x +
-				roi.w) - left_lm_w), roi.h);
-		mdss_mdp_set_rect(&req.src_rect, (left_lm_w - start_x), 0,
+		mdss_mdp_set_rect(&req->dst_rect, left_lm_w, start_y,
+				((start_x + roi.w) - left_lm_w), roi.h);
+		mdss_mdp_set_rect(&req->src_rect, (left_lm_w - start_x), 0,
 				(img->width - (left_lm_w - start_x)),
 				img->height);
-		ret = mdss_mdp_cursor_pipe_setup(mfd, &req, CURSOR_PIPE_RIGHT);
+		ret = mdss_mdp_cursor_pipe_setup(mfd, req, CURSOR_PIPE_RIGHT);
 	}
 
 done:
+	kfree(req);
 	mutex_unlock(&mdp5_data->ov_lock);
 	return ret;
 }
