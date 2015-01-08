@@ -167,6 +167,8 @@ Optional properties :
 	mode. This flag enables streaming mode for all compositions and is different from
 	streaming-func property defined in android device node. Please refer Doumentation/
 	devicetree/bindings/usb/android-dev.txt for details about "streaming-func" property.
+- qcom,axi-prefetch-enable: If present, AXI64 interface will be used for transferring data
+       to/from DDR by controller.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
