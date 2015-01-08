@@ -217,12 +217,34 @@ static const struct platform_device_id vlv2_plat_clk_id[] = {
 };
 MODULE_DEVICE_TABLE(platform, vlv2_plat_clk_id);
 
+static int vlv2_resume(struct platform_device *device)
+{
+	int i;
+
+	/* Initialize all clocks as disabled */
+	for (i = 0; i < MAX_CLK_COUNT; i++)
+		vlv2_plat_configure_clock(i, CLK_CONFG_FORCE_OFF);
+
+	return 0;
+}
+
+static int vlv2_suspend(struct platform_device *device)
+{
+	return 0;
+}
+
+static const struct dev_pm_ops vlv2_pm_ops = {
+	.suspend = vlv2_suspend,
+	.resume = vlv2_resume,
+};
+
 static struct platform_driver vlv2_plat_clk_driver = {
 	.probe = vlv2_plat_clk_probe,
 	.remove = vlv2_plat_clk_remove,
 	.id_table = vlv2_plat_clk_id,
 	.driver = {
 		.name = "vlv2_plat_clk",
+		.pm = &vlv2_pm_ops,
 		.owner = THIS_MODULE,
 	},
 };
