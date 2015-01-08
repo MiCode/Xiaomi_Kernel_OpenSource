@@ -3861,22 +3861,38 @@ static int __mdss_mdp_mixer_handoff_helper(struct mdss_mdp_mixer *mixer,
 	struct mdss_mdp_pipe *pipe)
 {
 	int rc = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 right_blend = 0;
 
 	if (!mixer) {
 		rc = -EINVAL;
 		goto error;
 	}
 
+	/*
+	 * It is possible to have more the one pipe staged on a single
+	 * layer mixer at same staging level.
+	 */
 	if (mixer->stage_pipe[MDSS_MDP_STAGE_UNUSED] != NULL) {
-		pr_err("More than one pipe staged on mixer num %d\n",
-			mixer->num);
-		rc = -EINVAL;
-		goto error;
+		if (mdata->mdp_rev < MDSS_MDP_HW_REV_103) {
+			pr_err("More than one pipe staged on mixer num %d\n",
+				mixer->num);
+			rc = -EINVAL;
+			goto error;
+		} else if (mixer->stage_pipe[MDSS_MDP_STAGE_UNUSED + 1] !=
+			NULL) {
+			pr_err("More than two pipe staged on mixer num %d\n",
+				mixer->num);
+			rc = -EINVAL;
+			goto error;
+		} else {
+			right_blend = 1;
+		}
 	}
 
 	pr_debug("Staging pipe num %d on mixer num %d\n",
 		pipe->num, mixer->num);
-	mixer->stage_pipe[MDSS_MDP_STAGE_UNUSED] = pipe;
+	mixer->stage_pipe[MDSS_MDP_STAGE_UNUSED + right_blend] = pipe;
 	pipe->mixer_left = mixer;
 	pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
 
