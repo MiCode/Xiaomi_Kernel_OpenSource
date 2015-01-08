@@ -591,30 +591,33 @@ static int dwc3_handle_otg_notification(struct notifier_block *nb,
 	int state = NOTIFY_DONE;
 	static int last_value = -1;
 
-	if (last_value == event)
-		goto out;
-
-	spin_lock_irqsave(&dwc->lock, flags);
 	switch (event) {
 	case USB_EVENT_VBUS:
-		dev_info(dwc->dev, "DWC3 OTG Notify USB_EVENT_VBUS\n");
-		last_value = event;
-		if (dwc->dpm_pulled_down) {
-			dwc3_set_phy_dpm_pulldown(dwc, 0);
-			dwc->dpm_pulled_down = 0;
+		spin_lock_irqsave(&dwc->lock, flags);
+		if (last_value != event) {
+			dev_info(dwc->dev, "DWC3 OTG Notify USB_EVENT_VBUS\n");
+			last_value = event;
+			if (dwc->dpm_pulled_down) {
+				dwc3_set_phy_dpm_pulldown(dwc, 0);
+				dwc->dpm_pulled_down = 0;
+			}
+			pm_runtime_get(dwc->dev);
+			state = NOTIFY_OK;
 		}
-		pm_runtime_get(dwc->dev);
-		state = NOTIFY_OK;
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	case USB_EVENT_NONE:
-		dev_info(dwc->dev, "DWC3 OTG Notify USB_EVENT_NONE\n");
-		last_value = event;
-		state = NOTIFY_OK;
+		spin_lock_irqsave(&dwc->lock, flags);
+		if (last_value != event) {
+			dev_info(dwc->dev, "DWC3 OTG Notify USB_EVENT_NONE\n");
+			last_value = event;
+			state = NOTIFY_OK;
+		}
+		spin_unlock_irqrestore(&dwc->lock, flags);
 		break;
 	default:
 		dev_dbg(dwc->dev, "DWC3 OTG Notify unknow notify message\n");
 	}
-	spin_unlock_irqrestore(&dwc->lock, flags);
 
 out:
 	return state;
