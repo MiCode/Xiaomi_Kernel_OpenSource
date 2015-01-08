@@ -449,7 +449,6 @@ static int axp_regulator_set(int sel_reg, u8 setting, int ctrl_reg, int shift, b
 {
 	int ret;
 	int val;
-	u8 val_u8;
 
 	ret = intel_soc_pmic_writeb(sel_reg, setting);
 	if (ret)
@@ -457,12 +456,13 @@ static int axp_regulator_set(int sel_reg, u8 setting, int ctrl_reg, int shift, b
 	val = intel_soc_pmic_readb(ctrl_reg);
 	if (val < 0)
 		return val;
-	val_u8 = (u8)val;
+
 	if (on)
-		val |= ((u8)1 << shift);
+		val |= (1 << shift);
 	else
-		val &= ~((u8)1 << shift);
-	ret = intel_soc_pmic_writeb(ctrl_reg, val_u8);
+		val &= ~(1 << shift);
+
+	ret = intel_soc_pmic_writeb(ctrl_reg, (u8)val);
 	if (ret)
 		return ret;
 
