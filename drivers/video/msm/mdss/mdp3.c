@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -924,7 +924,7 @@ static int mdp3_hw_init(void)
 	}
 	mdp3_res->intf[MDP3_DMA_OUTPUT_SEL_AHB].available = 0;
 	mdp3_res->intf[MDP3_DMA_OUTPUT_SEL_LCDC].available = 0;
-
+	mdp3_res->smart_blit_en = true;
 	return 0;
 }
 
@@ -2246,8 +2246,39 @@ static ssize_t mdp3_show_capabilities(struct device *dev,
 
 static DEVICE_ATTR(caps, S_IRUGO, mdp3_show_capabilities, NULL);
 
+static ssize_t mdp3_store_smart_blit(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t len)
+{
+	u32 data = -1;
+	int rc = 0;
+	rc = kstrtoint(buf, 10, &data);
+	if (rc) {
+		pr_err("kstrtoint failed. rc=%d\n", rc);
+		return rc;
+	} else {
+		mdp3_res->smart_blit_en = data ? true : false;
+		pr_debug("mdp3 smart blit %s\n",
+			 mdp3_res->smart_blit_en ? "ENABLED" : "DISABLED");
+	}
+	return len;
+}
+
+static ssize_t mdp3_show_smart_blit(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	pr_debug("mdp3 smart blit %s\n",
+		mdp3_res->smart_blit_en ? "ENABLED" : "DISABLED");
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", mdp3_res->smart_blit_en);
+	return ret;
+}
+
+static DEVICE_ATTR(smart_blit, S_IRUGO | S_IWUSR | S_IWGRP, mdp3_show_smart_blit,
+                                        mdp3_store_smart_blit);
+
 static struct attribute *mdp3_fs_attrs[] = {
 	&dev_attr_caps.attr,
+	&dev_attr_smart_blit.attr,
 	NULL
 };
 

@@ -1219,6 +1219,10 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 	int next = indx + 1;
 	bool status = false;
 
+	if (!(mdp3_res->smart_blit_en)) {
+		pr_debug("Smart BLIT disabled from sysfs\n");
+		return status;
+	}
 	if (next < req->count) {
 		/*
 		 * Check userspace Smart BLIT Flag for current and next request
