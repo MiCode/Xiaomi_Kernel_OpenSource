@@ -446,7 +446,8 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 	u32 dst_read_bw = 0;
 	u32 dst_write_bw = 0;
 	u64 honest_ppp_ab = 0;
-	u32 fps;
+	u32 fps = 0;
+
 	ATRACE_BEGIN(__func__);
 	lcount = lreq->count;
 	if (lcount == 0) {
@@ -466,7 +467,15 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 	for (i = 0; i < lcount; i++) {
 		req = &(lreq->req_list[i]);
 
+		if (req->fps > 0 && req->fps <= panel_info->mipi.frame_rate) {
+			if (fps == 0)
+				fps = req->fps;
+			else
+				fps = panel_info->mipi.frame_rate;
+		}
+
 		mdp3_get_bpp_info(req->src.format, &bpp);
+
 		src_read_bw = req->src_rect.w * req->src_rect.h *
 						bpp.bpp_num / bpp.bpp_den;
 		src_read_bw = mdp3_adjust_scale_factor(req,
@@ -482,7 +491,11 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 						bpp.bpp_num / bpp.bpp_den;
 		honest_ppp_ab += (src_read_bw + dst_read_bw + dst_write_bw);
 	}
-	honest_ppp_ab = honest_ppp_ab * fps;
+
+	if (fps != 0)
+		honest_ppp_ab = honest_ppp_ab * fps;
+	else
+		honest_ppp_ab = honest_ppp_ab * panel_info->mipi.frame_rate;
 
 	if (honest_ppp_ab != ppp_res.next_ab) {
 		pr_debug("bandwidth vote update for ppp: ab = %llx\n",
