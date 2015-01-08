@@ -567,7 +567,8 @@ static void dapm_set_path_status(struct snd_soc_dapm_widget *w,
 		soc_widget_read(w, e->reg, &val);
 		item = (val >> e->shift_l) & e->mask;
 
-		if (item < e->items && !strcmp(p->name, e->texts[item]))
+		if (item < e->items &&
+			!strcmp(p->name, snd_soc_get_enum_text(e, item)))
 			p->connect = 1;
 		else
 			p->connect = 0;
@@ -584,7 +585,7 @@ static void dapm_set_path_status(struct snd_soc_dapm_widget *w,
 		 * that the default mux choice (the first) will be
 		 * correctly powered up during initialization.
 		 */
-		if (!strcmp(p->name, e->texts[0]))
+		if (!strcmp(p->name, snd_soc_get_enum_text(e, 0)))
 			p->connect = 1;
 	}
 	break;
@@ -600,7 +601,8 @@ static void dapm_set_path_status(struct snd_soc_dapm_widget *w,
 				break;
 		}
 
-		if (item < e->items && !strcmp(p->name, e->texts[item]))
+		if (item < e->items &&
+			!strcmp(p->name, snd_soc_get_enum_text(e, item)))
 			p->connect = 1;
 		else
 			p->connect = 0;
