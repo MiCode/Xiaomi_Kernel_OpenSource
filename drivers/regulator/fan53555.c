@@ -60,7 +60,18 @@
 
 #define FAN53555_NVOLTAGES	64	/* Numbers of voltages */
 
-/* IC Type */
+/* Chip vendor */
+enum {
+	FAN53555 = 0,
+	SY8827,
+};
+
+static int vendor_id[] = {
+	[FAN53555] = FAN53555,
+	[SY8827]   = SY8827,
+};
+
+/* FAN53555 chip ID */
 enum {
 	FAN53555_CHIP_ID_00 = 0,
 	FAN53555_CHIP_ID_01,
@@ -87,7 +98,8 @@ struct fan53555_device_info {
 	struct regulator_desc desc;
 	struct regulator_dev *rdev;
 	struct regulator_init_data *regulator;
-	/* IC Type and Rev */
+	/* IC Vendor, Type and Rev */
+	int chip_vendor;
 	int chip_id;
 	int chip_rev;
 	/* Voltage setting register */
@@ -345,7 +357,6 @@ static int fan53555_regulator_register(struct fan53555_device_info *di,
 {
 	struct regulator_desc *rdesc = &di->desc;
 
-	rdesc->name = "fan53555-reg";
 	if (di->disable_suspend)
 		rdesc->ops = &fan53555_regulator_disable_suspend_ops;
 	else
@@ -539,12 +550,28 @@ static int set_reg(void *data, u64 val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(poke_poke_debug_ops, get_reg, set_reg, "0x%02llx\n");
 
+static struct of_device_id fan53555_match_table[] = {
+	{
+		.name		= "fan53555-regulator",
+		.compatible	= "fairchild,fan53555-regulator",
+		.data		= (void *)&vendor_id[FAN53555],
+	},
+	{
+		.name		= "sy8827-regulator",
+		.compatible	= "silergy,sy8827-regulator",
+		.data		= (void *)&vendor_id[SY8827],
+	},
+	{},
+};
+MODULE_DEVICE_TABLE(of, fan53555_match_table);
+
 static int fan53555_regulator_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
 	struct fan53555_device_info *di;
 	struct fan53555_platform_data *pdata;
 	struct regulator_config config = { };
+	const struct of_device_id *match = NULL;
 	unsigned int val;
 	int ret;
 
@@ -572,6 +599,12 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 	di->dev = &client->dev;
 	di->regulator = pdata->regulator;
 	i2c_set_clientdata(client, di);
+	match = of_match_node(fan53555_match_table, client->dev.of_node);
+	if (match == NULL) {
+		dev_err(di->dev, "device tree match not found\n");
+		return -EINVAL;
+	}
+	di->chip_vendor = *((int *)match->data);
 	/* Get chip ID */
 	ret = fan53555_read(di, FAN53555_ID1, &val);
 	if (ret < 0) {
@@ -586,8 +619,8 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 	di->chip_rev = val & DIE_REV;
-	dev_info(&client->dev, "FAN53555 Option[%d] Rev[%d] Detected!\n",
-				di->chip_id, di->chip_rev);
+	dev_info(&client->dev, "%s Option[%d] Rev[%d] Detected!\n",
+				match->name, di->chip_id, di->chip_rev);
 	/* Device init */
 	ret = fan53555_device_setup(di, pdata);
 	if (ret < 0) {
@@ -608,11 +641,12 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 	config.driver_data = di;
 	config.of_node = client->dev.of_node;
 
+	di->desc.name = match->name;
 	ret = fan53555_regulator_register(di, &config);
 	if (ret < 0)
 		dev_err(&client->dev, "Failed to register regulator!\n");
 
-	di->debug_root = debugfs_create_dir("fan53555", NULL);
+	di->debug_root = debugfs_create_dir((char *)match->name, NULL);
 	if (!di->debug_root)
 		dev_err(&client->dev, "Couldn't create debug dir\n");
 
@@ -648,12 +682,6 @@ static int fan53555_regulator_remove(struct i2c_client *client)
 
 	return 0;
 }
-
-static struct of_device_id fan53555_match_table[] = {
-	{ .compatible = "fairchild,fan53555-regulator",},
-	{},
-};
-MODULE_DEVICE_TABLE(of, fan53555_match_table);
 
 static const struct i2c_device_id fan53555_id[] = {
 	{"fan53555", -1},
