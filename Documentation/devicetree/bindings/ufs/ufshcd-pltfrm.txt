@@ -78,9 +78,12 @@ Example:
 * For UFS host controller in MSM platform following clocks are required -
     Controller clock source -
         "core_clk_src", max-clock-frequency-hz = 200MHz
+	"core_clk_unipro_src" - Some controller versions require separate core clock for UniPro.
+				This clock represents the source clock for the core clock of UniPro.
 
     Controller System clock branch:
         "core_clk" - Controller core clock
+	"core_clk_unipro" - Core clock for UniPro
 
     AHB/AXI interface clocks:
         "iface_clk" - AHB interface clock
