@@ -22,6 +22,10 @@
 	qcom,pmic-id = <0x10009 0x1000A 0x0 0x0>;
 	interrupt-parent = <&intc>;
 
+	chosen {
+		bootargs = "sched_enable_hmp=1";
+	};
+
 	aliases {
 		spi0 = &spi_0;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
