@@ -20,6 +20,27 @@ config SPS
 		2. Peripheral-to-Memory.
 		3. Memory-to-Memory.
 
+config EP_PCIE
+	bool "PCIe Endpoint mode support"
+	select GENERIC_ALLOCATOR
+	help
+	  PCIe controller is in endpoint mode.
+	  It supports the APIs to clients as a service layer, and allows
+	  clients to enable/disable PCIe link, configure the address
+	  mapping for the access to host memory, trigger wake interrupt
+	  on host side to wake up host, and trigger MSI to host side.
+
+config EP_PCIE_HW
+	bool "PCIe Endpoint HW driver"
+	depends on EP_PCIE
+	help
+	  PCIe endpoint HW specific implementation.
+	  It supports:
+		1. link training with Root Complex.
+		2. Address mapping.
+		3. Sideband signaling.
+		4. Power management.
+
 config USB_BAM
 	boolean "USB BAM Driver"
 	depends on SPS && USB_GADGET
