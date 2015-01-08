@@ -1660,7 +1660,7 @@ static void new_req_free_end_io_fn(struct request *rq, int err)
 	spin_unlock_irq(&tios->lock);
 
 	__blk_put_request(tios->req_q, test_rq->rq);
-	kfree(test_rq->bios_buffer);
+	test_iosched_free_test_req_data_buffer(test_rq);
 	kfree(test_rq);
 	mbtd->completed_req_count++;
 }
@@ -2336,7 +2336,7 @@ static void long_seq_write_free_end_io_fn(struct request *rq, int err)
 	__blk_put_request(tios->req_q, test_rq->rq);
 	spin_unlock_irq(&tios->lock);
 
-	kfree(test_rq->bios_buffer);
+	test_iosched_free_test_req_data_buffer(test_rq);
 	kfree(test_rq);
 	mbtd->completed_req_count++;
 

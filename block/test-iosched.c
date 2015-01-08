@@ -112,6 +112,21 @@ static void end_test_bio(struct bio *bio, int err)
 	bio_put(bio);
 }
 
+void test_iosched_free_test_req_data_buffer(struct test_request *test_rq)
+{
+	int i;
+
+	if (!test_rq)
+		return;
+
+	for (i = 0; i < BLK_MAX_SEGMENTS; i++)
+		if (test_rq->bios_buffer[i]) {
+			free_page((unsigned long)test_rq->bios_buffer[i]);
+			test_rq->bios_buffer[i] = NULL;
+		}
+}
+EXPORT_SYMBOL(test_iosched_free_test_req_data_buffer);
+
 /*
  * A callback to be called per request completion.
  * the request memory is not freed here, will be freed later after the test
@@ -281,17 +296,14 @@ struct test_request *test_iosched_create_test_req(
 {
 	struct request *rq;
 	struct test_request *test_rq;
-	int rw_flags, buf_size;
-	int ret = 0, i;
-	unsigned int *bio_ptr = NULL;
 	struct bio *bio = NULL;
+	int i;
+	int ret;
 
 	if (!tios)
 		return NULL;
 
-	rw_flags = direction;
-
-	rq = blk_get_request(tios->req_q, rw_flags, GFP_KERNEL);
+	rq = blk_get_request(tios->req_q, direction, GFP_KERNEL);
 	if (!rq) {
 		pr_err("%s: Failed to allocate a request", __func__);
 		return NULL;
@@ -300,35 +312,29 @@ struct test_request *test_iosched_create_test_req(
 	test_rq = kzalloc(sizeof(struct test_request), GFP_KERNEL);
 	if (!test_rq) {
 		pr_err("%s: Failed to allocate test request", __func__);
-		blk_put_request(rq);
-		return NULL;
-	}
-
-	buf_size = TEST_BIO_SIZE * num_bios;
-	test_rq->bios_buffer = kzalloc(buf_size, GFP_KERNEL);
-	if (!test_rq->bios_buffer) {
-		pr_err("%s: Failed to allocate the data buf", __func__);
 		goto err;
 	}
-	test_rq->buf_size = buf_size;
 
-	if (direction == WRITE)
-		fill_buf_with_pattern(test_rq->bios_buffer,
-						   buf_size, pattern);
+	test_rq->buf_size = TEST_BIO_SIZE * num_bios;
 	test_rq->wr_rd_data_pattern = pattern;
 
-	bio_ptr = test_rq->bios_buffer;
-	for (i = 0; i < num_bios; ++i) {
-		ret = blk_rq_map_kern(tios->req_q, rq,
-				      (void *)bio_ptr,
-				      sizeof(unsigned int)*BIO_U32_SIZE,
-				      GFP_KERNEL);
+	for (i = 0; i < num_bios; i++) {
+		test_rq->bios_buffer[i] = (void *)get_zeroed_page(GFP_KERNEL);
+		if (!test_rq->bios_buffer[i]) {
+			pr_err("%s: failed to kmap page for bio #%d/%d\n",
+				__func__, i, num_bios);
+			goto free_bios;
+		}
+		ret = blk_rq_map_kern(tios->req_q, rq, test_rq->bios_buffer[i],
+			TEST_BIO_SIZE, GFP_KERNEL);
 		if (ret) {
 			pr_err("%s: blk_rq_map_kern returned error %d",
-				    __func__, ret);
-			goto err;
+				__func__, ret);
+			goto free_bios;
 		}
-		bio_ptr += BIO_U32_SIZE;
+		if (direction == WRITE)
+			fill_buf_with_pattern(test_rq->bios_buffer[i],
+				TEST_BIO_SIZE, pattern);
 	}
 
 	if (end_req_io)
@@ -355,18 +361,16 @@ struct test_request *test_iosched_create_test_req(
 	test_rq->req_result = -EINVAL;
 	test_rq->rq = rq;
 	if (tios->test_info.get_rq_disk_fn)
-		test_rq->rq->rq_disk =
-			tios->test_info.get_rq_disk_fn(tios);
+		test_rq->rq->rq_disk = tios->test_info.get_rq_disk_fn(tios);
 	test_rq->is_err_expected = is_err_expcted;
 	rq->elv.priv[0] = (void *)test_rq;
-
-	pr_debug("%s: created test request %d, buf_size=%d",
-			__func__, test_rq->req_id, buf_size);
-
 	return test_rq;
+
+free_bios:
+	test_iosched_free_test_req_data_buffer(test_rq);
+	kfree(test_rq);
 err:
 	blk_put_request(rq);
-	kfree(test_rq->bios_buffer);
 	return NULL;
 }
 EXPORT_SYMBOL(test_iosched_create_test_req);
@@ -434,8 +438,9 @@ static char *get_test_case_str(struct test_iosched *tios)
  */
 int compare_buffer_to_pattern(struct test_request *test_rq)
 {
-	int i = 0;
-	int num_of_dwords = test_rq->buf_size/sizeof(int);
+	int i;
+	int j;
+	unsigned int *buf;
 
 	/* num_bytes should be aligned to sizeof(int) */
 	BUG_ON((test_rq->buf_size % sizeof(int)) != 0);
@@ -444,25 +449,18 @@ int compare_buffer_to_pattern(struct test_request *test_rq)
 	if (test_rq->wr_rd_data_pattern == TEST_NO_PATTERN)
 		return 0;
 
-	if (test_rq->wr_rd_data_pattern == TEST_PATTERN_SEQUENTIAL) {
-		for (i = 0; i < num_of_dwords; i++) {
-			if (test_rq->bios_buffer[i] != i) {
-				pr_err(
-					"%s: wrong pattern 0x%x in index %d",
-					__func__, test_rq->bios_buffer[i], i);
+	for (i = 0; i < test_rq->buf_size / TEST_BIO_SIZE; i++) {
+		buf = test_rq->bios_buffer[i];
+		for (j = 0; j < TEST_BIO_SIZE / sizeof(int); j++)
+			if ((test_rq->wr_rd_data_pattern ==
+				TEST_PATTERN_SEQUENTIAL && buf[j] != j) ||
+				(test_rq->wr_rd_data_pattern !=
+				TEST_PATTERN_SEQUENTIAL &&
+				buf[j] != test_rq->wr_rd_data_pattern)) {
+				pr_err("%s: wrong pattern 0x%x in index %d",
+					__func__, buf[j], j);
 				return -EINVAL;
 			}
-		}
-	} else {
-		for (i = 0; i < num_of_dwords; i++) {
-			if (test_rq->bios_buffer[i] !=
-			    test_rq->wr_rd_data_pattern) {
-				pr_err(
-					"%s: wrong pattern 0x%x in index %d",
-					__func__, test_rq->bios_buffer[i], i);
-				return -EINVAL;
-			}
-		}
 	}
 
 	return 0;
@@ -595,7 +593,7 @@ static void free_test_queue(struct list_head *test_queue)
 			}
 		}
 		blk_put_request(test_rq->rq);
-		kfree(test_rq->bios_buffer);
+		test_iosched_free_test_req_data_buffer(test_rq);
 		kfree(test_rq);
 	}
 }

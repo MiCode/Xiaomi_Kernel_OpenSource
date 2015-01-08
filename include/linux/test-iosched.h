@@ -92,7 +92,7 @@ struct test_debug {
 /**
  * struct test_request - defines a test request
  * @queuelist:		The test requests list
- * @bios_buffer:	Write/read requests data buffer
+ * @bios_buffer:	Write/read requests data buffer, one page per bio
  * @buf_size:		Write/read requests data buffer size (in
  *			bytes)
  * @rq:			A block request, to be dispatched
@@ -110,7 +110,7 @@ struct test_debug {
  */
 struct test_request {
 	struct list_head queuelist;
-	unsigned int *bios_buffer;
+	void *bios_buffer[BLK_MAX_SEGMENTS];
 	int buf_size;
 	struct request *rq;
 	bool req_completed;
@@ -249,6 +249,8 @@ extern int test_iosched_add_wr_rd_test_req(struct test_iosched *,
 extern struct test_request *test_iosched_create_test_req(struct test_iosched *,
 	int is_err_expcted, int direction, int start_sec, int num_bios,
 	int pattern, rq_end_io_fn *end_req_io);
+
+extern void test_iosched_free_test_req_data_buffer(struct test_request *);
 
 extern void test_iosched_set_test_result(struct test_iosched*, int test_result);
 
