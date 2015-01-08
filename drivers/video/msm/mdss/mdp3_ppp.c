@@ -465,6 +465,7 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 	u32 fps = 0;
 	int smart_blit_fg_indx = -1;
 	u32 smart_blit_bg_read_bw = 0;
+
 	ATRACE_BEGIN(__func__);
 	lcount = lreq->count;
 	if (lcount == 0) {
@@ -1232,6 +1233,10 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 	int next = indx + 1;
 	bool status = false;
 
+	if (!(mdp3_res->smart_blit_en)) {
+		pr_debug("Smart BLIT disabled from sysfs\n");
+		return status;
+	}
 	if (next < req->count) {
 		/*
 		 * Check userspace Smart BLIT Flag for current and next request
