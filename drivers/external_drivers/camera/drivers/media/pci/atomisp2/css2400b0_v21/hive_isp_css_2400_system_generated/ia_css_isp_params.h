@@ -53,7 +53,7 @@ enum ia_css_parameter_ids {
 	IA_CSS_OB_ID,
 	IA_CSS_OUTPUT_ID,
 	IA_CSS_SC_ID,
-	IA_CSS_RAW_ID,
+	IA_CSS_BDS_ID,
 	IA_CSS_TNR_ID,
 	IA_CSS_MACC_ID,
 	IA_CSS_SDIS_HORICOEF_ID,
@@ -102,7 +102,7 @@ struct ia_css_memory_offsets {
 		struct ia_css_isp_parameter ob;
 		struct ia_css_isp_parameter output;
 		struct ia_css_isp_parameter sc;
-		struct ia_css_isp_parameter raw;
+		struct ia_css_isp_parameter bds;
 		struct ia_css_isp_parameter tnr;
 		struct ia_css_isp_parameter macc;
 		struct ia_css_isp_parameter sdis_horiproj;

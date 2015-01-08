@@ -98,6 +98,7 @@ struct ia_css_binary_descr {
 	bool enable_dz;
 	bool enable_xnr;
 	bool enable_fractional_ds;
+	bool enable_dpc;
 	struct ia_css_resolution dvs_env;
 	enum ia_css_stream_format stream_format;
 	struct ia_css_frame_info *in_info;		/* the info of the input-frame with the

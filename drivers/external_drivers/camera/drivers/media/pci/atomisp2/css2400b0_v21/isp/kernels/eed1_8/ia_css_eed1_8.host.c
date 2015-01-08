@@ -25,12 +25,167 @@
 #endif
 
 #include "type_support.h"
+#include "assert_support.h"
 
 #include "ia_css_eed1_8.host.h"
 
+/* WARNING: Number of inv points should be less or equal to 16,
+ * due to implementation limitation. See kernel design document
+ * for more details.
+ */
+#define NUMBER_OF_CHGRINV_POINTS 15
+#define NUMBER_OF_TCINV_POINTS 9
+#define NUMBER_OF_FCINV_POINTS 9
+
+const int16_t chgrinv_x[NUMBER_OF_CHGRINV_POINTS] = {
+0, 16, 64, 144, 272, 448, 672, 976,
+1376, 1888, 2528, 3312, 4256, 5376, 6688};
+
+const int16_t chgrinv_a[NUMBER_OF_CHGRINV_POINTS] = {
+-7171, -256, -29, -3456, -1071, -475, -189, -102,
+-48, -38, -10, -9, -7, -6, 0};
+
+const int16_t chgrinv_b[NUMBER_OF_CHGRINV_POINTS] = {
+8191, 1021, 256, 114, 60, 37, 24, 17,
+12, 9, 6, 5, 4, 3, 2};
+
+const int16_t chgrinv_c[NUMBER_OF_CHGRINV_POINTS] = {
+1, 1, 1, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0};
+
+const int16_t tcinv_x[NUMBER_OF_TCINV_POINTS] = {
+0, 4, 11, 23, 42, 68, 102, 148, 205};
+
+const int16_t tcinv_a[NUMBER_OF_TCINV_POINTS] = {
+-6364, -631, -126, -34, -13, -6, -4452, -2156, 0};
+
+const int16_t tcinv_b[NUMBER_OF_TCINV_POINTS] = {
+8191, 1828, 726, 352, 197, 121, 80, 55, 40};
+
+const int16_t tcinv_c[NUMBER_OF_TCINV_POINTS] = {
+1, 1, 1, 1, 1, 1, 0, 0, 0};
+
+const int16_t fcinv_x[NUMBER_OF_FCINV_POINTS] = {
+0, 80, 216, 456, 824, 1344, 2040, 2952, 4096};
+
+const int16_t fcinv_a[NUMBER_OF_FCINV_POINTS] = {
+-5244, -486, -86, -2849, -961, -400, -180, -86, 0};
+
+const int16_t fcinv_b[NUMBER_OF_FCINV_POINTS] = {
+8191, 1637, 607, 287, 159, 98, 64, 44, 32};
+
+const int16_t fcinv_c[NUMBER_OF_FCINV_POINTS] = {
+1, 1, 1, 0, 0, 0, 0, 0, 0};
+
+
+void
+ia_css_eed1_8_vmem_encode(
+	struct ia_css_isp_eed1_8_vmem_params *to,
+	const struct ia_css_eed1_8_config *from,
+	size_t size)
+{
+	unsigned i, j, base;
+	const unsigned total_blocks = 4;
+	const unsigned shuffle_block = 16;
+
+	(void)size;
+
+	/* Init */
+	for (i = 0; i < ISP_VEC_NELEMS; i++) {
+		to->e_cuedge_x[0][i] = 0;
+		to->e_cuedge_a[0][i] = 0;
+		to->e_cuedge_b[0][i] = 0;
+		to->chgrinv_x[0][i] = 0;
+		to->chgrinv_a[0][i] = 0;
+		to->chgrinv_b[0][i] = 0;
+		to->chgrinv_c[0][i] = 0;
+		to->tcinv_x[0][i] = 0;
+		to->tcinv_a[0][i] = 0;
+		to->tcinv_b[0][i] = 0;
+		to->tcinv_c[0][i] = 0;
+		to->fcinv_x[0][i] = 0;
+		to->fcinv_a[0][i] = 0;
+		to->fcinv_b[0][i] = 0;
+		to->fcinv_c[0][i] = 0;
+	}
+
+	/* Constraints on dew_enhance_seg_x and dew_enhance_seg_y:
+	 * - values should be greater or equal to 0.
+	 * - values should be ascending.
+	 * - value of index zero is equal to 0.
+	 */
+
+	/* Checking constraints: */
+	/* TODO: investigate if an assert is the right way to report that
+	 * the constraints are violated.
+	 */
+	for (j = 0; j < IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS; j++) {
+		assert(from->dew_enhance_seg_x[j] > -1);
+		assert(from->dew_enhance_seg_y[j] > -1);
+	}
+
+	for (j = 1; j < IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS; j++) {
+		assert(from->dew_enhance_seg_x[j] > from->dew_enhance_seg_x[j-1]);
+		assert(from->dew_enhance_seg_y[j] > from->dew_enhance_seg_y[j-1]);
+	}
+
+	assert(from->dew_enhance_seg_x[0] == 0);
+	assert(from->dew_enhance_seg_y[0] == 0);
+
+	/* The implementation of the calulating 1/x is based on the availability
+	 * of the OP_vec_shuffle16 operation.
+	 * A 64 element vector is split up in 4 blocks of 16 element. Each array is copied to
+	 * a vector 4 times, (starting at 0, 16, 32 and 48). All array elements are copied or
+	 * initialised as described in the KFS. The remaining elements of a vector are set to 0.
+	 */
+	/* TODO: guard this code with above assumptions */
+	for(i = 0; i < total_blocks; i++) {
+		base = shuffle_block * i;
+
+		for (j = 0; j < IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS; j++) {
+			to->e_cuedge_x[0][base + j] = from->dew_enhance_seg_x[j];
+			to->e_cuedge_b[0][base + j] = from->dew_enhance_seg_y[j];
+		}
+
+		/* TODO: the calculation of the slope is not included in the KFS.
+		 * Till implementation is available the result of the slope calculation is
+		 * mulitplied with 1024 (just to increase the precision of the slope, since
+		 * the slopes for the default set of x and y is between 0 and 3.
+		 */
+		for (j = 1; j < IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS; j++) {
+			to->e_cuedge_a[0][base + j - 1] = 1024 * (from->dew_enhance_seg_y[j] - from->dew_enhance_seg_y[j - 1]) / (from->dew_enhance_seg_x[j] - from->dew_enhance_seg_x[j - 1]);
+		}
+
+		/* Hard-coded to 0, see KFS for more details */
+		to->e_cuedge_a[0][base + IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS - 1] = 0;
+
+		for (j = 0; j < NUMBER_OF_CHGRINV_POINTS; j++) {
+			to->chgrinv_x[0][base + j] = chgrinv_x[j];
+			to->chgrinv_a[0][base + j] = chgrinv_a[j];
+			to->chgrinv_b[0][base + j] = chgrinv_b[j];
+			to->chgrinv_c[0][base + j] = chgrinv_c[j];
+		}
+
+		for (j = 0; j < NUMBER_OF_TCINV_POINTS; j++) {
+			to->tcinv_x[0][base + j] = tcinv_x[j];
+			to->tcinv_a[0][base + j] = tcinv_a[j];
+			to->tcinv_b[0][base + j] = tcinv_b[j];
+			to->tcinv_c[0][base + j] = tcinv_c[j];
+		}
+
+		for (j = 0; j < NUMBER_OF_FCINV_POINTS; j++) {
+			to->fcinv_x[0][base + j] = fcinv_x[j];
+			to->fcinv_a[0][base + j] = fcinv_a[j];
+			to->fcinv_b[0][base + j] = fcinv_b[j];
+			to->fcinv_c[0][base + j] = fcinv_c[j];
+		}
+	}
+}
+
+
 void
 ia_css_eed1_8_encode(
-	struct ia_css_isp_eed1_8_params *to,
+	struct ia_css_isp_eed1_8_dmem_params *to,
 	const struct ia_css_eed1_8_config *from,
 	size_t size)
 {
@@ -53,23 +208,27 @@ ia_css_eed1_8_encode(
 
 	to->derel_thres0 = from->derel_thres0;
 	to->derel_gain0 = from->derel_gain0;
-	to->derel_thres1 = from->derel_thres1;
-	to->derel_gain1 = from->derel_gain1;
+	to->derel_thres_diff = (from->derel_thres1 - from->derel_thres0);
+	to->derel_gain_diff = (from->derel_gain1 - from->derel_gain0);
 
 	to->coring_pos0 = from->coring_pos0;
 	to->coring_pos_diff = (from->coring_pos1 - from->coring_pos0);
 	to->coring_neg0 = from->coring_neg0;
 	to->coring_neg_diff = (from->coring_neg1 - from->coring_neg0);
 
-	to->gain = (1 << from->gain_exp);
+	/* Note: (ISP_VEC_ELEMBITS -1)
+	 * TODO: currently the testbench does not support to use
+	 * ISP_VEC_ELEMBITS. Investigate how to fix this
+	 */
+	to->gain_exp = (13 - from->gain_exp);
 	to->gain_pos0 = from->gain_pos0;
 	to->gain_pos_diff = (from->gain_pos1 - from->gain_pos0);
 	to->gain_neg0 = from->gain_neg0;
 	to->gain_neg_diff = (from->gain_neg1 - from->gain_neg0);
 
-	to->pos_margin0 = from->pos_margin0;
+	to->margin_pos0 = from->pos_margin0;
 	to->margin_pos_diff = (from->pos_margin1 - from->pos_margin0);
-	to->neg_margin0 = from->neg_margin0;
+	to->margin_neg0 = from->neg_margin0;
 	to->margin_neg_diff = (from->neg_margin1 - from->neg_margin0);
 
 	for (i = 0; i < IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS; i++) {

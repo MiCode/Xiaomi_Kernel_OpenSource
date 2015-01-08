@@ -27,8 +27,14 @@
 #include "ia_css_eed1_8_default.host.h"
 
 void
+ia_css_eed1_8_vmem_encode(
+	struct ia_css_isp_eed1_8_vmem_params *to,
+	const struct ia_css_eed1_8_config *from,
+	size_t size);
+
+void
 ia_css_eed1_8_encode(
-	struct ia_css_isp_eed1_8_params *to,
+	struct ia_css_isp_eed1_8_dmem_params *to,
 	const struct ia_css_eed1_8_config *from,
 	size_t size);
 

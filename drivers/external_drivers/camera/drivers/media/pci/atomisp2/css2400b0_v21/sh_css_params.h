@@ -102,7 +102,7 @@ struct ia_css_isp_parameters {
 	struct ia_css_macc_config   macc_config;
 	struct ia_css_ctc_config    ctc_config;
 	struct ia_css_aa_config     aa_config;
-	struct ia_css_aa_config     raw_config;
+	struct ia_css_aa_config     bds_config;
 	struct ia_css_aa_config     raa_config;
 	struct ia_css_rgb_gamma_table     r_gamma_table;
 	struct ia_css_rgb_gamma_table     g_gamma_table;
@@ -149,10 +149,6 @@ struct ia_css_isp_parameters {
 	struct ia_css_frame *output_frame; /**< Output frame the config is to be applied to (optional) */
 	uint32_t isp_parameters_id; /**< Unique ID to track which config was actually applied to a particular frame */
 };
-
-enum ia_css_err
-sh_css_params_write_to_ddr(struct ia_css_pipe *pipe,
-			   struct ia_css_pipeline_stage *stage);
 
 void
 ia_css_params_store_ia_css_host_data(

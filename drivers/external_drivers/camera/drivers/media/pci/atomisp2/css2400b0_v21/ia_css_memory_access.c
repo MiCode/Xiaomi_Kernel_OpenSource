@@ -61,7 +61,6 @@ hrt_vaddress mmgr_alloc_attr(const size_t size, const uint16_t attrs)
 		my_attrs |= IA_CSS_MEM_ATTR_PAGEALIGN;
 
 	ptr = my_env.alloc(size, my_attrs);
-	assert(ptr != 0);
 	return ptr;
 }
 

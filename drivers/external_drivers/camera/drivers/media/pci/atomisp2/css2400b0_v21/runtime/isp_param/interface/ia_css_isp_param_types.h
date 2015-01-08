@@ -46,8 +46,8 @@ enum ia_css_param_class {
 
 /** ISP parameter descriptor */
 struct ia_css_isp_parameter {
-	uint16_t offset; /* Offset in isp_<mem>)parameters, etc. */
-	uint16_t size;   /* Disabled if 0 */
+	uint32_t offset; /* Offset in isp_<mem>)parameters, etc. */
+	uint32_t size;   /* Disabled if 0 */
 };
 
 

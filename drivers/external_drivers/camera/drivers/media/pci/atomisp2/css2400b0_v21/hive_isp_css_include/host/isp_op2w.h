@@ -172,21 +172,55 @@ STORAGE_CLASS_ISP_OP2W_FUNC_H tvector2w OP_2w_subsat(
     const tvector2w     _a,
     const tvector2w     _b);
 
-/** @brief subtraction with shift right
+/** @brief subtraction with shift right and rounding
  *
  * @param[in] _a	first argument
  * @param[in] _b	second argument
  *
  * @return		(a - b) >> 1
  *
- * This function will subtract _b from _a at full
- * precision, and right shift the result with 1 bit.
+ * This function subtracts _b from _a and right shifts
+ * the result by 1 bit with rounding.
  * No overflow can occur.
  * result = (_a - _b) >> 1
+ *
+ * Note: This function will be deprecated due to
+ * the naming confusion and it will be replaced
+ * by "OP_2w_subhalfrnd".
  */
 STORAGE_CLASS_ISP_OP2W_FUNC_H tvector2w OP_2w_subasr1(
     const tvector2w     _a,
     const tvector2w     _b);
+
+/** @brief Subtraction with shift right and rounding
+ *
+ * @param[in] _a	first operand
+ * @param[in] _b	second operand
+ *
+ * @return		(_a - _b) >> 1
+ *
+ * This function subtracts _b from _a and right shifts
+ * the result by 1 bit with rounding.
+ * No overflow can occur.
+ */
+STORAGE_CLASS_ISP_OP2W_FUNC_H tvector2w OP_2w_subhalfrnd(
+    const tvector2w	_a,
+    const tvector2w	_b);
+
+/** @brief Subtraction with shift right and no rounding
+ *
+ * @param[in] _a	first operand
+ * @param[in] _b	second operand
+ *
+ * @return		(_a - _b) >> 1
+ *
+ * This function subtracts _b from _a and right shifts
+ * the result by 1 bit without rounding (i.e. truncation).
+ * No overflow can occur.
+ */
+STORAGE_CLASS_ISP_OP2W_FUNC_H tvector2w OP_2w_subhalf(
+    const tvector2w	_a,
+    const tvector2w	_b);
 
 /** @brief saturated absolute value
  *
@@ -575,7 +609,23 @@ STORAGE_CLASS_ISP_OP2W_FUNC_H tvector2w OP_2w_mux(
     const tvector2w     _b,
     const tflags           _c);
 
-/** @brief Average
+/** @brief Average without rounding
+ *
+ * @param[in] _a	first operand
+ * @param[in] _b	second operand
+ *
+ * @return		(_a + _b) >> 1
+ *
+ * This function will add _a and _b, and right shift
+ * the result by one without rounding. No overflow
+ * will occur because addition is performed in the
+ * proper precision.
+ */
+STORAGE_CLASS_ISP_OP2W_FUNC_H tvector2w  OP_2w_avg(
+    const tvector2w     _a,
+    const tvector2w     _b);
+
+/** @brief Average with rounding
  *
  * @param[in] _a	first argument
  * @param[in] _b	second argument

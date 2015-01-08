@@ -24,7 +24,6 @@
 
 #include "type_support.h"
 
-/* Anti-Aliasing */
 struct sh_css_isp_aa_params {
 	int32_t strength;
 };

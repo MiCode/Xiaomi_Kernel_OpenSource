@@ -114,10 +114,6 @@
 #define ENABLE_LIN            0
 #endif
 
-#if !defined(ENABLE_DP)
-#define ENABLE_DP		1
-#endif
-
 #if !defined(ENABLE_DPC)
 #define ENABLE_DPC		1
 #endif

@@ -47,6 +47,14 @@ ia_css_aa_encode(
 	to->strength = from->strength;
 }
 
+void
+ia_css_init_aa_state(
+	void *state,
+	size_t size)
+{
+	memset(state, 0, size);
+}
+
 #ifndef IA_CSS_NO_DEBUG
 void
 ia_css_aa_dump(

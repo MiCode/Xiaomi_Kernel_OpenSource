@@ -27,6 +27,7 @@
 
 #ifdef USE_INPUT_SYSTEM_VERSION_2401
 #include "isys_dma.h"		/* isys2401_dma_set_max_burst_size() */
+#include "isys_irq.h"
 #endif
 
 #if defined(USE_INPUT_SYSTEM_VERSION_2)
@@ -104,6 +105,11 @@ input_system_error_t ia_css_isys_init(void)
 
 	isys2401_dma_set_max_burst_size(ISYS2401_DMA0_ID,
 		1 /* Non Burst DMA transactions */);
+
+	/* Enable 2401 input system IRQ status for driver to retrieve */
+	isys_irqc_status_enable(ISYS_IRQ0_ID);
+	isys_irqc_status_enable(ISYS_IRQ1_ID);
+	isys_irqc_status_enable(ISYS_IRQ2_ID);
 
 	return error;
 }

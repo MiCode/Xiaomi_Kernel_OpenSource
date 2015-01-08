@@ -50,12 +50,110 @@ struct trace_header_t {
 	uint32_t  debug_ptr_value;
 };
 
-
-/* buffer offsets and sizes, common to SP and host */
+#define TRACER_VER			2
 #define TRACE_BUFF_ADDR       0xA000
 #define TRACE_BUFF_SIZE       0x1000	/* 4K allocated */
-#define SP1_TRACER_OFFSET     (TRACE_BUFF_SIZE/2)
-#define MAX_TRACER_POINTS     (TRACE_BUFF_SIZE/sizeof(struct trace_item_t))
+
+#ifdef IS_ISP_2500_SYSTEM
+#define TRACE_ENABLE_SP0 1
+#define TRACE_ENABLE_SP1 1
+#define TRACE_ENABLE_ISP 0
+#else
+#define TRACE_ENABLE_SP0 0
+#define TRACE_ENABLE_SP1 0
+#define TRACE_ENABLE_ISP 0
+#endif
+
+typedef enum {
+	TRACE_SP0_ID,
+	TRACE_SP1_ID,
+	TRACE_ISP_ID
+} TRACE_CORE_ID;
+
+/* TODO: add timing format? */
+typedef enum {
+	TRACE_DUMP_FORMAT_POINT,
+	TRACE_DUMP_FORMAT_VALUE24_HEX,
+	TRACE_DUMP_FORMAT_VALUE24_DEC,
+	TRACE_DUMP_FORMAT_VALUE24_TIMING,
+	TRACE_DUMP_FORMAT_VALUE24_TIMING_DELTA
+} TRACE_DUMP_FORMAT;
+
+
+/* currently divided as follows:*/
+#if (TRACE_ENABLE_SP0 + TRACE_ENABLE_SP1 + TRACE_ENABLE_ISP == 3)
+/* can be divided as needed */
+#define TRACE_SP0_SIZE (TRACE_BUFF_SIZE/4)
+#define TRACE_SP1_SIZE (TRACE_BUFF_SIZE/4)
+#define TRACE_ISP_SIZE (TRACE_BUFF_SIZE/2)
+#elif (TRACE_ENABLE_SP0 + TRACE_ENABLE_SP1 + TRACE_ENABLE_ISP == 2)
+#if TRACE_ENABLE_SP0
+#define TRACE_SP0_SIZE (TRACE_BUFF_SIZE/2)
+#else
+#define TRACE_SP0_SIZE (0)
+#endif
+#if TRACE_ENABLE_SP1
+#define TRACE_SP1_SIZE (TRACE_BUFF_SIZE/2)
+#else
+#define TRACE_SP1_SIZE (0)
+#endif
+#if TRACE_ENABLE_ISP
+#define TRACE_ISP_SIZE (TRACE_BUFF_SIZE/2)
+#else
+#define TRACE_ISP_SIZE (0)
+#endif
+#elif (TRACE_ENABLE_SP0 + TRACE_ENABLE_SP1 + TRACE_ENABLE_ISP == 1)
+#if TRACE_ENABLE_SP0
+#define TRACE_SP0_SIZE (TRACE_BUFF_SIZE)
+#else
+#define TRACE_SP0_SIZE (0)
+#endif
+#if TRACE_ENABLE_SP1
+#define TRACE_SP1_SIZE (TRACE_BUFF_SIZE)
+#else
+#define TRACE_SP1_SIZE (0)
+#endif
+#if TRACE_ENABLE_ISP
+#define TRACE_ISP_SIZE (TRACE_BUFF_SIZE)
+#else
+#define TRACE_ISP_SIZE (0)
+#endif
+#else
+#define TRACE_SP0_SIZE (0)
+#define TRACE_SP1_SIZE (0)
+#define TRACE_ISP_SIZE (0)
+#endif
+
+#define TRACE_SP0_ADDR (TRACE_BUFF_ADDR)
+#define TRACE_SP1_ADDR (TRACE_SP0_ADDR + TRACE_SP0_SIZE)
+#define TRACE_ISP_ADDR (TRACE_SP1_ADDR + TRACE_SP1_SIZE)
+
+/* check if it's a legal division */
+#if (TRACE_BUFF_SIZE < TRACE_SP0_SIZE + TRACE_SP1_SIZE + TRACE_ISP_SIZE)
+#error trace sizes are not divided correctly and are above limit
+#endif
+
+#define TRACE_SP0_HEADER_ADDR (TRACE_SP0_ADDR)
+#define TRACE_SP0_HEADER_SIZE (sizeof(struct trace_header_t))
+#define TRACE_SP0_ITEM_SIZE (sizeof(struct trace_item_t))
+#define TRACE_SP0_DATA_ADDR (TRACE_SP0_HEADER_ADDR + TRACE_SP0_HEADER_SIZE)
+#define TRACE_SP0_DATA_SIZE (TRACE_SP0_SIZE - TRACE_SP0_HEADER_SIZE)
+#define TRACE_SP0_MAX_POINTS (TRACE_SP0_DATA_SIZE / TRACE_SP0_ITEM_SIZE)
+
+#define TRACE_SP1_HEADER_ADDR (TRACE_SP1_ADDR)
+#define TRACE_SP1_HEADER_SIZE (sizeof(struct trace_header_t))
+#define TRACE_SP1_ITEM_SIZE (sizeof(struct trace_item_t))
+#define TRACE_SP1_DATA_ADDR (TRACE_SP1_HEADER_ADDR + TRACE_SP1_HEADER_SIZE)
+#define TRACE_SP1_DATA_SIZE (TRACE_SP1_SIZE - TRACE_SP1_HEADER_SIZE)
+#define TRACE_SP1_MAX_POINTS (TRACE_SP1_DATA_SIZE / TRACE_SP1_ITEM_SIZE)
+
+#define TRACE_ISP_HEADER_ADDR (TRACE_ISP_ADDR)
+#define TRACE_ISP_HEADER_SIZE (sizeof(struct trace_header_t))
+#define TRACE_ISP_ITEM_SIZE (sizeof(struct trace_item_t))
+#define TRACE_ISP_DATA_ADDR (TRACE_ISP_HEADER_ADDR + TRACE_ISP_HEADER_SIZE)
+#define TRACE_ISP_DATA_SIZE (TRACE_ISP_SIZE - TRACE_ISP_HEADER_SIZE)
+#define TRACE_ISP_MAX_POINTS (TRACE_ISP_DATA_SIZE / TRACE_ISP_ITEM_SIZE)
+
 
 /* offsets for master_port read/write */
 #define HDR_HDR_OFFSET              0	/* offset of the header */
@@ -82,5 +180,51 @@ typedef enum {
 
 /* command signature */
 #define CMD_SIGNATURE	0xAABBCC00
+
+/* shared macros in traces infrastructure */
+/* increment the pointer cyclicly */
+#define DBG_NEXT_ITEM(x, max_items) (((x+1) >= max_items) ? 0 : x+1)
+#define DBG_PREV_ITEM(x, max_items) ((x) ? x-1 : max_items-1)
+
+#define FIELD_MASK(width) (((1 << (width)) - 1))
+#define FIELD_PACK(value,mask,offset) (((value) & (mask)) << (offset))
+#define FIELD_UNPACK(value,mask,offset) (((value) >> (offset)) & (mask))
+
+
+#define FIELD_VALUE_OFFSET		(0)
+#define FIELD_VALUE_WIDTH		(16)
+#define FIELD_VALUE_MASK		FIELD_MASK(FIELD_VALUE_WIDTH)
+#define FIELD_VALUE_PACK(f)		FIELD_PACK(f,FIELD_VALUE_MASK,FIELD_VALUE_OFFSET)
+#define FIELD_VALUE_UNPACK(f)	FIELD_UNPACK(f,FIELD_VALUE_MASK,FIELD_VALUE_OFFSET)
+
+#define FIELD_MINOR_OFFSET		(FIELD_VALUE_OFFSET + FIELD_VALUE_WIDTH)
+#define FIELD_MINOR_WIDTH		(8)
+#define FIELD_MINOR_MASK		FIELD_MASK(FIELD_MINOR_WIDTH)
+#define FIELD_MINOR_PACK(f)		FIELD_PACK(f,FIELD_MINOR_MASK,FIELD_MINOR_OFFSET)
+#define FIELD_MINOR_UNPACK(f)	FIELD_UNPACK(f,FIELD_MINOR_MASK,FIELD_MINOR_OFFSET)
+
+#define FIELD_MAJOR_OFFSET		(FIELD_MINOR_OFFSET + FIELD_MINOR_WIDTH)
+#define FIELD_MAJOR_WIDTH		(5)
+#define FIELD_MAJOR_MASK		FIELD_MASK(FIELD_MAJOR_WIDTH)
+#define FIELD_MAJOR_PACK(f)		FIELD_PACK(f,FIELD_MAJOR_MASK,FIELD_MAJOR_OFFSET)
+#define FIELD_MAJOR_UNPACK(f)	FIELD_UNPACK(f,FIELD_MAJOR_MASK,FIELD_MAJOR_OFFSET)
+
+#define FIELD_FORMAT_OFFSET		(FIELD_MAJOR_OFFSET + FIELD_MAJOR_WIDTH)
+#define FIELD_FORMAT_WIDTH 		(3)
+#define FIELD_FORMAT_MASK 		FIELD_MASK(FIELD_FORMAT_WIDTH)
+#define FIELD_FORMAT_PACK(f)	FIELD_PACK(f,FIELD_FORMAT_MASK,FIELD_FORMAT_OFFSET)
+#define FIELD_FORMAT_UNPACK(f)	FIELD_UNPACK(f,FIELD_FORMAT_MASK,FIELD_FORMAT_OFFSET)
+
+#define FIELD_VALUE_24_OFFSET		(0)
+#define FIELD_VALUE_24_WIDTH		(24)
+#define FIELD_VALUE_24_MASK			FIELD_MASK(FIELD_VALUE_24_WIDTH)
+#define FIELD_VALUE_24_PACK(f)		FIELD_PACK(f,FIELD_VALUE_24_MASK,FIELD_VALUE_24_OFFSET)
+#define FIELD_VALUE_24_UNPACK(f)	FIELD_UNPACK(f,FIELD_VALUE_24_MASK,FIELD_VALUE_24_OFFSET)
+
+#define PACK_TRACEPOINT(format,major, minor, value)	\
+	(FIELD_FORMAT_PACK(format) | FIELD_MAJOR_PACK(major) | FIELD_MINOR_PACK(minor) | FIELD_VALUE_PACK(value))
+
+#define PACK_TRACE_VALUE24(format, major, value)	\
+	(FIELD_FORMAT_PACK(format) | FIELD_MAJOR_PACK(major) | FIELD_VALUE_24_PACK(value))
 
 #endif /* __CSS_TRACE_H_ */

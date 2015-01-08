@@ -408,6 +408,12 @@ void ia_css_debug_dump_stream_config(
 	const struct ia_css_stream_config *config,
 	int num_pipes);
 
+/*! @brief Dump the state of the SP tagger
+ * Dumps the internal state of the SP tagger
+ * @return	None
+ */
+void ia_css_debug_tagger_state(void);
+
 /**
  * @brief Initialize the debug mode.
  *

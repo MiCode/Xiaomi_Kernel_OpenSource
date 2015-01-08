@@ -37,6 +37,11 @@ ia_css_aa_encode(
 	const struct ia_css_aa_config *from,
 	unsigned size);
 
+void
+ia_css_init_aa_state(
+	void *state,
+	size_t size);
+
 #ifndef IA_CSS_NO_DEBUG
 void
 ia_css_aa_dump(

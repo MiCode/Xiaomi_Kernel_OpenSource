@@ -33,7 +33,7 @@ ia_css_bds_encode(
 
 void
 ia_css_bds_dump(
-	const struct sh_css_isp_bds_params *raw,
+	const struct sh_css_isp_bds_params *bds,
 	unsigned level);
 
 void

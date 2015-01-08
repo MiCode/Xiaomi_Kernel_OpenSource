@@ -70,6 +70,9 @@
 #include "input_system.h"	/* input_formatter_reg_load */
 #include "gp_device.h"		/* gp_device_reg_load */
 #endif
+#if defined(USE_INPUT_SYSTEM_VERSION_2) || defined(USE_INPUT_SYSTEM_VERSION_2401)
+#include "ia_css_tagger_common.h"
+#endif
 
 #include "sh_css_internal.h"
 #if !defined(HAS_NO_INPUT_SYSTEM)
@@ -2288,6 +2291,9 @@ void ia_css_debug_dump_debug_info(const char *context)
 #if !defined(HAS_NO_INPUT_SYSTEM) && defined(USE_INPUT_SYSTEM_VERSION_2401)
 	ia_css_debug_dump_isys_state();
 #endif
+#if defined(USE_INPUT_SYSTEM_VERSION_2) || defined(USE_INPUT_SYSTEM_VERSION_2401)
+	ia_css_debug_tagger_state();
+#endif
 	return;
 }
 
@@ -3152,7 +3158,12 @@ ia_css_debug_dump_pipe_config(
 {
 	unsigned int i;
 
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "%s()\n", __func__);
+	IA_CSS_ENTER_PRIVATE("config = %p", config);
+	if (!config) {
+		IA_CSS_ERROR("NULL input parameter");
+		IA_CSS_LEAVE_PRIVATE("");
+		return;
+	}
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "mode: %d\n", config->mode);
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "isp_pipe_version: %d\n",
 			config->isp_pipe_version);
@@ -3180,6 +3191,7 @@ ia_css_debug_dump_pipe_config(
 			config->acc_num_execs);
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "enable_dz: %d\n",
 			config->enable_dz);
+	IA_CSS_LEAVE_PRIVATE("");
 }
 
 void
@@ -3332,34 +3344,62 @@ ia_css_debug_dump_stream_config(
 	byte 1:   minor
 	byte 2-3: data
 */
-
-#define TRACE_MAX_SIZE     4096			/* max points - sanity check */
-
-static void debug_dump_one_trace(const char *text, uint32_t start_addr)
+#if TRACE_ENABLE_SP0 || TRACE_ENABLE_SP1 || TRACE_ENABLE_ISP
+static void debug_dump_one_trace(TRACE_CORE_ID proc_id)
 {
-#if !defined(HAS_TRACER_V1)
-	(void) text;
-	(void) start_addr;
-#else
+#if defined(HAS_TRACER_V2)
+	uint32_t start_addr;
+	uint32_t start_addr_data;
+	uint32_t item_size;
 	uint32_t tmp;
-	int i, j, point_num, limit = -1;
+	int i, j, max_trace_points, point_num, limit = -1;
 	/* using a static buffer here as the driver has issues allocating memory */
-	static uint32_t trace_read_buf[TRACE_MAX_SIZE];
+	static uint32_t trace_read_buf[TRACE_BUFF_SIZE];
+
 	/* read the header and parse it */
+	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "~~~ Tracer ");
+	switch (proc_id)
+	{
+	case TRACE_SP0_ID:
+		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "SP0");
+		start_addr = TRACE_SP0_ADDR;
+		start_addr_data = TRACE_SP0_DATA_ADDR;
+		item_size = TRACE_SP0_ITEM_SIZE;
+		max_trace_points = TRACE_SP0_MAX_POINTS;
+		break;
+	case TRACE_SP1_ID:
+		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "SP1");
+		start_addr = TRACE_SP1_ADDR;
+		start_addr_data = TRACE_SP1_DATA_ADDR;
+		item_size = TRACE_SP1_ITEM_SIZE;
+		max_trace_points = TRACE_SP1_MAX_POINTS;
+		break;
+	case TRACE_ISP_ID:
+		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "ISP");
+		start_addr = TRACE_ISP_ADDR;
+		start_addr_data = TRACE_ISP_DATA_ADDR;
+		item_size = TRACE_ISP_ITEM_SIZE;
+		max_trace_points = TRACE_ISP_MAX_POINTS;
+		break;
+	default:
+		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "\t\ttraces are not supported for this processor ID - exiting\n");
+		return;
+	}
 	tmp = ia_css_device_load_uint32(start_addr);
 	point_num = (tmp >> 16) & 0xFFFF;
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "~~~ Tracer %s ver %d %d points\n", text, tmp & 0xFF, point_num);
-	if ((tmp & 0xFF) != 1) {
+
+	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, " ver %d %d points\n", tmp & 0xFF, point_num);
+	if ((tmp & 0xFF) != TRACER_VER) {
 		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "\t\tUnknown version - exiting\n");
 		return;
 	}
-	if (point_num > TRACE_MAX_SIZE) {
+	if (point_num > max_trace_points) {
 		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "\t\tToo many points - exiting\n");
 		return;
 	}
 	/* copy the TPs and find the first 0 */
 	for (i = 0; i < point_num; i++) {
-		trace_read_buf[i] = ia_css_device_load_uint32(start_addr + sizeof(struct trace_header_t) + i * sizeof(struct trace_item_t));
+		trace_read_buf[i] = ia_css_device_load_uint32(start_addr_data + (i * item_size));
 		if ((limit == (-1)) && (trace_read_buf[i] == 0))
 			limit = i;
 	}
@@ -3375,24 +3415,106 @@ static void debug_dump_one_trace(const char *text, uint32_t start_addr)
 	/* overrun: limit is the first non-zero after the first zero */
 	else
 		limit++;
+
 	/* print the TPs */
 	for (i = 0; i < point_num; i++) {
 		j = (limit + i) % point_num;
 		if (trace_read_buf[j])
-			ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "\t\t%d %d:%d %d\n",
-								j,
-								trace_read_buf[j] & 0xFF,
-								(trace_read_buf[j] >> 8) & 0xFF,
-								(trace_read_buf[j] >> 16) & 0xFFFF);
+		{
+			TRACE_DUMP_FORMAT dump_format = FIELD_FORMAT_UNPACK(trace_read_buf[j]);
+			switch (dump_format)
+			{
+			case TRACE_DUMP_FORMAT_POINT:
+				ia_css_debug_dtrace(
+						IA_CSS_DEBUG_TRACE,	"\t\t%d %d:%d value - %d\n",
+						j, FIELD_MAJOR_UNPACK(trace_read_buf[j]),
+						FIELD_MINOR_UNPACK(trace_read_buf[j]),
+						FIELD_VALUE_UNPACK(trace_read_buf[j]));
+				break;
+			case TRACE_DUMP_FORMAT_VALUE24_HEX:
+				ia_css_debug_dtrace(
+						IA_CSS_DEBUG_TRACE,	"\t\t%d, %d, 24bit value %x H\n",
+						j,
+						FIELD_MAJOR_UNPACK(trace_read_buf[j]),
+						FIELD_VALUE_24_UNPACK(trace_read_buf[j]));
+				break;
+			case TRACE_DUMP_FORMAT_VALUE24_DEC:
+				ia_css_debug_dtrace(
+						IA_CSS_DEBUG_TRACE,	"\t\t%d, %d, 24bit value %d D\n",
+						j,
+						FIELD_MAJOR_UNPACK(trace_read_buf[j]),
+						FIELD_VALUE_24_UNPACK(trace_read_buf[j]));
+				break;
+			case TRACE_DUMP_FORMAT_VALUE24_TIMING:
+				ia_css_debug_dtrace(
+						IA_CSS_DEBUG_TRACE,	"\t\t%d, %d, timing %x\n",
+						j,
+						FIELD_MAJOR_UNPACK(trace_read_buf[j]),
+						FIELD_VALUE_24_UNPACK(trace_read_buf[j]));
+				break;
+			case TRACE_DUMP_FORMAT_VALUE24_TIMING_DELTA:
+				ia_css_debug_dtrace(
+						IA_CSS_DEBUG_TRACE,	"\t\t%d, %d, timing delta %x\n",
+						j,
+						FIELD_MAJOR_UNPACK(trace_read_buf[j]),
+						FIELD_VALUE_24_UNPACK(trace_read_buf[j]));
+				break;
+			default:
+				ia_css_debug_dtrace(
+						IA_CSS_DEBUG_TRACE,
+						"no such trace dump format %d",
+						FIELD_FORMAT_UNPACK(trace_read_buf[j]));
+				break;
+			}
+		}
 	}
-#endif /* IS_ISP_2500_SYSTEM */
+#else
+	(void)proc_id;
+#endif /* HAS_TRACER_V2 */
 }
+#endif /* TRACE_ENABLE_SP0 || TRACE_ENABLE_SP1 || TRACE_ENABLE_ISP */
 
 void ia_css_debug_dump_trace(void)
 {
-	debug_dump_one_trace("SP0", TRACE_BUFF_ADDR);
-	debug_dump_one_trace("SP1", TRACE_BUFF_ADDR + SP1_TRACER_OFFSET);
+#if TRACE_ENABLE_SP0
+	debug_dump_one_trace(TRACE_SP0_ID);
+#endif
+#if TRACE_ENABLE_SP1
+	debug_dump_one_trace(TRACE_SP1_ID);
+#endif
+#if TRACE_ENABLE_ISP
+	debug_dump_one_trace(TRACE_ISP_ID);
+#endif
 }
+
+#if defined(USE_INPUT_SYSTEM_VERSION_2) || defined(USE_INPUT_SYSTEM_VERSION_2401)
+/* Tagger state dump function. The tagger is only available when the CSS
+ * contains an input system (2400 or 2401). */
+void ia_css_debug_tagger_state(void)
+{
+	unsigned int i;
+	unsigned int HIVE_ADDR_tagger_frames;
+	ia_css_tagger_buf_sp_elem_t tbuf_frames[MAX_CB_ELEMS_FOR_TAGGER];
+
+	HIVE_ADDR_tagger_frames = sh_css_sp_fw.info.sp.tagger_frames_addr;
+
+	/* This variable is not used in crun */
+	(void)HIVE_ADDR_tagger_frames;
+
+	/* 2400 and 2401 only have 1 SP, so the tagger lives on SP0 */
+	sp_dmem_load(SP0_ID,
+		     (unsigned int)sp_address_of(tagger_frames),
+		     tbuf_frames,
+		     sizeof(tbuf_frames));
+
+	ia_css_debug_dtrace(2, "Tagger Info:\n");
+	for (i = 0; i < MAX_CB_ELEMS_FOR_TAGGER; i++) {
+		ia_css_debug_dtrace(2, "\t tagger frame[%d]: exp_id=%d, marked=%d, locked=%d\n",
+				i, tbuf_frames[i].exp_id, tbuf_frames[i].mark, tbuf_frames[i].lock);
+	}
+
+}
+#endif /* defined(USE_INPUT_SYSTEM_VERSION_2) || defined(USE_INPUT_SYSTEM_VERSION_2401) */
 
 #if defined(HRT_SCHED) || defined(SH_CSS_DEBUG_SPMEM_DUMP_SUPPORT)
 #include "spmem_dump.c"

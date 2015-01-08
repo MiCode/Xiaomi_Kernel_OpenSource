@@ -28,13 +28,13 @@
 
 void
 ia_css_iefd2_6_vmem_encode(
-	struct ia_css_isp_iefd2_6_vmem_params *to,
+	struct iefd2_6_vmem_params *to,
 	const struct ia_css_iefd2_6_config *from,
 	size_t size);
 
 void
 ia_css_iefd2_6_encode(
-	struct ia_css_isp_iefd2_6_dmem_params *to,
+	struct iefd2_6_dmem_params *to,
 	const struct ia_css_iefd2_6_config *from,
 	size_t size);
 

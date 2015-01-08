@@ -31,25 +31,6 @@
 
 #include "ia_css_raw.host.h"
 
-void
-ia_css_raw_encode(
-	struct sh_css_isp_raw_params *to,
-	const struct ia_css_aa_config *from,
-	unsigned size)
-{
-	(void)size;
-	to->baf_strength = from->strength;
-}
-
-void
-ia_css_raw_dump(
-	const struct sh_css_isp_raw_params *raw,
-	unsigned level)
-{
-	(void)raw;
-	(void)level;
-}
-
 static inline unsigned
 sh_css_elems_bytes_from_info (unsigned raw_bit_depth)
 {

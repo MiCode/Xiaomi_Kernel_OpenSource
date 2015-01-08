@@ -26,11 +26,6 @@
 
 #include "dma.h"
 
-/* RAW (Optical Black) */
-struct sh_css_isp_raw_params {
-	int baf_strength;
-};
-
 /* Raw channel */
 struct sh_css_isp_raw_isp_config {
 	uint32_t width_a_over_b;

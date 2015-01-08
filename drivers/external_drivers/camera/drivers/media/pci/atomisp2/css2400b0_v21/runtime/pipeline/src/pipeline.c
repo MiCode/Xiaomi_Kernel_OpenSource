@@ -470,14 +470,17 @@ bool ia_css_pipeline_is_mapped(unsigned int key)
 {
 	bool ret = false;
 
-	assert(key < IA_CSS_PIPELINE_NUM_MAX);
-	assert(key < IA_CSS_PIPE_ID_NUM);
+	IA_CSS_ENTER_PRIVATE("key = %d", key);
 
-	IA_CSS_ENTER("key=%d", key);
+	if ((key >= IA_CSS_PIPELINE_NUM_MAX) || (key >= IA_CSS_PIPE_ID_NUM)) {
+		IA_CSS_ERROR("Invalid key!!");
+		IA_CSS_LEAVE_PRIVATE("return = %d", false);
+		return false;
+	}
 
 	ret = (bool)(pipeline_num_to_sp_thread_map[key] != (unsigned)PIPELINE_NUM_UNMAPPED);
 
-	IA_CSS_LEAVE("return=%d", ret);
+	IA_CSS_LEAVE_PRIVATE("return = %d", ret);
 	return ret;
 }
 

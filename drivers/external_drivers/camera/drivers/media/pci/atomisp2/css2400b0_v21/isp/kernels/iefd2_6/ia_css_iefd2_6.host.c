@@ -28,7 +28,7 @@
  */
 void
 ia_css_iefd2_6_vmem_encode(
-	struct ia_css_isp_iefd2_6_vmem_params *to,
+	struct iefd2_6_vmem_params *to,
 	const struct ia_css_iefd2_6_config *from,
 	size_t size)
 {
@@ -72,52 +72,52 @@ ia_css_iefd2_6_vmem_encode(
 
 		to->e_cued_x[0][base] = 0;
 		to->e_cued_a[0][base] = 0;
-		to->e_cued_b[0][base] = from->cu_ed_slopes_b[1];
+		to->e_cued_b[0][base] = from->cu_ed_slopes_b[0];
 
 		to->e_cu_dir_x[0][base] = 0;
 		to->e_cu_dir_a[0][base] = 0;
-		to->e_cu_dir_b[0][base] = from->cu_dir_sharp_slopes_b[1];
+		to->e_cu_dir_b[0][base] = from->cu_dir_sharp_slopes_b[0];
 
 		to->e_cu_non_dir_x[0][base] = 0;
 		to->e_cu_non_dir_a[0][base] = 0;
-		to->e_cu_non_dir_b[0][base] = from->cu_non_dir_sharp_slopes_b[1];
+		to->e_cu_non_dir_b[0][base] = from->cu_non_dir_sharp_slopes_b[0];
 
 		to->e_curad_x[0][base] = 0;
 		to->e_curad_a[0][base] = 0;
-		to->e_curad_b[0][base] = from->cu_radial_slopes_b[1];
+		to->e_curad_b[0][base] = from->cu_radial_slopes_b[0];
 
 		for (j = 1; j < 4; j++) {
-			to->e_cu_dir_a[0][base+j] = from->cu_dir_sharp_slopes_a[j];
-			to->e_cu_dir_b[0][base+j] = from->cu_dir_sharp_slopes_b[j];
-			to->e_cu_non_dir_a[0][base+j] = from->cu_non_dir_sharp_slopes_a[j];
-			to->e_cu_non_dir_b[0][base+j] = from->cu_non_dir_sharp_slopes_b[j];
+			to->e_cu_dir_a[0][base+j] = from->cu_dir_sharp_slopes_a[j-1];
+			to->e_cu_dir_b[0][base+j] = from->cu_dir_sharp_slopes_b[j-1];
+			to->e_cu_non_dir_a[0][base+j] = from->cu_non_dir_sharp_slopes_a[j-1];
+			to->e_cu_non_dir_b[0][base+j] = from->cu_non_dir_sharp_slopes_b[j-1];
 		}
 
 		for (j = 1; j < 5; j++) {
-			to->e_cu_dir_x[0][base+j] = from->cu_dir_sharp_points_x[j];
-			to->e_cu_non_dir_x[0][base+j] = from->cu_non_dir_sharp_points_x[j];
+			to->e_cu_dir_x[0][base+j] = from->cu_dir_sharp_points_x[j-1];
+			to->e_cu_non_dir_x[0][base+j] = from->cu_non_dir_sharp_points_x[j-1];
 		}
 
 
 		for (j = 1; j < 6; j++) {
-			to->e_cued_x[0][base+j] = from->cu_ed_points_x[j];
-			to->e_cued_a[0][base+j] = from->cu_ed_slopes_a[j];
-			to->e_cued_b[0][base+j] = from->cu_ed_slopes_b[j];
+			to->e_cued_x[0][base+j] = from->cu_ed_points_x[j-1];
+			to->e_cued_a[0][base+j] = from->cu_ed_slopes_a[j-1];
+			to->e_cued_b[0][base+j] = from->cu_ed_slopes_b[j-1];
 		}
-		to->e_cued_x[0][base+6] = from->cu_ed_points_x[j];
+		to->e_cued_x[0][base+6] = from->cu_ed_points_x[5];
 
 		for (j = 1; j < 6; j++) {
-			to->e_curad_x[0][base+j] = from->cu_radial_points_x[j];
-			to->e_curad_a[0][base+j] = from->cu_radial_slopes_a[j];
-			to->e_curad_b[0][base+j] = from->cu_radial_slopes_b[j];
+			to->e_curad_x[0][base+j] = from->cu_radial_points_x[j-1];
+			to->e_curad_a[0][base+j] = from->cu_radial_slopes_a[j-1];
+			to->e_curad_b[0][base+j] = from->cu_radial_slopes_b[j-1];
 		}
-		to->e_curad_x[0][base+6] = from->cu_radial_points_x[j];
+		to->e_curad_x[0][base+6] = from->cu_radial_points_x[5];
 	}
 }
 
 void
 ia_css_iefd2_6_encode(
-	struct ia_css_isp_iefd2_6_dmem_params *to,
+	struct iefd2_6_dmem_params *to,
 	const struct ia_css_iefd2_6_config *from,
 	size_t size)
 {
@@ -145,10 +145,10 @@ ia_css_iefd2_6_encode(
 	to->rad_cu_dir_sharp_x1		= from->rad_cu_dir_sharp_x1;
 	to->rad_cu_non_dir_sharp_x1	= from->rad_cu_non_dir_sharp_x1;
 	to->rad_dir_far_sharp_weight	= from->rad_dir_far_sharp_weight;
-	to->shrpn_nega_lmt_txt		= from->shrpn_nega_lmt_txt;
-	to->shrpn_posi_lmt_txt		= from->shrpn_posi_lmt_txt;
-	to->shrpn_nega_lmt_dir		= from->shrpn_nega_lmt_dir;
-	to->shrpn_posi_lmt_dir		= from->shrpn_posi_lmt_dir;
+	to->sharp_nega_lmt_txt		= from->sharp_nega_lmt_txt;
+	to->sharp_posi_lmt_txt		= from->sharp_posi_lmt_txt;
+	to->sharp_nega_lmt_dir		= from->sharp_nega_lmt_dir;
+	to->sharp_posi_lmt_dir		= from->sharp_posi_lmt_dir;
 	to->clamp_stitch		= from->clamp_stitch;
 	to->rad_enable			= from->rad_enable;
 	to->rad_x_origin		= from->rad_x_origin;
@@ -166,7 +166,7 @@ ia_css_iefd2_6_encode(
 	/* Setup for configurable units */
 	to->e_cued2_a		= from->cu_ed2_slopes_a;
 	to->e_cu_vssnlm_a	= from->cu_vssnlm_slopes_a;
-	to->e_cued2_b		= ((0-from->cu_ed2_points_x[1]) * from->cu_ed2_slopes_a)>>4;
+	to->e_cued2_b		= from->cu_ed2_points_x[0];
 	to->e_cu_vssnlm_b	= ((0-from->cu_vssnlm_points_x[1]) * from->cu_vssnlm_slopes_a)>>4;
 }
 

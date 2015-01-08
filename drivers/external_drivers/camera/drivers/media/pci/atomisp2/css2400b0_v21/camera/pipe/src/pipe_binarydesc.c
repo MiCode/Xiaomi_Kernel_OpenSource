@@ -62,6 +62,7 @@ static void pipe_binarydesc_get_offline(
 	descr->enable_reduced_pipe = false;
 	descr->enable_dz = true;
 	descr->enable_xnr = false;
+	descr->enable_dpc = false;
 	descr->enable_fractional_ds = false;
 	descr->dvs_env.width = 0;
 	descr->dvs_env.height = 0;
@@ -320,6 +321,8 @@ enum ia_css_err ia_css_pipe_get_preview_binarydesc(
 	preview_descr->enable_fractional_ds =
 	    pipe->extra_config.enable_fractional_ds;
 
+	preview_descr->enable_dpc = pipe->config.enable_dpc;
+
 	preview_descr->isp_pipe_version = pipe->config.isp_pipe_version;
 	IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_SUCCESS);
 	return IA_CSS_SUCCESS;
@@ -392,6 +395,8 @@ enum ia_css_err ia_css_pipe_get_video_binarydesc(
 		video_descr->isp_pipe_version = pipe->config.isp_pipe_version;
 		video_descr->enable_fractional_ds =
 		    pipe->extra_config.enable_fractional_ds;
+		video_descr->enable_dpc =
+			pipe->config.enable_dpc;
 
 #if defined(IS_ISP_2500_SYSTEM)
 /*

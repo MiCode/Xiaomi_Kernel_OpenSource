@@ -98,6 +98,9 @@ struct ia_css_pipe_config {
 	/**< Disabling digital zoom for a pipeline, if this is set to false,
 	     then setting a zoom factor will have no effect.
 	     In some use cases this provides better performance. */
+	bool enable_dpc;
+	/**< Disabling "Defect Pixel Correction" for a pipeline, if this is set
+	     to false. In some use cases this provides better performance. */
 	struct ia_css_isp_config *p_isp_config;
 	/**< Pointer to ISP configuration */
 };
@@ -124,6 +127,7 @@ struct ia_css_pipe_config {
 	IA_CSS_FRAME_DELAY_1,			/* dvs_frame_delay */ \
 	-1,					/* acc_num_execs */ \
 	false,					/* enable_dz */ \
+	false,					/* enable_dpc */ \
 	NULL					/* p_isp_config */\
 }
 

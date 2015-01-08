@@ -42,7 +42,7 @@ The version string has four dot-separated numbers, read left to right:
 
 */
 
-#define CSS_API_VERSION_STRING	"2.1.9.1"
+#define CSS_API_VERSION_STRING	"2.1.10.2"
 
 /*
 Change log
@@ -229,6 +229,18 @@ v2.1.9.0 (1 changes parallel), Introduce sp assert event.
 v2.1.9.1 (1 changes parallel), Exclude driver part from ia_css_buffer.h as it is also used by SP
 - Excluded driver part of the interface from SP/ISP code
 - Driver I/F is not affected
+
+v2.1.9.2, added IA_CSS_EVENT_TYPE_TIMER
+- Added a new event called IA_CSS_EVENT_TYPE_TIMER
+
+v2.1.10.0 (2 changes parallel), Add a flag "enable_dpc" to "struct ia_css_pipe_config"
+- Add a flag "enable_dpc" to "struct ia_css_pipe_config"
+
+v2.1.10.2 (2 changes parallel), fix IEFD's puclic API types
+- fix IEFD public API members types: rad_cu6_x1,rad_cu_unsharp_x1 & unsharp_amount
+
+v2.1.10.2 (2 changes parallel), Add IA_CSS_FW_WARNING_FRAME_PARAM_MISMATCH
+- Add IA_CSS_FW_WARNING_FRAME_PARAM_MISMATCH enum to ia_css_fw_warning type
 
 */
 
