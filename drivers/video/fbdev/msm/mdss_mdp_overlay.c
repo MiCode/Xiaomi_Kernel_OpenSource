@@ -3789,12 +3789,32 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 	struct mdp_overlay *req = NULL;
 	int val, ret = -ENOSYS;
 	struct msmfb_metadata metadata;
+	struct mdp_pp_feature_version pp_feature_version;
 
 	switch (cmd) {
 	case MSMFB_MDP_PP:
 		ret = mdss_mdp_pp_ioctl(mfd, argp);
 		break;
-
+	case MSMFB_MDP_PP_GET_FEATURE_VERSION:
+		ret = copy_from_user(&pp_feature_version, argp,
+				     sizeof(pp_feature_version));
+		if (ret) {
+			pr_err("copy_from_user failed for pp_feature_version\n");
+			ret = -EFAULT;
+		} else {
+			ret = mdss_mdp_pp_get_version(&pp_feature_version);
+			if (!ret) {
+				ret = copy_to_user(argp, &pp_feature_version,
+						sizeof(pp_feature_version));
+				if (ret) {
+					pr_err("copy_to_user failed for pp_feature_version\n");
+					ret = -EFAULT;
+				}
+			} else {
+				pr_err("get pp version failed ret %d\n", ret);
+			}
+		}
+		break;
 	case MSMFB_HISTOGRAM_START:
 	case MSMFB_HISTOGRAM_STOP:
 	case MSMFB_HISTOGRAM:

@@ -72,6 +72,8 @@
 #define MSMFB_OVERLAY_PREPARE		_IOWR(MSMFB_IOCTL_MAGIC, 169, \
 						struct mdp_overlay_list)
 #define MSMFB_LPM_ENABLE	_IOWR(MSMFB_IOCTL_MAGIC, 170, unsigned int)
+#define MSMFB_MDP_PP_GET_FEATURE_VERSION _IOWR(MSMFB_IOCTL_MAGIC, 171, \
+					      struct mdp_pp_feature_version)
 
 #define FB_TYPE_3D_PANEL 0x10101010
 #define MDP_IMGTYPE2_START 0x10000
@@ -539,10 +541,6 @@ struct mdp_pa_data_v1_7 {
 	uint32_t *six_zone_curve_p1;
 };
 
-enum {
-	mdp_pa_v1_7 = 0x1,
-	mdp_pa_vmax,
-};
 
 struct mdp_pa_v2_cfg_data {
 	uint32_t version;
@@ -552,10 +550,6 @@ struct mdp_pa_v2_cfg_data {
 	void *cfg_payload;
 };
 
-enum {
-	mdp_igc_v1_7 = 1,
-	mdp_igc_vmax,
-};
 
 enum {
 	mdp_igc_rec601 = 1,
@@ -588,11 +582,6 @@ struct mdp_histogram_cfg {
 	uint16_t num_bins;
 };
 
-enum {
-	mdp_hist_lut_v1_7 = 1,
-	mdp_hist_lut_vmax,
-};
-
 struct mdp_hist_lut_data_v1_7 {
 	uint32_t len;
 	uint32_t *data;
@@ -606,11 +595,6 @@ struct mdp_hist_lut_data {
 	uint32_t len;
 	uint32_t *data;
 	void *cfg_payload;
-};
-
-enum {
-	mdp_pcc_v1_7 = 0x1,
-	mdp_pcc_vmax,
 };
 
 struct mdp_pcc_coeff {
@@ -929,11 +913,6 @@ struct mdp_pgc_lut_data {
 	void *cfg_payload;
 };
 
-enum {
-	mdp_pgc_v1_7 = 1,
-	mdp_pgc_vmax,
-};
-
 #define PGC_LUT_ENTRIES 1024
 struct mdp_pgc_lut_data_v1_7 {
 	uint32_t  len;
@@ -961,11 +940,6 @@ struct mdp_pa_cfg_data {
 	struct mdp_pa_cfg pa_data;
 };
 
-enum {
-	mdp_dither_v1_7 = 1,
-	mdp_dither_vmax,
-};
-
 struct mdp_dither_data_v1_7 {
 	uint32_t g_y_depth;
 	uint32_t r_cr_depth;
@@ -989,12 +963,6 @@ struct mdp_dither_cfg_data {
 #define MDP_GAMUT_TABLE_V1_7_SZ 1228
 #define MDP_GAMUT_SCALE_OFF_SZ 16
 #define MDP_GAMUT_TABLE_V1_7_COARSE_SZ 32
-
-enum {
-	mdp_gamut_v1_7 = 1,
-	mdp_gamut_vmax,
-};
-
 
 struct mdp_gamut_cfg_data {
 	uint32_t block;
@@ -1337,5 +1305,43 @@ enum {
 	MDP_CSC_ITU_R_601,
 	MDP_CSC_ITU_R_601_FR,
 	MDP_CSC_ITU_R_709,
+};
+
+enum {
+	mdp_igc_v1_7 = 1,
+	mdp_igc_vmax,
+	mdp_hist_lut_v1_7,
+	mdp_hist_lut_vmax,
+	mdp_pgc_v1_7,
+	mdp_pgc_vmax,
+	mdp_dither_v1_7,
+	mdp_dither_vmax,
+	mdp_gamut_v1_7,
+	mdp_gamut_vmax,
+	mdp_pa_v1_7,
+	mdp_pa_vmax,
+	mdp_pcc_v1_7,
+	mdp_pcc_vmax,
+	mdp_pp_legacy,
+};
+
+/* PP Features */
+enum {
+	IGC = 1,
+	PCC,
+	GC,
+	PA,
+	GAMUT,
+	CSC,
+	DITHER,
+	QSEED,
+	HIST_LUT,
+	HIST,
+	PP_FEATURE_MAX,
+};
+
+struct mdp_pp_feature_version {
+	uint32_t pp_feature;
+	uint32_t version_info;
 };
 #endif /*_UAPI_MSM_MDP_H_*/

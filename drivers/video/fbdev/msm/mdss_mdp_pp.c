@@ -6236,3 +6236,29 @@ static int pp_update_pcc_pipe_setup(struct mdss_mdp_pipe *pipe, u32 location)
 exit_sspp_setup:
 	return ret;
 }
+
+int mdss_mdp_pp_get_version(struct mdp_pp_feature_version *version)
+{
+	int ret = 0;
+	u32 ver_info = mdp_pp_legacy;
+
+	if (!version) {
+		pr_err("invalid param version %p\n", version);
+		ret = -EINVAL;
+		goto exit_version;
+	}
+	if (version->pp_feature >= PP_FEATURE_MAX) {
+		pr_err("invalid feature passed %d\n", version->pp_feature);
+		ret = -EINVAL;
+		goto exit_version;
+	}
+	if (pp_ops[version->pp_feature].pp_get_version)
+		ret = pp_ops[version->pp_feature].pp_get_version(&ver_info);
+	if (ret)
+		pr_err("failed to query version for feature %d ret %d\n",
+			version->pp_feature, ret);
+	else
+		version->version_info = ver_info;
+exit_version:
+	return ret;
+}
