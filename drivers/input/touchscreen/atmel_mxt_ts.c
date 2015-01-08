@@ -35,6 +35,10 @@
 #include <linux/of_gpio.h>
 #endif
 
+#ifdef CONFIG_PM_SLEEP
+#include <linux/power_hal_sysfs.h>
+#endif
+
 /* Configuration file */
 #define MXT_CFG_MAGIC		"OBP_RAW V1"
 
@@ -324,8 +328,18 @@ struct mxt_data {
 	u32 irqcnt;
 	u8 *buf_raw_data;
 #endif
+#ifdef CONFIG_PM_SLEEP
+	bool power_hal_want_suspend;
+#endif
+
 	int alloc_pdata;
 };
+#ifdef CONFIG_PM_SLEEP
+static void mxt_power_hal_suspend(struct device *dev);
+static void mxt_power_hal_resume(struct device *dev);
+static int mxt_power_hal_suspend_init(struct device *dev);
+static void mxt_power_hal_suspend_destroy(struct device *dev);
+#endif
 
 static int mxt_initialize(struct mxt_data *data);
 static int mxt_load_fw(struct device *dev);
@@ -3838,6 +3852,13 @@ static int mxt_probe(struct i2c_client *client,
 		goto err_remove_sysfs_group;
 	}
 
+
+#ifdef CONFIG_PM_SLEEP
+	error = mxt_power_hal_suspend_init(&client->dev);
+	if (error < 0)
+		dev_err(&client->dev, "Unable to register for power hal");
+	data->suspended = false;
+#endif
 	return 0;
 
 err_remove_sysfs_group:
@@ -3868,6 +3889,11 @@ static int mxt_remove(struct i2c_client *client)
 				      &data->mem_access_attr);
 
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
+
+#ifdef CONFIG_PM_SLEEP
+	mxt_power_hal_suspend_destroy(&data->client->dev);
+#endif
+
 	free_irq(data->irq, data);
 	if (gpio_is_valid(data->pdata->gpio_reset))
 		gpio_free(data->pdata->gpio_reset);
@@ -3897,12 +3923,18 @@ static int mxt_suspend(struct device *dev)
 
 	mutex_lock(&input_dev->mutex);
 
+	if (data->suspended)
+		goto out;
+
 	if (input_dev->users)
 		mxt_stop(data);
 
 	/*ACPI will driver this pin when parse touch Method in IFWI*/
 	if (gpio_is_valid(data->pdata->gpio_reset))
 		gpio_free(data->pdata->gpio_reset);
+
+	dev_info(&client->dev, "mxt_suspend complete\n");
+out:
 	mutex_unlock(&input_dev->mutex);
 
 	return 0;
@@ -3916,6 +3948,13 @@ static int mxt_resume(struct device *dev)
 	int ret;
 
 	mutex_lock(&input_dev->mutex);
+
+	if (!data->suspended)
+		goto out;
+
+	if (data->power_hal_want_suspend)
+		goto out;
+
 	ret = gpio_request(data->pdata->gpio_reset, "atml_gpio_rst");
 	/*skip this error, since GPIO-ACPI module will not release it*/
 	if (ret)
@@ -3924,10 +3963,70 @@ static int mxt_resume(struct device *dev)
 	if (input_dev->users)
 		mxt_start(data);
 
+	data->suspended = false;
+	dev_info(&client->dev, "mxt_resume complete\n");
+out:
 	mutex_unlock(&input_dev->mutex);
 
 	return 0;
 }
+
+static ssize_t mxt_power_hal_suspend_store(struct device *dev,
+						 struct device_attribute *attr,
+						 const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct mxt_data *data = i2c_get_clientdata(client);
+
+	if (!strncmp(buf, POWER_HAL_SUSPEND_ON,
+		     POWER_HAL_SUSPEND_STATUS_LEN)) {
+		if (!data->suspended)
+			mxt_power_hal_suspend(dev);
+	} else {
+		if (data->suspended)
+			mxt_power_hal_resume(dev);
+	}
+
+	return count;
+}
+static DEVICE_POWER_HAL_SUSPEND_ATTR(mxt_power_hal_suspend_store);
+
+static int mxt_power_hal_suspend_init(struct device *dev)
+{
+	int ret = 0;
+	ret = device_create_file(dev, &dev_attr_power_HAL_suspend);
+
+	if (ret) {
+		pr_err("device_create_file failed: %d\n", ret);
+		return ret;
+		}
+	ret = register_power_hal_suspend_device(dev);
+	return ret;
+
+}
+
+static void mxt_power_hal_suspend_destroy(struct device *dev)
+{
+	device_remove_file(dev, &dev_attr_power_HAL_suspend);
+	unregister_power_hal_suspend_device(dev);
+}
+
+static void mxt_power_hal_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct mxt_data *data = i2c_get_clientdata(client);
+	data->power_hal_want_suspend = true;
+	mxt_suspend(dev);
+}
+
+static void mxt_power_hal_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct mxt_data *data = i2c_get_clientdata(client);
+	data->power_hal_want_suspend = false;
+	mxt_resume(dev);
+}
+
 #endif
 
 static SIMPLE_DEV_PM_OPS(mxt_pm_ops, mxt_suspend, mxt_resume);
