@@ -629,7 +629,7 @@ exit_enable_qos_clk:
 }
 
 int msm_bus_enable_limiter(struct msm_bus_node_device_type *node_dev,
-				bool enable, uint64_t lim_bw)
+				int enable, uint64_t lim_bw)
 {
 	int ret = 0;
 	struct msm_bus_node_device_type *bus_node_dev;
@@ -852,6 +852,8 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->qos_params.mode = pdata_node_info->qos_params.mode;
 	node_info->qos_params.prio1 = pdata_node_info->qos_params.prio1;
 	node_info->qos_params.prio0 = pdata_node_info->qos_params.prio0;
+	node_info->qos_params.reg_prio1 = pdata_node_info->qos_params.reg_prio1;
+	node_info->qos_params.reg_prio0 = pdata_node_info->qos_params.reg_prio0;
 	node_info->qos_params.prio_lvl = pdata_node_info->qos_params.prio_lvl;
 	node_info->qos_params.prio_rd = pdata_node_info->qos_params.prio_rd;
 	node_info->qos_params.prio_wr = pdata_node_info->qos_params.prio_wr;

@@ -465,7 +465,6 @@ static int msm_bus_apply_rules(struct list_head *list, bool after_clk_commit)
 	struct device *dev = NULL;
 	struct msm_bus_node_device_type *dev_info = NULL;
 	int ret = 0;
-	bool throttle_en = false;
 
 	list_for_each_entry(rule, list, link) {
 		if (!rule)
@@ -484,12 +483,11 @@ static int msm_bus_apply_rules(struct list_head *list, bool after_clk_commit)
 		}
 		dev_info = dev->platform_data;
 
-		throttle_en = ((rule->throttle == THROTTLE_ON) ? true : false);
-		ret = msm_bus_enable_limiter(dev_info, throttle_en,
+		ret = msm_bus_enable_limiter(dev_info, rule->throttle,
 							rule->lim_bw);
 		if (ret)
 			MSM_BUS_ERR("Failed to set limiter for %d", rule->id);
-		trace_bus_rules_apply(rule->id, rule->lim_bw, throttle_en);
+		trace_bus_rules_apply(rule->id, rule->lim_bw, rule->throttle);
 	}
 
 	return ret;
