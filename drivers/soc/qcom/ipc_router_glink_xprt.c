@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,6 +42,7 @@ if (ipc_router_glink_xprt_debug_mask) \
 
 #define MIN_FRAG_SZ (IPC_ROUTER_HDR_SIZE + sizeof(union rr_control_msg))
 #define IPC_RTR_XPRT_NAME_LEN (2 * GLINK_NAME_SIZE)
+#define PIL_SUBSYSTEM_NAME_LEN 32
 #define DEFAULT_NUM_INTENTS 5
 #define DEFAULT_RX_INTENT_SIZE 2048
 /**
@@ -50,12 +51,14 @@ if (ipc_router_glink_xprt_debug_mask) \
  * @ch_name: GLink Channel Name.
  * @edge: Edge between the local node and the remote node.
  * @transport: Physical Transport Name as identified by Glink.
+ * @pil_edge: Edge name understood by PIL.
  * @ipc_rtr_xprt_name: XPRT Name to be registered with IPC Router.
  * @xprt: IPC Router XPRT structure to contain XPRT specific info.
  * @ch_hndl: Opaque Channel handle returned by GLink.
  * @xprt_wq: Workqueue to queue read & other XPRT related works.
  * @ss_reset_lock: Lock to protect access to the ss_reset flag.
  * @ss_reset: flag used to check SSR state.
+ * @pil: pil handle to the remote subsystem
  * @sft_close_complete: Variable to indicate completion of SSR handling
  *                      by IPC Router.
  * @xprt_version: IPC Router header version supported by this XPRT.
@@ -67,12 +70,14 @@ struct ipc_router_glink_xprt {
 	char ch_name[GLINK_NAME_SIZE];
 	char edge[GLINK_NAME_SIZE];
 	char transport[GLINK_NAME_SIZE];
+	char pil_edge[PIL_SUBSYSTEM_NAME_LEN];
 	char ipc_rtr_xprt_name[IPC_RTR_XPRT_NAME_LEN];
 	struct msm_ipc_router_xprt xprt;
 	void *ch_hndl;
 	struct workqueue_struct *xprt_wq;
 	struct mutex ss_reset_lock;
 	int ss_reset;
+	void *pil;
 	struct completion sft_close_complete;
 	unsigned xprt_version;
 	unsigned xprt_option;
@@ -107,7 +112,8 @@ static void glink_xprt_close_event(struct work_struct *work);
  * ipc_router_glink_xprt_config - Config. Info. of each GLINK XPRT
  * @ch_name:		Name of the GLINK endpoint exported by GLINK driver.
  * @edge:		Edge between the local node and remote node.
- * @transport:	Physical Transport Name as identified by GLINK.
+ * @transport:		Physical Transport Name as identified by GLINK.
+ * @pil_edge:		Edge name understood by PIL.
  * @ipc_rtr_xprt_name:	XPRT Name to be registered with IPC Router.
  * @link_id:		Network Cluster ID to which this XPRT belongs to.
  * @xprt_version:	IPC Router header version supported by this XPRT.
@@ -118,6 +124,7 @@ struct ipc_router_glink_xprt_config {
 	char edge[GLINK_NAME_SIZE];
 	char transport[GLINK_NAME_SIZE];
 	char ipc_rtr_xprt_name[IPC_RTR_XPRT_NAME_LEN];
+	char pil_edge[PIL_SUBSYSTEM_NAME_LEN];
 	uint32_t link_id;
 	unsigned xprt_version;
 	unsigned xprt_option;
@@ -385,18 +392,18 @@ static void glink_xprt_qrx_intent_worker(struct work_struct *work)
 }
 
 /**
- * is_pil_loading_disabled() - Check if pil loading a subsystem is disabled
- * @edge: Edge that points to the remote subsystem.
- *
- * @return: true if disabled, false if enabled.
- */
-static bool is_pil_loading_disabled(char *edge)
+* is_pil_loading_disabled() - Check if pil loading a subsystem is disabled
+* @pil_edge: Remote subsystem edge name understood by PIL.
+*
+* @return: true if disabled, false if enabled.
+*/
+static bool is_pil_loading_disabled(char *pil_edge)
 {
 	struct ipc_router_glink_xprt *glink_xprtp;
 
 	mutex_lock(&glink_xprt_list_lock_lha1);
 	list_for_each_entry(glink_xprtp, &glink_xprt_list, list) {
-		if (!strcmp(glink_xprtp->edge, edge)) {
+		if (!strcmp(glink_xprtp->pil_edge, pil_edge)) {
 			mutex_unlock(&glink_xprt_list_lock_lha1);
 			return glink_xprtp->disable_pil_loading;
 		}
@@ -411,6 +418,29 @@ struct pil_vote_info {
 	struct work_struct unload_work;
 };
 
+static void msm_ipc_unload_subsystem(struct ipc_router_glink_xprt *glink_xprtp)
+{
+	if (glink_xprtp->pil) {
+		subsystem_put(glink_xprtp->pil);
+		glink_xprtp->pil = NULL;
+	}
+}
+
+static void *msm_ipc_load_subsystem(struct ipc_router_glink_xprt *glink_xprtp)
+{
+	void *pil = NULL;
+
+	if (!glink_xprtp->disable_pil_loading) {
+		pil = subsystem_get(glink_xprtp->pil_edge);
+		if (IS_ERR(pil)) {
+			pr_err("%s: Failed to load %s err = [0x%ld]\n",
+				__func__, glink_xprtp->pil_edge, PTR_ERR(pil));
+			pil = NULL;
+		}
+	}
+	return pil;
+}
+
 /**
  * pil_vote_load_worker() - Process vote to load the modem
  *
@@ -421,16 +451,14 @@ struct pil_vote_info {
  */
 static void pil_vote_load_worker(struct work_struct *work)
 {
-	const char *peripheral;
+	char *peripheral;
 	struct pil_vote_info *vote_info;
 	bool loading_disabled;
 
 	vote_info = container_of(work, struct pil_vote_info, load_work);
 	peripheral = "modem";
-	loading_disabled = is_pil_loading_disabled("mpss");
-
-	if (!IS_ERR_OR_NULL(peripheral) && !strcmp(peripheral, "modem") &&
-	    !loading_disabled) {
+	loading_disabled = is_pil_loading_disabled(peripheral);
+	if (!loading_disabled) {
 		vote_info->pil_handle = subsystem_get(peripheral);
 		if (IS_ERR(vote_info->pil_handle)) {
 			IPC_RTR_ERR("%s: Failed to load %s\n",
@@ -627,11 +655,14 @@ static void glink_xprt_ch_open(struct ipc_router_glink_xprt *glink_xprtp)
 	open_cfg.notify_rx_intent_req = glink_xprt_notify_rx_intent_req;
 	open_cfg.priv = glink_xprtp;
 
+	glink_xprtp->pil = msm_ipc_load_subsystem(glink_xprtp);
 	glink_xprtp->ch_hndl =  glink_open(&open_cfg);
-	if (IS_ERR_OR_NULL(glink_xprtp->ch_hndl))
+	if (IS_ERR_OR_NULL(glink_xprtp->ch_hndl)) {
 		IPC_RTR_ERR("%s:%s:%s %s: unable to open channel\n",
 			    open_cfg.transport, open_cfg.edge,
 			    open_cfg.name, __func__);
+			msm_ipc_unload_subsystem(glink_xprtp);
+	}
 }
 
 /**
@@ -669,6 +700,7 @@ static void glink_xprt_link_state_worker(struct work_struct *work)
 			    || IS_ERR_OR_NULL(glink_xprtp->ch_hndl))
 				continue;
 			glink_close(glink_xprtp->ch_hndl);
+			msm_ipc_unload_subsystem(glink_xprtp);
 		}
 		mutex_unlock(&glink_xprt_list_lock_lha1);
 
@@ -739,6 +771,9 @@ static int ipc_router_glink_config_init(
 	glink_xprtp->disable_pil_loading =
 				glink_xprt_config->disable_pil_loading;
 
+	if (!glink_xprtp->disable_pil_loading)
+		strlcpy(glink_xprtp->pil_edge, glink_xprt_config->pil_edge,
+				PIL_SUBSYSTEM_NAME_LEN);
 	strlcpy(glink_xprtp->ch_name, glink_xprt_config->ch_name,
 		GLINK_NAME_SIZE);
 	strlcpy(glink_xprtp->edge, glink_xprt_config->edge, GLINK_NAME_SIZE);
@@ -801,6 +836,7 @@ static int parse_devicetree(struct device_node *node,
 	const char *ch_name;
 	const char *edge;
 	const char *transport;
+	const char *pil_edge;
 
 	key = "qcom,ch-name";
 	ch_name = of_get_property(node, key, NULL);
@@ -836,10 +872,15 @@ static int parse_devicetree(struct device_node *node,
 	key = "qcom,fragmented-data";
 	glink_xprt_config->xprt_option = of_property_read_bool(node, key);
 
-	key = "qcom,disable-pil-loading";
-	glink_xprt_config->disable_pil_loading =
-					of_property_read_bool(node, key);
-
+	key = "qcom,pil-label";
+	pil_edge = of_get_property(node, key, NULL);
+	if (pil_edge) {
+		strlcpy(glink_xprt_config->pil_edge,
+				pil_edge, PIL_SUBSYSTEM_NAME_LEN);
+		glink_xprt_config->disable_pil_loading = false;
+	} else {
+		glink_xprt_config->disable_pil_loading = true;
+	}
 	scnprintf(glink_xprt_config->ipc_rtr_xprt_name, IPC_RTR_XPRT_NAME_LEN,
 		  "%s_%s", edge, ch_name);
 
