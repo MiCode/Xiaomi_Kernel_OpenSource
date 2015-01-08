@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -218,6 +218,13 @@ static int pp_pgc_set_config(char __iomem *base_addr,
 		u32 block_type);
 static int pp_pgc_get_config(char __iomem *base_addr, void *cfg_data,
 			   u32 block_type, u32 disp_num);
+static int pp_pcc_get_version(u32 *version);
+static int pp_igc_get_version(u32 *version);
+static int pp_pgc_get_version(u32 *version);
+static int pp_pa_get_version(u32 *version);
+static int pp_gamut_get_version(u32 *version);
+static int pp_dither_get_version(u32 *version);
+static int pp_hist_lut_get_version(u32 *version);
 
 void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 {
@@ -229,42 +236,51 @@ void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	/* IGC ops */
 	ops->pp_ops[IGC].pp_set_config = pp_igc_set_config;
 	ops->pp_ops[IGC].pp_get_config = pp_igc_get_config;
+	ops->pp_ops[IGC].pp_get_version = pp_igc_get_version;
 
 	/* PCC ops */
 	ops->pp_ops[PCC].pp_set_config = pp_pcc_set_config;
 	ops->pp_ops[PCC].pp_get_config = pp_pcc_get_config;
-
+	ops->pp_ops[PCC].pp_get_version = pp_pcc_get_version;
 	/* GC ops */
 	ops->pp_ops[GC].pp_set_config = pp_pgc_set_config;
 	ops->pp_ops[GC].pp_get_config = pp_pgc_get_config;
+	ops->pp_ops[GC].pp_get_version = pp_pgc_get_version;
 
 	/* PA ops */
 	ops->pp_ops[PA].pp_set_config = pp_pa_set_config;
 	ops->pp_ops[PA].pp_get_config = pp_pa_get_config;
+	ops->pp_ops[PA].pp_get_version = pp_pa_get_version;
 
 	/* Gamut ops */
 	ops->pp_ops[GAMUT].pp_set_config = pp_gamut_set_config;
 	ops->pp_ops[GAMUT].pp_get_config = pp_gamut_get_config;
+	ops->pp_ops[GAMUT].pp_get_version = pp_gamut_get_version;
 
 	/* CSC ops */
 	ops->pp_ops[CSC].pp_set_config = NULL;
 	ops->pp_ops[CSC].pp_get_config = NULL;
+	ops->pp_ops[CSC].pp_get_version = NULL;
 
 	/* Dither ops */
 	ops->pp_ops[DITHER].pp_set_config = pp_dither_set_config;
 	ops->pp_ops[DITHER].pp_get_config = pp_dither_get_config;
+	ops->pp_ops[DITHER].pp_get_version = pp_dither_get_version;
 
 	/* QSEED ops */
 	ops->pp_ops[QSEED].pp_set_config = NULL;
 	ops->pp_ops[QSEED].pp_get_config = NULL;
+	ops->pp_ops[QSEED].pp_get_version = NULL;
 
 	/* HIST_LUT ops */
 	ops->pp_ops[HIST_LUT].pp_set_config = pp_hist_lut_set_config;
 	ops->pp_ops[HIST_LUT].pp_get_config = pp_hist_lut_get_config;
+	ops->pp_ops[HIST_LUT].pp_get_version = pp_hist_lut_get_version;
 
 	/* HIST ops */
 	ops->pp_ops[HIST].pp_set_config = NULL;
 	ops->pp_ops[HIST].pp_get_config = pp_hist_get_config;
+	ops->pp_ops[HIST].pp_get_version = NULL;
 
 	/* Set opmode pointers */
 	ops->pp_opmode_config = pp_opmode_config;
@@ -1961,4 +1977,74 @@ static int pp_pgc_get_config(char __iomem *base_addr, void *cfg_data,
 		pgc_data_v17->len = PGC_LUT_ENTRIES;
 	kfree(c0_data);
 	return ret;
+}
+
+static int pp_pcc_get_version(u32 *version)
+{
+	if (!version) {
+		pr_err("invalid param version %p\n", version);
+		return -EINVAL;
+	}
+	*version = mdp_pcc_v1_7;
+	return 0;
+}
+
+static int pp_igc_get_version(u32 *version)
+{
+	if (!version) {
+		pr_err("invalid param version %p\n", version);
+		return -EINVAL;
+	}
+	*version = mdp_igc_v1_7;
+	return 0;
+}
+
+static int pp_pgc_get_version(u32 *version)
+{
+	if (!version) {
+		pr_err("invalid param version %p\n", version);
+		return -EINVAL;
+	}
+	*version = mdp_pgc_v1_7;
+	return 0;
+}
+
+static int pp_pa_get_version(u32 *version)
+{
+	if (!version) {
+		pr_err("invalid param version %p\n", version);
+		return -EINVAL;
+	}
+	*version = mdp_pa_v1_7;
+	return 0;
+}
+
+static int pp_gamut_get_version(u32 *version)
+{
+	if (!version) {
+		pr_err("invalid param version %p\n", version);
+		return -EINVAL;
+	}
+	*version = mdp_gamut_v1_7;
+	return 0;
+}
+
+static int pp_dither_get_version(u32 *version)
+{
+	if (!version) {
+		pr_err("invalid param version %p\n", version);
+		return -EINVAL;
+	}
+	*version = mdp_dither_v1_7;
+	return 0;
+}
+
+static int pp_hist_lut_get_version(u32 *version)
+{
+	if (!version) {
+		pr_err("invalid param version %p\n", version);
+		return -EINVAL;
+	}
+	*version = mdp_hist_lut_v1_7;
+	return 0;
 }

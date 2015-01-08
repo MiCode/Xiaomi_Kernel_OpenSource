@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,20 +68,6 @@
 	GAMUT_T2_SIZE + GAMUT_T3_SIZE + GAMUT_T4_SIZE + \
 	GAMUT_T5_SIZE + GAMUT_T6_SIZE + GAMUT_T7_SIZE)
 
-/* PP Feature Operations */
-enum pp_features {
-	IGC,
-	PCC,
-	GC,
-	PA,
-	GAMUT,
-	CSC,
-	DITHER,
-	QSEED,
-	HIST_LUT,
-	HIST,
-	PP_FEATURE_MAX
-};
 
 enum pp_block_opmodes {
 	PP_OPMODE_VIG = 1,
@@ -104,6 +90,7 @@ struct mdp_pp_feature_ops {
 	int (*pp_set_config)(char __iomem *base_addr,
 		struct pp_sts_type *pp_sts, void *cfg_data,
 		u32 block_type);
+	int (*pp_get_version)(u32 *version);
 };
 
 struct mdp_pp_driver_ops {

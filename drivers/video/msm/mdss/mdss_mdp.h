@@ -1076,5 +1076,5 @@ int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *ctl,
 		int frame_cnt);
 int mdss_mdp_ctl_cmd_autorefresh_enable(struct mdss_mdp_ctl *ctl,
 		int frame_cnt);
-
+int mdss_mdp_pp_get_version(struct mdp_pp_feature_version *version);
 #endif /* MDSS_MDP_H */
