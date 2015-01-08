@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -517,7 +517,7 @@ static int32_t msm_flash_release(
 static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 	void __user *argp)
 {
-	int32_t rc = 0;
+	int32_t rc = -EINVAL;
 	struct msm_flash_cfg_data_t *flash_data =
 		(struct msm_flash_cfg_data_t *) argp;
 
@@ -530,20 +530,24 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 		rc = msm_flash_init(flash_ctrl, flash_data);
 		break;
 	case CFG_FLASH_RELEASE:
-		rc = flash_ctrl->func_tbl->camera_flash_release(
-			flash_ctrl);
+		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
+			rc = flash_ctrl->func_tbl->camera_flash_release(
+				flash_ctrl);
 		break;
 	case CFG_FLASH_OFF:
-		rc = flash_ctrl->func_tbl->camera_flash_off(
-			flash_ctrl, flash_data);
+		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
+			rc = flash_ctrl->func_tbl->camera_flash_off(
+				flash_ctrl, flash_data);
 		break;
 	case CFG_FLASH_LOW:
-		rc = flash_ctrl->func_tbl->camera_flash_low(
-			flash_ctrl, flash_data);
+		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
+			rc = flash_ctrl->func_tbl->camera_flash_low(
+				flash_ctrl, flash_data);
 		break;
 	case CFG_FLASH_HIGH:
-		rc = flash_ctrl->func_tbl->camera_flash_high(
-			flash_ctrl, flash_data);
+		if (flash_ctrl->flash_state == MSM_CAMERA_FLASH_INIT)
+			rc = flash_ctrl->func_tbl->camera_flash_high(
+				flash_ctrl, flash_data);
 		break;
 	default:
 		rc = -EFAULT;
