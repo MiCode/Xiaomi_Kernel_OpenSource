@@ -1,0 +1,5 @@
+config INTEL_ST_LD
+	tristate "Intel Shared transport driver"
+	default m
+	help
+	   Select this module for shared transport driver
