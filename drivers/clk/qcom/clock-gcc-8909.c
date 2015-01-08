@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -293,7 +293,7 @@ enum vdd_dig_levels {
 
 static int vdd_corner[] = {
 	RPM_REGULATOR_CORNER_NONE,              /* VDD_DIG_NONE */
-	RPM_REGULATOR_CORNER_SVS_SOC,           /* VDD_DIG_LOW */
+	RPM_REGULATOR_CORNER_SVS_KRAIT,         /* VDD_DIG_LOW SVS */
 	RPM_REGULATOR_CORNER_NORMAL,            /* VDD_DIG_NOMINAL */
 	RPM_REGULATOR_CORNER_SUPER_TURBO,       /* VDD_DIG_HIGH */
 };
