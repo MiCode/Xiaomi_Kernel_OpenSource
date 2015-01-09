@@ -2,7 +2,7 @@
  *  mma8x5x.c - Linux kernel modules for 3-Axis Orientation/Motion
  *  Detection Sensor MMA8451/MMA8452/MMA8453
  *
- *  Copyright (c) 2013-2014, The Linux Foundation. All Rights Reserved.
+ *  Copyright (c) 2013-2015, The Linux Foundation. All Rights Reserved.
  *  Linux Foundation chooses to take subject only to the GPLv2 license
  *  terms, and distributes only under these terms.
  *  Copyright (C) 2010-2011 Freescale Semiconductor, Inc. All Rights Reserved.
@@ -189,6 +189,7 @@ struct mma8x5x_data_axis {
 };
 struct mma8x5x_data {
 	struct i2c_client *client;
+	struct workqueue_struct *data_wq;
 	struct delayed_work dwork;
 	struct input_dev *idev;
 	struct mutex data_lock;
@@ -512,8 +513,9 @@ static void mma8x5x_dev_poll(struct work_struct *work)
 
 	if ((pdata->active & MMA_STATE_MASK) == MMA_ACTIVED) {
 		mma8x5x_report_data(pdata);
-		schedule_delayed_work(&pdata->dwork,
-					msecs_to_jiffies(pdata->poll_delay));
+		queue_delayed_work(pdata->data_wq,
+				&pdata->dwork,
+				msecs_to_jiffies(pdata->poll_delay));
 	}
 }
 
@@ -580,7 +582,8 @@ static int mma8x5x_enable_set(struct sensors_classdev *sensors_cdev,
 				goto err_failed;
 			}
 			if (!pdata->use_int)
-				schedule_delayed_work(&pdata->dwork,
+				queue_delayed_work(pdata->data_wq,
+					&pdata->dwork,
 					msecs_to_jiffies(pdata->poll_delay));
 
 			pdata->active = MMA_ACTIVED;
@@ -883,6 +886,7 @@ static int mma8x5x_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, pdata);
 	/* Initialize the MMA8X5X chip */
 	mma8x5x_device_init(client);
+	pdata->data_wq = NULL;
 	if (pdata->use_int) {
 		if (pdata->int_pin >= 0)
 			client->irq = gpio_to_irq(pdata->int_pin);
@@ -916,6 +920,11 @@ static int mma8x5x_probe(struct i2c_client *client,
 		mma8x5x_device_int_init(client);
 	} else {
 		INIT_DELAYED_WORK(&pdata->dwork, mma8x5x_dev_poll);
+		pdata->data_wq = create_freezable_workqueue("mma_data_work");
+		if (!pdata->data_wq) {
+			dev_err(&client->dev, "Create workqueue failed!\n");
+			goto err_alloc_work_queue;
+		}
 	}
 	idev = devm_input_allocate_device(&client->dev);
 	if (!idev) {
@@ -963,9 +972,12 @@ static int mma8x5x_probe(struct i2c_client *client,
 err_create_class_sysfs:
 	sysfs_remove_group(&idev->dev.kobj, &mma8x5x_attr_group);
 err_alloc_poll_device:
+	if (pdata->data_wq)
+		destroy_workqueue(pdata->data_wq);
 err_register_irq:
 	if (pdata->use_int)
 		device_init_wakeup(&client->dev, false);
+err_alloc_work_queue:
 err_set_gpio_direction:
 	if (gpio_is_valid(pdata->int_pin) && pdata->use_int)
 		gpio_free(pdata->int_pin);
@@ -986,6 +998,8 @@ static int mma8x5x_remove(struct i2c_client *client)
 	if (pdata) {
 		idev = pdata->idev;
 		sysfs_remove_group(&idev->dev.kobj, &mma8x5x_attr_group);
+		if (pdata->data_wq)
+			destroy_workqueue(pdata->data_wq);
 		if (pdata->use_int) {
 			device_init_wakeup(&client->dev, false);
 			if (gpio_is_valid(pdata->int_pin))
@@ -1039,7 +1053,8 @@ static int mma8x5x_resume(struct device *dev)
 	if (pdata->active == MMA_ACTIVED) {
 		val = i2c_smbus_read_byte_data(client, MMA8X5X_CTRL_REG1);
 		i2c_smbus_write_byte_data(client, MMA8X5X_CTRL_REG1, val|0x01);
-		schedule_delayed_work(&pdata->dwork,
+		queue_delayed_work(pdata->data_wq,
+				&pdata->dwork,
 				msecs_to_jiffies(pdata->poll_delay));
 	}
 
