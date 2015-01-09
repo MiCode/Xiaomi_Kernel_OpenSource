@@ -1,17 +1,4 @@
 /*
- * Copyright (c) 2013 TRUSTONIC LIMITED
- * All Rights Reserved.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- */
-/*
  * MobiCore Driver Kernel Module.
  *
  * This driver represents the command proxy on the lowest layer, from the
@@ -22,6 +9,13 @@
  * The access to the driver is possible with a file descriptor,
  * which has to be created by the fd = open(/dev/mobicore) command or
  * fd = open(/dev/mobicore-user)
+ *
+ * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
+ * <-- Copyright Trustonic Limited 2013 -->
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 #include <linux/miscdevice.h>
 #include <linux/interrupt.h>
@@ -50,7 +44,6 @@
 #include "pm.h"
 #include "debug.h"
 #include "logging.h"
-#include "build_tag.h"
 
 /* Define a MobiCore device structure for use with dev_debug() etc */
 struct device_driver mcd_debug_name = {
@@ -107,27 +100,10 @@ static struct mc_instance *get_instance(struct file *file)
 	return (struct mc_instance *)(file->private_data);
 }
 
-static uint32_t get_new_buffer_handle(void)
+/* Get a unique ID */
+unsigned int get_unique_id(void)
 {
-	uint32_t handle;
-	struct mc_buffer *buffer;
-	/* assumption ctx.bufs_lock mutex is locked */
-retry:
-	handle = atomic_inc_return(&ctx.buffer_counter);
-	/* if upper 12 bits are set we must reset to 0, we can only
-	 * handler 20 bits of unique ID for the buffer because the need
-	 * to support both 32 and 64 bit clients with the 64 bit kernel
-	 */
-	if ((handle << PAGE_SHIFT) == 0)  {
-		atomic_set(&ctx.buffer_counter, 1);
-		handle = 1;
-	}
-	list_for_each_entry(buffer, &ctx.cont_bufs, list) {
-		if (buffer->handle == handle)
-			goto retry;
-	}
-
-	return handle;
+	return (unsigned int)atomic_inc_return(&ctx.unique_counter);
 }
 
 /* Clears the reserved bit of each page and frees the pages */
@@ -146,7 +122,7 @@ static inline void free_continguous_pages(void *addr, unsigned int order)
 }
 
 /* Frees the memory associated with a buffer */
-static int free_buffer(struct mc_buffer *buffer)
+static int free_buffer(struct mc_buffer *buffer, bool unlock)
 {
 	if (buffer->handle == 0)
 		return -EINVAL;
@@ -218,12 +194,12 @@ bool mc_check_owner_fd(struct mc_instance *instance, int32_t fd)
 	if (is_daemon(instance))
 		return true;
 
-	rcu_read_lock();
 	fp = fcheck_files(current->files, fd);
 	s = __get_socket(fp);
-	if (s)
+	if (s) {
 		peer = get_pid_task(s->sk_peer_pid, PIDTYPE_PID);
-
+		MCDRV_DBG_VERBOSE(mcd, "Found pid for fd %d", peer->pid);
+	}
 	if (peer) {
 		task_lock(peer);
 		files = peer->files;
@@ -234,17 +210,18 @@ bool mc_check_owner_fd(struct mc_instance *instance, int32_t fd)
 			if (!fp)
 				continue;
 			if (fp->private_data == instance) {
+				MCDRV_DBG_VERBOSE(mcd, "Found owner!");
 				ret = true;
-				break;
+				goto out;
 			}
 		}
 	} else {
 		MCDRV_DBG(mcd, "Owner not found!");
+		return false;
 	}
 out:
 	if (peer)
 		task_unlock(peer);
-	rcu_read_unlock();
 	if (!ret)
 		MCDRV_DBG(mcd, "Owner not found!");
 	return ret;
@@ -307,6 +284,8 @@ static int __free_buffer(struct mc_instance *instance, uint32_t handle,
 {
 	int ret = 0;
 	struct mc_buffer *buffer;
+	void *uaddr = NULL;
+	size_t len = 0;
 #ifndef MC_VM_UNMAP
 	struct mm_struct *mm = current->mm;
 #endif
@@ -317,8 +296,11 @@ static int __free_buffer(struct mc_instance *instance, uint32_t handle,
 	mutex_lock(&ctx.bufs_lock);
 	/* search for the given handle in the buffers list */
 	list_for_each_entry(buffer, &ctx.cont_bufs, list) {
-		if (buffer->handle == handle)
+		if (buffer->handle == handle) {
+			uaddr = buffer->uaddr;
+			len = buffer->len;
 			goto found_buffer;
+		}
 	}
 	ret = -EINVAL;
 	goto err;
@@ -328,19 +310,17 @@ found_buffer:
 		goto err;
 	}
 	mutex_unlock(&ctx.bufs_lock);
-	/* Only unmap if the request is coming from the user space and
+	/* Only unmap if the request is comming from the user space and
 	 * it hasn't already been unmapped */
-	if (!unlock && buffer->uaddr != NULL) {
+	if (unlock == false && uaddr != NULL) {
 #ifndef MC_VM_UNMAP
 		/* do_munmap must be done with mm->mmap_sem taken */
 		down_write(&mm->mmap_sem);
-		ret = do_munmap(mm,
-				(long unsigned int)buffer->uaddr,
-				buffer->len);
+		ret = do_munmap(mm, (long unsigned int)uaddr, len);
 		up_write(&mm->mmap_sem);
 
 #else
-		ret = vm_munmap((long unsigned int)buffer->uaddr, buffer->len);
+		ret = vm_munmap((long unsigned int)uaddr, len);
 #endif
 		if (ret < 0) {
 			/* Something is not right if we end up here, better not
@@ -362,7 +342,7 @@ found_buffer:
 
 del_buffer:
 	if (is_daemon(instance) || buffer->instance == instance)
-		ret = free_buffer(buffer);
+		ret = free_buffer(buffer, unlock);
 	else
 		ret = -EPERM;
 err:
@@ -414,7 +394,7 @@ int mc_get_buffer(struct mc_instance *instance,
 		return -ERESTARTSYS;
 
 	/* allocate a new buffer. */
-	cbuffer = kzalloc(sizeof(*cbuffer), GFP_KERNEL);
+	cbuffer = kzalloc(sizeof(struct mc_buffer), GFP_KERNEL);
 
 	if (cbuffer == NULL) {
 		MCDRV_DBG_WARN(mcd,
@@ -435,7 +415,7 @@ int mc_get_buffer(struct mc_instance *instance,
 		goto err;
 	}
 	phys = virt_to_phys(addr);
-	cbuffer->handle = get_new_buffer_handle();
+	cbuffer->handle = get_unique_id();
 	cbuffer->phys = phys;
 	cbuffer->addr = addr;
 	cbuffer->order = order;
@@ -449,7 +429,8 @@ int mc_get_buffer(struct mc_instance *instance,
 	list_add(&cbuffer->list, &ctx.cont_bufs);
 
 	MCDRV_DBG_VERBOSE(mcd,
-			  "allocd phys=0x%llx-0x%llx, size=%ld kvirt=0x%p h=%d",
+			  "allocated phys=0x%llx - 0x%llx, size=%ld, kvirt=0x%p"
+			  ", h=%d",
 			  (u64)phys,
 			  (u64)(phys+allocated_size),
 			  allocated_size, addr, cbuffer->handle);
@@ -663,12 +644,13 @@ static int mc_fd_mmap(struct file *file, struct vm_area_struct *vmarea)
 {
 	struct mc_instance *instance = get_instance(file);
 	unsigned long len = vmarea->vm_end - vmarea->vm_start;
-	uint32_t handle = vmarea->vm_pgoff;
+	phys_addr_t paddr = (vmarea->vm_pgoff << PAGE_SHIFT);
+	unsigned int pfn;
 	struct mc_buffer *buffer = 0;
 	int ret = 0;
 
-	MCDRV_DBG_VERBOSE(mcd, "start=0x%p, size=%ld, offset=%ld, mci=0x%llX",
-			  (void *)vmarea->vm_start, len, vmarea->vm_pgoff,
+	MCDRV_DBG_VERBOSE(mcd, "enter (vma start=0x%p, size=%ld, mci=0x%llX)",
+			  (void *)vmarea->vm_start, len,
 			  (u64)ctx.mci_base.phys);
 
 	if (WARN(!instance, "No instance data available"))
@@ -678,13 +660,13 @@ static int mc_fd_mmap(struct file *file, struct vm_area_struct *vmarea)
 		MCDRV_DBG_ERROR(mcd, "cannot allocate size 0");
 		return -ENOMEM;
 	}
-	if (handle) {
+	if (paddr) {
 		mutex_lock(&ctx.bufs_lock);
 
 		/* search for the buffer list. */
 		list_for_each_entry(buffer, &ctx.cont_bufs, list) {
 			/* Only allow mapping if the client owns it!*/
-			if (buffer->handle == handle &&
+			if (buffer->phys == paddr &&
 			    buffer->instance == instance) {
 				/* We shouldn't do remap with larger size */
 				if (buffer->len > len)
@@ -694,11 +676,10 @@ static int mc_fd_mmap(struct file *file, struct vm_area_struct *vmarea)
 					goto found;
 				else
 					break;
-				}
+			}
 		}
 		/* Nothing found return */
 		mutex_unlock(&ctx.bufs_lock);
-		MCDRV_DBG_ERROR(mcd, "handle not found");
 		return -EINVAL;
 
 found:
@@ -711,9 +692,9 @@ found:
 		 * of one region are possible. Now remap kernel address
 		 * space into user space
 		 */
-		ret = (int)remap_pfn_range(vmarea, vmarea->vm_start,
-				page_to_pfn(virt_to_page(buffer->addr)),
-				buffer->len, vmarea->vm_page_prot);
+		pfn = (unsigned int)paddr >> PAGE_SHIFT;
+		ret = (int)remap_pfn_range(vmarea, vmarea->vm_start, pfn,
+			buffer->len, vmarea->vm_page_prot);
 		/* If the remap failed then don't mark this buffer as marked
 		 * since the unmaping will also fail */
 		if (ret)
@@ -723,18 +704,21 @@ found:
 		if (!is_daemon(instance))
 			return -EPERM;
 
-		if (!ctx.mci_base.addr)
+		paddr = get_mci_base_phys(len);
+		if (!paddr)
 			return -EFAULT;
 
 		vmarea->vm_flags |= VM_IO;
-		/* Convert kernel address to user address. Kernel address begins
+		/*
+		 * Convert kernel address to user address. Kernel address begins
 		 * at PAGE_OFFSET, user address range is below PAGE_OFFSET.
 		 * Remapping the area is always done, so multiple mappings
 		 * of one region are possible. Now remap kernel address
-		 * space into user space */
-		ret = (int)remap_pfn_range(vmarea, vmarea->vm_start,
-				page_to_pfn(virt_to_page(ctx.mci_base.addr)),
-				len, vmarea->vm_page_prot);
+		 * space into user space
+		 */
+		pfn = (unsigned int)paddr >> PAGE_SHIFT;
+		ret = (int)remap_pfn_range(vmarea, vmarea->vm_start, pfn, len,
+			vmarea->vm_page_prot);
 	}
 
 	MCDRV_DBG_VERBOSE(mcd, "exit with %d/0x%08X", ret, ret);
@@ -821,10 +805,7 @@ static long mc_fd_user_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 
 		map.handle = buffer->handle;
-		/* Trick: to keep the same interface with the user space, store
-		   the handle in the physical address.
-		   It is given back with the offset when mmap() is called. */
-		map.phys_addr = buffer->handle << PAGE_SHIFT;
+		map.phys_addr = buffer->phys;
 		map.reused = 0;
 		if (copy_to_user(uarg, &map, sizeof(map)))
 			ret = -EFAULT;
@@ -946,17 +927,16 @@ static long mc_fd_admin_ioctl(struct file *file, unsigned int cmd,
 	}
 	case MC_IO_MAP_MCI:{
 		struct mc_ioctl_map map;
-		phys_addr_t phys_addr;
 		if (copy_from_user(&map, uarg, sizeof(map)))
 			return -EFAULT;
 
 		map.reused = (ctx.mci_base.phys != 0);
-		phys_addr = get_mci_base_phys(map.len);
-		if (!phys_addr) {
+		map.phys_addr = get_mci_base_phys(map.len);
+		if (!map.phys_addr) {
 			MCDRV_DBG_ERROR(mcd, "Failed to setup MCI buffer!");
 			return -EFAULT;
 		}
-		map.phys_addr = 0;
+
 		if (copy_to_user(uarg, &map, sizeof(map)))
 			ret = -EFAULT;
 		ret = 0;
@@ -1073,7 +1053,7 @@ struct mc_instance *mc_alloc_instance(void)
 		return NULL;
 
 	/* get a unique ID for this instance (PIDs are not unique) */
-	instance->handle = atomic_inc_return(&ctx.instance_counter);
+	instance->handle = get_unique_id();
 
 	mutex_init(&instance->lock);
 
@@ -1139,11 +1119,11 @@ int mc_release_instance(struct mc_instance *instance)
 	list_for_each_entry_safe(buffer, tmp, &ctx.cont_bufs, list) {
 		/* It's safe here to only call free_buffer() without unmapping
 		 * because mmap() takes a refcount to the file's fd so only
-		 * time we end up here is when everything has been unmapped or
+		 * time we end up here is when everything has been unmaped or
 		 * the process called exit() */
 		if (buffer->instance == instance) {
 			buffer->instance = NULL;
-			free_buffer(buffer);
+			free_buffer(buffer, false);
 		}
 	}
 	mutex_unlock(&ctx.bufs_lock);
@@ -1268,9 +1248,6 @@ static const struct file_operations mc_admin_fops = {
 	.open		= mc_fd_admin_open,
 	.release	= mc_fd_release,
 	.unlocked_ioctl	= mc_fd_admin_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl   = mc_fd_admin_ioctl,
-#endif
 	.mmap		= mc_fd_mmap,
 	.read		= mc_fd_read,
 };
@@ -1281,9 +1258,6 @@ static const struct file_operations mc_user_fops = {
 	.open		= mc_fd_user_open,
 	.release	= mc_fd_release,
 	.unlocked_ioctl	= mc_fd_user_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl   = mc_fd_user_ioctl,
-#endif
 	.mmap		= mc_fd_mmap,
 #if defined(TBASE_CORE_SWITCHER) && defined(DEBUG)
 	.write          = mc_fd_write,
@@ -1358,9 +1332,6 @@ static int __init mobicore_init(void)
 	int ret = 0;
 	dev_set_name(mcd, "mcd");
 
-	/* Do not remove or change the following trace.
-	 * The string "MobiCore" is used to detect if <t-base is in of the image
-	 */
 	dev_info(mcd, "MobiCore Driver, Build: " __TIMESTAMP__ "\n");
 	dev_info(mcd, "MobiCore mcDrvModuleApi version is %i.%i\n",
 		 MCDRVMODULEAPI_VERSION_MAJOR,
@@ -1417,11 +1388,12 @@ static int __init mobicore_init(void)
 #endif
 
 	/*
-	 * initialize unique number counters which we can use for
-	 * handles. We start with 1 instead of 0.
+	 * initialize unique number counter which we can use for
+	 * handles. It is limited to 2^32, but this should be
+	 * enough to be roll-over safe for us. We start with 1
+	 * instead of 0.
 	 */
-	atomic_set(&ctx.buffer_counter, 1);
-	atomic_set(&ctx.instance_counter, 1);
+	atomic_set(&ctx.unique_counter, 1);
 
 	/* init list for contiguous buffers  */
 	INIT_LIST_HEAD(&ctx.cont_bufs);

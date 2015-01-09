@@ -1,15 +1,12 @@
-/*
- * Copyright (c) 2013 TRUSTONIC LIMITED
- * All Rights Reserved.
+/* MobiCore driver module.(interface to the secure world SWD)
+ * MobiCore Driver Kernel Module.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
+ * <-- Copyright Trustonic Limited 2013 -->
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 #include <linux/module.h>
 
