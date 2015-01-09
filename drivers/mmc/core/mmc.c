@@ -1139,6 +1139,17 @@ static int mmc_select_hs400(struct mmc_card *card)
 			goto out_err;
 	}
 
+	if ((host->caps2 & MMC_CAP2_HS400_POST_TUNING) && host->ops->execute_tuning) {
+		mmc_host_clk_hold(host);
+		err = host->ops->execute_tuning(host,
+				MMC_SEND_TUNING_BLOCK_HS200);
+		mmc_host_clk_release(host);
+
+		if (err)
+			pr_warn("%s: tuning execution failed\n",
+				mmc_hostname(host));
+	}
+
 	return 0;
 
 out_err:
