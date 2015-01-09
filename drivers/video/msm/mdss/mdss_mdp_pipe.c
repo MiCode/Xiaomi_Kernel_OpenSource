@@ -20,6 +20,7 @@
 
 #include "mdss_mdp.h"
 #include "mdss_mdp_trace.h"
+#include "mdss_debug.h"
 
 #define SMP_MB_SIZE		(mdss_res->smp_mb_size)
 #define SMP_MB_CNT		(mdss_res->smp_mb_cnt)
@@ -1237,7 +1238,7 @@ static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 			pr_err("IN USE: mixer=%d pipe=%d mcfg:0x%x mask:0x%x\n",
 				mixer->num, pipe->num,
 				mixercfg, stage_off_mask);
-			BUG();
+			MDSS_XLOG_TOUT_HANDLER("mdp", "panic");
 		}
 
 		mixer = ctl->mixer_right;
@@ -1246,7 +1247,7 @@ static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 			pr_err("IN USE: mixer=%d pipe=%d mcfg:0x%x mask:0x%x\n",
 				mixer->num, pipe->num,
 				mixercfg, stage_off_mask);
-			BUG();
+			MDSS_XLOG_TOUT_HANDLER("mdp", "panic");
 		}
 	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
