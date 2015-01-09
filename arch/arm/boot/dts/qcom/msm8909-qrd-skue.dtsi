@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,6 +90,48 @@
 			focaltech,fw-delay-era-flsh-ms = <2000>;
 			focaltech,fw-auto-cal;
 			focaltech,ignore-id-check;
+		};
+	};
+
+	i2c@78b5000 { /* BLSP1 QUP1 */
+		aw2013@45 {
+			compatible = "awinic,aw2013";
+			reg = <0x45>;
+			vdd-supply = <&pm8909_l17>;
+			vcc-supply = <&pm8909_l6>;
+
+			aw2013,red {
+				aw2013,name = "red";
+				aw2013,id = <0>;
+				aw2013,max-brightness = <255>;
+				aw2013,max-current = <1>;
+				aw2013,rise-time-ms = <2>;
+				aw2013,hold-time-ms = <1>;
+				aw2013,fall-time-ms = <2>;
+				aw2013,off-time-ms = <1>;
+			};
+
+			aw2013,green {
+				aw2013,name = "green";
+				aw2013,id = <1>;
+				aw2013,max-brightness = <255>;
+				aw2013,max-current = <1>;
+				aw2013,rise-time-ms = <2>;
+				aw2013,hold-time-ms = <1>;
+				aw2013,fall-time-ms = <2>;
+				aw2013,off-time-ms = <1>;
+			};
+
+			aw2013,blue {
+				aw2013,name = "blue";
+				aw2013,id = <2>;
+				aw2013,max-brightness = <255>;
+				aw2013,max-current = <1>;
+				aw2013,rise-time-ms = <2>;
+				aw2013,hold-time-ms = <1>;
+				aw2013,fall-time-ms = <2>;
+				aw2013,off-time-ms = <1>;
+			};
 		};
 	};
 
