@@ -485,22 +485,23 @@ static u8 *mipi_exec_i2c(struct intel_dsi *intel_dsi, u8 *data)
 
 	msg.addr   = slave_add;
 	msg.flags  = 0;
-	msg.len    = 2;
+	msg.len    = payload_size + 1;
 	msg.buf    = &transmit_buffer[0];
 
 	do {
 		ret =  i2c_transfer(adapter, &msg, 1);
-		if (ret == -EAGAIN)
+		if (ret == 1)
+			break;
+		else if (ret == -EAGAIN)
 			usleep_range(1000, 2500);
-		else if (ret != 1) {
-			DRM_ERROR("i2c transfer failed %d\n", ret);
+		else {
+			DRM_ERROR("i2c transfer failed, error code:%d", ret);
 			break;
 		}
 	} while (retries--);
 
 	if (retries == 0)
-		DRM_ERROR("i2c transfer failed");
-
+		DRM_ERROR("i2c transfer failed, error code:%d", ret);
 out:
 	kfree(transmit_buffer);
 
