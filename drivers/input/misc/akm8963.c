@@ -1,5 +1,7 @@
 /* drivers/input/misc/akm8963.c - akm8963 compass driver
  *
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
  * Copyright (C) 2007-2008 HTC Corporation.
  * Author: Hou-Kun Chen <houkun.chen@gmail.com>
  *
@@ -66,6 +68,7 @@ struct akm_compass_data {
 	struct pinctrl_state	*pin_default;
 	struct pinctrl_state	*pin_sleep;
 	struct sensors_classdev	cdev;
+	struct workqueue_struct	*data_wq;
 	struct delayed_work	dwork;
 	struct mutex		op_mutex;
 
@@ -872,9 +875,10 @@ static int akm_enable_set(struct sensors_classdev *sensors_cdev,
 		if (enable) {
 			AKECS_SetMode(akm,
 				AKM_MODE_SNG_MEASURE | AKM8963_BIT_OP_16);
-			schedule_delayed_work(&akm->dwork,
-					msecs_to_jiffies(
-						akm->delay[MAG_DATA_FLAG]));
+			queue_delayed_work(akm->data_wq,
+					&akm->dwork,
+					msecs_to_jiffies
+					(akm->delay[MAG_DATA_FLAG]));
 		} else {
 			cancel_delayed_work_sync(&akm->dwork);
 			AKECS_SetMode(akm, AKM_MODE_POWERDOWN);
@@ -1486,7 +1490,8 @@ static int akm_compass_resume(struct device *dev)
 		if (AKM_IS_MAG_DATA_ENABLED() &&
 			akm->use_poll &&
 			akm->pdata->auto_report)
-			schedule_delayed_work(&akm->dwork,
+			queue_delayed_work(akm->data_wq,
+				&akm->dwork,
 				(unsigned long)nsecs_to_jiffies64(
 				akm->delay[MAG_DATA_FLAG]));
 	}
@@ -1826,7 +1831,8 @@ exit:
 		dev_warn(&akm->i2c->dev, "Failed to set mode\n");
 
 	if (akm->use_poll)
-		schedule_delayed_work(&akm->dwork,
+		queue_delayed_work(akm->data_wq,
+				&akm->dwork,
 				msecs_to_jiffies(akm->delay[MAG_DATA_FLAG]));
 }
 
@@ -1949,10 +1955,11 @@ int akm8963_compass_probe(
 		err = pinctrl_select_state(s_akm->pinctrl, s_akm->pin_default);
 		if (err) {
 			dev_err(&i2c->dev, "Can't select pinctrl state\n");
-			goto err_compass_pwr_off;
+			goto err_unregister_device;
 		}
 	}
 
+	s_akm->data_wq = NULL;
 	if ((s_akm->pdata->use_int) &&
 		gpio_is_valid(s_akm->pdata->gpio_int)) {
 		s_akm->use_poll = false;
@@ -1998,6 +2005,12 @@ int akm8963_compass_probe(
 		}
 	} else if (s_akm->pdata->auto_report) {
 		s_akm->use_poll = true;
+		s_akm->data_wq =
+			create_freezable_workqueue("akm8963_data_work");
+		if (!s_akm->data_wq) {
+			dev_err(&i2c->dev, "Cannot create workqueue!\n");
+			goto err_unregister_device;
+		}
 		INIT_DELAYED_WORK(&s_akm->dwork, akm_dev_poll);
 	}
 
@@ -2006,7 +2019,7 @@ int akm8963_compass_probe(
 	if (0 > err) {
 		dev_err(&i2c->dev,
 				"%s: create sysfs failed.", __func__);
-		goto err_free_irq;
+		goto err_destroy_workqueue;
 	}
 
 	s_akm->cdev = sensors_cdev;
@@ -2031,15 +2044,17 @@ int akm8963_compass_probe(
 
 remove_sysfs:
 	remove_sysfs_interfaces(s_akm);
-err_free_irq:
+err_destroy_workqueue:
+	if (s_akm->data_wq)
+		destroy_workqueue(s_akm->data_wq);
 	if (s_akm->i2c->irq)
 		free_irq(s_akm->i2c->irq, s_akm);
-err_unregister_device:
-	input_unregister_device(s_akm->input);
 err_gpio_free:
 	if ((s_akm->pdata->use_int) &&
 		(gpio_is_valid(s_akm->pdata->gpio_int)))
 		gpio_free(s_akm->pdata->gpio_int);
+err_unregister_device:
+	input_unregister_device(s_akm->input);
 err_compass_pwr_off:
 	akm_compass_power_set(s_akm, false);
 err_compass_pwr_init:
@@ -2059,8 +2074,13 @@ static int akm8963_compass_remove(struct i2c_client *i2c)
 	if (akm_compass_power_init(akm, false))
 		dev_err(&i2c->dev, "power deinit failed.\n");
 	remove_sysfs_interfaces(akm);
+	if (akm->data_wq)
+		destroy_workqueue(s_akm->data_wq);
 	if (akm->i2c->irq)
 		free_irq(akm->i2c->irq, akm);
+	if ((s_akm->pdata->use_int) &&
+		(gpio_is_valid(s_akm->pdata->gpio_int)))
+		gpio_free(s_akm->pdata->gpio_int);
 	input_unregister_device(akm->input);
 	devm_kfree(&i2c->dev, akm);
 	dev_info(&i2c->dev, "successfully removed.");
