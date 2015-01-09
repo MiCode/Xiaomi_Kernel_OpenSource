@@ -4942,6 +4942,7 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 			mdss_fb_set_backlight(mfd, bl);
 			mutex_unlock(&mfd->bl_lock);
 			mutex_lock(&ad->lock);
+			mfd->calib_mode_bl = bl;
 		} else {
 			pr_warn("should be in calib mode\n");
 		}
