@@ -382,6 +382,7 @@ Optional properties:
 					"vflip" = panel is flipped in vertical direction
 - qcom,panel-ack-disabled: A boolean property to indicate, whether we need to wait for any ACK from the panel
 			   for any commands that we send.
+- qcom,mdss-dsi-force-clock-lane-hs:	Boolean to force dsi clock lanes to HS mode always.
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -519,5 +520,6 @@ Example:
 						<40 120 128>,
 						<128 240 64>;
 		qcom,mdss-dsi-panel-orientation = "180"
+		qcom,mdss-dsi-force-clock-lane-hs;
 	};
 };
