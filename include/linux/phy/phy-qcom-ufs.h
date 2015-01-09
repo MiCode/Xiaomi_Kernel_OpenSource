@@ -87,6 +87,15 @@ struct ufs_qcom_phy {
 	*/
 	#define UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE	BIT(0)
 
+	/*
+	 * On some UFS PHY HW revisions, UFS PHY power up calibration sequence
+	 * cannot have SVS mode configuration otherwise calibration result
+	 * cannot be used in HS-G3. So there are additional register writes must
+	 * be done after the PHY is initialized but before the controller
+	 * requests hibernate exit.
+	 */
+	#define UFS_QCOM_PHY_QUIRK_SVS_MODE	BIT(1)
+
 	char name[UFS_QCOM_PHY_NAME_LEN];
 	struct ufs_qcom_phy_calibration *cached_regs;
 	int cached_regs_table_size;

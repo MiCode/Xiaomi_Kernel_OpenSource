@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,14 +22,36 @@
 static
 int ufs_qcom_phy_qmp_14nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy)
 {
-	int tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
-	int tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
-	int rate = UFS_QCOM_LIMIT_HS_RATE;
 	int err;
+	int tbl_size_A, tbl_size_B;
+	struct ufs_qcom_phy_calibration *tbl_A, *tbl_B;
+	int rate = UFS_QCOM_LIMIT_HS_RATE;
+	u8 major = ufs_qcom_phy->host_ctrl_rev_major;
+	u16 minor = ufs_qcom_phy->host_ctrl_rev_minor;
+	u16 step = ufs_qcom_phy->host_ctrl_rev_step;
 
-	err = ufs_qcom_phy_calibrate(ufs_qcom_phy, phy_cal_table_rate_A,
-		tbl_size_A, phy_cal_table_rate_B, tbl_size_B, rate);
+	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
+	tbl_B = phy_cal_table_rate_B;
 
+	if ((major == 0x2) && (minor == 0x000) && (step == 0x0000)) {
+		tbl_A = phy_cal_table_rate_A_2_0_0;
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_2_0_0);
+	} else if ((major == 0x2) && (minor == 0x001) && (step == 0x0000)) {
+		tbl_A = phy_cal_table_rate_A_2_1_0;
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_2_1_0);
+	} else {
+		dev_err(ufs_qcom_phy->dev,
+			"%s: Unknown UFS-PHY version (major 0x%x minor 0x%x step 0x%x), no calibration values\n",
+			__func__, major, minor, step);
+		err = -ENODEV;
+		goto out;
+	}
+
+	err = ufs_qcom_phy_calibrate(ufs_qcom_phy,
+				     tbl_A, tbl_size_A,
+				     tbl_B, tbl_size_B,
+				     rate);
+out:
 	if (err)
 		dev_err(ufs_qcom_phy->dev,
 			"%s: ufs_qcom_phy_calibrate() failed %d\n",
@@ -40,8 +62,14 @@ int ufs_qcom_phy_qmp_14nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy)
 static
 void ufs_qcom_phy_qmp_14nm_advertise_quirks(struct ufs_qcom_phy *phy_common)
 {
-	phy_common->quirks =
-		UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE;
+	u8 major = phy_common->host_ctrl_rev_major;
+	u16 minor = phy_common->host_ctrl_rev_minor;
+	u16 step = phy_common->host_ctrl_rev_step;
+
+	if ((major == 0x2) && (minor == 0x000) && (step == 0x0000))
+		phy_common->quirks =
+			UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE |
+			UFS_QCOM_PHY_QUIRK_SVS_MODE;
 }
 
 static int ufs_qcom_phy_qmp_14nm_init(struct phy *generic_phy)
@@ -111,9 +139,24 @@ static int ufs_qcom_phy_qmp_14nm_is_pcs_ready(struct ufs_qcom_phy *phy_common)
 
 	err = readl_poll_timeout(phy_common->mmio + UFS_PHY_PCS_READY_STATUS,
 		val, (val & MASK_PCS_READY), 10, 1000000);
-	if (err)
+	if (err) {
 		dev_err(phy_common->dev, "%s: poll for pcs failed err = %d\n",
 			__func__, err);
+		goto out;
+	}
+
+	if (phy_common->quirks & UFS_QCOM_PHY_QUIRK_SVS_MODE) {
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(phy_svs_mode_config_2_0_0); i++)
+			writel_relaxed(phy_svs_mode_config_2_0_0[i].cfg_value,
+				(phy_common->mmio +
+				phy_svs_mode_config_2_0_0[i].reg_offset));
+		/* apply above configuration immediately */
+		mb();
+	}
+
+out:
 	return err;
 }
 
