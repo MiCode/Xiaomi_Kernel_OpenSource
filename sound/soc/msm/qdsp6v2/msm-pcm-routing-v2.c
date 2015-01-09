@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -261,6 +261,8 @@ struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
 	{ SLIMBUS_6_RX, 0, 0, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_6_RX},
 	{ SLIMBUS_6_TX, 0, 0, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_6_TX},
 	{ AFE_PORT_ID_SPDIF_RX, 0, 0, 0, 0, 0, 0, 0, LPASS_BE_SPDIF_RX},
+	{ AFE_PORT_ID_SECONDARY_MI2S_RX_SD1, 0, 0, 0, 0, 0, 0, 0,
+	  LPASS_BE_SEC_MI2S_RX_SD1},
 };
 
 
@@ -327,7 +329,7 @@ static struct msm_pcm_stream_app_type_cfg
 void msm_pcm_routing_get_bedai_info(int be_idx,
 				    struct msm_pcm_routing_bdai_data *be_dai)
 {
-	if (be_idx > 0 && be_idx < MSM_BACKEND_DAI_MAX)
+	if (be_idx >= 0 && be_idx < MSM_BACKEND_DAI_MAX)
 		memcpy(be_dai, &msm_bedais[be_idx],
 		       sizeof(struct msm_pcm_routing_bdai_data));
 }
