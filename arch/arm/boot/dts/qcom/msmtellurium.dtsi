@@ -375,6 +375,18 @@
 		qcom,pipe-attr-ee;
 	};
 
+	tsens: tsens@4a8000 {
+		compatible = "qcom,msmtellurium-tsens";
+		reg = <0x4a8000 0x2000>,
+		      <0x5c000  0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>;
+		interrupt-names = "tsens-upper-lower";
+		qcom,sensors = <11>;
+		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200>;
+		qcom,sensor-id = <0 1 2 3 4 5 6 7 8 9 10>;
+	};
+
 	qcom,ipc-spinlock@1905000 {
 		compatible = "qcom,ipc-spinlock-sfpb";
 		reg = <0x1905000 0x8000>;
