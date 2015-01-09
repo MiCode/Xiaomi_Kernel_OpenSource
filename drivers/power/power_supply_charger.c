@@ -162,11 +162,21 @@ static int handle_cable_notification(struct notifier_block *nb,
 {
 	struct power_supply_cable_props cap;
 
-	if (event != USB_EVENT_CHARGER && event != PSY_CABLE_EVENT)
+	if (event != USB_EVENT_CHARGER && event != PSY_CABLE_EVENT &&
+				event != USB_EVENT_ENUMERATED)
 		return NOTIFY_DONE;
 
-	if (data)
-		memcpy(&cap, data, sizeof(struct power_supply_cable_props));
+	if (!data)
+		return NOTIFY_DONE;
+
+	if (event == USB_EVENT_ENUMERATED) {
+		cap.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
+		cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
+		cap.ma = *(int *)data;
+	} else {
+		cap = *(struct power_supply_cable_props *)data;
+	}
+
 	process_cable_props(&cap);
 
 	return NOTIFY_OK;
