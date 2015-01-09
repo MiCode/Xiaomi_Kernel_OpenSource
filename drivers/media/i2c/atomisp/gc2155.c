@@ -34,8 +34,9 @@
 #include <linux/gpio.h>
 #include <linux/moduleparam.h>
 #include <media/v4l2-device.h>
-#include <media/v4l2-chip-ident.h>
 #include <linux/io.h>
+#include <linux/acpi.h>
+#include <linux/atomisp_gmin_platform.h>
 
 #include "gc2155.h"
 
@@ -332,8 +333,6 @@ static int gc2155_get_intg_factor(struct i2c_client *client,
 		struct camera_mipi_info *info,
 		const struct gc2155_resolution *res)
 {
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct gc2155_device *dev = to_gc2155_sensor(sd);
 	struct atomisp_sensor_mode_data *buf = &info->data;
 	unsigned int mclk_freq_hz = 19200000;
 	unsigned int hb, vb, sh_delay;
@@ -834,6 +833,65 @@ static int gc2155_init(struct v4l2_subdev *sd)
 	return 0;
 }
 
+static int power_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+       int ret = 0;
+       struct gc2155_device *dev = to_gc2155_sensor(sd);
+       if (!dev || !dev->platform_data)
+               return -ENODEV;
+
+       /* Non-gmin platforms use the legacy callback */
+       if (dev->platform_data->power_ctrl)
+               return dev->platform_data->power_ctrl(sd, flag);
+
+       /* Timings and sequencing from original CTS gc2155 driver */
+       if (flag) {
+               ret |= dev->platform_data->v1p8_ctrl(sd, 0);
+               ret |= dev->platform_data->v2p8_ctrl(sd, 0);
+	       mdelay(50);
+
+               ret |= dev->platform_data->v1p8_ctrl(sd, 1);
+               ret |= dev->platform_data->v2p8_ctrl(sd, 1);
+	       msleep(10);
+       }
+
+       if (!flag || ret) {
+               ret |= dev->platform_data->v1p8_ctrl(sd, 0);
+               ret |= dev->platform_data->v2p8_ctrl(sd, 0);
+       }
+       return ret;
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+       int ret = 0;
+       struct gc2155_device *dev = to_gc2155_sensor(sd);
+
+       if (!dev || !dev->platform_data)
+               return -ENODEV;
+
+       /* Non-gmin platforms use the legacy callback */
+       if (dev->platform_data->gpio_ctrl)
+               return dev->platform_data->gpio_ctrl(sd, flag);
+
+	/* GPIO0 == "reset" (active low), GPIO1 == "power down" */
+	if (flag) {
+		/* Per datasheet, PWRDWN comes before RST in both
+		 * directions */
+		ret |= dev->platform_data->gpio1_ctrl(sd, 0);
+		usleep_range(10000, 15000);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 1);
+		usleep_range(10000, 15000);
+	} else {
+		ret = dev->platform_data->gpio1_ctrl(sd, 1);
+		usleep_range(10000, 15000);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 0);
+		usleep_range(10000, 15000);
+	}
+
+	return ret;
+}
+
 static int power_down(struct v4l2_subdev *sd);
 
 static int power_up(struct v4l2_subdev *sd)
@@ -849,7 +907,7 @@ static int power_up(struct v4l2_subdev *sd)
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
@@ -861,9 +919,9 @@ static int power_up(struct v4l2_subdev *sd)
 	msleep(2);
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 1);
+		ret = gpio_ctrl(sd, 1);
 		if (ret)
 			goto fail_gpio;
 	}
@@ -871,7 +929,7 @@ static int power_up(struct v4l2_subdev *sd)
 	return 0;
 
 fail_gpio:
-	dev->platform_data->power_ctrl(sd, 0);
+	power_ctrl(sd, 0);
 fail_power:
 	dev->platform_data->flisclk_ctrl(sd, 0);
 fail_clk:
@@ -893,9 +951,9 @@ static int power_down(struct v4l2_subdev *sd)
 	}
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 0);
+		ret = gpio_ctrl(sd, 0);
 		if (ret)
 			dev_err(&client->dev, "gpio failed 2\n");
 	}
@@ -906,7 +964,7 @@ static int power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "flisclk failed\n");
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
@@ -1511,6 +1569,7 @@ static int gc2155_probe(struct i2c_client *client,
 {
 	struct gc2155_device *dev;
 	int ret;
+	void *pdata;
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -1523,12 +1582,25 @@ static int gc2155_probe(struct i2c_client *client,
 	dev->fmt_idx = 0;
 	v4l2_i2c_subdev_init(&(dev->sd), client, &gc2155_ops);
 
-	if (client->dev.platform_data) {
-		ret = gc2155_s_config(&dev->sd, client->irq,
-				client->dev.platform_data);
-		if (ret)
-			goto out_free;
-	}
+	if (ACPI_COMPANION(&client->dev))
+		pdata = gmin_camera_platform_data(&dev->sd,
+						  ATOMISP_INPUT_FORMAT_RAW_10,
+						  atomisp_bayer_order_grbg);
+	else
+		pdata = client->dev.platform_data;
+
+	if (!pdata) {
+		ret = -ENODEV;
+		goto out_free;
+        }
+
+	ret = gc2155_s_config(&dev->sd, client->irq, pdata);
+	if (ret)
+		goto out_free;
+
+	ret = atomisp_register_i2c_module(&dev->sd, pdata, RAW_CAMERA);
+	if (ret)
+		goto out_free;
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
@@ -1546,11 +1618,18 @@ out_free:
 	return ret;
 }
 
+static struct acpi_device_id gc2155_acpi_match[] = {
+       { "XXGC2155" },
+       {},
+};
+MODULE_DEVICE_TABLE(acpi, gc2155_acpi_match);
+
 MODULE_DEVICE_TABLE(i2c, gc2155_id);
 static struct i2c_driver gc2155_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = GC2155_NAME,
+		.acpi_match_table = ACPI_PTR(gc2155_acpi_match)
 	},
 	.probe = gc2155_probe,
 	.remove = gc2155_remove,
@@ -1574,4 +1653,3 @@ module_exit(exit_gc2155);
 MODULE_AUTHOR("Dean, Hsieh <dean.hsieh@intel.com>");
 MODULE_DESCRIPTION("A low-level driver for GalaxyCore GC2155 sensors");
 MODULE_LICENSE("GPL");
-

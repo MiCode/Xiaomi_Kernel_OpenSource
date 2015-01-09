@@ -695,4 +695,6 @@ endif
 
 endmenu
 
+source "drivers/media/i2c/atomisp/Kconfig"
+
 endif

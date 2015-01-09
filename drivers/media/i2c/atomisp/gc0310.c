@@ -34,8 +34,8 @@
 #include <linux/gpio.h>
 #include <linux/moduleparam.h>
 #include <media/v4l2-device.h>
-#include <media/v4l2-chip-ident.h>
 #include <linux/io.h>
+#include <linux/atomisp_gmin_platform.h>
 
 #include "gc0310.h"
 
@@ -171,7 +171,6 @@ static int __gc0310_buf_reg_array(struct i2c_client *client,
 				  const struct gc0310_reg *next)
 {
 	int size;
-	u16 *data16;
 
 	switch (next->type) {
 	case GC0310_8BIT:
@@ -461,34 +460,9 @@ static int __gc0310_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct gc0310_device *dev = to_gc0310_sensor(sd);
-	u16 vts;
-	int frame_length;
 	int ret;
 
 	pr_info("coarse_itg=%d gain=%d digitgain=%d\n", coarse_itg, gain, digitgain);
-
-#if 0
-	vts = gc0310_res[dev->fmt_idx].lines_per_frame;
-	if ((coarse_itg + GC0310_COARSE_INTG_TIME_MAX_MARGIN) >= vts)
-		frame_length = coarse_itg + GC0310_COARSE_INTG_TIME_MAX_MARGIN;
-	else
-		frame_length = vts;
-#endif
-
-#if 0
-	/* group hold start */
-	ret = gc0310_write_reg(client, GC0310_8BIT, GC0310_GROUP_ACCESS, 1);
-	if (ret)
-		return ret;
-#endif
-
-#if 0
-	ret = gc0310_write_reg(client, GC0310_8BIT,
-				GC0310_VTS_DIFF_H, frame_length >> 8);
-	if (ret)
-		return ret;
-#endif
 
 	/* set exposure */
 	ret = gc0310_write_reg(client, GC0310_8BIT,
@@ -506,12 +480,6 @@ static int __gc0310_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	ret = gc0310_set_gain(sd, gain);
 	if (ret)
 		return ret;
-
-#if 0
-	/* group hold end */
-	ret = gc0310_write_reg(client, GC0310_8BIT,
-					GC0310_GROUP_ACCESS, 0x0);
-#endif
 
 	return ret;
 }
@@ -593,7 +561,6 @@ static int gc0310_q_exposure(struct v4l2_subdev *sd, s32 *value)
 		goto err;
 
 	*value = *value + (reg_v << 8);
-	pr_info("gc0310_q_exposure %d\n", *value);
 err:
 	return ret;
 }
@@ -788,6 +755,68 @@ static int gc0310_init(struct v4l2_subdev *sd)
 	return 0;
 }
 
+static int power_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret = 0;
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+	if (flag) {
+		/* The upstream module driver (written to Crystal
+		 * Cove) had this logic to pulse the rails low first.
+		 * This appears to break things on the MRD7 with the
+		 * X-Powers PMIC...
+		 *
+		 *     ret = dev->platform_data->v1p8_ctrl(sd, 0);
+		 *     ret |= dev->platform_data->v2p8_ctrl(sd, 0);
+		 *     mdelay(50);
+		 */
+		ret |= dev->platform_data->v1p8_ctrl(sd, 1);
+		ret |= dev->platform_data->v2p8_ctrl(sd, 1);
+		usleep_range(10000, 15000);
+	}
+
+	if (!flag || ret) {
+		ret |= dev->platform_data->v1p8_ctrl(sd, 0);
+		ret |= dev->platform_data->v2p8_ctrl(sd, 0);
+	}
+	return ret;
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret;
+	struct gc0310_device *dev = to_gc0310_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+	/* GPIO0 == "reset" (active low), GPIO1 == "power down" */
+	if (flag) {
+		/* Pulse reset, then release power down */
+		ret = dev->platform_data->gpio0_ctrl(sd, 0);
+		usleep_range(5000, 10000);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 1);
+		usleep_range(10000, 15000);
+		ret |= dev->platform_data->gpio1_ctrl(sd, 0);
+		usleep_range(10000, 15000);
+	} else {
+		ret = dev->platform_data->gpio1_ctrl(sd, 1);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 0);
+	}
+	return ret;
+}
+
+
 static int power_down(struct v4l2_subdev *sd);
 
 static int power_up(struct v4l2_subdev *sd)
@@ -804,7 +833,7 @@ static int power_up(struct v4l2_subdev *sd)
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
@@ -814,12 +843,14 @@ static int power_up(struct v4l2_subdev *sd)
 		goto fail_clk;
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 1);
+		ret = gpio_ctrl(sd, 1);
 		if (ret)
 			goto fail_gpio;
 	}
+
+	msleep(100);
 
 	pr_info("%s E\n", __func__);
 	return 0;
@@ -827,7 +858,7 @@ static int power_up(struct v4l2_subdev *sd)
 fail_gpio:
 	dev->platform_data->flisclk_ctrl(sd, 0);
 fail_clk:
-	dev->platform_data->power_ctrl(sd, 0);
+	power_ctrl(sd, 0);
 fail_power:
 	dev_err(&client->dev, "sensor power-up failed\n");
 
@@ -847,9 +878,9 @@ static int power_down(struct v4l2_subdev *sd)
 	}
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 0);
+		ret = gpio_ctrl(sd, 0);
 		if (ret)
 			dev_err(&client->dev, "gpio failed 2\n");
 	}
@@ -859,7 +890,7 @@ static int power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "flisclk failed\n");
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
@@ -979,14 +1010,6 @@ static int startup(struct v4l2_subdev *sd)
 	int ret = 0;
 
 	pr_info("%s S\n", __func__);
-#if 0
-	ret = gc0310_write_reg(client, GC0310_8BIT,
-					GC0310_SW_RESET, 0x01);
-	if (ret) {
-		dev_err(&client->dev, "gc0310 reset err.\n");
-		return ret;
-	}
-#endif
 
 	ret = gc0310_write_reg_array(client, gc0310_res[dev->fmt_idx].regs);
 	if (ret) {
@@ -1473,6 +1496,7 @@ static int gc0310_probe(struct i2c_client *client,
 {
 	struct gc0310_device *dev;
 	int ret;
+	void *pdata;
 
 	pr_info("%s S\n", __func__);
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -1486,12 +1510,25 @@ static int gc0310_probe(struct i2c_client *client,
 	dev->fmt_idx = 0;
 	v4l2_i2c_subdev_init(&(dev->sd), client, &gc0310_ops);
 
-	if (client->dev.platform_data) {
-		ret = gc0310_s_config(&dev->sd, client->irq,
-				       client->dev.platform_data);
-		if (ret)
-			goto out_free;
+	if (ACPI_COMPANION(&client->dev))
+		pdata = gmin_camera_platform_data(&dev->sd,
+						  ATOMISP_INPUT_FORMAT_RAW_8,
+						  atomisp_bayer_order_rggb);
+	else
+		pdata = client->dev.platform_data;
+
+	if (!pdata) {
+		ret = -EINVAL;
+		goto out_free;
 	}
+
+	ret = gc0310_s_config(&dev->sd, client->irq, pdata);
+	if (ret)
+		goto out_free;
+
+	ret = atomisp_register_i2c_module(&dev->sd, pdata, RAW_CAMERA);
+	if (ret)
+		goto out_free;
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
@@ -1503,7 +1540,6 @@ static int gc0310_probe(struct i2c_client *client,
 		gc0310_remove(client);
 
 	pr_info("%s E\n", __func__);
-
 	return ret;
 out_free:
 	v4l2_device_unregister_subdev(&dev->sd);
@@ -1511,11 +1547,18 @@ out_free:
 	return ret;
 }
 
+static struct acpi_device_id gc0310_acpi_match[] = {
+	{"XXGC0310"},
+	{},
+};
+MODULE_DEVICE_TABLE(acpi, gc0310_acpi_match);
+
 MODULE_DEVICE_TABLE(i2c, gc0310_id);
 static struct i2c_driver gc0310_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = GC0310_NAME,
+		.acpi_match_table = ACPI_PTR(gc0310_acpi_match),
 	},
 	.probe = gc0310_probe,
 	.remove = gc0310_remove,
