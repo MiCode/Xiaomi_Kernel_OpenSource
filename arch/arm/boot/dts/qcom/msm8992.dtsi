@@ -182,6 +182,13 @@
 			label = "memory_hole";
 		};
 
+		cont_splash_mem: cont_splash_mem@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			reg = <0 0x03400000 0 0x2200000>;
+			label = "cont_splash_mem";
+		};
+
 		peripheral_mem: peripheral_region@0 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
