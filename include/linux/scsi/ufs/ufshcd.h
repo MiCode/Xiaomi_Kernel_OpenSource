@@ -409,6 +409,11 @@ struct ufs_hibern8_on_idle {
 	bool is_enabled;
 };
 
+struct ufs_saved_pwr_info {
+	struct ufs_pa_layer_attr info;
+	bool is_valid;
+};
+
 struct ufs_clk_scaling {
 	ktime_t  busy_start_t;
 	bool is_busy_started;
@@ -416,6 +421,7 @@ struct ufs_clk_scaling {
 	unsigned long window_start_t;
 	struct device_attribute enable_attr;
 	bool is_allowed;
+	struct ufs_saved_pwr_info saved_pwr_info;
 };
 
 /**
