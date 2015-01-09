@@ -187,9 +187,9 @@ static const u32 ddir_act[2] = { BLK_TC_ACT(BLK_TC_READ),
  * blk_io_trace structure and places it in a per-cpu subbuffer.
  */
 static void __blk_add_trace(struct blk_trace *bt, sector_t sector, int bytes,
-				int rw, u32 what, int error, int pdu_len,
-				void *pdu_data, struct task_struct *tsk)
+		     int rw, u32 what, int error, int pdu_len, void *pdu_data)
 {
+	struct task_struct *tsk = current;
 	struct ring_buffer_event *event = NULL;
 	struct ring_buffer *buffer = NULL;
 	struct blk_io_trace *t;
@@ -745,33 +745,18 @@ static void blk_add_trace_rq(struct request_queue *q, struct request *rq,
 			     unsigned int nr_bytes, u32 what)
 {
 	struct blk_trace *bt = q->blk_trace;
-	struct task_struct *tsk = current;
 
 	if (likely(!bt))
 		return;
 
-	/*
-	 * Use the bio context for all events except ISSUE and
-	 * COMPLETE events.
-	 *
-	 * Not all the pages in the bio are dirtied by the same task but
-	 * most likely it will be, since the sectors accessed on the device
-	 * must be adjacent.
-	 */
-	if (!((what == BLK_TA_ISSUE) || (what == BLK_TA_COMPLETE)) &&
-	    bio_has_data(rq->bio) && rq->bio->bi_io_vec &&
-	    rq->bio->bi_io_vec->bv_page &&
-	    rq->bio->bi_io_vec->bv_page->tsk_dirty)
-		tsk = rq->bio->bi_io_vec->bv_page->tsk_dirty;
-
 	if (rq->cmd_type == REQ_TYPE_BLOCK_PC) {
 		what |= BLK_TC_ACT(BLK_TC_PC);
 		__blk_add_trace(bt, 0, nr_bytes, rq->cmd_flags,
-				what, rq->errors, rq->cmd_len, rq->cmd, tsk);
+				what, rq->errors, rq->cmd_len, rq->cmd);
 	} else  {
 		what |= BLK_TC_ACT(BLK_TC_FS);
 		__blk_add_trace(bt, blk_rq_pos(rq), nr_bytes,
-				rq->cmd_flags, what, rq->errors, 0, NULL, tsk);
+				rq->cmd_flags, what, rq->errors, 0, NULL);
 	}
 }
 
@@ -823,25 +808,15 @@ static void blk_add_trace_bio(struct request_queue *q, struct bio *bio,
 			      u32 what, int error)
 {
 	struct blk_trace *bt = q->blk_trace;
-	struct task_struct *tsk = current;
 
 	if (likely(!bt))
 		return;
-
-	/*
-	 * Not all the pages in the bio are dirtied by the same task but
-	 * most likely it will be, since the sectors accessed on the device
-	 * must be adjacent.
-	 */
-	if (bio_has_data(bio) && bio->bi_io_vec && bio->bi_io_vec->bv_page &&
-	    bio->bi_io_vec->bv_page->tsk_dirty)
-		tsk = bio->bi_io_vec->bv_page->tsk_dirty;
 
 	if (!error && !bio_flagged(bio, BIO_UPTODATE))
 		error = EIO;
 
 	__blk_add_trace(bt, bio->bi_sector, bio->bi_size, bio->bi_rw, what,
-			error, 0, NULL, tsk);
+			error, 0, NULL);
 }
 
 static void blk_add_trace_bio_bounce(void *ignore,
@@ -889,8 +864,7 @@ static void blk_add_trace_getrq(void *ignore,
 		struct blk_trace *bt = q->blk_trace;
 
 		if (bt)
-			__blk_add_trace(bt, 0, 0, rw, BLK_TA_GETRQ, 0, 0,
-					NULL, current);
+			__blk_add_trace(bt, 0, 0, rw, BLK_TA_GETRQ, 0, 0, NULL);
 	}
 }
 
@@ -906,7 +880,7 @@ static void blk_add_trace_sleeprq(void *ignore,
 
 		if (bt)
 			__blk_add_trace(bt, 0, 0, rw, BLK_TA_SLEEPRQ,
-					0, 0, NULL, current);
+					0, 0, NULL);
 	}
 }
 
@@ -915,8 +889,7 @@ static void blk_add_trace_plug(void *ignore, struct request_queue *q)
 	struct blk_trace *bt = q->blk_trace;
 
 	if (bt)
-		__blk_add_trace(bt, 0, 0, 0, BLK_TA_PLUG, 0, 0, NULL,
-				current);
+		__blk_add_trace(bt, 0, 0, 0, BLK_TA_PLUG, 0, 0, NULL);
 }
 
 static void blk_add_trace_unplug(void *ignore, struct request_queue *q,
@@ -933,8 +906,7 @@ static void blk_add_trace_unplug(void *ignore, struct request_queue *q,
 		else
 			what = BLK_TA_UNPLUG_TIMER;
 
-		__blk_add_trace(bt, 0, 0, 0, what, 0, sizeof(rpdu), &rpdu,
-				current);
+		__blk_add_trace(bt, 0, 0, 0, what, 0, sizeof(rpdu), &rpdu);
 	}
 }
 
@@ -943,19 +915,13 @@ static void blk_add_trace_split(void *ignore,
 				unsigned int pdu)
 {
 	struct blk_trace *bt = q->blk_trace;
-	struct task_struct *tsk = current;
 
 	if (bt) {
 		__be64 rpdu = cpu_to_be64(pdu);
 
-		if (bio_has_data(bio) && bio->bi_io_vec &&
-		    bio->bi_io_vec->bv_page &&
-		    bio->bi_io_vec->bv_page->tsk_dirty)
-			tsk = bio->bi_io_vec->bv_page->tsk_dirty;
-
 		__blk_add_trace(bt, bio->bi_sector, bio->bi_size, bio->bi_rw,
 				BLK_TA_SPLIT, !bio_flagged(bio, BIO_UPTODATE),
-				sizeof(rpdu), &rpdu, tsk);
+				sizeof(rpdu), &rpdu);
 	}
 }
 
@@ -978,7 +944,6 @@ static void blk_add_trace_bio_remap(void *ignore,
 {
 	struct blk_trace *bt = q->blk_trace;
 	struct blk_io_trace_remap r;
-	struct task_struct *tsk = current;
 
 	if (likely(!bt))
 		return;
@@ -987,14 +952,9 @@ static void blk_add_trace_bio_remap(void *ignore,
 	r.device_to   = cpu_to_be32(bio->bi_bdev->bd_dev);
 	r.sector_from = cpu_to_be64(from);
 
-	if (bio_has_data(bio) && bio->bi_io_vec &&
-	    bio->bi_io_vec->bv_page &&
-	    bio->bi_io_vec->bv_page->tsk_dirty)
-		tsk = bio->bi_io_vec->bv_page->tsk_dirty;
-
 	__blk_add_trace(bt, bio->bi_sector, bio->bi_size, bio->bi_rw,
 			BLK_TA_REMAP, !bio_flagged(bio, BIO_UPTODATE),
-			sizeof(r), &r, tsk);
+			sizeof(r), &r);
 }
 
 /**
@@ -1017,7 +977,6 @@ static void blk_add_trace_rq_remap(void *ignore,
 {
 	struct blk_trace *bt = q->blk_trace;
 	struct blk_io_trace_remap r;
-	struct task_struct *tsk = current;
 
 	if (likely(!bt))
 		return;
@@ -1026,14 +985,9 @@ static void blk_add_trace_rq_remap(void *ignore,
 	r.device_to   = cpu_to_be32(disk_devt(rq->rq_disk));
 	r.sector_from = cpu_to_be64(from);
 
-	if (bio_has_data(rq->bio) && rq->bio->bi_io_vec &&
-	    rq->bio->bi_io_vec->bv_page &&
-	    rq->bio->bi_io_vec->bv_page->tsk_dirty)
-		tsk = rq->bio->bi_io_vec->bv_page->tsk_dirty;
-
 	__blk_add_trace(bt, blk_rq_pos(rq), blk_rq_bytes(rq),
 			rq_data_dir(rq), BLK_TA_REMAP, !!rq->errors,
-			sizeof(r), &r, tsk);
+			sizeof(r), &r);
 }
 
 /**
@@ -1052,22 +1006,16 @@ void blk_add_driver_data(struct request_queue *q,
 			 void *data, size_t len)
 {
 	struct blk_trace *bt = q->blk_trace;
-	struct task_struct *tsk = current;
 
 	if (likely(!bt))
 		return;
 
-	if (bio_has_data(rq->bio) && rq->bio->bi_io_vec &&
-	    rq->bio->bi_io_vec->bv_page &&
-	    rq->bio->bi_io_vec->bv_page->tsk_dirty)
-		tsk = rq->bio->bi_io_vec->bv_page->tsk_dirty;
-
 	if (rq->cmd_type == REQ_TYPE_BLOCK_PC)
 		__blk_add_trace(bt, 0, blk_rq_bytes(rq), 0,
-				BLK_TA_DRV_DATA, rq->errors, len, data, tsk);
+				BLK_TA_DRV_DATA, rq->errors, len, data);
 	else
 		__blk_add_trace(bt, blk_rq_pos(rq), blk_rq_bytes(rq), 0,
-				BLK_TA_DRV_DATA, rq->errors, len, data, tsk);
+				BLK_TA_DRV_DATA, rq->errors, len, data);
 }
 EXPORT_SYMBOL_GPL(blk_add_driver_data);
 
