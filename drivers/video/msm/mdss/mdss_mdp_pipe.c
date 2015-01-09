@@ -245,6 +245,9 @@ u32 mdss_mdp_smp_calc_num_blocks(struct mdss_mdp_pipe *pipe)
 	struct mdss_mdp_plane_sizes ps;
 	int rc = 0;
 	int i, num_blks = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	if (mdata->has_pixel_ram)
+		return 0;
 
 	rc = mdss_mdp_calc_stride(pipe, &ps);
 	if (rc) {
