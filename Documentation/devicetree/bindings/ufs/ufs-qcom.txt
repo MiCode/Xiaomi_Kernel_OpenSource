@@ -1,4 +1,4 @@
-* MSM Universal Flash Storage (UFS) PHY
+* Qualcomm Technologies Inc Universal Flash Storage (UFS) PHY
 
 UFSPHY nodes are defined to describe on-chip UFS PHY hardware macro.
 Each UFS PHY node should have its own node.
