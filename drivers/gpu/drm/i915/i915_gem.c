@@ -2448,8 +2448,6 @@ i915_gem_init_seqno(struct drm_device *dev, u32 seqno)
 			ring->semaphore.sync_seqno[j] = 0;
 	}
 
-	i915_sync_reset_timelines(dev_priv);
-
 	return 0;
 }
 
@@ -2606,6 +2604,7 @@ int __i915_add_request(struct intel_engine_cs *ring,
 		/* Hold a reference to the current context so that we can inspect
 		 * it later in case a hangcheck error event fires.
 		 */
+		WARN_ON(request->ctx && (request->ctx != ring->last_context));
 		request->ctx = ring->last_context;
 		if (request->ctx)
 			i915_gem_context_reference(request->ctx);
@@ -2903,19 +2902,45 @@ void i915_gem_complete_requests_ring(struct intel_engine_cs *ring,
 			continue;
 
 		if (i915_scheduler_is_request_tracked(req, &req->complete, NULL)) {
-			if (req->complete)
+			if (req->complete) {
 				trace_i915_gem_request_complete(req);
+				i915_sync_timeline_advance(req->ctx, req->ring, req->sync_value);
+			}
+
 			continue;
 		}
 
 		if (i915_seqno_passed(seqno, req->seqno)) {
 			req->complete = true;
 			trace_i915_gem_request_complete(req);
+
+			i915_sync_timeline_advance(req->ctx, req->ring, req->sync_value);
 		}
 	}
 	spin_unlock_irqrestore(&ring->reqlist_lock, flags);
 
 	wake_up_all(&ring->irq_queue);
+}
+
+struct drm_i915_gem_request *i915_gem_request_find_by_seqno(struct intel_engine_cs *ring,
+							    uint32_t seqno)
+{
+	struct drm_i915_gem_request *req = NULL;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ring->reqlist_lock, flags);
+	list_for_each_entry(req, &ring->request_list, list) {
+		if (req->seqno == seqno)
+			break;
+
+		if (i915_seqno_passed(seqno, req->seqno)) {
+			DRM_DEBUG_DRIVER("Searching for missing seqno!\n");
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&ring->reqlist_lock, flags);
+
+	return req;
 }
 
 /**

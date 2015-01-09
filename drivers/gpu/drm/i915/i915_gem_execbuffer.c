@@ -1712,12 +1712,12 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		 * User interrupts will be enabled to make sure that
 		 * the timeline is signalled on completion.
 		 */
-		ret = i915_sync_create_fence(ring, params->request,
+		ret = i915_sync_create_fence(params->request,
 					     &fd_fence_complete,
 					     args->flags & I915_EXEC_RING_MASK);
 		if (ret) {
-			DRM_ERROR("Fence creation failed for ring %d\n",
-				  ring->id);
+			DRM_ERROR("Fence creation failed for ring %d, ctx %p\n",
+				  ring->id, ctx);
 			args->rsvd2 = (__u64) -1;
 			goto err;
 		}

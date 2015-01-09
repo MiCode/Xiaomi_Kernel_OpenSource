@@ -44,11 +44,10 @@ struct i915_sync_timeline {
 	struct	sync_timeline	obj;
 
 	struct {
-		struct drm_device	*dev;
-
-		u32			value;
-		u32			cycle;
-		struct intel_engine_cs *ring;
+		u32         value;
+		u32         cycle;
+		uint32_t    killed_at;
+		uint32_t    next;
 	} pvt;
 };
 
@@ -62,50 +61,48 @@ struct i915_sync_pt {
 
 int i915_sync_timeline_create(struct drm_device *dev,
 			      const char *name,
+			      struct intel_context *ctx,
 			      struct intel_engine_cs *ring);
 
-void i915_sync_timeline_destroy(struct intel_engine_cs *ring);
+void i915_sync_timeline_destroy(struct intel_context *ctx,
+				struct intel_engine_cs *ring);
 
-void i915_sync_reset_timelines(struct drm_i915_private *dev_priv);
-
-int i915_sync_create_fence(struct intel_engine_cs *ring,
-			   struct drm_i915_gem_request *req,
+int i915_sync_create_fence(struct drm_i915_gem_request *req,
 			   int *fd_out, u64 ring_mask);
 
-void i915_sync_timeline_advance(struct intel_engine_cs *ring);
+void i915_sync_timeline_advance(struct intel_context *ctx,
+				struct intel_engine_cs *ring,
+				uint32_t value);
 void i915_sync_hung_ring(struct intel_engine_cs *ring);
 
 #else
 
 static inline
 int i915_sync_timeline_create(struct drm_device *dev,
-				const char *name,
-				struct intel_engine_cs *ring)
+			      const char *name,
+			      struct intel_context *ctx,
+			      struct intel_engine_cs *ring)
 {
 	return 0;
 }
 
 static inline
-void i915_sync_timeline_destroy(struct intel_engine_cs *ring)
+void i915_sync_timeline_destroy(struct intel_context *ctx,
+				struct intel_engine_cs *ring)
 {
 
 }
 
-static inline
-void i915_sync_reset_timelines(struct drm_i915_private *dev_priv)
-{
-
-}
-
-static int i915_sync_create_fence(struct intel_engine_cs *ring,
-				  struct drm_i915_gem_request *req,
+static int i915_sync_create_fence(struct drm_i915_gem_request *req,
 				  int *fd_out, u64 ring_mask)
 {
 	return 0;
 }
 
 static inline
-void i915_sync_timeline_advance(struct intel_engine_cs *ring)
+void i915_sync_timeline_advance(struct intel_context *ctx,
+				struct intel_engine_cs *ring,
+				uint32_t value)
 {
 
 }

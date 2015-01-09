@@ -89,6 +89,7 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 #include "intel_lrc_tdr.h"
+#include "intel_sync.h"
 
 /* This is a HW constraint. The value below is the largest known requirement
  * I've seen in a spec to date, and that was a workaround for a non-shipping
@@ -135,8 +136,32 @@ static int get_context_size(struct drm_device *dev)
 
 void i915_gem_context_free(struct kref *ctx_ref)
 {
+	int i;
 	struct intel_context *ctx = container_of(ctx_ref,
 						 typeof(*ctx), ref);
+
+	for (i = 0; i < I915_NUM_RINGS; i++) {
+		struct intel_ringbuffer *ringbuf;
+		struct intel_engine_cs *ring;
+
+		if (ctx->engine[i].sync_timeline == NULL)
+			continue;
+
+		ringbuf = ctx->engine[i].ringbuf;
+		WARN_ON(ringbuf == NULL);
+		if (ringbuf == NULL)
+			continue;
+
+		ring = ringbuf->ring;
+
+		i915_sync_timeline_advance(ctx, ring, 0);
+		i915_sync_timeline_destroy(ctx, ring);
+	}
+
+	if (ctx->legacy_hw_ctx.sync_timeline) {
+		i915_sync_timeline_advance(ctx, NULL, 0);
+		i915_sync_timeline_destroy(ctx, NULL);
+	}
 
 	if (i915.enable_execlists)
 		intel_lr_context_free(ctx);
@@ -249,6 +274,15 @@ i915_gem_create_context(struct drm_device *dev,
 	ctx = __create_hw_context(dev, file_priv);
 	if (IS_ERR(ctx))
 		return ctx;
+
+	if (!i915.enable_execlists) {
+		/* Create a timeline for HW Native Sync support*/
+		ret = i915_sync_timeline_create(dev, "legacy", ctx, NULL);
+		if (ret) {
+			DRM_ERROR("Sync timeline creation failed for legacy context: %p\n", ctx);
+			goto err_destroy;
+		}
+	}
 
 	if (is_global_default_ctx && ctx->legacy_hw_ctx.rcs_state) {
 		/* We may need to do things with the shrinker which

@@ -290,8 +290,6 @@ struct intel_ringbuffer {
 	u32 last_retired_head;
 };
 
-struct i915_sync_timeline;
-
 struct intel_engine_cs {
 	const char	*name;
 	enum intel_ring_id {
@@ -473,11 +471,6 @@ struct intel_engine_cs {
 	 * to encode the command length in the header).
 	 */
 	u32 (*get_cmd_length_mask)(u32 cmd_header);
-
-#ifdef CONFIG_DRM_I915_SYNC
-	struct i915_sync_timeline *timeline;
-	u32 active_seqno; /* Contains the failing seqno on ring timeout. */
-#endif
 };
 
 bool intel_ring_initialized(struct intel_engine_cs *ring);

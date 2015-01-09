@@ -1280,8 +1280,6 @@ static void notify_ring(struct drm_device *dev,
 		intel_notify_mmio_flip(ring);
 
 	wake_up_all(&ring->irq_queue);
-
-	i915_sync_timeline_advance(ring);
 }
 
 static u32 vlv_c0_residency(struct drm_i915_private *dev_priv,

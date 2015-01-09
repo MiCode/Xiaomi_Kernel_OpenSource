@@ -639,6 +639,8 @@ struct i915_ctx_hang_stats {
 	bool banned;
 };
 
+struct i915_sync_timeline;
+
 /* This must match up with the value previously used for execbuf2.rsvd1. */
 #define DEFAULT_CONTEXT_HANDLE 0
 /**
@@ -671,6 +673,9 @@ struct intel_context {
 	struct {
 		struct drm_i915_gem_object *rcs_state;
 		bool initialized;
+#ifdef CONFIG_DRM_I915_SYNC
+		struct i915_sync_timeline *sync_timeline;
+#endif
 	} legacy_hw_ctx;
 
 	/* Execlists */
@@ -679,6 +684,9 @@ struct intel_context {
 		struct drm_i915_gem_object *state;
 		struct intel_ringbuffer *ringbuf;
 		int unpin_count;
+#ifdef CONFIG_DRM_I915_SYNC
+		struct i915_sync_timeline *sync_timeline;
+#endif
 	} engine[I915_NUM_RINGS];
 
 	struct list_head link;
@@ -2163,6 +2171,11 @@ struct drm_i915_gem_request {
 
 	struct i915_scheduler_queue_entry	*scheduler_qe;
 
+#ifdef CONFIG_DRM_I915_SYNC
+	/** native sync timeline value **/
+	uint32_t sync_value;
+#endif
+
 	uint32_t uniq;
 };
 
@@ -2213,6 +2226,10 @@ static inline bool i915_gem_request_completed(struct drm_i915_gem_request *req)
 {
 	return req->complete;
 }
+
+/* For use by TDR type facilities */
+struct drm_i915_gem_request *i915_gem_request_find_by_seqno(struct intel_engine_cs *ring,
+							    uint32_t seqno);
 
 struct drm_i915_file_private {
 	struct drm_i915_private *dev_priv;

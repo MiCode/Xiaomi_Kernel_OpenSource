@@ -2505,9 +2505,6 @@ void intel_logical_ring_cleanup(struct intel_engine_cs *ring)
 	intel_logical_ring_stop(ring);
 	WARN_ON((I915_READ_MODE(ring) & RING_MODE_IDLE) == 0);
 
-	i915_sync_timeline_advance(ring);
-	i915_sync_timeline_destroy(ring);
-
 	i915_gem_request_assign(&ring->outstanding_lazy_request, NULL);
 
 	if (ring->cleanup)
@@ -2543,14 +2540,6 @@ static int logical_ring_init(struct drm_device *dev, struct intel_engine_cs *rin
 	ret = i915_cmd_parser_init_ring(ring);
 	if (ret)
 		return ret;
-
-	/* Create a timeline for HW Native Sync support*/
-	ret = i915_sync_timeline_create(ring->dev, ring->name, ring);
-	if (ret) {
-		DRM_ERROR("Sync timeline creation failed for ring %s\n",
-			ring->name);
-		return ret;
-	}
 
 	if (ring->init) {
 		ret = ring->init(ring);
@@ -3127,6 +3116,14 @@ int intel_lr_context_deferred_create(struct intel_context *ctx,
 	ret = populate_lr_context(ctx, ctx_obj, ring, ringbuf);
 	if (ret) {
 		DRM_DEBUG_DRIVER("Failed to populate LRC: %d\n", ret);
+		goto error;
+	}
+
+	/* Create a timeline for HW Native Sync support*/
+	ret = i915_sync_timeline_create(dev, ring->name, ctx, ring);
+	if (ret) {
+		DRM_ERROR("Sync timeline creation failed for ring %s, ctx %p\n",
+			ring->name, ctx);
 		goto error;
 	}
 
