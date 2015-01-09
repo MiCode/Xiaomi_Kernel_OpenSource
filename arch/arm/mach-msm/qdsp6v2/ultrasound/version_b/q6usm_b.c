@@ -745,7 +745,7 @@ static uint32_t q6usm_ext2int_format(uint32_t ext_format)
 		int_format = US_RAW_FORMAT_V2;
 		break;
 	case FORMAT_USPROX:
-		int_format = US_PROX_FORMAT_V2;
+		int_format = US_PROX_FORMAT_V4;
 		break;
 	case FORMAT_USGES_SYNC:
 		int_format = US_GES_SYNC_FORMAT;
