@@ -1827,7 +1827,7 @@ start_sensor:
 		goto out;
 	} else if (asd->depth_mode->val && (atomisp_streaming_count(isp) <
 		   ATOMISP_DEPTH_SENSOR_STREAMON_COUNT)) {
-		goto out;
+		goto start_delay_wq;
 	}
 
 	/* Enable the CSI interface on ANN B0/K0 */
@@ -1847,6 +1847,10 @@ start_sensor:
 		goto out;
 	}
 
+	if (atomisp_buffers_queued(asd))
+		atomisp_wdt_refresh(asd, wdt_duration);
+
+start_delay_wq:
 	if (asd->continuous_mode->val) {
 		struct v4l2_mbus_framefmt *sink;
 
@@ -1866,9 +1870,6 @@ start_sensor:
 	} else {
 		asd->delayed_init = ATOMISP_DELAYED_INIT_NOT_QUEUED;
 	}
-
-	if (atomisp_buffers_queued(asd))
-		atomisp_wdt_refresh(asd, wdt_duration);
 out:
 	rt_mutex_unlock(&isp->mutex);
 	return ret;
