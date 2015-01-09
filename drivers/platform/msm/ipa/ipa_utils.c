@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4416,32 +4416,18 @@ bool ipa_is_client_handle_valid(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_is_client_handle_valid);
 
 /**
- * ipa_proxy_clk_unvote() - called to remove IPA clock proxy vote
+ * ipa_q6_init_done() - called when q6 ipa initialization is done
  *
  * Return value: none
  */
-void ipa_proxy_clk_unvote(void)
+void ipa_q6_init_done(void)
 {
 	if (ipa_is_ready() && ipa_ctx->q6_proxy_clk_vote_valid) {
 		ipa_dec_client_disable_clks();
 		ipa_ctx->q6_proxy_clk_vote_valid = false;
 	}
 }
-EXPORT_SYMBOL(ipa_proxy_clk_unvote);
-
-/**
- * ipa_proxy_clk_vote() - called to add IPA clock proxy vote
- *
- * Return value: none
- */
-void ipa_proxy_clk_vote(void)
-{
-	if (ipa_is_ready() && !ipa_ctx->q6_proxy_clk_vote_valid) {
-		ipa_inc_client_enable_clks();
-		ipa_ctx->q6_proxy_clk_vote_valid = true;
-	}
-}
-EXPORT_SYMBOL(ipa_proxy_clk_vote);
+EXPORT_SYMBOL(ipa_q6_init_done);
 
 /**
  * ipa_get_hw_type() - Return IPA HW version
