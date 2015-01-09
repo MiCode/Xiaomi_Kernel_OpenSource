@@ -344,7 +344,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 		for (; i >= 0; i--)
 			mdss_mdp_smp_mmb_free(pipe->smp_map[i].reserved,
 				false);
-		rc = -ENOMEM;
+		rc = -ENOBUFS;
 	}
 	mutex_unlock(&mdss_mdp_smp_lock);
 
