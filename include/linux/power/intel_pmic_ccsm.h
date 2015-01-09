@@ -99,6 +99,7 @@ struct intel_pmic_ccsm_platform_data {
 	struct pmic_regs *reg_map;
 	struct pmic_ccsm_int_cfg *intmap;
 	int intmap_size;
+	bool usb_compliance;
 };
 
 extern int intel_pmic_get_status(void);

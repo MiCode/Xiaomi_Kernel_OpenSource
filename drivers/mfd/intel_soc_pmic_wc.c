@@ -34,6 +34,7 @@
 #include <linux/iio/types.h>
 #include <linux/power/intel_pmic_ccsm.h>
 #include <linux/mfd/intel_soc_pmic_wcove.h>
+#include <asm/intel_em_config.h>
 #include "./intel_soc_pmic_core.h"
 
 #define WHISKEY_COVE_IRQ_NUM	17
@@ -59,6 +60,8 @@
 #define MTHRMIRQ2	0x13
 #define MTHRMIRQ3	0xDA
 #define MCHGRIRQ	0x17
+
+#define FPO0_USB_COMP_OFFSET 0x01
 
 static bool wcove_init_done;
 
@@ -581,6 +584,21 @@ err:
 	return ret;
 }
 
+static bool is_usb_compliant_charging(void)
+{
+	struct em_config_oem1_data em_config;
+
+
+	/* On error return true to keep usb compliance and charge
+	*  with 100mA until enumerated.
+	*/
+	if (em_config_get_oem1_data(&em_config) < 0)
+		return true;
+
+	/* 0 - usb compliance, 1 - no usb compliance */
+	return !(em_config.fpo_0 & FPO0_USB_COMP_OFFSET);
+}
+
 static void wcove_set_ccsm_config(void)
 {
 	static struct intel_pmic_ccsm_platform_data pdata;
@@ -599,6 +617,8 @@ static void wcove_set_ccsm_config(void)
 
 	intel_soc_pmic_set_pdata("wcove_ccsm", &pdata,
 		sizeof(pdata), 0);
+
+	pdata.usb_compliance = is_usb_compliant_charging();
 }
 
 static void wcove_set_bcu_pdata(void)
