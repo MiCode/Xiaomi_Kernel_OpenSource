@@ -879,7 +879,10 @@ static void handle_internal_usbphy_notifications(int mask)
 			evt =  USB_EVENT_VBUS;
 		else
 			evt =  USB_EVENT_NONE;
-		cap.ma = LOW_POWER_CHRG_CURRENT;
+		if (chc.pdata->usb_compliance)
+			cap.ma = USBINPUTICC100VAL;
+		else
+			cap.ma = LOW_POWER_CHRG_CURRENT;
 		break;
 	case POWER_SUPPLY_CHARGER_TYPE_USB_CDP:
 		if (cap.chrg_evt == POWER_SUPPLY_CHARGER_EVENT_CONNECT)
