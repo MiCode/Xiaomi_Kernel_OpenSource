@@ -31,7 +31,8 @@ EXPORT_SYMBOL(spid);
 #define DEVNAME_PMIC_WHISKEYCOVE "INT34D3:00:6e"
 
 /* Should be defined in vlv2_plat_clock API, isn't: */
-#define VLV2_CLK_19P2MHZ 1
+#define VLV2_CLK_PLL_19P2MHZ 1
+#define VLV2_CLK_XTAL_19P2MHZ 0
 #define VLV2_CLK_ON      1
 #define VLV2_CLK_OFF     2
 
@@ -79,6 +80,7 @@ EXPORT_SYMBOL(spid);
 struct gmin_subdev {
 	struct v4l2_subdev *subdev;
 	int clock_num;
+	int clock_src;
 	struct gpio_desc *gpio0;
 	struct gpio_desc *gpio1;
 	struct regulator *v1p8_reg;
@@ -355,6 +357,9 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 
 	gmin_subdevs[i].subdev = subdev;
 	gmin_subdevs[i].clock_num = gmin_get_var_int(dev, "CamClk", 0);
+	/*WA:CHT requires XTAL clock as PLL is not stable.*/
+	gmin_subdevs[i].clock_src = gmin_get_var_int(dev, "ClkSrc",
+							VLV2_CLK_PLL_19P2MHZ);
 	gmin_subdevs[i].csi_port = gmin_get_var_int(dev, "CsiPort", 0);
 	gmin_subdevs[i].csi_lanes = gmin_get_var_int(dev, "CsiLanes", 1);
 	gmin_subdevs[i].gpio0 = gpiod_get_index(dev, "cam_gpio0", 0);
@@ -628,7 +633,7 @@ int gmin_flisclk_ctrl(struct v4l2_subdev *subdev, int on)
 	int ret = 0;
 	struct gmin_subdev *gs = find_gmin_subdev(subdev);
 	if (on)
-		ret = vlv2_plat_set_clock_freq(gs->clock_num, VLV2_CLK_19P2MHZ);
+		ret = vlv2_plat_set_clock_freq(gs->clock_num, gs->clock_src);
 	if (ret)
 		return ret;
 	return vlv2_plat_configure_clock(gs->clock_num,
