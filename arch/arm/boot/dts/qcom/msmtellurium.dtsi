@@ -203,7 +203,34 @@
 			<  595200 >;
 	};
 
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   762 /*  100   MHz */ >,
+			<  1336 /*  175.2 MHz */ >,
+			<  1977 /*  259.2 MHz */ >,
+			<  2673 /*  350.4 MHz */ >,
+			<  3564 /*  467.2 MHz */ >;
+	};
+
 	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map-0 =
+			<  200000   762 >,
+			<  800000  1336 >,
+			<  1113600 2673 >,
+			<  1536000 3564 >;
+		cpu-to-dev-map-4 =
+			<  200000  762 >,
+			<  499200 1336 >,
+			<  800000 2673 >,
+			<  998400 3564 >;
+		};
+
 		cci-cpufreq {
 		target-dev = <&cci_cache>;
 		cpu-to-dev-map-0 =
