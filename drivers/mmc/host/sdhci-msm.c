@@ -2764,6 +2764,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.dump_vendor_regs = sdhci_msm_dump_vendor_regs,
 	.config_auto_tuning_cmd = sdhci_msm_config_auto_tuning_cmd,
 	.enable_controller_clock = sdhci_msm_enable_controller_clock,
+	.set_bus_width = sdhci_set_bus_width,
 };
 
 static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
