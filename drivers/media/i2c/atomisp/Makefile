@@ -1,0 +1,2 @@
+obj-$(CONFIG_VIDEO_GC0310) += gc0310.o
+obj-$(CONFIG_VIDEO_GC2155) += gc2155.o

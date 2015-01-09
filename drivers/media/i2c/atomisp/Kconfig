@@ -1,0 +1,17 @@
+config VIDEO_GC0310
+       tristate "GC0310 sensor support"
+       depends on I2C && VIDEO_V4L2
+       ---help---
+         This is a Video4Linux2 sensor-level driver for the Galaxycore
+         GC0310 0.3MP sensor.
+
+         It currently only works with the atomisp driver.
+
+config VIDEO_GC2155
+       tristate "GC2155 sensor support"
+       depends on I2C && VIDEO_V4L2
+       ---help---
+         This is a Video4Linux2 sensor-level driver for the Galaxycore
+         GC2155 2MP sensor.
+
+         It currently only works with the atomisp driver.
