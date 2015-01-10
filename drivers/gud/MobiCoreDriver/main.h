@@ -1,16 +1,16 @@
 /*
- * Copyright (c) 2013 TRUSTONIC LIMITED
- * All Rights Reserved.
+ * Header file of MobiCore Driver Kernel Module.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
+ * Internal structures of the McDrvModule
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
+ * <-- Copyright Trustonic Limited 2013 -->
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
+
 #ifndef _MC_MAIN_H_
 #define _MC_MAIN_H_
 
@@ -70,9 +70,8 @@ struct mc_context {
 	/* isr event counter */
 	unsigned int		evt_counter;
 	atomic_t		isr_counter;
-	/* ever incrementing counters */
-	atomic_t		buffer_counter;
-	atomic_t		instance_counter;
+	/* ever incrementing counter */
+	atomic_t		unique_counter;
 	/* pointer to instance of daemon */
 	struct mc_instance	*daemon_inst;
 	/* pointer to instance of daemon */
@@ -112,6 +111,8 @@ struct mc_mcp_buffer {
 	struct mc_flags	flags;
 	uint32_t	rfu; /* MCP message buffer - ignore */
 };
+
+unsigned int get_unique_id(void);
 
 /* check if caller is MobiCore Daemon */
 static inline bool is_daemon(struct mc_instance *instance)
