@@ -26,6 +26,7 @@ Required properties:
 	"qcom,coresight-hwevent" for coresight hardware event devices
 	"arm,coresight-fuse" for coresight fuse v1 device,
 	"arm,coresight-fuse-v2" for coresight fuse v2 device,
+	"arm,coresight-fuse-v3" for coresight fuse v3 device,
 	"qcom,coresight-audio-etm" for coresight audio etm trace device,
 	"qcom,coresight-modem-etm" for coresight modem etm trace device,
 	"qcom,coresight-wcn-etm" for coresight wireless etm trace device,
