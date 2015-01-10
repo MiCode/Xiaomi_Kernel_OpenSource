@@ -171,6 +171,9 @@
 
 #define ATOMISP_DEPTH_SENSOR_STREAMON_COUNT 2
 
+#define ATOMISP_DEPTH_DEFAULT_MASTER_SENSOR 0
+#define ATOMISP_DEPTH_DEFAULT_SLAVE_SENSOR 1
+
 #define DIV_NEAREST_STEP(n, d, step) \
 	round_down((2 * (n) + (d) * (step))/(2 * (d)), (step))
 

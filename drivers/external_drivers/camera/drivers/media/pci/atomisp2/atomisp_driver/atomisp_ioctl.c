@@ -1578,8 +1578,12 @@ int atomisp_stream_on_master_slave_sensor(struct atomisp_device *isp, bool isp_t
 	}
 
 	if (master == -1 || slave == -1) {
-		dev_err(isp->dev, "depth mode needs 2 sensors to be selected.\n");
-		return -EINVAL;
+		master = ATOMISP_DEPTH_DEFAULT_MASTER_SENSOR;
+		slave = ATOMISP_DEPTH_DEFAULT_SLAVE_SENSOR;
+		dev_warn(isp->dev,
+			 "depth mode use default master=%s.slave=%s.\n",
+			 isp->inputs[master].camera->name,
+			 isp->inputs[slave].camera->name);
 	}
 
 	if (isp_timeout) {
