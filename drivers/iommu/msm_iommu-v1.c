@@ -30,6 +30,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/notifier.h>
 #include <linux/qcom_iommu.h>
 #include <asm/sizes.h>
 
@@ -252,15 +253,25 @@ static void check_halt_state(struct msm_iommu_drvdata const *drvdata)
 	BUG();
 }
 
+static BLOCKING_NOTIFIER_HEAD(msm_iommu_notifier_list);
+
+void msm_iommu_register_notify(struct notifier_block *nb)
+{
+	blocking_notifier_chain_register(&msm_iommu_notifier_list, nb);
+}
+
 static void check_tlb_sync_state(struct msm_iommu_drvdata const *drvdata,
-				int ctx)
+				int ctx, struct msm_iommu_priv *priv)
 {
 	int res;
 	unsigned int val;
 	void __iomem *base = drvdata->base;
 	char const *name = drvdata->name;
 
-	pr_err("Timed out waiting for TLB SYNC to complete for %s\n", name);
+	pr_err("Timed out waiting for TLB SYNC to complete for %s (client: %s)\n",
+		name, priv->client_name);
+	blocking_notifier_call_chain(&msm_iommu_notifier_list, TLB_SYNC_TIMEOUT,
+				(void *) priv->client_name);
 	res = __check_vbif_state(drvdata);
 	if (res)
 		BUG();
@@ -290,7 +301,7 @@ static void check_halt_state(struct msm_iommu_drvdata const *drvdata)
 }
 
 static void check_tlb_sync_state(struct msm_iommu_drvdata const *drvdata,
-				int ctx)
+				int ctx, struct msm_iommu_priv *priv)
 {
 	BUG();
 }
@@ -334,7 +345,8 @@ void iommu_resume(const struct msm_iommu_drvdata *iommu_drvdata)
 	}
 }
 
-static void __sync_tlb(struct msm_iommu_drvdata *iommu_drvdata, int ctx)
+static void __sync_tlb(struct msm_iommu_drvdata *iommu_drvdata, int ctx,
+		struct msm_iommu_priv *priv)
 {
 	unsigned int val;
 	unsigned int res;
@@ -346,7 +358,7 @@ static void __sync_tlb(struct msm_iommu_drvdata *iommu_drvdata, int ctx)
 	res = readl_tight_poll_timeout(CTX_REG(CB_TLBSTATUS, base, ctx), val,
 				(val & CB_TLBSTATUS_SACTIVE) == 0, 5000000);
 	if (res)
-		check_tlb_sync_state(iommu_drvdata, ctx);
+		check_tlb_sync_state(iommu_drvdata, ctx, priv);
 }
 
 static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
@@ -370,7 +382,7 @@ static int __flush_iotlb_va(struct iommu_domain *domain, unsigned int va)
 		SET_TLBIVA(iommu_drvdata->cb_base, ctx_drvdata->num,
 			   ctx_drvdata->asid | (va & CB_TLBIVA_VA));
 		mb();
-		__sync_tlb(iommu_drvdata, ctx_drvdata->num);
+		__sync_tlb(iommu_drvdata, ctx_drvdata->num, priv);
 		__disable_clocks(iommu_drvdata);
 	}
 fail:
@@ -396,7 +408,7 @@ static int __flush_iotlb(struct iommu_domain *domain)
 
 		SET_TLBIASID(iommu_drvdata->cb_base, ctx_drvdata->num,
 			     ctx_drvdata->asid);
-		__sync_tlb(iommu_drvdata, ctx_drvdata->num);
+		__sync_tlb(iommu_drvdata, ctx_drvdata->num, priv);
 		__disable_clocks(iommu_drvdata);
 	}
 
@@ -733,7 +745,7 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	mb();
 	SET_TLBIASID(iommu_drvdata->cb_base, ctx_drvdata->num,
 					ctx_drvdata->asid);
-	__sync_tlb(iommu_drvdata, ctx_drvdata->num);
+	__sync_tlb(iommu_drvdata, ctx_drvdata->num, priv);
 
 	/* Enable the MMU */
 	SET_CB_SCTLR_M(cb_base, ctx, 1);
@@ -920,7 +932,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	SET_TLBIASID(iommu_drvdata->cb_base, ctx_drvdata->num,
 					ctx_drvdata->asid);
-	__sync_tlb(iommu_drvdata, ctx_drvdata->num);
+	__sync_tlb(iommu_drvdata, ctx_drvdata->num, priv);
 
 	ctx_drvdata->asid = -1;
 
