@@ -25,6 +25,7 @@
 #include <linux/mutex.h>
 #include <linux/io.h>
 #include <linux/clk/msm-clk-provider.h>
+#include <trace/events/power.h>
 
 
 #include "clock.h"
@@ -344,6 +345,37 @@ static const struct file_operations enabled_clocks_fops = {
 	.release	= seq_release,
 };
 
+static int trace_clocks_show(struct seq_file *m, void *unused)
+{
+	struct clk *c;
+	int total_cnt = 0;
+
+	if (!mutex_trylock(&clk_list_lock)) {
+		pr_err("trace_clocks: Clocks are being registered. Cannot trace clock state now.\n");
+		return 1;
+	}
+	list_for_each_entry(c, &clk_list, list) {
+		trace_clock_state(c->dbg_name, c->prepare_count, c->count,
+					c->rate);
+		total_cnt++;
+	}
+	mutex_unlock(&clk_list_lock);
+	clock_debug_output(m, 0, "Total clock count: %d\n", total_cnt);
+
+	return 0;
+}
+
+static int trace_clocks_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, trace_clocks_show, inode->i_private);
+}
+static const struct file_operations trace_clocks_fops = {
+	.open		= trace_clocks_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
 static int list_rates_show(struct seq_file *m, void *unused)
 {
 	struct clk *clock = m->private;
@@ -590,6 +622,10 @@ static int clock_debug_init(void)
 
 	if (!debugfs_create_file("orphan_list", S_IRUGO, debugfs_base, NULL,
 				&orphan_list_fops))
+		return -ENOMEM;
+
+	if (!debugfs_create_file("trace_clocks", S_IRUGO, debugfs_base, NULL,
+				&trace_clocks_fops))
 		return -ENOMEM;
 
 	return 0;
