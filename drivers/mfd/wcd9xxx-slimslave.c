@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -361,7 +361,7 @@ int wcd9xxx_cfg_slim_sch_tx(struct wcd9xxx *wcd9xxx,
 	prop.dataf = SLIM_CH_DATAF_NOT_DEFINED;
 	prop.auxf = SLIM_CH_AUXF_NOT_APPLICABLE;
 	prop.ratem = (rate/4000);
-	prop.sampleszbits = 16;
+	prop.sampleszbits = bit_width;
 	ret = slim_define_ch(wcd9xxx->slim, &prop, ch_h, ch_cnt,
 			     true, grph);
 	if (ret < 0) {
@@ -370,7 +370,8 @@ int wcd9xxx_cfg_slim_sch_tx(struct wcd9xxx *wcd9xxx,
 		goto err;
 	}
 
-	pr_debug("%s: ch_cnt[%d] rate[%d]\n", __func__, ch_cnt, rate);
+	pr_debug("%s: ch_cnt[%d] rate[%d] bitwidth[%u]\n", __func__, ch_cnt,
+		 rate, bit_width);
 	list_for_each_entry(tx, wcd9xxx_ch_list, list) {
 		codec_port = tx->port;
 		pr_debug("%s: codec_port %d tx 0x%p, payload 0x%x\n",
