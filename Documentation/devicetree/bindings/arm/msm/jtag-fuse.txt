@@ -1,0 +1,18 @@
+* JTAG-FUSE
+
+The jtag-fuse entry specifies the memory mapped addresses for the fuse
+registers. The jtag-fuse driver uses these to provide api(s) that can be used
+by jtag save and restore driver(s) to query whether the Hardware they manage
+is functionally disabled or not and take corresponding steps.
+
+Required Properties:
+compatible: component name used for driver matching, should be "qcom,jtag-fuse"
+reg: physical base address and length of the register set
+reg-names: should be "fuse-base"
+
+Example:
+	jtag_fuse: jtagfuse@fc4be024 {
+		compatible = "qcom,jtag-fuse";
+		reg = <0xfc4be024 0x8>;
+		reg-names = "fuse-base";
+	};
