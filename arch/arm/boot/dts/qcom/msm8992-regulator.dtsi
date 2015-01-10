@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -577,6 +577,7 @@
 		qcom,corner-acc-map = <1 1 0 0>;
 		qcom,acc-sel-l1-bit-pos = <0>;
 		qcom,acc-sel-l1-bit-size = <1>;
+		status = "disabled";
 	};
 
 	mem_acc1_vreg_corner: mem-acc1-regulator {
@@ -589,6 +590,7 @@
 		qcom,corner-acc-map = <1 1 0 0>;
 		qcom,acc-sel-l1-bit-pos = <1>;
 		qcom,acc-sel-l1-bit-size = <1>;
+		status = "disabled";
 	};
 
 	apc0_vreg_corner: regulator@f9019000 {
@@ -609,8 +611,6 @@
 		qcom,vdd-mx-vmax = <7>;
 		qcom,vdd-mx-vmin-method = <4>;
 		vdd-mx-supply = <&pm8994_s2_corner_ao>;
-
-		mem-acc-supply = <&mem_acc0_vreg_corner>;
 
 		qcom,cpr-ref-clk = <19200>;
 		qcom,cpr-timer-delay = <5000>;
@@ -705,8 +705,6 @@
 		qcom,vdd-mx-vmax = <7>;
 		qcom,vdd-mx-vmin-method = <4>;
 		vdd-mx-supply = <&pm8994_s2_corner_ao>;
-
-		mem-acc-supply = <&mem_acc1_vreg_corner>;
 
 		qcom,cpr-ref-clk = <19200>;
 		qcom,cpr-timer-delay = <5000>;
