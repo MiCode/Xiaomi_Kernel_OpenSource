@@ -315,6 +315,7 @@ static struct sensors_classdev sensors_proximity_cdev = {
 	.min_delay = 30000, /* in microseconds */
 	.fifo_reserved_event_count = 0,
 	.fifo_max_event_count = 0,
+	.flags = 1,
 	.enabled = 0,
 	.delay_msec = 100,
 	.sensors_enable = NULL,
