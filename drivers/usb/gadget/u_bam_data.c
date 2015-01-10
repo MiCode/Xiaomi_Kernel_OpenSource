@@ -116,7 +116,6 @@ struct bam_data_ch_info {
 	bool			tx_req_dequeued;
 };
 
-static struct work_struct *rndis_conn_w;
 static bool is_ipa_rndis_net_on;
 
 enum u_bam_data_event_type {
@@ -133,6 +132,7 @@ struct bam_data_port {
 	spinlock_t			port_lock;
 	unsigned int                    ref_count;
 	struct data_port		*port_usb;
+	struct usb_gadget		*gadget;
 	struct bam_data_ch_info		data_ch;
 
 	struct work_struct		connect_w;
@@ -815,6 +815,12 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->is_ipa_connected = false;
+
+	/*
+	 * Decrement usage count which was incremented
+	 * upon cable connect or cable disconnect in suspended state.
+	 */
+	usb_gadget_autopm_put_async(port->gadget);
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	pr_debug("Disconnect workqueue done (port %p)\n", port);
@@ -1297,12 +1303,25 @@ static int bam2bam_data_port_alloc(int portno)
 
 void u_bam_data_start_rndis_ipa(void)
 {
+	int port_num;
+	struct bam_data_port *port;
+
 	pr_debug("%s\n", __func__);
 
-	if (!is_ipa_rndis_net_on)
-		queue_work(bam_data_wq, rndis_conn_w);
-	else
+	if (!is_ipa_rndis_net_on) {
+		port_num = u_bam_data_func_to_port(USB_FUNC_RNDIS,
+						RNDIS_QC_ACTIVE_PORT);
+		port = bam2bam_data_ports[port_num];
+		/*
+		 * Increment usage count upon cable connect. Decrement after IPA
+		 * handshake is done in disconnect work due to cable disconnect
+		 * or in suspend work.
+		 */
+		usb_gadget_autopm_get_noresume(port->gadget);
+		queue_work(bam_data_wq, &port->connect_w);
+	} else {
 		pr_debug("%s: Transfers already started?\n", __func__);
+	}
 }
 
 void u_bam_data_stop_rndis_ipa(void)
@@ -1316,8 +1335,7 @@ void u_bam_data_stop_rndis_ipa(void)
 
 		rndis_ipa_reset_trigger();
 		bam_data_stop_endless_tx(port);
-		if (port->is_ipa_connected)
-			queue_work(bam_data_wq, &port->disconnect_w);
+		queue_work(bam_data_wq, &port->disconnect_w);
 	}
 }
 
@@ -1372,6 +1390,22 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 	spin_lock_irqsave(&port->port_lock, flags);
 
 	d = &port->data_ch;
+
+	/* Already disconnected due to suspend with remote wake disabled */
+	if (port->last_event == U_BAM_DATA_DISCONNECT_E) {
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
+
+	/*
+	 * Suspend with remote wakeup enabled. Increment usage
+	 * count when disconnect happens in suspended state.
+	 * Corresponding decrement happens in the end of this
+	 * function if IPA handshake is already done or it is done
+	 * in disconnect work after finishing IPA handshake.
+	 */
+	if (port->last_event == U_BAM_DATA_SUSPEND_E)
+		usb_gadget_autopm_get_noresume(port->gadget);
 
 	if (port->port_usb) {
 		if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
@@ -1455,6 +1489,7 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 		if (usb_bam_client_ready(false))
 			pr_err("%s: usb_bam_client_ready failed\n",
 				__func__);
+		usb_gadget_autopm_put_async(port->gadget);
 	}
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
@@ -1502,6 +1537,7 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 	spin_lock_irqsave(&port->port_lock, flags);
 
 	port->port_usb = gr;
+	port->gadget = gr->cdev->gadget;
 	d = &port->data_ch;
 	d->src_connection_idx = src_connection_idx;
 	d->dst_connection_idx = dst_connection_idx;
@@ -1622,15 +1658,22 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 	d->tx_req->no_interrupt = 1;
 
 	gr->out->driver_data = port;
+
+	port->last_event = U_BAM_DATA_CONNECT_E;
+
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA && d->func_type ==
 		USB_FUNC_RNDIS) {
-			rndis_conn_w = &port->connect_w;
-			port->last_event = U_BAM_DATA_CONNECT_E;
 			ret = 0;
 			goto exit;
 	}
 
-	port->last_event = U_BAM_DATA_CONNECT_E;
+	/*
+	 * Increment usage count upon cable connect. Decrement after IPA
+	 * handshake is done in disconnect work (due to cable disconnect)
+	 * or in suspend work.
+	 */
+	usb_gadget_autopm_get_noresume(port->gadget);
+
 	queue_work(bam_data_wq, &port->connect_w);
 	spin_unlock_irqrestore(&port->port_lock, flags);
 	return 0;
@@ -1898,6 +1941,15 @@ void bam_data_resume(struct data_port *port_usb, u8 dev_port_num,
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->last_event = U_BAM_DATA_RESUME_E;
+
+	/*
+	 * Increment usage count here to disallow gadget
+	 * parent suspend. This counter will decrement
+	 * after IPA handshake is done in disconnect work
+	 * (due to cable disconnect) or in bam_data_disconnect
+	 * in suspended state.
+	 */
+	usb_gadget_autopm_get_noresume(port->gadget);
 	queue_work(bam_data_wq, &port->resume_w);
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
@@ -1952,6 +2004,12 @@ static void bam2bam_data_suspend_work(struct work_struct *w)
 		spin_lock_irqsave(&port->port_lock, flags);
 	}
 
+	/*
+	 * Decrement usage count after IPA handshake is done
+	 * to allow gadget parent to go to lpm. This counter was
+	 * incremented upon cable connect.
+	 */
+	usb_gadget_autopm_put_async(port->gadget);
 exit:
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
