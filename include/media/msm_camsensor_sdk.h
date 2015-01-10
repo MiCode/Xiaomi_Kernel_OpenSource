@@ -21,6 +21,14 @@
 #define MAX_CID                 16
 #define I2C_SEQ_REG_DATA_MAX    256
 #define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
+#define MSM_V4L2_PIX_FMT_SBGGR14 v4l2_fourcc('B', 'G', '1', '4')
+	/* 14  BGBG.. GRGR.. */
+#define MSM_V4L2_PIX_FMT_SGBRG14 v4l2_fourcc('G', 'B', '1', '4')
+	/* 14  GBGB.. RGRG.. */
+#define MSM_V4L2_PIX_FMT_SGRBG14 v4l2_fourcc('B', 'A', '1', '4')
+	/* 14  GRGR.. BGBG.. */
+#define MSM_V4L2_PIX_FMT_SRGGB14 v4l2_fourcc('R', 'G', '1', '4')
+	/* 14  RGRG.. GBGB.. */
 
 #define MAX_ACTUATOR_REG_TBL_SIZE 8
 #define MAX_ACTUATOR_REGION       5
