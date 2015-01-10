@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,10 +30,12 @@
 
 #define OEM_CONFIG0		(0x000)
 #define OEM_CONFIG1		(0x004)
+#define OEM_CONFIG2		(0x008)
 #define FEATURE_CONFIG2		(0x000)
 
 #define CORESIGHT_FUSE_VERSION_V1		"arm,coresight-fuse"
 #define CORESIGHT_FUSE_VERSION_V2		"arm,coresight-fuse-v2"
+#define CORESIGHT_FUSE_VERSION_V3		"arm,coresight-fuse-v3"
 
 /* CoreSight FUSE V1 */
 #define ALL_DEBUG_DISABLE	BIT(21)
@@ -59,6 +61,18 @@
 #define DAP_SPNIDEN_DISABLE_V2		BIT(17)
 #define DAP_DEVICEEN_DISABLE_V2	BIT(18)
 
+/* CoreSight FUSE V3 */
+#define ALL_DEBUG_DISABLE_V3		BIT(29)
+#define APPS_DBGEN_DISABLE_V3		BIT(8)
+#define APPS_NIDEN_DISABLE_V3		BIT(21)
+#define APPS_SPIDEN_DISABLE_V3		BIT(5)
+#define APPS_SPNIDEN_DISABLE_V3		BIT(31)
+#define DAP_DBGEN_DISABLE_V3		BIT(10)
+#define DAP_NIDEN_DISABLE_V3		BIT(23)
+#define DAP_SPIDEN_DISABLE_V3		BIT(7)
+#define DAP_SPNIDEN_DISABLE_V3		BIT(1)
+#define DAP_DEVICEEN_DISABLE_V3		BIT(7)
+
 #define QPDI_SPMI_DISABLE	BIT(2)
 #define NIDNT_DISABLE	BIT(27)
 
@@ -77,6 +91,7 @@ struct fuse_drvdata {
 	struct device		*dev;
 	struct coresight_device	*csdev;
 	bool			fuse_v2;
+	bool			fuse_v3;
 };
 
 static struct fuse_drvdata *fusedrvdata;
@@ -109,7 +124,7 @@ EXPORT_SYMBOL(coresight_fuse_nidnt_access_disabled);
 bool coresight_fuse_access_disabled(void)
 {
 	struct fuse_drvdata *drvdata = fusedrvdata;
-	uint32_t config0, config1;
+	uint32_t config0, config1, config2;
 	bool ret = false;
 
 	if (!drvdata)
@@ -120,6 +135,11 @@ bool coresight_fuse_access_disabled(void)
 
 	dev_dbg(drvdata->dev, "config0: %lx\n", (unsigned long)config0);
 	dev_dbg(drvdata->dev, "config1: %lx\n", (unsigned long)config1);
+
+	if (drvdata->fuse_v3) {
+		config2 = fuse_readl(drvdata, OEM_CONFIG2);
+		dev_dbg(drvdata->dev, "config2: %lx\n", (unsigned long)config2);
+	}
 
 	if (drvdata->fuse_v2) {
 		if (config1 & ALL_DEBUG_DISABLE_V2)
@@ -133,6 +153,19 @@ bool coresight_fuse_access_disabled(void)
 		else if (config1 & DAP_SPNIDEN_DISABLE_V2)
 			ret = true;
 		else if (config1 & DAP_DEVICEEN_DISABLE_V2)
+			ret = true;
+	} else if (drvdata->fuse_v3) {
+		if (config0 & ALL_DEBUG_DISABLE_V3)
+			ret = true;
+		else if (config1 & DAP_DBGEN_DISABLE_V3)
+			ret = true;
+		else if (config1 & DAP_NIDEN_DISABLE_V3)
+			ret = true;
+		else if (config2 & DAP_SPIDEN_DISABLE_V3)
+			ret = true;
+		else if (config2 & DAP_SPNIDEN_DISABLE_V3)
+			ret = true;
+		else if (config1 & DAP_DEVICEEN_DISABLE_V3)
 			ret = true;
 	} else {
 		if (config0 & ALL_DEBUG_DISABLE)
@@ -159,7 +192,7 @@ EXPORT_SYMBOL(coresight_fuse_access_disabled);
 bool coresight_fuse_apps_access_disabled(void)
 {
 	struct fuse_drvdata *drvdata = fusedrvdata;
-	uint32_t config0, config1;
+	uint32_t config0, config1, config2;
 	bool ret = false;
 
 	if (!drvdata)
@@ -170,6 +203,12 @@ bool coresight_fuse_apps_access_disabled(void)
 
 	dev_dbg(drvdata->dev, "apps config0: %lx\n", (unsigned long)config0);
 	dev_dbg(drvdata->dev, "apps config1: %lx\n", (unsigned long)config1);
+
+	if (drvdata->fuse_v3) {
+		config2 = fuse_readl(drvdata, OEM_CONFIG2);
+		dev_dbg(drvdata->dev, "apps config2: %lx\n",
+		       (unsigned long)config2);
+	}
 
 	if (drvdata->fuse_v2) {
 		if (config1 & ALL_DEBUG_DISABLE_V2)
@@ -183,6 +222,19 @@ bool coresight_fuse_apps_access_disabled(void)
 		else if (config1 & APPS_SPNIDEN_DISABLE_V2)
 			ret = true;
 		else if (config1 & DAP_DEVICEEN_DISABLE_V2)
+			ret = true;
+	} else if (drvdata->fuse_v3) {
+		if (config0 & ALL_DEBUG_DISABLE_V3)
+			ret = true;
+		else if (config1 & APPS_DBGEN_DISABLE_V3)
+			ret = true;
+		else if (config1 & APPS_NIDEN_DISABLE_V3)
+			ret = true;
+		else if (config2 & APPS_SPIDEN_DISABLE_V3)
+			ret = true;
+		else if (config1 & APPS_SPNIDEN_DISABLE_V3)
+			ret = true;
+		else if (config1 & DAP_DEVICEEN_DISABLE_V3)
 			ret = true;
 	} else {
 		if (config0 & ALL_DEBUG_DISABLE)
@@ -230,6 +282,7 @@ EXPORT_SYMBOL(coresight_fuse_qpdi_access_disabled);
 static struct of_device_id fuse_match[] = {
 	{.compatible = CORESIGHT_FUSE_VERSION_V1 },
 	{.compatible = CORESIGHT_FUSE_VERSION_V2 },
+	{.compatible = CORESIGHT_FUSE_VERSION_V3 },
 	{}
 };
 
@@ -263,6 +316,8 @@ static int fuse_probe(struct platform_device *pdev)
 
 	if (!strcmp(match->compatible, CORESIGHT_FUSE_VERSION_V2))
 		drvdata->fuse_v2 = true;
+	else if (!strcmp(match->compatible, CORESIGHT_FUSE_VERSION_V3))
+		drvdata->fuse_v3 = true;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "fuse-base");
 	if (!res)
