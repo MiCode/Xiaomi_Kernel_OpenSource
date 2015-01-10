@@ -1183,7 +1183,11 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 
 	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
 
-	prtd->compr_passthr = prtd->codec_param.codec.compr_passthr;
+	if (prtd->codec_param.codec.compr_passthr >= 0 &&
+		prtd->codec_param.codec.compr_passthr <= 2)
+		prtd->compr_passthr = prtd->codec_param.codec.compr_passthr;
+	else
+		prtd->compr_passthr = LEGACY_PCM;
 	pr_debug("%s: compr_passthr = %d", __func__, prtd->compr_passthr);
 	if (prtd->compr_passthr != LEGACY_PCM) {
 		pr_debug("%s: Reset gapless mode playback for compr_type[%d]\n",
