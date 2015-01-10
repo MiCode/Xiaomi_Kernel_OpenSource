@@ -117,6 +117,9 @@
 #define PA_TACTIVATE_TIME_UNIT_US	10
 #define PA_HIBERN8_TIME_UNIT_US		100
 
+/* PHY Adapter Protocol Constants */
+#define PA_MAXDATALANES	4
+
 /* PA power modes */
 enum {
 	FAST_MODE	= 1,

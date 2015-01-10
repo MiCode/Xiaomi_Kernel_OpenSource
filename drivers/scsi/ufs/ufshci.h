@@ -213,6 +213,7 @@ enum {
 
 /* GenSelectorIndex calculation macros for M-PHY attributes */
 #define UIC_ARG_MPHY_TX_GEN_SEL_INDEX(lane) (lane)
+#define UIC_ARG_MPHY_RX_GEN_SEL_INDEX(lane) (PA_MAXDATALANES + (lane))
 
 #define UIC_ARG_MIB_SEL(attr, sel)	((((attr) & 0xFFFF) << 16) |\
 					 ((sel) & 0xFFFF))
