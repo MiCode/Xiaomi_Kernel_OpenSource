@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 TRUSTONIC LIMITED
+ * Copyright (c) 2013 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -58,6 +58,7 @@ struct logmsg_struct {
 	uint32_t log_data;		/* Value, if any */
 };
 
+static bool prev_eol;			/* Previous char was a EOL */
 static uint16_t prev_source;		/* Previous Log source */
 static uint32_t log_pos;		/* MobiCore log previous position */
 static struct mc_trace_buf *log_buf;	/* MobiCore log buffer structure */
@@ -73,6 +74,7 @@ static void log_eol(uint16_t source)
 		log_line_len = 0;
 		return;
 	}
+	prev_eol = true;
 	/* MobiCore Userspace */
 	if (prev_source)
 		dev_info(mcd, "%03x|%s\n", prev_source, log_line);
@@ -102,6 +104,7 @@ static void log_char(char ch, uint16_t source)
 	log_line[log_line_len] = ch;
 	log_line[log_line_len + 1] = 0;
 	log_line_len++;
+	prev_eol = false;
 	prev_source = source;
 }
 
@@ -287,6 +290,7 @@ long mobicore_log_setup(void)
 	log_thread = NULL;
 	log_line = NULL;
 	log_line_len = 0;
+	prev_eol = false;
 	prev_source = 0;
 	thread_err = 0;
 
@@ -326,9 +330,7 @@ long mobicore_log_setup(void)
 	memset(&fc_log, 0, sizeof(fc_log));
 	fc_log.as_in.cmd = MC_FC_NWD_TRACE;
 	fc_log.as_in.param[0] = (uint32_t)phys_log_buf;
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
-	fc_log.as_in.param[1] = (uint32_t)(phys_log_buf >> 32);
-#endif
+	fc_log.as_in.param[1] = (uint32_t)(((uint64_t)phys_log_buf) >> 32);
 	fc_log.as_in.param[2] = log_size;
 
 	MCDRV_DBG(mcd, "fc_log virt=%p phys=0x%llX",
