@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -148,7 +148,7 @@ static int emac_set_settings(struct net_device *netdev,
 	emac_info(adpt, link, "ethtool cmd autoneg %d, speed %d, duplex %d\n",
 		  ecmd->autoneg, ecmd->speed, ecmd->duplex);
 
-	while (CHK_AND_SET_ADPT_FLAG(STATE_RESETTING))
+	while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
 		msleep(20); /* Reset might take few 10s of ms */
 
 	old = hw->autoneg_advertised;
@@ -163,7 +163,7 @@ static int emac_set_settings(struct net_device *netdev,
 			if (ecmd->duplex != DUPLEX_FULL) {
 				emac_warn(adpt, hw,
 					  "1000M half is invalid\n");
-				CLI_ADPT_FLAG(STATE_RESETTING);
+				CLR_FLAG(adpt, ADPT_STATE_RESETTING);
 				return -EINVAL;
 			}
 			advertised = EMAC_LINK_SPEED_1GB_FULL;
@@ -202,7 +202,7 @@ static int emac_set_settings(struct net_device *netdev,
 	}
 
 done:
-	CLI_ADPT_FLAG(STATE_RESETTING);
+	CLR_FLAG(adpt, ADPT_STATE_RESETTING);
 	return retval;
 }
 
@@ -236,7 +236,7 @@ static int emac_set_pauseparam(struct net_device *netdev,
 	bool disable_fc_autoneg;
 	int retval = 0;
 
-	while (CHK_AND_SET_ADPT_FLAG(STATE_RESETTING))
+	while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
 		msleep(20); /* Reset might take few 10s of ms */
 
 	req_fc_mode        = hw->req_fc_mode;
@@ -256,7 +256,7 @@ static int emac_set_pauseparam(struct net_device *netdev,
 	else if (!pause->rx_pause && !pause->tx_pause)
 		req_fc_mode = emac_fc_none;
 	else {
-		CLI_ADPT_FLAG(STATE_RESETTING);
+		CLR_FLAG(adpt, ADPT_STATE_RESETTING);
 		return -EINVAL;
 	}
 
@@ -273,7 +273,7 @@ static int emac_set_pauseparam(struct net_device *netdev,
 			emac_hw_config_fc(hw);
 	}
 
-	CLI_ADPT_FLAG(STATE_RESETTING);
+	CLR_FLAG(adpt, ADPT_STATE_RESETTING);
 	return retval;
 }
 

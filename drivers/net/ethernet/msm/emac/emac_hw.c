@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1024,22 +1024,22 @@ void emac_hw_config_mac_ctrl(struct emac_hw *hw)
 
 	mac = emac_reg_r32(hw, EMAC, EMAC_MAC_CTRL);
 
-	if (CHK_HW_FLAG(VLANSTRIP_EN))
+	if (TEST_FLAG(hw, HW_VLANSTRIP_EN))
 		mac |= VLAN_STRIP;
 	else
 		mac &= ~VLAN_STRIP;
 
-	if (CHK_HW_FLAG(PROMISC_EN))
+	if (TEST_FLAG(hw, HW_PROMISC_EN))
 		mac |= PROM_MODE;
 	else
 		mac &= ~PROM_MODE;
 
-	if (CHK_HW_FLAG(MULTIALL_EN))
+	if (TEST_FLAG(hw, HW_MULTIALL_EN))
 		mac |= MULTI_ALL;
 	else
 		mac &= ~MULTI_ALL;
 
-	if (CHK_HW_FLAG(LOOPBACK_EN))
+	if (TEST_FLAG(hw, HW_LOOPBACK_EN))
 		mac |= MAC_LP_EN;
 	else
 		mac &= ~MAC_LP_EN;
@@ -1376,7 +1376,7 @@ void emac_hw_config_mac(struct emac_hw *hw)
 	emac_hw_config_rx_ctrl(hw);
 	emac_hw_config_dma_ctrl(hw);
 
-	if (CHK_HW_FLAG(PTP_CAP))
+	if (TEST_FLAG(hw, HW_PTP_CAP))
 		emac_ptp_config(hw);
 
 	val = emac_reg_r32(hw, EMAC, EMAC_AXI_MAST_CTRL);
@@ -1486,7 +1486,7 @@ void emac_hw_start_mac(struct emac_hw *hw)
 		     (INT_RD_CLR_EN | LPW_MODE |
 		      IRQ_MODERATOR_EN | IRQ_MODERATOR2_EN));
 
-	if (CHK_HW_FLAG(PTP_CAP))
+	if (TEST_FLAG(hw, HW_PTP_CAP))
 		emac_ptp_set_linkspeed(hw, hw->link_speed);
 
 	emac_hw_config_mac_ctrl(hw);
