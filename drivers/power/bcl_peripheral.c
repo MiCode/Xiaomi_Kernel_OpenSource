@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -178,7 +178,7 @@ static void convert_ibat_to_adc_val(int *val)
 	if (!bcl_perph)
 		return;
 	perph_data = &bcl_perph->param[BCL_PARAM_CURRENT];
-	*val /= (*val * 100 / (100 + perph_data->gain_factor_num
+	*val = (*val * 100 / (100 + perph_data->gain_factor_num
 		* BCL_CONSTANT_NUM / perph_data->gain_factor_den)
 		- perph_data->offset_factor_num
 		/ perph_data->offset_factor_den)
