@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@ struct pil_priv;
 /**
  * struct pil_desc - PIL descriptor
  * @name: string used for pil_get()
+ * @fw_name: firmware name
  * @dev: parent device
  * @ops: callback functions
  * @owner: module the descriptor belongs to
@@ -38,6 +39,7 @@ struct pil_priv;
  */
 struct pil_desc {
 	const char *name;
+	const char *fw_name;
 	struct device *dev;
 	const struct pil_reset_ops *ops;
 	struct module *owner;

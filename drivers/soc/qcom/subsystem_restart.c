@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,6 +181,16 @@ static struct subsys_device *to_subsys(struct device *d)
 	return container_of(d, struct subsys_device, dev);
 }
 
+static struct subsys_tracking *subsys_get_track(struct subsys_device *subsys)
+{
+	struct subsys_soc_restart_order *order = subsys->restart_order;
+
+	if (order)
+		return &order->track;
+	else
+		return &subsys->track;
+}
+
 static ssize_t name_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
 {
@@ -258,6 +268,32 @@ static ssize_t system_debug_store(struct device *dev,
 	return count;
 }
 
+static ssize_t
+firmware_name_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", to_subsys(dev)->desc->fw_name);
+}
+
+static ssize_t firmware_name_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct subsys_device *subsys = to_subsys(dev);
+	struct subsys_tracking *track = subsys_get_track(subsys);
+	const char *p;
+
+	p = memchr(buf, '\n', count);
+	if (p)
+		count = p - buf;
+	if (!count)
+		return -EPERM;
+
+	pr_info("Changing subsys fw_name to %s\n", buf);
+	mutex_lock(&track->lock);
+	strlcpy(subsys->desc->fw_name, buf, count + 1);
+	mutex_unlock(&track->lock);
+	return count;
+}
+
 int subsys_get_restart_level(struct subsys_device *dev)
 {
 	return dev->restart_level;
@@ -299,6 +335,7 @@ static struct device_attribute subsys_attrs[] = {
 	__ATTR_RO(crash_count),
 	__ATTR(restart_level, 0644, restart_level_show, restart_level_store),
 	__ATTR(system_debug, 0644, system_debug_show, system_debug_store),
+	__ATTR(firmware_name, 0644, firmware_name_show, firmware_name_store),
 	__ATTR_NULL,
 };
 
@@ -649,26 +686,7 @@ static void subsys_stop(struct subsys_device *subsys)
 	notify_each_subsys_device(&subsys, 1, SUBSYS_AFTER_SHUTDOWN, NULL);
 }
 
-static struct subsys_tracking *subsys_get_track(struct subsys_device *subsys)
-{
-	struct subsys_soc_restart_order *order = subsys->restart_order;
-
-	if (order)
-		return &order->track;
-	else
-		return &subsys->track;
-}
-
-/**
- * subsytem_get() - Boot a subsystem
- * @name: pointer to a string containing the name of the subsystem to boot
- *
- * This function returns a pointer if it succeeds. If an error occurs an
- * ERR_PTR is returned.
- *
- * If this feature is disable, the value %NULL will be returned.
- */
-void *subsystem_get(const char *name)
+void *__subsystem_get(const char *name, const char *fw_name)
 {
 	struct subsys_device *subsys;
 	struct subsys_device *subsys_d;
@@ -696,6 +714,11 @@ void *subsystem_get(const char *name)
 	track = subsys_get_track(subsys);
 	mutex_lock(&track->lock);
 	if (!subsys->count) {
+		if (fw_name) {
+			pr_info("Changing subsys fw_name to %s\n", fw_name);
+			strlcpy(subsys->desc->fw_name, fw_name,
+				sizeof(subsys->desc->fw_name));
+		}
 		ret = subsys_start(subsys);
 		if (ret) {
 			retval = ERR_PTR(ret);
@@ -714,7 +737,37 @@ err_module:
 	put_device(&subsys->dev);
 	return retval;
 }
+
+/**
+ * subsytem_get() - Boot a subsystem
+ * @name: pointer to a string containing the name of the subsystem to boot
+ *
+ * This function returns a pointer if it succeeds. If an error occurs an
+ * ERR_PTR is returned.
+ *
+ * If this feature is disable, the value %NULL will be returned.
+ */
+void *subsystem_get(const char *name)
+{
+	return __subsystem_get(name, NULL);
+}
 EXPORT_SYMBOL(subsystem_get);
+
+/**
+ * subsystem_get_with_fwname() - Boot a subsystem using the firmware name passed in
+ * @name: pointer to a string containing the name of the subsystem to boot
+ * @fw_name: pointer to a string containing the subsystem firmware image name
+ *
+ * This function returns a pointer if it succeeds. If an error occurs an
+ * ERR_PTR is returned.
+ *
+ * If this feature is disable, the value %NULL will be returned.
+ */
+void *subsystem_get_with_fwname(const char *name, const char *fw_name)
+{
+	return __subsystem_get(name, fw_name);
+}
+EXPORT_SYMBOL(subsystem_get_with_fwname);
 
 /**
  * subsystem_put() - Shutdown a subsystem
@@ -1092,7 +1145,8 @@ static int subsys_device_open(struct inode *inode, struct file *file)
 	if (!subsys_dev)
 		return -EINVAL;
 
-	retval = subsystem_get(subsys_dev->desc->name);
+	retval = subsystem_get_with_fwname(subsys_dev->desc->name,
+					subsys_dev->desc->fw_name);
 	if (IS_ERR(retval))
 		return PTR_ERR(retval);
 
@@ -1466,6 +1520,8 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	subsys->dev.release = subsys_device_release;
 	subsys->notif_state = -1;
 	subsys->desc->sysmon_pid = -1;
+	strlcpy(subsys->desc->fw_name, desc->name,
+			sizeof(subsys->desc->fw_name));
 
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 

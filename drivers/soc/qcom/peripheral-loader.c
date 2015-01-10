@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -556,7 +556,7 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 
 	if (seg->filesz) {
 		snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d",
-				desc->name, num);
+				desc->fw_name, num);
 		ret = request_firmware_direct(fw_name, desc->dev, seg->paddr,
 					      seg->filesz, desc->map_fw_mem,
 					      desc->unmap_fw_mem, map_data);
@@ -660,7 +660,7 @@ int pil_boot(struct pil_desc *desc)
 	pil_release_mmap(desc);
 
 	down_read(&pil_pm_rwsem);
-	snprintf(fw_name, sizeof(fw_name), "%s.mdt", desc->name);
+	snprintf(fw_name, sizeof(fw_name), "%s.mdt", desc->fw_name);
 	ret = request_firmware(&fw, fw_name, desc->dev);
 	if (ret) {
 		pil_err(desc, "Failed to locate %s\n", fw_name);
