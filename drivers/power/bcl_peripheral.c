@@ -350,7 +350,7 @@ static int bcl_clear_vbat_min(void)
 {
 	int ret  = 0;
 
-	ret = bcl_write_register(BCL_VBAT_MIN, BIT(7));
+	ret = bcl_write_register(BCL_VBAT_MIN_CLR, BIT(7));
 	if (ret)
 		pr_err("Error in clearing vbat min reg. err:%d", ret);
 
@@ -361,7 +361,7 @@ static int bcl_clear_ibat_max(void)
 {
 	int ret  = 0;
 
-	ret = bcl_write_register(BCL_IBAT_MAX, BIT(7));
+	ret = bcl_write_register(BCL_IBAT_MAX_CLR, BIT(7));
 	if (ret)
 		pr_err("Error in clearing ibat max reg. err:%d", ret);
 
