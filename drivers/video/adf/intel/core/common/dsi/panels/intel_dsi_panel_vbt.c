@@ -649,6 +649,9 @@ static int panel_generic_init(struct dsi_pipe *pipe)
 		mipi_config->bta_enabled ? DISABLE_VIDEO_BTA : 0;
 	intel_dsi->dual_link = mipi_config->dual_link;
 
+	if (intel_dsi->dual_link)
+		intel_dsi->ports = ((1 << PORT_A) | (1 << PORT_C));
+
 	pclk = mode->clock;
 
 	/* Burst Mode Ratio
