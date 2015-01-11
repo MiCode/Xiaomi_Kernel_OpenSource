@@ -1334,8 +1334,7 @@ static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 	return ret;
 }
 
-
-static int power_up(struct v4l2_subdev *sd)
+static int __power_up(struct v4l2_subdev *sd)
 {
 	struct ov5693_device *dev = to_ov5693_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -1412,6 +1411,21 @@ static int power_down(struct v4l2_subdev *sd)
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
+	return ret;
+}
+
+static int power_up(struct v4l2_subdev *sd)
+{
+	static const int retry_count = 4;
+	int i, ret;
+
+	for (i = 0; i < retry_count; i++) {
+		ret = __power_up(sd);
+		if (!ret)
+			return 0;
+
+		power_down(sd);
+	}
 	return ret;
 }
 
