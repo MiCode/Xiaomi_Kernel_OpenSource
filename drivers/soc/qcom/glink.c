@@ -2793,7 +2793,8 @@ static struct channel_ctx *find_l_ctx_get(struct channel_ctx *r_ctx)
 			list_for_each_entry(ctx, &xprt->channels,
 							port_list_node)
 				if (!strcmp(ctx->name, r_ctx->name) &&
-							ctx->local_xprt_req) {
+							ctx->local_xprt_req &&
+							ctx->local_xprt_resp) {
 					l_ctx = ctx;
 					rwref_get(&l_ctx->ch_state_lhc0);
 				}
@@ -2834,7 +2835,8 @@ static struct channel_ctx *find_r_ctx_get(struct channel_ctx *l_ctx)
 			list_for_each_entry(ctx, &xprt->channels,
 							port_list_node)
 				if (!strcmp(ctx->name, l_ctx->name) &&
-							ctx->remote_xprt_req) {
+							ctx->remote_xprt_req &&
+							ctx->remote_xprt_resp) {
 					r_ctx = ctx;
 					rwref_get(&r_ctx->ch_state_lhc0);
 				}
