@@ -12,8 +12,8 @@
  *
  */
 
-#ifndef UFS_QCOM_PHY_H_
-#define UFS_QCOM_PHY_H_
+#ifndef PHY_QCOM_UFS_H_
+#define PHY_QCOM_UFS_H_
 
 #include <linux/io.h>
 #include <linux/kernel.h>
@@ -79,36 +79,13 @@ struct ufs_qcom_phy {
 	u16 host_ctrl_rev_step;
 
 	/*
-	 * As part of UFS power management, UFS link would be put in hibernate
-	 * and UFS device would be put in SLEEP mode as part of runtime/system
-	 * suspend callback. But when system goes into suspend with VDD
-	 * minimization, UFS PHY states are being reset which means UFS link
-	 * hibernate exit command on system resume would fail.
-	 * If this quirk is enabled then above issue is workaround by saving
-	 * the UFS PHY state information before system goes into suspend and
-	 * restoring the saved state information during system resume but
-	 * before executing the hibern8 exit command.
-	 * Note that this quirk will help restoring the PHY state if even when
-	 * link in not kept in hibern8 during suspend.
-	 */
-
-	/*
-	* If UFS PHY power down is deasserted and power is restored to analog
-	* circuits, the rx_sigdet can glitch. If the glitch is wide enough,
-	* it can trigger the digital logic to think it saw a DIF-N and cause
-	* it to exit Hibern8. Disabling the rx_sigdet during power-up masks
-	* the glitch.
-	*/
-	#define UFS_QCOM_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE	BIT(0)
-
-	/*
 	* If UFS link is put into Hibern8 and if UFS PHY analog hardware is
 	* power collapsed (by clearing UFS_PHY_POWER_DOWN_CONTROL), Hibern8
 	* exit might fail even after powering on UFS PHY analog hardware.
 	* Enabling this quirk will help to solve above issue by doing
 	* custom PHY settings just before PHY analog power collapse.
 	*/
-	#define UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE	BIT(1)
+	#define UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE	BIT(0)
 
 	char name[UFS_QCOM_PHY_NAME_LEN];
 	struct ufs_qcom_phy_calibration *cached_regs;
