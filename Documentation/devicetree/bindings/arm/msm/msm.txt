@@ -80,7 +80,8 @@ SoCs:
 - FSM9910
   compatible = "qcom,fsm9900"
 
-
+- MSM8929
+  compatible = "qcom,msm8929"
 
 Generic board variants:
 
@@ -203,3 +204,5 @@ compatible = "qcom,fsm9010-mtp"
 compatible = "qcom,fsm9900-cdp"
 compatible = "qcom,fsm9900-mtp"
 compatible = "qcom,msmvpipa-sim"
+compatible = "qcom,msm8929-cdp"
+compatible = "qcom,msm8929-mtp"
