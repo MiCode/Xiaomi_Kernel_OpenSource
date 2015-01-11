@@ -182,8 +182,9 @@ static void __scsi_queue_insert(struct scsi_cmnd *cmd, int reason, int unbusy)
 	 * before blk_cleanup_queue() finishes.
 	 */
 	spin_lock_irqsave(q->queue_lock, flags);
-	blk_requeue_request(q, cmd->request);
-	kblockd_schedule_work(q, &device->requeue_work);
+	/* Schedule requeue work only if request was successfully requeued */
+	if (blk_requeue_request(q, cmd->request))
+		kblockd_schedule_work(q, &device->requeue_work);
 	spin_unlock_irqrestore(q->queue_lock, flags);
 }
 
