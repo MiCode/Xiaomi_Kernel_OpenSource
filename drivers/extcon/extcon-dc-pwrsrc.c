@@ -82,7 +82,7 @@
 #define PWRSRC_IRQ_CFG_MASK		0x1C
 
 #define DC_BC12_IRQ_CFG_REG		0x45
-#define BC12_IRQ_CFG_MASK		0x3
+#define BC12_IRQ_CFG_MASK		0x2
 
 #define DC_XPWR_CHARGE_CUR_DCP		2000
 #define DC_XPWR_CHARGE_CUR_CDP		1500
@@ -487,20 +487,18 @@ static int dc_xpwr_pwrsrc_probe(struct platform_device *pdev)
 
 	/* Unmask VBUS interrupt */
 	intel_soc_pmic_writeb(DC_PWRSRC_IRQ_CFG_REG, PWRSRC_IRQ_CFG_MASK);
+	intel_soc_pmic_clearb(DC_BC_GLOBAL_REG, BC_GLOBAL_RUN);
 	if (info->pdata->en_chrg_det) {
 		/* unmask the BC1.2 complte interrupts */
 		intel_soc_pmic_writeb(DC_BC12_IRQ_CFG_REG, BC12_IRQ_CFG_MASK);
 		/* enable the charger detection logic */
 		intel_soc_pmic_setb(DC_BC_GLOBAL_REG, BC_GLOBAL_RUN);
-	}
-
-	if (info->pdata->en_chrg_det)
-		ret = handle_chrg_det_event(info);
-	else
+	} else {
 		ret = handle_pwrsrc_event(info);
-	if (ret < 0)
-		dev_warn(&info->pdev->dev, "error in PWRSRC evt handling\n");
-
+		if (ret < 0)
+			dev_warn(&info->pdev->dev,
+				"error in PWRSRC evt handling\n");
+	}
 	return 0;
 
 intr_reg_failed:
