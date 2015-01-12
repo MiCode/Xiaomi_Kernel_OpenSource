@@ -324,6 +324,7 @@ struct gpio_bank_pnp {
 	int			ngpio;
 	struct gpio_pad_info	*pads_info;
 	struct chv_gpio		 *cg;
+	char			*community_name;
 };
 
 /* For invalid GPIO number(not found in GPIO list),
@@ -676,26 +677,31 @@ static struct gpio_bank_pnp chv_banks_pnp[] = {
 		.name = "GPO0",
 		.ngpio = ARRAY_SIZE(southwest_pads_info),
 		.pads_info = southwest_pads_info,
+		.community_name = "southwest",
 	},
 	{
 		.name = "GPO1",
 		.ngpio = ARRAY_SIZE(north_pads_info),
 		.pads_info = north_pads_info,
+		.community_name = "north",
 	},
 	{
 		.name = "GPO2",
 		.ngpio = ARRAY_SIZE(east_pads_info),
 		.pads_info = east_pads_info,
+		.community_name = "east",
 	},
 	{
 		.name = "GPO3",
 		.ngpio = ARRAY_SIZE(southeast_pads_info),
 		.pads_info = southeast_pads_info,
+		.community_name = "southeast",
 	},
 	{
 		.name = "GPO4",
 		.ngpio = ARRAY_SIZE(virtual_pads_info),
 		.pads_info = virtual_pads_info,
+		.community_name = "virtual",
 	},
 };
 
@@ -707,6 +713,7 @@ struct chv_gpio {
 	struct gpio_pad_info	*pad_info;
 	struct irq_domain	*domain;
 	int			intr_lines[MAX_INTR_LINE_NUM];
+	char			*community_name;
 };
 
 static DEFINE_SPINLOCK(chv_reg_access_lock);
@@ -1116,12 +1123,12 @@ static void chv_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 		else
 			int_type = "          ";
 
-		seq_printf(s, "\tgpio-%-3d (%-20.20s) %s %s pad-%-3d ",
+		seq_printf(s, "\tgpio-%-3d (%-20.20s) %s-%-3d \t%s %s ",
 			i + chip->base,
 			label,
+			cg->community_name, i,
 			config,
-			(ctrl0 & CV_GPIO_RX_STAT) ? "high" : "low ",
-			cg->pad_info[i].pad);
+			(ctrl0 & CV_GPIO_RX_STAT) ? "high" : "low ");
 		seq_printf(s, "offset:0x%03x mux:%d \t%s IntSel:%d ",
 			offs,
 			(ctrl0 & CV_PAD_MODE_MASK) >> 16,
@@ -1255,6 +1262,7 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 		if (!strcmp(pdev->name, bank->name)) {
 			cg->chip.ngpio = bank->ngpio;
 			cg->pad_info = bank->pads_info;
+			cg->community_name = bank->community_name;
 			bank->cg = cg;
 			break;
 		}
