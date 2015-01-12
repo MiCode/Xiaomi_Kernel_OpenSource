@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,8 +189,11 @@ static void glink_ssr_link_state_cb(struct glink_link_state_cb_info *cb_info,
 		GLINK_INFO("<SSR> %s: LINK DOWN %s:%s\n", __func__,
 				cb_info->edge,
 				cb_info->transport);
-		ss_info->link_up = false;
-		ss_info->handle = NULL;
+		if (ss_info) {
+			GLINK_INFO("<SSR> %s: ss_info is NULL\n", __func__);
+			ss_info->link_up = false;
+			ss_info->handle = NULL;
+		}
 	}
 }
 
@@ -761,21 +764,12 @@ static int glink_ssr_probe(struct platform_device *pdev)
 	ss_info->handle = NULL;
 	ss_info->cb_data = NULL;
 
-	link_state_handle = glink_register_link_state_cb(ss_info->link_info,
-			NULL);
-	if (IS_ERR_OR_NULL(link_state_handle)) {
-		GLINK_ERR("<SSR> %s: Could not register link state cb\n",
-				__func__);
-		ret = PTR_ERR(link_state_handle);
-		goto label_or_edge_missing;
-	}
-
 	nb = kmalloc(sizeof(struct restart_notifier_block), GFP_KERNEL);
 	if (!nb) {
 		GLINK_ERR("<SSR> %s: Could not allocate notifier block\n",
 				__func__);
 		ret = -ENOMEM;
-		goto restart_notifier_fail;
+		goto label_or_edge_missing;
 	}
 
 	nb->subsystem = subsys_name;
@@ -834,8 +828,20 @@ static int glink_ssr_probe(struct platform_device *pdev)
 	}
 
 	list_add_tail(&ss_info->subsystem_list_node, &subsystem_list);
+
+	link_state_handle = glink_register_link_state_cb(ss_info->link_info,
+			NULL);
+	if (IS_ERR_OR_NULL(link_state_handle)) {
+		GLINK_ERR("<SSR> %s: Could not register link state cb\n",
+				__func__);
+		ret = PTR_ERR(link_state_handle);
+		goto link_state_register_fail;
+	}
+
 	return 0;
 
+link_state_register_fail:
+	list_del(&ss_info->subsystem_list_node);
 invalid_dt_node:
 	kfree(ss_info_leaf);
 notify_edges_not_present:
@@ -843,8 +849,6 @@ notify_edges_not_present:
 	delete_ss_info_notify_list(ss_info);
 nb_registration_fail:
 	kfree(nb);
-restart_notifier_fail:
-	glink_unregister_link_state_cb(link_state_handle);
 label_or_edge_missing:
 	kfree(link_info);
 link_info_alloc_failed:
