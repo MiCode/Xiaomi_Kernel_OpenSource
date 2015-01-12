@@ -339,7 +339,7 @@ static int pp_ad_attenuate_bl(struct mdss_ad_info *ad, u32 bl, u32 *bl_out);
 static int pp_ad_linearize_bl(struct mdss_ad_info *ad, u32 bl, u32 *bl_out,
 		int inv);
 static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
-		int *ad_bl_out);
+		bool *bl_out_notify);
 static int pp_num_to_side(struct mdss_mdp_ctl *ctl, u32 num);
 static int pp_update_pcc_pipe_setup(struct mdss_mdp_pipe *pipe, u32 location);
 
@@ -2105,11 +2105,8 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 			bl_mfd = ctl->mfd;
 		}
 
-		mutex_lock(&bl_mfd->bl_lock);
-		bl = bl_mfd->ad_bl_level;
-		mutex_unlock(&bl_mfd->bl_lock);
-
 		mutex_lock(&ad->lock);
+		bl = bl_mfd->ad_bl_level;
 		if (PP_AD_STATE_CFG & ad->state)
 			pp_ad_cfg_write(&mdata->ad_off[dspp_num], ad);
 		if (PP_AD_STATE_INIT & ad->state)
@@ -2388,17 +2385,16 @@ int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd)
 		return -EPERM;
 	}
 
-	mfd->mdp.ad_invalidate_input = pp_ad_invalidate_input;
 	mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
-
 	return 0;
 }
 
-int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
-	int *ad_bl_out)
+static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
+	bool *bl_out_notify)
 {
 	int ret = -1;
 	int temp = bl_in;
+	u32 ad_bl_out = 0;
 	struct mdss_ad_info *ad;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
@@ -2442,7 +2438,7 @@ int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 		mutex_unlock(&ad->lock);
 		return ret;
 	}
-	*ad_bl_out = temp;
+	ad_bl_out = temp;
 
 	ret = pp_ad_linearize_bl(ad, temp, &temp, MDP_PP_AD_BL_LINEAR_INV);
 	if (ret) {
@@ -2451,6 +2447,14 @@ int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 		return ret;
 	}
 	*bl_out = temp;
+
+	if (ad_bl_out != mfd->ad_bl_level) {
+		mfd->ad_bl_level = ad_bl_out;
+		*bl_out_notify = true;
+	}
+
+	if (*bl_out_notify)
+		pp_ad_invalidate_input(mfd);
 	mutex_unlock(&ad->lock);
 	return 0;
 }
@@ -5353,10 +5357,6 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 
 	mdata = mfd_to_mdata(mfd);
 
-	mutex_lock(&bl_mfd->bl_lock);
-	bl = bl_mfd->ad_bl_level;
-	mutex_unlock(&bl_mfd->bl_lock);
-
 	mutex_lock(&ad->lock);
 	if (ad->sts != last_sts || ad->state != last_state) {
 		last_sts = ad->sts;
@@ -5374,6 +5374,8 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		ad->sts &= ~PP_AD_STS_DIRTY_DATA;
 		ad->state |= PP_AD_STATE_DATA;
 		pr_debug("dirty data, last_bl = %d\n", ad->last_bl);
+		bl = bl_mfd->ad_bl_level;
+
 		if ((ad->cfg.mode == MDSS_AD_MODE_AUTO_STR) &&
 							(ad->last_bl != bl)) {
 			ad->last_bl = bl;
