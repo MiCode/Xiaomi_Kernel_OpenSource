@@ -502,6 +502,10 @@ Subnode properties:
 - qcom,mdss-idle-power-collapse-enabled: Boolean property that enables support
 					for mdss power collapse in idle
 					screen use cases with smart panels.
+- qcom,boot-indication-enabled: Boolean property that enables turning on the blue
+				LED for notifying that the device is in boot
+				process.
+
 - qcom,mdss-pp-offets: A node that lists the offsets of post processing blocks
 		       from base module.
 		       -- qcom,mdss-mdss-sspp-igc-lut-off: This 32 bit value provides the
