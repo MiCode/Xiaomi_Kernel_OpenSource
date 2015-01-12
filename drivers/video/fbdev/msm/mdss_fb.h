@@ -19,6 +19,7 @@
 #include <linux/msm_mdp_ext.h>
 #include <linux/types.h>
 #include <linux/notifier.h>
+#include <linux/leds.h>
 
 #include "mdss_panel.h"
 #include "mdss_mdp_splash_logo.h"
@@ -309,6 +310,7 @@ struct msm_fb_data_type {
 	u32 thermal_level;
 
 	int fb_mmap_type;
+	struct led_trigger *boot_notification_led;
 };
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
