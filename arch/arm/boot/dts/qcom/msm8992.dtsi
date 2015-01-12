@@ -155,12 +155,6 @@
 			label = "secure_mem";
 		};
 
-		adsp_mem: adsp_region@0 {
-                        linux,reserve-contiguous-region;
-			reg = <0 0 0 0x300000>;
-			label = "adsp_mem";
-		};
-
 		qsecom_mem: qsecom_region@0 {
 			linux,reserve-contiguous-region;
 			reg = <0 0 0 0x1800000>;
@@ -1603,7 +1597,7 @@
 		reg = <0x00000000 0x00010000>;
 		reg-names = "rfsa_dsp";
 		qcom,client-id = <0x011013ec>;
-		linux,contiguous-region = <&adsp_mem>;
+		linux,contiguous-region = <&secure_mem>;
 	};
 
 	qcom,mdm_sharedmem@00000000 {
@@ -1618,7 +1612,7 @@
 		reg = <0x00000000 0x00010000>;
 		reg-names = "rfsa_sensor";
 		qcom,client-id = <0x011013ee>;
-		linux,contiguous-region = <&adsp_mem>;
+		linux,contiguous-region = <&secure_mem>;
 	};
 
 	qcom,venus@fdce0000 {
@@ -2719,7 +2713,7 @@
 	adsp_heap {
 		compatible = "qcom,msm-shared-memory";
 		qcom,proc-id = <1>;
-		linux,contiguous-region = <&adsp_mem>;
+		linux,contiguous-region = <&secure_mem>;
 	};
 
 	qcom,msm-ssc-sensors {
