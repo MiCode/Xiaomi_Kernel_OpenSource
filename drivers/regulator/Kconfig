@@ -608,5 +608,13 @@ config REGULATOR_WHISKEY_COVE
            Choose this if platform has WHISKEY COVE pmic and you need
            voltage regulator driver.
 
+config REGULATOR_DOLLAR_COVE
+        bool "Voltage regulator driver for DOLLAR COVE PMIC"
+        ---help---
+           Select for the voltage regulator driver on DOLLAR_COVE PMIC.
+           DOLLAR COVE pmic is used in some variation of CHT platform.
+           Choose this if platform has DOLLAR COVE pmic and you need
+           voltage regulator driver.
+
 endif
 
