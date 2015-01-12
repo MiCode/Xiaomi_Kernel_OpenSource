@@ -52,9 +52,7 @@ static const struct emac_tstamp_hw_delay emac_ptp_hw_delay[] = {
 static inline u32 get_rtc_ref_clkrate(struct emac_hw *hw)
 {
 	struct emac_adapter *adpt = emac_hw_get_adap(hw);
-	struct emac_clk_info *clk_info = &adpt->clk_info[EMAC_125M_CLK];
-
-	return clk_get_rate(clk_info->clk);
+	return clk_get_rate(adpt->clk[EMAC_CLK_125M].clk);
 }
 
 static inline bool is_valid_frac_ns_adj(s32 val)
