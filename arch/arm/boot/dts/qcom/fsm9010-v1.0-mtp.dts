@@ -35,11 +35,11 @@
 	};
 
 	pcie0: qcom,pcie@fc520000 {
-		status = "ok";
+		status = "disabled";
 	};
 
 	pcie1: qcom,pcie@fc528000 {
-		status = "ok";
+		status = "disabled";
 	};
 
 	qfec0: qcom,qfec@0xe7000000 {
