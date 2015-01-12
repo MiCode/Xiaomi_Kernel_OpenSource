@@ -61,6 +61,15 @@
 		qcom,key-codes = <139 172 158>;
 		qcom,y-offset = <0>;
 	};
+
+	sound {
+		qcom,model = "msm8939-snd-card-skul";
+		qcom,msm-spk-ext-pa = <&msm_gpio 0 0>;
+		pinctrl-names = "cdc_lines_act",
+				"cdc_lines_sus";
+		pinctrl-0 = <&cdc_pdm_lines_act &cdc_ext_spk_pa_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus &cdc_ext_spk_pa_sus>;
+	};
 };
 
 &sdhc_2 {
