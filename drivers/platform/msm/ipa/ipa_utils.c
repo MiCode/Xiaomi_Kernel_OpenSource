@@ -4230,7 +4230,8 @@ int ipa_tag_process(struct ipa_desc desc[],
 	IPADBG("waiting for TAG response\n");
 	res = wait_for_completion_timeout(&comp->comp, timeout);
 	if (res == 0) {
-		IPAERR("timeout for waiting for TAG response\n");
+		IPAERR("timeout (%lu msec) on waiting for TAG response\n",
+			timeout);
 		WARN_ON(1);
 		if (atomic_dec_return(&comp->cnt) == 0)
 			kfree(comp);
