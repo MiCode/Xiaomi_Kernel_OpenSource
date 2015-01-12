@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1096,6 +1096,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	unsigned int pmqos_wakeup_vote = device->pwrctrl.pm_qos_wakeup_latency;
 	unsigned int pmqos_active_vote = device->pwrctrl.pm_qos_active_latency;
 
+	/* make sure ADRENO_DEVICE_STARTED is not set here */
+	BUG_ON(test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv));
+
 	pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
 			pmqos_wakeup_vote);
 
@@ -1168,7 +1171,10 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
 	adreno_irqctrl(adreno_dev, 1);
 
-	adreno_perfcounter_start(adreno_dev);
+	status = adreno_perfcounter_start(adreno_dev);
+
+	if (status)
+		goto error_irq_off;
 
 	status = adreno_ringbuffer_cold_start(adreno_dev);
 
