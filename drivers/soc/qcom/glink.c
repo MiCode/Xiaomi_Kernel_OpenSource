@@ -4206,7 +4206,7 @@ static int glink_init(void)
 
 	return 0;
 }
-module_init(glink_init);
+arch_initcall(glink_init);
 
 MODULE_DESCRIPTION("MSM Generic Link (G-Link) Transport");
 MODULE_LICENSE("GPL v2");
