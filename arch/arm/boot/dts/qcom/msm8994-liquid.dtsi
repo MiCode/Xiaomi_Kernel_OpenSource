@@ -64,6 +64,11 @@
 &dsi_dual_jdi_4k_video_1 {
 	qcom,cont-splash-enabled;
 };
+
+&mdss_fb0 {
+	qcom,boot-indication-enabled;
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_dual_jdi_4k_video_0>;
 	pinctrl-names = "mdss_default", "mdss_sleep";

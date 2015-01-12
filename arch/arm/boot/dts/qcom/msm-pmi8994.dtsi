@@ -577,6 +577,7 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "blue";
+				linux,default-trigger = "boot-indication";
 			};
 		};
 
