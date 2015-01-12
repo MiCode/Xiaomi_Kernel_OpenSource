@@ -175,6 +175,15 @@ config OV5645
 		1280 * 270. It does not support auto focus. It supports
 		few special effects like saturation.
 
+config OV2685
+	bool "Sensor OV2685 (YUV 1.92MP)"
+	depends on MSMB_CAMERA
+	---help---
+		OV2685 is Omnivision YUV sensor. It supports 1.92 MP preview
+		and snapshot. The preview and snapshot resolution shall be
+		1600 * 1200 at 30fps. It supports 1080 * 720 at 60fps.It does
+		not support auto focus. It supports 2 mipi lanes.
+
 config SP1628
 	bool "Sensor SP1628 (YUV 720P)"
 	depends on MSMB_CAMERA

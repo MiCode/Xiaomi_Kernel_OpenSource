@@ -69,6 +69,7 @@ Required properties:
     - "shinetech,gc0339"
     - "shinetech,hi256"
     - "shinetech,s5k4e1"
+    - "ovti,ov2685"
     - "ovti,ov5645"
     - "qcom,mt9m114"
 - reg : should contain i2c slave address of the device
