@@ -72,9 +72,9 @@
 #define IS_RID_B(rid) (rid > RID_B_MIN && rid < RID_B_MAX)
 #define IS_RID_C(rid) (rid > RID_C_MIN && rid < RID_C_MAX)
 
-#define KELVIN_OFFSET	2732
+#define KELVIN_OFFSET	27315
 #define DECI_KELVIN_TO_CELSIUS(t) ((t - KELVIN_OFFSET) / 10)
-#define CELSIUS_TO_DECI_KELVIN(t) ((t * 10) + KELVIN_OFFSET)
+#define CELSIUS_TO_DECI_KELVIN(t) (((t * 100) + KELVIN_OFFSET) / 10)
 
 /* Type definitions */
 static void pmic_bat_zone_changed(void);
@@ -168,6 +168,12 @@ static unsigned long temp_to_raw(
 	if (i == count - 1)
 		return -ENOENT;
 
+	if (temp == adc_tbl[i].temp)
+		return adc_tbl[i].raw;
+
+	if (temp == adc_tbl[i+1].temp)
+		return adc_tbl[i+1].raw;
+
 	delta_temp = adc_tbl[i+1].temp - adc_tbl[i].temp;
 	delta_raw = adc_tbl[i+1].raw - adc_tbl[i].raw;
 	raw = adc_tbl[i].raw +
@@ -203,6 +209,10 @@ static int pmic_write_reg(u16 addr, u8 val)
 static int __pmic_write_tt(u8 addr, u8 data)
 {
 	int ret;
+
+	/* If TT is locked return true */
+	if (chc.tt_lock)
+		return 0;
 
 	ret = pmic_write_reg(chc.reg_map->pmic_chrttaddr, addr);
 	if (!ret)
@@ -1584,7 +1594,7 @@ static inline int register_cooling_device(struct pmic_chrgr_drv_context *chc)
 static int pmic_chrgr_probe(struct platform_device *pdev)
 {
 	int ret = 0, i = 0, irq;
-	u8 val;
+	u8 val, chgr_ctrl0;
 
 	if (!pdev)
 		return -ENODEV;
@@ -1638,6 +1648,11 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 		chc.invalid_batt = true;
 		chc.bcprof = NULL;
 	}
+
+	chgr_ctrl0 = intel_soc_pmic_readb(chc.reg_map->pmic_chgrctrl0);
+
+	if (chgr_ctrl0 >= 0)
+		chc.tt_lock = !!(chgr_ctrl0 & CHGRCTRL0_TTLCK_MASK);
 
 	if (intel_soc_pmic_update(chc.reg_map->pmic_chgrctrl0,
 			SWCONTROL_ENABLE|CHGRCTRL0_CCSM_OFF_MASK,

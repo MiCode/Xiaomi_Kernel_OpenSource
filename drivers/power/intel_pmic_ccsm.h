@@ -372,6 +372,7 @@ struct pmic_chrgr_drv_context {
 	bool is_internal_usb_phy;
 	enum pmic_charger_cable_type charger_type;
 	bool otg_mode_enabled;
+	bool tt_lock;
 	unsigned int irq[PMIC_CCSM_IRQ_MAX];		/* GPE_ID or IRQ# */
 	int vbus_state;
 	int irq_cnt;
