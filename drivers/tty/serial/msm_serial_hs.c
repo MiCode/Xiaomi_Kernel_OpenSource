@@ -3,7 +3,7 @@
  * MSM 7k High speed uart driver
  *
  * Copyright (c) 2008 Google Inc.
- * Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
  * Modified: Nick Pelly <npelly@google.com>
  *
  * All source code in this file is licensed under the following license
@@ -1144,11 +1144,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	msm_hs_write(uport, UART_DM_CR, RESET_RX);
 	msm_hs_write(uport, UART_DM_CR, RESET_TX);
 
-	/* Disable RX and TX */
-	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_RX_DISABLE_BMSK);
-	msm_hs_write(uport, UART_DM_CR, STALE_EVENT_DISABLE);
-	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_TX_DISABLE_BMSK);
-
 	/* Issue TX BAM Start IFC command */
 	msm_hs_write(uport, UART_DM_CR, START_TX_BAM_IFC);
 
@@ -1189,11 +1184,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 		msm_uport->flow_control = true;
 	}
 	msm_hs_write(uport, UART_DM_MR1, data);
-	/* Enable RX and TX */
-	msm_hs_write(uport, UART_DM_CR, STALE_EVENT_ENABLE);
-	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_RX_EN_BMSK);
-	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_TX_EN_BMSK);
-
 	msm_hs_write(uport, UART_DM_IMR, msm_uport->imr_reg);
 	/* Ensure register IO completion */
 	mb();
