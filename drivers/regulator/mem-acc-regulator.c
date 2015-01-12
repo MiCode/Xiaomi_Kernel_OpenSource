@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/string.h>
 #include <soc/qcom/scm.h>
 
 #define MEM_ACC_DEFAULT_SEL_SIZE	2
@@ -39,6 +40,8 @@ enum {
 	MEMORY_L2,
 	MEMORY_MAX,
 };
+
+#define MEM_ACC_TYPE_MAX		6
 
 struct mem_acc_regulator {
 	struct device		*dev;
@@ -66,6 +69,9 @@ struct mem_acc_regulator {
 
 	void __iomem		*acc_custom_addr[MEMORY_MAX];
 	u32			*acc_custom_data[MEMORY_MAX];
+
+	phys_addr_t		mem_acc_type_addr[MEM_ACC_TYPE_MAX];
+	u32			*mem_acc_type_data;
 
 	/* eFuse parameters */
 	phys_addr_t		efuse_addr;
@@ -182,6 +188,24 @@ static void __update_acc_sel(struct mem_acc_regulator *mem_acc_vreg,
 	writel_relaxed(acc_data, mem_acc_vreg->acc_sel_base[mem_type]);
 }
 
+static void __update_acc_type(struct mem_acc_regulator *mem_acc_vreg,
+				int corner)
+{
+	int i, rc;
+
+	for (i = 0; i < MEM_ACC_TYPE_MAX; i++) {
+		if (mem_acc_vreg->mem_acc_type_addr[i]) {
+			rc = scm_io_write(mem_acc_vreg->mem_acc_type_addr[i],
+				mem_acc_vreg->mem_acc_type_data[corner - 1 + i *
+				mem_acc_vreg->num_corners]);
+			if (rc)
+				pr_err("scm_io_write: %pa failure rc:%d\n",
+					&(mem_acc_vreg->mem_acc_type_addr[i]),
+					rc);
+		}
+	}
+}
+
 static void __update_acc_custom(struct mem_acc_regulator *mem_acc_vreg,
 						int corner, int mem_type)
 {
@@ -202,6 +226,9 @@ static void update_acc_sel(struct mem_acc_regulator *mem_acc_vreg, int corner)
 		if (mem_acc_vreg->mem_acc_custom_supported[i])
 			__update_acc_custom(mem_acc_vreg, corner, i);
 	}
+
+	if (mem_acc_vreg->mem_acc_type_data)
+		__update_acc_type(mem_acc_vreg, corner);
 }
 
 static int mem_acc_regulator_set_voltage(struct regulator_dev *rdev,
@@ -544,12 +571,15 @@ static int override_mem_acc_custom_data(struct platform_device *pdev,
 	return 0;
 }
 
+#define MEM_TYPE_STRING_LEN	20
 static int mem_acc_init(struct platform_device *pdev,
 		struct mem_acc_regulator *mem_acc_vreg)
 {
 	struct resource *res;
-	int len, rc, i;
+	int len, rc, i, j;
 	u32 override_acc_fuse_sel[5];
+	bool acc_type_present = false;
+	char tmps[MEM_TYPE_STRING_LEN];
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "acc-en");
 	if (!res || !res->start) {
@@ -609,6 +639,18 @@ static int mem_acc_init(struct platform_device *pdev,
 		mem_acc_vreg->mem_acc_supported[MEMORY_L2] = true;
 	}
 
+	for (i = 0; i < MEM_ACC_TYPE_MAX; i++) {
+		snprintf(tmps, MEM_TYPE_STRING_LEN, "mem-acc-type%d", i + 1);
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, tmps);
+
+		if (!res || !res->start) {
+			pr_debug("'%s' resource missing or not used.\n", tmps);
+		} else {
+			mem_acc_vreg->mem_acc_type_addr[i] = res->start;
+			acc_type_present = true;
+		}
+	}
+
 	rc = populate_acc_data(mem_acc_vreg, "qcom,corner-acc-map",
 			&mem_acc_vreg->corner_acc_map,
 			&mem_acc_vreg->num_corners);
@@ -624,7 +666,7 @@ static int mem_acc_init(struct platform_device *pdev,
 		if (mem_acc_vreg->mem_acc_supported[i])
 			break;
 	}
-	if (i == MEMORY_MAX) {
+	if (i == MEMORY_MAX && !acc_type_present) {
 		pr_err("No mem-acc configuration specified\n");
 		return -EINVAL;
 	}
@@ -690,6 +732,36 @@ static int mem_acc_init(struct platform_device *pdev,
 				pr_err("Unable to override custom data for mem_type=%d rc=%d\n",
 					i, rc);
 				return rc;
+			}
+		}
+	}
+
+	if (acc_type_present) {
+		mem_acc_vreg->mem_acc_type_data = devm_kzalloc(
+			mem_acc_vreg->dev, mem_acc_vreg->num_corners *
+			MEM_ACC_TYPE_MAX * sizeof(u32), GFP_KERNEL);
+
+		if (!mem_acc_vreg->mem_acc_type_data) {
+			pr_err("Unable to allocate memory for mem_acc_type\n");
+			return -ENOMEM;
+		}
+
+		for (i = 0; i < MEM_ACC_TYPE_MAX; i++) {
+			if (mem_acc_vreg->mem_acc_type_addr[i]) {
+				snprintf(tmps, MEM_TYPE_STRING_LEN,
+					"qcom,mem-acc-type%d", i + 1);
+
+				j = i * mem_acc_vreg->num_corners;
+				rc = of_property_read_u32_array(
+					mem_acc_vreg->dev->of_node,
+					tmps,
+					&mem_acc_vreg->mem_acc_type_data[j],
+					mem_acc_vreg->num_corners);
+				if (rc) {
+					pr_err("Unable to get property %s rc=%d\n",
+						tmps, rc);
+					return rc;
+				}
 			}
 		}
 	}
