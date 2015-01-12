@@ -109,17 +109,6 @@ static int acc_stop_acceleration(struct atomisp_sub_device *asd)
 	return ret;
 }
 
-void atomisp_acc_init(struct atomisp_device *isp)
-{
-	int i;
-
-	for (i = 0; i < isp->num_of_streams; i++) {
-		INIT_LIST_HEAD(&isp->asd[i].acc.fw);
-		INIT_LIST_HEAD(&isp->asd[i].acc.memory_maps);
-		ida_init(&isp->asd[i].acc.ida);
-	}
-}
-
 void atomisp_acc_cleanup(struct atomisp_device *isp)
 {
 	int i;

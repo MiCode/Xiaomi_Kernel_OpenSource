@@ -2687,8 +2687,16 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct atomisp_device *isp = video_get_drvdata(vdev);
-	struct atomisp_sub_device *asd = atomisp_to_video_pipe(vdev)->asd;
+	struct atomisp_sub_device *asd;
+	bool acc_node;
 	int err;
+
+	acc_node = !strncmp(vdev->name, "ATOMISP ISP ACC",
+			sizeof(vdev->name));
+	if (acc_node)
+		asd = atomisp_to_acc_pipe(vdev)->asd;
+	else
+		asd = atomisp_to_video_pipe(vdev)->asd;
 
 	switch (cmd) {
 	case ATOMISP_IOC_G_MOTOR_PRIV_INT_DATA:

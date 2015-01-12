@@ -748,6 +748,7 @@ unsigned int atomisp_subdev_users(struct atomisp_sub_device *asd)
 	       asd->video_out_vf.users +
 	       asd->video_out_capture.users +
 	       asd->video_out_video_capture.users +
+	       asd->video_acc.users +
 	       asd->video_in.users;
 }
 
@@ -764,13 +765,25 @@ static int atomisp_open(struct file *file)
 {
 	struct video_device *vdev = video_devdata(file);
 	struct atomisp_device *isp = video_get_drvdata(vdev);
-	struct atomisp_video_pipe *pipe = atomisp_to_video_pipe(vdev);
-	struct atomisp_sub_device *asd = pipe->asd;
+	struct atomisp_video_pipe *pipe;
+	struct atomisp_acc_pipe *acc_pipe;
+	struct atomisp_sub_device *asd;
+	bool acc_node;
 	int ret;
 
 	dev_dbg(isp->dev, "open device %s\n", vdev->name);
 
 	rt_mutex_lock(&isp->mutex);
+
+	acc_node = !strncmp(vdev->name, "ATOMISP ISP ACC",
+			sizeof(vdev->name));
+	if (acc_node) {
+		acc_pipe = atomisp_to_acc_pipe(vdev);
+		asd = acc_pipe->asd;
+	} else {
+		pipe = atomisp_to_video_pipe(vdev);
+		asd = pipe->asd;
+	}
 
 	/* Deferred firmware loading case. */
 	if (isp->css_env.isp_css_fw.bytes == 0) {
@@ -789,6 +802,14 @@ static int atomisp_open(struct file *file)
 		release_firmware(isp->firmware);
 		isp->firmware = NULL;
 		isp->css_env.isp_css_fw.data = NULL;
+	}
+
+	if (acc_node && acc_pipe->users) {
+		dev_dbg(isp->dev, "acc node already opened\n");
+		rt_mutex_unlock(&isp->mutex);
+		return -EBUSY;
+	} else if (acc_node) {
+		goto dev_init;
 	}
 
 	if (!isp->input_cnt) {
@@ -810,7 +831,7 @@ static int atomisp_open(struct file *file)
 	if (ret)
 		goto error;
 
-
+dev_init:
 	if (atomisp_dev_users(isp)) {
 		dev_dbg(isp->dev, "skip init isp in open\n");
 		goto init_subdev;
@@ -851,7 +872,11 @@ init_subdev:
 	atomisp_subdev_init_struct(asd);
 
 done:
-	pipe->users++;
+
+	if (acc_node)
+		acc_pipe->users++;
+	else
+		pipe->users++;
 	rt_mutex_unlock(&isp->mutex);
 	return 0;
 
@@ -868,8 +893,10 @@ static int atomisp_release(struct file *file)
 {
 	struct video_device *vdev = video_devdata(file);
 	struct atomisp_device *isp = video_get_drvdata(vdev);
-	struct atomisp_video_pipe *pipe = atomisp_to_video_pipe(vdev);
-	struct atomisp_sub_device *asd = pipe->asd;
+	struct atomisp_video_pipe *pipe;
+	struct atomisp_acc_pipe *acc_pipe;
+	struct atomisp_sub_device *asd;
+	bool acc_node;
 	struct v4l2_requestbuffers req;
 	struct v4l2_subdev_fh fh;
 	int ret = 0;
@@ -884,7 +911,20 @@ static int atomisp_release(struct file *file)
 	rt_mutex_lock(&isp->mutex);
 
 	dev_dbg(isp->dev, "release device %s\n", vdev->name);
+	acc_node = !strncmp(vdev->name, "ATOMISP ISP ACC",
+			sizeof(vdev->name));
+	if (acc_node) {
+		acc_pipe = atomisp_to_acc_pipe(vdev);
+		asd = acc_pipe->asd;
+	} else {
+		pipe = atomisp_to_video_pipe(vdev);
+		asd = pipe->asd;
+	}
 
+	if (acc_node) {
+		acc_pipe->users--;
+		goto subdev_uninit;
+	}
 	pipe->users--;
 
 	if (pipe->capq.streaming)
@@ -928,7 +968,7 @@ static int atomisp_release(struct file *file)
 			V4L2_SUBDEV_FORMAT_ACTIVE, ATOMISP_SUBDEV_PAD_SINK,
 			&isp_sink_fmt);
 	}
-
+subdev_uninit:
 	if (atomisp_subdev_users(asd))
 		goto done;
 

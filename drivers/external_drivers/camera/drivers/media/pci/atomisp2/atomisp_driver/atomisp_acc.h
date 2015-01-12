@@ -33,12 +33,6 @@
 
 struct atomisp_sub_device;
 
-/*
- * Initialize acceleration interface.
- * Must be called once when the driver is loaded.
- */
-void atomisp_acc_init(struct atomisp_device *isp);
-
 void atomisp_acc_cleanup(struct atomisp_device *isp);
 
 /*

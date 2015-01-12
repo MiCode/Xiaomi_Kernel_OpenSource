@@ -1065,6 +1065,16 @@ static void atomisp_init_subdev_pipe(struct atomisp_sub_device *asd,
 		sizeof(struct atomisp_css_params_with_list *));
 }
 
+static void atomisp_init_acc_pipe(struct atomisp_sub_device *asd,
+		struct atomisp_acc_pipe *pipe)
+{
+	pipe->asd = asd;
+	pipe->isp = asd->isp;
+	INIT_LIST_HEAD(&asd->acc.fw);
+	INIT_LIST_HEAD(&asd->acc.memory_maps);
+	ida_init(&asd->acc.ida);
+}
+
 /*
  * isp_subdev_init_entities - Initialize V4L2 subdev and media entity
  * @asd: ISP CCDC module
@@ -1123,6 +1133,8 @@ static int isp_subdev_init_entities(struct atomisp_sub_device *asd)
 	atomisp_init_subdev_pipe(asd, &asd->video_out_video_capture,
 			V4L2_BUF_TYPE_VIDEO_CAPTURE);
 
+	atomisp_init_acc_pipe(asd, &asd->video_acc);
+
 	ret = atomisp_video_init(&asd->video_in, "MEMORY");
 	if (ret < 0)
 		return ret;
@@ -1142,6 +1154,8 @@ static int isp_subdev_init_entities(struct atomisp_sub_device *asd)
 	ret = atomisp_video_init(&asd->video_out_video_capture, "VIDEO");
 	if (ret < 0)
 		return ret;
+
+	atomisp_acc_init(&asd->video_acc, "ACC");
 
 	/* Connect the isp subdev to the video node. */
 	ret = media_entity_create_link(&asd->video_in.vdev.entity,
@@ -1242,6 +1256,7 @@ void atomisp_subdev_unregister_entities(struct atomisp_sub_device *asd)
 	atomisp_video_unregister(&asd->video_out_vf);
 	atomisp_video_unregister(&asd->video_out_capture);
 	atomisp_video_unregister(&asd->video_out_video_capture);
+	atomisp_acc_unregister(&asd->video_acc);
 }
 
 int atomisp_subdev_register_entities(struct atomisp_sub_device *asd,
@@ -1267,6 +1282,10 @@ int atomisp_subdev_register_entities(struct atomisp_sub_device *asd,
 		goto error;
 
 	ret = atomisp_video_register(&asd->video_out_video_capture, vdev);
+	if (ret < 0)
+		goto error;
+
+	ret = atomisp_acc_register(&asd->video_acc, vdev);
 	if (ret < 0)
 		goto error;
 
