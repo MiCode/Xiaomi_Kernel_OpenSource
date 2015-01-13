@@ -173,4 +173,13 @@ u32 intel_adf_get_pwm_vbt_data(void)
 }
 EXPORT_SYMBOL(intel_adf_get_pwm_vbt_data);
 
+u8 intel_adf_get_platform_id(void)
+{
+	if (!i915_adf_dev)
+		return 0;
+
+	return i915_adf_dev->info.gen;
+}
+EXPORT_SYMBOL(intel_adf_get_platform_id);
+
 #endif
