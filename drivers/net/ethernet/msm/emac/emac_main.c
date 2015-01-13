@@ -2726,7 +2726,6 @@ static int emac_probe(struct platform_device *pdev)
 	adpt = netdev_priv(netdev);
 	adpt->netdev = netdev;
 	hw = &adpt->hw;
-	hw->adpt = adpt;
 	adpt->msg_enable = netif_msg_init(msm_emac_msglvl, EMAC_MSG_DEFAULT);
 
 	adpt->dma_mask = DMA_BIT_MASK(32);
