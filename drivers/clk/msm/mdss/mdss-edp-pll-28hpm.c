@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,8 +54,8 @@
 #define EDP_PHY_PLL_UNIPHY_PLL_LKDET_CFG0	(0x005C)
 #define EDP_PHY_PLL_UNIPHY_PLL_LKDET_CFG1	(0x0060)
 
-#define EDP_PLL_POLL_MAX_READS			10
-#define EDP_PLL_POLL_TIMEOUT_US			50
+#define EDP_PLL_POLL_DELAY_US			50
+#define EDP_PLL_POLL_TIMEOUT_US			500
 
 static struct clk_ops edp_mainlink_clk_src_ops;
 static struct clk_div_ops fixed_5div_ops; /* null ops */
@@ -385,7 +385,7 @@ static int edp_pll_lock_status(struct mdss_pll_resources *edp_pll_res)
 	/* poll for PLL ready status */
 	if (readl_poll_timeout_atomic((edp_pll_res->pll_base + 0xc0),
 			status, ((status & BIT(0)) == 1),
-			EDP_PLL_POLL_MAX_READS,
+			EDP_PLL_POLL_DELAY_US,
 			EDP_PLL_POLL_TIMEOUT_US)) {
 		pr_debug("EDP PLL status=%x failed to Lock\n", status);
 		pll_locked = 0;

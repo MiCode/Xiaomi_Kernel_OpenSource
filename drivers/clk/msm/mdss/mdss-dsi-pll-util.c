@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,8 +51,8 @@
 #define DSI_PHY_PLL_UNIPHY_PLL_EFUSE_CFG	(0x009C)
 #define DSI_PHY_PLL_UNIPHY_PLL_STATUS		(0x00C0)
 
-#define DSI_PLL_POLL_MAX_READS			10
-#define DSI_PLL_POLL_TIMEOUT_US			50
+#define DSI_PLL_POLL_DELAY_US			50
+#define DSI_PLL_POLL_TIMEOUT_US			500
 
 int set_byte_mux_sel(struct mux_clk *clk, int sel)
 {
@@ -255,7 +255,7 @@ int dsi_pll_lock_status(struct mdss_pll_resources *dsi_pll_res)
 			DSI_PHY_PLL_UNIPHY_PLL_STATUS),
 			status,
 			((status & BIT(0)) == 1),
-			DSI_PLL_POLL_MAX_READS,
+			DSI_PLL_POLL_DELAY_US,
 			DSI_PLL_POLL_TIMEOUT_US)) {
 		pr_debug("DSI PLL status=%x failed to Lock\n", status);
 		pll_locked = 0;
