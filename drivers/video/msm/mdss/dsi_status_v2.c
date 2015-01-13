@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,6 +63,13 @@ void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 	mdp3_session = pdsi_status->mfd->mdp.private1;
 	if (!mdp3_session) {
 		pr_err("%s: Display is off\n", __func__);
+		return;
+	}
+
+	if (mdp3_session->in_splash_screen) {
+		schedule_delayed_work(&pdsi_status->check_status,
+			msecs_to_jiffies(interval));
+		pr_debug("%s: cont splash is on\n", __func__);
 		return;
 	}
 
