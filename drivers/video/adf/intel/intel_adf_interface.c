@@ -237,6 +237,10 @@ static inline enum adf_interface_type to_adf_interface_type(
 		return ADF_INTF_DSI;
 	case INTEL_PIPE_HDMI:
 		return ADF_INTF_HDMI;
+	case INTEL_PIPE_DP:
+		return ADF_INTF_DPI;
+	case INTEL_PIPE_EDP:
+		return ADF_INTF_EDP;
 	default:
 		return ADF_INTF_TYPE_MAX;
 	}

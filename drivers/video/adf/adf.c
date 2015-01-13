@@ -964,7 +964,7 @@ const char *adf_interface_type_str(struct adf_interface *intf)
 	case ADF_INTF_DSI:
 		return "DSI";
 
-	case ADF_INTF_eDP:
+	case ADF_INTF_EDP:
 		return "eDP";
 
 	case ADF_INTF_DPI:

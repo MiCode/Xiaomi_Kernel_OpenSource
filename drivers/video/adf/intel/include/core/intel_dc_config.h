@@ -221,6 +221,8 @@ struct intel_plane {
 enum intel_pipe_type {
 	INTEL_PIPE_DSI,
 	INTEL_PIPE_HDMI,
+	INTEL_PIPE_EDP,
+	INTEL_PIPE_DP,
 };
 
 enum intel_pipe_event {

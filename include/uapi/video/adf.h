@@ -26,7 +26,7 @@
 
 enum adf_interface_type {
 	ADF_INTF_DSI = 0,
-	ADF_INTF_eDP = 1,
+	ADF_INTF_EDP = 1,
 	ADF_INTF_DPI = 2,
 	ADF_INTF_VGA = 3,
 	ADF_INTF_DVI = 4,

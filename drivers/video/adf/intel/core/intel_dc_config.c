@@ -69,7 +69,10 @@ static int intel_plane_validate(const struct intel_plane *plane)
 static int intel_pipe_validate(const struct intel_pipe *pipe)
 {
 	/*verify pipe type*/
-	if (pipe->type != INTEL_PIPE_DSI && pipe->type != INTEL_PIPE_HDMI) {
+	if (pipe->type != INTEL_PIPE_DSI &&
+	    pipe->type != INTEL_PIPE_HDMI &&
+	    pipe->type != INTEL_PIPE_DP &&
+	    pipe->type != INTEL_PIPE_EDP) {
 		dev_err(pipe->base.dev, "%s: Invalid pipe type %d\n", __func__,
 			pipe->type);
 		return -EINVAL;
