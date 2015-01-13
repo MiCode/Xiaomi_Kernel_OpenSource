@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -571,8 +571,7 @@ void i2c_msm_prof_dump_xfer_end(struct i2c_msm_ctrl *ctrl,
 {
 	int ret = event->data0;
 	int err = event->data1;
-	int bc  = ctrl->xfer.rx_cnt + ctrl->xfer.rx_ovrhd_cnt +
-		  ctrl->xfer.tx_cnt + ctrl->xfer.tx_ovrhd_cnt;
+	int bc  = ctrl->xfer.rx_cnt + ctrl->xfer.tx_cnt;
 	int bc_sec = (bc * 1000000) / (msec * 1000 + usec);
 	const char *status = (!err && (ret == ctrl->xfer.msg_cnt)) ?
 								"OK" : "FAIL";
