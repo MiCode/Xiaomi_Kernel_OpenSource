@@ -139,6 +139,15 @@ static void set_dsi_timings(struct vlv_dsi_port *port,
 	hsync = mode->hsync_end - mode->hsync_start;
 	hbp = mode->htotal - mode->hsync_end;
 
+	if (intel_dsi->dual_link) {
+		hactive /= 2;
+		if (intel_dsi->dual_link == DSI_DUAL_LINK_FRONT_BACK)
+			hactive += intel_dsi->pixel_overlap;
+		hfp /= 2;
+		hsync /= 2;
+		hbp /= 2;
+	}
+
 	vfp = mode->vsync_start - mode->vdisplay;
 	vsync = mode->vsync_end - mode->vsync_start;
 	vbp = mode->vtotal - mode->vsync_end;
