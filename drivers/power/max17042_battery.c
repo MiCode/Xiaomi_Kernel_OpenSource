@@ -82,7 +82,7 @@
 
 #define MAX17042_IC_VERSION	0x0092
 #define MAX17047_IC_VERSION	0x00AC	/* same for max17050 */
-#define MC_TO_DEGREE(mC) (mC / 1000)
+#define MC_TO_DEGREE(mC) (DIV_ROUND_CLOSEST(mC, 1000))
 #define DEGREE_TO_TENTHS_DEGREE(c) (c * 10)
 #define ACPI_BATTERY_SENSOR_NAME "STR3"
 #define MAX17042_DEFAULT_TEMP_MAX 450 /* 45 Degree Celcius */
@@ -137,13 +137,12 @@ static int max17042_get_temperature(struct max17042_chip *chip, int *temp)
 #ifdef CONFIG_ACPI
 	u32 config, val;
 	struct thermal_zone_device *tzd;
-	unsigned long temp_mC;
+	long temp_mC;
 
 	tzd = thermal_zone_get_zone_by_name(ACPI_BATTERY_SENSOR_NAME);
 	if (!IS_ERR_OR_NULL(tzd)) {
 		tzd->ops->get_temp(tzd, &temp_mC);
 		*temp = MC_TO_DEGREE(temp_mC);
-
 		regmap_read(chip->regmap, MAX17042_CONFIG, &config);
 		if (config & MAX17042_TEX_BIT_ENBL) {
 			if (*temp < 0) {
