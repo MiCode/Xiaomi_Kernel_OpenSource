@@ -26,6 +26,7 @@
 #define SD_PREFER_SIBLING	0x1000	/* Prefer to place tasks in a sibling domain */
 #define SD_OVERLAP		0x2000	/* sched_domains of this level overlap */
 #define SD_NUMA			0x4000	/* cross-node balancing */
+#define SD_SHARE_CAP_STATES	0x8000  /* Domain members share capacity state */
 
 /*
  * Increase resolution of cpu_capacity calculations
