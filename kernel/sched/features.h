@@ -85,3 +85,9 @@ SCHED_FEAT(ATTACH_AGE_LOAD, true)
 SCHED_FEAT(WA_IDLE, true)
 SCHED_FEAT(WA_WEIGHT, true)
 SCHED_FEAT(WA_BIAS, true)
+
+/*
+ * Energy aware scheduling. Use platform energy model to guide scheduling
+ * decisions optimizing for energy efficiency.
+ */
+SCHED_FEAT(ENERGY_AWARE, false)
