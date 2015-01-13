@@ -2963,13 +2963,15 @@ int intel_lr_context_deferred_create(struct intel_context *ctx,
 	if (ctx->engine[ring->id].state)
 		return 0;
 
+	intel_runtime_pm_get(dev->dev_private);
+
 	context_size = round_up(get_lr_context_size(ring), 4096);
 
 	ctx_obj = i915_gem_alloc_context_obj(dev, context_size);
 	if (IS_ERR(ctx_obj)) {
 		ret = PTR_ERR(ctx_obj);
 		DRM_DEBUG_DRIVER("Alloc LRC backing obj failed: %d\n", ret);
-		return ret;
+		goto error_pm;
 	}
 
 	if (is_global_default_ctx) {
@@ -2978,7 +2980,7 @@ int intel_lr_context_deferred_create(struct intel_context *ctx,
 			DRM_DEBUG_DRIVER("Pin LRC backing obj failed: %d\n",
 					ret);
 			drm_gem_object_unreference(&ctx_obj->base);
-			return ret;
+			goto error_pm;
 		}
 	}
 
@@ -3055,6 +3057,7 @@ int intel_lr_context_deferred_create(struct intel_context *ctx,
 		ctx->rcs_initialized = true;
 	}
 
+	intel_runtime_pm_put(dev->dev_private);
 	return 0;
 
 error:
@@ -3068,6 +3071,8 @@ error_unpin_ctx:
 	if (is_global_default_ctx)
 		i915_gem_object_ggtt_unpin(ctx_obj);
 	drm_gem_object_unreference(&ctx_obj->base);
+error_pm:
+	intel_runtime_pm_put(dev->dev_private);
 	return ret;
 }
 
