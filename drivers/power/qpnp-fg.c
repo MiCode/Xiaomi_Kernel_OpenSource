@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1361,25 +1361,6 @@ static void update_jeita_setting(struct work_struct *work)
 		pr_err("failed to update JEITA setting rc=%d\n", rc);
 }
 
-#define FG_ALG_SYSCTL_1	0x4B0
-#define SYSCTL_OFFSET		1
-#define AUTO_RCHG_BIT		BIT(1)
-
-static int fg_set_auto_recharge(struct fg_chip *chip)
-{
-	int rc;
-
-	rc = fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, AUTO_RCHG_BIT,
-			AUTO_RCHG_BIT, SYSCTL_OFFSET);
-
-	if (rc)
-		pr_err("write failed rc=%d\n", rc);
-	else
-		pr_info("setting auto recharge\n");
-
-	return rc;
-}
-
 static int fg_set_resume_soc(struct fg_chip *chip, u8 threshold)
 {
 	u16 address;
@@ -2683,6 +2664,7 @@ static int soc_to_setpoint(int soc)
 	return DIV_ROUND_CLOSEST(soc * 255, 100);
 }
 
+#define FG_ALG_SYSCTL_1	0x4B0
 #define SOC_CNFG	0x450
 #define SOC_DELTA_OFFSET	3
 #define DELTA_SOC_PERCENT	1
@@ -2703,11 +2685,6 @@ static int fg_hw_init(struct fg_chip *chip)
 	update_cutoff_voltage(chip);
 	update_irq_volt_empty(chip);
 	update_bcl_thresholds(chip);
-	rc = fg_set_auto_recharge(chip);
-	if (rc) {
-		pr_err("Couldn't set auto recharge in FG\n");
-		return rc;
-	}
 
 	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
 			PATCH_NEG_CURRENT_BIT,
