@@ -20,6 +20,8 @@
 	(VFE_RAW_0 + src - RDI_INTF_0))
 
 #define HANDLE_TO_IDX(handle) (handle & 0xFF)
+/* at how many frames to add frame skip pattern */
+#define BURST_SKIP_THRESHOLD              (16)
 
 int msm_isp_axi_create_stream(
 	struct msm_vfe_axi_shared_data *axi_data,
@@ -402,10 +404,25 @@ void msm_isp_cfg_framedrop_reg(struct vfe_device *vfe_dev,
 		framedrop_period = stream_info->framedrop_period;
 	}
 
-	if (stream_info->stream_type == BURST_STREAM &&
-			stream_info->runtime_burst_frame_count == 0) {
-		framedrop_pattern = 0;
-		framedrop_period = 0;
+	if (stream_info->stream_type == BURST_STREAM) {
+		if (stream_info->runtime_burst_frame_count == 0) {
+			framedrop_pattern = 0;
+			framedrop_period = 0;
+		} else if ((stream_info->runtime_burst_frame_count > 0) &&
+			   (stream_info->runtime_burst_frame_count <
+							BURST_SKIP_THRESHOLD)) {
+			/* configure to skip the frames after requested ones to
+			 * ensure that no frame will came after last, even if
+			 * userspace reg update is delayed */
+			framedrop_pattern =
+			      (1 << stream_info->runtime_burst_frame_count) - 1;
+			/* Alternate maximum two values for period to ensure
+			 * that two identical consecutive patterns will still be
+			 * applied. Otherwise HW cannot detect that we make 2
+			 * different configurations */
+			framedrop_period = 30 +
+				(stream_info->framedrop_altern_cnt++ & 1);
+		}
 	}
 
 	ISP_DBG("%s: stream %x framedrop pattern %x period %u\n", __func__,
@@ -450,9 +467,14 @@ void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev,
 				msm_isp_cfg_framedrop_reg(vfe_dev, stream_info);
 			} else {
 				stream_info->runtime_burst_frame_count--;
-				if (stream_info->runtime_burst_frame_count == 0)
+				if ((stream_info->
+					runtime_burst_frame_count <
+						  BURST_SKIP_THRESHOLD) &&
+				    (stream_info->
+					runtime_burst_frame_count >= 0)) {
 					msm_isp_cfg_framedrop_reg(vfe_dev,
 						stream_info);
+				}
 			}
 		}
 	}
@@ -678,7 +700,7 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			return rc;
 		}
 	}
-
+	stream_info->framedrop_altern_cnt = 0;
 	msm_isp_calculate_framedrop(&vfe_dev->axi_data, stream_cfg_cmd);
 	stream_info->vt_enable = stream_cfg_cmd->vt_enable;
 	if (stream_info->vt_enable) {
