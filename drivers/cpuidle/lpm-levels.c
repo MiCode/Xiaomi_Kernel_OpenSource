@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -473,9 +473,8 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		/*
 		 * Notify that the cluster is entering a low power mode
 		 */
-		if (level->mode[i] == MSM_SPM_MODE_POWER_COLLAPSE) {
-			cpu_cluster_pm_enter();
-		}
+		if (level->mode[i] == MSM_SPM_MODE_POWER_COLLAPSE)
+			cpu_cluster_pm_enter(cluster->aff_level);
 	}
 	if (level->notify_rpm) {
 		struct cpumask nextcpu;
@@ -623,9 +622,8 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 		BUG_ON(ret);
 
 		if (cluster->levels[last_level].mode[i] ==
-				MSM_SPM_MODE_POWER_COLLAPSE) {
-			cpu_cluster_pm_exit();
-		}
+				MSM_SPM_MODE_POWER_COLLAPSE)
+			cpu_cluster_pm_exit(cluster->aff_level);
 	}
 unlock_return:
 	spin_unlock(&cluster->sync_lock);

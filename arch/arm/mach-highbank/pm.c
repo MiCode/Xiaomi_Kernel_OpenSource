@@ -42,12 +42,12 @@ static int highbank_suspend_finish(unsigned long val)
 static int highbank_pm_enter(suspend_state_t state)
 {
 	cpu_pm_enter();
-	cpu_cluster_pm_enter();
+	cpu_cluster_pm_enter(0);
 
 	highbank_set_cpu_jump(0, cpu_resume);
 	cpu_suspend(0, highbank_suspend_finish);
 
-	cpu_cluster_pm_exit();
+	cpu_cluster_pm_exit(0);
 	cpu_pm_exit();
 
 	highbank_smc1(0x102, 0x1);

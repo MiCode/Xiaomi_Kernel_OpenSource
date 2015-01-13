@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -655,6 +655,7 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 			list_add(&child->list, &c->child);
 			cpumask_or(&c->child_cpus, &c->child_cpus,
 					&child->child_cpus);
+			c->aff_level = child->aff_level + 1;
 			continue;
 		}
 
@@ -670,6 +671,8 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 
 			if (parse_cpu_levels(n, c))
 				goto failed_parse_cluster;
+
+			c->aff_level = 1;
 		}
 	}
 
