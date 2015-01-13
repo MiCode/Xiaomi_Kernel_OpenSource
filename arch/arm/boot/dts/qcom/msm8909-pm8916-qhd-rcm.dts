@@ -14,11 +14,11 @@
 /dts-v1/;
 
 #include "msm8909-cdp.dtsi"
-#include "msm8909-pm8916.dtsi"
 #include "msm8909-pm8916-cdp.dtsi"
+#include "msm8909-gpu-qhd.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8909-PM8916 512MB RCM";
+	model = "Qualcomm Technologies, Inc. MSM8909-PM8916 512MB QHD RCM";
 	compatible = "qcom,msm8909-cdp", "qcom,msm8909", "qcom,cdp";
-	qcom,board-id= <21 0x102>;
+	qcom,board-id= <21 0x1101>;
 };
