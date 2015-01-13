@@ -55,12 +55,17 @@ static inline struct vlv_dc_config *get_vlv_dc_config(
 
 int vlv_disp_to_port(struct vlv_pipeline *pipeline)
 {
-	struct vlv_pll *pll = &pipeline->pll;
-	enum port port_id;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct dsi_context *dsi_ctx = NULL;
+	enum port port;
+	enum port port_id = PORT_A;
 
 	switch (pipeline->type) {
 	case INTEL_PIPE_DSI:
-		port_id = pipeline->port.dsi_port[pll->port_id].port_id;
+		dsi_pipe = &pipeline->gen.dsi;
+		dsi_ctx = &dsi_pipe->config.ctx;
+		for_each_dsi_port(port, dsi_ctx->ports)
+			port_id = pipeline->port.dsi_port[port].port_id;
 		break;
 	case INTEL_PIPE_HDMI:
 		port_id = pipeline->port.hdmi_port.port_id;

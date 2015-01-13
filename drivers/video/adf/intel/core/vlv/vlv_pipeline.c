@@ -530,12 +530,20 @@ bool vlv_is_vid_mode(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
-	struct vlv_pll *pll = &disp->pll;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct dsi_context *dsi_ctx = NULL;
+	enum port port;
 	bool ret = false;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port[pll->port_id];
-		ret = vlv_dsi_port_is_vid_mode(dsi_port);
+		dsi_pipe = &disp->gen.dsi;
+		dsi_ctx = &dsi_pipe->config.ctx;
+		for_each_dsi_port(port, dsi_ctx->ports) {
+			dsi_port = &disp->port.dsi_port[port];
+			ret = vlv_dsi_port_is_vid_mode(dsi_port);
+			if (ret)
+				return ret;
+		}
 	}
 
 	return ret;
@@ -545,12 +553,20 @@ bool vlv_can_be_disabled(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
-	struct vlv_pll *pll = &disp->pll;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct dsi_context *dsi_ctx = NULL;
+	enum port port;
 	bool ret = false;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port[pll->port_id];
-		ret = vlv_dsi_port_can_be_disabled(dsi_port);
+		dsi_pipe = &disp->gen.dsi;
+		dsi_ctx = &dsi_pipe->config.ctx;
+		for_each_dsi_port(port, dsi_ctx->ports) {
+			dsi_port = &disp->port.dsi_port[port];
+			ret = vlv_dsi_port_can_be_disabled(dsi_port);
+			if (ret)
+				return ret;
+		}
 	}
 
 	return ret;
