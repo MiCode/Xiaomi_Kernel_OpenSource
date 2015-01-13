@@ -2777,10 +2777,10 @@ static irqreturn_t i2c_msm_qup_isr(int irq, void *devid)
 
 		/* HW workaround: when interrupt is level triggerd, more
 		 * than one interrupt may fire in error cases. Thus we
-		 * reset the core immidiatly in the ISR to ward off the
-		 * next interrupt.
+		 * resetting the QUP core state immediately in the ISR
+		 * to ward off the next interrupt.
 		 */
-		i2c_msm_qup_sw_reset(ctrl);
+		i2c_msm_qup_state_set(ctrl, QUP_STATE_RESET);
 
 		need_wmb        = true;
 		signal_complete = true;
@@ -3150,6 +3150,9 @@ static int i2c_msm_xfer_wait_for_completion(struct i2c_msm_ctrl *ctrl,
 		i2c_msm_prof_evnt_add(ctrl, MSM_ERR, i2c_msm_prof_dump_cmplt_fl,
 					xfer->timeout, time_left, 0);
 	} else {
+		/* return an error if one detected by ISR */
+		if (xfer->err)
+			ret = -(xfer->err);
 		i2c_msm_prof_evnt_add(ctrl, MSM_DBG, i2c_msm_prof_dump_cmplt_ok,
 					xfer->timeout, time_left, 0);
 	}
