@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,7 +97,7 @@ int hr_oclk3_get_div(struct div_clk *clk);
 int ndiv_set_div(struct div_clk *clk, int div);
 int shadow_ndiv_set_div(struct div_clk *clk, int div);
 int ndiv_get_div(struct div_clk *clk);
-void __dsi_pll_disable(void __iomem *pll_base);
+void pll_20nm_config_powerdown(void __iomem *pll_base);
 
 int set_mdss_pixel_mux_sel(struct mux_clk *clk, int sel);
 int get_mdss_pixel_mux_sel(struct mux_clk *clk);
