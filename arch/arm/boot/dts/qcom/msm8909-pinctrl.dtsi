@@ -232,6 +232,21 @@
 			};
 		};
 
+		cdc-ext-tlmm-lines {
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 2>,
+					 <&gp 3>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <2>;
+			label = "cdc-ext-tlmm-lines";
+			cdc_ext_tlmm_act: ext_tlmm_on {
+				drive-strength = <8>;
+			};
+			cdc_ext_tlmm_sus: ext_tlmm_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		cdc-ext-mclk-lines {
 			qcom,pins = <&gp 98>;
 			qcom,num-grp-pins = <1>;
