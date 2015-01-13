@@ -97,10 +97,6 @@
 	pinctrl-0 = <&uart_console_sleep>;
 };
 
-&spi_0 {
-	status = "disabled";
-};
-
 &usb3 {
 	status = "ok";
 };
