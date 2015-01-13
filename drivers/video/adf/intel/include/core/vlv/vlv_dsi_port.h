@@ -70,7 +70,7 @@ u32 vlv_dsi_port_disable(struct vlv_dsi_port *port,
 		struct dsi_config *config);
 bool vlv_dsi_port_set_device_ready(struct vlv_dsi_port *port);
 bool vlv_dsi_port_clear_device_ready(struct vlv_dsi_port *port);
-u32  vlv_dsi_port_wait_for_fifo_empty(struct vlv_dsi_port *port);
+u32 vlv_dsi_port_wait_for_fifo_empty(struct vlv_dsi_port *port);
 bool vlv_dsi_port_can_be_disabled(struct vlv_dsi_port *port);
 u32 vlv_dsi_port_is_vid_mode(struct vlv_dsi_port *port);
 u32 vlv_dsi_port_is_cmd_mode(struct vlv_dsi_port *port);

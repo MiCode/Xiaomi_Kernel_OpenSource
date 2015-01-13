@@ -314,15 +314,21 @@ u32 vlv_dsi_post_pipeline_off(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_pll *pll = &disp->pll;
-	struct vlv_dsi_port *dsi_port = &disp->port.dsi_port[pll->port_id];
-	u32 err = 0;
-	err = vlv_dsi_port_wait_for_fifo_empty(dsi_port);
+	struct vlv_dsi_port *dsi_port = NULL;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct dsi_context *dsi_ctx = NULL;
+	enum port port;
 
-	err = vlv_dsi_port_clear_device_ready(dsi_port);
+	dsi_pipe = &disp->gen.dsi;
+	dsi_ctx = &dsi_pipe->config.ctx;
+	for_each_dsi_port(port, dsi_ctx->ports) {
+		dsi_port = &disp->port.dsi_port[port];
+		vlv_dsi_port_wait_for_fifo_empty(dsi_port);
+		vlv_dsi_port_clear_device_ready(dsi_port);
+	}
+	vlv_dsi_pll_disable(pll);
 
-	err = vlv_dsi_pll_disable(pll);
-
-	return err;
+	return 0;
 }
 
 /* generic function to be called for any operations after disable is done */

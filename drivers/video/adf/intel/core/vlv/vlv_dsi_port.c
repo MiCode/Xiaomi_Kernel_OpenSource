@@ -28,7 +28,7 @@ u32 vlv_dsi_port_is_cmd_mode(struct vlv_dsi_port *port)
 	return port->operation_mode == DSI_DBI;
 }
 
-u32  vlv_dsi_port_wait_for_fifo_empty(struct vlv_dsi_port *port)
+u32 vlv_dsi_port_wait_for_fifo_empty(struct vlv_dsi_port *port)
 {
 	u32 mask;
 
