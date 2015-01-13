@@ -608,11 +608,15 @@ int vlv_cmd_dpi_send_cmd(struct intel_pipeline *pipeline, u32 cmd, bool hs)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
-	struct vlv_pll *pll = &disp->pll;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct dsi_context *dsi_ctx = NULL;
+	enum port port;
 	int err = 0;
 
-	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port[pll->port_id];
+	dsi_pipe = &disp->gen.dsi;
+	dsi_ctx = &dsi_pipe->config.ctx;
+	for_each_dsi_port(port, dsi_ctx->ports) {
+		dsi_port = &disp->port.dsi_port[port];
 		err = vlv_dsi_port_cmd_dpi_send_cmd(dsi_port, cmd, hs);
 	}
 
