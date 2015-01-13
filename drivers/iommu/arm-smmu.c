@@ -422,6 +422,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_INVALIDATE_ON_MAP (1 << 1)
 #define ARM_SMMU_OPT_HALT_AND_TLB_ON_ATOS  (1 << 2)
 #define ARM_SMMU_OPT_REGISTER_SAVE	(1 << 3)
+#define ARM_SMMU_OPT_SKIP_INIT		(1 << 4)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -490,6 +491,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_INVALIDATE_ON_MAP, "qcom,smmu-invalidate-on-map" },
 	{ ARM_SMMU_OPT_HALT_AND_TLB_ON_ATOS, "qcom,halt-and-tlb-on-atos" },
 	{ ARM_SMMU_OPT_REGISTER_SAVE, "qcom,register-save" },
+	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
 	{ 0, NULL},
 };
 
@@ -2127,18 +2129,21 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	reg = readl_relaxed(ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
 	writel(reg, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sGFSR);
 
-	/* Mark all SMRn as invalid and all S2CRn as bypass */
-	for (i = 0; i < smmu->num_mapping_groups; ++i) {
-		writel_relaxed(0, gr0_base + ARM_SMMU_GR0_SMR(i));
-		writel_relaxed(S2CR_TYPE_BYPASS,
-			gr0_base + ARM_SMMU_GR0_S2CR(i));
-	}
+	if (!(smmu->options & ARM_SMMU_OPT_SKIP_INIT)) {
+		/* Mark all SMRn as invalid and all S2CRn as bypass */
+		for (i = 0; i < smmu->num_mapping_groups; ++i) {
+			writel_relaxed(0,
+				gr0_base + ARM_SMMU_GR0_SMR(i));
+			writel_relaxed(S2CR_TYPE_BYPASS,
+				gr0_base + ARM_SMMU_GR0_S2CR(i));
+		}
 
-	/* Make sure all context banks are disabled and clear CB_FSR  */
-	for (i = 0; i < smmu->num_context_banks; ++i) {
-		cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, i);
-		writel_relaxed(0, cb_base + ARM_SMMU_CB_SCTLR);
-		writel_relaxed(FSR_FAULT, cb_base + ARM_SMMU_CB_FSR);
+		/* Make sure all context banks are disabled and clear CB_FSR  */
+		for (i = 0; i < smmu->num_context_banks; ++i) {
+			cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, i);
+			writel_relaxed(0, cb_base + ARM_SMMU_CB_SCTLR);
+			writel_relaxed(FSR_FAULT, cb_base + ARM_SMMU_CB_FSR);
+		}
 	}
 
 	/* Invalidate the TLB, just in case */
