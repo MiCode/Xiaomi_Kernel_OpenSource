@@ -149,6 +149,14 @@ u32 vlv_port_enable(struct intel_pipeline *pipeline,
 	u32 temp;
 
 	if (disp->type == INTEL_PIPE_DSI) {
+		if (intel_dsi->dual_link == DSI_DUAL_LINK_FRONT_BACK) {
+			temp = REG_READ(VLV_CHICKEN_3);
+			temp &= ~PIXEL_OVERLAP_CNT_MASK |
+					intel_dsi->pixel_overlap <<
+					PIXEL_OVERLAP_CNT_SHIFT;
+			REG_WRITE(VLV_CHICKEN_3, temp);
+		}
+
 		for_each_dsi_port(port, intel_dsi->ports) {
 			dsi_port = &disp->port.dsi_port[port];
 

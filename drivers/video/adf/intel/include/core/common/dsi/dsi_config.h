@@ -60,6 +60,12 @@ enum {
 #define ENABLE_CSC			(0x1 << 1)
 #define ENABLE_GAMMA_CSC		(ENABLE_GAMMA | ENABLE_CSC)
 
+
+/* Dual Link support */
+#define DSI_DUAL_LINK_NONE		0
+#define DSI_DUAL_LINK_FRONT_BACK	1
+#define DSI_DUAL_LINK_PIXEL_ALTN	2
+
 struct dsi_registers {
 	u32 vgacntr_reg;
 
@@ -171,6 +177,8 @@ struct dsi_context {
 
 	/* dual link support */
 	u8 dual_link;
+
+	u8 pixel_overlap;
 
 	/* number of DSI lanes */
 	unsigned int lane_count;

@@ -648,11 +648,27 @@ static int panel_generic_init(struct dsi_pipe *pipe)
 	intel_dsi->video_frmt_cfg_bits =
 		mipi_config->bta_enabled ? DISABLE_VIDEO_BTA : 0;
 	intel_dsi->dual_link = mipi_config->dual_link;
+	intel_dsi->pixel_overlap = mipi_config->pixel_overlap;
 
 	if (intel_dsi->dual_link)
 		intel_dsi->ports = ((1 << PORT_A) | (1 << PORT_C));
 
 	pclk = mode->clock;
+
+	/* In dual link mode each port needs half of pixel clock */
+	if (intel_dsi->dual_link) {
+		pclk = pclk / 2;
+
+		/*
+		 * we can enable pixel_overlap if needed by panel. In this
+		 * case we need to increase the pixel clock for extra pixels
+		 */
+		if (intel_dsi->dual_link == DSI_DUAL_LINK_FRONT_BACK) {
+			pclk += DIV_ROUND_UP(mode->vtotal *
+						intel_dsi->pixel_overlap *
+						60, 1000);
+		}
+	}
 
 	/* Burst Mode Ratio
 	 * Target ddr frequency from VBT / non burst ddr freq
@@ -850,6 +866,16 @@ static int panel_generic_init(struct dsi_pipe *pipe)
 						"disabled" : "enabled");
 	pr_info("ADF: %s: Mode %s\n", __func__,
 		intel_dsi->operation_mode ? "command" : "video");
+
+	if (intel_dsi->dual_link == DSI_DUAL_LINK_FRONT_BACK)
+		pr_info("ADF %s: Dual link: DSI_DUAL_LINK_FRONT_BACK\n",
+								__func__);
+	else if (intel_dsi->dual_link == DSI_DUAL_LINK_PIXEL_ALTN)
+		pr_info("ADF %s: Dual link: DSI_DUAL_LINK_PIXEL_ALTN\n",
+								__func__);
+	else
+		pr_info("ADF %s: Dual link: NONE\n", __func__);
+
 	pr_info("ADF: %s: Pixel Format %d\n", __func__,
 		intel_dsi->pixel_format);
 	pr_info("ADF: %s: TLPX %d\n", __func__, intel_dsi->escape_clk_div);
