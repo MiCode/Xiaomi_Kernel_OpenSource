@@ -267,7 +267,7 @@ struct mdss_mdp_ctl {
 	u8 roi_changed;
 	u8 valid_roi;
 
-	int cmd_autorefresh_en;
+	bool cmd_autorefresh_en;
 	int autorefresh_frame_cnt;
 
 	int (*start_fnc) (struct mdss_mdp_ctl *ctl);
