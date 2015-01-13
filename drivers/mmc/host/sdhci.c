@@ -1902,8 +1902,11 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
 			/* Re-enable SD Clock */
-			if (ios->clock)
+			if (ios->clock) {
+				spin_unlock_irqrestore(&host->lock, flags);
 				host->ops->set_clock(host, host->clock);
+				spin_lock_irqsave(&host->lock, flags);
+			}
 		}
 
 		/* Reset SD Clock Enable */
@@ -1929,8 +1932,11 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		}
 
 		/* Re-enable SD Clock */
-		if (ios->clock)
+		if (ios->clock) {
+			spin_unlock_irqrestore(&host->lock, flags);
 			host->ops->set_clock(host, host->clock);
+			spin_lock_irqsave(&host->lock, flags);
+		}
 	} else
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
