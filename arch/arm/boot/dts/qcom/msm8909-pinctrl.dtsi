@@ -203,6 +203,49 @@
 			};
 		};
 
+		cdc-ext-pa-lines {
+			qcom,pins = <&gp 94>, <&gp 96>,
+					 <&gp 110>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <1>;
+			label = "cdc-ext-pa-lines";
+			cdc_ext_pa_act: ext_pa_on {
+				drive-strength = <8>;
+			};
+			cdc_ext_pa_sus: ext_pa_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		cdc-ext-pa-d0-lines {
+			qcom,pins = <&gp 95>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "cdc-ext-pa-d0-lines";
+			cdc_ext_pa_d0_act: ext_pa_d0_on {
+				drive-strength = <8>;
+			};
+			cdc_ext_pa_d0_sus: ext_pa_d0_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		cdc-ext-mclk-lines {
+			qcom,pins = <&gp 98>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "cdc-ext-mclk-lines";
+			cdc_ext_mclk_act: ext_mclk_on {
+				drive-strength = <8>;
+			};
+			cdc_ext_mclk_sus: ext_mclk_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		/* QDSD pin type */
 		qdsd: qdsd {
 			/* 0-> clk, 1 -> cmd, 2->data0, 3->data1, 4->data2, 5->data3 */
