@@ -2031,6 +2031,7 @@ struct drm_i915_gem_object {
 	unsigned int fenced_gpu_access:1;
 
 	unsigned int cache_level:3;
+	unsigned int cache_dirty:1;
 
 	unsigned int has_aliasing_ppgtt_mapping:1;
 	unsigned int has_global_gtt_mapping:1;
