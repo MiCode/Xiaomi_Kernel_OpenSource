@@ -230,12 +230,19 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 	struct vlv_dsi_port *dsi_port = NULL;
 	struct vlv_hdmi_port *hdmi_port = NULL;
 	struct vlv_pipeline *disp = NULL;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct dsi_context *dsi_ctx = NULL;
+	enum port port_no;
 
 	disp = &vlv_config->pipeline[disp_no];
 	switch (type) {
 	case INTEL_PIPE_DSI:
-		dsi_port = &disp->port.dsi_port[port];
-		vlv_dsi_port_init(dsi_port, port, pipe);
+		dsi_pipe = &disp->gen.dsi;
+		dsi_ctx = &dsi_pipe->config.ctx;
+		for_each_dsi_port(port_no, dsi_ctx->ports) {
+			dsi_port = &disp->port.dsi_port[port_no];
+			vlv_dsi_port_init(dsi_port, port, pipe);
+		}
 		break;
 	case INTEL_PIPE_HDMI:
 		hdmi_port = &disp->port.hdmi_port;
