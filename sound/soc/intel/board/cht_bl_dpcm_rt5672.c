@@ -30,6 +30,7 @@
 #include <linux/slab.h>
 #include <linux/vlv2_plat_clock.h>
 #include <linux/mutex.h>
+#include <linux/dmi.h>
 #include <asm/platform_cht_audio.h>
 #include <asm/intel-mid.h>
 #include <sound/pcm.h>
@@ -94,9 +95,15 @@ static inline void cht_force_enable_pin(struct snd_soc_codec *codec,
 static inline void cht_set_codec_power(struct snd_soc_codec *codec,
 								int jack_type)
 {
+	const char *board_name;
 	switch (jack_type) {
 	case SND_JACK_HEADSET:
-		cht_force_enable_pin(codec, "micbias2", true);
+		board_name = dmi_get_system_info(DMI_BOARD_NAME);
+		pr_debug("Setting the micbias for %s\n", board_name);
+		if (strcmp(board_name, "Cherry Trail FFD") == 0)
+			cht_force_enable_pin(codec, "micbias1", true);
+		else
+			cht_force_enable_pin(codec, "micbias2", true);
 		cht_force_enable_pin(codec, "JD Power", true);
 		cht_force_enable_pin(codec, "Mic Det Power", true);
 		break;
