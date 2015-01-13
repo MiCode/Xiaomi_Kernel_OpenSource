@@ -52,6 +52,7 @@ struct rfkill_gpio_desc {
 	int			shutdown_idx;
 	int			wake_idx;
 	int			host_wake_idx;
+	int			host_wake_trigger;
 };
 
 static void rfkill_set_gpio(struct gpio_desc *desc, int value)
@@ -156,8 +157,13 @@ static int rfkill_gpio_init(struct device *dev, struct rfkill_gpio_desc *desc)
 		gpio = devm_gpiod_get_index(dev, "host_wake",
 					    desc->host_wake_idx);
 		if (!IS_ERR(gpio)) {
-			int irqf = IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND |
-				   IRQF_ONESHOT;
+			int irqf = IRQF_NO_SUSPEND | IRQF_ONESHOT;
+			if (desc->host_wake_trigger > 0)
+				irqf |= desc->host_wake_trigger;
+			else {
+				dev_err(dev, "missing IRQ type\n");
+				return -EINVAL;
+			}
 
 			ret = gpiod_direction_input(gpio);
 			if (ret)
@@ -319,6 +325,7 @@ static struct rfkill_gpio_desc acpi_bluetooth_wake = {
 	.shutdown_idx = 1,
 	.wake_idx = 0,
 	.host_wake_idx = 2,
+	.host_wake_trigger = IRQF_TRIGGER_RISING,
 };
 
 static struct rfkill_gpio_desc acpi_gps_wake = {
@@ -327,6 +334,7 @@ static struct rfkill_gpio_desc acpi_gps_wake = {
 	.shutdown_idx = 1,
 	.wake_idx = -1,
 	.host_wake_idx = 0,
+	.host_wake_trigger = IRQF_TRIGGER_RISING,
 };
 
 static const struct acpi_device_id rfkill_acpi_match[] = {
