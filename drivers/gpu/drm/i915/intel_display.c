@@ -95,8 +95,8 @@ int intel_sanitize_enable_adf(struct drm_device *dev, int enable_intel_adf)
 	return 0;
 #endif
 
-	/* Current ADF support only for VLV */
-	if (IS_VALLEYVIEW(dev) && IS_GEN7(dev))
+	/* ADF support only for CHV */
+	if (IS_CHERRYVIEW(dev))
 		return 1;
 
 	return 0;
