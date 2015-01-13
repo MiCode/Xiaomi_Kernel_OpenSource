@@ -4044,6 +4044,11 @@ enum punit_power_well {
 #define PIPEFRAME(pipe) _PIPE2(pipe, _PIPEAFRAMEHIGH)
 #define PIPEFRAMEPIXEL(pipe)  _PIPE2(pipe, _PIPEAFRAMEPIXEL)
 #define PIPESTAT(pipe) _PIPE2(pipe, _PIPEASTAT)
+#define PIPESTAT_IIR(pipe) ((pipe == PIPE_A) ? \
+		I915_DISPLAY_PIPE_A_EVENT_INTERRUPT \
+			: (pipe == PIPE_B) \
+				? I915_DISPLAY_PIPE_B_EVENT_INTERRUPT \
+					: I915_DISPLAY_PIPE_C_EVENT_INTERRUPT);
 
 #define _PIPE_MISC_A			0x70030
 #define _PIPE_MISC_B			0x71030

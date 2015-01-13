@@ -2311,7 +2311,8 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 {
 	struct drm_device *dev = arg;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 master_ctl, iir;
+	u32 master_ctl, count, iir;
+	u32 mask, pipestat, pipestat_val;
 	irqreturn_t ret = IRQ_NONE;
 
 	for (;;) {
@@ -2325,10 +2326,38 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 
 		gen8_gt_irq_handler(dev, dev_priv, master_ctl);
 
-		valleyview_pipestat_irq_handler(dev, iir);
+		if (i915.enable_intel_adf) {
+			if (g_adf_ready && i915.disable_display && iir) {
+				unsigned long irqflags;
+				spin_lock_irqsave(&dev_priv->irq_lock,
+						irqflags);
+				intel_adf_context_on_event();
+				spin_unlock_irqrestore(&dev_priv->irq_lock,
+						irqflags);
+			} else {
+				/*
+				 * ADF driver is still initializing, so lets
+				 * ignore dispaly interrupts for now
+				 */
 
-		/* Consume port.  Then clear IIR or we'll miss events */
-		i9xx_hpd_irq_handler(dev);
+				/* FIXME: Display interrupts for Pipe C */
+				count = PIPE_A;
+				while (count < PIPE_C) {
+					mask = PIPESTAT_IIR(count);
+					pipestat = PIPESTAT(count);
+					pipestat_val = I915_READ(pipestat);
+					if (pipestat_val)
+						I915_WRITE(pipestat,
+							pipestat_val | mask);
+					count++;
+				}
+			}
+		} else {
+			valleyview_pipestat_irq_handler(dev, iir);
+
+			/* Consume port. Then clear IIR or we'll miss events */
+			i9xx_hpd_irq_handler(dev);
+		}
 
 		I915_WRITE(VLV_IIR, iir);
 
