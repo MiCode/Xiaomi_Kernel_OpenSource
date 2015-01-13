@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,6 +114,7 @@ struct bam_data_ch_info {
 	unsigned int		rx_flow_control_triggered;
 	/* used for RNDIS/ECM network inteface based design */
 	atomic_t		is_net_interface_up;
+	bool			tx_req_dequeued;
 };
 
 static struct work_struct *rndis_conn_w;
@@ -652,6 +653,7 @@ static void bam_data_stop_endless_rx(struct bam_data_port *port)
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
+
 static void bam_data_stop_endless_tx(struct bam_data_port *port)
 {
 	struct bam_data_ch_info *d = &port->data_ch;
@@ -665,6 +667,7 @@ static void bam_data_stop_endless_tx(struct bam_data_port *port)
 		return;
 	}
 	ep = port->port_usb->in;
+	d->tx_req_dequeued = true;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	pr_debug("%s: dequeue\n", __func__);
@@ -2000,8 +2003,15 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 	}
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		/*
+		 * If usb_req was dequeued as part of bus suspend then
+		 * corresponding DBM EP should also be reset.
+		 * There is a possbility that usb_bam may not have dequeued the
+		 * request in case of quick back to back usb bus suspend resume.
+		 */
 		if (gadget_is_dwc3(gadget) &&
-			msm_dwc3_reset_ep_after_lpm(gadget)) {
+			msm_dwc3_reset_ep_after_lpm(gadget) &&
+					d->tx_req_dequeued) {
 				configure_usb_data_fifo(d->src_bam_idx,
 					port->port_usb->out,
 					d->src_pipe_type);
@@ -2010,6 +2020,7 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 					d->dst_pipe_type);
 				msm_dwc3_reset_dbm_ep(port->port_usb->in);
 		}
+		d->tx_req_dequeued = false;
 		usb_bam_resume(&d->ipa_params);
 	}
 exit:

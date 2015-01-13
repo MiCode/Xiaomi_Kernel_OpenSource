@@ -1217,7 +1217,7 @@ static void reset_pipe_for_resume(struct usb_bam_pipe_connect *pipe_connect)
 		pr_err("%s failed to reset the IPA pipe\n", __func__);
 		return;
 	}
-
+	pr_debug("%s: USB/IPA pipes reset after resume\n", __func__);
 }
 
 /* Stop PROD transfers in case they were started */
