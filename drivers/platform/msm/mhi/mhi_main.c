@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1092,7 +1092,6 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 						mhi_dev_ctxt->event_db_addr,
 						ring_index, db_value);
 			}
-			mhi_dev_ctxt->ev_counter[ring_index]++;
 			spin_unlock_irqrestore(lock, flags);
 			break;
 		}
