@@ -213,6 +213,12 @@ Optional Properties:
 				driver automatically readjust vfloat using the
 				fuel gauge ADC readings to make charging more
 				accurate.
+- qcom,jeita-temp-hard-limit	property when present will enable or disable
+				the jeita temperature hard limit based on the
+				value 1 or 0. Specify 0 if the jeita temp hard
+				limit needs to be disabled. If it is not present,
+				jeita temperature hard limit will be based on what
+				the bootloader had set earlier.
 - qcom,soft-vfloat-comp-disabled	Set this property when the battery is
 					powered via external source and could
 					go above the float voltage.
