@@ -1286,8 +1286,6 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 #endif
 	}
 
-	schedule_work(&dev_priv->hdmi_audio_wq);
-
 #ifdef CONFIG_EXTCON
 	if (strlen(intel_connector->hotplug_switch.name) != 0) {
 		if (status == connector_status_connected)
