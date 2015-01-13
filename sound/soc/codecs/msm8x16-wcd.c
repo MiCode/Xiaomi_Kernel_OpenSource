@@ -2226,6 +2226,8 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		if (!strnstr(w->name, external_text, 30))
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MICB_1_EN, 0x05, 0x04);
+		if (w->reg == MSM8X16_WCD_A_ANALOG_MICB_1_EN)
+			msm8x16_wcd_configure_cap(codec, true, micbias2);
 
 		break;
 	case SND_SOC_DAPM_POST_PMU:
@@ -2242,8 +2244,6 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			msm8x16_notifier_call(codec,
 					WCD_EVENT_PRE_MICBIAS_2_ON);
 		}
-		if (w->reg == MSM8X16_WCD_A_ANALOG_MICB_1_EN)
-			msm8x16_wcd_configure_cap(codec, true, micbias2);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (strnstr(w->name, internal1_text, 30)) {
@@ -3516,7 +3516,7 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS External",
 		MSM8X16_WCD_A_ANALOG_MICB_1_EN, 7, 0,
-		msm8x16_wcd_codec_enable_micbias, SND_SOC_DAPM_POST_PMU |
+		msm8x16_wcd_codec_enable_micbias, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS External2",
