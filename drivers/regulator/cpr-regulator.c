@@ -262,6 +262,7 @@ struct cpr_regulator {
 	phys_addr_t	rbcpr_clk_addr;
 	struct mutex	cpr_mutex;
 
+	int		*cpr_max_ceiling;
 	int		*ceiling_volt;
 	int		*floor_volt;
 	int		*fuse_ceiling_volt;
@@ -3220,7 +3221,10 @@ static int cpr_init_ceiling_floor_override_voltages(
 						GFP_KERNEL);
 	cpr_vreg->floor_volt = devm_kzalloc(dev, sizeof(int) * size,
 						GFP_KERNEL);
-	if (!cpr_vreg->ceiling_volt || !cpr_vreg->floor_volt)
+	cpr_vreg->cpr_max_ceiling = devm_kzalloc(dev, sizeof(int) * size,
+						GFP_KERNEL);
+	if (!cpr_vreg->ceiling_volt || !cpr_vreg->floor_volt ||
+		!cpr_vreg->cpr_max_ceiling)
 		return -ENOMEM;
 
 	rc = cpr_fill_override_voltage(cpr_vreg, dev,
@@ -3245,6 +3249,7 @@ static int cpr_init_ceiling_floor_override_voltages(
 
 		if (cpr_vreg->ceiling_max < cpr_vreg->ceiling_volt[i])
 			cpr_vreg->ceiling_max = cpr_vreg->ceiling_volt[i];
+		cpr_vreg->cpr_max_ceiling[i] = cpr_vreg->ceiling_volt[i];
 	}
 
 	return rc;
@@ -3854,6 +3859,39 @@ static int cpr_enable_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(cpr_enable_fops, cpr_enable_get, cpr_enable_set,
 			"%llu\n");
 
+static int cpr_get_cpr_ceiling(void *data, u64 *val)
+{
+	struct cpr_regulator *cpr_vreg = data;
+
+	*val = cpr_vreg->ceiling_volt[cpr_vreg->corner];
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(cpr_ceiling_fops, cpr_get_cpr_ceiling, NULL,
+			"%llu\n");
+
+static int cpr_get_cpr_floor(void *data, u64 *val)
+{
+	struct cpr_regulator *cpr_vreg = data;
+
+	*val = cpr_vreg->floor_volt[cpr_vreg->corner];
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(cpr_floor_fops, cpr_get_cpr_floor, NULL,
+			"%llu\n");
+
+static int cpr_get_cpr_max_ceiling(void *data, u64 *val)
+{
+	struct cpr_regulator *cpr_vreg = data;
+
+	*val = cpr_vreg->cpr_max_ceiling[cpr_vreg->corner];
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(cpr_max_ceiling_fops, cpr_get_cpr_max_ceiling, NULL,
+			"%llu\n");
+
 static int cpr_debug_info_open(struct inode *inode, struct file *file)
 {
 	file->private_data = inode->i_private;
@@ -3979,6 +4017,27 @@ static void cpr_debugfs_init(struct cpr_regulator *cpr_vreg)
 			cpr_vreg->debugfs, cpr_vreg, &cpr_enable_fops);
 	if (IS_ERR_OR_NULL(temp)) {
 		cpr_err(cpr_vreg, "cpr_enable node creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_file("cpr_ceiling", S_IRUGO,
+			cpr_vreg->debugfs, cpr_vreg, &cpr_ceiling_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr_err(cpr_vreg, "cpr_ceiling node creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_file("cpr_floor", S_IRUGO,
+			cpr_vreg->debugfs, cpr_vreg, &cpr_floor_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr_err(cpr_vreg, "cpr_floor node creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_file("cpr_max_ceiling", S_IRUGO,
+			cpr_vreg->debugfs, cpr_vreg, &cpr_max_ceiling_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr_err(cpr_vreg, "cpr_max_ceiling node creation failed\n");
 		return;
 	}
 }
