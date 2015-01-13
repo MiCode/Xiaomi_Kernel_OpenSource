@@ -176,6 +176,13 @@ u32  vlv_dsi_port_prepare(struct vlv_dsi_port *port,
 	struct dsi_context *intel_dsi = &config->ctx;
 	unsigned int bpp = config->bpp;
 	u32 val, tmp;
+	u16 mode_hdisplay = mode->hdisplay;
+
+	if (intel_dsi->dual_link) {
+		mode_hdisplay /= 2;
+		if (intel_dsi->dual_link == DSI_DUAL_LINK_FRONT_BACK)
+			mode_hdisplay += intel_dsi->pixel_overlap;
+	}
 
 	REG_WRITE(port->dr_offset, 0x0);
 	usleep_range(2000, 2500);
@@ -203,7 +210,7 @@ u32  vlv_dsi_port_prepare(struct vlv_dsi_port *port,
 
 	REG_WRITE(port->dpi_res_offset,
 		mode->vdisplay << VERTICAL_ADDRESS_SHIFT |
-		mode->hdisplay << HORIZONTAL_ADDRESS_SHIFT);
+		mode_hdisplay << HORIZONTAL_ADDRESS_SHIFT);
 
 	set_dsi_timings(port, mode, config);
 

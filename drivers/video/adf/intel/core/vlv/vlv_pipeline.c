@@ -105,8 +105,11 @@ u32 vlv_dsi_prepare_on(struct intel_pipeline *pipeline,
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_pll *pll = &disp->pll;
 	struct vlv_pipe *pipe = &disp->pipe;
-	struct vlv_dsi_port *dsi_port = &disp->port.dsi_port[pll->port_id];
+	struct vlv_dsi_port *dsi_port = NULL;
 	struct dsi_config *config = pipeline->params.dsi.dsi_config;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct dsi_context *dsi_ctx = NULL;
+	enum port port;
 	u32 err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
@@ -125,9 +128,13 @@ u32 vlv_dsi_prepare_on(struct intel_pipeline *pipeline,
 		if (err)
 			goto out;
 
-		vlv_dsi_port_set_device_ready(dsi_port);
-
-		vlv_dsi_port_prepare(dsi_port, mode, config);
+		dsi_pipe = &disp->gen.dsi;
+		dsi_ctx = &dsi_pipe->config.ctx;
+		for_each_dsi_port(port, dsi_ctx->ports) {
+			dsi_port = &disp->port.dsi_port[port];
+			vlv_dsi_port_set_device_ready(dsi_port);
+			vlv_dsi_port_prepare(dsi_port, mode, config);
+		}
 
 		/* need to make panel calls so return to common code */
 	}
@@ -298,13 +305,20 @@ u32 vlv_dsi_pre_pipeline_on(struct intel_pipeline *pipeline,
 		struct drm_mode_modeinfo *mode)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	struct vlv_pll *pll = &disp->pll;
-	struct vlv_dsi_port *port = &disp->port.dsi_port[pll->port_id];
+	struct vlv_dsi_port *dsi_port = NULL;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct dsi_context *dsi_ctx = NULL;
+	enum port port;
 	u32 err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		err = vlv_dsi_port_pre_enable(port, mode,
-			pipeline->params.dsi.dsi_config);
+		dsi_pipe = &disp->gen.dsi;
+		dsi_ctx = &dsi_pipe->config.ctx;
+		for_each_dsi_port(port, dsi_ctx->ports) {
+			dsi_port = &disp->port.dsi_port[port];
+			err = vlv_dsi_port_pre_enable(dsi_port, mode,
+				pipeline->params.dsi.dsi_config);
+		}
 	}
 
 	return err;
