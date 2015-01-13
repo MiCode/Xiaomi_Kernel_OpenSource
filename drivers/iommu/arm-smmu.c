@@ -1144,8 +1144,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	spin_unlock_irqrestore(&smmu_domain->lock, flags);
 
 	irq = smmu->irqs[smmu->num_global_irqs + cfg->irptndx];
-	ret = request_irq(irq, arm_smmu_context_fault, IRQF_SHARED,
-			  "arm-smmu-context-fault", domain);
+	ret = request_threaded_irq(irq, NULL, arm_smmu_context_fault,
+				IRQF_ONESHOT | IRQF_SHARED,
+				"arm-smmu-context-fault", domain);
 	if (IS_ERR_VALUE(ret)) {
 		dev_err(smmu->dev, "failed to request context IRQ %d (%u)\n",
 			cfg->irptndx, irq);
