@@ -1046,10 +1046,8 @@ static void msm_hs_set_termios(struct uart_port *uport,
 {
 	unsigned int bps;
 	unsigned long data;
-	int ret;
 	unsigned int c_cflag = termios->c_cflag;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
-	struct msm_hs_rx *rx = &msm_uport->rx;
 
 	/**
 	 * set_termios can be invoked from the framework when
@@ -1075,8 +1073,15 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	data = msm_hs_read(uport, UART_DM_DMEN);
 	/* Disable UARTDM RX BAM Interface */
 	data &= ~UARTDM_RX_BAM_ENABLE_BMSK;
-
 	msm_hs_write(uport, UART_DM_DMEN, data);
+
+	/*
+	 * Reset RX and TX.
+	 * Resetting the RX enables it, therefore we must reset and disable.
+	 */
+	msm_hs_write(uport, UART_DM_CR, RESET_RX);
+	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_RX_DISABLE_BMSK);
+	msm_hs_write(uport, UART_DM_CR, RESET_TX);
 
 	/* 300 is the minimum baud support by the driver  */
 	bps = uart_get_baud_rate(uport, termios, oldtermios, 200, 4000000);
@@ -1137,36 +1142,19 @@ static void msm_hs_set_termios(struct uart_port *uport,
 
 	uport->read_status_mask = (termios->c_cflag & CREAD);
 
-
 	/* Set Transmit software time out */
 	uart_update_timeout(uport, c_cflag, bps);
 
-	msm_hs_write(uport, UART_DM_CR, RESET_RX);
-	msm_hs_write(uport, UART_DM_CR, RESET_TX);
-
-	/* Issue TX BAM Start IFC command */
+	/* Enable UARTDM Rx BAM Interface */
+	data = msm_hs_read(uport, UART_DM_DMEN);
+	data |= UARTDM_RX_BAM_ENABLE_BMSK;
+	msm_hs_write(uport, UART_DM_DMEN, data);
+	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_RX_EN_BMSK);
+	/* Issue TX,RX BAM Start IFC command */
 	msm_hs_write(uport, UART_DM_CR, START_TX_BAM_IFC);
-
-	if (msm_uport->rx.flush == FLUSH_NONE) {
-		flush_kthread_worker(&msm_uport->rx.kworker);
-		msm_uport->rx.flush = FLUSH_DATA_INVALID;
-		/* Ensure register IO completion */
-		mb();
-		if (msm_uport->rx_bam_inprogress)
-			ret = wait_event_timeout(msm_uport->rx.wait,
-				msm_uport->rx_bam_inprogress == false,
-				RX_FLUSH_COMPLETE_TIMEOUT);
-		ret = disconnect_rx_endpoint(msm_uport);
-		if (ret)
-			MSM_HS_ERR("%s(): sps_disconnect failed\n", __func__);
-		if (msm_uport->rx.pending_flag)
-			MSM_HS_WARN("%s(): buffers may be pending 0x%lx",
-				__func__, msm_uport->rx.pending_flag);
-		MSM_HS_DBG("%s(): clearing desc usage flag", __func__);
-		msm_hs_spsconnect_rx(uport);
-		msm_uport->rx.flush = FLUSH_IGNORE;
-		msm_serial_hs_rx_work(&rx->kwork);
-	}
+	msm_hs_write(uport, UART_DM_CR, START_RX_BAM_IFC);
+	/* Ensure Register Writes Complete */
+	mb();
 
 	/* Configure HW flow control
 	 * UART Core would see status of CTS line when it is sending data
@@ -1184,9 +1172,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 		msm_uport->flow_control = true;
 	}
 	msm_hs_write(uport, UART_DM_MR1, data);
-	msm_hs_write(uport, UART_DM_IMR, msm_uport->imr_reg);
-	/* Ensure register IO completion */
-	mb();
+
 	mutex_unlock(&msm_uport->mtx);
 
 	MSM_HS_DBG("Exit %s\n", __func__);
@@ -2475,6 +2461,29 @@ static int msm_hs_startup(struct uart_port *uport)
 	/* turn on uart clk */
 	msm_hs_resource_vote(msm_uport);
 
+	if (is_use_low_power_wakeup(msm_uport)) {
+		ret = request_threaded_irq(msm_uport->wakeup.irq, NULL,
+					msm_hs_wakeup_isr,
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					"msm_hs_wakeup", msm_uport);
+		if (unlikely(ret)) {
+			MSM_HS_ERR("%s():Err getting uart wakeup_irq\n",
+				  __func__);
+			goto free_uart_irq;
+		}
+
+		msm_uport->wakeup.freed = false;
+		disable_irq(msm_uport->wakeup.irq);
+		msm_uport->wakeup.enabled = false;
+
+		ret = irq_set_irq_wake(msm_uport->wakeup.irq, 1);
+		if (unlikely(ret)) {
+			MSM_HS_ERR("%s():Err setting wakeup irq\n", __func__);
+			goto free_uart_irq;
+		}
+	}
+
+
 	ret = msm_hs_config_uart_gpios(uport);
 	if (ret) {
 		MSM_HS_ERR("Uart GPIO request failed\n");
@@ -2563,27 +2572,7 @@ static int msm_hs_startup(struct uart_port *uport)
 		MSM_HS_ERR("%s():Error getting uart irq\n", __func__);
 		goto sps_disconnect_rx;
 	}
-	if (is_use_low_power_wakeup(msm_uport)) {
-		ret = request_threaded_irq(msm_uport->wakeup.irq, NULL,
-					msm_hs_wakeup_isr,
-					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-					"msm_hs_wakeup", msm_uport);
-		if (unlikely(ret)) {
-			MSM_HS_ERR("%s():Err getting uart wakeup_irq\n",
-				  __func__);
-			goto free_uart_irq;
-		}
 
-		msm_uport->wakeup.freed = false;
-		disable_irq(msm_uport->wakeup.irq);
-		msm_uport->wakeup.enabled = false;
-
-		ret = irq_set_irq_wake(msm_uport->wakeup.irq, 1);
-		if (unlikely(ret)) {
-			MSM_HS_ERR("%s():Err setting wakeup irq\n", __func__);
-			goto free_uart_irq;
-		}
-	}
 
 	spin_lock_irqsave(&uport->lock, flags);
 	atomic_set(&msm_uport->ioctl_count, 0);
@@ -2595,14 +2584,14 @@ static int msm_hs_startup(struct uart_port *uport)
 	msm_hs_resource_unvote(msm_uport);
 	return 0;
 
-free_uart_irq:
-	free_irq(uport->irq, msm_uport);
 sps_disconnect_rx:
 	sps_disconnect(sps_pipe_handle_rx);
 sps_disconnect_tx:
 	sps_disconnect(sps_pipe_handle_tx);
 unconfig_uart_gpios:
 	msm_hs_unconfig_uart_gpios(uport);
+free_uart_irq:
+	free_irq(uport->irq, msm_uport);
 deinit_uart_clk:
 	msm_hs_resource_unvote(msm_uport);
 	MSM_HS_ERR("%s(): Error return\n", __func__);
