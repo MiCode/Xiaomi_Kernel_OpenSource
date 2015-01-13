@@ -107,9 +107,8 @@ static struct emac_irq_info emac_irq[EMAC_NUM_IRQ] = {
 	  EMAC_SGMII_PHY_INTERRUPT_MASK, SGMII_ISR_MASK, NULL, NULL },
 };
 
-static struct emac_gpio_info emac_gpio[EMAC_NUM_GPIO] = {
-	{ 0, "qcom,emac-gpio-mdc" },
-	{ 0, "qcom,emac-gpio-mdio" },
+static const char * const emac_gpio_name[] = {
+	"qcom,emac-gpio-mdc", "qcom,emac-gpio-mdio"
 };
 
 static const char * const emac_clk_name[] = {
@@ -1628,14 +1627,13 @@ int emac_up(struct emac_adapter *adpt)
 	emac_hw_config_mac(hw);
 	emac_config_rss(adpt);
 
-	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_NUM_GPIO; i++) {
-		struct emac_gpio_info *gpio_info = &adpt->gpio_info[i];
-		retval = gpio_request(gpio_info->gpio, gpio_info->name);
+	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_GPIO_CNT; i++) {
+		retval = gpio_request(adpt->gpio[i], emac_gpio_name[i]);
 		if (retval) {
-			emac_err(adpt, "failed to request gpio %s: %d\n",
-				 gpio_info->name, retval);
+			emac_err(adpt, "error:%d on gpio_request(%d:%s)\n",
+				 retval, adpt->gpio[i], emac_gpio_name[i]);
 			while (--i >= 0)
-				gpio_free(adpt->gpio_info[i].gpio);
+				gpio_free(adpt->gpio[i]);
 			goto err_request_gpio;
 		}
 	}
@@ -1677,8 +1675,8 @@ int emac_up(struct emac_adapter *adpt)
 	return retval;
 
 err_request_irq:
-	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_NUM_GPIO; i++)
-		gpio_free(adpt->gpio_info[i].gpio);
+	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_GPIO_CNT; i++)
+		gpio_free(adpt->gpio[i]);
 err_request_gpio:
 	return retval;
 }
@@ -1703,8 +1701,8 @@ void emac_down(struct emac_adapter *adpt, u32 ctrl)
 		if (adpt->irq_info[i].irq)
 			free_irq(adpt->irq_info[i].irq, &adpt->irq_info[i]);
 
-	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_NUM_GPIO; i++)
-		gpio_free(adpt->gpio_info[i].gpio);
+	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_GPIO_CNT; i++)
+		gpio_free(adpt->gpio[i]);
 
 	CLR_FLAG(adpt, ADPT_TASK_LSC_REQ);
 	CLR_FLAG(adpt, ADPT_TASK_REINIT_REQ);
@@ -2552,7 +2550,6 @@ static int emac_get_resources(struct platform_device *pdev,
 	struct resource *res;
 	struct net_device *netdev = adpt->netdev;
 	struct emac_irq_info *irq_info;
-	struct emac_gpio_info *gpio_info;
 	struct device_node *node = pdev->dev.of_node;
 	char *res_name[NUM_EMAC_REG_BASES] = {"emac", "emac_csr", "emac_1588",
 					      "emac_qserdes", "emac_sgmii_phy"};
@@ -2592,13 +2589,12 @@ static int emac_get_resources(struct platform_device *pdev,
 		adpt->no_mdio_gpio = true;
 
 	/* get gpios */
-	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_NUM_GPIO; i++) {
-		gpio_info = &adpt->gpio_info[i];
-		retval = of_get_named_gpio(node, gpio_info->name, 0);
+	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_GPIO_CNT; i++) {
+		retval = of_get_named_gpio(node, emac_gpio_name[i], 0);
 		if (retval < 0)
 			return retval;
 
-		gpio_info->gpio = retval;
+		adpt->gpio[i] = retval;
 	}
 
 	/* get mac address */
@@ -2729,7 +2725,6 @@ static int emac_probe(struct platform_device *pdev)
 	dma_set_seg_boundary(&pdev->dev, 0xffffffff);
 
 
-	memcpy(adpt->gpio_info, emac_gpio, sizeof(adpt->gpio_info));
 	memcpy(adpt->irq_info, emac_irq, sizeof(adpt->irq_info));
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
 		adpt->irq_info[i].adpt = adpt;
