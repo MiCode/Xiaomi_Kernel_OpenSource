@@ -1,5 +1,6 @@
 /* drivers/misc/akm09911.c - akm09911 compass driver
  *
+ * Copyright (c) 2014-2015, Linux Foundation. All rights reserved.
  * Copyright (C) 2007-2008 HTC Corporation.
  * Author: Hou-Kun Chen <houkun.chen@gmail.com>
  *
@@ -50,6 +51,15 @@
 #define AKM09911_VIO_MAX_UV	1950000
 
 #define STATUS_ERROR(st)		(((st)&0x08) != 0x0)
+
+#define AKM09911_RETRY_COUNT	10
+
+enum {
+	AKM09911_AXIS_X = 0,
+	AKM09911_AXIS_Y,
+	AKM09911_AXIS_Z,
+	AKM09911_AXIS_COUNT,
+};
 
 /* Save last device state for power down */
 struct akm_sensor_state {
@@ -1903,6 +1913,201 @@ static enum hrtimer_restart akm_timer_func(struct hrtimer *timer)
 	return HRTIMER_RESTART;
 }
 
+static int case_test(struct akm_compass_data *akm, const char test_name[],
+		const int testdata, const int lo_limit, const int hi_limit,
+		int *fail_total)
+{
+	/* Pass:0, Fail:-1 */
+	int result = 0;
+
+	if (fail_total == NULL)
+		return -EINVAL;
+
+	if (strcmp(test_name, "START") == 0) {
+		dev_dbg(&akm->i2c->dev, "----------------------------------------------------------\n");
+		dev_dbg(&akm->i2c->dev, "Test Name    Fail    Test Data    [      Low         High]\n");
+		dev_dbg(&akm->i2c->dev, "----------------------------------------------------------\n");
+	} else if (strcmp(test_name, "END") == 0) {
+		dev_dbg(&akm->i2c->dev, "----------------------------------------------------------\n");
+		if (*fail_total == 0)
+			dev_dbg(&akm->i2c->dev, "Factory shipment test passed.\n\n");
+		else
+			dev_dbg(&akm->i2c->dev, "%d test cases failed.\n\n",
+					*fail_total);
+	} else {
+		if ((testdata < lo_limit) || (testdata > hi_limit)) {
+			result = -1;
+			*fail_total += 1;
+		}
+
+		dev_dbg(&akm->i2c->dev, " %-10s      %c    %9d    [%9d    %9d]\n",
+				 test_name, ((result == 0) ? ('.') : ('F')),
+				 testdata, lo_limit, hi_limit);
+	}
+
+	return result;
+}
+
+static int akm_self_test(struct sensors_classdev *sensors_cdev)
+{
+	struct akm_compass_data *akm = container_of(sensors_cdev,
+			struct akm_compass_data, cdev);
+	uint8_t i2c_data[AKM_SENSOR_DATA_SIZE];
+	int hdata[AKM09911_AXIS_COUNT];
+	int asax, asay, asaz;
+	int count;
+	int ret;
+	int fail_total = 0;
+	uint8_t mode;
+	bool power_enabled = akm->power_enabled ? true : false;
+
+	mutex_lock(&akm->op_mutex);
+
+	asax = akm->sense_conf[AKM09911_AXIS_X];
+	asay = akm->sense_conf[AKM09911_AXIS_Y];
+	asaz = akm->sense_conf[AKM09911_AXIS_Z];
+
+	if (!power_enabled) {
+		ret = akm_compass_power_set(akm, true);
+		if (ret) {
+			dev_err(&akm->i2c->dev, "Power up failed.\n");
+			goto exit;
+		}
+	} else {
+		i2c_data[0] = AKM_REG_MODE;
+		ret = akm_i2c_rxdata(akm->i2c, i2c_data, 1);
+		if (ret < 0) {
+			dev_err(&akm->i2c->dev, "Get mode failed.\n");
+			goto exit;
+		}
+		mode = i2c_data[1];
+	}
+
+	ret = AKECS_Reset(akm, 0);
+	if (ret < 0) {
+		dev_err(&akm->i2c->dev, "Reset failed.\n");
+		goto exit;
+	}
+
+	/* start test */
+	case_test(akm, "START", 0, 0, 0, &fail_total);
+
+	case_test(akm, TLIMIT_TN_ASAX_09911, asax, TLIMIT_LO_ASAX_09911,
+			TLIMIT_HI_ASAX_09911, &fail_total);
+	case_test(akm, TLIMIT_TN_ASAY_09911, asay, TLIMIT_LO_ASAY_09911,
+			TLIMIT_HI_ASAY_09911, &fail_total);
+	case_test(akm, TLIMIT_TN_ASAZ_09911, asaz, TLIMIT_LO_ASAZ_09911,
+			TLIMIT_HI_ASAZ_09911, &fail_total);
+
+	ret = AKECS_SetMode(akm, AK09911_MODE_SNG_MEASURE);
+	if (ret < 0) {
+		dev_err(&akm->i2c->dev, "Set to single measurement failed.\n");
+		goto exit;
+	}
+
+	count = AKM09911_RETRY_COUNT;
+	do {
+		/* The typical time for single measurement is 7.2ms */
+		ret = AKECS_GetData_Poll(akm, i2c_data, AKM_SENSOR_DATA_SIZE);
+		if (ret == -EAGAIN)
+			usleep_range(1000, 10000);
+	} while ((ret == -EAGAIN) && (--count));
+
+	if (!count) {
+		dev_err(&akm->i2c->dev, "Timeout get valid data.\n");
+		goto exit;
+	}
+
+	hdata[AKM09911_AXIS_X] = (s16)(i2c_data[1] | (i2c_data[2] << 8));
+	hdata[AKM09911_AXIS_Y] = (s16)(i2c_data[3] | (i2c_data[4] << 8));
+	hdata[AKM09911_AXIS_Z] = (s16)(i2c_data[5] | (i2c_data[6] << 8));
+
+	i2c_data[0] &= 0x7F;
+	case_test(akm, TLIMIT_TN_SNG_ST1_09911,
+	       (int)i2c_data[0], TLIMIT_LO_SNG_ST1_09911,
+		TLIMIT_HI_SNG_ST1_09911, &fail_total);
+
+	case_test(akm, TLIMIT_TN_SNG_HX_09911, hdata[0], TLIMIT_LO_SNG_HX_09911,
+			TLIMIT_HI_SNG_HX_09911, &fail_total);
+	case_test(akm, TLIMIT_TN_SNG_HY_09911, hdata[1], TLIMIT_LO_SNG_HY_09911,
+			TLIMIT_HI_SNG_HY_09911, &fail_total);
+	case_test(akm, TLIMIT_TN_SNG_HZ_09911, hdata[2], TLIMIT_LO_SNG_HZ_09911,
+			TLIMIT_HI_SNG_HZ_09911, &fail_total);
+
+	case_test(akm, TLIMIT_TN_SNG_ST2_09911, (int)i2c_data[8],
+			TLIMIT_LO_SNG_ST2_09911, TLIMIT_HI_SNG_ST2_09911,
+			&fail_total);
+
+	/* self-test mode */
+	ret = AKECS_SetMode(akm, AK09911_MODE_SELF_TEST);
+	if (ret < 0) {
+		dev_err(&akm->i2c->dev, "Set to self test mode failed\n");
+		goto exit;
+	}
+
+	count = AKM09911_RETRY_COUNT;
+	do {
+		/* The typical time for single measurement is 7.2ms */
+		ret = AKECS_GetData_Poll(akm, i2c_data, AKM_SENSOR_DATA_SIZE);
+		if (ret == -EAGAIN)
+			usleep_range(1000, 10000);
+	} while ((ret == -EAGAIN) && (--count));
+
+	if (!count) {
+		dev_err(&akm->i2c->dev, "Timeout get valid data.\n");
+		goto exit;
+	}
+
+	i2c_data[0] &= 0x7F;
+
+	case_test(akm, TLIMIT_TN_SLF_ST1_09911, (int)i2c_data[0],
+			TLIMIT_LO_SLF_ST1_09911, TLIMIT_HI_SLF_ST1_09911,
+			&fail_total);
+
+	hdata[AKM09911_AXIS_X] = (s16)(i2c_data[1] | (i2c_data[2] << 8));
+	hdata[AKM09911_AXIS_Y] = (s16)(i2c_data[3] | (i2c_data[4] << 8));
+	hdata[AKM09911_AXIS_Z] = (s16)(i2c_data[5] | (i2c_data[6] << 8));
+
+	case_test(akm, TLIMIT_TN_SLF_RVHX_09911, (hdata[0])*(asax/128 + 1),
+			TLIMIT_LO_SLF_RVHX_09911, TLIMIT_HI_SLF_RVHX_09911,
+			&fail_total);
+
+	case_test(akm, TLIMIT_TN_SLF_RVHY_09911, (hdata[1])*(asay/128 + 1),
+			TLIMIT_LO_SLF_RVHY_09911, TLIMIT_HI_SLF_RVHY_09911,
+			&fail_total);
+
+	case_test(akm, TLIMIT_TN_SLF_RVHZ_09911, (hdata[2])*(asaz/128 + 1),
+			TLIMIT_LO_SLF_RVHZ_09911, TLIMIT_HI_SLF_RVHZ_09911,
+			&fail_total);
+
+	case_test(akm, TLIMIT_TN_SLF_ST2_09911, (int)i2c_data[8],
+			TLIMIT_LO_SLF_ST2_09911, TLIMIT_HI_SLF_ST2_09911,
+			&fail_total);
+
+	case_test(akm, "END", 0, 0, 0, &fail_total);
+	/* clean up */
+	if (!power_enabled) {
+		ret = akm_compass_power_set(akm, false);
+		if (ret) {
+			dev_err(&akm->i2c->dev, "Power down failed.\n");
+			goto exit;
+		}
+	} else {
+		/* Set measure mode */
+		i2c_data[0] = AKM_REG_MODE;
+		i2c_data[1] = mode;
+		ret = akm_i2c_txdata(akm->i2c, i2c_data, 2);
+		if (ret < 0) {
+			dev_err(&akm->i2c->dev, "restore mode failed\n");
+			goto exit;
+		}
+	}
+
+exit:
+	mutex_unlock(&akm->op_mutex);
+	return ((fail_total > 0) || ret) ? -EIO : 0;
+}
+
 int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct akm09911_platform_data *pdata;
@@ -2063,6 +2268,7 @@ int akm_compass_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	s_akm->cdev = sensors_cdev;
 	s_akm->cdev.sensors_enable = akm_enable_set;
 	s_akm->cdev.sensors_poll_delay = akm_poll_delay_set;
+	s_akm->cdev.sensors_self_test = akm_self_test;
 
 	s_akm->delay[MAG_DATA_FLAG] = sensors_cdev.delay_msec * 1000000;
 
