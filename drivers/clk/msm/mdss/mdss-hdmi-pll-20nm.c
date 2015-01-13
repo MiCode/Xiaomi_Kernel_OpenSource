@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -385,8 +385,8 @@
 #define HDMI_PHY_REVISION_ID2				(0xC4)
 #define HDMI_PHY_REVISION_ID3				(0xC8)
 
-#define HDMI_PLL_POLL_MAX_READS			2500
-#define HDMI_PLL_POLL_TIMEOUT_US		50
+#define HDMI_PLL_POLL_DELAY_US			50
+#define HDMI_PLL_POLL_TIMEOUT_US		125000
 #define HDMI_PLL_REF_CLK_RATE			192ULL
 #define HDMI_PLL_DIVISOR			10000000000ULL
 #define HDMI_PLL_DIVISOR_32			100000U
@@ -414,7 +414,7 @@ static int hdmi_20nm_pll_lock_status(struct mdss_pll_resources *io)
 	if (!readl_poll_timeout_atomic(
 		(io->pll_base + QSERDES_COM_RESET_SM),
 		status, ((status & BIT(6)) == 1),
-		HDMI_PLL_POLL_MAX_READS,
+		HDMI_PLL_POLL_DELAY_US,
 		HDMI_PLL_POLL_TIMEOUT_US)) {
 		pr_debug("%s: C READY\n", __func__);
 		pll_locked = 1;
@@ -427,7 +427,7 @@ static int hdmi_20nm_pll_lock_status(struct mdss_pll_resources *io)
 	if (pll_locked && !readl_poll_timeout_atomic(
 		(io->phy_base + HDMI_PHY_STATUS),
 		status, ((status & BIT(0)) == 1),
-		HDMI_PLL_POLL_MAX_READS,
+		HDMI_PLL_POLL_DELAY_US,
 		HDMI_PLL_POLL_TIMEOUT_US)) {
 		pr_debug("%s: PHY READY\n", __func__);
 		phy_ready = 1;

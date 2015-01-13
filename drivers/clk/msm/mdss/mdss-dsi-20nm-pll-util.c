@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,8 +124,8 @@
 #define MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL16		0x054
 #define MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL17		0x058
 
-#define DSI_PLL_POLL_MAX_READS			15
-#define DSI_PLL_POLL_TIMEOUT_US			1000
+#define DSI_PLL_POLL_DELAY_US			1000
+#define DSI_PLL_POLL_TIMEOUT_US			15000
 
 int set_mdss_byte_mux_sel(struct mux_clk *clk, int sel)
 {
@@ -465,7 +465,7 @@ static bool pll_20nm_is_pll_locked(struct mdss_pll_resources *dsi_pll_res)
 			MMSS_DSI_PHY_PLL_RESET_SM),
 			status,
 			((status & BIT(5)) > 0),
-			DSI_PLL_POLL_MAX_READS,
+			DSI_PLL_POLL_DELAY_US,
 			DSI_PLL_POLL_TIMEOUT_US)) {
 		pr_debug("DSI PLL status=%x failed to Lock\n", status);
 		pll_locked = false;
@@ -473,7 +473,7 @@ static bool pll_20nm_is_pll_locked(struct mdss_pll_resources *dsi_pll_res)
 				MMSS_DSI_PHY_PLL_RESET_SM),
 				status,
 				((status & BIT(6)) > 0),
-				DSI_PLL_POLL_MAX_READS,
+				DSI_PLL_POLL_DELAY_US,
 				DSI_PLL_POLL_TIMEOUT_US)) {
 		pr_debug("DSI PLL status=%x PLl not ready\n", status);
 		pll_locked = false;

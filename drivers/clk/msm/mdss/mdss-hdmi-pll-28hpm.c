@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -85,8 +85,8 @@
 #define HDMI_UNI_PLL_CAL_CFG11			(0x0098)
 #define HDMI_UNI_PLL_STATUS			(0x00C0)
 
-#define HDMI_PLL_POLL_MAX_READS			10
-#define HDMI_PLL_POLL_TIMEOUT_US		50
+#define HDMI_PLL_POLL_DELAY_US			50
+#define HDMI_PLL_POLL_TIMEOUT_US		500
 
 static inline struct hdmi_pll_vco_clk *to_hdmi_vco_clk(struct clk *clk)
 {
@@ -121,7 +121,7 @@ static void hdmi_vco_disable(struct clk *c)
 static int hdmi_vco_enable(struct clk *c)
 {
 	u32 status;
-	u32 max_reads, timeout_us;
+	u32 delay_us, timeout_us;
 	int rc;
 	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
 	struct mdss_pll_resources *hdmi_pll_res = vco->priv;
@@ -150,11 +150,11 @@ static int hdmi_vco_enable(struct clk *c)
 	udelay(350);
 
 	/* poll for PLL ready status */
-	max_reads = 20;
-	timeout_us = 100;
+	delay_us = 100;
+	timeout_us = 2000;
 	if (readl_poll_timeout_atomic(
 		(hdmi_pll_res->pll_base + HDMI_UNI_PLL_STATUS),
-		status, ((status & BIT(0)) == 1), max_reads, timeout_us)) {
+		status, ((status & BIT(0)) == 1), delay_us, timeout_us)) {
 		pr_err("hdmi phy pll status=%x failed to Lock\n", status);
 		hdmi_vco_disable(c);
 		mdss_pll_resource_enable(hdmi_pll_res, false);
@@ -164,11 +164,11 @@ static int hdmi_vco_enable(struct clk *c)
 
 	udelay(350);
 	/* poll for PHY ready status */
-	max_reads = 20;
-	timeout_us = 100;
+	delay_us = 100;
+	timeout_us = 2000;
 	if (readl_poll_timeout_atomic(
 		(hdmi_pll_res->phy_base + HDMI_PHY_STATUS),
-		status, ((status & BIT(0)) == 1), max_reads, timeout_us)) {
+		status, ((status & BIT(0)) == 1), delay_us, timeout_us)) {
 		pr_err("hdmi phy status=%x failed to Lock\n", status);
 		hdmi_vco_disable(c);
 		mdss_pll_resource_enable(hdmi_pll_res, false);
@@ -853,7 +853,7 @@ static int hdmi_pll_lock_status(struct mdss_pll_resources *hdmi_pll_res)
 	if (readl_poll_timeout_atomic(
 			(hdmi_pll_res->phy_base + HDMI_PHY_STATUS),
 			status, ((status & BIT(0)) == 1),
-			HDMI_PLL_POLL_MAX_READS,
+			HDMI_PLL_POLL_DELAY_US,
 			HDMI_PLL_POLL_TIMEOUT_US)) {
 		pr_debug("HDMI PLL status=%x failed to Lock\n", status);
 		pll_locked = 0;
