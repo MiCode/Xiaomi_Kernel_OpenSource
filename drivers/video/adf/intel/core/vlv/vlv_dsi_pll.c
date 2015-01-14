@@ -230,7 +230,10 @@ static void vlv_dsi_pll_configure(struct vlv_pll *pll)
 		return;
 	}
 
-	dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI0_DSIPLL;
+	if (pll->port_id == PORT_A)
+		dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI0_DSIPLL;
+	else
+		dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI1_DSIPLL;
 
 	pr_info("dsi pll div %08x, ctrl %08x\n",
 			dsi_mnp.dsi_pll_div, dsi_mnp.dsi_pll_ctrl);
