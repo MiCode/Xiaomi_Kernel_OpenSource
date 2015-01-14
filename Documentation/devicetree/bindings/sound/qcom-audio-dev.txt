@@ -598,6 +598,7 @@ Optional Properties:
 capacitor mode.
 - qcom,msm-micbias2-ext-cap : Boolean. Enable micbias2 external
 capacitor mode.
+- qcom,msm-spk-ext-pa : GPIO which enables external speaker pa.
 
 Example:
 
@@ -612,6 +613,7 @@ Example:
 		qcom,msm-mbhc-gnd-swh = <0>;
 		qcom,msm-hs-micbias-type = "internal";
 		qcom,cdc-us-euro-gpios = <&msmgpio 120 0>;
+		qcom,msm-spk-ext-pa = <&msm_gpio 0 0>;
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"INT_LDO_H", "MCLK",
