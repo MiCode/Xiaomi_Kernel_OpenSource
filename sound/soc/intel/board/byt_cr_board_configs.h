@@ -22,10 +22,18 @@
 #ifndef __BYT_CR_BOARD_CONFIGS_H__
 #define __BYT_CR_BOARD_CONFIGS_H__
 
+enum jack_int_select {
+	JACK_INT1,
+	JACK_INT2,
+};
+
 struct board_config {
+	char *name;
 	int idx;
 	int i2s_port;
-	int speaker_input;
+	int mic_input;
+	int jack_active_low;
+	enum jack_int_select jack_int_sel;
 };
 
 struct mach_codec_link {
@@ -42,6 +50,8 @@ enum board_id_rt5640 {
 	RT5640_DEFAULT = -1,
 	RT5640_MRD7,
 	RT5640_T100,
+	RT5640_MALATA,
+	RT5640_CHIPHD,
 };
 
 static const char codec_hid0[] = "10EC5640";
@@ -53,21 +63,46 @@ static struct platform_device mach_dev0 = {
 };
 
 static const struct board_config board_config_default0 = {
+	.name = "bytcr-rt5640",
 	.idx = RT5640_DEFAULT,
 	.i2s_port = 0,
-	.speaker_input = 1,
+	.mic_input = 3,
+	.jack_active_low = 0,
+	.jack_int_sel = JACK_INT1,
 };
 
 static const struct board_config board_configs0[] = {
 	[RT5640_MRD7] = {
+		.name = "bytcr-rt5640",
 		.idx = RT5640_MRD7,
 		.i2s_port = 0,
-		.speaker_input = 3,
+		.mic_input = 3,
+		.jack_active_low = 0,
+		.jack_int_sel = JACK_INT1,
 	},
 	[RT5640_T100] = {
+		.name = "bytcr-rt5642-t100",
 		.idx = RT5640_T100,
 		.i2s_port = 2,
-		.speaker_input = 1,
+		.mic_input = 1,
+		.jack_active_low = 0,
+		.jack_int_sel = JACK_INT1,
+	},
+	[RT5640_MALATA] = {
+		.name = "bytcr-rt5640",
+		.idx = RT5640_MALATA,
+		.i2s_port = 0,
+		.mic_input = 3,
+		.jack_active_low = 1,
+		.jack_int_sel = JACK_INT2,
+	},
+	[RT5640_CHIPHD] = {
+		.name = "bytcr-rt5640",
+		.idx = RT5640_CHIPHD,
+		.i2s_port = 0,
+		.mic_input = 3,
+		.jack_active_low = 1,
+		.jack_int_sel = JACK_INT2,
 	},
 	{}
 };
@@ -88,6 +123,22 @@ static const struct dmi_system_id dmi_system_ids0[] = {
 			DMI_MATCH(DMI_BOARD_VERSION, "1.0"),
 		},
 		.driver_data = (void *)&board_configs0[RT5640_T100],
+	},
+	[RT5640_MALATA] = {
+		.ident = "MALATA",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_NAME, "MALATA8"),
+			DMI_MATCH(DMI_BOARD_VERSION, "0"),
+		},
+		.driver_data = (void *)&board_configs0[RT5640_MALATA],
+	},
+	[RT5640_CHIPHD] = {
+		.ident = "CHIPHD",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_NAME, "CHIPHD8"),
+			DMI_MATCH(DMI_BOARD_VERSION, "0"),
+		},
+		.driver_data = (void *)&board_configs0[RT5640_CHIPHD],
 	},
 	{}
 };
@@ -110,14 +161,18 @@ static struct platform_device mach_dev1 = {
 static const struct board_config board_config_default1 = {
 	.idx = RT5651_DEFAULT,
 	.i2s_port = 0,
-	.speaker_input = 3,
+	.mic_input = 3,
+	.jack_active_low = 0,
+	.jack_int_sel = JACK_INT2,
 };
 
 static const struct board_config board_configs1[] = {
 	[RT5651_ANCHOR8] = {
 		.idx = RT5651_ANCHOR8,
 		.i2s_port = 0,
-		.speaker_input = 3,
+		.mic_input = 3,
+		.jack_active_low = 0,
+		.jack_int_sel = JACK_INT2,
 	},
 	{}
 };

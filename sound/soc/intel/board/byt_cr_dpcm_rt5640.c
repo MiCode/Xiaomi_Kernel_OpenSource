@@ -67,9 +67,11 @@ struct rt5640_gpios {
 	int jd_buttons_gpio;
 	int debug_mux_gpio;
 	int i2s_tristate_en_gpio;
+	int int_count;
 };
 
 struct byt_drvdata {
+	const struct board_config *board_cfg;
 	struct snd_soc_jack jack;
 	struct delayed_work hs_jack_recheck;
 	struct delayed_work hs_buttons_recheck;
@@ -193,16 +195,29 @@ static inline bool byt_hs_inserted(struct byt_drvdata *drvdata)
 {
 	bool val;
 	const struct gpio_desc *desc;
+	int gpio;
 
-	desc = gpio_to_desc(drvdata->gpios.jd_int_gpio);
+	switch (drvdata->board_cfg->jack_int_sel) {
+	case JACK_INT1:
+		gpio = drvdata->gpios.jd_int_gpio;
+		break;
+	case JACK_INT2:
+		gpio = drvdata->gpios.jd_int2_gpio;
+		break;
+	default:
+		BUG_ON(true);
+	}
+
+	desc = gpio_to_desc(gpio);
 	val = (bool)gpiod_get_value(desc);
 
-	/* TEMP for MRD7 until active_low is working properly with ACPI */
-	if (drvdata->gpios.jd_int2_gpio == RT5640_GPIO_NA)
+	if (drvdata->board_cfg->jack_active_low)
 		val = !val;
 
-	pr_info("%s: val = %d (pin = %d, active_low = %d)\n", __func__, val,
-		drvdata->gpios.jd_int_gpio, gpiod_is_active_low(desc));
+	pr_info("%s: val = %d (pin = %d, active_low = %d, jack_int_sel = %d)\n",
+		__func__, val, drvdata->gpios.jd_int_gpio,
+		drvdata->board_cfg->jack_active_low,
+		drvdata->board_cfg->jack_int_sel);
 
 	return val;
 }
@@ -536,7 +551,7 @@ static void byt_export_gpio(struct gpio_desc *desc, char *name)
 
 static int byt_init(struct snd_soc_pcm_runtime *runtime)
 {
-	int ret, dir, count;
+	int ret, dir, int_gpio;
 	struct snd_soc_codec *codec;
 	struct snd_soc_card *card = runtime->card;
 	struct byt_drvdata *drvdata = snd_soc_card_get_drvdata(runtime->card);
@@ -655,30 +670,40 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 				__func__);
 	}
 
-	/* BYT-CR Audio Jack */
-	count = 0;
-	if (drvdata->gpios.jd_int_gpio != RT5640_GPIO_NA) {
-		hs_gpio[count].gpio = drvdata->gpios.jd_int_gpio;
-		hs_gpio[count].data = drvdata;
-		count++;
-	}
-
-	if (drvdata->gpios.jd_buttons_gpio != RT5640_GPIO_NA) {
-		hs_gpio[count].gpio = drvdata->gpios.jd_buttons_gpio;
-		hs_gpio[count].data = drvdata;
-		count++;
-	}
-
 	drvdata->t_jack_recheck = msecs_to_jiffies(BYT_T_JACK_RECHECK);
 	INIT_DELAYED_WORK(&drvdata->hs_jack_recheck, byt_hs_jack_recheck);
 	drvdata->t_buttons_recheck = msecs_to_jiffies(BYT_T_BUTTONS_RECHECK);
 	INIT_DELAYED_WORK(&drvdata->hs_buttons_recheck, byt_hs_buttons_recheck);
 	drvdata->jack_hp_count = 5;
 
-	if (!count) {
-		/* Someting wrong with ACPI configuration */
-		WARN(1, "Wrong ACPI configuration !");
+	/* Register jack-detection GPIOs */
+
+	int_gpio = -1;
+	if ((drvdata->board_cfg->jack_int_sel == JACK_INT1) &&
+		(drvdata->gpios.jd_int_gpio != RT5640_GPIO_NA))
+		int_gpio = drvdata->gpios.jd_int_gpio;
+	else if ((drvdata->board_cfg->jack_int_sel == JACK_INT2) &&
+		(drvdata->gpios.jd_int2_gpio != RT5640_GPIO_NA))
+		int_gpio = drvdata->gpios.jd_int2_gpio;
+
+	if (int_gpio == -1) {
+		drvdata->gpios.int_count = 0;
+		pr_warn("%s: Jack interrupt-GPIO (jack_int_sel = %d) not present!\n",
+			__func__, drvdata->board_cfg->jack_int_sel);
 	} else {
+		hs_gpio[0].gpio = int_gpio;
+		hs_gpio[0].data = drvdata;
+
+		if (drvdata->gpios.jd_buttons_gpio == RT5640_GPIO_NA)
+			drvdata->gpios.int_count = 1;
+		else {
+			hs_gpio[1].gpio = drvdata->gpios.jd_buttons_gpio;
+			hs_gpio[1].data = drvdata;
+			drvdata->gpios.int_count = 2;
+		}
+	}
+
+	if (drvdata->gpios.int_count > 0) {
 		ret = snd_soc_jack_new(codec, "BYT-CR Audio Jack",
 				SND_JACK_HEADSET | SND_JACK_BTN_0,
 				 &drvdata->jack);
@@ -688,7 +713,9 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 			return ret;
 		}
 
-		ret = snd_soc_jack_add_gpios(&drvdata->jack, count, &hs_gpio[0]);
+		ret = snd_soc_jack_add_gpios(&drvdata->jack,
+					drvdata->gpios.int_count,
+					&hs_gpio[0]);
 		if (ret) {
 			pr_err("%s: snd_soc_jack_add_gpios failed (ret = %d)!\n",
 				__func__, ret);
@@ -698,6 +725,7 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		snd_jack_set_key(drvdata->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
 	}
 
+	/* Add machine-driver ALSA-controls */
 	ret = snd_soc_add_card_controls(card, byt_mc_controls,
 					ARRAY_SIZE(byt_mc_controls));
 	if (ret) {
@@ -872,17 +900,7 @@ static int snd_byt_poweroff(struct device *dev)
 
 /* SoC card */
 static struct snd_soc_card snd_soc_card_byt_default = {
-	.name = "bytcr-rt5640",
-	.dai_link = byt_dailink,
-	.num_links = ARRAY_SIZE(byt_dailink),
-	.set_bias_level = byt_set_bias_level,
-	.dapm_widgets = byt_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(byt_dapm_widgets),
-	.dapm_routes = byt_audio_map,
-	.num_dapm_routes = ARRAY_SIZE(byt_audio_map),
-};
-static struct snd_soc_card snd_soc_card_byt_t100 = {
-	.name = "bytcr-rt5642-t100",
+	.name = NULL,
 	.dai_link = byt_dailink,
 	.num_links = ARRAY_SIZE(byt_dailink),
 	.set_bias_level = byt_set_bias_level,
@@ -898,7 +916,6 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 	struct byt_drvdata *drvdata;
 	struct snd_soc_card *card;
 	const struct snd_soc_dapm_route *routes;
-	const struct board_config *conf;
 
 	pr_debug("%s: Enter.\n", __func__);
 
@@ -909,15 +926,16 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 	}
 
 	/* Get board-specific HW-settings */
-	conf = get_board_config(get_mc_link());
-	switch (conf->idx) {
-	case RT5640_T100:
-		card = &snd_soc_card_byt_t100;
+	drvdata->board_cfg = get_board_config(get_mc_link());
+
+	/* Configure board-specific routes */
+	card = &snd_soc_card_byt_default;
+	card->name = drvdata->board_cfg->name;
+	switch (drvdata->board_cfg->mic_input) {
+	case 1:
 		routes = &byt_audio_map_t100[0];
 		break;
-	case RT5640_MRD7:
-	case RT5640_DEFAULT:
-		card = &snd_soc_card_byt_default;
+	case 3:
 		routes = &byt_audio_map_default[0];
 		break;
 	default:
@@ -941,7 +959,7 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 		return ret_val;
 	}
 
-	if (conf->idx != RT5640_T100) {
+	if (drvdata->board_cfg->idx != RT5640_T100) {
 		snd_soc_update_bits(byt_get_codec(card), RT5640_JD_CTRL,
 				RT5640_JD_MASK, RT5640_JD_JD1_IN4P);
 	}
@@ -952,7 +970,8 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 static void snd_byt_unregister_jack(struct byt_drvdata *drvdata)
 {
 	cancel_delayed_work_sync(&drvdata->hs_jack_recheck);
-	snd_soc_jack_free_gpios(&drvdata->jack, 2, hs_gpio);
+	snd_soc_jack_free_gpios(&drvdata->jack, drvdata->gpios.int_count,
+				hs_gpio);
 
 }
 static int snd_byt_mc_remove(struct platform_device *pdev)
