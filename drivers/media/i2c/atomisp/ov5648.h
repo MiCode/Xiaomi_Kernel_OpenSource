@@ -30,10 +30,9 @@
 #include <linux/spinlock.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
-#include <media/v4l2-chip-ident.h>
 #include <linux/v4l2-mediabus.h>
 #include <media/media-entity.h>
-
+#include <linux/acpi.h>
 #include <linux/atomisp_platform.h>
 
 #define OV5648_NAME		"ov5648"
@@ -754,8 +753,6 @@ static struct ov5648_resolution *ov5648_res = ov5648_res_preview;
 static int N_RES = N_RES_PREVIEW;
 //static int has_otp = -1;	/*0:has valid otp, 1:no valid otp */
 
-#define CONFIG_VIDEO_WV511
-//#define CONFIG_VIDEO_DW9714
 #define WV511  0x11
 #define DW9714 0x14
 #define VM149  0x49
@@ -793,6 +790,7 @@ extern int wv511_t_vcm_slew(struct v4l2_subdev *sd, s32 value);
 extern int wv511_t_vcm_timing(struct v4l2_subdev *sd, s32 value);
 
 struct ov5648_vcm ov5648_vcms[] = {
+#ifdef CONFIG_VCM_WV511
 	[WV511] = {
 		.power_up = wv511_vcm_power_up,
 		.power_down = wv511_vcm_power_down,
@@ -805,6 +803,8 @@ struct ov5648_vcm ov5648_vcms[] = {
 		.t_vcm_slew = wv511_t_vcm_slew,
 		.t_vcm_timing = wv511_t_vcm_timing,
 	},
+#endif
+#ifdef CONFIG_VCM_DW9714
 	[DW9714] = {
 		    .power_up = dw9714_vcm_power_up,
 		    .power_down = dw9714_vcm_power_down,
@@ -817,6 +817,8 @@ struct ov5648_vcm ov5648_vcms[] = {
 		    .t_vcm_slew = dw9714_t_vcm_slew,
 		    .t_vcm_timing = dw9714_t_vcm_timing,
 		    },
+#endif
+#if 0
 	[VM149] = {
 		   .power_up = vm149_vcm_power_up,
 		   .power_down = vm149_vcm_power_down,
@@ -829,6 +831,7 @@ struct ov5648_vcm ov5648_vcms[] = {
 		   .t_vcm_slew = vm149_t_vcm_slew,
 		   .t_vcm_timing = vm149_t_vcm_timing,
 		   },
+#endif
 };
 
 #endif

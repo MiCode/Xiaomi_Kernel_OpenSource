@@ -35,16 +35,19 @@
 #include <linux/gpio.h>
 #include <linux/moduleparam.h>
 #include <media/v4l2-device.h>
-#include <media/v4l2-chip-ident.h>
 #include <linux/io.h>
+#include <linux/atomisp_gmin_platform.h>
 
 #include "ov5648.h"
 
-
 #define OV5648_DEBUG_EN 0
-#define ov5648_debug dev_dbg
-static int h_flag = 0;
-static int v_flag = 0;
+#define ov5648_debug(...) // dev_err(__VA_ARGS__)
+
+#define H_FLIP_DEFAULT 1
+#define V_FLIP_DEFAULT 0
+static int h_flag = H_FLIP_DEFAULT;
+static int v_flag = V_FLIP_DEFAULT;
+
 /* i2c read/write stuff */
 static int ov5648_read_reg(struct i2c_client *client,
 			   u16 data_length, u16 reg, u16 *val)
@@ -528,7 +531,8 @@ static long ov5648_s_exposure(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	return ov5648_set_exposure(sd, exp, gain, digitgain);
+	// EXPOSURE CONTROL DISABLED FOR INITIAL CHECKIN, TUNING DOESN'T WORK
+	return 0; // ov5648_set_exposure(sd, exp, gain, digitgain);
 }
 
 static long ov5648_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
@@ -657,12 +661,10 @@ int ov5648_t_vcm_timing(struct v4l2_subdev *sd, s32 value)
 
 static int ov5648_v_flip(struct v4l2_subdev *sd, s32 value)
 {
-	struct ov5648_device *dev = to_ov5648_sensor(sd);
-	struct camera_mipi_info *ov5648_info = NULL;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 	u16 val;
-	u8 flip_flag;
+
 	ov5648_debug(&client->dev, "@%s: value:%d\n", __func__, value);
 	ret = ov5648_read_reg(client, OV5648_8BIT, OV5648_VFLIP_REG, &val);
 	if (ret)
@@ -681,12 +683,9 @@ static int ov5648_v_flip(struct v4l2_subdev *sd, s32 value)
 
 static int ov5648_h_flip(struct v4l2_subdev *sd, s32 value)
 {
-	struct ov5648_device *dev = to_ov5648_sensor(sd);
-	struct camera_mipi_info *ov5648_info = NULL;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 	u16 val;
-	u8 flip_flag;
 	ov5648_debug(&client->dev, "@%s: value:%d\n", __func__, value);
 
 	ret = ov5648_read_reg(client, OV5648_8BIT, OV5648_HFLIP_REG, &val);
@@ -1315,6 +1314,57 @@ static int update_otp(struct v4l2_subdev *sd)
 
 #endif
 
+static int power_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret = 0;
+	struct ov5648_device *dev = to_ov5648_sensor(sd);
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+	if (flag) {
+		ret |= dev->platform_data->v1p8_ctrl(sd, 1);
+		ret |= dev->platform_data->v2p8_ctrl(sd, 1);
+		usleep_range(10000, 15000);
+	}
+
+	if (!flag || ret) {
+		ret |= dev->platform_data->v1p8_ctrl(sd, 0);
+		ret |= dev->platform_data->v2p8_ctrl(sd, 0);
+	}
+	return ret;
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret;
+	struct ov5648_device *dev = to_ov5648_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+	/* GPIO0 == "RESETB", GPIO1 == "PWDNB", named in opposite
+	 * senses but with the same behavior: both must be high for
+	 * the device to opperate */
+	if (flag) {
+		ret = dev->platform_data->gpio0_ctrl(sd, 1);
+		usleep_range(10000, 15000);
+		ret |= dev->platform_data->gpio1_ctrl(sd, 1);
+		usleep_range(10000, 15000);
+	} else {
+		ret = dev->platform_data->gpio1_ctrl(sd, 0);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 0);
+	}
+	return ret;
+}
+
 static int power_up(struct v4l2_subdev *sd)
 {
 	struct ov5648_device *dev = to_ov5648_sensor(sd);
@@ -1329,7 +1379,7 @@ static int power_up(struct v4l2_subdev *sd)
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
@@ -1337,9 +1387,9 @@ static int power_up(struct v4l2_subdev *sd)
 	usleep_range(5000, 6000);
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 1);
+		ret = gpio_ctrl(sd, 1);
 		if (ret)
 			goto fail_power;
 	}
@@ -1355,9 +1405,9 @@ static int power_up(struct v4l2_subdev *sd)
 	return 0;
 
 fail_clk:
-	dev->platform_data->gpio_ctrl(sd, 0);
+	gpio_ctrl(sd, 0);
 fail_power:
-	dev->platform_data->power_ctrl(sd, 0);
+	power_ctrl(sd, 0);
 	dev_err(&client->dev, "sensor power-up failed\n");
 
 	return ret;
@@ -1369,8 +1419,8 @@ static int power_down(struct v4l2_subdev *sd)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
 
-	h_flag = 0;
-	v_flag = 0;
+	h_flag = H_FLIP_DEFAULT;
+	v_flag = V_FLIP_DEFAULT;
 	dev_dbg(&client->dev, "@%s:\n", __func__);
 	if (NULL == dev->platform_data) {
 		dev_err(&client->dev,
@@ -1383,15 +1433,15 @@ static int power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "flisclk failed\n");
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 0);
+		ret = gpio_ctrl(sd, 0);
 		if (ret)
 			dev_err(&client->dev, "gpio failed 2\n");
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
@@ -1971,6 +2021,7 @@ static int ov5648_probe(struct i2c_client *client,
 {
 	struct ov5648_device *dev;
 	int ret;
+	void *pdata;
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -1985,17 +2036,31 @@ static int ov5648_probe(struct i2c_client *client,
 	dev->current_otp.otp_en = 1;// enable otp functions
 	v4l2_i2c_subdev_init(&(dev->sd), client, &ov5648_ops);
 
-	if (client->dev.platform_data) {
-		ret = ov5648_s_config(&dev->sd, client->irq,
-				       client->dev.platform_data);
-		if (ret)
-			goto out_free;
+	if (ACPI_COMPANION(&client->dev))
+		pdata = gmin_camera_platform_data(&dev->sd,
+						  ATOMISP_INPUT_FORMAT_RAW_10,
+						  atomisp_bayer_order_bggr);
+	else
+		pdata = client->dev.platform_data;
+
+	if (!pdata) {
+		ret = -EINVAL;
+		goto out_free;
 	}
-#ifdef CONFIG_VIDEO_WV511
+
+	ret = ov5648_s_config(&dev->sd, client->irq, pdata);
+	if (ret)
+		goto out_free;
+
+	ret = atomisp_register_i2c_module(&dev->sd, pdata, RAW_CAMERA);
+	if (ret)
+		goto out_free;
+
+#ifdef CONFIG_VCM_WV511
 	dev->vcm_driver = &ov5648_vcms[WV511];
 	dev->vcm_driver->init(&dev->sd);
 	dev_err(&client->dev, "CONFIG_VIDEO_WV511\n");
-#elif defined (CONFIG_VIDEO_DW9714)
+#elif defined (CONFIG_VCM_DW9714)
 		/*set default vcm driver*/
 	dev_info(&client->dev, "Set default VCM driver\n");
 	dev->vcm_driver = &ov5648_vcms[DW9714];
@@ -2018,11 +2083,18 @@ out_free:
 	return ret;
 }
 
+static struct acpi_device_id ov5648_acpi_match[] = {
+	{"XXOV5648"},
+	{},
+};
+MODULE_DEVICE_TABLE(acpi, ov5648_acpi_match);
+
 MODULE_DEVICE_TABLE(i2c, ov5648_id);
 static struct i2c_driver ov5648_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = OV5648_NAME,
+		.acpi_match_table = ACPI_PTR(ov5648_acpi_match),
 	},
 	.probe = ov5648_probe,
 	.remove = ov5648_remove,

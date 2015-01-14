@@ -1,17 +1,51 @@
 config VIDEO_GC0310
-       tristate "GC0310 sensor support"
-       depends on I2C && VIDEO_V4L2
-       ---help---
+	tristate "GC0310 sensor support"
+        depends on I2C && VIDEO_V4L2
+        ---help---
          This is a Video4Linux2 sensor-level driver for the Galaxycore
          GC0310 0.3MP sensor.
 
-         It currently only works with the atomisp driver.
-
 config VIDEO_GC2155
-       tristate "GC2155 sensor support"
+	tristate "GC2155 sensor support"
+        depends on I2C && VIDEO_V4L2
+        ---help---
+         This is a Video4Linux2 sensor-level driver for the Galaxycore
+         GC2155 0.3MP sensor.
+
+config VCM_DW9714
+       tristate "VCM dw9714 support"
        depends on I2C && VIDEO_V4L2
        ---help---
-         This is a Video4Linux2 sensor-level driver for the Galaxycore
-         GC2155 2MP sensor.
+         This is a Video4Linux2 sensor-level driver for the dw9714.
+
+         It currently only works with the atomisp driver.
+
+config VCM_WV511
+       tristate "VCM wv511 support"
+       depends on I2C && VIDEO_V4L2
+       ---help---
+         This is a Video4Linux2 sensor-level driver for the wv511.
+
+         It currently only works with the atomisp driver.
+	
+config VIDEO_OV2680
+       tristate "Omnivision OV2680 sensor support"
+       depends on I2C && VIDEO_V4L2
+       ---help---
+         This is a Video4Linux2 sensor-level driver for the Omnivision
+         OV2680 raw camera.
+
+         ov2680 is a 2M raw sensor.
+
+         It currently only works with the atomisp driver.
+
+config VIDEO_OV5648
+       tristate "Omnivision OV5648 sensor support"
+       depends on I2C && VIDEO_V4L2
+       ---help---
+         This is a Video4Linux2 sensor-level driver for the Omnivision
+         OV5648 raw camera.
+
+         ov5648 is a 5M raw sensor.
 
          It currently only works with the atomisp driver.
