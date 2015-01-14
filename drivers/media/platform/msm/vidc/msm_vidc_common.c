@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -962,40 +962,6 @@ static void handle_session_flush(enum command_response cmd, void *data)
 	}
 }
 
-static void handle_sys_idle(enum command_response cmd, void *data)
-{
-	struct msm_vidc_cb_cmd_done *response = data;
-	struct msm_vidc_core *core = NULL;
-	int rc = 0;
-
-	if (!response) {
-		rc = -EINVAL;
-		goto exit;
-	}
-
-	core = get_vidc_core(response->device_id);
-	if (!core) {
-		dprintk(VIDC_ERR, "Received IDLE with invalid core\n");
-		rc = -EINVAL;
-		goto exit;
-	}
-
-	dprintk(VIDC_DBG, "SYS_IDLE received for core %p\n", core);
-	if (core->resources.dynamic_bw_update) {
-		mutex_lock(&core->lock);
-		core->idle_stats.start_time = ktime_get();
-		dprintk(VIDC_DBG, "%s: start idle time %llu us\n",
-				__func__, ktime_to_us(
-					core->idle_stats.start_time));
-		core->idle_stats.idle = true;
-		mutex_unlock(&core->lock);
-	}
-
-exit:
-	if (rc)
-		dprintk(VIDC_WARN, "Failed to handle idle message\n");
-}
-
 static void handle_session_error(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
@@ -1683,11 +1649,8 @@ void handle_cmd_response(enum command_response cmd, void *data)
 	case SESSION_RELEASE_BUFFER_DONE:
 		handle_session_release_buf_done(cmd, data);
 		break;
-	case SYS_IDLE:
-		handle_sys_idle(cmd, data);
-		break;
 	default:
-		dprintk(VIDC_ERR, "response unhandled\n");
+		dprintk(VIDC_DBG, "response unhandled: %d\n", cmd);
 		break;
 	}
 }
@@ -2880,63 +2843,6 @@ exit:
 	return rc;
 }
 
-int msm_comm_compute_idle_time(struct msm_vidc_inst *inst)
-{
-	int j = 0, rc = 0, last_sample_index = 0;
-	struct msm_vidc_idle_stats *idle_stats;
-	struct msm_vidc_core *core;
-	const ktime_t zero_ktime = ktime_set(0, 0);
-	ktime_t cumulative_idle_time = zero_ktime;
-	u64 temp;
-
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-
-	core = inst->core;
-
-	mutex_lock(&core->lock);
-	idle_stats = &core->idle_stats;
-	last_sample_index = idle_stats->last_sample_index;
-
-	idle_stats->samples[last_sample_index] = idle_stats->idle ?
-		ktime_sub(ktime_get(), idle_stats->start_time) : zero_ktime;
-
-	idle_stats->sample_count++;
-	if (idle_stats->sample_count > IDLE_TIME_WINDOW_SIZE)
-		idle_stats->sample_count = IDLE_TIME_WINDOW_SIZE;
-
-	for (j = 0; j < idle_stats->sample_count; j++) {
-		cumulative_idle_time = ktime_add(cumulative_idle_time,
-			idle_stats->samples[j]);
-	}
-
-	temp = ktime_to_ns(cumulative_idle_time);
-	do_div(temp, idle_stats->sample_count);
-	idle_stats->avg_idle_time = ns_to_ktime(temp);
-
-	idle_stats->idle = true;
-	idle_stats->last_sample_index++;
-	idle_stats->last_sample_index %= sizeof(idle_stats->samples);
-	dprintk(VIDC_DBG, "%s: Idle stats: current %llu us, average %llu us\n",
-		__func__, ktime_to_us(idle_stats->samples[last_sample_index]),
-		ktime_to_us(idle_stats->avg_idle_time));
-	mutex_unlock(&core->lock);
-
-	idle_stats->fb_err_level = ktime_compare(idle_stats->avg_idle_time,
-			zero_ktime) == 0 ? 3 : 0;
-	if (idle_stats->fb_err_level != idle_stats->prev_fb_err_level) {
-		idle_stats->prev_fb_err_level = idle_stats->fb_err_level;
-		if (msm_comm_vote_bus(core)) {
-			dprintk(VIDC_WARN,
-			"Failed to scale DDR bus. Performance might be impacted\n");
-		}
-	}
-
-	return rc;
-}
-
 int msm_comm_qbuf(struct vb2_buffer *vb)
 {
 	int rc = 0;
@@ -3077,9 +2983,6 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				frame_data.timestamp, frame_data.flags,
 				vb->v4l2_buf.index);
 
-			if (core->resources.dynamic_bw_update)
-				msm_comm_compute_idle_time(inst);
-
 			msm_dcvs_check_and_scale_clocks(inst, true);
 			rc = call_hfi_op(hdev, session_etb, (void *)
 					inst->session, &frame_data);
@@ -3110,9 +3013,6 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				&frame_data.device_addr, frame_data.alloc_len,
 				frame_data.buffer_type, frame_data.timestamp,
 				frame_data.flags, vb->v4l2_buf.index);
-
-			if (core->resources.dynamic_bw_update)
-				msm_comm_compute_idle_time(inst);
 
 			if (atomic_read(&inst->seq_hdr_reqs) &&
 			   inst->session_type == MSM_VIDC_ENCODER) {

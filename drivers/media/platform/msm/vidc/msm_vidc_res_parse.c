@@ -619,8 +619,6 @@ int read_platform_resources_from_dt(
 			"qcom,imem-size", &res->imem_size);
 	res->imem_type = read_imem_type(pdev);
 
-	res->dynamic_bw_update = of_property_read_bool(pdev->dev.of_node,
-			"qcom,use-dynamic-bw-update");
 	res->sys_idle_indicator = of_property_read_bool(pdev->dev.of_node,
 			"qcom,enable-idle-indicator");
 
