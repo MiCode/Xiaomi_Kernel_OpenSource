@@ -86,7 +86,7 @@ size_t connection_read_data_msg(struct connection *conn, void *buffer,
 		kfree_skb(conn->skb);
 		conn->skb = NULL;
 	}
-	MCDRV_DBG_VERBOSE(mc_kapi, "read %u",  ret);
+	MCDRV_DBG_VERBOSE(mc_kapi, "read %zu",  ret);
 	return ret;
 }
 
