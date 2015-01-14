@@ -1706,7 +1706,7 @@ static int __init glink_smd_xprt_init(void)
 
 	return 0;
 }
-module_init(glink_smd_xprt_init);
+arch_initcall(glink_smd_xprt_init);
 
 MODULE_DESCRIPTION("MSM G-Link SMD Transport");
 MODULE_LICENSE("GPL v2");
