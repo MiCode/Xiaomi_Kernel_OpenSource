@@ -1762,8 +1762,7 @@ static ssize_t send_write_packing_test_write(struct file *file,
 				size_t count,
 				loff_t *ppos)
 {
-	struct seq_file *seq_f = file->private_data;
-	struct mmc_block_test_data *mbtd = seq_f->private;
+	struct mmc_block_test_data *mbtd = file->private_data;
 
 	int ret = 0;
 	int i = 0;
@@ -1869,8 +1868,7 @@ static ssize_t err_check_test_write(struct file *file,
 				size_t count,
 				loff_t *ppos)
 {
-	struct seq_file *seq_f = file->private_data;
-	struct mmc_block_test_data *mbtd = seq_f->private;
+	struct mmc_block_test_data *mbtd = file->private_data;
 	int ret = 0;
 	int i = 0;
 	int number = -1;
@@ -1975,8 +1973,7 @@ static ssize_t send_invalid_packed_test_write(struct file *file,
 				size_t count,
 				loff_t *ppos)
 {
-	struct seq_file *seq_f = file->private_data;
-	struct mmc_block_test_data *mbtd = seq_f->private;
+	struct mmc_block_test_data *mbtd = file->private_data;
 	int ret = 0;
 	int i = 0;
 	int number = -1;
@@ -2095,8 +2092,7 @@ static ssize_t write_packing_control_test_write(struct file *file,
 				size_t count,
 				loff_t *ppos)
 {
-	struct seq_file *seq_f = file->private_data;
-	struct mmc_block_test_data *mbtd = seq_f->private;
+	struct mmc_block_test_data *mbtd = file->private_data;
 	struct test_iosched *tios = mbtd->test_iosched;
 	int ret = 0;
 	int i = 0;
@@ -2228,8 +2224,7 @@ static ssize_t long_sequential_read_test_write(struct file *file,
 				size_t count,
 				loff_t *ppos)
 {
-	struct seq_file *seq_f = file->private_data;
-	struct mmc_block_test_data *mbtd = seq_f->private;
+	struct mmc_block_test_data *mbtd = file->private_data;
 	struct test_iosched *tios = mbtd->test_iosched;
 	int ret = 0;
 	int i = 0;
@@ -2395,8 +2390,7 @@ static ssize_t long_sequential_write_test_write(struct file *file,
 				size_t count,
 				loff_t *ppos)
 {
-	struct seq_file *seq_f = file->private_data;
-	struct mmc_block_test_data *mbtd = seq_f->private;
+	struct mmc_block_test_data *mbtd = file->private_data;
 	struct test_iosched *tios = mbtd->test_iosched;
 	int ret = 0;
 	int i = 0;
@@ -2494,8 +2488,7 @@ static ssize_t new_req_notification_test_write(struct file *file,
 				size_t count,
 				loff_t *ppos)
 {
-	struct seq_file *seq_f = file->private_data;
-	struct mmc_block_test_data *mbtd = seq_f->private;
+	struct mmc_block_test_data *mbtd = file->private_data;
 	struct test_iosched *tios = mbtd->test_iosched;
 	int ret = 0;
 	int i = 0;
