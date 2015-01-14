@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,13 +134,15 @@
 	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
 	qcom,platform-te-gpio = <&msm_gpio 10 0>;
 	qcom,platform-bklight-en-gpio = <&pmi8994_gpios 2 0>;
-
-	qcom,dsi-panel-bias-vreg;
-	qcom,regulator-ldo-mode;
 };
 
 &mdss_dsi1 {
 	status = "disabled";
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
 };
 
 &pmx_hdmi_cec {
