@@ -134,22 +134,6 @@
 #define OV5648_START_STREAMING		0x01
 #define OV5648_STOP_STREAMING		0x00
 
-#define VCM_ADDR           0x0c
-#define VCM_CODE_MSB       0x03
-#define VCM_CODE_LSB       0x04
-#define VCM_MAX_FOCUS_POS  1023
-
-#define OV5648_VCM_SLEW_STEP		0x30F0
-#define OV5648_VCM_SLEW_STEP_MAX	0x7
-#define OV5648_VCM_SLEW_STEP_MASK	0x7
-#define OV5648_VCM_CODE			0x30F2
-#define OV5648_VCM_SLEW_TIME		0x30F4
-#define OV5648_VCM_SLEW_TIME_MAX	0xffff
-#define OV5648_VCM_ENABLE		0x8000
-
-#define OV5648_MAX_FOCUS_POS	255
-#define OV5648_MAX_FOCUS_NEG	(-255)
-
 // Add OTP operation
 #define BG_Ratio_Typical  0x16E
 #define RG_Ratio_Typical  0x189
@@ -166,15 +150,6 @@ struct otp_struct {
 		int R_gain;
 		int G_gain;
 		int B_gain;
-};
-struct ov5648_vcm {
-	int (*init) (struct v4l2_subdev *sd);
-	int (*t_focus_abs) (struct v4l2_subdev *sd, s32 value);
-	int (*t_focus_rel) (struct v4l2_subdev *sd, s32 value);
-	int (*q_focus_status) (struct v4l2_subdev *sd, s32 *value);
-	int (*q_focus_abs) (struct v4l2_subdev *sd, s32 *value);
-	int (*t_vcm_slew) (struct v4l2_subdev *sd, s32 value);
-	int (*t_vcm_timing) (struct v4l2_subdev *sd, s32 value);
 };
 
 struct regval_list {
@@ -226,7 +201,9 @@ struct ov5648_device {
 	int run_mode;
 	u8 res;
 	u8 type;
-	struct ov5648_vcm *vcm_driver;
+
+	char *camera_module;
+	struct camera_vcm_control *vcm_driver;
 	struct otp_struct current_otp;
 	int pre_digitgain;
 };
@@ -845,27 +822,5 @@ struct ov5648_resolution ov5648_res_video[] = {
 static struct ov5648_resolution *ov5648_res = ov5648_res_preview;
 static int N_RES = N_RES_PREVIEW;
 //static int has_otp = -1;	/*0:has valid otp, 1:no valid otp */
-
-#define WV511  0x11
-extern int wv511_vcm_init(struct v4l2_subdev *sd);
-extern int wv511_t_focus_vcm(struct v4l2_subdev *sd, u16 val);
-extern int wv511_t_focus_abs(struct v4l2_subdev *sd, s32 value);
-extern int wv511_t_focus_rel(struct v4l2_subdev *sd, s32 value);
-extern int wv511_q_focus_status(struct v4l2_subdev *sd, s32 *value);
-extern int wv511_q_focus_abs(struct v4l2_subdev *sd, s32 *value);
-extern int wv511_t_vcm_slew(struct v4l2_subdev *sd, s32 value);
-extern int wv511_t_vcm_timing(struct v4l2_subdev *sd, s32 value);
-
-struct ov5648_vcm ov5648_vcms[] = {
-	[WV511] = {
-		.init = wv511_vcm_init,
-		.t_focus_abs = wv511_t_focus_abs,
-		.t_focus_rel = wv511_t_focus_rel,
-		.q_focus_status = wv511_q_focus_status,
-		.q_focus_abs = wv511_q_focus_abs,
-		.t_vcm_slew = wv511_t_vcm_slew,
-		.t_vcm_timing = wv511_t_vcm_timing,
-	},
-};
 
 #endif
