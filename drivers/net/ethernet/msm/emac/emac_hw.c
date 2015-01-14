@@ -254,12 +254,6 @@ int emac_write_phy_reg(struct emac_hw *hw, u16 phy_addr,
 	return retval;
 }
 
-int emac_hw_ack_phy_intr(struct emac_hw *hw)
-{
-	/* ack phy interrupt */
-	return 0;
-}
-
 int emac_hw_init_sgmii(struct emac_hw *hw)
 {
 	int i;

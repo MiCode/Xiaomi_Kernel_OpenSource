@@ -1051,10 +1051,6 @@ static irqreturn_t emac_interrupt(int irq, void *data)
 		if (status == 0)
 			break;
 
-		/* ack PHY interrupt */
-		if (status & ISR_GPHY_LINK)
-			emac_hw_ack_phy_intr(hw);
-
 		if (status & ISR_ERROR) {
 			emac_warn(adpt, intr, "isr error status 0x%x\n",
 				  status & ISR_ERROR);
@@ -2332,9 +2328,6 @@ static int emac_runtime_suspend(struct device *device)
 	struct emac_hw *hw = &adpt->hw;
 	u32 wufc = adpt->wol;
 
-	/* clear phy interrupt */
-	emac_hw_ack_phy_intr(hw);
-
 	emac_hw_config_pow_save(hw, adpt->hw.link_speed, !!wufc,
 				!!(wufc & EMAC_WOL_MAGIC));
 	return 0;
@@ -2409,11 +2402,6 @@ static int emac_suspend(struct device *device)
 
 	hw->link_speed = speed;
 	hw->link_up = link_up;
-
-	/* clear phy interrupt */
-	retval = emac_hw_ack_phy_intr(hw);
-	if (retval)
-		return retval;
 
 	emac_hw_config_wol(hw, wufc);
 	emac_hw_config_pow_save(hw, adpt->hw.link_speed, !!wufc,
