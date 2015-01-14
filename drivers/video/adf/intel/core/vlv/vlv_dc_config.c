@@ -74,12 +74,17 @@ void vlv_dc_config_destroy(struct intel_dc_config *config)
 	return;
 }
 
-static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe)
+static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe,
+				    u8 disp_no)
 {
 	struct dsi_pipe *dsi_pipe = NULL;
 	struct intel_pipeline *intel_pipeline;
-	struct vlv_pipeline *disp = &vlv_config->pipeline[pipe];
+	struct vlv_pipeline *disp = &vlv_config->pipeline[disp_no];
 	int err;
+	u8 *n_pipes;
+	pr_err("ADF: %s\n", __func__);
+
+	n_pipes = &vlv_config->base.n_pipes;
 
 	/* Initialize interface PIPE */
 	if (disp->type == INTEL_PIPE_DSI) {
@@ -94,7 +99,7 @@ static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe)
 		}
 
 		intel_dc_config_add_pipe(&vlv_config->base,
-					&dsi_pipe->base, pipe);
+					 &dsi_pipe->base, *n_pipes);
 
 		/* FIXME: uncomment when dpst is enabled with redesign*/
 		/* vlv_dpst_init(&config->base);*/
@@ -110,12 +115,12 @@ static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe)
 }
 
 static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
-			int pipe, int type)
+			int pipe, int type, u8 disp_no)
 {
 	struct vlv_dsi_port *dsi_port = NULL;
 	struct vlv_pipeline *disp = NULL;
 
-	disp = &vlv_config->pipeline[pipe];
+	disp = &vlv_config->pipeline[disp_no];
 	switch (type) {
 	case INTEL_PIPE_DSI:
 		dsi_port = &disp->port.dsi_port;
@@ -129,7 +134,7 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 }
 
 static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
-			int pipe, int type)
+			int pipe, enum intel_pipe_type type, u8 disp_no)
 {
 	struct vlv_pri_plane *pplane;
 	struct vlv_sp_plane *splane;
@@ -138,6 +143,7 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 	struct vlv_pm *vlv_pm = NULL;
 	struct vlv_pll *pll = NULL;
 	int err;
+	u8 *n_planes;
 
 	if (!vlv_config) {
 		dev_err(vlv_config->base.dev, "%s:invalid config", __func__);
@@ -149,21 +155,23 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 		return -EINVAL;
 	}
 
-	disp = &vlv_config->pipeline[pipe];
+	n_planes = &vlv_config->base.n_planes;
+
+	disp = &vlv_config->pipeline[disp_no];
 
 	disp->type = type;
 
 	/* Initialize the plane */
 	pplane = &disp->pplane;
 	err = vlv_pri_plane_init(pplane, &disp->base,
-			vlv_config->base.dev, PRIMARY_PLANE);
+		vlv_config->base.dev, pipe ? SECONDARY_PLANE : PRIMARY_PLANE);
 	if (err) {
 		dev_err(vlv_config->base.dev,
 			"%s: failed to init pri plane, %d\n", __func__, err);
 		return err;
 	}
 	intel_dc_config_add_plane(&vlv_config->base, &pplane->base,
-				VLV_ID(pipe, VLV_PLANE));
+				  *n_planes);
 
 	/* Initialize first sprite */
 	splane = &disp->splane[0];
@@ -176,7 +184,7 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 		return err;
 	}
 	intel_dc_config_add_plane(&vlv_config->base, &splane->base,
-				VLV_ID(pipe, VLV_SPRITE1));
+				  *n_planes);
 
 	/* Initialize second sprite */
 	splane = &disp->splane[1];
@@ -189,7 +197,7 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 		return err;
 	}
 	intel_dc_config_add_plane(&vlv_config->base, &splane->base,
-				VLV_ID(pipe, VLV_SPRITE2));
+				  *n_planes);
 	vlv_pm = &disp->pm;
 
 	if (vlv_pm_init(vlv_pm, (enum pipe) pipe) == false) {
@@ -206,10 +214,10 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 	err = vlv_pll_init(pll, type, (enum pipe) pipe, PORT_A);
 
 	/* Initialize port */
-	vlv_initialize_port(vlv_config, pipe, type);
+	vlv_initialize_port(vlv_config, pipe, type, disp_no);
 
 	/* Initialize encoder */
-	vlv_display_encoder_init(vlv_config, pipe);
+	vlv_display_encoder_init(vlv_config, pipe, disp_no);
 
 	return err;
 }
@@ -219,6 +227,7 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 	struct vlv_dc_config *config;
 	struct intel_dc_memory *memory;
 	int err;
+	u8 display_no = 0;
 
 	if (!pdev)
 		return ERR_PTR(-EINVAL);
@@ -254,7 +263,7 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 	 * intel_dc_config_add_power();
 	 */
 
-	vlv_initialize_disp(config, PIPE_A, INTEL_PIPE_DSI);
+	vlv_initialize_disp(config, PIPE_A, INTEL_PIPE_DSI, display_no++);
 
 
 	return &config->base;
