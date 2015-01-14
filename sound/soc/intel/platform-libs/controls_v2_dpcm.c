@@ -33,8 +33,6 @@
 #include "controls_v2_dpcm.h"
 #include "sst_widgets.h"
 
-#define DUMP_LPE_BUFFERS 0
-
 static inline void sst_fill_byte_control(char *param,
 					 u8 ipc_msg, u8 block,
 					 u8 task_id, u8 pipe_id,
@@ -56,10 +54,8 @@ static inline void sst_fill_byte_control(char *param,
 	byte_data->len = len;
 	memcpy(byte_data->bytes, cmd_data, len);
 
-#if	DUMP_LPE_BUFFERS
 	print_hex_dump_bytes("writing to lpe: ", DUMP_PREFIX_OFFSET,
 			     byte_data, len + sizeof(*byte_data));
-#endif
 }
 
 unsigned int sst_soc_read(struct snd_soc_platform *platform,
