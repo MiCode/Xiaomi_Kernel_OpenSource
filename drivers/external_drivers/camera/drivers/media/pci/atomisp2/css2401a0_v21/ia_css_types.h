@@ -1,9 +1,9 @@
-/* Release Version: irci_master_20141129_0200 */
-/* Release Version: irci_master_20141129_0200 */
+/* Release Version: irci_master_20150113_1500 */
+/* Release Version: irci_master_20150113_1500 */
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -468,6 +468,7 @@ struct ia_css_isp_config {
 	struct ia_css_2500_bds_kernel_config     *bds_2500_config;       /**< Skylake: bayer downscaler config */
 	struct ia_css_2500_dvs_kernel_config     *dvs_2500_config;       /**< Skylake: digital video stabilization config */
 	struct ia_css_2500_res_mgr_config        *res_mgr_2500_config;
+	struct ia_css_scaler_config              *scaler_config;         /**< Skylake: scaler config (optional) */
 	struct ia_css_formats_config             *formats_config_display;/**< Formats control for viewfinder/display output (optional)
 										[OSYS, n/a] */
 	struct ia_css_output_config              *output_config_display; /**< Viewfinder/display output mirroring, flipping (optional) */

@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -434,12 +434,13 @@ void ia_css_frame_info_set_width(struct ia_css_frame_info *info,
 {
 	unsigned int align;
 
-	assert(info != NULL);
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
-		"ia_css_frame_info_set_width() enter: "
-		"width=%d, min_padded_width=%d\n",
-		width, min_padded_width);
-
+	IA_CSS_ENTER_PRIVATE("info = %p,width = %d, minimum padded width = %d",
+			     info, width, min_padded_width);
+	if (info == NULL) {
+		IA_CSS_ERROR("NULL input parameter");
+		IA_CSS_LEAVE_PRIVATE("");
+		return;
+	}
 	if (min_padded_width > width)
 		align = min_padded_width;
 	else
@@ -465,6 +466,7 @@ void ia_css_frame_info_set_width(struct ia_css_frame_info *info,
 	else {
 		info->padded_width = CEIL_MUL(align, HIVE_ISP_DDR_WORD_BYTES);
 	}
+	IA_CSS_LEAVE_PRIVATE("");
 }
 
 void ia_css_frame_info_set_format(struct ia_css_frame_info *info,
@@ -482,17 +484,17 @@ void ia_css_frame_info_init(struct ia_css_frame_info *info,
 	enum ia_css_frame_format format,
 	unsigned int aligned)
 {
-	assert(info != NULL);
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
-		"ia_css_frame_info_init() enter: "
-		"width=%d, height=%d, format=%d, aligned=%d\n",
-		width, height, format, aligned);
-
+	IA_CSS_ENTER_PRIVATE("info = %p, width = %d, height = %d, format = %d, aligned = %d",
+			     info, width, height, format, aligned);
+	if (info == NULL) {
+		IA_CSS_ERROR("NULL input parameter");
+		IA_CSS_LEAVE_PRIVATE("");
+		return;
+	}
 	info->res.height = height;
 	info->format     = format;
 	ia_css_frame_info_set_width(info, width, aligned);
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
-		"ia_css_frame_info_init() leave: return_void\n");
+	IA_CSS_LEAVE_PRIVATE("");
 }
 
 void ia_css_frame_free_multiple(unsigned int num_frames,

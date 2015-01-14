@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -46,8 +46,8 @@ enum ia_css_param_class {
 
 /** ISP parameter descriptor */
 struct ia_css_isp_parameter {
-	uint16_t offset; /* Offset in isp_<mem>)parameters, etc. */
-	uint16_t size;   /* Disabled if 0 */
+	uint32_t offset; /* Offset in isp_<mem>)parameters, etc. */
+	uint32_t size;   /* Disabled if 0 */
 };
 
 

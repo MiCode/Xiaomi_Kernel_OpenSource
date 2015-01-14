@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -235,6 +235,7 @@ enum sh_css_sp_event_type {
 	SH_CSS_SP_EVENT_METADATA_DONE,
 	SH_CSS_SP_EVENT_LACE_STATISTICS_DONE,
 	SH_CSS_SP_EVENT_ACC_STAGE_COMPLETE,
+	SH_CSS_SP_EVENT_TIMER,
 	SH_CSS_SP_EVENT_PORT_EOF,
 	SH_CSS_SP_EVENT_FW_ERROR,
 	SH_CSS_SP_EVENT_FW_WARNING,

@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -63,5 +63,9 @@ enum ia_css_err ia_css_spctrl_stop(sp_ID_t sp_id);
 /*! Query the state of SP
 */
 ia_css_spctrl_sp_sw_state ia_css_spctrl_get_state(sp_ID_t sp_id);
+
+/*! Check if SP is idle/ready
+*/
+int ia_css_spctrl_is_idle(sp_ID_t sp_id);
 
 #endif /* __IA_CSS_SPCTRL_H__ */

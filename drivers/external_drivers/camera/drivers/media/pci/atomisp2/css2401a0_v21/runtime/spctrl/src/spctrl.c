@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -220,3 +220,22 @@ ia_css_spctrl_sp_sw_state ia_css_spctrl_get_state(sp_ID_t sp_id)
 
 	return state;
 }
+
+int ia_css_spctrl_is_idle(sp_ID_t sp_id)
+{
+	int state = 0;
+	assert (sp_id < N_SP_ID);
+
+#ifdef HRT_CSIM
+	if (sp_id == SP0_ID)
+		state = (int)hrt_ctl_is_ready(SP);
+#if defined(HAS_SEC_SP)
+	else
+		state = (int)hrt_ctl_is_ready(SP2);
+#endif /* HAS_SEC_SP */
+#else /* HRT_CSIM */
+	state = sp_ctrl_getbit(sp_id, SP_SC_REG, SP_IDLE_BIT);
+#endif /* HRT_CSIM */
+	return state;
+}
+

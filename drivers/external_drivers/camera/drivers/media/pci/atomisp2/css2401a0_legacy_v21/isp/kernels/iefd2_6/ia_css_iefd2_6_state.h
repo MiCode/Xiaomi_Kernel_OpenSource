@@ -28,9 +28,11 @@
 #include "type_support.h"
 #include "vmem.h" /* for VMEM_ARRAY*/
 #include "iefd2_6_vssnlm.isp.h"
+#include "iefd2_6.isp.h"
 
-struct sh_css_isp_iefd2_6_vmem_state {
-
+struct iefd2_6_vmem_state {
+	/* State buffers required for main IEFD2_6 */
+	VMEM_ARRAY(iefd2_6_input_lines[IEFD2_6_STATE_INPUT_BUFFER_HEIGHT], IEFD2_6_STATE_INPUT_BUFFER_WIDTH*ISP_NWAY);
 	/* State buffers required for VSSNLM sub-kernel */
 	VMEM_ARRAY(vssnlm_input_y[VSSNLM_STATE_INPUT_BUFFER_HEIGHT], VSSNLM_STATE_INPUT_BUFFER_WIDTH*ISP_NWAY);
 	VMEM_ARRAY(vssnlm_input_diff_grad[1], VSSNLM_STATE_INPUT_BUFFER_WIDTH*ISP_NWAY);

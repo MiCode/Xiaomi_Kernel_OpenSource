@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -23,14 +23,34 @@
 #define __IA_CSS_EED1_8_PARAM_H
 
 #include "type_support.h"
+#include "vmem.h" /* needed for VMEM_ARRAY */
 
 #include "ia_css_eed1_8_types.h" /* IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS */
+
+
+/* Configuration parameters: */
+
+/* Enable median for false color correction
+ * 0: Do not use median
+ * 1: Use median
+ * Default: 1
+ */
+#define EED1_8_FC_ENABLE_MEDIAN		1
+
+/* Coring Threshold minima
+ * Used in Tint color suppression.
+ * Default: ??
+ */
+/* TODO: Find propper value for this parameter.
+ * KFS currently does not specify this.
+ */
+#define EED1_8_CORINGTHMIN	1024
 
 /* Define size of the state..... TODO: check if this is the correct place */
 /* 4 planes : GR, R, B, GB */
 #define NUM_PLANES	4
-/* 5 lines state per color plane input_line_state */
-#define EED1_8_STATE_INPUT_BUFFER_HEIGHT	(4 * NUM_PLANES)
+/* 6 lines state per color plane input_line_state */
+#define EED1_8_STATE_INPUT_BUFFER_HEIGHT	(5 * NUM_PLANES)
 
 /* ToDo: Move this to testsetup */
 #define MAX_FRAME_SIMDWIDTH	30
@@ -38,10 +58,35 @@
 /* Each plane has width equal to half frame line */
 #define EED1_8_STATE_INPUT_BUFFER_WIDTH	CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
+/* 2 lines state per color plane LD_H state */
+#define EED1_8_STATE_LD_H_HEIGHT	(2 * NUM_PLANES)
+#define EED1_8_STATE_LD_H_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
+
+/* 2 lines stater per color plane LD_V state */
+#define EED1_8_STATE_LD_V_HEIGHT	(2 * NUM_PLANES)
+#define EED1_8_STATE_LD_V_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
+
+/* 2 lines (single plane) state for D_Hr state */
+#define EED1_8_STATE_D_HR_HEIGHT	1
+#define EED1_8_STATE_D_HR_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
+
+/* 3 lines (single plane) state for D_Hb state */
+#define EED1_8_STATE_D_HB_HEIGHT	2
+#define EED1_8_STATE_D_HB_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
+
+/* 3 lines (single plane) state for D_Vr state */
+#define EED1_8_STATE_D_VR_HEIGHT	2
+#define EED1_8_STATE_D_VR_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
+
+/* 2 lines (single plane) state for D_Vb state */
+#define EED1_8_STATE_D_VB_HEIGHT	1
+#define EED1_8_STATE_D_VB_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
+
 /* 3 lines state for R and B (= 2 planes) rb_zipped_state */
 #define EED1_8_STATE_RB_ZIPPED_HEIGHT	(2 * 2)
 #define EED1_8_STATE_RB_ZIPPED_WIDTH	CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
+#if EED1_8_FC_ENABLE_MEDIAN
 /* 1 full input line (GR-R color line) for Yc state */
 #define EED1_8_STATE_YC_HEIGHT	1
 #define EED1_8_STATE_YC_WIDTH	MAX_FRAME_SIMDWIDTH
@@ -57,10 +102,28 @@
 /* 1 full input line (GR-R color line) for AbsK state */
 #define EED1_8_STATE_ABSK_HEIGHT	1
 #define EED1_8_STATE_ABSK_WIDTH		MAX_FRAME_SIMDWIDTH
+#endif
 
+struct ia_css_isp_eed1_8_vmem_params {
+	VMEM_ARRAY(e_cuedge_x, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_cuedge_a, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_cuedge_b, ISP_VEC_NELEMS);
+	VMEM_ARRAY(chgrinv_x, ISP_VEC_NELEMS);
+	VMEM_ARRAY(chgrinv_a, ISP_VEC_NELEMS);
+	VMEM_ARRAY(chgrinv_b, ISP_VEC_NELEMS);
+	VMEM_ARRAY(chgrinv_c, ISP_VEC_NELEMS);
+	VMEM_ARRAY(fcinv_x, ISP_VEC_NELEMS);
+	VMEM_ARRAY(fcinv_a, ISP_VEC_NELEMS);
+	VMEM_ARRAY(fcinv_b, ISP_VEC_NELEMS);
+	VMEM_ARRAY(fcinv_c, ISP_VEC_NELEMS);
+	VMEM_ARRAY(tcinv_x, ISP_VEC_NELEMS);
+	VMEM_ARRAY(tcinv_a, ISP_VEC_NELEMS);
+	VMEM_ARRAY(tcinv_b, ISP_VEC_NELEMS);
+	VMEM_ARRAY(tcinv_c, ISP_VEC_NELEMS);
+};
 
 /* EED (Edge Enhancing Demosaic) ISP parameters */
-struct ia_css_isp_eed1_8_params {
+struct ia_css_isp_eed1_8_dmem_params {
 	int32_t rbzp_strength;
 
 	int32_t fcstrength;
@@ -76,23 +139,23 @@ struct ia_css_isp_eed1_8_params {
 
 	int32_t derel_thres0;
 	int32_t derel_gain0;
-	int32_t derel_thres1;
-	int32_t derel_gain1;
+	int32_t derel_thres_diff;
+	int32_t derel_gain_diff;
 
 	int32_t coring_pos0;
 	int32_t coring_pos_diff;
 	int32_t coring_neg0;
 	int32_t coring_neg_diff;
 
-	int32_t gain;
+	int32_t gain_exp;
 	int32_t gain_pos0;
 	int32_t gain_pos_diff;
 	int32_t gain_neg0;
 	int32_t gain_neg_diff;
 
-	int32_t pos_margin0;
+	int32_t margin_pos0;
 	int32_t margin_pos_diff;
-	int32_t neg_margin0;
+	int32_t margin_neg0;
 	int32_t margin_neg_diff;
 
 	int32_t dew_enhance_seg_x[IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS];

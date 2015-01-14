@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -75,6 +75,7 @@
 #include "ctc/ctc_1.0/ia_css_ctc.host.h"
 #include "ob/ob_1.0/ia_css_ob.host.h"
 #include "raw/raw_1.0/ia_css_raw.host.h"
+#include "fixedbds/fixedbds_1.0/ia_css_fixedbds.host.h"
 #include "s3a/s3a_1.0/ia_css_s3a.host.h"
 #include "sc/sc_1.0/ia_css_sc.host.h"
 #include "sdis/sdis_1.0/ia_css_sdis.host.h"
@@ -1257,22 +1258,17 @@ static enum ia_css_err
 free_ia_css_isp_parameter_set_info(hrt_vaddress ptr);
 
 static enum ia_css_err
-sh_css_params_write_to_ddr_pipe_internal(
-		struct ia_css_pipe *pipe,
-		const struct ia_css_pipeline_stage *stage,
-		struct sh_css_ddr_address_map *ddr_map,
-		struct sh_css_ddr_address_map_size *ddr_map_size);
-
-static enum ia_css_err
 sh_css_params_write_to_ddr_internal(
+		struct ia_css_pipe *pipe,
 		unsigned pipe_id,
 		struct ia_css_isp_parameters *params,
 		const struct ia_css_pipeline_stage *stage,
 		struct sh_css_ddr_address_map *ddr_map,
 		struct sh_css_ddr_address_map_size *ddr_map_size);
 
-static struct ia_css_isp_parameters *
-sh_css_create_isp_params(struct ia_css_stream *stream);
+static enum ia_css_err
+sh_css_create_isp_params(struct ia_css_stream *stream,
+			 struct ia_css_isp_parameters **isp_params_out);
 
 static bool
 sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
@@ -2455,8 +2451,8 @@ sh_css_set_baa_config(struct ia_css_isp_parameters *params,
 	IA_CSS_ENTER_PRIVATE("config=%p", config);
 	ia_css_aa_debug_dtrace(config, IA_CSS_DEBUG_TRACE);
 
-	params->raw_config = *config;
-	params->config_changed[IA_CSS_RAW_ID] = true;
+	params->bds_config = *config;
+	params->config_changed[IA_CSS_BDS_ID] = true;
 
 	IA_CSS_LEAVE_PRIVATE("void");
 }
@@ -2473,7 +2469,7 @@ sh_css_get_baa_config(const struct ia_css_isp_parameters *params,
 
 	IA_CSS_ENTER_PRIVATE("config=%p", config);
 
-	*config = params->raw_config;
+	*config = params->bds_config;
 
 	ia_css_aa_debug_dtrace(config, IA_CSS_DEBUG_TRACE);
 	IA_CSS_LEAVE_PRIVATE("void");
@@ -2604,6 +2600,7 @@ enum ia_css_err
 ia_css_pipe_set_isp_config(struct ia_css_pipe *pipe,
 	struct ia_css_isp_config *config)
 {
+	struct ia_css_pipe *pipe_in = pipe;
 	enum ia_css_err err = IA_CSS_SUCCESS;
 
 	IA_CSS_ENTER("pipe=%p", pipe);
@@ -2613,11 +2610,18 @@ ia_css_pipe_set_isp_config(struct ia_css_pipe *pipe,
 
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "config=%p\n", config);
 
-	sh_css_init_isp_params_from_config(pipe, pipe->stream->isp_params_configs, config);
+	/* When pipe config and stream configs are seperated the below assignement
+	 * pipe_in = NULL can be removed
+	 */
+	if(pipe->stream->config.continuous)
+		pipe_in = NULL;
 
-	/* Now commit all changes to the SP */
-	err = sh_css_param_update_isp_params(pipe, pipe->stream->isp_params_configs, sh_css_sp_is_running(), NULL);
-
+#if defined(SH_CSS_ENABLE_PER_FRAME_PARAMS)
+	if (config->output_frame)
+		err = sh_css_set_per_frame_isp_config_on_pipe(pipe->stream, config, pipe);
+	else
+#endif
+		err = sh_css_set_global_isp_config_on_pipe(pipe, config, pipe_in);
 	IA_CSS_LEAVE_ERR(err);
 	return err;
 }
@@ -2667,11 +2671,10 @@ sh_css_set_per_frame_isp_config_on_pipe(
 	*/
 	if (!stream->per_frame_isp_params_configs)
 	{
-		stream->per_frame_isp_params_configs = sh_css_create_isp_params(stream);
-		if (!stream->per_frame_isp_params_configs) {
-			IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_ERR_INTERNAL_ERROR);
-			return IA_CSS_ERR_INTERNAL_ERROR;
-		}
+		err = sh_css_create_isp_params(stream,
+					       &stream->per_frame_isp_params_configs);
+		if(err != IA_CSS_SUCCESS)
+			goto exit;
 		per_frame_config_created = true;
 	}
 
@@ -3069,7 +3072,7 @@ enum ia_css_err
 ia_css_stream_isp_parameters_init(struct ia_css_stream *stream)
 {
 	enum ia_css_err err = IA_CSS_SUCCESS;
-	unsigned isp_pipe_version = 1;
+	unsigned isp_pipe_version = SH_CSS_ISP_PIPE_VERSION_1;
 	unsigned i;
 	struct sh_css_ddr_address_map *ddr_ptrs;
 	struct sh_css_ddr_address_map_size *ddr_ptrs_size;
@@ -3098,12 +3101,10 @@ ia_css_stream_isp_parameters_init(struct ia_css_stream *stream)
 #endif
 
 	stream->per_frame_isp_params_configs = NULL;
-	stream->isp_params_configs = sh_css_create_isp_params(stream);
-	if (!stream->isp_params_configs) {
-		IA_CSS_ERROR("out of memory");
-		IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY);
-		return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
-	}
+	err = sh_css_create_isp_params(stream,
+				       &stream->isp_params_configs);
+	if(err != IA_CSS_SUCCESS)
+		 goto ERR;
 
 	params = stream->isp_params_configs;
 	sh_css_init_isp_params_from_global(stream, params, true);
@@ -3115,20 +3116,15 @@ ia_css_stream_isp_parameters_init(struct ia_css_stream *stream)
 	sh_css_set_default_product_specific(stream);
 #endif
 
-	/* now commit to ddr */
-	err = sh_css_param_update_isp_params(stream->pipes[0], params, false, NULL);
-	if (err != IA_CSS_SUCCESS)
-		return err;
-
 	/* create per pipe reference to general ddr_ptrs */
 	for (i = 0; i < IA_CSS_PIPE_ID_NUM; i++) {
 		ref_sh_css_ddr_address_map(ddr_ptrs, &params->pipe_ddr_ptrs[i]);
 		params->pipe_ddr_ptrs_size[i] = *ddr_ptrs_size;
 	}
 
-	IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_SUCCESS);
-
-	return IA_CSS_SUCCESS;
+ERR:
+	IA_CSS_LEAVE_ERR_PRIVATE(err);
+	return err;
 }
 
 #if !defined(IS_ISP_2500_SYSTEM)
@@ -3155,13 +3151,15 @@ ia_css_set_sdis2_config(
 }
 #endif
 
-static struct ia_css_isp_parameters *
-sh_css_create_isp_params(struct ia_css_stream *stream)
+static enum ia_css_err
+sh_css_create_isp_params(struct ia_css_stream *stream,
+			 struct ia_css_isp_parameters **isp_params_out)
 {
 	bool succ = true;
 	unsigned i;
 	struct sh_css_ddr_address_map *ddr_ptrs;
 	struct sh_css_ddr_address_map_size *ddr_ptrs_size;
+	enum ia_css_err err = IA_CSS_SUCCESS;
 #if !defined(IS_ISP_2500_SYSTEM)
 	size_t params_size;
 #endif
@@ -3170,8 +3168,11 @@ sh_css_create_isp_params(struct ia_css_stream *stream)
 
 	if (!params)
 	{
-		IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY);
-		return NULL;
+		*isp_params_out = NULL;
+		err = IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
+		IA_CSS_ERROR("%s:%d error: cannot allocate memory", __FILE__, __LINE__);
+		IA_CSS_LEAVE_ERR_PRIVATE(err);
+		return err;
 	} else {
 		memset(params, 0, sizeof(struct ia_css_isp_parameters));
 	}
@@ -3205,9 +3206,15 @@ sh_css_create_isp_params(struct ia_css_stream *stream)
 				ia_css_refcount_increment(IA_CSS_REFCOUNT_PARAM_BUFFER,
 					mmgr_malloc(sizeof(struct isp_acc_param)));
 	succ &= (ddr_ptrs->acc_cluster_params_for_sp != mmgr_NULL);
-	acc_cluster_set_default_params(stream);
+	err = acc_cluster_set_default_params(stream);
+	if (err != IA_CSS_SUCCESS) {
+		return err;
+	}
 #if defined(HAS_OUTPUT_SYSTEM)
-	ia_css_osys_set_default(stream);
+	err = ia_css_osys_set_default(stream);
+	if (err != IA_CSS_SUCCESS) {
+		return err;
+	}
 #endif
 #else
 	(void)stream;
@@ -3221,7 +3228,8 @@ sh_css_create_isp_params(struct ia_css_stream *stream)
 	succ &= (ddr_ptrs->macc_tbl != mmgr_NULL);
 #endif
 
-	return params;
+	*isp_params_out = params;
+	return err;
 }
 
 static bool
@@ -3247,9 +3255,9 @@ sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
 #if !defined(IS_ISP_2500_SYSTEM)
 		sh_css_set_nr_config(params, &default_nr_config);
 		sh_css_set_ee_config(params, &default_ee_config);
-		if (isp_pipe_version == 1)
+		if (isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_1)
 			sh_css_set_macc_table(params, &default_macc_table);
-		else
+		else if (isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_2_2)
 			sh_css_set_macc_table(params, &default_macc2_table);
 		sh_css_set_gamma_table(params, &default_gamma_table);
 		sh_css_set_ctc_table(params, &default_ctc_table);
@@ -3323,13 +3331,13 @@ sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
 #if !defined(IS_ISP_2500_SYSTEM)
 		sh_css_set_nr_config(params, &stream_params->nr_config);
 		sh_css_set_ee_config(params, &stream_params->ee_config);
-		if (isp_pipe_version == 1)
+		if (isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_1)
 			sh_css_set_macc_table(params, &stream_params->macc_table);
-		else
+		else if (isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_2_2)
 			sh_css_set_macc_table(params, &stream_params->macc_table);
 		sh_css_set_gamma_table(params, &stream_params->gc_table);
 		sh_css_set_ctc_table(params, &stream_params->ctc_table);
-		sh_css_set_baa_config(params, &stream_params->raw_config);
+		sh_css_set_baa_config(params, &stream_params->bds_config);
 		sh_css_set_dz_config(params, &stream_params->dz_config);
 /* ------ deprecated(bz675) : from ------ */
 		sh_css_set_shading_settings(params, &stream_params->shading_settings);
@@ -3843,7 +3851,7 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 	hrt_vaddress cpy;
 	int i;
 	unsigned int raw_bit_depth = 10;
-	unsigned int isp_pipe_version = 1;
+	unsigned int isp_pipe_version = SH_CSS_ISP_PIPE_VERSION_1;
 	bool acc_cluster_params_changed = false;
 	unsigned int thread_id, pipe_num;
 #if defined(IS_ISP_2500_SYSTEM)
@@ -3893,11 +3901,13 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 		if (sh_css_acc_cluster_parameters == NULL) {
 			return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
 		}
-		err = sh_css_process_acc_cluster_parameters(pipe, sh_css_acc_cluster_parameters, &acc_cluster_params_changed);
-		if (err != IA_CSS_SUCCESS) {
-			IA_CSS_LOG("sh_css_process_acc_cluster_parameters() returned INVALID KERNEL CONFIGURATION\n");
-			IA_CSS_LEAVE_ERR_PRIVATE(err);
-			return err;
+		if (!pipe_in || pipe == pipe_in) {
+			err = sh_css_process_acc_cluster_parameters(pipe, sh_css_acc_cluster_parameters, &acc_cluster_params_changed);
+			if (err != IA_CSS_SUCCESS) {
+				IA_CSS_LOG("sh_css_process_acc_cluster_parameters() returned INVALID KERNEL CONFIGURATION\n");
+				IA_CSS_LEAVE_ERR_PRIVATE(err);
+				return err;
+			}
 		}
 #endif
 
@@ -3931,6 +3941,14 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 			if (err != IA_CSS_SUCCESS)
 			    return err;
 		}
+#else
+		/* check if to actually update the parameters for this pipe */
+		/* When API change is implemented making good distinction between
+		* stream config and pipe config this skipping code can be moved out of the #ifdef */
+		if (pipe_in && (pipe != pipe_in)) {
+			IA_CSS_LOG("skipping pipe %x", pipe);
+			continue;
+		}
 #endif
 
 		/* BZ 125915, should be moved till after "update other buff" */
@@ -3945,15 +3963,8 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 					stage, params,
 					isp_pipe_version, raw_bit_depth);
 
-			err = sh_css_params_write_to_ddr_pipe_internal(
-					pipe,
-					stage,
-					cur_map,
-					cur_map_size);
-			if (err != IA_CSS_SUCCESS)
-				break;
-
 			err = sh_css_params_write_to_ddr_internal(
+					pipe,
 					pipeline->pipe_id,
 					params,
 					stage,
@@ -3995,7 +4006,9 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 		}
 #endif
 
-			/* check if to actually update the parameters for this pipe */
+		/* check if to actually update the parameters for this pipe */
+		/* When API change is implemented making good distinction between
+		* stream config and pipe config this skipping code can be removed */
 		if (pipe_in && (pipe != pipe_in)) {
 			IA_CSS_LOG("skipping pipe %x", pipe);
 			continue;
@@ -4085,43 +4098,8 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 }
 
 static enum ia_css_err
-sh_css_params_write_to_ddr_pipe_internal(
-	struct ia_css_pipe *pipe,
-	const struct ia_css_pipeline_stage *stage,
-	struct sh_css_ddr_address_map *ddr_map,
-	struct sh_css_ddr_address_map_size *ddr_map_size)
-{
-#if !defined(IS_ISP_2500_SYSTEM)
-	(void)pipe;
-	(void)stage;
-	(void)ddr_map;
-	(void)ddr_map_size;
-#else
-	enum ia_css_err err;
-	const struct ia_css_binary *binary;
-
-	IA_CSS_ENTER_PRIVATE("");
-	assert(ddr_map != NULL);
-	assert(ddr_map_size != NULL);
-	assert(stage != NULL);
-
-
-	binary = stage->binary;
-	assert(binary != NULL);
-
-	/* pass call to product specific to handle copying of tables to DDR */
-	err = sh_css_params_to_ddr(pipe, binary, ddr_map, ddr_map_size);
-	if (err != IA_CSS_SUCCESS) {
-		IA_CSS_LEAVE_ERR_PRIVATE(err);
-		return err;
-	}
-#endif
-	IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_SUCCESS);
-	return IA_CSS_SUCCESS;
-}
-
-static enum ia_css_err
 sh_css_params_write_to_ddr_internal(
+	struct ia_css_pipe *pipe,
 	unsigned pipe_id,
 	struct ia_css_isp_parameters *params,
 	const struct ia_css_pipeline_stage *stage,
@@ -4138,6 +4116,7 @@ sh_css_params_write_to_ddr_internal(
 #if !defined(IS_ISP_2500_SYSTEM)
 	/* struct is > 128 bytes so it should not be on stack (see checkpatch) */
 	static struct ia_css_macc_table converted_macc_table;
+	(void)pipe;
 #endif
 
 	IA_CSS_ENTER_PRIVATE("void");
@@ -4152,27 +4131,14 @@ sh_css_params_write_to_ddr_internal(
 
 	stage_num = stage->stage_num;
 
-	for (mem = 0; mem < N_IA_CSS_MEMORIES; mem++) {
-		const struct ia_css_isp_data *isp_data =
-			ia_css_isp_param_get_isp_mem_init(&binary->info->sp.mem_initializers, IA_CSS_PARAM_CLASS_PARAM, mem);
-		size_t size = isp_data->size;
-		if (!size)
-			continue;
-		buff_realloced = reallocate_buffer(&ddr_map->isp_mem_param[stage_num][mem],
-			&ddr_map_size->isp_mem_param[stage_num][mem],
-			size,
-			params->isp_mem_params_changed[pipe_id][stage_num][mem],
-			&err);
-		if (err != IA_CSS_SUCCESS) {
-			IA_CSS_LEAVE_ERR_PRIVATE(err);
-			return err;
-		}
-		if (params->isp_mem_params_changed[pipe_id][stage_num][mem] || buff_realloced) {
-			sh_css_update_isp_mem_params_to_ddr(binary,
-				ddr_map->isp_mem_param[stage_num][mem],
-				ddr_map_size->isp_mem_param[stage_num][mem], mem);
-		}
+#if defined(IS_ISP_2500_SYSTEM)
+	/* pass call to product specific to handle copying of tables to DDR */
+	err = sh_css_params_to_ddr(pipe, binary, ddr_map, ddr_map_size);
+	if (err != IA_CSS_SUCCESS) {
+		IA_CSS_LEAVE_ERR_PRIVATE(err);
+		return err;
 	}
+#endif
 
 #if !defined(IS_ISP_2500_SYSTEM)
 	if (binary->info->sp.enable.fpnr) {
@@ -4306,7 +4272,7 @@ sh_css_params_write_to_ddr_internal(
 			idx = 4*idx_map[i];
 			j   = 4*i;
 
-			if (binary->info->sp.pipeline.isp_pipe_version == 1) {
+			if (binary->info->sp.pipeline.isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_1) {
 				converted_macc_table.data[idx] =
 				  sDIGIT_FITTING(params->macc_table.data[j],
 				  13, SH_CSS_MACC_COEF_SHIFT);
@@ -4319,7 +4285,7 @@ sh_css_params_write_to_ddr_internal(
 				converted_macc_table.data[idx+3] =
 				  sDIGIT_FITTING(params->macc_table.data[j+3],
 				  13, SH_CSS_MACC_COEF_SHIFT);
-			} else {
+			} else if (binary->info->sp.pipeline.isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_2_2) {
 				converted_macc_table.data[idx] =
 					params->macc_table.data[j];
 				converted_macc_table.data[idx+1] =
@@ -4506,55 +4472,6 @@ sh_css_params_write_to_ddr_internal(
 
 	IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_SUCCESS);
 	return IA_CSS_SUCCESS;
-}
-
-
-/**
- * Currently this function is called from:
- *  - sh_css_commit_isp_config
- *    (loops through the stages in a pipe to reconfigure settings)
- */
-enum ia_css_err
-sh_css_params_write_to_ddr(struct ia_css_pipe *pipe,
-			   struct ia_css_pipeline_stage *stage)
-{
-	int i;
-	enum ia_css_err err = IA_CSS_SUCCESS;
-	struct ia_css_isp_parameters *params;
-	struct ia_css_stream *stream;
-	struct ia_css_pipeline *pipeline;
-
-	IA_CSS_ENTER_PRIVATE("void");
-	assert(pipe != NULL);
-	stream = pipe->stream;
-	params = stream->isp_params_configs;
-
-	pipeline = ia_css_pipe_get_pipeline(pipe);
-	err = sh_css_params_write_to_ddr_pipe_internal(
-			pipe,
-			stage,
-			&params->pipe_ddr_ptrs[pipeline->pipe_id],
-			&params->pipe_ddr_ptrs_size[pipeline->pipe_id]);
-	if (err != IA_CSS_SUCCESS) {
-		IA_CSS_LEAVE_ERR_PRIVATE(err);
-		return err;
-	}
-	for (i = 0; i < stream->num_pipes; i++) {
-		struct ia_css_pipe *pipe = stream->pipes[i];
-		struct ia_css_pipeline *pipeline;
-		pipeline = ia_css_pipe_get_pipeline(pipe);
-		err = sh_css_params_write_to_ddr_internal(
-				pipeline->pipe_id,
-				params,
-				stage,
-				&params->pipe_ddr_ptrs[pipeline->pipe_id],
-				&params->pipe_ddr_ptrs_size[pipeline->pipe_id]);
-		if (err != IA_CSS_SUCCESS)
-			break;
-	}
-
-	IA_CSS_LEAVE_ERR_PRIVATE(err);
-	return err;
 }
 
 const struct ia_css_fpn_table *ia_css_get_fpn_table(struct ia_css_stream *stream)

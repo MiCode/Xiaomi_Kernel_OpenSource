@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -36,6 +36,11 @@ ia_css_aa_encode(
 	struct sh_css_isp_aa_params *to,
 	const struct ia_css_aa_config *from,
 	unsigned size);
+
+void
+ia_css_init_aa_state(
+	void *state,
+	size_t size);
 
 #ifndef IA_CSS_NO_DEBUG
 void

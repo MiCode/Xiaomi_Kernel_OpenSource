@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -42,7 +42,7 @@ The version string has four dot-separated numbers, read left to right:
 
 */
 
-#define CSS_API_VERSION_STRING	"2.1.9.1"
+#define CSS_API_VERSION_STRING	"2.1.10.4"
 
 /*
 Change log
@@ -229,6 +229,25 @@ v2.1.9.0 (1 changes parallel), Introduce sp assert event.
 v2.1.9.1 (1 changes parallel), Exclude driver part from ia_css_buffer.h as it is also used by SP
 - Excluded driver part of the interface from SP/ISP code
 - Driver I/F is not affected
+
+v2.1.9.2, added IA_CSS_EVENT_TYPE_TIMER
+- Added a new event called IA_CSS_EVENT_TYPE_TIMER
+
+v2.1.10.0 (3 changes parallel), Add a flag "enable_dpc" to "struct ia_css_pipe_config"
+- Add a flag "enable_dpc" to "struct ia_css_pipe_config"
+
+v2.1.10.3 (3 changes parallel), fix IEFD's puclic API types
+- fix IEFD public API members types: rad_cu6_x1,rad_cu_unsharp_x1 & unsharp_amount
+
+v2.1.10.3 (3 changes parallel), Add IA_CSS_FW_WARNING_FRAME_PARAM_MISMATCH
+- Add IA_CSS_FW_WARNING_FRAME_PARAM_MISMATCH enum to ia_css_fw_warning type
+
+v2.1.10.4 (4 changes parallel), change the pipe version type from integer to enum
+- add new enum to enumerate ISP pipe version
+- change the pipe version type in pipe_config from integer to enum
+
+v2.1.10.4 (1 changes parallel), Added public interface for setting the scaler LUT.
+- Added the public struct to output system and modified the global config struct.
 
 */
 

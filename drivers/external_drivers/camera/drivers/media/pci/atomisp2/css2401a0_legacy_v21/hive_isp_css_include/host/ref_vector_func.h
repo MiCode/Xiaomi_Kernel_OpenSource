@@ -1,7 +1,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2010 - 2013 Intel Corporation.
+ * Copyright (C) 2010 - 2014 Intel Corporation.
  * All Rights Reserved.
  *
  * The source code contained or described herein and all documents
@@ -89,6 +89,20 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_mul_realigning(
 	tvector1w a,
 	tvector1w b,
 	tscalar1w shift );
+
+/** @brief Leading bit index
+ *
+ * @param[in] a 	input
+ *
+ * @return		index of the leading bit of each element
+ *
+ * This function finds the index of leading one (set) bit of the
+ * input. The index starts with 0 for the LSB and can go upto
+ * ISP_VEC_ELEMBITS-1 for the MSB. For an input equal to zero,
+ * the returned index is -1.
+ */
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_lod(
+		tvector1w a);
 
 /** @brief Config Unit Input Processing
  *
@@ -178,7 +192,7 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_piecewise_estimation(
  * is filled for y_offset and X-prev_values. */
 
 STORAGE_CLASS_REF_VECTOR_FUNC_H ref_config_point_vectors XCU_LUT_create(
-	ref_config_points config_points);
+	xcu_ref_config_points config_points);
 
 /** @brief XCU Fast Config Unit Piecewise linear estimation
  *
@@ -193,12 +207,12 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H ref_config_point_vectors XCU_LUT_create(
  * (approximated to the nearest power of 2 (upper bound)). This is done to have a
  * fast division operation to identify the interval of input x. Once the
  * interval of the input is idenitfied, its config data is retrieved from the
- * LUT and output y is calculated. Input points less than x1 are treated as
- * simple case of using first y_offset as the output.
+ * LUT and output y is calculated. Input points equal to x1 and xn are treated as
+ * simple cases of using their offset value as the output.
  */
 STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_X_piecewise_estimation(
 	tvector1w x,
-	ref_config_points config_points,
+	xcu_ref_config_points config_points,
 	ref_config_point_vectors init_vectors);
 
 /** @brief OP_1w_XCU Wrapper function for XCU LUT create, piecewise estimation and output clamping
@@ -214,7 +228,7 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_X_piecewise_estimation(
  **/
 STORAGE_CLASS_REF_VECTOR_FUNC_H  tvector1w OP_1w_XCU(
 	tvector1w x,
-	ref_config_points config_points);
+	xcu_ref_config_points config_points);
 
 
 /** @brief Coring
@@ -474,11 +488,148 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w fir1x5m_12dB_nrm (
 STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w fir5x5m_12dB_nrm (
 	const s_1w_5x5_matrix m);
 
+/** @brief Approximate averaging FIR 1x5
+ *
+ * @param[in] m	1x5 matrix with pixels
+ *
+ * @return		filtered output
+ *
+ * This function will produce filtered output by
+ * applying the filter coefficients (1/8) * [1,1,1,1,1]
+ * _______
+ *   5 vector operations
+*/
 STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w fir1x5m_box (
 	s_1w_1x5_matrix m);
 
+/** @brief Approximate averaging FIR 1x9
+ *
+ * @param[in] m	1x9 matrix with pixels
+ *
+ * @return		filtered output
+ *
+ * This function will produce filtered output by
+ * applying the filter coefficients (1/16) * [1,1,1,1,1,1,1,1,1]
+ * _______
+ *   9 vector operations
+*/
 STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w fir1x9m_box (
 	s_1w_1x9_matrix m);
+
+/** @brief Approximate averaging FIR 1x11
+ *
+ * @param[in] m	1x11 matrix with pixels
+ *
+ * @return		filtered output
+ *
+ * This function will produce filtered output by
+ * applying the filter coefficients (1/16) * [1,1,1,1,1,1,1,1,1,1,1]
+ * _______
+ *   12 vector operations
+*/
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w fir1x11m_box (
+	s_1w_1x11_matrix m);
+
+/** @brief Symmetric 7 tab filter with normalization
+ *
+ *  @param[in] in 1x7 matrix with pixels
+ *  @param[in] coeff 1x4 matrix with coefficients
+ *  @param[in] out_shift output pixel shift value for normalization
+ *
+ *  @return symmetric 7 tab filter output
+ *
+ * This function performs symmetric 7 tab filter over input pixels.
+ * Filter sum is normalized by shifting out_shift bits.
+ * Filter sum: p0*c3 + p1*c2 + p2*c1 + p3*c0 + p4*c1 + p5*c2 + p6*c3
+ * is implemented as: (p0 + p6)*c3 + (p1 + p5)*c2 + (p2 + p4)*c1 + p3*c0 to
+ * reduce multiplication.
+ * Input pixels should to be scaled, otherwise overflow is possible during
+ * addition
+*/
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w
+fir1x7m_sym_nrm(s_1w_1x7_matrix in,
+		s_1w_1x4_matrix coeff,
+		tvector1w out_shift);
+
+/** @brief approximation for Symmetric 4 tap filter(-1,9,9,-1) with normalization
+ *
+ *  @param[in] in 1x4 matrix with pixels
+ *
+ *  @return 4 tap filter output
+ *
+ * this function is used by xnr4 upscale2
+ *
+ * This function performs 4 tap filter over input pixels.
+ * Filter sum is normalized by shifting out_shift bits.
+ * Filter sum: p0*c0 + p1*c1 + p2*c2 + p3*c3
+ * The coeeficients are -1, 9, 9, -1 with shift of 4
+ * The below implementation is the approximation that consumes less cycles.
+ *
+*/
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w
+fir1x4m_sym_nrm_minus1_9_9_minus1_appr(s_1w_1x4_matrix in);
+
+/** @brief 4 tap filter with normalization
+ *
+ *  @param[in] in 1x4 matrix with pixels
+ *  @param[in] coeff 1x4 matrix with coefficients
+ *  @param[in] out_shift output pixel shift value for normalization
+ *
+ *  @return 4 tap filter output
+ *
+ * This function performs 4 tap filter over input pixels.
+ * Filter sum is normalized by shifting out_shift bits.
+ * Filter sum: p0*c0 + p1*c1 + p2*c2 + p3*c3
+*/
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w
+fir1x4m_nrm(s_1w_1x4_matrix in,
+		s_1w_1x4_matrix coeff,
+		tvector1w out_shift);
+
+/** @brief Symmetric 3 tab filter with normalization
+ *
+ *  @param[in] in 1x3 matrix with pixels
+ *  @param[in] coeff 1x2 matrix with coefficients
+ *  @param[in] out_shift output pixel shift value for normalization
+ *
+ *  @return symmetric 3 tab filter output
+ *
+ * This function performs symmetric 3 tab filter input pixels.
+ * Filter sum is normalized by shifting out_shift bits.
+ * Filter sum: p0*c1 + p1*c0 + p2*c1
+ * is implemented as: (p0 + p2)*c1 + p1*c0 to reduce multiplication.
+ * Input pixels should to be scaled, otherwise overflow is possible during
+ * addition
+*/
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w
+fir1x3m_sym_nrm(s_1w_1x3_matrix in,
+		s_1w_1x2_matrix coeff,
+		tvector1w out_shift);
+
+/** @brief Absolute gradient between two sets of 1x5 yuv matrices
+ *
+ *  @param[in] in0_y	1x5 matrix with y components of the first set of pixels
+ *  @param[in] in0_u	1x5 matrix with u components of the first set of pixels
+ *  @param[in] in0_v	1x5 matrix with v components of the first set of pixels
+ *  @param[in] in1_y	1x5 matrix with y components of the second set of pixels
+ *  @param[in] in1_u	1x5 matrix with u components of the second set of pixels
+ *  @param[in] in1_v	1x5 matrix with v components of the second set of pixels
+ *
+ *  @return absolute gradient
+ *
+ * This function finds the absolute gradient between two sets of 1x5 YUV
+ * vectors, that is basically |(Y1+U1+V1) - (Y2+U2+V2)|. Since addition
+ * and subtraction operations could overflow, "avgrnd" is used instead of
+ * "add" and "subhalfrnd" is used instead of "sub". Thus, all intermediate
+ * results are rounded.
+ */
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w
+gradabs1x5_yuv(s_1w_1x5_matrix in0_y,
+	    s_1w_1x5_matrix in0_u,
+	    s_1w_1x5_matrix in0_v,
+	    s_1w_1x5_matrix in1_y,
+	    s_1w_1x5_matrix in1_u,
+	    s_1w_1x5_matrix in1_v);
 
 /** @brief Mean of 1x3 matrix
  *

@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -340,9 +340,6 @@ ia_css_binary_dvs_grid_info(const struct ia_css_binary *binary,
 
 	dvs_info = &info->dvs_grid;
 
-	info->isp_in_width = binary->internal_frame_info.res.width;
-	info->isp_in_height = binary->internal_frame_info.res.height;
-
 	/* for DIS, we use a division instead of a ceil_div. If this is smaller
 	 * than the 3a grid size, it indicates that the outer values are not
 	 * valid for DIS.
@@ -360,16 +357,7 @@ ia_css_binary_dvs_grid_info(const struct ia_css_binary *binary,
 	assert(pipe != NULL);
 	dvs_info->enable            = binary->info->sp.enable.dvs_stats;
 #endif
-
-#if defined(HAS_VAMEM_VERSION_2)
-	info->vamem_type = IA_CSS_VAMEM_TYPE_2;
-#elif defined(HAS_VAMEM_VERSION_1)
-	info->vamem_type = IA_CSS_VAMEM_TYPE_1;
-#else
-#error "Unknown VAMEM version"
-#endif
 }
-
 
 void
 ia_css_binary_3a_grid_info(const struct ia_css_binary *binary,
@@ -383,8 +371,6 @@ ia_css_binary_3a_grid_info(const struct ia_css_binary *binary,
 	assert(info != NULL);
 	s3a_info = &info->s3a_grid;
 
-	info->isp_in_width = binary->internal_frame_info.res.width;
-	info->isp_in_height = binary->internal_frame_info.res.height;
 
 #if !defined(IS_ISP_2500_SYSTEM)
 	/* 3A statistics grid */
@@ -412,16 +398,6 @@ ia_css_binary_3a_grid_info(const struct ia_css_binary *binary,
 
 	ia_css_3a_stat_grid_calculate(s3a_info, pipe);
 
-	s3a_info->af_grd_info       = *get_af_grid_config(pipe);
-	s3a_info->awb_fr_grd_info   = *get_awb_fr_grid_config(pipe);
-	s3a_info->awb_grd_info      = *get_awb_grid_config(pipe);
-#endif
-#if defined(HAS_VAMEM_VERSION_2)
-	info->vamem_type = IA_CSS_VAMEM_TYPE_2;
-#elif defined(HAS_VAMEM_VERSION_1)
-	info->vamem_type = IA_CSS_VAMEM_TYPE_1;
-#else
-#error "Unknown VAMEM version"
 #endif
 }
 
@@ -675,9 +651,12 @@ ia_css_binary_fill_info(const struct ia_css_binary_xinfo *xinfo,
 	binary->info = xinfo;
 	if (!accelerator) {
 		/* binary->css_params has been filled by accelerator itself. */
-		ia_css_isp_param_allocate_isp_parameters(
+		err = ia_css_isp_param_allocate_isp_parameters(
 			&binary->mem_params, &binary->css_params,
 			&info->mem_initializers);
+		if (err != IA_CSS_SUCCESS) {
+			return err;
+		}
 	}
 	for (i = 0; i < IA_CSS_BINARY_MAX_OUTPUT_PORTS; i++) {
 		if (out_info[i] && (out_info[i]->res.width != 0)) {
@@ -713,7 +692,7 @@ ia_css_binary_fill_info(const struct ia_css_binary_xinfo *xinfo,
 		binary->internal_frame_info.format = bin_out_info->format;
 	/* } */
 	binary->internal_frame_info.res.width       = isp_internal_width;
-	binary->internal_frame_info.padded_width    = isp_internal_width;
+	binary->internal_frame_info.padded_width    = CEIL_MUL(isp_internal_width, 2*ISP_VEC_NELEMS);
 	binary->internal_frame_info.res.height      = isp_internal_height;
 	binary->internal_frame_info.raw_bit_depth   = bits_per_pixel;
 
@@ -773,8 +752,14 @@ ia_css_binary_fill_info(const struct ia_css_binary_xinfo *xinfo,
 #ifndef IS_ISP_2500_SYSTEM
 	if (vf_info && (vf_info->res.width != 0)) {
 		err = ia_css_vf_configure(binary, bin_out_info, (struct ia_css_frame_info *)vf_info, &vf_log_ds);
-		if (err != IA_CSS_SUCCESS)
+		if (err != IA_CSS_SUCCESS) {
+			if (!accelerator) {
+				ia_css_isp_param_destroy_isp_parameters(
+					&binary->mem_params,
+					&binary->css_params);
+			}
 			return err;
+		}
 	}
 #else
 	(void)err;
@@ -922,7 +907,7 @@ ia_css_binary_find(struct ia_css_binary_descr *descr,
 				       *req_vf_info;
 
 	struct ia_css_binary_xinfo *xcandidate;
-	bool need_ds, need_dz, need_dvs, need_xnr;
+	bool need_ds, need_dz, need_dvs, need_xnr, need_dpc;
 	bool striped;
 	bool enable_yuv_ds;
 	bool enable_high_speed;
@@ -962,6 +947,7 @@ ia_css_binary_find(struct ia_css_binary_descr *descr,
 	need_ds = descr->enable_fractional_ds;
 	need_dz = false;
 	need_dvs = false;
+	need_dpc = descr->enable_dpc;
 	enable_yuv_ds = descr->enable_yuv_ds;
 	enable_high_speed = descr->enable_high_speed;
 	enable_dvs_6axis  = descr->enable_dvs_6axis;
@@ -1214,6 +1200,14 @@ ia_css_binary_find(struct ia_css_binary_descr *descr,
 				"ia_css_binary_find() [%d] continue: 0x%x & 0x%x)\n",
 				__LINE__, candidate->bds.supported_bds_factors,
 				descr->required_bds_factor);
+			continue;
+		}
+
+		if (!candidate->enable.dpc && need_dpc) {
+			ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
+				"ia_css_binary_find() [%d] continue: 0x%x & 0x%x)\n",
+				__LINE__, candidate->enable.dpc,
+				descr->enable_dpc);
 			continue;
 		}
 

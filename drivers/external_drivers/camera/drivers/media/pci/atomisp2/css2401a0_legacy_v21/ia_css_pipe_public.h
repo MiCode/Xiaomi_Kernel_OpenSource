@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -57,6 +57,34 @@ enum ia_css_pipe_mode {
 /* Temporary define  */
 #define IA_CSS_PIPE_MODE_NUM (IA_CSS_PIPE_MODE_YUVPP + 1)
 
+
+/**
+ * Enumeration of pipe versions.
+ * the order should match with definition in sh_css_defs.h
+ */
+/*enum ia_css_pipe_version {*/
+/*	IA_CSS_PIPE_VERSION_1 = 1,*/		/**< ISP1.0 pipe */
+/*	IA_CSS_PIPE_VERSION_2_2 = 2,*/		/**< ISP2.2 pipe */
+/*	IA_CSS_PIPE_VERSION_2_6_1 = 3*/		/**< ISP2.6.1 pipe */
+/*};*/
+
+/**
+ * Enumeration of pipe versions.
+ * the order should match with definition in sh_css_defs.h
+ */
+#define IA_CSS_PIPE_VERSION_1 1
+/**
+ * Enumeration of pipe versions.
+ * the order should match with definition in sh_css_defs.h
+ */
+#define IA_CSS_PIPE_VERSION_2_2 2
+/**
+ * Enumeration of pipe versions.
+ * the order should match with definition in sh_css_defs.h
+ */
+#define IA_CSS_PIPE_VERSION_2_6_1 3
+
+
 /**
  * Pipe configuration structure.
  */
@@ -98,6 +126,9 @@ struct ia_css_pipe_config {
 	/**< Disabling digital zoom for a pipeline, if this is set to false,
 	     then setting a zoom factor will have no effect.
 	     In some use cases this provides better performance. */
+	bool enable_dpc;
+	/**< Disabling "Defect Pixel Correction" for a pipeline, if this is set
+	     to false. In some use cases this provides better performance. */
 	struct ia_css_isp_config *p_isp_config;
 	/**< Pointer to ISP configuration */
 };
@@ -124,6 +155,7 @@ struct ia_css_pipe_config {
 	IA_CSS_FRAME_DELAY_1,			/* dvs_frame_delay */ \
 	-1,					/* acc_num_execs */ \
 	false,					/* enable_dz */ \
+	false,					/* enable_dpc */ \
 	NULL					/* p_isp_config */\
 }
 

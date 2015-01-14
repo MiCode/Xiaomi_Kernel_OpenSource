@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -42,10 +42,10 @@ const struct ia_css_iefd2_6_config default_iefd2_6_config = {
 	.rad_cu_dir_sharp_x1 = 0,
 	.rad_cu_non_dir_sharp_x1 = 128,
 	.rad_dir_far_sharp_weight = 8,
-	.shrpn_nega_lmt_txt = 1024,
-	.shrpn_posi_lmt_txt = 1024,
-	.shrpn_nega_lmt_dir = 128,
-	.shrpn_posi_lmt_dir = 128,
+	.sharp_nega_lmt_txt = 1024,
+	.sharp_posi_lmt_txt = 1024,
+	.sharp_nega_lmt_dir = 128,
+	.sharp_posi_lmt_dir = 128,
 	.clamp_stitch = 0,
 	.rad_enable = true,
 	.rad_x_origin = 0,

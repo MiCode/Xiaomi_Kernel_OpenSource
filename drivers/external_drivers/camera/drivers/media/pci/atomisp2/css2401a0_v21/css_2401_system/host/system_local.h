@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -188,6 +188,14 @@ static const hrt_address IBUF_CTRL_BASE[N_IBUF_CTRL_ID] = {
 	0x00000000000C3800ULL,	/* ibuf controller B */
 	0x00000000000C5800ULL	/* ibuf controller C */
 };
+
+/* ISYS IRQ Controllers, part of the Input System 2401 */
+static const hrt_address ISYS_IRQ_BASE[N_ISYS_IRQ_ID] = {
+	0x00000000000C1400ULL,	/* port a */
+	0x00000000000C3400ULL,	/* port b */
+	0x00000000000C5400ULL	/* port c */
+};
+
 /* CSI FE, part of the Input System 2401 */
 static const hrt_address CSI_RX_FE_CTRL_BASE[N_CSI_RX_FRONTEND_ID] = {
 	0x00000000000C0400ULL,	/* csi fe controller A */
@@ -340,6 +348,14 @@ static const hrt_address IBUF_CTRL_BASE[N_IBUF_CTRL_ID] = {
 	0x000C3800UL,	/* ibuf controller B */
 	0x000C5800UL	/* ibuf controller C */
 };
+
+/* ISYS IRQ Controllers, part of the Input System 2401 */
+static const hrt_address ISYS_IRQ_BASE[N_ISYS_IRQ_ID] = {
+	0x000C1400ULL,	/* port a */
+	0x000C3400ULL,	/* port b */
+	0x000C5400ULL	/* port c */
+};
+
 /* CSI FE, part of the Input System 2401 */
 static const hrt_address CSI_RX_FE_CTRL_BASE[N_CSI_RX_FRONTEND_ID] = {
 	0x000C0400UL,	/* csi fe controller A */

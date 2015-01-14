@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -25,7 +25,7 @@
 #include "type_support.h"
 #include "vmem.h" /* needed for VMEM_ARRAY */
 
-struct ia_css_isp_iefd2_6_vmem_params {
+struct iefd2_6_vmem_params {
 	VMEM_ARRAY(e_cued_x, ISP_VEC_NELEMS);
 	VMEM_ARRAY(e_cued_a, ISP_VEC_NELEMS);
 	VMEM_ARRAY(e_cued_b, ISP_VEC_NELEMS);
@@ -40,7 +40,7 @@ struct ia_css_isp_iefd2_6_vmem_params {
 	VMEM_ARRAY(e_curad_b, ISP_VEC_NELEMS);
 };
 
-struct ia_css_isp_iefd2_6_dmem_params {
+struct iefd2_6_dmem_params {
 	int32_t horver_diag_coeff;
 	int32_t ed_horver_diag_coeff;
 	bool dir_smooth_enable;
@@ -61,10 +61,10 @@ struct ia_css_isp_iefd2_6_dmem_params {
 	int32_t rad_cu_dir_sharp_x1;
 	int32_t rad_cu_non_dir_sharp_x1;
 	int32_t rad_dir_far_sharp_weight;
-	int32_t shrpn_nega_lmt_txt;
-	int32_t shrpn_posi_lmt_txt;
-	int32_t shrpn_nega_lmt_dir;
-	int32_t shrpn_posi_lmt_dir;
+	int32_t sharp_nega_lmt_txt;
+	int32_t sharp_posi_lmt_txt;
+	int32_t sharp_nega_lmt_dir;
+	int32_t sharp_posi_lmt_dir;
 	int32_t clamp_stitch;
 	bool rad_enable;
 	int32_t rad_x_origin;

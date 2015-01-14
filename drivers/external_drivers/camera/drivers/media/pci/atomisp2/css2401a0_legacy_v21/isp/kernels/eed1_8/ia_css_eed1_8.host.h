@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -27,8 +27,14 @@
 #include "ia_css_eed1_8_default.host.h"
 
 void
+ia_css_eed1_8_vmem_encode(
+	struct ia_css_isp_eed1_8_vmem_params *to,
+	const struct ia_css_eed1_8_config *from,
+	size_t size);
+
+void
 ia_css_eed1_8_encode(
-	struct ia_css_isp_eed1_8_params *to,
+	struct ia_css_isp_eed1_8_dmem_params *to,
 	const struct ia_css_eed1_8_config *from,
 	size_t size);
 

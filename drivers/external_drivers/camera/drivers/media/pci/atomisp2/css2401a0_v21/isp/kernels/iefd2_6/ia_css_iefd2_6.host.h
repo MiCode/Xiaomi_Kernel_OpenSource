@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -28,13 +28,13 @@
 
 void
 ia_css_iefd2_6_vmem_encode(
-	struct ia_css_isp_iefd2_6_vmem_params *to,
+	struct iefd2_6_vmem_params *to,
 	const struct ia_css_iefd2_6_config *from,
 	size_t size);
 
 void
 ia_css_iefd2_6_encode(
-	struct ia_css_isp_iefd2_6_dmem_params *to,
+	struct iefd2_6_dmem_params *to,
 	const struct ia_css_iefd2_6_config *from,
 	size_t size);
 

@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -37,10 +37,10 @@ ia_css_bds_encode(
 
 void
 ia_css_bds_dump(
-	const struct sh_css_isp_bds_params *raw,
+	const struct sh_css_isp_bds_params *bds,
 	unsigned level)
 {
-	(void)raw;
+	(void)bds;
 	(void)level;
 }
 

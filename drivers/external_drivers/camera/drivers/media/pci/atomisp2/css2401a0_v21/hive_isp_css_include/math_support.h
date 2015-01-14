@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -140,6 +140,45 @@ STORAGE_CLASS_INLINE unsigned int ceil_shift(unsigned int a, unsigned int b)
 STORAGE_CLASS_INLINE unsigned int ceil_shift_mul(unsigned int a, unsigned int b)
 {
 	return CEIL_SHIFT_MUL(a, b);
+}
+
+
+/** @brief Next Power of Two
+ *
+ *  @param[in] unsigned number
+ *
+ *  @return next power of two
+ *
+ * This function rounds input to the nearest power of 2 (2^x)
+ * towards infinity
+ *
+ * Input Range: 0 .. 2^(8*sizeof(int)-1)
+ *
+ * IF input is a power of 2
+ *     out = in
+ * OTHERWISE
+ *     out = 2^(ceil(log2(in))
+ *
+ */
+
+STORAGE_CLASS_INLINE unsigned int ceil_pow2(unsigned int a)
+{
+	if (a == 0) {
+		return 1;
+	}
+	/* IF input is already a power of two*/
+	else if ((!((a)&((a)-1)))) {
+		return a;
+	}
+	else {
+		unsigned int v = a;
+		v |= v>>1;
+		v |= v>>2;
+		v |= v>>4;
+		v |= v>>8;
+		v |= v>>16;
+		return (v+1);
+	}
 }
 
 #endif /* !defined(PIPE_GENERATION) */

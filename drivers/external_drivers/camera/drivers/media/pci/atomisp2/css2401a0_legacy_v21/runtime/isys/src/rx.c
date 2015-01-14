@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -498,16 +498,8 @@ void ia_css_isys_rx_configure(const rx_cfg_t *config,
 	/* AM: Check whether this is a problem with multiple
 	 * streams. MS: This is the case. */
 
-	/* Must turn off all ports because of the 2ppc setting */
-#ifdef THIS_CODE_IS_NO_LONGER_NEEDED_FOR_DUAL_STREAM
-	for (port = (mipi_port_ID_t) 0; port < N_MIPI_PORT_ID; port++) {
-		port_enabled[port] = is_receiver_port_enabled(RX0_ID, port);
-		receiver_port_enable(RX0_ID, port, false);
-	}
-#else
 	port = config->port;
 	receiver_port_enable(RX0_ID, port, false);
-#endif
 
 	port = config->port;
 
@@ -574,13 +566,7 @@ void ia_css_isys_rx_configure(const rx_cfg_t *config,
 		receiver_reg_store(RX0_ID, _HRT_CSS_RECEIVER_BE_TWO_PPC_REG_IDX,
 				   config->is_two_ppc);
 	}
-#ifdef THIS_CODE_IS_NO_LONGER_NEEDED_FOR_DUAL_STREAM
-	/* enable the selected port(s) */
-	for (port = (mipi_port_ID_t) 0; port < N_MIPI_PORT_ID; port++)
-		receiver_port_enable(RX0_ID, port, port_enabled[port]);
-#else
 	receiver_port_enable(RX0_ID, port, true);
-#endif
 	/* TODO: JB: need to add the beneath used define to mizuchi */
 	/* sh_css_sw_hive_isp_css_2400_system_20121224_0125\css
 	 *                      \hrt\input_system_defs.h

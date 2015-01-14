@@ -1,7 +1,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2010 - 2013 Intel Corporation.
+ * Copyright (C) 2010 - 2014 Intel Corporation.
  * All Rights Reserved.
  *
  * The source code contained or described herein and all documents
@@ -42,7 +42,7 @@
 #define INPUT_SCALE_FACTOR 10
 #define OUTPUT_SCALE_FACTOR 10
 #define SLOPE_A_RESOLUTION 10
-#define CONFIG_UNIT_LUT_SIZE 32 /*XCU works for ISP_NWAY = 32 */
+#define CONFIG_UNIT_LUT_SIZE_32 32 /*XCU works for ISP_NWAY = 32 */
 
 #define ONE_IN_Q14 (1<<(NUM_BITS-2))
 #define Q29_TO_Q15_SHIFT_VAL (NUM_BITS-2)
@@ -81,7 +81,7 @@ typedef short tscalar1w_5bit_signed;         /* tscalar1w in interval [-2^(5-1),
 typedef unsigned short tscalar1w_5bit;       /* tscalar1w in interval [0, 2^5)                       */
 typedef short tscalar1w_range1wbit;          /* tscalar1w in interval [-NUM_BITS, NUM_BITS]          */
 typedef short tscalar1w_unsigned_range1wbit; /* tscalar1w in interval [0, NUM_BITS]                  */
-typedef unsigned short tvector_8bit;
+typedef unsigned short tvector_8bit;		/* 8 bit positive number */
 typedef unsigned short tvector_5bit;
 typedef unsigned short tvector_4bit;
 typedef unsigned short tscalar1w_16bit;
@@ -91,6 +91,11 @@ typedef struct {
   tvector1w     v0  ;
   tvector1w     v1 ;
 } s_1w_2x1_matrix;
+
+typedef struct {
+	tvector1w v00;
+	tvector1w v01;
+} s_1w_1x2_matrix;
 
 typedef struct {
   tvector1w     v00  ;
@@ -225,15 +230,36 @@ typedef struct {
 } s_1w_7x7_matrix;
 
 typedef struct {
+	tvector1w v0_0;
+	tvector1w v0_1;
+	tvector1w v0_2;
+	tvector1w v0_3;
+	tvector1w v0_4;
+	tvector1w v0_5;
+	tvector1w v0_6;
+	tvector1w v0_7;
+	tvector1w v0_8;
+	tvector1w v0_9;
+	tvector1w v0_10;
+} s_1w_1x11_matrix;
+
+typedef struct {
 	tvector1w x_cord[MAX_CONFIG_POINTS];
 	tvector1w slope[MAX_CONFIG_POINTS-1];
 	tvector1w y_offset[MAX_CONFIG_POINTS-1];
 } ref_config_points;
 
 typedef struct {
-	tscalar1w_16bit slope_vec[CONFIG_UNIT_LUT_SIZE];
-	tscalar1w_16bit offset_vec[CONFIG_UNIT_LUT_SIZE];
-	tscalar1w_16bit x_cord_vec[CONFIG_UNIT_LUT_SIZE];
+	tvector1w x_cord[MAX_CONFIG_POINTS];
+	tvector1w slope[MAX_CONFIG_POINTS-1];
+	tvector1w y_offset[MAX_CONFIG_POINTS];
+	tscalar1w_16bit slope_resolution;
+} xcu_ref_config_points;
+
+typedef struct {
+	tscalar1w_16bit slope_vec[CONFIG_UNIT_LUT_SIZE_32];
+	tscalar1w_16bit offset_vec[CONFIG_UNIT_LUT_SIZE_32];
+	tscalar1w_16bit x_cord_vec[CONFIG_UNIT_LUT_SIZE_32];
 	tscalar1w_16bit exponent;
 } ref_config_point_vectors;
 

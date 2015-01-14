@@ -1,7 +1,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2010 - 2013 Intel Corporation.
+ * Copyright (C) 2010 - 2015 Intel Corporation.
  * All Rights Reserved.
  *
  * The source code contained or described herein and all documents
@@ -70,42 +70,49 @@
 #define SH_CSS_BINARY_ID_PREVIEW_DS               14
 #define SH_CSS_BINARY_ID_PREVIEW_DEC              15
 #define SH_CSS_BINARY_ID_PREVIEW_CONT_BDS125_ISP2 16
-#define SH_CSS_BINARY_ID_PREVIEW_CONT_BDS150_ISP2 17
-#define SH_CSS_BINARY_ID_PREVIEW_CONT_BDS200_ISP2 18
-#define SH_CSS_BINARY_ID_PREVIEW_DZ               19
-#define SH_CSS_BINARY_ID_PREVIEW_DZ_ISP2          20
-#define SH_CSS_BINARY_ID_PRIMARY_DS               21
-#define SH_CSS_BINARY_ID_PRIMARY_VAR              22
-#define SH_CSS_BINARY_ID_PRIMARY_VAR_ISP2         23
-#define SH_CSS_BINARY_ID_PRIMARY_SMALL            24
-#define SH_CSS_BINARY_ID_PRIMARY_STRIPED          25
-#define SH_CSS_BINARY_ID_PRIMARY_STRIPED_ISP2     26
-#define SH_CSS_BINARY_ID_PRIMARY_8MP              27
-#define SH_CSS_BINARY_ID_PRIMARY_14MP             28
-#define SH_CSS_BINARY_ID_PRIMARY_16MP             29
-#define SH_CSS_BINARY_ID_PRIMARY_REF              30
-#define SH_CSS_BINARY_ID_VIDEO_OFFLINE            31
-#define SH_CSS_BINARY_ID_VIDEO_DS                 32
-#define SH_CSS_BINARY_ID_VIDEO_YUV_DS             33
-#define SH_CSS_BINARY_ID_VIDEO_DZ                 34
-#define SH_CSS_BINARY_ID_VIDEO_DZ_2400_ONLY       35
-#define SH_CSS_BINARY_ID_VIDEO_HIGH               36
-#define SH_CSS_BINARY_ID_VIDEO_NODZ               37
-#define SH_CSS_BINARY_ID_VIDEO_CONT_MULTIBDS_ISP2_MIN 38
-#define SH_CSS_BINARY_ID_VIDEO_CONT_BDS_300_600_ISP2_MIN 39
-#define SH_CSS_BINARY_ID_VIDEO_CONT_BDS150_ISP2_MIN   40
-#define SH_CSS_BINARY_ID_VIDEO_CONT_BDS200_ISP2_MIN   41
-#define SH_CSS_BINARY_ID_VIDEO_CONT_NOBDS_ISP2_MIN    42
-#define SH_CSS_BINARY_ID_VIDEO_DZ_ISP2_MIN      43
-#define SH_CSS_BINARY_ID_VIDEO_DZ_ISP2          44
-#define SH_CSS_BINARY_ID_VIDEO_LP_ISP2          45
-#define SH_CSS_BINARY_ID_RESERVED1              46
-#define SH_CSS_BINARY_ID_ACCELERATION           47
-#define SH_CSS_BINARY_ID_PRE_DE_ISP2            48
-#define SH_CSS_BINARY_ID_KERNEL_TEST_LOAD_STORE 49
+#define SH_CSS_BINARY_ID_PREVIEW_CONT_DPC_BDS150_ISP2 17
+#define SH_CSS_BINARY_ID_PREVIEW_CONT_BDS150_ISP2 18
+#define SH_CSS_BINARY_ID_PREVIEW_CONT_DPC_BDS200_ISP2 19
+#define SH_CSS_BINARY_ID_PREVIEW_CONT_BDS200_ISP2 20
+#define SH_CSS_BINARY_ID_PREVIEW_DZ               21
+#define SH_CSS_BINARY_ID_PREVIEW_DZ_ISP2          22
+#define SH_CSS_BINARY_ID_PRIMARY_DS               23
+#define SH_CSS_BINARY_ID_PRIMARY_VAR              24
+#define SH_CSS_BINARY_ID_PRIMARY_VAR_ISP2         25
+#define SH_CSS_BINARY_ID_PRIMARY_SMALL            26
+#define SH_CSS_BINARY_ID_PRIMARY_STRIPED          27
+#define SH_CSS_BINARY_ID_PRIMARY_STRIPED_ISP2     28
+#define SH_CSS_BINARY_ID_PRIMARY_8MP              29
+#define SH_CSS_BINARY_ID_PRIMARY_14MP             30
+#define SH_CSS_BINARY_ID_PRIMARY_16MP             31
+#define SH_CSS_BINARY_ID_PRIMARY_REF              32
+#define SH_CSS_BINARY_ID_PRIMARY_ISP261_STAGE0        33
+#define SH_CSS_BINARY_ID_PRIMARY_ISP261_STAGE1        34
+#define SH_CSS_BINARY_ID_PRIMARY_ISP261_STAGE2        35
+#define SH_CSS_BINARY_ID_PRIMARY_ISP261_STAGE3        36
+#define SH_CSS_BINARY_ID_PRIMARY_ISP261_STAGE4        37
+#define SH_CSS_BINARY_ID_PRIMARY_ISP261_STAGE5        38
+#define SH_CSS_BINARY_ID_VIDEO_OFFLINE            39
+#define SH_CSS_BINARY_ID_VIDEO_DS                 40
+#define SH_CSS_BINARY_ID_VIDEO_YUV_DS             41
+#define SH_CSS_BINARY_ID_VIDEO_DZ                 42
+#define SH_CSS_BINARY_ID_VIDEO_DZ_2400_ONLY       43
+#define SH_CSS_BINARY_ID_VIDEO_HIGH               44
+#define SH_CSS_BINARY_ID_VIDEO_NODZ               45
+#define SH_CSS_BINARY_ID_VIDEO_CONT_MULTIBDS_ISP2_MIN 46
+#define SH_CSS_BINARY_ID_VIDEO_CONT_BDS_300_600_ISP2_MIN 47
+#define SH_CSS_BINARY_ID_VIDEO_CONT_BDS150_ISP2_MIN   48
+#define SH_CSS_BINARY_ID_VIDEO_CONT_BDS200_ISP2_MIN   49
+#define SH_CSS_BINARY_ID_VIDEO_CONT_NOBDS_ISP2_MIN    50
+#define SH_CSS_BINARY_ID_VIDEO_DZ_ISP2_MIN      51
+#define SH_CSS_BINARY_ID_VIDEO_DZ_ISP2          52
+#define SH_CSS_BINARY_ID_VIDEO_LP_ISP2          53
+#define SH_CSS_BINARY_ID_RESERVED1              54
+#define SH_CSS_BINARY_ID_ACCELERATION           55
+#define SH_CSS_BINARY_ID_PRE_DE_ISP2            56
+#define SH_CSS_BINARY_ID_KERNEL_TEST_LOAD_STORE 57
 
 /* skycam product pipelines */
-#define SH_CSS_BINARY_ID_SC_PREVIEW_B0			    100
 #define SH_CSS_BINARY_ID_PRIMARY                            101
 #define SH_CSS_BINARY_ID_PRIMARY_PP                         102
 #define SH_CSS_BINARY_ID_VIDEO                              103
@@ -172,11 +179,11 @@
 #define SH_CSS_BINARY_ID_IF_TO_BNR                          207
 #define SH_CSS_BINARY_ID_IF_TO_DM_WO_ANR_STATS              208
 #define SH_CSS_BINARY_ID_IF_TO_DM_3A_WO_ANR                 209
-#define SH_CSS_BINARY_ID_IF_TO_RGB                          210
+#define SH_CSS_BINARY_ID_IF_TO_RGBPP                        210
 #define SH_CSS_BINARY_ID_IF_TO_YUVP1                        211
 #define SH_CSS_BINARY_ID_IF_TO_YUVP2_WO_ANR                 212
 #define SH_CSS_BINARY_ID_IF_TO_DM_WO_STATS                  213
-#define SH_CSS_BINARY_ID_IF_TO_DM_3A                        214
+#define SH_CSS_BINARY_ID_IF_TO_DM                           214
 #define SH_CSS_BINARY_ID_IF_TO_YUVP2                        215
 #define SH_CSS_BINARY_ID_IF_TO_YUVP2_C0                     216
 #define SH_CSS_BINARY_ID_IF_TO_YUVP2_ANR_VIA_ISP            217
@@ -208,7 +215,7 @@
 #define SH_CSS_BINARY_ID_IF_TO_SHD_STRIPED                  243
 #define SH_CSS_BINARY_ID_IF_TO_LIN_STRIPED                  244
 #define SH_CSS_BINARY_ID_IF_TO_OB_STRIPED                   245
-#define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS_STATS             246
+
 #define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS_STATS_HR          247
 #define SH_CSS_BINARY_ID_IF_TO_NORM_STRIPED                 248
 #define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS                   249
@@ -226,6 +233,21 @@
 #define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS_C0                261
 #define SH_CSS_BINARY_ID_IF_TO_YUVP1_C0                     262
 #define SH_CSS_BINARY_ID_IF_TO_XNR_PRIMARY                  263
+#define SH_CSS_BINARY_ID_IF_TO_XNR_PRIMARY_STRIPED          264
+#define SH_CSS_BINARY_ID_IF_TO_ANR                          265
+#define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_DVS_STAT_C0         266
+#define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_LACE_STAT_C0        267
+#define SH_CSS_BINARY_ID_IF_TO_OSYS_NO_XNR                  268
+#define SH_CSS_BINARY_ID_IF_TO_OSYS_NO_XNR_STRIPED          269
+#define SH_CSS_BINARY_ID_VIDEO_IF_TO_OSYS_STRIPED           270
+#define SH_CSS_BINARY_ID_IF_TO_OSYS_NO_XNR_DVS_STRIPED      271
+#define SH_CSS_BINARY_ID_VIDEO_IF_TO_OSYS_NO_DVS_NO_TNR     272
+#define SH_CSS_BINARY_ID_VIDEO_IF_TO_OSYS_NO_DVS_NO_TNR_STRIPED 273
+#define SH_CSS_BINARY_ID_VIDEO_IF_TO_OSYS_NO_DVS            274
+#define SH_CSS_BINARY_ID_VIDEO_IF_TO_OSYS_NO_DVS_STRIPED    275
+#define SH_CSS_BINARY_ID_IF_TO_OSYS_PRIMARY                 276
+#define SH_CSS_BINARY_ID_IF_TO_OSYS_NO_XNR_PRIMARY          277
+#define SH_CSS_BINARY_ID_IF_TO_OSYS_NO_XNR_PRIMARY_STRIPED  278
 
 #define XMEM_WIDTH_BITS              HIVE_ISP_DDR_WORD_BITS
 #define XMEM_SHORTS_PER_WORD         (HIVE_ISP_DDR_WORD_BITS/16)

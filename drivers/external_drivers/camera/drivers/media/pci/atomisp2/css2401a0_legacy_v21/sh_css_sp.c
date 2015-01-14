@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -618,11 +618,14 @@ set_view_finder_buffer(const struct ia_css_frame *frame)
 	switch (frame->info.format) {
 	/* the dual output pin */
 	case IA_CSS_FRAME_FORMAT_NV12:
+	case IA_CSS_FRAME_FORMAT_NV21:
 	case IA_CSS_FRAME_FORMAT_YUYV:
 	case IA_CSS_FRAME_FORMAT_UYVY:
 	case IA_CSS_FRAME_FORMAT_CSI_MIPI_YUV420_8:
 	case IA_CSS_FRAME_FORMAT_CSI_MIPI_LEGACY_YUV420_8:
 	case IA_CSS_FRAME_FORMAT_YUV420:
+	case IA_CSS_FRAME_FORMAT_YV12:
+	case IA_CSS_FRAME_FORMAT_NV12_TILEY:
 
 	/* for vf_veceven */
 	case IA_CSS_FRAME_FORMAT_YUV_LINE:

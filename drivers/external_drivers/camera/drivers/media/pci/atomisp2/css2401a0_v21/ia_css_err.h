@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -80,6 +80,8 @@ enum ia_css_fw_warning {
 		This warning can be avoided by unlocking locked frame-buffers more timely. */
 	IA_CSS_FW_WARNING_TAG_EXP_ID_FAILED, /** < Exposure ID cannot be found on the circular buffer.
 		This warning can be avoided by unlocking locked frame-buffers more timely. */
+	IA_CSS_FW_WARNING_FRAME_PARAM_MISMATCH, /** < Frame and param pair mismatched in tagger.
+		This warning can be avoided by providing a param set for each frame. */
 };
 
 #endif /* __IA_CSS_ERR_H */

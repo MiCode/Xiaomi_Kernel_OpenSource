@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -279,6 +279,7 @@ struct ia_css_binary_info {
 		uint8_t	in_frame;
 		uint8_t	out_frame;
 		uint8_t	high_speed;
+		uint8_t	dpc;
 		uint8_t padding[2];
 	} enable;
 	struct {
@@ -354,6 +355,7 @@ struct ia_css_sp_info {
 	uint32_t ddr_parameter_size;    /**< acc param size, sp dmem */
 	/* Entry functions */
 	uint32_t sp_entry;	/**< The SP entry function */
+	uint32_t tagger_frames_addr;   /**< Base address of tagger state */
 };
 
 /* The following #if is there because this header file is also included

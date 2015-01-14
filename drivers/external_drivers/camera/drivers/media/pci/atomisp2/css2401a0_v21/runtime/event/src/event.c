@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -105,6 +105,7 @@ void ia_css_event_decode(
 		break;
 
 	case SH_CSS_SP_EVENT_ACC_STAGE_COMPLETE:
+	case SH_CSS_SP_EVENT_TIMER:
 	case SH_CSS_SP_EVENT_FRAME_TAGGED:
 	case SH_CSS_SP_EVENT_FW_WARNING:
 	case SH_CSS_SP_EVENT_FW_ASSERT:

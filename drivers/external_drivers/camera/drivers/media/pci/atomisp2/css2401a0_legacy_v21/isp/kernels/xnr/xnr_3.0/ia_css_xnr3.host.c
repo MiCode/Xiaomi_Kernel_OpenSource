@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -105,7 +105,9 @@ ia_css_xnr3_encode(
 	unsigned size)
 {
 	int kernel_size = XNR_FILTER_SIZE;
-	int adjust_factor = 2 * (kernel_size - 1);
+	/* The adjust factor is the next power of 2
+	   w.r.t. the kernel size*/
+	int adjust_factor = ceil_pow2(kernel_size);
 
 	int32_t alpha_y0 = compute_alpha(from->sigma.y0);
 	int32_t alpha_y1 = compute_alpha(from->sigma.y1);

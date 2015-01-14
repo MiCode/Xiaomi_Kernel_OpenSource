@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -61,7 +61,6 @@ hrt_vaddress mmgr_alloc_attr(const size_t size, const uint16_t attrs)
 		my_attrs |= IA_CSS_MEM_ATTR_PAGEALIGN;
 
 	ptr = my_env.alloc(size, my_attrs);
-	assert(ptr != 0);
 	return ptr;
 }
 

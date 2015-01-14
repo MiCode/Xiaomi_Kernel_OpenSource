@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -383,6 +383,9 @@ int ia_css_queue_is_empty(
 	}
 
 	return EINVAL;
+#if defined(IS_ISP_2500_SYSTEM) && defined(__SP)
+#pragma hivecc section = "critical"
+#endif
 }
 
 int ia_css_queue_get_size(

@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -126,16 +126,23 @@ ia_css_isp_param_allocate_isp_parameters(
 			css_params->params[pclass][mem].address = 0x0;
 			if (size) {
 				mem_params->params[pclass][mem].address = sh_css_calloc(1, size);
-				if (!mem_params->params[pclass][mem].address)
-					return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
+				if (!mem_params->params[pclass][mem].address) {
+					err = IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
+					goto cleanup;
+				}
 				if (pclass != IA_CSS_PARAM_CLASS_PARAM) {
 					css_params->params[pclass][mem].address = mmgr_malloc(size);
-					if (!css_params->params[pclass][mem].address)
-						return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
+					if (!css_params->params[pclass][mem].address) {
+						err = IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
+						goto cleanup;
+					}
 				}
 			}
 		}
 	}
+	return err;
+cleanup:
+	ia_css_isp_param_destroy_isp_parameters(mem_params, css_params);
 	return err;
 }
 
