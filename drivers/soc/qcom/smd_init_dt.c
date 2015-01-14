@@ -1,6 +1,6 @@
 /* drivers/soc/qcom/smd_init_dt.c
  *
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -260,10 +260,10 @@ static int msm_smd_probe(struct platform_device *pdev)
 	interrupt_stats[remote_pid].smd_interrupt_id = irq_line;
 
 	ret = request_irq(irq_line,
-				private_irq->irq_handler,
-				IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
-				node->name,
-				NULL);
+			private_irq->irq_handler,
+			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND | IRQF_SHARED,
+			node->name,
+			&pdev->dev);
 	if (ret < 0) {
 		pr_err("%s: request_irq() failed on %d\n", __func__, irq_line);
 		return ret;
