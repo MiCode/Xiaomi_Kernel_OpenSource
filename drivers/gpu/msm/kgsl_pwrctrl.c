@@ -195,8 +195,7 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	int cur = pwr->pwrlevels[pwr->active_pwrlevel].bus_freq;
 	int buslevel = 0;
 	unsigned long ab;
-	if (!pwr->pcl)
-		return;
+
 	/* the bus should be ON to update the active frequency */
 	if (on && !(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
 		return;
@@ -214,11 +213,22 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	}
 	trace_kgsl_buslevel(device, pwr->active_pwrlevel, buslevel);
 	last_vote_buslevel = buslevel;
+
 	/* buslevel is the IB vote, update the AB */
 	_ab_buslevel_update(pwr, &ab);
-	/* vote for ocmem, shut down based on "on" parameter */
-	msm_bus_scale_client_update_request(pwr->pcl,
-		on ? pwr->active_pwrlevel : pwr->num_pwrlevels - 1);
+
+	/**
+	 * vote for ocmem if target supports ocmem scaling,
+	 * shut down based on "on" parameter
+	 */
+	if (pwr->ocmem_pcl)
+		msm_bus_scale_client_update_request(pwr->ocmem_pcl,
+			on ? pwr->active_pwrlevel : pwr->num_pwrlevels - 1);
+
+	/* vote for bus if gpubw-dev support is not enabled */
+	if (pwr->pcl)
+		msm_bus_scale_client_update_request(pwr->pcl, buslevel);
+
 	/* ask a governor to vote on behalf of us */
 	devfreq_vbif_update_bw(ib_votes[last_vote_buslevel], ab);
 }
@@ -1400,9 +1410,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	pm_runtime_enable(&pdev->dev);
 
-	if (pdata->bus_scale_table == NULL)
-		return result;
-
 	ocmem_bus_node = of_find_node_by_name(
 				device->pdev->dev.of_node,
 				"qcom,ocmem-bus-client");
@@ -1411,20 +1418,16 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		ocmem_scale_table = msm_bus_pdata_from_node
 				(device->pdev, ocmem_bus_node);
 		if (ocmem_scale_table)
-			pwr->pcl = msm_bus_scale_register_client
+			pwr->ocmem_pcl = msm_bus_scale_register_client
 					(ocmem_scale_table);
-	} else
-		pwr->pcl = msm_bus_scale_register_client
-					(pdata->bus_scale_table);
 
-	if (!pwr->pcl) {
-		KGSL_PWR_ERR(device,
-				"msm_bus_scale_register_client failed: "
-				"id %d table %p %p", device->id,
-				pdata->bus_scale_table,
-				ocmem_scale_table);
-		result = -EINVAL;
-		goto done;
+		if (!pwr->ocmem_pcl) {
+			KGSL_PWR_ERR(device,
+				"msm_bus_scale_register_client failed: id %d table %p",
+				device->id, ocmem_scale_table);
+			result = -EINVAL;
+			goto done;
+		}
 	}
 
 	/* Set if independent bus BW voting is supported */
@@ -1433,10 +1436,33 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	/* Check if gpu bandwidth vote device is defined in dts */
 	gpubw_dev_node = of_parse_phandle(pdev->dev.of_node,
 					"qcom,gpubw-dev", 0);
+	/*
+	 * Governor support enables the gpu bus scaling via governor
+	 * and hence no need to register for bus scaling client
+	 * if gpubw-dev is defined.
+	 */
 	if (gpubw_dev_node) {
 		p2dev = of_find_device_by_node(gpubw_dev_node);
 		if (p2dev)
 			pwr->devbw = &p2dev->dev;
+	} else {
+		/*
+		 * Register for gpu bus scaling if governor support
+		 * is not enabled and gpu bus voting is to be done
+		 * from the driver.
+		 */
+		if (pdata->bus_scale_table) {
+			pwr->pcl = msm_bus_scale_register_client
+					(pdata->bus_scale_table);
+			if (!pwr->pcl) {
+				KGSL_PWR_ERR(device,
+					"msm_bus_scale_register_client failed: id %d table %p",
+					device->id, pdata->bus_scale_table);
+				result = -EINVAL;
+				goto done;
+			}
+		}
+		return result;
 	}
 
 	/*
@@ -1540,6 +1566,11 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 		msm_bus_scale_unregister_client(pwr->pcl);
 
 	pwr->pcl = 0;
+
+	if (pwr->ocmem_pcl)
+		msm_bus_scale_unregister_client(pwr->ocmem_pcl);
+
+	pwr->ocmem_pcl = 0;
 
 	if (pwr->gpu_reg) {
 		regulator_put(pwr->gpu_reg);
