@@ -145,6 +145,34 @@ struct ssr_notify_data {
 	uint32_t seq_num;
 };
 
+/**
+ * struct configure_and_open_ch_work - Work structure for used for opening
+ *				glink_ssr channels
+ * edge:	The G-Link edge obtained from the link state callback
+ * transport:	The G-Link transport obtained from the link state callback
+ * link_state:	The link state obtained from the link state callback
+ * ss_info:	Subsystem information structure containing the info for this
+ *		callback
+ * work:	Work structure
+ */
+struct configure_and_open_ch_work {
+	char edge[GLINK_NAME_SIZE];
+	char transport[GLINK_NAME_SIZE];
+	enum glink_link_state link_state;
+	struct subsys_info *ss_info;
+	struct work_struct work;
+};
+
+/**
+ * struct close_ch_work - Work structure for used for closing glink_ssr channels
+ * handle:	G-Link channel handle to be closed
+ * work:	Work structure
+ */
+struct close_ch_work {
+	void *handle;
+	struct work_struct work;
+};
+
 static int glink_ssr_restart_notifier_cb(struct notifier_block *this,
 				  unsigned long code,
 				  void *data);
@@ -154,17 +182,44 @@ static struct subsys_info *get_info_for_subsystem(const char *subsystem);
 static struct subsys_info *get_info_for_edge(const char *edge);
 static int notify_for_subsystem(struct subsys_info *ss_info);
 static int configure_and_open_channel(struct subsys_info *ss_info);
+static struct workqueue_struct *glink_ssr_wq;
+
 
 static LIST_HEAD(subsystem_list);
 static atomic_t responses_remaining = ATOMIC_INIT(0);
 static wait_queue_head_t waitqueue;
+
+static void link_state_cb_worker(struct work_struct *work)
+{
+	struct configure_and_open_ch_work *ch_open_work =
+		container_of(work, struct configure_and_open_ch_work, work);
+	struct subsys_info *ss_info = ch_open_work->ss_info;
+
+	GLINK_INFO("<SSR> %s: LINK STATE[%d] %s:%s\n", __func__,
+			ch_open_work->link_state, ch_open_work->edge,
+			ch_open_work->transport);
+
+	if (ss_info && ch_open_work->link_state == GLINK_LINK_STATE_UP) {
+		configure_and_open_channel(ss_info);
+		ss_info->link_up = true;
+	} else {
+		if (ss_info) {
+			ss_info->link_up = false;
+			ss_info->handle = NULL;
+		} else {
+			GLINK_ERR("<SSR> %s: ss_info is NULL\n", __func__);
+		}
+	}
+
+	kfree(ch_open_work);
+}
 
 /**
  * glink_lbsrv_link_state_cb() - Callback to receive link state updates
  * @cb_info:	Information containing link & its state.
  * @priv:	Private data passed during the link state registration.
  *
- * This function is called by the GLINK core to notify the glink_ssr module
+ * This function is called by the G-Link core to notify the glink_ssr module
  * regarding the link state updates. This function is registered with the
  * G-Link core by the loopback server during glink_register_link_state_cb().
  */
@@ -172,6 +227,7 @@ static void glink_ssr_link_state_cb(struct glink_link_state_cb_info *cb_info,
 				      void *priv)
 {
 	struct subsys_info *ss_info;
+	struct configure_and_open_ch_work *open_ch_work;
 
 	if (!cb_info) {
 		GLINK_ERR("<SSR> %s: Missing cb_data\n", __func__);
@@ -180,21 +236,20 @@ static void glink_ssr_link_state_cb(struct glink_link_state_cb_info *cb_info,
 
 	ss_info = get_info_for_edge(cb_info->edge);
 
-	if (ss_info && cb_info->link_state == GLINK_LINK_STATE_UP) {
-		GLINK_INFO("<SSR> %s: LINK UP %s:%s\n", __func__, cb_info->edge,
-				cb_info->transport);
-		configure_and_open_channel(ss_info);
-		ss_info->link_up = true;
-	} else {
-		GLINK_INFO("<SSR> %s: LINK DOWN %s:%s\n", __func__,
-				cb_info->edge,
-				cb_info->transport);
-		if (ss_info) {
-			GLINK_INFO("<SSR> %s: ss_info is NULL\n", __func__);
-			ss_info->link_up = false;
-			ss_info->handle = NULL;
-		}
+	open_ch_work = kmalloc(sizeof(*open_ch_work), GFP_KERNEL);
+	if (!open_ch_work) {
+		GLINK_ERR("<SSR> %s: Could not allocate open_ch_work\n",
+				__func__);
+		return;
 	}
+
+	strlcpy(open_ch_work->edge, cb_info->edge, GLINK_NAME_SIZE);
+	strlcpy(open_ch_work->transport, cb_info->transport, GLINK_NAME_SIZE);
+	open_ch_work->link_state = cb_info->link_state;
+	open_ch_work->ss_info = ss_info;
+
+	INIT_WORK(&open_ch_work->work, link_state_cb_worker);
+	queue_work(glink_ssr_wq, &open_ch_work->work);
 }
 
 /**
@@ -284,6 +339,14 @@ void glink_ssr_notify_tx_done(void *handle, const void *priv,
 	}
 }
 
+void close_ch_worker(struct work_struct *work)
+{
+	struct close_ch_work *close_work =
+		container_of(work, struct close_ch_work, work);
+	glink_close(close_work->handle);
+	kfree(close_work);
+}
+
 /**
  * glink_ssr_notify_state() - Channel state notification callback
  * @handle:	G-Link channel handle
@@ -296,6 +359,7 @@ void glink_ssr_notify_tx_done(void *handle, const void *priv,
 void glink_ssr_notify_state(void *handle, const void *priv, unsigned event)
 {
 	struct ssr_notify_data *cb_data = (struct ssr_notify_data *)priv;
+	struct close_ch_work *close_work;
 
 	if (!cb_data) {
 		GLINK_ERR("<SSR> %s: Could not allocate data for cb_data\n",
@@ -304,8 +368,20 @@ void glink_ssr_notify_state(void *handle, const void *priv, unsigned event)
 		GLINK_INFO("<SSR> %s: event[%d]\n",
 				__func__, event);
 		cb_data->event = event;
-		if (event == GLINK_REMOTE_DISCONNECTED)
-			glink_close(handle);
+		if (event == GLINK_REMOTE_DISCONNECTED) {
+			close_work =
+				kmalloc(sizeof(struct close_ch_work),
+						GFP_KERNEL);
+			if (!close_work) {
+				GLINK_ERR("<SSR> %s: Could not allocate %s\n",
+						__func__, "close work");
+				return;
+			}
+
+			close_work->handle = handle;
+			INIT_WORK(&close_work->work, close_ch_worker);
+			queue_work(glink_ssr_wq, &close_work->work);
+		}
 	}
 }
 
@@ -352,10 +428,10 @@ static int glink_ssr_restart_notifier_cb(struct notifier_block *this,
 				  unsigned long code,
 				  void *data)
 {
+	int ret = 0;
 	struct subsys_info *ss_info = NULL;
 	struct restart_notifier_block *notifier =
 		container_of(this, struct restart_notifier_block, nb);
-	int ret;
 
 	if (code == SUBSYS_AFTER_SHUTDOWN) {
 		GLINK_INFO("<SSR> %s: %s: subsystem restart for %s\n", __func__,
@@ -371,14 +447,11 @@ static int glink_ssr_restart_notifier_cb(struct notifier_block *this,
 		ret = notify_for_subsystem(ss_info);
 
 		if (ret) {
-			GLINK_ERR("<SSR>: %s: %s, ret[%d]\n",
-					__func__,
-					"Subsystem notification failed",
-					ret);
+			GLINK_ERR("<SSR>: %s: %s, ret[%d]\n", __func__,
+					"Subsystem notification failed", ret);
 			return ret;
 		}
 	}
-
 	return NOTIFY_DONE;
 }
 
@@ -875,6 +948,7 @@ static int glink_ssr_init(void)
 {
 	int ret;
 
+	glink_ssr_wq = create_singlethread_workqueue("glink_ssr_wq");
 	ret = platform_driver_register(&glink_ssr_driver);
 	if (ret)
 		GLINK_ERR("<SSR> %s: %s ret: %d\n", __func__,
