@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -194,6 +194,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	int ipa_ep_idx;
 	int result = -EFAULT;
 	struct ipa_ep_context *ep;
+	struct ipa_ep_cfg_status ep_status;
 
 	IPADBG("connecting client\n");
 
@@ -237,6 +238,12 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	if (!ep->skip_ep_cfg) {
 		if (ipa_cfg_ep(ipa_ep_idx, &in->ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
+			goto ipa_cfg_ep_fail;
+		}
+		/* Setting EP status 0 */
+		memset(&ep_status, 0, sizeof(ep_status));
+		if (ipa_cfg_ep_status(ipa_ep_idx, &ep_status)) {
+			IPAERR("fail to configure status of EP.\n");
 			goto ipa_cfg_ep_fail;
 		}
 		IPADBG("ep configuration successful\n");
