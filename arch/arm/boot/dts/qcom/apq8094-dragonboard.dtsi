@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -896,6 +896,11 @@
 	regulator-min-microvolt = <2800000>;
 	regulator-max-microvolt = <2800000>;
 	qcom,init-voltage = <2800000>;
+};
+
+&pm8994_l16 { /* GPS ELNA */
+	status = "okay";
+	regulator-always-on;
 };
 
 &pm8994_l17 { /* CAMERAS */
