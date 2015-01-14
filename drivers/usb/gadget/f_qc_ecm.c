@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2003-2005,2008 David Brownell
  * Copyright (C) 2008 Nokia Corporation
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -656,7 +656,24 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		if (alt > 1)
 			goto fail;
 
-		if (ecm->port.in_ep->driver_data) {
+		if (ecm->data_interface_up == alt)
+			return 0;
+
+		if (!ecm->port.in_ep->desc ||
+		    !ecm->port.out_ep->desc) {
+			DBG(cdev, "init ecm\n");
+			__ecm->ecm_mdm_ready_trigger = false;
+			if (config_ep_by_speed(cdev->gadget, f,
+						ecm->port.in_ep) ||
+			    config_ep_by_speed(cdev->gadget, f,
+						ecm->port.out_ep)) {
+				ecm->port.in_ep->desc = NULL;
+				ecm->port.out_ep->desc = NULL;
+				goto fail;
+			}
+		}
+
+		if (alt == 0 && ecm->port.in_ep->driver_data) {
 			DBG(cdev, "reset ecm\n");
 			__ecm->ecm_mdm_ready_trigger = false;
 			/* ecm->port is needed for disconnecting the BAM data
@@ -666,31 +683,16 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			ecm_qc_bam_disconnect(ecm);
 			if (ecm->xport != USB_GADGET_XPORT_BAM2BAM_IPA) {
 				gether_qc_disconnect_name(&ecm->port, "ecm0");
-			} else if (alt == 1 && gadget_is_dwc3(cdev->gadget)) {
+			} else if (ecm->data_interface_up &&
+					gadget_is_dwc3(cdev->gadget)) {
 				if (msm_ep_unconfig(ecm->port.in_ep) ||
 				    msm_ep_unconfig(ecm->port.out_ep)) {
 					pr_err("%s: ep_unconfig failed\n",
 						__func__);
 					goto fail;
 				}
-
 			}
 		}
-
-		if (!ecm->port.in_ep->desc ||
-		    !ecm->port.out_ep->desc) {
-			DBG(cdev, "init ecm\n");
-			__ecm->ecm_mdm_ready_trigger = false;
-			if (config_ep_by_speed(cdev->gadget, f,
-					       ecm->port.in_ep) ||
-			    config_ep_by_speed(cdev->gadget, f,
-					       ecm->port.out_ep)) {
-				ecm->port.in_ep->desc = NULL;
-				ecm->port.out_ep->desc = NULL;
-				goto fail;
-			}
-		}
-
 		/* CDC Ethernet only sends data in non-default altsettings.
 		 * Changing altsettings resets filters, statistics, etc.
 		 */
@@ -723,10 +725,9 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 			if (ecm_qc_bam_connect(ecm))
 				goto fail;
-
-			ecm->data_interface_up = true;
 		}
 
+		ecm->data_interface_up = alt;
 		/* NOTE this can be a minor disagreement with the ECM spec,
 		 * which says speed notifications will "always" follow
 		 * connection notifications.  But we allow one connect to
