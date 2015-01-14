@@ -24,6 +24,7 @@
 #include <core/vlv/vlv_pri_plane.h>
 #include <core/vlv/vlv_sp_plane.h>
 #include <core/vlv/vlv_dpst.h>
+#include <core/vlv/vlv_dsi_port.h>
 
 #define VLV_N_PLANES	6
 #define VLV_N_PIPES	2
@@ -131,6 +132,10 @@ extern int vlv_display_on(struct intel_pipe *pipe);
 extern int vlv_display_off(struct intel_pipe *pipe);
 int vlv_num_planes_enabled(struct intel_pipe *pipe);
 void vlv_update_plane_status(struct intel_pipe *pipe, int plane, bool enabled);
+
+/* port export functions */
+bool vlv_dsi_port_init(struct vlv_dsi_port *port, enum port, enum pipe);
+bool vlv_dsi_port_destroy(struct vlv_dsi_port *port);
 
 /* vlv_debugfs */
 extern int vlv_debugfs_init(struct vlv_dc_config *vlv_config);
