@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -667,7 +667,7 @@
 		qcom,cpr-corner-map = <1 1 2 2 3 3 4 4 4>;
 		qcom,cpr-voltage-ceiling-override =
 				<0xFFFFFFFF 0  800000  800000  900000  900000
-					      1000000 1000000 1180000 1180000
+					      1000000 1000000 1115000 1115000
 					      1180000>;
 
 		qcom,cpr-scaled-init-voltage-as-ceiling;
