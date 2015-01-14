@@ -805,8 +805,6 @@ static int bcl_probe(struct spmi_device *spmi)
 	if (ret) {
 		dev_err(&spmi->dev, "Error requesting VBAT irq. err:%d", ret);
 		goto bcl_probe_exit;
-	} else {
-		enable_irq_wake(bcl_perph->param[BCL_PARAM_VOLTAGE].irq_num);
 	}
 	ret = devm_request_irq(&spmi->dev,
 			bcl_perph->param[BCL_PARAM_CURRENT].irq_num,
@@ -816,8 +814,6 @@ static int bcl_probe(struct spmi_device *spmi)
 	if (ret) {
 		dev_err(&spmi->dev, "Error requesting IBAT irq. err:%d", ret);
 		goto bcl_probe_exit;
-	} else {
-		enable_irq_wake(bcl_perph->param[BCL_PARAM_CURRENT].irq_num);
 	}
 
 	dev_set_drvdata(&spmi->dev, bcl_perph);
