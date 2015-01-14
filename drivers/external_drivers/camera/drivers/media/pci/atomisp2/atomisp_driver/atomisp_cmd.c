@@ -4297,8 +4297,7 @@ static int __enable_continuous_mode(struct atomisp_sub_device *asd,
 	atomisp_css_preview_enable_online(asd, ATOMISP_INPUT_STREAM_GENERAL,
 			!enable);
 	atomisp_css_enable_continuous(asd, enable);
-	atomisp_css_enable_cont_capt(enable,
-				!asd->continuous_viewfinder->val);
+	atomisp_css_enable_cvf(asd, asd->continuous_viewfinder->val);
 
 	if (atomisp_css_continuous_set_num_raw_frames(asd,
 			asd->continuous_raw_buffer_size->val)) {

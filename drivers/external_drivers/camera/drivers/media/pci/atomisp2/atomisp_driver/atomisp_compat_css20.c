@@ -498,6 +498,8 @@ static void __dump_stream_config(struct atomisp_sub_device *asd,
 	dev_dbg(isp->dev, "stream_config.online=%d.\n", s_config->online);
 	dev_dbg(isp->dev, "stream_config.continuous=%d.\n",
 			s_config->continuous);
+	dev_dbg(isp->dev, "stream_config.disable_cont_viewfinder=%d.\n",
+			s_config->disable_cont_viewfinder);
 	dev_dbg(isp->dev, "stream_config.channel_id=%d.\n",
 			s_config->channel_id);
 	dev_dbg(isp->dev, "stream_config.init_num_cont_raw_buf=%d.\n",
@@ -2228,9 +2230,18 @@ void atomisp_css_enable_continuous(struct atomisp_sub_device *asd,
 	}
 }
 
-void atomisp_css_enable_cont_capt(bool enable, bool stop_copy_preview)
+void atomisp_css_enable_cvf(struct atomisp_sub_device *asd,
+				bool enable)
 {
-	sh_css_enable_cont_capt(enable, stop_copy_preview);
+	struct atomisp_stream_env *stream_env =
+		&asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL];
+	int i;
+
+	if (stream_env->stream_config.disable_cont_viewfinder != !enable) {
+		stream_env->stream_config.disable_cont_viewfinder = !enable;
+		for (i = 0; i < IA_CSS_PIPE_ID_NUM; i++)
+			stream_env->update_pipe[i] = true;
+	}
 }
 
 int atomisp_css_input_configure_port(

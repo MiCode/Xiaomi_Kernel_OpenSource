@@ -333,7 +333,8 @@ void atomisp_css_video_enable_online(struct atomisp_sub_device *asd,
 void atomisp_css_enable_continuous(struct atomisp_sub_device *asd,
 							bool enable);
 
-void atomisp_css_enable_cont_capt(bool enable, bool stop_copy_preview);
+void atomisp_css_enable_cvf(struct atomisp_sub_device *asd,
+							bool enable);
 
 int atomisp_css_input_configure_port(struct atomisp_sub_device *asd,
 				mipi_port_ID_t port,
