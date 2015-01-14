@@ -127,7 +127,7 @@
 #include "msm8976-bus.dtsi"
 #include "msm8976-jtag.dtsi"
 #include "msm8976-coresight.dtsi"
-#include "msm8956-pm.dtsi"
+#include "msm8976-pm.dtsi"
 #include "msm8976-gpu.dtsi"
 #include "msm8976-cpu.dtsi"
 #include "msm8976-mdss.dtsi"
