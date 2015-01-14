@@ -102,7 +102,14 @@ bool vlv_dsi_port_set_device_ready(struct vlv_dsi_port *port)
 	usleep_range(1000, 1500);
 
 	val = REG_READ(port->offset);
-	REG_WRITE(port->offset, val | LP_OUTPUT_HOLD);
+	/*
+	 * Enable MIPI PHY transparent latch. Common bit to be used for
+	 * both DSI Port A & DSI Port C. No similar bit in MIPI Port C reg
+	 */
+	if (port->port_id == PORT_C)
+		REG_WRITE(MIPI_PORT_CTRL(0), val | LP_OUTPUT_HOLD);
+	else
+		REG_WRITE(port->offset, val | LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
 
 	if (wait_for(((REG_READ(port->offset) & AFE_LATCHOUT)
@@ -403,11 +410,19 @@ u32 vlv_dsi_port_disable(struct vlv_dsi_port *port,
 
 bool vlv_dsi_port_can_be_disabled(struct vlv_dsi_port *port)
 {
-	u32 val = REG_READ(port->offset);
+	u32 dpi_enabled = REG_READ(port->offset) & DPI_ENABLE;
 	u32 func = REG_READ(port->func_prg_offset);
 	bool ret = false;
 
-	if ((val & DPI_ENABLE) || (func & CMD_MODE_DATA_WIDTH_MASK)) {
+	/*
+	 * Due to hardware limitations, MIPI Port C DPI Enable bit
+	 * does not get set. To check whether DSI Port was enabled in BIOS,
+	 * check the Pipe B enable bit.
+	 */
+	if (port->port_id == PORT_C)
+		dpi_enabled = REG_READ(PIPECONF(PIPE_B)) & PIPECONF_ENABLE;
+
+	if (dpi_enabled || (func & CMD_MODE_DATA_WIDTH_MASK)) {
 		if (REG_READ(port->dr_offset) & DEVICE_READY)
 			ret = true;
 	}
