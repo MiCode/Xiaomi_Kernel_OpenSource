@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -545,16 +545,18 @@
 			"DMIC6", "MIC BIAS3 External",
 			"MIC BIAS3 External", "Digital Mic6";
 
-		pinctrl-names = "mi2s-sleep",
-				"mi2s-active",
-				"auxpcm-sleep",
+		pinctrl-names = "sleep",
 				"auxpcm-active",
-				"audio-ext-speakers";
-
-		pinctrl-0 = <&pri_mi2s_sleep>, <&pri_mi2s_sd0_sleep>;
-		pinctrl-1 = <&pri_mi2s_active>, <&pri_mi2s_sd0_active>;
-		pinctrl-2 = <&sec_aux_pcm_sleep>, <&sec_aux_pcm_din_sleep>;
-		pinctrl-3 = <&sec_aux_pcm_active>, <&sec_aux_pcm_din_active>;
+				"mi2s-active",
+				"active";
+		pinctrl-0 = <&pri_mi2s_sleep>, <&pri_mi2s_sd0_sleep>,
+				<&sec_aux_pcm_sleep>, <&sec_aux_pcm_din_sleep>;
+		pinctrl-1 = <&pri_mi2s_sleep>, <&pri_mi2s_sd0_sleep>,
+				<&sec_aux_pcm_active>, <&sec_aux_pcm_din_active>;
+		pinctrl-2 = <&pri_mi2s_active>, <&pri_mi2s_sd0_active>,
+				<&sec_aux_pcm_sleep>, <&sec_aux_pcm_din_sleep>;
+		pinctrl-3 = <&pri_mi2s_active>, <&pri_mi2s_sd0_active>,
+				<&sec_aux_pcm_active>, <&sec_aux_pcm_din_active>;
 		pinctrl-4 = <&audio_ext_speakers>;
 
 		qcom,ext-spk-rear-panel-irq = <&pm8994_gpios 13 0x1>;
