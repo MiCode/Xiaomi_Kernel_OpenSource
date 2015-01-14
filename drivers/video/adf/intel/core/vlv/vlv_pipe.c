@@ -238,7 +238,8 @@ u32 vlv_pipe_disable(struct vlv_pipe *pipe)
 bool vlv_pipe_wait_for_pll_lock(struct vlv_pipe *pipe)
 {
 	u32 err = 0;
-	if (wait_for(REG_READ(pipe->offset) & PIPECONF_DSI_PLL_LOCKED, 20)) {
+	if (wait_for(vlv_cck_read(CCK_REG_DSI_PLL_CONTROL) &
+		     DSI_PLL_LOCK, 20)) {
 		pr_err("DSI PLL lock failed\n");
 		err = -EINVAL; /* FIXME: assign correct error */
 	}
