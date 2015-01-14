@@ -26,4 +26,4 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #define MOBICORE_COMPONENT_BUILD_TAG \
-		"*** t-base-300-QC-8974-Android-V001 ###"
+		"*** t-base-300-QC-8x26-Android-V001 ###"
