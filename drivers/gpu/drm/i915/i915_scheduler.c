@@ -1649,6 +1649,32 @@ bool i915_scheduler_is_ring_idle(struct intel_engine_cs *ring)
 	return idle;
 }
 
+/*
+ * Used by TDR to distinguish hung rings (not moving but with work to do)
+ * from idle rings (not moving because there is nothing to do).
+ */
+bool i915_scheduler_is_ring_flying(struct intel_engine_cs *ring)
+{
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+	struct i915_scheduler_queue_entry *node;
+	unsigned long   flags;
+	bool            found = false;
+
+	spin_lock_irqsave(&scheduler->lock, flags);
+
+	list_for_each_entry(node, &scheduler->node_queue[ring->id], link) {
+		if (I915_SQS_IS_FLYING(node)) {
+			found = true;
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&scheduler->lock, flags);
+
+	return found;
+}
+
 bool i915_scheduler_file_queue_is_full(struct drm_file *file)
 {
 	struct drm_i915_file_private *file_priv = file->driver_priv;
