@@ -59,7 +59,6 @@ struct msm_pm_time_params {
 
 struct msm_pm_sleep_status_data {
 	void *base_addr;
-	uint32_t cpu_offset;
 	uint32_t mask;
 };
 

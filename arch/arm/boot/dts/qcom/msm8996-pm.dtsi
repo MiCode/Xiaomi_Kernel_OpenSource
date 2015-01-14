@@ -524,13 +524,8 @@
 			 <&clock_cpu clk_cbf_hf_mux>;
 	};
 
-	qcom,cpu-sleep-status@9981058{
+	qcom,cpu-sleep-status {
 		compatible = "qcom,cpu-sleep-status";
-		reg = <0x9981058 0x100>,
-		<0x9991058 0x100>,
-		<0x99B1058 0x100>,
-		<0x99C1058 0x100>;
-		qcom,sleep-status-mask= <0xC00000>;
 	};
 
 	qcom,mpm@681b8 {

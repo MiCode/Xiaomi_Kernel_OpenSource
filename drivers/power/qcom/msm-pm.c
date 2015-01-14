@@ -24,6 +24,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
+#include <linux/of_address.h>
 #include <linux/msm-bus.h>
 #include <linux/uaccess.h>
 #include <linux/dma-mapping.h>
@@ -558,11 +559,10 @@ snoc_cl_probe_done:
 
 static int msm_cpu_status_probe(struct platform_device *pdev)
 {
-	struct msm_pm_sleep_status_data *pdata;
-	char *key;
 	u32 cpu;
+	int rc;
 
-	if (!pdev)
+	if (!pdev | !pdev->dev.of_node)
 		return -EFAULT;
 
 	msm_pm_slp_sts = devm_kzalloc(&pdev->dev,
@@ -572,59 +572,34 @@ static int msm_cpu_status_probe(struct platform_device *pdev)
 	if (!msm_pm_slp_sts)
 		return -ENOMEM;
 
-	if (pdev->dev.of_node) {
-		struct resource *res;
-		u32 offset;
-		int rc;
-		u32 mask;
-		bool offset_available = true;
 
-		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		if (!res)
+	for_each_possible_cpu(cpu) {
+		struct device_node *cpun, *node;
+		char *key;
+
+		cpun = of_get_cpu_node(cpu, NULL);
+
+		if (!cpun) {
+			__WARN();
+			continue;
+		}
+
+		node = of_parse_phandle(cpun, "qcom,sleep-status", 0);
+		if (!node)
 			return -ENODEV;
 
-		key = "qcom,cpu-alias-addr";
-		rc = of_property_read_u32(pdev->dev.of_node, key, &offset);
-
-		if (rc)
-			offset_available = false;
+		msm_pm_slp_sts[cpu].base_addr = of_iomap(node, 0);
+		if (!msm_pm_slp_sts[cpu].base_addr) {
+			pr_err("%s: Can't find base addr\n", __func__);
+			return -ENODEV;
+		}
 
 		key = "qcom,sleep-status-mask";
-		rc = of_property_read_u32(pdev->dev.of_node, key, &mask);
-
-		if (rc)
-			return -ENODEV;
-
-		for_each_possible_cpu(cpu) {
-			phys_addr_t base_c;
-
-			if (offset_available)
-				base_c = res->start + cpu * offset;
-			else {
-				res = platform_get_resource(pdev,
-							IORESOURCE_MEM, cpu);
-				if (!res)
-					return -ENODEV;
-				base_c = res->start;
-			}
-
-			msm_pm_slp_sts[cpu].base_addr =
-				devm_ioremap(&pdev->dev, base_c,
-						resource_size(res));
-			msm_pm_slp_sts[cpu].mask = mask;
-
-			if (!msm_pm_slp_sts[cpu].base_addr)
-				return -ENOMEM;
-		}
-	} else {
-		pdata = pdev->dev.platform_data;
-		if (!pdev->dev.platform_data)
-			return -EINVAL;
-
-		for_each_possible_cpu(cpu) {
-			msm_pm_slp_sts[cpu].base_addr =
-				pdata->base_addr + cpu * pdata->cpu_offset;
-			msm_pm_slp_sts[cpu].mask = pdata->mask;
+		rc = of_property_read_u32(node, key, &msm_pm_slp_sts[cpu].mask);
+		if (rc) {
+			pr_err("%s: Can't find %s property\n", __func__, key);
+			iounmap(msm_pm_slp_sts[cpu].base_addr);
+			return rc;
 		}
 	}
 

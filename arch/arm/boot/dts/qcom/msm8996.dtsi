@@ -49,6 +49,7 @@
 			qcom,cpuss-pm = <&cpuss_pm>;
 			qcom,cpuss-csr = <&cpuss_csr>;
 			qcom,acc = <&acc0>;
+			qcom,sleep-status = <&cpu0_slp_sts>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -64,6 +65,7 @@
 			reg = <0x0 0x1>;
 			enable-method = "qcom,msm8996-acc";
 			qcom,acc = <&acc1>;
+			qcom,sleep-status = <&cpu1_slp_sts>;
 			next-level-cache = <&L2_0>;
 		};
 
@@ -73,6 +75,7 @@
 			reg = <0x0 0x100>;
 			enable-method = "qcom,msm8996-acc";
 			qcom,acc = <&acc2>;
+			qcom,sleep-status = <&cpu2_slp_sts>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -86,6 +89,7 @@
 			compatible = "qcom,kryo";
 			reg = <0x0 0x101>;
 			enable-method = "qcom,msm8996-acc";
+			qcom,sleep-status = <&cpu3_slp_sts>;
 			qcom,acc = <&acc3>;
 			next-level-cache = <&L2_1>;
 		};
@@ -2993,6 +2997,26 @@
 			reg = <0x098c0000 0x1000>;
 			status = "disabled";
 		};
+	};
+
+	cpu0_slp_sts: cpu-sleep-status@9981058 {
+		reg = <0x9981058 0x100>;
+		qcom,sleep-status-mask = <0xc00000>;
+	};
+
+	cpu1_slp_sts: cpu-sleep-status@9991058 {
+		reg = <0x9991058 0x100>;
+		qcom,sleep-status-mask = <0xc00000>;
+	};
+
+	cpu2_slp_sts: cpu-sleep-status@99b1058 {
+		reg = <0x99b1058 0x100>;
+		qcom,sleep-status-mask = <0xc00000>;
+	};
+
+	cpu3_slp_sts: cpu-sleep-status@99c1058 {
+		reg = <0x99c1058 0x100>;
+		qcom,sleep-status-mask = <0xc00000>;
 	};
 };
 
