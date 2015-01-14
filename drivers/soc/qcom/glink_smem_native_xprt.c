@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2211,7 +2211,7 @@ static int __init glink_smem_native_xprt_init(void)
 	debugfs_init();
 	return 0;
 }
-module_init(glink_smem_native_xprt_init);
+arch_initcall(glink_smem_native_xprt_init);
 
 MODULE_DESCRIPTION("MSM G-Link SMEM Native Transport");
 MODULE_LICENSE("GPL v2");
