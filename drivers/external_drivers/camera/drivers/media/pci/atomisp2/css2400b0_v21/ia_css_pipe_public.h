@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -56,6 +56,34 @@ enum ia_css_pipe_mode {
 };
 /* Temporary define  */
 #define IA_CSS_PIPE_MODE_NUM (IA_CSS_PIPE_MODE_YUVPP + 1)
+
+
+/**
+ * Enumeration of pipe versions.
+ * the order should match with definition in sh_css_defs.h
+ */
+/*enum ia_css_pipe_version {*/
+/*	IA_CSS_PIPE_VERSION_1 = 1,*/		/**< ISP1.0 pipe */
+/*	IA_CSS_PIPE_VERSION_2_2 = 2,*/		/**< ISP2.2 pipe */
+/*	IA_CSS_PIPE_VERSION_2_6_1 = 3*/		/**< ISP2.6.1 pipe */
+/*};*/
+
+/**
+ * Enumeration of pipe versions.
+ * the order should match with definition in sh_css_defs.h
+ */
+#define IA_CSS_PIPE_VERSION_1 1
+/**
+ * Enumeration of pipe versions.
+ * the order should match with definition in sh_css_defs.h
+ */
+#define IA_CSS_PIPE_VERSION_2_2 2
+/**
+ * Enumeration of pipe versions.
+ * the order should match with definition in sh_css_defs.h
+ */
+#define IA_CSS_PIPE_VERSION_2_6_1 3
+
 
 /**
  * Pipe configuration structure.

@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -44,7 +44,15 @@
 #define IA_CSS_BINARY_MODE_CAPTURE_PP 8
 #define IA_CSS_BINARY_MODE_VF_PP      9
 #define IA_CSS_BINARY_MODE_PRE_DE     10
-#define IA_CSS_BINARY_NUM_MODES       11
+#define IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE0    11
+#define IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE1    12
+#define IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE2    13
+#define IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE3    14
+#define IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE4    15
+#define IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE5    16
+#define IA_CSS_BINARY_NUM_MODES       17
+
+#define NUM_PRIMARY_HQ_STAGES 6
 
 /* Indicate where binaries can read input from */
 #define IA_CSS_BINARY_INPUT_SENSOR   0

@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -51,15 +51,21 @@ struct ia_css_preview_settings {
 	NULL,				/* acc_pipe */\
 }
 
+
 struct ia_css_capture_settings {
 	struct ia_css_binary copy_binary;
 	struct ia_css_binary primary_binary;
+	/* primary_hq_binary(high quality primary) is used for ISP2.6.1 HQ still
+	 * capture pipe. In this pipe, primary binary is splitted to multiple
+	 * stages due to the high computation load. */
+	struct ia_css_binary primary_hq_binary[NUM_PRIMARY_HQ_STAGES];
 	struct ia_css_binary pre_isp_binary;
 	struct ia_css_binary anr_gdc_binary;
 	struct ia_css_binary post_isp_binary;
 	struct ia_css_binary capture_pp_binary;
 	struct ia_css_binary vf_pp_binary;
 	struct ia_css_binary *yuv_scaler_binary;
+	struct ia_css_frame *delay_frames[MAX_NUM_VIDEO_DELAY_FRAMES];
 	bool *is_output_stage;
 	unsigned int num_yuv_scaler;
 };
@@ -68,12 +74,14 @@ struct ia_css_capture_settings {
 { \
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* copy_binary */\
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* primary_binary */\
+	{IA_CSS_BINARY_DEFAULT_SETTINGS},	/* primary_hq_binary */\
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* pre_isp_binary */\
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* anr_gdc_binary */\
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* post_isp_binary */\
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* capture_pp_binary */\
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* vf_pp_binary */\
 	NULL,				/* yuv_scaler_binary */ \
+	{ NULL },			/* delay_frames[ref_frames] */ \
 	NULL,				/* is_output_stage */ \
 	0,				/* num_yuv_scaler */ \
 }

@@ -1,7 +1,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2010 - 2014 Intel Corporation.
+ * Copyright (C) 2010 - 2015 Intel Corporation.
  * All Rights Reserved.
  *
  * The source code contained or described herein and all documents
@@ -27,6 +27,12 @@
 #include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_common_param.h"
 
 /* Edge Metric Subkernel Configuration */
+
+#define XNR4_EM_FILTER_SIZE		(5)
+#define XNR4_EM_FILTER_DELAY_PIX	(XNR4_EM_FILTER_SIZE / 2) /* 2 pixel delay due to 5 tab filter */
+
+#define XNR4_EM_FILTER_VRT_DELAY	(XNR4_EM_FILTER_DELAY_PIX) /* 2 lines of delay */
+#define XNR4_EM_FILTER_HOR_DELAY	(1) /* 1 vector delay - to align delay to vector boundary */
 
 
 #endif /* __IA_CSS_XNR4_EDGE_METRIC_PARAM_H */

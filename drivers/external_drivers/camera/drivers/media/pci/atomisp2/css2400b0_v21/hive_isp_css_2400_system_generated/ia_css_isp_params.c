@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -25,36 +25,32 @@
 #include "isp/kernels/anr/anr_1.0/ia_css_anr.host.h"
 #include "isp/kernels/anr/anr_2/ia_css_anr2.host.h"
 #include "isp/kernels/bh/bh_2/ia_css_bh.host.h"
-#include "isp/kernels/bnr/bnr2_2/ia_css_bnr2_2.host.h"
 #include "isp/kernels/bnr/bnr_1.0/ia_css_bnr.host.h"
+#include "isp/kernels/bnr/bnr2_2/ia_css_bnr2_2.host.h"
 #include "isp/kernels/cnr/cnr_2/ia_css_cnr2.host.h"
 #include "isp/kernels/crop/crop_1.0/ia_css_crop.host.h"
 #include "isp/kernels/csc/csc_1.0/ia_css_csc.host.h"
+#include "isp/kernels/ctc/ctc_1.0/ia_css_ctc.host.h"
 #include "isp/kernels/ctc/ctc1_5/ia_css_ctc1_5.host.h"
 #include "isp/kernels/ctc/ctc2/ia_css_ctc2.host.h"
-#include "isp/kernels/ctc/ctc_1.0/ia_css_ctc.host.h"
 #include "isp/kernels/de/de_1.0/ia_css_de.host.h"
 #include "isp/kernels/de/de_2/ia_css_de2.host.h"
 #include "isp/kernels/dp/dp_1.0/ia_css_dp.host.h"
-#include "isp/kernels/dpc2/ia_css_dpc2.host.h"
-#include "isp/kernels/eed1_8/ia_css_eed1_8.host.h"
 #include "isp/kernels/fc/fc_1.0/ia_css_formats.host.h"
 #include "isp/kernels/fixedbds/fixedbds_1.0/ia_css_fixedbds.host.h"
 #include "isp/kernels/fpn/fpn_1.0/ia_css_fpn.host.h"
 #include "isp/kernels/gc/gc_1.0/ia_css_gc.host.h"
 #include "isp/kernels/gc/gc_2/ia_css_gc2.host.h"
-#include "isp/kernels/iefd2_6/ia_css_iefd2_6.host.h"
-#include "isp/kernels/macc/macc1_5/ia_css_macc1_5.host.h"
 #include "isp/kernels/macc/macc_1.0/ia_css_macc.host.h"
-#include "isp/kernels/ob/ob2/ia_css_ob2.host.h"
+#include "isp/kernels/macc/macc1_5/ia_css_macc1_5.host.h"
 #include "isp/kernels/ob/ob_1.0/ia_css_ob.host.h"
+#include "isp/kernels/ob/ob2/ia_css_ob2.host.h"
 #include "isp/kernels/output/output_1.0/ia_css_output.host.h"
 #include "isp/kernels/raw_aa_binning/raw_aa_binning_1.0/ia_css_raa.host.h"
 #include "isp/kernels/s3a/s3a_1.0/ia_css_s3a.host.h"
 #include "isp/kernels/sc/sc_1.0/ia_css_sc.host.h"
 #include "isp/kernels/sdis/sdis_1.0/ia_css_sdis.host.h"
 #include "isp/kernels/sdis/sdis_2/ia_css_sdis2.host.h"
-#include "isp/kernels/tdf/tdf_1.0/ia_css_tdf.host.h"
 #include "isp/kernels/tnr/tnr_1.0/ia_css_tnr.host.h"
 #include "isp/kernels/uds/uds_1.0/ia_css_uds.host.h"
 #include "isp/kernels/wb/wb_1.0/ia_css_wb.host.h"
@@ -64,7 +60,12 @@
 #include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4.host.h"
 #include "isp/kernels/ynr/ynr_1.0/ia_css_ynr.host.h"
 #include "isp/kernels/ynr/ynr_2/ia_css_ynr2.host.h"
+#include "isp/kernels/tdf/tdf_1.0/ia_css_tdf.host.h"
+#include "isp/kernels/dpc2/ia_css_dpc2.host.h"
+#include "isp/kernels/eed1_8/ia_css_eed1_8.host.h"
+#include "isp/kernels/iefd2_6/ia_css_iefd2_6.host.h"
 #include "isp/kernels/bnlm/ia_css_bnlm.host.h"
+#include "isp/kernels/io_ls/bayer_io_ls/ia_css_bayer_io.host.h"
 /* Generated code: do not edit or commmit. */
 
 #include "ia_css_pipeline.h"

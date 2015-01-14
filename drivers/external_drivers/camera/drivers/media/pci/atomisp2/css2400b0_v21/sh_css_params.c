@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -3072,7 +3072,7 @@ enum ia_css_err
 ia_css_stream_isp_parameters_init(struct ia_css_stream *stream)
 {
 	enum ia_css_err err = IA_CSS_SUCCESS;
-	unsigned isp_pipe_version = 1;
+	unsigned isp_pipe_version = SH_CSS_ISP_PIPE_VERSION_1;
 	unsigned i;
 	struct sh_css_ddr_address_map *ddr_ptrs;
 	struct sh_css_ddr_address_map_size *ddr_ptrs_size;
@@ -3255,9 +3255,9 @@ sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
 #if !defined(IS_ISP_2500_SYSTEM)
 		sh_css_set_nr_config(params, &default_nr_config);
 		sh_css_set_ee_config(params, &default_ee_config);
-		if (isp_pipe_version == 1)
+		if (isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_1)
 			sh_css_set_macc_table(params, &default_macc_table);
-		else
+		else if (isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_2_2)
 			sh_css_set_macc_table(params, &default_macc2_table);
 		sh_css_set_gamma_table(params, &default_gamma_table);
 		sh_css_set_ctc_table(params, &default_ctc_table);
@@ -3331,9 +3331,9 @@ sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
 #if !defined(IS_ISP_2500_SYSTEM)
 		sh_css_set_nr_config(params, &stream_params->nr_config);
 		sh_css_set_ee_config(params, &stream_params->ee_config);
-		if (isp_pipe_version == 1)
+		if (isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_1)
 			sh_css_set_macc_table(params, &stream_params->macc_table);
-		else
+		else if (isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_2_2)
 			sh_css_set_macc_table(params, &stream_params->macc_table);
 		sh_css_set_gamma_table(params, &stream_params->gc_table);
 		sh_css_set_ctc_table(params, &stream_params->ctc_table);
@@ -3851,7 +3851,7 @@ sh_css_param_update_isp_params(struct ia_css_pipe *curr_pipe,
 	hrt_vaddress cpy;
 	int i;
 	unsigned int raw_bit_depth = 10;
-	unsigned int isp_pipe_version = 1;
+	unsigned int isp_pipe_version = SH_CSS_ISP_PIPE_VERSION_1;
 	bool acc_cluster_params_changed = false;
 	unsigned int thread_id, pipe_num;
 #if defined(IS_ISP_2500_SYSTEM)
@@ -4272,7 +4272,7 @@ sh_css_params_write_to_ddr_internal(
 			idx = 4*idx_map[i];
 			j   = 4*i;
 
-			if (binary->info->sp.pipeline.isp_pipe_version == 1) {
+			if (binary->info->sp.pipeline.isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_1) {
 				converted_macc_table.data[idx] =
 				  sDIGIT_FITTING(params->macc_table.data[j],
 				  13, SH_CSS_MACC_COEF_SHIFT);
@@ -4285,7 +4285,7 @@ sh_css_params_write_to_ddr_internal(
 				converted_macc_table.data[idx+3] =
 				  sDIGIT_FITTING(params->macc_table.data[j+3],
 				  13, SH_CSS_MACC_COEF_SHIFT);
-			} else {
+			} else if (binary->info->sp.pipeline.isp_pipe_version == SH_CSS_ISP_PIPE_VERSION_2_2) {
 				converted_macc_table.data[idx] =
 					params->macc_table.data[j];
 				converted_macc_table.data[idx+1] =

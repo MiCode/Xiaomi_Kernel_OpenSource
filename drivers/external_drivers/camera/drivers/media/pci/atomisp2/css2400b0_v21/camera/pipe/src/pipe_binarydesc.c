@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -101,7 +101,7 @@ void ia_css_pipe_get_copy_binarydesc(
 	copy_descr->continuous = false;
 	copy_descr->two_ppc = (pipe->stream->config.pixels_per_clock == 2);
 	copy_descr->enable_dz = false;
-	copy_descr->isp_pipe_version = 1;
+	copy_descr->isp_pipe_version = IA_CSS_PIPE_VERSION_1;
 	IA_CSS_LEAVE_PRIVATE("");
 }
 void ia_css_pipe_get_vfpp_binarydesc(
@@ -546,23 +546,41 @@ void ia_css_pipe_get_capturepp_binarydesc(
 	IA_CSS_LEAVE_PRIVATE("");
 }
 
+static unsigned int primary_hq_binary_modes[NUM_PRIMARY_HQ_STAGES] =
+{
+	IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE0,
+	IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE1,
+	IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE2,
+	IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE3,
+	IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE4,
+	IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE5
+};
+
 void ia_css_pipe_get_primary_binarydesc(
 	struct ia_css_pipe const * const pipe,
 	struct ia_css_binary_descr *prim_descr,
 	struct ia_css_frame_info *in_info,
 	struct ia_css_frame_info *out_info,
-	struct ia_css_frame_info *vf_info)
+	struct ia_css_frame_info *vf_info,
+	unsigned int stage_idx)
 {
-	int mode = IA_CSS_BINARY_MODE_PRIMARY;
+	unsigned int pipe_version = pipe->config.isp_pipe_version;
+	int mode;
 	unsigned int i;
 	struct ia_css_frame_info *out_infos[IA_CSS_BINARY_MAX_OUTPUT_PORTS];
 
 	assert(pipe != NULL);
 	assert(in_info != NULL);
 	assert(out_info != NULL);
+	assert(stage_idx < NUM_PRIMARY_HQ_STAGES);
 	/* vf_info can be NULL - example video_binarydescr */
 	/*assert(vf_info != NULL);*/
 	IA_CSS_ENTER_PRIVATE("");
+
+	if (pipe_version == IA_CSS_PIPE_VERSION_2_6_1)
+		mode = primary_hq_binary_modes[stage_idx];
+	else
+		mode = IA_CSS_BINARY_MODE_PRIMARY;
 
 	if (ia_css_util_is_input_format_yuv(pipe->stream->config.input_config.format))
 		mode = IA_CSS_BINARY_MODE_COPY;
@@ -600,7 +618,10 @@ void ia_css_pipe_get_primary_binarydesc(
 		 * if continuous viewfinder is required, then we must select
 		 * a striped one. Otherwise we prefer to use a non-striped
 		 * since it has better performance. */
-		prim_descr->striped = prim_descr->continuous && !pipe->stream->stop_copy_preview;
+		if (pipe_version == IA_CSS_PIPE_VERSION_2_6_1)
+			prim_descr->striped = false;
+		else
+			prim_descr->striped = prim_descr->continuous && !pipe->stream->stop_copy_preview;
 	}
 	IA_CSS_LEAVE_PRIVATE("");
 }
@@ -708,10 +729,10 @@ void ia_css_pipe_get_pre_de_binarydesc(
 	for (i = 1; i < IA_CSS_BINARY_MAX_OUTPUT_PORTS; i++)
 		out_infos[i] = NULL;
 
-	if (pipe->config.isp_pipe_version == 1)
+	if (pipe->config.isp_pipe_version == IA_CSS_PIPE_VERSION_1)
 		pipe_binarydesc_get_offline(pipe, IA_CSS_BINARY_MODE_PRE_ISP,
 				       pre_de_descr, in_info, out_infos, NULL);
-	else {
+	else if (pipe->config.isp_pipe_version == IA_CSS_PIPE_VERSION_2_2) {
 		pipe_binarydesc_get_offline(pipe, IA_CSS_BINARY_MODE_PRE_DE,
 				       pre_de_descr, in_info, out_infos, NULL);
 	}

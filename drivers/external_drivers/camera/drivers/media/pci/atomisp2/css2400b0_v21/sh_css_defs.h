@@ -1,7 +1,7 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  *
- * Copyright (c) 2010 - 2014 Intel Corporation. All Rights Reserved.
+ * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
@@ -86,6 +86,13 @@
 #define NUM_BDS_FACTORS	        (12)
 
 #define PACK_BDS_FACTOR(factor)	(1<<(factor))
+
+/* Following macros should match with the type enum ia_css_pipe_version in
+ * ia_css_pipe_public.h. The reason to add these macros is that enum type
+ * will be evaluted to 0 in preprocessing time. */
+#define SH_CSS_ISP_PIPE_VERSION_1	1
+#define SH_CSS_ISP_PIPE_VERSION_2_2	2
+#define SH_CSS_ISP_PIPE_VERSION_2_6_1	3
 
 /*--------------- sRGB Gamma -----------------
 CCM        : YCgCo[0,8191] -> RGB[0,4095]

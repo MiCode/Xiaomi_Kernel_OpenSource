@@ -167,9 +167,9 @@
 #endif
 
 #if !defined(ENABLE_BAYER_HIST)
-#if ISP_PIPE_VERSION == 2
+#if ISP_PIPE_VERSION == SH_CSS_ISP_PIPE_VERSION_2_2
 #define ENABLE_BAYER_HIST  0 /* should be 1 */
-#else
+#elif ISP_PIPE_VERSION == SH_CSS_ISP_PIPE_VERSION_1
 #define ENABLE_BAYER_HIST  0
 #endif
 #endif
@@ -274,17 +274,17 @@
 #endif
 
 #if !defined(USE_BNR_LITE)
-#if ISP_PIPE_VERSION == 2
+#if ISP_PIPE_VERSION == SH_CSS_ISP_PIPE_VERSION_2_2
 #define USE_BNR_LITE  1 /* should be 0 */
-#else
+#elif ISP_PIPE_VERSION == SH_CSS_ISP_PIPE_VERSION_1
 #define USE_BNR_LITE  1
 #endif
 #endif
 
 #if !defined(USE_YEEYNR_LITE)
-#if ISP_PIPE_VERSION == 2
+#if ISP_PIPE_VERSION == SH_CSS_ISP_PIPE_VERSION_2_2
 #define USE_YEEYNR_LITE  0
-#else
+#elif ISP_PIPE_VERSION == SH_CSS_ISP_PIPE_VERSION_1
 #define USE_YEEYNR_LITE  1
 #endif
 #endif
