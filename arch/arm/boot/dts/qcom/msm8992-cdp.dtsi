@@ -282,6 +282,15 @@
 		status = "okay";
 	};
 
+	gpio@cd00 { /* GPIO 14 */
+		qcom,mode = <1>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		status = "okay";
+	};
+
 	gpio@ce00 { /* GPIO 15 */
 		qcom,mode = <1>;
 		qcom,output-type = <0>;
@@ -404,11 +413,27 @@
 	};
 };
 
+&pmi8994_pwm_4 {
+	qcom,channel-owner = "lcd_bl";
+	qcom,lpg-dtest-line = <4>;
+	qcom,dtest-output = <1>;
+	status = "okay";
+};
+
 &pmi8994_charger {
 	qcom,charging-disabled;
 };
 
 &pmi8994_mpps {
+	mpp@a000 { /* MPP 1 */
+		qcom,mode = <1>;        /* DIGITAL OUT */
+		qcom,output-type = <0>; /* CMOS logic */
+		qcom,vin-sel = <2>;     /* S4 1.8V */
+		qcom,src-sel = <7>;
+		qcom,master-en = <1>;
+		status = "okay";
+	};
+
 	mpp@a300 { /* MPP 4 */
 		/* WLED FET */
 		qcom,mode = <1>;	/* DIGITAL OUT */
