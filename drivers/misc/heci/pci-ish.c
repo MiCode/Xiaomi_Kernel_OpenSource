@@ -1,7 +1,7 @@
 /*
- * PCI glue for HECI provider device (ISH) driver
+ * PCI glue for HECI provider device (ISS) driver
  *
- * Copyright (c) 2014, Intel Corporation.
+ * Copyright (c) 2014-2015, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -67,10 +67,12 @@ static DEFINE_PCI_DEVICE_TABLE(ish_pci_tbl) = {
 MODULE_DEVICE_TABLE(pci, ish_pci_tbl);
 
 static DEFINE_MUTEX(heci_mutex);
+struct workqueue_struct *workqueue_for_init;
 
 #ifdef TIMER_POLLING
 /*
- * DD -- ISH timer-polling workaround for H-FPGA (and other platforms that fail to deliver interrupts)
+ * DD -- ISS timer-polling workaround for H-FPGA
+ * (and other platforms that fail to deliver interrupts)
  * NOTE: currently this will break (crash) if driver is unloaded
  */
 
@@ -139,7 +141,7 @@ static ssize_t ishdbg_write(struct file *file, const char __user *ubuf, size_t l
 	int     addr, count, sscanf_match, i, cur_index;
 	volatile uint32_t *reg_data;
 
-       	if (length > sizeof(dbg_req_buf))
+	if (length > sizeof(dbg_req_buf))
 		length = sizeof(dbg_req_buf);
 	rv = copy_from_user(dbg_req_buf, ubuf, length);
 	if (rv)
@@ -463,8 +465,15 @@ void workqueue_init_function(struct work_struct *work)
 
 	dev->print_log(dev, "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n", __func__);
 	dev->print_log(dev, "[heci-ish] %s() running on %s revision [%02X]\n", __func__,
-		dev->pdev->revision == REVISION_ID_CHT_A0 || (dev->pdev->revision & REVISION_ID_SI_MASK) == REVISION_ID_CHT_A0_SI ? "CHT A0" :
-		dev->pdev->revision == REVISION_ID_CHT_B0 || (dev->pdev->revision & REVISION_ID_SI_MASK) == REVISION_ID_CHT_Bx_SI ? "CHT B0" : "Unknown", dev->pdev->revision);
+		dev->pdev->revision == REVISION_ID_CHT_A0 ||
+		(dev->pdev->revision & REVISION_ID_SI_MASK) ==
+		REVISION_ID_CHT_A0_SI ? "CHT Ax" :
+		dev->pdev->revision == REVISION_ID_CHT_B0 ||
+		(dev->pdev->revision & REVISION_ID_SI_MASK) ==
+		REVISION_ID_CHT_Bx_SI ? "CHT Bx" :
+		(dev->pdev->revision & REVISION_ID_SI_MASK) ==
+		REVISION_ID_CHT_Kx_SI ? "CHT Kx/Cx" : "Unknown",
+		dev->pdev->revision);
 
 #endif /*ISH_LOG*/
 
@@ -509,7 +518,6 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	struct ish_hw *hw;
 	int err;
 	int	rv;
-	struct workqueue_struct *workqueue_for_init;
 	my_work_t *work;
 
 	ISH_INFO_PRINT(KERN_ERR "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n", __func__);
@@ -563,7 +571,9 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	ishdbg_misc_device.parent = &pdev->dev;
 	rv = misc_register(&ishdbg_misc_device);
 	if (rv)
-		dev_err(&pdev->dev, "error starting ISH debugger (misc_register failed): %d\n", rv);
+		dev_err(&pdev->dev,
+			"error starting ISS debugger (misc_register): %d\n",
+			rv);
 	hw_dbg = hw;
 #endif
 
@@ -592,7 +602,7 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	/* Init & prepare workqueue */
 	INIT_WORK(&ish_poll_work, ish_poll_work_fn);
 
-	/* Create and schedule ISH polling timer */
+	/* Create and schedule ISS polling timer */
 	init_timer(&ish_poll_timer);
 	ish_poll_timer.data = 0;
 	ish_poll_timer.function = ish_poll_timer_fn;
@@ -600,7 +610,7 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	timer_data = dev;
 	add_timer(&ish_poll_timer);
 
-	/* Init ISH polling timers workqueue */
+	/* Init ISS polling timers workqueue */
 #endif
 
 	/* PCI quirk: prevent from being put into D3 state */
@@ -669,7 +679,11 @@ static void ish_remove(struct pci_dev *pdev)
 	pci_disable_msi(pdev);
 	pci_iounmap(pdev, hw->mem_addr);
 	heci_pci_device = NULL;
-	flush_scheduled_work();
+	if (workqueue_for_init) {
+		flush_workqueue(workqueue_for_init);
+		destroy_workqueue(workqueue_for_init);
+		workqueue_for_init = NULL;
+	}
 	pci_set_drvdata(pdev, NULL);
 	heci_deregister(dev);
 	kfree(dev);
@@ -694,6 +708,6 @@ static struct pci_driver ish_driver = {
 module_pci_driver(ish_driver);
 
 MODULE_AUTHOR("Intel Corporation");
-MODULE_DESCRIPTION("Intel(R) Integrated Sensor Hub IPC");
+MODULE_DESCRIPTION("Intel(R) Integrated Sensor Hub PCI Device Driver");
 MODULE_LICENSE("GPL v2");
 

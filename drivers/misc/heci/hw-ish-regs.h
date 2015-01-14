@@ -1,7 +1,7 @@
 /*
  * ISH registers definitions
  *
- * Copyright (c) 2012-2014, Intel Corporation.
+ * Copyright (c) 2012-2015, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -46,18 +46,22 @@
 #define IPC_DRBL_BUSY_BIT               (1<<IPC_DRBL_BUSY_OFFS) /* bit corresponds busy bit in doorbell registers */
 
 #define	IPC_HOST_OWNS_MSG_OFFS		(30)
-#define	IPC_HOST_OWNS_MSG_BIT		(1<<IPC_HOST_OWNS_MSG_OFFS)	/* A0: bit means that host owns MSGnn registers and is reading them. ISH may not write to them */
+
+/* A0: bit means that host owns MSGnn registers and is reading them.
+ISS FW may not write to them */
+#define	IPC_HOST_OWNS_MSG_BIT		(1<<IPC_HOST_OWNS_MSG_OFFS)
 
 #define IPC_HOST_READY_OFFS		(7)
 #define IPC_HOST_READY_BIT              (1<<IPC_HOST_READY_OFFS) /* bit corresponds host ready bit in Host Status Register (HOST_COMM) */
 
-#define IPC_ISH_READY_OFFS              (1) /* bit corresponds host ready bit in ISH Status Register */
+/* bit corresponds host ready bit in ISS FW Status Register */
+#define IPC_ISH_READY_OFFS              (1)
 #define IPC_ISH_READY_BIT               (1<<IPC_ISH_READY_OFFS)
 
 #define	IPC_HOSTCOMM_INT_EN_OFFS	(31)
 #define	IPC_HOSTCOMM_INT_EN_BIT		(1<<IPC_HOSTCOMM_INT_EN_OFFS)
 
-/* as of now, both Host and ISH have ILUP at bit 0 */
+/* as of now, both Host and ISS have ILUP at bit 0 */
 #define IPC_ILUP_OFFS					(0)
 #define IPC_ILUP_BIT					(1<<IPC_ILUP_OFFS) /* bit corresponds host ready bit in both status registers */
 

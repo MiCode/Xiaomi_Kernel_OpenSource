@@ -1,7 +1,7 @@
 /*
  * HECI bus layer messages handling
  *
- * Copyright (c) 2003-2014, Intel Corporation.
+ * Copyright (c) 2003-2015, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -244,7 +244,9 @@ static int heci_hbm_prop_req(struct heci_device *dev)
 		dev->hbm_state = HECI_HBM_WORKING;
 		dev->dev_state = HECI_DEV_ENABLED;
 
-		for (dev->me_client_presentation_num = 0; dev->me_client_presentation_num < client_num; ++dev->me_client_presentation_num)
+		for (dev->me_client_presentation_num = 1;
+			dev->me_client_presentation_num < client_num + 1;
+				++dev->me_client_presentation_num)
 			/* Add new client device */
 			heci_bus_new_client(dev);
 

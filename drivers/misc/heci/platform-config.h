@@ -1,7 +1,7 @@
 /*
- * ISH platform-specific definitions
+ * ISS platform-specific definitions
  *
- * Copyright (c) 2012-2014, Intel Corporation.
+ * Copyright (c) 2012-2015, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -17,7 +17,7 @@
 #define PLATFORM_CONFIG__H
 
 /* Build ID string */
-#define	BUILD_ID	"0117-imin-support-hid-client-startup-fix"
+#define	BUILD_ID	"imin-0127-fixes-c0"
 
 #define	ISH_DEBUG	0
 #if ISH_DEBUG

@@ -1,8 +1,22 @@
+/*
+ * HECI-HID glue driver's definitions.
+ *
+ * Copyright (c) 2014-2015, Intel Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ */
 #ifndef HECI_HID__H
 #define	HECI_HID__H
 
 /*
- * Constraint 1: currently we support only 1 ISH in a system
+ * Constraint 1: currently we support only 1 ISS HW controller in a system
  */
 
 const static	uuid_le ish_heci_guid = UUID_LE(0x33AECD58, 0xB679, 0x4E54, 0x9B, 0xD9, 0xA0, 0x4D, 0x34, 0xF0, 0xC2, 0x26);

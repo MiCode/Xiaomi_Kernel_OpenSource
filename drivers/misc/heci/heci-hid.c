@@ -1,7 +1,7 @@
 /*
  * HECI-HID glue driver.
  *
- * Copyright (c) 2012-2014, Intel Corporation.
+ * Copyright (c) 2012-2015, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -111,6 +111,7 @@ static void heci_hid_request(struct hid_device *hid, struct hid_report *rep, int
 	/* for(;i < len; i++) */
 	/*   ISH_DBG_PRINT("\n%d %d\n", i, (int) buf[i]); */
 		hid_heci_set_feature(hid, buf, len, rep->id);
+		kfree(buf);
 		break;
 	}
 

@@ -1,7 +1,7 @@
 /*
  * Initialization protocol for HECI driver
  *
- * Copyright (c) 2003-2014, Intel Corporation.
+ * Copyright (c) 2003-2015, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -108,7 +108,10 @@ int heci_start(struct heci_device *dev)
 #ifdef FORCE_FW_INIT_RESET
 	/* wait for FW-initiated reset flow, indefinitely */
 	heci_hw_start(dev);
-	/* 16/6/2014: changed this 2->5 seconds following MCG assertion. Once this was 10 seconds, lowered to 2. TODO: check out all FW ISH/SEC path how much it should be */
+	/* 16/6/2014: changed this 2->5 seconds following MCG assertion.
+	 * Once this was 10 seconds, lowered to 2.
+	 * TODO: check out all FW ISS/SEC path how much it should be */
+
 	/*timed_wait_for_timeout(WAIT_FOR_CONNECT_SLICE, dev->recvd_hw_ready, (10*HZ));*/
 	if (!dev->recvd_hw_ready)
 		wait_event_timeout(dev->wait_hw_ready, dev->recvd_hw_ready, 10*HZ);

@@ -1,6 +1,6 @@
 #
-# Makefile - Intel HECI (ISH implementation)
-# Copyright (c) 2010-2014, Intel Corporation.
+# Makefile - Intel HECI and ISS implementation
+# Copyright (c) 2010-2015, Intel Corporation.
 #
 obj-m += heci.o
 heci-objs := init.o

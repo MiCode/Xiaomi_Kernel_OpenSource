@@ -1,7 +1,7 @@
 /*
  * HECI bus driver
  *
- * Copyright (c) 2012-2014, Intel Corporation.
+ * Copyright (c) 2012-2015, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -196,9 +196,11 @@ struct heci_cl_device *heci_bus_add_device(struct heci_device *dev, uuid_le uuid
 	device->fw_client = &dev->me_clients[dev->me_client_presentation_num - 1];
 
 	dev_set_name(&device->dev, "%s", name);
+	list_add_tail(&device->device_link, &dev->device_list);
 
 	status = device_register(&device->dev);
 	if (status) {
+		list_del(&device->device_link);
 		dev_err(&dev->pdev->dev, "Failed to register HECI device\n");
 		kfree(device);
 		return NULL;
@@ -562,8 +564,6 @@ int	heci_bus_new_client(struct heci_device *dev)
 		kfree(dev_name);
 		return	-ENOENT;
 	}
-
-	list_add_tail(&cl_device->device_link, &dev->device_list);
 
 	/* Export several properties per client device */
 	device_create_file(&cl_device->dev, &max_msg_length);

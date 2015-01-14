@@ -1,7 +1,7 @@
 /*
- * H/W layer of HECI provider device (ISH)
+ * H/W layer of HECI provider device (ISS)
  *
- * Copyright (c) 2014, Intel Corporation.
+ * Copyright (c) 2014-2015, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -41,7 +41,7 @@ static int	ipc_send_heci_msg(struct heci_device *dev, struct heci_msg_hdr *hdr, 
 static u32 ish_read_hdr(const struct heci_device *dev);
 
 /**
- * ish_reg_read - reads 32bit data from the ISH BAR
+ * ish_reg_read - reads 32bit register
  *
  * @dev: the device structure
  * @offset: offset from which to read the data
@@ -53,7 +53,7 @@ static inline u32 ish_reg_read(const struct heci_device *dev, unsigned long offs
 }
 
 /**
- * ish_reg_write - Writes 32bit data to the ISH BAR
+ * ish_reg_write - Writes 32bit register
  *
  * @dev: the device structure
  * @offset: offset from which to write the data
@@ -111,7 +111,7 @@ static int ish_read(struct heci_device *dev, unsigned char *buffer, unsigned lon
 }
 
 /**
- * ish_is_input_ready - check if ISH is ready for receiving data
+ * ish_is_input_ready - check if ISS FW is ready for receiving data
  *
  * @dev: the device structure
  */
@@ -135,7 +135,11 @@ void ish_intr_enable(struct heci_device *dev)
 	dev_dbg(&dev->pdev->dev, "ish_intr_enable\n");
 	if (dev->pdev->revision == REVISION_ID_CHT_A0 || (dev->pdev->revision & REVISION_ID_SI_MASK) == REVISION_ID_CHT_A0_SI)
 		ish_reg_write(dev, IPC_REG_HOST_COMM, 0x81);
-	else if (dev->pdev->revision == REVISION_ID_CHT_B0 || (dev->pdev->revision & REVISION_ID_SI_MASK) == REVISION_ID_CHT_Bx_SI) {
+	else if (dev->pdev->revision == REVISION_ID_CHT_B0 ||
+			(dev->pdev->revision & REVISION_ID_SI_MASK) ==
+			REVISION_ID_CHT_Bx_SI ||
+			(dev->pdev->revision & REVISION_ID_SI_MASK) ==
+			REVISION_ID_CHT_Kx_SI) {
 		uint32_t	host_comm_val;
 
 		host_comm_val = ish_reg_read(dev, IPC_REG_HOST_COMM);
@@ -154,7 +158,11 @@ void ish_intr_disable(struct heci_device *dev)
 	dev_dbg(&dev->pdev->dev, "ish_intr_disable\n");
 	if (dev->pdev->revision == REVISION_ID_CHT_A0 || (dev->pdev->revision & REVISION_ID_SI_MASK) == REVISION_ID_CHT_A0_SI)
 		/*ish_reg_write(dev, IPC_REG_HOST_COMM, 0xC1)*/;
-	else if (dev->pdev->revision == REVISION_ID_CHT_B0 || (dev->pdev->revision & REVISION_ID_SI_MASK) == REVISION_ID_CHT_Bx_SI) {
+	else if (dev->pdev->revision == REVISION_ID_CHT_B0 ||
+			(dev->pdev->revision & REVISION_ID_SI_MASK) ==
+			REVISION_ID_CHT_Bx_SI ||
+			(dev->pdev->revision & REVISION_ID_SI_MASK) ==
+			REVISION_ID_CHT_Kx_SI) {
 		uint32_t	host_comm_val;
 
 		host_comm_val = ish_reg_read(dev, IPC_REG_HOST_COMM);
@@ -305,7 +313,7 @@ static int	ish_fw_reset_handler(struct heci_device *dev)
 	/* Clear HOST2ISH.ILUP (what's it?) */
 	/*ish_clr_host_rdy(dev);*/
 
-	/* Handle ISH reset against upper layers */
+	/* Handle ISS FW reset against upper layers */
 	heci_bus_remove_all_clients(dev);			/* Remove all client devices */
 
 	/* Send RESET_NOTIFY_ACK (with reset_id) */
@@ -313,7 +321,7 @@ static int	ish_fw_reset_handler(struct heci_device *dev)
 	if (!ish_is_input_ready(dev))
 		timed_wait_for_timeout(WAIT_FOR_SEND_SLICE, ish_is_input_ready(dev), (2 * HZ));
 
-	/* ISH is dead (?) */
+	/* ISS FW is dead (?) */
 	if (!ish_is_input_ready(dev)) {
 		return	-EPIPE;
 	} else {
@@ -323,12 +331,14 @@ static int	ish_fw_reset_handler(struct heci_device *dev)
 	}
 /*####################################*/
 
-	/* Wait for ISH'es ILUP and HECI_READY */
+	/* Wait for ISS FW'es ILUP and HECI_READY */
 	timed_wait_for_timeout(WAIT_FOR_SEND_SLICE, ish_hw_is_ready(dev), (2 * HZ));
 	if (!ish_hw_is_ready(dev)) {
-		/* ISH is dead */
+		/* ISS FW is dead */
 		uint32_t	ish_status = ish_reg_read(dev, IPC_REG_ISH_HOST_FWSTS);
-		printk(KERN_ERR "[heci-ish]: completed reset sequence, ISH is dead (FWSTS = %08X)\n", ish_status);
+		dev_err(&dev->pdev->dev,
+		"[heci-ish]: completed reset, ISS is dead (FWSTS = %08X)\n",
+		ish_status);
 		return -ENODEV;
 	}
 
@@ -345,7 +355,7 @@ static void	fw_reset_work_fn(struct work_struct *unused)
 	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	rv = ish_fw_reset_handler(heci_dev);
 	if (!rv) {
-		/* ISH is ILUP & HECI-ready. Restart HECI */
+		/* ISS is ILUP & HECI-ready. Restart HECI */
 		heci_dev->recvd_hw_ready = 1;
 		if (waitqueue_active(&heci_dev->wait_hw_ready))
 			wake_up(&heci_dev->wait_hw_ready);
@@ -622,7 +632,8 @@ static int ish_hw_start(struct heci_device *dev)
 	ISH_DBG_PRINT(KERN_ALERT "[heci-ish] %s(): writing DMA_ENABLED\n", __func__);
 	writel(IPC_RMP2_DMA_ENABLED, hw->mem_addr + IPC_REG_ISH_RMP2);
 
-	/* Send 0 IPC message so that ISH FW wakes up if it was already asleep */
+	/* Send 0 IPC message so that ISS FW wakes up if it was already
+	 asleep */
 	writel(IPC_DRBL_BUSY_BIT, hw->mem_addr + IPC_REG_HOST2ISH_DRBL);
 #endif
 	ish_intr_enable(dev);

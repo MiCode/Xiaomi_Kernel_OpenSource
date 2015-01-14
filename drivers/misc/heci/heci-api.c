@@ -1,7 +1,7 @@
 /*
  * User-mode HECI API
  *
- * Copyright (c) 2014, Intel Corporation.
+ * Copyright (c) 2015, Intel Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -466,9 +466,10 @@ static long heci_ioctl(struct file *file, unsigned int cmd, unsigned long data)
 	dev = cl->dev;
 	dev_dbg(&dev->pdev->dev, "IOCTL cmd = 0x%x", cmd);
 
-	/* Test API for triggering host-initiated IPC reset to ISH */
+	/* Test API for triggering host-initiated IPC reset to ISS */
 	if (cmd == 0x12345678) {
-		ISH_DBG_PRINT(KERN_ALERT "%s(): ISH FW reset is requested\n", __func__);
+		ISH_DBG_PRINT(KERN_ALERT "%s(): ISS FW reset is requested\n",
+			__func__);
 		/* Re-init */
 		dev->dev_state = HECI_DEV_INITIALIZING;
 		heci_reset(dev, 1);
@@ -497,8 +498,9 @@ err:
 
 	/* Test API for triggering host disabling */
 	if (cmd == 0xAA55AA55) {
-		ISH_DBG_PRINT(KERN_ALERT "%s(): ISH host stop is requested\n", __func__);
-		/* Handle ISH reset against upper layers */
+		ISH_DBG_PRINT(KERN_ALERT "%s(): ISS host stop is requested\n",
+			__func__);
+		/* Handle ISS reset against upper layers */
 		heci_bus_remove_all_clients(dev);			/* Remove all client devices */
 		dev->dev_state = HECI_DEV_DISABLED;
 		return	0;
