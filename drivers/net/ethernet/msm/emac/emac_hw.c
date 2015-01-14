@@ -887,20 +887,20 @@ int emac_check_sgmii_autoneg(struct emac_hw *hw, u32 *speed, bool *link_up)
 void emac_hw_enable_intr(struct emac_hw *hw)
 {
 	struct emac_adapter *adpt = emac_hw_get_adap(hw);
-	struct emac_irq_info *irq_info;
 	int i;
 
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
-		irq_info = &adpt->irq_info[i];
-		emac_reg_w32(hw, EMAC, irq_info->status_reg, ~DIS_INT);
-		emac_reg_w32(hw, EMAC, irq_info->mask_reg, irq_info->mask);
+		struct emac_irq_per_dev *irq = &adpt->irq[i];
+		const struct emac_irq_common *irq_cmn = &emac_irq_cmn_tbl[i];
+
+		emac_reg_w32(hw, EMAC, irq_cmn->status_reg, ~DIS_INT);
+		emac_reg_w32(hw, EMAC, irq_cmn->mask_reg, irq->mask);
 	}
 
-	if (adpt->phy_mode == PHY_INTERFACE_MODE_SGMII) {
-		irq_info = &adpt->irq_info[EMAC_SGMII_PHY_IRQ];
-		emac_reg_w32(hw, EMAC_SGMII_PHY, irq_info->mask_reg,
-			     irq_info->mask);
-	}
+	if (adpt->phy_mode == PHY_INTERFACE_MODE_SGMII)
+		emac_reg_w32(hw, EMAC_SGMII_PHY,
+			     emac_irq_cmn_tbl[EMAC_SGMII_PHY_IRQ].mask_reg,
+			     adpt->irq[EMAC_SGMII_PHY_IRQ].mask);
 
 	if (adpt->tstamp_en)
 		emac_reg_w32(hw, EMAC_1588, EMAC_P1588_PTP_EXPANDED_INT_MASK,
@@ -911,23 +911,22 @@ void emac_hw_enable_intr(struct emac_hw *hw)
 void emac_hw_disable_intr(struct emac_hw *hw)
 {
 	struct emac_adapter *adpt = emac_hw_get_adap(hw);
-	struct emac_irq_info *irq_info;
 	int i;
 
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
-		irq_info = &adpt->irq_info[i];
-		emac_reg_w32(hw, EMAC, irq_info->status_reg, DIS_INT);
-		emac_reg_w32(hw, EMAC, irq_info->mask_reg, 0);
+		const struct emac_irq_common *irq_cmn = &emac_irq_cmn_tbl[i];
+		emac_reg_w32(hw, EMAC, irq_cmn->status_reg, DIS_INT);
+		emac_reg_w32(hw, EMAC, irq_cmn->mask_reg, 0);
 	}
 
 	if (adpt->tstamp_en)
-		emac_reg_w32(hw, EMAC_1588,
-			     EMAC_P1588_PTP_EXPANDED_INT_MASK, 0);
+		emac_reg_w32(hw, EMAC_1588, EMAC_P1588_PTP_EXPANDED_INT_MASK,
+			     0);
 
-	if (adpt->phy_mode == PHY_INTERFACE_MODE_SGMII) {
-		irq_info = &adpt->irq_info[EMAC_SGMII_PHY_IRQ];
-		emac_reg_w32(hw, EMAC_SGMII_PHY, irq_info->mask_reg, 0);
-	}
+	if (adpt->phy_mode == PHY_INTERFACE_MODE_SGMII)
+		emac_reg_w32(hw, EMAC_SGMII_PHY,
+			     emac_irq_cmn_tbl[EMAC_SGMII_PHY_IRQ].mask_reg, 0);
+
 	wmb();
 }
 

@@ -416,7 +416,7 @@ int emac_ptp_config(struct emac_hw *hw)
 	getnstimeofday(&ts);
 	rtc_settime(hw, &ts);
 
-	emac_hw_get_adap(hw)->irq_info[0].mask |= PTP_INT;
+	emac_hw_get_adap(hw)->irq[0].mask |= PTP_INT;
 	hw->ptp_intr_mask = PPS_IN;
 
 unlock_out:
@@ -436,7 +436,7 @@ int emac_ptp_stop(struct emac_hw *hw)
 		ret = emac_hw_1588_core_disable(hw);
 
 	hw->ptp_intr_mask = 0;
-	emac_hw_get_adap(hw)->irq_info[0].mask &= ~PTP_INT;
+	emac_hw_get_adap(hw)->irq[0].mask &= ~PTP_INT;
 
 	spin_unlock_irqrestore(&hw->ptp_lock, flag);
 
