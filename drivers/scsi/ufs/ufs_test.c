@@ -30,7 +30,7 @@
 #define UFS_TEST_BLK_DEV_TYPE_PREFIX "sd"
 
 #define TEST_MAX_BIOS_PER_REQ		128
-#define TEST_MAX_SECTOR_RANGE		(10*1024*1024) /* 5GB */
+#define TEST_DEFAULT_SECTOR_RANGE		(1024*1024) /* 512MB */
 #define LARGE_PRIME_1	1103515367
 #define LARGE_PRIME_2	35757
 #define MAGIC_SEED	7
@@ -43,10 +43,11 @@
 #define SECTOR_SIZE	512
 #define NUM_UNLUCKY_RETRIES	10
 
-/* the amount of requests that will be inserted */
-#define LONG_SEQ_TEST_NUM_REQS  256
-/* we issue 4KB requests, so 256 reqs = 1MB */
-#define LONG_RAND_TEST_NUM_REQS	(256 * 64)
+/*
+ * this defines the density of random requests in the address space, and
+ * it represents the ratio between accessed sectors and non-accessed sectors
+ */
+#define LONG_RAND_TEST_REQ_RATIO	64
 /* request queue limitation is 128 requests, and we leave 10 spare requests */
 #define QUEUE_MAX_REQUESTS 118
 #define MB_MSEC_RATIO_APPROXIMATION ((1024 * 1024) / 1000)
@@ -143,6 +144,11 @@ struct ufs_test_data {
 	int fail_threads;
 	atomic_t outstanding_threads;
 	struct completion outstanding_complete;
+
+	/* user-defined size of address space in which to perform I/O */
+	u32 sector_range;
+	/* total number of requests to be submitted in long test */
+	u32 long_test_num_reqs;
 
 	struct test_iosched *test_iosched;
 };
@@ -276,20 +282,23 @@ static unsigned int ufs_test_pseudo_random_seed(unsigned int *seed_number,
  * Note that for UFS sector number has to be aligned with block size. Since
  * scsi will send the block number as the LBA.
  */
-static void pseudo_rnd_sector_and_size(unsigned int *seed,
-					unsigned int min_start_sector,
+static void pseudo_rnd_sector_and_size(struct ufs_test_data *utd,
 					unsigned int *start_sector,
 					unsigned int *num_of_bios)
 {
-	unsigned int max_sec = min_start_sector + TEST_MAX_SECTOR_RANGE;
+	struct test_iosched *tios = utd->test_iosched;
+	u32 min_start_sector = tios->start_sector;
+	unsigned int max_sec = min_start_sector + utd->sector_range;
+
 	do {
-		*start_sector = ufs_test_pseudo_random_seed(seed, 1, max_sec);
-		*num_of_bios = ufs_test_pseudo_random_seed(seed,
-						1, TEST_MAX_BIOS_PER_REQ);
+		*start_sector = ufs_test_pseudo_random_seed(
+			&utd->random_test_seed, 1, max_sec);
+		*num_of_bios = ufs_test_pseudo_random_seed(
+			&utd->random_test_seed, 1, TEST_MAX_BIOS_PER_REQ);
 		if (!(*num_of_bios))
 			*num_of_bios = 1;
 	} while ((*start_sector < min_start_sector) ||
-		 (*start_sector + (*num_of_bios * BIO_U32_SIZE * 4)) > max_sec);
+		 (*start_sector + (*num_of_bios * TEST_BIO_SIZE)) > max_sec);
 	/*
 	 * The test-iosched API is working with sectors 512b, while UFS LBA
 	 * is in blocks (4096). Thus the last 3 bits has to be cleared.
@@ -698,24 +707,26 @@ static bool ufs_test_multi_thread_completion(struct test_iosched *test_iosched)
 static bool long_rand_test_check_completion(struct test_iosched *test_iosched)
 {
 	struct ufs_test_data *utd = test_iosched->blk_dev_test_data;
-	if (utd->completed_req_count > LONG_RAND_TEST_NUM_REQS) {
+
+	if (utd->completed_req_count > utd->long_test_num_reqs) {
 		pr_err("%s: Error: Completed more requests than total test requests.\nTerminating test."
 		       , __func__);
 		return true;
 	}
-	return (utd->completed_req_count == LONG_RAND_TEST_NUM_REQS);
+	return utd->completed_req_count == utd->long_test_num_reqs;
 }
 
 static bool long_seq_test_check_completion(struct test_iosched *test_iosched)
 {
 	struct ufs_test_data *utd = test_iosched->blk_dev_test_data;
-	if (utd->completed_req_count > LONG_SEQ_TEST_NUM_REQS) {
+
+	if (utd->completed_req_count > utd->long_test_num_reqs) {
 		pr_err("%s: Error: Completed more requests than total test requests"
 		       , __func__);
 		pr_err("%s: Terminating test.", __func__);
 		return true;
 	}
-	return (utd->completed_req_count == LONG_SEQ_TEST_NUM_REQS);
+	return utd->completed_req_count == utd->long_test_num_reqs;
 }
 
 /**
@@ -759,9 +770,7 @@ static void ufs_test_run_scenario(void *data, async_cookie_t cookie)
 
 		/* use randomly generated requests */
 		if (ts->rnd_req && utd->random_test_seed != 0)
-			pseudo_rnd_sector_and_size(&utd->random_test_seed,
-				ts->test_iosched->start_sector, &start_sec,
-				&num_bios);
+			pseudo_rnd_sector_and_size(utd, &start_sec, &num_bios);
 
 		ret = test_iosched_add_wr_rd_test_req(test_iosched, 0,
 			direction, start_sec, num_bios, TEST_PATTERN_5A,
@@ -995,13 +1004,18 @@ static void long_test_free_end_io_fn(struct request *rq, int err)
 static int run_long_test(struct test_iosched *test_iosched)
 {
 	int ret = 0;
-	int direction, long_test_num_requests, num_bios_per_request;
+	int direction, num_bios_per_request;
 	static unsigned int inserted_requests;
 	u32 sector, seed, num_bios, seq_sector_delta;
 	struct ufs_test_data *utd = test_iosched->blk_dev_test_data;
 
 	BUG_ON(!test_iosched);
 	sector = test_iosched->start_sector;
+	if (test_iosched->sector_range)
+		utd->sector_range = test_iosched->sector_range;
+	else
+		utd->sector_range = TEST_DEFAULT_SECTOR_RANGE;
+
 	if (utd->test_stage != UFS_TEST_LONG_SEQUENTIAL_MIXED_STAGE2) {
 		test_iosched->test_count = 0;
 		utd->completed_req_count = 0;
@@ -1012,23 +1026,29 @@ static int run_long_test(struct test_iosched *test_iosched)
 	switch (test_iosched->test_info.testcase) {
 	case  UFS_TEST_LONG_RANDOM_READ:
 		num_bios_per_request = 1;
-		long_test_num_requests = LONG_RAND_TEST_NUM_REQS;
+		utd->long_test_num_reqs = (utd->sector_range * SECTOR_SIZE) /
+			(LONG_RAND_TEST_REQ_RATIO * TEST_BIO_SIZE *
+					num_bios_per_request);
 		direction = READ;
 		break;
 	case  UFS_TEST_LONG_RANDOM_WRITE:
 		num_bios_per_request = 1;
-		long_test_num_requests = LONG_RAND_TEST_NUM_REQS;
+		utd->long_test_num_reqs = (utd->sector_range * SECTOR_SIZE) /
+			(LONG_RAND_TEST_REQ_RATIO * TEST_BIO_SIZE *
+					num_bios_per_request);
 		direction = WRITE;
 		break;
 	case UFS_TEST_LONG_SEQUENTIAL_READ:
 		num_bios_per_request = TEST_MAX_BIOS_PER_REQ;
-		long_test_num_requests = LONG_SEQ_TEST_NUM_REQS;
+		utd->long_test_num_reqs = (utd->sector_range * SECTOR_SIZE) /
+			(num_bios_per_request * TEST_BIO_SIZE);
 		direction = READ;
 		break;
 	case UFS_TEST_LONG_SEQUENTIAL_WRITE:
-		num_bios_per_request = TEST_MAX_BIOS_PER_REQ;
-		long_test_num_requests = LONG_SEQ_TEST_NUM_REQS;
 	case UFS_TEST_LONG_SEQUENTIAL_MIXED:
+		num_bios_per_request = TEST_MAX_BIOS_PER_REQ;
+		utd->long_test_num_reqs = (utd->sector_range * SECTOR_SIZE) /
+			(num_bios_per_request * TEST_BIO_SIZE);
 	default:
 		direction = WRITE;
 	}
@@ -1038,7 +1058,7 @@ static int run_long_test(struct test_iosched *test_iosched)
 	seed = utd->random_test_seed ? utd->random_test_seed : MAGIC_SEED;
 
 	pr_info("%s: Adding %d requests, first req_id=%d", __func__,
-		     long_test_num_requests, test_iosched->wr_rd_next_req_id);
+	     utd->long_test_num_reqs, test_iosched->wr_rd_next_req_id);
 
 	do {
 		/*
@@ -1063,8 +1083,7 @@ static int run_long_test(struct test_iosched *test_iosched)
 			break;
 		case  UFS_TEST_LONG_RANDOM_READ:
 		case  UFS_TEST_LONG_RANDOM_WRITE:
-			pseudo_rnd_sector_and_size(&seed,
-				test_iosched->start_sector, &sector, &num_bios);
+			pseudo_rnd_sector_and_size(utd, &sector, &num_bios);
 		default:
 			break;
 		}
@@ -1089,10 +1108,10 @@ static int run_long_test(struct test_iosched *test_iosched)
 			inserted_requests++;
 		}
 
-	} while (inserted_requests < long_test_num_requests);
+	} while (inserted_requests < utd->long_test_num_reqs);
 
 	/* in this case the queue will not run in the above loop */
-	if (long_test_num_requests < QUEUE_MAX_REQUESTS)
+	if (utd->long_test_num_reqs < QUEUE_MAX_REQUESTS)
 		blk_post_runtime_resume(test_iosched->req_q, 0);
 
 	return ret;
@@ -1211,9 +1230,7 @@ static int ufs_test_run_data_integrity_test(struct test_iosched *test_iosched)
 	for (i = 0; i < QUEUE_MAX_REQUESTS; i++) {
 		/* make sure that we didn't draw the same start_sector twice */
 		while (retries--) {
-			pseudo_rnd_sector_and_size(&utd->random_test_seed,
-				test_iosched->start_sector, &start_sec,
-				&num_bios);
+			pseudo_rnd_sector_and_size(utd, &start_sec, &num_bios);
 			sectors[i] = start_sec;
 			for (j = 0; (j < i) && (sectors[i] != sectors[j]); j++)
 				/* just increment j */;
