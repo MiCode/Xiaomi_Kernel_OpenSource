@@ -12,13 +12,9 @@ Required properties
 
 - compatible: "qcom,spm-v2"
 - reg: The physical address and the size of the SPM's memory mapped registers
-- qcom,cpu: phandle for the CPU that the SPM block is attached to. On targets
-	that dont support CPU phandles the driver would support qcom,core-id.
-	This field is required on only for SPMs that control the CPU.
-- qcom, core-id: This property will be deprecated once all targets start
-	supporting CPU phandles. This field will be used to identify SPMs
-	that control the CPU.
-	{0..n} for cores {0..n}
+- qcom,cpu: phandle for the CPU that the SPM block is attached to.  This field
+is required on only for SPMs that control the CPU. This field is not required
+for SPMs that control L2/CCI/L3
 - qcom,saw2-ver-reg: The location of the version register
 - qcom,saw2-cfg: SAW2 configuration register
 - qcom,saw2-spm-ctl: The SPM control register
@@ -138,7 +134,7 @@ Example 2:
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0xf9089000 0x1000>;
-		qcom,core-id = <0>;
+		qcom,cpu = <&CPU0>;
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,saw2-cfg = <0x1b>;
 		qcom,saw2-avs-ctl = <0>;

@@ -569,7 +569,6 @@ static int get_cpu_id(struct device_node *node)
 {
 	struct device_node *cpu_node;
 	u32 cpu;
-	int ret = -EINVAL;
 	char *key = "qcom,cpu";
 
 	cpu_node = of_parse_phandle(node, key, 0);
@@ -578,14 +577,10 @@ static int get_cpu_id(struct device_node *node)
 			if (of_get_cpu_node(cpu, NULL) == cpu_node)
 				return cpu;
 		}
-	} else {
-		char *key = "qcom,core-id";
+	} else
+		return num_possible_cpus();
 
-		ret = of_property_read_u32(node, key, &cpu);
-		if (!ret)
-			return cpu;
-	}
-	return ret;
+	return -EINVAL;
 }
 
 static struct msm_spm_device *msm_spm_get_device(struct platform_device *pdev)
@@ -597,7 +592,7 @@ static struct msm_spm_device *msm_spm_get_device(struct platform_device *pdev)
 
 	if ((cpu >= 0) && cpu < num_possible_cpus())
 		dev = &per_cpu(msm_cpu_spm_device, cpu);
-	else if ((cpu == 0xffff) || (cpu < 0))
+	else if (cpu == num_possible_cpus())
 		dev = devm_kzalloc(&pdev->dev, sizeof(struct msm_spm_device),
 					GFP_KERNEL);
 
@@ -617,34 +612,19 @@ static struct msm_spm_device *msm_spm_get_device(struct platform_device *pdev)
 
 static void get_cpumask(struct device_node *node, struct cpumask *mask)
 {
-	unsigned long vctl_mask = 0;
-	unsigned c = 0;
+	unsigned c;
 	int idx = 0;
-	struct device_node *cpu_node = NULL;
-	int ret = 0;
+	struct device_node *cpu_node;
 	char *key = "qcom,cpu-vctl-list";
-	bool found = false;
 
 	cpu_node = of_parse_phandle(node, key, idx++);
 	while (cpu_node) {
-		found = true;
 		for_each_possible_cpu(c) {
 			if (of_get_cpu_node(c, NULL) == cpu_node)
 				cpumask_set_cpu(c, mask);
 		}
 		cpu_node = of_parse_phandle(node, key, idx++);
 	};
-
-	if (found)
-		return;
-
-	key = "qcom,cpu-vctl-mask";
-	ret = of_property_read_u32(node, key, (u32 *) &vctl_mask);
-	if (!ret) {
-		for_each_set_bit(c, &vctl_mask, num_possible_cpus()) {
-			cpumask_set_cpu(c, mask);
-		}
-	}
 }
 
 static int msm_spm_dev_probe(struct platform_device *pdev)
@@ -702,8 +682,11 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 
 	dev = msm_spm_get_device(pdev);
 	if (!dev) {
-		ret = -ENOMEM;
-		goto fail;
+		/*
+		 * For partial goods support some CPUs might not be available
+		 * in which case, shouldn't throw an error
+		 */
+		return 0;
 	}
 	get_cpumask(node, &dev->mask);
 
