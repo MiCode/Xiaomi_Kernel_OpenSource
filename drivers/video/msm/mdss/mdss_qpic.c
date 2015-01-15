@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,7 +47,7 @@ struct qpic_data_type *qpic_res;
 /* for debugging */
 static u32 use_bam = true;
 static u32 use_irq = true;
-static u32 use_vsync;
+static u32 use_vsync = true;
 
 static const struct of_device_id mdss_qpic_dt_match[] = {
 	{ .compatible = "qcom,mdss_qpic",},
@@ -75,8 +75,19 @@ int qpic_on(struct msm_fb_data_type *mfd)
 	if (qpic_res->qpic_a_clk)
 		clk_prepare_enable(qpic_res->qpic_a_clk);
 
+	if ((!qpic_res->lk_transition_done) &&
+			(QPIC_INP(QPIC_REG_QPIC_LCDC_CTRL) & (1 << 8))) {
+		qpic_res->splash_screen_transition = true;
+		qpic_res->panel_io.splash_screen_transition = true;
+	}
+
 	ret = mdss_qpic_panel_on(qpic_res->panel_data, &qpic_res->panel_io);
 	qpic_res->qpic_is_on = true;
+	if (!qpic_res->lk_transition_done) {
+		qpic_res->splash_screen_transition = false;
+		qpic_res->panel_io.splash_screen_transition = false;
+		qpic_res->lk_transition_done = true;
+	}
 	return ret;
 }
 
@@ -611,7 +622,9 @@ int mdss_qpic_init(void)
 {
 	int ret = 0;
 	u32 data;
-	mdss_qpic_reset();
+
+	if (!qpic_res->splash_screen_transition)
+		mdss_qpic_reset();
 
 	pr_info("%s version=%x", __func__, QPIC_INP(QPIC_REG_LCDC_VERSION));
 	data = QPIC_INP(QPIC_REG_QPIC_LCDC_CTRL);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013 - 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013 - 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -156,12 +156,15 @@ int ili9341_on(struct qpic_panel_io_desc *qpic_panel_io)
 	ret = panel_io_on(qpic_panel_io);
 	if (ret)
 		return ret;
-	qpic_send_pkt(OP_SOFT_RESET, NULL, 0);
-	/* wait for 120 ms after reset as panel spec suggests */
-	msleep(120);
-	qpic_send_pkt(OP_SET_DISPLAY_OFF, NULL, 0);
-	/* wait for 20 ms after disply off */
-	msleep(20);
+
+	if (!qpic_panel_io->splash_screen_transition) {
+		qpic_send_pkt(OP_SOFT_RESET, NULL, 0);
+		/* wait for 120 ms after reset as panel spec suggests */
+		msleep(120);
+		qpic_send_pkt(OP_SET_DISPLAY_OFF, NULL, 0);
+		/* wait for 20 ms after disply off */
+		msleep(20);
+	}
 
 	/* set memory access control */
 	param[0] = 0x48;
@@ -201,8 +204,7 @@ int ili9341_on(struct qpic_panel_io_desc *qpic_panel_io)
 	qpic_send_pkt(OP_ILI9341_TEARING_EFFECT_LINE_ON, param, 1);
 
 	/* test */
-	param[0] = qpic_read_data(OP_GET_PIXEL_FORMAT, 1);
-	pr_debug("Pixel format =%x", param[0]);
+	pr_debug("Pixel format =%x", qpic_read_data(OP_GET_PIXEL_FORMAT, 2));
 
 	return 0;
 }
