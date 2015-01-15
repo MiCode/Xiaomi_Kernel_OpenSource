@@ -182,4 +182,11 @@ u8 intel_adf_get_platform_id(void)
 }
 EXPORT_SYMBOL(intel_adf_get_platform_id);
 
+/* To get DSI port no from VBT */
+u16 intel_get_dsi_port_frm_vbt(void)
+{
+	return i915_adf_dev->vbt.dsi.port;
+}
+EXPORT_SYMBOL(intel_get_dsi_port_frm_vbt);
+
 #endif

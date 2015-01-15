@@ -57,6 +57,8 @@ extern void intel_adf_display_rpm_get(void);
 extern void intel_adf_display_rpm_put(void);
 extern int i915_adf_driver_initialize(void);
 extern u8 intel_adf_get_platform_id(void);
+extern u16 intel_get_dsi_port_frm_vbt(void);
+
 #endif
 
 
