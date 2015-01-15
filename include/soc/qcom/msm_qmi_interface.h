@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@ enum qmi_event_type {
  * @reset_waitq: Wait queue to wait for any reset events.
  * @ctl_work: Work to handle the out-of-band events for this handle.
  * @dest_info: Destination to which this handle is connected to.
+ * @dest_service_id: service id of the service that client connected to.
  * @txn_list: List of transactions waiting for the response.
  * @ind_cb: Function to notify the handle owner of an indication message.
  * @ind_cb_priv: Private info to be passed during an indication notification.
@@ -72,6 +73,7 @@ struct qmi_handle {
 
 	/* Client specific elements */
 	void *dest_info;
+	uint32_t dest_service_id;
 	struct list_head txn_list;
 	void (*ind_cb)(struct qmi_handle *handle,
 			unsigned int msg_id, void *msg,
