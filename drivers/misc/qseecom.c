@@ -1,6 +1,6 @@
 /*Qualcomm Secure Execution Environment Communicator (QSEECOM) driver
  *
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4086,7 +4086,7 @@ static int qseecom_wipe_key(struct qseecom_dev_handle *data,
 			clear_key_ireq.ce = QSEECOM_ICE_CE_NUM;
 			clear_key_ireq.pipe = QSEECOM_ICE_FDE_KEY_INDEX;
 		} else {
-			clear_key_ireq.ce = ce_hw[i];
+			clear_key_ireq.ce = ce_hw[j];
 			clear_key_ireq.pipe = pipe;
 		}
 		clear_key_ireq.flags = flags;
