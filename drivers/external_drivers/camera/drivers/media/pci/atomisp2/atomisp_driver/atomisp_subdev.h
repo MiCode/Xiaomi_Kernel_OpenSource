@@ -381,6 +381,7 @@ struct atomisp_sub_device {
 	unsigned int wdt_duration;	/* in jiffies */
 	unsigned long wdt_expires;
 
+	struct atomisp_resolution sensor_array_res;
 	bool high_speed_mode; /* Indicate whether now is a high speed mode */
 	int pending_capture_request; /* Indicates the number of pending capture requests. */
 };

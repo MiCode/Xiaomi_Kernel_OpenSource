@@ -286,10 +286,18 @@ int atomisp_digital_zoom(struct atomisp_sub_device *asd, int flag,
 			 __s32 *value);
 
 /*
- * Function to get current sensor output effective resolution
+ * Function  set camera_prefiles.xml current sensor pixel array size
  */
-int atomisp_get_effective_res(struct atomisp_sub_device *asd,
+int atomisp_set_array_res(struct atomisp_sub_device *asd,
 			struct atomisp_resolution  *config);
+
+/*
+ * Function to calculate real zoom region for every pipe
+ */
+int atomisp_calculate_real_zoom_region(struct atomisp_sub_device *asd,
+			struct atomisp_css_dz_config   *dz_config,
+			enum atomisp_css_pipe_id css_pipe_id);
+
 
 int atomisp_cp_dvs_6axis_config(struct atomisp_sub_device *asd,
 			struct atomisp_dvs_6axis_config *user_6axis_config,
