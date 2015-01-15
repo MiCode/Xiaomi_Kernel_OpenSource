@@ -476,23 +476,25 @@ static struct intel_plane_ops vlv_pri_ops = {
 int vlv_pri_plane_init(struct vlv_pri_plane *pplane,
 		struct intel_pipeline *pipeline, struct device *dev, u8 idx)
 {
+	struct vlv_pri_plane_context *ctx;
 	int err;
 
 	if (!pplane) {
 		dev_err(dev, "%s: struct NULL\n", __func__);
 		return -EINVAL;
 	}
-	err = init_context(&pplane->ctx, idx);
+	ctx = &pplane->ctx;
+	err = init_context(ctx, idx);
 	if (err) {
 		pr_err("%s: plane context initialization failed\n", __func__);
 		return err;
 	}
 
-	pplane->offset = DSPCNTR(idx);
-	pplane->surf_offset = DSPSURF(idx);
-	pplane->stride_offset = DSPSTRIDE(idx);
-	pplane->tiled_offset = DSPTILEOFF(idx);
-	pplane->linear_offset = DSPLINOFF(idx);
+	pplane->offset = DSPCNTR(ctx->plane);
+	pplane->surf_offset = DSPSURF(ctx->plane);
+	pplane->stride_offset = DSPSTRIDE(ctx->plane);
+	pplane->tiled_offset = DSPTILEOFF(ctx->plane);
+	pplane->linear_offset = DSPLINOFF(ctx->plane);
 
 	return intel_adf_plane_init(&pplane->base, dev, idx, &vlv_pri_caps,
 			&vlv_pri_ops, "primary_plane");
