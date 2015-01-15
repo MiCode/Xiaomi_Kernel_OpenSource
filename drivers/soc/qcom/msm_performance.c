@@ -25,14 +25,14 @@ static struct mutex managed_cpus_lock;
 
 /* Maximum number to clusters that this module will manage*/
 static unsigned int num_clusters;
-struct cpu_hp {
+struct cluster {
 	cpumask_var_t cpus;
 	/* Number of CPUs to maintain online */
 	int max_cpu_request;
 	/* To track CPUs that the module decides to offline */
 	cpumask_var_t offlined_cpus;
 };
-static struct cpu_hp **managed_clusters;
+static struct cluster **managed_clusters;
 static bool clusters_inited;
 
 /* Work to evaluate the onlining/offlining CPUs */
@@ -47,7 +47,7 @@ static DEFINE_PER_CPU(struct cpu_status, cpu_stats);
 
 static unsigned int num_online_managed(struct cpumask *mask);
 static int init_cluster_control(void);
-static int rm_high_pwr_cost_cpus(struct cpu_hp *cl);
+static int rm_high_pwr_cost_cpus(struct cluster *cl);
 
 static DEFINE_PER_CPU(unsigned int, cpu_power_cost);
 
@@ -194,17 +194,17 @@ static int get_managed_online_cpus(char *buf, const struct kernel_param *kp)
 {
 	int i, cnt = 0;
 	struct cpumask tmp_mask;
-	struct cpu_hp *i_cpu_hp;
+	struct cluster *i_cl;
 
 	if (!clusters_inited)
 		return cnt;
 
 	for (i = 0; i < num_clusters; i++) {
-		i_cpu_hp = managed_clusters[i];
+		i_cl = managed_clusters[i];
 
 		cpumask_clear(&tmp_mask);
-		cpumask_complement(&tmp_mask, i_cpu_hp->offlined_cpus);
-		cpumask_and(&tmp_mask, i_cpu_hp->cpus, &tmp_mask);
+		cpumask_complement(&tmp_mask, i_cl->offlined_cpus);
+		cpumask_and(&tmp_mask, i_cl->cpus, &tmp_mask);
 
 		cnt += cpulist_scnprintf(buf + cnt, PAGE_SIZE - cnt,
 								&tmp_mask);
@@ -423,7 +423,7 @@ static struct notifier_block perf_cpufreq_nb = {
  * Attempt to offline CPUs based on their power cost.
  * CPUs with higher power costs are offlined first.
  */
-static int __ref rm_high_pwr_cost_cpus(struct cpu_hp *cl)
+static int __ref rm_high_pwr_cost_cpus(struct cluster *cl)
 {
 	unsigned int cpu, i;
 	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
@@ -495,7 +495,7 @@ end:
  * It loops through the currently managed CPUs and tries to online/offline
  * them until the max_cpu_request criteria is met.
  */
-static void __ref try_hotplug(struct cpu_hp *data)
+static void __ref try_hotplug(struct cluster *data)
 {
 	unsigned int i;
 
@@ -567,23 +567,23 @@ static void __ref release_cluster_control(struct cpumask *off_cpus)
 static void check_cluster_status(struct work_struct *work)
 {
 	int i;
-	struct cpu_hp *i_chp;
+	struct cluster *i_cl;
 
 	for (i = 0; i < num_clusters; i++) {
-		i_chp = managed_clusters[i];
+		i_cl = managed_clusters[i];
 
-		if (cpumask_empty(i_chp->cpus))
+		if (cpumask_empty(i_cl->cpus))
 			continue;
 
-		if (i_chp->max_cpu_request < 0) {
-			if (!cpumask_empty(i_chp->offlined_cpus))
-				release_cluster_control(i_chp->offlined_cpus);
+		if (i_cl->max_cpu_request < 0) {
+			if (!cpumask_empty(i_cl->offlined_cpus))
+				release_cluster_control(i_cl->offlined_cpus);
 			continue;
 		}
 
-		if (num_online_managed(i_chp->cpus) !=
-					i_chp->max_cpu_request)
-			try_hotplug(i_chp);
+		if (num_online_managed(i_cl->cpus) !=
+					i_cl->max_cpu_request)
+			try_hotplug(i_cl);
 	}
 }
 
@@ -592,19 +592,19 @@ static int __ref msm_performance_cpu_callback(struct notifier_block *nfb,
 {
 	uint32_t cpu = (uintptr_t)hcpu;
 	unsigned int i;
-	struct cpu_hp *i_hp = NULL;
+	struct cluster *i_cl = NULL;
 
 	if (!clusters_inited)
 		return NOTIFY_OK;
 
 	for (i = 0; i < num_clusters; i++) {
 		if (cpumask_test_cpu(cpu, managed_clusters[i]->cpus)) {
-			i_hp = managed_clusters[i];
+			i_cl = managed_clusters[i];
 			break;
 		}
 	}
 
-	if (i_hp == NULL)
+	if (i_cl == NULL)
 		return NOTIFY_OK;
 
 	if (action == CPU_UP_PREPARE || action == CPU_UP_PREPARE_FROZEN) {
@@ -612,16 +612,16 @@ static int __ref msm_performance_cpu_callback(struct notifier_block *nfb,
 		 * Prevent onlining of a managed CPU if max_cpu criteria is
 		 * already satisfied
 		 */
-		if (i_hp->max_cpu_request <=
-					num_online_managed(i_hp->cpus)) {
+		if (i_cl->max_cpu_request <=
+					num_online_managed(i_cl->cpus)) {
 			pr_debug("msm_perf: Prevent CPU%d onlining\n", cpu);
-			cpumask_set_cpu(cpu, i_hp->offlined_cpus);
+			cpumask_set_cpu(cpu, i_cl->offlined_cpus);
 			return NOTIFY_BAD;
 		}
-		cpumask_clear_cpu(cpu, i_hp->offlined_cpus);
+		cpumask_clear_cpu(cpu, i_cl->offlined_cpus);
 
 	} else if (action == CPU_DEAD) {
-		if (cpumask_test_cpu(cpu, i_hp->offlined_cpus))
+		if (cpumask_test_cpu(cpu, i_cl->offlined_cpus))
 			return NOTIFY_OK;
 		/*
 		 * Schedule a re-evaluation to check if any more CPUs can be
@@ -629,8 +629,8 @@ static int __ref msm_performance_cpu_callback(struct notifier_block *nfb,
 		 * work is delayed to account for CPU hotplug latencies
 		 */
 		if (schedule_delayed_work(&evaluate_hotplug_work, 0)) {
-			trace_reevaluate_hotplug(cpumask_bits(i_hp->cpus)[0],
-							i_hp->max_cpu_request);
+			trace_reevaluate_hotplug(cpumask_bits(i_cl->cpus)[0],
+							i_cl->max_cpu_request);
 			pr_debug("msm_perf: Re-evaluation scheduled %d\n", cpu);
 		} else {
 			pr_debug("msm_perf: Work scheduling failed %d\n", cpu);
@@ -648,12 +648,12 @@ static int init_cluster_control(void)
 {
 	unsigned int i;
 
-	managed_clusters = kcalloc(num_clusters, sizeof(struct cpu_hp *),
+	managed_clusters = kcalloc(num_clusters, sizeof(struct cluster *),
 								GFP_KERNEL);
 	if (!managed_clusters)
 		return -ENOMEM;
 	for (i = 0; i < num_clusters; i++) {
-		managed_clusters[i] = kcalloc(1, sizeof(struct cpu_hp),
+		managed_clusters[i] = kcalloc(1, sizeof(struct cluster),
 								GFP_KERNEL);
 		if (!managed_clusters[i])
 			return -ENOMEM;
