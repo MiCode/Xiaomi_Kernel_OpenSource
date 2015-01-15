@@ -99,6 +99,10 @@ Parent node optional properties:
 					in the parallel mode. If this is enabled
 					the charging operations will be controlled by
 					the primary-charger.
+- qcom,collapsible-chgr-support		If specifed the collapsible charger feature
+					will be supported. LBC will disable VIN_MIN
+					comparator and use chg_gone interrupt to
+					detect charger removal.
 
 
 Sub node required structure:
