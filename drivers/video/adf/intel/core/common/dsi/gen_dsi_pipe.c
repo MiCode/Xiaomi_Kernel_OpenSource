@@ -62,7 +62,14 @@ static int dsi_set_brightness(struct intel_pipe *pipe, int level)
 	level = (level * 0xFF / BRIGHTNESS_MAX_LEVEL);
 
 	if (pipe->dpst_enabled)
-		vlv_dpst_set_brightness(pipe, level);
+		/*
+		 * FIXME: enable once dpst is enabled
+		 * vlv_dpst_set_brightness(pipe, level);
+		 * level = dsi_pipe->pipeline->ops.set_brightness(
+		 *	dsi_pipe->pipeline, brightness_val);
+		 * panel->ops->set_brightness(dsi_pipe, level);
+		 */
+		 ;
 	else {
 		if (dsi_pipe->ops.set_brightness)
 			dsi_pipe->ops.set_brightness(level);

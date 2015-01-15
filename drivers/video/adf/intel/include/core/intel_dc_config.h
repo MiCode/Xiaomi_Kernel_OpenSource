@@ -296,6 +296,8 @@ struct intel_pipe_ops {
 			struct intel_adf_post_custom_data *custom);
 	void (*pre_post)(struct intel_pipe *pipe);
 	void (*on_post)(struct intel_pipe *pipe);
+	long (*dpst_context)(struct intel_pipe *pipe, unsigned long arg);
+	long (*dpst_irq_handler)(struct intel_pipe *pipe);
 
 #ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 	int (*set_brightness)(struct intel_pipe *pipe, int level);

@@ -84,11 +84,9 @@ void vlv_dc_config_destroy(struct intel_dc_config *config)
 		vlv_sp_plane_destroy(splane);
 	}
 
-#ifdef CONFIG_DEBUG_FS
-	vlv_debugfs_teardown(vlv_config);
-#endif
 	intel_dc_config_destroy(config);
-	vlv_dpst_teardown();
+	/* FIXME: uncomment when enabled */
+	/* vlv_dpst_teardown(); */
 	kfree(config);
 
 	return;
@@ -227,11 +225,6 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 
 	vlv_initialize_disp(config, PIPE_A, INTEL_PIPE_DSI);
 
-	vlv_dpst_init(&config->base);
-
-#ifdef CONFIG_DEBUG_FS
-	vlv_debugfs_init(config);
-#endif
 	return &config->base;
 err:
 	vlv_dc_config_destroy(&config->base);

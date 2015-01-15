@@ -161,9 +161,6 @@ int vlv_display_on(struct intel_pipe *pipe)
 	/* enable vsyncs */
 	pipe->ops->set_event(pipe, INTEL_PIPE_EVENT_VSYNC, true);
 
-	/* Enable DPST */
-	vlv_dpst_display_on();
-
 	/* Program the watermarks */
 	vlv_program_wm();
 	/* Trickle feed is disabled by default */
@@ -201,9 +198,6 @@ int vlv_display_off(struct intel_pipe *pipe)
 	}
 
 	index = pipe->base.idx;
-
-	/* Disable DPST */
-	vlv_dpst_display_off();
 
 	/* disable vsyncs */
 	pipe->ops->set_event(pipe, INTEL_PIPE_EVENT_VSYNC, false);

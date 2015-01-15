@@ -24,11 +24,17 @@
 static long intel_interface_obj_ioctl(struct adf_obj *obj,
 	unsigned int cmd, unsigned long arg)
 {
+	struct adf_interface *intf = adf_obj_to_interface(obj);
+	struct intel_adf_interface *i_intf = to_intel_intf(intf);
+	struct intel_pipe *pipe = i_intf->pipe;
 
 	/* Custom IOCTL commands */
 	switch (cmd) {
 	case INTEL_ADF_DPST_CONTEXT:
-		return vlv_dpst_context(arg);
+		if (!pipe || !pipe->ops || !pipe->ops->dpst_context)
+			return -EINVAL;
+
+		return pipe->ops->dpst_context(pipe, arg);
 	default:
 		pr_debug("%s: Error: Invalid custom IOCTL\n", __func__);
 	}
@@ -354,7 +360,7 @@ int intel_adf_interface_handle_event(struct intel_adf_interface *intf)
 	}
 
 	if (events && INTEL_PIPE_EVENT_DPST)
-		vlv_dpst_irq_handler(pipe);
+		pipe->ops->dpst_irq_handler(pipe);
 
 	if (events && pipe->ops->handle_events)
 		pipe->ops->handle_events(pipe, events);
