@@ -26,6 +26,7 @@
 #include <asm/cpu_device_id.h>
 #include <linux/regulator/intel_whiskey_cove_pmic.h>
 #include <linux/regulator/intel_dollar_cove_pmic.h>
+#include <linux/regulator/intel_dollar_cove_ti_pmic.h>
 
 struct acpi_ids { char *hid; char *uid; };
 
@@ -244,11 +245,47 @@ static void intel_setup_dollar_cove_sd_regulators(void)
 		sizeof(struct dcovex_regulator_info), DCOVEX_ID_LDO3 + 1);
 }
 
+/*************************************************************
+*
+* DCOVETI SD card related regulator
+*
+*************************************************************/
+static struct regulator_init_data dcoveti_vmmc_data;
+static struct regulator_init_data dcoveti_vqmmc_data;
+static struct dcoveti_regulator_info dcoveti_vmmc_info = {
+	.init_data = &dcoveti_vmmc_data,
+};
+
+static struct dcoveti_regulator_info dcoveti_vqmmc_info = {
+	.init_data = &dcoveti_vqmmc_data,
+};
+
+static void intel_setup_dollar_cove_ti_sd_regulators(void)
+{
+	memcpy((void *)&dcoveti_vmmc_data, (void *)&vmmc_data,
+			sizeof(struct regulator_init_data));
+	memcpy((void *)&dcoveti_vqmmc_data, (void *)&vqmmc_data,
+			sizeof(struct regulator_init_data));
+
+	/* set enable time for vqmmc regulator, stabilize power rail */
+	dcoveti_vqmmc_data.constraints.enable_time = 10000;
+
+	dcoveti_vmmc_data.constraints.name = "LDO_8";
+	dcoveti_vqmmc_data.constraints.name = "LDO_7";
+
+	/* register SD card regulator for dollar cove PMIC */
+	intel_soc_pmic_set_pdata("dcoveti_regulator", &dcoveti_vmmc_info,
+		sizeof(struct dcoveti_regulator_info), DCOVETI_ID_LDO8 + 1);
+	intel_soc_pmic_set_pdata("dcoveti_regulator", &dcoveti_vqmmc_info,
+		sizeof(struct dcoveti_regulator_info), DCOVETI_ID_LDO7 + 1);
+}
+
 static int __init sdio_regulator_init(void)
 {
 	intel_setup_crystal_cove_sd_regulators();
 	intel_setup_whiskey_cove_sd_regulators();
 	intel_setup_dollar_cove_sd_regulators();
+	intel_setup_dollar_cove_ti_sd_regulators();
 
 	return 0;
 }

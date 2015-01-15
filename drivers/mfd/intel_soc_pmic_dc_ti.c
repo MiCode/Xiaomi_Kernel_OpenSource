@@ -24,6 +24,7 @@
 #include <linux/version.h>
 
 #include "intel_soc_pmic_core.h"
+#include <linux/regulator/intel_dollar_cove_ti_pmic.h>
 
 #define IRQLVL1		0x01
 #define MIRQLVL1	0x02
@@ -118,6 +119,18 @@ static struct mfd_cell dollar_cove_ti_dev[] = {
 	{
 		.name = "dc_ti_region",
 		.id = 0,
+	},
+	{
+		.name = "dcoveti_regulator",
+		.id = DCOVETI_ID_LDO7 + 1,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+	{
+		.name = "dcoveti_regulator",
+		.id = DCOVETI_ID_LDO8 + 1,
+		.num_resources = 0,
+		.resources = NULL,
 	},
 	{NULL, },
 };
