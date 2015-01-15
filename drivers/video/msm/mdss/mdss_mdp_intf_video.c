@@ -412,7 +412,7 @@ static int mdss_mdp_video_intfs_stop(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_video_ctx *ctx;
 	struct mdss_mdp_vsync_handler *tmp, *handle;
 	struct mdss_mdp_ctl *sctl;
-	int rc;
+	int rc = 0;
 	u32 frame_rate = 0;
 	int ret = 0;
 
@@ -441,12 +441,13 @@ static int mdss_mdp_video_intfs_stop(struct mdss_mdp_ctl *ctl,
 		return -EINVAL;
 	}
 
+	mutex_lock(&ctl->offlock);
 	if (ctx->timegen_en) {
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_BLANK, NULL);
 		if (rc == -EBUSY) {
 			pr_debug("intf #%d busy don't turn off\n",
 				 ctl->intf_num);
-			return rc;
+			goto end;
 		}
 		WARN(rc, "intf %d blank error (%d)\n", ctl->intf_num, rc);
 
@@ -484,8 +485,9 @@ static int mdss_mdp_video_intfs_stop(struct mdss_mdp_ctl *ctl,
 		(inum + MDSS_MDP_INTF0), NULL, NULL);
 
 	ctx->ref_cnt--;
-
-	return 0;
+end:
+	mutex_unlock(&ctl->offlock);
+	return rc;
 }
 
 
