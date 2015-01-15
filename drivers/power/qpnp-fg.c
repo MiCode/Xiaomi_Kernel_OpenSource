@@ -2718,6 +2718,7 @@ static int bcl_trim_workaround(struct fg_chip *chip)
 #define KI_COEFF_PRED_FULL_ADDR		0x408
 #define KI_COEFF_PRED_FULL_4_0_MSB	0x88
 #define KI_COEFF_PRED_FULL_4_0_LSB	0x00
+#define TEMP_FRAC_SHIFT_REG		0x4A4
 static int fg_hw_init(struct fg_chip *chip)
 {
 	u8 resume_soc;
@@ -2798,6 +2799,15 @@ static int fg_hw_init(struct fg_chip *chip)
 
 	fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, I_TERM_QUAL_BIT,
 			I_TERM_QUAL_BIT, 0);
+
+	data[0] = 0xA2;
+	data[1] = 0x12;
+
+	rc = fg_mem_write(chip, data, TEMP_FRAC_SHIFT_REG, 2, 2, 0);
+	if (rc) {
+		pr_err("failed to write temp ocv constants rc=%d\n", rc);
+		return rc;
+	}
 
 	data[0] = KI_COEFF_PRED_FULL_4_0_LSB;
 	data[1] = KI_COEFF_PRED_FULL_4_0_MSB;
