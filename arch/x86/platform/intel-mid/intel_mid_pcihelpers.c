@@ -1,6 +1,5 @@
 #include <linux/export.h>
 #include <linux/pci.h>
-#include <linux/pm_qos.h>
 #include <linux/delay.h>
 
 /* G-Min addition: "platform_is()" lives in intel_mid_pm.h in the MCG
@@ -31,8 +30,6 @@ static inline int platform_is(u8 model)
 static DEFINE_SPINLOCK(msgbus_lock);
 
 static struct pci_dev *pci_root;
-static struct pm_qos_request pm_qos;
-int qos;
 
 static int intel_mid_msgbus_init(void)
 {
@@ -42,8 +39,6 @@ static int intel_mid_msgbus_init(void)
 		return -ENODEV;
 	}
 
-	pm_qos_add_request(&pm_qos, PM_QOS_CPU_DMA_LATENCY,
-			PM_QOS_DEFAULT_VALUE);
 	return 0;
 }
 fs_initcall(intel_mid_msgbus_init);
@@ -209,9 +204,6 @@ static void reset_semaphore(void)
 	data = data & 0xfffffffe;
 	intel_mid_msgbus_write32(PUNIT_PORT, PUNIT_SEMAPHORE, data);
 	smp_mb();
-
-	pm_qos_update_request(&pm_qos, PM_QOS_DEFAULT_VALUE);
-
 }
 
 int intel_mid_dw_i2c_acquire_ownership(void)
@@ -221,8 +213,6 @@ int intel_mid_dw_i2c_acquire_ownership(void)
 	u32 cmd;
 	u32 cmdext;
 	int timeout = 100;
-
-	pm_qos_update_request(&pm_qos, CSTATE_EXIT_LATENCY_C1 - 1);
 
 	/* host driver writes 0x2 to side band register 0x7 */
 	intel_mid_msgbus_write32(PUNIT_PORT, PUNIT_SEMAPHORE, 0x2);
