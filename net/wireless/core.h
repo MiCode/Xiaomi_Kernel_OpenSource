@@ -244,8 +244,6 @@ struct cfg80211_event {
 		struct {
 			enum nl80211_authorization_status auth_status;
 			u8 key_replay_ctr[NL80211_KEY_REPLAY_CTR_LEN];
-			u8 ptk_kck[NL80211_KEY_LEN_PTK_KCK];
-			u8 ptk_kek[NL80211_KEY_LEN_PTK_KEK];
 		} au;
 	};
 };
@@ -405,8 +403,7 @@ int cfg80211_mgd_wext_connect(struct cfg80211_registered_device *rdev,
 			      struct wireless_dev *wdev);
 void __cfg80211_authorization_event(struct net_device *dev,
 			   enum nl80211_authorization_status auth_status,
-			   const u8 *key_replay_ctr, const u8 *ptk_kck,
-			   const u8 *ptk_kek);
+			   const u8 *key_replay_ctr);
 
 void cfg80211_conn_work(struct work_struct *work);
 void cfg80211_sme_failed_assoc(struct wireless_dev *wdev);
