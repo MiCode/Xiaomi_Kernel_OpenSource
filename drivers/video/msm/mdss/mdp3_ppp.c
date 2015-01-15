@@ -454,6 +454,10 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 		ATRACE_END(__func__);
 		return 0;
 	}
+	if (lreq->req_list[0].flags & MDP_SOLID_FILL) {
+		/* Do not update BW for solid fill */
+		return 0;
+	}
 
 	/* Set FPS to mipi rate as currently there is no way to get this */
 	fps = panel_info->mipi.frame_rate;
