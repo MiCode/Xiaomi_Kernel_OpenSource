@@ -43,6 +43,27 @@ struct msm_cpp_frame_strip_info {
 	int32_t src_start_y;
 	uint32_t src_end_y;
 
+	/* extra 5th and 6th layer parameters */
+	int32_t extra_src_start_x;
+	int32_t extra_src_end_x;
+	int32_t extra_src_start_y;
+	int32_t extra_src_end_y;
+
+	int32_t extra_initial_vertical_count[2];
+	int32_t extra_initial_horizontal_count[2];
+
+	/* crop downscale 32x pixels */
+	int32_t extra_left_crop;
+	int32_t extra_top_crop;
+
+	int32_t extra_pad_bottom;
+	int32_t extra_pad_top;
+	int32_t extra_pad_right;
+	int32_t extra_pad_left;
+
+	int32_t extra_upscale_width;
+	int32_t extra_upscale_height;
+
 	uint32_t temporal_pad_bottom;
 	uint32_t temporal_pad_top;
 	uint32_t temporal_pad_right;
@@ -109,6 +130,7 @@ struct msm_cpp_frame_strip_info {
 	uint32_t temporal_bytes_per_pixel;
 
 	uint32_t source_address[2];
+	uint32_t extra_source_address[2];
 	uint32_t destination_address[2];
 	/* source_address[1] is used for CbCR planar
 	 * to CbCr interleaved conversion
@@ -130,6 +152,11 @@ struct msm_cpp_frame_strip_info {
 	uint32_t temporal_denoise_crop_en;
 	uint32_t prescaler_spatial_denoise_crop_en;
 	uint32_t state_crop_en;
+
+	int32_t we_h_init;
+	int32_t we_v_init;
+	int32_t we_h_step;
+	int32_t we_v_step;
 };
 
 struct msm_cpp_buffer_info_t {
