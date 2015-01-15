@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,6 +170,15 @@ struct dts_eagle_param_desc {
 #define SOFT_VOLUME2_GAIN_MASTER_PARAM_LEN	\
 					SOFT_VOLUME_GAIN_MASTER_PARAM_LEN
 
+#define PBE_CONF_MODULE_ID	0x00010C2A
+#define PBE_CONF_PARAM_ID	0x00010C49
+
+#define PBE_MODULE		0x00008000
+#define PBE_ENABLE		0x00008001
+#define PBE_CONFIG		0x00008002
+#define PBE_ENABLE_PARAM_LEN		1
+#define PBE_CONFIG_PARAM_LEN		28
+
 #define COMMAND_PAYLOAD_LEN	3
 #define COMMAND_PAYLOAD_SZ	(COMMAND_PAYLOAD_LEN * sizeof(uint32_t))
 #define MAX_INBAND_PARAM_SZ	4096
@@ -313,6 +322,50 @@ struct eq_params {
 	struct eq_per_band_freq_range_t per_band_freq_range[MAX_EQ_BANDS];
 	uint32_t band_index;
 	uint32_t freq_millihertz;
+};
+
+#define PBE_ENABLE_PARAM_SZ	\
+			(PBE_ENABLE_PARAM_LEN*sizeof(uint32_t))
+#define PBE_CONFIG_PARAM_SZ	\
+			(PBE_CONFIG_PARAM_LEN*sizeof(uint16_t))
+struct pbe_config_t {
+	int16_t  real_bass_mix;
+	int16_t  bass_color_control;
+	uint16_t main_chain_delay;
+	uint16_t xover_filter_order;
+	uint16_t bandpass_filter_order;
+	int16_t  drc_delay;
+	uint16_t rms_tav;
+	int16_t exp_threshold;
+	uint16_t exp_slope;
+	int16_t comp_threshold;
+	uint16_t comp_slope;
+	uint16_t makeup_gain;
+	uint32_t comp_attack;
+	uint32_t comp_release;
+	uint32_t exp_attack;
+	uint32_t exp_release;
+	int16_t limiter_bass_threshold;
+	int16_t limiter_high_threshold;
+	int16_t limiter_bass_makeup_gain;
+	int16_t limiter_high_makeup_gain;
+	int16_t limiter_bass_gc;
+	int16_t limiter_high_gc;
+	int16_t  limiter_delay;
+	uint16_t reserved;
+	/* place holder for filter coeffs to be followed */
+	int32_t p1LowPassCoeffs[5*2];
+	int32_t p1HighPassCoeffs[5*2];
+	int32_t p1BandPassCoeffs[5*3];
+	int32_t p1BassShelfCoeffs[5];
+	int32_t p1TrebleShelfCoeffs[5];
+} __packed;
+
+struct pbe_params {
+	uint32_t device;
+	uint32_t enable_flag;
+	uint32_t cfg_len;
+	struct pbe_config_t config;
 };
 
 #define SOFT_VOLUME_ENABLE_PARAM_SZ		\

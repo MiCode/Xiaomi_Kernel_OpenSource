@@ -6748,6 +6748,21 @@ struct asm_eq_params {
 */
 #define AUDPROC_PARAM_ID_BASS_BOOST_STRENGTH                     0x000108A4
 
+/** ID of the PBE module.
+    This module supports the following parameter IDs:
+    - #AUDPROC_PARAM_ID_PBE_ENABLE
+    - #AUDPROC_PARAM_ID_PBE_PARAM_CONFIG
+*/
+#define AUDPROC_MODULE_ID_PBE                                    0x00010C2A
+/** ID of the Bass Boost enable parameter used by
+    AUDPROC_MODULE_ID_BASS_BOOST.
+*/
+#define AUDPROC_PARAM_ID_PBE_ENABLE                              0x00010C2B
+/** ID of the Bass Boost mode parameter used by
+    AUDPROC_MODULE_ID_BASS_BOOST.
+*/
+#define AUDPROC_PARAM_ID_PBE_PARAM_CONFIG                        0x00010C49
+
 /** ID of the Virtualizer module. This module supports the
     following parameter IDs:
     - #AUDPROC_PARAM_ID_VIRTUALIZER_ENABLE

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -165,6 +165,7 @@ const u32 compr_codecs[] = {SND_AUDIOCODEC_AC3, SND_AUDIOCODEC_EAC3};
 
 struct msm_compr_audio_effects {
 	struct bass_boost_params bass_boost;
+	struct pbe_params pbe;
 	struct virtualizer_params virtualizer;
 	struct reverb_params reverb;
 	struct eq_params equalizer;
@@ -2212,6 +2213,14 @@ static int msm_compr_audio_effects_config_put(struct snd_kcontrol *kcontrol,
 						prtd->audio_client->topology))
 			msm_audio_effects_bass_boost_handler(prtd->audio_client,
 						   &(audio_effects->bass_boost),
+						     values);
+		break;
+	case PBE_MODULE:
+		pr_debug("%s: PBE_MODULE\n", __func__);
+		if (msm_audio_effects_is_effmodule_supp_in_top(effects_module,
+						prtd->audio_client->topology))
+			msm_audio_effects_pbe_handler(prtd->audio_client,
+						   &(audio_effects->pbe),
 						     values);
 		break;
 	case EQ_MODULE:
