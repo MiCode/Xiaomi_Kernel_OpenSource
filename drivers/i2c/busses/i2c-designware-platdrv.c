@@ -106,12 +106,12 @@ dw_i2c_acpi_space_handler(u32 function, acpi_physical_address address,
 	if (sb->type != ACPI_RESOURCE_SERIAL_TYPE_I2C)
 		return AE_BAD_PARAMETER;
 
-	pr_info("%s: Found I2C Resource type, addr %d\n",
+	pr_debug("%s: Found I2C Resource type, addr %d\n",
 				__func__, sb->slave_address);
 	target = sb->slave_address;
 
 	length = acpi_get_serial_access_length(accessor_type, info->access_length);
-	pr_info("%s: access opeation region, addr 0x%x operation %d len %d\n",
+	pr_debug("%s: access opeation region, addr 0x%x operation %d len %d\n",
 		__func__, addr, function, length);
 
 	if (!value64)
