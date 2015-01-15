@@ -80,6 +80,8 @@ enum req_unique_type {
  * @debug_test_result:	Exposes the test result to the user
  *			space
  * @start_sector:	The start sector for read/write requests
+ * @sector_range:	Range of the test, starting from start_sector
+ *			(in sectors)
  */
 struct test_debug {
 	struct dentry *debug_root;
@@ -87,6 +89,7 @@ struct test_debug {
 	struct dentry *debug_tests_root;
 	struct dentry *debug_test_result;
 	struct dentry *start_sector;
+	struct dentry *sector_range;
 };
 
 /**
@@ -193,6 +196,8 @@ struct blk_dev_test_type {
  *			new BIOs.
  * @start_sector:	The address of the first sector that can
  *			be accessed by the test
+ * @sector_range:	Range of the test, starting from start_sector
+ *			(in sectors)
  * @wr_rd_next_req_id:	A unique ID to identify WRITE/READ
  *			request to ease the debugging of the
  *			test cases
@@ -226,6 +231,7 @@ struct test_iosched {
 	struct request_queue *req_q;
 	int num_of_write_bios;
 	u32 start_sector;
+	u32 sector_range;
 	int wr_rd_next_req_id;
 	int unique_next_req_id;
 	spinlock_t lock;
