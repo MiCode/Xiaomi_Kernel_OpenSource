@@ -6,7 +6,7 @@ Security Network during initial connection or after a roam between
 APs occurs.  It might also happen during after the device handles a
 PTK rekeying operation.
 
-This design only supports key management offload in a station
+This design only supports key managment offload in a station
 (non-AP STA).
 
 There are a couple of possible advantages to offloading key
@@ -83,7 +83,8 @@ NL80211_KEY_MGMT_OFFLOAD_SUPPORT_PMKSA
    association connect time because the 802.1X authentication must
    first take place before the PMK is established.  The PMK will be
    passed to the driver using cfg80211_key_mgmt_set_pmk in this case
-   once it is known.
+   once it is known.  A new cipher suite type is defined to identify
+   the value as a PMK when cfg80211_add_key is used in this way.
 
 Indication
 ----------
