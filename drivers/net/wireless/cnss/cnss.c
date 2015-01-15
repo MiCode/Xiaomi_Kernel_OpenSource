@@ -107,6 +107,7 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 #define WLAN_SWREG_NAME		"wlan-soc-swreg"
 #define WLAN_EN_GPIO_NAME	"wlan-en-gpio"
 #define WLAN_BOOTSTRAP_GPIO_NAME "wlan-bootstrap-gpio"
+#define NUM_OF_BOOTSTRAP 3
 #define PM_OPTIONS		0
 #define PM_OPTIONS_SUSPEND_LINK_DOWN \
 	(MSM_PCIE_CONFIG_NO_CFG_RESTORE | MSM_PCIE_CONFIG_LINKDOWN)
@@ -269,7 +270,7 @@ static struct cnss_data {
 	u32 bdata_dma_size;
 	u32 bdata_seg_count;
 	struct segment_memory bdata_seg_mem[MAX_NUM_OF_SEGMENTS];
-	int wlan_bootstrap_gpio;
+	int wlan_bootstrap_gpio[NUM_OF_BOOTSTRAP];
 	atomic_t auto_suspended;
 	bool monitor_wake_intr;
 	atomic_t auto_suspend_prevent_count;
@@ -446,23 +447,23 @@ err_gpio_req:
 	return ret;
 }
 
-static int cnss_wlan_bootstrap_gpio_init(void)
+static int cnss_wlan_bootstrap_gpio_init(int index)
 {
 	int ret = 0;
+	int gpio = penv->wlan_bootstrap_gpio[index];
 
-	ret = gpio_request(penv->wlan_bootstrap_gpio, WLAN_BOOTSTRAP_GPIO_NAME);
+	ret = gpio_request(gpio, WLAN_BOOTSTRAP_GPIO_NAME);
 	if (ret) {
-		pr_err("%s: Can't get GPIO %s, ret = %d\n",
-			__func__, WLAN_BOOTSTRAP_GPIO_NAME, ret);
+		pr_err("%s: Can't get GPIO %d, ret = %d\n",
+			__func__, gpio, ret);
 		goto out;
 	}
 
-	ret = gpio_direction_output(penv->wlan_bootstrap_gpio,
-				WLAN_BOOTSTRAP_HIGH);
+	ret = gpio_direction_output(gpio, WLAN_BOOTSTRAP_HIGH);
 	if (ret) {
-		pr_err("%s: Can't set GPIO %s direction, ret = %d\n",
-			__func__, WLAN_BOOTSTRAP_GPIO_NAME, ret);
-		gpio_free(penv->wlan_bootstrap_gpio);
+		pr_err("%s: Can't set GPIO %d direction, ret = %d\n",
+			__func__, gpio, ret);
+		gpio_free(gpio);
 		goto out;
 	}
 
@@ -515,6 +516,7 @@ static int cnss_pinctrl_init(struct cnss_wlan_gpio_info *gpio_info,
 static int cnss_wlan_get_resources(struct platform_device *pdev)
 {
 	int ret = 0;
+	int i;
 	struct cnss_wlan_gpio_info *gpio_info = &penv->gpio_info;
 	struct cnss_wlan_vreg_info *vreg_info = &penv->vreg_info;
 
@@ -668,25 +670,23 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 
 	if (of_find_property((&pdev->dev)->of_node,
 		WLAN_BOOTSTRAP_GPIO_NAME, NULL)) {
-		penv->wlan_bootstrap_gpio =
+		for (i = 0; i < NUM_OF_BOOTSTRAP; i++) {
+			penv->wlan_bootstrap_gpio[i] =
 			of_get_named_gpio((&pdev->dev)->of_node,
-					WLAN_BOOTSTRAP_GPIO_NAME, 0);
-		if (penv->wlan_bootstrap_gpio > 0) {
-			ret = cnss_wlan_bootstrap_gpio_init();
-			if (ret)
-				goto err_gpio_init;
-		} else {
-			if (ret == -EPROBE_DEFER) {
-				pr_debug("%s: Get GPIO %s probe defer\n",
-					__func__, WLAN_BOOTSTRAP_GPIO_NAME);
+					WLAN_BOOTSTRAP_GPIO_NAME, i);
+			if (penv->wlan_bootstrap_gpio[i] > 0) {
+				ret = cnss_wlan_bootstrap_gpio_init(i);
+				if (ret)
+					goto err_gpio_init;
 			} else {
-				pr_err("%s: Can't get GPIO %s, ret = %d",
-					__func__, WLAN_BOOTSTRAP_GPIO_NAME,
-					ret);
+				pr_err("%s: Can't get GPIO-%d %d, ret = %d",
+				       __func__, i,
+				       penv->wlan_bootstrap_gpio[i],
+				       ret);
 			}
-			goto err_gpio_init;
 		}
 	}
+
 end:
 	return ret;
 
@@ -739,9 +739,12 @@ static void cnss_wlan_release_resources(void)
 {
 	struct cnss_wlan_gpio_info *gpio_info = &penv->gpio_info;
 	struct cnss_wlan_vreg_info *vreg_info = &penv->vreg_info;
+	int i;
 
-	if (penv->wlan_bootstrap_gpio > 0)
-		gpio_free(penv->wlan_bootstrap_gpio);
+	for (i = 0; i < NUM_OF_BOOTSTRAP; i++) {
+		if (penv->wlan_bootstrap_gpio[i] > 0)
+			gpio_free(penv->wlan_bootstrap_gpio[i]);
+	}
 	gpio_free(gpio_info->num);
 	gpio_info->state = WLAN_EN_LOW;
 	gpio_info->prop = false;
@@ -1655,6 +1658,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver)
 {
 	int ret = 0;
 	int probe_again = 0;
+	int i;
 	struct cnss_wlan_driver *wdrv;
 	struct cnss_wlan_vreg_info *vreg_info;
 	struct cnss_wlan_gpio_info *gpio_info;
@@ -1684,9 +1688,14 @@ again:
 
 	usleep(POWER_ON_DELAY);
 
-	if (penv->wlan_bootstrap_gpio > 0) {
-		gpio_set_value(penv->wlan_bootstrap_gpio, WLAN_BOOTSTRAP_HIGH);
-		msleep(WLAN_BOOTSTRAP_DELAY);
+	for (i = 0; i < NUM_OF_BOOTSTRAP; i++) {
+		if (penv->wlan_bootstrap_gpio[i] <= 0)
+			continue;
+		if (!gpio_get_value(penv->wlan_bootstrap_gpio[i])) {
+			gpio_set_value(penv->wlan_bootstrap_gpio[i],
+				       WLAN_BOOTSTRAP_HIGH);
+			msleep(WLAN_BOOTSTRAP_DELAY);
+		}
 	}
 
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_HIGH);
@@ -2606,6 +2615,7 @@ err_get_wlan_res:
 static int cnss_remove(struct platform_device *pdev)
 {
 	struct cnss_wlan_gpio_info *gpio_info = &penv->gpio_info;
+	int i;
 
 	unregister_pm_notifier(&cnss_pm_notifier);
 	device_remove_file(&pdev->dev, &dev_attr_fw_image_setup);
@@ -2630,8 +2640,11 @@ static int cnss_remove(struct platform_device *pdev)
 	}
 
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
-	if (penv->wlan_bootstrap_gpio > 0)
-		gpio_set_value(penv->wlan_bootstrap_gpio, WLAN_BOOTSTRAP_LOW);
+	for (i = 0; i < NUM_OF_BOOTSTRAP; i++) {
+		if (penv->wlan_bootstrap_gpio[i] > 0)
+			gpio_set_value(penv->wlan_bootstrap_gpio[i],
+				       WLAN_BOOTSTRAP_LOW);
+	}
 	cnss_wlan_release_resources();
 
 	return 0;
