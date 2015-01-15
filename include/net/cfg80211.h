@@ -2340,7 +2340,7 @@ struct cfg80211_ops {
 				    struct cfg80211_chan_def *chandef);
 
 	int	(*key_mgmt_set_pmk)(struct wiphy *wiphy, struct net_device *dev,
-				    const u8 *pmk, size_t pmk_len);
+				    const u8 *pmk);
 };
 
 /*
