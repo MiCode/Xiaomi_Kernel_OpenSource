@@ -304,6 +304,7 @@ int diag_dci_set_real_time(struct diag_dci_client_tbl *entry,
 			   uint8_t real_time);
 int diag_dci_copy_health_stats(struct diag_dci_health_stats_proc *stats_proc);
 int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len);
+void dci_drain_data(unsigned long data);
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 int diag_send_dci_log_mask_remote(int token);
