@@ -3327,6 +3327,7 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 	u32 tbl_size, r_size, g_size, b_size;
 	char __iomem *argc_addr = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 dirty_flag = 0;
 
 	if ((PP_BLOCK(config->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
 		(PP_BLOCK(config->block) >= MDP_BLOCK_MAX))
@@ -3351,11 +3352,13 @@ int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config,
 		argc_addr = mdss_mdp_get_mixer_addr_off(dspp_num) +
 			MDSS_MDP_REG_LM_GC_LUT_BASE;
 		pgc_ptr = &mdss_pp_res->argc_disp_cfg[disp_num];
+		dirty_flag = PP_FLAGS_DIRTY_ARGC;
 		break;
 	case MDSS_PP_DSPP_CFG:
 		argc_addr = mdss_mdp_get_dspp_addr_off(dspp_num) +
 					MDSS_MDP_REG_DSPP_GC_BASE;
 		pgc_ptr = &mdss_pp_res->pgc_disp_cfg[disp_num];
+		dirty_flag = PP_FLAGS_DIRTY_PGC;
 		break;
 	default:
 		goto argc_config_exit;
@@ -3434,61 +3437,51 @@ clock_off:
 			if (ret) {
 				pr_err("gamut set config failed ret %d\n",
 					ret);
-				if (is_lm)
-					mdss_pp_res->pp_disp_flags[disp_num]
-						&= ~PP_FLAGS_DIRTY_ARGC;
-				else
-					mdss_pp_res->pp_disp_flags[disp_num]
-						&= ~PP_FLAGS_DIRTY_PGC;
+				goto argc_config_exit;
 			}
-			goto argc_config_exit;
-		}
-		r_size = config->num_r_stages *
-			sizeof(struct mdp_ar_gc_lut_data);
-		g_size = config->num_g_stages *
-			sizeof(struct mdp_ar_gc_lut_data);
-		b_size = config->num_b_stages *
-			sizeof(struct mdp_ar_gc_lut_data);
-		if (r_size > tbl_size ||
-			g_size > tbl_size ||
-			b_size > tbl_size ||
-			r_size == 0 ||
-			g_size == 0 ||
-			b_size == 0) {
-			ret = -EINVAL;
-			pr_warn("%s, number of rgb stages invalid\n",
-				__func__);
-			goto argc_config_exit;
-		}
-		if (copy_from_user(&mdss_pp_res->gc_lut_r[disp_num][0],
-			config->r_data, r_size)) {
-			ret = -EFAULT;
-			goto argc_config_exit;
-		}
-		if (copy_from_user(&mdss_pp_res->gc_lut_g[disp_num][0],
-			config->g_data, g_size)) {
-			ret = -EFAULT;
-			goto argc_config_exit;
-		}
-		if (copy_from_user(&mdss_pp_res->gc_lut_b[disp_num][0],
-			config->b_data, b_size)) {
-			ret = -EFAULT;
-			goto argc_config_exit;
-		}
+		} else {
+			r_size = config->num_r_stages *
+				sizeof(struct mdp_ar_gc_lut_data);
+			g_size = config->num_g_stages *
+				sizeof(struct mdp_ar_gc_lut_data);
+			b_size = config->num_b_stages *
+				sizeof(struct mdp_ar_gc_lut_data);
+			if (r_size > tbl_size ||
+			    g_size > tbl_size ||
+			    b_size > tbl_size ||
+			    r_size == 0 ||
+			    g_size == 0 ||
+			    b_size == 0) {
+				ret = -EINVAL;
+				pr_warn("%s, number of rgb stages invalid\n",
+						__func__);
+				goto argc_config_exit;
+			}
+			if (copy_from_user(&mdss_pp_res->gc_lut_r[disp_num][0],
+						config->r_data, r_size)) {
+				ret = -EFAULT;
+				goto argc_config_exit;
+			}
+			if (copy_from_user(&mdss_pp_res->gc_lut_g[disp_num][0],
+						config->g_data, g_size)) {
+				ret = -EFAULT;
+				goto argc_config_exit;
+			}
+			if (copy_from_user(&mdss_pp_res->gc_lut_b[disp_num][0],
+						config->b_data, b_size)) {
+				ret = -EFAULT;
+				goto argc_config_exit;
+			}
 
-		*pgc_ptr = *config;
-		pgc_ptr->r_data =
-			&mdss_pp_res->gc_lut_r[disp_num][0];
-		pgc_ptr->g_data =
-			&mdss_pp_res->gc_lut_g[disp_num][0];
-		pgc_ptr->b_data =
-			&mdss_pp_res->gc_lut_b[disp_num][0];
-		if (PP_LOCAT(config->block) == MDSS_PP_LM_CFG)
-			mdss_pp_res->pp_disp_flags[disp_num] |=
-				PP_FLAGS_DIRTY_ARGC;
-		else if (PP_LOCAT(config->block) == MDSS_PP_DSPP_CFG)
-			mdss_pp_res->pp_disp_flags[disp_num] |=
-				PP_FLAGS_DIRTY_PGC;
+			*pgc_ptr = *config;
+			pgc_ptr->r_data =
+				&mdss_pp_res->gc_lut_r[disp_num][0];
+			pgc_ptr->g_data =
+				&mdss_pp_res->gc_lut_g[disp_num][0];
+			pgc_ptr->b_data =
+				&mdss_pp_res->gc_lut_b[disp_num][0];
+		}
+		mdss_pp_res->pp_disp_flags[disp_num] |= dirty_flag;
 	}
 argc_config_exit:
 	mutex_unlock(&mdss_pp_mutex);
