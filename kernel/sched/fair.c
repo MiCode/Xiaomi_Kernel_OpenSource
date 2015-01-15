@@ -6208,7 +6208,8 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 				   struct sched_group *sg,
 				   struct sg_lb_stats *sgs)
 {
-	int cpu;
+	int cpu, cpu_busiest;
+	unsigned int pc, pc_busiest;
 
 	if (sched_boost() && !sds->busiest && sgs->sum_nr_running &&
 		(env->idle != CPU_NOT_IDLE) && (capacity(env->dst_rq) >
@@ -6217,7 +6218,7 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 		return true;
 	}
 
-	if (sgs->avg_load <= sds->max_load)
+	if (sgs->avg_load < sds->max_load)
 		return false;
 
 	if (sgs->sum_nr_running > sgs->group_capacity) {
@@ -6230,21 +6231,34 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 		return true;
 	}
 
-	/* Mark a less power-efficient CPU as busy only if we haven't
-	 * seen a busy group yet and we are close to throttling. We want to
-	 * prioritize spreading work over power optimization.
+	/*
+	 * Mark a less power-efficient CPU as busy only we are close to
+	 * throttling. We want to prioritize spreading work over power
+	 * optimization.
 	 */
-	cpu = cpumask_first(sched_group_cpus(sg));
+	cpu = group_first_cpu(sg);
 	if (sysctl_sched_enable_power_aware &&
-	    !sds->busiest && (capacity(env->dst_rq) == group_rq_capacity(sg)) &&
+	    (!sds->busiest || (env->flags & LBF_PWR_ACTIVE_BALANCE)) &&
+	    (capacity(env->dst_rq) == group_rq_capacity(sg)) &&
 	    sgs->sum_nr_running && (env->idle != CPU_NOT_IDLE) &&
-	    power_cost_at_freq(env->dst_cpu, 0) <
-	    power_cost_at_freq(cpu, 0) &&
 	    !is_task_migration_throttled(cpu_rq(cpu)->curr) &&
 	    is_cpu_throttling_imminent(cpu)) {
-		env->flags |= LBF_PWR_ACTIVE_BALANCE;
-		return true;
+		pc = power_cost_at_freq(cpu, 0);
+		if (sds->busiest) {
+			cpu_busiest = group_first_cpu(sds->busiest);
+			pc_busiest = power_cost_at_freq(cpu_busiest, 0);
+			if (pc_busiest < pc)
+				return true;
+		} else {
+			if (power_cost_at_freq(env->dst_cpu, 0) < pc) {
+				env->flags |= LBF_PWR_ACTIVE_BALANCE;
+				return true;
+			}
+		}
 	}
+
+	if (sgs->avg_load == sds->max_load)
+		return false;
 
 	/*
 	 * ASYM_PACKING needs to move all the work to the lowest
