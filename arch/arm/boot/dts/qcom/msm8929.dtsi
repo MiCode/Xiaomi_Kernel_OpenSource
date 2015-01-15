@@ -12,6 +12,7 @@
  */
 
 #include "msm8939.dtsi"
+#include "msm8929-gpu.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8929";
@@ -21,4 +22,182 @@
 			<270 0>,
 			<271 0>;
 };
-#include "msm8929-gpu.dtsi"
+
+&soc {
+	/delete-node/ qcom,cpu-clock-8939@b111050;
+
+	clock_cpu:  qcom,cpu-clock-8939@b111050 {
+		compatible = "qcom,cpu-clock-8939";
+		reg =	<0xb111050 0x8>,
+			<0xb011050 0x8>,
+			<0xb1d1050 0x8>,
+			<0x5800c   0x8>;
+		reg-names = "apcs-c0-rcg-base", "apcs-c1-rcg-base",
+				"apcs-cci-rcg-base", "efuse";
+		vdd-c0-supply = <&apc_vreg_corner>;
+		vdd-c1-supply = <&apc_vreg_corner>;
+		vdd-cci-supply = <&apc_vreg_corner>;
+		clocks = <&clock_gcc clk_gpll0_ao>,
+			 <&clock_gcc clk_a53ss_c0_pll>,
+			 <&clock_gcc clk_gpll0_ao>,
+			 <&clock_gcc clk_a53ss_c1_pll>,
+			 <&clock_gcc clk_gpll0_ao>,
+			 <&clock_gcc clk_a53ss_cci_pll>;
+		clock-names = "clk-c0-4", "clk-c0-5",
+				"clk-c1-4", "clk-c1-5",
+				"clk-cci-4", "clk-cci-5";
+		qcom,speed0-bin-v0-c0 =
+			<          0 0>,
+			<  250000000 3>,
+			<  500000000 9>,
+			<  800000000 12>,
+			<  998400000 17>;
+
+		qcom,speed0-bin-v0-c1 =
+			<          0 0>,
+			<  400000000 3>,
+			<  800000000 9>,
+			<  960000000 12>,
+			< 1113600000 14>,
+			< 1363200000 17>;
+
+		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  200000000 3>,
+			<  300000000 11>,
+			<  400000000 15>,
+			<  600000000 17>;
+
+		qcom,speed2-bin-v0-c0 =
+			<          0 0>,
+			<  250000000 3>,
+			<  500000000 9>,
+			<  800000000 12>,
+			<  998400000 17>;
+
+		qcom,speed2-bin-v0-c1 =
+			<          0 0>,
+			<  400000000 3>,
+			<  800000000 9>,
+			<  960000000 12>,
+			< 1113600000 14>,
+			< 1363200000 17>;
+
+		qcom,speed2-bin-v0-cci =
+			<          0 0>,
+			<  200000000 3>,
+			<  300000000 11>,
+			<  400000000 15>,
+			<  600000000 17>;
+
+		qcom,speed4-bin-v0-c0 =
+			<          0 0>,
+			<  250000000 3>,
+			<  500000000 9>,
+			<  800000000 12>,
+			<  998400000 17>;
+
+		qcom,speed4-bin-v0-c1 =
+			<          0 0>,
+			<  400000000 3>,
+			<  800000000 9>,
+			<  960000000 12>,
+			< 1113600000 14>,
+			< 1363200000 17>;
+
+		qcom,speed4-bin-v0-cci =
+			<          0 0>,
+			<  200000000 3>,
+			<  300000000 11>,
+			<  400000000 15>,
+			<  600000000 17>;
+
+		qcom,speed5-bin-v0-c0 =
+			<          0 0>,
+			<  250000000 3>,
+			<  500000000 9>,
+			<  800000000 12>,
+			<  998400000 17>;
+
+		qcom,speed5-bin-v0-c1 =
+			<          0 0>,
+			<  400000000 3>,
+			<  800000000 9>,
+			<  960000000 12>,
+			< 1113600000 14>,
+			< 1363200000 17>;
+
+		qcom,speed5-bin-v0-cci =
+			<          0 0>,
+			<  200000000 3>,
+			<  300000000 11>,
+			<  400000000 15>,
+			<  600000000 17>;
+
+		#clock-cells = <1>;
+	};
+
+	qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk", "cpu4_clk", "cpu5_clk",
+				"cpu6_clk", "cpu7_clk";
+		clocks = <&clock_cpu clk_a53ssmux_cci>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_lc>,
+			 <&clock_cpu clk_a53ssmux_lc>,
+			 <&clock_cpu clk_a53ssmux_lc>,
+			 <&clock_cpu clk_a53ssmux_lc>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			 <  200000 >,
+			 <  345600 >,
+			 <  400000 >,
+			 <  533330 >,
+			 <  800000 >,
+                         <  960000 >,
+			 < 1113600 >,
+			 < 1363200 >;
+		qcom,cpufreq-table-4 =
+			 <  200000 >,
+			 <  249600 >,
+			 <  499200 >,
+			 <  800000 >,
+			 <  998400 >;
+	};
+};
+
+&apc_vreg_corner {
+		qcom,cpr-corner-frequency-map =
+			<1 200000000>,
+			<2 345600000>,
+			<3 400000000>,
+			<4 422400000>,
+			<5 499200000>,
+			<6 533330000>,
+			<7 652800000>,
+			<8 729600000>,
+			<9 800000000>,
+			<10 806400000>,
+			<11 883200000>,
+			<12 960000000>,
+			<13 1036800000>,
+			<14 1113600000>,
+			<15 1190400000>,
+			<16 1267200000>,
+			<17 1363200000>,
+			<18 1420800000>,
+			<19 1497600000>,
+			<20 1536000000>,
+			<21 1574400000>,
+			<22 1612800000>,
+			<23 1632000000>,
+			<24 1651200000>,
+			<25 1689600000>,
+			<26 1708800000>;
+};
