@@ -134,13 +134,15 @@
 	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
 	qcom,platform-te-gpio = <&msm_gpio 10 0>;
 	qcom,platform-bklight-en-gpio = <&pmi8994_gpios 2 0>;
-
-	qcom,dsi-panel-bias-vreg;
-	qcom,regulator-ldo-mode;
 };
 
 &mdss_dsi1 {
 	status = "disabled";
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
 };
 
 &pmx_hdmi_cec {
