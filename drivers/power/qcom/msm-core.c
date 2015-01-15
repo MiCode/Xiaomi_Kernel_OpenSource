@@ -457,13 +457,9 @@ static long msm_core_ioctl(struct file *file, unsigned int cmd,
 			pr_err("Userspace power update failed with %ld\n", ret);
 		break;
 	case EA_VOLT:
-		for (i = 0; i < MAX_CORES_PER_CLUSTER; i++, cpumask >>= 1) {
-			if (!(cpumask & 0x01))
-				continue;
-
-			mpidr |= i;
+		for (i = 0; cpumask > 0; i++, cpumask >>= 1) {
 			for_each_possible_cpu(cpu) {
-				if (cpu_logical_map(cpu) == mpidr)
+				if (cpu_logical_map(cpu) == (mpidr | i))
 					break;
 			}
 		}
