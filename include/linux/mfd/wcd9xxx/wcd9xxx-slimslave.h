@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,8 @@
 #define TAIKO_SB_PGD_MAX_NUMBER_OF_RX_SLAVE_DEV_PORTS 13
 
 #define SLIM_MAX_RX_PORTS TAIKO_SB_PGD_MAX_NUMBER_OF_RX_SLAVE_DEV_PORTS
+
+#define SLIM_MAX_REG_ADDR (0x180 + 4 * (SLIM_MAX_RX_PORTS))
 
 #define TABLA_SB_PGD_RX_PORT_MULTI_CHANNEL_0_START_PORT_ID \
 	TABLA_SB_PGD_OFFSET_OF_RX_SLAVE_DEV_PORTS

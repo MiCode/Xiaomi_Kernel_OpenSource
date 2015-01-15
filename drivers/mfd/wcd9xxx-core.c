@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -903,6 +903,7 @@ static struct dentry *debugfs_wcd9xxx_dent;
 static struct dentry *debugfs_peek;
 static struct dentry *debugfs_poke;
 static struct dentry *debugfs_power_state;
+static struct dentry *debugfs_reg_dump;
 
 static unsigned char read_data;
 
@@ -936,14 +937,54 @@ static int get_parameters(char *buf, long int *param1, int num_of_par)
 	return 0;
 }
 
+static ssize_t wcd9xxx_slimslave_reg_show(char __user *ubuf, size_t count,
+					  loff_t *ppos)
+{
+	int i, reg_val, len;
+	ssize_t total = 0;
+	char tmp_buf[20]; /* each line is 12 bytes but 20 for margin of error */
+
+	for (i = (int) *ppos / 12; i <= SLIM_MAX_REG_ADDR; i++) {
+		reg_val = wcd9xxx_interface_reg_read(debugCodec, i);
+		len = snprintf(tmp_buf, 25, "0x%.3x: 0x%.2x\n", i, reg_val);
+
+		if ((total + len) >= count - 1)
+			break;
+		if (copy_to_user((ubuf + total), tmp_buf, len)) {
+			pr_err("%s: fail to copy reg dump\n", __func__);
+			total = -EFAULT;
+			goto copy_err;
+		}
+		*ppos += len;
+		total += len;
+	}
+
+copy_err:
+	return total;
+}
+
 static ssize_t codec_debug_read(struct file *file, char __user *ubuf,
 				size_t count, loff_t *ppos)
 {
 	char lbuf[8];
+	char *access_str = file->private_data;
+	ssize_t ret_cnt;
 
-	snprintf(lbuf, sizeof(lbuf), "0x%x\n", read_data);
-	return simple_read_from_buffer(ubuf, count, ppos, lbuf,
-		strnlen(lbuf, 7));
+	if (*ppos < 0 || !count)
+		return -EINVAL;
+
+	if (!strcmp(access_str, "slimslave_peek")) {
+		snprintf(lbuf, sizeof(lbuf), "0x%x\n", read_data);
+		ret_cnt = simple_read_from_buffer(ubuf, count, ppos, lbuf,
+					       strnlen(lbuf, 7));
+	} else if (!strcmp(access_str, "slimslave_reg_dump")) {
+		ret_cnt = wcd9xxx_slimslave_reg_show(ubuf, count, ppos);
+	} else {
+		pr_err("%s: %s not permitted to read\n", __func__, access_str);
+		ret_cnt = -EPERM;
+	}
+
+	return ret_cnt;
 }
 
 /*
@@ -2070,6 +2111,10 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 		debugfs_power_state = debugfs_create_file("power_state",
 		S_IFREG | S_IRUGO, debugfs_wcd9xxx_dent,
 		(void *) "power_state", &codec_debug_ops);
+
+		debugfs_reg_dump = debugfs_create_file("slimslave_reg_dump",
+		S_IFREG | S_IRUGO, debugfs_wcd9xxx_dent,
+		(void *) "slimslave_reg_dump", &codec_debug_ops);
 	}
 #endif
 
