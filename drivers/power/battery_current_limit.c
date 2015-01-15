@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -874,12 +874,15 @@ mode_store(struct device *dev, struct device_attribute *attr,
 	if (!gbcl)
 		return -EPERM;
 
-	if (!strcmp(buf, "enable"))
+	if (!strcmp(buf, "enable")) {
 		bcl_mode_set(BCL_DEVICE_ENABLED);
-	else if (!strcmp(buf, "disable"))
+		pr_info("bcl enabled\n");
+	} else if (!strcmp(buf, "disable")) {
 		bcl_mode_set(BCL_DEVICE_DISABLED);
-	else
+		pr_info("bcl disabled\n");
+	} else {
 		return -EINVAL;
+	}
 
 	return count;
 }
@@ -1179,6 +1182,7 @@ static ssize_t hotplug_mask_store(struct device *dev,
 		return ret;
 
 	bcl_hotplug_mask = val;
+	pr_info("bcl hotplug mask updated to %d\n", bcl_hotplug_mask);
 
 	return count;
 }
@@ -1197,6 +1201,7 @@ static ssize_t hotplug_soc_mask_store(struct device *dev,
 		return ret;
 
 	bcl_soc_hotplug_mask = val;
+	pr_info("bcl soc hotplug mask updated to %d\n", bcl_soc_hotplug_mask);
 
 	return count;
 }
