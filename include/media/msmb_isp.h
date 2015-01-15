@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -412,6 +412,7 @@ struct msm_isp_buf_request {
 struct msm_isp_qbuf_plane {
 	uint32_t addr;
 	uint32_t offset;
+	uint32_t length;
 };
 
 struct msm_isp_qbuf_buffer {
