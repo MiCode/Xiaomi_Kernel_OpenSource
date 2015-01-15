@@ -862,16 +862,6 @@
 			};
 		};
        };
-
-       qcom,pmi8994@3 {
-              qcom,leds@d000 {
-                     qcom,rgb_2 {
-                            status = "ok";
-                            qcom,default-state = "on";
-                            qcom,turn-off-delay-ms = <5000>;
-                     };
-              };
-       };
 };
 
 &spi_epm {
