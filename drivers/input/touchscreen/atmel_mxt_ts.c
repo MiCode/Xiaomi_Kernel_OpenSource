@@ -3768,6 +3768,12 @@ static int mxt_probe(struct i2c_client *client,
 		gpio = devm_gpiod_get_index(&client->dev, "atml_gpio_rst", 0);
 		if (!IS_ERR(gpio)) {
 			pdata->gpio_reset = desc_to_gpio(gpio);
+			/*reset chip in case of I2C mode pin is configured
+			* after power on touch chip without keep reset active
+			*/
+			gpiod_direction_output(gpio_to_desc(pdata->gpio_reset),
+						0);
+			ndelay(100);
 			gpiod_direction_output(gpio_to_desc(pdata->gpio_reset),
 						1);
 
