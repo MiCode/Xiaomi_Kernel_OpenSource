@@ -73,6 +73,9 @@
 #define CURSOR_PIPE_LEFT 0
 #define CURSOR_PIPE_RIGHT 1
 
+#define MASTER_CTX 0
+#define SLAVE_CTX 1
+
 /*
  * Recommendation is to have different ot depending on the fps
  * and resolution, but since current SW doesn't support different
@@ -288,6 +291,7 @@ struct mdss_mdp_ctl {
 	struct blocking_notifier_head notifier_head;
 
 	void *priv_data;
+	void *intf_ctx[2];
 	u32 wb_type;
 	bool prg_fet;
 };

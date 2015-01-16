@@ -2269,6 +2269,12 @@ static void mdss_mdp_ctl_split_display_enable(int enable,
 				lower |= BIT(4);
 			else
 				lower |= BIT(8);
+			/*
+			 * Enable SMART_PANEL_FREE_RUN if ping pong split
+			 * is enabled.
+			 */
+			if (is_pingpong_split(main_ctl->mfd))
+				lower |= BIT(2);
 			upper = lower;
 		} else {
 			/* interface controlling sw trigger (video mode) */
