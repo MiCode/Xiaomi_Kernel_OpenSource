@@ -15,11 +15,12 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/types.h>
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-device.h>
 #include <asm/intel-mid.h>
 
 #include "wv511.h"
+
+#define INIT_FOCUS_POS 350
 
 //#define WV_DEBUG 1
 #define wv511_debug dev_err
@@ -35,6 +36,7 @@ static int wv511_i2c_write(struct i2c_client *client, u16 data)
 	//struct i2c_client *client = v4l2_get_subdevdata(sd);
 	wv511_debug(&client->dev, "_wv511_: %s: wr %x\n",__func__,data);
 #endif
+
 	val = cpu_to_be16(data);
 	msg.addr = wv511_VCM_ADDR;
 	msg.flags = 0;
@@ -46,30 +48,6 @@ static int wv511_i2c_write(struct i2c_client *client, u16 data)
 
 	return ret == num_msg ? 0 : -EIO;
 }
-
-int wv511_vcm_power_up(struct v4l2_subdev *sd)
-{
-	int ret;
-#ifdef WV_DEBUG
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	wv511_debug(&client->dev, "_wv511_: %s: wv511_vcm_power_up\n",__func__);
-#endif
-	/* Enable power */
-	ret = wv511_dev.platform_data->power_ctrl(sd, 1);
-	usleep_range(12000, 12500);
-	return ret;
-}
-
-int wv511_vcm_power_down(struct v4l2_subdev *sd)
-{
-#ifdef WV_DEBUG
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	wv511_debug(&client->dev, "_wv511_: %s: wv511_vcm_power_down\n",__func__);
-#endif
-
-	return wv511_dev.platform_data->power_ctrl(sd, 0);
-}
-
 
 int wv511_t_focus_vcm(struct v4l2_subdev *sd, u16 val)
 {
@@ -186,8 +164,6 @@ int wv511_vcm_init(struct v4l2_subdev *sd)
 	wv511_dev.vcm_mode = wv511_DIRECT;
 	wv511_dev.vcm_settings.slew_rate_setting = 0;
 	wv511_dev.vcm_settings.dac_code = 0;
-	wv511_dev.platform_data = camera_get_af_platform_data();
-	return (NULL == wv511_dev.platform_data) ? -ENODEV : 0;
 
+	return wv511_t_focus_abs(sd, INIT_FOCUS_POS);
 }
-

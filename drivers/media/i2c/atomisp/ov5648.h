@@ -168,10 +168,7 @@ struct otp_struct {
 		int B_gain;
 };
 struct ov5648_vcm {
-	int (*power_up) (struct v4l2_subdev *sd);
-	int (*power_down) (struct v4l2_subdev *sd);
 	int (*init) (struct v4l2_subdev *sd);
-	int (*t_focus_vcm) (struct v4l2_subdev *sd, u16 val);
 	int (*t_focus_abs) (struct v4l2_subdev *sd, s32 value);
 	int (*t_focus_rel) (struct v4l2_subdev *sd, s32 value);
 	int (*q_focus_status) (struct v4l2_subdev *sd, s32 *value);
@@ -754,32 +751,6 @@ static int N_RES = N_RES_PREVIEW;
 //static int has_otp = -1;	/*0:has valid otp, 1:no valid otp */
 
 #define WV511  0x11
-#define DW9714 0x14
-#define VM149  0x49
-extern int dw9714_vcm_power_up(struct v4l2_subdev *sd);
-extern int dw9714_vcm_power_down(struct v4l2_subdev *sd);
-extern int dw9714_vcm_init(struct v4l2_subdev *sd);
-extern int dw9714_t_focus_vcm(struct v4l2_subdev *sd, u16 val);
-extern int dw9714_t_focus_abs(struct v4l2_subdev *sd, s32 value);
-extern int dw9714_t_focus_rel(struct v4l2_subdev *sd, s32 value);
-extern int dw9714_q_focus_status(struct v4l2_subdev *sd, s32 *value);
-extern int dw9714_q_focus_abs(struct v4l2_subdev *sd, s32 *value);
-extern int dw9714_t_vcm_slew(struct v4l2_subdev *sd, s32 value);
-extern int dw9714_t_vcm_timing(struct v4l2_subdev *sd, s32 value);
-
-extern int vm149_vcm_power_up(struct v4l2_subdev *sd);
-extern int vm149_vcm_power_down(struct v4l2_subdev *sd);
-extern int vm149_vcm_init(struct v4l2_subdev *sd);
-extern int vm149_t_focus_vcm(struct v4l2_subdev *sd, u16 val);
-extern int vm149_t_focus_abs(struct v4l2_subdev *sd, s32 value);
-extern int vm149_t_focus_rel(struct v4l2_subdev *sd, s32 value);
-extern int vm149_q_focus_status(struct v4l2_subdev *sd, s32 *value);
-extern int vm149_q_focus_abs(struct v4l2_subdev *sd, s32 *value);
-extern int vm149_t_vcm_slew(struct v4l2_subdev *sd, s32 value);
-extern int vm149_t_vcm_timing(struct v4l2_subdev *sd, s32 value);
-
-extern int wv511_vcm_power_up(struct v4l2_subdev *sd);
-extern int wv511_vcm_power_down(struct v4l2_subdev *sd);
 extern int wv511_vcm_init(struct v4l2_subdev *sd);
 extern int wv511_t_focus_vcm(struct v4l2_subdev *sd, u16 val);
 extern int wv511_t_focus_abs(struct v4l2_subdev *sd, s32 value);
@@ -790,12 +761,8 @@ extern int wv511_t_vcm_slew(struct v4l2_subdev *sd, s32 value);
 extern int wv511_t_vcm_timing(struct v4l2_subdev *sd, s32 value);
 
 struct ov5648_vcm ov5648_vcms[] = {
-#ifdef CONFIG_VCM_WV511
 	[WV511] = {
-		.power_up = wv511_vcm_power_up,
-		.power_down = wv511_vcm_power_down,
 		.init = wv511_vcm_init,
-		.t_focus_vcm = wv511_t_focus_vcm,
 		.t_focus_abs = wv511_t_focus_abs,
 		.t_focus_rel = wv511_t_focus_rel,
 		.q_focus_status = wv511_q_focus_status,
@@ -803,35 +770,6 @@ struct ov5648_vcm ov5648_vcms[] = {
 		.t_vcm_slew = wv511_t_vcm_slew,
 		.t_vcm_timing = wv511_t_vcm_timing,
 	},
-#endif
-#ifdef CONFIG_VCM_DW9714
-	[DW9714] = {
-		    .power_up = dw9714_vcm_power_up,
-		    .power_down = dw9714_vcm_power_down,
-		    .init = dw9714_vcm_init,
-		    .t_focus_vcm = dw9714_t_focus_vcm,
-		    .t_focus_abs = dw9714_t_focus_abs,
-		    .t_focus_rel = dw9714_t_focus_rel,
-		    .q_focus_status = dw9714_q_focus_status,
-		    .q_focus_abs = dw9714_q_focus_abs,
-		    .t_vcm_slew = dw9714_t_vcm_slew,
-		    .t_vcm_timing = dw9714_t_vcm_timing,
-		    },
-#endif
-#if 0
-	[VM149] = {
-		   .power_up = vm149_vcm_power_up,
-		   .power_down = vm149_vcm_power_down,
-		   .init = vm149_vcm_init,
-		   .t_focus_vcm = vm149_t_focus_vcm,
-		   .t_focus_abs = vm149_t_focus_abs,
-		   .t_focus_rel = vm149_t_focus_rel,
-		   .q_focus_status = vm149_q_focus_status,
-		   .q_focus_abs = vm149_q_focus_abs,
-		   .t_vcm_slew = vm149_t_vcm_slew,
-		   .t_vcm_timing = vm149_t_vcm_timing,
-		   },
-#endif
 };
 
 #endif

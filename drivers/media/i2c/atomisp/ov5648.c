@@ -40,6 +40,11 @@
 
 #include "ov5648.h"
 
+// This code was originally written to be compiled =y, so it lacks the
+// module system handling needed to make modpost.  Just include here
+// for now.  Will be replaced with a proper VCM driver soon.
+#include "wv511.c"
+
 #define OV5648_DEBUG_EN 0
 #define ov5648_debug(...) // dev_err(__VA_ARGS__)
 
@@ -580,38 +585,6 @@ err:
 	return ret;
 }
 
-int ov5648_vcm_power_up(struct v4l2_subdev *sd)
-{
-	struct ov5648_device *dev = to_ov5648_sensor(sd);
-	if (dev->vcm_driver && dev->vcm_driver->power_up)
-		return dev->vcm_driver->power_up(sd);
-	return 0;
-}
-
-int ov5648_vcm_power_down(struct v4l2_subdev *sd)
-{
-	struct ov5648_device *dev = to_ov5648_sensor(sd);
-	if (dev->vcm_driver && dev->vcm_driver->power_down)
-		return dev->vcm_driver->power_down(sd);
-	return 0;
-}
-
-int ov5648_vcm_init(struct v4l2_subdev *sd)
-{
-	struct ov5648_device *dev = to_ov5648_sensor(sd);
-	if (dev->vcm_driver && dev->vcm_driver->init)
-		return dev->vcm_driver->init(sd);
-	return 0;
-}
-
-int ov5648_t_focus_vcm(struct v4l2_subdev *sd, u16 val)
-{
-	struct ov5648_device *dev = to_ov5648_sensor(sd);
-	if (dev->vcm_driver && dev->vcm_driver->t_focus_vcm)
-		return dev->vcm_driver->t_focus_vcm(sd, val);
-	return 0;
-}
-
 int ov5648_t_focus_abs(struct v4l2_subdev *sd, s32 value)
 {
 	struct ov5648_device *dev = to_ov5648_sensor(sd);
@@ -972,6 +945,9 @@ static int ov5648_init(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "ov5648 write global settings err.\n");
 		return ret;
 	}
+
+	if (dev->vcm_driver)
+		dev->vcm_driver->init(&dev->sd);
 
 	mutex_unlock(&dev->input_lock);
 
@@ -1457,11 +1433,7 @@ static int ov5648_s_power(struct v4l2_subdev *sd, int on)
 	dev_dbg(&client->dev, "@%s:\n", __func__);
 	if (on == 0) {
 		ret = power_down(sd);
-		if (dev->vcm_driver && dev->vcm_driver->power_down)
-			ret |= dev->vcm_driver->power_down(sd);
 	} else {
-		if (dev->vcm_driver && dev->vcm_driver->power_up)
-			ret = dev->vcm_driver->power_up(sd);
 		if (ret)
 			return ret;
 
@@ -2048,6 +2020,8 @@ static int ov5648_probe(struct i2c_client *client,
 		goto out_free;
 	}
 
+	dev->vcm_driver = &ov5648_vcms[WV511];
+
 	ret = ov5648_s_config(&dev->sd, client->irq, pdata);
 	if (ret)
 		goto out_free;
@@ -2055,17 +2029,6 @@ static int ov5648_probe(struct i2c_client *client,
 	ret = atomisp_register_i2c_module(&dev->sd, pdata, RAW_CAMERA);
 	if (ret)
 		goto out_free;
-
-#ifdef CONFIG_VCM_WV511
-	dev->vcm_driver = &ov5648_vcms[WV511];
-	dev->vcm_driver->init(&dev->sd);
-	dev_err(&client->dev, "CONFIG_VIDEO_WV511\n");
-#elif defined (CONFIG_VCM_DW9714)
-		/*set default vcm driver*/
-	dev_info(&client->dev, "Set default VCM driver\n");
-	dev->vcm_driver = &ov5648_vcms[DW9714];
-	dev->vcm_driver->init(&dev->sd);
-#endif
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
