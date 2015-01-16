@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -774,47 +774,6 @@ static int32_t msm_actuator_park_lens(struct msm_actuator_ctrl_t *a_ctrl)
 				__func__, __LINE__);
 			return rc;
 		}
-		a_ctrl->i2c_tbl_index = 0;
-		/* Use typical damping time delay to avoid tick sound */
-		usleep_range(10000, 12000);
-	}
-
-	return 0;
-}
-
-static int32_t msm_actuator_bivcm_park_lens(struct msm_actuator_ctrl_t *a_ctrl)
-{
-	int32_t rc = 0;
-	uint16_t next_lens_pos = 0;
-
-	a_ctrl->i2c_tbl_index = 0;
-	if ((a_ctrl->curr_step_pos > a_ctrl->total_steps) ||
-		(!a_ctrl->park_lens.max_step) ||
-		(!a_ctrl->step_position_table) ||
-		(!a_ctrl->i2c_reg_tbl) ||
-		(!a_ctrl->func_tbl)) {
-		pr_err("%s:%d Failed to park lens.\n",
-			__func__, __LINE__);
-		return 0;
-	}
-
-	if (a_ctrl->park_lens.max_step > a_ctrl->max_code_size)
-		a_ctrl->park_lens.max_step = a_ctrl->max_code_size;
-
-	next_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
-	while (next_lens_pos) {
-		next_lens_pos = (next_lens_pos > a_ctrl->park_lens.max_step) ?
-			(next_lens_pos - a_ctrl->park_lens.max_step) : 0;
-		rc = msm_actuator_bivcm_handle_i2c_ops(a_ctrl,
-			next_lens_pos, a_ctrl->park_lens.hw_params,
-			a_ctrl->park_lens.damping_delay);
-		if (rc < 0) {
-			pr_err("%s: Failed msm_actuator_bivcm_handle_i2c_ops %d\n",
-				__func__, __LINE__);
-			return rc;
-		}
-
-
 		a_ctrl->i2c_tbl_index = 0;
 		/* Use typical damping time delay to avoid tick sound */
 		usleep_range(10000, 12000);
@@ -1899,7 +1858,7 @@ static struct msm_actuator msm_bivcm_actuator_table = {
 		.actuator_init_focus = msm_actuator_init_focus,
 		.actuator_parse_i2c_params = NULL,
 		.actuator_set_position = msm_actuator_bivcm_set_position,
-		.actuator_park_lens = msm_actuator_bivcm_park_lens,
+		.actuator_park_lens = NULL,
 	},
 };
 
