@@ -1147,7 +1147,7 @@ int iommu_map(struct iommu_domain *domain, unsigned long iova,
 	if (ret)
 		iommu_unmap(domain, orig_iova, orig_size - size);
 	else
-		trace_map(iova, paddr, size);
+		trace_map(orig_iova, paddr, orig_size);
 
 	trace_map_end(iova, paddr, size);
 	return ret;
