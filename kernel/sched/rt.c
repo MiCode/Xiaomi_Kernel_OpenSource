@@ -1085,6 +1085,30 @@ void dec_rt_group(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq) {}
 
 #endif /* CONFIG_RT_GROUP_SCHED */
 
+#ifdef CONFIG_SCHED_HMP
+
+static void
+inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
+{
+	inc_cumulative_runnable_avg(&rq->hmp_stats, p);
+}
+
+static void
+dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
+{
+	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
+}
+
+#else	/* CONFIG_SCHED_HMP */
+
+static inline void
+inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
+
+static inline void
+dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
+
+#endif	/* CONFIG_SCHED_HMP */
+
 static inline
 void inc_rt_tasks(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq)
 {
@@ -1207,6 +1231,7 @@ enqueue_task_rt(struct rq *rq, struct task_struct *p, int flags)
 		enqueue_pushable_task(rq, p);
 
 	inc_nr_running(rq);
+	inc_hmp_sched_stats_rt(rq, p);
 }
 
 static void dequeue_task_rt(struct rq *rq, struct task_struct *p, int flags)
@@ -1219,6 +1244,7 @@ static void dequeue_task_rt(struct rq *rq, struct task_struct *p, int flags)
 	dequeue_pushable_task(rq, p);
 
 	dec_nr_running(rq);
+	dec_hmp_sched_stats_rt(rq, p);
 }
 
 /*
@@ -1567,12 +1593,15 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	}
 	return best_cpu;
 }
-#else
+
+#else	/* CONFIG_SCHED_HMP */
+
 static int find_lowest_rq_hmp(struct task_struct *task)
 {
 	return -1;
 }
-#endif
+
+#endif	/* CONFIG_SCHED_HMP */
 
 static int find_lowest_rq(struct task_struct *task)
 {
@@ -2009,6 +2038,7 @@ void init_sched_rt_class(void)
 					GFP_KERNEL, cpu_to_node(i));
 	}
 }
+
 #endif /* CONFIG_SMP */
 
 /*
@@ -2187,6 +2217,10 @@ const struct sched_class rt_sched_class = {
 
 	.prio_changed		= prio_changed_rt,
 	.switched_to		= switched_to_rt,
+#ifdef CONFIG_SCHED_HMP
+	.inc_hmp_sched_stats	= inc_hmp_sched_stats_rt,
+	.dec_hmp_sched_stats	= dec_hmp_sched_stats_rt,
+#endif
 };
 
 #ifdef CONFIG_SCHED_DEBUG

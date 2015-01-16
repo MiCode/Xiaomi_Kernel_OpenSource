@@ -84,6 +84,20 @@ static unsigned int get_rr_interval_idle(struct rq *rq, struct task_struct *task
 	return 0;
 }
 
+#ifdef CONFIG_SCHED_HMP
+
+static void
+inc_hmp_sched_stats_idle(struct rq *rq, struct task_struct *p)
+{
+}
+
+static void
+dec_hmp_sched_stats_idle(struct rq *rq, struct task_struct *p)
+{
+}
+
+#endif
+
 /*
  * Simple, special scheduling class for the per-CPU idle tasks:
  */
@@ -112,4 +126,8 @@ const struct sched_class idle_sched_class = {
 
 	.prio_changed		= prio_changed_idle,
 	.switched_to		= switched_to_idle,
+#ifdef CONFIG_SCHED_HMP
+	.inc_hmp_sched_stats	= inc_hmp_sched_stats_idle,
+	.dec_hmp_sched_stats	= dec_hmp_sched_stats_idle,
+#endif
 };
