@@ -318,8 +318,8 @@ do {									\
 	P(max_freq);
 #endif
 #ifdef CONFIG_SCHED_HMP
-	P(nr_big_tasks);
-	P(nr_small_tasks);
+	P(hmp_stats.nr_big_tasks);
+	P(hmp_stats.nr_small_tasks);
 #endif
 #undef P
 #undef PN

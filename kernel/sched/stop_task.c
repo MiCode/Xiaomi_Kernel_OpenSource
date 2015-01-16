@@ -17,6 +17,30 @@ select_task_rq_stop(struct task_struct *p, int cpu, int sd_flag, int flags)
 }
 #endif /* CONFIG_SMP */
 
+#ifdef CONFIG_SCHED_HMP
+
+static void
+inc_hmp_sched_stats_stop(struct rq *rq, struct task_struct *p)
+{
+	inc_cumulative_runnable_avg(&rq->hmp_stats, p);
+}
+
+static void
+dec_hmp_sched_stats_stop(struct rq *rq, struct task_struct *p)
+{
+	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
+}
+
+#else	/* CONFIG_SCHED_HMP */
+
+static inline void
+inc_hmp_sched_stats_stop(struct rq *rq, struct task_struct *p) { }
+
+static inline void
+dec_hmp_sched_stats_stop(struct rq *rq, struct task_struct *p) { }
+
+#endif	/* CONFIG_SCHED_HMP */
+
 static void
 check_preempt_curr_stop(struct rq *rq, struct task_struct *p, int flags)
 {
@@ -42,12 +66,14 @@ static void
 enqueue_task_stop(struct rq *rq, struct task_struct *p, int flags)
 {
 	add_nr_running(rq, 1);
+	inc_hmp_sched_stats_stop(rq, p);
 }
 
 static void
 dequeue_task_stop(struct rq *rq, struct task_struct *p, int flags)
 {
 	sub_nr_running(rq, 1);
+	dec_hmp_sched_stats_stop(rq, p);
 }
 
 static void yield_task_stop(struct rq *rq)
@@ -133,4 +159,8 @@ const struct sched_class stop_sched_class = {
 	.prio_changed		= prio_changed_stop,
 	.switched_to		= switched_to_stop,
 	.update_curr		= update_curr_stop,
+#ifdef CONFIG_SCHED_HMP
+	.inc_hmp_sched_stats	= inc_hmp_sched_stats_stop,
+	.dec_hmp_sched_stats	= dec_hmp_sched_stats_stop,
+#endif
 };
