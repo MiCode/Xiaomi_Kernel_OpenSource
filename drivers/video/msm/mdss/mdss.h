@@ -122,6 +122,7 @@ enum mdss_bus_clients {
 
 enum mdss_hw_quirk {
 	MDSS_QUIRK_BWCPANIC,
+	MDSS_QUIRK_DOWNSCALE_HANG,
 	MDSS_QUIRK_MAX,
 };
 
