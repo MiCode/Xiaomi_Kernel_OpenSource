@@ -309,6 +309,7 @@
 &labibb {
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
+	qcom,qpnp-ibb-discharge-resistor = <32>;
 };
 
 &pmx_hdmi_cec {
