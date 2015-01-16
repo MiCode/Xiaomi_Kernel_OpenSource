@@ -115,7 +115,7 @@ static inline int smc_fastcall(void *fc_generic, size_t size)
 #define MC_CRYPTO_CLOCK_MANAGEMENT
 #endif
 
-#if defined(CONFIG_ARCH_MSM8916)
+#if defined(CONFIG_ARCH_MSM8916) || defined(CONFIG_ARCH_MSM8909)
 #define MC_USE_DEVICE_TREE
 #endif
 
