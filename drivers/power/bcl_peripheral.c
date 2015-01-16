@@ -544,7 +544,6 @@ static void bcl_handle_ibat(struct work_struct *work)
 		pr_err("Invalid state %d\n", perph_data->state);
 		return;
 	}
-	disable_irq(perph_data->irq_num);
 	perph_data->state = BCL_PARAM_POLLING;
 	ret = perph_data->read_max(&val);
 	if (ret)
@@ -570,7 +569,6 @@ static void bcl_handle_vbat(struct work_struct *work)
 		pr_err("Invalid state %d\n", perph_data->state);
 		return;
 	}
-	disable_irq(perph_data->irq_num);
 	perph_data->state = BCL_PARAM_POLLING;
 	ret = perph_data->read_max(&val);
 	if (ret)
@@ -592,6 +590,7 @@ static irqreturn_t bcl_handle_isr(int irq, void *data)
 		(struct bcl_peripheral_data *)data;
 
 	if (perph_data->state == BCL_PARAM_MONITOR) {
+		disable_irq_nosync(perph_data->irq_num);
 		perph_data->state = BCL_PARAM_TRIPPED;
 		queue_work(bcl_perph->bcl_isr_wq, &perph_data->isr_work);
 	}
