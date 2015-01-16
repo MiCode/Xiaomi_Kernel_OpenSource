@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,7 +158,6 @@ struct msm_isp_buf_mgr {
 	int init_done;
 	uint32_t open_count;
 	uint32_t pagefault_debug;
-	spinlock_t lock;
 	uint16_t num_buf_q;
 	struct msm_isp_bufq *bufq;
 
@@ -186,6 +185,7 @@ struct msm_isp_buf_mgr {
 	struct device *iommu_secure_ctx[2];
 	int attach_ref_cnt[MAX_PROTECTION_MODE][MAX_IOMMU_CTX];
 	enum msm_isp_buf_mgr_state attach_state;
+	struct mutex lock;
 };
 
 int msm_isp_create_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
