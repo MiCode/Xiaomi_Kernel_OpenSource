@@ -3054,8 +3054,6 @@ int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config,
 		(config->block >= MDP_BLOCK_MAX))
 		return -EINVAL;
 
-	if (config->len != IGC_LUT_ENTRIES)
-		return -EINVAL;
 
 	if ((config->ops & MDSS_PP_SPLIT_MASK) == MDSS_PP_SPLIT_MASK) {
 		pr_warn("Can't set both split bits\n");
@@ -3066,6 +3064,12 @@ int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config,
 	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
 
 	if (config->ops & MDP_PP_OPS_READ) {
+		if (config->len != IGC_LUT_ENTRIES &&
+		    !pp_ops[IGC].pp_get_config) {
+			pr_err("invalid len for IGC table for read %d\n",
+			       config->len);
+			return -EINVAL;
+		}
 		ret = pp_get_dspp_num(disp_num, &dspp_num);
 		if (ret) {
 			pr_err("%s, no dspp connects to disp %d\n",
@@ -3090,6 +3094,7 @@ int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config,
 			pp_read_igc_lut_cached(&local_cfg);
 		else {
 			if (pp_ops[IGC].pp_get_config) {
+				config->block = dspp_num;
 				pp_ops[IGC].pp_get_config(igc_addr, config,
 							  DSPP, disp_num);
 				goto clock_off;
@@ -3125,6 +3130,11 @@ clock_off:
 				goto igc_config_exit;
 			} else
 				goto igc_set_dirty;
+		}
+		if (config->len != IGC_LUT_ENTRIES) {
+			pr_err("invalid len for IGC table for write %d\n",
+			       config->len);
+			return -EINVAL;
 		}
 		if (copy_from_kernel) {
 			memcpy(&mdss_pp_res->igc_lut_c0c1[disp_num][0],
