@@ -39,6 +39,9 @@ Required properties:
 	light ratio above 0.99.
  - liteon,wakeup-threshold	: Threshold in centimeter to wake up SoC in
 	suspend mode when proximity is enabled.
+ - liteon,als-sensitivity	: Ambient light sensitivity in lux. This array
+	configures how much light intensity change will trigger a light sensor
+	event under different als gain configuration. The array size must be 8.
 
  Example:
 
@@ -59,5 +62,6 @@ Required properties:
 		 liteon,ps-pulses = <4>;
 		 liteon,wakeup-threshold = <4>;
 		 liteon,als-integration-time = <0>;
+		 liteon,als-sensitivity = <6000 3200 1600 800 0 0 130 1>;
 	 };
  }
