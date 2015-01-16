@@ -21,6 +21,7 @@
 enum inv_mpu_product_name {
 	INV_MPU_NOT_MATCHED,
 	INV_MPU_ASUS_T100TA,
+	INV_MPU_MALATA,
 };
 
 static enum inv_mpu_product_name matched_product_name;
@@ -28,6 +29,13 @@ static enum inv_mpu_product_name matched_product_name;
 static int __init asus_t100_matched(const struct dmi_system_id *d)
 {
 	matched_product_name = INV_MPU_ASUS_T100TA;
+
+	return 0;
+}
+
+static int __init malata_matched(const struct dmi_system_id *d)
+{
+	matched_product_name = INV_MPU_MALATA;
 
 	return 0;
 }
@@ -40,6 +48,15 @@ static const struct dmi_system_id inv_mpu_dev_list[] = {
 			DMI_MATCH(DMI_SYS_VENDOR, "ASUSTeK COMPUTER INC"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "T100TA"),
 			DMI_MATCH(DMI_PRODUCT_VERSION, "1.0"),
+		},
+	},
+	{
+	/*  Malata tablet */
+	.callback = malata_matched,
+	.ident = "Malata",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_NAME, "MALATA8"),
+			DMI_MATCH(DMI_BOARD_VERSION, "0"),
 		},
 	},
 	/* Add more matching tables here..*/
@@ -151,6 +168,8 @@ int inv_mpu_acpi_create_mux_client(struct inv_mpu6050_state *st)
 
 		dmi_check_system(inv_mpu_dev_list);
 		switch (matched_product_name) {
+		/* Malata has the same BIOS implementation with T100TA */
+		case INV_MPU_MALATA:
 		case INV_MPU_ASUS_T100TA:
 			ret = asus_acpi_get_sensor_info(adev, st->client,
 							&info);
