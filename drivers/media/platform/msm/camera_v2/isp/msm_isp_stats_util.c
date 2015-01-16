@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,8 +73,9 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream *stream_info,
 	uint32_t *comp_stats_type_mask)
 {
-	int32_t rc = 0;
+	int32_t rc = 0, frame_id = 0, drop_buffer = 0;
 	struct msm_isp_stats_event *stats_event = NULL;
+	struct msm_isp_sw_framskip *sw_skip = NULL;
 
 	if (!vfe_dev || !done_buf || !ts || !buf_event || !stream_info ||
 		!comp_stats_type_mask) {
@@ -83,16 +84,40 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 			stream_info, comp_stats_type_mask);
 		return -EINVAL;
 	}
-
+	frame_id = vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+	sw_skip = &stream_info->sw_skip;
 	stats_event = &buf_event->u.stats;
+
+	if (sw_skip->stats_type_mask &
+		(1 << stream_info->stats_type)) {
+		/* Hw stream output of this src is requested
+		   for drop */
+		if (sw_skip->skip_mode == SKIP_ALL) {
+			/* drop all buffers */
+			drop_buffer = 1;
+		} else if (sw_skip->skip_mode == SKIP_RANGE &&
+		(sw_skip->min_frame_id <= frame_id &&
+		sw_skip->max_frame_id >= frame_id)) {
+			drop_buffer = 1;
+		} else if (frame_id > sw_skip->max_frame_id) {
+			memset(sw_skip, 0, sizeof
+				(struct msm_isp_sw_framskip));
+		}
+	}
+
 	rc = vfe_dev->buf_mgr->ops->buf_divert(
 		vfe_dev->buf_mgr, done_buf->bufq_handle,
 		done_buf->buf_idx, &ts->buf_time,
-		vfe_dev->axi_data.
-		src_info[VFE_PIX_0].frame_id);
+		frame_id);
 	if (rc != 0)
 		return rc;
-
+	if (drop_buffer) {
+		vfe_dev->buf_mgr->ops->put_buf(
+			vfe_dev->buf_mgr,
+			done_buf->bufq_handle,
+			done_buf->buf_idx);
+		return rc;
+	}
 	stats_event->stats_buf_idxs
 		[stream_info->stats_type] =
 		done_buf->buf_idx;
@@ -135,7 +160,6 @@ static int32_t msm_isp_stats_configure(struct vfe_device *vfe_dev,
 	for (i = 0; i < vfe_dev->hw_info->stats_hw_info->num_stats_type; i++) {
 		if (!(stats_irq_mask & (1 << i)))
 			continue;
-
 		stream_info = &vfe_dev->stats_data.stream_info[i];
 		done_buf = NULL;
 		msm_isp_stats_cfg_ping_pong_address(vfe_dev,
@@ -673,6 +697,7 @@ int msm_isp_update_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
 	struct msm_vfe_axi_stream_update_cmd *update_cmd = arg;
 	struct msm_vfe_axi_stream_cfg_update_info *update_info = NULL;
+	struct msm_isp_sw_framskip *sw_skip_info = NULL;
 
 	/*validate request*/
 	for (i = 0; i < update_cmd->num_streams; i++) {
@@ -711,6 +736,24 @@ int msm_isp_update_stats_stream(struct vfe_device *vfe_dev, void *arg)
 			if (stream_info->init_stats_frame_drop == 0)
 				vfe_dev->hw_info->vfe_ops.stats_ops.cfg_wm_reg(
 					vfe_dev, stream_info);
+			break;
+		}
+		case UPDATE_STREAM_SW_FRAME_DROP: {
+			sw_skip_info = &update_info->sw_skip_info;
+			if (!stream_info->sw_skip.stream_src_mask)
+				stream_info->sw_skip = *sw_skip_info;
+
+			if (sw_skip_info->stats_type_mask != 0) {
+				/* No image buffer skip, only stats skip */
+				pr_debug("%s:%x skip type %x mode %d min %d max %d\n",
+					__func__, stream_info->stream_id,
+					sw_skip_info->stats_type_mask,
+					sw_skip_info->skip_mode,
+					sw_skip_info->min_frame_id,
+					sw_skip_info->max_frame_id);
+				stream_info->sw_skip.stats_type_mask =
+					sw_skip_info->stats_type_mask;
+			}
 			break;
 		}
 
