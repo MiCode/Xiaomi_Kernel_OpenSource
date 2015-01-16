@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -408,6 +408,102 @@ static ssize_t tpda_store_freq_req(struct device *dev,
 static DEVICE_ATTR(freq_req, S_IRUGO | S_IWUSR, tpda_show_freq_req,
 		   tpda_store_freq_req);
 
+static ssize_t tpda_show_global_flush_req(struct device *dev,
+					  struct device_attribute *attr,
+					  char *buf)
+{
+	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	mutex_lock(&drvdata->lock);
+
+	TPDA_UNLOCK(drvdata);
+	val = tpda_readl(drvdata, TPDA_CR);
+	TPDA_LOCK(drvdata);
+
+	mutex_unlock(&drvdata->lock);
+	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
+}
+
+static ssize_t tpda_store_global_flush_req(struct device *dev,
+					   struct device_attribute *attr,
+					   const char *buf,
+					   size_t size)
+{
+	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->lock);
+
+	if (!drvdata->enable) {
+		mutex_unlock(&drvdata->lock);
+		return -EPERM;
+	}
+
+	if (val) {
+		TPDA_UNLOCK(drvdata);
+		val = tpda_readl(drvdata, TPDA_CR);
+		val = val | BIT(0);
+		tpda_writel(drvdata, val, TPDA_CR);
+		TPDA_LOCK(drvdata);
+	}
+
+	mutex_unlock(&drvdata->lock);
+	return size;
+}
+static DEVICE_ATTR(global_flush_req, S_IRUGO | S_IWUSR,
+		   tpda_show_global_flush_req, tpda_store_global_flush_req);
+
+static ssize_t tpda_show_port_flush_req(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	mutex_lock(&drvdata->lock);
+
+	TPDA_UNLOCK(drvdata);
+	val = tpda_readl(drvdata, TPDA_FLUSH_CR);
+	TPDA_LOCK(drvdata);
+
+	mutex_unlock(&drvdata->lock);
+	return scnprintf(buf, PAGE_SIZE, "%lx\n", val);
+}
+
+static ssize_t tpda_store_port_flush_req(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf,
+					 size_t size)
+{
+	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long val;
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->lock);
+
+	if (!drvdata->enable) {
+		mutex_unlock(&drvdata->lock);
+		return -EPERM;
+	}
+
+	if (val) {
+		TPDA_UNLOCK(drvdata);
+		tpda_writel(drvdata, val, TPDA_FLUSH_CR);
+		TPDA_LOCK(drvdata);
+	}
+
+	mutex_unlock(&drvdata->lock);
+	return size;
+}
+static DEVICE_ATTR(port_flush_req, S_IRUGO | S_IWUSR, tpda_show_port_flush_req,
+		   tpda_store_port_flush_req);
+
 static struct attribute *tpda_attrs[] = {
 	&dev_attr_trig_async_enable.attr,
 	&dev_attr_trig_flag_ts_enable.attr,
@@ -415,6 +511,8 @@ static struct attribute *tpda_attrs[] = {
 	&dev_attr_freq_ts_enable.attr,
 	&dev_attr_freq_req_val.attr,
 	&dev_attr_freq_req.attr,
+	&dev_attr_global_flush_req.attr,
+	&dev_attr_port_flush_req.attr,
 	NULL,
 };
 
