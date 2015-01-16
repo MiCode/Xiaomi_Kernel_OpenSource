@@ -1026,13 +1026,11 @@ static int qpnp_lab_regulator_set_voltage(struct regulator_dev *rdev,
 		return -EINVAL;
 	}
 
-	val |= LAB_VOLTAGE_OVERRIDE_EN;
-
 	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
 				REG_LAB_VOLTAGE,
 				LAB_VOLTAGE_SET_MASK |
 				LAB_VOLTAGE_OVERRIDE_EN,
-				val,
+				val | LAB_VOLTAGE_OVERRIDE_EN,
 				1);
 
 	if (rc) {
@@ -1910,13 +1908,11 @@ static int qpnp_ibb_regulator_set_voltage(struct regulator_dev *rdev,
 		return -EINVAL;
 	}
 
-	val |= IBB_VOLTAGE_OVERRIDE_EN;
-
 	rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
 				REG_IBB_VOLTAGE,
 				IBB_VOLTAGE_SET_MASK |
 				IBB_VOLTAGE_OVERRIDE_EN,
-				val,
+				val | IBB_VOLTAGE_OVERRIDE_EN,
 				1);
 
 	if (rc) {
