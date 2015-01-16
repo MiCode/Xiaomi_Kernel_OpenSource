@@ -52,6 +52,7 @@
 		qcom,mdss-pipe-dma-off = <0x00025000 0x00027000>;
 		qcom,mdss-pipe-cursor-off = <0x00035000>;
 		qcom,mdss-ppb-off = <0x00000334>;
+		qcom,mdss-slave-pingpong-off = <0x00073000>;
 
 		qcom,mdss-pipe-vig-fetch-id = <1 4 7>;
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
