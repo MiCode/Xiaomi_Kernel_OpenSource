@@ -344,11 +344,17 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	pwr->previous_pwrlevel = old_level;
 
 	/*
+	 * If the bus is running faster than its default level and the GPU
+	 * frequency is moving down keep the DDR at a relatively high level.
+	 */
+	if (pwr->bus_mod < 0 || new_level < old_level) {
+		pwr->bus_mod = 0;
+		pwr->bus_percent_ab = 0;
+	}
+	/*
 	 * Update the bus before the GPU clock to prevent underrun during
 	 * frequency increases.
 	 */
-	pwr->bus_mod = 0;
-	pwr->bus_percent_ab = 0;
 	kgsl_pwrctrl_buslevel_update(device, true);
 
 	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
