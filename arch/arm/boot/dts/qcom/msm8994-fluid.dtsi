@@ -477,7 +477,7 @@
 	};
 
 	sound {
-		qcom,model = "msm8994-tomtom-mtp-snd-card";
+		qcom,model = "msm8994-tomtom-fluid-snd-card";
 		qcom,us-euro-gpios = <&pm8994_mpps 2 0>;
 		qcom,cdc-micbias2-headset-only;
 		qcom,mbhc-audio-jack-type = "6-pole-jack";
