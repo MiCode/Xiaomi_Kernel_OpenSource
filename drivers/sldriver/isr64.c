@@ -11,7 +11,6 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  */
-
 #ifndef APP_MODE
 #include <linux/spinlock.h>
 #include <linux/module.h>
@@ -41,6 +40,7 @@ __asm__ ( \
         "patch_str_idt_vector = 0xAADDBBCCAADDBBCC\n"   \
         "patch_str_enter_page = 0xBBDDAACCBBDDAACC\n" \
         "patch_str_exit_page = 0xCCAADDBBCCAADDBB\n" \
+		"patch_str_secs_scv_un = 0xDDBBAACCDDBBAACC\n" \
         ".att_syntax\n" \
       );
 
@@ -471,7 +471,21 @@ __asm__ (
         "cmp rax, r9;\n"
         "jz exit_code_cookie_check_ok;\n"
 
-        //VMCALL here to assert
+		/* For view0, cookie value check will fail when running
+		 * in EPT environment because we do not reveal the secure
+		 * cookie value to the untrusted view. */
+		"mov rbx, [rdx+secs.eid];\n"
+		"cmp rbx, 0;\n"
+		"jnz assert_invalid_secs;\n"
+
+		/* For unstrusted view, we compare the secs->scv with untrusted
+		 * scv */
+		"mov r9, patch_str_secs_scv_un;\n"
+		"cmp rax, r9;\n"
+		"jz exit_code_cookie_check_ok;\n"
+
+		"assert_invalid_secs:\n"
+		/* VMCALL here to assert only for trusted view */
         "mov eax, vmcall_assert;\n"
         "vmcall;\n"
 
@@ -835,11 +849,18 @@ __asm__ (
         "shl ecx, shift_size_secs_pcd;\n"
         "add rsi, rcx;\n" //get ptr to core-specific pcd
 
-        //swap fs 
+		/* swap fs */
         "mov rax, [rsi+secs.pcd.gdtr];\n"
         "xor rcx, rcx;\n"
         "mov cx, [ebx+tcs.save_fs_selector];\n"
+		"mov edx, ecx;\n"
         "and ecx, 0xFFF8;\n" //shift TI and RPL fields out and mul by 8
+		"and edx, 4;\n" /* fs.TI */
+		"cmp edx, 0;\n"
+		"je  cont_fs_restore_aex;\n"
+		"mov rax, [rsi+secs.pcd.ldtr];\n" /* restore in LDT */
+
+		"cont_fs_restore_aex:\n"
         "add rax, rcx;\n"
         "mov ecx, [ebx+tcs.save_fs_desc_low];\n"
         "mov [rax], ecx;\n"
@@ -854,8 +875,15 @@ __asm__ (
         "mov rax, [rsi+secs.pcd.gdtr];\n"
         "xor rcx, rcx;\n"
         "mov cx, [ebx+tcs.save_gs_selector];\n"
+		"mov edx, ecx;\n"
         "shr ecx, 3;\n" //shift TI and RPL fields out
         "shl ecx, 3;\n" //selector x 8 (bytes)
+		"and edx, 4;\n" /* gs.TI */
+		"cmp edx, 0;\n"
+		"je  cont_gs_restore_aex;\n"
+		"mov rax, [rsi+secs.pcd.ldtr];\n" /* restore GS in LDT */
+
+		"cont_gs_restore_aex:\n"
         "add rax, rcx;\n"
         "mov ecx, [ebx+tcs.save_gs_desc_low];\n"
         "mov [rax], ecx;\n"
@@ -1208,7 +1236,14 @@ __asm__ (
         "mov rax, [rdi+secs.pcd.gdtr];\n" //gdtr in eax
         "xor rcx, rcx;\n"
         "mov cx, [rbx+tcs.save_fs_selector];\n"
+		"mov edx, ecx;\n"
         "and rcx, 0xFFF8;\n" //shift TI and RPL fields out and mul by 8
+		"and edx, 4;\n" /* fs.TI */
+		"cmp edx, 0;\n"
+		"je cont_fs_restore_exit;\n"
+		"mov rax,[rdi+secs.pcd.ldtr];\n" /* restore in LDT */
+
+		"cont_fs_restore_exit:\n"
         "add rax, rcx;\n"
         "mov rcx, [rbx+tcs.save_fs_desc_low];\n"
         "mov [rax], rcx;\n"
@@ -1223,8 +1258,15 @@ __asm__ (
         "mov rax, [rdi+secs.pcd.gdtr];\n" //gdtr in eax
         "xor rcx, rcx;\n"
         "mov cx, [rbx+tcs.save_gs_selector];\n"
+		"mov edx, ecx;\n"
         "shr rcx, 3;\n" //shift TI and RPL fields out
         "shl rcx, 3;\n" //selector x 8 (bytes)
+		"and edx, 4;\n" /* gs.TI */
+		"cmp edx, 0;\n"
+		"je cont_gs_restore_exit;\n"
+		"mov rax,[rdi+secs.pcd.ldtr];\n" /* restore gs in LDT */
+
+		"cont_gs_restore_exit:\n"
         "add rax, rcx;\n"
         "mov rcx, [rbx+tcs.save_gs_desc_low];\n"
         "mov [rax], rcx;\n"
@@ -1583,7 +1625,7 @@ __asm__ (
         "mov rdx, patch_str_secs_ptr;\n"
         "mov rax, [rdx+secs.scv];\n"
         "enter_eresume_code_cmp_patch1:\n"
-        "mov r9, patch_str_secs_scv;\n"
+		"mov r9, patch_str_secs_scv_un;\n"
         "cmp rax, r9;\n"
         "jz view_0_secs_check_ok;\n"
         "mov ecx, 0x1;\n"

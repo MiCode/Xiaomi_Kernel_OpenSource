@@ -32,6 +32,7 @@ enum sl_patch_type_t {
     PATCH_TYPE_IDT_VECTOR,
     PATCH_TYPE_ENTER_PAGE,
     PATCH_TYPE_EXIT_PAGE,
+	PATCH_TYPE_SECS_SCV_UN
 };
 
 typedef struct {

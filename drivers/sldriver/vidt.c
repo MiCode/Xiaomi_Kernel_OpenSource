@@ -49,6 +49,7 @@ void restore_os_idt(void);
 #define PRINT_ALWAYS 1
 #define PRINT_DEBUG  0
 #define KdPrint(flag, x) if (flag) { printk x; }
+#define SECS_SCV_UNTRUSTED (0xDDBBAACCDDBBAACC)
 
 #define ADD_REGION(map, start, npages, patch, npatches, nbytes) \
     do {    \
@@ -873,7 +874,7 @@ int setup_vidt(void)
     //numbers while debugging.
     /*setup psuedo SECS for view 0 -- note this is for test*/
     memset((char*)secs_ptr, 0, 0x1000);
-    secs_ptr->scv = 0xAABBCCDD;
+	secs_ptr->scv = SECS_SCV_UNTRUSTED;
     //secs_ptr->size = 4096;
     secs_ptr->size = 0x6A000;
     secs_ptr->base = 0; /*fill in for testing with simple app*/
@@ -1210,7 +1211,7 @@ int setup_vidt(void)
             (unsigned long)enter_eresume_code;
         enter_eresume_code_patch[1].val = (unsigned long)~0x0;
         enter_eresume_code_patch[1].offset = enter_eresume_code_offset + MOV_OPCODE_SIZE;
-        enter_eresume_code_patch[1].type = PATCH_TYPE_SECS_SCV;
+		enter_eresume_code_patch[1].type = PATCH_TYPE_SECS_SCV_UN;
 
 
         enter_eresume_code_offset = (unsigned long)enter_eresume_code_cmp_patch2 -
