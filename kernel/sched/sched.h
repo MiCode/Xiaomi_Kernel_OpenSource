@@ -393,6 +393,11 @@ struct cfs_rq {
 	struct task_group *tg;	/* group that "owns" this runqueue */
 
 #ifdef CONFIG_CFS_BANDWIDTH
+
+#ifdef CONFIG_SCHED_HMP
+	struct hmp_sched_stats hmp_stats;
+#endif
+
 	int runtime_enabled;
 	u64 runtime_expires;
 	s64 runtime_remaining;
@@ -899,20 +904,11 @@ extern unsigned int sched_upmigrate;
 extern unsigned int sched_downmigrate;
 extern unsigned int sched_init_task_load_pelt;
 extern unsigned int sched_init_task_load_windows;
-#ifdef CONFIG_SCHED_HMP
-extern void fixup_nr_big_small_task(int cpu);
 extern u64 scale_load_to_cpu(u64 load, int cpu);
-#else
-static inline void fixup_nr_big_small_task(int cpu) {}
-
-static inline u64 scale_load_to_cpu(u64 load, int cpu)
-{
-	return load;
-}
-#endif
 extern unsigned int sched_heavy_task;
-extern void fixup_nr_big_small_task(int cpu);
-unsigned int max_task_load(void);
+extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
+extern void fixup_nr_big_small_task(int cpu, int reset_stats);
+extern unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock);
 unsigned int cpu_temp(int cpu);
@@ -988,6 +984,15 @@ static inline int sched_cpu_high_irqload(int cpu)
 #else	/* CONFIG_SCHED_HMP */
 
 struct hmp_sched_stats;
+
+static inline void fixup_nr_big_small_task(int cpu, int reset_stats)
+{
+}
+
+static inline u64 scale_load_to_cpu(u64 load, int cpu)
+{
+	return load;
+}
 
 static inline int pct_task_load(struct task_struct *p) { return 0; }
 

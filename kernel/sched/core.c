@@ -2083,8 +2083,9 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 #ifdef CONFIG_SCHED_FREQ_INPUT
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 #endif
-		rq->hmp_stats.cumulative_runnable_avg = 0;
-		fixup_nr_big_small_task(cpu);
+		reset_cpu_hmp_stats(cpu, 1);
+
+		fixup_nr_big_small_task(cpu, 0);
 	}
 
 	if (sched_window_stats_policy != sysctl_sched_window_stats_policy) {
