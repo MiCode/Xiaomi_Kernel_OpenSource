@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -362,7 +362,7 @@ static struct clk_freq_tbl ftbl_vcodec0_clk_src[] = {
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
 	F_MM( 133330000,     mmsscc_gpll0,  4.5,    0,     0),
 	F_MM( 200000000,  mmpll0_out_main,    4,    0,     0),
-	F_MM( 266670000,  mmpll0_out_main,    3,    0,     0),
+	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
 	F_MM( 510000000,  mmpll3_out_main,    2,    0,     0),
 	F_END
 };
@@ -377,7 +377,7 @@ static struct rcg_clk vcodec0_clk_src = {
 		.dbg_name = "vcodec0_clk_src",
 		.ops = &clk_ops_rcg_mnd,
 		VDD_DIG_FMAX_MAP4(LOWER, 66670000, LOW, 133330000,
-				  NOMINAL, 266670000, HIGH, 510000000),
+				  NOMINAL, 320000000, HIGH, 510000000),
 		CLK_INIT(vcodec0_clk_src.c),
 	},
 };
