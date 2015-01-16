@@ -247,6 +247,7 @@ static int dw_i2c_acpi_configure(struct platform_device *pdev)
 	if (shared_host != 0) {
 		dev_info(&pdev->dev, "Share controller with PUNIT\n");
 		dev->shared_host = 1;
+		dev->polling = 1;
 		dev->acquire_ownership = dw_i2c_acquire_ownership;
 		dev->release_ownership = dw_i2c_release_ownership;
 	}
@@ -336,11 +337,26 @@ static int dw_i2c_probe(struct platform_device *pdev)
 		dev->adapter.nr = pdev->id;
 	}
 
+	if (dev->shared_host && dev->acquire_ownership) {
+		r = dev->acquire_ownership();
+		if (r < 0) {
+			dev_WARN(dev->dev, "%s couldn't acquire ownership\n",
+					__func__);
+			return r;
+		}
+	}
 	r = i2c_dw_init(dev);
-	if (r)
+	if (r) {
+		if (dev->shared_host && dev->release_ownership)
+			dev->release_ownership();
 		return r;
+	}
 
 	i2c_dw_disable_int(dev);
+
+	if (dev->shared_host && dev->release_ownership)
+		dev->release_ownership();
+
 	r = devm_request_irq(&pdev->dev, dev->irq, i2c_dw_isr, IRQF_SHARED,
 			pdev->name, dev);
 	if (r) {
@@ -408,18 +424,11 @@ static int dw_i2c_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
 
-	if (i_dev->shared_host && i_dev->acquire_ownership) {
-		if (i_dev->acquire_ownership() < 0) {
-			dev_WARN(i_dev->dev, "Couldn't acquire ownership\n");
-			return 0;
-		}
-	}
+	if (i_dev->polling)
+		return 0;
 
 	i2c_dw_disable(i_dev);
 	clk_disable_unprepare(i_dev->clk);
-
-	if (i_dev->shared_host && i_dev->release_ownership)
-		i_dev->release_ownership();
 
 	return 0;
 }
@@ -429,18 +438,11 @@ static int dw_i2c_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
 
-	if (i_dev->shared_host && i_dev->acquire_ownership) {
-		if (i_dev->acquire_ownership() < 0) {
-			dev_WARN(i_dev->dev, "Couldn't acquire ownership\n");
-			return 0;
-		}
-	}
+	if (i_dev->polling)
+		return 0;
 
 	clk_prepare_enable(i_dev->clk);
 	i2c_dw_init(i_dev);
-
-	if (i_dev->shared_host && i_dev->release_ownership)
-		i_dev->release_ownership();
 
 	return 0;
 }

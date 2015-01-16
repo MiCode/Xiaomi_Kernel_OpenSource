@@ -105,6 +105,7 @@ struct dw_i2c_dev {
 	u16			fs_hcnt;
 	u16			fs_lcnt;
 	int			shared_host;
+	int                     polling;
 	int			(*acquire_ownership) (void);
 	int			(*release_ownership) (void);
 };
