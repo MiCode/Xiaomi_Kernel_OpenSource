@@ -210,6 +210,62 @@ int blk_rq_map_sg(struct request_queue *q, struct request *rq,
 }
 EXPORT_SYMBOL(blk_rq_map_sg);
 
+
+/*
+ * map a request to scatterlist without combining PHY CONT
+ * blocks, return number of sg entries setup. Caller
+ * must make sure sg can hold rq->nr_phys_segments entries
+ */
+int blk_rq_map_sg_no_cluster(struct request_queue *q, struct request *rq,
+		  struct scatterlist *sglist)
+{
+	struct bio_vec *bvec, *bvprv;
+	struct req_iterator iter;
+	struct scatterlist *sg;
+	int nsegs, cluster = 0;
+
+	nsegs = 0;
+
+	/*
+	 * for each bio in rq
+	 */
+	bvprv = NULL;
+	sg = NULL;
+	rq_for_each_segment(bvec, rq, iter) {
+		__blk_segment_map_sg(q, bvec, sglist, &bvprv, &sg,
+				     &nsegs, &cluster);
+	} /* segments in rq */
+
+
+	if (unlikely(rq->cmd_flags & REQ_COPY_USER) &&
+	    (blk_rq_bytes(rq) & q->dma_pad_mask)) {
+		unsigned int pad_len =
+			(q->dma_pad_mask & ~blk_rq_bytes(rq)) + 1;
+
+		sg->length += pad_len;
+		rq->extra_len += pad_len;
+	}
+
+	if (q->dma_drain_size && q->dma_drain_needed(rq)) {
+		if (rq->cmd_flags & REQ_WRITE)
+			memset(q->dma_drain_buffer, 0, q->dma_drain_size);
+
+		sg->page_link &= ~0x02;
+		sg = sg_next(sg);
+		sg_set_page(sg, virt_to_page(q->dma_drain_buffer),
+			    q->dma_drain_size,
+			    ((unsigned long)q->dma_drain_buffer) &
+			    (PAGE_SIZE - 1));
+		nsegs++;
+		rq->extra_len += q->dma_drain_size;
+	}
+
+	if (sg)
+		sg_mark_end(sg);
+
+	return nsegs;
+}
+EXPORT_SYMBOL(blk_rq_map_sg_no_cluster);
 /**
  * blk_bio_map_sg - map a bio to a scatterlist
  * @q: request_queue in question
