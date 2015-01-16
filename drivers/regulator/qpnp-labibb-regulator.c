@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,17 +201,17 @@ static const int ibb_discharge_resistor_plan[] = {
 };
 
 static const int ibb_pwrup_dly_plan[] = {
-	1250,
-	2500,
-	5000,
-	10000,
+	1000,
+	2000,
+	4000,
+	8000,
 };
 
 static const int ibb_pwrdn_dly_plan[] = {
-	1250,
-	2500,
-	5000,
-	10000,
+	1000,
+	2000,
+	4000,
+	8000,
 };
 
 static const int lab_clk_div_plan[] = {
@@ -810,64 +810,119 @@ static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
 {
 	int rc;
 	u8 val = IBB_ENABLE_CTL_EN;
+	int dly;
+	int retries;
+	bool enabled = false;
 
 	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_ENABLE_CTL,
 		&val, 1);
 
 	if (rc) {
-		pr_err("qpnp_labibb_regulator_enable write register %x failed rc = %d\n",
-			REG_IBB_ENABLE_CTL, rc);
+		pr_err("%s: write register %x failed rc = %d\n",
+				__func__, REG_IBB_ENABLE_CTL, rc);
 		return rc;
 	}
 
-	udelay(labibb->lab_vreg.soft_start);
+	/* total delay time */
+	dly = labibb->lab_vreg.soft_start + labibb->ibb_vreg.soft_start
+				+ labibb->ibb_vreg.pwrup_dly;
+	usleep_range(dly, dly + 100);
 
+	/* after this delay, lab should be enabled */
 	rc = qpnp_labibb_read(labibb, &val,
 			labibb->lab_base + REG_LAB_STATUS1, 1);
 	if (rc) {
-		pr_err("qpnp_labibb_regulator_enable read register %x failed rc = %d\n",
-			REG_LAB_STATUS1, rc);
-		return rc;
+		pr_err("%s: read register %x failed rc = %d\n",
+				__func__, REG_LAB_STATUS1, rc);
+		goto err_out;
 	}
 
-	if ((val & LAB_STATUS1_VREG_OK_MASK) != LAB_STATUS1_VREG_OK) {
-		pr_err("qpnp_labibb_regulator_enable failed\n");
-		return -EINVAL;
+	pr_debug("%s: soft=%d %d up=%d dly=%d\n", __func__,
+		labibb->lab_vreg.soft_start, labibb->ibb_vreg.soft_start,
+				labibb->ibb_vreg.pwrup_dly, dly);
+
+	if (!(val & LAB_STATUS1_VREG_OK)) {
+		pr_err("%s:  failed for LAB %x\n", __func__, val);
+		goto err_out;
 	}
 
-	udelay(labibb->ibb_vreg.soft_start + labibb->ibb_vreg.pwrup_dly);
+	/* poll IBB_STATUS to make sure ibb had been enabled */
+	dly = labibb->ibb_vreg.soft_start + labibb->ibb_vreg.pwrup_dly;
+	retries = 10;
+	while (retries--) {
+		rc = qpnp_labibb_read(labibb, &val,
+				labibb->ibb_base + REG_IBB_STATUS1, 1);
+		if (rc) {
+			pr_err("%s: read register %x failed rc = %d\n",
+				__func__, REG_IBB_STATUS1, rc);
+			goto err_out;
+		}
 
-	rc = qpnp_labibb_read(labibb, &val,
-			labibb->ibb_base + REG_IBB_STATUS1, 1);
-	if (rc) {
-		pr_err("qpnp_labibb_regulator_enable read register %x failed rc = %d\n",
-			REG_IBB_STATUS1, rc);
-		return rc;
+		if (val & IBB_STATUS1_VREG_OK) {
+			enabled = true;
+			break;
+		}
+		usleep_range(dly, dly + 100);
 	}
 
-	if ((val & IBB_STATUS1_VREG_OK_MASK) != IBB_STATUS1_VREG_OK) {
-		pr_err("qpnp_labibb_regulator_enable failed\n");
-		return -EINVAL;
+	if (!enabled) {
+		pr_err("%s:  failed for IBB %x\n", __func__, val);
+		goto err_out;
 	}
 
 	labibb->lab_vreg.vreg_enabled = 1;
 	labibb->ibb_vreg.vreg_enabled = 1;
 
 	return 0;
+err_out:
+	val = 0;
+	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_ENABLE_CTL,
+		&val, 1);
+	if (rc)
+		pr_err("%s: write register %x failed rc = %d\n",
+				__func__, REG_IBB_ENABLE_CTL, rc);
+	return -EINVAL;
 }
 
 static int qpnp_labibb_regulator_disable(struct qpnp_labibb *labibb)
 {
 	int rc;
 	u8 val;
+	int dly;
+	int retries;
+	bool disabled = false;
 
 	val = 0;
 	rc = qpnp_labibb_write(labibb,
 			labibb->ibb_base + REG_IBB_ENABLE_CTL, &val, 1);
 	if (rc) {
-		pr_err("qpnp_lab_regulator_enable write register %x failed rc = %d\n",
-			REG_IBB_ENABLE_CTL, rc);
+		pr_err("%s: write register %x failed rc = %d\n",
+			__func__, REG_IBB_ENABLE_CTL, rc);
 		return rc;
+	}
+
+	/* poll IBB_STATUS to make sure ibb had been disabled */
+	dly = labibb->ibb_vreg.pwrdn_dly;
+	retries = 2;
+	while (retries--) {
+		usleep_range(dly, dly + 100);
+		rc = qpnp_labibb_read(labibb, &val,
+				labibb->ibb_base + REG_IBB_STATUS1, 1);
+		if (rc) {
+			pr_err("%s: read register %x failed rc = %d\n",
+				__func__, REG_IBB_STATUS1, rc);
+			return rc;
+		}
+
+		if (!(val & IBB_STATUS1_VREG_OK)) {
+			disabled = true;
+			break;
+		}
+	}
+
+	if (!disabled) {
+		pr_err("%s:  failed for IBB %x\n", __func__, val);
+		return -EINVAL;
 	}
 
 	labibb->lab_vreg.vreg_enabled = 0;
@@ -1443,6 +1498,16 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
+
+	if (labibb->mode == QPNP_LABIBB_AMOLED_MODE) {
+		/*
+		 * AMOLED mode needs ibb discharge resistor to be
+		 * configured for 300KOhm
+		 */
+		if (tmp < ibb_discharge_resistor_plan[0])
+			tmp = ibb_discharge_resistor_plan[0];
+	}
+
 	for (val = 0; val < sizeof(ARRAY_SIZE(ibb_discharge_resistor_plan));
 		val++)
 		if (ibb_discharge_resistor_plan[val] == tmp)
@@ -1480,6 +1545,8 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 		return -EINVAL;
 	}
 
+	labibb->ibb_vreg.pwrdn_dly = tmp;
+
 	rc = of_property_read_u32(of_node, "qcom,qpnp-ibb-lab-pwrup-delay",
 					&tmp);
 	if (rc < 0) {
@@ -1496,6 +1563,8 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 		pr_err("Invalid property in qcom,qpnp-ibb-lab-pwrup-delay\n");
 		return -EINVAL;
 	}
+
+	labibb->ibb_vreg.pwrup_dly = tmp;
 
 	val |= (i << IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT);
 
@@ -2069,7 +2138,7 @@ static int qpnp_labibb_regulator_probe(struct spmi_device *spmi)
 	if (!rc) {
 		if (strcmp("lcd", mode_name) == 0) {
 			labibb->mode = QPNP_LABIBB_LCD_MODE;
-		} else if (strcmp("almoed", mode_name) == 0) {
+		} else if (strcmp("amoled", mode_name) == 0) {
 			labibb->mode = QPNP_LABIBB_AMOLED_MODE;
 		} else if (strcmp("stand-alone", mode_name) == 0) {
 			labibb->mode = QPNP_LABIBB_STANDALONE_MODE;
