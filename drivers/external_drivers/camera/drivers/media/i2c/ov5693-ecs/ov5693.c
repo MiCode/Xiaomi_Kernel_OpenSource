@@ -539,16 +539,37 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 
 	hts = ov5693_res[dev->fmt_idx].pixels_per_line;
 	vts = ov5693_res[dev->fmt_idx].lines_per_frame;
-
+	/*If coarse_itg is larger than 1<<15, can not write to reg directly.
+	  The way is to write coarse_itg/2 to the reg, meanwhile write 2*hts
+	  to the reg. */
+	if (coarse_itg > (1 << 15)) {
+		hts = hts * 2;
+		coarse_itg = (int)coarse_itg / 2;
+	}
 	/* group hold */
 	ret = ov5693_write_reg(client, OV5693_8BIT,
-				       OV5693_GROUP_ACCESS, 0x00);
+				OV5693_GROUP_ACCESS, 0x00);
 	if (ret) {
 		dev_err(&client->dev, "%s: write %x error, aborted\n",
 			__func__, OV5693_GROUP_ACCESS);
 		return ret;
 	}
 
+	ret = ov5693_write_reg(client, OV5693_8BIT,
+				OV5693_TIMING_HTS_H, (hts >> 8) & 0xFF);
+	if (ret) {
+		dev_err(&client->dev, "%s: write %x error, aborted\n",
+			__func__, OV5693_TIMING_HTS_H);
+		return ret;
+	}
+
+	ret = ov5693_write_reg(client, OV5693_8BIT,
+				OV5693_TIMING_HTS_L, hts & 0xFF);
+	if (ret) {
+		dev_err(&client->dev, "%s: write %x error, aborted\n",
+			__func__, OV5693_TIMING_HTS_L);
+		return ret;
+	}
 	/* Increase the VTS to match exposure + MARGIN */
 	if (coarse_itg > vts - OV5693_INTEGRATION_TIME_MARGIN)
 		vts = (u16) coarse_itg + OV5693_INTEGRATION_TIME_MARGIN;
@@ -562,7 +583,7 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	}
 
 	ret = ov5693_write_reg(client, OV5693_8BIT,
-				OV5693_TIMING_VTS_L, vts & 0xFF);
+					OV5693_TIMING_VTS_L, vts & 0xFF);
 	if (ret) {
 		dev_err(&client->dev, "%s: write %x error, aborted\n",
 			__func__, OV5693_TIMING_VTS_L);
@@ -598,32 +619,45 @@ static long __ov5693_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	}
 
 	/* Analog gain */
-	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_AGC_L, gain & 0xff);
+	ret = ov5693_write_reg(client, OV5693_8BIT,
+				OV5693_AGC_L, gain & 0xff);
 	if (ret) {
 		dev_err(&client->dev, "%s: write %x error, aborted\n",
 			__func__, OV5693_AGC_L);
 		return ret;
 	}
 
+	ret = ov5693_write_reg(client, OV5693_8BIT,
+				OV5693_AGC_H, (gain >> 8) & 0xff);
+	if (ret) {
+		dev_err(&client->dev, "%s: write %x error, aborted\n",
+			__func__, OV5693_AGC_H);
+		return ret;
+	}
+
 	/* Digital gain */
 	if (digitgain) {
-		int setvalue = 0;
-
-		/*
-		*  for sensor metadata only support 1x/2x digital gain,
-		*  to support sensor metadata we need switch from MWB gain
-		*  to digital gain
-		*/
-		if (digitgain == 2048)
-			setvalue = 1;
-		else
-			setvalue = 0;
-
-		ret = ov5693_write_reg(client, OV5693_8BIT,
-					OV5693_AGC_H, setvalue);
+		ret = ov5693_write_reg(client, OV5693_16BIT,
+				OV5693_MWB_RED_GAIN_H, digitgain);
 		if (ret) {
 			dev_err(&client->dev, "%s: write %x error, aborted\n",
-				__func__, OV5693_AGC_H);
+				__func__, OV5693_MWB_RED_GAIN_H);
+			return ret;
+		}
+
+		ret = ov5693_write_reg(client, OV5693_16BIT,
+				OV5693_MWB_GREEN_GAIN_H, digitgain);
+		if (ret) {
+			dev_err(&client->dev, "%s: write %x error, aborted\n",
+				__func__, OV5693_MWB_RED_GAIN_H);
+			return ret;
+		}
+
+		ret = ov5693_write_reg(client, OV5693_16BIT,
+				OV5693_MWB_BLUE_GAIN_H, digitgain);
+		if (ret) {
+			dev_err(&client->dev, "%s: write %x error, aborted\n",
+				__func__, OV5693_MWB_RED_GAIN_H);
 			return ret;
 		}
 	}
