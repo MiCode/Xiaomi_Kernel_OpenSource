@@ -1452,8 +1452,6 @@ EXPORT_SYMBOL(dw_dma_cyclic_free);
 
 static void dw_dma_off(struct dw_dma *dw)
 {
-	int i;
-
 	dma_writel(dw, CFG, 0);
 
 	channel_clear_bit(dw, MASK.XFER, dw->all_chan_mask);
