@@ -126,6 +126,8 @@ int mdss_debug_register_base(const char *name, void __iomem *base,
 void mdss_debug_register_dump_range(struct platform_device *pdev,
 	struct mdss_debug_base *blk_base, const char *ranges_prop,
 	const char *name_prop);
+int panel_debug_register_base(const char *name, void __iomem *base,
+				    size_t max_offset);
 int mdss_misr_set(struct mdss_data_type *mdata, struct mdp_misr *req,
 			struct mdss_mdp_ctl *ctl);
 int mdss_misr_get(struct mdss_data_type *mdata, struct mdp_misr *resp,
@@ -148,6 +150,10 @@ static inline int mdss_debug_register_base(const char *name, void __iomem *base,
 static inline void mdss_debug_register_dump_range(struct platform_device *pdev,
 	struct mdss_debug_base *blk_base, const char *ranges_prop,
 	const char *name_prop) { return 0; }
+static inline int panel_debug_register_base(const char *name,
+					void __iomem *base,
+					size_t max_offset)
+{ return 0; }
 static inline int mdss_misr_set(struct mdss_data_type *mdata,
 					struct mdp_misr *req,
 					struct mdss_mdp_ctl *ctl)
