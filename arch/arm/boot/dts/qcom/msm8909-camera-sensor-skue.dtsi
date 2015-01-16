@@ -32,8 +32,8 @@
 		qcom,flash-en = <&msm_gpio 31 0>;
 		qcom,flash-now = <&msm_gpio 32 0>;
 		qcom,op-seq = "flash_en", "flash_now";
-		qcom,torch-seq-val = <1 0>;
-		qcom,flash-seq-val = <1 1>;
+		qcom,torch-seq-val = <0 1>;
+		qcom,flash-seq-val = <1 0>;
 		linux,name = "flashlight";
 		linux,default-trigger = "flashlight-trigger";
 	};
