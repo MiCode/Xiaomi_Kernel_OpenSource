@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -267,6 +267,8 @@ int hdmi_get_supported_mode(struct msm_hdmi_mode_timing_info *info,
 	struct hdmi_util_ds_data *ds_data, u32 mode);
 ssize_t hdmi_get_video_3d_fmt_2string(u32 format, char *buf, u32 size);
 const char *msm_hdmi_mode_2string(u32 mode);
+int hdmi_set_resv_timing_info(struct msm_hdmi_mode_timing_info *mode);
+void hdmi_reset_resv_timing_info(void);
 
 /* todo: Fix this. Right now this is defined in mdss_hdmi_tx.c */
 void *hdmi_get_featuredata_from_sysfs_dev(struct device *device, u32 type);
