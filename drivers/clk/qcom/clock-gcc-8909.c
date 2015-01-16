@@ -841,6 +841,16 @@ static struct clk_freq_tbl ftbl_gcc_camss_mclk0_1_clk[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_gcc_camss_mclkm_clk[] = {
+	F( 24000000,	gpll2,	2,	1,	19),
+	F( 66670000,	gpll0,	12,	0,	0),
+	F_END
+};
+
+static unsigned long mclk0_1_fmax[VDD_DIG_NUM] = {
+	0, 0, 0, 66670000, 0,
+};
+
 static struct rcg_clk mclk0_clk_src = {
 	.cmd_rcgr_reg =  MCLK0_CMD_RCGR,
 	.set_rate = set_rate_mnd,
@@ -1069,8 +1079,23 @@ static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk[] = {
 	F( 177780000,	gpll0,		4.5,	0,	0),
 	F( 200000000,	gpll0,		4,	0,	0),
 	F( 266670000,	gpll0,		3,	0,	0),
-	F( 307200000,	gpll1_e_gfx3d,		4,	0,	0),
-	F( 409600000,	gpll1_e_gfx3d,		3,	0,	0),
+	F( 307200000,	gpll1_e_gfx3d,	4,	0,	0),
+	F( 409600000,	gpll1_e_gfx3d,	3,	0,	0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_465_clk[] = {
+	F( 19200000,	xo,		1,	0,	0),
+	F( 50000000,	gpll0,		16,	0,	0),
+	F( 80000000,	gpll0,		10,	0,	0),
+	F( 100000000,	gpll0,		8,	0,	0),
+	F( 160000000,	gpll0,		5,	0,	0),
+	F( 177780000,	gpll0,		4.5,	0,	0),
+	F( 200000000,	gpll0,		4,	0,	0),
+	F( 266670000,	gpll0,		3,	0,	0),
+	F( 307200000,	gpll1_e_gfx3d,	4,	0,	0),
+	F( 409600000,	gpll1_e_gfx3d,	3,	0,	0),
+	F( 456000000,	gpll2,		2,	0,	0),
 	F_END
 };
 
@@ -2571,6 +2596,31 @@ static void register_opp_for_dev(struct platform_device *pdev)
 		"Failed to add OPP levels for dev\n");
 }
 
+static void gcc_gfx3d_fmax(struct platform_device *pdev)
+{
+	void __iomem *base;
+	u32 pte_efuse, bin, shift = 2, mask = 0x7;
+
+	base = devm_ioremap(&pdev->dev, 0x0005c00c, 0x8);
+	pte_efuse = readl_relaxed(base);
+	devm_iounmap(&pdev->dev, base);
+	bin = (pte_efuse >> shift) & mask;
+	if (bin != 0)
+		return;
+
+	pr_debug("%s, bin: %d\n", __func__, bin);
+
+	gpll2_clk_src.c.rate = 912000000;
+
+	gfx3d_clk_src.c.fmax[VDD_DIG_HIGH] = 456000000;
+	gfx3d_clk_src.freq_tbl = ftbl_gcc_oxili_gfx3d_465_clk;
+
+	mclk0_clk_src.freq_tbl = ftbl_gcc_camss_mclkm_clk;
+	mclk0_clk_src.c.fmax = mclk0_1_fmax;
+	mclk1_clk_src.freq_tbl = ftbl_gcc_camss_mclkm_clk;
+	mclk1_clk_src.c.fmax = mclk0_1_fmax;
+}
+
 static int msm_gcc_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -2650,6 +2700,8 @@ static int msm_gcc_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get xo_a clock!!!\n");
 		return PTR_ERR(xo_a_clk_src.c.parent);
 	}
+
+	gcc_gfx3d_fmax(pdev);
 
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				msm_clocks_lookup,
