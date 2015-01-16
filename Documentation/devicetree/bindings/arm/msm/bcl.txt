@@ -47,7 +47,8 @@ Optional parameters:
 		is reached.
 - qcom,bcl-soc-hotplug-list: List of phandles to the cores that are to be hotplugged,
 		when battery SOC limit condition is reached.
-
+- qcom,bcl-freq-control-list: List of phandles to the cores that are to be frequency
+                mitigated when BCL condition is reached.
 - qcom,bcl-no-bms: This is an optional node for BCL IAVAIL monitor mode.
 		If this property is defined, BCL IAVAIL monitor gets rbat value
 		from power supply battery module instead of bms module.
@@ -120,7 +121,9 @@ For Using BCL peripheral interface:
 	qcom,bcl {
 		compatible = "qcom,bcl";
 		qcom,bcl-framework-interface;
+		qcom,bcl-freq-mit-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,bcl-hotplug-list = <&CPU5 &CPU6 &CPU7>;
+		qcom,bcl-soc-hotplug-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,ibat-monitor {
 			qcom,high-threshold-uamp = <1500>;
 			qcom,low-threshold-uamp = <500>;
