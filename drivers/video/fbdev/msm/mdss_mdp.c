@@ -1040,6 +1040,9 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->max_target_zorder = 4; /* excluding base layer */
 		mdata->max_cursor_size = 64;
 	}
+
+	if (mdata->mdp_rev < MDSS_MDP_HW_REV_103)
+		mdss_set_quirk(mdata, MDSS_QUIRK_DOWNSCALE_HANG);
 }
 
 static void mdss_hw_rev_init(struct mdss_data_type *mdata)
