@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -409,10 +409,10 @@ static enum MHI_STATUS mhi_init_contexts(struct mhi_device_ctxt *mhi_dev_ctxt)
 					msi_vec);
 		switch (i) {
 		case IPA_OUT_EV_RING:
-			intmod_t = 10;
+			intmod_t = 1;
 			break;
 		case IPA_IN_EV_RING:
-			intmod_t = 6;
+			intmod_t = 1;
 			break;
 		}
 		event_ring_index = mhi_dev_ctxt->alloced_ev_rings[i];
