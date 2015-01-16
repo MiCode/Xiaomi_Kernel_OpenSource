@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -242,7 +242,7 @@
 			label = "mas-tcu-1";
 			qcom,buswidth = <8>;
 			qcom,ap-owned;
-			qcom,qport = <5>;
+			qcom,qport = <6>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_bimc_snoc &slv_ebi>;
 			qcom,prio-lvl = <2>;
