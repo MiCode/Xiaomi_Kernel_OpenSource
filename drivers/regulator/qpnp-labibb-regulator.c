@@ -1141,7 +1141,7 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 					LAB_VOLTAGE_SET_MASK) *
 					labibb->lab_vreg.step_size +
 					labibb->lab_vreg.min_volt;
-		} else if (labibb->mode == QPNP_LABIBB_AMOLED_MODE) {
+		} else if (labibb->mode == QPNP_LABIBB_LCD_MODE) {
 			rc = of_property_read_u32(of_node,
 				"qcom,qpnp-lab-init-lcd-voltage",
 				&(labibb->lab_vreg.curr_volt));
@@ -2030,7 +2030,7 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 				(val & IBB_VOLTAGE_SET_MASK) *
 				labibb->ibb_vreg.step_size +
 				labibb->ibb_vreg.min_volt;
-		} else if (labibb->mode == QPNP_LABIBB_AMOLED_MODE) {
+		} else if (labibb->mode == QPNP_LABIBB_LCD_MODE) {
 			rc = of_property_read_u32(of_node,
 				"qcom,qpnp-ibb-init-lcd-voltage",
 				&(labibb->ibb_vreg.curr_volt));
