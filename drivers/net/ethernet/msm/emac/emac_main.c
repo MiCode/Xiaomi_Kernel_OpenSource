@@ -33,7 +33,7 @@
 #include "emac_hw.h"
 #include "emac_ptp.h"
 
-#define DRV_VERSION "1.0.0.0"
+#define DRV_VERSION "1.1.0.0"
 
 char emac_drv_name[] = "msm_emac";
 const char emac_drv_description[] = "Qualcomm EMAC Ethernet Driver";
@@ -112,40 +112,34 @@ static struct emac_gpio_info emac_gpio[EMAC_NUM_GPIO] = {
 	{ 0, "qcom,emac-gpio-mdio" },
 };
 
-static struct emac_clk_info emac_clk[EMAC_NUM_CLK] = {
-	{ NULL, "axi_clk", 0, NULL },
-	{ NULL, "cfg_ahb_clk", 0, NULL },
-	{ NULL, "125m_clk", 0, NULL },
-	{ NULL, "25m_clk", 0, NULL },
-	{ NULL, "tx_clk", 0, NULL },
-	{ NULL, "rx_clk", 0, NULL },
-	{ NULL, "sys_clk", 0, NULL },
+static const char * const emac_clk_name[] = {
+	"axi_clk", "cfg_ahb_clk", "125m_clk", "25m_clk", "tx_clk", "rx_clk",
+	"sys_clk"
 };
 
-static int emac_clk_prepare_enable(struct emac_clk_info *clk_info)
+static int emac_clk_prepare_enable(struct emac_adapter *adpt,
+				   enum emac_clk_id id)
 {
-	int retval;
-
-	retval = clk_prepare_enable(clk_info->clk);
-	if (retval)
-		emac_err(clk_info->adpt, "can't enable clk %s\n",
-			 clk_info->name);
+	struct emac_clk *clk = &adpt->clk[id];
+	int ret = clk_prepare_enable(clk->clk);
+	if (ret)
+		emac_err(adpt, "error:%d on clk_prepare_enable(%s)\n", ret,
+			 emac_clk_name[id]);
 	else
-		clk_info->enabled = true;
+		clk->enabled = true;
 
-	return retval;
+	return ret;
 }
 
-static int emac_clk_set_rate(struct emac_clk_info *clk_info, unsigned long rate)
+static int emac_clk_set_rate(struct emac_adapter *adpt, enum emac_clk_id id,
+			     enum emac_clk_rate rate)
 {
-	int retval;
+	int ret = clk_set_rate(adpt->clk[id].clk, rate);
+	if (ret)
+		emac_err(adpt, "error:%d on clk_set_rate(%s)\n", ret,
+			 emac_clk_name[id]);
 
-	retval = clk_set_rate(clk_info->clk, rate);
-	if (retval)
-		emac_err(clk_info->adpt, "can't set rate for clk %s\n",
-			 clk_info->name);
-
-	return retval;
+	return ret;
 }
 
 /* reinitialize */
@@ -163,9 +157,9 @@ void emac_reinit_locked(struct emac_adapter *adpt)
 
 	emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
 	if (adpt->phy_mode == PHY_INTERFACE_MODE_SGMII) {
-		emac_clk_set_rate(&adpt->clk_info[EMAC_125M_CLK], 19200000);
+		emac_clk_set_rate(adpt, EMAC_CLK_125M, EMC_CLK_RATE_19_2MHz);
 		emac_hw_reset_sgmii(&adpt->hw);
-		emac_clk_set_rate(&adpt->clk_info[EMAC_125M_CLK], 125000000);
+		emac_clk_set_rate(adpt, EMAC_CLK_125M, EMC_CLK_RATE_125MHz);
 	}
 	emac_up(adpt);
 
@@ -2037,18 +2031,18 @@ static void emac_link_task_routine(struct emac_adapter *adpt)
 		if (adpt->phy_mode == PHY_INTERFACE_MODE_RGMII) {
 			switch (hw->link_speed) {
 			case EMAC_LINK_SPEED_1GB_FULL:
-				clk_set_rate(adpt->clk_info[EMAC_TX_CLK].clk,
-					     125000000);
+				clk_set_rate(adpt->clk[EMAC_CLK_TX].clk,
+					     EMC_CLK_RATE_125MHz);
 				break;
 			case EMAC_LINK_SPEED_100_FULL:
 			case EMAC_LINK_SPEED_100_HALF:
-				clk_set_rate(adpt->clk_info[EMAC_TX_CLK].clk,
-					     25000000);
+				clk_set_rate(adpt->clk[EMAC_CLK_TX].clk,
+					     EMC_CLK_RATE_25MHz);
 				break;
 			case EMAC_LINK_SPEED_10_FULL:
 			case EMAC_LINK_SPEED_10_HALF:
-				clk_set_rate(adpt->clk_info[EMAC_TX_CLK].clk,
-					     2500000);
+				clk_set_rate(adpt->clk[EMAC_CLK_TX].clk,
+					     EMC_CLK_RATE_2_5MHz);
 				break;
 			}
 		}
@@ -2457,27 +2451,26 @@ static int emac_resume(struct device *device)
 static int emac_get_clk(struct platform_device *pdev,
 			struct emac_adapter *adpt)
 {
-	struct emac_clk_info *clk_info;
 	struct clk *clk;
-	int retval = 0;
 	u8 i;
 
-	for (i = 0; i < EMAC_NUM_CLK; i++) {
-		clk_info = &adpt->clk_info[i];
-		clk = clk_get(&pdev->dev, clk_info->name);
+	for (i = 0; i < EMAC_CLK_CNT; i++) {
+		clk = clk_get(&pdev->dev, emac_clk_name[i]);
+
 		if (IS_ERR(clk)) {
-			emac_err(adpt, "can't get clk %s\n", clk_info->name);
-			retval = PTR_ERR(clk);
-			while (--i >= 0) {
-				if (adpt->clk_info[i].clk)
-					clk_put(adpt->clk_info[i].clk);
-			}
-			break;
+			emac_err(adpt, "error:%ld on clk_get(%s)\n",
+				 PTR_ERR(clk), emac_clk_name[i]);
+
+			while (--i >= 0)
+				if (adpt->clk[i].clk)
+					clk_put(adpt->clk[i].clk);
+			return PTR_ERR(clk);
 		}
-		clk_info->clk = clk;
+
+		adpt->clk[i].clk = clk;
 	}
 
-	return retval;
+	return 0;
 }
 
 /* Initialize clocks */
@@ -2485,19 +2478,19 @@ static int emac_init_clks(struct emac_adapter *adpt)
 {
 	int retval;
 
-	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_AXI_CLK]);
+	retval = emac_clk_prepare_enable(adpt, EMAC_CLK_AXI);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_CFG_AHB_CLK]);
+	retval = emac_clk_prepare_enable(adpt, EMAC_CLK_CFG_AHB);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_set_rate(&adpt->clk_info[EMAC_125M_CLK], 19200000);
+	retval = emac_clk_set_rate(adpt, EMAC_CLK_125M, EMC_CLK_RATE_19_2MHz);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_125M_CLK]);
+	retval = emac_clk_prepare_enable(adpt, EMAC_CLK_125M);
 
 	return retval;
 }
@@ -2507,31 +2500,31 @@ static int emac_enable_clks(struct emac_adapter *adpt)
 {
 	int retval;
 
-	retval = emac_clk_set_rate(&adpt->clk_info[EMAC_TX_CLK], 125000000);
+	retval = emac_clk_set_rate(adpt, EMAC_CLK_TX, EMC_CLK_RATE_125MHz);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_TX_CLK]);
+	retval = emac_clk_prepare_enable(adpt, EMAC_CLK_TX);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_set_rate(&adpt->clk_info[EMAC_125M_CLK], 125000000);
+	retval = emac_clk_set_rate(adpt, EMAC_CLK_125M, EMC_CLK_RATE_125MHz);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_set_rate(&adpt->clk_info[EMAC_SYS_25M_CLK], 25000000);
+	retval = emac_clk_set_rate(adpt, EMAC_CLK_SYS_25M, EMC_CLK_RATE_25MHz);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_SYS_25M_CLK]);
+	retval = emac_clk_prepare_enable(adpt, EMAC_CLK_SYS_25M);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_RX_CLK]);
+	retval = emac_clk_prepare_enable(adpt, EMAC_CLK_RX);
 	if (retval)
 		return retval;
 
-	retval = emac_clk_prepare_enable(&adpt->clk_info[EMAC_SYS_CLK]);
+	retval = emac_clk_prepare_enable(adpt, EMAC_CLK_SYS);
 
 	return retval;
 }
@@ -2539,14 +2532,13 @@ static int emac_enable_clks(struct emac_adapter *adpt)
 /* Disable clocks */
 static void emac_disable_clks(struct emac_adapter *adpt)
 {
-	struct emac_clk_info *clk_info;
 	u8 i;
 
-	for (i = 0; i < EMAC_NUM_CLK; i++) {
-		clk_info = &adpt->clk_info[i];
-		if (clk_info->enabled) {
-			clk_disable_unprepare(clk_info->clk);
-			clk_info->enabled = false;
+	for (i = 0; i < EMAC_CLK_CNT; i++) {
+		struct emac_clk *clk = &adpt->clk[i];
+		if (clk->enabled) {
+			clk_disable_unprepare(clk->clk);
+			clk->enabled = false;
 		}
 	}
 }
@@ -2679,9 +2671,9 @@ static int emac_get_resources(struct platform_device *pdev,
 	return 0;
 
 err_reg_res:
-	for (i = 0; i < EMAC_NUM_CLK; i++) {
-		if (adpt->clk_info[i].clk)
-			clk_put(adpt->clk_info[i].clk);
+	for (i = 0; i < EMAC_CLK_CNT; i++) {
+		if (adpt->clk[i].clk)
+			clk_put(adpt->clk[i].clk);
 	}
 
 	return retval;
@@ -2697,9 +2689,9 @@ static void emac_release_resources(struct emac_adapter *adpt)
 			iounmap(adpt->hw.reg_addr[i]);
 	}
 
-	for (i = 0; i < EMAC_NUM_CLK; i++) {
-		if (adpt->clk_info[i].clk)
-			clk_put(adpt->clk_info[i].clk);
+	for (i = 0; i < EMAC_CLK_CNT; i++) {
+		if (adpt->clk[i].clk)
+			clk_put(adpt->clk[i].clk);
 	}
 }
 
@@ -2736,9 +2728,6 @@ static int emac_probe(struct platform_device *pdev)
 	dma_set_max_seg_size(&pdev->dev, 65536);
 	dma_set_seg_boundary(&pdev->dev, 0xffffffff);
 
-	memcpy(adpt->clk_info, emac_clk, sizeof(emac_clk));
-	for (i = 0; i < EMAC_NUM_CLK; i++)
-		adpt->clk_info[i].adpt = adpt;
 
 	memcpy(adpt->gpio_info, emac_gpio, sizeof(adpt->gpio_info));
 	memcpy(adpt->irq_info, emac_irq, sizeof(adpt->irq_info));

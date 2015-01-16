@@ -36,15 +36,26 @@
 #define EMAC_SGMII_PHY_IRQ    5
 #define EMAC_NUM_IRQ          6
 
-/* emac clocks */
-#define EMAC_AXI_CLK          0
-#define EMAC_CFG_AHB_CLK      1
-#define EMAC_125M_CLK         2
-#define EMAC_SYS_25M_CLK      3
-#define EMAC_TX_CLK           4
-#define EMAC_RX_CLK           5
-#define EMAC_SYS_CLK          6
-#define EMAC_NUM_CLK          7
+enum emac_clk_id {
+	EMAC_CLK_AXI,
+	EMAC_CLK_CFG_AHB,
+	EMAC_CLK_125M,
+	EMAC_CLK_SYS_25M,
+	EMAC_CLK_TX,
+	EMAC_CLK_RX,
+	EMAC_CLK_SYS,
+	EMAC_CLK_CNT
+};
+
+#define KHz(RATE)	((RATE)    * 1000)
+#define MHz(RATE)	(KHz(RATE) * 1000)
+
+enum emac_clk_rate {
+	EMC_CLK_RATE_2_5MHz	= KHz(2500),
+	EMC_CLK_RATE_19_2MHz	= KHz(19200),
+	EMC_CLK_RATE_25MHz	= MHz(25),
+	EMC_CLK_RATE_125MHz	= MHz(125),
+};
 
 /* mdio/mdc gpios */
 #define EMAC_NUM_GPIO         2
@@ -527,11 +538,9 @@ struct emac_gpio_info {
 	char *name;
 };
 
-struct emac_clk_info {
-	struct clk           *clk;
-	char                 *name;
-	bool                  enabled;
-	struct emac_adapter  *adpt;
+struct emac_clk {
+	struct clk		*clk;
+	bool			enabled;
 };
 
 /* emac_ring_header represents a single, contiguous block of DMA space
@@ -661,7 +670,7 @@ struct emac_adapter {
 
 	struct emac_irq_info  irq_info[EMAC_NUM_IRQ];
 	struct emac_gpio_info gpio_info[EMAC_NUM_GPIO];
-	struct emac_clk_info  clk_info[EMAC_NUM_CLK];
+	struct emac_clk			clk[EMAC_CLK_CNT];
 
 	/* dma parameters */
 	u64                             dma_mask;
