@@ -53,12 +53,15 @@ static int mdss_dsi_labibb_vreg_init(struct platform_device *pdev)
 	ctrl->lab = regulator_get(&pdev->dev, "lab_reg");
 	rc = PTR_RET(ctrl->lab);
 	if (rc) {
+		ctrl->lab = NULL;
 		pr_err("%s: lab_regi get failed.\n", __func__);
 		return rc;
 	}
 	ctrl->ibb = regulator_get(&pdev->dev, "ibb_reg");
 	rc = PTR_RET(ctrl->ibb);
 	if (rc) {
+		ctrl->lab = NULL;
+		ctrl->ibb = NULL;
 		pr_err("%s: ibb_regi get failed.\n", __func__);
 		regulator_put(ctrl->lab);
 		return rc;
@@ -75,7 +78,7 @@ static int mdss_dsi_labibb_vreg_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 {
 	int rc;
 
-	if (!ctrl->panel_bias_vreg)
+	if (!ctrl->panel_bias_vreg || !ctrl->lab || !ctrl->ibb)
 		return -EINVAL;
 
 	pr_debug("%s: ndx=%d enable=%d\n", __func__, ctrl->ndx, enable);
@@ -83,23 +86,32 @@ static int mdss_dsi_labibb_vreg_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (enable) {
 		rc = regulator_enable(ctrl->lab);
 		if (rc) {
-			pr_err("%s: falied at lab\n", __func__);
+			pr_err("%s: enable failed for lab regulator\n",
+							__func__);
 			return rc;
 		}
 		rc = regulator_enable(ctrl->ibb);
 		if (rc) {
-			pr_err("%s: falied at ibb\n", __func__);
+			pr_err("%s: enable failed for ibb regulator\n",
+							__func__);
 			regulator_disable(ctrl->lab);
 			return rc;
 		}
 
 	} else {
 		rc = regulator_disable(ctrl->lab);
-		if (rc)
-			pr_err("%s: falied at lab\n", __func__);
+		if (rc) {
+			pr_err("%s: disable failed for lab regulator\n",
+							__func__);
+			return rc;
+		}
+
 		rc = regulator_disable(ctrl->ibb);
-		if (rc)
-			pr_err("%s: falied at ibb\n", __func__);
+		if (rc) {
+			pr_err("%s: disable failed for ibb regulator\n",
+							__func__);
+			return rc;
+		}
 	}
 
 	return 0;
