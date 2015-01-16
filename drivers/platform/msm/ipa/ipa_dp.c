@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1268,6 +1268,11 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	int src_ep_idx;
 
 	memset(desc, 0, 2 * sizeof(struct ipa_desc));
+
+	if (skb->len == 0) {
+		IPAERR("packet size is 0\n");
+		return -EINVAL;
+	}
 
 	/*
 	 * USB_CONS: PKT_INIT ep_idx = dst pipe
