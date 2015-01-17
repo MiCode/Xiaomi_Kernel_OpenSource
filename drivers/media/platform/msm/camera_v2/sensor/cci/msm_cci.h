@@ -33,7 +33,9 @@
 #define CCI_NUM_CLK_MAX	16
 #define CCI_NUM_CLK_CASES 5
 #define CCI_CLK_SRC_NAME "cci_src_clk"
-
+#define MSM_CCI_WRITE_DATA_PAYLOAD_SIZE_10 10
+#define MSM_CCI_WRITE_DATA_PAYLOAD_SIZE_11 11
+#define BURST_MIN_FREE_SIZE 8
 
 enum cci_i2c_queue_t {
 	QUEUE_0,
@@ -156,6 +158,8 @@ struct cci_device {
 	struct camera_vreg_t *cci_vreg;
 	struct regulator *cci_reg_ptr[MAX_REGULATOR];
 	int32_t regulator_count;
+	uint8_t payload_size;
+	uint8_t support_seq_write;
 };
 
 enum msm_cci_i2c_cmd_type {
