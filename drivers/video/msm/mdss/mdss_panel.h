@@ -289,7 +289,7 @@ struct mipi_panel_info {
 	/* The packet-size should not bet changed */
 	char no_max_pkt_size;
 	/* Clock required during LP commands */
-	char force_clk_lane_hs;
+	bool force_clk_lane_hs;
 
 	char vsync_enable;
 	char hw_vsync_mode;
