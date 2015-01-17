@@ -1,6 +1,6 @@
 /******************** (C) COPYRIGHT 2010 STMicroelectronics ********************
  *
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * File Name          : lis3dh_acc.c
  * Authors            : MSH - Motion Mems BU - Application Team
@@ -263,6 +263,7 @@ struct lis3dh_acc_data {
 	struct pinctrl_state *pin_sleep;
 
 	struct mutex lock;
+	struct workqueue_struct *data_wq;
 	struct delayed_work input_work;
 
 	struct input_dev *input_dev;
@@ -1135,7 +1136,7 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 			return err;
 		}
 		if (!acc->pdata->enable_int && !acc->use_batch) {
-			schedule_delayed_work(&acc->input_work,
+			queue_delayed_work(acc->data_wq, &acc->input_work,
 				msecs_to_jiffies(acc->delay_ms));
 			return 0;
 		}
@@ -1777,8 +1778,8 @@ static void lis3dh_acc_input_work_func(struct work_struct *work)
 	else
 		lis3dh_acc_report_values(acc, xyz);
 
-	schedule_delayed_work(&acc->input_work, msecs_to_jiffies(
-			acc->delay_ms));
+	queue_delayed_work(acc->data_wq, &acc->input_work,
+		msecs_to_jiffies(acc->delay_ms));
 	mutex_unlock(&acc->lock);
 }
 
@@ -1834,8 +1835,6 @@ static int lis3dh_acc_input_init(struct lis3dh_acc_data *acc)
 {
 	int err;
 
-	if (!acc->pdata->enable_int)
-		INIT_DELAYED_WORK(&acc->input_work, lis3dh_acc_input_work_func);
 	acc->input_dev = devm_input_allocate_device(&acc->client->dev);
 	if (!acc->input_dev) {
 		err = -ENOMEM;
@@ -2159,12 +2158,22 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		goto err_power_off;
 	}
 
+	acc->data_wq = NULL;
+	if (!acc->pdata->enable_int) {
+		acc->data_wq = create_freezable_workqueue("lis3dh_data_work");
+		if (!acc->data_wq) {
+			dev_err(&client->dev, "create workquque failed\n");
+			goto err_power_off;
+		}
+		INIT_DELAYED_WORK(&acc->input_work,
+			lis3dh_acc_input_work_func);
+	}
 
 	err = create_sysfs_interfaces(&client->dev);
 	if (err < 0) {
 		dev_err(&client->dev,
 		   "device LIS3DH_ACC_DEV_NAME sysfs register failed\n");
-		goto err_power_off;
+		goto err_destroy_workqueue;
 	}
 
 	acc->cdev = lis3dh_acc_cdev;
@@ -2235,6 +2244,9 @@ err_unreg_sensor_class:
 	sensors_classdev_unregister(&acc->cdev);
 err_remove_sysfs_int:
 	remove_sysfs_interfaces(&client->dev);
+err_destroy_workqueue:
+	if (acc->data_wq)
+		destroy_workqueue(acc->data_wq);
 err_power_off:
 	lis3dh_acc_device_power_off(acc);
 err_regulator_init:
@@ -2266,6 +2278,8 @@ static int lis3dh_acc_remove(struct i2c_client *client)
 	sensors_classdev_unregister(&acc->cdev);
 	lis3dh_acc_config_regulator(acc, false);
 	remove_sysfs_interfaces(&client->dev);
+	if (acc->data_wq)
+		destroy_workqueue(acc->data_wq);
 
 	if (acc->pdata->exit)
 		acc->pdata->exit();

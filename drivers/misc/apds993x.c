@@ -2769,7 +2769,7 @@ static struct i2c_driver apds993x_driver = {
 
 static int __init apds993x_init(void)
 {
-	apds993x_workqueue = create_workqueue("proximity_als");
+	apds993x_workqueue = create_freezable_workqueue("proximity_als");
 	if (!apds993x_workqueue) {
 		pr_err("%s: out of memory\n", __func__);
 		return -ENOMEM;
