@@ -177,6 +177,14 @@ struct iommu_access_ops iommu_access_ops_v1 = {
 	.iommu_lock_release = _iommu_lock_release,
 };
 
+static BLOCKING_NOTIFIER_HEAD(msm_iommu_notifier_list);
+
+void msm_iommu_register_notify(struct notifier_block *nb)
+{
+	blocking_notifier_chain_register(&msm_iommu_notifier_list, nb);
+}
+EXPORT_SYMBOL(msm_iommu_register_notify);
+
 #ifdef CONFIG_MSM_IOMMU_VBIF_CHECK
 
 #define VBIF_XIN_HALT_CTRL0 0x200
@@ -251,13 +259,6 @@ static void check_halt_state(struct msm_iommu_drvdata const *drvdata)
 		pr_err("IOMMU halt completed. VBIF FIFO most likely not getting drained by master\n");
 	}
 	BUG();
-}
-
-static BLOCKING_NOTIFIER_HEAD(msm_iommu_notifier_list);
-
-void msm_iommu_register_notify(struct notifier_block *nb)
-{
-	blocking_notifier_chain_register(&msm_iommu_notifier_list, nb);
 }
 
 static void check_tlb_sync_state(struct msm_iommu_drvdata const *drvdata,
