@@ -11,7 +11,6 @@
  */
 
 #include "msm8939-qrd.dtsi"
-#include "dsi-panel-nt35596-1080p-skuk-video.dtsi"
 #include "msm8939-camera-sensor-qrd.dtsi"
 
 &soc {
@@ -149,18 +148,6 @@
 			  bias-pull-down;
 		};
 	};
-
-	tps65132-en-pin {
-		qcom,pins = <&gp 97>, <&gp 98>;
-		qcom,num-grp-pins = <2>;
-		label = "tps65132_en_pins";
-		qcom,pin-func = <0>;
-
-		tps65132_en_default: en-default {
-			drive-strength = <2>;
-			bias-pull-down;
-		};
-	};
 };
 
 &i2c_0 { /* BLSP1 QUP2 */
@@ -224,37 +211,6 @@
 		invn,gpio-int = <&msm_gpio 115 0x2002>;
 		invn,place = "Portrait Down Back Side";
 	};
-
-	tps65132@3e {
-		compatible = "ti,tps65132";
-		reg = <0x3e>;
-		i2c-pwr-supply = <&pm8916_l6>;
-		ti,en-gpio-lpm;
-		pinctrl-names = "default";
-		pinctrl-0 = <&tps65132_en_default>;
-
-		regulators {
-			tps65132_pos: pos-boost {
-				regulator-name = "tps65132-pos";
-				regulator-min-microvolt = <5800000>;
-				regulator-max-microvolt = <5800000>;
-				ti,discharge-enable;
-				ti,enable-time = <800>;
-				ti,current-limit = <200000>;
-				ti,en-gpio = <&msm_gpio 97 0>;
-			};
-
-			tps65132_neg: neg-boost {
-				regulator-name = "tps65132-neg";
-				regulator-min-microvolt = <5800000>;
-				regulator-max-microvolt = <5800000>;
-				ti,discharge-enable;
-				ti,enable-time = <800>;
-				ti,current-limit = <40000>;
-				ti,en-gpio = <&msm_gpio 98 0>;
-			};
-		};
-	};
 };
 
 &sdc2_cd_on {
@@ -286,48 +242,11 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_nt35596_1080p_skuk_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active>;
 	pinctrl-1 = <&mdss_dsi_suspend>;
 
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 	qcom,platform-bklight-en-gpio = <&msm_gpio 1 0>;
-
-	vsp-supply = <&tps65132_pos>;
-	vsn-supply = <&tps65132_neg>;
-
-	qcom,ctrl-supply-entries {
-		/delete-node/ qcom,ctrl-supply-entry@0;
-	};
-
-	qcom,panel-supply-entries {
-		/delete-node/qcom,panel-supply-entry@0;
-
-		qcom,panel-supply-entry@2 {
-			reg = <2>;
-			qcom,supply-name = "vsp";
-			qcom,supply-min-voltage = <5800000>;
-			qcom,supply-max-voltage = <5800000>;
-			qcom,supply-enable-load = <200>;
-			qcom,supply-disable-load = <0>;
-		};
-
-		qcom,panel-supply-entry@3 {
-			reg = <3>;
-			qcom,supply-name = "vsn";
-			qcom,supply-min-voltage = <5800000>;
-			qcom,supply-max-voltage = <5800000>;
-			qcom,supply-enable-load = <40>;
-			qcom,supply-disable-load = <0>;
-		};
-	};
-
 };
 
-&dsi_nt35596_1080p_skuk_video {
-	qcom,cont-splash-enabled;
-	qcom,esd-check-enabled;
-	qcom,mdss-dsi-pan-enable-dynamic-fps;
-	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode";
-};
