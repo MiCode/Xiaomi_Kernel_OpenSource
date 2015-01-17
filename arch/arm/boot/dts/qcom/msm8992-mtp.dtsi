@@ -702,6 +702,7 @@
 
 &pmi8994_fg {
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,ext-sense-type;
 };
 
 &pmi8994_charger {
