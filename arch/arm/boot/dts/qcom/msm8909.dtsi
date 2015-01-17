@@ -597,6 +597,7 @@
 		reg = <0x4044000 0x19000>;
 		interrupts = <0 29 1>;
 		qcom,rx-ring-size = <32>;
+		qcom,no-cpu-affinity;
 		qcom,max-rx-mtu = <4096>;
 	};
 
