@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +34,6 @@
 
 #define MBIM_BULK_BUFFER_SIZE		4096
 #define MAX_CTRL_PKT_SIZE		4096
-
 
 enum mbim_peripheral_ep_type {
 	MBIM_DATA_EP_TYPE_RESERVED   = 0x0,
@@ -123,7 +122,7 @@ struct f_mbim {
 	const struct usb_endpoint_descriptor *out_ep_desc_backup;
 
 	u8				ctrl_id, data_id;
-	u8				data_alt_int;
+	bool				data_interface_up;
 
 	spinlock_t			lock;
 
@@ -1295,10 +1294,14 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	/* Data interface has two altsettings, 0 and 1 */
 	} else if (intf == mbim->data_id) {
 
-		pr_info("DATA_INTERFACE\n");
+		pr_info("DATA_INTERFACE id %d, data interface status %d\n",
+				mbim->data_id, mbim->data_interface_up);
 
 		if (alt > 1)
 			goto fail;
+
+		if (mbim->data_interface_up == alt)
+			return 0;
 
 		if (mbim->bam_port.in->driver_data) {
 			pr_info("reset mbim\n");
@@ -1358,7 +1361,24 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			}
 		}
 
-		mbim->data_alt_int = alt;
+		if (alt == 0 && mbim->bam_port.in->driver_data) {
+			/*
+			 * perform bam data disconnect handshake upon usb
+			 * disconnect
+			 */
+			mbim_bam_disconnect(mbim);
+			if (mbim->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
+					mbim->data_interface_up &&
+					gadget_is_dwc3(cdev->gadget)) {
+				if (msm_ep_unconfig(mbim->bam_port.in) ||
+					msm_ep_unconfig(mbim->bam_port.out)) {
+					pr_err("ep_unconfig failed\n");
+					goto fail;
+				}
+			}
+		}
+
+		mbim->data_interface_up = alt;
 		spin_lock(&mbim->lock);
 		mbim->not_port.notify_state = MBIM_NOTIFY_RESPONSE_AVAILABLE;
 		spin_unlock(&mbim->lock);
@@ -1388,7 +1408,7 @@ static int mbim_get_alt(struct usb_function *f, unsigned intf)
 	if (intf == mbim->ctrl_id)
 		return 0;
 	else if (intf == mbim->data_id)
-		return mbim->data_alt_int;
+		return mbim->data_interface_up;
 
 	return -EINVAL;
 }
@@ -1413,7 +1433,7 @@ static void mbim_disable(struct usb_function *f)
 	mbim_reset_function_queue(mbim);
 
 	/* Disable Data Path  - only if it was initialized already (alt=1) */
-	if (mbim->data_alt_int == 0) {
+	if (!mbim->data_interface_up) {
 		pr_debug("MBIM data interface is not opened. Returning\n");
 		return;
 	}
@@ -1426,7 +1446,7 @@ static void mbim_disable(struct usb_function *f)
 
 	mbim_bam_disconnect(mbim);
 
-	mbim->data_alt_int = 0;
+	mbim->data_interface_up = false;
 	pr_info("mbim deactivated\n");
 }
 
@@ -1456,7 +1476,7 @@ static void mbim_suspend(struct usb_function *f)
 		remote_wakeup_allowed = mbim->cdev->gadget->remote_wakeup;
 
 	/* MBIM data interface is up only when alt setting is set to 1. */
-	if (mbim->data_alt_int == 0) {
+	if (!mbim->data_interface_up) {
 		pr_debug("MBIM data interface is not opened. Returning\n");
 		return;
 	}
@@ -1511,7 +1531,7 @@ static void mbim_resume(struct usb_function *f)
 		remote_wakeup_allowed = mbim->cdev->gadget->remote_wakeup;
 
 	/* MBIM data interface is up only when alt setting is set to 1. */
-	if (mbim->data_alt_int == 0) {
+	if (!mbim->data_interface_up) {
 		pr_debug("MBIM data interface is not opened. Returning\n");
 		return;
 	}
@@ -1618,7 +1638,7 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	if (status < 0)
 		goto fail;
 	mbim->data_id = status;
-	mbim->data_alt_int = 0;
+	mbim->data_interface_up = false;
 
 	mbim_data_nop_intf.bInterfaceNumber = status;
 	mbim_data_intf.bInterfaceNumber = status;
