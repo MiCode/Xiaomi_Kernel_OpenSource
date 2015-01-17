@@ -3462,14 +3462,23 @@ static inline void venus_hfi_disable_unprepare_clks(
 		return;
 	}
 
+	/*
+	* Make the clock state variable as unprepared before actually
+	* unpreparing clocks. This will make sure that when we check
+	* the state, we have the right clock state. We are not taking
+	* any action based unprepare failures. So it is safe to do
+	* before the call. This is also in sync with prepare_enable
+	* state update.
+	*/
+
+	device->clk_state = DISABLED_UNPREPARED;
+
 	venus_hfi_for_each_clock(device, cl) {
 		usleep(100);
 		dprintk(VIDC_DBG, "Clock: %s disable and unprepare\n",
 				cl->name);
 		clk_disable_unprepare(cl->clk);
 	}
-
-	device->clk_state = DISABLED_UNPREPARED;
 }
 
 static inline int venus_hfi_prepare_enable_clks(struct venus_hfi_device *device)
