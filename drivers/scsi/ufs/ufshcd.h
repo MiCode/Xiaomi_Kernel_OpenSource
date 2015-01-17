@@ -849,7 +849,12 @@ struct ufs_hba {
 	 * to do background operation when it's active but it might degrade
 	 * the performance of ongoing read/write operations.
 	 */
-#define UFSHCD_CAP_KEEP_AUTO_BKOPS_ENABLED_EXCEPT_SUSPEND (1 << 5)
+#define UFSHCD_CAP_KEEP_AUTO_BKOPS_ENABLED_EXCEPT_SUSPEND (1 << 6)
+	/*
+	 * If host controller hardware can be power collapsed when UFS link is
+	 * in hibern8 then enable this cap.
+	 */
+#define UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8 (1 << 7)
 
 	struct devfreq *devfreq;
 	struct ufs_clk_scaling clk_scaling;
@@ -882,6 +887,12 @@ static inline bool ufshcd_can_autobkops_during_suspend(struct ufs_hba *hba)
 static inline bool ufshcd_is_hibern8_on_idle_allowed(struct ufs_hba *hba)
 {
 	return hba->caps & UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
+}
+
+static inline bool ufshcd_is_power_collapse_during_hibern8_allowed(
+						struct ufs_hba *hba)
+{
+	return !!(hba->caps & UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8);
 }
 
 static inline bool ufshcd_is_intr_aggr_allowed(struct ufs_hba *hba)
