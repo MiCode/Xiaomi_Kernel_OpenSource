@@ -877,6 +877,12 @@ static int msm_iommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	__program_context(iommu_drvdata, ctx_drvdata, priv, is_secure, set_m2v);
 
 	iommu_resume(iommu_drvdata);
+	/* Ensure TLB is clear */
+	if (iommu_drvdata->model != MMU_500) {
+		SET_TLBIASID(iommu_drvdata->cb_base, ctx_drvdata->num,
+					ctx_drvdata->asid);
+		__sync_tlb(iommu_drvdata, ctx_drvdata->num, priv);
+	}
 
 	__disable_clocks(iommu_drvdata);
 
@@ -930,9 +936,11 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	is_secure = iommu_drvdata->sec_id != -1;
 
-	SET_TLBIASID(iommu_drvdata->cb_base, ctx_drvdata->num,
+	if (iommu_drvdata->model == MMU_500) {
+		SET_TLBIASID(iommu_drvdata->cb_base, ctx_drvdata->num,
 					ctx_drvdata->asid);
-	__sync_tlb(iommu_drvdata, ctx_drvdata->num, priv);
+		__sync_tlb(iommu_drvdata, ctx_drvdata->num, priv);
+	}
 
 	ctx_drvdata->asid = -1;
 
