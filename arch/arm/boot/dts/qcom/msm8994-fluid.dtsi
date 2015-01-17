@@ -386,7 +386,7 @@
 			sil,fw-wake = <&msm_gpio 38 0>;
 			sil,reset-gpio = <&msm_gpio 58 0>;
 			sil,irq-gpio = <&msm_gpio 57 0>;
-			sil,i2c_port# = <1>;
+			sil,i2c-port = <1>;
 			pinctrl-names = "mhl_active";
 			pinctrl-0 = <&mhl_intr_active &mhl_reset_active>;
 		};
