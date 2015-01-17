@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1866,7 +1866,8 @@ int _suspend(struct kgsl_device *device)
 {
 	int ret = 0;
 
-	if (KGSL_STATE_SUSPEND == device->state)
+	if ((KGSL_STATE_SUSPEND == device->state) ||
+		(KGSL_STATE_NONE == device->state))
 		return ret;
 
 	/* drain to prevent from more commands being submitted */
