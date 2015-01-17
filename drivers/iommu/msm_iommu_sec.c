@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -351,7 +351,7 @@ static int msm_iommu_sec_ptbl_init(void)
 	unsigned int spare;
 	int ret, ptbl_ret = 0;
 	int version;
-	/* Use a dummy device for dma_alloc_coherent allocation */
+	/* Use a dummy device for dma_alloc_attrs allocation */
 	struct device dev = { 0 };
 	void *cpu_addr;
 	dma_addr_t paddr;
@@ -452,7 +452,7 @@ static int msm_iommu_sec_ptbl_init(void)
 	return 0;
 
 fail_mem:
-	dma_free_coherent(&dev, psize[0], cpu_addr, paddr);
+	dma_free_attrs(&dev, psize[0], cpu_addr, paddr, &attrs);
 fail:
 	return ret;
 }
