@@ -1,7 +1,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,7 @@
 #include "u_rmnet.h"
 
 static unsigned int nr_qdss_ports;
-static unsigned int no_data_bam_ports;
+static unsigned int no_qdss_data_bam_ports;
 static unsigned int data_hsic_ports_no;
 static unsigned int no_ipa_ports;
 static unsigned int no_bam_dmux_ports;
@@ -1202,9 +1202,9 @@ static int qdss_init_port(const char *ctrl_name, const char *data_name,
 
 	switch (qdss_port->data_xport) {
 	case USB_GADGET_XPORT_BAM:
-		qdss_port->data_xport_num = no_data_bam_ports;
-		no_data_bam_ports++;
-		pr_debug("USB_GADGET_XPORT_BAM %d\n", no_data_bam_ports);
+		qdss_port->data_xport_num = no_qdss_data_bam_ports;
+		no_qdss_data_bam_ports++;
+		pr_debug("USB_GADGET_XPORT_BAM %d\n", no_qdss_data_bam_ports);
 		break;
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		qdss_port->data_xport_num = no_ipa_ports;
@@ -1238,7 +1238,7 @@ fail_probe:
 		kfree(qdss_ports[i].port);
 
 	nr_qdss_ports = 0;
-	no_data_bam_ports = 0;
+	no_qdss_data_bam_ports = 0;
 	data_hsic_ports_no = 0;
 	no_ipa_ports = 0;
 	no_bam_dmux_ports = 0;
@@ -1251,7 +1251,7 @@ static int qdss_gport_setup(void)
 	int	i;
 
 	pr_debug("%s: bam ports: %u data hsic ports: %u ipa_ports:%u bam_dmux_port:%u nr_qdss_ports:%u\n",
-			__func__, no_data_bam_ports, data_hsic_ports_no,
+			__func__, no_qdss_data_bam_ports, data_hsic_ports_no,
 			no_ipa_ports, no_bam_dmux_ports, nr_qdss_ports);
 
 	if (data_hsic_ports_no) {
