@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
+#include <linux/spinlock.h>
 #include <linux/srcu.h>
 #include <linux/termios.h>
 #include <linux/workqueue.h>
@@ -118,6 +119,7 @@ struct edge_info {
  *			state.
  * @local_legacy:	The local side of the channel is in legacy mode.
  * @remote_legacy:	The remote side of the channel is in legacy mode.
+ * @rx_data_lock:	Used to serialize RX data processing.
  */
 struct channel {
 	struct list_head node;
@@ -130,7 +132,7 @@ struct channel {
 	smd_channel_t *smd_ch;
 	struct list_head intents;
 	struct list_head used_intents;
-	struct mutex intents_lock;
+	spinlock_t intents_lock;
 	uint32_t next_intent_id;
 	struct workqueue_struct *wq;
 	struct work_struct work;
@@ -139,6 +141,7 @@ struct channel {
 	bool is_closing;
 	bool local_legacy;
 	bool remote_legacy;
+	spinlock_t rx_data_lock;
 };
 
 /**
@@ -266,7 +269,8 @@ static void process_ctl_event(struct work_struct *work)
 				ch->edge = einfo;
 				INIT_LIST_HEAD(&ch->intents);
 				INIT_LIST_HEAD(&ch->used_intents);
-				mutex_init(&ch->intents_lock);
+				spin_lock_init(&ch->intents_lock);
+				spin_lock_init(&ch->rx_data_lock);
 				INIT_WORK(&ch->work, process_data_event);
 				ch->wq = create_singlethread_workqueue(
 								ch->name);
@@ -567,17 +571,20 @@ static void process_data_event(struct work_struct *work)
 	int read_avail;
 	struct intent_info *i;
 	uint32_t liid;
+	unsigned long intents_flags;
+	unsigned long rx_data_flags;
 
 	ch = container_of(work, struct channel, work);
 	einfo = ch->edge;
 
+	spin_lock_irqsave(&ch->rx_data_lock, rx_data_flags);
 	while (!ch->is_closing && smd_read_avail(ch->smd_ch)) {
 		pkt_remaining = smd_cur_packet_size(ch->smd_ch);
 		GLINK_DBG("%s <SMDXPRT> Reading packet chunk %u '%s' %u:%u\n",
 				__func__, pkt_remaining, ch->name, ch->lcid,
 				ch->rcid);
 		if (!ch->cur_intent && !einfo->intentless) {
-			mutex_lock(&ch->intents_lock);
+			spin_lock_irqsave(&ch->intents_lock, intents_flags);
 			list_for_each_entry(i, &ch->intents, node) {
 				if (i->size >= pkt_remaining) {
 					list_del(&i->node);
@@ -585,8 +592,11 @@ static void process_data_event(struct work_struct *work)
 					break;
 				}
 			}
-			mutex_unlock(&ch->intents_lock);
+			spin_unlock_irqrestore(&ch->intents_lock,
+								intents_flags);
 			if (!ch->cur_intent) {
+				spin_unlock_irqrestore(&ch->rx_data_lock,
+								rx_data_flags);
 				GLINK_DBG("%s %s Reqesting intent '%s' %u:%u\n",
 						__func__, "<SMDXPRT>", ch->name,
 						ch->lcid, ch->rcid);
@@ -607,7 +617,7 @@ static void process_data_event(struct work_struct *work)
 							ch->rcid,
 							liid);
 		if (!intent->data && einfo->intentless) {
-			intent->data = kmalloc(pkt_remaining, GFP_KERNEL);
+			intent->data = kmalloc(pkt_remaining, GFP_ATOMIC);
 			if (!intent->data) {
 				GLINK_DBG("%s %s kmalloc failed '%s' %u:%u\n",
 					__func__, "<SMDXPRT>", ch->name,
@@ -617,12 +627,14 @@ static void process_data_event(struct work_struct *work)
 		}
 		smd_read(ch->smd_ch, intent->data + intent->write_offset,
 								read_avail);
+		spin_unlock_irqrestore(&ch->rx_data_lock, rx_data_flags);
 		intent->write_offset += read_avail;
 		intent->pkt_size += read_avail;
 		if (read_avail == pkt_remaining && !einfo->intentless) {
-			mutex_lock(&ch->intents_lock);
+			spin_lock_irqsave(&ch->intents_lock, intents_flags);
 			list_add_tail(&ch->cur_intent->node, &ch->used_intents);
-			mutex_unlock(&ch->intents_lock);
+			spin_unlock_irqrestore(&ch->intents_lock,
+								intents_flags);
 			ch->cur_intent = NULL;
 		}
 		einfo->xprt_if.glink_core_if_ptr->rx_put_pkt_ctx(
@@ -630,7 +642,9 @@ static void process_data_event(struct work_struct *work)
 						ch->rcid,
 						intent,
 						read_avail == pkt_remaining);
+		spin_lock_irqsave(&ch->rx_data_lock, rx_data_flags);
 	}
+	spin_unlock_irqrestore(&ch->rx_data_lock, rx_data_flags);
 }
 
 /**
@@ -706,6 +720,7 @@ static void smd_data_ch_notify(void *priv, unsigned event)
 static void smd_data_ch_close(struct channel *ch)
 {
 	struct intent_info *intent;
+	unsigned long flags;
 
 	SMDXPRT_INFO("%s Closing SMD channel lcid %u\n", __func__, ch->lcid);
 
@@ -716,7 +731,7 @@ static void smd_data_ch_close(struct channel *ch)
 	ch->smd_ch = NULL;
 	ch->local_legacy = false;
 
-	mutex_lock(&ch->intents_lock);
+	spin_lock_irqsave(&ch->intents_lock, flags);
 	while (!list_empty(&ch->intents)) {
 		intent = list_first_entry(&ch->intents, struct
 				intent_info, node);
@@ -729,7 +744,7 @@ static void smd_data_ch_close(struct channel *ch)
 		list_del(&intent->node);
 		kfree(intent);
 	}
-	mutex_unlock(&ch->intents_lock);
+	spin_unlock_irqrestore(&ch->intents_lock, flags);
 	ch->is_closing = false;
 }
 
@@ -992,7 +1007,8 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 		ch->edge = einfo;
 		INIT_LIST_HEAD(&ch->intents);
 		INIT_LIST_HEAD(&ch->used_intents);
-		mutex_init(&ch->intents_lock);
+		spin_lock_init(&ch->intents_lock);
+		spin_lock_init(&ch->rx_data_lock);
 		INIT_WORK(&ch->work, process_data_event);
 		ch->wq = create_singlethread_workqueue(ch->name);
 		if (!ch->wq) {
@@ -1211,6 +1227,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 	struct edge_info *einfo;
 	struct channel *ch;
 	struct intent_info *intent;
+	unsigned long flags;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
@@ -1230,7 +1247,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 		ch->remote_legacy = false;
 		ch->rcid = 0;
 
-		mutex_lock(&ch->intents_lock);
+		spin_lock_irqsave(&ch->intents_lock, flags);
 		while (!list_empty(&ch->intents)) {
 			intent = list_first_entry(&ch->intents,
 							struct intent_info,
@@ -1245,7 +1262,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 			list_del(&intent->node);
 			kfree(intent);
 		}
-		mutex_unlock(&ch->intents_lock);
+		spin_unlock_irqrestore(&ch->intents_lock, flags);
 		ch->is_closing = false;
 	}
 
@@ -1321,6 +1338,7 @@ static int tx_cmd_local_rx_intent(struct glink_transport_if *if_ptr,
 	struct channel *ch;
 	struct intent_info *intent;
 	int rcu_id;
+	unsigned long flags;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
@@ -1344,9 +1362,9 @@ static int tx_cmd_local_rx_intent(struct glink_transport_if *if_ptr,
 
 	intent->liid = liid;
 	intent->size = size;
-	mutex_lock(&ch->intents_lock);
+	spin_lock_irqsave(&ch->intents_lock, flags);
 	list_add_tail(&intent->node, &ch->intents);
-	mutex_unlock(&ch->intents_lock);
+	spin_unlock_irqrestore(&ch->intents_lock, flags);
 
 	if (ch->intent_req) {
 		ch->intent_req = false;
@@ -1370,13 +1388,14 @@ static void tx_cmd_local_rx_done(struct glink_transport_if *if_ptr,
 	struct edge_info *einfo;
 	struct channel *ch;
 	struct intent_info *i;
+	unsigned long flags;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 	list_for_each_entry(ch, &einfo->channels, node) {
 		if (lcid == ch->lcid)
 			break;
 	}
-	mutex_lock(&ch->intents_lock);
+	spin_lock_irqsave(&ch->intents_lock, flags);
 	list_for_each_entry(i, &ch->used_intents, node) {
 		if (i->liid == liid) {
 			list_del(&i->node);
@@ -1387,7 +1406,7 @@ static void tx_cmd_local_rx_done(struct glink_transport_if *if_ptr,
 			break;
 		}
 	}
-	mutex_unlock(&ch->intents_lock);
+	spin_unlock_irqrestore(&ch->intents_lock, flags);
 }
 
 /**
@@ -1585,7 +1604,7 @@ static int poll(struct glink_transport_if *if_ptr, uint32_t lcid)
 	}
 	rc = smd_is_pkt_avail(ch->smd_ch);
 	if (rc == 1)
-		queue_work(ch->wq, &ch->work);
+		process_data_event(&ch->work);
 	return rc;
 }
 
