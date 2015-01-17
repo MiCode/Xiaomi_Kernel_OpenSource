@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +93,12 @@
 		#interrupt-cells = <3>;
 		reg = <0x0b000000 0x1000>,
 		      <0x0b002000 0x1000>;
+	};
+
+        qcom,mpm2-sleep-counter@4a3000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x4a3000 0x1000>;
+		clock-frequency = <32768>;
 	};
 
 	qcom,msm-imem@8600000 {
