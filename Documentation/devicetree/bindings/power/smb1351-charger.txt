@@ -1,0 +1,79 @@
+Summit smb1351 battery charger
+
+SMB1351 is a single-cell battery charger. It can charge
+the battery and power the system via the USB/AC adapter input.
+
+The smb1351 interface is via I2C bus.
+
+Required Properties:
+- compatible			Must be "qcom,smb1351-charger".
+- reg				The device 7-bit I2C address.
+
+Required Properties for standalone charger:
+- regulator-name		A string used as a descriptive name for OTG regulator.
+- pinctrl-names			The state name of the pin configuration. Only
+				support "default".
+- pinctrl-0			The phandle of the pin configuration node in
+				pinctrl for smb_int_pin.
+
+Optional Properties:
+
+- interrupts			This indicates the IRQ number of the GPIO
+				connected to the STAT pin.
+- qcom,fastchg-current-max-ma 	Fast Charging current in mA. Supported range is
+				from 1000mA to 4500mA.
+- qcom,chg-autonomous-mode	This is a bool property and it indicates that the
+				charger is configured for autonomous operation and
+				does not require any software configuration.
+- qcom,disable-apsd		This is a bool property which disables automatic
+				power source detection (APSD). If this is set
+				charger detection is done by DCIN UV irq.
+- qcom,charging-disabled	This is a bool property which disables charging.
+- qcom,bms-psy-name		This is a string and it points to the bms
+				power supply name.
+- qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
+				Possible values in mA - 70, 100, 200, 300, 400, 500, 600, 700.
+- qcom,iterm-disabled		Disables the termination current feature. This is a bool
+				property.
+- qcom,float-voltage-mv	 	Float Voltage in mV - the maximum voltage up to which
+				the battery is charged. Supported range 3500mV to 4500mV
+- qcom,recharge-mv		Recharge threshold in mV - the offset from the float-volatge
+				as which the charger restarts charging. Possible
+				values are 50mV and 100mV.
+- qcom,recharge-disabled	Boolean value which disables the auto-recharge.
+- qcom,bms-controlled-charging	This property enables BMS to control EOC and
+				recharge. BMS and charger communicates with each
+				other via power_supply framework. This
+				property should be used with 'qcom,iterm-disabled'
+				to ensure EOC detection in charger is disabled.
+- qcom,parallel-charger		Boolean value which enables the parallel charger.
+
+Example for standalone charger:
+
+&i2c_4 {
+	smb1351_otg_supply: smb1351-charger@1d {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x1d>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <62 2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,float-voltage-mv = <4350>;
+		qcom,iterm-ma = <100>;
+		qcom,recharge-mv = <100>;
+		qcom,bms-psy-name = "bms";
+		regulator-name = "smb1351_otg_vreg";
+	};
+};
+
+Example for parallel charger:
+
+&i2c_11 {
+	smb1351-charger@1d {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x1d>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-mv = <100>;
+	};
+};

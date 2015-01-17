@@ -370,6 +370,16 @@ config SMB349_DUAL_CHARGER
 	 control and charge-current limiting. The driver controls SMB349
 	 via I2C in STAT IRQ driven mode and supports device-tree interface.
 
+config SMB1351_USB_CHARGER
+	tristate "smb1351 usb charger (with VBUS detection)"
+	depends on I2C
+	help
+	 Say Y to enable support for the SMB1351 switching mode based charger.
+	 The driver supports charging control (enable/disable) and
+	 charge-current limiting. It also provides USB VBUS detection and
+	 notification support. The driver controls SMB1351 via I2C and
+	 supports device-tree interface.
+
 config SMB350_CHARGER
 	tristate "smb350 charger"
 	depends on I2C
