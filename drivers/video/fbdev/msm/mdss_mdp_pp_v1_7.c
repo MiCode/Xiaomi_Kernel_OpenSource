@@ -1970,20 +1970,13 @@ static int pp_pgc_get_config(char __iomem *base_addr, void *cfg_data,
 	u32 *c0_data = NULL, *c1_data = NULL, *c2_data = NULL;
 	u32 val = 0, i = 0, sz = 0;
 	struct mdp_pgc_lut_data *pgc_data = NULL;
-	struct mdp_lut_cfg_data *pgc_cfg_data = NULL;
 	struct mdp_pgc_lut_data_v1_7  *pgc_data_v17 = NULL;
 	if (!base_addr || !cfg_data) {
 		pr_err("invalid params base_addr %p cfg_data %p block_type %d\n",
 		      base_addr, cfg_data, block_type);
 		return -EINVAL;
 	}
-	pgc_cfg_data = (struct mdp_lut_cfg_data *) cfg_data;
-	if (pgc_cfg_data->lut_type != mdp_lut_pgc) {
-		pr_err("incorrect lut type passed %d\n",
-			pgc_cfg_data->lut_type);
-		return -EINVAL;
-	}
-	pgc_data = &pgc_cfg_data->data.pgc_lut_data;
+	pgc_data = (struct mdp_pgc_lut_data *) cfg_data;
 	pgc_data_v17 = (struct mdp_pgc_lut_data_v1_7 *)
 			pgc_data->cfg_payload;
 	if (pgc_data->version != mdp_pgc_v1_7 || !pgc_data_v17) {
