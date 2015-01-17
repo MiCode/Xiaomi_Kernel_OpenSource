@@ -964,8 +964,14 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 
 	ufs_qcom_get_controller_revision(hba, &major, &minor, &step);
 
-	if (major >= 0x2)
+	hba->caps |= UFSHCD_CAP_CLK_GATING | UFSHCD_CAP_CLK_SCALING;
+	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
+	hba->caps |= UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
+
+	if (host->hw_ver.major >= 0x2) {
+		hba->caps |= UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8;
 		host->caps = UFS_QCOM_CAP_QUNIPRO;
+	}
 }
 
 static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
@@ -1284,10 +1290,6 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_set_caps(hba);
 	ufs_qcom_advertise_quirks(hba);
 
-	hba->caps |= UFSHCD_CAP_CLK_GATING |
-			UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
-	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
-	hba->caps |= UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
 	ufs_qcom_setup_clocks(hba, true);
 
 	if (hba->dev->id < MAX_UFS_QCOM_HOSTS)
