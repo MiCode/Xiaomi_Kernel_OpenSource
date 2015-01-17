@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,6 +105,10 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 						ERDBOFF_ERDBOFF_SHIFT);
 
 	mhi_log(MHI_MSG_INFO, "Setting all MMIO values.\n");
+
+	mhi_reg_write_field(mhi_dev_ctxt, mhi_dev_ctxt->mmio_addr, MHICFG,
+				MHICFG_NER_MASK, MHICFG_NER_SHIFT,
+				MHI_MAX_CHANNELS);
 
 	pcie_dword_val = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 			(uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list);
