@@ -968,7 +968,7 @@ static struct rcg_clk byte0_clk_src = {
 	.c = {
 		.dbg_name = "byte0_clk_src",
 		.ops = &clk_ops_byte,
-		VDD_DIG_FMAX_MAP2(LOW, 62500000, NOMINAL, 125000000),
+		VDD_DIG_FMAX_MAP1(LOW, 125000000),
 		CLK_INIT(byte0_clk_src.c),
 	},
 };
