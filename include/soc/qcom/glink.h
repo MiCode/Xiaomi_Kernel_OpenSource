@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,6 +129,10 @@ enum tx_flags {
  *
  * @cfg_ptr:	Open configuration structure (the structure is copied before
  *		glink_open returns).  All unused fields should be zero-filled.
+ *
+ * This should not be called from link state callback context by clients.
+ * It is recommended that client should invoke this function from their own
+ * thread.
  *
  * Return:  Pointer to channel on success, PTR_ERR() with standard Linux
  * error code on failure.
