@@ -30,6 +30,11 @@
 
 #define INTEL_ADF_MAX_OVERLAY_ENG_PER_INTF	3
 
+#define DVO_PORT_DSI_A			21
+#define DVO_PORT_DSI_B			22
+#define DVO_PORT_DSI_C			23
+#define DVO_PORT_DSI_D			24
+
 struct intel_dc_component;
 struct intel_plane;
 struct intel_pipe;

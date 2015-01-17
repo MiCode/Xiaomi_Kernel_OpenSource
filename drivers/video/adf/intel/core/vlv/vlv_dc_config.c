@@ -134,7 +134,7 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 }
 
 static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
-			int pipe, enum intel_pipe_type type, u8 disp_no)
+			enum pipe pipe, enum intel_pipe_type type, u8 disp_no)
 {
 	struct vlv_pri_plane *pplane;
 	struct vlv_sp_plane *splane;
@@ -228,6 +228,8 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 	struct intel_dc_memory *memory;
 	int err;
 	u8 display_no = 0;
+	u16 port;
+	enum pipe pipe = PIPE_A;
 
 	if (!pdev)
 		return ERR_PTR(-EINVAL);
@@ -262,8 +264,14 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 	 * TODO: add dpms config over here and register with adf using
 	 * intel_dc_config_add_power();
 	 */
+	port = intel_get_dsi_port_frm_vbt();
 
-	vlv_initialize_disp(config, PIPE_A, INTEL_PIPE_DSI, display_no++);
+	if (port == DVO_PORT_DSI_A)
+		pipe = PIPE_A;
+	else if (port == DVO_PORT_DSI_C)
+		pipe = PIPE_B;
+
+	vlv_initialize_disp(config, pipe, INTEL_PIPE_DSI, display_no++);
 
 
 	return &config->base;

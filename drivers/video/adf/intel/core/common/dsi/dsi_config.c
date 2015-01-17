@@ -220,6 +220,7 @@ int dsi_config_init(struct dsi_config *config,
 
 	memcpy(&config->perferred_mode, &mode, sizeof(mode));
 
+	config->pipe = idx;
 	config->changed = 0;
 	config->drv_ic_inited = 0;
 	config->bpp = pi.bpp;
