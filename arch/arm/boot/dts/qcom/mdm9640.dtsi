@@ -477,8 +477,8 @@
 		pinctrl-1 = <&i2c_3_sleep>;
 		qcom,noise-rjct-scl = <0>;
 		qcom,noise-rjct-sda = <0>;
-		qcom,bam-pipe-idx-cons = <16>;
-		qcom,bam-pipe-idx-prod = <17>;
+		qcom,bam-pipe-idx-cons = <12>;
+		qcom,bam-pipe-idx-prod = <13>;
 		qcom,master-id = <86>;
 
 		wcd9xxx_codec@d{
