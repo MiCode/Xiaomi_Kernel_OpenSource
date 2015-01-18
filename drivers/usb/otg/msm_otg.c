@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2014, Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2015, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1038,7 +1038,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 				phy_ctrl_val |= PHY_OTGSESSVLDHV_INTEN;
 		}
 		if (host_bus_suspend)
-			phy_ctrl_val |= PHY_CLAMP_DPDMSE_EN;
+			phy_ctrl_val |= (PHY_CLAMP_DPDMSE_EN |PHY_DMSE_INTEN |
+						PHY_DPSE_INTEN);
 
 		if (!(motg->caps & ALLOW_VDD_MIN_WITH_RETENTION_DISABLED)) {
 			writel_relaxed(phy_ctrl_val & ~PHY_RETEN, USB_PHY_CTRL);
@@ -1196,7 +1197,8 @@ static int msm_otg_resume(struct msm_otg *motg)
 			/* Disable PHY HV interrupts */
 			phy_ctrl_val &=
 				~(PHY_IDHV_INTEN | PHY_OTGSESSVLDHV_INTEN);
-		phy_ctrl_val &= ~(PHY_CLAMP_DPDMSE_EN);
+		phy_ctrl_val &= ~(PHY_CLAMP_DPDMSE_EN | PHY_DMSE_INTEN |
+					PHY_DPSE_INTEN);
 		writel_relaxed(phy_ctrl_val, USB_PHY_CTRL);
 		motg->lpm_flags &= ~PHY_RETENTIONED;
 	}
