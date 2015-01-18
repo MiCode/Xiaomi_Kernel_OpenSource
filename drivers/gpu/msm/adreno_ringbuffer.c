@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -477,6 +477,12 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
 	/* idle device to validate bootstrap */
 	ret = adreno_spin_idle(device);
 
+	if (ret) {
+		KGSL_DRV_ERR(rb->device,
+		"microcode bootstrap failed to idle\n");
+		kgsl_device_snapshot(device, NULL);
+	}
+
 	/* Clear the chicken bit for speed up on A430 cores */
 	if (adreno_is_a430(adreno_dev))
 		kgsl_regwrite(device, A4XX_CP_DEBUG,
@@ -551,7 +557,13 @@ static int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 		return status;
 
 	/* idle device to validate ME INIT */
-	return adreno_spin_idle(device);
+	status = adreno_spin_idle(device);
+	if (status) {
+		KGSL_DRV_ERR(rb->device,
+		"ringbuffer initialization failed to idle\n");
+		kgsl_device_snapshot(device, NULL);
+	}
+	return status;
 }
 
 /**

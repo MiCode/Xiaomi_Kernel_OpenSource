@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1065,6 +1065,10 @@ int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 		/* wait for the above commands submitted to complete */
 		ret = adreno_ringbuffer_waittimestamp(rb, rb->timestamp,
 				ADRENO_IDLE_TIMEOUT);
+		if (ret)
+			KGSL_DRV_ERR(rb->device,
+			"Perfcounter %u/%u/%u start via commands failed %d\n",
+			group, counter, countable, ret);
 	} else {
 		/* Select the desired perfcounter */
 		kgsl_regwrite(&adreno_dev->dev, reg->select, countable);
