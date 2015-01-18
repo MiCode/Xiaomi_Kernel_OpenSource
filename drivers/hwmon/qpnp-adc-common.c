@@ -35,6 +35,8 @@
 #define QPNP_VADC_LDO_VOLTAGE_MAX	1800000
 #define QPNP_VADC_OK_VOLTAGE_MIN	1000000
 #define QPNP_VADC_OK_VOLTAGE_MAX	1000000
+#define PMI_CHG_SCALE_1		-138890
+#define PMI_CHG_SCALE_2		391750000000
 
 /* Units for temperature below (on x axis) is in 0.1DegC as
    required by the battery driver. Note the resolution used
@@ -1840,6 +1842,30 @@ int32_t qpnp_adc_smb_btm_rscaler(struct qpnp_vadc_chip *chip,
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_adc_smb_btm_rscaler);
+
+int32_t qpnp_adc_scale_pmi_chg_temp(struct qpnp_vadc_chip *vadc,
+		int32_t adc_code,
+		const struct qpnp_adc_properties *adc_properties,
+		const struct qpnp_vadc_chan_properties *chan_properties,
+		struct qpnp_vadc_result *adc_chan_result)
+{
+	int rc = 0;
+
+	rc = qpnp_adc_scale_default(vadc, adc_code, adc_properties,
+			chan_properties, adc_chan_result);
+	if (rc < 0)
+		return rc;
+
+	pr_debug("raw_code:%x, v_adc:%lld\n", adc_code,
+						adc_chan_result->physical);
+	adc_chan_result->physical = ((PMI_CHG_SCALE_1) *
+					(adc_chan_result->physical * 2));
+	adc_chan_result->physical += PMI_CHG_SCALE_2;
+	do_div(adc_chan_result->physical, 1000000);
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_adc_scale_pmi_chg_temp);
 
 int32_t qpnp_adc_enable_voltage(struct qpnp_adc_drv *adc)
 {
