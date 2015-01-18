@@ -1,7 +1,7 @@
 /*
  * Japan Display Inc. BU21150 touch screen driver.
  *
- * Copyright (C) 2013-2014 Japan Display Inc.
+ * Copyright (C) 2013-2015 Japan Display Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -31,6 +31,7 @@
 #include <linux/of_gpio.h>
 #include <linux/interrupt.h>
 #include <asm/byteorder.h>
+#include <linux/timer.h>
 
 /* define */
 #define DEVICE_NAME   "jdi-bu21150"
@@ -43,6 +44,7 @@
 #define GPIO_HIGH (1)
 #define WAITQ_WAIT   (0)
 #define WAITQ_WAKEUP (1)
+#define TIMEOUT_SCALE       (20)
 #define BU21150_MIN_VOLTAGE_UV	2700000
 #define BU21150_MAX_VOLTAGE_UV	3300000
 #define BU21150_VDD_DIG_VOLTAGE_UV	1800000
@@ -74,6 +76,13 @@ struct bu21150_data {
 	/* waitq */
 	u8 frame_waitq_flag;
 	wait_queue_head_t frame_waitq;
+	/* reset */
+	u8 reset_flag;
+	/* timeout */
+	u8 timeout_enb_flag;
+	u8 set_timer_flag;
+	u8 timeout_flag;
+	u32 timeout;
 	/* spi */
 	u8 spi_buf[MAX_FRAME_SIZE];
 	/* power */
@@ -88,6 +97,7 @@ struct bu21150_data {
 	const char *afe_version;
 	const char *pitch_type;
 	const char *afe_vendor;
+	u16 scan_mode;
 };
 
 struct ser_req {
@@ -111,6 +121,8 @@ static long bu21150_ioctl_suspend(void);
 static long bu21150_ioctl_resume(void);
 static long bu21150_ioctl_unblock(void);
 static long bu21150_ioctl_unblock_release(void);
+static long bu21150_ioctl_set_timeout(unsigned long arg);
+static long bu21150_ioctl_set_scan_mode(unsigned long arg);
 static irqreturn_t bu21150_irq_handler(int irq, void *dev_id);
 static void bu21150_irq_work_func(struct work_struct *work);
 static void swap_2byte(unsigned char *buf, unsigned int size);
@@ -126,10 +138,14 @@ static void copy_frame(struct bu21150_data *ts);
 static void check_same_frame(struct bu21150_data *ts);
 #endif
 static bool parse_dtsi(struct device *dev, struct bu21150_data *ts);
+static void get_frame_timer_init(void);
+static void get_frame_timer_handler(unsigned long data);
+static void get_frame_timer_delete(void);
 
 /* static variables */
 static struct spi_device *g_client_bu21150;
 static int g_io_opened;
+static struct timer_list get_frame_timer;
 
 static ssize_t bu21150_hallib_name_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
@@ -671,6 +687,48 @@ err_parse_dt:
 	return rc;
 }
 
+static void get_frame_timer_init(void)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+
+	if (ts->set_timer_flag == 1) {
+		del_timer_sync(&get_frame_timer);
+		ts->set_timer_flag = 0;
+	}
+
+	if (ts->timeout > 0) {
+		ts->set_timer_flag = 1;
+		ts->timeout_flag = 0;
+
+		init_timer(&get_frame_timer);
+
+		get_frame_timer.expires  = jiffies + ts->timeout;
+		get_frame_timer.data     = (unsigned long)jiffies;
+		get_frame_timer.function = get_frame_timer_handler;
+
+		add_timer(&get_frame_timer);
+	}
+}
+
+static void get_frame_timer_handler(unsigned long data)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+
+	ts->timeout_flag = 1;
+	/* wake up */
+	wake_up_frame_waitq(ts);
+}
+
+static void get_frame_timer_delete(void)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+
+	if (ts->set_timer_flag == 1) {
+		ts->set_timer_flag = 0;
+		del_timer_sync(&get_frame_timer);
+	}
+}
+
 static int bu21150_remove(struct spi_device *client)
 {
 	struct bu21150_data *ts = spi_get_drvdata(client);
@@ -704,6 +762,10 @@ static int bu21150_open(struct inode *inode, struct file *filp)
 	++g_io_opened;
 
 	g_bu21150_ioctl_unblock = 0;
+	ts->reset_flag = 0;
+	ts->set_timer_flag = 0;
+	ts->timeout_flag = 0;
+	ts->timeout_enb_flag = 0;
 	memset(&(ts->req_get), 0, sizeof(struct bu21150_ioctl_get_frame_data));
 	/* set default value. */
 	ts->req_get.size = FRAME_HEADER_SIZE;
@@ -772,6 +834,12 @@ static long bu21150_ioctl(struct file *filp, unsigned int cmd,
 	case BU21150_IOCTL_CMD_RESUME:
 		ret = bu21150_ioctl_resume();
 		return ret;
+	case BU21150_IOCTL_CMD_SET_TIMEOUT:
+		ret = bu21150_ioctl_set_timeout(arg);
+		return ret;
+	case BU21150_IOCTL_CMD_SET_SCAN_MODE:
+		ret = bu21150_ioctl_set_scan_mode(arg);
+		return ret;
 	default:
 		pr_err("%s: cmd unknown.\n", __func__);
 		return -EINVAL;
@@ -803,6 +871,9 @@ static long bu21150_ioctl_get_frame(unsigned long arg)
 		return -EINVAL;
 	}
 
+	if (ts->timeout_enb_flag == 1)
+		get_frame_timer_init();
+
 	do {
 		ts->req_get = data;
 		ret = wait_frame_waitq(ts);
@@ -810,6 +881,9 @@ static long bu21150_ioctl_get_frame(unsigned long arg)
 			return ret;
 	} while (!is_same_bu21150_ioctl_get_frame_data(&data,
 				&(ts->frame_get)));
+
+	if (ts->timeout_enb_flag == 1)
+		get_frame_timer_delete();
 
 	/* copy frame */
 	mutex_lock(&ts->mutex_frame);
@@ -838,11 +912,11 @@ static long bu21150_ioctl_reset(unsigned long reset)
 		return -EINVAL;
 	}
 
-	if (reset == BU21150_RESET_HIGH) {
-		usleep(1000);
-	}
-
 	gpio_set_value(ts->rst_gpio, reset);
+
+	ts->frame_waitq_flag = WAITQ_WAIT;
+	if (reset == BU21150_RESET_LOW)
+		ts->reset_flag = 1;
 
 	return 0;
 }
@@ -949,6 +1023,43 @@ static long bu21150_ioctl_resume(void)
 	return 0;
 }
 
+static long bu21150_ioctl_set_timeout(unsigned long arg)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+	void __user *argp = (void __user *)arg;
+	struct bu21150_ioctl_timeout_data data;
+
+	if (copy_from_user(&data, argp,
+		sizeof(struct bu21150_ioctl_timeout_data))) {
+		pr_err("%s: Failed to copy_from_user().\n", __func__);
+		return -EFAULT;
+	}
+
+	ts->timeout_enb_flag = data.timeout_enb_flag;
+	if (data.timeout_enb_flag == 1) {
+		ts->timeout = (unsigned int)(data.report_interval_us
+			* TIMEOUT_SCALE * HZ / 1000000);
+	} else {
+		get_frame_timer_delete();
+	}
+
+	return 0;
+}
+
+static long bu21150_ioctl_set_scan_mode(unsigned long arg)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+	void __user *argp = (void __user *)arg;
+
+	if (copy_from_user(&ts->scan_mode, argp,
+		sizeof(u16))) {
+		pr_err("%s: Failed to copy_from_user().\n", __func__);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 static irqreturn_t bu21150_irq_handler(int irq, void *dev_id)
 {
 	struct bu21150_data *ts = dev_id;
@@ -971,11 +1082,15 @@ static void bu21150_irq_work_func(struct work_struct *work)
 	ts->frame_work_get = ts->req_get;
 	bu21150_read_register(REG_READ_DATA, ts->frame_work_get.size, psbuf);
 
+	if (ts->reset_flag == 0) {
 #ifdef CHECK_SAME_FRAME
-	check_same_frame(ts);
+		check_same_frame(ts);
 #endif
-	copy_frame(ts);
-	wake_up_frame_waitq(ts);
+		copy_frame(ts);
+		wake_up_frame_waitq(ts);
+	} else {
+		ts->reset_flag = 0;
+	}
 
 	enable_irq(client->irq);
 }
@@ -1076,6 +1191,14 @@ static long wait_frame_waitq(struct bu21150_data *ts)
 		return -ERESTARTSYS;
 	}
 	ts->frame_waitq_flag = WAITQ_WAIT;
+
+	if (ts->timeout_enb_flag == 1) {
+		if (ts->timeout_flag == 1) {
+			ts->set_timer_flag = 0;
+			ts->timeout_flag = 0;
+			return BU21150_TIMEOUT;
+		}
+	}
 
 	if (g_bu21150_ioctl_unblock == 1)
 		return BU21150_UNBLOCK;
