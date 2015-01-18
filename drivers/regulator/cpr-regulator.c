@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2721,6 +2721,87 @@ done:
 	return rc;
 }
 
+static int cpr_minimum_quot_difference_adjustment(struct platform_device *pdev,
+					struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	int tuple_count, tuple_match;
+	int rc, i, len = 0;
+	u32 index, adjust_quot = 0;
+	u32 *min_diff_quot;
+
+	if (!of_find_property(of_node, "qcom,cpr-fuse-min-quot-diff", NULL))
+		/* No conditional adjustment needed on revised quotients. */
+		return 0;
+
+	if (!of_find_property(of_node, "qcom,cpr-min-quot-diff-adjustment",
+						&len)) {
+		cpr_err(cpr_vreg, "qcom,cpr-min-quot-diff-adjustment not specified\n");
+		return -ENODEV;
+	}
+
+	if (cpr_vreg->cpr_fuse_map_count) {
+		if (cpr_vreg->cpr_fuse_map_match == FUSE_MAP_NO_MATCH)
+			/* No matching index to use for quotient adjustment. */
+			return 0;
+		tuple_count = cpr_vreg->cpr_fuse_map_count;
+		tuple_match = cpr_vreg->cpr_fuse_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	if (len != cpr_vreg->num_fuse_corners * tuple_count * sizeof(u32)) {
+		cpr_err(cpr_vreg, "qcom,cpr-min-quot-diff-adjustment length=%d is invalid\n",
+					len);
+		return -EINVAL;
+	}
+
+	min_diff_quot = kzalloc(cpr_vreg->num_fuse_corners * sizeof(u32),
+							GFP_KERNEL);
+	if (!min_diff_quot) {
+		cpr_err(cpr_vreg, "memory alloc failed\n");
+		return -ENOMEM;
+	}
+
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-min-quot-diff",
+						min_diff_quot,
+						cpr_vreg->num_fuse_corners);
+	if (rc < 0) {
+		cpr_err(cpr_vreg, "qcom,cpr-fuse-min-quot-diff reading failed, rc = %d\n",
+							rc);
+		goto error;
+	}
+
+	for (i = CPR_FUSE_CORNER_MIN + 1;
+				i <= cpr_vreg->num_fuse_corners; i++) {
+		if ((cpr_vreg->cpr_fuse_target_quot[i]
+			- cpr_vreg->cpr_fuse_target_quot[i - 1])
+		    <= (int)min_diff_quot[i - CPR_FUSE_CORNER_MIN]) {
+			index = tuple_match * cpr_vreg->num_fuse_corners
+					+ i - CPR_FUSE_CORNER_MIN;
+			rc = of_property_read_u32_index(of_node,
+						"qcom,cpr-min-quot-diff-adjustment",
+						index, &adjust_quot);
+			if (rc) {
+				cpr_err(cpr_vreg, "could not read qcom,cpr-min-quot-diff-adjustment index %u, rc=%d\n",
+							index, rc);
+				goto error;
+			}
+
+			cpr_vreg->cpr_fuse_target_quot[i]
+				= cpr_vreg->cpr_fuse_target_quot[i - 1]
+					+ adjust_quot;
+			cpr_info(cpr_vreg, "Corner[%d]: revised adjusted quotient = %d\n",
+					i, cpr_vreg->cpr_fuse_target_quot[i]);
+		};
+	}
+
+error:
+	kfree(min_diff_quot);
+	return rc;
+}
+
 static int cpr_adjust_target_quots(struct platform_device *pdev,
 					struct cpr_regulator *cpr_vreg)
 {
@@ -2772,6 +2853,11 @@ static int cpr_adjust_target_quots(struct platform_device *pdev,
 		}
 	}
 
+	rc = cpr_minimum_quot_difference_adjustment(pdev, cpr_vreg);
+	if (rc)
+		cpr_err(cpr_vreg, "failed to apply minimum quot difference rc=%d\n",
+					rc);
+
 	return rc;
 }
 
@@ -2814,10 +2900,10 @@ static int cpr_check_allowed(struct platform_device *pdev,
 		return rc;
 	}
 
-	if (!allow_status)
-		cpr_vreg->cpr_fuse_disable = true;
-	else
+	if (allow_status && !cpr_vreg->cpr_fuse_disable)
 		cpr_vreg->cpr_fuse_disable = false;
+	else
+		cpr_vreg->cpr_fuse_disable = true;
 
 	cpr_info(cpr_vreg, "CPR closed loop is %s for fuse revision %d\n",
 		cpr_vreg->cpr_fuse_disable ? "disabled" : "enabled",
@@ -3028,6 +3114,16 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			"Corner[%d]: ro_sel = %d, target quot = %d\n", i,
 			cpr_vreg->cpr_fuse_ro_sel[i],
 			cpr_vreg->cpr_fuse_target_quot[i]);
+	}
+
+	for (i = CPR_FUSE_CORNER_MIN + 1;
+				i <= cpr_vreg->num_fuse_corners; i++) {
+		if (cpr_vreg->cpr_fuse_target_quot[i]
+				< cpr_vreg->cpr_fuse_target_quot[i - 1]) {
+			cpr_vreg->cpr_fuse_disable = true;
+			cpr_err(cpr_vreg, "invalid quotient values; permanently disabling CPR\n");
+			goto error;
+		}
 	}
 
 	rc = cpr_adjust_target_quots(pdev, cpr_vreg);
