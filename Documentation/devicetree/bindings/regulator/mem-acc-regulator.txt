@@ -18,13 +18,17 @@ Required properties:
 
 Optional properties:
 - reg:				Register addresses for acc-sel-l1, acc-sel-l2 control, acc-en,
-				MEM ACC eFuse address, acc-l1-custom and acc-l2-custom.
+				MEM ACC eFuse address, acc-l1-custom , acc-l2-custom,
+				mem-acc-type1, mem-acc-type2, mem-acc-type3, mem-acc-type4,
+				mem-acc-type5 and mem-acc-type6.
 - reg-names:			Register names. Must be "acc-sel-l1",
 				"acc-sel-l2", "acc-en", "efuse_addr",
-				"acc-l1-custom", "acc-l2-custom".
+				"acc-l1-custom", "acc-l2-custom", "mem-acc-type1",
+				"mem-acc-type2", "mem-acc-type3", "mem-acc-type4",
+				"mem-acc-type5", "mem-acc-type6".
 				A given mem-acc-regulator driver must have "acc-sel-l1" or
-				"acc-sel-l2" reg-names property and related register address
-				property.
+				"acc-sel-l2" or "mem-acc-type*" reg-names property and
+				related register address property.
 - qcom,acc-en-bit-pos		Array which specifies bit positions in the
 				'acc-en' register. Setting these bits forces the
 				the acclerator to use the corner value specified
@@ -107,13 +111,24 @@ Optional properties:
 				is specified by "acc-l2-custom" reg-property. The length of the array
 				should be equal to number of APC corners.
 				This property can only be specified if the " qcom,l2-acc-custom-data" is already defined.
+- qcom,mem-acc-type1:		Array which specifies the value to be written to the mem acc type1 register for each fuse
+				corner, from the lowest fuse corner to the highest fuse corner. The length of the array
+				must be equal to the number of APC fuse corners. This property must be present if reg names
+				specifies mem-acc-type1.
+- qcom,mem-acc-type2:		Same as qcom,mem-acc-type1 except for mem acc type2 register.
+- qcom,mem-acc-type3:		Same as qcom,mem-acc-type1 except for mem acc type3 register.
+- qcom,mem-acc-type4:		Same as qcom,mem-acc-type1 except for mem acc type4 register.
+- qcom,mem-acc-type5:		Same as qcom,mem-acc-type1 except for mem acc type5 register.
+- qcom,mem-acc-type6:		Same as qcom,mem-acc-type1 except for mem acc type6 register.
 
 mem_acc_vreg_corner: regulator@fd4aa044 {
 	compatible = "qcom,mem-acc-regulator";
 	reg = <0xfd4aa048 0x1>, <0xfd4aa044 0x1>, <0xfd4af000 0x1>,
-		<0x58000 0x1000>, <0x01942124 0x4>;
+		<0x58000 0x1000>, <0x01942124 0x4>, <0xf900d084 1>,
+		<0xf900d088 1>, <0xf900d08c 1>, <0xf900d090 1>;
 	reg-names = "acc-en", "acc-sel-l1" , "acc-sel-l2",
-		"efuse_addr", "acc-l2-custom";
+		"efuse_addr", "acc-l2-custom", "mem-acc-type1",
+		"mem-acc-type2", "mem-acc-type3", "mem-acc-type4";
 	regulator-name = "mem_acc_corner";
 	regulator-min-microvolt = <1>;
 	regulator-max-microvolt = <3>;
@@ -129,4 +144,8 @@ mem_acc_vreg_corner: regulator@fd4aa044 {
 	qcom,override-acc-fuse-sel = <0 52 1 1 0>;
 	qcom,override-corner-acc-map = <0 0 1>;
 	qcom,overide-l2-acc-custom-data = <0x0 0x0 0x3000>;
+	qcom,mem-acc-type1 = <0x02 0x02 0x00>;
+	qcom,mem-acc-type2 = <0x02 0x02 0x00>;
+	qcom,mem-acc-type3 = <0x02 0x02 0x00>;
+	qcom,mem-acc-type4 = <0x02 0x02 0x00>;
 };
