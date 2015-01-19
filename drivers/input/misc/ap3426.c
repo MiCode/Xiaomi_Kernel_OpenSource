@@ -920,12 +920,13 @@ exit:
 static irqreturn_t ap3426_irq_handler(int irq, void *data)
 {
 	struct ap3426_data *di = data;
+	bool rc;
 
+	rc = queue_work(di->workqueue, &di->report_work);
 	/* wake up event should hold a wake lock until reported */
-	if (atomic_inc_return(&di->wake_count) == 1)
+	if (rc && (atomic_inc_return(&di->wake_count) == 1))
 		pm_stay_awake(&di->i2c->dev);
 
-	queue_work(di->workqueue, &di->report_work);
 
 	return IRQ_HANDLED;
 }
@@ -972,8 +973,10 @@ static void ap3426_report_work(struct work_struct *work)
 	}
 
 exit:
-	if (atomic_dec_and_test(&di->wake_count))
+	if (atomic_dec_and_test(&di->wake_count)) {
 		pm_relax(&di->i2c->dev);
+		dev_dbg(&di->i2c->dev, "wake lock released\n");
+	}
 
 	/* clear interrupt */
 	if (di->power_enabled) {
