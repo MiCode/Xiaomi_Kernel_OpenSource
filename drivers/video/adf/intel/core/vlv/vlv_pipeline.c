@@ -251,6 +251,41 @@ calc_exit:
 	return multiplier;
 }
 
+static void chv_update_plane_scale_ratio(struct vlv_pipeline *disp,
+					 struct drm_mode_modeinfo *mode)
+{
+	struct vlv_pipe *pipe = &disp->pipe;
+	int i = 0;
+	bool ratio_changed = 0;
+
+	if ((intel_adf_get_platform_id() == gen_cherryview) &&
+	    STEP_FROM(disp->dc_stepping, STEP_B0) &&
+	    (pipe->pipe_id == PIPE_B)) {
+		int cur_cdclk;
+		int pipe_clock;
+		int scale_ratio;
+		cur_cdclk = vlv_get_cdclk();	/* in MHz */
+		pipe_clock = mode->clock;		/* in KHz */
+		scale_ratio = pipe_clock / cur_cdclk / 10;
+
+		disp->mpo.min_hsr = scale_ratio;
+		disp->mpo.min_vsr = scale_ratio;
+		disp->mpo.min_hvsr = scale_ratio;
+		ratio_changed = 1;
+	}
+	if (ratio_changed) {
+		if ((disp->pplane.mpo_plane != NULL) &&
+		    (disp->pplane.mpo_plane->can_scale == 1))
+			disp->pplane.mpo_plane->reprogram_scaler = 1;
+
+		for (i = 0; i < VLV_NUM_SPRITES; i++) {
+			if ((disp->splane[i].mpo_plane != NULL) &&
+			    (disp->splane[i].mpo_plane->can_scale == 1))
+				disp->splane[i].mpo_plane->reprogram_scaler = 1;
+		}
+	}
+}
+
 /*
  * DSI is a special beast that requires 3 calls to pipeline
  * 1) setup pll : dsi_prepare_on
@@ -393,6 +428,8 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 	ret = vlv_pipe_vblank_on(pipe);
 	if (ret != true)
 		pr_err("ADF: %s: enable vblank failed\n", __func__);
+
+	chv_update_plane_scale_ratio(disp, mode);
 
 	/*
 	 * FIXME: enable dpst call once dpst is fixed

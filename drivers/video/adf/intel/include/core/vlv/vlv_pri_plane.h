@@ -31,6 +31,8 @@ struct pri_plane_regs_value {
 	unsigned long linearoff;
 	unsigned long tileoff;
 	unsigned long surfaddr;
+	u32 pos;
+	u32 size;
 };
 
 struct vlv_pri_plane_context {
@@ -62,6 +64,8 @@ struct vlv_pri_plane {
 	u32 canvas_col;
 	bool alpha_updated;
 	bool blend_updated;
+	u32 window_updated;
+	struct vlv_mpo_plane *mpo_plane;
 	struct vlv_pri_plane_context ctx;
 };
 

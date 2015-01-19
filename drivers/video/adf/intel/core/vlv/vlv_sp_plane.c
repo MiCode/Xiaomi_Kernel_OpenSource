@@ -197,6 +197,153 @@ static inline struct vlv_pipeline *to_vlv_pipeline_sp1_plane(
 	return container_of(tmp_plane, struct vlv_pipeline, splane[0]);
 }
 
+/* Check whether plane size got changed and scaling required */
+void
+chv_chek_save_scale(struct vlv_mpo_plane *mpo_plane,
+			 struct intel_plane_config *config)
+{
+	if (mpo_plane != NULL) {
+		if ((mpo_plane->last_src_x != config->src_x) ||
+		    (mpo_plane->last_src_y != config->src_y) ||
+		    (mpo_plane->last_src_w != config->src_w) ||
+		    (mpo_plane->last_src_h != config->src_h) ||
+		    (mpo_plane->last_dst_x != config->dst_x) ||
+		    (mpo_plane->last_dst_y != config->dst_y) ||
+		    (mpo_plane->last_dst_w != config->dst_w) ||
+		    (mpo_plane->last_dst_h != config->dst_h))
+			mpo_plane->reprogram_scaler = 1;
+
+		/* Save last flips recatangle attributes */
+		mpo_plane->last_src_x = config->src_x;
+		mpo_plane->last_src_y = config->src_y;
+		mpo_plane->last_src_w = config->src_w;
+		mpo_plane->last_src_h = config->src_h;
+		mpo_plane->last_dst_x = config->dst_x;
+		mpo_plane->last_dst_y = config->dst_y;
+		mpo_plane->last_dst_w = config->dst_w;
+		mpo_plane->last_dst_h = config->dst_h;
+	}
+	return;
+}
+
+int
+chv_program_plane_scaler(struct vlv_pipeline *disp,
+			struct vlv_mpo_plane *mpo_plane,
+			u32 src_w, u32 src_h,
+			u32 dst_w, u32 dst_h)
+{
+	u32 *hcfilter, *vcfilter, *hafilter, *vafilter;
+	u32 hsr = 100, vsr = 100;
+	u32 hisf, visf;
+	int *reprogram_scaler;
+	int primary = 0;
+	int i;
+
+	reprogram_scaler = &mpo_plane->reprogram_scaler;
+
+	if (mpo_plane->is_primary_plane == true)
+		primary = 1;
+
+	if (!(*reprogram_scaler)) {
+		pr_err("No (re)programming of scaler.\n");
+		return 0;
+	}
+
+	if (src_w && src_h) {
+		hsr = (dst_w * 100)/src_w;
+		vsr = (dst_h * 100)/src_h;
+	}
+
+	hsr = (hsr > 150) ? 150 : hsr;
+	vsr = (vsr > 150) ? 150 : vsr;
+
+	/* Get filter coefficients, index 0 is to get 33% of original */
+	hcfilter = chv_hfilters[hsr - 33];
+	vcfilter = chv_vfilters[vsr - 33];
+	hafilter = chv_hab_filter;
+	vafilter = chv_vab_filter;
+
+	mpo_plane->scaler_reg = CHV_PCPSX_CONFIG(primary);
+
+	if (((hsr == 100) && (vsr == 100)) || (src_w == 0) || (src_h == 0) ||
+	    (dst_w == 0) || (dst_h == 0)) {
+		mpo_plane->scaler_en = 0;
+		return 0;
+	}
+
+	/* Check scaling is within range */
+	if (hsr < disp->mpo.min_hsr || hsr > disp->mpo.max_hsr ||
+		vsr < disp->mpo.min_vsr || vsr > disp->mpo.max_vsr ||
+		hsr * vsr < disp->mpo.min_hvsr * 100 ||
+		hsr * vsr > disp->mpo.max_hvsr * 100) {
+		pr_err("hsr %x [%x %x] vsr = %x [%x %x] hvsr %x [%x %x] not supported\n",
+		       hsr, disp->mpo.min_hsr, disp->mpo.max_hsr, vsr,
+		       disp->mpo.min_vsr, disp->mpo.max_vsr,
+		       hsr * vsr / 100, disp->mpo.min_hvsr,
+		       disp->mpo.max_hvsr);
+
+		mpo_plane->scaler_en = 0;
+		return -EINVAL;
+	}
+
+	if (src_w < disp->mpo.min_src_w || src_w > disp->mpo.max_src_w ||
+		src_h < disp->mpo.min_src_h ||
+		src_h > disp->mpo.max_src_h) {
+		pr_err("src_w %u or src_h %u outside supported range.\n",
+			src_w, src_h);
+		mpo_plane->scaler_en = 0;
+		return -EINVAL;
+	}
+
+	if (dst_w < disp->mpo.min_dst_w || dst_w > disp->mpo.max_dst_w ||
+		dst_h < disp->mpo.min_dst_h ||
+		dst_h > disp->mpo.max_dst_h) {
+		pr_err("dst_w %u or dst_h %u outside supported range.\n",
+			dst_w, dst_h);
+		mpo_plane->scaler_en = 0;
+		return -EINVAL;
+	}
+
+	if ((src_w << 1) < dst_w)
+		hisf = ((src_w - 1) << 16) / (dst_w - 1);
+	else
+		hisf = (src_w << 16) / dst_w;
+
+	if (((src_h - (0x7C00 >> 16)) << 1) < dst_h)
+		visf = ((src_h - 1) << 16) / (dst_h - 1);
+	else
+		visf = (src_h << 16) / dst_h;
+
+	REG_WRITE(CHV_PCPSX_HSC_CNTL(primary), 0x1);
+	REG_WRITE(CHV_PCPSX_HSC_W(primary), dst_w << 16 | src_w);
+	REG_WRITE(CHV_PCPSX_HSC_H(primary), src_h);
+	REG_WRITE(CHV_PCPSX_HSC_NBP(primary), 0x12 << 8);
+	REG_WRITE(CHV_PCPSX_HSC_ISF(primary), hisf & 0x1FFFFF);
+	REG_WRITE(CHV_PCPSX_HSC_PC(primary), 0x7C00 << 8 | 0x20);
+	for (i = 0; i < 64; i++)
+		REG_WRITE(CHV_PCPSX_HSC_PM(primary) + i * 4, hcfilter[i]);
+
+	for (i = 0; i < 64; i++)
+		REG_WRITE(CHV_PCPSX_HSC_APM(primary) + i * 4, hafilter[i]);
+
+	REG_WRITE(CHV_PCPSX_VSC_CNTL(primary), 0x1);
+	REG_WRITE(CHV_PCPSX_VSC_W(primary), dst_w);
+	REG_WRITE(CHV_PCPSX_VSC_H(primary), dst_h << 16 | src_h);
+	REG_WRITE(CHV_PCPSX_VSC_ISF(primary), visf & 0x1FFFFF);
+	REG_WRITE(CHV_PCPSX_VSC_PC(primary), 0x7C00 << 8 | 0x20);
+
+	for (i = 0; i < 32; i++)
+		REG_WRITE(CHV_PCPSX_VSC_PM(primary) + i * 4, vcfilter[i]);
+
+	for (i = 0; i < 32; i++)
+		REG_WRITE(CHV_PCPSX_VSC_APM(primary) + i * 4, vafilter[i]);
+
+	mpo_plane->scaler_en = 1;
+
+	/* TODO: use at proper place  *reprogram_scaler = 0;*/
+	return 0;
+}
+
 static void vlv_sp_pane_save_ddl(struct vlv_sp_plane *splane, u32 ddl)
 {
 	int plane = splane->ctx.plane;

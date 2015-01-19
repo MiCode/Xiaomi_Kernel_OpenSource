@@ -20,6 +20,7 @@
 #include <core/vlv/vlv_dc_regs.h>
 #include <core/vlv/vlv_pm.h>
 #include <drm/i915_drm.h>
+#include <drm/drm_rect.h>
 #include <video/intel_adf.h>
 
 #define SEC_PLANE_OFFSET 0x1000
@@ -130,6 +131,11 @@ static const u32 pri_supported_transforms[] = {
 };
 #endif
 
+static const u32 priB_supported_scalings[] = {
+	INTEL_PLANE_SCALING_DOWNSCALING,
+	INTEL_PLANE_SCALING_UPSCALING,
+};
+
 static const u32 pri_supported_blendings[] = {
 	INTEL_PLANE_BLENDING_NONE,
 	INTEL_PLANE_BLENDING_PREMULT,
@@ -217,6 +223,128 @@ static inline struct vlv_pipeline *to_vlv_pipeline_pri_plane(
 	return container_of(plane, struct vlv_pipeline, pplane);
 }
 
+static int chv_update_planeb_scaler(struct vlv_pri_plane *pri_plane,
+		struct intel_plane_config *config, int *src_x, int *src_y,
+		u32 *src_w, u32 *src_h)
+{
+	struct drm_mode_modeinfo mode;
+	struct intel_pipe *intel_pipe = config->pipe;
+	struct vlv_pipeline *disp = to_vlv_pipeline_pri_plane(pri_plane);
+	struct pri_plane_regs_value *regs = &pri_plane->ctx.regs;
+	bool visible;
+	int ret = 0;
+	int hscale, vscale;
+	int max_scale, min_scale;
+	int dst_x = config->dst_x;
+	int dst_y = config->dst_y;
+	u32 dst_w = config->dst_w;
+	u32 dst_h = config->dst_h;
+	struct drm_rect clip;
+
+	/* sample coordinates in 16.16 fixed point */
+	struct drm_rect src;
+	struct drm_rect dst = { /* integer pixels */
+		.x1 = dst_x,
+		.x2 = dst_x + dst_w,
+		.y1 = dst_y,
+		.y2 = dst_y + dst_h,
+	};
+
+	intel_pipe->ops->get_current_mode(intel_pipe, &mode);
+
+	clip.x1 = 0;
+	clip.y1 = 0;
+	clip.x2 = mode.hdisplay;
+	clip.y2 = mode.vdisplay;
+
+	*src_x = *src_x << 16;
+	*src_y = *src_y << 16;
+	*src_w = *src_w << 16;
+	*src_h = *src_h << 16;
+
+	src.x1 = *src_x;
+	src.x2 = src.x1 + *src_w;
+	src.y1 = *src_y;
+	src.y2 = src.y1 + *src_h;
+
+	/*
+	 * the following code does a bunch of fuzzy adjustments to the
+	 * coordinates and sizes. We probably need some way to decide whether
+	 * more strict checking should be done instead.
+	 */
+	max_scale = pri_plane->mpo_plane->max_downscale << 16;
+	min_scale = pri_plane->mpo_plane->can_scale ? 1 : (1 << 16);
+
+	hscale = drm_rect_calc_hscale_relaxed(&src, &dst, min_scale, max_scale);
+	BUG_ON(hscale < 0);
+
+	vscale = drm_rect_calc_vscale_relaxed(&src, &dst, min_scale, max_scale);
+	BUG_ON(vscale < 0);
+
+	visible = drm_rect_clip_scaled(&src, &dst, &clip, hscale, vscale);
+
+	dst_x = dst.x1;
+	dst_y = dst.y1;
+	dst_w = drm_rect_width(&dst);
+	dst_h = drm_rect_height(&dst);
+
+	if (visible) {
+
+		/* check again in case clipping clamped the results */
+		hscale = drm_rect_calc_hscale(&src, &dst, min_scale, max_scale);
+		if (hscale < 0) {
+			pr_err("%s:hscale factor out of limits\n", __func__);
+			drm_rect_debug_print(&src, true);
+			drm_rect_debug_print(&dst, false);
+
+			return hscale;
+		}
+
+		vscale = drm_rect_calc_vscale(&src, &dst, min_scale, max_scale);
+		if (vscale < 0) {
+			pr_err("%s:vscale factor out of limits\n", __func__);
+			drm_rect_debug_print(&src, true);
+			drm_rect_debug_print(&dst, false);
+
+			return vscale;
+		}
+
+		/*
+		 * Make source viewport size an exact multiple of
+		 * scaling factors.
+		 */
+		drm_rect_adjust_size(&src,
+			drm_rect_width(&dst) * hscale - drm_rect_width(&src),
+			drm_rect_height(&dst) * vscale - drm_rect_height(&src));
+
+		/* sanity check to make sure the src viewport wasn't enlarged */
+		WARN_ON(src.x1 < (int) *src_x ||
+			src.y1 < (int) *src_y ||
+			src.x2 > (int) (*src_x + *src_w) ||
+			src.y2 > (int) (*src_y + *src_h));
+
+		*src_x = src.x1 >> 16;
+		*src_w = drm_rect_width(&src) >> 16;
+		*src_y = src.y1 >> 16;
+		*src_h = drm_rect_height(&src) >> 16;
+		ret = chv_program_plane_scaler(disp, pri_plane->mpo_plane,
+					       *src_w, *src_h, dst_w, dst_h);
+
+		if (ret)
+			return ret;
+
+		/* Position plane output into pipe src area */
+		regs->pos = (dst_y << 16) | dst_x;
+		regs->size = ((dst_h - 1) << 16) | (dst_w - 1);
+		pri_plane->window_updated = true;
+		*src_x = src.x1 >> 16;
+		*src_w = drm_rect_width(&src) >> 16;
+		*src_y = src.y1 >> 16;
+		*src_h = drm_rect_height(&src) >> 16;
+	}
+	return ret;
+}
+
 static int vlv_pri_calculate(struct intel_plane *plane,
 		struct intel_buffer *buf,
 		struct intel_plane_config *config)
@@ -231,6 +359,7 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 	unsigned long dspaddr_offset;
 	int plane_ddl, prec_multi, plane_prec_multi;
 	int src_x, src_y;
+	u32 src_w, src_h;
 	int pipe = intel_pipe->base.idx;
 	u32 dspcntr;
 	u32 mask;
@@ -249,6 +378,10 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 
 	src_x = config->src_x;
 	src_y = config->src_y;
+
+	/* By default fb widht is the src width */
+	src_w = buf->w;
+	src_h = buf->h;
 
 	regs->dspcntr = REG_READ(DSPCNTR(pidx));
 	regs->dspcntr |= DISPLAY_PLANE_ENABLE;
@@ -344,6 +477,7 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 		}
 	}
 
+	/* Position the src/dst rectangels */
 	regs->stride = buf->stride;
 	regs->linearoff = src_y * regs->stride + src_x * bpp;
 	dspaddr_offset = vlv_compute_page_offset(&src_x, &src_y,
@@ -368,17 +502,45 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 		    STEP_FROM(pipeline->dc_stepping, STEP_B0) &&
 		    (pipe == PIPE_B)) {
 			regs->dspcntr |= DISPPLANE_H_MIRROR_ENABLE;
-			regs->tileoff = (src_y << 16) | (src_x + buf->w - 1);
-			regs->linearoff += ((buf->w - 1) * bpp);
+			regs->tileoff = (src_y << 16) | (src_x + src_w - 1);
+			regs->linearoff += ((src_w - 1) * bpp);
 		}
 		break;
 	case INTEL_ADF_TRANSFORM_ROT180:
 		regs->dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
 		regs->linearoff =  regs->linearoff + (buf->h - 1) *
 			regs->stride + buf->w * bpp;
-		regs->tileoff = (((src_y + buf->h - 1) << 16) |
-				 (src_x + buf->w - 1));
+		regs->tileoff = (((src_y + src_h - 1) << 16) |
+				 (src_x + src_w - 1));
 		break;
+	}
+
+	/*
+	 * Check scaler availabity and set it.
+	 * PRIVATE_4 used for MPO related
+	 */
+	if ((intel_adf_get_platform_id() == gen_cherryview) &&
+	    STEP_FROM(pipeline->dc_stepping, STEP_B0) && (pipe == PIPE_B) &&
+	    (config->flags & INTEL_ADF_PLANE_HW_PRIVATE_4)
+			== INTEL_ADF_PLANE_HW_PRIVATE_4) {
+
+		chv_chek_save_scale(pri_plane->mpo_plane, config);
+
+		if (config->src_w && config->src_h) {
+
+			/*
+			 * Use src width and height from posted config
+			 * NOTE: current HWC dont send correct val
+			 */
+			src_w = (config->src_w) >> 16;
+			src_h = (config->src_h) >> 16;
+		}
+
+		/* program scaler */
+		if (chv_update_planeb_scaler(pri_plane, config,
+						     &src_x, &src_y,
+						     &src_w, &src_h))
+			pr_err("%s :scaler programming failed.\n", __func__);
 	}
 
 	regs->surfaddr = (buf->gtt_offset_in_pages + dspaddr_offset);
@@ -412,6 +574,18 @@ static void vlv_pri_flip(struct intel_plane *plane,
 	REG_WRITE(pri_plane->stride_offset, regs->stride);
 	REG_WRITE(pri_plane->tiled_offset, regs->tileoff);
 	REG_WRITE(pri_plane->linear_offset, regs->linearoff);
+	if (pri_plane->mpo_plane != NULL) {
+		if (pri_plane->mpo_plane->reprogram_scaler) {
+			REG_WRITE(pri_plane->mpo_plane->scaler_reg,
+				  pri_plane->mpo_plane->scaler_en);
+			if (pri_plane->window_updated) {
+				REG_WRITE(CHT_PRIMB_POS, regs->pos);
+				REG_WRITE(CHT_PRIMB_SIZE, regs->size);
+				pri_plane->window_updated = false;
+			}
+			pri_plane->mpo_plane->reprogram_scaler = false;
+		}
+	}
 	if (pri_plane->canvas_updated) {
 		REG_WRITE(CHT_PIPE_B_CANVAS_REG, regs->canvas_col);
 		pri_plane->canvas_updated = false;
@@ -424,6 +598,8 @@ static void vlv_pri_flip(struct intel_plane *plane,
 		REG_WRITE(CHT_PIPEB_BLEND_CONFIG, regs->blend);
 		pri_plane->blend_updated = false;
 	}
+
+
 	REG_WRITE(pri_plane->offset, regs->dspcntr);
 	I915_MODIFY_DISPBASE(pri_plane->surf_offset, regs->surfaddr);
 	REG_POSTING_READ(pri_plane->surf_offset);
@@ -547,6 +723,25 @@ static const struct intel_plane_capabilities vlv_pri_caps = {
 	.n_supported_reservedbit = 0,
 };
 
+static const struct intel_plane_capabilities chv_pri_b_caps = {
+	.supported_formats = pri_supported_formats,
+	.n_supported_formats = ARRAY_SIZE(pri_supported_formats),
+	.supported_blendings = pri_supported_blendings,
+	.n_supported_blendings = ARRAY_SIZE(pri_supported_blendings),
+	.supported_transforms = pri_supported_transforms,
+	.n_supported_transforms = ARRAY_SIZE(pri_supported_transforms),
+	.supported_scalings = priB_supported_scalings,
+	.n_supported_scalings = ARRAY_SIZE(priB_supported_scalings),
+	.supported_decompressions = NULL,
+	.n_supported_decompressions = 0,
+	.supported_tiling = pri_supported_tiling,
+	.n_supported_tiling = ARRAY_SIZE(pri_supported_tiling),
+	.supported_zorder = NULL,
+	.n_supported_zorder = 0,
+	.supported_reservedbit = NULL,
+	.n_supported_reservedbit = 0,
+};
+
 static struct intel_plane_ops vlv_pri_ops = {
 	.base = {
 		.suspend = vlv_pri_suspend,
@@ -570,6 +765,8 @@ int vlv_pri_plane_init(struct vlv_pri_plane *pplane,
 		struct intel_pipeline *pipeline, struct device *dev, u8 idx)
 {
 	struct vlv_pri_plane_context *ctx;
+	struct vlv_pipeline *disp = NULL;
+	int pipe = -EIO;
 	int err;
 
 	if (!pplane) {
@@ -588,6 +785,25 @@ int vlv_pri_plane_init(struct vlv_pri_plane *pplane,
 	pplane->stride_offset = DSPSTRIDE(ctx->plane);
 	pplane->tiled_offset = DSPTILEOFF(ctx->plane);
 	pplane->linear_offset = DSPLINOFF(ctx->plane);
+
+	disp =  to_vlv_pipeline_pri_plane(pplane);
+	pipe = disp->pipe.pipe_id;
+
+	/* Allocate and initiate mpo struct */
+	if ((intel_adf_get_platform_id() == gen_cherryview) &&
+	    STEP_FROM(disp->dc_stepping, STEP_B0) && (pipe == PIPE_B)) {
+
+		pplane->mpo_plane = (struct vlv_mpo_plane *)
+			kzalloc(sizeof(struct vlv_mpo_plane), GFP_KERNEL);
+
+		pplane->mpo_plane->can_scale = true;
+		pplane->mpo_plane->max_downscale = CHV_MAX_DOWNSCALE;
+		pplane->mpo_plane->is_primary_plane = true;
+
+		return intel_adf_plane_init(&pplane->base, dev, idx,
+					    &chv_pri_b_caps, &vlv_pri_ops,
+					    "primary_plane");
+	}
 
 	return intel_adf_plane_init(&pplane->base, dev, idx, &vlv_pri_caps,
 			&vlv_pri_ops, "primary_plane");

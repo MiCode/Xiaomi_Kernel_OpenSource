@@ -58,6 +58,20 @@
 #define CHV_MAX_MAJ_STEP		1
 #define CHV_MAX_MIN_STEP		3
 
+/* CHV MPO pre defines */
+#define CHV_MPO_MAX_HSR 800
+#define CHV_MPO_MAX_VSR 800
+#define CHV_MPO_MAX_HVSR 800
+#define CHV_MPO_MIN_SRC_W 32
+#define CHV_MPO_MIN_SRC_H 32
+#define CHV_MPO_MAX_SRC_W 3840
+#define CHV_MPO_MAX_SRC_H 2160
+#define CHV_MPO_MIN_DST_W 32
+#define CHV_MPO_MIN_DST_H 32
+#define CHV_MPO_MAX_DST_W 3840
+#define CHV_MPO_MAX_DST_H 2160
+#define CHV_MAX_DOWNSCALE 3
+
 enum planes {
 	PRIMARY_PLANE = 0,
 	SPRITE_A = 1,
@@ -175,6 +189,39 @@ struct vlv_pipeline_status {
 	u32 vsync_counter;
 };
 
+struct vlv_mpo_plane {
+	bool can_scale;
+	bool is_primary_plane;
+	int max_downscale;
+	int reprogram_scaler;
+	uint16_t last_dst_x, last_dst_y;
+	int16_t  last_dst_w, last_dst_h;
+	uint32_t last_src_x, last_src_y;
+	uint32_t last_src_w, last_src_h;
+	u32 scaler_reg;
+	u32 scaler_en;
+};
+
+struct vlv_mpo_pipeline {
+	uint16_t min_hsr;
+	uint16_t min_vsr;
+	uint16_t min_hvsr;
+	uint16_t max_hsr;
+	uint16_t max_vsr;
+	uint16_t max_hvsr;
+
+	uint16_t min_src_w;
+	uint16_t min_src_h;
+	uint16_t max_src_w;
+	uint16_t max_src_h;
+	uint16_t min_dst_w;
+	uint16_t min_dst_h;
+	uint16_t max_dst_w;
+	uint16_t max_dst_h;
+	uint32_t scale_ratio;
+	bool scale_ratio_changed;
+};
+
 struct vlv_pipeline {
 	struct intel_pipeline base;
 	struct vlv_dpst *dpst;
@@ -183,6 +230,7 @@ struct vlv_pipeline {
 	struct vlv_pipe pipe;
 	struct vlv_pri_plane pplane;
 	struct vlv_sp_plane splane[2];
+	struct vlv_mpo_pipeline mpo;	/* Mpo parms per pipeline */
 	u32 dpio_id;
 	u32 disp_no;
 	u8 dpms_state;
@@ -253,6 +301,7 @@ static inline int vlv_pipeline_to_pipe_type(struct intel_pipeline *pipeline)
 bool vlv_intf_screen_connected(struct intel_pipeline *pipeline);
 u32 vlv_intf_vsync_counter(struct intel_pipeline *pipeline, u32 interval);
 
+u32 vlv_get_cdclk(void);
 /* vlv_modeset */
 extern enum port vlv_get_connected_port(struct intel_pipe *intel_pipe);
 extern bool vlv_wait_for_vblank(struct intel_pipeline *pipeline);
@@ -341,5 +390,9 @@ void vlv_update_pipe_status(struct intel_dc_config *config,
 		u8 pipe, bool enabled);
 void vlv_update_plane_status(struct intel_dc_config *config,
 		u8 plane, bool enabled);
-
+extern int chv_program_plane_scaler(struct vlv_pipeline *disp,
+				struct vlv_mpo_plane *mpo_plane,
+				u32 src_w, u32 src_h, u32 dst_w, u32 dst_h);
+extern void chv_chek_save_scale(struct vlv_mpo_plane *mpo_plane,
+			 struct intel_plane_config *config);
 #endif

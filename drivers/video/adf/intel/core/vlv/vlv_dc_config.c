@@ -339,6 +339,32 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 	return 0;
 }
 
+static void scaler_ratio_init(struct vlv_pipeline *disp, enum pipe pipe)
+{
+	/*
+	 * Initialize  mpo per pipeline for different supported
+	 * platforms and planes
+	 */
+	if ((intel_adf_get_platform_id() == gen_cherryview) &&
+	    STEP_FROM(disp->dc_stepping, STEP_B0) && (pipe == PIPE_B)) {
+
+		disp->mpo.max_hsr = CHV_MPO_MAX_HSR;
+		disp->mpo.max_vsr = CHV_MPO_MAX_VSR;
+		disp->mpo.max_hvsr = CHV_MPO_MAX_HVSR;
+
+		disp->mpo.min_src_w = CHV_MPO_MIN_SRC_W;
+		disp->mpo.min_src_h = CHV_MPO_MIN_SRC_H;
+		disp->mpo.max_src_w = CHV_MPO_MAX_SRC_W;
+		disp->mpo.max_src_h = CHV_MPO_MAX_SRC_H;
+
+		disp->mpo.min_dst_w = CHV_MPO_MIN_DST_W;
+		disp->mpo.min_dst_h = CHV_MPO_MIN_DST_H;
+		disp->mpo.max_dst_w = CHV_MPO_MAX_DST_W;
+		disp->mpo.max_dst_h = CHV_MPO_MAX_DST_H;
+	}
+	return;
+}
+
 static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 			enum pipe pipe, enum intel_pipe_type type,
 			enum port port, u8 disp_no, u16 stepping)
@@ -431,6 +457,9 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 	err = vlv_pipe_init(vlv_pipe, (enum pipe) pipe);
 
 	vlv_attach_intel_pipeplane(disp, CHV_MAX_PLANES);
+
+	/* Initialize mpo per pipeline */
+	scaler_ratio_init(disp, (enum pipe) pipe);
 
 	/* FIXME: update from attachment */
 	pll = &disp->pll;
@@ -723,6 +752,20 @@ static void vlv_update_cdclk(int cdclk)
 
 	/* Adjust the GMBUS frequency also */
 	REG_WRITE(GMBUSFREQ_VLV, cdclk);
+}
+
+/* Get current cd clock */
+u32 vlv_get_cdclk(void)
+{
+	u32 cur_cdclk, vco;
+	u32 divider;
+
+	vco =  valleyview_get_vco();
+	divider = vlv_cck_read(CCK_DISPLAY_CLOCK_CONTROL);
+	divider &= 0xf;
+
+	cur_cdclk = (vco << 1) / (divider + 1);
+	return cur_cdclk;
 }
 
 static void vlv_update_global_params(void)

@@ -47,8 +47,14 @@ struct vlv_sp_plane {
 	bool enabled;
 	bool alpha_updated;
 	bool blend_updated;
+	struct vlv_mpo_plane *mpo_plane;
 	struct vlv_sp_plane_context ctx;
 };
+
+extern uint32_t *chv_hfilters[];
+extern uint32_t *chv_vfilters[];
+extern uint32_t chv_hab_filter[64];
+extern uint32_t chv_vab_filter[32];
 
 static inline struct vlv_sp_plane *to_vlv_sp_plane(struct intel_plane *plane)
 {

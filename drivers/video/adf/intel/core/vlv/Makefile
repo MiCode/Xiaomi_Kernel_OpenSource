@@ -19,4 +19,5 @@ obj-y := vlv_dc_config.o \
 	vlv_edp_psr.o \
 	vlv_edp_drrs.o \
 	vlv_color_correction.o \
-	chv_color_correction.o
+	chv_color_correction.o \
+	chv_values.o
