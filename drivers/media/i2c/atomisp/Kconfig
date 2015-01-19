@@ -12,6 +12,14 @@ config VIDEO_GC2155
          This is a Video4Linux2 sensor-level driver for the Galaxycore
          GC2155 0.3MP sensor.
 
+config VCM_DW9714
+       tristate "VCM DW9714 support"
+       depends on I2C && VIDEO_V4L2
+       ---help---
+       This is a Video4Linux2 sensor-level driver for the dw9714.
+
+       It currently only works with the atomisp driver.
+
 config VIDEO_OV2680
        tristate "Omnivision OV2680 sensor support"
        depends on I2C && VIDEO_V4L2
