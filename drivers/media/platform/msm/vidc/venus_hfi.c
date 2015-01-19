@@ -1429,8 +1429,7 @@ enum hal_default_properties venus_hfi_get_default_properties(void *dev)
 	}
 
 	if (device->packetization_type == HFI_PACKETIZATION_3XX) {
-		prop = HAL_VIDEO_DYNAMIC_BUF_MODE |
-			HAL_VIDEO_CONTINUE_DATA_TRANSFER;
+		prop = HAL_VIDEO_DYNAMIC_BUF_MODE;
 	}
 
 	return prop;
