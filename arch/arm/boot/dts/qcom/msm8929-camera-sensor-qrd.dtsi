@@ -60,7 +60,7 @@
 	eeprom0: qcom,eeprom@0{
 		cell-index = <0>;
 		reg = <0x00>;
-		qcom,eeprom-name = "sunny_q13v04b";
+		qcom,eeprom-name = "sunny_q13v06k";
 		compatible = "qcom,eeprom";
 		qcom,slave-addr = <0x20>;
 		qcom,cci-master = <0>;
@@ -69,7 +69,7 @@
 		qcom,page0 = <1 0x0100 2 0x01 1 1>;
 		qcom,poll0 = <0 0x0 2 0 1 1>;
 		qcom,mem0 = <0 0x0 2 0 1 0>;
-		qcom,page1 = <1 0x5002 2 0x3 1 1>;
+		qcom,page1 = <1 0x5002 2 0x5 1 1>;
 		qcom,poll1 = <0 0x0 2 0 1 1>;
 		qcom,mem1 = <0 0x0 2 0 1 0>;
 		qcom,page2 = <1 0x3d84 2 0xc0 1 0>;
@@ -78,13 +78,13 @@
 		qcom,page3 = <1 0x3d88 2 0x7220 2 0>;
 		qcom,poll3 = <0 0x0 2 0 1 1>;
 		qcom,mem3 = <0 0x0 2 0 1 0>;
-		qcom,page4 = <1 0x3d8a 2 0x7369 2 0>;
+		qcom,page4 = <1 0x3d8a 2 0x73BA 2 0>;
 		qcom,poll4 = <0 0x0 2 0 1 1>;
 		qcom,mem4 = <0 0x0 2 0 1 0>;
 		qcom,page5 = <1 0x3d81 2 0x01 1 15>;
 		qcom,poll5 = <0 0x0 2 0 1 1>;
-		qcom,mem5 = <229 0x7220 2 0 1 0>;
-		qcom,page6 = <1 0x5002 2 0x1 1 1>;
+		qcom,mem5 = <411 0x7220 2 0 1 0>;
+		qcom,page6 = <1 0x5002 2 0x7 1 1>;
 		qcom,poll6 = <0 0x0 2 0 1 1>;
 		qcom,mem6 = <0 0x0 2 0 1 0>;
 
