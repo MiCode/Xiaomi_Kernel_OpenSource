@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,7 @@ struct clk_freq_tbl {
  * @freq_tbl: frequency table for this RCG
  * @current_freq: current RCG frequency
  * @c: generic clock data
+ * @non_local_children: set if RCG has at least one branch owned by a diff EE
  * @base: pointer to base address of ioremapped registers.
  */
 struct rcg_clk {
@@ -65,6 +66,7 @@ struct rcg_clk {
 	struct clk_freq_tbl *current_freq;
 	struct clk	c;
 
+	bool non_local_children;
 	void *const __iomem *base;
 };
 
