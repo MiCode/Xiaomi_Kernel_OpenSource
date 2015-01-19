@@ -2046,6 +2046,9 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 		goto kthread_fail;
 	}
 
+	einfo->tx_ch_desc->write_index = 0;
+	einfo->rx_ch_desc->read_index = 0;
+
 	rc = glink_core_register_transport(&einfo->xprt_if, &einfo->xprt_cfg);
 	if (rc == -EPROBE_DEFER)
 		goto reg_xprt_fail;
