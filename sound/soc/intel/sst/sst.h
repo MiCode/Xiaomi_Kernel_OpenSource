@@ -659,6 +659,7 @@ int sst_load_fw(void);
 int sst_load_library(struct snd_sst_lib_download *lib, u8 ops);
 int sst_load_all_modules_elf(struct intel_sst_drv *ctx,
 		struct sst_module_info *mod_table, int mod_table_size);
+void sst_init_lib_mem_mgr(struct intel_sst_drv *ctx);
 int sst_get_next_lib_mem(struct sst_mem_mgr *mgr, int size,
 			unsigned long *lib_base);
 void sst_post_download_ctp(struct intel_sst_drv *ctx);

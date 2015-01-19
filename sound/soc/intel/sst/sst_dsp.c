@@ -1525,20 +1525,6 @@ void sst_post_download_byt(struct intel_sst_drv *ctx)
 	}
 }
 
-static void sst_init_lib_mem_mgr(struct intel_sst_drv *ctx)
-{
-	struct sst_mem_mgr *mgr = &ctx->lib_mem_mgr;
-	const struct sst_lib_dnld_info *lib_info = ctx->pdata->lib_info;
-
-	memset(mgr, 0, sizeof(*mgr));
-	mgr->current_base = lib_info->mod_base + lib_info->mod_table_offset
-						+ lib_info->mod_table_size;
-	mgr->avail = lib_info->mod_end - mgr->current_base + 1;
-
-	pr_debug("current base = 0x%lx , avail = 0x%x\n",
-		(unsigned long)mgr->current_base, mgr->avail);
-}
-
 /**
  * sst_load_fw - function to load FW into DSP
  *
@@ -1951,8 +1937,6 @@ int sst_load_all_modules_elf(struct intel_sst_drv *ctx, struct sst_module_info *
 	unsigned long lib_base;
 
 	pr_debug("In %s", __func__);
-
-	sst_init_lib_mem_mgr(ctx);
 
 	for (i = 0; i < num_modules; i++) {
 		mod = &mod_table[i];

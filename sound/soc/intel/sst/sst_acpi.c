@@ -634,6 +634,7 @@ int sst_acpi_probe(struct platform_device *pdev)
 		struct stream_info *stream = &ctx->streams[i];
 		mutex_init(&stream->lock);
 	}
+	sst_init_lib_mem_mgr(ctx);
 	ret = sst_request_firmware_async(ctx);
 	if (ret) {
 		pr_err("Request Firmware failed:%d\n", ret);

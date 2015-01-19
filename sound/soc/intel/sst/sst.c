@@ -618,6 +618,20 @@ static struct platform_device cht_t_mach_dev = {
 	.num_resources  = 0,
 };
 
+void sst_init_lib_mem_mgr(struct intel_sst_drv *ctx)
+{
+	struct sst_mem_mgr *mgr = &ctx->lib_mem_mgr;
+	const struct sst_lib_dnld_info *lib_info = ctx->pdata->lib_info;
+
+	memset(mgr, 0, sizeof(*mgr));
+	mgr->current_base = lib_info->mod_base + lib_info->mod_table_offset
+						+ lib_info->mod_table_size;
+	mgr->avail = lib_info->mod_end - mgr->current_base + 1;
+
+	pr_debug("current base = 0x%lx , avail = 0x%x\n",
+		(unsigned long)mgr->current_base, mgr->avail);
+}
+
 int sst_request_firmware_async(struct intel_sst_drv *ctx)
 {
 	int ret = 0;
@@ -819,7 +833,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 	} else {
 		sst_drv_ctx->ddr = NULL;
 	}
-
+	sst_init_lib_mem_mgr(sst_drv_ctx);
 	/* SHIM */
 	sst_drv_ctx->shim_phy_add = pci_resource_start(pci, 1);
 	sst_drv_ctx->shim = pci_ioremap_bar(pci, 1);
