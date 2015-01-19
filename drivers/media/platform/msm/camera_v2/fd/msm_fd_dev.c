@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -804,6 +804,7 @@ static int msm_fd_guery_ctrl(struct file *file, void *fh,
 		a->step = 1;
 		strlcpy(a->name, "msm fd face speed idx",
 			sizeof(a->name));
+		break;
 	case V4L2_CID_FD_FACE_ANGLE:
 		a->type = V4L2_CTRL_TYPE_INTEGER;
 		a->default_value =  msm_fd_angle[MSM_FD_DEF_ANGLE_IDX];
@@ -1244,7 +1245,7 @@ static int fd_probe(struct platform_device *pdev)
 	ret = msm_fd_hw_get(fd, 0);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Fail to get hw\n");
-		goto error_iommu_get;
+		goto error_hw_get_request_irq;
 	}
 	fd->hw_revision = msm_fd_hw_get_revision(fd);
 
@@ -1253,7 +1254,7 @@ static int fd_probe(struct platform_device *pdev)
 	ret = msm_fd_hw_request_irq(pdev, fd, msm_fd_wq_handler);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Fail request irq\n");
-		goto error_request_irq;
+		goto error_hw_get_request_irq;
 	}
 
 	/* v4l2 device */
@@ -1289,7 +1290,7 @@ error_video_register:
 	v4l2_device_unregister(&fd->v4l2_dev);
 error_v4l2_register:
 	msm_fd_hw_release_irq(fd);
-error_request_irq:
+error_hw_get_request_irq:
 	msm_fd_hw_put_iommu(fd);
 error_iommu_get:
 	msm_fd_hw_put_clocks(fd);
