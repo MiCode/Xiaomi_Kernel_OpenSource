@@ -1,4 +1,4 @@
-/* Copyright (c) 2007, 2012-2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007, 2012-2015, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1112,6 +1112,7 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 	uint32_t ppp_operation_reg = 0;
 	int sv_slice, sh_slice;
 	int dv_slice, dh_slice;
+	static struct ppp_img_desc bg_img_param;
 
 	sv_slice = sh_slice = dv_slice = dh_slice = 1;
 
@@ -1188,12 +1189,28 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 		blit_op->dst.p1 = NULL;
 	}
 
-	blit_op->bg = blit_op->dst;
+	if ((bg_img_param.p0) && (!(blit_op->mdp_op & MDPOP_SMART_BLIT))) {
+		/* Use cached smart blit BG layer info in smart Blit FG request */
+		blit_op->bg = bg_img_param;
+		if (check_if_rgb(blit_op->bg.color_fmt)) {
+			blit_op->bg.p1 = 0;
+			blit_op->bg.stride1 = 0;
+		}
+		memset(&bg_img_param, 0, sizeof(bg_img_param));
+	} else {
+		blit_op->bg = blit_op->dst;
+	}
 	/* Jumping from Y-Plane to Chroma Plane */
 	/* first pixel addr calculation */
 	mdp_adjust_start_addr(blit_op, &blit_op->src, sv_slice, sh_slice, 0);
-	mdp_adjust_start_addr(blit_op, &blit_op->bg, dv_slice, dh_slice, 1);
+	/* Adjust BG start address for Non SMART Blit*/
+	if (blit_op->bg.p0 == blit_op->dst.p0)
+		mdp_adjust_start_addr(blit_op, &blit_op->bg, dv_slice, dh_slice, 1);
 	mdp_adjust_start_addr(blit_op, &blit_op->dst, dv_slice, dh_slice, 2);
+
+        /* Cache smart blit BG layer info */
+	if (blit_op->mdp_op & MDPOP_SMART_BLIT)
+                bg_img_param = blit_op->src;
 
 	config_ppp_scale(blit_op, &ppp_operation_reg);
 
@@ -1201,6 +1218,30 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 
 	config_ppp_src(&blit_op->src, yuv2rgb);
 	config_ppp_out(&blit_op->dst, yuv2rgb);
+
+	pr_debug("BLIT FG Param Fmt %d (x %d,y %d,w %d,h %d), ROI(x %d,y %d, w\
+		 %d, h %d) Addr_P0 %p, Stride S0 %d Addr_P1 %p, Stride S1 %d\n",
+		blit_op->src.color_fmt, blit_op->src.prop.x, blit_op->src.prop.y,
+		blit_op->src.prop.width, blit_op->src.prop.height,
+		blit_op->src.roi.x, blit_op->src.roi.y, blit_op->src.roi.width,
+		blit_op->src.roi.height, blit_op->src.p0, blit_op->src.stride0,
+                blit_op->src.p1, blit_op->src.stride1);
+	if (blit_op->bg.p0 != blit_op->dst.p0)
+		pr_debug("BLIT BG Param Fmt %d (x %d,y %d,w %d,h %d), ROI(x %d,y %d, w\
+			 %d, h %d) Addr %p, Stride S0 %d Addr_P1 %p, Stride S1 %d\n",
+			blit_op->bg.color_fmt, blit_op->bg.prop.x, blit_op->bg.prop.y,
+			blit_op->bg.prop.width, blit_op->bg.prop.height,
+			blit_op->bg.roi.x, blit_op->bg.roi.y, blit_op->bg.roi.width,
+			blit_op->bg.roi.height, blit_op->bg.p0, blit_op->bg.stride0,
+	                blit_op->bg.p1, blit_op->bg.stride1);
+	pr_debug("BLIT FB Param Fmt %d (x %d,y %d,w %d,h %d), ROI(x %d,y %d, w\
+		 %d, h %d) Addr %p, Stride S0 %d Addr_P1 %p, Stride S1 %d\n",
+		blit_op->dst.color_fmt, blit_op->dst.prop.x, blit_op->dst.prop.y,
+		blit_op->dst.prop.width, blit_op->dst.prop.height,
+		blit_op->dst.roi.x, blit_op->dst.roi.y, blit_op->dst.roi.width,
+		blit_op->dst.roi.height, blit_op->dst.p0, blit_op->src.stride0,
+                blit_op->dst.p1, blit_op->dst.stride1);
+
 	PPP_WRITEL(ppp_operation_reg, MDP3_PPP_OP_MODE);
 	mb();
 	return 0;

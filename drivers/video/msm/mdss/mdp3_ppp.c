@@ -1,4 +1,4 @@
-/* Copyright (c) 2007, 2013-2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007, 2013-2015, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -242,6 +242,12 @@ int mdp3_ppp_verify_scale(struct mdp_blit_req *req)
 /* operation check */
 int mdp3_ppp_verify_op(struct mdp_blit_req *req)
 {
+	/*
+	 * MDP_DEINTERLACE & MDP_SHARPENING Flags are not valid for MDP3
+	 * so using them together for MDP_SMART_BLIT.
+	 */
+	if ((req->flags & MDP_SMART_BLIT) == MDP_SMART_BLIT)
+		return 0;
 	if (req->flags & MDP_DEINTERLACE) {
 		pr_err("\n%s(): deinterlace not supported", __func__);
 		return -EINVAL;
@@ -457,6 +463,8 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 	u32 dst_write_bw = 0;
 	u64 honest_ppp_ab = 0;
 	u32 fps = 0;
+	int smart_blit_fg_indx = -1;
+	u32 smart_blit_bg_read_bw = 0;
 
 	ATRACE_BEGIN(__func__);
 	lcount = lreq->count;
@@ -467,6 +475,7 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 	}
 	if (lreq->req_list[0].flags & MDP_SOLID_FILL) {
 		/* Do not update BW for solid fill */
+		ATRACE_END(__func__);
 		return 0;
 	}
 
@@ -480,30 +489,50 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 				fps = panel_info->mipi.frame_rate;
 		}
 
-		mdp3_get_bpp_info(req->src.format, &bpp);
-
-		src_read_bw = req->src_rect.w * req->src_rect.h *
-						bpp.bpp_num / bpp.bpp_den;
-		src_read_bw = mdp3_adjust_scale_factor(req,
-						src_read_bw, bpp.bpp_pln);
-
-		mdp3_get_bpp_info(req->dst.format, &bpp);
-
-		if ((req->transp_mask != MDP_TRANSP_NOP) ||
-				(req->alpha < MDP_ALPHA_NOP) ||
-				(req->src.format == MDP_ARGB_8888) ||
-				(req->src.format == MDP_BGRA_8888) ||
-				(req->src.format == MDP_RGBA_8888)) {
-			bg_read_bw = req->dst_rect.w * req->dst_rect.h *
+		if (lreq->req_list[i].flags & MDP_SMART_BLIT) {
+			/*
+			 * Flag for smart blit FG layer index
+			 * If blit request at index "n" has
+			 * MDP_SMART_BLIT flag set then it will be used as BG
+			 * layer in smart blit and request at index "n+1"
+			 * will be used as FG layer
+			 */
+			smart_blit_fg_indx = i + 1;
+			bg_read_bw = req->src_rect.w * req->src_rect.h *
 						bpp.bpp_num / bpp.bpp_den;
 			bg_read_bw = mdp3_adjust_scale_factor(req,
 						bg_read_bw, bpp.bpp_pln);
+			/* Cache read BW of smart blit BG layer */
+			smart_blit_bg_read_bw = bg_read_bw;
 		} else {
-			bg_read_bw = 0;
-		}
-		dst_write_bw = req->dst_rect.w * req->dst_rect.h *
+			src_read_bw = req->src_rect.w * req->src_rect.h *
 						bpp.bpp_num / bpp.bpp_den;
-		honest_ppp_ab += (src_read_bw + bg_read_bw + dst_write_bw);
+			src_read_bw = mdp3_adjust_scale_factor(req,
+						src_read_bw, bpp.bpp_pln);
+
+			mdp3_get_bpp_info(req->dst.format, &bpp);
+
+			if (smart_blit_fg_indx == i) {
+				bg_read_bw = smart_blit_bg_read_bw;
+				smart_blit_fg_indx = -1;
+			} else {
+				if ((req->transp_mask != MDP_TRANSP_NOP) ||
+					(req->alpha < MDP_ALPHA_NOP) ||
+					(req->src.format == MDP_ARGB_8888) ||
+					(req->src.format == MDP_BGRA_8888) ||
+					(req->src.format == MDP_RGBA_8888)) {
+					bg_read_bw = req->dst_rect.w * req->dst_rect.h *
+								bpp.bpp_num / bpp.bpp_den;
+					bg_read_bw = mdp3_adjust_scale_factor(req,
+								bg_read_bw, bpp.bpp_pln);
+				} else {
+					bg_read_bw = 0;
+				}
+			}
+			dst_write_bw = req->dst_rect.w * req->dst_rect.h *
+						bpp.bpp_num / bpp.bpp_den;
+			honest_ppp_ab += (src_read_bw + bg_read_bw + dst_write_bw);
+                }
 	}
 
 	if (fps != 0)
@@ -580,7 +609,11 @@ void mdp3_start_ppp(struct ppp_blit_op *blit_op)
 		MDP3_REG_WRITE(MDP3_TFETCH_SOLID_FILL,
 					DISABLE_SOLID_FILL);
 	}
-	mdp3_ppp_kickoff();
+	/* Skip PPP kickoff for SMART_BLIT BG layer */
+	if (blit_op->mdp_op & MDPOP_SMART_BLIT)
+		pr_debug("Skip mdp3_ppp_kickoff\n");
+	else
+		mdp3_ppp_kickoff();
 }
 
 static int solid_fill_workaround(struct mdp_blit_req *req,
@@ -648,6 +681,7 @@ static int mdp3_ppp_process_req(struct ppp_blit_op *blit_op,
 	blit_op->src.roi.height = req->src_rect.h;
 
 	blit_op->src.prop.width = req->src.width;
+	blit_op->src.prop.height = req->src.height;
 	blit_op->src.color_fmt = req->src.format;
 
 
@@ -728,6 +762,10 @@ static int mdp3_ppp_process_req(struct ppp_blit_op *blit_op,
 	} else {
 		blit_op->solid_fill = false;
 	}
+
+	if (req->flags & MDP_SMART_BLIT)
+		blit_op->mdp_op |= MDPOP_SMART_BLIT;
+
 	return ret;
 }
 
@@ -1176,11 +1214,53 @@ static void mdp3_free_bw_wq_handler(struct work_struct *work)
 	mutex_unlock(&ppp_stat->config_ppp_mutex);
 }
 
+static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
+{
+	int next = indx + 1;
+	bool status = false;
+
+	if (next < req->count) {
+		/*
+		 * Check userspace Smart BLIT Flag for current and next request
+		 * Flag for smart blit FG layer index If blit request at index "n" has
+		 * MDP_SMART_BLIT flag set then it will be used as BG layer in smart blit
+		 * and request at index "n+1" will be used as FG layer
+		 */
+		if ((req->req_list[indx].flags & MDP_SMART_BLIT) &&
+		(!(req->req_list[next].flags & MDP_SMART_BLIT)))
+			status = true;
+		/*
+		 * Enable SMART blit between request 0(BG) & request 1(FG) when
+		 * destination ROI of BG and FG layer are same,
+		 * No scaling on BG layer
+		 * No rotation on BG Layer.
+		 * BG Layer color format is RGB
+		 */
+		else if ((indx == 0) && (!(req->req_list[indx].flags &
+			(MDP_ROT_90 | MDP_FLIP_UD | MDP_FLIP_LR))) &&
+			(check_if_rgb(req->req_list[indx].src.format)) &&
+			(req->req_list[indx].dst_rect.x == req->req_list[next].dst_rect.x) &&
+			(req->req_list[indx].dst_rect.y == req->req_list[next].dst_rect.y) &&
+			(req->req_list[indx].dst_rect.w == req->req_list[next].dst_rect.w) &&
+			(req->req_list[indx].dst_rect.h == req->req_list[next].dst_rect.h) &&
+			(req->req_list[indx].dst_rect.w == req->req_list[indx].src_rect.w) &&
+			(req->req_list[indx].dst_rect.h == req->req_list[indx].src_rect.h)) {
+				status = true;
+				req->req_list[indx].flags |= MDP_SMART_BLIT;
+			}
+		}
+	if (status)
+		pr_debug("Optimize Blit for Layer: %d Req Count %d\n", indx, req->count) ;
+	return status;
+}
+
 static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 {
 	struct msm_fb_data_type *mfd = ppp_stat->mfd;
 	struct blit_req_list *req;
 	int i, rc = 0;
+	bool smart_blit = false;
+	int smart_blit_fg_index = -1;
 
 	mutex_lock(&ppp_stat->config_ppp_mutex);
 	req = mdp3_ppp_next_req(&ppp_stat->req_q);
@@ -1216,6 +1296,10 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 		}
 		ATRACE_BEGIN("mpd3_ppp_start");
 		for (i = 0; i < req->count; i++) {
+			smart_blit = is_blit_optimization_possible(req, i);
+			if (smart_blit)
+				/* Blit request index of FG layer in smart blit */
+				smart_blit_fg_index = i + 1;
 			if (!(req->req_list[i].flags & MDP_NO_BLIT)) {
 				/* Do the actual blit. */
 				if (!rc) {
@@ -1224,8 +1308,17 @@ static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
 						&req->src_data[i],
 						&req->dst_data[i]);
 				}
-				mdp3_put_img(&req->src_data[i], MDP3_CLIENT_PPP);
+				/* Unmap blit source buffer */
+				if (smart_blit == false)
+					mdp3_put_img(&req->src_data[i], MDP3_CLIENT_PPP);
+				if (smart_blit_fg_index == i) {
+					/* Unmap smart blit background buffer */
+					mdp3_put_img(&req->src_data[i - 1], MDP3_CLIENT_PPP);
+					smart_blit_fg_index = -1;
+				}
 				mdp3_put_img(&req->dst_data[i], MDP3_CLIENT_PPP);
+				smart_blit = false;
+
 			}
 		}
 		ATRACE_END("mdp3_ppp_start");
