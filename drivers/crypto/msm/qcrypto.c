@@ -1,6 +1,6 @@
 /* Qualcomm Crypto driver
  *
- * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,7 +56,7 @@
  */
 #define MAX_ALIGN_SIZE  0x40
 
-#define QCRYPTO_HIGH_BANDWIDTH_TIMEOUT 10
+#define QCRYPTO_HIGH_BANDWIDTH_TIMEOUT 1000
 
 /* are FIPS self tests done ?? */
 static bool is_fips_qcrypto_tests_done;
