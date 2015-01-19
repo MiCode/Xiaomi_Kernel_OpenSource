@@ -1477,7 +1477,7 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 	pctx->size_remaining -= rc;
 	if (!pctx->size_remaining) {
 		smd_write_end(ch->smd_ch);
-		tx_done = kmalloc(sizeof(*tx_done), GFP_KERNEL);
+		tx_done = kmalloc(sizeof(*tx_done), GFP_ATOMIC);
 		tx_done->ch = ch;
 		tx_done->iid = pctx->riid;
 		INIT_WORK(&tx_done->work, process_tx_done);
