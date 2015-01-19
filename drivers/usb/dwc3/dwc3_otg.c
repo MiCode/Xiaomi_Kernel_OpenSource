@@ -1,7 +1,7 @@
 /**
  * dwc3_otg.c - DesignWare USB3 DRD Controller OTG
  *
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -364,24 +364,21 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 		flush_delayed_work(&dotg->sm_work);
 
 	if (event == DWC3_EVENT_PHY_RESUME) {
-		if (pm_runtime_status_suspended(phy->dev) ||
-			atomic_read(&phy->dev->power.usage_count) == 0) {
-
-			dev_dbg(phy->dev, "ext PHY_RESUME event received\n");
-			/* ext_xceiver would have taken h/w out of LPM by now */
-			ret = pm_runtime_get(phy->dev);
-			dbg_event(0xFF, "PhyRes get", ret);
-			if (ret == -EACCES) {
-				/* pm_runtime_get may fail during system
-				   resume with -EACCES error */
-				pm_runtime_disable(phy->dev);
-				pm_runtime_set_active(phy->dev);
-				pm_runtime_enable(phy->dev);
-			} else if (ret < 0) {
-				dev_warn(phy->dev, "pm_runtime_get failed!\n");
-			}
-		} else {
+		if (!pm_runtime_status_suspended(phy->dev))
 			dev_warn(phy->dev, "PHY_RESUME event out of LPM!!!!\n");
+
+		dev_dbg(phy->dev, "ext PHY_RESUME event received\n");
+		/* ext_xceiver would have taken h/w out of LPM by now */
+		ret = pm_runtime_get(phy->dev);
+		dbg_event(0xFF, "PhyRes get", ret);
+		if (ret == -EACCES) {
+			/* pm_runtime_get may fail during system
+			   resume with -EACCES error */
+			pm_runtime_disable(phy->dev);
+			pm_runtime_set_active(phy->dev);
+			pm_runtime_enable(phy->dev);
+		} else if (ret < 0) {
+			dev_warn(phy->dev, "pm_runtime_get failed!\n");
 		}
 	} else if (event == DWC3_EVENT_XCEIV_STATE) {
 		if (pm_runtime_status_suspended(phy->dev) ||
