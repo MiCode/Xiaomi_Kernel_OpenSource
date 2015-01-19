@@ -2098,6 +2098,11 @@ static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 		struct fb_info *fbi = mfd->fbi;
 		struct mdss_mdp_mixer *mixer;
 		int bpp;
+		bool rotate_180 = (fbi->var.rotate == FB_ROTATE_UD);
+		struct mdss_data_type *mdata = mfd_to_mdata(mfd);
+		bool split_lm = (fbi->var.xres > mdata->max_mixer_width ||
+			is_split_lm(mfd));
+		struct mdp_rect left_rect, right_rect;
 
 		mixer = mdss_mdp_mixer_get(mdp5_data->ctl,
 					MDSS_MDP_MIXER_MUX_LEFT);
@@ -2113,24 +2118,34 @@ static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 		req.src.format = mfd->fb_imgType;
 		req.src.height = fbi->var.yres;
 		req.src.width = fbi->fix.line_length / bpp;
+
+		left_rect.x = 0;
+		left_rect.w = MIN(fbi->var.xres, mixer->width);
+		left_rect.y = 0;
+		left_rect.h = req.src.height;
+
+		right_rect.x = mixer->width;
+		right_rect.w = fbi->var.xres - mixer->width;
+		right_rect.y = 0;
+		right_rect.h = req.src.height;
+
 		if (mixer_mux == MDSS_MDP_MIXER_MUX_RIGHT) {
 			if (req.src.width <= mixer->width) {
 				pr_warn("right fb pipe not needed\n");
 				return -EINVAL;
 			}
-
-			req.src_rect.x = mixer->width;
-			req.src_rect.w = fbi->var.xres - mixer->width;
+			req.src_rect = req.dst_rect = right_rect;
+			if (split_lm && rotate_180)
+				req.src_rect = left_rect;
 		} else {
-			req.src_rect.x = 0;
-			req.src_rect.w = MIN(fbi->var.xres,
-							mixer->width);
+			req.src_rect = req.dst_rect = left_rect;
+			if (split_lm && rotate_180)
+				req.src_rect = right_rect;
 		}
 
-		req.src_rect.y = 0;
-		req.src_rect.h = req.src.height;
-		req.dst_rect = req.src_rect;
 		req.z_order = MDSS_MDP_STAGE_BASE;
+		if (rotate_180)
+			req.flags |= (MDP_FLIP_LR | MDP_FLIP_UD);
 
 		pr_debug("allocating base pipe mux=%d\n", mixer_mux);
 
