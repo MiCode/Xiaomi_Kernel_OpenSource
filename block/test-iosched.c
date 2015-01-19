@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -178,8 +178,8 @@ int test_iosched_add_unique_test_req(int is_err_expcted,
 		break;
 	case REQ_UNIQUE_DISCARD:
 		bio->bi_rw = REQ_WRITE | REQ_DISCARD;
-		bio->bi_size = nr_sects << 9;
-		bio->bi_sector = start_sec;
+		bio->bi_iter.bi_size = nr_sects << 9;
+		bio->bi_iter.bi_sector = start_sec;
 		break;
 	default:
 		pr_err("%s: Invalid request type %d", __func__,
@@ -348,7 +348,7 @@ struct test_request *test_iosched_create_test_req(int is_err_expcted,
 	rq->cmd_flags &= ~REQ_IO_STAT;
 
 	if (rq->bio) {
-		rq->bio->bi_sector = start_sec;
+		rq->bio->bi_iter.bi_sector = start_sec;
 		rq->bio->bi_end_io = end_test_bio;
 		bio = rq->bio;
 		while ((bio = bio->bi_next) != NULL)
@@ -965,12 +965,12 @@ static void print_req(struct request *req)
 		       __func__, req->nr_phys_segments, blk_rq_sectors(req));
 		bio = req->bio;
 		pr_debug("%s: bio: bi_size=%d, bi_sector=0x%lx",
-			      __func__, bio->bi_size,
-			      (unsigned long)bio->bi_sector);
+			      __func__, bio->bi_iter.bi_size,
+			      (unsigned long)bio->bi_iter.bi_sector);
 		while ((bio = bio->bi_next) != NULL) {
 			pr_debug("%s: bio: bi_size=%d, bi_sector=0x%lx",
-				      __func__, bio->bi_size,
-				      (unsigned long)bio->bi_sector);
+				      __func__, bio->bi_iter.bi_size,
+				      (unsigned long)bio->bi_iter.bi_sector);
 		}
 	}
 }
@@ -1110,9 +1110,14 @@ test_latter_request(struct request_queue *q, struct request *rq)
 	return list_entry(rq->queuelist.next, struct request, queuelist);
 }
 
-static int test_init_queue(struct request_queue *q)
+static int test_init_queue(struct request_queue *q, struct elevator_type *e)
 {
 	struct blk_dev_test_type *__bdt;
+	struct elevator_queue *eq;
+
+	eq = elevator_alloc(q, e);
+	if (!eq)
+		return -ENOMEM;
 
 	ptd = kmalloc_node(sizeof(struct test_data), GFP_KERNEL,
 			     q->node);
@@ -1127,7 +1132,12 @@ static int test_init_queue(struct request_queue *q)
 	INIT_LIST_HEAD(&ptd->reinsert_queue);
 	INIT_LIST_HEAD(&ptd->urgent_queue);
 	init_waitqueue_head(&ptd->wait_q);
+
+	eq->elevator_data = ptd;
 	ptd->req_q = q;
+	spin_lock_irq(q->queue_lock);
+	q->elevator = eq;
+	spin_unlock_irq(q->queue_lock);
 
 	setup_timer(&ptd->timeout_timer, test_timeout_handler,
 		    (unsigned long)ptd);
@@ -1141,8 +1151,6 @@ static int test_init_queue(struct request_queue *q)
 
 	list_for_each_entry(__bdt, &blk_dev_test_list, list)
 		__bdt->init_fn();
-
-	q->elevator->elevator_data = ptd;
 
 	return 0;
 }
@@ -1173,7 +1181,7 @@ static void test_exit_queue(struct elevator_queue *e)
 void test_iosched_add_urgent_req(struct test_request *test_rq)
 {
 	spin_lock_irq(&ptd->lock);
-	blk_mark_rq_urgent(test_rq->rq);
+	test_rq->rq->cmd_flags |= REQ_URGENT;
 	list_add_tail(&test_rq->queuelist, &ptd->urgent_queue);
 	ptd->urgent_count++;
 	spin_unlock_irq(&ptd->lock);
