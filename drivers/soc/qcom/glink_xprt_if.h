@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,7 @@ enum xprt_ids {
  */
 struct glink_core_tx_pkt {
 	struct list_head list_node;
+	struct list_head list_done;
 	const void *pkt_priv;
 	const void *data;
 	uint32_t riid;

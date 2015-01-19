@@ -142,6 +142,8 @@ struct glink_core_xprt_ctx {
  *
  * @tx_lists_mutex_lhc3:		TX list lock
  * @tx_active:				Ready to transmit
+ *
+ * @tx_pending_rmt_done_lock_lhc4:	Remote-done list lock
  * @tx_pending_remote_done:		Transmitted, waiting for remote done
  * @lsigs:				Local signals
  * @rsigs:				Remote signals
@@ -205,6 +207,8 @@ struct channel_ctx {
 
 	struct mutex tx_lists_mutex_lhc3;
 	struct list_head tx_active;
+
+	spinlock_t tx_pending_rmt_done_lock_lhc4;
 	struct list_head tx_pending_remote_done;
 
 	uint32_t lsigs;
@@ -1108,16 +1112,27 @@ struct glink_core_tx_pkt *ch_get_tx_pending_remote_done(
 	struct channel_ctx *ctx, uint32_t riid)
 {
 	struct glink_core_tx_pkt *tx_pkt;
+	unsigned long flags;
 
 	if (!ctx) {
 		GLINK_ERR("%s: Invalid context pointer", __func__);
 		return NULL;
 	}
 
-	list_for_each_entry(tx_pkt, &ctx->tx_pending_remote_done, list_node) {
-		if (tx_pkt->riid == riid)
+	spin_lock_irqsave(&ctx->tx_pending_rmt_done_lock_lhc4, flags);
+	list_for_each_entry(tx_pkt, &ctx->tx_pending_remote_done, list_done) {
+		if (tx_pkt->riid == riid) {
+			if (tx_pkt->size_remaining) {
+				GLINK_ERR_CH(ctx, "%s: R[%u] TX not complete",
+						__func__, riid);
+				tx_pkt = NULL;
+			}
+			spin_unlock_irqrestore(
+				&ctx->tx_pending_rmt_done_lock_lhc4, flags);
 			return tx_pkt;
+		}
 	}
+	spin_unlock_irqrestore(&ctx->tx_pending_rmt_done_lock_lhc4, flags);
 
 	GLINK_ERR_CH(ctx, "%s: R[%u] Tx packet for intent not found.\n",
 			__func__, riid);
@@ -1137,24 +1152,29 @@ void ch_remove_tx_pending_remote_done(struct channel_ctx *ctx,
 	struct glink_core_tx_pkt *tx_pkt)
 {
 	struct glink_core_tx_pkt *local_tx_pkt, *tmp_tx_pkt;
+	unsigned long flags;
 
 	if (!ctx || !tx_pkt) {
 		GLINK_ERR("%s: Invalid input", __func__);
 		return;
 	}
 
+	spin_lock_irqsave(&ctx->tx_pending_rmt_done_lock_lhc4, flags);
 	list_for_each_entry_safe(local_tx_pkt, tmp_tx_pkt,
-			&ctx->tx_pending_remote_done, list_node) {
+			&ctx->tx_pending_remote_done, list_done) {
 		if (tx_pkt == local_tx_pkt) {
-			list_del(&local_tx_pkt->list_node);
+			list_del_init(&local_tx_pkt->list_done);
 			GLINK_DBG_CH(ctx,
 				"%s: R[%u] Removed Tx packet for intent\n",
 				__func__,
 				tx_pkt->riid);
 			kfree(local_tx_pkt);
+			spin_unlock_irqrestore(
+				&ctx->tx_pending_rmt_done_lock_lhc4, flags);
 			return;
 		}
 	}
+	spin_unlock_irqrestore(&ctx->tx_pending_rmt_done_lock_lhc4, flags);
 
 	GLINK_ERR_CH(ctx, "%s: R[%u] Tx packet for intent not found", __func__,
 			tx_pkt->riid);
@@ -1224,6 +1244,7 @@ static struct channel_ctx *ch_name_to_ch_ctx_create(
 	INIT_LIST_HEAD(&ctx->rmt_rx_intent_list);
 	spin_lock_init(&ctx->rmt_rx_intent_lst_lock_lhc2);
 	INIT_LIST_HEAD(&ctx->tx_active);
+	spin_lock_init(&ctx->tx_pending_rmt_done_lock_lhc4);
 	INIT_LIST_HEAD(&ctx->tx_pending_remote_done);
 	mutex_init(&ctx->tx_lists_mutex_lhc3);
 
@@ -1846,6 +1867,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	int ret = 0;
 	struct glink_core_tx_pkt *tx_info;
 	size_t intent_size;
+	bool is_atomic = tx_flags & GLINK_TX_SINGLE_THREADED;
 
 	if (!ctx)
 		return -EINVAL;
@@ -1857,6 +1879,9 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 		return -EBUSY;
 
 	if (size > GLINK_MAX_PKT_SIZE)
+		return -EINVAL;
+
+	if (is_atomic && (tx_flags & GLINK_TX_REQ_INTENT))
 		return -EINVAL;
 
 	/* find matching rx intent (first-fit algorithm for now) */
@@ -1895,19 +1920,23 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 		}
 	}
 
-	mutex_lock(&ctx->transport_ptr->tx_ready_mutex_lhb2);
-	glink_pm_qos_vote(ctx->transport_ptr);
-	mutex_unlock(&ctx->transport_ptr->tx_ready_mutex_lhb2);
+	if (!is_atomic) {
+		mutex_lock(&ctx->transport_ptr->tx_ready_mutex_lhb2);
+		glink_pm_qos_vote(ctx->transport_ptr);
+		mutex_unlock(&ctx->transport_ptr->tx_ready_mutex_lhb2);
+	}
 
 	GLINK_INFO_PERF_CH(ctx, "%s: R[%u]:%zu data[%p], size[%zu]. TID %u\n",
 			__func__, riid, intent_size,
 			data ? data : iovec, size, current->pid);
-	tx_info = kzalloc(sizeof(struct glink_core_tx_pkt), GFP_KERNEL);
+	tx_info = kzalloc(sizeof(struct glink_core_tx_pkt),
+				is_atomic ? GFP_ATOMIC : GFP_KERNEL);
 	if (!tx_info) {
 		GLINK_ERR_CH(ctx, "%s: No memory for allocation\n", __func__);
 		ch_push_remote_rx_intent(ctx, intent_size, riid);
 		return -ENOMEM;
 	}
+	INIT_LIST_HEAD(&tx_info->list_done);
 	tx_info->pkt_priv = pkt_priv;
 	tx_info->data = data;
 	tx_info->riid = riid;
@@ -2985,6 +3014,7 @@ static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 	INIT_LIST_HEAD(&ctx_clone->local_rx_intent_free_list);
 	INIT_LIST_HEAD(&ctx_clone->rmt_rx_intent_list);
 	INIT_LIST_HEAD(&ctx_clone->tx_active);
+	spin_lock_init(&ctx_clone->tx_pending_rmt_done_lock_lhc4);
 	INIT_LIST_HEAD(&ctx_clone->tx_pending_remote_done);
 	mutex_init(&ctx_clone->tx_lists_mutex_lhc3);
 	spin_lock_irqsave(&l_ctx->transport_ptr->xprt_ctx_lock_lhb1, flags);
@@ -3572,8 +3602,9 @@ static int xprt_single_threaded_tx(struct glink_core_xprt_ctx *xprt_ptr,
 			     struct glink_core_tx_pkt *tx_info)
 {
 	int ret;
+	unsigned long flags;
 
-	mutex_lock(&ch_ptr->tx_lists_mutex_lhc3);
+	spin_lock_irqsave(&ch_ptr->tx_pending_rmt_done_lock_lhc4, flags);
 	do {
 		ret = xprt_ptr->ops->tx(ch_ptr->transport_ptr->ops,
 					ch_ptr->lcid, tx_info);
@@ -3583,11 +3614,11 @@ static int xprt_single_threaded_tx(struct glink_core_xprt_ctx *xprt_ptr,
 			     __func__, ret);
 		kfree(tx_info);
 	} else {
-		list_add_tail(&tx_info->list_node,
+		list_add_tail(&tx_info->list_done,
 			      &ch_ptr->tx_pending_remote_done);
 		ret = 0;
 	}
-	mutex_unlock(&ch_ptr->tx_lists_mutex_lhc3);
+	spin_unlock_irqrestore(&ch_ptr->tx_pending_rmt_done_lock_lhc4, flags);
 	return ret;
 }
 
@@ -3603,6 +3634,7 @@ static void tx_work_func(struct work_struct *work)
 	struct channel_ctx *ch_ptr;
 	struct glink_core_tx_pkt *tx_info;
 	int ret;
+	unsigned long flags;
 
 	GLINK_PERF("%s: worker starting\n", __func__);
 
@@ -3618,6 +3650,14 @@ static void tx_work_func(struct work_struct *work)
 		tx_info = list_first_entry(&ch_ptr->tx_active,
 					struct glink_core_tx_pkt,
 					list_node);
+
+		spin_lock_irqsave(&ch_ptr->tx_pending_rmt_done_lock_lhc4,
+				flags);
+		if (list_empty(&tx_info->list_done))
+			list_add(&tx_info->list_done,
+				&ch_ptr->tx_pending_remote_done);
+		spin_unlock_irqrestore(&ch_ptr->tx_pending_rmt_done_lock_lhc4,
+				flags);
 
 		ret = xprt_ptr->ops->tx(xprt_ptr->ops, ch_ptr->lcid, tx_info);
 		if (ret == -EAGAIN) {
@@ -3639,9 +3679,13 @@ static void tx_work_func(struct work_struct *work)
 					__func__, ret);
 		}
 
-		if (!tx_info->size_remaining)
-			list_move(&tx_info->list_node,
-				&ch_ptr->tx_pending_remote_done);
+		if (!tx_info->size_remaining) {
+			spin_lock_irqsave(
+				&ch_ptr->tx_pending_rmt_done_lock_lhc4, flags);
+			list_del_init(&tx_info->list_node);
+			spin_unlock_irqrestore(
+				&ch_ptr->tx_pending_rmt_done_lock_lhc4, flags);
+		}
 
 		if (list_empty(&ch_ptr->tx_active)) {
 			mutex_unlock(&ch_ptr->tx_lists_mutex_lhc3);
