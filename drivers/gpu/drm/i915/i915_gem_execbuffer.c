@@ -1906,11 +1906,6 @@ i915_gem_execbuffer2(struct drm_device *dev, void *data,
 		return -EINVAL;
 	}
 
-	if (args->rsvd2 != 0) {
-		DRM_DEBUG("dirty rvsd2 field\n");
-		return -EINVAL;
-	}
-
 	/* Throttle batch requests per device file */
 	if (i915_scheduler_file_queue_is_full(file))
 		return -EAGAIN;
