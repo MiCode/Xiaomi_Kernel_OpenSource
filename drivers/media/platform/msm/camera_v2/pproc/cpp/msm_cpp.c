@@ -1717,6 +1717,7 @@ phyaddr_err:
 			&buff_mgr_info);
 frame_msg_err:
 	kfree(cpp_frame_msg);
+	kfree(new_frame);
 	return rc;
 }
 
