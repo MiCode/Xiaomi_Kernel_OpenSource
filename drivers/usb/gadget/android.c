@@ -1564,6 +1564,15 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 	spin_lock_irqsave(&cdev->lock, flags);
 	if (!dev->connected) {
 		dev->connected = 1;
+
+		/* set MaxPower as 896mA (8mA per unit in configuration
+		 * descriptor bMaxPower, and < 900mA per USB3 spec) for
+		 * SuperSpeed mode */
+		if (gadget->speed == USB_SPEED_SUPER)
+			android_config_driver.MaxPower = 896;
+		else
+			android_config_driver.MaxPower = 500;
+
 		schedule_work(&dev->work);
 	} else if (c->bRequest == USB_REQ_SET_CONFIGURATION &&
 						cdev->config) {
