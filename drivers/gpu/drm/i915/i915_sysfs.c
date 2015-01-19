@@ -163,12 +163,21 @@ show_rc6pp_ms(struct device *kdev, struct device_attribute *attr, char *buf)
 	return snprintf(buf, PAGE_SIZE, "%u\n", rc6pp_residency);
 }
 
+static ssize_t
+show_media_rc6_ms(struct device *kdev, struct device_attribute *attr, char *buf)
+{
+	struct drm_minor *dminor = dev_get_drvdata(kdev);
+	u32 rc6_residency = calc_residency(dminor->dev, VLV_GT_MEDIA_RC6);
+	return snprintf(buf, PAGE_SIZE, "%u\n", rc6_residency);
+}
+
 static DEVICE_ATTR(forcewake, S_IRUSR | S_IWUSR, show_forcewake,
 		   forcewake_store);
 static DEVICE_ATTR(rc6_enable, S_IRUGO, show_rc6_mask, NULL);
 static DEVICE_ATTR(rc6_residency_ms, S_IRUGO, show_rc6_ms, NULL);
 static DEVICE_ATTR(rc6p_residency_ms, S_IRUGO, show_rc6p_ms, NULL);
 static DEVICE_ATTR(rc6pp_residency_ms, S_IRUGO, show_rc6pp_ms, NULL);
+static DEVICE_ATTR(media_rc6_residency_ms, S_IRUGO, show_media_rc6_ms, NULL);
 
 static struct attribute *rc6_attrs[] = {
 	&dev_attr_forcewake.attr,
@@ -182,6 +191,16 @@ static struct attribute *rc6_attrs[] = {
 static struct attribute_group rc6_attr_group = {
 	.name = power_group_name,
 	.attrs =  rc6_attrs
+};
+
+static struct attribute *media_rc6_attrs[] = {
+	&dev_attr_media_rc6_residency_ms.attr,
+	NULL
+};
+
+static struct attribute_group media_rc6_attr_group = {
+	.name = power_group_name,
+	.attrs =  media_rc6_attrs
 };
 #endif
 
@@ -1532,6 +1551,12 @@ void i915_setup_sysfs(struct drm_device *dev)
 					&rc6_attr_group);
 		if (ret)
 			DRM_ERROR("RC6 residency sysfs setup failed\n");
+	}
+	if (IS_VALLEYVIEW(dev)) {
+		ret = sysfs_merge_group(&dev->primary->kdev->kobj,
+					&media_rc6_attr_group);
+		if (ret)
+			DRM_ERROR("Media RC6 residency sysfs setup failed\n");
 	}
 #endif
 	if (HAS_L3_DPF(dev)) {
