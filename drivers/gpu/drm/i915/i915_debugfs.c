@@ -1705,6 +1705,7 @@ static int i915_dpst_status(struct seq_file *m, void *unused)
 
 	mutex_lock(&dev_priv->dpst.ioctl_lock);
 
+	intel_display_power_get(dev_priv, PIPE_A);
 	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
 	blm_hist_guard = I915_READ(dev_priv->dpst.reg.blm_hist_guard);
 
@@ -1734,6 +1735,7 @@ static int i915_dpst_status(struct seq_file *m, void *unused)
 		seq_printf(m, "%10x", I915_READ(dev_priv->dpst.reg.blm_hist_bin));
 	}
 	seq_puts(m, "\n");
+	intel_display_power_put(dev_priv, PIPE_A);
 
 	mutex_unlock(&dev_priv->dpst.ioctl_lock);
 
