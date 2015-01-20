@@ -35,20 +35,15 @@ struct vlv_sp_plane_context {
 	u32 pipe;
 };
 
+struct vlv_sp_plane;
+
+bool vlv_sp_plane_is_enabled(struct vlv_sp_plane *splane);
+
 struct vlv_sp_plane {
 	struct intel_plane base;
+	u32 offset;
+	bool enabled;
 	struct vlv_sp_plane_context ctx;
-};
-
-/**
- * struct rectangle - two dimensional rectangle
- * @x1: horizontal starting coordinate (inclusive)
- * @x2: horizontal ending coordinate (exclusive)
- * @y1: vertical starting coordinate (inclusive)
- * @y2: vertical ending coordinate (exclusive)
-*/
-struct rectangle {
-	int x1, y1, x2, y2;
 };
 
 static inline struct vlv_sp_plane *to_vlv_sp_plane(struct intel_plane *plane)
@@ -56,7 +51,8 @@ static inline struct vlv_sp_plane *to_vlv_sp_plane(struct intel_plane *plane)
 	return container_of(plane, struct vlv_sp_plane, base);
 }
 
-int vlv_sp_plane_init(struct vlv_sp_plane *splane, struct device *dev, u8 idx);
+int vlv_sp_plane_init(struct vlv_sp_plane *splane,
+		struct intel_pipeline *pipeline, struct device *dev, u8 idx);
 void vlv_sp_plane_destroy(struct vlv_sp_plane *splane);
 
 #endif

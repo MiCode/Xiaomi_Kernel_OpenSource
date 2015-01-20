@@ -51,5 +51,4 @@ extern void intel_adf_context_destroy(struct intel_adf_context *ctx);
 extern int intel_adf_context_on_event(void);
 extern int intel_adf_map_dma_to_flip(unsigned long args);
 extern int intel_adf_unmap_dma_to_flip(unsigned long args);
-extern int vlv_dpst_context(unsigned long args);
 #endif /* INTEL_ADF_H_ */

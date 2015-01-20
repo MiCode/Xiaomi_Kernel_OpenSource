@@ -59,6 +59,7 @@ struct dsi_pipe {
 	struct intel_pipe base;
 	struct dsi_pipe_ops ops;
 	struct dsi_config config;
+	struct intel_pipeline *pipeline;
 #ifndef CONFIG_ADF_INTEL_VLV
 	struct dsi_pkg_sender sender;
 #endif
@@ -73,7 +74,8 @@ static inline struct dsi_pipe *to_dsi_pipe(struct intel_pipe *pipe)
 
 #ifdef CONFIG_ADF_INTEL_VLV
 extern int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
-	struct intel_plane *primary_plane, u8 idx);
+	struct intel_plane *primary_plane, u8 idx,
+	struct intel_pipeline *pipeline);
 #else
 extern int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	struct intel_plane *primary_plane, u8 idx, u32 gtt_phy_addr);

@@ -16,36 +16,19 @@
 
 #include <drm/drm_mode.h>
 #include <drm/i915_drm.h>
-
+#include <drm/i915_adf.h>
+#include <intel_adf_device.h>
 #include <core/intel_dc_config.h>
-#include <core/vlv/vlv_dc_regs.h>
-#include <core/vlv/vlv_dc_hw.h>
-#include <core/vlv/vlv_dc_config.h>
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/dsi/dsi_config.h>
 #include <core/common/intel_gen_backlight.h>
+/* FIXME: remove this once gpio calls are abstracted */
 #include <core/vlv/vlv_dc_config.h>
-#include <core/vlv/vlv_dpst.h>
-#include <intel_adf_device.h>
 #include "dsi_vbt.h"
 #include "intel_dsi.h"
+#include "intel_dsi_cmd.h"
 
-static void dsi_pipe_suspend(struct intel_dc_component *component)
-{
-	struct intel_pipe *pipe = to_intel_pipe(component);
-	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
-
-	/*power gate the power rail directly*/
-	dsi_pipe->ops.power_off(dsi_pipe);
-}
-
-static void dsi_pipe_resume(struct intel_dc_component *component)
-{
-	struct intel_pipe *pipe = to_intel_pipe(component);
-	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
-
-	dsi_pipe->ops.power_on(dsi_pipe);
-}
+#define TURN_ON (1 << 1)
 
 #ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 static int dsi_set_brightness(struct intel_pipe *pipe, int level)
@@ -122,6 +105,22 @@ static void dsi_get_modelist(struct intel_pipe *pipe,
 	mutex_unlock(&config->ctx_lock);
 }
 
+static void dsi_get_current_mode(struct intel_pipe *pipe,
+		struct drm_mode_modeinfo *mode)
+{
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct dsi_config *config = &dsi_pipe->config;
+	bool lock;
+
+	if (!mode)
+		return;
+
+	lock = mutex_trylock(&config->ctx_lock);
+	dsi_pipe->panel->ops->get_config_mode(&dsi_pipe->config,
+				mode);
+	if (lock)
+		mutex_unlock(&config->ctx_lock);
+}
 static void dsi_get_preferred_mode(struct intel_pipe *pipe,
 		struct drm_mode_modeinfo **mode)
 {
@@ -135,13 +134,187 @@ static void dsi_get_preferred_mode(struct intel_pipe *pipe,
 	if (lock)
 		mutex_unlock(&config->ctx_lock);
 
-	pr_err("ADF: %s: Preferred Mode = %dx%d @%d\n", __func__,
-	       (*mode)->hdisplay, (*mode)->vdisplay, (*mode)->vrefresh);
+	pr_debug("ADF: %s: Preferred Mode = %dx%d @%d\n", __func__,
+		(*mode)->hdisplay, (*mode)->vdisplay, (*mode)->vrefresh);
 }
 
 static bool dsi_is_screen_connected(struct intel_pipe *pipe)
 {
 	return true;
+}
+
+static int dsi_display_on(struct intel_pipe *pipe,
+		struct drm_mode_modeinfo *mode)
+{
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
+	struct dsi_panel *panel = dsi_pipe->panel;
+	struct dsi_context *intel_dsi = &dsi_pipe->config.ctx;
+	int err = 0;
+	bool need_free_mem = false;
+
+	/*
+	 * program rcomp for compliance, reduce from 50 ohms to 45 ohms
+	 * needed everytime after power gate
+	 */
+	vlv_flisdsi_write(0x04, 0x0004);
+
+	/* bandgap reset is needed after everytime we do power gate */
+	band_gap_reset(dsi_pipe);
+
+	/* Panel Enable */
+	if (panel->ops->panel_power_on)
+		panel->ops->panel_power_on(dsi_pipe);
+
+	msleep(intel_dsi->panel_on_delay);
+
+	if (panel->ops->reset)
+		panel->ops->reset(dsi_pipe);
+
+	/* get the configured mode */
+	if (mode == NULL) {
+		need_free_mem = true;
+		mode = kzalloc(sizeof(struct drm_mode_modeinfo), GFP_KERNEL);
+		if (mode == NULL) {
+			pr_err("%s: mem alloc for mode failed\n", __func__);
+			err = -ENOMEM;
+			goto out;
+		}
+		dsi_pipe->panel->ops->get_config_mode(&dsi_pipe->config, mode);
+	}
+
+	/* FIXME: compare if mode passed is same as current mode */
+
+	/*
+	 * DSI is a special beast that requires 3 calls to pipeline
+	 * 1) setup pll : dsi_prepare_on
+	 * 2) setup port: dsi_pre_display_on
+	 * 3) enable port, pipe, plane etc : display_on
+	 * this is because of the panel calls needed to be performed
+	 * between these operations and hence we return to common code
+	 * to make these calls.
+	 */
+
+	/* FIXME: plan to remove config as very few params inside it are used */
+	pipeline->params.dsi.dsi_config = &dsi_pipe->config;
+
+	err = vlv_dsi_prepare_on(pipeline, mode);
+	if (err != 0) {
+		pr_err("%s:dsi prepare pipeline on failed !!!\n", __func__);
+		/* recovery ? */
+		goto out;
+	}
+
+	if (panel->ops->drv_ic_init)
+		panel->ops->drv_ic_init(dsi_pipe);
+
+	err = vlv_dsi_pre_pipeline_on(pipeline, mode);
+	if (err != 0) {
+		pr_err("%s: dsi pre pipeline on failed !!!\n", __func__);
+		/* recovery ? */
+		goto out;
+	}
+
+	if (vlv_is_vid_mode(pipeline)) {
+		msleep(20); /* XXX */
+		adf_dpi_send_cmd(dsi_pipe, TURN_ON, DPI_LP_MODE_EN);
+		msleep(100);
+
+		if (panel->ops->power_on)
+			panel->ops->power_on(dsi_pipe);
+	}
+
+	err = vlv_pipeline_on(pipeline, mode);
+	if (err != 0) {
+		pr_err("%s: dsi pipeline on failed !!!\n", __func__);
+		/* recovery ? */
+		goto out;
+	}
+
+	if (intel_dsi->backlight_on_delay >= 20)
+		msleep(intel_dsi->backlight_on_delay);
+	else
+		usleep_range(intel_dsi->backlight_on_delay * 1000,
+				(intel_dsi->backlight_on_delay * 1000) + 500);
+
+	intel_enable_backlight(&dsi_pipe->base);
+
+	/* enable vsyncs */
+	pipe->ops->set_event(pipe, INTEL_PIPE_EVENT_VSYNC, true);
+
+	dsi_pipe->dpms_state = DRM_MODE_DPMS_ON;
+
+out:
+	if (need_free_mem)
+		kfree(mode);
+
+	return err;
+}
+
+static int dsi_display_off(struct intel_pipe *pipe)
+{
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
+	struct dsi_context *intel_dsi = &dsi_pipe->config.ctx;
+	struct dsi_panel *panel = dsi_pipe->panel;
+	int err = 0;
+
+	/* check harwdare state before disabling */
+	if (!vlv_can_be_disabled(pipeline)) {
+		pr_err("%s: DSI device already disabled\n", __func__);
+		goto out;
+	}
+
+	intel_disable_backlight(&dsi_pipe->base);
+
+	if (intel_dsi->backlight_off_delay >= 20)
+		msleep(intel_dsi->backlight_off_delay);
+	else
+		usleep_range(intel_dsi->backlight_off_delay * 1000,
+				(intel_dsi->backlight_off_delay * 1000) + 500);
+
+
+	if (vlv_is_vid_mode(pipeline)) {
+		/* Send Shutdown command to the panel in LP mode */
+		adf_dpi_send_cmd(dsi_pipe, SHUTDOWN, DPI_LP_MODE_EN);
+		usleep_range(10000, 10500);
+		pr_err("ADF: %s: Sent DPI_SHUTDOWN\n", __func__);
+	}
+
+	/* disable vsyncs */
+	pipe->ops->set_event(pipe, INTEL_PIPE_EVENT_VSYNC, false);
+
+	err = vlv_pipeline_off(pipeline);
+
+	if (err != 0) {
+		pr_err("%s: DSI pipeline off failed\n", __func__);
+		/* FIXME: error recovery ??? */
+		goto out;
+	}
+
+	/*
+	 * if disable packets are sent before sending shutdown packet then in
+	 * some next enable sequence send turn on packet error is observed
+	 */
+	if (panel->ops->power_off)
+		panel->ops->power_off(dsi_pipe);
+
+	vlv_post_pipeline_off(pipeline);
+
+	if (panel->ops->disable_panel_power)
+		panel->ops->disable_panel_power(dsi_pipe);
+
+	/* Disable Panel */
+	if (panel->ops->panel_power_off)
+		panel->ops->panel_power_off(dsi_pipe);
+
+	msleep(intel_dsi->panel_off_delay);
+	msleep(intel_dsi->panel_pwr_cycle_delay);
+
+	dsi_pipe->dpms_state = DRM_MODE_DPMS_OFF;
+
+out:
+	return err;
 }
 
 static int dsi_dpms(struct intel_pipe *pipe, u8 state)
@@ -171,10 +344,10 @@ static int dsi_dpms(struct intel_pipe *pipe, u8 state)
 	switch (state) {
 	case DRM_MODE_DPMS_ON:
 		intel_adf_display_rpm_get();
-		err = vlv_display_on(pipe);
+		err = dsi_display_on(pipe, NULL);
 		break;
 	case DRM_MODE_DPMS_OFF:
-		err = vlv_display_off(pipe);
+		err = dsi_display_off(pipe);
 		intel_adf_display_rpm_put();
 		break;
 	case DRM_MODE_DPMS_STANDBY:
@@ -211,8 +384,8 @@ static int dsi_modeset(struct intel_pipe *pipe,
 	}
 
 	mutex_lock(&config->ctx_lock);
-	vlv_display_off(pipe);
-	vlv_display_on(pipe);
+	dsi_display_off(pipe);
+	dsi_display_on(pipe, mode);
 	mutex_unlock(&config->ctx_lock);
 
 	return err;
@@ -224,7 +397,7 @@ static int dsi_get_screen_size(struct intel_pipe *pipe,
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
 	struct dsi_panel *panel = dsi_pipe->panel;
 	struct panel_info pi;
-	int err;
+	int err = 0;
 
 	if (!panel || !panel->ops || !panel->ops->get_panel_info) {
 		pr_err("%s: failed to get panel info\n", __func__);
@@ -237,61 +410,25 @@ static int dsi_get_screen_size(struct intel_pipe *pipe,
 	*width_mm = pi.width_mm;
 	*height_mm = pi.height_mm;
 
-	return 0;
 out_err:
 	return err;
 }
 
-static unsigned int usecs_to_scanlines(struct drm_display_mode *hwmode,
-				       unsigned int usecs)
-{
-	/* paranoia */
-	if (!hwmode->crtc_htotal)
-		return 1;
-
-	return DIV_ROUND_UP(usecs * hwmode->clock,
-			    1000 * hwmode->crtc_htotal);
-}
-
-static void intel_pipe_vblank_evade(struct intel_pipe *intel_pipe)
-{
-	u32 val;
-	struct dsi_pipe *dsi_pipe = to_dsi_pipe(intel_pipe);
-	struct drm_display_mode *hwmode = &dsi_pipe->config.vbt_mode;
-	int pipe = intel_pipe->base.idx;
-	/* FIXME needs to be calibrated sensibly */
-	u32 min = hwmode->crtc_vdisplay - usecs_to_scanlines(hwmode, 50);
-	u32 max = hwmode->crtc_vdisplay - 1;
-	long timeout = msecs_to_jiffies(3);
-
-	local_irq_disable();
-	val = REG_READ(PIPEDSL(pipe));
-	local_irq_enable();
-
-	while (val >= min && val <= max && timeout > 0) {
-
-		vlv_wait_for_vblank(pipe);
-		local_irq_disable();
-		val = REG_READ(PIPEDSL(pipe));
-		local_irq_enable();
-		intel_pipe->status.wait_vblank = false;
-	}
-
-	if (val >= min && val <= max)
-		pr_warn("ADF: Page flipping close to vblank start (DSL=%u, VBL=%u)\n",
-			 val, hwmode->crtc_vdisplay);
-}
 
 static void dsi_on_post(struct intel_pipe *pipe)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
+	int num_planes = 0;
+
+	num_planes = vlv_num_planes_enabled(pipeline);
 
 	/* Enable maxfifo if required */
-	if (!pipe->status.maxfifo_enabled &&
-				(vlv_num_planes_enabled(pipe) == 1)) {
-		REG_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
+	if (!pipe->status.maxfifo_enabled && (num_planes == 1)) {
+		vlv_update_maxfifo_status(pipeline, true);
 		pipe->status.maxfifo_enabled = true;
 	}
+
 	if (dsi_pipe->ops.on_post)
 		dsi_pipe->ops.on_post(dsi_pipe);
 }
@@ -299,6 +436,8 @@ static void dsi_on_post(struct intel_pipe *pipe)
 static void dsi_pre_validate(struct intel_pipe *pipe,
 		struct intel_adf_post_custom_data *custom)
 {
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
 	struct intel_adf_config *custom_config;
 	u8 i = 0, planes_enabled = 0;
 
@@ -312,7 +451,8 @@ static void dsi_pre_validate(struct intel_pipe *pipe,
 
 	/* If we are moving to multiple plane then disable maxfifo */
 	if (planes_enabled > 1 && pipe->status.maxfifo_enabled) {
-		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		vlv_update_maxfifo_status(pipeline, false);
+		/* FIXME: move these variables out of intel_pipe */
 		pipe->status.maxfifo_enabled = false;
 		pipe->status.wait_vblank = true;
 		pipe->status.vsync_counter =
@@ -323,15 +463,17 @@ static void dsi_pre_validate(struct intel_pipe *pipe,
 static void dsi_pre_post(struct intel_pipe *pipe)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
+	struct drm_mode_modeinfo mode;
 
 	if (pipe->status.wait_vblank && pipe->status.vsync_counter ==
 			pipe->ops->get_vsync_counter(pipe, 0)) {
-		vlv_wait_for_vblank(pipe->base.idx);
+		vlv_wait_for_vblank(pipeline);
 		pipe->status.wait_vblank = false;
 	}
-	if (dsi_pipe->ops.pre_post)
-		dsi_pipe->ops.pre_post(dsi_pipe);
-	intel_pipe_vblank_evade(pipe);
+
+	pipe->ops->get_current_mode(pipe, &mode);
+	vlv_evade_vblank(pipeline, &mode, &pipe->status.wait_vblank);
 }
 
 static u32 dsi_get_supported_events(struct intel_pipe *pipe)
@@ -342,55 +484,9 @@ static u32 dsi_get_supported_events(struct intel_pipe *pipe)
 int dsi_set_event(struct intel_pipe *pipe, u16 event, bool enabled)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct intel_pipeline *pipeline = dsi_pipe->pipeline;
 
-	u32 pipestat, value = 0;
-	u8 idx = pipe->base.idx;
-	value = REG_READ(PIPESTAT(idx));
-
-	if (enabled)
-		pipestat = 0;
-	else {
-		if (event == INTEL_PIPE_EVENT_VSYNC) {
-			pr_debug("ADF: %s: Not allowing VSYNC OFF\n", __func__);
-			return 0;
-		} else
-			pipestat = 0xFFFFFFFF;
-	}
-
-	switch (event) {
-	case INTEL_PIPE_EVENT_SPRITE2_FLIP:
-		enabled ? (pipestat |= SPRITE2_FLIP_DONE_EN) :
-			(pipestat &= ~SPRITE2_FLIP_DONE_EN);
-		break;
-	case INTEL_PIPE_EVENT_SPRITE1_FLIP:
-		enabled ? (pipestat |= SPRITE1_FLIP_DONE_EN) :
-			(pipestat &= ~SPRITE1_FLIP_DONE_EN);
-		break;
-	case INTEL_PIPE_EVENT_PRIMARY_FLIP:
-		enabled ? (pipestat |= PLANE_FLIP_DONE_EN) :
-			(pipestat &= ~PLANE_FLIP_DONE_EN);
-		break;
-	case INTEL_PIPE_EVENT_VSYNC:
-		enabled ? (pipestat |= VSYNC_EN) : (pipestat &= ~VSYNC_EN);
-		break;
-	case INTEL_PIPE_EVENT_DPST:
-		enabled ? (pipestat |= DPST_EVENT_EN) :
-			(pipestat &= ~DPST_EVENT_EN);
-		break;
-	}
-
-	if (enabled)
-		/* Enable interrupts */
-		REG_WRITE(PIPESTAT(idx), value | pipestat);
-	else
-		/* Disable interrupts */
-		REG_WRITE(PIPESTAT(idx), value & pipestat);
-
-	/* In case specififc interrupts for DSI like TE */
-	if (dsi_pipe->ops.set_event)
-		return dsi_pipe->ops.set_event(dsi_pipe, event, enabled);
-
-	return 0;
+	return vlv_set_event(pipeline, event, enabled);
 }
 
 /**
@@ -404,74 +500,9 @@ static u32 vsync_counter;
 static void dsi_get_events(struct intel_pipe *pipe, u32 *events)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
-	u8 idx = pipe->base.idx;
+	struct intel_pipeline *pipeline = dsi_pipe->pipeline;
 
-	u32 pipestat = 0, value = 0;
-	pipestat = REG_READ(PIPESTAT(idx));
-
-	*events = 0;
-
-	pr_debug("%s: PIPESTAT = 0x%x\n", __func__, pipestat);
-
-	/* FIFO under run */
-	if (pipestat & FIFO_UNDERRUN_STAT) {
-		*events |= INTEL_PIPE_EVENT_UNDERRUN;
-		value |= FIFO_UNDERRUN_STAT;
-	}
-
-	/* Sprite B Flip done interrupt */
-	if (pipestat & SPRITE2_FLIP_DONE_STAT) {
-		*events |= INTEL_PIPE_EVENT_SPRITE2_FLIP;
-		value |= SPRITE2_FLIP_DONE_STAT;
-		/* program the pre-calculated ddl value */
-		if (pipe->regs.sp2_ddl) {
-			REG_WRITE_BITS(VLV_DDL(idx), pipe->regs.sp2_ddl,
-					pipe->regs.sp2_ddl_mask);
-			pipe->regs.sp2_ddl = 0;
-		}
-	}
-
-	/* Sprite A Flip done interrupt */
-	if (pipestat & SPRITE1_FLIP_DONE_STAT) {
-		*events |= INTEL_PIPE_EVENT_SPRITE1_FLIP;
-		value |= SPRITE2_FLIP_DONE_STAT;
-		/* program the pre-calculated ddl value */
-		if (pipe->regs.sp1_ddl) {
-			REG_WRITE_BITS(VLV_DDL(idx), pipe->regs.sp1_ddl,
-					pipe->regs.sp1_ddl_mask);
-			pipe->regs.sp1_ddl = 0;
-		}
-	}
-
-	/* Plane A Flip done interrupt */
-	if (pipestat & PLANE_FLIP_DONE_STAT) {
-		*events |= INTEL_PIPE_EVENT_PRIMARY_FLIP;
-		value |= PLANE_FLIP_DONE_STAT;
-		/* program the pre-calculated ddl value */
-		if (pipe->regs.pri_ddl) {
-			REG_WRITE_BITS(VLV_DDL(idx), pipe->regs.pri_ddl,
-					pipe->regs.pri_ddl_mask);
-			pipe->regs.pri_ddl = 0;
-		}
-	}
-
-	/* Vsync interrupt */
-	if (pipestat & VSYNC_STAT) {
-		*events |= INTEL_PIPE_EVENT_VSYNC;
-		value |= VSYNC_STAT;
-	}
-
-	/* DPST event */
-	if (pipestat & DPST_EVENT_STAT) {
-		*events |= INTEL_PIPE_EVENT_DPST;
-		value |= DPST_EVENT_STAT;
-	}
-
-	/* Clear the 1st level interrupt. */
-	REG_WRITE(PIPESTAT(idx), pipestat | value);
-
-	if (dsi_pipe->ops.get_events)
-		dsi_pipe->ops.get_events(dsi_pipe, events);
+	vlv_get_event(pipeline, events);
 
 	/**
 	 * FIXME: should use hardware vsync counter.
@@ -487,11 +518,10 @@ u32 dsi_get_vsync_counter(struct intel_pipe *pipe, u32 interval)
 	u32 count;
 	u32 max_count_mask = VSYNC_COUNT_MAX_MASK;
 
-	count = vsync_counter;
+	count = pipe->vsync_counter;
 	count |= (~max_count_mask);
 	count += interval;
 	count &= max_count_mask;
-
 	pr_debug("%s: count = %#x\n", __func__, count);
 
 	return count;
@@ -506,16 +536,31 @@ static void dsi_handle_events(struct intel_pipe *pipe, u32 events)
 		dsi_pipe->ops.handle_events(dsi_pipe, events);
 }
 
+static long dsi_pipe_dpst_context(struct intel_pipe *pipe, unsigned long arg)
+{
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct intel_pipeline *pipeline = dsi_pipe->pipeline;
+	long val = vlv_dpst_context(pipeline, arg);
+
+	return val;
+}
+
+static long dsi_pipe_dpst_irq_handler(struct intel_pipe *pipe)
+{
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
+
+	return vlv_dpst_irq_handler(pipeline);
+
+}
+
 static struct intel_pipe_ops dsi_base_ops = {
-	.base = {
-		.suspend = dsi_pipe_suspend,
-		.resume = dsi_pipe_resume,
-	},
 	.hw_init = dsi_pipe_hw_init,
 	.hw_deinit = dsi_pipe_hw_deinit,
 	.get_preferred_mode = dsi_get_preferred_mode,
 	.is_screen_connected = dsi_is_screen_connected,
 	.get_modelist = dsi_get_modelist,
+	.get_current_mode = dsi_get_current_mode,
 	.dpms = dsi_dpms,
 	.modeset = dsi_modeset,
 	.get_screen_size = dsi_get_screen_size,
@@ -527,6 +572,8 @@ static struct intel_pipe_ops dsi_base_ops = {
 	.get_events = dsi_get_events,
 	.get_vsync_counter = dsi_get_vsync_counter,
 	.handle_events = dsi_handle_events,
+	.dpst_context = dsi_pipe_dpst_context,
+	.dpst_irq_handler = dsi_pipe_dpst_irq_handler,
 #ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 	.set_brightness = dsi_set_brightness,
 #endif
@@ -539,7 +586,8 @@ void dsi_pipe_destroy(struct dsi_pipe *pipe)
 }
 
 int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
-	struct intel_plane *primary_plane, u8 idx)
+	struct intel_plane *primary_plane, u8 idx,
+	struct intel_pipeline *pipeline)
 {
 	struct dsi_panel *panel;
 	struct dsi_vbt *vbt;
@@ -551,12 +599,12 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 		return -EINVAL;
 
 	memset(pipe, 0, sizeof(struct dsi_pipe));
+	pipe->base.pipeline = pipeline;
 
 	/*get panel*/
 	panel = get_dsi_panel_by_id(MIPI_DSI_GENERIC_PANEL_ID);
 	if (!panel)
 		return -ENODEV;
-
 	/*
 	 * For GEN DSI implementation of generic driver, we need this call
 	 * before any other panel ops
@@ -587,8 +635,7 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 		 */
 		if (vbt->config->pwm_blc) {
 			/* using SOC PWM */
-			panel->ops->panel_power_on =
-					intel_adf_dsi_soc_power_on;
+			panel->ops->panel_power_on = intel_adf_dsi_soc_power_on;
 			panel->ops->panel_power_off =
 					intel_adf_dsi_soc_power_off;
 			panel->ops->enable_backlight =
@@ -613,18 +660,7 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	if (err)
 		goto err;
 
-	/*init dsi interface ops*/
-	pipe->ops.power_on = intel_adf_dsi_pre_pll_enable;
-	pipe->ops.pre_power_off = intel_adf_dsi_pre_disable;
-	pipe->ops.power_off = intel_adf_dsi_post_disable;
-	pipe->ops.mode_set = intel_adf_dsi_modeset;
-	pipe->ops.pre_post = intel_adf_dsi_pre_post;
-	pipe->ops.set_event = intel_adf_dsi_set_events;
-	pipe->ops.get_events = intel_adf_dsi_get_events;
-	pipe->ops.handle_events = intel_adf_dsi_handle_events;
-	pipe->ops.get_hw_state = intel_adf_dsi_get_hw_state;
 	pipe->dpms_state = DRM_MODE_DPMS_OFF;
-
 	pipe->panel = panel;
 
 	err = intel_pipe_init(&pipe->base, dev, idx, true, INTEL_PIPE_DSI,

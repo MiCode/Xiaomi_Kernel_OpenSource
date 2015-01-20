@@ -207,14 +207,21 @@ unsigned long vlv_compute_page_offset(int *x, int *y,
 	}
 }
 
+static inline struct vlv_pipeline *to_vlv_pipeline_pri_plane(
+	struct vlv_pri_plane *plane)
+{
+	return container_of(plane, struct vlv_pipeline, pplane);
+}
+
 static int vlv_pri_calculate(struct intel_plane *plane,
 		struct intel_buffer *buf,
 		struct intel_plane_config *config)
 {
 	struct vlv_pri_plane *pri_plane = to_vlv_pri_plane(plane);
+	struct vlv_pipeline *disp = to_vlv_pipeline_pri_plane(pri_plane);
+	struct vlv_pm *pm = &disp->pm;
 	struct pri_plane_regs_value *regs = &pri_plane->ctx.regs;
 	struct intel_pipe *intel_pipe = config->pipe;
-	struct dsi_pipe *dsi_pipe = to_dsi_pipe(intel_pipe);
 	struct drm_mode_modeinfo mode;
 	unsigned long dspaddr_offset;
 	int plane_ddl, prec_multi, plane_prec_multi;
@@ -248,33 +255,46 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 		}
 	}
 	mask = DDL_PLANEA_MASK;
+
 	if (bpp != prev_bpp || !(REG_READ(VLV_DDL(pipe)) & mask)) {
-		dsi_pipe->panel->ops->get_config_mode(&dsi_pipe->config,
-				&mode);
-		vlv_calculate_ddl(mode.clock, bpp, &prec_multi,
-				&plane_ddl);
-		plane_prec_multi = (prec_multi ==
+		/*FIXME: get mode from interface itself */
+		intel_pipe->ops->get_current_mode(intel_pipe, &mode);
+		if (mode.clock && bpp) {
+			vlv_calculate_ddl(mode.clock, bpp, &prec_multi,
+					&plane_ddl);
+			plane_prec_multi = (prec_multi ==
 					DRAIN_LATENCY_PRECISION_32) ?
-					DDL_PLANE_PRECISION_32 :
-					DDL_PLANE_PRECISION_64;
-		plane_ddl = plane_prec_multi | (plane_ddl);
-		intel_pipe->regs.pri_ddl = plane_ddl;
-		intel_pipe->regs.pri_ddl_mask = mask;
+				DDL_PLANE_PRECISION_32 :
+				DDL_PLANE_PRECISION_64;
+			plane_ddl = plane_prec_multi | (plane_ddl);
+
+			/* save the ddl in pm object to flush later */
+			vlv_pm_save_values(pm, true, false, false, plane_ddl);
+			/*
+			 * FIXME: Now currently drain latency is set to zero.
+			 * this is should be fixed in future.
+			 */
+		} else {
+			pr_err("ADF: %s: Skipping DDL(clock=%u bpp=%u)\n",
+					__func__, mode.clock, bpp);
+		}
 		REG_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
 	}
+
 	if (buf->tiling_mode != I915_TILING_NONE)
 		regs->dspcntr |= DISPPLANE_TILED;
 	else
 		regs->dspcntr &= ~DISPPLANE_TILED;
+
 	/* when in maxfifo display control register cannot be modified */
 	if (intel_pipe->status.maxfifo_enabled && regs->dspcntr != dspcntr) {
 		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
 		intel_pipe->status.maxfifo_enabled = false;
 		intel_pipe->status.wait_vblank = true;
 		intel_pipe->status.vsync_counter =
-				intel_pipe->ops->get_vsync_counter(intel_pipe,
-								   0);
+			intel_pipe->ops->get_vsync_counter(intel_pipe, 0);
 	}
+
 	regs->stride = buf->stride;
 	regs->linearoff = src_y * regs->stride + src_x * bpp;
 	dspaddr_offset = vlv_compute_page_offset(&src_x, &src_y,
@@ -317,39 +337,74 @@ static void vlv_pri_flip(struct intel_plane *plane,
 {
 	struct vlv_pri_plane *pri_plane = to_vlv_pri_plane(plane);
 	struct pri_plane_regs_value *regs = &pri_plane->ctx.regs;
-	u32 pidx = pri_plane->ctx.plane;
 
-	REG_WRITE(DSPCNTR(pidx), regs->dspcntr);
-	REG_WRITE(DSPSTRIDE(pidx), regs->stride);
-	REG_WRITE(DSPTILEOFF(pidx), regs->tileoff);
-	REG_WRITE(DSPLINOFF(pidx), regs->linearoff);
-	I915_MODIFY_DISPBASE(DSPSURF(pidx), regs->surfaddr);
-	REG_POSTING_READ(DSPSURF(pidx));
-	vlv_update_plane_status(config->pipe, VLV_PLANE, true);
+	REG_WRITE(pri_plane->stride_offset, regs->stride);
+	REG_WRITE(pri_plane->tiled_offset, regs->tileoff);
+	REG_WRITE(pri_plane->linear_offset, regs->linearoff);
+
+	REG_WRITE(pri_plane->offset, regs->dspcntr);
+	I915_MODIFY_DISPBASE(pri_plane->surf_offset, regs->surfaddr);
+	REG_POSTING_READ(pri_plane->surf_offset);
+	pri_plane->enabled = true;
 
 	return;
 }
 
-static inline void vlv_adf_flush_disp_plane(u8 plane)
+static inline void vlv_adf_flush_disp_plane(struct vlv_pri_plane *plane)
 {
-	REG_WRITE(DSPSURF(plane), REG_READ(DSPSURF(plane)));
+	REG_WRITE(plane->surf_offset, REG_READ(plane->surf_offset));
 }
 
-static int vlv_pri_enable(struct intel_plane *plane)
+bool vlv_pri_is_enabled(struct vlv_pri_plane *plane)
 {
-	u32 reg, value;
+	return plane->enabled;
+}
 
-	reg = DSPCNTR(plane->base.idx);
-	value = REG_READ(reg);
+/*
+ * called during modeset, where we just configure params without
+ * enabling plane
+ */
+int vlv_pri_update_params(struct vlv_pri_plane *plane,
+		struct vlv_plane_params *params)
+{
+	u32 value;
+
+	value = REG_READ(plane->offset);
+
+	/*
+	 * FIXME: need to update rotation value based on need
+	 * disable rotation for now
+	 */
+	value &= ~(1 << 15);
+
+	value |= DISPPLANE_GAMMA_ENABLE;
+
+	REG_WRITE(plane->offset, value);
+
+	return 0;
+}
+
+static int vlv_pri_enable(struct intel_plane *intel_plane)
+{
+	struct vlv_pri_plane *plane = to_vlv_pri_plane(intel_plane);
+	u32 value;
+
+	value = REG_READ(plane->offset);
 	if (value & DISPLAY_PLANE_ENABLE) {
-		dev_dbg(plane->base.dev, "%splane already enabled\n",
+		dev_dbg(plane->base.base.dev, "%splane already enabled\n",
 				__func__);
 		return 0;
 	}
 
-	REG_WRITE(reg, value | DISPLAY_PLANE_ENABLE);
-	vlv_update_plane_status(plane->pipe, VLV_PLANE, true);
-	vlv_adf_flush_disp_plane(plane->base.idx);
+	/*
+	 * FIXME: need to update rotation value based on need
+	 * disable rotation for now
+	 */
+	value &= ~(1 << 15);
+
+	plane->enabled = true;
+	REG_WRITE(plane->offset, value | DISPLAY_PLANE_ENABLE);
+	vlv_adf_flush_disp_plane(plane);
 
 	/*
 	 * TODO:No need to wait in case of mipi.
@@ -361,25 +416,27 @@ static int vlv_pri_enable(struct intel_plane *plane)
 	return 0;
 }
 
-static int vlv_pri_disable(struct intel_plane *plane)
+static int vlv_pri_disable(struct intel_plane *intel_plane)
 {
-	u32 reg, value;
+	struct vlv_pri_plane *plane = to_vlv_pri_plane(intel_plane);
+	u32 value;
 	u32 mask = DDL_PLANEA_MASK;
 
-	reg = DSPCNTR(plane->base.idx);
-	value = REG_READ(reg);
+	value = REG_READ(plane->offset);
 	if ((value & DISPLAY_PLANE_ENABLE) == 0) {
-		dev_dbg(plane->base.dev, "%splane already disabled\n",
+		dev_dbg(plane->base.base.dev, "%splane already disabled\n",
 				__func__);
 		return 0;
 	}
 
-	REG_WRITE(reg, value & ~DISPLAY_PLANE_ENABLE);
-	vlv_update_plane_status(plane->pipe, VLV_PLANE, false);
-	vlv_adf_flush_disp_plane(plane->base.idx);
-	REG_WRITE_BITS(VLV_DDL(plane->base.idx), 0x00, mask);
+	plane->enabled = false;
+	REG_WRITE(plane->offset, value & ~DISPLAY_PLANE_ENABLE);
+	vlv_adf_flush_disp_plane(plane);
+	REG_WRITE_BITS(VLV_DDL(plane->base.base.idx), 0x00, mask);
 	return 0;
 }
+
+
 
 static const struct intel_plane_capabilities vlv_pri_caps = {
 	.supported_formats = pri_supported_formats,
@@ -400,7 +457,7 @@ static const struct intel_plane_capabilities vlv_pri_caps = {
 	.n_supported_reservedbit = 0,
 };
 
-static const struct intel_plane_ops vlv_pri_ops = {
+static struct intel_plane_ops vlv_pri_ops = {
 	.base = {
 		.suspend = vlv_pri_suspend,
 		.resume = vlv_pri_resume,
@@ -416,7 +473,8 @@ static const struct intel_plane_ops vlv_pri_ops = {
 	.disable = vlv_pri_disable,
 };
 
-int vlv_pri_plane_init(struct vlv_pri_plane *pplane, struct device *dev, u8 idx)
+int vlv_pri_plane_init(struct vlv_pri_plane *pplane,
+		struct intel_pipeline *pipeline, struct device *dev, u8 idx)
 {
 	int err;
 
@@ -429,6 +487,13 @@ int vlv_pri_plane_init(struct vlv_pri_plane *pplane, struct device *dev, u8 idx)
 		pr_err("%s: plane context initialization failed\n", __func__);
 		return err;
 	}
+
+	pplane->offset = DSPCNTR(idx);
+	pplane->surf_offset = DSPSURF(idx);
+	pplane->stride_offset = DSPSTRIDE(idx);
+	pplane->tiled_offset = DSPTILEOFF(idx);
+	pplane->linear_offset = DSPLINOFF(idx);
+
 	return intel_adf_plane_init(&pplane->base, dev, idx, &vlv_pri_caps,
 			&vlv_pri_ops, "primary_plane");
 }

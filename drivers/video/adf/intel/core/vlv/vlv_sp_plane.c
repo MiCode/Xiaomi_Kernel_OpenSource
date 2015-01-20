@@ -14,6 +14,7 @@
 
 #include <drm/i915_drm.h>
 #include <video/intel_adf.h>
+#include <drm/drm_rect.h>
 
 #include "intel_adf_device.h"
 #include "core/common/intel_dc_regs.h"
@@ -50,7 +51,6 @@ static const struct format_info format_mappings[] = {
 	},
 
 	{
-
 		.drm_format = DRM_FORMAT_VYUY,
 		.hw_config = SP_FORMAT_YUV422 | SP_YUV_ORDER_VYUY,
 		.bpp = 2,
@@ -179,61 +179,6 @@ static void vlv_sp_resume(struct intel_dc_component *component)
 {
 	return;
 }
-
-/**
- * rect_clip_scaled - perform a scaled clip operation
- * @src: source window rectangle
- * @dst: destination window rectangle
- * @clip: clip rectangle
- * @hscale: horizontal scaling factor
- * @vscale: vertical scaling factor
- *
- * Clip rectangle @dst by rectangle @clip. Clip rectangle @src by the
- * same amounts multiplied by @hscale and @vscale.
- *
- * RETURNS:
- * %true if rectangle @dst is still visible after being clipped,
- * %false otherwise
-*/
-
-static bool rect_clip_scaled(struct rectangle *src, struct rectangle *dst,
-			const struct rectangle *clip)
-{
-	int diff;
-	int width, height;
-
-	diff = clip->x1 - dst->x1;
-	if (diff > 0) {
-		int64_t tmp = src->x1 + (int64_t) diff;
-		src->x1 = clamp_t(int64_t, tmp, INT_MIN, INT_MAX);
-	}
-	diff = clip->y1 - dst->y1;
-	if (diff > 0) {
-		int64_t tmp = src->y1 + (int64_t) diff;
-		src->y1 = clamp_t(int64_t, tmp, INT_MIN, INT_MAX);
-	}
-	diff = dst->x2 - clip->x2;
-	if (diff > 0) {
-		int64_t tmp = src->x2 - (int64_t) diff;
-		src->x2 = clamp_t(int64_t, tmp, INT_MIN, INT_MAX);
-	}
-	diff = dst->y2 - clip->y2;
-	if (diff > 0) {
-		int64_t tmp = src->y2 - (int64_t) diff;
-		src->y2 = clamp_t(int64_t, tmp, INT_MIN, INT_MAX);
-	}
-
-	dst->x1 = max(dst->x1, clip->x1);
-	dst->y1 = max(dst->y1, clip->y1);
-	dst->x2 = min(dst->x2, clip->x2);
-	dst->y2 = min(dst->y2, clip->y2);
-
-	width = dst->x2 - dst->x1;
-	height = dst->y2 - dst->y1;
-
-	return width > 0 && height > 0;
-}
-
 static bool format_is_yuv(uint32_t format)
 {
 	switch (format) {
@@ -247,14 +192,37 @@ static bool format_is_yuv(uint32_t format)
 	}
 }
 
+static inline struct vlv_pipeline *to_vlv_pipeline_sp1_plane(
+	struct vlv_sp_plane *plane)
+{
+	return container_of(plane, struct vlv_pipeline, splane[0]);
+}
+
+static void vlv_sp_pane_save_ddl(struct vlv_sp_plane *splane, u32 ddl)
+{
+	int plane = splane->ctx.plane;
+	struct vlv_pipeline *disp = NULL;
+	struct vlv_pm *pm;
+	struct vlv_sp_plane *tmp_plane = splane;
+
+	/* FIXME: verify this works for both planes */
+	if (plane == 1)
+		tmp_plane -= 1;
+
+	disp = to_vlv_pipeline_sp1_plane(tmp_plane);
+
+	pm = &disp->pm;
+	vlv_pm_save_values(pm, true, (plane ? false : true),
+		(plane ? true : false), ddl);
+}
+
 static int vlv_sp_calculate(struct intel_plane *planeptr,
-			    struct intel_buffer *buf,
-			    struct intel_plane_config *config)
+			struct intel_buffer *buf,
+			struct intel_plane_config *config)
 {
 	struct vlv_sp_plane *splane = to_vlv_sp_plane(planeptr);
 	struct sp_plane_regs_value *regs = &splane->ctx.regs;
 	struct intel_pipe *intel_pipe = config->pipe;
-	struct dsi_pipe *dsi_pipe = to_dsi_pipe(intel_pipe);
 	struct drm_mode_modeinfo mode;
 	unsigned long sprsurf_offset, linear_offset;
 	int sprite_ddl, prec_multi, sp_prec_multi;
@@ -329,8 +297,7 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 		shift = DDL_SPRITEB_SHIFT;
 	}
 	if (bpp != prev_bpp || !(REG_READ(VLV_DDL(pipe)) & mask)) {
-		dsi_pipe->panel->ops->get_config_mode(&dsi_pipe->config,
-				&mode);
+		intel_pipe->ops->get_current_mode(intel_pipe, &mode);
 		vlv_calculate_ddl(mode.clock, bpp, &prec_multi,
 				&sprite_ddl);
 		sp_prec_multi = (prec_multi ==
@@ -338,14 +305,9 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 					DDL_PLANE_PRECISION_32 :
 					DDL_PLANE_PRECISION_64;
 		sprite_ddl = (sp_prec_multi | sprite_ddl) << shift;
-		if (plane == 0) {
-			intel_pipe->regs.sp1_ddl = sprite_ddl;
-			intel_pipe->regs.sp1_ddl_mask = mask;
-		} else {
-			intel_pipe->regs.sp2_ddl = sprite_ddl;
-			intel_pipe->regs.sp2_ddl_mask = mask;
-		}
+		vlv_sp_pane_save_ddl(splane, sprite_ddl);
 		REG_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
+
 	}
 
 	sprctl |= SP_ENABLE;
@@ -388,8 +350,7 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 		intel_pipe->status.maxfifo_enabled = false;
 		intel_pipe->status.wait_vblank = true;
 		intel_pipe->status.vsync_counter =
-				intel_pipe->ops->get_vsync_counter(intel_pipe,
-								   0);
+			intel_pipe->ops->get_vsync_counter(intel_pipe, 0);
 	}
 
 	return 0;
@@ -403,17 +364,22 @@ static int vlv_sp_attach(struct intel_plane *plane, struct intel_pipe *pipe)
 	return 0;
 }
 
-static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
-		struct intel_plane_config *config)
+static int vlv_sp_validate(struct intel_plane *planeptr,
+		struct intel_buffer *buf, struct intel_plane_config *config)
 {
-	struct dsi_pipe *dsi_pipe;
-	struct drm_mode_modeinfo *mode;
+	struct intel_pipe *intel_pipe = config->pipe;
+	struct drm_mode_modeinfo mode;
 	u32 format_config, bpp;
 	bool visible = false;
-	struct rectangle clip;
 	u32 width, height;
+	int max_downscale = 1;
+	bool can_scale = false;
+	int hscale, vscale;
+	int max_scale;
+	int min_scale;
+	struct drm_rect clip;
 
-	struct rectangle src = {
+	struct drm_rect src = {
 		/* sample coordinates in 16.16 fixed point */
 		.x1 = config->src_x,
 		.x2 = config->src_x + config->src_w,
@@ -421,7 +387,7 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 		.y2 = config->src_y + config->src_h,
 	};
 
-	struct rectangle dst = {
+	struct drm_rect dst = {
 		/* integer pixels */
 		.x1 = config->dst_x,
 		.x2 = config->dst_x + config->dst_w,
@@ -446,18 +412,12 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 		return -ERANGE;
 	}
 
-	if (config->pipe->type == INTEL_PIPE_DSI) {
-		dsi_pipe = to_dsi_pipe(config->pipe);
-		mode = &dsi_pipe->config.perferred_mode;
-	} else {
-		/* handle HDMI pipe later */
-		return -EINVAL;
-	}
+	intel_pipe->ops->get_current_mode(intel_pipe, &mode);
 
 	clip.x1 = 0;
 	clip.y1 = 0;
-	clip.x2 = mode->hdisplay;
-	clip.y2 = mode->vdisplay;
+	clip.x2 = mode.hdisplay;
+	clip.y2 = mode.vdisplay;
 
 	if (get_format_config(buf->format, &format_config, &bpp,
 				config->alpha)) {
@@ -498,8 +458,16 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 		pr_err("ADF: unsupported tiling mode %s\n", __func__);
 		return -EINVAL;
 	}
+	max_scale = max_downscale << 16;
+	min_scale = can_scale ? 1 : (1 << 16);
 
-	visible = rect_clip_scaled(&src, &dst, &clip);
+	hscale = drm_rect_calc_hscale_relaxed(&src, &dst, min_scale, max_scale);
+	BUG_ON(hscale < 0);
+
+	vscale = drm_rect_calc_vscale_relaxed(&src, &dst, min_scale, max_scale);
+	BUG_ON(vscale < 0);
+
+	visible = drm_rect_clip_scaled(&src, &dst, &clip, hscale, vscale);
 
 	config->dst_x = dst.x1;
 	config->dst_y = dst.y1;
@@ -532,7 +500,7 @@ static int vlv_sp_validate(struct intel_plane *plane, struct intel_buffer *buf,
 		return -EINVAL;
 	}
 
-	return vlv_sp_calculate(plane, buf, config);
+	return vlv_sp_calculate(planeptr, buf, config);
 }
 
 static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
@@ -550,10 +518,10 @@ static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 	REG_WRITE(SPLINOFF(pipe, plane), regs->linearoff);
 	REG_WRITE(SPSIZE(pipe, plane), regs->size);
 	REG_WRITE(SPCNTR(pipe, plane), regs->dspcntr);
+
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), regs->surfaddr);
 	REG_POSTING_READ(SPSURF(pipe, plane));
-	vlv_update_plane_status(config->pipe,
-			plane ? VLV_SPRITE2 : VLV_SPRITE1, true);
+	splane->enabled = true;
 	/* Check for reserved register bit 2 */
 	val = REG_READ(SPSURF(pipe, plane));
 	if (config->flags & INTEL_ADF_PLANE_HW_PRIVATE_1) {
@@ -569,10 +537,15 @@ static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 	return;
 }
 
+bool vlv_sp_plane_is_enabled(struct vlv_sp_plane *splane)
+{
+	return splane->enabled;
+}
+
 static int vlv_sp_enable(struct intel_plane *planeptr)
 {
-	u32 reg, value;
 	struct vlv_sp_plane *splane = to_vlv_sp_plane(planeptr);
+	u32 reg, value;
 	int plane = splane->ctx.plane;
 	int pipe = splane->ctx.pipe;
 
@@ -580,13 +553,12 @@ static int vlv_sp_enable(struct intel_plane *planeptr)
 	value = REG_READ(reg);
 	if (value & DISPLAY_PLANE_ENABLE) {
 		return 0;
-		dev_dbg(planeptr->base.dev, "%splane already enabled\n",
+		dev_dbg(splane->base.base.dev, "%splane already enabled\n",
 				__func__);
 	}
 
+	splane->enabled = true;
 	REG_WRITE(reg, value | DISPLAY_PLANE_ENABLE);
-	vlv_update_plane_status(planeptr->pipe,
-			plane ? VLV_SPRITE2 : VLV_SPRITE1, true);
 	vlv_adf_flush_sp_plane(pipe, plane);
 	/*
 	 * TODO:No need to wait in case of mipi.
@@ -596,24 +568,23 @@ static int vlv_sp_enable(struct intel_plane *planeptr)
 	return 0;
 }
 
+
 static int vlv_sp_disable(struct intel_plane *planeptr)
 {
-	u32 reg, value, mask;
 	struct vlv_sp_plane *splane = to_vlv_sp_plane(planeptr);
+	u32 value, mask;
 	int plane = splane->ctx.plane;
 	int pipe = splane->ctx.pipe;
 
-	reg = SPCNTR(pipe, plane);
-	value = REG_READ(reg);
+	value = REG_READ(splane->offset);
 	if ((value & DISPLAY_PLANE_ENABLE) == 0) {
-		dev_dbg(planeptr->base.dev, "%splane already disabled\n",
+		dev_dbg(splane->base.base.dev, "%splane already disabled\n",
 				__func__);
 		return 0;
 	}
 
-	REG_WRITE(reg, value & ~DISPLAY_PLANE_ENABLE);
-	vlv_update_plane_status(planeptr->pipe,
-			plane ? VLV_SPRITE2 : VLV_SPRITE1, false);
+	splane->enabled = false;
+	REG_WRITE(splane->offset, value & ~DISPLAY_PLANE_ENABLE);
 	vlv_adf_flush_sp_plane(pipe, plane);
 	/* While disabling plane reset the plane DDL value */
 	if (plane == 0)
@@ -705,15 +676,20 @@ static const struct intel_plane_capabilities vlv_sp_caps = {
 	.n_supported_reservedbit = ARRAY_SIZE(sprite_supported_reservedbit),
 };
 
-int vlv_sp_plane_init(struct vlv_sp_plane *splane, struct device *dev, u8 idx)
+int vlv_sp_plane_init(struct vlv_sp_plane *splane,
+		struct intel_pipeline *pipeline, struct device *dev, u8 idx)
 {
 	int err;
+	pr_debug("ADF: %s\n", __func__);
 
 	if (!splane) {
 		dev_err(dev, "data provided is NULL\n");
 		return -EINVAL;
 	}
 	err = context_init(&splane->ctx, idx);
+
+	splane->offset = SPCNTR(splane->ctx.pipe, splane->ctx.plane);
+
 	if (err) {
 		dev_err(dev, "failed to init sprite context\n");
 		return err;

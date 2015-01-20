@@ -36,24 +36,6 @@ static const struct intel_dc_attachment vlv_allowed_attachments[] = {
 	}
 };
 
-void vlv_update_plane_status(struct intel_pipe *pipe, int plane, bool enabled)
-{
-	pipe->status.plane_status[pipe->base.idx][plane] = enabled;
-}
-
-int vlv_num_planes_enabled(struct intel_pipe *pipe)
-{
-	int cnt = 0;
-	int i, j;
-
-	for (i = 0; i < MAX_PIPES; i++)
-		for (j = 0; j < VLV_MAX_PLANES; j++)
-			if (pipe->status.plane_status[i][j])
-				cnt++;
-
-	return cnt;
-}
-
 void vlv_dc_config_destroy(struct intel_dc_config *config)
 {
 	struct vlv_dc_config *vlv_config = to_vlv_dc_config(config);
@@ -62,25 +44,25 @@ void vlv_dc_config_destroy(struct intel_dc_config *config)
 	struct dsi_pipe *dsi_pipe;
 	int pipe;
 
-	if (!config)
+	if (!config || !vlv_config)
 		return;
 
-	for (pipe = 0; pipe < MAX_PIPES; pipe++) {
-		if (vlv_config->vdisp[pipe].type == INTEL_PIPE_DSI) {
-			dsi_pipe = &vlv_config->vdisp[pipe].pipe.dsi;
+	for (pipe = 0; pipe < vlv_config->max_pipes; pipe++) {
+		if (vlv_config->pipeline[pipe].type == INTEL_PIPE_DSI) {
+			dsi_pipe = &vlv_config->pipeline[pipe].gen.dsi;
 			dsi_pipe_destroy(dsi_pipe);
-		} else if (vlv_config->vdisp[pipe].type == INTEL_PIPE_HDMI) {
+		} else if (vlv_config->pipeline[pipe].type == INTEL_PIPE_HDMI) {
 			/* FIXME:
 			 * HDMI Pipe deinit
 			 */
 		} else
 			pr_err("ADF: %s: Unknown pipe type\n", __func__);
 
-		pplane = &vlv_config->vdisp[pipe].pplane;
+		pplane = &vlv_config->pipeline[pipe].pplane;
 		vlv_pri_plane_destroy(pplane);
-		splane = &vlv_config->vdisp[pipe].splane[0];
+		splane = &vlv_config->pipeline[pipe].splane[0];
 		vlv_sp_plane_destroy(splane);
-		splane = &vlv_config->vdisp[pipe].splane[1];
+		splane = &vlv_config->pipeline[pipe].splane[1];
 		vlv_sp_plane_destroy(splane);
 	}
 
@@ -92,48 +74,114 @@ void vlv_dc_config_destroy(struct intel_dc_config *config)
 	return;
 }
 
-static int vlv_initialize_disp(struct vlv_dc_config *vlv_config, int pipe,
-		enum intel_pipe_type type)
+static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe)
+{
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct intel_pipeline *intel_pipeline;
+	struct vlv_pipeline *disp = &vlv_config->pipeline[pipe];
+	int err;
+
+	/* Initialize interface PIPE */
+	if (disp->type == INTEL_PIPE_DSI) {
+		dsi_pipe = &disp->gen.dsi;
+		intel_pipeline = &disp->base;
+		err = dsi_pipe_init(dsi_pipe, vlv_config->base.dev,
+				&disp->pplane.base, pipe, intel_pipeline);
+		if (err) {
+			dev_err(vlv_config->base.dev,
+				"%s: failed to init pipe(%d)\n", __func__, err);
+			return err;
+		}
+
+		intel_dc_config_add_pipe(&vlv_config->base,
+					&dsi_pipe->base, pipe);
+
+		/* FIXME: uncomment when dpst is enabled with redesign*/
+		/* vlv_dpst_init(&config->base);*/
+
+		disp->dpst = &vlv_config->dpst;
+	} else {
+		pr_err("ADF: %s: unsupported pipe type = %d\n",
+				__func__, disp->type);
+		err = -EINVAL;
+	}
+
+	return err;
+}
+
+static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
+			int pipe, int type)
+{
+	struct vlv_dsi_port *dsi_port = NULL;
+	struct vlv_pipeline *disp = NULL;
+
+	disp = &vlv_config->pipeline[pipe];
+	switch (type) {
+	case INTEL_PIPE_DSI:
+		dsi_port = &disp->port.dsi_port;
+		vlv_dsi_port_init(dsi_port, PORT_A, pipe);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
+			int pipe, int type)
 {
 	struct vlv_pri_plane *pplane;
 	struct vlv_sp_plane *splane;
-	struct dsi_pipe *dsi_pipe;
-	struct intel_plane *intel_plane;
-	struct intel_pipe *intel_pipe;
-	int err = 0;
+	struct vlv_pipeline *disp = NULL;
+	struct vlv_pipe *vlv_pipe = NULL;
+	struct vlv_pm *vlv_pm = NULL;
+	struct vlv_pll *pll = NULL;
+	int err;
 
-	if (pipe > MAX_PIPES) {
+	if (!vlv_config) {
+		dev_err(vlv_config->base.dev, "%s:invalid config", __func__);
+		return -EINVAL;
+	}
+
+	if (pipe >= vlv_config->max_pipes) {
 		dev_err(vlv_config->base.dev, "%s:invalid pipe", __func__);
 		return -EINVAL;
 	}
 
+	disp = &vlv_config->pipeline[pipe];
+
+	disp->type = type;
+
 	/* Initialize the plane */
-	pplane = &vlv_config->vdisp[pipe].pplane;
-	err = vlv_pri_plane_init(pplane, vlv_config->base.dev, PRIMARY_PLANE);
+	pplane = &disp->pplane;
+	err = vlv_pri_plane_init(pplane, &disp->base,
+			vlv_config->base.dev, PRIMARY_PLANE);
 	if (err) {
 		dev_err(vlv_config->base.dev,
 			"%s: failed to init pri plane, %d\n", __func__, err);
 		return err;
 	}
 	intel_dc_config_add_plane(&vlv_config->base, &pplane->base,
-				  VLV_ID(pipe, VLV_PLANE));
+				VLV_ID(pipe, VLV_PLANE));
 
 	/* Initialize first sprite */
-	splane = &vlv_config->vdisp[pipe].splane[0];
-	err = vlv_sp_plane_init(splane, vlv_config->base.dev,
-				pipe ? SPRITE_C : SPRITE_A);
+	splane = &disp->splane[0];
+	err = vlv_sp_plane_init(splane, &disp->base,
+			vlv_config->base.dev, pipe ? SPRITE_C : SPRITE_A);
 	if (err) {
 		dev_err(vlv_config->base.dev,
-			"%s: failed to init sprite plane, %d\n", __func__, err);
+			"%s: failed to init sprite plane, %d\n",
+			__func__, err);
 		return err;
 	}
 	intel_dc_config_add_plane(&vlv_config->base, &splane->base,
-				  VLV_ID(pipe, VLV_SPRITE1));
+				VLV_ID(pipe, VLV_SPRITE1));
 
 	/* Initialize second sprite */
-	splane = &vlv_config->vdisp[pipe].splane[1];
-	err = vlv_sp_plane_init(splane, vlv_config->base.dev,
-				pipe ? SPRITE_D : SPRITE_B);
+	splane = &disp->splane[1];
+	err = vlv_sp_plane_init(splane, &disp->base,
+			vlv_config->base.dev, pipe ? SPRITE_D : SPRITE_B);
 	if (err) {
 		dev_err(vlv_config->base.dev,
 				"%s: failed to init sprite plane, %d\n",
@@ -141,47 +189,27 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config, int pipe,
 		return err;
 	}
 	intel_dc_config_add_plane(&vlv_config->base, &splane->base,
-				  VLV_ID(pipe, VLV_SPRITE2));
+				VLV_ID(pipe, VLV_SPRITE2));
+	vlv_pm = &disp->pm;
 
-	/* Initialize interface PIPE */
-	if (type == INTEL_PIPE_DSI) {
-		dsi_pipe = &vlv_config->vdisp[pipe].pipe.dsi;
-		err = dsi_pipe_init(dsi_pipe, vlv_config->base.dev,
-				   &pplane->base, pipe);
-		if (err) {
-			dev_err(vlv_config->base.dev,
-				"%s: failed to init pipe(%d)\n", __func__, err);
-			return err;
-		}
-		intel_dc_config_add_pipe(&vlv_config->base,
-					 &dsi_pipe->base, pipe);
-		vlv_config->vdisp[pipe].type = type;
-		intel_pipe = &vlv_config->vdisp[pipe].pipe.dsi.base;
-	} else {
-		pr_err("ADF: %s: unsupported pipe type = %d\n", __func__, type);
-		err = -EINVAL;
-		return err;
+	if (vlv_pm_init(vlv_pm, (enum pipe) pipe) == false) {
+		dev_err(vlv_config->base.dev,
+			"%s: failed to init pm for pipe %d\n",
+			__func__, pipe);
 	}
 
-	/*
-	 * In this platform the plane and pipe are fixed and cannot be
-	 * moved across to a different pipe, hence set the attachment by
-	 * default over here
-	 */
-	/* Attach Primary plane to Pipe */
-	intel_plane = &vlv_config->vdisp[pipe].pplane.base;
-	if (intel_plane->ops->attach)
-		intel_plane->ops->attach(intel_plane, intel_pipe);
+	vlv_pipe = &disp->pipe;
+	err = vlv_pipe_init(vlv_pipe, (enum pipe) pipe);
 
-	/* Attach Sprite1 to the pipe */
-	intel_plane = &vlv_config->vdisp[pipe].splane[0].base;
-	if (intel_plane->ops->attach)
-		intel_plane->ops->attach(intel_plane, intel_pipe);
+	/* FIXME: update from attachment */
+	pll = &disp->pll;
+	err = vlv_pll_init(pll, type, (enum pipe) pipe, PORT_A);
 
-	/* Attach Sprite2 to the pipe */
-	intel_plane = &vlv_config->vdisp[pipe].splane[1].base;
-	if (intel_plane->ops->attach)
-		intel_plane->ops->attach(intel_plane, intel_pipe);
+	/* Initialize port */
+	vlv_initialize_port(vlv_config, pipe, type);
+
+	/* Initialize encoder */
+	vlv_display_encoder_init(vlv_config, pipe);
 
 	return err;
 }
@@ -200,15 +228,18 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 		dev_err(&pdev->dev, "failed to alloc memory\n");
 		return ERR_PTR(-ENOMEM);
 	}
+	config->max_pipes = CHV_N_PIPES;
+	config->max_planes = NUM_PLANES;
 	/* Init config */
 	err = intel_dc_config_init(&config->base, &pdev->dev, 0,
-				   NUM_PLANES, VLV_N_PIPES,
-				   &vlv_allowed_attachments[0],
-				   ARRAY_SIZE(vlv_allowed_attachments));
+				config->max_planes, config->max_pipes,
+				&vlv_allowed_attachments[0],
+				ARRAY_SIZE(vlv_allowed_attachments));
 	if (err) {
 		dev_err(&pdev->dev, "failed to inintialize dc config\n");
 		goto err;
 	}
+
 	/* create and add memory */
 	/*
 	 * TODO: add gem config or get the gem struct here and register as a
@@ -225,8 +256,22 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 
 	vlv_initialize_disp(config, PIPE_A, INTEL_PIPE_DSI);
 
+
 	return &config->base;
 err:
 	vlv_dc_config_destroy(&config->base);
 	return ERR_PTR(err);
+}
+
+
+
+/* FIXME: TEMP till dpst is enabled */
+u32 vlv_dpst_context(struct intel_pipeline *pipeline, unsigned long args)
+{
+	return 0;
+}
+
+u32 vlv_dpst_irq_handler(struct intel_pipeline *pipeline)
+{
+	return 0;
 }

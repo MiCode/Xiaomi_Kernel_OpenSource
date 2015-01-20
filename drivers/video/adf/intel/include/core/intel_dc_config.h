@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <video/intel_adf.h>
 #include <drm/i915_adf.h>
+#include <core/common/dsi/dsi_config.h>
 
 #if defined(CONFIG_ADF)
 #include <video/adf.h>
@@ -32,6 +33,7 @@ struct intel_plane;
 struct intel_pipe;
 struct intel_dc_memory;
 struct intel_dc_power_ops;
+struct intel_pipeline;
 
 enum gen_id {
 	gen_invalid = 0,
@@ -43,6 +45,11 @@ enum gen_id {
 	gen_broadwell = 8,
 	gen_cherryview = 8,
 	gen_skylake,
+};
+enum pipe {
+	PIPE_A = 0,
+	PIPE_B,
+	PIPE_C,
 };
 
 #define IS_CHERRYVIEW() (intel_adf_get_platform_id() == gen_cherryview)
@@ -229,6 +236,7 @@ struct intel_plane {
 	struct intel_pipe *pipe;
 	const struct intel_plane_capabilities *caps;
 	const struct intel_plane_ops *ops;
+	struct intel_pipeline *pipeline;
 };
 
 enum intel_pipe_type {
@@ -286,6 +294,8 @@ struct intel_pipe_ops {
 		u16 *width_mm, u16 *height_mm);
 	bool (*is_screen_connected)(struct intel_pipe *pipe);
 
+	void (*get_current_mode)(struct intel_pipe *pipe,
+		struct drm_mode_modeinfo *mode);
 	u32 (*get_supported_events)(struct intel_pipe *pipe);
 	int (*set_event)(struct intel_pipe *pipe, u16 event, bool enabled);
 	void (*get_events)(struct intel_pipe *pipe, u32 *active_events);
@@ -335,19 +345,32 @@ struct intel_pipe {
 	const struct intel_plane *primary_plane;
 	const struct intel_pipe_ops *ops;
 	bool dpst_enabled;
-
+	struct intel_pipeline *pipeline;
+	u32 vsync_counter;
 	/*
 	 * Store the computed reg values in this to apply in
 	 * one shot later in flip calls
 	 */
-	 struct pri_plane_regs regs;
-
-	 struct intel_global_status status;
+	struct pri_plane_regs regs;
+	struct intel_global_status status;
 };
 
 struct intel_dc_attachment {
 	u8 plane_id;
 	u8 pipe_id;
+};
+
+struct intel_pipeline {
+	union {
+		/* pass display specific params to pipeline code */
+		/* that might be needed across multiple calls */
+		struct {
+			struct dsi_config *dsi_config;
+		} dsi;
+		struct {
+			int temp;/*stub*/
+		} dp;
+	} params;
 };
 
 struct intel_dc_config {
@@ -371,7 +394,7 @@ struct intel_dc_config {
 };
 
 struct intel_dc_config_entry {
-	const u32 id;
+	const enum gen_id id;
 	struct intel_dc_config * (*get_dc_config)(struct pci_dev *pdev,
 		u32 id);
 	void (*destroy_dc_config)(struct intel_dc_config *config);
@@ -428,18 +451,21 @@ extern void intel_dc_config_add_plane(struct intel_dc_config *config,
 	struct intel_plane *plane, u8 idx);
 extern void intel_dc_config_add_pipe(struct intel_dc_config *config,
 	struct intel_pipe *pipe, u8 idx);
+
 static inline void intel_dc_config_add_memory(struct intel_dc_config *config,
 	struct intel_dc_memory *memory)
 {
 	if (config)
 		config->memory = memory;
 }
+
 static inline void intel_dc_config_add_power(struct intel_dc_config *config,
 	struct intel_dc_power *power)
 {
 	if (config)
 		config->power = power;
 }
+
 extern int intel_dc_config_init(struct intel_dc_config *config,
 	struct device *dev, const u32 id, size_t n_planes, size_t n_pipes,
 	const struct intel_dc_attachment *allowed_attachments,
@@ -449,9 +475,5 @@ extern void intel_dc_config_destroy(struct intel_dc_config *config);
 extern struct intel_dc_config *intel_adf_get_dc_config(
 	struct pci_dev *pdev, const u32 id);
 extern void intel_adf_destroy_config(struct intel_dc_config *config);
-
-/* Supported configs */
-extern struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id);
-extern void vlv_dc_config_destroy(struct intel_dc_config *config);
 
 #endif /* INTEL_DC_CONFIG_H_ */

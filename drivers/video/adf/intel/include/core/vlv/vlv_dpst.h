@@ -84,12 +84,17 @@ struct vlv_dpst {
 
 	struct mutex ioctl_lock;
 	struct vlv_dpst_registers reg;
+#ifdef CONFIG_DEBUG_FS
+	struct dentry	*debugfs_root;
+#endif
+
 };
 
-extern void vlv_wait_for_vblank(int pipe);
+extern bool vlv_wait_for_vblank(struct intel_pipeline *pipeline);
 void vlv_dpst_init(struct intel_dc_config *config);
 void vlv_dpst_teardown(void);
-void vlv_dpst_irq_handler(struct intel_pipe *pipe);
+
+u32 vlv_dpst_irq_handler(struct intel_pipeline *pipeline);
 void vlv_dpst_display_on(void);
 void vlv_dpst_display_off(void);
 void vlv_dpst_set_brightness(struct intel_pipe *pipe, u32 brightness_val);

@@ -1,4 +1,4 @@
-/**************************************************************************
+/*
  * Copyright (c) 2007, Intel Corporation.
  * All Rights Reserved.
  * Copyright (c) 2008, Tungsten Graphics, Inc. Cedar Park, TX., USA.
@@ -13,10 +13,11 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- **************************************************************************/
+ */
 
-#include "core/common/dsi/dsi_config.h"
-#include "core/common/dsi/dsi_panel.h"
+#include <core/common/dsi/dsi_config.h>
+#include <core/common/dsi/dsi_panel.h>
+#include <core/intel_dc_config.h>
 
 #ifndef CONFIG_ADF_INTEL_VLV
 static void dsi_regs_init(struct dsi_config *config, int idx)
@@ -184,8 +185,7 @@ int dsi_config_init(struct dsi_config *config,
 	struct panel_info pi;
 	struct drm_mode_modeinfo mode;
 
-	pr_err("ADF: %s\n", __func__);
-
+	pr_info("ADF: %s\n", __func__);
 	if (!config || !panel) {
 		pr_err("%s: invalid parameter\n", __func__);
 		err = -EINVAL;
@@ -225,7 +225,7 @@ int dsi_config_init(struct dsi_config *config,
 	config->bpp = pi.bpp;
 	config->dual_link = pi.dual_link;
 
-#ifdef CONFIG_INTEL_ADF_VLV
+#ifndef CONFIG_ADF_INTEL_VLV
 	config->channel_num = 0;
 	config->enable_gamma_csc = 0;
 	config->video_mode = DSI_VIDEO_BURST_MODE;
@@ -235,6 +235,7 @@ int dsi_config_init(struct dsi_config *config,
 	/*init regs*/
 	dsi_regs_init(config, idx);
 #endif
+
 	/*init context lock*/
 	mutex_init(&config->ctx_lock);
 

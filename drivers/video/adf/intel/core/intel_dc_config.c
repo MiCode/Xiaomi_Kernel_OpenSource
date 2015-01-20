@@ -14,6 +14,7 @@
 #include <linux/pci.h>
 
 #include "core/intel_dc_config.h"
+#include "core/intel_platform_config.h"
 
 static const struct intel_dc_config_entry g_dc_configs[] = {
 	{

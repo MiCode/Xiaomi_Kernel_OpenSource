@@ -16,10 +16,6 @@
 #include <video/adf_client.h>
 #include "intel_adf.h"
 
-#ifdef CONFIG_ADF_INTEL_VLV
-#include <core/vlv/vlv_dpst.h>
-#endif
-
 /* Custom IOCTL */
 static long intel_interface_obj_ioctl(struct adf_obj *obj,
 	unsigned int cmd, unsigned long arg)

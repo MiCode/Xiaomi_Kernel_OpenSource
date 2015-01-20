@@ -7,8 +7,6 @@ CFLAGS_adf.o := -I$(src)
 ifdef CONFIG_ADF_INTEL_VLV
 	obj-y := gen_dsi_pipe.o
 	obj-y += dsi_pipe_ops.o
-	obj-y += intel_dsi_cmd.o
-	obj-y += intel_dsi_pll.o
 else
 	obj-y := dsi_pipe.o
 	obj-y += dsi_dbi.o
