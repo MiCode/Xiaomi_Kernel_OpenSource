@@ -48,6 +48,19 @@ enum gen_id {
 #define IS_CHERRYVIEW() (intel_adf_get_platform_id() == gen_cherryview)
 #define IS_VALLEYVIEW() (intel_adf_get_platform_id() == gen_valleyview)
 
+enum port {
+	PORT_A = 0,
+	PORT_B,
+	PORT_C,
+	PORT_D,
+};
+
+enum pll {
+	PLL_A = 0,
+	PLL_B,
+	PLL_C,
+};
+
 enum intel_plane_blending {
 	INTEL_PLANE_BLENDING_NONE,
 	INTEL_PLANE_BLENDING_PREMULT,

@@ -29,11 +29,6 @@
 #include "core/common/backlight_dev.h"
 #endif
 
-enum enum_ports {
-	PORT_A = 0,
-	PORT_C = 1
-};
-
 struct dsi_pipe;
 
 /**
