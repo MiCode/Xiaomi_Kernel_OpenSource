@@ -194,9 +194,18 @@ Optional properties:
 			    funnel component.
 -qcom,tmc-flush-powerdown : boolean, indicating trace data needs to be flushed before
 			    powering down CPU. Used for TMC component.
--qcom,cmb-elem-size: specifies the CMB element size supported by each monitor
-		     connected to the aggregator on each port. Should be specified
-		     in pairs (port, cmb element size).
+- qcom,bc-elem-size : specifies the BC element size supported by each monitor
+		      connected to the aggregator on each port. Should be specified
+		      in pairs (port, bc element size).
+- qcom,tc-elem-size : specifies the TC element size supported by each monitor
+		      connected to the aggregator on each port. Should be specified
+		      in pairs (port, tc element size).
+- qcom,dsb-elem-size : specifies the DSB element size supported by each monitor
+		       connected to the aggregator on each port. Should be specified
+		       in pairs (port, dsb element size).
+- qcom,cmb-elem-size : specifies the CMB element size supported by each monitor
+		       connected to the aggregator on each port. Should be specified
+		       in pairs (port, cmb element size).
 -qcom,inst-id : QMI instance id for remote ETMs.
 Examples:
 
