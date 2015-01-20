@@ -759,7 +759,7 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 
 	dprintk(VIDC_DBG, "Attached %s and created mapping\n", dev_name(dev));
 	dprintk(VIDC_DBG,
-		"Context bank name:%s, buffer_type: 0x%x, is_secure: %d, address range start: 0x%x, size: 0x%x, dev: %p, mapping: %p",
+		"Context bank name:%s, buffer_type: %#x, is_secure: %d, address range start: %#x, size: %#x, dev: %p, mapping: %p",
 		cb->name, cb->buffer_type, cb->is_secure, cb->addr_range.start,
 		cb->addr_range.size, cb->dev, cb->mapping);
 

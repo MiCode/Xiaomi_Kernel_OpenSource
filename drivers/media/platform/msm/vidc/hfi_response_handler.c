@@ -162,7 +162,7 @@ static void hfi_process_sess_evt_seq_changed(
 				break;
 			default:
 				dprintk(VIDC_ERR,
-						"%s cmd: 0x%x not supported\n",
+						"%s cmd: %#x not supported\n",
 							__func__, prop_id);
 				break;
 			}
@@ -253,7 +253,7 @@ static void hfi_process_event_notify(msm_vidc_callback callback, u32 device_id,
 
 	switch (pkt->event_id) {
 	case HFI_EVENT_SYS_ERROR:
-		dprintk(VIDC_ERR, "HFI_EVENT_SYS_ERROR: %d, 0x%x\n",
+		dprintk(VIDC_ERR, "HFI_EVENT_SYS_ERROR: %d, %#x\n",
 			pkt->event_data1, pkt->event_data2);
 		hfi_process_sys_error(callback, device_id);
 		break;
@@ -674,7 +674,7 @@ enum vidc_status hfi_process_sess_init_done_prop_read(
 		}
 		default:
 			dprintk(VIDC_DBG,
-				"%s default case - 0x%x\n", __func__, prop_id);
+				"%s default case - %#x\n", __func__, prop_id);
 		}
 		rem_bytes -= next_offset;
 		data_ptr += next_offset;
@@ -914,7 +914,7 @@ static void hfi_process_session_init_done(
 			pkt, &session_init_done);
 	} else {
 		dprintk(VIDC_WARN,
-			"Sess init failed: 0x%p, 0x%p\n",
+			"Sess init failed: %p, %p\n",
 			session->session_id, session);
 	}
 	cmd_done.size = sizeof(struct vidc_hal_session_init_done);
@@ -1276,7 +1276,7 @@ static void hfi_process_session_get_seq_hdr_done(msm_vidc_callback callback,
 	data_done.output_done.packet_buffer1 =
 		(ion_phys_addr_t)pkt->sequence_header;
 	data_done.output_done.filled_len1 = pkt->header_len;
-	dprintk(VIDC_INFO, "seq_hdr: 0x%x, Length: %d\n",
+	dprintk(VIDC_INFO, "seq_hdr: %#x, Length: %d\n",
 		   pkt->sequence_header, pkt->header_len);
 	callback(SESSION_GET_SEQ_HDR_DONE, &data_done);
 }
@@ -1374,7 +1374,7 @@ u32 hfi_process_msg_packet(msm_vidc_callback callback, u32 device_id,
 		return rc;
 	}
 
-	dprintk(VIDC_INFO, "Received: 0x%x\n", msg_hdr->packet);
+	dprintk(VIDC_INFO, "Received: %#x\n", msg_hdr->packet);
 	rc = (u32) msg_hdr->packet;
 	switch (msg_hdr->packet) {
 	case HFI_MSG_EVENT_NOTIFY:

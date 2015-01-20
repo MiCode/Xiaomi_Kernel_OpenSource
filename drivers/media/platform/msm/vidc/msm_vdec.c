@@ -580,7 +580,7 @@ static int is_ctrl_valid_for_codec(struct msm_vidc_inst *inst,
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_VIDC_VIDEO_MVC_BUFFER_LAYOUT:
 		if (inst->fmts[OUTPUT_PORT]->fourcc != V4L2_PIX_FMT_H264_MVC) {
-			dprintk(VIDC_ERR, "Control 0x%x only valid for MVC\n",
+			dprintk(VIDC_ERR, "Control %#x only valid for MVC\n",
 					ctrl->id);
 			rc = -ENOTSUPP;
 			break;
@@ -590,7 +590,7 @@ static int is_ctrl_valid_for_codec(struct msm_vidc_inst *inst,
 		if (inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_H264_MVC &&
 			ctrl->val != V4L2_MPEG_VIDEO_H264_PROFILE_STEREO_HIGH) {
 			dprintk(VIDC_ERR,
-					"Profile 0x%x not supported for MVC\n",
+					"Profile %#x not supported for MVC\n",
 					ctrl->val);
 			rc = -ENOTSUPP;
 			break;
@@ -599,7 +599,7 @@ static int is_ctrl_valid_for_codec(struct msm_vidc_inst *inst,
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		if (inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_H264_MVC &&
 			ctrl->val >= V4L2_MPEG_VIDEO_H264_LEVEL_5_2) {
-			dprintk(VIDC_ERR, "Level 0x%x not supported for MVC\n",
+			dprintk(VIDC_ERR, "Level %#x not supported for MVC\n",
 					ctrl->val);
 			rc = -ENOTSUPP;
 			break;
@@ -802,7 +802,7 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 		}
 		for (i = 0; i < min_t(int, b->length, VIDEO_MAX_PLANES); ++i) {
 			dprintk(VIDC_DBG,
-			"prepare plane: %d, device_addr = 0x%lx, size = %d\n",
+			"prepare plane: %d, device_addr = %#lx, size = %d\n",
 			i, b->m.planes[i].m.userptr,
 			b->m.planes[i].length);
 		}
@@ -819,7 +819,7 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 				b->m.planes[extra_idx].m.userptr;
 			buffer_info.extradata_size =
 				b->m.planes[extra_idx].length;
-			dprintk(VIDC_DBG, "extradata: 0x%pa, length = %d\n",
+			dprintk(VIDC_DBG, "extradata: %pa, length = %d\n",
 				&buffer_info.extradata_addr,
 				buffer_info.extradata_size);
 		} else {
@@ -881,7 +881,7 @@ int msm_vdec_release_buf(struct msm_vidc_inst *inst,
 
 		for (i = 0; i < b->length; ++i) {
 			dprintk(VIDC_DBG,
-			"Release plane: %d device_addr = 0x%lx, size = %d\n",
+			"Release plane: %d device_addr = %#lx, size = %d\n",
 			i, b->m.planes[i].m.userptr,
 			b->m.planes[i].length);
 		}
@@ -1404,7 +1404,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		if (!(get_hal_codec_type(fmt->fourcc) &
 			inst->core->dec_codec_supported)) {
 			dprintk(VIDC_ERR,
-				"Codec(0x%x) is not present in the supported codecs list(0x%x)\n",
+				"Codec(%#x) is not present in the supported codecs list(%#x)\n",
 				get_hal_codec_type(fmt->fourcc),
 				inst->core->dec_codec_supported);
 			rc = -EINVAL;
@@ -2266,7 +2266,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE:
 		if (ctrl->val && !(inst->capability.pixelprocess_capabilities &
 				HAL_VIDEO_DECODER_MULTI_STREAM_CAPABILITY)) {
-			dprintk(VIDC_ERR, "Downscaling not supported: 0x%x\n",
+			dprintk(VIDC_ERR, "Downscaling not supported: %#x\n",
 				ctrl->id);
 			rc = -ENOTSUPP;
 			break;
@@ -2402,7 +2402,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 	if (!rc && property_id) {
 		dprintk(VIDC_DBG,
-			"Control: HAL property=0x%x,ctrl: id=0x%x,value=0x%x\n",
+			"Control: HAL property=%#x,ctrl: id=%#x,value=%#x\n",
 			property_id, ctrl->id, ctrl->val);
 			rc = call_hfi_op(hdev, session_set_property, (void *)
 				inst->session, property_id, pdata);

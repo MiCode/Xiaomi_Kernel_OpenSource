@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1867,7 +1867,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_H264 &&
 			inst->fmts[CAPTURE_PORT]->fourcc !=
 				V4L2_PIX_FMT_H264_NO_SC) {
-			dprintk(VIDC_ERR, "Control 0x%x only valid for H264\n",
+			dprintk(VIDC_ERR, "Control %#x only valid for H264\n",
 					ctrl->id);
 			rc = -ENOTSUPP;
 			break;
@@ -2156,7 +2156,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		struct v4l2_ctrl *deinterlace = NULL;
 		if (!(inst->capability.pixelprocess_capabilities &
 			HAL_VIDEO_ENCODER_ROTATION_CAPABILITY)) {
-			dprintk(VIDC_ERR, "Rotation not supported: 0x%x\n",
+			dprintk(VIDC_ERR, "Rotation not supported: %#x\n",
 				ctrl->id);
 			rc = -ENOTSUPP;
 			break;
@@ -2601,7 +2601,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		struct v4l2_ctrl *rotation = NULL;
 		if (!(inst->capability.pixelprocess_capabilities &
 			HAL_VIDEO_ENCODER_DEINTERLACE_CAPABILITY)) {
-			dprintk(VIDC_ERR, "Deinterlace not supported: 0x%x\n",
+			dprintk(VIDC_ERR, "Deinterlace not supported: %#x\n",
 					ctrl->id);
 			rc = -ENOTSUPP;
 			break;
@@ -3389,7 +3389,7 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 		}
 
 		for (i = 0; i < min_t(int, b->length, VIDEO_MAX_PLANES); i++) {
-			dprintk(VIDC_DBG, "device_addr = 0x%lx, size = %d\n",
+			dprintk(VIDC_DBG, "device_addr = %#lx, size = %d\n",
 				b->m.planes[i].m.userptr,
 				b->m.planes[i].length);
 		}
@@ -3403,7 +3403,7 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
 			buffer_info.extradata_addr =
 				b->m.planes[extra_idx].m.userptr;
-			dprintk(VIDC_DBG, "extradata: 0x%lx\n",
+			dprintk(VIDC_DBG, "extradata: %#lx\n",
 					b->m.planes[extra_idx].m.userptr);
 			buffer_info.extradata_size =
 				b->m.planes[extra_idx].length;
@@ -3460,7 +3460,7 @@ int msm_venc_release_buf(struct msm_vidc_inst *inst,
 		}
 		for (i = 0; i < b->length; i++) {
 			dprintk(VIDC_DBG,
-				"Release device_addr = 0x%lx, size = %d, %d\n",
+				"Release device_addr = %#lx, size = %d, %d\n",
 				b->m.planes[i].m.userptr,
 				b->m.planes[i].length, inst->state);
 		}

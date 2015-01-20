@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -570,7 +570,7 @@ static int q6_hfi_session_clean(void *session)
 		return -EINVAL;
 	}
 	sess_close = session;
-	dprintk(VIDC_DBG, "deleted the session: 0x%p\n",
+	dprintk(VIDC_DBG, "deleted the session: %p\n",
 			sess_close->session_id);
 	mutex_lock(&((struct q6_hfi_device *)
 			sess_close->device)->session_lock);
@@ -610,7 +610,7 @@ static int q6_hfi_session_set_buffers(void *sess,
 		goto err_create_pkt;
 	}
 
-	dprintk(VIDC_INFO, "set buffers: 0x%x\n", buffer_info->buffer_type);
+	dprintk(VIDC_INFO, "set buffers: %#x\n", buffer_info->buffer_type);
 	rc = apr_send_pkt(dev->apr, (uint32_t *)apr);
 	if (rc != apr->hdr.pkt_size) {
 		dprintk(VIDC_ERR, "%s: apr_send_pkt failed rc: %d\n",
@@ -652,7 +652,7 @@ static int q6_hfi_session_release_buffers(void *sess,
 		goto err_create_pkt;
 	}
 
-	dprintk(VIDC_INFO, "Release buffers: 0x%x\n", buffer_info->buffer_type);
+	dprintk(VIDC_INFO, "Release buffers: %#x\n", buffer_info->buffer_type);
 	rc = apr_send_pkt(dev->apr, (uint32_t *)apr);
 
 	if (rc != apr->hdr.pkt_size) {
@@ -715,7 +715,7 @@ static int q6_hfi_session_etb(void *sess,
 			goto err_create_pkt;
 		}
 		dprintk(VIDC_DBG, "Q DECODER INPUT BUFFER\n");
-		dprintk(VIDC_DBG, "addr = 0x%pa ts = %lld\n",
+		dprintk(VIDC_DBG, "addr = %pa ts = %lld\n",
 			&input_frame->device_addr, input_frame->timestamp);
 		rc = apr_send_pkt(dev->apr, (uint32_t *)&apr);
 		if (rc != apr.hdr.pkt_size) {
@@ -947,7 +947,7 @@ static int q6_hfi_session_set_property(void *sess,
 	}
 
 	dev = session->device;
-	dprintk(VIDC_DBG, "in set_prop,with prop id: 0x%x\n", ptype);
+	dprintk(VIDC_DBG, "in set_prop,with prop id: %#x\n", ptype);
 
 	q6_hfi_add_apr_hdr(dev, &apr->hdr, VIDC_IFACEQ_VAR_LARGE_PKT_SIZE);
 
@@ -1088,7 +1088,7 @@ static int q6_hfi_session_get_property(void *sess,
 	case HAL_CONFIG_VENC_TIMESTAMP_SCALE:
 	case HAL_PARAM_VENC_LOW_LATENCY:
 	default:
-		dprintk(VIDC_INFO, "DEFAULT: Calling 0x%x\n", ptype);
+		dprintk(VIDC_INFO, "DEFAULT: Calling %#x\n", ptype);
 		break;
 	}
 	return 0;

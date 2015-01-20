@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,13 +79,13 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 	hdev = core->device;
 	INIT_DBG_BUF(dbg_buf);
 	write_str(&dbg_buf, "===============================\n");
-	write_str(&dbg_buf, "CORE %d: 0x%p\n", core->id, core);
+	write_str(&dbg_buf, "CORE %d: %p\n", core->id, core);
 	write_str(&dbg_buf, "===============================\n");
 	write_str(&dbg_buf, "state: %d\n", core->state);
-	write_str(&dbg_buf, "base addr: 0x%x\n",
+	write_str(&dbg_buf, "base addr: %#x\n",
 		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
 					FW_BASE_ADDRESS));
-	write_str(&dbg_buf, "register_base: 0x%x\n",
+	write_str(&dbg_buf, "register_base: %#x\n",
 		call_hfi_op(hdev, get_fw_info, hdev->hfi_device_data,
 					FW_REGISTER_BASE));
 	write_str(&dbg_buf, "register_size: %u\n",
@@ -241,7 +241,7 @@ static int publish_unreleased_reference(struct msm_vidc_inst *inst)
 			if (temp->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
 			!temp->inactive && atomic_read(&temp->ref_count)) {
 				write_str(&dbg_buf,
-				"\tpending buffer: 0x%lx fd[0] = %d ref_count = %d held by: %s\n",
+				"\tpending buffer: %#lx fd[0] = %d ref_count = %d held by: %s\n",
 				temp->device_addr[0],
 				temp->fd[0],
 				atomic_read(&temp->ref_count),
@@ -264,10 +264,10 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	}
 	INIT_DBG_BUF(dbg_buf);
 	write_str(&dbg_buf, "===============================\n");
-	write_str(&dbg_buf, "INSTANCE: 0x%p (%s)\n", inst,
+	write_str(&dbg_buf, "INSTANCE: %p (%s)\n", inst,
 		inst->session_type == MSM_VIDC_ENCODER ? "Encoder" : "Decoder");
 	write_str(&dbg_buf, "===============================\n");
-	write_str(&dbg_buf, "core: 0x%p\n", inst->core);
+	write_str(&dbg_buf, "core: %p\n", inst->core);
 	write_str(&dbg_buf, "height: %d\n", inst->prop.height[CAPTURE_PORT]);
 	write_str(&dbg_buf, "width: %d\n", inst->prop.width[CAPTURE_PORT]);
 	write_str(&dbg_buf, "fps: %d\n", inst->prop.fps);
