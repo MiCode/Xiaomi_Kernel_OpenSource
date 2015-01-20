@@ -821,7 +821,7 @@ struct glink_core_rx_intent *ch_get_dummy_rx_intent(struct channel_ctx *ctx,
 	intent = ch_get_free_local_rx_intent(ctx);
 	if (!intent) {
 		intent = kzalloc(sizeof(struct glink_core_rx_intent),
-								GFP_KERNEL);
+								GFP_ATOMIC);
 		if (!intent) {
 			GLINK_ERR_CH(ctx,
 			"%s: Memory Allocation for local rx_intent failed",
