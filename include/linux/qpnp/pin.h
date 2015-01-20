@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #define QPNP_PIN_MODE_DIG_IN			0
 #define QPNP_PIN_MODE_DIG_OUT			1
 #define QPNP_PIN_MODE_DIG_IN_OUT		2
+#define QPNP_PIN_MODE_ANA_PASS_THRU		3
 #define QPNP_PIN_MODE_BIDIR			3
 #define QPNP_PIN_MODE_AIN			4
 #define QPNP_PIN_MODE_AOUT			5
@@ -27,6 +28,7 @@
 #define QPNP_PIN_OUT_BUF_CMOS			0
 #define QPNP_PIN_OUT_BUF_OPEN_DRAIN_NMOS	1
 #define QPNP_PIN_OUT_BUF_OPEN_DRAIN_PMOS	2
+#define QPNP_PIN_OUT_BUF_NO_DRIVE		3
 
 /* Voltage select (GPIO, MPP) */
 #define QPNP_PIN_VIN0				0
@@ -67,6 +69,18 @@
 #define QPNP_PIN_SEL_DTEST3			6
 #define QPNP_PIN_SEL_DTEST4			7
 
+/* Source Select for GPIO_LV/GPIO_MV only */
+#define QPNP_PIN_LV_MV_SEL_FUNC_CONSTANT	0
+#define QPNP_PIN_LV_MV_SEL_FUNC_PAIRED		1
+#define QPNP_PIN_LV_MV_SEL_FUNC_1		2
+#define QPNP_PIN_LV_MV_SEL_FUNC_2		3
+#define QPNP_PIN_LV_MV_SEL_FUNC_3		4
+#define QPNP_PIN_LV_MV_SEL_FUNC_4		5
+#define QPNP_PIN_LV_MV_SEL_DTEST1		6
+#define QPNP_PIN_LV_MV_SEL_DTEST2		7
+#define QPNP_PIN_LV_MV_SEL_DTEST3		8
+#define QPNP_PIN_LV_MV_SEL_DTEST4		9
+
 /* Master enable (GPIO, MPP) */
 #define QPNP_PIN_MASTER_DISABLE			0
 #define QPNP_PIN_MASTER_ENABLE			1
@@ -100,6 +114,12 @@
 #define QPNP_PIN_CS_OUT_30MA			5
 #define QPNP_PIN_CS_OUT_35MA			6
 #define QPNP_PIN_CS_OUT_40MA			7
+
+/* ANALOG PASS SEL (GPIO LV/MV) */
+#define QPNP_PIN_APASS_SEL_ATEST1		0
+#define QPNP_PIN_APASS_SEL_ATEST2		1
+#define QPNP_PIN_APASS_SEL_ATEST3		2
+#define QPNP_PIN_APASS_SEL_ATEST4		3
 
 /**
  * struct qpnp_pin_cfg - structure to specify pin configurtion values
@@ -151,6 +171,10 @@
  * @cs_out:		Set the the amount of current to sync in mA. This
  *			parameter should be of type QPNP_PIN_CS_OUT_*. This
  *			parameter only applies to mpp pins.
+ * @apass_sel:		Set the ATEST line to which the signal is to be
+ *			routed to. The parameter should be of type
+ *			QPNP_PIN_APASS_SEL_*. This
+ *			parameter only applies to GPIO LV/MV pins.
  */
 struct qpnp_pin_cfg {
 	int mode;
@@ -164,6 +188,7 @@ struct qpnp_pin_cfg {
 	int aout_ref;
 	int ain_route;
 	int cs_out;
+	int apass_sel;
 };
 
 /**
