@@ -17,11 +17,17 @@ Required properties for child nodes:
 
 - qcom,peripheral-size: Indicates the size (in bytes) required for that child.
 
+- qcom,client-id: Indicates the client id of the child node.
+
 - label: Indicates the peripheral information for the node. Should be one of
   the following:
   - modem	/* Represent Modem Peripheral */
   - adsp	/* Represent ADSP Peripheral */
   - wcnss	/* Represent WCNSS Peripheral */
+
+Optional properties for child nodes:
+
+- qcom,allocate-boot-time: Indicates whether clients needs boot time memory allocation.
 
 Example:
 
@@ -30,7 +36,9 @@ qcom,memshare {
 
 	qcom,client_1 {
 		compatible = "qcom,memshare-peripheral";
-		qcom,peripheral-size = <2097152>;
+		qcom,peripheral-size = <0x200000>;
+		qcom,client-id = <0>;
+		qcom,allocate-boot-time;
 		label = "modem";
 	};
 };

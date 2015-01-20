@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -288,13 +288,47 @@ struct mem_free_generic_req_msg_v01 {
  */
 struct mem_free_generic_resp_msg_v01 {
 
-	/* Mandatory */
-	/* Result of the requested memory operation, todo,
+	/*
+	 * Mandatory
+	 * Result of the requested memory operation, todo,
 	 * need to check the async operation for free
 	 */
 	struct qmi_response_type_v01 resp;
 
 };  /* Message */
+
+struct mem_query_size_req_msg_v01 {
+
+	/* Mandatory */
+	enum dhms_mem_client_id_v01 client_id;
+
+	/*
+	 * Optional
+	 * Proc ID
+	 * proc_id_valid must be set to true if proc_id is being passed
+	 */
+	uint8_t proc_id_valid;
+
+	enum dhms_mem_proc_id_v01 proc_id;
+};  /* Message */
+
+struct mem_query_size_rsp_msg_v01 {
+
+	/*
+	 * Mandatory
+	 * Result Code
+	 */
+	struct qmi_response_type_v01 resp;
+
+	/*
+	 * Optional
+	 * size_valid must be set to true if size is being passed
+	 */
+	uint8_t size_valid;
+
+	uint32_t size;
+};  /* Message */
+
 
 extern struct elem_info mem_alloc_req_msg_data_v01_ei[];
 extern struct elem_info mem_alloc_resp_msg_data_v01_ei[];
@@ -304,6 +338,8 @@ extern struct elem_info mem_alloc_generic_req_msg_data_v01_ei[];
 extern struct elem_info mem_alloc_generic_resp_msg_data_v01_ei[];
 extern struct elem_info mem_free_generic_req_msg_data_v01_ei[];
 extern struct elem_info mem_free_generic_resp_msg_data_v01_ei[];
+extern struct elem_info mem_query_size_req_msg_data_v01_ei[];
+extern struct elem_info mem_query_size_resp_msg_data_v01_ei[];
 
 /*Service Message Definition*/
 #define MEM_ALLOC_REQ_MSG_V01 0x0020
@@ -314,5 +350,7 @@ extern struct elem_info mem_free_generic_resp_msg_data_v01_ei[];
 #define MEM_ALLOC_GENERIC_RESP_MSG_V01 0x0022
 #define MEM_FREE_GENERIC_REQ_MSG_V01 0x0023
 #define MEM_FREE_GENERIC_RESP_MSG_V01 0x0023
+#define MEM_QUERY_SIZE_REQ_MSG_V01	0x0024
+#define MEM_QUERY_SIZE_RESP_MSG_V01	0x0024
 
 #endif

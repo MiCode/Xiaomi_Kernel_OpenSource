@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,15 +14,12 @@
 #ifndef _LINUX_MEM_SHARE_H
 #define _LINUX_MEM_SHARE_H
 
+#define MEM_SHARE_SERVICE_SVC_ID 0x00000034
+#define MEM_SHARE_SERVICE_INS_ID 1
+#define MEM_SHARE_SERVICE_VERS 1
 
 #define MEMORY_CMA	1
 #define MEMORY_NON_CMA	0
-/* The last client (MAX_CLIENTS -1) is for supporting the
- * requests coming on the old idl. As the old idl changes
- * supports only single client, binding the last client
- * to honor request coming on old idl changes are
- * sufficient.
- */
 #define MAX_CLIENTS 10
 #define GPS	0
 #define CHECK	0
