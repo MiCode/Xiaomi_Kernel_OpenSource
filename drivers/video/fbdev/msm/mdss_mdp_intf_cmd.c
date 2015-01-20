@@ -580,6 +580,8 @@ int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl, bool handoff)
 	pdata->panel_info.cont_splash_enabled = 0;
 	if (sctl)
 		sctl->panel_data->panel_info.cont_splash_enabled = 0;
+	else if (pdata->next && is_pingpong_split(ctl->mfd))
+		pdata->next->panel_info.cont_splash_enabled = 0;
 
 	return ret;
 }
