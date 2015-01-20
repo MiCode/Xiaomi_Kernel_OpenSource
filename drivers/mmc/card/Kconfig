@@ -81,6 +81,7 @@ config MMC_TEST
 config MMC_BLOCK_TEST
 	tristate "MMC block test"
 	depends on MMC_BLOCK && IOSCHED_TEST
+	default m
 	help
 	  MMC block test can be used with test iosched to test the MMC block
 	  device.
