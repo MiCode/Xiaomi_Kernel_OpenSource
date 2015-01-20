@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  *
  */
-
+#include <drm/i915_adf.h>
 #include <intel_adf.h>
 
 static const struct intel_adf_context *g_adf_context;
@@ -215,10 +215,10 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 #if defined(CONFIG_ADF_FBDEV) && defined(CONFIG_ADF_INTEL_FBDEV)
 	struct adf_fbdev *fbdevs;
 #endif
-	/*TODO: use real platform ID*/
-	u32 platform_id = 0;
+	u32 platform_id;
 	int err;
 
+	platform_id = (u32) intel_adf_get_platform_id();
 	if (!pdev)
 		return ERR_PTR(-EINVAL);
 

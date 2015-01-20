@@ -17,7 +17,12 @@
 
 static const struct intel_dc_config_entry g_dc_configs[] = {
 	{
-		.id = 0,
+		.id = gen_valleyview,
+		.get_dc_config = vlv_get_dc_config,
+		.destroy_dc_config = vlv_dc_config_destroy,
+	},
+	{
+		.id = gen_cherryview,
 		.get_dc_config = vlv_get_dc_config,
 		.destroy_dc_config = vlv_dc_config_destroy,
 	},
