@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1582,10 +1582,12 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	/* program s3 debounce */
 	rc = of_property_read_u32(pon->spmi->dev.of_node,
 				"qcom,s3-debounce", &s3_debounce);
-	if (rc && rc != -EINVAL) {
-		dev_err(&pon->spmi->dev, "Unable to read s3 timer rc:%d\n",
-			rc);
-		return rc;
+	if (rc) {
+		if (rc != -EINVAL) {
+			dev_err(&pon->spmi->dev, "Unable to read s3 timer rc:%d\n",
+				rc);
+			return rc;
+		}
 	} else {
 		if (s3_debounce > QPNP_PON_S3_TIMER_SECS_MAX) {
 			dev_info(&pon->spmi->dev,
@@ -1660,10 +1662,12 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 
 	rc = of_property_read_u32(pon->spmi->dev.of_node,
 				"qcom,pon-dbc-delay", &delay);
-	if (rc && rc != -EINVAL) {
-		dev_err(&spmi->dev, "Unable to read debounce delay rc: %d\n",
-			rc);
-		return rc;
+	if (rc) {
+		if (rc != -EINVAL) {
+			dev_err(&spmi->dev, "Unable to read debounce delay rc: %d\n",
+				rc);
+			return rc;
+		}
 	} else {
 		rc = qpnp_pon_set_dbc(pon, delay);
 	}
