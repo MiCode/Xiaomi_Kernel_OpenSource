@@ -1,6 +1,6 @@
 /* Qualcomm Crypto driver
  *
- * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -559,7 +559,7 @@ static void qcrypto_bw_reaper_work(struct work_struct *work)
 		/* check if engine is stuck */
 		if (pengine->req) {
 			if (pengine->check_flag)
-				dev_err(&pengine->pdev->dev,
+				pr_debug(
 				"The engine appears to be stuck seq %d req %p.\n",
 				active_seq, pengine->req);
 			pengine->check_flag = false;
