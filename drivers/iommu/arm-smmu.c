@@ -1066,7 +1066,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 	reg |= TTBCR_EAE;
 
 	if (!coherent_htw_disable) {
-		reg |= (TTBCR_SH_IS << TTBCR_SH0_SHIFT) |
+		reg |= (TTBCR_SH_OS << TTBCR_SH0_SHIFT) |
 			(TTBCR_RGN_WBWA << TTBCR_ORGN0_SHIFT) |
 			(TTBCR_RGN_WBWA << TTBCR_IRGN0_SHIFT);
 	}
