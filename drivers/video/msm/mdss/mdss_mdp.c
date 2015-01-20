@@ -40,6 +40,7 @@
 #include <linux/semaphore.h>
 #include <linux/uaccess.h>
 #include <linux/clk/msm-clk.h>
+#include <linux/qcom_iommu.h>
 
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
@@ -880,6 +881,24 @@ static int mdss_mdp_gdsc_notifier_call(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
+static int mdss_iommu_tlb_timeout_notify(struct notifier_block *self,
+		unsigned long action, void *dev)
+{
+	char *client_name = dev;
+
+	if (strcmp(client_name, "mdp_ns") && strcmp(client_name, "mdp_secure"))
+		return 0;
+
+	switch (action) {
+	case TLB_SYNC_TIMEOUT:
+		pr_err("cb for TLB SYNC timeout. Dumping XLOG's\n");
+		MDSS_XLOG_TOUT_HANDLER("vbif", "mdp");
+		break;
+	}
+
+	return 0;
+}
+
 static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 {
 	int ret;
@@ -909,6 +928,7 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	}
 	mdata->fs_ena = false;
 
+	mdata->tlb_timeout_cb.notifier_call = mdss_iommu_tlb_timeout_notify;
 	mdata->gdsc_cb.notifier_call = mdss_mdp_gdsc_notifier_call;
 	mdata->gdsc_cb.priority = 5;
 	if (regulator_register_notifier(mdata->fs, &(mdata->gdsc_cb)))
@@ -1025,6 +1045,8 @@ int mdss_iommu_init(struct mdss_data_type *mdata)
 		pr_warn("iommu already initialized\n");
 		return 0;
 	}
+
+	msm_iommu_register_notify(&mdata->tlb_timeout_cb);
 
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
 		iomap = &mdss_iommu_map[i];
