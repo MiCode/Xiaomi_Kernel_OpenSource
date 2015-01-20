@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +81,9 @@
 #define MSM8939_TOOLS_ID	4103
 #define APQ8026_TOOLS_ID	4104
 #define MSM8909_TOOLS_ID	4108
+#define MSM8992_TOOLS_ID	4111
+#define MSMTELLURIUM_TOOLS_ID	4110
+#define MSM8929_TOOLS_ID	4113
 
 #define MSG_MASK_0			(0x00000001)
 #define MSG_MASK_1			(0x00000002)

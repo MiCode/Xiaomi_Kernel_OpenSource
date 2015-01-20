@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -115,6 +115,12 @@ int chk_config_get_id(void)
 		return APQ8026_TOOLS_ID;
 	case MSM_CPU_8909:
 		return MSM8909_TOOLS_ID;
+	case MSM_CPU_8992:
+		return MSM8992_TOOLS_ID;
+	case MSM_CPU_TELLURIUM:
+		return MSMTELLURIUM_TOOLS_ID;
+	case MSM_CPU_8929:
+		return MSM8929_TOOLS_ID;
 	default:
 		if (driver->use_device_tree) {
 			if (machine_is_msm8974())
