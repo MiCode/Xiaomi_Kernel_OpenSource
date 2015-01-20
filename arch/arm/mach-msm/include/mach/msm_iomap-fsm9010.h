@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -30,7 +30,7 @@
 #define FSM9010_MPM2_PSHOLD_SIZE	SZ_4K
 
 #ifdef CONFIG_DEBUG_FSM9010_UART
-#define MSM_DEBUG_UART_BASE	IOMEM(0xFA71F000)
+#define MSM_DEBUG_UART_BASE	IOMEM(0xFA720000)
 #define MSM_DEBUG_UART_PHYS	0xF9920000
 #endif
 
