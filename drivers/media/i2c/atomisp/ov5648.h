@@ -546,46 +546,44 @@ static struct ov5648_reg const ov5648_1296x864_30fps_2lanes[] = {
 	{OV5648_TOK_TERM, 0, 0}
 };
 
-static struct ov5648_reg const ov5648_1304_976_30fps_2lanes[] = {
-	{OV5648_8BIT, 0x3708, 0x66},
-	{OV5648_8BIT, 0x3709, 0x52},
-	{OV5648_8BIT, 0x370c, 0xcf},
-	{OV5648_8BIT, 0x3800, 0x00},/* xstart = 0 */
-	{OV5648_8BIT, 0x3801, 0x00},/* xstart ;10 */
-	{OV5648_8BIT, 0x3802, 0x00},/* ystart = 0 */
-	{OV5648_8BIT, 0x3803, 0x00},/* ystart */
-	{OV5648_8BIT, 0x3804, 0x0a},/* xend = 2623 */
-	{OV5648_8BIT, 0x3805, 0x3f},/* xend */
-	{OV5648_8BIT, 0x3806, 0x07},/* yend = 1955 */
-	{OV5648_8BIT, 0x3807, 0xa3},/* yend */
-	{OV5648_8BIT, 0x3808, 0x05},/* x output size = 1304 */
-	{OV5648_8BIT, 0x3809, 0x18},/*;x output size */
-	{OV5648_8BIT, 0x380a, 0x03},/* y output size = 976 */
-	{OV5648_8BIT, 0x380b, 0xd0},/*;y output size */
-	{OV5648_8BIT, 0x380c, 0x09},/* hts = 2400 */
-	{OV5648_8BIT, 0x380d, 0x60},/* hts */
+static struct ov5648_reg const ov5648_1080p_30fps_2lanes[] = {
+	{OV5648_8BIT, 0x3708, 0x63},
+	{OV5648_8BIT, 0x3709, 0x12},
+	{OV5648_8BIT, 0x370c, 0xc0},
+	{OV5648_8BIT, 0x3800, 0x01},/* xstart = 320 */
+	{OV5648_8BIT, 0x3801, 0x40},/* xstart */
+	{OV5648_8BIT, 0x3802, 0x01},/* ystart = 418 */
+	{OV5648_8BIT, 0x3803, 0xa2},/* ystart */
+	{OV5648_8BIT, 0x3804, 0x08},/* xend = 2287 */
+	{OV5648_8BIT, 0x3805, 0xef},/* xend */
+	{OV5648_8BIT, 0x3806, 0x05},/* yend = 1521 */
+	{OV5648_8BIT, 0x3807, 0xf1},/* yend */
+	{OV5648_8BIT, 0x3808, 0x07},/* x output size = 1940 */
+	{OV5648_8BIT, 0x3809, 0x94},/* x output size */
+	{OV5648_8BIT, 0x380a, 0x04},/* y output size = 1096 */
+	{OV5648_8BIT, 0x380b, 0x48},/* y output size */
+	{OV5648_8BIT, 0x380c, 0x09},/* hts = 2500 */
+	{OV5648_8BIT, 0x380d, 0xc4},/* hts */
 	{OV5648_8BIT, 0x380e, 0x04},/* vts = 1120 */
 	{OV5648_8BIT, 0x380f, 0x60},/* vts */
-	{OV5648_8BIT, 0x3810, 0x00},/* isp x win (offset)= 4 */
-	{OV5648_8BIT, 0x3811, 0x04},/* isp x win; */
-	{OV5648_8BIT, 0x3812, 0x00},/* isp y win (offset)= 0 */
-	{OV5648_8BIT, 0x3813, 0x00},/* isp y win; */
-	{OV5648_8BIT, 0x3814, 0x31},/* x inc */
-	{OV5648_8BIT, 0x3815, 0x31},/* y inc */
+	{OV5648_8BIT, 0x3810, 0x00},/* isp x win = 16 */
+	{OV5648_8BIT, 0x3811, 0x10},/* isp x win */
+	{OV5648_8BIT, 0x3812, 0x00},/* isp y win = 4 */
+	{OV5648_8BIT, 0x3813, 0x04},/* isp y win */
+	{OV5648_8BIT, 0x3814, 0x11},/* x inc */
+	{OV5648_8BIT, 0x3815, 0x11},/* y inc */
 	{OV5648_8BIT, 0x3817, 0x00},/* hsync start */
-	{OV5648_8BIT, 0x3820, 0x08},/* flip off; v bin off */
-	{OV5648_8BIT, 0x3821, 0x01},/* mirror off; h bin on */
-	{OV5648_8BIT, 0x4004, 0x02},/* black line number */
-	{OV5648_8BIT, 0x4005, 0x18},/* blc level trigger */
-	{OV5648_8BIT, 0x4837, 0x17},/* MIPI global timing ;2f;18 */
+	{OV5648_8BIT, 0x3820, 0x40},/* flip off; v bin off */
+	{OV5648_8BIT, 0x3821, 0x06},/* mirror off; v bin off */
+	{OV5648_8BIT, 0x4004, 0x04},/* black line number */
+	{OV5648_8BIT, 0x4005, 0x18},/* blc always update */
+	{OV5648_8BIT, 0x4837, 0x18},/* MIPI global timing */
 
 	{OV5648_8BIT, 0x350b, 0x40},/* gain 4x */
-	{OV5648_8BIT, 0x3501, 0x35},/* exposure */
-	{OV5648_8BIT, 0x3502, 0xc0},/* exposure */
-	/*add 19.2MHz 30fps */
+	{OV5648_8BIT, 0x3501, 0x45},/* exposure */
+	{OV5648_8BIT, 0x3502, 0x80},/* exposure */
+	/*;add 19.2MHz 30fps */
 
-	{OV5648_8BIT, 0x380e, 0x02},
-	{OV5648_8BIT, 0x380f, 0xf2},
 	{OV5648_8BIT, 0x3034, 0x1a},/* mipi 10bit mode */
 	{OV5648_8BIT, 0x3035, 0x21},
 	{OV5648_8BIT, 0x3036, 0x58},
@@ -619,7 +617,7 @@ static struct ov5648_reg const ov5648_5M_15fps_2lanes[] = {
 
 	{OV5648_8BIT, 0x3708, 0x63},
 	{OV5648_8BIT, 0x3709, 0x12},
-	{OV5648_8BIT, 0x370c, 0xcc},//0xc0-->0xcc based on OV5648R1A_AM05e.ovd
+	{OV5648_8BIT, 0x370c, 0xc0},
 	{OV5648_8BIT, 0x3800, 0x00},/* xstart = 0 */
 	{OV5648_8BIT, 0x3801, 0x00},/* xstart */
 	{OV5648_8BIT, 0x3802, 0x00},/* ystart = 0 */
@@ -632,7 +630,7 @@ static struct ov5648_reg const ov5648_5M_15fps_2lanes[] = {
 	{OV5648_8BIT, 0x3809, 0x20},/* x output size */
 	{OV5648_8BIT, 0x380a, 0x07},/* y output size = 1944 */
 	{OV5648_8BIT, 0x380b, 0x98},/* y output size */
-	{OV5648_8BIT, 0x380c, 0x0b},/* hts = 2816 */
+	{OV5648_8BIT, 0x380c, 0x0b},/* hts = 2838 */
 	{OV5648_8BIT, 0x380d, 0x16},/* hts */
 	{OV5648_8BIT, 0x380e, 0x07},/* vts = 1984 */
 	{OV5648_8BIT, 0x380f, 0xc0},/* vts */
@@ -644,10 +642,10 @@ static struct ov5648_reg const ov5648_5M_15fps_2lanes[] = {
 	{OV5648_8BIT, 0x3815, 0x11},/* y inc */
 	{OV5648_8BIT, 0x3817, 0x00},/* hsync start */
 	{OV5648_8BIT, 0x3820, 0x40},/* flip off; v bin off */
-	{OV5648_8BIT, 0x3821, 0x00},/* mirror off; v bin off */
+	{OV5648_8BIT, 0x3821, 0x06},/* mirror off; v bin off */
 	{OV5648_8BIT, 0x4004, 0x04},/* black line number */
-	{OV5648_8BIT, 0x4005, 0x1a},/* blc always update */
-	{OV5648_8BIT, 0x4837, 0x17},/* MIPI global timing */
+	{OV5648_8BIT, 0x4005, 0x18},/* blc always update */
+	{OV5648_8BIT, 0x4837, 0x18},/* MIPI global timing */
 
 	{OV5648_8BIT, 0x350b, 0x40},
 	{OV5648_8BIT, 0x3501, 0x7b},
@@ -657,21 +655,6 @@ static struct ov5648_reg const ov5648_5M_15fps_2lanes[] = {
 };
 
 struct ov5648_resolution ov5648_res_preview[] = {
-	{
-	 .desc = "ov5648_1304_976_30fps",
-	 .width = 1304,
-	 .height = 976,
-	 .fps = 30,
-	 .pix_clk_freq = 84,
-	 .used = 0,
-	 .pixels_per_line = 2397,
-	 .lines_per_frame = 1186,
-	 .bin_factor_x = 2,
-	 .bin_factor_y = 2,
-	 .bin_mode = 1,
-	 .skip_frames = 3,
-	 .regs = ov5648_1304_976_30fps_2lanes,
-	 },
 	{
 	 .desc = "ov5648_5M_15fps",
 	 .width = 2592,
@@ -712,6 +695,21 @@ struct ov5648_resolution ov5648_res_still[] = {
 #define N_RES_STILL (ARRAY_SIZE(ov5648_res_still))
 
 struct ov5648_resolution ov5648_res_video[] = {
+	{
+	 .desc = "ov5648_1080P_30fps",
+	 .width = 1940,
+	 .height = 1096,
+	 .fps = 30,
+	 .pix_clk_freq = 84,
+	 .used = 0,
+	 .pixels_per_line = 2500,
+	 .lines_per_frame = 1120,
+	 .bin_factor_x = 1,
+	 .bin_factor_y = 1,
+	 .bin_mode = 0,
+	 .skip_frames = 3,
+	 .regs = ov5648_1080p_30fps_2lanes,
+	},
 	{
 	 .desc = "ov5648_720P_30fps",
 	 .width = 1296,
