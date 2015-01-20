@@ -868,6 +868,20 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		ufs_qcom_cap.desired_working_mode =
 					UFS_QCOM_LIMIT_DESIRED_MODE;
 
+		if (host->hw_ver.major == 0x1) {
+			/*
+			 * HS-G3 operations may not reliably work on legacy QCOM
+			 * UFS host controller hardware even though capability
+			 * exchange during link startup phase may end up
+			 * negotiating maximum supported gear as G3.
+			 * Hence downgrade the maximum supported gear to HS-G2.
+			 */
+			if (ufs_qcom_cap.hs_tx_gear > UFS_HS_G2)
+				ufs_qcom_cap.hs_tx_gear = UFS_HS_G2;
+			if (ufs_qcom_cap.hs_rx_gear > UFS_HS_G2)
+				ufs_qcom_cap.hs_rx_gear = UFS_HS_G2;
+		}
+
 		ret = ufs_qcom_get_pwr_dev_param(&ufs_qcom_cap,
 						 dev_max_params,
 						 dev_req_params);
