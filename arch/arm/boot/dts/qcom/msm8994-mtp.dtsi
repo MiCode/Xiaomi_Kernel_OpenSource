@@ -749,6 +749,7 @@
 
 &pmi8994_fg {
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,ext-sense-type;
 };
 
 &pmi8994_haptics {
@@ -756,7 +757,6 @@
 };
 
 &pmi8994_charger {
-	qcom,ext-sense-type;
 	qcom,dc-psy-type = "Wipower";
 	qcom,dcin-vadc = <&pmi8994_vadc>;
 	qcom,wipower-default-ilim-map = <4000000 20000000 550 700 300>;
