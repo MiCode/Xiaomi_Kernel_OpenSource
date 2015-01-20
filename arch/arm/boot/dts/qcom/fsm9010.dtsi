@@ -85,11 +85,131 @@
 		interrupts = <0 96 0>;
 	};
 
-	qcom,smem@fa00000 {
+	qcom,ipc-spinlock@fd484000 {
+		compatible = "qcom,ipc-spinlock-sfpb";
+		reg = <0xfd484000 0x1000>;
+		qcom,num-locks = <32>;
+	};
+
+	qcom,smem@13600000 {
 		compatible = "qcom,smem";
-		reg = <0x0fa00000 0x200000>,
+		reg = <0x13600000 0x200000>,
 			<0xf9011000 0x1000>;
 		reg-names = "smem", "irq-reg-base";
+
+		qcom,smd-hex0 {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <0>;
+			qcom,smd-irq-offset = <0x8>;
+			qcom,smd-irq-bitmask = <0x100>;
+			interrupts = <0 72 1>;
+			label = "hex0";
+			qcom,not-loadable;
+		};
+
+		qcom,smd-hex1 {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <1>;
+			qcom,smd-irq-offset = <0x8>;
+			qcom,smd-irq-bitmask = <0x1000>;
+			interrupts = <0 68 1>;
+			label = "hex1";
+			qcom,not-loadable;
+		};
+
+		qcom,smd-tenx {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <10>;
+			qcom,smd-irq-offset = <0x8>;
+			qcom,smd-irq-bitmask = <0x10>;
+			interrupts = <0 26 1>;
+			label = "tenx";
+			qcom,not-loadable;
+		};
+	};
+
+	qcom,smdpkt {
+		compatible = "qcom,smdpkt";
+
+		qcom,smdpkt-logging_1 {
+			qcom,smdpkt-remote = "hex0";
+			qcom,smdpkt-port-name = "LOGGING_1";
+			qcom,smdpkt-dev-name = "smd_logging_1";
+		};
+
+		qcom,smdpkt-cdm_logging_1 {
+			qcom,smdpkt-remote = "hex0";
+			qcom,smdpkt-port-name = "CDM LOGGING_1";
+			qcom,smdpkt-dev-name = "smd_cdm_logging_1";
+		};
+
+		qcom,smdpkt-infra_test_1 {
+			qcom,smdpkt-remote = "hex0";
+			qcom,smdpkt-port-name = "INFRA_TEST_1";
+			qcom,smdpkt-dev-name = "smd_infra_test_1";
+		};
+
+		qcom,smdpkt-logging_0 {
+			qcom,smdpkt-remote = "hex1";
+			qcom,smdpkt-port-name = "LOGGING";
+			qcom,smdpkt-dev-name = "smd_logging_0";
+		};
+
+		qcom,smdpkt-data_0 {
+			qcom,smdpkt-remote = "hex1";
+			qcom,smdpkt-port-name = "DATA";
+			qcom,smdpkt-dev-name = "smd_data_0";
+		};
+
+		qcom,smdpkt-tf_0 {
+			qcom,smdpkt-remote = "hex1";
+			qcom,smdpkt-port-name = "TESTFRAMEWORK";
+			qcom,smdpkt-dev-name = "smd_tf_0";
+		};
+
+		qcom,smdpkt-infra_test_0 {
+			qcom,smdpkt-remote = "hex1";
+			qcom,smdpkt-port-name = "INFRA_TEST_0";
+			qcom,smdpkt-dev-name = "smd_infra_test_0";
+		};
+	};
+
+	qcom,smdpkt-infra_test_4 {
+		qcom,smdpkt-remote = "tenx";
+		qcom,smdpkt-port-name = "INFRA_TEST_4";
+		qcom,smdpkt-dev-name = "smd_infra_test_4";
+	};
+
+	qcom,ipc_router{
+		compatible = "qcom,ipc_router";
+		qcom,node-id = <1>;
+	};
+
+	qcom,ipc_router_hex0_xprt {
+		compatible = "qcom,ipc_router_smd_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "hex0";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+	};
+
+	qcom,ipc_router_hex1_xprt {
+		compatible = "qcom,ipc_router_smd_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "hex1";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+	};
+
+	qcom,ipc_router_q6fs_xprt {
+		compatible = "qcom,ipc_router_smd_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "tenx";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
 	};
 
 	qcom,sps {
