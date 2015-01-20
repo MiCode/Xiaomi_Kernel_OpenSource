@@ -253,6 +253,7 @@ u32 vlv_dsi_pll_enable(struct vlv_pll *pll,
 		struct drm_mode_modeinfo *mode)
 {
 	u32 val;
+	u32 temp = 0;
 
 	/* Disable DPOunit clock gating, can stall pipe */
 	val = REG_READ(pll->offset);
@@ -261,6 +262,7 @@ u32 vlv_dsi_pll_enable(struct vlv_pll *pll,
 
 	val = REG_READ(DSPCLK_GATE_D);
 	val |= VSUNIT_CLOCK_GATE_DISABLE;
+	val |= DPOUNIT_CLOCK_GATE_DISABLE;
 	REG_WRITE(DSPCLK_GATE_D, val);
 
 	vlv_dsi_pll_configure(pll);
@@ -270,6 +272,12 @@ u32 vlv_dsi_pll_enable(struct vlv_pll *pll,
 
 	val = vlv_cck_read(CCK_REG_DSI_PLL_CONTROL);
 	val |= DSI_PLL_VCO_EN;
+
+	temp = REG_READ(pll->offset);
+	temp |= DPLL_REFA_CLK_ENABLE_VLV;
+	REG_WRITE(pll->offset, temp);
+	udelay(1000);
+
 	vlv_cck_write(CCK_REG_DSI_PLL_CONTROL, val);
 
 	pr_info("DSI PLL locked\n");
