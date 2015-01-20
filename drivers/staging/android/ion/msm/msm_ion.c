@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -227,37 +227,38 @@ static int ion_pages_cache_ops(struct ion_client *client,
 			unsigned int cmd)
 {
 	struct sg_table *table = NULL;
+	struct scatterlist *sg;
+	struct page *page;
+	int i;
+	void *ptr;
 
 	table = ion_sg_table(client, handle);
 	if (IS_ERR_OR_NULL(table))
 		return PTR_ERR(table);
 
-	switch (cmd) {
-	case ION_IOC_CLEAN_CACHES:
-		if (!vaddr)
-			dma_sync_sg_for_device(NULL, table->sgl,
-				table->nents, DMA_TO_DEVICE);
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		page = sg_page(sg);
+		if (PageHighMem(page))
+			ptr = kmap_atomic(page);
 		else
-			dmac_clean_range(vaddr, vaddr + length);
-		break;
-	case ION_IOC_INV_CACHES:
-		dma_sync_sg_for_cpu(NULL, table->sgl,
-			table->nents, DMA_FROM_DEVICE);
-		break;
-	case ION_IOC_CLEAN_INV_CACHES:
-		if (!vaddr) {
-			dma_sync_sg_for_device(NULL, table->sgl,
-				table->nents, DMA_TO_DEVICE);
-			dma_sync_sg_for_cpu(NULL, table->sgl,
-				table->nents, DMA_FROM_DEVICE);
-		} else {
-			dmac_flush_range(vaddr, vaddr + length);
-		}
-		break;
-	default:
-		return -EINVAL;
-	}
+			ptr = page_address(page);
 
+		switch (cmd) {
+		case ION_IOC_CLEAN_CACHES:
+			dmac_clean_range(ptr, ptr + sg->length);
+			break;
+		case ION_IOC_INV_CACHES:
+			dmac_inv_range(ptr, ptr + sg->length);
+			break;
+		case ION_IOC_CLEAN_INV_CACHES:
+			dmac_flush_range(ptr, ptr + sg->length);
+			break;
+		default:
+			return -EINVAL;
+		}
+		if (PageHighMem(page))
+			kunmap_atomic(ptr);
+	}
 	return 0;
 }
 
