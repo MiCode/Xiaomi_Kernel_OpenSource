@@ -1,22 +1,15 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 #ifndef __IA_CSS_EED1_8_PARAM_H
@@ -104,7 +97,7 @@
 #define EED1_8_STATE_ABSK_WIDTH		MAX_FRAME_SIMDWIDTH
 #endif
 
-struct ia_css_isp_eed1_8_vmem_params {
+struct eed1_8_vmem_params {
 	VMEM_ARRAY(e_cuedge_x, ISP_VEC_NELEMS);
 	VMEM_ARRAY(e_cuedge_a, ISP_VEC_NELEMS);
 	VMEM_ARRAY(e_cuedge_b, ISP_VEC_NELEMS);
@@ -123,7 +116,7 @@ struct ia_css_isp_eed1_8_vmem_params {
 };
 
 /* EED (Edge Enhancing Demosaic) ISP parameters */
-struct ia_css_isp_eed1_8_dmem_params {
+struct eed1_8_dmem_params {
 	int32_t rbzp_strength;
 
 	int32_t fcstrength;

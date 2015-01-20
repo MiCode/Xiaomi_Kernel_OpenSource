@@ -1,22 +1,15 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 #include <math_support.h>
@@ -541,25 +534,69 @@ ia_css_binary_uninit(void)
 	return IA_CSS_SUCCESS;
 }
 
+/** @brief Compute decimation factor for 3A statistics and shading correction.
+ *
+ * @param[in]	width	Frame width in pixels.
+ * @param[in]	height	Frame height in pixels.
+ * @return	Log2 of decimation factor (= grid cell size) in bayer quads.
+ */
 static int
 binary_grid_deci_factor_log2(int width, int height)
 {
-	int fact, fact1;
-	fact = 5;
-	while (ISP_BQ_GRID_WIDTH(width, fact - 1) <= SH_CSS_MAX_BQ_GRID_WIDTH &&
-	       ISP_BQ_GRID_HEIGHT(height, fact - 1) <= SH_CSS_MAX_BQ_GRID_HEIGHT
-	       && fact > 3)
-		fact--;
+/* 3A/Shading decimation factor spcification (at August 2008)
+ * ------------------------------------------------------------------
+ * [Image Width (BQ)] [Decimation Factor (BQ)] [Resulting grid cells]
+ * 1280 …             32                       40 …
+ *  640 … 1279        16                       40 … 80
+ *      …  639         8                          … 80
+ * ------------------------------------------------------------------
+ */
+/* Maximum and minimum decimation factor by the specification */
+#define MAX_SPEC_DECI_FACT_LOG2		5
+#define MIN_SPEC_DECI_FACT_LOG2		3
+/* the smallest frame width in bayer quads when decimation factor (log2) is 5 or 4, by the specification */
+#define DECI_FACT_LOG2_5_SMALLEST_FRAME_WIDTH_BQ	1280
+#define DECI_FACT_LOG2_4_SMALLEST_FRAME_WIDTH_BQ	640
 
-	/* fact1 satisfies the specification of grid size. fact and fact1 is
-	   not the same for some resolution (fact=4 and fact1=5 for 5mp). */
-	if (width >= 2560)
-		fact1 = 5;
-	else if (width >= 1280)
-		fact1 = 4;
+	int smallest_factor; /* the smallest factor (log2) where the number of cells does not exceed the limitation */
+	int spec_factor;     /* the factor (log2) which satisfies the specification */
+
+	/* Currently supported maximum width and height are 5120(=80*64) and 3840(=60*64). */
+	assert(ISP_BQ_GRID_WIDTH(width, MAX_SPEC_DECI_FACT_LOG2) <= SH_CSS_MAX_BQ_GRID_WIDTH);
+	assert(ISP_BQ_GRID_HEIGHT(height, MAX_SPEC_DECI_FACT_LOG2) <= SH_CSS_MAX_BQ_GRID_HEIGHT);
+
+	/* Compute the smallest factor. */
+	smallest_factor = MAX_SPEC_DECI_FACT_LOG2;
+	while (ISP_BQ_GRID_WIDTH(width, smallest_factor - 1) <= SH_CSS_MAX_BQ_GRID_WIDTH &&
+	       ISP_BQ_GRID_HEIGHT(height, smallest_factor - 1) <= SH_CSS_MAX_BQ_GRID_HEIGHT
+	       && smallest_factor > MIN_SPEC_DECI_FACT_LOG2)
+		smallest_factor--;
+
+	/* Get the factor by the specification. */
+	if (_ISP_BQS(width) >= DECI_FACT_LOG2_5_SMALLEST_FRAME_WIDTH_BQ)
+		spec_factor = 5;
+	else if (_ISP_BQS(width) >= DECI_FACT_LOG2_4_SMALLEST_FRAME_WIDTH_BQ)
+		spec_factor = 4;
 	else
-		fact1 = 3;
-	return max(fact, fact1);
+		spec_factor = 3;
+
+	/* If smallest_factor is smaller than or equal to spec_factor, choose spec_factor to follow the specification.
+	   If smallest_factor is larger than spec_factor, choose smallest_factor.
+
+		ex. width=2560, height=1920
+			smallest_factor=4, spec_factor=5
+			smallest_factor < spec_factor   ->   return spec_factor
+
+		ex. width=300, height=3000
+			smallest_factor=5, spec_factor=3
+			smallest_factor > spec_factor   ->   return smallest_factor
+	*/
+	return max(smallest_factor, spec_factor);
+
+#undef MAX_SPEC_DECI_FACT_LOG2
+#undef MIN_SPEC_DECI_FACT_LOG2
+#undef DECI_FACT_LOG2_5_SMALLEST_FRAME_WIDTH_BQ
+#undef DECI_FACT_LOG2_4_SMALLEST_FRAME_WIDTH_BQ
 }
 
 static int
@@ -1154,6 +1191,17 @@ ia_css_binary_find(struct ia_css_binary_descr *descr,
 				candidate->output.max_width);
 			continue;
 		}
+		if (xcandidate->num_output_pins > 1 && /* in case we have a second output pin, */
+		     req_vf_info) { /* and we need vf output. */
+			if (req_vf_info->res.width > candidate->output.max_width) {
+				ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
+					"ia_css_binary_find() [%d] continue: (%d < %d)\n",
+					__LINE__,
+					req_vf_info->res.width,
+					candidate->output.max_width);
+				continue;
+			}
+		}
 		if (req_in_info->padded_width > candidate->input.max_width) {
 			ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
 				"ia_css_binary_find() [%d] continue: (%d > %d)\n",
@@ -1192,6 +1240,19 @@ ia_css_binary_find(struct ia_css_binary_descr *descr,
 				req_vf_info, candidate->enable.vf_veceven,
 				binary_supports_vf_format(xcandidate, req_vf_info->format));
 			continue;
+		}
+
+		/* Check if vf_veceven supports the requested vf width */
+		if (xcandidate->num_output_pins == 1 &&
+			req_vf_info && candidate->enable.vf_veceven) { /* and we need vf output. */
+			if (req_vf_info->res.width > candidate->output.max_width) {
+				ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
+					"ia_css_binary_find() [%d] continue: (%d < %d)\n",
+					__LINE__,
+					req_vf_info->res.width,
+					candidate->output.max_width);
+				continue;
+			}
 		}
 
 		if (!supports_bds_factor(candidate->bds.supported_bds_factors,
@@ -1244,35 +1305,7 @@ ia_css_binary_max_vf_width(void)
 	/* For IPU3 (SkyCam) this pointer is guarenteed to be NULL simply because such a binary does not exist  */
 	if (binary_infos[IA_CSS_BINARY_MODE_VF_PP])
 		return binary_infos[IA_CSS_BINARY_MODE_VF_PP]->sp.output.max_width;
-
-	/**
-	 * For IPU3 (SkyCam) there are 3 possible binary modes with viewfinder output.
-	 * These binary modes are mutual exclusive, so just return the max width of the first
-	 * non-null binary info for these 3 possible modes.
-	 *
-	 * Note the the returned max_width does not specify to which output it applies (main or vf)
-	 * ASSUMPTION: max_width applies to both main and vf output. As long this is true, no seperate new field is
-	 * required.
-	 */
-	assert(IMPLIES(binary_infos[IA_CSS_BINARY_MODE_VIDEO] != NULL,
-		binary_infos[IA_CSS_BINARY_MODE_PRIMARY] == NULL && binary_infos[IA_CSS_BINARY_MODE_PREVIEW] == NULL));
-
-	assert(IMPLIES(binary_infos[IA_CSS_BINARY_MODE_PRIMARY] != NULL,
-		binary_infos[IA_CSS_BINARY_MODE_VIDEO] == NULL && binary_infos[IA_CSS_BINARY_MODE_PREVIEW] == NULL));
-
-	assert(IMPLIES(binary_infos[IA_CSS_BINARY_MODE_PREVIEW] != NULL,
-		binary_infos[IA_CSS_BINARY_MODE_VIDEO] == NULL && binary_infos[IA_CSS_BINARY_MODE_PRIMARY] == NULL));
-
-	if (binary_infos[IA_CSS_BINARY_MODE_VIDEO])
-		return binary_infos[IA_CSS_BINARY_MODE_VIDEO]->sp.output.max_width;
-	if (binary_infos[IA_CSS_BINARY_MODE_PRIMARY])
-		return binary_infos[IA_CSS_BINARY_MODE_PRIMARY]->sp.output.max_width;
-	if (binary_infos[IA_CSS_BINARY_MODE_PREVIEW])
-		return binary_infos[IA_CSS_BINARY_MODE_PREVIEW]->sp.output.max_width;
-
-	/* Instead of assert, just return 0 (this will/should trigger an assert or error at the caller side) */
 	return 0;
-
 }
 
 void

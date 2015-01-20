@@ -1,22 +1,15 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 #ifndef __IA_CSS_STREAM_PUBLIC_H
@@ -131,6 +124,7 @@ struct ia_css_stream_config {
 	bool pack_raw_pixels; /**< Pack pixels in the raw buffers */
 	bool continuous; /**< Use SP copy feature to continuously capture frames
 			      to system memory and run pipes in offline mode */
+	bool disable_cont_viewfinder; /**< disable continous viewfinder for ZSL use case */
 	int32_t flash_gpio_pin; /**< pin on which the flash is connected, -1 for no flash */
 	int left_padding; /**< The number of input-formatter left-paddings, -1 for default from binary.*/
 	struct ia_css_mipi_buffer_config mipi_buffer_config; /**< mipi buffer configuration */

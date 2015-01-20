@@ -1,22 +1,15 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 #ifndef _IA_CSS_ACC_TYPES_H
@@ -337,7 +330,7 @@ struct ia_css_sp_info {
 	uint32_t host_sp_queues_initialized; /**< Polled from the SP */
 	uint32_t sleep_mode;  /**< different mode to halt SP */
 	uint32_t invalidate_tlb;		/**< inform SP to invalidate mmu TLB */
-	uint32_t stop_copy_preview;	/**< suspend copy and preview pipe when capture */
+	uint32_t stop_copy_preview;       /**< suspend copy and preview pipe when capture */
 	uint32_t debug_buffer_ddr_address;	/**< inform SP the address
 	of DDR debug queue */
 	uint32_t perf_counter_input_system_error; /**< input system perf

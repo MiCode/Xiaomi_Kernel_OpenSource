@@ -35,9 +35,9 @@ struct isys_irqc_state_s {
 	hrt_data edge;
 	hrt_data mask;
 	hrt_data status;
-	hrt_data clear;
 	hrt_data enable;
 	hrt_data level_no;
+/*hrt_data clear;	*/	/* write-only register */
 };
 
 #endif /* defined(USE_INPUT_SYSTEM_VERSION_2401) */

@@ -1,22 +1,15 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 #ifndef __INPUT_SYSTEM_LOCAL_H_INCLUDED__
@@ -29,6 +22,7 @@
 #include "csi_rx.h"
 #include "pixelgen.h"
 #include "isys_stream2mmio.h"
+#include "isys_irq.h"
 
 typedef input_system_err_t input_system_error_t;
 
@@ -103,9 +97,10 @@ typedef enum {
 typedef struct input_system_state_s	input_system_state_t;
 struct input_system_state_s {
 	ibuf_ctrl_state_t	ibuf_ctrl_state[N_IBUF_CTRL_ID];
-	csi_rx_fe_ctrl_state_t  csi_rx_fe_ctrl_state[N_CSI_RX_FRONTEND_ID];
-	csi_rx_be_ctrl_state_t  csi_rx_be_ctrl_state[N_CSI_RX_BACKEND_ID];
-	pixelgen_ctrl_state_t   pixelgen_ctrl_state[N_PIXELGEN_ID];
+	csi_rx_fe_ctrl_state_t	csi_rx_fe_ctrl_state[N_CSI_RX_FRONTEND_ID];
+	csi_rx_be_ctrl_state_t	csi_rx_be_ctrl_state[N_CSI_RX_BACKEND_ID];
+	pixelgen_ctrl_state_t	pixelgen_ctrl_state[N_PIXELGEN_ID];
 	stream2mmio_state_t	stream2mmio_state[N_STREAM2MMIO_ID];
+	isys_irqc_state_t	isys_irqc_state[N_ISYS_IRQ_ID];
 };
 #endif /* __INPUT_SYSTEM_LOCAL_H_INCLUDED__ */

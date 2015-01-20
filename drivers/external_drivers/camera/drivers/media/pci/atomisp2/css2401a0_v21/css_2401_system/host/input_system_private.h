@@ -1,22 +1,15 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 #ifndef __INPUT_SYSTEM_PRIVATE_H_INCLUDED__
@@ -67,6 +60,11 @@ STORAGE_CLASS_INPUT_SYSTEM_C input_system_err_t input_system_get_state(
 				&(state->ibuf_ctrl_state[i]));
 	}
 
+	/* get the states of all isys irq controllers */
+	for (i = 0; i < N_ISYS_IRQ_ID; i++) {
+		isys_irqc_state_get((isys_irq_ID_t)i, &(state->isys_irqc_state[i]));
+	}
+
 	/* TODO: get the states of all ISYS2401 DMA devices  */
 	for (i = 0; i < N_ISYS2401_DMA_ID; i++) {
 	}
@@ -114,6 +112,11 @@ STORAGE_CLASS_INPUT_SYSTEM_C void input_system_dump_state(
 		ibuf_ctrl_dump_state(
 				(ibuf_ctrl_ID_t)i,
 				&(state->ibuf_ctrl_state[i]));
+	}
+
+	/* dump the states of all isys irq controllers */
+	for (i = 0; i < N_ISYS_IRQ_ID; i++) {
+		isys_irqc_state_dump((isys_irq_ID_t)i, &(state->isys_irqc_state[i]));
 	}
 
 	/* TODO: dump the states of all ISYS2401 DMA devices  */

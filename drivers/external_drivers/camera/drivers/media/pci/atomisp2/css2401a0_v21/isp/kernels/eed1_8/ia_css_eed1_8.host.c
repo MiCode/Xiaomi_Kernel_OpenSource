@@ -1,22 +1,15 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 
@@ -29,9 +22,11 @@
 
 #include "ia_css_eed1_8.host.h"
 
-/* WARNING: Number of inv points should be less or equal to 16,
+/* WARNING1: Number of inv points should be less or equal to 16,
  * due to implementation limitation. See kernel design document
  * for more details.
+ * WARNING2: Do not modify the number of inv points without correcting
+ * the EED1_8 kernel implementation assumptions.
  */
 #define NUMBER_OF_CHGRINV_POINTS 15
 #define NUMBER_OF_TCINV_POINTS 9
@@ -80,7 +75,7 @@ const int16_t fcinv_c[NUMBER_OF_FCINV_POINTS] = {
 
 void
 ia_css_eed1_8_vmem_encode(
-	struct ia_css_isp_eed1_8_vmem_params *to,
+	struct eed1_8_vmem_params *to,
 	const struct ia_css_eed1_8_config *from,
 	size_t size)
 {
@@ -131,6 +126,27 @@ ia_css_eed1_8_vmem_encode(
 
 	assert(from->dew_enhance_seg_x[0] == 0);
 	assert(from->dew_enhance_seg_y[0] == 0);
+
+	/* Constraints on chgrinv_x, tcinv_x and fcinv_x:
+	 * - values should be greater or equal to 0.
+	 * - values should be ascending.
+	 * - value of index zero is equal to 0.
+	 */
+	assert(chgrinv_x[0] == 0);
+	assert(tcinv_x[0] == 0);
+	assert(fcinv_x[0] == 0);
+
+	for (j = 1; j < NUMBER_OF_CHGRINV_POINTS; j++) {
+		assert(chgrinv_x[j] > chgrinv_x[j-1]);
+	}
+
+	for (j = 1; j < NUMBER_OF_TCINV_POINTS; j++) {
+		assert(tcinv_x[j] > tcinv_x[j-1]);
+	}
+
+	for (j = 1; j < NUMBER_OF_FCINV_POINTS; j++) {
+		assert(fcinv_x[j] > fcinv_x[j-1]);
+	}
 
 	/* The implementation of the calulating 1/x is based on the availability
 	 * of the OP_vec_shuffle16 operation.
@@ -185,7 +201,7 @@ ia_css_eed1_8_vmem_encode(
 
 void
 ia_css_eed1_8_encode(
-	struct ia_css_isp_eed1_8_dmem_params *to,
+	struct eed1_8_dmem_params *to,
 	const struct ia_css_eed1_8_config *from,
 	size_t size)
 {
