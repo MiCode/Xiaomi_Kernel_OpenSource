@@ -40,6 +40,7 @@
 enum cci_i2c_queue_t {
 	QUEUE_0,
 	QUEUE_1,
+	QUEUE_INVALID,
 };
 
 struct msm_camera_cci_client {
@@ -104,7 +105,10 @@ struct msm_camera_cci_ctrl {
 
 struct msm_camera_cci_master_info {
 	uint32_t status;
+	atomic_t q_free[NUM_QUEUES];
+	uint8_t q_lock[NUM_QUEUES];
 	uint8_t reset_pending;
+	atomic_t done_pending;
 	struct mutex mutex;
 	struct completion reset_complete;
 };
