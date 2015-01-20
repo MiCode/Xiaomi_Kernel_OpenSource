@@ -217,6 +217,14 @@ enum usb_ctrl {
 };
 
 /**
+ * USB ID state
+ */
+enum usb_id_state {
+	USB_ID_GROUND = 0,
+	USB_ID_FLOAT,
+};
+
+/**
  * struct msm_otg_platform_data - platform device data
  *              for msm_otg driver.
  * @phy_init_seq: PHY configuration sequence. val, reg pairs
@@ -414,6 +422,9 @@ struct msm_otg_platform_data {
 	     pm_done is set to true.
  * @ext_id_irq: IRQ for ID interrupt.
  * @phy_irq_pending: Gets set when PHY IRQ arrives in LPM.
+ * host_suspend_wait: wait_queue on which USB core waits for USB entering lpm
+	     in host bus suspend case.
+ * @id_state: Indicates USBID line status.
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -557,6 +568,7 @@ struct msm_otg {
 	int ext_id_irq;
 	bool phy_irq_pending;
 	wait_queue_head_t	host_suspend_wait;
+	enum usb_id_state id_state;
 };
 
 struct ci13xxx_platform_data {
