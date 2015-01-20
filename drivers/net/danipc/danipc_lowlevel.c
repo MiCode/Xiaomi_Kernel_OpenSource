@@ -76,7 +76,7 @@ uint8_t	__iomem			*ipc_buffers;
 
 struct ipc_to_virt_map		ipc_to_virt_map[PLATFORM_MAX_NUM_OF_NODES][2];
 
-static void __iomem		*krait_ipc_mux;
+static void __iomem		*apps_ipc_mux;
 
 static void init_own_ipc_to_virt_map(struct danipc_priv *priv)
 {
@@ -239,7 +239,7 @@ void danipc_init_irq(struct net_device *dev, struct danipc_priv *priv)
 				(void *)(base_addr + CDU_INT0_MASK_F0));
 
 	/* Route interrupts from TCSR to APPS (only relevant to APPS-FIFO) */
-	__raw_writel_no_log(APPS_IPC_FIFO_INT, krait_ipc_mux);
+	__raw_writel_no_log(APPS_IPC_FIFO_INT, apps_ipc_mux);
 }
 
 
@@ -277,7 +277,7 @@ static void prepare_nodes(void)
 	int		n;
 
 	for (n = 0; n < PLATFORM_MAX_NUM_OF_NODES; n++)
-		if (ipc_regs_phys[n])
+		if (ipc_regs_len[n])
 			prepare_node(n);
 }
 
@@ -309,21 +309,21 @@ static void free_ipc_buffers(void)
 		iounmap(ipc_buffers);
 }
 
-static void remap_krait_ipc_mux(struct danipc_priv *priv)
+static void remap_apps_ipc_mux(struct danipc_priv *priv)
 {
-	krait_ipc_mux = ioremap_nocache(priv->res_start[KRAIT_IPC_MUX_RES],
+	apps_ipc_mux = ioremap_nocache(priv->res_start[KRAIT_IPC_MUX_RES],
 					priv->res_len[KRAIT_IPC_MUX_RES]);
-	if (!krait_ipc_mux) {
+	if (!apps_ipc_mux) {
 		pr_err("%s: cannot remap Krait IPC mux\n", __func__);
 		BUG();
 	}
 }
 
 
-static void unmap_krait_ipc_mux(void)
+static void unmap_apps_ipc_mux(void)
 {
-	if (krait_ipc_mux)
-		iounmap(krait_ipc_mux);
+	if (apps_ipc_mux)
+		iounmap(apps_ipc_mux);
 }
 
 
@@ -335,7 +335,7 @@ int danipc_ll_init(struct danipc_priv *priv)
 		prepare_nodes();
 		remap_agent_table(priv);
 		init_own_ipc_to_virt_map(priv);
-		remap_krait_ipc_mux(priv);
+		remap_apps_ipc_mux(priv);
 		rc = ipc_init();
 	}
 
@@ -345,7 +345,7 @@ int danipc_ll_init(struct danipc_priv *priv)
 
 void danipc_ll_cleanup(void)
 {
-	unmap_krait_ipc_mux();
+	unmap_apps_ipc_mux();
 	unmap_ipc_to_virt_map();
 	unmap_agent_table();
 	unmap_nodes_memory();

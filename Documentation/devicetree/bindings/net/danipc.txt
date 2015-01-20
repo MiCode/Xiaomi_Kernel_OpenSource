@@ -6,32 +6,32 @@ for fast and reliable data passing between processors.
 
 Required properties:
 - compatible:	should be "qcom,danipc"
-- reg-names:	"ipc_bufs" - Krait IPC buffers region
+- reg-names:	"ipc_bufs" - APPS IPC buffers region
 		"agent_table" - IPC global agent table region
-		"krait_ipc_intr_en" - Krait IPC interrupt enable MUX region
-		"cpu0_ipc" - CPU0 IPC region
-		"cpu1_ipc" - CPU1 IPC region
-		"cpu2_ipc" - CPU2 IPC region
-		"cpu3_ipc" - CPU3 IPC region
-		"dsp0_ipc" - DSP0 IPC region
-		"dsp1_ipc" - DSP1 IPC region
-		"dsp2_ipc" - DSP2 IPC region
-		"krait_ipc" - Krait IPC region
+		"apps_ipc_intr_en" - APPS IPC interrupt enable MUX region
+		"phycpu0_ipc" - PHY CPU0 IPC region
+		"phycpu1_ipc" - PHY CPU1 IPC region
+		"phycpu2_ipc" - PHY CPU2 IPC region
+		"phycpu3_ipc" - PHY CPU3 IPC region
+		"phydsp0_ipc" - PHY DSP0 IPC region
+		"phydsp1_ipc" - PHY DSP1 IPC region
+		"phydsp2_ipc" - PHY DSP2 IPC region
+		"apps_ipc" - APPS IPC region
 		"qdsp6_0_ipc" - QDSP6 0 IPC region
 		"qdsp6_1_ipc" - QDSP6 1 IPC region
 		"qdsp6_2_ipc" - QDSP6 2 IPC region
 		"qdsp6_3_ipc" - QDSP6 3 IPC region
-- reg:		location and size of Krait IPC buffers
+- reg:		location and size of APPS IPC buffers
 		location and size of IPC global agent table
-		location and size of Krait IPC interrupt enable MUX
-		location and size of CPU0 IPC region
-		location and size of CPU1 IPC region
-		location and size of CPU2 IPC region
-		location and size of CPU3 IPC region
-		location and size of DSP0 IPC region
-		location and size of DSP1 IPC region
-		location and size of DSP2 IPC region
-		location and size of Krait IPC region
+		location and size of APPS IPC interrupt enable MUX
+		location and size of PHY CPU0 IPC region
+		location and size of PHY CPU1 IPC region
+		location and size of PHY CPU2 IPC region
+		location and size of PHY CPU3 IPC region
+		location and size of PHY DSP0 IPC region
+		location and size of PHY DSP1 IPC region
+		location and size of PHY DSP2 IPC region
+		location and size of APPS IPC region
 		location and size of QDSP6 0 IPC region
 		location and size of QDSP6 1 IPC region
 		location and size of QDSP6 2 IPC region
@@ -39,14 +39,14 @@ Required properties:
 - interrupts:	IPC interrupt line
 
 Optional properties:
--qcom,cpu0-shm-size: size of shared memory region for CPU0
--qcom,cpu1-shm-size: size of shared memory region for CPU1
--qcom,cpu2-shm-size: size of shared memory region for CPU2
--qcom,cpu3-shm-size: size of shared memory region for CPU3
--qcom,dsp0-shm-size: size of shared memory region for DSP0
--qcom,dsp1-shm-size: size of shared memory region for DSP1
--qcom,dsp2-shm-size: size of shared memory region for DSP2
--qcom,krait-shm-size: size of shared memory region for Krait
+-qcom,phycpu0-shm-size: size of shared memory region for PHY CPU0
+-qcom,phycpu1-shm-size: size of shared memory region for PHY CPU1
+-qcom,phycpu2-shm-size: size of shared memory region for PHY CPU2
+-qcom,phycpu3-shm-size: size of shared memory region for PHY CPU3
+-qcom,phydsp0-shm-size: size of shared memory region for PHY DSP0
+-qcom,phydsp1-shm-size: size of shared memory region for PHY DSP1
+-qcom,phydsp2-shm-size: size of shared memory region for PHY DSP2
+-qcom,apps-shm-size: size of shared memory region for APPS
 -qcom,qdsp6-0-shm-size: size of shared memory region for QDSP6 0
 -qcom,qdsp6-1-shm-size: size of shared memory region for QDSP6 1
 -qcom,qdsp6-2-shm-size: size of shared memory region for QDSP6 2
@@ -55,22 +55,22 @@ Optional properties:
 Examples:
 	qcom,danipc@24200000 {
 		compatible = "qcom,danipc";
-		reg-names = "ipc_bufs", "agent_table", "krait_ipc_intr_en",
-				"cpu0_ipc", "cpu1_ipc", "cpu2_ipc", "cpu3_ipc",
-				"dsp0_ipc", "dsp1_ipc", "dsp2_ipc", "krait_ipc",
+		reg-names = "ipc_bufs", "agent_table", "apps_ipc_intr_en",
+				"phycpu0_ipc", "phycpu1_ipc", "phycpu2_ipc", "phycpu3_ipc",
+				"phydsp0_ipc", "phydsp1_ipc", "phydsp2_ipc", "apps_ipc",
 				"qdsp6_0_ipc", "qdsp6_1_ipc", "qdsp6_2_ipc",
 				"qdsp6_3_ipc";
 		reg = <0x24200000 0x80000>, /* ipc_bufs */
 			<0x1cf60000 0x2000>, /* agent_table */
-			<0xfd4a3500 0x100>, /* krait_ipc_intr_en */
-			<0xf683a000 0x100>, /* cpu0_ipc */
-			<0xf683a000 0x100>, /* cpu1_ipc */
-			<0xf683c000 0x100>, /* cpu2_ipc */
-			<0xf683c000 0x100>, /* cpu3_ipc */
-			<0xf6862000 0x100>, /* dsp0_ipc */
-			<0xf6862000 0x100>, /* dsp1_ipc */
-			<0xf6878000 0x100>, /* dsp2_ipc */
-			<0xfd490000 0x100>, /* krait_ipc */
+			<0xfd4a3500 0x100>, /* apps_ipc_intr_en */
+			<0xf683a000 0x100>, /* phycpu0_ipc */
+			<0xf683a000 0x100>, /* phycpu1_ipc */
+			<0xf683c000 0x100>, /* phycpu2_ipc */
+			<0xf683c000 0x100>, /* phycpu3_ipc */
+			<0xf6862000 0x100>, /* phydsp0_ipc */
+			<0xf6862000 0x100>, /* phydsp1_ipc */
+			<0xf6878000 0x100>, /* phydsp2_ipc */
+			<0xfd490000 0x100>, /* apps_ipc */
 			<0xfd491000 0x100>, /* qdsp6_0_ipc */
 			<0xfd492000 0x100>, /* qdsp6_1_ipc */
 			<0xfd496000 0x100>, /* qdsp6_2_ipc */
