@@ -1,0 +1,171 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8929.dtsi"
+#include "msm8939-mtp.dtsi"
+#include "msm8939-audio-internal_codec.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8929 JDI SMB1360 MTP";
+	compatible = "qcom,msm8929-mtp", "qcom,msm8929", "qcom,mtp";
+	qcom,board-id = <8 3>;
+};
+
+&pm8916_l17 {
+	regulator-max-microvolt = <3000000>;
+	regulator-min-microvolt = <3000000>;
+	qcom,init-voltage = <3000000>;
+};
+
+&i2c_4 {
+	smb1360_otg_supply: smb1360-chg-fg@14 {
+		compatible = "qcom,smb1360-chg-fg";
+		reg = <0x14>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <62 8>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,charging-disabled;
+		qcom,chg-inhibit-disabled;
+		qcom,float-voltage-mv = <4200>;
+		qcom,iterm-ma = <200>;
+		qcom,recharge-thresh-mv = <100>;
+		qcom,thermal-mitigation = <1500 700 600 0>;
+		regulator-name = "smb1360_otg_vreg";
+	};
+};
+
+&pm8916_chg {
+	status = "ok";
+	qcom,use-external-charger;
+};
+
+&pm8916_bms {
+	status = "ok";
+	qcom,disable-bms;
+};
+
+&usb_otg {
+	qcom,hsusb-otg-mode = <3>;
+	qcom,usbid-gpio = <&msm_gpio 110 0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&usbid_default>;
+	vbus_otg-supply = <&smb1360_otg_supply>;
+};
+
+&i2c_5 {  /* BLSP1 QUP5 */
+	status = "disabled";
+};
+
+&spi_5 {
+	status = "okay";
+	bu21150-ts-spi@0 {
+		compatible = "jdi,bu21150";
+		reg = <0>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <13 0>;
+		spi-max-frequency = <18000000>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+				"afe_pwr_active", "afe_pwr_suspend",
+				"disp_vsn_active", "disp_vsn_suspend";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&afe_pwr_active>;
+		pinctrl-3 = <&afe_pwr_suspend>;
+		pinctrl-4 = <&disp_vsn_active>;
+		pinctrl-5 = <&disp_vsn_suspend>;
+		irq-gpio = <&msm_gpio 13 0>;
+		rst-gpio = <&msm_gpio 12 0>;
+		vdd_ana-supply = <&pm8916_l17>;
+		vdd_dig-supply = <&pm8916_l6>;
+		jdi,panel-model = "fhd_5_a230adev";
+		jdi,pitch-type = "np";
+		jdi,afe-vendor = "rohm";
+	};
+};
+
+#include "dsi-panel-jdi-fhd-video.dtsi"
+
+&dsi_jdi_fhd_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+	qcom,cont-splash-enabled;
+};
+
+&mdss_dsi0 {
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,dsi-pref-prim-pan = <&dsi_jdi_fhd_video>;
+
+	qcom,platform-enable-gpio = <&msm_gpio 97 0>;
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 98 0>;
+
+	qcom,platform-strength-ctrl = [77 06];
+
+	qcom,panel-supply-entries {
+		qcom,panel-supply-entry@0 {
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
+		};
+	};
+};
+
+&cci {
+	led_flash0: qcom,led-flash@66 {
+		cell-index = <0>;
+		reg = <0x66>;
+		qcom,slave-id = <0x66 0x00 0x0011>;
+		compatible = "qcom,led-flash1";
+		label = "bd7710";
+		qcom,flash-type = <1>;
+		qcom,gpio-no-mux = <0>;
+		qcom,enable_pinctrl;
+		pinctrl-names = "cam_flash_default", "cam_flash_suspend";
+		pinctrl-0 = <&cam_sensor_flash_default>;
+		pinctrl-1 = <&cam_sensor_flash_sleep>;
+		gpios = <&msm_gpio 36 0>,
+			<&msm_gpio 32 0>,
+			<&msm_gpio 31 0>;
+		qcom,gpio-flash-reset = <0>;
+		qcom,gpio-flash-en = <1>;
+		qcom,gpio-flash-now = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <0 0 0>;
+		qcom,gpio-req-tbl-label = "FLASH_RST",
+			"FLASH_EN",
+			"FLASH_NOW";
+		qcom,cci-master = <0>;
+	};
+
+	qcom,camera@78 {
+		qcom,cam-vreg-min-voltage = <2100000 0 3000000>;
+		qcom,cam-vreg-max-voltage = <2100000 0 3000000>;
+	};
+
+	qcom,camera@0 {
+                qcom,led-flash-src = <&led_flash0>;
+		qcom,cam-vreg-min-voltage = <2100000 0 3000000 2800000>;
+		qcom,cam-vreg-max-voltage = <2100000 0 3000000 2800000>;
+	};
+
+	qcom,camera@1 {
+		qcom,cam-vreg-min-voltage = <2100000 0 3000000>;
+		qcom,cam-vreg-max-voltage = <2100000 0 3000000>;
+	};
+};
