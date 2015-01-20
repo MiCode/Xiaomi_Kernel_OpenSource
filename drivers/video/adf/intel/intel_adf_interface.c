@@ -383,7 +383,8 @@ struct sync_fence *intel_adf_interface_create_vsync_fence(
 }
 
 int intel_adf_interface_init(struct intel_adf_interface *intf,
-		struct intel_adf_device *dev, struct intel_pipe *pipe)
+			struct intel_adf_device *dev, struct intel_pipe *pipe,
+			u32 intf_idx)
 {
 	enum adf_interface_type type;
 	u32 flags = 0;
@@ -446,7 +447,7 @@ int intel_adf_interface_init(struct intel_adf_interface *intf,
 		pipe->ops->get_vsync_counter(pipe, 0));
 
 	err = adf_interface_init(&intf->base, &dev->base, type,
-				(u32)pipe->base.idx, flags,
+				intf_idx, flags,
 				&intel_adf_interface_ops, "intel_intf_%s",
 				pipe->base.name);
 	if (err)

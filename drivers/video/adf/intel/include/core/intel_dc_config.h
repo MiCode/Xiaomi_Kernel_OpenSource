@@ -28,6 +28,8 @@
 #define INTEL_DC_MAX_PLANE_COUNT	0xff
 #define INTEL_DC_MAX_PIPE_COUNT		0xff
 
+#define INTEL_ADF_MAX_OVERLAY_ENG_PER_INTF	3
+
 struct intel_dc_component;
 struct intel_plane;
 struct intel_pipe;

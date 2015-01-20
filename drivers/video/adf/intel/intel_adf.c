@@ -23,13 +23,15 @@ static struct intel_adf_interface *create_interfaces(
 	struct intel_adf_interface *intfs;
 	int err;
 	size_t i;
+	u32 intf_idx = 0;
 
 	intfs = kzalloc(n_pipes * sizeof(*intfs), GFP_KERNEL);
 	if (!intfs)
 		return ERR_PTR(-ENOMEM);
 
 	for (i = 0; i < n_pipes; i++) {
-		err = intel_adf_interface_init(&intfs[i], dev, pipes[i]);
+		err = intel_adf_interface_init(&intfs[i], dev, pipes[i],
+						intf_idx++);
 		if (err)
 			goto out_err0;
 	}
@@ -94,20 +96,28 @@ static int create_attachments(struct intel_adf_device *dev,
 {
 	u8 pipe_id, plane_id;
 	int err;
-	size_t i;
+	u8 max_overlay_eng_per_intf;
 
-	for (i = 0; i < n_allowed_attachments; i++) {
-		pipe_id = allowed_attachments[i].pipe_id;
-		plane_id = allowed_attachments[i].plane_id;
+	pipe_id = 0;
+	plane_id = 0;
 
-		if (pipe_id >= n_intfs || plane_id >= n_engs)
-			return -EINVAL;
-		err = adf_attachment_allow(&dev->base, &engs[plane_id].base,
-				&intfs[pipe_id].base);
-		if (err)
-			return err;
+	/* for VLV & CHV, each interface has max of 3 overlay engines */
+	max_overlay_eng_per_intf = INTEL_ADF_MAX_OVERLAY_ENG_PER_INTF;
+
+	while (n_intfs--) {
+		while (max_overlay_eng_per_intf-- && n_engs--) {
+			err = adf_attachment_allow(&dev->base,
+						   &engs[plane_id++].base,
+						   &intfs[pipe_id].base);
+			if (err) {
+				pr_err("ADF:%s error: %d\n", __func__, err);
+				return err;
+			}
+		}
+		pipe_id++;
+		/* Initialised again to 3 for the other interface if active */
+		max_overlay_eng_per_intf = INTEL_ADF_MAX_OVERLAY_ENG_PER_INTF;
 	}
-
 	return 0;
 }
 

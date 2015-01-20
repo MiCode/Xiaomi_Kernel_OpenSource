@@ -43,7 +43,7 @@ extern int intel_adf_interface_handle_event(struct intel_adf_interface *intf);
 extern struct sync_fence *intel_adf_interface_create_vsync_fence(
 	struct intel_adf_interface *intf, u32 interval);
 extern int intel_adf_interface_init(struct intel_adf_interface *intf,
-	struct intel_adf_device *dev, struct intel_pipe *pipe);
+	struct intel_adf_device *dev, struct intel_pipe *pipe, u32 intf_idx);
 extern void intel_adf_interface_destroy(struct intel_adf_interface *intf);
 
 #endif /* INTEL_ADF_INTERFACE_H_ */
