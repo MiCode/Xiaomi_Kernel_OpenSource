@@ -35,10 +35,6 @@
 #define MAX_INIT_FRAME_DROP 31
 #define ISP_Q2 (1 << 2)
 
-#define AVTIMER_MSW_PHY_ADDR 0xFE05300C
-#define AVTIMER_LSW_PHY_ADDR 0xFE053008
-#define AVTIMER_ITERATION_CTR 16
-
 #define VFE_PING_FLAG 0xFFFFFFFF
 #define VFE_PONG_FLAG 0x0
 
@@ -495,8 +491,6 @@ struct vfe_device {
 	int vfe_clk_idx;
 	uint32_t vfe_open_cnt;
 	uint8_t vt_enable;
-	void __iomem *p_avtimer_msw;
-	void __iomem *p_avtimer_lsw;
 	uint8_t ignore_error;
 	struct msm_isp_statistics *stats;
 	uint32_t vfe_ub_size;

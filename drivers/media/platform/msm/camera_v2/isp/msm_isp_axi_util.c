@@ -11,6 +11,7 @@
  */
 #include <linux/io.h>
 #include <media/v4l2-subdev.h>
+#include <asm/div64.h>
 #include "msm_isp_util.h"
 #include "msm_isp_axi_util.h"
 
@@ -530,6 +531,51 @@ void msm_isp_calculate_bandwidth(
 	}
 }
 
+#ifdef CONFIG_MSM_AVTIMER
+void msm_isp_start_avtimer(void)
+{
+    avcs_core_open();
+    avcs_core_disable_power_collapse(1);
+}
+static inline void msm_isp_get_avtimer_ts(
+               struct msm_isp_timestamp *time_stamp)
+{
+       int rc = 0;
+       uint32_t avtimer_usec = 0;
+       uint64_t avtimer_tick = 0;
+
+       rc = avcs_core_query_timer(&avtimer_tick);
+       if (rc < 0) {
+               pr_err("%s: Error: Invalid AVTimer Tick, rc=%d\n",
+                          __func__, rc);
+               /* In case of error return zero AVTimer Tick Value */
+               time_stamp->vt_time.tv_sec = 0;
+               time_stamp->vt_time.tv_usec = 0;
+       } else {
+               avtimer_usec = do_div(avtimer_tick, USEC_PER_SEC);
+               time_stamp->vt_time.tv_sec = (uint32_t)(avtimer_tick);
+               time_stamp->vt_time.tv_usec = avtimer_usec;
+               pr_debug("%s: AVTimer TS = %u:%u\n", __func__,
+                       (uint32_t)(avtimer_tick), avtimer_usec);
+       }
+}
+#else
+void msm_isp_start_avtimer(void)
+{
+    pr_err("AV Timer is not supported\n");
+}
+
+static inline void msm_isp_get_avtimer_ts(
+               struct msm_isp_timestamp *time_stamp)
+{
+       pr_err("%s: Error: AVTimer driver not available\n",__func__);
+       time_stamp->vt_time.tv_sec = 0;
+       time_stamp->vt_time.tv_usec = 0;
+}
+
+#endif
+
+
 int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0, i;
@@ -588,12 +634,7 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 
 	if (stream_info->vt_enable) {
 		vfe_dev->vt_enable = stream_info->vt_enable;
-	#ifdef CONFIG_MSM_AVTIMER
-		avcs_core_open();
-		avcs_core_disable_power_collapse(1);
-	#endif
-		vfe_dev->p_avtimer_lsw = ioremap(AVTIMER_LSW_PHY_ADDR, 4);
-		vfe_dev->p_avtimer_msw = ioremap(AVTIMER_MSW_PHY_ADDR, 4);
+                msm_isp_start_avtimer();
 	}
 	if (stream_info->num_planes > 1) {
 		msm_isp_axi_reserve_comp_mask(
@@ -866,6 +907,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 
 	if (buf && ts) {
 		if (vfe_dev->vt_enable) {
+                        msm_isp_get_avtimer_ts(ts);
 			time_stamp = &ts->vt_time;
 		} else {
 			time_stamp = &ts->buf_time;
