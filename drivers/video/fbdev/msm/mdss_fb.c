@@ -2629,10 +2629,10 @@ static int mdss_fb_pan_idle(struct msm_fb_data_type *mfd)
 			 mfd->shutdown_pending),
 			msecs_to_jiffies(WAIT_DISP_OP_TIMEOUT));
 	if (!ret) {
-		pr_err("wait for idle timeout %d pending=%d\n",
-				ret, atomic_read(&mfd->commits_pending));
-
-		mdss_fb_signal_timeline(&mfd->mdp_sync_pt_data);
+		pr_err("%pS: wait for idle timeout commits=%d\n",
+				__builtin_return_address(0),
+				atomic_read(&mfd->commits_pending));
+		MDSS_XLOG_TOUT_HANDLER("mdp", "panic");
 	} else if (mfd->shutdown_pending) {
 		pr_debug("Shutdown signalled\n");
 		return -EPERM;
@@ -2653,9 +2653,11 @@ static int mdss_fb_wait_for_kickoff(struct msm_fb_data_type *mfd)
 			 mfd->shutdown_pending),
 			msecs_to_jiffies(WAIT_DISP_OP_TIMEOUT / 2));
 	if (!ret) {
-		pr_err("wait for kickoff timeout %d pending=%d\n",
-				ret, atomic_read(&mfd->kickoff_pending));
-
+		pr_err("%pS: wait for kickoff timeout koff=%d commits=%d\n",
+				__builtin_return_address(0),
+				atomic_read(&mfd->kickoff_pending),
+				atomic_read(&mfd->commits_pending));
+		MDSS_XLOG_TOUT_HANDLER("mdp", "panic");
 	} else if (mfd->shutdown_pending) {
 		pr_debug("Shutdown signalled\n");
 		return -EPERM;
