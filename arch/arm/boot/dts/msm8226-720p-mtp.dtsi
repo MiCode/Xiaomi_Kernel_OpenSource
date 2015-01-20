@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,6 +145,9 @@
 
 	qcom,hsusb-otg-mode = <3>;
 	vbus_otg-supply = <&pm8226_chg_otg>;
+
+	qcom,hsusb-otg-mpm-dpsehv-int = <49>;
+	qcom,hsusb-otg-mpm-dmsehv-int = <58>;
 };
 
 &sdcc1 {
