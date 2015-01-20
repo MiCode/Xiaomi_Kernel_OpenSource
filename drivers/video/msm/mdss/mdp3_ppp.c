@@ -489,6 +489,7 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 				fps = panel_info->mipi.frame_rate;
 		}
 
+		mdp3_get_bpp_info(req->src.format, &bpp);
 		if (lreq->req_list[i].flags & MDP_SMART_BLIT) {
 			/*
 			 * Flag for smart blit FG layer index
