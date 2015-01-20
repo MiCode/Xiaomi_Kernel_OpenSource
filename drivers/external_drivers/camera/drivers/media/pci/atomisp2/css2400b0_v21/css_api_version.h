@@ -1,22 +1,15 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 #ifndef __CSS_API_VERSION_H
@@ -42,7 +35,7 @@ The version string has four dot-separated numbers, read left to right:
 
 */
 
-#define CSS_API_VERSION_STRING	"2.1.10.4"
+#define CSS_API_VERSION_STRING	"2.1.10.5"
 
 /*
 Change log
@@ -233,20 +226,24 @@ v2.1.9.1 (1 changes parallel), Exclude driver part from ia_css_buffer.h as it is
 v2.1.9.2, added IA_CSS_EVENT_TYPE_TIMER
 - Added a new event called IA_CSS_EVENT_TYPE_TIMER
 
-v2.1.10.0 (3 changes parallel), Add a flag "enable_dpc" to "struct ia_css_pipe_config"
+v2.1.10.0 (4 changes parallel), Add a flag "enable_dpc" to "struct ia_css_pipe_config"
 - Add a flag "enable_dpc" to "struct ia_css_pipe_config"
 
-v2.1.10.3 (3 changes parallel), fix IEFD's puclic API types
+v2.1.10.4 (4 changes parallel), fix IEFD's puclic API types
 - fix IEFD public API members types: rad_cu6_x1,rad_cu_unsharp_x1 & unsharp_amount
 
-v2.1.10.3 (3 changes parallel), Add IA_CSS_FW_WARNING_FRAME_PARAM_MISMATCH
+v2.1.10.4 (4 changes parallel), Add IA_CSS_FW_WARNING_FRAME_PARAM_MISMATCH
 - Add IA_CSS_FW_WARNING_FRAME_PARAM_MISMATCH enum to ia_css_fw_warning type
 
-v2.1.10.4 (4 changes parallel), change the pipe version type from integer to enum
+v2.1.10.5 (5 changes parallel), add_flag_to_disable_continous_viewfinder
+- add a new flag in stream_config to disable continuous viewfinder
+- in ZSL use case.
+
+v2.1.10.5 (5 changes parallel), change the pipe version type from integer to enum
 - add new enum to enumerate ISP pipe version
 - change the pipe version type in pipe_config from integer to enum
 
-v2.1.10.4 (1 changes parallel), Added public interface for setting the scaler LUT.
+v2.1.10.5 (2 changes parallel), Added public interface for setting the scaler LUT.
 - Added the public struct to output system and modified the global config struct.
 
 */

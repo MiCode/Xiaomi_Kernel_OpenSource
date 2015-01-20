@@ -1,22 +1,15 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 #include "ia_css_pipe_stagedesc.h"
@@ -31,7 +24,14 @@ void ia_css_pipe_get_generic_stage_desc(
 	struct ia_css_frame *vf_frame)
 {
 	unsigned int i;
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE, "ia_css_pipe_get_generic_stage_desc() enter:\n");
+	IA_CSS_ENTER_PRIVATE("stage_desc = %p, binary = %p, out_frame = %p, in_frame = %p, vf_frame = %p",
+			     stage_desc, binary, out_frame, in_frame, vf_frame);
+
+	assert(stage_desc != NULL && binary != NULL && binary->info != NULL);
+	if (stage_desc == NULL || binary == NULL || binary->info == NULL) {
+		IA_CSS_ERROR("invalid arguments");
+		goto ERR;
+	}
 
 	stage_desc->binary = binary;
 	stage_desc->firmware = NULL;
@@ -43,6 +43,8 @@ void ia_css_pipe_get_generic_stage_desc(
 		stage_desc->out_frame[i] = out_frame[i];
 	}
 	stage_desc->vf_frame = vf_frame;
+ERR:
+	IA_CSS_LEAVE_PRIVATE("");
 }
 
 void ia_css_pipe_get_firmwares_stage_desc(

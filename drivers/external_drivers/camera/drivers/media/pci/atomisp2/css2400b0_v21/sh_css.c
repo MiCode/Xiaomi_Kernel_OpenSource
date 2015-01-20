@@ -1,22 +1,15 @@
 /*
  * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (c) 2010 - 2015 Intel Corporation. All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
- * 02110-1301, USA.
- *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
 
 /*! \file */
@@ -4943,10 +4936,10 @@ sh_css_pipe_start(struct ia_css_stream *stream)
 void
 sh_css_enable_cont_capt(bool enable, bool stop_copy_preview)
 {
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
-		"sh_css_enable_cont_capt() enter: enable=%d\n", enable);
-	//my_css.cont_capt = enable;
-	my_css.stop_copy_preview = stop_copy_preview;
+       ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
+              "sh_css_enable_cont_capt() enter: enable=%d\n", enable);
+//my_css.cont_capt = enable;
+       my_css.stop_copy_preview = stop_copy_preview;
 }
 
 bool
@@ -5243,10 +5236,8 @@ static enum ia_css_err load_video_binaries(struct ia_css_pipe *pipe)
 			err = ia_css_binary_find(&yuv_scaler_descr,
 						&mycs->yuv_scaler_binary[i]);
 			if (err != IA_CSS_SUCCESS) {
-				if (mycs->is_output_stage != NULL) {
-					sh_css_free(mycs->is_output_stage);
-					mycs->is_output_stage = NULL;
-				}
+				sh_css_free(mycs->is_output_stage);
+				mycs->is_output_stage = NULL;
 				return err;
 			}
 		}
@@ -6963,8 +6954,13 @@ sh_css_pipe_load_binaries(struct ia_css_pipe *pipe)
 		err = IA_CSS_ERR_INTERNAL_ERROR;
 		break;
 	}
-	if (err != IA_CSS_SUCCESS)
-		err = sh_css_pipe_unload_binaries(pipe);
+	if (err != IA_CSS_SUCCESS) {
+		if (sh_css_pipe_unload_binaries(pipe) != IA_CSS_SUCCESS) {
+			/* currently css does not support multiple error returns in a single function,
+			 * using IA_CSS_ERR_INTERNAL_ERROR in this case */
+			err = IA_CSS_ERR_INTERNAL_ERROR;
+		}
+	}
 	return err;
 }
 
@@ -8822,6 +8818,7 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 
 		if (num_pipes >= 2) {
 			curr_stream->cont_capt = true;
+			curr_stream->disable_cont_vf = curr_stream->config.disable_cont_viewfinder;
 			curr_stream->stop_copy_preview = my_css.stop_copy_preview;
 		}
 
@@ -9161,6 +9158,8 @@ ia_css_stream_start(struct ia_css_stream *stream)
 		return IA_CSS_ERR_INVALID_ARGUMENTS;
 	}
 	IA_CSS_LOG("starting %d", stream->last_pipe->mode);
+
+	sh_css_sp_set_disable_continuous_viewfinder(stream->disable_cont_vf);
 
 	/* Create host side pipeline. */
 	err = create_host_pipeline(stream);
