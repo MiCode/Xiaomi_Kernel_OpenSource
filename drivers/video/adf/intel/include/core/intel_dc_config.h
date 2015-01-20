@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <video/intel_adf.h>
+#include <drm/i915_adf.h>
 
 #if defined(CONFIG_ADF)
 #include <video/adf.h>
@@ -31,6 +32,21 @@ struct intel_plane;
 struct intel_pipe;
 struct intel_dc_memory;
 struct intel_dc_power_ops;
+
+enum gen_id {
+	gen_invalid = 0,
+	/*
+	 * Since adf code supports gen 7 and above
+	 * older gen ids are not kept here
+	 */
+	gen_valleyview = 7,
+	gen_broadwell = 8,
+	gen_cherryview = 8,
+	gen_skylake,
+};
+
+#define IS_CHERRYVIEW() (intel_adf_get_platform_id() == gen_cherryview)
+#define IS_VALLEYVIEW() (intel_adf_get_platform_id() == gen_valleyview)
 
 enum intel_plane_blending {
 	INTEL_PLANE_BLENDING_NONE,
