@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -162,7 +162,6 @@
 #define QPNP_WLED_SEC_UNLOCK           0xA5
 
 #define QPNP_WLED_MAX_STRINGS		4
-#define WLED_MAX_LEVEL_511		511
 #define WLED_MAX_LEVEL_4095		4095
 #define QPNP_WLED_RAMP_DLY_MS		20
 #define QPNP_WLED_TRIGGER_NONE		"none"
@@ -1551,10 +1550,7 @@ static int qpnp_wled_probe(struct spmi_device *spmi)
 	wled->cdev.brightness_set = qpnp_wled_set;
 	wled->cdev.brightness_get = qpnp_wled_get;
 
-	if (wled->en_9b_dim_res)
-		wled->cdev.max_brightness = WLED_MAX_LEVEL_511;
-	else
-		wled->cdev.max_brightness = WLED_MAX_LEVEL_4095;
+	wled->cdev.max_brightness = WLED_MAX_LEVEL_4095;
 
 	rc = led_classdev_register(&spmi->dev, &wled->cdev);
 	if (rc) {
