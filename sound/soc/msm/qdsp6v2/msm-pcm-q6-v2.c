@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -163,7 +163,7 @@ static void event_handler(uint32_t opcode,
 		wake_up(&the_locks.write_wait);
 		if (!atomic_read(&prtd->start))
 			break;
-		if (!prtd->mmap_flag)
+		if (!prtd->mmap_flag || prtd->reset_event)
 			break;
 		if (q6asm_is_cpu_buf_avail_nolock(IN,
 				prtd->audio_client,
