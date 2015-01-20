@@ -36,40 +36,27 @@
 #define TIMEOUT_TIMER_MS 40000
 #define TEST_MAX_TESTCASE_ROUNDS 15
 
-static DEFINE_SPINLOCK(blk_dev_test_list_lock);
+
+static DEFINE_MUTEX(blk_dev_test_list_lock);
 static LIST_HEAD(blk_dev_test_list);
-static struct test_data *ptd;
 
-
-/**
- * test_iosched_get_req_queue() - returns the request queue
- * served by the scheduler
- */
-struct request_queue *test_iosched_get_req_queue(void)
-{
-	if (!ptd)
-		return NULL;
-
-	return ptd->req_q;
-}
-EXPORT_SYMBOL(test_iosched_get_req_queue);
 
 /**
  * test_iosched_mark_test_completion() - Wakeup the debugfs
  * thread, waiting on the test completion
  */
-void test_iosched_mark_test_completion(void)
+void test_iosched_mark_test_completion(struct test_iosched *tios)
 {
-	if (!ptd)
+	if (!tios)
 		return;
 
 	pr_info("%s: mark test is completed, test_count=%d, ", __func__,
-		     ptd->test_count);
+		tios->test_count);
 	pr_info("%s: urgent_count=%d, reinsert_count=%d,", __func__,
-		     ptd->urgent_count, ptd->reinsert_count);
+		tios->urgent_count, tios->reinsert_count);
 
-	ptd->test_state = TEST_COMPLETED;
-	wake_up(&ptd->wait_q);
+	tios->test_state = TEST_COMPLETED;
+	wake_up(&tios->wait_q);
 }
 EXPORT_SYMBOL(test_iosched_mark_test_completion);
 
@@ -77,36 +64,37 @@ EXPORT_SYMBOL(test_iosched_mark_test_completion);
  *  check_test_completion() - Check if all the queued test
  *  requests were completed
  */
-void check_test_completion(void)
+void check_test_completion(struct test_iosched *tios)
 {
 	struct test_request *test_rq;
 
-	if (!ptd)
+	if (!tios)
 		goto exit;
 
-	if (ptd->test_info.check_test_completion_fn &&
-		!ptd->test_info.check_test_completion_fn())
+	if (tios->test_info.check_test_completion_fn &&
+		!tios->test_info.check_test_completion_fn(tios))
 		goto exit;
 
-	list_for_each_entry(test_rq, &ptd->dispatched_queue, queuelist)
+	list_for_each_entry(test_rq, &tios->dispatched_queue, queuelist)
 		if (!test_rq->req_completed)
 			goto exit;
 
-	if (!list_empty(&ptd->test_queue)
-			|| !list_empty(&ptd->reinsert_queue)
-			|| !list_empty(&ptd->urgent_queue)) {
+	if (!list_empty(&tios->test_queue)
+			|| !list_empty(&tios->reinsert_queue)
+			|| !list_empty(&tios->urgent_queue)) {
 		pr_info("%s: Test still not completed,", __func__);
-		pr_info("%s: test_count=%d, reinsert_count=%d",
-			     __func__, ptd->test_count, ptd->reinsert_count);
-		pr_info("%s: dispatched_count=%d, urgent_count=%d",
-			    __func__, ptd->dispatched_count, ptd->urgent_count);
+		pr_info("%s: test_count=%d, reinsert_count=%d", __func__,
+			tios->test_count, tios->reinsert_count);
+		pr_info("%s: dispatched_count=%d, urgent_count=%d", __func__,
+			tios->dispatched_count,
+			tios->urgent_count);
 		goto exit;
 	}
 
-	ptd->test_info.test_duration = ktime_sub(ktime_get(),
-				ptd->test_info.test_duration);
+	tios->test_info.test_duration = ktime_sub(ktime_get(),
+		tios->test_info.test_duration);
 
-	test_iosched_mark_test_completion();
+	test_iosched_mark_test_completion(tios);
 
 exit:
 	return;
@@ -132,7 +120,7 @@ static void end_test_bio(struct bio *bio, int err)
 static void end_test_req(struct request *rq, int err)
 {
 	struct test_request *test_rq;
-
+	struct test_iosched *tios = rq->q->elevator->elevator_data;
 	test_rq = (struct test_request *)rq->elv.priv[0];
 	BUG_ON(!test_rq);
 
@@ -142,7 +130,7 @@ static void end_test_req(struct request *rq, int err)
 	test_rq->req_completed = true;
 	test_rq->req_result = err;
 
-	check_test_completion();
+	check_test_completion(tios);
 }
 
 /**
@@ -156,16 +144,16 @@ static void end_test_req(struct request *rq, int err)
  * @end_req_io:		specific completion callback. When not
  *			set, the defaulcallback will be used
  */
-int test_iosched_add_unique_test_req(int is_err_expcted,
-			enum req_unique_type req_unique,
-			int start_sec, int nr_sects, rq_end_io_fn *end_req_io)
+int test_iosched_add_unique_test_req(struct test_iosched *tios,
+	int is_err_expcted, enum req_unique_type req_unique,
+	int start_sec, int nr_sects, rq_end_io_fn *end_req_io)
 {
 	struct bio *bio;
 	struct request *rq;
 	int rw_flags;
 	struct test_request *test_rq;
 
-	if (!ptd)
+	if (!tios)
 		return -ENODEV;
 
 	bio = bio_alloc(GFP_KERNEL, 0);
@@ -196,7 +184,7 @@ int test_iosched_add_unique_test_req(int is_err_expcted,
 	if (bio->bi_rw & REQ_SYNC)
 		rw_flags |= REQ_SYNC;
 
-	rq = blk_get_request(ptd->req_q, rw_flags, GFP_KERNEL);
+	rq = blk_get_request(tios->req_q, rw_flags, GFP_KERNEL);
 	if (!rq) {
 		pr_err("%s: Failed to allocate a request", __func__);
 		bio_put(bio);
@@ -221,16 +209,16 @@ int test_iosched_add_unique_test_req(int is_err_expcted,
 	test_rq->rq = rq;
 	test_rq->is_err_expected = is_err_expcted;
 	rq->elv.priv[0] = (void *)test_rq;
-	test_rq->req_id = ptd->unique_next_req_id++;
+	test_rq->req_id = tios->unique_next_req_id++;
 
 	pr_debug(
 		"%s: added request %d to the test requests list, type = %d",
 		__func__, test_rq->req_id, req_unique);
 
-	spin_lock_irq(ptd->req_q->queue_lock);
-	list_add_tail(&test_rq->queuelist, &ptd->test_queue);
-	ptd->test_count++;
-	spin_unlock_irq(ptd->req_q->queue_lock);
+	spin_lock_irq(tios->req_q->queue_lock);
+	list_add_tail(&test_rq->queuelist, &tios->test_queue);
+	tios->test_count++;
+	spin_unlock_irq(tios->req_q->queue_lock);
 
 	return 0;
 }
@@ -286,9 +274,10 @@ static void fill_buf_with_pattern(int *buf, int num_bytes, int pattern)
  * request memory is freed at the end of the test and the
  * allocated BIO memory is freed by end_test_bio.
  */
-struct test_request *test_iosched_create_test_req(int is_err_expcted,
-		      int direction, int start_sec,
-		      int num_bios, int pattern, rq_end_io_fn *end_req_io)
+struct test_request *test_iosched_create_test_req(
+	struct test_iosched *tios, int is_err_expcted,
+	int direction, int start_sec, int num_bios, int pattern,
+	rq_end_io_fn *end_req_io)
 {
 	struct request *rq;
 	struct test_request *test_rq;
@@ -297,12 +286,12 @@ struct test_request *test_iosched_create_test_req(int is_err_expcted,
 	unsigned int *bio_ptr = NULL;
 	struct bio *bio = NULL;
 
-	if (!ptd)
+	if (!tios)
 		return NULL;
 
 	rw_flags = direction;
 
-	rq = blk_get_request(ptd->req_q, rw_flags, GFP_KERNEL);
+	rq = blk_get_request(tios->req_q, rw_flags, GFP_KERNEL);
 	if (!rq) {
 		pr_err("%s: Failed to allocate a request", __func__);
 		return NULL;
@@ -330,7 +319,7 @@ struct test_request *test_iosched_create_test_req(int is_err_expcted,
 
 	bio_ptr = test_rq->bios_buffer;
 	for (i = 0; i < num_bios; ++i) {
-		ret = blk_rq_map_kern(ptd->req_q, rq,
+		ret = blk_rq_map_kern(tios->req_q, rq,
 				      (void *)bio_ptr,
 				      sizeof(unsigned int)*BIO_U32_SIZE,
 				      GFP_KERNEL);
@@ -359,14 +348,15 @@ struct test_request *test_iosched_create_test_req(int is_err_expcted,
 			bio->bi_end_io = end_test_bio;
 	}
 
-	ptd->num_of_write_bios += num_bios;
-	test_rq->req_id = ptd->wr_rd_next_req_id++;
+	tios->num_of_write_bios += num_bios;
+	test_rq->req_id = tios->wr_rd_next_req_id++;
 
 	test_rq->req_completed = false;
 	test_rq->req_result = -EINVAL;
 	test_rq->rq = rq;
-	if (ptd->test_info.get_rq_disk_fn)
-		test_rq->rq->rq_disk = ptd->test_info.get_rq_disk_fn();
+	if (tios->test_info.get_rq_disk_fn)
+		test_rq->rq->rq_disk =
+			tios->test_info.get_rq_disk_fn(tios);
 	test_rq->is_err_expected = is_err_expcted;
 	rq->elv.priv[0] = (void *)test_rq;
 
@@ -409,20 +399,19 @@ EXPORT_SYMBOL(test_iosched_create_test_req);
  * memory is freed at the end of the test and the allocated BIO
  * memory is freed by end_test_bio.
  */
-int test_iosched_add_wr_rd_test_req(int is_err_expcted,
-		      int direction, int start_sec,
-		      int num_bios, int pattern, rq_end_io_fn *end_req_io)
+int test_iosched_add_wr_rd_test_req(struct test_iosched *tios,
+	int is_err_expcted, int direction, int start_sec, int num_bios,
+	int pattern, rq_end_io_fn *end_req_io)
 {
 	struct test_request *test_rq = NULL;
 
-	test_rq = test_iosched_create_test_req(is_err_expcted,
-			direction, start_sec,
-			num_bios, pattern, end_req_io);
+	test_rq = test_iosched_create_test_req(tios, is_err_expcted, direction,
+		start_sec, num_bios, pattern, end_req_io);
 	if (test_rq) {
-		spin_lock_irq(ptd->req_q->queue_lock);
-		list_add_tail(&test_rq->queuelist, &ptd->test_queue);
-		ptd->test_count++;
-		spin_unlock_irq(ptd->req_q->queue_lock);
+		spin_lock_irq(tios->req_q->queue_lock);
+		list_add_tail(&test_rq->queuelist, &tios->test_queue);
+		tios->test_count++;
+		spin_unlock_irq(tios->req_q->queue_lock);
 		return 0;
 	}
 	return -ENODEV;
@@ -430,10 +419,11 @@ int test_iosched_add_wr_rd_test_req(int is_err_expcted,
 EXPORT_SYMBOL(test_iosched_add_wr_rd_test_req);
 
 /* Converts the testcase number into a string */
-static char *get_test_case_str(struct test_data *td)
+static char *get_test_case_str(struct test_iosched *tios)
 {
-	if (td->test_info.get_test_case_str_fn)
-		return td->test_info.get_test_case_str_fn(td);
+	if (tios->test_info.get_test_case_str_fn)
+		return tios->test_info.get_test_case_str_fn(
+			tios->test_info.testcase);
 
 	return "Unknown testcase";
 }
@@ -485,43 +475,40 @@ EXPORT_SYMBOL(compare_buffer_to_pattern);
  * check_testcase_result for result checking that are specific
  * to a test case.
  */
-static int check_test_result(struct test_data *td)
+static int check_test_result(struct test_iosched *tios)
 {
-	struct test_request *test_rq;
+	struct test_request *trq;
 	int res = 0;
 	static int run;
 
-	if (!ptd)
-		goto err;
-
-	list_for_each_entry(test_rq, &ptd->dispatched_queue, queuelist) {
-		if (!test_rq->rq) {
+	list_for_each_entry(trq, &tios->dispatched_queue, queuelist) {
+		if (!trq->rq) {
 			pr_info("%s: req_id %d is contains empty req",
-					__func__, test_rq->req_id);
+					__func__, trq->req_id);
 			continue;
 		}
-		if (!test_rq->req_completed) {
+		if (!trq->req_completed) {
 			pr_err("%s: rq %d not completed", __func__,
-				    test_rq->req_id);
+				    trq->req_id);
 			res = -EINVAL;
 			goto err;
 		}
 
-		if ((test_rq->req_result < 0) && !test_rq->is_err_expected) {
+		if ((trq->req_result < 0) && !trq->is_err_expected) {
 			pr_err(
 				"%s: rq %d completed with err, not as expected",
-				__func__, test_rq->req_id);
+				__func__, trq->req_id);
 			res = -EINVAL;
 			goto err;
 		}
-		if ((test_rq->req_result == 0) && test_rq->is_err_expected) {
+		if ((trq->req_result == 0) && trq->is_err_expected) {
 			pr_err("%s: rq %d succeeded, not as expected",
-				    __func__, test_rq->req_id);
+				    __func__, trq->req_id);
 			res = -EINVAL;
 			goto err;
 		}
-		if (rq_data_dir(test_rq->rq) == READ) {
-			res = compare_buffer_to_pattern(test_rq);
+		if (rq_data_dir(trq->rq) == READ) {
+			res = compare_buffer_to_pattern(trq);
 			if (res) {
 				pr_err("%s: read pattern not as expected",
 					    __func__);
@@ -531,31 +518,32 @@ static int check_test_result(struct test_data *td)
 		}
 	}
 
-	if (td->test_info.check_test_result_fn) {
-		res = td->test_info.check_test_result_fn(td);
+	if (tios->test_info.check_test_result_fn) {
+		res = tios->test_info.check_test_result_fn(
+			tios);
 		if (res)
 			goto err;
 	}
 
 	pr_info("%s: %s, run# %03d, PASSED",
-			    __func__, get_test_case_str(td), ++run);
-	td->test_result = TEST_PASSED;
+		__func__, get_test_case_str(tios), ++run);
+	tios->test_result = TEST_PASSED;
 
 	return 0;
 err:
 	pr_err("%s: %s, run# %03d, FAILED",
-		    __func__, get_test_case_str(td), ++run);
-	td->test_result = TEST_FAILED;
+		    __func__, get_test_case_str(tios), ++run);
+	tios->test_result = TEST_FAILED;
 	return res;
 }
 
 /* Create and queue the required requests according to the test case */
-static int prepare_test(struct test_data *td)
+static int prepare_test(struct test_iosched *tios)
 {
 	int ret = 0;
 
-	if (td->test_info.prepare_test_fn) {
-		ret = td->test_info.prepare_test_fn(td);
+	if (tios->test_info.prepare_test_fn) {
+		ret = tios->test_info.prepare_test_fn(tios);
 		return ret;
 	}
 
@@ -563,16 +551,16 @@ static int prepare_test(struct test_data *td)
 }
 
 /* Run the test */
-static int run_test(struct test_data *td)
+static int run_test(struct test_iosched *tios)
 {
 	int ret = 0;
 
-	if (td->test_info.run_test_fn) {
-		ret = td->test_info.run_test_fn(td);
+	if (tios->test_info.run_test_fn) {
+		ret = tios->test_info.run_test_fn(tios);
 		return ret;
 	}
 
-	blk_run_queue(td->req_q);
+	blk_run_queue(tios->req_q);
 
 	return 0;
 }
@@ -618,26 +606,26 @@ static void free_test_queue(struct list_head *test_queue)
  * @td		The test_data struct whos test requests will be
  *		freed.
  */
-static void free_test_requests(struct test_data *td)
+static void free_test_requests(struct test_iosched *tios)
 {
-	if (!td)
+	if (!tios)
 		return;
 
-	if (td->urgent_count) {
-		free_test_queue(&td->urgent_queue);
-		td->urgent_count = 0;
+	if (tios->urgent_count) {
+		free_test_queue(&tios->urgent_queue);
+		tios->urgent_count = 0;
 	}
-	if (td->test_count) {
-		free_test_queue(&td->test_queue);
-		td->test_count = 0;
+	if (tios->test_count) {
+		free_test_queue(&tios->test_queue);
+		tios->test_count = 0;
 	}
-	if (td->dispatched_count) {
-		free_test_queue(&td->dispatched_queue);
-		td->dispatched_count = 0;
+	if (tios->dispatched_count) {
+		free_test_queue(&tios->dispatched_queue);
+		tios->dispatched_count = 0;
 	}
-	if (td->reinsert_count) {
-		free_test_queue(&td->reinsert_queue);
-		td->reinsert_count = 0;
+	if (tios->reinsert_count) {
+		free_test_queue(&tios->reinsert_queue);
+		tios->reinsert_count = 0;
 	}
 }
 
@@ -647,27 +635,26 @@ static void free_test_requests(struct test_data *td)
  * @td		The test_data struct for the test that has
  *		ended.
  */
-static int post_test(struct test_data *td)
+static int post_test(struct test_iosched *tios)
 {
 	int ret = 0;
 
-	if (td->test_info.post_test_fn)
-		ret = td->test_info.post_test_fn(td);
+	if (tios->test_info.post_test_fn)
+		ret = tios->test_info.post_test_fn(tios);
 
-	ptd->test_info.testcase = 0;
-	ptd->test_state = TEST_IDLE;
+	tios->test_info.testcase = 0;
+	tios->test_state = TEST_IDLE;
 
-	free_test_requests(td);
+	free_test_requests(tios);
 
 	return ret;
 }
 
-static unsigned int get_timeout_msec(struct test_data *td)
+static unsigned int get_timeout_msec(struct test_iosched *tios)
 {
-	if (td->test_info.timeout_msec)
-		return td->test_info.timeout_msec;
-	else
-		return TIMEOUT_TIMER_MS;
+	if (tios->test_info.timeout_msec)
+		return tios->test_info.timeout_msec;
+	return TIMEOUT_TIMER_MS;
 }
 
 /**
@@ -679,83 +666,86 @@ static unsigned int get_timeout_msec(struct test_data *td)
  *
  * The function also checks the test result upon test completion
  */
-int test_iosched_start_test(struct test_info *t_info)
+int test_iosched_start_test(struct test_iosched *tios,
+	struct test_info *t_info)
 {
 	int ret = 0;
-	unsigned timeout_msec;
+	unsigned long timeout;
 	int counter = 0;
 	char *test_name = NULL;
 
-	if (!ptd)
+	if (!tios)
 		return -ENODEV;
 
 	if (!t_info) {
-		ptd->test_result = TEST_FAILED;
+		tios->test_result = TEST_FAILED;
 		return -EINVAL;
 	}
 
+	timeout = msecs_to_jiffies(get_timeout_msec(tios));
+
 	do {
-		if (ptd->ignore_round)
+		if (tios->ignore_round)
 			/*
 			 * We ignored the last run due to FS write requests.
 			 * Sleep to allow those requests to be issued
 			 */
 			msleep(2000);
 
-		spin_lock(&ptd->lock);
+		spin_lock(&tios->lock);
 
-		if (ptd->test_state != TEST_IDLE) {
+		if (tios->test_state != TEST_IDLE) {
 			pr_info(
 				"%s: Another test is running, try again later",
 				__func__);
-			spin_unlock(&ptd->lock);
+			spin_unlock(&tios->lock);
 			return -EBUSY;
 		}
 
-		if (ptd->start_sector == 0) {
+		if (tios->start_sector == 0) {
 			pr_err("%s: Invalid start sector", __func__);
-			ptd->test_result = TEST_FAILED;
-			spin_unlock(&ptd->lock);
+			tios->test_result = TEST_FAILED;
+			spin_unlock(&tios->lock);
 			return -EINVAL;
 		}
 
-		memcpy(&ptd->test_info, t_info, sizeof(struct test_info));
+		memcpy(&tios->test_info, t_info, sizeof(*t_info));
 
-		ptd->test_result = TEST_NO_RESULT;
-		ptd->num_of_write_bios = 0;
+		tios->test_result = TEST_NO_RESULT;
+		tios->num_of_write_bios = 0;
 
-		ptd->unique_next_req_id = UNIQUE_START_REQ_ID;
-		ptd->wr_rd_next_req_id = WR_RD_START_REQ_ID;
+		tios->unique_next_req_id = UNIQUE_START_REQ_ID;
+		tios->wr_rd_next_req_id = WR_RD_START_REQ_ID;
 
-		ptd->ignore_round = false;
-		ptd->fs_wr_reqs_during_test = false;
+		tios->ignore_round = false;
+		tios->fs_wr_reqs_during_test = false;
 
-		ptd->test_state = TEST_RUNNING;
+		tios->test_state = TEST_RUNNING;
 
-		spin_unlock(&ptd->lock);
+		spin_unlock(&tios->lock);
 		/*
 		 * Give an already dispatch request from
 		 * FS a chanse to complete
 		 */
 		msleep(2000);
 
-		timeout_msec = get_timeout_msec(ptd);
-
-		if (ptd->test_info.get_test_case_str_fn)
-			test_name = ptd->test_info.get_test_case_str_fn(ptd);
+		if (tios->test_info.get_test_case_str_fn)
+			test_name =
+				tios->test_info.get_test_case_str_fn(
+					tios->test_info.testcase);
 		else
 			test_name = "Unknown testcase";
 		pr_info("%s: Starting test %s", __func__, test_name);
 
-		ret = prepare_test(ptd);
+		ret = prepare_test(tios);
 		if (ret) {
 			pr_err("%s: failed to prepare the test",
 				    __func__);
 			goto error;
 		}
 
-		ptd->test_info.test_duration = ktime_get();
-		ret = run_test(ptd);
+		tios->test_info.test_duration = ktime_get();
+		ret = run_test(tios);
 		if (ret) {
 			pr_err("%s: failed to run the test", __func__);
 			goto error;
@@ -763,11 +753,10 @@ int test_iosched_start_test(struct test_info *t_info)
 
 		pr_info("%s: Waiting for the test completion", __func__);
 
-		ret = wait_event_interruptible_timeout(ptd->wait_q,
-			(ptd->test_state == TEST_COMPLETED),
-			msecs_to_jiffies(timeout_msec));
+		ret = wait_event_interruptible_timeout(tios->wait_q,
+			(tios->test_state == TEST_COMPLETED), timeout);
 		if (ret <= 0) {
-			ptd->test_state = TEST_COMPLETED;
+			tios->test_state = TEST_COMPLETED;
 			if (!ret)
 				pr_info("%s: Test timeout\n", __func__);
 			else
@@ -775,16 +764,15 @@ int test_iosched_start_test(struct test_info *t_info)
 			goto error;
 		}
 
-		memcpy(t_info, &ptd->test_info, sizeof(struct test_info));
+		memcpy(t_info, &tios->test_info, sizeof(*t_info));
 
-		ret = check_test_result(ptd);
+		ret = check_test_result(tios);
 		if (ret) {
-			pr_err("%s: check_test_result failed",
-				    __func__);
+			pr_err("%s: check_test_result failed", __func__);
 			goto error;
 		}
 
-		ret = post_test(ptd);
+		ret = post_test(tios);
 		if (ret) {
 			pr_err("%s: post_test failed", __func__);
 			goto error;
@@ -794,9 +782,9 @@ int test_iosched_start_test(struct test_info *t_info)
 		 * Wakeup the queue thread to fetch FS requests that might got
 		 * postponded due to the test
 		 */
-		blk_run_queue(ptd->req_q);
+		blk_run_queue(tios->req_q);
 
-		if (ptd->ignore_round)
+		if (tios->ignore_round)
 			pr_info(
 			"%s: Round canceled (Got wr reqs in the middle)",
 			__func__);
@@ -804,19 +792,20 @@ int test_iosched_start_test(struct test_info *t_info)
 		if (++counter == TEST_MAX_TESTCASE_ROUNDS) {
 			pr_info("%s: Too many rounds, did not succeed...",
 			     __func__);
-			ptd->test_result = TEST_FAILED;
+			tios->test_result = TEST_FAILED;
 		}
 
-	} while ((ptd->ignore_round) && (counter < TEST_MAX_TESTCASE_ROUNDS));
+	} while ((tios->ignore_round) &&
+		(counter < TEST_MAX_TESTCASE_ROUNDS));
 
-	if (ptd->test_result == TEST_PASSED)
+	if (tios->test_result == TEST_PASSED)
 		return 0;
 	else
 		return -EINVAL;
 
 error:
-	post_test(ptd);
-	ptd->test_result = TEST_FAILED;
+	post_test(tios);
+	tios->test_result = TEST_FAILED;
 	return ret;
 }
 EXPORT_SYMBOL(test_iosched_start_test);
@@ -828,11 +817,15 @@ EXPORT_SYMBOL(test_iosched_start_test);
  */
 void test_iosched_register(struct blk_dev_test_type *bdt)
 {
-	spin_lock(&blk_dev_test_list_lock);
+	if (!bdt)
+		return;
+
+	mutex_lock(&blk_dev_test_list_lock);
 	list_add_tail(&bdt->list, &blk_dev_test_list);
-	spin_unlock(&blk_dev_test_list_lock);
+	mutex_unlock(&blk_dev_test_list_lock);
+
 }
-EXPORT_SYMBOL_GPL(test_iosched_register);
+EXPORT_SYMBOL(test_iosched_register);
 
 /**
  * test_iosched_unregister() - unregister a block device test
@@ -841,23 +834,27 @@ EXPORT_SYMBOL_GPL(test_iosched_register);
  */
 void test_iosched_unregister(struct blk_dev_test_type *bdt)
 {
-	spin_lock(&blk_dev_test_list_lock);
+	if (!bdt)
+		return;
+
+	mutex_lock(&blk_dev_test_list_lock);
 	list_del_init(&bdt->list);
-	spin_unlock(&blk_dev_test_list_lock);
+	mutex_unlock(&blk_dev_test_list_lock);
 }
-EXPORT_SYMBOL_GPL(test_iosched_unregister);
+EXPORT_SYMBOL(test_iosched_unregister);
 
 /**
  * test_iosched_set_test_result() - Set the test
  * result(PASS/FAIL)
  * @test_result:	the test result
  */
-void test_iosched_set_test_result(int test_result)
+void test_iosched_set_test_result(struct test_iosched *tios,
+	int test_result)
 {
-	if (!ptd)
+	if (!tios)
 		return;
 
-	ptd->test_result = test_result;
+	tios->test_result = test_result;
 }
 EXPORT_SYMBOL(test_iosched_set_test_result);
 
@@ -867,83 +864,65 @@ EXPORT_SYMBOL(test_iosched_set_test_result);
  * @ignore_round:	A flag to indicate if this test round
  * should be ignored and re-run
  */
-void test_iosched_set_ignore_round(bool ignore_round)
+void test_iosched_set_ignore_round(struct test_iosched *tios,
+	bool ignore_round)
 {
-	if (!ptd)
+	if (!tios)
 		return;
 
-	ptd->ignore_round = ignore_round;
+	tios->ignore_round = ignore_round;
 }
 EXPORT_SYMBOL(test_iosched_set_ignore_round);
 
-/**
- * test_iosched_get_debugfs_tests_root() - returns the root
- * debugfs directory for the test_iosched tests
- */
-struct dentry *test_iosched_get_debugfs_tests_root(void)
+static int test_debugfs_init(struct test_iosched *tios)
 {
-	if (!ptd)
-		return NULL;
+	char name[2*BDEVNAME_SIZE];
 
-	return ptd->debug.debug_tests_root;
-}
-EXPORT_SYMBOL(test_iosched_get_debugfs_tests_root);
 
-/**
- * test_iosched_get_debugfs_utils_root() - returns the root
- * debugfs directory for the test_iosched utils
- */
-struct dentry *test_iosched_get_debugfs_utils_root(void)
-{
-	if (!ptd)
-		return NULL;
+	snprintf(name, 2*BDEVNAME_SIZE - 1, "%s-%s", "test-iosched",
+		tios->req_q->kobj.parent->name);
+	pr_debug("%s: creating test-iosched instance %s\n", __func__, name);
 
-	return ptd->debug.debug_utils_root;
-}
-EXPORT_SYMBOL(test_iosched_get_debugfs_utils_root);
-
-static int test_debugfs_init(struct test_data *td)
-{
-	td->debug.debug_root = debugfs_create_dir("test-iosched", NULL);
-	if (!td->debug.debug_root)
+	tios->debug.debug_root = debugfs_create_dir(name, NULL);
+	if (!tios->debug.debug_root)
 		return -ENOENT;
 
-	td->debug.debug_tests_root = debugfs_create_dir("tests",
-							td->debug.debug_root);
-	if (!td->debug.debug_tests_root)
+	tios->debug.debug_tests_root = debugfs_create_dir("tests",
+		tios->debug.debug_root);
+	if (!tios->debug.debug_tests_root)
 		goto err;
 
-	td->debug.debug_utils_root = debugfs_create_dir("utils",
-							td->debug.debug_root);
-	if (!td->debug.debug_utils_root)
+	tios->debug.debug_utils_root = debugfs_create_dir("utils",
+		tios->debug.debug_root);
+	if (!tios->debug.debug_utils_root)
 		goto err;
 
-	td->debug.debug_test_result = debugfs_create_u32(
+	tios->debug.debug_test_result = debugfs_create_u32(
 					"test_result",
 					S_IRUGO | S_IWUGO,
-					td->debug.debug_utils_root,
-					&td->test_result);
-	if (!td->debug.debug_test_result)
+					tios->debug.debug_utils_root,
+					&tios->test_result);
+	if (!tios->debug.debug_test_result)
 		goto err;
 
-	td->debug.start_sector = debugfs_create_u32(
+	tios->debug.start_sector = debugfs_create_u32(
 					"start_sector",
 					S_IRUGO | S_IWUGO,
-					td->debug.debug_utils_root,
-					&td->start_sector);
-	if (!td->debug.start_sector)
+					tios->debug.debug_utils_root,
+					&tios->start_sector);
+	if (!tios->debug.start_sector)
 		goto err;
 
 	return 0;
 
 err:
-	debugfs_remove_recursive(td->debug.debug_root);
+	debugfs_remove_recursive(tios->debug.debug_root);
 	return -ENOENT;
 }
 
-static void test_debugfs_cleanup(struct test_data *td)
+static void test_debugfs_cleanup(struct test_iosched *tios)
 {
-	debugfs_remove_recursive(td->debug.debug_root);
+	debugfs_remove_recursive(tios->debug.debug_root);
 }
 
 static void print_req(struct request *req)
@@ -980,7 +959,7 @@ static void test_merged_requests(struct request_queue *q,
 }
 /*
  * test_dispatch_from(): Dispatch request from @queue to the @dispatched_queue.
- * Also update th dispatched_count counter.
+ * Also update the dispatched_count counter.
  */
 static int test_dispatch_from(struct request_queue *q,
 		struct list_head *queue, unsigned int *count)
@@ -988,33 +967,35 @@ static int test_dispatch_from(struct request_queue *q,
 	struct test_request *test_rq;
 	struct request *rq;
 	int ret = 0;
+	struct test_iosched *tios = q->elevator->elevator_data;
 	unsigned long flags;
 
-	if (!ptd)
+	if (!tios)
 		goto err;
 
-	spin_lock_irqsave(&ptd->lock, flags);
+	spin_lock_irqsave(&tios->lock, flags);
 	if (!list_empty(queue)) {
 		test_rq = list_entry(queue->next, struct test_request,
 				queuelist);
 		rq = test_rq->rq;
 		if (!rq) {
 			pr_err("%s: null request,return", __func__);
-			spin_unlock_irqrestore(&ptd->lock, flags);
+			spin_unlock_irqrestore(&tios->lock, flags);
 			goto err;
 		}
-		list_move_tail(&test_rq->queuelist, &ptd->dispatched_queue);
-		ptd->dispatched_count++;
+		list_move_tail(&test_rq->queuelist,
+			&tios->dispatched_queue);
+		tios->dispatched_count++;
 		(*count)--;
-		spin_unlock_irqrestore(&ptd->lock, flags);
+		spin_unlock_irqrestore(&tios->lock, flags);
 
 		print_req(rq);
 		elv_dispatch_sort(q, rq);
-		ptd->test_info.test_byte_count += test_rq->buf_size;
+		tios->test_info.test_byte_count += test_rq->buf_size;
 		ret = 1;
 		goto err;
 	}
-	spin_unlock_irqrestore(&ptd->lock, flags);
+	spin_unlock_irqrestore(&tios->lock, flags);
 
 err:
 	return ret;
@@ -1026,15 +1007,15 @@ err:
  */
 static int test_dispatch_requests(struct request_queue *q, int force)
 {
-	struct test_data *td = q->elevator->elevator_data;
+	struct test_iosched *tios = q->elevator->elevator_data;
 	struct request *rq = NULL;
 	int ret = 0;
 
-	switch (td->test_state) {
+	switch (tios->test_state) {
 	case TEST_IDLE:
-		if (!list_empty(&td->queue)) {
-			rq = list_entry(td->queue.next, struct request,
-					queuelist);
+		if (!list_empty(&tios->queue)) {
+			rq = list_entry(tios->queue.next,
+				struct request, queuelist);
 			list_del_init(&rq->queuelist);
 			elv_dispatch_sort(q, rq);
 			ret = 1;
@@ -1042,23 +1023,24 @@ static int test_dispatch_requests(struct request_queue *q, int force)
 		}
 		break;
 	case TEST_RUNNING:
-		if (test_dispatch_from(q, &td->urgent_queue,
-				       &td->urgent_count)) {
+		if (test_dispatch_from(q, &tios->urgent_queue,
+				       &tios->urgent_count)) {
 			pr_debug("%s: Dispatched from urgent_count=%d",
-					__func__, ptd->urgent_count);
+					__func__, tios->urgent_count);
 			ret = 1;
 			goto exit;
 		}
-		if (test_dispatch_from(q, &td->reinsert_queue,
-				       &td->reinsert_count)) {
+		if (test_dispatch_from(q, &tios->reinsert_queue,
+				       &tios->reinsert_count)) {
 			pr_debug("%s: Dispatched from reinsert_count=%d",
-					__func__, ptd->reinsert_count);
+					__func__, tios->reinsert_count);
 			ret = 1;
 			goto exit;
 		}
-		if (test_dispatch_from(q, &td->test_queue, &td->test_count)) {
+		if (test_dispatch_from(q, &tios->test_queue,
+			&tios->test_count)) {
 			pr_debug("%s: Dispatched from test_count=%d",
-					__func__, ptd->test_count);
+					__func__, tios->test_count);
 			ret = 1;
 			goto exit;
 		}
@@ -1074,27 +1056,28 @@ exit:
 
 static void test_add_request(struct request_queue *q, struct request *rq)
 {
-	struct test_data *td = q->elevator->elevator_data;
+	struct test_iosched *tios = q->elevator->elevator_data;
 
-	list_add_tail(&rq->queuelist, &td->queue);
+	list_add_tail(&rq->queuelist, &tios->queue);
 
 	/*
 	 * The write requests can be followed by a FLUSH request that might
 	 * cause unexpected results of the test.
 	 */
-	if ((rq_data_dir(rq) == WRITE) && (td->test_state == TEST_RUNNING)) {
+	if (rq_data_dir(rq) == WRITE &&
+		tios->test_state == TEST_RUNNING) {
 		pr_debug("%s: got WRITE req in the middle of the test",
 			__func__);
-		td->fs_wr_reqs_during_test = true;
+		tios->fs_wr_reqs_during_test = true;
 	}
 }
 
 static struct request *
 test_former_request(struct request_queue *q, struct request *rq)
 {
-	struct test_data *td = q->elevator->elevator_data;
+	struct test_iosched *tios = q->elevator->elevator_data;
 
-	if (rq->queuelist.prev == &td->queue)
+	if (rq->queuelist.prev == &tios->queue)
 		return NULL;
 	return list_entry(rq->queuelist.prev, struct request, queuelist);
 }
@@ -1102,9 +1085,9 @@ test_former_request(struct request_queue *q, struct request *rq)
 static struct request *
 test_latter_request(struct request_queue *q, struct request *rq)
 {
-	struct test_data *td = q->elevator->elevator_data;
+	struct test_iosched *tios = q->elevator->elevator_data;
 
-	if (rq->queuelist.next == &td->queue)
+	if (rq->queuelist.next == &tios->queue)
 		return NULL;
 	return list_entry(rq->queuelist.next, struct request, queuelist);
 }
@@ -1113,57 +1096,100 @@ static int test_init_queue(struct request_queue *q, struct elevator_type *e)
 {
 	struct blk_dev_test_type *__bdt;
 	struct elevator_queue *eq;
+	struct test_iosched *tios;
+	const char *blk_dev_name;
+	int ret;
+	bool found = false;
 
 	eq = elevator_alloc(q, e);
 	if (!eq)
 		return -ENOMEM;
 
-	ptd = kmalloc_node(sizeof(struct test_data), GFP_KERNEL,
-			     q->node);
-	if (!ptd) {
-		pr_err("%s: failed to allocate test data", __func__);
-		return -ENOMEM;
+	tios = kzalloc_node(sizeof(*tios), GFP_KERNEL, q->node);
+	if (!tios) {
+		pr_err("%s: failed to allocate test iosched\n", __func__);
+		ret = -ENOMEM;
+		goto free_kobj;
 	}
-	memset((void *)ptd, 0, sizeof(struct test_data));
-	INIT_LIST_HEAD(&ptd->queue);
-	INIT_LIST_HEAD(&ptd->test_queue);
-	INIT_LIST_HEAD(&ptd->dispatched_queue);
-	INIT_LIST_HEAD(&ptd->reinsert_queue);
-	INIT_LIST_HEAD(&ptd->urgent_queue);
-	init_waitqueue_head(&ptd->wait_q);
+	eq->elevator_data = tios;
 
-	eq->elevator_data = ptd;
-	ptd->req_q = q;
+	INIT_LIST_HEAD(&tios->queue);
+	INIT_LIST_HEAD(&tios->test_queue);
+	INIT_LIST_HEAD(&tios->dispatched_queue);
+	INIT_LIST_HEAD(&tios->reinsert_queue);
+	INIT_LIST_HEAD(&tios->urgent_queue);
+	init_waitqueue_head(&tios->wait_q);
+	tios->req_q = q;
+
+	spin_lock_init(&tios->lock);
+
+	ret = test_debugfs_init(tios);
+	if (ret) {
+		pr_err("%s: Failed to create debugfs files, ret=%d",
+			__func__, ret);
+		goto free_mem;
+	}
+	blk_dev_name = q->kobj.parent->name;
+
+	/* Traverse the block device test list and init matches */
+	mutex_lock(&blk_dev_test_list_lock);
+
+	list_for_each_entry(__bdt, &blk_dev_test_list, list) {
+		pr_debug("%s: checking if %s is a match to device %s\n",
+			__func__, __bdt->type_prefix, blk_dev_name);
+		if (!strnstr(blk_dev_name, __bdt->type_prefix,
+			strlen(__bdt->type_prefix)))
+			continue;
+
+		pr_debug("%s: found the match!\n", __func__);
+		found = true;
+		break;
+	}
+	mutex_unlock(&blk_dev_test_list_lock);
+
+	/* No match found */
+	if (!found) {
+		pr_err("%s: No matching block device test utility found\n",
+			__func__);
+		ret = -ENODEV;
+		goto free_debugfs;
+	} else {
+		ret = __bdt->init_fn(tios);
+		if (ret) {
+			pr_err("%s: failed to init block device test, ret=%d\n",
+				__func__, ret);
+			goto free_debugfs;
+		}
+	}
+
 	spin_lock_irq(q->queue_lock);
 	q->elevator = eq;
 	spin_unlock_irq(q->queue_lock);
 
-	spin_lock_init(&ptd->lock);
-
-	if (test_debugfs_init(ptd)) {
-		pr_err("%s: Failed to create debugfs files", __func__);
-		return -ENOMEM;
-	}
-
-	list_for_each_entry(__bdt, &blk_dev_test_list, list)
-		__bdt->init_fn();
-
 	return 0;
+
+free_debugfs:
+	test_debugfs_cleanup(tios);
+free_mem:
+	kfree(tios);
+free_kobj:
+	kobject_put(&eq->kobj);
+	return ret;
 }
 
 static void test_exit_queue(struct elevator_queue *e)
 {
-	struct test_data *td = e->elevator_data;
+	struct test_iosched *tios = e->elevator_data;
 	struct blk_dev_test_type *__bdt;
 
-	BUG_ON(!list_empty(&td->queue));
+	BUG_ON(!list_empty(&tios->queue));
 
 	list_for_each_entry(__bdt, &blk_dev_test_list, list)
-		__bdt->exit_fn();
+		__bdt->exit_fn(tios);
 
-	test_debugfs_cleanup(td);
+	test_debugfs_cleanup(tios);
 
-	kfree(td);
+	kfree(tios);
 }
 
 /**
@@ -1174,13 +1200,17 @@ static void test_exit_queue(struct elevator_queue *e)
  *			added.
  *
  */
-void test_iosched_add_urgent_req(struct test_request *test_rq)
+void test_iosched_add_urgent_req(struct test_iosched *tios,
+	struct test_request *test_rq)
 {
-	spin_lock_irq(&ptd->lock);
+	if (!tios)
+		return;
+
+	spin_lock_irq(&tios->lock);
 	test_rq->rq->cmd_flags |= REQ_URGENT;
-	list_add_tail(&test_rq->queuelist, &ptd->urgent_queue);
-	ptd->urgent_count++;
-	spin_unlock_irq(&ptd->lock);
+	list_add_tail(&test_rq->queuelist, &tios->urgent_queue);
+	tios->urgent_count++;
+	spin_unlock_irq(&tios->lock);
 }
 EXPORT_SYMBOL(test_iosched_add_urgent_req);
 
