@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1046,6 +1046,7 @@ static unsigned int a4xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_PROTECT_STATUS, A4XX_CP_PROTECT_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_SCRATCH_REG6, A4XX_CP_SCRATCH_REG6),
 	ADRENO_REG_DEFINE(ADRENO_REG_CP_SCRATCH_REG7, A4XX_CP_SCRATCH_REG7),
+	ADRENO_REG_DEFINE(ADRENO_REG_CP_PROTECT_REG_0, A4XX_CP_PROTECT_REG_0),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_STATUS, A4XX_RBBM_STATUS),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_CTL, A4XX_RBBM_PERFCTR_CTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0,

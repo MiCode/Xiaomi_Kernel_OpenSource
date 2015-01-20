@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -483,22 +483,8 @@ enum a4xx_rb_perfctr_rb_sel {
 #define A4XX_CP_DEBUG_DEFAULT (1 << 25)
 
 #define A4XX_CP_PROTECT_REG_0		0x240
-#define A4XX_CP_PROTECT_REG_1		0x241
-#define A4XX_CP_PROTECT_REG_3		0x242
-#define A4XX_CP_PROTECT_REG_4		0x243
-#define A4XX_CP_PROTECT_REG_5		0x244
-#define A4XX_CP_PROTECT_REG_6		0x245
-#define A4XX_CP_PROTECT_REG_7		0x246
-#define A4XX_CP_PROTECT_REG_8		0x248
-#define A4XX_CP_PROTECT_REG_9		0x249
-#define A4XX_CP_PROTECT_REG_A		0x24a
-#define A4XX_CP_PROTECT_REG_B		0x24b
-#define A4XX_CP_PROTECT_REG_C		0x24c
-#define A4XX_CP_PROTECT_REG_D		0x24d
-#define A4XX_CP_PROTECT_REG_E		0x24e
-#define A4XX_CP_PROTECT_REG_F		0x24f
-
 #define A4XX_CP_PROTECT_CTRL		0x250
+#define A4XX_CP_PROTECT_REG_10		0x251
 #define A4XX_CP_SCRATCH_UMASK		0x228
 #define A4XX_CP_SCRATCH_ADDR		0x229
 #define A4XX_CP_CNTL			0x22c
