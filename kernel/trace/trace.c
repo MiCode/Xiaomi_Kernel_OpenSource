@@ -5923,7 +5923,7 @@ struct dentry *tracing_init_dentry_tr(struct trace_array *tr)
 		return tr->dir;
 
 	if (!debugfs_initialized())
-		return NULL;
+		return ERR_PTR(-ENODEV);
 
 	if (tr->flags & TRACE_ARRAY_FL_GLOBAL)
 		tr->dir = debugfs_create_dir("tracing", NULL);
@@ -5947,7 +5947,7 @@ static struct dentry *tracing_dentry_percpu(struct trace_array *tr, int cpu)
 		return tr->percpu_dir;
 
 	d_tracer = tracing_init_dentry_tr(tr);
-	if (!d_tracer)
+	if (IS_ERR(d_tracer))
 		return NULL;
 
 	tr->percpu_dir = debugfs_create_dir("per_cpu", d_tracer);
@@ -6150,7 +6150,7 @@ static struct dentry *trace_options_init_dentry(struct trace_array *tr)
 		return tr->options;
 
 	d_tracer = tracing_init_dentry_tr(tr);
-	if (!d_tracer)
+	if (IS_ERR(d_tracer))
 		return NULL;
 
 	tr->options = debugfs_create_dir("options", d_tracer);
@@ -6644,7 +6644,7 @@ static __init int tracer_init_debugfs(void)
 	trace_access_lock_init();
 
 	d_tracer = tracing_init_dentry();
-	if (!d_tracer)
+	if (IS_ERR(d_tracer))
 		return 0;
 
 	init_tracer_debugfs(&global_trace, d_tracer);
