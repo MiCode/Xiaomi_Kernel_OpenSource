@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1626,7 +1626,7 @@ static int smb135x_float_voltage_set(struct smb135x_chg *chip, int vfloat_mv)
 		temp = MID_RANGE_FLOAT_MIN_VAL
 			+ (vfloat_mv - MID_RANGE_FLOAT_MV_MIN)
 				/ MID_RANGE_FLOAT_STEP_MV;
-	} else if (vfloat_mv <= VHIGH_RANGE_FLOAT_MIN_MV) {
+	} else if (vfloat_mv < VHIGH_RANGE_FLOAT_MIN_MV) {
 		/* high range */
 		temp = HIGH_RANGE_FLOAT_MIN_VAL
 			+ (vfloat_mv - HIGH_RANGE_FLOAT_MIN_MV)
