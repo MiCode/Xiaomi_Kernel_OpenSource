@@ -98,13 +98,24 @@ struct mc_ioctl_map {
  * Returns the physical address of the MMU table.
  * The page alignment will be created and the appropriated pSize and pOffsetMMU
  * will be modified to the used values.
+ *
+ * We assume the 64 bit compatible one to be the default and the
+ * 32 bit one to be the compat one but we must serve both of them.
  */
-struct mc_ioctl_reg_wsm {
+struct mc_compat_ioctl_reg_wsm {
 	uint32_t buffer;	/* base address of the virtual address  */
 	uint32_t len;		/* size of the virtual address space */
 	uint32_t pid;		/* process id */
 	uint32_t handle;	/* driver handle for locked memory */
 	uint64_t table_phys;	/* physical address of the MMU table */
+};
+
+struct mc_ioctl_reg_wsm {
+	uint64_t buffer;	/* base address of the virtual address  */
+	uint32_t len;		/* size of the virtual address space */
+	uint32_t pid;		/* process id */
+	uint32_t handle;	/* driver handle for locked memory */
+	uint64_t table_phys;/* physical address of the MMU table */
 };
 
 /*
@@ -169,8 +180,14 @@ struct mc_ioctl_resolv_wsm {
  * Creates a MMU Table of the given base address and the size of the
  * data.
  * Parameter: mc_ioctl_reg_wsm
+ *
+ * Since the end ID is also based on the size of the structure it is
+ * safe to use the same ID(6) for both
  */
 #define MC_IO_REG_WSM		_IOWR(MC_IOC_MAGIC, 6, struct mc_ioctl_reg_wsm)
+#define MC_COMPAT_REG_WSM	_IOWR(MC_IOC_MAGIC, 6, \
+			struct mc_compat_ioctl_reg_wsm)
+
 #define MC_IO_UNREG_WSM		_IO(MC_IOC_MAGIC, 7)
 #define MC_IO_LOCK_WSM		_IO(MC_IOC_MAGIC, 8)
 #define MC_IO_UNLOCK_WSM	_IO(MC_IOC_MAGIC, 9)
