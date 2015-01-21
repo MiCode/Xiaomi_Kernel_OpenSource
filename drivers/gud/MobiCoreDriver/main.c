@@ -1552,7 +1552,7 @@ static int mcd_resume(struct platform_device *pdev)
 
 static struct of_device_id mcd_match[] = {
 	{
-		.compatible = "qcom,qcrypto",
+		.compatible = "qcom,mcd",
 	},
 	{}
 };
