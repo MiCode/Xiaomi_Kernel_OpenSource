@@ -1084,12 +1084,14 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 
 int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_pipe **left_plist, int left_cnt,
-		struct mdss_mdp_pipe **right_plist, int right_cnt)
+		struct mdss_mdp_pipe **right_plist, int right_cnt,
+		bool mode_switch)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
 	struct mdss_mdp_perf_params perf;
 	u32 bw, threshold, i;
 	u64 bw_sum_of_intfs = 0;
+	bool is_video_mode;
 
 	/* we only need bandwidth check on real-time clients (interfaces) */
 	if (ctl->intf_type == MDSS_MDP_NO_INTF)
@@ -1111,7 +1113,8 @@ int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 	bw = DIV_ROUND_UP_ULL(bw_sum_of_intfs, 1000);
 	pr_debug("calculated bandwidth=%uk\n", bw);
 
-	threshold = (ctl->is_video_mode ||
+	is_video_mode = mode_switch ? ctl->is_video_mode : !ctl->is_video_mode;
+	threshold = (is_video_mode ||
 		mdss_mdp_video_mode_intf_connected(ctl)) ?
 		mdata->max_bw_low : mdata->max_bw_high;
 	if (bw > threshold) {
@@ -2207,6 +2210,64 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
+/**
+ * mdss_mdp_ctl_reconfig() - re-configure ctl for new mode
+ * @ctl: mdp controller.
+ * @pdata: panel data
+ *
+ * This function is called when we are trying to dynamically change
+ * the DSI mode. We need to change various mdp_ctl properties to
+ * the new mode of operation.
+ */
+int mdss_mdp_ctl_reconfig(struct mdss_mdp_ctl *ctl,
+		struct mdss_panel_data *pdata)
+{
+	int (*stop_fnc)(struct mdss_mdp_ctl *ctl, int panel_power_state);
+	int ret;
+
+	/*
+	 * Switch first to prevent deleting important data in the case
+	 * where panel type is not supported in reconfig
+	 */
+	if ((pdata->panel_info.type != MIPI_VIDEO_PANEL) &&
+			(pdata->panel_info.type != MIPI_CMD_PANEL)) {
+		pr_err("unsupported panel type (%d)\n", pdata->panel_info.type);
+		return -EINVAL;
+	}
+
+	/*
+	 * Intentionally not clearing stop function, as stop will
+	 * be called after panel is instructed mode switch is happening
+	 */
+	stop_fnc = ctl->ops.stop_fnc;
+	memset(&ctl->ops, 0, sizeof(ctl->ops));
+	ctl->ops.stop_fnc = stop_fnc;
+
+	switch (pdata->panel_info.type) {
+	case MIPI_VIDEO_PANEL:
+		ctl->is_video_mode = true;
+		ctl->intf_type = MDSS_INTF_DSI;
+		ctl->opmode = MDSS_MDP_CTL_OP_VIDEO_MODE;
+		ctl->ops.start_fnc = mdss_mdp_video_start;
+		break;
+	case MIPI_CMD_PANEL:
+		ctl->is_video_mode = false;
+		ctl->intf_type = MDSS_INTF_DSI;
+		ctl->opmode = MDSS_MDP_CTL_OP_CMD_MODE;
+		ctl->ops.start_fnc = mdss_mdp_cmd_start;
+		break;
+	}
+
+	ctl->is_secure = false;
+	ctl->split_flush_en = false;
+	ctl->perf_release_ctl_bw = false;
+	ctl->play_cnt = 0;
+
+	ctl->opmode |= (ctl->intf_num << 4);
+
+	return ret;
+}
+
 struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 				       struct msm_fb_data_type *mfd)
 {
@@ -2623,7 +2684,8 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	pr_debug("ctl_num=%d, power_state=%d\n", ctl->num, ctl->power_state);
 
-	if (mdss_mdp_ctl_is_power_on_interactive(ctl)) {
+	if (mdss_mdp_ctl_is_power_on_interactive(ctl)
+			&& !(ctl->force_ctl_start)) {
 		pr_debug("%d: panel already on!\n", __LINE__);
 		return 0;
 	}
@@ -2649,7 +2711,7 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 	 * keep power_on false during handoff to avoid unexpected
 	 * operations to overlay.
 	 */
-	if (!handoff)
+	if (!handoff || ctl->force_ctl_start)
 		ctl->power_state = MDSS_PANEL_POWER_ON;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);

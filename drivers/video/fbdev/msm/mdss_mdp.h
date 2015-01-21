@@ -310,6 +310,7 @@ struct mdss_mdp_ctl {
 	struct mdss_mdp_writeback *wb;
 
 	struct mdss_mdp_ctl_intfs_ops ops;
+	bool force_ctl_start;
 };
 
 struct mdss_mdp_mixer {
@@ -591,6 +592,7 @@ struct mdss_overlay_private {
 	int retire_cnt;
 	bool kickoff_released;
 	u32 cursor_ndx[2];
+	bool dyn_mode_switch; /* Used in prepare, bw calc for new mode */
 };
 
 struct mdss_mdp_set_ot_params {
@@ -930,6 +932,8 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
 int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
 		u32 *offsets,  u32 count);
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl);
+void mdss_mdp_switch_to_cmd_mode(struct mdss_mdp_ctl *ctl, int prep);
+void mdss_mdp_switch_to_vid_mode(struct mdss_mdp_ctl *ctl, int prep);
 void *mdss_mdp_get_intf_base_addr(struct mdss_data_type *mdata,
 		u32 interface_id);
 int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl);
@@ -941,6 +945,8 @@ struct mdss_mdp_data *mdss_mdp_overlay_buf_alloc(struct msm_fb_data_type *mfd,
 void mdss_mdp_overlay_buf_free(struct msm_fb_data_type *mfd,
 		struct mdss_mdp_data *buf);
 
+int mdss_mdp_ctl_reconfig(struct mdss_mdp_ctl *ctl,
+		struct mdss_panel_data *pdata);
 struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 					struct msm_fb_data_type *mfd);
 int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
@@ -957,7 +963,8 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int panel_power_mode);
 int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg);
 int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_pipe **left_plist, int left_cnt,
-		struct mdss_mdp_pipe **right_plist, int right_cnt);
+		struct mdss_mdp_pipe **right_plist, int right_cnt,
+		bool mode_switch);
 int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
 		struct mdss_mdp_pipe *pipe);
 int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,

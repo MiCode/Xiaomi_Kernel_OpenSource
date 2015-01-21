@@ -414,10 +414,30 @@ static int mdss_mdp_video_remove_vsync_handler(struct mdss_mdp_ctl *ctl,
 	return 0;
 }
 
+void mdss_mdp_turn_off_time_engine(struct mdss_mdp_ctl *ctl,
+		struct mdss_mdp_video_ctx *ctx, u32 sleep_time)
+{
+	struct mdss_mdp_ctl *sctl;
+
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
+	/* wait for at least one VSYNC for proper TG OFF */
+	msleep(sleep_time);
+
+	mdss_iommu_ctrl(0);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+	ctx->timegen_en = false;
+
+	mdss_mdp_irq_disable(MDSS_MDP_IRQ_INTF_UNDER_RUN, ctl->intf_num);
+
+	sctl = mdss_mdp_get_split_ctl(ctl);
+	if (sctl)
+		mdss_mdp_irq_disable(MDSS_MDP_IRQ_INTF_UNDER_RUN,
+			sctl->intf_num);
+}
+
 static int mdss_mdp_video_ctx_stop(struct mdss_mdp_ctl *ctl,
 		struct mdss_panel_info *pinfo, struct mdss_mdp_video_ctx *ctx)
 {
-	struct mdss_mdp_ctl *sctl;
 	int rc = 0;
 	u32 frame_rate = 0;
 
@@ -431,26 +451,15 @@ static int mdss_mdp_video_ctx_stop(struct mdss_mdp_ctl *ctl,
 		}
 		WARN(rc, "intf %d blank error (%d)\n", ctl->intf_num, rc);
 
-		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
-		/* wait for at least one VSYNC for proper TG OFF */
 		frame_rate = mdss_panel_get_framerate(pinfo);
 		if (!(frame_rate >= 24 && frame_rate <= 240))
 			frame_rate = 24;
-		msleep((1000/frame_rate) + 1);
 
-		mdss_iommu_ctrl(0);
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-		ctx->timegen_en = false;
+		frame_rate = (1000/frame_rate) + 1;
+		mdss_mdp_turn_off_time_engine(ctl, ctx, frame_rate);
 
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_OFF, NULL);
 		WARN(rc, "intf %d timegen off error (%d)\n", ctl->intf_num, rc);
-
-		mdss_mdp_irq_disable(MDSS_MDP_IRQ_INTF_UNDER_RUN,
-			ctl->intf_num);
-		sctl = mdss_mdp_get_split_ctl(ctl);
-		if (sctl)
-			mdss_mdp_irq_disable(MDSS_MDP_IRQ_INTF_UNDER_RUN,
-				sctl->intf_num);
 
 		mdss_bus_bandwidth_ctrl(false);
 	}
@@ -1392,6 +1401,58 @@ static int mdss_mdp_video_intfs_setup(struct mdss_mdp_ctl *ctl,
 		}
 	}
 	return 0;
+}
+
+void mdss_mdp_switch_to_cmd_mode(struct mdss_mdp_ctl *ctl, int prep)
+{
+	struct mdss_mdp_video_ctx *ctx;
+	long int mode = MIPI_CMD_PANEL;
+	u32 frame_rate = 0;
+	int rc;
+
+	pr_debug("start, prep = %d\n", prep);
+
+	if (!prep) {
+		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_RECONFIG_CMD,
+			(void *) mode);
+		return;
+	}
+
+	ctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[MASTER_CTX];
+
+	if (!ctx->timegen_en) {
+		pr_err("Time engine not enabled, cannot switch from vid\n");
+		return;
+	}
+
+	/* Start off by sending command to initial cmd mode */
+	rc = mdss_mdp_ctl_intf_event(ctl,
+		MDSS_EVENT_DSI_DYNAMIC_SWITCH, (void *) mode);
+	if (rc) {
+		pr_err("intf #%d busy don't turn off, rc=%d\n",
+			 ctl->intf_num, rc);
+		return;
+	}
+
+	if (ctx->wait_pending) {
+		/* wait for at least commit to commplete */
+		wait_for_completion_interruptible_timeout(&ctx->vsync_comp,
+			  usecs_to_jiffies(VSYNC_TIMEOUT_US));
+	}
+	frame_rate = mdss_panel_get_framerate
+			(&(ctl->panel_data->panel_info));
+	if (!(frame_rate >= 24 && frame_rate <= 240))
+		frame_rate = 24;
+	frame_rate = ((1000/frame_rate) + 1);
+	/*
+	 * In order for panel to switch to cmd mode, we need
+	 * to wait for one more video frame to be sent after
+	 * issuing the switch command. We do this before
+	 * turning off the timeing engine.
+	 */
+	msleep(frame_rate);
+	mdss_mdp_turn_off_time_engine(ctl, ctx, frame_rate);
+	mdss_bus_bandwidth_ctrl(false);
 }
 
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)

@@ -2173,7 +2173,8 @@ int mdp3_wait_for_dma_done(struct mdp3_session_data *session)
 	return rc;
 }
 
-static int mdp3_update_panel_info(struct msm_fb_data_type *mfd, int mode)
+static int mdp3_update_panel_info(struct msm_fb_data_type *mfd, int mode,
+		int dest_ctrl)
 {
 	int ret = 0;
 	struct mdp3_session_data *mdp3_session;
@@ -2188,7 +2189,7 @@ static int mdp3_update_panel_info(struct msm_fb_data_type *mfd, int mode)
 
 	if (!panel->event_handler)
 		return 0;
-	ret = panel->event_handler(panel, MDSS_EVENT_DSI_DYNAMIC_SWITCH,
+	ret = panel->event_handler(panel, MDSS_EVENT_DSI_UPDATE_PANEL_DATA,
 						(void *)(unsigned long)mode);
 	if (ret)
 		pr_err("Dynamic switch to %s mode failed!\n",

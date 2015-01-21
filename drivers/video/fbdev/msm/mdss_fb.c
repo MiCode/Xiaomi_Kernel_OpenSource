@@ -107,7 +107,8 @@ static int __mdss_fb_display_thread(void *data);
 static int mdss_fb_pan_idle(struct msm_fb_data_type *mfd);
 static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 					int event, void *arg);
-static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd);
+static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd,
+		int type);
 static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 					struct fb_var_screeninfo *var);
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
@@ -573,16 +574,16 @@ static ssize_t mdss_fb_get_panel_status(struct device *dev,
 }
 
 /*
- * mdss_fb_lpm_enable() - Function to Control LowPowerMode
+ * mdss_fb_blanking_mode_switch() - Function triggers dynamic mode switch
  * @mfd:	Framebuffer data structure for display
  * @mode:	Enabled/Disable LowPowerMode
  *		1: Enter into LowPowerMode
  *		0: Exit from LowPowerMode
  *
- * This Function dynamically switches to and from LowPowerMode
- * based on the argument @mode.
+ * This Function dynamically switches to and from video mode. This
+ * swtich involves the panel turning off backlight during trantision.
  */
-static int mdss_fb_lpm_enable(struct msm_fb_data_type *mfd, int mode)
+static int mdss_fb_blanking_mode_switch(struct msm_fb_data_type *mfd, int mode)
 {
 	int ret = 0;
 	u32 bl_lvl = 0;
@@ -594,7 +595,7 @@ static int mdss_fb_lpm_enable(struct msm_fb_data_type *mfd, int mode)
 
 	pinfo = mfd->panel_info;
 
-	if (!pinfo->mipi.dynamic_switch_enabled) {
+	if (!pinfo->mipi.dms_mode) {
 		pr_warn("Panel does not support dynamic switch!\n");
 		return 0;
 	}
@@ -626,8 +627,8 @@ static int mdss_fb_lpm_enable(struct msm_fb_data_type *mfd, int mode)
 
 	mfd->op_enable = false;
 
-	ret = mfd->mdp.configure_panel(mfd, mode);
-	mdss_fb_set_mdp_sync_pt_threshold(mfd);
+	ret = mfd->mdp.configure_panel(mfd, mode, 1);
+	mdss_fb_set_mdp_sync_pt_threshold(mfd, mfd->panel.type);
 
 	mfd->op_enable = true;
 
@@ -774,6 +775,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mfd->proc_list);
 
 	mutex_init(&mfd->bl_lock);
+	mutex_init(&mfd->switch_lock);
 
 	fbi_list[fbi_list_index++] = fbi;
 
@@ -826,7 +828,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 			__mdss_fb_sync_buf_done_callback;
 	}
 
-	mdss_fb_set_mdp_sync_pt_threshold(mfd);
+	mdss_fb_set_mdp_sync_pt_threshold(mfd, mfd->panel.type);
 
 	if (mfd->mdp.splash_init_fnc)
 		mfd->mdp.splash_init_fnc(mfd);
@@ -836,12 +838,13 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	return rc;
 }
 
-static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd)
+static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd,
+		int type)
 {
 	if (!mfd)
 		return;
 
-	switch (mfd->panel.type) {
+	switch (type) {
 	case WRITEBACK_PANEL:
 		mfd->mdp_sync_pt_data.threshold = 1;
 		mfd->mdp_sync_pt_data.retire_threshold = 0;
@@ -856,6 +859,7 @@ static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd)
 		break;
 	}
 }
+
 static int mdss_fb_remove(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd;
@@ -1488,8 +1492,8 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 	if (pdata->panel_info.is_lpm_mode &&
 			blank_mode == FB_BLANK_UNBLANK) {
 		pr_debug("panel is in lpm mode\n");
-		mfd->mdp.configure_panel(mfd, 0);
-		mdss_fb_set_mdp_sync_pt_threshold(mfd);
+		mfd->mdp.configure_panel(mfd, 0, 1);
+		mdss_fb_set_mdp_sync_pt_threshold(mfd, mfd->panel.type);
 		pdata->panel_info.is_lpm_mode = false;
 	}
 
@@ -2877,11 +2881,27 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 	struct msm_sync_pt_data *sync_pt_data = &mfd->mdp_sync_pt_data;
 	struct msm_fb_backup_type *fb_backup = &mfd->msm_fb_backup;
 	int ret = -ENOSYS;
+	u32 new_dsi_mode, dynamic_dsi_switch = 0;
 
 	if (!sync_pt_data->async_wait_fences)
 		mdss_fb_wait_for_fence(sync_pt_data);
 	sync_pt_data->flushed = false;
 
+	mutex_lock(&mfd->switch_lock);
+	if (mfd->switch_state == MDSS_MDP_WAIT_FOR_COMMIT) {
+		dynamic_dsi_switch = 1;
+		new_dsi_mode = mfd->switch_new_mode;
+	}
+	mutex_unlock(&mfd->switch_lock);
+
+	if (dynamic_dsi_switch) {
+		pr_debug("Triggering dyn mode switch to %d\n", new_dsi_mode);
+		ret = mfd->mdp.mode_switch(mfd, new_dsi_mode);
+		if (ret)
+			pr_err("DSI mode switch has failed");
+		else
+			mfd->mdp.pend_mode_switch(mfd, false);
+	}
 	if (fb_backup->disp_commit.flags & MDP_DISPLAY_COMMIT_OVERLAY) {
 		if (mfd->mdp.kickoff_fnc)
 			ret = mfd->mdp.kickoff_fnc(mfd,
@@ -2911,6 +2931,15 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 		mdss_fb_release_kickoff(mfd);
 		mdss_fb_signal_timeline(sync_pt_data);
 	}
+
+	if (dynamic_dsi_switch) {
+		mfd->mdp.mode_switch_post(mfd, new_dsi_mode);
+		mutex_lock(&mfd->switch_lock);
+		mfd->switch_state = MDSS_MDP_NO_UPDATE_REQUESTED;
+		mutex_unlock(&mfd->switch_lock);
+		pr_debug("Dynamic mode switch completed\n");
+	}
+
 	return ret;
 }
 
@@ -3538,6 +3567,108 @@ err:
 		kfree(layer_list[i].scale);
 	kfree(layer_list);
 	kfree(output_layer);
+
+	return ret;
+}
+
+int mdss_fb_switch_check(struct msm_fb_data_type *mfd, u32 mode)
+{
+	struct mdss_panel_info *pinfo = NULL;
+	int panel_type;
+
+	if (!mfd || !mfd->panel_info)
+		return -EINVAL;
+
+	pinfo = mfd->panel_info;
+
+	if ((!mfd->op_enable) || (mdss_fb_is_power_off(mfd)))
+		return -EPERM;
+
+	if (pinfo->mipi.dms_mode != DYNAMIC_MODE_SWITCH_IMMEDIATE) {
+		pr_warn("Panel does not support immediate dynamic switch!\n");
+		return -EPERM;
+	}
+
+	if (mfd->dcm_state != DCM_UNINIT) {
+		pr_warn("Switch not supported during DCM!\n");
+		return -EPERM;
+	}
+
+	mutex_lock(&mfd->switch_lock);
+	if (mode == pinfo->type) {
+		pr_debug("Already in requested mode!\n");
+		mutex_unlock(&mfd->switch_lock);
+		return -EPERM;
+	}
+	mutex_unlock(&mfd->switch_lock);
+
+	panel_type = mfd->panel.type;
+	if (panel_type != MIPI_VIDEO_PANEL && panel_type != MIPI_CMD_PANEL) {
+		pr_debug("Panel not in mipi video or cmd mode, cannot change\n");
+		return -EPERM;
+	}
+
+	return 0;
+}
+
+static int mdss_fb_immediate_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
+{
+	int ret;
+	u32 tranlated_mode;
+
+	if (mode)
+		tranlated_mode = MIPI_CMD_PANEL;
+	else
+		tranlated_mode = MIPI_VIDEO_PANEL;
+
+	pr_debug("%s: Request to switch to %d,", __func__, tranlated_mode);
+
+	ret = mdss_fb_switch_check(mfd, tranlated_mode);
+	if (ret)
+		return ret;
+
+	mutex_lock(&mfd->switch_lock);
+	if (mfd->switch_state != MDSS_MDP_NO_UPDATE_REQUESTED) {
+		pr_err("%s: Mode switch already in progress\n", __func__);
+		ret = -EAGAIN;
+		goto exit;
+	}
+	mfd->switch_state = MDSS_MDP_WAIT_FOR_PREP;
+	mfd->switch_new_mode = tranlated_mode;
+
+exit:
+	mutex_unlock(&mfd->switch_lock);
+	return ret;
+}
+
+/*
+ * mdss_fb_mode_switch() - Function to change DSI mode
+ * @mfd:	Framebuffer data structure for display
+ * @mode:	Enabled/Disable LowPowerMode
+ *		1: Switch to Command Mode
+ *		0: Switch to video Mode
+ *
+ * This function is used to change from DSI mode based on the
+ * argument @mode on the next frame to be displayed.
+ */
+static int mdss_fb_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
+{
+	struct mdss_panel_info *pinfo = NULL;
+	int ret = 0;
+
+	if (!mfd || !mfd->panel_info)
+		return -EINVAL;
+
+	pinfo = mfd->panel_info;
+	if (pinfo->mipi.dms_mode == DYNAMIC_MODE_SWITCH_SUSPEND_RESUME) {
+		ret = mdss_fb_blanking_mode_switch(mfd, mode);
+	} else if (pinfo->mipi.dms_mode == DYNAMIC_MODE_SWITCH_IMMEDIATE) {
+		ret = mdss_fb_immediate_mode_switch(mfd, mode);
+	} else {
+		pr_warn("Panel does not support dynamic mode switch!\n");
+		ret = -EPERM;
+	}
+
 	return ret;
 }
 
@@ -3566,6 +3697,32 @@ static int __ioctl_wait_idle(struct msm_fb_data_type *mfd, u32 cmd)
 	if (ret)
 		pr_debug("Shutdown pending. Aborting operation %x\n", cmd);
 	return ret;
+}
+
+int __ioctl_transition_dyn_mode_state(struct msm_fb_data_type *mfd,
+		unsigned int cmd)
+{
+
+	if (cmd == MDSS_MDP_NO_UPDATE_REQUESTED)
+		return 0;
+
+	mutex_lock(&mfd->switch_lock);
+	switch (cmd) {
+	case MSMFB_BUFFER_SYNC:
+		if (mfd->switch_state == MDSS_MDP_WAIT_FOR_SYNC) {
+			mdss_fb_set_mdp_sync_pt_threshold(mfd,
+				mfd->switch_new_mode);
+			mfd->switch_state = MDSS_MDP_WAIT_FOR_COMMIT;
+		}
+		break;
+	case MSMFB_OVERLAY_PREPARE:
+		if (mfd->switch_state == MDSS_MDP_WAIT_FOR_PREP) {
+			mfd->mdp.pend_mode_switch(mfd, true);
+			mfd->switch_state = MDSS_MDP_WAIT_FOR_SYNC;
+		}
+	}
+	mutex_unlock(&mfd->switch_lock);
+	return 0;
 }
 
 /*
@@ -3611,6 +3768,8 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	ret = __ioctl_wait_idle(mfd, cmd);
 	if (ret)
 		goto exit;
+
+	__ioctl_transition_dyn_mode_state(mfd, cmd);
 
 	switch (cmd) {
 	case MSMFB_CURSOR:
@@ -3666,7 +3825,7 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 			goto exit;
 		}
 
-		ret = mdss_fb_lpm_enable(mfd, dsi_mode);
+		ret = mdss_fb_mode_switch(mfd, dsi_mode);
 		break;
 	case MSMFB_ATOMIC_COMMIT:
 		ret = mdss_fb_atomic_commit_ioctl(info, argp);

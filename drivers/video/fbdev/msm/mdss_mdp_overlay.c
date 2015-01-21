@@ -53,6 +53,8 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd);
 static void __overlay_kickoff_requeue(struct msm_fb_data_type *mfd);
 static void __vsync_retire_signal(struct msm_fb_data_type *mfd, int val);
 static int __vsync_set_vsync_handler(struct msm_fb_data_type *mfd);
+static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
+		int mode, int dest_ctrl);
 
 static inline bool is_ov_right_blend(struct mdp_rect *left_blend,
 	struct mdp_rect *right_blend, u32 left_lm_w)
@@ -1533,6 +1535,73 @@ static bool __validate_roi(struct mdss_mdp_pipe *pipe,
 	}
 
 	return false;
+}
+
+void mdss_pend_mode_switch(struct msm_fb_data_type *mfd, bool pend_switch)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	mdp5_data->dyn_mode_switch = pend_switch;
+}
+
+int mdss_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
+{
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	int rc;
+
+	pr_debug("%s, start\n", __func__);
+
+	/* No need for mode validation. It has been done in ioctl call */
+	if (mode == MIPI_CMD_PANEL) {
+		mdss_mdp_switch_to_cmd_mode(ctl, 1);
+		mdss_mdp_update_panel_info(mfd, 1, 0);
+		mdss_mdp_switch_to_cmd_mode(ctl, 0);
+		mdss_mdp_ctl_stop(ctl, MDSS_PANEL_POWER_OFF);
+	} else if (mode == MIPI_VIDEO_PANEL) {
+		if (ctl->ops.wait_pingpong)
+			rc = ctl->ops.wait_pingpong(ctl, NULL);
+		mdss_mdp_update_panel_info(mfd, 0, 0);
+		mdss_mdp_switch_to_vid_mode(ctl, 1);
+		mdss_mdp_ctl_stop(ctl, MDSS_PANEL_POWER_OFF);
+		mdss_mdp_switch_to_vid_mode(ctl, 0);
+	} else {
+		pr_err("Invalid mode switch arg %d\n", mode);
+		return -EINVAL;
+	}
+
+	ctl->force_ctl_start = 1;
+	mdss_mdp_ctl_start(ctl, true);
+	ctl->force_ctl_start = 0;
+
+	pr_debug("%s, end\n", __func__);
+	return 0;
+}
+
+int mdss_mode_switch_post(struct msm_fb_data_type *mfd, u32 mode)
+{
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	int rc = 0;
+	u32 frame_rate = 0;
+
+	if (mode == MIPI_VIDEO_PANEL) {
+		/*
+		 * Need to make sure one frame has been sent in
+		 * video mode prior to issuing the mode switch
+		 * DCS to panel.
+		 */
+		frame_rate = mdss_panel_get_framerate
+			(&(ctl->panel_data->panel_info));
+		if (!(frame_rate >= 24 && frame_rate <= 240))
+			frame_rate = 24;
+		frame_rate = ((1000/frame_rate) + 1);
+		msleep(frame_rate);
+
+		pr_debug("%s, start\n", __func__);
+		rc = mdss_mdp_ctl_intf_event(ctl,
+			MDSS_EVENT_DSI_DYNAMIC_SWITCH,
+			(void *) MIPI_VIDEO_PANEL);
+		pr_debug("%s, end\n", __func__);
+	}
+	return rc;
 }
 
 int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
@@ -3701,7 +3770,7 @@ static int __handle_overlay_prepare(struct msm_fb_data_type *mfd,
 	}
 
 	ret = mdss_mdp_perf_bw_check(mdp5_data->ctl, left_plist, left_cnt,
-			right_plist, right_cnt);
+			right_plist, right_cnt, mdp5_data->dyn_mode_switch);
 
 validate_exit:
 	if (sort_needed)
@@ -4441,23 +4510,39 @@ static int __vsync_retire_setup(struct msm_fb_data_type *mfd)
 	return 0;
 }
 
-static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd, int mode)
+static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
+		int mode, int dest_ctrl)
 {
 	int ret = 0;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
+	struct mdss_panel_data *pdata;
+	struct mdss_mdp_ctl *sctl;
 
-	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_DYNAMIC_SWITCH,
+	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_UPDATE_PANEL_DATA,
 						(void *)(unsigned long)mode);
 	if (ret)
 		pr_err("Dynamic switch to %s mode failed!\n",
 					mode ? "command" : "video");
-	/*
-	 * Destroy current ctrl sturcture as this is
-	 * going to be re-initialized with the requested mode.
-	 */
-	mdss_mdp_ctl_destroy(mdp5_data->ctl);
-	mdp5_data->ctl = NULL;
+
+	if (dest_ctrl) {
+		/*
+		 * Destroy current ctrl sturcture as this is
+		 * going to be re-initialized with the requested mode.
+		 */
+		mdss_mdp_ctl_destroy(mdp5_data->ctl);
+		mdp5_data->ctl = NULL;
+	} else {
+		/*
+		 * Dynamic change so we need to reconfig instead of
+		 * destroying current ctrl sturcture.
+		 */
+		pdata = dev_get_platdata(&mfd->pdev->dev);
+		mdss_mdp_ctl_reconfig(ctl, pdata);
+		sctl = mdss_mdp_get_split_ctl(ctl);
+		if (sctl)
+			mdss_mdp_ctl_reconfig(sctl, pdata->next);
+	}
 
 	return 0;
 }
@@ -4493,6 +4578,9 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->dma_fnc = mdss_mdp_overlay_pan_display;
 	mdp5_interface->ioctl_handler = mdss_mdp_overlay_ioctl_handler;
 	mdp5_interface->kickoff_fnc = mdss_mdp_overlay_kickoff;
+	mdp5_interface->mode_switch = mdss_mode_switch;
+	mdp5_interface->pend_mode_switch = mdss_pend_mode_switch;
+	mdp5_interface->mode_switch_post = mdss_mode_switch_post;
 	mdp5_interface->get_sync_fnc = mdss_mdp_rotator_sync_pt_get;
 	mdp5_interface->splash_init_fnc = mdss_mdp_splash_init;
 	mdp5_interface->configure_panel = mdss_mdp_update_panel_info;
@@ -4586,7 +4674,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 		}
 	}
 
-	if (mfd->panel_info->mipi.dynamic_switch_enabled ||
+	if (mfd->panel_info->mipi.dms_mode ||
 			mfd->panel_info->type == MIPI_CMD_PANEL) {
 		rc = __vsync_retire_setup(mfd);
 		if (IS_ERR_VALUE(rc)) {
