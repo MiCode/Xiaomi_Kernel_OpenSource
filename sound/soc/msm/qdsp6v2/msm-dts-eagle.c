@@ -585,7 +585,7 @@ static int _enable_post_put_control(struct snd_kcontrol *kcontrol,
 		      msm_bedai.active))
 			continue;
 		for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++) {
-			topology = adm_get_topology_for_port_from_copp_id(
+			topology = adm_get_topology_for_port_copp_idx(
 								port_id, idx);
 			if (topology ==
 				ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX) {
