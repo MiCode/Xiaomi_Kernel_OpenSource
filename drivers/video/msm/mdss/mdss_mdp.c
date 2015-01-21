@@ -135,6 +135,7 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on);
 static int mdss_mdp_parse_dt(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev);
+static int mdss_mdp_parse_dt_wb(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ctl(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_video_intf(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_handler(struct platform_device *pdev,
@@ -1585,6 +1586,12 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = mdss_mdp_parse_dt_wb(pdev);
+	if (rc) {
+		pr_err("Error in device tree : wb\n");
+		return rc;
+	}
+
 	rc = mdss_mdp_parse_dt_ctl(pdev);
 	if (rc) {
 		pr_err("Error in device tree : ctl\n");
@@ -2234,17 +2241,61 @@ end:
 	return rc;
 }
 
+static int mdss_mdp_parse_dt_wb(struct platform_device *pdev)
+{
+	int rc = 0;
+	u32 *wb_offsets = NULL;
+	u32 num_wb_mixer, nwb_offsets, num_intf_wb = 0;
+	const char *wfd_data;
+	struct mdss_data_type *mdata;
+
+	mdata = platform_get_drvdata(pdev);
+
+	num_wb_mixer = mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-mixer-wb-off");
+
+	wfd_data = of_get_property(pdev->dev.of_node,
+					"qcom,mdss-wfd-mode", NULL);
+	if (wfd_data && strcmp(wfd_data, "shared") != 0)
+		num_intf_wb = 1;
+
+	nwb_offsets =  mdss_mdp_parse_dt_prop_len(pdev,
+			"qcom,mdss-wb-off");
+
+	wb_offsets = kzalloc(sizeof(u32) * nwb_offsets, GFP_KERNEL);
+	if (!wb_offsets) {
+		pr_err("no more mem for writeback offsets\n");
+		return -ENOMEM;
+	}
+
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-wb-off",
+		wb_offsets, nwb_offsets);
+	if (rc)
+		goto wb_parse_done;
+
+	rc = mdss_mdp_wb_addr_setup(mdata, num_wb_mixer, num_intf_wb);
+	if (rc)
+		goto wb_parse_done;
+
+	mdata->nwb_offsets = nwb_offsets;
+	mdata->wb_offsets = wb_offsets;
+
+	return 0;
+
+wb_parse_done:
+	kfree(wb_offsets);
+	return rc;
+}
+
 static int mdss_mdp_parse_dt_ctl(struct platform_device *pdev)
 {
 	int rc = 0;
-	u32 *ctl_offsets = NULL, *wb_offsets = NULL;
+	u32 *ctl_offsets = NULL;
 
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
 	mdata->nctl = mdss_mdp_parse_dt_prop_len(pdev,
 			"qcom,mdss-ctl-off");
-	mdata->nwb =  mdss_mdp_parse_dt_prop_len(pdev,
-			"qcom,mdss-wb-off");
 
 	if (mdata->nctl < mdata->nwb) {
 		pr_err("device tree err: number of ctl greater than wb\n");
@@ -2258,31 +2309,16 @@ static int mdss_mdp_parse_dt_ctl(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	wb_offsets = kzalloc(sizeof(u32) * mdata->nwb, GFP_KERNEL);
-	if (!wb_offsets) {
-		pr_err("no more mem for writeback offsets\n");
-		rc = -ENOMEM;
-		goto wb_alloc_fail;
-	}
-
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-ctl-off",
 		ctl_offsets, mdata->nctl);
 	if (rc)
 		goto parse_done;
 
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-wb-off",
-		wb_offsets, mdata->nwb);
-	if (rc)
-		goto parse_done;
-
-	rc = mdss_mdp_ctl_addr_setup(mdata, ctl_offsets, wb_offsets,
-						 mdata->nctl);
+	rc = mdss_mdp_ctl_addr_setup(mdata, ctl_offsets, mdata->nctl);
 	if (rc)
 		goto parse_done;
 
 parse_done:
-	kfree(wb_offsets);
-wb_alloc_fail:
 	kfree(ctl_offsets);
 
 	return rc;

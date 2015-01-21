@@ -186,6 +186,13 @@ enum mdss_mdp_bw_vote_mode {
 	MDSS_MDP_BW_MODE_MAX
 };
 
+enum mdp_wb_blk_caps {
+	MDSS_MDP_WB_WFD = BIT(0),
+	MDSS_MDP_WB_ROTATOR = BIT(1),
+	MDSS_MDP_WB_INTF = BIT(2),
+	MDSS_MDP_WB_UBWC = BIT(3),
+};
+
 struct mdss_mdp_perf_params {
 	u64 bw_overlap;
 	u64 bw_writeback;
@@ -196,10 +203,17 @@ struct mdss_mdp_perf_params {
 	DECLARE_BITMAP(bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 };
 
+struct mdss_mdp_writeback {
+	u32 num;
+	char __iomem *base;
+	u32 caps;
+	struct kref kref;
+};
+
 struct mdss_mdp_ctl {
 	u32 num;
 	char __iomem *base;
-	char __iomem *wb_base;
+
 	u32 ref_cnt;
 	int power_state;
 
@@ -257,6 +271,14 @@ struct mdss_mdp_ctl {
 	int cmd_autorefresh_en;
 	int autorefresh_frame_cnt;
 
+	struct blocking_notifier_head notifier_head;
+
+	void *priv_data;
+	u32 wb_type;
+	bool prg_fet;
+
+	struct mdss_mdp_writeback *wb;
+
 	int (*start_fnc) (struct mdss_mdp_ctl *ctl);
 	int (*stop_fnc) (struct mdss_mdp_ctl *ctl, int panel_power_state);
 	int (*prepare_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
@@ -271,12 +293,6 @@ struct mdss_mdp_ctl {
 	int (*config_fps_fnc) (struct mdss_mdp_ctl *ctl,
 				struct mdss_mdp_ctl *sctl, int new_fps);
 	int (*restore_fnc) (struct mdss_mdp_ctl *ctl);
-
-	struct blocking_notifier_head notifier_head;
-
-	void *priv_data;
-	u32 wb_type;
-	bool prg_fet;
 };
 
 struct mdss_mdp_mixer {
@@ -932,8 +948,8 @@ void mdss_mdp_ctl_perf_set_transaction_status(struct mdss_mdp_ctl *ctl,
 	enum mdss_mdp_perf_state_type component, bool new_status);
 void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl);
 
-struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator);
-int mdss_mdp_wb_mixer_destroy(struct mdss_mdp_mixer *mixer);
+struct mdss_mdp_mixer *mdss_mdp_block_mixer_alloc(void);
+int mdss_mdp_block_mixer_destroy(struct mdss_mdp_mixer *mixer);
 struct mdss_mdp_mixer *mdss_mdp_mixer_get(struct mdss_mdp_ctl *ctl, int mux);
 struct mdss_mdp_pipe *mdss_mdp_get_staged_pipe(struct mdss_mdp_ctl *ctl,
 	int mux, int stage, bool is_right_blend);
@@ -1018,7 +1034,9 @@ int mdss_mdp_pipe_addr_setup(struct mdss_data_type *mdata,
 int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata, u32 *mixer_offsets,
 		u32 *dspp_offsets, u32 *pingpong_offsets, u32 type, u32 len);
 int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata, u32 *ctl_offsets,
-		u32 *wb_offsets, u32 len);
+	u32 len);
+int mdss_mdp_wb_addr_setup(struct mdss_data_type *mdata,
+	u32 num_wb, u32 num_intf_wb);
 
 int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable);
@@ -1091,4 +1109,8 @@ int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *ctl,
 int mdss_mdp_ctl_cmd_autorefresh_enable(struct mdss_mdp_ctl *ctl,
 		int frame_cnt);
 int mdss_mdp_pp_get_version(struct mdp_pp_feature_version *version);
+
+struct mdss_mdp_writeback *mdss_mdp_wb_alloc(u32 caps, u32 reg_index);
+void mdss_mdp_wb_free(struct mdss_mdp_writeback *wb);
+
 #endif /* MDSS_MDP_H */

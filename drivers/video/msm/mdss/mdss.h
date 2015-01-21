@@ -294,9 +294,14 @@ struct mdss_data_type {
 	u32 max_mixer_width;
 	u32 max_pipe_width;
 
+	struct mdss_mdp_writeback *wb;
+	u32 nwb;
+	u32 *wb_offsets;
+	u32 nwb_offsets;
+	struct mutex wb_lock;
+
 	struct mdss_mdp_ctl *ctl_off;
 	u32 nctl;
-	u32 nwb;
 	u32 ndspp;
 
 	struct mdss_mdp_dp_intf *dp_off;

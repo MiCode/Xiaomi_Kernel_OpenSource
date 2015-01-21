@@ -772,11 +772,18 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
+	struct mdss_mdp_writeback *wb;
 	u32 mem_sel;
 	u32 mixer_type = 0;
 
 	pr_debug("start ctl=%d\n", ctl->num);
 
+	if (!ctl->wb) {
+		pr_err("wb not setup in the ctl\n");
+		return -EINVAL;
+	}
+
+	wb = ctl->wb;
 	mem_sel = (ctl->opmode & 0xF) - 1;
 	if (mem_sel < MDSS_MDP_MAX_WRITEBACK) {
 		ctx = &wb_ctx_list[mem_sel];
@@ -805,8 +812,8 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 		pr_debug("%s: cdm not supported\n", __func__);
 	}
 	ctl->priv_data = ctx;
-	ctx->wb_num = ctl->num;	/* wb num should match ctl num */
-	ctx->base = ctl->wb_base;
+	ctx->wb_num = wb->num;
+	ctx->base = wb->base;
 	ctx->initialized = false;
 	init_completion(&ctx->wb_comp);
 	spin_lock_init(&ctx->wb_lock);
