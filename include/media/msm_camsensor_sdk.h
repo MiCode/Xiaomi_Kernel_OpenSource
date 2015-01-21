@@ -180,11 +180,6 @@ enum msm_flash_cfg_type_t {
 	CFG_FLASH_HIGH,
 };
 
-enum msm_sensor_output_format_type {
-	MSM_SENSOR_BAYER,
-	MSM_SENSOR_YCBCR
-};
-
 struct msm_sensor_power_setting {
 	enum msm_sensor_power_seq_type_t seq_type;
 	uint16_t seq_val;
@@ -232,7 +227,6 @@ struct msm_camera_sensor_slave_info {
 	uint8_t  is_init_params_valid;
 	struct msm_sensor_init_params sensor_init_params;
 	uint8_t is_flash_supported;
-	enum msm_sensor_output_format_type output_format;
 };
 
 struct msm_camera_i2c_reg_array {
