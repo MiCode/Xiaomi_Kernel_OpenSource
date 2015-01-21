@@ -264,7 +264,7 @@ static int mdss_mdp_rot_mgr_remove_free_pipe(void)
 		MDSS_MDP_WB_CTL_TYPE_BLOCK);
 	if (tmp) {
 		mixer = tmp->mixer_left;
-		mdss_mdp_wb_mixer_destroy(mixer);
+		mdss_mdp_block_mixer_destroy(mixer);
 	}
 
 	rot_mgr->rot_pipes[i].pipe = NULL;
@@ -449,7 +449,7 @@ static struct mdss_mdp_pipe *mdss_mdp_rotator_pipe_alloc(void)
 	struct mdss_mdp_mixer *mixer;
 	struct mdss_mdp_pipe *pipe = NULL;
 
-	mixer = mdss_mdp_wb_mixer_alloc(1);
+	mixer = mdss_mdp_block_mixer_alloc();
 	if (!mixer) {
 		pr_debug("wb mixer alloc failed\n");
 		return NULL;
@@ -457,7 +457,7 @@ static struct mdss_mdp_pipe *mdss_mdp_rotator_pipe_alloc(void)
 
 	pipe = mdss_mdp_pipe_alloc_dma(mixer);
 	if (!pipe) {
-		mdss_mdp_wb_mixer_destroy(mixer);
+		mdss_mdp_block_mixer_destroy(mixer);
 		pr_debug("dma pipe allocation failed\n");
 		return NULL;
 	}

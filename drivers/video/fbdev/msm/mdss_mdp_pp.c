@@ -373,9 +373,8 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 	u32 val = 0;
 	struct mdss_data_type *mdata;
 	struct mdss_mdp_pipe *pipe;
-	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_cdm *cdm;
-
+	struct mdss_mdp_writeback *wb;
 
 	if (data == NULL) {
 		pr_err("no csc matrix specified\n");
@@ -400,10 +399,10 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 		}
 		break;
 	case MDSS_MDP_BLOCK_WB:
-		if (blk_idx < mdata->nctl) {
-			ctl = mdata->ctl_off + blk_idx;
-			if (ctl->wb_base)
-				base = ctl->wb_base + MDSS_MDP_REG_WB_CSC_BASE;
+		if (blk_idx < mdata->nwb) {
+			wb = mdata->wb + blk_idx;
+			if (wb->base)
+				base = wb->base + MDSS_MDP_REG_WB_CSC_BASE;
 			else
 				ret = -EINVAL;
 		} else {
