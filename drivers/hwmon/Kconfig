@@ -977,7 +977,7 @@ config SENSORS_EPM_ADC
 
 config SENSORS_QPNP_ADC_VOLTAGE
 	tristate "Support for Qualcomm QPNP Voltage ADC"
-	depends on SPMI
+	depends on SPMI && THERMAL
 	help
 	  This is the VADC arbiter driver for Qualcomm QPNP ADC Chip.
 
