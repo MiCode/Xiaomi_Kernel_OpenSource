@@ -1,11 +1,15 @@
 /*
- * Connection data.
+ * Copyright (c) 2013 TRUSTONIC LIMITED
+ * All Rights Reserved.
  *
- * <-- Copyright Giesecke & Devrient GmbH 2009 - 2012 -->
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 #include <linux/types.h>
 #include <linux/slab.h>
@@ -157,17 +161,16 @@ size_t connection_write_data(struct connection *conn, void *buffer,
 				NLMSG_LENGTH(len), NLM_F_REQUEST);
 		if (!nlh) {
 			ret = -1;
+			kfree_skb(skb);
 			break;
 		}
 		memcpy(NLMSG_DATA(nlh), buffer, len);
 
+		/* netlink_unicast frees skb */
 		netlink_unicast(conn->socket_descriptor, skb,
 				conn->peer_pid, MSG_DONTWAIT);
 		ret = len;
 	} while (0);
-
-	if (!ret && skb != NULL)
-		kfree_skb(skb);
 
 	return ret;
 }

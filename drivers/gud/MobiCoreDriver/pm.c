@@ -1,4 +1,17 @@
 /*
+ * Copyright (c) 2013 TRUSTONIC LIMITED
+ * All Rights Reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+/*
  * MobiCore Driver Kernel Module.
  * This module is written as a Linux device driver.
  * This driver represents the command proxy on the lowest layer, from the
@@ -8,13 +21,6 @@
  * the interface from the secure world to the normal world.
  * The access to the driver is possible with a file descriptor,
  * which has to be created by the fd = open(/dev/mobicore) command.
- *
- * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
- * <-- Copyright Trustonic Limited 2013 -->
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
 #include <linux/module.h>
 #include <linux/timer.h>
@@ -121,6 +127,57 @@ static struct notifier_block mc_notif_block = {
 	.notifier_call = mc_suspend_notifier,
 };
 
+#ifdef MC_BL_NOTIFIER
+
+static int bl_switcher_notifier_handler(struct notifier_block *this,
+			unsigned long event, void *ptr)
+{
+	unsigned int mpidr, cpu, cluster;
+	struct mc_mcp_buffer *mcp = ctx->mcp;
+
+	if (!mcp)
+		return 0;
+
+	asm volatile ("mrc\tp15, 0, %0, c0, c0, 5" : "=r" (mpidr));
+	cpu = mpidr & 0x3;
+	cluster = (mpidr >> 8) & 0xf;
+	MCDRV_DBG(mcd, "%s switching!!, cpu: %u, Out=%u",
+		  (event == SWITCH_ENTER ? "Before" : "After"), cpu, cluster);
+
+	if (cpu != 0)
+		return 0;
+
+	switch (event) {
+	case SWITCH_ENTER:
+		if (!sleep_ready()) {
+			ctx->mcp->flags.sleep_mode.sleep_req = REQ_TO_SLEEP;
+			_nsiq();
+			/* By this time we should be ready for sleep or we are
+			 * in the middle of something important */
+			if (!sleep_ready()) {
+				dump_sleep_params(&mcp->flags);
+				MCDRV_DBG(mcd,
+					  "MobiCore: Don't allow switch!");
+				ctx->mcp->flags.sleep_mode.sleep_req = 0;
+				return -EPERM;
+			}
+		}
+		break;
+	case SWITCH_EXIT:
+			ctx->mcp->flags.sleep_mode.sleep_req = 0;
+			break;
+	default:
+		MCDRV_DBG(mcd, "MobiCore: Unknown switch event!");
+	}
+
+	return 0;
+}
+
+static struct notifier_block switcher_nb = {
+	.notifier_call = bl_switcher_notifier_handler,
+};
+#endif
+
 int mc_pm_initialize(struct mc_context *context)
 {
 	int ret = 0;
@@ -130,6 +187,11 @@ int mc_pm_initialize(struct mc_context *context)
 	ret = register_pm_notifier(&mc_notif_block);
 	if (ret)
 		MCDRV_DBG_ERROR(mcd, "device pm register failed");
+#ifdef MC_BL_NOTIFIER
+	if (register_bL_swicher_notifier(&switcher_nb))
+		MCDRV_DBG_ERROR(mcd,
+				"Failed to register to bl_switcher_notifier");
+#endif
 
 	return ret;
 }
@@ -139,6 +201,11 @@ int mc_pm_free(void)
 	int ret = unregister_pm_notifier(&mc_notif_block);
 	if (ret)
 		MCDRV_DBG_ERROR(mcd, "device pm unregister failed");
+#ifdef MC_BL_NOTIFIER
+	ret = unregister_bL_swicher_notifier(&switcher_nb);
+	if (ret)
+		MCDRV_DBG_ERROR(mcd, "device bl unregister failed");
+#endif
 	return ret;
 }
 

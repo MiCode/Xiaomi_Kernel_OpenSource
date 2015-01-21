@@ -1,4 +1,17 @@
 /*
+ * Copyright (c) 2013 TRUSTONIC LIMITED
+ * All Rights Reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+/*
  * MobiCore Driver Kernel Module.
  *
  * This module is written as a Linux device driver.
@@ -9,20 +22,14 @@
  * the interface from the secure world to the normal world.
  * The access to the driver is possible with a file descriptor,
  * which has to be created by the fd = open(/dev/mobicore) command.
- *
- * <-- Copyright Giesecke & Devrient GmbH 2009-2012 -->
- * <-- Copyright Trustonic Limited 2013 -->
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
  */
-
 #include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/workqueue.h>
 #include <linux/cpu.h>
+#include <linux/moduleparam.h>
+
 
 #include "main.h"
 #include "fastcall.h"
@@ -35,6 +42,16 @@
 static struct mc_context *ctx;
 #ifdef TBASE_CORE_SWITCHER
 static uint32_t active_cpu;
+
+#ifdef TEST
+	/*
+	 * Normal world <t-base core info for testing.
+	 */
+
+	module_param(active_cpu, int, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	MODULE_PARM_DESC(active_cpu, "Active <t-base Core");
+#endif
+
 
 static int mobicore_cpu_callback(struct notifier_block *nfb,
 				 unsigned long action, void *hcpu);
@@ -213,8 +230,7 @@ int mc_info(uint32_t ext_info_id, uint32_t *state, uint32_t *ext_info)
 	mc_fastcall(&(fc_info.as_generic));
 
 	MCDRV_DBG(mcd,
-		  "-> r=0x%08x ret=0x%08x state=0x%08x "
-		  "ext_info=0x%08x",
+		  "-> r=0x%08x ret=0x%08x state=0x%08x ext_info=0x%08x",
 		  fc_info.as_out.resp,
 		  fc_info.as_out.ret,
 		  fc_info.as_out.state,
@@ -231,6 +247,12 @@ int mc_info(uint32_t ext_info_id, uint32_t *state, uint32_t *ext_info)
 }
 
 #ifdef TBASE_CORE_SWITCHER
+
+uint32_t mc_active_core(void)
+{
+	return active_cpu;
+}
+
 int mc_switch_core(uint32_t core_num)
 {
 	int32_t ret = 0;
@@ -249,12 +271,13 @@ int mc_switch_core(uint32_t core_num)
 	else
 		fc_switch_core.as_in.core_id = 0;
 
-	MCDRV_DBG(
-			mcd, "<- cmd=0x%08x, core_num=0x%08x, "
-			"active_cpu=0x%08x, active_cpu=0x%08x\n",
-			fc_switch_core.as_in.cmd,
-			fc_switch_core.as_in.core_id,
-			core_num, active_cpu);
+	MCDRV_DBG(mcd,
+		  "<- cmd=0x%08x, core_id=0x%08x\n",
+		 fc_switch_core.as_in.cmd,
+		 fc_switch_core.as_in.core_id);
+	MCDRV_DBG(mcd,
+		  "<- core_num=0x%08x, active_cpu=0x%08x\n",
+		 core_num, active_cpu);
 	mc_fastcall(&(fc_switch_core.as_generic));
 
 	ret = convert_fc_ret(fc_switch_core.as_out.ret);
