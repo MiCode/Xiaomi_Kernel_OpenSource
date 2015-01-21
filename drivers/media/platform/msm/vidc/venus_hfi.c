@@ -4085,7 +4085,9 @@ static int venus_hfi_load_fw(void *dev)
 			|| (device->res->use_non_secure_pil)) {
 
 		if (!device->resources.fw.cookie)
-			device->resources.fw.cookie = subsystem_get("venus");
+			device->resources.fw.cookie =
+				subsystem_get_with_fwname("venus",
+				device->res->fw_name);
 
 		if (IS_ERR_OR_NULL(device->resources.fw.cookie)) {
 			dprintk(VIDC_ERR, "Failed to download firmware\n");
