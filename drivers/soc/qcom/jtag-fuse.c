@@ -25,32 +25,42 @@
 #define fuse_writel(drvdata, val, off)	__raw_writel((val), drvdata->base + off)
 #define fuse_readl(drvdata, off)	__raw_readl(drvdata->base + off)
 
-#define OEM_CONFIG0		(0x000)
-#define OEM_CONFIG1		(0x004)
-#define OEM_CONFIG2		(0x008)
+#define OEM_CONFIG0			(0x000)
+#define OEM_CONFIG1			(0x004)
+#define OEM_CONFIG2			(0x008)
 
-/* CoreSight FUSE V1 */
-#define ALL_DEBUG_DISABLE	BIT(21)
-#define APPS_DBGEN_DISABLE	BIT(0)
-#define APPS_NIDEN_DISABLE	BIT(1)
-#define APPS_SPIDEN_DISABLE	BIT(2)
-#define APPS_SPNIDEN_DISABLE	BIT(3)
-#define DAP_DEVICEEN_DISABLE	BIT(8)
+/* JTAG FUSE V1 */
+#define ALL_DEBUG_DISABLE		BIT(21)
+#define APPS_DBGEN_DISABLE		BIT(0)
+#define APPS_NIDEN_DISABLE		BIT(1)
+#define APPS_SPIDEN_DISABLE		BIT(2)
+#define APPS_SPNIDEN_DISABLE		BIT(3)
+#define DAP_DEVICEEN_DISABLE		BIT(8)
 
-/* CoreSight FUSE V3 */
+/* JTAG FUSE V2 */
+#define ALL_DEBUG_DISABLE_V2		BIT(0)
+#define APPS_DBGEN_DISABLE_V2		BIT(10)
+#define APPS_NIDEN_DISABLE_V2		BIT(11)
+#define APPS_SPIDEN_DISABLE_V2		BIT(12)
+#define APPS_SPNIDEN_DISABLE_V2	BIT(13)
+#define DAP_DEVICEEN_DISABLE_V2	BIT(18)
+
+/* JTAG FUSE V3 */
 #define ALL_DEBUG_DISABLE_V3		BIT(29)
 #define APPS_DBGEN_DISABLE_V3		BIT(8)
 #define APPS_NIDEN_DISABLE_V3		BIT(21)
 #define APPS_SPIDEN_DISABLE_V3		BIT(5)
-#define APPS_SPNIDEN_DISABLE_V3		BIT(31)
-#define DAP_DEVICEEN_DISABLE_V3		BIT(7)
+#define APPS_SPNIDEN_DISABLE_V3	BIT(31)
+#define DAP_DEVICEEN_DISABLE_V3	BIT(7)
 
 #define JTAG_FUSE_VERSION_V1		"qcom,jtag-fuse"
+#define JTAG_FUSE_VERSION_V2		"qcom,jtag-fuse-v2"
 #define JTAG_FUSE_VERSION_V3		"qcom,jtag-fuse-v3"
 
 struct fuse_drvdata {
 	void __iomem		*base;
 	struct device		*dev;
+	bool			fuse_v2;
 	bool			fuse_v3;
 };
 
@@ -90,6 +100,19 @@ bool msm_jtag_fuse_apps_access_disabled(void)
 			ret = true;
 		else if (config1 & DAP_DEVICEEN_DISABLE_V3)
 			ret = true;
+	} else if (drvdata->fuse_v2) {
+		if (config1 & ALL_DEBUG_DISABLE_V2)
+			ret = true;
+		else if (config1 & APPS_DBGEN_DISABLE_V2)
+			ret = true;
+		else if (config1 & APPS_NIDEN_DISABLE_V2)
+			ret = true;
+		else if (config1 & APPS_SPIDEN_DISABLE_V2)
+			ret = true;
+		else if (config1 & APPS_SPNIDEN_DISABLE_V2)
+			ret = true;
+		else if (config1 & DAP_DEVICEEN_DISABLE_V2)
+			ret = true;
 	} else {
 		if (config0 & ALL_DEBUG_DISABLE)
 			ret = true;
@@ -114,6 +137,7 @@ EXPORT_SYMBOL(msm_jtag_fuse_apps_access_disabled);
 
 static struct of_device_id jtag_fuse_match[] = {
 	{.compatible = JTAG_FUSE_VERSION_V1 },
+	{.compatible = JTAG_FUSE_VERSION_V2 },
 	{.compatible = JTAG_FUSE_VERSION_V3 },
 	{}
 };
@@ -137,7 +161,9 @@ static int jtag_fuse_probe(struct platform_device *pdev)
 	if (!match)
 		return -EINVAL;
 
-	if (!strcmp(match->compatible, JTAG_FUSE_VERSION_V3))
+	if (!strcmp(match->compatible, JTAG_FUSE_VERSION_V2))
+		drvdata->fuse_v2 = true;
+	else if (!strcmp(match->compatible, JTAG_FUSE_VERSION_V3))
 		drvdata->fuse_v3 = true;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "fuse-base");
