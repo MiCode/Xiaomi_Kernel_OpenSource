@@ -146,24 +146,31 @@ static inline long _smc(void *data)
 	if (data == NULL)
 		return -EPERM;
 
-	union fc_generic *fc_generic = data;
-	/* SMC expect values in x0-x3 */
-	register u64 reg0 __asm__("x0") = fc_generic->as_in.cmd;
-	register u64 reg1 __asm__("x1") = fc_generic->as_in.param[0];
-	register u64 reg2 __asm__("x2") = fc_generic->as_in.param[1];
-	register u64 reg3 __asm__("x3") = fc_generic->as_in.param[2];
+	#ifdef MC_SMC_FASTCALL
+	{
+		ret = smc_fastcall(data, sizeof(union fc_generic));
+	}
+	#else
+	{
+		union fc_generic *fc_generic = data;
+		/* SMC expect values in x0-x3 */
+		register u64 reg0 __asm__("x0") = fc_generic->as_in.cmd;
+		register u64 reg1 __asm__("x1") = fc_generic->as_in.param[0];
+		register u64 reg2 __asm__("x2") = fc_generic->as_in.param[1];
+		register u64 reg3 __asm__("x3") = fc_generic->as_in.param[2];
 
-	__asm__ volatile (
-		"smc #0\n"
-		: "+r"(reg0), "+r"(reg1), "+r"(reg2), "+r"(reg3)
-	);
+		__asm__ volatile (
+			"smc #0\n"
+			: "+r"(reg0), "+r"(reg1), "+r"(reg2), "+r"(reg3)
+		);
 
-
-	/* set response */
-	fc_generic->as_out.resp     = reg0;
-	fc_generic->as_out.ret      = reg1;
-	fc_generic->as_out.param[0] = reg2;
-	fc_generic->as_out.param[1] = reg3;
+		/* set response */
+		fc_generic->as_out.resp     = reg0;
+		fc_generic->as_out.ret      = reg1;
+		fc_generic->as_out.param[0] = reg2;
+		fc_generic->as_out.param[1] = reg3;
+	}
+	#endif
 	return ret;
 }
 

@@ -449,10 +449,20 @@ static int map_buffer(struct task_struct *task, void *wsm_buffer,
 	 * - or fails and used_mmutable->table contains the list of page
 	 * pointers.
 	 * Any mixed contents will make cleanup difficult.
+	 */
+#if defined(CONFIG_ARM64) && !defined(LPAE_SUPPORT)
+	/*
+	 * When NWd pointers are 64bits and SWd pte 32bits we need to fill the
+	 * table from 0.
+	 */
+	i = 0;
+#else
+	/*
 	 * Fill the table in reverse order as the table is used as input and
 	 * output.
 	 */
 	i = MC_ARM_MMU_TABLE_ENTRIES-1;
+#endif
 	do {
 		if (i < nr_of_pages) {
 #ifdef LPAE_SUPPORT
@@ -462,6 +472,10 @@ static int map_buffer(struct task_struct *task, void *wsm_buffer,
 #endif
 			page = mmutable_as_array_of_pointers_to_page[i];
 
+			if (!page) {
+				MCDRV_DBG_ERROR(mcd, "page address is null");
+				return -EFAULT;
+			}
 			/*
 			 * create MMU table entry, see ARM MMU docu for details
 			 * about flags stored in the lowest 12 bits.
@@ -507,7 +521,11 @@ static int map_buffer(struct task_struct *task, void *wsm_buffer,
 			/* ensure rest of table is empty */
 			mmutable->table_entries[i] = 0;
 		}
+#if defined(CONFIG_ARM64) && !defined(LPAE_SUPPORT)
+	} while (++i < MC_ARM_MMU_TABLE_ENTRIES);
+#else
 	} while (i-- != 0);
+#endif
 
 	return ret;
 }
