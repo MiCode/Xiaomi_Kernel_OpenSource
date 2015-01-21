@@ -1078,7 +1078,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	}
 
 	ret = mdss_mdp_perf_bw_check(mdp5_data->ctl, left_plist, left_cnt,
-		right_plist, right_cnt);
+		right_plist, right_cnt, false);
 	if (ret) {
 		pr_err("bw validation check failed: %d\n", ret);
 		goto validate_exit;

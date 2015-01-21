@@ -269,6 +269,9 @@ Optional properties:
 - qcom,mdss-dsi-off-command-state:	String that specifies the ctrl state for sending OFF commands.
 					"dsi_lp_mode" = DSI low power mode (default)
 					"dsi_hs_mode" = DSI high speed mode
+- qcom,mdss-dsi-post-mode-switch-on-command-state:	String that specifies the ctrl state for sending ON commands post mode switch.
+					"dsi_lp_mode" = DSI low power mode (default)
+					"dsi_hs_mode" = DSI high speed mode
 - qcom,mdss-pan-physical-width-dimension:	Specifies panel physical width in mm which corresponds
 					to the physical width in the framebuffer information.
 - qcom,mdss-pan-physical-height-dimension:	Specifies panel physical height in mm which corresponds
@@ -370,6 +373,16 @@ Optional properties:
 - qcom,dynamic-mode-switch-enabled:		Boolean used to mention whether panel supports
 					dynamic switching from video mode to command mode
 					and vice versa.
+- qcom,dynamic-mode-switch-type:		A string specifies how to perform dynamic mode switch.
+						If qcom,dynamic-mode-switch-enabled is set and no string specified, default value is
+						dynamic-switch-suspend-resume.
+					"dynamic-switch-suspend-resume"= Switch using suspend/resume. Panel will
+						go blank during transition.
+					"dynamic-switch-immediate"= Switch on next frame update. Panel will
+						not go blank for this transition.
+- qcom,mdss-dsi-post-mode-switch-on-command:		Multiple dcs packets used for turning on DSI panel
+					after panel has switch modes.
+					Refer to "qcom,mdss-dsi-on-command" section for adding commands.
 - qcom,video-to-cmd-mode-switch-commands:	List of commands that need to be sent
 					to panel in order to switch from video mode to command mode dynamically.
 					Refer to "qcom,mdss-dsi-on-command" section for adding commands.
@@ -512,6 +525,9 @@ Example:
 		qcom,mdss-dsi-panel-max-error-count = <3>;
 		qcom,mdss-dsi-panel-status-value = <0x1c 0x00 0x05 0x02 0x40 0x84 0x06 0x01>;
 		qcom,dynamic-mode-switch-enabled;
+		qcom,dynamic-mode-switch-type = "dynamic-switch-immediate";
+		qcom,mdss-dsi-post-mode-switch-on-command = [32 01 00 00 00 00 02 00 00
+					29 01 00 00 10 00 02 B0 03];
 		qcom,video-to-cmd-mode-switch-commands = [15 01 00 00 00 00 02 C2 0B
 						15 01 00 00 00 00 02 C2 08];
 		qcom,cmd-to-video-mode-switch-commands = [15 01 00 00 00 00 02 C2 03];

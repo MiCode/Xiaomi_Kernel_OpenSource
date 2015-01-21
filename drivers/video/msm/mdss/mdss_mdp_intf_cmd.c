@@ -62,6 +62,7 @@ struct mdss_mdp_cmd_ctx {
 	struct mdss_mdp_cmd_ctx *sync_ctx; /* for partial update */
 	u32 pp_timeout_report_cnt;
 	int pingpong_split_slave;
+	bool pending_mode_switch; /* Used to prevent powering down in stop */
 };
 
 struct mdss_mdp_cmd_ctx mdss_mdp_cmd_ctx_list[MAX_SESSIONS];
@@ -990,7 +991,8 @@ int mdss_mdp_cmd_restore(struct mdss_mdp_ctl *ctl)
 }
 
 int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
-		struct mdss_mdp_cmd_ctx *ctx, int panel_power_state)
+		struct mdss_mdp_cmd_ctx *ctx, int panel_power_state,
+		bool pend_switch)
 {
 	struct mdss_mdp_cmd_ctx *sctx = NULL;
 	struct mdss_mdp_ctl *sctl = NULL;
@@ -1038,9 +1040,11 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 	if (cancel_work_sync(&ctx->clk_work))
 		pr_debug("no pending clk work\n");
 
-	mdss_mdp_ctl_intf_event(ctl,
+	if (!pend_switch) {
+		mdss_mdp_ctl_intf_event(ctl,
 			MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
 			NULL);
+	}
 
 	mdss_mdp_cmd_clk_off(ctx);
 	flush_work(&ctx->pp_done_work);
@@ -1062,7 +1066,7 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 }
 
 int mdss_mdp_cmd_intfs_stop(struct mdss_mdp_ctl *ctl, int session,
-	int panel_power_state)
+	int panel_power_state, bool pend_switch)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
 
@@ -1075,7 +1079,7 @@ int mdss_mdp_cmd_intfs_stop(struct mdss_mdp_ctl *ctl, int session,
 		return -ENODEV;
 	}
 
-	mdss_mdp_cmd_ctx_stop(ctl, ctx, panel_power_state);
+	mdss_mdp_cmd_ctx_stop(ctl, ctx, panel_power_state, pend_switch);
 
 	if (is_pingpong_split(ctl->mfd)) {
 		session += 1;
@@ -1088,14 +1092,14 @@ int mdss_mdp_cmd_intfs_stop(struct mdss_mdp_ctl *ctl, int session,
 			pr_err("invalid ctx session: %d\n", session);
 			return -ENODEV;
 		}
-		mdss_mdp_cmd_ctx_stop(ctl, ctx, panel_power_state);
+		mdss_mdp_cmd_ctx_stop(ctl, ctx, panel_power_state, pend_switch);
 	}
 	pr_debug("%s:-\n", __func__);
 	return 0;
 }
 
 static int mdss_mdp_cmd_stop_sub(struct mdss_mdp_ctl *ctl,
-		int panel_power_state)
+		int panel_power_state, bool pend_switch)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
 	struct mdss_mdp_vsync_handler *tmp, *handle;
@@ -1114,7 +1118,8 @@ static int mdss_mdp_cmd_stop_sub(struct mdss_mdp_ctl *ctl,
 
 	/* Command mode is supported only starting at INTF1 */
 	session = ctl->intf_num - MDSS_MDP_INTF1;
-	return mdss_mdp_cmd_intfs_stop(ctl, session, panel_power_state);
+	return mdss_mdp_cmd_intfs_stop(ctl, session, panel_power_state,
+			pend_switch);
 }
 
 int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
@@ -1124,15 +1129,13 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	bool panel_off = false;
 	bool turn_off_clocks = false;
 	bool send_panel_events = false;
+	bool pend_switch = false;
 	int ret = 0;
 
 	if (!ctx) {
 		pr_err("invalid ctx\n");
 		return -ENODEV;
 	}
-
-	if (ctx->panel_power_state == panel_power_state)
-		return 0;
 
 	if (__mdss_mdp_cmd_is_panel_power_off(ctx)) {
 		pr_debug("%s: panel already off\n", __func__);
@@ -1196,8 +1199,14 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	if (!turn_off_clocks)
 		goto panel_events;
 
+	if (ctx->pending_mode_switch) {
+		pend_switch = true;
+		send_panel_events = false;
+		ctx->pending_mode_switch = 0;
+	}
+
 	pr_debug("%s: turn off interface clocks\n", __func__);
-	ret = mdss_mdp_cmd_stop_sub(ctl, panel_power_state);
+	ret = mdss_mdp_cmd_stop_sub(ctl, panel_power_state, pend_switch);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("%s: unable to stop interface: %d\n",
 				__func__, ret);
@@ -1205,7 +1214,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	}
 
 	if (sctl) {
-		mdss_mdp_cmd_stop_sub(sctl, panel_power_state);
+		mdss_mdp_cmd_stop_sub(sctl, panel_power_state, pend_switch);
 		if (IS_ERR_VALUE(ret)) {
 			pr_err("%s: unable to stop slave intf: %d\n",
 					__func__, ret);
@@ -1377,6 +1386,32 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 	}
 	return 0;
 }
+
+void mdss_mdp_switch_to_vid_mode(struct mdss_mdp_ctl *ctl, int prep)
+{
+	struct mdss_mdp_cmd_ctx *ctx = ctl->intf_ctx[MASTER_CTX];
+	long int mode = MIPI_VIDEO_PANEL;
+	int rc = 0;
+
+	pr_debug("%s start, prep = %d\n", __func__, prep);
+
+	if (prep) {
+		/*
+		 * In dsi_on there is an explicit decrement to dsi clk refcount
+		 * if we are in cmd mode. We need to rebalance clock in order
+		 * to properly enable vid mode compnents
+		 */
+		rc = mdss_mdp_ctl_intf_event
+			(ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)1);
+
+		ctx->pending_mode_switch = 1;
+		return;
+	}
+
+	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_RECONFIG_CMD,
+			(void *) mode);
+}
+
 int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 {
 	int ret, session = 0;
