@@ -114,11 +114,12 @@ static uint32_t get_new_buffer_handle(void)
 	/* assumption ctx.bufs_lock mutex is locked */
 retry:
 	handle = atomic_inc_return(&ctx.buffer_counter);
-	/* if upper 12 bits are set we must reset to 0, we can only
-	 * handler 20 bits of unique ID for the buffer because the need
-	 * to support both 32 and 64 bit clients with the 64 bit kernel
+	/* The handle must leave 12 bits (PAGE_SHIFT) for the 12 LSBs to be
+	 * zero, as mmap requires the offset to be page-aligned, plus 1 bit for
+	 * the MSB to be 0 too, so mmap does not see the offset as negative
+	 * and fail.
 	 */
-	if ((handle << PAGE_SHIFT) == 0)  {
+	if ((handle << (PAGE_SHIFT+1)) == 0)  {
 		atomic_set(&ctx.buffer_counter, 1);
 		handle = 1;
 	}
