@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,6 +120,8 @@ struct glink_transport_if {
 	struct glink_core_if *glink_core_if_ptr;
 };
 
+#ifdef CONFIG_MSM_GLINK
+
 /**
  * get_tx_vaddr() - Get the virtual address from which the tx has to be done
  * @pctx:	transmit packet context.
@@ -143,4 +145,27 @@ static inline void *get_tx_vaddr(struct glink_core_tx_pkt *pctx, size_t offset,
 	return NULL;
 }
 
+/**
+ * glink_xprt_name_to_id() - convert transport name to id
+ * @name:	Name of the transport.
+ * @id:		Assigned id.
+ *
+ * Return: 0 on success or standard Linux error code.
+ */
+int glink_xprt_name_to_id(const char *name, uint16_t *id);
+
+
+#else /* CONFIG_MSM_GLINK */
+static inline void *get_tx_vaddr(struct glink_core_tx_pkt *pctx, size_t offset,
+				 size_t *tx_size)
+{
+	return NULL;
+}
+
+static inline int glink_xprt_name_to_id(const char *name, uint16_t *id)
+{
+	return -ENODEV;
+}
+
+#endif /* CONFIG_MSM_GLINK */
 #endif /* _SOC_QCOM_GLINK_XPRT_IF_H_ */
