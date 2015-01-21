@@ -31,6 +31,7 @@ enum {
 	MDSS_DSI_PLL_LPM,
 	MDSS_DSI_PLL_HPM,
 	MDSS_DSI_PLL_20NM,
+	MDSS_DSI_PLL_THULIUM,
 	MDSS_EDP_PLL,
 	MDSS_HDMI_PLL,
 	MDSS_HDMI_PLL_20NM,
@@ -42,6 +43,7 @@ enum {
 	MDSS_PLL_TARGET_8974,
 	MDSS_PLL_TARGET_8994,
 	MDSS_PLL_TARGET_8992,
+	MDSS_PLL_TARGET_THULIUM,
 	MDSS_PLL_TARGET_8916,
 	MDSS_PLL_TARGET_8939,
 	MDSS_PLL_TARGET_8909,
@@ -134,6 +136,7 @@ struct mdss_pll_resources {
 	 */
 	uint32_t index;
 
+	void *priv;
 };
 
 struct mdss_pll_vco_calc {
