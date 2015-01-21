@@ -929,7 +929,7 @@ static void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 {
 	uint16_t first_pixel, last_pixel, first_line, last_line;
 	struct msm_vfe_camif_cfg *camif_cfg = &pix_cfg->camif_cfg;
-	uint32_t val;
+	uint32_t val, subsample_period, subsample_pattern;
 	uint32_t irq_sub_period = 32;
 	uint32_t frame_sub_period = 32;
 
@@ -940,6 +940,8 @@ static void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 	last_pixel = camif_cfg->last_pixel;
 	first_line = camif_cfg->first_line;
 	last_line = camif_cfg->last_line;
+	subsample_period = camif_cfg->subsample_cfg.irq_subsample_period;
+	subsample_pattern = camif_cfg->subsample_cfg.irq_subsample_pattern;
 
 	msm_camera_io_w(camif_cfg->lines_per_frame << 16 |
 		camif_cfg->pixels_per_line, vfe_dev->vfe_base + 0x484);
@@ -954,6 +956,19 @@ static void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 		(frame_sub_period - 1), vfe_dev->vfe_base + 0x494);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x498);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x49C);
+	if (subsample_period && subsample_pattern) {
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x494);
+		val &= 0xFFE0FFFF;
+		val = (subsample_period - 1) << 16;
+		msm_camera_io_w(val, vfe_dev->vfe_base + 0x494);
+		ISP_DBG("%s:camif PERIOD %x PATTERN %x\n",
+			__func__,  subsample_period, subsample_pattern);
+
+		val = subsample_pattern;
+		msm_camera_io_w(val, vfe_dev->vfe_base + 0x49C);
+	} else {
+		msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x49C);
+	}
 
 	val = msm_camera_io_r(vfe_dev->vfe_base + 0x46C);
 	val |= camif_cfg->camif_input;

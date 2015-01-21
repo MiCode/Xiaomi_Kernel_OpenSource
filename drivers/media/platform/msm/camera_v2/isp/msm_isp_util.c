@@ -517,7 +517,7 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 		input_cfg->d.pix_cfg.input_mux;
 	vfe_dev->axi_data.src_info[VFE_PIX_0].input_format =
 		input_cfg->d.pix_cfg.input_format;
-
+	vfe_dev->axi_data.src_info[VFE_PIX_0].sof_counter_step = 1;
 	rc = msm_isp_set_clk_rate(vfe_dev,
 		&vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock);
 	if (rc < 0) {
@@ -532,6 +532,12 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 	if (input_cfg->d.pix_cfg.input_mux == CAMIF) {
 		vfe_dev->axi_data.src_info[VFE_PIX_0].width =
 			input_cfg->d.pix_cfg.camif_cfg.pixels_per_line;
+		if (input_cfg->d.pix_cfg.camif_cfg.subsample_cfg.
+			sof_counter_step > 0) {
+			vfe_dev->axi_data.src_info[VFE_PIX_0].
+				sof_counter_step = input_cfg->d.pix_cfg.
+				camif_cfg.subsample_cfg.sof_counter_step;
+		}
 	} else if (input_cfg->d.pix_cfg.input_mux == EXTERNAL_READ) {
 		vfe_dev->axi_data.src_info[VFE_PIX_0].width =
 			input_cfg->d.pix_cfg.fetch_engine_cfg.buf_stride;
