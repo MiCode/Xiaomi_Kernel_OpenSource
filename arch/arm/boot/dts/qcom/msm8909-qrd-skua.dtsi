@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,7 +43,7 @@
 			focaltech,group-id = <1>;
 			focaltech,hard-reset-delay-ms = <20>;
 			focaltech,soft-reset-delay-ms = <200>;
-			focaltech,num-max-touches = <5>;
+			focaltech,num-max-touches = <2>;
 			focaltech,fw-delay-aa-ms = <30>;
 			focaltech,fw-delay-55-ms = <30>;
 			focaltech,fw-upgrade-id1 = <0x79>;
