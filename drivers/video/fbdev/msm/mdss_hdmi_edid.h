@@ -40,5 +40,7 @@ void hdmi_edid_set_video_resolution(void *edid_ctrl, u32 resolution,
 	bool reset);
 void hdmi_edid_deinit(void *edid_ctrl);
 void *hdmi_edid_init(struct hdmi_edid_init_data *init_data);
+bool hdmi_edid_is_s3d_mode_supported(void *input,
+	u32 video_mode, u32 s3d_mode);
 
 #endif /* __HDMI_EDID_H__ */

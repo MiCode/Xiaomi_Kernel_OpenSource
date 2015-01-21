@@ -91,7 +91,7 @@ enum extended_data_block_types {
 
 struct disp_mode_info {
 	u32 video_format;
-	u32 video_3d_format;
+	u32 video_3d_format; /* Flags like SIDE_BY_SIDE_HALF*/
 	bool rgb_support;
 	bool y420_support;
 };
@@ -615,7 +615,9 @@ static ssize_t hdmi_edid_sysfs_rda_3d_modes(struct device *dev,
 			edid_ctrl->sink_data.disp_mode_list;
 
 		for (i = 0; i < edid_ctrl->sink_data.num_of_elements; i++) {
-			ret = hdmi_get_video_3d_fmt_2string(
+			if (!video_mode[i].video_3d_format)
+				continue;
+			hdmi_get_video_3d_fmt_2string(
 					video_mode[i].video_3d_format,
 					buff_3d,
 					sizeof(buff_3d));
@@ -628,9 +630,6 @@ static ssize_t hdmi_edid_sysfs_rda_3d_modes(struct device *dev,
 					"%d=%s", video_mode[i].video_format,
 					buff_3d);
 		}
-	} else {
-		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "%d",
-			edid_ctrl->video_resolution);
 	}
 
 	DEV_DBG("%s: '%s'\n", __func__, buf);
@@ -2253,6 +2252,30 @@ u32 hdmi_edid_get_sink_mode(void *input)
 
 	return edid_ctrl->sink_mode;
 } /* hdmi_edid_get_sink_mode */
+
+bool hdmi_edid_is_s3d_mode_supported(void *input, u32 video_mode, u32 s3d_mode)
+{
+	int i;
+	bool ret = false;
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+	struct hdmi_edid_sink_data *sink_data;
+
+	sink_data = &edid_ctrl->sink_data;
+	for (i = 0; i < sink_data->num_of_elements; ++i) {
+		if (sink_data->disp_mode_list[i].video_format != video_mode)
+			continue;
+		if (sink_data->disp_mode_list[i].video_3d_format &
+			(1 << s3d_mode))
+			ret = true;
+		else
+			DEV_DBG("%s: return false: vic=%d caps=%x s3d=%d\n",
+				__func__, video_mode,
+				sink_data->disp_mode_list[i].video_3d_format,
+				s3d_mode);
+		break;
+	}
+	return ret;
+}
 
 bool hdmi_edid_get_scdc_support(void *input)
 {

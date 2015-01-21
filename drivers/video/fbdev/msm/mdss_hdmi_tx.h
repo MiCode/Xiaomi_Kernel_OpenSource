@@ -189,6 +189,7 @@ struct hdmi_tx_ctrl {
 
 	u8 *edid_buf;
 	u32 edid_buf_size;
+	u32 s3d_mode;
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */
