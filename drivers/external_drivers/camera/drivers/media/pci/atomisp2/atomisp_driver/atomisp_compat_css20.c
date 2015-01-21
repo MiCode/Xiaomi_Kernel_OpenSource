@@ -4571,10 +4571,16 @@ int atomisp_css_isr_thread(struct atomisp_device *isp,
 	int i;
 
 	while (!atomisp_css_dequeue_event(&current_event)) {
-		if (current_event.event.type == IA_CSS_EVENT_TYPE_FW_ERROR) {
-			/* Received FW error signal, trigger WDT to recover */
-			dev_err(isp->dev, "%s: ISP reports FW_ERROR event, error code %d!!!!",
-				__func__, current_event.event.fw_error);
+		if (current_event.event.type ==
+			IA_CSS_EVENT_TYPE_FW_ASSERT) {
+			/*
+			 * Received FW assertion signal,
+			 * trigger WDT to recover
+			 */
+			dev_err(isp->dev, "%s: ISP reports FW_ASSERT event! fw_assert_module_id %d fw_assert_line_no %d\n",
+				__func__,
+				current_event.event.fw_assert_module_id,
+				current_event.event.fw_assert_line_no);
 			for (i = 0; i < isp->num_of_streams; i++)
 				atomisp_wdt_stop(&isp->asd[i], 0);
 			atomisp_wdt((unsigned long)isp);
