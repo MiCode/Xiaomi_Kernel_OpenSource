@@ -107,6 +107,21 @@ enum mdp_split_mode {
 	MDP_PINGPONG_SPLIT,
 };
 
+/**
+ * enum dyn_mode_switch_state - Lists next stage for dynamic mode switch work
+ *
+ * @MDSS_MDP_NO_UPDATE_REQUESTED: incoming frame is processed normally
+ * @MDSS_MDP_WAIT_FOR_PREP: Waiting for OVERLAY_PREPARE to be called
+ * @MDSS_MDP_WAIT_FOR_SYNC: Waiting for BUFFER_SYNC to be called
+ * @MDSS_MDP_WAIT_FOR_COMMIT: Waiting for COMMIT to be called
+ */
+enum dyn_mode_switch_state {
+	MDSS_MDP_NO_UPDATE_REQUESTED,
+	MDSS_MDP_WAIT_FOR_PREP,
+	MDSS_MDP_WAIT_FOR_SYNC,
+	MDSS_MDP_WAIT_FOR_COMMIT,
+};
+
 struct disp_info_type_suspend {
 	int op_enable;
 	int panel_power_state;
@@ -155,6 +170,12 @@ struct msm_mdp_interface {
 	/* called to release resources associated to the process */
 	int (*release_fnc)(struct msm_fb_data_type *mfd, bool release_all,
 				uint32_t pid);
+	void (*pend_mode_switch)(struct msm_fb_data_type *mfd,
+					bool pend_switch);
+	int (*mode_switch)(struct msm_fb_data_type *mfd,
+					u32 mode);
+	int (*mode_switch_post)(struct msm_fb_data_type *mfd,
+					u32 mode);
 	int (*kickoff_fnc)(struct msm_fb_data_type *mfd,
 					struct mdp_display_commit *data);
 	int (*ioctl_handler)(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
@@ -173,7 +194,8 @@ struct msm_mdp_interface {
 	struct msm_sync_pt_data *(*get_sync_fnc)(struct msm_fb_data_type *mfd,
 				const struct mdp_buf_sync *buf_sync);
 	void (*check_dsi_status)(struct work_struct *work, uint32_t interval);
-	int (*configure_panel)(struct msm_fb_data_type *mfd, int mode);
+	int (*configure_panel)(struct msm_fb_data_type *mfd, int mode,
+				int dest_ctrl);
 	void *private1;
 };
 
@@ -286,6 +308,11 @@ struct msm_fb_data_type {
 	u32 wait_for_kickoff;
 	u32 thermal_level;
 	struct led_trigger *boot_notification_led;
+
+	/* Following is used for dynamic mode switch */
+	enum dyn_mode_switch_state switch_state;
+	u32 switch_new_mode;
+	struct mutex switch_lock;
 };
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -187,7 +187,7 @@ static int dsi_event_handler(struct mdss_panel_data *pdata,
 	case MDSS_EVENT_PANEL_CLK_CTRL:
 		rc = dsi_clk_ctrl(pdata, (int)arg);
 		break;
-	case MDSS_EVENT_DSI_DYNAMIC_SWITCH:
+	case MDSS_EVENT_DSI_UPDATE_PANEL_DATA:
 		rc = dsi_update_pconfig(pdata, (int)(unsigned long) arg);
 		break;
 	default:
