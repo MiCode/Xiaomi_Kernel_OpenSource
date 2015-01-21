@@ -224,6 +224,7 @@
 #include "msmterbium-iommu.dtsi"
 #include "msmterbium-smp2p.dtsi"
 #include "msmterbium-bus.dtsi"
+#include "msmterbium-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
