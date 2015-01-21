@@ -1207,6 +1207,10 @@ static int hci_dev_do_close(struct hci_dev *hdev)
 
 	cancel_work_sync(&hdev->le_scan);
 
+	/* do not call cancel_delayed_work_sync for power_off here as
+	 * hci_dev_do_close function is called from work handler which might
+	 * cause deadlock. Instead to it in hci_unregister_dev
+	*/
 	cancel_delayed_work(&hdev->power_off);
 
 	hci_req_cancel(hdev, ENODEV);
@@ -1223,13 +1227,13 @@ static int hci_dev_do_close(struct hci_dev *hdev)
 	flush_work(&hdev->rx_work);
 
 	if (hdev->discov_timeout > 0) {
-		cancel_delayed_work(&hdev->discov_off);
+		cancel_delayed_work_sync(&hdev->discov_off);
 		hdev->discov_timeout = 0;
 		clear_bit(HCI_DISCOVERABLE, &hdev->dev_flags);
 	}
 
 	if (test_and_clear_bit(HCI_SERVICE_CACHE, &hdev->dev_flags))
-		cancel_delayed_work(&hdev->service_cache);
+		cancel_delayed_work_sync(&hdev->service_cache);
 
 	cancel_delayed_work_sync(&hdev->le_scan_disable);
 
@@ -2300,6 +2304,11 @@ void hci_unregister_dev(struct hci_dev *hdev)
 		kfree_skb(hdev->reassembly[i]);
 
 	cancel_work_sync(&hdev->power_on);
+
+	/* hci_dev_do_close does not call cancel_delayed_work_sync on power_off
+	 * work, call it here while deregistration before wqs are destroyed
+	*/
+	cancel_delayed_work_sync(&hdev->power_off);
 
 	if (!test_bit(HCI_INIT, &hdev->flags) &&
 	    !test_bit(HCI_SETUP, &hdev->dev_flags)) {
