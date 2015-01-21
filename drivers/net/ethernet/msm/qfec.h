@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011,2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011,2013,2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,20 @@ struct qfec_buf_desc {
 	uint32_t            ctl;
 	void               *p_buf;
 	void               *next;
+};
+
+/* Rx/Tx Ethernet Enhanced Buffer Descriptors
+ *     desc contains the normal buffer descriptor
+ *     ext_status contains the extended status
+ *     tstamp_lo  contains the lower 32 bits tstamp
+ *     tstamp_hi  contains the upper 32 bits tstamp
+ */
+struct qfec_enh_buf_desc {
+	struct qfec_buf_desc desc;
+	uint32_t             ext_status;
+	uint32_t             reserved;
+	uint32_t             tstamp_lo;
+	uint32_t             tstamp_hi;
 };
 
 /* ownership bit operations */
@@ -84,6 +98,8 @@ struct qfec_buf_desc {
 # define BUF_RX_SIZ               0x000007ff /* rx buf 1 size */
 # define BUF_RX_SIZ_GET(p)        (p.ctl&BUF_RX_SIZ)
 
+# define ENH_BUF_RX_RER           0x00008000 /* rec end of ring */
+
 /* TX buffer status bits */
 # define BUF_TX_TTSS              0x00020000 /* time stamp status */
 # define BUF_TX_IHE               0x00010000 /* IP hdr err */
@@ -105,6 +121,12 @@ struct qfec_buf_desc {
 # define BUF_TX_ED                0x00000004 /* excessive deferral (es) */
 # define BUF_TX_UF                0x00000002 /* underflow err (es) */
 # define BUF_TX_DB                0x00000001 /* deferred bit */
+
+# define ENH_BUF_TX_IC            0x40000000 /* intrpt on compl */
+# define ENH_BUF_TX_LS            0x20000000 /* last segment */
+# define ENH_BUF_TX_FS            0x10000000 /* first segment */
+# define ENH_BUF_TX_TTSE          0x02000000 /* timestamp enable */
+# define ENH_BUF_TX_TER           0x00200000 /* end of ring */
 
 /* TX buffer control bits */
 # define BUF_TX_IC                0x80000000 /* intrpt on compl */
@@ -146,6 +168,8 @@ struct qfec_buf_desc {
 
 # define BUS_MODE_PBL             0x00003f00  /* programmable burst length */
 # define BUS_MODE_PBLSET(n)       (BUS_MODE_PBL&(n<<8))
+
+# define BUS_MODE_ATDS            0x00000080  /* alternate descriptor size */
 
 # define BUS_MODE_DSL             0x0000007c  /* descriptor skip length */
 # define BUS_MODE_DSL_SET(n)      (BUS_MODE_DSL & (n << 2))
@@ -332,6 +356,11 @@ struct qfec_buf_desc {
 # define CUR_HOST_RX_BU_ADR_REG    0x1054
 
 # define HW_FEATURE_REG            0x1058
+
+# define HW_FEATURE_ACTPHYIF_BMSK  0x70000000
+# define HW_FEATURE_ACTPHYIF_SHFT  28
+# define HW_FEATURE_ENHDESSEL      0x01000000
+# define HW_FEATURE_TSVER2SEL      0x00002000
 
 # define MAC_CONFIG_REG            0x0000
 
@@ -649,7 +678,6 @@ struct qfec_buf_desc {
 
 # define MAC_ADR_MAX             32
 
-
 # define  QFEC_INTRP_SETUP               (INTRP_EN_REG_AIE    \
 					| INTRP_EN_REG_FBE \
 					| INTRP_EN_REG_RWE \
@@ -663,120 +691,158 @@ struct qfec_buf_desc {
 					| INTRP_EN_REG_RIE \
 					| INTRP_EN_REG_TIE)
 
-/* ASIC Ethernet clock register definitions:
- *     address offsets and some register definitions
- */
-# define EMAC_CLK_REG_BASE           0x94020000
+/* CFG_CFG_CSR */
 
-/* PHY clock PLL register locations */
-# define ETH_MD_REG                  0x02A4
-# define ETH_NS_REG                  0x02A8
+/* clock gate register */
+#define CFG_CLK_GATE_CTL_REG       0x0008
 
-/* definitions of NS_REG control bits */
-# define ETH_NS_SRC_SEL              0x0007
+#define GMAC_0_MII_TX_CLKEN        0x00000001
+#define GMAC_0_MII_RX_CLKEN        0x00000010
+#define GMAC_0_MII_CLKEN_BMSK      (GMAC_0_MII_TX_CLKEN | GMAC_0_MII_RX_CLKEN)
+#define GMAC_N_MII_TX_CLKEN(n)     (GMAC_0_MII_TX_CLKEN << (n))
+#define GMAC_N_MII_RX_CLKEN(n)     (GMAC_0_MII_RX_CLKEN << (n))
+#define GMAC_N_MII_CLKEN_BMSK(n)   (GMAC_0_MII_CLKEN_BMSK << (n))
 
-# define ETH_NS_PRE_DIV_MSK          0x0018
-# define ETH_NS_PRE_DIV(x)           (ETH_NS_PRE_DIV_MSK & (x << 3))
+#define GMAC_0_RGMII_TX_CLKEN      0x00000100
+#define GMAC_0_RGMII_RX_CLKEN      0x00000200
+#define GMAC_0_RGMII_CLKEN_BMSK    (GMAC_0_RGMII_TX_CLKEN | \
+				    GMAC_0_RGMII_RX_CLKEN)
+#define GMAC_N_RGMII_TX_CLKEN(n)   (GMAC_0_RGMII_TX_CLKEN << ((n) * 2))
+#define GMAC_N_RGMII_RX_CLKEN(n)   (GMAC_0_RGMII_RX_CLKEN << ((n) * 2))
+#define GMAC_N_RGMII_CLKEN_BMSK(n) (GMAC_0_RGMII_CLKEN_BMSK << ((n) * 2))
 
-# define ETH_NS_MCNTR_MODE_MSK       0x0060
-# define ETH_NS_MCNTR_MODE_BYPASS    0x0000
-# define ETH_NS_MCNTR_MODE_SWALLOW   0x0020
-# define ETH_NS_MCNTR_MODE_DUAL      0x0040
-# define ETH_NS_MCNTR_MODE_SINGLE    0x0060
+#define GMAC_N_TX_CLKEN(n)         (GMAC_N_MII_TX_CLKEN(n) | \
+				    GMAC_N_RGMII_TX_CLKEN(n))
+#define GMAC_N_RX_CLKEN(n)         (GMAC_N_MII_RX_CLKEN(n) | \
+				    GMAC_N_RGMII_RX_CLKEN(n))
 
-# define ETH_NS_MCNTR_RST            0x0080
-# define ETH_NS_MCNTR_EN             0x0100
+#define GMAC_0_PTP_CLKEN           0x00010000
+#define GMAC_N_PTP_CLKEN(n)        (GMAC_0_PTP_CLKEN << (n))
 
-# define EMAC_PTP_NS_CLK_EN          0x0200
-# define EMAC_PTP_NS_CLK_INV         0x0400
-# define EMAC_PTP_NS_ROOT_EN         0x0800
+/* clock divider */
+#define CFG_CLK_DIV_REG            0x000c
 
-/* clock sources */
-# define CLK_SRC_TCXO                0x0
-# define CLK_SRC_PLL_GLOBAL          0x1
-# define CLK_SRC_PLL_ARM             0x2
-# define CLK_SRC_PLL_QDSP6           0x3
-# define CLK_SRC_PLL_EMAC            0x4
-# define CLK_SRC_EXT_CLK2            0x5
-# define CLK_SRC_EXT_CLK1            0x6
-# define CLK_SRC_CORE_TEST           0x7
+#define CLKDIV_RGMII_1000          0x0001
+#define CLKDIV_RGMII_100           0x0009
+#define CLKDIV_RGMII_10            0x0063
+#define CLKDIV_QSGMII_1000         0x0001
+#define CLKDIV_QSGMII_100          0x0009
+#define CLKDIV_QSGMII_10           0x0063
+#define CLKDIV_SGMII_1000          0x0000
+#define CLKDIV_SGMII_100           0x0004
+#define CLKDIV_SGMII_10            0x0031
+#define CLKDIV_BMSK                0x007f
+#define GMAC_N_CLKDIV_SHFT(n)      ((n) << 8)
+#define GMAC_N_CLKDIV_BMSK(n)      (CLKDIV_BMSK << GMAC_N_CLKDIV_SHFT(n))
+#define GMAC_N_CLKDIV(v, n)        ((v) << GMAC_N_CLKDIV_SHFT(n))
 
-# define ETH_MD_M(x)                 (x << 16)
-# define ETH_MD_2D_N(x)              ((~(x) & 0xffff))
-# define ETH_NS_NM(x)                ((~(x) << 16) & 0xffff0000)
+/* clk source control */
+#define CFG_CLK_SRC_CTL_REG        0x0014
 
-/* PHY interface clock divider */
-# define ETH_X_EN_NS_REG             0x02AC
+#define PTP_AUXREF_CLKSEL          0x80000000
+#define GMAC_0_CLK_MUX_SEL         0x00000001
+#define GMAC_N_CLK_MUX_SEL(n)      (1 << (n))
 
-# define ETH_RX_CLK_FB_INV           0x80
-# define ETH_RX_CLK_FB_EN            0x40
-# define ETH_TX_CLK_FB_INV           0x20
-# define ETH_TX_CLK_FB_EN            0x10
-# define ETH_RX_CLK_INV              0x08
-# define ETH_RX_CLK_EN               0x04
-# define ETH_TX_CLK_INV              0x02
-# define ETH_TX_CLK_EN               0x01
+/* qsgmii clock ctl */
+#define CFG_QSGMII_CLK_CTL_REG     0x002c
 
-# define ETH_X_EN_NS_DEFAULT \
-	(ETH_RX_CLK_FB_EN | ETH_TX_CLK_FB_EN | ETH_RX_CLK_EN | ETH_TX_CLK_EN)
+#define RGMII_REF_CLK_SEL          0x00000001
 
-# define EMAC_PTP_MD_REG             0x02B0
+/* gmac control */
+#define CFG_GMAC_0_CTL_REG         0x0030
+#define CFG_GMAC_N_CTL_REG(n)      (CFG_GMAC_0_CTL_REG + ((n) * 4))
 
-/* PTP clock divider */
-# define EMAC_PTP_NS_REG             0x02B4
+#define GMAC_FLOW_CTL              0x00040000
+#define PHY_INTF_SEL               0x00010000
+#define GMAC_IFG_LIMIT_BMSK        0x00003f00
+#define GMAC_IFG_LIMIT_SHFT        8
+#define GMAC_IFG_BMSK              0x0000003f
 
-/* clock interface pin controls */
-# define EMAC_NS_REG                 0x02B8
+/* spare control */
+#define CFG_SPARE_CTL_REG          0x0088
 
-# define EMAC_RX_180_CLK_INV         0x2000
-# define EMAC_RX_180_CLK_EN          0x1000
-# define EMAC_RX_180_CLK_EN_INV      (EMAC_RX_180_CLK_INV | EMAC_RX_180_CLK_EN)
+#define SPARE_CTL_PCS_RESET        0x03ffffff
 
-# define EMAC_TX_180_CLK_INV         0x0800
-# define EMAC_TX_180_CLK_EN          0x0400
-# define EMAC_TX_180_CLK_EN_INV      (EMAC_TX_180_CLK_INV | EMAC_TX_180_CLK_EN)
+/* QSGMII_WRAPPER */
+/* pcs qsgmii ctl */
+#define PCS_QSGMII_CTL_REG         0x00020
 
-# define EMAC_REVMII_RX_CLK_INV      0x0200
-# define EMAC_REVMII_RX_CLK_EN       0x0100
+#define CH_SIGNAL_DETECT(n)        (0x00000800 << (n))
+#define CH_SELECT(n)               (0x00010000 << (n))
+#define QSGMII_CTL_SGMII           0x0009492b
+#define QSGMII_CTL_SGMII_BMSK      0x0079cfff
 
-# define EMAC_RX_CLK_INV             0x0080
-# define EMAC_RX_CLK_EN              0x0040
+/* pcs qsgmii sgmii mode */
+#define PCS_QSGMII_SGMII_MODE_REG  0x00064
 
-# define EMAC_REVMII_TX_CLK_INV      0x0020
-# define EMAC_REVMII_TX_CLK_EN       0x0010
+#define CH_QSGMII_SGMII            0x00000001
 
-# define EMAC_TX_CLK_INV             0x0008
-# define EMAC_TX_CLK_EN              0x0004
+/* pcs mode crtl */
+#define PCS_MODE_CRTL_REG          0x00068
 
-# define EMAC_RX_R_CLK_EN            0x0002
-# define EMAC_TX_R_CLK_EN            0x0001
+#define CH1_MODE_CTRL_25M_BMSK     0x00000007
+#define CH1_MODE_CTRL_25M_SHFT     0
+#define CH0_POWER_ON_25M           0x00000008
+#define CH0_MR_MAIN_RESET_25       0x00000010
+#define CH0_MR_LOOPBACK_25M        0x00000020
+#define CH0_MR_RESTART_AN_25M      0x00000040
+#define CH0_MR_AN_ENABLE_25M       0x00000080
+#define CH_POWER_ON_25M(n)         (CH0_POWER_ON_25M << ((n) * 8))
+#define CH_MR_MAIN_RESET_25(n)     (CH0_MR_MAIN_RESET_25 << ((n) * 8))
+#define CH_MR_LOOPBACK_25M(n)      (CH0_MR_LOOPBACK_25M << ((n) * 8))
+#define CH_MR_RESTART_AN_25M(n)    (CH0_MR_RESTART_AN_25M << ((n) * 8))
+#define CH_MR_AN_ENABLE_25M(n)     (CH0_MR_AN_ENABLE_25M << ((n) * 8))
+#define PCS_MODE_CRTL_CH_BMSK(n)   (CH_POWER_ON_25M(n) | \
+				    CH_MR_MAIN_RESET_25(n) | \
+				    CH_MR_LOOPBACK_25M(n) | \
+				    CH_MR_RESTART_AN_25M(n) | \
+				    CH_MR_AN_ENABLE_25M(n) | \
+				    ((n) == 1) ? CH1_MODE_CTRL_25M_BMSK : 0)
+#define CH_MODE_CRTL_SGMII(n)      (CH_MR_AN_ENABLE_25M(n) | \
+				    CH_POWER_ON_25M(n) | \
+				    ((n) == 1) ? 2 : 0)
 
-# define EMAC_NS_DEFAULT \
-	(EMAC_RX_180_CLK_EN_INV | EMAC_TX_180_CLK_EN_INV \
-	| EMAC_REVMII_RX_CLK_EN | EMAC_REVMII_TX_CLK_EN \
-	| EMAC_RX_CLK_EN | EMAC_TX_CLK_EN \
-	| EMAC_RX_R_CLK_EN | EMAC_TX_R_CLK_EN)
 
-# define EMAC_TX_FS_REG              0x02BC
-# define EMAC_RX_FS_REG              0x02C0
+/* pcs all channel control */
+#define PCS_ALL_CH_CTL_REG         0x00080
 
-/* Ethernet controller PHY interface select */
-# define EMAC_PHY_INTF_SEL_REG       0x18030
+#define CH0_MR_NP_LOADED_25M       0x00000001
+#define CH0_FORCE_SPEED_25M        0x00000002
+#define CH0_SPEED_25M_BMSK         0x0000000c
+#define CH0_SPEED_25M_SHFT         2
+#define CH0_REM_PHY_LPBK           0x00010000
+#define CH0_EEE_CAP_25M            0x00100000
+#define CH0_EEE_CLK_STP_CAP_25M    0x00200000
+#define CH_MR_NP_LOADED_25M(n)     (CH0_MR_NP_LOADED_25M << ((n) * 4))
+#define CH_FORCE_SPEED_25M(n)      (CH0_FORCE_SPEED_25M << ((n) * 4))
+#define CH_SPEED_25M_BMSK(n)       (CH0_SPEED_25M_BMSK << ((n) * 4))
+#define CH_SPEED_25M_SHFT(n)       (CH0_SPEED_25M_SHFT + ((n) * 4))
+#define CH_SPEED_25M_10(n)         0
+#define CH_SPEED_25M_100(n)        (1 << CH_SPEED_25M_SHFT(n))
+#define CH_SPEED_25M_1000(n)       (2 << CH_SPEED_25M_SHFT(n))
+#define CH_REM_PHY_LPBK(n)         (CH0_REM_PHY_LPBK << (n))
+#define CH_EEE_CAP_25M(n)          (CH0_EEE_CAP_25M << ((n) * 2))
+#define CH_EEE_CLK_STP_CAP_25M(n)  (CH0_EEE_CLK_STP_CAP_25M << ((n) * 2))
+#define PCS_CH_CTL_CH_BMSK(n)      (CH_MR_NP_LOADED_25M(n) | \
+				    CH_FORCE_SPEED_25M(n) | \
+				    CH_SPEED_25M_BMSK(n) | \
+				    CH_REM_PHY_LPBK(n) | \
+				    CH_EEE_CAP_25M(n) | \
+				    CH_EEE_CLK_STP_CAP_25M(n))
 
-# define EMAC_PHY_INTF_SEL_MII       0x0
-# define EMAC_PHY_INTF_SEL_RGMII     0x1
-# define EMAC_PHY_INTF_SEL_REVMII    0x7
-# define EMAC_PHY_INTF_SEL_MASK      0x7
+/* qsgmii phy mode control */
+#define QSGMII_PHY_MODE_CTL_REG    0x00128
 
-/* MDIO addresses */
-# define EMAC_PHY_ADDR_REG           0x18034
-# define EMAC_REVMII_PHY_ADDR_REG    0x18038
+#define QSGMII_MODE                0x00000001
 
-/* clock routing */
-# define EMAC_CLKMUX_SEL_REG         0x1803c
+/* qsgmii phy qsgmii control */
+#define QSGMII_PHY_QSGMII_CTL_REG  0x00134
 
-# define EMAC_CLKMUX_SEL_0           0x1
-# define EMAC_CLKMUX_SEL_1           0x2
+#define QSGMII_PHY_CTL_SGMII       0xc098408f
 
+/* qsgmii phy sgmii control */
+#define QSGMII_PHY_SGMII_1_CTL_REG 0x0013c
+
+#define SGMII_PHY_CTL_SGMII        0xc09c408f
 
 #endif
