@@ -7721,7 +7721,7 @@ void intel_init_runtime_pm(struct drm_i915_private *dev_priv)
 		return;
 	}
 
-	pm_runtime_set_autosuspend_delay(device, 10000); /* 10s */
+	pm_runtime_set_autosuspend_delay(device, 500); /* 500ms */
 	pm_runtime_mark_last_busy(device);
 	pm_runtime_use_autosuspend(device);
 
