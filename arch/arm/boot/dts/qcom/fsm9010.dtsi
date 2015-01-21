@@ -76,7 +76,7 @@
 	blsp1_uart3: serial@f9920000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf9920000 0x1000>;
-		clocks = <&clock_gcc clk_gcc_blsp1_uart3_apps_clk>,
+		clocks = <&clock_gcc clk_gcc_blsp1_uart4_apps_clk>,
 		<&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
 		pinctrl-names = "default";
