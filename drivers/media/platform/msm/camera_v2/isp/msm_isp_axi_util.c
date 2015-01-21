@@ -521,7 +521,13 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 
 	switch (event_type) {
 	case ISP_EVENT_SOF:
-		vfe_dev->axi_data.src_info[frame_src].frame_id++;
+		if (frame_src == VFE_PIX_0)
+			vfe_dev->axi_data.src_info[frame_src].frame_id +=
+				vfe_dev->axi_data.src_info[frame_src].
+				sof_counter_step;
+		else
+			vfe_dev->axi_data.src_info[frame_src].frame_id++;
+
 		if (vfe_dev->axi_data.src_info[frame_src].frame_id == 0)
 			vfe_dev->axi_data.src_info[frame_src].frame_id = 1;
 		ISP_DBG("%s: frame_src %d frame id: %u\n", __func__,

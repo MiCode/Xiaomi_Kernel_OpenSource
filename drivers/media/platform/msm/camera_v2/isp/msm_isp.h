@@ -369,6 +369,7 @@ struct msm_vfe_src_info {
 	long pixel_clock;
 	uint32_t input_format;/*V4L2 pix format with bayer pattern*/
 	uint32_t last_updt_frm_id;
+	uint32_t sof_counter_step;
 };
 
 struct msm_vfe_fetch_engine_info {
