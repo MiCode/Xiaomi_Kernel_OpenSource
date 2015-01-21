@@ -4109,7 +4109,7 @@ enum punit_power_well {
 #define   DPINVGTT_STATUS_MASK_CHV		0xfff
 
 #define	DSPARB	(dev_priv->info.display_mmio_offset + 0x70030)
-#define	DSPARB_VLV_DEFAULT	0xc080c080
+#define	DSPARB_VLV_DEFAULT	0x80008000
 #define	DSPARB_CSTART_MASK	(0x7f << 7)
 #define	DSPARB_CSTART_SHIFT	7
 #define	DSPARB_BSTART_MASK	(0x7f)

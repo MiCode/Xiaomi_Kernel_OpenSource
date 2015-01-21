@@ -1598,6 +1598,7 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 			    &planeb_wm, &cursorb_wm))
 		enabled |= 1 << PIPE_B;
 
+	I915_WRITE(DSPARB, DSPARB_VLV_DEFAULT);
 	I915_WRITE(DSPFW1,
 		   (DSPFW_SR_VAL << DSPFW_SR_SHIFT) |
 		   (DSPFW_CURSORB_VAL << DSPFW_CURSORB_SHIFT) |
@@ -1615,7 +1616,6 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 			(DSPFW5_CURSORB_VAL << DSPFW5_CURSORB_SHIFT) |
 			DSPFW5_CURSORSR_VAL);
 	I915_WRITE(DSPFW6, DSPFW6_DISPLAYSR_VAL);
-	I915_WRITE(DSPARB, DSPARB_VLV_DEFAULT);
 }
 
 static void g4x_update_wm(struct drm_crtc *crtc)
