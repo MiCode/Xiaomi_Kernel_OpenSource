@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -575,12 +575,30 @@ static struct msm_sensor_ctrl_t *get_sctrl(struct v4l2_subdev *sd)
 
 static void msm_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 {
+	int32_t rc = 0;
+
 	mutex_lock(s_ctrl->msm_sensor_mutex);
 	if (s_ctrl->sensor_state == MSM_SENSOR_POWER_UP) {
 		s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write_table(
 			s_ctrl->sensor_i2c_client, &s_ctrl->stop_setting);
 		kfree(s_ctrl->stop_setting.reg_setting);
 		s_ctrl->stop_setting.reg_setting = NULL;
+
+		if (s_ctrl->func_tbl->sensor_power_down) {
+			if (s_ctrl->sensordata->misc_regulator)
+				msm_sensor_misc_regulator(s_ctrl, 0);
+
+			rc = s_ctrl->func_tbl->sensor_power_down(s_ctrl);
+			if (rc < 0) {
+				pr_err("%s:%d failed rc %d\n", __func__,
+					__LINE__, rc);
+			}
+			s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
+			CDBG("%s:%d sensor state %d\n", __func__, __LINE__,
+				s_ctrl->sensor_state);
+		} else {
+			pr_err("s_ctrl->func_tbl NULL\n");
+		}
 	}
 	mutex_unlock(s_ctrl->msm_sensor_mutex);
 	return;
