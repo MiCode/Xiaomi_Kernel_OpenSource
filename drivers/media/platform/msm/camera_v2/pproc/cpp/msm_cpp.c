@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2522,13 +2522,14 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	switch (cmd) {
 	case VIDIOC_MSM_CPP_CFG32:
 	{
-		struct msm_camera_v4l2_ioctl32_t *up32 =
-		  (struct msm_camera_v4l2_ioctl32_t *)up;
-		struct msm_cpp_frame_info32_t *u32_frame_info =
-		  (struct msm_cpp_frame_info32_t *)compat_ptr(up32->ioctl_ptr);
+		struct msm_cpp_frame_info32_t u32_frame_info;
 		struct msm_cpp_frame_info_t *cpp_frame = NULL;
 		int32_t *status;
 
+		if (copy_from_user(&u32_frame_info,
+			(void __user *)kp_ioctl.ioctl_ptr,
+			sizeof(u32_frame_info)))
+			return -EFAULT;
 		/* Get the cpp frame pointer */
 		cpp_frame = get_64bit_cpp_frame_from_compat(&kp_ioctl);
 
@@ -2543,7 +2544,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		kp_ioctl.trans_code = rc;
 
 		/* Convert the 32 bit pointer to 64 bit pointer */
-		status = compat_ptr(u32_frame_info->status);
+		status = compat_ptr(u32_frame_info.status);
 
 		if (copy_to_user((void __user *)status, &rc,
 			sizeof(int32_t)))
