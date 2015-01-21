@@ -2504,7 +2504,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	curr_pwrsave = !!(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
 			  CORE_CLK_PWRSAVE);
 	if ((clock > 400000) &&
-	    !curr_pwrsave && mmc_host_may_gate_card(host->mmc->card))
+	    !curr_pwrsave)
 		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 				| CORE_CLK_PWRSAVE,
 				host->ioaddr + CORE_VENDOR_SPEC);
@@ -2512,7 +2512,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	 * Disable pwrsave for a newly added card if doesn't allow clock
 	 * gating.
 	 */
-	else if (curr_pwrsave && !mmc_host_may_gate_card(host->mmc->card))
+	else if (curr_pwrsave)
 		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 				& ~CORE_CLK_PWRSAVE,
 				host->ioaddr + CORE_VENDOR_SPEC);
@@ -3085,7 +3085,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_PACKED_WR_CONTROL;
 	msm_host->mmc->caps2 |= MMC_CAP2_BOOTPART_NOACC;
 	msm_host->mmc->caps2 |= MMC_CAP2_FULL_PWR_CYCLE;
-	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
 	msm_host->mmc->caps2 |= MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE;
 	msm_host->mmc->caps2 |= MMC_CAP2_HS400_POST_TUNING;
 	msm_host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
