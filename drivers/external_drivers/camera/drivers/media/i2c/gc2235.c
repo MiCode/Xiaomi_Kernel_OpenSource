@@ -36,7 +36,10 @@
 #include <media/v4l2-device.h>
 #ifndef CONFIG_GMIN_INTEL_MID /* FIXME! for non-gmin*/
 #include <media/v4l2-chip-ident.h>
+#else
+#include <linux/atomisp_gmin_platform.h>
 #endif
+#include <linux/acpi.h>
 #include <linux/io.h>
 
 #include "gc2235.h"
@@ -108,6 +111,7 @@ static int gc2235_i2c_write(struct i2c_client *client, u16 len, u8 *data)
 	return ret == num_msg ? 0 : -EIO;
 }
 
+#ifndef CONFIG_GMIN_INTEL_MID
 static int gc2235_write_reg(struct i2c_client *client, u16 data_length,
 							u8 reg, u8 val)
 {
@@ -133,6 +137,7 @@ static int gc2235_write_reg(struct i2c_client *client, u16 data_length,
 
 	return ret;
 }
+#endif
 static int __gc2235_flush_reg_array(struct i2c_client *client,
 				    struct gc2235_write_ctrl *ctrl)
 {
@@ -347,6 +352,7 @@ static int gc2235_get_intg_factor(struct i2c_client *client,
 	return 0;
 }
 
+#ifndef CONFIG_GMIN_INTEL_MID
 static long __gc2235_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 				 int gain, int digitgain)
 
@@ -382,6 +388,7 @@ static long __gc2235_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 	return ret;
 }
 
+
 static int gc2235_set_exposure(struct v4l2_subdev *sd, int exposure,
 	int gain, int digitgain)
 {
@@ -411,19 +418,20 @@ static long gc2235_s_exposure(struct v4l2_subdev *sd,
 
 	return gc2235_set_exposure(sd, exp, gain, digitgain);
 }
-
+#endif
 static long gc2235_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
-
+#ifndef CONFIG_GMIN_INTEL_MID /*FIXME: kenrel panic in bringup*/
 	switch (cmd) {
 	case ATOMISP_IOC_S_EXPOSURE:
 		return gc2235_s_exposure(sd, arg);
 	default:
 		return -EINVAL;
 	}
+#endif
 	return 0;
 }
-
+#ifndef CONFIG_GMIN_INTEL_MID
 /* This returns the exposure time being used. This should only be used
    for filling in EXIF data, not for actual image processing. */
 static int gc2235_q_exposure(struct v4l2_subdev *sd, s32 *value)
@@ -451,8 +459,9 @@ static int gc2235_q_exposure(struct v4l2_subdev *sd, s32 *value)
 err:
 	return ret;
 }
-
+#endif
 struct gc2235_control gc2235_controls[] = {
+#ifndef CONFIG_GMIN_INTEL_MID
 	{
 		.qc = {
 			.id = V4L2_CID_EXPOSURE_ABSOLUTE,
@@ -466,6 +475,7 @@ struct gc2235_control gc2235_controls[] = {
 		},
 		.query = gc2235_q_exposure,
 	},
+#endif
 	{
 		.qc = {
 			.id = V4L2_CID_FOCAL_ABSOLUTE,
@@ -592,6 +602,52 @@ static int gc2235_init(struct v4l2_subdev *sd)
 	return ret;
 }
 
+static int power_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret = -1;
+	struct gc2235_device *dev = to_gc2235_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (flag) {
+		ret = dev->platform_data->v1p8_ctrl(sd, 1);
+		usleep_range(60, 90);
+		if (ret == 0)
+			ret |= dev->platform_data->v2p8_ctrl(sd, 1);
+	} else {
+		ret = dev->platform_data->v1p8_ctrl(sd, 0);
+		ret |= dev->platform_data->v2p8_ctrl(sd, 0);
+	}
+#endif
+
+	return ret;
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	struct gc2235_device *dev = to_gc2235_sensor(sd);
+	int ret = -1;
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	ret |= dev->platform_data->gpio1_ctrl(sd, !flag);
+	usleep_range(60, 90);
+	ret = dev->platform_data->gpio0_ctrl(sd, flag);
+#endif
+	return ret;
+}
 
 static int power_up(struct v4l2_subdev *sd)
 {
@@ -605,7 +661,7 @@ static int power_up(struct v4l2_subdev *sd)
 		return -ENODEV;
 	}
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
@@ -618,9 +674,9 @@ static int power_up(struct v4l2_subdev *sd)
 	usleep_range(5000, 6000);
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 1);
+		ret = gpio_ctrl(sd, 1);
 		if (ret)
 			goto fail_power;
 	}
@@ -630,9 +686,9 @@ static int power_up(struct v4l2_subdev *sd)
 	return 0;
 
 fail_clk:
-	dev->platform_data->gpio_ctrl(sd, 0);
+	gpio_ctrl(sd, 0);
 fail_power:
-	dev->platform_data->power_ctrl(sd, 0);
+	power_ctrl(sd, 0);
 	dev_err(&client->dev, "sensor power-up failed\n");
 
 	return ret;
@@ -650,9 +706,9 @@ static int power_down(struct v4l2_subdev *sd)
 		return -ENODEV;
 	}
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 0);
+		ret = gpio_ctrl(sd, 0);
 		if (ret)
 			dev_err(&client->dev, "gpio failed 2\n");
 	}
@@ -662,7 +718,7 @@ static int power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "flisclk failed\n");
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
@@ -871,7 +927,7 @@ static int gc2235_detect(struct i2c_client *client)
 		return -ENODEV;
 	}
 
-	dev_dbg(&client->dev, "detect gc2235 success\n");
+	dev_info(&client->dev, "detect gc2235 success\n");
 	return 0;
 }
 
@@ -1218,6 +1274,7 @@ static int gc2235_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct gc2235_device *dev;
+	void *gcpdev;
 	int ret;
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -1231,12 +1288,17 @@ static int gc2235_probe(struct i2c_client *client,
 	dev->fmt_idx = 0;
 	v4l2_i2c_subdev_init(&(dev->sd), client, &gc2235_ops);
 
-	if (client->dev.platform_data) {
-		ret = gc2235_s_config(&dev->sd, client->irq,
-				       client->dev.platform_data);
-		if (ret)
-			goto out_free;
-	}
+	gcpdev = client->dev.platform_data;
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (ACPI_COMPANION(&client->dev))
+		gcpdev = gmin_camera_platform_data(&dev->sd,
+				   ATOMISP_INPUT_FORMAT_RAW_10,
+				   atomisp_bayer_order_grbg);
+#endif
+
+	ret = gc2235_s_config(&dev->sd, client->irq, gcpdev);
+	if (ret)
+		goto out_free;
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
@@ -1247,18 +1309,31 @@ static int gc2235_probe(struct i2c_client *client,
 	if (ret)
 		gc2235_remove(client);
 
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (ACPI_HANDLE(&client->dev))
+		ret = atomisp_register_i2c_module(&dev->sd, gcpdev, RAW_CAMERA);
+#endif
+
 	return ret;
 out_free:
 	v4l2_device_unregister_subdev(&dev->sd);
 	kfree(dev);
+
 	return ret;
 }
 
+static struct acpi_device_id gc2235_acpi_match[] = {
+	{ "INT33F8" },
+	{},
+};
+
+MODULE_DEVICE_TABLE(acpi, gc2235_acpi_match);
 MODULE_DEVICE_TABLE(i2c, gc2235_id);
 static struct i2c_driver gc2235_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = GC2235_NAME,
+		.acpi_match_table = ACPI_PTR(gc2235_acpi_match),
 	},
 	.probe = gc2235_probe,
 	.remove = gc2235_remove,
