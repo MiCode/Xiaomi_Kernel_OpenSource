@@ -1769,9 +1769,11 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, u32 enable)
 		 * after SDHCI_MSM_MMC_CLK_GATE_DELAY and thus no
 		 * additional delay is required to remove the bus vote.
 		 */
+#ifdef MMC_CLKGATE
 		if (host->mmc->clkgate_delay)
 			sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
 		else
+#endif
 			sdhci_msm_bus_queue_work(host);
 	}
 }
@@ -2506,7 +2508,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	curr_pwrsave = !!(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
 			  CORE_CLK_PWRSAVE);
 	if ((clock > 400000) &&
-	    !curr_pwrsave && mmc_host_may_gate_card(host->mmc->card))
+	    !curr_pwrsave)
 		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 				| CORE_CLK_PWRSAVE,
 				host->ioaddr + CORE_VENDOR_SPEC);
@@ -2514,7 +2516,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	 * Disable pwrsave for a newly added card if doesn't allow clock
 	 * gating.
 	 */
-	else if (curr_pwrsave && !mmc_host_may_gate_card(host->mmc->card))
+	else if (curr_pwrsave)
 		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 				& ~CORE_CLK_PWRSAVE,
 				host->ioaddr + CORE_VENDOR_SPEC);
@@ -3075,10 +3077,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	/* Enable pwr irq interrupts */
 	writel_relaxed(INT_MASK, (msm_host->core_mem + CORE_PWRCTL_MASK));
-
+#ifdef MMC_CLKGATE
 	/* Set clock gating delay to be used when CONFIG_MMC_CLKGATE is set */
 	msm_host->mmc->clkgate_delay = SDHCI_MSM_MMC_CLK_GATE_DELAY;
-
+#endif
 	/* Set host capabilities */
 	msm_host->mmc->caps |= msm_host->pdata->mmc_bus_width;
 	msm_host->mmc->caps |= msm_host->pdata->caps;
@@ -3087,7 +3089,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_PACKED_WR_CONTROL;
 	msm_host->mmc->caps2 |= MMC_CAP2_BOOTPART_NOACC;
 	msm_host->mmc->caps2 |= MMC_CAP2_FULL_PWR_CYCLE;
-	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
 	msm_host->mmc->caps2 |= MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE;
 	msm_host->mmc->caps2 |= MMC_CAP2_HS400_POST_TUNING;
 	msm_host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
