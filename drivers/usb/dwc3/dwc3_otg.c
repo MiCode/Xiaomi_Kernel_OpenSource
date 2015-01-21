@@ -72,12 +72,18 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 	if (on) {
 		dev_dbg(otg->phy->dev, "%s: turn on host\n", __func__);
 
+		pm_runtime_get_sync(otg->phy->dev);
+		dbg_event(0xFF, "StrtHost gync",
+			atomic_read(&otg->phy->dev->power.usage_count));
 		dwc3_otg_notify_host_mode(otg, on);
 		usb_phy_notify_connect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
 		ret = regulator_enable(dotg->vbus_otg);
 		if (ret) {
 			dev_err(otg->phy->dev, "unable to enable vbus_otg\n");
 			dwc3_otg_notify_host_mode(otg, 0);
+			pm_runtime_put_sync(otg->phy->dev);
+			dbg_event(0xFF, "vregerr psync",
+				atomic_read(&otg->phy->dev->power.usage_count));
 			return ret;
 		}
 
@@ -98,11 +104,19 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 				__func__, ret);
 			regulator_disable(dotg->vbus_otg);
 			dwc3_otg_notify_host_mode(otg, 0);
+			pm_runtime_put_sync(otg->phy->dev);
+			dbg_event(0xFF, "pdeverr psync",
+				atomic_read(&otg->phy->dev->power.usage_count));
 			return ret;
 		}
 
 		hcd = platform_get_drvdata(dwc->xhci);
 		otg->host = &hcd->self;
+
+		/* xHCI should have incremented child count as necessary */
+		pm_runtime_put_sync(otg->phy->dev);
+		dbg_event(0xFF, "StrtHost psync",
+			atomic_read(&otg->phy->dev->power.usage_count));
 	} else {
 		dev_dbg(otg->phy->dev, "%s: turn off host\n", __func__);
 
@@ -112,8 +126,9 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			return ret;
 		}
 
-		dbg_event(0xFF, "StHost get", 0);
-		pm_runtime_get(dwc->dev);
+		pm_runtime_get_sync(dwc->dev);
+		dbg_event(0xFF, "StopHost gsync",
+			atomic_read(&dwc->dev->power.usage_count));
 		usb_phy_notify_disconnect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
 		dwc3_otg_notify_host_mode(otg, on);
 		otg->host = NULL;
@@ -131,8 +146,9 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 
 		/* re-init core and OTG registers as block reset clears these */
 		dwc3_post_host_reset_core_init(dwc);
-		dbg_event(0xFF, "StHost put", 0);
-		pm_runtime_put(dwc->dev);
+		pm_runtime_put_sync(dwc->dev);
+		dbg_event(0xFF, "StopHost psync",
+			atomic_read(&dwc->dev->power.usage_count));
 	}
 
 	return 0;
@@ -153,6 +169,10 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 
 	if (!otg->gadget)
 		return -EINVAL;
+
+	pm_runtime_get_sync(otg->phy->dev);
+	dbg_event(0xFF, "StrtGdgt gsync",
+		atomic_read(&otg->phy->dev->power.usage_count));
 
 	if (on) {
 		dev_dbg(otg->phy->dev, "%s: turn on gadget %s\n",
@@ -175,6 +195,10 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 		usb_phy_notify_disconnect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(dotg->dwc->usb3_phy, USB_SPEED_SUPER);
 	}
+
+	pm_runtime_put_sync(otg->phy->dev);
+	dbg_event(0xFF, "StopGdgt psync",
+		atomic_read(&otg->phy->dev->power.usage_count));
 
 	return 0;
 }
@@ -257,6 +281,9 @@ static void dwc3_ext_chg_det_done(struct usb_otg *otg, struct dwc3_charger *chg)
 	 */
 	if (test_bit(B_SESS_VLD, &dotg->inputs))
 		schedule_delayed_work(&dotg->sm_work, 0);
+
+	/* ensure OTG work is finished before returning */
+	flush_delayed_work(&dotg->sm_work);
 }
 
 /**
@@ -284,77 +311,44 @@ int dwc3_set_charger(struct usb_otg *otg, struct dwc3_charger *charger)
  *
  * Returns 0 on success
  */
-static void dwc3_ext_event_notify(struct usb_otg *otg,
-					enum dwc3_ext_events event)
+static void dwc3_ext_event_notify(struct usb_otg *otg)
 {
 	static bool init;
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
 	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
 	struct usb_phy *phy = dotg->otg.phy;
-	int ret = 0;
 
 	/* Flush processing any pending events before handling new ones */
 	if (init)
 		flush_delayed_work(&dotg->sm_work);
 
-	if (event == DWC3_EVENT_PHY_RESUME) {
-		if (pm_runtime_status_suspended(phy->dev) ||
-			atomic_read(&phy->dev->power.usage_count) == 0) {
-
-			dev_dbg(phy->dev, "ext PHY_RESUME event received\n");
-			/* ext_xceiver would have taken h/w out of LPM by now */
-			ret = pm_runtime_get(phy->dev);
-			dbg_event(0xFF, "PhyRes get", ret);
-			if (ret == -EACCES) {
-				/* pm_runtime_get may fail during system
-				   resume with -EACCES error */
-				pm_runtime_disable(phy->dev);
-				pm_runtime_set_active(phy->dev);
-				pm_runtime_enable(phy->dev);
-			} else if (ret < 0) {
-				dev_warn(phy->dev, "pm_runtime_get failed!\n");
-			}
-		} else {
-			dev_warn(phy->dev, "PHY_RESUME event out of LPM!!!!\n");
-		}
-	} else if (event == DWC3_EVENT_XCEIV_STATE) {
-		if (pm_runtime_status_suspended(phy->dev) ||
-			atomic_read(&phy->dev->power.usage_count) == 0) {
-			dev_dbg(phy->dev, "ext XCEIV_STATE while runtime_status=%d\n",
-				phy->dev->power.runtime_status);
-			ret = pm_runtime_get(phy->dev);
-			dbg_event(0xFF, "Xceiv get", ret);
-			if (ret < 0)
-				dev_warn(phy->dev, "pm_runtime_get failed!!\n");
-		}
-		if (ext_xceiv->id == DWC3_ID_FLOAT) {
-			dev_dbg(phy->dev, "XCVR: ID set\n");
-			set_bit(ID, &dotg->inputs);
-		} else {
-			dev_dbg(phy->dev, "XCVR: ID clear\n");
-			clear_bit(ID, &dotg->inputs);
-		}
-
-		if (ext_xceiv->bsv) {
-			dev_dbg(phy->dev, "XCVR: BSV set\n");
-			set_bit(B_SESS_VLD, &dotg->inputs);
-		} else {
-			dev_dbg(phy->dev, "XCVR: BSV clear\n");
-			clear_bit(B_SESS_VLD, &dotg->inputs);
-		}
-
-		if (!init) {
-			init = true;
-			if (!work_busy(&dotg->sm_work.work))
-				schedule_delayed_work(&dotg->sm_work, 0);
-
-			complete(&dotg->dwc3_xcvr_vbus_init);
-			dev_dbg(phy->dev, "XCVR: BSV init complete\n");
-			return;
-		}
-
-		schedule_delayed_work(&dotg->sm_work, 0);
+	if (ext_xceiv->id == DWC3_ID_FLOAT) {
+		dev_dbg(phy->dev, "XCVR: ID set\n");
+		set_bit(ID, &dotg->inputs);
+	} else {
+		dev_dbg(phy->dev, "XCVR: ID clear\n");
+		clear_bit(ID, &dotg->inputs);
 	}
+
+	if (ext_xceiv->bsv) {
+		dev_dbg(phy->dev, "XCVR: BSV set\n");
+		set_bit(B_SESS_VLD, &dotg->inputs);
+	} else {
+		dev_dbg(phy->dev, "XCVR: BSV clear\n");
+		clear_bit(B_SESS_VLD, &dotg->inputs);
+	}
+
+	if (!init) {
+		init = true;
+		if (!work_busy(&dotg->sm_work.work))
+			schedule_delayed_work(&dotg->sm_work, 0);
+
+		complete(&dotg->dwc3_xcvr_vbus_init);
+		dev_dbg(phy->dev, "XCVR: BSV init complete\n");
+		return;
+	}
+
+	schedule_delayed_work(&dotg->sm_work, 0);
 }
 
 /**
@@ -504,7 +498,6 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	int ret = 0;
 	unsigned long delay = 0;
 
-	pm_runtime_resume(phy->dev);
 	dev_dbg(phy->dev, "%s state\n", usb_otg_state_string(phy->state));
 
 	/* Check OTG state */
@@ -524,15 +517,12 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			dev_dbg(phy->dev, "!id\n");
 			phy->state = OTG_STATE_A_IDLE;
 			work = 1;
-		} else if (test_bit(B_SESS_VLD, &dotg->inputs)) {
-			dev_dbg(phy->dev, "b_sess_vld\n");
-			phy->state = OTG_STATE_B_IDLE;
-			work = 1;
 		} else {
 			phy->state = OTG_STATE_B_IDLE;
-			dev_dbg(phy->dev, "No device, trying to suspend\n");
-			dbg_event(0xFF, "UNDEF put", 0);
-			pm_runtime_put_sync(phy->dev);
+			if (test_bit(B_SESS_VLD, &dotg->inputs)) {
+				dev_dbg(phy->dev, "b_sess_vld\n");
+				work = 1;
+			}
 		}
 		break;
 
@@ -560,18 +550,22 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					dev_dbg(phy->dev, "lpm, DCP charger\n");
 					dwc3_otg_set_power(phy,
 						dcp_max_current);
-					dbg_event(0xFF, "PROPCHG put", 0);
-					pm_runtime_put_sync(phy->dev);
 					break;
 				case DWC3_CDP_CHARGER:
 					dwc3_otg_set_power(phy,
 							DWC3_IDEV_CHG_MAX);
-					dwc3_otg_start_peripheral(&dotg->otg,
-									1);
-					phy->state = OTG_STATE_B_PERIPHERAL;
-					work = 1;
-					break;
+					/* fall through */
 				case DWC3_SDP_CHARGER:
+					/*
+					 * increment pm usage count upon cable
+					 * connect, counter is decremented in
+					 * OTG_STATE_B_PERIPHERAL state in cable
+					 * unplug or in bus suspend.
+					 */
+					pm_runtime_get_sync(phy->dev);
+					dbg_event(0xFF, "CHG gsync",
+					atomic_read(
+						&phy->dev->power.usage_count));
 					dwc3_otg_start_peripheral(&dotg->otg,
 									1);
 					phy->state = OTG_STATE_B_PERIPHERAL;
@@ -593,8 +587,6 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					if (dotg->charger_retry_count ==
 						max_chgr_retry_count) {
 						dwc3_otg_set_power(phy, 0);
-						dbg_event(0xFF, "FLCHG put", 0);
-						pm_runtime_put_sync(phy->dev);
 						break;
 					}
 					charger->start_detection(dotg->charger,
@@ -611,17 +603,30 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				 * and start peripheral
 				 */
 				phy->state = OTG_STATE_B_PERIPHERAL;
+				/*
+				 * increment pm usage count upon cable connect
+				 * counter is decremented in
+				 * OTG_STATE_B_PERIPHERAL state in cable unplug
+				 * or in bus suspend.
+				 */
+				pm_runtime_get_sync(phy->dev);
+				dbg_event(0xFF,
+					"NoCHG gsync",
+					atomic_read(
+						&phy->dev->power.usage_count));
 				if (dwc3_otg_start_peripheral(&dotg->otg, 1)) {
+					pm_runtime_put_sync(phy->dev);
+					dbg_event(0xFF,
+						"NoChg psync",
+						atomic_read(
+						&phy->dev->power.usage_count));
 					/*
 					 * Probably set_peripheral not called
 					 * yet. We will re-try as soon as it
 					 * will be called
 					 */
-					dev_err(phy->dev, "enter lpm as\n"
-						"unable to start B-device\n");
+					dev_err(phy->dev, "unable to start B-device\n");
 					phy->state = OTG_STATE_UNDEFINED;
-					dbg_event(0xFF, "NoCH put", 0);
-					pm_runtime_put_sync(phy->dev);
 					return;
 				}
 			}
@@ -631,9 +636,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 
 			dotg->charger_retry_count = 0;
 			dwc3_otg_set_power(phy, 0);
-			dev_dbg(phy->dev, "No device, trying to suspend\n");
-			dbg_event(0xFF, "NoDev put", 0);
-			pm_runtime_put_sync(phy->dev);
+			dev_dbg(phy->dev, "No device, allowing suspend\n");
 		}
 		break;
 
@@ -643,13 +646,22 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			dev_dbg(phy->dev, "!id || !bsv\n");
 			dwc3_otg_start_peripheral(&dotg->otg, 0);
 			phy->state = OTG_STATE_B_IDLE;
+			/*
+			 * decrement pm usage count upon cable unplug
+			 * which was incremented upon cable plugin in
+			 * OTG_STATE_B_IDLE state
+			 */
+			pm_runtime_put_sync(phy->dev);
+			dbg_event(0xFF, "BPER psync",
+				atomic_read(&phy->dev->power.usage_count));
 			if (charger)
 				charger->chg_type = DWC3_INVALID_CHARGER;
 			work = 1;
 		} else if (test_bit(DWC3_OTG_SUSPEND, &dotg->inputs) &&
 			test_bit(B_SESS_VLD, &dotg->inputs)) {
-			dbg_event(0xFF, "BPER put", 0);
 			pm_runtime_put_sync(phy->dev);
+			dbg_event(0xFF, "SUSP psync",
+				atomic_read(&phy->dev->power.usage_count));
 		}
 		break;
 
@@ -675,11 +687,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				work = 1;
 				dotg->vbus_retry_count++;
 			} else if (ret) {
-				dev_dbg(phy->dev, "enter lpm as\n"
-					"unable to start A-device\n");
+				dev_err(phy->dev, "unable to start host\n");
 				phy->state = OTG_STATE_A_IDLE;
-				dbg_event(0xFF, "AIDL put", 0);
-				pm_runtime_put_sync(phy->dev);
 				return;
 			} else {
 				/*
@@ -703,9 +712,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			work = 1;
 		} else {
 			dev_dbg(phy->dev, "still in a_host state. Resuming root hub.\n");
-			dbg_event(0xFF, "AHOST put", 0);
+			dbg_event(0xFF, "XHCIResume", 0);
 			pm_runtime_resume(&dotg->dwc->xhci->dev);
-			pm_runtime_put_noidle(phy->dev);
 		}
 		break;
 
@@ -760,9 +768,6 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	init_completion(&dotg->dwc3_xcvr_vbus_init);
 	INIT_DELAYED_WORK(&dotg->sm_work, dwc3_otg_sm_work);
 
-	dbg_event(0xFF, "OTGInit get", 0);
-	pm_runtime_get(dwc->dev);
-
 	return 0;
 }
 
@@ -781,8 +786,6 @@ void dwc3_otg_exit(struct dwc3 *dwc)
 		if (dotg->charger)
 			dotg->charger->start_detection(dotg->charger, false);
 		cancel_delayed_work_sync(&dotg->sm_work);
-		dbg_event(0xFF, "OTGExit put", 0);
-		pm_runtime_put(dwc->dev);
 		dwc->dotg = NULL;
 	}
 }
