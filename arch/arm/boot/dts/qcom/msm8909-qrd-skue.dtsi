@@ -53,6 +53,17 @@
 			  bias-pull-up;
 		};
 	};
+
+	hall_int_pin {
+		qcom,pins = <&gp 36>;
+		qcom,pin-func = <0>;
+		qcom,num-grp-pins = <1>;
+		label = "hall-irq";
+		hall_sensor_int_default: hall_sensor_int_default {
+			drive-strength = <6>;
+			bias-pull-up;
+		};
+	};
 };
 
 &soc {
@@ -180,6 +191,19 @@
 			bosch,gpio-int1 = <&msm_gpio 96 0x2002>;
 			bosch,gpio-int2 = <&msm_gpio 65 0x2002>;
 		};
+	};
+
+	hall {
+		compatible = "hall-switch";
+		pinctrl-names = "default";
+		pinctrl-0 = <&hall_sensor_int_default>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <36 0x2003>;
+		vddio-supply = <&pm8909_l5>;
+		linux,gpio-int = <&msm_gpio 36 0x1>;
+		linux,wakeup;
+		linux,min-uv = <1650000>;
+		linux,max-uv = <3300000>;
 	};
 
 	sound {
