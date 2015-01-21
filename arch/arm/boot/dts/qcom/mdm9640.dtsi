@@ -1385,7 +1385,6 @@
 					"gpll0_mss_clk";
 
 		interrupts = <0 24 1>;
-		vdd_mss-supply = <&pmd9635_s1>;
 		vdd_cx-supply = <&pmd9635_s5_corner>;
 		vdd_mx-supply = <&pmd9635_l9_corner>;
 		vdd_mx-uV = <7>;
