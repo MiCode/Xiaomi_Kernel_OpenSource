@@ -452,6 +452,7 @@ bool vlv_dsi_port_init(struct vlv_dsi_port *port, enum port enum_port,
 	port->ctrl_offset = MIPI_CTRL(enum_port);
 	port->dphy_param_offset = MIPI_DPHY_PARAM(enum_port);
 	port->dpi_res_offset = MIPI_DPI_RESOLUTION(enum_port);
+	port->hactive_count_offset = MIPI_HACTIVE_AREA_COUNT(enum_port);
 	port->hfp_count_offset = MIPI_HFP_COUNT(enum_port);
 	port->hsync_count_offset = MIPI_HSYNC_PADDING_COUNT(enum_port);
 	port->hbp_count_offset = MIPI_HBP_COUNT(enum_port);
