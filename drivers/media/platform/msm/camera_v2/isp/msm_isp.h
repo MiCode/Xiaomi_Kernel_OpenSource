@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -350,6 +350,7 @@ struct msm_vfe_axi_stream {
 	uint8_t  runtime_framedrop_update_burst;
 	uint32_t runtime_output_format;
 	enum msm_stream_memory_input_t  memory_input;
+	struct msm_isp_sw_framskip sw_skip;
 };
 
 struct msm_vfe_axi_composite_info {
@@ -434,6 +435,7 @@ struct msm_vfe_stats_stream {
 	uint32_t framedrop_period;
 	uint32_t irq_subsample_pattern;
 	uint32_t init_stats_frame_drop;
+	struct msm_isp_sw_framskip sw_skip;
 
 	uint32_t buffer_offset;
 	struct msm_isp_buffer *buf[2];
