@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,7 +62,7 @@ static int pll1_vco_set_rate_20nm(struct clk *c, unsigned long rate)
 	struct mdss_pll_resources *pll_res = vco->priv;
 
 	mdss_pll_resource_enable(pll_res, true);
-	__dsi_pll_disable(pll_res->pll_base);
+	pll_20nm_config_powerdown(pll_res->pll_base);
 	mdss_pll_resource_enable(pll_res, false);
 
 	pr_debug("Configuring PLL1 registers.\n");
@@ -465,9 +465,9 @@ static void dsi_pll_off_work(struct work_struct *work)
 			mdss_pll_resources, pll_off);
 
 	mdss_pll_resource_enable(pll_res, true);
-	__dsi_pll_disable(pll_res->pll_base);
+	pll_20nm_config_powerdown(pll_res->pll_base);
 	if (pll_res->pll_1_base)
-		__dsi_pll_disable(pll_res->pll_1_base);
+		pll_20nm_config_powerdown(pll_res->pll_1_base);
 	mdss_pll_resource_enable(pll_res, false);
 }
 
