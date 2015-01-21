@@ -19,14 +19,14 @@ Required properties:
 - qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
 					interface is mapped.
 - qcom,mdss-mdp:			pHandle that specifies the mdss-mdp device.
-- qcom,platform-regulator-settings:	An array of length 7 that specifies the PHY
-					regulator settings.
-- qcom,platform-strength-ctrl:		An array of length 2 that specifies the PHY
-					strengthCtrl settings.
+- qcom,platform-regulator-settings:	An array of length 7 or 5 that specifies the PHY
+					regulator settings. It use 5 bytes for thulium pll.
+- qcom,platform-strength-ctrl:		An array of length 2 or 10 that specifies the PHY
+					strengthCtrl settings. It use 10 bytes for thulium pll.
 - qcom,platform-bist-ctrl:		An array of length 6 that specifies the PHY
 					BIST ctrl settings.
-- qcom,platform-lane-config:		An array of length 45 that specifies the PHY
-					lane configuration settings.
+- qcom,platform-lane-config:		An array of length 45 or 20 that specifies the PHY
+					lane configuration settings. It use 20 bytes for thulium pll.
 - qcom,dsi-pref-prim-pan:		phandle that specifies the primary panel to be used
 					with the controller.
 

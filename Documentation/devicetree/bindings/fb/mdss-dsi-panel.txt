@@ -37,6 +37,8 @@ Required properties:
 					"display_2" = DISPLAY_2
 - qcom,mdss-dsi-panel-timings:		An array of length 12 that specifies the PHY
 					timing settings for the panel.
+- qcom,mdss-dsi-panel-timings-thulium:		An array of length 40 char that specifies the thulium PHY lane
+					timing settings for the panel.
 - qcom,mdss-dsi-on-command:		A byte stream formed by multiple dcs packets base on
 					qcom dsi controller protocol.
 					byte 0: dcs data type
@@ -462,6 +464,11 @@ Example:
 		qcom,mdss-dsi-panel-clockrate = <424000000>;
 		qcom,mdss-dsi-panel-timings = [7d 25 1d 00 37 33
 					22 27 1e 03 04 00];
+                qcom,mdss-dsi-panel-timings-thulium = [23 20 06 09 05 03 04 a0
+                                23 20 06 09 05 03 04 a0
+                                23 20 06 09 05 03 04 a0
+                                23 20 06 09 05 03 04 a0
+                                23 2e 06 08 05 03 04 a0];
 		qcom,mdss-dsi-on-command = [32 01 00 00 00 00 02 00 00
 					29 01 00 00 10 00 02 FF 99];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";

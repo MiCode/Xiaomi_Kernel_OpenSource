@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,11 +40,20 @@
 #define SW_RESET_PLL BIT(0)
 #define PWRDN_B BIT(7)
 
+/* thulium */
+#define DATALANE_OFFSET_FROM_BASE_THULIUM	0x100
+#define DATALANE_SIZE_THULIUM			0x80
+
+#define DSIPHY_CMN_GLBL_TEST_CTRL		0x0018
+#define DSIPHY_CMN_CTRL_0			0x001c
+#define DSIPHY_CMN_CTRL_1			0x0020
+#define DSIPHY_CMN_LDO_CNTRL			0x004c
+#define DSIPHY_PLL_CLKBUFLR_EN			0x041c
+
 static struct dsi_clk_desc dsi_pclk;
 
 static void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	u32 ctrl_rev;
 	if (ctrl == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
@@ -64,8 +73,7 @@ static void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	 * Need to turn off the PLL1 to avoid current leakage issues
 	 */
 	if (ctrl->ndx == DSI_CTRL_1) {
-		ctrl_rev = MIPI_INP(ctrl->ctrl_base);
-		if (ctrl_rev == MDSS_DSI_HW_REV_103) {
+		if (ctrl->hw_rev == MDSS_DSI_HW_REV_103) {
 			pr_debug("Turn off PLL 1 registers\n");
 			clk_set_rate(ctrl->vco_clk, 1);
 		}
@@ -74,8 +82,30 @@ static void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 
 static void mdss_dsi_phy_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	if (!ctrl) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	if (ctrl->hw_rev == MDSS_DSI_HW_REV_104)
+		return;
+
 	MIPI_OUTP(ctrl->shared_ctrl_data->phy_regulator_io.base
 		+ 0x018, 0x000);
+}
+
+static void mdss_dsi_phy_lane_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	if (!ctrl) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	if (ctrl->hw_rev == MDSS_DSI_HW_REV_104)
+		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0x0000);
+	else
+		MIPI_OUTP(ctrl->phy_io.base + MDSS_DSI_DSIPHY_CTRL_0, 0x000);
+
 }
 
 void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -98,10 +128,9 @@ void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 
 		other_ctrl = mdss_dsi_get_other_ctrl(ctrl);
 		if (other_ctrl)
-			MIPI_OUTP(other_ctrl->phy_io.base +
-				MDSS_DSI_DSIPHY_CTRL_0, 0x000);
+			mdss_dsi_phy_lane_shutdown(other_ctrl);
 
-		MIPI_OUTP(ctrl->phy_io.base + MDSS_DSI_DSIPHY_CTRL_0, 0x000);
+		mdss_dsi_phy_lane_shutdown(ctrl);
 
 		mdss_dsi_phy_regulator_disable(ctrl);
 
@@ -124,6 +153,14 @@ void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct mdss_dsi_phy_ctrl *pd;
+
+	if (!ctrl) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	if (ctrl->hw_rev == MDSS_DSI_HW_REV_104)
+		return;
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
 
@@ -200,7 +237,6 @@ static void mdss_dsi_28nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct mdss_dsi_phy_ctrl *pd;
 	int i, off, ln, offset;
-	u32 ctrl_rev;
 
 	if (!ctrl_pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -244,11 +280,9 @@ static void mdss_dsi_28nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
 	wmb();
 
-	ctrl_rev = MIPI_INP(ctrl_pdata->ctrl_base);
-
 	/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */
 	if (((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1) ||
-			(ctrl_rev == MDSS_DSI_HW_REV_103_1))
+			(ctrl_pdata->hw_rev == MDSS_DSI_HW_REV_103_1))
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x01);
 	else
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x00);
@@ -271,6 +305,11 @@ static void mdss_dsi_20nm_phy_regulator_enable(struct mdss_dsi_ctrl_pdata
 
 	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
 	phy_io_base = ctrl_pdata->shared_ctrl_data->phy_regulator_io.base;
+
+	if (pd->regulator_len != 7) {
+		pr_err("%s: wrong regulator settings\n", __func__);
+		return;
+	}
 
 	if (pd->reg_ldo_mode) {
 		MIPI_OUTP(phy_io_base + MDSS_DSI_DSIPHY_LDO_CNTRL, 0x1d);
@@ -298,11 +337,21 @@ static void mdss_dsi_20nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 
 	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
 
+	if (pd->strength_len != 2) {
+		pr_err("%s: wrong strength ctrl\n", __func__);
+		return;
+	}
+
 	MIPI_OUTP((ctrl_pdata->phy_io.base) + MDSS_DSI_DSIPHY_STRENGTH_CTRL_0,
 		pd->strength[0]);
 
 	MIPI_OUTP((ctrl_pdata->phy_io.base) + MDSS_DSI_DSIPHY_GLBL_TEST_CTRL,
 		0x00);
+
+	if (pd->lanecfg_len != 45) {
+		pr_err("%s: wrong lane cfg\n", __func__);
+		return;
+	}
 
 	/* 4 lanes + clk lane configuration */
 	/* lane config n * (0 - 4) & DataPath setup */
@@ -331,6 +380,150 @@ static void mdss_dsi_20nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	MIPI_OUTP((ctrl_pdata->phy_io.base) + MDSS_DSI_DSIPHY_CTRL_0, 0x7f);
 }
 
+static void mdss_dsi_thulium_pll_source_standalone(
+				struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	u32 data;
+
+	/*
+	 * pll right output enabled
+	 * bit clk select from left
+	 */
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_PLL_CLKBUFLR_EN, 0x01);
+	data = MIPI_INP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL);
+	data &= ~BIT(2);
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, data);
+}
+
+static void mdss_dsi_thulium_pll_source_from_right(
+				struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	u32 data;
+
+	/*
+	 * pll left + right output disabled
+	 * bit clk select from right
+	 */
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_PLL_CLKBUFLR_EN, 0x00);
+	data = MIPI_INP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL);
+	data |= BIT(2);
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, data);
+}
+
+static void mdss_dsi_thulium_pll_source_from_left(
+				struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	u32 data;
+
+	/*
+	 * pll left + right output enabled
+	 * bit clk select from left
+	 */
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_PLL_CLKBUFLR_EN, 0x03);
+	data = MIPI_INP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL);
+	data &= ~BIT(2);
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, data);
+}
+
+static void mdss_dsi_thulium_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mdss_dsi_phy_ctrl *pd;
+	int j, off, ln, cnt, ln_off;
+	u32 data;
+	char *ip;
+	void __iomem *base;
+
+	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
+
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_LDO_CNTRL, 0x1c);
+
+	/* clk_en */
+	data = MIPI_INP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL);
+	data |= BIT(0);
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, data);
+
+	if (pd->lanecfg_len != 20) {
+		pr_err("%s: wrong lane cfg\n", __func__);
+		return;
+	}
+
+	if (pd->strength_len != 10) {
+		pr_err("%s: wrong strength ctrl\n", __func__);
+		return;
+	}
+
+	if (pd->regulator_len != 5) {
+		pr_err("%s: wrong regulator setting\n", __func__);
+		return;
+	}
+
+	/* 4 lanes + clk lane configuration */
+	for (ln = 0; ln < 5; ln++) {
+		/*
+		 * data lane offset frome base: 0x100
+		 * data lane size: 0x80
+		 */
+		base = ctrl->phy_io.base +
+				DATALANE_OFFSET_FROM_BASE_THULIUM;
+		base += (ln * DATALANE_SIZE_THULIUM); /* lane base */
+
+		/* lane cfg, 4 * 5 */
+		cnt = 4;
+		ln_off = cnt * ln;
+		ip = &pd->lanecfg[ln_off];
+		off = 0x0;
+		for (j = 0; j < cnt; j++) {
+			MIPI_OUTP(base + off, *ip++);
+			off += 4;
+		}
+
+		/* test str */
+		MIPI_OUTP(base + 0x14, 0x0088);	/* fixed */
+
+		/* phy timing, 8 * 5 */
+		cnt = 8;
+		ln_off = cnt * ln;
+		ip = &pd->timing_thulium[ln_off];
+		off = 0x18;
+		for (j = 0; j < cnt; j++, off += 4)
+			MIPI_OUTP(base + off, *ip++);
+
+		/* strength, 2 * 5 */
+		cnt = 2;
+		ln_off = cnt * ln;
+		ip = &pd->strength[ln_off];
+		off = 0x38;
+		for (j = 0; j < cnt; j++, off += 4)
+			MIPI_OUTP(base + off, *ip++);
+
+		/* vreg ctrl, 1 * 5 */
+		cnt = 1;
+		ln_off = cnt * ln;
+		ip = &pd->regulator[ln_off];
+		off = 0x64;
+		for (j = 0; j < cnt; j++, off += 4)
+			MIPI_OUTP(base + off, *ip++);
+	}
+
+	wmb(); /* make sure registers committed */
+
+	/* reset digital block */
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_CTRL_1, 0x80);
+	udelay(100);
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_CTRL_1, 0x00);
+
+	if (mdss_dsi_sync_wait_enable(ctrl)) {
+		if (mdss_dsi_is_left_ctrl(ctrl))
+			mdss_dsi_thulium_pll_source_from_left(ctrl);
+		else
+			mdss_dsi_thulium_pll_source_from_right(ctrl);
+	} else {
+		mdss_dsi_thulium_pll_source_standalone(ctrl);
+	}
+
+	wmb(); /* make sure registers committed */
+}
+
 static void mdss_dsi_20nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	if (!ctrl_pdata) {
@@ -343,20 +536,34 @@ static void mdss_dsi_20nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	mdss_dsi_20nm_phy_config(ctrl_pdata);
 }
 
+static void mdss_dsi_thulium_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	if (!ctrl_pdata) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	mdss_dsi_thulium_phy_config(ctrl_pdata);
+}
+
 static void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	u32 ctrl_rev;
-
 	if (!ctrl) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
 
-	ctrl_rev = MIPI_INP(ctrl->ctrl_base);
-	if (ctrl_rev == MDSS_DSI_HW_REV_103)
+	switch (ctrl->hw_rev) {
+	case MDSS_DSI_HW_REV_104:
+		mdss_dsi_thulium_phy_init(ctrl);
+		break;
+	case MDSS_DSI_HW_REV_103:
 		mdss_dsi_20nm_phy_init(ctrl);
-	else
+		break;
+	default:
 		mdss_dsi_28nm_phy_init(ctrl);
+		break;
+	}
 }
 
 int mdss_dsi_clk_init(struct platform_device *pdev,

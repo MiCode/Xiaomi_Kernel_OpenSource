@@ -231,14 +231,19 @@ struct lcd_panel_info {
 
 /* DSI PHY configuration */
 struct mdss_dsi_phy_ctrl {
-	uint32_t regulator[7];
-	uint32_t timing[12];
-	uint32_t ctrl[4];
-	uint32_t strength[2];
+	char regulator[7];	/* thulium, 1 * 5 */
+	char timing[12];
+	char ctrl[4];
+	char strength[10];	/* thulium, 2 * 5 */
 	char bistctrl[6];
 	uint32_t pll[21];
-	char lanecfg[45];
+	char lanecfg[45];	/* thulium, 4 * 5 */
 	bool reg_ldo_mode;
+
+	char timing_thulium[40];/* thulium, 8 * 5 */
+	char regulator_len;
+	char strength_len;
+	char lanecfg_len;
 };
 
 struct mipi_panel_info {
