@@ -53,8 +53,17 @@
 		clock-frequency = <19200000>;
 	};
 
-	clock_gcc: qcom,gcc@1800000 {
-		compatible = "qcom,dummycc";
+	clock_gcc: qcom,gcc@fc400000 {
+		compatible = "qcom,gcc-fsm9010";
+		reg = <0xfc400000 0x4000>;
+		reg-names = "cc_base";
+		#clock-cells = <1>;
+	};
+
+	clock_debug: qcom,cc-debug@fc400000 {
+		compatible = "qcom,cc-debug-fsm9010";
+		reg = <0xfc400000 0x4000>;
+		reg-names = "cc_base";
 		#clock-cells = <1>;
 	};
 
