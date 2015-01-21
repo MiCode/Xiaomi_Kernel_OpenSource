@@ -52,7 +52,7 @@ Optional properties:
 - qcom,power-detect-enabled	: Boolean type. This enables driver to get maximum flash LED
 				  current at current battery level to avoid intensity clamp
 				  when battery voltage is low
--qcom,otst2-module-enabled	: Boolean type. This enables driver to enable MASK to support
+- qcom,otst2-module-enabled	: Boolean type. This enables driver to enable MASK to support
 				OTST2 connection.
 - qcom,duration			: Duration for flash LED. When duration time expires, hardware
 				will turn off flash LED. Values should be from 10 ms to 1280 ms
@@ -60,6 +60,21 @@ Optional properties:
 - qcom,follow-otst2-rb-disabled	: Boolean type. This allows driver to reset/deset module.
 				By default, driver resets module. This entry allows driver to
 				bypass reset module sequence.
+- qcom,die-current-derate-enabled: Boolean type. This enables driver to get maximum flash LED
+                                   current, based on PMIC die temperature threshold to
+				   avoid significant current derate from hardware. This property
+				   is not needed if PMIC is older than PMI8994v2.0.
+- qcom,die-temp-vadc		: VADC channel source for flash LED. This property is not
+				  needed if PMIC is older than PMI8994v2.0.
+- qcom,die-temp-threshold       : Integer type array for PMIC die temperature threshold.
+				  Array should have at least one value. Values should be in
+				  celcius. This property is not needed if PMIC is older than
+				  PMI8994v2.0.
+- qcom,die-temp-derate-current	: Integer type arrray for PMIC die temperature derate
+				  current. Array should have at least one value. Values
+				  should be in mA. This property is not needed if PMIC is older
+				  than PMI8994v2.0.
+- qcom,pmic-revid		: Revid source for flash LED.
 
 Required properties inside child node. Child node contains settings for each individual LED.
 Each LED hardware needs a node for itself and a switch node to control brightness.
@@ -105,6 +120,11 @@ Example:
 		qcom,headroom-sense-ch0-enabled;
 		qcom,headroom-sense-ch1-enabled;
 		qcom,duration = <1280>;
+		qcom,die-current-derate-enabled;
+		qcom,die-temp-vadc = <&pmi8994_vadc>;
+		qcom,die-temp-threshold = <85 80 75 70 65>;
+		qcom,die-temp-derate-current = <400 800 1200 1600 2000>;
+		qcom,pmic-revid = <&pmi8994_revid>;
 
 		pm8226_flash0: qcom,flash_0 {
 			label = "flash";
