@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1694,6 +1694,15 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	}
 	for (i = 0; i < len; i++)
 		pinfo->mipi.dsi_phy_db.timing[i] = data[i];
+
+	data = of_get_property(np, "qcom,mdss-dsi-panel-timings-thulium", &len);
+	if ((!data) || (len != 40)) {
+		pr_debug("%s:%d, Unable to read thulium Phy lane timing settings",
+		       __func__, __LINE__);
+	} else {
+		for (i = 0; i < len; i++)
+			pinfo->mipi.dsi_phy_db.timing_thulium[i] = data[i];
+	}
 
 	pinfo->mipi.lp11_init = of_property_read_bool(np,
 					"qcom,mdss-dsi-lp11-init");

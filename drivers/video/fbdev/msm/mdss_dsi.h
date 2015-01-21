@@ -53,6 +53,7 @@
 #define MDSS_DSI_HW_REV_102		0x10020000	/* 8084    */
 #define MDSS_DSI_HW_REV_103		0x10030000	/* 8994    */
 #define MDSS_DSI_HW_REV_103_1		0x10030001	/* 8916/8936 */
+#define MDSS_DSI_HW_REV_104             0x10040000      /* thulium   */
 
 #define NONE_PANEL "none"
 
@@ -297,6 +298,7 @@ struct mdss_dsi_ctrl_pdata {
 	void (*switch_mode) (struct mdss_panel_data *pdata, int mode);
 	struct mdss_panel_data panel_data;
 	unsigned char *ctrl_base;
+	u32 hw_rev;
 	struct dss_io_data ctrl_io;
 	struct dss_io_data mmss_misc_io;
 	struct dss_io_data phy_io;
@@ -408,6 +410,7 @@ struct dsi_status_data {
 	struct msm_fb_data_type *mfd;
 };
 
+void mdss_dsi_read_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl);
 int dsi_panel_device_register(struct device_node *pan_node,
 				struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 

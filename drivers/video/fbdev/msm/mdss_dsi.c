@@ -641,6 +641,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		 * to be restored to allow dcs command be
 		 * sent to panel
 		 */
+		mdss_dsi_read_hw_revision(ctrl_pdata);
 		mdss_dsi_restore_intr_mask(ctrl_pdata);
 		pr_debug("%s: panel already on\n", __func__);
 		goto end;
@@ -664,6 +665,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	 */
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 	mdss_dsi_sw_reset(ctrl_pdata, true);
+	mdss_dsi_read_hw_revision(ctrl_pdata);
 
 	/*
 	 * Issue hardware reset line after enabling the DSI clocks and data
@@ -1813,27 +1815,29 @@ int dsi_panel_device_register(struct device_node *pan_node,
 
 	data = of_get_property(ctrl_pdev->dev.of_node,
 		"qcom,platform-strength-ctrl", &len);
-	if ((!data) || (len != 2)) {
+	if (!data) {
 		pr_err("%s:%d, Unable to read Phy Strength ctrl settings\n",
 			__func__, __LINE__);
 		return -EINVAL;
+	} else {
+		pinfo->mipi.dsi_phy_db.strength_len = len;
+		for (i = 0; i < len; i++)
+			pinfo->mipi.dsi_phy_db.strength[i] = data[i];
 	}
-	pinfo->mipi.dsi_phy_db.strength[0] = data[0];
-	pinfo->mipi.dsi_phy_db.strength[1] = data[1];
 
 	pinfo->mipi.dsi_phy_db.reg_ldo_mode = of_property_read_bool(
 		ctrl_pdev->dev.of_node, "qcom,regulator-ldo-mode");
 
 	data = of_get_property(ctrl_pdev->dev.of_node,
 		"qcom,platform-regulator-settings", &len);
-	if ((!data) || (len != 7)) {
+	if (!data) {
 		pr_err("%s:%d, Unable to read Phy regulator settings\n",
 			__func__, __LINE__);
 		return -EINVAL;
-	}
-	for (i = 0; i < len; i++) {
-		pinfo->mipi.dsi_phy_db.regulator[i]
-			= data[i];
+	} else {
+		pinfo->mipi.dsi_phy_db.regulator_len = len;
+		for (i = 0; i < len; i++)
+			pinfo->mipi.dsi_phy_db.regulator[i] = data[i];
 	}
 
 	data = of_get_property(ctrl_pdev->dev.of_node,
@@ -1844,20 +1848,19 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		return -EINVAL;
 	}
 	for (i = 0; i < len; i++) {
-		pinfo->mipi.dsi_phy_db.bistctrl[i]
-			= data[i];
+		pinfo->mipi.dsi_phy_db.bistctrl[i] = data[i];
 	}
 
 	data = of_get_property(ctrl_pdev->dev.of_node,
 		"qcom,platform-lane-config", &len);
-	if ((!data) || (len != 45)) {
+	if (!data) {
 		pr_err("%s:%d, Unable to read Phy lane configure settings\n",
 			__func__, __LINE__);
 		return -EINVAL;
-	}
-	for (i = 0; i < len; i++) {
-		pinfo->mipi.dsi_phy_db.lanecfg[i] =
-			data[i];
+	} else {
+		pinfo->mipi.dsi_phy_db.lanecfg_len = len;
+		for (i = 0; i < len; i++)
+			pinfo->mipi.dsi_phy_db.lanecfg[i] = data[i];
 	}
 
 	rc = of_property_read_u32(ctrl_pdev->dev.of_node,
