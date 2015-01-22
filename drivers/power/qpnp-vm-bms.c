@@ -244,6 +244,7 @@ struct qpnp_bms_chip {
 	u16				charge_cycles;
 	unsigned int			start_soc;
 	unsigned int			end_soc;
+	unsigned int			chg_start_soc;
 
 	struct bms_battery_data		*batt_data;
 	struct bms_dt_cfg		dt;
@@ -1607,7 +1608,9 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 	 * avoid overflows when charging continues for extended periods
 	 */
 	if (charging && chip->last_soc != -EINVAL) {
-		if (chip->charge_start_tm_sec == 0) {
+		if (chip->charge_start_tm_sec == 0 ||
+			(chip->catch_up_time_sec == 0 &&
+				(abs(soc - chip->last_soc) >= MIN_SOC_UUC))) {
 			/*
 			 * calculating soc for the first time
 			 * after start of chg. Initialize catchup time
@@ -1619,17 +1622,25 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 			else
 				chip->catch_up_time_sec = SOC_CATCHUP_SEC_MAX;
 
+			chip->chg_start_soc = chip->last_soc;
+
 			if (chip->catch_up_time_sec < 0)
 				chip->catch_up_time_sec = 0;
 			chip->charge_start_tm_sec = last_change_sec;
+
+			pr_debug("chg_start_soc=%d charge_start_tm_sec=%d catch_up_time_sec=%d\n",
+				chip->chg_start_soc, chip->charge_start_tm_sec,
+						chip->catch_up_time_sec);
 		}
 
 		charge_time_sec = min(SOC_CATCHUP_SEC_MAX, (int)last_change_sec
 				- chip->charge_start_tm_sec);
 
 		/* end catchup if calculated soc and last soc are same */
-		if (chip->last_soc == soc)
+		if (chip->last_soc == soc) {
 			chip->catch_up_time_sec = 0;
+			chip->chg_start_soc = chip->last_soc;
+		}
 	}
 
 	if (chip->last_soc != -EINVAL) {
@@ -1647,7 +1658,7 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 		else if (chip->last_soc < soc && soc != 100)
 			soc = scale_soc_while_chg(chip, charge_time_sec,
 					chip->catch_up_time_sec,
-					soc, chip->last_soc);
+					soc, chip->chg_start_soc);
 
 		/*
 		 * if the battery is close to cutoff or if the batt_temp
@@ -2075,6 +2086,11 @@ static void monitor_soc_work(struct work_struct *work)
 				pr_debug("SOC changed! new_soc=%d prev_soc=%d\n",
 						new_soc, chip->calculated_soc);
 				chip->calculated_soc = new_soc;
+				/*
+				 * To recalculate the catch-up time, clear it
+				 * when SOC changes.
+				 */
+				chip->catch_up_time_sec = 0;
 
 				if (chip->calculated_soc == 100)
 					/* update last_soc immediately */
