@@ -103,4 +103,7 @@ extern void spdm_remove_debugfs(struct spdm_data *data);
 #define SPDM_CMD_CFG_MAXCCI 17
 #define SPDM_CMD_CFG_VOTES 18
 
+extern int __spdm_hyp_call(u64 func_id, struct hvc_desc *desc);
+#define spdm_ext_call	__spdm_hyp_call
+
 #endif
