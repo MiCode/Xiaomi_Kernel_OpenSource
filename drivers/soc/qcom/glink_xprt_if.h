@@ -37,6 +37,7 @@ enum xprt_ids {
 
 #define GCAP_SIGNALS	BIT(0)
 #define GCAP_INTENTLESS	BIT(1)
+#define GCAP_TRACER_PKT	BIT(2)
 
 /**
  * TX PKT info.
@@ -50,6 +51,7 @@ struct glink_core_tx_pkt {
 	uint32_t size;
 	uint32_t size_remaining;
 	size_t intent_size;
+	bool tracer_pkt;
 	void *iovec;
 	void * (*vprovider)(void *iovec, size_t offset, size_t *size);
 	void * (*pprovider)(void *iovec, size_t offset, size_t *size);
@@ -111,6 +113,8 @@ struct glink_transport_if {
 	int (*mask_rx_irq)(struct glink_transport_if *if_ptr, uint32_t lcid,
 			bool mask, void *pstruct);
 	int (*wait_link_down)(struct glink_transport_if *if_ptr);
+	int (*tx_cmd_tracer_pkt)(struct glink_transport_if *if_ptr,
+			uint32_t lcid, struct glink_core_tx_pkt *pctx);
 
 	/*
 	 * Keep data pointers at the end of the structure after all function

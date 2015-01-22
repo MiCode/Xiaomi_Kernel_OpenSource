@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,4 +90,15 @@ struct resp {
 	uint32_t response;
 };
 
+/*
+ * Tracer Packet Event IDs for Loopback Client/Server.
+ * This being a client of G-Link, the tracer packet events start
+ * from 256.
+ */
+enum loopback_tracer_pkt_events {
+	LOOPBACK_SRV_TX = 256,
+	LOOPBACK_SRV_RX = 257,
+	LOOPBACK_CLNT_TX = 258,
+	LOOPBACK_CLNT_RX = 259,
+};
 #endif
