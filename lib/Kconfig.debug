@@ -544,6 +544,15 @@ config DEBUG_KMEMLEAK_DEFAULT_OFF
 	  Say Y here to disable kmemleak by default. It can then be enabled
 	  on the command line via kmemleak=on.
 
+config DEBUG_TASK_STACK_SCAN_OFF
+	bool "Disable kmemleak task stack scan by default"
+	depends on DEBUG_KMEMLEAK
+	help
+	  Say Y here to disable kmemleak task stack scan by default
+	  at compile time. It can be enabled later if required by
+	  writing to the debugfs entry :
+	  echo "stack=on" > /sys/kernel/debug/kmemleak.
+
 config DEBUG_PREEMPT
 	bool "Debug preemptible kernel"
 	depends on DEBUG_KERNEL && PREEMPT && TRACE_IRQFLAGS_SUPPORT
