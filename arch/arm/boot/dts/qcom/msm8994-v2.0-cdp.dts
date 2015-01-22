@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,14 +10,14 @@
  * GNU General Public License for more details.
  */
 
-
 /dts-v1/;
 
-#include "apq8094-v2.dtsi"
-#include "apq8094-dragonboard.dtsi"
+#include "msm8994-v2.0.dtsi"
+#include "msm8994-pinctrl.dtsi"
+#include "msm8994-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8094 Dragonboard";
-	compatible = "qcom,apq8094-dragonboard", "qcom,apq8094", "qcom,dragonboard";
-	qcom,board-id = <10 0>;
+	model = "Qualcomm Technologies, Inc. MSM8994v2.0 CDP";
+	compatible = "qcom,msm8994-cdp", "qcom,msm8994", "qcom,cdp";
+	qcom,board-id = <1 0>;
 };

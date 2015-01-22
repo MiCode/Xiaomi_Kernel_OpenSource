@@ -1,0 +1,24 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+
+#include "apq8094-v2.0.dtsi"
+#include "msm8994-liquid.dtsi"
+#include "msm8994-camera-sensor-liquid.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8094v2.0 LIQUID";
+	compatible = "qcom,apq8094-liquid", "qcom,apq8094", "qcom,liquid";
+	qcom,board-id = <9 0>;
+};
