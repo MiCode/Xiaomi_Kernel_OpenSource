@@ -319,6 +319,8 @@ static int cpu_power_select(struct cpuidle_device *dev,
 	if (modified_time_us)
 		msm_pm_set_timer(modified_time_us);
 
+	trace_cpu_idle_enter(best_level, sleep_us, latency_us, next_event_us);
+
 	return best_level;
 }
 
@@ -702,7 +704,6 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	cpu_prepare(cluster, idx, true);
 
 	cluster_prepare(cluster, cpumask, idx, true);
-	trace_cpu_idle_enter(idx);
 	lpm_stats_cpu_enter(idx);
 	success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode, true);
 	lpm_stats_cpu_exit(idx, success);
