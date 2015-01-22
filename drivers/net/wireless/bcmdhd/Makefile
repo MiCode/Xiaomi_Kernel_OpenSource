@@ -149,7 +149,10 @@ ifneq ($(CONFIG_BCMDHD_SDIO),)
 # bcn_timeout
   DHDCFLAGS += -DCUSTOM_BCN_TIMEOUT_SETTING=5
 # debug info
-  DHDCFLAGS += -DDHD_WAKE_STATUS
+######## Needs code fix as this includes <linux/wakeup_reason.h> and calls removed
+######## function "check_wakeup_reason()". Commented out for now since its just for
+######## debugging purposes.
+#  DHDCFLAGS += -DDHD_WAKE_STATUS 
 
   DHDCFLAGS += -DWLFC_STATE_PREALLOC
 endif
