@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,8 @@
 
 #define CPE_BOOT_SUCCESS 0x00
 #define CPE_BOOT_FAILED 0x01
+
+#define CPE_CORE_VERSION_SYSTEM_BOOT_EVENT 0x01
 
 /* LSM Service command opcodes */
 #define CPE_LSM_SESSION_CMD_OPEN_TX		(0x2000)
@@ -221,6 +223,9 @@ struct cmi_obm_msg {
 
 struct cmi_core_svc_event_system_boot {
 	u8 status;
+	u8 version;
+	u16 sfr_buff_size;
+	u32 sfr_buff_address;
 } __packed;
 
 struct cmi_core_svc_cmd_shared_mem_alloc {
