@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -655,7 +655,125 @@ static inline void msm_pcie_write_reg_field(void *base, u32 offset,
 	wmb();
 }
 
+#if defined(CONFIG_ARCH_FSM9010)
+#define PCIE20_PARF_PHY_STTS         0x3c
+#define PCIE2_PHY_RESET_CTRL         0x44
+#define PCIE20_PARF_PHY_REFCLK_CTRL2 0xa0
+#define PCIE20_PARF_PHY_REFCLK_CTRL3 0xa4
+#define PCIE20_PARF_PCS_SWING_CTRL1  0x88
+#define PCIE20_PARF_PCS_SWING_CTRL2  0x8c
+#define PCIE20_PARF_PCS_DEEMPH1      0x74
+#define PCIE20_PARF_PCS_DEEMPH2      0x78
+#define PCIE20_PARF_PCS_DEEMPH3      0x7c
+#define PCIE20_PARF_CONFIGBITS       0x84
+#define PCIE20_PARF_PHY_CTRL3        0x94
+#define PCIE20_PARF_PCS_CTRL         0x80
 
+#define TX_AMP_VAL                   127
+#define PHY_RX0_EQ_GEN1_VAL          0
+#define PHY_RX0_EQ_GEN2_VAL          4
+#define TX_DEEMPH_GEN1_VAL           24
+#define TX_DEEMPH_GEN2_3_5DB_VAL     24
+#define TX_DEEMPH_GEN2_6DB_VAL       34
+#define PHY_TX0_TERM_OFFST_VAL       0
+
+static inline void pcie_phy_dump(struct msm_pcie_dev_t *dev)
+{
+}
+
+static inline void pcie20_phy_reset(struct msm_pcie_dev_t *dev, uint32_t assert)
+{
+	msm_pcie_write_reg_field(dev->phy, PCIE2_PHY_RESET_CTRL,
+					 BIT(0), (assert) ? 1 : 0);
+}
+
+static void pcie_phy_init(struct msm_pcie_dev_t *dev)
+{
+	PCIE_DBG(dev, "RC%d: Initializing 28LP SNS phy - 100MHz\n",
+		dev->rc_idx);
+
+	/* De-assert Phy SW Reset */
+	pcie20_phy_reset(dev, 1);
+
+	/* Program SSP ENABLE */
+	if (readl_relaxed(dev->phy + PCIE20_PARF_PHY_REFCLK_CTRL2) & BIT(0))
+		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PHY_REFCLK_CTRL2,
+								 BIT(0), 0);
+	if ((readl_relaxed(dev->phy + PCIE20_PARF_PHY_REFCLK_CTRL3) &
+								 BIT(0)) == 0)
+		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PHY_REFCLK_CTRL3,
+								 BIT(0), 1);
+	/* Program Tx Amplitude */
+	if ((readl_relaxed(dev->phy + PCIE20_PARF_PCS_SWING_CTRL1) &
+		(BIT(6)|BIT(5)|BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0))) !=
+				TX_AMP_VAL)
+		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PCS_SWING_CTRL1,
+			BIT(6)|BIT(5)|BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0),
+				TX_AMP_VAL);
+	if ((readl_relaxed(dev->phy + PCIE20_PARF_PCS_SWING_CTRL2) &
+		(BIT(6)|BIT(5)|BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0))) !=
+				TX_AMP_VAL)
+		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PCS_SWING_CTRL2,
+			BIT(6)|BIT(5)|BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0),
+				TX_AMP_VAL);
+	/* Program De-Emphasis */
+	if ((readl_relaxed(dev->phy + PCIE20_PARF_PCS_DEEMPH1) &
+			(BIT(5)|BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0))) !=
+				TX_DEEMPH_GEN2_6DB_VAL)
+		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PCS_DEEMPH1,
+			BIT(5)|BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0),
+				TX_DEEMPH_GEN2_6DB_VAL);
+
+	if ((readl_relaxed(dev->phy + PCIE20_PARF_PCS_DEEMPH2) &
+			(BIT(5)|BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0))) !=
+				TX_DEEMPH_GEN2_3_5DB_VAL)
+		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PCS_DEEMPH2,
+			BIT(5)|BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0),
+				TX_DEEMPH_GEN2_3_5DB_VAL);
+
+	if ((readl_relaxed(dev->phy + PCIE20_PARF_PCS_DEEMPH3) &
+			(BIT(5)|BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0))) !=
+				TX_DEEMPH_GEN1_VAL)
+		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PCS_DEEMPH3,
+			BIT(5)|BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0),
+				TX_DEEMPH_GEN1_VAL);
+
+	/* Program Rx_Eq */
+	if ((readl_relaxed(dev->phy + PCIE20_PARF_CONFIGBITS) &
+			(BIT(2)|BIT(1)|BIT(0))) != PHY_RX0_EQ_GEN1_VAL)
+		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_CONFIGBITS,
+				 BIT(2)|BIT(1)|BIT(0), PHY_RX0_EQ_GEN1_VAL);
+
+	/* Program Tx0_term_offset */
+	if ((readl_relaxed(dev->phy + PCIE20_PARF_PHY_CTRL3) &
+			(BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0))) !=
+				PHY_TX0_TERM_OFFST_VAL)
+		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PHY_CTRL3,
+			 BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0),
+				PHY_TX0_TERM_OFFST_VAL);
+
+	/* Program REF_CLK source */
+	msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PHY_REFCLK_CTRL2, BIT(1),
+		(dev->ext_ref_clk) ? 1 : 0);
+	/* disable Tx2Rx Loopback */
+	if (readl_relaxed(dev->phy + PCIE20_PARF_PCS_CTRL) & BIT(1))
+		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PCS_CTRL,
+								 BIT(1), 0);
+	/* De-assert Phy SW Reset */
+	pcie20_phy_reset(dev, 0);
+}
+
+static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
+{
+
+	/* read PCIE20_PARF_PHY_STTS twice */
+	readl_relaxed(dev->phy + PCIE20_PARF_PHY_STTS);
+	if (readl_relaxed(dev->phy + PCIE20_PARF_PHY_STTS) & BIT(0))
+		return false;
+	else
+		return true;
+}
+#else
 static void pcie_phy_dump(struct msm_pcie_dev_t *dev)
 {
 	int i, size;
@@ -910,6 +1028,7 @@ static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 	else
 		return true;
 }
+#endif
 
 static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
 {
