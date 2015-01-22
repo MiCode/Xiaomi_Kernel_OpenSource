@@ -79,7 +79,7 @@ static irqreturn_t threaded_isr(int irq, void *dev_id)
 
 	/* call hyp to get bw_vote */
 	desc.arg[0] = SPDM_CMD_GET_BW_ALL;
-	hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+	hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 	if (hvc_status)
 		pr_err("HVC command %u failed with error %u", (int)desc.arg[0],
 			hvc_status);
@@ -131,7 +131,7 @@ static int gov_spdm_hyp_target_bw(struct devfreq *devfreq, unsigned long *freq,
 	} else {
 		desc.arg[0] = SPDM_CMD_GET_BW_SPECIFIC;
 		desc.arg[1] = ((struct spdm_data *)devfreq->data)->spdm_client;
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -160,7 +160,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[2] = spdm_data->config_data.num_ports;
 		for (i = 0; i < spdm_data->config_data.num_ports; i++)
 			desc.arg[i+3] = spdm_data->config_data.ports[i];
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -170,7 +170,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[2] = spdm_data->config_data.aup;
 		desc.arg[3] = spdm_data->config_data.adown;
 		desc.arg[4] = spdm_data->config_data.bucket_size;
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -179,7 +179,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[1] = spdm_data->spdm_client;
 		for (i = 0; i < SPDM_PL_COUNT - 1; i++)
 			desc.arg[i+2] = spdm_data->config_data.pl_freqs[i];
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -188,7 +188,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = spdm_data->config_data.reject_rate[0];
 		desc.arg[3] = spdm_data->config_data.reject_rate[1];
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -196,7 +196,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = spdm_data->config_data.reject_rate[2];
 		desc.arg[3] = spdm_data->config_data.reject_rate[3];
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -204,7 +204,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = spdm_data->config_data.reject_rate[4];
 		desc.arg[3] = spdm_data->config_data.reject_rate[5];
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -213,7 +213,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = spdm_data->config_data.response_time_us[0];
 		desc.arg[3] = spdm_data->config_data.response_time_us[1];
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -221,7 +221,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = spdm_data->config_data.response_time_us[2];
 		desc.arg[3] = spdm_data->config_data.response_time_us[3];
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -229,7 +229,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = spdm_data->config_data.response_time_us[4];
 		desc.arg[3] = spdm_data->config_data.response_time_us[5];
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -238,7 +238,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = spdm_data->config_data.cci_response_time_us[0];
 		desc.arg[3] = spdm_data->config_data.cci_response_time_us[1];
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -246,7 +246,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = spdm_data->config_data.cci_response_time_us[2];
 		desc.arg[3] = spdm_data->config_data.cci_response_time_us[3];
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -254,7 +254,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = spdm_data->config_data.cci_response_time_us[4];
 		desc.arg[3] = spdm_data->config_data.cci_response_time_us[5];
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -262,7 +262,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[0] = SPDM_CMD_CFG_MAXCCI;
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = spdm_data->config_data.max_cci_freq;
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -273,7 +273,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[3] = spdm_data->config_data.downstep;
 		desc.arg[4] = spdm_data->config_data.max_vote;
 		desc.arg[5] = spdm_data->config_data.up_step_multp;
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -282,7 +282,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		desc.arg[0] = SPDM_CMD_ENABLE;
 		desc.arg[1] = spdm_data->spdm_client;
 		desc.arg[2] = 0;
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status) {
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
@@ -309,7 +309,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		/* call hypvervisor to disable */
 		desc.arg[0] = SPDM_CMD_DISABLE;
 		desc.arg[1] = spdm_data->spdm_client;
-		hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+		hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 		if (hvc_status)
 			pr_err("HVC command %u failed with error %u",
 				(int)desc.arg[0], hvc_status);
