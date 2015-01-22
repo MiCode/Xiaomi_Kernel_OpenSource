@@ -73,6 +73,8 @@ static const struct inv_mpu6050_chip_config chip_config_6050 = {
 	.gyro_fifo_enable = false,
 	.accl_fifo_enable = false,
 	.accl_fs = INV_MPU6050_FS_02G,
+	.int_pin_cfg =  INV_MPU6050_BIT_INT_LATCH_EN |
+				INV_MPU6050_BIT_INT_ANYRD_2CLEAR,
 };
 
 static const struct inv_mpu6050_hw hw_info[INV_NUM_PARTS] = {
@@ -646,11 +648,11 @@ static int inv_set_bypass_status(struct inv_mpu6050_state *st, bool enable)
 
 	if (enable)
 		ret = inv_mpu6050_write_reg(st, st->reg->int_pin_cfg,
-					st->client->irq |
+					st->chip_config.int_pin_cfg |
 						INV_MPU6050_BIT_BYPASS_EN);
 	else
 		ret = inv_mpu6050_write_reg(st, st->reg->int_pin_cfg,
-					st->client->irq);
+					st->chip_config.int_pin_cfg);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(inv_set_bypass_status);

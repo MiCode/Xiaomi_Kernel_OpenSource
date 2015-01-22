@@ -73,6 +73,7 @@ enum inv_devices {
  *  @accl_fifo_enable:	enable accel data output
  *  @gyro_fifo_enable:	enable gyro data output
  *  @fifo_rate:		FIFO update rate.
+ *  @int_pin_cfg:	Default interrupt pin config
  */
 struct inv_mpu6050_chip_config {
 	unsigned int fsr:2;
@@ -82,6 +83,7 @@ struct inv_mpu6050_chip_config {
 	unsigned int accl_fifo_enable:1;
 	unsigned int gyro_fifo_enable:1;
 	u16 fifo_rate;
+	u8 int_pin_cfg;
 };
 
 /**
@@ -195,7 +197,13 @@ struct inv_mpu6050_state {
 #define INV_MPU6050_ONE_K_HZ                              1000
 
 #define INV_MPU6050_REG_INT_PIN_CFG		0x37
-#define INV_MPU6050_BIT_BYPASS_EN		0x2
+#define INV_MPU6050_BIT_ACTL_LOW		0x80
+#define INV_MPU6050_BIT_OPEN_DRAIN		0x40
+#define INV_MPU6050_BIT_INT_LATCH_EN		0x20
+#define INV_MPU6050_BIT_INT_ANYRD_2CLEAR	0x10
+#define INV_MPU6050_BIT_ACTL_FSYNC_LOW		0x08
+#define INV_MPU6050_BIT_FSYNC_INT_MODE_EN	0x04
+#define INV_MPU6050_BIT_BYPASS_EN		0x02
 
 #define INV_MPU6050_REG_WHOAMI			0x75
 #define INV_MPU6500_UNIQUE_ID			0x70
