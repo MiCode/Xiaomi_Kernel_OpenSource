@@ -16,6 +16,7 @@
 #include <linux/ktime.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
+#include <linux/dma-buf.h>
 
 #include "mdss.h"
 #include "mdss_mdp.h"
@@ -205,8 +206,10 @@ u32 get_dump_range(struct dump_offset *range_node, size_t max_offset)
 static void mdss_dump_reg(u32 reg_dump_flag,
 	char *addr, int len, u32 *dump_mem)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool in_log, in_mem;
 	u32 *dump_addr = NULL;
+	phys_addr_t phys = 0;
 	int i;
 
 	in_log = (reg_dump_flag & MDSS_REG_DUMP_IN_LOG);
@@ -221,7 +224,8 @@ static void mdss_dump_reg(u32 reg_dump_flag,
 
 	if (in_mem) {
 		if (!dump_mem)
-			dump_mem = kzalloc(len * 16, GFP_KERNEL);
+			dump_mem = dma_alloc_coherent(&mdata->pdev->dev,
+				len * 16, &phys, GFP_KERNEL);
 
 		if (dump_mem) {
 			dump_addr = dump_mem;
