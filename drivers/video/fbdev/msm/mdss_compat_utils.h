@@ -423,6 +423,8 @@ struct mdp_overlay_pp_params32 {
 	struct mdp_sharp_cfg32 sharp_cfg;
 	struct mdp_histogram_cfg32 hist_cfg;
 	struct mdp_hist_lut_data32 hist_lut_cfg;
+	struct mdp_pa_v2_cfg_data32 pa_v2_cfg_data;
+	struct mdp_pcc_cfg_data32 pcc_cfg_data;
 };
 
 struct msmfb_mdp_pp32 {
