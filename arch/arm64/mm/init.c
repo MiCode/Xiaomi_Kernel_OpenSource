@@ -331,6 +331,7 @@ static inline void poison_init_mem(void *s, size_t count)
 
 void free_initmem(void)
 {
+	fixup_init();
 	free_initmem_default(0);
 }
 
