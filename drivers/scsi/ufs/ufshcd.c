@@ -5857,6 +5857,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 			__func__, hba->saved_err, hba->saved_uic_err);
 		if (!hba->silence_err_logs) {
 			ufshcd_print_host_regs(hba);
+			ufshcd_print_host_state(hba);
 			ufshcd_print_pwr_info(hba);
 			ufshcd_print_tmrs(hba, hba->outstanding_tasks);
 		}
