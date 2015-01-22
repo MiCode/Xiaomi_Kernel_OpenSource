@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,7 @@
 #define EMERGENCY_DLOAD_MAGIC3    0x77777777
 
 #define SCM_IO_DISABLE_PMIC_ARBITER	1
+#define SCM_IO_DEASSERT_PS_HOLD		2
 #define SCM_WDOG_DEBUG_BOOT_PART	0x9
 #define SCM_DLOAD_MODE			0X10
 #define SCM_EDLOAD_MODE			0X01
@@ -47,6 +48,7 @@
 static int restart_mode;
 void *restart_reason;
 static bool scm_pmic_arbiter_disable_supported;
+static bool scm_deassert_ps_hold_supported;
 /* Download mode master kill-switch */
 static void __iomem *msm_ps_hold;
 
@@ -255,6 +257,30 @@ static void msm_restart_prepare(const char *cmd)
 
 }
 
+/*
+ * Deassert PS_HOLD to signal the PMIC that we are ready to power down or reset.
+ * Do this by calling into the secure environment, if available, or by directly
+ * writing to a hardware register.
+ *
+ * This function should never return.
+ */
+static void deassert_ps_hold(void)
+{
+	struct scm_desc desc = {
+		.args[0] = 0,
+		.arginfo = SCM_ARGS(1),
+	};
+
+	if (scm_deassert_ps_hold_supported) {
+		/* This call will be available on ARMv8 only */
+		scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_PWR,
+				 SCM_IO_DEASSERT_PS_HOLD), &desc);
+	}
+
+	/* Fall-through to the direct write in case the scm_call "returns" */
+	__raw_writel(0, msm_ps_hold);
+}
+
 static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 {
 	int ret;
@@ -289,7 +315,7 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 		pr_err("Failed to disable secure wdog debug: %d\n", ret);
 
 	halt_spmi_pmic_arbiter();
-	__raw_writel(0, msm_ps_hold);
+	deassert_ps_hold();
 
 	mdelay(10000);
 }
@@ -319,8 +345,7 @@ static void do_msm_poweroff(void)
 		pr_err("Failed to disable wdog debug: %d\n", ret);
 
 	halt_spmi_pmic_arbiter();
-	/* MSM initiated power off, lower ps_hold */
-	__raw_writel(0, msm_ps_hold);
+	deassert_ps_hold();
 
 	mdelay(10000);
 	pr_err("Powering off has failed\n");
@@ -382,6 +407,9 @@ static int msm_restart_probe(struct platform_device *pdev)
 
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DISABLE_PMIC_ARBITER) > 0)
 		scm_pmic_arbiter_disable_supported = true;
+
+	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DEASSERT_PS_HOLD) > 0)
+		scm_deassert_ps_hold_supported = true;
 
 	return 0;
 
