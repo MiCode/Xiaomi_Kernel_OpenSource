@@ -127,6 +127,8 @@ struct ufs_qcom_phy {
  * @is_physical_coding_sublayer_ready: pointer to a function that
  * checks pcs readiness. returns 0 for success and non-zero for error.
  * @set_tx_lane_enable: pointer to a function that enable tx lanes
+ * @ctrl_rx_linecfg: pointer to a function that controls the Host Rx LineCfg
+ * state.
  * @power_control: pointer to a function that controls analog rail of phy
  * and writes to QSERDES_RX_SIGDET_CNTRL attribute
  */
@@ -135,6 +137,7 @@ struct ufs_qcom_phy_specific_ops {
 	void (*start_serdes)(struct ufs_qcom_phy *phy);
 	int (*is_physical_coding_sublayer_ready)(struct ufs_qcom_phy *phy);
 	void (*set_tx_lane_enable)(struct ufs_qcom_phy *phy, u32 val);
+	void (*ctrl_rx_linecfg)(struct ufs_qcom_phy *phy, bool ctrl);
 	void (*power_control)(struct ufs_qcom_phy *phy, bool val);
 };
 
