@@ -233,7 +233,7 @@ static irqreturn_t gt9xx_thread_handler(int irq, void *arg)
 		 * is still pressing screen and we wait a bit. So we'll wait
 		 * and retry few times before discard the buffer for good.
 		 */
-		usleep_range(1000, 1500);
+		usleep_range(500, 1000);
 	}
 
 	if (!retries) {
