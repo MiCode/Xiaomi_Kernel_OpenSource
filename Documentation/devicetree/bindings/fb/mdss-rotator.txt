@@ -1,0 +1,26 @@
+QTI MDSS Rotator
+
+MDSS rotator is a rotator driver, which manages the rotator hw
+block inside the Mobile Display Subsystem.
+
+Required properties
+- compatible :			Must be "qcom,mdss-rotator".
+- qcom,mdss-wb-count:		The number of writeback block
+				in the hardware
+
+Optional properties
+- qcom,mdss-has-ubwc:		Boolean property to indicate
+				if the hw supports universal
+				bandwidth compression (ubwc)
+- qcom,mdss-has-downscale	Boolean property to indicate
+				if the hw supports downscale
+
+Example:
+	mdss_rotator: qcom,mdss_rotator {
+		compatible = "qcom,mdss_rotator";
+		qcom,mdss-has-downscale;
+		qcom,mdss-has-ubwc;
+		qcom,mdss-wb-count = <2>;
+	};
+
+

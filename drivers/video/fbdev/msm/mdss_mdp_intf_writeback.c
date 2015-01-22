@@ -15,7 +15,7 @@
 
 #include "mdss.h"
 #include "mdss_mdp.h"
-#include "mdss_mdp_rotator.h"
+#include "mdss_rotator_internal.h"
 #include "mdss_panel.h"
 #include "mdss_mdp_trace.h"
 
@@ -356,9 +356,9 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
 	struct mdss_mdp_writeback_arg *wb_args;
-	struct mdss_mdp_rotator_session *rot;
+	struct mdss_rot_entry *entry;
+	struct mdp_rotation_item *item;
 	struct mdss_data_type *mdata;
-	struct mdss_mdp_format_params *fmt;
 	u32 format;
 
 	ctx = (struct mdss_mdp_writeback_ctx *) ctl->priv_data;
@@ -368,11 +368,12 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	if (!wb_args)
 		return -ENOENT;
 
-	rot = (struct mdss_mdp_rotator_session *) wb_args->priv_data;
-	if (!rot) {
+	entry = (struct mdss_rot_entry *) wb_args->priv_data;
+	if (!entry) {
 		pr_err("unable to retrieve rot session ctl=%d\n", ctl->num);
 		return -ENODEV;
 	}
+	item = &entry->item;
 	mdata = ctl->mdata;
 	if (!mdata) {
 		pr_err("no mdata attached to ctl=%d", ctl->num);
@@ -384,28 +385,19 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	if (ctl->mdata->rot_block_size == 128)
 		ctx->opmode |= BIT(4); /* block size 128 */
 
-	ctx->bwc_mode = rot->bwc_mode;
+	ctx->bwc_mode = 0;
 	ctx->opmode |= ctx->bwc_mode;
 
-	ctx->width = ctx->dst_rect.w = rot->dnsc_factor_w ?
-		rot->dst.w / rot->dnsc_factor_w : rot->dst.w;
-	ctx->height = ctx->dst_rect.h = rot->dnsc_factor_h ?
-		rot->dst.h / rot->dnsc_factor_h : rot->dst.h;
-	ctx->dst_rect.x = rot->dst.x;
-	ctx->dst_rect.y = rot->dst.y;
-	ctx->dnsc_factor_w = rot->dnsc_factor_w;
-	ctx->dnsc_factor_h = rot->dnsc_factor_h;
+	ctx->width = ctx->dst_rect.w = item->dst_rect.w;
+	ctx->height = ctx->dst_rect.h = item->dst_rect.h;
+	ctx->dst_rect.x = item->dst_rect.x;
+	ctx->dst_rect.y = item->dst_rect.y;
+	ctx->dnsc_factor_w = entry->dnsc_factor_w;
+	ctx->dnsc_factor_h = entry->dnsc_factor_h;
 
-	ctx->rot90 = !!(rot->flags & MDP_ROT_90);
+	ctx->rot90 = !!(item->flags & MDP_ROTATION_90);
 
-	fmt = mdss_mdp_get_format_params(rot->format);
-	if (!fmt) {
-		pr_err("invalid pipe format %d\n", rot->format);
-		return -EINVAL;
-	}
-
-	format = mdss_mdp_get_rotator_dst_format(rot->format,
-			ctx->rot90, ctx->bwc_mode);
+	format = item->output.format;
 
 	if (ctx->rot90)
 		ctx->opmode |= BIT(5); /* ROT 90 */

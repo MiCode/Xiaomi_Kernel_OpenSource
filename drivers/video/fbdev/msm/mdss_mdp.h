@@ -1118,13 +1118,17 @@ int mdss_mdp_ctl_cmd_autorefresh_enable(struct mdss_mdp_ctl *ctl,
 		int frame_cnt);
 int mdss_mdp_pp_get_version(struct mdp_pp_feature_version *version);
 
-struct mdss_mdp_writeback *mdss_mdp_wb_alloc(u32 caps, u32 reg_index);
-void mdss_mdp_wb_free(struct mdss_mdp_writeback *wb);
-struct mdss_mdp_writeback *mdss_mdp_wb_assign(u32 num, u32 reg_index);
+struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
+					       u32 off);
+int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl);
 
+struct mdss_mdp_mixer *mdss_mdp_mixer_assign(u32 id, bool wb);
 struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 		struct mdss_mdp_ctl *ctl, u32 type, int mux, int rotator);
-struct mdss_mdp_mixer *mdss_mdp_mixer_assign(u32 id, bool wb);
 int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer);
+
+struct mdss_mdp_writeback *mdss_mdp_wb_assign(u32 id, u32 reg_index);
+struct mdss_mdp_writeback *mdss_mdp_wb_alloc(u32 caps, u32 reg_index);
+void mdss_mdp_wb_free(struct mdss_mdp_writeback *wb);
 
 #endif /* MDSS_MDP_H */
