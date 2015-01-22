@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -148,6 +148,10 @@ struct wcd_cpe_core {
 	struct ramdump_segment cpe_ramdump_seg;
 	dma_addr_t cpe_dump_addr;
 	void *cpe_dump_v_addr;
+
+	/* SFR support */
+	u32 sfr_buf_addr;
+	size_t sfr_buf_size;
 };
 
 struct wcd_cpe_params {
