@@ -2477,10 +2477,8 @@ static void ipa_start_tag_process(struct work_struct *work)
 	IPADBG("starting TAG process\n");
 	/* close aggregation frames on all pipes */
 	res = ipa_tag_aggr_force_close(-1);
-	if (res) {
+	if (res)
 		IPAERR("ipa_tag_aggr_force_close failed %d\n", res);
-		return;
-	}
 
 	ipa_dec_client_disable_clks();
 
