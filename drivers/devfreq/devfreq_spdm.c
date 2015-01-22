@@ -14,6 +14,7 @@
 #include <linux/device.h>
 #include <linux/devfreq.h>
 #include <linux/init.h>
+#include <linux/ipc_logging.h>
 #include <linux/gfp.h>
 #include <linux/list.h>
 #include <linux/module.h>
@@ -26,7 +27,15 @@
 #include "governor.h"
 #include "devfreq_spdm.h"
 
+static void *spdm_ipc_log_ctxt;
 #define DEVFREQ_SPDM_DEFAULT_WINDOW_MS 100
+#define SPDM_IPC_LOG_PAGES	5
+
+#define SPDM_IPC_LOG(x...)	do { \
+	pr_debug(x); \
+	if (spdm_ipc_log_ctxt) \
+		ipc_log_string(spdm_ipc_log_ctxt, x); \
+} while (0)
 
 static int change_bw(struct device *dev, unsigned long *freq, u32 flags)
 {
@@ -61,7 +70,7 @@ update_thresholds:
 	desc.arg[0] = SPDM_CMD_ENABLE;
 	desc.arg[1] = data->spdm_client;
 	desc.arg[2] = clk_get_rate(data->cci_clk);
-	hvc_status = hvc(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
+	hvc_status = spdm_ext_call(HVC_FN_SIP(SPDM_HYP_FNID), &desc);
 	if (hvc_status)
 		pr_err("HVC command %u failed with error %u", (int)desc.arg[0],
 			hvc_status);
@@ -232,6 +241,17 @@ no_pdata:
 	return ret;
 }
 
+int __spdm_hyp_call(u64 func_id, struct hvc_desc *desc)
+{
+	int ret = 0;
+
+	SPDM_IPC_LOG("hvc call fn:0x%llx, cmd:%llu\n", func_id, desc->arg[0]);
+	ret = hvc(func_id, desc);
+	SPDM_IPC_LOG("hvc return fn:0x%llx cmd:%llu Ret[0]:%llu Ret[1]:%llu\n",
+			func_id, desc->arg[0], desc->ret[0], desc->ret[1]);
+	return ret;
+}
+
 static int probe(struct platform_device *pdev)
 {
 	struct spdm_data *data = 0;
@@ -280,6 +300,14 @@ static int probe(struct platform_device *pdev)
 	}
 
 	spdm_init_debugfs(&pdev->dev);
+	spdm_ipc_log_ctxt = ipc_log_context_create(SPDM_IPC_LOG_PAGES,
+							"devfreq_spdm", 0);
+
+	if (IS_ERR_OR_NULL(spdm_ipc_log_ctxt)) {
+		pr_err("%s: Failed to create IPC log context\n", __func__);
+		spdm_ipc_log_ctxt = NULL;
+	}
+
 
 	return 0;
 
@@ -314,6 +342,9 @@ static int remove(struct platform_device *pdev)
 		devm_kfree(&pdev->dev, data->config_data.ports);
 
 	devm_kfree(&pdev->dev, data);
+
+	if (spdm_ipc_log_ctxt)
+		ipc_log_context_destroy(spdm_ipc_log_ctxt);
 
 	return 0;
 }
