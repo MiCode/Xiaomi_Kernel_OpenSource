@@ -364,7 +364,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	 * no need to account for these lines in MDP clock or request bus
 	 * bandwidth to fetch them.
 	 */
-	src_h = src.h >> pipe->vert_deci;
+	src_h = DECIMATED_DIMENSION(src.h, pipe->vert_deci);
 
 	quota = fps * src.w * src_h;
 

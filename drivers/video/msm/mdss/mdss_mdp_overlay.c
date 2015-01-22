@@ -245,8 +245,8 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			dst_h = req->dst_rect.h;
 		}
 
-		src_w = req->src_rect.w >> req->horz_deci;
-		src_h = req->src_rect.h >> req->vert_deci;
+		src_w = DECIMATED_DIMENSION(req->src_rect.w, req->horz_deci);
+		src_h = DECIMATED_DIMENSION(req->src_rect.h, req->vert_deci);
 
 		if (src_w > MAX_MIXER_WIDTH) {
 			pr_err("invalid source width=%d HDec=%d\n",
@@ -359,8 +359,8 @@ static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 		u32 hor_req_pixels, hor_fetch_pixels;
 		u32 hor_ov_fetch, vert_ov_fetch;
 		u32 vert_req_pixels, vert_fetch_pixels;
-		u32 src_w = pipe->src.w >> pipe->horz_deci;
-		u32 src_h = pipe->src.h >> pipe->vert_deci;
+		u32 src_w = DECIMATED_DIMENSION(pipe->src.w, pipe->horz_deci);
+		u32 src_h = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
 
 		/*
 		 * plane 1 and 2 are for chroma and are same. While configuring
@@ -391,33 +391,38 @@ static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 			pipe->scale.num_ext_pxls_right[plane];
 
 		hor_fetch_pixels = src_w +
-			pipe->scale.left_ftch[plane] +
+			(pipe->scale.left_ftch[plane] >> pipe->horz_deci) +
 			pipe->scale.left_rpt[plane] +
-			pipe->scale.right_ftch[plane] +
+			(pipe->scale.right_ftch[plane] >> pipe->horz_deci) +
 			pipe->scale.right_rpt[plane];
 
-		hor_ov_fetch = src_w + pipe->scale.left_ftch[plane] +
-			pipe->scale.right_ftch[plane];
+		hor_ov_fetch = src_w +
+			(pipe->scale.left_ftch[plane] >> pipe->horz_deci)+
+			(pipe->scale.right_ftch[plane] >> pipe->horz_deci);
 
 		vert_req_pixels = pipe->scale.num_ext_pxls_top[plane] +
 			pipe->scale.num_ext_pxls_btm[plane];
 
-		vert_fetch_pixels = pipe->scale.top_ftch[plane] +
+		vert_fetch_pixels =
+			(pipe->scale.top_ftch[plane] >> pipe->vert_deci) +
 			pipe->scale.top_rpt[plane] +
-			pipe->scale.btm_ftch[plane] +
+			(pipe->scale.btm_ftch[plane] >> pipe->vert_deci)+
 			pipe->scale.btm_rpt[plane];
 
-		vert_ov_fetch = src_h + pipe->scale.top_ftch[plane] +
-			pipe->scale.btm_ftch[plane];
+		vert_ov_fetch = src_h +
+			(pipe->scale.top_ftch[plane] >> pipe->vert_deci)+
+			(pipe->scale.btm_ftch[plane] >> pipe->vert_deci);
 
 		if ((hor_req_pixels != hor_fetch_pixels) ||
 			(hor_ov_fetch > pipe->img_width) ||
 			(vert_req_pixels != vert_fetch_pixels) ||
 			(vert_ov_fetch > pipe->img_height)) {
-			pr_err("err: plane=%d h_req:%d h_fetch:%d v_req:%d v_fetch:%d src_img:[%d,%d]\n",
+			pr_err("err: plane=%d h_req:%d h_fetch:%d v_req:%d v_fetch:%d\n",
 					plane,
 					hor_req_pixels, hor_fetch_pixels,
-					vert_req_pixels, vert_fetch_pixels,
+					vert_req_pixels, vert_fetch_pixels);
+			pr_err("roi_w[%d]=%d, src_img:[%d, %d]\n",
+					plane, pipe->scale.roi_w[plane],
 					pipe->img_width, pipe->img_height);
 			pipe->scale.enable_pxl_ext = 0;
 			return -EINVAL;
@@ -432,7 +437,7 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 	u32 src;
 	int rc;
 
-	src = pipe->src.w >> pipe->horz_deci;
+	src = DECIMATED_DIMENSION(pipe->src.w, pipe->horz_deci);
 
 	if (pipe->scale.enable_pxl_ext) {
 		rc = __mdss_mdp_validate_pxl_extn(pipe);
@@ -451,7 +456,7 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 		return rc;
 	}
 
-	src = pipe->src.h >> pipe->vert_deci;
+	src = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
 	rc = mdss_mdp_calc_phase_step(src, pipe->dst.h,
 			&pipe->scale.phase_step_y[0]);
 
