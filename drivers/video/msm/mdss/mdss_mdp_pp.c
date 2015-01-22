@@ -988,8 +988,8 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		}
 	}
 
-	src_w = pipe->src.w >> pipe->horz_deci;
-	src_h = pipe->src.h >> pipe->vert_deci;
+	src_w = DECIMATED_DIMENSION(pipe->src.w, pipe->horz_deci);
+	src_h = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
 
 	chroma_sample = pipe->src_fmt->chroma_sample;
 	if (pipe->flags & MDP_SOURCE_ROTATED_90) {
