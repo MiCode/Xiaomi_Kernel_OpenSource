@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
- * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -268,6 +268,7 @@ enum usb_ctrl {
 		allowing VDDmin without putting PHY into retention.
  * @usb_id_gpio: Gpio used for USB ID detection.
  * @bool phy_dvdd_always_on: PHY DVDD is supplied by always on PMIC LDO.
+ * @bool emulation: Indicates whether we are running on emulation platform.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -300,6 +301,7 @@ struct msm_otg_platform_data {
 	bool disable_retention_with_vdd_min;
 	int usb_id_gpio;
 	bool phy_dvdd_always_on;
+	bool emulation;
 };
 
 /* phy related flags */

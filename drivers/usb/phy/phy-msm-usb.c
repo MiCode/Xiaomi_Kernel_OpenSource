@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2014, Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2015, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -344,6 +344,9 @@ static int ulpi_read(struct usb_phy *phy, u32 reg)
 	struct msm_otg *motg = container_of(phy, struct msm_otg, phy);
 	int cnt = 0;
 
+	if (motg->pdata->emulation)
+		return 0;
+
 	if (motg->pdata->phy_type == QUSB_ULPI_PHY && reg > 0x3F) {
 		pr_debug("%s: ULPI vendor-specific reg 0x%02x not supported\n",
 			__func__, reg);
@@ -376,6 +379,9 @@ static int ulpi_write(struct usb_phy *phy, u32 val, u32 reg)
 {
 	struct msm_otg *motg = container_of(phy, struct msm_otg, phy);
 	int cnt = 0;
+
+	if (motg->pdata->emulation)
+		return 0;
 
 	if (motg->pdata->phy_type == QUSB_ULPI_PHY && reg > 0x3F) {
 		pr_debug("%s: ULPI vendor-specific reg 0x%02x not supported\n",
@@ -5004,6 +5010,9 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 
 	pdata->rw_during_lpm_workaround = of_property_read_bool(node,
 				"qcom,hsusb-otg-rw-during-lpm-workaround");
+
+	pdata->emulation = of_property_read_bool(node,
+						"qcom,emulation");
 
 	return pdata;
 }

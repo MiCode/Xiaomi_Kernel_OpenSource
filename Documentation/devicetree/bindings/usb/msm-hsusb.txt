@@ -159,6 +159,7 @@ Optional properties :
 	regulator unlike vddcx/vddmx. PHY can keep D+ pull-up and D+/D-
 	pull-down resistors during peripheral and host bus suspend without
 	any re-work.
+- qcom,emulation: Indicates that we are running on emulation platform.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
