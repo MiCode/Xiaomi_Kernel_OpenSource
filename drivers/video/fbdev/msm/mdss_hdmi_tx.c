@@ -75,6 +75,14 @@
 #define HDMI_TX_KHZ_TO_HZ 1000
 #define HDMI_TX_MHZ_TO_HZ 1000000
 
+/* Maximum pixel clock rates for hdmi tx */
+#define HDMI_DEFAULT_MAX_PCLK_RATE         148500
+#define HDMI_TX_3_MAX_PCLK_RATE            297000
+#define HDMI_TX_4_MAX_PCLK_RATE            600000
+
+#define HDMI_TX_VERSION_4         4
+#define HDMI_TX_VERSION_3         3
+
 /* Enable HDCP by default */
 static bool hdcp_feature_on = true;
 
@@ -276,6 +284,18 @@ static int hdmi_tx_get_version(struct hdmi_tx_ctrl *hdmi_ctrl)
 	reg_val = DSS_REG_R(io, HDMI_VERSION);
 	reg_val = (reg_val & 0xF0000000) >> 28;
 	hdmi_ctrl->hdmi_tx_ver = reg_val;
+
+	switch (hdmi_ctrl->hdmi_tx_ver) {
+	case (HDMI_TX_VERSION_3):
+		hdmi_ctrl->max_pclk_khz = HDMI_TX_3_MAX_PCLK_RATE;
+		break;
+	case (HDMI_TX_VERSION_4):
+		hdmi_ctrl->max_pclk_khz = HDMI_TX_4_MAX_PCLK_RATE;
+		break;
+	default:
+		hdmi_ctrl->max_pclk_khz = HDMI_DEFAULT_MAX_PCLK_RATE;
+		break;
+	}
 
 	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_HPD_PM, false);
 	if (rc) {
@@ -1167,7 +1187,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 	edid_init_data.ds_data = &hdmi_ctrl->ds_data;
 
 	hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] =
-		hdmi_edid_init(&edid_init_data);
+		hdmi_edid_init(&edid_init_data, hdmi_ctrl->max_pclk_khz);
 	if (!hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) {
 		DEV_ERR("%s: hdmi_edid_init failed\n", __func__);
 		return -EPERM;
@@ -1762,16 +1782,16 @@ void hdmi_tx_set_vendor_specific_infoframe(
 
 	hdmi_video_format = 0x1;
 	switch (hdmi_ctrl->vid_cfg.vic) {
-	case HDMI_VFRMT_3840x2160p30_16_9:
+	case HDMI_EVFRMT_3840x2160p30_16_9:
 		hdmi_vic = 0x1;
 		break;
-	case HDMI_VFRMT_3840x2160p25_16_9:
+	case HDMI_EVFRMT_3840x2160p25_16_9:
 		hdmi_vic = 0x2;
 		break;
-	case HDMI_VFRMT_3840x2160p24_16_9:
+	case HDMI_EVFRMT_3840x2160p24_16_9:
 		hdmi_vic = 0x3;
 		break;
-	case HDMI_VFRMT_4096x2160p24_16_9:
+	case HDMI_EVFRMT_4096x2160p24_16_9:
 		hdmi_vic = 0x4;
 		break;
 	default:

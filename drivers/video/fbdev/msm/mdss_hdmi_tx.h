@@ -126,6 +126,7 @@ struct hdmi_video_config {
 struct hdmi_tx_ctrl {
 	struct platform_device *pdev;
 	u32 hdmi_tx_ver;
+	u32 max_pclk_khz;
 	struct hdmi_tx_platform_data pdata;
 	struct mdss_panel_data panel_data;
 	struct mdss_util_intf *mdss_util;
