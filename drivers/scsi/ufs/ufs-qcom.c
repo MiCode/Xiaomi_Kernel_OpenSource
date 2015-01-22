@@ -217,6 +217,13 @@ static int ufs_qcom_link_startup_post_change(struct ufs_hba *hba)
 		dev_err(hba->dev, "%s: ufs_qcom_phy_set_tx_lane_enable failed\n",
 			__func__);
 
+	/*
+	 * Some UFS devices send incorrect LineCfg data as part of power mode
+	 * change sequence which may cause host PHY to go into bad state.
+	 * Disabling Rx LineCfg of host PHY should help avoid this.
+	 */
+	err = ufs_qcom_phy_ctrl_rx_linecfg(phy, false);
+
 out:
 	return err;
 }
@@ -519,14 +526,22 @@ out:
 
 static int ufs_qcom_link_startup_notify(struct ufs_hba *hba, bool status)
 {
+	int err = 0;
+	struct ufs_qcom_host *host = hba->priv;
+	struct phy *phy = host->generic_phy;
+
 	switch (status) {
 	case PRE_CHANGE:
 		if (ufs_qcom_cfg_timers(hba, UFS_PWM_G1, SLOWAUTO_MODE,
 					0, true)) {
 			dev_err(hba->dev, "%s: ufs_qcom_cfg_timers() failed\n",
 				__func__);
-			return -EINVAL;
+			err = -EINVAL;
+			goto out;
 		}
+
+		/* make sure RX LineCfg is enabled before link startup */
+		err = ufs_qcom_phy_ctrl_rx_linecfg(phy, true);
 		break;
 	case POST_CHANGE:
 		ufs_qcom_link_startup_post_change(hba);
@@ -535,7 +550,8 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba, bool status)
 		break;
 	}
 
-	return 0;
+out:
+	return err;
 }
 
 static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
@@ -954,7 +970,6 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 	if (host->hw_ver.major == 0x1) {
 		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP
-			      | UFSHCD_QUIRK_BROKEN_LCC
 			      | UFSHCD_QUIRK_DME_PEER_ACCESS_AUTO_MODE);
 
 		if (host->hw_ver.minor == 0x001 && host->hw_ver.step == 0x0001)

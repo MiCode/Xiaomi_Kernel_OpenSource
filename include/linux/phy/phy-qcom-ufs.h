@@ -112,6 +112,8 @@ struct ufs_qcom_phy {
  * @is_physical_coding_sublayer_ready: pointer to a function that
  * checks pcs readiness
  * @set_tx_lane_enable: pointer to a function that enable tx lanes
+ * @ctrl_rx_linecfg: pointer to a function that controls the Host Rx LineCfg
+ * state.
  * @power_control: pointer to a function that controls analog rail of phy
  * and writes to QSERDES_RX_SIGDET_CNTRL attribute
  */
@@ -122,6 +124,7 @@ struct ufs_qcom_phy_specific_ops {
 	void (*restore_configuration)(struct ufs_qcom_phy *phy);
 	int (*is_physical_coding_sublayer_ready) (struct ufs_qcom_phy *phy);
 	void (*set_tx_lane_enable) (struct ufs_qcom_phy *phy, u32 val);
+	void (*ctrl_rx_linecfg)(struct ufs_qcom_phy *phy, bool ctrl);
 	void (*power_control) (struct ufs_qcom_phy *phy, bool val);
 };
 
@@ -145,6 +148,7 @@ int ufs_qcom_phy_base_init(struct platform_device *pdev,
 struct ufs_qcom_phy *get_ufs_qcom_phy(struct phy *generic_phy);
 int ufs_qcom_phy_start_serdes(struct phy *generic_phy);
 int ufs_qcom_phy_set_tx_lane_enable(struct phy *generic_phy, u32 tx_lanes);
+int ufs_qcom_phy_ctrl_rx_linecfg(struct phy *generic_phy, bool ctrl);
 int ufs_qcom_phy_calibrate_phy(struct phy *generic_phy);
 int ufs_qcom_phy_is_pcs_ready(struct phy *generic_phy);
 void ufs_qcom_phy_save_controller_version(struct phy *generic_phy,
