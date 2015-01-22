@@ -3968,6 +3968,7 @@ void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	struct drm_i915_gem_object *obj;
 	unsigned long flags;
+	struct intel_unpin_work *unpin_work, *sprite_unpin_work;
 
 	if (crtc->primary->fb == NULL)
 		return;
@@ -3985,28 +3986,27 @@ void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 		DRM_ERROR("flip wait timed out.\n");
 
 		/* cleanup */
-		if (intel_crtc->unpin_work) {
-			intel_unpin_work_fn(&intel_crtc->unpin_work->work);
+		spin_lock_irqsave(&dev->event_lock, flags);
+		unpin_work = intel_crtc->unpin_work;
+		intel_crtc->unpin_work = NULL;
+
+		sprite_unpin_work = intel_crtc->sprite_unpin_work;
+		intel_crtc->sprite_unpin_work = NULL;
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+
+		if (unpin_work) {
+			intel_unpin_work_fn(&unpin_work->work);
 			atomic_clear_mask(1 << intel_crtc->plane,
 					&obj->pending_flip.counter);
-
-			spin_lock_irqsave(&dev->event_lock, flags);
-			intel_crtc->unpin_work = NULL;
-			spin_unlock_irqrestore(&dev->event_lock, flags);
 		}
 
-		if (intel_crtc->sprite_unpin_work) {
-			intel_unpin_sprite_work_fn(
-				&intel_crtc->sprite_unpin_work->work);
-			obj = intel_crtc->sprite_unpin_work->old_fb_obj;
-
+		if (sprite_unpin_work) {
+			obj = sprite_unpin_work->old_fb_obj;
 			if (obj)
 				atomic_clear_mask(1 << intel_crtc->plane,
 					&obj->pending_flip.counter);
-
-			spin_lock_irqsave(&dev->event_lock, flags);
-			intel_crtc->sprite_unpin_work = NULL;
-			spin_unlock_irqrestore(&dev->event_lock, flags);
+			intel_unpin_sprite_work_fn(
+				&sprite_unpin_work->work);
 		}
 	}
 
@@ -12255,8 +12255,8 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 		if ((connector->dpms != DRM_MODE_DPMS_OFF)
 			&& (prepare_pipes & (1 << (intel_crtc)->pipe))) {
 			/*
-			 * Now enable the clocks, plane, pipe, and connectors that we 
-			 * set up.
+			 * Now enable the clocks, plane, pipe, and
+			 * connectors that we set up.
 			*/
 			if (!connector->encoder->crtc->primary->fb) {
 
