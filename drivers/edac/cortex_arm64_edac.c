@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -204,10 +204,12 @@ static void ca53_ca57_print_error_state_regs(void)
 	u64 l2merrsr;
 	u64 cpumerrsr;
 	u32 esr_el1;
+	u32 l2ectlr;
 
 	cpumerrsr = read_cpumerrsr_el1;
 	l2merrsr = read_l2merrsr_el1;
 	esr_el1 = read_esr_el1;
+	l2ectlr = read_l2ectlr_el1;
 
 	/* store data in uncached rtb logs */
 	uncached_logk_pc(LOGK_READL, __builtin_return_address(0),
@@ -216,12 +218,15 @@ static void ca53_ca57_print_error_state_regs(void)
 				(void *)l2merrsr);
 	uncached_logk_pc(LOGK_READL, __builtin_return_address(0),
 				(void *)((u64)esr_el1));
+	uncached_logk_pc(LOGK_READL, __builtin_return_address(0),
+				(void *)((u64)l2ectlr));
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "CPUMERRSR value = %#llx\n",
 								cpumerrsr);
 	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %#llx\n", l2merrsr);
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "ESR value = %#x\n", esr_el1);
+	edac_printk(KERN_CRIT, EDAC_CPU, "L2ECTLR value = %#x\n", l2ectlr);
 	if (ESR_L2_DBE(esr_el1))
 		edac_printk(KERN_CRIT, EDAC_CPU,
 			"Double bit error on dirty L2 cacheline\n");
