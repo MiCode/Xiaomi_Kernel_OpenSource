@@ -533,7 +533,7 @@ static long ov2680_s_exposure(struct v4l2_subdev *sd,
 	}
 
 	// EXPOSURE CONTROL DISABLED FOR INITIAL CHECKIN, TUNING DOESN'T WORK
-	return 0; // ov2680_set_exposure(sd, coarse_itg, analog_gain, digital_gain);
+	return ov2680_set_exposure(sd, coarse_itg, analog_gain, digital_gain);
 }
 
 

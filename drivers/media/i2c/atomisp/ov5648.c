@@ -537,7 +537,7 @@ static long ov5648_s_exposure(struct v4l2_subdev *sd,
 	}
 
 	// EXPOSURE CONTROL DISABLED FOR INITIAL CHECKIN, TUNING DOESN'T WORK
-	return 0; // ov5648_set_exposure(sd, exp, gain, digitgain);
+	return ov5648_set_exposure(sd, exp, gain, digitgain);
 }
 
 static long ov5648_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
