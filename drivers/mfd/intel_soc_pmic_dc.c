@@ -32,6 +32,8 @@
 
 #include "intel_soc_pmic_core.h"
 
+#define XPOWER_DEFAULT_TEMP_MAX 45
+
 enum {
 	VBUS_FALLING_IRQ = 2,
 	VBUS_RISING_IRQ,
@@ -422,7 +424,7 @@ static int fg_bat_curve[] = {
 static void dc_xpwr_fg_pdata(void)
 {
 	static struct dollarcove_fg_pdata pdata;
-	int i;
+	int i, temp_mon_ranges;
 	int scaled_capacity;
 
 	if (ps_batt_chrg_prof.chrg_prof_type == CHRG_PROF_NONE
@@ -434,8 +436,20 @@ static void dc_xpwr_fg_pdata(void)
 				strlen(pse_mod_prof->batt_id));
 
 	platform_set_battery_data(&pdata, &ps_batt_chrg_prof);
-	pdata.max_temp = 55;
-	pdata.min_temp = 0;
+	pse_mod_prof = (struct ps_pse_mod_prof *)
+					ps_batt_chrg_prof.batt_prof;
+	temp_mon_ranges = min_t(u16, pse_mod_prof->temp_mon_ranges,
+						BATT_TEMP_NR_RNG);
+	for (i = 0; i < temp_mon_ranges; ++i) {
+		if (pse_mod_prof->temp_mon_range[i].full_chrg_cur)
+				break;
+	}
+	if (i < temp_mon_ranges)
+		pdata.max_temp = pse_mod_prof->temp_mon_range[i].temp_up_lim;
+	else
+		pdata.max_temp = XPOWER_DEFAULT_TEMP_MAX;
+
+	pdata.min_temp = pse_mod_prof->temp_low_lim;
 
 	/*
 	 * Calculate cap1 and cap0.  The value of a LSB is 1.456mAh.
