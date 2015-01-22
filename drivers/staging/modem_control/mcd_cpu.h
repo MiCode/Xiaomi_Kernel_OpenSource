@@ -27,6 +27,7 @@ int get_gpio_irq_rst(void *data);
 int get_gpio_mdm_state(void *data);
 int get_gpio_rst(void *data);
 int get_gpio_pwr(void *data);
+int get_gpio_rst_usbhub(void *data);
 int cpu_init_gpio_ngff(void *data);
 
 #endif

@@ -120,15 +120,19 @@ void mdm_ctrl_set_mdm_cpu(struct mdm_info *mdm)
 	pdata->cpu.get_irq_rst = get_gpio_irq_rst;
 	pdata->cpu.get_gpio_rst = get_gpio_rst;
 	pdata->cpu.get_gpio_pwr = get_gpio_pwr;
+	pdata->cpu.get_gpio_rst_usbhub = get_gpio_rst_usbhub;
 
 	switch (board_type) {
 	case BOARD_AOB:
-		if (mdm->pdata->mdm_ver == MODEM_2230)
+		if (mdm->pdata->mdm_ver == MODEM_2230) {
 			pdata->mdm.power_on = mcd_mdm_cold_boot_2230;
+			pdata->mdm.power_off = mcd_mdm_power_off_2230;
+		}
 		break;
 	case BOARD_NGFF:
 		pdata->mdm.power_on = mcd_mdm_cold_boot_ngff;
 		pdata->cpu.init = cpu_init_gpio_ngff;
+		pdata->mdm.power_off = mcd_mdm_power_off_ngff;
 		break;
 	default:
 		pr_info(DRVNAME ": Can't retrieve conf specific functions");

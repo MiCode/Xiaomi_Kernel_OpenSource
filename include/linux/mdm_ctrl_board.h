@@ -54,8 +54,8 @@ struct mdm_ops {
 	int	(*cleanup)(void *data);
 	int	(*get_cflash_delay)(void *data);
 	int	(*get_wflash_delay)(void *data);
-	int	(*power_on)(void *data, int gpio_rst, int gpio_pwr);
-	int	(*power_off)(void *data, int gpio_rst);
+	int	(*power_on)(void *data);
+	int	(*power_off)(void *data);
 	int	(*warm_reset)(void *data, int gpio_rst);
 };
 
@@ -67,6 +67,7 @@ struct cpu_ops {
 	int	(*get_irq_rst)(void *data);
 	int	(*get_gpio_rst)(void *data);
 	int	(*get_gpio_pwr)(void *data);
+	int	(*get_gpio_rst_usbhub)(void *data);
 };
 
 struct pmic_ops {
@@ -96,6 +97,11 @@ struct mcd_base_info {
 
 	/* board type */
 	int		board_type;
+
+	/* power on type */
+	int		pwr_on_ctrl;
+	/* usb hub cotrol */
+	int		usb_hub_ctrl;
 };
 
 /* GPIO names */
@@ -143,6 +149,7 @@ struct mdm_ctrl_cpu_data {
 	/* NGFF specific */
 	struct gpio_desc	*gpio_wwan_disable;
 	struct gpio_desc	*gpio_rst_usbhub;
+	struct gpio_desc	*gpio_wake_on_wwan;
 
 	/* IRQs */
 	int	irq_cdump;

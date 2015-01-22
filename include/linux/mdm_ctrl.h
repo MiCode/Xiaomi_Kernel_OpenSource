@@ -69,6 +69,14 @@ enum mdm_ctrl_board_type {
 	BOARD_PCIE,
 };
 
+/* Type of power on control */
+enum mdm_ctrl_pwr_on_type {
+	POWER_ON_UNSUP,
+	POWER_ON_PMIC_GPIO,
+	POWER_ON_GPIO,
+	POWER_ON_PMIC
+};
+
 /**
  * struct mdm_ctrl_cmd - Command parameters
  *
@@ -86,10 +94,14 @@ struct mdm_ctrl_cmd {
  *
  * @board board type
  * @type modem family type
+ * @pwr_on_ctrl power on method
+ * @usb_hub_ctrl usage of usb hub ctrl
  */
 struct mdm_ctrl_cfg {
 	enum mdm_ctrl_board_type board;
 	enum mdm_ctrl_mdm_type type;
+	enum mdm_ctrl_pwr_on_type pwr_on;
+	unsigned int usb_hub;
 };
 
 #define MDM_CTRL_MAGIC	0x87 /* FIXME: Revisit */

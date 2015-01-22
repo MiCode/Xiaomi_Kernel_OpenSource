@@ -68,7 +68,8 @@ static inline int mdm_ctrl_configure_gpio(struct gpio_desc *gpio,
 
 int cpu_init_gpio(void *data)
 {
-	struct mdm_ctrl_cpu_data *cpu_data = data;
+	struct mdm_info *mdm = data;
+	struct mdm_ctrl_cpu_data *cpu_data = mdm->pdata->cpu_data;
 	int ret;
 
 	pr_debug("cpu_init");
@@ -196,23 +197,63 @@ int get_gpio_pwr(void *data)
 		return INVALID_GPIO;
 }
 
-int cpu_init_gpio_ngff(void *data)
+int get_gpio_rst_usbhub(void *data)
 {
 	struct mdm_ctrl_cpu_data *cpu_data = data;
+	if (cpu_data->gpio_rst_usbhub)
+		return desc_to_gpio(cpu_data->gpio_rst_usbhub);
+	else
+		return INVALID_GPIO;
+}
+
+int cpu_init_gpio_ngff(void *data)
+{
+	struct mdm_info *mdm = data;
+	struct mdm_ctrl_cpu_data *cpu_data = mdm->pdata->cpu_data;
 	int ret;
 
-	pr_debug("cpu_init");
+	pr_debug("cpu_init NGFF");
 
 	/* Configure the RESET_BB gpio */
-	ret = mdm_ctrl_configure_gpio(cpu_data->gpio_rst_bbn, 1, 0);
-	if (ret)
-		goto out;
+	if (cpu_data->gpio_rst_bbn) {
+		ret = mdm_ctrl_configure_gpio(cpu_data->gpio_rst_bbn, 1, 0);
+		if (ret) {
+			pr_err("Can't configure RST_BBN GPIO");
+			goto out;
+		}
+	} else
+		pr_info("No RST_BBN GPIO set");
 
-	ret = mdm_ctrl_configure_gpio(cpu_data->gpio_rst_usbhub, 1, 1);
+	if (mdm->pdata->pwr_on_ctrl == POWER_ON_GPIO) {
+		if (cpu_data->gpio_pwr_on) {
+			ret = mdm_ctrl_configure_gpio(cpu_data->gpio_pwr_on,
+				1, 0);
+			if (ret) {
+				pr_err("Can't configure Power ON GPIO");
+				goto out;
+			}
+		} else
+			pr_info("No PWR_ON GPIO set");
+	}
 
-	pr_info(DRVNAME ": GPIO (rst_bbn: %d, rst_usb_hub: %d)\n",
-				desc_to_gpio(cpu_data->gpio_rst_bbn),
-				desc_to_gpio(cpu_data->gpio_rst_usbhub));
+	if (mdm->pdata->usb_hub_ctrl) {
+		if (cpu_data->gpio_rst_usbhub) {
+			ret = mdm_ctrl_configure_gpio(cpu_data->gpio_rst_usbhub,
+				1, 1);
+			if (ret) {
+				pr_err("Can't configure Rst USBHUB GPIO");
+				goto out;
+			}
+		} else
+			pr_info("No Rst USBHUB GPIO");
+	}
+
+	pr_info(DRVNAME ": GPIO (rst_bbn: %d)\n",
+				desc_to_gpio(cpu_data->gpio_rst_bbn));
+
+	/* No irq for the NGFF module */
+	cpu_data->irq_cdump = INVALID_GPIO;
+	cpu_data->irq_reset = INVALID_GPIO;
 
 	return 0;
 
