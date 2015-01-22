@@ -216,6 +216,13 @@ static int ufs_qcom_link_startup_post_change(struct ufs_hba *hba)
 		dev_err(hba->dev, "%s: ufs_qcom_phy_set_tx_lane_enable failed\n",
 			__func__);
 
+	/*
+	 * Some UFS devices send incorrect LineCfg data as part of power mode
+	 * change sequence which may cause host PHY to go into bad state.
+	 * Disabling Rx LineCfg of host PHY should help avoid this.
+	 */
+	err = ufs_qcom_phy_ctrl_rx_linecfg(phy, false);
+
 out:
 	return err;
 }
@@ -526,6 +533,7 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 {
 	int err = 0;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct phy *phy = host->generic_phy;
 
 	switch (status) {
 	case PRE_CHANGE:
@@ -536,6 +544,9 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 			err = -EINVAL;
 			goto out;
 		}
+
+		/* make sure rx linecfg is enabled before link startup */
+		err = ufs_qcom_phy_ctrl_rx_linecfg(phy, true);
 
 		if (ufs_qcom_cap_qunipro(host))
 			/*

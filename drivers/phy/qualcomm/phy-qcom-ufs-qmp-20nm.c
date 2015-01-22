@@ -131,6 +131,23 @@ void ufs_qcom_phy_qmp_20nm_set_tx_lane_enable(struct ufs_qcom_phy *phy, u32 val)
 	mb();
 }
 
+static
+void ufs_qcom_phy_qmp_20nm_ctrl_rx_linecfg(struct ufs_qcom_phy *phy, bool ctrl)
+{
+	u32 temp;
+
+	temp = readl_relaxed(phy->mmio + UFS_PHY_LINECFG_DISABLE);
+
+	if (ctrl) /* enable RX LineCfg */
+		temp &= ~UFS_PHY_RX_LINECFG_DISABLE_BIT;
+	else /* disable RX LineCfg */
+		temp |= UFS_PHY_RX_LINECFG_DISABLE_BIT;
+
+	writel_relaxed(temp, phy->mmio + UFS_PHY_LINECFG_DISABLE);
+	/* make sure that RX LineCfg config applied before we return */
+	mb();
+}
+
 static inline void ufs_qcom_phy_qmp_20nm_start_serdes(struct ufs_qcom_phy *phy)
 {
 	u32 tmp;
@@ -168,6 +185,7 @@ static struct ufs_qcom_phy_specific_ops phy_20nm_ops = {
 	.start_serdes		= ufs_qcom_phy_qmp_20nm_start_serdes,
 	.is_physical_coding_sublayer_ready = ufs_qcom_phy_qmp_20nm_is_pcs_ready,
 	.set_tx_lane_enable	= ufs_qcom_phy_qmp_20nm_set_tx_lane_enable,
+	.ctrl_rx_linecfg	= ufs_qcom_phy_qmp_20nm_ctrl_rx_linecfg,
 	.power_control		= ufs_qcom_phy_qmp_20nm_power_control,
 };
 
