@@ -1393,6 +1393,7 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 	int res_changed = RESOLUTION_UNCHANGED;
 	struct hdmi_video_config *vid_cfg = NULL;
 	u32 ret;
+	u32 div = 0;
 
 	if (!hdmi_ctrl || !pinfo) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1448,9 +1449,18 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 	vid_cfg->avi_iframe.ext_colorimetry_info = 0;
 
 	vid_cfg->avi_iframe.pixel_rpt_factor = 0;
-	/* todo: find a better way */
+
+	/*
+	 * If output format is yuv420, pixel clock rate should be half of the
+	 * rate that is used for rgb888. MDP timing engine is programmed at half
+	 * rate because the bits per pixel for yuv420 is only half that of
+	 * rgb888
+	 */
+	if (pinfo->out_format  == MDP_Y_CBCR_H2V2)
+		div = 1;
+
 	hdmi_ctrl->pdata.power_data[HDMI_TX_CORE_PM].clk_config[0].rate =
-		vid_cfg->timing.pixel_freq * 1000;
+		(vid_cfg->timing.pixel_freq * 1000) >> div;
 
 	hdmi_edid_set_video_resolution(
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID], vid_cfg->vic);
