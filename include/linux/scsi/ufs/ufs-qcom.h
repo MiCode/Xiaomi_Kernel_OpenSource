@@ -252,6 +252,7 @@ struct ufs_qcom_host {
 	void __iomem *dev_ref_clk_ctrl_mmio;
 	bool is_dev_ref_clk_enabled;
 	struct ufs_hw_version hw_ver;
+	u32 dev_ref_clk_en_mask;
 #ifdef CONFIG_DEBUG_FS
 	struct qcom_debugfs_files debugfs_files;
 #endif

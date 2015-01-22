@@ -7,6 +7,8 @@ Required properties:
 - compatible        : compatible list, contains "jedec,ufs-1.1"
 - interrupts        : <interrupt mapping for UFS host controller IRQ>
 - reg               : <registers mapping>
+		      first entry should contain UFS host controller register address space (mandatory),
+                      second entry is the device ref. clock control register map (optional).
 
 Optional properties:
 - phys                  : phandle to UFS PHY node
@@ -53,7 +55,7 @@ regulators or clocks are always on.
 Example:
 	ufshc@0xfc598000 {
 		compatible = "jedec,ufs-1.1";
-		reg = <0xfc598000 0x800>;
+		reg = <0xfc598000 0x800>, <0xfd512074 0x4>;
 		interrupts = <0 28 0>;
 
 		ufs-qcom-crypto = <&ufs_ice>;
