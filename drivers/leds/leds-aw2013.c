@@ -69,6 +69,8 @@ struct aw2013_led {
 #endif
 	int num_leds;
 	int id;
+	bool suspended;
+	bool poweron;
 };
 
 static int aw2013_write(struct aw2013_led *led, u8 reg, u8 val)
@@ -106,6 +108,7 @@ static int aw2013_power_on(struct aw2013_led *led, bool on)
 				"Regulator vcc enable failed rc=%d\n", rc);
 			goto fail_enable_reg;
 		}
+		led->poweron = true;
 	} else {
 		rc = regulator_disable(led->vdd);
 		if (rc) {
@@ -120,6 +123,7 @@ static int aw2013_power_on(struct aw2013_led *led, bool on)
 				"Regulator vcc disable failed rc=%d\n", rc);
 			goto fail_disable_reg;
 		}
+		led->poweron = false;
 	}
 	return rc;
 
@@ -210,6 +214,14 @@ static void aw2013_brightness_work(struct work_struct *work)
 					brightness_work);
 	u8 val;
 
+	/* enable regulators if they are disabled */
+	if (!led->pdata->led->poweron) {
+		if (aw2013_power_on(led, true)) {
+			dev_err(&led->pdata->led->client->dev, "power on failed");
+			return;
+		}
+	}
+
 	mutex_lock(&led->pdata->led->lock);
 
 	if (led->cdev.brightness > 0) {
@@ -234,6 +246,14 @@ static void aw2013_brightness_work(struct work_struct *work)
 static void aw2013_led_blink_set(struct aw2013_led *led, unsigned long blinking)
 {
 	u8 val;
+
+	/* enable regulators if they are disabled */
+	if (!led->pdata->led->poweron) {
+		if (aw2013_power_on(led, true)) {
+			dev_err(&led->pdata->led->client->dev, "power on failed");
+			return;
+		}
+	}
 
 	led->cdev.brightness = blinking ? led->cdev.max_brightness : 0;
 
@@ -358,9 +378,15 @@ static int aw_2013_check_chipid(struct aw2013_led *led)
 static int aw2013_led_suspend(struct device *dev)
 {
 	struct aw2013_led *led = dev_get_drvdata(dev);
-	int ret;
+	int ret = 0;
 	u8 val;
 
+	if (led->suspended) {
+		dev_info(dev, "Already in suspend state\n");
+		return 0;
+	}
+
+	mutex_lock(&led->lock);
 	aw2013_read(led, AW_REG_LED_ENABLE, &val);
 	/*
 	 * If value in AW_REG_LED_ENABLE is 0, it means the RGB leds are
@@ -373,33 +399,41 @@ static int aw2013_led_suspend(struct device *dev)
 		ret = aw2013_power_on(led, false);
 		if (ret) {
 			dev_err(dev, "power off failed");
+			mutex_unlock(&led->lock);
 			return ret;
 		}
 	}
-
+	led->suspended = true;
+	mutex_unlock(&led->lock);
 	return ret;
 }
 
 static int aw2013_led_resume(struct device *dev)
 {
 	struct aw2013_led *led = dev_get_drvdata(dev);
-	int ret;
-	u8 val;
+	int ret = 0;
 
-	aw2013_read(led, AW_REG_LED_ENABLE, &val);
-	/*
-	 * If value in AW_REG_LED_ENABLE is not 0, it means at least
-	 * one of the RGB leds is on. So we do not need to power on again.
-	 */
-	if (val > 0)
-		return ret;
+	if (!led->suspended) {
+		dev_info(dev, "Already in awake state\n");
+		return 0;
+	}
+
+	mutex_lock(&led->lock);
+	if (led->poweron) {
+		led->suspended = false;
+		mutex_unlock(&led->lock);
+		return 0;
+	}
 
 	ret = aw2013_power_on(led, true);
 	if (ret) {
 		dev_err(dev, "power on failed");
+		mutex_unlock(&led->lock);
 		return ret;
 	}
 
+	led->suspended = false;
+	mutex_unlock(&led->lock);
 	return ret;
 }
 #else
