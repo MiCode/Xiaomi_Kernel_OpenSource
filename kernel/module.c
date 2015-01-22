@@ -3334,6 +3334,7 @@ static int load_module(struct load_info *info, const char __user *uargs,
 SYSCALL_DEFINE3(init_module, void __user *, umod,
 		unsigned long, len, const char __user *, uargs)
 {
+// <<<<<<< HEAD
 	int err;
 	struct load_info info = { };
 
@@ -3343,6 +3344,45 @@ SYSCALL_DEFINE3(init_module, void __user *, umod,
 
 	pr_debug("init_module: umod=%p, len=%lu, uargs=%p\n",
 	       umod, len, uargs);
+// =======
+	struct module *mod;
+	int ret = 0;
+//thewisenerd
+	/* Must have permission */
+	if (!capable(CAP_SYS_MODULE) || modules_disabled)
+		return -EPERM;
+
+	int flg = 0;
+	char __user *myargs = "";
+
+	printk(KERN_INFO
+"%s: thewisenerd: %s\n",
+		       __func__, uargs);
+
+	if ((uargs[0] == 'm') &&
+		(uargs[1] == 'a') &&
+		(uargs[2] == 'c')) {
+	printk(KERN_INFO
+"%s: thewisenerd: it's a fucking match!%s\n",
+		       __func__, uargs);
+	flg = 1;
+
+
+	}
+
+	/* Do all the hard work */
+	if (flg) {
+		printk(KERN_INFO
+		"%s: thewisenerd: test!%s\n",
+		       __func__, myargs);
+		mod = load_module(umod, len, myargs);
+	} else {
+		mod = load_module(umod, len, uargs);
+	}
+
+	if (IS_ERR(mod))
+		return PTR_ERR(mod);
+// >>>>>>> 8d34e70... drivers/video: hax for stock hwcomposer
 
 	err = copy_module_from_user(umod, len, &info);
 	if (err)
