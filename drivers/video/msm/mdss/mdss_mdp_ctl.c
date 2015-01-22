@@ -1531,7 +1531,7 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 	ATRACE_END(__func__);
 }
 
-static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
+struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
 					       u32 off)
 {
 	struct mdss_mdp_ctl *ctl = NULL;
@@ -1560,7 +1560,7 @@ static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
 	return ctl;
 }
 
-static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 {
 	if (!ctl)
 		return -ENODEV;
@@ -2754,8 +2754,9 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 	mixer->params_changed = 0;
 	/* check if mixer setup for rotator is needed */
 	if (mixer->rotator_mode) {
-		off = __mdss_mdp_ctl_get_mixer_off(mixer);
-		mdss_mdp_ctl_write(mixer->ctl, off, 0);
+		int nmixers = mdata->nmixers_intf + mdata->nmixers_wb;
+		for (i = 0; i < nmixers; i++)
+			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(i), 0);
 		return;
 	}
 
