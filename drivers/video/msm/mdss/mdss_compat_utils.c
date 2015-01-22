@@ -3355,6 +3355,33 @@ void mdss_compat_align_list(void __user *total_mem_chunk,
 		list_ptr[i] = contig_overlays + i;
 }
 
+static u32 __pp_sspp_size(void)
+{
+	u32 size = 0;
+	/* pick the largest of the revision when multiple revs are supported */
+	size = sizeof(struct mdp_igc_lut_data_v1_7);
+	size += sizeof(struct mdp_pa_data_v1_7);
+	size += sizeof(struct mdp_pcc_data_v1_7);
+	return size;
+}
+
+static int __pp_sspp_set_offsets(struct mdp_overlay *ov)
+{
+	if (!ov) {
+		pr_err("invalid overlay pointer\n");
+		return -EFAULT;
+	}
+	ov->overlay_pp_cfg.igc_cfg.cfg_payload = (void *)((unsigned long)ov +
+				sizeof(struct mdp_overlay));
+	ov->overlay_pp_cfg.pa_v2_cfg_data.cfg_payload =
+		ov->overlay_pp_cfg.igc_cfg.cfg_payload +
+		sizeof(struct mdp_igc_lut_data_v1_7);
+	ov->overlay_pp_cfg.pcc_cfg_data.cfg_payload =
+		ov->overlay_pp_cfg.pa_v2_cfg_data.cfg_payload +
+		sizeof(struct mdp_pa_data_v1_7);
+	return 0;
+}
+
 int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
@@ -3365,6 +3392,7 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 	size_t layers_refs_sz, layers_sz, prepare_sz;
 	void __user *total_mem_chunk;
 	uint32_t num_overlays;
+	uint32_t alloc_size = 0;
 	int ret;
 
 	if (!info || !info->par)
@@ -3381,13 +3409,19 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = mdss_histo_compat_ioctl(info, cmd, arg);
 		break;
 	case MSMFB_OVERLAY_GET:
-		ov = compat_alloc_user_space(sizeof(*ov));
+		alloc_size += sizeof(*ov) + __pp_sspp_size();
+		ov = compat_alloc_user_space(alloc_size);
 		if (!ov) {
 			pr_err("%s:%u: compat alloc error [%zu] bytes\n",
 				 __func__, __LINE__, sizeof(*ov));
 			return -EINVAL;
 		}
 		ov32 = compat_ptr(arg);
+		ret = __pp_sspp_set_offsets(ov);
+		if (ret) {
+			pr_err("setting the pp offsets failed ret %d\n", ret);
+			return ret;
+		}
 		ret = __from_user_mdp_overlay(ov, ov32);
 		if (ret)
 			pr_err("%s: compat mdp overlay failed\n", __func__);
@@ -3396,11 +3430,17 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __to_user_mdp_overlay(ov32, ov);
 		break;
 	case MSMFB_OVERLAY_SET:
-		ov = compat_alloc_user_space(sizeof(*ov));
+		alloc_size += sizeof(*ov) + __pp_sspp_size();
+		ov = compat_alloc_user_space(alloc_size);
 		if (!ov) {
 			pr_err("%s:%u: compat alloc error [%zu] bytes\n",
 				 __func__, __LINE__, sizeof(*ov));
 			return -EINVAL;
+		}
+		ret = __pp_sspp_set_offsets(ov);
+		if (ret) {
+			pr_err("setting the pp offsets failed ret %d\n", ret);
+			return ret;
 		}
 		ov32 = compat_ptr(arg);
 		ret = __from_user_mdp_overlay(ov, ov32);
