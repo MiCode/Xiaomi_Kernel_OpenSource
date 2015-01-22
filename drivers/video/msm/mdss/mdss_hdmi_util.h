@@ -324,6 +324,26 @@ struct hdmi_util_ds_data {
 	u32 ds_max_clk;
 };
 
+static inline int hdmi_tx_get_v_total(const struct msm_hdmi_mode_timing_info *t)
+{
+	if (t) {
+		return t->active_v + t->front_porch_v + t->pulse_width_v +
+			t->back_porch_v;
+	}
+
+	return 0;
+}
+
+static inline int hdmi_tx_get_h_total(const struct msm_hdmi_mode_timing_info *t)
+{
+	if (t) {
+		return t->active_h + t->front_porch_h + t->pulse_width_h +
+			t->back_porch_h;
+	}
+
+	return 0;
+}
+
 /* video timing related utility routines */
 int hdmi_get_video_id_code(struct msm_hdmi_mode_timing_info *timing_in,
 	struct hdmi_util_ds_data *ds_data);

@@ -33,6 +33,6 @@ int hdmi_edid_get_audio_blk(void *edid_ctrl,
 	struct msm_hdmi_audio_edid_blk *blk);
 void hdmi_edid_set_video_resolution(void *edid_ctrl, u32 resolution);
 void hdmi_edid_deinit(void *edid_ctrl);
-void *hdmi_edid_init(struct hdmi_edid_init_data *init_data);
+void *hdmi_edid_init(struct hdmi_edid_init_data *init_data, u32 max_pclk_khz);
 
 #endif /* __HDMI_EDID_H__ */
