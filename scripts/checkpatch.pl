@@ -22,6 +22,7 @@ my $quiet = 0;
 my $tree = 1;
 my $chk_signoff = 1;
 my $chk_patch = 1;
+my $chk_author = 1;
 my $tst_only;
 my $emacs = 0;
 my $terse = 0;
@@ -68,6 +69,7 @@ Options:
   -q, --quiet                quiet
   --no-tree                  run without a kernel tree
   --no-signoff               do not check for 'Signed-off-by' line
+  --no-author                do not check for unexpected authors
   --patch                    treat FILE as patchfile (default)
   --emacs                    emacs compile window format
   --terse                    one line per report
@@ -183,6 +185,7 @@ GetOptions(
 	'tree!'		=> \$tree,
 	'signoff!'	=> \$chk_signoff,
 	'patch!'	=> \$chk_patch,
+	'author!'	=> \$chk_author,
 	'emacs!'	=> \$emacs,
 	'terse!'	=> \$terse,
 	'showfile!'	=> \$showfile,
@@ -2424,7 +2427,7 @@ sub process {
 					     "email address '$email' might be better as '$suggested_email$comment'\n" . $herecurr);
 				}
 			}
-			if ($line =~ /^\s*signed-off-by:.*(quicinc|qualcomm)\.com/i) {
+			if ($chk_author && $line =~ /^\s*signed-off-by:.*(quicinc|qualcomm)\.com/i) {
 				WARN("BAD_SIGN_OFF",
 				     "invalid Signed-off-by identity\n" . $line );
 			}			
@@ -2560,7 +2563,7 @@ sub process {
 		}
 
 #check the patch for invalid author credentials
-		if ($line =~ /^From:.*(quicinc|qualcomm)\.com/) {
+		if ($chk_author && $line =~ /^From:.*(quicinc|qualcomm)\.com/) {
 			WARN("BAD_AUTHOR", "invalid author identity\n" . $line );
 		}
 
