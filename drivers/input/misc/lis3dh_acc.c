@@ -1739,6 +1739,7 @@ static int lis3dh_latency_set(struct sensors_classdev *cdev,
 	struct lis3dh_acc_data *acc = container_of(cdev,
 		struct lis3dh_acc_data, cdev);
 	struct i2c_client *client = acc->client;
+	int ret;
 
 	/* Does not support batch in while interrupt is not enabled */
 	if (!acc->pdata->enable_int) {
@@ -1746,8 +1747,16 @@ static int lis3dh_latency_set(struct sensors_classdev *cdev,
 			"Cannot set batch mode, interrupt is not enabled!\n");
 		return -EPERM;
 	}
-	acc->use_batch = max_latency ? true : false;
+
 	acc->fifo_timeout_ms = max_latency;
+	acc->use_batch = max_latency ? true : false;
+
+	ret = lis3dh_acc_enable_batch(acc, max_latency);
+	if (ret) {
+		dev_err(&client->dev, "enable batch:%d failed\n", max_latency);
+		return ret;
+	}
+
 	return 0;
 }
 
