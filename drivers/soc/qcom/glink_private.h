@@ -87,6 +87,16 @@ struct channel_ctx;
 enum transport_state_e;
 enum local_channel_state_e;
 
+/* Tracer Packet Event IDs for G-Link */
+enum glink_tracer_pkt_events {
+	GLINK_CORE_TX = 1,
+	GLINK_QUEUE_TO_SCHEDULER = 2,
+	GLINK_SCHEDULER_TX = 3,
+	GLINK_XPRT_TX = 4,
+	GLINK_XPRT_RX = 5,
+	GLINK_CORE_RX = 6,
+};
+
 /**
  * glink_get_ss_enum_string() - get the name of the subsystem based on enum value
  * @enum_id:	enum id of a specific subsystem.

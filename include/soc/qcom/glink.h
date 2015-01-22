@@ -52,6 +52,7 @@ enum {
  * notify_rxv:	Receive notification function for vector buffers (required if
  *		notify_rx is not provided)
  * notify_sig:	Signal-change notification (optional)
+ * notify_rx_tracer_pkt:	Receive notification for tracer packet
  *
  * This structure is passed into the glink_open() call to setup
  * configuration handles.  All unused fields should be set to 0.
@@ -85,6 +86,8 @@ struct glink_open_config {
 			const void *pkt_priv);
 	void (*notify_tx_abort)(void *handle, const void *priv,
 			const void *pkt_priv);
+	void (*notify_rx_tracer_pkt)(void *handle, const void *priv,
+			const void *pkt_priv, const void *ptr, size_t size);
 };
 
 enum glink_link_state {
@@ -121,6 +124,7 @@ struct glink_link_info {
 enum tx_flags {
 	GLINK_TX_REQ_INTENT = 0x1,
 	GLINK_TX_SINGLE_THREADED = 0x2,
+	GLINK_TX_TRACER_PKT = 0x4,
 };
 
 #ifdef CONFIG_MSM_GLINK

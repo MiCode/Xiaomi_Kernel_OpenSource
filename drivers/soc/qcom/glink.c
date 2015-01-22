@@ -22,6 +22,7 @@
 #include <linux/rwsem.h>
 #include <linux/pm_qos.h>
 #include <soc/qcom/glink.h>
+#include <soc/qcom/tracer_pkt.h>
 #include "glink_core_if.h"
 #include "glink_private.h"
 #include "glink_xprt_if.h"
@@ -121,6 +122,7 @@ struct glink_core_xprt_ctx {
  * @notify_rx_sigs:	RX signal change notification
  * @notify_rx_abort:	Channel close RX Intent aborted
  * @notify_tx_abort:	Channel close TX aborted
+ * @notify_rx_tracer_pkt:	Receive notification for tracer packet
  *
  * @transport_ptr:	Transport this channel uses
  * @lcid:		Local channel ID
@@ -184,6 +186,8 @@ struct channel_ctx {
 				const void *pkt_priv);
 	void (*notify_tx_abort)(void *handle, const void *priv,
 				const void *pkt_priv);
+	void (*notify_rx_tracer_pkt)(void *handle, const void *priv,
+			const void *pkt_priv, const void *ptr, size_t size);
 
 	/* internal port state */
 	struct glink_core_xprt_ctx *transport_ptr;
@@ -1607,6 +1611,22 @@ static int dummy_allocate_rx_intent(struct glink_transport_if *if_ptr,
 }
 
 /**
+ * dummy_tx_cmd_tracer_pkt() - a dummy tracer packet tx cmd for transports
+ *                             that don't define one
+ * @if_ptr:	The transport interface handle for this transport.
+ * @lcid:	The channel in which the tracer packet is transmitted.
+ * @pctx:	Context of the packet to be transmitted.
+ *
+ * Return: 0.
+ */
+static int dummy_tx_cmd_tracer_pkt(struct glink_transport_if *if_ptr,
+		uint32_t lcid, struct glink_core_tx_pkt *pctx)
+{
+	pctx->size_remaining = 0;
+	return 0;
+}
+
+/**
  * dummy_deallocate_rx_intent() - a dummy rx intent deallocation function that
  *				does not deallocate anything
  * @if_ptr:	The transport the intent is associated with.
@@ -1904,6 +1924,7 @@ void *glink_open(const struct glink_open_config *cfg)
 	ctx->notify_rx_sigs = cfg->notify_rx_sigs;
 	ctx->notify_rx_abort = cfg->notify_rx_abort;
 	ctx->notify_tx_abort = cfg->notify_tx_abort;
+	ctx->notify_rx_tracer_pkt = cfg->notify_rx_tracer_pkt;
 
 	if (!ctx->notify_rx_intent_req)
 		ctx->notify_rx_intent_req = glink_dummy_notify_rx_intent_req;
@@ -2123,6 +2144,12 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	if (is_atomic && (tx_flags & GLINK_TX_REQ_INTENT))
 		return -EINVAL;
 
+	if (unlikely(tx_flags & GLINK_TX_TRACER_PKT)) {
+		if (!(ctx->transport_ptr->capabilities & GCAP_TRACER_PKT))
+			return -EOPNOTSUPP;
+		tracer_pkt_log_event(data, GLINK_CORE_TX);
+	}
+
 	/* find matching rx intent (first-fit algorithm for now) */
 	if (ch_pop_remote_rx_intent(ctx, size, &riid, &intent_size)) {
 		if (!(tx_flags & GLINK_TX_REQ_INTENT)) {
@@ -2181,6 +2208,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	tx_info->riid = riid;
 	tx_info->size = size;
 	tx_info->size_remaining = size;
+	tx_info->tracer_pkt = tx_flags & GLINK_TX_TRACER_PKT ? true : false;
 	tx_info->iovec = iovec ? iovec : (void *)tx_info;
 	tx_info->vprovider = vbuf_provider;
 	tx_info->pprovider = pbuf_provider;
@@ -2718,6 +2746,8 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 		if_ptr->reuse_rx_intent = dummy_reuse_rx_intent;
 	if (!if_ptr->wait_link_down)
 		if_ptr->wait_link_down = dummy_wait_link_down;
+	if (!if_ptr->tx_cmd_tracer_pkt)
+		if_ptr->tx_cmd_tracer_pkt = dummy_tx_cmd_tracer_pkt;
 	xprt_ptr->capabilities = 0;
 	xprt_ptr->ops = if_ptr;
 	spin_lock_init(&xprt_ptr->xprt_ctx_lock_lhb1);
@@ -3874,6 +3904,17 @@ void glink_core_rx_put_pkt_ctx(struct glink_transport_if *if_ptr,
 		return;
 	}
 
+	if (unlikely(intent_ptr->tracer_pkt)) {
+		tracer_pkt_log_event(intent_ptr->data, GLINK_CORE_RX);
+		ch_set_local_rx_intent_notified(ctx, intent_ptr);
+		if (ctx->notify_rx_tracer_pkt)
+			ctx->notify_rx_tracer_pkt(ctx, ctx->user_priv,
+				intent_ptr->pkt_priv, intent_ptr->data,
+				intent_ptr->pkt_size);
+		rwref_put(&ctx->ch_state_lhc0);
+		return;
+	}
+
 	GLINK_PERF_CH(ctx, "%s: L[%u]: data[%p] size[%zu]\n",
 		__func__, intent_ptr->id,
 		intent_ptr->data ? intent_ptr->data : intent_ptr->iovec,
@@ -3981,6 +4022,10 @@ static void xprt_schedule_tx(struct glink_core_xprt_ctx *xprt_ptr,
 	mutex_unlock(&ch_ptr->tx_lists_mutex_lhc3);
 	mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
 
+	if (unlikely(tx_info->tracer_pkt))
+		tracer_pkt_log_event((void *)(tx_info->data),
+				     GLINK_QUEUE_TO_SCHEDULER);
+
 	queue_work(xprt_ptr->tx_wq, &xprt_ptr->tx_work);
 }
 
@@ -4052,7 +4097,15 @@ static void tx_work_func(struct work_struct *work)
 		spin_unlock_irqrestore(&ch_ptr->tx_pending_rmt_done_lock_lhc4,
 				flags);
 
-		ret = xprt_ptr->ops->tx(xprt_ptr->ops, ch_ptr->lcid, tx_info);
+		if (unlikely(tx_info->tracer_pkt)) {
+			tracer_pkt_log_event((void *)(tx_info->data),
+					      GLINK_SCHEDULER_TX);
+			ret = xprt_ptr->ops->tx_cmd_tracer_pkt(xprt_ptr->ops,
+							ch_ptr->lcid, tx_info);
+		} else {
+			ret = xprt_ptr->ops->tx(xprt_ptr->ops,
+						ch_ptr->lcid, tx_info);
+		}
 		if (ret == -EAGAIN) {
 			/*
 			 * transport unable to send at the moment and will call

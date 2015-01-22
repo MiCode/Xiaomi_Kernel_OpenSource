@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,6 +59,7 @@ struct glink_core_version {
  * pkt_size:	total size of packet
  * write_offset: next write offset (initially 0)
  * intent_size:	size of the original intent (do not modify)
+ * tracer_pkt:	Flag to indicate if the data is a tracer packet
  * iovec:	Pointer to vector buffer if the transport passes a vector buffer
  * vprovider:	Virtual address-space buffer provider for a vector buffer
  * pprovider:	Physical address-space buffer provider for a vector buffer
@@ -72,6 +73,7 @@ struct glink_core_rx_intent {
 	size_t pkt_size;
 	size_t write_offset;
 	size_t intent_size;
+	bool tracer_pkt;
 	void *iovec;
 	void * (*vprovider)(void *iovec, size_t offset, size_t *size);
 	void * (*pprovider)(void *iovec, size_t offset, size_t *size);

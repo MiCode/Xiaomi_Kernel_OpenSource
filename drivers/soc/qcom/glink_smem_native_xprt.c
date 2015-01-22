@@ -34,6 +34,7 @@
 #include <linux/srcu.h>
 #include <linux/wait.h>
 #include <soc/qcom/smem.h>
+#include <soc/qcom/tracer_pkt.h>
 #include "glink_core_if.h"
 #include "glink_private.h"
 #include "glink_xprt_if.h"
@@ -49,6 +50,7 @@
 #define RPM_TOC_SIZE 256
 #define RPM_MAX_TOC_ENTRIES 20
 #define RPM_FIFO_ADDR_ALIGN_BYTES 3
+#define TRACER_PKT_FEATURE BIT(2)
 
 /**
  * enum command_types - definition of the types of commands sent/received
@@ -68,6 +70,8 @@
  * @READ_NOTIF_CMD:		Request for a notification when this cmd is read
  * @RX_DONE_W_REUSE_CMD:	Same as @RX_DONE but also reuse the used intent
  * @SIGNALS_CMD:		Sideband signals
+ * @TRACER_PKT_CMD:		Start of a Tracer Packet Command
+ * @TRACER_PKT_CONT_CMD:	Continuation or end of a Tracer Packet Command
  */
 enum command_types {
 	VERSION_CMD,
@@ -86,6 +90,8 @@ enum command_types {
 	READ_NOTIF_CMD,
 	RX_DONE_W_REUSE_CMD,
 	SIGNALS_CMD,
+	TRACER_PKT_CMD,
+	TRACER_PKT_CONT_CMD,
 };
 
 /**
@@ -205,7 +211,7 @@ static uint32_t negotiate_features_v1(struct glink_transport_if *if_ptr,
 static struct edge_info *edge_infos[NUM_SMEM_SUBSYSTEMS];
 static DEFINE_MUTEX(probe_lock);
 static struct glink_core_version versions[] = {
-	{1, 0x00, negotiate_features_v1},
+	{1, TRACER_PKT_FEATURE, negotiate_features_v1},
 };
 
 /**
@@ -597,11 +603,12 @@ static int fifo_tx(struct edge_info *einfo, const void *data, int len)
 /**
  * process_rx_data() - process received data from an edge
  * @einfo:	The edge the data was received on.
+ * @cmd_id:	ID to specify the type of data.
  * @rcid:	The remote channel id associated with the data.
  * @intend_id:	The intent the data should be put in.
  */
-static void process_rx_data(struct edge_info *einfo, uint32_t rcid,
-			    uint32_t intent_id)
+static void process_rx_data(struct edge_info *einfo, uint16_t cmd_id,
+			    uint32_t rcid, uint32_t intent_id)
 {
 	struct command {
 		uint32_t frag_size;
@@ -674,6 +681,12 @@ static void process_rx_data(struct edge_info *einfo, uint32_t rcid,
 	alignment -= cmd.frag_size;
 	if (alignment)
 		fifo_read(einfo, trash, alignment);
+
+	if (unlikely((cmd_id == TRACER_PKT_CMD ||
+		      cmd_id == TRACER_PKT_CONT_CMD) && !cmd.size_remaining)) {
+		tracer_pkt_log_event(intent->data, GLINK_XPRT_RX);
+		intent->tracer_pkt = true;
+	}
 
 	einfo->xprt_if.glink_core_if_ptr->rx_put_pkt_ctx(&einfo->xprt_if,
 							rcid,
@@ -1019,7 +1032,9 @@ static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 			break;
 		case TX_DATA_CMD:
 		case TX_DATA_CONT_CMD:
-			process_rx_data(einfo, cmd.param1, cmd.param2);
+		case TRACER_PKT_CMD:
+		case TRACER_PKT_CONT_CMD:
+			process_rx_data(einfo, cmd.id, cmd.param1, cmd.param2);
 			break;
 		case CLOSE_ACK_CMD:
 			if (atomic_ctx) {
@@ -1184,6 +1199,9 @@ static uint32_t set_version(struct glink_transport_if *if_ptr, uint32_t version,
 
 	ret = einfo->intentless ?
 				GCAP_INTENTLESS | GCAP_SIGNALS : GCAP_SIGNALS;
+
+	if (features & TRACER_PKT_FEATURE)
+		ret |= GCAP_TRACER_PKT;
 
 	srcu_read_unlock(&einfo->use_ref, rcu_id);
 	return ret;
@@ -1761,15 +1779,16 @@ static int mask_rx_irq(struct glink_transport_if *if_ptr, uint32_t lcid,
 }
 
 /**
- * tx() - convert a data transmit cmd to wire format and transmit
+ * tx_data() - convert a data/tracer_pkt to wire format and transmit
  * @if_ptr:	The transport to transmit on.
+ * @cmd_id:	The command ID to transmit.
  * @lcid:	The local channel id to encode.
  * @pctx:	The data to encode.
  *
  * Return: Number of bytes written or standard Linux error code.
  */
-static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
-	      struct glink_core_tx_pkt *pctx)
+static int tx_data(struct glink_transport_if *if_ptr, uint16_t cmd_id,
+		   uint32_t lcid, struct glink_core_tx_pkt *pctx)
 {
 	struct command {
 		uint16_t id;
@@ -1804,15 +1823,23 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 		return -EFAULT;
 	}
 
-	if (einfo->intentless && pctx->size_remaining != pctx->size) {
+	if (einfo->intentless &&
+	    (pctx->size_remaining != pctx->size || cmd_id == TRACER_PKT_CMD)) {
 		srcu_read_unlock(&einfo->use_ref, rcu_id);
 		return -EINVAL;
 	}
 
-	if (pctx->size_remaining == pctx->size)
-		cmd.id = TX_DATA_CMD;
-	else
-		cmd.id = TX_DATA_CONT_CMD;
+	if (cmd_id == TX_DATA_CMD) {
+		if (pctx->size_remaining == pctx->size)
+			cmd.id = TX_DATA_CMD;
+		else
+			cmd.id = TX_DATA_CONT_CMD;
+	} else {
+		if (pctx->size_remaining == pctx->size)
+			cmd.id = TRACER_PKT_CMD;
+		else
+			cmd.id = TRACER_PKT_CONT_CMD;
+	}
 	cmd.lcid = lcid;
 	cmd.riid = pctx->riid;
 	data_start = get_tx_vaddr(pctx, pctx->size - pctx->size_remaining,
@@ -1848,6 +1875,8 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 	pctx->size_remaining -= size;
 	cmd.size_left = pctx->size_remaining;
 	zeros_size = ALIGN(size, FIFO_ALIGNMENT) - cmd.size;
+	if (cmd.id == TRACER_PKT_CMD)
+		tracer_pkt_log_event((void *)(pctx->data), GLINK_XPRT_TX);
 
 	fifo_write_complex(einfo, &cmd, sizeof(cmd), data_start, size, zeros,
 								zeros_size);
@@ -1858,6 +1887,34 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 
 	srcu_read_unlock(&einfo->use_ref, rcu_id);
 	return cmd.size;
+}
+
+/**
+ * tx() - convert a data transmit cmd to wire format and transmit
+ * @if_ptr:	The transport to transmit on.
+ * @lcid:	The local channel id to encode.
+ * @pctx:	The data to encode.
+ *
+ * Return: Number of bytes written or standard Linux error code.
+ */
+static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
+	      struct glink_core_tx_pkt *pctx)
+{
+	return tx_data(if_ptr, TX_DATA_CMD, lcid, pctx);
+}
+
+/**
+ * tx_cmd_tracer_pkt() - convert a tracer packet cmd to wire format and transmit
+ * @if_ptr:	The transport to transmit on.
+ * @lcid:	The local channel id to encode.
+ * @pctx:	The data to encode.
+ *
+ * Return: Number of bytes written or standard Linux error code.
+ */
+static int tx_cmd_tracer_pkt(struct glink_transport_if *if_ptr, uint32_t lcid,
+	      struct glink_core_tx_pkt *pctx)
+{
+	return tx_data(if_ptr, TRACER_PKT_CMD, lcid, pctx);
 }
 
 /**
@@ -1901,6 +1958,7 @@ static void init_xprt_if(struct edge_info *einfo)
 	einfo->xprt_if.poll = poll;
 	einfo->xprt_if.mask_rx_irq = mask_rx_irq;
 	einfo->xprt_if.wait_link_down = wait_link_down;
+	einfo->xprt_if.tx_cmd_tracer_pkt = tx_cmd_tracer_pkt;
 }
 
 /**
