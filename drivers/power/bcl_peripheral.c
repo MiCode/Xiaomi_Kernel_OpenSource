@@ -848,7 +848,7 @@ static int bcl_probe(struct spmi_device *spmi)
 
 	ret = devm_request_irq(&spmi->dev,
 			bcl_perph->param[BCL_PARAM_VOLTAGE].irq_num,
-			bcl_handle_isr, IRQF_TRIGGER_RISING,
+			bcl_handle_isr, IRQF_TRIGGER_HIGH,
 			"bcl_vbat_interrupt",
 			&bcl_perph->param[BCL_PARAM_VOLTAGE]);
 	if (ret) {
@@ -857,7 +857,7 @@ static int bcl_probe(struct spmi_device *spmi)
 	}
 	ret = devm_request_irq(&spmi->dev,
 			bcl_perph->param[BCL_PARAM_CURRENT].irq_num,
-			bcl_handle_isr, IRQF_TRIGGER_RISING,
+			bcl_handle_isr, IRQF_TRIGGER_HIGH,
 			"bcl_ibat_interrupt",
 			&bcl_perph->param[BCL_PARAM_CURRENT]);
 	if (ret) {
