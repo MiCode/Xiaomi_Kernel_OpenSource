@@ -1295,14 +1295,48 @@ static int __to_user_pgc_lut_data(
 	return 0;
 }
 
+static int __from_user_hist_lut_data_v1_7(
+			struct mdp_hist_lut_data32 __user *hist_lut32,
+			struct mdp_hist_lut_data __user *hist_lut)
+{
+	struct mdp_hist_lut_data_v1_7_32 hist_lut_cfg_payload32;
+	struct mdp_hist_lut_data_v1_7 hist_lut_cfg_payload;
+
+	if (copy_from_user(&hist_lut_cfg_payload32,
+			compat_ptr(hist_lut32->cfg_payload),
+			sizeof(hist_lut_cfg_payload32))) {
+		pr_err("failed to copy the Hist Lut payload from userspace\n");
+		return -EFAULT;
+	}
+
+	hist_lut_cfg_payload.len = hist_lut_cfg_payload32.len;
+	hist_lut_cfg_payload.data = compat_ptr(hist_lut_cfg_payload32.data);
+
+	if (copy_to_user(hist_lut->cfg_payload,
+			&hist_lut_cfg_payload,
+			sizeof(hist_lut_cfg_payload))) {
+		pr_err("Failed to copy to user hist lut cfg payload\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 static int __from_user_hist_lut_data(
 			struct mdp_hist_lut_data32 __user *hist_lut32,
 			struct mdp_hist_lut_data __user *hist_lut)
 {
+	uint32_t version = 0;
 	uint32_t data;
 
 	if (copy_in_user(&hist_lut->block,
 			&hist_lut32->block,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_lut->version,
+			&hist_lut32->version,
+			sizeof(uint32_t)) ||
+	    copy_in_user(&hist_lut->hist_lut_first,
+			&hist_lut32->hist_lut_first,
 			sizeof(uint32_t)) ||
 	    copy_in_user(&hist_lut->ops,
 			&hist_lut32->ops,
@@ -1312,9 +1346,28 @@ static int __from_user_hist_lut_data(
 			sizeof(uint32_t)))
 		return -EFAULT;
 
-	if (get_user(data, &hist_lut32->data) ||
-	    put_user(compat_ptr(data), &hist_lut->data))
+	if (copy_from_user(&version,
+			&hist_lut32->version,
+			sizeof(uint32_t))) {
+		pr_err("failed to copy the version info\n");
 		return -EFAULT;
+	}
+
+	switch (version) {
+	case mdp_hist_lut_v1_7:
+		if (__from_user_hist_lut_data_v1_7(hist_lut32, hist_lut)) {
+			pr_err("failed to get hist lut data for version %d\n",
+				version);
+			return -EFAULT;
+		}
+		break;
+	default:
+		pr_debug("version invalid, fallback to legacy\n");
+		if (get_user(data, &hist_lut32->data) ||
+		    put_user(compat_ptr(data), &hist_lut->data))
+			return -EFAULT;
+		break;
+	}
 
 	return 0;
 }
@@ -2538,6 +2591,14 @@ static u32 __pp_compat_size_igc(void)
 	return alloc_size;
 }
 
+static u32 __pp_compat_size_hist_lut(void)
+{
+	u32 alloc_size = 0;
+	/* When we have mutiple versions pick largest struct size */
+	alloc_size = sizeof(struct mdp_hist_lut_data_v1_7);
+	return alloc_size;
+}
+
 static u32 __pp_compat_size_pgc(void)
 {
 	u32 tbl_sz_max = 0;
@@ -2618,6 +2679,19 @@ static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 			}
 			memset(*pp, 0, alloc_size);
 			(*pp)->data.lut_cfg_data.data.igc_lut_data.cfg_payload
+					= (void *)((unsigned long)(*pp) +
+					   sizeof(struct msmfb_mdp_pp));
+			break;
+		case mdp_lut_hist:
+			alloc_size += __pp_compat_size_hist_lut();
+			*pp = compat_alloc_user_space(alloc_size);
+			if (NULL == *pp) {
+				pr_err("failed to alloc from user size %d for hist lut\n",
+					alloc_size);
+				return -ENOMEM;
+			}
+			memset(*pp, 0, alloc_size);
+			(*pp)->data.lut_cfg_data.data.hist_lut_data.cfg_payload
 					= (void *)((unsigned long)(*pp) +
 					   sizeof(struct msmfb_mdp_pp));
 			break;
@@ -3362,6 +3436,7 @@ static u32 __pp_sspp_size(void)
 	size = sizeof(struct mdp_igc_lut_data_v1_7);
 	size += sizeof(struct mdp_pa_data_v1_7);
 	size += sizeof(struct mdp_pcc_data_v1_7);
+	size += sizeof(struct mdp_hist_lut_data_v1_7);
 	return size;
 }
 
@@ -3379,6 +3454,9 @@ static int __pp_sspp_set_offsets(struct mdp_overlay *ov)
 	ov->overlay_pp_cfg.pcc_cfg_data.cfg_payload =
 		ov->overlay_pp_cfg.pa_v2_cfg_data.cfg_payload +
 		sizeof(struct mdp_pa_data_v1_7);
+	ov->overlay_pp_cfg.hist_lut_cfg.cfg_payload =
+		ov->overlay_pp_cfg.pcc_cfg_data.cfg_payload +
+		sizeof(struct mdp_pcc_data_v1_7);
 	return 0;
 }
 
