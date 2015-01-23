@@ -1509,6 +1509,12 @@ static void btusb_disconnect(struct usb_interface *intf)
 	if (!data)
 		return;
 
+	/* kill all the anchored urbs on USB disconnect */
+	usb_kill_anchored_urbs(&data->intr_anchor);
+	usb_kill_anchored_urbs(&data->bulk_anchor);
+	usb_kill_anchored_urbs(&data->isoc_anchor);
+	usb_kill_anchored_urbs(&data->tx_anchor);
+
 	hdev = data->hdev;
 	usb_set_intfdata(data->intf, NULL);
 
