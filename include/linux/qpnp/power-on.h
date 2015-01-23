@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,11 +47,21 @@ enum pon_power_off_type {
 	PON_POWER_OFF_HARD_RESET	= 0x07,
 };
 
+enum pon_restart_reason {
+	PON_RESTART_REASON_UNKNOWN	= 0x00,
+	PON_RESTART_REASON_RECOVERY	= 0x01,
+	PON_RESTART_REASON_BOOTLOADER	= 0x02,
+	PON_RESTART_REASON_RTC		= 0x03,
+};
+
 #ifdef CONFIG_QPNP_POWER_ON
 int qpnp_pon_system_pwr_off(enum pon_power_off_type type);
 int qpnp_pon_is_warm_reset(void);
 int qpnp_pon_trigger_config(enum pon_trigger_source pon_src, bool enable);
 int qpnp_pon_wd_config(bool enable);
+int qpnp_pon_set_restart_reason(enum pon_restart_reason reason);
+bool qpnp_pon_check_hard_reset_stored(void);
+
 #else
 static int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 {
@@ -66,6 +76,14 @@ static inline int qpnp_pon_trigger_config(enum pon_trigger_source pon_src,
 int qpnp_pon_wd_config(bool enable)
 {
 	return -ENODEV;
+}
+static inline int qpnp_pon_set_restart_reason(enum pon_restart_reason reason)
+{
+	return -ENODEV;
+}
+static inline bool qpnp_pon_check_hard_reset_stored(void)
+{
+	return false;
 }
 #endif
 
