@@ -585,6 +585,30 @@
 			};
 		};
 
+		ddic_rst_active {
+			qcom,pins = <&gp 25>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "ddic_rst_active";
+
+			ddic_rst_active: ddic_rst_active {
+				drive-strength = <16>;
+				output-high;
+			};
+		};
+
+		ddic_rst_suspend {
+			qcom,pins = <&gp 25>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "ddic_rst_suspend";
+
+			ddic_rst_suspend: ddic_rst_suspend {
+				drive-strength = <2>;
+				output-low;
+			};
+		};
+
 		pmx_ts_release {
 			qcom,pins = <&gp 13>, <&gp 12>;
 			qcom,num-grp-pins = <2>;
