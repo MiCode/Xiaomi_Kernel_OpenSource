@@ -112,6 +112,7 @@ enum bmg160_axis {
 	AXIS_X,
 	AXIS_Y,
 	AXIS_Z,
+	AXIS_MAX,
 };
 
 static const struct {
@@ -815,19 +816,20 @@ static irqreturn_t bmg160_trigger_handler(int irq, void *p)
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct bmg160_data *data = iio_priv(indio_dev);
 	int bit, ret, i = 0;
+	s16 values[AXIS_MAX];
 
 	mutex_lock(&data->mutex);
-	for_each_set_bit(bit, indio_dev->buffer->scan_mask,
-			 indio_dev->masklength) {
-		ret = i2c_smbus_read_word_data(data->client,
-					       BMG160_AXIS_TO_REG(bit));
-		if (ret < 0) {
-			mutex_unlock(&data->mutex);
-			goto err;
-		}
-		data->buffer[i++] = ret;
+	ret = i2c_smbus_read_i2c_block_data(data->client, BMG160_REG_XOUT_L,
+					    sizeof(values), (u8 *) values);
+	if (ret < 0) {
+		mutex_unlock(&data->mutex);
+		goto err;
 	}
 	mutex_unlock(&data->mutex);
+
+	for_each_set_bit(bit, indio_dev->buffer->scan_mask,
+			 indio_dev->masklength)
+		data->buffer[i++] = values[bit];
 
 	iio_push_to_buffers_with_timestamp(indio_dev, data->buffer,
 					   data->timestamp);
