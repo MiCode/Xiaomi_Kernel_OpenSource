@@ -926,8 +926,9 @@ static const char *ufshcd_hibern8_on_idle_state_to_string(
 
 static u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba)
 {
-	/* HCI version < 2.0 supports UniPro 1.41 */
-	if (hba->ufs_version < UFSHCI_VERSION_20)
+	/* HCI version 1.0 and 1.1 supports UniPro 1.41 */
+	if ((hba->ufs_version == UFSHCI_VERSION_10) ||
+	    (hba->ufs_version == UFSHCI_VERSION_11))
 		return UFS_UNIPRO_VER_1_41;
 	else
 		return UFS_UNIPRO_VER_1_6;
@@ -8299,6 +8300,13 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	/* Get UFS version supported by the controller */
 	hba->ufs_version = ufshcd_get_ufs_version(hba);
+
+	/* print error message if ufs_version is not valid */
+	if ((hba->ufs_version != UFSHCI_VERSION_10) &&
+	    (hba->ufs_version != UFSHCI_VERSION_11) &&
+	    (hba->ufs_version != UFSHCI_VERSION_20))
+		dev_err(hba->dev, "invalid UFS version 0x%x\n",
+			hba->ufs_version);
 
 	/* Get Interrupt bit mask per version */
 	hba->intr_mask = ufshcd_get_intr_mask(hba);
