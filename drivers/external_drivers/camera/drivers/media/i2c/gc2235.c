@@ -592,12 +592,8 @@ static int __gc2235_init(struct v4l2_subdev *sd)
 
 static int gc2235_init(struct v4l2_subdev *sd)
 {
-	struct gc2235_device *dev = to_gc2235_sensor(sd);
 	int ret = 0;
-
-	mutex_lock(&dev->input_lock);
 	ret = __gc2235_init(sd);
-	mutex_unlock(&dev->input_lock);
 
 	return ret;
 }
@@ -728,8 +724,9 @@ static int power_down(struct v4l2_subdev *sd)
 static int gc2235_s_power(struct v4l2_subdev *sd, int on)
 {
 	int ret;
+
 	if (on == 0)
-		return power_down(sd);
+		ret = power_down(sd);
 	else {
 		ret = power_up(sd);
 		if (!ret)
@@ -835,6 +832,12 @@ static int startup(struct v4l2_subdev *sd)
 	struct gc2235_device *dev = to_gc2235_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret = 0;
+
+	/* force gc2235 to do a reset, otherwise it
+	* can not output normal after switching res
+	*/
+	gc2235_s_power(sd, 0);
+	gc2235_s_power(sd, 1);
 
 	ret = gc2235_write_reg_array(client, gc2235_res[dev->fmt_idx].regs);
 	if (ret) {
