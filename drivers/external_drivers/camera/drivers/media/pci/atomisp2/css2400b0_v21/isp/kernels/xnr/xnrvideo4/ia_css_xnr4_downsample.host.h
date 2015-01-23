@@ -21,28 +21,18 @@
  * estoppel or otherwise. Any license under such intellectual property rights
  * must be express and approved by Intel in writing.
  */
+#ifndef __IA_CSS_XNR4_DOWNSAMPLE_HOST_H
+#define __IA_CSS_XNR4_DOWNSAMPLE_HOST_H
 
-#ifndef __IA_CSS_ITERATOR_PARAM_H
-#define __IA_CSS_ITERATOR_PARAM_H
+#include "ia_css_xnr4_downsample_types.h"
+#include "ia_css_xnr4_downsample_param.h"
 
-#include "ia_css_types.h" /* ia_css_resolution */
-#include "ia_css_frame_public.h" /* ia_css_frame_info */
-#include "ia_css_frame_comm.h" /* ia_css_frame_sp_info */
+extern const struct ia_css_xnr4_downsample_config default_xnr4_downsample_config;
 
-struct ia_css_iterator_configuration {
-	const struct ia_css_frame_info *input_info;
-	const struct ia_css_frame_info *internal_info;
-	const struct ia_css_frame_info *output_info;
-	const struct ia_css_frame_info *vf_info;
-	const struct ia_css_resolution *dvs_envelope;
-};
+void
+ia_css_xnr4_downsample_encode(
+	struct sh_css_isp_xnr4_downsample_params *to,
+	const struct ia_css_xnr4_downsample_config *from,
+	unsigned size);
 
-struct sh_css_isp_iterator_isp_config {
-	struct ia_css_frame_sp_info input_info;
-	struct ia_css_frame_sp_info internal_info;
-	struct ia_css_frame_sp_info output_info;
-	struct ia_css_frame_sp_info vf_info;
-	struct ia_css_sp_resolution dvs_envelope;
-};
-
-#endif /* __IA_CSS_ITERATOR_PARAM_H */
+#endif /* __IA_CSS_XNR4_DOWNSAMPLE_HOST_H */

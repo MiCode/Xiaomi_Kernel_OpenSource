@@ -1,7 +1,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2010 - 2014 Intel Corporation.
+ * Copyright (C) 2010 - 2015 Intel Corporation.
  * All Rights Reserved.
  *
  * The source code contained or described herein and all documents
@@ -25,6 +25,14 @@
 #define __IA_CSS_XNR4_PARAM_H
 
 #include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_downsample_param.h"
+#include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_upsample_param.h"
 #include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_edge_metric_param.h"
+#include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_radial_metric_param.h"
+
+/* XNR4 Parameters */
+struct sh_css_isp_xnr4_params {
+	struct sh_css_isp_xnr4_downsample_params xnr4_downsample;
+	struct sh_css_isp_xnr4_radial_metric_params xnr4_radial_metric;
+};
 
 #endif /* __IA_CSS_XNR4_PARAM_H */

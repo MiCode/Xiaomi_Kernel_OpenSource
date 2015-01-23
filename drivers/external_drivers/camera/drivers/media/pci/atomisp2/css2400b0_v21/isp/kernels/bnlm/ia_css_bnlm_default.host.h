@@ -12,21 +12,11 @@
  * more details.
  */
 
-#ifndef __IA_CSS_CONVERSION_TYPES_H
-#define __IA_CSS_CONVERSION_TYPES_H
+#ifndef __IA_CSS_BNLM_DEFAULT_HOST_H
+#define __IA_CSS_BNLM_DEFAULT_HOST_H
 
-/**
- *  Conversion Kernel parameters.
- *  Deinterleave bayer quad into isys format
- *
- *  ISP block: CONVERSION
- *
- */
-struct ia_css_conversion_config {
-	uint32_t en;     /**< en parameter */
-	uint32_t dummy0; /**< dummy0 dummy parameter 0 */
-	uint32_t dummy1; /**< dummy1 dummy parameter 1 */
-	uint32_t dummy2; /**< dummy2 dummy parameter 2 */
-};
+#include "ia_css_bnlm_types.h"
+extern const struct ia_css_bnlm_config default_bnlm_config;
 
-#endif /* __IA_CSS_CONVERSION_TYPES_H */
+#endif /* __IA_CSS_BNLM_DEFAULT_HOST_H */
+
