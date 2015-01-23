@@ -402,12 +402,13 @@ static int msm_restart_probe(struct platform_device *pdev)
 		}
 	}
 
-	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pshold-base");
 	msm_ps_hold = devm_ioremap_resource(dev, mem);
 	if (IS_ERR(msm_ps_hold))
 		return PTR_ERR(msm_ps_hold);
 
-	mem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "tcsr-boot-misc-detect");
 	if (mem)
 		tcsr_boot_misc_detect = mem->start;
 
