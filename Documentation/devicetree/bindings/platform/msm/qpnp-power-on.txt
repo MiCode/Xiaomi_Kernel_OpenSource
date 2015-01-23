@@ -49,6 +49,9 @@ Optional properties:
 				to catch resets which aren't triggered by the MSM.
 				In such cases clearing WARM_REASON registers across
 				MSM resets keeps the registers in good state.
+- qcom,store-hard-reset-reason	Boolean property which if set will store the hardware
+				reset reason to SOFT_RB_SPARE register of the core PMIC
+				PON peripheral.
 
 All the below properties are in the sub-node section (properties of the child
 node).
@@ -107,6 +110,7 @@ Example:
 		qcom,s3-debounce = <32>;
 		qcom,s3-src = "resin";
 		qcom,clear-warm-reset;
+		qcom,store-hard-reset-reason;
 
 		qcom,pon_1 {
 			qcom,pon-type = <0>;
