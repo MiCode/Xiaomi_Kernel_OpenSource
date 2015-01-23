@@ -91,7 +91,6 @@ enum {
 
 /* Controller UFSHCI version */
 enum {
-<<<<<<< HEAD
 	UFSHCI_VERSION_10 = 0x00010000, /* 1.0 */
 	UFSHCI_VERSION_11 = 0x00010100, /* 1.1 */
 	UFSHCI_VERSION_20 = 0x00000200, /* 2.0 */
