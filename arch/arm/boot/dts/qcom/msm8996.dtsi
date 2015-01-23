@@ -261,6 +261,7 @@
 		compatible = "qcom,pshold";
 		reg = <0x4ab000 0x4>,
 		      <0x7b3000 0x4>;
+		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
 	qcom,sps {
