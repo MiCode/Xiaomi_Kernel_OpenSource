@@ -2972,6 +2972,9 @@ static bool will_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 	if (l_ctx->no_migrate)
 		goto exit;
 
+	if (l_ctx->local_xprt_req > r_ctx->transport_ptr->id)
+		l_ctx->local_xprt_req = r_ctx->transport_ptr->id;
+
 	new_xprt = max(l_ctx->local_xprt_req, r_ctx->remote_xprt_req);
 
 	if (new_xprt == l_ctx->transport_ptr->id)
@@ -3029,6 +3032,9 @@ static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 	if (l_ctx->no_migrate)
 		goto exit;
 
+	if (l_ctx->local_xprt_req > r_ctx->transport_ptr->id)
+		l_ctx->local_xprt_req = r_ctx->transport_ptr->id;
+
 	new_xprt = max(l_ctx->local_xprt_req, r_ctx->remote_xprt_req);
 
 	if (new_xprt == l_ctx->transport_ptr->id)
@@ -3078,34 +3084,61 @@ static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 	spin_unlock_irqrestore(&l_ctx->transport_ptr->xprt_ctx_lock_lhb1,
 									flags);
 
-	r_ctx->local_xprt_req = 0;
-	r_ctx->local_xprt_resp = 0;
-	r_ctx->remote_xprt_req = 0;
-	r_ctx->remote_xprt_resp = 0;
-
 	l_ctx->transport_ptr->ops->tx_cmd_ch_close(l_ctx->transport_ptr->ops,
 								l_ctx->lcid);
+
 	l_ctx->transport_ptr = xprt;
 	l_ctx->local_xprt_req = 0;
 	l_ctx->local_xprt_resp = 0;
-	l_ctx->remote_xprt_req = 0;
-	l_ctx->remote_xprt_resp = 0;
-	l_ctx->remote_opened = false;
+	if (new_xprt != r_ctx->transport_ptr->id) {
+		r_ctx->local_xprt_req = 0;
+		r_ctx->local_xprt_resp = 0;
+		r_ctx->remote_xprt_req = 0;
+		r_ctx->remote_xprt_resp = 0;
 
-	rwref_write_get(&xprt->xprt_state_lhb0);
-	spin_lock_irqsave(&xprt->xprt_ctx_lock_lhb1, flags);
-	if (list_empty(&xprt->free_lcid_list)) {
-		l_ctx->lcid = xprt->next_lcid++;
-	} else {
-		flcid = list_first_entry(&xprt->free_lcid_list,
+		l_ctx->remote_xprt_req = 0;
+		l_ctx->remote_xprt_resp = 0;
+		l_ctx->remote_opened = false;
+
+		rwref_write_get(&xprt->xprt_state_lhb0);
+		spin_lock_irqsave(&xprt->xprt_ctx_lock_lhb1, flags);
+		if (list_empty(&xprt->free_lcid_list)) {
+			l_ctx->lcid = xprt->next_lcid++;
+		} else {
+			flcid = list_first_entry(&xprt->free_lcid_list,
 						struct channel_lcid, list_node);
-		l_ctx->lcid = flcid->lcid;
-		list_del(&flcid->list_node);
-		kfree(flcid);
+			l_ctx->lcid = flcid->lcid;
+			list_del(&flcid->list_node);
+			kfree(flcid);
+		}
+		list_add_tail(&l_ctx->port_list_node, &xprt->channels);
+		spin_unlock_irqrestore(&xprt->xprt_ctx_lock_lhb1, flags);
+		rwref_write_put(&xprt->xprt_state_lhb0);
+	} else {
+		spin_lock_irqsave(&r_ctx->transport_ptr->xprt_ctx_lock_lhb1,
+									flags);
+		list_del_init(&r_ctx->port_list_node);
+		spin_unlock_irqrestore(
+			&r_ctx->transport_ptr->xprt_ctx_lock_lhb1, flags);
+		l_ctx->lcid = r_ctx->lcid;
+		l_ctx->rcid = r_ctx->rcid;
+		l_ctx->remote_opened = r_ctx->remote_opened;
+		l_ctx->remote_xprt_req = r_ctx->remote_xprt_req;
+		l_ctx->remote_xprt_resp = r_ctx->remote_xprt_resp;
+
+		/*
+		 * TODO fixme.  This leaks memory as letting the ref count hit
+		 * zero will trigger an automatic cleanup which will do the
+		 * wrong thing since the lcid gets reused here.  Also debugfs
+		 * might have a reference to this ctx
+		 */
+		rwref_get(&r_ctx->ch_state_lhc0);
+
+		spin_lock_irqsave(&xprt->xprt_ctx_lock_lhb1, flags);
+		list_add_tail(&l_ctx->port_list_node, &xprt->channels);
+		spin_unlock_irqrestore(&xprt->xprt_ctx_lock_lhb1, flags);
 	}
-	list_add_tail(&l_ctx->port_list_node, &xprt->channels);
-	spin_unlock_irqrestore(&xprt->xprt_ctx_lock_lhb1, flags);
-	rwref_write_put(&xprt->xprt_state_lhb0);
+
 
 	mutex_lock(&transport_list_lock_lha0);
 	list_for_each_entry(xprt, &transport_list, list_node)
