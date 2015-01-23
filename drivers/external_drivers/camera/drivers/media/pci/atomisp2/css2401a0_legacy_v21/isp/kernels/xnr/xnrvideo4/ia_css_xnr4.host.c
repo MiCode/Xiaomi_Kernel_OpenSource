@@ -1,7 +1,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2010 - 2014 Intel Corporation.
+ * Copyright (C) 2010 - 2015 Intel Corporation.
  * All Rights Reserved.
  *
  * The source code contained or described herein and all documents
@@ -30,11 +30,9 @@
 #include "sh_css_frac.h"
 
 #include "ia_css_xnr4.host.h"
+#include "ia_css_xnr4_downsample.host.h"
+#include "ia_css_xnr4_radial_metric.host.h"
 
-const struct ia_css_xnr4_config default_xnr4_config = {
-	{ 123, 106, 64, 23}, /* down sample filter coefficients -luma */
-	{ 204, 154} /* down sample filter coefficients -chroma */
-};
 
 void
 ia_css_xnr4_encode(
@@ -43,12 +41,14 @@ ia_css_xnr4_encode(
 	unsigned size)
 {
 	(void)size;
-	to->m_ds4_coeffs[0] = from->m_ds4_coeffs[0];
-	to->m_ds4_coeffs[1] = from->m_ds4_coeffs[1];
-	to->m_ds4_coeffs[2] = from->m_ds4_coeffs[2];
-	to->m_ds4_coeffs[3] = from->m_ds4_coeffs[3];
-	to->m_ds2_coeffs[0] = from->m_ds2_coeffs[0];
-	to->m_ds2_coeffs[1] = from->m_ds2_coeffs[1];
+	/* encode down sample parameters */
+	ia_css_xnr4_downsample_encode(&to->xnr4_downsample,
+				      &from->xnr4_downsample_config,
+				      sizeof(struct ia_css_xnr4_downsample_config));
+	/* encode radial metric parameters */
+	ia_css_xnr4_radial_metric_encode(&to->xnr4_radial_metric,
+					 &from->xnr4_radial_metric_config,
+					 sizeof(struct ia_css_xnr4_radial_metric_config));
 }
 
 

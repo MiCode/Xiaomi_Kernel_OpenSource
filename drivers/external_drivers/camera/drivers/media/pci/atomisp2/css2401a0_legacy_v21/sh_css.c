@@ -5698,7 +5698,20 @@ static enum ia_css_err load_primary_binaries(
 	   configured for vf_veceven. It will select the closest downscaling
 	   factor. */
 	vf_info = *pipe_vf_out_info;
+
+/*
+ * WARNING: The #if def flag has been added below as a
+ * temporary solution to solve the problem of enabling the
+ * view finder in a single binary in a capture flow. The
+ * vf-pp stage has been removed for Skycam in the solution
+ * provided. The vf-pp stage should be re-introduced when
+ * required. This should not be considered as a clean solution.
+ * Proper investigation should be done to come up with the clean
+ * solution.
+ * */
+#if !defined (IS_ISP_2500_SYSTEM)
 	ia_css_frame_info_set_format(&vf_info, IA_CSS_FRAME_FORMAT_YUV_LINE);
+#endif
 
 	/* TODO: All this yuv_scaler and capturepp calculation logic
 	 * can be shared later. Capture_pp is also a yuv_scale binary
@@ -5709,8 +5722,22 @@ static enum ia_css_err load_primary_binaries(
 	capt_pp_out_info.res.width  /= MAX_PREFERRED_YUV_DS_PER_STEP;
 	capt_pp_out_info.res.height /= MAX_PREFERRED_YUV_DS_PER_STEP;
 	ia_css_frame_info_set_width(&capt_pp_out_info, capt_pp_out_info.res.width, 0);
+
+/*
+ * WARNING: The #if def flag has been added below as a
+ * temporary solution to solve the problem of enabling the
+ * view finder in a single binary in a capture flow. The
+ * vf-pp stage has been removed for Skycam in the solution
+ * provided. The vf-pp stage should be re-introduced when
+ * required. This should not be considered as a clean solution.
+ * Proper investigation should be done to come up with the clean
+ * solution.
+ * */
+#if !defined (IS_ISP_2500_SYSTEM)
 	need_extra_yuv_scaler = need_downscaling(capt_pp_out_info.res,
 						pipe_out_info->res);
+#endif
+
 	if (need_extra_yuv_scaler) {
 		struct ia_css_cas_binary_descr cas_scaler_descr
 			= IA_CSS_DEFAULT_CAS_BINARY_DESCR;
@@ -5819,6 +5846,17 @@ static enum ia_css_err load_primary_binaries(
 		    &mycs->primary_binary.vf_frame_info;
 	}
 
+/*
+ * WARNING: The #if def flag has been added below as a
+ * temporary solution to solve the problem of enabling the
+ * view finder in a single binary in a capture flow. The
+ * vf-pp stage has been removed for Skycam in the solution
+ * provided. The vf-pp stage should be re-introduced when
+ * required. Thisshould not be considered as a clean solution.
+ * Proper  * investigation should be done to come up with the clean
+ * solution.
+ * */
+#if !defined (IS_ISP_2500_SYSTEM)
 	if (pipe->enable_viewfinder[IA_CSS_PIPE_OUTPUT_STAGE_0])
 	{
 		struct ia_css_binary_descr vf_pp_descr;
@@ -5833,7 +5871,7 @@ static enum ia_css_err load_primary_binaries(
 		if (err != IA_CSS_SUCCESS)
 			return err;
 	}
-
+#endif
 	err = allocate_delay_frames(pipe->mode, NULL, mycs, pipe->dvs_frame_delay);
 
 	if (err != IA_CSS_SUCCESS)
@@ -7484,9 +7522,24 @@ create_host_regular_capture_pipeline(struct ia_css_pipe *pipe)
 			} else {
 				ia_css_pipe_util_set_output_frames(out_frames, 0, out_frame);
 			}
+
+/*
+ * WARNING: The #if def flag has been added below as a
+ * temporary solution to solve the problem of enabling the
+ * view finder in a single binary in a capture flow. The
+ * vf-pp stage has been removed from Skycam in the solution
+ * provided. The vf-pp stage should be re-introduced when
+ * required. This  * should not be considered as a clean solution.
+ * Proper investigation should be done to come up with the clean
+ * solution.
+ * */
+#if defined (IS_ISP_2500_SYSTEM)
+			ia_css_pipe_get_generic_stage_desc(&stage_desc, primary_binary,
+					out_frames, in_frame, vf_frame);
+#else
 			ia_css_pipe_get_generic_stage_desc(&stage_desc, primary_binary,
 					out_frames, in_frame, NULL);
-
+#endif
 			err = ia_css_pipeline_create_and_add_stage(me,
 				&stage_desc,
 				&current_stage);
@@ -7586,6 +7639,16 @@ create_host_regular_capture_pipeline(struct ia_css_pipe *pipe)
 		}
 	}
 
+/*
+ * WARNING: The #if def flag has been added below as a
+ * temporary solution to solve the problem of enabling the
+ * view finder in a single binary in a capture flow. The vf-pp
+ * stage has been removed from Skycam in the solution provided.
+ * The vf-pp stage should be re-introduced when required. This
+ * should not be considered as a clean solution. Proper
+ * investigation should be done to come up with the clean solution.
+ * */
+#if !defined (IS_ISP_2500_SYSTEM)
 	if (mode != IA_CSS_CAPTURE_MODE_RAW && mode != IA_CSS_CAPTURE_MODE_BAYER && current_stage && vf_frame) {
 		in_frame = current_stage->args.out_vf_frame;
 		err = add_vf_pp_stage(pipe, in_frame, vf_frame, vf_pp_binary,
@@ -7593,7 +7656,7 @@ create_host_regular_capture_pipeline(struct ia_css_pipe *pipe)
 		if (err != IA_CSS_SUCCESS)
 			return err;
 	}
-
+#endif
 	ia_css_pipeline_finalize_stages(&pipe->pipeline, pipe->stream->config.continuous);
 
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE,

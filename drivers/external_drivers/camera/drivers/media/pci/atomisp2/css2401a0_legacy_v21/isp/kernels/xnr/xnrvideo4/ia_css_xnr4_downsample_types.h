@@ -1,7 +1,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2010 - 2014 Intel Corporation.
+ * Copyright (C) 2010 - 2015 Intel Corporation.
  * All Rights Reserved.
  *
  * The source code contained or described herein and all documents
@@ -31,8 +31,8 @@
 */
 
 
-/** XNR4 configuration .  */
-struct ia_css_xnr4_config {
+/** XNR4 downsample configuration .  */
+struct ia_css_xnr4_downsample_config {
 	uint8_t m_ds4_coeffs[(XNR4_LUMA_FILTER_TAP/2)+1]; /** < Down sample filter coefficients,
 				       used for symmetric 7tab filtering of luma
 				       u[integer_bits].[8-integer_bits], [0,255] */

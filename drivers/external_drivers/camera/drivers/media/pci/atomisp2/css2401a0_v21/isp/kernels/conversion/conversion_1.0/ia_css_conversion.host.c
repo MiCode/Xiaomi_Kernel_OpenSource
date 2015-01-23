@@ -29,7 +29,7 @@ ia_css_conversion_encode(
 	unsigned size)
 {
 	(void)size;
-	to->en = from->en;
+	to->en     = from->en;
 	to->dummy0 = from->dummy0;
 	to->dummy1 = from->dummy1;
 	to->dummy2 = from->dummy2;

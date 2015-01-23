@@ -22,27 +22,32 @@
  * must be express and approved by Intel in writing.
  */
 
-#ifndef __IA_CSS_ITERATOR_PARAM_H
-#define __IA_CSS_ITERATOR_PARAM_H
+#include "ia_css_types.h"
+#include "sh_css_defs.h"
+#ifndef IA_CSS_NO_DEBUG
+#include "ia_css_debug.h"
+#endif
+#include "sh_css_frac.h"
 
-#include "ia_css_types.h" /* ia_css_resolution */
-#include "ia_css_frame_public.h" /* ia_css_frame_info */
-#include "ia_css_frame_comm.h" /* ia_css_frame_sp_info */
+#include "ia_css_xnr4_downsample.host.h"
 
-struct ia_css_iterator_configuration {
-	const struct ia_css_frame_info *input_info;
-	const struct ia_css_frame_info *internal_info;
-	const struct ia_css_frame_info *output_info;
-	const struct ia_css_frame_info *vf_info;
-	const struct ia_css_resolution *dvs_envelope;
+const struct ia_css_xnr4_downsample_config default_xnr4_downsample_config = {
+	{ 123, 106, 64, 23}, /* down sample filter coefficients -luma */
+	{ 204, 154} /* down sample filter coefficients -chroma */
 };
 
-struct sh_css_isp_iterator_isp_config {
-	struct ia_css_frame_sp_info input_info;
-	struct ia_css_frame_sp_info internal_info;
-	struct ia_css_frame_sp_info output_info;
-	struct ia_css_frame_sp_info vf_info;
-	struct ia_css_sp_resolution dvs_envelope;
-};
+void ia_css_xnr4_downsample_encode(
+	struct sh_css_isp_xnr4_downsample_params *to,
+	const struct ia_css_xnr4_downsample_config *from,
+	unsigned size)
+{
+	(void)size;
+	to->m_ds4_coeffs[0] = from->m_ds4_coeffs[0];
+	to->m_ds4_coeffs[1] = from->m_ds4_coeffs[1];
+	to->m_ds4_coeffs[2] = from->m_ds4_coeffs[2];
+	to->m_ds4_coeffs[3] = from->m_ds4_coeffs[3];
+	to->m_ds2_coeffs[0] = from->m_ds2_coeffs[0];
+	to->m_ds2_coeffs[1] = from->m_ds2_coeffs[1];
+}
 
-#endif /* __IA_CSS_ITERATOR_PARAM_H */
+

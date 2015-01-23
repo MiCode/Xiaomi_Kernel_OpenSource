@@ -1,7 +1,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2010 - 2014 Intel Corporation.
+ * Copyright (C) 2010 - 2015 Intel Corporation.
  * All Rights Reserved.
  *
  * The source code contained or described herein and all documents
@@ -37,7 +37,7 @@
 
 
 /* XNR4 DS Parameters */
-struct sh_css_isp_xnr4_params {
+struct sh_css_isp_xnr4_downsample_params {
 	uint8_t m_ds4_coeffs[(XNR4_LUMA_FILTER_TAP/2)+1];
 	uint8_t m_ds2_coeffs[(XNR4_CHROMA_FILTER_TAP/2)+1];
 };

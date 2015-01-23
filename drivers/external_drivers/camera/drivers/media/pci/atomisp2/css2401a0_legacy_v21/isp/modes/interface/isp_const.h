@@ -132,7 +132,6 @@
 #define SH_CSS_BINARY_ID_VIDEO_KERNELTEST_OBGRID            126
 #define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_BAYER_DENOISE       127
 #define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_DEMOSAIC            128
-#define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_YUVP1               129
 #define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_YUVP1_C0            130
 #define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_YUVP2               131
 #define SH_CSS_BINARY_ID_VIDEO_KERNELTEST_REF               132
@@ -170,7 +169,6 @@
 
 /* skycam partial test pipelines*/
 #define SH_CSS_BINARY_ID_IF_TO_OSYS_NO_XNR_DVS              199
-#define SH_CSS_BINARY_ID_IF_TO_YUVP2_NO_ISP_EXITS           200
 #define SH_CSS_BINARY_ID_IF_TO_DPC                          201
 #define SH_CSS_BINARY_ID_IF_TO_BDS                          202
 #define SH_CSS_BINARY_ID_IF_TO_NORM                         203
@@ -182,30 +180,20 @@
 #define SH_CSS_BINARY_ID_IF_TO_DM_3A_WO_ANR                 209
 #define SH_CSS_BINARY_ID_IF_TO_RGBPP                        210
 #define SH_CSS_BINARY_ID_IF_TO_YUVP1                        211
-#define SH_CSS_BINARY_ID_IF_TO_YUVP2_WO_ANR                 212
 #define SH_CSS_BINARY_ID_IF_TO_DM_WO_STATS                  213
 #define SH_CSS_BINARY_ID_IF_TO_DM                           214
-#define SH_CSS_BINARY_ID_IF_TO_YUVP2                        215
 #define SH_CSS_BINARY_ID_IF_TO_YUVP2_C0                     216
 #define SH_CSS_BINARY_ID_IF_TO_YUVP2_ANR_VIA_ISP            217
 #define SH_CSS_BINARY_ID_VIDEO_IF_TO_DVS                    218
 #define SH_CSS_BINARY_ID_VIDEO_IF_TO_TNR                    219
 #define SH_CSS_BINARY_ID_IF_NORM_LIN_SHD_BNR_STRIPED        220
-#define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_DVS_STAT            221
-#define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_LACE_STAT           222
-#define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_YUVP1_S             223
 #define SH_CSS_BINARY_ID_IF_TO_BDS_STRIPED                  224
 #define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_ANR_STRIPED         225
 #define SH_CSS_BINARY_ID_IF_NORM_LIN_SHD_AWB_BNR_STRIPED    226
 #define SH_CSS_BINARY_ID_VIDEO_TEST_ACC_YUVP2_STRIPED       227
 #define SH_CSS_BINARY_ID_IF_NORM_LIN_SHD_AF_BNR_STRIPED     228
 #define SH_CSS_BINARY_ID_IF_NORM_LIN_SHD_AWBFR_BNR_STRIPED  229
-#define SH_CSS_BINARY_ID_IF_TO_YUVP2_NO_DPC_OB_STATS        230
-#define SH_CSS_BINARY_ID_IF_TO_YUVP2_NO_DPC_OB_AE           231
 #define SH_CSS_BINARY_ID_IF_NORM_LIN_SHD_AE_BNR_STRIPED     232
-#define SH_CSS_BINARY_ID_IF_TO_BDS_RGBP_DVS_STATS           233
-#define SH_CSS_BINARY_ID_IF_TO_YUVP2_NO_DPC_OB              234
-#define SH_CSS_BINARY_ID_IF_TO_BDS_RGBP_DVS_STATS_STRIPED   235
 #define SH_CSS_BINARY_ID_IF_TO_REF                          236
 #define SH_CSS_BINARY_ID_IF_TO_DVS_STRIPED                  237
 #define SH_CSS_BINARY_ID_IF_TO_YUVP2_STRIPED                238
@@ -216,11 +204,7 @@
 #define SH_CSS_BINARY_ID_IF_TO_SHD_STRIPED                  243
 #define SH_CSS_BINARY_ID_IF_TO_LIN_STRIPED                  244
 #define SH_CSS_BINARY_ID_IF_TO_OB_STRIPED                   245
-
-#define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS_STATS_HR          247
 #define SH_CSS_BINARY_ID_IF_TO_NORM_STRIPED                 248
-#define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS                   249
-#define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS_STRIPED           250
 #define SH_CSS_BINARY_ID_IF_TO_TNR_NO_DVS_STATS_C0          251
 #define SH_CSS_BINARY_ID_SC_PRIMARY_SINGLE_STAGE            252
 #define SH_CSS_BINARY_ID_COPY_KERNELTEST_OUTPUT_SYSTEM      253

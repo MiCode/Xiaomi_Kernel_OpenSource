@@ -17,12 +17,17 @@
 
 #include "ia_css_bnlm_types.h"
 #include "ia_css_bnlm_param.h"
+#include "ia_css_bnlm_default.host.h"
 
-extern const struct ia_css_bnlm_config default_bnlm_config;
+void
+ia_css_bnlm_vmem_encode(
+			struct bnlm_vmem_params *to,
+			const struct ia_css_bnlm_config *from,
+			size_t size);
 
 void
 ia_css_bnlm_encode(
-	struct sh_css_isp_bnlm_params *to,
+	struct bnlm_dmem_params *to,
 	const struct ia_css_bnlm_config *from,
 	size_t size);
 

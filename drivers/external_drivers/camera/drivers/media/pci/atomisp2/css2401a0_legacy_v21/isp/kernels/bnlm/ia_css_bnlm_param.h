@@ -16,14 +16,51 @@
 #define __IA_CSS_BNLM_PARAM_H
 
 #include "type_support.h"
+#include "vmem.h" /* needed for VMEM_ARRAY */
+
+struct bnlm_lut {
+	VMEM_ARRAY(thr, ISP_VEC_NELEMS); /* thresholds */
+	VMEM_ARRAY(val, ISP_VEC_NELEMS); /* values */
+};
+
+struct bnlm_vmem_params {
+	VMEM_ARRAY(nl_th, ISP_VEC_NELEMS);
+	VMEM_ARRAY(match_quality_max_idx, ISP_VEC_NELEMS);
+	struct bnlm_lut mu_root_lut;
+	struct bnlm_lut sad_norm_lut;
+	struct bnlm_lut sig_detail_lut;
+	struct bnlm_lut sig_rad_lut;
+	struct bnlm_lut rad_pow_lut;
+	struct bnlm_lut nl_0_lut;
+	struct bnlm_lut nl_1_lut;
+	struct bnlm_lut nl_2_lut;
+	struct bnlm_lut nl_3_lut;
+
+	/* ToDo: Remove this after implementing coefficients based aprroximtaion */
+	struct bnlm_lut exp_lut;
+	/* ToDo: Remove div tables after using new ATE implementation */
+	VMEM_ARRAY(div_lut_thr, ISP_VEC_NELEMS);
+	VMEM_ARRAY(div_lut_nearests, ISP_VEC_NELEMS);
+	VMEM_ARRAY(div_lut_slopes, ISP_VEC_NELEMS);
+	VMEM_ARRAY(div_lut_intercepts, ISP_VEC_NELEMS);
+	/* 240x does not have an ISP instruction to left shift each element of a
+	 * vector by different shift value. Hence it will be simulated by multiplying
+	 * the elements by required 2^shift. */
+	VMEM_ARRAY(power_of_2, ISP_VEC_NELEMS);
+};
 
 /* BNLM ISP parameters */
-struct sh_css_isp_bnlm_params {
-	int32_t	rad_enable;
+struct bnlm_dmem_params {
+	bool rad_enable;
 	int32_t rad_x_origin;
 	int32_t rad_y_origin;
-	uint32_t avg_min_th;
-	uint32_t avg_max_th;
+	int32_t avg_min_th;
+	int32_t max_min_th;
+
+	int32_t exp_coeff_a;
+	uint32_t exp_coeff_b;
+	int32_t exp_coeff_c;
+	uint32_t exp_exponent;
 };
 
 #endif /* __IA_CSS_BNLM_PARAM_H */

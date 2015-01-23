@@ -21,28 +21,20 @@
  * estoppel or otherwise. Any license under such intellectual property rights
  * must be express and approved by Intel in writing.
  */
+#ifndef __IA_CSS_XNR4_RADIAL_METRIC_TYPES_H
+#define __IA_CSS_XNR4_RADIAL_METRIC_TYPES_H
 
-#ifndef __IA_CSS_ITERATOR_PARAM_H
-#define __IA_CSS_ITERATOR_PARAM_H
+#include "ia_css_xnr4_radial_metric_param.h"
 
-#include "ia_css_types.h" /* ia_css_resolution */
-#include "ia_css_frame_public.h" /* ia_css_frame_info */
-#include "ia_css_frame_comm.h" /* ia_css_frame_sp_info */
 
-struct ia_css_iterator_configuration {
-	const struct ia_css_frame_info *input_info;
-	const struct ia_css_frame_info *internal_info;
-	const struct ia_css_frame_info *output_info;
-	const struct ia_css_frame_info *vf_info;
-	const struct ia_css_resolution *dvs_envelope;
+/** XNR4 radial metric configuration .  */
+struct ia_css_xnr4_radial_metric_config {
+	int16_t m_rad_Xreset; /** < Radial metric X radial reset value */
+	int16_t m_rad_Yreset; /** < Radial metric Y radial reset value */
+	uint32_t m_rad_X2reset; /** < Radial metric X^2 radial reset value */
+	uint32_t m_rad_Y2reset; /** < Radial metric Y^2 radial reset value */
+	uint8_t m_rad_enable; /** < Radial metric enable radial computation */
+	uint16_t m_rad_inv_r2; /** < Radial metric radial metric normalization factor */
 };
 
-struct sh_css_isp_iterator_isp_config {
-	struct ia_css_frame_sp_info input_info;
-	struct ia_css_frame_sp_info internal_info;
-	struct ia_css_frame_sp_info output_info;
-	struct ia_css_frame_sp_info vf_info;
-	struct ia_css_sp_resolution dvs_envelope;
-};
-
-#endif /* __IA_CSS_ITERATOR_PARAM_H */
+#endif /* __IA_CSS_XNR4_RADIAL_METRIC_TYPES_H */

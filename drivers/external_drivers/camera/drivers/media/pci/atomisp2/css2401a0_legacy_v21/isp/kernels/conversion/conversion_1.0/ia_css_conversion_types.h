@@ -19,7 +19,7 @@
  *  Conversion Kernel parameters.
  *  Deinterleave bayer quad into isys format
  *
- *  ISP block: CONVOLUTION
+ *  ISP block: CONVERSION
  *
  */
 struct ia_css_conversion_config {
