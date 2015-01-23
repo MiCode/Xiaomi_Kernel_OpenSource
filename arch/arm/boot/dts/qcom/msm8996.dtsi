@@ -2053,6 +2053,7 @@
 		qcom,sysmon-id = <1>;
 		qcom,ssctl-instance-id = <0x14>;
 		qcom,firmware-name = "adsp";
+		qcom,edge = "lpass";
 		memory-region = <&peripheral_mem>;
 
 		/* GPIO inputs from lpass */
@@ -2130,6 +2131,7 @@
 		qcom,sysmon-id = <3>;
 		qcom,ssctl-instance-id = <0x16>;
 		qcom,firmware-name = "slpi";
+		qcom,edge = "dsps";
 		memory-region = <&peripheral_mem>;
 
 		/* GPIO inputs from ssc */
