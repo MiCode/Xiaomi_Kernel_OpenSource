@@ -227,11 +227,19 @@ struct mdp_igc_lut_data32 {
 	compat_caddr_t cfg_payload;
 };
 
+struct mdp_hist_lut_data_v1_7_32 {
+	uint32_t len;
+	compat_caddr_t data;
+};
+
 struct mdp_hist_lut_data32 {
 	uint32_t block;
+	uint32_t version;
+	uint32_t hist_lut_first;
 	uint32_t ops;
 	uint32_t len;
 	compat_caddr_t data;
+	compat_caddr_t cfg_payload;
 };
 
 struct mdp_ar_gc_lut_data32 {
