@@ -462,7 +462,7 @@ static int gc2155_get_intg_factor(struct i2c_client *client,
 	 *   win_width: Setting by register 0x0f and P0:0x10, win_width = 1600,
 	 *   final_output_width + 8. So for UXGA, we should set win_width as 1616.
 	 */
-	buf->line_length_pck = (hb + sh_delay + (buf->output_width + 16)/2 + 4) << 1;
+	buf->line_length_pck = (hb + sh_delay + (buf->output_width)/2 + 4) << 1;
 	pr_info("line_length_pck = %d\n", buf->line_length_pck);
 
 	/* V Blank */
@@ -495,28 +495,17 @@ static int gc2155_get_intg_factor(struct i2c_client *client,
 	return 0;
 }
 
-static long gc2155_s_exposure(struct v4l2_subdev *sd,
-					struct atomisp_exposure *exposure)
+static long __gc2155_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
+		int gain, int digitgain)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	u8 tmp, lsc;
 	int ret = 0;
-
-	unsigned int coarse_integration = 0;
-
-	//unsigned int AnalogGain, DigitalGain;
-
 	u8 expo_coarse_h,expo_coarse_l;
-	unsigned int gain, a_gain, d_gain;
+	unsigned int a_gain, d_gain;
 
-	dev_err(&client->dev, "%s(0x%X 0x%X 0x%X)\n", __func__,
-		exposure->integration_time[0], exposure->gain[0], exposure->gain[1]);
+	dev_dbg(&client->dev, "%s(0x%X 0x%X 0x%X)\n", __func__,
+		coarse_itg, gain, digitgain);
 
-	coarse_integration = exposure->integration_time[0];
-
-
-	gain = exposure->gain[0];
-	
 	if (gain < 16) gain = 16;
 	if (gain > 255) gain = 255;
 
@@ -545,23 +534,15 @@ static long gc2155_s_exposure(struct v4l2_subdev *sd,
 		a_gain = 0x6;
 		d_gain = ((gain / 4) - 48) | 0x30;
 	}
-	printk("%s real %d a_gain %x d_gain %x\n", __func__, gain, a_gain, d_gain);
+	dev_dbg(&client->dev, "%s real %d a_gain %x d_gain %x\n", __func__, gain, a_gain, d_gain);
 
-	expo_coarse_h = (u8)((coarse_integration >> 8) & 0x1F);
-	expo_coarse_l = (u8)(coarse_integration & 0xff);
-
-
-	ret = gc2155_read_reg(client, GC2155_8BIT,  REG_RST_AND_PG_SELECT, &tmp);
-
+	expo_coarse_h = (u8)((coarse_itg >> 8) & 0x1F);
+	expo_coarse_l = (u8)(coarse_itg & 0xff);
 
 	ret = gc2155_write_reg(client, GC2155_8BIT, REG_RST_AND_PG_SELECT, 0x0);
 
-	ret = gc2155_read_reg(client, GC2155_8BIT,  REG_RST_AND_PG_SELECT, &tmp);
-
-
-	ret = gc2155_write_reg(client, GC2155_8BIT, REG_EXPO_COARSE_H, expo_coarse_h);
-	ret = gc2155_write_reg(client, GC2155_8BIT, REG_EXPO_COARSE_L, expo_coarse_l);
-	ret = gc2155_read_reg(client, GC2155_8BIT,  0x80, &lsc);
+	ret |= gc2155_write_reg(client, GC2155_8BIT, REG_EXPO_COARSE_H, expo_coarse_h);
+	ret |= gc2155_write_reg(client, GC2155_8BIT, REG_EXPO_COARSE_L, expo_coarse_l);
 
 	if (ret) {
 		 v4l2_err(client, "%s: fail to set exposure time\n", __func__);
@@ -583,8 +564,8 @@ static long gc2155_s_exposure(struct v4l2_subdev *sd,
 	 *  100: 4X
 	 */
 
-	gc2155_write_reg(client, GC2155_8BIT, 0x25, a_gain);
-	gc2155_write_reg(client, GC2155_8BIT, 0xb1, d_gain);
+	ret = gc2155_write_reg(client, GC2155_8BIT, 0x25, a_gain);
+	ret |= gc2155_write_reg(client, GC2155_8BIT, 0xb1, d_gain);
 
 	if (ret) {
 		v4l2_err(client, "%s: fail to set AnalogGainToWrite\n", __func__);
@@ -592,6 +573,36 @@ static long gc2155_s_exposure(struct v4l2_subdev *sd,
 	}
 
 	return ret;
+}
+
+static int gc2155_set_exposure(struct v4l2_subdev *sd, int exposure,
+		int gain, int digitgain)
+{
+	struct gc2155_device *dev = to_gc2155_sensor(sd);
+	int ret;
+
+	mutex_lock(&dev->input_lock);
+	ret = __gc2155_set_exposure(sd, exposure, gain, digitgain);
+	mutex_unlock(&dev->input_lock);
+
+	return ret;
+}
+
+static long gc2155_s_exposure(struct v4l2_subdev *sd,
+		struct atomisp_exposure *exposure)
+{
+	int exp = exposure->integration_time[0];
+	int gain = exposure->gain[0];
+	int digitgain = exposure->gain[1];
+
+	/* we should not accept the invalid value below. */
+	if (gain == 0) {
+		struct i2c_client *client = v4l2_get_subdevdata(sd);
+		v4l2_err(client, "%s: invalid value\n", __func__);
+		return -EINVAL;
+	}
+
+	return gc2155_set_exposure(sd, exp, gain, digitgain);
 }
 
 /* TO DO */

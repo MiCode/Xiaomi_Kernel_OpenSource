@@ -292,7 +292,6 @@ static int gc0310_get_intg_factor(struct i2c_client *client,
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
 	struct gc0310_device *dev = to_gc0310_sensor(sd);
 	struct atomisp_sensor_mode_data *buf = &info->data;
-	const unsigned int ext_clk_freq_hz = 19200000;
 	u16 val;
 	u8 reg_val;
 	int ret;
@@ -304,8 +303,8 @@ static int gc0310_get_intg_factor(struct i2c_client *client,
 		return -EINVAL;
 
 	/* pixel clock calculattion */
-	dev->vt_pix_clk_freq_mhz = ext_clk_freq_hz / 2;
-	buf->vt_pix_clk_freq_mhz = ext_clk_freq_hz / 2;
+	dev->vt_pix_clk_freq_mhz = 14400000; // 16.8MHz
+	buf->vt_pix_clk_freq_mhz = dev->vt_pix_clk_freq_mhz;
 	pr_info("vt_pix_clk_freq_mhz=%d\n", buf->vt_pix_clk_freq_mhz);
 
 	/* get integration time */
@@ -383,7 +382,7 @@ static int gc0310_get_intg_factor(struct i2c_client *client,
 					GC0310_H_BLANKING_H, &reg_val);
 	if (ret)
 		return ret;
-	val = ((reg_val & 0xF0) >> 4) << 8;
+	val = (reg_val & 0xFF) << 8;
 	ret = gc0310_read_reg(client, GC0310_8BIT,
 					GC0310_H_BLANKING_L, &reg_val);
 	if (ret)
@@ -402,7 +401,7 @@ static int gc0310_get_intg_factor(struct i2c_client *client,
 					GC0310_V_BLANKING_H, &reg_val);
 	if (ret)
 		return ret;
-	val = (reg_val & 0x0F) << 8;
+	val = (reg_val & 0xFF) << 8;
 	ret = gc0310_read_reg(client, GC0310_8BIT,
 					GC0310_V_BLANKING_L, &reg_val);
 	if (ret)
@@ -997,7 +996,7 @@ static int gc0310_try_mbus_fmt(struct v4l2_subdev *sd,
 		fmt->width = gc0310_res[idx].width;
 		fmt->height = gc0310_res[idx].height;
 	}
-	fmt->code = V4L2_MBUS_FMT_SRGGB8_1X8;
+	fmt->code = V4L2_MBUS_FMT_SGRBG8_1X8;
 
 	return 0;
 }
@@ -1078,7 +1077,7 @@ static int gc0310_g_mbus_fmt(struct v4l2_subdev *sd,
 
 	fmt->width = gc0310_res[dev->fmt_idx].width;
 	fmt->height = gc0310_res[dev->fmt_idx].height;
-	fmt->code = V4L2_MBUS_FMT_SRGGB8_1X8;
+	fmt->code = V4L2_MBUS_FMT_SGRBG8_1X8;
 
 	return 0;
 }
@@ -1205,7 +1204,7 @@ static int gc0310_enum_mbus_fmt(struct v4l2_subdev *sd,
 				unsigned int index,
 				enum v4l2_mbus_pixelcode *code)
 {
-	*code = V4L2_MBUS_FMT_SRGGB8_1X8;
+	*code = V4L2_MBUS_FMT_SGRBG8_1X8;
 
 	return 0;
 }
@@ -1352,7 +1351,7 @@ static int gc0310_enum_mbus_code(struct v4l2_subdev *sd,
 	if (code->index >= MAX_FMTS)
 		return -EINVAL;
 
-	code->code = V4L2_MBUS_FMT_SRGGB8_1X8;
+	code->code = V4L2_MBUS_FMT_SGRBG8_1X8;
 	return 0;
 }
 
@@ -1513,7 +1512,7 @@ static int gc0310_probe(struct i2c_client *client,
 	if (ACPI_COMPANION(&client->dev))
 		pdata = gmin_camera_platform_data(&dev->sd,
 						  ATOMISP_INPUT_FORMAT_RAW_8,
-						  atomisp_bayer_order_rggb);
+						  atomisp_bayer_order_grbg);
 	else
 		pdata = client->dev.platform_data;
 
@@ -1532,7 +1531,7 @@ static int gc0310_probe(struct i2c_client *client,
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
-	dev->format.code = V4L2_MBUS_FMT_SRGGB8_1X8;
+	dev->format.code = V4L2_MBUS_FMT_SGRBG8_1X8;
 	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
 
 	ret = media_entity_init(&dev->sd.entity, 1, &dev->pad, 0);

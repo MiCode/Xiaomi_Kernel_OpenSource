@@ -109,7 +109,7 @@
 #define GC0310_V_BLANKING_L			0x08
 #define GC0310_SH_DELAY			0x11
 
-#define GC0310_START_STREAMING			0x96 /* 8-bit enable */
+#define GC0310_START_STREAMING			0x94 /* 8-bit enable */
 #define GC0310_STOP_STREAMING			0x0 /* 8-bit disable */
 
 #define GC0310_BIN_FACTOR_MAX			3
@@ -221,9 +221,37 @@ static const struct gc0310_reg gc0310_reset_register[] = {
 	{GC0310_8BIT, 0xf2, 0x80}, //sync output
 	{GC0310_8BIT, 0xf3, 0x00}, //1f//01 data output
 	{GC0310_8BIT, 0xf7, 0x33}, //f9
-	{GC0310_8BIT, 0xf8, 0x06}, //00
+	{GC0310_8BIT, 0xf8, 0x05}, //00
 	{GC0310_8BIT, 0xf9, 0x0e}, // 0x8e //0f
 	{GC0310_8BIT, 0xfa, 0x11},
+
+/////////////////////////////////////////////////
+///////////////////   MIPI	 ////////////////////
+/////////////////////////////////////////////////
+	{GC0310_8BIT, 0xfe, 0x03},
+	{GC0310_8BIT, 0x01, 0x03}, ///mipi 1lane
+	{GC0310_8BIT, 0x02, 0x22}, // 0x33
+	{GC0310_8BIT, 0x03, 0x94},
+	{GC0310_8BIT, 0x04, 0x01}, // fifo_prog
+	{GC0310_8BIT, 0x05, 0x00}, //fifo_prog
+	{GC0310_8BIT, 0x06, 0x80}, //b0  //YUV ISP data
+	{GC0310_8BIT, 0x11, 0x2a},//1e //LDI set YUV422
+	{GC0310_8BIT, 0x12, 0x90},//00 //04 //00 //04//00 //LWC[7:0]  //
+	{GC0310_8BIT, 0x13, 0x02},//05 //05 //LWC[15:8]
+	{GC0310_8BIT, 0x15, 0x12}, // 0x10 //DPHYY_MODE read_ready
+	{GC0310_8BIT, 0x17, 0x01},
+	{GC0310_8BIT, 0x40, 0x08},
+	{GC0310_8BIT, 0x41, 0x00},
+	{GC0310_8BIT, 0x42, 0x00},
+	{GC0310_8BIT, 0x43, 0x00},
+	{GC0310_8BIT, 0x21, 0x02}, // 0x01
+	{GC0310_8BIT, 0x22, 0x02}, // 0x01
+	{GC0310_8BIT, 0x23, 0x01}, // 0x05 //Nor:0x05 DOU:0x06
+	{GC0310_8BIT, 0x29, 0x00},
+	{GC0310_8BIT, 0x2A, 0x25}, // 0x05 //data zero 0x7a de
+	{GC0310_8BIT, 0x2B, 0x02},
+
+	{GC0310_8BIT, 0xfe, 0x00},
 
 /////////////////////////////////////////////////
 /////////////////	CISCTL reg	/////////////////
@@ -232,14 +260,14 @@ static const struct gc0310_reg gc0310_reset_register[] = {
 	{GC0310_8BIT, 0x01, 0x0f}, //06
 	{GC0310_8BIT, 0x02, 0x04},
 	{GC0310_8BIT, 0x4f, 0x00}, //AEC 0FF
-	{GC0310_8BIT, 0x03, 0x02}, // 0x03 //04
-	{GC0310_8BIT, 0x04, 0x40}, // 0xe8 //58
-	{GC0310_8BIT, 0x05, 0x01},
-	{GC0310_8BIT, 0x06, 0x26}, // 0x0a //HB
+	{GC0310_8BIT, 0x03, 0x01}, // 0x03 //04
+	{GC0310_8BIT, 0x04, 0xc0}, // 0xe8 //58
+	{GC0310_8BIT, 0x05, 0x00},
+	{GC0310_8BIT, 0x06, 0xb2}, // 0x0a //HB
 	{GC0310_8BIT, 0x07, 0x00},
-	{GC0310_8BIT, 0x08, 0x4e}, // 0x89 //VB
-	{GC0310_8BIT, 0x09, 0x01}, //row start
-	{GC0310_8BIT, 0x0a, 0xfc}, //
+	{GC0310_8BIT, 0x08, 0x0c}, // 0x89 //VB
+	{GC0310_8BIT, 0x09, 0x00}, //row start
+	{GC0310_8BIT, 0x0a, 0x00}, //
 	{GC0310_8BIT, 0x0b, 0x00}, //col start
 	{GC0310_8BIT, 0x0c, 0x00},
 	{GC0310_8BIT, 0x0d, 0x01}, //height
@@ -283,9 +311,9 @@ static const struct gc0310_reg gc0310_reset_register[] = {
 /////////////////////////////////////////////////
 //////////////////	 ISP reg  ///////////////////
 /////////////////////////////////////////////////
-	{GC0310_8BIT, 0x40, 0x00}, // 0xff //ff //48
+	{GC0310_8BIT, 0x40, 0x06}, // 0xff //ff //48
 	{GC0310_8BIT, 0x41, 0x00}, // 0x21 //00//[0]curve_en
-	{GC0310_8BIT, 0x42, 0x00}, // 0xcf //0a//[1]awn_en
+	{GC0310_8BIT, 0x42, 0x04}, // 0xcf //0a//[1]awn_en
 	{GC0310_8BIT, 0x44, 0x18}, // 0x18 //02
 	{GC0310_8BIT, 0x46, 0x02}, // 0x03 //sync
 	{GC0310_8BIT, 0x49, 0x03},
@@ -294,7 +322,7 @@ static const struct gc0310_reg gc0310_reset_register[] = {
 	{GC0310_8BIT, 0x51, 0x00},
 	{GC0310_8BIT, 0x52, 0x00},
 	{GC0310_8BIT, 0x53, 0x00},
-	{GC0310_8BIT, 0x54, 0x00},
+	{GC0310_8BIT, 0x54, 0x01},
 	{GC0310_8BIT, 0x55, 0x01}, //crop window height
 	{GC0310_8BIT, 0x56, 0xf0},
 	{GC0310_8BIT, 0x57, 0x02}, //crop window width
@@ -303,12 +331,12 @@ static const struct gc0310_reg gc0310_reset_register[] = {
 /////////////////////////////////////////////////
 ///////////////////   GAIN	 ////////////////////
 /////////////////////////////////////////////////
-	{GC0310_8BIT, 0x70, 0x50}, //70 //80//global gain
+	{GC0310_8BIT, 0x70, 0x70}, //70 //80//global gain
 	{GC0310_8BIT, 0x71, 0x20}, // pregain gain
 	{GC0310_8BIT, 0x72, 0x40}, // post gain
-	{GC0310_8BIT, 0x5a, 0x98}, //84//analog gain 0
-	{GC0310_8BIT, 0x5b, 0xdc}, //c9
-	{GC0310_8BIT, 0x5c, 0xfe}, //ed//not use pga gain highest level
+	{GC0310_8BIT, 0x5a, 0x84}, //84//analog gain 0
+	{GC0310_8BIT, 0x5b, 0xc9}, //c9
+	{GC0310_8BIT, 0x5c, 0xed}, //ed//not use pga gain highest level
 	{GC0310_8BIT, 0x77, 0x40}, // R gain 0x74 //awb gain
 	{GC0310_8BIT, 0x78, 0x40}, // G gain
 	{GC0310_8BIT, 0x79, 0x40}, // B gain 0x5f
@@ -336,31 +364,6 @@ static const struct gc0310_reg gc0310_reset_register[] = {
 	{GC0310_8BIT, 0x4f, 0x60}, //sun_clamp
 	{GC0310_8BIT, 0xfe, 0x00},
 
-/////////////////////////////////////////////////
-///////////////////   MIPI	 ////////////////////
-/////////////////////////////////////////////////
-	{GC0310_8BIT, 0xfe, 0x03},
-	{GC0310_8BIT, 0x01, 0x03}, ///mipi 1lane
-	{GC0310_8BIT, 0x02, 0x22}, // 0x33
-	{GC0310_8BIT, 0x03, 0x94},
-	{GC0310_8BIT, 0x04, 0x01}, // fifo_prog
-	{GC0310_8BIT, 0x05, 0x00}, //fifo_prog
-	{GC0310_8BIT, 0x06, 0x80}, //b0  //YUV ISP data
-	{GC0310_8BIT, 0x11, 0x2a},//1e //LDI set YUV422
-	{GC0310_8BIT, 0x12, 0x90},//00 //04 //00 //04//00 //LWC[7:0]  //
-	{GC0310_8BIT, 0x13, 0x02},//05 //05 //LWC[15:8]
-	{GC0310_8BIT, 0x15, 0x12}, // 0x10 //DPHYY_MODE read_ready
-	{GC0310_8BIT, 0x17, 0x01},
-	{GC0310_8BIT, 0x42, 0x90},
-	{GC0310_8BIT, 0x43, 0x02},
-	{GC0310_8BIT, 0x21, 0x02}, // 0x01
-	{GC0310_8BIT, 0x22, 0x02}, // 0x01
-	{GC0310_8BIT, 0x23, 0x01}, // 0x05 //Nor:0x05 DOU:0x06
-	{GC0310_8BIT, 0x29, 0x01},
-	{GC0310_8BIT, 0x2A, 0x01}, // 0x05 //data zero 0x7a de
-
-	{GC0310_8BIT, 0xfe, 0x00},
-
 	{GC0310_TOK_TERM, 0, 0},
 };
 
@@ -375,7 +378,7 @@ static struct gc0310_reg const gc0310_VGA_30fps[] = {
 	{GC0310_8BIT, 0x51, 0x00},
 	{GC0310_8BIT, 0x52, 0x00},
 	{GC0310_8BIT, 0x53, 0x00},
-	{GC0310_8BIT, 0x54, 0x00},
+	{GC0310_8BIT, 0x54, 0x01},
 	{GC0310_8BIT, 0x55, 0x01}, //crop window height
 	{GC0310_8BIT, 0x56, 0xf0},
 	{GC0310_8BIT, 0x57, 0x02}, //crop window width
