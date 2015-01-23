@@ -1251,13 +1251,14 @@ static int adreno_start(struct kgsl_device *device, int priority)
  * adreno_vbif_clear_pending_transactions() - Clear transactions in VBIF pipe
  * @device: Pointer to the device whose VBIF pipe is to be cleared
  */
-static void adreno_vbif_clear_pending_transactions(struct kgsl_device *device)
+static int adreno_vbif_clear_pending_transactions(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int mask = gpudev->vbif_xin_halt_ctrl0_mask;
 	unsigned int val;
 	unsigned long wait_for_vbif;
+	int ret = 0;
 
 	adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, mask);
 	/* wait for the transactions to clear */
@@ -1270,10 +1271,12 @@ static void adreno_vbif_clear_pending_transactions(struct kgsl_device *device)
 		if (time_after(jiffies, wait_for_vbif)) {
 			KGSL_DRV_ERR(device,
 				"Wait limit reached for VBIF XIN Halt\n");
+			ret = -ETIMEDOUT;
 			break;
 		}
 	}
 	adreno_writereg(adreno_dev, ADRENO_REG_VBIF_XIN_HALT_CTRL0, 0);
+	return ret;
 }
 
 static int adreno_stop(struct kgsl_device *device)
@@ -1329,15 +1332,14 @@ int adreno_reset(struct kgsl_device *device)
 	struct kgsl_mmu *mmu = &device->mmu;
 	int i = 0;
 
-	/* clear pending vbif transactions before reset */
-	adreno_vbif_clear_pending_transactions(device);
-
 	/*
-	 * Try soft reset first, for non mmu fault case only.
+	 * Try soft reset first, for non mmu fault case only and if VBIF
+	 * pipe clears cleanly.
 	 * Skip soft reset and use hard reset for A304 GPU, As
 	 * A304 is not able to do SMMU programming after soft reset.
 	 */
-	if (!atomic_read(&mmu->fault) && !adreno_is_a304(adreno_dev)) {
+	if (!adreno_vbif_clear_pending_transactions(device) &&
+		!atomic_read(&mmu->fault) && !adreno_is_a304(adreno_dev)) {
 		ret = adreno_soft_reset(device);
 		if (ret)
 			KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
