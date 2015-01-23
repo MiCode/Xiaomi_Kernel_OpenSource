@@ -9,6 +9,13 @@ Required Properties:
 -compatible: "qcom,pshold"
 -reg: Specifies the physical address of the ps-hold register
 
+Optional Properties:
+-reg: A secondary reg address/size pair may be provided, to specify the address
+      of the TCSR_BOOT_MISC_DETECT register. This address is typically used to
+      configure the type of reset desired. Omitting this address implies that
+      the reset type shall be configured by means of a call to the secure
+      environment.
+
 Example:
 
 	restart@fc4ab000 {
