@@ -27,3 +27,9 @@
 		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
 	};
 };
+
+/* GPU overrides */
+&msm_gpu {
+	/* Updated chip ID */
+	qcom,chipid = <0x04030001>;
+};

@@ -291,9 +291,6 @@
 
 /* GPU overrides */
 &msm_gpu {
-	/* Updated chip ID */
-	qcom,chipid = <0x04030001>;
-
 	qcom,initial-pwrlevel = <4>;
 	qcom,msm-bus,num-cases = <10>;
 	qcom,msm-bus,vectors-KBps =
