@@ -510,10 +510,8 @@ struct mdp_layer_commit_v1_32 {
 	struct mdp_rect		right_roi;
 	compat_caddr_t __user	*input_layers;
 	uint32_t		input_layer_cnt;
-	union {
-		compat_caddr_t __user *output_layer;
-		int			retire_fence;
-	};
+	compat_caddr_t __user *output_layer;
+	int			retire_fence;
 	uint32_t		reserved[6];
 };
 
