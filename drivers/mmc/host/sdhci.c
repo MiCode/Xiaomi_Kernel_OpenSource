@@ -1799,6 +1799,27 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		!(host->quirks2 & SDHCI_QUIRK2_PRESET_VALUE_BROKEN))
 		sdhci_enable_preset_value(host, false);
 
+	spin_lock_irqsave(&host->lock, flags);
+	if (ios->clock || ios->clock != host->clock) {
+		spin_unlock_irqrestore(&host->lock, flags);
+		host->ops->set_clock(host, ios->clock);
+		spin_lock_irqsave(&host->lock, flags);
+		host->clock = ios->clock;
+
+		if (host->quirks & SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK &&
+		    host->clock) {
+			host->timeout_clk = host->mmc->actual_clock ?
+						host->mmc->actual_clock / 1000 :
+						host->clock / 1000;
+			host->mmc->max_busy_timeout =
+				host->ops->get_max_timeout_count ?
+				host->ops->get_max_timeout_count(host) :
+				1 << 27;
+			host->mmc->max_busy_timeout /= host->timeout_clk;
+		}
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+
 	/*
 	 * The controller clocks may be off during power-up and we may end up
 	 * enabling card clock before giving power to the card. Hence, during
@@ -1819,23 +1840,9 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	}
 
 	spin_lock_irqsave(&host->lock, flags);
-	if (!ios->clock || ios->clock != host->clock) {
+	if (!host->clock) {
 		spin_unlock_irqrestore(&host->lock, flags);
-		host->ops->set_clock(host, ios->clock);
-		spin_lock_irqsave(&host->lock, flags);
-		host->clock = ios->clock;
-
-		if (host->quirks & SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK &&
-		    host->clock) {
-			host->timeout_clk = host->mmc->actual_clock ?
-						host->mmc->actual_clock / 1000 :
-						host->clock / 1000;
-			host->mmc->max_busy_timeout =
-				host->ops->get_max_timeout_count ?
-				host->ops->get_max_timeout_count(host) :
-				1 << 27;
-			host->mmc->max_busy_timeout /= host->timeout_clk;
-		}
+		return;
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
 
