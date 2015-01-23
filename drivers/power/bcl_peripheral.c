@@ -502,11 +502,14 @@ static void bcl_poll_ibat_low(struct work_struct *work)
 		return;
 	}
 
-	ret = perph_data->ops.read(&val);
+	ret = perph_data->read_max(&val);
 	if (ret) {
 		pr_err("Error in reading ibat. err:%d", ret);
 		goto reschedule_ibat;
 	}
+	ret = perph_data->clear_max();
+	if (ret)
+		pr_err("Error clearing max ibat reg. err:%d\n", ret);
 	if (val <= perph_data->low_trip) {
 		pr_debug("Ibat reached low clear trip. ibat:%d\n", val);
 		perph_data->ops.notify(perph_data->param_data, val,
@@ -535,11 +538,14 @@ static void bcl_poll_vbat_high(struct work_struct *work)
 		return;
 	}
 
-	ret = perph_data->ops.read(&val);
+	ret = perph_data->read_max(&val);
 	if (ret) {
 		pr_err("Error in reading vbat. err:%d", ret);
 		goto reschedule_vbat;
 	}
+	ret = perph_data->clear_max();
+	if (ret)
+		pr_err("Error clearing min vbat reg. err:%d\n", ret);
 	if (val >= perph_data->high_trip) {
 		pr_debug("Vbat reached high clear trip. vbat:%d\n", val);
 		perph_data->ops.notify(perph_data->param_data, val,
