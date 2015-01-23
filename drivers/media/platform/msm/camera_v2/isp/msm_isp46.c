@@ -1013,6 +1013,14 @@ static void msm_vfe46_cfg_camif(struct vfe_device *vfe_dev,
 	uint16_t first_pixel, last_pixel, first_line, last_line;
 	struct msm_vfe_camif_cfg *camif_cfg = &pix_cfg->camif_cfg;
 	uint32_t val, subsample_period, subsample_pattern;
+	struct msm_vfe_camif_subsample_cfg *subsample_cfg =
+		&pix_cfg->camif_cfg.subsample_cfg;
+	uint16_t bus_sub_en = 0;
+
+	if (subsample_cfg->pixel_skip || subsample_cfg->line_skip)
+		bus_sub_en = 1;
+	else
+		bus_sub_en = 0;
 
 	msm_camera_io_w(pix_cfg->input_mux << 5 | pix_cfg->pixel_pattern,
 		vfe_dev->vfe_base + 0x50);
@@ -1023,6 +1031,17 @@ static void msm_vfe46_cfg_camif(struct vfe_device *vfe_dev,
 	last_line = camif_cfg->last_line;
 	subsample_period = camif_cfg->subsample_cfg.irq_subsample_period;
 	subsample_pattern = camif_cfg->subsample_cfg.irq_subsample_pattern;
+
+	if (bus_sub_en) {
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x3AC);
+		val &= 0xFFFFFFDF;
+		val = val | bus_sub_en << 5;
+		msm_camera_io_w(val, vfe_dev->vfe_base + 0x3AC);
+		subsample_cfg->pixel_skip &= 0x0000FFFF;
+		subsample_cfg->line_skip  &= 0x0000FFFF;
+		msm_camera_io_w((subsample_cfg->line_skip << 16) |
+			subsample_cfg->pixel_skip, vfe_dev->vfe_base + 0x3C0);
+	}
 
 	msm_camera_io_w(camif_cfg->lines_per_frame << 16 |
 		camif_cfg->pixels_per_line, vfe_dev->vfe_base + 0x3B4);
