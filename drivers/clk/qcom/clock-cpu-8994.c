@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -252,7 +252,6 @@ static struct pll_clk a53_pll0 = {
 	.pgm_test_ctl_enable = true,
 	.masks = {
 		.pre_div_mask = BIT(12),
-		.post_div_mask = BM(9, 8),
 		.mn_en_mask = BIT(24),
 		.main_output_mask = BIT(0),
 		.early_output_mask = BIT(3),
@@ -260,7 +259,6 @@ static struct pll_clk a53_pll0 = {
 		.lock_mask = BIT(31),
 	},
 	.vals = {
-		.post_div_masked = 0x100,
 		.pre_div_masked = 0x0,
 		.config_ctl_val = 0x000D6968,
 		.test_ctl_lo_val = 0x00010000,
@@ -289,7 +287,6 @@ static struct pll_clk a53_pll1 = {
 	.pgm_test_ctl_enable = true,
 	.masks = {
 		.pre_div_mask = BIT(12),
-		.post_div_mask = BM(9, 8),
 		.mn_en_mask = BIT(24),
 		.main_output_mask = BIT(0),
 		.early_output_mask = BIT(3),
@@ -297,7 +294,6 @@ static struct pll_clk a53_pll1 = {
 		.lock_mask = BIT(31),
 	},
 	.vals = {
-		.post_div_masked = 0x300,
 		.pre_div_masked = 0x0,
 		.config_ctl_val = 0x000D6968,
 		.test_ctl_lo_val = 0x00010000,
@@ -603,12 +599,115 @@ static struct mux_clk a57_hf_mux = {
 
 /* === 8994 V2 clock tree begins here === */
 
+static int plldiv_get_div(struct div_clk *divclk)
+{
+	u32 regval;
+	int div = 0;
+
+	regval = readl_relaxed(*divclk->base + divclk->offset);
+	regval &= (divclk->mask << divclk->shift);
+	regval >>= divclk->shift;
+
+	switch (regval) {
+	case  0:
+		div = 1;
+	break;
+	case 1:
+		div = 2;
+	break;
+	case 3:
+		div = 4;
+	break;
+	default:
+		pr_err("Invalid divider value programmed for %s\n",
+			divclk->c.dbg_name);
+		BUG();
+	break;
+	};
+
+	return div;
+}
+
+static void __plldiv_set_div(struct div_clk *divclk, int div)
+{
+	u32 regval;
+	unsigned long flags;
+	u32 program_div = 0;
+
+	spin_lock_irqsave(&mux_reg_lock, flags);
+	switch (div) {
+	case 2:
+		program_div = 1;
+	break;
+	case 4:
+		program_div = 3;
+	break;
+	default:
+		WARN(1, "Unknown divider for %s\n", divclk->c.dbg_name);
+		program_div = 3;
+	break;
+	};
+
+	regval = readl_relaxed(*divclk->base + divclk->offset);
+	regval &= ~(divclk->mask << divclk->shift);
+	regval |= (program_div & divclk->mask) << divclk->shift;
+	writel_relaxed(regval, *divclk->base + divclk->offset);
+
+	/* Ensure switch request goes through before returning */
+	mb();
+	udelay(5);
+	spin_unlock_irqrestore(&mux_reg_lock, flags);
+}
+
+static int plldiv_set_div(struct div_clk *divclk, int div)
+{
+	/*
+	 * Only set the divider if the clock is disabled.
+	 */
+	if (!divclk->c.count)
+		__plldiv_set_div(divclk, div);
+	else
+		WARN(1, "Attempting to set divider when PLL may be on!\n");
+
+	return 0;
+}
+
+static struct clk_div_ops pll_div_ops = {
+	.set_div = plldiv_set_div,
+	.get_div = plldiv_get_div,
+};
+
+#define DEFINE_PLL_MUX_DIV(name, _base, _parent, _offset)\
+	static struct div_clk name = {		\
+		.data = {			\
+			.min_div = 2,		\
+			.max_div = 4,		\
+			.skip_odd_div = true,	\
+		},				\
+		.ops = &pll_div_ops,		\
+		.base = &vbases[_base],		\
+		.offset = _offset,		\
+		.mask = 0x3,			\
+		.shift = 8,			\
+		.c = {				\
+			.parent = _parent,	\
+			.flags = CLKFLAG_NO_RATE_CACHE, \
+			.dbg_name = #name,	\
+			.ops = &clk_ops_div,	\
+			CLK_INIT(name.c),	\
+		},				\
+	};
+
+DEFINE_PLL_MUX_DIV(a53_pll0div_main, C0_PLL_BASE, &a53_pll0.c, C0_PLL_USER_CTL);
+DEFINE_PLL_MUX_DIV(a53_pll1div_main, C0_PLL_BASE, &a53_pll1.c,
+		   C0_PLLA_USER_CTL);
+
 static struct mux_clk a53_lf_mux_v2 = {
 	.offset = MUX_OFFSET,
 	MUX_SRC_LIST(
 		{ &xo_ao.c,           0 },
-		{ &a53_pll1_main.c,   1 },
-		{ &a53_pll0_main.c,   2 },
+		{ &a53_pll1div_main.c,   1 },
+		{ &a53_pll0div_main.c,   2 },
 		{ &sys_apcsaux_clk.c, 3 },
 	),
 	.en_mask = 3,
@@ -627,31 +726,12 @@ static struct mux_clk a53_lf_mux_v2 = {
 	},
 };
 
-static struct div_clk a53_lf_mux_div = {
-	.data = {
-		.min_div = 1,
-		.max_div = 2,
-	},
-	.ops = &cpu_div_ops,
-	.base = &vbases[ALIAS0_GLB_BASE],
-	.offset = MUX_OFFSET,
-	.mask = 0x1,
-	.shift = 5,
-	.c = {
-		.parent = &a53_lf_mux_v2.c,
-		.dbg_name = "a53_lf_mux_div",
-		.flags = CLKFLAG_NO_RATE_CACHE,
-		.ops = &clk_ops_div,
-		CLK_INIT(a53_lf_mux_div.c),
-	},
-};
-
 static struct mux_clk a53_hf_mux_v2 = {
 	.offset = MUX_OFFSET,
 	MUX_SRC_LIST(
-		{ &a53_lf_mux_div.c, 0 },
 		{ &a53_pll1.c,       1 },
 		{ &a53_pll0.c,       3 },
+		{ &a53_lf_mux_v2.c,  0 },
 	),
 	.en_mask = 0,
 	.low_power_sel = 0,
@@ -692,29 +772,10 @@ static struct mux_clk a57_lf_mux_v2 = {
 	},
 };
 
-static struct div_clk a57_lf_mux_div = {
-	.data = {
-		.min_div = 1,
-		.max_div = 2,
-	},
-	.ops = &cpu_div_ops,
-	.base = &vbases[ALIAS1_GLB_BASE],
-	.offset = MUX_OFFSET,
-	.mask = 0x1,
-	.shift = 5,
-	.c = {
-		.parent = &a57_lf_mux_v2.c,
-		.dbg_name = "a57_lf_mux_div",
-		.flags = CLKFLAG_NO_RATE_CACHE,
-		.ops = &clk_ops_div,
-		CLK_INIT(a57_lf_mux_div.c),
-	},
-};
-
 static struct mux_clk a57_hf_mux_v2 = {
 	.offset = MUX_OFFSET,
 	MUX_SRC_LIST(
-		{ &a57_lf_mux_div.c, 0 },
+		{ &a57_lf_mux_v2.c,  0 },
 		{ &a57_pll1.c,       1 },
 		{ &a57_pll0.c,       3 },
 	),
@@ -1163,7 +1224,6 @@ static struct clk_lookup cpu_clocks_8994_v2[] = {
 	CLK_LIST(a53_pll0_main),
 	CLK_LIST(a53_pll1_main),
 	CLK_LIST(a53_hf_mux_v2),
-	CLK_LIST(a53_lf_mux_div),
 	CLK_LIST(a53_lf_mux_v2),
 
 	CLK_LIST(a57_clk),
@@ -1172,7 +1232,6 @@ static struct clk_lookup cpu_clocks_8994_v2[] = {
 	CLK_LIST(a57_pll0_main),
 	CLK_LIST(a57_pll1_main),
 	CLK_LIST(a57_hf_mux_v2),
-	CLK_LIST(a57_lf_mux_div),
 	CLK_LIST(a57_lf_mux_v2),
 
 	CLK_LIST(cci_clk),
@@ -1530,7 +1589,6 @@ static void populate_opp_table(struct platform_device *pdev)
 
 static void init_v2_data(void)
 {
-	a53_pll1.vals.post_div_masked = 0x100;
 	a57_pll1.vals.post_div_masked = 0x100;
 	a53_pll0.vals.config_ctl_val = 0x004D6968;
 	a53_pll1.vals.config_ctl_val = 0x004D6968;
@@ -1564,6 +1622,7 @@ static void init_v2_data(void)
 	a57_pll1.no_prepared_reconfig = true;
 	a53_pll0.no_prepared_reconfig = true;
 	a53_pll1.no_prepared_reconfig = true;
+	a53_clk.hw_low_power_ctrl = true;
 }
 
 static int a57speedbin;
@@ -1881,7 +1940,6 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 	char a57speedbinstr[] = "qcom,a57-speedbinXX-vXX";
 
 	v2 = msm8994_v2 | msm8992;
-	cpu_clock_8994_dev = pdev;
 
 	a53_pll0_main.c.flags = CLKFLAG_NO_RATE_CACHE;
 	a57_pll0_main.c.flags = CLKFLAG_NO_RATE_CACHE;
@@ -2014,8 +2072,18 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 	}
 
 
+	/*
+	 * For the A53s, prepare and enable the HFMUX. During hotplug, this
+	 * ensures that the clk_disable/clk_unprepare do not get propagated
+	 * beyond the a53_clk, allowing the PLL to stay on. The PLL voltage
+	 * vote is active-set-only anyway.
+	 */
+	if (v2)
+		clk_prepare_enable(&a53_hf_mux_v2.c);
+
 	put_online_cpus();
 
+	cpu_clock_8994_dev = pdev;
 	return 0;
 }
 
@@ -2081,8 +2149,8 @@ int __init cpu_clock_8994_init_a57_v2(void)
 		goto iomap_fail;
 	}
 
-	/* Select GPLL0 and use the div-2 divider for 300MHz */
-	writel_relaxed(0x26, vbases[ALIAS1_GLB_BASE] + MUX_OFFSET);
+	/* Select GPLL0 for 600MHz on the A57s */
+	writel_relaxed(0x6, vbases[ALIAS1_GLB_BASE] + MUX_OFFSET);
 	/* Select GPLL0 for 600MHz on the A53s */
 	writel_relaxed(0x6, vbases[ALIAS0_GLB_BASE] + MUX_OFFSET);
 
