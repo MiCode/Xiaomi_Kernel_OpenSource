@@ -1458,10 +1458,6 @@ static int venus_hfi_halt_axi(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Invalid input: %p\n", device);
 		return -EINVAL;
 	}
-	if (venus_hfi_power_enable(device)) {
-		dprintk(VIDC_ERR, "%s: Failed to enable power\n", __func__);
-		return 0;
-	}
 
 	/* Halt AXI and AXI OCMEM VBIF Access */
 	reg = venus_hfi_read_register(device, VENUS_VBIF_AXI_HALT_CTRL0);
@@ -1490,6 +1486,12 @@ static inline int venus_hfi_power_off(struct venus_hfi_device *device)
 	}
 	if (!device->power_enabled) {
 		dprintk(VIDC_DBG, "Power already disabled\n");
+		return 0;
+	}
+
+	rc = venus_hfi_halt_axi(device);
+	if (rc) {
+		dprintk(VIDC_WARN, "Failed to halt AXI\n");
 		return 0;
 	}
 
@@ -4012,13 +4014,13 @@ static void venus_hfi_unload_fw(void *dev)
 		flush_workqueue(device->venus_pm_workq);
 		subsystem_put(device->resources.fw.cookie);
 		venus_hfi_interface_queues_release(dev);
-		/* IOMMU operations need to be done before AXI halt.*/
-		venus_hfi_iommu_detach(device);
 		/* Halt the AXI to make sure there are no pending transactions.
 		 * Clocks should be unprepared after making sure axi is halted.
 		 */
 		if (venus_hfi_halt_axi(device))
 			dprintk(VIDC_WARN, "Failed to halt AXI\n");
+		/* Detach IOMMU only when AXI is halted */
+		venus_hfi_iommu_detach(device);
 		venus_hfi_disable_unprepare_clks(device);
 		venus_hfi_disable_regulators(device);
 		device->power_enabled = false;
