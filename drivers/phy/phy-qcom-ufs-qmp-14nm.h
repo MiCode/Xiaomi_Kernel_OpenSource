@@ -178,6 +178,14 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_2_0_0[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_RX_RX_EQ_GAIN2_LSB, 0xFF),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_RX_RX_EQ_GAIN2_MSB, 0x0F),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2, 0x0E),
+	/*
+	 * UFS_PHY_RX_PWM_GEAR_BAND configuration is changed after the power up
+	 * sequence so make sure that this register gets set to power on reset
+	 * value. This is required in case power up sequence is initiated after
+	 * this register value got changed to value other than power on reset
+	 * value.
+	 */
+	UFS_QCOM_PHY_CAL_ENTRY(UFS_PHY_RX_PWM_GEAR_BAND, 0x55),
 };
 
 /*
