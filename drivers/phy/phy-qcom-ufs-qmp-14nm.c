@@ -102,7 +102,7 @@ out:
 
 static
 void ufs_qcom_phy_qmp_14nm_power_control(struct ufs_qcom_phy *phy,
-					 bool is_pwr_collapse)
+					 bool power_ctrl)
 {
 	bool is_workaround_req = false;
 
@@ -110,7 +110,8 @@ void ufs_qcom_phy_qmp_14nm_power_control(struct ufs_qcom_phy *phy,
 	    UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE)
 		is_workaround_req = true;
 
-	if (is_pwr_collapse) {
+	if (!power_ctrl) {
+		/* apply PHY analog power collapse */
 		if (is_workaround_req) {
 			/* assert common reset before analog power collapse */
 			writel_relaxed(0x1, phy->mmio + QSERDES_COM_SW_RESET);
@@ -121,7 +122,7 @@ void ufs_qcom_phy_qmp_14nm_power_control(struct ufs_qcom_phy *phy,
 			mb();
 		}
 		/* apply analog power collapse */
-		writel_relaxed(0x1, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
+		writel_relaxed(0x0, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
 		/*
 		 * Make sure that PHY knows its analog rail is going to be
 		 * powered OFF.
@@ -129,7 +130,7 @@ void ufs_qcom_phy_qmp_14nm_power_control(struct ufs_qcom_phy *phy,
 		mb();
 	} else {
 		/* bring PHY out of analog power collapse */
-		writel_relaxed(0x0, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
+		writel_relaxed(0x1, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
 		/*
 		 * Before any transactions involving PHY, ensure PHY knows
 		 * that it's analog rail is powered ON.
