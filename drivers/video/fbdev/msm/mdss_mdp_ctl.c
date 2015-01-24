@@ -2503,10 +2503,10 @@ static void mdss_mdp_ctl_split_display_enable(int enable,
 	}
 }
 
-static void mdss_mdp_ctl_dst_split_display_enable(int enable,
+static void mdss_mdp_ctl_pp_split_display_enable(bool enable,
 		struct mdss_mdp_ctl *ctl)
 {
-	u32 config = 0, cntl = 0;
+	u32 cfg = 0, cntl = 0;
 
 	if (ctl->mdata->nppb == 0) {
 		pr_err("No PPB to enable PP split\n");
@@ -2516,14 +2516,12 @@ static void mdss_mdp_ctl_dst_split_display_enable(int enable,
 	mdss_mdp_ctl_split_display_enable(enable, ctl, NULL);
 
 	if (enable) {
-		/* Set slave intf */
-		config = ((ctl->intf_num + 1) - MDSS_MDP_INTF0) << 20;
-		config |= BIT(16); /* Set horizontal split*/
-		cntl = BIT(5); /* enable dst split*/
+		cfg = ctl->slave_intf_num << 20; /* Set slave intf */
+		cfg |= BIT(16);			 /* Set horizontal split */
+		cntl = BIT(5);			 /* enable dst split */
 	}
 
-	writel_relaxed(config, ctl->mdata->mdp_base +
-			ctl->mdata->ppb[0].cfg_off);
+	writel_relaxed(cfg, ctl->mdata->mdp_base + ctl->mdata->ppb[0].cfg_off);
 	writel_relaxed(cntl, ctl->mdata->mdp_base + ctl->mdata->ppb[0].ctl_off);
 }
 
@@ -2740,7 +2738,8 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 			mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, out);
 			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_PACK_3D, 0);
 		} else if (is_pingpong_split(ctl->mfd)) {
-			mdss_mdp_ctl_dst_split_display_enable(1, ctl);
+			ctl->slave_intf_num = (ctl->intf_num + 1);
+			mdss_mdp_ctl_pp_split_display_enable(true, ctl);
 		}
 	}
 
@@ -3708,9 +3707,6 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		ATRACE_END("mixer_programming");
 	}
 
-	ctl->roi_bkup.w = ctl->roi.w;
-	ctl->roi_bkup.h = ctl->roi.h;
-
 	/*
 	 * With partial frame update, enable split display bit only
 	 * when validity of ROI's on both the DSI's are identical
@@ -3733,17 +3729,6 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 
 	mdss_mdp_xlog_mixer_reg(ctl);
 
-	if (ctl->panel_data &&
-			ctl->panel_data->panel_info.partial_update_enabled) {
-		/*
-		 * update roi of panel_info which will be
-		 * used by dsi to set col_page addr of panel
-		 */
-		ctl->panel_data->panel_info.roi = ctl->roi;
-		if (sctl && sctl->panel_data)
-			sctl->panel_data->panel_info.roi = sctl->roi;
-	}
-
 	ATRACE_BEGIN("frame_ready");
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_CFG_DONE);
 	if (commit_cb)
@@ -3755,6 +3740,69 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 
 	if (ctl->ops.wait_pingpong && !mdata->serialize_wait4pp)
 		mdss_mdp_display_wait4pingpong(ctl, false);
+
+	/*
+	 * if serialize_wait4pp is false then roi_bkup used in wait4pingpong
+	 * will be of previous frame as expected.
+	 */
+	ctl->roi_bkup.w = ctl->roi.w;
+	ctl->roi_bkup.h = ctl->roi.h;
+
+	/*
+	 * update roi of panel_info which will be
+	 * used by dsi to set col_page addr of panel.
+	 */
+	if (ctl->panel_data &&
+	    ctl->panel_data->panel_info.partial_update_enabled) {
+
+		if (is_pingpong_split(ctl->mfd)) {
+			bool pp_split = false;
+			struct mdss_rect l_roi, r_roi, temp = {0};
+			u32 opmode = mdss_mdp_ctl_read(ctl,
+			     MDSS_MDP_REG_CTL_TOP) & ~0xF0; /* clear OUT_SEL */
+			/*
+			 * with pp split enabled, it is a requirement that both
+			 * panels share equal load, so split-point is center.
+			 */
+			u32 left_panel_w = left_lm_w_from_mfd(ctl->mfd) / 2;
+
+			mdss_rect_split(&ctl->roi, &l_roi, &r_roi,
+				left_panel_w);
+
+			/*
+			 * If update is only on left panel then we still send
+			 * zeroed out right panel ROIs to DSI driver. Based on
+			 * zeroed ROI, DSI driver identifies which panel is not
+			 * transmitting.
+			 */
+			ctl->panel_data->panel_info.roi = l_roi;
+			ctl->panel_data->next->panel_info.roi = r_roi;
+
+			/* based on the roi, update ctl topology */
+			if (!mdss_rect_cmp(&temp, &l_roi) &&
+			    !mdss_rect_cmp(&temp, &r_roi)) {
+				/* left + right */
+				opmode |= (ctl->intf_num << 4);
+				pp_split = true;
+			} else if (mdss_rect_cmp(&temp, &l_roi)) {
+				/* right only */
+				opmode |= (ctl->slave_intf_num << 4);
+				pp_split = false;
+			} else {
+				/* left only */
+				opmode |= (ctl->intf_num << 4);
+				pp_split = false;
+			}
+
+			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_TOP, opmode);
+
+			mdss_mdp_ctl_pp_split_display_enable(pp_split, ctl);
+		} else {
+			ctl->panel_data->panel_info.roi = ctl->roi;
+			if (sctl && sctl->panel_data)
+				sctl->panel_data->panel_info.roi = sctl->roi;
+		}
+	}
 
 	if (commit_cb)
 		commit_cb->commit_cb_fnc(MDP_COMMIT_STAGE_READY_FOR_KICKOFF,

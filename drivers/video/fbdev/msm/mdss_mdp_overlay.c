@@ -1520,9 +1520,24 @@ static int mdss_mdp_commit_cb(enum mdp_commit_stage_type commit_stage,
 	return ret;
 }
 
-static bool __validate_roi(struct mdss_mdp_pipe *pipe,
+/**
+ * __is_roi_valid() - Check if ctl roi is valid for a given pipe.
+ * @pipe: pipe to check against.
+ * @ctl_roi: roi of the ctl path.
+ *
+ * Validate ctl roi against pipe's destination rectangle by checking following
+ * conditions. If any of these conditions are met then return failure,
+ * success otherwise.
+ *
+ * 1. Pipe has scaling and pipe's destination is intersecting with ctl roi.
+ * 2. Pipe's destination and ctl roi overlap, meaning pipe's output is
+ *    intersecting or within ctl roi. In such cases, pipe should not be
+ *    part of used list and should have been omitted by user-land program.
+ */
+static bool __is_roi_valid(struct mdss_mdp_pipe *pipe,
 	struct mdss_rect *ctl_roi)
 {
+	/* condition #1 above */
 	if (pipe->scale.enable_pxl_ext ||
 	    (pipe->src.w != pipe->dst.w) ||
 	    (pipe->src.h != pipe->dst.h)) {
@@ -1531,10 +1546,14 @@ static bool __validate_roi(struct mdss_mdp_pipe *pipe,
 		mdss_mdp_intersect_rect(&res, &pipe->dst, ctl_roi);
 
 		if (!mdss_rect_cmp(&res, &pipe->dst))
-			return true;
+			return false;
 	}
 
-	return false;
+	/* condition #2 above */
+	if (mdss_rect_overlap_check(&pipe->dst, ctl_roi))
+		return false;
+
+	return true;
 }
 
 void mdss_pend_mode_switch(struct msm_fb_data_type *mfd, bool pend_switch)
@@ -1689,9 +1708,9 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	if (data && ctl->panel_data->panel_info.partial_update_enabled) {
 		struct mdss_rect ctl_roi;
 		struct mdp_rect *in_roi;
+
 		skip_partial_update = false;
 		list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
-
 			in_roi = pipe->mixer_left->is_right_mixer ?
 				&data->r_roi : &data->l_roi;
 
@@ -1700,10 +1719,14 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 			ctl_roi.w = in_roi->w;
 			ctl_roi.h = in_roi->h;
 
-			if (__validate_roi(pipe, &ctl_roi)) {
+			if (!__is_roi_valid(pipe, &ctl_roi)) {
 				skip_partial_update = true;
-				pr_err("error. invalid config with partial update for pipe%d\n",
+				pr_debug("error. invalid config with partial update for pipe%d\n",
 					pipe->num);
+				pr_debug("ctl_roi: %d,%d,%d,%d pipe->dst: %d,%d,%d,%d\n",
+					ctl_roi.x, ctl_roi.y, ctl_roi.w,
+					ctl_roi.h, pipe->dst.x, pipe->dst.y,
+					pipe->dst.w, pipe->dst.h);
 				break;
 			}
 		}
@@ -1712,6 +1735,8 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	if (!skip_partial_update) {
 		mdss_mdp_set_roi(ctl, data);
 	} else {
+		memset(&temp_data, 0, sizeof(temp_data));
+
 		temp_data.l_roi = (struct mdp_rect){0, 0,
 			ctl->mixer_left->width, ctl->mixer_left->height};
 		if (ctl->mixer_right) {
@@ -3429,7 +3454,7 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 
 	if (mfd->panel_info->partial_update_enabled && mdp5_data->dyn_pu_state
 			&& (cmd != MSMFB_HISTOGRAM_STOP)) {
-		pr_err("Partial update feature is enabled.\n");
+		pr_debug("Partial update feature is enabled.\n");
 		return -EPERM;
 	}
 
