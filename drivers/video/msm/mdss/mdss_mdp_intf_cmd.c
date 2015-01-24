@@ -607,9 +607,6 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 
 	pdata = ctl->panel_data;
 
-	ctl->roi_bkup.w = ctl->width;
-	ctl->roi_bkup.h = ctl->height;
-
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
 			ctx->rdptr_enabled, ctl->roi_bkup.w,
 			ctl->roi_bkup.h);
@@ -1261,8 +1258,9 @@ end:
 }
 
 static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
-		struct mdss_mdp_cmd_ctx *ctx, int pp_num,
-		int pingpong_split_slave) {
+	struct mdss_mdp_cmd_ctx *ctx, int pp_num,
+	int pingpong_split_slave)
+{
 	int ret = 0;
 
 	ctx->ctl = ctl;
