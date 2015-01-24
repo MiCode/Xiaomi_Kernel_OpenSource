@@ -650,7 +650,7 @@ static const struct attribute_group *tpdm_attr_grps[] = {
 
 static int tpdm_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret, i;
 	uint32_t pidr;
 	struct device *dev = &pdev->dev;
 	struct coresight_platform_data *pdata;
@@ -698,7 +698,11 @@ static int tpdm_probe(struct platform_device *pdev)
 
 	clk_disable_unprepare(drvdata->clk);
 
-	bitmap_fill(drvdata->datasets, pidr);
+	for (i = 0; i < TPDM_DATASETS; i++) {
+		if (pidr & BIT(i))
+			__set_bit(i, drvdata->datasets);
+	}
+
 	if (test_bit(TPDM_DS_CMB, drvdata->datasets)) {
 		drvdata->cmb = devm_kzalloc(dev, sizeof(*drvdata->cmb),
 					    GFP_KERNEL);
