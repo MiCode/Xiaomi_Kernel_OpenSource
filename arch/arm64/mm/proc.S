@@ -237,7 +237,7 @@ ENDPROC(__cpu_setup)
 	.type	crval, #object
 crval:
 	.word	0x030802e2			// clear
-	.word	0x0405d03d			// set
+	.word	0x0405d13d			// set
 #else
 	/*
 	 *                 n n            T
