@@ -177,6 +177,14 @@ enum pll {
 	PLL_C,
 };
 
+enum transcoder {
+	TRANSCODER_A = 0,
+	TRANSCODER_B,
+	TRANSCODER_C,
+	TRANSCODER_EDP,
+	I915_MAX_TRANSCODERS
+};
+
 enum intel_plane_blending {
 	INTEL_PLANE_BLENDING_NONE,
 	INTEL_PLANE_BLENDING_PREMULT,

@@ -20,7 +20,6 @@
 #include <drm/i915_drm.h>
 #include <drm/i915_adf.h>
 #include <core/common/dsi/dsi_pipe.h>
-#include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_pri_plane.h>
 #include <core/vlv/vlv_sp_plane.h>
 #include <core/vlv/vlv_dpst.h>

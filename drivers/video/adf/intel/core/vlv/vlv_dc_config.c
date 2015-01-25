@@ -21,6 +21,31 @@
 
 #define VLV_ID(pipe, plane) ((pipe * VLV_MAX_PLANES) + plane)
 
+int chv_pipe_offsets[] = {
+	PIPE_A_OFFSET,
+	PIPE_B_OFFSET,
+	CHV_PIPE_C_OFFSET
+};
+
+int chv_trans_offsets[] = {
+	TRANSCODER_A_OFFSET,
+	TRANSCODER_B_OFFSET,
+	CHV_TRANSCODER_C_OFFSET,
+};
+
+int chv_palette_offsets[] = {
+	PALETTE_A_OFFSET,
+	PALETTE_B_OFFSET,
+	CHV_PALETTE_C_OFFSET
+};
+
+int chv_cursor_offsets[] = {
+	CURSOR_A_OFFSET,
+	CURSOR_B_OFFSET,
+	CHV_CURSOR_C_OFFSET
+};
+
+
 static const struct intel_dc_attachment chv_allowed_attachments[] = {
 	{
 		.pipe_id = PIPE_A,

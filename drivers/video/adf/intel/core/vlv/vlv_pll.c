@@ -50,7 +50,7 @@ bool vlv_pll_init(struct vlv_pll *pll, enum intel_pipe_type type,
 	pll->offset = DPLL(pipe_id);
 	pll->port_id = port_id;
 
-	return false;
+	return true;
 }
 
 bool vlv_pll_destroy(struct vlv_pll *pll)

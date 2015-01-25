@@ -1,4 +1,5 @@
-/* Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+/*
+ * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -34,8 +35,32 @@
 #define _MASKED_BIT_ENABLE(a) (((a) << 16) | (a))
 #define _MASKED_BIT_DISABLE(a) ((a) << 16)
 
-/* PCI config space */
+/*
+ * Local implementation of PIPE2 to support CHV
+ * Note that this doesnt have + mmio_offset
+ * so expecting display reg to have that already
+ */
+extern int chv_pipe_offsets[];
+#define _PIPE2(pipe, reg) (chv_pipe_offsets[pipe] - \
+	chv_pipe_offsets[PIPE_A] + (reg))
 
+extern int chv_trans_offsets[];
+#define _TRANSCODER2(pipe, reg) (chv_trans_offsets[(pipe)] - \
+	chv_trans_offsets[TRANSCODER_A] + (reg))
+
+extern int chv_palette_offsets[];
+#define _PALETTE2(pipe, reg) (chv_palette_offsets[pipe] - \
+	chv_pipe_offsets[PIPE_A] + (reg))
+
+extern int chv_cursor_offsets[];
+#define _CURSOR2(pipe, reg) (chv_cursor_offsets[pipe] - \
+	chv_pipe_offsets[PIPE_A] + (reg))
+
+#define _PIPE3(pipe, a, b, c) ((pipe) == PIPE_A ? (a) : \
+	(pipe) == PIPE_B ? (b) : (c))
+
+
+/* PCI config space */
 #define HPLLCC	0xc0 /* 855 only */
 #define   GC_CLOCK_CONTROL_MASK		(0xf << 0)
 #define   GC_CLOCK_133_200		(0 << 0)
@@ -459,7 +484,6 @@
 #define  DPIO_CMNRST			(1<<0)
 
 #define DPIO_PHY(pipe)			((pipe) >> 1)
-#define DPIO_PHY_IOSF_PORT(phy)		(dev_priv->dpio_phy_iosf_port[phy])
 
 /*
  * Per pipe/PLL DPIO regs
@@ -1317,7 +1341,8 @@
 #define   DPLL_MD_VGA_UDI_MULTIPLIER_MASK	0x0000003f
 #define   DPLL_MD_VGA_UDI_MULTIPLIER_SHIFT	0
 #define _DPLL_B_MD (VLV_DISPLAY_BASE + 0x6020) /* 965+ only */
-#define DPLL_MD(pipe) _PIPE(pipe, _DPLL_A_MD, _DPLL_B_MD)
+#define _CHV_DPLL_C_MD (VLV_DISPLAY_BASE + 0x603c)
+#define DPLL_MD(pipe) _PIPE3((pipe), _DPLL_A_MD, _DPLL_B_MD, _CHV_DPLL_C_MD)
 
 #define _FPA0	0x06040
 #define _FPA1	0x06044
@@ -1478,7 +1503,8 @@
 
 #define _PALETTE_A		(VLV_DISPLAY_BASE + 0xa000)
 #define _PALETTE_B		(VLV_DISPLAY_BASE + 0xa800)
-#define PALETTE(pipe) _PIPE(pipe, _PALETTE_A, _PALETTE_B)
+#define _CHV_PALETTE_C	(VLV_DISPLAY_BASE + 0xc000)
+#define PALETTE(pipe) _PIPE3(pipe, _PALETTE_A, _PALETTE_B, _CHV_PALETTE_C)
 
 /* MCH MMIO space */
 
@@ -1963,14 +1989,14 @@
 #define _BCLRPAT_B	(VLV_DISPLAY_BASE + 0x61020)
 #define _VSYNCSHIFT_B	(VLV_DISPLAY_BASE + 0x61028)
 
-#define HTOTAL(trans) _TRANSCODER(trans, _HTOTAL_A, _HTOTAL_B)
-#define HBLANK(trans) _TRANSCODER(trans, _HBLANK_A, _HBLANK_B)
-#define HSYNC(trans) _TRANSCODER(trans, _HSYNC_A, _HSYNC_B)
-#define VTOTAL(trans) _TRANSCODER(trans, _VTOTAL_A, _VTOTAL_B)
-#define VBLANK(trans) _TRANSCODER(trans, _VBLANK_A, _VBLANK_B)
-#define VSYNC(trans) _TRANSCODER(trans, _VSYNC_A, _VSYNC_B)
-#define BCLRPAT(pipe) _PIPE(pipe, _BCLRPAT_A, _BCLRPAT_B)
-#define VSYNCSHIFT(trans) _TRANSCODER(trans, _VSYNCSHIFT_A, _VSYNCSHIFT_B)
+#define HTOTAL(trans) _TRANSCODER2(trans, _HTOTAL_A)
+#define HBLANK(trans) _TRANSCODER2(trans, _HBLANK_A)
+#define HSYNC(trans) _TRANSCODER2(trans, _HSYNC_A)
+#define VTOTAL(trans) _TRANSCODER2(trans, _VTOTAL_A)
+#define VBLANK(trans) _TRANSCODER2(trans, _VBLANK_A)
+#define VSYNC(trans) _TRANSCODER2(trans, _VSYNC_A)
+#define BCLRPAT(pipe) _TRANSCODER2(pipe, _BCLRPAT_A)
+#define VSYNCSHIFT(trans) _TRANSCODER2(trans, _VSYNCSHIFT_A)
 
 /* HSW+ eDP PSR registers */
 #define EDP_PSR_BASE(dev)                       (IS_HASWELL(dev) ? 0x64800 : 0x6f800)
@@ -3291,12 +3317,12 @@
 #define   PIPE_VBLANK_INTERRUPT_STATUS		(1UL<<1)
 #define   PIPE_OVERLAY_UPDATED_STATUS		(1UL<<0)
 
-#define PIPESRC(pipe) _PIPE(pipe, _PIPEASRC, _PIPEBSRC)
-#define PIPECONF(tran) _TRANSCODER(tran, _PIPEACONF, _PIPEBCONF)
-#define PIPEDSL(pipe)  _PIPE(pipe, _PIPEADSL, _PIPEBDSL)
-#define PIPEFRAME(pipe) _PIPE(pipe, _PIPEAFRAMEHIGH, _PIPEBFRAMEHIGH)
-#define PIPEFRAMEPIXEL(pipe)  _PIPE(pipe, _PIPEAFRAMEPIXEL, _PIPEBFRAMEPIXEL)
-#define PIPESTAT(pipe) _PIPE(pipe, _PIPEASTAT, _PIPEBSTAT)
+#define PIPESRC(pipe) _TRANSCODER2(pipe, _PIPEASRC)
+#define PIPECONF(tran) _PIPE2(tran, _PIPEACONF)
+#define PIPEDSL(pipe)  _PIPE2(pipe, _PIPEADSL)
+#define PIPEFRAME(pipe) _PIPE2(pipe, _PIPEAFRAMEHIGH)
+#define PIPEFRAMEPIXEL(pipe)  _PIPE2(pipe, _PIPEAFRAMEPIXEL)
+#define PIPESTAT(pipe) _PIPE2(pipe, _PIPEASTAT)
 
 #define _PIPE_MISC_A			0x70030
 #define _PIPE_MISC_B			0x71030
@@ -3308,7 +3334,7 @@
 #define   PIPEMISC_DITHER_ENABLE	(1<<4)
 #define   PIPEMISC_DITHER_TYPE_MASK	(3<<2)
 #define   PIPEMISC_DITHER_TYPE_SP	(0<<2)
-#define PIPEMISC(pipe) _PIPE(pipe, _PIPE_MISC_A, _PIPE_MISC_B)
+#define PIPEMISC(pipe) _PIPE2(pipe, _PIPE_MISC_A)
 
 #define VLV_DPFLIPSTAT				(VLV_DISPLAY_BASE + 0x70028)
 #define   PIPEB_LINE_COMPARE_INT_EN		(1<<29)
@@ -3552,7 +3578,7 @@
 /* GM45+ just has to be different */
 #define _PIPEA_FRMCOUNT_GM45	(VLV_DISPLAY_BASE + 0x70040)
 #define _PIPEA_FLIPCOUNT_GM45	(VLV_DISPLAY_BASE + 0x70044)
-#define PIPE_FRMCOUNT_GM45(pipe) _PIPE(pipe, _PIPEA_FRMCOUNT_GM45, _PIPEB_FRMCOUNT_GM45)
+#define PIPE_FRMCOUNT_GM45(pipe) _PIPE2(pipe, _PIPEA_FRMCOUNT_GM45)
 
 /* Cursor A & B regs */
 #define _CURACNTR		(VLV_DISPLAY_BASE + 0x70080)
@@ -3647,16 +3673,16 @@
 #define _DSPAOFFSET		(VLV_DISPLAY_BASE + 0x701A4) /* HSW */
 #define _DSPASURFLIVE		(VLV_DISPLAY_BASE + 0x701AC)
 
-#define DSPCNTR(plane) _PIPE(plane, _DSPACNTR, _DSPBCNTR)
-#define DSPADDR(plane) _PIPE(plane, _DSPAADDR, _DSPBADDR)
-#define DSPSTRIDE(plane) _PIPE(plane, _DSPASTRIDE, _DSPBSTRIDE)
-#define DSPPOS(plane) _PIPE(plane, _DSPAPOS, _DSPBPOS)
-#define DSPSIZE(plane) _PIPE(plane, _DSPASIZE, _DSPBSIZE)
-#define DSPSURF(plane) _PIPE(plane, _DSPASURF, _DSPBSURF)
-#define DSPTILEOFF(plane) _PIPE(plane, _DSPATILEOFF, _DSPBTILEOFF)
+#define DSPCNTR(plane) _PIPE2(plane, _DSPACNTR)
+#define DSPADDR(plane) _PIPE2(plane, _DSPAADDR)
+#define DSPSTRIDE(plane) _PIPE2(plane, _DSPASTRIDE)
+#define DSPPOS(plane) _PIPE2(plane, _DSPAPOS)
+#define DSPSIZE(plane) _PIPE2(plane, _DSPASIZE)
+#define DSPSURF(plane) _PIPE2(plane, _DSPASURF)
+#define DSPTILEOFF(plane) _PIPE2(plane, _DSPATILEOFF)
 #define DSPLINOFF(plane) DSPADDR(plane)
-#define DSPOFFSET(plane) _PIPE(plane, _DSPAOFFSET, _DSPBOFFSET)
-#define DSPSURFLIVE(plane) _PIPE(plane, _DSPASURFLIVE, _DSPBSURFLIVE)
+#define DSPOFFSET(plane) _PIPE2(plane, _DSPAOFFSET)
+#define DSPSURFLIVE(plane) _PIPE2(plane, _DSPASURFLIVE)
 
 /* Display/Sprite base address macros */
 #define DISP_BASEADDR_MASK	(0xfffff000)
@@ -4472,6 +4498,10 @@
 
 /* Per-transcoder DIP controls */
 
+#define CHV_VIDEO_DIP_CTL_C            (VLV_DISPLAY_BASE + 0x611f0)
+#define CHV_VIDEO_DIP_DATA_C           (VLV_DISPLAY_BASE + 0x611f4)
+#define CHV_VIDEO_DIP_GDCP_PAYLOAD_C   (VLV_DISPLAY_BASE + 0x611f8)
+
 #define _VIDEO_DIP_CTL_A         0xe0200
 #define _VIDEO_DIP_DATA_A        0xe0208
 #define _VIDEO_DIP_GCP_A         0xe0210
@@ -4480,9 +4510,12 @@
 #define _VIDEO_DIP_DATA_B        0xe1208
 #define _VIDEO_DIP_GCP_B         0xe1210
 
-#define TVIDEO_DIP_CTL(pipe) _PIPE(pipe, _VIDEO_DIP_CTL_A, _VIDEO_DIP_CTL_B)
-#define TVIDEO_DIP_DATA(pipe) _PIPE(pipe, _VIDEO_DIP_DATA_A, _VIDEO_DIP_DATA_B)
-#define TVIDEO_DIP_GCP(pipe) _PIPE(pipe, _VIDEO_DIP_GCP_A, _VIDEO_DIP_GCP_B)
+#define TVIDEO_DIP_CTL(pipe) _PIPE3(pipe, _VIDEO_DIP_CTL_A, \
+		_VIDEO_DIP_CTL_B, CHV_VIDEO_DIP_CTL_C)
+#define TVIDEO_DIP_DATA(pipe) _PIPE3(pipe, _VIDEO_DIP_DATA_A, \
+		_VIDEO_DIP_DATA_B, CHV_VIDEO_DIP_DATA_C)
+#define TVIDEO_DIP_GCP(pipe) _PIPE3(pipe, _VIDEO_DIP_GCP_A, \
+		_VIDEO_DIP_GCP_B, CHV_VIDEO_DIP_GDCP_PAYLOAD_C)
 
 #define VLV_VIDEO_DIP_CTL_A		(VLV_DISPLAY_BASE + 0x60200)
 #define VLV_VIDEO_DIP_DATA_A		(VLV_DISPLAY_BASE + 0x60208)
@@ -4493,11 +4526,14 @@
 #define VLV_VIDEO_DIP_GDCP_PAYLOAD_B	(VLV_DISPLAY_BASE + 0x61178)
 
 #define VLV_TVIDEO_DIP_CTL(pipe) \
-	 _PIPE(pipe, VLV_VIDEO_DIP_CTL_A, VLV_VIDEO_DIP_CTL_B)
+	_PIPE3((pipe), VLV_VIDEO_DIP_CTL_A, \
+	       VLV_VIDEO_DIP_CTL_B, CHV_VIDEO_DIP_CTL_C)
 #define VLV_TVIDEO_DIP_DATA(pipe) \
-	 _PIPE(pipe, VLV_VIDEO_DIP_DATA_A, VLV_VIDEO_DIP_DATA_B)
+	_PIPE3((pipe), VLV_VIDEO_DIP_DATA_A, \
+	       VLV_VIDEO_DIP_DATA_B, CHV_VIDEO_DIP_DATA_C)
 #define VLV_TVIDEO_DIP_GCP(pipe) \
-	_PIPE(pipe, VLV_VIDEO_DIP_GDCP_PAYLOAD_A, VLV_VIDEO_DIP_GDCP_PAYLOAD_B)
+	_PIPE3((pipe), VLV_VIDEO_DIP_GDCP_PAYLOAD_A, \
+		VLV_VIDEO_DIP_GDCP_PAYLOAD_B, CHV_VIDEO_DIP_GDCP_PAYLOAD_C)
 
 /* Haswell DIP controls */
 #define HSW_VIDEO_DIP_CTL_A		0x60200
@@ -5201,6 +5237,7 @@
 #define   AUD_CONFIG_PIXEL_CLOCK_HDMI_74250	(7 << 16)
 #define   AUD_CONFIG_PIXEL_CLOCK_HDMI_148352	(8 << 16)
 #define   AUD_CONFIG_PIXEL_CLOCK_HDMI_148500	(9 << 16)
+#define   AUD_CONFIG_PIXEL_CLOCK_HDMI_297000	(0xA << 16)
 #define   AUD_CONFIG_DISABLE_NCTS		(1 << 3)
 
 /* HSW Audio */
@@ -5947,6 +5984,26 @@
 #define _MIPIB_READ_DATA_VALID			(VLV_DISPLAY_BASE + 0xb938)
 #define MIPI_READ_DATA_VALID(pipe)	_PIPE(pipe, _MIPIA_READ_DATA_VALID, _MIPIB_READ_DATA_VALID)
 #define  READ_DATA_VALID(n)				(1 << (n))
+
+/* Offsets to get info from */
+#define PIPE_A_OFFSET		0x70000
+#define PIPE_B_OFFSET		0x71000
+#define PIPE_C_OFFSET		0x72000
+#define CHV_PIPE_C_OFFSET	0x74000
+
+#define TRANSCODER_A_OFFSET	0x60000
+#define TRANSCODER_B_OFFSET	0x61000
+#define TRANSCODER_C_OFFSET	0x62000
+#define CHV_TRANSCODER_C_OFFSET 0x63000
+#define TRANSCODER_EDP_OFFSET	0x6f000
+
+#define PALETTE_A_OFFSET	0xa000
+#define PALETTE_B_OFFSET	0xa800
+#define CHV_PALETTE_C_OFFSET	0xc000
+
+#define CURSOR_A_OFFSET		0x70080
+#define CURSOR_B_OFFSET		0x700c0
+#define CHV_CURSOR_C_OFFSET	0x700e0
 
 /**
  * _wait_for - magic (register) wait macro
