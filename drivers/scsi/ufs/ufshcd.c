@@ -1833,7 +1833,7 @@ int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 {
 	int ret = 0;
 
-	if (hba->vops->crypto_engine_cfg) {
+	if (hba->vops && hba->vops->crypto_engine_cfg) {
 		ret = hba->vops->crypto_engine_cfg(hba, task_tag);
 		if (ret) {
 			dev_err(hba->dev,
@@ -3915,7 +3915,7 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 		dev_err(hba->dev,
 			"%s: power mode change failed %d\n", __func__, ret);
 	} else {
-		if (hba->vops->pwr_change_notify)
+		if (hba->vops && hba->vops->pwr_change_notify)
 			hba->vops->pwr_change_notify(hba,
 				POST_CHANGE, NULL, pwr_mode);
 
@@ -3938,7 +3938,7 @@ static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 	struct ufs_pa_layer_attr final_params = { 0 };
 	int ret;
 
-	if (hba->vops->pwr_change_notify)
+	if (hba->vops && hba->vops->pwr_change_notify)
 		hba->vops->pwr_change_notify(hba,
 		     PRE_CHANGE, desired_pwr_mode, &final_params);
 	else
@@ -5893,7 +5893,7 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 		goto out;
 	}
 
-	if (hba->vops->crypto_engine_reset) {
+	if (hba->vops && hba->vops->crypto_engine_reset) {
 		err = hba->vops->crypto_engine_reset(hba);
 		if (err) {
 			dev_err(hba->dev,
@@ -6787,7 +6787,7 @@ static int ufshcd_setup_hba_vreg(struct ufs_hba *hba, bool on)
 	if (info->vdd_hba) {
 		ret = ufshcd_toggle_vreg(hba->dev, info->vdd_hba, on);
 
-		if (!ret && hba->vops->update_sec_cfg)
+		if (!ret && hba->vops && hba->vops->update_sec_cfg)
 			hba->vops->update_sec_cfg(hba, on);
 	}
 
@@ -6924,7 +6924,7 @@ out:
 					hba->clk_gating.state));
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 		/* restore the secure configuration as clocks are enabled */
-		if (hba->vops->update_sec_cfg)
+		if (hba->vops && hba->vops->update_sec_cfg)
 			hba->vops->update_sec_cfg(hba, true);
 	}
 
@@ -8015,7 +8015,7 @@ static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
 	hba->pm_qos.is_suspended = !scale_up;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-	if (clk_state_changed && hba->vops->clk_scale_notify)
+	if (clk_state_changed && hba->vops && hba->vops->clk_scale_notify)
 		hba->vops->clk_scale_notify(hba);
 out:
 	if (clk_state_changed)
