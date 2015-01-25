@@ -440,6 +440,7 @@ struct intel_pipe {
 struct intel_dc_attachment {
 	u8 plane_id;
 	u8 pipe_id;
+	u8 pll_id;
 };
 
 struct intel_pipeline {

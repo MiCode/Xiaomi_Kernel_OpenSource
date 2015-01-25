@@ -25,38 +25,47 @@ static const struct intel_dc_attachment chv_allowed_attachments[] = {
 	{
 		.pipe_id = PIPE_A,
 		.plane_id = PRIMARY_PLANE,
+		.pll_id = PLL_A,
 	},
 	{
 		.pipe_id = PIPE_A,
 		.plane_id = SPRITE_A,
+		.pll_id = PLL_A,
 	},
 	{
 		.pipe_id = PIPE_A,
 		.plane_id = SPRITE_B,
+		.pll_id = PLL_A,
 	},
 	{
 		.pipe_id = PIPE_B,
 		.plane_id = SECONDARY_PLANE,
+		.pll_id = PLL_B,
 	},
 	{
 		.pipe_id = PIPE_B,
 		.plane_id = SPRITE_C,
+		.pll_id = PLL_B,
 	},
 	{
 		.pipe_id = PIPE_B,
 		.plane_id = SPRITE_D,
+		.pll_id = PLL_B,
 	},
 	{
 		.pipe_id = PIPE_C,
 		.plane_id = TERTIARY_PLANE,
+		.pll_id = PLL_C,
 	},
 	{
 		.pipe_id = PIPE_C,
 		.plane_id = SPRITE_E,
+		.pll_id = PLL_C,
 	},
 	{
 		.pipe_id = PIPE_C,
 		.plane_id = SPRITE_F,
+		.pll_id = PLL_C,
 	}
 };
 
@@ -64,26 +73,32 @@ static const struct intel_dc_attachment vlv_allowed_attachments[] = {
 	{
 		.pipe_id = PIPE_A,
 		.plane_id = PRIMARY_PLANE,
+		.pll_id = PLL_A,
 	},
 	{
 		.pipe_id = PIPE_A,
 		.plane_id = SPRITE_A,
+		.pll_id = PLL_A,
 	},
 	{
 		.pipe_id = PIPE_A,
 		.plane_id = SPRITE_B,
+		.pll_id = PLL_A,
 	},
 	{
 		.pipe_id = PIPE_B,
 		.plane_id = SECONDARY_PLANE,
+		.pll_id = PLL_B,
 	},
 	{
 		.pipe_id = PIPE_B,
 		.plane_id = SPRITE_C,
+		.pll_id = PLL_B,
 	},
 	{
 		.pipe_id = PIPE_B,
 		.plane_id = SPRITE_D,
+		.pll_id = PLL_B,
 	}
 };
 
