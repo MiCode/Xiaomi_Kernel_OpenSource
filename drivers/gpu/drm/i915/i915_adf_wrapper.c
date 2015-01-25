@@ -189,4 +189,11 @@ u16 intel_get_dsi_port_frm_vbt(void)
 }
 EXPORT_SYMBOL(intel_get_dsi_port_frm_vbt);
 
+void intel_get_vbt_disp_conf(void **child_dev, int *child_dev_num)
+{
+	*child_dev = (void *)i915_adf_dev->vbt.child_dev;
+	*child_dev_num = i915_adf_dev->vbt.child_dev_num;
+}
+EXPORT_SYMBOL(intel_get_vbt_disp_conf);
+
 #endif
