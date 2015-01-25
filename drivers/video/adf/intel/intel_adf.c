@@ -14,7 +14,38 @@
 #include <drm/i915_adf.h>
 #include <intel_adf.h>
 
-static const struct intel_adf_context *g_adf_context;
+const struct intel_adf_context *g_adf_context;
+
+static int init_hotplug_handling(struct intel_adf_context *ctx)
+{
+
+	/* Enable hotplug */
+	intel_adf_hpd_init(ctx);
+
+	/* Create a wq dedicated to hotplug */
+	ctx->hotplug_wq = create_singlethread_workqueue("hotplug-bh");
+	if (!ctx->hotplug_wq) {
+		pr_err("ADF: %s: Cant create hotplug work queue\n", __func__);
+		return -ENOMEM;
+	}
+
+	/* Init work */
+	INIT_WORK(&ctx->hotplug_work, intel_adf_hotplug_work_function);
+	pr_debug("ADF: %s: Hot plug work initialized\n", __func__);
+
+	/* Create another for short pulse events (DP) */
+	ctx->shortpulse_wq = create_singlethread_workqueue("short-pulse-bh");
+	if (!ctx->shortpulse_wq) {
+		pr_err("ADF: %s: Cant create short pulse queue\n", __func__);
+		return -ENOMEM;
+	}
+
+	/* Init work */
+	INIT_WORK(&ctx->shortpulse_work, intel_adf_hotplug_work_function);
+	pr_debug("ADF: %s: Hot plug work initialized\n", __func__);
+
+	return 0;
+}
 
 static struct intel_adf_interface *create_interfaces(
 	struct intel_adf_device *dev,
@@ -302,6 +333,14 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 	ctx->n_engs = n_engs;
 	ctx->intfs = intfs;
 	ctx->n_intfs = n_intfs;
+
+	/* Init hotplug only after context loading */
+	err = init_hotplug_handling(ctx);
+	if (err) {
+		dev_err(&pdev->dev, "%s: failed to init interrupt handlers\n",
+				__func__);
+		goto err;
+	}
 
 	g_adf_context = ctx;
 

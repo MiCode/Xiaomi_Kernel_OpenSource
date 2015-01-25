@@ -48,7 +48,8 @@ static u32 to_intel_pipe_event(enum adf_event_type event)
 		break;
 	case ADF_EVENT_HOTPLUG:
 		pipe_event = (INTEL_PIPE_EVENT_HOTPLUG_CONNECTED |
-			INTEL_PIPE_EVENT_HOTPLUG_DISCONNECTED);
+			INTEL_PIPE_EVENT_HOTPLUG_DISCONNECTED |
+				INTEL_PORT_EVENT_HOTPLUG_DISPLAY);
 		break;
 	default:
 		pipe_event = INTEL_PIPE_EVENT_UNKNOWN;
@@ -329,13 +330,15 @@ static void handle_hotplug_disconnected(struct intel_adf_interface *intf)
 
 int intel_adf_interface_handle_event(struct intel_adf_interface *intf)
 {
-	struct intel_pipe *pipe = intf->pipe;
+	int ret = 0;
 	u32 events = 0;
+	struct intel_pipe *pipe = intf->pipe;
 
 	if (!pipe || !pipe->ops || !pipe->ops->get_events)
 		return IRQ_NONE;
 
-	pipe->ops->get_events(pipe, &events);
+	if (pipe->ops->get_events)
+		pipe->ops->get_events(pipe, &events);
 
 	if (!events)
 		return IRQ_NONE;
@@ -355,8 +358,15 @@ int intel_adf_interface_handle_event(struct intel_adf_interface *intf)
 		events &= ~INTEL_PIPE_EVENT_HOTPLUG_DISCONNECTED;
 	}
 
-	if (events && INTEL_PIPE_EVENT_DPST)
-		pipe->ops->dpst_irq_handler(pipe);
+	if (events && INTEL_PIPE_EVENT_DPST) {
+		if (pipe->ops->dpst_irq_handler) {
+			ret = pipe->ops->dpst_irq_handler(pipe);
+			if (ret) {
+				pr_err("ADF: failed to handle dpst interrupts\n");
+				return IRQ_NONE;
+			}
+		}
+	}
 
 	if (events && pipe->ops->handle_events)
 		pipe->ops->handle_events(pipe, events);

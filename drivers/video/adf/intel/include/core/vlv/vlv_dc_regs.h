@@ -2091,6 +2091,8 @@
 #define   PORTB_HOTPLUG_INT_EN			(1 << 29)
 #define   PORTC_HOTPLUG_INT_EN			(1 << 28)
 #define   PORTD_HOTPLUG_INT_EN			(1 << 27)
+#define PORT_HOTPLUG_INT_EN(port) (PORTB_HOTPLUG_INT_EN >> \
+						(port - PORT_B))
 #define   SDVOB_HOTPLUG_INT_EN			(1 << 26)
 #define   SDVOC_HOTPLUG_INT_EN			(1 << 25)
 #define   TV_HOTPLUG_INT_EN			(1 << 18)
@@ -2132,9 +2134,23 @@
 #define   PORTD_HOTPLUG_LIVE_STATUS_VLV		(1 << 27)
 #define   PORTC_HOTPLUG_LIVE_STATUS_VLV		(1 << 28)
 #define   PORTB_HOTPLUG_LIVE_STATUS_VLV		(1 << 29)
+#define PORT_HOTPLUG_LIVE_STATUS(port) (PORTB_HOTPLUG_LIVE_STATUS_VLV \
+							>> (port - PORT_B))
+
 #define   PORTD_HOTPLUG_INT_STATUS		(3 << 21)
 #define   PORTC_HOTPLUG_INT_STATUS		(3 << 19)
 #define   PORTB_HOTPLUG_INT_STATUS		(3 << 17)
+#define PORT_HOTPLUG_INT_STATUS(port) (PORTB_HOTPLUG_INT_STATUS \
+						<< (2 * (port - PORT_B)))
+#define PORT_HOTPLUG_INT_STATUS_ALL (PORTB_HOTPLUG_INT_STATUS \
+		| PORTC_HOTPLUG_INT_STATUS | PORTD_HOTPLUG_INT_STATUS)
+
+#define PORTD_HOTPLUG_LONG_PULSE		(1 << 22)
+#define PORTC_HOTPLUG_LONG_PULSE		(1 << 20)
+#define PORTB_HOTPLUG_LONG_PULSE		(1 << 18)
+#define PORT_HOTPLUG_LONG_PULSE(port) ( \
+		PORTB_HOTPLUG_LONG_PULSE << (2 * (port - PORT_B)))
+
 /* CRT/TV common between gen3+ */
 #define   CRT_HOTPLUG_INT_STATUS		(1 << 11)
 #define   TV_HOTPLUG_INT_STATUS			(1 << 10)
@@ -2145,7 +2161,17 @@
 #define   DP_AUX_CHANNEL_D_INT_STATUS_G4X	(1 << 6)
 #define   DP_AUX_CHANNEL_C_INT_STATUS_G4X	(1 << 5)
 #define   DP_AUX_CHANNEL_B_INT_STATUS_G4X	(1 << 4)
+#define   DP_AUX_CHANNEL_INT_STATUS_G4X(port) ( \
+		DP_AUX_CHANNEL_B_INT_STATUS_G4X << (port - PORT_B))
 #define   DP_AUX_CHANNEL_MASK_INT_STATUS_G4X	(7 << 4)
+#define   PIPEA_AUDIO_HDCP_REQUEST		(1 << 16)
+#define   PIPEB_AUDIO_HDCP_REQUEST		(1 << 0)
+#define   PIPE_AUDIO_HDCP_REQUEST(pipe) \
+				(PIPEA_AUDIO_HDCP_REQUEST >> (16 * pipe))
+#define   PORTB_AUDIO_HDCP_REQUEST		(1 << 15)
+#define   PORTC_AUDIO_HDCP_REQUEST		(1 << 14)
+#define   PORT_AUDIO_HDCP_REQUEST(port) \
+				(PORTB_AUDIO_HDCP_REQUEST >> (port - PORT_B))
 
 /* SDVO is different across gen3/4 */
 #define   SDVOC_HOTPLUG_INT_STATUS_G4X		(1 << 3)

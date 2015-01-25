@@ -44,11 +44,22 @@ struct intel_adf_context {
 #ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 	struct backlight_device *bl_dev;
 #endif
+	/*
+	 * hotplug work and work queues, one for each long pulse
+	 * and short pulse interrupts.
+	 */
+	struct workqueue_struct *hotplug_wq;
+	struct work_struct hotplug_work;
+	struct workqueue_struct *shortpulse_wq;
+	struct work_struct shortpulse_work;
 };
 
+extern const struct intel_adf_context *g_adf_context;
 extern struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev);
 extern void intel_adf_context_destroy(struct intel_adf_context *ctx);
 extern int intel_adf_context_on_event(void);
 extern int intel_adf_map_dma_to_flip(unsigned long args);
 extern int intel_adf_unmap_dma_to_flip(unsigned long args);
+extern void intel_adf_hotplug_work_function(struct work_struct *work);
+extern void intel_adf_hpd_init(struct intel_adf_context *ctx);
 #endif /* INTEL_ADF_H_ */

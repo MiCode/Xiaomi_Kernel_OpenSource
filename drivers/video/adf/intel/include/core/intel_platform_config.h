@@ -41,8 +41,6 @@ u32 vlv_dpst_irq_handler(struct intel_pipeline *pipeline);
 u32 vlv_num_planes_enabled(struct intel_pipeline *pipeline);
 bool vlv_can_be_disabled(struct intel_pipeline *pipeline);
 bool vlv_update_maxfifo_status(struct intel_pipeline *pipeline, bool enable);
-u32 vlv_set_event(struct intel_pipeline *pipeline, u32 event, bool enabled);
-u32 vlv_get_event(struct intel_pipeline *pipeline, u32 *event);
 int vlv_enable_plane(struct intel_pipeline *pipeline,
 		struct intel_plane *plane);
 int vlv_disable_plane(struct intel_pipeline *pipeline,

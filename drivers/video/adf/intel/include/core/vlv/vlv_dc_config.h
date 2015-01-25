@@ -150,6 +150,7 @@ bool vlv_intf_screen_connected(struct intel_pipeline *pipeline);
 u32 vlv_intf_vsync_counter(struct intel_pipeline *pipeline, u32 interval);
 
 /* vlv_modeset */
+extern enum port vlv_get_connected_port(struct intel_pipe *intel_pipe);
 extern bool vlv_wait_for_vblank(struct intel_pipeline *pipeline);
 extern void vlv_evade_vblank(struct intel_pipeline *pipeline,
 			struct drm_mode_modeinfo *mode, bool *wait_for_vblank);
@@ -167,9 +168,6 @@ extern bool vlv_is_vid_mode(struct intel_pipeline *pipeline);
 extern bool vlv_can_be_disabled(struct intel_pipeline *pipeline);
 extern bool vlv_update_maxfifo_status(struct intel_pipeline *pipeline,
 		bool enable);
-extern u32 vlv_get_event(struct intel_pipeline *pipeline, u32 *event);
-extern u32 vlv_set_event(struct intel_pipeline *pipeline, u32 event,
-		bool enabled);
 extern int vlv_cmd_dpi_send_cmd(struct intel_pipeline *pipeline, u32 cmd,
 		bool hs);
 extern int vlv_cmd_vc_generic_read(struct intel_pipeline *pipeline,

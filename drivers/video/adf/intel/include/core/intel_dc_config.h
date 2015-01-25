@@ -35,12 +35,16 @@
 #define DVO_PORT_DSI_C			23
 #define DVO_PORT_DSI_D			24
 
+#define CHV_MAX_PLANES VLV_MAX_PLANES
+
 struct intel_dc_component;
 struct intel_plane;
 struct intel_pipe;
 struct intel_dc_memory;
 struct intel_dc_power_ops;
 struct intel_pipeline;
+
+#define VSYNC_COUNT_MAX_MASK 0xffffff
 
 enum gen_id {
 	gen_invalid = 0,
@@ -67,6 +71,7 @@ enum port {
 	PORT_B,
 	PORT_C,
 	PORT_D,
+	PORT_INVALID,
 };
 
 enum pll {
@@ -268,6 +273,16 @@ enum intel_pipe_event {
 	INTEL_PIPE_EVENT_DPST = 0x400,
 };
 
+enum intel_port_event {
+	INTEL_PORT_EVENT_HOTPLUG_DISPLAY = (1 << 11),
+	INTEL_PORT_EVENT_AUDIO = (1 << 12),
+	INTEL_PORT_EVENT_HOTPLUG_CRT = (1 << 13),
+	INTEL_PORT_EVENT_HOTPLUG_TV = (1 << 14),
+	INTEL_PORT_EVENT_AUX = (1 << 15),
+	INTEL_PORT_EVENT_SDVO = (1 << 16),
+	INTEL_PORT_EVENT_SHORT = (1 << 17)
+};
+
 /**
  * struct intel_pipe_ops - Intel display controller pipe operations
  *
@@ -354,6 +369,7 @@ struct intel_pipe {
 	bool dpst_enabled;
 	struct intel_pipeline *pipeline;
 	u32 vsync_counter;
+	bool hp_reqd;
 	/*
 	 * Store the computed reg values in this to apply in
 	 * one shot later in flip calls
@@ -483,4 +499,9 @@ extern struct intel_dc_config *intel_adf_get_dc_config(
 	struct pci_dev *pdev, const u32 id);
 extern void intel_adf_destroy_config(struct intel_dc_config *config);
 
+/* From intel_adf_events.c */
+extern int intel_adf_handle_events(struct intel_pipe *pipe, u32 events);
+extern int intel_adf_set_event(struct intel_pipe *pipe, u16 event,
+		bool enabled);
+extern int intel_adf_get_events(struct intel_pipe *pipe, u32 *events);
 #endif /* INTEL_DC_CONFIG_H_ */

@@ -483,34 +483,42 @@ static u32 dsi_get_supported_events(struct intel_pipe *pipe)
 
 int dsi_set_event(struct intel_pipe *pipe, u16 event, bool enabled)
 {
+	int ret;
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
-	struct intel_pipeline *pipeline = dsi_pipe->pipeline;
 
-	return vlv_set_event(pipeline, event, enabled);
+	pr_debug("ADF: %s\n", __func__);
+
+	/* HW events */
+	ret = intel_adf_set_event(pipe, event, enabled);
+	if (ret) {
+		pr_err("ADF: %s: Failed to set events\n", __func__);
+		return ret;
+	}
+
+	/* Encoder events */
+	if (dsi_pipe->ops.set_event) {
+		ret = dsi_pipe->ops.set_event(dsi_pipe, event, enabled);
+		if (ret)
+			pr_err("ADF: %s: Failed to set DSI events\n", __func__);
+	}
+	return ret;
 }
-
-/**
- * FIXME: hardware vsync counter failed to work on ANN. use static SW
- * counter for now.
- */
-static u32 vsync_counter;
-
-#define VSYNC_COUNT_MAX_MASK 0xffffff
 
 static void dsi_get_events(struct intel_pipe *pipe, u32 *events)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
-	struct intel_pipeline *pipeline = dsi_pipe->pipeline;
 
-	vlv_get_event(pipeline, events);
+	pr_debug("ADF: %s\n", __func__);
 
-	/**
-	 * FIXME: should use hardware vsync counter.
-	 */
-	if (*events & INTEL_PIPE_EVENT_VSYNC) {
-		if (++vsync_counter > VSYNC_COUNT_MAX_MASK)
-			vsync_counter = 0;
+	/* HW events */
+	if (intel_adf_get_events(pipe, events)) {
+		pr_err("ADF: %s: Failed to get events\n", __func__);
+		return;
 	}
+
+	/* Encoder events */
+	if (dsi_pipe->ops.get_events)
+		dsi_pipe->ops.get_events(dsi_pipe, events);
 }
 
 u32 dsi_get_vsync_counter(struct intel_pipe *pipe, u32 interval)
@@ -532,6 +540,15 @@ static void dsi_handle_events(struct intel_pipe *pipe, u32 events)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
 
+	pr_debug("ADF: %s\n", __func__);
+
+	/* HW events */
+	if (intel_adf_handle_events(pipe, events)) {
+		pr_err("ADF: %s: failed to handle events\n", __func__);
+		return;
+	}
+
+	/* Encoder specific events */
 	if (dsi_pipe->ops.handle_events)
 		dsi_pipe->ops.handle_events(dsi_pipe, events);
 }

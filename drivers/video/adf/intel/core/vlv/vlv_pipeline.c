@@ -25,6 +25,11 @@
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
 
+enum port vlv_get_connected_port(struct intel_pipe *intel_pipe)
+{
+	return PORT_INVALID;
+}
+
 bool vlv_wait_for_vblank(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
@@ -101,7 +106,6 @@ u32 vlv_dsi_prepare_on(struct intel_pipeline *pipeline,
 		pll->config = pipeline->params.dsi.dsi_config;
 
 		vlv_dsi_pll_enable(pll, mode);
-
 		err = vlv_pipe_wait_for_pll_lock(pipe);
 		if (err)
 			goto out;
@@ -450,29 +454,6 @@ int vlv_cmd_dpi_send_cmd(struct intel_pipeline *pipeline, u32 cmd, bool hs)
 	}
 
 	return err;
-}
-
-u32 vlv_get_event(struct intel_pipeline *pipeline, u32 *event)
-{
-	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	struct vlv_pipe *pipe = &disp->pipe;
-	struct vlv_pm *pm = &disp->pm;
-	u32 ret = 0;
-
-	ret = vlv_pipe_get_event(pipe, event);
-
-	if (ret == 0)
-		ret = vlv_pm_flush_values(pm, *event);
-
-	return ret;
-}
-
-u32 vlv_set_event(struct intel_pipeline *pipeline, u32 event, bool enabled)
-{
-	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	struct vlv_pipe *pipe = &disp->pipe;
-
-	return vlv_pipe_set_event(pipe, event, enabled);
 }
 
 bool vlv_is_plane_enabled(struct intel_pipeline *pipeline,

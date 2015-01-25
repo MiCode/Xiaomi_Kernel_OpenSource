@@ -14,7 +14,6 @@
 #ifndef _VLV_PIPE_H_
 #define _VLV_PIPE_H_
 
-#include <core/vlv/vlv_dc_config.h>
 #include <core/intel_dc_config.h>
 
 struct vlv_pipe {
