@@ -652,6 +652,52 @@ static void vlv_disable_displays(struct vlv_dc_config *config,
 	pr_debug("Disabling displays enabled by BIOS: Done\n");
 }
 
+static int valleyview_get_vco(void)
+{
+	int hpll_freq, vco_freq[] = { 800, 1600, 2000, 2400 };
+
+	/* Obtain SKU information */
+	hpll_freq = vlv_cck_read(CCK_FUSE_REG) &
+		CCK_FUSE_HPLL_FREQ_MASK;
+
+	return vco_freq[hpll_freq];
+}
+
+static void vlv_update_cdclk(int cdclk)
+{
+	u32 cmd, val, vco;
+
+	vco = valleyview_get_vco();
+	cmd = DIV_ROUND_CLOSEST((vco << 1), cdclk) - 1;
+
+	pr_info("Obtained cmd %d for cdclk %d\n", cmd, cdclk);
+
+	val = vlv_punit_read(PUNIT_REG_DSPFREQ);
+	val &= ~DSPFREQGUAR_MASK_CHV;
+	val |= (cmd << DSPFREQGUAR_SHIFT_CHV);
+	vlv_punit_write(PUNIT_REG_DSPFREQ, val);
+	if (wait_for((vlv_punit_read(PUNIT_REG_DSPFREQ) &
+		      DSPFREQSTAT_MASK_CHV) == (cmd << DSPFREQSTAT_SHIFT_CHV),
+		     50)) {
+		pr_err("timed out waiting for CDclk change\n");
+		return;
+	}
+
+	/* Adjust the GMBUS frequency also */
+	REG_WRITE(GMBUSFREQ_VLV, cdclk);
+}
+
+static void vlv_update_global_params(void)
+{
+	/* TODO:
+	 * 1. Add method to Calculate CDclk.
+	 * 2. When programming CDclk > CZCLK, set PFI credits
+	 * For now, hard-code to max possible value that works
+	 * i.e. 320 MHZ.
+	 */
+	vlv_update_cdclk(320);
+}
+
 struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 {
 	struct vlv_dc_config *config;
@@ -717,6 +763,9 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 
 	/* Disable all displays enabled by BIOS */
 	vlv_disable_displays(config, child_dev, dev_num, stepping);
+
+	/* Now that all displays are off, update CDclk, PLL etc, if needed */
+	vlv_update_global_params();
 
 	/*
 	 * LFP
