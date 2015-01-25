@@ -861,6 +861,12 @@ u32 vlv_dp_port_load_panel_delays(struct vlv_dp_port *port)
 	return 0;
 }
 
+void vlv_dp_port_destroy(struct vlv_dp_port *port)
+{
+	mutex_destroy(&port->hw_mutex);
+	i2c_del_adapter(&port->ddc);
+}
+
 bool vlv_dp_port_init(struct vlv_dp_port *port, enum port port_id,
 		enum pipe pipe_id, enum intel_pipe_type type,
 		struct device *dev)
