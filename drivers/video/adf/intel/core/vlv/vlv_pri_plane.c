@@ -162,6 +162,9 @@ static int init_context(struct vlv_pri_plane_context *ctx, u8 idx)
 	case SECONDARY_PLANE:
 		ctx->plane = 1;
 		break;
+	case TERTIARY_PLANE:
+		ctx->plane = 2;
+		break;
 	default:
 		return -EINVAL;
 	}

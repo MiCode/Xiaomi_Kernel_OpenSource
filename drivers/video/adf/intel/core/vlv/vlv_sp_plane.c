@@ -128,6 +128,14 @@ static int context_init(struct vlv_sp_plane_context *ctx, u8 idx)
 		ctx->plane = 1;
 		ctx->pipe = 1;
 		break;
+	case SPRITE_E:
+		ctx->plane = 0;
+		ctx->pipe = 2;
+		break;
+	case SPRITE_F:
+		ctx->plane = 1;
+		ctx->pipe = 2;
+		break;
 	default:
 		return -EINVAL;
 	}
