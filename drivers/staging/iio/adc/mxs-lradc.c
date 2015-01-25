@@ -1160,9 +1160,12 @@ static irqreturn_t mxs_lradc_handle_irq(int irq, void *data)
 	}
 
 	if (iio_buffer_enabled(iio))
-		iio_trigger_poll(iio->trig, iio_get_time_ns());
-	else if (reg & LRADC_CTRL1_LRADC_IRQ(0))
+	if (iio_buffer_enabled(iio)) {
+		if (reg & lradc->buffer_vchans)
+			iio_trigger_poll(iio->trig, iio_get_time_ns());
+	} else if (reg & LRADC_CTRL1_LRADC_IRQ(0)) {
 		complete(&lradc->completion);
+	}
 
 	mxs_lradc_reg_clear(lradc, reg & clr_irq, LRADC_CTRL1);
 
