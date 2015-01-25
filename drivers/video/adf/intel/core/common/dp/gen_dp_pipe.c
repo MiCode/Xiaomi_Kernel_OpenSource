@@ -138,6 +138,7 @@ void dp_pipe_dump_modes(struct drm_mode_modeinfo *modelist, u32 n_modes)
 {
 	u32 i = 0;
 	struct drm_mode_modeinfo *modeinfo = modelist;
+
 	for (i = 0; i < n_modes; i++) {
 		pr_info("Mode::%d-%d-%d-%d-%d-%d-%d-%d-%d-%d\n",
 			modeinfo->clock, modeinfo->hdisplay,
@@ -297,6 +298,11 @@ static void dp_pipe_get_modelist(struct intel_pipe *pipe,
 	struct dp_pipe *dp_pipe = to_dp_pipe(pipe);
 	struct dp_panel *panel = &dp_pipe->panel;
 
+	if (!dp_pipe->panel_present) {
+		pr_err("DP panel not present\n");
+		return;
+	}
+
 	if (!panel->no_probed_modes) {
 		pr_err("%s call before probe, returning 0 modes\n", __func__);
 		*n_modes = 0;
@@ -305,6 +311,7 @@ static void dp_pipe_get_modelist(struct intel_pipe *pipe,
 
 	*modelist = panel->modelist;
 	*n_modes = panel->no_probed_modes;
+
 	dp_pipe_dump_modes(*modelist, *n_modes);
 	pr_err("%s done, no_modes=%d\n", __func__, (int)*n_modes);
 }
