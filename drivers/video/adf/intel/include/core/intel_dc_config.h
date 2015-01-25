@@ -46,6 +46,65 @@ struct intel_pipeline;
 
 #define VSYNC_COUNT_MAX_MASK 0xffffff
 
+/* Add the device class for LFP, TV, HDMI */
+#define  DEVICE_TYPE_INT_LFP		0x1022
+#define  DEVICE_TYPE_INT_TV		0x1009
+#define  DEVICE_TYPE_HDMI		0x60D2
+#define  DEVICE_TYPE_DP			0x68C6
+#define  DEVICE_TYPE_EDP		0x78C6
+#define  DEVICE_TYPE_DP_HDMI_DVI	0x60D6
+
+#define  DEVICE_TYPE_CLASS_EXTENSION	(1 << 15)
+#define  DEVICE_TYPE_POWER_MANAGEMENT	(1 << 14)
+#define  DEVICE_TYPE_HOTPLUG_SIGNALING	(1 << 13)
+#define  DEVICE_TYPE_INTERNAL_CONNECTOR	(1 << 12)
+#define  DEVICE_TYPE_NOT_HDMI_OUTPUT	(1 << 11)
+#define  DEVICE_TYPE_MIPI_OUTPUT	(1 << 10)
+#define  DEVICE_TYPE_COMPOSITE_OUTPUT	(1 << 9)
+#define  DEVICE_TYPE_DUAL_CHANNEL	(1 << 8)
+#define  DEVICE_TYPE_HIGH_SPEED_LINK	(1 << 6)
+#define  DEVICE_TYPE_LVDS_SINGALING	(1 << 5)
+#define  DEVICE_TYPE_TMDS_DVI_SIGNALING	(1 << 4)
+#define  DEVICE_TYPE_VIDEO_SIGNALING	(1 << 3)
+#define  DEVICE_TYPE_DISPLAYPORT_OUTPUT	(1 << 2)
+#define  DEVICE_TYPE_DIGITAL_OUTPUT	(1 << 1)
+#define  DEVICE_TYPE_ANALOG_OUTPUT	(1 << 0)
+
+/*
+ * Bits we care about when checking for DEVICE_TYPE_EDP
+ * Depending on the system, the other bits may or may not
+ * be set for EDP outputs.
+ */
+#define DEVICE_TYPE_EDP_BITS \
+	(DEVICE_TYPE_INTERNAL_CONNECTOR | \
+	DEVICE_TYPE_NOT_HDMI_OUTPUT | \
+	DEVICE_TYPE_MIPI_OUTPUT | \
+	DEVICE_TYPE_COMPOSITE_OUTPUT | \
+	DEVICE_TYPE_DUAL_CHANNEL | \
+	DEVICE_TYPE_LVDS_SINGALING | \
+	DEVICE_TYPE_TMDS_DVI_SIGNALING | \
+	DEVICE_TYPE_VIDEO_SIGNALING | \
+	DEVICE_TYPE_DISPLAYPORT_OUTPUT | \
+	DEVICE_TYPE_DIGITAL_OUTPUT | \
+	DEVICE_TYPE_ANALOG_OUTPUT)
+
+/* Possible values for the "DVO Port" field for versions >= 155: */
+#define DVO_PORT_HDMIA	0
+#define DVO_PORT_HDMIB	1
+#define DVO_PORT_HDMIC	2
+#define DVO_PORT_HDMID	3
+#define DVO_PORT_LVDS	4
+#define DVO_PORT_TV	5
+#define DVO_PORT_CRT	6
+#define DVO_PORT_DPB	7
+#define DVO_PORT_DPC	8
+#define DVO_PORT_DPD	9
+#define DVO_PORT_DPA	10
+#define DVO_PORT_MIPIA	21
+#define DVO_PORT_MIPIB	22
+#define DVO_PORT_MIPIC	23
+#define DVO_PORT_MIPID	24
+
 enum gen_id {
 	gen_invalid = 0,
 	/*
@@ -414,6 +473,69 @@ struct intel_dc_config {
 	struct intel_dc_memory *memory;
 
 	struct intel_dc_power *power;
+};
+
+/*
+ * We used to keep this struct but without any version control. We should avoid
+ * using it in the future, but it should be safe to keep using it in the old
+ * code.
+ */
+struct old_child_dev_config {
+	u16 handle;
+	u16 device_type;
+	u8  device_id[10]; /* ascii string */
+	u16 addin_offset;
+	u8  dvo_port;
+	u8  i2c_pin;
+	u8  slave_addr;
+	u8  ddc_pin;
+	u16 edid_ptr;
+	u8  dvo_cfg;
+	u8  dvo2_port;
+	u8  i2c2_pin;
+	u8  slave2_addr;
+	u8  ddc2_pin;
+	u8  capabilities;
+	u8  dvo_wiring;
+	u8  dvo2_wiring;
+	u16 extended_type;
+	u8  dvo_function;
+} __packed;
+
+/*
+ * This one contains field offsets that are known to be common for all BDB
+ * versions. Notice that the meaning of the contents contents may still change,
+ * but at least the offsets are consistent.
+ */
+struct common_child_dev_config {
+	u16 handle;
+	u16 device_type;
+	u8 not_common1[12];
+	u8 dvo_port;
+	u8 not_common2[2];
+	u8 ddc_pin;
+	u16 edid_ptr;
+} __packed;
+
+/*
+ * This field changes depending on the BDB version, so the most reliable way to
+ * read it is by checking the BDB version and reading the raw pointer.
+ */
+union child_device_config {
+	/*
+	 * This one is safe to be used anywhere, but the code should still check
+	 * the BDB version.
+	 */
+	u8 raw[33];
+
+	/* This one should only be kept for legacy code. */
+	struct old_child_dev_config old;
+
+	/*
+	 * This one should also be safe to use anywhere, even without version
+	 * checks.
+	 */
+	struct common_child_dev_config common;
 };
 
 struct intel_dc_config_entry {

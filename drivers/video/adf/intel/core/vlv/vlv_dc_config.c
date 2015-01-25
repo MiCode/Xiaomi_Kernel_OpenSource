@@ -115,7 +115,7 @@ static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe,
 }
 
 static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
-			int pipe, int type, u8 disp_no)
+			int pipe, int port, int type, u8 disp_no)
 {
 	struct vlv_dsi_port *dsi_port = NULL;
 	struct vlv_pipeline *disp = NULL;
@@ -124,7 +124,7 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 	switch (type) {
 	case INTEL_PIPE_DSI:
 		dsi_port = &disp->port.dsi_port;
-		vlv_dsi_port_init(dsi_port, PORT_A, pipe);
+		vlv_dsi_port_init(dsi_port, port, pipe);
 		break;
 	default:
 		break;
@@ -134,7 +134,8 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 }
 
 static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
-			enum pipe pipe, enum intel_pipe_type type, u8 disp_no)
+			enum pipe pipe, enum intel_pipe_type type,
+			enum port port, u8 disp_no)
 {
 	struct vlv_pri_plane *pplane;
 	struct vlv_sp_plane *splane;
@@ -211,10 +212,10 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 
 	/* FIXME: update from attachment */
 	pll = &disp->pll;
-	err = vlv_pll_init(pll, type, (enum pipe) pipe, PORT_A);
+	err = vlv_pll_init(pll, type, (enum pipe) pipe, port);
 
 	/* Initialize port */
-	vlv_initialize_port(vlv_config, pipe, type, disp_no);
+	vlv_initialize_port(vlv_config, pipe, port, type, disp_no);
 
 	/* Initialize encoder */
 	vlv_display_encoder_init(vlv_config, pipe, disp_no);
@@ -226,9 +227,14 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 {
 	struct vlv_dc_config *config;
 	struct intel_dc_memory *memory;
+	union child_device_config *child_dev = NULL;
+	int dev_num;
+	int dvo_port;
+	int devtype;
 	int err;
 	u8 display_no = 0;
 	u16 port;
+	int i, lfp_pipe = 0;
 	enum pipe pipe = PIPE_A;
 
 	if (!pdev)
@@ -264,15 +270,93 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 	 * TODO: add dpms config over here and register with adf using
 	 * intel_dc_config_add_power();
 	 */
-	port = intel_get_dsi_port_frm_vbt();
+	intel_get_vbt_disp_conf((void **)&child_dev, &dev_num);
 
-	if (port == DVO_PORT_DSI_A)
-		pipe = PIPE_A;
-	else if (port == DVO_PORT_DSI_C)
-		pipe = PIPE_B;
+	/*
+	 * LFP
+	 *      if MIPI A --> PIPEA
+	 *              MIPI C --> PIPEB
+	 *      if eDP  ---> PIPE B
+	 * EFP
+	 *      if port D --> PIPE C
+	 *      else PIPE A or PIPE B
+	 */
 
-	vlv_initialize_disp(config, pipe, INTEL_PIPE_DSI, display_no++);
+	/* To check for the LPF first */
+	for (i = 0; i <= dev_num; i++) {
+		dvo_port = child_dev[i].common.dvo_port;
+		devtype = child_dev[i].common.device_type;
+		if (devtype & DEVICE_TYPE_INTERNAL_CONNECTOR) {
+			if  (devtype & DEVICE_TYPE_MIPI_OUTPUT) {
+				if (dvo_port == DVO_PORT_MIPIA)
+					pipe = PIPE_A;
+				else
+					pipe = PIPE_B;
 
+				/*
+				 * For MIPI dvo port value will be 21-23
+				 * so we have to subtract 21(DVO_PORT_MIPIA)
+				 * from this value to get the port
+				 */
+				vlv_initialize_disp(config, pipe,
+						INTEL_PIPE_DSI,
+						(dvo_port - DVO_PORT_MIPIA),
+						display_no++);
+			} else if (devtype & DEVICE_TYPE_EDP_BITS) {
+				pipe = PIPE_B;
+				vlv_initialize_disp(config, pipe,
+						INTEL_PIPE_EDP,
+						dvo_port - DVO_PORT_CRT,
+						display_no++);
+			}
+			lfp_pipe = pipe;
+		}
+	}
+
+	/* To check the EPF */
+	for (i = 0; i <= dev_num; i++) {
+		dvo_port = child_dev[i].common.dvo_port;
+		devtype = child_dev[i].common.device_type;
+
+		if (devtype == DEVICE_TYPE_HDMI ||
+				devtype == DEVICE_TYPE_DP_HDMI_DVI
+				|| devtype == DEVICE_TYPE_DP) {
+
+			/* Selecting the pipe */
+			if ((dvo_port == DVO_PORT_HDMIB) ||
+					(dvo_port == DVO_PORT_HDMIC) ||
+					(dvo_port == DVO_PORT_DPB) ||
+					(dvo_port == DVO_PORT_DPC)) {
+				if (lfp_pipe != PIPE_A)
+					pipe = PIPE_A;
+				else
+					pipe = PIPE_B;
+
+			} else {
+				pipe = PIPE_C;
+			}
+
+			/* Setting the port number */
+			if (devtype == DEVICE_TYPE_DP)
+				port = dvo_port - DVO_PORT_CRT;
+
+			/* Selecting the PIPE type */
+			if (devtype == DEVICE_TYPE_DP_HDMI_DVI
+					|| devtype == DEVICE_TYPE_DP)
+				/*
+				 * If device type is HDMI over DP
+				 * or DP then selecting
+				 * the pipe type as DP
+				 */
+				vlv_initialize_disp(config, pipe,
+						INTEL_PIPE_DP,
+						dvo_port, display_no++);
+			else
+				vlv_initialize_disp(config, pipe,
+						INTEL_PIPE_HDMI,
+						dvo_port, display_no++);
+		}
+	}
 
 	return &config->base;
 err:
