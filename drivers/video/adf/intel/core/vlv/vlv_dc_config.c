@@ -21,6 +21,45 @@
 
 #define VLV_ID(pipe, plane) ((pipe * VLV_MAX_PLANES) + plane)
 
+static const struct intel_dc_attachment chv_allowed_attachments[] = {
+	{
+		.pipe_id = PIPE_A,
+		.plane_id = PRIMARY_PLANE,
+	},
+	{
+		.pipe_id = PIPE_A,
+		.plane_id = SPRITE_A,
+	},
+	{
+		.pipe_id = PIPE_A,
+		.plane_id = SPRITE_B,
+	},
+	{
+		.pipe_id = PIPE_B,
+		.plane_id = SECONDARY_PLANE,
+	},
+	{
+		.pipe_id = PIPE_B,
+		.plane_id = SPRITE_C,
+	},
+	{
+		.pipe_id = PIPE_B,
+		.plane_id = SPRITE_D,
+	},
+	{
+		.pipe_id = PIPE_C,
+		.plane_id = TERTIARY_PLANE,
+	},
+	{
+		.pipe_id = PIPE_C,
+		.plane_id = SPRITE_E,
+	},
+	{
+		.pipe_id = PIPE_C,
+		.plane_id = SPRITE_F,
+	}
+};
+
 static const struct intel_dc_attachment vlv_allowed_attachments[] = {
 	{
 		.pipe_id = PIPE_A,
@@ -33,6 +72,18 @@ static const struct intel_dc_attachment vlv_allowed_attachments[] = {
 	{
 		.pipe_id = PIPE_A,
 		.plane_id = SPRITE_B,
+	},
+	{
+		.pipe_id = PIPE_B,
+		.plane_id = SECONDARY_PLANE,
+	},
+	{
+		.pipe_id = PIPE_B,
+		.plane_id = SPRITE_C,
+	},
+	{
+		.pipe_id = PIPE_B,
+		.plane_id = SPRITE_D,
 	}
 };
 
@@ -145,6 +196,7 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 	struct vlv_pll *pll = NULL;
 	int err;
 	u8 *n_planes;
+	u8 plane;
 
 	if (!vlv_config) {
 		dev_err(vlv_config->base.dev, "%s:invalid config", __func__);
@@ -162,10 +214,12 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 
 	disp->type = type;
 
+	plane = pipe * VLV_MAX_PLANES;
+
 	/* Initialize the plane */
 	pplane = &disp->pplane;
 	err = vlv_pri_plane_init(pplane, &disp->base,
-		vlv_config->base.dev, pipe ? SECONDARY_PLANE : PRIMARY_PLANE);
+		vlv_config->base.dev, plane);
 	if (err) {
 		dev_err(vlv_config->base.dev,
 			"%s: failed to init pri plane, %d\n", __func__, err);
@@ -177,7 +231,7 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 	/* Initialize first sprite */
 	splane = &disp->splane[0];
 	err = vlv_sp_plane_init(splane, &disp->base,
-			vlv_config->base.dev, pipe ? SPRITE_C : SPRITE_A);
+			vlv_config->base.dev, plane + 1);
 	if (err) {
 		dev_err(vlv_config->base.dev,
 			"%s: failed to init sprite plane, %d\n",
@@ -190,7 +244,7 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 	/* Initialize second sprite */
 	splane = &disp->splane[1];
 	err = vlv_sp_plane_init(splane, &disp->base,
-			vlv_config->base.dev, pipe ? SPRITE_D : SPRITE_B);
+			vlv_config->base.dev, plane + 2);
 	if (err) {
 		dev_err(vlv_config->base.dev,
 				"%s: failed to init sprite plane, %d\n",
@@ -245,13 +299,29 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 		dev_err(&pdev->dev, "failed to alloc memory\n");
 		return ERR_PTR(-ENOMEM);
 	}
-	config->max_pipes = CHV_N_PIPES;
-	config->max_planes = NUM_PLANES;
+
 	/* Init config */
-	err = intel_dc_config_init(&config->base, &pdev->dev, 0,
+	if (id == gen_cherryview) {
+		config->max_planes = sizeof(chv_allowed_attachments)/
+			sizeof(chv_allowed_attachments[0]);
+		config->max_pipes = config->max_planes / 3;
+
+		err = intel_dc_config_init(&config->base, &pdev->dev, 0,
+				config->max_planes, config->max_pipes,
+				&chv_allowed_attachments[0],
+				ARRAY_SIZE(chv_allowed_attachments));
+
+	} else {
+		config->max_planes = sizeof(vlv_allowed_attachments)/
+			sizeof(vlv_allowed_attachments[0]);
+		config->max_pipes = config->max_planes / 3;
+
+		err = intel_dc_config_init(&config->base, &pdev->dev, 0,
 				config->max_planes, config->max_pipes,
 				&vlv_allowed_attachments[0],
 				ARRAY_SIZE(vlv_allowed_attachments));
+	}
+
 	if (err) {
 		dev_err(&pdev->dev, "failed to inintialize dc config\n");
 		goto err;
