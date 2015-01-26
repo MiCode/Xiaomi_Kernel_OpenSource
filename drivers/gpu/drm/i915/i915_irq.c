@@ -2340,9 +2340,8 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 				 * ignore dispaly interrupts for now
 				 */
 
-				/* FIXME: Display interrupts for Pipe C */
 				count = PIPE_A;
-				while (count < PIPE_C) {
+				while (count < I915_MAX_PIPES) {
 					mask = PIPESTAT_IIR(count);
 					pipestat = PIPESTAT(count);
 					pipestat_val = I915_READ(pipestat);
