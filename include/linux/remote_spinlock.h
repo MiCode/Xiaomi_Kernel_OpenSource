@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, 2011, 2013-2014 The Linux Foundation.
+/* Copyright (c) 2008-2009, 2011, 2013-2015 The Linux Foundation.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -95,4 +95,7 @@ typedef struct {
 
 #define remote_spin_owner(lock) \
 	_remote_spin_owner(&((lock)->remote))
+
+#define remote_spin_get_hw_spinlocks_element(lock) \
+	_remote_spin_get_hw_spinlocks_element(&((lock)->remote))
 #endif
