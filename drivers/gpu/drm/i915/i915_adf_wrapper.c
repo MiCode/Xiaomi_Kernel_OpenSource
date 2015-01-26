@@ -88,6 +88,14 @@ struct pci_dev *i915_adf_get_pci_dev(void)
 }
 EXPORT_SYMBOL(i915_adf_get_pci_dev);
 
+struct i2c_adapter *intel_adf_get_gmbus_adapter(u8 port)
+{
+	/* port -1 to map pin pair to gmbus index */
+	return ((port >= GMBUS_PORT_SSC) && (port <= GMBUS_PORT_DPD)) ?
+		&i915_adf_dev->gmbus[port - 1].adapter : NULL;
+}
+EXPORT_SYMBOL(intel_adf_get_gmbus_adapter);
+
 void intel_adf_display_rpm_get(void)
 {
 	struct drm_i915_private *dev_priv;
