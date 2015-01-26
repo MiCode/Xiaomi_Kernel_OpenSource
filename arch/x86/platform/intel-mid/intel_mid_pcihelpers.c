@@ -201,7 +201,7 @@ static void reset_semaphore(void)
 
 	data = intel_mid_msgbus_read32(PUNIT_PORT, PUNIT_SEMAPHORE);
 	smp_mb();
-	data = data & 0xfffffffe;
+	data = data & 0xfffffffc;
 	intel_mid_msgbus_write32(PUNIT_PORT, PUNIT_SEMAPHORE, data);
 	smp_mb();
 }
@@ -245,6 +245,12 @@ int intel_mid_dw_i2c_acquire_ownership(void)
 			pr_err("Timeout: semaphore timed out, reset sem\n");
 			ret = -ETIMEDOUT;
 			reset_semaphore();
+			/*Delay 1ms in case race with punit*/
+			udelay(1000);
+			if (GET_SEM() != 0) {
+				/*Reset again as kernel might race with punit*/
+				reset_semaphore();
+			}
 			pr_err("PUNIT SEM: %d\n",
 					intel_mid_msgbus_read32(PUNIT_PORT,
 						PUNIT_SEMAPHORE));
