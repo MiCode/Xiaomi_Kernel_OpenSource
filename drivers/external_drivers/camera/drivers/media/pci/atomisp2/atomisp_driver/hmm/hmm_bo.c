@@ -560,7 +560,7 @@ void hmm_bo_device_exit(struct hmm_bo_device *bdev)
 
 		spin_lock_irqsave(&bdev->list_lock, flags);
 		list_del(&bo->list);
-		spin_lock_irqsave(&bdev->list_lock, flags);
+		spin_unlock_irqrestore(&bdev->list_lock, flags);
 
 		kmem_cache_free(bdev->bo_cache, bo);
 	}
