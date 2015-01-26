@@ -116,7 +116,6 @@ struct bam_data_ch_info {
 };
 
 static struct work_struct *rndis_conn_w;
-static struct work_struct *rndis_disconn_w;
 static bool is_ipa_rndis_net_on;
 
 enum u_bam_data_event_type {
@@ -1261,7 +1260,8 @@ inline int u_bam_data_func_to_port(enum function_type func, u8 func_port)
 
 static int bam2bam_data_port_alloc(int portno)
 {
-	struct bam_data_port    *port = NULL;
+	struct bam_data_port    *port;
+	struct bam_data_ch_info *d;
 
 	if (bam2bam_data_ports[portno] != NULL) {
 		pr_debug("port %d already allocated.\n", portno);
@@ -1275,45 +1275,16 @@ static int bam2bam_data_port_alloc(int portno)
 	}
 
 	bam2bam_data_ports[portno] = port;
-	return 0;
-}
-int bam2bam_data_port_select(int portno)
-{
-	struct bam_data_port	*port = NULL;
-	struct bam_data_ch_info	*d = NULL;
-
-	pr_debug("Inside: portno:%d\n", portno);
-
-	port = bam2bam_data_ports[portno];
-	port->port_num  = portno;
-	port->is_ipa_connected = false;
+	d = &port->data_ch;
+	d->port = port;
 
 	spin_lock_init(&port->port_lock);
 
-	if (!work_pending(&port->connect_w))
-		INIT_WORK(&port->connect_w, bam2bam_data_connect_work);
-
-	if (!work_pending(&port->disconnect_w))
-		INIT_WORK(&port->disconnect_w, bam2bam_data_disconnect_work);
-
-	if (!work_pending(&port->suspend_w))
-		INIT_WORK(&port->suspend_w, bam2bam_data_suspend_work);
-
-	if (!work_pending(&port->resume_w))
-		INIT_WORK(&port->resume_w, bam2bam_data_resume_work);
-
-	/* data ch */
-	d = &port->data_ch;
-	d->port = port;
-	bam2bam_data_ports[portno] = port;
-
-	if (!work_pending(&d->write_tobam_w))
-		INIT_WORK(&d->write_tobam_w, bam_data_write_toipa);
-
-	rndis_disconn_w = &port->disconnect_w;
-
-	pr_debug("port:%p portno:%d\n", port, portno);
-
+	INIT_WORK(&port->connect_w, bam2bam_data_connect_work);
+	INIT_WORK(&port->disconnect_w, bam2bam_data_disconnect_work);
+	INIT_WORK(&port->suspend_w, bam2bam_data_suspend_work);
+	INIT_WORK(&port->resume_w, bam2bam_data_resume_work);
+	INIT_WORK(&d->write_tobam_w, bam_data_write_toipa);
 	return 0;
 }
 
@@ -1507,12 +1478,6 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 
 	bam_name = (trans == USB_GADGET_XPORT_BAM2BAM_IPA) ?
 							IPA_P_BAM : A2_P_BAM;
-
-	ret = bam2bam_data_port_select(port_num);
-	if (ret) {
-		pr_err("mbim port select failed err: %d\n", ret);
-		return ret;
-	}
 
 	src_connection_idx = usb_bam_get_connection_idx(gr->cdev->gadget->name,
 			bam_name, USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE,
