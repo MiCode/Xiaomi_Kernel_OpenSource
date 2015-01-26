@@ -338,10 +338,7 @@ static int ov2685_s_exposure(struct v4l2_subdev *sd, int value)
 
 	return 0;
 }
-static long ov2685_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
-{
-	return 0;
-}
+
 
 static int power_up(struct v4l2_subdev *sd)
 {
@@ -648,171 +645,160 @@ platform_init_failed:
 	return ret;
 }
 
-static int ov2685_s_ctrl(struct v4l2_ctrl *ctrl)
-{
-	struct ov2685_device *dev = container_of(
-		ctrl->handler, struct ov2685_device, ctrl_handler);
-	struct i2c_client *client = v4l2_get_subdevdata(&dev->sd);
-	int ret = 0;
-
-	switch (ctrl->id) {
-	case V4L2_CID_EXPOSURE:
-		dev_dbg(&client->dev, "%s: CID_VFLIP:%d.\n",
-			__func__, ctrl->val);
-		ret = ov2685_s_exposure(&dev->sd, ctrl->val);
-		break;
-	case V4L2_CID_VFLIP:
-		dev_dbg(&client->dev, "%s: CID_VFLIP:%d.\n",
-			__func__, ctrl->val);
-		ret = ov2685_t_vflip(&dev->sd, ctrl->val);
-		break;
-	case V4L2_CID_HFLIP:
-		dev_dbg(&client->dev, "%s: CID_HFLIP:%d.\n",
-			__func__, ctrl->val);
-		ret = ov2685_t_hflip(&dev->sd, ctrl->val);
-		break;
-	case V4L2_CID_POWER_LINE_FREQUENCY:
-		dev_dbg(&client->dev, "%s: CID_HFLIP:%d.\n",
-			__func__, ctrl->val);
-		ret = ov2685_s_freq(&dev->sd, ctrl->val);
-		break;
-	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
-		dev_dbg(&client->dev, "%s: CID_HFLIP:%d.\n",
-			__func__, ctrl->val);
-		ret = ov2685_s_wb(&dev->sd, ctrl->val);
-		break;
-	case V4L2_CID_SCENE_MODE:
-		dev_dbg(&client->dev, "%s: CID_HFLIP:%d.\n",
-			__func__, ctrl->val);
-		ret = ov2685_s_scene(&dev->sd, ctrl->val);
-		break;
-	}
-
-	return ret;
-}
-
-static int ov2685_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
-{
-	struct ov2685_device *dev = container_of(
-		ctrl->handler, struct ov2685_device, ctrl_handler);
-	int ret = 0;
-
-	switch (ctrl->id) {
-	case V4L2_CID_EXPOSURE_ABSOLUTE:
-		ret = ov2685_g_exposure(&dev->sd, &ctrl->val);
-		break;
-	case V4L2_CID_SCENE_MODE:
-		ret = ov2685_g_scene(&dev->sd, &ctrl->val);
-		break;
-	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
-		ret = ov2685_g_wb(&dev->sd, &ctrl->val);
-		break;
-	case V4L2_CID_VFLIP:
-		ret = ov2685_g_vflip(&dev->sd, &ctrl->val);
-		break;
-	case V4L2_CID_HFLIP:
-		ret = ov2685_g_hflip(&dev->sd, &ctrl->val);
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return ret;
-}
-
-static const struct v4l2_ctrl_ops ctrl_ops = {
-	.s_ctrl = ov2685_s_ctrl,
-	.g_volatile_ctrl = ov2685_g_volatile_ctrl
-};
-
-static const struct v4l2_ctrl_config ov2685_controls[] = {
+static struct ov2685_control ov2685_controls[] = {
 	{
-		.ops = &ctrl_ops,
-		.id = V4L2_CID_EXPOSURE_ABSOLUTE,
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.name = "exposure",
-		.min = 0x0,
-		.max = 0xffff,
-		.step = 0x01,
-		.def = 0x00,
-		.flags = V4L2_CTRL_FLAG_VOLATILE,
+		.qc = {
+			.id = V4L2_CID_EXPOSURE,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "exposure",
+			.minimum = 0x0,
+			.maximum = 0xffff,
+			.step = 1,
+			.default_value = 0,
+			.flags = 0,
+		},
+		.query = ov2685_g_exposure,
+		.tweak = ov2685_s_exposure,
 	},
 	{
-		.ops = &ctrl_ops,
-		.id = V4L2_CID_VFLIP,
-		.type = V4L2_CTRL_TYPE_BOOLEAN,
-		.name = "Flip",
-		.min = 0,
-		.max = 1,
-		.step = 1,
-		.def = 0,
+		.qc = {
+			.id = V4L2_CID_SCENE_MODE,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "Scene Mode",
+			.minimum = V4L2_SCENE_MODE_NONE,
+			.maximum = V4L2_SCENE_MODE_TEXT,
+			.step = 1,
+			.default_value = V4L2_SCENE_MODE_NONE,
+			.flags = 0,
+		},
+		.query = ov2685_g_scene,
+		.tweak = ov2685_s_scene,
 	},
 	{
-		.ops = &ctrl_ops,
-		.id = V4L2_CID_HFLIP,
-		.type = V4L2_CTRL_TYPE_BOOLEAN,
-		.name = "Mirror",
-		.min = 0,
-		.max = 1,
-		.step = 1,
-		.def = 0,
+		.qc = {
+			.id = V4L2_CID_POWER_LINE_FREQUENCY,
+			.type = V4L2_CTRL_TYPE_MENU,
+			.name = "Light frequency filter",
+			.minimum = V4L2_CID_POWER_LINE_FREQUENCY_DISABLED,
+			.maximum = V4L2_CID_POWER_LINE_FREQUENCY_AUTO,
+			.step = 1,
+			.default_value = V4L2_CID_POWER_LINE_FREQUENCY_AUTO,
+			.flags = 0,
+		},
+		.tweak = ov2685_s_freq,
 	},
 	{
-		.ops = &ctrl_ops,
-		.id = V4L2_CID_HFLIP,
-		.name = "Horizontal Flip",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = 0,
-		.max = 1,
-		.step = 1,
-		.def = 0,
-		.flags = 0,
+		.qc = {
+			.id = V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "White Balance",
+			.minimum = V4L2_WHITE_BALANCE_MANUAL,
+			.maximum = V4L2_WHITE_BALANCE_SHADE,
+			.step = 1,
+			.default_value = V4L2_WHITE_BALANCE_AUTO,
+			.flags = 0,
+		},
+		.query = ov2685_g_wb,
+		.tweak = ov2685_s_wb,
 	},
 	{
-		.ops = &ctrl_ops,
-		.id = V4L2_CID_VFLIP,
-		.name = "Vertical Flip",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = 0,
-		.max = 1,
-		.step = 1,
-		.def = 0,
-		.flags = 0,
+		.qc = {
+			.id = V4L2_CID_VFLIP,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "Image v-Flip",
+			.minimum = 0,
+			.maximum = 1,
+			.step = 1,
+			.default_value = 0,
+		},
+		.query = ov2685_g_vflip,
+		.tweak = ov2685_t_vflip,
 	},
 	{
-		.ops = &ctrl_ops,
-		.id = V4L2_CID_POWER_LINE_FREQUENCY,
-		.name = "frequency",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = 0,
-		.max = SHRT_MAX,
-		.step = 1,
-		.def = 0,
-		.flags = 0,
-	},
-	{
-		.ops = &ctrl_ops,
-		.id = V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE,
-		.name = "white balance",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = 0,
-		.max = SHRT_MAX,
-		.step = 1,
-		.def = 0,
-		.flags = 0,
-	},
-	{
-		.ops = &ctrl_ops,
-		.id = V4L2_CID_SCENE_MODE,
-		.name = "Vertical Flip",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.min = 0,
-		.max = SHRT_MAX,
-		.step = 1,
-		.def = 0,
-		.flags = 0,
+		.qc = {
+			.id = V4L2_CID_HFLIP,
+			.type = V4L2_CTRL_TYPE_INTEGER,
+			.name = "Image h-Flip",
+			.minimum = 0,
+			.maximum = 1,
+			.step = 1,
+			.default_value = 0,
+		},
+		.query = ov2685_g_hflip,
+		.tweak = ov2685_t_hflip,
 	},
 };
+#define N_CONTROLS (ARRAY_SIZE(ov2685_controls))
+
+static struct ov2685_control *ov2685_find_control(__u32 id)
+{
+	int i;
+
+	for (i = 0; i < N_CONTROLS; i++) {
+		if (ov2685_controls[i].qc.id == id)
+			return &ov2685_controls[i];
+	}
+	return NULL;
+}
+
+static int ov2685_queryctrl(struct v4l2_subdev *sd, struct v4l2_queryctrl *qc)
+{
+	struct ov2685_control *ctrl = ov2685_find_control(qc->id);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+
+	if (ctrl == NULL) {
+		dev_err(&client->dev,  "%s unsupported control id!\n",
+			__func__);
+		return 0;
+	}
+
+	mutex_lock(&dev->input_lock);
+	*qc = ctrl->qc;
+	mutex_unlock(&dev->input_lock);
+	return 0;
+}
+
+static int ov2685_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
+{
+	struct ov2685_control *octrl = ov2685_find_control(ctrl->id);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+
+	int ret;
+
+	if (!octrl || !octrl->query) {
+		dev_err(&client->dev,  "%s unsupported control id or no query func!\n",
+			__func__);
+		return 0;
+	}
+
+	mutex_lock(&dev->input_lock);
+	ret = octrl->query(sd, &ctrl->value);
+	mutex_unlock(&dev->input_lock);
+
+	return 0;
+}
+
+static int ov2685_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
+{
+	struct ov2685_control *octrl = ov2685_find_control(ctrl->id);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+	int ret;
+
+	if (!octrl || !octrl->tweak) {
+		dev_err(&client->dev,  "%s unsupported control id or no tweak func!\n",
+			__func__);
+		return 0;
+	}
+
+	mutex_lock(&dev->input_lock);
+	ret = octrl->tweak(sd, ctrl->value);
+	mutex_unlock(&dev->input_lock);
+
+	return 0;
+}
 
 static int ov2685_s_stream(struct v4l2_subdev *sd, int enable)
 {
@@ -1001,15 +987,13 @@ static const struct v4l2_subdev_sensor_ops ov2685_sensor_ops = {
 };
 
 static const struct v4l2_subdev_core_ops ov2685_core_ops = {
-#ifndef CONFIG_GMIN_INTEL_MID /* FIXME! for non-gmin*/
 	.g_chip_ident = ov2685_g_chip_ident,
-#endif
-	.queryctrl = v4l2_subdev_queryctrl,
-	.g_ctrl = v4l2_subdev_g_ctrl,
-	.s_ctrl = v4l2_subdev_s_ctrl,
+	.queryctrl = ov2685_queryctrl,
+	.g_ctrl = ov2685_g_ctrl,
+	.s_ctrl = ov2685_s_ctrl,
 	.s_power = ov2685_s_power,
-	.ioctl = ov2685_ioctl,
 };
+
 static const struct v4l2_subdev_pad_ops ov2685_pad_ops = {
 	.enum_mbus_code = ov2685_enum_mbus_code,
 	.enum_frame_size = ov2685_enum_frame_size,
@@ -1025,9 +1009,7 @@ static const struct v4l2_subdev_ops ov2685_ops = {
 	.pad = &ov2685_pad_ops,
 };
 
-static const struct media_entity_operations ov2685_entity_ops = {
-	.link_setup = NULL,
-};
+static const struct media_entity_operations ov2685_entity_ops;
 
 static int ov2685_remove(struct i2c_client *client)
 {
@@ -1041,28 +1023,6 @@ static int ov2685_remove(struct i2c_client *client)
 	v4l2_device_unregister_subdev(sd);
 	media_entity_cleanup(&dev->sd.entity);
 	kfree(dev);
-
-	return 0;
-}
-
-static int __ov2685_init_ctrl_handler(struct ov2685_device *dev)
-{
-	struct v4l2_ctrl_handler *hdl;
-	int i;
-
-	hdl = &dev->ctrl_handler;
-
-	v4l2_ctrl_handler_init(&dev->ctrl_handler, ARRAY_SIZE(ov2685_controls));
-
-	for (i = 0; i < ARRAY_SIZE(ov2685_controls); i++)
-		v4l2_ctrl_new_custom(&dev->ctrl_handler,
-				&ov2685_controls[i], NULL);
-	if (dev->ctrl_handler.error)
-		return dev->ctrl_handler.error;
-
-	dev->ctrl_handler.lock = &dev->input_lock;
-	dev->sd.ctrl_handler = hdl;
-	v4l2_ctrl_handler_setup(&dev->ctrl_handler);
 
 	return 0;
 }
@@ -1091,14 +1051,9 @@ static int ov2685_probe(struct i2c_client *client,
 			goto out_free;
 	}
 
-	ret = __ov2685_init_ctrl_handler(dev);
-	if (ret)
-		goto out_ctrl_handler_free;
-
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
 	dev->format.code = V4L2_MBUS_FMT_UYVY8_1X16;
-	dev->sd.entity.ops = &ov2685_entity_ops;
 	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
 
 	ret = media_entity_init(&dev->sd.entity, 1, &dev->pad, 0);
@@ -1106,10 +1061,6 @@ static int ov2685_probe(struct i2c_client *client,
 		ov2685_remove(client);
 
 	return ret;
-
-out_ctrl_handler_free:
-	v4l2_ctrl_handler_free(&dev->ctrl_handler);
-
 out_free:
 	v4l2_device_unregister_subdev(&dev->sd);
 	kfree(dev);
