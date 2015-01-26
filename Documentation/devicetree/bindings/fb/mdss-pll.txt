@@ -44,6 +44,9 @@ Optional properties:
 				-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
 				-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
 
+- linux,contiguous-region: Phandle to the continuous memory region reserved for
+		   dynamic refresh rate data.
+
 Example:
 	mdss_dsi0_pll: qcom,mdss_dsi_pll@fd922A00 {
 		compatible = "qcom,mdss_dsi_pll_8974";
@@ -82,5 +85,7 @@ Example:
 				qcom,supply-post-off-sleep = <0>;
 			};
 		};
+
+		linux,contiguous-region = <&dfps_data_mem>;
 	};
 
