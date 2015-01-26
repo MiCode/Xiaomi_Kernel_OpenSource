@@ -472,6 +472,47 @@ static inline u32 get_panel_xres(struct mdss_panel_info *pinfo)
 	return xres;
 }
 
+static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
+	struct mdss_rect src, struct mdss_rect dst,
+	u32 fps, u32 v_total, u32 flags)
+{
+	struct mdss_mdp_mixer *mixer;
+	u32 rate, src_h;
+
+	mixer = pipe->mixer_left;
+	src_h = src.h >> pipe->vert_deci;
+
+	if (mixer->rotator_mode) {
+
+		rate = pipe->src.w * pipe->src.h * fps;
+		rate /= 4; /* block mode fetch at 4 pix/clk */
+	} else {
+
+		rate = dst.w;
+		if (src_h > dst.h)
+			rate = (rate * src_h) / dst.h;
+
+		rate *= v_total * fps;
+
+		/* pipes decoding BWC content have different clk requirement */
+		if (pipe->bwc_mode && !pipe->src_fmt->is_yuv &&
+		    pipe->src_fmt->bpp == 4) {
+			u32 bwc_rate =
+			mult_frac((src.w * src_h * fps), v_total, dst.h << 1);
+			pr_debug("src: w:%d h:%d fps:%d vtotal:%d dst h:%d\n",
+				src.w, src_h, fps, v_total, dst.h);
+			pr_debug("pipe%d: bwc_rate=%d normal_rate=%d\n",
+				pipe->num, bwc_rate, rate);
+			rate = max(bwc_rate, rate);
+		}
+	}
+
+	if (flags & PERF_CALC_PIPE_APPLY_CLK_FUDGE)
+		rate = mdss_mdp_clk_fudge_factor(mixer, rate);
+
+	return rate;
+}
+
 /**
  * mdss_mdp_perf_calc_pipe() - calculate performance numbers required by pipe
  * @pipe:	Source pipe struct containing updated pipe params
@@ -501,7 +542,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 {
 	struct mdss_mdp_mixer *mixer;
 	int fps = DEFAULT_FRAME_RATE;
-	u32 quota, rate, v_total = 0, src_h, xres = 0, h_total = 0;
+	u32 quota, v_total = 0, src_h, xres = 0, h_total = 0;
 	struct mdss_rect src, dst;
 	bool is_fbc = false;
 	struct mdss_mdp_prefill_params prefill_params;
@@ -570,27 +611,9 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		quota *= pipe->src_fmt->bpp;
 
 	if (mixer->rotator_mode) {
-		rate = pipe->src.w * pipe->src.h * fps;
-		rate /= 4; /* block mode fetch at 4 pix/clk */
 
 		quota *= 2; /* bus read + write */
 	} else {
-		rate = dst.w;
-		if (src_h > dst.h)
-			rate = (rate * src_h) / dst.h;
-
-		rate *= v_total * fps;
-		/* pipes decoding BWC content have different clk requirement */
-		if (pipe->bwc_mode && !pipe->src_fmt->is_yuv &&
-		    pipe->src_fmt->bpp == 4) {
-			u32 bwc_rate =
-			mult_frac((src.w * src_h * fps), v_total, dst.h << 1);
-			pr_debug("src: w:%d h:%d fps:%d vtotal:%d dst h:%d\n",
-				src.w, src_h, fps, v_total, dst.h);
-			pr_debug("pipe%d: bwc_rate=%d normal_rate=%d\n",
-				pipe->num, bwc_rate, rate);
-			rate = max(bwc_rate, rate);
-		}
 
 		quota = mult_frac(quota, v_total, dst.h);
 		if (!mixer->ctl->is_video_mode)
@@ -598,10 +621,8 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	}
 	perf->bw_overlap = quota;
 
-	if (flags & PERF_CALC_PIPE_APPLY_CLK_FUDGE)
-		perf->mdp_clk_rate = mdss_mdp_clk_fudge_factor(mixer, rate);
-	else
-		perf->mdp_clk_rate = rate;
+	perf->mdp_clk_rate = get_pipe_mdp_clk_rate(pipe, src, dst,
+		fps, v_total, flags);
 
 	if (mixer->ctl->intf_num == MDSS_MDP_NO_INTF ||
 		mdata->disable_prefill ||
