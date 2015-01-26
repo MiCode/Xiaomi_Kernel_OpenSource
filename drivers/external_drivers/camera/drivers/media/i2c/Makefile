@@ -19,7 +19,6 @@ obj-$(CONFIG_VIDEO_MT9V113)    += mt9v113.o
 obj-$(CONFIG_VIDEO_OV5640)     += ov5640.o
 
 obj-$(CONFIG_VIDEO_GC2235)     += gc2235.o
-obj-$(CONFIG_VIDEO_OV2685)     += ov2685.o
 obj-$(CONFIG_VIDEO_OV9724)     += ov9724.o
 obj-$(CONFIG_VIDEO_OV2722)     += ov2722.o
 obj-$(CONFIG_VIDEO_OV8830)     += ov8830.o
