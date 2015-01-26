@@ -48,13 +48,23 @@ static inline bool watchdog_hardlockup_detector_is_enabled(void)
 #ifdef arch_trigger_all_cpu_backtrace
 static inline bool trigger_all_cpu_backtrace(void)
 {
+	#if defined(CONFIG_ARM)
+	arch_trigger_all_cpu_backtrace();
+	#else
 	arch_trigger_all_cpu_backtrace(true);
+	#endif
 
 	return true;
 }
 static inline bool trigger_allbutself_cpu_backtrace(void)
 {
+	#if defined(CONFIG_ARM)
+	arch_trigger_all_cpu_backtrace();
+	#else
 	arch_trigger_all_cpu_backtrace(false);
+	#endif
+
+
 	return true;
 }
 #else

@@ -490,8 +490,8 @@ static int cpufreq_stat_notifier_policy(struct notifier_block *nb,
 		return 0;
 	}
 
-	if (!per_cpu(all_cpufreq_stats, cpu))
-		cpufreq_allstats_create(cpu);
+	if (!per_cpu(all_cpufreq_stats, policy->cpu))
+		cpufreq_allstats_create(policy->cpu);
 
 	if (val == CPUFREQ_CREATE_POLICY)
 		ret = __cpufreq_stats_create_table(policy);
