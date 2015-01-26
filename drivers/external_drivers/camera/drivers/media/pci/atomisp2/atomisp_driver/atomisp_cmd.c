@@ -4704,8 +4704,11 @@ static void atomisp_check_copy_mode(struct atomisp_sub_device *asd,
 	 * For SOC camera we are using copy_mode all the time
 	 * TDB: Do we have some cases where the copy_mode can't be used?
 	 */
-	if ((asd->isp->inputs[asd->input_curr].type == SOC_CAMERA) ||
-	    (!atomisp_subdev_format_conversion(asd, source_pad)))
+	if (((asd->isp->inputs[asd->input_curr].type == RAW_CAMERA) &&
+	    (!atomisp_subdev_format_conversion(asd, source_pad))) ||
+	    ((asd->isp->inputs[asd->input_curr].type == SOC_CAMERA) &&
+	    (asd->isp->inputs[asd->input_curr].camera_caps->
+		sensor[asd->sensor_curr].stream_num > 1)))
 		asd->copy_mode = true;
 	else
 #endif

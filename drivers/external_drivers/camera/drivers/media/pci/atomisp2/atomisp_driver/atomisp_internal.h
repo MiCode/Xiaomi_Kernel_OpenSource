@@ -167,7 +167,8 @@
 	   sensor[asd->sensor_curr].stream_num == 1)
 
 #define ATOMISP_USE_YUVPP(asd)  \
-	(ATOMISP_SOC_CAMERA(asd) && ATOMISP_CSS_SUPPORT_YUVPP)
+	(ATOMISP_SOC_CAMERA(asd) && ATOMISP_CSS_SUPPORT_YUVPP && \
+	!asd->copy_mode)
 
 #define ATOMISP_DEPTH_SENSOR_STREAMON_COUNT 2
 
