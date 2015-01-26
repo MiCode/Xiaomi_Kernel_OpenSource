@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -682,7 +682,22 @@ static int tpdm_probe(struct platform_device *pdev)
 
 	mutex_init(&drvdata->lock);
 
+	drvdata->clk = devm_clk_get(dev, "core_clk");
+	if (IS_ERR(drvdata->clk))
+		return PTR_ERR(drvdata->clk);
+
+	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
 	pidr = tpdm_readl(drvdata, CORESIGHT_PERIPHIDR0);
+
+	clk_disable_unprepare(drvdata->clk);
+
 	bitmap_fill(drvdata->datasets, pidr);
 	if (test_bit(TPDM_DS_CMB, drvdata->datasets)) {
 		drvdata->cmb = devm_kzalloc(dev, sizeof(*drvdata->cmb),
@@ -692,14 +707,6 @@ static int tpdm_probe(struct platform_device *pdev)
 			return -ENOMEM;
 		}
 	}
-
-	drvdata->clk = devm_clk_get(dev, "core_clk");
-	if (IS_ERR(drvdata->clk))
-		return PTR_ERR(drvdata->clk);
-
-	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
-	if (ret)
-		return ret;
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
