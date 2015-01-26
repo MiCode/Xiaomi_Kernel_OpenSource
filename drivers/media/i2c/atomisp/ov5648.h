@@ -670,6 +670,21 @@ struct ov5648_resolution ov5648_res_preview[] = {
 	 .skip_frames = 3,
 	 .regs = ov5648_5M_15fps_2lanes,
 	 },
+	{
+	 .desc = "ov5648_720P_30fps",
+	 .width = 1296,
+	 .height = 736,
+	 .fps = 30,
+	 .pix_clk_freq = 84,
+	 .used = 0,
+	 .pixels_per_line = 2397,
+	 .lines_per_frame = 1186,
+	 .bin_factor_x = 2,
+	 .bin_factor_y = 2,
+	 .bin_mode = 1,
+	 .skip_frames = 3,
+	 .regs = ov5648_720p_30fps_2lanes,
+	 },
 };
 
 #define N_RES_PREVIEW (ARRAY_SIZE(ov5648_res_preview))
@@ -690,26 +705,6 @@ struct ov5648_resolution ov5648_res_still[] = {
 	 .skip_frames = 3,
 	 .regs = ov5648_5M_15fps_2lanes,
 	 },
-};
-
-#define N_RES_STILL (ARRAY_SIZE(ov5648_res_still))
-
-struct ov5648_resolution ov5648_res_video[] = {
-	{
-	 .desc = "ov5648_1080P_30fps",
-	 .width = 1940,
-	 .height = 1096,
-	 .fps = 30,
-	 .pix_clk_freq = 84,
-	 .used = 0,
-	 .pixels_per_line = 2500,
-	 .lines_per_frame = 1120,
-	 .bin_factor_x = 1,
-	 .bin_factor_y = 1,
-	 .bin_mode = 0,
-	 .skip_frames = 3,
-	 .regs = ov5648_1080p_30fps_2lanes,
-	},
 	{
 	 .desc = "ov5648_720P_30fps",
 	 .width = 1296,
@@ -725,10 +720,15 @@ struct ov5648_resolution ov5648_res_video[] = {
 	 .skip_frames = 3,
 	 .regs = ov5648_720p_30fps_2lanes,
 	 },
+};
+
+#define N_RES_STILL (ARRAY_SIZE(ov5648_res_still))
+
+struct ov5648_resolution ov5648_res_video[] = {
 	{
-	 .desc = "ov5648_480P_30fps",
+	 .desc = "ov5648_720P_30fps",
 	 .width = 1296,
-	 .height = 864,
+	 .height = 736,
 	 .fps = 30,
 	 .pix_clk_freq = 84,
 	 .used = 0,
@@ -738,7 +738,7 @@ struct ov5648_resolution ov5648_res_video[] = {
 	 .bin_factor_y = 2,
 	 .bin_mode = 1,
 	 .skip_frames = 3,
-	 .regs = ov5648_1296x864_30fps_2lanes,
+	 .regs = ov5648_720p_30fps_2lanes,
 	 },
 };
 

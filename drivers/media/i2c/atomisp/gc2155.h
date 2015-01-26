@@ -546,7 +546,7 @@ static struct gc2155_reg const gc2155_720p_30fps[] = {
 	{GC2155_TOK_TERM, 0, 0},
 };
 
-static struct gc2155_reg const gc2155_2M_30fps[] = {
+static struct gc2155_reg const gc2155_2M_20fps[] = {
 	/* window */
 	{GC2155_8BIT, 0xfe, 0x00},
 	{GC2155_8BIT, 0x0a, 0x00},
@@ -573,7 +573,7 @@ static struct gc2155_reg const gc2155_2M_30fps[] = {
 	{GC2155_TOK_TERM, 0, 0},
 };
 
-static struct gc2155_reg const gc2155_1616x916_30fps[] = {
+static struct gc2155_reg const gc2155_1616x916_20fps[] = {
 	/* window */
 	{GC2155_8BIT, 0xfe, 0x00},
 	{GC2155_8BIT, 0x0a, 0x00},
@@ -629,10 +629,10 @@ static struct gc2155_reg const gc2155_1616x1080_30fps[] = {
 
 struct gc2155_resolution gc2155_res_preview[] = {
 	{
-		.desc = "gc2155_2M_30fps",
+		.desc = "gc2155_2M_20fps",
 		.width = 1616,
 		.height = 1216,
-		.fps = 30,
+		.fps = 20,
 		//.pix_clk_freq = 73,
 		.used = 0,
 		.pixels_per_line = 1632,
@@ -641,13 +641,13 @@ struct gc2155_resolution gc2155_res_preview[] = {
 		.bin_factor_y = 1,
 		.bin_mode = 0,
 		.skip_frames = 2,
-		.regs = gc2155_2M_30fps,
+		.regs = gc2155_2M_20fps,
 	},
 	{
-		.desc = "gc2155_1616x916_30fps",
+		.desc = "gc2155_1616x916_20fps",
 		.width = 1616,
 		.height = 916,
-		.fps = 30,
+		.fps = 20,
 		//.pix_clk_freq = 73,
 		.used = 0,
 		.pixels_per_line = 1632,
@@ -656,17 +656,17 @@ struct gc2155_resolution gc2155_res_preview[] = {
 		.bin_factor_y = 1,
 		.bin_mode = 0,
 		.skip_frames = 2,
-		.regs = gc2155_1616x916_30fps,
+		.regs = gc2155_1616x916_20fps,
 	},
 };
 #define N_RES_PREVIEW (ARRAY_SIZE(gc2155_res_preview))
 
 struct gc2155_resolution gc2155_res_still[] = {
 	{
-		.desc = "gc2155_2M_30fps",
+		.desc = "gc2155_2M_20fps",
 		.width = 1616,
 		.height = 1216,
-		.fps = 30,
+		.fps = 20,
 		//.pix_clk_freq = 73,//calculator in gc2155_get_intg_factor
 		.used = 0,
 		.pixels_per_line = 1632,//calculator in gc2155_get_intg_factor
@@ -675,13 +675,13 @@ struct gc2155_resolution gc2155_res_still[] = {
 		.bin_factor_y = 1,
 		.bin_mode = 0,
 		.skip_frames = 2,
-		.regs = gc2155_2M_30fps,
+		.regs = gc2155_2M_20fps,
 	},
 	{
-		.desc = "gc2155_1616x916_30fps",
+		.desc = "gc2155_1616x916_20fps",
 		.width = 1616,
 		.height = 916,
-		.fps = 30,
+		.fps = 20,
 		//.pix_clk_freq = 73,
 		.used = 0,
 		.pixels_per_line = 1632,
@@ -690,17 +690,17 @@ struct gc2155_resolution gc2155_res_still[] = {
 		.bin_factor_y = 1,
 		.bin_mode = 0,
 		.skip_frames = 2,
-		.regs = gc2155_1616x916_30fps,
+		.regs = gc2155_1616x916_20fps,
 	},
 };
 #define N_RES_STILL (ARRAY_SIZE(gc2155_res_still))
 
 struct gc2155_resolution gc2155_res_video[] = {
 	{
-		.desc = "gc2155_1616x916_30fps",
+		.desc = "gc2155_2M_20fps",
 		.width = 1616,
-		.height = 916,
-		.fps = 30,
+		.height = 1216,
+		.fps = 20,
 		//.pix_clk_freq = 73,
 		.used = 0,
 		.pixels_per_line = 1632,
@@ -709,13 +709,13 @@ struct gc2155_resolution gc2155_res_video[] = {
 		.bin_factor_y = 1,
 		.bin_mode = 0,
 		.skip_frames = 2,
-		.regs = gc2155_1616x916_30fps,
+		.regs = gc2155_2M_20fps,
 	},
 	{
-		.desc = "gc2155_1616x1080_30fps",
+		.desc = "gc2155_1616x916_20fps",
 		.width = 1616,
-		.height = 1080,
-		.fps = 30,
+		.height = 916,
+		.fps = 20,
 		//.pix_clk_freq = 73,
 		.used = 0,
 		.pixels_per_line = 1632,
@@ -724,7 +724,7 @@ struct gc2155_resolution gc2155_res_video[] = {
 		.bin_factor_y = 1,
 		.bin_mode = 0,
 		.skip_frames = 2,
-		.regs = gc2155_1616x1080_30fps,
+		.regs = gc2155_1616x916_20fps,
 	},
 };
 #define N_RES_VIDEO (ARRAY_SIZE(gc2155_res_video))
