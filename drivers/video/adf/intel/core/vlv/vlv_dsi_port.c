@@ -354,16 +354,11 @@ u32 vlv_dsi_port_pre_enable(struct vlv_dsi_port *port,
 	return 0;
 }
 
-u32 vlv_dsi_port_enable(struct vlv_dsi_port *port, u32 port_bits)
+u32 vlv_dsi_port_enable(struct vlv_dsi_port *port, u32 val)
 {
-	u32 val;
 	if (vlv_dsi_port_is_vid_mode(port)) {
 		vlv_dsi_port_wait_for_fifo_empty(port);
 
-		/* assert ip_tg_enable signal */
-		val = REG_READ(port->offset) &
-				~LANE_CONFIGURATION_MASK;
-		val |= port_bits;
 		REG_WRITE(port->offset, val | DPI_ENABLE);
 		REG_POSTING_READ(port->offset);
 	}

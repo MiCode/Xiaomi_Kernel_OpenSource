@@ -143,15 +143,33 @@ u32 vlv_port_enable(struct intel_pipeline *pipeline,
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct dsi_config *config = pipeline->params.dsi.dsi_config;
 	struct dsi_context *intel_dsi = &config->ctx;
-	struct vlv_pll *pll = &disp->pll;
-	struct vlv_dsi_port *dsi_port = &disp->port.dsi_port[pll->port_id];
+	struct vlv_dsi_port *dsi_port = NULL;
+	enum port port;
+	enum pipe pipe = disp->gen.dsi.config.pipe;
+	u32 temp;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		/* DSI PORT */
-		ret = vlv_dsi_port_enable(dsi_port, intel_dsi->port_bits);
+		for_each_dsi_port(port, intel_dsi->ports) {
+			dsi_port = &disp->port.dsi_port[port];
+
+			temp = REG_READ(dsi_port->offset);
+			temp &= ~LANE_CONFIGURATION_MASK;
+			temp &= ~DUAL_LINK_MODE_MASK;
+
+			if (intel_dsi->ports ==
+					((1 << PORT_A) | (1 << PORT_C))) {
+				temp |= (intel_dsi->dual_link - 1)
+						<< DUAL_LINK_MODE_SHIFT;
+				temp |= pipe ? LANE_CONFIGURATION_DUAL_LINK_B :
+						LANE_CONFIGURATION_DUAL_LINK_A;
+			}
+
+			/* DSI PORT */
+			ret = vlv_dsi_port_enable(dsi_port, temp);
+		}
+
 		if (ret)
 			pr_err("ADF: %s Enable DSI port failed\n", __func__);
-		/* enable will be done in next call for dsi */
 	} else if (disp->type == INTEL_PIPE_HDMI) {
 		/* HDMI pre port enable */
 		chv_dpio_pre_port_enable(pipeline);
@@ -324,14 +342,21 @@ static inline u32 vlv_port_disable(struct intel_pipeline *pipeline)
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
 	struct vlv_hdmi_port *hdmi_port = NULL;
-	struct vlv_pll *pll = &disp->pll;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct dsi_context *dsi_ctx = NULL;
+	enum port port;
 	u32 err = 0;
 
 	switch (disp->type) {
 	case INTEL_PIPE_DSI:
-		dsi_port = &disp->port.dsi_port[pll->port_id];
-		err = vlv_dsi_port_disable(dsi_port,
-			pipeline->params.dsi.dsi_config);
+		dsi_pipe = &disp->gen.dsi;
+		dsi_ctx = &dsi_pipe->config.ctx;
+		for_each_dsi_port(port, dsi_ctx->ports) {
+			dsi_port = &disp->port.dsi_port[port];
+			err = vlv_dsi_port_disable(dsi_port,
+					pipeline->params.dsi.dsi_config);
+		}
+
 		/*
 		 * pll is disabled in the next call to
 		 * vlv_post_pipeline_off
