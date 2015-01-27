@@ -374,6 +374,48 @@
 		qcom,pipe-attr-ee;
 	};
 
+	tsens: tsens@4a8000 {
+		compatible = "qcom,msmterbium-tsens";
+		reg = <0x4a8000 0x2000>,
+		      <0xa4000  0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>;
+		interrupt-names = "tsens-upper-lower";
+		qcom,sensors = <11>;
+		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200>;
+		qcom,sensor-id = <0 1 2 3 4 5 6 7 8 9 10>;
+		qcom,tsens_base_info = <2 8>;
+		qcom,tsens_base_mask = <0 0x218 0xff 0 8>,
+				       <1 0x220 0xff 0 8>;
+		qcom,tsens_calib_mask = <0 0x228 0x3 0 3>;
+		qcom,tsens_sensor_point_bit_size = <6>;
+		qcom,tsens_sensor_point1_total_masks = <12>;
+		qcom,tsens_sensor_point1 = <0 0x218 0x00003f00 0x8 6>,
+					   <1 0x218 0x03f00000 0x14 6>,
+					   <2 0x21c 0x0000003f 0x0 6>,
+					   <3 0x21c 0x0003f000 0xc 6>,
+					   <4 0x220 0x00003f00 0x8 6>,
+					   <5 0x220 0x03f00000 0x14 6>,
+					   <6 0x224 0x0000003f 0x0 6>,
+					   <7 0x224 0x0003f000 0xc 6>,
+					   <8 0x228 0x000001f8 0x3 6>,
+					   <9 0x228 0x001f8000 0xf 6>,
+					   <10 0x228 0xf8000000 0x1b 5>,
+					   <10 0x22c 0x00000001 0x0 1>;
+		qcom,tsens_sensor_point2_total_masks = <11>;
+		qcom,tsens_sensor_point2 = <0 0x218 0x000fc000 0xe 6>,
+					   <1 0x218 0xfc000000 0x1a 6>,
+					   <2 0x21c 0x00000fc0 0x6 6>,
+					   <3 0x21c 0x00fc0000 0x12 6>,
+					   <4 0x220 0x000fc000 0xe 6>,
+					   <5 0x220 0xfc000000 0x1a 6>,
+					   <6 0x224 0x00000fc0 0x6 6>,
+					   <7 0x224 0x00fc0000 0x12 6>,
+					   <8 0x228 0x00007e00 0x9 6>,
+					   <9 0x228 0x07e00000 0x15 6>,
+					   <10 0x22c 0x0000007e 0x1 6>;
+	};
+
 	blsp1_uart2: serial@78b0000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78b0000 0x200>;
