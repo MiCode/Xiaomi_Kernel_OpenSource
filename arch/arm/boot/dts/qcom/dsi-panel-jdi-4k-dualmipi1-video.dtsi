@@ -57,6 +57,13 @@
 		qcom,mdss-dsi-on-command = [15 01 00 00 0a 00 02 51 FF
 					15 01 00 00 0a 00 02 53 24
 					05 01 00 00 78 00 01 11
+					/* beginning of additional sequence */
+					/* Manufacturer Command Access Protect */
+					23 01 00 00 50 00 02 B0 04
+					/* Qualcomm's IP control */
+					29 01 00 00 0a 00 07 ED 80 00 34 5B 04 B0
+					/* Manufacturer Command Access Protect */
+					23 01 00 00 50 00 02 B0 03
 					05 01 00 00 10 00 01 29];
 					/* Set display on, wait 16ms */
 		qcom,mdss-dsi-on-command-state = "dsi_hs_mode";
