@@ -846,6 +846,17 @@
 			};
 		};
 
+		cti_trigout_a0 {
+			qcom,pins = <&gp 23>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "cti-trigout-a0";
+			trigout_a0: trigout_a0 {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		/* SDC pin type */
 		sdc: sdc {
 			/* 0-2 for sdc1 4-6 for sdc2 */
