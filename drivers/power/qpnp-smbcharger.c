@@ -150,6 +150,7 @@ struct smbchg_chip {
 	bool				aicl_deglitch_on;
 	bool				sw_esr_pulse_en;
 	bool				safety_timer_en;
+	bool				aicl_complete;
 
 	/* jeita and temperature */
 	bool				batt_hot;
@@ -631,6 +632,8 @@ static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 };
 
 #define CHGR_STS			0x0E
@@ -2422,6 +2425,12 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		val->intval = chip->therm_lvl_sel;
 		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
+		val->intval = smbchg_get_aicl_level_ma(chip) * 1000;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
+		val->intval = (int)chip->aicl_complete;
+		break;
 	/* properties from fg */
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = get_prop_batt_capacity(chip);
@@ -3670,10 +3679,23 @@ static irqreturn_t aicl_done_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 	bool usb_present = is_usb_present(chip);
+	int rc;
+	u8 reg;
 
 	pr_smb(PR_INTERRUPT, "aicl_done triggered\n");
 	if (usb_present)
 		smbchg_parallel_usb_check_ok(chip);
+
+	rc = smbchg_read(chip, &reg,
+			chip->usb_chgpth_base + ICL_STS_1_REG, 1);
+	if (!rc)
+		chip->aicl_complete = reg & AICL_STS_BIT;
+	else
+		chip->aicl_complete = false;
+
+	if (chip->aicl_complete)
+		power_supply_changed(&chip->batt_psy);
+
 	return IRQ_HANDLED;
 }
 
