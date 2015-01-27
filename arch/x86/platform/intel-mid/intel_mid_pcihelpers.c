@@ -212,7 +212,16 @@ int intel_mid_dw_i2c_acquire_ownership(void)
 	u32 data = 0; /* data sent to PUNIT */
 	u32 cmd;
 	u32 cmdext;
-	int timeout = 100;
+	int timeout = 1000;
+
+	/*
+	 * We need disable irq. Otherwise, the main thread
+	 * might be preempted and the other thread jumps to
+	 * disable irq for a long time. Another case is
+	 * some irq handlers might trigger power voltage change
+	 */
+	BUG_ON(irqs_disabled());
+	local_irq_disable();
 
 	/* host driver writes 0x2 to side band register 0x7 */
 	intel_mid_msgbus_write32(PUNIT_PORT, PUNIT_SEMAPHORE, 0x2);
@@ -230,7 +239,7 @@ int intel_mid_dw_i2c_acquire_ownership(void)
 
 	/* host driver waits for bit 0 to be set in side band 0x7 */
 	while (GET_SEM() != 0x1) {
-		usleep_range(1000, 2000);
+		udelay(100);
 		timeout--;
 		if (timeout <= 0) {
 			pr_err("Timeout: semaphore timed out, reset sem\n");
@@ -239,6 +248,7 @@ int intel_mid_dw_i2c_acquire_ownership(void)
 			pr_err("PUNIT SEM: %d\n",
 					intel_mid_msgbus_read32(PUNIT_PORT,
 						PUNIT_SEMAPHORE));
+			local_irq_enable();
 			return ret;
 		}
 	}
@@ -251,6 +261,7 @@ EXPORT_SYMBOL(intel_mid_dw_i2c_acquire_ownership);
 int intel_mid_dw_i2c_release_ownership(void)
 {
 	reset_semaphore();
+	local_irq_enable();
 
 	return 0;
 }
