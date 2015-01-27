@@ -349,6 +349,10 @@
 				reg = <0x4255 0x1>;
 			};
 
+			qcom,revid-tp-rev@1f1 {
+				reg = <0x1f1 0x1>;
+			};
+
 			qcom,fg-memif@4400 {
 				status = "okay";
 				reg = <0x4400 0x100>;
