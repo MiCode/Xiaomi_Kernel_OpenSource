@@ -110,7 +110,7 @@
 		    <0xb011008 0x4>;   /* MSM_APCS_GCC_BASE 4K */
 		reg-names = "vmpm", "ipc";
 		interrupts = <0 171 1>;
-		clocks = <&clock_rpm clk_xo_clk_src>;
+		clocks = <&clock_gcc clk_xo>;
 		clock-names = "xo";
 
 		qcom,ipc-bit-offset = <1>;

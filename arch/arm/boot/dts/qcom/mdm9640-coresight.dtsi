@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,8 +26,8 @@
 		coresight-nr-inports = <1>;
 		coresight-ctis = <&cti0 &cti8>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -62,8 +62,8 @@
 		qcom,vdd-io-voltage-level = <2950000 2950000>;
 		qcom,vdd-io-current-level = <200 50000>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -79,8 +79,8 @@
 		coresight-child-list = <&tmc_etr &tpiu>;
 		coresight-child-ports = <0 0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -98,8 +98,8 @@
 		coresight-default-sink;
 		coresight-ctis = <&cti0 &cti8>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -115,8 +115,8 @@
 		coresight-child-list = <&tmc_etf>;
 		coresight-child-ports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -133,8 +133,8 @@
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <7>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -150,8 +150,8 @@
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <4>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 
 		coresight-etm-cpu = <&CPU0>;
@@ -190,8 +190,8 @@
 
 		qcom,blk-size = <1>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -204,8 +204,8 @@
 		coresight-name = "coresight-cti0";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -218,8 +218,8 @@
 		coresight-name = "coresight-cti1";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -232,8 +232,8 @@
 		coresight-name = "coresight-cti2";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -246,8 +246,8 @@
 		coresight-name = "coresight-cti3";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -260,8 +260,8 @@
 		coresight-name = "coresight-cti4";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -274,8 +274,8 @@
 		coresight-name = "coresight-cti5";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -288,8 +288,8 @@
 		coresight-name = "coresight-cti6";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -302,8 +302,8 @@
 		coresight-name = "coresight-cti7";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -316,8 +316,8 @@
 		coresight-name = "coresight-cti8";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -333,8 +333,8 @@
 
 		qcom,cti-save;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -347,8 +347,8 @@
 		coresight-name = "coresight-cti-modem-cpu0";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -361,8 +361,8 @@
 		coresight-name = "coresight-cti-rpm-cpu0";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
@@ -392,8 +392,8 @@
 		coresight-name = "coresight-hwevent";
 		coresight-nr-inports = <0>;
 
-		clocks = <&clock_rpm clk_qdss_clk>,
-			 <&clock_rpm clk_qdss_a_clk>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
 
