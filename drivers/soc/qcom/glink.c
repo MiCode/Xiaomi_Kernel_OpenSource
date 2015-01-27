@@ -2350,13 +2350,13 @@ void glink_xprt_ctx_release(struct rwref_lock *xprt_st_lock)
 }
 
 /**
- * assign_id() - assign an id to a transport
+ * glink_xprt_name_to_id() - convert transport name to id
  * @name:	Name of the transport.
  * @id:		Assigned id.
  *
- * Return: 0 on success or standlard linux error code.
+ * Return: 0 on success or standard Linux error code.
  */
-static int assign_id(const char *name, uint16_t *id)
+int glink_xprt_name_to_id(const char *name, uint16_t *id)
 {
 	if (!strcmp(name, "smem")) {
 		*id = SMEM_XPRT_ID;
@@ -2376,6 +2376,7 @@ static int assign_id(const char *name, uint16_t *id)
 	}
 	return -ENODEV;
 }
+EXPORT_SYMBOL(glink_xprt_name_to_id);
 
 /**
  * glink_core_register_transport() - register a new transport
@@ -2406,7 +2407,7 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 	if (cfg->versions_entries < 1)
 		return -EINVAL;
 
-	ret = assign_id(cfg->name, &id);
+	ret = glink_xprt_name_to_id(cfg->name, &id);
 	if (ret)
 		return ret;
 
