@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,8 +29,8 @@
 #include "msm_fd_hw.h"
 #include "msm_fd_regs.h"
 
-/* After which revision halt for engine is needed */
-#define MSM_FD_HALT_FROM_REV 0x10010000
+/* After which revision misc irq for engine is needed */
+#define MSM_FD_MISC_IRQ_FROM_REV 0x10010000
 /* Face detection workqueue name */
 #define MSM_FD_WORQUEUE_NAME "face-detection"
 /* Face detection processing timeout in ms */
@@ -321,6 +321,20 @@ static int msm_fd_hw_is_runnig(struct msm_fd_device *fd)
 }
 
 /*
+ * msm_fd_hw_misc_irq_is_core - Check if fd received misc core irq.
+ * @fd: Pointer to fd device.
+ */
+static int msm_fd_hw_misc_irq_is_core(struct msm_fd_device *fd)
+{
+	u32 reg;
+
+	reg = msm_fd_hw_read_reg(fd, MSM_FD_IOMEM_MISC,
+		MSM_FD_MISC_IRQ_STATUS);
+
+	return reg & MSM_FD_MISC_IRQ_STATUS_CORE_IRQ;
+}
+
+/*
  * msm_fd_hw_misc_irq_is_halt - Check if fd received misc halt irq.
  * @fd: Pointer to fd device.
  */
@@ -341,6 +355,26 @@ static int msm_fd_hw_misc_irq_is_halt(struct msm_fd_device *fd)
 static void msm_fd_hw_misc_clear_all_irq(struct msm_fd_device *fd)
 {
 	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_MISC, MSM_FD_MISC_IRQ_CLEAR,
+		MSM_FD_MISC_IRQ_CLEAR_HALT | MSM_FD_MISC_IRQ_CLEAR_CORE);
+}
+
+/*
+* msm_fd_hw_misc_irq_enable - Enable fd misc core and halt irq.
+* @fd: Pointer to fd device.
+*/
+static void msm_fd_hw_misc_irq_enable(struct msm_fd_device *fd)
+{
+	msm_fd_hw_reg_set(fd, MSM_FD_IOMEM_MISC, MSM_FD_MISC_IRQ_MASK,
+		MSM_FD_MISC_IRQ_CLEAR_HALT | MSM_FD_MISC_IRQ_CLEAR_CORE);
+}
+
+/*
+* msm_fd_hw_misc_irq_disable - Disable fd misc core and halt irq.
+* @fd: Pointer to fd device.
+*/
+static void msm_fd_hw_misc_irq_disable(struct msm_fd_device *fd)
+{
+	msm_fd_hw_reg_clr(fd, MSM_FD_IOMEM_MISC, MSM_FD_MISC_IRQ_MASK,
 		MSM_FD_MISC_IRQ_CLEAR_HALT | MSM_FD_MISC_IRQ_CLEAR_CORE);
 }
 
@@ -451,12 +485,12 @@ void msm_fd_hw_get_result_angle_pose(struct msm_fd_device *fd, int idx,
 }
 
 /*
- * msm_fd_hw_halt_needed - Check if fd core halt is needed.
+ * msm_fd_hw_misc_irq_supported - Check if misc irq is supported.
  * @fd: Pointer to fd device.
  */
-static int msm_fd_hw_halt_needed(struct msm_fd_device *fd)
+static int msm_fd_hw_misc_irq_supported(struct msm_fd_device *fd)
 {
-	return fd->hw_revision >= MSM_FD_HALT_FROM_REV;
+	return fd->hw_revision >= MSM_FD_MISC_IRQ_FROM_REV;
 }
 
 /*
@@ -467,7 +501,7 @@ static void msm_fd_hw_halt(struct msm_fd_device *fd)
 {
 	unsigned long time;
 
-	if (msm_fd_hw_halt_needed(fd)) {
+	if (msm_fd_hw_misc_irq_supported(fd)) {
 		init_completion(&fd->hw_halt_completion);
 
 		msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_MISC, MSM_FD_HW_STOP, 1);
@@ -478,15 +512,6 @@ static void msm_fd_hw_halt(struct msm_fd_device *fd)
 			dev_err(fd->dev, "Face detection halt timeout\n");
 
 	}
-}
-
-/*
- * msm_fd_hw_misc_irq_needed - Check if misc irq is needed
- * @fd: Pointer to fd device.
- */
-static int msm_fd_hw_misc_irq_needed(struct msm_fd_device *fd)
-{
-	return msm_fd_hw_halt_needed(fd);
 }
 
 /*
@@ -507,13 +532,16 @@ static irqreturn_t msm_fd_hw_core_irq(int irq, void *dev_id)
 }
 
 /*
- * msm_fd_wrap_irq - Face detection wrapper irq handler.
+ * msm_fd_hw_misc_irq - Face detection misc irq handler.
  * @irq: Irq number.
  * @dev_id: Pointer to fd device.
  */
-static irqreturn_t msm_fd_hw_wrap_irq(int irq, void *dev_id)
+static irqreturn_t msm_fd_hw_misc_irq(int irq, void *dev_id)
 {
 	struct msm_fd_device *fd = dev_id;
+
+	if (msm_fd_hw_misc_irq_is_core(fd))
+		msm_fd_hw_core_irq(irq, dev_id);
 
 	if (msm_fd_hw_misc_irq_is_halt(fd))
 		complete_all(&fd->hw_halt_completion);
@@ -534,39 +562,33 @@ int msm_fd_hw_request_irq(struct platform_device *pdev,
 {
 	int ret;
 
-	fd->core_irq_num = platform_get_irq(pdev, 0);
-	if (fd->core_irq_num < 0) {
+	fd->irq_num = platform_get_irq(pdev, 0);
+	if (fd->irq_num < 0) {
 		dev_err(fd->dev, "Can not get fd core irq resource\n");
 		ret = -ENODEV;
-		goto error_core_irq;
-	}
-
-	ret = devm_request_irq(fd->dev, fd->core_irq_num, msm_fd_hw_core_irq,
-		IRQF_TRIGGER_RISING, dev_name(fd->dev), fd);
-	if (ret) {
-		dev_err(&pdev->dev, "Can not claim core IRQ %d\n",
-			fd->core_irq_num);
-		goto error_core_irq;
+		goto error_irq;
 	}
 
 	/* If vbif is shared we will need wrapper irq for releasing vbif */
-	fd->core_irq_num = -1;
-	if (msm_fd_hw_misc_irq_needed(fd)) {
-		fd->wrap_irq_num = platform_get_irq(pdev, 1);
-		if (fd->core_irq_num < 0) {
-			dev_err(fd->dev, "Can not get fd wrap irq resource\n");
-			ret = -ENODEV;
-			goto error_wrap_irq;
-		}
-
-		ret = devm_request_irq(fd->dev, fd->wrap_irq_num,
-			msm_fd_hw_wrap_irq, IRQF_TRIGGER_RISING,
+	if (msm_fd_hw_misc_irq_supported(fd)) {
+		ret = devm_request_irq(fd->dev, fd->irq_num,
+			msm_fd_hw_misc_irq, IRQF_TRIGGER_RISING,
 			dev_name(&pdev->dev), fd);
 		if (ret) {
 			dev_err(fd->dev, "Can not claim wrapper IRQ %d\n",
-				fd->wrap_irq_num);
-			goto error_wrap_irq;
+				fd->irq_num);
+			goto error_irq;
 		}
+	} else {
+		ret = devm_request_irq(fd->dev, fd->irq_num,
+			msm_fd_hw_core_irq, IRQF_TRIGGER_RISING,
+			dev_name(fd->dev), fd);
+		if (ret) {
+			dev_err(&pdev->dev, "Can not claim core IRQ %d\n",
+				fd->irq_num);
+			goto error_irq;
+		}
+
 	}
 
 	fd->work_queue = alloc_workqueue(MSM_FD_WORQUEUE_NAME,
@@ -581,11 +603,8 @@ int msm_fd_hw_request_irq(struct platform_device *pdev,
 	return 0;
 
 error_alloc_workqueue:
-	if (fd->wrap_irq_num >= 0)
-		devm_free_irq(fd->dev, fd->wrap_irq_num, fd);
-error_wrap_irq:
-	devm_free_irq(&pdev->dev, fd->core_irq_num, fd);
-error_core_irq:
+	devm_free_irq(fd->dev, fd->irq_num, fd);
+error_irq:
 	return ret;
 }
 
@@ -595,13 +614,9 @@ error_core_irq:
  */
 void msm_fd_hw_release_irq(struct msm_fd_device *fd)
 {
-	if (fd->core_irq_num >= 0) {
-		devm_free_irq(fd->dev, fd->core_irq_num, fd);
-		fd->core_irq_num = -1;
-	}
-	if (fd->wrap_irq_num >= 0) {
-		devm_free_irq(fd->dev, fd->wrap_irq_num, fd);
-		fd->wrap_irq_num = -1;
+	if (fd->irq_num >= 0) {
+		devm_free_irq(fd->dev, fd->irq_num, fd);
+		fd->irq_num = -1;
 	}
 	if (fd->work_queue) {
 		destroy_workqueue(fd->work_queue);
@@ -1028,6 +1043,10 @@ int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx)
 			dev_err(fd->dev, "Fail bus request\n");
 			goto error_bus_request;
 		}
+
+		if (msm_fd_hw_misc_irq_supported(fd))
+			msm_fd_hw_misc_irq_enable(fd);
+
 		msm_fd_hw_vbif_register(fd);
 	}
 
@@ -1059,6 +1078,10 @@ void msm_fd_hw_put(struct msm_fd_device *fd)
 
 	if (--fd->ref_count == 0) {
 		msm_fd_hw_halt(fd);
+
+		if (msm_fd_hw_misc_irq_supported(fd))
+			msm_fd_hw_misc_irq_disable(fd);
+
 		msm_fd_hw_vbif_unregister(fd);
 		msm_fd_hw_bus_release(fd);
 		msm_fd_hw_disable_clocks(fd);

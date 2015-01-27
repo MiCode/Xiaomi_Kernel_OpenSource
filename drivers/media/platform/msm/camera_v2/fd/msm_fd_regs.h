@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,6 +119,8 @@
 #define MSM_FD_MISC_VBIF_DONE_STATUS_READ  (1 << 1)
 
 #define MSM_FD_MISC_IRQ_MASK (0x50)
+#define MSM_FD_MISC_IRQ_MASK_HALT_REQ (1 << 0)
+#define MSM_FD_MISC_IRQ_MASK_CORE_IRQ (1 << 1)
 
 #define MSM_FD_MISC_IRQ_STATUS (0x54)
 #define MSM_FD_MISC_IRQ_STATUS_HALT_REQ (1 << 0)

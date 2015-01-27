@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,8 +188,7 @@ enum msm_fd_mem_resources {
  * @hw_revision: Face detection hw revision.
  * @lock: Lock used for reference count.
  * @slock: Spinlock used to protect FD device struct.
- * @core_irq_num: Face detection core irq number.
- * wrap_irq_num: Face detection wrapper irq number.
+ * @irq_num: Face detection irq number.
  * @ref_count: Device reference count.
  * @res_mem: Array of memory resources used by FD device.
  * @iomem_base: Array of register mappings used by FD device.
@@ -218,8 +217,7 @@ struct msm_fd_device {
 	spinlock_t slock;
 	int ref_count;
 
-	int core_irq_num;
-	int wrap_irq_num;
+	int irq_num;
 	struct resource *res_mem[MSM_FD_IOMEM_LAST];
 	void __iomem *iomem_base[MSM_FD_IOMEM_LAST];
 	struct resource *ioarea[MSM_FD_IOMEM_LAST];
