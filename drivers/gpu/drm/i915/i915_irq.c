@@ -2223,8 +2223,7 @@ static void i9xx_hpd_irq_handler(struct drm_device *dev)
 
 		if (IS_VALLEYVIEW(dev)) {
 
-			/* Ignore short pulse interrupts */
-			if (!(hotplug_trigger & HPD_SHORT_PULSE)) {
+			if (hotplug_trigger & HPD_LONG_PULSE) {
 
 				/*
 				 * Few display's cant set the status for long

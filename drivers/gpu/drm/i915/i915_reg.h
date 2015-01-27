@@ -2909,7 +2909,10 @@ enum punit_power_well {
 						 PORTC_HOTPLUG_INT_STATUS | \
 						 PORTD_HOTPLUG_INT_STATUS)
 
-#define HPD_SHORT_PULSE	(1<<17)
+#define HPD_B_LONG_PULSE	(1<<18)
+#define HPD_C_LONG_PULSE	(1<<20)
+#define HPD_D_LONG_PULSE	(1<<22)
+#define HPD_LONG_PULSE	(HPD_B_LONG_PULSE | HPD_C_LONG_PULSE | HPD_D_LONG_PULSE)
 
 /* SDVO and HDMI port control.
  * The same register may be used for SDVO or HDMI */
