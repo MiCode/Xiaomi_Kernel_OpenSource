@@ -418,8 +418,10 @@ static void msm_vfe40_clear_status_reg(struct vfe_device *vfe_dev)
 static void msm_vfe40_process_reset_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1)
 {
-	if (irq_status0 & (1 << 31))
+	if (irq_status0 & (1 << 31)){
 		complete(&vfe_dev->reset_complete);
+		vfe_dev->reset_pending = 0;
+	}
 }
 
 static void msm_vfe40_process_halt_irq(struct vfe_device *vfe_dev,
@@ -699,6 +701,9 @@ static long msm_vfe40_reset_hardware(struct vfe_device *vfe_dev,
 	long rc = 0;
 	init_completion(&vfe_dev->reset_complete);
 
+	if (blocking_call)
+		vfe_dev->reset_pending = 1;
+
 	if (first_start) {
 		msm_camera_io_w_mb(0x1FF, vfe_dev->vfe_base + 0xC);
 	} else {
@@ -714,6 +719,11 @@ static long msm_vfe40_reset_hardware(struct vfe_device *vfe_dev,
 	if (blocking_call) {
 		rc = wait_for_completion_timeout(
 			&vfe_dev->reset_complete, msecs_to_jiffies(50));
+		if (rc <= 0) {
+			pr_err("%s:%d failed: reset timeout\n", __func__,
+				__LINE__);
+			vfe_dev->reset_pending = 0;
+		}
 	}
 	return rc;
 }
