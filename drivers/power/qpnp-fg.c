@@ -271,6 +271,7 @@ struct fg_chip {
 	u16			mem_base;
 	u16			vbat_adc_addr;
 	u16			ibat_adc_addr;
+	u16			tp_rev_addr;
 	atomic_t		memif_user_cnt;
 	struct fg_irq		soc_irq[FG_SOC_IRQ_COUNT];
 	struct fg_irq		batt_irq[FG_BATT_IRQ_COUNT];
@@ -2103,7 +2104,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 		}
 
 		if ((resource->start == chip->vbat_adc_addr) ||
-				(resource->start == chip->ibat_adc_addr))
+				(resource->start == chip->ibat_adc_addr) ||
+				(resource->start == chip->tp_rev_addr))
 			continue;
 
 		rc = fg_read(chip, &subtype,
@@ -2664,6 +2666,47 @@ static int soc_to_setpoint(int soc)
 	return DIV_ROUND_CLOSEST(soc * 255, 100);
 }
 
+#define EXTERNAL_SENSE_OFFSET_REG	0x41C
+#define EXT_OFFSET_TRIM_REG		0xF8
+#define SEC_ACCESS_REG			0xD0
+#define SEC_ACCESS_UNLOCK		0xA5
+#define BCL_TRIM_REV_FIXED		12
+static int bcl_trim_workaround(struct fg_chip *chip)
+{
+	u8 reg, rc;
+
+	if (chip->tp_rev_addr == 0)
+		return 0;
+
+	rc = fg_read(chip, &reg, chip->tp_rev_addr, 1);
+	if (rc) {
+		pr_err("Failed to read tp reg, rc = %d\n", rc);
+		return rc;
+	}
+	if (reg >= BCL_TRIM_REV_FIXED) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("workaround not applied, tp_rev = %d\n", reg);
+		return 0;
+	}
+
+	rc = fg_mem_read(chip, &reg, EXTERNAL_SENSE_OFFSET_REG, 1, 2, 0);
+	if (rc) {
+		pr_err("Failed to read ext sense offset trim, rc = %d\n", rc);
+		return rc;
+	}
+	rc = fg_masked_write(chip, chip->soc_base + SEC_ACCESS_REG,
+			SEC_ACCESS_UNLOCK, SEC_ACCESS_UNLOCK, 1);
+
+	rc |= fg_masked_write(chip, chip->soc_base + EXT_OFFSET_TRIM_REG,
+			0xFF, reg, 1);
+	if (rc) {
+		pr_err("Failed to write ext sense offset trim, rc = %d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 #define FG_ALG_SYSCTL_1	0x4B0
 #define SOC_CNFG	0x450
 #define SOC_DELTA_OFFSET	3
@@ -2739,6 +2782,13 @@ static int fg_hw_init(struct fg_chip *chip)
 		pr_err("failed to write soc_min rc=%d\n", rc);
 		return rc;
 	}
+
+	rc = bcl_trim_workaround(chip);
+	if (rc) {
+		pr_err("failed to redo bcl trim rc=%d\n", rc);
+		return rc;
+	}
+
 
 	if (chip->use_thermal_coefficients) {
 		fg_mem_write(chip, chip->thermal_coefficients,
@@ -2827,6 +2877,10 @@ static int fg_probe(struct spmi_device *spmi)
 		} else if (strcmp("qcom,fg-adc-ibat",
 					spmi_resource->of_node->name) == 0) {
 			chip->ibat_adc_addr = resource->start;
+			continue;
+		} else if (strcmp("qcom,revid-tp-rev",
+					spmi_resource->of_node->name) == 0) {
+			chip->tp_rev_addr = resource->start;
 			continue;
 		}
 

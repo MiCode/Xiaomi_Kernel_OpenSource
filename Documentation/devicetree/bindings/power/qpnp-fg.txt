@@ -16,6 +16,9 @@ device is to enabled:
 		by the fuel gauge based on a given battery resistance range.
 
 Optionally ADC nodes can be added
+- qcom,revid-tp-rev: A subnode with a register address for the TP_REV register
+		in the REVID peripheral. This is used to apply workarounds that
+		may depend on the trim program.
 - qcom,fg-adc-vbat : A subnode with a register address for the FG_ADC_USR
 		peripheral which is used mainly for battery current limiting (BCL).
 		This node maps out the VBAT reading register which allows to have
