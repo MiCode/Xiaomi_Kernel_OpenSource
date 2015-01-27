@@ -36,6 +36,7 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
 #include "mdss_smmu.h"
+#include "mdss_mdp_wfd.h"
 
 #define VSYNC_PERIOD 16
 #define BORDERFILL_NDX	0x0BF000BF
@@ -1668,9 +1669,9 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		if (!need_cleanup) {
 			commit_cb.commit_cb_fnc = mdss_mdp_commit_cb;
 			commit_cb.data = mfd;
-			ret = mdss_mdp_wb_kickoff(mfd, &commit_cb);
-		} else {
-			mdss_mdp_wb_kickoff(mfd, NULL);
+			ret = mdss_mdp_wfd_kickoff(mdp5_data->wfd, &commit_cb);
+		} else  {
+			ret = mdss_mdp_wfd_kickoff(mdp5_data->wfd, NULL);
 		}
 		ATRACE_END("wb_kickoff");
 	} else {
@@ -3409,13 +3410,6 @@ static int mdss_fb_set_metadata(struct msm_fb_data_type *mfd,
 			return -EPERM;
 		ret = mdss_misr_set(mdata, &metadata->data.misr_request, ctl);
 		break;
-	case metadata_op_wb_format:
-		ret = mdss_mdp_wb_set_format(mfd,
-				metadata->data.mixer_cfg.writeback_format);
-		break;
-	case metadata_op_wb_secure:
-		ret = mdss_mdp_wb_set_secure(mfd, metadata->data.secure_en);
-		break;
 	default:
 		pr_warn("unsupported request to MDP META IOCTL\n");
 		ret = -EINVAL;
@@ -3474,12 +3468,6 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 		if (mdss_fb_is_power_off(mfd))
 			return -EPERM;
 		ret = mdss_misr_get(mdata, &metadata->data.misr_request, ctl);
-		break;
-	case metadata_op_wb_format:
-		ret = mdss_mdp_wb_get_format(mfd, &metadata->data.mixer_cfg);
-		break;
-	case metadata_op_wb_secure:
-		ret = mdss_mdp_wb_get_secure(mfd, &metadata->data.secure_en);
 		break;
 	default:
 		pr_warn("Unsupported request to MDP META IOCTL.\n");
@@ -3929,8 +3917,6 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		ret = __handle_ioctl_overlay_prepare(mfd, argp);
 		break;
 	default:
-		if (mfd->panel.type == WRITEBACK_PANEL)
-			ret = mdss_mdp_wb_ioctl_handler(mfd, cmd, argp);
 		break;
 	}
 
@@ -4022,6 +4008,14 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		mdp5_data->ctl = ctl;
 	} else {
 		ctl = mdp5_data->ctl;
+	}
+
+	if (mfd->panel_info->type == WRITEBACK_PANEL && !mdp5_data->wfd) {
+		mdp5_data->wfd = mdss_mdp_wfd_init(&mfd->pdev->dev, ctl);
+		if (IS_ERR_OR_NULL(mdp5_data->wfd)) {
+			rc = PTR_ERR(mdp5_data->wfd);
+			goto panel_on;
+		}
 	}
 
 	if (mdss_fb_is_power_on(mfd)) {
@@ -4167,6 +4161,11 @@ ctl_stop:
 		}
 	}
 	mutex_unlock(&mdp5_data->ov_lock);
+
+	if (mdp5_data->wfd) {
+		mdss_mdp_wfd_deinit(mdp5_data->wfd);
+		mdp5_data->wfd = NULL;
+	}
 
 	/* Release the last reference to the runtime device */
 	rc = pm_runtime_put(&mfd->pdev->dev);
@@ -4484,8 +4483,16 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->get_sync_fnc = mdss_mdp_rotator_sync_pt_get;
 	mdp5_interface->splash_init_fnc = mdss_mdp_splash_init;
 	mdp5_interface->configure_panel = mdss_mdp_update_panel_info;
-	mdp5_interface->atomic_validate = mdss_mdp_layer_atomic_validate;
-	mdp5_interface->pre_commit = mdss_mdp_layer_pre_commit;
+
+	if (mfd->panel_info->type == WRITEBACK_PANEL) {
+		mdp5_interface->atomic_validate =
+			mdss_mdp_layer_atomic_validate_wfd;
+		mdp5_interface->pre_commit = mdss_mdp_layer_pre_commit_wfd;
+	} else {
+		mdp5_interface->atomic_validate =
+			mdss_mdp_layer_atomic_validate;
+		mdp5_interface->pre_commit = mdss_mdp_layer_pre_commit;
+	}
 
 	INIT_LIST_HEAD(&mdp5_data->pipes_used);
 	INIT_LIST_HEAD(&mdp5_data->pipes_cleanup);

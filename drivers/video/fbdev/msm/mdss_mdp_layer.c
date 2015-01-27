@@ -31,6 +31,7 @@
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
+#include "mdss_mdp_wfd.h"
 
 #define CHECK_LAYER_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
@@ -1193,3 +1194,118 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 
 	return __validate_layers(mfd, commit);
 }
+
+int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
+	struct mdp_layer_commit_v1 *commit)
+{
+	int rc, count;
+	struct mdss_overlay_private *mdp5_data;
+	struct mdss_mdp_wfd *wfd;
+	struct mdp_output_layer *output_layer;
+	struct mdss_mdp_wfd_data *data;
+	struct sync_fence *fence = NULL;
+	struct msm_sync_pt_data *sync_pt_data = NULL;
+
+	if (!mfd || !commit)
+		return -EINVAL;
+
+	mdp5_data = mfd_to_mdp5_data(mfd);
+
+	if (!mdp5_data || !mdp5_data->ctl || !mdp5_data->wfd) {
+		pr_err("invalid wfd state\n");
+		return -ENODEV;
+	}
+
+	if (!commit->output_layer) {
+		pr_err("no output layer defined\n");
+		return -EINVAL;
+	}
+
+	wfd = mdp5_data->wfd;
+	output_layer = commit->output_layer;
+
+	data = mdss_mdp_wfd_add_data(wfd, output_layer);
+	if (IS_ERR_OR_NULL(data))
+		return PTR_ERR(data);
+
+	if (output_layer->buffer.fence >= 0) {
+		fence = sync_fence_fdget(output_layer->buffer.fence);
+		if (!fence) {
+			pr_err("fail to get output buffer fence\n");
+			rc = -EINVAL;
+			goto fence_get_err;
+		}
+	}
+
+	rc = mdss_mdp_layer_pre_commit(mfd, commit);
+	if (rc) {
+		pr_err("fail to import input layer buffers\n");
+		goto input_layer_err;
+	}
+
+	if (fence) {
+		sync_pt_data = &mfd->mdp_sync_pt_data;
+		mutex_lock(&sync_pt_data->sync_mutex);
+		count = sync_pt_data->acq_fen_cnt;
+		sync_pt_data->acq_fen[count] = fence;
+		sync_pt_data->acq_fen_cnt++;
+		mutex_unlock(&sync_pt_data->sync_mutex);
+	}
+	return rc;
+
+input_layer_err:
+	if (fence)
+		sync_fence_put(fence);
+fence_get_err:
+	mdss_mdp_wfd_remove_data(wfd, data);
+	return rc;
+}
+
+int mdss_mdp_layer_atomic_validate_wfd(struct msm_fb_data_type *mfd,
+	struct mdp_layer_commit_v1 *commit)
+{
+	int rc = 0;
+	struct mdss_overlay_private *mdp5_data;
+	struct mdss_mdp_wfd *wfd;
+	struct mdp_output_layer *output_layer;
+
+	if (!mfd || !commit)
+		return -EINVAL;
+
+	mdp5_data = mfd_to_mdp5_data(mfd);
+
+	if (!mdp5_data || !mdp5_data->ctl || !mdp5_data->wfd) {
+		pr_err("invalid wfd state\n");
+		return -ENODEV;
+	}
+
+	if (!commit->output_layer) {
+		pr_err("no output layer defined\n");
+		return -EINVAL;
+	}
+
+	wfd = mdp5_data->wfd;
+	output_layer = commit->output_layer;
+
+	rc = mdss_mdp_wfd_validate(wfd, output_layer);
+	if (rc) {
+		pr_err("fail to validate the output layer = %d\n", rc);
+		goto validate_failed;
+	}
+
+	rc = mdss_mdp_wfd_setup(wfd, output_layer);
+	if (rc) {
+		pr_err("fail to prepare wfd = %d\n", rc);
+		goto validate_failed;
+	}
+
+	rc = mdss_mdp_layer_atomic_validate(mfd, commit);
+	if (rc) {
+		pr_err("fail to validate the input layers = %d\n", rc);
+		goto validate_failed;
+	}
+
+validate_failed:
+	return rc;
+}
+

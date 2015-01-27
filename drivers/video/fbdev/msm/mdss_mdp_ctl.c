@@ -46,7 +46,6 @@ static inline u64 apply_fudge_factor(u64 val,
 
 static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 
-static int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer);
 static inline int __mdss_mdp_ctl_get_mixer_off(struct mdss_mdp_mixer *mixer);
 
 static inline u32 mdss_mdp_get_pclk_rate(struct mdss_mdp_ctl *ctl)
@@ -1620,7 +1619,7 @@ static int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
  * Return: mdp mixer structure that is allocated.
  *	   NULL if mixer allocation fails.
  */
-static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
+struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 		struct mdss_mdp_ctl *ctl, u32 type, int mux, int rotator)
 {
 	struct mdss_mdp_mixer *mixer = NULL, *alt_mixer = NULL;
@@ -1706,7 +1705,30 @@ static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 	return mixer;
 }
 
-static int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer)
+struct mdss_mdp_mixer *mdss_mdp_mixer_assign(u32 id, bool wb)
+{
+	struct mdss_mdp_mixer *mixer = NULL;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	mutex_lock(&mdss_mdp_ctl_lock);
+
+	if (wb && id < mdata->nmixers_wb)
+		mixer = mdata->mixer_wb + id;
+	else if (!wb && id < mdata->nmixers_intf)
+		mixer = mdata->mixer_intf + id;
+
+	if (mixer && mixer->ref_cnt == 0) {
+		mixer->ref_cnt++;
+		mixer->params_changed++;
+	} else {
+		pr_err("mixer is in use already = %d\n", id);
+		mixer = NULL;
+	}
+	mutex_unlock(&mdss_mdp_ctl_lock);
+	return mixer;
+}
+
+int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer)
 {
 	if (!mixer)
 		return -ENODEV;
@@ -1950,6 +1972,10 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	}
 
 	pinfo = &ctl->panel_data->panel_info;
+	if (pinfo->type == WRITEBACK_PANEL) {
+		pr_err("writeback panel, ignore\n");
+		return 0;
+	}
 
 	split_ctl = mdss_mdp_get_split_ctl(ctl);
 
@@ -2041,71 +2067,6 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
-static int mdss_mdp_ctl_setup_wfd(struct mdss_mdp_ctl *ctl)
-{
-	struct mdss_data_type *mdata = ctl->mdata;
-	struct mdss_mdp_mixer *mixer = NULL;
-	struct mdss_mdp_writeback *wb = NULL;
-	u32 caps;
-	int mixer_type, ret = 0;
-
-	/* if WB2 is supported, try to allocate it first */
-	if (mdata->wfd_mode == MDSS_MDP_WFD_INTERFACE)
-		mixer_type = MDSS_MDP_MIXER_TYPE_INTF;
-	else
-		mixer_type = MDSS_MDP_MIXER_TYPE_WRITEBACK;
-
-	mixer = mdss_mdp_mixer_alloc(ctl, mixer_type, false, 0);
-	if (!mixer && mixer_type == MDSS_MDP_MIXER_TYPE_INTF)
-		mixer = mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_WRITEBACK,
-				false, 0);
-
-	if (!mixer) {
-		pr_err("Unable to allocate writeback mixer\n");
-		return -ENOMEM;
-	}
-
-	caps = MDSS_MDP_WB_WFD;
-	if (mixer->type != MDSS_MDP_MIXER_TYPE_WRITEBACK)
-		caps |= MDSS_MDP_WB_INTF;
-	wb = mdss_mdp_wb_alloc(caps, ctl->num);
-	if (!wb) {
-		pr_err("Unable to allocate writeback block\n");
-		ret = -ENODEV;
-		goto setup_wfd_err;
-	}
-
-	if (mixer->type != MDSS_MDP_MIXER_TYPE_WRITEBACK ||
-			(mdata->wfd_mode == MDSS_MDP_WFD_DEDICATED)) {
-		ctl->opmode = MDSS_MDP_CTL_OP_WFD_MODE;
-	} else {
-		switch (mixer->num) {
-		case MDSS_MDP_WB_LAYERMIXER0:
-			ctl->opmode = MDSS_MDP_CTL_OP_WB0_MODE;
-			break;
-		case MDSS_MDP_WB_LAYERMIXER1:
-			ctl->opmode = MDSS_MDP_CTL_OP_WB1_MODE;
-			break;
-		default:
-			pr_err("Incorrect writeback config num=%d\n",
-					mixer->num);
-			ret = -EINVAL;
-			goto setup_wfd_err;
-		}
-		ctl->wb_type = MDSS_MDP_WB_CTL_TYPE_LINE;
-	}
-	ctl->mixer_left = mixer;
-	ctl->wb = wb;
-	return 0;
-
-setup_wfd_err:
-	mdss_mdp_mixer_free(mixer);
-	if (wb)
-		mdss_mdp_wb_free(wb);
-
-	return ret;
-}
-
 struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 				       struct msm_fb_data_type *mfd)
 {
@@ -2178,9 +2139,6 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 	case WRITEBACK_PANEL:
 		ctl->intf_num = MDSS_MDP_NO_INTF;
 		ctl->start_fnc = mdss_mdp_writeback_start;
-		ret = mdss_mdp_ctl_setup_wfd(ctl);
-		if (ret)
-			goto ctl_init_fail;
 		break;
 	default:
 		pr_err("unsupported panel type (%d)\n", pdata->panel_info.type);
@@ -2485,8 +2443,10 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 	}
 
 	mixer = ctl->mixer_left;
-	mdss_mdp_pp_resume(ctl, mixer->num);
-	mixer->params_changed++;
+	if (mixer) {
+		mdss_mdp_pp_resume(ctl, mixer->num);
+		mixer->params_changed++;
+	}
 
 	temp = readl_relaxed(ctl->mdata->mdp_base +
 		MDSS_MDP_REG_DISP_INTF_SEL);
@@ -2497,14 +2457,15 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 	writel_relaxed(temp, ctl->mdata->mdp_base +
 		MDSS_MDP_REG_DISP_INTF_SEL);
 
-	outsize = (mixer->height << 16) | mixer->width;
-	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, outsize);
+	if (mixer) {
+		outsize = (mixer->height << 16) | mixer->width;
+		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, outsize);
 
-	if (ctl->panel_data->panel_info.fbc.enabled) {
-		ret = mdss_mdp_ctl_fbc_enable(1, ctl->mixer_left,
-				&ctl->panel_data->panel_info);
+		if (ctl->panel_data->panel_info.fbc.enabled) {
+			ret = mdss_mdp_ctl_fbc_enable(1, ctl->mixer_left,
+					&ctl->panel_data->panel_info);
+		}
 	}
-
 	return ret;
 }
 
@@ -3850,6 +3811,40 @@ struct mdss_mdp_writeback *mdss_mdp_wb_alloc(u32 caps, u32 reg_index)
 		else
 			wb->base += mdata->wb_offsets[i];
 	}
+
+	return wb;
+}
+
+struct mdss_mdp_writeback *mdss_mdp_wb_assign(u32 num, u32 reg_index)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_writeback *wb = NULL;
+	bool wb_virtual_on;
+
+	wb_virtual_on = (mdata->nctl == mdata->nwb_offsets);
+
+	if (num >= mdata->nwb)
+		return NULL;
+
+	if (wb_virtual_on && reg_index >= mdata->nwb_offsets)
+		return NULL;
+
+	mutex_lock(&mdata->wb_lock);
+	wb = mdata->wb + num;
+	if (atomic_read(&wb->kref.refcount) == 0)
+		kref_init(&wb->kref);
+	else
+		wb = NULL;
+	mutex_unlock(&mdata->wb_lock);
+
+	if (!wb)
+		return NULL;
+
+	wb->base = mdata->mdss_io.base;
+	if (wb_virtual_on)
+		wb->base += mdata->wb_offsets[reg_index];
+	else
+		wb->base += mdata->wb_offsets[num];
 
 	return wb;
 }

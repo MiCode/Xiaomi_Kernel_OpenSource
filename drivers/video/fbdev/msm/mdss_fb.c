@@ -3372,6 +3372,8 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	struct mdp_input_layer *layer, *layer_list = NULL;
 	struct mdp_input_layer __user *input_layer_list;
 	struct mdp_scale_data *scale;
+	struct mdp_output_layer *output_layer = NULL;
+	struct mdp_output_layer __user *output_layer_user;
 
 	ret = copy_from_user(&commit, argp, sizeof(struct mdp_layer_commit));
 	if (ret) {
@@ -3379,11 +3381,30 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 		return ret;
 	}
 
+	output_layer_user = commit.commit_v1.output_layer;
+	if (output_layer_user) {
+		buffer_size = sizeof(struct mdp_output_layer);
+		output_layer = kzalloc(buffer_size, GFP_KERNEL);
+		if (!output_layer) {
+			pr_err("unable to allocate memory for output layer\n");
+			return -ENOMEM;
+		}
+
+		ret = copy_from_user(output_layer,
+			output_layer_user, buffer_size);
+		if (ret) {
+			pr_err("layer list copy from user failed\n");
+			goto err;
+		}
+		commit.commit_v1.output_layer = output_layer;
+	}
+
 	layer_count = commit.commit_v1.input_layer_cnt;
 	input_layer_list = commit.commit_v1.input_layers;
 
 	if (layer_count > MAX_LAYER_COUNT) {
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err;
 	} else if (layer_count) {
 		buffer_size = sizeof(struct mdp_input_layer) * layer_count;
 		layer_list = kmalloc(buffer_size, GFP_KERNEL);
@@ -3438,6 +3459,7 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 			pr_err("layer error code copy to user failed\n");
 
 		commit.commit_v1.input_layers = input_layer_list;
+		commit.commit_v1.output_layer = output_layer_user;
 		rc = copy_to_user(argp, &commit,
 			sizeof(struct mdp_layer_commit));
 		if (rc)
@@ -3448,6 +3470,7 @@ err:
 	for (i--; i >= 0; i--)
 		kfree(layer_list[i].scale);
 	kfree(layer_list);
+	kfree(output_layer);
 	return ret;
 }
 

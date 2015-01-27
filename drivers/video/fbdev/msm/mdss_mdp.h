@@ -525,6 +525,8 @@ struct mdss_mdp_writeback_arg {
 	void *priv_data;
 };
 
+struct mdss_mdp_wfd;
+
 struct mdss_overlay_private {
 	ktime_t vsync_time;
 	struct kernfs_node *vsync_event_sd;
@@ -537,7 +539,7 @@ struct mdss_overlay_private {
 	struct mutex ov_lock;
 	struct mutex dfps_lock;
 	struct mdss_mdp_ctl *ctl;
-	struct mdss_mdp_wb *wb;
+	struct mdss_mdp_wfd *wfd;
 
 	struct mutex list_lock;
 	struct list_head pipes_used;
@@ -874,6 +876,12 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 	struct mdp_layer_commit_v1 *ov_commit);
 int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 	struct mdp_layer_commit_v1 *ov_commit);
+
+int mdss_mdp_layer_atomic_validate_wfd(struct msm_fb_data_type *mfd,
+	struct mdp_layer_commit_v1 *ov_commit);
+int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
+	struct mdp_layer_commit_v1 *ov_commit);
+
 int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			       struct mdp_overlay *req,
 			       struct mdss_mdp_format_params *fmt);
@@ -1112,5 +1120,11 @@ int mdss_mdp_pp_get_version(struct mdp_pp_feature_version *version);
 
 struct mdss_mdp_writeback *mdss_mdp_wb_alloc(u32 caps, u32 reg_index);
 void mdss_mdp_wb_free(struct mdss_mdp_writeback *wb);
+struct mdss_mdp_writeback *mdss_mdp_wb_assign(u32 num, u32 reg_index);
+
+struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
+		struct mdss_mdp_ctl *ctl, u32 type, int mux, int rotator);
+struct mdss_mdp_mixer *mdss_mdp_mixer_assign(u32 id, bool wb);
+int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer);
 
 #endif /* MDSS_MDP_H */

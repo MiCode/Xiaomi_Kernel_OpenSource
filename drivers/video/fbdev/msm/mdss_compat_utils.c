@@ -278,6 +278,7 @@ static int __compat_atomic_commit(struct fb_info *info, unsigned int cmd,
 	u32 layer_count;
 	struct mdp_input_layer *layer_list = NULL, *layer;
 	struct mdp_input_layer32 *layer_list32 = NULL;
+	struct mdp_output_layer *output_layer = NULL;
 
 	/* copy top level memory from 32 bit structure to kernel memory */
 	ret = copy_from_user(&commit32, (void __user *)argp,
@@ -288,9 +289,27 @@ static int __compat_atomic_commit(struct fb_info *info, unsigned int cmd,
 	}
 	__copy_atomic_commit_struct(&commit, &commit32);
 
+	if (commit32.commit_v1.output_layer) {
+		int buffer_size = sizeof(struct mdp_output_layer);
+		output_layer = kzalloc(buffer_size, GFP_KERNEL);
+		if (!output_layer) {
+			pr_err("fail to allocate output layer\n");
+			return -ENOMEM;
+		}
+		ret = copy_from_user(output_layer,
+				commit32.commit_v1.output_layer, buffer_size);
+		if (ret) {
+			pr_err("fail to copy output layer from user\n");
+			goto layer_list_err;
+		}
+
+		commit.commit_v1.output_layer = output_layer;
+	}
+
 	layer_count = commit32.commit_v1.input_layer_cnt;
 	if (layer_count > MAX_LAYER_COUNT) {
-		return -EINVAL;
+		ret = -EINVAL;
+		goto layer_list_err;
 	} else if (layer_count) {
 		/*
 		 * allocate memory for layer list in 32bit domain and copy it
@@ -299,7 +318,7 @@ static int __compat_atomic_commit(struct fb_info *info, unsigned int cmd,
 		layer_list32 = __create_layer_list32(&commit32, layer_count);
 		if (IS_ERR_OR_NULL(layer_list32)) {
 			ret = PTR_ERR(layer_list32);
-			goto end;
+			goto layer_list_err;
 		}
 
 		/*
@@ -327,7 +346,7 @@ static int __compat_atomic_commit(struct fb_info *info, unsigned int cmd,
 	kfree(layer_list);
 layer_list_err:
 	kfree(layer_list32);
-end:
+	kfree(output_layer);
 	return ret;
 }
 
