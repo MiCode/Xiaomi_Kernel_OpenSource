@@ -776,3 +776,19 @@ int msm_isp_update_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 	return rc;
 }
+
+void msm_isp_stats_disable(struct vfe_device *vfe_dev)
+{
+	int i;
+	unsigned int mask = 0;
+
+	if (!vfe_dev) {
+		pr_err("%s:  error NULL ptr\n", __func__);
+		return;
+	}
+
+	for (i = 0; i < vfe_dev->hw_info->stats_hw_info->num_stats_type; i++)
+		mask |= 1 << i;
+
+	vfe_dev->hw_info->vfe_ops.stats_ops.enable_module(vfe_dev, mask, 0);
+}
