@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1456,6 +1456,15 @@ static int venus_hfi_halt_axi(struct venus_hfi_device *device)
 	int rc = 0;
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid input: %p\n", device);
+		return -EINVAL;
+	}
+	/*
+	 * Driver needs to make sure that clocks are enabled to read Venus AXI
+	 * registers. If not skip AXI HALT.
+	 */
+	if (device->clk_state != ENABLED_PREPARED) {
+		dprintk(VIDC_WARN,
+			"Clocks are OFF, skipping AXI HALT\n");
 		return -EINVAL;
 	}
 
