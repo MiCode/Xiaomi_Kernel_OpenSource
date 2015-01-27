@@ -406,7 +406,7 @@
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 49 0
 				1 &intc 0 50 0
-				2 &intc 0 91 0
+				2 &intc 0 51 0
 				3 &intc 0 52 0
 				4 &intc 0 53 0
 				5 &intc 0 54 0
