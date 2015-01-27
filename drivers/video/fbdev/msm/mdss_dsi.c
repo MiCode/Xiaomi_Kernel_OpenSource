@@ -1006,8 +1006,9 @@ static void __mdss_dsi_calc_dfps_delay(struct mdss_panel_data *pdata)
 	pipe_delay = (hsync_period + 1) / pclk_to_esc_ratio;
 	if (pinfo->mipi.eof_bllp_power_stop == 0)
 		pipe_delay += (17 / pclk_to_esc_ratio) +
-			((21 + pinfo->mipi.t_clk_pre +
-			pinfo->mipi.t_clk_post) / byte_to_esc_ratio) +
+			((21 + (pinfo->mipi.t_clk_pre + 1) +
+				(pinfo->mipi.t_clk_post + 1)) /
+				byte_to_esc_ratio) +
 			((((pd->timing[8] >> 1) + 1) +
 			((pd->timing[6] >> 1) + 1) +
 			((pd->timing[3] * 4) + (pd->timing[5] >> 1) + 1) +
@@ -1020,7 +1021,8 @@ static void __mdss_dsi_calc_dfps_delay(struct mdss_panel_data *pdata)
 			((((pd->timing[1] >> 1) + 1) +
 			((pd->timing[4] >> 1) + 1)) / hr_bit_to_esc_ratio);
 
-	pll_delay = ((1000 * esc_clk_rate) / 1000000) * 2;
+	/* 130 us pll delay recommended by h/w doc */
+	pll_delay = ((130 * esc_clk_rate) / 1000000) * 2;
 
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + DSI_DYNAMIC_REFRESH_PIPE_DELAY,
 						pipe_delay);
