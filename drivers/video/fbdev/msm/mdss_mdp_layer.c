@@ -1100,6 +1100,7 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 
 	layer_list = commit->input_layers;
 
+	/* handle null commit */
 	if (!layer_count) {
 		__handle_free_list(mdp5_data, NULL, layer_count);
 		return 0;
@@ -1118,6 +1119,12 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 		ret = __validate_layers(mfd, commit);
 		if (ret)
 			goto end;
+	} else {
+		/*
+		 * move unassigned pipes to cleanup list since commit
+		 * supports validate+commit operation.
+		 */
+		__handle_free_list(mdp5_data, layer_list, layer_count);
 	}
 
 	i = 0;
