@@ -779,8 +779,8 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	pr_debug("start ctl=%d\n", ctl->num);
 
 	if (!ctl->wb) {
-		pr_err("wb not setup in the ctl\n");
-		return -EINVAL;
+		pr_debug("wb not setup in the ctl\n");
+		return 0;
 	}
 
 	wb = ctl->wb;
