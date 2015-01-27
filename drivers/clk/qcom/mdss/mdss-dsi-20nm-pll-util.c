@@ -151,9 +151,6 @@ static void pll_20nm_cache_trim_codes(struct mdss_pll_resources *dsi_pll_res)
 {
 	int rc;
 
-	if (dsi_pll_res->reg_upd)
-		return;
-
 	rc = mdss_pll_resource_enable(dsi_pll_res, true);
 	if (rc) {
 		pr_err("Failed to enable mdss dsi pll resources\n");
@@ -172,8 +169,51 @@ static void pll_20nm_cache_trim_codes(struct mdss_pll_resources *dsi_pll_res)
 		dsi_pll_res->cache_pll_trim_codes[1]);
 
 	mdss_pll_resource_enable(dsi_pll_res, false);
+}
 
-	dsi_pll_res->reg_upd = true;
+static int pll_20nm_read_codes_stored(struct mdss_pll_resources *dsi_pll_res,
+	s64 vco_clk_rate)
+{
+	int i;
+	int rc = 0;
+	bool found = false;
+
+	if (!dsi_pll_res->dfps) {
+		rc = -EINVAL;
+		goto pll_codes;
+	}
+
+	for (i = 0; i < dsi_pll_res->dfps->panel_dfps.frame_rate_cnt; i++) {
+		struct dfps_codes_info *codes_info =
+			&dsi_pll_res->dfps->codes_dfps[i];
+
+		pr_debug("valid=%d frame_rate=%d, vco_rate=%d, code %d %d\n",
+			codes_info->is_valid, codes_info->frame_rate,
+			codes_info->clk_rate, codes_info->pll_codes.pll_codes_1,
+			codes_info->pll_codes.pll_codes_2);
+
+		if (vco_clk_rate != codes_info->clk_rate &&
+			codes_info->is_valid)
+			continue;
+
+		dsi_pll_res->cache_pll_trim_codes[0] =
+			codes_info->pll_codes.pll_codes_1;
+		dsi_pll_res->cache_pll_trim_codes[1] =
+			codes_info->pll_codes.pll_codes_2;
+		found = true;
+
+		break;
+	}
+
+	if (!found)
+		rc = -EINVAL;
+
+pll_codes:
+	pr_debug("core_kvco_code=0x%x core_vco_turn=0x%x\n",
+		dsi_pll_res->cache_pll_trim_codes[0],
+		dsi_pll_res->cache_pll_trim_codes[1]);
+
+	return rc;
 }
 
 static void pll_20nm_override_trim_codes(struct mdss_pll_resources *dsi_pll_res)
@@ -706,7 +746,7 @@ int shadow_pll_20nm_vco_set_rate(struct dsi_pll_vco_clk *vco,
 {
 	struct mdss_pll_resources *dsi_pll_res = vco->priv;
 	struct mdss_pll_vco_calc vco_calc;
-	s64 vco_clk_rate = rate;
+	s64 vco_clk_rate = (s64)rate;
 	u32 rem;
 
 	if (!dsi_pll_res->resource_enable) {
@@ -714,7 +754,10 @@ int shadow_pll_20nm_vco_set_rate(struct dsi_pll_vco_clk *vco,
 		return -EINVAL;
 	}
 
-	pr_debug("req vco set rate: %lld\n", vco_clk_rate);
+	if (pll_20nm_read_codes_stored(dsi_pll_res, vco_clk_rate)) {
+		pr_err("cannot find pll codes rate=%lld\n", vco_clk_rate);
+		return -EINVAL;
+	}
 
 	pll_20nm_override_trim_codes(dsi_pll_res);
 
