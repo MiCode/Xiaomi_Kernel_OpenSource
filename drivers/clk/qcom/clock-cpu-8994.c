@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,6 +38,8 @@
 
 #include "clock.h"
 #include "vdd-level-8994.h"
+
+#define A53OFFSET (56)
 
 enum {
 	C0_PLL_BASE,
@@ -1468,6 +1470,7 @@ static void init_v2_data(void)
 }
 
 static int a57speedbin;
+static int a53speedbin;
 struct platform_device *cpu_clock_8994_dev;
 
 /* Low power mux code begins here */
@@ -1777,8 +1780,9 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 	unsigned long a53rate, a57rate, ccirate;
 	bool v2;
 	int pvs_ver = 0;
-	u32 pte_efuse;
+	u64 pte_efuse;
 	char a57speedbinstr[] = "qcom,a57-speedbinXX-vXX";
+	char a53speedbinstr[] = "qcom,a53-speedbinXX-vXX";
 
 	v2 = msm8994_v2 | msm8992;
 	cpu_clock_8994_dev = pdev;
@@ -1799,14 +1803,32 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 	if (!v2)
 		perform_v1_fixup();
 
-	ret = of_get_fmax_vdd_class(pdev, &a53_clk.c, "qcom,a53-speedbin0-v0");
+	if (msm8992) {
+		pte_efuse = readq_relaxed(vbases[EFUSE_BASE]);
+		a53speedbin = (pte_efuse >> A53OFFSET) & 0x3;
+		dev_info(&pdev->dev, "using A53 speed bin %u and pvs_ver %d\n",
+			 a53speedbin, pvs_ver);
+
+		snprintf(a53speedbinstr, ARRAY_SIZE(a53speedbinstr),
+			"qcom,a53-speedbin%d-v%d", a53speedbin, pvs_ver);
+	} else if (v2)
+		pte_efuse = readl_relaxed(vbases[EFUSE_BASE]);
+
+	snprintf(a53speedbinstr, ARRAY_SIZE(a53speedbinstr),
+			"qcom,a53-speedbin%d-v%d", a53speedbin, pvs_ver);
+
+	ret = of_get_fmax_vdd_class(pdev, &a53_clk.c, a53speedbinstr);
 	if (ret) {
-		dev_err(&pdev->dev, "Can't get speed bin for a53\n");
-		return ret;
+		dev_err(&pdev->dev, "Can't get speed bin for a53. Falling back to zero.\n");
+		ret = of_get_fmax_vdd_class(pdev, &a53_clk.c,
+					    "qcom,a53-speedbin0-v0");
+		if (ret) {
+			dev_err(&pdev->dev, "Unable to retrieve plan for A53. Bailing...\n");
+			return ret;
+		}
 	}
 
 	if (v2) {
-		pte_efuse = readl_relaxed(vbases[EFUSE_BASE]);
 		a57speedbin = pte_efuse & 0x7;
 		dev_info(&pdev->dev, "using A57 speed bin %u and pvs_ver %d\n",
 			 a57speedbin, pvs_ver);
