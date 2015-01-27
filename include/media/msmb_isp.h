@@ -485,7 +485,8 @@ enum msm_isp_event_idx {
 	ISP_CAMIF_ERROR     = 8,
 	ISP_BUF_DONE        = 9,
 	ISP_FE_RD_DONE      = 10,
-	ISP_EVENT_MAX       = 11
+	ISP_IOMMU_P_FAULT   = 11,
+	ISP_EVENT_MAX       = 12
 };
 
 #define ISP_EVENT_OFFSET          8
@@ -510,6 +511,7 @@ enum msm_isp_event_idx {
 #define ISP_EVENT_STATS_NOTIFY    (ISP_STATS_EVENT_BASE)
 #define ISP_EVENT_COMP_STATS_NOTIFY (ISP_EVENT_STATS_NOTIFY + MSM_ISP_STATS_MAX)
 #define ISP_EVENT_FE_READ_DONE    (ISP_EVENT_BASE + ISP_FE_RD_DONE)
+#define ISP_EVENT_IOMMU_P_FAULT   (ISP_EVENT_BASE + ISP_IOMMU_P_FAULT)
 #define ISP_EVENT_STREAM_UPDATE_DONE   (ISP_STREAM_EVENT_BASE)
 
 /* The msm_v4l2_event_data structure should match the

@@ -1537,6 +1537,22 @@ void msm_isp_update_error_frame_count(struct vfe_device *vfe_dev)
 		error_info->info_dump_frame_count++;
 }
 
+
+void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
+{
+	struct msm_isp_event_data error_event;
+
+	pr_err("%s:%d] vfe_dev %p id %d\n", __func__,
+		__LINE__, vfe_dev, vfe_dev->pdev->id);
+
+	vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr);
+
+	error_event.frame_id =
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+	msm_isp_send_event(vfe_dev,
+					ISP_EVENT_IOMMU_P_FAULT, &error_event);
+}
+
 void msm_isp_process_error_info(struct vfe_device *vfe_dev)
 {
 	int i;
@@ -1765,10 +1781,7 @@ void msm_isp_do_tasklet(unsigned long data)
 		queue_cmd->iommu_page_fault = 0;
 		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
 		if (iommu_page_fault > 0) {
-			pr_err("%s:%d] vfe_dev %p id %d\n", __func__,
-				__LINE__, vfe_dev, vfe_dev->pdev->id);
-			vfe_dev->buf_mgr->ops->
-				buf_mgr_debug(vfe_dev->buf_mgr);
+			ms_isp_process_iommu_page_fault(vfe_dev);
 			continue;
 		}
 		ISP_DBG("%s: status0: 0x%x status1: 0x%x\n",
