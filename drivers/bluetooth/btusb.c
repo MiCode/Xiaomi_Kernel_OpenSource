@@ -27,6 +27,8 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
+#include "ath3k.h"
+
 #define VERSION "0.6"
 
 static bool ignore_dga;
@@ -1334,7 +1336,8 @@ static int btusb_probe(struct usb_interface *intf,
 	struct usb_endpoint_descriptor *ep_desc;
 	struct btusb_data *data;
 	struct hci_dev *hdev;
-	int i, version, err;
+	int i, err;
+	struct ath3k_version version;
 
 	BT_DBG("intf %p id %p", intf, id);
 
@@ -1363,18 +1366,24 @@ static int btusb_probe(struct usb_interface *intf,
 
 	if (id->driver_info & BTUSB_ATH3012) {
 		struct usb_device *udev = interface_to_usbdev(intf);
-
-		version = get_rome_version(udev);
-		BT_INFO("Rome Version: 0x%x",  version);
 		/* Old firmware would otherwise let ath3k driver load
 		 * patch and sysconfig files */
-		if (version)
-			rome_download(udev);
-		else if (le16_to_cpu(udev->descriptor.bcdDevice) <= 0x0001) {
-			BT_INFO("FW for ar3k is yet to be downloaded");
+		err = get_rome_version(udev, &version);
+		if (err < 0) {
+			if (le16_to_cpu(udev->descriptor.bcdDevice) <= 0x0001)
+				BT_INFO("FW for ar3k is yet to be downloaded");
+			else
+				BT_ERR("Failed to get ROME USB version");
+			return -ENODEV;
+		}
+		BT_INFO("Rome Version: 0x%x", version.rom_version);
+		err = rome_download(udev, &version);
+		if (err < 0) {
+			BT_ERR("Failed to download ROME firmware");
 			return -ENODEV;
 		}
 	}
+
 	data = devm_kzalloc(&intf->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
