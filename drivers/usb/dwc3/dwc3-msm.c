@@ -3031,8 +3031,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		mdwc->pmic_id_irq =
 			platform_get_irq_byname(pdev, "pmic_id_irq");
 		if (mdwc->pmic_id_irq > 0) {
-			/* check if PMIC ID IRQ is supported */
-			ret = qpnp_misc_irqs_available(&pdev->dev);
+			/* check if PMIC MISC module monitors usb ID */
+			if (of_get_property(pdev->dev.of_node, "qcom,misc-ref",
+						NULL))
+				/* check if PMIC ID IRQ is supported */
+				ret = qpnp_misc_irqs_available(&pdev->dev);
+			else
+				ret = mdwc->pmic_id_irq;
 
 			if (ret == -EPROBE_DEFER) {
 				/* qpnp hasn't probed yet; defer dwc probe */
