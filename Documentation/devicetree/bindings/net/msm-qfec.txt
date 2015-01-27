@@ -1,0 +1,53 @@
+Qualcomm FSM Ethernet Controller (QFEC)
+
+Required properties:
+- cell-index : QFEC controller instance number.
+- compatible : Should be "qcom,qfec" or "qcom,qfec-nss".
+- reg : Offset and length of the register regions for the device
+- reg-names : Register region names referenced in 'reg' above.
+	Required register resource entries are:
+	"qfec_mac"           : QFEC controller register block.
+
+	Optional register resource entries are:
+	"qfec_csr"           : QFEC wrapper register block.
+	                       Required if 'qcom,qfec-nss' compatibility is
+			       specified.
+	"qfec_qsgmii"        : QFEC SGMII serdes register block.
+	                       Required if 'phy-mode' is "sgmii" and
+			       'qcom,qfec-nss' compatibility is specified.
+	"qfec_rgmii_csr"     : QFEC RGMII CDC CSR register block.
+	                       Required if 'phy-mode' is "rgmii" and
+			       'qcom,qfec-nss' compatibility is specified.
+
+- interrupts : Interrupt numbers used by this controller
+- phy-addr : Specifies phy address on MDIO bus.
+- phy-mode : Specifies PHY type being used (eg., "sgmii", "rgmii", "gmii" etc).
+
+Optional properties:
+- local-mac-address : The 6-byte MAC address.
+		      This field is optional. If present, it is only a
+		      placeholder for the MAC address. The correct MAC
+		      address is populated in device tree during platform
+		      initialization.
+- qcom,qsgmii-pcs-chan : Specifies to use which QSGMII PCS channel
+		      This field is required if 'qcom,qfec-nss' compatibility is
+		      specified.
+
+Example:
+	qfec0: qcom,qfec@0xe7000000 {
+		compatible = "qcom,qfec-nss";
+		cell-index = <0>;
+		reg = <0xe7000000 0x10000>,
+			<0xfc800000 0x4000>,
+			<0xfc900000 0x100000>,
+			<0xfcb00000 0x100000>;
+		reg-names = "qfec_mac",
+			"qfec_csr",
+			"qfec_qsgmii",
+			"qfec_rgmii_csr";
+		interrupts = <0 242 0>;
+		phy-addr = <6>;
+		phy-mode = "rgmii";
+		qcom,qsgmii-pcs-chan = <1>;
+		status = "ok";
+	};

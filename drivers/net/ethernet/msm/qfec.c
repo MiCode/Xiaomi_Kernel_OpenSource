@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,9 @@
 #include <linux/hrtimer.h>
 #include <linux/ktime.h>
 #include <linux/atomic.h>
+#include <linux/of_device.h>
+#include <linux/of_net.h>
+#include <linux/clk.h>
 
 #include "qfec.h"
 
@@ -59,6 +62,10 @@
 #define H_DPLX     0
 #define F_DPLX     1
 
+#define DEFAULT_IFG 12
+#define GMAC_CTL_IFG_DEFAULT ((DEFAULT_IFG << GMAC_IFG_LIMIT_SHFT) | \
+			       DEFAULT_IFG)
+
 /* logging macros */
 #define QFEC_LOG_PR     1
 #define QFEC_LOG_DBG    2
@@ -69,7 +76,6 @@
 							| EXPANSION_NPCAPABLE)
 
 static int qfec_debug = QFEC_LOG_PR;
-static int rx_int_status; /* Current Hardware Rx INT status */
 
 #ifdef QFEC_DEBUG
 # define QFEC_LOG(flag, ...)                    \
@@ -88,13 +94,15 @@ static int rx_int_status; /* Current Hardware Rx INT status */
  *   (See the DSL bits in the BUS-Mode register).
  */
 #define BD_FLAG_LAST_BD     1
+#define BD_FLAG_ENHDES      2
+#define BD_FLAG_ATDS        4
 
 struct buf_desc {
-	struct qfec_buf_desc   *p_desc;
-	struct sk_buff         *skb;
-	void                   *buf_virt_addr;
-	void                   *buf_phys_addr;
-	uint32_t                last_bd_flag;
+	void           *p_desc;
+	struct sk_buff *skb;
+	void           *buf_virt_addr;
+	void           *buf_phys_addr;
+	uint32_t        bd_flag;
 };
 
 /* inline functions accessing non-struct qfec_buf_desc elements */
@@ -132,86 +140,129 @@ static inline void *qfec_bd_phys_get(struct buf_desc *p_bd)
 	return p_bd->buf_phys_addr;
 };
 
-/* last_bd_flag */
+/* bd_flag */
 static inline uint32_t qfec_bd_last_bd(struct buf_desc *p_bd)
 {
-	return (p_bd->last_bd_flag != 0) ? 1 : 0;
+	return p_bd->bd_flag & BD_FLAG_LAST_BD;
 };
 
-static inline void qfec_bd_last_bd_set(struct buf_desc *p_bd)
+static inline uint32_t qfec_bd_enhdes(struct buf_desc *p_bd)
 {
-	p_bd->last_bd_flag = BD_FLAG_LAST_BD;
+	return p_bd->bd_flag & BD_FLAG_ENHDES;
+};
+
+static inline void qfec_bd_flag_set(struct buf_desc *p_bd, uint32_t flag)
+{
+	p_bd->bd_flag = flag;
 };
 
 /* inline functions accessing struct qfec_buf_desc elements */
+static inline struct qfec_buf_desc *qfec_bd_buf_desc(struct buf_desc *p_bd)
+{
+	return (struct qfec_buf_desc *)(p_bd->p_desc);
+};
+
+static inline struct qfec_enh_buf_desc *qfec_bd_enh_buf_desc(
+	struct buf_desc *p_bd)
+{
+	return (struct qfec_enh_buf_desc *)(p_bd->p_desc);
+};
 
 /* ownership bit */
 static inline uint32_t qfec_bd_own(struct buf_desc *p_bd)
 {
-	return p_bd->p_desc->status & BUF_OWN;
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+
+	return p_desc->status & BUF_OWN;
 };
 
 static inline void qfec_bd_own_set(struct buf_desc *p_bd)
 {
-	p_bd->p_desc->status |= BUF_OWN;
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	p_desc->status |= BUF_OWN;
 };
 
 static inline void qfec_bd_own_clr(struct buf_desc *p_bd)
 {
-	p_bd->p_desc->status &= ~(BUF_OWN);
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	p_desc->status &= ~(BUF_OWN);
 };
 
 static inline uint32_t qfec_bd_status_get(struct buf_desc *p_bd)
 {
-	return p_bd->p_desc->status;
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	return p_desc->status;
 };
 
 static inline void qfec_bd_status_set(struct buf_desc *p_bd, uint32_t status)
 {
-	p_bd->p_desc->status = status;
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	p_desc->status |= status;
+};
+
+static inline void qfec_bd_status_wr(struct buf_desc *p_bd, uint32_t status)
+{
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	p_desc->status = status;
 };
 
 static inline uint32_t qfec_bd_status_len(struct buf_desc *p_bd)
 {
-	return BUF_RX_FL_GET((*p_bd->p_desc));
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	return BUF_RX_FL_GET((*p_desc));
 };
+
+static inline uint32_t qfec_tbd_status_tstamp(struct buf_desc *p_bd)
+{
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+
+	return (qfec_bd_enhdes(p_bd)) ? (p_desc->status & ENH_BUF_TX_TTSE) :
+		(p_desc->status & BUF_TX_TTSE);
+}
 
 /* control register */
 static inline void qfec_bd_ctl_reset(struct buf_desc *p_bd)
 {
-	p_bd->p_desc->ctl  = 0;
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	p_desc->ctl  = 0;
 };
 
 static inline uint32_t qfec_bd_ctl_get(struct buf_desc *p_bd)
 {
-	return p_bd->p_desc->ctl;
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	return p_desc->ctl;
 };
 
 static inline void qfec_bd_ctl_set(struct buf_desc *p_bd, uint32_t val)
 {
-	p_bd->p_desc->ctl |= val;
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	p_desc->ctl |= val;
 };
 
 static inline void qfec_bd_ctl_wr(struct buf_desc *p_bd, uint32_t val)
 {
-	p_bd->p_desc->ctl = val;
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	p_desc->ctl = val;
 };
 
 /* pbuf register  */
 static inline void *qfec_bd_pbuf_get(struct buf_desc *p_bd)
 {
-	return p_bd->p_desc->p_buf;
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	return p_desc->p_buf;
 }
 
 static inline void qfec_bd_pbuf_set(struct buf_desc *p_bd, void *p)
 {
-	p_bd->p_desc->p_buf = p;
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	p_desc->p_buf = p;
 }
 
 /* next register */
 static inline void *qfec_bd_next_get(struct buf_desc *p_bd)
 {
-	return p_bd->p_desc->next;
+	struct qfec_buf_desc *p_desc = qfec_bd_buf_desc(p_bd);
+	return p_desc->next;
 };
 
 /* initialize an RX BD w/ a new buf */
@@ -220,6 +271,7 @@ static int qfec_rbd_init(struct net_device *dev, struct buf_desc *p_bd)
 	struct sk_buff     *skb;
 	void               *p;
 	void               *v;
+	uint32_t            ctl = ETH_BUF_SIZE;
 
 	/* allocate and record ptrs for sk buff */
 	skb   = dev_alloc_skb(ETH_BUF_SIZE);
@@ -238,10 +290,11 @@ static int qfec_rbd_init(struct net_device *dev, struct buf_desc *p_bd)
 
 	/* populate control register */
 	/* mark the last BD and set end-of-ring bit */
-	qfec_bd_ctl_wr(p_bd, ETH_BUF_SIZE |
-		(qfec_bd_last_bd(p_bd) ? BUF_RX_RER : 0));
+	if (qfec_bd_last_bd(p_bd))
+		ctl |= (qfec_bd_enhdes(p_bd) ? ENH_BUF_RX_RER : BUF_RX_RER);
+	qfec_bd_ctl_wr(p_bd, ctl);
 
-	qfec_bd_status_set(p_bd, BUF_OWN);
+	qfec_bd_status_wr(p_bd, BUF_OWN);
 
 	if (!(qfec_debug & QFEC_LOG_DBG2))
 		return 0;
@@ -437,11 +490,55 @@ static char *cntr_name[]  = {
 };
 
 /* private data */
-
-static struct net_device  *qfec_dev;
-
 enum qfec_state {
 	timestamping  = 0x04,
+};
+
+#define CLK_RATE_125M       125000000UL
+#define CLK_RATE_25M        25000000UL
+#define CLK_RATE_2P5M       2500000UL
+
+enum qfec_clk {
+	QFEC_CORE_CLK,
+	QFEC_INTF_CLK,
+	QFEC_TX_CLK,
+	QFEC_RX_CLK,
+	QFEC_PTP_CLK,
+	NUM_QFEC_CLK
+};
+
+static const char *qfec_clk_name[NUM_QFEC_CLK] = {
+	"core_clk",
+	"intf_clk",
+	"tx_clk",
+	"rx_clk",
+	"ptp_clk",
+};
+
+enum qfec_pinctrl {
+	PINCTRL_MDIO_ACTIVE,
+	PINCTRL_MDIO_DEACTIVE,
+	NUM_PINCTRL
+};
+
+static const char *qfec_pinctrl_name[NUM_PINCTRL] = {
+	"active",
+	"deactive",
+};
+
+struct qfec_priv;
+
+struct qfec_ops {
+	int (*probe)(struct platform_device *plat);
+	void (*remove)(struct platform_device *plat);
+	int (*clk_enable)(struct qfec_priv *priv, uint8_t clk);
+	int (*clk_disable)(struct qfec_priv *priv, uint8_t clk);
+	int (*clk_set_rate)(struct qfec_priv *priv, uint8_t clk,
+			    unsigned long rate);
+	int (*init)(struct qfec_priv *priv);
+	int (*reset)(struct qfec_priv *priv);
+	int (*link_cfg)(struct qfec_priv *priv, unsigned int spd,
+			unsigned int dplx);
 };
 
 struct qfec_priv {
@@ -450,11 +547,20 @@ struct qfec_priv {
 	struct hrtimer          rx_timer;
 
 	struct device           dev;
+	int                     idx;              /* controller index */
+
+	const struct qfec_ops   *ops;             /* ops */
+	void                   *pdata;            /* wrapper private data */
+
+	struct clk             *clk[NUM_QFEC_CLK];
+
+	struct pinctrl         *pinctrl;
 
 	spinlock_t              xmit_lock;
 	spinlock_t              mdio_lock;
 	spinlock_t              rx_lock;
 
+	unsigned int            hw_feature;
 	unsigned int            state;            /* driver state */
 
 	unsigned int            bd_size;          /* buf-desc alloc size */
@@ -464,12 +570,6 @@ struct qfec_priv {
 
 	struct resource        *mac_res;
 	void                   *mac_base;         /* mac (virt) base address */
-
-	struct resource        *clk_res;
-	void                   *clk_base;         /* clk (virt) base address */
-
-	struct resource        *fuse_res;
-	void                   *fuse_base;        /* mac addr fuses */
 
 	unsigned int            n_tbd;            /* # of TX buf-desc */
 	struct ring             ring_tbd;         /* TX ring */
@@ -490,7 +590,58 @@ struct qfec_priv {
 	int                     mdio_clk;         /* phy mdio clock rate */
 	int                     phy_id;           /* default PHY addr (0) */
 	struct timer_list       phy_tmr;          /* monitor PHY state */
+
+	int                     rx_int_status;
+	int                     intf;
 };
+
+static inline int qfec_ops_clk_enable(struct qfec_priv *priv, uint8_t clk)
+{
+	const struct qfec_ops *ops = priv->ops;
+	return (ops->clk_enable) ? ops->clk_enable(priv, clk) : 0;
+}
+
+static inline int qfec_ops_clk_disable(struct qfec_priv *priv, uint8_t clk)
+{
+	const struct qfec_ops *ops = priv->ops;
+	return (ops->clk_disable) ? ops->clk_disable(priv, clk) : 0;
+}
+
+static inline int qfec_ops_clk_set_rate(struct qfec_priv *priv, uint8_t clk,
+					unsigned long rate)
+{
+	const struct qfec_ops *ops = priv->ops;
+	return (ops->clk_set_rate) ? ops->clk_set_rate(priv, clk, rate) : 0;
+}
+
+static inline int qfec_ops_init(struct qfec_priv *priv)
+{
+	const struct qfec_ops *ops = priv->ops;
+	return (ops->init) ? ops->init(priv) : 0;
+}
+
+static inline int qfec_ops_reset(struct qfec_priv *priv)
+{
+	const struct qfec_ops *ops = priv->ops;
+	return (ops->reset) ? ops->reset(priv) : 0;
+}
+
+static inline int qfec_ops_link_cfg(struct qfec_priv *priv, unsigned int spd,
+			unsigned int dplx)
+{
+	const struct qfec_ops *ops = priv->ops;
+	return (ops->link_cfg) ? ops->link_cfg(priv, spd, dplx) : 0;
+}
+
+static inline bool qfec_hw_feature_enhanced_des(struct qfec_priv *priv)
+{
+	return (priv->hw_feature & HW_FEATURE_ENHDESSEL) ? true : false;
+}
+
+static inline bool qfec_hw_feature_advanced_tstamp(struct qfec_priv *priv)
+{
+	return (priv->hw_feature & HW_FEATURE_TSVER2SEL) ? true : false;
+}
 
 /* cntrs display */
 static int qfec_cntrs_show(struct device *dev, struct device_attribute *attr,
@@ -537,28 +688,36 @@ static inline void qfec_queue_stop(struct net_device *dev)
 };
 
 /* functions to access and initialize the MAC registers */
-static inline uint32_t qfec_reg_read(struct qfec_priv *priv, uint32_t reg)
+static inline uint32_t qfec_reg_read(void *base, uint32_t reg)
 {
-	return ioread32((void *) (priv->mac_base + reg));
+	return ioread32((void *) (base + reg));
 }
 
-static void qfec_reg_write(struct qfec_priv *priv, uint32_t reg, uint32_t val)
+static void qfec_reg_write(void *base, uint32_t reg, uint32_t val)
 {
-	uint32_t    addr = (uint32_t)priv->mac_base + reg;
+	uint32_t    addr = (uint32_t)base + reg;
 
 	QFEC_LOG(QFEC_LOG_DBG2, "%s: %08x <- %08x\n", __func__, addr, val);
 	iowrite32(val, (void *)addr);
+}
+
+static inline void qfec_reg_update(void *base, uint32_t reg,
+				   uint32_t mask, uint32_t val)
+{
+	uint32_t v = qfec_reg_read(base, reg);
+	qfec_reg_write(base, reg, ((v & ~mask) | val));
 }
 
 /* speed/duplex/pause  settings */
 static int qfec_config_show(struct device *dev, struct device_attribute *attr,
 			      char *buf)
 {
-	struct qfec_priv        *priv = netdev_priv(to_net_dev(dev));
-	int                      cfg  = qfec_reg_read(priv, MAC_CONFIG_REG);
-	int                      flow = qfec_reg_read(priv, FLOW_CONTROL_REG);
-	int                      l    = 0;
-	int                      count = PAGE_SIZE;
+	struct qfec_priv *priv = netdev_priv(to_net_dev(dev));
+	int               cfg  = qfec_reg_read(priv->mac_base, MAC_CONFIG_REG);
+	int               flow = qfec_reg_read(priv->mac_base,
+					       FLOW_CONTROL_REG);
+	int               l    = 0;
+	int               count = PAGE_SIZE;
 
 	QFEC_LOG(QFEC_LOG_DBG2, "%s:\n", __func__);
 
@@ -654,13 +813,13 @@ static void qfec_reg_init(struct qfec_priv *priv)
 			if (p->addr == INTRP_EN_REG) {
 				spin_lock_irqsave(&priv->rx_lock, flags);
 				if (QFEC_INTRP_SETUP & INTRP_EN_REG_RIE)
-					rx_int_status = 1;
+					priv->rx_int_status = 1;
 				else
-					rx_int_status = 0;
-				qfec_reg_write(priv, p->addr, p->val);
+					priv->rx_int_status = 0;
+				qfec_reg_write(priv->mac_base, p->addr, p->val);
 				spin_unlock_irqrestore(&priv->rx_lock, flags);
 			} else
-				qfec_reg_write(priv, p->addr, p->val);
+				qfec_reg_write(priv->mac_base, p->addr, p->val);
 		}
 	}
 }
@@ -700,8 +859,8 @@ static void qfec_set_adr_regs(struct qfec_priv *priv, uint8_t *addr)
 	l = l << 8 | addr[1];
 	l = l << 8 | addr[0];
 
-	qfec_reg_write(priv, MAC_ADR_0_HIGH_REG, h);
-	qfec_reg_write(priv, MAC_ADR_0_LOW_REG,  l);
+	qfec_reg_write(priv->mac_base, MAC_ADR_0_HIGH_REG, h);
+	qfec_reg_write(priv->mac_base, MAC_ADR_0_LOW_REG,  l);
 
 	QFEC_LOG(QFEC_LOG_DBG, "%s: %08x %08x\n", __func__, h, l);
 }
@@ -715,8 +874,8 @@ static void qfec_set_rx_mode(struct net_device *dev)
 
 	/* Clear address filter entries */
 	for (index = 1; index < MAC_ADR_MAX; ++index) {
-		qfec_reg_write(priv, MAC_ADR_HIGH_REG_N(index), 0);
-		qfec_reg_write(priv, MAC_ADR_LOW_REG_N(index), 0);
+		qfec_reg_write(priv->mac_base, MAC_ADR_HIGH_REG_N(index), 0);
+		qfec_reg_write(priv->mac_base, MAC_ADR_LOW_REG_N(index), 0);
 	}
 
 	if (dev->flags & IFF_PROMISC) {
@@ -744,14 +903,16 @@ static void qfec_set_rx_mode(struct net_device *dev)
 			low = (ha->addr[3] << 24) | (ha->addr[2] << 16) |
 				(ha->addr[1] << 8) | (ha->addr[0]);
 
-			qfec_reg_write(priv, MAC_ADR_HIGH_REG_N(index), high);
-			qfec_reg_write(priv, MAC_ADR_LOW_REG_N(index), low);
+			qfec_reg_write(priv->mac_base,
+				       MAC_ADR_HIGH_REG_N(index), high);
+			qfec_reg_write(priv->mac_base,
+				       MAC_ADR_LOW_REG_N(index), low);
 
 			index++;
 		}
 	}
 
-	qfec_reg_write(priv, MAC_FR_FILTER_REG, filter_conf);
+	qfec_reg_write(priv->mac_base, MAC_FR_FILTER_REG, filter_conf);
 }
 
 /* reset the controller */
@@ -766,9 +927,9 @@ static int qfec_hw_reset(struct qfec_priv *priv)
 
 	QFEC_LOG(QFEC_LOG_DBG, "%s:\n", __func__);
 
-	qfec_reg_write(priv, BUS_MODE_REG, BUS_MODE_SWR);
+	qfec_reg_write(priv->mac_base, BUS_MODE_REG, BUS_MODE_SWR);
 
-	while (qfec_reg_read(priv, BUS_MODE_REG) & BUS_MODE_SWR) {
+	while (qfec_reg_read(priv->mac_base, BUS_MODE_REG) & BUS_MODE_SWR) {
 		if (timeout-- == 0) {
 			QFEC_LOG_ERR("%s: timeout\n", __func__);
 			return -ETIME;
@@ -797,19 +958,29 @@ static int qfec_hw_init(struct qfec_priv *priv)
 
 	qfec_reg_init(priv);
 
+	/* turn on the ATDS bit if use 8 word alternate descriptor */
+	if (qfec_hw_feature_enhanced_des(priv) &&
+	    qfec_hw_feature_advanced_tstamp(priv))
+		qfec_reg_update(priv->mac_base, BUS_MODE_REG,
+				BUS_MODE_ATDS, BUS_MODE_ATDS);
+	else
+		qfec_reg_update(priv->mac_base, BUS_MODE_REG,
+				BUS_MODE_ATDS, 0);
+
 	/* config buf-desc locations */
-	qfec_reg_write(priv, TX_DES_LST_ADR_REG, priv->tbd_dma);
-	qfec_reg_write(priv, RX_DES_LST_ADR_REG, priv->rbd_dma);
+	qfec_reg_write(priv->mac_base, TX_DES_LST_ADR_REG, priv->tbd_dma);
+	qfec_reg_write(priv->mac_base, RX_DES_LST_ADR_REG, priv->rbd_dma);
 
 	/* clear interrupts */
-	qfec_reg_write(priv, STATUS_REG, INTRP_EN_REG_NIE | INTRP_EN_REG_RIE
-		| INTRP_EN_REG_TIE | INTRP_EN_REG_TUE | INTRP_EN_REG_ETE);
+	qfec_reg_write(priv->mac_base, STATUS_REG,
+		       INTRP_EN_REG_NIE | INTRP_EN_REG_RIE |
+		       INTRP_EN_REG_TIE | INTRP_EN_REG_TUE | INTRP_EN_REG_ETE);
 
 	if (priv->mii.supports_gmii) {
 		/* Clear RGMII */
-		qfec_reg_read(priv, SG_RG_SMII_STATUS_REG);
+		qfec_reg_read(priv->mac_base, SG_RG_SMII_STATUS_REG);
 		/* Disable RGMII int */
-		qfec_reg_write(priv, INTRP_MASK_REG, 1);
+		qfec_reg_write(priv->mac_base, INTRP_MASK_REG, 1);
 	}
 
 	return res;
@@ -820,160 +991,75 @@ static void qfec_hw_enable(struct qfec_priv *priv)
 {
 	QFEC_LOG(QFEC_LOG_DBG, "%s:\n", __func__);
 
-	qfec_reg_write(priv, OPER_MODE_REG,
-	qfec_reg_read(priv, OPER_MODE_REG)
-		| OPER_MODE_REG_ST | OPER_MODE_REG_SR);
+	qfec_reg_update(priv->mac_base, OPER_MODE_REG,
+			(OPER_MODE_REG_ST | OPER_MODE_REG_SR),
+			(OPER_MODE_REG_ST | OPER_MODE_REG_SR));
 }
 
 static void qfec_hw_disable(struct qfec_priv *priv)
 {
 	QFEC_LOG(QFEC_LOG_DBG, "%s:\n", __func__);
 
-	qfec_reg_write(priv, OPER_MODE_REG,
-	qfec_reg_read(priv, OPER_MODE_REG)
-		& ~(OPER_MODE_REG_ST | OPER_MODE_REG_SR));
+	qfec_reg_update(priv->mac_base, OPER_MODE_REG,
+			(OPER_MODE_REG_ST | OPER_MODE_REG_SR), 0);
 }
 
 /* en/disable Rx interrupt */
 static void qfec_rx_int_ctrl(struct qfec_priv *priv, bool enable)
 {
-	uint32_t val;
-
-	val = qfec_reg_read(priv, INTRP_EN_REG);
-
-	if (enable)
-		qfec_reg_write(priv, INTRP_EN_REG, val | INTRP_EN_REG_RIE);
-	else
-		qfec_reg_write(priv, INTRP_EN_REG, val & (~INTRP_EN_REG_RIE));
-}
-
-/* interface selection */
-struct intf_config  {
-	uint32_t     intf_sel;
-	uint32_t     emac_ns;
-	uint32_t     eth_x_en_ns;
-	uint32_t     clkmux_sel;
-};
-
-#define ETH_X_EN_NS_REVMII      (ETH_X_EN_NS_DEFAULT | ETH_TX_CLK_INV)
-#define CLKMUX_REVMII           (EMAC_CLKMUX_SEL_0 | EMAC_CLKMUX_SEL_1)
-
-static struct intf_config intf_config_tbl[] = {
-	{ EMAC_PHY_INTF_SEL_MII,    EMAC_NS_DEFAULT, ETH_X_EN_NS_DEFAULT, 0 },
-	{ EMAC_PHY_INTF_SEL_RGMII,  EMAC_NS_DEFAULT, ETH_X_EN_NS_DEFAULT, 0 },
-	{ EMAC_PHY_INTF_SEL_REVMII, EMAC_NS_DEFAULT, ETH_X_EN_NS_REVMII,
-								CLKMUX_REVMII }
-};
-
-/* emac clk register read and write functions */
-static inline uint32_t qfec_clkreg_read(struct qfec_priv *priv, uint32_t reg)
-{
-	return ioread32((void *) (priv->clk_base + reg));
-}
-
-static inline void qfec_clkreg_write(struct qfec_priv *priv,
-	uint32_t reg, uint32_t val)
-{
-	uint32_t   addr = (uint32_t)priv->clk_base + reg;
-
-	QFEC_LOG(QFEC_LOG_DBG2, "%s: %08x <- %08x\n", __func__, addr, val);
-	iowrite32(val, (void *)addr);
+	qfec_reg_update(priv->mac_base, INTRP_EN_REG, INTRP_EN_REG_RIE,
+			(enable) ? INTRP_EN_REG_RIE : 0);
 }
 
 /* configure the PHY interface and clock routing and signal bits */
 enum phy_intfc  {
 	INTFC_MII     = 0,
 	INTFC_RGMII   = 1,
-	INTFC_REVMII  = 2,
+	INTFC_SGMII   = 2,
+	INTFC_TBI     = 3,
+	INTFC_RMII    = 4,
+	INTFC_RTBI    = 5,
+	INTFC_SMII    = 6,
+	INTFC_REVMII  = 7,
+	INTFC_LAST    = INTFC_REVMII,
+	NUM_INTFC
 };
 
-static int qfec_intf_sel(struct qfec_priv *priv, unsigned int intfc)
-{
-	struct intf_config   *p;
-
-	QFEC_LOG(QFEC_LOG_DBG2, "%s: %d\n", __func__, intfc);
-
-	if (intfc > INTFC_REVMII)  {
-		QFEC_LOG_ERR("%s: range\n", __func__);
-		return -ENXIO;
-	}
-
-	p = &intf_config_tbl[intfc];
-
-	qfec_clkreg_write(priv, EMAC_PHY_INTF_SEL_REG, p->intf_sel);
-	qfec_clkreg_write(priv, EMAC_NS_REG,           p->emac_ns);
-	qfec_clkreg_write(priv, ETH_X_EN_NS_REG,       p->eth_x_en_ns);
-	qfec_clkreg_write(priv, EMAC_CLKMUX_SEL_REG,   p->clkmux_sel);
-
-	return 0;
-}
-
-/* display registers thru proc-fs */
-static struct qfec_clk_reg {
-	uint32_t        offset;
-	char           *label;
-} qfec_clk_regs[] = {
-	{ ETH_MD_REG,                  "ETH_MD_REG"  },
-	{ ETH_NS_REG,                  "ETH_NS_REG"  },
-	{ ETH_X_EN_NS_REG,             "ETH_X_EN_NS_REG"  },
-	{ EMAC_PTP_MD_REG,             "EMAC_PTP_MD_REG"  },
-	{ EMAC_PTP_NS_REG,             "EMAC_PTP_NS_REG"  },
-	{ EMAC_NS_REG,                 "EMAC_NS_REG"  },
-	{ EMAC_TX_FS_REG,              "EMAC_TX_FS_REG"  },
-	{ EMAC_RX_FS_REG,              "EMAC_RX_FS_REG"  },
-	{ EMAC_PHY_INTF_SEL_REG,       "EMAC_PHY_INTF_SEL_REG"  },
-	{ EMAC_PHY_ADDR_REG,           "EMAC_PHY_ADDR_REG"  },
-	{ EMAC_REVMII_PHY_ADDR_REG,    "EMAC_REVMII_PHY_ADDR_REG"  },
-	{ EMAC_CLKMUX_SEL_REG,         "EMAC_CLKMUX_SEL_REG"  },
+static const char *phy_intfc_name[NUM_INTFC] = {
+	"MII/GMII",
+	"RGMII",
+	"SGMII",
+	"TBI",
+	"RMII",
+	"RTBI",
+	"SMII",
+	"REVMII",
 };
 
-static int qfec_clk_reg_show(struct device *dev, struct device_attribute *attr,
-			      char *buf)
+static inline int phy_mode_to_intfc(int phy_mode)
 {
-	struct qfec_priv        *priv = netdev_priv(to_net_dev(dev));
-	struct qfec_clk_reg     *p = qfec_clk_regs;
-	int                      n = ARRAY_SIZE(qfec_clk_regs);
-	int                      l = 0;
-	int                      count = PAGE_SIZE;
-
-	QFEC_LOG(QFEC_LOG_DBG2, "%s:\n", __func__);
-
-	for (; n--; p++) {
-		l += snprintf(&buf[l], count - l, "    %8p  %8x  %08x  %s\n",
-			(void *)priv->clk_base + p->offset, p->offset,
-			qfec_clkreg_read(priv, p->offset), p->label);
+	switch (phy_mode) {
+	case PHY_INTERFACE_MODE_MII:
+	case PHY_INTERFACE_MODE_GMII:
+		return INTFC_MII;
+	case PHY_INTERFACE_MODE_RGMII:
+		return INTFC_RGMII;
+	case PHY_INTERFACE_MODE_RMII:
+		return INTFC_RMII;
+	case PHY_INTERFACE_MODE_RTBI:
+		return INTFC_RTBI;
+	case PHY_INTERFACE_MODE_SGMII:
+		return INTFC_SGMII;
+	case PHY_INTERFACE_MODE_SMII:
+		return INTFC_SMII;
+	case PHY_INTERFACE_MODE_TBI:
+		return INTFC_TBI;
+	default:
+		return -EINVAL;
 	}
-
-	return  l;
 }
 
 /* speed selection */
-struct qfec_pll_cfg {
-	uint32_t    spd;
-	uint32_t    eth_md;     /* M [31:16], NOT 2*D [15:0] */
-	uint32_t    eth_ns;     /* NOT(M-N) [31:16], ctl bits [11:0]  */
-};
-
-static struct qfec_pll_cfg qfec_pll_cfg_tbl[] = {
-	/* 2.5 MHz */
-	{ MAC_CONFIG_REG_SPD_10,   ETH_MD_M(1)  | ETH_MD_2D_N(100),
-						  ETH_NS_NM(100-1)
-						| ETH_NS_MCNTR_EN
-						| ETH_NS_MCNTR_MODE_DUAL
-						| ETH_NS_PRE_DIV(0)
-						| CLK_SRC_PLL_EMAC },
-	/* 25 MHz */
-	{ MAC_CONFIG_REG_SPD_100,  ETH_MD_M(1)  | ETH_MD_2D_N(10),
-						  ETH_NS_NM(10-1)
-						| ETH_NS_MCNTR_EN
-						| ETH_NS_MCNTR_MODE_DUAL
-						| ETH_NS_PRE_DIV(0)
-						| CLK_SRC_PLL_EMAC },
-	/* 125 MHz */
-	{MAC_CONFIG_REG_SPD_1G,    0,             ETH_NS_PRE_DIV(1)
-						| CLK_SRC_PLL_EMAC },
-};
-
 enum speed  {
 	SPD_10   = 0,
 	SPD_100  = 1,
@@ -984,66 +1070,83 @@ enum speed  {
 static int qfec_speed_cfg(struct net_device *dev, unsigned int spd,
 	unsigned int dplx)
 {
-	struct qfec_priv       *priv = netdev_priv(dev);
-	struct qfec_pll_cfg    *p;
+	struct qfec_priv *priv = netdev_priv(dev);
+	int               res = 0;
+	uint32_t          val = (dplx) ? MAC_CONFIG_REG_DM : H_DPLX;
+	unsigned long     clk_rate;
 
 	QFEC_LOG(QFEC_LOG_DBG2, "%s: %d spd, %d dplx\n", __func__, spd, dplx);
 
-	if (spd > SPD_1000)  {
-		QFEC_LOG_ERR("%s: range\n", __func__);
-		return -ENODEV;
+	switch (spd) {
+	case SPD_10:
+		val |= MAC_CONFIG_REG_SPD_10;
+		clk_rate = CLK_RATE_2P5M;
+		break;
+	case SPD_100:
+		val |= MAC_CONFIG_REG_SPD_100;
+		clk_rate = CLK_RATE_25M;
+		break;
+	case SPD_1000:
+		val |= MAC_CONFIG_REG_SPD_1G;
+		clk_rate = CLK_RATE_125M;
+		break;
+	default:
+		return -EINVAL;
 	}
 
-	p = &qfec_pll_cfg_tbl[spd];
+	res = qfec_ops_clk_disable(priv, QFEC_TX_CLK);
+	if (res) {
+		QFEC_LOG_ERR("%s: failed to disable tx_clk\n", __func__);
+		goto done;
+	}
+	res = qfec_ops_clk_disable(priv, QFEC_RX_CLK);
+	if (res) {
+		QFEC_LOG_ERR("%s: failed to disable rx_clk\n", __func__);
+		goto done;
+	}
 
 	/* set the MAC speed bits */
-	qfec_reg_write(priv, MAC_CONFIG_REG,
-	(qfec_reg_read(priv, MAC_CONFIG_REG)
-		& ~(MAC_CONFIG_REG_SPD | MAC_CONFIG_REG_DM))
-			| p->spd | (dplx ? MAC_CONFIG_REG_DM : H_DPLX));
+	qfec_reg_update(priv->mac_base, MAC_CONFIG_REG,
+			(MAC_CONFIG_REG_SPD | MAC_CONFIG_REG_DM), val);
 
-	qfec_clkreg_write(priv, ETH_MD_REG, p->eth_md);
-	qfec_clkreg_write(priv, ETH_NS_REG, p->eth_ns);
+	res = qfec_ops_link_cfg(priv, spd, dplx);
+	if (res)
+		goto done;
 
-	return 0;
+	res = qfec_ops_clk_set_rate(priv, QFEC_TX_CLK, clk_rate);
+	if (res) {
+		QFEC_LOG_ERR("%s: failed to set tx_clk rate\n", __func__);
+		goto done;
+	}
+	res = qfec_ops_clk_set_rate(priv, QFEC_RX_CLK, clk_rate);
+	if (res) {
+		QFEC_LOG_ERR("%s: failed to set rx_clk rate\n", __func__);
+		goto done;
+	}
+
+	res = qfec_ops_clk_enable(priv, QFEC_TX_CLK);
+	if (res) {
+		QFEC_LOG_ERR("%s: failed to enable tx_clk\n", __func__);
+		goto done;
+	}
+	res = qfec_ops_clk_enable(priv, QFEC_RX_CLK);
+	if (res)
+		QFEC_LOG_ERR("%s: failed to enable rx_clk\n", __func__);
+
+done:
+	return res;
 }
-
-/* configure PTP divider for 25 MHz assuming EMAC PLL 250 MHz */
-static struct qfec_pll_cfg qfec_pll_ptp = {
-	0,
-
-	ETH_MD_M(1) | ETH_MD_2D_N(10),
-
-	ETH_NS_NM(10-1)        |
-	EMAC_PTP_NS_ROOT_EN    |
-	EMAC_PTP_NS_CLK_EN     |
-	ETH_NS_MCNTR_EN        |
-	ETH_NS_MCNTR_MODE_DUAL |
-	ETH_NS_PRE_DIV(0)      |
-	CLK_SRC_PLL_EMAC
-};
-
-#define PLLTEST_PAD_CFG     0x01E0
-#define PLLTEST_PLL_7       0x3700
-
-#define CLKTEST_REG         0x01EC
-#define CLKTEST_EMAC_RX     0x3fc07f7a
 
 static int qfec_ptp_cfg(struct qfec_priv *priv)
 {
-	struct qfec_pll_cfg    *p    = &qfec_pll_ptp;
+	int ret;
 
-	QFEC_LOG(QFEC_LOG_DBG2, "%s: %08x md, %08x ns\n",
-		__func__, p->eth_md, p->eth_ns);
+	ret = qfec_ops_clk_set_rate(priv, QFEC_PTP_CLK, CLK_RATE_25M);
+	if (ret)
+		return ret;
+	ret = qfec_ops_clk_enable(priv, QFEC_PTP_CLK);
 
-	qfec_clkreg_write(priv, EMAC_PTP_MD_REG, p->eth_md);
-	qfec_clkreg_write(priv, EMAC_PTP_NS_REG, p->eth_ns);
-
-	/* configure HS/LS clk test ports to verify clks */
-	qfec_clkreg_write(priv, CLKTEST_REG,     CLKTEST_EMAC_RX);
-	qfec_clkreg_write(priv, PLLTEST_PAD_CFG, PLLTEST_PLL_7);
-
-	return 0;
+	return ret;
 }
 
 /* MDIO operations */
@@ -1051,13 +1154,13 @@ static int qfec_ptp_cfg(struct qfec_priv *priv)
 /* wait reasonable amount of time for MDIO operation to complete, not busy */
 static int qfec_mdio_busy(struct net_device *dev)
 {
-	int     i;
+	struct qfec_priv   *priv = netdev_priv(dev);
+	int                 i;
 
 	for (i = 100; i > 0; i--)  {
-		if (!(qfec_reg_read(
-			netdev_priv(dev), GMII_ADR_REG) & GMII_ADR_REG_GB))  {
+		if (!(qfec_reg_read(priv->mac_base,
+				    GMII_ADR_REG) & GMII_ADR_REG_GB))
 			return 0;
-		}
 		udelay(1);
 	}
 
@@ -1078,7 +1181,7 @@ static int qfec_mdio_oper(struct net_device *dev, int phy_id, int reg, int wr)
 	}
 
 	/* initiate operation */
-	qfec_reg_write(priv, GMII_ADR_REG,
+	qfec_reg_write(priv->mac_base, GMII_ADR_REG,
 		GMII_ADR_REG_ADR_SET(phy_id)
 		| GMII_ADR_REG_REG_SET(reg)
 		| GMII_ADR_REG_CSR_SET(priv->mdio_clk)
@@ -1109,9 +1212,9 @@ static int qfec_mdio_read(struct net_device *dev, int phy_id, int reg)
 		goto done;
 	}
 
-	res = qfec_reg_read(priv, GMII_DATA_REG);
-	QFEC_LOG(QFEC_LOG_MDIO_R, "%s: %2d reg, 0x%04x val\n",
-		__func__, reg, res);
+	res = qfec_reg_read(priv->mac_base, GMII_DATA_REG);
+	QFEC_LOG(QFEC_LOG_MDIO_R, "%s: phy %d, %2d reg, 0x%04x val\n",
+		__func__, phy_id, reg, res);
 
 done:
 	spin_unlock_irqrestore(&priv->mdio_lock, flags);
@@ -1130,7 +1233,7 @@ static void qfec_mdio_write(struct net_device *dev, int phy_id, int reg,
 	QFEC_LOG(QFEC_LOG_MDIO_W, "%s: %2d reg, %04x\n",
 		__func__, reg, val);
 
-	qfec_reg_write(priv, GMII_DATA_REG, val);
+	qfec_reg_write(priv->mac_base, GMII_DATA_REG, val);
 
 	if (qfec_mdio_oper(dev, phy_id, reg, 1))
 		QFEC_LOG_ERR("%s: oper\n", __func__);
@@ -1209,7 +1312,7 @@ static void qfec_get_an(struct net_device *dev, uint32_t *spd, uint32_t *dplx)
 
 	/* check pause */
 pause:
-	flow  = qfec_reg_read(priv, FLOW_CONTROL_REG);
+	flow  = qfec_reg_read(priv->mac_base, FLOW_CONTROL_REG);
 	flow &= ~(FLOW_CONTROL_TFE | FLOW_CONTROL_RFE);
 
 	if (status & ADVERTISE_PAUSE_CAP)  {
@@ -1221,7 +1324,7 @@ pause:
 			flow |= FLOW_CONTROL_RFE;
 	}
 
-	qfec_reg_write(priv, FLOW_CONTROL_REG, flow);
+	qfec_reg_write(priv->mac_base, FLOW_CONTROL_REG, flow);
 }
 
 /* monitor phy status, and process auto-neg results when changed */
@@ -1263,11 +1366,17 @@ static void qfec_mem_dealloc(struct net_device *dev)
 static int qfec_mem_alloc(struct net_device *dev)
 {
 	struct qfec_priv   *priv = netdev_priv(dev);
+	int bd_size;
 
 	QFEC_LOG(QFEC_LOG_DBG, "%s: %p dev\n", __func__, dev);
 
-	priv->bd_size =
-		(priv->n_tbd + priv->n_rbd) * sizeof(struct qfec_buf_desc);
+	if (qfec_hw_feature_enhanced_des(priv) &&
+	    qfec_hw_feature_advanced_tstamp(priv))
+		bd_size = sizeof(struct qfec_enh_buf_desc);
+	else
+		bd_size = sizeof(struct qfec_buf_desc);
+
+	priv->bd_size = (priv->n_tbd + priv->n_rbd) * bd_size;
 
 	priv->p_tbd = kcalloc(priv->n_tbd, sizeof(struct buf_desc), GFP_KERNEL);
 	if (!priv->p_tbd)  {
@@ -1293,8 +1402,7 @@ static int qfec_mem_alloc(struct net_device *dev)
 		return -ENOMEM;
 	}
 
-	priv->rbd_dma   = priv->tbd_dma
-			+ (priv->n_tbd * sizeof(struct qfec_buf_desc));
+	priv->rbd_dma   = priv->tbd_dma + (priv->n_tbd * bd_size);
 
 	QFEC_LOG(QFEC_LOG_DBG,
 		" %s: 0x%08x size, %d n_tbd, %d n_rbd\n",
@@ -1498,9 +1606,9 @@ static inline void qfec_reg_and_time(
 	 * Insure that the high register's value doesn't increment during read.
 	 */
 	do {
-		*tsHiPtr = qfec_reg_read(privPtr, TS_HIGH_REG);
-		*tsLoPtr = qfec_reg_read(privPtr, TS_LOW_REG);
-	} while (*tsHiPtr != qfec_reg_read(privPtr, TS_HIGH_REG));
+		*tsHiPtr = qfec_reg_read(privPtr->mac_base, TS_HIGH_REG);
+		*tsLoPtr = qfec_reg_read(privPtr->mac_base, TS_LOW_REG);
+	} while (*tsHiPtr != qfec_reg_read(privPtr->mac_base, TS_HIGH_REG));
 
 	/* Convert high and low time registers to secs and nsecs... */
 	qfec_hilo_2secnsec(*tsHiPtr, *tsLoPtr, secPtr, nsecPtr);
@@ -1520,8 +1628,15 @@ static void qfec_read_timestamp(
 	uint32_t sec;
 	uint32_t nsec;
 
-	ts_hi = (uint32_t) qfec_bd_next_get(p_bd);
-	ts_lo = (uint32_t) qfec_bd_pbuf_get(p_bd);
+	if (qfec_bd_enhdes(p_bd)) {
+		struct qfec_enh_buf_desc *p_desc = qfec_bd_enh_buf_desc(p_bd);
+
+		ts_hi = p_desc->tstamp_hi;
+		ts_lo = p_desc->tstamp_lo;
+	} else {
+		ts_hi = (uint32_t)qfec_bd_next_get(p_bd);
+		ts_lo = (uint32_t) qfec_bd_pbuf_get(p_bd);
+	}
 
 	/* Combine (then separate) raw registers into 63 (then 32) bit... */
 	qfec_hilo_collapse(ts_hi, ts_lo, &ts_hi63, &ts_lo63);
@@ -1552,16 +1667,17 @@ static int qfec_cmd(struct device *dev, struct device_attribute *attr,
 		qfec_secnsec_2hilo(tv.tv_sec, tv.tv_usec * 1000,
 			&ts_hi, &ts_lo);
 
-		qfec_reg_write(priv, TS_HI_UPDT_REG, ts_hi);
-		qfec_reg_write(priv, TS_LO_UPDT_REG, ts_lo);
+		qfec_reg_write(priv->mac_base, TS_HI_UPDT_REG, ts_hi);
+		qfec_reg_write(priv->mac_base, TS_LO_UPDT_REG, ts_lo);
 
 		/* TS_CTL_TSINIT bit cannot be written until it is 0, hence the
 		 * following while loop will run until the bit transitions to 0
 		 */
-		while ((cr = qfec_reg_read(priv, TS_CTL_REG)) & TS_CTL_TSINIT)
-			;
+		do {
+			cr = qfec_reg_read(priv->mac_base, TS_CTL_REG);
+		} while (cr & TS_CTL_TSINIT);
 
-		qfec_reg_write(priv, TS_CTL_REG, cr | TS_CTL_TSINIT);
+		qfec_reg_write(priv->mac_base, TS_CTL_REG, cr | TS_CTL_TSINIT);
 	} else
 		pr_err("%s: unknown cmd, %s.\n", __func__, buf);
 
@@ -1586,16 +1702,17 @@ static int qfec_slam(
 
 		qfec_secnsec_2hilo(sec, nsec, &ts_hi, &ts_lo);
 
-		qfec_reg_write(priv, TS_HI_UPDT_REG, ts_hi);
-		qfec_reg_write(priv, TS_LO_UPDT_REG, ts_lo);
+		qfec_reg_write(priv->mac_base, TS_HI_UPDT_REG, ts_hi);
+		qfec_reg_write(priv->mac_base, TS_LO_UPDT_REG, ts_lo);
 
 		/* TS_CTL_TSINIT bit cannot be written until it is 0, hence the
 		 * following while loop will run until the bit transitions to 0
 		 */
-		while ((cr = qfec_reg_read(priv, TS_CTL_REG)) & TS_CTL_TSINIT)
-			;
+		do {
+			cr = qfec_reg_read(priv->mac_base, TS_CTL_REG);
+		} while (cr & TS_CTL_TSINIT);
 
-		qfec_reg_write(priv, TS_CTL_REG, cr | TS_CTL_TSINIT);
+		qfec_reg_write(priv->mac_base, TS_CTL_REG, cr | TS_CTL_TSINIT);
 	} else
 		pr_err("%s: bad offset value, %s.\n", __func__, buf);
 
@@ -1632,17 +1749,18 @@ static int qfec_cadj(
 
 		qfec_secnsec_2hilo(sec, nsec, &ts_hi, &ts_lo);
 
-		qfec_reg_write(priv, TS_HI_UPDT_REG, ts_hi);
-		qfec_reg_write(priv, TS_LO_UPDT_REG, ts_lo);
+		qfec_reg_write(priv->mac_base, TS_HI_UPDT_REG, ts_hi);
+		qfec_reg_write(priv->mac_base, TS_LO_UPDT_REG, ts_lo);
 
 		/* The TS_CTL_TSINIT bit cannot be written until it is 0,
 		 * hence the following while loop will run until the bit
 		 * transitions to 0
 		 */
-		while ((cr = qfec_reg_read(priv, TS_CTL_REG)) & TS_CTL_TSINIT)
-			;
+		do {
+			cr = qfec_reg_read(priv->mac_base, TS_CTL_REG);
+		} while (cr & TS_CTL_TSINIT);
 
-		qfec_reg_write(priv, TS_CTL_REG, cr | TS_CTL_TSINIT);
+		qfec_reg_write(priv->mac_base, TS_CTL_REG, cr | TS_CTL_TSINIT);
 	} else
 		pr_err("%s: bad offset value, %s.\n", __func__, buf);
 
@@ -1677,17 +1795,19 @@ static int qfec_fadj(
 
 		qfec_secnsec_2hilo(sec, nsec, &ts_hi, &ts_lo);
 
-		qfec_reg_write(priv, TS_HI_UPDT_REG, ts_hi);
-		qfec_reg_write(priv, TS_LO_UPDT_REG, ts_lo | direction);
+		qfec_reg_write(priv->mac_base, TS_HI_UPDT_REG, ts_hi);
+		qfec_reg_write(priv->mac_base, TS_LO_UPDT_REG,
+			       ts_lo | direction);
 
 		/* As per the hardware documentation, the TS_CTL_TSUPDT bit
 		 * cannot be written until it is 0, hence the following while
 		 * loop will run until the bit transitions to 0...
 		 */
-		while ((cr = qfec_reg_read(priv, TS_CTL_REG)) & TS_CTL_TSUPDT)
-			;
+		do {
+			cr = qfec_reg_read(priv->mac_base, TS_CTL_REG);
+		} while (cr & TS_CTL_TSUPDT);
 
-		qfec_reg_write(priv, TS_CTL_REG, cr | TS_CTL_TSUPDT);
+		qfec_reg_write(priv->mac_base, TS_CTL_REG, cr | TS_CTL_TSUPDT);
 	} else
 		pr_err("%s: bad offset value, %s.\n", __func__, buf);
 
@@ -1776,11 +1896,11 @@ static int qfec_tx_replenish(struct net_device *dev)
 			break;
 		}
 
-		qfec_reg_write(priv, STATUS_REG,
+		qfec_reg_write(priv->mac_base, STATUS_REG,
 			STATUS_REG_TU | STATUS_REG_TI);
 
 		/* retrieve timestamp if requested */
-		if (qfec_bd_status_get(p_bd) & BUF_TX_TTSS)  {
+		if (qfec_tbd_status_tstamp(p_bd)) {
 			CNTR_INC(priv, ts_tx_rtn);
 			qfec_read_timestamp(p_bd, skb_hwtstamps(skb));
 			skb_tstamp_tx(skb, skb_hwtstamps(skb));
@@ -1834,7 +1954,7 @@ static int qfec_rx_int(struct net_device *dev)
 	int      pkt_recvd = 0;
 
 	desc_status = qfec_bd_status_get(p_bd);
-	mis_fr_reg = qfec_reg_read(priv, MIS_FR_REG);
+	mis_fr_reg = qfec_reg_read(priv->mac_base, MIS_FR_REG);
 
 	CNTR_INC(priv, rx_int);
 
@@ -1872,7 +1992,9 @@ static int qfec_rx_int(struct net_device *dev)
 		} else  {
 			pkt_recvd++;
 
-			qfec_reg_write(priv, STATUS_REG, STATUS_REG_RI);
+
+			qfec_reg_write(priv->mac_base,
+				       STATUS_REG, STATUS_REG_RI);
 
 			skb->len = BUF_RX_FL_GET_FROM_STATUS(desc_status);
 
@@ -1933,7 +2055,8 @@ static irqreturn_t qfec_int(int irq, void *dev_id)
 {
 	struct net_device  *dev      = dev_id;
 	struct qfec_priv   *priv     = netdev_priv(dev);
-	uint32_t            status   = qfec_reg_read(priv, STATUS_REG);
+	uint32_t            status   = qfec_reg_read(priv->mac_base,
+						     STATUS_REG);
 	uint32_t            int_bits = STATUS_REG_NIS | STATUS_REG_AIS;
 	unsigned long       flags;
 
@@ -1968,13 +2091,13 @@ static irqreturn_t qfec_int(int irq, void *dev_id)
 		CNTR_INC(priv, rx_isr);
 		/* Disable RX interrupt & clear the cause */
 		qfec_rx_int_ctrl(priv, false);
-		qfec_reg_write(priv, STATUS_REG, STATUS_REG_RI);
+		qfec_reg_write(priv->mac_base, STATUS_REG, STATUS_REG_RI);
 		/* While testing it was observed that rarely a Rx INT would
 		 * appear even if it was disabled (the bit INTRP_EN_REG_RIE
 		 * was observed to be cleared).
 		 */
-		if (rx_int_status) {
-			rx_int_status = 0;
+		if (priv->rx_int_status) {
+			priv->rx_int_status = 0;
 			qfec_rx_int(dev);
 			hrtimer_start(&priv->rx_timer,
 					ns_to_ktime(RX_POLL_INT_NS),
@@ -1994,11 +2117,11 @@ static irqreturn_t qfec_int(int irq, void *dev_id)
 		status &= ~(STATUS_REG_GPI | STATUS_REG_GMI | STATUS_REG_GLI);
 		CNTR_INC(priv, gmac_isr);
 		int_bits |= STATUS_REG_GPI | STATUS_REG_GMI | STATUS_REG_GLI;
-		qfec_reg_read(priv, SG_RG_SMII_STATUS_REG);
+		qfec_reg_read(priv->mac_base, SG_RG_SMII_STATUS_REG);
 	}
 
 	/* clear interrupts */
-	qfec_reg_write(priv, STATUS_REG, int_bits);
+	qfec_reg_write(priv->mac_base, STATUS_REG, int_bits);
 	CNTR_INC(priv, isr);
 
 	return IRQ_HANDLED;
@@ -2016,7 +2139,7 @@ enum hrtimer_restart qfec_rx_poll(struct hrtimer *timer)
 	pkts = qfec_rx_int(priv->net_dev);
 
 	if (pkts < PKTS_PER_POLL) {
-		rx_int_status = 1;
+		priv->rx_int_status = 1;
 		qfec_rx_int_ctrl(priv, true);
 		spin_unlock_irqrestore(&priv->rx_lock, flags);
 		return HRTIMER_NORESTART;
@@ -2036,14 +2159,24 @@ static int qfec_open(struct net_device *dev)
 	struct buf_desc    *p_bd;
 	struct ring        *p_ring;
 	struct qfec_buf_desc *p_desc;
+	struct qfec_enh_buf_desc *p_enhdesc;
+	struct pinctrl_state *pin_state;
 	int                 n;
 	int                 res = 0;
+	uint32_t            bd_flag = 0;
 
 	QFEC_LOG(QFEC_LOG_DBG, "%s: %p dev\n", __func__, dev);
 
 	if (!dev)  {
 		res = -EINVAL;
 		goto err;
+	}
+
+	if (priv->pinctrl) {
+		pin_state = pinctrl_lookup_state(priv->pinctrl,
+				qfec_pinctrl_name[PINCTRL_MDIO_ACTIVE]);
+		if (!IS_ERR(pin_state))
+			pinctrl_select_state(priv->pinctrl, pin_state);
 	}
 
 	/* initialize hrtimer for Rx buffer polling */
@@ -2058,12 +2191,23 @@ static int qfec_open(struct net_device *dev)
 
 	/* initialize TX */
 	p_desc = priv->bd_base;
+	p_enhdesc = (struct qfec_enh_buf_desc *)priv->bd_base;
 
-	for (n = 0, p_bd = priv->p_tbd; n < priv->n_tbd; n++, p_bd++) {
-		p_bd->p_desc = p_desc++;
+	if (qfec_hw_feature_enhanced_des(priv))
+		bd_flag = (qfec_hw_feature_advanced_tstamp(priv)) ?
+			  (BD_FLAG_ENHDES | BD_FLAG_ATDS) :
+			   BD_FLAG_ENHDES;
 
-		if (n == (priv->n_tbd - 1))
-			qfec_bd_last_bd_set(p_bd);
+	for (n = 0, p_bd = priv->p_tbd; n < priv->n_tbd;
+	      n++, p_bd++, p_desc++, p_enhdesc++) {
+		if (bd_flag & BD_FLAG_ATDS)
+			p_bd->p_desc = p_enhdesc;
+		else
+			p_bd->p_desc = p_desc;
+
+		qfec_bd_flag_set(p_bd,
+				 (n == (priv->n_tbd - 1)) ?
+				 bd_flag | BD_FLAG_LAST_BD : bd_flag);
 
 		qfec_bd_own_clr(p_bd);      /* clear ownership */
 	}
@@ -2077,10 +2221,17 @@ static int qfec_open(struct net_device *dev)
 	/* initialize RX buffer descriptors and allocate sk_bufs */
 	p_ring = &priv->ring_rbd;
 	qfec_ring_init(p_ring, priv->n_rbd, 0);
-	qfec_bd_last_bd_set(&priv->p_rbd[priv->n_rbd - 1]);
 
-	for (n = 0, p_bd = priv->p_rbd; n < priv->n_rbd; n++, p_bd++) {
-		p_bd->p_desc = p_desc++;
+	for (n = 0, p_bd = priv->p_rbd; n < priv->n_rbd;
+	     n++, p_bd++, p_desc++, p_enhdesc++) {
+		if (bd_flag & BD_FLAG_ATDS)
+			p_bd->p_desc = p_enhdesc;
+		else
+			p_bd->p_desc = p_desc;
+
+		qfec_bd_flag_set(p_bd,
+				 (n == (priv->n_rbd - 1)) ?
+				 bd_flag | BD_FLAG_LAST_BD : bd_flag);
 
 		if (qfec_rbd_init(dev, p_bd))
 			break;
@@ -2095,16 +2246,9 @@ static int qfec_open(struct net_device *dev)
 
 	/* configure PHY - must be set before reset/hw_init */
 	priv->mii.supports_gmii = mii_check_gmii_support(&priv->mii);
-	if (priv->mii.supports_gmii) {
-		QFEC_LOG_ERR("%s: RGMII\n", __func__);
-		qfec_intf_sel(priv, INTFC_RGMII);
-	} else {
-		QFEC_LOG_ERR("%s: MII\n", __func__);
-		qfec_intf_sel(priv, INTFC_MII);
-	}
 
 	/* initialize controller after BDs allocated */
-	res = qfec_hw_init(priv);
+	res = qfec_ops_init(priv);
 	if (res)
 		goto err1;
 
@@ -2153,6 +2297,7 @@ static int qfec_stop(struct net_device *dev)
 	struct qfec_priv   *priv = netdev_priv(dev);
 	struct buf_desc    *p_bd;
 	struct sk_buff     *skb;
+	struct pinctrl_state *pin_state;
 	int                 n;
 
 	QFEC_LOG(QFEC_LOG_DBG, "%s:\n", __func__);
@@ -2163,6 +2308,13 @@ static int qfec_stop(struct net_device *dev)
 	qfec_hw_disable(priv);
 	qfec_queue_stop(dev);
 	free_irq(dev->irq, dev);
+
+	if (priv->pinctrl) {
+		pin_state = pinctrl_lookup_state(priv->pinctrl,
+				qfec_pinctrl_name[PINCTRL_MDIO_DEACTIVE]);
+		if (!IS_ERR(pin_state))
+			pinctrl_select_state(priv->pinctrl, pin_state);
+	}
 
 	/* free all pending sk_bufs */
 	for (n = priv->n_rbd, p_bd = priv->p_rbd; n > 0; n--, p_bd++) {
@@ -2197,6 +2349,7 @@ static int qfec_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct ring        *p_ring = &priv->ring_tbd;
 	struct buf_desc    *p_bd;
 	uint32_t            ctrl   = 0;
+	uint32_t            status = BUF_OWN;
 	int                 ret    = NETDEV_TX_OK;
 	unsigned long       flags;
 
@@ -2226,31 +2379,44 @@ static int qfec_xmit(struct sk_buff *skb, struct net_device *dev)
 	dma_map_single(&dev->dev,
 		(void *)skb->data, skb->len, DMA_TO_DEVICE));
 
-	ctrl  = skb->len;
-	if (!(qfec_ring_head(p_ring) % priv->tx_ic_mod))
-		ctrl |= BUF_TX_IC; /* interrupt on complete */
+	ctrl = skb->len;
+	if (!(qfec_ring_head(p_ring) % priv->tx_ic_mod)) {
+		if (qfec_bd_enh_buf_desc(p_bd))
+			status |= ENH_BUF_TX_IC;
+		else
+			ctrl |= BUF_TX_IC;
+	}
 
 	/* check if timestamping enabled and requested */
 	if (priv->state & timestamping)  {
 		if (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) {
 			CNTR_INC(priv, ts_tx_en);
-			ctrl |= BUF_TX_IC;	/* interrupt on complete */
-			ctrl |= BUF_TX_TTSE;	/* enable timestamp */
+			if (qfec_bd_enh_buf_desc(p_bd))
+				status |= ENH_BUF_TX_TTSE | ENH_BUF_TX_IC;
+			else
+				ctrl |= BUF_TX_IC | BUF_TX_TTSE;
 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 		}
 	}
 
-	if (qfec_bd_last_bd(p_bd))
-		ctrl |= BUF_RX_RER;
+	if (qfec_bd_last_bd(p_bd)) {
+		if (qfec_bd_enh_buf_desc(p_bd))
+			status |= ENH_BUF_TX_TER;
+		else
+			ctrl |= BUF_TX_TER;
+	}
 
 	/* no gather, no multi buf frames */
-	ctrl |= BUF_TX_FS | BUF_TX_LS;  /* 1st and last segment */
+	if (qfec_bd_enh_buf_desc(p_bd))
+		status |= ENH_BUF_TX_FS | ENH_BUF_TX_LS;
+	else
+		ctrl |= BUF_TX_FS | BUF_TX_LS;
 
 	qfec_bd_ctl_wr(p_bd, ctrl);
-	qfec_bd_status_set(p_bd, BUF_OWN);
+	qfec_bd_status_wr(p_bd, status);
 
 	qfec_ring_head_adv(p_ring);
-	qfec_reg_write(priv, TX_POLL_DEM_REG, 1);      /* poll */
+	qfec_reg_write(priv->mac_base, TX_POLL_DEM_REG, 1);      /* poll */
 
 done:
 	spin_unlock_irqrestore(&priv->xmit_lock, flags);
@@ -2276,8 +2442,8 @@ static int qfec_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		cfg->rx_filter  = HWTSTAMP_FILTER_ALL;
 
 		priv->state |= timestamping;
-		qfec_reg_write(priv, TS_CTL_REG,
-			qfec_reg_read(priv, TS_CTL_REG) | TS_CTL_TSENALL);
+		qfec_reg_update(priv->mac_base, TS_CTL_REG,
+				TS_CTL_TSENALL, TS_CTL_TSENALL);
 
 		return 0;
 	}
@@ -2291,7 +2457,8 @@ static struct net_device_stats *qfec_get_stats(struct net_device *dev)
 
 	QFEC_LOG(QFEC_LOG_DBG2, "qfec_stats:\n");
 
-	priv->stats.multicast = qfec_reg_read(priv, NUM_MULTCST_FRM_RCVD_G);
+	priv->stats.multicast = qfec_reg_read(priv->mac_base,
+					      NUM_MULTCST_FRM_RCVD_G);
 
 	return &priv->stats;
 }
@@ -2307,26 +2474,6 @@ static int qfec_set_mac_address(struct net_device *dev, void *p)
 	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
 
 	qfec_set_adr_regs(priv, dev->dev_addr);
-
-	return 0;
-}
-
-/* read discontinuous MAC address from corrected fuse memory region */
-static int qfec_get_mac_address(char *buf, char *mac_base, int nBytes)
-{
-	static int  offset[] = { 0, 1, 2, 3, 4, 8 };
-	int         n;
-
-	QFEC_LOG(QFEC_LOG_DBG, "%s:\n", __func__);
-
-	for (n = 0; n < nBytes; n++)
-		buf[n] = ioread8(mac_base + offset[n]);
-
-	/* check that MAC programmed  */
-	if ((buf[0] + buf[1] + buf[2] + buf[3] + buf[4] + buf[5]) == 0)  {
-		QFEC_LOG_ERR("%s: null MAC address\n", __func__);
-		return -ENODATA;
-	}
 
 	return 0;
 }
@@ -2361,7 +2508,8 @@ static void qfec_ethtool_getpauseparam(struct net_device *dev,
 			struct ethtool_pauseparam *pp)
 {
 	struct qfec_priv  *priv = netdev_priv(dev);
-	u32                flow = qfec_reg_read(priv, FLOW_CONTROL_REG);
+	u32                flow = qfec_reg_read(priv->mac_base,
+						FLOW_CONTROL_REG);
 	u32                advert;
 
 	QFEC_LOG(QFEC_LOG_DBG, "%s:\n", __func__);
@@ -2546,15 +2694,15 @@ qfec_ethtool_getregs(struct net_device *dev, struct ethtool_regs *regs,
 
 	j = DMA_DMP_OFFSET / sizeof(u32);
 	for (i = DMA_REG_OFFSET, n = DMA_REG_LEN; n--; i += sizeof(u32))
-		data[j++] = htonl(qfec_reg_read(priv, i));
+		data[j++] = htonl(qfec_reg_read(priv->mac_base, i));
 
 	j = MAC_DMP_OFFSET / sizeof(u32);
 	for (i = MAC_REG_OFFSET, n = MAC_REG_LEN; n--; i += sizeof(u32))
-		data[j++] = htonl(qfec_reg_read(priv, i));
+		data[j++] = htonl(qfec_reg_read(priv->mac_base, i));
 
 	j = TS_DMP_OFFSET / sizeof(u32);
 	for (i = TS_REG_OFFSET, n = TS_REG_LEN; n--; i += sizeof(u32))
-		data[j++] = htonl(qfec_reg_read(priv, i));
+		data[j++] = htonl(qfec_reg_read(priv->mac_base, i));
 
 	data16 = (u16 *)&data[MDIO_DMP_OFFSET / sizeof(u32)];
 	for (i = 0, n = 0; i < MDIO_REG_LEN; i++)
@@ -2644,7 +2792,7 @@ static int qfec_stats_show(struct device *dev, struct device_attribute *attr,
 
 	for (n = 0; n < ARRAY_SIZE(qfec_stats_regs); n++)  {
 		l += snprintf(&buf[l], count - l, "      %12u  %s\n",
-			qfec_reg_read(priv,
+			qfec_reg_read(priv->mac_base,
 				qfec_stats_regs[n] * sizeof(uint32_t)),
 			qfec_stats_strings[n]);
 	}
@@ -2680,7 +2828,7 @@ static void qfec_ethtool_getstats(struct net_device *dev,
 	int                      n;
 
 	for (n = 0; n < ARRAY_SIZE(qfec_stats_regs); n++)
-		data[j++] = qfec_reg_read(priv,
+		data[j++] = qfec_reg_read(priv->mac_base,
 				qfec_stats_regs[n] * sizeof(uint32_t));
 
 	data[j++] = priv->stats.rx_missed_errors;
@@ -2728,7 +2876,6 @@ static const struct ethtool_ops qfec_ethtool_ops = {
 static DEVICE_ATTR(bd_tx,   0444, qfec_bd_tx_show,   NULL);
 static DEVICE_ATTR(bd_rx,   0444, qfec_bd_rx_show,   NULL);
 static DEVICE_ATTR(cfg,     0444, qfec_config_show,  NULL);
-static DEVICE_ATTR(clk_reg, 0444, qfec_clk_reg_show, NULL);
 static DEVICE_ATTR(cmd,     0222, NULL,              qfec_cmd);
 static DEVICE_ATTR(cntrs,   0444, qfec_cntrs_show,   NULL);
 static DEVICE_ATTR(reg,     0444, qfec_reg_show,     NULL);
@@ -2745,7 +2892,6 @@ static void qfec_sysfs_create(struct net_device *dev)
 	if (device_create_file(&(dev->dev), &dev_attr_bd_tx) ||
 		device_create_file(&(dev->dev), &dev_attr_bd_rx) ||
 		device_create_file(&(dev->dev), &dev_attr_cfg) ||
-		device_create_file(&(dev->dev), &dev_attr_clk_reg) ||
 		device_create_file(&(dev->dev), &dev_attr_cmd) ||
 		device_create_file(&(dev->dev), &dev_attr_cntrs) ||
 		device_create_file(&(dev->dev), &dev_attr_mdio) ||
@@ -2760,35 +2906,30 @@ static void qfec_sysfs_create(struct net_device *dev)
 }
 
 /* map a specified resource */
-static int qfec_map_resource(struct platform_device *plat, int resource,
+static int qfec_map_resource(struct platform_device *plat,
+	const char *name,
 	struct resource **priv_res,
 	void                   **addr)
 {
 	struct resource         *res;
 
-	QFEC_LOG(QFEC_LOG_DBG, "%s: 0x%x resource\n", __func__, resource);
+	QFEC_LOG(QFEC_LOG_DBG, "%s: %s resource\n", __func__, name);
 
 	/* allocate region to access controller registers */
-	*priv_res = res = platform_get_resource(plat, resource, 0);
+	res = platform_get_resource_byname(plat, IORESOURCE_MEM, name);
 	if (!res) {
 		QFEC_LOG_ERR("%s: platform_get_resource failed\n", __func__);
 		return -ENODEV;
 	}
 
-	res = request_mem_region(res->start, res->end - res->start, QFEC_NAME);
-	if (!res) {
-		QFEC_LOG_ERR("%s: request_mem_region failed, %08x %08x\n",
-			__func__, res->start, res->end - res->start);
-		return -EBUSY;
-	}
-
-	*addr = ioremap(res->start, res->end - res->start);
+	*addr = ioremap(res->start, resource_size(res));
 	if (!*addr)
 		return -ENOMEM;
 
 	QFEC_LOG(QFEC_LOG_DBG, " %s: io mapped from %p to %p\n",
 		__func__, (void *)res->start, *addr);
 
+	*priv_res = res;
 	return 0;
 };
 
@@ -2799,17 +2940,528 @@ static void qfec_free_res(struct resource *res, void *base)
 	if (res)  {
 		if (base)
 			iounmap((void __iomem *)base);
-
-		release_mem_region(res->start, res->end - res->start);
 	}
 };
+
+/* general qfec ops */
+/* clock */
+static int qfec_clk_enable(struct qfec_priv *priv, uint8_t clk)
+{
+	int res;
+
+	res = clk_prepare_enable(priv->clk[clk]);
+	if (res)
+		QFEC_LOG_ERR("failed to enable clk(%s)\n", qfec_clk_name[clk]);
+
+	return res;
+}
+
+static int qfec_clk_disable(struct qfec_priv *priv, uint8_t clk)
+{
+	clk_disable_unprepare(priv->clk[clk]);
+	return 0;
+}
+
+static int qfec_clk_set_rate(struct qfec_priv *priv, uint8_t clk,
+			     unsigned long rate)
+{
+	int res;
+
+	res = clk_set_rate(priv->clk[clk], rate);
+	if (res)
+		QFEC_LOG_ERR("failed to set clk rate %s\n", qfec_clk_name[clk]);
+
+	return res;
+}
+
+static int qfec_init(struct qfec_priv *priv)
+{
+	int res;
+
+	res = qfec_clk_set_rate(priv, QFEC_TX_CLK, CLK_RATE_125M);
+	if (res)
+		return res;
+	res = qfec_clk_set_rate(priv, QFEC_RX_CLK, CLK_RATE_125M);
+	if (res)
+		return res;
+	res = qfec_clk_enable(priv, QFEC_TX_CLK);
+	if (res)
+		return res;
+	res = qfec_clk_enable(priv, QFEC_RX_CLK);
+	if (res)
+		return res;
+
+	res = qfec_hw_init(priv);
+
+	return res;
+}
+
+/* qfec NSS wrapper */
+enum qfec_nss_reg_base {
+	QFEC_NSS_CSR,
+	QFEC_QSGMII,
+	QFEC_RGMII_CSR,
+	NUM_QFEC_NSS_REG_BASE,
+};
+
+struct qfec_nss {
+	struct resource        *reg_res[NUM_QFEC_NSS_REG_BASE];
+	void __iomem           *reg_base[NUM_QFEC_NSS_REG_BASE];
+
+	unsigned int            ch_num;
+};
+
+static int qfec_nss_clk_enable(struct qfec_priv *priv, uint8_t clk)
+{
+	struct qfec_nss *nss = priv->pdata;
+	int res = 0;
+
+	switch (clk) {
+	case QFEC_CORE_CLK:
+		res = qfec_clk_enable(priv, clk);
+		break;
+	case QFEC_INTF_CLK:
+		switch (priv->intf) {
+		case INTFC_SGMII:
+			res = qfec_clk_enable(priv, clk);
+			break;
+		default:
+			break;
+		}
+		break;
+	case QFEC_TX_CLK:
+		switch (priv->intf) {
+		case INTFC_MII:
+		case INTFC_SGMII:
+			qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+					CFG_CLK_GATE_CTL_REG,
+					GMAC_N_TX_CLKEN(priv->idx),
+					GMAC_N_MII_TX_CLKEN(priv->idx));
+			qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+					CFG_CLK_SRC_CTL_REG,
+					GMAC_N_CLK_MUX_SEL(priv->idx), 0);
+			break;
+		case INTFC_RGMII:
+			qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+					CFG_CLK_GATE_CTL_REG,
+					GMAC_N_TX_CLKEN(priv->idx),
+					(GMAC_N_RGMII_TX_CLKEN(priv->idx) |
+					 GMAC_N_MII_TX_CLKEN(priv->idx)));
+			qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+					CFG_CLK_SRC_CTL_REG,
+					GMAC_N_CLK_MUX_SEL(priv->idx),
+					GMAC_N_CLK_MUX_SEL(priv->idx));
+			break;
+		default:
+			res = -EOPNOTSUPP;
+			break;
+		}
+		break;
+	case QFEC_RX_CLK:
+		switch (priv->intf) {
+		case INTFC_SGMII:
+		case INTFC_MII:
+			qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+					CFG_CLK_GATE_CTL_REG,
+					GMAC_N_RX_CLKEN(priv->idx),
+					GMAC_N_MII_RX_CLKEN(priv->idx));
+			break;
+		case INTFC_RGMII:
+			qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+					CFG_CLK_GATE_CTL_REG,
+					GMAC_N_RX_CLKEN(priv->idx),
+					(GMAC_N_RGMII_RX_CLKEN(priv->idx) |
+					 GMAC_N_MII_RX_CLKEN(priv->idx)));
+			break;
+		default:
+			res = -EOPNOTSUPP;
+			break;
+		}
+		break;
+	case QFEC_PTP_CLK:
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+				CFG_CLK_GATE_CTL_REG,
+				GMAC_N_PTP_CLKEN(priv->idx),
+				GMAC_N_PTP_CLKEN(priv->idx));
+		break;
+	default:
+		res = -EOPNOTSUPP;
+		break;
+	}
+
+	return res;
+}
+
+static int qfec_nss_clk_disable(struct qfec_priv *priv, uint8_t clk)
+{
+	struct qfec_nss *nss = priv->pdata;
+	int res = 0;
+
+	switch (clk) {
+	case QFEC_CORE_CLK:
+	case QFEC_INTF_CLK:
+		res = qfec_clk_disable(priv, clk);
+		break;
+	case QFEC_TX_CLK:
+		switch (priv->intf) {
+		case INTFC_MII:
+		case INTFC_SGMII:
+		case INTFC_RGMII:
+			qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+					CFG_CLK_GATE_CTL_REG,
+					GMAC_N_TX_CLKEN(priv->idx), 0);
+			break;
+		default:
+			res = -EOPNOTSUPP;
+			break;
+		}
+		break;
+	case QFEC_RX_CLK:
+		switch (priv->intf) {
+		case INTFC_MII:
+		case INTFC_SGMII:
+		case INTFC_RGMII:
+			qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+					CFG_CLK_GATE_CTL_REG,
+					GMAC_N_RX_CLKEN(priv->idx), 0);
+			break;
+		default:
+			res = -EOPNOTSUPP;
+			break;
+		}
+		break;
+	case QFEC_PTP_CLK:
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+				CFG_CLK_GATE_CTL_REG,
+				GMAC_N_PTP_CLKEN(priv->idx), 0);
+		break;
+	default:
+		res = -EOPNOTSUPP;
+		break;
+	}
+
+	return res;
+}
+
+struct qfec_nss_clk_div_cfg {
+	uint32_t intf;
+	unsigned long rate;
+	uint32_t clk_div;
+};
+
+static const struct qfec_nss_clk_div_cfg nss_clk_div_cfg_tbl[] = {
+	{ INTFC_RGMII, CLK_RATE_2P5M, CLKDIV_RGMII_10 },
+	{ INTFC_RGMII, CLK_RATE_25M, CLKDIV_RGMII_100 },
+	{ INTFC_RGMII, CLK_RATE_125M, CLKDIV_RGMII_1000 },
+	{ INTFC_SGMII, CLK_RATE_2P5M, CLKDIV_SGMII_10 },
+	{ INTFC_SGMII, CLK_RATE_25M, CLKDIV_SGMII_100 },
+	{ INTFC_SGMII, CLK_RATE_125M, CLKDIV_SGMII_1000 },
+	{ INTFC_MII, CLK_RATE_2P5M, CLKDIV_SGMII_10 },
+	{ INTFC_MII, CLK_RATE_25M, CLKDIV_SGMII_100 },
+	{ INTFC_MII, CLK_RATE_125M, CLKDIV_SGMII_1000 },
+};
+
+static int qfec_nss_clk_set_rate(struct qfec_priv *priv,
+				 uint8_t clk, unsigned long rate)
+{
+	struct qfec_nss *nss = priv->pdata;
+	const struct qfec_nss_clk_div_cfg *p = nss_clk_div_cfg_tbl;
+	int i;
+	int res = 0;
+
+	switch (clk) {
+	case QFEC_CORE_CLK:
+		res = qfec_clk_set_rate(priv, clk, rate);
+		break;
+	case QFEC_TX_CLK:
+		for (i = 0; i < ARRAY_SIZE(nss_clk_div_cfg_tbl); i++, p++) {
+			if (p->intf == priv->intf && p->rate == rate)
+				break;
+		}
+		if (i == ARRAY_SIZE(nss_clk_div_cfg_tbl))
+			return -EINVAL;
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR], CFG_CLK_DIV_REG,
+				GMAC_N_CLKDIV_BMSK(priv->idx),
+				GMAC_N_CLKDIV(p->clk_div, priv->idx));
+		break;
+	case QFEC_INTF_CLK:
+	case QFEC_RX_CLK:
+		break;
+	default:
+		res = -EOPNOTSUPP;
+		break;
+	}
+
+	return res;
+}
+
+static int qsgmii_reset(struct qfec_priv *priv)
+{
+	struct qfec_nss *nss = priv->pdata;
+
+	qfec_reg_write(nss->reg_base[QFEC_NSS_CSR], CFG_SPARE_CTL_REG,
+		       SPARE_CTL_PCS_RESET);
+	usleep_range(100, 150);
+	qfec_reg_write(nss->reg_base[QFEC_NSS_CSR], CFG_SPARE_CTL_REG, 0);
+
+	return 0;
+}
+
+static int qsgmii_pcs_cfg(struct qfec_priv *priv,
+			  unsigned int spd, unsigned int dplx)
+{
+	struct qfec_nss *nss = priv->pdata;
+	uint32_t ctl;
+
+	switch (spd) {
+	case SPD_10:
+		ctl = CH_SPEED_25M_10(nss->ch_num);
+		break;
+	case SPD_100:
+		ctl = CH_SPEED_25M_100(nss->ch_num);
+		break;
+	case SPD_1000:
+		ctl = CH_SPEED_25M_1000(nss->ch_num);
+		break;
+	default:
+		return -EINVAL;
+	}
+	qfec_reg_update(nss->reg_base[QFEC_QSGMII], PCS_ALL_CH_CTL_REG,
+			PCS_CH_CTL_CH_BMSK(nss->ch_num), ctl);
+
+	return 0;
+}
+
+static int qsgmii_init(struct qfec_priv *priv)
+{
+	struct qfec_nss *nss = priv->pdata;
+
+	qfec_reg_write(nss->reg_base[QFEC_QSGMII], QSGMII_PHY_MODE_CTL_REG, 0);
+	qfec_reg_write(nss->reg_base[QFEC_QSGMII],
+		       PCS_QSGMII_SGMII_MODE_REG, 0);
+
+	if (nss->ch_num <= 1)
+		qfec_reg_write(nss->reg_base[QFEC_QSGMII],
+			       QSGMII_PHY_QSGMII_CTL_REG,
+			       QSGMII_PHY_CTL_SGMII);
+	else
+		qfec_reg_write(nss->reg_base[QFEC_QSGMII],
+			       QSGMII_PHY_SGMII_1_CTL_REG,
+			       SGMII_PHY_CTL_SGMII);
+	qsgmii_reset(priv);
+	qsgmii_pcs_cfg(priv, SPD_1000, 1);
+
+	qfec_reg_update(nss->reg_base[QFEC_NSS_CSR], CFG_QSGMII_CLK_CTL_REG,
+			RGMII_REF_CLK_SEL, 0);
+
+	qfec_reg_update(nss->reg_base[QFEC_QSGMII], PCS_MODE_CRTL_REG,
+			PCS_MODE_CRTL_CH_BMSK(nss->ch_num),
+			CH_MODE_CRTL_SGMII(nss->ch_num));
+	qfec_reg_update(nss->reg_base[QFEC_QSGMII], PCS_QSGMII_CTL_REG,
+			CH_SELECT(nss->ch_num) |
+			CH_SIGNAL_DETECT(nss->ch_num) | QSGMII_CTL_SGMII_BMSK,
+			CH_SELECT(nss->ch_num) |
+			CH_SIGNAL_DETECT(nss->ch_num) | QSGMII_CTL_SGMII);
+	return 0;
+}
+
+static int qfec_nss_init(struct qfec_priv *priv)
+{
+	struct qfec_nss *nss = priv->pdata;
+	int res = 0;
+
+	switch (priv->intf) {
+	case INTFC_SGMII:
+	case INTFC_MII:
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+				CFG_CLK_GATE_CTL_REG,
+				GMAC_N_TX_CLKEN(priv->idx) |
+				GMAC_N_RX_CLKEN(priv->idx) |
+				GMAC_N_PTP_CLKEN(priv->idx),
+				0);
+
+		if (priv->intf == INTFC_SGMII)
+			qsgmii_init(priv);
+
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+				CFG_CLK_SRC_CTL_REG,
+				GMAC_N_CLK_MUX_SEL(priv->idx), 0);
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+				CFG_CLK_DIV_REG,
+				GMAC_N_CLKDIV_BMSK(priv->idx),
+				GMAC_N_CLKDIV(CLKDIV_SGMII_1000, priv->idx));
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+				CFG_CLK_GATE_CTL_REG,
+				GMAC_N_MII_CLKEN_BMSK(priv->idx),
+				GMAC_N_MII_CLKEN_BMSK(priv->idx));
+		qfec_reg_write(nss->reg_base[QFEC_NSS_CSR],
+			       CFG_GMAC_N_CTL_REG(priv->idx),
+			       GMAC_CTL_IFG_DEFAULT);
+		break;
+	case INTFC_RGMII:
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+				CFG_CLK_GATE_CTL_REG,
+				(GMAC_N_TX_CLKEN(priv->idx) |
+				 GMAC_N_RX_CLKEN(priv->idx) |
+				 GMAC_N_PTP_CLKEN(priv->idx)),
+				0);
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+				CFG_QSGMII_CLK_CTL_REG,
+				RGMII_REF_CLK_SEL, 0);
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+				CFG_CLK_SRC_CTL_REG,
+				GMAC_N_CLK_MUX_SEL(priv->idx), 0);
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+				CFG_CLK_DIV_REG,
+				GMAC_N_CLKDIV_BMSK(priv->idx),
+				GMAC_N_CLKDIV(CLKDIV_RGMII_1000, priv->idx));
+		qfec_reg_write(nss->reg_base[QFEC_NSS_CSR],
+			       CFG_GMAC_N_CTL_REG(priv->idx),
+			       (PHY_INTF_SEL | GMAC_CTL_IFG_DEFAULT));
+		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
+				CFG_CLK_GATE_CTL_REG,
+				(GMAC_N_TX_CLKEN(priv->idx) |
+				 GMAC_N_RX_CLKEN(priv->idx)),
+				(GMAC_N_MII_TX_CLKEN(priv->idx) |
+				 GMAC_N_RGMII_CLKEN_BMSK(priv->idx)));
+		break;
+	default:
+		QFEC_LOG_ERR("%s: unsupported intf %d\n", __func__, priv->intf);
+		res = -ENOTSUPP;
+		goto done;
+		break;
+	}
+
+	res = qfec_hw_init(priv);
+
+done:
+	return res;
+}
+
+static int qfec_nss_link_cfg(struct qfec_priv *priv,
+			     unsigned int spd, unsigned int dplx)
+{
+	int res = 0;
+
+	switch (priv->intf) {
+	case INTFC_SGMII:
+		res = qsgmii_pcs_cfg(priv, spd, dplx);
+		break;
+	default:
+		break;
+	}
+
+	return res;
+}
+
+static int qfec_nss_probe(struct platform_device *plat)
+{
+	struct net_device *dev = platform_get_drvdata(plat);
+	struct qfec_priv *priv = netdev_priv(dev);
+	struct device_node *of_node = plat->dev.of_node;
+	struct qfec_nss *nss;
+	int res;
+
+	nss = kzalloc(sizeof(struct qfec_nss), GFP_KERNEL);
+	if (!nss)
+		return -ENOMEM;
+
+	/* map register regions */
+	res = qfec_map_resource(plat, "qfec_csr", &nss->reg_res[QFEC_NSS_CSR],
+				&nss->reg_base[QFEC_NSS_CSR]);
+	if (res) {
+		QFEC_LOG_ERR("%s: IORESOURCE_MEM csr failed\n", __func__);
+		goto err1;
+	}
+
+	switch (priv->intf) {
+	case INTFC_SGMII:
+		if (of_property_read_u32(of_node, "qcom,qsgmii-pcs-chan",
+					 &nss->ch_num)) {
+			QFEC_LOG_ERR("%s: qsgmii-pcs-chan not specified\n",
+				     __func__);
+			goto err2;
+		}
+		res = qfec_map_resource(plat, "qfec_qsgmii",
+					&nss->reg_res[QFEC_QSGMII],
+					&nss->reg_base[QFEC_QSGMII]);
+		if (res) {
+			QFEC_LOG_ERR("%s: IORESOURCE_MEM qsgmii failed\n",
+				     __func__);
+			goto err2;
+		}
+		break;
+	case INTFC_RGMII:
+		res = qfec_map_resource(plat, "qfec_rgmii_csr",
+					&nss->reg_res[QFEC_RGMII_CSR],
+					&nss->reg_base[QFEC_RGMII_CSR]);
+		if (res) {
+			QFEC_LOG_ERR("%s: IORESOURCE_MEM rgmii_csr failed\n",
+				     __func__);
+			goto err2;
+		}
+		break;
+	default:
+		break;
+	}
+
+	priv->pdata = nss;
+
+	return 0;
+err2:
+	qfec_free_res(nss->reg_res[QFEC_NSS_CSR], nss->reg_base[QFEC_NSS_CSR]);
+err1:
+	kfree(nss);
+	return res;
+}
+
+static void qfec_nss_remove(struct platform_device *plat)
+{
+	struct net_device *dev = platform_get_drvdata(plat);
+	struct qfec_priv *priv = netdev_priv(dev);
+	struct qfec_nss *nss = priv->pdata;
+	int i;
+
+	if (nss) {
+		for (i = 0; i < NUM_QFEC_NSS_REG_BASE; i++)
+			qfec_free_res(nss->reg_res[i], nss->reg_base[i]);
+		kfree(nss);
+	}
+	priv->pdata = 0;
+}
+
+/* qfec ops and of device table */
+struct qfec_ops qfec_nss_ops = {
+	.probe = qfec_nss_probe,
+	.remove = qfec_nss_remove,
+	.clk_enable = qfec_nss_clk_enable,
+	.clk_disable = qfec_nss_clk_disable,
+	.clk_set_rate = qfec_nss_clk_set_rate,
+	.init = qfec_nss_init,
+	.link_cfg = qfec_nss_link_cfg,
+};
+
+struct qfec_ops qfec_ops = {
+	.clk_enable = qfec_clk_enable,
+	.clk_disable = qfec_clk_disable,
+	.clk_set_rate = qfec_clk_set_rate,
+	.init = qfec_init,
+};
+
+static struct of_device_id qfec_dt_match[];
 
 /* probe function that obtain configuration info and allocate net_device */
 static int qfec_probe(struct platform_device *plat)
 {
 	struct net_device  *dev;
 	struct qfec_priv   *priv;
+	struct device_node *of_node = plat->dev.of_node;
+	const struct of_device_id *of_id;
+	struct pinctrl     *pinctrl;
+	struct clk         *clk;
+	const void         *maddr;
 	int                 ret = 0;
+	int                 i;
 
 	/* allocate device */
 	dev = alloc_etherdev(sizeof(struct qfec_priv));
@@ -2821,7 +3473,6 @@ static int qfec_probe(struct platform_device *plat)
 
 	QFEC_LOG(QFEC_LOG_DBG, "%s: %08x dev\n",      __func__, (int)dev);
 
-	qfec_dev = dev;
 	SET_NETDEV_DEV(dev, &plat->dev);
 
 	dev->netdev_ops      = &qfec_netdev_ops;
@@ -2850,33 +3501,46 @@ static int qfec_probe(struct platform_device *plat)
 	/* initialize mdio clock */
 	priv->mdio_clk    = GMII_ADR_REG_CR_62;
 
+	of_id = of_match_device(qfec_dt_match, &plat->dev);
+	priv->ops = (of_id) ? of_id->data : &qfec_ops;
+
+	ret = of_property_read_u32(of_node, "cell-index", &priv->idx);
+	if (ret) {
+		QFEC_LOG_ERR("%s: cell-index not specified!\n", __func__);
+		goto err1;
+	}
+
+	of_property_read_u32(of_node, "phy-addr", &priv->phy_id);
+	priv->mii.phy_id = priv->phy_id;
+
+	ret = of_get_phy_mode(of_node);
+	if (ret < 0) {
+		QFEC_LOG_ERR("%s: failed to get phy_mode!\n", __func__);
+		goto err1;
+	}
+
+	priv->intf = phy_mode_to_intfc(ret);
+	if (priv->intf < 0) {
+		QFEC_LOG_ERR("%s: invalid phy_mode %d!\n", __func__, ret);
+		goto err1;
+	}
+
 	/* map register regions */
-	ret = qfec_map_resource(
-		plat, IORESOURCE_MEM, &priv->mac_res, &priv->mac_base);
+	ret = qfec_map_resource(plat, "qfec_mac",
+				&priv->mac_res, &priv->mac_base);
 	if (ret)  {
 		QFEC_LOG_ERR("%s: IORESOURCE_MEM mac failed\n", __func__);
 		goto err1;
 	}
 
-	ret = qfec_map_resource(
-		plat, IORESOURCE_IO, &priv->clk_res, &priv->clk_base);
-	if (ret)  {
-		QFEC_LOG_ERR("%s: IORESOURCE_IO clk failed\n", __func__);
+	/* initialize MAC addr */
+	maddr = of_get_mac_address(of_node);
+	if (!maddr) {
+		QFEC_LOG_ERR("%s: failed to get mac address\n", __func__);
+		ret = -ENODEV;
 		goto err2;
 	}
-
-	ret = qfec_map_resource(
-		plat, IORESOURCE_DMA, &priv->fuse_res, &priv->fuse_base);
-	if (ret)  {
-		QFEC_LOG_ERR("%s: IORESOURCE_DMA fuse failed\n", __func__);
-		goto err3;
-	}
-
-	/* initialize MAC addr */
-	ret = qfec_get_mac_address(dev->dev_addr, priv->fuse_base,
-		MAC_ADDR_SIZE);
-	if (ret)
-		goto err4;
+	memcpy(dev->dev_addr, maddr, dev->addr_len);
 
 	QFEC_LOG(QFEC_LOG_DBG, "%s: mac  %02x:%02x:%02x:%02x:%02x:%02x\n",
 		__func__,
@@ -2884,8 +3548,39 @@ static int qfec_probe(struct platform_device *plat)
 		dev->dev_addr[2], dev->dev_addr[3],
 		dev->dev_addr[4], dev->dev_addr[5]);
 
+	for (i = 0; i < NUM_QFEC_CLK; i++) {
+		clk = clk_get(&plat->dev, qfec_clk_name[i]);
+		if (IS_ERR(clk)) {
+			if (i == QFEC_CORE_CLK) {
+				QFEC_LOG_ERR("%s: failed to get clk(%s)\n",
+					     __func__, qfec_clk_name[i]);
+				goto err3;
+			}
+			continue;
+		}
+		priv->clk[i] = clk;
+	}
+
+	pinctrl = devm_pinctrl_get(&plat->dev);
+	if (!IS_ERR(priv->pinctrl))
+		priv->pinctrl = pinctrl;
+
+	ret = qfec_ops_clk_enable(priv, QFEC_CORE_CLK);
+	if (ret) {
+		QFEC_LOG_ERR("%s: failed to enable core clock\n", __func__);
+		goto err3;
+	}
+
+	priv->hw_feature = qfec_reg_read(priv->mac_base, HW_FEATURE_REG);
+
+	if (priv->ops->probe) {
+		ret = priv->ops->probe(plat);
+		if (ret)
+			goto err3;
+	}
+
 	ret = register_netdev(dev);
-	if (ret)  {
+	if (ret) {
 		QFEC_LOG_ERR("%s: register_netdev failed\n", __func__);
 		goto err4;
 	}
@@ -2895,13 +3590,21 @@ static int qfec_probe(struct platform_device *plat)
 	spin_lock_init(&priv->rx_lock);
 	qfec_sysfs_create(dev);
 
+	pr_info("qfec[%d]: mac_base=0x%08x irq=%d intf=%s feature=0x%08x\n",
+		priv->idx, (unsigned int)priv->mac_res->start,
+		dev->irq, phy_intfc_name[priv->intf], priv->hw_feature);
+
 	return 0;
 
 	/* error handling */
 err4:
-	qfec_free_res(priv->fuse_res, priv->fuse_base);
+	if (priv->ops->remove)
+		priv->ops->remove(plat);
 err3:
-	qfec_free_res(priv->clk_res, priv->clk_base);
+	for (i = 0; i < NUM_QFEC_CLK; i++) {
+		if (!IS_ERR_OR_NULL(priv->clk[i]))
+			clk_put(priv->clk[i]);
+	}
 err2:
 	qfec_free_res(priv->mac_res, priv->mac_base);
 err1:
@@ -2916,20 +3619,43 @@ static int qfec_remove(struct platform_device *plat)
 {
 	struct net_device  *dev  = platform_get_drvdata(plat);
 	struct qfec_priv   *priv = netdev_priv(dev);
+	int                 i;
 
 	QFEC_LOG(QFEC_LOG_DBG, "%s:\n", __func__);
 
+	unregister_netdev(dev);
+
+	if (priv->ops->remove)
+		priv->ops->remove(plat);
+
+	for (i = 0; i < NUM_QFEC_CLK; i++) {
+		if (!IS_ERR_OR_NULL(priv->clk[i]))
+			clk_put(priv->clk[i]);
+	}
+
+	if (priv->pinctrl)
+		devm_pinctrl_put(priv->pinctrl);
+
 	platform_set_drvdata(plat, NULL);
 
-	qfec_free_res(priv->fuse_res, priv->fuse_base);
-	qfec_free_res(priv->clk_res, priv->clk_base);
 	qfec_free_res(priv->mac_res, priv->mac_base);
 
-	unregister_netdev(dev);
 	free_netdev(dev);
 
 	return 0;
 }
+
+static struct of_device_id qfec_dt_match[] = {
+	{
+		.compatible = "qcom,qfec",
+		.data = &qfec_ops,
+	},
+	{
+		.compatible = "qcom,qfec-nss",
+		.data = &qfec_nss_ops,
+	},
+	{}
+};
 
 /* module support
  *     the FSM9xxx is not a mobile device does not support power management
@@ -2941,6 +3667,7 @@ static struct platform_driver qfec_driver = {
 	.driver = {
 		.name   = QFEC_NAME,
 		.owner  = THIS_MODULE,
+		.of_match_table = qfec_dt_match,
 	},
 };
 
@@ -2968,7 +3695,7 @@ static void __exit qfec_exit_module(void)
 }
 
 MODULE_DESCRIPTION("FSM Network Driver");
-MODULE_LICENSE("");
+MODULE_LICENSE("GPL v2");
 
 module_init(qfec_init_module);
 module_exit(qfec_exit_module);
