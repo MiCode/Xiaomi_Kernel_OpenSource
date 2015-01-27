@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -445,20 +445,9 @@ static inline struct hdmi_pll_vco_clk *to_hdmi_20nm_vco_clk(struct clk *clk)
 	return container_of(clk, struct hdmi_pll_vco_clk, c);
 }
 
-static inline u32 hdmi_20nm_phy_pll_vco_reg_val(struct hdmi_pll_cfg *pll_cfg,
-								u32 tmds_clk)
-{
-	u32 index = 0;
-	while (pll_cfg[index].vco_rate < HDMI_PLL_TMDS_MAX &&
-					pll_cfg[index].vco_rate < tmds_clk)
-		index++;
-	return pll_cfg[index].reg;
-}
-
 static void hdmi_20nm_phy_pll_calc_settings(struct mdss_pll_resources *io,
 			struct hdmi_pll_vco_clk *vco, u32 vco_clk, u32 tmds_clk)
 {
-	u32 val = 0;
 	u64 dec_start_val, frac_start_val, pll_lock_cmp;
 
 	/* Calculate decimal and fractional values */
@@ -481,18 +470,6 @@ static void hdmi_20nm_phy_pll_calc_settings(struct mdss_pll_resources *io,
 	pll_lock_cmp -= 1U;
 	do_div(dec_start_val, HDMI_PLL_DIVISOR_32);
 	do_div(dec_start_val, HDMI_PLL_DIVISOR_32);
-
-	/* PLL loop bandwidth */
-	val = hdmi_20nm_phy_pll_vco_reg_val(vco->ip_seti, tmds_clk);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_IP_SETI, val);
-	val = hdmi_20nm_phy_pll_vco_reg_val(vco->cp_seti, tmds_clk);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_CP_SETI, val);
-	val = hdmi_20nm_phy_pll_vco_reg_val(vco->cp_setp, tmds_clk);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_CP_SETP, val);
-	val = hdmi_20nm_phy_pll_vco_reg_val(vco->ip_setp, tmds_clk);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_IP_SETP, val);
-	val = hdmi_20nm_phy_pll_vco_reg_val(vco->crctrl, tmds_clk);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_CRCTRL, val);
 
 	/* PLL calibration */
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_DIV_FRAC_START1,
@@ -551,70 +528,63 @@ static u32 hdmi_20nm_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_CMN_MODE, 0x00);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_IE_TRIM, 0x00);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_IP_TRIM, 0x00);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_CNTRL, 0x07);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_CNTRL, 0x01);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_PHSEL_CONTROL, 0x04);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_IPTAT_TRIM_VCCA_TX_SEL, 0xA0);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_IPTAT_TRIM_VCCA_TX_SEL,
+		tmds_clk > 148500000 ? 0x80 : 0xC0);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_PHSEL_DC, 0x00);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_CORE_CLK_IN_SYNC_SEL, 0x00);
 
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_BKG_KVCO_CAL_EN, 0x00);
 
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x0F);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_ATB_SEL1, 0x01);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_ATB_SEL2, 0x01);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_ATB_SEL1, 0x00);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_ATB_SEL2, 0x00);
 
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_SYSCLK_EN_SEL_TXBAND,
 		0x4A + (0x10 * tx_band));
 
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_VREF_CFG1, 0x00);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_VREF_CFG2, 0x00);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_BGTC, 0xFF);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_KVCO_CODE, 0x30);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_BGTC, 0x0F);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_TEST_UPDN, 0x00);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_VCO_TUNE, 0x00);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_AMP_OS, 0x00);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_SSC_EN_CENTER, 0x00);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_RES_CODE_UP, 0x00);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_RES_CODE_DN, 0x00);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_KVCO_CODE,
-		tmds_clk > 300000000 ? 0x3F : 0x00);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_KVCO_COUNT1,
-		tmds_clk > 300000000 ? 0x00 : 0x8A);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_DIV_REF1, 0x00);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_DIV_REF2,
-		tmds_clk > 300000000 ? 0x00 : 0x01);
-
-
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_KVCO_CAL_CNTRL,
-		tmds_clk > 300000000 ? 0x00 : 0x1F);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_VREF_CFG3,
-		tmds_clk > 300000000 ? 0x00 : 0x40);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_VREF_CFG4, 0x00);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_VREF_CFG5, 0x10);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_RESETSM_CNTRL,
-		tmds_clk > 300000000 ? 0x80 : 0x00);
 
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_RES_CODE_CAL_CSR, 0x77);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_RES_TRIM_EN_VCOCALDONE, 0x00);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_RXTXEPCLK_EN, 0x0C);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_FAUX_EN, 0x00);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_RXTXEPCLK_EN, 0x0E);
+
+	/* PLL loop bandwidth */
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_IP_SETI, 0x01);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_CP_SETI, 0x3F);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_IP_SETP, 0x06);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_CP_SETP, 0x1F);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_CRCTRL, 0xBB);
 
 	hdmi_20nm_phy_pll_calc_settings(io, vco, vco_clk, tmds_clk);
 
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLLLOCK_CMP_EN, 0x11);
-	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_CNTRL, 0x07);
+	/* PLL calibration */
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLLLOCK_CMP_EN, 0x01);
 
 	/* Resistor calibration linear search */
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_RES_CODE_START_SEG1, 0x60);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_RES_CODE_START_SEG2, 0x60);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_RES_TRIM_CONTROL, 0x01);
 
+	/* Reset state machine control */
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_RESETSM_CNTRL, 0x80);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_RESETSM_CNTRL2, 0x07);
 
 	udelay(1000);
 	mb();
 
+	/* TX lanes (transceivers) power-up sequence */
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_MODE, tx_band);
 
-	/* TX lanes (transceivers) power-up sequence */
 	MDSS_PLL_REG_W(io->pll_base + 0x400, QSERDES_TX_L0_CLKBUF_ENABLE, 0x03);
 	MDSS_PLL_REG_W(io->pll_base + 0x600, QSERDES_TX_L1_CLKBUF_ENABLE, 0x03);
 	MDSS_PLL_REG_W(io->pll_base + 0x800, QSERDES_TX_L2_CLKBUF_ENABLE, 0x03);
@@ -638,16 +608,31 @@ static u32 hdmi_20nm_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 	MDSS_PLL_REG_W(io->pll_base + 0xA00,
 		QSERDES_TX_L3_HIGHZ_TRANSCEIVEREN_BIAS_DRVR_EN    , 0x6F);
 
-	MDSS_PLL_REG_W(io->pll_base + 0x400,
-		QSERDES_TX_L0_TX_EMP_POST1_LVL, 0x0000002F);
-	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_TXCAL_CFG0, 0x000000AF);
+	MDSS_PLL_REG_W(io->pll_base + 0x400, QSERDES_TX_L0_TX_EMP_POST1_LVL,
+		tmds_clk >= 74000000 ? 0x2F : 0x21);
+	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_TXCAL_CFG0,
+		tmds_clk >= 74000000 ? 0xAF : 0xA1);
 
-	MDSS_PLL_REG_W(io->pll_base + 0x400, QSERDES_TX_L0_VMODE_CTRL1, 0x08);
-	MDSS_PLL_REG_W(io->pll_base + 0x800, QSERDES_TX_L2_VMODE_CTRL1, 0x09);
-	MDSS_PLL_REG_W(io->pll_base + 0x400, QSERDES_TX_L0_VMODE_CTRL5, 0xA0);
-	MDSS_PLL_REG_W(io->pll_base + 0x400, QSERDES_TX_L0_VMODE_CTRL6, 0x01);
-	MDSS_PLL_REG_W(io->pll_base + 0x800, QSERDES_TX_L2_VMODE_CTRL5, 0xA0);
-	MDSS_PLL_REG_W(io->pll_base + 0x800, QSERDES_TX_L2_VMODE_CTRL6, 0x01);
+	MDSS_PLL_REG_W(io->pll_base + 0x400, QSERDES_TX_L0_VMODE_CTRL1,
+		tmds_clk >= 74000000 ? 0x0C : 0x04);
+	MDSS_PLL_REG_W(io->pll_base + 0x800, QSERDES_TX_L2_VMODE_CTRL1,
+		tmds_clk >= 74000000 ? 0x0D : 0x05);
+	MDSS_PLL_REG_W(io->pll_base + 0x400, QSERDES_TX_L0_TX_DRV_LVL,
+		tmds_clk >= 74000000 ? 0x1F : 0x11);
+	MDSS_PLL_REG_W(io->pll_base + 0x800, QSERDES_TX_L2_TX_DRV_LVL,
+		tmds_clk >= 74000000 ? 0x1F : 0x11);
+	MDSS_PLL_REG_W(io->pll_base + 0x400, QSERDES_TX_L0_VMODE_CTRL2, 0x80);
+	MDSS_PLL_REG_W(io->pll_base + 0x800, QSERDES_TX_L2_VMODE_CTRL2, 0x00);
+	MDSS_PLL_REG_W(io->pll_base + 0x400, QSERDES_TX_L0_VMODE_CTRL3,
+		tmds_clk >= 74000000 ? 0x01 : 0x02);
+	MDSS_PLL_REG_W(io->pll_base + 0x800, QSERDES_TX_L2_VMODE_CTRL3,
+		tmds_clk >= 74000000 ? 0x00 : 0x02);
+	MDSS_PLL_REG_W(io->pll_base + 0x400, QSERDES_TX_L0_VMODE_CTRL5,
+		tmds_clk >= 74000000 ? 0x00 : 0xA0);
+	MDSS_PLL_REG_W(io->pll_base + 0x800, QSERDES_TX_L2_VMODE_CTRL5,
+		tmds_clk >= 74000000 ? 0x00 : 0xA0);
+	MDSS_PLL_REG_W(io->pll_base + 0x400, QSERDES_TX_L0_VMODE_CTRL6, 0x00);
+	MDSS_PLL_REG_W(io->pll_base + 0x800, QSERDES_TX_L2_VMODE_CTRL6, 0x00);
 
 	MDSS_PLL_REG_W(io->pll_base + 0x400,
 		QSERDES_TX_L0_PARRATE_REC_DETECT_IDLE_EN, 0x40);
@@ -679,7 +664,7 @@ static int hdmi_20nm_vco_enable(struct clk *c)
 	struct hdmi_pll_vco_clk *vco = to_hdmi_20nm_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
 
-	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x00000000);
+	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x00000001);
 	udelay(100);
 	mb();
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x00000003);
@@ -716,6 +701,12 @@ static int hdmi_20nm_vco_enable(struct clk *c)
 		pr_err("%s: TIMED OUT BEFORE PHY READY\n", __func__);
 	else
 		pr_debug("%s: HDMI PHY READY\n", __func__);
+
+	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x00000008);
+	udelay(100);
+
+	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x00000009);
+	udelay(100);
 
 	io->pll_on = true;
 
@@ -872,71 +863,6 @@ static struct clk_ops hdmi_20nm_vco_clk_ops = {
 };
 
 static struct hdmi_pll_vco_clk hdmi_20nm_vco_clk = {
-	.ip_seti = (struct hdmi_pll_cfg[]){
-		{550890000, 0x03},
-		{589240000, 0x07},
-		{689290000, 0x03},
-		{727600000, 0x07},
-		{HDMI_PLL_TMDS_MAX, 0x03},
-	},
-	.cp_seti = (struct hdmi_pll_cfg[]){
-		{34440000, 0x3F},
-		{36830000, 0x2F},
-		{68870000, 0x3F},
-		{73660000, 0x2F},
-		{137730000, 0x3F},
-		{147310000, 0x2F},
-		{275450000, 0x3F},
-		{294620000, 0x2F},
-		{344650000, 0x3F},
-		{363800000, 0x2F},
-		{477960000, 0x3F},
-		{512530000, 0x2F},
-		{550890000, 0x1F},
-		{589240000, 0x2F},
-		{630900000, 0x3F},
-		{650590000, 0x2F},
-		{689290000, 0x1F},
-		{727600000, 0x2F},
-		{HDMI_PLL_TMDS_MAX, 0x3F},
-	},
-	.ip_setp = (struct hdmi_pll_cfg[]){
-		{497340000, 0x03},
-		{512530000, 0x07},
-		{535680000, 0x03},
-		{550890000, 0x07},
-		{574060000, 0x03},
-		{727600000, 0x07},
-		{HDMI_PLL_TMDS_MAX, 0x03},
-	},
-	.cp_setp = (struct hdmi_pll_cfg[]){
-		{36830000, 0x1F},
-		{40010000, 0x17},
-		{73660000, 0x1F},
-		{80000000, 0x17},
-		{147310000, 0x1F},
-		{160010000, 0x17},
-		{294620000, 0x1F},
-		{363800000, 0x17},
-		{497340000, 0x0F},
-		{512530000, 0x1F},
-		{535680000, 0x0F},
-		{550890000, 0x1F},
-		{574060000, 0x0F},
-		{589240000, 0x1F},
-		{727600000, 0x17},
-		{HDMI_PLL_TMDS_MAX, 0x07},
-	},
-	.crctrl = (struct hdmi_pll_cfg[]){
-		{40010000, 0xBB},
-		{40030000, 0x77},
-		{80000000, 0xBB},
-		{80060000, 0x77},
-		{160010000, 0xBB},
-		{160120000, 0x77},
-		{772930000, 0xBB},
-		{HDMI_PLL_TMDS_MAX, 0xFF},
-	},
 	.c = {
 		.dbg_name = "hdmi_20nm_vco_clk",
 		.ops = &hdmi_20nm_vco_clk_ops,
