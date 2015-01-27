@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,7 +67,8 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_CONSUMED, &start);
 	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED, &retire);
 
-	spin_lock(&drawctxt->lock);
+	if (!test_bit(ADRENO_CONTEXT_CMDBATCH_FLAG_FENCE_LOG, &drawctxt->flags))
+		spin_lock(&drawctxt->lock);
 	dev_err(device->dev,
 		"  context[%d]: queue=%d, submit=%d, start=%d, retire=%d\n",
 		context->id, queue, drawctxt->submitted_timestamp,
@@ -121,7 +122,8 @@ stats:
 	dev_err(device->dev, "  context[%d]: submit times: %s\n",
 		context->id, buf);
 
-	spin_unlock(&drawctxt->lock);
+	if (!test_bit(ADRENO_CONTEXT_CMDBATCH_FLAG_FENCE_LOG, &drawctxt->flags))
+		spin_unlock(&drawctxt->lock);
 }
 
 /**
