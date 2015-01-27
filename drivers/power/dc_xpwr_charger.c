@@ -43,6 +43,7 @@
 #include <linux/mfd/intel_soc_pmic.h>
 #include <linux/power/dc_xpwr_charger.h>
 #include <linux/extcon.h>
+#include <linux/thermal.h>
 
 #define DC_PS_STAT_REG			0x00
 #define PS_STAT_VBUS_TRIGGER		(1 << 0)
@@ -182,6 +183,7 @@
 #define DC_CHRG_INTR_NUM		9
 
 #define DEV_NAME			"dollar_cove_charger"
+#define VBUS_CTRL_CDEV_NAME		"vbus_control"
 
 enum {
 	VBUS_OV_IRQ = 0,
@@ -204,8 +206,10 @@ struct pmic_chrg_info {
 	struct work_struct	otg_work;
 	struct extcon_specific_cable_nb cable_obj;
 	struct notifier_block	id_nb;
+	struct thermal_cooling_device *vbus_cdev;
 	bool			id_short;
 
+	int vbus_state;
 	int chrg_health;
 	int chrg_status;
 	int bat_health;
@@ -224,6 +228,12 @@ struct pmic_chrg_info {
 	bool is_charging_enabled;
 	bool is_charger_enabled;
 	bool is_hw_chrg_term;
+};
+
+enum vbus_states {
+	VBUS_ENABLE,
+	VBUS_DISABLE,
+	MAX_VBUSCTRL_STATES,
 };
 
 static enum power_supply_property pmic_chrg_usb_props[] = {
@@ -804,8 +814,16 @@ static void dc_xpwr_otg_event_worker(struct work_struct *work)
 	if (ret < 0)
 		dev_warn(&info->pdev->dev, "vbus path disable failed\n");
 
-	if (info->pdata->otg_gpio >= 0)
-		gpio_direction_output(info->pdata->otg_gpio, info->id_short);
+	dev_info(&info->pdev->dev, "%s: id_short=%d\n", __func__,
+			info->id_short);
+	if (info->pdata->otg_gpio >= 0) {
+		mutex_lock(&info->lock);
+		if (info->vbus_state == VBUS_DISABLE && info->id_short)
+			gpio_set_value(info->pdata->otg_gpio, !info->id_short);
+		else
+			gpio_set_value(info->pdata->otg_gpio, info->id_short);
+		mutex_unlock(&info->lock);
+	}
 }
 
 static bool is_usb_host_mode(struct extcon_dev *evdev)
@@ -883,6 +901,75 @@ intr_failed:
 	}
 }
 
+/* vbus control cooling device callbacks */
+static int vbus_get_max_state(struct thermal_cooling_device *tcd,
+				unsigned long *state)
+{
+	*state = MAX_VBUSCTRL_STATES;
+	return 0;
+}
+
+static int vbus_get_cur_state(struct thermal_cooling_device *tcd,
+				unsigned long *state)
+{
+	struct pmic_chrg_info *info = tcd->devdata;
+
+	mutex_lock(&info->lock);
+	*state = info->vbus_state;
+	mutex_unlock(&info->lock);
+
+	return 0;
+}
+
+static int vbus_set_cur_state(struct thermal_cooling_device *tcd,
+					unsigned long new_state)
+{
+	struct pmic_chrg_info *info = tcd->devdata;
+
+	if (new_state >= MAX_VBUSCTRL_STATES || new_state < 0) {
+		dev_err(&info->pdev->dev, "Invalid vbus control state: %ld\n",
+				new_state);
+		return -EINVAL;
+	}
+
+	dev_info(&info->pdev->dev, "%s: id_short=%d\n", __func__,
+			info->id_short);
+	/**
+	 * set gpio directly only when the ID_GND and want to change the state
+	 * from previous state (vbus enable/disable).
+	 */
+	mutex_lock(&info->lock);
+	if (info->id_short && (info->vbus_state != new_state) &&
+			(info->pdata->otg_gpio >= 0))
+		gpio_set_value(info->pdata->otg_gpio,
+				(info->id_short && !new_state));
+
+	info->vbus_state = new_state;
+	mutex_unlock(&info->lock);
+
+	return 0;
+}
+
+static struct thermal_cooling_device_ops psy_vbuscd_ops = {
+	.get_max_state = vbus_get_max_state,
+	.get_cur_state = vbus_get_cur_state,
+	.set_cur_state = vbus_set_cur_state,
+};
+
+static inline int register_cooling_device(struct pmic_chrg_info *info)
+{
+	info->vbus_cdev = thermal_cooling_device_register(
+				(char *)VBUS_CTRL_CDEV_NAME,
+				info,
+				&psy_vbuscd_ops);
+	if (IS_ERR(info->vbus_cdev))
+		return PTR_ERR(info->vbus_cdev);
+
+	dev_dbg(&info->pdev->dev, "cooling device register success for %s\n",
+				VBUS_CTRL_CDEV_NAME);
+	return 0;
+}
+
 static int pmic_chrg_probe(struct platform_device *pdev)
 {
 	struct pmic_chrg_info *info;
@@ -917,6 +1004,7 @@ static int pmic_chrg_probe(struct platform_device *pdev)
 	if (info->cable_obj.edev)
 		info->id_short = is_usb_host_mode(info->cable_obj.edev);
 
+	info->vbus_state = VBUS_ENABLE;
 	info->psy_usb.name = DEV_NAME;
 	info->psy_usb.type = POWER_SUPPLY_TYPE_USB;
 	info->psy_usb.properties = pmic_chrg_usb_props;
@@ -935,8 +1023,33 @@ static int pmic_chrg_probe(struct platform_device *pdev)
 		goto psy_reg_failed;
 	}
 
+	dev_info(&info->pdev->dev, "%s: otg_gpio=%d\n",
+			__func__, info->pdata->otg_gpio);
+	if (info->pdata->otg_gpio >= 0) {
+		if (gpio_request(info->pdata->otg_gpio, "OTG_VBUS")) {
+			dev_err(&info->pdev->dev,
+				"%s:OTG VBUS gpio request failed,gpio=%d\n",
+				__func__, info->pdata->otg_gpio);
+		} else {
+			gpio_direction_output(info->pdata->otg_gpio, 0);
+			dev_info(&info->pdev->dev,
+				"%s:Successfuly enabled otg_gpio=%d\n",
+				__func__, info->pdata->otg_gpio);
+			schedule_work(&info->otg_work);
+		}
+	}
+
+	/* Register cooling device to control the vbus */
+	ret = register_cooling_device(info);
+	if (ret) {
+		dev_err(&info->pdev->dev,
+			"Register cooling device Failed (%d)\n", ret);
+		goto cdev_reg_fail;
+	}
+
 	return 0;
 
+cdev_reg_fail:
 psy_reg_failed:
 	return ret;
 }
@@ -944,13 +1057,19 @@ psy_reg_failed:
 static int pmic_chrg_remove(struct platform_device *pdev)
 {
 	struct pmic_chrg_info *info =  dev_get_drvdata(&pdev->dev);
+	int ret = 0;
 	int i;
+
+	if (IS_ERR_OR_NULL(info->vbus_cdev))
+		ret = PTR_ERR(info->vbus_cdev);
+	else
+		thermal_cooling_device_unregister(info->vbus_cdev);
 
 	for (i = 0; i < DC_CHRG_INTR_NUM && info->irq[i] != -1; i++)
 		free_irq(info->irq[i], info);
 	extcon_unregister_interest(&info->cable_obj);
 	power_supply_unregister(&info->psy_usb);
-	return 0;
+	return ret;
 }
 
 static int pmic_chrg_suspend(struct device *dev)
