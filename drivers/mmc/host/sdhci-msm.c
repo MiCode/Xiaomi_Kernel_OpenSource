@@ -298,6 +298,7 @@ struct sdhci_msm_bus_vote {
 struct sdhci_msm_host {
 	struct platform_device	*pdev;
 	void __iomem *core_mem;    /* MSM SDCC mapped address */
+	int	pwr_irq;	/* power irq */
 	struct clk	 *clk;     /* main SD/MMC bus clock */
 	struct clk	 *pclk;    /* SDHC peripheral bus clock */
 	struct clk	 *bus_clk; /* SDHC bus voter clock */
@@ -2875,7 +2876,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	struct sdhci_pltfm_host *pltfm_host;
 	struct sdhci_msm_host *msm_host;
 	struct resource *core_memres = NULL;
-	int ret = 0, pwr_irq = 0, dead = 0;
+	int ret = 0, dead = 0;
 	u16 host_version;
 	u32 pwr, irq_status, irq_ctl;
 
@@ -3102,18 +3103,18 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	host->quirks2 |= SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR;
 
 	/* Setup PWRCTL irq */
-	pwr_irq = platform_get_irq_byname(pdev, "pwr_irq");
-	if (pwr_irq < 0) {
+	msm_host->pwr_irq = platform_get_irq_byname(pdev, "pwr_irq");
+	if (msm_host->pwr_irq < 0) {
 		dev_err(&pdev->dev, "Failed to get pwr_irq by name (%d)\n",
-				pwr_irq);
+				msm_host->pwr_irq);
 		goto vreg_deinit;
 	}
-	ret = devm_request_threaded_irq(&pdev->dev, pwr_irq, NULL,
+	ret = devm_request_threaded_irq(&pdev->dev, msm_host->pwr_irq, NULL,
 					sdhci_msm_pwr_irq, IRQF_ONESHOT,
 					dev_name(&pdev->dev), host);
 	if (ret) {
 		dev_err(&pdev->dev, "Request threaded irq(%d) failed (%d)\n",
-				pwr_irq, ret);
+				msm_host->pwr_irq, ret);
 		goto vreg_deinit;
 	}
 
