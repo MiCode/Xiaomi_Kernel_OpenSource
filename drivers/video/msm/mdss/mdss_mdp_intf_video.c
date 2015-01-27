@@ -1183,6 +1183,11 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 	h_total = mdss_panel_get_htotal(pinfo, true);
 	fetch_start = (v_total - mdss_mdp_max_fetch_lines(pinfo)) * h_total + 1;
 	fetch_enable = BIT(31);
+
+	if (pinfo->dynamic_fps && (pinfo->dfps_update ==
+			DFPS_IMMEDIATE_CLK_UPDATE_MODE))
+		fetch_enable |= BIT(23);
+
 	ctl->prg_fet = true;
 
 	pr_debug("ctl:%d, fetch start=%d\n", ctl->num, fetch_start);
