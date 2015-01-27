@@ -1296,24 +1296,28 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_get_controller_revision(hba, &host->hw_ver.major,
 		&host->hw_ver.minor, &host->hw_ver.step);
 
-	/* "dev_ref_clk_ctrl_mem" is optional resource */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!res) {
-		dev_info(dev, "%s: dev_ref_clk_ctrl_mem resource not found\n",
-			__func__);
+	/*
+	 * for newer controllers, device reference clock control bit has
+	 * moved inside UFS controller register address space itself.
+	 */
+	if (host->hw_ver.major >= 0x02) {
+		host->dev_ref_clk_ctrl_mmio = hba->mmio_base + REG_UFS_CFG1;
+		host->dev_ref_clk_en_mask = BIT(26);
 	} else {
-		host->dev_ref_clk_ctrl_mmio = devm_ioremap_resource(dev, res);
-		if (IS_ERR(host->dev_ref_clk_ctrl_mmio)) {
-			dev_warn(dev,
-				"%s: could not map dev_ref_clk_ctrl_mmio, err %ld\n",
-				__func__, PTR_ERR(host->dev_ref_clk_ctrl_mmio));
-			host->dev_ref_clk_ctrl_mmio = NULL;
-		}
-		/* Set the correct mask for the device ref. clock enable bit */
-		if (host->hw_ver.major >= 0x02)
-			host->dev_ref_clk_en_mask = BIT(26);
-		else
+		/* "dev_ref_clk_ctrl_mem" is optional resource */
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		if (res) {
+			host->dev_ref_clk_ctrl_mmio =
+					devm_ioremap_resource(dev, res);
+			if (IS_ERR(host->dev_ref_clk_ctrl_mmio)) {
+				dev_warn(dev,
+					"%s: could not map dev_ref_clk_ctrl_mmio, err %ld\n",
+					__func__,
+					PTR_ERR(host->dev_ref_clk_ctrl_mmio));
+				host->dev_ref_clk_ctrl_mmio = NULL;
+			}
 			host->dev_ref_clk_en_mask = BIT(5);
+		}
 	}
 
 	/* update phy revision information before calling phy_init() */
