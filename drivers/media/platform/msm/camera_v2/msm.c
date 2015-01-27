@@ -34,6 +34,8 @@
 static struct v4l2_device *msm_v4l2_dev;
 static struct list_head    ordered_sd_list;
 
+static struct pm_qos_request msm_v4l2_pm_qos_request;
+
 static struct msm_queue_head *msm_session_q;
 
 /* config node envent queue */
@@ -187,6 +189,24 @@ static inline int __msm_queue_find_command_ack_q(void *d1, void *d2)
 	return (ack->stream_id == *(unsigned int *)d2) ? 1 : 0;
 }
 
+static void msm_pm_qos_add_request(void)
+{
+    pr_info("%s: add request",__func__);
+    pm_qos_add_request(&msm_v4l2_pm_qos_request, PM_QOS_CPU_DMA_LATENCY,
+        PM_QOS_DEFAULT_VALUE);
+}
+
+static void msm_pm_qos_remove_request(void)
+{
+    pr_info("%s: remove request",__func__);
+    pm_qos_remove_request(&msm_v4l2_pm_qos_request);
+}
+
+void msm_pm_qos_update_request(int val)
+{
+    pr_info("%s: update request %d",__func__,val);
+    pm_qos_update_request(&msm_v4l2_pm_qos_request, val);
+}
 
 struct msm_session *msm_session_find(unsigned int session_id)
 {
@@ -819,6 +839,9 @@ static int msm_close(struct file *filep)
 		list_for_each_entry(msm_sd, &ordered_sd_list, list)
 			__msm_sd_close_subdevs(msm_sd, &sd_close);
 
+	/* remove msm_v4l2_pm_qos_request */
+	msm_pm_qos_remove_request();
+
 	/* send v4l2_event to HAL next*/
 	msm_queue_traverse_action(msm_session_q, struct msm_session, list,
 		__msm_close_destry_session_notify_apps, NULL);
@@ -874,6 +897,9 @@ static int msm_open(struct file *filep)
 	spin_lock_irqsave(&msm_eventq_lock, flags);
 	msm_eventq = filep->private_data;
 	spin_unlock_irqrestore(&msm_eventq_lock, flags);
+
+	/* register msm_v4l2_pm_qos_request */
+	msm_pm_qos_add_request();
 
 	return rc;
 }
