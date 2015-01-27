@@ -1647,6 +1647,10 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 	}
 	spin_unlock_irqrestore(udc->lock, flags);
 
+	/* Make sure phy driver is done with its bus suspend handling */
+	if (udc->udc_driver->cancel_pending_suspend)
+		udc->udc_driver->cancel_pending_suspend(udc);
+
 	if ((udc->udc_driver->in_lpm != NULL) &&
 	    (udc->udc_driver->in_lpm(udc))) {
 		if (udc->udc_driver->set_fpr_flag) {
