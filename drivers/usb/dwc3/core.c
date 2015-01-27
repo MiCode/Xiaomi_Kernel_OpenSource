@@ -890,6 +890,7 @@ static int dwc3_probe(struct platform_device *pdev)
 		return ret;
 
 	spin_lock_init(&dwc->lock);
+	init_waitqueue_head(&dwc->wait_linkstate);
 	platform_set_drvdata(pdev, dwc);
 
 	dev->dma_mask	= dev->parent->dma_mask;
