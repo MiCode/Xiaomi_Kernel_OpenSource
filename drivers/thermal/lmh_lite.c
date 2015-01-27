@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,6 +80,7 @@ struct lmh_driver_data {
 	uint32_t			intr_reg_val;
 	uint32_t			intr_status_val;
 	uint32_t			trim_err_offset;
+	bool				trim_err_disable;
 	void				*intr_addr;
 	int				irq_num;
 	int				max_sensor_count;
@@ -325,12 +326,14 @@ static void lmh_notify(struct work_struct *work)
 
 	down_write(&lmh_sensor_access);
 	lmh_dat = container_of(work, struct lmh_driver_data, isr_work);
-	lmh_dat->intr_reg_val = readl_relaxed(lmh_dat->intr_addr);
-	pr_debug("Lmh hw interrupt:%d\n", lmh_dat->intr_reg_val);
-	if (lmh_dat->intr_reg_val & BIT(lmh_dat->trim_err_offset)) {
-		lmh_trim_error();
-		lmh_dat->intr_state = LMH_ISR_MONITOR;
-		goto notify_exit;
+	if (!lmh_data->trim_err_disable) {
+		lmh_dat->intr_reg_val = readl_relaxed(lmh_dat->intr_addr);
+		pr_debug("Lmh hw interrupt:%d\n", lmh_dat->intr_reg_val);
+		if (lmh_dat->intr_reg_val & BIT(lmh_dat->trim_err_offset)) {
+			lmh_trim_error();
+			lmh_dat->intr_state = LMH_ISR_MONITOR;
+			goto notify_exit;
+		}
 	}
 	lmh_read_and_notify(lmh_dat);
 	if (!lmh_dat->intr_status_val) {
@@ -370,12 +373,18 @@ static int lmh_get_sensor_devicetree(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct resource *lmh_intr_base = NULL;
 
+	lmh_data->trim_err_disable = false;
 	key = "qcom,lmh-trim-err-offset";
 	ret = of_property_read_u32(node, key,
 			&lmh_data->trim_err_offset);
 	if (ret) {
-		pr_err("Error reading:%s. err:%d\n", key, ret);
-		goto dev_exit;
+		if (ret == -EINVAL) {
+			lmh_data->trim_err_disable = true;
+			ret = 0;
+		} else {
+			pr_err("Error reading:%s. err:%d\n", key, ret);
+			goto dev_exit;
+		}
 	}
 
 	lmh_data->irq_num = platform_get_irq(pdev, 0);
@@ -392,18 +401,21 @@ static int lmh_get_sensor_devicetree(struct platform_device *pdev)
 		goto dev_exit;
 	}
 
-	lmh_intr_base = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!lmh_intr_base) {
-		ret = -EINVAL;
-		pr_err("Error getting reg MEM for LMH.\n");
-		goto dev_exit;
-	}
-	lmh_data->intr_addr = devm_ioremap(&pdev->dev, lmh_intr_base->start,
-					resource_size(lmh_intr_base));
-	if (!lmh_data->intr_addr) {
-		ret = -ENODEV;
-		pr_err("Error Mapping LMH memory address\n");
-		goto dev_exit;
+	if (!lmh_data->trim_err_disable) {
+		lmh_intr_base = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!lmh_intr_base) {
+			ret = -EINVAL;
+			pr_err("Error getting reg MEM for LMH.\n");
+			goto dev_exit;
+		}
+		lmh_data->intr_addr =
+			devm_ioremap(&pdev->dev, lmh_intr_base->start,
+			resource_size(lmh_intr_base));
+		if (!lmh_data->intr_addr) {
+			ret = -ENODEV;
+			pr_err("Error Mapping LMH memory address\n");
+			goto dev_exit;
+		}
 	}
 
 dev_exit:
@@ -437,7 +449,8 @@ static int lmh_check_tz_dev_cmds(void)
 static int lmh_check_tz_sensor_cmds(void)
 {
 	LMH_CHECK_SCM_CMD(LMH_CTRL_QPMDA);
-	LMH_CHECK_SCM_CMD(LMH_TRIM_ERROR);
+	if (!lmh_data->trim_err_disable)
+		LMH_CHECK_SCM_CMD(LMH_TRIM_ERROR);
 	LMH_CHECK_SCM_CMD(LMH_GET_INTENSITY);
 	LMH_CHECK_SCM_CMD(LMH_GET_SENSORS);
 
