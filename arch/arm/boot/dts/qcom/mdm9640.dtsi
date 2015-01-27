@@ -838,8 +838,15 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 202 0>, <0 180 0>;
-		interrupt-names = "hs_phy_irq", "pwr_event_irq";
+		interrupt-parent = <&usb3>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0x0 0xffffffff>;
+		interrupt-map = <0x0 0 &intc 0 202 0
+				 0x0 1 &intc 0 180 0
+				 0x0 2 &spmi_bus 0x0 0x0 0xc3 0x0>;
+		interrupt-names = "hs_phy_irq", "pwr_event_irq",
+				"pmic_id_irq";
 		qcom,otg-capability;
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		qcom,usb-dbm = <&dbm_1p5>;
