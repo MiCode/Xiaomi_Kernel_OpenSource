@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -902,6 +902,8 @@ static int post_pkt_to_port(struct msm_ipc_port *port_ptr,
 	struct rr_packet *temp_pkt = pkt;
 	void (*notify)(unsigned event, void *oob_data,
 		       size_t oob_data_len, void *priv);
+	void (*data_ready)(struct sock *sk, int bytes);
+	struct sock *sk;
 
 	if (unlikely(!port_ptr || !pkt))
 		return -EINVAL;
@@ -922,9 +924,18 @@ static int post_pkt_to_port(struct msm_ipc_port *port_ptr,
 	list_add_tail(&temp_pkt->list, &port_ptr->port_rx_q);
 	wake_up(&port_ptr->port_rx_wait_q);
 	notify = port_ptr->notify;
+	sk = (struct sock *)port_ptr->endpoint;
+	if (sk) {
+		read_lock(&sk->sk_callback_lock);
+		data_ready = sk->sk_data_ready;
+		read_unlock(&sk->sk_callback_lock);
+	}
 	mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
 	if (notify)
 		notify(pkt->hdr.type, NULL, 0, port_ptr->priv);
+	else if (sk && data_ready)
+		data_ready(sk, pkt->hdr.size);
+
 	return 0;
 }
 
