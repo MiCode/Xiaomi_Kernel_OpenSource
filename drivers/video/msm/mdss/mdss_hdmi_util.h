@@ -225,9 +225,9 @@
 #define HDCP_KSV_LSB                     (0x000060D8)
 #define HDCP_KSV_MSB                     (0x000060DC)
 
-#define TOP_AND_BOTTOM		0x10
-#define FRAME_PACKING		0x20
-#define SIDE_BY_SIDE_HALF	0x40
+#define TOP_AND_BOTTOM		(1 << HDMI_S3D_TOP_AND_BOTTOM)
+#define FRAME_PACKING		(1 << HDMI_S3D_FRAME_PACKING)
+#define SIDE_BY_SIDE_HALF	(1 << HDMI_S3D_SIDE_BY_SIDE)
 
 #define LPASS_LPAIF_RDDMA_CTL0           (0xFE152000)
 #define LPASS_LPAIF_RDDMA_PER_CNT0       (0x00000014)

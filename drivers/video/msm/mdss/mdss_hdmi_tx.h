@@ -114,6 +114,7 @@ struct hdmi_tx_ctrl {
 	void *downstream_data;
 
 	void *feature_data[HDMI_TX_FEAT_MAX];
+	u32 s3d_mode;
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */

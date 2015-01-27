@@ -169,6 +169,8 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl);
 static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int enable);
 static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl);
+static void hdmi_tx_set_vendor_specific_infoframe(
+	struct hdmi_tx_ctrl *hdmi_ctrl);
 
 static struct mdss_hw hdmi_tx_hw = {
 	.hw_ndx = MDSS_HW_HDMI,
@@ -1001,6 +1003,66 @@ static ssize_t hdmi_tx_sysfs_wta_avi_cn_bits(struct device *dev,
 	return ret;
 } /* hdmi_tx_sysfs_wta_cn_bits */
 
+static ssize_t hdmi_tx_sysfs_wta_s3d_mode(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int rc, s3d_mode;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+
+	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = kstrtoint(buf, 10, &s3d_mode);
+	if (rc) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	if (s3d_mode < HDMI_S3D_NONE || s3d_mode >= HDMI_S3D_MAX) {
+		DEV_ERR("%s: invalide s3d mode = %d\n", __func__, s3d_mode);
+		return -EINVAL;
+	}
+
+	if (s3d_mode > HDMI_S3D_NONE &&
+		!hdmi_edid_is_s3d_mode_supported(
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
+			hdmi_ctrl->video_resolution,
+			s3d_mode)) {
+		DEV_ERR("%s: s3d mode not supported in current video mode\n",
+			__func__);
+		return -EPERM;
+	}
+
+	hdmi_ctrl->s3d_mode = s3d_mode;
+	hdmi_tx_set_vendor_specific_infoframe(hdmi_ctrl);
+
+	DEV_DBG("%s: %d\n", __func__, hdmi_ctrl->s3d_mode);
+	return ret;
+}
+
+static ssize_t hdmi_tx_sysfs_rda_s3d_mode(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct hdmi_tx_ctrl *hdmi_ctrl =
+		hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", hdmi_ctrl->s3d_mode);
+	DEV_DBG("%s: '%d'\n", __func__, hdmi_ctrl->s3d_mode);
+
+	return ret;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_tx_sysfs_rda_connected, NULL);
 static DEVICE_ATTR(video_mode, S_IRUGO, hdmi_tx_sysfs_rda_video_mode, NULL);
 static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_hpd,
@@ -1012,6 +1074,8 @@ static DEVICE_ATTR(product_description, S_IRUGO | S_IWUSR,
 	hdmi_tx_sysfs_wta_product_description);
 static DEVICE_ATTR(avi_itc, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_itc);
 static DEVICE_ATTR(avi_cn0_1, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_cn_bits);
+static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_s3d_mode,
+	hdmi_tx_sysfs_wta_s3d_mode);
 
 static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_connected.attr,
@@ -1021,6 +1085,7 @@ static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_product_description.attr,
 	&dev_attr_avi_itc.attr,
 	&dev_attr_avi_cn0_1.attr,
+	&dev_attr_s3d_mode.attr,
 	NULL,
 };
 static struct attribute_group hdmi_tx_fs_attrs_group = {
@@ -1605,14 +1670,13 @@ static void hdmi_tx_set_avi_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DSS_REG_R(io, HDMI_INFOFRAME_CTRL0) | BIT(1) | BIT(0));
 } /* hdmi_tx_set_avi_infoframe */
 
-/* todo: add 3D support */
 static void hdmi_tx_set_vendor_specific_infoframe(
 	struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	int i;
 	u8 vs_iframe[9]; /* two header + length + 6 data */
 	u32 sum, reg_val;
-	u32 hdmi_vic, hdmi_video_format;
+	u32 hdmi_vic, hdmi_video_format, s3d_struct = 0;
 	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
@@ -1638,30 +1702,49 @@ static void hdmi_tx_set_vendor_specific_infoframe(
 	vs_iframe[5] = 0x0C;
 	vs_iframe[6] = 0x00;
 
-	hdmi_video_format = 0x1;
-	switch (hdmi_ctrl->video_resolution) {
-	case HDMI_VFRMT_3840x2160p30_16_9:
-		hdmi_vic = 0x1;
-		break;
-	case HDMI_VFRMT_3840x2160p25_16_9:
-		hdmi_vic = 0x2;
-		break;
-	case HDMI_VFRMT_3840x2160p24_16_9:
-		hdmi_vic = 0x3;
-		break;
-	case HDMI_VFRMT_4096x2160p24_16_9:
-		hdmi_vic = 0x4;
-		break;
-	default:
-		hdmi_video_format = 0x0;
-		hdmi_vic = 0x0;
+	if ((hdmi_ctrl->s3d_mode != HDMI_S3D_NONE) &&
+		hdmi_edid_is_s3d_mode_supported(
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
+			hdmi_ctrl->video_resolution,
+			hdmi_ctrl->s3d_mode)) {
+		switch (hdmi_ctrl->s3d_mode) {
+		case HDMI_S3D_SIDE_BY_SIDE:
+			s3d_struct = 0x8;
+			break;
+		case HDMI_S3D_TOP_AND_BOTTOM:
+			s3d_struct = 0x6;
+			break;
+		default:
+			s3d_struct = 0;
+		}
+		hdmi_video_format = 0x2;
+		hdmi_vic = 0;
+		/* PB5: 3D_Structure[7:4], Reserved[3:0] */
+		vs_iframe[8] = s3d_struct << 4;
+	} else {
+		hdmi_video_format = 0x1;
+		switch (hdmi_ctrl->video_resolution) {
+		case HDMI_VFRMT_3840x2160p30_16_9:
+			hdmi_vic = 0x1;
+			break;
+		case HDMI_VFRMT_3840x2160p25_16_9:
+			hdmi_vic = 0x2;
+			break;
+		case HDMI_VFRMT_3840x2160p24_16_9:
+			hdmi_vic = 0x3;
+			break;
+		case HDMI_VFRMT_4096x2160p24_16_9:
+			hdmi_vic = 0x4;
+			break;
+		default:
+			hdmi_video_format = 0x0;
+			hdmi_vic = 0x0;
+		}
+		/* PB5: HDMI_VIC */
+		vs_iframe[8] = hdmi_vic;
 	}
-
 	/* PB4: HDMI Video Format[7:5],  Reserved[4:0] */
 	vs_iframe[7] = (hdmi_video_format << 5) & 0xE0;
-
-	/* PB5: HDMI_VIC or 3D_Structure[7:4], Reserved[3:0] */
-	vs_iframe[8] = hdmi_vic;
 
 	/* compute checksum */
 	sum = 0;
@@ -1672,7 +1755,7 @@ static void hdmi_tx_set_vendor_specific_infoframe(
 	sum = 256 - sum;
 	vs_iframe[3] = (u8)sum;
 
-	reg_val = (hdmi_vic << 16) | (vs_iframe[3] << 8) |
+	reg_val = (s3d_struct << 24) | (hdmi_vic << 16) | (vs_iframe[3] << 8) |
 		(hdmi_video_format << 5) | vs_iframe[2];
 	DSS_REG_W(io, HDMI_VENSPEC_INFO0, reg_val);
 
