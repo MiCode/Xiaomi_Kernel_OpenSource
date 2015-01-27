@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -564,14 +564,18 @@
 &soc {
 	mem_acc0_vreg_corner: mem-acc0-regulator {
 		compatible = "qcom,mem-acc-regulator";
-		reg = <0xf9112144 0x4>;
-		reg-names = "acc-sel-l1";
+		reg = <0xf900d084 1>, <0xf900d088 1>,
+			<0xf900d08c 1>, <0xf900d090 1>;
+		reg-names = "mem-acc-type1", "mem-acc-type2",
+			"mem-acc-type3", "mem-acc-type4";
 		regulator-name = "mem_acc0_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <4>;
 		qcom,corner-acc-map = <1 1 0 0>;
-		qcom,acc-sel-l1-bit-pos = <0>;
-		qcom,acc-sel-l1-bit-size = <1>;
+		qcom,mem-acc-type1 = <0x02 0x02 0x00 0x00>;
+		qcom,mem-acc-type2 = <0x02 0x02 0x00 0x00>;
+		qcom,mem-acc-type3 = <0x02 0x02 0x00 0x00>;
+		qcom,mem-acc-type4 = <0x02 0x02 0x00 0x00>;
 	};
 
 	mem_acc1_vreg_corner: mem-acc1-regulator {
