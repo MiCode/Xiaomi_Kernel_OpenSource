@@ -86,8 +86,9 @@ struct subsys_info {
  * struct subsys_info_leaf - Subsystem info leaf structure (a subsystem on the
  *                           notify list of a subsys_info structure)
  * ssr_name:	Name of the subsystem recognized by the SSR framework
- * edge:	name of the G-Link edge
- * xprt:	name of the G-Link transport
+ * edge:	Name of the G-Link edge
+ * xprt:	Name of the G-Link transport
+ * restarted:	Indicates whether a restart has been triggered for this edge
  * cb_data:	Private callback data structure for notification functions
  * notify_list_node:	used to chain this structure in the notify list
  */
@@ -95,6 +96,7 @@ struct subsys_info_leaf {
 	const char *ssr_name;
 	const char *edge;
 	const char *xprt;
+	bool restarted;
 	struct ssr_notify_data *cb_data;
 	struct list_head notify_list_node;
 };
@@ -550,8 +552,10 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 					"queue_rx_intent failed", ret,
 					atomic_read(&responses_remaining));
 			kfree(do_cleanup_data);
-			if (strcmp(ss_leaf_entry->ssr_name, "rpm"))
+			if (strcmp(ss_leaf_entry->ssr_name, "rpm")) {
 				subsystem_restart(ss_leaf_entry->ssr_name);
+				ss_leaf_entry->restarted = true;
+			}
 			atomic_dec(&responses_remaining);
 			continue;
 		}
@@ -564,8 +568,10 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 					__func__, ret, "resp. remaining",
 					atomic_read(&responses_remaining));
 			kfree(do_cleanup_data);
-			if (strcmp(ss_leaf_entry->ssr_name, "rpm"))
+			if (strcmp(ss_leaf_entry->ssr_name, "rpm")) {
 				subsystem_restart(ss_leaf_entry->ssr_name);
+				ss_leaf_entry->restarted = true;
+			}
 			atomic_dec(&responses_remaining);
 			continue;
 		}
@@ -588,9 +594,11 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 			notifications_successful = false;
 
 			/* Check for RPM, as it can't be restarted */
-			if (strcmp(ss_leaf_entry->ssr_name, "rpm"))
+			if (strcmp(ss_leaf_entry->ssr_name, "rpm") &&
+					!ss_leaf_entry->restarted)
 				subsystem_restart(ss_leaf_entry->ssr_name);
 		}
+		ss_leaf_entry->restarted = false;
 	}
 	complete(&notifications_successful_complete);
 	return 0;
@@ -874,6 +882,7 @@ static int glink_ssr_probe(struct platform_device *pdev)
 		ss_info_leaf->ssr_name = subsys_name;
 		ss_info_leaf->edge = edge;
 		ss_info_leaf->xprt = xprt;
+		ss_info_leaf->restarted = false;
 		list_add_tail(&ss_info_leaf->notify_list_node,
 				&ss_info->notify_list);
 		ss_info->notify_list_len++;
