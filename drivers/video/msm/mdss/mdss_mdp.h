@@ -212,6 +212,23 @@ struct mdss_mdp_perf_params {
 	DECLARE_BITMAP(bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 };
 
+struct mdss_mdp_ctl_intfs_ops {
+	int (*start_fnc)(struct mdss_mdp_ctl *ctl);
+	int (*stop_fnc)(struct mdss_mdp_ctl *ctl, int panel_power_state);
+	int (*prepare_fnc)(struct mdss_mdp_ctl *ctl, void *arg);
+	int (*display_fnc)(struct mdss_mdp_ctl *ctl, void *arg);
+	int (*wait_fnc)(struct mdss_mdp_ctl *ctl, void *arg);
+	int (*wait_pingpong)(struct mdss_mdp_ctl *ctl, void *arg);
+	u32 (*read_line_cnt_fnc)(struct mdss_mdp_ctl *);
+	int (*add_vsync_handler)(struct mdss_mdp_ctl *,
+					struct mdss_mdp_vsync_handler *);
+	int (*remove_vsync_handler)(struct mdss_mdp_ctl *,
+					struct mdss_mdp_vsync_handler *);
+	int (*config_fps_fnc)(struct mdss_mdp_ctl *ctl,
+				struct mdss_mdp_ctl *sctl, int new_fps);
+	int (*restore_fnc)(struct mdss_mdp_ctl *ctl);
+};
+
 struct mdss_mdp_ctl {
 	u32 num;
 	char __iomem *base;
@@ -273,20 +290,7 @@ struct mdss_mdp_ctl {
 	bool cmd_autorefresh_en;
 	int autorefresh_frame_cnt;
 
-	int (*start_fnc) (struct mdss_mdp_ctl *ctl);
-	int (*stop_fnc) (struct mdss_mdp_ctl *ctl, int panel_power_state);
-	int (*prepare_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
-	int (*display_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
-	int (*wait_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
-	int (*wait_pingpong) (struct mdss_mdp_ctl *ctl, void *arg);
-	u32 (*read_line_cnt_fnc) (struct mdss_mdp_ctl *);
-	int (*add_vsync_handler) (struct mdss_mdp_ctl *,
-					struct mdss_mdp_vsync_handler *);
-	int (*remove_vsync_handler) (struct mdss_mdp_ctl *,
-					struct mdss_mdp_vsync_handler *);
-	int (*config_fps_fnc) (struct mdss_mdp_ctl *ctl,
-				struct mdss_mdp_ctl *sctl, int new_fps);
-	int (*restore_fnc) (struct mdss_mdp_ctl *ctl);
+	struct mdss_mdp_ctl_intfs_ops ops;
 
 	struct blocking_notifier_head notifier_head;
 
