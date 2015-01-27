@@ -214,6 +214,7 @@ static void vlv_dsi_pll_configure(struct vlv_pll *pll)
 {
 	u32 ret;
 	struct dsi_config *intel_dsi = pll->config;
+	struct dsi_context *dsi_ctx = &intel_dsi->ctx;
 	struct dsi_mnp dsi_mnp;
 	u32 dsi_clk;
 
@@ -230,9 +231,12 @@ static void vlv_dsi_pll_configure(struct vlv_pll *pll)
 		return;
 	}
 
-	if (pll->port_id == PORT_A)
+	/* Enable DSI0 pll for DSI Port A & DSI Dual link */
+	if (dsi_ctx->ports & (1 << PORT_A))
 		dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI0_DSIPLL;
-	else
+
+	/* Enable DSI1 pll for DSI Port C & DSI Dual link */
+	if (dsi_ctx->ports & (1 << PORT_C))
 		dsi_mnp.dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI1_DSIPLL;
 
 	pr_info("dsi pll div %08x, ctrl %08x\n",
