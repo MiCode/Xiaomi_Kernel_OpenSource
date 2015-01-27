@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -349,7 +349,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	if (!kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
 			(local & KGSL_CONTEXT_SECURE)) {
 		KGSL_DEV_ERR_ONCE(device, "Secure context not supported\n");
-		return ERR_PTR(-EINVAL);
+		return ERR_PTR(-EOPNOTSUPP);
 	}
 
 	drawctxt = kzalloc(sizeof(struct adreno_context), GFP_KERNEL);
