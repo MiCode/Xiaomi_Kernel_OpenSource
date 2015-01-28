@@ -1423,4 +1423,6 @@ void ipa_uc_register_handlers(enum ipa_hw_features feature,
 			      struct ipa_uc_hdlrs *hdlrs);
 int create_nat_device(void);
 int ipa_uc_notify_clk_state(bool enabled);
+void ipa_dma_async_memcpy_notify_cb(void *priv,
+		enum ipa_dp_evt_type evt, unsigned long data);
 #endif /* _IPA_I_H_ */

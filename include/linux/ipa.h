@@ -1161,6 +1161,21 @@ int odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata);
 
 int odu_bridge_cleanup(void);
 
+/*
+ * IPADMA
+ */
+int ipa_dma_init(void);
+
+int ipa_dma_enable(void);
+
+int ipa_dma_disable(void);
+
+int ipa_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len);
+
+int ipa_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
+			void (*user_cb)(void *user1), void *user_param);
+
+void ipa_dma_destroy(void);
 
 /*
  * mux id
@@ -1719,6 +1734,41 @@ static inline int odu_bridge_cleanup(void)
 	return -EPERM;
 }
 
+/*
+ * IPADMA
+ */
+static inline int ipa_dma_init(void)
+{
+	return -EPERM;
+}
+
+static inline int ipa_dma_enable(void)
+{
+	return -EPERM;
+}
+
+static inline int ipa_dma_disable(void)
+{
+	return -EPERM;
+}
+
+static inline int ipa_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src
+			, int len)
+{
+	return -EPERM;
+}
+
+static inline int ipa_dma_async_memcpy(phys_addr_t dest, phys_addr_t src
+			, int len, void (*user_cb)(void *user1),
+			void *user_param)
+{
+	return -EPERM;
+}
+
+static inline void ipa_dma_destroy(void)
+{
+	return;
+}
 
 /*
  * mux id

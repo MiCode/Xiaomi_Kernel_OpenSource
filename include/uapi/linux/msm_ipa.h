@@ -144,6 +144,9 @@ enum ipa_client_type {
 	IPA_CLIENT_ODU_PROD,
 	IPA_CLIENT_Q6_LAN_PROD,
 	IPA_CLIENT_Q6_CMD_PROD,
+	IPA_CLIENT_MEMCPY_DMA_SYNC_PROD,
+	IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD,
+
 	/* Below PROD client type is only for test purpose */
 	IPA_CLIENT_TEST_PROD,
 	IPA_CLIENT_TEST1_PROD,
@@ -176,6 +179,8 @@ enum ipa_client_type {
 	IPA_CLIENT_Q6_LAN_CONS,
 	IPA_CLIENT_Q6_WAN_CONS,
 	IPA_CLIENT_Q6_DUN_CONS,
+	IPA_CLIENT_MEMCPY_DMA_SYNC_CONS,
+	IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS,
 	/* Below CONS client type is only for test purpose */
 	IPA_CLIENT_TEST_CONS,
 	IPA_CLIENT_TEST1_CONS,
@@ -211,6 +216,14 @@ enum ipa_client_type {
 #define IPA_CLIENT_IS_Q6_PROD(client) \
 	((client) == IPA_CLIENT_Q6_LAN_PROD || \
 	(client) == IPA_CLIENT_Q6_CMD_PROD)
+
+#define IPA_CLIENT_IS_MEMCPY_DMA_CONS(client) \
+	((client) == IPA_CLIENT_MEMCPY_DMA_SYNC_CONS || \
+	(client) == IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS)
+
+#define IPA_CLIENT_IS_MEMCPY_DMA_PROD(client) \
+	((client) == IPA_CLIENT_MEMCPY_DMA_SYNC_PROD || \
+	(client) == IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD)
 
 
 
