@@ -10700,6 +10700,7 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 	struct intel_disp_reg *reg;
 	int plane = 0;
 
+	/* Enable Primary plane */
 	if (type == SPRITE_PLANE) {
 		reg = &intel_plane->reg;
 		plane = intel_plane->plane;
@@ -11000,8 +11001,6 @@ int intel_set_disp_commit_regs(struct drm_mode_set_display *disp,
 				obj = drm_mode_object_find(dev,
 					disp->plane[i].obj_id,
 					DRM_MODE_OBJECT_PLANE);
-				if (!obj)
-					return -ENOENT;
 				drm_plane = obj_to_plane(obj);
 				intel_plane = to_intel_plane(drm_plane);
 				i915_commit(dev_priv, (void *)intel_plane,
@@ -11032,14 +11031,13 @@ static void intel_pipe_vblank_evade(struct drm_crtc *crtc)
 	/* FIXME needs to be calibrated sensibly */
 	u32 min = crtc->hwmode.crtc_vdisplay - usecs_to_scanlines(crtc, 50);
 	u32 max = crtc->hwmode.crtc_vdisplay - 1;
-	long timeout = msecs_to_jiffies(3);
 	u32 val;
 
 	local_irq_disable();
 	val = I915_READ(PIPEDSL(pipe));
 	local_irq_enable();
 
-	while (val >= min && val <= max && timeout > 0) {
+	while (val >= min && val <= max) {
 
 		intel_wait_for_vblank(dev_priv->dev, intel_crtc->pipe);
 		local_irq_disable();
