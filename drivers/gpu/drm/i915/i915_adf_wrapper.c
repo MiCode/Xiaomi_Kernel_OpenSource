@@ -204,4 +204,9 @@ void intel_get_vbt_disp_conf(void **child_dev, int *child_dev_num)
 }
 EXPORT_SYMBOL(intel_get_vbt_disp_conf);
 
+unsigned short *intel_get_vbt_pps_delays(void)
+{
+	return (unsigned short *)&i915_adf_dev->vbt.edp_pps;
+}
+EXPORT_SYMBOL(intel_get_vbt_pps_delays);
 #endif
