@@ -20,13 +20,16 @@
 #include <drm/i915_drm.h>
 #include <drm/i915_adf.h>
 #include <core/common/dsi/dsi_pipe.h>
+#include <core/common/hdmi/gen_hdmi_pipe.h>
 #include <core/vlv/vlv_pri_plane.h>
 #include <core/vlv/vlv_sp_plane.h>
 #include <core/vlv/vlv_dpst.h>
 #include <core/vlv/vlv_dsi_port.h>
+#include <core/vlv/vlv_hdmi_port.h>
 #include <core/vlv/vlv_pll.h>
 #include <core/vlv/vlv_pipe.h>
 #include <core/vlv/vlv_pm.h>
+#include <core/vlv/dpio.h>
 
 #define VLV_N_PLANES	6
 #define VLV_N_PIPES	2
@@ -83,6 +86,20 @@ static inline void vlv_flisdsi_write(u32 reg, u32 val)
 				reg, &val);
 }
 
+static inline void vlv_dpio_write(u32 port, u32 reg, u32 val)
+{
+	intel_adf_dpio_sideband_rw(INTEL_SIDEBAND_REG_WRITE, port,
+			reg, &val);
+}
+
+static inline u32 vlv_dpio_read(u32 port, u32 reg)
+{
+	u32 val;
+	intel_adf_dpio_sideband_rw(INTEL_SIDEBAND_REG_READ, port,
+			reg, &val);
+	return val;
+}
+
 static inline void vlv_gpio_nc_write(u32 reg, u32 val)
 {
 	intel_adf_dpio_sideband_rw(INTEL_SIDEBAND_REG_WRITE,
@@ -124,15 +141,17 @@ struct vlv_pipeline {
 	struct vlv_pipe pipe;
 	struct vlv_pri_plane pplane;
 	struct vlv_sp_plane splane[2];
+	u32 dpio_id;
+	u32 disp_no;
 	enum intel_pipe_type type;
 	u16 dc_stepping;
 	union {
 		struct dsi_pipe dsi;
-		/* later we will have hdmi pipe */
+		struct hdmi_pipe hdmi;
 	} gen;
 	union {
 		struct vlv_dsi_port dsi_port;
-		/* later we will have hdmi port */
+		struct vlv_hdmi_port hdmi_port;
 	} port;
 
 };
@@ -142,6 +161,7 @@ struct vlv_dc_config {
 	u32 max_pipes;
 	u32 max_planes;
 	struct vlv_dpst dpst;
+	struct mutex dpio_lock;
 	/*
 	 * FIXME: For other platforms the number of pipes may
 	 * vary, which has to be handeled in future

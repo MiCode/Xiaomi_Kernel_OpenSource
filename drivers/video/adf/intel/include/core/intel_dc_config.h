@@ -465,6 +465,19 @@ struct intel_global_status {
 	bool plane_status[2][6];
 };
 
+struct intel_clock {
+	/* given values */
+	int n;
+	int m1, m2;
+	int p1, p2;
+
+	/* derived values */
+	int dot;
+	int vco;
+	int m;
+	int p;
+};
+
 struct intel_pipe {
 	struct intel_dc_component base;
 	bool primary;
