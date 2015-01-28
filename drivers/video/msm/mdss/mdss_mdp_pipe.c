@@ -850,6 +850,17 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		break;
 	}
 
+	/* allocate lower priority right blend pipe */
+	if (left_blend_pipe && (left_blend_pipe->type == type) && pipe_pool) {
+		struct mdss_mdp_pipe *pool_head = pipe_pool + off;
+		off += left_blend_pipe->priority - pool_head->priority + 1;
+		if (off >= npipes) {
+			pr_err("priority limitation. l_pipe:%d. no low priority %d pipe type available.\n",
+				left_blend_pipe->num, type);
+			return ERR_PTR(-EINVAL);
+		}
+	}
+
 	for (i = off; i < npipes; i++) {
 		pipe = pipe_pool + i;
 		if (atomic_read(&pipe->kref.refcount) == 0) {
@@ -862,13 +873,6 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	if (pipe && type == MDSS_MDP_PIPE_TYPE_CURSOR) {
 		kref_init(&pipe->kref);
 		goto cursor_done;
-	}
-
-	if (left_blend_pipe && pipe &&
-	    pipe->priority <= left_blend_pipe->priority) {
-		pr_debug("priority limitation. l_pipe:%d r_pipe:%d\n",
-			left_blend_pipe->num, pipe->num);
-		return ERR_PTR(-EINVAL);
 	}
 
 	if (pipe && mdss_mdp_pipe_fetch_halt(pipe)) {
