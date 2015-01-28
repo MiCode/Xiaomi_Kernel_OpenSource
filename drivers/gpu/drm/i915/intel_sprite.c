@@ -1270,7 +1270,6 @@ intel_post_enable_primary(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
-	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	/*
 	 * BDW signals flip done immediately if the plane
@@ -1291,8 +1290,6 @@ intel_post_enable_primary(struct drm_crtc *crtc)
 	mutex_lock(&dev->struct_mutex);
 	intel_update_fbc(dev);
 	intel_update_drrs(dev);
-	if (!dev_priv->atomic_update)
-		intel_update_watermarks(crtc);
 	mutex_unlock(&dev->struct_mutex);
 }
 

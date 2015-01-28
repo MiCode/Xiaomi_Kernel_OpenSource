@@ -2684,9 +2684,6 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 
 	pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 
-	if (!dev_priv->atomic_update)
-		intel_update_watermarks(crtc);
-
 	reg = DSPCNTR(plane);
 	/*
 	 * In case of atomic update, primary enable/disable is already cached as
@@ -2910,9 +2907,6 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	} else
 		I915_WRITE(DSPADDR(plane), i915_gem_obj_ggtt_offset(obj) + linear_offset);
 	POSTING_READ(reg);
-
-	if (!dev_priv->atomic_update)
-		intel_update_watermarks(crtc);
 }
 
 static void ironlake_update_primary_plane(struct drm_crtc *crtc,
@@ -5429,10 +5423,7 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 
 	intel_crtc_load_lut(crtc);
 
-	if (!dev_priv->atomic_update)
-		intel_update_watermarks(crtc);
-	else
-		vlv_update_watermarks(dev_priv);
+	vlv_update_watermarks(dev_priv);
 
 	if (IS_VALLEYVIEW(dev) &&
 			intel_pipe_has_type(crtc, INTEL_OUTPUT_HDMI)) {
@@ -5702,8 +5693,6 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 		intel_set_cpu_fifo_underrun_reporting(dev, pipe, false);
 
 	intel_crtc->active = false;
-	if (!dev_priv->atomic_update)
-		intel_update_watermarks(crtc);
 
 	/*Reset lane for VLV platform*/
 	if (IS_VALLEYVIEW(dev)) {

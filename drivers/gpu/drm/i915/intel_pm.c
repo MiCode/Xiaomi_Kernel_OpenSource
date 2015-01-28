@@ -660,9 +660,6 @@ static void intel_drrs_work_fn(struct work_struct *__work)
 
 	intel_dp_set_drrs_state(work->crtc->dev,
 		dev_priv->drrs.connector->panel.downclock_mode->vrefresh);
-
-	if (!dev_priv->atomic_update)
-		intel_update_watermarks(work->crtc);
 }
 
 static void intel_cancel_drrs_work(struct drm_i915_private *dev_priv)
