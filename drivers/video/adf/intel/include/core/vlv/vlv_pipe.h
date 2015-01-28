@@ -40,7 +40,8 @@ bool vlv_pipe_wait_for_vblank(struct vlv_pipe *pipe);
 bool vlv_pipe_wait_for_pll_lock(struct vlv_pipe *pipe);
 bool vlv_pipe_wait_for_pll_lock(struct vlv_pipe *pipe);
 u32 vlv_pipe_program_timings(struct vlv_pipe *pipe,
-		struct drm_mode_modeinfo *mode);
+		struct drm_mode_modeinfo *mode,
+		enum intel_pipe_type type, u8 bpp);
 u32 vlv_pipe_enable(struct vlv_pipe *pipe,
 		struct drm_mode_modeinfo *mode);
 u32 vlv_pipe_disable(struct vlv_pipe *pipe);

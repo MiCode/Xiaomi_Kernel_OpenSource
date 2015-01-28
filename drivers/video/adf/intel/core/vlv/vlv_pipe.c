@@ -25,7 +25,7 @@ bool vlv_pipe_vblank_on(struct vlv_pipe *pipe)
 			__func__, pipe->offset);
 	} else {
 		REG_WRITE(pipe->status_offset,
-			 (val | PIPE_VBLANK_INTERRUPT_ENABLE));
+			(val | PIPE_VBLANK_INTERRUPT_ENABLE));
 		REG_POSTING_READ(pipe->status_offset);
 	}
 
@@ -62,8 +62,8 @@ bool vlv_pipe_wait_for_vblank(struct vlv_pipe *pipe)
 	return ret;
 }
 
-static unsigned int usecs_to_scanlines(struct drm_mode_modeinfo *mode,
-				unsigned int usecs)
+static u32 usecs_to_scanlines(struct drm_mode_modeinfo *mode,
+				u32 usecs)
 {
 	/* paranoia */
 	if (!mode->htotal)
@@ -229,7 +229,7 @@ u32 vlv_pipe_disable(struct vlv_pipe *pipe)
 	/* Wait for the Pipe State to go off */
 	if (wait_for(!(REG_READ(pipe->offset) & I965_PIPECONF_ACTIVE), 100)) {
 		pr_err("ADF: %s: pipe_off wait timed out\n", __func__);
-		err = -EINVAL; /* FIXME: replace with timeout error :) */
+		err = -ETIMEDOUT;
 	}
 
 	return err;
@@ -239,7 +239,7 @@ bool vlv_pipe_wait_for_pll_lock(struct vlv_pipe *pipe)
 {
 	u32 err = 0;
 	if (wait_for(vlv_cck_read(CCK_REG_DSI_PLL_CONTROL) &
-		     DSI_PLL_LOCK, 20)) {
+			DSI_PLL_LOCK, 20)) {
 		pr_err("DSI PLL lock failed\n");
 		err = -EINVAL; /* FIXME: assign correct error */
 	}
@@ -248,14 +248,15 @@ bool vlv_pipe_wait_for_pll_lock(struct vlv_pipe *pipe)
 }
 
 u32 vlv_pipe_program_timings(struct vlv_pipe *pipe,
-		struct drm_mode_modeinfo *mode)
+		struct drm_mode_modeinfo *mode,
+		enum intel_pipe_type type, u8 bpp)
 {
-	int vblank_start;
-	int vblank_end;
-	int hblank_start;
-	int hblank_end;
+	u32 vblank_start;
+	u32 vblank_end;
+	u32 hblank_start;
+	u32 hblank_end;
 	u32 pipeconf = 0;
-	int i = 0;
+	u32 i = 0;
 
 	vblank_start = min(mode->vsync_start, mode->vdisplay);
 	vblank_end = max(mode->vsync_end, mode->vtotal);
@@ -287,18 +288,46 @@ u32 vlv_pipe_program_timings(struct vlv_pipe *pipe,
 		((mode->vsync_end - 1) << 16));
 
 	/*
+	 * FIXME: DRM has special case here check if it is required
 	 * pipesrc controls the size that is scaled from, which should
 	 * always be the user's requested size.
 	 */
 	REG_WRITE(pipe->src_size_offset,
-		((mode->hdisplay - 1) << 16) | (mode->vdisplay - 1));
+			((mode->hdisplay - 1) << 16) | (mode->vdisplay - 1));
 
 	/*
-	 * pipesrc and dspsize control the size that is scaled from,
-	 * which should always be the user's requested size.
+	 * FIXME: check if dithering needs checing here or later
+	 * if (intel_crtc->config.dither && intel_crtc->config.pipe_bpp != 30)
+	 *      pipeconf |= PIPECONF_DITHER_EN |
+	 *              PIPECONF_DITHER_TYPE_SP;
+	 * pipeconf |= PIPECONF_COLOR_RANGE_SELECT;
 	 */
 
-	pipeconf |= PIPECONF_PROGRESSIVE;
+	switch (bpp) {
+	case 18:
+		pipeconf |= PIPECONF_6BPC;
+		break;
+	case 24:
+		pipeconf |= PIPECONF_8BPC;
+		break;
+	case 30:
+		pipeconf |= PIPECONF_10BPC;
+		break;
+	default:
+		/* Case prevented by intel_choose_pipe_bpp_dither. */
+		pr_err("%s: invalid bpp passed\n", __func__);
+	}
+
+	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
+		pipeconf |= PIPECONF_INTERLACE_W_SYNC_SHIFT;
+	else
+		pipeconf |= PIPECONF_PROGRESSIVE;
+
+	/*
+	 * FIXME: enable when color ranges are supported
+	 * pipeconf |= PIPECONF_COLOR_RANGE_SELECT;
+	 */
+
 	REG_WRITE(pipe->offset, pipeconf);
 	REG_POSTING_READ(pipe->offset);
 
@@ -330,11 +359,23 @@ bool vlv_pipe_init(struct vlv_pipe *pipe, enum pipe pipeid)
 	pipe->vblank_offset = VBLANK(pipeid);
 	pipe->vsync_offset = VSYNC(pipeid);
 	pipe->gamma_offset = PALETTE(pipeid);
-
 	pipe->src_size_offset = PIPESRC(pipeid);
-
 	pipe->pipe_id = pipeid;
 
+#ifdef INTEL_ADF_DUMP_INIT_REGS
+	pr_info("ADF: Pipe regs are:\n");
+	pr_info("=====================================\n");
+	pr_info("conf=0x%x status=0x%x scan_line=0x%x frame_count=0x%x\n",
+		pipe->offset, pipe->status_offset,
+		pipe->scan_line_offset, pipe->frame_count_offset);
+	pr_info("htotal=0x%x hblank=0x%x hsync=0x%x\n",
+		pipe->htotal_offset, pipe->hblank_offset, pipe->hsync_offset);
+	pr_info("vtotal=0x%x vblank=0x%x vsync=0x%x\n",
+		pipe->vtotal_offset, pipe->vblank_offset, pipe->vsync_offset);
+	pr_info("gamma=0x%x src_sz=0x%x id=%d\n",
+		pipe->gamma_offset, pipe->src_size_offset, pipe->pipe_id);
+	pr_info("=====================================\n");
+#endif
 	return true;
 }
 
