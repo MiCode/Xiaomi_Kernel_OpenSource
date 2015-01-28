@@ -1033,6 +1033,23 @@ static int ubifs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		return err;
 	}
 
+	/* Before renaming, make sure old_inode is synced to disc */
+	err = filemap_write_and_wait_range(old_inode->i_mapping, 0, LLONG_MAX);
+	if (err) {
+		ubifs_err("filemap_write_and_wait_range failed with %d",
+				c->vi.ubi_num, err);
+		goto out;
+	}
+	mutex_lock(&old_inode->i_mutex);
+	err = ubifs_sync_wbufs_by_inode(c, old_inode);
+	if (err) {
+		ubifs_err("ubifs_sync_wbufs_by_inode failed with %d",
+						c->vi.ubi_num, err);
+		mutex_unlock(&old_inode->i_mutex);
+		goto out;
+	}
+	mutex_unlock(&old_inode->i_mutex);
+
 	lock_3_inodes(old_dir, new_dir, new_inode);
 
 	/*
@@ -1142,6 +1159,7 @@ out_cancel:
 		}
 	}
 	unlock_3_inodes(old_dir, new_dir, new_inode);
+out:
 	ubifs_release_budget(c, &ino_req);
 	ubifs_release_budget(c, &req);
 	return err;
