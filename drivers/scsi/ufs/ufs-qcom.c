@@ -1383,18 +1383,21 @@ static void ufs_qcom_exit(struct ufs_hba *hba)
 }
 
 
-void ufs_qcom_clk_scale_notify(struct ufs_hba *hba)
+int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
+			       bool scale_up, bool status)
 {
 	struct ufs_qcom_host *host = hba->priv;
 	struct ufs_pa_layer_attr *dev_req_params = &host->dev_req_params;
 
 	if (!dev_req_params)
-		return;
+		return 0;
 
 	ufs_qcom_cfg_timers(hba, dev_req_params->gear_rx,
 				dev_req_params->pwr_rx,
 				dev_req_params->hs_rate, false);
 	ufs_qcom_update_bus_bw_vote(host);
+
+	return 0;
 }
 
 /*
