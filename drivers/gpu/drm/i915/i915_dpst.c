@@ -382,9 +382,12 @@ i915_dpst_update_registers(struct drm_device *dev)
 		dev_priv->dpst.reg.blm_hist_bin_count_mask = BIN_COUNT_MASK_4M;
 		dev_priv->dpst.ie_mod_table_enable = IE_MOD_TABLE_ENABLE;
 	} else if (IS_VALLEYVIEW(dev)) {
-		dev_priv->dpst.reg.blm_hist_ctl = VLV_BLC_HIST_CTL(PIPE_A);
-		dev_priv->dpst.reg.blm_hist_guard = VLV_BLC_HIST_GUARD(PIPE_A);
-		dev_priv->dpst.reg.blm_hist_bin = VLV_BLC_HIST_BIN(PIPE_A);
+		dev_priv->dpst.reg.blm_hist_ctl =
+				VLV_BLC_HIST_CTL(dev_priv->dpst.pipe);
+		dev_priv->dpst.reg.blm_hist_guard =
+				VLV_BLC_HIST_GUARD(dev_priv->dpst.pipe);
+		dev_priv->dpst.reg.blm_hist_bin =
+				VLV_BLC_HIST_BIN(dev_priv->dpst.pipe);
 		dev_priv->dpst.reg.blm_hist_bin_count_mask = BIN_COUNT_MASK_4M;
 		dev_priv->dpst.ie_mod_table_enable = VLV_IE_MOD_TABLE_ENABLE;
 	} else if (IS_BROADWELL(dev)) {
