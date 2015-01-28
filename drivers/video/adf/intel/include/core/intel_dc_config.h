@@ -489,17 +489,26 @@ struct intel_dc_attachment {
 	u8 pll_id;
 };
 
+union encoder_params {
+	/*
+	 * pass display specific params to pipeline code
+	 * that might be needed across multiple calls
+	 */
+	struct {
+		struct dsi_config *dsi_config;
+	} dsi;
+
+	struct {
+		int temp;/*stub*/
+	} dp;
+
+	struct {
+		u8 bpp;
+	} hdmi;
+};
+
 struct intel_pipeline {
-	union {
-		/* pass display specific params to pipeline code */
-		/* that might be needed across multiple calls */
-		struct {
-			struct dsi_config *dsi_config;
-		} dsi;
-		struct {
-			int temp;/*stub*/
-		} dp;
-	} params;
+	union encoder_params params;
 };
 
 struct intel_dc_config {
