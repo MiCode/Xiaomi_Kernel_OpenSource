@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1154,7 +1154,7 @@ struct msm_vidc_cb_cmd_done {
 
 struct msm_vidc_cb_event {
 	u32 device_id;
-	u32 session_id;
+	void *session_id;
 	enum vidc_status status;
 	u32 height;
 	u32 width;
