@@ -659,12 +659,6 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 							__func__, ret);
 					prtd->lsm_client->lab_started = false;
 				}
-				ret = msm_lsm_lab_buffer_alloc(prtd,
-					LAB_BUFFER_DEALLOC);
-				if (ret)
-					dev_err(rtd->dev,
-						"%s: lab buffer de-alloc failed rc %d",
-						__func__, rc);
 			}
 			ret = q6lsm_stop(prtd->lsm_client, true);
 			if (!ret)
