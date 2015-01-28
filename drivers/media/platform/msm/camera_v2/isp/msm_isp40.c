@@ -994,7 +994,10 @@ static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 {
 	uint16_t first_pixel, last_pixel, first_line, last_line;
 	struct msm_vfe_camif_cfg *camif_cfg = &pix_cfg->camif_cfg;
+	struct msm_vfe_camif_subsample_cfg *subsample_cfg =
+		&pix_cfg->camif_cfg.subsample_cfg;
 	uint32_t val;
+	bool bus_sub_en = 0;
 
 	first_pixel = camif_cfg->first_pixel;
 	last_pixel = camif_cfg->last_pixel;
@@ -1023,6 +1026,16 @@ static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 	case CAMIF:
 		val = 0x01;
 		msm_camera_io_w(val, vfe_dev->vfe_base + 0x2F4);
+		bus_sub_en = ((subsample_cfg->pixel_skip) |
+			subsample_cfg->line_skip) ? 1:0;
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x2F8);
+		val &= 0xFFFFFFDF;
+		val = val | bus_sub_en << 5;
+		msm_camera_io_w(val, vfe_dev->vfe_base + 0x2F8);
+		subsample_cfg->pixel_skip &= 0x0000FFFF;
+		subsample_cfg->line_skip  &= 0x0000FFFF;
+		msm_camera_io_w((subsample_cfg->pixel_skip << 16) |
+			subsample_cfg->line_skip, vfe_dev->vfe_base + 0x30C);
 		break;
 	case TESTGEN:
 		val = 0x01;
