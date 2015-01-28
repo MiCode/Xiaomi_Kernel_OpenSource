@@ -997,14 +997,14 @@ static int ufshcd_send_request_sense_all_lus(struct ufs_hba *hba)
 }
 
 /**
- * ufshcd_scale_clks - scale up or scale down UFS controller clocks
+ * ufshcd_set_clk_freq - set UFS controller clock frequencies
  * @hba: per adapter instance
- * @scale_up: True if scaling up and false if scaling down
+ * @scale_up: If True, set max possible frequency othewise set low frequency
  *
  * Returns 0 if successful
  * Returns < 0 for any other errors
  */
-static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
+static int ufshcd_set_clk_freq(struct ufs_hba *hba, bool scale_up)
 {
 	int ret = 0;
 	struct ufs_clk_info *clki;
@@ -1055,6 +1055,39 @@ static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
 	}
 
 out:
+	return ret;
+}
+
+/**
+ * ufshcd_scale_clks - scale up or scale down UFS controller clocks
+ * @hba: per adapter instance
+ * @scale_up: True if scaling up and false if scaling down
+ *
+ * Returns 0 if successful
+ * Returns < 0 for any other errors
+ */
+static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
+{
+	int ret = 0;
+
+	if (hba->vops && hba->vops->clk_scale_notify) {
+		ret = hba->vops->clk_scale_notify(hba, scale_up, PRE_CHANGE);
+		if (ret)
+			return ret;
+	}
+
+	ret = ufshcd_set_clk_freq(hba, scale_up);
+	if (ret)
+		return ret;
+
+	if (hba->vops && hba->vops->clk_scale_notify) {
+		ret = hba->vops->clk_scale_notify(hba, scale_up, POST_CHANGE);
+		if (ret) {
+			ufshcd_set_clk_freq(hba, !scale_up);
+			return ret;
+		}
+	}
+
 	return ret;
 }
 
@@ -5931,7 +5964,7 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	/* scale up clocks to max frequency before full reinitialization */
-	ufshcd_scale_clks(hba, true);
+	ufshcd_set_clk_freq(hba, true);
 
 	err = ufshcd_hba_enable(hba);
 	if (err)
@@ -8195,11 +8228,8 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 	}
 
 	ret = ufshcd_scale_clks(hba, scale_up);
-	if (ret) {
-		if (!scale_up)
-			ufshcd_scale_gear(hba, true);
-		goto out;
-	}
+	if (ret)
+		goto scale_up_gear;
 
 	/* scale up the gear after scaling up clocks */
 	if (scale_up) {
@@ -8209,9 +8239,11 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 			goto out;
 		}
 	}
+	goto out;
 
-	ret = ufshcd_vops_clk_scale_notify(hba, scale_up, POST_CHANGE);
-
+scale_up_gear:
+	if (!scale_up)
+		ufshcd_scale_gear(hba, true);
 out:
 	return ret;
 }
