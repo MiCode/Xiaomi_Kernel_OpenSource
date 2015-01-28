@@ -21,6 +21,7 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/spmi.h>
 #include <linux/mutex.h>
 #include <linux/msm_bcl.h>
@@ -60,6 +61,9 @@
 #define VAL_REG_BUF_OFFSET      0
 #define VAL_CP_REG_BUF_OFFSET   2
 
+#define PON_SPARE_FULL_CURRENT		0x0
+#define PON_SPARE_DERATED_CURRENT	0x1
+
 #define READ_CONV_FACTOR(_node, _key, _val, _ret, _dest) do { \
 		_ret = of_property_read_u32(_node, _key, &_val); \
 		if (_ret) { \
@@ -67,6 +71,16 @@
 			goto bcl_dev_exit; \
 		} \
 		_dest = _val; \
+	} while (0)
+
+#define READ_OPTIONAL_PROP(_node, _key, _val, _ret, _dest) do { \
+		_ret = of_property_read_u32(_node, _key, &_val); \
+		if (_ret && _ret != -EINVAL) { \
+			pr_err("Error reading key:%s. err:%d\n", _key, _ret); \
+			goto bcl_dev_exit; \
+		} else if (!_ret) { \
+			_dest = _val; \
+		} \
 	} while (0)
 
 enum bcl_monitor_state {
@@ -92,6 +106,7 @@ struct bcl_peripheral_data {
 	int                     gain_factor_num;
 	int                     gain_factor_den;
 	uint32_t                polling_delay_ms;
+	int			inhibit_derating_ua;
 	int (*read_max)         (int *adc_value);
 	int (*clear_max)        (void);
 };
@@ -101,6 +116,7 @@ struct bcl_device {
 	struct device           *dev;
 	struct spmi_device      *spmi;
 	uint16_t                base_addr;
+	uint16_t                pon_spare_addr;
 	uint8_t                 slave_id;
 	struct workqueue_struct *bcl_isr_wq;
 	struct bcl_peripheral_data   param[BCL_PARAM_MAX];
@@ -134,7 +150,8 @@ static int bcl_read_register(int16_t reg_offset, uint8_t *data)
 	return bcl_read_multi_register(reg_offset, data, 1);
 }
 
-static int bcl_write_register(int16_t reg_offset, uint8_t data)
+static int bcl_write_general_register(int16_t reg_offset,
+					uint16_t base, uint8_t data)
 {
 	int  ret = 0;
 	uint8_t *write_buf = &data;
@@ -144,14 +161,21 @@ static int bcl_write_register(int16_t reg_offset, uint8_t data)
 		return -EINVAL;
 	}
 	ret = spmi_ext_register_writel(bcl_perph->spmi->ctrl,
-		bcl_perph->slave_id, (bcl_perph->base_addr + reg_offset),
+		bcl_perph->slave_id, (base + reg_offset),
 		write_buf, 1);
 	if (ret < 0) {
 		pr_err("Error reading register %d. err:%d", reg_offset, ret);
 		return ret;
 	}
+	pr_debug("wrote 0x%02x to 0x%04x\n", data, base + reg_offset);
 
 	return ret;
+}
+
+static int bcl_write_register(int16_t reg_offset, uint8_t data)
+{
+	return bcl_write_general_register(reg_offset,
+			bcl_perph->base_addr, data);
 }
 
 static void convert_vbat_to_adc_val(int *val)
@@ -240,6 +264,27 @@ static int bcl_set_high_ibat(int thresh_value)
 		return ret;
 	}
 	bcl_perph->param[BCL_PARAM_CURRENT].high_trip = thresh_value;
+
+	if (bcl_perph->param[BCL_PARAM_CURRENT].inhibit_derating_ua == 0
+			|| bcl_perph->pon_spare_addr == 0)
+		return ret;
+
+	ret = bcl_write_general_register(bcl_perph->pon_spare_addr,
+			PON_SPARE_FULL_CURRENT, val);
+	if (ret) {
+		pr_debug("Error accessing PON register. err:%d\n", ret);
+		return ret;
+	}
+	thresh_value = ibat_ua
+		- bcl_perph->param[BCL_PARAM_CURRENT].inhibit_derating_ua;
+	convert_ibat_to_adc_val(&thresh_value);
+	val = (int8_t)thresh_value;
+	ret = bcl_write_general_register(bcl_perph->pon_spare_addr,
+			PON_SPARE_DERATED_CURRENT, val);
+	if (ret) {
+		pr_debug("Error accessing PON register. err:%d\n", ret);
+		return ret;
+	}
 
 	return ret;
 }
@@ -659,6 +704,7 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 	struct resource *resource = NULL;
 	int8_t i_src = 0, val = 0;
 	char *key = NULL;
+	const __be32 *prop = NULL;
 	struct device_node *dev_node = spmi->dev.of_node;
 
 	/* Get SPMI peripheral address */
@@ -668,7 +714,22 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 		return -EINVAL;
 	}
 	bcl_perph->slave_id = spmi->sid;
-	bcl_perph->base_addr = resource->start;
+	prop = of_get_address_by_name(dev_node,
+			"fg_user_adc", 0, 0);
+	if (prop) {
+		bcl_perph->base_addr = be32_to_cpu(*prop);
+		pr_debug("fg_user_adc@%04x\n", bcl_perph->base_addr);
+	} else {
+		dev_err(&spmi->dev, "No fg_user_adc registers found\n");
+		return -EINVAL;
+	}
+
+	prop = of_get_address_by_name(dev_node,
+			"pon_spare", 0, 0);
+	if (prop) {
+		bcl_perph->pon_spare_addr = be32_to_cpu(*prop);
+		pr_debug("pon_spare@%04x\n", bcl_perph->pon_spare_addr);
+	}
 
 	/* Register SPMI peripheral interrupt */
 	irq_num = spmi_get_irq_byname(spmi, NULL,
@@ -719,6 +780,9 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 	key = "qcom,ibat-polling-delay-ms";
 	READ_CONV_FACTOR(dev_node, key, temp_val, ret,
 		bcl_perph->param[BCL_PARAM_CURRENT].polling_delay_ms);
+	key = "qcom,inhibit-derating-ua";
+	READ_OPTIONAL_PROP(dev_node, key, temp_val, ret,
+		bcl_perph->param[BCL_PARAM_CURRENT].inhibit_derating_ua);
 
 	ret = bcl_read_register(BCL_I_SENSE_SRC, &i_src);
 	if (ret) {
