@@ -51,6 +51,7 @@
 	#include "hdmi_audio_if.h"
 #endif
 #include "i915_perfmon_defs.h"
+#include "i915_gem_userdata.h"
 
 
 /* General customization:
@@ -2097,6 +2098,9 @@ struct drm_i915_gem_object {
 
 	/** Object userdata */
 	uint32_t userdata;
+
+	/** Optional object userdata block */
+	struct i915_gem_userdata *userdata_blk;
 
 	union {
 		struct i915_gem_userptr {

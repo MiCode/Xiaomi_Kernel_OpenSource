@@ -4923,6 +4923,8 @@ void i915_gem_free_object(struct drm_gem_object *gem_obj)
 
 	trace_i915_gem_object_destroy(obj);
 
+	kfree(obj->userdata_blk);
+
 	list_for_each_entry_safe(vma, next, &obj->vma_list, vma_link) {
 		int ret;
 

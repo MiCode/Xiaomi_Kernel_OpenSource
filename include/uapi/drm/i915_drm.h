@@ -310,6 +310,14 @@ struct i915_ext_ioctl_data {
 /* Special, two-level, extended ioctl */
 #define DRM_I915_EXT_IOCTL		0x5F
 
+
+/* Extended ioctl definitions */
+#define DRM_I915_EXT_USERDATA		0x0
+
+#define DRM_IOCTL_I915_EXT_USERDATA \
+	DRM_IOWR(DRM_I915_EXT_USERDATA, struct drm_i915_gem_userdata_blk)
+
+
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
 #define DRM_IOCTL_I915_FLUSH		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLUSH)
 #define DRM_IOCTL_I915_FLIP		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLIP)
@@ -1042,6 +1050,41 @@ struct drm_i915_gem_access_userdata {
 	* Write: 0=read userdata, 1=write userdata
 	*/
 	__u32 write;
+};
+
+/* Interface allowing user metadata to be attached to gem bo's */
+#define I915_USERDATA_CREATE_OP 0
+#define I915_USERDATA_SET_OP    1
+#define I915_USERDATA_GET_OP    2
+
+#define I915_USERDATA_READONLY 1 /* Data cannot be set after create */
+
+struct drm_i915_gem_userdata_blk {
+	/* One of the USERDATA OP defines above */
+	__u16 op;
+
+	/* Create flags */
+	__u16 flags;
+
+	/* Handle of the buffer whose userdata will be accessed */
+	__u32 handle;
+
+	/* Byte offset into data block */
+	__u32 offset;
+
+	/*
+	 * Number of bytes to allocate or move
+	 * On return, the number of bytes previously allocated
+	*/
+	__u32 bytes;
+
+	/*
+	 * User-space pointer could be 32-bits or 64-bits
+	 * so use u64 to guarantee compatibility with 64-bit kernels
+	 * This obviates the need to provide both a compat_ioctl and standard
+	 * ioctl for this interface
+	*/
+	__u64 data_ptr;
 };
 
 struct drm_i915_gem_get_aperture {
