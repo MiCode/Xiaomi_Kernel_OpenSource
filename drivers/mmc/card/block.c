@@ -1507,18 +1507,20 @@ static int mmc_blk_cmd_error(struct request *req, const char *name, int error,
 	switch (error) {
 	case -EILSEQ:
 		/* response crc error, retry the r/w cmd */
-		pr_err("%s: %s sending %s command, card status %#x\n",
-			req->rq_disk->disk_name, "response CRC error",
+		pr_err_ratelimited(
+			"%s: response CRC error sending %s command, card status %#x\n",
+			req->rq_disk->disk_name,
 			name, status);
 		return ERR_RETRY;
 
 	case -ETIMEDOUT:
-		pr_err("%s: %s sending %s command, card status %#x\n",
-			req->rq_disk->disk_name, "timed out", name, status);
+		pr_err_ratelimited(
+			"%s: timed out sending %s command, card status %#x\n",
+			req->rq_disk->disk_name, name, status);
 
 		/* If the status cmd initially failed, retry the r/w cmd */
 		if (!status_valid) {
-			pr_err("%s: status not valid, retrying timeout\n",
+			pr_err_ratelimited("%s: status not valid, retrying timeout\n",
 				req->rq_disk->disk_name);
 			return ERR_RETRY;
 		}
@@ -1529,17 +1531,22 @@ static int mmc_blk_cmd_error(struct request *req, const char *name, int error,
 		 * have corrected the state problem above.
 		 */
 		if (status & (R1_COM_CRC_ERROR | R1_ILLEGAL_COMMAND)) {
-			pr_err("%s: command error, retrying timeout\n",
+			pr_err_ratelimited(
+				"%s: command error, retrying timeout\n",
 				req->rq_disk->disk_name);
 			return ERR_RETRY;
 		}
 
 		/* Otherwise abort the command */
+		pr_err_ratelimited(
+			"%s: not retrying timeout\n",
+			req->rq_disk->disk_name);
 		return ERR_ABORT;
 
 	default:
 		/* We don't understand the error code the driver gave us */
-		pr_err("%s: unknown error %d sending read/write command, card status %#x\n",
+		pr_err_ratelimited(
+			"%s: unknown error %d sending read/write command, card status %#x\n",
 		       req->rq_disk->disk_name, error, status);
 		return ERR_ABORT;
 	}
