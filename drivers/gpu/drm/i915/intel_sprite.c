@@ -696,8 +696,6 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 
 	dev_priv->plane_stat |= VLV_UPDATEPLANE_STAT_SP_PER_PIPE(pipe, plane);
 
-	intel_plane->last_plane_state = INTEL_PLANE_STATE_ENABLED;
-
 	if (!dev_priv->atomic_update)
 		intel_flush_primary_plane(dev_priv, intel_crtc->plane);
 

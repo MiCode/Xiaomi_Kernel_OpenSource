@@ -1512,9 +1512,6 @@ struct i915_dpst_registers {
 	uint32_t blm_hist_bin_count_mask;
 };
 
-#define DL_PRIMARY_MASK 0x000000ff
-#define DL_SPRITEA_MASK 0x0000ff00
-#define DL_SPRITEB_MASK 0x00ff0000
 #define VLV_PLANES_PER_PIPE 4
 #define VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe) \
 	(1 << (VLV_PLANES_PER_PIPE * (pipe)))
