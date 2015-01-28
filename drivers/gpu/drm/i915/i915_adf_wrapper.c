@@ -53,7 +53,13 @@ static struct drm_i915_private *i915_adf_dev;
 void i915_adf_wrapper_init(struct drm_i915_private *dev_priv)
 {
 	i915_adf_dev = dev_priv;
-	intel_runtime_pm_get(dev_priv);
+
+	/*
+	 * rpm_get for vlv due is to HW WA, we do not do rpm_get in driver load
+	 * In chv, WA is not applicable so we ignore this as rpm_get.
+	 */
+	if (IS_VALLEYVIEW(dev_priv->dev) && !IS_CHERRYVIEW(dev_priv->dev))
+		intel_runtime_pm_get(dev_priv);
 }
 
 void i915_adf_wrapper_teardown(void)
@@ -104,8 +110,11 @@ void intel_adf_display_rpm_get(void)
 		return;
 
 	dev_priv = i915_adf_dev;
-	intel_runtime_pm_get(dev_priv);
-	intel_display_set_init_power(dev_priv, true);
+
+	if (IS_VALLEYVIEW(dev_priv->dev) && !IS_CHERRYVIEW(dev_priv->dev))
+		intel_runtime_pm_get(dev_priv);
+
+	intel_display_power_get(dev_priv, POWER_DOMAIN_INIT);
 }
 EXPORT_SYMBOL(intel_adf_display_rpm_get);
 
@@ -117,7 +126,12 @@ void intel_adf_display_rpm_put(void)
 		return;
 
 	dev_priv = i915_adf_dev;
-	intel_runtime_pm_put(dev_priv);
+
+	if (IS_VALLEYVIEW(dev_priv->dev) && !IS_CHERRYVIEW(dev_priv->dev))
+		intel_runtime_pm_put(dev_priv);
+
+	intel_display_set_init_power(dev_priv, false);
+	intel_display_power_put(dev_priv, POWER_DOMAIN_INIT);
 }
 EXPORT_SYMBOL(intel_adf_display_rpm_put);
 
