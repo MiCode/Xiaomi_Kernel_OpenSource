@@ -18,6 +18,191 @@
 #define A5XX_PFP_PER_PROCESS_UCODE_VER 0x5FF064
 #define A5XX_PM4_PER_PROCESS_UCODE_VER 0x5FF052
 
+/*
+ * _wait_reg() - make CP poll on a register
+ * @cmds:	Pointer to memory where commands are to be added
+ * @addr:	Register address to poll for
+ * @val:	Value to poll for
+ * @mask:	The value against which register value is masked
+ * @interval:	wait interval
+ */
+static unsigned int _wait_reg(struct adreno_device *adreno_dev,
+			unsigned int *cmds, unsigned int addr,
+			unsigned int val, unsigned int mask,
+			unsigned int interval)
+{
+	unsigned int *start = cmds;
+
+	if (adreno_is_a3xx(adreno_dev)) {
+		*cmds++ = cp_packet(adreno_dev, CP_WAIT_REG_EQ, 4);
+		*cmds++ = addr;
+		*cmds++ = val;
+		*cmds++ = mask;
+		*cmds++ = interval;
+	} else {
+		*cmds++ = cp_mem_packet(adreno_dev, CP_WAIT_REG_MEM, 5, 1);
+		*cmds++ = 0x3; /* Mem Space = Register,  Function = Equals */
+		cmds += cp_gpuaddr(adreno_dev, cmds, addr); /* Poll address */
+		*cmds++ = val; /* ref val */
+		*cmds++ = mask;
+		*cmds++ = interval;
+
+		/* WAIT_REG_MEM turns back on protected mode - push it off */
+		*cmds++ = cp_packet(adreno_dev, CP_SET_PROTECTED_MODE, 1);
+		*cmds++ = 0;
+	}
+
+	return cmds - start;
+}
+
+static unsigned int  _iommu_lock(struct adreno_device *adreno_dev,
+				 unsigned int *cmds)
+{
+	unsigned int *start = cmds;
+	unsigned int mmu_ctrl = kgsl_mmu_get_reg_ahbaddr(
+			&adreno_dev->dev.mmu, KGSL_IOMMU_CONTEXT_USER,
+			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL) >> 2;
+
+	/*
+	 * glue commands together until next
+	 * WAIT_FOR_ME
+	 */
+	cmds += _wait_reg(adreno_dev, cmds,
+			adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
+			1, 0xFFFFFFFF, 0xF);
+
+	/* set the iommu lock bit */
+	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
+	*cmds++ = mmu_ctrl;
+	/* AND to unmask the lock bit */
+	*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
+	/* OR to set the IOMMU lock bit */
+	*cmds++ = KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT;
+
+	/* wait for smmu to lock */
+	cmds += _wait_reg(adreno_dev, cmds, mmu_ctrl,
+			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
+			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
+
+	return cmds - start;
+}
+
+static unsigned int _iommu_unlock(struct adreno_device *adreno_dev,
+				  unsigned int *cmds)
+{
+	unsigned int *start = cmds;
+	unsigned int mmu_ctrl = kgsl_mmu_get_reg_ahbaddr(
+			&adreno_dev->dev.mmu, KGSL_IOMMU_CONTEXT_USER,
+			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL) >> 2;
+
+	/* unlock the IOMMU lock */
+	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
+	*cmds++ = mmu_ctrl;
+	/* AND to unmask the lock bit */
+	*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
+	/* OR with 0 so lock bit is unset */
+	*cmds++ = 0;
+
+	/* release all commands since _iommu_lock() with wait_for_me */
+	cmds += cp_wait_for_me(adreno_dev, cmds);
+
+	return cmds - start;
+}
+
+static unsigned int _vbif_lock(struct adreno_device *adreno_dev,
+			unsigned int *cmds)
+{
+	unsigned int *start = cmds;
+	/*
+	 * glue commands together until next
+	 * WAIT_FOR_ME
+	 */
+	cmds += _wait_reg(adreno_dev, cmds,
+			adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
+			1, 0xFFFFFFFF, 0xF);
+
+	/* MMU-500 VBIF stall */
+	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
+	*cmds++ = A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL0;
+	/* AND to unmask the HALT bit */
+	*cmds++ = ~(VBIF_RECOVERABLE_HALT_CTRL);
+	/* OR to set the HALT bit */
+	*cmds++ = 0x1;
+
+	/* Wait for acknowledgement */
+	cmds += _wait_reg(adreno_dev, cmds,
+			A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL1,
+			1, 0xFFFFFFFF, 0xF);
+
+	return cmds - start;
+}
+
+static unsigned int _vbif_unlock(struct adreno_device *adreno_dev,
+				unsigned int *cmds)
+{
+	unsigned int *start = cmds;
+
+	/* MMU-500 VBIF unstall */
+	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
+	*cmds++ = A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL0;
+	/* AND to unmask the HALT bit */
+	*cmds++ = ~(VBIF_RECOVERABLE_HALT_CTRL);
+	/* OR to reset the HALT bit */
+	*cmds++ = 0;
+
+	/* release all commands since _vbif_lock() with wait_for_me */
+	cmds += cp_wait_for_me(adreno_dev, cmds);
+	return cmds - start;
+}
+
+static unsigned int _cp_smmu_reg(struct adreno_device *adreno_dev,
+				unsigned int *cmds,
+				enum kgsl_iommu_reg_map reg,
+				unsigned int num)
+{
+	unsigned int *start = cmds;
+	unsigned int offset;
+
+	offset = kgsl_mmu_get_reg_ahbaddr(&adreno_dev->dev.mmu,
+					  KGSL_IOMMU_CONTEXT_USER, reg) >> 2;
+
+	if (adreno_is_a5xx(adreno_dev) || !kgsl_msm_supports_iommu_v2()) {
+		*cmds++ = cp_register(adreno_dev, offset, num);
+	} else if (adreno_is_a3xx(adreno_dev)) {
+		*cmds++ = cp_packet(adreno_dev, CP_REG_WR_NO_CTXT, num + 1);
+		*cmds++ = offset;
+	} else if (adreno_is_a4xx(adreno_dev)) {
+		*cmds++ = cp_packet(adreno_dev, CP_WIDE_REG_WRITE, num + 1);
+		*cmds++ = offset;
+	} else  {
+		BUG();
+	}
+	return cmds - start;
+}
+
+static unsigned int _tlbiall(struct adreno_device *adreno_dev,
+				unsigned int *cmds)
+{
+	unsigned int *start = cmds;
+	unsigned int tlbstatus;
+
+	tlbstatus = kgsl_mmu_get_reg_ahbaddr(&adreno_dev->dev.mmu,
+			KGSL_IOMMU_CONTEXT_USER,
+			KGSL_IOMMU_CTX_TLBSTATUS) >> 2;
+
+	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TLBIALL, 1);
+	*cmds++ = 1;
+
+	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TLBSYNC, 1);
+	*cmds++ = 0;
+
+	cmds += _wait_reg(adreno_dev, cmds, tlbstatus, 0,
+			KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
+
+	return cmds - start;
+}
+
+
 /**
  * _adreno_iommu_add_idle_cmds - Add pm4 packets for GPU idle
  * @adreno_dev - Pointer to device structure
@@ -116,56 +301,6 @@ unsigned int adreno_iommu_set_apriv(struct adreno_device *adreno_dev,
 		*cmds++ = 0;
 
 	return cmds - cmds_orig;
-}
-
-/**
- * _adreno_iommu_wait_reg_mem() - Add a CP_WAIT_REG_MEM command
- * @cmds:	Pointer to memory where commands are to be added
- * @addr:	Register address to poll for
- * @val:	Value to poll for
- * @mask:	The value against which register value is masked
- * @interval:	wait interval
- */
-static inline int _adreno_iommu_wait_reg_mem(struct adreno_device *adreno_dev,
-				unsigned int *cmds, unsigned int addr,
-				unsigned int val, unsigned int mask,
-				unsigned int interval)
-{
-	unsigned int *start = cmds;
-	*cmds++ = cp_mem_packet(adreno_dev, CP_WAIT_REG_MEM, 5, 1);
-	*cmds++ = 0x3; /* Function = Equals */
-	cmds += cp_gpuaddr(adreno_dev, cmds, addr); /* Poll address */
-	*cmds++ = val; /* ref val */
-	*cmds++ = mask;
-	*cmds++ = interval;
-
-	/* WAIT_REG_MEM turns back on protected mode - push it off */
-	*cmds++ = cp_packet(adreno_dev, CP_SET_PROTECTED_MODE, 1);
-	*cmds++ = 0;
-
-	return cmds - start;
-}
-
-/**
- * _adreno_iommu_wait_reg_eq() - Add a CP_WAIT_REG_EQ command
- * @cmds:	Pointer to memory where commands are to be added
- * @addr:	Regiater address to poll for
- * @val:	Value to poll for
- * @mask:	The value against which register value is masked
- * @interval:	wait interval
- */
-static inline int _adreno_iommu_wait_reg_eq(struct adreno_device *adreno_dev,
-			unsigned int *cmds,
-			unsigned int reg_addr, unsigned int val,
-			unsigned int mask, unsigned int interval)
-{
-	unsigned int *start = cmds;
-	*cmds++ = cp_packet(adreno_dev, CP_WAIT_REG_EQ, 4);
-	*cmds++ = reg_addr;
-	*cmds++ = val;
-	*cmds++ = mask;
-	*cmds++ = interval;
-	return cmds - start;
 }
 
 static inline int _adreno_iommu_add_idle_indirect_cmds(
@@ -357,11 +492,9 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 {
 	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	uint64_t ttbr0_val = 0;
-	unsigned int reg_pt_val;
+	uint64_t ttbr0 = 0;
 	unsigned int *cmds = cmds_orig;
 	unsigned int *cond_exec_ptr;
-	unsigned int ttbr0, tlbiall, tlbstatus, tlbsync, mmu_ctrl;
 
 	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
 
@@ -384,8 +517,7 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
 		int count = 1;
 
-		if (KGSL_IOMMU_CTX_TTBR0_ADDR_MASK &
-			0xFFFFFFFF00000000ULL)
+		if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK))
 			count = 2;
 		/* transfer the ttbr0 value to ME_SCRATCH */
 		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_TO_REG, 2, 1);
@@ -401,123 +533,46 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 			adreno_getreg(adreno_dev,
 					ADRENO_REG_CP_SCRATCH_REG6);
 	} else {
-		ttbr0_val = kgsl_mmu_get_default_ttbr0(&device->mmu,
+		ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
 			KGSL_IOMMU_CONTEXT_USER);
-		ttbr0_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-		ttbr0_val |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
+		ttbr0 &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+		ttbr0 |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
 	}
-	mmu_ctrl = kgsl_mmu_get_reg_ahbaddr(
-		&device->mmu, KGSL_IOMMU_CONTEXT_USER,
-		KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL) >> 2;
-
-	ttbr0 = kgsl_mmu_get_reg_ahbaddr(&device->mmu, KGSL_IOMMU_CONTEXT_USER,
-					KGSL_IOMMU_CTX_TTBR0) >> 2;
 
 	cmds += cp_wait_for_idle(adreno_dev, cmds);
-	/*
-	 * glue commands together until next
-	 * WAIT_FOR_ME
-	 */
-	if (adreno_is_a4xx(adreno_dev))
-		cmds += _adreno_iommu_wait_reg_mem(adreno_dev, cmds,
-		adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
-			1, 0xFFFFFFFF, 0xF);
-	else
-		cmds += _adreno_iommu_wait_reg_eq(adreno_dev, cmds,
-		adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
-			1, 0xFFFFFFFF, 0xF);
 
-	/* set the iommu lock bit */
-	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-	*cmds++ = mmu_ctrl;
-	/* AND to unmask the lock bit */
-	*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
-	/* OR to set the IOMMU lock bit */
-	*cmds++ = KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT;
-	/* wait for smmu to lock */
-	if (adreno_is_a4xx(adreno_dev))
-		cmds += _adreno_iommu_wait_reg_mem(adreno_dev,
-			cmds, mmu_ctrl,
-			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
-			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
-	else
-		cmds += _adreno_iommu_wait_reg_eq(adreno_dev, cmds,
-			mmu_ctrl,
-			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
-			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
+	cmds += _iommu_lock(adreno_dev, cmds);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
 		/* ME_SCRATCH_REG to REG copy */
 		*cmds++ = cp_packet(adreno_dev, CP_SCRATCH_TO_REG, 1);
-		if (KGSL_IOMMU_CTX_TTBR0_ADDR_MASK & 0xFFFFFFFF00000000ULL)
+		if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK))
 			*cmds++ = (2 << 24) | (6 << 16) | ttbr0;
 		else
 			*cmds++ = (1 << 24) | (6 << 16) | ttbr0;
 	} else {
-		/*
-		 * set ttbr0, only need to set the higer bits if the
-		 * address bits lie in the higher bits
-		 */
-		if (KGSL_IOMMU_CTX_TTBR0_ADDR_MASK & 0xFFFFFFFF00000000ULL) {
-			reg_pt_val = (unsigned int)ttbr0_val & 0xFFFFFFFF;
-			*cmds++ = cp_register(adreno_dev, ttbr0, 1);
-			*cmds++ = reg_pt_val;
-			reg_pt_val = (unsigned int)
-				((ttbr0_val & 0xFFFFFFFF00000000ULL) >> 32);
-			*cmds++ = cp_register(adreno_dev, ttbr0 + 1, 1);
-			*cmds++ = reg_pt_val;
+		if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK)) {
+			cmds += _cp_smmu_reg(adreno_dev, cmds,
+					KGSL_IOMMU_CTX_TTBR0, 2);
+			*cmds++ = _lo_32(ttbr0);
+			*cmds++ = _hi_32(ttbr0);
 		} else {
-			reg_pt_val = ttbr0_val;
-			*cmds++ = cp_register(adreno_dev, ttbr0, 1);
-			*cmds++ = reg_pt_val;
+			cmds += _cp_smmu_reg(adreno_dev, cmds,
+					KGSL_IOMMU_CTX_TTBR0, 1);
+			*cmds++ = _lo_32(ttbr0);
 		}
 	}
-	if (adreno_is_a3xx(adreno_dev)) {
-		/* unlock the IOMMU lock */
-		*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-		*cmds++ = mmu_ctrl;
-		/* AND to unmask the lock bit */
-		*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
-		/* OR with 0 so lock bit is unset */
-		*cmds++ = 0;
-		/* release all commands with wait_for_me */
-		cmds += cp_wait_for_me(adreno_dev, cmds);
-	}
-	tlbiall = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-				KGSL_IOMMU_CONTEXT_USER,
-				KGSL_IOMMU_CTX_TLBIALL) >> 2;
-	*cmds++ = cp_register(adreno_dev, tlbiall, 1);
-	*cmds++ = 1;
+	/* a3xx doesn't have MEQ space to hold the TLBI commands */
+	if (adreno_is_a3xx(adreno_dev))
+		cmds += _iommu_unlock(adreno_dev, cmds);
 
-	tlbsync = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-				KGSL_IOMMU_CONTEXT_USER,
-				KGSL_IOMMU_CTX_TLBSYNC) >> 2;
-	*cmds++ = cp_register(adreno_dev, tlbsync, 1);
-	*cmds++ = 0;
+	cmds += _tlbiall(adreno_dev, cmds);
 
-	tlbstatus = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-			KGSL_IOMMU_CONTEXT_USER,
-			KGSL_IOMMU_CTX_TLBSTATUS) >> 2;
-	if (adreno_is_a4xx(adreno_dev))
-		cmds += _adreno_iommu_wait_reg_mem(adreno_dev,
-			cmds, tlbstatus, 0,
-			KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
+	/* unlock or wait for me to finish the TLBI */
+	if (!adreno_is_a3xx(adreno_dev))
+		cmds += _iommu_unlock(adreno_dev, cmds);
 	else
-		cmds += _adreno_iommu_wait_reg_eq(adreno_dev,
-			cmds, tlbstatus, 0,
-			KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
-
-	if (!adreno_is_a3xx(adreno_dev)) {
-		/* unlock the IOMMU lock */
-		*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-		*cmds++ = mmu_ctrl;
-		/* AND to unmask the lock bit */
-		*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
-		/* OR with 0 so lock bit is unset */
-		*cmds++ = 0;
-	}
-	/* release all commands with wait_for_me */
-	cmds += cp_wait_for_me(adreno_dev, cmds);
+		cmds += cp_wait_for_me(adreno_dev, cmds);
 
 	/* Exec count ordinal of CP_COND_EXEC packet */
 	*cond_exec_ptr = (cmds - cond_exec_ptr - 1);
@@ -533,89 +588,32 @@ static unsigned int _adreno_iommu_set_pt_v2_a3xx(struct kgsl_device *device,
 					phys_addr_t pt_val)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	uint64_t ttbr0_val;
-	unsigned int reg_pt_val;
+	uint64_t ttbr0;
 	unsigned int *cmds = cmds_orig;
-	unsigned int ttbr0, tlbiall, tlbstatus, tlbsync;
 
 	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
 
-	ttbr0_val = kgsl_mmu_get_default_ttbr0(&device->mmu,
+	ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
 			KGSL_IOMMU_CONTEXT_USER);
-	ttbr0_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-	ttbr0_val |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
-	ttbr0 = kgsl_mmu_get_reg_ahbaddr(&device->mmu, KGSL_IOMMU_CONTEXT_USER,
-				KGSL_IOMMU_CTX_TTBR0) >> 2;
+	ttbr0 &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+	ttbr0 |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
 
-	/*
-	 * glue commands together until next
-	 * WAIT_FOR_ME
-	 */
-	cmds += _adreno_iommu_wait_reg_eq(adreno_dev, cmds,
-			adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
-			1, 0xFFFFFFFF, 0xF);
+	cmds += _vbif_lock(adreno_dev, cmds);
 
-	/* MMU-500 VBIF stall */
-	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-	*cmds++ = A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL0;
-	/* AND to unmask the HALT bit */
-	*cmds++ = ~(VBIF_RECOVERABLE_HALT_CTRL);
-	/* OR to set the HALT bit */
-	*cmds++ = 0x1;
-
-	/* Wait for acknowledgement */
-	cmds += _adreno_iommu_wait_reg_eq(adreno_dev, cmds,
-			A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL1,
-			1, 0xFFFFFFFF, 0xF);
-
-	/* set ttbr0 */
-	if (KGSL_IOMMU_CTX_TTBR0_ADDR_MASK & 0xFFFFFFFF00000000ULL) {
-		reg_pt_val = (unsigned int)ttbr0_val & 0xFFFFFFFF;
-		*cmds++ = cp_packet(adreno_dev, CP_REG_WR_NO_CTXT, 2);
-		*cmds++ = ttbr0;
-		*cmds++ = reg_pt_val;
-		reg_pt_val = (unsigned int)
-			((ttbr0_val & 0xFFFFFFFF00000000ULL) >> 32);
-		*cmds++ = cp_packet(adreno_dev, CP_REG_WR_NO_CTXT, 2);
-		*cmds++ = ttbr0 + 1;
-		*cmds++ = reg_pt_val;
+	if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK)) {
+		cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
+		*cmds++ = _lo_32(ttbr0);
+		*cmds++ = _hi_32(ttbr0);
 	} else {
-		reg_pt_val = ttbr0_val;
-		*cmds++ = cp_packet(adreno_dev, CP_REG_WR_NO_CTXT, 2);
-		*cmds++ = ttbr0;
-		*cmds++ = reg_pt_val;
+		cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 1);
+		*cmds++ = _lo_32(ttbr0);
 	}
 
-	/* MMU-500 VBIF unstall */
-	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-	*cmds++ = A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL0;
-	/* AND to unmask the HALT bit */
-	*cmds++ = ~(VBIF_RECOVERABLE_HALT_CTRL);
-	/* OR to reset the HALT bit */
-	*cmds++ = 0;
+	cmds += _vbif_unlock(adreno_dev, cmds);
 
-	/* release all commands with wait_for_me */
-	cmds += cp_wait_for_me(adreno_dev, cmds);
+	cmds += _tlbiall(adreno_dev, cmds);
 
-	tlbiall = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-				KGSL_IOMMU_CONTEXT_USER,
-				KGSL_IOMMU_CTX_TLBIALL) >> 2;
-	*cmds++ = cp_packet(adreno_dev, CP_REG_WR_NO_CTXT, 2);
-	*cmds++ = tlbiall;
-	*cmds++ = 1;
-
-	tlbsync = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-				KGSL_IOMMU_CONTEXT_USER,
-				KGSL_IOMMU_CTX_TLBSYNC) >> 2;
-	*cmds++ = cp_packet(adreno_dev, CP_REG_WR_NO_CTXT, 2);
-	*cmds++ = tlbsync;
-	*cmds++ = 0;
-
-	tlbstatus = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-			KGSL_IOMMU_CONTEXT_USER, KGSL_IOMMU_CTX_TLBSTATUS) >> 2;
-	cmds += _adreno_iommu_wait_reg_eq(adreno_dev, cmds, tlbstatus, 0,
-			KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
-		/* release all commands with wait_for_me */
+	/* wait for me to finish the TLBI */
 	cmds += cp_wait_for_me(adreno_dev, cmds);
 
 	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
@@ -628,94 +626,32 @@ static unsigned int _adreno_iommu_set_pt_v2_a4xx(struct kgsl_device *device,
 					phys_addr_t pt_val)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	uint64_t ttbr0_val;
-	unsigned int reg_pt_val;
+	uint64_t ttbr0;
 	unsigned int *cmds = cmds_orig;
-	unsigned int ttbr0, tlbiall, tlbstatus, tlbsync;
 
 	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
 
-	ttbr0_val = kgsl_mmu_get_default_ttbr0(&device->mmu,
+	ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
 			KGSL_IOMMU_CONTEXT_USER);
-	ttbr0_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-	ttbr0_val |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
-	ttbr0 = kgsl_mmu_get_reg_ahbaddr(&device->mmu, KGSL_IOMMU_CONTEXT_USER,
-				KGSL_IOMMU_CTX_TTBR0) >> 2;
+	ttbr0 &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+	ttbr0 |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
 
-	/*
-	 * glue commands together until next
-	 * WAIT_FOR_ME
-	 */
-	cmds += _adreno_iommu_wait_reg_mem(adreno_dev, cmds,
-			adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
-			1, 0xFFFFFFFF, 0xF);
+	cmds += _vbif_lock(adreno_dev, cmds);
 
-	/* MMU-500 VBIF stall */
-	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-	*cmds++ = A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL0;
-	/* AND to unmask the HALT bit */
-	*cmds++ = ~(VBIF_RECOVERABLE_HALT_CTRL);
-	/* OR to set the HALT bit */
-	*cmds++ = 0x1;
-
-	/* Wait for acknowledgement */
-	cmds += _adreno_iommu_wait_reg_mem(adreno_dev, cmds,
-		A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL1,
-			1, 0xFFFFFFFF, 0xF);
-
-	/* set ttbr0 */
-	if (sizeof(phys_addr_t) > sizeof(unsigned int)) {
-
-		reg_pt_val = ttbr0_val & 0xFFFFFFFF;
-		*cmds++ = cp_packet(adreno_dev, CP_WIDE_REG_WRITE, 2);
-		*cmds++ = ttbr0;
-		*cmds++ = reg_pt_val;
-
-		reg_pt_val = (unsigned int)((ttbr0_val &
-			0xFFFFFFFF00000000ULL) >> 32);
-		*cmds++ = cp_packet(adreno_dev, CP_WIDE_REG_WRITE, 2);
-		*cmds++ = ttbr0+1;
-		*cmds++ = reg_pt_val;
+	if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK)) {
+		cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
+		*cmds++ = _lo_32(ttbr0);
+		*cmds++ = _hi_32(ttbr0);
 	} else {
-		reg_pt_val = ttbr0_val;
-		*cmds++ = cp_packet(adreno_dev, CP_WIDE_REG_WRITE, 2);
-		*cmds++ = ttbr0;
-		*cmds++ = reg_pt_val;
+		cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 1);
+		*cmds++ = _lo_32(ttbr0);
 	}
 
-	/* MMU-500 VBIF unstall */
-	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-	*cmds++ = A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL0;
-	/* AND to unmask the HALT bit */
-	*cmds++ = ~(VBIF_RECOVERABLE_HALT_CTRL);
-	/* OR to reset the HALT bit */
-	*cmds++ = 0;
+	cmds += _vbif_unlock(adreno_dev, cmds);
 
-	/* release all commands with wait_for_me */
-	cmds += cp_wait_for_me(adreno_dev, cmds);
+	cmds += _tlbiall(adreno_dev, cmds);
 
-	tlbiall = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-				KGSL_IOMMU_CONTEXT_USER,
-				KGSL_IOMMU_CTX_TLBIALL) >> 2;
-
-	*cmds++ = cp_packet(adreno_dev, CP_WIDE_REG_WRITE, 2);
-	*cmds++ = tlbiall;
-	*cmds++ = 1;
-
-	tlbsync = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-				KGSL_IOMMU_CONTEXT_USER,
-				KGSL_IOMMU_CTX_TLBSYNC) >> 2;
-
-	*cmds++ = cp_packet(adreno_dev, CP_WIDE_REG_WRITE, 2);
-	*cmds++ = tlbsync;
-	*cmds++ = 0;
-
-	tlbstatus = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-			KGSL_IOMMU_CONTEXT_USER,
-			KGSL_IOMMU_CTX_TLBSTATUS) >> 2;
-	cmds += _adreno_iommu_wait_reg_mem(adreno_dev, cmds, tlbstatus, 0,
-			KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
-	/* release all commands with wait_for_me */
+	/* wait for me to finish the TLBI */
 	cmds += cp_wait_for_me(adreno_dev, cmds);
 
 	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
@@ -728,21 +664,21 @@ static unsigned int _adreno_iommu_set_pt_v2_a5xx(struct kgsl_device *device,
 					phys_addr_t pt_val)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	uint64_t ttbr0_val = 0;
+	uint64_t ttbr0 = 0;
 	unsigned int *cmds = cmds_orig;
 
-	ttbr0_val = kgsl_mmu_get_default_ttbr0(&device->mmu,
+	ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
 			KGSL_IOMMU_CONTEXT_USER);
-	ttbr0_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-	ttbr0_val |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
+	ttbr0 &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+	ttbr0 |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
 
 	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
 	cmds += cp_wait_for_me(adreno_dev, cmds);
 
 	/* CP switches the pagetable and flushes the Caches */
 	*cmds++ = cp_packet(adreno_dev, CP_SMMU_TABLE_UPDATE, 3);
-	*cmds++ = _lo_32(ttbr0_val);
-	*cmds++ = _hi_32(ttbr0_val);
+	*cmds++ = _lo_32(ttbr0);
+	*cmds++ = _hi_32(ttbr0);
 	*cmds++ = 0;
 
 	/* release all commands with wait_for_me */
@@ -813,7 +749,7 @@ unsigned int adreno_iommu_set_pt_ib(struct adreno_ringbuffer *rb,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int *cmds_orig = cmds;
 	phys_addr_t pt_val;
-	uint64_t ttbr0_val;
+	uint64_t ttbr0;
 
 	pt_val = kgsl_mmu_get_pt_base_addr(&(rb->device->mmu), pt);
 
@@ -825,31 +761,31 @@ unsigned int adreno_iommu_set_pt_ib(struct adreno_ringbuffer *rb,
 			incoming_ptname)));
 	*cmds++ = pt->name;
 	/* Write the ttbr0 value to pagetable desc memory */
-	ttbr0_val = kgsl_mmu_get_default_ttbr0(&device->mmu,
+	ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
 			KGSL_IOMMU_CONTEXT_USER);
-	ttbr0_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-	ttbr0_val |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
+	ttbr0 &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+	ttbr0 |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
 
-	if (KGSL_IOMMU_CTX_TTBR0_ADDR_MASK & 0xFFFFFFFF00000000ULL) {
+	if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK)) {
 		*cmds++ =  cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
 		cmds += cp_gpuaddr(adreno_dev, cmds,
 			   (rb->pagetable_desc.gpuaddr +
 			   offsetof(struct adreno_ringbuffer_pagetable_info,
 			   ttbr0) + sizeof(uint64_t)));
-		*cmds++ = ttbr0_val & 0xFFFFFFFF;
+		*cmds++ = _lo_32(ttbr0);
 		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
 		cmds += cp_gpuaddr(adreno_dev, cmds,
 			   (rb->pagetable_desc.gpuaddr +
 			   offsetof(struct adreno_ringbuffer_pagetable_info,
 			   ttbr0) + sizeof(uint64_t) + sizeof(unsigned int)));
-		*cmds++ = ttbr0_val >> 32;
+		*cmds++ = _hi_32(ttbr0);
 	} else {
 		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
 		cmds += cp_gpuaddr(adreno_dev, cmds,
 			   (rb->pagetable_desc.gpuaddr +
 			   offsetof(struct adreno_ringbuffer_pagetable_info,
 			   ttbr0) + sizeof(uint64_t)));
-		*cmds++ = ttbr0_val & 0xFFFFFFFF;
+		*cmds++ = _lo_32(ttbr0);
 	}
 
 	*cmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 1);
