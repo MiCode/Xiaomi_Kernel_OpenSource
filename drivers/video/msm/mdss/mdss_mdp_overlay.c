@@ -1987,6 +1987,11 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 		return -ENODEV;
 	}
 
+	if (pipe->dirty) {
+		pr_warn("dirty pipe, will not queue pipe pnum=%d\n", pipe->num);
+		return -ENODEV;
+	}
+
 	ret = mdss_mdp_pipe_map(pipe);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("Unable to map used pipe%d ndx=%x\n",
