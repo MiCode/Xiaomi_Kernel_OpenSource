@@ -388,7 +388,7 @@ struct dp_panel {
 	bool is_hdmi;
 	bool has_audio;
 
-	struct list_head probedModes;
+	struct list_head probed_modes;
 	struct drm_mode_modeinfo *modelist;
 	struct drm_mode_modeinfo *preferred_mode;
 

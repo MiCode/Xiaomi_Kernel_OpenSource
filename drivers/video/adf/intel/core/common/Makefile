@@ -7,3 +7,4 @@ obj-y 			+= intel_adf_events.o
 
 obj-y			+= dsi/
 obj-y			+= hdmi/
+obj-y			+= dp/

@@ -19,7 +19,8 @@
 #include <linux/module.h>
 #include <video/intel_adf.h>
 #include <core/intel_dc_config.h>
-
+#include <core/common/dp/gen_dp_pipe.h>
+#include <core/common/dp/dp_panel.h>
 #if defined(CONFIG_ADF)
 #include <video/adf.h>
 #endif
@@ -68,6 +69,28 @@ int vlv_cmd_vc_dcs_read(struct intel_pipeline *pipeline, int channel,
 int vlv_cmd_vc_generic_read(struct intel_pipeline *pipeline, int channel,
 		u8 *reqdata, int reqlen, u8 *buf, int buflen, enum port port);
 int vlv_cmd_dpi_send_cmd(struct intel_pipeline *pipeline, u32 cmd, bool hs);
+u32 vlv_aux_transfer(struct intel_pipeline *pipeline,
+		struct dp_aux_msg *msg);
+u32 vlv_set_signal_levels(struct intel_pipeline *pipeline,
+		struct link_params *params);
+u32 chv_set_signal_levels(struct intel_pipeline *pipeline,
+		struct link_params *params);
+u32 vlv_set_link_pattern(struct intel_pipeline *pipeline,
+		u8 train_pattern);
+void vlv_get_max_vswing_preemp(struct intel_pipeline *pipeline,
+		enum vswing_level *max_v, enum preemp_level *max_p);
+void vlv_get_adjust_train(struct intel_pipeline *pipeline,
+		struct link_params *params);
+u32 vlv_dp_panel_power_seq(struct intel_pipeline *pipeline,
+		bool enable);
+u32 vlv_dp_backlight_seq(struct intel_pipeline *pipeline,
+		bool enable);
+u32 vlv_dp_get_brightness(struct intel_pipeline *pipeline);
+u32 vlv_dp_set_brightness(struct intel_pipeline *pipeline, int level);
+struct i2c_adapter *vlv_get_i2c_adapter(struct intel_pipeline *pipeline);
+
+u32 vlv_set_event(struct intel_pipeline *pipeline, u32 event, bool enabled);
+u32 vlv_get_event(struct intel_pipeline *pipeline, u32 *event);
 
 /*
  * Supported configs can be declared here for use inside

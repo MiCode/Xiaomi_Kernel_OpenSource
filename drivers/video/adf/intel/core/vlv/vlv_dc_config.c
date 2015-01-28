@@ -173,6 +173,7 @@ static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe,
 				int port, u8 disp_no)
 {
 	struct dsi_pipe *dsi_pipe = NULL;
+	struct dp_pipe *dp_pipe = NULL;
 	struct hdmi_pipe *hdmi_pipe = NULL;
 	struct intel_pipeline *intel_pipeline;
 	struct vlv_pipeline *disp = &vlv_config->pipeline[disp_no];
@@ -201,7 +202,22 @@ static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe,
 		/* vlv_dpst_init(&config->base);*/
 
 		disp->dpst = &vlv_config->dpst;
+	} else if ((disp->type == INTEL_PIPE_DP) ||
+		    (disp->type == INTEL_PIPE_EDP)) {
+		dp_pipe = &disp->gen.dp;
+		intel_pipeline = &disp->base;
 
+		err = dp_pipe_init(dp_pipe, vlv_config->base.dev,
+			&disp->pplane.base, pipe, intel_pipeline, disp->type);
+		if (err) {
+			dev_err(vlv_config->base.dev,
+				"%s: failed to init pipe for DP(%d)\n",
+					__func__, err);
+			return err;
+		}
+
+		intel_dc_config_add_pipe(&vlv_config->base,
+			&dp_pipe->base, *n_pipes);
 	} else if (disp->type == INTEL_PIPE_HDMI) {
 		hdmi_pipe = &disp->gen.hdmi;
 		intel_pipeline = &disp->base;
