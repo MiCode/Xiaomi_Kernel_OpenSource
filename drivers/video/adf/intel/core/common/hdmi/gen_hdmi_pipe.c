@@ -69,6 +69,7 @@ int hdmi_context_init(struct hdmi_context *context)
 {
 	struct hdmi_config *hdmi_config;
 	struct hdmi_pipe *hdmi_pipe;
+	int ret;
 
 	if (!context) {
 		/* How ?? */
@@ -87,6 +88,13 @@ int hdmi_context_init(struct hdmi_context *context)
 	if (!context->current_mode) {
 		pr_err("ADF: HDMI: %s OOM (current mode)\n", __func__);
 		return -EINVAL;
+	}
+
+	/* Probe the current HDMI status */
+	ret = intel_adf_hdmi_probe(hdmi_pipe, true);
+	if (ret) {
+		pr_err("ADF: HDMI: %s Probing HDMI failed\n", __func__);
+		return ret;
 	}
 
 #ifdef INTEL_ADF_HDMI_SELF_MODESET_AT_BOOT
@@ -185,6 +193,11 @@ int hdmi_pipe_init(struct hdmi_pipe *pipe,
 	/* Fixme: Hardcoding bpp */
 	pipeline->params.hdmi.bpp = 24;
 
+	/* Load HDMI interface ops */
+	pipe->ops.set_event = intel_adf_hdmi_set_events;
+	pipe->ops.get_events = intel_adf_hdmi_get_events;
+	pipe->ops.handle_events = intel_adf_hdmi_handle_events;
+	pipe->ops.get_hw_state = intel_adf_hdmi_get_hw_events;
 	pipe->dpms_state = DRM_MODE_DPMS_OFF;
 
 	/* Init the PIPE */

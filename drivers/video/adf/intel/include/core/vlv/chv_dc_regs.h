@@ -24,8 +24,10 @@
 #define CHV_HPD_STAT	(CHV_DISPLAY_BASE + 0x61114)
 #define CHV_HPD_LIVE_STATUS_MASK	(0x7 << 27)
 #define CHV_HPD_LIVE_STATUS_B	(0x1 << 29)
-#define CHV_HPD_LIVE_STATUS_C	(0x7 << 28)
-#define CHV_HPD_LIVE_STATUS_D	(0x7 << 27)
+#define CHV_HPD_LIVE_STATUS_C	(0x1 << 28)
+#define CHV_HPD_LIVE_STATUS_D	(0x1 << 27)
+#define CHV_HPD_LIVE_STATUS(port) (CHV_HPD_LIVE_STATUS_B \
+				>> (port - PORT_B))
 
 /* CHV SDVO/HDMI bits: */
 #define   SDVO_PIPE_SEL_CHV(pipe)		((pipe) << 24)
