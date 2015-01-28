@@ -20,7 +20,6 @@
 #define EDID_LENGTH 128
 #define DDC_ADDR 0x50
 #define DDC_SEGMENT_ADDR 0x30
-#include "hdmi_pipe.h"
 
 #define DEFINE_MODE(nm, t, c, hd, hss, hse, ht, hsk, vd, vss, vse, vt, vs, f) \
 	.name = nm, .type = (t), .clock = (c), \
