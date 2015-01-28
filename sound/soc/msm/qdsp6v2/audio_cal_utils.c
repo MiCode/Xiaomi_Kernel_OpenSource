@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,6 +71,12 @@ size_t get_cal_info_size(int32_t cal_type)
 		break;
 	case ASM_AUDSTRM_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_audstrm);
+		break;
+	case AFE_TOPOLOGY_CAL_TYPE:
+		size = sizeof(struct audio_cal_info_afe_top);
+		break;
+	case AFE_CUST_TOPOLOGY_CAL_TYPE:
+		size = 0;
 		break;
 	case AFE_COMMON_RX_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_afe);
@@ -190,6 +196,12 @@ size_t get_user_cal_type_size(int32_t cal_type)
 		break;
 	case ASM_AUDSTRM_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_audstrm);
+		break;
+	case AFE_TOPOLOGY_CAL_TYPE:
+		size = sizeof(struct audio_cal_type_afe_top);
+		break;
+	case AFE_CUST_TOPOLOGY_CAL_TYPE:
+		size = sizeof(struct audio_cal_type_basic);
 		break;
 	case AFE_COMMON_RX_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_afe);

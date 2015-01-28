@@ -32,6 +32,8 @@ enum {
 	AFE_FB_SPKR_PROT_CAL,
 	AFE_HW_DELAY_CAL,
 	AFE_SIDETONE_CAL,
+	AFE_TOPOLOGY_CAL,
+	AFE_CUST_TOPOLOGY_CAL,
 	MAX_AFE_CAL_TYPES
 };
 
@@ -91,6 +93,7 @@ struct afe_ctl {
 	uint32_t afe_sample_rates[AFE_MAX_PORTS];
 	struct aanc_data aanc_info;
 	struct mutex afe_cmd_lock;
+	int set_custom_topology;
 };
 
 static atomic_t afe_ports_mad_type[SLIMBUS_PORT_LAST - SLIMBUS_0_RX];
@@ -113,6 +116,7 @@ bool afe_close_done[2] = {true, true};
 
 static int afe_get_cal_hw_delay(int32_t path,
 				struct audio_cal_hw_delay_entry *entry);
+static void remap_cal_data(struct cal_block_data *cal_block, int cal_index);
 
 void afe_set_aanc_info(struct aanc_data *q6_aanc_info)
 {
@@ -158,6 +162,11 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 
 		cal_utils_clear_cal_block_q6maps(MAX_AFE_CAL_TYPES,
 			this_afe.cal_data);
+
+		/* Reset the custom topology mode: to resend again to AFE. */
+		mutex_lock(&this_afe.cal_data[AFE_CUST_TOPOLOGY_CAL]->lock);
+		this_afe.set_custom_topology = 1;
+		mutex_unlock(&this_afe.cal_data[AFE_CUST_TOPOLOGY_CAL]->lock);
 
 		if (this_afe.apr) {
 			apr_reset(this_afe.apr);
@@ -236,6 +245,12 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 				break;
 			case AFE_PORT_DATA_CMD_RT_PROXY_PORT_READ_V2:
 				port_id = RT_PROXY_PORT_001_RX;
+				break;
+			case AFE_CMD_ADD_TOPOLOGIES:
+				atomic_set(&this_afe.state, 0);
+				wake_up(&this_afe.wait[data->token]);
+				pr_debug("%s: AFE_CMD_ADD_TOPOLOGIES cmd 0x%x\n",
+						__func__, payload[1]);
 				break;
 			default:
 				pr_err("%s: Unknown cmd 0x%x\n", __func__,
@@ -513,6 +528,86 @@ static int afe_send_cal_block(u16 port_id, struct cal_block_data *cal_block)
 
 done:
 	return result;
+}
+
+
+static int afe_send_custom_topology_block(struct cal_block_data *cal_block)
+{
+	int	result = 0;
+	int	index = 0;
+	struct cmd_set_topologies afe_cal;
+
+	if (!cal_block) {
+		pr_err("%s: No AFE SVC cal to send!\n", __func__);
+		return -EINVAL;
+	}
+	if (cal_block->cal_data.size <= 0) {
+		pr_err("%s: AFE SVC cal has invalid size: %zd!\n",
+		__func__, cal_block->cal_data.size);
+		return -EINVAL;
+	}
+
+	afe_cal.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	afe_cal.hdr.pkt_size = sizeof(afe_cal);
+	afe_cal.hdr.src_port = 0;
+	afe_cal.hdr.dest_port = 0;
+	afe_cal.hdr.token = index;
+	afe_cal.hdr.opcode = AFE_CMD_ADD_TOPOLOGIES;
+
+	afe_cal.payload_size = cal_block->cal_data.size;
+	afe_cal.payload_addr_lsw =
+		lower_32_bits(cal_block->cal_data.paddr);
+	afe_cal.payload_addr_msw =
+		upper_32_bits(cal_block->cal_data.paddr);
+	afe_cal.mem_map_handle = cal_block->map_data.q6map_handle;
+
+	pr_debug("%s:cmd_id:0x%x calsize:%zd memmap_hdl:0x%x caladdr:0x%pa",
+		__func__, AFE_CMD_ADD_TOPOLOGIES, cal_block->cal_data.size,
+		afe_cal.mem_map_handle, &cal_block->cal_data.paddr);
+
+	result = afe_apr_send_pkt(&afe_cal, &this_afe.wait[index]);
+	if (result)
+		pr_err("%s: AFE send topology for command 0x%x failed %d\n",
+		       __func__, AFE_CMD_ADD_TOPOLOGIES, result);
+
+	return result;
+}
+
+static void afe_send_custom_topology(void)
+{
+	struct cal_block_data   *cal_block = NULL;
+	int cal_index = AFE_CUST_TOPOLOGY_CAL;
+	int ret;
+
+	if (this_afe.cal_data[cal_index] == NULL) {
+		pr_err("%s: cal_index %d not allocated!\n",
+			__func__, cal_index);
+		return;
+	}
+	mutex_lock(&this_afe.cal_data[cal_index]->lock);
+
+	if (!this_afe.set_custom_topology)
+		goto unlock;
+	this_afe.set_custom_topology = 0;
+	cal_block = cal_utils_get_only_cal_block(this_afe.cal_data[cal_index]);
+	if (cal_block == NULL) {
+		pr_err("%s cal_block not found!!\n", __func__);
+		goto unlock;
+	}
+
+	pr_debug("%s: Sending cal_index cal %d\n", __func__, cal_index);
+
+	remap_cal_data(cal_block, cal_index);
+	ret = afe_send_custom_topology_block(cal_block);
+	if (ret < 0) {
+		pr_err("%s: No cal sent for cal_index %d! ret %d\n",
+			__func__, cal_index, ret);
+		goto unlock;
+	}
+	pr_debug("%s:sent custom topology for AFE\n", __func__);
+unlock:
+	mutex_unlock(&this_afe.cal_data[cal_index]->lock);
 }
 
 static int afe_spk_ramp_dn_cfg(int port)
@@ -819,6 +914,140 @@ static int afe_send_hw_delay(u16 port_id, u32 rate)
 fail_cmd:
 	pr_debug("%s: port_id 0x%x rate %u delay_usec %d status %d\n",
 	__func__, port_id, rate, delay_entry.delay_usec, ret);
+	return ret;
+}
+
+static struct cal_block_data *afe_find_cal_topo_id_by_port(
+			struct cal_type_data *cal_type, u16 port_id)
+{
+	struct list_head		*ptr, *next;
+	struct cal_block_data	*cal_block = NULL;
+	int32_t path;
+	struct audio_cal_info_afe_top *afe_top;
+
+	list_for_each_safe(ptr, next,
+		&cal_type->cal_blocks) {
+		cal_block = list_entry(ptr,
+			struct cal_block_data, list);
+
+		path = ((afe_get_port_type(port_id) ==
+			MSM_AFE_PORT_TYPE_TX)?(TX_DEVICE):(RX_DEVICE));
+		afe_top =
+		(struct audio_cal_info_afe_top *)cal_block->cal_info;
+		if (afe_top->path == path) {
+			pr_debug("%s: top_id:%x acdb_id:%d afe_port:%d\n",
+			__func__, afe_top->topology, afe_top->acdb_id,
+			q6audio_get_port_id(port_id));
+			return cal_block;
+		}
+	}
+	return NULL;
+}
+
+static int afe_get_cal_topology_id(u16 port_id, u32 *topology_id)
+{
+	int ret = 0;
+
+	struct cal_block_data   *cal_block = NULL;
+	struct audio_cal_info_afe_top   *afe_top_info = NULL;
+
+	if (this_afe.cal_data[AFE_TOPOLOGY_CAL] == NULL) {
+		pr_err("%s: [AFE_TOPOLOGY_CAL] not initialized\n", __func__);
+		return -EINVAL;
+	}
+	if (topology_id == NULL) {
+		pr_err("%s: topology_id is NULL\n", __func__);
+		return -EINVAL;
+	}
+	*topology_id = 0;
+
+	mutex_lock(&this_afe.cal_data[AFE_TOPOLOGY_CAL]->lock);
+	cal_block = afe_find_cal_topo_id_by_port(
+		this_afe.cal_data[AFE_TOPOLOGY_CAL], port_id);
+	if (cal_block == NULL) {
+		pr_err("%s: [AFE_TOPOLOGY_CAL] not initialized for this port %d\n",
+				__func__, port_id);
+		ret = -EINVAL;
+		goto unlock;
+	}
+
+	afe_top_info = ((struct audio_cal_info_afe_top *)
+		cal_block->cal_info);
+	if (!afe_top_info->topology) {
+		pr_err("%s: invalid topology id : [%d, %d]\n",
+		       __func__, afe_top_info->acdb_id, afe_top_info->topology);
+		ret = -EINVAL;
+		goto unlock;
+	}
+	*topology_id = (u32)afe_top_info->topology;
+
+	pr_debug("%s: port_id = %u acdb_id = %d topology_id = %u ret=%d\n",
+		__func__, port_id, afe_top_info->acdb_id,
+		afe_top_info->topology, ret);
+unlock:
+	mutex_unlock(&this_afe.cal_data[AFE_TOPOLOGY_CAL]->lock);
+	return ret;
+}
+
+static int afe_send_port_topology_id(u16 port_id)
+{
+	struct afe_audioif_config_command	config;
+	int index = 0;
+	int ret = 0;
+	u32 topology_id = 0;
+
+	index = q6audio_get_port_index(port_id);
+	if (index < 0 || index > AFE_MAX_PORTS) {
+		pr_err("%s: AFE port index[%d] invalid!\n",
+				__func__, index);
+		goto done;
+	}
+
+	ret = afe_get_cal_topology_id(port_id, &topology_id);
+	if (ret || !topology_id) {
+		pr_debug("%s: AFE port[%d] get_cal_topology[%d] invalid!\n",
+				__func__, port_id, topology_id);
+		goto done;
+	}
+
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = index;
+
+	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	config.param.port_id = q6audio_get_port_id(port_id);
+	config.param.payload_size = sizeof(config) - sizeof(struct apr_hdr) -
+				    sizeof(config.param);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+	config.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	config.pdata.param_id   = AFE_PARAM_ID_SET_TOPOLOGY;
+	config.pdata.param_size =  sizeof(config.port);
+	config.port.topology.minor_version = AFE_API_VERSION_TOPOLOGY_V1;
+	config.port.topology.topology_id = topology_id;
+
+	pr_debug("%s: param PL size=%d iparam_size[%d][%zd %zd %zd %zd] param_id[0x%x]\n",
+		__func__, config.param.payload_size, config.pdata.param_size,
+		sizeof(config), sizeof(config.param), sizeof(config.port),
+		sizeof(struct apr_hdr), config.pdata.param_id);
+
+	ret = afe_apr_send_pkt(&config, &this_afe.wait[index]);
+	if (ret) {
+		pr_err("%s: AFE set topology id enable for port 0x%x failed %d\n",
+			__func__, port_id, ret);
+		goto done;
+	} else if (atomic_read(&this_afe.status) != 0) {
+		pr_err("%s: set topology_id config cmd failed\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+done:
+	pr_debug("%s: AFE set topology id 0x%x  enable for port 0x%x ret %d\n",
+			__func__, topology_id, port_id, ret);
 	return ret;
 
 }
@@ -1733,6 +1962,10 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	}
 
 	mutex_lock(&this_afe.afe_cmd_lock);
+	/* Also send the topology id here: */
+	afe_send_custom_topology(); /* One time call: only for first time */
+	afe_send_port_topology_id(port_id);
+
 	afe_send_cal(port_id);
 	afe_send_hw_delay(port_id, rate);
 
@@ -1992,6 +2225,9 @@ int afe_open(u16 port_id,
 		pr_err("%s: Q6 interface prepare failed %d\n", __func__, ret);
 		return -EINVAL;
 	}
+	/* Also send the topology id here: */
+	afe_send_custom_topology(); /* One time call: only for first time  */
+	afe_send_port_topology_id(port_id);
 
 	ret = q6audio_validate_port(port_id);
 	if (ret < 0) {
@@ -4161,6 +4397,12 @@ static int get_cal_type_index(int32_t cal_type)
 	case AFE_SIDETONE_CAL_TYPE:
 		ret = AFE_SIDETONE_CAL;
 		break;
+	case AFE_TOPOLOGY_CAL_TYPE:
+		ret = AFE_TOPOLOGY_CAL;
+		break;
+	case AFE_CUST_TOPOLOGY_CAL_TYPE:
+		ret = AFE_CUST_TOPOLOGY_CAL;
+		break;
 	default:
 		pr_err("%s: invalid cal type %d!\n", __func__, cal_type);
 	}
@@ -4244,6 +4486,15 @@ static int afe_set_cal(int32_t cal_type, size_t data_size,
 		ret = -EINVAL;
 		goto done;
 	}
+
+	if (cal_index == AFE_CUST_TOPOLOGY_CAL) {
+		mutex_lock(&this_afe.cal_data[AFE_CUST_TOPOLOGY_CAL]->lock);
+		this_afe.set_custom_topology = 1;
+		pr_debug("%s:[AFE_CUSTOM_TOPOLOGY] ret = %d, cal type = %d!\n",
+			__func__, ret, cal_type);
+		mutex_unlock(&this_afe.cal_data[AFE_CUST_TOPOLOGY_CAL]->lock);
+	}
+
 done:
 	return ret;
 }
@@ -4525,7 +4776,19 @@ static int afe_init_cal_data(void)
 		{{AFE_SIDETONE_CAL_TYPE,
 		{NULL, NULL, NULL,
 		afe_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_buf_num} }
+		{NULL, NULL, cal_utils_match_buf_num} },
+
+		{{AFE_TOPOLOGY_CAL_TYPE,
+		{NULL, NULL, NULL,
+		afe_set_cal, NULL, NULL} },
+		{NULL, NULL,
+		cal_utils_match_buf_num} },
+
+		{{AFE_CUST_TOPOLOGY_CAL_TYPE,
+		{afe_alloc_cal, afe_dealloc_cal, NULL,
+		afe_set_cal, NULL, NULL} },
+		{afe_map_cal_data, afe_unmap_cal_data,
+		cal_utils_match_buf_num} },
 	};
 	pr_debug("%s:\n", __func__);
 

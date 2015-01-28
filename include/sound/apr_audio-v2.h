@@ -2198,6 +2198,22 @@ struct afe_param_id_device_hw_delay_cfg {
 	uint32_t    delay_in_us;
 } __packed;
 
+#define AFE_PARAM_ID_SET_TOPOLOGY    0x0001025A
+#define AFE_API_VERSION_TOPOLOGY_V1 0x1
+
+struct afe_param_id_set_topology_cfg {
+	/*
+	 * Minor version used for tracking afe topology id configuration.
+	 * @values #AFE_API_VERSION_TOPOLOGY_V1
+	 */
+	u32		minor_version;
+	/*
+	 * Id of the topology for the afe session.
+	 * @values Any valid AFE topology ID
+	 */
+	u32		topology_id;
+} __packed;
+
 union afe_port_config {
 	struct afe_param_id_pcm_cfg               pcm;
 	struct afe_param_id_i2s_cfg               i2s;
@@ -2208,6 +2224,7 @@ union afe_port_config {
 	struct afe_param_id_pseudo_port_cfg       pseudo_port;
 	struct afe_param_id_device_hw_delay_cfg   hw_delay;
 	struct afe_param_id_spdif_cfg             spdif;
+	struct afe_param_id_set_topology_cfg      topology;
 } __packed;
 
 struct afe_audioif_config_command_no_payload {
@@ -6847,7 +6864,7 @@ struct asm_eq_params {
 /* Set Q6 topologies */
 #define ASM_CMD_ADD_TOPOLOGIES				0x00010DBE
 #define ADM_CMD_ADD_TOPOLOGIES				0x00010335
-
+#define AFE_CMD_ADD_TOPOLOGIES				0x000100f8
 /* structure used for both ioctls */
 struct cmd_set_topologies {
 	struct apr_hdr hdr;
