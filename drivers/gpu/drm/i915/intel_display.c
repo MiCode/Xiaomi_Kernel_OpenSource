@@ -2780,23 +2780,10 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		rotate = true;
 
 	if (INTEL_INFO(dev)->gen >= 4) {
-		if (obj->tiling_mode != I915_TILING_NONE) {
+		if (obj->tiling_mode != I915_TILING_NONE)
 			dspcntr |= DISPPLANE_TILED;
-			dev_priv->is_tiled = true;
-		} else {
+		else
 			dspcntr &= ~DISPPLANE_TILED;
-			dev_priv->is_tiled = false;
-			/*
-			 * TODO:In linear mode disable maxfifo, hack to the
-			 * FADiag app flicker issue.
-			 */
-			if (dev_priv->maxfifo_enabled &&
-					!dev_priv->atomic_update) {
-				I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-				dev_priv->maxfifo_enabled = false;
-				intel_wait_for_vblank(dev, pipe);
-			}
-		}
 	}
 
 	if (IS_G4X(dev))

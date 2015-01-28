@@ -1717,7 +1717,6 @@ struct drm_i915_private {
 
 	bool is_first_modeset;
 	bool maxfifo_enabled;
-	bool is_tiled;
 	bool gamma_enabled[I915_MAX_PIPES];
 	bool csc_enabled[I915_MAX_PIPES];
 	bool is_resuming;
