@@ -29,6 +29,11 @@
 #include "core/common/backlight_dev.h"
 #endif
 
+#define for_each_dsi_port(__port, __ports_mask)  \
+	for ((__port) = PORT_A; (__port) < ADF_MAX_PORTS; (__port)++) \
+		if ((__ports_mask) & (1 << (__port)))
+
+
 struct dsi_pipe;
 
 /**
@@ -75,7 +80,7 @@ static inline struct dsi_pipe *to_dsi_pipe(struct intel_pipe *pipe)
 #ifdef CONFIG_ADF_INTEL_VLV
 extern int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	struct intel_plane *primary_plane, u8 idx,
-	struct intel_pipeline *pipeline);
+	struct intel_pipeline *pipeline, int port);
 #else
 extern int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	struct intel_plane *primary_plane, u8 idx, u32 gtt_phy_addr);

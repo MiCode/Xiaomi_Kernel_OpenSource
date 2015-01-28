@@ -166,6 +166,9 @@ struct dsi_context {
 	/* Video mode or command mode */
 	u16 operation_mode;
 
+	/* bit mask of ports being driven */
+	u16 ports;
+
 	/* dual link support */
 	u8 dual_link;
 

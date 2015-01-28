@@ -169,7 +169,7 @@ void vlv_dc_config_destroy(struct intel_dc_config *config)
 }
 
 static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe,
-				u8 disp_no)
+				int port, u8 disp_no)
 {
 	struct dsi_pipe *dsi_pipe = NULL;
 	struct hdmi_pipe *hdmi_pipe = NULL;
@@ -186,7 +186,7 @@ static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe,
 		dsi_pipe = &disp->gen.dsi;
 		intel_pipeline = &disp->base;
 		err = dsi_pipe_init(dsi_pipe, vlv_config->base.dev,
-				&disp->pplane.base, pipe, intel_pipeline);
+				&disp->pplane.base, pipe, intel_pipeline, port);
 		if (err) {
 			dev_err(vlv_config->base.dev,
 				"%s: failed to init pipe(%d)\n", __func__, err);
@@ -344,11 +344,28 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 	pll = &disp->pll;
 	err = vlv_pll_init(pll, type, (enum pipe) pipe, port);
 
-	/* Initialize port */
-	vlv_initialize_port(vlv_config, pipe, port, type, disp_no);
+	if (type == INTEL_PIPE_DSI) {
+		/*
+		 * For DSI we are calling the vlv_display_encoder_init() first
+		 * because we need to set the port bit mask which gets used
+		 * in vlv_initialize_port() to assign the proper register
+		 * address offsets for DSI.
+		 */
 
-	/* Initialize encoder */
-	vlv_display_encoder_init(vlv_config, pipe, disp_no);
+		/* Initialize encoder */
+		vlv_display_encoder_init(vlv_config, pipe, port, disp_no);
+
+		/* Initialize port */
+		vlv_initialize_port(vlv_config, pipe, port, type, disp_no);
+	} else if ((type == INTEL_PIPE_HDMI) || (type == INTEL_PIPE_EDP) ||
+				(type == INTEL_PIPE_DP)) {
+
+		/* Initialize port */
+		vlv_initialize_port(vlv_config, pipe, port, type, disp_no);
+
+		/* Initialize encoder */
+		vlv_display_encoder_init(vlv_config, pipe, port, disp_no);
+	}
 
 	return err;
 }
@@ -491,7 +508,7 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 		}
 	}
 
-	/* To check the EPF */
+	/* To check the EFP */
 	for (i = 0; i <= dev_num; i++) {
 		dvo_port = child_dev[i].common.dvo_port;
 		devtype = child_dev[i].common.device_type;

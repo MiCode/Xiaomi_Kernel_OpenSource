@@ -604,7 +604,7 @@ void dsi_pipe_destroy(struct dsi_pipe *pipe)
 
 int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	struct intel_plane *primary_plane, u8 idx,
-	struct intel_pipeline *pipeline)
+	struct intel_pipeline *pipeline, int port)
 {
 	struct dsi_panel *panel;
 	struct dsi_vbt *vbt;
@@ -616,6 +616,8 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 		return -EINVAL;
 
 	memset(pipe, 0, sizeof(struct dsi_pipe));
+
+	pipe->config.ctx.ports = 1 << port;
 	pipe->base.pipeline = pipeline;
 
 	/*get panel*/
