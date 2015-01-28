@@ -59,6 +59,8 @@ static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
 static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote);
 static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg);
 static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
+static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
+						       u32 clk_cycles);
 
 static void ufs_qcom_dump_regs(struct ufs_hba *hba, int offset, int len,
 		char *prefix)
@@ -542,6 +544,16 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba, bool status)
 
 		/* make sure RX LineCfg is enabled before link startup */
 		err = ufs_qcom_phy_ctrl_rx_linecfg(phy, true);
+		if (err)
+			goto out;
+
+		if (ufs_qcom_cap_qunipro(host))
+			/*
+			 * set unipro core clock cycles to 150 & clear clock
+			 * divider
+			 */
+			err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba,
+									  150);
 		break;
 	case POST_CHANGE:
 		ufs_qcom_link_startup_post_change(hba);
@@ -1382,22 +1394,118 @@ static void ufs_qcom_exit(struct ufs_hba *hba)
 	phy_power_off(host->generic_phy);
 }
 
+static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
+						       u32 clk_cycles)
+{
+	int err;
+	u32 core_clk_ctrl_reg;
 
-int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
-			       bool scale_up, bool status)
+	if (clk_cycles > DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK)
+		return -EINVAL;
+
+	err = ufshcd_dme_get(hba,
+			    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
+			    &core_clk_ctrl_reg);
+	if (err)
+		goto out;
+
+	core_clk_ctrl_reg &= ~DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK;
+	core_clk_ctrl_reg |= clk_cycles;
+
+	/* Clear CORE_CLK_DIV_EN */
+	core_clk_ctrl_reg &= ~DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT;
+
+	err = ufshcd_dme_set(hba,
+			    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
+			    core_clk_ctrl_reg);
+out:
+	return err;
+}
+
+static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
+{
+	/* nothing to do as of now */
+	return 0;
+}
+
+static int ufs_qcom_clk_scale_up_post_change(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = hba->priv;
+
+	if (!ufs_qcom_cap_qunipro(host))
+		return 0;
+
+	/* set unipro core clock cycles to 150 and clear clock divider */
+	return ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150);
+}
+
+static int ufs_qcom_clk_scale_down_pre_change(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = hba->priv;
+	int err;
+	u32 core_clk_ctrl_reg;
+
+	if (!ufs_qcom_cap_qunipro(host))
+		return 0;
+
+	err = ufshcd_dme_get(hba,
+			    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
+			    &core_clk_ctrl_reg);
+
+	/* make sure CORE_CLK_DIV_EN is cleared */
+	if (!err &&
+	    (core_clk_ctrl_reg & DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT)) {
+		core_clk_ctrl_reg &= ~DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT;
+		err = ufshcd_dme_set(hba,
+				    UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
+				    core_clk_ctrl_reg);
+	}
+
+	return err;
+}
+
+static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = hba->priv;
+
+	if (!ufs_qcom_cap_qunipro(host))
+		return 0;
+
+	/* set unipro core clock cycles to 75 and clear clock divider */
+	return ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 75);
+}
+
+static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
+				      bool scale_up, bool status)
 {
 	struct ufs_qcom_host *host = hba->priv;
 	struct ufs_pa_layer_attr *dev_req_params = &host->dev_req_params;
+	int err = 0;
 
-	if (!dev_req_params)
-		return 0;
+	if (status == PRE_CHANGE) {
+		if (scale_up)
+			err = ufs_qcom_clk_scale_up_pre_change(hba);
+		else
+			err = ufs_qcom_clk_scale_down_pre_change(hba);
+	} else {
+		if (scale_up)
+			err = ufs_qcom_clk_scale_up_post_change(hba);
+		else
+			err = ufs_qcom_clk_scale_down_post_change(hba);
 
-	ufs_qcom_cfg_timers(hba, dev_req_params->gear_rx,
-				dev_req_params->pwr_rx,
-				dev_req_params->hs_rate, false);
-	ufs_qcom_update_bus_bw_vote(host);
+		if (err || !dev_req_params)
+			goto out;
 
-	return 0;
+		ufs_qcom_cfg_timers(hba,
+				    dev_req_params->gear_rx,
+				    dev_req_params->pwr_rx,
+				    dev_req_params->hs_rate,
+				    false);
+		ufs_qcom_update_bus_bw_vote(host);
+	}
+
+out:
+	return err;
 }
 
 /*
