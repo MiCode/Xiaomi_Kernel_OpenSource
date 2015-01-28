@@ -15,6 +15,7 @@
 #include <linux/pci.h>
 #include <core/intel_dc_config.h>
 #include <core/common/dsi/dsi_pipe.h>
+#include <core/common/hdmi/gen_hdmi_pipe.h>
 #include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_pri_plane.h>
 #include <core/vlv/vlv_sp_plane.h>
@@ -45,6 +46,8 @@ int chv_cursor_offsets[] = {
 	CHV_CURSOR_C_OFFSET
 };
 
+
+#define CHV_DPIO(pipe) (((pipe & 0x1) ? IOSF_PORT_DPIO : IOSF_PORT_DPIO_2))
 
 static const struct intel_dc_attachment chv_allowed_attachments[] = {
 	{
@@ -166,9 +169,10 @@ void vlv_dc_config_destroy(struct intel_dc_config *config)
 }
 
 static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe,
-				    u8 disp_no)
+				u8 disp_no)
 {
 	struct dsi_pipe *dsi_pipe = NULL;
+	struct hdmi_pipe *hdmi_pipe = NULL;
 	struct intel_pipeline *intel_pipeline;
 	struct vlv_pipeline *disp = &vlv_config->pipeline[disp_no];
 	int err;
@@ -190,12 +194,27 @@ static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe,
 		}
 
 		intel_dc_config_add_pipe(&vlv_config->base,
-					 &dsi_pipe->base, *n_pipes);
+					&dsi_pipe->base, *n_pipes);
 
 		/* FIXME: uncomment when dpst is enabled with redesign*/
 		/* vlv_dpst_init(&config->base);*/
 
 		disp->dpst = &vlv_config->dpst;
+
+	} else if (disp->type == INTEL_PIPE_HDMI) {
+		hdmi_pipe = &disp->gen.hdmi;
+		intel_pipeline = &disp->base;
+		err = hdmi_pipe_init(hdmi_pipe, vlv_config->base.dev,
+				   &disp->pplane.base, pipe, intel_pipeline);
+		if (err) {
+			dev_err(vlv_config->base.dev,
+				"%s: failed to init pipe for HDMI(%d)\n",
+					__func__, err);
+			return err;
+		}
+
+		intel_dc_config_add_pipe(&vlv_config->base,
+					 &hdmi_pipe->base, *n_pipes);
 	} else {
 		pr_err("ADF: %s: unsupported pipe type = %d\n",
 				__func__, disp->type);
@@ -209,6 +228,7 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 			int pipe, int port, int type, u8 disp_no)
 {
 	struct vlv_dsi_port *dsi_port = NULL;
+	struct vlv_hdmi_port *hdmi_port = NULL;
 	struct vlv_pipeline *disp = NULL;
 
 	disp = &vlv_config->pipeline[disp_no];
@@ -217,7 +237,13 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 		dsi_port = &disp->port.dsi_port;
 		vlv_dsi_port_init(dsi_port, port, pipe);
 		break;
+	case INTEL_PIPE_HDMI:
+		hdmi_port = &disp->port.hdmi_port;
+		vlv_hdmi_port_init(hdmi_port, port, pipe);
+		break;
 	default:
+		pr_err("ADF: %s: Invalid display type\n", __func__);
+		return -EINVAL;
 		break;
 	}
 
@@ -253,11 +279,17 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 	disp = &vlv_config->pipeline[disp_no];
 
 	disp->type = type;
+	disp->disp_no = disp_no;
 
 	/* Initialising each pipeline stepping id */
 	disp->dc_stepping = stepping;
 
 	plane = pipe * VLV_MAX_PLANES;
+
+	disp->type = type;
+
+	if (IS_CHERRYVIEW())
+		disp->dpio_id = CHV_DPIO(pipe);
 
 	/* Initialize the plane */
 	pplane = &disp->pplane;
@@ -269,7 +301,7 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 		return err;
 	}
 	intel_dc_config_add_plane(&vlv_config->base, &pplane->base,
-				  *n_planes);
+				*n_planes);
 
 	/* Initialize first sprite */
 	splane = &disp->splane[0];
@@ -282,7 +314,7 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 		return err;
 	}
 	intel_dc_config_add_plane(&vlv_config->base, &splane->base,
-				  *n_planes);
+				*n_planes);
 
 	/* Initialize second sprite */
 	splane = &disp->splane[1];
@@ -295,13 +327,14 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 		return err;
 	}
 	intel_dc_config_add_plane(&vlv_config->base, &splane->base,
-				  *n_planes);
+				*n_planes);
 	vlv_pm = &disp->pm;
 
 	if (vlv_pm_init(vlv_pm, (enum pipe) pipe) == false) {
 		dev_err(vlv_config->base.dev,
 			"%s: failed to init pm for pipe %d\n",
 			__func__, pipe);
+		return err;
 	}
 
 	vlv_pipe = &disp->pipe;
@@ -414,6 +447,8 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 	 * intel_dc_config_add_power();
 	 */
 	intel_get_vbt_disp_conf((void **)&child_dev, &dev_num);
+
+	mutex_init(&config->dpio_lock);
 
 	/*
 	 * LFP
