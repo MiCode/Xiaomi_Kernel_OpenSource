@@ -427,7 +427,7 @@ static void dsi_on_post(struct intel_pipe *pipe)
 	if (dsi_pipe->ops.on_post)
 		dsi_pipe->ops.on_post(dsi_pipe);
 
-	vlv_pm_on_post(intel_config);
+	vlv_pm_on_post(intel_config, pipe);
 }
 
 static void dsi_pre_validate(struct intel_pipe *pipe,

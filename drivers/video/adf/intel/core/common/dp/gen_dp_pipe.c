@@ -395,8 +395,7 @@ static void dp_pipe_on_post(struct intel_pipe *pipe)
 	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
 	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
-	vlv_pm_on_post(intel_config);
-
+	vlv_pm_on_post(intel_config, pipe);
 }
 
 static void dp_pipe_pre_validate(struct intel_pipe *pipe,

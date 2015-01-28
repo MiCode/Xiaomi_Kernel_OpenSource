@@ -1717,6 +1717,13 @@ extern int chv_cursor_offsets[];
 #define GMBUSFREQ_VLV		(VLV_DISPLAY_BASE + 0x6510)
 
 #define GCI_CONTROL		(VLV_DISPLAY_BASE + 0x650c)
+#define PFI_CREDIT_RESEND_TO_SSA		(0x1 << 27)
+#define PFI_CREDIT_MASK				(0xF << 28)
+#define PFI_CREDIT63				(0x9 << 28)
+#define PFI_CREDIT15				(0x7 << 28)
+#define PFI_CREDIT12				(0x4 << 28)
+#define PFI_CREDIT9				(0x1 << 28)
+#define PFI_CREDIT8				(0x0 << 28)
 
 /*
  * Palette regs
@@ -3602,13 +3609,33 @@ extern int chv_cursor_offsets[];
 #define   DPINVGTT_STATUS_MASK			0xff
 
 #define DSPARB			(VLV_DISPLAY_BASE + 0x70030)
+#define DSPARB_PIPEA_MASK	0xff
+#define DSPARB_PIPEB_MASK	(0xff<<15)
+#define DSPARB2			(VLV_DISPLAY_BASE + 0x70060)
+#define DSPARB2_PIPEA_MASK	0xf
+#define DSPARB2_PIPEB_MASK	(0xf<<7)
+#define DSPARB2_PIPEC_MASK	(0xf<<15)
+#define DSPARB3			(VLV_DISPLAY_BASE + 0x7006c)
+#define DSPARB3_PIPEC_MASK	0xff
 #define   DSPARB_CSTART_MASK	(0x7f << 7)
 #define   DSPARB_CSTART_SHIFT	7
 #define   DSPARB_BSTART_MASK	(0x7f)
 #define   DSPARB_BSTART_SHIFT	0
 #define   DSPARB_BEND_SHIFT	9 /* on 855 */
 #define   DSPARB_AEND_SHIFT	0
-#define	VLV_DEFAULT_DSPARB	0xc080c080
+#define	VLV_DEFAULT_DSPARB	0x80008000
+#define VLV_DEFAULT_DSPARB2	0x111111
+#define VLV_DEFAULT_DSPARB3	0x8000
+#define DSPARB_20_40_40		0x80c0
+#define DSPARB2_20_40_40	0x10
+#define DSPARB_PRI50_SA50	0xff00
+#define DSPARB2_PRI50_SA50	0x11
+#define DSPARB_PRI50_SA50	0xff00
+#define DSPARB2_PRI50_SA50	0x11
+#define DSPARB_PRI50_SB50	0x0000
+#define DSPARB2_PRI50_SB50	0x11
+#define DSPARB_SA50_SB50	0x0000
+#define DSPARB2_SA50_SB50	0x10
 
 #define DSPFW1			(VLV_DISPLAY_BASE + 0x70034)
 #define   DSPFW_SR_SHIFT	23
@@ -5439,6 +5466,10 @@ extern int chv_cursor_offsets[];
 
 /* Punit register */
 #define CHV_DPASSC				0x36
+#define DDR_SETUP2				0x139
+#define	FORCE_DDR_LOW_FREQ		(0x1 << 1)
+#define FORCE_DDR_HIGH_FREQ		(0x1 << 0)
+#define DOOR_BELL			(0x1 << 8)
 /* Bit 6 of DPASSC indicates maxfifo enabling bit */
 #define CHV_PW_MAXFIFO_MASK		0x40
 

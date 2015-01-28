@@ -182,8 +182,19 @@ struct vlv_pipeline {
 	struct vlv_dc_config *config;
 };
 
+/**
+ * vlv_global_status - global variables or status flags
+ * @maxfifo_enabled - maxfifo enable status
+ * @ddr_dvfs_enabled - DDR DVFS enable status
+ * @pipe_plane_status - pipe and plane enable status
+ * bits 31-28 for pipe A, pipe B, pipe C,
+ * bits 0-3 for Plane A, Sprite A, Sprite B, cursor A
+ * bits 4-7 for Plane B, Sprite C, Sprite D, cursor B
+ * bits 8-11 for Plane C, Sprite E, Sprite F, cursor C
+ */
 struct vlv_global_status {
 	bool maxfifo_enabled;
+	bool ddr_dvfs_enabled;
 	u32 pipe_plane_status;
 };
 

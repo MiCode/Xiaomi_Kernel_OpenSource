@@ -209,7 +209,7 @@ void hdmi_on_post(struct intel_pipe *pipe)
 	if (hdmi_pipe->ops.on_post)
 		hdmi_pipe->ops.on_post(hdmi_pipe);
 
-	vlv_pm_on_post(intel_config);
+	vlv_pm_on_post(intel_config, pipe);
 }
 
 /* Core modeset */
