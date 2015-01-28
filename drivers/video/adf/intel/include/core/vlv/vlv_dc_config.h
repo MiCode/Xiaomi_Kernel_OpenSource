@@ -136,6 +136,21 @@ static inline void vlv_cck_write(u32 reg, u32 val)
 	intel_adf_pci_sideband_rw(INTEL_SIDEBAND_REG_WRITE, IOSF_PORT_CCK,
 					reg, &val);
 }
+
+static inline u32 vlv_punit_read(u32 reg)
+{
+	u32 val;
+	intel_adf_pci_sideband_rw(INTEL_SIDEBAND_REG_READ, IOSF_PORT_PUNIT,
+			reg, &val);
+	return val;
+}
+
+static inline void vlv_punit_write(u32 reg, u32 val)
+{
+	intel_adf_pci_sideband_rw(INTEL_SIDEBAND_REG_WRITE, IOSF_PORT_PUNIT,
+			reg, &val);
+}
+
 struct vlv_pipeline {
 	struct intel_pipeline base;
 	struct vlv_dpst *dpst;
