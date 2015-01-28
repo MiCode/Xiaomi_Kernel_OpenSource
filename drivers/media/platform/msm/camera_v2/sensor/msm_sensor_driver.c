@@ -650,51 +650,63 @@ int32_t msm_sensor_driver_probe(void *setting,
 	}
 #ifdef CONFIG_COMPAT
 	if (is_compat_task()) {
-		struct msm_camera_sensor_slave_info32 setting32;
-		if (copy_from_user((void *)&setting32, setting,
-			sizeof(setting32))) {
+		struct msm_camera_sensor_slave_info32 *slave_info32 =
+			kzalloc(sizeof(*slave_info32), GFP_KERNEL);
+		if (!slave_info32) {
+			pr_err("failed: no memory for slave_info32 %p\n",
+				slave_info32);
+			rc = -ENOMEM;
+			goto free_slave_info;
+		}
+		if (copy_from_user((void *)slave_info32, setting,
+			sizeof(*slave_info32))) {
 				pr_err("failed: copy_from_user");
 				rc = -EFAULT;
+				kfree(slave_info32);
 				goto free_slave_info;
 			}
 
-		strlcpy(slave_info->actuator_name, setting32.actuator_name,
+		strlcpy(slave_info->actuator_name, slave_info32->actuator_name,
 			sizeof(slave_info->actuator_name));
 
-		strlcpy(slave_info->eeprom_name, setting32.eeprom_name,
+		strlcpy(slave_info->eeprom_name, slave_info32->eeprom_name,
 			sizeof(slave_info->eeprom_name));
 
-		strlcpy(slave_info->sensor_name, setting32.sensor_name,
+		strlcpy(slave_info->sensor_name, slave_info32->sensor_name,
 			sizeof(slave_info->sensor_name));
 
-		strlcpy(slave_info->ois_name, setting32.ois_name,
+		strlcpy(slave_info->ois_name, slave_info32->ois_name,
 			sizeof(slave_info->ois_name));
 
-		strlcpy(slave_info->flash_name, setting32.flash_name,
+		strlcpy(slave_info->flash_name, slave_info32->flash_name,
 			sizeof(slave_info->flash_name));
 
-		slave_info->addr_type = setting32.addr_type;
-		slave_info->camera_id = setting32.camera_id;
+		slave_info->addr_type = slave_info32->addr_type;
+		slave_info->camera_id = slave_info32->camera_id;
 
-		slave_info->i2c_freq_mode = setting32.i2c_freq_mode;
-		slave_info->sensor_id_info = setting32.sensor_id_info;
+		slave_info->i2c_freq_mode = slave_info32->i2c_freq_mode;
+		slave_info->sensor_id_info = slave_info32->sensor_id_info;
 
-		slave_info->slave_addr = setting32.slave_addr;
+		slave_info->slave_addr = slave_info32->slave_addr;
 		slave_info->power_setting_array.size =
-			setting32.power_setting_array.size;
+			slave_info32->power_setting_array.size;
 		slave_info->power_setting_array.size_down =
-			setting32.power_setting_array.size_down;
+			slave_info32->power_setting_array.size_down;
 		slave_info->power_setting_array.size_down =
-			setting32.power_setting_array.size_down;
+			slave_info32->power_setting_array.size_down;
 		slave_info->power_setting_array.power_setting =
-			compat_ptr(setting32.power_setting_array.power_setting);
+			compat_ptr(slave_info32->
+				power_setting_array.power_setting);
 		slave_info->power_setting_array.power_down_setting =
-			compat_ptr(setting32.
+			compat_ptr(slave_info32->
 				power_setting_array.power_down_setting);
 		slave_info->is_init_params_valid =
-			setting32.is_init_params_valid;
-		slave_info->sensor_init_params = setting32.sensor_init_params;
-		slave_info->is_flash_supported = setting32.is_flash_supported;
+			slave_info32->is_init_params_valid;
+		slave_info->sensor_init_params =
+			slave_info32->sensor_init_params;
+		slave_info->is_flash_supported =
+			slave_info32->is_flash_supported;
+		kfree(slave_info32);
 	} else
 #endif
 	{
@@ -707,15 +719,16 @@ int32_t msm_sensor_driver_probe(void *setting,
 	}
 
 	/* Print slave info */
-	CDBG("camera id %d", slave_info->camera_id);
-	CDBG("slave_addr 0x%x", slave_info->slave_addr);
-	CDBG("addr_type %d", slave_info->addr_type);
-	CDBG("sensor_id_reg_addr 0x%x",
-		slave_info->sensor_id_info.sensor_id_reg_addr);
-	CDBG("sensor_id 0x%x", slave_info->sensor_id_info.sensor_id);
-	CDBG("sensor id mask %d", slave_info->sensor_id_info.sensor_id_mask);
-	CDBG("size %d", slave_info->power_setting_array.size);
-	CDBG("size down %d", slave_info->power_setting_array.size_down);
+	CDBG("camera id %d Slave addr 0x%X addr_type %d\n",
+		slave_info->camera_id, slave_info->slave_addr,
+		slave_info->addr_type);
+	CDBG("sensor_id_reg_addr 0x%X sensor_id 0x%X sensor id mask %d",
+		slave_info->sensor_id_info.sensor_id_reg_addr,
+		slave_info->sensor_id_info.sensor_id,
+		slave_info->sensor_id_info.sensor_id_mask);
+	CDBG("power up size %d power down size %d\n",
+		slave_info->power_setting_array.size,
+		slave_info->power_setting_array.size_down);
 
 	if (slave_info->is_init_params_valid) {
 		CDBG("position %d",
