@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,6 +216,8 @@
 				0xCCCC1111 0xCCCC1111 0xCCCC1111
 				0xCCCC1111 0xCCCC1111 0xCCCC1111
 				0xCCCC1111 0x00000103>;
+		max-clk-nominal = <320000000>;
+		max-clk-turbo = <600000000>;
 		};
 
 	qcom,jpeg@1b1c000 {
