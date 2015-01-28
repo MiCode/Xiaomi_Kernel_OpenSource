@@ -300,7 +300,7 @@ static int adf_dsi_read_data_return(struct dsi_pipe *dsi_pipe,
 }
 
 int adf_dsi_vc_dcs_read(struct dsi_pipe *dsi_pipe, int channel, u8 dcs_cmd,
-		    u8 *buf, int buflen)
+					u8 *buf, int buflen, enum port port)
 {
 	struct dsi_config *config = &dsi_pipe->config;
 	int pipe = config->pipe;

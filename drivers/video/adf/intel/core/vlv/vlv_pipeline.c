@@ -590,15 +590,14 @@ void vlv_cmd_hs_mode_enable(struct intel_pipeline *pipeline, bool enable)
 }
 
 int vlv_cmd_vc_dcs_write(struct intel_pipeline *pipeline, int channel,
-		const u8 *data, int len)
+		const u8 *data, int len, enum port port)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
-	struct vlv_pll *pll = &disp->pll;
 	int err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port[pll->port_id];
+		dsi_port = &disp->port.dsi_port[port];
 		err = vlv_dsi_port_cmd_vc_dcs_write(dsi_port,
 			channel, data, len);
 	}
@@ -607,15 +606,14 @@ int vlv_cmd_vc_dcs_write(struct intel_pipeline *pipeline, int channel,
 }
 
 int vlv_cmd_vc_generic_write(struct intel_pipeline *pipeline, int channel,
-			const u8 *data, int len)
+			const u8 *data, int len, enum port port)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
-	struct vlv_pll *pll = &disp->pll;
 	int err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port[pll->port_id];
+		dsi_port = &disp->port.dsi_port[port];
 		err = vlv_dsi_port_cmd_vc_generic_write(dsi_port,
 			channel, data, len);
 	}
@@ -624,15 +622,14 @@ int vlv_cmd_vc_generic_write(struct intel_pipeline *pipeline, int channel,
 }
 
 int vlv_cmd_vc_dcs_read(struct intel_pipeline *pipeline, int channel,
-		u8 dcs_cmd, u8 *buf, int buflen)
+		u8 dcs_cmd, u8 *buf, int buflen, enum port port)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
-	struct vlv_pll *pll = &disp->pll;
 	int err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port[pll->port_id];
+		dsi_port = &disp->port.dsi_port[port];
 		err = vlv_dsi_port_cmd_vc_dcs_read(dsi_port, channel,
 			dcs_cmd, buf, buflen);
 	}
@@ -641,15 +638,14 @@ int vlv_cmd_vc_dcs_read(struct intel_pipeline *pipeline, int channel,
 }
 
 int vlv_cmd_vc_generic_read(struct intel_pipeline *pipeline, int channel,
-		u8 *reqdata, int reqlen, u8 *buf, int buflen)
+		u8 *reqdata, int reqlen, u8 *buf, int buflen, enum port port)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
-	struct vlv_pll *pll = &disp->pll;
 	int err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port[pll->port_id];
+		dsi_port = &disp->port.dsi_port[port];
 		err = vlv_dsi_port_cmd_vc_generic_read(dsi_port, channel,
 			reqdata, reqlen, buf, buflen);
 	}

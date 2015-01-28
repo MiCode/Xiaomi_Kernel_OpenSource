@@ -64,9 +64,9 @@ int vlv_cmd_vc_dcs_write(struct intel_pipeline *pipeline, int channel,
 int vlv_cmd_vc_generic_write(struct intel_pipeline *pipeline, int channel,
 		const u8 *data, int len);
 int vlv_cmd_vc_dcs_read(struct intel_pipeline *pipeline, int channel,
-		u8 dcs_cmd, u8 *buf, int buflen);
+		u8 dcs_cmd, u8 *buf, int buflen, enum port port);
 int vlv_cmd_vc_generic_read(struct intel_pipeline *pipeline, int channel,
-		u8 *reqdata, int reqlen, u8 *buf, int buflen);
+		u8 *reqdata, int reqlen, u8 *buf, int buflen, enum port port);
 int vlv_cmd_dpi_send_cmd(struct intel_pipeline *pipeline, u32 cmd, bool hs);
 
 /*

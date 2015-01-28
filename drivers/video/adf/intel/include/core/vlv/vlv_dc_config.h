@@ -207,13 +207,14 @@ extern bool vlv_update_maxfifo_status(struct intel_pipeline *pipeline,
 extern int vlv_cmd_dpi_send_cmd(struct intel_pipeline *pipeline, u32 cmd,
 		bool hs);
 extern int vlv_cmd_vc_generic_read(struct intel_pipeline *pipeline,
-		int channel, u8 *reqdata, int reqlen, u8 *buf, int buflen);
+		int channel, u8 *reqdata, int reqlen, u8 *buf, int buflen,
+		enum port port);
 extern int vlv_cmd_vc_dcs_read(struct intel_pipeline *pipeline, int channel,
-		u8 dcs_cmd, u8 *buf, int buflen);
+		u8 dcs_cmd, u8 *buf, int buflen, enum port port);
 extern int vlv_cmd_vc_generic_write(struct intel_pipeline *pipeline,
-		int channel, const u8 *data, int len);
+		int channel, const u8 *data, int len, enum port port);
 extern int vlv_cmd_vc_dcs_write(struct intel_pipeline *pipeline, int channel,
-		const u8 *data, int len);
+		const u8 *data, int len, enum port port);
 extern void vlv_cmd_hs_mode_enable(struct intel_pipeline *pipeline,
 		bool enable);
 
