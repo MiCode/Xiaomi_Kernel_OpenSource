@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -407,6 +407,7 @@ enum adreno_regs {
 	ADRENO_REG_CP_MEQ_DATA,
 	ADRENO_REG_CP_HW_FAULT,
 	ADRENO_REG_CP_PROTECT_STATUS,
+	ADRENO_REG_CP_PROTECT_REG_0,
 	ADRENO_REG_RBBM_STATUS,
 	ADRENO_REG_RBBM_PERFCTR_CTL,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0,
@@ -1211,6 +1212,9 @@ static inline void adreno_set_protected_registers(
 		unsigned int reg, int mask_len)
 {
 	unsigned int val;
+	unsigned int base =
+		adreno_getreg(adreno_dev, ADRENO_REG_CP_PROTECT_REG_0);
+	unsigned int offset = *index;
 
 	/* A430 has 24 registers (yay!).  Everything else has 16 (boo!) */
 
@@ -1219,19 +1223,20 @@ static inline void adreno_set_protected_registers(
 	else
 		BUG_ON(*index >= 16);
 
-	val = 0x60000000 | ((mask_len & 0x1F) << 24) | ((reg << 2) & 0xFFFFF);
-
 	/*
-	 * Write the protection range to the next available protection
-	 * register
+	 * On A4XX targets with more than 16 protected mode registers
+	 * the upper registers are not contiguous with the lower 16
+	 * registers so we have to adjust the base and offset accordingly
 	 */
 
-	if (adreno_is_a4xx(adreno_dev))
-		kgsl_regwrite(&adreno_dev->dev,
-				A4XX_CP_PROTECT_REG_0 + *index, val);
-	else if (adreno_is_a3xx(adreno_dev))
-		kgsl_regwrite(&adreno_dev->dev,
-				A3XX_CP_PROTECT_REG_0 + *index, val);
+	if (adreno_is_a4xx(adreno_dev) && *index >= 0x10) {
+		base = A4XX_CP_PROTECT_REG_10;
+		offset = *index - 0x10;
+	}
+
+	val = 0x60000000 | ((mask_len & 0x1F) << 24) | ((reg << 2) & 0xFFFFF);
+
+	kgsl_regwrite(&adreno_dev->dev, base + offset, val);
 	*index = *index + 1;
 }
 
