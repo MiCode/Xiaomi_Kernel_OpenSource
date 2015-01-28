@@ -47,7 +47,7 @@ static bool qmi_modem_init_fin, qmi_indication_fin;
 static struct work_struct ipa_qmi_service_init_work;
 static bool is_load_uc;
 static uint32_t ipa_wan_platform;
-
+struct ipa_qmi_context *ipa_qmi_ctx;
 
 /* QMI A5 service */
 
@@ -453,6 +453,13 @@ int qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 		req->filter_spec_list_len);
 	}
 
+	/* cache the qmi_filter_request */
+	memcpy(&(ipa_qmi_ctx->ipa_install_fltr_rule_req_msg_cache[
+		ipa_qmi_ctx->num_ipa_install_fltr_rule_req_msg]),
+			req, sizeof(struct ipa_install_fltr_rule_req_msg_v01));
+	ipa_qmi_ctx->num_ipa_install_fltr_rule_req_msg++;
+	ipa_qmi_ctx->num_ipa_install_fltr_rule_req_msg %= 10;
+
 	req_desc.max_msg_len = QMI_IPA_INSTALL_FILTER_RULE_REQ_MAX_MSG_LEN_V01;
 	req_desc.msg_id = QMI_IPA_INSTALL_FILTER_RULE_REQ_V01;
 	req_desc.ei_array = ipa_install_fltr_rule_req_msg_data_v01_ei;
@@ -498,6 +505,14 @@ int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req)
 				req->filter_index_list[i].filter_index);
 		return -EINVAL;
 	}
+
+	/* cache the qmi_filter_request */
+	memcpy(&(ipa_qmi_ctx->ipa_fltr_installed_notif_req_msg_cache[
+		ipa_qmi_ctx->num_ipa_fltr_installed_notif_req_msg]),
+		req, sizeof(struct ipa_fltr_installed_notif_req_msg_v01));
+	ipa_qmi_ctx->num_ipa_fltr_installed_notif_req_msg++;
+	ipa_qmi_ctx->num_ipa_fltr_installed_notif_req_msg %= 10;
+
 	req_desc.max_msg_len =
 	QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01;
 	req_desc.msg_id = QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_V01;
@@ -650,6 +665,13 @@ static void ipa_qmi_service_init_worker(struct work_struct *work)
 	/* Initialize QMI-service*/
 	IPAWANDBG("IPA A7 QMI init OK :>>>>\n");
 
+	/* start the QMI msg cache */
+	ipa_qmi_ctx = kzalloc(sizeof(*ipa_qmi_ctx), GFP_KERNEL);
+	if (!ipa_qmi_ctx) {
+		IPAWANERR(":kzalloc err.\n");
+		return;
+	}
+
 	ipa_svc_workqueue = create_singlethread_workqueue("ipa_A7_svc");
 	if (!ipa_svc_workqueue) {
 		IPAWANERR("Creating ipa_A7_svc workqueue failed\n");
@@ -780,6 +802,11 @@ void ipa_qmi_service_exit(void)
 		ipa_clnt_resp_workqueue = NULL;
 	}
 
+	/* clean the QMI msg cache */
+	if (ipa_qmi_ctx != NULL) {
+		kfree(ipa_qmi_ctx);
+		ipa_qmi_ctx = NULL;
+	}
 	ipa_svc_handle = 0;
 	qmi_modem_init_fin = false;
 	qmi_indication_fin = false;
