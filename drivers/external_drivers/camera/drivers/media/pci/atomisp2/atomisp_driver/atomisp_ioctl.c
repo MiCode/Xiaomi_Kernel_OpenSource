@@ -1830,7 +1830,7 @@ start_sensor:
 			goto out;
 		}
 		__wdt_on_master_slave_sensor(isp, wdt_duration);
-		goto out;
+		goto start_delay_wq;
 	} else if (asd->depth_mode->val && (atomisp_streaming_count(isp) <
 		   ATOMISP_DEPTH_SENSOR_STREAMON_COUNT)) {
 		goto start_delay_wq;
