@@ -494,6 +494,8 @@ static struct intel_pipe_ops dp_base_ops = {
 	.dpst_irq_handler = dp_pipe_dpst_irq_handler,
 };
 
+static struct intel_pipe_ops edp_base_ops;
+
 u32 dp_pipe_init(struct dp_pipe *dp_pipe, struct device *dev,
 	struct intel_plane *primary_plane, u8 idx,
 	struct intel_pipeline *pipeline, enum intel_pipe_type type)
@@ -507,17 +509,16 @@ u32 dp_pipe_init(struct dp_pipe *dp_pipe, struct device *dev,
 	dp_pipe->dpms_state = DRM_MODE_DPMS_OFF;
 
 	/* encoder init  */
-	if (type == INTEL_PIPE_DP) {
-		dp_base_ops.set_brightness = NULL;
-		dp_base_ops.get_brightness = NULL;
+	if (type == INTEL_PIPE_DP)
 		err = intel_pipe_init(intel_pipe, dev, idx, true,
 			INTEL_PIPE_DP, primary_plane, &dp_base_ops, "dp_pipe");
-	} else {
-		dp_base_ops.set_brightness = dp_set_brightness;
-		dp_base_ops.get_brightness = dp_get_brightness;
+	else {
+		edp_base_ops = dp_base_ops;
+		edp_base_ops.set_brightness = dp_set_brightness;
+		edp_base_ops.get_brightness = dp_get_brightness;
 
 		err = intel_pipe_init(intel_pipe, dev, idx, true,
-			INTEL_PIPE_EDP, primary_plane, &dp_base_ops,
+			INTEL_PIPE_EDP, primary_plane, &edp_base_ops,
 			"edp_pipe");
 	}
 
