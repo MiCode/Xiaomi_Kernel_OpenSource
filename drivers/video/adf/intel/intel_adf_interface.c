@@ -261,7 +261,8 @@ static int set_preferred_mode(struct intel_adf_interface *intf)
 		!pipe->ops->get_modelist)
 		return -EINVAL;
 
-	pipe->ops->get_modelist(pipe, &modelist, &n_modes);
+	pipe->ops->get_modelist(pipe, &intf->base.modelist,
+					&intf->base.n_modes);
 	pipe->ops->get_preferred_mode(pipe, &preferred_mode);
 
 
@@ -272,6 +273,9 @@ static int set_preferred_mode(struct intel_adf_interface *intf)
 	err = adf_interface_blank(&intf->base, DRM_MODE_DPMS_ON);
 	if (err)
 		goto out_err0;
+
+	modelist = intf->base.modelist;
+	n_modes = intf->base.n_modes;
 
 	/*
 	 * Only send HPD event in case of hot-pluggable displays but set
@@ -323,9 +327,13 @@ static void handle_hotplug_connected(struct intel_adf_interface *intf)
 	if (!pipe || !pipe->ops || !pipe->ops->is_screen_connected)
 		return;
 
-	if (pipe->ops->is_screen_connected(pipe))
+	if (pipe->ops->is_screen_connected(pipe)) {
+		/* fill the interface modelist */
+		pipe->ops->get_modelist(pipe, &intf->base.modelist,
+					&intf->base.n_modes);
 		queue_kthread_work(&intf->event_handling_worker,
 			&intf->hotplug_connected_work);
+	}
 }
 
 static void handle_hotplug_disconnected(struct intel_adf_interface *intf)
@@ -468,12 +476,11 @@ int intel_adf_interface_init(struct intel_adf_interface *intf,
 	if (err)
 		goto out_err3;
 
-	/* fill the interface modelist */
-	pipe->ops->get_modelist(pipe, &intf->base.modelist,
-				&intf->base.n_modes);
-
+		pipe->ops->get_modelist(pipe, &intf->base.modelist,
+					&intf->base.n_modes);
 	/*turn on this interface if screen was connected*/
 	if (pipe->ops->is_screen_connected(pipe)) {
+		/* fill the interface modelist */
 		err = set_preferred_mode(intf);
 		if (err) {
 			dev_err(dev->base.dev, "%s: failed to handle hotplug\n",

@@ -458,7 +458,11 @@ static void disable_unused_overlay_engines(struct list_head *active_engs,
 		if (post_obj_set_find_obj(post_engs, eng))
 			continue;
 		/*disable this engine*/
-		eng->plane->ops->disable(eng->plane);
+		/*
+		 * FIXME: temp removed to avoid plane disable in dual display
+		 * scenarnario
+		 * eng->plane->ops->disable(eng->plane);
+		 */
 	}
 }
 
