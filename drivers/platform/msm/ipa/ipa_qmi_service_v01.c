@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1154,9 +1154,9 @@ struct elem_info ipa_install_fltr_rule_req_msg_data_v01_ei[] = {
 			xlat_filter_indices_list_valid),
 	},
 	{
-		.data_type	= QMI_UNSIGNED_4_BYTE,
+		.data_type	= QMI_DATA_LEN,
 		.elem_len	= 1,
-		.elem_size	= sizeof(uint32_t),
+		.elem_size	= sizeof(uint8_t),
 		.is_array	= NO_ARRAY,
 		.tlv_type	= 0x14,
 		.offset		= offsetof(
