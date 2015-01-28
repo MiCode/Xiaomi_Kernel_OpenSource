@@ -30,16 +30,6 @@
 #include <net/netfilter/nf_socket.h>
 #include <linux/netfilter/xt_socket.h>
 
-void
-xt_socket_put_sk(struct sock *sk)
-{
-	if (sk->sk_state == TCP_TIME_WAIT)
-		inet_twsk_put(inet_twsk(sk));
-	else
-		sock_put(sk);
-}
-EXPORT_SYMBOL(xt_socket_put_sk);
-
 /* "socket" match based redirection (no specific rule)
  * ===================================================
  *
