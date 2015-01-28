@@ -1701,6 +1701,10 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	ret = intel_pin_and_fence_fb_obj(dev, obj, NULL);
 	mutex_unlock(&dev->struct_mutex);
 	if (ret) {
+		DRM_ERROR("pin and fence of fb failed with %d\n", ret);
+		spin_lock_irqsave(&dev->event_lock, flags);
+		intel_crtc->sprite_unpin_work = NULL;
+		spin_unlock_irqrestore(&dev->event_lock, flags);
 		if (event)
 			drm_vblank_put(dev, intel_crtc->pipe);
 		goto out_unlock;

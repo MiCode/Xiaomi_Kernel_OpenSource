@@ -10792,7 +10792,8 @@ int intel_set_disp_plane_update(struct drm_mode_set_display *disp,
 		if (tmp_ret) {
 			DRM_ERROR("flip ioctl failed\n");
 			disp->errored |= (1 << i);
-			ret = -EINVAL;
+			kfree(flip);
+			return tmp_ret;
 		} else
 			disp->presented |= (1 << i);
 		kfree(flip);
@@ -10847,8 +10848,9 @@ int intel_set_disp_plane_update(struct drm_mode_set_display *disp,
 		tmp_ret = drm_mode_setplane(dev, plane, file_priv);
 		if (tmp_ret) {
 			DRM_ERROR("drm_mode_setplane failed\n");
-			ret = -EINVAL;
 			disp->errored |= (1<<i);
+			kfree(plane);
+			return tmp_ret;
 		} else
 			disp->presented |= (1<<i);
 		kfree(plane);
