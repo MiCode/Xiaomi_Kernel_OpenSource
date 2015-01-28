@@ -61,9 +61,9 @@ int vlv_validate_custom_format(struct intel_pipeline *pipeline,
 bool vlv_is_vid_mode(struct intel_pipeline *pipeline);
 void vlv_cmd_hs_mode_enable(struct intel_pipeline *pipeline, bool enable);
 int vlv_cmd_vc_dcs_write(struct intel_pipeline *pipeline, int channel,
-		const u8 *data, int len);
+		const u8 *data, int len, enum port port);
 int vlv_cmd_vc_generic_write(struct intel_pipeline *pipeline, int channel,
-		const u8 *data, int len);
+		const u8 *data, int len, enum port port);
 int vlv_cmd_vc_dcs_read(struct intel_pipeline *pipeline, int channel,
 		u8 dcs_cmd, u8 *buf, int buflen, enum port port);
 int vlv_cmd_vc_generic_read(struct intel_pipeline *pipeline, int channel,

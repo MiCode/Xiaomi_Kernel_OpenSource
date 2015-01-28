@@ -131,6 +131,28 @@ static const struct intel_dc_attachment vlv_allowed_attachments[] = {
 	}
 };
 
+void vlv_update_pipe_status(struct intel_dc_config *config,
+		u8 pipe, bool enabled)
+{
+	struct vlv_dc_config *vlv_config = to_vlv_dc_config(config);
+
+	if (enabled)
+		vlv_config->status.pipe_plane_status |= (1 << (31 - pipe));
+	else
+		vlv_config->status.pipe_plane_status &= ~(1 << (31 - pipe));
+}
+
+void vlv_update_plane_status(struct intel_dc_config *config,
+		u8 plane, bool enabled)
+{
+	struct vlv_dc_config *vlv_config = to_vlv_dc_config(config);
+
+	if (enabled)
+		vlv_config->status.pipe_plane_status |= (1 << plane);
+	else
+		vlv_config->status.pipe_plane_status &= ~(1 << plane);
+}
+
 void vlv_dc_config_destroy(struct intel_dc_config *config)
 {
 	struct vlv_dc_config *vlv_config = to_vlv_dc_config(config);
@@ -311,6 +333,7 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 
 	disp->type = type;
 	disp->disp_no = disp_no;
+	disp->config = vlv_config;
 
 	/* Initialising each pipeline stepping id */
 	disp->dc_stepping = stepping;

@@ -18,6 +18,10 @@
 #include <core/common/dp/gen_dp_pipe.h>
 #include <core/intel_platform_config.h>
 
+#include <core/vlv/vlv_dc_config.h>
+#include <core/vlv/vlv_dc_regs.h>
+#include <core/vlv/vlv_pm.h>
+
 #define  DATA_LINK_M_N_MASK     (0xffffff)
 #define  DATA_LINK_N_MAX        (0x800000)
 
@@ -388,18 +392,11 @@ static void dp_pipe_on_post(struct intel_pipe *pipe)
 {
 	struct dp_pipe *dp_pipe = to_dp_pipe(pipe);
 	struct intel_pipeline *pipeline = dp_pipe->pipeline;
-	struct drm_mode_modeinfo tmp;
-	int num_planes = 0;
+	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
+	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
-	num_planes = vlv_num_planes_enabled(pipeline);
+	vlv_pm_on_post(intel_config);
 
-	/* Enable maxfifo if required */
-	if (!pipe->status.maxfifo_enabled && (num_planes == 1)) {
-		vlv_update_maxfifo_status(pipeline, true);
-		pipe->status.maxfifo_enabled = true;
-	}
-	dp_pipe_get_current_mode(pipe, &tmp);
-	vlv_evade_vblank(pipeline, &tmp, &pipe->status.wait_vblank);
 }
 
 static void dp_pipe_pre_validate(struct intel_pipe *pipe,
@@ -407,26 +404,20 @@ static void dp_pipe_pre_validate(struct intel_pipe *pipe,
 {
 	struct dp_pipe *dp_pipe = to_dp_pipe(pipe);
 	struct intel_pipeline *pipeline = dp_pipe->pipeline;
+	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
+	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
-	if (custom->n_configs > 1 && pipe->status.maxfifo_enabled) {
-		vlv_update_maxfifo_status(pipeline, false);
-		pipe->status.maxfifo_enabled = false;
-		pipe->status.wait_vblank = true;
-		pipe->status.vsync_counter =
-				pipe->ops->get_vsync_counter(pipe, 0);
-	}
+	vlv_pm_pre_validate(intel_config, custom, pipeline, pipe);
 }
 
 static void dp_pipe_pre_post(struct intel_pipe *pipe)
 {
 	struct dp_pipe *dp_pipe = to_dp_pipe(pipe);
 	struct intel_pipeline *pipeline = dp_pipe->pipeline;
+	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
+	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
-	if (pipe->status.wait_vblank && pipe->status.vsync_counter ==
-			pipe->ops->get_vsync_counter(pipe, 0)) {
-		vlv_wait_for_vblank(pipeline);
-		pipe->status.wait_vblank = false;
-	}
+	vlv_pm_pre_post(intel_config, pipeline, pipe);
 }
 
 static u32 dp_pipe_get_supported_events(struct intel_pipe *pipe)

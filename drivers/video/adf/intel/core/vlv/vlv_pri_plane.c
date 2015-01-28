@@ -221,8 +221,9 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 		struct intel_plane_config *config)
 {
 	struct vlv_pri_plane *pri_plane = to_vlv_pri_plane(plane);
-	struct vlv_pipeline *disp = to_vlv_pipeline_pri_plane(pri_plane);
-	struct vlv_pm *pm = &disp->pm;
+	struct vlv_pipeline *pipeline = to_vlv_pipeline_pri_plane(pri_plane);
+	struct vlv_dc_config *vlv_config = pipeline->config;
+	struct vlv_pm *pm = &pipeline->pm;
 	struct pri_plane_regs_value *regs = &pri_plane->ctx.regs;
 	struct intel_pipe *intel_pipe = config->pipe;
 	struct drm_mode_modeinfo mode;
@@ -290,11 +291,11 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 		regs->dspcntr &= ~DISPPLANE_TILED;
 
 	/* when in maxfifo display control register cannot be modified */
-	if (intel_pipe->status.maxfifo_enabled && regs->dspcntr != dspcntr) {
+	if (vlv_config->status.maxfifo_enabled && regs->dspcntr != dspcntr) {
 		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-		intel_pipe->status.maxfifo_enabled = false;
-		intel_pipe->status.wait_vblank = true;
-		intel_pipe->status.vsync_counter =
+		vlv_config->status.maxfifo_enabled = false;
+		pipeline->status.wait_vblank = true;
+		pipeline->status.vsync_counter =
 			intel_pipe->ops->get_vsync_counter(intel_pipe, 0);
 	}
 
@@ -340,6 +341,8 @@ static void vlv_pri_flip(struct intel_plane *plane,
 {
 	struct vlv_pri_plane *pri_plane = to_vlv_pri_plane(plane);
 	struct pri_plane_regs_value *regs = &pri_plane->ctx.regs;
+	struct vlv_pipeline *pipeline = to_vlv_pipeline_pri_plane(pri_plane);
+	struct vlv_dc_config *vlv_config = pipeline->config;
 
 	REG_WRITE(pri_plane->stride_offset, regs->stride);
 	REG_WRITE(pri_plane->tiled_offset, regs->tileoff);
@@ -349,6 +352,7 @@ static void vlv_pri_flip(struct intel_plane *plane,
 	I915_MODIFY_DISPBASE(pri_plane->surf_offset, regs->surfaddr);
 	REG_POSTING_READ(pri_plane->surf_offset);
 	pri_plane->enabled = true;
+	vlv_update_plane_status(&vlv_config->base, plane->base.idx, true);
 
 	return;
 }
@@ -390,6 +394,8 @@ int vlv_pri_update_params(struct vlv_pri_plane *plane,
 static int vlv_pri_enable(struct intel_plane *intel_plane)
 {
 	struct vlv_pri_plane *plane = to_vlv_pri_plane(intel_plane);
+	struct vlv_pipeline *pipeline = to_vlv_pipeline_pri_plane(plane);
+	struct vlv_dc_config *vlv_config = pipeline->config;
 	u32 value;
 
 	value = REG_READ(plane->offset);
@@ -408,6 +414,7 @@ static int vlv_pri_enable(struct intel_plane *intel_plane)
 	plane->enabled = true;
 	REG_WRITE(plane->offset, value | DISPLAY_PLANE_ENABLE);
 	vlv_adf_flush_disp_plane(plane);
+	vlv_update_plane_status(&vlv_config->base, intel_plane->base.idx, true);
 
 	/*
 	 * TODO:No need to wait in case of mipi.
@@ -422,6 +429,8 @@ static int vlv_pri_enable(struct intel_plane *intel_plane)
 static int vlv_pri_disable(struct intel_plane *intel_plane)
 {
 	struct vlv_pri_plane *plane = to_vlv_pri_plane(intel_plane);
+	struct vlv_pipeline *pipeline = to_vlv_pipeline_pri_plane(plane);
+	struct vlv_dc_config *vlv_config = pipeline->config;
 	u32 value;
 	u32 mask = DDL_PLANEA_MASK;
 
@@ -435,6 +444,8 @@ static int vlv_pri_disable(struct intel_plane *intel_plane)
 	plane->enabled = false;
 	REG_WRITE(plane->offset, value & ~DISPLAY_PLANE_ENABLE);
 	vlv_adf_flush_disp_plane(plane);
+	vlv_update_plane_status(&vlv_config->base,
+					intel_plane->base.idx, false);
 	REG_WRITE_BITS(VLV_DDL(plane->base.base.idx), 0x00, mask);
 	return 0;
 }

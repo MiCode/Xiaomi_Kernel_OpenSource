@@ -5432,6 +5432,11 @@ extern int chv_cursor_offsets[];
 					VLV_AUD_CNTL_ST_B)
 #define VLV_AUD_CNTL_ST2		(VLV_DISPLAY_BASE + 0x620C0)
 
+/* Punit register */
+#define CHV_DPASSC				0x36
+/* Bit 6 of DPASSC indicates maxfifo enabling bit */
+#define CHV_PW_MAXFIFO_MASK		0x40
+
 /* These are the 4 32-bit write offset registers for each stream
  * output buffer.  It determines the offset from the
  * 3DSTATE_SO_BUFFERs that the next streamed vertex output goes to.
@@ -6363,6 +6368,10 @@ extern int chv_cursor_offsets[];
 #define wait_for_atomic(COND, MS) _wait_for(COND, MS, 0)
 #define wait_for_atomic_us(COND, US) _wait_for((COND), \
 					       DIV_ROUND_UP((US), 1000), 0)
+
+#define single_plane_enabled(plane_stat)       is_power_of_2(plane_stat)
+#define single_pipe_enabled(pipe_stat)         is_power_of_2(pipe_stat)
+
 #define vlv_calculate_ddl(clock, pixel_size, prec_multi, ddl) (	\
 {									\
 	int entries;							\

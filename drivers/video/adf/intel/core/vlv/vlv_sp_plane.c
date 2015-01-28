@@ -201,9 +201,15 @@ static bool format_is_yuv(uint32_t format)
 }
 
 static inline struct vlv_pipeline *to_vlv_pipeline_sp1_plane(
-	struct vlv_sp_plane *plane)
+	struct vlv_sp_plane *splane)
 {
-	return container_of(plane, struct vlv_pipeline, splane[0]);
+	int plane = splane->ctx.plane;
+	struct vlv_sp_plane *tmp_plane = splane;
+
+	if (plane == 1)
+		tmp_plane -= 1;
+
+	return container_of(tmp_plane, struct vlv_pipeline, splane[0]);
 }
 
 static void vlv_sp_pane_save_ddl(struct vlv_sp_plane *splane, u32 ddl)
@@ -211,13 +217,8 @@ static void vlv_sp_pane_save_ddl(struct vlv_sp_plane *splane, u32 ddl)
 	int plane = splane->ctx.plane;
 	struct vlv_pipeline *disp = NULL;
 	struct vlv_pm *pm;
-	struct vlv_sp_plane *tmp_plane = splane;
 
-	/* FIXME: verify this works for both planes */
-	if (plane == 1)
-		tmp_plane -= 1;
-
-	disp = to_vlv_pipeline_sp1_plane(tmp_plane);
+	disp = to_vlv_pipeline_sp1_plane(splane);
 
 	pm = &disp->pm;
 	vlv_pm_save_values(pm, true, (plane ? false : true),
@@ -231,6 +232,8 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 	struct vlv_sp_plane *splane = to_vlv_sp_plane(planeptr);
 	struct sp_plane_regs_value *regs = &splane->ctx.regs;
 	struct intel_pipe *intel_pipe = config->pipe;
+	struct vlv_pipeline *pipeline = to_vlv_pipeline_sp1_plane(splane);
+	struct vlv_dc_config *vlv_config = pipeline->config;
 	struct drm_mode_modeinfo mode;
 	unsigned long sprsurf_offset, linear_offset;
 	int sprite_ddl, prec_multi, sp_prec_multi;
@@ -352,12 +355,12 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 	}
 
 	/* when in maxfifo display control register cannot be modified */
-	if (intel_pipe->status.maxfifo_enabled &&
+	if (vlv_config->status.maxfifo_enabled &&
 					regs->dspcntr != prev_sprctl) {
 		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-		intel_pipe->status.maxfifo_enabled = false;
-		intel_pipe->status.wait_vblank = true;
-		intel_pipe->status.vsync_counter =
+		vlv_config->status.maxfifo_enabled = false;
+		pipeline->status.wait_vblank = true;
+		pipeline->status.vsync_counter =
 			intel_pipe->ops->get_vsync_counter(intel_pipe, 0);
 	}
 
@@ -516,6 +519,8 @@ static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 {
 	struct vlv_sp_plane *splane = to_vlv_sp_plane(planeptr);
 	struct sp_plane_regs_value *regs = &splane->ctx.regs;
+	struct vlv_pipeline *pipeline = to_vlv_pipeline_sp1_plane(splane);
+	struct vlv_dc_config *vlv_config = pipeline->config;
 	int plane = splane->ctx.plane;
 	int pipe = splane->ctx.pipe;
 	u32 val = 0;
@@ -541,6 +546,7 @@ static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 		val &= ~PLANE_RESERVED_REG_BIT_2_ENABLE;
 		REG_WRITE(SPSURF(pipe, plane), val);
 	}
+	vlv_update_plane_status(&vlv_config->base, planeptr->base.idx, true);
 
 	return;
 }
@@ -553,6 +559,8 @@ bool vlv_sp_plane_is_enabled(struct vlv_sp_plane *splane)
 static int vlv_sp_enable(struct intel_plane *planeptr)
 {
 	struct vlv_sp_plane *splane = to_vlv_sp_plane(planeptr);
+	struct vlv_pipeline *pipeline = to_vlv_pipeline_sp1_plane(splane);
+	struct vlv_dc_config *vlv_config = pipeline->config;
 	u32 reg, value;
 	int plane = splane->ctx.plane;
 	int pipe = splane->ctx.pipe;
@@ -568,6 +576,7 @@ static int vlv_sp_enable(struct intel_plane *planeptr)
 	splane->enabled = true;
 	REG_WRITE(reg, value | DISPLAY_PLANE_ENABLE);
 	vlv_adf_flush_sp_plane(pipe, plane);
+	vlv_update_plane_status(&vlv_config->base, planeptr->base.idx, true);
 	/*
 	 * TODO:No need to wait in case of mipi.
 	 * Since data will flow only when port is enabled.
@@ -580,6 +589,8 @@ static int vlv_sp_enable(struct intel_plane *planeptr)
 static int vlv_sp_disable(struct intel_plane *planeptr)
 {
 	struct vlv_sp_plane *splane = to_vlv_sp_plane(planeptr);
+	struct vlv_pipeline *pipeline = to_vlv_pipeline_sp1_plane(splane);
+	struct vlv_dc_config *vlv_config = pipeline->config;
 	u32 value, mask;
 	int plane = splane->ctx.plane;
 	int pipe = splane->ctx.pipe;
@@ -594,6 +605,7 @@ static int vlv_sp_disable(struct intel_plane *planeptr)
 	splane->enabled = false;
 	REG_WRITE(splane->offset, value & ~DISPLAY_PLANE_ENABLE);
 	vlv_adf_flush_sp_plane(pipe, plane);
+	vlv_update_plane_status(&vlv_config->base, planeptr->base.idx, false);
 	/* While disabling plane reset the plane DDL value */
 	if (plane == 0)
 		mask = DDL_SPRITEA_MASK;

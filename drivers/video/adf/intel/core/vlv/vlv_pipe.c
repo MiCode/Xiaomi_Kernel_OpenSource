@@ -221,12 +221,17 @@ out:
 u32 vlv_pipe_enable(struct vlv_pipe *pipe,
 		struct drm_mode_modeinfo *mode)
 {
+	struct vlv_pipeline *vlv_pipeline = container_of(pipe,
+			struct vlv_pipeline, pipe);
+	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
+
 	u32 val = 0;
 	u32 err = 0;
 
 	val = REG_READ(pipe->offset);
 	val |= PIPECONF_ENABLE;
 	REG_WRITE(pipe->offset, val);
+	vlv_update_pipe_status(intel_config, pipe->pipe_id, true);
 
 	/* temp to avoid unused variable error */
 	pr_info("ADF: %s:%d\n", __func__, mode->vdisplay);
@@ -237,6 +242,10 @@ u32 vlv_pipe_enable(struct vlv_pipe *pipe,
 
 u32 vlv_pipe_disable(struct vlv_pipe *pipe)
 {
+	struct vlv_pipeline *vlv_pipeline = container_of(pipe,
+			struct vlv_pipeline, pipe);
+	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
+
 	u32 val = 0;
 	u32 err = 0;
 
@@ -250,6 +259,8 @@ u32 vlv_pipe_disable(struct vlv_pipe *pipe)
 	val &= ~(DITHERING_TYPE_MASK | DDA_RESET | BPC_MASK |
 					PIPECONF_DITHERING);
 	REG_WRITE(pipe->offset, val);
+
+	vlv_update_pipe_status(intel_config, pipe->pipe_id, false);
 
 	/* Wait for the Pipe State to go off */
 	if (wait_for(!(REG_READ(pipe->offset) & I965_PIPECONF_ACTIVE), 100)) {

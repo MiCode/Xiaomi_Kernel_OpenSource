@@ -151,6 +151,11 @@ static inline void vlv_punit_write(u32 reg, u32 val)
 			reg, &val);
 }
 
+struct vlv_pipeline_status {
+	bool wait_vblank;
+	u32 vsync_counter;
+};
+
 struct vlv_pipeline {
 	struct intel_pipeline base;
 	struct vlv_dpst *dpst;
@@ -173,7 +178,13 @@ struct vlv_pipeline {
 		struct vlv_hdmi_port hdmi_port;
 		struct vlv_dp_port dp_port;
 	} port;
+	struct vlv_pipeline_status status;
+	struct vlv_dc_config *config;
+};
 
+struct vlv_global_status {
+	bool maxfifo_enabled;
+	u32 pipe_plane_status;
 };
 
 struct vlv_dc_config {
@@ -182,6 +193,7 @@ struct vlv_dc_config {
 	u32 max_planes;
 	struct vlv_dpst dpst;
 	struct mutex dpio_lock;
+	struct vlv_global_status status;
 	/*
 	 * FIXME: For other platforms the number of pipes may
 	 * vary, which has to be handeled in future
@@ -279,5 +291,11 @@ extern void REG_WRITE_BITS(u32 reg, u32 val, u32 mask);
 
 extern u32 vlv_dp_set_brightness(struct intel_pipeline *pipeline, int level);
 extern u32 vlv_dp_get_brightness(struct intel_pipeline *pipeline);
+
+/* pipe and plane status */
+void vlv_update_pipe_status(struct intel_dc_config *config,
+		u8 pipe, bool enabled);
+void vlv_update_plane_status(struct intel_dc_config *config,
+		u8 plane, bool enabled);
 
 #endif

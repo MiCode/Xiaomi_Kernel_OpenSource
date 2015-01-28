@@ -24,6 +24,8 @@
 #include <core/common/intel_gen_backlight.h>
 /* FIXME: remove this once gpio calls are abstracted */
 #include <core/vlv/vlv_dc_config.h>
+#include <core/vlv/vlv_dc_regs.h>
+#include <core/vlv/vlv_pm.h>
 #include "dsi_vbt.h"
 #include "intel_dsi.h"
 #include "intel_dsi_cmd.h"
@@ -419,18 +421,13 @@ static void dsi_on_post(struct intel_pipe *pipe)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
 	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
-	int num_planes = 0;
-
-	num_planes = vlv_num_planes_enabled(pipeline);
-
-	/* Enable maxfifo if required */
-	if (!pipe->status.maxfifo_enabled && (num_planes == 1)) {
-		vlv_update_maxfifo_status(pipeline, true);
-		pipe->status.maxfifo_enabled = true;
-	}
+	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
+	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
 	if (dsi_pipe->ops.on_post)
 		dsi_pipe->ops.on_post(dsi_pipe);
+
+	vlv_pm_on_post(intel_config);
 }
 
 static void dsi_pre_validate(struct intel_pipe *pipe,
@@ -438,42 +435,20 @@ static void dsi_pre_validate(struct intel_pipe *pipe,
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
 	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
-	struct intel_adf_config *custom_config;
-	u8 i = 0, planes_enabled = 0;
+	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
+	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
-	for (i = 0; i < custom->n_configs; i++) {
-		custom_config = &custom->configs[i];
-
-		/* Get the number of planes enabled */
-		if (custom_config->type == INTEL_ADF_CONFIG_PLANE)
-			planes_enabled++;
-	}
-
-	/* If we are moving to multiple plane then disable maxfifo */
-	if (planes_enabled > 1 && pipe->status.maxfifo_enabled) {
-		vlv_update_maxfifo_status(pipeline, false);
-		/* FIXME: move these variables out of intel_pipe */
-		pipe->status.maxfifo_enabled = false;
-		pipe->status.wait_vblank = true;
-		pipe->status.vsync_counter =
-				pipe->ops->get_vsync_counter(pipe, 0);
-	}
+	vlv_pm_pre_validate(intel_config, custom, pipeline, pipe);
 }
 
 static void dsi_pre_post(struct intel_pipe *pipe)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
 	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
-	struct drm_mode_modeinfo mode;
+	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
+	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
-	if (pipe->status.wait_vblank && pipe->status.vsync_counter ==
-			pipe->ops->get_vsync_counter(pipe, 0)) {
-		vlv_wait_for_vblank(pipeline);
-		pipe->status.wait_vblank = false;
-	}
-
-	pipe->ops->get_current_mode(pipe, &mode);
-	vlv_evade_vblank(pipeline, &mode, &pipe->status.wait_vblank);
+	vlv_pm_pre_post(intel_config, pipeline, pipe);
 }
 
 static u32 dsi_get_supported_events(struct intel_pipe *pipe)

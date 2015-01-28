@@ -32,5 +32,11 @@ u32 vlv_pm_save_values(struct vlv_pm *pm, bool pri_plane,
 		bool sp1_plane, bool sp2_plane, u32 val);
 u32 vlv_pm_program_values(struct vlv_pm *pm, int num_planes);
 u32 vlv_pm_flush_values(struct vlv_pm *pm, u32 event);
+void vlv_pm_on_post(struct intel_dc_config *intel_config);
+void vlv_pm_pre_validate(struct intel_dc_config *intel_config,
+		struct intel_adf_post_custom_data *custom,
+		struct intel_pipeline *intel_pipeline, struct intel_pipe *pipe);
+void vlv_pm_pre_post(struct intel_dc_config *intel_config,
+		struct intel_pipeline *intel_pipeline, struct intel_pipe *pipe);
 
 #endif /*_VLV_WATERMARK_H_*/

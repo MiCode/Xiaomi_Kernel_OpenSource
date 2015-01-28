@@ -22,6 +22,7 @@
 #include <drm/drm_modes.h>
 #include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/chv_dc_regs.h>
+#include <core/vlv/vlv_pm.h>
 #include <core/common/hdmi/gen_hdmi_pipe.h>
 
 /* Encoder options */
@@ -177,50 +178,38 @@ u32 hdmi_get_vsync_counter(struct intel_pipe *pipe, u32 interval)
 void hdmi_pre_validate(struct intel_pipe *pipe,
 			struct intel_adf_post_custom_data *custom)
 {
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct intel_pipeline *pipeline = hdmi_pipe->base.pipeline;
+	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
+	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
 	pr_debug("ADF: HDMI: %s\n", __func__);
-	if (custom->n_configs > 1 && pipe->status.maxfifo_enabled) {
-		vlv_update_maxfifo_status(pipe->pipeline, false);
-
-		/* FIXME: move these variables out of intel_pipe */
-		pipe->status.maxfifo_enabled = false;
-		pipe->status.wait_vblank = true;
-		pipe->status.vsync_counter =
-			pipe->ops->get_vsync_counter(pipe, 0);
-	}
+	vlv_pm_pre_validate(intel_config, custom, pipeline, pipe);
 }
 
 void hdmi_pre_post(struct intel_pipe *pipe)
 {
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct intel_pipeline *pipeline = hdmi_pipe->base.pipeline;
+	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
+	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
 	pr_debug("ADF: HDMI: %s\n", __func__);
-	if (pipe->status.wait_vblank && pipe->status.vsync_counter ==
-			pipe->ops->get_vsync_counter(pipe, 0)) {
-		vlv_wait_for_vblank(pipe->pipeline);
-		pipe->status.wait_vblank = false;
-	}
+	vlv_pm_pre_post(intel_config, pipeline, pipe);
 }
 
 void hdmi_on_post(struct intel_pipe *pipe)
 {
 	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
 	struct intel_pipeline *pipeline = hdmi_pipe->base.pipeline;
-	struct drm_mode_modeinfo mode;
-	int num_planes = vlv_num_planes_enabled(pipeline);
+	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
+	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
-	pr_debug("ADF: HDMI: %s planes=%d\n", __func__, num_planes);
-
-	/* Enable maxfifo if required */
-	if (!pipe->status.maxfifo_enabled && (num_planes == 1)) {
-		vlv_update_maxfifo_status(pipeline, true);
-		pipe->status.maxfifo_enabled = true;
-	}
-
+	pr_debug("ADF: HDMI: %s\n", __func__);
 	if (hdmi_pipe->ops.on_post)
 		hdmi_pipe->ops.on_post(hdmi_pipe);
 
-	pipe->ops->get_current_mode(pipe, &mode);
-	vlv_evade_vblank(pipeline, &mode, &pipe->status.wait_vblank);
+	vlv_pm_on_post(intel_config);
 }
 
 /* Core modeset */

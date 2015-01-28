@@ -17,12 +17,108 @@
 #include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_pm.h>
 
+void vlv_pm_on_post(struct intel_dc_config *intel_config)
+{
+	struct vlv_dc_config *config = to_vlv_dc_config(intel_config);
+	u32 pipe_plane_stat = config->status.pipe_plane_status;
+	u32 plane_stat = pipe_plane_stat & 0x01FF;
+	u32 val = 0;
+
+	/* Enable maxfifo if required */
+	if (!config->status.maxfifo_enabled &&
+			((plane_stat == 1) ||
+			(single_plane_enabled(plane_stat)))) {
+		if  (intel_config->id == gen_cherryview) {
+			/*
+			 * In chv pipe-c should not be enabled for
+			 * maxfifo to be enabled
+			 */
+			if (pipe_plane_stat & (1 << (31 - PIPE_C)))
+				return;
+		}
+		REG_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
+		if  (intel_config->id == gen_cherryview) {
+			val = vlv_punit_read(CHV_DPASSC);
+			vlv_punit_write(CHV_DPASSC,
+					(val | CHV_PW_MAXFIFO_MASK));
+		}
+		config->status.maxfifo_enabled = true;
+	}
+}
+
+void vlv_pm_pre_validate(struct intel_dc_config *intel_config,
+		struct intel_adf_post_custom_data *custom,
+		struct intel_pipeline *intel_pipeline, struct intel_pipe *pipe)
+{
+	struct vlv_dc_config *config = to_vlv_dc_config(intel_config);
+	struct vlv_pipeline *pipeline = to_vlv_pipeline(intel_pipeline);
+	struct intel_adf_config *custom_config;
+	u32 pipe_plane_stat = config->status.pipe_plane_status;
+	u32 pipe_stat = pipe_plane_stat & 0xF0000000;
+	u8 i = 0, planes_enabled = 0;
+	u32 val = 0;
+
+	for (i = 0; i < custom->n_configs; i++) {
+		custom_config = &custom->configs[i];
+
+		/* Get the number of planes enabled */
+		if (custom_config->type == INTEL_ADF_CONFIG_PLANE)
+			planes_enabled++;
+	}
+
+	/* If we are moving to multiple plane then disable maxfifo */
+	if (((planes_enabled > 1) || !(single_pipe_enabled(pipe_stat))) &&
+			config->status.maxfifo_enabled) {
+		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		if  (intel_config->id == gen_cherryview) {
+			val = vlv_punit_read(CHV_DPASSC);
+			vlv_punit_write(CHV_DPASSC,
+					(val & ~CHV_PW_MAXFIFO_MASK));
+		}
+		/* FIXME: move these variables out of intel_pipe */
+		config->status.maxfifo_enabled = false;
+		pipeline->status.wait_vblank = true;
+		pipeline->status.vsync_counter =
+				pipe->ops->get_vsync_counter(pipe, 0);
+	}
+}
+
+void vlv_pm_pre_post(struct intel_dc_config *intel_config,
+		struct intel_pipeline *intel_pipeline, struct intel_pipe *pipe)
+{
+	struct vlv_pipeline *pipeline = to_vlv_pipeline(intel_pipeline);
+	struct drm_mode_modeinfo mode;
+
+	if (pipeline->status.wait_vblank && pipeline->status.vsync_counter ==
+			pipe->ops->get_vsync_counter(pipe, 0)) {
+		vlv_wait_for_vblank(intel_pipeline);
+		pipeline->status.wait_vblank = false;
+	}
+
+	pipe->ops->get_current_mode(pipe, &mode);
+	vlv_evade_vblank(intel_pipeline, &mode,
+				&pipeline->status.wait_vblank);
+}
+
 bool vlv_pm_update_maxfifo_status(struct vlv_pm *pm, bool enable)
 {
-	if (enable)
+#ifdef CONFIG_ADF_INTEL_CHV
+	u32 val = 0;
+#endif
+
+	if (enable) {
 		REG_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
-	else
+#ifdef CONFIG_ADF_INTEL_CHV
+		val = vlv_punit_read(CHV_DPASSC);
+		vlv_punit_write(CHV_DPASSC, (val | CHV_PW_MAXFIFO_MASK));
+#endif
+	} else {
 		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+#ifdef CONFIG_ADF_INTEL_CHV
+		val = vlv_punit_read(CHV_DPASSC);
+		vlv_punit_write(CHV_DPASSC, (val & ~CHV_PW_MAXFIFO_MASK));
+#endif
+	}
 
 	return true;
 }

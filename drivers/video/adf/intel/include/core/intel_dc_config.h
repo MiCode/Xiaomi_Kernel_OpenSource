@@ -459,13 +459,6 @@ struct pri_plane_regs {
 	unsigned long surfaddr;
 };
 
-struct intel_global_status {
-	bool maxfifo_enabled;
-	bool wait_vblank;
-	u32 vsync_counter;
-	bool plane_status[2][6];
-};
-
 struct intel_clock {
 	/* given values */
 	u32 n;
@@ -494,7 +487,6 @@ struct intel_pipe {
 	 * one shot later in flip calls
 	 */
 	struct pri_plane_regs regs;
-	struct intel_global_status status;
 };
 
 struct intel_dc_attachment {
