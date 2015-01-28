@@ -1,9 +1,10 @@
 # Makefile for Intel display driver based on ADF framework
+
 ccflags-y := -Idrivers/staging/ -Iinclude/adf -Iinclude/uapi/adf -Idrivers/video/adf/intel/include -Werror
 
-obj-$(CONFIG_ADF_INTEL) += backlight_dev.o
-obj-$(CONFIG_ADF_INTEL) += intel_gen_backlight.o
-obj-y 			+= intel_adf_events.o
+CFLAGS_adf.o := -I$(src)
 
-obj-y			+= dsi/
-obj-y			+= hdmi/
+ifdef CONFIG_ADF_INTEL_VLV
+	obj-y := gen_hdmi_pipe.o
+	obj-y += gen_hdmi_pipe_ops.o
+endif

@@ -1,0 +1,296 @@
+/*
+ * Copyright ©  2014 Intel Corporation
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * Author: Akashdeep Sharma <akashdeep.sharma@intel.com>
+ * Author: Shashank Sharma <shashank.sharma@intel.com>
+ */
+#include <linux/types.h>
+#include <linux/i2c.h>
+#include <linux/delay.h>
+#include <drm/drm_crtc.h>
+#include <drm/drm_modes.h>
+#include <core/vlv/vlv_dc_config.h>
+#include <core/vlv/chv_dc_regs.h>
+#include <core/common/hdmi/gen_hdmi_pipe.h>
+
+/* Encoder options */
+int hdmi_hw_init(struct intel_pipe *pipe)
+{
+	return 0;
+}
+
+void hdmi_hw_deinit(struct intel_pipe *pipe)
+{
+
+}
+
+void hdmi_handle_one_time_events(struct intel_pipe *pipe, u32 events)
+{
+	return;
+}
+
+long hdmi_dpst_context(struct intel_pipe *pipe, unsigned long arg)
+{
+	return 0;
+}
+
+/* Utility */
+
+/* Returning array of modes, caller must free the ptr */
+static void hdmi_get_modelist(struct intel_pipe *pipe,
+		struct drm_mode_modeinfo **modelist, size_t *n_modes)
+{
+	int count = 0;
+	struct drm_mode_modeinfo *probed_modes = NULL;
+	struct hdmi_mode_info *t, *mode;
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct hdmi_monitor *monitor = hdmi_pipe->config.ctx.monitor;
+
+	if (!modelist) {
+		pr_err("ADF: HDMI: %s NULL input\n", __func__);
+		return;
+	}
+
+	/* No monitor connected */
+	if (!monitor || !monitor->no_probed_modes) {
+		pr_err("ADF: HDMI: %s No connected monitor\n", __func__);
+		return;
+	}
+
+	probed_modes = kzalloc(monitor->no_probed_modes *
+		sizeof(struct drm_mode_modeinfo), GFP_KERNEL);
+	if (!probed_modes) {
+		pr_err("ADF: HDMI: %s OOM\n", __func__);
+		return;
+	}
+
+	list_for_each_entry_safe(mode, t, &monitor->probed_modes, head) {
+		memcpy(&probed_modes[count], &mode->drm_mode,
+					sizeof(struct drm_mode_modeinfo));
+		if (++count == monitor->no_probed_modes)
+			break;
+	}
+
+	/* Update list */
+	*modelist = probed_modes;
+	*n_modes = monitor->no_probed_modes;
+	pr_info("ADF: HDMI: %s done, no_modes=%d\n", __func__, (int)*n_modes);
+}
+
+int hdmi_get_screen_size(struct intel_pipe *pipe,
+		u16 *width_mm, u16 *height_mm)
+{
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct hdmi_monitor *monitor = hdmi_pipe->config.ctx.monitor;
+
+	if (!monitor) {
+		pr_err("ADF: HDMI: %s Monitor not present\n", __func__);
+		*width_mm = 0;
+		*height_mm = 0;
+	} else {
+		*width_mm = monitor->screen_width_mm;
+		*height_mm = monitor->screen_height_mm;
+	}
+	pr_info("ADF: HDMI: %s Monitor hXw=%dX%d\n",
+		__func__, *width_mm, *height_mm);
+	return 0;
+}
+
+bool hdmi_is_screen_connected(struct intel_pipe *pipe)
+{
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct hdmi_context *hdmi_ctx = &hdmi_pipe->config.ctx;
+	struct hdmi_monitor *monitor = hdmi_ctx->monitor;
+
+	pr_info("ADF: HDMI: %s\n", __func__);
+	if (!monitor)
+		return false;
+	else
+		return atomic_read(&hdmi_ctx->connected);
+}
+
+void hdmi_get_current_mode(struct intel_pipe *pipe,
+		struct drm_mode_modeinfo *mode)
+{
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct drm_mode_modeinfo *curr_mode =
+				hdmi_pipe->config.ctx.current_mode;
+
+	if (!mode) {
+		pr_err("ADF: HDMI: %s NULL input\n", __func__);
+		return;
+	}
+
+	if (curr_mode) {
+		memcpy(mode, curr_mode, sizeof(*mode));
+		pr_debug("ADF: HDMI: %s curr mode %s\n",
+			__func__, curr_mode->name);
+	} else {
+		memset(mode, 0, sizeof(*mode));
+		pr_info("ADF: HDMI: %s No curr mode\n", __func__);
+	}
+}
+
+static void hdmi_get_preferred_mode(struct intel_pipe *pipe,
+		struct drm_mode_modeinfo **mode)
+{
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct hdmi_monitor *monitor = hdmi_pipe->config.ctx.monitor;
+
+	pr_info("ADF: HDMI: %s\n", __func__);
+
+	if (!mode) {
+		pr_err("ADF: HDMI: %s NULL input\n", __func__);
+		return;
+	}
+
+	if (monitor)
+		*mode = monitor->preferred_mode;
+	else
+		*mode = NULL;
+}
+
+u32 hdmi_get_vsync_counter(struct intel_pipe *pipe, u32 interval)
+{
+	int count = 0;
+
+	count = pipe->vsync_counter;
+	count |= ~VSYNC_COUNT_MAX_MASK;
+	count += interval;
+	count &= VSYNC_COUNT_MAX_MASK;
+
+	pr_info("ADF: HDMI: vsync count = %#x\n", count);
+	return count;
+}
+
+void hdmi_pre_validate(struct intel_pipe *pipe,
+			struct intel_adf_post_custom_data *custom)
+{
+
+	pr_debug("ADF: HDMI: %s\n", __func__);
+	if (custom->n_configs > 1 && pipe->status.maxfifo_enabled) {
+		vlv_update_maxfifo_status(pipe->pipeline, false);
+
+		/* FIXME: move these variables out of intel_pipe */
+		pipe->status.maxfifo_enabled = false;
+		pipe->status.wait_vblank = true;
+		pipe->status.vsync_counter =
+			pipe->ops->get_vsync_counter(pipe, 0);
+	}
+}
+
+void hdmi_pre_post(struct intel_pipe *pipe)
+{
+
+	pr_debug("ADF: HDMI: %s\n", __func__);
+	if (pipe->status.wait_vblank && pipe->status.vsync_counter ==
+			pipe->ops->get_vsync_counter(pipe, 0)) {
+		vlv_wait_for_vblank(pipe->pipeline);
+		pipe->status.wait_vblank = false;
+	}
+}
+
+void hdmi_on_post(struct intel_pipe *pipe)
+{
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct intel_pipeline *pipeline = hdmi_pipe->base.pipeline;
+	struct drm_mode_modeinfo mode;
+	int num_planes = vlv_num_planes_enabled(pipeline);
+
+	pr_debug("ADF: HDMI: %s planes=%d\n", __func__, num_planes);
+
+	/* Enable maxfifo if required */
+	if (!pipe->status.maxfifo_enabled && (num_planes == 1)) {
+		vlv_update_maxfifo_status(pipeline, true);
+		pipe->status.maxfifo_enabled = true;
+	}
+
+	if (hdmi_pipe->ops.on_post)
+		hdmi_pipe->ops.on_post(hdmi_pipe);
+
+	pipe->ops->get_current_mode(pipe, &mode);
+	vlv_evade_vblank(pipeline, &mode, &pipe->status.wait_vblank);
+}
+
+
+static int hdmi_modeset(struct intel_pipe *pipe,
+		struct drm_mode_modeinfo *mode)
+{
+	return 0;
+}
+
+static int hdmi_dpms(struct intel_pipe *pipe, u8 state)
+{
+	return 0;
+}
+
+/* Event handling funcs */
+int hdmi_set_event(struct intel_pipe *pipe, u16 event, bool enabled)
+{
+	int ret;
+
+	pr_info("ADF: HDMI: %s\n", __func__);
+	ret = intel_adf_set_event(pipe, event, enabled);
+	if (ret) {
+		pr_err("ADF: HDMI: %s set event type=%d(%hu) failed\n",
+			__func__, pipe->type, event);
+		return ret;
+	}
+	return 0;
+}
+
+void hdmi_get_events(struct intel_pipe *pipe, u32 *events)
+{
+	pr_debug("ADF: HDMI: %s\n", __func__);
+	if (intel_adf_get_events(pipe, events))
+		pr_err("ADF: HDMI: %s get events (type=%d) failed\n",
+			__func__, pipe->type);
+}
+
+void hdmi_handle_events(struct intel_pipe *pipe, u32 events)
+{
+	pr_info("ADF: HDMI: %s\n", __func__);
+	if (intel_adf_handle_events(pipe, events))
+		pr_err("ADF: HDMI: %s handle events (type=%d) failed\n",
+			 __func__, pipe->type);
+}
+
+u32 hdmi_get_supported_events(struct intel_pipe *pipe)
+{
+	return INTEL_PIPE_EVENT_VSYNC |
+		INTEL_PORT_EVENT_HOTPLUG_DISPLAY;
+}
+
+/* HDMI external ops */
+struct intel_pipe_ops hdmi_base_ops = {
+	.hw_init = hdmi_hw_init,
+	.hw_deinit = hdmi_hw_deinit,
+	.get_preferred_mode = hdmi_get_preferred_mode,
+	.get_modelist = hdmi_get_modelist,
+	.dpms = hdmi_dpms,
+	.modeset = hdmi_modeset,
+	.get_screen_size = hdmi_get_screen_size,
+	.is_screen_connected = hdmi_is_screen_connected,
+	.get_vsync_counter = hdmi_get_vsync_counter,
+	.get_supported_events = hdmi_get_supported_events,
+	.pre_post = hdmi_pre_post,
+	.on_post = hdmi_on_post,
+	.get_events = hdmi_get_events,
+	.set_event = hdmi_set_event,
+	.handle_events = hdmi_handle_events,
+	.pre_validate = hdmi_pre_validate,
+	.pre_post = hdmi_pre_post,
+	.on_post = hdmi_on_post,
+	.get_current_mode = hdmi_get_current_mode,
+};
