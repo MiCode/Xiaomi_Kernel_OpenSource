@@ -175,6 +175,7 @@
 			qcom,adc-vdd-reference = <1800>;
 			qcom,vadc-poll-eoc;
 			qcom,vadc-meas-int-mode;
+			qcom,pmic-revid = <&pmi8994_revid>;
 
 			chan@d {
 				label = "chg_temp";
