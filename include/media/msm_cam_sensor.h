@@ -558,6 +558,7 @@ struct msm_camera_led_cfg_t {
 
 struct msm_flash_init_info_t {
 	enum msm_flash_driver_type flash_driver_type;
+	uint32_t slave_addr;
 	struct msm_sensor_power_setting_array *power_setting_array;
 	struct msm_camera_i2c_reg_setting_array *settings;
 };
@@ -729,6 +730,7 @@ struct msm_ois_cfg_data32 {
 
 struct msm_flash_init_info_t32 {
 	enum msm_flash_driver_type flash_driver_type;
+	uint32_t slave_addr;
 	compat_uptr_t power_setting_array;
 	compat_uptr_t settings;
 };
