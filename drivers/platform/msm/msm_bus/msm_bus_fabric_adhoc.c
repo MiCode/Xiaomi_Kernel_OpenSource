@@ -306,6 +306,10 @@ static int flush_clk_data(struct device *node_device, int ctx)
 			}
 
 			ret = enable_nodeclk(nodeclk);
+
+			if ((node->node_info->is_fab_dev) &&
+				!IS_ERR_OR_NULL(node->qos_clk.clk))
+					ret = enable_nodeclk(&node->qos_clk);
 		} else {
 			if ((node->node_info->is_fab_dev) &&
 				!IS_ERR_OR_NULL(node->qos_clk.clk))
@@ -690,7 +694,6 @@ int msm_bus_enable_limiter(struct msm_bus_node_device_type *node_dev,
 	}
 	if (bus_node_dev->fabdev &&
 		bus_node_dev->fabdev->noc_ops.limit_mport) {
-		ret = msm_bus_qos_enable_clk(node_dev);
 		if (ret < 0) {
 			MSM_BUS_ERR("Can't Enable QoS clk %d",
 				node_dev->node_info->id);
@@ -703,7 +706,6 @@ int msm_bus_enable_limiter(struct msm_bus_node_device_type *node_dev,
 				bus_node_dev->fabdev->qos_off,
 				bus_node_dev->fabdev->qos_freq,
 				enable, lim_bw);
-		ret = msm_bus_qos_disable_clk(node_dev, ret);
 	}
 
 exit_enable_limiter:
