@@ -196,6 +196,7 @@ extern u32 vlv_dsi_pre_pipeline_on(struct intel_pipeline *pipeline,
 extern u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 			struct drm_mode_modeinfo *mode);
 extern u32 vlv_pipeline_off(struct intel_pipeline *pipeline);
+extern u32 chv_pipeline_off(struct intel_pipeline *pipeline);
 extern u32 vlv_post_pipeline_off(struct intel_pipeline *pipeline);
 extern bool vlv_is_screen_connected(struct intel_pipeline *pipeline);
 extern u32 vlv_num_planes_enabled(struct intel_pipeline *pipeline);

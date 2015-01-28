@@ -12,8 +12,8 @@
  * paragraph) shall be included in all copies or substantial portions of the
  * Software.
  *
- * Author: Akashdeep Sharma <akashdeep.sharma@intel.com>
  * Author: Shashank Sharma <shashank.sharma@intel.com>
+ * Author: Akashdeep Sharma <akashdeep.sharma@intel.com>
  */
 #include <linux/types.h>
 #include <linux/i2c.h>
@@ -223,16 +223,189 @@ void hdmi_on_post(struct intel_pipe *pipe)
 	vlv_evade_vblank(pipeline, &mode, &pipe->status.wait_vblank);
 }
 
+/* Core modeset */
+static int hdmi_prepare(struct intel_pipe *pipe,
+		struct drm_mode_modeinfo *mode)
+{
+	int err = 0;
+	u32 val = 0;
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct intel_pipeline *pipeline = hdmi_pipe->base.pipeline;
+	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
+	struct vlv_hdmi_port *hdmi_port;
+
+	pr_info("ADF:HDMI: %s\n", __func__);
+
+	if (!pipeline) {
+		pr_err("ADF:HDMI: %s: Pipeline not set\n", __func__);
+		err = -EINVAL;
+		return err;
+	}
+
+	hdmi_port = &disp->port.hdmi_port;
+	if (!hdmi_port) {
+		pr_err("ADF:HDMI: %s: Port not set\n", __func__);
+		err = -EINVAL;
+		return err;
+	}
+
+	val = SDVO_ENCODING_HDMI;
+	if (mode->flags & DRM_MODE_FLAG_PVSYNC)
+		val |= SDVO_VSYNC_ACTIVE_HIGH;
+	if (mode->flags & DRM_MODE_FLAG_PHSYNC)
+		val |= SDVO_HSYNC_ACTIVE_HIGH;
+
+	val |= SDVO_COLOR_FORMAT_8bpc;
+	val |= HDMI_MODE_SELECT_HDMI;
+
+	val |= SDVO_AUDIO_ENABLE;
+	val |= SDVO_PIPE_SEL_CHV(pipe->base.idx);
+
+	err = vlv_hdmi_port_prepare(hdmi_port, val);
+	if (err)
+		pr_err("ADF: HDMI: %s: prepare port failed\n", __func__);
+
+	return err;
+}
 
 static int hdmi_modeset(struct intel_pipe *pipe,
 		struct drm_mode_modeinfo *mode)
 {
-	return 0;
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct hdmi_config *config = &hdmi_pipe->config;
+	struct intel_pipeline *pipeline = hdmi_pipe->base.pipeline;
+	struct drm_mode_modeinfo *curr_mode;
+
+	int err = 0;
+	pr_info("ADF:HDMI: %s\n", __func__);
+
+	if (!mode || !config || !pipeline) {
+		pr_err("ADF:HDMI: %s: NULL input\n", __func__);
+		err = -EINVAL;
+		return err;
+	}
+
+	mutex_lock(&config->ctx_lock);
+
+	curr_mode = config->ctx.current_mode;
+	err = chv_pipeline_off(pipeline);
+	if (err) {
+		pr_err("ADF:HDMI: %s: Pipeline off failed\n", __func__);
+		goto out;
+	}
+	hdmi_pipe->dpms_state = DRM_MODE_DPMS_OFF;
+
+	err = hdmi_prepare(pipe, mode);
+	if (err) {
+		pr_err("ADF:HDMI: %s: Prepare failed\n", __func__);
+		goto out;
+	}
+
+	err = vlv_pipeline_on(pipeline, mode);
+	if (err) {
+		pr_err("ADF:HDMI: %s: Pipeline on failed\n", __func__);
+		goto out;
+	}
+	hdmi_pipe->dpms_state = DRM_MODE_DPMS_ON;
+
+	/* Update the latest applied mode to current context */
+	memcpy(curr_mode, mode, sizeof(*mode));
+
+out:
+	mutex_unlock(&config->ctx_lock);
+	return err;
 }
 
 static int hdmi_dpms(struct intel_pipe *pipe, u8 state)
 {
-	return 0;
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct hdmi_config *config = &hdmi_pipe->config;
+	struct intel_pipeline *pipeline = hdmi_pipe->base.pipeline;
+	struct hdmi_monitor *monitor;
+	struct drm_mode_modeinfo *mode;
+
+	int err = 0;
+	pr_info("ADF:HDMI: %s: Current_state = %d, requested_state = %d\n",
+			__func__, hdmi_pipe->dpms_state, state);
+
+	if (!config) {
+		pr_err("ADF:HDMI: %s: Config not set\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!pipeline) {
+		pr_err("ADF:HDMI: %s: Pipeline not set\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&config->ctx_lock);
+
+	if (hdmi_pipe->dpms_state == state) {
+		pr_err("ADF:HDMI: %s: DPMS State same as requested = %s\n",
+				__func__, state ? "DPMS_OFF" : "DPMS_ON");
+
+		goto exit;
+	}
+
+	switch (state) {
+	case DRM_MODE_DPMS_ON:
+		/* Get mode from connected monitor */
+		monitor = config->ctx.monitor;
+		if (!monitor) {
+			pr_err("ADF: HDMI: %s: no connected monitor found\n",
+					__func__);
+			err = -EINVAL;
+			goto exit;
+		}
+
+		/*
+		 * In a resume call, we should pick the mode
+		 * which was present before suspend, so give priority
+		 * to current mode, than preferred mode
+		 */
+		if (config->ctx.current_mode)
+			mode = config->ctx.current_mode;
+		else
+			mode = monitor->preferred_mode;
+		intel_adf_display_rpm_get();
+		/* Prepare pipe and port values */
+		err = hdmi_prepare(pipe, mode);
+		if (err) {
+			pr_err("ADF:HDMI: %s: prepare failed\n", __func__);
+			goto exit;
+		}
+
+		/* Enable pipeline */
+		err = vlv_pipeline_on(pipeline, mode);
+		if (err) {
+			pr_err("ADF:HDMI: %s: Pipeline on failed\n", __func__);
+			goto exit;
+		}
+		break;
+
+	case DRM_MODE_DPMS_OFF:
+		err = chv_pipeline_off(pipeline);
+		intel_adf_display_rpm_put();
+		if (err) {
+			pr_err("ADF:HDMI: %s: Pipeline off failed\n", __func__);
+			goto exit;
+		}
+		break;
+
+	case DRM_MODE_DPMS_STANDBY:
+	case DRM_MODE_DPMS_SUSPEND:
+	default:
+		pr_err("ADF:HDMI: %s: Unsupported dpms mode\n", __func__);
+		err = -EOPNOTSUPP;
+		goto exit;
+	}
+
+	/* Update staus for successful DPMS */
+	hdmi_pipe->dpms_state = state;
+
+exit:
+	mutex_unlock(&config->ctx_lock);
+	return err;
 }
 
 /* Event handling funcs */
