@@ -15,7 +15,6 @@
 #define _VLV_PLL_H_
 
 #include <core/intel_dc_config.h>
-#include <core/vlv/vlv_dc_regs.h>
 
 struct dsi_mnp {
 	u32 dsi_pll_ctrl;
@@ -35,6 +34,24 @@ struct vlv_pll {
 	struct dsi_config *config;
 };
 
+struct intel_range {
+	int min, max;
+};
+
+struct intel_p2 {
+	int dot_limit;
+	int p2_slow, p2_fast;
+};
+
+struct intel_limit {
+	struct intel_range dot, vco, n, m, m1, m2, p, p1;
+	struct intel_p2 p2;
+};
+
+u32 vlv_pll_wait_for_port_ready(enum port port_id);
+u32 vlv_pll_program_timings(struct vlv_pll *pll,
+		struct drm_mode_modeinfo *mode,
+		struct intel_clock *clock);
 u32 vlv_dsi_pll_enable(struct vlv_pll *pll,
 		struct drm_mode_modeinfo *mode);
 u32 vlv_dsi_pll_disable(struct vlv_pll *pll);
