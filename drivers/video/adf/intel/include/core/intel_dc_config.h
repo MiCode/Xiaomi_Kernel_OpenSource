@@ -478,6 +478,11 @@ struct intel_clock {
 	u32 p;
 };
 
+struct intel_pipe_reg {
+	u32 pfit_control;
+	u32 scaling_src_size;
+};
+
 struct intel_pipe {
 	struct intel_dc_component base;
 	bool primary;
@@ -493,6 +498,7 @@ struct intel_pipe {
 	 * one shot later in flip calls
 	 */
 	struct pri_plane_regs regs;
+	struct intel_pipe_reg pipe_reg;
 	struct color_capabilities *color_ctx;
 };
 

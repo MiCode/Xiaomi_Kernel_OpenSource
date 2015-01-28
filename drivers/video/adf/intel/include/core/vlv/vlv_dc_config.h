@@ -215,6 +215,7 @@ struct vlv_pipeline {
 struct vlv_global_status {
 	bool maxfifo_enabled;
 	bool ddr_dvfs_enabled;
+	bool pfit_changed;
 	u32 pipe_plane_status;
 };
 

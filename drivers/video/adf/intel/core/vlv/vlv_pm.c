@@ -181,6 +181,14 @@ void vlv_pm_on_post(struct intel_dc_config *intel_config,
 		}
 		config->status.maxfifo_enabled = true;
 	}
+
+	/* Update the panel fitter */
+	if (config->status.pfit_changed) {
+		REG_WRITE(PFIT_CONTROL, pipe->pipe_reg.pfit_control);
+		REG_WRITE(PIPESRC(pipe->base.idx),
+				pipe->pipe_reg.scaling_src_size);
+		config->status.pfit_changed = false;
+	}
 }
 
 void vlv_pm_pre_validate(struct intel_dc_config *intel_config,
@@ -190,8 +198,15 @@ void vlv_pm_pre_validate(struct intel_dc_config *intel_config,
 	struct vlv_dc_config *config = to_vlv_dc_config(intel_config);
 	struct vlv_pipeline *pipeline = to_vlv_pipeline(intel_pipeline);
 	struct intel_adf_config *custom_config;
+	struct intel_adf_panelfitter *pfit = NULL;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct hdmi_pipe *hdmi_pipe = NULL;
+	struct dp_pipe *dp_pipe = NULL;
+	struct drm_mode_modeinfo mode;
 	u32 pipe_plane_stat = config->status.pipe_plane_status;
 	u32 pipe_stat = pipe_plane_stat & 0xF0000000;
+	u32 pfit_control = 0, pfitcontrol = 0;
+	u32 scaled_src = 0;
 	u8 i = 0, planes_enabled = 0;
 	u32 val = 0;
 
@@ -201,6 +216,87 @@ void vlv_pm_pre_validate(struct intel_dc_config *intel_config,
 		/* Get the number of planes enabled */
 		if (custom_config->type == INTEL_ADF_CONFIG_PLANE)
 			planes_enabled++;
+
+		if (custom_config->type == INTEL_ADF_CONFIG_PANELFITTER) {
+			pfit = &custom_config->panelfitter;
+
+			/* handle panel fitter requests */
+			if (pfit->flags & INTEL_ADF_PANELFITTER_HINT_UNCHANGED)
+				continue;
+
+			/* get the scaled source size */
+			scaled_src = ((pfit->src.w - 1) << 16) |
+				((pfit->src.h - 1));
+			pipe->pipe_reg.scaling_src_size = scaled_src;
+
+			if (pfit->flags & INTEL_ADF_PANELFITTER_DISABLE) {
+				pfit = NULL;
+				continue;
+			}
+
+			/* Update the flag to say change in the panel fitter */
+			config->status.pfit_changed = true;
+
+			pfit_control = REG_READ(PFIT_CONTROL);
+			pfitcontrol = pfit_control;
+
+			/* Dynamic changing of pfit to diff pipe */
+			if ((((pfit_control & PFIT_PIPE_MASK) >>
+				PFIT_PIPE_SHIFT) != pipe->base.idx) &&
+				(pfit_control & PFIT_ENABLE)) {
+				pr_err("ADF:PFIT:Error:pfit is already enabled on other pipe");
+				config->status.pfit_changed = false;
+				continue;
+			}
+			pfit_control &= PFIT_PIPE_MASK;
+			pfit_control |= (pipe->base.idx << PFIT_PIPE_SHIFT);
+
+			pfit_control |= PFIT_ENABLE;
+			pfit_control &= MASK_PFIT_SCALING_MODE;
+			if (pfit->flags & INTEL_ADF_PANELFITTER_AUTO)
+				pfit_control |= PFIT_SCALING_AUTO;
+			else if (pfit->flags & INTEL_ADF_PANELFITTER_LETTERBOX)
+				pfit_control |= PFIT_SCALING_LETTER;
+			else if (pfit->flags & INTEL_ADF_PANELFITTER_PILLARBOX)
+				pfit_control |= PFIT_SCALING_PILLAR;
+			pipe->pipe_reg.pfit_control = pfit_control;
+			if (pfit_control == pfitcontrol)
+				config->status.pfit_changed = false;
+		}
+
+	}
+
+	/* If no pfit config and post partial is not set then disable pfit */
+	if (pfit == NULL && !(custom->flags & INTEL_ADF_POST_PARTIAL)) {
+		pfit_control = REG_READ(PFIT_CONTROL);
+		pfitcontrol = pfit_control;
+		if (pfit_control & PFIT_ENABLE) {
+			pfit_control &= ~PFIT_ENABLE;
+			pipe->pipe_reg.pfit_control = pfit_control;
+
+			/* set pipe src to 1:1 */
+			if (pipe->type == INTEL_PIPE_DSI) {
+				dsi_pipe = to_dsi_pipe(pipe);
+				dsi_pipe->panel->ops->get_config_mode(
+						&dsi_pipe->config, &mode);
+			} else if (pipe->type == INTEL_PIPE_HDMI) {
+				hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+				pipe->ops->get_current_mode(pipe, &mode);
+			} else if ((pipe->type == INTEL_PIPE_DP) ||
+					(pipe->type == INTEL_PIPE_EDP)) {
+				dp_pipe = to_dp_pipe(pipe);
+				pipe->ops->get_current_mode(pipe, &mode);
+			} else  {
+				pr_err("ADF: pm:pre_validate: unknown pipe type-%d",
+						pipe->type);
+				return;
+			}
+			pipe->pipe_reg.scaling_src_size = ((mode.hdisplay - 1)
+					<< 16) | (mode.vdisplay - 1);
+
+			/* panel fitter updated */
+			config->status.pfit_changed = true;
+		}
 	}
 
 	/* If we are moving to multiple plane then disable maxfifo */

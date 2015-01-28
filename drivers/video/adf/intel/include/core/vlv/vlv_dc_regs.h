@@ -2748,6 +2748,7 @@ extern int chv_cursor_offsets[];
 #define   PFIT_SCALING_PROGRAMMED (1 << 26)
 #define   PFIT_SCALING_PILLAR	(2 << 26)
 #define   PFIT_SCALING_LETTER	(3 << 26)
+#define   MASK_PFIT_SCALING_MODE (0xe3ffffff)
 #define PFIT_PGM_RATIOS	(VLV_DISPLAY_BASE + 0x61234)
 /* Pre-965 */
 #define		PFIT_VERT_SCALE_SHIFT		20

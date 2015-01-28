@@ -226,6 +226,54 @@ static void vlv_sp_pane_save_ddl(struct vlv_sp_plane *splane, u32 ddl)
 		(plane ? true : false), ddl);
 }
 
+void vlv_get_pfit_mode(struct intel_plane_config *config,
+		struct intel_plane *plane)
+{
+	struct intel_pipe *intel_pipe = plane->pipe;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct hdmi_pipe *hdmi_pipe = NULL;
+	struct dp_pipe *dp_pipe = NULL;
+	struct drm_mode_modeinfo mode;
+	u32 scaled_width = 0;
+	u32 scaled_height = 0;
+	u32 pfit_control = intel_pipe->pipe_reg.pfit_control;
+
+	if (intel_pipe->type == INTEL_PIPE_DSI) {
+		dsi_pipe = to_dsi_pipe(intel_pipe);
+		dsi_pipe->panel->ops->get_config_mode(&dsi_pipe->config, &mode);
+	} else if (intel_pipe->type == INTEL_PIPE_HDMI) {
+		hdmi_pipe = hdmi_pipe_from_intel_pipe(intel_pipe);
+		intel_pipe->ops->get_current_mode(intel_pipe, &mode);
+	} else if ((intel_pipe->type == INTEL_PIPE_DP) ||
+		   (intel_pipe->type == INTEL_PIPE_EDP)) {
+		dp_pipe = to_dp_pipe(intel_pipe);
+		intel_pipe->ops->get_current_mode(intel_pipe, &mode);
+	} else  {
+		pr_err("ADF: sp:get_pfit_mode: unknown pipe type-%d",
+				intel_pipe->type);
+		return;
+	}
+	scaled_width = mode.hdisplay * config->src_h;
+	scaled_height = config->src_w * mode.vdisplay;
+	if (scaled_width > scaled_height) {
+		pfit_control &= MASK_PFIT_SCALING_MODE;
+		pfit_control |= PFIT_SCALING_PILLAR;
+	} else if (scaled_width < scaled_height) {
+		pfit_control &=  MASK_PFIT_SCALING_MODE;
+		pfit_control |= PFIT_SCALING_LETTER;
+	} else if (!(mode.hdisplay <= (config->src_w+25) &&
+			mode.hdisplay >= (config->src_w-25))) {
+		/*
+		 * TODO: If native width doest not lies b/n src layer
+		 * width-25 and width+25, we put pfit in auto scale,
+		 * not expecting variation more than 25
+		 */
+		pfit_control &=  MASK_PFIT_SCALING_MODE;
+		pfit_control |= PFIT_SCALING_AUTO;
+	}
+	intel_pipe->pipe_reg.pfit_control = pfit_control;
+}
+
 static int vlv_sp_calculate(struct intel_plane *planeptr,
 			struct intel_buffer *buf,
 			struct intel_plane_config *config)
@@ -253,6 +301,15 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 	u32 dst_x = config->dst_x & VLV_SP_12BIT_MASK;
 	u32 dst_y = config->dst_y & VLV_SP_12BIT_MASK;
 	u8 i = 0;
+
+	/*
+	 * While disabling the panel fitter in decremental sequence, the scalar
+	 * mode is decided on the present resolution.
+	 */
+	if (vlv_config->status.pfit_changed &&
+			!(intel_pipe->pipe_reg.pfit_control & PFIT_ENABLE) &&
+			planeptr->pipe)
+		vlv_get_pfit_mode(config, planeptr);
 
 	/* Z-order */
 	s1_zorder = (order >> 3) & 0x1;
