@@ -38,7 +38,7 @@
 #include "qcryptohw_50.h"
 #include "qce_ota.h"
 
-#define CRYPTO_CONFIG_RESET 0xE001F
+#define CRYPTO_CONFIG_RESET 0xE01EF
 #define QCE_MAX_NUM_DSCR    0x500
 #define QCE_SECTOR_SIZE	    0x200
 #define CE_CLK_100MHZ	100000000
