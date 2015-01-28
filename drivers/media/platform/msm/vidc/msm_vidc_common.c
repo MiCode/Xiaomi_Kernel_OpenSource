@@ -677,155 +677,152 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 
 static void handle_event_change(enum command_response cmd, void *data)
 {
-	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	struct msm_vidc_cb_event *event_notify;
+	struct msm_vidc_cb_event *event_notify = data;
 	int event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 	struct v4l2_event seq_changed_event = {0};
 	int rc = 0;
 	bool bit_depth_changed = false;
-	if (response) {
-		inst = (struct msm_vidc_inst *)response->session_id;
-		event_notify = (struct msm_vidc_cb_event *) response->data;
-		switch (event_notify->hal_event_type) {
-		case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
-			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 
-			rc = msm_comm_g_ctrl(inst,
+	if (!event_notify) {
+		dprintk(VIDC_WARN, "Got an empty event from hfi\n");
+		goto err_bad_event;
+	}
+
+	inst = (struct msm_vidc_inst *)event_notify->session_id;
+	switch (event_notify->hal_event_type) {
+	case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
+		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
+
+		rc = msm_comm_g_ctrl(inst,
 			V4L2_CID_MPEG_VIDC_VIDEO_CONTINUE_DATA_TRANSFER);
-			if (!IS_ERR_VALUE(rc) && rc == true)
-				event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
+		if (!IS_ERR_VALUE(rc) && rc == true)
+			event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
 
-			break;
-		case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
-			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
-			break;
-		case HAL_EVENT_RELEASE_BUFFER_REFERENCE:
-		{
-			struct v4l2_event buf_event = {0};
-			struct buffer_info *binfo = NULL, *temp = NULL;
-			u32 *ptr = NULL;
+		break;
+	case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
+		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
+		break;
+	case HAL_EVENT_RELEASE_BUFFER_REFERENCE:
+	{
+		struct v4l2_event buf_event = {0};
+		struct buffer_info *binfo = NULL, *temp = NULL;
+		u32 *ptr = NULL;
 
-			dprintk(VIDC_DBG,
-				"%s - inst: %p buffer: %pa extra: %pa\n",
+		dprintk(VIDC_DBG, "%s - inst: %p buffer: %pa extra: %pa\n",
 				__func__, inst, &event_notify->packet_buffer,
 				&event_notify->extra_data_buffer);
 
-			if (inst->state == MSM_VIDC_CORE_INVALID ||
+		if (inst->state == MSM_VIDC_CORE_INVALID ||
 				inst->core->state == VIDC_CORE_INVALID) {
-				dprintk(VIDC_DBG,
+			dprintk(VIDC_DBG,
 					"Event release buf ref received in invalid state - discard\n");
-				return;
-			}
+			goto err_bad_event;
+		}
 
-			/*
-			* Get the buffer_info entry for the
-			* device address.
-			*/
-			binfo = device_to_uvaddr(&inst->registeredbufs,
+		/*
+		 * Get the buffer_info entry for the
+		 * device address.
+		 */
+		binfo = device_to_uvaddr(&inst->registeredbufs,
 				event_notify->packet_buffer);
-			if (!binfo) {
-				dprintk(VIDC_ERR,
+		if (!binfo) {
+			dprintk(VIDC_ERR,
 					"%s buffer not found in registered list\n",
 					__func__);
-				return;
-			}
+			goto err_bad_event;
+		}
 
-			/* Fill event data to be sent to client*/
-			buf_event.type = V4L2_EVENT_RELEASE_BUFFER_REFERENCE;
-			ptr = (u32 *)buf_event.u.data;
-			ptr[0] = binfo->fd[0];
-			ptr[1] = binfo->buff_off[0];
+		/* Fill event data to be sent to client*/
+		buf_event.type = V4L2_EVENT_RELEASE_BUFFER_REFERENCE;
+		ptr = (u32 *)buf_event.u.data;
+		ptr[0] = binfo->fd[0];
+		ptr[1] = binfo->buff_off[0];
 
-			dprintk(VIDC_DBG,
+		dprintk(VIDC_DBG,
 				"RELEASE REFERENCE EVENT FROM F/W - fd = %d offset = %d\n",
 				ptr[0], ptr[1]);
 
-			mutex_lock(&inst->sync_lock);
+		mutex_lock(&inst->sync_lock);
 
-			/* Decrement buffer reference count*/
-			mutex_lock(&inst->registeredbufs.lock);
-			list_for_each_entry(temp, &inst->registeredbufs.list,
-					list) {
-				if (temp == binfo) {
-					buf_ref_put(inst, binfo);
-					break;
-				}
+		/* Decrement buffer reference count*/
+		mutex_lock(&inst->registeredbufs.lock);
+		list_for_each_entry(temp, &inst->registeredbufs.list,
+				list) {
+			if (temp == binfo) {
+				buf_ref_put(inst, binfo);
+				break;
 			}
-			mutex_unlock(&inst->registeredbufs.lock);
-
-			/*
-			* Release buffer and remove from list
-			* if reference goes to zero.
-			*/
-			if (unmap_and_deregister_buf(inst, binfo))
-				dprintk(VIDC_ERR,
-				"%s: buffer unmap failed\n", __func__);
-			mutex_unlock(&inst->sync_lock);
-
-			/*send event to client*/
-			v4l2_event_queue_fh(&inst->event_handler, &buf_event);
-			return;
 		}
-		default:
-			break;
-		}
-		if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
-			inst->reconfig_height = event_notify->height;
-			inst->reconfig_width = event_notify->width;
-			if (inst->bit_depth != event_notify->bit_depth) {
-				inst->bit_depth = event_notify->bit_depth;
-				bit_depth_changed = true;
-				seq_changed_event.u.data[0] = inst->bit_depth;
-				event =
-				V4L2_EVENT_SEQ_BITDEPTH_CHANGED_INSUFFICIENT;
-				dprintk(VIDC_DBG,
+		mutex_unlock(&inst->registeredbufs.lock);
+
+		/*
+		 * Release buffer and remove from list
+		 * if reference goes to zero.
+		 */
+		if (unmap_and_deregister_buf(inst, binfo))
+			dprintk(VIDC_ERR,
+					"%s: buffer unmap failed\n", __func__);
+		mutex_unlock(&inst->sync_lock);
+
+		/*send event to client*/
+		v4l2_event_queue_fh(&inst->event_handler, &buf_event);
+		goto err_bad_event;
+	}
+	default:
+		break;
+	}
+
+	if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
+		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT\n");
+		inst->reconfig_height = event_notify->height;
+		inst->reconfig_width = event_notify->width;
+
+		if (inst->bit_depth != event_notify->bit_depth) {
+			inst->bit_depth = event_notify->bit_depth;
+			bit_depth_changed = true;
+			seq_changed_event.u.data[0] = inst->bit_depth;
+			event = V4L2_EVENT_SEQ_BITDEPTH_CHANGED_INSUFFICIENT;
+			dprintk(VIDC_DBG,
 					"V4L2_EVENT_SEQ_BITDEPTH_CHANGED_INSUFFICIENT\n");
-			} else {
-				dprintk(VIDC_DBG,
-					"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT\n");
-			}
-			inst->in_reconfig = true;
 		} else {
 			dprintk(VIDC_DBG,
-				"V4L2_EVENT_SEQ_CHANGED_SUFFICIENT\n");
-			if (msm_comm_get_stream_output_mode(inst) !=
+					"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT\n");
+		}
+
+		inst->in_reconfig = true;
+	} else {
+		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_SUFFICIENT\n");
+		if (msm_comm_get_stream_output_mode(inst) !=
 				HAL_VIDEO_DECODER_SECONDARY) {
-				dprintk(VIDC_DBG,
+			dprintk(VIDC_DBG,
 					"event_notify->height = %d event_notify->width = %d\n",
 					event_notify->height,
 					event_notify->width);
-				inst->prop.height[CAPTURE_PORT] =
-					event_notify->height;
-				inst->prop.width[CAPTURE_PORT] =
-					event_notify->width;
-				inst->prop.height[OUTPUT_PORT] =
-					event_notify->height;
-				inst->prop.width[OUTPUT_PORT] =
-					event_notify->width;
-			}
+			inst->prop.height[CAPTURE_PORT] = event_notify->height;
+			inst->prop.width[CAPTURE_PORT] = event_notify->width;
+			inst->prop.height[OUTPUT_PORT] = event_notify->height;
+			inst->prop.width[OUTPUT_PORT] = event_notify->width;
 		}
-
-		if (inst->session_type == MSM_VIDC_DECODER)
-			msm_dcvs_init_load(inst);
-		rc = msm_vidc_check_session_supported(inst);
-		if (!rc) {
-			seq_changed_event.type = event;
-			v4l2_event_queue_fh(&inst->event_handler,
-				&seq_changed_event);
-		} else if (rc == -ENOTSUPP) {
-			msm_vidc_queue_v4l2_event(inst,
-				V4L2_EVENT_MSM_VIDC_HW_UNSUPPORTED);
-		} else if (rc == -EBUSY) {
-			msm_vidc_queue_v4l2_event(inst,
-				V4L2_EVENT_MSM_VIDC_HW_OVERLOAD);
-		}
-
-		return;
-	} else {
-		dprintk(VIDC_ERR,
-			"Failed to get valid response for event_change\n");
 	}
+
+	if (inst->session_type == MSM_VIDC_DECODER)
+		msm_dcvs_init_load(inst);
+
+	rc = msm_vidc_check_session_supported(inst);
+	if (!rc) {
+		seq_changed_event.type = event;
+		v4l2_event_queue_fh(&inst->event_handler, &seq_changed_event);
+	} else if (rc == -ENOTSUPP) {
+		msm_vidc_queue_v4l2_event(inst,
+				V4L2_EVENT_MSM_VIDC_HW_UNSUPPORTED);
+	} else if (rc == -EBUSY) {
+		msm_vidc_queue_v4l2_event(inst,
+				V4L2_EVENT_MSM_VIDC_HW_OVERLOAD);
+	}
+
+err_bad_event:
+	return;
 }
 
 static void handle_session_prop_info(enum command_response cmd, void *data)

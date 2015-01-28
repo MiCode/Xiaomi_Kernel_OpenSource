@@ -1176,7 +1176,7 @@ struct msm_vidc_cb_cmd_done {
 
 struct msm_vidc_cb_event {
 	u32 device_id;
-	u32 session_id;
+	void *session_id;
 	enum vidc_status status;
 	u32 height;
 	u32 width;

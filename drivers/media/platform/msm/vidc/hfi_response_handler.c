@@ -112,7 +112,6 @@ static void hfi_process_sess_evt_seq_changed(
 		struct hal_session *session,
 		struct hfi_msg_event_notify_packet *pkt)
 {
-	struct msm_vidc_cb_cmd_done cmd_done = {0};
 	struct msm_vidc_cb_event event_notify = {0};
 	int num_properties_changed;
 	struct hfi_frame_size *frame_sz;
@@ -128,10 +127,9 @@ static void hfi_process_sess_evt_seq_changed(
 		return;
 	}
 
-	cmd_done.device_id = device_id;
-	cmd_done.session_id = session->session_id;
-	cmd_done.status = VIDC_ERR_NONE;
-	cmd_done.size = sizeof(struct msm_vidc_cb_event);
+	event_notify.device_id = device_id;
+	event_notify.session_id = session->session_id;
+	event_notify.status = VIDC_ERR_NONE;
 	num_properties_changed = pkt->event_data2;
 	switch (pkt->event_data1) {
 	case HFI_EVENT_DATA_SEQUENCE_CHANGED_SUFFICIENT_BUFFER_RESOURCES:
@@ -190,8 +188,7 @@ static void hfi_process_sess_evt_seq_changed(
 			num_properties_changed--;
 		} while (num_properties_changed > 0);
 	}
-	cmd_done.data = &event_notify;
-	callback(VIDC_EVENT_CHANGE, &cmd_done);
+	callback(VIDC_EVENT_CHANGE, &event_notify);
 }
 
 static void hfi_process_evt_release_buffer_ref(
@@ -199,9 +196,7 @@ static void hfi_process_evt_release_buffer_ref(
 		struct hal_session *session,
 		struct hfi_msg_event_notify_packet *pkt)
 {
-	struct msm_vidc_cb_cmd_done cmd_done = {0};
 	struct msm_vidc_cb_event event_notify = {0};
-
 	struct hfi_msg_release_buffer_ref_event_packet *data;
 
 	dprintk(VIDC_DBG,
@@ -216,16 +211,13 @@ static void hfi_process_evt_release_buffer_ref(
 	data = (struct hfi_msg_release_buffer_ref_event_packet *)
 				pkt->rg_ext_event_data;
 
-	cmd_done.device_id = device_id;
-	cmd_done.session_id = session->session_id;
-	cmd_done.status = VIDC_ERR_NONE;
-	cmd_done.size = sizeof(struct msm_vidc_cb_event);
-
+	event_notify.device_id = device_id;
+	event_notify.session_id = session->session_id;
+	event_notify.status = VIDC_ERR_NONE;
 	event_notify.hal_event_type = HAL_EVENT_RELEASE_BUFFER_REFERENCE;
 	event_notify.packet_buffer = data->packet_buffer;
 	event_notify.extra_data_buffer = data->extra_data_buffer;
-	cmd_done.data = &event_notify;
-	callback(VIDC_EVENT_CHANGE, &cmd_done);
+	callback(VIDC_EVENT_CHANGE, &event_notify);
 }
 
 static void hfi_process_sys_error(
