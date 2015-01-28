@@ -1,4 +1,5 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,6 +91,11 @@ static const char *msm8939_dt_match[] __initconst = {
 	NULL
 };
 
+static const char *msm8929_dt_match[] __initconst = {
+	"qcom,msm8929",
+	NULL
+};
+
 static const char *msmtellurium_dt_match[] __initconst = {
 	"qcom,msmtellurium",
 	NULL
@@ -123,6 +129,15 @@ DT_MACHINE_START(MSM8936_DT,
 	.map_io = msm8916_map_io,
 	.init_machine = msm8916_init,
 	.dt_compat = msm8936_dt_match,
+	.reserve = msm8916_dt_reserve,
+	.smp = &msm8936_smp_ops,
+MACHINE_END
+
+DT_MACHINE_START(MSM8929_DT,
+	"Qualcomm Technologies, Inc. MSM 8929 (Flattened Device Tree)")
+	.map_io = msm8916_map_io,
+	.init_machine = msm8916_init,
+	.dt_compat = msm8929_dt_match,
 	.reserve = msm8916_dt_reserve,
 	.smp = &msm8936_smp_ops,
 MACHINE_END
