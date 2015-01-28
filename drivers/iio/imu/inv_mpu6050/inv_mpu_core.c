@@ -64,6 +64,7 @@ static const struct inv_mpu6050_reg_map reg_set_6050 = {
 	.pwr_mgmt_2             = INV_MPU6050_REG_PWR_MGMT_2,
 	.int_pin_cfg		= INV_MPU6050_REG_INT_PIN_CFG,
 	.who_am_i		= INV_MPU6050_REG_WHOAMI,
+	.accl_off		= INV_MPU6050_REG_ACCEL_OFFSET,
 };
 
 static const struct inv_mpu6050_chip_config chip_config_6050 = {
@@ -229,6 +230,41 @@ static int inv_mpu6050_init_config(struct iio_dev *indio_dev)
 	return result;
 }
 
+static int inv_mpu6050_offset_show(struct inv_mpu6050_state  *st, int reg,
+				int axis, int *val)
+{
+	int ind, result;
+	u8 d[2];
+
+	ind = (axis - IIO_MOD_X) * 2;
+	result = i2c_smbus_read_i2c_block_data(st->client, reg + ind,  2,
+						(u8 *)&d);
+	if (result != 2)
+		return -EINVAL;
+
+	/* register high 8 bits, register low 7 bits with bit 0 reserved */
+	*val = sign_extend32(((d[1] >> 1) | (d[0] << 7)), 14);
+
+	return IIO_VAL_INT;
+}
+
+static int inv_mpu6050_offset_set(struct inv_mpu6050_state  *st, int reg,
+				int axis, int val)
+{
+	int ind, result;
+	u8 d[2];
+
+	ind = (axis - IIO_MOD_X) * 2;
+	/* 8 bits of offset high */
+	d[0] = val >> 7 & 0xFF;
+	/* 7 bits of offset low from bit 1 to bit 7 */
+	d[1] = (val & 0x7F) << 1;
+
+	result = i2c_smbus_write_i2c_block_data(st->client, reg + ind, 2, d);
+
+	return result;
+}
+
 static int inv_mpu6050_sensor_show(struct inv_mpu6050_state  *st, int reg,
 				int axis, int *val)
 {
@@ -322,6 +358,15 @@ error_read_raw:
 
 		return ret;
 	}
+	case IIO_CHAN_INFO_CALIBBIAS:
+		switch (chan->type) {
+		case IIO_ACCEL:
+			return inv_mpu6050_offset_show(st,
+					st->reg->accl_off,
+					chan->channel2, val);
+		default:
+			return -EINVAL;
+		}
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
 		case IIO_ANGL_VEL:
@@ -403,6 +448,7 @@ static int inv_mpu6050_write_raw(struct iio_dev *indio_dev,
 	int result;
 
 	mutex_lock(&indio_dev->mlock);
+
 	/* we should only update scale when the chip is disabled, i.e.,
 		not running */
 	if (st->chip_config.enable) {
@@ -421,6 +467,18 @@ static int inv_mpu6050_write_raw(struct iio_dev *indio_dev,
 			break;
 		case IIO_ACCEL:
 			result = inv_mpu6050_write_accel_fs(st, val);
+			break;
+		default:
+			result = -EINVAL;
+			break;
+		}
+		break;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		switch (chan->type) {
+		case IIO_ACCEL:
+			result = inv_mpu6050_offset_set(st,
+						st->reg->accl_off,
+						chan->channel2, val);
 			break;
 		default:
 			result = -EINVAL;
@@ -574,7 +632,7 @@ static int inv_mpu6050_validate_trigger(struct iio_dev *indio_dev,
 	return 0;
 }
 
-#define INV_MPU6050_CHAN(_type, _channel2, _index)                    \
+#define INV_MPU6050_GYRO_CHAN(_type, _channel2, _index)               \
 	{                                                             \
 		.type = _type,                                        \
 		.modified = 1,                                        \
@@ -591,6 +649,24 @@ static int inv_mpu6050_validate_trigger(struct iio_dev *indio_dev,
 			     },                                       \
 	}
 
+#define INV_MPU6050_ACCEL_CHAN(_type, _channel2, _index)               \
+	{                                                              \
+		.type = _type,                                         \
+		.modified = 1,                                         \
+		.channel2 = _channel2,                                 \
+		.info_mask_shared_by_type =  BIT(IIO_CHAN_INFO_SCALE), \
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |         \
+				BIT(IIO_CHAN_INFO_CALIBBIAS), 	       \
+		.scan_index = _index,                                  \
+		.scan_type = {                                         \
+				.sign = 's',                           \
+				.realbits = 16,                        \
+				.storagebits = 16,                     \
+				.shift = 0 ,                           \
+				.endianness = IIO_BE,                  \
+			     },                                        \
+	}
+
 static const struct iio_chan_spec inv_mpu_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(INV_MPU6050_SCAN_TIMESTAMP),
 	/*
@@ -604,13 +680,19 @@ static const struct iio_chan_spec inv_mpu_channels[] = {
 				| BIT(IIO_CHAN_INFO_SCALE),
 		.scan_index = -1,
 	},
-	INV_MPU6050_CHAN(IIO_ANGL_VEL, IIO_MOD_X, INV_MPU6050_SCAN_GYRO_X),
-	INV_MPU6050_CHAN(IIO_ANGL_VEL, IIO_MOD_Y, INV_MPU6050_SCAN_GYRO_Y),
-	INV_MPU6050_CHAN(IIO_ANGL_VEL, IIO_MOD_Z, INV_MPU6050_SCAN_GYRO_Z),
+	INV_MPU6050_GYRO_CHAN(IIO_ANGL_VEL, IIO_MOD_X,
+					INV_MPU6050_SCAN_GYRO_X),
+	INV_MPU6050_GYRO_CHAN(IIO_ANGL_VEL, IIO_MOD_Y,
+					INV_MPU6050_SCAN_GYRO_Y),
+	INV_MPU6050_GYRO_CHAN(IIO_ANGL_VEL, IIO_MOD_Z,
+					INV_MPU6050_SCAN_GYRO_Z),
 
-	INV_MPU6050_CHAN(IIO_ACCEL, IIO_MOD_X, INV_MPU6050_SCAN_ACCL_X),
-	INV_MPU6050_CHAN(IIO_ACCEL, IIO_MOD_Y, INV_MPU6050_SCAN_ACCL_Y),
-	INV_MPU6050_CHAN(IIO_ACCEL, IIO_MOD_Z, INV_MPU6050_SCAN_ACCL_Z),
+	INV_MPU6050_ACCEL_CHAN(IIO_ACCEL, IIO_MOD_X,
+					INV_MPU6050_SCAN_ACCL_X),
+	INV_MPU6050_ACCEL_CHAN(IIO_ACCEL, IIO_MOD_Y,
+					INV_MPU6050_SCAN_ACCL_Y),
+	INV_MPU6050_ACCEL_CHAN(IIO_ACCEL, IIO_MOD_Z,
+					INV_MPU6050_SCAN_ACCL_Z),
 };
 
 /* constant IIO attribute */

@@ -56,6 +56,7 @@ struct inv_mpu6050_reg_map {
 	u8 pwr_mgmt_2;
 	u8 int_pin_cfg;
 	u8 who_am_i;
+	u8 accl_off;
 };
 
 /*device enum */
@@ -166,6 +167,8 @@ struct inv_mpu6050_state {
 
 #define INV_MPU6050_REG_FIFO_COUNT_H        0x72
 #define INV_MPU6050_REG_FIFO_R_W            0x74
+
+#define INV_MPU6050_REG_ACCEL_OFFSET	    0x06
 
 #define INV_MPU6050_BYTES_PER_3AXIS_SENSOR   6
 #define INV_MPU6050_FIFO_COUNT_BYTE          2
