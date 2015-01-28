@@ -192,6 +192,42 @@ void vlv_dc_config_destroy(struct intel_dc_config *config)
 	return;
 }
 
+static void vlv_attach_intel_pipeplane(struct vlv_pipeline *disp, u8
+					   plane_per_pipe)
+{
+	struct intel_plane *intel_plane = NULL;
+	struct intel_pipe *intel_pipe = NULL;
+	int i = 0;
+
+	/*
+	 * In this platform the plane and pipe are fixed and cannot be
+	 * moved across to a different pipe, hence set the attachment by
+	 * default over here
+	 */
+	if (disp->type == INTEL_PIPE_DSI)
+		intel_pipe = &disp->gen.dsi.base;
+	else if (disp->type == INTEL_PIPE_DP || disp->type == INTEL_PIPE_EDP)
+		intel_pipe = &disp->gen.dp.base;
+	else if (disp->type == INTEL_PIPE_HDMI)
+		intel_pipe = &disp->gen.hdmi.base;
+
+	if (intel_pipe != NULL) {
+		/* Attach Primary plane to intel Pipe */
+		intel_plane = &disp->pplane.base;
+		if (intel_plane->ops->attach)
+			intel_plane->ops->attach(intel_plane, intel_pipe);
+
+		/* Attach Sprite[n] to the intel pipe */
+		for (i = 0; i < (plane_per_pipe - 1); i++) {
+			intel_plane = &disp->splane[i].base;
+			if (intel_plane->ops->attach)
+				intel_plane->ops->attach(intel_plane,
+							 intel_pipe);
+		}
+	}
+	return;
+}
+
 static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe,
 				int port, u8 disp_no)
 {
@@ -393,6 +429,8 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 
 	vlv_pipe = &disp->pipe;
 	err = vlv_pipe_init(vlv_pipe, (enum pipe) pipe);
+
+	vlv_attach_intel_pipeplane(disp, CHV_MAX_PLANES);
 
 	/* FIXME: update from attachment */
 	pll = &disp->pll;
