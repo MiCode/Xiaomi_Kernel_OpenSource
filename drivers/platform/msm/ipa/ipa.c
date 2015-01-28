@@ -181,9 +181,9 @@ static DECLARE_WORK(ipa_tag_work, ipa_start_tag_process);
 static void ipa_sps_process_irq(struct work_struct *work);
 static DECLARE_WORK(ipa_sps_process_irq_work, ipa_sps_process_irq);
 
-static void ipa_dec_clients_delayed(struct work_struct *work);
-static DECLARE_DELAYED_WORK(ipa_dec_clients_delayed_work,
-	ipa_dec_clients_delayed);
+static void ipa_sps_release_resource(struct work_struct *work);
+static DECLARE_DELAYED_WORK(ipa_sps_release_resource_work,
+	ipa_sps_release_resource);
 
 static struct ipa_plat_drv_res ipa_res = {0, };
 static struct of_device_id ipa_plat_drv_match[] = {
@@ -2766,7 +2766,7 @@ static void ipa_sps_process_irq_schedule_rel(void)
 {
 	ipa_ctx->sps_pm.res_rel_in_prog = true;
 	queue_delayed_work(ipa_ctx->sps_power_mgmt_wq,
-			   &ipa_dec_clients_delayed_work,
+			   &ipa_sps_release_resource_work,
 			   msecs_to_jiffies(IPA_SPS_PROD_TIMEOUT_MSEC));
 }
 
@@ -2803,7 +2803,7 @@ static int apps_cons_request_resource(void)
 	return 0;
 }
 
-static void ipa_dec_clients_delayed(struct work_struct *work)
+static void ipa_sps_release_resource(struct work_struct *work)
 {
 	unsigned long flags;
 	bool dec_clients = false;
@@ -2872,7 +2872,7 @@ static void sps_event_cb(enum sps_callback_case event, void *param)
 		bool *ready = (bool *)param;
 
 		/* make sure no release will happen */
-		cancel_delayed_work(&ipa_dec_clients_delayed_work);
+		cancel_delayed_work(&ipa_sps_release_resource_work);
 		ipa_ctx->sps_pm.res_rel_in_prog = false;
 
 		if (ipa_ctx->sps_pm.res_granted) {
@@ -3583,31 +3583,45 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 }
 
 /**
-* ipa_ap_suspend() - suspend callback for runtime_pm
-* @dev: pointer to device
-*
-* This callback will be invoked by the runtime_pm framework when an AP suspend
-* operation is invoked, usually by pressing a suspend button.
-*
-* Returns -EAGAIN to runtime_pm framework in case IPA is in use.
-* This will postpone the suspend operation until all IPA clients release
-* its resources and clocks can be turned off.
+ * ipa_ap_suspend() - suspend callback for runtime_pm
+ * @dev: pointer to device
+ *
+ * This callback will be invoked by the runtime_pm framework when an AP suspend
+ * operation is invoked, usually by pressing a suspend button.
+ *
+ * Returns -EAGAIN to runtime_pm framework in case IPA is in use by AP.
+ * This will postpone the suspend operation until IPA is no longer used by AP.
 */
 static int ipa_ap_suspend(struct device *dev)
 {
-	int res = 0;
+	int i;
 
 	IPADBG("Enter...\n");
-	/* Do not allow A7 to suspend in case there are active clients of IPA */
-	ipa_active_clients_lock();
-	if (ipa_ctx->ipa_active_clients.cnt != 0) {
-		IPADBG("IPA is in use, postponing AP suspend.\n");
-		res = -EAGAIN;
+	/*
+	 * In case SPS requested IPA resources fail to suspend.
+	 * This can happen if SPS driver is during the processing of
+	 * IPA BAM interrupt
+	 */
+	if (ipa_ctx->sps_pm.res_granted && !ipa_ctx->sps_pm.res_rel_in_prog) {
+		IPAERR("SPS resource is granted, do not suspend\n");
+		return -EAGAIN;
 	}
-	ipa_active_clients_unlock();
+
+	/* In case there is a tx/rx handler in polling mode fail to suspend */
+	for (i = 0; i < IPA_NUM_PIPES; i++) {
+		if (ipa_ctx->ep[i].sys &&
+			atomic_read(&ipa_ctx->ep[i].sys->curr_polling_state)) {
+			IPAERR("EP %d is in polling state, do not suspend\n",
+				i);
+			return -EAGAIN;
+		}
+	}
+
+	/* release SPS IPA resource without waiting for inactivity timer */
+	ipa_sps_release_resource(NULL);
 	IPADBG("Exit\n");
 
-	return res;
+	return 0;
 }
 
 /**
