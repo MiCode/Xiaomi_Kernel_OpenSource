@@ -346,10 +346,10 @@ int shadow_ndiv_set_div(struct div_clk *clk, int div)
 	pr_debug("%d div=%i\n", __LINE__, div);
 
 	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
-		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL14,
-		MMSS_DSI_PHY_PLL_RESETSM_CNTRL3,
+		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL10,
 		MMSS_DSI_PHY_PLL_POST_DIVIDER_CONTROL,
-		0x07, (0xB | div));
+		MMSS_DSI_PHY_PLL_POST_DIVIDER_CONTROL,
+		(0xB | div), (0xB | div));
 
 	return 0;
 }
@@ -406,7 +406,7 @@ int shadow_fixed_hr_oclk2_set_div(struct div_clk *clk, int div)
 	pr_debug("%d div = %d\n", __LINE__, div);
 
 	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
-		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL5,
+		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL9,
 		MMSS_DSI_PHY_PLL_HR_OCLK2_DIVIDER,
 		MMSS_DSI_PHY_PLL_HR_OCLK2_DIVIDER,
 		(div - 1), (div - 1));
@@ -470,7 +470,7 @@ int shadow_hr_oclk3_set_div(struct div_clk *clk, int div)
 	pr_debug("%d div = %d\n", __LINE__, div);
 
 	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
-		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL6,
+		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL8,
 		MMSS_DSI_PHY_PLL_HR_OCLK3_DIVIDER,
 		MMSS_DSI_PHY_PLL_HR_OCLK3_DIVIDER,
 		(div - 1), (div - 1));
@@ -759,8 +759,6 @@ int shadow_pll_20nm_vco_set_rate(struct dsi_pll_vco_clk *vco,
 		return -EINVAL;
 	}
 
-	pll_20nm_override_trim_codes(dsi_pll_res);
-
 	/* div fraction, start and comp calculations */
 	pll_20nm_vco_rate_calc(&vco_calc, vco_clk_rate,
 			dsi_pll_res->vco_ref_clk_rate,
@@ -769,59 +767,65 @@ int shadow_pll_20nm_vco_set_rate(struct dsi_pll_vco_clk *vco,
 	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
 		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL0,
 		MMSS_DSI_PHY_PLL_POST_DIVIDER_CONTROL,
-		MMSS_DSI_PHY_PLL_PLLLOCK_CMP_EN,
-		0xB1, 0);
+		MMSS_DSI_PHY_PLL_POST_DIVIDER_CONTROL,
+		0x90, 0x90);
+
 	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
 		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL1,
+		MMSS_DSI_PHY_PLL_RESETSM_CNTRL3,
+		MMSS_DSI_PHY_PLL_RESETSM_CNTRL3,
+		0x06, 0x02);
+
+	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
+		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL2,
 		MMSS_DSI_PHY_PLL_PLLLOCK_CMP1,
 		MMSS_DSI_PHY_PLL_PLLLOCK_CMP2,
 		vco_calc.pll_plllock_cmp1, vco_calc.pll_plllock_cmp2);
-	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
-		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL2,
-		MMSS_DSI_PHY_PLL_PLLLOCK_CMP3,
-		MMSS_DSI_PHY_PLL_DEC_START1,
-		vco_calc.pll_plllock_cmp3, vco_calc.dec_start1);
+
 	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
 		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL3,
-		MMSS_DSI_PHY_PLL_DEC_START2,
-		MMSS_DSI_PHY_PLL_DIV_FRAC_START1,
-		vco_calc.dec_start2, vco_calc.div_frac_start1);
+		MMSS_DSI_PHY_PLL_PLLLOCK_CMP3,
+		MMSS_DSI_PHY_PLL_PLLLOCK_CMP3,
+		vco_calc.pll_plllock_cmp3, vco_calc.pll_plllock_cmp3);
+
 	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
 		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL4,
+		MMSS_DSI_PHY_PLL_DEC_START1,
+		MMSS_DSI_PHY_PLL_DEC_START2,
+		vco_calc.dec_start1, vco_calc.dec_start2);
+
+	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
+		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL5,
+		MMSS_DSI_PHY_PLL_DIV_FRAC_START1,
 		MMSS_DSI_PHY_PLL_DIV_FRAC_START2,
+		vco_calc.div_frac_start1, vco_calc.div_frac_start2);
+
+	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
+		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL6,
 		MMSS_DSI_PHY_PLL_DIV_FRAC_START3,
-		vco_calc.div_frac_start2, vco_calc.div_frac_start3);
-	/* Method 2 - Auto PLL calibration */
+		MMSS_DSI_PHY_PLL_DIV_FRAC_START3,
+		vco_calc.div_frac_start3, vco_calc.div_frac_start3);
+
 	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
 		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL7,
+		MMSS_DSI_PHY_PLL_KVCO_CODE,
 		MMSS_DSI_PHY_PLL_PLL_VCO_TUNE,
-		MMSS_DSI_PHY_PLL_PLLLOCK_CMP_EN,
-		0, 0x0D);
-	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
-		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL8,
-		MMSS_DSI_PHY_PLL_POST_DIVIDER_CONTROL,
-		MMSS_DSI_PHY_PLL_RESETSM_CNTRL3,
-		0xF0, 0x07);
+		((dsi_pll_res->cache_pll_trim_codes[0] & 0x3f) | BIT(5)),
+		((dsi_pll_res->cache_pll_trim_codes[1] & 0x7f) | BIT(7)));
 
-	/*
-	 * RESETSM_CTRL3 has to be set for 12 times (6 reg writes),
-	 * Each register setting write 2 times, running in loop for 5
-	 * times (5 reg writes) and other two iterations are taken
-	 * care (one above and other in shadow_bypass
-	 */
-	for (rem = 0; rem < 5; rem++) {
-		MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
-				MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL9 + (4 * rem),
-				MMSS_DSI_PHY_PLL_RESETSM_CNTRL3,
-				MMSS_DSI_PHY_PLL_RESETSM_CNTRL3,
-				0x07, 0x07);
-	}
+	/* fill other dfps registers with resetsm_ctrl3 = 0x2 */
+	for (rem = MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL10; rem <=
+		     MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL14; rem += 4)
+		MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base, rem,
+			MMSS_DSI_PHY_PLL_RESETSM_CNTRL3,
+			MMSS_DSI_PHY_PLL_RESETSM_CNTRL3,
+			0x02, 0x02);
 
 	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
 		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL15,
 		MMSS_DSI_PHY_PLL_RESETSM_CNTRL3,
 		MMSS_DSI_PHY_PLL_RESETSM_CNTRL3,
-		0x03, 0x03);
+		0x02, 0x03);
 
 	wmb();
 	return 0;
