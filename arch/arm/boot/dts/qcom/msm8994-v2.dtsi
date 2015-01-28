@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,16 +19,6 @@
 #include "msm8994.dtsi"
 #include "msm8994-coresight-v2.dtsi"
 #include "msm8994-camera-v2.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. MSM 8994v2";
-	compatible = "qcom,msm8994";
-	qcom,msm-id = <207 0x20000>;
-
-	chosen {
-		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
-	};
-};
 
 &soc {
 
