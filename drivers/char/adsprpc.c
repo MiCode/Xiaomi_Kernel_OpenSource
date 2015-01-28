@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/dma-contiguous.h>
+#include <linux/dma-buf.h>
 #include <linux/iommu.h>
 #include <linux/kref.h>
 #include <linux/sort.h>
@@ -988,8 +989,33 @@ static void inv_args_pre(uint32_t sc, remote_arg_t *rpra)
 	}
 }
 
-static void inv_args(uint32_t sc, remote_arg_t *rpra, int used)
+static void inv_args_idx(struct smq_invoke_ctx *ctx, int id)
 {
+	struct fastrpc_apps *me = &gfa;
+	struct smq_invoke_buf *list;
+	struct smq_phy_page *pages;
+	struct page *page;
+	struct scatterlist sg;
+
+	if (me->channel[ctx->fdata->cid].smmu.enabled) {
+		dmac_inv_range(ctx->rpra[id].buf.pv,
+			(char *)ctx->rpra[id].buf.pv + ctx->rpra[id].buf.len);
+		return;
+	}
+	list = smq_invoke_buf_start(ctx->rpra, ctx->sc);
+	pages = smq_phy_page_start(ctx->sc, list);
+	page = phys_to_page(pages[list[id].pgidx].addr);
+	sg_init_table(&sg, 1);
+	sg_set_page(&sg, page, pages[list[id].pgidx].size, 0);
+	sg_dma_address(&sg) = pages[list[id].pgidx].addr;
+	dma_sync_sg_for_cpu(NULL, &sg, 1, DMA_FROM_DEVICE);
+}
+
+static void inv_args(struct smq_invoke_ctx *ctx)
+{
+	uint32_t sc = ctx->sc;
+	remote_arg_t *rpra = ctx->rpra;
+	int used = ctx->obuf.used;
 	int i, inbufs, outbufs;
 	int inv = 0;
 
@@ -999,8 +1025,7 @@ static void inv_args(uint32_t sc, remote_arg_t *rpra, int used)
 		if (buf_page_start(rpra) == buf_page_start(rpra[i].buf.pv))
 			inv = 1;
 		else if (rpra[i].buf.len)
-			dmac_inv_range(rpra[i].buf.pv,
-				(char *)rpra[i].buf.pv + rpra[i].buf.len);
+			inv_args_idx(ctx, i);
 	}
 
 	if (inv || REMOTE_SCALARS_OUTHANDLES(sc))
@@ -1253,13 +1278,13 @@ static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t mode,
 
 	inv_args_pre(ctx->sc, ctx->rpra);
 	if (FASTRPC_MODE_SERIAL == mode)
-		inv_args(ctx->sc, ctx->rpra, ctx->obuf.used);
+		inv_args(ctx);
 	VERIFY(err, 0 == fastrpc_invoke_send(me, kernel, invoke->handle,
 						ctx->sc, ctx, &ctx->obuf));
 	if (err)
 		goto bail;
 	if (FASTRPC_MODE_PARALLEL == mode)
-		inv_args(ctx->sc, ctx->rpra, ctx->obuf.used);
+		inv_args(ctx);
  wait:
 	if (kernel)
 		wait_for_completion(&ctx->work);
