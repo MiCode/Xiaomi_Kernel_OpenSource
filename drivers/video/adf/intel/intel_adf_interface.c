@@ -273,8 +273,13 @@ static int set_preferred_mode(struct intel_adf_interface *intf)
 	if (err)
 		goto out_err0;
 
-	/* Only send HPD event in case of HDMI */
-	if (pipe->type == INTEL_PIPE_HDMI)
+	/*
+	 * Only send HPD event in case of hot-pluggable displays but set
+	 * the interface detect status for every interface, as this will be
+	 * used for real time status check from usp.
+	 */
+	intf->base.hotplug_detect = true;
+	if (pipe->type == INTEL_PIPE_HDMI || pipe->type == INTEL_PIPE_DP)
 		adf_hotplug_notify_connected(&intf->base, modelist, n_modes);
 
 	return 0;

@@ -600,7 +600,7 @@ static int adf_intf_get_data(struct adf_interface *intf,
 
 	mutex_lock(&dev->client_lock);
 	read_lock_irqsave(&intf->hotplug_modelist_lock, flags);
-	data.hotplug_detect = 1; /* intf->hotplug_detect; */
+	data.hotplug_detect = intf->hotplug_detect;
 	modelist_size = min(data.n_available_modes, intf->n_modes) *
 			sizeof(intf->modelist[0]);
 	memcpy(modelist, intf->modelist, modelist_size);
