@@ -407,6 +407,11 @@ int hmm_bo_device_init(struct hmm_bo_device *bdev,
 
 	bdev->bo_cache = kmem_cache_create("bo_cache",
 				sizeof(struct hmm_buffer_object), 0, 0, NULL);
+	if (!bdev->bo_cache) {
+		dev_err(atomisp_dev, "%s: create cache failed!\n", __func__);
+		isp_mmu_exit(&bdev->mmu);
+		return -ENOMEM;
+	}
 
 	bo = __bo_alloc(bdev->bo_cache);
 	if (!bo) {
@@ -450,6 +455,7 @@ struct hmm_buffer_object *hmm_bo_alloc(struct hmm_bo_device *bdev,
 	mutex_lock(&bdev->rbtree_mutex);
 	bo = __bo_search_and_remove_from_free_rbtree(root->rb_node, pgnr);
 	if (!bo) {
+		mutex_unlock(&bdev->rbtree_mutex);
 		dev_err(atomisp_dev, "%s: Out of Memory! hmm_bo_alloc failed",
 			__func__);
 		return NULL;
@@ -457,9 +463,12 @@ struct hmm_buffer_object *hmm_bo_alloc(struct hmm_bo_device *bdev,
 
 	if (bo->pgnr > pgnr) {
 		new_bo = __bo_break_up(bdev, bo, pgnr);
-		if (!new_bo)
+		if (!new_bo) {
+			mutex_unlock(&bdev->rbtree_mutex);
 			dev_err(atomisp_dev, "%s: __bo_break_up failed!\n",
 				__func__);
+			return NULL;
+		}
 
 		__bo_insert_to_alloc_rbtree(&bdev->allocated_rbtree, new_bo);
 		__bo_insert_to_free_rbtree(&bdev->free_rbtree, bo);
@@ -492,8 +501,8 @@ void hmm_bo_release(struct hmm_buffer_object *bo)
 	 * so, if this happened, something goes wrong.
 	 */
 	if (bo->status & HMM_BO_MMAPED) {
-		dev_dbg(atomisp_dev, "destroy bo which is MMAPED, do nothing\n");
 		mutex_unlock(&bdev->rbtree_mutex);
+		dev_dbg(atomisp_dev, "destroy bo which is MMAPED, do nothing\n");
 		return;
 	}
 
@@ -600,9 +609,9 @@ struct hmm_buffer_object *hmm_bo_device_search_start(
 	mutex_lock(&bdev->rbtree_mutex);
 	bo = __bo_search_by_addr(&bdev->allocated_rbtree, vaddr);
 	if (!bo) {
+		mutex_unlock(&bdev->rbtree_mutex);
 		dev_err(atomisp_dev, "%s can not find bo with addr: 0x%x\n",
 			__func__, vaddr);
-		mutex_unlock(&bdev->rbtree_mutex);
 		return NULL;
 	}
 	mutex_unlock(&bdev->rbtree_mutex);
@@ -620,9 +629,9 @@ struct hmm_buffer_object *hmm_bo_device_search_in_range(
 	mutex_lock(&bdev->rbtree_mutex);
 	bo = __bo_search_by_addr_in_range(&bdev->allocated_rbtree, vaddr);
 	if (!bo) {
+		mutex_unlock(&bdev->rbtree_mutex);
 		dev_err(atomisp_dev, "%s can not find bo contain addr: 0x%x\n",
 			__func__, vaddr);
-		mutex_unlock(&bdev->rbtree_mutex);
 		return NULL;
 	}
 	mutex_unlock(&bdev->rbtree_mutex);
