@@ -1685,10 +1685,12 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	return rx_byte;
 }
 
-void mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
+int mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	unsigned long flag;
 	u32 data;
+	int rc = 0;
+
 	/* DSI_INTL_CTRL */
 	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
 	data &= DSI_INTR_TOTAL_MASK;
@@ -1703,13 +1705,17 @@ void mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
 			(BIT(8) | BIT(0)));
 
 	if (!wait_for_completion_timeout(&ctrl->dynamic_comp,
-				msecs_to_jiffies(VSYNC_PERIOD * 4)))
+			msecs_to_jiffies(VSYNC_PERIOD * 4))) {
 		pr_err("Dynamic interrupt timedout\n");
+		rc = -EINVAL;
+	}
 
 	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
 	data &= DSI_INTR_TOTAL_MASK;
 	data &= ~DSI_INTR_DYNAMIC_REFRESH_MASK;
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
+
+	return rc;
 }
 
 void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)

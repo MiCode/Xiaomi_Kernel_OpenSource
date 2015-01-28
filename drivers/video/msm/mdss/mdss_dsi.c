@@ -1071,6 +1071,8 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 
 		if (mdss_dsi_is_ctrl_clk_slave(ctrl_pdata)) {
 			pr_debug("%s DFPS already updated.\n", __func__);
+			ctrl_pdata->panel_data.panel_info.mipi.frame_rate =
+				new_fps;
 			return rc;
 		}
 
@@ -1099,7 +1101,7 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 			return rc;
 		}
 
-		mdss_dsi_en_wait4dynamic_done(ctrl_pdata);
+		rc = mdss_dsi_en_wait4dynamic_done(ctrl_pdata);
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + DSI_DYNAMIC_REFRESH_CTRL,
 							0x00);
 
@@ -1112,7 +1114,10 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 				ctrl_pdata->pll_pixel_clk);
 		clk_disable_unprepare(ctrl_pdata->pll_byte_clk);
 		clk_disable_unprepare(ctrl_pdata->pll_pixel_clk);
-		ctrl_pdata->panel_data.panel_info.mipi.frame_rate = new_fps;
+
+		if (!rc)
+			ctrl_pdata->panel_data.panel_info.mipi.frame_rate =
+				new_fps;
 	} else {
 		ctrl_pdata->pclk_rate =
 			pdata->panel_info.mipi.dsi_pclk_rate;
