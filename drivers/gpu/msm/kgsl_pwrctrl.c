@@ -204,7 +204,7 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	 * otherwise request bus level 0, off.
 	 */
 	if (on) {
-		buslevel = min_t(int, pwr->pwrlevels[0].bus_freq,
+		buslevel = min_t(int, pwr->pwrlevels[0].bus_max,
 				cur + pwr->bus_mod);
 		buslevel = max_t(int, buslevel, 1);
 	} else {
