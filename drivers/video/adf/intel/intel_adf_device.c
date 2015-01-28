@@ -450,19 +450,23 @@ static struct sync_fence *intel_adf_device_complete_fence(
 }
 
 static void disable_unused_overlay_engines(struct list_head *active_engs,
-	struct post_obj_set *post_engs)
+					   struct intel_adf_interface *intf,
+					   struct post_obj_set *post_engs)
 {
 	struct intel_adf_overlay_engine *eng;
 
 	list_for_each_entry(eng, active_engs, active_list) {
 		if (post_obj_set_find_obj(post_engs, eng))
 			continue;
-		/*disable this engine*/
+
 		/*
-		 * FIXME: temp removed to avoid plane disable in dual display
-		 * scenarnario
-		 * eng->plane->ops->disable(eng->plane);
+		 * Disable engine only on current interface if not posted
+		 * objects
 		 */
+		if (eng->plane->pipe != NULL) {
+			if (eng->plane->pipe->base.idx == intf->pipe->base.idx)
+				eng->plane->ops->disable(eng->plane);
+		}
 	}
 }
 
@@ -511,16 +515,20 @@ static void intel_adf_device_post(struct adf_device *dev,
 	struct post_obj *po;
 	struct flip *f;
 
-	/* To forbid DSR */
 	for_each_post_obj(po, &state->post_intfs) {
 		intf = po->obj;
+
+		/* To forbid DSR */
 		if (intf->pipe && intf->pipe->ops && intf->pipe->ops->pre_post)
 			intf->pipe->ops->pre_post(intf->pipe);
-	}
 
-	/*disable unused overlay engines*/
-	disable_unused_overlay_engines(&i_dev->active_engs,
-		&state->post_engs);
+		/*
+		 * Disable engine only on current interface if not posted
+		 * objects
+		 */
+		disable_unused_overlay_engines(&i_dev->active_engs, intf,
+			&state->post_engs);
+	}
 
 	/*flip planes*/
 	list_for_each_entry(f, &state->post_flips, list) {
