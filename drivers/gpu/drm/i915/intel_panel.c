@@ -503,7 +503,7 @@ static u32 vlv_get_mipi_backlight(struct intel_connector *connector)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	if (dev_priv->vbt.dsi.config->pmic_soc_blc)
-		return lpio_bl_read(0, LPIO_PWM_CTRL) & 0xff;
+		return (~lpio_bl_read(0, LPIO_PWM_CTRL)) & 0xff;
 	else
 		return intel_soc_pmic_readb(PMIC_PWM_LEVEL);
 }
