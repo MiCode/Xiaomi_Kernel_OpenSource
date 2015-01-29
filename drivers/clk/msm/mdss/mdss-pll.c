@@ -157,7 +157,7 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 	} else if (!strcmp(compatible_stream, "qcom,mdss_hdmi_pll_8992")) {
 		pll_res->pll_interface_type = MDSS_HDMI_PLL_20NM;
 	} else if (!strcmp(compatible_stream, "qcom,mdss_hdmi_pll_thulium")) {
-		pll_res->pll_interface_type = MDSS_HDMI_PLL_14NM;
+		pll_res->pll_interface_type = MDSS_HDMI_PLL_THULIUM;
 	} else {
 		goto err;
 	}
@@ -201,8 +201,8 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 	case MDSS_HDMI_PLL_20NM:
 		rc = hdmi_20nm_pll_clock_register(pdev, pll_res);
 		break;
-	case MDSS_HDMI_PLL_14NM:
-		rc = hdmi_14nm_pll_clock_register(pdev, pll_res);
+	case MDSS_HDMI_PLL_THULIUM:
+		rc = hdmi_thulium_pll_clock_register(pdev, pll_res);
 		break;
 	case MDSS_UNKNOWN_PLL:
 	default:
