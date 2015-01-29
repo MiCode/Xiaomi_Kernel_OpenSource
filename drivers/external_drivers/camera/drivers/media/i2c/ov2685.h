@@ -27,6 +27,9 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-chip-ident.h>
 #include <linux/v4l2-mediabus.h>
+#include <media/v4l2-ctrls.h>
+#include <media/v4l2-device.h>
+#include <media/v4l2-subdev.h>
 #include <media/media-entity.h>
 #include <linux/atomisp_platform.h>
 #include <linux/atomisp.h>
@@ -148,6 +151,8 @@ struct ov2685_device {
 	unsigned int preview_hts;
 	unsigned int preview_vts;
 	unsigned int fmt_idx;
+
+	struct v4l2_ctrl_handler ctrl_handler;
 };
 
 struct ov2685_priv_data {
