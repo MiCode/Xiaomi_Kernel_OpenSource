@@ -37,8 +37,6 @@ struct data_port {
 	const struct usb_endpoint_descriptor	*out_ep_desc_backup;
 };
 
-int bam2bam_data_port_select(int portno);
-
 void bam_data_disconnect(struct data_port *gr, enum function_type func,
 		u8 dev_port_num);
 
