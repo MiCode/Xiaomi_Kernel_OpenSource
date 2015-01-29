@@ -493,6 +493,7 @@ struct msm_pcie_dev_t {
 	bool				l0s_supported;
 	bool				l1_supported;
 	bool				 l1ss_supported;
+	bool				common_clk_en;
 	bool				 aux_clk_sync;
 	uint32_t			   n_fts;
 	bool				 ext_ref_clk;
@@ -1220,6 +1221,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->l1_supported ? "" : "not");
 	pr_alert("l1ss_supported is %s supported\n",
 		dev->l1ss_supported ? "" : "not");
+	pr_alert("common_clk_en is %d\n",
+		dev->common_clk_en);
 	pr_alert("aux_clk_sync is %d\n",
 		dev->aux_clk_sync);
 	pr_alert("ext_ref_clk is %d\n",
@@ -2770,6 +2773,19 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 		PCIE_DBG(dev,
 			"RC%d: ep_link_cap_offset: 0x%x\n",
 			dev->rc_idx, ep_link_cap_offset);
+	}
+
+	if (dev->common_clk_en) {
+		msm_pcie_write_mask(dev->conf + ep_link_ctrlstts_offset,
+					0, BIT(6));
+
+		if (dev->shadow_en)
+			dev->ep_shadow[0][ep_link_ctrlstts_offset / 4] =
+				readl_relaxed(dev->conf +
+					ep_link_ctrlstts_offset);
+
+		PCIE_DBG2(dev, "EP's CAP_LINKCTRLSTATUS:0x%x\n",
+			readl_relaxed(dev->conf + ep_link_ctrlstts_offset));
 	}
 
 	if (dev->l0s_supported) {
@@ -4470,6 +4486,14 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				"qcom,l1ss-supported");
 	PCIE_DBG(&msm_pcie_dev[rc_idx], "L1ss is %s supported.\n",
 		msm_pcie_dev[rc_idx].l1ss_supported ? "" : "not");
+	msm_pcie_dev[rc_idx].common_clk_en =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,common-clk-en");
+	PCIE_DBG(&msm_pcie_dev[rc_idx], "Common clock is %s enabled.\n",
+		msm_pcie_dev[rc_idx].common_clk_en ? "" : "not");
+	msm_pcie_dev[rc_idx].aux_clk_sync =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,aux-clk-sync");
 	msm_pcie_dev[rc_idx].aux_clk_sync =
 		of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,aux-clk-sync");
