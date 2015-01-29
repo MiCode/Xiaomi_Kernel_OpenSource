@@ -1065,8 +1065,9 @@ config KRAIT_REGULATOR
 	 this option to support such configurations.
 
 config MSM_PP2S_FEMTO
-	bool "FSM99XX PP2S Interrupt Notification"
-	depends on ARCH_FSM9900
+	bool "Enable FSM PP2S Interrupt Notification"
+	depends on ARCH_FSM9010 || ARCH_FSM9900
+	default n
 	help
 	  Support for being notified relative to a PP2S pulse
 	  Select Y if you want this notification to manifest.
