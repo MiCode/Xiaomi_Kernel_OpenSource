@@ -539,6 +539,7 @@ void ia_css_pipe_get_capturepp_binarydesc(
 	IA_CSS_LEAVE_PRIVATE("");
 }
 
+/* lookup table for high quality primary binaries */
 static unsigned int primary_hq_binary_modes[NUM_PRIMARY_HQ_STAGES] =
 {
 	IA_CSS_BINARY_MODE_PRIMARY_HQ_STAGE0,

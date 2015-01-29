@@ -22,38 +22,18 @@
  * must be express and approved by Intel in writing.
  */
 
-#include "ia_css_types.h"
-#include "sh_css_defs.h"
-#ifndef IA_CSS_NO_DEBUG
-#include "ia_css_debug.h"
-#endif
-#include "sh_css_frac.h"
+#ifndef __IA_CSS_PLANE_IO_PARAM_H
+#define __IA_CSS_PLANE_IO_PARAM_H
 
-#include "ia_css_xnr4.host.h"
-#include "ia_css_xnr4_downsample.host.h"
-#include "ia_css_xnr4_radial_metric.host.h"
-#include "ia_css_xnr4_output_blend.host.h"
+#include "ia_css_plane_io_types.h"
 
-void
-ia_css_xnr4_encode(
-	struct sh_css_isp_xnr4_params *to,
-	const struct ia_css_xnr4_config *from,
-	unsigned size)
-{
-	(void)size;
-	/* encode down sample parameters */
-	ia_css_xnr4_downsample_encode(&to->xnr4_downsample,
-			&from->xnr4_downsample_config,
-			sizeof(struct ia_css_xnr4_downsample_config));
-	/* encode radial metric parameters */
-	ia_css_xnr4_radial_metric_encode(&to->xnr4_radial_metric,
-			&from->xnr4_radial_metric_config,
-			sizeof(struct ia_css_xnr4_radial_metric_config));
-	/* encode output blend parameters */
-	ia_css_xnr4_output_blend_encode(&to->xnr4_output_blend,
-			&from->xnr4_output_blend_config,
-			sizeof(struct ia_css_xnr4_output_blend_config));
+struct sh_css_plane_io_config {
+	unsigned base_address;
+	unsigned width;
+	unsigned height;
+	unsigned stride;
+	unsigned ddr_elems_per_word;
+	unsigned dma_channel[PLANE_IO_LS_NUM_DMA_CHANNELS];
+};
 
-}
-
-
+#endif /* __IA_CSS_PLANE_IO_PARAM_H */

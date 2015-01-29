@@ -21,39 +21,27 @@
  * estoppel or otherwise. Any license under such intellectual property rights
  * must be express and approved by Intel in writing.
  */
+#ifndef __IA_CSS_XNR4_OUTPUT_BLEND_PARAM_H
+#define __IA_CSS_XNR4_OUTPUT_BLEND_PARAM_H
 
-#include "ia_css_types.h"
-#include "sh_css_defs.h"
-#ifndef IA_CSS_NO_DEBUG
-#include "ia_css_debug.h"
-#endif
-#include "sh_css_frac.h"
+#include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_common_param.h"
+#include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_upsample_param.h"
 
-#include "ia_css_xnr4.host.h"
-#include "ia_css_xnr4_downsample.host.h"
-#include "ia_css_xnr4_radial_metric.host.h"
-#include "ia_css_xnr4_output_blend.host.h"
+/* Output Blend Subkernel Configuration */
 
-void
-ia_css_xnr4_encode(
-	struct sh_css_isp_xnr4_params *to,
-	const struct ia_css_xnr4_config *from,
-	unsigned size)
-{
-	(void)size;
-	/* encode down sample parameters */
-	ia_css_xnr4_downsample_encode(&to->xnr4_downsample,
-			&from->xnr4_downsample_config,
-			sizeof(struct ia_css_xnr4_downsample_config));
-	/* encode radial metric parameters */
-	ia_css_xnr4_radial_metric_encode(&to->xnr4_radial_metric,
-			&from->xnr4_radial_metric_config,
-			sizeof(struct ia_css_xnr4_radial_metric_config));
-	/* encode output blend parameters */
-	ia_css_xnr4_output_blend_encode(&to->xnr4_output_blend,
-			&from->xnr4_output_blend_config,
-			sizeof(struct ia_css_xnr4_output_blend_config));
+/* TODO: get the delay from JBL */
+#define XNR4_JBL_VER_DELAY			(3)
+#define XNR4_JBL_HOR_DELAY			(1)
 
-}
+#define XNR4_OUTPUT_BLEND_VER_DELAY		((XNR4_JBL_VER_DELAY * XNR4_LUMA_DS_FACTOR) + \
+						(XNR4_UPSCALE_VER_DELAY * XNR4_LUMA_DS_FACTOR))
+#define XNR4_OUTPUT_BLEND_HOR_DELAY		((XNR4_JBL_HOR_DELAY * XNR4_LUMA_DS_FACTOR) + \
+						(XNR4_UPSCALE_HOR_DELAY * XNR4_LUMA_DS_FACTOR))
 
+/* XNR4 Output Blend Parameters */
+struct sh_css_isp_xnr4_output_blend_params {
+	uint16_t m_bypass_mf_y; /* Output blend bypass value - luma */
+	uint16_t m_bypass_mf_c; /* Output blend bypass value - chroma */
+};
 
+#endif /* __IA_CSS_XNR4_RADIAL_METRIC_PARAM_H */

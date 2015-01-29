@@ -21,39 +21,19 @@
  * estoppel or otherwise. Any license under such intellectual property rights
  * must be express and approved by Intel in writing.
  */
+#ifndef __IA_CSS_XNR4_OUTPUT_BLEND_HOST_H
+#define __IA_CSS_XNR4_OUTPUT_BLEND_HOST_H
 
-#include "ia_css_types.h"
-#include "sh_css_defs.h"
-#ifndef IA_CSS_NO_DEBUG
-#include "ia_css_debug.h"
-#endif
-#include "sh_css_frac.h"
+#include "ia_css_xnr4_output_blend_types.h"
+#include "ia_css_xnr4_output_blend_param.h"
 
-#include "ia_css_xnr4.host.h"
-#include "ia_css_xnr4_downsample.host.h"
-#include "ia_css_xnr4_radial_metric.host.h"
-#include "ia_css_xnr4_output_blend.host.h"
+extern const struct ia_css_xnr4_output_blend_config default_xnr4_output_blend_config;
 
 void
-ia_css_xnr4_encode(
-	struct sh_css_isp_xnr4_params *to,
-	const struct ia_css_xnr4_config *from,
-	unsigned size)
-{
-	(void)size;
-	/* encode down sample parameters */
-	ia_css_xnr4_downsample_encode(&to->xnr4_downsample,
-			&from->xnr4_downsample_config,
-			sizeof(struct ia_css_xnr4_downsample_config));
-	/* encode radial metric parameters */
-	ia_css_xnr4_radial_metric_encode(&to->xnr4_radial_metric,
-			&from->xnr4_radial_metric_config,
-			sizeof(struct ia_css_xnr4_radial_metric_config));
-	/* encode output blend parameters */
-	ia_css_xnr4_output_blend_encode(&to->xnr4_output_blend,
-			&from->xnr4_output_blend_config,
-			sizeof(struct ia_css_xnr4_output_blend_config));
+ia_css_xnr4_output_blend_encode(
+	struct sh_css_isp_xnr4_output_blend_params *to,
+	const struct ia_css_xnr4_output_blend_config *from,
+	unsigned size);
 
-}
-
+#endif /* __IA_CSS_XNR4_OUTPUT_BLEND_HOST_H */
 

@@ -15,13 +15,15 @@
 #ifndef __IA_CSS_BAYER_IO_PARAM
 #define __IA_CSS_BAYER_IO_PARAM
 
+#include "ia_css_bayer_io_types.h"
+
 struct bayer_io_configuration {
 	unsigned base_address;
 	unsigned width;
 	unsigned height;
 	unsigned stride;
 	unsigned ddr_elems_per_word;
-	unsigned dma_channel;
+	unsigned dma_channel[NUM_BAYER_DMA_CHANNELS];
 };
 
 #endif /* __IA_CSS_BAYER_IO_PARAM */

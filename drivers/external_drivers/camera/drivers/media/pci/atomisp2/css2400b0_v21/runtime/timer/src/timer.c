@@ -1,5 +1,3 @@
-/* Release Version: irci_master_20150128_1925 */
-/* Release Version: irci_master_20150128_1925 */
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  * Copyright (c) 2015, Intel Corporation.
@@ -14,18 +12,21 @@
  * more details.
  */
 
-#ifndef __IA_CSS_HDR_HOST_H
-#define __IA_CSS_HDR_HOST_H
+#include <type_support.h>		/* for uint32_t */
+#include "ia_css_timer.h" /*struct ia_css_clock_tick */
+#include "sh_css_legacy.h" /* IA_CSS_PIPE_ID_NUM*/
+#include "gp_timer.h" /*gp_timer_read()*/
+#include "assert_support.h"
 
-#include "ia_css_hdr_param.h"
-#include "ia_css_hdr_types.h"
+enum ia_css_err
+ia_css_timer_get_current_tick(
+	struct ia_css_clock_tick *curr_ts) {
 
-extern const struct ia_css_hdr_config default_hdr_config;
+	assert(curr_ts !=  NULL);
+	if (curr_ts == NULL) {
+		return IA_CSS_ERR_INVALID_ARGUMENTS;
+	}
+	curr_ts->ticks = (clock_value_t)gp_timer_read(GP_TIMER_SEL);
+	return IA_CSS_SUCCESS;
+}
 
-void
-ia_css_hdr_init_config(
-	struct sh_css_isp_hdr_params *to,
-	const struct ia_css_hdr_config *from,
-	unsigned size);
-
-#endif /* __IA_CSS_HDR_HOST_H */

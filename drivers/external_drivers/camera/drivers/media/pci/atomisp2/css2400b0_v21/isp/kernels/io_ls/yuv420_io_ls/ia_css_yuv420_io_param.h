@@ -1,5 +1,3 @@
-/* Release Version: irci_master_20150128_1925 */
-/* Release Version: irci_master_20150128_1925 */
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  * Copyright (c) 2015, Intel Corporation.
@@ -14,18 +12,19 @@
  * more details.
  */
 
-#ifndef __IA_CSS_HDR_HOST_H
-#define __IA_CSS_HDR_HOST_H
+#ifndef __IA_CSS_YUV420_IO_PARAM
+#define __IA_CSS_YUV420_IO_PARAM
 
-#include "ia_css_hdr_param.h"
-#include "ia_css_hdr_types.h"
+#define NUM_YUV420_DMA_CHANNELS 2
 
-extern const struct ia_css_hdr_config default_hdr_config;
+struct ia_css_yuv420_io_params {
+	unsigned base_address;
+	unsigned width;
+	unsigned height;
+	unsigned stride;
+	unsigned ddr_elems_per_word;
+	unsigned dma_channel[NUM_YUV420_DMA_CHANNELS];
+};
 
-void
-ia_css_hdr_init_config(
-	struct sh_css_isp_hdr_params *to,
-	const struct ia_css_hdr_config *from,
-	unsigned size);
 
-#endif /* __IA_CSS_HDR_HOST_H */
+#endif
