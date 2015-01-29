@@ -39,6 +39,6 @@ int hdmi_pll_clock_register(struct platform_device *pdev,
 int hdmi_20nm_pll_clock_register(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
 
-int hdmi_14nm_pll_clock_register(struct platform_device *pdev,
+int hdmi_thulium_pll_clock_register(struct platform_device *pdev,
 				 struct mdss_pll_resources *pll_res);
 #endif
