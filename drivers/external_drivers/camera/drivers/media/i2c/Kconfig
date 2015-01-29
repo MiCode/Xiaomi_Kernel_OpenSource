@@ -18,6 +18,16 @@ config VIDEO_OV9724
 
          It currently only works with the atomisp driver.
 
+config VIDEO_OV2685
+        tristate "OVT ov2685 sensor support"
+        depends on I2C && VIDEO_V4L2
+        ---help---
+          This is a Video4Linux2 sensor-level driver for the OVT
+          OV2685 soc camera.
+
+          OVT is a 2M soc sensor.
+
+          It currently only works with the atomisp driver.
 config VIDEO_OV2722
        tristate "OVT ov2722 sensor support"
        depends on I2C && VIDEO_V4L2
