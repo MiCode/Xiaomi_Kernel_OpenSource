@@ -268,11 +268,6 @@ void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	ops->pp_ops[GAMUT].pp_get_config = pp_gamut_get_config;
 	ops->pp_ops[GAMUT].pp_get_version = pp_gamut_get_version;
 
-	/* CSC ops */
-	ops->pp_ops[CSC].pp_set_config = NULL;
-	ops->pp_ops[CSC].pp_get_config = NULL;
-	ops->pp_ops[CSC].pp_get_version = NULL;
-
 	/* Dither ops */
 	ops->pp_ops[DITHER].pp_set_config = pp_dither_set_config;
 	ops->pp_ops[DITHER].pp_get_config = pp_dither_get_config;

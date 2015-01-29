@@ -444,20 +444,9 @@ struct mdp_csc_cfg {
 	uint32_t csc_post_lv[MDP_CSC_CLAMP_SIZE];
 };
 
-struct mdp_csc_cfg_v1_7 {
-	uint32_t csc_mv[MDP_CSC_MATRIX_COEFF_SIZE];
-	uint32_t csc_pre_bv[MDP_CSC_BIAS_SIZE];
-	uint32_t csc_post_bv[MDP_CSC_BIAS_SIZE];
-	uint32_t csc_pre_lv[MDP_CSC_CLAMP_SIZE];
-	uint32_t csc_post_lv[MDP_CSC_CLAMP_SIZE];
-};
-
 struct mdp_csc_cfg_data {
 	uint32_t block;
-	uint32_t version;
-	uint32_t flags;
 	struct mdp_csc_cfg csc_data;
-	void *cfg_payload;
 };
 
 struct mdp_pa_cfg {
@@ -1367,7 +1356,6 @@ enum {
 	GC,
 	PA,
 	GAMUT,
-	CSC,
 	DITHER,
 	QSEED,
 	HIST_LUT,
