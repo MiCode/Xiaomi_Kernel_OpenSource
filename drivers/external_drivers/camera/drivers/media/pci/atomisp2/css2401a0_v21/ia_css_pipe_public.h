@@ -124,6 +124,10 @@ struct ia_css_pipe_config {
 	     to false. In some use cases this provides better performance. */
 	struct ia_css_isp_config *p_isp_config;
 	/**< Pointer to ISP configuration */
+	struct ia_css_resolution gdc_in_buffer_res;
+	/**< GDC in buffer resolution. */
+	struct ia_css_point gdc_in_buffer_offset;
+	/**< GDC in buffer offset - indicates the pixel coordinates of the first valid pixel inside the buffer */
 };
 
 /**
@@ -149,7 +153,9 @@ struct ia_css_pipe_config {
 	-1,					/* acc_num_execs */ \
 	false,					/* enable_dz */ \
 	false,					/* enable_dpc */ \
-	NULL					/* p_isp_config */\
+	NULL,					/* p_isp_config */\
+	{ 0, 0 },				/* gdc_in_buffer_res */ \
+	{ 0, 0 }				/* gdc_in_buffer_offset */ \
 }
 
 /** Pipe info, this struct describes properties of a pipe after it's stream has

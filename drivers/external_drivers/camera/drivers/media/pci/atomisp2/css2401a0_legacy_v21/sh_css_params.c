@@ -97,6 +97,7 @@
 
 #if defined(IS_ISP_2500_SYSTEM)
 #include "product_specific.host.h"
+#include "components/ob/sc_ob_1.0/host/obgrid.host.h"
 #include "components/stats_3a/src/stats_3a_private.h"
 #include "components/acc_cluster/acc_lace_stat/lace_stat_private.h"
 #include "components/acc_cluster/acc_lace_stat/host/lace_stat.host.h"
@@ -3390,6 +3391,7 @@ sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
 
 		ia_css_set_sdis2_config(params, &stream_params->dvs2_coefs);
 		params->dvs2_coef_table_changed = stream_params->dvs2_coef_table_changed;
+		params->sensor_binning = stream_params->sensor_binning;
 #endif /* !defined(IS_ISP_2500_SYSTEM) */
 	}
 
@@ -3555,6 +3557,7 @@ ia_css_stream_isp_parameters_uninit(struct ia_css_stream *stream)
 
 #if defined(IS_ISP_2500_SYSTEM)
 	destroy_acc_cluster(stream);
+	stripe_table_release();
 #endif
 
 	/* Free up theDVS table memory blocks before recomputing new table */

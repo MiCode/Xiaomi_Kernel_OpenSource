@@ -26,10 +26,12 @@
 
 #include "ia_css_xnr4_downsample_types.h"
 #include "ia_css_xnr4_radial_metric_types.h"
+#include "ia_css_xnr4_output_blend_types.h"
 
 struct ia_css_xnr4_config {
 	struct ia_css_xnr4_downsample_config xnr4_downsample_config;
 	struct ia_css_xnr4_radial_metric_config xnr4_radial_metric_config;
+	struct ia_css_xnr4_output_blend_config xnr4_output_blend_config;
 };
 
 #endif /* __IA_CSS_XNR4_TYPES_H */

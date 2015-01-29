@@ -363,7 +363,7 @@ RGB[0,8191],coef[-8192,8191] -> RGB[0,8191]
 #ifdef IS_ISP_2500_SYSTEM
 #define SH_CSS_MAX_STAGES 3 /* 2 stages for split isp pipelin, 1 for scaling */
 #else
-#define SH_CSS_MAX_STAGES 6 /* copy, preisp, anr, postisp, capture_pp, vf_pp */
+#define SH_CSS_MAX_STAGES 8 /* primary_stage[1-6], capture_pp, vf_pp */
 #endif
 
 /* For CSI2+ input system, it requires extra paddinga from vmem */

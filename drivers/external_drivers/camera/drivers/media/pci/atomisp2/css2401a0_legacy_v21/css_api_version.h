@@ -35,7 +35,7 @@ The version string has four dot-separated numbers, read left to right:
 
 */
 
-#define CSS_API_VERSION_STRING	"2.1.10.5"
+#define CSS_API_VERSION_STRING	"2.1.10.6"
 
 /*
 Change log
@@ -245,6 +245,10 @@ v2.1.10.5 (5 changes parallel), change the pipe version type from integer to enu
 
 v2.1.10.5 (2 changes parallel), Added public interface for setting the scaler LUT.
 - Added the public struct to output system and modified the global config struct.
+
+v2.1.10.6, new API getter functions for gdc in buffer information
+- ia_css_pipe_get_dvs_filter() added
+- ia_css_pipe_get_gdc_in_buffer_info() added
 
 */
 

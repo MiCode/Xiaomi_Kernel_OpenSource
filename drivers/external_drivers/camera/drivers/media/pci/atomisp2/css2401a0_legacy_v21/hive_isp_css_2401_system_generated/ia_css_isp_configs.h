@@ -13,11 +13,9 @@
  */
 
 #ifdef IA_CSS_INCLUDE_CONFIGURATIONS
-#include "isp/kernels/copy_output/copy_output_1.0/ia_css_copy_output.host.h"
 #include "isp/kernels/crop/crop_1.0/ia_css_crop.host.h"
 #include "isp/kernels/dvs/dvs_1.0/ia_css_dvs.host.h"
 #include "isp/kernels/fpn/fpn_1.0/ia_css_fpn.host.h"
-#include "isp/kernels/iterator/iterator_1.0/ia_css_iterator.host.h"
 #include "isp/kernels/ob/ob_1.0/ia_css_ob.host.h"
 #include "isp/kernels/output/output_1.0/ia_css_output.host.h"
 #include "isp/kernels/qplane/qplane_2/ia_css_qplane.host.h"
@@ -26,6 +24,8 @@
 #include "isp/kernels/s3a/s3a_1.0/ia_css_s3a.host.h"
 #include "isp/kernels/tnr/tnr_1.0/ia_css_tnr.host.h"
 #include "isp/kernels/vf/vf_1.0/ia_css_vf.host.h"
+#include "isp/kernels/iterator/iterator_1.0/ia_css_iterator.host.h"
+#include "isp/kernels/copy_output/copy_output_1.0/ia_css_copy_output.host.h"
 #endif /* IA_CSS_INCLUDE_CONFIGURATIONS */
 /* Generated code: do not edit or commmit. */
 

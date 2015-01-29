@@ -21,8 +21,8 @@
  * estoppel or otherwise. Any license under such intellectual property rights
  * must be express and approved by Intel in writing.
  */
-#ifndef _XNR4_UPSAMPLE_PARAM_H_
-#define _XNR4_UPSAMPLE_PARAM_H_
+#ifndef _IA_CSS_XNR4_UPSAMPLE_PARAM_H_
+#define _IA_CSS_XNR4_UPSAMPLE_PARAM_H_
 
 #include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_downsample_param.h"
 
@@ -67,4 +67,4 @@
 
 
 
-#endif /*_XNR4_UPSAMPLE_PARAM_H_ */
+#endif /*_IA_CSS_XNR4_UPSAMPLE_PARAM_H_ */

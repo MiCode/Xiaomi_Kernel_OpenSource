@@ -1098,14 +1098,22 @@ void
 sh_css_invalidate_shading_tables(struct ia_css_stream *stream);
 
 #if defined(IS_ISP_2500_SYSTEM)
-void
+enum ia_css_err
 ia_css_pipe_get_bds_resolution(const struct ia_css_pipe *pipe, struct ia_css_resolution *res);
 
-void
+enum ia_css_err
 ia_css_pipe_get_bds_aligned_resolution(const struct ia_css_pipe *pipe, struct ia_css_resolution *res);
 
-void
+enum ia_css_err
 ia_css_pipe_get_dvs_envelope(const struct ia_css_pipe *pipe, struct ia_css_resolution *res);
+
+enum ia_css_err
+ia_css_pipe_get_dvs_filter(const struct ia_css_pipe *pipe, struct ia_css_resolution *filter_res);
+
+enum ia_css_err
+ia_css_pipe_get_gdc_in_buffer_info(const struct ia_css_pipe *pipe,
+		struct ia_css_resolution *res,
+		struct ia_css_point *offset);
 #endif
 
 struct ia_css_pipeline *

@@ -32,7 +32,7 @@
 #include "ia_css_xnr4.host.h"
 #include "ia_css_xnr4_downsample.host.h"
 #include "ia_css_xnr4_radial_metric.host.h"
-
+#include "ia_css_xnr4_output_blend.host.h"
 
 void
 ia_css_xnr4_encode(
@@ -43,12 +43,17 @@ ia_css_xnr4_encode(
 	(void)size;
 	/* encode down sample parameters */
 	ia_css_xnr4_downsample_encode(&to->xnr4_downsample,
-				      &from->xnr4_downsample_config,
-				      sizeof(struct ia_css_xnr4_downsample_config));
+			&from->xnr4_downsample_config,
+			sizeof(struct ia_css_xnr4_downsample_config));
 	/* encode radial metric parameters */
 	ia_css_xnr4_radial_metric_encode(&to->xnr4_radial_metric,
-					 &from->xnr4_radial_metric_config,
-					 sizeof(struct ia_css_xnr4_radial_metric_config));
+			&from->xnr4_radial_metric_config,
+			sizeof(struct ia_css_xnr4_radial_metric_config));
+	/* encode output blend parameters */
+	ia_css_xnr4_output_blend_encode(&to->xnr4_output_blend,
+			&from->xnr4_output_blend_config,
+			sizeof(struct ia_css_xnr4_output_blend_config));
+
 }
 
 

@@ -47,11 +47,10 @@ struct ia_css_preview_settings {
 
 struct ia_css_capture_settings {
 	struct ia_css_binary copy_binary;
-	struct ia_css_binary primary_binary;
-	/* primary_hq_binary(high quality primary) is used for ISP2.6.1 HQ still
-	 * capture pipe. In this pipe, primary binary is splitted to multiple
-	 * stages due to the high computation load. */
-	struct ia_css_binary primary_hq_binary[NUM_PRIMARY_HQ_STAGES];
+	/* we extend primary binary to multiple stages because in ISP2.6.1
+	 * the computation load is too high to fit in one single binary. */
+	struct ia_css_binary primary_binary[MAX_NUM_PRIMARY_STAGES];
+	unsigned int num_primary_stage;
 	struct ia_css_binary pre_isp_binary;
 	struct ia_css_binary anr_gdc_binary;
 	struct ia_css_binary post_isp_binary;
@@ -66,8 +65,8 @@ struct ia_css_capture_settings {
 #define IA_CSS_DEFAULT_CAPTURE_SETTINGS \
 { \
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* copy_binary */\
-	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* primary_binary */\
-	{IA_CSS_BINARY_DEFAULT_SETTINGS},	/* primary_hq_binary */\
+	{IA_CSS_BINARY_DEFAULT_SETTINGS},	/* primary_binary */\
+	0,				/* num_primary_stage */\
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* pre_isp_binary */\
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* anr_gdc_binary */\
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* post_isp_binary */\
