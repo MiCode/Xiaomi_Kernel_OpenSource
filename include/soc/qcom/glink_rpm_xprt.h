@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,16 @@ int glink_rpm_rx_poll(void *handle);
  */
 int glink_rpm_mask_rx_interrupt(void *handle, bool mask, void *pstruct);
 
+/**
+ * glink_wait_link_down() - Return whether read/write indices in FIFO are all 0.
+ * @handle:	Channel handle in which this operation is performed.
+ *
+ * This function returns the status of the read/write indices in the FIFO.
+ *
+ * Return: 1 if the indices are all 0, 0 otherwise.
+ */
+int glink_wait_link_down(void *handle);
+
 #else
 static inline int glink_rpm_rx_poll(void *handle)
 {
@@ -55,6 +65,10 @@ static inline int glink_rpm_rx_poll(void *handle)
 
 static inline int glink_rpm_mask_rx_interrupt(void *handle, bool mask,
 		void *pstruct)
+{
+	return -ENODEV;
+}
+static inline int glink_wait_link_down(void *handle)
 {
 	return -ENODEV;
 }

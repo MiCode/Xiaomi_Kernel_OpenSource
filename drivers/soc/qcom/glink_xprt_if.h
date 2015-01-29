@@ -108,6 +108,7 @@ struct glink_transport_if {
 	int (*poll)(struct glink_transport_if *if_ptr, uint32_t lcid);
 	int (*mask_rx_irq)(struct glink_transport_if *if_ptr, uint32_t lcid,
 			bool mask, void *pstruct);
+	int (*wait_link_down)(struct glink_transport_if *if_ptr);
 
 	/*
 	 * Keep data pointers at the end of the structure after all function

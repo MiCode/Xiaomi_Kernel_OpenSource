@@ -1539,6 +1539,18 @@ static int dummy_mask_rx_irq(struct glink_transport_if *if_ptr, uint32_t lcid,
 }
 
 /**
+ * dummy_wait_link_down() - a dummy wait_link_down() for transports that don't
+ *			define one
+ * @if_ptr:	The transport interface handle for this transport.
+ *
+ * Return: An error to indicate that this operation is unsupported.
+ */
+static int dummy_wait_link_down(struct glink_transport_if *if_ptr)
+{
+	return -EOPNOTSUPP;
+}
+
+/**
  * notif_if_up_all_xprts() - Check and notify existing transport state if up
  * @notif_info:	Data structure containing transport information to be notified.
  *
@@ -2326,6 +2338,26 @@ int glink_rpm_mask_rx_interrupt(void *handle, bool mask, void *pstruct)
 EXPORT_SYMBOL(glink_rpm_mask_rx_interrupt);
 
 /**
+ * glink_wait_link_down() - Get status of link
+ * @handle:	Channel handle in which this operation is performed
+ *
+ * This function will query the transport for its status, to allow clients to
+ * proceed in cleanup operations.
+ */
+int glink_wait_link_down(void *handle)
+{
+	struct channel_ctx *ctx = (struct channel_ctx *)handle;
+
+	if (!ctx)
+		return -EINVAL;
+	if (!ctx->transport_ptr)
+		return -EOPNOTSUPP;
+
+	return ctx->transport_ptr->ops->wait_link_down(ctx->transport_ptr->ops);
+}
+EXPORT_SYMBOL(glink_wait_link_down);
+
+/**
  * glink_xprt_ctx_release - Free the transport context
  * @ch_st_lock:	handle to the rwref_lock associated with the transport
  *
@@ -2430,6 +2462,8 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 		if_ptr->mask_rx_irq = dummy_mask_rx_irq;
 	if (!if_ptr->reuse_rx_intent)
 		if_ptr->reuse_rx_intent = dummy_reuse_rx_intent;
+	if (!if_ptr->wait_link_down)
+		if_ptr->wait_link_down = dummy_wait_link_down;
 	xprt_ptr->capabilities = 0;
 	xprt_ptr->ops = if_ptr;
 	spin_lock_init(&xprt_ptr->xprt_ctx_lock_lhb1);
