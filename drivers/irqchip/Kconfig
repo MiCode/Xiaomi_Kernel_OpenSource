@@ -54,6 +54,18 @@ config BRCMSTB_L2_IRQ
 	select GENERIC_IRQ_CHIP
 	select IRQ_DOMAIN
 
+config MSM_GIC_SGI_NEEDS_BARRIER
+	bool "SGI operations require explicit barriers"
+	depends on ARM_GIC_V3
+	def_bool ARCH_MSMTHULIUM
+	help
+	  Some early samples of the MSMTHULIUM SoCs require that an explicit
+	  barrier be executed between two sucessive writes to the ICC_SGI1R_EL1
+	  register. If you are building the kernel to work on one of these early
+	  designs, select 'Y' here.
+
+	  For production kernels, you should say 'N' here.
+
 config DW_APB_ICTL
 	bool
 	select IRQ_DOMAIN

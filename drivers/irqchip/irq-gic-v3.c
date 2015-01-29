@@ -138,7 +138,17 @@ static void __maybe_unused gic_write_grpen1(u64 val)
 
 static void __maybe_unused gic_write_sgi1r(u64 val)
 {
+#ifdef CONFIG_MSM_GIC_SGI_NEEDS_BARRIER
+	static DEFINE_RAW_SPINLOCK(sgi_lock);
+	unsigned long flags;
+	raw_spin_lock_irqsave(&sgi_lock, flags);
+#endif
+
 	asm volatile("msr_s " __stringify(ICC_SGI1R_EL1) ", %0" : : "r" (val));
+#ifdef CONFIG_MSM_GIC_SGI_NEEDS_BARRIER
+	dsb(nsh);
+	raw_spin_unlock_irqrestore(&sgi_lock, flags);
+#endif
 }
 
 static void gic_enable_sre(void)
