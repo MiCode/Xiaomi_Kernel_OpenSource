@@ -38,6 +38,21 @@
 #define VLV_NUM_SPRITES 2
 #define VLV_SP_12BIT_MASK 0xFFF
 
+#define CHV_PCI_MINOR_STEP_MASK		0x0C
+#define CHV_PCI_MAJOR_STEP_MASK		0x30
+
+#define CHV_PCI_MINOR_STEP_SHIFT	0x02
+#define CHV_PCI_MAJOR_STEP_SHIFT	0x04
+
+#define CHV_PCI_STEP_SEL_MASK		0x40
+#define CHV_PCI_STEP_SEL_SHIFT		0x06
+#define CHV_PCI_OVERFLOW_MASK		0x80
+#define CHV_PCI_OVERFLOW_SHIFT		0x07
+
+#define CHV_MAX_STEP_SEL		1
+#define CHV_MAX_MAJ_STEP		1
+#define CHV_MAX_MIN_STEP		3
+
 enum planes {
 	PRIMARY_PLANE = 0,
 	SPRITE_A = 1,
@@ -111,6 +126,7 @@ struct vlv_pipeline {
 	struct vlv_pri_plane pplane;
 	struct vlv_sp_plane splane[2];
 	enum intel_pipe_type type;
+	u16 dc_stepping;
 	union {
 		struct dsi_pipe dsi;
 		/* later we will have hdmi pipe */

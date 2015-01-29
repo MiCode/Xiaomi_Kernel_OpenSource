@@ -201,7 +201,7 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 
 static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 			enum pipe pipe, enum intel_pipe_type type,
-			enum port port, u8 disp_no)
+			enum port port, u8 disp_no, u16 stepping)
 {
 	struct vlv_pri_plane *pplane;
 	struct vlv_sp_plane *splane;
@@ -228,6 +228,9 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 	disp = &vlv_config->pipeline[disp_no];
 
 	disp->type = type;
+
+	/* Initialising each pipeline stepping id */
+	disp->dc_stepping = stepping;
 
 	plane = pipe * VLV_MAX_PLANES;
 
@@ -292,6 +295,31 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config,
 	return err;
 }
 
+static u16 chv_dc_get_stepping(struct pci_dev *pdev)
+{
+	u16 stepping = 0;
+	u8 rev_id;
+
+	if (!pdev) {
+		pr_err("ADF: %s Null parameter\n", __func__);
+		return 0;
+	}
+
+	rev_id = pdev->revision;
+
+	stepping = ((rev_id & CHV_PCI_MINOR_STEP_MASK)
+					>> CHV_PCI_MINOR_STEP_SHIFT) + '0';
+	if ((rev_id & CHV_PCI_STEP_SEL_MASK) >> CHV_PCI_STEP_SEL_SHIFT)
+		stepping = stepping + ('K' << 8);
+	else
+		stepping = stepping + ('A' << 8);
+
+	stepping = stepping + (((rev_id & CHV_PCI_MAJOR_STEP_MASK)
+					>> CHV_PCI_MAJOR_STEP_SHIFT) << 8);
+
+	pr_info("ADF %s CHV stepping id = 0x%x\n", __func__, stepping);
+	return stepping;
+}
 struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 {
 	struct vlv_dc_config *config;
@@ -305,6 +333,7 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 	u16 port;
 	int i, lfp_pipe = 0;
 	enum pipe pipe = PIPE_A;
+	u16 stepping = 0;
 
 	if (!pdev)
 		return ERR_PTR(-EINVAL);
@@ -314,6 +343,10 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 		dev_err(&pdev->dev, "failed to alloc memory\n");
 		return ERR_PTR(-ENOMEM);
 	}
+
+	/* Detect stepping of CHV display controller */
+	if (IS_CHERRYVIEW())
+		stepping = chv_dc_get_stepping(pdev);
 
 	/* Init config */
 	if (id == gen_cherryview) {
@@ -386,13 +419,13 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 				vlv_initialize_disp(config, pipe,
 						INTEL_PIPE_DSI,
 						(dvo_port - DVO_PORT_MIPIA),
-						display_no++);
+						display_no++, stepping);
 			} else if (devtype & DEVICE_TYPE_EDP_BITS) {
 				pipe = PIPE_B;
 				vlv_initialize_disp(config, pipe,
 						INTEL_PIPE_EDP,
 						dvo_port - DVO_PORT_CRT,
-						display_no++);
+						display_no++, stepping);
 			}
 			lfp_pipe = pipe;
 		}
@@ -435,11 +468,13 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 				 */
 				vlv_initialize_disp(config, pipe,
 						INTEL_PIPE_DP,
-						dvo_port, display_no++);
+						dvo_port, display_no++,
+						stepping);
 			else
 				vlv_initialize_disp(config, pipe,
 						INTEL_PIPE_HDMI,
-						dvo_port, display_no++);
+						dvo_port, display_no++,
+						stepping);
 		}
 	}
 

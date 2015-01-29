@@ -37,6 +37,44 @@
 
 #define CHV_MAX_PLANES VLV_MAX_PLANES
 
+#define STEP_A0				0x4130
+#define STEP_A1				0x4131
+#define STEP_A2				0x4132
+#define STEP_A3				0x4133
+#define STEP_B0				0x4230
+#define STEP_B1				0x4231
+#define STEP_B2				0x4232
+#define STEP_B3				0x4233
+#define STEP_C0				0x4330
+#define STEP_C1				0x4331
+#define STEP_C2				0x4332
+#define STEP_C3				0x4333
+#define STEP_D0				0x4430
+#define STEP_D1				0x4431
+#define STEP_D2				0x4432
+#define STEP_D3				0x4433
+#define STEP_K0				0x4B30
+#define STEP_K1				0x4B31
+#define STEP_K2				0x4B32
+#define STEP_K3				0x4B33
+#define STEP_L0				0x4C30
+#define STEP_L1				0x4C31
+#define STEP_L2				0x4C32
+#define STEP_L3				0x4C33
+#define STEP_M0				0x4D30
+#define STEP_M1				0x4D31
+#define STEP_M2				0x4D32
+#define STEP_M3				0x4D33
+
+#define STEP_BETWEEN_INCLUSIVE(step_id, from, to) ((step_id >= from && \
+			step_id  <= to) ? true : false)
+#define STEP_ABOVE(step_id, above) (step_id > above ? true : false)
+#define STEP_BELOW(step_id, below) (step_id < below ? true : false)
+#define STEP_BETWEEN(step_id, below, above) ((step_id > below && \
+			step_id < above) ? true : false)
+#define STEP_FROM(step_id, from)  (step_id >= from ? true : false)
+#define STEP_TO(step_id, to) (step_id <= to ? true : false)
+
 struct intel_dc_component;
 struct intel_plane;
 struct intel_pipe;
@@ -627,4 +665,5 @@ extern int intel_adf_handle_events(struct intel_pipe *pipe, u32 events);
 extern int intel_adf_set_event(struct intel_pipe *pipe, u16 event,
 		bool enabled);
 extern int intel_adf_get_events(struct intel_pipe *pipe, u32 *events);
+
 #endif /* INTEL_DC_CONFIG_H_ */
