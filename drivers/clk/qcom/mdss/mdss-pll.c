@@ -202,8 +202,8 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 	case MDSS_HDMI_PLL_20NM:
 		rc = hdmi_20nm_pll_clock_register(pdev, pll_res);
 		break;
-	case MDSS_HDMI_PLL_14NM:
-		rc = hdmi_14nm_pll_clock_register(pdev, pll_res);
+	case MDSS_HDMI_PLL_THULIUM:
+		rc = hdmi_8996_pll_clock_register(pdev, pll_res);
 		break;
 	case MDSS_UNKNOWN_PLL:
 	default:
