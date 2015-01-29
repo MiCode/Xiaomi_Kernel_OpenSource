@@ -646,6 +646,7 @@
 					<138 48 6 0>,
 					<138 54 7 0>;
 		qcom,cpr-fuse-revision = <137 34 3 0>;
+		qcom,speed-bin-fuse-sel = <22 56 2 0>;
 
 		qcom,fuse-remap-base-row = <1000>;
 		qcom,fuse-remap-source =
@@ -745,6 +746,7 @@
 					<139 58 6 0>,
 					<140 0 7 0>;
 		qcom,cpr-fuse-revision = <137 34 3 0>;
+		qcom,speed-bin-fuse-sel = <22 0 3 0>;
 
 		qcom,fuse-remap-base-row = <1000>;
 		qcom,fuse-remap-source =
