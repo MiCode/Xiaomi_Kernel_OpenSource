@@ -504,13 +504,6 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	host->max_blk_size = 512;
 	host->max_blk_count = PAGE_CACHE_SIZE / 512;
 
-	pm_runtime_set_active(&host->class_dev);
-	pm_runtime_enable(&host->class_dev);
-	/*
-	 * ignore the children by default
-	 */
-	pm_suspend_ignore_children(&host->class_dev, true);
-
 	return host;
 
 free:
@@ -545,6 +538,12 @@ int mmc_add_host(struct mmc_host *host)
 	mmc_add_host_debugfs(host);
 #endif
 	mmc_host_clk_sysfs_init(host);
+
+	/*
+	 * ignore the children by default
+	 */
+	pm_suspend_ignore_children(&host->class_dev, true);
+	pm_runtime_enable(&host->class_dev);
 
 	mmc_start_host(host);
 	if (!(host->pm_flags & MMC_PM_IGNORE_PM_NOTIFY))
