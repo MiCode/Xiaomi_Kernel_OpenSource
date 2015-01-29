@@ -2860,8 +2860,14 @@ void atomisp_apply_css_parameters(
 	if (arg->morph_table && asd->params.gdc_cac_en)
 		atomisp_css_set_morph_table(asd, css_param->morph_table);
 
-	if (arg->dvs2_coefs && asd->params.curr_grid_info.dvs_grid.enable)
-		atomisp_css_set_dvs2_coefs(asd, css_param->dvs2_coeff);
+	if (arg->dvs2_coefs) {
+		struct atomisp_css_dvs_grid_info *dvs_grid_info =
+			atomisp_css_get_dvs_grid_info(
+				&asd->params.curr_grid_info);
+
+		if (dvs_grid_info && dvs_grid_info->enable)
+			atomisp_css_set_dvs2_coefs(asd, css_param->dvs2_coeff);
+	}
 
 	if (arg->dvs_6axis_config)
 		atomisp_css_set_dvs_6axis(asd, css_param->dvs_6axis);
@@ -3138,9 +3144,9 @@ static int __atomisp_css_cp_dvs2_coefs(struct atomisp_sub_device *asd,
 				struct atomisp_css_params *css_param)
 {
 	struct atomisp_css_dvs_grid_info *cur =
-	    &asd->params.curr_grid_info.dvs_grid;
+		atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
 
-	if (!coefs)
+	if (!coefs || !cur)
 		return 0;
 
 	if (sizeof(*cur) != sizeof(coefs->grid) ||
@@ -3164,8 +3170,7 @@ static int __atomisp_css_cp_dvs2_coefs(struct atomisp_sub_device *asd,
 
 	if (!css_param->dvs2_coeff) {
 		/* DIS coefficients. */
-		css_param->dvs2_coeff = ia_css_dvs2_coefficients_allocate(
-					&asd->params.curr_grid_info.dvs_grid);
+		css_param->dvs2_coeff = ia_css_dvs2_coefficients_allocate(cur);
 		if (!css_param->dvs2_coeff)
 			return -ENOMEM;
 	}
@@ -3202,6 +3207,8 @@ int atomisp_cp_dvs_6axis_config(struct atomisp_sub_device *asd,
 	struct atomisp_css_dvs_6axis_config *old_6axis_config;
 	struct ia_css_stream *stream =
 			asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream;
+	struct atomisp_css_dvs_grid_info *dvs_grid_info =
+		atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
 	int ret = -EFAULT;
 
 	if (stream == NULL) {
@@ -3209,7 +3216,10 @@ int atomisp_cp_dvs_6axis_config(struct atomisp_sub_device *asd,
 		return -EINVAL;
 	}
 
-	if (!user_6axis_config || !asd->params.curr_grid_info.dvs_grid.enable)
+	if (!user_6axis_config || !dvs_grid_info)
+		return 0;
+
+	if (!dvs_grid_info->enable)
 		return 0;
 
 	/* check whether need to reallocate for 6 axis config */
@@ -3509,6 +3519,10 @@ int atomisp_param(struct atomisp_sub_device *asd, int flag,
 
 	/* Read parameter for 3A binary info */
 	if (flag == 0) {
+		struct atomisp_css_dvs_grid_info *dvs_grid_info =
+			atomisp_css_get_dvs_grid_info(
+				&asd->params.curr_grid_info);
+
 		if (&config->info == NULL) {
 			dev_err(isp->dev, "ERROR: NULL pointer in grid_info\n");
 			return -EINVAL;
@@ -3526,8 +3540,10 @@ int atomisp_param(struct atomisp_sub_device *asd, int flag,
 			metadata_info.stride;
 
 		/* update dvs grid info */
-		memcpy(&config->dvs_grid, &asd->params.curr_grid_info.dvs_grid,
-			sizeof(struct atomisp_css_dvs_grid_info));
+		if (dvs_grid_info)
+			memcpy(&config->dvs_grid,
+				dvs_grid_info,
+				sizeof(struct atomisp_css_dvs_grid_info));
 
 		if (asd->run_mode->val != ATOMISP_RUN_MODE_VIDEO) {
 			config->dvs_envelop.width = 0;

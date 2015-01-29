@@ -407,6 +407,8 @@ int atomisp_qbuffers_to_css(struct atomisp_sub_device *asd)
 	struct atomisp_video_pipe *video_pipe = NULL;
 	bool raw_mode = atomisp_is_mbuscode_raw(
 			    asd->fmt[asd->capture_pad].fmt.code);
+	struct atomisp_css_dvs_grid_info *dvs_grid =
+		atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
 
 	if (asd->isp->inputs[asd->input_curr].camera_caps->
 	    sensor[asd->sensor_curr].stream_num == 2 &&
@@ -576,7 +578,7 @@ int atomisp_qbuffers_to_css(struct atomisp_sub_device *asd)
 					css_preview_pipe_id);
 	}
 
-	if (asd->params.curr_grid_info.dvs_grid.enable)
+	if (dvs_grid && dvs_grid->enable)
 		atomisp_q_dis_buffers_to_css(asd,
 					ATOMISP_INPUT_STREAM_GENERAL,
 					css_video_pipe_id);

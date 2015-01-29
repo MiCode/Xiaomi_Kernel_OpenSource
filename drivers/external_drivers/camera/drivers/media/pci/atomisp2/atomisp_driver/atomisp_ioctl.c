@@ -1000,6 +1000,8 @@ int atomisp_alloc_css_stat_bufs(struct atomisp_sub_device *asd,
 	struct atomisp_dis_buf *dis_buf = NULL, *_dis_buf;
 	struct atomisp_metadata_buf *md_buf = NULL, *_md_buf;
 	int count;
+	struct atomisp_css_dvs_grid_info *dvs_grid_info =
+		atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
 	unsigned int i;
 
 	if (list_empty(&asd->s3a_stats) &&
@@ -1024,8 +1026,8 @@ int atomisp_alloc_css_stat_bufs(struct atomisp_sub_device *asd,
 		}
 	}
 
-	if (list_empty(&asd->dis_stats) &&
-		asd->params.curr_grid_info.dvs_grid.enable) {
+	if (list_empty(&asd->dis_stats) && dvs_grid_info &&
+		dvs_grid_info->enable) {
 		count = ATOMISP_CSS_Q_DEPTH + 1;
 		dev_dbg(isp->dev, "allocating %d dis buffers\n", count);
 		while (count--) {

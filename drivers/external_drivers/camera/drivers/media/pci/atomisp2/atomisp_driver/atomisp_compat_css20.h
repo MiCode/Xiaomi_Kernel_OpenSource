@@ -277,4 +277,6 @@ void atomisp_css_set_isp_config_applied_frame(struct atomisp_sub_device *asd,
 int atomisp_get_css_dbgfunc(void);
 
 int atomisp_set_css_dbgfunc(struct atomisp_device *isp, int opt);
+struct atomisp_css_dvs_grid_info *atomisp_css_get_dvs_grid_info(
+	struct atomisp_css_grid_info *grid_info);
 #endif

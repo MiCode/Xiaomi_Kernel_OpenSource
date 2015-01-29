@@ -1485,6 +1485,9 @@ int atomisp_css_allocate_stat_buffers(struct atomisp_sub_device   *asd,
 				      struct atomisp_metadata_buf *md_buf)
 {
 	struct atomisp_device *isp = asd->isp;
+	struct atomisp_css_dvs_grid_info *dvs_grid_info =
+		atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
+
 	if (s3a_buf && asd->params.curr_grid_info.s3a_grid.enable) {
 		void *s3a_ptr;
 
@@ -1500,11 +1503,11 @@ int atomisp_css_allocate_stat_buffers(struct atomisp_sub_device   *asd,
 						s3a_buf->s3a_data, s3a_ptr);
 	}
 
-	if (dis_buf && asd->params.curr_grid_info.dvs_grid.enable) {
+	if (dis_buf && dvs_grid_info && dvs_grid_info->enable) {
 		void *dvs_ptr;
 
 		dis_buf->dis_data = ia_css_isp_dvs2_statistics_allocate(
-				&asd->params.curr_grid_info.dvs_grid);
+					dvs_grid_info);
 		if (!dis_buf->dis_data) {
 			dev_err(isp->dev, "dvs buf allocation failed.\n");
 			if (s3a_buf)
@@ -1569,10 +1572,12 @@ void atomisp_css_free_stat_buffers(struct atomisp_sub_device *asd)
 	struct atomisp_s3a_buf *s3a_buf, *_s3a_buf;
 	struct atomisp_dis_buf *dis_buf, *_dis_buf;
 	struct atomisp_metadata_buf *md_buf, *_md_buf;
+	struct atomisp_css_dvs_grid_info *dvs_grid_info =
+		atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
 	unsigned int i;
 
 	/* 3A statistics use vmalloc, DIS use kmalloc */
-	if (asd->params.curr_grid_info.dvs_grid.enable) {
+	if (dvs_grid_info && dvs_grid_info->enable) {
 		ia_css_dvs2_coefficients_free(asd->params.css_param.dvs2_coeff);
 		ia_css_dvs2_statistics_free(asd->params.dvs_stat);
 		asd->params.css_param.dvs2_coeff = NULL;
@@ -1729,40 +1734,41 @@ int atomisp_alloc_3a_output_buf(struct atomisp_sub_device *asd)
 
 int atomisp_alloc_dis_coef_buf(struct atomisp_sub_device *asd)
 {
-	if (!asd->params.curr_grid_info.dvs_grid.enable) {
+	struct atomisp_css_dvs_grid_info *dvs_grid =
+		atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
+
+	if (!dvs_grid)
+		return 0;
+
+	if (!dvs_grid->enable) {
 		dev_dbg(asd->isp->dev, "%s: dvs_grid not enabled.\n", __func__);
 		return 0;
 	}
 
 	/* DIS coefficients. */
 	asd->params.css_param.dvs2_coeff = ia_css_dvs2_coefficients_allocate(
-					&asd->params.curr_grid_info.dvs_grid);
+			dvs_grid);
 	if (!asd->params.css_param.dvs2_coeff)
 		return -ENOMEM;
 
-	asd->params.dvs_hor_coef_bytes =
-		asd->params.curr_grid_info.dvs_grid.num_hor_coefs *
+	asd->params.dvs_hor_coef_bytes = dvs_grid->num_hor_coefs *
 		sizeof(*asd->params.css_param.dvs2_coeff->hor_coefs.odd_real);
 
-	asd->params.dvs_ver_coef_bytes =
-		asd->params.curr_grid_info.dvs_grid.num_ver_coefs *
+	asd->params.dvs_ver_coef_bytes = dvs_grid->num_ver_coefs *
 		sizeof(*asd->params.css_param.dvs2_coeff->ver_coefs.odd_real);
 
 	/* DIS projections. */
 	asd->params.dis_proj_data_valid = false;
-	asd->params.dvs_stat = ia_css_dvs2_statistics_allocate(
-				&asd->params.curr_grid_info.dvs_grid);
+	asd->params.dvs_stat = ia_css_dvs2_statistics_allocate(dvs_grid);
 	if (!asd->params.dvs_stat)
 		return -ENOMEM;
 
 	asd->params.dvs_hor_proj_bytes =
-		asd->params.curr_grid_info.dvs_grid.aligned_height *
-		asd->params.curr_grid_info.dvs_grid.aligned_width *
+		dvs_grid->aligned_height * dvs_grid->aligned_width *
 		sizeof(*asd->params.dvs_stat->hor_prod.odd_real);
 
 	asd->params.dvs_ver_proj_bytes =
-		asd->params.curr_grid_info.dvs_grid.aligned_height *
-		asd->params.curr_grid_info.dvs_grid.aligned_width *
+		dvs_grid->aligned_height * dvs_grid->aligned_width *
 		sizeof(*asd->params.dvs_stat->ver_prod.odd_real);
 
 	return 0;
@@ -3725,7 +3731,12 @@ static int atomisp_compare_dvs_grid(struct atomisp_sub_device *asd,
 				struct atomisp_dvs_grid_info *atomgrid)
 {
 	struct atomisp_css_dvs_grid_info *cur =
-	    &asd->params.curr_grid_info.dvs_grid;
+		atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
+
+	if (!cur) {
+		dev_err(asd->isp->dev, "dvs grid not available!\n");
+		return -EINVAL;
+	}
 
 	if (sizeof(*cur) != sizeof(*atomgrid)) {
 		dev_err(asd->isp->dev, "dvs grid mis-match!\n");
@@ -4770,4 +4781,17 @@ void atomisp_en_dz_capt_pipe(struct atomisp_sub_device *asd, bool enable)
 	ia_css_en_dz_capt_pipe(
 		asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream,
 		enable);
+}
+
+struct atomisp_css_dvs_grid_info *atomisp_css_get_dvs_grid_info(
+	struct atomisp_css_grid_info *grid_info)
+{
+	if (!grid_info)
+		return NULL;
+
+#ifdef IA_CSS_DVS_STAT_GRID_INFO_SUPPORTED
+	return &grid_info->dvs_grid.dvs_grid_info;
+#else
+	return &grid_info->dvs_grid;
+#endif
 }
