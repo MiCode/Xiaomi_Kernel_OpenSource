@@ -360,7 +360,6 @@ int q6lsm_open(struct lsm_client *client, uint16_t app_id)
 	memset(&open, 0, sizeof(open));
 	q6lsm_add_hdr(client, &open.hdr, sizeof(open), true);
 	switch (client->app_id) {
-	case LSM_VOICE_WAKEUP_APP_ID:
 	case LSM_VOICE_WAKEUP_APP_ID_V2:
 		open.app_id = client->app_id;
 		break;
@@ -420,48 +419,6 @@ static int q6lsm_set_port_connected(
 	return 0;
 }
 
-static int q6lsm_set_kw_sensitivity(
-			struct lsm_param_kw_detect_sensitivity *kwds,
-			uint16_t kw_sensitivity)
-{
-	if (kwds == NULL) {
-		pr_err("%s: err with kwds\n", __func__);
-		return -EINVAL;
-	}
-	kwds->common.module_id = LSM_MODULE_ID_VOICE_WAKEUP;
-	kwds->common.param_id = LSM_PARAM_ID_KEYWORD_DETECT_SENSITIVITY;
-	kwds->common.param_size =
-			(sizeof(struct lsm_param_kw_detect_sensitivity)
-				- sizeof(kwds->common));
-	kwds->common.reserved = 0;
-	kwds->minor_version = QLSM_PARAM_ID_MINOR_VERSION;
-	kwds->keyword_sensitivity = kw_sensitivity;
-	pr_debug("%s: KW = %d\n", __func__, kw_sensitivity);
-	kwds->reserved = 0;
-	return 0;
-}
-
-static int q6lsm_set_user_sensitivity(
-			struct lsm_param_user_detect_sensitivity *uds,
-			uint16_t user_sensitivity)
-{
-	if (uds == NULL) {
-		pr_err("%s: err with uds\n", __func__);
-		return -EINVAL;
-	}
-	uds->common.module_id = LSM_MODULE_ID_VOICE_WAKEUP;
-	uds->common.param_id = LSM_PARAM_ID_USER_DETECT_SENSITIVITY;
-	uds->common.param_size =
-			(sizeof(struct lsm_param_user_detect_sensitivity)
-				-sizeof(uds->common));
-	uds->common.reserved = 0;
-	uds->minor_version = QLSM_PARAM_ID_MINOR_VERSION;
-	uds->user_sensitivity = user_sensitivity;
-	pr_debug("%s: US = %d", __func__, user_sensitivity);
-	uds->reserved = 0;
-	return 0;
-}
-
 static int q6lsm_set_confidence_level(
 			struct lsm_param_min_confidence_levels *cfl,
 			uint8_t num_confidence_level,
@@ -496,53 +453,27 @@ static int q6lsm_set_confidence_level(
 static int q6lsm_set_params(struct lsm_client *client)
 {
 	int rc;
-	struct lsm_cmd_set_params params;
 	struct lsm_cmd_set_params_conf_v2 params_conf_v2;
 	struct lsm_cmd_set_params_v2 params_v2;
 	struct apr_hdr  *hdr;
 	uint32_t hdr_size;
 	struct lsm_param_connect_to_port *connect_to_port;
 	struct lsm_param_op_mode *op_mode;
-	struct lsm_param_kw_detect_sensitivity *kwds;
-	struct lsm_param_user_detect_sensitivity *uds;
 	struct lsm_param_min_confidence_levels *cfl;
 	void *param_data;
 
-	pr_debug("%s: Set KW/Confidence params\n", __func__);
-	if (client->snd_model_ver_inuse == SND_MODEL_IN_USE_V1) {
-		q6lsm_add_hdr(client, &params.hdr, sizeof(params), true);
-		hdr = &params.hdr;
-		hdr_size = sizeof(params);
-		params.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
-		params.data_payload_addr_lsw = 0;
-		params.data_payload_addr_msw = 0;
-		params.mem_map_handle = 0;
-		params.data_payload_size =
-			sizeof(struct lsm_params_payload);
-		connect_to_port = &params.payload.connect_to_port;
-		op_mode = &params.payload.op_mode;
-		kwds = &params.payload.kwds;
-		uds = &params.payload.uds;
-		param_data = &params;
-	} else if (client->snd_model_ver_inuse == SND_MODEL_IN_USE_V2) {
-		q6lsm_add_hdr(client, &params_v2.hdr, sizeof(params_v2), true);
-		hdr = &params_v2.hdr;
-		hdr_size = sizeof(params_v2);
-		params_v2.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
-		params_v2.data_payload_addr_lsw = 0;
-		params_v2.data_payload_addr_msw = 0;
-		params_v2.mem_map_handle = 0;
-		params_v2.data_payload_size =
-			sizeof(struct lsm_params_payload_v2);
-		connect_to_port = &params_v2.payload.connect_to_port;
-		op_mode = &params_v2.payload.op_mode;
-		param_data = &params_v2;
-	} else {
-		pr_err("%s: Invalid sound model %d\n", __func__,
-		       client->snd_model_ver_inuse);
-		rc = -EINVAL;
-		return rc;
-	}
+	q6lsm_add_hdr(client, &params_v2.hdr, sizeof(params_v2), true);
+	hdr = &params_v2.hdr;
+	hdr_size = sizeof(params_v2);
+	params_v2.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
+	params_v2.data_payload_addr_lsw = 0;
+	params_v2.data_payload_addr_msw = 0;
+	params_v2.mem_map_handle = 0;
+	params_v2.data_payload_size =
+		sizeof(struct lsm_params_payload_v2);
+	connect_to_port = &params_v2.payload.connect_to_port;
+	op_mode = &params_v2.payload.op_mode;
+	param_data = &params_v2;
 
 	rc = q6lsm_set_operation_mode(op_mode, client->mode);
 	if (rc) {
@@ -556,71 +487,38 @@ static int q6lsm_set_params(struct lsm_client *client)
 		goto exit;
 	}
 
-	if (client->snd_model_ver_inuse == SND_MODEL_IN_USE_V1) {
-		rc = q6lsm_set_kw_sensitivity(kwds,
-					      client->kw_sensitivity);
-		if (rc) {
-			pr_err("%s: err set_kw rc %d\n", __func__, rc);
-			goto exit;
-		}
-		rc = q6lsm_set_user_sensitivity(uds,
-						client->user_sensitivity);
-		if (rc) {
-			pr_err("%s: err set user rc %d\n", __func__, rc);
-			goto exit;
-		}
-	}
-
 	rc = q6lsm_apr_send_pkt(client, client->apr, param_data, true, NULL);
 	if (rc)
 		pr_err("%s: Failed set_params opcode 0x%x, rc %d\n",
 		       __func__, hdr->opcode, rc);
 
-	if (client->snd_model_ver_inuse == SND_MODEL_IN_USE_V2) {
-		q6lsm_add_hdr(client, &params_conf_v2.hdr,
-			      sizeof(params_conf_v2), true);
-		hdr = &params_conf_v2.hdr;
-		hdr_size = sizeof(params_conf_v2);
-		params_conf_v2.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
-		params_conf_v2.data_payload_addr_lsw = 0;
-		params_conf_v2.data_payload_addr_msw = 0;
-		params_conf_v2.mem_map_handle = 0;
-		params_conf_v2.data_payload_size =
-			sizeof(struct lsm_param_min_confidence_levels);
-		param_data = &params_conf_v2;
-		cfl = &params_conf_v2.conf_payload;
-		rc = q6lsm_set_confidence_level(cfl,
-					client->num_confidence_levels,
-					client->confidence_levels);
-		if (rc) {
-			pr_err("%s: err confidence rc %d\n", __func__, rc);
-			goto exit;
-		}
-		rc = q6lsm_apr_send_pkt(client, client->apr,
-					param_data, true, NULL);
-		if (rc) {
-			pr_err("%s: err packet rc %d\n", __func__, rc);
-			goto exit;
-		}
+	q6lsm_add_hdr(client, &params_conf_v2.hdr,
+		      sizeof(params_conf_v2), true);
+	hdr = &params_conf_v2.hdr;
+	hdr_size = sizeof(params_conf_v2);
+	params_conf_v2.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
+	params_conf_v2.data_payload_addr_lsw = 0;
+	params_conf_v2.data_payload_addr_msw = 0;
+	params_conf_v2.mem_map_handle = 0;
+	params_conf_v2.data_payload_size =
+		sizeof(struct lsm_param_min_confidence_levels);
+	param_data = &params_conf_v2;
+	cfl = &params_conf_v2.conf_payload;
+	rc = q6lsm_set_confidence_level(cfl,
+				client->num_confidence_levels,
+				client->confidence_levels);
+	if (rc) {
+		pr_err("%s: err confidence rc %d\n", __func__, rc);
+		goto exit;
+	}
+	rc = q6lsm_apr_send_pkt(client, client->apr,
+				param_data, true, NULL);
+	if (rc) {
+		pr_err("%s: err packet rc %d\n", __func__, rc);
+		goto exit;
 	}
 
 	pr_debug("%s: leave %d\n", __func__, rc);
-exit:
-	return rc;
-}
-
-int q6lsm_set_kw_sensitivity_level(struct lsm_client *client,
-				   u16 minkeyword, u16 minuser)
-{
-	int rc = 0;
-	if (client->snd_model_ver_inuse != SND_MODEL_IN_USE_V1) {
-		pr_err("%s: Invalid snd model version\n",
-			   __func__);
-		rc = -EINVAL;
-		goto exit;
-	}
-	client->kw_sensitivity = minkeyword;
-	client->user_sensitivity = minuser;
 exit:
 	return rc;
 }
@@ -851,8 +749,8 @@ static int q6lsm_memory_unmap_regions(struct lsm_client *client,
 static int q6lsm_send_cal(struct lsm_client *client)
 {
 	int rc = 0;
-	struct lsm_cmd_set_params	params;
-	struct cal_block_data		*cal_block = NULL;
+	struct lsm_cmd_set_params params;
+	struct cal_block_data *cal_block = NULL;
 
 	pr_debug("%s: Session id %d\n", __func__, client->session);
 	if (CHECK_SESSION(client->session)) {
