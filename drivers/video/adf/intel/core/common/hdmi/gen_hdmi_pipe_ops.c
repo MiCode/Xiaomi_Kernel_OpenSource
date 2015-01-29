@@ -274,15 +274,11 @@ static int hdmi_modeset(struct intel_pipe *pipe,
 		return err;
 	}
 
-	if (hdmi_pipe->dpms_state == DRM_MODE_DPMS_ON) {
-		pr_info("ADF: HDMI: %s: HDMI already enabled\n", __func__);
-		return 0;
-	}
-
 	mutex_lock(&config->ctx_lock);
 
 	/* Avoiding i915 enter into DPMS */
-	intel_adf_display_rpm_get();
+	if (hdmi_pipe->dpms_state == DRM_MODE_DPMS_OFF)
+		intel_adf_display_rpm_get();
 
 	curr_mode = config->ctx.current_mode;
 	err = chv_pipeline_off(pipeline);

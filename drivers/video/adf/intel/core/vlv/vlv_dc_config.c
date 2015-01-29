@@ -555,6 +555,7 @@ static void vlv_disable_efp_hdmi(struct vlv_dc_config *config, u16 stepping)
 	chv_pipeline_off(pipeline);
 
 	disp = to_vlv_pipeline(pipeline);
+	hdmi_pipe_destroy(&disp->gen.hdmi);
 	intel_pipe_destroy(&disp->gen.hdmi.base);
 
 	vlv_reset_pipeline_params(config);

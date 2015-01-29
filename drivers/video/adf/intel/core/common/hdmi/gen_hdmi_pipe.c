@@ -162,6 +162,7 @@ void hdmi_config_destroy(struct hdmi_config *config)
 	if (config) {
 		hdmi_context_destroy(&config->ctx);
 		kfree(config->force_mode);
+		mutex_destroy(&config->ctx_lock);
 	}
 	pr_info("ADF: HDMI: %s\n", __func__);
 	return;
