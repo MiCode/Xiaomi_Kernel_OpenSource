@@ -58,7 +58,7 @@ struct i915_params i915 __read_mostly = {
 	.gpu_reset_min_alive_period = 0,
 	.memtrack_debug = 1,
 	.enable_intel_adf = 0,
-	.scheduler_override = 1,
+	.scheduler_override = 0,
 };
 module_param_named(limitbw, i915.limitbw, int, 0400);
 MODULE_PARM_DESC(limitbw,
@@ -249,4 +249,4 @@ MODULE_PARM_DESC(memtrack_debug,
 		 "use Memtrack debug capability (0=never, 1=always)");
 
 module_param_named(scheduler_override, i915.scheduler_override, int, 0600);
-MODULE_PARM_DESC(scheduler_override, "Scheduler override mask (0 = none, 1 = direct submission [default])");
+MODULE_PARM_DESC(scheduler_override, "Scheduler override mask (default: 0)");
