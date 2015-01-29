@@ -416,6 +416,8 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				that a single pipe can support without underflow.
 - qcom,mdss-has-panic-ctrl: Boolean property to indicate if panic/robust signal
 				control feature is available or not.
+- qcom,mdss-en-svs-high: Boolean property to indicate if this target needs to
+				enable the svs high voltage level for CX rail.
 - qcom,mdss-pipe-vig-panic-ctrl-offsets: Array of panic/robust signal offsets
 				corresponding to the respective VIG pipes.
 				Number of signal offsets should match the
