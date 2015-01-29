@@ -39,6 +39,9 @@ obj-$(CONFIG_ARCH_MSM8916)	+= clock-gcc-8936.o
 # MSMTELLURIUM
 obj-$(CONFIG_ARCH_MSM8916)	+=clock-gcc-tellurium.o
 
+# FSM9010
+obj-$(CONFIG_ARCH_FSM9010)	+= clock-gcc-fsm9010.o
+
 # ACPU clock
 obj-$(CONFIG_ARCH_MSM8610)	+= clock-a7.o
 obj-$(CONFIG_ARCH_MSM8226)	+= clock-a7.o
@@ -48,6 +51,7 @@ obj-$(CONFIG_ARCH_MDM9640)	+= clock-a7.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-cpu-8939.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-cpu-8936.o
 obj-$(CONFIG_ARCH_MSM8909)	+= clock-a7.o
+obj-$(CONFIG_ARCH_FSM9010)	+= clock-a7.o
 
 obj-$(CONFIG_ARCH_MSM_KRAIT)	+= clock-krait.o
 obj-$(CONFIG_ARCH_FSM9900)	+= clock-krait-8974.o
