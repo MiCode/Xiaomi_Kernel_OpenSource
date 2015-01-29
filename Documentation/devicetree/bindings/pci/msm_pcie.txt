@@ -56,6 +56,7 @@ Optional Properties:
   - qcom,l1ss-supported: L1 sub-states (L1ss) is supported.
   - qcom,aux-clk-sync: The AUX clock is synchronous to the Core clock to
     support L1ss.
+  - qcom,common-clk-en: Enables the common clock configuration for the endpoint.
   - qcom,n-fts: The number of fast training sequences sent when the link state
     is changed from L0s to L0.
   - qcom,ep-wakeirq: The endpoint will issue wake signal when it is up, and the
