@@ -22,11 +22,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/leds-aw2013.h>
 
-#if defined(CONFIG_FB)
-#include <linux/notifier.h>
-#include <linux/fb.h>
-#endif
-
 /* register address */
 #define AW_REG_RESET			0x00
 #define AW_REG_GLOBAL_CONTROL		0x01
@@ -64,9 +59,6 @@ struct aw2013_led {
 	struct mutex lock;
 	struct regulator *vdd;
 	struct regulator *vcc;
-#if defined(CONFIG_FB)
-	struct notifier_block fb_notif;
-#endif
 	int num_leds;
 	int id;
 	bool suspended;
@@ -436,6 +428,11 @@ static int aw2013_led_resume(struct device *dev)
 	mutex_unlock(&led->lock);
 	return ret;
 }
+
+static const struct dev_pm_ops aw2013_led_pm_ops = {
+	.suspend = aw2013_led_suspend,
+	.resume = aw2013_led_resume,
+};
 #else
 static int aw2013_led_suspend(struct device *dev)
 {
@@ -446,64 +443,9 @@ static int aw2013_led_resume(struct device *dev)
 {
 	return 0;
 }
-#endif
 
-#if (defined(CONFIG_PM) && !defined(CONFIG_FB))
-static const struct dev_pm_ops aw2013_led_pm_ops = {
-	.suspend = aw2013_led_suspend,
-	.resume = aw2013_led_resume,
-};
-#else
 static const struct dev_pm_ops aw2013_led_pm_ops = {
 };
-#endif
-
-/*
- * If CONFIG_FB is defined, LEDs suspend/resume are triggered by framebuffer.
- * If the screen is off, LEDs go to suspend; if screen is on, LEDs go to
- * resume; based on user space definition, LEDs may blink when suspend, and
- * may be off when resume.
- */
-#if defined(CONFIG_FB)
-static int fb_notifier_callback(struct notifier_block *self,
-				 unsigned long event, void *data)
-{
-	struct fb_event *evdata = data;
-	int *blank;
-	struct aw2013_led *led = container_of(self,
-					struct aw2013_led, fb_notif);
-
-	if (evdata && evdata->data && event == FB_EVENT_BLANK &&
-		led && led->client) {
-		blank = evdata->data;
-		if (*blank == FB_BLANK_UNBLANK)
-			aw2013_led_resume(&led->client->dev);
-		else if (*blank == FB_BLANK_POWERDOWN)
-			aw2013_led_suspend(&led->client->dev);
-	}
-
-	return 0;
-}
-
-static int aw2013_set_suspend_callback(struct aw2013_led *led_array)
-{
-	int ret;
-
-	led_array->fb_notif.notifier_call = fb_notifier_callback;
-
-	ret = fb_register_client(&led_array->fb_notif);
-
-	if (ret)
-		dev_err(&led_array->client->dev,
-			"Unable to register fb_notifier: %d\n",
-			ret);
-	return ret;
-}
-#else
-static int aw2013_set_suspend_callback(struct aw2013_led *led_array)
-{
-	return 0;
-}
 #endif
 
 static int aw2013_led_err_handle(struct aw2013_led *led_array,
@@ -703,12 +645,6 @@ static int aw2013_led_probe(struct i2c_client *client,
 	ret = aw2013_power_on(led_array, true);
 	if (ret) {
 		dev_err(&client->dev, "power on failed");
-		goto pwr_deinit;
-	}
-
-	ret = aw2013_set_suspend_callback(led_array);
-	if (ret) {
-		dev_err(&client->dev, "set suspend callback failed");
 		goto pwr_deinit;
 	}
 
