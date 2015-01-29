@@ -1634,6 +1634,16 @@ static int ov5693_s_mbus_fmt(struct v4l2_subdev *sd,
 	if (ret)
 		dev_err(&client->dev, "ov5693 startup err\n");
 
+	/*
+	 * After sensor settings are set to HW, sometimes stream is started.
+	 * This would cause ISP timeout because ISP is not ready to receive
+	 * data yet. So add stop streaming here.
+	 */
+	ret = ov5693_write_reg(client, OV5693_8BIT, OV5693_SW_STREAM,
+				OV5693_STOP_STREAMING);
+	if (ret)
+		dev_warn(&client->dev, "ov5693 stream off err\n");
+
 	ret = ov5693_get_intg_factor(client, ov5693_info,
 					&ov5693_res[dev->fmt_idx]);
 	if (ret) {
