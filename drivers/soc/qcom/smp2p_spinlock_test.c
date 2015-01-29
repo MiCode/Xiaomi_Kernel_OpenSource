@@ -1,6 +1,6 @@
 /* drivers/soc/qcom/smp2p_spinlock_test.c
  *
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -552,6 +552,200 @@ static void smp2p_ut_remote_spinlock_ssr(struct seq_file *s)
 	}
 }
 
+/**
+ * smp2p_ut_remote_spinlock_track_core - Verify remote spinlock.
+ *
+ * @s:           Pointer to output file
+ * @remote_pid:  Remote processor to test
+ *
+ * This test has the remote subsystem grab the lock, and then has the local
+ * subsystem attempt to grab the lock using the trylock() API. It then verifies
+ * that the ID in the hw_spinlocks array matches the owner of the lock.
+ */
+static void smp2p_ut_remote_spinlock_track_core(struct seq_file *s,
+		int remote_pid)
+{
+	int failed = 0;
+	struct msm_smp2p_out *handle = NULL;
+	int ret;
+	uint32_t test_request;
+	uint32_t test_response;
+	struct mock_cb_data cb_out;
+	struct mock_cb_data cb_in;
+	unsigned long flags;
+	int stored_value;
+	remote_spinlock_t *smem_spinlock;
+
+	seq_printf(s, "Running %s for '%s' remote pid %d\n",
+		   __func__, smp2p_pid_to_name(remote_pid), remote_pid);
+
+	cb_out.initialized = false;
+	cb_in.initialized = false;
+	mock_cb_data_init(&cb_out);
+	mock_cb_data_init(&cb_in);
+	do {
+		smem_spinlock = smem_get_remote_spinlock();
+		UT_ASSERT_PTR(smem_spinlock, !=, NULL);
+
+		/* Open output entry */
+		ret = msm_smp2p_out_open(remote_pid, SMP2P_RLPB_ENTRY_NAME,
+			&cb_out.nb, &handle);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+					&cb_out.cb_completion, HZ * 2),
+			>, 0);
+		UT_ASSERT_INT(cb_out.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_out.event_open, ==, 1);
+
+		/* Open inbound entry */
+		ret = msm_smp2p_in_register(remote_pid, SMP2P_RLPB_ENTRY_NAME,
+				&cb_in.nb);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+					&cb_in.cb_completion, HZ * 2),
+			>, 0);
+		UT_ASSERT_INT(cb_in.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_in.event_open, ==, 1);
+
+		/* Send start */
+		mock_cb_data_reset(&cb_in);
+		mock_cb_data_reset(&cb_out);
+		test_request = 0x0;
+		SMP2P_SET_RMT_CMD_TYPE_REQ(test_request);
+		SMP2P_SET_RMT_CMD(test_request, SMP2P_LB_CMD_RSPIN_START);
+		SMP2P_SET_RMT_DATA(test_request, 0x0);
+		ret = msm_smp2p_out_write(handle, test_request);
+		UT_ASSERT_INT(ret, ==, 0);
+
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+					&cb_in.cb_completion, HZ * 2),
+			>, 0);
+		UT_ASSERT_INT(cb_in.cb_count, ==, 1);
+		UT_ASSERT_INT(cb_in.event_entry_update, ==, 1);
+		ret = msm_smp2p_in_read(remote_pid, SMP2P_RLPB_ENTRY_NAME,
+				&test_response);
+		UT_ASSERT_INT(ret, ==, 0);
+
+		test_response = SMP2P_GET_RMT_CMD(test_response);
+		if (test_response != SMP2P_LB_CMD_RSPIN_LOCKED &&
+				test_response != SMP2P_LB_CMD_RSPIN_UNLOCKED) {
+			/* invalid response from remote - abort test */
+			test_request = 0x0;
+			SMP2P_SET_RMT_CMD_TYPE(test_request, 1);
+			SMP2P_SET_RMT_CMD(test_request, SMP2P_LB_CMD_RSPIN_END);
+			SMP2P_SET_RMT_DATA(test_request, 0x0);
+			ret = msm_smp2p_out_write(handle, test_request);
+			UT_ASSERT_HEX(SMP2P_LB_CMD_RSPIN_LOCKED, ==,
+					test_response);
+		}
+
+		/* Run spinlock test */
+		flags = 0;
+		test_request = 0x0;
+		SMP2P_SET_RMT_CMD_TYPE_REQ(test_request);
+
+		/* try to acquire spinlock */
+		remote_spin_trylock_irqsave(smem_spinlock, flags);
+		/*
+		 * Need to check against the locking token (PID + 1)
+		 * because the remote_spin_owner() API only returns the
+		 * PID.
+		 */
+		stored_value = remote_spin_get_hw_spinlocks_element(
+				smem_spinlock);
+		UT_ASSERT_INT(stored_value, ==,
+			remote_spin_owner(smem_spinlock) + 1);
+		UT_ASSERT_INT(stored_value, ==, remote_pid + 1);
+
+		/* End test */
+		test_request = 0x0;
+		SMP2P_SET_RMT_CMD(test_request, SMP2P_LB_CMD_RSPIN_END);
+		SMP2P_SET_RMT_DATA(test_request, 0x0);
+		(void)msm_smp2p_out_write(handle, test_request);
+
+		/* Cleanup */
+		ret = msm_smp2p_out_close(&handle);
+		UT_ASSERT_INT(ret, ==, 0);
+		UT_ASSERT_PTR(handle, ==, NULL);
+		ret = msm_smp2p_in_unregister(remote_pid,
+				SMP2P_RLPB_ENTRY_NAME, &cb_in.nb);
+		UT_ASSERT_INT(ret, ==, 0);
+
+		if (!failed)
+			seq_puts(s, "\tOK\n");
+	} while (0);
+
+	if (failed) {
+		if (handle) {
+			/* send end command */
+			test_request = 0x0;
+			SMP2P_SET_RMT_CMD(test_request, SMP2P_LB_CMD_RSPIN_END);
+			SMP2P_SET_RMT_DATA(test_request, 0x0);
+			(void)msm_smp2p_out_write(handle, test_request);
+			(void)msm_smp2p_out_close(&handle);
+		}
+		(void)msm_smp2p_in_unregister(remote_pid,
+				SMP2P_RLPB_ENTRY_NAME, &cb_in.nb);
+
+		pr_err("%s: Failed\n", __func__);
+		seq_puts(s, "\tFailed\n");
+	}
+}
+
+/**
+ * smp2p_ut_remote_spinlock_track - Verify PID tracking for modem.
+ *
+ * @s:	Pointer to output file
+ * @pid:		The processor to test
+ */
+static void smp2p_ut_remote_spinlock_track(struct seq_file *s, int pid)
+{
+	struct smp2p_interrupt_config *int_cfg;
+
+	int_cfg = smp2p_get_interrupt_config();
+	if (!int_cfg) {
+		seq_puts(s, "Remote processor config unavailable\n");
+		return;
+	}
+
+	if (pid >= SMP2P_NUM_PROCS || !int_cfg[pid].is_configured)
+		return;
+
+	msm_smp2p_deinit_rmt_lpb_proc(pid);
+	smp2p_ut_remote_spinlock_track_core(s, pid);
+	msm_smp2p_init_rmt_lpb_proc(pid);
+}
+
+/**
+ * smp2p_ut_remote_spinlock_track - Verify PID tracking for all processors.
+ *
+ * @s:	Pointer to output file
+ *
+ * This test verifies PID tracking for all configured remote processors.
+ */
+static void smp2p_ut_remote_spinlock_track_modem(struct seq_file *s)
+{
+	smp2p_ut_remote_spinlock_track(s, SMP2P_MODEM_PROC);
+}
+
+static void smp2p_ut_remote_spinlock_track_adsp(struct seq_file *s)
+{
+	smp2p_ut_remote_spinlock_track(s, SMP2P_AUDIO_PROC);
+}
+
+static void smp2p_ut_remote_spinlock_track_dsps(struct seq_file *s)
+{
+	smp2p_ut_remote_spinlock_track(s, SMP2P_SENSOR_PROC);
+}
+
+static void smp2p_ut_remote_spinlock_track_wcnss(struct seq_file *s)
+{
+	smp2p_ut_remote_spinlock_track(s, SMP2P_WIRELESS_PROC);
+}
+
 static int __init smp2p_debugfs_init(void)
 {
 	/*
@@ -583,7 +777,14 @@ static int __init smp2p_debugfs_init(void)
 		&ut_remote_spinlock_run_time);
 	smp2p_debug_create("ut_remote_spinlock_ssr",
 		&smp2p_ut_remote_spinlock_ssr);
-
+	smp2p_debug_create("ut_remote_spinlock_track_modem",
+		&smp2p_ut_remote_spinlock_track_modem);
+	smp2p_debug_create("ut_remote_spinlock_track_adsp",
+		&smp2p_ut_remote_spinlock_track_adsp);
+	smp2p_debug_create("ut_remote_spinlock_track_dsps",
+		&smp2p_ut_remote_spinlock_track_dsps);
+	smp2p_debug_create("ut_remote_spinlock_track_wcnss",
+		&smp2p_ut_remote_spinlock_track_wcnss);
 	return 0;
 }
 module_init(smp2p_debugfs_init);
