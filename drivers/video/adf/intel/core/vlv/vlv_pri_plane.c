@@ -38,6 +38,18 @@ static const struct format_info format_mapping[] = {
 	},
 
 	{
+		.drm_format = DRM_FORMAT_XRGB1555,
+		.hw_config = DISPPLANE_BGRX555,
+		.bpp = 2,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_ARGB1555,
+		.hw_config = DISPPLANE_BGRA555,
+		.bpp = 2,
+	},
+
+	{
 		.drm_format = DRM_FORMAT_RGB565,
 		.hw_config = DISPPLANE_BGRX565,
 		.bpp = 2,
@@ -94,6 +106,8 @@ static const struct format_info format_mapping[] = {
 
 static const u32 pri_supported_formats[] = {
 	DRM_FORMAT_C8,
+	DRM_FORMAT_XRGB1555,
+	DRM_FORMAT_ARGB1555,
 	DRM_FORMAT_RGB565,
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_ARGB8888,
