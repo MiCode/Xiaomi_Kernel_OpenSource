@@ -1097,7 +1097,7 @@
 
 			i2c_1_sleep: i2c_1_sleep {
 				drive-strength = <2>; /* 2 MA */
-				bias-pull-up; /* PULL UP */
+				bias-pull-down; /* PULL DOWN */
 			};
 		};
 
