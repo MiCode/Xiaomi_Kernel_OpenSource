@@ -327,6 +327,17 @@ config ARM64_SEV_IN_LOCK_UNLOCK
 	  and spin_unlock to ensure that the core waiting on the lock
 	  wakes up from WFE.
 
+config ARM64_STLR_NEEDS_BARRIER
+	bool "Store-Release operations require explicit barriers"
+	def_bool ARCH_MSMTHULIUM
+	help
+	  Some early samples of MSMTHULIUM SoCs require that an explicit barrier
+	  be executed prior to any Store-Release operation (STLR) to comform to
+	  ARM memory ordering requirements. If you are building the kernel to
+	  work on one of these early designs, select 'Y' here.
+
+	  For production kernels, you should say 'N' here.
+
 config SMP
 	bool "Symmetric Multi-Processing"
 	help

@@ -85,6 +85,9 @@ static inline int arch_spin_trylock(arch_spinlock_t *lock)
 static inline void arch_spin_unlock(arch_spinlock_t *lock)
 {
 	asm volatile(
+#ifdef CONFIG_ARM64_STLR_NEEDS_BARRIER
+"	dmb nsh\n"
+#endif
 "	stlrh	%w1, %0\n"
 #ifdef CONFIG_ARM64_SEV_IN_LOCK_UNLOCK
 "	dsb sy\n"
@@ -158,6 +161,9 @@ static inline int arch_write_trylock(arch_rwlock_t *rw)
 static inline void arch_write_unlock(arch_rwlock_t *rw)
 {
 	asm volatile(
+#ifdef CONFIG_ARM64_STLR_NEEDS_BARRIER
+"	dmb nsh\n"
+#endif
 	"	stlr	%w1, %0\n"
 #ifdef CONFIG_ARM64_SEV_IN_LOCK_UNLOCK
 	"	dsb sy\n"
