@@ -1793,6 +1793,8 @@ static int atomisp_streamon(struct file *file, void *fh,
 	isp->sw_contex.invalid_frame = false;
 	asd->params.dis_proj_data_valid = false;
 	asd->latest_preview_exp_id = 0;
+	asd->postview_exp_id = 1;
+	asd->preview_exp_id = 1;
 
 	/* handle per_frame_setting parameter and buffers */
 	atomisp_handle_parameter_and_buffer(pipe);

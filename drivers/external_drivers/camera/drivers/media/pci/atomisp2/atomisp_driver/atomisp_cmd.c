@@ -1021,6 +1021,15 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 		if (!frame->valid)
 			error = true;
 
+		/* FIXME:
+		 * YUVPP doesn't set postview exp_id correctlly in SDV mode.
+		 * This is a WORKAROUND to set exp_id. see HSDES-1503911606.
+		 */
+		if (IS_BYT && buf_type == CSS_BUFFER_TYPE_SEC_VF_OUTPUT_FRAME &&
+			asd->continuous_mode->val && ATOMISP_USE_YUVPP(asd))
+			frame->exp_id = (asd->postview_exp_id++) %
+						(ATOMISP_MAX_EXP_ID + 1);
+
 		dev_dbg(isp->dev, "%s: vf frame with exp_id %d is ready\n",
 			__func__, frame->exp_id);
 		if (asd->params.flash_state == ATOMISP_FLASH_ONGOING) {
@@ -1068,6 +1077,15 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 
 		if (!frame->valid)
 			error = true;
+
+		/* FIXME:
+		 * YUVPP doesn't set preview exp_id correctlly in ZSL mode.
+		 * This is a WORKAROUND to set exp_id. see HSDES-1503911606.
+		 */
+		if (IS_BYT && buf_type == CSS_BUFFER_TYPE_SEC_OUTPUT_FRAME &&
+			asd->continuous_mode->val && ATOMISP_USE_YUVPP(asd))
+			frame->exp_id = (asd->preview_exp_id++) %
+						(ATOMISP_MAX_EXP_ID + 1);
 
 		dev_dbg(isp->dev, "%s: main frame with exp_id %d is ready\n",
 			__func__, frame->exp_id);
@@ -1259,6 +1277,9 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 
 		atomisp_clear_css_buffer_counters(asd);
 		asd->streaming = ATOMISP_DEVICE_STREAMING_DISABLED;
+
+		asd->preview_exp_id = 1;
+		asd->postview_exp_id = 1;
 	}
 
 	/* clear irq */

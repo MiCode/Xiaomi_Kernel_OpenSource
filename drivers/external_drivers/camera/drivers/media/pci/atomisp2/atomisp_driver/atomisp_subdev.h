@@ -384,6 +384,9 @@ struct atomisp_sub_device {
 	struct atomisp_resolution sensor_array_res;
 	bool high_speed_mode; /* Indicate whether now is a high speed mode */
 	int pending_capture_request; /* Indicates the number of pending capture requests. */
+
+	unsigned int preview_exp_id;
+	unsigned int postview_exp_id;
 };
 
 extern const struct atomisp_in_fmt_conv atomisp_in_fmt_conv[];
