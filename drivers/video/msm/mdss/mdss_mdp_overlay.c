@@ -2893,17 +2893,50 @@ static int mdss_mdp_cursor_pipe_setup(struct msm_fb_data_type *mfd,
 		struct mdp_overlay *req, int cursor_pipe) {
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int ret = 0;
+	u32 cursor_addr;
+	struct mdss_mdp_data *buf = NULL;
 
 	req->id = mdp5_data->cursor_ndx[cursor_pipe];
 	ret = mdss_mdp_overlay_pipe_setup(mfd, req, &pipe, NULL, false);
 	if (ret) {
-		pr_err("cursor pipe setup failed, cursor_pipe:%d, ret:%d",
+		pr_err("cursor pipe setup failed, cursor_pipe:%d, ret:%d\n",
 				cursor_pipe, ret);
 		mdp5_data->cursor_ndx[cursor_pipe] = MSMFB_NEW_REQUEST;
 		return ret;
 	}
-	mdp5_data->cursor_ndx[cursor_pipe] = req->id;
+
+	pr_debug("req id:%d cursor_pipe:%d pnum:%d\n",
+		req->id, cursor_pipe, pipe->ndx);
+
+	if (mdata->mdss_util->iommu_attached()) {
+		cursor_addr = mfd->cursor_buf_iova;
+	} else {
+		if (MDSS_LPAE_CHECK(mfd->cursor_buf_phys)) {
+			pr_err("can't access phy mem >4GB w/o iommu\n");
+			ret = -ERANGE;
+			goto done;
+		}
+		cursor_addr = mfd->cursor_buf_phys;
+	}
+
+	buf = mdss_mdp_overlay_buf_alloc(mfd, pipe);
+	if (!buf) {
+		pr_err("unable to allocate memory for cursor buffer\n");
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	mdp5_data->cursor_ndx[cursor_pipe] = pipe->ndx;
+	buf->p[0].addr = cursor_addr;
+	buf->p[0].len = MDSS_MDP_CURSOR_SIZE;
+	buf->num_planes = 1;
+
+done:
+	if (ret && mdp5_data->cursor_ndx[cursor_pipe] == MSMFB_NEW_REQUEST)
+		mdss_mdp_overlay_release(mfd, pipe->ndx);
+
 	return ret;
 }
 
@@ -3027,7 +3060,6 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 	req->transp_mask = (img->bg_color & 0xffffff);
 
 	if (mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
-		u32 cursor_addr;
 		ret = copy_from_user(mfd->cursor_buf, img->data,
 				     img->width * img->height * 4);
 		if (ret) {
@@ -3035,21 +3067,8 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 			goto done;
 		}
 
-		if (mdata->mdss_util->iommu_attached()) {
-			cursor_addr = mfd->cursor_buf_iova;
-		} else {
-			if (MDSS_LPAE_CHECK(mfd->cursor_buf_phys)) {
-				pr_err("can't access phy mem >4GB w/o iommu\n");
-				ret = -ERANGE;
-				goto done;
-			}
-			cursor_addr = mfd->cursor_buf_phys;
-		}
-
 		mixer->cursor_hotx = 0;
 		mixer->cursor_hoty = 0;
-		mdp5_data->cursor_ndx[CURSOR_PIPE_LEFT] = MSMFB_NEW_REQUEST;
-		mdp5_data->cursor_ndx[CURSOR_PIPE_RIGHT] = MSMFB_NEW_REQUEST;
 	}
 
 	if (start_x + roi.w <= left_lm_w) {
