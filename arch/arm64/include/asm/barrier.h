@@ -58,6 +58,24 @@ do {									\
 #define smp_rmb()	dmb(ishld)
 #define smp_wmb()	dmb(ishst)
 
+#ifdef CONFIG_ARM64_STLR_NEEDS_BARRIER
+#define smp_store_release(p, v)						\
+do {									\
+	compiletime_assert_atomic_type(*p);				\
+	switch (sizeof(*p)) {						\
+	case 4:								\
+		asm volatile ("dmb nsh\n"				\
+			      "stlr %w1, %0"				\
+				: "=Q" (*p) : "r" (v) : "memory");	\
+		break;							\
+	case 8:								\
+		asm volatile ("dmb nsh\n"				\
+			      "stlr %1, %0"				\
+				: "=Q" (*p) : "r" (v) : "memory");	\
+		break;							\
+	}								\
+} while (0)
+#else
 #define smp_store_release(p, v)						\
 do {									\
 	compiletime_assert_atomic_type(*p);				\
@@ -72,6 +90,7 @@ do {									\
 		break;							\
 	}								\
 } while (0)
+#endif
 
 #define smp_load_acquire(p)						\
 ({									\

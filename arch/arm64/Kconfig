@@ -295,6 +295,17 @@ config CPU_BIG_ENDIAN
        help
          Say Y if you plan on running a kernel in big-endian mode.
 
+config ARM64_STLR_NEEDS_BARRIER
+	bool "Store-Release operations require explicit barriers"
+	def_bool ARCH_MSM8996
+	help
+	  Some early samples of MSMTHULIUM SoCs require that an explicit barrier
+	  be executed prior to any Store-Release operation (STLR) to comform to
+	  ARM memory ordering requirements. If you are building the kernel to
+	  work on one of these early designs, select 'Y' here.
+
+	  For production kernels, you should say 'N' here.
+
 config SMP
 	bool "Symmetric Multi-Processing"
 	help
