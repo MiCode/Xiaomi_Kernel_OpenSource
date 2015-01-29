@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, 2011-2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2009, 2011-2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/msm_remote_spinlock.h>
+#include <linux/slab.h>
 
 #include <soc/qcom/smem.h>
 
@@ -38,6 +39,7 @@ struct spinlock_ops {
 	int (*owner)(raw_remote_spinlock_t *lock);
 	void (*lock_rlock_id)(raw_remote_spinlock_t *lock, uint32_t tid);
 	void (*unlock_rlock)(raw_remote_spinlock_t *lock);
+	int (*get_hw_spinlocks_element)(raw_remote_spinlock_t *lock);
 };
 
 static struct spinlock_ops current_ops;
@@ -126,6 +128,7 @@ static uint32_t lock_size;
 
 static void *hw_mutex_reg_base;
 static DEFINE_MUTEX(hw_map_init_lock);
+static int *hw_spinlocks;
 
 static char *sfpb_compatible_string = "qcom,ipc-spinlock-sfpb";
 
@@ -159,6 +162,8 @@ static void find_and_init_hw_mutex(void)
 	init_hw_mutex(node);
 	hw_mutex_reg_base = ioremap(reg_base, reg_size);
 	BUG_ON(hw_mutex_reg_base == NULL);
+	hw_spinlocks = kzalloc(sizeof(int) * lock_count, GFP_KERNEL);
+	BUG_ON(hw_spinlocks == NULL);
 }
 
 static int remote_spinlock_init_address_hw(int id, _remote_spinlock_t *lock)
@@ -184,8 +189,24 @@ static int remote_spinlock_init_address_hw(int id, _remote_spinlock_t *lock)
 	return 0;
 }
 
+static unsigned int remote_spinlock_get_lock_id(raw_remote_spinlock_t *lock)
+{
+	unsigned int id;
+
+	BUG_ON((uintptr_t)lock < (uintptr_t)hw_mutex_reg_base);
+	BUG_ON(((uintptr_t)lock - (uintptr_t)hw_mutex_reg_base) < lock_offset);
+
+	id = (unsigned int)((uintptr_t)lock - (uintptr_t)hw_mutex_reg_base -
+			lock_offset) / lock_size;
+	BUG_ON(id >= lock_count);
+	return id;
+}
+
 static void __raw_remote_sfpb_spin_lock(raw_remote_spinlock_t *lock)
 {
+	int owner;
+	unsigned int id = remote_spinlock_get_lock_id(lock);
+
 	/*
 	 * Wait for other local processor task to release spinlock if it
 	 * already has the remote spinlock locked.  This can only happen in
@@ -199,11 +220,15 @@ static void __raw_remote_sfpb_spin_lock(raw_remote_spinlock_t *lock)
 	do {
 		writel_relaxed(SPINLOCK_TOKEN_APPS, lock);
 		smp_mb();
-	} while (readl_relaxed(lock) != SPINLOCK_TOKEN_APPS);
+		owner = readl_relaxed(lock);
+		hw_spinlocks[id] = owner;
+	} while (owner != SPINLOCK_TOKEN_APPS);
 }
 
 static int __raw_remote_sfpb_spin_trylock(raw_remote_spinlock_t *lock)
 {
+	int owner;
+	unsigned int id = remote_spinlock_get_lock_id(lock);
 	/*
 	 * If the local processor owns the spinlock, return failure.  This can
 	 * only happen in test cases since the local spinlock will prevent this
@@ -214,7 +239,9 @@ static int __raw_remote_sfpb_spin_trylock(raw_remote_spinlock_t *lock)
 
 	writel_relaxed(SPINLOCK_TOKEN_APPS, lock);
 	smp_mb();
-	return readl_relaxed(lock) == SPINLOCK_TOKEN_APPS;
+	owner = readl_relaxed(lock);
+	hw_spinlocks[id] = owner;
+	return owner == SPINLOCK_TOKEN_APPS;
 }
 
 static void __raw_remote_sfpb_spin_unlock(raw_remote_spinlock_t *lock)
@@ -249,6 +276,12 @@ static void __raw_remote_sfpb_spin_unlock_rlock(raw_remote_spinlock_t *lock)
 {
 	writel_relaxed(0, lock);
 	smp_mb();
+}
+
+static int __raw_remote_sfpb_get_hw_spinlocks_element(
+		raw_remote_spinlock_t *lock)
+{
+	return hw_spinlocks[remote_spinlock_get_lock_id(lock)];
 }
 
 /* end sfpb implementation -------------------------------------------------- */
@@ -337,6 +370,8 @@ static void initialize_ops(void)
 		current_ops.lock_rlock_id =
 				__raw_remote_sfpb_spin_lock_rlock_id;
 		current_ops.unlock_rlock = __raw_remote_sfpb_spin_unlock_rlock;
+		current_ops.get_hw_spinlocks_element =
+			__raw_remote_sfpb_get_hw_spinlocks_element;
 		is_hw_lock_type = 1;
 		return;
 	}
@@ -511,5 +546,12 @@ void _remote_spin_unlock_rlock(_remote_spinlock_t *lock)
 	current_ops.unlock_rlock((raw_remote_spinlock_t *)(*lock));
 }
 EXPORT_SYMBOL(_remote_spin_unlock_rlock);
+
+int _remote_spin_get_hw_spinlocks_element(_remote_spinlock_t *lock)
+{
+	return current_ops.get_hw_spinlocks_element(
+			(raw_remote_spinlock_t *)(*lock));
+}
+EXPORT_SYMBOL(_remote_spin_get_hw_spinlocks_element);
 
 /* end common spinlock API -------------------------------------------------- */
