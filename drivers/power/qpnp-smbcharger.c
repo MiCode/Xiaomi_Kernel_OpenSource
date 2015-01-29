@@ -1842,8 +1842,8 @@ static struct ilim_entry *smbchg_wipower_find_entry(struct smbchg_chip *chip,
 	struct ilim_entry *ret = &(chip->wipower_default.entries[0]);
 
 	for (i = 0; i < map->num; i++) {
-		if (is_between(uv,
-			map->entries[i].vmin_uv, map->entries[i].vmax_uv))
+		if (is_between(map->entries[i].vmin_uv, map->entries[i].vmax_uv,
+			uv))
 			ret = &map->entries[i];
 	}
 	return ret;
