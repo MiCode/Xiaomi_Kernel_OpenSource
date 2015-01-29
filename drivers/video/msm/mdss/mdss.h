@@ -202,6 +202,7 @@ struct mdss_data_type {
 	struct regulator *vdd_cx;
 	bool batfet_required;
 	struct regulator *batfet;
+	bool en_svs_high;
 	u32 max_mdp_clk_rate;
 	struct mdss_util_intf *mdss_util;
 
