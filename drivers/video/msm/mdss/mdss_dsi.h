@@ -343,6 +343,7 @@ struct mdss_dsi_ctrl_pdata {
 	bool dsi_irq_line;
 	atomic_t te_irq_ready;
 
+	bool cmd_clk_ln_recovery_en;
 	bool cmd_sync_wait_broadcast;
 	bool cmd_sync_wait_trigger;
 

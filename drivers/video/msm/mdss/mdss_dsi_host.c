@@ -1998,13 +1998,14 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		 * alway set.
 		 */
 		if (!roi || (roi->w != 0 || roi->h != 0)) {
-			if (ctrl->hw_rev == MDSS_DSI_HW_REV_103 &&
+			if (ctrl->cmd_clk_ln_recovery_en &&
 					ctrl->panel_mode == DSI_CMD_MODE)
 				mdss_dsi_start_hs_clk_lane(ctrl);
 		}
 	} else {	/* from dcs send */
-		if (ctrl->hw_rev == MDSS_DSI_HW_REV_103 &&
-				ctrl->panel_mode == DSI_CMD_MODE)
+		if (ctrl->cmd_clk_ln_recovery_en &&
+				ctrl->panel_mode == DSI_CMD_MODE &&
+				(req->flags & CMD_REQ_HS_MODE))
 			mdss_dsi_cmd_start_hs_clk_lane(ctrl);
 	}
 
@@ -2077,8 +2078,9 @@ need_lock:
 
 		mutex_unlock(&ctrl->cmd_mutex);
 	} else {	/* from dcs send */
-		if (ctrl->hw_rev == MDSS_DSI_HW_REV_103 &&
-				ctrl->panel_mode == DSI_CMD_MODE)
+		if (ctrl->cmd_clk_ln_recovery_en &&
+				ctrl->panel_mode == DSI_CMD_MODE &&
+				(req && (req->flags & CMD_REQ_HS_MODE)))
 			mdss_dsi_cmd_stop_hs_clk_lane(ctrl);
 	}
 
@@ -2391,7 +2393,7 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 		MDSS_XLOG(ctrl->ndx, ctrl->mdp_busy, isr, 0x99);
 		spin_lock(&ctrl->mdp_lock);
 		mdss_dsi_disable_irq_nosync(ctrl, DSI_MDP_TERM);
-		if (ctrl->hw_rev == MDSS_DSI_HW_REV_103 &&
+		if (ctrl->cmd_clk_ln_recovery_en &&
 				ctrl->panel_mode == DSI_CMD_MODE) {
 			dsi_send_events(ctrl, DSI_EV_STOP_HS_CLK_LANE,
 							DSI_MDP_TERM);

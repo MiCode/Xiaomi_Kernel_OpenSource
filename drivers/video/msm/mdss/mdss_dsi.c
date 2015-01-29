@@ -1716,6 +1716,10 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		goto error_pan_node;
 	}
 
+	ctrl_pdata->cmd_clk_ln_recovery_en =
+		of_property_read_bool(pdev->dev.of_node,
+			"qcom,dsi-clk-ln-recovery");
+
 	if (mdss_dsi_is_te_based_esd(ctrl_pdata)) {
 		rc = devm_request_irq(&pdev->dev,
 			gpio_to_irq(ctrl_pdata->disp_te_gpio),
