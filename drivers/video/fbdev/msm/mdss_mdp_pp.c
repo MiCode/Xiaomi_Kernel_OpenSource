@@ -1359,6 +1359,9 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		pipe_cnt = mdata->ndma_pipes;
 		location = SSPP_DMA;
 		break;
+	case MDSS_MDP_PIPE_TYPE_CURSOR:
+		/* cursor does not support the feature */
+		return 0;
 	default:
 		pr_err("Invalid pipe type %d\n", pipe->type);
 		return -EINVAL;
