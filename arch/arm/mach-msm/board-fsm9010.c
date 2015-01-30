@@ -17,6 +17,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/memory.h>
+#include <linux/uio_driver.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 #include <mach/board.h>
@@ -30,6 +31,146 @@
 #define FSM9010_MAC0_FUSE_PHYS	0xFC4B8440
 #define FSM9010_MAC1_FUSE_PHYS	0xFC4B8448
 #define FSM9010_MAC_FUSE_SIZE	0x10
+
+#define FSM9010_SCLTE_DDR_PHYS		0x00100000
+#define FSM9010_SCLTE_NL_SAMPLES_PHYS	0x15000000
+#define FSM9010_CDU_PHYS		0x17000000
+#define FSM9010_SCLTE_TRACE_DEBUG_PHYS	0x18100000
+#define FSM9010_SCLTE_ETH_TRACE_PHYS	0x18180000
+#define FSM9010_SCLTE_DEBUG_DUMP_PHYS	0x18280000
+#define FSM9010_SCLTE_CB_TRACE_PHYS	0x18300000
+#define FSM9010_SCLTE_RF_CAL_PHYS	0x29000000
+#define FSM9010_SCLTE_GEN_DBG_PHYS	0xf5000000
+#define FSM9010_QDSP6_0_DEBUG_DUMP_PHYS	0x18900000
+#define FSM9010_QDSP6_1_DEBUG_DUMP_PHYS	0x18980000
+
+#define FSM9010_UIO_VERSION "1.0"
+
+static struct uio_info fsm9010_uio_info[] = {
+	{
+		.name = "fsm9010-uio0",
+		.version = FSM9010_UIO_VERSION,
+	},
+	{
+		.name = "fsm9010-uio1",
+		.version = FSM9010_UIO_VERSION,
+	},
+	{
+		.name = "fsm9010-uio2",
+		.version = FSM9010_UIO_VERSION,
+	},
+};
+
+static struct resource fsm9010_uio0_resources[] = {
+	{
+		.start = FSM9010_SCLTE_DDR_PHYS,
+		.end   = FSM9010_SCLTE_DDR_PHYS + 181 * SZ_1M - 1,
+		.name  = "sclte_ddr",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9010_SCLTE_NL_SAMPLES_PHYS,
+		.end   = FSM9010_SCLTE_NL_SAMPLES_PHYS + SZ_32M - 1,
+		.name  = "nl_samples",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9010_CDU_PHYS,
+		.end   = FSM9010_CDU_PHYS + SZ_16M - 1,
+		.name  = "cdu",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9010_SCLTE_TRACE_DEBUG_PHYS,
+		.end   = FSM9010_SCLTE_TRACE_DEBUG_PHYS + SZ_512K - 1,
+		.name  = "sclte_trace_debug",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9010_SCLTE_ETH_TRACE_PHYS,
+		.end   = FSM9010_SCLTE_ETH_TRACE_PHYS + SZ_1M - 1,
+		.name  = "sclte_eth_trace",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device fsm9010_uio0_device = {
+	.name = "uio_pdrv",
+	.id = 0,
+	.dev = {
+		.platform_data = &fsm9010_uio_info[0]
+	},
+	.num_resources = ARRAY_SIZE(fsm9010_uio0_resources),
+	.resource = fsm9010_uio0_resources,
+};
+
+static struct resource fsm9010_uio1_resources[] = {
+	{
+		.start = FSM9010_SCLTE_DEBUG_DUMP_PHYS,
+		.end   = FSM9010_SCLTE_DEBUG_DUMP_PHYS + SZ_512K - 1,
+		.name  = "sclte_debug_dump",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9010_SCLTE_CB_TRACE_PHYS,
+		.end   = FSM9010_SCLTE_CB_TRACE_PHYS + SZ_2M - 1,
+		.name  = "sclte_cb_trace",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9010_SCLTE_RF_CAL_PHYS,
+		.end   = FSM9010_SCLTE_RF_CAL_PHYS + 10 * SZ_1M - 1,
+		.name  = "sclte_rf_cal",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9010_SCLTE_GEN_DBG_PHYS,
+		.end   = FSM9010_SCLTE_GEN_DBG_PHYS + 48 * SZ_1M - 1,
+		.name  = "sclte_gen_dbg",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device fsm9010_uio1_device = {
+	.name = "uio_pdrv",
+	.id = 1,
+	.dev = {
+		.platform_data = &fsm9010_uio_info[1]
+	},
+	.num_resources = ARRAY_SIZE(fsm9010_uio1_resources),
+	.resource = fsm9010_uio1_resources,
+};
+
+static struct resource fsm9010_uio2_resources[] = {
+	{
+		.start = FSM9010_QDSP6_0_DEBUG_DUMP_PHYS,
+		.end   = FSM9010_QDSP6_0_DEBUG_DUMP_PHYS + SZ_512K - 1,
+		.name  = "qdsp6_0_debug_dump",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9010_QDSP6_1_DEBUG_DUMP_PHYS,
+		.end   = FSM9010_QDSP6_1_DEBUG_DUMP_PHYS + SZ_512K - 1,
+		.name  = "qdsp6_1_debug_dump",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device fsm9010_uio2_device = {
+	.name = "uio_pdrv",
+	.id = 2,
+	.dev = {
+		.platform_data = &fsm9010_uio_info[2]
+	},
+	.num_resources = ARRAY_SIZE(fsm9010_uio2_resources),
+	.resource = fsm9010_uio2_resources,
+};
+
+static struct platform_device *fsm9010_uio_devices[] = {
+	&fsm9010_uio0_device,
+	&fsm9010_uio1_device,
+	&fsm9010_uio2_device,
+};
 
 static const char mac_addr_prop_name[] = "mac-address";
 
@@ -46,6 +187,8 @@ void __init fsm9010_reserve(void)
 void __init fsm9010_add_drivers(void)
 {
 	msm_smd_init();
+	platform_add_devices(fsm9010_uio_devices,
+			     ARRAY_SIZE(fsm9010_uio_devices));
 }
 
 static void __init fsm9010_map_io(void)
