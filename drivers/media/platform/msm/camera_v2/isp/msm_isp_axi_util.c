@@ -417,7 +417,7 @@ void msm_isp_cfg_framedrop_reg(struct vfe_device *vfe_dev,
 			 * ensure that no frame will came after last, even if
 			 * userspace reg update is delayed */
 			framedrop_pattern =
-			      (1 << stream_info->runtime_burst_frame_count) - 1;
+			(1 << stream_info->runtime_burst_frame_count) - 1;
 			/* Alternate maximum two values for period to ensure
 			 * that two identical consecutive patterns will still be
 			 * applied. Otherwise HW cannot detect that we make 2
@@ -461,6 +461,7 @@ void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev,
 			(SRC_TO_INTF(stream_info->stream_src) == frame_src)) {
 			if (stream_info->runtime_framedrop_update_burst) {
 				stream_info->runtime_framedrop_update_burst = 0;
+
 				stream_info->runtime_burst_frame_count =
 					stream_info->runtime_init_frame_drop +
 					(stream_info->runtime_num_burst_capture
@@ -469,11 +470,10 @@ void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev,
 				msm_isp_cfg_framedrop_reg(vfe_dev, stream_info);
 			} else {
 				stream_info->runtime_burst_frame_count--;
-				if ((stream_info->
-					runtime_burst_frame_count <
-						  BURST_SKIP_THRESHOLD) &&
-				    (stream_info->
-					runtime_burst_frame_count >= 0)) {
+				if ((stream_info->runtime_burst_frame_count <
+					BURST_SKIP_THRESHOLD) &&
+					(stream_info->runtime_burst_frame_count
+					>= 0)) {
 					msm_isp_cfg_framedrop_reg(vfe_dev,
 						stream_info);
 				}
@@ -486,8 +486,19 @@ void msm_isp_reset_framedrop(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info)
 {
 	stream_info->runtime_init_frame_drop = stream_info->init_frame_drop;
-	stream_info->runtime_burst_frame_count =
-		stream_info->burst_frame_count;
+	/*
+	 * While deriving burst_frame_count, Initial frame skip
+	 * is taken into consideration But if skip frame has already
+	 * passed, burst count has to be updated accordingly
+	 */
+	if (vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id == 0)
+		stream_info->runtime_burst_frame_count =
+			stream_info->burst_frame_count;
+	else
+		stream_info->runtime_burst_frame_count =
+			stream_info->burst_frame_count -
+			stream_info->runtime_init_frame_drop;
+
 	stream_info->runtime_num_burst_capture =
 		stream_info->num_burst_capture;
 	stream_info->runtime_framedrop_update = stream_info->framedrop_update;
@@ -676,6 +687,7 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 
 	stream_info->memory_input = stream_cfg_cmd->memory_input;
+
 
 	msm_isp_axi_reserve_wm(&vfe_dev->axi_data, stream_info);
 
