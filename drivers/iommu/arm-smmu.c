@@ -428,6 +428,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_REGISTER_SAVE	(1 << 3)
 #define ARM_SMMU_OPT_SKIP_INIT		(1 << 4)
 #define ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG (1 << 5)
+#define ARM_SMMU_OPT_FATAL_ASF		(1 << 6)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -498,6 +499,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_REGISTER_SAVE, "qcom,register-save" },
 	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
 	{ ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG, "qcom,errata-ctx-fault-hang" },
+	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
 	{ 0, NULL},
 };
 
@@ -839,6 +841,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	void __iomem *cb_base;
 	bool ctx_hang_errata =
 		smmu->options & ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG;
+	bool fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
 
 	arm_smmu_enable_clocks(smmu);
 
@@ -854,6 +857,12 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		dev_err_ratelimited(smmu->dev,
 				    "Unexpected context fault (fsr 0x%x)\n",
 				    fsr);
+
+	if (fatal_asf && (fsr & FSR_ASF)) {
+		dev_err(smmu->dev,
+			"Took an address size fault.  Refusing to recover.\n");
+		BUG();
+	}
 
 	fsynr = readl_relaxed(cb_base + ARM_SMMU_CB_FSYNR0);
 	flags = fsynr & FSYNR0_WNR ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ;
