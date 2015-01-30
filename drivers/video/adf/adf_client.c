@@ -98,10 +98,22 @@ done:
 	mutex_unlock(&intf->base.event_lock);
 	mutex_unlock(&dev->client_lock);
 	dev->dpms_in_progress = false;
+
+	/*
+	  * Fixme:
+	  * This logic was only applicable for single display ADF
+	  * But in case of dual display, it will disable flips on
+	  * adf device, even if one interface is disabled.
+	  * Replace this with proper logic where we are counting
+	  * the no of interfaces, and setting this ON on first DPMS
+	  * ON and OFF on last DPMS OFF
+	  */
+#if 0
 	if (state == DRM_MODE_DPMS_OFF)
 		dev->dpms_state = DRM_MODE_DPMS_OFF;
 	else if (state == DRM_MODE_DPMS_ON)
 		dev->dpms_state = DRM_MODE_DPMS_ON;
+#endif
 	mutex_unlock(&dev->dpms_lock);
 	return ret;
 }

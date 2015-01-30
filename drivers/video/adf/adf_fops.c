@@ -236,11 +236,23 @@ static int adf_device_post_config(struct adf_device *dev,
 	}
 
 	mutex_lock(&dev->dpms_lock);
+
+	/*
+	  * Fixme:
+	  * This logic was only applicable for single display ADF
+	  * But in case of dual display, it will disable flips on
+	  * adf device, even if one interface is disabled.
+	  * Replace this with proper logic where we are counting
+	  * the no of interfaces, and setting this ON on first DPMS
+	  * ON and OFF on last DPMS OFF
+	  */
+#if 0
 	if (dev->dpms_state == DRM_MODE_DPMS_OFF) {
 		ret = -EFAULT;
 		pr_err("Device Suspended. Rejecting Flip.\n");
 		goto err_get_user;
 	}
+#endif
 
 	if (get_user(n_intfs, &arg->n_interfaces)) {
 		ret = -EFAULT;
