@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,4 +41,24 @@
 	pcie1: qcom,pcie@fc528000 {
 		status = "ok";
 	};
+
+	qfec0: qcom,qfec@0xe7000000 {
+		phy-addr = <0>;
+		phy-mode = "sgmii";
+		pinctrl-names = "active", "deactive";
+		pinctrl-0 = <&qfec0_mdio_default>;
+		pinctrl-1 = <&gp_mdio_default>;
+		status = "disabled";
+	};
+
+
+	qfec1: qcom,qfec@0xe7200000 {
+		phy-addr = <1>;
+		phy-mode = "sgmii";
+		pinctrl-names = "active", "deactive";
+		pinctrl-0 = <&qfec1_mdio_default>;
+		pinctrl-1 = <&gp_mdio_default>;
+		status = "ok";
+	};
+
 };

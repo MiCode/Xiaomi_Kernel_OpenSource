@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,41 @@
 			label = "blsp1_uart3_active";
 			hsuart3_active: hsuart3_active {
 				drive-strength = <8>; /* 8MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		qfec0_mdio {
+			qcom,pins = <&gp 14>, <&gp 15>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "qfec0-mdio";
+			/* default state */
+			qfec0_mdio_default: qfec0_mdio_default {
+				drive-strength = <8>;
+				bias-disable; /* No PULL */
+			};
+		};
+
+		qfec1_mdio {
+			qcom,pins = <&gp 14>, <&gp 15>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <2>;
+			label = "qfec1-mdio";
+			/* default state */
+			qfec1_mdio_default: qfec1_mdio_default {
+				drive-strength = <8>;
+				bias-disable; /* No PULL */
+			};
+		};
+
+		gp_mdio {
+			qcom,pins = <&gp 14>, <&gp 15>;
+			qcom,num-grp-pins = <2>;
+			label = "gp-mdio";
+			/* default state */
+			gp_mdio_default: gp_mdio_default {
+				drive-strength = <8>;
 				bias-disable; /* No PULL */
 			};
 		};
