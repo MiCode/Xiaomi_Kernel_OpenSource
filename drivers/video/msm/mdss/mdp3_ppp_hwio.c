@@ -1,4 +1,5 @@
-/* Copyright (c) 2007, 2012-2013 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007, 2012-2013, 2015 The Linux Foundation.
+ * All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -32,6 +33,13 @@
 #define PQF_MINUS_2           (PHI_Q_FACTOR - 2)	/* to get 0.25 */
 #define PQF_PLUS_5_PLUS_2     (PQF_PLUS_5 + 2)
 #define PQF_PLUS_5_MINUS_2    (PQF_PLUS_5 - 2)
+
+enum {
+	LAYER_FG = 0,
+	LAYER_BG,
+	LAYER_FB,
+	LAYER_MAX,
+};
 
 static long long mdp_do_div(long long num, long long den)
 {
@@ -362,27 +370,37 @@ bool check_if_rgb(int color)
 	return rgb;
 }
 
-uint8_t *mdp_dst_adjust_rot_addr(struct ppp_blit_op *iBuf,
-	uint8_t *addr, uint32_t bpp, uint32_t uv)
+uint8_t *mdp_adjust_rot_addr(struct ppp_blit_op *iBuf,
+	uint8_t *addr, uint32_t bpp, uint32_t uv, uint32_t layer)
 {
-	uint32_t dest_ystride = iBuf->dst.prop.width * bpp;
+	uint32_t ystride = 0;
 	uint32_t h_slice = 1;
+	uint32_t roi_width = 0;
+	uint32_t roi_height = 0;
+	uint32_t color_fmt = 0;
 
-	if (uv && ((iBuf->dst.color_fmt == MDP_Y_CBCR_H2V2) ||
-		(iBuf->dst.color_fmt == MDP_Y_CRCB_H2V2)))
+	if (layer == LAYER_BG) {
+		ystride = iBuf->bg.prop.width * bpp;
+		roi_width =  iBuf->bg.roi.width;
+		roi_height = iBuf->bg.roi.height;
+		color_fmt = iBuf->bg.color_fmt;
+	} else {
+		ystride = iBuf->dst.prop.width * bpp;
+		roi_width =  iBuf->dst.roi.width;
+		roi_height = iBuf->dst.roi.height;
+		color_fmt = iBuf->dst.color_fmt;
+	}
+	if (uv && ((color_fmt == MDP_Y_CBCR_H2V2) ||
+		(color_fmt == MDP_Y_CRCB_H2V2)))
 		h_slice = 2;
 
 	if (((iBuf->mdp_op & MDPOP_ROT90) == MDPOP_ROT90) ^
 		((iBuf->mdp_op & MDPOP_LR) == MDPOP_LR)) {
-		addr +=
-		    (iBuf->dst.roi.width -
-			    MIN(16, iBuf->dst.roi.width)) * bpp;
+		addr += (roi_width - MIN(16, roi_width)) * bpp;
 	}
 	if ((iBuf->mdp_op & MDPOP_UD) == MDPOP_UD) {
-		addr +=
-			((iBuf->dst.roi.height -
-			MIN(16, iBuf->dst.roi.height))/h_slice) *
-			dest_ystride;
+		addr += ((roi_height - MIN(16, roi_height))/h_slice) *
+			ystride;
 	}
 
 	return addr;
@@ -390,7 +408,7 @@ uint8_t *mdp_dst_adjust_rot_addr(struct ppp_blit_op *iBuf,
 
 void mdp_adjust_start_addr(struct ppp_blit_op *blit_op,
 	struct ppp_img_desc *img, int v_slice,
-	int h_slice, int layer)
+	int h_slice, uint32_t layer)
 {
 	uint32_t bpp = ppp_bpp(img->color_fmt);
 	int x = img->roi.x;
@@ -403,8 +421,8 @@ void mdp_adjust_start_addr(struct ppp_blit_op *blit_op,
 		img->p0 += (x + y * ALIGN(width, 128)) * bpp;
 	else
 		img->p0 += (x + y * width) * bpp;
-	if (layer != 0)
-		img->p0 = mdp_dst_adjust_rot_addr(blit_op, img->p0, bpp, 0);
+	if (layer != LAYER_FG)
+		img->p0 = mdp_adjust_rot_addr(blit_op, img->p0, bpp, 0, layer);
 
 	if (img->p1) {
 		/*
@@ -421,9 +439,9 @@ void mdp_adjust_start_addr(struct ppp_blit_op *blit_op,
 			img->p1 += ((x / h_slice) * h_slice +
 			((y == 0) ? 0 : ((y + 1) / v_slice - 1) * width)) * bpp;
 
-		if (layer != 0)
-			img->p0 = mdp_dst_adjust_rot_addr(blit_op,
-					img->p0, bpp, 0);
+		if (layer != LAYER_FG)
+			img->p0 = mdp_adjust_rot_addr(blit_op,
+					img->p0, bpp, 0, layer);
 	}
 }
 
@@ -1200,17 +1218,18 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 	} else {
 		blit_op->bg = blit_op->dst;
 	}
-	/* Jumping from Y-Plane to Chroma Plane */
-	/* first pixel addr calculation */
-	mdp_adjust_start_addr(blit_op, &blit_op->src, sv_slice, sh_slice, 0);
-	/* Adjust BG start address for Non SMART Blit*/
-	if (blit_op->bg.p0 == blit_op->dst.p0)
-		mdp_adjust_start_addr(blit_op, &blit_op->bg, dv_slice, dh_slice, 1);
-	mdp_adjust_start_addr(blit_op, &blit_op->dst, dv_slice, dh_slice, 2);
-
         /* Cache smart blit BG layer info */
 	if (blit_op->mdp_op & MDPOP_SMART_BLIT)
-                bg_img_param = blit_op->src;
+		bg_img_param = blit_op->src;
+
+	/* Jumping from Y-Plane to Chroma Plane */
+	/* first pixel addr calculation */
+	mdp_adjust_start_addr(blit_op, &blit_op->src, sv_slice,
+				sh_slice, LAYER_FG);
+	mdp_adjust_start_addr(blit_op, &blit_op->bg, dv_slice,
+				dh_slice, LAYER_BG);
+	mdp_adjust_start_addr(blit_op, &blit_op->dst, dv_slice,
+				dh_slice, LAYER_FB);
 
 	config_ppp_scale(blit_op, &ppp_operation_reg);
 
