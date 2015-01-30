@@ -3324,6 +3324,30 @@ static inline void reset_cfs_rq_hmp_stats(int cpu, int reset_cra) { }
 #endif	/* CONFIG_CFS_BANDWIDTH */
 
 /*
+ * Return total number of tasks "eligible" to run on highest capacity cpu
+ *
+ * This is simply nr_big_tasks for cpus which are not of max_capacity and
+ * (nr_running - nr_small_tasks) for cpus of max_capacity
+ */
+unsigned int nr_eligible_big_tasks(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+	int nr_big = rq->hmp_stats.nr_big_tasks;
+	int nr = rq->nr_running;
+	int nr_small = rq->hmp_stats.nr_small_tasks;
+
+	if (rq->capacity != max_capacity)
+		return nr_big;
+
+	/* Consider all (except small) tasks on max_capacity cpu as big tasks */
+	nr_big = nr - nr_small;
+	if (nr_big < 0)
+		nr_big = 0;
+
+	return nr_big;
+}
+
+/*
  * reset_cpu_hmp_stats - reset HMP stats for a cpu
  *	nr_big_tasks, nr_small_tasks
  *	cumulative_runnable_avg (iff reset_cra is true)
