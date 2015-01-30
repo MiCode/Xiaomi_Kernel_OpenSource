@@ -511,11 +511,20 @@ config SRAM
 	  areas found on many SoCs.
 
 config QSEECOM
-        tristate "Qualcomm Secure Execution Communicator driver"
+        tristate "QTI Secure Execution Communicator driver"
         help
           Provides a communication interface between userspace and
-          Qualcomm Secure Execution Environment (QSEE) using Secure Channel
-          Manager (SCM) interface.
+          QTI Secure Execution Environment (QSEE) using Secure Channel
+          Manager (SCM) interface. It exposes APIs for both userspace and
+          kernel clients.
+
+config HDCP_QSEECOM
+	tristate "QTI High-Bandwidth Digital Content Protection Module"
+	help
+	  This module implements HDCP 2.2 features over HDMI. It exposes APIs
+	  for HDMI driver to communicate with QTI Secure Execution
+	  Environment (QSEE) via the QSEECOM Driver and also calls the APIs
+	  exposed by the HDMI driver to communicate with the Receiver.
 
 config VEXPRESS_SYSCFG
 	bool "Versatile Express System Configuration driver"
