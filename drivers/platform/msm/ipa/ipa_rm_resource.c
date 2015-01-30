@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -434,13 +434,13 @@ int ipa_rm_resource_delete(struct ipa_rm_resource *resource)
 	int result = 0;
 	int list_size;
 
-	IPA_RM_DBG("ipa_rm_resource_delete ENTER with resource %d\n",
-					resource->name);
 	if (!resource) {
 		IPA_RM_ERR("invalid params\n");
 		return -EINVAL;
 	}
 
+	IPA_RM_DBG("ipa_rm_resource_delete ENTER with resource %d\n",
+					resource->name);
 	if (resource->type == IPA_RM_PRODUCER) {
 		if (resource->peers_list) {
 			list_size = ipa_rm_peers_list_get_size(
