@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #endif
 
+#include <linux/v4l2-mediabus.h>
 #include <media/msm_camsensor_sdk.h>
 
 #include <linux/types.h>
@@ -36,6 +37,16 @@
 
 #define MAX_AF_ITERATIONS 3
 #define MAX_NUMBER_OF_STEPS 47
+
+#define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
+#define MSM_V4L2_PIX_FMT_SBGGR14 v4l2_fourcc('B', 'G', '1', '4')
+	/* 14  BGBG.. GRGR.. */
+#define MSM_V4L2_PIX_FMT_SGBRG14 v4l2_fourcc('G', 'B', '1', '4')
+	/* 14  GBGB.. RGRG.. */
+#define MSM_V4L2_PIX_FMT_SGRBG14 v4l2_fourcc('B', 'A', '1', '4')
+	/* 14  GRGR.. BGBG.. */
+#define MSM_V4L2_PIX_FMT_SRGGB14 v4l2_fourcc('R', 'G', '1', '4')
+	/* 14  RGRG.. GBGB.. */
 
 enum flash_type {
 	LED_FLASH = 1,
