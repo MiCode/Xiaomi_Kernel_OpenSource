@@ -27,6 +27,7 @@
 #include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_downsample_param.h"
 #include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_upsample_param.h"
 #include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_edge_metric_param.h"
+#include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_chroma_metric_param.h"
 #include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_radial_metric_param.h"
 #include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_output_blend_param.h"
 

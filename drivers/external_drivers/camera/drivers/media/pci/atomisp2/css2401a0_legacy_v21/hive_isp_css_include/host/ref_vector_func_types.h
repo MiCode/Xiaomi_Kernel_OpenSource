@@ -250,18 +250,13 @@ typedef struct {
 } ref_config_points;
 
 typedef struct {
-	tvector1w x_cord[MAX_CONFIG_POINTS];
-	tvector1w slope[MAX_CONFIG_POINTS-1];
-	tvector1w y_offset[MAX_CONFIG_POINTS];
-	tscalar1w_16bit slope_resolution;
-} xcu_ref_config_points;
-
-typedef struct {
-	tscalar1w_16bit slope_vec[CONFIG_UNIT_LUT_SIZE_32];
-	tscalar1w_16bit offset_vec[CONFIG_UNIT_LUT_SIZE_32];
+	tscalar1w_range1wbit slope_vec[CONFIG_UNIT_LUT_SIZE_32];
+	tscalar1w_range1wbit offset_vec[CONFIG_UNIT_LUT_SIZE_32];
 	tscalar1w_16bit x_cord_vec[CONFIG_UNIT_LUT_SIZE_32];
-	tscalar1w_16bit exponent;
-} ref_config_point_vectors;
+	tscalar1w_16bit x_cord_max;
+	tscalar1w_5bit exponent;
+	tscalar1w_5bit slope_resolution;
+} xcu_ref_init_vectors;
 
 typedef struct {
 	tscalar1w search[BMA_SEARCH_BLOCK_SZ_16][BMA_SEARCH_BLOCK_SZ_16];

@@ -1,9 +1,7 @@
-/* Release Version: irci_master_20150129_1500 */
-/* Release Version: irci_master_20150129_1500 */
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2010 - 2013 Intel Corporation.
+ * Copyright (C) 2010 - 2015 Intel Corporation.
  * All Rights Reserved.
  *
  * The source code contained or described herein and all documents
@@ -23,29 +21,9 @@
  * estoppel or otherwise. Any license under such intellectual property rights
  * must be express and approved by Intel in writing.
  */
+#ifndef __IA_CSS_XNR4_CHROMA_METRIC_PARAM_H
+#define __IA_CSS_XNR4_CHROMA_METRIC_PARAM_H
 
-#include "ia_css_hdr.host.h"
+#include "isp/kernels/xnr/xnrvideo4/ia_css_xnr4_common_param.h"
 
-void
-ia_css_hdr_init_config(
-	struct sh_css_isp_hdr_params *to,
-	const struct ia_css_hdr_config *from,
-	unsigned size)
-{
-	int i;
-	(void)size;
-
-	for (i = 0; i < HDR_NUM_INPUT_FRAMES - 1; i++) {
-		to->irradiance.match_shift[i] = from->irradiance.match_shift[i];
-		to->irradiance.match_mul[i]   = from->irradiance.match_mul[i];
-		to->irradiance.thr_low[i]     = from->irradiance.thr_low[i];
-		to->irradiance.thr_high[i]    = from->irradiance.thr_high[i];
-		to->irradiance.thr_coeff[i]   = from->irradiance.thr_coeff[i];
-		to->irradiance.thr_shift[i]   = from->irradiance.thr_shift[i];
-	}
-	to->irradiance.test_irr    = from->irradiance.test_irr;
-	to->irradiance.weight_bpp  = from->irradiance.weight_bpp;
-
-	to->deghost.test_deg    = from->deghost.test_deg;
-	to->exclusion.test_excl = from->exclusion.test_excl;
-}
+#endif /* __IA_CSS_XNR4_CHROMA_METRIC_PARAM_H */

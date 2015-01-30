@@ -155,80 +155,22 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_piecewise_estimation(
 	tvector1w a,
 	ref_config_points config_points);
 
-/** @brief XCU LUT initialization
+/** @brief Fast Config Unit
  *
- * @param[in] config_points   config parameter structure
+ * @param[in] x 		input
+ * @param[in] init_vectors	LUT data structure
  *
- * @return				   LUT with three vectors for slope, x_prev, offset
- *
- * Given a set of N points, not necessariliy equidistant,
- * {(x1,y1), (x2,y2), ...., (xn,yn)}, to find
- * the functional value at an arbitrary point around the input set,
- * this function will perform input processing followed by piecewise
- * linear estimation and then output processing to yield the final value.
- * Piecewise liner estimation is performed with the help of LUT generated
- * based on configuration input. Range of min and max config point is
- * divided into 32 equal intervals and LUT is created for each of these 32
- * intervals for slope, y_offset and x_prev. Interval of current point x
- * is calculated by dividing it with the range approximated to nearest
- * power of 2 (upper bound). The range has to be a multiple of 32.
- *
- * * @details
- * Given a set of N configuration points, not necessarily equidistant,
- * {(x1,y1), (x2,y2),....(xn,yn)}, this function gives the piecewise linear
- * estimation for any arbitrary point around the config points. The distance
- * between the minimum config point and maximum config point (range) is
- * divided into ISP_NWAY equal intervals i.e. the LUT size is equal to
- * ISP_NWAY. It is assumed that is always a power of 2.
- * In the current case, 32 intervals are used as the ISP is 32 way. It should
- * be noted that some approximation is introduced here as the range may not be
- * an integer multiple of ISP_NWAY.
- * The LUT is created from the configuration input for slope, y_offset and
- * x_prev_value. Input values of a particular conifg point are replicated in
- * the LUT till the interval reaches the next config point. LUT is then filled
- * with the data of the next config point. For example:
- * LUT for Slope can look like S = [s1 s2 s2 s2 s2 s3 s3 s4 s5 s5 s6 s6 s6..],
- * depending on the distance between the config points. Similarly the data
- * is filled for y_offset and X-prev_values. */
-
-STORAGE_CLASS_REF_VECTOR_FUNC_H ref_config_point_vectors XCU_LUT_create(
-	xcu_ref_config_points config_points);
-
-/** @brief XCU Fast Config Unit Piecewise linear estimation
- *
- * @param[in] x input
- * @param[in] config_points   config parameters structure
- * @param[in] init_vectors		   LUT data structure
- *
- * @return		     	   piecewise linear estimated output
- *
- * Once the LUT is created in XCU_LUT_create function,
- * the interval of the any input x is identified by dividing it by the range
- * (approximated to the nearest power of 2 (upper bound)). This is done to have a
- * fast division operation to identify the interval of input x. Once the
- * interval of the input is idenitfied, its config data is retrieved from the
- * LUT and output y is calculated. Input points equal to x1 and xn are treated as
- * simple cases of using their offset value as the output.
- */
-STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_X_piecewise_estimation(
-	tvector1w x,
-	xcu_ref_config_points config_points,
-	ref_config_point_vectors init_vectors);
-
-/** @brief OP_1w_XCU Wrapper function for XCU LUT create, piecewise estimation and output clamping
- *
- * @param[in] x input
- * @param[in] config_points Config parameters structure
- *
- * @return	piecewise linear estimated clamped output
- * This block gets a set of input configuration points and input x, creates a LUT for
- * config points and gives a clamped piece-wise interpolated output. This block assumes
- * that the difference between the first config point and the last config point is a multiple
- * of 32. The config points are monotonically increasing.
+ * @return	piecewise linear estimated output
+ * This block gets an input x and a set of input configuration points stored in a look-up
+ * table of 32 elements. First, the x input is clipped to be within the range [x1, xn+1].
+ * Then, it computes the interval in which the input lies. Finally, the output is computed
+ * by performing linear interpolation based on the interval properties (i.e. x_prev, slope,
+ * and offset). This block assumes that the points are equally spaced and that the interval
+ * size is a power of 2.
  **/
 STORAGE_CLASS_REF_VECTOR_FUNC_H  tvector1w OP_1w_XCU(
 	tvector1w x,
-	xcu_ref_config_points config_points);
+	xcu_ref_init_vectors init_vectors);
 
 
 /** @brief Coring

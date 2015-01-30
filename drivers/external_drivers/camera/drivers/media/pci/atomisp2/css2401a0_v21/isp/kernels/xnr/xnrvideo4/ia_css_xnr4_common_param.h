@@ -1,7 +1,7 @@
 /*
  * INTEL CONFIDENTIAL
  *
- * Copyright (C) 2010 - 2014 Intel Corporation.
+ * Copyright (C) 2010 - 2015 Intel Corporation.
  * All Rights Reserved.
  *
  * The source code contained or described herein and all documents
@@ -31,6 +31,14 @@
 #define MSD_INP_BPP             (16)
 #define MSD_INP_BPP_U		(MSD_INP_BPP - 1)
 #define XNR4_STRIPE_SIZE	(2560)
+
+
+/* Medium frequency Subkernel Configuration */
+#define XNR4_MF_FILTER_SIZE		(5)
+#define XNR4_MF_FILTER_DELAY_PIX	(XNR4_MF_FILTER_SIZE / 2) /* 2 pixel delay due to 5 tab filter */
+
+#define XNR4_MF_FILTER_VRT_DELAY	(XNR4_MF_FILTER_DELAY_PIX) /* 2 lines of delay */
+#define XNR4_MF_FILTER_HOR_DELAY	(1) /* 1 vector delay - to align delay to vector boundary */
 
 
 #endif /* __IA_CSS_XNR4_COMMON_PARAM_H */

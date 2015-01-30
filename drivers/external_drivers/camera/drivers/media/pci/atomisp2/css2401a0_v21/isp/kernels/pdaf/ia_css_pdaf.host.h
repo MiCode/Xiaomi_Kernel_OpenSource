@@ -12,18 +12,24 @@
  * more details.
  */
 
-//
-// This file contains the version data for the CSS
-//
-// === Do not change - automatically generated ===
-//
+#ifndef __IA_CSS_PDAF_HOST_H
+#define __IA_CSS_PDAF_HOST_H
 
-#ifndef __IA_CSS_VERSION_DATA_H
-#define __IA_CSS_VERSION_DATA_H
+#include "ia_css_pdaf_types.h"
+#include "ia_css_pdaf_param.h"
 
+extern const struct ia_css_pdaf_config default_pdaf_config;
 
-#define CSS_VERSION_STRING "REL:20150129_05.4_1656; API:2.1.10.6; GIT:scci_20150129_0104_#04ffe549c0c12783fedda9e5ff6703a6a446a50c; SDK:/nfs/iir/disks/iir_hivepackages_003/iir_hivepkgs_disk017/Css_Mizuchi/packages/Css_Mizuchi/int_css_mizuchi_20140829_1053; USER:viedifw; "
+void
+ia_css_pdaf_dmem_encode(
+	struct sh_css_isp_pdaf_dmem_params *to,
+	const struct ia_css_pdaf_config *from,
+	unsigned size);
 
+void
+ia_css_pdaf_vmem_encode(
+	struct sh_css_isp_pdaf_vmem_params *to,
+	const struct ia_css_pdaf_config *from,
+	unsigned size);
 
-#endif
-
+#endif /* __IA_CSS_PDAF_HOST_H */
