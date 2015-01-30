@@ -3677,6 +3677,11 @@ extern int chv_cursor_offsets[];
 #define DRAIN_LATENCY_PRECISION_64	64
 #define DRAIN_LATENCY_PRECISION_32	32
 #define DRAIN_LATENCY_PRECISION_16	16
+
+/* FIXME : Add for VLV also */
+#define DDL_PRECISION_L                DRAIN_LATENCY_PRECISION_16
+#define DDL_PRECISION_H                DRAIN_LATENCY_PRECISION_32
+
 #define VLV_DDL1			(VLV_DISPLAY_BASE + 0x70050)
 #define DDL_CURSORA_PRECISION_32	(1<<31)
 #define DDL_CURSORA_PRECISION_16	(0<<31)
@@ -3698,8 +3703,8 @@ extern int chv_cursor_offsets[];
 #define DDL_CURSORB_SHIFT		24
 #define DDL_PLANEB_PRECISION_32		(1<<7)
 #define DDL_PLANEB_PRECISION_16		(0<<7)
-#define DDL_PLANE_PRECISION_64		(1<<7)
-#define DDL_PLANE_PRECISION_32		(0<<7)
+#define DDL_PLANE_PRECISION_H		(1<<7)
+#define DDL_PLANE_PRECISION_L		(0<<7)
 
 /* FIFO watermark sizes etc */
 #define G4X_FIFO_LINE_SIZE	64
@@ -6371,17 +6376,5 @@ extern int chv_cursor_offsets[];
 
 #define single_plane_enabled(plane_stat)       is_power_of_2(plane_stat)
 #define single_pipe_enabled(pipe_stat)         is_power_of_2(pipe_stat)
-
-#define vlv_calculate_ddl(clock, pixel_size, prec_multi, ddl) (	\
-{									\
-	int entries;							\
-	bool latencyprogrammed = false;					\
-									\
-	entries = DIV_ROUND_UP(clock, 1000) * pixel_size;		\
-	*prec_multi = (entries > 256) ?					\
-		DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;\
-	*ddl = (64 * (*prec_multi) * 4) / entries;			\
-	latencyprogrammed = true;					\
-})
 
 #endif /* _VLV_DC_REGS_H_ */

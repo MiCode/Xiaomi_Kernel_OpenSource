@@ -24,6 +24,7 @@
 #include "core/intel_dc_config.h"
 #include "core/vlv/vlv_sp_plane.h"
 #include "core/vlv/vlv_pri_plane.h"
+#include "core/vlv/vlv_pm.h"
 
 struct format_info {
 	u32 drm_format;
@@ -309,12 +310,12 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 	}
 	if (bpp != prev_bpp || !(REG_READ(VLV_DDL(pipe)) & mask)) {
 		intel_pipe->ops->get_current_mode(intel_pipe, &mode);
-		vlv_calculate_ddl(mode.clock, bpp, &prec_multi,
+		vlv_calc_ddl(mode.clock, bpp, &prec_multi,
 				&sprite_ddl);
 		sp_prec_multi = (prec_multi ==
-					DRAIN_LATENCY_PRECISION_32) ?
-					DDL_PLANE_PRECISION_32 :
-					DDL_PLANE_PRECISION_64;
+					DDL_PRECISION_L) ?
+					DDL_PLANE_PRECISION_L :
+					DDL_PLANE_PRECISION_H;
 		sprite_ddl = (sp_prec_multi | sprite_ddl) << shift;
 		vlv_sp_pane_save_ddl(splane, sprite_ddl);
 		REG_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);

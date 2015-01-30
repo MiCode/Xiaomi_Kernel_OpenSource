@@ -38,5 +38,6 @@ void vlv_pm_pre_validate(struct intel_dc_config *intel_config,
 		struct intel_pipeline *intel_pipeline, struct intel_pipe *pipe);
 void vlv_pm_pre_post(struct intel_dc_config *intel_config,
 		struct intel_pipeline *intel_pipeline, struct intel_pipe *pipe);
+bool vlv_calc_ddl(int clock, int pixel_size, int *prec_multi, int *ddl);
 
 #endif /*_VLV_WATERMARK_H_*/

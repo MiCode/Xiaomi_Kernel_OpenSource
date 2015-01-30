@@ -18,6 +18,7 @@
 #include <core/vlv/vlv_pri_plane.h>
 #include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_dc_regs.h>
+#include <core/vlv/vlv_pm.h>
 #include <drm/i915_drm.h>
 #include <video/intel_adf.h>
 
@@ -264,12 +265,14 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 		/*FIXME: get mode from interface itself */
 		intel_pipe->ops->get_current_mode(intel_pipe, &mode);
 		if (mode.clock && bpp) {
-			vlv_calculate_ddl(mode.clock, bpp, &prec_multi,
+			vlv_calc_ddl(mode.clock, bpp, &prec_multi,
 					&plane_ddl);
+			/* FIXME : Please add DDL_PRECISION_L and H for VLV */
 			plane_prec_multi = (prec_multi ==
-					DRAIN_LATENCY_PRECISION_32) ?
-				DDL_PLANE_PRECISION_32 :
-				DDL_PLANE_PRECISION_64;
+					DDL_PRECISION_L) ?
+				DDL_PLANE_PRECISION_L :
+				DDL_PLANE_PRECISION_H;
+
 			plane_ddl = plane_prec_multi | (plane_ddl);
 
 			/* save the ddl in pm object to flush later */

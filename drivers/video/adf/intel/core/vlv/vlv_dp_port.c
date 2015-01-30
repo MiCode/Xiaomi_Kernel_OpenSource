@@ -916,11 +916,11 @@ bool vlv_dp_port_init(struct vlv_dp_port *port, enum port port_id,
 	if (port->is_edp)
 		vlv_dp_port_vdd_seq(port, true);
 
-#ifdef CONFIG_ADF_INTEL_CHV
-	port->pipe_select_val = DP_PIPE_SELECT_CHV(pipe_id);
-#else
-	port->pipe_select_val = (pipe_id ? DP_PIPE_MASK : 0);
-#endif
+	if (IS_CHERRYVIEW())
+		port->pipe_select_val = DP_PIPE_SELECT_CHV(pipe_id);
+	else
+		port->pipe_select_val = (pipe_id ? DP_PIPE_MASK : 0);
+
 	pr_info("%s:%d port_id %d pipe %d\n", __func__, __LINE__,
 			port_id, pipe_id);
 

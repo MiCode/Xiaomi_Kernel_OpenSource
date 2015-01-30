@@ -866,9 +866,9 @@ u32 vlv_set_signal_levels(struct intel_pipeline *pipeline,
 	struct vlv_dp_port *dp_port = &disp->port.dp_port;
 	u32 deemp = 0, margin = 0;
 
-#ifdef CONFIG_ADF_INTEL_CHV
-	return chv_set_signal_levels(pipeline, params);
-#endif
+	if (IS_CHERRYVIEW())
+		return chv_set_signal_levels(pipeline, params);
+
 	vlv_dp_port_set_signal_levels(dp_port, params, &deemp, &margin);
 	vlv_dpio_signal_levels(pipeline, deemp, margin);
 

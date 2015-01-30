@@ -100,24 +100,45 @@ void vlv_pm_pre_post(struct intel_dc_config *intel_config,
 				&pipeline->status.wait_vblank);
 }
 
+bool vlv_calc_ddl(int clock, int pixel_size, int *prec_multi, int *ddl)
+{
+	int entries;
+	bool latencyprogrammed = false;
+
+	entries = DIV_ROUND_UP(clock, 1000) * pixel_size;
+	*prec_multi = (entries > 256) ?
+		DDL_PRECISION_H : DDL_PRECISION_L;
+	*ddl = (64 * (*prec_multi) * 4) / entries;
+	latencyprogrammed = true;
+
+	/*
+	 * chv: divide the calculated ddl by 2,
+	 * for supporting PM5 and DDR DVFS
+	 */
+	if (IS_CHERRYVIEW())
+		*ddl /= 2;
+
+	return latencyprogrammed;
+}
+
 bool vlv_pm_update_maxfifo_status(struct vlv_pm *pm, bool enable)
 {
-#ifdef CONFIG_ADF_INTEL_CHV
 	u32 val = 0;
-#endif
 
 	if (enable) {
 		REG_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
-#ifdef CONFIG_ADF_INTEL_CHV
-		val = vlv_punit_read(CHV_DPASSC);
-		vlv_punit_write(CHV_DPASSC, (val | CHV_PW_MAXFIFO_MASK));
-#endif
+		if (IS_CHERRYVIEW()) {
+			val = vlv_punit_read(CHV_DPASSC);
+			vlv_punit_write(CHV_DPASSC,
+					(val | CHV_PW_MAXFIFO_MASK));
+		}
 	} else {
 		REG_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-#ifdef CONFIG_ADF_INTEL_CHV
-		val = vlv_punit_read(CHV_DPASSC);
-		vlv_punit_write(CHV_DPASSC, (val & ~CHV_PW_MAXFIFO_MASK));
-#endif
+		if (IS_CHERRYVIEW()) {
+			val = vlv_punit_read(CHV_DPASSC);
+			vlv_punit_write(CHV_DPASSC,
+					(val & ~CHV_PW_MAXFIFO_MASK));
+		}
 	}
 
 	return true;
