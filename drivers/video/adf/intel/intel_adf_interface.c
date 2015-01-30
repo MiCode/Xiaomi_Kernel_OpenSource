@@ -16,6 +16,9 @@
 #include <video/adf_client.h>
 #include "intel_adf.h"
 
+extern int i915_adf_simple_buffer_alloc(u16 w, u16 h, u8 bpp,
+			struct dma_buf **dma_buf, u32 *offset, u32 *pitch);
+
 /* Custom IOCTL */
 static long intel_interface_obj_ioctl(struct adf_obj *obj,
 	unsigned int cmd, unsigned long arg)
@@ -160,13 +163,7 @@ static int intel_interface_alloc_simple_buffer(struct adf_interface *intf,
 	dev_info(dev->base.dev, "%s: size %d\n", __func__, size);
 
 #ifdef CONFIG_ADF_INTEL_VLV
-	/*
-	 * For VLV we use GEM memory manager. Will be enabled when
-	 * we fix the FB driver. As of now memory is preallocate in
-	 * user space via DRM PRIME interface which gives DMA Buf
-	 * handles over GEM
-	 */
-	return -EOPNOTSUPP;
+	return i915_adf_simple_buffer_alloc(w, h, bpp, dma_buf, offset, pitch);
 #else
 	/*allocate buffer*/
 	return intel_adf_mm_alloc_buf(mm, size, dma_buf);
