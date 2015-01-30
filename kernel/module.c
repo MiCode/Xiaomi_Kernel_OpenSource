@@ -2579,7 +2579,13 @@ void * __weak module_alloc(unsigned long size)
 	return vmalloc_exec(size);
 }
 
-#ifdef CONFIG_DEBUG_KMEMLEAK
+#if defined(CONFIG_DEBUG_KMEMLEAK) && defined(CONFIG_DEBUG_MODULE_SCAN_OFF)
+static void kmemleak_load_module(const struct module *mod,
+				 const struct load_info *info)
+{
+	kmemleak_no_scan(mod->module_core);
+}
+#elif defined(CONFIG_DEBUG_KMEMLEAK)
 static void kmemleak_load_module(const struct module *mod,
 				 const struct load_info *info)
 {
