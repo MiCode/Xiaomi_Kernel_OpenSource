@@ -248,7 +248,21 @@ static void i915_gem_dmabuf_kunmap(struct dma_buf *dma_buf, unsigned long page_n
 
 static int i915_gem_dmabuf_mmap(struct dma_buf *dma_buf, struct vm_area_struct *vma)
 {
-	return -EINVAL;
+	int ret = 0;
+	struct drm_i915_gem_object *obj = dma_buf_to_obj(dma_buf);
+	struct drm_device *dev = obj->base.dev;
+
+	if (!obj->base.filp) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	mutex_lock(&dev->struct_mutex);
+	ret = drm_gem_mmap_obj(&obj->base, obj->base.size, vma);
+	mutex_unlock(&dev->struct_mutex);
+
+out:
+	return ret;
 }
 
 static int i915_gem_begin_cpu_access(struct dma_buf *dma_buf, size_t start, size_t length, enum dma_data_direction direction)
