@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,6 +116,46 @@ static bool wcd_cpe_lsm_session_active(void)
 		}
 	}
 	return lsm_active;
+}
+
+static int wcd_cpe_get_sfr_dump(struct wcd_cpe_core *core)
+{
+	struct cpe_svc_mem_segment dump_seg;
+	int rc;
+	u8 *sfr_dump;
+
+	sfr_dump = kzalloc(core->sfr_buf_size, GFP_KERNEL);
+	if (!sfr_dump) {
+		dev_err(core->dev,
+			"%s: No memory for sfr dump\n",
+			__func__);
+		goto done;
+	}
+
+	dump_seg.type = CPE_SVC_DATA_MEM;
+	dump_seg.cpe_addr = core->sfr_buf_addr;
+	dump_seg.size = core->sfr_buf_size;
+	dump_seg.data = sfr_dump;
+	dev_dbg(core->dev,
+		"%s: reading SFR from CPE, size = %zu\n",
+		__func__, core->sfr_buf_size);
+
+	rc = cpe_svc_ramdump(core->cpe_handle, &dump_seg);
+	if (IS_ERR_VALUE(rc)) {
+		dev_err(core->dev,
+			"%s: Failed to read cpe sfr_dump, err = %d\n",
+			__func__, rc);
+		goto free_sfr_dump;
+	}
+
+	dev_info(core->dev,
+		 "%s: cpe_sfr = %s\n", __func__, sfr_dump);
+
+free_sfr_dump:
+	kfree(sfr_dump);
+done:
+	/* Even if SFR dump failed, do not return error */
+	return 0;
 }
 
 static int wcd_cpe_collect_ramdump(struct wcd_cpe_core *core)
@@ -880,14 +920,16 @@ void wcd_cpe_ssr_work(struct work_struct *work)
 				__func__);
 			goto err_ret;
 		}
-		if (core->ssr_type != WCD_CPE_BUS_DOWN_EVENT &&
-		    ramdump_enable) {
+		if (core->ssr_type != WCD_CPE_BUS_DOWN_EVENT) {
+			wcd_cpe_get_sfr_dump(core);
+
 			/*
 			 * Ramdump has to be explicitly enabled
 			 * through debugfs and cannot be collected
 			 * when bus is down.
 			 */
-			wcd_cpe_collect_ramdump(core);
+			if (ramdump_enable)
+				wcd_cpe_collect_ramdump(core);
 		}
 	} else {
 		pr_err("%s: no cpe users, mark as offline\n", __func__);
@@ -1137,6 +1179,7 @@ static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param)
 {
 	struct snd_soc_codec *codec;
 	struct wcd_cpe_core *core;
+	struct cpe_svc_boot_event *boot_data;
 	bool active_sessions;
 
 	if (!param) {
@@ -1163,6 +1206,16 @@ static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param)
 		__func__, param->event, core->ssr_type);
 
 	switch (param->event) {
+	case CPE_SVC_BOOT:
+		boot_data = (struct cpe_svc_boot_event *)
+				param->payload;
+		core->sfr_buf_addr = boot_data->debug_address;
+		core->sfr_buf_size = boot_data->debug_buffer_size;
+		dev_dbg(core->dev,
+			"%s: CPE booted, sfr_addr = %d, sfr_size = %zu\n",
+			__func__, core->sfr_buf_addr,
+			core->sfr_buf_size);
+		break;
 	case CPE_SVC_ONLINE:
 		core->ssr_type = WCD_CPE_ACTIVE;
 		dev_dbg(core->dev, "%s CPE is now online\n",
@@ -1554,6 +1607,7 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 	core->cpe_reg_handle = cpe_svc_register(core->cpe_handle,
 					wcd_cpe_svc_event_cb,
 					CPE_SVC_ONLINE | CPE_SVC_OFFLINE |
+					CPE_SVC_BOOT |
 					CPE_SVC_CMI_CLIENTS_DEREG,
 					"codec cpe handler");
 	if (!core->cpe_reg_handle) {
