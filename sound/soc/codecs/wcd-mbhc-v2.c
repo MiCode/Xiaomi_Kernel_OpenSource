@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -843,6 +843,11 @@ static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	enum wcd_mbhc_plug_type plug_type = mbhc->current_plug;
 	s16 reg1;
 
+	if (wcd_swch_level_remove(mbhc)) {
+		pr_debug("%s: Switch level is low\n", __func__);
+		return false;
+	}
+
 	reg1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2);
 	/*
 	 * Check if there is any cross connection,
@@ -1459,12 +1464,6 @@ determine_plug:
 	hphl_trigerred = 0;
 	mic_trigerred = 0;
 	mbhc->is_extn_cable = true;
-	/*
-	 * even if controls comes here, it is taking more than
-	 * debounce time to detect cable as headphone, so wait
-	 * for 20msec for the mic line to stabilize
-	 */
-	msleep(20);
 	mbhc->btn_press_intr = false;
 	wcd_mbhc_detect_plug_type(mbhc);
 	WCD_MBHC_RSC_UNLOCK(mbhc);
