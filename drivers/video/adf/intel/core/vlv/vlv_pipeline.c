@@ -34,7 +34,7 @@ enum port vlv_get_connected_port(struct intel_pipe *intel_pipe)
 
 	/*
 	 * This function is only for hot pluggable displays,
-	 * like HDMI. SO handle only these.
+	 * like HDMI and DP. SO handle only these.
 	 */
 	if (intel_pipe->type == INTEL_PIPE_HDMI) {
 		struct vlv_hdmi_port *port = &vlv_pipeline->port.hdmi_port;
@@ -143,6 +143,7 @@ out:
 	return err;
 }
 
+
 u32 vlv_port_enable(struct intel_pipeline *pipeline,
 		struct drm_mode_modeinfo *mode)
 {
@@ -187,7 +188,8 @@ u32 vlv_port_enable(struct intel_pipeline *pipeline,
 			pr_err("ADF: %s Enable DSI port failed\n", __func__);
 	} else if (disp->type == INTEL_PIPE_HDMI) {
 		/* HDMI pre port enable */
-		chv_dpio_pre_port_enable(pipeline);
+		chv_dpio_hdmi_swing_levels(pipeline, mode->clock * 1000);
+		chv_dpio_lane_reset_en(pipeline, true);
 		ret = vlv_hdmi_port_enable(&disp->port.hdmi_port);
 		if (ret)
 			pr_err("ADF: HDMI: %s Enable port failed\n", __func__);
@@ -203,9 +205,9 @@ u32 vlv_port_enable(struct intel_pipeline *pipeline,
 
 /*
  * DSI is a special beast that requires 3 calls to pipeline
- *	1) setup pll : dsi_prepare_on
- *	2) setup port: dsi_pre_pipeline_on
- *	3) enable port, pipe, plane etc : pipeline_on
+ * 1) setup pll : dsi_prepare_on
+ * 2) setup port: dsi_pre_pipeline_on
+ * 3) enable port, pipe, plane etc : pipeline_on
  * this is because of the panel calls needed to be performed
  * between these operations and hence we return to common code
  * to make these calls.
@@ -219,6 +221,8 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 	struct vlv_plane_params plane_params;
 	struct vlv_pll *pll = &disp->pll;
 	struct intel_clock clock;
+	u32 dotclock = 0;
+	bool ret = 0;
 	u32 err = 0;
 	u8 bpp = 0;
 
@@ -229,20 +233,31 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 
 	pr_info("ADF: %s: mode=%s\n", __func__, mode->name);
 
+	vlv_pll_disable(pll);
 	/* pll enable */
 	if (disp->type != INTEL_PIPE_DSI) {
 		err = vlv_pll_program_timings(pll, mode, &clock);
 		if (err)
 			pr_err("ADF: %s: clock calculation failed\n", __func__);
 
+		if (disp->type == INTEL_PIPE_HDMI) {
+			pr_err("HARDCODING clock for 19x10 HDMI\n");
+			clock.p1 = 4;
+			clock.p2 = 2;
+			clock.m1 = 2;
+			clock.m2 = 0x1d2cccc0;
+			clock.n = 1;
+			clock.vco = 0x9104f;
+		}
 		chv_dpio_update_clock(pipeline, &clock);
 		chv_dpio_update_channel(pipeline);
-
 		err = vlv_pll_enable(pll, mode);
 		if (err) {
 			pr_err("ADF: %s: clock calculation failed\n", __func__);
 			goto out_on;
 		}
+
+		chv_dpio_enable_staggering(pipeline, dotclock);
 	}
 
 	/* port enable */
@@ -279,15 +294,9 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 	if (err)
 		pr_err("ADF: %s: update primary failed\n", __func__);
 
-	err = vlv_pipe_vblank_on(pipe);
-	if (err != true)
+	ret = vlv_pipe_vblank_on(pipe);
+	if (ret != true)
 		pr_err("ADF: %s: enable vblank failed\n", __func__);
-	else
-		/*
-		 * Reset the last success value (bool true) to zero else
-		 * this will give caller an illusion of failure
-		 */
-		 err = 0;
 
 	/*
 	 * FIXME: enable dpst call once dpst is fixed
@@ -456,9 +465,8 @@ u32 vlv_pipeline_off(struct intel_pipeline *pipeline)
 		goto out;
 	}
 
-	chv_dpio_post_pll_disable(pipeline);
 	if (disp->type == INTEL_PIPE_HDMI)
-		chv_dpio_lane_reset(pipeline);
+		chv_dpio_lane_reset_en(pipeline, false);
 
 	/* FIXME: disable water mark/ddl etc */
 
@@ -515,12 +523,11 @@ u32 chv_pipeline_off(struct intel_pipeline *pipeline)
 		goto out;
 	}
 
-	chv_dpio_post_pll_disable(pipeline);
 	if (disp->type == INTEL_PIPE_HDMI)
-		chv_dpio_lane_reset(pipeline);
+		chv_dpio_lane_reset_en(pipeline, false);
 
 
-	/* TODO: Disable watermark */
+	/* TODO: Disable pm here*/
 out:
 	pr_debug("%s: exit status %x\n", __func__, err);
 	return err;

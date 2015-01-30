@@ -22,20 +22,18 @@
 void chv_dpio_update_clock(struct intel_pipeline *pipeline,
 		struct intel_clock *clock);
 void chv_dpio_update_channel(struct intel_pipeline *pipeline);
-void chv_dpio_pre_port_enable(struct intel_pipeline *pipeline);
-
 void chv_dpio_set_signal_levels(struct intel_pipeline *pipeline,
 	u32 deemph_reg_value, u32 margin_reg_value);
 void chv_dpio_lane_reset_en(struct intel_pipeline *pipeline, bool enable);
-
-void chv_dpio_post_disable(struct intel_pipeline *pipeline);
 void chv_dpio_post_pll_disable(struct intel_pipeline *pipeline);
-void chv_dpio_lane_reset(struct intel_pipeline *pipeline);
 void chv_dpio_signal_levels(struct intel_pipeline *pipeline,
 	u32 deemp, u32 margin);
-
-
+void chv_dpio_edp_signal_levels(struct intel_pipeline *pipeline,
+	u32 deemp, u32 margin);
+void chv_dpio_hdmi_swing_levels(struct intel_pipeline *pipeline,
+	u32 dotclock);
 void vlv_dpio_signal_levels(struct intel_pipeline *pipeline,
 	u32 deemp, u32 margin);
-
+void chv_dpio_enable_staggering(struct intel_pipeline *pipeline,
+	u32 dotclock);
 #endif /* _CHV_DPIO_H_ */

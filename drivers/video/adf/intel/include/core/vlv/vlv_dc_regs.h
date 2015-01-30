@@ -559,6 +559,21 @@ extern int chv_cursor_offsets[];
 #define _VLV_PLL_DW11_CH1		0x806c
 #define VLV_PLL_DW11(ch) _PIPE(ch, _VLV_PLL_DW11_CH0, _VLV_PLL_DW11_CH1)
 
+#define _CHV_PLL_DW8_CH0		0x8020
+#define _CHV_PLL_DW8_CH1		0x81A0
+#define CHV_PLL_DW8(ch) _PIPE(ch, _CHV_PLL_DW8_CH0, _CHV_PLL_DW8_CH1)
+
+#define _CHV_PLL_DW9_CH0		0x8024
+#define _CHV_PLL_DW9_CH1		0x81A4
+#define CHV_PLL_DW9(ch) _PIPE(ch, _CHV_PLL_DW9_CH0, _CHV_PLL_DW9_CH1)
+
+#define _VLV_PCS01_DW12_CH0		0x0230
+#define _VLV_PCS23_DW12_CH0		0x0430
+#define _VLV_PCS01_DW12_CH1		0x2630
+#define _VLV_PCS23_DW12_CH1		0x2830
+#define VLV_PCS01_DW12(ch) _PORT(ch, _VLV_PCS01_DW12_CH0, _VLV_PCS01_DW12_CH1)
+#define VLV_PCS23_DW12(ch) _PORT(ch, _VLV_PCS23_DW12_CH0, _VLV_PCS23_DW12_CH1)
+
 /* Spec for ref block start counts at DW10 */
 #define VLV_REF_DW13			0x80ac
 
@@ -715,6 +730,18 @@ extern int chv_cursor_offsets[];
 #define _VLV_TX_DW14_CH0		0x82b8
 #define _VLV_TX_DW14_CH1		0x84b8
 #define VLV_TX_DW14(ch) _PORT(ch, _VLV_TX_DW14_CH0, _VLV_TX_DW14_CH1)
+
+#define _CHV_TX0_DW15_CH0		0xB8
+#define _CHV_TX0_DW15_CH1		0x24B8
+#define CHV_TX0_DW15(ch) _PORT(ch, _CHV_TX0_DW15_CH0, _CHV_TX0_DW15_CH1)
+
+#define _CHV_TX2_DW15_CH0		0x4B8
+#define _CHV_TX2_DW15_CH1		0x28B8
+#define CHV_TX2_DW15(ch) _PORT(ch, _CHV_TX2_DW15_CH0, _CHV_TX2_DW15_CH1)
+
+#define _CHV_TX3_DW15_CH0		0x6B8
+#define _CHV_TX3_DW15_CH1		0x2AB8
+#define CHV_TX3_DW15(ch) _PORT(ch, _CHV_TX3_DW15_CH0, _CHV_TX3_DW15_CH1)
 
 /* CHV dpPhy registers */
 #define _CHV_PLL_DW0_CH0		0x8000
@@ -3245,6 +3272,8 @@ extern int chv_cursor_offsets[];
 #define   DP_PORT_EN			(1 << 31)
 #define   DP_PIPEB_SELECT		(1 << 30)
 #define   DP_PIPE_MASK			(1 << 30)
+#define   DP_PIPE_SELECT_CHV(pipe)      ((pipe) << 16)
+#define   DP_PIPE_MASK_CHV              (3 << 16)
 
 /* Link training mode - select a suitable mode for each stage */
 #define   DP_LINK_TRAIN_PAT_1		(0 << 28)

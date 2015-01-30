@@ -17,6 +17,46 @@
 #include <drm/drmP.h>
 #include <core/vlv/dpio.h>
 
+#define VCO_540K	540000
+#define VCO_620K	620000
+#define VCO_648K	648000
+
+#define MHZ(x)		((x) * 1000000)
+#define M2_FRACTION_MASK	(0x3FFFFF)
+#define BYTE0 (0xFF)
+#define BYTE1 (BYTE0 << 8)
+#define BYTE2 (BYTE0 << 16)
+#define BYTE3 (BYTE0 << 24)
+
+#define SPARE_1	(1 << 30)
+#define SPARE_2	(1 << 31)
+
+struct edp_vswing_preemp {
+	u32 deemp;
+	u32 transcale;
+	u32 downscale;
+	u32 deempscale;
+};
+
+struct edp_vswing_preemp edp_values[] = {
+	{0x02020000, 0x001a9800, 0x041a0000, 0x80800000}, /* 200mV 0db */
+	{0x02020000, 0x00269800, 0x04260000, 0x70700000}, /* 200mV 3.5db */
+	{0x02020000, 0x00309800, 0x04300000, 0x60600000}, /* 200mV 6db */
+	{0x02020000, 0x00369800, 0x04360000, 0x45450000}, /* 200mV 9.5db */
+	{0x02020000, 0x00209800, 0x04200000, 0x80800000}, /* 250mV 0db */
+	{0x02020000, 0x00309800, 0x04300000, 0x68680000}, /* 250mV 3.5db */
+	{0x02020000, 0x00369800, 0x04360000, 0x55550000}, /* 250mV 6db */
+	{0x0       , 0x0       , 0x0       , 0x0       }, /* invalid */
+	{0x02020000, 0x00269800, 0x04260000, 0x80800000}, /* 300mV 0db */
+	{0x02020000, 0x00369800, 0x04360000, 0x65650000}, /* 300mV 3.5db */
+	{0x0       , 0x0       , 0x0       , 0x0       }, /* invalid */
+	{0x0       , 0x0       , 0x0       , 0x0       }, /* invalid */
+	{0x02020000, 0x00309800, 0x04300000, 0x80800000}, /* 350mV 0db */
+	{0x0       , 0x0       , 0x0       , 0x0       }, /* invalid */
+	{0x0       , 0x0       , 0x0       , 0x0       }, /* invalid */
+	{0x0       , 0x0       , 0x0       , 0x0       }, /* invalid */
+};
+
 enum dpio_channel {
 	DPIO_CH0,
 	DPIO_CH1,
@@ -42,6 +82,15 @@ u32 dpio_signal_levels[4][4][5] = {
 		{0x00000000, 0x009a9800, 0x049a0000, 0x2b2b0000, 0x02020000}
 	}
 };
+
+u32 hdmi_swing_values[2][5] = {
+	{0x2020000, 0x809800, 0x4800000, 0x80800000, 0},
+	{0x2020000, 0xa09800, 0x4a00000, 0x60600000, 0x80800000},
+};
+
+/* Physical Access Coding Sub-Layer register values for differnt frequencies */
+u32 ps0_values[5] = {0x61f42, 0x61f44, 0x61f47, 0x61f4d, 0x61f58};
+u32 ps1_values[5] = {0x571f42, 0x571f44, 0x571f47, 0x571f4d, 0x571f58};
 
 static inline struct vlv_dc_config *get_vlv_dc_config(
 	struct vlv_pipeline *disp)
@@ -115,249 +164,161 @@ void chv_dpio_update_clock(struct intel_pipeline *pipeline,
 		struct intel_clock *clock)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	enum dpio_channel port = vlv_disp_to_port(disp);
-	u32 bestn, bestm1, bestm2, bestp1, bestp2, bestm2_frac;
+	enum dpio_channel ch = vlv_disp_to_port(disp);
 	struct vlv_dc_config *config = get_vlv_dc_config(disp);
-	u32  loopfilter;
-	u32 old_val = 0, val = 0;
-	bestn = clock->n;
-	bestm1 = clock->m1;
-	bestm2 = clock->m2 >> 22;
-	bestm2_frac = clock->m2 & 0x3fffff;
-	bestp1 = clock->p1;
-	bestp2 = clock->p2;
+	u32 val, temp;
 
 	mutex_lock(&config->dpio_lock);
 
-	/* p1 and p2 divider */
-	val = 5 << DPIO_CHV_S1_DIV_SHIFT |
-		bestp1 << DPIO_CHV_P1_DIV_SHIFT |
-		bestp2 << DPIO_CHV_P2_DIV_SHIFT |
-		1 << DPIO_CHV_K_DIV_SHIFT;
-	old_val = vlv_dpio_read(disp->dpio_id, CHV_CMN_DW13(port));
-	pr_err("old = %x new = %x\n", old_val, val);
-	vlv_dpio_write(disp->dpio_id, CHV_CMN_DW13(port), val);
+	val = vlv_dpio_read(disp->dpio_id, CHV_CMN_DW14(ch));
+	val &= ~(DPIO_DCLKP_EN);
+	vlv_dpio_write(disp->dpio_id, CHV_CMN_DW14(ch), val);
 
-	/* Feedback post-divider - m2 */
-	old_val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW0(port));
-	pr_err("old = %x new = %x\n", old_val, bestm2);
-	vlv_dpio_write(disp->dpio_id, CHV_PLL_DW0(port), bestm2);
+	temp = ((clock->p1 & 0x7) << 5) | (clock->p2 & 0x1f);
+	val = vlv_dpio_read(disp->dpio_id, CHV_CMN_DW13(ch));
+	val &= ~(BYTE1);
+	val |= ((temp & BYTE0) << DPIO_CHV_P2_DIV_SHIFT);
+	vlv_dpio_write(disp->dpio_id, CHV_CMN_DW13(ch), val);
 
-	/* Feedback refclk divider - n and m1 */
-	val = DPIO_CHV_M1_DIV_BY_2 |
-		1 << DPIO_CHV_N_DIV_SHIFT;
-	old_val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW1(port));
-	pr_err("old = %x new = %x\n", old_val, val);
-	vlv_dpio_write(disp->dpio_id, CHV_PLL_DW1(port), val);
+	temp = (clock->m2 >> 24);
+	val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW0(ch));
+	val = (val  & (~BYTE0)) | temp;
+	vlv_dpio_write(disp->dpio_id, CHV_PLL_DW0(ch), val);
 
-	/* M2 fraction division */
-	old_val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW2(port));
-	vlv_dpio_write(disp->dpio_id, CHV_PLL_DW2(port), bestm2_frac);
-	pr_err("old = %x new = %x\n", old_val, bestm2_frac);
+	temp = (clock->n & BYTE0) << DPIO_CHV_N_DIV_SHIFT;
+	val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW1(ch));
+	val = (val  & (~BYTE1)) | temp;
+	vlv_dpio_write(disp->dpio_id, CHV_PLL_DW1(ch), val);
 
-	/* M2 fraction division enable */
-	val = DPIO_CHV_FRAC_DIV_EN |
-		(2 << DPIO_CHV_FEEDFWD_GAIN_SHIFT);
-	old_val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW3(port));
-	pr_err("old = %x new = %x\n", old_val, val);
-	vlv_dpio_write(disp->dpio_id, CHV_PLL_DW3(port), val);
+	if (clock->m2 & M2_FRACTION_MASK) {
+		val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW2(ch));
+		val = (val & BYTE3) | (clock->m2 & M2_FRACTION_MASK);
+		vlv_dpio_write(disp->dpio_id, CHV_PLL_DW2(ch), val);
 
-	/* Loop filter */
-	loopfilter = 5 << DPIO_CHV_PROP_COEFF_SHIFT |
-		2 << DPIO_CHV_GAIN_CTRL_SHIFT;
+		val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW3(ch));
+		val  |= (DPIO_CHV_FRAC_DIV_EN);
+		vlv_dpio_write(disp->dpio_id, CHV_PLL_DW3(ch), val);
 
-	loopfilter |= 11 << DPIO_CHV_INT_COEFF_SHIFT;
-	old_val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW6(port));
-	pr_err("old = %x new = %x\n", old_val, val);
-	vlv_dpio_write(disp->dpio_id, CHV_PLL_DW6(port), loopfilter);
+		val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW9(ch));
+		val = ((val & (0xFFFFFFF0)) | (0x5 << 1));
+		vlv_dpio_write(disp->dpio_id, CHV_PLL_DW9(ch), val);
 
-	/* AFC Recal */
-	vlv_dpio_write(disp->dpio_id, CHV_CMN_DW14(port),
-			vlv_dpio_read(disp->dpio_id, CHV_CMN_DW14(port)) |
-			DPIO_AFC_RECAL);
+	} else {
+		val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW3(ch));
+		val  &= ~(DPIO_CHV_FRAC_DIV_EN);
+		vlv_dpio_write(disp->dpio_id, CHV_PLL_DW3(ch), val);
+
+		val = vlv_dpio_read(disp->dpio_id, VLV_PLL_DW9(ch));
+		val = ((val & (0xFFFFFFF0)) | (0x5 << 1) | 1);
+		vlv_dpio_write(disp->dpio_id, VLV_PLL_DW9(ch), val);
+	}
+
+	if (clock->vco == VCO_540K)
+		temp = 0x10803;
+	else if (clock->vco <= VCO_620K)
+		temp = 0x30B05;
+	else if (clock->vco <= VCO_648K)
+		temp = 0x30904;
+	val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW6(ch));
+	val = (val & BYTE3) | temp;
+	vlv_dpio_write(disp->dpio_id, CHV_PLL_DW6(ch), val);
+
+	val = vlv_dpio_read(disp->dpio_id, CHV_PLL_DW8(ch));
+	val &= ~(BYTE0);
+	if (clock->vco <= VCO_620K)
+		val = val | 0x9;
+	else if (clock->vco <= VCO_648K)
+		val = val | 0x8;
+	vlv_dpio_write(disp->dpio_id, CHV_PLL_DW8(ch), val);
+
+	val = vlv_dpio_read(disp->dpio_id, CHV_CMN_DW14(ch));
+	val  |= (DPIO_DCLKP_EN | DPIO_AFC_RECAL);
+	vlv_dpio_write(disp->dpio_id, CHV_CMN_DW14(ch), val);
 
 	mutex_unlock(&config->dpio_lock);
 }
 
+void chv_dpio_enable_staggering(struct intel_pipeline *pipeline, u32 dotclock)
+{
+	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
+	enum dpio_channel ch = vlv_disp_to_port(disp);
+	struct vlv_dc_config *config = get_vlv_dc_config(disp);
+	u32 pcs0 = 0, pcs1 = 0;
+	u32 pcs0_offset = 0, pcs1_offset = 0;
+	u32 tx0 = 0, tx1 = 0, tx2 = 0;
+
+	pcs0_offset = VLV_PCS01_DW12(ch);
+	pcs1_offset = VLV_PCS23_DW12(ch);
+
+	tx0 = CHV_TX0_DW15(ch);
+	tx1 = CHV_TX2_DW15(ch);
+	tx2 = CHV_TX3_DW15(ch);
+
+	if (dotclock >= MHZ(25) && dotclock <= MHZ(33)) {
+		pcs0 = ps0_values[0];
+		pcs1 = ps1_values[0];
+	} else if (dotclock <= MHZ(67)) {
+		pcs0 = ps0_values[1];
+		pcs1 = ps1_values[1];
+	} else if (dotclock <= MHZ(135)) {
+		pcs0 = ps0_values[2];
+		pcs1 = ps1_values[2];
+	} else if (dotclock <= MHZ(270)) {
+		pcs0 = ps0_values[3];
+		pcs1 = ps1_values[3];
+	} else if (dotclock <= MHZ(540)) {
+		pcs0 = ps0_values[4];
+		pcs1 = ps1_values[4];
+	}
+
+	mutex_lock(&config->dpio_lock);
+
+	vlv_dpio_write(disp->dpio_id, VLV_PCS01_DW12(ch), pcs0);
+	vlv_dpio_write(disp->dpio_id, VLV_PCS23_DW12(ch), pcs1);
+
+	/* skew */
+	vlv_dpio_write(disp->dpio_id, tx0, SPARE_1);
+	vlv_dpio_write(disp->dpio_id, tx1, SPARE_1);
+	vlv_dpio_write(disp->dpio_id, tx2, SPARE_1);
+
+	mutex_unlock(&config->dpio_lock);
+}
 
 void chv_dpio_update_channel(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	struct vlv_dc_config *config = get_vlv_dc_config(disp);
 	enum dpio_channel ch = vlv_disp_to_port(disp);
+	struct vlv_dc_config *config = get_vlv_dc_config(disp);
 	u32 val = 0;
-	mutex_lock(&config->dpio_lock);
-
-	/* program left/right clock distribution */
-	if (disp->pipe.pipe_id != PIPE_B) {
-		val = vlv_dpio_read(disp->dpio_id, _CHV_CMN_DW5_CH0);
-		val &= ~(CHV_BUFLEFTENA1_MASK | CHV_BUFRIGHTENA1_MASK);
-		if (ch == DPIO_CH0)
-			val |= CHV_BUFLEFTENA1_FORCE;
-		if (ch == DPIO_CH1)
-			val |= CHV_BUFRIGHTENA1_FORCE;
-		vlv_dpio_write(disp->dpio_id, _CHV_CMN_DW5_CH0, val);
-	} else {
-		val = vlv_dpio_read(disp->dpio_id, _CHV_CMN_DW1_CH1);
-		val &= ~(CHV_BUFLEFTENA2_MASK | CHV_BUFRIGHTENA2_MASK);
-		if (ch == DPIO_CH0)
-			val |= CHV_BUFLEFTENA2_FORCE;
-		if (ch == DPIO_CH1)
-			val |= CHV_BUFRIGHTENA2_FORCE;
-		vlv_dpio_write(disp->dpio_id, _CHV_CMN_DW1_CH1, val);
-	}
-
-	/* program clock channel usage */
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS01_DW8(ch));
-	val |= CHV_PCS_USEDCLKCHANNEL_OVRRIDE;
-	if (disp->pipe.pipe_id != PIPE_B)
-		val &= ~CHV_PCS_USEDCLKCHANNEL;
-	else
-		val |= CHV_PCS_USEDCLKCHANNEL;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS01_DW8(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS23_DW8(ch));
-	val |= CHV_PCS_USEDCLKCHANNEL_OVRRIDE;
-	if (disp->pipe.pipe_id != PIPE_B)
-		val &= ~CHV_PCS_USEDCLKCHANNEL;
-	else
-		val |= CHV_PCS_USEDCLKCHANNEL;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS23_DW8(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, CHV_CMN_DW19(ch));
-	if (disp->pipe.pipe_id != PIPE_B)
-		val &= ~CHV_CMN_USEDCLKCHANNEL;
-	else
-		val |= CHV_CMN_USEDCLKCHANNEL;
-	vlv_dpio_write(disp->dpio_id, CHV_CMN_DW19(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, CHV_CMN_DW14(ch));
-	val |= DPIO_DCLKP_EN;
-	vlv_dpio_write(disp->dpio_id, CHV_CMN_DW14(ch), val);
-
-	mutex_unlock(&config->dpio_lock);
-
-	udelay(1);
-}
-
-void chv_dpio_pre_port_enable(struct intel_pipeline *pipeline)
-{
-	int i = 0, val = 0, data = 0;
-	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	struct vlv_dc_config *config = get_vlv_dc_config(disp);
-	enum dpio_channel ch = vlv_disp_to_port(disp);
+	u32 port = 0;
+	u32 pll = disp->pll.pll_id;
 
 	mutex_lock(&config->dpio_lock);
 
-	/* allow hardware to manage TX FIFO reset source */
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS01_DW11(ch));
-	val &= ~DPIO_LANEDESKEW_STRAP_OVRD;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS01_DW11(ch), val);
+	/* Need to program for cross linking alone, otherwise use default */
+	if ((port == PORT_B) && (pll == PLL_B)) {
+		val = vlv_dpio_read(disp->dpio_id, VLV_PCS_DW8(ch));
+		val = (val  & (~BYTE2)) | (0x30 << 16);
+		vlv_dpio_write(disp->dpio_id, VLV_PCS_DW8(ch), val);
 
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS23_DW11(ch));
-	val &= ~DPIO_LANEDESKEW_STRAP_OVRD;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS23_DW11(ch), val);
+		val = vlv_dpio_read(disp->dpio_id, CHV_CMN_DW19(ch));
+		val = (val  & (~BYTE1)) | (0xA3 << 8);
+		vlv_dpio_write(disp->dpio_id, CHV_CMN_DW19(ch), val);
 
-	/* Deassert soft data lane reset*/
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS01_DW1(ch));
-	val |= CHV_PCS_REQ_SOFTRESET_EN;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS01_DW1(ch), val);
+	} else if ((port == PORT_C) && (pll == PLL_A)) {
+		val = vlv_dpio_read(disp->dpio_id, VLV_PCS_DW8(ch));
+		val = (val  & (~BYTE2)) | (0x10 << 16);
+		vlv_dpio_write(disp->dpio_id, VLV_PCS_DW8(ch), val);
 
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS23_DW1(ch));
-	val |= CHV_PCS_REQ_SOFTRESET_EN;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS23_DW1(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS01_DW0(ch));
-	val |= (DPIO_PCS_TX_LANE2_RESET | DPIO_PCS_TX_LANE1_RESET);
-	vlv_dpio_write(disp->dpio_id, VLV_PCS01_DW0(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS23_DW0(ch));
-	val |= (DPIO_PCS_TX_LANE2_RESET | DPIO_PCS_TX_LANE1_RESET);
-	vlv_dpio_write(disp->dpio_id, VLV_PCS23_DW0(ch), val);
-
-	/* Program Tx lane latency optimal setting*/
-	for (i = 0; i < 4; i++) {
-		/* Set the latency optimal bit */
-		data = (i == 1) ? 0x0 : 0x6;
-		vlv_dpio_write(disp->dpio_id, CHV_TX_DW11(ch, i),
-				data << DPIO_FRC_LATENCY_SHFIT);
-
-		/* Set the upar bit */
-		data = (i == 1) ? 0x0 : 0x1;
-		vlv_dpio_write(disp->dpio_id, CHV_TX_DW14(ch, i),
-				data << DPIO_UPAR_SHIFT);
+		val = vlv_dpio_read(disp->dpio_id, CHV_CMN_DW19(ch));
+		val = (val  & (~BYTE1)) | (0x83 << 8);
+		vlv_dpio_write(disp->dpio_id, CHV_CMN_DW19(ch), val);
 	}
 
-	if (disp->type != INTEL_PIPE_HDMI) {
-		mutex_unlock(&config->dpio_lock);
-		return;
-	}
-
-	/* FIXME: Fix up value only after power analysis */
-
-	/* Data lane stagger programming */
-
-	/* Clear calc init */
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS01_DW10(ch));
-	val &= ~(DPIO_PCS_SWING_CALC_TX0_TX2 | DPIO_PCS_SWING_CALC_TX1_TX3);
-	val &= ~(DPIO_PCS_TX1DEEMP_MASK | DPIO_PCS_TX2DEEMP_MASK);
-	val |= DPIO_PCS_TX1DEEMP_9P5 | DPIO_PCS_TX2DEEMP_9P5;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS01_DW10(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS23_DW10(ch));
-	val &= ~(DPIO_PCS_SWING_CALC_TX0_TX2 | DPIO_PCS_SWING_CALC_TX1_TX3);
-	val &= ~(DPIO_PCS_TX1DEEMP_MASK | DPIO_PCS_TX2DEEMP_MASK);
-	val |= DPIO_PCS_TX1DEEMP_9P5 | DPIO_PCS_TX2DEEMP_9P5;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS23_DW10(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS01_DW9(ch));
-	val &= ~(DPIO_PCS_TX1MARGIN_MASK | DPIO_PCS_TX2MARGIN_MASK);
-	val |= DPIO_PCS_TX1MARGIN_000 | DPIO_PCS_TX2MARGIN_000;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS01_DW9(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS23_DW9(ch));
-	val &= ~(DPIO_PCS_TX1MARGIN_MASK | DPIO_PCS_TX2MARGIN_MASK);
-	val |= DPIO_PCS_TX1MARGIN_000 | DPIO_PCS_TX2MARGIN_000;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS23_DW9(ch), val);
-
-	/* FIXME: Program the support xxx V-dB */
-	/* Use 800mV-0dB */
-	for (i = 0; i < 4; i++) {
-		val = vlv_dpio_read(disp->dpio_id, CHV_TX_DW4(ch, i));
-		val &= ~DPIO_SWING_DEEMPH9P5_MASK;
-		val |= 128 << DPIO_SWING_DEEMPH9P5_SHIFT;
-		vlv_dpio_write(disp->dpio_id, CHV_TX_DW4(ch, i), val);
-	}
-
-	for (i = 0; i < 4; i++) {
-		val = vlv_dpio_read(disp->dpio_id, CHV_TX_DW2(ch, i));
-		val &= ~DPIO_SWING_MARGIN000_MASK;
-		val |= 102 << DPIO_SWING_MARGIN000_SHIFT;
-		vlv_dpio_write(disp->dpio_id, CHV_TX_DW2(ch, i), val);
-	}
-
-	/* Disable unique transition scale */
-	for (i = 0; i < 4; i++) {
-		val = vlv_dpio_read(disp->dpio_id, CHV_TX_DW3(ch, i));
-		val &= ~DPIO_TX_UNIQ_TRANS_SCALE_EN;
-		vlv_dpio_write(disp->dpio_id, CHV_TX_DW3(ch, i), val);
-	}
-
-	/* Additional steps for 1200mV-0dB */
-	/* Start swing calculation */
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS01_DW10(ch));
-	val |= DPIO_PCS_SWING_CALC_TX0_TX2 | DPIO_PCS_SWING_CALC_TX1_TX3;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS01_DW10(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS23_DW10(ch));
-	val |= DPIO_PCS_SWING_CALC_TX0_TX2 | DPIO_PCS_SWING_CALC_TX1_TX3;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS23_DW10(ch), val);
-
-	/* LRC Bypass */
-	val = vlv_dpio_read(disp->dpio_id, CHV_CMN_DW30);
-	val |= DPIO_LRC_BYPASS;
-	vlv_dpio_write(disp->dpio_id, CHV_CMN_DW30, val);
-
+	/*
+	 * Default values should be enough
+	 * assuming phy was ungated for other combinations
+	 */
 	mutex_unlock(&config->dpio_lock);
 }
 
@@ -393,36 +354,6 @@ void chv_dpio_lane_reset_en(struct intel_pipeline *pipeline, bool enable)
 	mutex_unlock(&config->dpio_lock);
 }
 
-void chv_dpio_post_disable(struct intel_pipeline *pipeline)
-{
-	int val = 0;
-	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	struct vlv_dc_config *config = get_vlv_dc_config(disp);
-	enum dpio_channel ch = vlv_disp_to_port(disp);
-
-	mutex_lock(&config->dpio_lock);
-
-	/* Propagate soft reset to data lane reset */
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS01_DW1(ch));
-	val |= CHV_PCS_REQ_SOFTRESET_EN;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS01_DW1(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS23_DW1(ch));
-	val |= CHV_PCS_REQ_SOFTRESET_EN;
-	vlv_dpio_write(disp->dpio_id, VLV_PCS23_DW1(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS01_DW0(ch));
-	val &= ~(DPIO_PCS_TX_LANE2_RESET | DPIO_PCS_TX_LANE1_RESET);
-	vlv_dpio_write(disp->dpio_id, VLV_PCS01_DW0(ch), val);
-
-	val = vlv_dpio_read(disp->dpio_id, VLV_PCS23_DW0(ch));
-	val &= ~(DPIO_PCS_TX_LANE2_RESET | DPIO_PCS_TX_LANE1_RESET);
-	vlv_dpio_write(disp->dpio_id, VLV_PCS23_DW0(ch), val);
-
-	mutex_unlock(&config->dpio_lock);
-}
-
-
 void chv_dpio_post_pll_disable(struct intel_pipeline *pipeline)
 {
 	int val = 0;
@@ -451,31 +382,20 @@ void chv_dpio_post_pll_disable(struct intel_pipeline *pipeline)
 	mutex_unlock(&config->dpio_lock);
 }
 
-void chv_dpio_lane_reset(struct intel_pipeline *pipeline)
-{
-	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	struct vlv_dc_config *config = get_vlv_dc_config(disp);
-
-	mutex_lock(&config->dpio_lock);
-
-	vlv_dpio_write(disp->dpio_id, 0x8200, 0x00000000);
-	vlv_dpio_write(disp->dpio_id, 0x8204, 0x00e00060);
-
-	mutex_unlock(&config->dpio_lock);
-}
-
 void chv_dpio_signal_levels(struct intel_pipeline *pipeline,
-	u32 deemp, u32 margin)
+	u32 margin, u32 deemp)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dc_config *config = get_vlv_dc_config(disp);
-
-	u32 trigreg = 0x8228;
+	enum dpio_channel ch = vlv_disp_to_port(disp);
+	u32 trigreg;
 	u32 reglist[3] = {0};
 	u32 *vallist;
-	reglist[0] = 0x8288;
-	reglist[1] = 0x828C;
-	reglist[2] = 0x8290;
+
+	trigreg = CHV_PCS_DW10(ch);
+	reglist[0] = VLV_TX_DW2(ch);
+	reglist[1] = VLV_TX_DW3(ch);
+	reglist[2] = VLV_TX_DW4(ch);
 
 	vallist = dpio_signal_levels[deemp][margin];
 
@@ -495,4 +415,73 @@ void vlv_dpio_signal_levels(struct intel_pipeline *pipeline,
 {
 	/* FIXME: to be implemetned */
 	BUG();
+}
+
+void chv_dpio_edp_signal_levels(struct intel_pipeline *pipeline, u32 v, u32 p)
+{
+	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
+	struct vlv_dc_config *config = get_vlv_dc_config(disp);
+	enum dpio_channel ch = vlv_disp_to_port(disp);
+	u32 reg_list[3] = {0};
+	u32 val_list[3] = {0};
+	u32 trigreg = 0;
+	u32 i = 0;
+	u32 count = 0;
+	trigreg = CHV_PCS_DW10(ch);
+	reg_list[0] = VLV_TX_DW2(ch);
+	reg_list[1] = VLV_TX_DW3(ch);
+	reg_list[2] = VLV_TX_DW4(ch);
+
+	/* select the appropriate row */
+	count = 4 * v + p;
+
+	val_list[0] = edp_values[count].transcale;
+	val_list[1] = edp_values[count].downscale;
+	val_list[2] = edp_values[count].deempscale;
+
+	mutex_lock(&config->dpio_lock);
+
+	vlv_dpio_write(disp->dpio_id, trigreg, edp_values[count].deemp);
+
+	for (i = 0; i < 3; i++)
+		vlv_dpio_write(disp->dpio_id, reg_list[i], val_list[i]);
+
+	vlv_dpio_write(disp->dpio_id, trigreg, 0);
+	mutex_unlock(&config->dpio_lock);
+}
+
+void chv_dpio_hdmi_swing_levels(struct intel_pipeline *pipeline, u32 dotclock)
+{
+	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
+	struct vlv_dc_config *config = get_vlv_dc_config(disp);
+	enum dpio_channel ch = vlv_disp_to_port(disp);
+	u32 deemp, transscale, preemp, vswing, tx3clock;
+
+	if (dotclock <= MHZ(162)) {
+		deemp = hdmi_swing_values[0][0];
+		transscale = hdmi_swing_values[0][1];
+		preemp = hdmi_swing_values[0][2];
+		vswing = hdmi_swing_values[0][3];
+		tx3clock = hdmi_swing_values[0][4];
+	} else {
+		deemp = hdmi_swing_values[1][0];
+		transscale = hdmi_swing_values[1][1];
+		preemp = hdmi_swing_values[1][2];
+		vswing = hdmi_swing_values[1][3];
+		tx3clock = hdmi_swing_values[1][4];
+	}
+
+	mutex_lock(&config->dpio_lock);
+
+	vlv_dpio_write(disp->dpio_id, CHV_PCS_DW10(ch), deemp);
+	vlv_dpio_write(disp->dpio_id, VLV_TX_DW2(ch), transscale);
+	vlv_dpio_write(disp->dpio_id, VLV_TX_DW3(ch), preemp);
+	vlv_dpio_write(disp->dpio_id, VLV_TX_DW4(ch), vswing);
+
+	if (dotclock > MHZ(162))
+		vlv_dpio_write(disp->dpio_id, VLV_TX3_DW4(ch), tx3clock);
+
+	vlv_dpio_write(disp->dpio_id, CHV_PCS_DW10(ch), 0);
+
+	mutex_unlock(&config->dpio_lock);
 }
