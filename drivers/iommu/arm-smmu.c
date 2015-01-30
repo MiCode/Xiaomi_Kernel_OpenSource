@@ -243,6 +243,9 @@
 #define ARM_SMMU_CB_FSYNR0		0x68
 #define ARM_SMMU_CB_S1_TLBIASID		0x610
 #define ARM_SMMU_CB_S1_TLBIALL		0x618
+#define ARM_SMMU_CB_TLBSYNC		0x7f0
+#define ARM_SMMU_CB_TLBSTATUS		0x7f4
+#define TLBSTATUS_SACTIVE		(1 << 0)
 #define ARM_SMMU_CB_ATS1PR_LO		0x800
 #define ARM_SMMU_CB_ATS1PR_HI		0x804
 #define ARM_SMMU_CB_ATSR		0x8f0
@@ -424,6 +427,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_HALT_AND_TLB_ON_ATOS  (1 << 2)
 #define ARM_SMMU_OPT_REGISTER_SAVE	(1 << 3)
 #define ARM_SMMU_OPT_SKIP_INIT		(1 << 4)
+#define ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG (1 << 5)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -493,6 +497,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_HALT_AND_TLB_ON_ATOS, "qcom,halt-and-tlb-on-atos" },
 	{ ARM_SMMU_OPT_REGISTER_SAVE, "qcom,register-save" },
 	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
+	{ ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG, "qcom,errata-ctx-fault-hang" },
 	{ 0, NULL},
 };
 
@@ -789,6 +794,19 @@ static void arm_smmu_tlb_sync(struct arm_smmu_device *smmu)
 	}
 }
 
+static void arm_smmu_tlb_sync_cb(struct arm_smmu_device *smmu,
+				int cbndx)
+{
+	void __iomem *base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cbndx);
+	u32 val;
+
+	writel_relaxed(0, base + ARM_SMMU_CB_TLBSYNC);
+	if (readl_poll_timeout(base + ARM_SMMU_CB_TLBSTATUS, val,
+				!(val & TLBSTATUS_SACTIVE),
+				20, TLB_LOOP_TIMEOUT))
+		dev_err(smmu->dev, "TLBSYNC timeout!\n");
+}
+
 static void arm_smmu_tlb_inv_context(struct arm_smmu_domain *smmu_domain)
 {
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
@@ -819,6 +837,8 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	void __iomem *cb_base;
+	bool ctx_hang_errata =
+		smmu->options & ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG;
 
 	arm_smmu_enable_clocks(smmu);
 
@@ -847,7 +867,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 	if (!report_iommu_fault(domain, smmu->dev, iova, flags)) {
 		ret = IRQ_HANDLED;
-		resume = RESUME_RETRY;
+		resume = ctx_hang_errata ? RESUME_TERMINATE : RESUME_RETRY;
 	} else {
 		dev_err_ratelimited(smmu->dev,
 		    "Unhandled context fault: iova=0x%08lx, fsynr=0x%x, cb=%d\n",
@@ -860,8 +880,11 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	writel(fsr, cb_base + ARM_SMMU_CB_FSR);
 
 	/* Retry or terminate any stalled transactions */
-	if (fsr & FSR_SS)
+	if (fsr & FSR_SS) {
+		if (ctx_hang_errata)
+			arm_smmu_tlb_sync_cb(smmu, cfg->cbndx);
 		writel_relaxed(resume, cb_base + ARM_SMMU_CB_RESUME);
+	}
 
 	arm_smmu_disable_clocks(smmu);
 
