@@ -249,6 +249,7 @@ struct msm_fb_data_type {
 
 	struct panel_id panel;
 	struct mdss_panel_info *panel_info;
+	struct mdss_panel_info reconfig_panel_info;
 	int split_mode;
 	int split_fb_left;
 	int split_fb_right;

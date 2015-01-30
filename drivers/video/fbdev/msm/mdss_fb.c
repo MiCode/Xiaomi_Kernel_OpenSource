@@ -3076,19 +3076,13 @@ static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 		return -EINVAL;
 
 	if (mfd->panel_info) {
-		struct mdss_panel_info *pinfo;
 		int rc;
 
-		pinfo = kmalloc(sizeof(struct mdss_panel_info), GFP_KERNEL);
-		if (!pinfo) {
-			pr_err("unable to allocate memory for pinfo\n");
-			return -ENOMEM;
-		}
-		memcpy(pinfo, mfd->panel_info, sizeof(*pinfo));
-		mdss_fb_var_to_panelinfo(var, pinfo);
+		memcpy(&mfd->reconfig_panel_info, mfd->panel_info,
+				sizeof(mfd->reconfig_panel_info));
+		mdss_fb_var_to_panelinfo(var, &mfd->reconfig_panel_info);
 		rc = mdss_fb_send_panel_event(mfd, MDSS_EVENT_CHECK_PARAMS,
-			pinfo);
-		kfree(pinfo);
+			&mfd->reconfig_panel_info);
 		if (IS_ERR_VALUE(rc))
 			return rc;
 		mfd->panel_reconfig = rc;
