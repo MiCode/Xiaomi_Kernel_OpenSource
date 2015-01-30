@@ -31,7 +31,12 @@
 
 /* TODO: get the delay from JBL */
 #define XNR4_JBL_VER_DELAY			(3)
-#define XNR4_JBL_HOR_DELAY			(1)
+/* With horizontal delay of 2 for output blend, a total of 48 registers are
+ * needed to hold the history of two s_2x2_yuv_420 data types. There is a
+ * design change discussions going on to use pixels for delay instead of
+ * vector aligned and for now we are going with a horizontal delay of 1.
+ * Hence taking the JBL HOR delay to 0. */
+#define XNR4_JBL_HOR_DELAY                     (0)
 
 #define XNR4_OUTPUT_BLEND_VER_DELAY		((XNR4_JBL_VER_DELAY * XNR4_LUMA_DS_FACTOR) + \
 						(XNR4_UPSCALE_VER_DELAY * XNR4_LUMA_DS_FACTOR))
