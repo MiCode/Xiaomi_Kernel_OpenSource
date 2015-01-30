@@ -2390,11 +2390,14 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 	/* Install a fence for tiled scan-out. Pre-i965 always needs a
 	 * fence, whereas 965+ only requires a fence if using
 	 * framebuffer compression.  For simplicity, we always install
-	 * a fence as the cost is not that onerous.
+	 * a fence as the cost is not that onerous. Fence is only required
+	 * for gen 7 & below
 	 */
-	ret = i915_gem_object_get_fence(obj);
-	if (ret)
-		goto err_unpin;
+	if ((INTEL_INFO(dev)->gen <= 7)) {
+		ret = i915_gem_object_get_fence(obj);
+		if (ret)
+			goto err_unpin;
+	}
 
 	i915_gem_object_pin_fence(obj);
 	drm_gem_object_reference(&obj->base);
@@ -9181,12 +9184,14 @@ static int intel_crtc_cursor_set(struct drm_crtc *crtc,
 			goto fail_locked;
 		}
 
-		ret = i915_gem_object_put_fence(obj);
-		if (ret) {
-			DRM_DEBUG_KMS("failed to release fence for cursor");
-			goto fail_unpin;
+		/* Fence is required only for gen7 & below */
+		if ((INTEL_INFO(dev)->gen <= 7)) {
+			ret = i915_gem_object_put_fence(obj);
+			if (ret) {
+				DRM_DEBUG_KMS("failed to release fence cursor");
+				goto fail_unpin;
+			}
 		}
-
 		addr = i915_gem_obj_ggtt_offset(obj);
 	} else {
 		int align = IS_I830(dev) ? 16 * 1024 : 256;
