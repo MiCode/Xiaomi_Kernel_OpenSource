@@ -654,7 +654,6 @@ static void vlv_disable_displays(struct vlv_dc_config *config,
 struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 {
 	struct vlv_dc_config *config;
-	struct intel_dc_memory *memory;
 	union child_device_config *child_dev = NULL;
 	int dev_num;
 	int dvo_port;
@@ -705,14 +704,6 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 		dev_err(&pdev->dev, "failed to inintialize dc config\n");
 		goto err;
 	}
-
-	/* create and add memory */
-	/*
-	 * TODO: add gem config or get the gem struct here and register as a
-	 * interface with adf y using intel_dc_config_add_memory();
-	 */
-	memory = kzalloc(sizeof(struct intel_dc_memory), GFP_KERNEL);
-	config->base.memory = memory;
 
 	/* create and add power */
 	/*

@@ -245,6 +245,62 @@ void intel_adf_context_destroy(struct intel_adf_context *ctx)
 	g_adf_context = NULL;
 }
 
+#ifdef CONFIG_ADF_INTEL_VLV
+struct intel_dc_config *intel_adf_get_config(struct pci_dev *pdev,
+	struct intel_adf_device **dev, u32 platform_id)
+{
+	struct intel_dc_memory *memory;
+	struct intel_dc_config *config;
+
+	/*
+	 * Any REG_READ/WRITE operations depend on
+	 * g_intel_adf_dev->mmio to be available. For that, we need
+	 * the adf device to be created. If not, any REG_READ/WRITE
+	 * operation will crash. Hot pluggable encoders like HDMI
+	 * and DP need to probe themselves during the init time, else in
+	 * connected boot scenario, they wont get a hot-plug. So in
+	 * short create adf device first, then create context.
+	 */
+	if (!pdev || !dev) {
+		dev_err(&pdev->dev, "%s: Invalid input\n",
+			__func__);
+		return NULL;
+	}
+
+	/* Create context memory */
+	memory = kzalloc(sizeof(struct intel_dc_memory), GFP_KERNEL);
+	if (!memory) {
+		dev_err(&pdev->dev, "%s: OOM while allocating memory\n",
+			__func__);
+		return NULL;
+	}
+
+	/* Create ADF device */
+	*dev = intel_adf_device_create(pdev, memory);
+	if (IS_ERR(*dev)) {
+		dev_err(&pdev->dev, "%s: failed to create adf device\n",
+			__func__);
+		goto failed_dev;
+	}
+
+	/* Get display controller configure of this platform */
+	config = intel_adf_get_dc_config(pdev, platform_id);
+	if (IS_ERR(config)) {
+		dev_err(&pdev->dev, "%s: failed to get DC config\n", __func__);
+		goto failed_config;
+	}
+
+	config->memory = memory;
+	return config;
+
+failed_config:
+	intel_adf_device_destroy(*dev);
+failed_dev:
+	kfree(memory);
+	return NULL;
+}
+#endif
+
 struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 {
 	struct intel_adf_context *ctx;
@@ -270,6 +326,22 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 		goto err;
 	}
 
+#ifdef CONFIG_ADF_INTEL_VLV
+	/*
+	 * VLV adf context create order is different from
+	 * other platforms. So create separate context for
+	 * VLV/CHV, without disturbing others.
+	 */
+	config = intel_adf_get_config(pdev, &dev, platform_id);
+	if (!config || !dev) {
+		dev_err(&pdev->dev, "%s: failed to get DC config\n", __func__);
+		if (config)
+			err = PTR_ERR(dev);
+		else
+			err = PTR_ERR(config);
+		goto err;
+	}
+#else
 	/*get display controller configure of this platform*/
 	config = intel_adf_get_dc_config(pdev, platform_id);
 	if (IS_ERR(config)) {
@@ -277,12 +349,6 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 		err = PTR_ERR(config);
 		goto err;
 	}
-
-#ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
-	err = backlight_init(ctx);
-	if (err)
-		goto err;
-#endif
 
 	/*create ADF device*/
 	dev = intel_adf_device_create(pdev, config->memory);
@@ -292,6 +358,13 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 		err = PTR_ERR(dev);
 		goto err;
 	}
+#endif
+
+#ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
+	err = backlight_init(ctx);
+	if (err)
+		goto err;
+#endif
 
 	/*create ADF interfaces*/
 	n_intfs = config->n_pipes;
