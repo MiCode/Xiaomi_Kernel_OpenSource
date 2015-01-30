@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -215,6 +215,7 @@ static struct cpe_info *cpe_default_handle;
 static void (*cpe_irq_control_callback)(u32 enable);
 static u32 cpe_msg_buffer;
 static struct mutex cpe_api_mutex;
+static struct cpe_svc_boot_event cpe_debug_vector;
 
 static enum cpe_svc_result
 cpe_is_command_valid(const struct cpe_info *t_info,
@@ -813,6 +814,20 @@ static bool cpe_mt_process_cmd(struct cpe_command_node *command_node)
 				__func__, ev_boot->status);
 			broacast_boot_failed();
 			break;
+		}
+
+		/* boot was successful */
+		if (ev_boot->version ==
+		    CPE_CORE_VERSION_SYSTEM_BOOT_EVENT) {
+			cpe_debug_vector.debug_address =
+					ev_boot->sfr_buff_address;
+			cpe_debug_vector.debug_buffer_size =
+					ev_boot->sfr_buff_size;
+			cpe_debug_vector.status = ev_boot->status;
+			payload.event = CPE_SVC_BOOT;
+			payload.result = CPE_SVC_SUCCESS;
+			payload.payload = (void *)&cpe_debug_vector;
+			cpe_broadcast_notification(t_info, &payload);
 		}
 
 		t_info->substate = CPE_SS_BOOT_INIT;

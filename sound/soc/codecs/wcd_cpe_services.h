@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,7 @@ enum cpe_svc_event {
 	CPE_SVC_BOOT_FAILED		= 0x08,
 	CPE_SVC_READ_COMPLETE		= 0x10,
 	CPE_SVC_READ_ERROR		= 0x20,
+	CPE_SVC_BOOT			= 0x40,
 	CPE_SVC_CMI_CLIENTS_DEREG	= 0x100,
 	CPE_SVC_EVENT_ANCHOR		= 0x7FFF
 };
@@ -93,6 +94,12 @@ struct cpe_svc_msg_payload {
 struct cpe_svc_read_complete {
 	u8    *buffer;
 	size_t   size;
+};
+
+struct cpe_svc_boot_event {
+	u32 debug_address;
+	size_t debug_buffer_size;
+	u32 status;
 };
 
 struct cpe_svc_mem_segment {
