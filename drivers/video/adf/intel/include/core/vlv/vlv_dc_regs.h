@@ -3957,6 +3957,10 @@ extern int chv_cursor_offsets[];
 
 /* VBIOS flags */
 #define SWF00			(VLV_DISPLAY_BASE + 0x71410)
+#define  SWF00_LFP_ACTIVE_MASK	(1 << 3 | 1 << 7)
+#define  SWF00_EFP_ACTIVE_MASK	(1 << 2 | 1 << 5 | 1 << 6)
+#define  SWF00_PIPE_MASK	(0xff)
+#define  SWF00_PIPE_BITS	8
 #define SWF01			(VLV_DISPLAY_BASE + 0x71414)
 #define SWF02			(VLV_DISPLAY_BASE + 0x71418)
 #define SWF03			(VLV_DISPLAY_BASE + 0x7141c)

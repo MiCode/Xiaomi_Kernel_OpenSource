@@ -20,6 +20,7 @@
 #include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_pri_plane.h>
 #include <core/vlv/vlv_sp_plane.h>
+#include <core/vlv/chv_dc_regs.h>
 
 /* only PIPE_C should use DPIO, A & B shares DPIO_2  */
 #define CHV_DPIO(pipe) (((pipe == PIPE_C) ? IOSF_PORT_DPIO : IOSF_PORT_DPIO_2))
@@ -251,7 +252,6 @@ static int vlv_display_encoder_init(struct vlv_dc_config *vlv_config, int pipe,
 					__func__, err);
 			return err;
 		}
-
 		intel_dc_config_add_pipe(&vlv_config->base,
 					 &hdmi_pipe->base, *n_pipes);
 	} else {
@@ -450,6 +450,207 @@ static u16 chv_dc_get_stepping(struct pci_dev *pdev)
 	return stepping;
 }
 
+static void vlv_reset_pipeline_params(struct vlv_dc_config *config)
+{
+	int i;
+
+	/* Clean up planes */
+	vlv_pri_plane_destroy(&config->pipeline[0].pplane);
+	vlv_sp_plane_destroy(&config->pipeline[0].splane[0]);
+	vlv_sp_plane_destroy(&config->pipeline[0].splane[1]);
+
+	for (i = 0; i < config->base.n_planes; i++)
+		config->base.planes[i] = NULL;
+	config->base.pipes[0] = NULL;
+
+	config->base.n_pipes = 0;
+	config->base.n_planes = 0;
+}
+
+static void vlv_disable_efp_dp(struct vlv_dc_config *config, u16 stepping)
+{
+	int i, val;
+	enum pipe pipe;
+	enum port port;
+	enum intel_pipe_type type;
+	struct intel_pipeline *pipeline;
+	struct vlv_pipeline *disp;
+	bool found = false;
+	int dp_port_reg[] = {DP_B, DP_C, DP_D};
+
+	/*
+	 * The scratch pad register does not reflect the reality
+	 * in case of EFPs. Hence, loop through all port control
+	 * registers to properly find out whic port/pipe is
+	 * being used by BIOS; and then disable them.
+	 */
+	for (i = 0; i < ARRAY_SIZE(dp_port_reg); i++) {
+		val = REG_READ(VLV_DISPLAY_BASE + dp_port_reg[i]);
+		if (val & (1 << 31)) {
+			port = PORT_B + i;
+			type = INTEL_PIPE_DP;
+
+			/* Extract bits[16:17] to get the selected pipe */
+			pipe = (val >> 16) & 0x3;
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		pr_err("EFP: No DP found\n");
+		return;
+	}
+
+	pr_info("Disabling EFP: pipe:%d port:%d type:%d\n", pipe, port, type);
+	vlv_initialize_disp(config, pipe, type, port, 0, stepping);
+	pipeline = &config->pipeline[0].base;
+	chv_pipeline_off(pipeline);
+
+	disp = to_vlv_pipeline(pipeline);
+	vlv_dp_port_destroy(&disp->port.dp_port);
+	intel_pipe_destroy(&disp->gen.dp.base);
+
+	vlv_reset_pipeline_params(config);
+}
+
+static void vlv_disable_efp_hdmi(struct vlv_dc_config *config, u16 stepping)
+{
+	int i, val;
+	enum pipe pipe;
+	enum port port;
+	enum intel_pipe_type type;
+	bool found = false;
+	int hdmi_port_reg[] = {CHV_PORTB_CTRL, CHV_PORTC_CTRL, CHV_PORTD_CTRL};
+	struct intel_pipeline *pipeline;
+	struct vlv_pipeline *disp;
+
+	/*
+	 * The scratch pad register does not reflect the reality
+	 * in case of EFPs. Hence, loop through all port control
+	 * registers to properly find out whic port/pipe is
+	 * being used by BIOS; and then disable them.
+	 */
+	for (i = 0; i < ARRAY_SIZE(hdmi_port_reg); i++) {
+		val = REG_READ(hdmi_port_reg[i]);
+		if (val & (1 << 31)) {
+			port = PORT_B + i;
+			type = INTEL_PIPE_HDMI;
+			/* Extract bits[24:25] to get the selected pipe */
+			pipe = (val >> 24) & 0x3;
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		pr_err("EFP: No HDMI found\n");
+		return;
+	}
+
+	pr_info("Disabling EFP: pipe:%d port:%d type:%d\n", pipe, port, type);
+	vlv_initialize_disp(config, pipe, type, port, 0, stepping);
+
+	pipeline = &config->pipeline[0].base;
+	chv_pipeline_off(pipeline);
+
+	disp = to_vlv_pipeline(pipeline);
+	intel_pipe_destroy(&disp->gen.hdmi.base);
+
+	vlv_reset_pipeline_params(config);
+}
+
+static void vlv_disable_lfp(enum pipe pipe, struct vlv_dc_config *config,
+			union child_device_config *child_dev,
+			int dev_num, u16 stepping)
+{
+	int i, dvo_port, devtype;
+	enum port port = 0;
+	enum intel_pipe_type type = 0;
+	bool is_lfp = false;
+	struct intel_pipeline *pipeline;
+	struct vlv_pipeline *disp;
+	struct dsi_pipe *dsi;
+
+	for (i = 0; i <= dev_num; i++) {
+		devtype = child_dev[i].common.device_type;
+		is_lfp = devtype & DEVICE_TYPE_INTERNAL_CONNECTOR;
+
+		/* Since we disabled that one LFP, break */
+		if (is_lfp)
+			break;
+	}
+
+	if (!is_lfp)
+		return;
+
+	dvo_port = child_dev[i].common.dvo_port;
+
+	if (devtype & DEVICE_TYPE_MIPI_OUTPUT) {
+		type = INTEL_PIPE_DSI;
+		port = dvo_port - DVO_PORT_MIPIA;
+		vlv_initialize_disp(config, pipe, type, port, 0 , stepping);
+		pipeline = &config->pipeline[0].base;
+		disp = to_vlv_pipeline(pipeline);
+		dsi = &disp->gen.dsi;
+
+		dsi->base.ops->dpms(&dsi->base, DRM_MODE_DPMS_OFF);
+		dsi_pipe_destroy(dsi);
+		intel_pipe_destroy(&dsi->base);
+
+		vlv_reset_pipeline_params(config);
+	} else if (devtype & DEVICE_TYPE_EDP_BITS) {
+		type = INTEL_PIPE_EDP;
+		port = dvo_port - DVO_PORT_CRT;
+		vlv_initialize_disp(config, pipe, type, port, 0, stepping);
+		pipeline = &config->pipeline[0].base;
+
+		/* Turn off backlight/pps for eDP before pipeline */
+		vlv_dp_backlight_seq(pipeline, false);
+		vlv_dp_panel_power_seq(pipeline, false);
+		chv_pipeline_off(pipeline);
+
+		disp = to_vlv_pipeline(pipeline);
+		vlv_dp_port_destroy(&disp->port.dp_port);
+		intel_pipe_destroy(&disp->gen.dp.base);
+
+		vlv_reset_pipeline_params(config);
+	}
+
+	pr_debug("Disabled LFP: pipe:%d port:%d type:%d\n", pipe, port, type);
+}
+
+/* Disables the displays enabled by BIOS */
+static void vlv_disable_displays(struct vlv_dc_config *config,
+			union child_device_config *child_dev,
+			int dev_num, u16 stepping)
+{
+	enum pipe pipe;
+	int tmp, val = REG_READ(SWF00);
+
+	pr_info("%s:scratch pad register[%x]:%x\n", __func__, SWF00, val);
+
+	/*
+	 * The scratch pad registers do not report correct
+	 * information for EFPs. Hence use port control
+	 * registers to find out which EFP is actually
+	 * enabled, and used by BIOS.
+	 */
+	for (pipe = PIPE_A; pipe < PIPE_C; pipe++) {
+		tmp = SWF00_PIPE_MASK & (val >> (SWF00_PIPE_BITS * pipe));
+		if (tmp & SWF00_LFP_ACTIVE_MASK) {
+			vlv_disable_lfp(pipe, config, child_dev,
+					dev_num, stepping);
+		}
+
+		if (tmp & SWF00_EFP_ACTIVE_MASK) {
+			vlv_disable_efp_hdmi(config, stepping);
+			vlv_disable_efp_dp(config, stepping);
+		}
+	}
+	pr_debug("Disabling displays enabled by BIOS: Done\n");
+}
+
 struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 {
 	struct vlv_dc_config *config;
@@ -521,6 +722,9 @@ struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 	intel_get_vbt_disp_conf((void **)&child_dev, &dev_num);
 
 	mutex_init(&config->dpio_lock);
+
+	/* Disable all displays enabled by BIOS */
+	vlv_disable_displays(config, child_dev, dev_num, stepping);
 
 	/*
 	 * LFP

@@ -253,5 +253,5 @@ out_err0:
 
 void dsi_config_destroy(struct dsi_config *config)
 {
-
+	mutex_destroy(&config->ctx_lock);
 }
