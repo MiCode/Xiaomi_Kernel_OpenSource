@@ -27,6 +27,7 @@
 #include <core/vlv/vlv_pm.h>
 #include <core/vlv/vlv_pll.h>
 #include <core/vlv/dpio.h>
+#include <intel_dsi_cmd.h>
 
 #define LINK_TO_DOT_CLK(x) ((x) * 27 * 100)
 
@@ -397,47 +398,6 @@ u32 vlv_dsi_pre_pipeline_on(struct intel_pipeline *pipeline,
 	return err;
 }
 
-u32 vlv_dsi_post_pipeline_off(struct intel_pipeline *pipeline)
-{
-	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	struct vlv_pll *pll = &disp->pll;
-	struct vlv_dsi_port *dsi_port = NULL;
-	struct dsi_pipe *dsi_pipe = NULL;
-	struct dsi_context *dsi_ctx = NULL;
-	enum port port;
-
-	dsi_pipe = &disp->gen.dsi;
-	dsi_ctx = &dsi_pipe->config.ctx;
-	for_each_dsi_port(port, dsi_ctx->ports) {
-		dsi_port = &disp->port.dsi_port[port];
-		vlv_dsi_port_wait_for_fifo_empty(dsi_port);
-		vlv_dsi_port_clear_device_ready(dsi_port);
-	}
-	vlv_dsi_pll_disable(pll);
-
-	return 0;
-}
-
-/* generic function to be called for any operations after disable is done */
-u32 vlv_post_pipeline_off(struct intel_pipeline *pipeline)
-{
-	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	u32 err = 0;
-
-	switch (disp->type) {
-	case INTEL_PIPE_DSI:
-		err = vlv_dsi_post_pipeline_off(pipeline);
-		break;
-	case INTEL_PIPE_EDP:
-	case INTEL_PIPE_DP:
-	default:
-		err = -EINVAL;
-		break;
-	}
-
-	return err;
-}
-
 static inline u32 vlv_port_disable(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
@@ -482,6 +442,62 @@ static inline u32 vlv_port_disable(struct intel_pipeline *pipeline)
 	return err;
 }
 
+u32 vlv_dsi_post_pipeline_off(struct intel_pipeline *pipeline)
+{
+	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
+	struct vlv_pll *pll = &disp->pll;
+	struct vlv_dsi_port *dsi_port = NULL;
+	struct dsi_pipe *dsi_pipe = NULL;
+	struct dsi_context *dsi_ctx = NULL;
+	enum port port;
+	u32 err = 0;
+
+	dsi_pipe = &disp->gen.dsi;
+	dsi_ctx = &dsi_pipe->config.ctx;
+
+	if (vlv_is_vid_mode(pipeline)) {
+		/* Send Shutdown command to the panel in LP mode */
+		adf_dpi_send_cmd(dsi_pipe, SHUTDOWN, DPI_LP_MODE_EN);
+		usleep_range(10000, 10500);
+		pr_err("ADF: %s: Sent DPI_SHUTDOWN\n", __func__);
+	}
+
+	err = vlv_port_disable(pipeline);
+	if (err != 0) {
+		pr_err("ADF: %s: port disable failed\n", __func__);
+		goto out;
+	}
+
+	for_each_dsi_port(port, dsi_ctx->ports) {
+		dsi_port = &disp->port.dsi_port[port];
+		vlv_dsi_port_wait_for_fifo_empty(dsi_port);
+		vlv_dsi_port_clear_device_ready(dsi_port);
+	}
+	vlv_dsi_pll_disable(pll);
+out:
+	return err;
+}
+
+/* generic function to be called for any operations after disable is done */
+u32 vlv_post_pipeline_off(struct intel_pipeline *pipeline)
+{
+	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
+	u32 err = 0;
+
+	switch (disp->type) {
+	case INTEL_PIPE_DSI:
+		err = vlv_dsi_post_pipeline_off(pipeline);
+		break;
+	case INTEL_PIPE_EDP:
+	case INTEL_PIPE_DP:
+	default:
+		err = -EINVAL;
+		break;
+	}
+
+	return err;
+}
+
 u32 vlv_pipeline_off(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
@@ -516,10 +532,12 @@ u32 vlv_pipeline_off(struct intel_pipeline *pipeline)
 	}
 
 	/* port disable */
-	err = vlv_port_disable(pipeline);
-	if (err != 0) {
-		pr_err("ADF: %s: port disable failed\n", __func__);
-		goto out;
+	if (disp->type != INTEL_PIPE_DSI) {
+		err = vlv_port_disable(pipeline);
+		if (err != 0) {
+			pr_err("ADF: %s: port disable failed\n", __func__);
+			goto out;
+		}
 	}
 
 	err = vlv_pipe_disable(pipe);

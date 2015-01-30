@@ -1,6 +1,6 @@
 # Makefile for intel vlv display driver
 
-ccflags-y := -Iarch/ia64/ -Idrivers/staging/ -Iinclude/adf -Iinclude/uapi/adf -Idrivers/video/adf/intel/include -Werror
+ccflags-y := -Iarch/ia64/ -Idrivers/staging/ -Iinclude/adf -Iinclude/uapi/adf -Idrivers/video/adf/intel/include -Idrivers/video/adf/intel/core/common/dsi -Werror
 
 obj-y := vlv_dc_config.o \
 	vlv_pri_plane.o \

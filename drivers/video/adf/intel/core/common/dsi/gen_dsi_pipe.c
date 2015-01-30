@@ -266,7 +266,6 @@ static int dsi_display_off(struct intel_pipe *pipe)
 		pr_err("%s: DSI device already disabled\n", __func__);
 		goto out;
 	}
-
 	intel_disable_backlight(&dsi_pipe->base);
 
 	if (intel_dsi->backlight_off_delay >= 20)
@@ -274,14 +273,6 @@ static int dsi_display_off(struct intel_pipe *pipe)
 	else
 		usleep_range(intel_dsi->backlight_off_delay * 1000,
 				(intel_dsi->backlight_off_delay * 1000) + 500);
-
-
-	if (vlv_is_vid_mode(pipeline)) {
-		/* Send Shutdown command to the panel in LP mode */
-		adf_dpi_send_cmd(dsi_pipe, SHUTDOWN, DPI_LP_MODE_EN);
-		usleep_range(10000, 10500);
-		pr_err("ADF: %s: Sent DPI_SHUTDOWN\n", __func__);
-	}
 
 	/* disable vsyncs */
 	pipe->ops->set_event(pipe, INTEL_PIPE_EVENT_VSYNC, false);
