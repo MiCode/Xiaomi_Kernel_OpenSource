@@ -553,6 +553,15 @@ config DEBUG_TASK_STACK_SCAN_OFF
 	  writing to the debugfs entry :
 	  echo "stack=on" > /sys/kernel/debug/kmemleak.
 
+config DEBUG_MODULE_SCAN_OFF
+	bool "Disable module memory scan for leaks by default"
+	depends on DEBUG_KMEMLEAK
+	help
+	  Say Y here to disable scanning kernel modules area list
+	  by default for memory leaks. Module scan an potentially
+	  run with irq/preemption disabled for considerable amount
+	  of time.
+
 config DEBUG_PREEMPT
 	bool "Debug preemptible kernel"
 	depends on DEBUG_KERNEL && PREEMPT && TRACE_IRQFLAGS_SUPPORT
