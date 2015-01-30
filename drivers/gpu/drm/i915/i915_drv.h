@@ -1406,6 +1406,7 @@ struct intel_vbt_data {
 	unsigned int bios_lvds_val; /* initial [PCH_]LVDS reg val in VBIOS */
 
 	enum drrs_support_type drrs_type;
+	unsigned int drrs_min_vrefresh;
 
 	/* eDP */
 	int edp_rate;

@@ -264,6 +264,9 @@ parse_lfp_panel_data(struct drm_i915_private *dev_priv,
 	if (!lvds_lfp_data)
 		return;
 
+	dev_priv->vbt.drrs_min_vrefresh = (unsigned int)
+			lvds_lfp_data->seamless_drrs_min_vrefresh[panel_type];
+
 	lvds_lfp_data_ptrs = find_section(bdb, BDB_LVDS_LFP_DATA_PTRS);
 	if (!lvds_lfp_data_ptrs)
 		return;
