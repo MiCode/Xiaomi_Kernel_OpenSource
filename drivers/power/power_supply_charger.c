@@ -306,6 +306,7 @@ static inline void get_cur_chrgr_prop(struct power_supply *psy,
 	chrgr_prop->cable = CABLE_TYPE(psy);
 	chrgr_prop->health = HEALTH(psy);
 	chrgr_prop->tstamp = get_jiffies_64();
+	chrgr_prop->throttle_state = CURRENT_THROTTLE_STATE(psy);
 
 }
 
@@ -370,6 +371,7 @@ update_props:
 	chrgr_cache->present = chrgr_prop_new->present;
 	chrgr_cache->cable = chrgr_prop_new->cable;
 	chrgr_cache->tstamp = chrgr_prop_new->tstamp;
+	chrgr_cache->throttle_state = chrgr_prop_new->throttle_state;
 }
 
 
@@ -445,7 +447,6 @@ update_props:
 	bat_cache->temperature = bat_prop_new->temperature;
 	bat_cache->status = bat_prop_new->status;
 	bat_cache->algo_stat = bat_prop_new->algo_stat;
-	bat_cache->throttle_state = bat_prop_new->throttle_state;
 }
 
 static inline int get_bat_prop_cache(struct power_supply *psy,
@@ -478,7 +479,6 @@ static inline void get_cur_bat_prop(struct power_supply *psy,
 	bat_prop->status = STATUS(psy);
 	bat_prop->health = HEALTH(psy);
 	bat_prop->tstamp = get_jiffies_64();
-	bat_prop->throttle_state = CURRENT_THROTTLE_STATE(psy);
 
 	/* Populate cached algo data to new profile */
 	ret = get_bat_prop_cache(psy, &bat_prop_cache);
