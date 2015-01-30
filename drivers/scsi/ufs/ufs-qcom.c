@@ -900,6 +900,13 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 				ufs_qcom_cap.hs_rx_gear = UFS_HS_G2;
 		}
 
+		/*
+		 * Until High Speed gear mode is stabilized, operate in PWM gear
+		 * mode for newer controller versions.
+		 */
+		if (host->hw_ver.major >= 0x2)
+			ufs_qcom_cap.desired_working_mode = SLOW;
+
 		ret = ufs_qcom_get_pwr_dev_param(&ufs_qcom_cap,
 						 dev_max_params,
 						 dev_req_params);
@@ -1006,9 +1013,11 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 
 	ufs_qcom_get_controller_revision(hba, &major, &minor, &step);
 
-	hba->caps |= UFSHCD_CAP_CLK_GATING | UFSHCD_CAP_CLK_SCALING;
-	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
-	hba->caps |= UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
+	if (host->hw_ver.major < 0x2) {
+		hba->caps |= UFSHCD_CAP_CLK_GATING | UFSHCD_CAP_CLK_SCALING;
+		hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
+		hba->caps |= UFSHCD_CAP_HIBERN8_ENTER_ON_IDLE;
+	}
 
 	if (host->hw_ver.major >= 0x2) {
 		hba->caps |= UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8;
