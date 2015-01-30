@@ -73,6 +73,12 @@ conditions.
 - qcom,errata-ctx-fault-hang : Enable workaround for a context fault hang
                   hardware errata.
 
+- qcom,fatal-asf : Enable BUG_ON for address size faults.  Some hardware
+                  requires special fixups to recover from address size
+                  faults.  Rather than applying the fixups just BUG since
+                  address size faults are due to a fundamental programming
+                  error from which we don't care about recovering anyways.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified
