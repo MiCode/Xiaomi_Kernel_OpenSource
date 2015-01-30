@@ -142,9 +142,10 @@ static int q6lsm_callback(struct apr_client_data *data, void *priv)
 					__func__, token, client->session);
 				return -EINVAL;
 			}
-			if (payload[1] != 0)
-				pr_err("%s: cmd %d failed status %d\n",
-				__func__, payload[0], payload[1]);
+			client->cmd_err_code = payload[1];
+			if (client->cmd_err_code)
+				pr_err("%s: cmd 0x%x failed status %d\n",
+				__func__, payload[0], client->cmd_err_code);
 			if (atomic_cmpxchg(&client->cmd_state,
 					   CMD_STATE_WAIT_RESP,
 					   CMD_STATE_CLEARED) ==
@@ -298,6 +299,7 @@ static int q6lsm_apr_send_pkt(struct lsm_client *client, void *handle,
 {
 	int ret;
 	unsigned long flags = 0;
+	struct apr_hdr *msg_hdr = (struct apr_hdr *) data;
 
 	pr_debug("%s: enter wait %d\n", __func__, wait);
 	if (wait)
@@ -308,6 +310,7 @@ static int q6lsm_apr_send_pkt(struct lsm_client *client, void *handle,
 		mmap_handle_p = mmap_p;
 	}
 	atomic_set(&client->cmd_state, CMD_STATE_WAIT_RESP);
+	client->cmd_err_code = 0;
 	ret = apr_send_pkt(handle, data);
 	if (mmap_p)
 		spin_unlock_irqrestore(&mmap_lock, flags);
@@ -319,10 +322,18 @@ static int q6lsm_apr_send_pkt(struct lsm_client *client, void *handle,
 					 (atomic_read(&client->cmd_state) ==
 					      CMD_STATE_CLEARED),
 					 APR_TIMEOUT);
-		if (likely(ret))
-			ret = 0;
-		else
-			pr_err("%s: wait timedout\n", __func__);
+		if (likely(ret)) {
+			/* q6 returned error */
+			if (client->cmd_err_code)
+				ret = -EINVAL;
+			else
+				ret = 0;
+		} else {
+			pr_err("%s: wait timedout, apr_opcode = 0x%x, size = %d\n",
+				__func__, msg_hdr->opcode, msg_hdr->pkt_size);
+			/* ret = 0 means wait timed out */
+			ret = -ETIMEDOUT;
+		}
 	} else {
 		ret = 0;
 	}
@@ -419,61 +430,96 @@ static int q6lsm_set_port_connected(
 	return 0;
 }
 
-static int q6lsm_set_confidence_level(
-			struct lsm_param_min_confidence_levels *cfl,
-			uint8_t num_confidence_level,
-			uint8_t *confidence_level)
+static int q6lsm_send_confidence_levels(
+			struct lsm_client *client)
 {
-
+	u8 *packet;
+	size_t pkt_size;
+	struct lsm_cmd_set_params_conf *conf_params;
+	struct lsm_set_params_hdr *params_hdr;
+	struct apr_hdr *msg_hdr;
+	struct lsm_param_min_confidence_levels *cfl;
 	uint8_t i = 0;
 	uint8_t padd_size = 0;
+	u8 *conf_levels;
+	int rc;
 
-	if (cfl == NULL) {
-		pr_err("%s: err with cfl\n", __func__);
-		return -EINVAL;
+	padd_size = (4 - (client->num_confidence_levels % 4)) - 1;
+	pkt_size = sizeof(*conf_params) + padd_size +
+		   client->num_confidence_levels;
+
+	packet = kzalloc(pkt_size, GFP_KERNEL);
+	if (!packet) {
+		pr_err("%s: no memory for confidence level, size = %zd\n",
+			__func__, pkt_size);
+		return -ENOMEM;
 	}
-	padd_size = (4 - (num_confidence_level % 4)) - 1;
+
+	conf_params = (struct lsm_cmd_set_params_conf *) packet;
+	conf_levels = (u8 *) (packet + sizeof(*conf_params));
+	msg_hdr = &conf_params->msg_hdr;
+	params_hdr = &conf_params->params_hdr;
+
+	q6lsm_add_hdr(client, msg_hdr,
+		      pkt_size, true);
+	msg_hdr->opcode = LSM_SESSION_CMD_SET_PARAMS;
+	params_hdr->data_payload_addr_lsw = 0;
+	params_hdr->data_payload_addr_msw = 0;
+	params_hdr->mem_map_handle = 0;
+	params_hdr->data_payload_size =
+		pkt_size - sizeof(*msg_hdr) - sizeof(*params_hdr);
+	cfl = &conf_params->conf_payload;
 	cfl->common.module_id = LSM_MODULE_ID_VOICE_WAKEUP;
 	cfl->common.param_id = LSM_PARAM_ID_MIN_CONFIDENCE_LEVELS;
-	cfl->common.param_size = ((sizeof(uint8_t) + num_confidence_level
-				  + padd_size)) * sizeof(uint8_t);
-	cfl->num_confidence_levels = num_confidence_level;
-	pr_debug("%s: CMD PARAM SIZE = %d\n", __func__, cfl->common.param_size);
-	memset(&cfl->confidence_level[0], 0,
-	       sizeof(uint8_t) * MAX_NUM_CONFIDENCE);
-	memcpy(&cfl->confidence_level[0], confidence_level,
-	       num_confidence_level);
-	pr_debug("%s: Num conf_level = %d\n", __func__, num_confidence_level);
-	for (i = 0; i < num_confidence_level; i++)
-		pr_debug("%s: Confi value = %d\n", __func__,
-			 cfl->confidence_level[i]);
-	return 0;
+	cfl->common.param_size = ((sizeof(uint8_t) + padd_size +
+				   client->num_confidence_levels)) *
+					sizeof(uint8_t);
+	cfl->common.reserved = 0;
+	cfl->num_confidence_levels = client->num_confidence_levels;
+
+	pr_debug("%s: CMD PARAM SIZE = %d\n",
+		 __func__, cfl->common.param_size);
+	pr_debug("%s: Num conf_level = %d\n",
+		 __func__, client->num_confidence_levels);
+
+	memcpy(conf_levels, client->confidence_levels,
+	       client->num_confidence_levels);
+	for (i = 0; i < client->num_confidence_levels; i++)
+		pr_debug("%s: Confidence_level[%d] = %d\n",
+			 __func__, i, conf_levels[i]);
+
+	rc = q6lsm_apr_send_pkt(client, client->apr,
+				packet, true, NULL);
+	if (rc)
+		pr_err("%s: confidence_levels cmd failed, err = %d\n",
+			__func__, rc);
+	kfree(packet);
+	return rc;
 }
 
 static int q6lsm_set_params(struct lsm_client *client)
 {
 	int rc;
-	struct lsm_cmd_set_params_conf_v2 params_conf_v2;
-	struct lsm_cmd_set_params_v2 params_v2;
-	struct apr_hdr  *hdr;
-	uint32_t hdr_size;
+	struct lsm_cmd_set_opmode_connectport opmode_connectport;
+	struct lsm_set_params_hdr *params_hdr;
+	struct apr_hdr  *msg_hdr;
 	struct lsm_param_connect_to_port *connect_to_port;
 	struct lsm_param_op_mode *op_mode;
-	struct lsm_param_min_confidence_levels *cfl;
-	void *param_data;
 
-	q6lsm_add_hdr(client, &params_v2.hdr, sizeof(params_v2), true);
-	hdr = &params_v2.hdr;
-	hdr_size = sizeof(params_v2);
-	params_v2.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
-	params_v2.data_payload_addr_lsw = 0;
-	params_v2.data_payload_addr_msw = 0;
-	params_v2.mem_map_handle = 0;
-	params_v2.data_payload_size =
-		sizeof(struct lsm_params_payload_v2);
-	connect_to_port = &params_v2.payload.connect_to_port;
-	op_mode = &params_v2.payload.op_mode;
-	param_data = &params_v2;
+	msg_hdr = &opmode_connectport.msg_hdr;
+	params_hdr = &opmode_connectport.params_hdr;
+
+	q6lsm_add_hdr(client, msg_hdr,
+		      sizeof(opmode_connectport), true);
+	msg_hdr->opcode = LSM_SESSION_CMD_SET_PARAMS;
+	params_hdr->data_payload_addr_lsw = 0;
+	params_hdr->data_payload_addr_msw = 0;
+	params_hdr->mem_map_handle = 0;
+	params_hdr->data_payload_size =
+		sizeof(opmode_connectport) - sizeof(*msg_hdr) -
+		sizeof(*params_hdr);
+	connect_to_port = &opmode_connectport.connect_to_port;
+	op_mode = &opmode_connectport.op_mode;
 
 	rc = q6lsm_set_operation_mode(op_mode, client->mode);
 	if (rc) {
@@ -487,36 +533,11 @@ static int q6lsm_set_params(struct lsm_client *client)
 		goto exit;
 	}
 
-	rc = q6lsm_apr_send_pkt(client, client->apr, param_data, true, NULL);
+	rc = q6lsm_apr_send_pkt(client, client->apr,
+				&opmode_connectport, true, NULL);
 	if (rc)
 		pr_err("%s: Failed set_params opcode 0x%x, rc %d\n",
-		       __func__, hdr->opcode, rc);
-
-	q6lsm_add_hdr(client, &params_conf_v2.hdr,
-		      sizeof(params_conf_v2), true);
-	hdr = &params_conf_v2.hdr;
-	hdr_size = sizeof(params_conf_v2);
-	params_conf_v2.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
-	params_conf_v2.data_payload_addr_lsw = 0;
-	params_conf_v2.data_payload_addr_msw = 0;
-	params_conf_v2.mem_map_handle = 0;
-	params_conf_v2.data_payload_size =
-		sizeof(struct lsm_param_min_confidence_levels);
-	param_data = &params_conf_v2;
-	cfl = &params_conf_v2.conf_payload;
-	rc = q6lsm_set_confidence_level(cfl,
-				client->num_confidence_levels,
-				client->confidence_levels);
-	if (rc) {
-		pr_err("%s: err confidence rc %d\n", __func__, rc);
-		goto exit;
-	}
-	rc = q6lsm_apr_send_pkt(client, client->apr,
-				param_data, true, NULL);
-	if (rc) {
-		pr_err("%s: err packet rc %d\n", __func__, rc);
-		goto exit;
-	}
+		       __func__, msg_hdr->opcode, rc);
 
 	pr_debug("%s: leave %d\n", __func__, rc);
 exit:
@@ -563,13 +584,21 @@ int q6lsm_set_data(struct lsm_client *client,
 	client->connect_to_port = get_lsm_port();
 
 	rc = q6lsm_set_params(client);
-	if (rc < 0) {
+	if (rc) {
 		pr_err("%s: Failed to set lsm config params %d\n",
 			__func__, rc);
 		goto err_ret;
 	}
+
+	rc = q6lsm_send_confidence_levels(client);
+	if (rc) {
+		pr_err("%s: Failed to send conf_levels, err = %d\n",
+			__func__, rc);
+		goto err_ret;
+	}
+
 	rc = q6lsm_send_cal(client);
-	if (rc < 0) {
+	if (rc) {
 		pr_err("%s: Failed to send calibration data %d\n",
 			__func__, rc);
 		goto err_ret;
@@ -639,7 +668,7 @@ int q6lsm_deregister_sound_model(struct lsm_client *client)
 	cmd.hdr.opcode = LSM_SESSION_CMD_DEREGISTER_SOUND_MODEL;
 
 	rc = q6lsm_apr_send_pkt(client, client->apr, &cmd.hdr, true, NULL);
-	if (rc < 0) {
+	if (rc) {
 		pr_err("%s: Failed cmd opcode 0x%x, rc %d\n", __func__,
 		       cmd.hdr.opcode, rc);
 	} else {
@@ -750,6 +779,8 @@ static int q6lsm_send_cal(struct lsm_client *client)
 {
 	int rc = 0;
 	struct lsm_cmd_set_params params;
+	struct lsm_set_params_hdr *params_hdr = &params.param_hdr;
+	struct apr_hdr *msg_hdr = &params.msg_hdr;
 	struct cal_block_data *cal_block = NULL;
 
 	pr_debug("%s: Session id %d\n", __func__, client->session);
@@ -780,17 +811,20 @@ static int q6lsm_send_cal(struct lsm_client *client)
 	}
 	/* Cache mmap address, only map once or if new addr */
 	lsm_common.common_client[client->session].session = client->session;
-	q6lsm_add_hdr(client, &params.hdr, sizeof(params), true);
-	params.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
-	params.data_payload_addr_lsw = lower_32_bits(client->lsm_cal_phy_addr);
-	params.data_payload_addr_msw = upper_32_bits(client->lsm_cal_phy_addr);
-	params.mem_map_handle = client->sound_model.mem_map_handle;
-	params.data_payload_size = cal_block->cal_data.size;
-	pr_debug("%s: Cal Size = %zd", __func__, cal_block->cal_data.size);
+	q6lsm_add_hdr(client, msg_hdr, sizeof(params), true);
+	msg_hdr->opcode = LSM_SESSION_CMD_SET_PARAMS;
+	params_hdr->data_payload_addr_lsw =
+			lower_32_bits(client->lsm_cal_phy_addr);
+	params_hdr->data_payload_addr_msw =
+			upper_32_bits(client->lsm_cal_phy_addr);
+	params_hdr->mem_map_handle = client->sound_model.mem_map_handle;
+	params_hdr->data_payload_size = cal_block->cal_data.size;
+	pr_debug("%s: Cal Size = %zd", __func__,
+		cal_block->cal_data.size);
 	rc = q6lsm_apr_send_pkt(client, client->apr, &params, true, NULL);
 	if (rc)
 		pr_err("%s: Failed set_params opcode 0x%x, rc %d\n",
-		       __func__, params.hdr.opcode, rc);
+		       __func__, msg_hdr->opcode, rc);
 unlock:
 	mutex_unlock(&lsm_common.cal_data->lock);
 done:
@@ -811,7 +845,7 @@ int q6lsm_snd_model_buf_free(struct lsm_client *client)
 	mutex_lock(&client->cmd_lock);
 	rc = q6lsm_memory_unmap_regions(client,
 					client->sound_model.mem_map_handle);
-	if (rc < 0)
+	if (rc)
 		pr_err("%s: CMD Memory_unmap_regions failed %d\n",
 			__func__, rc);
 
@@ -1003,7 +1037,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 	rc = q6lsm_memory_map_regions(client, client->sound_model.phys,
 				      len,
 				      &client->sound_model.mem_map_handle);
-	if (rc < 0) {
+	if (rc) {
 		pr_err("%s: CMD Memory_map_regions failed %d\n", __func__, rc);
 		goto exit;
 	}
@@ -1069,16 +1103,18 @@ int q6lsm_lab_control(struct lsm_client *client, u32 enable)
 		return -EINVAL;
 	}
 	/* enable/disable lab on dsp */
-	q6lsm_add_hdr(client, &lab_enable.hdr, sizeof(lab_enable), true);
-	lab_enable.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
-	lab_enable.data_payload_size = sizeof(struct lsm_lab_enable);
-	lab_enable.data_payload_addr_lsw = 0;
-	lab_enable.data_payload_addr_msw = 0;
-	lab_enable.mem_map_handle = 0;
+	q6lsm_add_hdr(client, &lab_enable.msg_hdr, sizeof(lab_enable), true);
+	lab_enable.msg_hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
+	lab_enable.params_hdr.data_payload_size =
+			sizeof(struct lsm_lab_enable);
+	lab_enable.params_hdr.data_payload_addr_lsw = 0;
+	lab_enable.params_hdr.data_payload_addr_msw = 0;
+	lab_enable.params_hdr.mem_map_handle = 0;
 	lab_enable.lab_enable.common.module_id = LSM_MODULE_ID_LAB;
 	lab_enable.lab_enable.common.param_id = LSM_PARAM_ID_LAB_ENABLE;
-	lab_enable.lab_enable.common.param_size = sizeof(struct lsm_lab_enable)
-	- sizeof(struct lsm_param_payload_common);
+	lab_enable.lab_enable.common.param_size =
+				(sizeof(struct lsm_lab_enable) -
+				 sizeof(struct lsm_param_payload_common));
 	lab_enable.lab_enable.enable = (enable) ? 1 : 0;
 	rc = q6lsm_apr_send_pkt(client, client->apr, &lab_enable, true, NULL);
 	if (rc) {
@@ -1088,16 +1124,18 @@ int q6lsm_lab_control(struct lsm_client *client, u32 enable)
 	if (!enable)
 		goto exit;
 	/* lab session is being enabled set the config values */
-	q6lsm_add_hdr(client, &lab_config.hdr, sizeof(lab_config), true);
-	lab_config.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
-	lab_config.data_payload_size = sizeof(struct lsm_lab_config);
-	lab_config.data_payload_addr_lsw = 0;
-	lab_config.data_payload_addr_msw = 0;
-	lab_config.mem_map_handle = 0;
+	q6lsm_add_hdr(client, &lab_config.msg_hdr, sizeof(lab_config), true);
+	lab_config.msg_hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
+	lab_config.params_hdr.data_payload_size =
+				sizeof(struct lsm_lab_enable);
+	lab_config.params_hdr.data_payload_addr_lsw = 0;
+	lab_config.params_hdr.data_payload_addr_msw = 0;
+	lab_config.params_hdr.mem_map_handle = 0;
 	lab_config.lab_config.common.module_id = LSM_MODULE_ID_LAB;
-	lab_config.lab_config.common.param_id = LSM_PARAM_ID_LAB_CONFIG;
-	lab_config.lab_config.common.param_size = sizeof(struct lsm_lab_config)
-	- sizeof(struct lsm_param_payload_common);
+	lab_config.lab_config.common.param_id = LSM_PARAM_ID_LAB_ENABLE;
+	lab_config.lab_config.common.param_size =
+				(sizeof(struct lsm_lab_config) -
+				sizeof(struct lsm_param_payload_common));
 	lab_config.lab_config.minor_version = 1;
 	lab_config.lab_config.wake_up_latency_ms = 250;
 	rc = q6lsm_apr_send_pkt(client, client->apr, &lab_config, true, NULL);
@@ -1189,7 +1227,7 @@ int q6lsm_lab_buffer_alloc(struct lsm_client *client, bool alloc)
 				&client->lab_buffer[0].mem_map_handle);
 			if (ret) {
 				pr_err("%s: memory map filed ret %d size %zd\n",
-				__func__, ret, len);
+					__func__, ret, len);
 				msm_audio_ion_free(
 				client->lab_buffer[0].client,
 				client->lab_buffer[0].handle);
