@@ -161,8 +161,8 @@ struct snd_ctl_elem_value32 {
 	struct snd_ctl_elem_id id;
 	unsigned int indirect;	/* bit-field causes misalignment */
         union {
-		s32 integer[128];
-		unsigned char data[512];
+		s32 integer[256];
+		unsigned char data[4096];
 #ifndef CONFIG_X86_64
 		s64 integer64[64];
 #endif
@@ -209,7 +209,7 @@ static int get_elem_size(int type, int count)
 	case SNDRV_CTL_ELEM_TYPE_ENUMERATED:
 		return sizeof(int) * count;
 	case SNDRV_CTL_ELEM_TYPE_BYTES:
-		return 512;
+		return 4096;
 	case SNDRV_CTL_ELEM_TYPE_IEC958:
 		return sizeof(struct snd_aes_iec958);
 	default:

@@ -25,7 +25,7 @@
 
 #include <sound/soc.h>
 
-#define SST_MAX_BIN_BYTES 1024
+#define SST_MAX_BIN_BYTES 4096
 #define SST_MAX_VTSV_PATH_LEN 255
 
 /* VTSV PATH selection byte control max length is 257 bytes :
