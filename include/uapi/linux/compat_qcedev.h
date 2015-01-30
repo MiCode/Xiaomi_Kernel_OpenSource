@@ -160,6 +160,10 @@ extern long compat_qcedev_ioctl(struct file *file,
 	_IO(QCEDEV_IOC_MAGIC, 8)
 #define COMPAT_QCEDEV_IOCTL_GET_CMAC_REQ	\
 	_IOWR(QCEDEV_IOC_MAGIC, 9, struct compat_qcedev_sha_op_req)
+#define COMPAT_QCEDEV_IOCTL_UPDATE_FIPS_STATUS          \
+	_IOWR(QCEDEV_IOC_MAGIC, 10, enum fips_status)
+#define COMPAT_QCEDEV_IOCTL_QUERY_FIPS_STATUS   \
+	_IOR(QCEDEV_IOC_MAGIC, 11, enum fips_status)
 
 #endif /* CONFIG_COMPAT */
 #endif /* _UAPI_COMPAT_QCEDEV__H */
