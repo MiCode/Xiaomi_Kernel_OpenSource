@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2434,6 +2434,34 @@ int sps_bam_process_irq(unsigned long dev)
 	return 0;
 }
 EXPORT_SYMBOL(sps_bam_process_irq);
+
+/*
+ * Get address info of a BAM
+ */
+int sps_get_bam_addr(unsigned long dev, phys_addr_t *base,
+				u32 *size)
+{
+	struct sps_bam *bam;
+
+	SPS_DBG("sps:%s.", __func__);
+
+	if (!dev) {
+		SPS_ERR("sps:%s:BAM handle is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	bam = sps_h2bam(dev);
+	if (bam == NULL) {
+		SPS_ERR("sps:%s:BAM is not found by handle.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	*base = bam->props.phys_addr;
+	*size = bam->props.virt_size;
+
+	return 0;
+}
+EXPORT_SYMBOL(sps_get_bam_addr);
 
 /**
  * Allocate client state context
