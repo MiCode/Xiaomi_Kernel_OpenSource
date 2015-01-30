@@ -37,6 +37,8 @@ memory allocation over a PCIe bridge
 - qcom,msm-bus,vectors-KBps:    Arrays of unsigned integers representing:
                                 master-id, slave-id, arbitrated bandwidth
                                 in KBps, instantaneous bandwidth in KBps
+- qcom,ipa-bam-remote-mode:     Boolean context flag to determine if ipa bam
+                                is in remote mode.
 
 IPA pipe sub nodes (A2 static pipes configurations):
 
