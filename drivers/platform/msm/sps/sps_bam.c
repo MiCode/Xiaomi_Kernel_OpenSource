@@ -845,11 +845,24 @@ int sps_bam_pipe_connect(struct sps_pipe *bam_pipe,
 
 	/* Determine operational mode */
 	if (other_pipe->bam != NULL) {
+		unsigned long iova;
+		struct sps_bam *peer_bam = (struct sps_bam *)(other_pipe->bam);
 		/* BAM-to-BAM mode */
 		bam_pipe->state |= BAM_STATE_BAM2BAM;
 		hw_params.mode = BAM_PIPE_MODE_BAM2BAM;
-		hw_params.peer_phys_addr =
-			((struct sps_bam *) (other_pipe->bam))->props.phys_addr;
+
+		if (dev->props.options & SPS_BAM_SMMU_EN) {
+			if (bam_pipe->mode == SPS_MODE_SRC)
+				iova = bam_pipe->connect.dest_iova;
+			else
+				iova = bam_pipe->connect.source_iova;
+			SPS_DBG2("sps:BAM %pa pipe %d uses IOVA 0x%lx.\n",
+				 BAM_ID(dev), pipe_index, iova);
+			hw_params.peer_phys_addr = (u32)iova;
+		} else {
+			hw_params.peer_phys_addr = peer_bam->props.phys_addr;
+		}
+
 		hw_params.peer_pipe = other_pipe->pipe_index;
 
 		/* Verify FIFO buffers are allocated for BAM-to-BAM pipes */
@@ -861,7 +874,18 @@ int sps_bam_pipe_connect(struct sps_pipe *bam_pipe,
 				BAM_ID(dev), pipe_index);
 			return SPS_ERROR;
 		}
-		hw_params.data_base = map->data.phys_base;
+
+		if (dev->props.options & SPS_BAM_SMMU_EN) {
+			hw_params.data_base =
+				(phys_addr_t)bam_pipe->connect.data.iova;
+			SPS_DBG2(
+				"sps:BAM %pa pipe %d uses IOVA 0x%lx for data FIFO.\n",
+				 BAM_ID(dev), pipe_index,
+				 bam_pipe->connect.data.iova);
+		} else {
+			hw_params.data_base = map->data.phys_base;
+		}
+
 		hw_params.data_size = map->data.size;
 
 		/* Clear the data FIFO for debug */
@@ -903,7 +927,18 @@ int sps_bam_pipe_connect(struct sps_pipe *bam_pipe,
 		 * This allows a satellite driver to set the FIFO as
 		 * local memory	for system mode.
 		 */
-		hw_params.desc_base = map->desc.phys_base;
+
+		if (dev->props.options & SPS_BAM_SMMU_EN) {
+			hw_params.desc_base =
+				(phys_addr_t)bam_pipe->connect.desc.iova;
+			SPS_DBG2(
+				"sps:BAM %pa pipe %d uses IOVA 0x%lx for desc FIFO.\n",
+				 BAM_ID(dev), pipe_index,
+				 bam_pipe->connect.desc.iova);
+		} else {
+			hw_params.desc_base = map->desc.phys_base;
+		}
+
 		hw_params.desc_size = map->desc.size;
 	}
 
