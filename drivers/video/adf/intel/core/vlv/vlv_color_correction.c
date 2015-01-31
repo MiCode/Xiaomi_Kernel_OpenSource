@@ -47,6 +47,8 @@ const struct color_property vlv_pipe_color_corrections[] = {
 		.prop_id = gamma,
 		.len = VLV_GAMMA_VALS,
 		.name = "gamma-correction",
+		.set_property = vlv_set_gamma,
+		.disable_property = vlv_disable_gamma,
 		.validate = vlv_validate,
 	}
 };
@@ -91,6 +93,114 @@ const struct color_property vlv_plane_color_corrections[] = {
 		.validate = vlv_validate
 	}
 };
+
+/* Core function to apply 10-bit gamma correction */
+bool vlv_set_gamma(struct color_property *property, u64 *data, u8 pipe_id)
+{
+	u16 red, green, blue;
+	u64 correct_rgb;
+	u32 val, even, odd;
+	u32 count = 0;
+	u32 reg = 0;
+	u32 pipe = pipe_id;
+	u32 palette = PALETTE(pipe);
+	u64 data_size = property->len;
+
+	/* Validate input */
+	if (data_size != VLV_10BIT_GAMMA_MAX_VALS) {
+		pr_err("ADF: CM: Unexpected value count for GAMMA LUT\n");
+		return false;
+	}
+
+	/*
+	 * 128, 64 bit values, coming in <0><R16><G16><B16>
+	 * format containing
+	 * only 10 integer and 6fraction correction values
+	 */
+	while (count < (data_size - CLRMGR_GAMMA_GCMAX_VAL)) {
+		correct_rgb = data[count];
+		property->lut[count] = correct_rgb;
+
+		blue = correct_rgb >> CLRMGR_GAMMA_PARSER_SHIFT_BLUE;
+		green = correct_rgb >> CLRMGR_GAMMA_PARSER_SHIFT_GREEN;
+		red = correct_rgb >> CLRMGR_GAMMA_PARSER_SHIFT_RED;
+
+		/*
+		 * Prepare even and odd regs. Even register contains 6
+		 * fractional and 2 integer base bits, so lower 8 bits
+		 */
+		even = ((blue & VLV_GAMMA_EVEN_MASK) <<
+				VLV_GAMMA_SHIFT_BLUE_REG) |
+			((green & VLV_GAMMA_EVEN_MASK) <<
+				VLV_GAMMA_SHIFT_GREEN_REG) |
+			((red & VLV_GAMMA_EVEN_MASK) <<
+				VLV_GAMMA_SHIFT_RED_REG);
+
+		/* Odd register contains upper 8 (integer) bits */
+		odd = ((blue >> VLV_GAMMA_ODD_SHIFT) <<
+				VLV_GAMMA_SHIFT_BLUE_REG) |
+			((green >> VLV_GAMMA_ODD_SHIFT) <<
+				VLV_GAMMA_SHIFT_GREEN_REG) |
+			((red >> VLV_GAMMA_ODD_SHIFT) <<
+				VLV_GAMMA_SHIFT_RED_REG);
+
+		/* Writing fraction part first, then integer part */
+		REG_WRITE(palette, even);
+		palette += 4;
+		REG_WRITE(palette, odd);
+		palette += 4;
+		count++;
+	}
+
+	/*
+	 * Last 64bit values is in 11.6 format for GCmax,
+	 * RGB sequence
+	 */
+	correct_rgb = data[count];
+	property->lut[count] = correct_rgb;
+
+	count = CLRMGR_GAMMA_TOTAL_GCMAX_REGS;
+	reg = VLV_PIPE_GCMAX(pipe);
+	while (count--) {
+		val = (correct_rgb >> (count * VLV_CLRMGR_GAMMA_GCMAX_SHIFT)) &
+			VLV_GAMMA_GCMAX_MASK;
+		/* GCMAX value must be <= 1024 */
+		if (val > VLV_CLRMGR_GAMMA_GCMAX_MAX)
+			val = VLV_CLRMGR_GAMMA_GCMAX_MAX;
+
+		/* Write in 11.6 format */
+		REG_WRITE(reg, (val << 6));
+		reg += 4;
+	}
+
+	/* Enable gamma for PIPE */
+	reg = PIPECONF(pipe);
+	val = REG_READ(reg) | PIPECONF_GAMMA;
+	REG_WRITE(reg, val);
+
+	property->status = true;
+	pr_info("ADF: CM: 10bit gamma correction successfully applied\n");
+	return true;
+}
+
+bool vlv_disable_gamma(struct color_property *property, u8 pipe_id)
+{
+	u32 pipe, reg, val;
+
+	pipe = pipe_id;
+
+	/* Disable gamma for PIPE */
+	reg = PIPECONF(pipe);
+	val = REG_READ(reg) & (~PIPECONF_GAMMA);
+	REG_WRITE(reg, val);
+
+	property->status = false;
+
+	/* Clear old values in LUT */
+	memset(property->lut, 0, property->len * sizeof(u64));
+	pr_info("ADF: CM: 10bit gamma correction successfully applied");
+	return true;
+}
 
 /* Core function to program CSC regs */
 bool vlv_set_csc(struct color_property *property, u64 *data, u8 pipe_id)
