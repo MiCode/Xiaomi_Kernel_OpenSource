@@ -556,6 +556,7 @@ struct msm_otg {
 	struct qpnp_vadc_chip	*vadc_dev;
 	int ext_id_irq;
 	bool phy_irq_pending;
+	wait_queue_head_t	host_suspend_wait;
 };
 
 struct ci13xxx_platform_data {
