@@ -77,6 +77,8 @@ const struct color_property chv_plane_color_corrections[] = {
 		.prop_id = contrast,
 		.len = CHV_CB_VALS,
 		.name = "contrast",
+		.set_property = chv_set_contrast,
+		.disable_property = chv_disable_contrast,
 		.validate = chv_validate,
 	},
 
@@ -85,6 +87,8 @@ const struct color_property chv_plane_color_corrections[] = {
 		.prop_id = brightness,
 		.len = CHV_CB_VALS,
 		.name = "brightness",
+		.set_property = chv_set_brightness,
+		.disable_property = chv_disable_brightness,
 		.validate = chv_validate,
 	},
 
@@ -153,6 +157,88 @@ const u16 deGamma_LUT_B[CHV_DEGAMMA_VALS] = {
 	11648, 12131, 12626, 13133, 13651,
 	14181, 14723, 15276, 15842, 16383
 };
+
+bool chv_set_brightness(struct color_property *property, u64 *data, u8 plane_id)
+{
+	u32 val, new_val, reg, sprite;
+
+	/* If sprite plane enabled */
+	sprite = plane_id;
+	if (!(REG_READ(CHV_CLRMGR_SPCNTR(sprite)) &
+			SP_ENABLE)) {
+		pr_err("ADF: CM: Sprite plane %d not enabled\n", sprite);
+		return false;
+	}
+
+	reg = CHV_CLRMGR_SPCB(sprite);
+
+	/* Clear current values */
+	val = REG_READ(reg) & ~(CHV_BRIGHTNESS_MASK);
+
+	/*Get new values */
+	new_val = *data & CHV_BRIGHTNESS_MASK;
+
+	/* Update */
+	val |= new_val;
+	REG_WRITE(reg, val);
+	property->lut[0] = new_val;
+
+	/* Set status */
+	if (new_val == CHV_BRIGHTNESS_DEFAULT)
+		property->status = false;
+	else
+		property->status = true;
+	pr_info("ADF: CM: Set Brightness correction to %d successful\n",
+				new_val);
+	return true;
+}
+
+bool chv_disable_brightness(struct color_property *property, u8 plane_id)
+{
+	u64 data = CHV_BRIGHTNESS_DEFAULT;
+	return chv_set_brightness(property, &data, plane_id);
+}
+
+bool chv_set_contrast(struct color_property *property, u64 *data, u8 plane_id)
+{
+	u32 val, new_val, reg, sprite;
+
+	/* If sprite plane enabled */
+	sprite = plane_id;
+	if (!(REG_READ(CHV_CLRMGR_SPCNTR(sprite)) &
+			SP_ENABLE)) {
+		pr_err("ADF: CM: Sprite plane %d not enabled\n", sprite);
+		return false;
+	}
+
+	reg = CHV_CLRMGR_SPCB(sprite);
+
+	/* Clear current value. Contrast correction position is bit [26:18] */
+	val = REG_READ(reg) &
+		~(CHV_CONTRAST_MASK << CHV_CONTRAST_SHIFT);
+
+	/* Get new value */
+	new_val = *data & CHV_CONTRAST_MASK;
+
+	/* Update */
+	val |= (new_val << CHV_CONTRAST_SHIFT);
+	REG_WRITE(reg, val);
+	property->lut[0] = new_val;
+
+	/* Set status */
+	if (new_val == CHV_CONTRAST_DEFAULT)
+		property->status = false;
+	else
+		property->status = true;
+	pr_info("ADF CM: Set Contrast to 0x%x successful\n", new_val);
+	return true;
+}
+
+bool chv_disable_contrast(struct color_property *property, u8 plane_id)
+{
+	u64 data = CHV_CONTRAST_DEFAULT;
+	return chv_set_contrast(property, &data, plane_id);
+}
 
 /* Core function to enable degamma block */
 bool chv_set_degamma(struct color_property *property, u64 *data, u8 pipe_id)
