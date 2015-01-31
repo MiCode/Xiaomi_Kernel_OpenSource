@@ -38,6 +38,8 @@ const struct color_property chv_pipe_color_corrections[] = {
 		.prop_id = csc,
 		.len = CHV_CSC_VALS,
 		.name = "csc-correction",
+		.set_property = chv_set_csc,
+		.disable_property = chv_disable_csc,
 		.validate = chv_validate,
 	},
 
@@ -98,6 +100,77 @@ const struct color_property chv_plane_color_corrections[] = {
 		.validate = chv_validate
 	}
 };
+
+/* Core function to program CSC regs */
+bool chv_set_csc(struct color_property *property, u64 *data, u8 pipe_id)
+{
+	u32 count = 0;
+	u32 csc_reg, data_size, pipe;
+	u32 c0, c1, c2;
+
+	pipe = pipe_id;
+	data_size = property->len;
+
+	/* Validate input */
+	if (data_size != CHV_CSC_VALS) {
+		pr_err("ADF: CM: Unexpected value count for CSC LUT\n");
+		return false;
+	}
+
+	csc_reg = _PIPE_CSC_BASE(pipe);
+
+	while (count < CHV_CSC_VALS) {
+		property->lut[count] = data[count];
+		c0 = data[count++] & CHV_CSC_VALUE_MASK;
+
+		property->lut[count] = data[count];
+		c1 = data[count++] & CHV_CSC_VALUE_MASK;
+
+		REG_WRITE(csc_reg, (c1 << CHV_CSC_COEFF_SHIFT) | c0);
+		csc_reg += 4;
+
+		/*
+		 * Last register has only one 16 bit value (C8)
+		 * to be programmed, other bits are Reserved
+		 */
+		if (count == 8) {
+			property->lut[count] = data[count];
+			c2 = data[count++] & CHV_CSC_VALUE_MASK;
+
+			REG_WRITE(csc_reg, c2);
+		}
+
+	}
+
+	/* Enable CSC on CGM_CONTROL register on respective pipe */
+	REG_WRITE(_PIPE_CGM_CONTROL(pipe),
+		REG_READ(_PIPE_CGM_CONTROL(pipe)) | CGM_CSC_EN);
+
+	pr_info("ADF: CM: Setting CSC on pipe = %d\n", pipe);
+
+	property->status = true;
+	pr_info("ADF: CM: CSC successfully set on pipe = %d\n", pipe);
+	return true;
+}
+
+bool chv_disable_csc(struct color_property *property, u8 pipe_id)
+{
+	u32 pipe, cgm_control_reg;
+
+	pipe = pipe_id;
+
+	/* Disable csc correction */
+	cgm_control_reg = REG_READ(_PIPE_CGM_CONTROL(pipe));
+	cgm_control_reg &= ~CGM_CSC_EN;
+	REG_WRITE(_PIPE_CGM_CONTROL(pipe), cgm_control_reg);
+
+	property->status = false;
+
+	/* Clear old values */
+	memset(property->lut, 0, property->len * sizeof(u64));
+	pr_info("ADF: CM: CSC disabled on pipe = %d\n", pipe);
+	return true;
+}
 
 bool chv_get_color_correction(void *props_data, int object_type)
 {
