@@ -676,31 +676,6 @@ void intel_console_resume(struct work_struct *work)
 	console_unlock();
 }
 
-static bool display_is_on(struct drm_device *dev)
-{
-	struct drm_connector *connector;
-	bool display_is_on = false;
-
-	drm_modeset_lock_all(dev);
-	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
-		if (!connector->encoder || !connector->encoder->crtc)
-			continue;
-		/*
-		 * If Display wasn't turned off, before going to suspend then
-		 * it should be re-enabled now, as we don't expect the DPMS ON
-		 * call to come in that case
-		 */
-		if (connector->dpms != DRM_MODE_DPMS_OFF) {
-			DRM_DEBUG_KMS("Display was on before suspend\n");
-			display_is_on = true;
-			break;
-		}
-	}
-	drm_modeset_unlock_all(dev);
-
-	return display_is_on;
-}
-
 static int i915_drm_thaw_early(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
