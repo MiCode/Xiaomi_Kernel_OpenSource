@@ -172,6 +172,9 @@ static int dp_pipe_modeset(struct intel_pipe *pipe,
 
 	pr_err("%s:FIXME: get bpp from edid\n", __func__);
 	bpp = 24;
+
+	/* Avoiding i915 enter into DPMS */
+	intel_adf_display_rpm_get();
 	dp_pipe_dump_modes(mode, 1);
 	vlv_dp_backlight_seq(pipeline, false);
 
@@ -254,9 +257,9 @@ static int dp_pipe_dpms(struct intel_pipe *pipe, u8 state)
 		vlv_dp_backlight_seq(pipeline, false);
 		vlv_dp_panel_power_seq(pipeline, false);
 		err = vlv_pipeline_off(pipeline);
+		intel_adf_display_rpm_put();
 		if (err != 0)
 			goto dpms_exit;
-		intel_adf_display_rpm_put();
 		break;
 	case DRM_MODE_DPMS_STANDBY:
 	case DRM_MODE_DPMS_SUSPEND:

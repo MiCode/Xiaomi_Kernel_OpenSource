@@ -281,6 +281,9 @@ static int hdmi_modeset(struct intel_pipe *pipe,
 
 	mutex_lock(&config->ctx_lock);
 
+	/* Avoiding i915 enter into DPMS */
+	intel_adf_display_rpm_get();
+
 	curr_mode = config->ctx.current_mode;
 	err = chv_pipeline_off(pipeline);
 	if (err) {

@@ -383,6 +383,9 @@ static int dsi_modeset(struct intel_pipe *pipe,
 	}
 
 	mutex_lock(&config->ctx_lock);
+
+	/* Avoiding i915 enter into DPMS */
+	intel_adf_display_rpm_get();
 	dsi_display_off(pipe);
 	dsi_display_on(pipe, mode);
 	mutex_unlock(&config->ctx_lock);
