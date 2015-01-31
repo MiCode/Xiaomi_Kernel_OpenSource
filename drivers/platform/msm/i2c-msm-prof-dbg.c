@@ -133,7 +133,7 @@ static const char * const i2c_msm_fifo_block_sz_str_tbl[]
 
 /* string table for qup_io_modes register */
 static const char * const i2c_msm_qup_mode_str_tbl[] = {
-	"FIFO", "Block", "Reserved", "BAM",
+	"FIFO", "Block", "Reserved", "DMA",
 };
 
 static const char * const i2c_msm_mini_core_str_tbl[] = {
@@ -422,28 +422,28 @@ const char *i2c_msm_dbg_tag_to_str(const struct i2c_msm_tag *tag,
 EXPORT_SYMBOL(i2c_msm_dbg_tag_to_str);
 
 const char *
-i2c_msm_dbg_bam_tag_to_str(const struct i2c_msm_bam_tag *bam_tag, char *buf,
+i2c_msm_dbg_dma_tag_to_str(const struct i2c_msm_dma_tag *dma_tag, char *buf,
 								size_t buf_len)
 {
 	const char *ret;
 	u32        *val;
 	struct i2c_msm_tag tag;
 
-	val = phys_to_virt(bam_tag->buf);
+	val = phys_to_virt(dma_tag->buf);
 	if (!val) {
-		pr_err("Failed phys_to_virt(0x%llx)", (u64) bam_tag->buf);
+		pr_err("Failed phys_to_virt(0x%llx)", (u64) dma_tag->buf);
 		return "Error";
 	}
 
 	tag = (struct i2c_msm_tag) {
 		.val = *val,
-		.len = bam_tag->len,
+		.len = dma_tag->len,
 	};
 
 	ret = i2c_msm_dbg_tag_to_str(&tag, buf, buf_len);
 	return ret;
 }
-EXPORT_SYMBOL(i2c_msm_dbg_bam_tag_to_str);
+EXPORT_SYMBOL(i2c_msm_dbg_dma_tag_to_str);
 
 /*
  * see: struct i2c_msm_qup_reg_dump for more
@@ -522,32 +522,32 @@ void i2c_msm_prof_dump_actv_end(struct i2c_msm_ctrl *ctrl,
 	    I2C_MSM_MAX_POLL_MSEC, event->data2);
 }
 
-void i2c_msm_prof_dump_bam_flsh(struct i2c_msm_ctrl *ctrl,
+void i2c_msm_prof_dump_dma_flsh(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
-	dev_info(ctrl->dev, "%3zu.%03zums  BAM_FLSH\n", msec, usec);
+	dev_info(ctrl->dev, "%3zu.%03zums  DMA_FLSH\n", msec, usec);
 }
 
 void i2c_msm_prof_dump_pip_dscn(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
-	struct i2c_msm_bam_pipe *pipe =
-			(struct i2c_msm_bam_pipe *) ((ulong) event->data0);
+	struct i2c_msm_dma_chan *chan =
+			(struct i2c_msm_dma_chan *) ((ulong) event->data0);
 	int ret = event->data1;
 	dev_info(ctrl->dev,
 		"%3zu.%03zums PIP_DCNCT sps_disconnect(hndl:0x%p %s):%d\n",
-		msec, usec, pipe->handle, pipe->name, ret);
+		msec, usec, chan->dma_chan, chan->name, ret);
 }
 
 void i2c_msm_prof_dump_pip_cnct(struct i2c_msm_ctrl *ctrl,
 		struct i2c_msm_prof_event *event, size_t msec, size_t usec)
 {
-	struct i2c_msm_bam_pipe *pipe =
-			(struct i2c_msm_bam_pipe *) ((ulong) event->data0);
+	struct i2c_msm_dma_chan *chan =
+			(struct i2c_msm_dma_chan *) ((ulong) event->data0);
 	int ret = event->data1;
 	dev_info(ctrl->dev,
 		"%3zu.%03zums PIP_CNCT sps_connect(hndl:0x%p %s):%d\n",
-		msec, usec, pipe->handle, pipe->name, ret);
+		msec, usec, chan->dma_chan, chan->name, ret);
 }
 
 void i2c_msm_prof_reset(struct i2c_msm_ctrl *ctrl,
