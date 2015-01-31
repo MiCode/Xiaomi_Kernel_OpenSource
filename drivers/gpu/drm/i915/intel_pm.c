@@ -28,6 +28,7 @@
 #include <linux/cpufreq.h>
 #include "i915_drv.h"
 #include "intel_drv.h"
+#include "i915_adf_wrapper.h"
 #include "../../../platform/x86/intel_ips.h"
 #include <linux/module.h>
 #include <linux/vgaarb.h>
@@ -7015,7 +7016,12 @@ static void chv_pipe_power_well_enable(struct drm_i915_private *dev_priv,
 		if (dev_priv->power_domains.initializing)
 			return;
 
-		intel_hpd_init(dev_priv->dev);
+#ifdef CONFIG_ADF_INTEL_VLV
+		if (i915.enable_intel_adf)
+			intel_adf_hpd_init(adf_ctx);
+		else
+#endif
+			intel_hpd_init(dev_priv->dev);
 
 		i915_redisable_vga_power_on(dev_priv->dev);
 	}
