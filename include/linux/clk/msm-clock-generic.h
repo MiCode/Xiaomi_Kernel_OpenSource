@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,6 +119,10 @@ struct div_data {
 	 * they are 2*N.
 	 */
 	bool is_half_divider;
+	/*
+	 * Skip odd dividers since the hardware may not support them.
+	 */
+	bool skip_odd_div;
 	unsigned int cached_div;
 };
 
