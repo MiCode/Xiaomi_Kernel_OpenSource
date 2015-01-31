@@ -1942,3 +1942,179 @@ int mdss_mdp_pipe_program_pixel_extn(struct mdss_mdp_pipe *pipe)
 	__mdss_mdp_pipe_program_pixel_extn_helper(pipe, 3, 32);
 	return 0;
 }
+
+
+static int __pxl_extn_helper(int residue)
+{
+	int tmp = 0;
+	if (residue == 0) {
+		return tmp;
+	} else if (residue > 0) {
+		tmp = (uint32_t) residue;
+		tmp >>= PHASE_STEP_SHIFT;
+		return -tmp;
+	} else {
+		tmp = (uint32_t)(-residue);
+		tmp >>= PHASE_STEP_SHIFT;
+		if ((tmp << PHASE_STEP_SHIFT) != (-residue))
+			tmp++;
+		return tmp;
+	}
+}
+
+/**
+ * mdss_mdp_calc_pxl_extn - Calculate source pipe's sw pixel extension
+ *
+ * @pipe:	Source pipe struct containing pixel extn values
+ *
+ * Function calculates the pixel extn values during scale setup.
+ */
+void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
+{
+	int caf, i;
+	uint32_t src_h;
+	uint32_t unity_scale = 0, upscale = 0;
+
+	if (!(pipe->src_fmt->is_yuv))
+		unity_scale = (pipe->src.w == pipe->dst.w);
+
+	if (!unity_scale)
+		upscale = (pipe->src.w <= pipe->dst.w);
+
+	pr_debug("pipe=%d, src(%d, %d, %d, %d), dest(%d, %d, %d, %d)\n",
+			pipe->num,
+			pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
+			pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h);
+
+	for (i = 0; i < MAX_PLANES; i++) {
+		int64_t left = 0, right = 0, top = 0, bottom = 0;
+		caf = 0;
+
+		/*
+		 * phase step x,y for 0 plane should be calculated before
+		 * this
+		 */
+		if (pipe->src_fmt->is_yuv) {
+			if (i == 1 || i == 2) {
+				pipe->scale.phase_step_x[i] =
+					pipe->scale.phase_step_x[0] / 2;
+				pipe->scale.phase_step_y[i] =
+					pipe->scale.phase_step_y[0] / 2;
+			} else {
+				pipe->scale.phase_step_x[i] =
+					pipe->scale.phase_step_x[0];
+				pipe->scale.phase_step_y[i] =
+					pipe->scale.phase_step_y[0];
+			}
+		} else {
+			pipe->scale.phase_step_x[i] =
+				pipe->scale.phase_step_x[0];
+			pipe->scale.phase_step_y[i] =
+				pipe->scale.phase_step_y[0];
+		}
+		/* Pixel extension calculations for X direction */
+		pipe->scale.roi_w[i] = DECIMATED_DIMENSION(pipe->src.w,
+			pipe->horz_deci);
+
+		if (pipe->src_fmt->is_yuv)
+			pipe->scale.roi_w[i] &= ~0x1;
+
+		/* CAF filtering on only luma plane */
+		if (i == 0 && pipe->src_fmt->is_yuv)
+			caf = 1;
+		if (i == 1 || i == 2)
+			pipe->scale.roi_w[i] >>= pipe->chroma_sample_h;
+
+		pr_debug("roi_w[%d]=%d, caf=%d\n", i, pipe->scale.roi_w[i],
+			caf);
+		if (unity_scale) {
+			left = 0;
+			right = 0;
+		} else if (!upscale) {
+			left = 0;
+			right = (pipe->dst.w - 1) *
+				pipe->scale.phase_step_x[i];
+			right -= (pipe->scale.roi_w[i] - 1) *
+				PHASE_STEP_UNIT_SCALE;
+			right += pipe->scale.phase_step_x[i];
+			right = -(right);
+		} else {
+			left = (1 << PHASE_RESIDUAL);
+			left -= (caf * PHASE_STEP_UNIT_SCALE);
+
+			right = (1 << PHASE_RESIDUAL);
+			right += (pipe->dst.w - 1) *
+				pipe->scale.phase_step_x[i];
+			right -= ((pipe->scale.roi_w[i] - 1) *
+				PHASE_STEP_UNIT_SCALE);
+			right += (caf * PHASE_STEP_UNIT_SCALE);
+			right = -(right);
+		}
+		pr_debug("left=%lld, right=%lld\n", left, right);
+		pipe->scale.num_ext_pxls_left[i] = __pxl_extn_helper(left);
+		pipe->scale.num_ext_pxls_right[i] = __pxl_extn_helper(right);
+
+		/* Pixel extension calculations for Y direction */
+		unity_scale = 0;
+		upscale = 0;
+		src_h = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
+
+		/* Subsampling of chroma components is factored */
+		if (i == 1 || i == 2)
+			src_h >>= pipe->chroma_sample_v;
+
+		if (!(pipe->src_fmt->is_yuv))
+			unity_scale = (src_h == pipe->dst.h);
+
+		if (!unity_scale)
+			upscale = (src_h <= pipe->dst.h);
+
+		if (unity_scale) {
+			top = 0;
+			bottom = 0;
+		} else if (!upscale) {
+			top = 0;
+			bottom = (pipe->dst.h - 1) *
+				pipe->scale.phase_step_y[i];
+			bottom -= (src_h - 1) * PHASE_STEP_UNIT_SCALE;
+			bottom += pipe->scale.phase_step_y[i];
+			bottom = -(bottom);
+		} else {
+			top = (1 << PHASE_RESIDUAL);
+			top -= (caf * PHASE_STEP_UNIT_SCALE);
+
+			bottom = (1 << PHASE_RESIDUAL);
+			bottom += (pipe->dst.h - 1) *
+				pipe->scale.phase_step_y[i];
+			bottom -= (src_h - 1) * PHASE_STEP_UNIT_SCALE;
+			bottom += (caf * PHASE_STEP_UNIT_SCALE);
+			bottom = -(bottom);
+		}
+
+		pipe->scale.num_ext_pxls_top[i] = __pxl_extn_helper(top);
+		pipe->scale.num_ext_pxls_btm[i] = __pxl_extn_helper(bottom);
+
+		/* Single pixel rgb scale adjustment */
+		if ((!(pipe->src_fmt->is_yuv)) &&
+			((pipe->src.h - pipe->dst.h) == 1)) {
+
+			uint32_t residue = pipe->scale.phase_step_y[i] -
+				PHASE_STEP_UNIT_SCALE;
+			uint32_t result = (pipe->dst.h * residue) + residue;
+			if (result < PHASE_STEP_UNIT_SCALE)
+				pipe->scale.num_ext_pxls_btm[i] -= 1;
+		}
+
+		pipe->scale.left_rpt[i] = pipe->scale.num_ext_pxls_left[i];
+		pipe->scale.right_rpt[i] = pipe->scale.num_ext_pxls_right[i];
+		pipe->scale.top_rpt[i] = pipe->scale.num_ext_pxls_top[i];
+		pipe->scale.btm_rpt[i] = pipe->scale.num_ext_pxls_btm[i];
+		pr_debug("plane=%d, left=%d, right=%d, top=%d, btm=%d\n",
+				i, pipe->scale.left_rpt[i],
+				pipe->scale.right_rpt[i],
+				pipe->scale.top_rpt[i],
+				pipe->scale.btm_rpt[i]);
+	}
+
+	pipe->scale.enable_pxl_ext = 1;
+}

@@ -979,6 +979,9 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 	else
 		filter_mode = MDSS_MDP_SCALE_FILTER_BIL;
 
+	if (pipe->scale.enable_pxl_ext)
+		mdss_mdp_pipe_program_pixel_extn(pipe);
+
 	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA) {
 		if (pipe->dst.h != pipe->src.h || pipe->dst.w != pipe->src.w) {
 			pr_err("no scaling supported on dma pipe\n");
@@ -1172,8 +1175,6 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 				pipe->base +
 				MDSS_MDP_REG_SCALE_INIT_PHASE_Y);
 		}
-		/*program pixel extn values for the SSPP*/
-		mdss_mdp_pipe_program_pixel_extn(pipe);
 	} else {
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
 			/*program x,y initial phase and phase step*/
