@@ -1588,15 +1588,13 @@ int atomisp_stream_on_master_slave_sensor(struct atomisp_device *isp, bool isp_t
 			 isp->inputs[slave].camera->name);
 	}
 
-	if (isp_timeout) {
-		ret = v4l2_subdev_call(isp->inputs[master].camera, core,
-				       ioctl, ATOMISP_IOC_G_DEPTH_SYNC_COMP,
-				       &delay_slave);
-		if (ret)
-			dev_warn(isp->dev,
-				 "get depth sensor %s compensation delay failed.\n",
-				 isp->inputs[master].camera->name);
-	}
+	ret = v4l2_subdev_call(isp->inputs[master].camera, core,
+			       ioctl, ATOMISP_IOC_G_DEPTH_SYNC_COMP,
+			       &delay_slave);
+	if (ret)
+		dev_warn(isp->dev,
+			 "get depth sensor %s compensation delay failed.\n",
+			 isp->inputs[master].camera->name);
 
 	ret = v4l2_subdev_call(isp->inputs[master].camera,
 			       video, s_stream, 1);
@@ -1606,7 +1604,7 @@ int atomisp_stream_on_master_slave_sensor(struct atomisp_device *isp, bool isp_t
 		return -EINVAL;
 	}
 
-	if (isp_timeout && delay_slave != 0)
+	if (delay_slave != 0)
 		udelay(delay_slave);
 
 	ret = v4l2_subdev_call(isp->inputs[slave].camera,

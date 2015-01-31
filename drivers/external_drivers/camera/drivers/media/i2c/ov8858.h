@@ -182,7 +182,7 @@ struct ov8858_vcm {
 
 #define MAX_FPS_OPTIONS_SUPPORTED		3
 
-#define OV8858_DEPTH_COMP_CONST			3200
+#define OV8858_DEPTH_COMP_CONST			2200
 #define OV8858_DEPTH_VTS_CONST			2573
 
 enum ov8858_tok_type {

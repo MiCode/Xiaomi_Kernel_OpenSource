@@ -672,7 +672,11 @@ static int ov8858_g_comp_delay(struct v4l2_subdev *sd, unsigned int *usec)
 	if (ret || vts == 0)
 		vts = OV8858_DEPTH_VTS_CONST;
 
-	*usec = (exposure * 33333 / vts) - OV8858_DEPTH_COMP_CONST;
+	*usec = (exposure * 33333 / vts);
+	if (*usec >  OV8858_DEPTH_COMP_CONST)
+		*usec = *usec  - OV8858_DEPTH_COMP_CONST;
+	else
+		*usec = OV8858_DEPTH_COMP_CONST;
 
 	return 0;
 }
