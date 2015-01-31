@@ -37,6 +37,8 @@ const struct color_property vlv_pipe_color_corrections[] = {
 		.prop_id = csc,
 		.len = VLV_CSC_VALS,
 		.name = "csc-correction",
+		.set_property = vlv_set_csc,
+		.disable_property = vlv_disable_csc,
 		.validate = vlv_validate,
 	},
 
@@ -89,6 +91,73 @@ const struct color_property vlv_plane_color_corrections[] = {
 		.validate = vlv_validate
 	}
 };
+
+/* Core function to program CSC regs */
+bool vlv_set_csc(struct color_property *property, u64 *data, u8 pipe_id)
+{
+	u32 count = 0;
+	u32 pipeconf, csc_reg, data_size, pipe;
+	u32 c0, c1, c2;
+
+	pipe = pipe_id;
+	data_size = property->len;
+
+	/* Validate input */
+	if (data_size != VLV_CSC_VALS) {
+		pr_err("ADF: CM: Unexpected value count for CSC LUT\n");
+		return false;
+	}
+
+	pr_info("ADF: CM: Setting CSC on pipe = %d\n", pipe);
+	csc_reg = PIPECSC(pipe);
+
+	/* Read CSC matrix, one row at a time */
+	while (count < VLV_CSC_VALS) {
+		property->lut[count] = data[count];
+		c0 = data[count++] & VLV_CSC_VALUE_MASK;
+
+		property->lut[count] = data[count];
+		c1 = data[count++] & VLV_CSC_VALUE_MASK;
+
+		property->lut[count] = data[count];
+		c2 = data[count++] & VLV_CSC_VALUE_MASK;
+
+		/* C0 is LSB 12bits, C1 is MSB 16-27 */
+		REG_WRITE(csc_reg, (c1 << VLV_CSC_COEFF_SHIFT) | c0);
+		csc_reg += 4;
+
+		/* C2 is LSB 12 bits */
+		REG_WRITE(csc_reg, c2);
+		csc_reg += 4;
+	}
+
+	/* Enable csc correction */
+	pipeconf = (REG_READ(PIPECONF(pipe)) | PIPECONF_CSC_ENABLE);
+	REG_WRITE(PIPECONF(pipe), pipeconf);
+
+	property->status = true;
+	pr_info("ADF: CM: CSC successfully set on pipe = %d\n", pipe);
+	return true;
+}
+
+bool vlv_disable_csc(struct color_property *property, u8 pipe_id)
+{
+	u32 pipeconf, pipe;
+
+	pipe = pipe_id;
+
+	/* Disable csc correction */
+	pipeconf = REG_READ(PIPECONF(pipe));
+	pipeconf &= ~PIPECONF_CSC_ENABLE;
+	REG_WRITE(PIPECONF(pipe), pipeconf);
+
+	property->status = false;
+
+	/* Clear old values */
+	memset(property->lut, 0, property->len * sizeof(u64));
+	pr_info("ADF: CM: CSC disabled on pipe = %d\n", pipe);
+	return true;
+}
 
 bool vlv_get_color_correction(void *props_data, int object_type)
 {
