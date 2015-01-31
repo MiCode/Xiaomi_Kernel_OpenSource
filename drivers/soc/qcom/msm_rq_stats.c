@@ -200,12 +200,6 @@ static struct kobj_attribute hotplug_disabled_attr = __ATTR_RO(hotplug_disable);
 
 static void def_work_fn(struct work_struct *work)
 {
-	int64_t diff;
-
-	diff = ktime_to_ns(ktime_get()) - rq_info.def_start_time;
-	do_div(diff, 1000 * 1000);
-	rq_info.def_interval = (unsigned int) diff;
-
 	/* Notify polling threads on change of value */
 	sysfs_notify(rq_info.kobj, NULL, "def_timer_ms");
 }
@@ -268,7 +262,14 @@ static struct kobj_attribute run_queue_poll_ms_attr =
 static ssize_t show_def_timer_ms(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	return snprintf(buf, MAX_LONG_SIZE, "%u\n", rq_info.def_interval);
+	int64_t diff;
+	unsigned int udiff;
+
+	diff = ktime_to_ns(ktime_get()) - rq_info.def_start_time;
+	do_div(diff, 1000 * 1000);
+	udiff = (unsigned int) diff;
+
+	return snprintf(buf, MAX_LONG_SIZE, "%u\n", udiff);
 }
 
 static ssize_t store_def_timer_ms(struct kobject *kobj,
