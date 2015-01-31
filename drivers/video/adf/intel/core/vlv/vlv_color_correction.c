@@ -66,6 +66,8 @@ const struct color_property vlv_plane_color_corrections[] = {
 		.prop_id = contrast,
 		.len = VLV_CB_VALS,
 		.name = "contrast",
+		.set_property = vlv_set_contrast,
+		.disable_property = vlv_disable_contrast,
 		.validate = vlv_validate,
 	},
 
@@ -74,6 +76,8 @@ const struct color_property vlv_plane_color_corrections[] = {
 		.prop_id = brightness,
 		.len = VLV_CB_VALS,
 		.name = "brightness",
+		.set_property = vlv_set_brightness,
+		.disable_property = vlv_disable_brightness,
 		.validate = vlv_validate,
 	},
 
@@ -93,6 +97,88 @@ const struct color_property vlv_plane_color_corrections[] = {
 		.validate = vlv_validate
 	}
 };
+
+bool vlv_set_brightness(struct color_property *property, u64 *data, u8 plane_id)
+{
+	u32 val, new_val, reg, sprite;
+
+	/* If sprite plane enabled */
+	sprite = plane_id;
+	if (!(REG_READ(VLV_CLRMGR_SPCNTR(sprite)) &
+			SP_ENABLE)) {
+		pr_err("ADF: CM: Sprite plane %d not enabled\n", sprite);
+		return false;
+	}
+
+	reg = VLV_CLRMGR_SPCB(sprite);
+
+	/* Clear current values */
+	val = REG_READ(reg) & ~(VLV_BRIGHTNESS_MASK);
+
+	/*Get new values */
+	new_val = *data & VLV_BRIGHTNESS_MASK;
+
+	/* Update */
+	val |= new_val;
+	REG_WRITE(reg, val);
+	property->lut[0] = new_val;
+
+	/* Set status */
+	if (new_val == VLV_BRIGHTNESS_DEFAULT)
+		property->status = false;
+	else
+		property->status = true;
+	pr_info("ADF: CM: Set Brightness correction to %d successful\n",
+								new_val);
+	return true;
+}
+
+bool vlv_disable_brightness(struct color_property *property, u8 plane_id)
+{
+	u64 data = VLV_BRIGHTNESS_DEFAULT;
+	return vlv_set_brightness(property, &data, plane_id);
+}
+
+bool vlv_set_contrast(struct color_property *property, u64 *data, u8 plane_id)
+{
+	u32 val, new_val, reg, sprite;
+
+	/* If sprite plane enabled */
+	sprite = plane_id;
+	if (!(REG_READ(VLV_CLRMGR_SPCNTR(sprite)) &
+			SP_ENABLE)) {
+		pr_err("ADF: CM: Sprite plane %d not enabled\n", sprite);
+		return false;
+	}
+
+	reg = VLV_CLRMGR_SPCB(sprite);
+
+	/* Clear current value. Contrast correction position is bit [26:18] */
+	val = REG_READ(reg) &
+		~(VLV_CONTRAST_MASK << VLV_CONTRAST_SHIFT);
+
+	/* Get new value */
+	new_val = *data & VLV_CONTRAST_MASK;
+
+	/* Update */
+	val |= (new_val << VLV_CONTRAST_SHIFT);
+	REG_WRITE(reg, val);
+	property->lut[0] = new_val;
+
+	/* Set status */
+	if (new_val == VLV_CONTRAST_DEFAULT)
+		property->status = false;
+	else
+		property->status = true;
+	pr_info("ADF: CM: Set Contrast to 0x%x successful\n", new_val);
+	return true;
+}
+
+bool vlv_disable_contrast(struct color_property *property, u8 plane_id)
+{
+	u64 data = VLV_CONTRAST_DEFAULT;
+	return vlv_set_contrast(property, &data, plane_id);
+}
 
 /* Core function to apply 10-bit gamma correction */
 bool vlv_set_gamma(struct color_property *property, u64 *data, u8 pipe_id)
