@@ -376,6 +376,12 @@ static int dsi_modeset(struct intel_pipe *pipe,
 		return err;
 	}
 
+	/* Avoid duplicate modesets */
+	if (dsi_pipe->dpms_state == DRM_MODE_DPMS_ON) {
+		pr_info("ADF: %s: DSI already enabled\n", __func__);
+		return err;
+	}
+
 	mutex_lock(&config->ctx_lock);
 	dsi_display_off(pipe);
 	dsi_display_on(pipe, mode);
