@@ -52,6 +52,7 @@ Optional Properties:
 - therm-bias-supply			The supply that provides bias voltage to the battery
 					thermistor. This is useful in designs that do not use the SYSON
 					pin to bias the thermistor.
+- usb-pullup-supply			The supply regulator that act as pull-up for USB data lines.
 - qcom,parallel-charger:		A flag to indicate if the charger merely assists for USB
 					charging. In this case the input current from USB is split
 					between a main charger and smb135x for reducing thermal impact
