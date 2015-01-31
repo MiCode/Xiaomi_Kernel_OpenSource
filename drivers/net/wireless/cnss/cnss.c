@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1698,14 +1698,24 @@ again:
 
 		if (ret) {
 			pr_err("%s: pci registration failed\n", __func__);
-			goto err_pcie_link_up;
+			goto err_pcie_reg;
 		}
 		pdev = penv->pdev;
 		if (!pdev) {
 			pr_err("%s: pdev is still invalid\n", __func__);
-			goto err_pcie_link_up;
+			goto err_pcie_reg;
 		}
 	}
+
+	penv->event_reg.events = MSM_PCIE_EVENT_LINKDOWN |
+			MSM_PCIE_EVENT_WAKEUP;
+	penv->event_reg.user = pdev;
+	penv->event_reg.mode = MSM_PCIE_TRIGGER_CALLBACK;
+	penv->event_reg.callback = cnss_pci_events_cb;
+	penv->event_reg.options = MSM_PCIE_CONFIG_NO_RECOVERY;
+	ret = msm_pcie_register_event(&penv->event_reg);
+	if (ret)
+		pr_err("%s: PCIe event register failed! %d\n", __func__, ret);
 
 	if (!penv->pcie_link_state && !penv->pcie_link_down_ind) {
 		ret = msm_pcie_pm_control(MSM_PCIE_RESUME,
@@ -1726,14 +1736,15 @@ again:
 			pr_err("PCIe link bring-up failed (link down option)\n");
 			goto err_pcie_link_up;
 		}
+		penv->pcie_link_state = PCIE_LINK_UP;
+
 		ret = msm_pcie_recover_config(pdev);
 		if (ret) {
 			pr_err("cnss: PCI link failed to recover\n");
-			goto err_pcie_recover;
+			goto err_pcie_link_up;
 		}
 		penv->pcie_link_down_ind = false;
 	}
-	penv->pcie_link_state = PCIE_LINK_UP;
 
 	if (!cnss_wlan_is_codeswap_supported(penv->revision_id))
 		cnss_wlan_memory_expansion();
@@ -1755,6 +1766,7 @@ again:
 			}
 			pci_save_state(pdev);
 			penv->saved_state = pci_store_saved_state(pdev);
+			msm_pcie_deregister_event(&penv->event_reg);
 			msm_pcie_pm_control(MSM_PCIE_SUSPEND,
 					    cnss_get_pci_dev_bus_number(pdev),
 					    pdev, NULL, PM_OPTIONS);
@@ -1768,19 +1780,6 @@ again:
 		}
 	}
 
-	penv->event_reg.events = MSM_PCIE_EVENT_LINKDOWN |
-			MSM_PCIE_EVENT_WAKEUP;
-	penv->event_reg.user = pdev;
-	penv->event_reg.mode = MSM_PCIE_TRIGGER_CALLBACK;
-	penv->event_reg.callback = cnss_pci_events_cb;
-	penv->event_reg.options = MSM_PCIE_CONFIG_NO_RECOVERY;
-	ret = msm_pcie_register_event(&penv->event_reg);
-	if (ret) {
-		pr_err("%s: PCI link down detect register failed %d\n",
-				__func__, ret);
-		ret = 0;
-	}
-
 	if (penv->notify_modem_status && wdrv->modem_status)
 		wdrv->modem_status(pdev, penv->modem_current_status);
 
@@ -1789,13 +1788,17 @@ again:
 err_wlan_probe:
 	pci_save_state(pdev);
 	penv->saved_state = pci_store_saved_state(pdev);
-err_pcie_recover:
-	msm_pcie_pm_control(MSM_PCIE_SUSPEND,
-			    cnss_get_pci_dev_bus_number(pdev),
-			    pdev, NULL, PM_OPTIONS);
-	penv->pcie_link_state = PCIE_LINK_DOWN;
 
 err_pcie_link_up:
+	msm_pcie_deregister_event(&penv->event_reg);
+	if (penv->pcie_link_state) {
+		msm_pcie_pm_control(MSM_PCIE_SUSPEND,
+				    cnss_get_pci_dev_bus_number(pdev),
+				    pdev, NULL, PM_OPTIONS);
+		penv->pcie_link_state = PCIE_LINK_DOWN;
+	}
+
+err_pcie_reg:
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
 	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
 	if (pdev) {
@@ -1846,6 +1849,8 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 	wcnss_prealloc_check_memory_leak();
 	wcnss_pre_alloc_reset();
 
+	msm_pcie_deregister_event(&penv->event_reg);
+
 	if (penv->pcie_link_state && !penv->pcie_link_down_ind) {
 		pci_save_state(pdev);
 		penv->saved_state = pci_store_saved_state(pdev);
@@ -1871,8 +1876,6 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 	atomic_set(&penv->auto_suspend_prevent_count, 0);
 	penv->monitor_wake_intr = false;
 	atomic_set(&penv->auto_suspended, 0);
-
-	msm_pcie_deregister_event(&penv->event_reg);
 
 cut_power:
 	penv->driver = NULL;
