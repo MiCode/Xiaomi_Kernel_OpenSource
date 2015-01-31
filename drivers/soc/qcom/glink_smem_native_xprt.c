@@ -1152,6 +1152,27 @@ static int ssr(struct glink_transport_if *if_ptr)
 }
 
 /**
+ * int wait_link_down() - Check status of read/write indices
+ * @if_ptr:	The transport to check
+ *
+ * Return: 1 if indices are all zero, 0 otherwise
+ */
+int wait_link_down(struct glink_transport_if *if_ptr)
+{
+	struct edge_info *einfo;
+
+	einfo = container_of(if_ptr, struct edge_info, xprt_if);
+
+	if (einfo->tx_ch_desc->write_index == 0 &&
+		einfo->tx_ch_desc->read_index == 0 &&
+		einfo->rx_ch_desc->write_index == 0 &&
+		einfo->rx_ch_desc->read_index == 0)
+		return 1;
+	else
+		return 0;
+}
+
+/**
  * allocate_rx_intent() - allocate/reserve space for RX Intent
  * @if_ptr:	The transport the intent is associated with.
  * @size:	size of intent.
@@ -1640,6 +1661,7 @@ static void init_xprt_if(struct edge_info *einfo)
 	einfo->xprt_if.tx_cmd_set_sigs = tx_cmd_set_sigs;
 	einfo->xprt_if.poll = poll;
 	einfo->xprt_if.mask_rx_irq = mask_rx_irq;
+	einfo->xprt_if.wait_link_down = wait_link_down;
 }
 
 /**
