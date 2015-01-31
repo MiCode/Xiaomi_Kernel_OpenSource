@@ -45,6 +45,28 @@ struct usm_stream_cmd_open_write {
 
 #define USM_STREAM_CMD_CLOSE				0x0001230A
 
+#define USM_STREAM_CMD_SET_PARAM			0x00012731
+struct usm_stream_cmd_set_param {
+	struct apr_hdr hdr;
+	u32            buf_addr_lsw;
+	u32            buf_addr_msw;
+	u32            mem_map_handle;
+	u32            buf_size;
+	u32            module_id;
+	u32            param_id;
+} __packed;
+
+#define USM_STREAM_CMD_GET_PARAM			0x00012732
+struct usm_stream_cmd_get_param {
+	struct apr_hdr hdr;
+	u32            buf_addr_lsw;
+	u32            buf_addr_msw;
+	u32            mem_map_handle;
+	u32            buf_size;
+	u32            module_id;
+	u32            param_id;
+} __packed;
+
 /* Encoder configuration definitions */
 #define USM_STREAM_CMD_SET_ENC_PARAM			0x0001230B
 /* Decoder configuration definitions */

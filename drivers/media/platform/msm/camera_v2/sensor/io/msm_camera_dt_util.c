@@ -823,6 +823,24 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_NOW]);
 	}
 
+	if (of_property_read_bool(of_node, "qcom,gpio-af-pwdm") == true) {
+		rc = of_property_read_u32(of_node, "qcom,gpio-af-pwdm", &val);
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-af-pwdm failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-af-pwdm invalid %d\n",
+				__func__, __LINE__, val);
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_AF_PWDM] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_AF_PWDM] = 1;
+		CDBG("%s qcom,gpio-af-pwdm %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_AF_PWDM]);
+	}
+
 	return rc;
 
 ERROR:
@@ -1162,9 +1180,9 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 		sensor_i2c_client->i2c_func_tbl->i2c_util(
 			sensor_i2c_client, MSM_CCI_RELEASE);
 
-	for (index = 0; index < ctrl->power_down_setting_size; index++) {
+	for (index = 0; index < ctrl->power_setting_size; index++) {
 		CDBG("%s index %d\n", __func__, index);
-		pd = &ctrl->power_down_setting[index];
+		pd = &ctrl->power_setting[index];
 		ps = NULL;
 		CDBG("%s type %d\n", __func__, pd->seq_type);
 		switch (pd->seq_type) {

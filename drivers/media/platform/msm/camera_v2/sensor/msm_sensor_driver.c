@@ -314,6 +314,7 @@ static int32_t msm_sensor_validate_slave_info(
 	return 0;
 }
 
+extern int h3lte_get_front_sensor_name(char*);
 /* static function definition */
 int32_t msm_sensor_driver_probe(void *setting)
 {
@@ -329,6 +330,7 @@ int32_t msm_sensor_driver_probe(void *setting)
 	int c, end;
 	struct msm_sensor_power_setting     power_down_setting_t;
 	unsigned long mount_pos = 0;
+	char h3lte_sensor_name[32];
 
 	/* Validate input parameters */
 	if (!setting) {
@@ -349,15 +351,27 @@ int32_t msm_sensor_driver_probe(void *setting)
 		goto FREE_SLAVE_INFO;
 	}
 
+	if (strcmp(slave_info->eeprom_name, "sunny_ov5693_p5v40a") == 0) {
+		h3lte_get_front_sensor_name(h3lte_sensor_name);
+		if (strcmp(slave_info->sensor_name, h3lte_sensor_name) != 0) {
+			printk("%s %d: sensor name not match!\n", __func__, __LINE__);
+			rc = -EFAULT;
+			goto FREE_SLAVE_INFO;
+		}
+	}
 	/* Print slave info */
-	CDBG("camera id %d", slave_info->camera_id);
-	CDBG("slave_addr %x", slave_info->slave_addr);
-	CDBG("addr_type %d", slave_info->addr_type);
-	CDBG("sensor_id_reg_addr %x",
+	CDBG("get front sensor name %s\n", h3lte_sensor_name);
+	CDBG("sensor name %s\n", slave_info->sensor_name);
+	CDBG("eeprom name %s\n", slave_info->eeprom_name);
+	CDBG("actuator name %s\n", slave_info->actuator_name);
+	CDBG("camera id %d\n", slave_info->camera_id);
+	CDBG("slave_addr %x\n", slave_info->slave_addr);
+	CDBG("addr_type %d\n", slave_info->addr_type);
+	CDBG("sensor_id_reg_addr %x\n",
 		slave_info->sensor_id_info.sensor_id_reg_addr);
-	CDBG("sensor_id %x", slave_info->sensor_id_info.sensor_id);
-	CDBG("size %d", slave_info->power_setting_array.size);
-	CDBG("size down %d", slave_info->power_setting_array.size_down);
+	CDBG("sensor_id %x\n", slave_info->sensor_id_info.sensor_id);
+	CDBG("size %d\n", slave_info->power_setting_array.size);
+	CDBG("size down %d\n", slave_info->power_setting_array.size_down);
 
 	if (slave_info->is_init_params_valid) {
 		CDBG("position %d",

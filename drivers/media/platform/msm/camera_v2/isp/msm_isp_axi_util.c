@@ -503,7 +503,8 @@ void msm_isp_calculate_framedrop(
 
 	framedrop_period = msm_isp_get_framedrop_period(
 			stream_cfg_cmd->frame_skip_pattern);
-
+	stream_info->frame_skip_pattern =
+			stream_cfg_cmd->frame_skip_pattern;
 	if (stream_cfg_cmd->frame_skip_pattern == SKIP_ALL)
 		stream_info->framedrop_pattern = 0x0;
 	else
@@ -1354,9 +1355,9 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 	cur_stream_cnt = msm_isp_get_curr_stream_cnt(vfe_dev);
 	if (cur_stream_cnt == 0) {
 		if (camif_update == DISABLE_CAMIF_IMMEDIATELY) {
-			vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev);
+			vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);
 		}
-		vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, ISP_RST_HARD);
+		vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, ISP_RST_HARD, 1);
 		vfe_dev->hw_info->vfe_ops.core_ops.init_hw_reg(vfe_dev);
 	}
 

@@ -6,6 +6,7 @@
  * master many USB gadgets, but the gadgets are only slaved to one host.
  *
  *
+ * Copyright (C) 2015 XiaoMi, Inc. All Rights Reserved.
  * (C) Copyright 2002-2004 by David Brownell
  * All Rights Reserved.
  *
@@ -528,6 +529,13 @@ struct usb_gadget_ops {
  * driver suspend() calls.  They are valid only when is_otg, and when the
  * device is acting as a B-Peripheral (so is_a_peripheral is false).
  */
+#define GADGET_STATE_PROCESS(x) (0x0f & (x))
+#define GADGET_STATE_DONE(x)	(0xf0 & (x))
+#define GADGET_STATE_IDLE				0x00
+#define GADGET_STATE_PROCESS_GET		0x01
+#define GADGET_STATE_PROCESS_SET		0x02
+#define GADGET_STATE_DONE_SET			0x12
+#define GADGET_STATE_DONE_RESET			0x14
 struct usb_gadget {
 	/* readonly to gadget driver */
 	const struct usb_gadget_ops	*ops;
@@ -545,9 +553,10 @@ struct usb_gadget {
 	unsigned			otg_srp_reqd:1;
 	const char			*name;
 	struct device			dev;
-	u8				usb_core_id;
+	u8						usb_core_id;
 	bool				l1_supported;
 	bool				streaming_enabled;
+	u8					usb_sys_state;
 };
 
 static inline void set_gadget_data(struct usb_gadget *gadget, void *data)
@@ -831,6 +840,7 @@ static inline int usb_gadget_disconnect(struct usb_gadget *gadget)
  * be cleared, to make the device behave identically whether or not
  * power is maintained.
  */
+
 struct usb_gadget_driver {
 	char			*function;
 	enum usb_device_speed	max_speed;

@@ -186,7 +186,7 @@
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 			<0x6 0x2>,
 			<0x7C0 0x3>;
-		qcom,max-hw-load = <352800>; /* 720p @ 30 + 1080p @ 30 */
+		qcom,max-hw-load = <730800>; /* 720p @ 30 + 1080p @ 30 */
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
 				qcom,vidc-domain-phandle = <&venus_domain_ns>;
@@ -278,7 +278,7 @@
 		qcom,vdd-voltage-level = <1 5 7>;
 
 		qcom,hsusb-otg-phy-init-seq =
-			<0x44 0x80 0x68 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
+			<0x74 0x80 0x6C 0x81 0x34 0x82 0x13 0x83 0xffffffff>;
 		qcom,hsusb-otg-phy-type = <2>;
 		qcom,hsusb-otg-mode = <1>;
 		qcom,hsusb-otg-otg-control = <2>;
@@ -425,18 +425,6 @@
 		qcom,prim-auxpcm-gpio-din  = <&msmgpio 65 0>;
 		qcom,prim-auxpcm-gpio-dout = <&msmgpio 66 0>;
 		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
-	};
-
-	sound-9302 {
-		compatible = "qcom,msm8226-audio-tapan";
-		qcom,model = "msm8226-tapan9302-snd-card";
-		qcom,tapan-mclk-clk-freq = <9600000>;
-		qcom,prim-auxpcm-gpio-clk  = <&msmgpio 63 0>;
-		qcom,prim-auxpcm-gpio-sync = <&msmgpio 64 0>;
-		qcom,prim-auxpcm-gpio-din  = <&msmgpio 65 0>;
-		qcom,prim-auxpcm-gpio-dout = <&msmgpio 66 0>;
-		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
-		qcom,tapan-codec-9302;
 	};
 
 	qcom,msm-pcm {
@@ -1030,7 +1018,22 @@
 		qcom,scl-gpio = <&msmgpio 19 0>;
 	};
 
-	qcom,clock-a7@f9011050 {
+	i2c@f9928000 { /* BLSP1 QUP6 */
+                cell-index = <6>;
+                compatible = "qcom,i2c-qup";
+                #address-cells = <1>;
+                #size-cells = <0>;
+                reg-names = "qup_phys_addr";
+                reg = <0xf9928000 0x1000>;
+                interrupt-names = "qup_err_intr";
+                interrupts = <0 100 0>;
+                qcom,i2c-bus-freq = <384000>;
+                qcom,i2c-src-freq = <19200000>;
+                qcom,sda-gpio = <&msmgpio 22 0>;
+                qcom,scl-gpio = <&msmgpio 23 0>;
+        };
+
+        qcom,clock-a7@f9011050 {
 		compatible = "qcom,clock-a7-8226";
 		reg = <0xf9011050 0x8>;
 		reg-names = "rcg-base";

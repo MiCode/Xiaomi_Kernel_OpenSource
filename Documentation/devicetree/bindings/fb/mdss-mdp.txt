@@ -27,6 +27,14 @@ Required properties
 				to the respective VIG pipes. Number of xin ids
 				defined should match the number of offsets
 				defined in property: qcom,mdss-pipe-vig-off
+- qcom,mdss-pipe-vig-clk-ctrl-off: Array of offsets describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register and 3rd value represents bit
+				offset within status register. Number of tuples
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-vig-off
 - qcom,mdss-pipe-rgb-off:	Array of offsets for MDP source surface pipes of
 				type RGB, the offsets are calculated from
 				register "mdp_phys" defined in reg property.
@@ -42,6 +50,14 @@ Required properties
 				to the respective RGB pipes. Number of xin ids
 				defined should match the number of offsets
 				defined in property: qcom,mdss-pipe-rgb-off
+- qcom,mdss-pipe-rgb-clk-ctrl-off: Array of offsets describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register and 3rd value represents bit
+				offset within status register. Number of tuples
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-rgb-off
 - qcom,mdss-pipe-dma-off:	Array of offsets for MDP source surface pipes of
 				type DMA, the offsets are calculated from
 				register "mdp_phys" defined in reg property.
@@ -55,6 +71,14 @@ Required properties
 				defined in property: qcom,mdss-pipe-dma-off
 - qcom,mdss-pipe-dma-xin-id:	Array of VBIF clients ids (xins) corresponding
 				to the respective DMA pipes. Number of xin ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-dma-off
+- qcom,mdss-pipe-dma-clk-ctrl-off: Array of offsets describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register and 3rd value represents bit
+				offset within status register. Number of tuples
 				defined should match the number of offsets
 				defined in property: qcom,mdss-pipe-dma-off
 - qcom,mdss-smp-data:		Array of shared memory pool data. There should
@@ -370,6 +394,19 @@ Example:
 		qcom,mdss-has-decimation;
 		qcom,mdss-has-wfd-blk;
 		qcom,mdss-no-lut-read;
+
+		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x3AC 0 0>,
+						      <0x3B4 0 0>,
+						      <0x3BC 0 0>,
+						      <0x3C4 0 0>;
+
+		qcom,mdss-pipe-rgb-clk-ctrl-offsets = <0x3AC 4 8>,
+						      <0x3B4 4 8>,
+						      <0x3BC 4 8>,
+						      <0x3C4 4 8>;
+
+		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x3AC 8 12>,
+						      <0x3B4 8 12>;
 
 		qcom,mdss-ctl-off = <0x00000600 0x00000700 0x00000800
 				     0x00000900 0x0000A00>;

@@ -30,7 +30,7 @@ static void msm_led_torch_brightness_set(struct led_classdev *led_cdev,
 };
 
 static struct led_classdev msm_torch_led = {
-	.name			= "torch-light",
+	.name			= "flashlight",
 	.brightness_set	= msm_led_torch_brightness_set,
 	.brightness		= LED_OFF,
 };

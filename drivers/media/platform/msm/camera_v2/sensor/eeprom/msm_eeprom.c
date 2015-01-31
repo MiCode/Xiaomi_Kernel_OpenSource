@@ -54,6 +54,54 @@ static int msm_eeprom_verify_sum(const char *mem, uint32_t size, uint32_t sum)
 	return 0;
 }
 
+static int h3lte_set_front_sensor_name = 0;
+static char h3lte_front_sensor_name[32];
+static void h3lte_set_sensor_name(char* eeprom_name, char* mapdata)
+{
+	uint8_t *memptr;
+	int i = 0;
+
+	if ((eeprom_name == NULL) || (mapdata == NULL) || h3lte_set_front_sensor_name)
+		return;
+
+	if (strcmp(eeprom_name, "sunny_ov5693_p5v40a") != 0)
+		return;
+
+	memptr = mapdata;
+
+	for (i = 0; i < 3; i++) {
+		if (memptr[i * 16] == 0x40) {
+			if (memptr[i * 16 + 1] == 0x7) {
+				strcpy(h3lte_front_sensor_name, "ov5693_olq5f08");
+				h3lte_set_front_sensor_name = 1;
+				break;
+			} else if (memptr[i * 16 + 1] == 0x1) {
+				strcpy(h3lte_front_sensor_name, "ov5693_p5v40a");
+				h3lte_set_front_sensor_name = 1;
+				break;
+			} else {
+				printk("%s: i = %d, h3lte front sensor check failed!", __func__, i);
+				return;
+			}
+		}
+	}
+
+	printk("%s: sensor_name = %s, is set = %d\n",
+			__func__, h3lte_front_sensor_name, h3lte_set_front_sensor_name);
+	return;
+}
+
+int h3lte_get_front_sensor_name(char* sensor_name)
+{
+	if (h3lte_set_front_sensor_name) {
+		strcpy(sensor_name, h3lte_front_sensor_name);
+		return 0;
+	}
+	else
+		return -EINVAL;
+}
+EXPORT_SYMBOL(h3lte_get_front_sensor_name);
+
 /**
   * msm_eeprom_match_crc - verify multiple regions using crc
   * @data:	data block to be verified
@@ -351,6 +399,7 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 			}
 		}
 	}
+	h3lte_set_sensor_name("sunny_ov5693_p5v40a", block->mapdata);
 	return rc;
 }
 /**

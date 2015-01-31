@@ -101,4 +101,10 @@ config W1_SLAVE_BQ27000
 	  Say Y here if you want to use a hdq
 	  bq27000 slave support.
 
+config W1_SLAVE_BQ2022
+	tristate "BQ2022 slave support"
+	depends on W1
+	help
+	  Say Y here if you want to use a ti
+	  bq2022 slave support.
 endmenu

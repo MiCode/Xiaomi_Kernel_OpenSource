@@ -205,6 +205,14 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 			QPNP_PON_REVISION2(pon->base), rc);
 		return rc;
 	}
+	/*
+	* Set PON_DEBOUNCE_TIMER to 500ms before power off
+	*/
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_DBC_CTL(pon->base),QPNP_PON_DBC_DELAY_MASK, 0x5);
+	if (rc) {
+		dev_err(&pon->spmi->dev, "Unable to set PON debounce\n");
+		return rc;
+	}
 
 	if (reg == 0x00)
 		rst_en_reg = QPNP_PON_PS_HOLD_RST_CTL(pon->base);

@@ -3009,6 +3009,12 @@ config MSM_XPU_ERR_FATAL
 	help
 	 Select if XPU violations have to be configured as fatal errors.
 
+config MSM_UART_HS_USE_HS
+	bool "Use HS while not UART"
+	default y
+	help
+	  Say Y here if HeadSet used in user build.
+
 config MSM_CPR_REGULATOR
 	bool "RBCPR regulator driver for APC"
 	depends on REGULATOR

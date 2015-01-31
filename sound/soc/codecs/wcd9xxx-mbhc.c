@@ -99,8 +99,8 @@
  * Invalid voltage range for the detection
  * of plug type with current source
  */
-#define WCD9XXX_CS_MEAS_INVALD_RANGE_LOW_MV 160
-#define WCD9XXX_CS_MEAS_INVALD_RANGE_HIGH_MV 265
+#define WCD9XXX_CS_MEAS_INVALD_RANGE_LOW_MV 110
+#define WCD9XXX_CS_MEAS_INVALD_RANGE_HIGH_MV 150
 
 /*
  * Threshold used to detect euro headset
@@ -570,8 +570,9 @@ static void wcd9xxx_jack_report(struct wcd9xxx_mbhc *mbhc,
 						WCD9XXX_COND_HPH,
 						status & SND_JACK_HEADPHONE);
 	}
-
+#ifdef CONFIG_MSM_UART_HS_USE_HS
 	snd_soc_jack_report_no_dapm(jack, status, mask);
+#endif
 }
 
 static void __hphocp_off_report(struct wcd9xxx_mbhc *mbhc, u32 jack_status,
@@ -3175,6 +3176,7 @@ static void wcd9xxx_swch_irq_handler(struct wcd9xxx_mbhc *mbhc)
 	pr_debug("%s: Current plug type %d, insert %d\n", __func__,
 		 mbhc->current_plug, insert);
 	if ((mbhc->current_plug == PLUG_TYPE_NONE) && insert) {
+		usleep(500000);
 		mbhc->lpi_enabled = false;
 		wmb();
 		/* cancel detect plug */
