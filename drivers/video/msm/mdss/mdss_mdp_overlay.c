@@ -551,6 +551,9 @@ int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 		pr_err("Vertical scaling calculation failed=%d! %d->%d\n",
 				rc, src, pipe->dst.h);
 	}
+
+	mdss_mdp_pipe_calc_pixel_extn(pipe);
+
 	return rc;
 }
 
