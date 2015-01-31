@@ -439,6 +439,16 @@
 		};
 	};
 
+	qcom,supply-lm@1946000 {
+		compatible = "qcom,supply-lm";
+		interrupts = <0 133 4>;
+		reg = <0x01946000 0x8>;
+		reg-names = "intr_reg";
+		qcom,supply-lm-very-hot-temp-range = <75 72>;
+		qcom,supply-lm-hot-temp-range = <65 62>;
+		gpu-dev-opp = <&msm_gpu>;
+	};
+
 	qcom,ipc-spinlock@1905000 {
 		compatible = "qcom,ipc-spinlock-sfpb";
 		reg = <0x1905000 0x8000>;
