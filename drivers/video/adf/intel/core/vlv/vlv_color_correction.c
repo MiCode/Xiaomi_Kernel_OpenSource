@@ -86,6 +86,8 @@ const struct color_property vlv_plane_color_corrections[] = {
 		.prop_id = hue,
 		.len = VLV_HS_VALS,
 		.name = "hue",
+		.set_property = vlv_set_hue,
+		.disable_property = vlv_disable_hue,
 		.validate = vlv_validate
 	},
 
@@ -94,9 +96,92 @@ const struct color_property vlv_plane_color_corrections[] = {
 		.prop_id = saturation,
 		.len = VLV_HS_VALS,
 		.name = "saturation",
+		.set_property = vlv_set_saturation,
+		.disable_property = vlv_disable_saturation,
 		.validate = vlv_validate
 	}
 };
+
+bool vlv_set_saturation(struct color_property *property, u64 *data, u8 plane_id)
+{
+	u32 reg, sprite, val, new_val;
+
+	/* If sprite plane enabled */
+	sprite = plane_id;
+	if (!(REG_READ(VLV_CLRMGR_SPCNTR(sprite)) &
+			SP_ENABLE)) {
+		pr_err("ADF: CM: Sprite plane %d not enabled\n", sprite);
+		return false;
+	}
+
+	reg = VLV_CLRMGR_SPHS(sprite);
+
+	/* Clear current values */
+	val = REG_READ(reg) & ~(VLV_SATURATION_MASK);
+
+	/* Get new values */
+	new_val = *data & VLV_SATURATION_MASK;
+	val |= new_val;
+
+	/* Update */
+	REG_WRITE(reg, val);
+	property->lut[0] = new_val;
+
+	/* Set status */
+	if (new_val == VLV_SATURATION_DEFAULT)
+		property->status = false;
+	else
+		property->status = true;
+
+	pr_info("ADF: CM: Set Saturation to 0x%x successful\n", new_val);
+	return true;
+
+}
+bool vlv_disable_saturation(struct color_property *property, u8 plane_id)
+{
+	u64 data = VLV_SATURATION_DEFAULT;
+	return vlv_set_saturation(property, &data, plane_id);
+}
+
+bool vlv_set_hue(struct color_property *property, u64 *data, u8 plane_id)
+{
+	u32 reg, sprite, val, new_val;
+
+	/* If sprite plane enabled */
+	sprite = plane_id;
+	if (!(REG_READ(VLV_CLRMGR_SPCNTR(sprite)) &
+			SP_ENABLE)) {
+		pr_err("ADF: CM: Sprite plane %d not enabled\n", sprite);
+		return false;
+	}
+
+	reg = VLV_CLRMGR_SPHS(sprite);
+
+	/* Clear current hue values */
+	val = REG_READ(reg) & ~(VLV_HUE_MASK << VLV_HUE_SHIFT);
+
+	/* Get the new values */
+	new_val = *data & VLV_HUE_MASK;
+	val |= (new_val << VLV_HUE_SHIFT);
+
+	/* Update */
+	REG_WRITE(reg, new_val);
+	property->lut[0] = new_val;
+
+	/* Set status */
+	if (new_val == VLV_HUE_DEFAULT)
+		property->status = false;
+	else
+		property->status = true;
+	pr_info("ADF: CM: Set Hue to 0x%x successful\n", new_val);
+	return true;
+}
+
+bool vlv_disable_hue(struct color_property *property, u8 plane_id)
+{
+	u64 data = VLV_HUE_DEFAULT;
+	return vlv_set_hue(property, &data, plane_id);
+}
 
 bool vlv_set_brightness(struct color_property *property, u64 *data, u8 plane_id)
 {
