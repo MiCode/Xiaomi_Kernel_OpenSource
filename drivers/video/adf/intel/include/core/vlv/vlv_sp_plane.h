@@ -55,4 +55,7 @@ int vlv_sp_plane_init(struct vlv_sp_plane *splane,
 		struct intel_pipeline *pipeline, struct device *dev, u8 idx);
 void vlv_sp_plane_destroy(struct vlv_sp_plane *splane);
 
+extern long intel_overlay_engine_obj_ioctl(struct adf_obj *obj,
+		unsigned int cmd, unsigned long arg);
+
 #endif

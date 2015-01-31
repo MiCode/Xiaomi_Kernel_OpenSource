@@ -70,4 +70,7 @@ extern unsigned long vlv_compute_page_offset(int *x, int *y,
 					unsigned int tiling_mode,
 					unsigned int cpp,
 					unsigned int pitch);
+
+extern long intel_overlay_engine_obj_ioctl(struct adf_obj *obj,
+		unsigned int cmd, unsigned long arg);
 #endif

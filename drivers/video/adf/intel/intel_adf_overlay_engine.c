@@ -14,6 +14,30 @@
 
 #include "intel_adf.h"
 
+/* Custom IOCTL */
+long intel_overlay_engine_obj_ioctl(struct adf_obj *obj,
+	unsigned int cmd, unsigned long arg)
+{
+	long err = 0;
+
+	switch (cmd) {
+	case INTEL_ADF_COLOR_MANAGER_SET:
+		pr_info("ADF: Calling apply to set Color Property on the Overlay Engine");
+		/* Todo : Implement Logic for calling set IOCTL */
+		break;
+
+	case INTEL_ADF_COLOR_MANAGER_GET:
+		pr_info("ADF: Calling get Color Property on the Overlay Engine");
+		/* Todo : Implement Logic for calling get IOCTL */
+		break;
+
+	default:
+		pr_err("%s: ADF: Error: Invalid custom IOCTL\n", __func__);
+	}
+
+	return err;
+}
+
 int intel_adf_overlay_engine_init(struct intel_adf_overlay_engine *eng,
 			struct intel_adf_device *dev,
 			struct intel_plane *plane)
@@ -28,7 +52,8 @@ int intel_adf_overlay_engine_init(struct intel_adf_overlay_engine *eng,
 	eng->plane = plane;
 
 	return adf_overlay_engine_init(&eng->base, &dev->base,
-		&plane->ops->adf_ops, "intel_ov_eng_%s", plane->base.name);
+		&plane->ops->adf_ops,
+			"intel_ov_eng_%s", plane->base.name);
 }
 
 void intel_adf_overlay_engine_destroy(

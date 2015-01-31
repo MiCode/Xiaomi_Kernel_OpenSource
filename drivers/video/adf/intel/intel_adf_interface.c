@@ -31,8 +31,19 @@ static long intel_interface_obj_ioctl(struct adf_obj *obj,
 			return -EINVAL;
 
 		return pipe->ops->dpst_context(pipe, arg);
+
+	case INTEL_ADF_COLOR_MANAGER_SET:
+		pr_info("ADF: Calling apply to set Color Property on the Interface");
+		/* Todo : Implement Logic for calling set IOCTL */
+		return 0;
+
+	case INTEL_ADF_COLOR_MANAGER_GET:
+		pr_info("ADF: Calling apply to get Color Property on the Interface");
+		/* Todo : Implement Logic for calling get IOCTL */
+		return 0;
+
 	default:
-		pr_debug("%s: Error: Invalid custom IOCTL\n", __func__);
+		pr_err("%s: ADF: Error: Invalid custom IOCTL\n", __func__);
 	}
 
 	return -EINVAL;

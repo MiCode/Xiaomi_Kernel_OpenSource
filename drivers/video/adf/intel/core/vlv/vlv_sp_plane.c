@@ -668,6 +668,9 @@ static const struct intel_plane_ops vlv_sp_ops = {
 		.resume = vlv_sp_resume,
 	},
 	.adf_ops = {
+		.base = {
+			.ioctl = intel_overlay_engine_obj_ioctl,
+		},
 		.supported_formats = sprite_supported_formats,
 		.n_supported_formats = ARRAY_SIZE(sprite_supported_formats),
 	},

@@ -480,6 +480,9 @@ static struct intel_plane_ops vlv_pri_ops = {
 		.resume = vlv_pri_resume,
 	},
 	.adf_ops = {
+		.base = {
+			.ioctl = intel_overlay_engine_obj_ioctl,
+		},
 		.supported_formats = pri_supported_formats,
 		.n_supported_formats = ARRAY_SIZE(pri_supported_formats),
 	},

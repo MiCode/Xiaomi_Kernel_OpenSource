@@ -228,4 +228,24 @@ struct intel_adf_post_custom_data {
 	struct intel_adf_config configs[0];
 };
 
+/*
+ * Color manager custom command
+ * This is required to parse color properties
+ * More details in intel_color_manager.*
+ */
+struct __attribute__((packed, aligned(16))) color_cmd {
+	u8 property;
+	u8 action;
+	u16 size;
+	u64 data_ptr;
+};
+
+/* Color correction IOCTL */
+#define INTEL_ADF_COLOR_MANAGER_SET	\
+	_IOW(ADF_IOCTL_TYPE, ADF_IOCTL_NR_CUSTOM + 1, \
+		struct color_cmd)
+#define INTEL_ADF_COLOR_MANAGER_GET	\
+	_IOR(ADF_IOCTL_TYPE, ADF_IOCTL_NR_CUSTOM + 2, \
+		struct color_cmd)
+
 #endif /* _UAPI_VIDEO_INTEL_ADF_H_ */

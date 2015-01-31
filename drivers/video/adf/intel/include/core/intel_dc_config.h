@@ -355,6 +355,7 @@ struct intel_plane {
 	const struct intel_plane_capabilities *caps;
 	const struct intel_plane_ops *ops;
 	struct intel_pipeline *pipeline;
+	struct color_capabilities *color_ctx;
 };
 
 enum intel_pipe_type {
@@ -487,6 +488,7 @@ struct intel_pipe {
 	 * one shot later in flip calls
 	 */
 	struct pri_plane_regs regs;
+	struct color_capabilities *color_ctx;
 };
 
 struct intel_dc_attachment {
