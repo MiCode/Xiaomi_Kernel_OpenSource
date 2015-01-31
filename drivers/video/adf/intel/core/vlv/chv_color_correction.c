@@ -58,6 +58,8 @@ const struct color_property chv_pipe_color_corrections[] = {
 		.prop_id = degamma,
 		.len = CHV_DEGAMMA_VALS,
 		.name = "degamma-enable-disable",
+		.set_property = chv_set_degamma,
+		.disable_property = chv_disable_degamma,
 		.validate = chv_validate,
 	}
 };
@@ -102,6 +104,121 @@ const struct color_property chv_plane_color_corrections[] = {
 		.validate = chv_validate
 	}
 };
+
+/* DeGamma LUT for R G and B */
+const u16 deGamma_LUT_R[CHV_DEGAMMA_VALS] = {
+	0, 20, 40, 60, 85,
+	114, 149, 189, 235, 288,
+	346, 410, 482, 559, 644,
+	736, 835, 942, 1055, 1177,
+	1306, 1444, 1589, 1743, 1905,
+	2075, 2254, 2442, 2638, 2843,
+	3058, 3281, 3514, 3756, 4008,
+	4269, 4540, 4821, 5111, 5411,
+	5722, 6043, 6374, 6715, 7066,
+	7429, 7801, 8185, 8579, 8984,
+	9400, 9827, 10266, 10715, 11176,
+	11648, 12131, 12626, 13133, 13651,
+	14181, 14723, 15276, 15842, 16383
+};
+
+const u16 deGamma_LUT_G[CHV_DEGAMMA_VALS] = {
+	0, 20, 40, 60, 85,
+	114, 149, 189, 235, 288,
+	346, 410, 482, 559, 644,
+	736, 835, 942, 1055, 1177,
+	1306, 1444, 1589, 1743, 1905,
+	2075, 2254, 2442, 2638, 2843,
+	3058, 3281, 3514, 3756, 4008,
+	4269, 4540, 4821, 5111, 5411,
+	5722, 6043, 6374, 6715, 7066,
+	7429, 7801, 8185, 8579, 8984,
+	9400, 9827, 10266, 10715, 11176,
+	11648, 12131, 12626, 13133, 13651,
+	14181, 14723, 15276, 15842, 16383
+};
+
+const u16 deGamma_LUT_B[CHV_DEGAMMA_VALS] = {
+	0, 20, 40, 60, 85,
+	114, 149, 189, 235, 288,
+	346, 410, 482, 559, 644,
+	736, 835, 942, 1055, 1177,
+	1306, 1444, 1589, 1743, 1905,
+	2075, 2254, 2442, 2638, 2843,
+	3058, 3281, 3514, 3756, 4008,
+	4269, 4540, 4821, 5111, 5411,
+	5722, 6043, 6374, 6715, 7066,
+	7429, 7801, 8185, 8579, 8984,
+	9400, 9827, 10266, 10715, 11176,
+	11648, 12131, 12626, 13133, 13651,
+	14181, 14723, 15276, 15842, 16383
+};
+
+/* Core function to enable degamma block */
+bool chv_set_degamma(struct color_property *property, u64 *data, u8 pipe_id)
+{
+	u32 count = 0;
+	u32 cgm_deGamma_reg, data_size, pipe;
+	u32 word0, word1;
+
+	pipe = pipe_id;
+	data_size = property->len;
+
+	/* Validate input */
+	if (data_size != CHV_DEGAMMA_VALS) {
+		pr_err("ADF: CM: Unexpected value count for DEGAMMA Set/Reset\n");
+		return false;
+	}
+
+
+	cgm_deGamma_reg = _PIPE_DEGAMMA_BASE(pipe);
+
+	while (count < CHV_DEGAMMA_VALS) {
+		/* Green (29:16) and Blue (13:0) to be written to DWORD1 */
+		word0 = deGamma_LUT_G[count];
+		word0 = word0 << DEGAMMA_GREEN_LEFT_SHIFT;
+		word0 = word0 | deGamma_LUT_B[count];
+		REG_WRITE(cgm_deGamma_reg, word0);
+
+		cgm_deGamma_reg += 4;
+
+		/* Red (13:0) to be written to DWORD2 */
+		word1 = deGamma_LUT_R[count];
+		REG_WRITE(cgm_deGamma_reg, word1);
+
+		cgm_deGamma_reg += 4;
+
+		count++;
+	}
+
+	/* Enable DeGamma on CGM_CONTROL register on respective pipe */
+	REG_WRITE(_PIPE_CGM_CONTROL(pipe),
+		REG_READ(_PIPE_CGM_CONTROL(pipe)) | CGM_DEGAMMA_EN);
+
+	property->status = true;
+	pr_info("ADF: CM: DEGAMMA successfully enabled on pipe = %d\n", pipe);
+
+	return true;
+}
+
+bool chv_disable_degamma(struct color_property *property, u8 pipe_id)
+{
+	u32 cgm_control_reg, pipe;
+
+	pipe = pipe_id;
+
+	/* Disable DeGamma*/
+	cgm_control_reg = REG_READ(_PIPE_CGM_CONTROL(pipe));
+	cgm_control_reg &= ~CGM_DEGAMMA_EN;
+	REG_WRITE(_PIPE_CGM_CONTROL(pipe), cgm_control_reg);
+
+	property->status = false;
+
+	/* Clear old values */
+	memset(property->lut, 0, property->len * sizeof(u64));
+	pr_info("ADF: CM: DEGAMMA successfully disabled on pipe = %d\n", pipe);
+	return true;
+}
 
 /* Core function to apply 10-bit gamma correction */
 bool chv_set_gamma(struct color_property *property, u64 *data, u8 pipe_id)
