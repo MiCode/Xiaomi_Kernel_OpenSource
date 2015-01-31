@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,6 +51,7 @@ struct kgsl_context;
  *                       to retire
  * @ticks_index: The index into submit_retire_ticks[] where the new delta will
  *		 be written.
+ * @flags: Flags used for knowing certain states of the drawctxt
  */
 struct adreno_context {
 	struct kgsl_context base;
@@ -76,7 +77,13 @@ struct adreno_context {
 	unsigned int submitted_timestamp;
 	uint64_t submit_retire_ticks[SUBMIT_RETIRE_TICKS_SIZE];
 	int ticks_index;
+	unsigned long flags;
 };
+
+/* Flag definitions for flag field in adreno_context */
+
+/* Set when sync timer of cmdbatch belonging to the context times out */
+#define ADRENO_CONTEXT_CMDBATCH_FLAG_FENCE_LOG	BIT(0)
 
 /**
  * enum adreno_context_priv - Private flags for an adreno draw context
