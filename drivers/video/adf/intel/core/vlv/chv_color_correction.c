@@ -48,6 +48,8 @@ const struct color_property chv_pipe_color_corrections[] = {
 		.prop_id = gamma,
 		.len = CHV_GAMMA_VALS,
 		.name = "gamma-correction",
+		.set_property = chv_set_gamma,
+		.disable_property = chv_disable_gamma,
 		.validate = chv_validate,
 	},
 
@@ -100,6 +102,82 @@ const struct color_property chv_plane_color_corrections[] = {
 		.validate = chv_validate
 	}
 };
+
+/* Core function to apply 10-bit gamma correction */
+bool chv_set_gamma(struct color_property *property, u64 *data, u8 pipe_id)
+{
+	u16 red, green, blue;
+	u64 correct_rgb;
+	u32 cgm_gamma_reg;
+	u32 count = 0;
+	u32 pipe = pipe_id;
+	u64 data_size = property->len;
+
+	u32 word0, word1;
+
+	/* Validate input */
+	if (data_size != CHV_10BIT_GAMMA_MAX_VALS) {
+		pr_err("ADF CM: Unexpected value count for GAMMA LUT\n");
+		return false;
+	}
+
+	cgm_gamma_reg = _PIPE_GAMMA_BASE(pipe);
+
+	while (count < CHV_GAMMA_VALS) {
+		correct_rgb = data[count];
+		property->lut[count] = correct_rgb;
+
+		blue = correct_rgb >> CLRMGR_GAMMA_PARSER_SHIFT_BLUE;
+		green = correct_rgb >> CLRMGR_GAMMA_PARSER_SHIFT_GREEN;
+		red = correct_rgb >> CLRMGR_GAMMA_PARSER_SHIFT_RED;
+
+		blue = blue >> CHV_GAMMA_MSB_SHIFT;
+		green = green >> CHV_GAMMA_MSB_SHIFT;
+		red = red >> CHV_GAMMA_MSB_SHIFT;
+
+		/* Green (25:16) and Blue (9:0) to be written to DWORD1 */
+		word0 = green;
+		word0 = word0 << CHV_GAMMA_SHIFT_GREEN;
+		word0 = word0 | blue;
+		REG_WRITE(cgm_gamma_reg, word0);
+
+		cgm_gamma_reg += 4;
+
+		/* Red (9:0) to be written to DWORD2 */
+		word1 = red;
+		REG_WRITE(cgm_gamma_reg, word1);
+
+		cgm_gamma_reg += 4;
+
+		count++;
+	}
+
+	/* Enable Gamma on CGM_CONTROL register on respective pipe */
+	REG_WRITE(_PIPE_CGM_CONTROL(pipe),
+		REG_READ(_PIPE_CGM_CONTROL(pipe)) | CGM_GAMMA_EN);
+
+	property->status = true;
+	pr_info("ADF: CM: 10bit gamma correction successfully applied\n");
+	return true;
+}
+
+bool chv_disable_gamma(struct color_property *property, u8 pipe_id)
+{
+	u32 cgm_control_reg, pipe;
+
+	pipe = pipe_id;
+
+	/* Disable DeGamma*/
+	cgm_control_reg = REG_READ(_PIPE_CGM_CONTROL(pipe));
+	cgm_control_reg &= ~CGM_GAMMA_EN;
+	REG_WRITE(_PIPE_CGM_CONTROL(pipe), cgm_control_reg);
+
+	property->status = false;
+
+	/* Clear old values */
+	memset(property->lut, 0, property->len * sizeof(u64));
+	return true;
+}
 
 /* Core function to program CSC regs */
 bool chv_set_csc(struct color_property *property, u64 *data, u8 pipe_id)
