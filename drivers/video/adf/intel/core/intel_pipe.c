@@ -12,6 +12,7 @@
  *
  */
 
+#include <drm/i915_adf.h>
 #include "core/intel_dc_config.h"
 
 int intel_pipe_init(struct intel_pipe *pipe, struct device *dev,
@@ -19,6 +20,16 @@ int intel_pipe_init(struct intel_pipe *pipe, struct device *dev,
 	const struct intel_plane *primary_plane,
 	const struct intel_pipe_ops *ops, const char *name)
 {
+	int platform_color_id;
+
+	/* If platform is CHV, ID is 1 else 0 (for VLV) */
+	if (IS_CHERRYVIEW())
+		platform_color_id = CHV_COLOR_ID;
+	else if (IS_VALLEYVIEW())
+		platform_color_id = VLV_COLOR_ID;
+	else
+		platform_color_id = INVALID_PLATFORM_COLOR_ID;
+
 	pr_debug("ADF: %s\n", __func__);
 
 	if (!pipe || !primary_plane || !ops)
@@ -28,6 +39,10 @@ int intel_pipe_init(struct intel_pipe *pipe, struct device *dev,
 	pipe->type = type;
 	pipe->primary_plane = primary_plane;
 	pipe->ops = ops;
+
+	/* Register color properties for the pipe */
+	if (!intel_color_manager_pipe_init(pipe, platform_color_id))
+		pr_err("ADF: CM: Error registering Pipe Color properties\n");
 
 	return intel_dc_component_init(&pipe->base, dev, idx, name);
 }

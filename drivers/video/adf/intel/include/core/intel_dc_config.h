@@ -163,6 +163,11 @@ enum pipe {
 #define IS_CHERRYVIEW() (intel_adf_get_platform_id() == gen_cherryview)
 #define IS_VALLEYVIEW() (intel_adf_get_platform_id() == gen_valleyview)
 
+/* Platform Color IDs to be used by Color Manager */
+#define CHV_COLOR_ID 1
+#define VLV_COLOR_ID 0
+#define INVALID_PLATFORM_COLOR_ID -1
+
 enum port {
 	PORT_A = 0,
 	PORT_B,
@@ -693,5 +698,11 @@ extern int intel_adf_handle_events(struct intel_pipe *pipe, u32 events);
 extern int intel_adf_set_event(struct intel_pipe *pipe, u16 event,
 		bool enabled);
 extern int intel_adf_get_events(struct intel_pipe *pipe, u32 *events);
+
+/* From intel pipe, plane and color manager */
+extern bool intel_color_manager_plane_init(struct intel_plane *plane,
+						int platform_id);
+extern bool intel_color_manager_pipe_init(struct intel_pipe *pipe,
+						int platform_id);
 
 #endif /* INTEL_DC_CONFIG_H_ */
