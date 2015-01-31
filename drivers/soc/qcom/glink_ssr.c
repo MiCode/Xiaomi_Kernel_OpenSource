@@ -38,14 +38,6 @@ static bool notifications_successful;
 struct completion notifications_successful_complete;
 
 /**
- * enum ssr_command - G-Link SSR protocol commands
- */
-enum ssr_command {
-	GLINK_SSR_DO_CLEANUP,
-	GLINK_SSR_CLEANUP_DONE,
-};
-
-/**
  * struct restart_notifier_block - restart notifier wrapper structure
  * subsystem:	the name of the subsystem as recognized by the SSR framework
  * nb:		notifier block structure used by the SSR framework
@@ -53,98 +45,6 @@ enum ssr_command {
 struct restart_notifier_block {
 	const char *subsystem;
 	struct notifier_block nb;
-};
-
-/**
- * struct subsys_info - Subsystem info structure
- * ssr_name:	name of the subsystem recognized by the SSR framework
- * edge:	name of the G-Link edge
- * xprt:	name of the G-Link transport
- * handle:	glink_ssr channel used for this subsystem
- * link_info:	Transport info used in link state callback registration
- * cb_data:	Private callback data structure for notification functions
- * subsystem_list_node:	used to chain this structure in a list of subsystem
- *			info structures
- * notify_list:	list of subsys_info_leaf structures, containing the subsystems
- *		to notify if this subsystem undergoes SSR
- * notify_list_len:	length of notify_list
- */
-struct subsys_info {
-	const char *ssr_name;
-	const char *edge;
-	const char *xprt;
-	void *handle;
-	struct glink_link_info *link_info;
-	struct ssr_notify_data *cb_data;
-	struct list_head subsystem_list_node;
-	struct list_head notify_list;
-	int notify_list_len;
-	bool link_up;
-};
-
-/**
- * struct subsys_info_leaf - Subsystem info leaf structure (a subsystem on the
- *                           notify list of a subsys_info structure)
- * ssr_name:	Name of the subsystem recognized by the SSR framework
- * edge:	Name of the G-Link edge
- * xprt:	Name of the G-Link transport
- * restarted:	Indicates whether a restart has been triggered for this edge
- * cb_data:	Private callback data structure for notification functions
- * notify_list_node:	used to chain this structure in the notify list
- */
-struct subsys_info_leaf {
-	const char *ssr_name;
-	const char *edge;
-	const char *xprt;
-	bool restarted;
-	struct ssr_notify_data *cb_data;
-	struct list_head notify_list_node;
-};
-
-/**
- * struct do_cleanup_msg - The data structure for an SSR do_cleanup message
- * version:	The G-Link SSR protocol version
- * command:	The G-Link SSR command - do_cleanup
- * seq_num:	Sequence number
- * name_len:	Length of the name of the subsystem being restarted
- * name:	G-Link edge name of the subsystem being restarted
- */
-struct do_cleanup_msg {
-	uint32_t version;
-	uint32_t command;
-	uint32_t seq_num;
-	uint32_t name_len;
-	char name[GLINK_NAME_SIZE];
-};
-
-/**
- * struct cleanup_done_msg - The data structure for an SSR cleanup_done message
- * version:	The G-Link SSR protocol version
- * response:	The G-Link SSR response to a do_cleanup command, cleanup_done
- * seq_num:	Sequence number
- */
-struct cleanup_done_msg {
-	uint32_t version;
-	uint32_t response;
-	uint32_t seq_num;
-};
-
-/**
- * struct ssr_notify_data - Contains private data used for client notifications
- *                          from G-Link.
- * tx_done:	Indicates whether or not the tx_done notification has been
- *		received.
- * event:	The state notification event received.
- * responded:	Indicates whether or not a cleanup_done response was received.
- * version:	G-Link SSR protocol version
- * seq_num:	G-Link SSR protocol sequence number
- */
-struct ssr_notify_data {
-	bool tx_done;
-	unsigned event;
-	bool responded;
-	uint32_t version;
-	uint32_t seq_num;
 };
 
 /**
@@ -179,12 +79,9 @@ static int glink_ssr_restart_notifier_cb(struct notifier_block *this,
 				  unsigned long code,
 				  void *data);
 static void delete_ss_info_notify_list(struct subsys_info *ss_info);
-static struct subsys_info *get_info_for_subsystem(const char *subsystem);
-static struct subsys_info *get_info_for_edge(const char *edge);
 static int notify_for_subsystem(struct subsys_info *ss_info);
 static int configure_and_open_channel(struct subsys_info *ss_info);
 static struct workqueue_struct *glink_ssr_wq;
-
 
 static LIST_HEAD(subsystem_list);
 static atomic_t responses_remaining = ATOMIC_INIT(0);
@@ -667,7 +564,7 @@ static int configure_and_open_channel(struct subsys_info *ss_info)
  * Return: subsys_info structure containing info for the requested subsystem;
  *         NULL if no structure can be found for the requested subsystem
  */
-static struct subsys_info *get_info_for_subsystem(const char *subsystem)
+struct subsys_info *get_info_for_subsystem(const char *subsystem)
 {
 	struct subsys_info *ss_info_entry;
 
@@ -679,6 +576,7 @@ static struct subsys_info *get_info_for_subsystem(const char *subsystem)
 
 	return NULL;
 }
+EXPORT_SYMBOL(get_info_for_subsystem);
 
 /**
  * get_info_for_edge() - Retrieve information about a subsystem from the
@@ -688,7 +586,7 @@ static struct subsys_info *get_info_for_subsystem(const char *subsystem)
  * Return: subsys_info structure containing info for the requested subsystem;
  *         NULL if no structure can be found for the requested subsystem
  */
-static struct subsys_info *get_info_for_edge(const char *edge)
+struct subsys_info *get_info_for_edge(const char *edge)
 {
 	struct subsys_info *ss_info_entry;
 
@@ -700,6 +598,18 @@ static struct subsys_info *get_info_for_edge(const char *edge)
 
 	return NULL;
 }
+EXPORT_SYMBOL(get_info_for_edge);
+
+/**
+ * glink_ssr_get_seq_num() - Get the current SSR sequence number
+ *
+ * Return: The current SSR sequence number
+ */
+uint32_t glink_ssr_get_seq_num(void)
+{
+	return sequence_number;
+}
+EXPORT_SYMBOL(glink_ssr_get_seq_num);
 
 /**
  * delete_ss_info_notify_list() - Delete the notify list for a subsystem
