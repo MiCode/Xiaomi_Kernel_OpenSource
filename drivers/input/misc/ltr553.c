@@ -75,7 +75,8 @@
 #define LTR553_ALS_GAIN_MASK		0x1c
 
 /* default measurement rate is 100 ms */
-#define LTR553_DEFAULT_MEASURE_RATE	0x01
+#define LTR553_ALS_DEFAULT_MEASURE_RATE	0x01
+#define LTR553_PS_MEASUREMENT_RATE_10MS	0x08
 
 #define LTR553_CALIBRATE_SAMPLES	15
 
@@ -1532,7 +1533,6 @@ static int ltr553_cdev_ps_calibrate(struct sensors_classdev *sensors_cdev,
 	int power;
 	unsigned int config;
 	unsigned int interrupt;
-	unsigned int tmp;
 	u16 min = PS_DATA_MASK;
 	u8 ps_data[2];
 	int count = LTR553_CALIBRATE_SAMPLES;
@@ -1557,6 +1557,14 @@ static int ltr553_cdev_ps_calibrate(struct sensors_classdev *sensors_cdev,
 					ARRAY_SIZE(power_config), true);
 		if (rc) {
 			dev_err(&ltr->i2c->dev, "power up sensor failed.\n");
+			goto exit;
+		}
+
+		msleep(LTR553_BOOT_TIME_MS);
+
+		rc = ltr553_init_device(ltr);
+		if (rc) {
+			dev_err(&ltr->i2c->dev, "init ltr553 failed\n");
 			goto exit;
 		}
 	}
@@ -1600,8 +1608,9 @@ static int ltr553_cdev_ps_calibrate(struct sensors_classdev *sensors_cdev,
 		goto exit_enable_interrupt;
 	}
 
-	/* ps measurement rate */
-	rc = regmap_read(ltr->regmap, LTR553_REG_PS_MEAS_RATE, &tmp);
+	/* ps measurement rate set to fastest rate */
+	rc = regmap_write(ltr->regmap, LTR553_REG_PS_MEAS_RATE,
+			LTR553_PS_MEASUREMENT_RATE_10MS);
 	if (rc) {
 		dev_err(&ltr->i2c->dev, "read %d failed.(%d)\n",
 				LTR553_REG_PS_MEAS_RATE, rc);
@@ -1611,8 +1620,8 @@ static int ltr553_cdev_ps_calibrate(struct sensors_classdev *sensors_cdev,
 	msleep(LTR553_WAKE_TIME_MS);
 
 	while (--count) {
-		/* wait for data ready */
-		msleep(ps_mrr_table[tmp & 0xf]);
+		/* the measurement rate is 10 ms */
+		usleep_range(11000, 12000);
 		rc = regmap_bulk_read(ltr->regmap, LTR553_REG_PS_DATA_0,
 				ps_data, 2);
 		if (rc) {
@@ -1877,7 +1886,7 @@ static int ltr553_probe(struct i2c_client *client,
 		goto err_check_device;
 	}
 
-	ltr->als_measure_rate = LTR553_DEFAULT_MEASURE_RATE;
+	ltr->als_measure_rate = LTR553_ALS_DEFAULT_MEASURE_RATE;
 
 	res = ltr553_init_device(ltr);
 	if (res) {
