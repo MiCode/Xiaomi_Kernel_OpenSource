@@ -149,4 +149,11 @@ extern bool
 vlv_get_color_correction(void *props_data, int object_type);
 extern bool
 chv_get_color_correction(void *props_data, int object_type);
+
+/* Inline function to convert u64 to void ptr */
+static inline void __user *to_user_ptr(u64 address)
+{
+	return (void __user *)(uintptr_t)address;
+}
+
 #endif

@@ -23,6 +23,7 @@ static long intel_interface_obj_ioctl(struct adf_obj *obj,
 	struct adf_interface *intf = adf_obj_to_interface(obj);
 	struct intel_adf_interface *i_intf = to_intel_intf(intf);
 	struct intel_pipe *pipe = i_intf->pipe;
+	u8 pipe_id = pipe->base.idx;
 
 	/* Custom IOCTL commands */
 	switch (cmd) {
@@ -33,13 +34,29 @@ static long intel_interface_obj_ioctl(struct adf_obj *obj,
 		return pipe->ops->dpst_context(pipe, arg);
 
 	case INTEL_ADF_COLOR_MANAGER_SET:
-		pr_info("ADF: Calling apply to set Color Property on the Interface");
-		/* Todo : Implement Logic for calling set IOCTL */
+		pr_info("ADF: Calling apply to set Color Property on the Interface\n");
+		if (!intel_color_manager_apply(pipe->color_ctx,
+				(struct color_cmd *) arg, pipe_id)) {
+			pr_err("ADF: %s Error: Set color correction failed\n",
+								__func__);
+			return -EFAULT;
+		}
+
+		pr_info("ADF: %s: Set color correction success\n", __func__);
+
 		return 0;
 
 	case INTEL_ADF_COLOR_MANAGER_GET:
-		pr_info("ADF: Calling apply to get Color Property on the Interface");
-		/* Todo : Implement Logic for calling get IOCTL */
+		pr_info("ADF: Calling apply to get Color Property on the Interface\n");
+		if (!intel_color_manager_get(pipe->color_ctx,
+				(struct color_cmd *) arg, pipe_id)) {
+			pr_err("ADF: %s Error: Get color correction failed\n",
+								__func__);
+			return -EFAULT;
+		}
+
+		pr_info("ADF: %s: Get color correction success\n", __func__);
+
 		return 0;
 
 	default:

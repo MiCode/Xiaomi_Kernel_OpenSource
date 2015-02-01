@@ -62,4 +62,10 @@ extern int intel_adf_map_dma_to_flip(unsigned long args);
 extern int intel_adf_unmap_dma_to_flip(unsigned long args);
 extern void intel_adf_hotplug_work_function(struct work_struct *work);
 extern void intel_adf_hpd_init(struct intel_adf_context *ctx);
+
+/* Color correction related */
+extern bool intel_color_manager_apply(struct color_capabilities *color_props,
+					struct color_cmd *ubuf, u8 idx);
+extern bool intel_color_manager_get(struct color_capabilities *color_props,
+					struct color_cmd *ubuf, u8 idx);
 #endif /* INTEL_ADF_H_ */

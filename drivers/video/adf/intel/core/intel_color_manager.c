@@ -37,6 +37,253 @@ typedef bool (*get_color_capabilities)(void *props_data, int object_type);
 get_color_capabilities platform_color_capabilities[] = {
 };
 
+/*
+ * intel_color_manager_find
+ * Find a color property based on its id for an interface and overlay engine
+ * color_props = structure containing number of properties and
+ *     pointer to array of so many color properties,
+ *     set in interface or overlay engine
+ * prop_id = property id (csc/gamma etc)
+ */
+struct color_property *intel_color_manager_find(
+	struct color_capabilities *color_props, u8 prop_id)
+{
+	struct color_property *cp = NULL;
+	u32 index = 0;
+	u32 total_props = 0;
+
+	if (!color_props) {
+		pr_err("ADF: CM: This interface/overlay engine has no color capabilities\n");
+		return NULL;
+	}
+
+	total_props = color_props->no_of_props;
+	while (index < total_props) {
+		cp = color_props->props[index++];
+		if (cp && (cp->prop_id == prop_id)) {
+			pr_info("ADF: CM: Found property %s(index=%d)\n",
+				cp->name, index);
+			return cp;
+		}
+	}
+	pr_err("ADF: CM: Property Not Found: Cant find property with id=%d\n",
+			(int)prop_id);
+	return NULL;
+}
+
+/*
+ * Disable a color manager property
+ * This function assumes all the validation is done
+ * by the caller.
+ */
+static bool intel_color_manager_disable(
+	struct color_capabilities *color_props, u8 prop_id, u8 idx)
+{
+	struct color_property *cp;
+
+	/* Find the propery based on id */
+	cp = intel_color_manager_find(color_props, prop_id);
+	if (!cp) {
+		pr_err("ADF: CM: Could not find property with id=%d\n",
+			(int)prop_id);
+		return false;
+	}
+
+	if (!cp->validate || !cp->disable_property) {
+		pr_err("ADF: CM: No function for validate/disable color property\n");
+		return false;
+	}
+
+	if (!cp->validate(prop_id)) {
+		pr_err("ADF: CM: Invalid input for platform (prop=%d)\n",
+			(int)prop_id);
+		return false;
+	}
+
+	if (!cp->disable_property(cp, idx)) {
+		pr_err("ADF: CM: Disable property (%s) failed\n", cp->name);
+		return false;
+	}
+
+	pr_info("ADF: CM Successfully disabled color correction (%s)\n",
+								cp->name);
+	return true;
+}
+
+/* Set/Apply a color correction on a pipe */
+bool intel_color_manager_set(struct color_capabilities *color_props,
+		u8 prop_id, u64 *data, u8 idx)
+{
+	struct color_property *cp;
+
+	/* Find the propery based on id */
+	cp = intel_color_manager_find(color_props, prop_id);
+	if (!cp) {
+		pr_err("ADF: CM: Set: Could not find property with id=%d\n",
+			(int)prop_id);
+		return false;
+	}
+
+	if (!cp->validate || !cp->set_property) {
+		pr_err("ADF: CM: Set: No validation/set function for property %s\n",
+			cp->name);
+		return false;
+	}
+
+	pr_info("ADF: CM: Set: Found property %s\n", cp->name);
+
+	if (!cp->validate(prop_id)) {
+		pr_err("ADF: CM: Set: Invalid input for platform (prop=%d)\n",
+			(int)prop_id);
+		return false;
+	}
+
+	/* Apply color correction */
+	if (!cp->set_property(cp, data, idx)) {
+		pr_err("ADF: CM: Set: Set property (%s) failed\n", cp->name);
+		return false;
+	}
+
+	pr_info("ADF: CM: Set: Successfully applied color correction (%s)\n",
+			cp->name);
+	return true;
+}
+
+/* Get color correction data */
+bool intel_color_manager_get(struct color_capabilities *color_props,
+	struct color_cmd __user *ubuf, u8 idx)
+{
+	struct color_cmd cmd;
+	struct color_property *cp;
+
+	/* Clean command buf */
+	memset((void *)&cmd, 0, sizeof(cmd));
+
+	/* Extract the command */
+	if (copy_from_user((void *)&cmd, (const void *)ubuf,
+			sizeof(struct color_cmd))) {
+		pr_err("ADF: CM: Get: Copy failed\n");
+		return false;
+	}
+
+	/* Find the propery based on id */
+	cp = intel_color_manager_find(color_props, cmd.property);
+	if (!cp) {
+		pr_err("ADF: CM: Could not find property with id=%d\n",
+			(int)cmd.property);
+		return false;
+	}
+
+	/* Load status */
+	if (copy_to_user((void __user *)&(ubuf->action),
+			(const void *)&(cp->status), sizeof(ubuf->action))) {
+		pr_err("ADF: CM: Get status, copy status failed\n");
+		return false;
+	}
+
+	/* Load the current values */
+	if (copy_to_user((void __user *)to_user_ptr(ubuf->data_ptr),
+		(const void *)cp->lut, ubuf->size * sizeof(uint64_t))) {
+		pr_err("ADF: CM: Get status, copy data failed\n");
+		return false;
+	}
+
+	pr_info("ADF: CM: Successfully got color correction status(%s)\n",
+			cp->name);
+	return true;
+}
+
+/*
+ * intel_color_manager_apply:
+ * Parse, decode and Apply a change on an interface or overlay engine.
+ */
+bool intel_color_manager_apply(struct color_capabilities *color_props,
+	struct color_cmd *ubuf, u8 idx)
+{
+	bool ret = false;
+	struct color_cmd cmd;
+	u64 *raw_data = NULL;
+
+	if (!ubuf) {
+		pr_err("ADF: CM: Apply: insufficient data\n");
+		return false;
+	}
+
+	/* Clean command buf */
+	memset((void *)&cmd, 0, sizeof(cmd));
+
+	/* Extract the command */
+	if (copy_from_user((void *)&cmd, (const void *)ubuf,
+			sizeof(struct color_cmd))) {
+		pr_err("ADF: CM: Apply: Copy failed\n");
+		return false;
+	}
+
+	/* Validate command */
+	if ((int)cmd.action < color_set ||
+			(int)cmd.action > color_disable) {
+		pr_err("ADF: CM: Invalid action %d\n", (int)cmd.action);
+		return false;
+	}
+
+	if (cmd.action == color_set) {
+		pr_info("ADF: CM: Enabling property\n");
+
+		/* Validite size, min 1 block of data is required */
+		if (cmd.size < COLOR_MANAGER_SIZE_MIN) {
+			pr_err("ADF: CM: Invalid size=%d\n",
+					(int)cmd.size);
+			return false;
+		}
+
+		if (!cmd.data_ptr) {
+			pr_err("ADF: CM: Expecting %d coeff data but got NULL\n",
+					cmd.size);
+			return false;
+		}
+
+		raw_data = kzalloc(cmd.size * sizeof(uint64_t), GFP_KERNEL);
+		if (!raw_data) {
+			pr_err("ADF: CM: Out of memory\n");
+			return false;
+		}
+
+		/* Get the data */
+		if (copy_from_user((void *)raw_data,
+			(const void *)to_user_ptr(cmd.data_ptr),
+				cmd.size * sizeof(uint64_t))) {
+			pr_err("ADF: CM: copy from user data failed\n");
+			ret = false;
+			goto FREE_AND_RETURN;
+		}
+
+		/* Data loaded, now do changes in property */
+		if (!intel_color_manager_set(color_props, cmd.property,
+					raw_data, idx)) {
+			pr_err("ADF: CM: Color correction failed\n");
+			ret = false;
+			goto FREE_AND_RETURN;
+		}
+
+		ret = true;
+		pr_info("ADF: CM: Apply color correction success\n");
+	} else {
+		pr_info("ADF: CM: Disabling property\n");
+		if (!intel_color_manager_disable(color_props,
+						cmd.property, idx)) {
+			pr_err("ADF: CM: Disabling color property failed\n");
+			ret = false;
+			goto FREE_AND_RETURN;
+		}
+		ret = true;
+		pr_info("ADF: CM: Disable color correction success\n");
+	}
+
+FREE_AND_RETURN:
+	kfree(raw_data);
+	return ret;
+}
+
 /* Allocate an LUT for any color property to copy data from userspace */
 u64 *intel_color_manager_create_lut(int size)
 {
