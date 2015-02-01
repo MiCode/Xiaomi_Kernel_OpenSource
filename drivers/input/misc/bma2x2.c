@@ -1371,7 +1371,7 @@ static const struct interrupt_map_t int_map[] = {
 #define BMA2x2_VIO_MAX_UV       3400000
 
 /* Polling delay in msecs */
-#define POLL_INTERVAL_MIN_MS	5
+#define POLL_INTERVAL_MIN_MS	10
 #define POLL_INTERVAL_MAX_MS	4000
 #define POLL_DEFAULT_INTERVAL_MS 200
 
