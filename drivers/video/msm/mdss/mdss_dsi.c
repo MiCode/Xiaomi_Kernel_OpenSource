@@ -740,7 +740,15 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	 * clocks.
 	 */
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_BUS_CLKS, 1);
-	if (!pdata->panel_info.ulps_suspend_enabled) {
+
+	/*
+	 * If ULPS during suspend feature is enabled, then DSI PHY was
+	 * left on during suspend. In this case, we do not need to reset/init
+	 * PHY. This would have already been done when the BUS clocks are
+	 * turned on. However, if cont splash is disabled, the first time DSI
+	 * is powered on, phy init needs to be done unconditionally.
+	 */
+	if (!pdata->panel_info.ulps_suspend_enabled || !ctrl_pdata->ulps) {
 		mdss_dsi_phy_sw_reset(ctrl_pdata);
 		mdss_dsi_phy_init(ctrl_pdata);
 		mdss_dsi_ctrl_setup(ctrl_pdata);
