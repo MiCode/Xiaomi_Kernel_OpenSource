@@ -35,6 +35,7 @@
  */
 typedef bool (*get_color_capabilities)(void *props_data, int object_type);
 get_color_capabilities platform_color_capabilities[] = {
+	vlv_get_color_correction,
 };
 
 /*

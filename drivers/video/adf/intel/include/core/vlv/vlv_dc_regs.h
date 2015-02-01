@@ -6378,6 +6378,31 @@ extern int chv_cursor_offsets[];
 #define CURSOR_B_OFFSET		0x700c0
 #define CHV_CURSOR_C_OFFSET	0x700e0
 
+/* Color correction */
+/* CSC */
+#define PIPECONF_CSC_ENABLE		(1 << 15)
+#define _PIPEACSC			(VLV_DISPLAY_BASE + 0x600b0)
+#define _PIPEBCSC			(VLV_DISPLAY_BASE + 0x610b0)
+#define PIPECSC(pipe)			(_PIPEACSC + (pipe *  CSC_OFFSET))
+#define CSC_OFFSET			(_PIPEBCSC - _PIPEACSC)
+#define PIPECSC(pipe)			(_PIPEACSC + (pipe *  CSC_OFFSET))
+
+/* Gamma: GCMAX regs */
+#define VLV_PIPEA_GCMAX			(VLV_DISPLAY_BASE + 0x70010)
+#define VLV_PIPEB_GCMAX			(VLV_DISPLAY_BASE + 0x71010)
+#define VLV_PIPE_GCMAX(pipe) \
+	_PIPE(pipe, VLV_PIPEA_GCMAX, VLV_PIPEB_GCMAX)
+
+/* Sprite control */
+#define VLV_SPR_CTRL_BASE		(VLV_DISPLAY_BASE + 0x72180)
+
+/* Contrast and brightness */
+#define VLV_SPR_CB_BASE			(VLV_DISPLAY_BASE + 0x721d0)
+
+/* Hue and Saturation */
+#define VLV_SPR_HS_BASE			(VLV_DISPLAY_BASE + 0x721d4)
+
+
 /**
  * _wait_for - magic (register) wait macro
  *
