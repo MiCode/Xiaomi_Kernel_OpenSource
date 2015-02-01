@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -180,6 +180,9 @@ struct mdss_intf_recovery {
  *					case there was any errors detected.
  * @MDSS_EVENT_INTF_RESTORE: Event to restore the interface in case there
  *				was any errors detected during normal operation.
+ * @ MDSS_EVENT_DSI_PANEL_STATUS:Event to check the panel status
+ *				<= 0: panel check fail
+ *				>  0: panel check success
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -203,6 +206,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_DYNAMIC_SWITCH,
 	MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
 	MDSS_EVENT_INTF_RESTORE,
+	MDSS_EVENT_DSI_PANEL_STATUS,
 };
 
 struct lcd_panel_info {
