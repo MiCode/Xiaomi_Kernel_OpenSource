@@ -57,6 +57,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
 DEFINE_EXT_CLK(mmss_gcc_dbg_clk, NULL);
 DEFINE_EXT_CLK(gpu_gcc_dbg_clk, NULL);
+DEFINE_EXT_CLK(cpu_dbg_clk, NULL);
 DEFINE_CLK_RPM_SMD_BRANCH(cxo_clk_src, cxo_clk_src_ao, RPM_MISC_CLK_TYPE,
 				CXO_CLK_SRC_ID, 19200000);
 DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_CLK_ID, NULL);
@@ -3168,11 +3169,13 @@ static struct mux_clk gcc_debug_mux = {
 		&mmss_gcc_dbg_clk.c,
 		&gpu_gcc_dbg_clk.c,
 		&gcc_debug_mux_v2.c,
+		&cpu_dbg_clk.c,
 	),
 	MUX_SRC_LIST(
 		{ &mmss_gcc_dbg_clk.c, 0x001b },
 		{ &gpu_gcc_dbg_clk.c, 0x001b },
 		{ &gcc_debug_mux_v2.c, 0xffff },
+		{ &cpu_dbg_clk.c, 0x00bb },
 		{ &cnoc_clk.c, 0x000e },
 		{ &pnoc_clk.c, 0x0011 },
 		{ &snoc_clk.c, 0x0000 },
@@ -3731,6 +3734,7 @@ arch_initcall(msm_gcc_8996_init);
 static struct clk_lookup msm_clocks_measure_8996[] = {
 	CLK_LIST(mmss_gcc_dbg_clk),
 	CLK_LIST(gpu_gcc_dbg_clk),
+	CLK_LIST(cpu_dbg_clk),
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
 };
 
@@ -3738,6 +3742,7 @@ static struct clk_lookup msm_clocks_measure_8996_v2[] = {
 	CLK_LIST(mmss_gcc_dbg_clk),
 	CLK_LIST(gpu_gcc_dbg_clk),
 	CLK_LIST(gcc_debug_mux_v2),
+	CLK_LIST(cpu_dbg_clk),
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
 };
 
@@ -3770,6 +3775,8 @@ static int msm_clock_debug_8996_probe(struct platform_device *pdev)
 
 	mmss_gcc_dbg_clk.dev = &pdev->dev;
 	mmss_gcc_dbg_clk.clk_id = "debug_mmss_clk";
+	cpu_dbg_clk.dev = &pdev->dev;
+	cpu_dbg_clk.clk_id = "debug_cpu_clk";
 
 	gpu_gcc_dbg_clk.dev = &pdev->dev;
 	gpu_gcc_dbg_clk.clk_id = "debug_gpu_clk";

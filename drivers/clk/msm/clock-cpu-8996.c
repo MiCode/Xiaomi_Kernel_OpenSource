@@ -45,6 +45,7 @@ enum {
 	APC1_BASE,
 	CBF_BASE,
 	EFUSE_BASE,
+	DEBUG_BASE,
 	NUM_BASES
 };
 
@@ -56,6 +57,7 @@ static char *base_names[] = {
 	"perfcl_mux",
 	"cbf_mux",
 	"efuse",
+	"debug",
 };
 
 static void *vbases[NUM_BASES];
@@ -102,7 +104,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define CBF_PLL_STATUS      0x28
 #define CBF_PLL_TEST_CTL_LO 0x30
 
-#define GLB_CLK_DIAG	0x1C
+#define APC_DIAG_OFFSET	0x48
 #define MUX_OFFSET	0x40
 
 DEFINE_EXT_CLK(xo_ao, NULL);
@@ -247,11 +249,65 @@ static void cpu_mux_disable(struct mux_clk *mux)
 	__cpu_mux_set_sel(mux, mux->safe_sel);
 }
 
+/* It is assumed that the mux enable state is locked in this function */
+static int cpu_debug_mux_set_sel(struct mux_clk *mux, int sel)
+{
+	__cpu_mux_set_sel(mux, sel);
+
+	return 0;
+}
+
+static int cpu_debug_mux_get_sel(struct mux_clk *mux)
+{
+	u32 regval = readl_relaxed(*mux->base + mux->offset);
+	return (regval >> mux->shift) & mux->mask;
+}
+
+static int cpu_debug_mux_enable(struct mux_clk *mux)
+{
+	u32 val;
+
+	/* Enable debug clocks */
+	val = readl_relaxed(vbases[APC0_BASE] + APC_DIAG_OFFSET);
+	val |= BM(11, 8);
+	writel_relaxed(val, vbases[APC0_BASE] + APC_DIAG_OFFSET);
+
+	val = readl_relaxed(vbases[APC1_BASE] + APC_DIAG_OFFSET);
+	val |= BM(11, 8);
+	writel_relaxed(val, vbases[APC1_BASE] + APC_DIAG_OFFSET);
+
+	/* Ensure enable request goes through for correct measurement*/
+	mb();
+	udelay(5);
+	return 0;
+}
+
+static void cpu_debug_mux_disable(struct mux_clk *mux)
+{
+	u32 val;
+
+	/* Disable debug clocks */
+	val = readl_relaxed(vbases[APC0_BASE] + APC_DIAG_OFFSET);
+	val &= ~BM(11, 8);
+	writel_relaxed(val, vbases[APC0_BASE] + APC_DIAG_OFFSET);
+
+	val = readl_relaxed(vbases[APC1_BASE] + APC_DIAG_OFFSET);
+	val &= ~BM(11, 8);
+	writel_relaxed(val, vbases[APC1_BASE] + APC_DIAG_OFFSET);
+}
+
 static struct clk_mux_ops cpu_mux_ops = {
 	.enable = cpu_mux_enable,
 	.disable = cpu_mux_disable,
 	.set_mux_sel = cpu_mux_set_sel,
 	.get_mux_sel = cpu_mux_get_sel,
+};
+
+static struct clk_mux_ops cpu_debug_mux_ops = {
+	.enable = cpu_debug_mux_enable,
+	.disable = cpu_debug_mux_disable,
+	.set_mux_sel = cpu_debug_mux_set_sel,
+	.get_mux_sel = cpu_debug_mux_get_sel,
 };
 
 static struct mux_clk pwrcl_lf_mux = {
@@ -394,76 +450,6 @@ static struct cpu_clk_8996 perfcl_clk = {
 	},
 };
 
-DEFINE_FIXED_SLAVE_DIV_CLK(pwrcl_div_clk, 1, &pwrcl_clk.c);
-DEFINE_FIXED_SLAVE_DIV_CLK(perfcl_div_clk, 1, &perfcl_clk.c);
-
-#define APCS_ALIAS1_CORE_CBCR 0x58
-
-static struct mux_clk pwrcl_debug_mux = {
-	.offset = GLB_CLK_DIAG,
-	.en_offset = APCS_ALIAS1_CORE_CBCR,
-	.en_mask = 0x1,
-	.ops = &mux_reg_ops,
-	.mask = 0x3F,
-	.shift = 12,
-	MUX_REC_SRC_LIST(
-		&pwrcl_div_clk.c,
-	),
-	MUX_SRC_LIST(
-		{&pwrcl_div_clk.c, 0},
-	),
-	.base = &vbases[APC0_BASE],
-	.c = {
-		.dbg_name = "pwrcl_debug_mux",
-		.ops = &clk_ops_gen_mux,
-		CLK_INIT(pwrcl_debug_mux.c),
-	},
-};
-
-#define APCS_ALIAS0_CORE_CBCR 0x58
-
-static struct mux_clk perfcl_debug_mux = {
-	.offset = GLB_CLK_DIAG,
-	.en_offset = APCS_ALIAS0_CORE_CBCR,
-	.en_mask = 0x1,
-	.ops = &mux_reg_ops,
-	.mask = 0x3F,
-	.shift = 12,
-	MUX_REC_SRC_LIST(
-		&perfcl_div_clk.c,
-	),
-	MUX_SRC_LIST(
-		{&perfcl_div_clk.c, 0},
-	),
-	.base = &vbases[APC1_BASE],
-	.c = {
-		.dbg_name = "perfcl_debug_mux",
-		.ops = &clk_ops_gen_mux,
-		CLK_INIT(perfcl_debug_mux.c),
-	},
-};
-
-static struct mux_clk cpu_debug_mux = {
-	.offset = 0x120,
-	.ops = &cpu_mux_ops,
-	.mask = 0x1,
-	.shift = 0,
-	MUX_SRC_LIST(
-		{&pwrcl_debug_mux.c, 0},
-		{&perfcl_debug_mux.c, 1},
-	),
-	MUX_REC_SRC_LIST(
-		&pwrcl_debug_mux.c,
-		&perfcl_debug_mux.c,
-	),
-	.base = &vbases[CBF_BASE],
-	.c = {
-		.dbg_name = "cpu_debug_mux",
-		.ops = &clk_ops_gen_mux,
-		CLK_INIT(cpu_debug_mux.c),
-	},
-};
-
 static struct clk *logical_cpu_to_clk(int cpu)
 {
 	struct device_node *cpu_node;
@@ -573,6 +559,35 @@ static struct mux_clk cbf_hf_mux = {
 	},
 };
 
+#define APCS_CLK_DIAG 0x78
+
+DEFINE_FIXED_SLAVE_DIV_CLK(pwrcl_div_clk, 16, &pwrcl_clk.c);
+DEFINE_FIXED_SLAVE_DIV_CLK(perfcl_div_clk, 16, &perfcl_clk.c);
+
+static struct mux_clk cpu_debug_mux = {
+	.offset = APCS_CLK_DIAG,
+	MUX_SRC_LIST(
+		{ &cbf_hf_mux.c, 0x01 },
+		{ &pwrcl_div_clk.c,  0x11 },
+		{ &perfcl_div_clk.c, 0x21 },
+	),
+	MUX_REC_SRC_LIST(
+		&cbf_hf_mux.c,
+		&pwrcl_div_clk.c,
+		&perfcl_div_clk.c,
+	),
+	.ops = &cpu_debug_mux_ops,
+	.mask = 0xFF,
+	.shift = 8,
+	.base = &vbases[DEBUG_BASE],
+	.c = {
+		.dbg_name = "cpu_debug_mux",
+		.ops = &clk_ops_gen_mux,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(cpu_debug_mux.c),
+	},
+};
+
 static struct clk_lookup cpu_clocks_8996[] = {
 	CLK_LIST(pwrcl_clk),
 	CLK_LIST(pwrcl_pll),
@@ -593,8 +608,6 @@ static struct clk_lookup cpu_clocks_8996[] = {
 	CLK_LIST(xo_ao),
 	CLK_LIST(sys_apcsaux_clk),
 
-	CLK_LIST(pwrcl_debug_mux),
-	CLK_LIST(perfcl_debug_mux),
 	CLK_LIST(cpu_debug_mux),
 };
 

@@ -721,8 +721,9 @@
 		      <0x06400000 0x1000>,
 		      <0x06480000 0x1000>,
 		      <0x09A11000 0x1000>,
-		      <0x00070130    0x8>;
-		reg-names = "pwrcl_pll", "perfcl_pll", "cbf_pll", "pwrcl_mux", "perfcl_mux", "cbf_mux", "efuse";
+		      <0x00070130    0x8>,
+		      <0x09820000 0x1000>;
+		reg-names = "pwrcl_pll", "perfcl_pll", "cbf_pll", "pwrcl_mux", "perfcl_mux", "cbf_mux", "efuse", "debug";
 		vdd-pwrcl-supply = <&apc0_vreg>;
 		vdd-perfcl-supply = <&apc1_vreg>;
 		vdd-cbf-supply = <&apc0_vreg>;
@@ -836,9 +837,10 @@
 		compatible = "qcom,cc-debug-8996";
 		reg = <0x362000 0x4>;
 		reg-names = "cc_base";
-		clock-names = "debug_mmss_clk", "debug_gpu_clk";
+		clock-names = "debug_mmss_clk", "debug_gpu_clk", "debug_cpu_clk";
 		clocks = <&clock_mmss clk_mmss_gcc_dbg_clk>,
-			 <&clock_gpu clk_gpu_gcc_dbg_clk>;
+			 <&clock_gpu clk_gpu_gcc_dbg_clk>,
+			 <&clock_cpu clk_cpu_debug_mux>;
 		#clock-cells = <1>;
 	};
 

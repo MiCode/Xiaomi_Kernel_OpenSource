@@ -147,6 +147,7 @@
 #define clk_gcc_qusb2phy_sec_reset	0x3f3a87d0
 #define clk_gcc_periph_noc_usb20_ahb_clk	0xfb9f26e9
 #define clk_gcc_mmss_gcc_dbg_clk	0xe89d461c
+#define clk_cpu_dbg_clk			0x6550dfa9
 #define clk_gcc_blsp1_ahb_clk		0x8caa5b4f
 #define clk_gcc_blsp1_qup1_i2c_apps_clk 0xc303fae9
 #define clk_gcc_blsp1_qup1_spi_apps_clk 0x759a76b0
@@ -517,8 +518,6 @@
 #define clk_cbf_lf_mux 0x8abdf099
 #define clk_xo_ao 0x428c856d
 #define clk_sys_apcsaux_clk 0x0b0dd513
-#define clk_pwrcl_debug_mux 0xf4405808
-#define clk_perfcl_debug_mux 0xf107e489
 #define clk_cpu_debug_mux 0xc7acaa31
 
 /* Audio External Clocks */
