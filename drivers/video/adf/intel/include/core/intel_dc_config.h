@@ -502,6 +502,96 @@ struct intel_dc_attachment {
 	u8 pll_id;
 };
 
+/**
+ * DRRS Support Type:
+ * DRRS_NOT_SUPPORTED		: DRRS not supported :)
+ * STATIC_DRRS_SUPPORT		: Need a complete modeset for DRRS
+ * SEAMLESS_DRRS_SUPPORT	: Seamless vrefresh switch is supported on HW
+ * SEAMLESS_DRRS_SUPPORT_SW	: Seamless vrefresh switch is supported on SW
+ */
+enum drrs_support_type {
+	DRRS_NOT_SUPPORTED = 0,
+	STATIC_DRRS_SUPPORT = 1,
+	SEAMLESS_DRRS_SUPPORT = 2,
+	SEAMLESS_DRRS_SUPPORT_SW = 3,
+};
+
+/**
+ * Different DRRS States:
+ * DRRS_HIGH_RR	: Refreshrate of Fixed mode. [Maximum Vrefresh]
+ * DRRS_LOW_RR	: Refreshrate of Downclock mode. [Minimum vrefresh]
+ */
+enum drrs_refresh_rate_type {
+	DRRS_HIGH_RR,
+	DRRS_LOW_RR,
+	DRRS_MAX_RR,
+};
+
+struct drrs_info {
+	enum drrs_support_type type;
+	enum drrs_refresh_rate_type current_rr_type;
+	enum drrs_refresh_rate_type target_rr_type;
+	struct mutex mutex;
+};
+
+struct vbt_drrs_data {
+	enum drrs_support_type drrs_type;
+	unsigned int drrs_min_vrefresh;
+};
+
+/**
+ * DRRS Panel Modes:
+ * fixed_mode		: Default preferred mode
+ * downclock_mode	: Fixed Mode with the lowest verefresh
+ * target_mode		: Mode that is requested to be set next
+ */
+struct drrs_panel_mode {
+	struct drm_mode_modeinfo *fixed_mode;
+	struct drm_mode_modeinfo *downclock_mode;
+	struct drm_mode_modeinfo *target_mode;
+};
+
+/**
+ * intel_idleness_drrs_work:
+ * work		: Deferred work to declare the Idleness, if not disturbed.
+ * pipeline	: Target pipeline
+ * interval	: Time to defer the deferred work
+ */
+struct intel_idleness_drrs_work {
+	struct delayed_work work;
+	struct intel_pipeline *pipeline;
+
+	/* Idleness interval in mSec*/
+	int interval;
+};
+
+/* Encoder related function pointers */
+struct drrs_encoder_ops {
+	int (*init)(struct intel_pipeline *);
+	void (*exit)(struct intel_pipeline *);
+	void (*set_drrs_state)(struct intel_pipeline *);
+	bool (*is_drrs_hr_state_pending)(struct intel_pipeline *);
+};
+
+struct adf_drrs {
+	/* Whether another pipe is enabled in parallel */
+	bool is_clone;
+
+	/* downclock mode && seamless DRRS */
+	bool has_drrs;
+
+	/* Holds the DRRS state machine states */
+	struct drrs_info drrs_state;
+	struct vbt_drrs_data vbt;
+
+	/* Panel's max, min and customer requested modes are stored */
+	struct drrs_panel_mode panel_mode;
+	struct intel_idleness_drrs_work *idleness_drrs_work;
+
+	/* Functions to hold encoder specific DRRS functions */
+	struct drrs_encoder_ops *encoder_ops;
+};
+
 union encoder_params {
 	/*
 	 * pass display specific params to pipeline code
@@ -525,6 +615,7 @@ union encoder_params {
 
 struct intel_pipeline {
 	union encoder_params params;
+	struct adf_drrs *drrs;
 };
 
 struct intel_dc_config {

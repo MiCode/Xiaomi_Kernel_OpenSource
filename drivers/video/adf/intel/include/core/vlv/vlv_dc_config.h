@@ -244,6 +244,11 @@ static inline struct vlv_pipeline *to_vlv_pipeline(
 	return container_of(intel_pipeline, struct vlv_pipeline, base);
 }
 
+static inline int vlv_pipeline_to_pipe_type(struct intel_pipeline *pipeline)
+{
+	return (to_vlv_pipeline(pipeline))->type;
+}
+
 bool vlv_intf_screen_connected(struct intel_pipeline *pipeline);
 u32 vlv_intf_vsync_counter(struct intel_pipeline *pipeline, u32 interval);
 

@@ -5,6 +5,7 @@ obj-$(CONFIG_ADF_INTEL) += backlight_dev.o
 obj-$(CONFIG_ADF_INTEL) += intel_gen_backlight.o
 obj-y 			+= intel_adf_events.o
 obj-y			+= drm_modeinfo_ops.o
+obj-y 			+= intel_drrs.o
 
 obj-y			+= dsi/
 obj-y			+= hdmi/
