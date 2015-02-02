@@ -230,6 +230,9 @@
 #define BATCH_MODE_NORMAL		0
 #define BATCH_MODE_WAKE_UPON_FIFO_FULL	2
 
+/* interrput mode for sensor max delay ms */
+#define LIS_INT_MAX_DELAY	1000
+
 enum {
 	LIS3DH_BYPASS_MODE = 0,
 	LIS3DH_FIFO_MODE,
@@ -2185,6 +2188,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		acc->cdev.sensors_flush = lis3dh_acc_flush;
 		acc->cdev.fifo_reserved_event_count = LIS3DH_FIFO_SIZE;
 		acc->cdev.fifo_max_event_count = LIS3DH_FIFO_SIZE;
+		acc->cdev.max_delay = LIS_INT_MAX_DELAY;
 	}
 	err = sensors_classdev_register(&client->dev, &acc->cdev);
 	if (err) {
