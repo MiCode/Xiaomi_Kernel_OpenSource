@@ -50,6 +50,7 @@
 #define TSENS_NAME_FORMAT "tsens_tz_sensor%d"
 #define THERM_SECURE_BITE_CMD 8
 #define SENSOR_SCALING_FACTOR 1
+#define CPU_DEVICE "cpu%d"
 
 static struct msm_thermal_data msm_thermal_info;
 static struct delayed_work check_temp_work;
@@ -124,6 +125,7 @@ static struct cpufreq_frequency_table *pending_freq_table_ptr;
 static int pending_cpu_freq = -1;
 static long *tsens_temp_at_panic;
 
+static LIST_HEAD(devices_list);
 static LIST_HEAD(thresholds_list);
 enum thermal_threshold {
 	HOTPLUG_THRESHOLD_HIGH,
@@ -196,6 +198,11 @@ struct psm_rail {
 	struct attribute_group attr_gp;
 };
 
+struct devmgr_devices {
+	struct device_manager_data *hotplug_dev;
+	struct device_manager_data *cpufreq_dev[NR_CPUS];
+};
+
 enum msm_thresh_list {
 	MSM_THERM_RESET,
 	MSM_VDD_RESTRICTION,
@@ -232,6 +239,7 @@ static struct cpu_info cpus[NR_CPUS];
 static struct threshold_info *thresh;
 static bool mx_restr_applied;
 static struct cluster_info *core_ptr;
+static struct devmgr_devices *devices;
 
 struct vdd_rstr_enable {
 	struct kobj_attribute ko_attr;
@@ -313,6 +321,265 @@ enum ocr_request {
 	ko_attr.store = store_mx_##_name; \
 	sysfs_attr_init(&ko_attr.attr); \
 	_attr_gp.attrs[0] = &ko_attr.attr;
+
+static struct device_manager_data *find_device_by_name(const char *device_name)
+{
+	struct device_manager_data *dev_mgr = NULL;
+
+	list_for_each_entry(dev_mgr, &devices_list, dev_ptr) {
+		if (strcmp(dev_mgr->device_name, device_name) == 0)
+			return dev_mgr;
+	}
+
+	return NULL;
+}
+
+static int validate_client(struct device_clnt_data *clnt)
+{
+	int ret = 0;
+	struct device_manager_data *dev_mgr = NULL;
+	struct device_clnt_data *client_ptr = NULL;
+
+	if (!clnt || !clnt->dev_mgr) {
+		pr_err("Invalid client\n");
+		ret = -EINVAL;
+		goto validate_exit;
+	}
+
+	list_for_each_entry(dev_mgr, &devices_list, dev_ptr) {
+		if (dev_mgr == clnt->dev_mgr)
+			break;
+	}
+	if (dev_mgr != clnt->dev_mgr) {
+		pr_err("Invalid device manager\n");
+		ret = -EINVAL;
+		goto validate_exit;
+	}
+
+	mutex_lock(&dev_mgr->clnt_lock);
+	list_for_each_entry(client_ptr, &dev_mgr->client_list, clnt_ptr) {
+		if (clnt == client_ptr)
+			break;
+	}
+	if (clnt != client_ptr) {
+		pr_err("Invalid client\n");
+		ret = -EINVAL;
+		goto validate_unlock;
+	}
+validate_unlock:
+	mutex_unlock(&dev_mgr->clnt_lock);
+
+validate_exit:
+	return ret;
+}
+
+static int devmgr_client_cpufreq_update(struct device_manager_data *dev_mgr)
+{
+	int ret = 0;
+	struct device_clnt_data *clnt = NULL;
+	uint32_t max_freq = UINT_MAX;
+	uint32_t min_freq = 0;
+
+	mutex_lock(&dev_mgr->clnt_lock);
+	list_for_each_entry(clnt, &dev_mgr->client_list, clnt_ptr) {
+		if (!clnt->req_active)
+			continue;
+		max_freq = min(max_freq, clnt->request.freq.max_freq);
+		min_freq = max(min_freq, clnt->request.freq.min_freq);
+	}
+	if (dev_mgr->active_req.freq.max_freq == max_freq &&
+		dev_mgr->active_req.freq.min_freq == min_freq) {
+		goto update_exit;
+	}
+	dev_mgr->active_req.freq.max_freq = max_freq;
+	dev_mgr->active_req.freq.min_freq = min_freq;
+
+	if (freq_mitigation_task) {
+		complete(&freq_mitigation_complete);
+	} else {
+		pr_err("Frequency mitigation task is not initialized\n");
+		ret = -ESRCH;
+	}
+
+update_exit:
+	mutex_unlock(&dev_mgr->clnt_lock);
+	return ret;
+}
+
+static int devmgr_client_hotplug_update(struct device_manager_data *dev_mgr)
+{
+	int ret = 0;
+	struct device_clnt_data *clnt = NULL;
+	cpumask_t offline_mask = CPU_MASK_NONE;
+
+	mutex_lock(&dev_mgr->clnt_lock);
+	list_for_each_entry(clnt, &dev_mgr->client_list, clnt_ptr) {
+		if (!clnt->req_active)
+			continue;
+		cpumask_or(&offline_mask, &offline_mask,
+				&clnt->request.offline_mask);
+	}
+	if (cpumask_equal(&dev_mgr->active_req.offline_mask, &offline_mask))
+		goto update_exit;
+
+	cpumask_copy(&dev_mgr->active_req.offline_mask, &offline_mask);
+
+	if (hotplug_task) {
+		complete(&hotplug_notify_complete);
+	} else {
+		pr_err("Hotplug task is not initialized\n");
+		ret = -ESRCH;
+	}
+
+update_exit:
+	mutex_unlock(&dev_mgr->clnt_lock);
+	return ret;
+}
+
+static int devmgr_hotplug_client_request_validate_and_update(
+				struct device_clnt_data *clnt,
+				union device_request *req,
+				enum device_req_type type)
+{
+	if (type != HOTPLUG_MITIGATION_REQ)
+		return -EINVAL;
+
+	cpumask_copy(&clnt->request.offline_mask, &req->offline_mask);
+
+	if (!cpumask_empty(&req->offline_mask))
+		clnt->req_active = true;
+	else
+		clnt->req_active = false;
+
+	return 0;
+}
+
+static int devmgr_cpufreq_client_request_validate_and_update(
+						struct device_clnt_data *clnt,
+						union device_request *req,
+						enum device_req_type type)
+{
+	if (type != CPUFREQ_MITIGATION_REQ)
+		return -EINVAL;
+
+	if (req->freq.max_freq < req->freq.min_freq) {
+		pr_err("Invalid Max and Min freq req. max:%u min:%u\n",
+			req->freq.max_freq, req->freq.min_freq);
+		return -EINVAL;
+	}
+
+	clnt->request.freq.max_freq = req->freq.max_freq;
+	clnt->request.freq.min_freq = req->freq.min_freq;
+
+	if ((req->freq.max_freq == CPUFREQ_MAX_NO_MITIGATION) &&
+		(req->freq.min_freq == CPUFREQ_MIN_NO_MITIGATION))
+		clnt->req_active = false;
+	else
+		clnt->req_active = true;
+
+	return 0;
+}
+
+int devmgr_client_request_mitigation(struct device_clnt_data *clnt,
+					enum device_req_type type,
+					union device_request *req)
+{
+	int ret = 0;
+	struct device_manager_data *dev_mgr = NULL;
+
+	if (!clnt || !req) {
+		pr_err("Invalid inputs for mitigation.\n");
+		ret = -EINVAL;
+		goto req_exit;
+	}
+
+	ret = validate_client(clnt);
+	if (ret) {
+		pr_err("Invalid mitigation client. ret:%d\n", ret);
+		goto req_exit;
+	}
+
+	if (!clnt->dev_mgr->request_validate) {
+		pr_err("Invalid dev mgr request update\n");
+		ret = -EINVAL;
+		goto req_exit;
+	}
+
+	dev_mgr = clnt->dev_mgr;
+	mutex_lock(&dev_mgr->clnt_lock);
+	ret = dev_mgr->request_validate(clnt, req, type);
+	if (ret) {
+		pr_err("Invalid client request\n");
+		goto req_unlock;
+	}
+
+req_unlock:
+	mutex_unlock(&dev_mgr->clnt_lock);
+	if (!ret && dev_mgr->update)
+		dev_mgr->update(dev_mgr);
+
+req_exit:
+	return ret;
+}
+
+struct device_clnt_data *devmgr_register_mitigation_client(struct device *dev,
+				const char *device_name,
+				void (*callback)(struct device_clnt_data *,
+				union device_request *, void *))
+{
+	struct device_clnt_data *client = NULL;
+	struct device_manager_data *dev_mgr = NULL;
+
+	if (!dev || !device_name) {
+		pr_err("Invalid input\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	dev_mgr = find_device_by_name(device_name);
+	if (!dev_mgr) {
+		pr_err("Invalid device %s\n", device_name);
+		return ERR_PTR(-EINVAL);
+	}
+
+	client = devm_kzalloc(dev,
+		sizeof(struct device_clnt_data), GFP_KERNEL);
+	if (!client) {
+		pr_err("Memory alloc failed\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	mutex_lock(&dev_mgr->clnt_lock);
+	client->dev_mgr = dev_mgr;
+	client->callback = callback;
+	list_add_tail(&client->clnt_ptr, &dev_mgr->client_list);
+	mutex_unlock(&dev_mgr->clnt_lock);
+
+	return client;
+}
+
+void devmgr_unregister_mitigation_client(struct device *dev,
+					struct device_clnt_data *clnt)
+{
+	int ret = 0;
+	struct device_manager_data *dev_mgr = NULL;
+
+	if (!clnt) {
+		pr_err("Invalid input\n");
+		return;
+	}
+
+	ret = validate_client(clnt);
+	if (ret)
+		return;
+
+	dev_mgr = clnt->dev_mgr;
+	mutex_lock(&dev_mgr->clnt_lock);
+	list_del(&clnt->clnt_ptr);
+	mutex_unlock(&dev_mgr->clnt_lock);
+	devm_kfree(dev, clnt);
+	if (dev_mgr->update)
+		dev_mgr->update(dev_mgr);
+}
 
 static int  msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 		unsigned long event, void *data)
@@ -1961,6 +2228,7 @@ static __ref int do_hotplug(void *data)
 {
 	int ret = 0;
 	uint32_t cpu = 0, mask = 0;
+	struct device_clnt_data *clnt = NULL;
 	struct sched_param param = {.sched_priority = MAX_RT_PRIO-2};
 
 	if (!core_control_enabled) {
@@ -1988,9 +2256,37 @@ static __ref int do_hotplug(void *data)
 			if (cpus[cpu].offline || cpus[cpu].user_offline)
 				mask |= BIT(cpu);
 		}
+		if (devices && devices->hotplug_dev) {
+			mutex_lock(&devices->hotplug_dev->clnt_lock);
+			for_each_cpu_mask(cpu,
+				devices->hotplug_dev->active_req.offline_mask)
+				mask |= BIT(cpu);
+			mutex_unlock(&devices->hotplug_dev->clnt_lock);
+		}
 		if (mask != cpus_offlined)
 			update_offline_cores(mask);
 		mutex_unlock(&core_control_mutex);
+
+		if (devices && devices->hotplug_dev) {
+			union device_request req;
+
+			req.offline_mask = CPU_MASK_NONE;
+			mutex_lock(&devices->hotplug_dev->clnt_lock);
+			for_each_cpu_mask(cpu,
+				devices->hotplug_dev->active_req.offline_mask)
+				if (mask & BIT(cpu))
+					cpumask_test_and_set_cpu(cpu,
+						&req.offline_mask);
+
+			list_for_each_entry(clnt,
+					&devices->hotplug_dev->client_list,
+					clnt_ptr) {
+				if (clnt->callback)
+					clnt->callback(clnt, &req,
+							clnt->usr_data);
+			}
+			mutex_unlock(&devices->hotplug_dev->clnt_lock);
+		}
 		sysfs_notify(cc_kobj, NULL, "cpus_offlined");
 	}
 
@@ -2542,6 +2838,8 @@ static __ref int do_freq_mitigation(void *data)
 	int ret = 0;
 	uint32_t cpu = 0, max_freq_req = 0, min_freq_req = 0;
 	struct sched_param param = {.sched_priority = MAX_RT_PRIO-1};
+	struct device_clnt_data *clnt = NULL;
+	struct device_manager_data *cpu_dev = NULL;
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 	while (!kthread_should_stop()) {
@@ -2560,6 +2858,16 @@ static __ref int do_freq_mitigation(void *data)
 			min_freq_req = max(min_freq_limit,
 					cpus[cpu].user_min_freq);
 
+			if (devices && devices->cpufreq_dev[cpu]) {
+				cpu_dev = devices->cpufreq_dev[cpu];
+				mutex_lock(&cpu_dev->clnt_lock);
+				max_freq_req = min(max_freq_req,
+					cpu_dev->active_req.freq.max_freq);
+				min_freq_req = max(min_freq_req,
+					cpu_dev->active_req.freq.min_freq);
+				mutex_unlock(&cpu_dev->clnt_lock);
+			}
+
 			if ((max_freq_req == cpus[cpu].limited_max_freq)
 				&& (min_freq_req ==
 				cpus[cpu].limited_min_freq))
@@ -2570,6 +2878,24 @@ static __ref int do_freq_mitigation(void *data)
 			if (!SYNC_CORE(cpu))
 				update_cpu_freq(cpu);
 reset_threshold:
+			if (!SYNC_CORE(cpu) &&
+				devices && devices->cpufreq_dev[cpu]) {
+				union device_request req;
+
+				req.freq.max_freq = max_freq_req;
+				req.freq.min_freq = min_freq_req;
+				cpu_dev = devices->cpufreq_dev[cpu];
+				mutex_lock(&cpu_dev->clnt_lock);
+				list_for_each_entry(clnt,
+					&cpu_dev->client_list,
+					clnt_ptr) {
+					if (clnt->callback)
+						clnt->callback(clnt,
+							&req,
+							clnt->usr_data);
+				}
+				mutex_unlock(&cpu_dev->clnt_lock);
+			}
 			if (freq_mitigation_enabled &&
 				cpus[cpu].freq_thresh_clear) {
 				sensor_mgr_set_threshold(cpus[cpu].sensor_id,
@@ -3758,10 +4084,86 @@ pre_init_exit:
 	return ret;
 }
 
+static int devmgr_devices_init(struct platform_device *pdev)
+{
+	int ret = 0;
+	uint32_t cpu;
+	struct device_manager_data *dev_mgr = NULL;
+
+	devices = devm_kzalloc(&pdev->dev,
+				sizeof(struct devmgr_devices),
+				GFP_KERNEL);
+	if (!devices) {
+		pr_err("Malloc failed for devmgr devices\n");
+		ret = -ENOMEM;
+		goto device_exit;
+	}
+	if (num_possible_cpus() > 1) {
+		/* Add hotplug device */
+		dev_mgr = devm_kzalloc(&pdev->dev,
+		sizeof(struct device_manager_data),
+			GFP_KERNEL);
+		if (!dev_mgr) {
+			pr_err("Malloc failed for hotplug device\n");
+			ret = -ENOMEM;
+			goto device_exit;
+		}
+		snprintf(dev_mgr->device_name,
+				TSENS_NAME_MAX, HOTPLUG_DEVICE);
+		dev_mgr->request_validate =
+			devmgr_hotplug_client_request_validate_and_update;
+		dev_mgr->update = devmgr_client_hotplug_update;
+		HOTPLUG_NO_MITIGATION(&dev_mgr->active_req.offline_mask);
+		mutex_init(&dev_mgr->clnt_lock);
+		INIT_LIST_HEAD(&dev_mgr->client_list);
+		list_add_tail(&dev_mgr->dev_ptr, &devices_list);
+		devices->hotplug_dev = dev_mgr;
+	}
+	/*  Add cpu devices */
+	for_each_possible_cpu(cpu) {
+		dev_mgr = devm_kzalloc(&pdev->dev,
+		sizeof(struct device_manager_data),
+			GFP_KERNEL);
+		if (!dev_mgr) {
+			pr_err("Malloc failed for cpu%d device\n", cpu);
+			ret = -ENOMEM;
+			goto device_exit;
+		}
+		snprintf(dev_mgr->device_name, TSENS_NAME_MAX, CPU_DEVICE, cpu);
+		dev_mgr->request_validate =
+			devmgr_cpufreq_client_request_validate_and_update;
+		dev_mgr->update = devmgr_client_cpufreq_update;
+		dev_mgr->active_req.freq.max_freq = CPUFREQ_MAX_NO_MITIGATION;
+		dev_mgr->active_req.freq.min_freq = CPUFREQ_MIN_NO_MITIGATION;
+		mutex_init(&dev_mgr->clnt_lock);
+		INIT_LIST_HEAD(&dev_mgr->client_list);
+		list_add_tail(&dev_mgr->dev_ptr, &devices_list);
+		devices->cpufreq_dev[cpu] = dev_mgr;
+	}
+device_exit:
+	if (ret) {
+		if (devices) {
+			if (devices->hotplug_dev)
+				devm_kfree(&pdev->dev,
+					devices->hotplug_dev);
+			for_each_possible_cpu(cpu) {
+				if (devices->cpufreq_dev[cpu])
+					devm_kfree(&pdev->dev,
+					devices->cpufreq_dev[cpu]);
+			}
+		}
+	}
+	return ret;
+}
+
 int msm_thermal_init(struct msm_thermal_data *pdata)
 {
 	int ret = 0;
 	uint32_t cpu;
+
+	ret = devmgr_devices_init(pdata->pdev);
+	if (ret)
+		pr_err("cannot initialize devm devices. err:%d\n", ret);
 
 	for_each_possible_cpu(cpu) {
 		cpus[cpu].cpu = cpu;
