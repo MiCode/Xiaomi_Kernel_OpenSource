@@ -1908,8 +1908,9 @@ static int ipa_wwan_remove(struct platform_device *pdev)
 	ipa_del_dflt_wan_rt_tables();
 	ipa_del_a7_qmap_hdr();
 	ipa_del_mux_qmap_hdrs();
-	ipa_qmi_service_exit();
 	wwan_del_ul_flt_rule_to_ipa();
+	/* clean up cached QMI msg/handlers */
+	ipa_qmi_service_exit();
 	ipa_cleanup_deregister_intf();
 	atomic_set(&is_initialized, 0);
 	pr_info("rmnet_ipa completed deinitialization\n");
