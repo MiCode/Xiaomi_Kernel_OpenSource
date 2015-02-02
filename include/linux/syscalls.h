@@ -184,6 +184,7 @@ extern struct trace_event_functions exit_syscall_print_funcs;
 	__SYSCALL_DEFINEx(x, sname, __VA_ARGS__)
 
 #define __PROTECT(...) asmlinkage_protect(__VA_ARGS__)
+#if !defined(__i386) && !defined(__amd64__)
 #define __SYSCALL_DEFINEx(x, name, ...)					\
 	asmlinkage long sys##name(__MAP(x,__SC_DECL,__VA_ARGS__));	\
 	static inline long SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__));	\
@@ -196,6 +197,21 @@ extern struct trace_event_functions exit_syscall_print_funcs;
 	}								\
 	SYSCALL_ALIAS(sys##name, SyS##name);				\
 	static inline long SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__))
+#else
+#define __SYSCALL_DEFINEx(x, name, ...)					\
+	asmlinkage long sys##name(__MAP(x,__SC_DECL,__VA_ARGS__));	\
+	static inline long SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__));	\
+	asmlinkage long SyS##name(__MAP(x,__SC_LONG,__VA_ARGS__))	\
+	{								\
+		long ret;						\
+		ret = SYSC##name(__MAP(x,__SC_CAST,__VA_ARGS__));	\
+		__MAP(x,__SC_TEST,__VA_ARGS__);				\
+		__PROTECT(x, ret,__MAP(x,__SC_ARGS,__VA_ARGS__));	\
+		return ret;						\
+	}								\
+	SYSCALL_ALIAS(sys##name, SyS##name);				\
+	static inline long SYSC##name(__MAP(x,__SC_DECL,__VA_ARGS__))
+#endif
 
 asmlinkage long sys_time(time_t __user *tloc);
 asmlinkage long sys_stime(time_t __user *tptr);
