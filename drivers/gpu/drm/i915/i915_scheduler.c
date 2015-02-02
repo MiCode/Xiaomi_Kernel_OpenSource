@@ -188,6 +188,7 @@ int i915_scheduler_init(struct drm_device *dev)
 
 	/* Default tuning values: */
 	scheduler->priority_level_max     = ~0U;
+	scheduler->priority_level_bump    =  50;
 	scheduler->priority_level_preempt = 900;
 	scheduler->min_flying             = 2;
 	scheduler->file_queue_max         = 64;
@@ -1498,6 +1499,19 @@ int i915_scheduler_submit(struct intel_engine_cs *ring, bool was_locked)
 
 		ret = i915_scheduler_pop_from_queue_locked(ring, &node, &flags);
 	} while (ret == 0);
+
+	/*
+	 * Bump the priority of everything that was not submitted to prevent
+	 * starvation of low priority tasks by a spamming high priority task.
+	 */
+	i915_scheduler_priority_bump_clear(scheduler);
+	list_for_each_entry(node, &scheduler->node_queue[ring->id], link) {
+		if (!I915_SQS_IS_QUEUED(node))
+			continue;
+
+		i915_scheduler_priority_bump(scheduler, node,
+					     scheduler->priority_level_bump);
+	}
 
 	spin_unlock_irqrestore(&scheduler->lock, flags);
 

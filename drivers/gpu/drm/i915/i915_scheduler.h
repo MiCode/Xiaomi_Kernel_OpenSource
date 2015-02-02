@@ -115,6 +115,7 @@ struct i915_scheduler {
 
 	/* Tuning parameters: */
 	uint32_t            priority_level_max;
+	uint32_t            priority_level_bump;
 	uint32_t            priority_level_preempt;
 	uint32_t            min_flying;
 	uint32_t            file_queue_max;
