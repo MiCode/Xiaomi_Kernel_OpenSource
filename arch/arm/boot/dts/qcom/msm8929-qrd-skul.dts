@@ -21,6 +21,12 @@
 	qcom,board-id = <0x11000b 5>;
 };
 
+&i2c_0 {
+	bosch@18 { /* Accelerometer sensor */
+		bosch,place = <5>;
+	};
+};
+
 &i2c_4 {
 	smb1357_otg_vreg: smb1357-charger@57 {
 		compatible = "qcom,smb1357-charger";
