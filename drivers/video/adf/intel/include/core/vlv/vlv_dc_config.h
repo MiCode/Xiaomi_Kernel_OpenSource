@@ -277,6 +277,13 @@ extern void vlv_debugfs_teardown(struct vlv_dc_config *vlv_config);
 bool vlv_dsi_port_init(struct vlv_dsi_port *port, enum port, enum pipe);
 bool vlv_dsi_port_destroy(struct vlv_dsi_port *port);
 
+/* eDP PSR functions */
+void vlv_edp_psr_init(struct intel_pipeline *pipeline);
+void vlv_edp_psr_update(struct intel_pipeline *pipeline);
+void vlv_edp_psr_disable(struct intel_pipeline *pipeline);
+void vlv_edp_psr_exit(struct intel_pipeline *pipeline, bool flag);
+void vlv_edp_psr_irq_handler(struct intel_pipeline *pipeline);
+
 extern int vlv_aux_transfer(struct intel_pipeline *pipeline,
 	struct dp_aux_msg *msg);
 extern int vlv_set_signal_levels(struct intel_pipeline *pipeline,

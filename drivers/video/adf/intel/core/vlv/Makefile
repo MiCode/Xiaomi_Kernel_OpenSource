@@ -15,5 +15,6 @@ obj-y := vlv_dc_config.o \
 	vlv_hdmi_port.o \
 	chv_dpio.o \
 	vlv_dp_port.o\
+	vlv_edp_psr.o \
 	vlv_color_correction.o \
 	chv_color_correction.o

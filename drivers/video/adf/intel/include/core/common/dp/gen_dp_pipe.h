@@ -25,7 +25,24 @@
 #define DP_LINK_BW_2_7      0x0a
 #define DP_LINK_BW_5_4      0x14
 
+#define EDP_PSR_RECEIVER_CAP_SIZE 2
+/* eDP PSR related fields */
+struct edp_psr {
+	u8 dpcd[EDP_PSR_RECEIVER_CAP_SIZE];
+	bool sink_support;
+	bool source_ok;
+	bool setup_done;
+	bool link_train_on_exit;
+	struct mutex lock;
+	struct delayed_work work;
+	struct dp_pipe *enabled;
+	struct intel_pipeline *pipeline;
+	unsigned long entry_ts;
+	atomic_t update_pending;
+};
+
 struct dp_pipe {
+	struct edp_psr psr;
 	struct intel_pipe base;
 	struct intel_pipeline *pipeline;
 	struct dp_panel panel;
