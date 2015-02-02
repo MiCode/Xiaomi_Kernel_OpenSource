@@ -4094,7 +4094,8 @@ static int tcp_prune_queue(struct sock *sk);
 static int tcp_try_rmem_schedule(struct sock *sk, struct sk_buff *skb,
 				 unsigned int size)
 {
-	if (atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
+	if (atomic_read(&sk->sk_rmem_alloc)
+				     > ((sk->sk_rcvbuf + sk->sk_sndbuf) * 4) ||
 	    !sk_rmem_schedule(sk, skb, size)) {
 
 		if (tcp_prune_queue(sk) < 0)
