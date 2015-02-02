@@ -50,7 +50,7 @@ u32 vlv_pipe_program_timings(struct vlv_pipe *pipe,
 		enum intel_pipe_type type, u8 bpp);
 u32 vlv_pipe_enable(struct vlv_pipe *pipe,
 		struct drm_mode_modeinfo *mode);
-u32 vlv_pipe_disable(struct vlv_pipe *pipe);
+int vlv_pipe_disable(struct vlv_pipe *pipe);
 u32 vlv_pipe_set_event(struct vlv_pipe *pipe, u32 event, bool enabled);
 u32 vlv_pipe_get_event(struct vlv_pipe *pipe, u32 *event);
 void vlv_pipe_evade_vblank(struct vlv_pipe *pipe,

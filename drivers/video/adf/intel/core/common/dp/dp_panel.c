@@ -128,12 +128,12 @@ bool dp_panel_probe(struct dp_panel *panel, struct intel_pipeline *pipeline)
 
 #define DP_LINK_ALIGNED (1 << 3)
 
-static u32 dp_panel_get_dpcd(struct dp_panel *panel, u32 address,
+static int dp_panel_get_dpcd(struct dp_panel *panel, u32 address,
 			u8 *buffer, u32 size)
 {
 	struct intel_pipeline *pipeline = panel->pipeline;
 	struct dp_aux_msg msg = {0};
-	u32 err;
+	int err;
 
 	/* read dpcd aux or i2c */
 	msg.address = address;
@@ -145,12 +145,12 @@ static u32 dp_panel_get_dpcd(struct dp_panel *panel, u32 address,
 	return err;
 }
 
-u32 dp_panel_set_dpcd(struct dp_panel *panel, u32 address,
+int dp_panel_set_dpcd(struct dp_panel *panel, u32 address,
 			u8 *buffer, u32 size)
 {
 	struct intel_pipeline *pipeline = panel->pipeline;
 	struct dp_aux_msg msg = {0};
-	u32 err;
+	int err;
 
 	/* write dpcd aux or i2c */
 	msg.address = address;
@@ -162,7 +162,7 @@ u32 dp_panel_set_dpcd(struct dp_panel *panel, u32 address,
 	return err;
 }
 
-u32 dp_panel_get_max_link_bw(struct dp_panel *panel)
+int dp_panel_get_max_link_bw(struct dp_panel *panel)
 {
 	u8 link_rate = 0;
 
@@ -339,7 +339,7 @@ bool dp_panel_train_link(struct dp_panel *panel, struct link_params *params)
 	u8 link_config[2];
 	bool ret = false;
 	u8 tmp = 1, i;
-	u32 err = 0;
+	int err = 0;
 
 	for (i = 0; i < 3; i++) {
 		err = dp_panel_set_dpcd(panel, DP_SET_POWER, &tmp, 1);
@@ -393,7 +393,7 @@ err:
 /* dp_panel_init : assume that panel is connected when called */
 bool dp_panel_init(struct dp_panel *panel, struct intel_pipeline *pipeline)
 {
-	u32 err = 0;
+	int err = 0;
 
 	panel->pipeline = pipeline;
 	vlv_get_max_vswing_preemp(pipeline, &panel->max_vswing,

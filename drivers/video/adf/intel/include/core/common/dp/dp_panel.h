@@ -405,7 +405,7 @@ struct dp_panel {
 extern bool dp_panel_init(struct dp_panel *panel,
 			struct intel_pipeline *pipeline);
 extern bool dp_panel_destroy(struct dp_panel *panel);
-extern u32 dp_panel_get_max_link_bw(struct dp_panel *panel);
+extern int dp_panel_get_max_link_bw(struct dp_panel *panel);
 extern u32 dp_panel_get_max_lane_count(struct dp_panel *panel);
 extern bool dp_panel_train_link(struct dp_panel *panel,
 			struct link_params *params);
@@ -413,7 +413,7 @@ extern  bool dp_panel_fast_link_train(struct dp_panel *panel,
 			struct link_params *params);
 extern bool dp_panel_probe(struct dp_panel *panel,
 			struct intel_pipeline *pipeline);
-u32 dp_panel_set_dpcd(struct dp_panel *panel, u32 address,
+int dp_panel_set_dpcd(struct dp_panel *panel, u32 address,
 			u8 *buffer, u32 size);
 
 /* Hack:to avoid duplication of edid parsing logic hdmi's parser is used */

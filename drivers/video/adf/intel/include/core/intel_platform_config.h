@@ -35,7 +35,7 @@ u32 vlv_dsi_pre_pipeline_on(struct intel_pipeline *pipeline,
 u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 		struct drm_mode_modeinfo *mode);
 u32 vlv_pipeline_off(struct intel_pipeline *pipeline);
-u32 vlv_post_pipeline_off(struct intel_pipeline *pipeline);
+int vlv_post_pipeline_off(struct intel_pipeline *pipeline);
 bool vlv_is_screen_connected(struct intel_pipeline *pipeline);
 u32 vlv_dpst_context(struct intel_pipeline *pipeline, unsigned long args);
 u32 vlv_dpst_irq_handler(struct intel_pipeline *pipeline);
@@ -69,24 +69,24 @@ int vlv_cmd_vc_dcs_read(struct intel_pipeline *pipeline, int channel,
 int vlv_cmd_vc_generic_read(struct intel_pipeline *pipeline, int channel,
 		u8 *reqdata, int reqlen, u8 *buf, int buflen, enum port port);
 int vlv_cmd_dpi_send_cmd(struct intel_pipeline *pipeline, u32 cmd, bool hs);
-u32 vlv_aux_transfer(struct intel_pipeline *pipeline,
+int vlv_aux_transfer(struct intel_pipeline *pipeline,
 		struct dp_aux_msg *msg);
-u32 vlv_set_signal_levels(struct intel_pipeline *pipeline,
+int vlv_set_signal_levels(struct intel_pipeline *pipeline,
 		struct link_params *params);
-u32 chv_set_signal_levels(struct intel_pipeline *pipeline,
+int chv_set_signal_levels(struct intel_pipeline *pipeline,
 		struct link_params *params);
-u32 vlv_set_link_pattern(struct intel_pipeline *pipeline,
+int vlv_set_link_pattern(struct intel_pipeline *pipeline,
 		u8 train_pattern);
 void vlv_get_max_vswing_preemp(struct intel_pipeline *pipeline,
 		enum vswing_level *max_v, enum preemp_level *max_p);
 void vlv_get_adjust_train(struct intel_pipeline *pipeline,
 		struct link_params *params);
-u32 vlv_dp_panel_power_seq(struct intel_pipeline *pipeline,
+int vlv_dp_panel_power_seq(struct intel_pipeline *pipeline,
 		bool enable);
-u32 vlv_dp_backlight_seq(struct intel_pipeline *pipeline,
+int vlv_dp_backlight_seq(struct intel_pipeline *pipeline,
 		bool enable);
 u32 vlv_dp_get_brightness(struct intel_pipeline *pipeline);
-u32 vlv_dp_set_brightness(struct intel_pipeline *pipeline, int level);
+int vlv_dp_set_brightness(struct intel_pipeline *pipeline, int level);
 struct i2c_adapter *vlv_get_i2c_adapter(struct intel_pipeline *pipeline);
 
 u32 vlv_set_event(struct intel_pipeline *pipeline, u32 event, bool enabled);

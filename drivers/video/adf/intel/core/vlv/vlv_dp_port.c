@@ -44,7 +44,7 @@
 #define EDP_WRITE_PROTECT	0xabcd0000
 #define EDP_WRITE_PROTECT_MASK	0xffff0000
 
-static u32 wait_panel_status(struct vlv_dp_port *port, u32 mask, u32 value)
+static int wait_panel_status(struct vlv_dp_port *port, u32 mask, u32 value)
 {
 	u32 pp_stat_reg, pp_ctrl_reg;
 	u32 err = 0;
@@ -109,10 +109,10 @@ void vlv_dp_port_write_protect_off(struct vlv_dp_port *port, bool enable)
 	REG_WRITE(port->pp_ctl_offset, val);
 }
 
-u32 vlv_dp_port_panel_power_seq(struct vlv_dp_port *port, bool enable)
+int vlv_dp_port_panel_power_seq(struct vlv_dp_port *port, bool enable)
 {
 	u32 pp = 0;
-	u32 err = 0;
+	int err = 0;
 
 
 	if (enable) {
@@ -137,7 +137,7 @@ u32 vlv_dp_port_panel_power_seq(struct vlv_dp_port *port, bool enable)
 	return err;
 }
 
-u32 vlv_dp_port_pwm_seq(struct vlv_dp_port *port, bool enable)
+int vlv_dp_port_pwm_seq(struct vlv_dp_port *port, bool enable)
 {
 	u32 val = 0;
 
@@ -164,7 +164,7 @@ u32 vlv_dp_port_pwm_seq(struct vlv_dp_port *port, bool enable)
 	return 0;
 }
 
-u32 vlv_dp_port_backlight_seq(struct vlv_dp_port *port, bool enable)
+int vlv_dp_port_backlight_seq(struct vlv_dp_port *port, bool enable)
 {
 	u32 pp = 0;
 
@@ -204,7 +204,7 @@ u32 vlv_dp_port_backlight_seq(struct vlv_dp_port *port, bool enable)
 	return 0;
 }
 
-u32 vlv_dp_port_enable(struct vlv_dp_port *port, u32 flags,
+int vlv_dp_port_enable(struct vlv_dp_port *port, u32 flags,
 		union encoder_params *params)
 {
 	u32 reg_val = 0;
@@ -241,7 +241,7 @@ u32 vlv_dp_port_enable(struct vlv_dp_port *port, u32 flags,
 	return 0;
 }
 
-u32 vlv_dp_port_disable(struct vlv_dp_port *port)
+int vlv_dp_port_disable(struct vlv_dp_port *port)
 {
 	u32 reg_val = 0;
 
@@ -365,7 +365,7 @@ static void unpack_aux(uint32_t src, uint8_t *dst, int dst_bytes)
 		dst[i] = src >> ((3-i) * 8);
 }
 
-static u32 vlv_dp_port_aux_ch(struct vlv_dp_port *port,
+static int vlv_dp_port_aux_ch(struct vlv_dp_port *port,
 		u8 *send, u32 send_bytes,
 		u8 *recv, u32 recv_size)
 {
@@ -486,7 +486,7 @@ u32 vlv_dp_port_aux_transfer(struct vlv_dp_port *port,
 {
 	uint8_t txbuf[20], rxbuf[20];
 	size_t txsize, rxsize;
-	u32 ret;
+	int ret;
 
 	mutex_lock(&port->hw_mutex);
 
@@ -550,7 +550,7 @@ aux_tx_exit:
 	return ret;
 }
 
-u32 vlv_dp_port_set_signal_levels(struct vlv_dp_port *port,
+int vlv_dp_port_set_signal_levels(struct vlv_dp_port *port,
 	struct link_params *params, u32 *deemp, u32 *margin)
 {
 	/* FIXME: implement this */
@@ -599,7 +599,7 @@ void vlv_dp_port_get_adjust_train(struct vlv_dp_port *port,
 		params->vswing = voltage_max;
 }
 
-u32 vlv_dp_port_set_link_pattern(struct vlv_dp_port *port,
+int vlv_dp_port_set_link_pattern(struct vlv_dp_port *port,
 		u8 train_pattern)
 {
 	u32 val = 0;
@@ -812,7 +812,7 @@ static const struct i2c_algorithm i2c_algo = {
 	.master_xfer = vlv_dp_port_i2c_xfer,
 };
 
-u32 vlv_dp_port_i2c_register(struct vlv_dp_port *port, struct device *dev)
+int vlv_dp_port_i2c_register(struct vlv_dp_port *port, struct device *dev)
 {
 	mutex_init(&port->hw_mutex);
 
@@ -828,7 +828,7 @@ u32 vlv_dp_port_i2c_register(struct vlv_dp_port *port, struct device *dev)
 	return i2c_add_adapter(&port->ddc);
 }
 
-u32 vlv_dp_port_vdd_seq(struct vlv_dp_port *port, bool enable)
+int vlv_dp_port_vdd_seq(struct vlv_dp_port *port, bool enable)
 {
 	u32 val = 0;
 	val = REG_READ(port->pp_ctl_offset);
@@ -848,7 +848,7 @@ u32 vlv_dp_port_vdd_seq(struct vlv_dp_port *port, bool enable)
 	return 0;
 }
 
-u32 vlv_dp_port_load_panel_delays(struct vlv_dp_port *port)
+int vlv_dp_port_load_panel_delays(struct vlv_dp_port *port)
 {
 	u16 *ptr = NULL;
 	u32 val = 0;
@@ -974,7 +974,7 @@ bool vlv_dp_port_init(struct vlv_dp_port *port, enum port port_id,
 	return true;
 }
 
-u32 vlv_dp_port_set_brightness(struct vlv_dp_port *port, int level)
+int vlv_dp_port_set_brightness(struct vlv_dp_port *port, int level)
 {
 	u32 val;
 

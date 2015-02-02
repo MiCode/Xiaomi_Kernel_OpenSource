@@ -240,7 +240,7 @@ u32 vlv_pipe_enable(struct vlv_pipe *pipe,
 
 }
 
-u32 vlv_pipe_disable(struct vlv_pipe *pipe)
+int vlv_pipe_disable(struct vlv_pipe *pipe)
 {
 	struct vlv_pipeline *vlv_pipeline = container_of(pipe,
 			struct vlv_pipeline, pipe);

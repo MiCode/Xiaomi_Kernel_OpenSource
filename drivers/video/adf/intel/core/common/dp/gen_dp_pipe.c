@@ -75,7 +75,7 @@ static bool get_next_link_params(struct dp_panel *panel,
 		struct link_params *params, u32 dotclock)
 {
 	bool found = false;
-	u32 link_bw = 0;
+	int link_bw = 0;
 	u32 link_clock = 0, lane_count = 0;
 	u64 bw_available = 0, dotclock_req = 0;
 

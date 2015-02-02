@@ -241,7 +241,7 @@ extern u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 			struct drm_mode_modeinfo *mode);
 extern u32 vlv_pipeline_off(struct intel_pipeline *pipeline);
 extern u32 chv_pipeline_off(struct intel_pipeline *pipeline);
-extern u32 vlv_post_pipeline_off(struct intel_pipeline *pipeline);
+extern int vlv_post_pipeline_off(struct intel_pipeline *pipeline);
 extern bool vlv_is_screen_connected(struct intel_pipeline *pipeline);
 extern u32 vlv_num_planes_enabled(struct intel_pipeline *pipeline);
 extern bool vlv_is_vid_mode(struct intel_pipeline *pipeline);
@@ -277,21 +277,21 @@ extern void vlv_debugfs_teardown(struct vlv_dc_config *vlv_config);
 bool vlv_dsi_port_init(struct vlv_dsi_port *port, enum port, enum pipe);
 bool vlv_dsi_port_destroy(struct vlv_dsi_port *port);
 
-extern u32 vlv_aux_transfer(struct intel_pipeline *pipeline,
+extern int vlv_aux_transfer(struct intel_pipeline *pipeline,
 	struct dp_aux_msg *msg);
-extern u32 vlv_set_signal_levels(struct intel_pipeline *pipeline,
+extern int vlv_set_signal_levels(struct intel_pipeline *pipeline,
 	struct link_params *params);
-extern u32 chv_set_signal_levels(struct intel_pipeline *pipeline,
+extern int chv_set_signal_levels(struct intel_pipeline *pipeline,
 	struct link_params *params);
-extern u32 vlv_set_link_pattern(struct intel_pipeline *pipeline,
+extern int vlv_set_link_pattern(struct intel_pipeline *pipeline,
 	u8 train_pattern);
 extern void vlv_get_max_vswing_preemp(struct intel_pipeline *pipeline,
 	enum vswing_level *max_v, enum preemp_level *max_p);
 extern void vlv_get_adjust_train(struct intel_pipeline *pipeline,
 	struct link_params *params);
-extern u32 vlv_dp_panel_power_seq(struct intel_pipeline *pipeline,
+extern int vlv_dp_panel_power_seq(struct intel_pipeline *pipeline,
 	bool enable);
-extern u32 vlv_dp_backlight_seq(struct intel_pipeline *pipeline,
+extern int vlv_dp_backlight_seq(struct intel_pipeline *pipeline,
 	bool enable);
 extern struct i2c_adapter *vlv_get_i2c_adapter(struct intel_pipeline *pipeline);
 
@@ -301,7 +301,7 @@ extern u32 REG_POSTING_READ(u32 reg);
 extern void REG_WRITE(u32 reg, u32 val);
 extern void REG_WRITE_BITS(u32 reg, u32 val, u32 mask);
 
-extern u32 vlv_dp_set_brightness(struct intel_pipeline *pipeline, int level);
+extern int vlv_dp_set_brightness(struct intel_pipeline *pipeline, int level);
 extern u32 vlv_dp_get_brightness(struct intel_pipeline *pipeline);
 
 /* pipe and plane status */

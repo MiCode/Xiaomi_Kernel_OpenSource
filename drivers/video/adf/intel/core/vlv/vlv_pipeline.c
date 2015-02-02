@@ -410,7 +410,7 @@ static inline u32 vlv_port_disable(struct intel_pipeline *pipeline)
 	struct dsi_pipe *dsi_pipe = NULL;
 	struct dsi_context *dsi_ctx = NULL;
 	enum port port;
-	u32 err = 0;
+	int err = 0;
 
 	switch (disp->type) {
 	case INTEL_PIPE_DSI:
@@ -445,7 +445,7 @@ static inline u32 vlv_port_disable(struct intel_pipeline *pipeline)
 	return err;
 }
 
-u32 vlv_dsi_post_pipeline_off(struct intel_pipeline *pipeline)
+int vlv_dsi_post_pipeline_off(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_pll *pll = &disp->pll;
@@ -482,10 +482,10 @@ out:
 }
 
 /* generic function to be called for any operations after disable is done */
-u32 vlv_post_pipeline_off(struct intel_pipeline *pipeline)
+int vlv_post_pipeline_off(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	u32 err = 0;
+	int err = 0;
 
 	switch (disp->type) {
 	case INTEL_PIPE_DSI:
@@ -508,7 +508,7 @@ u32 vlv_pipeline_off(struct intel_pipeline *pipeline)
 	struct vlv_sp_plane *splane = NULL;
 	struct vlv_pipe *pipe = NULL;
 	struct vlv_pll *pll = NULL;
-	u32 err = 0, i = 0;
+	int err = 0, i = 0;
 
 	if (IS_CHERRYVIEW() && disp->type != INTEL_PIPE_DSI)
 		return chv_pipeline_off(pipeline);
@@ -575,7 +575,7 @@ u32 chv_pipeline_off(struct intel_pipeline *pipeline)
 	struct vlv_sp_plane *splane = NULL;
 	struct vlv_pll *pll = NULL;
 	u32 i = 0;
-	u32 err = 0;
+	int err = 0;
 
 	if (!disp)
 		return -EINVAL;
@@ -822,7 +822,7 @@ bool vlv_is_plane_enabled(struct intel_pipeline *pipeline,
 	return ret;
 }
 
-u32 vlv_aux_transfer(struct intel_pipeline *pipeline,
+int vlv_aux_transfer(struct intel_pipeline *pipeline,
 		struct dp_aux_msg *msg)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
@@ -868,11 +868,11 @@ u32 vlv_aux_transfer(struct intel_pipeline *pipeline,
 	return -EIO;
 }
 
-u32 vlv_set_link_pattern(struct intel_pipeline *pipeline, u8 train_pattern)
+int vlv_set_link_pattern(struct intel_pipeline *pipeline, u8 train_pattern)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dp_port *dp_port = &disp->port.dp_port;
-	u32 ret = 0;
+	int ret = 0;
 
 	ret = vlv_dp_port_set_link_pattern(dp_port, train_pattern);
 	if (ret != 0) {
@@ -896,7 +896,7 @@ out_link:
 
 }
 
-u32 vlv_set_signal_levels(struct intel_pipeline *pipeline,
+int vlv_set_signal_levels(struct intel_pipeline *pipeline,
 	struct link_params *params)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
@@ -912,7 +912,7 @@ u32 vlv_set_signal_levels(struct intel_pipeline *pipeline,
 	return 0;
 }
 
-u32 chv_set_signal_levels(struct intel_pipeline *pipeline,
+int chv_set_signal_levels(struct intel_pipeline *pipeline,
 	struct link_params *params)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
@@ -943,11 +943,11 @@ void vlv_get_max_vswing_preemp(struct intel_pipeline *pipeline,
 }
 
 
-u32 vlv_dp_panel_power_seq(struct intel_pipeline *pipeline, bool enable)
+int vlv_dp_panel_power_seq(struct intel_pipeline *pipeline, bool enable)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dp_port *dp_port = &disp->port.dp_port;
-	u32 err = 0;
+	int err = 0;
 
 	if (disp->type == INTEL_PIPE_EDP) {
 		err = vlv_dp_port_panel_power_seq(dp_port, enable);
@@ -958,11 +958,11 @@ u32 vlv_dp_panel_power_seq(struct intel_pipeline *pipeline, bool enable)
 	return err;
 }
 
-u32 vlv_dp_backlight_seq(struct intel_pipeline *pipeline, bool enable)
+int vlv_dp_backlight_seq(struct intel_pipeline *pipeline, bool enable)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dp_port *dp_port = &disp->port.dp_port;
-	u32 err = 0;
+	int err = 0;
 
 	if (disp->type == INTEL_PIPE_EDP)
 		err = vlv_dp_port_backlight_seq(dp_port, enable);
@@ -981,7 +981,7 @@ struct i2c_adapter *vlv_get_i2c_adapter(struct intel_pipeline *pipeline)
 		return NULL;
 }
 
-u32 vlv_dp_set_brightness(struct intel_pipeline *pipeline, int level)
+int vlv_dp_set_brightness(struct intel_pipeline *pipeline, int level)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dp_port *port = &disp->port.dp_port;
@@ -993,7 +993,7 @@ u32 vlv_dp_get_brightness(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dp_port *port = &disp->port.dp_port;
-	int level;
+	u32 level;
 
 	level = vlv_dp_port_get_brightness(port);
 	return level;
