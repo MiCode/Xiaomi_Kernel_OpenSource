@@ -394,6 +394,7 @@ err:
 bool dp_panel_init(struct dp_panel *panel, struct intel_pipeline *pipeline)
 {
 	int err = 0;
+	bool link_train_on_exit = true;
 
 	panel->pipeline = pipeline;
 	vlv_get_max_vswing_preemp(pipeline, &panel->max_vswing,
@@ -404,6 +405,20 @@ bool dp_panel_init(struct dp_panel *panel, struct intel_pipeline *pipeline)
 			(u8 *)panel->dpcd_start, 11);
 	pr_err("Received %d bytes for start panel %x %x\n", err,
 			panel->dpcd_start[0], panel->dpcd_start[1]);
+
+	/* Check if the panel supports PSR */
+	memset(panel->psr_dpcd, 0, sizeof(panel->psr_dpcd));
+	dp_panel_get_dpcd(panel, DP_PSR_SUPPORT,
+			panel->psr_dpcd, sizeof(panel->psr_dpcd));
+
+	if (panel->psr_dpcd[0] & DP_PSR_IS_SUPPORTED)
+		pr_info("Detected EDP PSR Panel.\n");
+
+	if (panel->psr_dpcd[1] & DP_PSR_NO_TRAIN_ON_EXIT)
+		link_train_on_exit = false;
+
+	pr_info("Link training is%srequired on PSR exit\n",
+			link_train_on_exit ? " " : " not ");
 
 	return true;
 }

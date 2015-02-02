@@ -400,6 +400,9 @@ struct dp_panel {
 
 	/* First 12 bytes of dpcd read during init */
 	u8 dpcd_start[12];
+
+	/* DPCD bytes related to PSR [70-71h] */
+	u8 psr_dpcd[2];
 };
 
 extern bool dp_panel_init(struct dp_panel *panel,
