@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,6 +158,61 @@ enum {
 		},						\
 	}
 
+/*
+ * UBWC compression ratio factors tables:
+ * These tables hold the compression ratios that need to be used for
+ * BW vote for the different UBWC formats within different chipsets.
+ * If a new ubwc format is added to the mdss_mdp_format_ubwc_map
+ * table, then a new column needs to be added to the ubwc_rt_factors
+ * and ubwc_nrt_factors as well as update the definition of
+ * UBWC_TOTAL_FORMATS to account for the size of the table.
+ * If the chipset needs these factors for BW calculation, driver will verify
+ * that the size of the factors tables are multiple of the ubwc_map
+ * table and throw an error if a mismatch is found.
+ */
+#define UBWC_TOTAL_FORMATS 3
+
+static struct mdss_fudge_factor ubwc_rt_factors[][UBWC_TOTAL_FORMATS] = {
+	/* RGB_565_UBWC	| RGBA_8888_UBWC | YUV_H2V2_UBWC */
+	{{1, 1} ,	 {126, 100} ,	  {123, 100} } , /* Thulium v0 */
+	{{1, 1} ,	 {126, 100} ,	  {123, 100} } , /* Thulium v1,v2 */
+};
+
+static struct mdss_fudge_factor ubwc_nrt_factors[][UBWC_TOTAL_FORMATS] = {
+	/* RGB_565_UBWC	| RGBA_8888_UBWC | YUV_H2V2_UBWC */
+	{{1, 1} ,	 {146, 100} ,	 {1,   1} } ,	/* Thulium v0 */
+	{{1, 1} ,	 {146, 100} ,	 {128, 100} } ,	/* Thulium v1,v2 */
+};
+
+/*
+ * UBWC formats table:
+ * This table holds the UBWC formats supported.
+ * If a new format is added, the corresponding compression ratio must be
+ * added in ubwc_rt_factors and ubwc_nrt_factors tables.
+ */
+static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
+	{
+		.mdp_format = FMT_RGB_565(MDP_RGB_565_UBWC,
+			MDSS_MDP_FETCH_UBWC, C1_B_Cb, C0_G_Y, C2_R_Cr),
+		.comp_ratio_rt = {1, 1},
+		.comp_ratio_nrt = {1, 1},
+	},
+	{
+		.mdp_format = FMT_RGB_8888(MDP_RGBA_8888_UBWC,
+			MDSS_MDP_FETCH_UBWC, 1,
+			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+		.comp_ratio_rt = {1, 1},
+		.comp_ratio_nrt = {1, 1},
+	},
+	{
+		.mdp_format = FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2_UBWC,
+			MDSS_MDP_FETCH_UBWC, MDSS_MDP_CHROMA_420,
+			C1_B_Cb, C2_R_Cr),
+		.comp_ratio_rt = {1, 1},
+		.comp_ratio_nrt = {1, 1},
+	},
+};
+
 static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 	FMT_RGB_565(MDP_RGB_565, MDSS_MDP_FETCH_LINEAR,
 		C1_B_Cb, C0_G_Y, C2_R_Cr),
@@ -167,8 +222,6 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		C1_B_Cb, C0_G_Y, C2_R_Cr),
 	FMT_RGB_565(MDP_BGR_565_TILE, MDSS_MDP_FETCH_TILE,
 		C2_R_Cr, C0_G_Y, C1_B_Cb),
-	FMT_RGB_565(MDP_RGB_565_UBWC, MDSS_MDP_FETCH_UBWC,
-		C1_B_Cb, C0_G_Y, C2_R_Cr),
 	FMT_RGB_888(MDP_RGB_888, MDSS_MDP_FETCH_LINEAR,
 		C2_R_Cr, C0_G_Y, C1_B_Cb),
 	FMT_RGB_888(MDP_BGR_888, MDSS_MDP_FETCH_LINEAR,
@@ -202,8 +255,6 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		0, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
 	FMT_RGB_8888(MDP_BGRX_8888_TILE, MDSS_MDP_FETCH_TILE,
 		0, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
-	FMT_RGB_8888(MDP_RGBA_8888_UBWC, MDSS_MDP_FETCH_UBWC,
-		1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
 
 	FMT_YUV_PSEUDO(MDP_Y_CRCB_H1V1, MDSS_MDP_FETCH_LINEAR,
 		MDSS_MDP_CHROMA_RGB, C2_R_Cr, C1_B_Cb),
@@ -222,8 +273,6 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 	FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2, MDSS_MDP_FETCH_LINEAR,
 		MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),
 	FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2_VENUS, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),
-	FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2_UBWC, MDSS_MDP_FETCH_UBWC,
 		MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),
 
 	FMT_YUV_PLANR(MDP_Y_CB_CR_H2V2, MDSS_MDP_FETCH_LINEAR,

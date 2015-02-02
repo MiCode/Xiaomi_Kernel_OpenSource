@@ -235,20 +235,67 @@ hist_isr_done:
 	return IRQ_HANDLED;
 }
 
+bool mdss_mdp_initialize_ubwc_factors(struct mdss_data_type *mdata)
+{
+	struct mdss_fudge_factor *rt_factors;
+	struct mdss_fudge_factor *nrt_factors;
+	struct mdss_mdp_format_params_ubwc *ubwc_fmt;
+	int comp_ratio_row = mdata->ubwc_comp_ratio_factors_row;
+	int i;
+
+
+	/* validate the compression ratio factors array size */
+	if (ARRAY_SIZE(mdss_mdp_format_ubwc_map) != UBWC_TOTAL_FORMATS) {
+		pr_err("mismatch found with the ubwc factors definition!\n");
+		return true;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_ubwc_map); i++) {
+		ubwc_fmt = &mdss_mdp_format_ubwc_map[i];
+		nrt_factors = &ubwc_nrt_factors[comp_ratio_row][i];
+		rt_factors = &ubwc_rt_factors[comp_ratio_row][i];
+
+		ubwc_fmt->comp_ratio_rt.numer = rt_factors->numer;
+		ubwc_fmt->comp_ratio_rt.denom = rt_factors->denom;
+		ubwc_fmt->comp_ratio_nrt.numer = nrt_factors->numer;
+		ubwc_fmt->comp_ratio_nrt.denom = nrt_factors->denom;
+
+		pr_debug("fmt:%d, rt:[%d,%d], nrt:[%d,%d]\n", i,
+			ubwc_fmt->comp_ratio_rt.numer,
+			ubwc_fmt->comp_ratio_rt.denom,
+			ubwc_fmt->comp_ratio_nrt.numer,
+			ubwc_fmt->comp_ratio_nrt.denom);
+	}
+
+	return false;
+}
+
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format)
 {
 	struct mdss_mdp_format_params *fmt = NULL;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int i;
+	bool fmt_found = false;
 
 	if (format > MDP_IMGTYPE_LIMIT)
 		goto end;
 
 	for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_map); i++) {
 		fmt = &mdss_mdp_format_map[i];
-		if (format == fmt->format)
+		if (format == fmt->format) {
+			fmt_found = true;
 			break;
+		}
 	}
+
+	if (!fmt_found) {
+		for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_ubwc_map); i++) {
+			fmt = &mdss_mdp_format_ubwc_map[i].mdp_format;
+			if (format == fmt->format)
+				break;
+		}
+	}
+
 end:
 	return (mdss_mdp_is_ubwc_format(fmt) &&
 		!mdss_mdp_is_ubwc_supported(mdata)) ? NULL : fmt;

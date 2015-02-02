@@ -337,6 +337,12 @@ struct mdss_mdp_format_params {
 	u8 element[MAX_PLANES];
 };
 
+struct mdss_mdp_format_params_ubwc {
+	struct mdss_mdp_format_params mdp_format;
+	struct mdss_fudge_factor comp_ratio_rt;
+	struct mdss_fudge_factor comp_ratio_nrt;
+};
+
 struct mdss_mdp_plane_sizes {
 	u32 num_planes;
 	u32 plane_size[MAX_PLANES];
@@ -831,6 +837,11 @@ static inline bool mdss_mdp_is_ubwc_format(struct mdss_mdp_format_params *fmt)
 	return fmt && (fmt->fetch_mode == MDSS_MDP_FETCH_UBWC);
 }
 
+static inline bool mdss_mdp_is_linear_format(struct mdss_mdp_format_params *fmt)
+{
+	return fmt && (fmt->fetch_mode == MDSS_MDP_FETCH_LINEAR);
+}
+
 static inline int mdss_mdp_is_ubwc_supported(struct mdss_data_type *mdata)
 {
 	return IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_107);
@@ -1064,7 +1075,10 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h, struct mdss_mdp_format_params *fmt,
 			       struct mdss_mdp_plane_sizes *ps);
 void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt);
+bool mdss_mdp_initialize_ubwc_factors(struct mdss_data_type *mdata);
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
+struct mdss_fudge_factor *mdss_mdp_get_comp_factor(u32 format,
+	bool rt_factor);
 int mdss_mdp_data_get(struct mdss_mdp_data *data, struct msmfb_data *planes,
 		int num_planes, u32 flags, struct device *dev, bool rotator,
 		int dir);
