@@ -423,6 +423,26 @@ static void dsi_on_post(struct intel_pipe *pipe)
 	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
 	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
 	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
+	struct dsi_context *dsi_ctx = &dsi_pipe->config.ctx;
+	struct vlv_pri_plane *vlv_p_plane = &vlv_pipeline->pplane;
+	struct vlv_dsi_port *dsi_port = NULL;
+	enum port port;
+	u32 temp;
+
+	if ((vlv_p_plane->ctx.pri_plane_bpp == 24) && ((dsi_ctx->pixel_format ==
+			VID_MODE_FORMAT_RGB666) || (dsi_ctx->pixel_format ==
+			VID_MODE_FORMAT_RGB666_LOOSE)))
+		dsi_pipe->dither_enable = true;
+
+	if (dsi_pipe->dither_enable) {
+		for_each_dsi_port(port, dsi_ctx->ports) {
+			dsi_port = &vlv_pipeline->port.dsi_port[port];
+			temp = REG_READ(dsi_port->offset);
+			temp |= DITHERING_ENABLE;
+			REG_WRITE(dsi_port->offset, temp);
+			REG_POSTING_READ(dsi_port->offset);
+		}
+	}
 
 	if (dsi_pipe->ops.on_post)
 		dsi_pipe->ops.on_post(dsi_pipe);

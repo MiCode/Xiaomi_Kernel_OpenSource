@@ -242,6 +242,10 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 	get_format_config(buf->format, &format_config, &bpp,
 			config->alpha);
 
+	if ((buf->format == DRM_FORMAT_XRGB8888) ||
+				(buf->format == DRM_FORMAT_ARGB8888))
+		pri_plane->ctx.pri_plane_bpp = 24;
+
 	src_x = config->src_x;
 	src_y = config->src_y;
 

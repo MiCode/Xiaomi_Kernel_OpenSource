@@ -33,6 +33,7 @@ struct pri_plane_regs_value {
 struct vlv_pri_plane_context {
 	struct pri_plane_regs_value regs;
 	u32 plane;
+	u8 pri_plane_bpp;
 };
 
 struct vlv_pri_plane;

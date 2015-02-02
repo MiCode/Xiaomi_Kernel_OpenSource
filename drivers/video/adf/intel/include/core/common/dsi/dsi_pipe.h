@@ -70,6 +70,7 @@ struct dsi_pipe {
 #endif
 	struct dsi_panel *panel;
 	u8 dpms_state;
+	bool dither_enable;
 };
 
 static inline struct dsi_pipe *to_dsi_pipe(struct intel_pipe *pipe)
