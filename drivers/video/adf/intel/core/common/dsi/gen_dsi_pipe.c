@@ -22,6 +22,7 @@
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/dsi/dsi_config.h>
 #include <core/common/intel_gen_backlight.h>
+#include <core/common/intel_drrs.h>
 /* FIXME: remove this once gpio calls are abstracted */
 #include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_dc_regs.h>
@@ -352,6 +353,7 @@ static int dsi_modeset(struct intel_pipe *pipe,
 		struct drm_mode_modeinfo *mode)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
 	struct dsi_config *config = &dsi_pipe->config;
 	int err = 0;
 
@@ -375,6 +377,8 @@ static int dsi_modeset(struct intel_pipe *pipe,
 		return err;
 	}
 
+	intel_disable_idleness_drrs(pipeline);
+
 	mutex_lock(&config->ctx_lock);
 
 	/* Avoiding i915 enter into DPMS */
@@ -383,6 +387,7 @@ static int dsi_modeset(struct intel_pipe *pipe,
 	dsi_display_on(pipe, mode);
 	mutex_unlock(&config->ctx_lock);
 
+	intel_restart_idleness_drrs(pipeline);
 	return err;
 }
 
@@ -441,6 +446,8 @@ static void dsi_on_post(struct intel_pipe *pipe)
 		dsi_pipe->ops.on_post(dsi_pipe);
 
 	vlv_pm_on_post(intel_config, pipe);
+
+	intel_restart_idleness_drrs(pipeline);
 }
 
 static void dsi_pre_validate(struct intel_pipe *pipe,
@@ -460,6 +467,8 @@ static void dsi_pre_post(struct intel_pipe *pipe)
 	struct intel_pipeline *pipeline = dsi_pipe->base.pipeline;
 	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
 	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
+
+	intel_disable_idleness_drrs(pipeline);
 
 	vlv_pm_pre_post(intel_config, pipeline, pipe);
 }

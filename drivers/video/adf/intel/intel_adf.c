@@ -13,6 +13,7 @@
  */
 #include <drm/i915_adf.h>
 #include <intel_adf.h>
+#include <core/common/intel_drrs.h>
 
 const struct intel_adf_context *g_adf_context;
 
@@ -308,7 +309,7 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 	struct intel_dc_config *config;
 	struct intel_adf_interface *intfs;
 	struct intel_adf_overlay_engine *engs;
-	int n_intfs, n_engs;
+	int n_intfs, n_engs, cnt;
 #if defined(CONFIG_ADF_FBDEV) && defined(CONFIG_ADF_INTEL_FBDEV)
 	struct adf_fbdev *fbdevs;
 #endif
@@ -413,6 +414,11 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 		dev_err(&pdev->dev, "%s: failed to init interrupt handlers\n",
 				__func__);
 		goto err;
+	}
+
+	for (cnt = 0; cnt < n_intfs; cnt++) {
+		if (intfs[cnt].pipe->type == INTEL_PIPE_DSI)
+			intel_drrs_init(intfs[cnt].pipe->pipeline);
 	}
 
 	g_adf_context = ctx;
