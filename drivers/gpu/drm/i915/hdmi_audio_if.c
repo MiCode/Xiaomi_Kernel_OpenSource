@@ -26,6 +26,7 @@
  */
 
 #include <drm/drmP.h>
+#include <i915_adf.h>
 #include "hdmi_audio_if.h"
 #include "i915_drv.h"
 #include "i915_reg.h"
@@ -339,6 +340,10 @@ int mid_hdmi_audio_setup(
 	struct drm_i915_private *dev_priv;
 	int ret = 0;
 
+	if (i915.enable_intel_adf && g_adf_ready)
+		return adf_hdmi_audio_setup((void *)audio_callbacks,
+				(void *)reg_ops, (void *)query_ops);
+
 	DRM_DEBUG_DRIVER("%s: called\n", __func__);
 
 	if (!hdmi_priv)
@@ -371,6 +376,9 @@ int mid_hdmi_audio_register(struct snd_intel_had_interface *driver,
 {
 	struct drm_device *dev;
 	struct drm_i915_private *dev_priv;
+
+	if (i915.enable_intel_adf && g_adf_ready)
+		return adf_hdmi_audio_register((void *)driver, had_data);
 
 	DRM_DEBUG_DRIVER("%s: called\n", __func__);
 	if (!hdmi_priv)

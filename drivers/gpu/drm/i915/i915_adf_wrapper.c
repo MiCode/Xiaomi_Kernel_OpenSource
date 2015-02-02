@@ -223,4 +223,10 @@ unsigned short *intel_get_vbt_pps_delays(void)
 	return (unsigned short *)&i915_adf_dev->vbt.edp_pps;
 }
 EXPORT_SYMBOL(intel_get_vbt_pps_delays);
+#else
+int intel_adf_context_on_event(void) { return 0; }
+
+/* ADF register calls for audio driver */
+int adf_hdmi_audio_register(void *drv, void *had_data) { return 0; }
+int adf_hdmi_audio_setup(void *callbacks, void *r_ops, void *q_ops) { return 0; }
 #endif

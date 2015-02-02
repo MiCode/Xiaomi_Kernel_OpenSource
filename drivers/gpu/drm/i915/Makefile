@@ -76,13 +76,12 @@ i915-y += dvo_ch7017.o \
 	  intel_tv.o \
 	  i915_dpst.o \
 	  intel_clrmgr.o \
-	  i915_sprite_csc.o
+	  i915_sprite_csc.o \
+	  i915_adf_wrapper.o
 
 # legacy horrors
 i915-y += i915_dma.o \
 	  i915_ums.o
-
-i915-$(CONFIG_ADF_INTEL) += i915_adf_wrapper.o
 
 obj-$(CONFIG_DRM_I915)  += i915.o
 

@@ -36,12 +36,6 @@
 #define INTEL_SIDEBAND_REG_READ		0
 #define INTEL_SIDEBAND_REG_WRITE	1
 
-#ifndef CONFIG_ADF_INTEL
-volatile bool g_adf_ready = false;
-
-static int intel_adf_context_on_event(void) { return 0; }
-#endif
-
 extern void intel_adf_dpio_sideband_rw(u32 operation, u32 port,
 				       u32 reg, u32 *val);
 extern void intel_adf_pci_sideband_rw(u32 operation, u32 port,
@@ -61,6 +55,10 @@ extern u16 intel_get_dsi_port_frm_vbt(void);
 extern void intel_get_vbt_disp_conf(void **child_dev, int *child_dev_num);
 extern struct i2c_adapter *intel_adf_get_gmbus_adapter(u8 port);
 extern unsigned short *intel_get_vbt_pps_delays(void);
+
+/* ADF register calls for audio driver */
+int adf_hdmi_audio_register(void *drv, void *had_data);
+int adf_hdmi_audio_setup(void *callbacks, void *r_ops, void *q_ops);
 #endif
 
 
