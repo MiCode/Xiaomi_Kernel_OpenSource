@@ -37,6 +37,14 @@ struct vlv_pipe {
 	u32 linkn1_offset;
 
 	u32 src_size_offset;
+
+	/* eDP PSR related registers */
+	u32 psr_ctrl_offset;
+	u32 psr_sts_offset;
+	u32 psr_crc1_offset;
+	u32 psr_crc2_offset;
+	u32 psr_vsc_sdp_offset;
+
 };
 
 void vlv_pipe_program_m_n(struct vlv_pipe *pipe,

@@ -2292,6 +2292,52 @@ extern int chv_cursor_offsets[];
 #define   EDP_PSR_DEBUG_MASK_MEMUP	(1<<26)
 #define   EDP_PSR_DEBUG_MASK_HPD	(1<<25)
 
+/* VLV/CHV PSR control registers */
+#define _VLV_PIPEA_EDP_PSR_CTL			0x60090
+#define _CHV_PIPEB_EDP_PSR_CTL			0x61090
+#define   VLV_PSR_IDENTICAL_FRAMES		15
+#define   VLV_PSR_IDENTICAL_FRAMES_SHIFT	16
+#define   VLV_PSR_IDENTICAL_FRAMES_MASK		(0xff << 16)
+#define   VLV_PSR_DOUBLE_FRAME_ENABLE		(1 << 10)
+#define   VLV_PSR_SRC_TRANSMITTER_STATE		(1 << 9)
+#define   VLV_PSR_ACTIVE_ENTRY			(1 << 8)
+#define   VLV_PSR_SINGLE_FRAME_UPDATE		(1 << 7)
+#define   VLV_PSR_MODE_SHIFT			2
+#define   VLV_PSR_MODE_MASK			(0x07 << VLV_PSR_MODE_SHIFT)
+#define   VLV_PSR_HW_MODE			2
+#define   VLV_PSR_SW_MODE			1
+#define   VLV_PSR_RESET				(1 << 1)
+#define   VLV_PSR_ENABLE			(1 << 0)
+#define VLV_EDP_PSR_CONTROL(pipe)		(VLV_DISPLAY_BASE + \
+		(_PIPE((pipe), _VLV_PIPEA_EDP_PSR_CTL, _CHV_PIPEB_EDP_PSR_CTL)))
+
+#define VLV_EDP_PSR_STATUS(pipe)	(VLV_EDP_PSR_CONTROL(pipe) + 0x04)
+#define   VLV_PSR_SRC_STANDBY_STATE_SHIFT	30
+#define   VLV_PSR_SRC_STANDBY_STATE_MASK	0x03
+#define   VLV_PSR_IN_TRANSITION			(1 << 7)
+#define   VLV_PSR_PREV_STATE_SHIFT		3
+#define   VLV_PSR_CUR_STATE_SHIFT		0
+#define   VLV_PSR_STATE_MASK			0x07
+#define   VLV_PSR_INACTIVE			0x01
+#define   VLV_PSR_TRANSIT_TO_ACTIVE		0x02
+#define   VLV_PSR_ACTIVE_NO_RFB			0x03
+#define   VLV_PSR_ACTIVE_SFU			0x04
+#define   VLV_PSR_EXIT				0x05
+
+#define VLV_EDP_PSR_CRC1(pipe)		(VLV_EDP_PSR_CONTROL(pipe) + 0x08)
+#define VLV_EDP_PSR_CRC2(pipe)		(VLV_EDP_PSR_CONTROL(pipe) + 0x0C)
+#define VLV_EDP_PSR_VSC_SDP(pipe)	(VLV_EDP_PSR_CONTROL(pipe) + 0x10)
+#define   VLV_PSR_SDP_SEND_FREQ_MASK	(0x03 << 30)
+#define   VLV_PSR_SDP_SEND_EVFRAME	(1 << 30)
+#define   VLV_PSR_SDP_SEND_ONCE		(2 << 30)
+
+#define VLV_PSR_ENABLE_DELAY		1000
+#define VLV_CHICKEN2_BIT_REG		(VLV_DISPLAY_BASE + 0x70404)
+#define   DPLL_OK_IGNORE_BIT		(1 << 12)
+
+#define VLV_PSR_CLK_GATE		(VLV_DISPLAY_BASE + 0x6204)
+#define   CLK_GATE_DISABLE_ALL		0xffffffff
+
 /* VGA port control */
 #define ADPA			0x61100
 #define PCH_ADPA                0xe1100
@@ -3533,6 +3579,7 @@ extern int chv_cursor_offsets[];
 #define   PIPE_LEGACY_BLC_EVENT_ENABLE		(1UL<<22)
 #define   PIPE_ODD_FIELD_INTERRUPT_ENABLE	(1UL<<21)
 #define   PIPE_EVEN_FIELD_INTERRUPT_ENABLE	(1UL<<20)
+#define   PIPE_B_PSR_INTERRUPT_ENABLE_VLV       (1UL<<19)
 #define   PIPE_HOTPLUG_TV_INTERRUPT_ENABLE	(1UL<<18) /* pre-965 */
 #define   PIPE_START_VBLANK_INTERRUPT_ENABLE	(1UL<<18) /* 965 or later */
 #define   PIPE_VBLANK_INTERRUPT_ENABLE		(1UL<<17)
@@ -3549,8 +3596,10 @@ extern int chv_cursor_offsets[];
 #define   PIPE_DISPLAY_LINE_COMPARE_STATUS	(1UL<<8)
 #define   PIPE_DPST_EVENT_STATUS		(1UL<<7)
 #define   PIPE_LEGACY_BLC_EVENT_STATUS		(1UL<<6)
+#define   PIPE_A_PSR_STATUS_VLV                 (1UL<<6)
 #define   PIPE_ODD_FIELD_INTERRUPT_STATUS	(1UL<<5)
 #define   PIPE_EVEN_FIELD_INTERRUPT_STATUS	(1UL<<4)
+#define   PIPE_B_PSR_STATUS_VLV                 (1UL<<3)
 #define   PIPE_HOTPLUG_TV_INTERRUPT_STATUS	(1UL<<2) /* pre-965 */
 #define   PIPE_START_VBLANK_INTERRUPT_STATUS	(1UL<<2) /* 965 or later */
 #define   PIPE_VBLANK_INTERRUPT_STATUS		(1UL<<1)
@@ -3582,6 +3631,7 @@ extern int chv_cursor_offsets[];
 #define   SPRITED_FLIPDONE_INT_EN		(1<<26)
 #define   SPRITEC_FLIPDONE_INT_EN		(1<<25)
 #define   PLANEB_FLIPDONE_INT_EN		(1<<24)
+#define   PIPE_PSR_INT_EN                       (1<<22)
 #define   PIPEA_LINE_COMPARE_INT_EN		(1<<21)
 #define   PIPEA_HLINE_INT_EN			(1<<20)
 #define   PIPEA_VBLANK_INT_EN			(1<<19)

@@ -410,6 +410,12 @@ bool vlv_pipe_init(struct vlv_pipe *pipe, enum pipe pipeid)
 	pipe->linkm1_offset = PIPE_LINK_M1(pipeid);
 	pipe->linkn1_offset = PIPE_LINK_N1(pipeid);
 
+	pipe->psr_ctrl_offset = VLV_EDP_PSR_CONTROL(pipeid);
+	pipe->psr_sts_offset = VLV_EDP_PSR_STATUS(pipeid);
+	pipe->psr_crc1_offset = VLV_EDP_PSR_CRC1(pipeid);
+	pipe->psr_crc2_offset = VLV_EDP_PSR_CRC2(pipeid);
+	pipe->psr_vsc_sdp_offset = VLV_EDP_PSR_VSC_SDP(pipeid);
+
 	pipe->src_size_offset = PIPESRC(pipeid);
 	pipe->pipe_id = pipeid;
 
