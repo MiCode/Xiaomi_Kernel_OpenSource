@@ -901,6 +901,30 @@ struct ipa_wdi_out_params {
 };
 
 /**
+ * struct ipa_wdi_db_params - information provided to retrieve
+ *       physical address of uC doorbell
+ * @client:	type of "client" (IPA_CLIENT_WLAN#_PROD/CONS)
+ * @uc_door_bell_pa: physical address of IPA uc doorbell
+ */
+struct ipa_wdi_db_params {
+	enum ipa_client_type client;
+	phys_addr_t uc_door_bell_pa;
+};
+
+/**
+ * struct  ipa_wdi_uc_ready_params - uC ready CB parameters
+ * @is_uC_ready: uC loaded or not
+ * @priv : callback cookie
+ * @notify:	callback
+ */
+typedef void (*ipa_uc_ready_cb)(void *priv);
+struct ipa_wdi_uc_ready_params {
+	bool is_uC_ready;
+	void *priv;
+	ipa_uc_ready_cb notify;
+};
+
+/**
  * struct odu_bridge_params - parameters for odu bridge initialization API
  *
  * @netdev_name: network interface name
@@ -1171,6 +1195,18 @@ int ipa_resume_wdi_pipe(u32 clnt_hdl);
 int ipa_suspend_wdi_pipe(u32 clnt_hdl);
 int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
 u16 ipa_get_smem_restr_bytes(void);
+/*
+ * To retrieve doorbell physical address of
+ * wlan pipes
+ */
+int ipa_uc_wdi_get_dbpa(struct ipa_wdi_db_params *out);
+
+/*
+ * To register uC ready callback if uC not ready
+ * and also check uC readiness
+ * if uC not ready only, register callback
+ */
+int ipa_uc_reg_rdyCB(struct ipa_wdi_uc_ready_params *param);
 
 /*
  * Resource manager
@@ -1697,6 +1733,19 @@ static inline int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 {
 	return -EPERM;
 }
+
+static inline int ipa_uc_wdi_get_dbpa(
+	struct ipa_wdi_db_params *out)
+{
+	return -EPERM;
+}
+
+static inline int ipa_uc_reg_rdyCB(
+	struct ipa_wdi_uc_ready_params *param)
+{
+	return -EPERM;
+}
+
 
 /*
  * Resource manager

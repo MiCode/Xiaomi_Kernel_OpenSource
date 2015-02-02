@@ -1017,6 +1017,8 @@ struct ipa_uc_wdi_ctx {
 	struct dma_pool *wdi_dma_pool;
 	u32 wdi_uc_stats_ofst;
 	struct IpaHwStatsWDIInfoData_t *wdi_uc_stats_mmio;
+	void *priv;
+	ipa_uc_ready_cb uc_ready_cb;
 };
 
 /**
