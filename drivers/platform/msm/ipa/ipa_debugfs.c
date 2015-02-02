@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,6 +58,8 @@ const char *ipa_event_name[] = {
 	__stringify(WLAN_CLIENT_CONNECT_EX),
 	__stringify(WLAN_SWITCH_TO_SCC),
 	__stringify(WLAN_SWITCH_TO_MCC),
+	__stringify(WLAN_WDI_ENABLE),
+	__stringify(WLAN_WDI_DISABLE),
 	__stringify(WAN_UPSTREAM_ROUTE_ADD),
 	__stringify(WAN_UPSTREAM_ROUTE_DEL),
 	__stringify(WAN_EMBMS_CONNECT),

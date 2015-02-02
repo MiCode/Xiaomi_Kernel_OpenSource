@@ -272,6 +272,8 @@ enum ipa_flt_action {
  * wlan client connect ex: new wlan client connected
  * wlan scc switch: wlan interfaces in scc mode
  * wlan mcc switch: wlan interfaces in mcc mode
+ * wlan wdi enable: wdi data path completed
+ * wlan wdi disable: wdi data path teardown
  */
 enum ipa_wlan_event {
 	WLAN_CLIENT_CONNECT,
@@ -287,6 +289,8 @@ enum ipa_wlan_event {
 	WLAN_CLIENT_CONNECT_EX,
 	WLAN_SWITCH_TO_SCC,
 	WLAN_SWITCH_TO_MCC,
+	WLAN_WDI_ENABLE,
+	WLAN_WDI_DISABLE,
 	IPA_WLAN_EVENT_MAX
 };
 
