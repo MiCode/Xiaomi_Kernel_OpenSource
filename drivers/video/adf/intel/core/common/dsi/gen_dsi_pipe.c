@@ -285,13 +285,6 @@ static int dsi_display_off(struct intel_pipe *pipe)
 		goto out;
 	}
 
-	/*
-	 * if disable packets are sent before sending shutdown packet then in
-	 * some next enable sequence send turn on packet error is observed
-	 */
-	if (panel->ops->power_off)
-		panel->ops->power_off(dsi_pipe);
-
 	vlv_post_pipeline_off(pipeline);
 
 	if (panel->ops->disable_panel_power)

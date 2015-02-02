@@ -453,11 +453,13 @@ int vlv_dsi_post_pipeline_off(struct intel_pipeline *pipeline)
 	struct vlv_dsi_port *dsi_port = NULL;
 	struct dsi_pipe *dsi_pipe = NULL;
 	struct dsi_context *dsi_ctx = NULL;
+	struct dsi_panel *panel = NULL;
 	enum port port;
 	u32 err = 0;
 
 	dsi_pipe = &disp->gen.dsi;
 	dsi_ctx = &dsi_pipe->config.ctx;
+	panel = dsi_pipe->panel;
 
 	if (vlv_is_vid_mode(pipeline)) {
 		/* Send Shutdown command to the panel in LP mode */
@@ -471,6 +473,13 @@ int vlv_dsi_post_pipeline_off(struct intel_pipeline *pipeline)
 		pr_err("ADF: %s: port disable failed\n", __func__);
 		goto out;
 	}
+
+	/*
+	 * if disable packets are sent before sending shutdown packet then in
+	 * some next enable sequence send turn on packet error is observed
+	 */
+	if (panel->ops->power_off)
+		panel->ops->power_off(dsi_pipe);
 
 	for_each_dsi_port(port, dsi_ctx->ports) {
 		dsi_port = &disp->port.dsi_port[port];
