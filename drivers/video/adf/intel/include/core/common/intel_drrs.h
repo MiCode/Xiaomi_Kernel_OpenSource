@@ -27,4 +27,7 @@ void intel_disable_idleness_drrs(struct intel_pipeline *pipeline);
 void intel_restart_idleness_drrs(struct intel_pipeline *pipeline);
 int intel_drrs_init(struct intel_pipeline *pipeline);
 
+int intel_media_playback_drrs_configure(struct intel_pipeline *pipeline,
+					struct drm_mode_modeinfo *mode);
+
 #endif /* INTEL_DRRS_H__ */

@@ -35,6 +35,7 @@ static void intel_mipi_drrs_work_fn(struct work_struct *__work)
 	struct adf_drrs *adf_drrs = pipeline->drrs;
 	struct dsi_mnp *dsi_mnp;
 	struct drm_mode_modeinfo *prev_mode = NULL;
+	bool resume_idleness_detection = false;
 	bool fallback_attempt = false, lock;
 	int ret, retry_cnt = 3;
 
@@ -43,10 +44,27 @@ init:
 		dsi_mnp = &dsi_pipe->drrs.mnp_list.mnp1;
 	} else if (work->target_rr_type == DRRS_LOW_RR) {
 		dsi_mnp = &dsi_pipe->drrs.mnp_list.mnp2;
+	} else if (work->target_rr_type == DRRS_MEDIA_RR) {
+		if (!dsi_pipe->drrs.platform_ops->mnp_calculate_for_pclk) {
+			pr_err("%s: mnp_calculate_for_pclk cant be NULL\n",
+								__func__);
+			goto out;
+		}
+		if (dsi_pipe->drrs.platform_ops->mnp_calculate_for_pclk(
+				pipeline, &dsi_pipe->drrs.mnp_list.mnp3,
+				work->target_mode->clock) < 0) {
+			pr_err("%s: mnp_calculation failed\n", __func__);
+			goto out;
+		}
+		dsi_mnp = &dsi_pipe->drrs.mnp_list.mnp3;
 	} else {
 		pr_err("ADF: %s: Unknown refreshrate_type\n", __func__);
 		return;
 	}
+
+	if (adf_drrs->drrs_state.current_rr_type == DRRS_MEDIA_RR &&
+			work->target_rr_type == DRRS_HIGH_RR)
+		resume_idleness_detection = true;
 
 	pr_debug("%s: Refresh rate Type: %d-->%d\n", __func__,
 				adf_drrs->drrs_state.current_rr_type,
@@ -79,6 +97,9 @@ retry:
 
 		/* TODO: Update watermark */
 
+		if (resume_idleness_detection)
+			intel_restart_idleness_drrs(pipeline);
+
 	} else if (ret == -ETIMEDOUT && retry_cnt) {
 
 		/* Timed out. But still attempts are allowed */
@@ -103,10 +124,14 @@ retry:
 		work->target_rr_type = adf_drrs->drrs_state.target_rr_type;
 		drm_modeinfo_destroy(work->target_mode);
 
-		if (work->target_rr_type == DRRS_HIGH_RR)
+		if (work->target_rr_type == DRRS_HIGH_RR) {
 			prev_mode = adf_drrs->panel_mode.fixed_mode;
-		else if (work->target_rr_type == DRRS_LOW_RR)
+			resume_idleness_detection = true;
+		} else if (work->target_rr_type == DRRS_LOW_RR) {
 			prev_mode = adf_drrs->panel_mode.downclock_mode;
+		} else if (work->target_rr_type == DRRS_MEDIA_RR) {
+			prev_mode = adf_drrs->panel_mode.target_mode;
+		}
 
 		work->target_mode = drm_modeinfo_duplicate(prev_mode);
 		fallback_attempt = true;
@@ -127,6 +152,38 @@ retry:
 
 out:
 	drm_modeinfo_destroy(work->target_mode);
+}
+
+/*
+ * As a part of Media playback request filtering
+ * we validate the incoming request wrt deferred works
+ * of MIPI PLL programming
+ */
+bool intel_dsi_is_mp_drrs_req(struct intel_pipeline *pipeline,
+					struct drm_mode_modeinfo *mode)
+{
+	struct adf_drrs *adf_drrs = pipeline->drrs;
+	struct dsi_config *config = pipeline->params.dsi.dsi_config;
+	struct dsi_pipe *dsi_pipe = container_of(config,
+						struct dsi_pipe, config);
+	struct intel_mipi_drrs_work *work = dsi_pipe->drrs.mipi_drrs_work;
+	bool ret = false;
+
+	if (work_busy(&work->work.work)) {
+		if (work->target_mode->vrefresh != mode->vrefresh ||
+			adf_drrs->drrs_state.current_rr_type != DRRS_MEDIA_RR)
+
+			/*
+			 * First condition: Deferred work is in place to change
+			 * the DRRS state. Hence this call is valid Media
+			 * playback DRRS request.
+			 *
+			 * Second Condition: Might be same as deffered work but
+			 * this is from media playback request. So honor it.
+			 */
+			ret = true;
+	}
+	return ret;
 }
 
 /* Whether DRRS_HR_STATE is pending in the dsi deferred work */
@@ -344,6 +401,7 @@ struct drrs_encoder_ops drrs_dsi_ops = {
 	.exit = intel_dsi_drrs_exit,
 	.set_drrs_state = intel_dsi_set_drrs_state,
 	.is_drrs_hr_state_pending = intel_dsi_is_drrs_hr_state_pending,
+	.is_mp_drrs_req = intel_dsi_is_mp_drrs_req
 };
 
 /* Call back Function for Intel_drrs module to get the dsi func ptr */

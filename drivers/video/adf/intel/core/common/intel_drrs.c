@@ -18,6 +18,7 @@
 #include <intel_adf_device.h>
 #include <linux/delay.h>
 #include <core/common/intel_drrs.h>
+#include <core/common/drm_modeinfo_ops.h>
 
 void intel_set_drrs_state(struct intel_pipeline *pipeline)
 {
@@ -50,7 +51,8 @@ void intel_set_drrs_state(struct intel_pipeline *pipeline)
 		return;
 	}
 
-	if (drrs_state->target_rr_type == drrs_state->current_rr_type) {
+	if (drrs_state->target_rr_type == drrs_state->current_rr_type &&
+			drrs_state->current_rr_type != DRRS_MEDIA_RR) {
 		pr_info("ADF: %s: Requested for previously set RR. Ignoring\n",
 								__func__);
 		return;
@@ -61,11 +63,22 @@ void intel_set_drrs_state(struct intel_pipeline *pipeline)
 	drrs->encoder_ops->set_drrs_state(pipeline);
 
 	if (drrs_state->type != SEAMLESS_DRRS_SUPPORT_SW) {
+		if (drrs_state->current_rr_type == DRRS_MEDIA_RR &&
+				drrs_state->target_rr_type == DRRS_HIGH_RR)
+			drrs->resume_idleness_detection = true;
+
 		drrs_state->current_rr_type = drrs_state->target_rr_type;
 
 		pr_info("ADF: %s: Refresh Rate set to : %dHz\n", __func__,
 								refresh_rate);
 	}
+}
+
+static inline bool
+is_media_playback_drrs_in_progress(struct drrs_info *drrs_state)
+{
+	return drrs_state->current_rr_type == DRRS_MEDIA_RR ||
+			drrs_state->target_rr_type == DRRS_MEDIA_RR;
 }
 
 static void intel_idleness_drrs_work_fn(struct work_struct *__work)
@@ -82,6 +95,11 @@ static void intel_idleness_drrs_work_fn(struct work_struct *__work)
 		pr_err("ADF: %s: FIXME: We shouldn't be here\n", __func__);
 
 	mutex_lock(&drrs->drrs_state.mutex);
+	if (is_media_playback_drrs_in_progress(&drrs->drrs_state)) {
+		mutex_unlock(&drrs->drrs_state.mutex);
+		return;
+	}
+
 	panel_mode->target_mode = panel_mode->downclock_mode;
 	drrs->drrs_state.target_rr_type = DRRS_LOW_RR;
 
@@ -110,6 +128,11 @@ static void intel_enable_idleness_drrs(struct intel_pipeline *pipeline)
 
 	intel_cancel_idleness_drrs_work(drrs);
 	mutex_lock(&drrs->drrs_state.mutex);
+
+	if (is_media_playback_drrs_in_progress(&drrs->drrs_state)) {
+		mutex_unlock(&drrs->drrs_state.mutex);
+		return;
+	}
 
 	/* Capturing the deferred request for disable_drrs */
 	if (drrs->drrs_state.type == SEAMLESS_DRRS_SUPPORT_SW &&
@@ -144,8 +167,13 @@ void intel_disable_idleness_drrs(struct intel_pipeline *pipeline)
 
 	/* as part of disable DRRS, reset refresh rate to HIGH_RR */
 	if (drrs->drrs_state.current_rr_type == DRRS_LOW_RR) {
-		mutex_lock(&drrs->drrs_state.mutex);
 		intel_cancel_idleness_drrs_work(drrs);
+
+		mutex_lock(&drrs->drrs_state.mutex);
+		if (is_media_playback_drrs_in_progress(&drrs->drrs_state)) {
+			mutex_unlock(&drrs->drrs_state.mutex);
+			return;
+		}
 
 		if (panel_mode->target_mode != NULL)
 			pr_err("ADF: %s: FIXME: We shouldn't be here\n",
@@ -167,6 +195,9 @@ void intel_restart_idleness_drrs(struct intel_pipeline *pipeline)
 	if (!drrs || !drrs->has_drrs)
 		return;
 
+	if (is_media_playback_drrs_in_progress(&drrs->drrs_state))
+		return;
+
 	/* TODO: Find clone mode here and act on it*/
 
 	intel_disable_idleness_drrs(pipeline);
@@ -175,6 +206,91 @@ void intel_restart_idleness_drrs(struct intel_pipeline *pipeline)
 	intel_enable_idleness_drrs(pipeline);
 }
 
+/*
+ * Handles the userspace request for MEDIA_RR.
+ */
+int intel_media_playback_drrs_configure(struct intel_pipeline *pipeline,
+					struct drm_mode_modeinfo *mode)
+{
+	struct adf_drrs *drrs = pipeline->drrs;
+	struct drrs_info *drrs_state = &drrs->drrs_state;
+	struct drrs_panel_mode *panel_mode = &drrs->panel_mode;
+	int refresh_rate = mode->vrefresh;
+
+	if (!drrs || !drrs->has_drrs) {
+		pr_err("ADF: %s: DRRS is not supported\n", __func__);
+		return -EPERM;
+	}
+
+	if (refresh_rate < panel_mode->downclock_mode->vrefresh &&
+			refresh_rate > panel_mode->fixed_mode->vrefresh) {
+		pr_err("ADF: %s: Invalid refresh_rate\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!is_media_playback_drrs_in_progress(&drrs->drrs_state))
+		intel_cancel_idleness_drrs_work(drrs);
+
+	mutex_lock(&drrs_state->mutex);
+
+	if (refresh_rate == panel_mode->fixed_mode->vrefresh) {
+		if (drrs_state->current_rr_type == DRRS_MEDIA_RR) {
+
+			/* DRRS_MEDIA_RR -> DRRS_HIGH_RR */
+			if (panel_mode->target_mode)
+				drm_modeinfo_destroy(panel_mode->target_mode);
+			panel_mode->target_mode = panel_mode->fixed_mode;
+			drrs_state->target_rr_type = DRRS_HIGH_RR;
+		} else {
+
+			/*
+			 * Invalid Media Playback DRRS request.
+			 * Resume the Idleness Detection
+			 */
+			pr_err("ADF: %s: Invalid Entry req for mode DRRS_MEDIA_RR\n",
+								__func__);
+			mutex_unlock(&drrs_state->mutex);
+			intel_restart_idleness_drrs(pipeline);
+			return 0;
+		}
+	} else {
+
+		/* TODO: Check for cloned mode and respond accordingly */
+		drrs_state->target_rr_type = DRRS_MEDIA_RR;
+
+		if (drrs_state->current_rr_type == DRRS_MEDIA_RR) {
+
+			/* Refresh rate change in Media playback DRRS */
+			if (refresh_rate == panel_mode->target_mode->vrefresh) {
+				pr_debug("ADF: %s: Request for current RR.<%d>\n",
+					__func__,
+					panel_mode->target_mode->vrefresh);
+				mutex_unlock(&drrs_state->mutex);
+				return 0;
+			}
+			panel_mode->target_mode->vrefresh = refresh_rate;
+		} else {
+
+			/* Entering MEDIA Playback DRRS state */
+			panel_mode->target_mode = drm_modeinfo_duplicate(mode);
+		}
+
+		panel_mode->target_mode->clock = mode->vrefresh * mode->vtotal *
+							mode->htotal / 1000;
+	}
+
+	pr_debug("ADF: %s: cur_rr_type: %d, target_rr_type: %d, target_rr: %d\n",
+				__func__, drrs_state->current_rr_type,
+				drrs_state->target_rr_type,
+				panel_mode->target_mode->vrefresh);
+
+	intel_set_drrs_state(pipeline);
+	mutex_unlock(&drrs_state->mutex);
+
+	if (drrs->resume_idleness_detection)
+		intel_restart_idleness_drrs(pipeline);
+	return 0;
+}
 
 /* Idleness detection logic is initialized */
 int intel_adf_drrs_idleness_detection_init(struct intel_pipeline *pipeline)
@@ -288,6 +404,7 @@ int intel_drrs_init(struct intel_pipeline *pipeline)
 
 	mutex_init(&drrs->drrs_state.mutex);
 
+	drrs->resume_idleness_detection = false;
 	drrs->drrs_state.type = drrs->vbt.drrs_type;
 	drrs->drrs_state.current_rr_type = DRRS_HIGH_RR;
 	pr_info("ADF: %s: SEAMLESS DRRS supported on this panel.\n", __func__);

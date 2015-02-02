@@ -520,10 +520,12 @@ enum drrs_support_type {
  * Different DRRS States:
  * DRRS_HIGH_RR	: Refreshrate of Fixed mode. [Maximum Vrefresh]
  * DRRS_LOW_RR	: Refreshrate of Downclock mode. [Minimum vrefresh]
+ * DRRS_MEDIA_RR: Refreshrate of requested from userspace. [<Max && >= Min]
  */
 enum drrs_refresh_rate_type {
 	DRRS_HIGH_RR,
 	DRRS_LOW_RR,
+	DRRS_MEDIA_RR,
 	DRRS_MAX_RR,
 };
 
@@ -571,6 +573,8 @@ struct drrs_encoder_ops {
 	void (*exit)(struct intel_pipeline *);
 	void (*set_drrs_state)(struct intel_pipeline *);
 	bool (*is_drrs_hr_state_pending)(struct intel_pipeline *);
+	bool (*is_mp_drrs_req)(struct intel_pipeline *,
+					struct drm_mode_modeinfo *mode);
 };
 
 struct adf_drrs {
@@ -579,6 +583,8 @@ struct adf_drrs {
 
 	/* downclock mode && seamless DRRS */
 	bool has_drrs;
+
+	bool resume_idleness_detection;
 
 	/* Holds the DRRS state machine states */
 	struct drrs_info drrs_state;

@@ -46,6 +46,7 @@ struct intel_mipi_drrs_work {
 struct dsi_mnp_list {
 	struct dsi_mnp mnp1;	/* Fixed mode */
 	struct dsi_mnp mnp2;	/* Downclock mode */
+	struct dsi_mnp mnp3;	/* Media playback mode */
 };
 
 struct dsi_drrs {
