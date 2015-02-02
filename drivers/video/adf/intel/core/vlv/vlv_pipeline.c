@@ -281,7 +281,8 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 
 	pr_info("ADF: %s: mode=%s\n", __func__, mode->name);
 
-	vlv_pll_disable(pll);
+	if (disp->type != INTEL_PIPE_DSI)
+		vlv_pll_disable(pll);
 	/* pll enable */
 	if (disp->type != INTEL_PIPE_DSI) {
 		if ((disp->type == INTEL_PIPE_DP) ||
