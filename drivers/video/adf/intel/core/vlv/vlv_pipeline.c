@@ -618,6 +618,10 @@ u32 chv_pipeline_off(struct intel_pipeline *pipeline)
 	/* Disable DPST */
 	/* FIXME: vlv_dpst_pipeline_off(); */
 
+	/* Disable PSR */
+	if (disp->type == INTEL_PIPE_EDP)
+		vlv_edp_psr_disable(pipeline);
+
 	for (i = 0; i < 2; i++) {
 		splane = &disp->splane[0];
 		splane->base.ops->disable(&splane->base);

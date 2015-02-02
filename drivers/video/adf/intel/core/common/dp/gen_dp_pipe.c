@@ -414,6 +414,9 @@ static void dp_pipe_on_post(struct intel_pipe *pipe)
 	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
 
 	vlv_pm_on_post(intel_config, pipe);
+
+	/* Re-enable PSR, if possible */
+	vlv_edp_psr_update(pipeline);
 }
 
 static void dp_pipe_pre_validate(struct intel_pipe *pipe,
@@ -433,6 +436,9 @@ static void dp_pipe_pre_post(struct intel_pipe *pipe)
 	struct intel_pipeline *pipeline = dp_pipe->pipeline;
 	struct vlv_pipeline *vlv_pipeline = to_vlv_pipeline(pipeline);
 	struct intel_dc_config *intel_config = &vlv_pipeline->config->base;
+
+	/* Exit eDP PSR */
+	vlv_edp_psr_exit(pipeline, false);
 
 	vlv_pm_pre_post(intel_config, pipeline, pipe);
 }
@@ -538,6 +544,9 @@ u32 dp_pipe_init(struct dp_pipe *dp_pipe, struct device *dev,
 		err = intel_pipe_init(intel_pipe, dev, idx, true,
 			INTEL_PIPE_EDP, primary_plane, &edp_base_ops,
 			"edp_pipe");
+
+		/* Initialize PSR for eDP */
+		vlv_edp_psr_init(pipeline);
 	}
 
 	pr_debug("%s: exit :%x\n", __func__, (unsigned int)err);
