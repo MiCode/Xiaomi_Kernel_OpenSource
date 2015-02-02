@@ -2388,7 +2388,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 
 	if (!(smmu->features &
 		(ARM_SMMU_FEAT_TRANS_S1 | ARM_SMMU_FEAT_TRANS_S2))) {
-		dev_err(smmu->dev, "\tno translation support!\n");
+		dev_err(smmu->dev, "\tno translation support (id0=%x)!\n", id);
 		return -ENODEV;
 	}
 
