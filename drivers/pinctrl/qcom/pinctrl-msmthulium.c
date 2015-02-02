@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1699,13 +1699,13 @@ static const struct msm_pingroup msmthulium_groups[] = {
 	PINGROUP(147, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(148, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(149, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	SDC_QDSD_PINGROUP(sdc1_clk, 0x21c000, 13, 6),
-	SDC_QDSD_PINGROUP(sdc1_cmd, 0x21c000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc1_data, 0x21c000, 9, 0),
-	SDC_QDSD_PINGROUP(sdc2_clk, 0x21d000, 14, 6),
-	SDC_QDSD_PINGROUP(sdc2_cmd, 0x21d000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc2_data, 0x21d000, 9, 0),
-	SDC_QDSD_PINGROUP(sdc1_rclk, 0x21c000, 15, 0),
+	SDC_QDSD_PINGROUP(sdc1_clk, 0x12c000, 13, 6),
+	SDC_QDSD_PINGROUP(sdc1_cmd, 0x12c000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc1_data, 0x12c000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc2_clk, 0x12d000, 14, 6),
+	SDC_QDSD_PINGROUP(sdc2_cmd, 0x12d000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc2_data, 0x12d000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc1_rclk, 0x12c000, 15, 0),
 };
 
 static const struct msm_pinctrl_soc_data msmthulium_pinctrl = {
