@@ -110,4 +110,7 @@
 
 #define   SP_ENABLE                     (1<<31)
 
+/* Added for HDMI LPE Audio */
+#define ADF_HDMI_AUDIO_LPE_C_CONFIG	0x65900
+#define ADF_HDMI_AUDIO_LPE_B_CONFIG	0x65800
 #endif

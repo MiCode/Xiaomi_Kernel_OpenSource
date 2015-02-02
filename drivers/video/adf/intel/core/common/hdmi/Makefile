@@ -9,4 +9,5 @@ ifdef CONFIG_ADF_INTEL_VLV
 	obj-y += gen_hdmi_pipe_ops.o
 	obj-y += gen_hdmi_edid.o
 	obj-y += gen_hdmi_hotplug.o
+	obj-y += gen_hdmi_audio.o
 endif
