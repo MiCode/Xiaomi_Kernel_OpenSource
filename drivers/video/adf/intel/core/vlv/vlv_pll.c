@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/kernel.h>
 #include <intel_adf_device.h>
 #include <core/intel_dc_config.h>
 #include <core/vlv/vlv_dc_config.h>
@@ -107,7 +108,7 @@ static void chv_clock(int refclk, struct intel_clock *clock)
 	clock->dot = DIV_ROUND_CLOSEST(clock->vco, clock->p);
 }
 
-static bool calc_clock_timings(u32 target, struct intel_clock *best_clock)
+bool calc_clock_timings(u32 target, struct intel_clock *best_clock)
 {
 	struct intel_limit *limit = &intel_limits_chv;
 	struct intel_clock clock = {0};
@@ -159,16 +160,128 @@ static bool calc_clock_timings(u32 target, struct intel_clock *best_clock)
 			}
 		}
 	}
+	return found;
+}
+
+bool get_best_hdmi_pll(int target, struct intel_clock *best_clock)
+{
+	bool found = false;
+	struct intel_limit *limit = &intel_limits_chv;
+	struct intel_clock clock = {0};
+	u64 m2;
+	u64 best_m2 = 0;
+	u64 fastclock = target;
+	u64 vco_temp = 0;
+	u64 vco;
+
+	int refclk = 100;
+	ulong shift = (1 << CHV_PLL_INT_SHIFT);
+	ulong best_ppm = CHV_BEST_PPM;
+
+	ulong abs_ppm_diff = 0;
+	ulong abs_ppm = 0;
+	ulong temp;
+	ulong effective_m2;
+
+	memset(best_clock, 0, sizeof(*best_clock));
+
+	/*
+	  * Based on hardware doc, the n always set to 1, and m1 always
+	  * set to 2.  If requires to support 200Mhz refclk, we need to
+	  * revisit this because n may not 1 anymore.
+	  */
+	clock.n = 1;
+	clock.m1 = 2;
+
+	pr_err("ADF: fastclock = %llu\n", fastclock);
+
+	/* Get fastlock in Hz */
+	fastclock = (10 * fastclock) / (2 * 1000);
+
+	/* Find best PLL clocks with in range of P1 and P2 */
+	for (clock.p1 = limit->p1.max; clock.p1 >= limit->p1.min; clock.p1--) {
+		for (clock.p2 = limit->p2.p2_fast;
+				clock.p2 >= limit->p2.p2_slow;
+					clock.p2 -= clock.p2 > 10 ? 2 : 1) {
+			/*
+			  * Get M2, make it 10.CHV_PLL_INT_SHIFT
+			  * and then adjust for Khz
+			  */
+			clock.p = clock.p1 * clock.p2;
+			m2 = (fastclock * clock.p * clock.n) / 200;
+			m2 <<= CHV_PLL_INT_SHIFT;
+			m2 /= 1000;
+
+			/* VCO values, just to serach the boundary conditions */
+			vco_temp = (refclk * clock.m1 * m2)
+						>> CHV_PLL_INT_SHIFT;
+
+			/* Select only if VCO is in range */
+			if ((vco_temp >= 4800) && (vco_temp < 6480)) {
+
+				pr_info("ADF: %s M2=%llu vco_temp = %llu\n",
+					__func__, m2, vco_temp);
+
+				abs_ppm_diff = abs(DIV_ROUND_CLOSEST(
+					vco_temp	* 1000, clock.p) -
+							fastclock);
+
+				abs_ppm = DIV_ROUND_CLOSEST(abs_ppm_diff * 1000,
+						fastclock);
+
+				/* Prefer bigger P and less PPM */
+				if ((abs_ppm < 100) &&
+					(clock.p > best_clock->p)) {
+					best_ppm = 0;
+					*best_clock = clock;
+					found = true;
+					best_m2 = m2;
+				}
+
+				if (best_ppm &&
+					(abs_ppm < (best_ppm - 10)) &&
+						(clock.p > best_clock->p)) {
+					best_ppm = abs_ppm;
+					best_m2 = m2;
+					*best_clock = clock;
+					found = true;
+				}
+			}
+		}
+	}
+
+	if (found) {
+		vco = (best_clock->m1 * (best_m2 * 100) * (refclk))
+					>> CHV_PLL_INT_SHIFT;
+
+		effective_m2 = (unsigned long)best_m2;
+		temp = ((best_m2 % shift)) &  CHV_PLL_VCO_FRACT_MASK;
+		effective_m2 >>= CHV_PLL_INT_SHIFT;
+		effective_m2 = (effective_m2 << CHV_PLL_EFFECTIVE_M2_SHIFT)
+						| temp;
+
+		best_clock->vco = vco;
+		best_clock->m2 = effective_m2;
+	}
+
+	pr_info("====================================\n");
+	pr_info("ADF: best PLL p1=%d p2=%d m1=%d m2=0x%x\n",
+			best_clock->p1, best_clock->p2, best_clock->m1,
+				best_clock->m2);
+	pr_info("m=%d n=%d p=%d dot=%d vco=%d\n",
+			best_clock->m, best_clock->n, best_clock->p,
+				best_clock->dot, best_clock->vco);
+	pr_info("====================================\n");
 
 	return found;
 }
+
 
 u32 vlv_pll_program_timings(struct vlv_pll *pll,
 		struct drm_mode_modeinfo *mode,
 		struct intel_clock *clock, u32 multiplier)
 {
 	u32 val = 0;
-	bool ret = false;
 
 	val = DPLL_SSC_REF_CLOCK_CHV | DPLL_REFA_CLK_ENABLE_VLV
 		| DPLL_VGA_MODE_DIS;
@@ -180,12 +293,6 @@ u32 vlv_pll_program_timings(struct vlv_pll *pll,
 
 	val = (multiplier - 1) << DPLL_MD_UDI_MULTIPLIER_SHIFT;
 	REG_WRITE(pll->md_offset, val);
-
-	ret = calc_clock_timings(mode->clock, clock);
-	if (!ret) {
-		pr_err("%s: unable to find clock values\n", __func__);
-		return -EINVAL;
-	}
 
 	return 0;
 }

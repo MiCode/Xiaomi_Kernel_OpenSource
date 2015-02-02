@@ -302,15 +302,37 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 		err = vlv_pll_program_timings(pll, mode, &clock, multiplier);
 		if (err)
 			pr_err("ADF: %s: clock calculation failed\n", __func__);
-		if (disp->type == INTEL_PIPE_HDMI) {
-			pr_err("HARDCODING clock for 19x10 HDMI\n");
 
-			clock.p1 = 4;
-			clock.p2 = 2;
-			clock.m1 = 2;
-			clock.m2 = 0x1d2cccc0;
-			clock.n = 1;
-			clock.vco = 0x9104f;
+		if (disp->type == INTEL_PIPE_HDMI) {
+
+			if (!get_best_hdmi_pll(dotclock, &clock)) {
+				/*
+				  * Failed to calculate dynamic PLL, fallback
+				  * to 1920x1080@60, and try your luck
+				  */
+				clock.p1 = 4;
+				clock.p2 = 2;
+				clock.m1 = 2;
+				clock.m2 = 0x1d2cccc0;
+				clock.n = 1;
+				clock.vco = 0x9104f;
+
+				pr_info("ADF: Hardcoded p1=%d p2=%d m1=%d m2=%d n=%d vco=%d\n",
+					clock.p1, clock.p2, clock.m1, clock.m2,
+					clock.n, clock.vco);
+			} else {
+				pr_info("ADF: Calculated p1=%d p2=%d m1=%d m2=%d n=%d vco=%d\n",
+						clock.p1, clock.p2, clock.m1,
+						clock.m2, clock.n, clock.vco);
+			}
+
+		} else {
+			err = calc_clock_timings(mode->clock, &clock);
+			if (!err) {
+				pr_err("%s: unable to find clock values\n",
+					__func__);
+				return -EINVAL;
+			}
 		}
 		chv_dpio_update_clock(pipeline, &clock);
 		chv_dpio_update_channel(pipeline);

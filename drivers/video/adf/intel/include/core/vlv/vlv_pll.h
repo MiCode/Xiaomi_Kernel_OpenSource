@@ -49,6 +49,11 @@ struct intel_limit {
 	struct intel_p2 p2;
 };
 
+#define CHV_PLL_INT_SHIFT 22
+#define CHV_PLL_VCO_FRACT_MASK 0x3FFFFF
+#define CHV_PLL_EFFECTIVE_M2_SHIFT 24
+#define CHV_BEST_PPM 1000000
+
 u32 vlv_pll_wait_for_port_ready(enum port port_id);
 u32 vlv_pll_program_timings(struct vlv_pll *pll,
 		struct drm_mode_modeinfo *mode,
@@ -71,4 +76,6 @@ bool vlv_pll_init(struct vlv_pll *pll, enum intel_pipe_type type,
 bool vlv_pll_destroy(struct vlv_pll *pll);
 u32 vlv_pll_dpms(struct vlv_pll *pll, u8 dpms_state);
 
+bool calc_clock_timings(u32 target, struct intel_clock *best_clock);
+bool get_best_hdmi_pll(int target, struct intel_clock *best_clock);
 #endif /*_VLV_PLL_H_*/
