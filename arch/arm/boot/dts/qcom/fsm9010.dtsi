@@ -839,7 +839,79 @@
 		};
 	};
 
+	qcom,bbif@fd300000 {
+		compatible = "qcom,bbif-fsm9010";
+		reg = <0xfd300000 0x10000>;
+	};
 
+	qcom,rfic@fd4a4090 {
+		compatible = "qcom,rfic-fsm9010";
+		reg = <0xfd4a4090 0x40>,
+			<0x29000000 0xa00000>,
+			<0xf9b10000 0x8000>;
+		clocks = <&clock_gcc clk_gcc_pdm2_clk>,
+			<&clock_gcc clk_gcc_pdm2_ahb_clk>;
+		clock-names = "pdm2_clk", "ahb_clk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&rf_ssbi_default &grfc_f2_default &grfc_f3_default
+			&grfc_f4_default &grfc_f5_default &grfc_f6_default
+			&grfc_f7_default &pdm_f2_default>;
+	};
+
+	ssbi1:  qcom,ssbi@f9b18000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b18000 0x4000>;
+		reg-names = "ssbi1_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@1 {
+			compatible = "qcom,rfic-fsm9010";
+		};
+	};
+
+	ssbi2:  qcom,ssbi@f9b1c000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b1c000 0x4000>;
+		reg-names = "ssbi2_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@2 {
+			compatible = "qcom,rfic-fsm9010";
+		};
+	};
+
+	ssbi3:  qcom,ssbi@f9b20000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b20000 0x4000>;
+		reg-names = "ssbi3_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@3 {
+			compatible = "qcom,rfic-fsm9010";
+		};
+	};
+
+	ssbi4:  qcom,ssbi@f9b24000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b24000 0x4000>;
+		reg-names = "ssbi4_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@4 {
+			compatible = "qcom,rfic-fsm9010";
+		};
+	};
+
+	ssbi5:  qcom,ssbi@f9b28000 {
+		compatible = "qcom,ssbi";
+		reg = <0xf9b28000 0x4000>;
+		reg-names = "ssbi5_base";
+		qcom,controller-type = "geni-ssbi-arbiter";
+
+		rfic@5 {
+			compatible = "qcom,rfic-fsm9010";
+		};
+	};
 };
 
 #include "fsm9010-regulator.dtsi"
