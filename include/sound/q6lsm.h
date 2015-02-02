@@ -74,11 +74,12 @@ struct lsm_client {
 	bool		started;
 	dma_addr_t	lsm_cal_phy_addr;
 	uint32_t	lsm_cal_size;
-	uint16_t	app_id;
+	uint32_t	app_id;
 	bool		lab_enable;
 	bool		lab_started;
 	struct lsm_lab_buffer *lab_buffer;
 	struct lsm_lab_hw_params hw_params;
+	bool		use_topology;
 };
 
 struct lsm_stream_cmd_open_tx {
@@ -88,11 +89,33 @@ struct lsm_stream_cmd_open_tx {
 	uint32_t	sampling_rate;
 } __packed;
 
+struct lsm_stream_cmd_open_tx_v2 {
+	struct apr_hdr hdr;
+	uint32_t	topology_id;
+} __packed;
+
+struct lsm_custom_topologies {
+	struct apr_hdr hdr;
+	uint32_t data_payload_addr_lsw;
+	uint32_t data_payload_addr_msw;
+	uint32_t mem_map_handle;
+	uint32_t buffer_size;
+} __packed;
+
+struct lsm_param_size_reserved {
+	uint16_t param_size;
+	uint16_t reserved;
+} __packed;
+
+union lsm_param_size {
+	uint32_t param_size;
+	struct lsm_param_size_reserved sr;
+} __packed;
+
 struct lsm_param_payload_common {
 	uint32_t	module_id;
 	uint32_t	param_id;
-	uint16_t	param_size;
-	uint16_t	reserved;
+	union lsm_param_size p_size;
 } __packed;
 
 struct lsm_param_op_mode {
@@ -146,6 +169,31 @@ struct lsm_cmd_set_opmode_connectport {
 	struct lsm_param_op_mode		op_mode;
 } __packed;
 
+struct lsm_param_epd_thres {
+	struct lsm_param_payload_common common;
+	uint32_t	minor_version;
+	uint32_t	epd_begin;
+	uint32_t	epd_end;
+} __packed;
+
+struct lsm_cmd_set_epd_threshold {
+	struct apr_hdr msg_hdr;
+	struct lsm_set_params_hdr param_hdr;
+	struct lsm_param_epd_thres epd_thres;
+} __packed;
+
+struct lsm_param_gain {
+	struct lsm_param_payload_common common;
+	uint32_t	minor_version;
+	uint16_t	gain;
+	uint16_t	reserved;
+} __packed;
+
+struct lsm_cmd_set_gain {
+	struct apr_hdr msg_hdr;
+	struct lsm_set_params_hdr param_hdr;
+	struct lsm_param_gain lsm_gain;
+} __packed;
 
 struct lsm_cmd_reg_snd_model {
 	struct apr_hdr	hdr;
@@ -206,7 +254,8 @@ void q6lsm_client_free(struct lsm_client *client);
 int q6lsm_open(struct lsm_client *client, uint16_t app_id);
 int q6lsm_start(struct lsm_client *client, bool wait);
 int q6lsm_stop(struct lsm_client *client, bool wait);
-int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len);
+int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len,
+			      bool allocate_module_data);
 int q6lsm_snd_model_buf_free(struct lsm_client *client);
 int q6lsm_close(struct lsm_client *client);
 int q6lsm_register_sound_model(struct lsm_client *client,
@@ -222,4 +271,10 @@ int q6lsm_lab_control(struct lsm_client *client, u32 enable);
 int q6lsm_stop_lab(struct lsm_client *client);
 int q6lsm_read(struct lsm_client *client, struct lsm_cmd_read *read);
 int q6lsm_lab_buffer_alloc(struct lsm_client *client, bool alloc);
+int q6lsm_set_one_param(struct lsm_client *client,
+			struct lsm_params_info *p_info, void *data,
+			enum LSM_PARAM_TYPE param_type);
+void q6lsm_sm_set_param_data(struct lsm_client *client,
+		struct lsm_params_info *p_info,
+		size_t *offset);
 #endif /* __Q6LSM_H__ */
