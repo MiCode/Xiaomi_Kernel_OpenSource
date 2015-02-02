@@ -35,6 +35,8 @@
 #define EMAC_WOL_IRQ          4
 #define EMAC_SGMII_PHY_IRQ    5
 #define EMAC_NUM_IRQ          6
+/* mdio/mdc gpios */
+#define EMAC_GPIO_CNT         2
 
 enum emac_clk_id {
 	EMAC_CLK_AXI,
@@ -56,9 +58,6 @@ enum emac_clk_rate {
 	EMC_CLK_RATE_25MHz	= MHz(25),
 	EMC_CLK_RATE_125MHz	= MHz(125),
 };
-
-/* mdio/mdc gpios */
-#define EMAC_NUM_GPIO         2
 
 #define EMAC_LINK_SPEED_UNKNOWN         0x0
 #define EMAC_LINK_SPEED_10_HALF         0x0001
@@ -533,11 +532,6 @@ struct emac_irq_info {
 	struct emac_adapter  *adpt;
 };
 
-struct emac_gpio_info {
-	unsigned int gpio;
-	char *name;
-};
-
 struct emac_clk {
 	struct clk		*clk;
 	bool			enabled;
@@ -669,7 +663,7 @@ struct emac_adapter {
 	struct net_device *netdev;
 
 	struct emac_irq_info  irq_info[EMAC_NUM_IRQ];
-	struct emac_gpio_info gpio_info[EMAC_NUM_GPIO];
+	unsigned int			gpio[EMAC_GPIO_CNT];
 	struct emac_clk			clk[EMAC_CLK_CNT];
 
 	/* dma parameters */
