@@ -233,6 +233,14 @@ int intel_drrs_init(struct intel_pipeline *pipeline)
 	if (IS_VALLEYVIEW() || IS_CHERRYVIEW())
 		pipe_type = vlv_pipeline_to_pipe_type(pipeline);
 
+	if (pipe_type == INTEL_PIPE_DSI) {
+		drrs->encoder_ops = intel_drrs_dsi_encoder_ops_init();
+	} else {
+		pr_err("ADF: %s: Unsupported PIPE Type\n", __func__);
+		ret = -EINVAL;
+		goto err_out;
+	}
+
 	if (!drrs->encoder_ops) {
 		pr_err("ADF: %s: Encoder ops not initialized\n", __func__);
 		ret = -EINVAL;

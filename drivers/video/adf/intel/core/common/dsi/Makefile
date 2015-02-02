@@ -17,6 +17,7 @@ endif
 
 obj-y += dsi_config.o
 obj-y += dsi_panel.o
+obj-y += intel_dsi_drrs.o
 
 obj-y += panels/
 

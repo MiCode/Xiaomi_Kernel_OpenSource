@@ -18,6 +18,7 @@
 #ifndef DSI_PIPE_H_
 #define DSI_PIPE_H_
 
+#include <core/common/dsi/intel_dsi_drrs.h>
 #include "core/intel_dc_config.h"
 #include "core/common/dsi/dsi_config.h"
 #include "core/common/dsi/dsi_panel.h"
@@ -65,6 +66,7 @@ struct dsi_pipe {
 	struct dsi_pipe_ops ops;
 	struct dsi_config config;
 	struct intel_pipeline *pipeline;
+	struct dsi_drrs drrs;
 #ifndef CONFIG_ADF_INTEL_VLV
 	struct dsi_pkg_sender sender;
 #endif

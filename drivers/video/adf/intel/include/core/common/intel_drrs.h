@@ -17,6 +17,7 @@
 #ifndef INTEL_DRRS_H__
 #define INTEL_DRRS_H__
 
+#include <core/common/dsi/intel_dsi_drrs.h>
 #include <core/vlv/vlv_dc_config.h>
 
 #define DRRS_IDLENESS_INTERVAL_MS	1000
