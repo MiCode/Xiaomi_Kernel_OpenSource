@@ -189,25 +189,25 @@ static int __layer_param_check(struct msm_fb_data_type *mfd,
 	if ((src_w * MAX_UPSCALE_RATIO) < dst_w) {
 		pr_err("too much upscaling Width %d->%d\n",
 		       layer->src_rect.w, layer->dst_rect.w);
-		return -EINVAL;
+		return -E2BIG;
 	}
 
 	if ((src_h * MAX_UPSCALE_RATIO) < dst_h) {
 		pr_err("too much upscaling. Height %d->%d\n",
 		       layer->src_rect.h, layer->dst_rect.h);
-		return -EINVAL;
+		return -E2BIG;
 	}
 
 	if (src_w > (dst_w * MAX_DOWNSCALE_RATIO)) {
 		pr_err("too much downscaling. Width %d->%d H Dec=%d\n",
 		       src_w, layer->dst_rect.w, layer->horz_deci);
-		return -EINVAL;
+		return -E2BIG;
 	}
 
 	if (src_h > (dst_h * MAX_DOWNSCALE_RATIO)) {
 		pr_err("too much downscaling. Height %d->%d V Dec=%d\n",
 		       src_h, layer->dst_rect.h, layer->vert_deci);
-		return -EINVAL;
+		return -E2BIG;
 	}
 
 	if (layer->flags & MDP_LAYER_BWC) {
