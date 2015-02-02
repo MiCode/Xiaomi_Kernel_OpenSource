@@ -16,7 +16,7 @@ the parent driver. RFIC uses a large set of registers, hence base address is
 defined here.
 -qcom,controller-type: controller type could be "geni-ssbi-arbiter" or
 "geni-ssbi2-arbiter"
--compatible: child should be "qcom,rfic"
+-compatible: child should be "qcom,rfic-fsm9900" or "qcom,rfic-fsm9010"
 
 Example for rfic driver using SSBI as a parent:
 	ssbi1:  qcom,ssbi@f9b18000 {
@@ -26,7 +26,7 @@ Example for rfic driver using SSBI as a parent:
 		qcom,controller-type = "geni-ssbi-arbiter";
 
 		rfic@1 {
-			compatible = "qcom,rfic";
+			compatible = "qcom,rfic-fsm9900", "qcom,rfic-fsm9010";
 		};
 	};
 
@@ -34,8 +34,10 @@ Example for rfic driver using SSBI as a parent:
 driver entry is independent and does not use ssbi driver.
 
 Required properties:
--compatible: should be "qcom,rfic"
+-compatible: should be "qcom,rfic-fsm9900" or "qcom,rfic-fsm9010"
 -reg: specifies the base address of the GRFC registers.
+
+Optional properties:
 vdd-switch-supply: regulator used to control RF switches.
 vdd-wtr-supply: regulator used to control WTR.
 vdd-ftr1-supply: regulator used to control FTR1.
@@ -43,9 +45,35 @@ vdd-ftr2-supply: regulator used to control FTR2.
 vdd-1v8-supply: regulator used to control 1.8V to all RFICs.
 vdd-1v3-supply: regulator used to control 1.3V to all RFICs
 
-Example:
+- pinctrl-states: the names of the pinctrl states that used by the driver to
+	configure the TLMM pins.
+	rf_ssbi - Sets TLMM properties to SSBI lines.
+	grfc_f2 - Sets TLMM properties to GRFC lines using alt-func 2.
+	grfc_f3 - Sets TLMM properties to GRFC lines using alt-func 3.
+	grfc_f4 - Sets TLMM properties to GRFC lines using alt-func 4.
+	grfc_f5 - Sets TLMM properties to GRFC lines using alt-func 5.
+	grfc_f6 - Sets TLMM properties to GRFC lines using alt-func 6.
+	grfc_f7 - Sets TLMM properties to GRFC lines using alt-func 7.
+	pdm_f2 - Sets TLMM properties to PDM lines.
+
+- pinctrl-#: a list of pinctrl phandles for the different pinctrl states. Refer
+	to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt" for the
+	pinctrl handles definitions. Each pinctrl-# corresponds to the respective
+	state name that appears under pinctrl-state list.
+
+- clocks: clock identifers used by clock driver while looking up pdm clocks.
+- clock-names: name of the clock used by rfic driver.
+
+rfic driver uses 3 resources as mentioned below in reg entry and resources
+are exttracted using array number by platform_get_resource().
+
+Example 1:
 	qcom,rfic@fd4a4090 {
-		compatible = "qcom,rfic";
+		compatible = "qcom,rfic-fsm9900";
+		reg = <0xfd4a4090 0x40>,
+			<0x3a000000 0xa00000>,
+			<0xf9b10000 0x8000>;
+
 		reg = <0xfd4a4090 0x40>;
 		vdd-switch-supply = <&pma8084_l18>;
 		vdd-wtr-supply = <&pma8084_l19>;
@@ -56,6 +84,24 @@ Example:
 	};
 
 	qcom,pdm@f9b10000 {
-		compatible = "qcom,rfic";
+		compatible = "qcom,rfic-fsm9900";
+		reg = <0xf9b10000 0x8000>;
+	};
+
+Example 2:
+	qcom,rfic@fd4a4090 {
+		compatible = "qcom,rfic-fsm9010";
+		reg = <0xfd4a4090 0x40>,
+			<0x29000000 0xa00000>,
+			<0xf9b10000 0x8000>;
+		clocks = <&clock_gcc clk_gcc_pdm2_clk>,
+			<&clock_gcc clk_gcc_pdm2_ahb_clk>;
+		clock-names = "pdm2_clk", "ahb_clk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&rf_ssbi_default>
+	};
+
+	qcom,pdm@f9b10000 {
+		compatible = "qcom,rfic-fsm9010";
 		reg = <0xf9b10000 0x8000>;
 	};
