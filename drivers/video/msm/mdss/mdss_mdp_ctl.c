@@ -44,6 +44,12 @@ static inline u64 apply_fudge_factor(u64 val,
 	return fudge_factor(val, factor->numer, factor->denom);
 }
 
+static inline u64 apply_inverse_fudge_factor(u64 val,
+	struct mdss_fudge_factor *factor)
+{
+	return fudge_factor(val, factor->denom, factor->numer);
+}
+
 static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 
 static inline int __mdss_mdp_ctl_get_mixer_off(struct mdss_mdp_mixer *mixer);
@@ -513,6 +519,56 @@ static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	return rate;
 }
 
+static u32 apply_comp_ratio_factor(u32 quota,
+	struct mdss_mdp_format_params *fmt,
+	bool is_nrt)
+{
+	struct mdss_fudge_factor *factor;
+	struct mdss_mdp_format_params_ubwc *ubwc_fmt;
+
+	if (mdss_mdp_is_ubwc_format(fmt)) {
+		ubwc_fmt = container_of(fmt, struct mdss_mdp_format_params_ubwc,
+			mdp_format);
+
+		if (is_nrt)
+			factor = &ubwc_fmt->comp_ratio_nrt;
+		else
+			factor = &ubwc_fmt->comp_ratio_rt;
+
+		quota = apply_inverse_fudge_factor(quota , factor);
+	}
+
+	return quota;
+}
+
+static u32 apply_overhead_factors(u32 quota,
+	bool is_nrt, bool is_rot_read,
+	struct mdss_mdp_format_params *fmt)
+{
+	u32 overhead_quota;
+
+	if (!fmt) {
+		pr_debug("fmt is null, skip overhead factor\n");
+		return quota;
+	}
+
+	/* rotator read + YUV linear format */
+	if (is_nrt && is_rot_read && fmt->is_yuv &&
+			mdss_mdp_is_linear_format(fmt)) {
+		/*
+		* overhead and compression ratio factors are 1,
+		* so overhead_quota = quota + quota
+		*/
+		overhead_quota = quota * 2;
+	} else {
+		/* add ~3% (0.03125) of overhead */
+		overhead_quota = quota / 32;
+		overhead_quota += apply_comp_ratio_factor(quota, fmt, is_nrt);
+	}
+
+	return overhead_quota;
+}
+
 /**
  * mdss_mdp_perf_calc_pipe() - calculate performance numbers required by pipe
  * @pipe:	Source pipe struct containing updated pipe params
@@ -611,14 +667,38 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		quota *= pipe->src_fmt->bpp;
 
 	if (mixer->rotator_mode) {
-
-		quota *= 2; /* bus read + write */
+		if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
+				mdata->mdss_qos_map)) {
+			/* rotator read */
+			quota = apply_overhead_factors(quota,
+				true, true, pipe->src_fmt);
+			/*
+			 * rotator write: here we are using src_fmt since
+			 * current implementation only supports calculate
+			 * bandwidth based in the source parameters.
+			 * The correct fine-tuned calculation should use
+			 * destination format and destination rectangles to
+			 * calculate the bandwidth, but leaving this
+			 * calculation as per current support.
+			 */
+			quota += apply_overhead_factors(quota,
+				true, false, pipe->src_fmt);
+		} else {
+			quota *= 2; /* bus read + write */
+		}
 	} else {
 
 		quota = mult_frac(quota, v_total, dst.h);
 		if (!mixer->ctl->is_video_mode)
 			quota = mult_frac(quota, h_total, xres);
+
+		if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
+				mdata->mdss_qos_map))
+			quota = apply_overhead_factors(quota,
+				mdss_mdp_is_nrt_ctl_path(mixer->ctl),
+				false, pipe->src_fmt);
 	}
+
 	perf->bw_overlap = quota;
 
 	perf->mdp_clk_rate = get_pipe_mdp_clk_rate(pipe, src, dst,
@@ -730,13 +810,20 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 		perf->mdp_clk_rate =
 			mdss_mdp_clk_fudge_factor(mixer, perf->mdp_clk_rate);
 
-		if (!pinfo)	/* perf for bus writeback */
+		if (!pinfo) { /* perf for bus writeback */
 			perf->bw_writeback =
 				fps * mixer->width * mixer->height * bpp;
-		/* for command mode, run as fast as the link allows us */
-		else if ((pinfo->type == MIPI_CMD_PANEL) &&
-			 (pinfo->mipi.dsi_pclk_rate > perf->mdp_clk_rate))
+
+			if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
+					mdata->mdss_qos_map))
+				perf->bw_writeback = apply_overhead_factors(
+					perf->bw_writeback,
+					true, false, fmt);
+		} else if ((pinfo->type == MIPI_CMD_PANEL) &&
+		    (pinfo->mipi.dsi_pclk_rate > perf->mdp_clk_rate)) {
+			/* for command mode, run as fast as the link allows */
 			perf->mdp_clk_rate = pinfo->mipi.dsi_pclk_rate;
+		}
 	}
 
 	/*

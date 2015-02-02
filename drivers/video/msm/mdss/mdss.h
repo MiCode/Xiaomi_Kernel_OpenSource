@@ -149,6 +149,7 @@ enum mdss_hw_quirk {
 
 enum mdss_qos_settings {
 	MDSS_QOS_PER_PIPE_IB,
+	MDSS_QOS_OVERHEAD_FACTOR,
 	MDSS_QOS_MAX,
 };
 
@@ -288,6 +289,7 @@ struct mdss_data_type {
 	struct mdss_fudge_factor ib_factor_overlap;
 	struct mdss_fudge_factor clk_factor;
 	struct mdss_fudge_factor per_pipe_ib_factor;
+	u32 ubwc_comp_ratio_factors_row;
 
 	u32 disable_prefill;
 	u32 *clock_levels;
