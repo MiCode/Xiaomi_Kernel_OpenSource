@@ -15,16 +15,6 @@
 #ifndef __IA_CSS_YUV420_IO_PARAM
 #define __IA_CSS_YUV420_IO_PARAM
 
-#define NUM_YUV420_DMA_CHANNELS 2
-
-struct ia_css_yuv420_io_params {
-	unsigned base_address;
-	unsigned width;
-	unsigned height;
-	unsigned stride;
-	unsigned ddr_elems_per_word;
-	unsigned dma_channel[NUM_YUV420_DMA_CHANNELS];
-};
-
+#include "../common/ia_css_common_io_param.h"
 
 #endif

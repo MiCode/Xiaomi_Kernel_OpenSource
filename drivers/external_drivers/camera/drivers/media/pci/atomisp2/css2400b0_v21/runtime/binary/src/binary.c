@@ -352,14 +352,17 @@ ia_css_binary_dvs_grid_info(const struct ia_css_binary *binary,
 #endif
 }
 
-void
+enum ia_css_err
 ia_css_binary_3a_grid_info(const struct ia_css_binary *binary,
 			   struct ia_css_grid_info *info,
 			   struct ia_css_pipe *pipe)
 {
 	struct ia_css_3a_grid_info *s3a_info;
+	enum ia_css_err err = IA_CSS_SUCCESS;
 
-	(void)pipe;
+	IA_CSS_ENTER_PRIVATE("binary=%p, info=%p, pipe=%p",
+			     binary, info, pipe);
+
 	assert(binary != NULL);
 	assert(info != NULL);
 	s3a_info = &info->s3a_grid;
@@ -389,9 +392,10 @@ ia_css_binary_3a_grid_info(const struct ia_css_binary *binary,
 	s3a_info->awb_enable        = binary->info->sp.enable.awb_acc;
 	s3a_info->elem_bit_depth    = SH_CSS_BAYER_BITS;
 
-	ia_css_3a_stat_grid_calculate(s3a_info, pipe);
-
+	err = ia_css_3a_stat_grid_calculate(s3a_info, pipe);
 #endif
+	IA_CSS_LEAVE_ERR_PRIVATE(err);
+	return err;
 }
 
 static void

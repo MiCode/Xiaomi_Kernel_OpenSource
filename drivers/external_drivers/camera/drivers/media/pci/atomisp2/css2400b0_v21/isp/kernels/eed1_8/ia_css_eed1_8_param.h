@@ -32,12 +32,9 @@
 
 /* Coring Threshold minima
  * Used in Tint color suppression.
- * Default: ??
+ * Default: 1
  */
-/* TODO: Find propper value for this parameter.
- * KFS currently does not specify this.
- */
-#define EED1_8_CORINGTHMIN	1024
+#define EED1_8_CORINGTHMIN	1
 
 /* Define size of the state..... TODO: check if this is the correct place */
 /* 4 planes : GR, R, B, GB */
@@ -55,24 +52,24 @@
 #define EED1_8_STATE_LD_H_HEIGHT	(2 * NUM_PLANES)
 #define EED1_8_STATE_LD_H_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
-/* 2 lines stater per color plane LD_V state */
+/* 2 lines state per color plane LD_V state */
 #define EED1_8_STATE_LD_V_HEIGHT	(2 * NUM_PLANES)
 #define EED1_8_STATE_LD_V_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
-/* 2 lines (single plane) state for D_Hr state */
+/* 1 line (single plane) state for D_Hr state */
 #define EED1_8_STATE_D_HR_HEIGHT	1
 #define EED1_8_STATE_D_HR_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
-/* 3 lines (single plane) state for D_Hb state */
-#define EED1_8_STATE_D_HB_HEIGHT	2
+/* 1 line (single plane) state for D_Hb state */
+#define EED1_8_STATE_D_HB_HEIGHT	1
 #define EED1_8_STATE_D_HB_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
-/* 3 lines (single plane) state for D_Vr state */
+/* 2 lines (single plane) state for D_Vr state */
 #define EED1_8_STATE_D_VR_HEIGHT	2
 #define EED1_8_STATE_D_VR_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
-/* 2 lines (single plane) state for D_Vb state */
-#define EED1_8_STATE_D_VB_HEIGHT	1
+/* 2 line (single plane) state for D_Vb state */
+#define EED1_8_STATE_D_VB_HEIGHT	2
 #define EED1_8_STATE_D_VB_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
 /* 3 lines state for R and B (= 2 planes) rb_zipped_state */
@@ -84,12 +81,12 @@
 #define EED1_8_STATE_YC_HEIGHT	1
 #define EED1_8_STATE_YC_WIDTH	MAX_FRAME_SIMDWIDTH
 
-/* 2 lines state per color plane Cg_state */
-#define EED1_8_STATE_CG_HEIGHT	(2 * NUM_PLANES)
+/* 1 line state per color plane Cg_state */
+#define EED1_8_STATE_CG_HEIGHT	(1 * NUM_PLANES)
 #define EED1_8_STATE_CG_WIDTH	CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
-/* 2 lines state per color plane Co_state */
-#define EED1_8_STATE_CO_HEIGHT	(2 * NUM_PLANES)
+/* 1 line state per color plane Co_state */
+#define EED1_8_STATE_CO_HEIGHT	(1 * NUM_PLANES)
 #define EED1_8_STATE_CO_WIDTH	CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
 /* 1 full input line (GR-R color line) for AbsK state */
