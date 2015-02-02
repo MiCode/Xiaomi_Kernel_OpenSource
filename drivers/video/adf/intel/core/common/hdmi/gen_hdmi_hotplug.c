@@ -629,8 +629,16 @@ bool hdmi_notify_audio(struct hdmi_pipe *hdmi_pipe, bool connected)
 	if (connected) {
 		if (hdmi_pipe->config.ctx.monitor->has_audio)
 			adf_hdmi_audio_signal_event(HAD_EVENT_HOT_PLUG);
+#ifdef CONFIG_EXTCON
+		if (strlen(hdmi_pipe->hotplug_switch.name) != 0)
+			extcon_set_state(&hdmi_pipe->hotplug_switch, 1);
+#endif
 	} else {
 		adf_hdmi_audio_signal_event(HAD_EVENT_HOT_UNPLUG);
+#ifdef CONFIG_EXTCON
+		if (strlen(hdmi_pipe->hotplug_switch.name) != 0)
+			extcon_set_state(&hdmi_pipe->hotplug_switch, 0);
+#endif
 	}
 
 	return true;

@@ -19,6 +19,8 @@
 
 #include "core/intel_dc_config.h"
 #include "core/common/hdmi/gen_hdmi_audio.h"
+#include <linux/extcon.h>
+#include <linux/types.h>
 
 #define HDMI_MAX_ELD_LENGTH	84
 #define HDMI_DIP_PACKET_HEADER_LEN	3
@@ -141,6 +143,9 @@ struct hdmi_pipe {
 
 	/* Added for HDMI audio */
 	uint32_t tmds_clock;
+#ifdef CONFIG_EXTCON
+	struct extcon_dev hotplug_switch;
+#endif
 };
 
 static inline struct hdmi_pipe *

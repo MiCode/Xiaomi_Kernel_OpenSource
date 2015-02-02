@@ -170,6 +170,10 @@ void hdmi_config_destroy(struct hdmi_config *config)
 
 void hdmi_pipe_destroy(struct hdmi_pipe *pipe)
 {
+#ifdef CONFIG_EXTCON
+	if (pipe)
+		extcon_dev_unregister(&pipe->hotplug_switch);
+#endif
 	if (pipe)
 		hdmi_config_destroy(&pipe->config);
 	pr_info("ADF: HDMI: %s", __func__);
@@ -210,6 +214,11 @@ int hdmi_pipe_init(struct hdmi_pipe *pipe,
 	}
 
 	adf_hdmi_audio_init(pipe);
+
+#ifdef CONFIG_EXTCON
+	pipe->hotplug_switch.name = "hdmi";
+	extcon_dev_register(&pipe->hotplug_switch);
+#endif
 
 	/*
 	 * Configure HDMI
