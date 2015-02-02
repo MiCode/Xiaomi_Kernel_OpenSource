@@ -329,5 +329,7 @@ bool edid_is_valid(struct edid *edid);
 int mode_vrefresh(const struct drm_mode_modeinfo *mode);
 int hdmi_avi_infoframe_from_mode(struct hdmi_monitor *monitor,
 					const struct drm_mode_modeinfo *mode);
+/* Added for HDMI audio */
+bool detect_monitor_audio(struct edid *edid);
 
 #endif /* HDMI_EDID_H_ */

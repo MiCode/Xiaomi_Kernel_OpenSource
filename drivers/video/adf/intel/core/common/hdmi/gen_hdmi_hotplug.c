@@ -349,6 +349,7 @@ intel_adf_hdmi_get_monitor(struct edid *edid)
 
 	INIT_LIST_HEAD(&monitor->probed_modes);
 	monitor->is_hdmi = _monitor_is_hdmi(edid);
+	monitor->has_audio = detect_monitor_audio(edid);
 	monitor->quant_range_selectable = _monitor_quant_range_selectable(edid);
 
 	/* Get all the modes supported in EDID */
@@ -497,7 +498,7 @@ read_edid:
 
 		/* Notify audio about hotplug */
 		ret = intel_adf_hdmi_notify_audio(hdmi_pipe, live_status);
-		if (ret) {
+		if (!ret) {
 			pr_err("ADF: HDMI: %s Noti to audio failed\n",
 				__func__);
 			return ret;
@@ -616,8 +617,17 @@ int intel_adf_hdmi_handle_events(struct hdmi_pipe *hdmi_pipe, u32 events)
 
 bool hdmi_notify_audio(struct hdmi_pipe *hdmi_pipe, bool connected)
 {
-	pr_info("ADF: HDMI: %s FIXME\n", __func__);
-	return false;
+	pr_info("ADF: HDMI:%s HDMI %s\n", __func__,
+			connected ? "connected" : "disconnected");
+
+	if (connected) {
+		if (hdmi_pipe->config.ctx.monitor->has_audio)
+			adf_hdmi_audio_signal_event(HAD_EVENT_HOT_PLUG);
+	} else {
+		adf_hdmi_audio_signal_event(HAD_EVENT_HOT_UNPLUG);
+	}
+
+	return true;
 }
 
 int intel_adf_hdmi_notify_audio(struct hdmi_pipe *hdmi_pipe, bool connected)

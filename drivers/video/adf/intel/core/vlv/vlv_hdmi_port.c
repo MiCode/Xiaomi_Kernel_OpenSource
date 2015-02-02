@@ -66,6 +66,68 @@ u32 vlv_hdmi_port_disable(struct vlv_hdmi_port *port)
 	return 0;
 }
 
+void vlv_hdmi_port_enable_audio(struct vlv_hdmi_port *port)
+{
+	u32 temp;
+	pr_info("ADF: HDMI: %s\n", __func__);
+
+	temp = REG_READ(port->control_reg);
+	if (temp & SDVO_ENABLE)
+		temp |= SDVO_AUDIO_ENABLE;
+
+	REG_WRITE(port->control_reg, temp);
+	REG_READ(port->control_reg);
+}
+
+void vlv_hdmi_port_disable_audio(struct vlv_hdmi_port *port)
+{
+	u32 temp;
+	pr_info("ADF: HDMI: %s\n", __func__);
+
+	temp = REG_READ(port->control_reg) & ~SDVO_AUDIO_ENABLE;
+	REG_WRITE(port->control_reg, temp);
+	REG_READ(port->control_reg);
+}
+
+u32 vlv_hdmi_port_write_dip(struct vlv_hdmi_port *port, bool enable)
+{
+	u32 val = REG_READ(port->dip_ctrl);
+	u32 dip_port = VIDEO_DIP_PORT(port->port_id);
+
+	pr_info("ADF: HDMI: %s\n", __func__);
+
+	val |= VIDEO_DIP_SELECT_AVI | VIDEO_DIP_FREQ_VSYNC;
+
+	if (!enable) {
+		if (!(val & VIDEO_DIP_ENABLE))
+			return 0;
+		val &= ~VIDEO_DIP_ENABLE;
+		REG_WRITE(port->dip_ctrl, val);
+		REG_POSTING_READ(port->dip_ctrl);
+		return 0;
+	}
+
+	if (dip_port != (val & VIDEO_DIP_PORT_MASK)) {
+		if (val & VIDEO_DIP_ENABLE) {
+			val &= ~VIDEO_DIP_ENABLE;
+			REG_WRITE(port->dip_ctrl, val);
+			REG_POSTING_READ(port->dip_ctrl);
+		}
+		val &= ~VIDEO_DIP_PORT_MASK;
+		val |= dip_port;
+	}
+
+	val |= VIDEO_DIP_ENABLE;
+	val |= VIDEO_DIP_ENABLE_AVI | VIDEO_DIP_ENABLE_SPD;
+	val &= ~(VIDEO_DIP_ENABLE_VENDOR |
+		VIDEO_DIP_ENABLE_GAMUT | VIDEO_DIP_ENABLE_GCP);
+
+	REG_WRITE(port->dip_ctrl, val);
+	REG_POSTING_READ(port->dip_ctrl);
+
+	return 0;
+}
+
 bool vlv_hdmi_port_init(struct vlv_hdmi_port *port, enum port enum_port,
 		enum pipe pipe)
 {

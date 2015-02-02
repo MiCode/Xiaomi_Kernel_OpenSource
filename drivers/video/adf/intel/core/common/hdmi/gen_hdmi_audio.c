@@ -16,6 +16,7 @@
 
 #include <core/common/hdmi/gen_hdmi_audio.h>
 #include <core/common/hdmi/gen_hdmi_pipe.h>
+#include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_dc_regs.h>
 #include <core/vlv/chv_dc_regs.h>
 #include <intel_adf.h>
@@ -25,6 +26,7 @@
 #define IS_HDMI_AUDIO_REG(reg) ((reg >= 0x65000) && (reg < 0x65FFF))
 
 static struct hdmi_audio_priv hdmi_priv;
+static struct hdmi_pipe *pipe;
 
 void adf_hdmi_audio_signal_event(enum had_event_type event)
 {
@@ -33,6 +35,12 @@ void adf_hdmi_audio_signal_event(enum had_event_type event)
 		(hdmi_priv.callbacks)
 				(event, hdmi_priv.had_pvt_data);
 	}
+}
+
+void adf_hdmi_audio_init(struct hdmi_pipe *hdmi_pipe)
+{
+	pr_debug("ADF: HDMI:%s\n", __func__);
+	pipe = hdmi_pipe;
 }
 
 /**
@@ -47,8 +55,11 @@ static int adf_hdmi_audio_get_caps(enum had_caps_list get_element,
 
 	switch (get_element) {
 	case HAD_GET_ELD:
+		memcpy(capabilities, pipe->config.ctx.monitor->eld,
+						HDMI_MAX_ELD_LENGTH);
 		break;
 	case HAD_GET_SAMPLING_FREQ:
+		memcpy(capabilities, &(pipe->tmds_clock), sizeof(uint32_t));
 		break;
 	default:
 		break;
@@ -83,12 +94,19 @@ static int adf_hdmi_audio_set_caps(enum had_caps_list set_element,
 		void *capabilties)
 {
 	int ret = 0;
+	struct intel_pipeline *pipeline = pipe->base.pipeline;
+	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
+	struct vlv_hdmi_port *hdmi_port;
+	hdmi_port = &disp->port.hdmi_port;
+
 	pr_debug("ADF: HDMI:%s\n", __func__);
 
 	switch (set_element) {
 	case HAD_SET_ENABLE_AUDIO:
+		vlv_hdmi_port_enable_audio(hdmi_port);
 		break;
 	case HAD_SET_DISABLE_AUDIO:
+		vlv_hdmi_port_disable_audio(hdmi_port);
 		break;
 	case HAD_SET_ENABLE_AUDIO_INT:
 		break;
@@ -212,12 +230,17 @@ int adf_hdmi_audio_register(
 	hdmi_priv.had_pvt_data = had_data;
 	hdmi_priv.had_interface = driver;
 
+	if (pipe->config.ctx.monitor)
+		if (pipe->config.ctx.monitor->is_hdmi == false)
+			return 0;
+
 	/*
 	 * The Audio driver is loading now and we need to notify
 	 * it if there is an HDMI device attached
 	 */
+	if (atomic_read(&pipe->config.ctx.connected))
+		adf_hdmi_audio_signal_event(HAD_EVENT_HOT_PLUG);
 
-	adf_hdmi_audio_signal_event(HAD_EVENT_HOT_PLUG);
 	return 0;
 }
 EXPORT_SYMBOL(adf_hdmi_audio_register);

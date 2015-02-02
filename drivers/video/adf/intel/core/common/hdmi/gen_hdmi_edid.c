@@ -2776,6 +2776,41 @@ static bool cea_db_is_hdmi_vsdb(const u8 *db)
 	return hdmi_id == HDMI_IDENTIFIER;
 }
 
+bool detect_monitor_audio(struct edid *edid)
+{
+	u8 *edid_ext;
+	int i, j;
+	bool has_audio = false;
+	int start_offset, end_offset;
+
+	edid_ext = find_cea_extension(edid);
+	if (!edid_ext)
+		goto end;
+
+	has_audio = ((edid_ext[3] & EDID_BASIC_AUDIO) != 0);
+
+	if (has_audio) {
+		pr_debug("Monitor has basic audio support\n");
+		goto end;
+	}
+
+	if (cea_db_offsets(edid_ext, &start_offset, &end_offset))
+		goto end;
+
+	for_each_cea_db(edid_ext, i, start_offset, end_offset) {
+		if (cea_db_tag(&edid_ext[i]) == AUDIO_BLOCK) {
+			has_audio = true;
+			for (j = 1; j < cea_db_payload_len(&edid_ext[i]) + 1;
+						j += 3)
+				pr_debug("CEA audio format %d\n",
+						(edid_ext[i + j] >> 3) & 0xf);
+			goto end;
+		}
+	}
+end:
+	return has_audio;
+}
+
 bool detect_hdmi_monitor(struct edid *edid)
 {
 	u8 *edid_ext;

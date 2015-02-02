@@ -18,8 +18,9 @@
 #define GEN_HDMI_PIPE_H_
 
 #include "core/intel_dc_config.h"
+#include "core/common/hdmi/gen_hdmi_audio.h"
 
-#define MAX_ELD_LENGTH 128
+#define HDMI_MAX_ELD_LENGTH	84
 #define HDMI_DIP_PACKET_HEADER_LEN	3
 #define HDMI_DIP_PACKET_DATA_LEN	28
 #define CHV_HDMI_MAX_CLK_KHZ 297000
@@ -56,7 +57,7 @@ struct  hdmi_avi_info_packet {
 struct hdmi_monitor {
 	struct edid *edid;
 
-	uint8_t eld[MAX_ELD_LENGTH];
+	uint8_t eld[HDMI_MAX_ELD_LENGTH];
 
 	/* information parsed from edid*/
 	bool is_hdmi;
@@ -75,7 +76,7 @@ struct hdmi_monitor {
 
 struct hdmi_audio {
 	bool status;
-	uint8_t eld[MAX_ELD_LENGTH];
+	uint8_t eld[HDMI_MAX_ELD_LENGTH];
 };
 
 struct hdmi_context {
@@ -137,6 +138,9 @@ struct hdmi_pipe {
 	struct hdmi_config config;
 	struct hdmi_port *port;
 	struct work_struct hotplug_work;
+
+	/* Added for HDMI audio */
+	uint32_t tmds_clock;
 };
 
 static inline struct hdmi_pipe *
@@ -190,4 +194,7 @@ hdmi_pipe_init(struct hdmi_pipe *pipe, struct device *dev,
 extern void
 hdmi_pipe_destroy(struct hdmi_pipe *pipe);
 
+/* Added for HDMI audio */
+extern void adf_hdmi_audio_init(struct hdmi_pipe *hdmi_pipe);
+extern void adf_hdmi_audio_signal_event(enum had_event_type event);
 #endif /* GEN_HDMI_PIPE_H_ */

@@ -257,6 +257,34 @@ static int hdmi_prepare(struct intel_pipe *pipe,
 	return err;
 }
 
+static int hdmi_write_dip(struct intel_pipe *pipe)
+{
+	int err = 0;
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+	struct intel_pipeline *pipeline = hdmi_pipe->base.pipeline;
+	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
+	struct vlv_hdmi_port *hdmi_port;
+
+	pr_info("ADF:HDMI: %s\n", __func__);
+
+	if (!pipeline) {
+		pr_err("ADF:HDMI: %s: Pipeline not set\n", __func__);
+		return -EINVAL;
+	}
+
+	hdmi_port = &disp->port.hdmi_port;
+	if (!hdmi_port) {
+		pr_err("ADF:HDMI: %s: Port not set\n", __func__);
+		return -EINVAL;
+	}
+
+	err = vlv_hdmi_port_write_dip(hdmi_port, true);
+	if (err)
+		pr_err("ADF: HDMI: %s: Port DIP write\n", __func__);
+
+	return err;
+}
+
 static int hdmi_modeset(struct intel_pipe *pipe,
 		struct drm_mode_modeinfo *mode)
 {
@@ -299,6 +327,16 @@ static int hdmi_modeset(struct intel_pipe *pipe,
 		pr_err("ADF:HDMI: %s: Pipeline on failed\n", __func__);
 		goto out;
 	}
+
+	hdmi_pipe->tmds_clock = mode->clock;
+	adf_hdmi_audio_signal_event(HAD_EVENT_MODE_CHANGING);
+
+	err = hdmi_write_dip(pipe);
+	if (err) {
+		pr_err("ADF:HDMI: %s: DIP write failed\n", __func__);
+		goto out;
+	}
+
 	hdmi_pipe->dpms_state = DRM_MODE_DPMS_ON;
 
 	/* Update the latest applied mode to current context */

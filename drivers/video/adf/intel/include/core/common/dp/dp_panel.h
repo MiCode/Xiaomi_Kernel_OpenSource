@@ -340,7 +340,7 @@ DP_LANE_SYMBOL_LOCKED)
 # define DP_PSR_SINK_INTERNAL_ERROR         7
 # define DP_PSR_SINK_STATE_MASK             0x07
 
-# define MAX_ELD_LENGTH			    128
+# define DP_MAX_ELD_LENGTH			    128
 
 enum vswing_level {
 	e0_4 = 0,
@@ -382,7 +382,7 @@ struct dp_panel {
 	enum vswing_level max_vswing;
 	struct edid *edid;
 
-	uint8_t eld[MAX_ELD_LENGTH];
+	uint8_t eld[DP_MAX_ELD_LENGTH];
 
 	/* information parsed from edid*/
 	bool is_hdmi;

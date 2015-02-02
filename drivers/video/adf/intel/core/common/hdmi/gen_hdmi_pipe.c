@@ -209,6 +209,8 @@ int hdmi_pipe_init(struct hdmi_pipe *pipe,
 		goto fail_pipe;
 	}
 
+	adf_hdmi_audio_init(pipe);
+
 	/*
 	 * Configure HDMI
 	 * This function can probe HDMI and try to do a modeset

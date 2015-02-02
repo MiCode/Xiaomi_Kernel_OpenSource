@@ -40,4 +40,9 @@ bool vlv_hdmi_port_init(struct vlv_hdmi_port *port, enum port, enum pipe);
 bool vlv_hdmi_port_destroy(struct vlv_hdmi_port *port);
 u32 vlv_hdmi_port_prepare(struct vlv_hdmi_port *port, u32 val);
 
+/* Added for HDMI audio */
+void vlv_hdmi_port_enable_audio(struct vlv_hdmi_port *port);
+void vlv_hdmi_port_disable_audio(struct vlv_hdmi_port *port);
+u32 vlv_hdmi_port_write_dip(struct vlv_hdmi_port *port, bool enable);
+
 #endif /* _VLV_HDMI_PORT_H_ */
