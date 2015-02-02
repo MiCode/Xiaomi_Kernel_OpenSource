@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -433,7 +433,7 @@ static int bbif_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id bbif_match_table[] = {
-	{ .compatible = "qcom,bbif" },
+	{ .compatible = "qcom,bbif-fsm9900" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, bbif_match_table);
@@ -442,7 +442,7 @@ static struct platform_driver bbif_driver = {
 	.probe          = bbif_probe,
 	.remove         = bbif_remove,
 	.driver         = {
-			.name   = "bbif",
+			.name   = "bbif-fsm9900",
 			.owner   = THIS_MODULE,
 			.of_match_table = bbif_match_table,
 	},
