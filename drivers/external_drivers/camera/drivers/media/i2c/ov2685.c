@@ -657,7 +657,7 @@ static int ov2685_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
-		dev_dbg(&client->dev, "%s: CID_VFLIP:%d.\n",
+		dev_dbg(&client->dev, "%s: CID_EXPOSURE:%d.\n",
 			__func__, ctrl->val);
 		ret = ov2685_s_exposure(&dev->sd, ctrl->val);
 		break;
@@ -672,17 +672,17 @@ static int ov2685_s_ctrl(struct v4l2_ctrl *ctrl)
 		ret = ov2685_t_hflip(&dev->sd, ctrl->val);
 		break;
 	case V4L2_CID_POWER_LINE_FREQUENCY:
-		dev_dbg(&client->dev, "%s: CID_HFLIP:%d.\n",
+		dev_dbg(&client->dev, "%s: CID_POWER_LINE_FREQUENCY:%d.\n",
 			__func__, ctrl->val);
 		ret = ov2685_s_freq(&dev->sd, ctrl->val);
 		break;
 	case V4L2_CID_AUTO_N_PRESET_WHITE_BALANCE:
-		dev_dbg(&client->dev, "%s: CID_HFLIP:%d.\n",
+		dev_dbg(&client->dev, "%s: CID_WHITE_BALANCE:%d.\n",
 			__func__, ctrl->val);
 		ret = ov2685_s_wb(&dev->sd, ctrl->val);
 		break;
 	case V4L2_CID_SCENE_MODE:
-		dev_dbg(&client->dev, "%s: CID_HFLIP:%d.\n",
+		dev_dbg(&client->dev, "%s: CID_SCENE_MODE:%d.\n",
 			__func__, ctrl->val);
 		ret = ov2685_s_scene(&dev->sd, ctrl->val);
 		break;
@@ -726,6 +726,16 @@ static const struct v4l2_ctrl_ops ctrl_ops = {
 };
 
 static const struct v4l2_ctrl_config ov2685_controls[] = {
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_EXPOSURE,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "exposure biasx",
+		.min = -2,
+		.max = 2,
+		.step = 0x01,
+		.def = 0x00,
+	},
 	{
 		.ops = &ctrl_ops,
 		.id = V4L2_CID_EXPOSURE_ABSOLUTE,
