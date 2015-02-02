@@ -85,6 +85,7 @@ struct bcl_peripheral_data {
 	int                     irq_num;
 	int                     high_trip;
 	int                     low_trip;
+	int                     trip_val;
 	int                     scaling_factor;
 	int                     offset_factor_num;
 	int                     offset_factor_den;
@@ -558,61 +559,87 @@ reschedule_vbat:
 
 static void bcl_handle_ibat(struct work_struct *work)
 {
-	int val = 0, ret = 0;
+	int thresh_value = 0;
 	struct bcl_peripheral_data *perph_data = container_of(work,
 		struct bcl_peripheral_data, isr_work);
 
 	if (perph_data->state != BCL_PARAM_TRIPPED) {
 		pr_err("Invalid state %d\n", perph_data->state);
-		return;
+		goto enable_intr;
 	}
 	perph_data->state = BCL_PARAM_POLLING;
-	ret = perph_data->read_max(&val);
-	if (ret)
-		pr_err("Error reading max ibat reg. err:%d\n", ret);
-	pr_debug("Ibat reached high trip. ibat:%d\n", val);
-	perph_data->ops.notify(perph_data->param_data, val, BCL_HIGH_TRIP);
+	thresh_value = perph_data->high_trip;
+	convert_adc_to_ibat_val(&thresh_value);
+	if (perph_data->trip_val < thresh_value) {
+		pr_debug("False Ibat high trip. ibat:%d ibat_thresh_val:%d\n",
+			perph_data->trip_val, thresh_value);
+		goto enable_intr;
+	} else {
+		pr_debug("Ibat reached high trip. ibat:%d\n",
+			perph_data->trip_val);
+	}
+	perph_data->ops.notify(perph_data->param_data,
+		perph_data->trip_val, BCL_HIGH_TRIP);
 	schedule_delayed_work(&perph_data->poll_work,
 		msecs_to_jiffies(perph_data->polling_delay_ms));
-	ret = perph_data->clear_max();
-	if (ret)
-		pr_err("Error clearing max ibat reg. err:%d\n", ret);
+
+	return;
+
+enable_intr:
+	enable_irq(perph_data->irq_num);
 
 	return;
 }
 
 static void bcl_handle_vbat(struct work_struct *work)
 {
-	int val = 0, ret = 0;
+	int thresh_value = 0;
 	struct bcl_peripheral_data *perph_data = container_of(work,
 		struct bcl_peripheral_data, isr_work);
 
 	if (perph_data->state != BCL_PARAM_TRIPPED) {
 		pr_err("Invalid state %d\n", perph_data->state);
-		return;
+		goto enable_intr;
 	}
 	perph_data->state = BCL_PARAM_POLLING;
-	ret = perph_data->read_max(&val);
-	if (ret)
-		pr_err("Error reading min vbat reg. err:%d\n", ret);
-	pr_debug("Vbat reached Low trip. vbat:%d\n", val);
-	perph_data->ops.notify(perph_data->param_data, val, BCL_LOW_TRIP);
+	thresh_value = perph_data->low_trip;
+	convert_adc_to_vbat_val(&thresh_value);
+	if (perph_data->trip_val > thresh_value) {
+		pr_debug("False vbat min trip. vbat:%d vbat_thresh_val:%d\n",
+			perph_data->trip_val, thresh_value);
+		goto enable_intr;
+	} else {
+		pr_debug("Vbat reached Low trip. vbat:%d\n",
+			perph_data->trip_val);
+	}
+
+	perph_data->ops.notify(perph_data->param_data,
+		perph_data->trip_val, BCL_LOW_TRIP);
 	schedule_delayed_work(&perph_data->poll_work,
 		msecs_to_jiffies(perph_data->polling_delay_ms));
-	ret = perph_data->clear_max();
-	if (ret)
-		pr_err("Error clearing min vbat reg. err:%d\n", ret);
+
+	return;
+enable_intr:
+	enable_irq(perph_data->irq_num);
 
 	return;
 }
 
 static irqreturn_t bcl_handle_isr(int irq, void *data)
 {
+	int ret = 0;
+
 	struct bcl_peripheral_data *perph_data =
 		(struct bcl_peripheral_data *)data;
 
 	if (perph_data->state == BCL_PARAM_MONITOR) {
 		disable_irq_nosync(perph_data->irq_num);
+		ret = perph_data->read_max(&perph_data->trip_val);
+		if (ret)
+			pr_err("Error reading max/min reg. err:%d\n", ret);
+		ret = perph_data->clear_max();
+		if (ret)
+			pr_err("Error clearing max/min reg. err:%d\n", ret);
 		perph_data->state = BCL_PARAM_TRIPPED;
 		queue_work(bcl_perph->bcl_isr_wq, &perph_data->isr_work);
 	}
