@@ -5095,13 +5095,17 @@ sh_css_pipe_get_grid_info(struct ia_css_pipe *pipe,
 
 	assert(pipe != NULL);
 	assert(info != NULL);
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE_PRIVATE, "sh_css_pipe_get_grid_info() enter:\n");
+
+	IA_CSS_ENTER_PRIVATE("");
 
 	binary = ia_css_pipe_get_s3a_binary(pipe);
 
-	if (binary)
-		ia_css_binary_3a_grid_info(binary, info, pipe);
-	else
+
+	if (binary) {
+		err = ia_css_binary_3a_grid_info(binary, info, pipe);
+		if (err != IA_CSS_SUCCESS)
+			goto ERR;
+	} else
 		memset(&info->s3a_grid, 0, sizeof(info->s3a_grid));
 
 	binary = ia_css_pipe_get_sdis_binary(pipe);
@@ -5125,6 +5129,8 @@ sh_css_pipe_get_grid_info(struct ia_css_pipe *pipe,
 #error "Unknown VAMEM version"
 #endif
 
+ERR:
+	IA_CSS_LEAVE_ERR_PRIVATE(err);
 	return err;
 }
 
@@ -5947,6 +5953,11 @@ allocate_delay_frames(enum ia_css_pipe_id mode,
 	unsigned int num_delay_frames = 0, i = 0;
 	struct ia_css_frame_info ref_info;
 	enum ia_css_err err = IA_CSS_SUCCESS;
+
+	if (((mode == IA_CSS_PIPE_ID_CAPTURE) && (mycs_capture == NULL)) ||
+	    ((mode == IA_CSS_PIPE_ID_VIDEO) && (mycs_video == NULL))) {
+		return IA_CSS_ERR_INVALID_ARGUMENTS;
+	 }
 
 	if (mode == IA_CSS_PIPE_ID_CAPTURE) {
 #if defined (IS_ISP_2500_SYSTEM)

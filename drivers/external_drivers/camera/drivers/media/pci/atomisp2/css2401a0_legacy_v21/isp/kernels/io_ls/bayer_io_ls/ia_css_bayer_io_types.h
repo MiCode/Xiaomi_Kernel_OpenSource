@@ -12,19 +12,9 @@
  * more details.
  */
 
-
 #ifndef __IA_CSS_BAYER_IO_TYPES_H
 #define __IA_CSS_BAYER_IO_TYPES_H
 
-#define NUM_BAYER_DMA_CHANNELS 1
-
-struct ia_css_bayer_io_config {
-	unsigned base_address;
-	unsigned width;
-	unsigned height;
-	unsigned stride;
-	unsigned ddr_elems_per_word;
-	unsigned dma_channel[NUM_BAYER_DMA_CHANNELS];
-};
+#include "../common/ia_css_common_io_types.h"
 
 #endif /* __IA_CSS_BAYER_IO_TYPES_H */

@@ -25,21 +25,13 @@
 #ifndef __IA_CSS_PLANE_IO_TYPES_H
 #define __IA_CSS_PLANE_IO_TYPES_H
 
-#define PLANE_IO_LS_NUM_PLANES       3
-#define PLANE_IO_LS_NUM_DMA_CHANNELS 1
+#include "../common/ia_css_common_io_types.h"
 
-struct plane_io_config {
-	unsigned base_address;
-	unsigned width;
-	unsigned height;
-	unsigned stride;
-	unsigned ddr_elems_per_word;
-	unsigned dma_channel[PLANE_IO_LS_NUM_DMA_CHANNELS];
-};
+#define PLANE_IO_LS_NUM_PLANES       3
 
 struct ia_css_plane_io_config {
-	struct plane_io_config get_plane_io_config[PLANE_IO_LS_NUM_PLANES];
-	struct plane_io_config put_plane_io_config[PLANE_IO_LS_NUM_PLANES];
+	struct ia_css_common_io_config get_plane_io_config[PLANE_IO_LS_NUM_PLANES];
+	struct ia_css_common_io_config put_plane_io_config[PLANE_IO_LS_NUM_PLANES];
 };
 
 #endif /* __IA_CSS_PLANE_IO_TYPES_H */

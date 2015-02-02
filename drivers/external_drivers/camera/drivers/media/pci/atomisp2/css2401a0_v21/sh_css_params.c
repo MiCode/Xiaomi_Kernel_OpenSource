@@ -2860,9 +2860,10 @@ ia_css_isp_3a_statistics_allocate(const struct ia_css_3a_grid_info *grid)
 
 	IA_CSS_ENTER("grid=%p", grid);
 
-/* MW: Does "grid->enable" also control the histogram output ?? */
-#if !defined(IS_ISP_2500_SYSTEM)
 	assert(grid != NULL);
+
+	/* MW: Does "grid->enable" also control the histogram output ?? */
+#if !defined(IS_ISP_2500_SYSTEM)
 	if (!grid->enable)
 		return NULL;
 #endif

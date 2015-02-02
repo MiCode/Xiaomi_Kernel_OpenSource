@@ -222,7 +222,7 @@ ia_css_binary_get_shading_info(const struct ia_css_binary *binary,
 			const struct ia_css_stream_config *stream_config,
 			struct ia_css_shading_info *info);
 
-void
+enum ia_css_err
 ia_css_binary_3a_grid_info(const struct ia_css_binary *binary,
 			   struct ia_css_grid_info *info,
 			   struct ia_css_pipe *pipe);

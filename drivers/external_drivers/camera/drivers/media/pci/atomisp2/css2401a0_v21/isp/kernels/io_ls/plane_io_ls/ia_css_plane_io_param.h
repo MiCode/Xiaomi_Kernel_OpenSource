@@ -25,15 +25,6 @@
 #ifndef __IA_CSS_PLANE_IO_PARAM_H
 #define __IA_CSS_PLANE_IO_PARAM_H
 
-#include "ia_css_plane_io_types.h"
-
-struct sh_css_plane_io_config {
-	unsigned base_address;
-	unsigned width;
-	unsigned height;
-	unsigned stride;
-	unsigned ddr_elems_per_word;
-	unsigned dma_channel[PLANE_IO_LS_NUM_DMA_CHANNELS];
-};
+#include "../common/ia_css_common_io_param.h"
 
 #endif /* __IA_CSS_PLANE_IO_PARAM_H */

@@ -35,7 +35,7 @@ The version string has four dot-separated numbers, read left to right:
 
 */
 
-#define CSS_API_VERSION_STRING	"2.1.10.6"
+#define CSS_API_VERSION_STRING	"2.1.11.2"
 
 /*
 Change log
@@ -235,10 +235,6 @@ v2.1.10.4 (4 changes parallel), fix IEFD's puclic API types
 v2.1.10.4 (4 changes parallel), Add IA_CSS_FW_WARNING_FRAME_PARAM_MISMATCH
 - Add IA_CSS_FW_WARNING_FRAME_PARAM_MISMATCH enum to ia_css_fw_warning type
 
-v2.1.10.5 (5 changes parallel), add_flag_to_disable_continous_viewfinder
-- add a new flag in stream_config to disable continuous viewfinder
-- in ZSL use case.
-
 v2.1.10.5 (5 changes parallel), change the pipe version type from integer to enum
 - add new enum to enumerate ISP pipe version
 - change the pipe version type in pipe_config from integer to enum
@@ -246,7 +242,17 @@ v2.1.10.5 (5 changes parallel), change the pipe version type from integer to enu
 v2.1.10.5 (2 changes parallel), Added public interface for setting the scaler LUT.
 - Added the public struct to output system and modified the global config struct.
 
-v2.1.10.6, new API getter functions for gdc in buffer information
+v2.1.10.6 (6 changes parallel), add_flag_to_disable_continous_viewfinder
+- add a new flag in stream_config to disable continuous viewfinder
+- in ZSL use case.
+
+v2.1.11.0 (2 changes parallel), Stop Support for Skycam B0
+- Remove a few pre-processor defines for Skycam B0/C0 as support
+
+v2.1.11.2 (3 changes parallel), Enlarge AF AWB_FR stats buffers
+- Enlarge AF and AWB_FR stats buffers to support max grid width per stripe as oppose to per frame
+
+v2.1.11.2 (2 changes parallel), new API getter functions for gdc in buffer information
 - ia_css_pipe_get_dvs_filter() added
 - ia_css_pipe_get_gdc_in_buffer_info() added
 

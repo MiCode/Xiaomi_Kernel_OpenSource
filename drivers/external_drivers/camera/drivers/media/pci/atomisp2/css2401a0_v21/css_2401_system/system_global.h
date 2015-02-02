@@ -380,7 +380,7 @@ typedef enum {
 	CSI_RX_FRONTEND0_ID = 0,	/* map to ISYS2401_CSI_RX_A */
 	CSI_RX_FRONTEND1_ID,		/* map to ISYS2401_CSI_RX_B */
 	CSI_RX_FRONTEND2_ID,		/* map to ISYS2401_CSI_RX_C */
-	N_CSI_RX_FRONTEND_ID
+#define N_CSI_RX_FRONTEND_ID (CSI_RX_FRONTEND2_ID+1)
 } csi_rx_frontend_ID_t;
 
 typedef enum {
