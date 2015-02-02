@@ -221,6 +221,7 @@ struct pmic_chrg_info {
 	int iterm;
 	int cable_type;
 	int cntl_state;
+	int cntl_state_max;
 	int max_temp;
 	int min_temp;
 	bool online;
@@ -635,8 +636,14 @@ static int pmic_chrg_usb_set_property(struct power_supply *psy,
 		info->cable_type = val->intval;
 		info->psy_usb.type = get_power_supply_type(info->cable_type);
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
+		info->cntl_state_max = val->intval;
+		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
-		info->cntl_state = val->intval;
+		if (val->intval < info->cntl_state_max)
+			info->cntl_state = val->intval;
+		else
+			ret = -EINVAL;
 		break;
 	case POWER_SUPPLY_PROP_MAX_TEMP:
 		info->max_temp = val->intval;
@@ -718,11 +725,11 @@ static int pmic_chrg_usb_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ENABLE_CHARGER:
 		val->intval = info->is_charger_enabled;
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
+		val->intval = info->cntl_state_max;
+		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
 		val->intval = info->cntl_state;
-		break;
-	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
-		val->intval = info->pdata->num_throttle_states;
 		break;
 	case POWER_SUPPLY_PROP_MAX_TEMP:
 		val->intval = info->max_temp;
