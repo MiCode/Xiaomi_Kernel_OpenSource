@@ -33,6 +33,7 @@
 
 #include <asm/atomic.h>
 #include <asm/debug-monitors.h>
+#include <asm/insn.h>
 #include <asm/traps.h>
 #include <asm/stacktrace.h>
 #include <asm/exception.h>
