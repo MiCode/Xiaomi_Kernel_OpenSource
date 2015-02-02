@@ -890,7 +890,7 @@
 	};
 
 	jtag_fuse: jtagfuse@5e01c {
-		compatible = "qcom,jtag-fuse";
+		compatible = "qcom,jtag-fuse-v2";
 		reg = <0x5e01c 0x8>;
 		reg-names = "fuse-base";
 	};
