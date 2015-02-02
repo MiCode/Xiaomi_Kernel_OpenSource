@@ -612,6 +612,12 @@ int intel_adf_hdmi_handle_events(struct hdmi_pipe *hdmi_pipe, u32 events)
 		}
 	}
 
+	if (events & INTEL_PIPE_EVENT_AUDIO_BUFFERDONE)
+		adf_hdmi_audio_signal_event(HAD_EVENT_AUDIO_BUFFER_DONE);
+
+	if (events & INTEL_PIPE_EVENT_AUDIO_UNDERRUN)
+		adf_hdmi_audio_signal_event(HAD_EVENT_AUDIO_BUFFER_UNDERRUN);
+
 	return 0;
 }
 

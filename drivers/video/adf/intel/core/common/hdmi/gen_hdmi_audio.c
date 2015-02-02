@@ -27,6 +27,7 @@
 
 static struct hdmi_audio_priv hdmi_priv;
 static struct hdmi_pipe *pipe;
+static u32 hdmi_audio_interrupt_mask;
 
 void adf_hdmi_audio_signal_event(enum had_event_type event)
 {
@@ -94,6 +95,7 @@ static int adf_hdmi_audio_set_caps(enum had_caps_list set_element,
 		void *capabilties)
 {
 	int ret = 0;
+	u32 int_masks = 0;
 	struct intel_pipeline *pipeline = pipe->base.pipeline;
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_hdmi_port *hdmi_port;
@@ -109,8 +111,22 @@ static int adf_hdmi_audio_set_caps(enum had_caps_list set_element,
 		vlv_hdmi_port_disable_audio(hdmi_port);
 		break;
 	case HAD_SET_ENABLE_AUDIO_INT:
+		if (*((u32 *)capabilties) & HDMI_AUDIO_UNDERRUN)
+			int_masks |= ADF_HDMI_AUDIO_UNDERRUN_ENABLE;
+		hdmi_audio_interrupt_mask |= int_masks;
+		intel_adf_enable_hdmi_audio_int(hdmi_audio_interrupt_mask);
 		break;
 	case HAD_SET_DISABLE_AUDIO_INT:
+		if (*((u32 *)capabilties) & HDMI_AUDIO_UNDERRUN)
+			int_masks |= ADF_HDMI_AUDIO_UNDERRUN_ENABLE;
+		hdmi_audio_interrupt_mask &= ~int_masks;
+
+		if (hdmi_audio_interrupt_mask)
+			intel_adf_enable_hdmi_audio_int(
+				hdmi_audio_interrupt_mask);
+		else
+			intel_adf_disable_hdmi_audio_int(
+				hdmi_audio_interrupt_mask);
 		break;
 	default:
 		break;

@@ -24,6 +24,7 @@
 #include <core/common/dsi/dsi_pipe.h>
 #include <video/adf_client.h>
 #include <video/adf_client.h>
+#include <core/vlv/chv_dc_regs.h>
 
 struct intel_adf_context *context_from_hp_work(struct work_struct *work)
 {
@@ -355,6 +356,36 @@ u32 intel_adf_get_pipe_events(struct intel_pipe *pipe)
 	return events;
 }
 
+/**
+ * HDMI LPE Audio events for CHV
+ */
+u32 intel_adf_get_audio_events(struct intel_pipe *pipe)
+{
+	u32 events = 0;
+	u32 lpe_stream = 0;
+	u32 iir_reg = REG_READ(VLV_IIR);
+
+	if (pipe->base.idx == PIPE_C) {
+		if (iir_reg & ADF_LPE_PIPE_C_INTERRUPT) {
+			lpe_stream = REG_READ(ADF_LPE_AUDIO_HDMI_STATUS_C);
+			if (lpe_stream & ADF_HDMI_AUDIO_UNDERRUN) {
+				REG_WRITE(ADF_LPE_AUDIO_HDMI_STATUS_C,
+						ADF_HDMI_AUDIO_UNDERRUN);
+				events |= INTEL_PIPE_EVENT_AUDIO_UNDERRUN;
+			}
+			if (lpe_stream & ADF_HDMI_AUDIO_BUFFER_DONE) {
+				REG_WRITE(ADF_LPE_AUDIO_HDMI_STATUS_C,
+						ADF_HDMI_AUDIO_BUFFER_DONE);
+				events |= INTEL_PIPE_EVENT_AUDIO_BUFFERDONE;
+			}
+		}
+		return events;
+	} else {
+		/* In case of pther pipes returning zero */
+		return 0;
+	}
+}
+
 int intel_adf_get_events(struct intel_pipe *pipe, u32 *events)
 {
 	if (!pipe || !events) {
@@ -375,6 +406,9 @@ int intel_adf_get_events(struct intel_pipe *pipe, u32 *events)
 
 	/* Check PORT interrupts */
 	*events |= intel_adf_get_port_events(pipe);
+
+	/* Get HDMI LPE Audio events */
+	*events |= intel_adf_get_audio_events(pipe);
 
 	pr_debug("ADF: %s\n", __func__);
 	return 0;
@@ -439,4 +473,54 @@ void intel_adf_hpd_init(struct intel_adf_context *ctx)
 		hotplug_en |= CRT_HOTPLUG_VOLTAGE_COMPARE_50;
 		REG_WRITE(PORT_HOTPLUG_EN, hotplug_en);
 	}
+}
+
+/**
+ * Following APIs are to enable LPE audio interrupts
+ * for CHV.
+ */
+void intel_adf_enable_lpe_pipestat(u32 int_mask)
+{
+	u32 mask;
+	pr_debug("ADF: HDMI:%s\n", __func__);
+
+	mask = int_mask;
+	mask |= (ADF_HDMI_AUDIO_UNDERRUN | ADF_HDMI_AUDIO_BUFFER_DONE);
+
+	REG_WRITE(ADF_LPE_AUDIO_HDMI_STATUS_C, mask);
+	REG_POSTING_READ(ADF_LPE_AUDIO_HDMI_STATUS_C);
+}
+
+void intel_adf_enable_hdmi_audio_int(u32 int_mask)
+{
+	u32 imr = 0;
+	pr_debug("ADF: HDMI:%s\n", __func__);
+
+	imr = REG_READ(VLV_IMR);
+	imr &= ~ADF_LPE_PIPE_C_INTERRUPT;
+	REG_WRITE(VLV_IMR, imr);
+	intel_adf_enable_lpe_pipestat(int_mask);
+}
+
+void intel_adf_disable_lpe_pipestat(u32 int_mask)
+{
+	u32 mask;
+	pr_debug("ADF: HDMI:%s\n", __func__);
+
+	mask = int_mask;
+	mask |= (ADF_HDMI_AUDIO_UNDERRUN | ADF_HDMI_AUDIO_BUFFER_DONE);
+
+	REG_WRITE(ADF_LPE_AUDIO_HDMI_STATUS_C, mask);
+	REG_POSTING_READ(ADF_LPE_AUDIO_HDMI_STATUS_C);
+}
+
+void intel_adf_disable_hdmi_audio_int(u32 int_mask)
+{
+	u32 imr = 0;
+	pr_debug("ADF: HDMI:%s\n", __func__);
+
+	imr = REG_READ(VLV_IMR);
+	imr |= ADF_LPE_PIPE_C_INTERRUPT;
+	REG_WRITE(VLV_IMR, imr);
+	intel_adf_disable_lpe_pipestat(int_mask);
 }
