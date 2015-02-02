@@ -147,6 +147,11 @@ enum mdss_hw_quirk {
 	MDSS_QUIRK_MAX,
 };
 
+enum mdss_qos_settings {
+	MDSS_QOS_PER_PIPE_IB,
+	MDSS_QOS_MAX,
+};
+
 struct mdss_smmu_client {
 	struct device *dev;
 	struct dma_iommu_mapping *mmu_mapping;
@@ -214,6 +219,8 @@ struct mdss_data_type {
 	DECLARE_BITMAP(mdss_quirk_map, MDSS_QUIRK_MAX);
 	/* bitmap to track total mmbs in use */
 	DECLARE_BITMAP(mmb_alloc_map, MAX_DRV_SUP_MMB_BLKS);
+	/* bitmap to track qos applicable settings */
+	DECLARE_BITMAP(mdss_qos_map, MDSS_QOS_MAX);
 
 	u32 has_bwc;
 	/* values used when HW has a common panic/robust LUT */
@@ -280,6 +287,7 @@ struct mdss_data_type {
 	struct mdss_fudge_factor ib_factor;
 	struct mdss_fudge_factor ib_factor_overlap;
 	struct mdss_fudge_factor clk_factor;
+	struct mdss_fudge_factor per_pipe_ib_factor;
 
 	u32 disable_prefill;
 	u32 *clock_levels;

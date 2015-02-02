@@ -199,6 +199,7 @@ struct mdss_mdp_perf_params {
 	u64 bw_overlap;
 	u64 bw_writeback;
 	u64 bw_prefill;
+	u64 max_per_pipe_ib;
 	u32 prefill_bytes;
 	u64 bw_ctl;
 	u32 mdp_clk_rate;

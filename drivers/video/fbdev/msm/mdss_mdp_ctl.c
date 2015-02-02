@@ -798,6 +798,10 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 			flags))
 			continue;
 
+		if (!mdss_mdp_is_nrt_ctl_path(mixer->ctl))
+			perf->max_per_pipe_ib = max(perf->max_per_pipe_ib,
+			    tmp.bw_overlap);
+
 		bitmap_or(perf->bw_vote_mode, perf->bw_vote_mode,
 			tmp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
@@ -936,6 +940,7 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 		bitmap_or(perf->bw_vote_mode, perf->bw_vote_mode,
 			tmp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
+		perf->max_per_pipe_ib = tmp.max_per_pipe_ib;
 		perf->bw_overlap += tmp.bw_overlap;
 		perf->prefill_bytes += tmp.prefill_bytes;
 		perf->mdp_clk_rate = tmp.mdp_clk_rate;
@@ -949,6 +954,8 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 		bitmap_or(perf->bw_vote_mode, perf->bw_vote_mode,
 			tmp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
+		perf->max_per_pipe_ib = max(perf->max_per_pipe_ib,
+			tmp.max_per_pipe_ib);
 		perf->bw_overlap += tmp.bw_overlap;
 		perf->prefill_bytes += tmp.prefill_bytes;
 		perf->bw_writeback += tmp.bw_writeback;
@@ -1267,6 +1274,9 @@ static u64 mdss_mdp_ctl_calc_client_vote(struct mdss_data_type *mdata,
 					ctl->cur_perf.bw_vote_mode,
 					MDSS_MDP_BW_MODE_MAX);
 
+			perf->max_per_pipe_ib = max(perf->max_per_pipe_ib,
+				ctl->cur_perf.max_per_pipe_ib);
+
 			if (nrt_client && ctl->intf_num == MDSS_MDP_NO_INTF) {
 				bw_sum_of_intfs += ctl->cur_perf.bw_writeback;
 				continue;
@@ -1288,8 +1298,16 @@ static void mdss_mdp_ctl_update_client_vote(struct mdss_data_type *mdata,
 {
 	u64 bus_ab_quota, bus_ib_quota;
 
-	bw_vote = max(bw_vote, mdata->perf_tune.min_bus_vote);
-	bus_ib_quota = bw_vote;
+	bus_ab_quota = max(bw_vote, mdata->perf_tune.min_bus_vote);
+
+	if (test_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map)) {
+		if (!nrt_client)
+			bus_ib_quota = perf->max_per_pipe_ib;
+		else
+			bus_ib_quota = 0;
+	} else {
+		bus_ib_quota = bw_vote;
+	}
 
 	if (test_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
 		perf->bw_vote_mode) &&
@@ -1301,7 +1319,12 @@ static void mdss_mdp_ctl_update_client_vote(struct mdss_data_type *mdata,
 			&ib_factor_vscaling);
 	}
 
-	bus_ab_quota = apply_fudge_factor(bw_vote, &mdss_res->ab_factor);
+	if (test_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map) &&
+			!nrt_client)
+		apply_fudge_factor(bus_ib_quota,
+			&mdata->per_pipe_ib_factor);
+
+	bus_ab_quota = apply_fudge_factor(bus_ab_quota, &mdss_res->ab_factor);
 	ATRACE_INT("bus_quota", bus_ib_quota);
 
 	mdss_bus_scale_set_quota(nrt_client ? MDSS_MDP_NRT : MDSS_MDP_RT,
@@ -1314,7 +1337,7 @@ static void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 	struct mdss_mdp_ctl *ctl, u32 mdp_clk)
 {
 	u64 bw_sum_of_rt_intfs = 0, bw_sum_of_nrt_intfs = 0;
-	struct mdss_mdp_perf_params perf;
+	struct mdss_mdp_perf_params perf = {0};
 
 	ATRACE_BEGIN(__func__);
 
@@ -1503,6 +1526,7 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 				ctl->num, params_changed, new->bw_ctl,
 				old->bw_ctl);
 			old->bw_ctl = new->bw_ctl;
+			old->max_per_pipe_ib = new->max_per_pipe_ib;
 			bitmap_copy(old->bw_vote_mode, new->bw_vote_mode,
 				MDSS_MDP_BW_MODE_MAX);
 			update_bus = 1;
