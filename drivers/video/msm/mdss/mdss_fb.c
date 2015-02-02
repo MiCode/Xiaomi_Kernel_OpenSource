@@ -2940,26 +2940,16 @@ static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 		return -EINVAL;
 
 	if (mfd->panel_info) {
-		struct mdss_panel_info *panel_info;
 		int rc;
-		panel_info = kzalloc(sizeof(struct mdss_panel_info),
-				GFP_KERNEL);
-		if (!panel_info) {
-			pr_err("panel info is NULL\n");
-			return -ENOMEM;
-		}
 
-		memcpy(panel_info, mfd->panel_info,
-				sizeof(struct mdss_panel_info));
-		mdss_fb_var_to_panelinfo(var, panel_info);
+		memcpy(&mfd->reconfig_panel_info, mfd->panel_info,
+				sizeof(mfd->reconfig_panel_info));
+		mdss_fb_var_to_panelinfo(var, &mfd->reconfig_panel_info);
 		rc = mdss_fb_send_panel_event(mfd, MDSS_EVENT_CHECK_PARAMS,
-			panel_info);
-		if (IS_ERR_VALUE(rc)) {
-			kfree(panel_info);
+			&mfd->reconfig_panel_info);
+		if (IS_ERR_VALUE(rc))
 			return rc;
-		}
 		mfd->panel_reconfig = rc;
-		kfree(panel_info);
 	}
 
 	return 0;
