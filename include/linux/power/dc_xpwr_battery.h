@@ -27,11 +27,30 @@
 #include <linux/power_supply.h>
 #include <linux/power/battery_id.h>
 
-#define BAT_CURVE_SIZE		32
-#define BATTID_LEN		8
+#define XPWR_FG_DATA_SIZE	36
+#define XPWR_BAT_CURVE_SIZE	32
+#define ACPI_FG_CONF_NAME_LEN	8
+
+struct dc_xpwr_fg_config_data {
+	char fg_name[ACPI_FG_CONF_NAME_LEN];
+	char battid[BATTID_STR_LEN];
+	u16 size; /* config size */
+	u8 fco; /* FG config options */
+	u16 checksum; /* Primary data checksum */
+	u8 cap1;
+	u8 cap0;
+	u8 rdc1;
+	u8 rdc0;
+	u8 bat_curve[XPWR_BAT_CURVE_SIZE];
+} __packed;
+
+struct dc_xpwr_acpi_fg_config {
+	struct acpi_table_header acpi_header;
+	struct dc_xpwr_fg_config_data cdata;
+} __packed;
 
 struct dollarcove_fg_pdata {
-	char battid[BATTID_LEN + 1];
+	char battid[BATTID_STR_LEN + 1];
 
 	int design_cap;
 	int design_min_volt;
@@ -39,11 +58,7 @@ struct dollarcove_fg_pdata {
 	int max_temp;
 	int min_temp;
 
-	int cap1;
-	int cap0;
-	int rdc1;
-	int rdc0;
-	int bat_curve[BAT_CURVE_SIZE];
+	struct dc_xpwr_fg_config_data cdata;
 };
 
 #endif	/* __DOLLAR_COVE_BATTERY_H__ */

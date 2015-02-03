@@ -159,6 +159,10 @@
 #define DC_FG_TUNING_CNTL4		0xEC
 #define DC_FG_TUNING_CNTL5		0xED
 
+/* Set 3.7V as minimum RDC voltage */
+#define CNTL4_RDC_MIN_VOLT_SET_MASK	(1 << 4)
+#define CNTL4_RDC_MIN_VOLT_RESET_MASK	(1 << 3)
+
 /* each LSB is equal to 1.1mV */
 #define ADC_TO_VBATT(a)			((a * 11) / 10)
 
@@ -279,6 +283,26 @@ static int pmic_fg_reg_writeb(struct pmic_fg_info *info, int reg, u8 val)
 	return ret;
 }
 
+static int pmic_fg_reg_setb(struct pmic_fg_info *info, int reg, u8 mask)
+{
+	int ret;
+
+	ret = intel_soc_pmic_setb(reg, mask);
+	if (ret < 0)
+		dev_err(&info->pdev->dev, "pmic reg set mask err:%d\n", ret);
+	return ret;
+}
+
+static int pmic_fg_reg_clearb(struct pmic_fg_info *info, int reg, u8 mask)
+{
+	int ret;
+
+	ret = intel_soc_pmic_clearb(reg, mask);
+	if (ret < 0)
+		dev_err(&info->pdev->dev, "pmic reg set mask err:%d\n", ret);
+	return ret;
+}
+
 static void pmic_fg_dump_init_regs(struct pmic_fg_info *info)
 {
 	int i;
@@ -287,7 +311,7 @@ static void pmic_fg_dump_init_regs(struct pmic_fg_info *info)
 			DC_CHRG_CCCV_REG,
 			pmic_fg_reg_readb(info, DC_CHRG_CCCV_REG));
 
-	for (i = 0; i < BAT_CURVE_SIZE; i++) {
+	for (i = 0; i < XPWR_BAT_CURVE_SIZE; i++) {
 		dev_info(&info->pdev->dev, "reg:%x, val:%x\n",
 			DC_FG_OCV_CURVE_REG + i,
 			pmic_fg_reg_readb(info, DC_FG_OCV_CURVE_REG + i));
@@ -809,13 +833,37 @@ fg_prog_ocv_fail:
 
 static int pmic_fg_program_design_cap(struct pmic_fg_info *info)
 {
-	int ret;
+	int ret = 0;
+	int cap0, cap1;
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP1_REG, info->pdata->cap1);
-	if (ret < 0)
+	cap1 = pmic_fg_reg_readb(info, DC_FG_DES_CAP1_REG);
+	if (cap1 < 0) {
+		dev_warn(&info->pdev->dev, "CAP1 reg read err!!\n");
 		goto fg_prog_descap_fail;
+	}
+	cap0 = pmic_fg_reg_readb(info, DC_FG_DES_CAP0_REG);
+	if (cap0 < 0) {
+		dev_warn(&info->pdev->dev, "CAP0 reg read err!!\n");
+		goto fg_prog_descap_fail;
+	}
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP0_REG, info->pdata->cap0);
+	/* If CAP values are as expected, skip capacity initialization*/
+	if ((cap1 == info->pdata->cdata.cap1)
+		&& (cap0 == info->pdata->cdata.cap0)) {
+		return 0;
+	}
+
+	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP1_REG,
+					info->pdata->cdata.cap1);
+	if (ret < 0) {
+		dev_warn(&info->pdev->dev, "CAP1 reg write err!!\n");
+		goto fg_prog_descap_fail;
+	}
+
+	ret = pmic_fg_reg_writeb(info, DC_FG_DES_CAP0_REG,
+					info->pdata->cdata.cap0);
+	if (ret < 0)
+		dev_warn(&info->pdev->dev, "CAP0 reg write err!!\n");
 
 fg_prog_descap_fail:
 	return ret;
@@ -825,9 +873,10 @@ static int pmic_fg_program_ocv_curve(struct pmic_fg_info *info)
 {
 	int ret, i;
 
-	for (i = 0; i < BAT_CURVE_SIZE; i++) {
+	for (i = 0; i < XPWR_BAT_CURVE_SIZE; i++) {
 		ret = pmic_fg_reg_writeb(info,
-			DC_FG_OCV_CURVE_REG + i, info->pdata->bat_curve[i]);
+			DC_FG_OCV_CURVE_REG + i,
+			info->pdata->cdata.bat_curve[i]);
 		if (ret < 0)
 			goto fg_prog_ocv_fail;
 	}
@@ -838,22 +887,43 @@ fg_prog_ocv_fail:
 
 static int pmic_fg_program_rdc_vals(struct pmic_fg_info *info)
 {
-	int ret;
+	int ret = 0;
+	int rdc0, rdc1, cntl4;
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_RDC1_REG, info->pdata->rdc1);
+	rdc1 = pmic_fg_reg_readb(info, DC_FG_RDC1_REG);
+	if (rdc1 < 0) {
+		dev_warn(&info->pdev->dev, "RDC1 reg read err!!\n");
+		goto fg_prog_rdc_fail;
+	}
+	rdc0 = pmic_fg_reg_readb(info, DC_FG_RDC0_REG);
+	if (rdc0 < 0) {
+		dev_warn(&info->pdev->dev, "RDC0 reg read err!!\n");
+		goto fg_prog_rdc_fail;
+	}
+	/* If RDC values are as expected, skip RDC initialization*/
+	if ((rdc1 == info->pdata->cdata.rdc1)
+		&& (rdc0 == info->pdata->cdata.rdc0)) {
+		return 0;
+	}
+
+	ret = pmic_fg_reg_writeb(info, DC_FG_RDC1_REG, info->pdata->cdata.rdc1);
 	if (ret < 0)
-		goto fg_prog_ocv_fail;
+		goto fg_prog_rdc_fail;
 
-	ret = pmic_fg_reg_writeb(info, DC_FG_RDC0_REG, info->pdata->rdc0);
+	ret = pmic_fg_reg_writeb(info, DC_FG_RDC0_REG, info->pdata->cdata.rdc0);
 
-fg_prog_ocv_fail:
+	cntl4 = pmic_fg_reg_clearb(info, DC_FG_TUNING_CNTL4,
+					CNTL4_RDC_MIN_VOLT_RESET_MASK);
+	ret = pmic_fg_reg_setb(info, DC_FG_TUNING_CNTL4,
+					CNTL4_RDC_MIN_VOLT_SET_MASK);
+
+fg_prog_rdc_fail:
 	return ret;
 }
 
 static void pmic_fg_init_config_regs(struct pmic_fg_info *info)
 {
-	int ret;
-
+	int ret = 0;
 
 	/*
 	 * check if the config data is already
@@ -862,9 +932,10 @@ static void pmic_fg_init_config_regs(struct pmic_fg_info *info)
 	ret = pmic_fg_reg_readb(info, DC_FG_CNTL_REG);
 	if (ret < 0) {
 		dev_warn(&info->pdev->dev, "FG CNTL reg read err!!\n");
-	} else if ((ret & FG_CNTL_OCV_ADJ_EN) && (ret & FG_CNTL_CAP_ADJ_EN)) {
+	} else if ((ret & FG_CNTL_OCV_ADJ_EN) && (ret & FG_CNTL_CAP_ADJ_EN)
+			&& !info->pdata->cdata.fco) {
 		dev_info(&info->pdev->dev,
-			 "FG data except the OCV curve is initialized\n");
+			 "Only OCV curve from FG data is initialized\n");
 		/*
 		 * ocv curve will be set to default values
 		 * at every boot, so it is needed to explicitly write
@@ -876,25 +947,30 @@ static void pmic_fg_init_config_regs(struct pmic_fg_info *info)
 				"set ocv curve fail:%d\n", ret);
 		pmic_fg_dump_init_regs(info);
 		return;
-	} else {
-		dev_info(&info->pdev->dev, "FG data need to be initialized\n");
+
 	}
+	dev_info(&info->pdev->dev, "FG data need to be initialized\n");
 
-	ret = pmic_fg_program_vbatt_full(info);
+	dev_info(&info->pdev->dev, "DisableFG during  initialization\n");
+	ret = pmic_fg_reg_writeb(info, DC_FG_CNTL_REG, 0x00);
 	if (ret < 0)
-		dev_err(&info->pdev->dev, "set vbatt full fail:%d\n", ret);
+		dev_err(&info->pdev->dev, "gauge cntl set fail:%d\n", ret);
 
-	ret = pmic_fg_program_design_cap(info);
+	ret = pmic_fg_program_ocv_curve(info);
 	if (ret < 0)
-		dev_err(&info->pdev->dev, "set design cap fail:%d\n", ret);
+		dev_err(&info->pdev->dev, "set ocv curve fail:%d\n", ret);
 
 	ret = pmic_fg_program_rdc_vals(info);
 	if (ret < 0)
 		dev_err(&info->pdev->dev, "set rdc fail:%d\n", ret);
 
-	ret = pmic_fg_program_ocv_curve(info);
+	ret = pmic_fg_program_design_cap(info);
 	if (ret < 0)
-		dev_err(&info->pdev->dev, "set ocv curve fail:%d\n", ret);
+		dev_err(&info->pdev->dev, "set design cap fail:%d\n", ret);
+
+	ret = pmic_fg_program_vbatt_full(info);
+	if (ret < 0)
+		dev_err(&info->pdev->dev, "set vbatt full fail:%d\n", ret);
 
 	ret = pmic_fg_set_lowbatt_thresholds(info);
 	if (ret < 0)
@@ -953,7 +1029,7 @@ static void pmic_fg_init_psy(struct pmic_fg_info *info)
 static int pmic_fg_probe(struct platform_device *pdev)
 {
 	struct pmic_fg_info *info;
-	int ret;
+	int ret = 0;
 
 	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
 	if (!info) {

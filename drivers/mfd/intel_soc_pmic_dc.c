@@ -350,7 +350,7 @@ static void *platform_get_batt_charge_profile(void)
 					ps_batt_chrg_prof.batt_prof;
 	if ((ret < 0 || ps_batt_chrg_prof.chrg_prof_type == CHRG_PROF_NONE)
 		&& pse_mod_prof)
-			snprintf(pse_mod_prof->batt_id, (BATTID_LEN+1),
+			snprintf(pse_mod_prof->batt_id, (BATTID_STR_LEN + 1),
 				"%s", BATTID_UNKNOWN);
 
 	return &ps_batt_chrg_prof;
@@ -417,7 +417,7 @@ static void dc_xpwr_chrg_pdata(void)
 	pdata.def_iterm = 300;
 	pdata.def_max_temp = 55;
 	pdata.def_min_temp = 0;
-	
+
 	/* Deprecated: DC does not handle GPIO for VBUS */
 	pdata.otg_gpio = -1;
 
@@ -434,6 +434,84 @@ static int fg_bat_curve[] = {
     0x50, 0x53, 0x55, 0x57, 0x5a, 0x5d, 0x61, 0x64,
 };
 
+#ifdef CONFIG_ACPI
+#define FGCONFIG_ACPI_TABLE_NAME	"BCFG"
+
+static int
+dc_xpwr_get_acpi_cdata(struct dollarcove_fg_pdata *pdata)
+{
+	struct dc_xpwr_acpi_fg_config *acpi_tbl = NULL;
+	char *name = FGCONFIG_ACPI_TABLE_NAME;
+	acpi_size tbl_size;
+	acpi_status status;
+
+	/* read the fg config table from acpi */
+	status = acpi_get_table_with_size(name , 0,
+			(struct acpi_table_header **)&acpi_tbl, &tbl_size);
+	if (ACPI_FAILURE(status)) {
+		pr_err("%s:%s table not found!!\n", __func__, name);
+		return status;
+	}
+	pr_info("%s: %s table found, size=%d\n",
+				__func__, name, (int)tbl_size);
+
+	/* validate the table size */
+	if (tbl_size <  sizeof(struct dc_xpwr_acpi_fg_config)) {
+		pr_err("%s:%s table incomplete!!\n", __func__, name);
+		pr_info("%s: table_size=%d, structure_size=%lu\n",
+			__func__, (int)tbl_size,
+			sizeof(struct dc_xpwr_acpi_fg_config));
+		return -ENXIO;
+	}
+
+
+	memcpy(&pdata->cdata, &acpi_tbl->cdata,
+			sizeof(struct dc_xpwr_acpi_fg_config));
+
+	return 0;
+}
+#endif /* CONFIG_ACPI */
+
+static void dc_xpwr_get_fg_config_data(struct dollarcove_fg_pdata *pdata)
+{
+	int scaled_capacity;
+	int i;
+
+#ifdef CONFIG_ACPI
+	if (!dc_xpwr_get_acpi_cdata(pdata)) {
+		pr_info("%s: Loading fg config from acpi table\n", __func__);
+		return;
+	}
+#endif /* CONFIG_ACPI */
+
+	pr_info("%s: Loading default fg config.\n", __func__);
+	/*
+	 * Calculate cap1 and cap0.  The value of a LSB is 1.456mAh.
+	 * Using 1.5 as math friendly and close enough.
+	 */
+
+	scaled_capacity = (pdata->design_cap >> 1) +
+				(pdata->design_cap >> 3) +
+				(pdata->design_cap >> 4);
+
+	/*
+	 * bit 7 of cap1 register is set to indicate battery maximum
+	 * capacity is valid
+	 */
+	pdata->cdata.cap0 = scaled_capacity & 0xFF;
+	pdata->cdata.cap1 = (scaled_capacity >> 8) | 0x80;
+
+	pdata->cdata.rdc1 = 0xc0;
+	pdata->cdata.rdc0 = 0x97;
+
+	/* Donot update the entire fg  data on every boot*/
+	pdata->cdata.fco = 0x00;
+	/* copy curve data */
+	for (i = 0; i < XPWR_BAT_CURVE_SIZE; i++)
+		pdata->cdata.bat_curve[i] = fg_bat_curve[i];
+	return;
+}
+
 static void dc_xpwr_fg_pdata(void)
 {
 	static struct dollarcove_fg_pdata pdata;
@@ -442,7 +520,7 @@ static void dc_xpwr_fg_pdata(void)
 
 	if (ps_batt_chrg_prof.chrg_prof_type == CHRG_PROF_NONE
 		|| (!pse_mod_prof))
-		snprintf(pdata.battid, (BATTID_LEN+1),
+		snprintf(pdata.battid, (BATTID_STR_LEN + 1),
 			"%s", BATTID_UNKNOWN);
 	else
 		memcpy(pdata.battid, pse_mod_prof->batt_id,
@@ -464,27 +542,8 @@ static void dc_xpwr_fg_pdata(void)
 
 	pdata.min_temp = pse_mod_prof->temp_low_lim;
 
-	/*
-	 * Calculate cap1 and cap0.  The value of a LSB is 1.456mAh.
-	 * Using 1.5 as math friendly and close enough.
-	 */
-
-	scaled_capacity = (pdata.design_cap >> 1) +
-				(pdata.design_cap >> 3) +
-				(pdata.design_cap >> 4);
-
-	/*
-	 * bit 7 of cap1 register is set to indicate battery maximum
-	 * capacity is valid
-	 */
-	pdata.cap0 = scaled_capacity & 0xFF;
-	pdata.cap1 = (scaled_capacity >> 8) | 0x80;
-
-	pdata.rdc1 = 0xc0;
-	pdata.rdc0 = 0x97;
-	/* copy curve data */
-	for (i = 0; i < BAT_CURVE_SIZE; i++)
-		pdata.bat_curve[i] = fg_bat_curve[i];
+	/* Load FG config data to pdata */
+	dc_xpwr_get_fg_config_data(&pdata);
 
 	intel_soc_pmic_set_pdata("dollar_cove_battery",
 				(void *)&pdata, sizeof(pdata), 0);
