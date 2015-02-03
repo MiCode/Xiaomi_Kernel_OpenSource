@@ -68,7 +68,7 @@ struct pn544_dev	{
 	unsigned int		max_i2c_xfer_size;
 };
 
-static void pn544_platform_init(struct pn544_dev *pn544_dev)
+static int pn544_platform_init(struct pn544_dev *pn544_dev)
 {
 	int polarity, retry, ret;
 	struct device *i2c_dev = &pn544_dev->client->dev;
@@ -103,6 +103,7 @@ static void pn544_platform_init(struct pn544_dev *pn544_dev)
 					"%s : nfc_en polarity : active %s\n",
 					__func__,
 					(polarity == 0 ? "low" : "high"));
+				ret = 0;
 				goto out;
 			}
 		}
@@ -117,6 +118,7 @@ out:
 	/* power off */
 	gpiod_set_value(pn544_dev->ven_gpio,
 			!pn544_dev->nfc_en_polarity);
+	return ret;
 }
 
 static irqreturn_t pn544_dev_irq_handler(int irq, void *dev_id)
@@ -218,16 +220,17 @@ static unsigned int pn544_dev_poll(struct file *file, poll_table *wait)
 {
 	struct pn544_dev *pn544_dev = file->private_data;
 	struct device *i2c_dev = &pn544_dev->client->dev;
+	struct irq_desc *desc = irq_to_desc((pn544_dev->client->irq));
 
 	if (!gpiod_get_value(pn544_dev->irq_gpio)) {
 		dev_dbg(i2c_dev, "%s : Waiting on available input data.\n",
 				__func__);
 		poll_wait(file, &pn544_dev->read_wq, wait);
 
-		if (gpiod_get_value(pn544_dev->irq_gpio))
+		if (gpiod_get_value(pn544_dev->irq_gpio) && desc->irq_count > 0)
 			return POLLIN | POLLRDNORM;
-	} else
-		return POLLIN | POLLRDNORM;
+	} else if (desc->irq_count > 0)
+			return POLLIN | POLLRDNORM;
 
 	dev_dbg(i2c_dev, "%s : No data on input stream.\n", __func__);
 	return 0;
@@ -310,9 +313,10 @@ static long pn544_set_power(struct file *filp, unsigned long arg)
 {
 	struct pn544_dev *pn544_dev = filp->private_data;
 	struct device *i2c_dev = &pn544_dev->client->dev;
+	long ret = 0;
 
 	if (pn544_dev->nfc_en_polarity == UNKNOWN)
-		pn544_platform_init(pn544_dev);
+		ret = pn544_platform_init(pn544_dev);
 
 	switch (arg) {
 	case PN544_POWER_ON_FIRM:
@@ -354,9 +358,9 @@ static long pn544_set_power(struct file *filp, unsigned long arg)
 		break;
 	default:
 		dev_err(i2c_dev, "%s bad arg %lu\n", __func__, arg);
-		return -EINVAL;
+		ret = -EINVAL;
 	}
-	return 0;
+	return ret;
 }
 
 static long pn544_dev_ioctl(struct file *filp,
