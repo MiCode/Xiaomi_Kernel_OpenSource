@@ -4158,6 +4158,10 @@ find_idlest_cpu(struct sched_group *group, struct task_struct *p, int this_cpu)
 
 	/* Traverse only the allowed CPUs */
 	for_each_cpu_and(i, sched_group_cpus(group), tsk_cpus_allowed(p)) {
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+		if (workload_consolidation_cpu_shielded(i))
+			continue;
+#endif
 		load = weighted_cpuload(i);
 
 		if (load < min_load || (load == min_load && i == this_cpu)) {
@@ -4177,9 +4181,16 @@ static int select_idle_sibling(struct task_struct *p, int target)
 	struct sched_domain *sd;
 	struct sched_group *sg;
 	int i = task_cpu(p);
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+	int ret;
 
+	ret = workload_consolidation_wakeup(i, target);
+	if (ret < nr_cpu_ids)
+		return ret;
+#else
 	if (idle_cpu(target))
 		return target;
+#endif
 
 	/*
 	 * If the prevous cpu is cache affine and idle, don't be stupid.
@@ -4271,7 +4282,7 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	}
 
 	while (sd) {
-		struct sched_group *group;
+		struct sched_group *group = NULL;
 		int weight;
 
 		if (!(sd->flags & sd_flag)) {
@@ -4279,7 +4290,14 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 			continue;
 		}
 
-		group = find_idlest_group(sd, p, cpu, sd_flag);
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+		if (sd->flags & SD_ASYM_CONCURRENCY)
+			group = workload_consolidation_find_group(sd, p, cpu);
+
+		if (!group)
+#endif
+			group = find_idlest_group(sd, p, cpu, sd_flag);
+
 		if (!group) {
 			sd = sd->child;
 			continue;
@@ -6357,6 +6375,10 @@ out:
 	return ld_moved;
 }
 
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+static DEFINE_PER_CPU(cpumask_var_t, local_cpu_mask);
+#endif
+
 /*
  * idle_balance is called by schedule() if this_cpu is about to become
  * idle. Attempts to pull tasks from other CPUs.
@@ -6367,6 +6389,9 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 	int pulled_task = 0;
 	unsigned long next_balance = jiffies + HZ;
 	u64 curr_cost = 0;
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+	struct cpumask *nonshielded = __get_cpu_var(local_cpu_mask);
+#endif
 
 	this_rq->idle_stamp = rq_clock(this_rq);
 
@@ -6380,6 +6405,19 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 
 	update_blocked_averages(this_cpu);
 	rcu_read_lock();
+
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+	cpumask_copy(nonshielded, cpu_active_mask);
+
+	/*
+	 * if we encounter shadowded cpus here, don't do balance on them
+	 */
+	workload_consolidation_nonshielded_mask(this_cpu, nonshielded);
+	if (!cpumask_test_cpu(this_cpu, nonshielded))
+		goto unlock;
+	workload_consolidation_unload(nonshielded);
+#endif
+
 	for_each_domain(this_cpu, sd) {
 		unsigned long interval;
 		int continue_balancing = 1;
@@ -6414,6 +6452,9 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 			break;
 		}
 	}
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+unlock:
+#endif
 	rcu_read_unlock();
 
 	raw_spin_lock(&this_rq->lock);
@@ -6513,11 +6554,46 @@ static struct {
 
 static inline int find_new_ilb(void)
 {
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+	struct cpumask *nonshielded = __get_cpu_var(local_cpu_mask);
+	int ilb, weight;
+	int call_cpu = smp_processor_id();
+
+	/*
+	 * Optimize for the case when we have no idle CPUs or only one
+	 * idle CPU. Don't walk the sched_domain hierarchy in such cases
+	 */
+	if (cpumask_weight(nohz.idle_cpus_mask) < 2)
+		return nr_cpu_ids;
+
+	ilb = cpumask_first(nohz.idle_cpus_mask);
+
+	if (ilb < nr_cpu_ids && idle_cpu(ilb)) {
+
+		cpumask_copy(nonshielded, nohz.idle_cpus_mask);
+
+		rcu_read_lock();
+		workload_consolidation_nonshielded_mask(call_cpu, nonshielded);
+		rcu_read_unlock();
+
+		weight = cpumask_weight(nonshielded);
+
+		if (weight < 2)
+			return nr_cpu_ids;
+
+		/*
+		 * get idle load balancer again
+		 */
+		ilb = cpumask_first(nonshielded);
+		if (ilb < nr_cpu_ids && idle_cpu(ilb))
+			return ilb;
+	}
+#else
 	int ilb = cpumask_first(nohz.idle_cpus_mask);
 
 	if (ilb < nr_cpu_ids && idle_cpu(ilb))
 		return ilb;
-
+#endif
 	return nr_cpu_ids;
 }
 
@@ -6742,7 +6818,8 @@ out:
  * In CONFIG_NO_HZ_COMMON case, the idle balance kickee will do the
  * rebalancing for all the cpus for whom scheduler ticks are stopped.
  */
-static void nohz_idle_balance(struct rq *this_rq, enum cpu_idle_type idle)
+static void nohz_idle_balance(struct rq *this_rq, enum cpu_idle_type idle,
+				 struct cpumask *mask)
 {
 	int this_cpu = this_rq->cpu;
 	struct rq *rq;
@@ -6752,7 +6829,7 @@ static void nohz_idle_balance(struct rq *this_rq, enum cpu_idle_type idle)
 	    !test_bit(NOHZ_BALANCE_KICK, nohz_flags(this_cpu)))
 		goto end;
 
-	for_each_cpu(balance_cpu, nohz.idle_cpus_mask) {
+	for_each_cpu(balance_cpu, mask) {
 		if (balance_cpu == this_cpu || !idle_cpu(balance_cpu))
 			continue;
 
@@ -6846,7 +6923,8 @@ need_kick:
 	return 1;
 }
 #else
-static void nohz_idle_balance(struct rq *this_rq, enum cpu_idle_type idle) { }
+static void nohz_idle_balance(struct rq *this_rq, enum cpu_idle_type idle,
+						 struct cpumask *mask) { }
 #endif
 
 /*
@@ -6859,6 +6937,36 @@ static void run_rebalance_domains(struct softirq_action *h)
 	enum cpu_idle_type idle = this_rq->idle_balance ?
 						CPU_IDLE : CPU_NOT_IDLE;
 
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+	struct cpumask *nonshielded = __get_cpu_var(local_cpu_mask);
+	int this_cpu = smp_processor_id();
+
+	/*
+	 * if we encounter shadowded cpus here, don't do balance on them
+	 */
+	cpumask_copy(nonshielded, cpu_active_mask);
+
+	rcu_read_lock();
+	workload_consolidation_nonshielded_mask(this_cpu, nonshielded);
+	rcu_read_unlock();
+
+	/*
+	 * aggressively unload the shielded cpus to unshielded cpus
+	 */
+	workload_consolidation_unload(nonshielded);
+
+	if (cpumask_test_cpu(this_cpu, nonshielded)) {
+		rebalance_domains(this_rq, idle);
+
+	/*
+	 * If this cpu has a pending nohz_balance_kick, then do the
+	 * balancing on behalf of the other idle cpus whose ticks are
+	 * stopped.
+	 */
+	cpumask_and(nonshielded, nonshielded, nohz.idle_cpus_mask);
+	nohz_idle_balance(this_rq, idle, nonshielded);
+	}
+#else
 	rebalance_domains(this_rq, idle);
 
 	/*
@@ -6866,7 +6974,8 @@ static void run_rebalance_domains(struct softirq_action *h)
 	 * balancing on behalf of the other idle cpus whose ticks are
 	 * stopped.
 	 */
-	nohz_idle_balance(this_rq, idle);
+	nohz_idle_balance(this_rq, idle, nohz.idle_cpus_mask);
+#endif
 }
 
 static inline int on_null_domain(struct rq *rq)
@@ -7358,6 +7467,13 @@ void print_cfs_stats(struct seq_file *m, int cpu)
 __init void init_sched_fair_class(void)
 {
 #ifdef CONFIG_SMP
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+unsigned int i;
+	for_each_possible_cpu(i) {
+		zalloc_cpumask_var_node(&per_cpu(local_cpu_mask, i),
+					GFP_KERNEL, cpu_to_node(i));
+	}
+#endif
 	open_softirq(SCHED_SOFTIRQ, run_rebalance_domains);
 
 #ifdef CONFIG_NO_HZ_COMMON
