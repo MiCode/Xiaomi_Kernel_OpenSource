@@ -2557,11 +2557,11 @@ void mmc_rescan(struct work_struct *work)
 	bool extend_wakelock = false;
 
 	if (host->rescan_disable)
-		return;
+		goto out;
 
 	/* If there is a non-removable card registered, only scan once */
 	if ((host->caps & MMC_CAP_NONREMOVABLE) && host->rescan_entered)
-		return;
+		goto out;
 	host->rescan_entered = 1;
 
 	mmc_bus_get(host);
