@@ -16,6 +16,7 @@
 
 /* Extended capability IDs for Intel Vendor Defined */
 #define XHCI_EXT_CAPS_INTEL_HOST_CAP	192
+#define XHCI_EXT_CAPS_INTEL_SSIC	196
 
 /* register definition */
 #define PMCTRL			0x34
@@ -29,9 +30,14 @@
 #define DUAL_ROLE_CFG1		0x6c
 #define SW_MODE			(1 << 29)
 
+#define SSIC_PORT1_CFG2		0x3c
+#define PROG_DONE		(1 << 30)
+#define SSIC_PORT_UNUSED	(1 << 31)
+
 #define DUAL_ROLE_CFG1_POLL_TIMEOUT	1000
 
 extern int xhci_intel_vendor_cap_init(struct xhci_hcd *xhci);
 extern int xhci_intel_phy_vbus_valid(struct xhci_hcd *xhci, int vbus_valid);
 extern int xhci_intel_phy_mux_switch(struct xhci_hcd *xhci, int is_device_on);
 extern void xhci_intel_clr_internal_pme_flag(struct xhci_hcd *xhci);
+extern void xhci_intel_ssic_port_unused(struct xhci_hcd *xhci, bool unused);

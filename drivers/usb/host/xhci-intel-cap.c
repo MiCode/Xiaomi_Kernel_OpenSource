@@ -148,3 +148,39 @@ void xhci_intel_clr_internal_pme_flag(struct xhci_hcd *xhci)
 	writel(data, xhci->phy_mux_regs + PMCTRL);
 }
 EXPORT_SYMBOL_GPL(xhci_intel_clr_internal_pme_flag);
+
+/* This function is only used as one workaround for Cherrytrail XHCI spurious
+   pme and HCRST hangs issue */
+void xhci_intel_ssic_port_unused(struct xhci_hcd *xhci, bool unused)
+{
+	int ext_offset;
+	void __iomem *ssic_port_cfg;
+	u32 data;
+
+	xhci_dbg(xhci, "ssic port - %s\n", unused ? "unused" : "used");
+
+	ext_offset = XHCI_HCC_EXT_CAPS(readl(&xhci->cap_regs->hcc_params));
+	ext_offset = xhci_find_ext_cap_by_id(&xhci->cap_regs->hc_capbase,
+			ext_offset << 2, XHCI_EXT_CAPS_INTEL_SSIC);
+	if (!ext_offset)
+		return;
+
+	ssic_port_cfg = &xhci->cap_regs->hc_capbase +
+			((ext_offset + SSIC_PORT1_CFG2) >> 2);
+
+	data = readl(ssic_port_cfg);
+	data &= ~PROG_DONE;
+	writel(data, ssic_port_cfg);
+
+	data = readl(ssic_port_cfg);
+	if (unused)
+		data |= SSIC_PORT_UNUSED;
+	else
+		data &= ~SSIC_PORT_UNUSED;
+	writel(data, ssic_port_cfg);
+
+	data = readl(ssic_port_cfg);
+	data |= PROG_DONE;
+	writel(data, ssic_port_cfg);
+}
+EXPORT_SYMBOL_GPL(xhci_intel_ssic_port_unused);

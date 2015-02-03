@@ -287,6 +287,7 @@ static int xhci_pci_suspend(struct usb_hcd *hcd, bool do_wakeup)
 {
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 	struct pci_dev		*pdev = to_pci_dev(hcd->self.controller);
+	int			retval = 0;
 
 	/*
 	 * Systems with the TI redriver that loses port status change events
@@ -295,7 +296,15 @@ static int xhci_pci_suspend(struct usb_hcd *hcd, bool do_wakeup)
 	if (xhci_compliance_mode_recovery_timer_quirk_check())
 		pdev->no_d3cold = true;
 
-	return xhci_suspend(xhci, do_wakeup);
+	retval = xhci_suspend(xhci, do_wakeup);
+
+	/* This is SW workaround for spurious PME issue and HCRST hang problem
+	 * It required to set anc clear SSIC_PORT_UNUSED bit in D3 entry and
+	 * D3 exit. */
+	if (xhci->quirks & XHCI_SPURIOUS_PME)
+		xhci_intel_ssic_port_unused(xhci, 1);
+
+	return retval;
 }
 
 static int xhci_pci_resume(struct usb_hcd *hcd, bool hibernated)
@@ -307,8 +316,10 @@ static int xhci_pci_resume(struct usb_hcd *hcd, bool hibernated)
 	/* Due to one HW bug, XHCI will keep generating PME wakeups and fail
 	 * to stay in runtime suspended state, so required to clear the internal
 	 * PME flag once it is back to D0 as the software workaround */
-	if (xhci->quirks & XHCI_SPURIOUS_PME)
+	if (xhci->quirks & XHCI_SPURIOUS_PME) {
 		xhci_intel_clr_internal_pme_flag(xhci);
+		xhci_intel_ssic_port_unused(xhci, 0);
+	}
 
 	/* The BIOS on systems with the Intel Panther Point chipset may or may
 	 * not support xHCI natively.  That means that during system resume, it
