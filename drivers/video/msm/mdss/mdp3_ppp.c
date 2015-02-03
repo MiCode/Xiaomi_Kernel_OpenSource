@@ -1215,24 +1215,60 @@ static void mdp3_free_bw_wq_handler(struct work_struct *work)
 	mutex_unlock(&ppp_stat->config_ppp_mutex);
 }
 
+static bool is_roi_equal(struct mdp_blit_req req0,
+		 struct mdp_blit_req req1)
+{
+	bool result = false;
+
+	/*
+	 * Check req0 and req1 layer destination ROI and return true if
+	 * they are equal.
+	 */
+	if ((req0.dst_rect.x == req1.dst_rect.x) &&
+		(req0.dst_rect.y == req1.dst_rect.y) &&
+		(req0.dst_rect.w == req1.dst_rect.w) &&
+		(req0.dst_rect.h == req1.dst_rect.h))
+		result = true;
+	return result;
+}
+
+static bool is_scaling_needed(struct mdp_blit_req req)
+{
+	bool result = true;
+
+	/* Return ture if req layer need scaling else return false. */
+	if ((req.src_rect.w == req.dst_rect.w) &&
+		(req.src_rect.h == req.dst_rect.h))
+		result = false;
+	return result;
+}
+
 static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 {
 	int next = indx + 1;
 	bool status = false;
+	struct mdp3_img_data tmp_data;
+	bool dst_roi_equal = false;
+	struct mdp_blit_req bg_req;
+	struct mdp_blit_req fg_req;
 
 	if (!(mdp3_res->smart_blit_en)) {
 		pr_debug("Smart BLIT disabled from sysfs\n");
 		return status;
 	}
 	if (next < req->count) {
+		bg_req = req->req_list[indx];
+		fg_req = req->req_list[next];
+		dst_roi_equal = is_roi_equal(bg_req, fg_req);
 		/*
-		 * Check userspace Smart BLIT Flag for current and next request
-		 * Flag for smart blit FG layer index If blit request at index "n" has
-		 * MDP_SMART_BLIT flag set then it will be used as BG layer in smart blit
+		 * Check userspace Smart BLIT Flag for current and next
+		 * request Flag for smart blit FG layer index If blit
+		 * request at index "n" has MDP_SMART_BLIT flag set then
+		 * it will be used as BG layer in smart blit
 		 * and request at index "n+1" will be used as FG layer
 		 */
-		if ((req->req_list[indx].flags & MDP_SMART_BLIT) &&
-		(!(req->req_list[next].flags & MDP_SMART_BLIT)))
+		if ((bg_req.flags & MDP_SMART_BLIT) &&
+		(!(fg_req.flags & MDP_SMART_BLIT)))
 			status = true;
 		/*
 		 * Enable SMART blit between request 0(BG) & request 1(FG) when
@@ -1241,22 +1277,55 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 		 * No rotation on BG Layer.
 		 * BG Layer color format is RGB and marked as MDP_IS_FG.
 		 */
-		else if ((req->req_list[indx].flags & MDP_IS_FG) &&
-			(indx == 0) && (!(req->req_list[indx].flags &
-			(MDP_ROT_90 | MDP_FLIP_UD | MDP_FLIP_LR))) &&
-			(check_if_rgb(req->req_list[indx].src.format)) &&
-			(req->req_list[indx].dst_rect.x == req->req_list[next].dst_rect.x) &&
-			(req->req_list[indx].dst_rect.y == req->req_list[next].dst_rect.y) &&
-			(req->req_list[indx].dst_rect.w == req->req_list[next].dst_rect.w) &&
-			(req->req_list[indx].dst_rect.h == req->req_list[next].dst_rect.h) &&
-			(req->req_list[indx].dst_rect.w == req->req_list[indx].src_rect.w) &&
-			(req->req_list[indx].dst_rect.h == req->req_list[indx].src_rect.h)) {
+		else if ((mdp3_res->smart_blit_en & SMART_BLIT_RGB_EN) &&
+			(indx == 0) && (dst_roi_equal) &&
+			(bg_req.flags & MDP_IS_FG) &&
+			(!(is_scaling_needed(bg_req))) &&
+			(!(bg_req.flags & (MDP_ROT_90))) &&
+			(check_if_rgb(bg_req.src.format))) {
+			status = true;
+			req->req_list[indx].flags |= MDP_SMART_BLIT;
+			pr_debug("Optimize RGB Blit for Req Indx %d\n", indx);
+		}
+		/*
+		 * Swap BG and FG layer to enable SMART blit between request
+		 * 0(BG) & request 1(FG) when destination ROI of BG and FG
+		 * layer are same, No scaling on FG and BG layer
+		 * No rotation on FG Layer. BG Layer color format is YUV
+		 */
+		else if ((indx == 0) &&
+			(mdp3_res->smart_blit_en & SMART_BLIT_YUV_EN) &&
+			(!(fg_req.flags & (MDP_ROT_90))) && (dst_roi_equal) &&
+			(!(check_if_rgb(bg_req.src.format)))) {
+			/*
+			 * swap blit requests at index 0 and 1. YUV layer at
+			 * index 0 is replaced with UI layer request present
+			 * at index 1. Since UI layer will be in  background
+			 * set IS_FG flag and clear it from YUV layer flags
+			 */
+			if (!(is_scaling_needed(req->req_list[next]))) {
+				if (bg_req.flags & MDP_IS_FG) {
+					req->req_list[indx].flags &= ~MDP_IS_FG;
+					req->req_list[next].flags |= MDP_IS_FG;
+				}
+				bg_req = req->req_list[next];
+				req->req_list[next] = req->req_list[indx];
+				req->req_list[indx] = bg_req;
+
+				tmp_data = req->src_data[next];
+				req->src_data[next] = req->src_data[indx];
+				req->src_data[indx] = tmp_data;
+
+				tmp_data = req->dst_data[next];
+				req->dst_data[next] = req->dst_data[indx];
+				req->dst_data[indx] = tmp_data;
 				status = true;
 				req->req_list[indx].flags |= MDP_SMART_BLIT;
+				pr_debug("Optimize YUV Blit for Req Indx %d\n",
+					indx);
 			}
 		}
-	if (status)
-		pr_debug("Optimize Blit for Layer: %d Req Count %d\n", indx, req->count) ;
+	}
 	return status;
 }
 

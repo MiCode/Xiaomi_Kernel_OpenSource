@@ -127,6 +127,9 @@ struct mdp3_intr_cb {
 	void *data;
 };
 
+#define SMART_BLIT_RGB_EN	1
+#define SMART_BLIT_YUV_EN	2
+
 struct mdp3_hw_resource {
 	struct platform_device *pdev;
 	u32 mdp_rev;
@@ -181,7 +184,7 @@ struct mdp3_hw_resource {
 	struct regulator *vdd_cx;
 	struct regulator *fs;
 	bool fs_ena;
-	bool smart_blit_en;
+	u8 smart_blit_en;
 };
 
 struct mdp3_img_data {
