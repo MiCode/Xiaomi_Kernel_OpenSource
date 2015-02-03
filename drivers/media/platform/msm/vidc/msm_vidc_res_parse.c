@@ -739,7 +739,8 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 
 	if (IS_ERR_OR_NULL(cb->mapping)) {
 		dprintk(VIDC_ERR, "%s - failed to create mapping\n", __func__);
-		return PTR_ERR(cb->mapping) ?: -ENODEV;
+		rc = PTR_ERR(cb->mapping) ?: -ENODEV;
+		goto remove_cb;
 	}
 
 	rc = arm_iommu_attach_device(cb->dev, cb->mapping);
@@ -769,6 +770,7 @@ detach_device:
 	arm_iommu_detach_device(cb->dev);
 release_mapping:
 	arm_iommu_release_mapping(cb->mapping);
+remove_cb:
 	return rc;
 }
 
@@ -808,7 +810,7 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 		dprintk(VIDC_ERR,
 			"Could not read addr pool for context bank : %s %d\n",
 			cb->name, rc);
-		goto err_populate_cb;
+		goto err_setup_cb;
 	}
 
 	cb->is_secure = of_property_read_bool(np, "secure-addr-range");
@@ -820,7 +822,7 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 	if (rc) {
 		dprintk(VIDC_ERR, "failed to load buffer_type info %d\n", rc);
 		rc = -ENOENT;
-		goto err_populate_cb;
+		goto err_setup_cb;
 	}
 	dprintk(VIDC_DBG,
 		"context bank %s address start = %x address size = %x buffer_type = %x\n",
@@ -828,10 +830,15 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 		cb->addr_range.size, cb->buffer_type);
 
 	rc = msm_vidc_setup_context_bank(cb, dev);
-	if (rc)
+	if (rc) {
 		dprintk(VIDC_ERR, "Cannot setup context bank %d\n", rc);
+		goto err_setup_cb;
+	}
 
-err_populate_cb:
+	return 0;
+
+err_setup_cb:
+	list_del(&cb->list);
 	return rc;
 }
 

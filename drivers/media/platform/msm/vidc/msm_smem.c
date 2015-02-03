@@ -62,6 +62,7 @@ static int get_device_address(struct smem_client *smem_client,
 			dprintk(VIDC_ERR,
 				"%s: Failed to get context bank device\n",
 				 __func__);
+			rc = -EIO;
 			goto mem_map_failed;
 		}
 	}

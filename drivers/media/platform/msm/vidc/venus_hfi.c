@@ -584,7 +584,6 @@ static int venus_hfi_alloc(struct venus_hfi_device *dev, void *mem,
 	venus_hfi_power_enable(dev);
 
 	alloc = msm_smem_alloc(dev->hal_client, size, align, flags, usage, 1);
-	dprintk(VIDC_DBG, "Alloc done\n");
 	if (!alloc) {
 		dprintk(VIDC_ERR, "Alloc failed\n");
 		rc = -ENOMEM;
