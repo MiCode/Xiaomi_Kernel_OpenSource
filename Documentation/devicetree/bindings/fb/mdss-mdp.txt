@@ -160,7 +160,8 @@ Bus Scaling Data:
 - qcom,msm-bus,num-paths:	This represents the number of paths in each
 				Bus Scaling Usecase. This value depends on
 				how many number of AXI master ports are
-				dedicated to MDSS for particular chipset.
+				dedicated to MDSS for particular chipset. This
+				value represents the RT + NRT AXI master ports.
 - qcom,msm-bus,vectors-KBps:	* A series of 4 cell properties, with a format
 				of (src, dst, ab, ib) which is defined at
 				Documentation/devicetree/bindings/arm/msm/msm_bus.txt

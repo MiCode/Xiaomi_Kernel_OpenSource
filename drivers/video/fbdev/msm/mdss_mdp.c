@@ -2805,11 +2805,11 @@ static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev)
 
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 {
-	int rc;
+	int rc, paths;
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
-	rc = of_property_read_u32(pdev->dev.of_node, "qcom,msm-bus,num-paths",
-		&mdata->axi_port_cnt);
+	rc = of_property_read_u32(pdev->dev.of_node,
+			"qcom,msm-bus,num-paths", &paths);
 	if (rc) {
 		pr_err("Error. qcom,msm-bus,num-paths prop not found.rc=%d\n",
 			rc);
@@ -2824,6 +2824,14 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 		return rc;
 	} else {
 		rc = 0;
+	}
+
+	if (paths > mdata->nrt_axi_port_cnt) {
+		mdata->axi_port_cnt = paths - mdata->nrt_axi_port_cnt;
+	} else {
+		pr_err("invalid real time path config, total ports:%d, nrt ports:%d\n",
+			paths, mdata->nrt_axi_port_cnt);
+		return -EINVAL;
 	}
 
 	mdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
