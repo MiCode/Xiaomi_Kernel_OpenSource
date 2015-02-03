@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/slimbus/slimbus.h>
 #include <linux/msm-sps.h>
+#include <linux/gcd.h>
 #include "slim-msm.h"
 
 int msm_slim_rx_enqueue(struct msm_slim_ctrl *dev, u32 *buf, u8 len)
@@ -188,12 +189,35 @@ msm_slim_sps_mem_free(struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem)
 	mem->phys_base = 0;
 }
 
-void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pn)
+void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 port_b, u8 pn)
 {
+	struct slim_controller *ctrl;
+	struct slim_ch *chan;
+	struct msm_slim_pshpull_parm *parm;
 	u32 set_cfg = DEF_WATERMARK | DEF_ALIGN | DEF_PACK | ENABLE_PORT;
-	writel_relaxed(set_cfg, PGD_PORT(PGD_PORT_CFGn, pn, dev->ver));
-	writel_relaxed(DEF_BLKSZ, PGD_PORT(PGD_PORT_BLKn, pn, dev->ver));
-	writel_relaxed(DEF_TRANSZ, PGD_PORT(PGD_PORT_TRANn, pn, dev->ver));
+
+	if (!dev) {
+		pr_err("%s:Dev node is null\n", __func__);
+		return;
+	}
+	if (pn >= dev->port_nums) {
+		pr_err("%s:Invalid port\n", __func__);
+		return;
+	}
+	ctrl = &dev->ctrl;
+	chan = ctrl->ports[pn].ch;
+	parm = &dev->pipes[pn].psh_pull;
+	writel_relaxed(set_cfg, PGD_PORT(PGD_PORT_CFGn, port_b, dev->ver));
+	writel_relaxed(DEF_BLKSZ, PGD_PORT(PGD_PORT_BLKn, port_b, dev->ver));
+	writel_relaxed(DEF_TRANSZ, PGD_PORT(PGD_PORT_TRANn, port_b, dev->ver));
+
+	if (chan->prot == SLIM_PUSH || chan->prot == SLIM_PULL) {
+		set_cfg = 0;
+		set_cfg |= ((0xFFFF & parm->num_samples)<<16);
+		set_cfg |= (0xFFFF & parm->rpt_period);
+		writel_relaxed(set_cfg, PGD_PORT(PGD_PORT_PSHPLLn,
+							port_b, dev->ver));
+	}
 	/* Make sure that port registers are updated before returning */
 	mb();
 }
@@ -216,15 +240,49 @@ static void msm_slim_disconn_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 	dev->pipes[pn].connected = false;
 }
 
-int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
+static void msm_slim_calc_pshpull_parm(struct msm_slim_ctrl *dev,
+					u8 pn, struct slim_ch *prop)
 {
 	struct msm_slim_endp *endpoint = &dev->pipes[pn];
-	struct sps_connect *cfg = &endpoint->config;
+	struct msm_slim_pshpull_parm *parm = &endpoint->psh_pull;
+	int	chan_freq, round_off, divisor, super_freq;
+
+	super_freq = dev->ctrl.a_framer->superfreq;
+
+	if (prop->baser == SLIM_RATE_4000HZ)
+		chan_freq = 4000 * prop->ratem;
+	else if (prop->baser == SLIM_RATE_11025HZ)
+		chan_freq = 11025 * prop->ratem;
+	else
+		chan_freq = prop->baser * prop->ratem;
+
+	/*
+	 * If channel frequency is multiple of super frame frequency
+	 * ISO protocol is suggested
+	 */
+	if (!(chan_freq % super_freq)) {
+		prop->prot = SLIM_HARD_ISO;
+		return;
+	}
+	round_off = DIV_ROUND_UP(chan_freq, super_freq);
+	divisor = gcd(round_off * super_freq, chan_freq);
+	parm->num_samples = chan_freq/divisor;
+	parm->rpt_period = (round_off * super_freq)/divisor;
+}
+
+int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
+{
+	struct msm_slim_endp *endpoint;
+	struct sps_connect *cfg;
+	struct slim_ch *prop;
 	u32 stat;
 	int ret;
 
-	if (pn >= dev->port_nums)
+	if (!dev || pn >= dev->port_nums)
 		return -ENODEV;
+	endpoint = &dev->pipes[pn];
+	cfg = &endpoint->config;
+	prop = dev->ctrl.ports[pn].ch;
 
 	endpoint = &dev->pipes[pn];
 	ret = sps_get_config(dev->pipes[pn].sps, cfg);
@@ -234,6 +292,9 @@ int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 	}
 	cfg->options = SPS_O_DESC_DONE | SPS_O_ERROR |
 				SPS_O_ACK_TRANSFERS | SPS_O_AUTO_ENABLE;
+
+	if (prop->prot == SLIM_PUSH || prop->prot ==  SLIM_PULL)
+		msm_slim_calc_pshpull_parm(dev, pn, prop);
 
 	if (dev->pipes[pn].connected &&
 			dev->ctrl.ports[pn].state == SLIM_P_CFG) {
@@ -248,7 +309,7 @@ int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 			cfg->mode == SPS_MODE_DEST) ||
 			(dev->ctrl.ports[pn].flow == SLIM_SINK &&
 			 cfg->mode == SPS_MODE_SRC)) {
-			msm_hw_set_port(dev, endpoint->port_b);
+			msm_hw_set_port(dev, endpoint->port_b, pn);
 			return 0;
 		}
 		msm_slim_disconn_pipe_port(dev, pn);
@@ -283,7 +344,7 @@ int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn)
 
 	if (!ret) {
 		dev->pipes[pn].connected = true;
-		msm_hw_set_port(dev, endpoint->port_b);
+		msm_hw_set_port(dev, endpoint->port_b, pn);
 	}
 	return ret;
 }
