@@ -387,7 +387,6 @@ static int msm_restart_probe(struct platform_device *pdev)
 			pr_err("unable to map imem EDLOAD mode offset\n");
 	}
 
-	set_dload_mode(download_mode);
 #endif
 	np = of_find_compatible_node(NULL, NULL,
 				"qcom,msm-imem-restart_reason");
@@ -420,6 +419,8 @@ static int msm_restart_probe(struct platform_device *pdev)
 
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DEASSERT_PS_HOLD) > 0)
 		scm_deassert_ps_hold_supported = true;
+
+	set_dload_mode(download_mode);
 
 	return 0;
 
