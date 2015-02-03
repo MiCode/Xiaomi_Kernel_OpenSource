@@ -388,8 +388,6 @@ static int ufshcd_pltfrm_probe(struct platform_device *pdev)
 
 	ufshcd_parse_pm_qos(hba, irq);
 	ufshcd_parse_pm_levels(hba);
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
 
 	if (!dev->dma_mask)
 		dev->dma_mask = &dev->coherent_dma_mask;
@@ -397,16 +395,15 @@ static int ufshcd_pltfrm_probe(struct platform_device *pdev)
 	err = ufshcd_init(hba, mmio_base, irq);
 	if (err) {
 		dev_err(dev, "Intialization failed\n");
-		goto out_disable_rpm;
+		goto dealloc_host;
 	}
 
 	platform_set_drvdata(pdev, hba);
 
-	return 0;
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
 
-out_disable_rpm:
-	pm_runtime_disable(&pdev->dev);
-	pm_runtime_set_suspended(&pdev->dev);
+	return 0;
 dealloc_host:
 	ufshcd_dealloc_host(hba);
 out:
