@@ -2160,6 +2160,7 @@ module_exit(cpu_clock_8994_exit);
 #define ALIAS0_GLB_BASE_PHY 0xF900D000
 #define ALIAS1_GLB_BASE_PHY 0xF900F000
 #define C1_PLL_BASE_PHY 0xF9016000
+#define C0_PLL_BASE_PHY 0xF9015000
 
 int __init cpu_clock_8994_init_a57_v2(void)
 {
@@ -2182,10 +2183,29 @@ int __init cpu_clock_8994_init_a57_v2(void)
 		goto iomap_fail;
 	}
 
+	vbases[C0_PLL_BASE] = ioremap(C0_PLL_BASE_PHY, SZ_4K);
+	if (!vbases[C0_PLL_BASE]) {
+		WARN(1, "Unable to ioremap A53 pll base. Can't configure A53 clocks.\n");
+		ret = -ENOMEM;
+		goto iomap_c0_pll_fail;
+	}
+
+	vbases[C1_PLL_BASE] = ioremap(C1_PLL_BASE_PHY, SZ_4K);
+	if (!vbases[C1_PLL_BASE]) {
+		WARN(1, "Unable to ioremap A57 pll base. Can't configure A57 clocks.\n");
+		ret = -ENOMEM;
+		goto iomap_c1_pll_fail;
+	}
+
 	/* Select GPLL0 for 600MHz on the A57s */
 	writel_relaxed(0x6, vbases[ALIAS1_GLB_BASE] + MUX_OFFSET);
 	/* Select GPLL0 for 600MHz on the A53s */
 	writel_relaxed(0x6, vbases[ALIAS0_GLB_BASE] + MUX_OFFSET);
+
+	/* Setup dividers and outputs */
+	writel_relaxed(0x109, vbases[C0_PLL_BASE] + C0_PLLA_USER_CTL);
+	writel_relaxed(0x109, vbases[C1_PLL_BASE] + C1_PLL_USER_CTL);
+	writel_relaxed(0x109, vbases[C1_PLL_BASE] + C1_PLLA_USER_CTL);
 
 	/* Ensure write goes through before A53s are brought up. */
 	mb();
@@ -2194,6 +2214,9 @@ int __init cpu_clock_8994_init_a57_v2(void)
 	pr_cont("%s: finished configuring A57 cluster clocks.\n",
 		msm8992 ? "msm8992" : "msm8994-v2");
 
+iomap_c1_pll_fail:
+	iounmap(vbases[C0_PLL_BASE]);
+iomap_c0_pll_fail:
 	iounmap(vbases[ALIAS1_GLB_BASE]);
 iomap_fail:
 	iounmap(vbases[ALIAS0_GLB_BASE]);
