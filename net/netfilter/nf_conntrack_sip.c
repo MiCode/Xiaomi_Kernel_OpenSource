@@ -97,9 +97,7 @@ static bool sip_save_segment_info(struct nf_conn *ct, struct sk_buff *skb,
 	 * complete message leaves the kernel, only then the next fragmented
 	 * segment will reach the kernel
 	 */
-	if (ct)
-		dir = CTINFO2DIR(ctinfo);
-
+	dir = CTINFO2DIR(ctinfo);
 	if (dir == IP_CT_DIR_ORIGINAL) {
 		/* here we check if there is already an element queued for this
 		 * direction, in that case we do not queue the next element,we
@@ -157,9 +155,7 @@ static struct sip_list *sip_coalesce_segments(struct nf_conn *ct,
 	th_new = (struct tcphdr *)(skb_network_header(*skb_ref) +
 		ip_hdrlen(*skb_ref));
 	seq_no = ntohl(th_new->seq);
-
-	if (ct)
-		dir = CTINFO2DIR(ctinfo);
+	dir = CTINFO2DIR(ctinfo);
 	/* traverse the list it would have 1 or 2 elements. 1 element per
 	 * direction at max
 	 */
@@ -1761,6 +1757,7 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	bool skb_is_combined = false;
 	enum ip_conntrack_dir dir = IP_CT_DIR_MAX;
 	struct sk_buff *combined_skb = NULL;
+	bool content_len_exists = 1;
 
 	packet_count++;
 	pr_debug("packet count %d\n", packet_count);
@@ -1796,6 +1793,8 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	oldlen1 = skb->len - protoff;
 	dataoff_orig = dataoff;
 
+	if (!ct)
+		return NF_DROP;
 	while (1) {
 		if (ct_sip_get_header(ct, dptr, 0, datalen,
 				      SIP_HDR_CONTENT_LENGTH,
@@ -1827,9 +1826,14 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 		msglen = origlen = end - dptr;
 
 destination:
-
-		if (ct)
-			dir = CTINFO2DIR(ctinfo);
+		if (content_len_exists == 0) {
+			origlen = datalen;
+			msglen = origlen;
+		} else {
+			origlen = end - dptr;
+			msglen = origlen;
+		}
+		dir = CTINFO2DIR(ctinfo);
 		combined_skb = skb;
 
 		/* Segmented Packet */
@@ -1901,8 +1905,10 @@ destination:
 		 */
 		recalc_header(combined_skb, splitlen, oldlen, protoff);
 		/* Reinject the first skb now that the processing is complete */
-		nf_reinject(sip_entry->entry, NF_ACCEPT);
-		kfree(sip_entry);
+		if (sip_entry) {
+			nf_reinject(sip_entry->entry, NF_ACCEPT);
+			kfree(sip_entry);
+		}
 		skb->len = (oldlen1 + protoff) + tdiff - dataoff_orig;
 		/* After splitting, push the headers back to the first skb which
 		 * were removed before combining the skbs.This moves the skb
