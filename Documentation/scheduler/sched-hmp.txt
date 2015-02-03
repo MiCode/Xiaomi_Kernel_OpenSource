@@ -825,7 +825,16 @@ power-efficient cpu found while scanning cluster's online cpus.
 - PF_WAKE_UP_IDLE
 	Any task that has this flag set in its 'task_struct.flags' field will be
 always woken to idle cpu. Further any task woken by such tasks will be also
-placed on idle cpu.
+placed on idle cpu. PF_WAKE_UP_IDLE flag is inherited by children of a task.
+It can be modified for a task in two ways:
+
+	> kernel-space interface
+		set_wake_up_idle() needs to be called in the context of a task
+		to set or clear its PF_WAKE_UP_IDLE flag.
+
+	> user-space interface
+		/proc/[pid]/sched_wake_up_idle file needs to be written to for
+		setting or clearing PF_WAKE_UP_IDLE flag for a given task
 
 For some low band of frequency, spread of task on all available cpus can be
 groslly power-inefficient. As an example, consider two tasks that each need
