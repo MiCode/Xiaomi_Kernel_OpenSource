@@ -183,64 +183,6 @@ static inline void ufs_qcom_phy_qmp_14nm_start_serdes(struct ufs_qcom_phy *phy)
 	/* Ensure register value is committed */
 	mb();
 }
-/*
- * This additional sequence is required as a workaround for following bug:
- * Due to missing reset in the UFS PHY logic, the pll may not lock following
- * analog power collapse. As a result the common block of the PHY must be put
- * into reset during hibernate entry and taken out of reset during hibernate
- * exit. The following sequence is required to save the calibrated VCO codes.
- * Saving the codes will save substantial time on hibernate exit
- * (<50us vs. 1.7ms).
- */
-static void
-ufs_qcom_phy_qmp_14nm_save_calibrated_vco_code(struct ufs_qcom_phy *phy)
-{
-	u32 vco_tune_mode0, vco_tune_mode1;
-	u32 temp;
-
-	/* set common debug bus select */
-	writel_relaxed(0x02, phy->mmio + QSERDES_COM_DEBUG_BUS_SEL);
-	/* apply debug bus select before reading the debug bus registers */
-	mb();
-
-	/* vco_tune_mode0[7:0]: Read VCO tuning code for Series A */
-	vco_tune_mode0 = readl_relaxed(phy->mmio + QSERDES_COM_DEBUG_BUS0)
-			 & 0xFF;
-
-	temp = readl_relaxed(phy->mmio + QSERDES_COM_DEBUG_BUS1);
-	/* vco_tune_mode0[9:8]: Read VCO tuning code for Series A */
-	vco_tune_mode0 |= (temp & 0x300);
-	/* vco_tune_mode1[5:0]: Read VCO tuning code for Series B */
-	vco_tune_mode1 = temp & 0x3F;
-
-	temp = readl_relaxed(phy->mmio + QSERDES_COM_DEBUG_BUS2);
-	/* vco_tune_mode1[9:6]: Read VCO tuning code for Series B */
-	vco_tune_mode1 |= (temp & 0x3C0);
-
-	/* vco_tune_mode0[7:0] */
-	writel_relaxed((vco_tune_mode0 & 0xff),
-			phy->mmio + QSERDES_COM_VCO_TUNE1_MODE0);
-	/* vco_tune_mode0[9:8] */
-	writel_relaxed((vco_tune_mode0 & 0x300) >> 8,
-			phy->mmio + QSERDES_COM_VCO_TUNE2_MODE0);
-	/* vco_tune_mode1[7:0] */
-	writel_relaxed((vco_tune_mode1 & 0xff),
-			phy->mmio + QSERDES_COM_VCO_TUNE1_MODE1);
-	/* vco_tune_mode1[9:8] */
-	writel_relaxed((vco_tune_mode1 & 0x300) >> 8,
-			phy->mmio + QSERDES_COM_VCO_TUNE2_MODE1);
-	/* apply vco tuning codes before enabling the vco bypass mode */
-	mb();
-
-	temp = readl_relaxed(phy->mmio + QSERDES_COM_VCO_TUNE_CTRL);
-	/*
-	 * Bypass the calibrated code and use the stored code for
-	 * both A and B series
-	 */
-	writel_relaxed((temp | 0xC), phy->mmio + QSERDES_COM_VCO_TUNE_CTRL);
-	/* apply this configuration before return */
-	mb();
-}
 
 static int ufs_qcom_phy_qmp_14nm_is_pcs_ready(struct ufs_qcom_phy *phy_common)
 {
@@ -265,10 +207,6 @@ static int ufs_qcom_phy_qmp_14nm_is_pcs_ready(struct ufs_qcom_phy *phy_common)
 		/* apply above configuration immediately */
 		mb();
 	}
-
-	if (phy_common->quirks &
-	    UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE)
-		ufs_qcom_phy_qmp_14nm_save_calibrated_vco_code(phy_common);
 
 out:
 	return err;
