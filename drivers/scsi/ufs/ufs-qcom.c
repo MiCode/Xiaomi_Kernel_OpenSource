@@ -26,6 +26,7 @@
 #include <linux/phy/phy.h>
 
 #include <linux/scsi/ufs/ufshcd.h>
+#include <linux/scsi/ufs/unipro.h>
 #include <linux/scsi/ufs/ufs-qcom.h>
 #include <linux/phy/phy-qcom-ufs.h>
 #include "ufshci.h"
@@ -284,13 +285,16 @@ static int ufs_qcom_power_up_sequence(struct ufs_hba *hba)
 	struct ufs_qcom_host *host = hba->priv;
 	struct phy *phy = host->generic_phy;
 	int ret = 0;
+	bool is_rate_B = (UFS_QCOM_LIMIT_HS_RATE == PA_HS_MODE_B)
+							? true : false;
 
 	/* Assert PHY reset and apply PHY calibration values */
 	ufs_qcom_assert_reset(hba);
 	/* provide 1ms delay to let the reset pulse propagate */
 	usleep_range(1000, 1100);
 
-	ret = ufs_qcom_phy_calibrate_phy(phy);
+	ret = ufs_qcom_phy_calibrate_phy(phy, is_rate_B);
+
 	if (ret) {
 		dev_err(hba->dev, "%s: ufs_qcom_phy_calibrate_phy() failed, ret = %d\n",
 			__func__, ret);

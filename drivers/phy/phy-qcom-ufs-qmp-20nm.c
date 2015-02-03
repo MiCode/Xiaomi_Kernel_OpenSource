@@ -17,11 +17,11 @@
 #define UFS_PHY_NAME "ufs_phy_qmp_20nm"
 
 static
-int ufs_qcom_phy_qmp_20nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy)
+int ufs_qcom_phy_qmp_20nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
+					bool is_rate_B)
 {
 	struct ufs_qcom_phy_calibration *tbl_A, *tbl_B;
 	int tbl_size_A, tbl_size_B;
-	int rate = UFS_QCOM_LIMIT_HS_RATE;
 	u8 major = ufs_qcom_phy->host_ctrl_rev_major;
 	u16 minor = ufs_qcom_phy->host_ctrl_rev_minor;
 	u16 step = ufs_qcom_phy->host_ctrl_rev_step;
@@ -44,7 +44,7 @@ int ufs_qcom_phy_qmp_20nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy)
 	tbl_B = phy_cal_table_rate_B;
 
 	err = ufs_qcom_phy_calibrate(ufs_qcom_phy, tbl_A, tbl_size_A,
-						tbl_B, tbl_size_B, rate);
+						tbl_B, tbl_size_B, is_rate_B);
 
 	if (err)
 		dev_err(ufs_qcom_phy->dev, "%s: ufs_qcom_phy_calibrate() failed %d\n",

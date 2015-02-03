@@ -124,7 +124,7 @@ struct ufs_qcom_phy {
  * and writes to QSERDES_RX_SIGDET_CNTRL attribute
  */
 struct ufs_qcom_phy_specific_ops {
-	int (*calibrate_phy)(struct ufs_qcom_phy *phy);
+	int (*calibrate_phy)(struct ufs_qcom_phy *phy, bool is_rate_B);
 	void (*start_serdes)(struct ufs_qcom_phy *phy);
 	int (*is_physical_coding_sublayer_ready)(struct ufs_qcom_phy *phy);
 	void (*set_tx_lane_enable)(struct ufs_qcom_phy *phy, u32 val);
@@ -149,5 +149,5 @@ struct phy *ufs_qcom_phy_generic_probe(struct platform_device *pdev,
 int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			struct ufs_qcom_phy_calibration *tbl_A, int tbl_size_A,
 			struct ufs_qcom_phy_calibration *tbl_B, int tbl_size_B,
-			int rate);
+			bool is_rate_B);
 #endif

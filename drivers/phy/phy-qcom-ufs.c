@@ -33,7 +33,7 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			   struct ufs_qcom_phy_calibration *tbl_A,
 			   int tbl_size_A,
 			   struct ufs_qcom_phy_calibration *tbl_B,
-			   int tbl_size_B, int rate)
+			   int tbl_size_B, bool is_rate_B)
 {
 	int i;
 	int ret = 0;
@@ -54,7 +54,7 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	 * with registers of rate B table.
 	 * table.
 	 */
-	if (rate == PA_HS_MODE_B) {
+	if (is_rate_B) {
 		if (!tbl_B) {
 			dev_err(ufs_qcom_phy->dev, "%s: tbl_B is NULL",
 				__func__);
@@ -566,7 +566,7 @@ void ufs_qcom_phy_save_controller_version(struct phy *generic_phy,
 	ufs_qcom_phy->host_ctrl_rev_step = step;
 }
 
-int ufs_qcom_phy_calibrate_phy(struct phy *generic_phy)
+int ufs_qcom_phy_calibrate_phy(struct phy *generic_phy, bool is_rate_B)
 {
 	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
 	int ret = 0;
@@ -577,7 +577,7 @@ int ufs_qcom_phy_calibrate_phy(struct phy *generic_phy)
 		ret = -ENOTSUPP;
 	} else {
 		ret = ufs_qcom_phy->phy_spec_ops->
-				calibrate_phy(ufs_qcom_phy);
+				calibrate_phy(ufs_qcom_phy, is_rate_B);
 		if (ret)
 			dev_err(ufs_qcom_phy->dev, "%s: calibrate_phy() failed %d\n",
 				__func__, ret);
