@@ -436,6 +436,7 @@ static int fg_bat_curve[] = {
 
 #ifdef CONFIG_ACPI
 #define FGCONFIG_ACPI_TABLE_NAME	"BCFG"
+#define XPWR_FGCONFIG_NAME		"XPOWER-0"
 
 static int
 dc_xpwr_get_acpi_cdata(struct dollarcove_fg_pdata *pdata)
@@ -464,9 +465,16 @@ dc_xpwr_get_acpi_cdata(struct dollarcove_fg_pdata *pdata)
 		return -ENXIO;
 	}
 
+	if (strncmp(acpi_tbl->cdata.fg_name, XPWR_FGCONFIG_NAME,
+		ACPI_FG_CONF_NAME_LEN)
+		|| strncmp(acpi_tbl->cdata.battid, pdata->battid,
+		BATTID_STR_LEN)) {
+		pr_err("%s: battid and fg_name mismatch!!!\n", __func__);
+		return -EINVAL;
+	}
 
 	memcpy(&pdata->cdata, &acpi_tbl->cdata,
-			sizeof(struct dc_xpwr_acpi_fg_config));
+			sizeof(struct dc_xpwr_fg_config_data));
 
 	return 0;
 }
@@ -480,6 +488,7 @@ static void dc_xpwr_get_fg_config_data(struct dollarcove_fg_pdata *pdata)
 #ifdef CONFIG_ACPI
 	if (!dc_xpwr_get_acpi_cdata(pdata)) {
 		pr_info("%s: Loading fg config from acpi table\n", __func__);
+		pdata->fg_save_restore_enabled = 1;
 		return;
 	}
 #endif /* CONFIG_ACPI */
@@ -509,6 +518,8 @@ static void dc_xpwr_get_fg_config_data(struct dollarcove_fg_pdata *pdata)
 	/* copy curve data */
 	for (i = 0; i < XPWR_BAT_CURVE_SIZE; i++)
 		pdata->cdata.bat_curve[i] = fg_bat_curve[i];
+
+	pdata->fg_save_restore_enabled = 0;
 	return;
 }
 

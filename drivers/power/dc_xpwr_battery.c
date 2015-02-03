@@ -45,6 +45,7 @@
 #include <linux/mfd/intel_soc_pmic.h>
 #include <linux/power/dc_xpwr_battery.h>
 #include <linux/power/battery_id.h>
+#include <linux/efi.h>
 
 #define DC_PS_STAT_REG			0x00
 #define PS_STAT_VBUS_TRIGGER		(1 << 0)
@@ -248,6 +249,117 @@ static int const therm_curve_data[THERM_CURVE_MAX_SAMPLES]
 	{65, 60, 30, 25},
 	{70, 65, 25, 22},
 };
+
+static unsigned short get_cksum(u8 *data, int size)
+{
+	int i;
+	u16 cksum = 0;
+
+	for (i = 0; i < size; i++)
+		cksum += data[i];
+	cksum = (0x10000 - cksum);
+	return cksum;
+}
+
+#ifdef CONFIG_ACPI
+
+/* XPWR_FG_GUID will be given by BIOS */
+#define XPWR_FG_GUID EFI_GUID(0x17c04bed, 0x9577, 0x4952, 0x89, 0x44,\
+				0x59, 0x64, 0xa4, 0x7c, 0x6d, 0xc5)
+#define EFI_VAR_MAX_DATA 256
+#define EFI_FG_VAR_NAME "FuelGaugeVar"
+#define EFI_FG_VAR_NAME_SIZE 64
+
+/* structure of efi variable to save secondary fg configuration data. */
+struct xpwr_fg_sec_config_efi_data {
+	char  fg_name[ACPI_FG_CONF_NAME_LEN];
+	u16  size;
+	u16  sec_cksum;	/* Checksum for variable config data */
+	u16  prim_cksum; /* Primary config data checksum */
+	/*
+	 * Use the maximum fuel gauge config data size.
+	 * XPOWER      - 36  Bytes
+	 */
+	u8   config_data[EFI_VAR_MAX_DATA];
+} __packed;
+
+static void
+dc_xpwr_dump_efi_var_data(struct xpwr_fg_sec_config_efi_data *vdata,
+		struct pmic_fg_info *info)
+{
+	int i;
+
+	dev_info(&info->pdev->dev, "EFI_VAR: fg_name=%s\n", vdata->fg_name);
+	dev_info(&info->pdev->dev, "EFI_VAR: size=%d\n", vdata->size);
+	dev_info(&info->pdev->dev, "EFI_VAR: sec_cksum=0x%x\n",
+			vdata->sec_cksum);
+	dev_info(&info->pdev->dev, "EFI_VAR: prim_cksum=0x%x\n",
+			vdata->prim_cksum);
+	dev_info(&info->pdev->dev, "EFI_VAR: cap1=0x%x\n",
+			vdata->config_data[0]);
+	dev_info(&info->pdev->dev, "EFI_VAR: cap0=0x%x\n",
+			vdata->config_data[1]);
+	dev_info(&info->pdev->dev, "EFI_VAR: rdc1=0x%x\n",
+			vdata->config_data[2]);
+	dev_info(&info->pdev->dev, "EFI_VAR: rdc0=0x%x\n",
+			vdata->config_data[3]);
+
+	for (i = 4; i < XPWR_FG_DATA_SIZE; i++)
+		dev_info(&info->pdev->dev, "EFI_VAR: bat_curve[%d]=0x%x\n",
+				i-4, vdata->config_data[i]);
+}
+
+static void
+char_to_efi_char16(efi_char16_t *dest, const char *src, int dest_len)
+{
+	int i;
+
+	for (i = 0; i < dest_len - 1; i++) {
+		if (!src[i])
+			break;
+		dest[i] = src[i];
+	}
+	dest[i] = 0;
+	return;
+}
+
+static int dc_xpwr_efi_save_fg_conf_data(struct pmic_fg_info *info)
+{
+	struct dc_xpwr_fg_config_data *cdata = &info->pdata->cdata;
+
+	efi_char16_t efi_var_name[EFI_FG_VAR_NAME_SIZE];
+	efi_status_t status;
+	u32 attr = 0;
+	struct xpwr_fg_sec_config_efi_data var_data;
+
+	char_to_efi_char16(efi_var_name, EFI_FG_VAR_NAME, EFI_FG_VAR_NAME_SIZE);
+
+	/* Copy the fg config data to variable data*/
+	memset(&var_data, 0, sizeof(var_data));
+	memcpy(var_data.fg_name, cdata->fg_name, ACPI_FG_CONF_NAME_LEN);
+	var_data.size = cdata->size;
+	var_data.prim_cksum = cdata->checksum;
+	memcpy(var_data.config_data, &cdata->cap1, XPWR_FG_DATA_SIZE);
+	var_data.sec_cksum = get_cksum(var_data.config_data, EFI_VAR_MAX_DATA);
+
+	attr = EFI_VARIABLE_NON_VOLATILE
+		| EFI_VARIABLE_BOOTSERVICE_ACCESS
+		| EFI_VARIABLE_RUNTIME_ACCESS;
+
+	dc_xpwr_dump_efi_var_data(&var_data, info);
+	status = efi.set_variable(efi_var_name, &XPWR_FG_GUID,
+					attr, sizeof(var_data), &var_data);
+	if (status != EFI_SUCCESS) {
+		dev_err(&info->pdev->dev,
+			"Failed to set efi variable data,err=%lu\n",
+			(unsigned long)status);
+		return status;
+	}
+	dev_info(&info->pdev->dev, "Updated EFI variable data\n");
+	return 0;
+}
+
+#endif /*CONFIG_ACPI*/
 
 static int pmic_fg_reg_readb(struct pmic_fg_info *info, int reg)
 {
@@ -770,6 +882,76 @@ static void pmic_fg_external_power_changed(struct power_supply *psy)
 	power_supply_changed(&info->bat);
 }
 
+
+static int pmic_fg_update_config_params(struct pmic_fg_info *info)
+{
+	int ret;
+	int i;
+	struct dc_xpwr_fg_config_data *cdata;
+
+	cdata = &info->pdata->cdata;
+	ret = pmic_fg_reg_readb(info, DC_FG_DES_CAP1_REG);
+	if (ret < 0)
+		goto fg_svae_cfg_fail;
+	cdata->cap1 = ret;
+
+	/*
+	 * higher byte and lower byte reads should be
+	 * back to back to get successful lower byte result.
+	 */
+	pmic_fg_reg_readb(info, DC_FG_DES_CAP1_REG);
+	ret = pmic_fg_reg_readb(info, DC_FG_DES_CAP0_REG);
+	if (ret < 0)
+		goto fg_svae_cfg_fail;
+	else
+		cdata->cap0 = ret;
+
+	ret = pmic_fg_reg_readb(info, DC_FG_RDC1_REG);
+	if (ret < 0)
+		goto fg_svae_cfg_fail;
+	else
+		cdata->rdc1 = ret;
+
+	/*
+	 * higher byte and lower byte reads should be
+	 * back to back to get successful lower byte result.
+	 */
+	pmic_fg_reg_readb(info, DC_FG_RDC1_REG);
+	ret = pmic_fg_reg_readb(info, DC_FG_RDC0_REG);
+	if (ret < 0)
+		goto fg_svae_cfg_fail;
+	else
+		cdata->rdc0 = ret;
+
+	for (i = 0; i < XPWR_BAT_CURVE_SIZE; i++) {
+		ret = pmic_fg_reg_readb(info, DC_FG_OCV_CURVE_REG + i);
+		if (ret < 0)
+			goto fg_svae_cfg_fail;
+		else
+			cdata->bat_curve[i] = ret;
+	}
+
+	return 0;
+
+fg_svae_cfg_fail:
+	return ret;
+}
+
+static int pmic_fg_save_fg_config_params(struct pmic_fg_info *info)
+{
+
+	/* Read and update the config data from pmic to local strucure */
+	pmic_fg_update_config_params(info);
+
+#ifdef CONFIG_ACPI
+	/* Save the FG config data to EFI variables */
+	if (!dc_xpwr_efi_save_fg_conf_data(info))
+		return 0;
+#endif
+	dev_info(&info->pdev->dev, "FG config save/restore not supported\n");
+	return 0;
+}
+
 static int pmic_fg_set_lowbatt_thresholds(struct pmic_fg_info *info)
 {
 	int ret;
@@ -1126,6 +1308,15 @@ static int pmic_fg_runtime_idle(struct device *dev)
 	return 0;
 }
 
+static void pmic_fg_shutdown(struct platform_device *pdev)
+{
+	struct pmic_fg_info *info = platform_get_drvdata(pdev);
+
+	dev_dbg(&pdev->dev, "%s called\n", __func__);
+	if (info->pdata->fg_save_restore_enabled)
+		pmic_fg_save_fg_config_params(info);
+
+}
 static const struct dev_pm_ops pmic_fg_pm_ops = {
 		SET_SYSTEM_SLEEP_PM_OPS(pmic_fg_suspend,
 				pmic_fg_resume)
@@ -1142,6 +1333,7 @@ static struct platform_driver pmic_fg_driver = {
 	},
 	.probe = pmic_fg_probe,
 	.remove = pmic_fg_remove,
+	.shutdown = pmic_fg_shutdown,
 };
 
 static int __init dc_pmic_fg_init(void)

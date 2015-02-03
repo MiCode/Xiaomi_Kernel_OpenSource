@@ -57,6 +57,7 @@ struct dollarcove_fg_pdata {
 	int design_max_volt;
 	int max_temp;
 	int min_temp;
+	int fg_save_restore_enabled;
 
 	struct dc_xpwr_fg_config_data cdata;
 };
