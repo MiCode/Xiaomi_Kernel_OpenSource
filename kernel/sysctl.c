@@ -1110,6 +1110,22 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= proc_dointvec,
 	},
 #endif
+#ifdef CONFIG_CPU_CONCURRENCY
+	{
+		.procname       = "concurrency_sum_period",
+		.data           = &sysctl_concurrency_sum_period,
+		.maxlen         = sizeof(sysctl_concurrency_sum_period),
+		.mode           = 0644,
+		.proc_handler   = proc_dointvec,
+	},
+	{
+		.procname       = "concurrency_decay_rate",
+		.data           = &sysctl_concurrency_decay_rate,
+		.maxlen         = sizeof(sysctl_concurrency_decay_rate),
+		.mode           = 0644,
+		.proc_handler   = concurrency_decay_rate_handler,
+	},
+#endif
 	{ }
 };
 

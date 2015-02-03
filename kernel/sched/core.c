@@ -763,6 +763,7 @@ static void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 	update_rq_clock(rq);
 	sched_info_queued(rq, p);
 	p->sched_class->enqueue_task(rq, p, flags);
+	update_cpu_concurrency(rq);
 }
 
 static void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
@@ -770,6 +771,7 @@ static void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 	update_rq_clock(rq);
 	sched_info_dequeued(rq, p);
 	p->sched_class->dequeue_task(rq, p, flags);
+	update_cpu_concurrency(rq);
 }
 
 void activate_task(struct rq *rq, struct task_struct *p, int flags)
@@ -2445,6 +2447,7 @@ void scheduler_tick(void)
 	update_rq_clock(rq);
 	curr->sched_class->task_tick(rq, curr, 0);
 	update_cpu_load_active(rq);
+	update_cpu_concurrency(rq);
 	raw_spin_unlock(&rq->lock);
 
 	perf_event_task_tick();
@@ -6922,6 +6925,11 @@ void __init sched_init(void)
 #endif
 		init_rq_hrtick(rq);
 		atomic_set(&rq->nr_iowait, 0);
+
+		/*
+		 * cpu concurrency init
+		 */
+		init_cpu_concurrency(rq);
 	}
 
 	set_load_weight(&init_task);

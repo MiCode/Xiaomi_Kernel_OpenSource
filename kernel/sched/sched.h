@@ -514,6 +514,17 @@ extern struct root_domain def_root_domain;
 
 #endif /* CONFIG_SMP */
 
+#ifdef CONFIG_CPU_CONCURRENCY
+struct cpu_concurrency_t {
+	u64 sum;
+	u64 sum_now;
+	u64 contrib;
+	u64 sum_timestamp;
+	u64 contrib_timestamp;
+	unsigned long nr_running;
+};
+#endif
+
 /*
  * This is the main, per-CPU runqueue data structure.
  *
@@ -653,6 +664,10 @@ struct rq {
 #endif
 
 	struct sched_avg avg;
+
+#ifdef CONFIG_CPU_CONCURRENCY
+	struct cpu_concurrency_t concurrency;
+#endif
 };
 
 static inline int cpu_of(struct rq *rq)
@@ -1199,6 +1214,14 @@ extern void init_sched_dl_class(void);
 
 extern void resched_task(struct task_struct *p);
 extern void resched_cpu(int cpu);
+
+#ifdef CONFIG_CPU_CONCURRENCY
+extern void init_cpu_concurrency(struct rq *rq);
+extern void update_cpu_concurrency(struct rq *rq);
+#else
+static inline void init_cpu_concurrency(struct rq *rq) {}
+static inline void update_cpu_concurrency(struct rq *rq) {}
+#endif
 
 extern struct rt_bandwidth def_rt_bandwidth;
 extern void init_rt_bandwidth(struct rt_bandwidth *rt_b, u64 period, u64 runtime);

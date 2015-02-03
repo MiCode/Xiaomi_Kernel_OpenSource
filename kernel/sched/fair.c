@@ -2404,6 +2404,7 @@ static inline void dequeue_entity_load_avg(struct cfs_rq *cfs_rq,
 void idle_enter_fair(struct rq *this_rq)
 {
 	update_rq_runnable_avg(this_rq, 1);
+	update_cpu_concurrency(this_rq);
 }
 
 /*
@@ -2414,6 +2415,7 @@ void idle_enter_fair(struct rq *this_rq)
 void idle_exit_fair(struct rq *this_rq)
 {
 	update_rq_runnable_avg(this_rq, 0);
+	update_cpu_concurrency(this_rq);
 }
 
 #else
