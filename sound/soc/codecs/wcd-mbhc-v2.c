@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2043,6 +2043,30 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		if (ret) {
 			pr_err("%s: Failed to set code for btn-0\n",
 				__func__);
+			return ret;
+		}
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_1,
+				       KEY_VOICECOMMAND);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-1:%d\n",
+					__func__, ret);
+			return ret;
+		}
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_2,
+				       KEY_VOLUMEUP);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-2:%d\n",
+				__func__, ret);
+			return ret;
+		}
+		ret = snd_jack_set_key(mbhc->button_jack.jack,
+				       SND_JACK_BTN_3,
+				       KEY_VOLUMEDOWN);
+		if (ret) {
+			pr_err("%s: Failed to set code for btn-3:%d\n",
+				__func__, ret);
 			return ret;
 		}
 
