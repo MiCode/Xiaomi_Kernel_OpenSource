@@ -350,7 +350,7 @@
 		};
 	};
 
-	qcom,pm8950@1 {
+	pm8950_1: qcom,pm8950@1 {
 		spmi-slave-container;
 		reg = <0x1>;
 		#address-cells = <1>;
