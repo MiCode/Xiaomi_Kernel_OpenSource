@@ -183,8 +183,9 @@ static inline int get_ps_int_property(struct power_supply *psy,
 #define IS_BATTERY(psy) (psy->type == POWER_SUPPLY_TYPE_BATTERY)
 #define IS_CHARGER(psy) (psy->type == POWER_SUPPLY_TYPE_USB ||\
 				psy->type == POWER_SUPPLY_TYPE_USB_CDP || \
-			psy->type == POWER_SUPPLY_TYPE_USB_DCP ||\
-			psy->type == POWER_SUPPLY_TYPE_USB_ACA)
+			psy->type == POWER_SUPPLY_TYPE_USB_DCP || \
+			psy->type == POWER_SUPPLY_TYPE_USB_ACA || \
+			psy->type == POWER_SUPPLY_TYPE_USB_TYPEC)
 #define IS_ONLINE(psy) \
 		(get_ps_int_property(psy, POWER_SUPPLY_PROP_ONLINE) == 1)
 #define IS_PRESENT(psy) \

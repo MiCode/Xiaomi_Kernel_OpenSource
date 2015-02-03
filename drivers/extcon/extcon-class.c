@@ -53,6 +53,7 @@ const char extcon_cable_name[][CABLE_NAME_MAX + 1] = {
 	[EXTCON_CDP]		= "CHARGER_USB_CDP",
 	[EXTCON_ACA]		= "CHARGER_USB_ACA",
 	[EXTCON_AC]		= "CHARGER_AC",
+	[EXTCON_TYPEC]		= "USB_TYPEC",
 	[EXTCON_HDMI]		= "HDMI",
 	[EXTCON_MHL]		= "MHL",
 	[EXTCON_DVI]		= "DVI",

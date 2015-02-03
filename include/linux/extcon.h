@@ -61,6 +61,7 @@ enum extcon_cable_name {
 	EXTCON_CDP,
 	EXTCON_ACA,
 	EXTCON_AC,
+	EXTCON_TYPEC,
 	EXTCON_HDMI,
 	EXTCON_MHL,
 	EXTCON_DVI,
