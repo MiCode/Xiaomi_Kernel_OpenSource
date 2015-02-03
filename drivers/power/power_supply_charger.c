@@ -658,7 +658,7 @@ static void update_sysfs(struct power_supply *psy)
 			if (!IS_PRESENT(chrgr_lst[cnt]))
 				continue;
 
-			update_charger_online(psy);
+			update_charger_online(chrgr_lst[cnt]);
 		}
 		/* set battery status */
 		if (set_battery_status(psy, get_battery_status(psy)))
@@ -679,7 +679,7 @@ static void update_sysfs(struct power_supply *psy)
 					 * forcefully cache the battery
 					 * properties
 					 */
-					cache_cur_batt_prop_force(psy);
+					cache_cur_batt_prop_force(psb);
 		}
 	}
 }
