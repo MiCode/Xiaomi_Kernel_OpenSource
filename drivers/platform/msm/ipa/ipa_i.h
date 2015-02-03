@@ -26,6 +26,7 @@
 #include "ipa_hw_defs.h"
 #include "ipa_ram_mmap.h"
 #include "ipa_reg.h"
+#include "ipa_qmi_service.h"
 
 #define DRV_NAME "ipa"
 #define NAT_DEV_NAME "ipaNatTable"
@@ -134,7 +135,7 @@
 	(((start_ofst) + IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE - 1) & \
 	~(IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE - 1))
 
-#define MAX_RESOURCE_TO_CLIENTS (5)
+#define MAX_RESOURCE_TO_CLIENTS (IPA_CLIENT_MAX)
 #define IPA_MEM_PART(x_) (ipa_ctx->ctrl->mem_partition.x_)
 
 struct ipa_client_names {
@@ -900,6 +901,85 @@ struct ipa_uc_hdlrs {
 };
 
 /**
+ * enum ipa_hw_flags - flags which defines the behavior of HW
+ *
+ * @IPA_HW_FLAG_HALT_SYSTEM_ON_ASSERT_FAILURE: Halt system in case of assert
+ *	failure.
+ * @IPA_HW_FLAG_NO_REPORT_MHI_CHANNEL_ERORR: Channel error would be reported
+ *	in the event ring only. No event to CPU.
+ * @IPA_HW_FLAG_NO_REPORT_MHI_CHANNEL_WAKE_UP: No need to report event
+ *	IPA_HW_2_CPU_EVENT_MHI_WAKE_UP_REQUEST
+ * @IPA_HW_FLAG_WORK_OVER_DDR: Perform all transaction to external addresses by
+ *	QMB (avoid memcpy)
+ * @IPA_HW_FLAG_NO_REPORT_OOB: If set do not report that the device is OOB in
+ *	IN Channel
+ * @IPA_HW_FLAG_NO_REPORT_DB_MODE: If set, do not report that the device is
+ *	entering a mode where it expects a doorbell to be rung for OUT Channel
+ * @IPA_HW_FLAG_NO_START_OOB_TIMER
+ */
+enum ipa_hw_flags {
+	IPA_HW_FLAG_HALT_SYSTEM_ON_ASSERT_FAILURE	= 0x01,
+	IPA_HW_FLAG_NO_REPORT_MHI_CHANNEL_ERORR		= 0x02,
+	IPA_HW_FLAG_NO_REPORT_MHI_CHANNEL_WAKE_UP	= 0x04,
+	IPA_HW_FLAG_WORK_OVER_DDR			= 0x08,
+	IPA_HW_FLAG_NO_REPORT_OOB			= 0x10,
+	IPA_HW_FLAG_NO_REPORT_DB_MODE			= 0x20,
+	IPA_HW_FLAG_NO_START_OOB_TIMER			= 0x40
+};
+
+/**
+ * enum ipa_hw_mhi_channel_states - MHI channel state machine
+ *
+ * Values are according to MHI specification
+ * @IPA_HW_MHI_CHANNEL_STATE_DISABLE: Channel is disabled and not processed by
+ *	the host or device.
+ * @IPA_HW_MHI_CHANNEL_STATE_ENABLE: A channel is enabled after being
+ *	initialized and configured by host, including its channel context and
+ *	associated transfer ring. While this state, the channel is not active
+ *	and the device does not process transfer.
+ * @IPA_HW_MHI_CHANNEL_STATE_RUN: The device processes transfers and doorbell
+ *	for channels.
+ * @IPA_HW_MHI_CHANNEL_STATE_SUSPEND: Used to halt operations on the channel.
+ *	The device does not process transfers for the channel in this state.
+ *	This state is typically used to synchronize the transition to low power
+ *	modes.
+ * @IPA_HW_MHI_CHANNEL_STATE_STOP: Used to halt operations on the channel.
+ *	The device does not process transfers for the channel in this state.
+ * @IPA_HW_MHI_CHANNEL_STATE_ERROR: The device detected an error in an element
+ *	from the transfer ring associated with the channel.
+ * @IPA_HW_MHI_CHANNEL_STATE_INVALID: Invalid state. Shall not be in use in
+ *	operational scenario.
+ */
+enum ipa_hw_mhi_channel_states {
+	IPA_HW_MHI_CHANNEL_STATE_DISABLE	= 0,
+	IPA_HW_MHI_CHANNEL_STATE_ENABLE		= 1,
+	IPA_HW_MHI_CHANNEL_STATE_RUN		= 2,
+	IPA_HW_MHI_CHANNEL_STATE_SUSPEND	= 3,
+	IPA_HW_MHI_CHANNEL_STATE_STOP		= 4,
+	IPA_HW_MHI_CHANNEL_STATE_ERROR		= 5,
+	IPA_HW_MHI_CHANNEL_STATE_INVALID	= 0xFF
+};
+
+/**
+ * Structure holding the parameters for IPA_CPU_2_HW_CMD_MHI_DL_UL_SYNC_INFO
+ * command. Parameters are sent as 32b immediate parameters.
+ * @isDlUlSyncEnabled: Flag to indicate if DL UL Syncronization is enabled
+ * @UlAccmVal: UL Timer Accumulation value (Period after which device will poll
+ *	for UL data)
+ * @ulMsiEventThreshold: Threshold at which HW fires MSI to host for UL events
+ * @dlMsiEventThreshold: Threshold at which HW fires MSI to host for DL events
+ */
+union IpaHwMhiDlUlSyncCmdData_t {
+	struct IpaHwMhiDlUlSyncCmdParams_t {
+		u32 isDlUlSyncEnabled:8;
+		u32 UlAccmVal:8;
+		u32 ulMsiEventThreshold:8;
+		u32 dlMsiEventThreshold:8;
+	} params;
+	u32 raw32b;
+};
+
+/**
  * struct ipa_uc_ctx - IPA uC context
  * @uc_inited: Indicates if uC interface has been initialized
  * @uc_loaded: Indicates if uC has loaded
@@ -1415,6 +1495,8 @@ int ipa_init_q6_smem(void);
 int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
 			 enum ipa_client_type ipa_client);
 
+int ipa_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
+
 int ipa_uc_interface_init(void);
 int ipa_uc_reset_pipe(enum ipa_client_type ipa_client);
 int ipa_uc_state_check(void);
@@ -1427,4 +1509,19 @@ int create_nat_device(void);
 int ipa_uc_notify_clk_state(bool enabled);
 void ipa_dma_async_memcpy_notify_cb(void *priv,
 		enum ipa_dp_evt_type evt, unsigned long data);
+
+int ipa_uc_update_hw_flags(u32 flags);
+
+int ipa_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void));
+int ipa_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t cmd);
+int ipa_uc_mhi_init_engine(struct ipa_mhi_msi_info *msi, u32 mmio_addr,
+	u32 host_ctrl_addr, u32 host_data_addr, u32 first_ch_idx,
+	u32 first_evt_idx);
+int ipa_uc_mhi_init_channel(int ipa_ep_idx, int channelHandle,
+	int contexArrayIndex, int channelDirection);
+int ipa_uc_mhi_reset_channel(int channelHandle);
+int ipa_uc_mhi_suspend_channel(int channelHandle);
+int ipa_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected);
+int ipa_uc_mhi_stop_event_update_channel(int channelHandle);
+int ipa_uc_mhi_print_stats(char *dbg_buff, int size);
 #endif /* _IPA_I_H_ */

@@ -86,6 +86,16 @@ static struct msg_desc ipa_filter_installed_notif_resp_desc = {
 	.msg_id = QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_V01,
 	.ei_array = ipa_fltr_installed_notif_resp_msg_data_v01_ei,
 };
+static struct msg_desc ipa_config_req_desc = {
+	.max_msg_len = QMI_IPA_CONFIG_REQ_MAX_MSG_LEN_V01,
+	.msg_id = QMI_IPA_CONFIG_REQ_V01,
+	.ei_array = ipa_config_req_msg_data_v01_ei,
+};
+static struct msg_desc ipa_config_resp_desc = {
+	.max_msg_len = QMI_IPA_CONFIG_RESP_MAX_MSG_LEN_V01,
+	.msg_id = QMI_IPA_CONFIG_RESP_V01,
+	.ei_array = ipa_config_resp_msg_data_v01_ei,
+};
 
 static int handle_indication_req(void *req_h, void *req)
 {
@@ -186,6 +196,27 @@ static int handle_filter_installed_notify_req(void *req_h, void *req)
 	return rc;
 }
 
+static int handle_ipa_config_req(void *req_h, void *req)
+{
+	struct ipa_config_resp_msg_v01 resp;
+	int rc;
+
+	memset(&resp, 0, sizeof(struct ipa_config_resp_msg_v01));
+	resp.resp.result = IPA_QMI_RESULT_SUCCESS_V01;
+	IPAWANDBG("Received IPA CONFIG Request\n");
+	rc = ipa_mhi_handle_ipa_config_req(
+		(struct ipa_config_req_msg_v01 *)req);
+	if (rc) {
+		IPAERR("ipa_mhi_handle_ipa_config_req failed %d\n", rc);
+		resp.resp.result = IPA_QMI_RESULT_FAILURE_V01;
+	}
+	rc = qmi_send_resp_from_cb(ipa_svc_handle, curr_conn, req_h,
+		&ipa_config_resp_desc,
+		&resp, sizeof(resp));
+	IPAWANDBG("Responsed IPA CONFIG Request\n");
+	return rc;
+}
+
 static int ipa_a5_svc_connect_cb(struct qmi_handle *handle,
 			       void *conn_h)
 {
@@ -228,6 +259,10 @@ static int ipa_a5_svc_req_desc_cb(unsigned int msg_id,
 		*req_desc = &ipa_filter_installed_notif_req_desc;
 		rc = sizeof(struct ipa_fltr_installed_notif_req_msg_v01);
 		break;
+	case QMI_IPA_CONFIG_REQ_V01:
+		*req_desc = &ipa_config_req_desc;
+		rc = sizeof(struct ipa_config_req_msg_v01);
+		break;
 	default:
 		rc = -ENOTSUPP;
 		break;
@@ -252,6 +287,9 @@ static int ipa_a5_svc_req_cb(struct qmi_handle *handle, void *conn_h,
 		break;
 	case QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_V01:
 		rc = handle_filter_installed_notify_req(req_h, req);
+		break;
+	case QMI_IPA_CONFIG_REQ_V01:
+		rc = handle_ipa_config_req(req_h, req);
 		break;
 	default:
 		rc = -ENOTSUPP;
@@ -480,6 +518,93 @@ int qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 		resp.resp.error, "ipa_install_filter");
 }
 
+
+int qmi_enable_force_clear_datapath_send(
+	struct ipa_enable_force_clear_datapath_req_msg_v01 *req)
+{
+	struct ipa_enable_force_clear_datapath_resp_msg_v01 resp;
+	struct msg_desc req_desc, resp_desc;
+	int rc = 0;
+
+
+	if (!req || !req->source_pipe_bitmask) {
+		IPAWANERR("invalid params\n");
+		return -EINVAL;
+	}
+
+	req_desc.max_msg_len =
+	QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_REQ_MAX_MSG_LEN_V01;
+	req_desc.msg_id = QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_REQ_V01;
+	req_desc.ei_array = ipa_enable_force_clear_datapath_req_msg_data_v01_ei;
+
+	memset(&resp, 0, sizeof(struct ipa_fltr_installed_notif_resp_msg_v01));
+	resp_desc.max_msg_len =
+		QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_RESP_MAX_MSG_LEN_V01;
+	resp_desc.msg_id = QMI_IPA_ENABLE_FORCE_CLEAR_DATAPATH_RESP_V01;
+	resp_desc.ei_array =
+		ipa_enable_force_clear_datapath_resp_msg_data_v01_ei;
+
+	rc = qmi_send_req_wait(ipa_q6_clnt,
+			&req_desc,
+			req,
+			sizeof(*req),
+			&resp_desc, &resp, sizeof(resp), 0);
+	if (rc < 0) {
+		IPAWANERR("send req failed %d\n", rc);
+		return rc;
+	}
+	if (resp.resp.result != IPA_QMI_RESULT_SUCCESS_V01) {
+		IPAWANERR("filter_notify failed %d\n",
+			resp.resp.result);
+		return resp.resp.result;
+	}
+	IPAWANDBG("SUCCESS\n");
+	return rc;
+}
+
+int qmi_disable_force_clear_datapath_send(
+	struct ipa_disable_force_clear_datapath_req_msg_v01 *req)
+{
+	struct ipa_disable_force_clear_datapath_resp_msg_v01 resp;
+	struct msg_desc req_desc, resp_desc;
+	int rc = 0;
+
+
+	if (!req) {
+		IPAWANERR("invalid params\n");
+		return -EINVAL;
+	}
+
+	req_desc.max_msg_len =
+		QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_REQ_MAX_MSG_LEN_V01;
+	req_desc.msg_id = QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_REQ_V01;
+	req_desc.ei_array =
+		ipa_disable_force_clear_datapath_req_msg_data_v01_ei;
+
+	memset(&resp, 0, sizeof(struct ipa_fltr_installed_notif_resp_msg_v01));
+	resp_desc.max_msg_len =
+		QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_RESP_MAX_MSG_LEN_V01;
+	resp_desc.msg_id = QMI_IPA_DISABLE_FORCE_CLEAR_DATAPATH_RESP_V01;
+	resp_desc.ei_array =
+		ipa_disable_force_clear_datapath_resp_msg_data_v01_ei;
+
+	rc = qmi_send_req_wait(ipa_q6_clnt,
+			&req_desc,
+			req,
+			sizeof(*req),
+			&resp_desc, &resp, sizeof(resp), 0);
+	if (rc < 0) {
+		IPAWANERR("send req failed %d\n", rc);
+		return rc;
+	}
+	if (resp.resp.result != IPA_QMI_RESULT_SUCCESS_V01) {
+		IPAWANERR("filter_notify failed %d\n",
+			resp.resp.result);
+		return resp.resp.result;
+	}
+	IPAWANDBG("SUCCESS\n");
+	return rc;
+}
 
 /* sending filter-installed-notify-request to modem*/
 int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req)
