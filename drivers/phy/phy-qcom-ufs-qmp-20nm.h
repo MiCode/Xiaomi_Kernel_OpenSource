@@ -15,7 +15,7 @@
 #ifndef UFS_QCOM_PHY_QMP_20NM_H_
 #define UFS_QCOM_PHY_QMP_20NM_H_
 
-#include <linux/phy/phy-qcom-ufs.h>
+#include "phy-qcom-ufs-i.h"
 
 /* QCOM UFS PHY control registers */
 

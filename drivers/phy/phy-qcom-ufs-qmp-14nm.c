@@ -12,8 +12,6 @@
  *
  */
 
-#include <linux/kernel.h>
-#include <linux/phy/phy-qcom-ufs.h>
 #include "phy-qcom-ufs-qmp-14nm.h"
 
 #define UFS_PHY_NAME "ufs_phy_qmp_14nm"

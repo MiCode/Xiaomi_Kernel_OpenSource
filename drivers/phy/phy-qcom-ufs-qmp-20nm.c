@@ -12,17 +12,6 @@
  *
  */
 
-#include <linux/io.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/time.h>
-#include <linux/clk.h>
-#include <linux/of.h>
-#include <linux/iopoll.h>
-#include <linux/platform_device.h>
-#include <linux/msm-bus.h>
-
-#include <linux/phy/phy-qcom-ufs.h>
 #include "phy-qcom-ufs-qmp-20nm.h"
 
 #define UFS_PHY_NAME "ufs_phy_qmp_20nm"

@@ -123,16 +123,6 @@ enum ufs_qcom_phy_init_type {
 	UFS_PHY_INIT_CFG_RESTORE,
 };
 
-struct ufs_qcom_phy_vreg {
-	const char *name;
-	struct regulator *reg;
-	int max_uA;
-	int min_uV;
-	int max_uV;
-	bool enabled;
-	bool is_always_on;
-};
-
 /* QCOM UFS debug print bit mask */
 #define UFS_QCOM_DBG_PRINT_REGS_EN	BIT(0)
 #define UFS_QCOM_DBG_PRINT_ICE_REGS_EN	BIT(1)
@@ -275,14 +265,6 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host);
 void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba, void *priv,
 		void (*print_fn)(struct ufs_hba *hba, int offset, int num_regs,
 				char *str, void *priv));
-
-#define MAX_PROP_NAME              32
-#define VDDA_PHY_MIN_UV            1000000
-#define VDDA_PHY_MAX_UV            1000000
-#define VDDA_PLL_MIN_UV            1800000
-#define VDDA_PLL_MAX_UV            1800000
-#define VDDP_REF_CLK_MIN_UV        1200000
-#define VDDP_REF_CLK_MAX_UV        1200000
 
 static inline bool ufs_qcom_cap_qunipro(struct ufs_qcom_host *host)
 {

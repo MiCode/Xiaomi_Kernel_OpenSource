@@ -15,7 +15,7 @@
 #ifndef UFS_QCOM_PHY_QMP_14NM_H_
 #define UFS_QCOM_PHY_QMP_14NM_H_
 
-#include <linux/phy/phy-qcom-ufs.h>
+#include "phy-qcom-ufs-i.h"
 
 /* QCOM UFS PHY control registers */
 #define COM_OFF(x)	(0x000 + x)

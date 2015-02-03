@@ -12,22 +12,22 @@
  *
  */
 
-#include <linux/io.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/time.h>
-#include <linux/clk.h>
-#include <linux/of.h>
-#include <linux/iopoll.h>
-#include <linux/platform_device.h>
-#include <linux/msm-bus.h>
+#include "phy-qcom-ufs-i.h"
 
-#include <linux/phy/phy-qcom-ufs.h>
+#define MAX_PROP_NAME              32
+#define VDDA_PHY_MIN_UV            1000000
+#define VDDA_PHY_MAX_UV            1000000
+#define VDDA_PLL_MIN_UV            1800000
+#define VDDA_PLL_MAX_UV            1800000
+#define VDDP_REF_CLK_MIN_UV        1200000
+#define VDDP_REF_CLK_MAX_UV        1200000
 
 static int __ufs_qcom_phy_init_vreg(struct phy *, struct ufs_qcom_phy_vreg *,
 				    const char *, bool);
 static int ufs_qcom_phy_init_vreg(struct phy *, struct ufs_qcom_phy_vreg *,
 				  const char *);
+static int ufs_qcom_phy_base_init(struct platform_device *pdev,
+				  struct ufs_qcom_phy *phy_common);
 
 int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			   struct ufs_qcom_phy_calibration *tbl_A,
@@ -122,6 +122,7 @@ struct ufs_qcom_phy *get_ufs_qcom_phy(struct phy *generic_phy)
 	return (struct ufs_qcom_phy *)phy_get_drvdata(generic_phy);
 }
 
+static
 int ufs_qcom_phy_base_init(struct platform_device *pdev,
 			   struct ufs_qcom_phy *phy_common)
 {
@@ -167,6 +168,7 @@ static int __ufs_qcom_phy_clk_get(struct phy *phy,
 	return err;
 }
 
+static
 int ufs_qcom_phy_clk_get(struct phy *phy,
 			 const char *name, struct clk **clk_out)
 {
@@ -302,6 +304,7 @@ static int ufs_qcom_phy_init_vreg(struct phy *phy,
 	return __ufs_qcom_phy_init_vreg(phy, vreg, name, false);
 }
 
+static
 int ufs_qcom_phy_cfg_vreg(struct phy *phy,
 			  struct ufs_qcom_phy_vreg *vreg, bool on)
 {
@@ -341,6 +344,7 @@ out:
 	return ret;
 }
 
+static
 int ufs_qcom_phy_enable_vreg(struct phy *phy,
 			     struct ufs_qcom_phy_vreg *vreg)
 {
@@ -421,6 +425,7 @@ out:
 	return ret;
 }
 
+static
 int ufs_qcom_phy_disable_vreg(struct phy *phy,
 			      struct ufs_qcom_phy_vreg *vreg)
 {
