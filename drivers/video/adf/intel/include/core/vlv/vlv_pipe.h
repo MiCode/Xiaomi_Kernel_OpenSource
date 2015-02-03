@@ -31,13 +31,19 @@ struct vlv_pipe {
 	u32 vsync_offset;
 	u32 gamma_offset;
 
+	u32 datam1_offset;
+	u32 datan1_offset;
+	u32 linkm1_offset;
+	u32 linkn1_offset;
+
 	u32 src_size_offset;
 };
 
+void vlv_pipe_program_m_n(struct vlv_pipe *pipe,
+		struct intel_link_m_n *m_n);
 bool vlv_pipe_vblank_on(struct vlv_pipe *pipe);
 bool vlv_pipe_vblank_off(struct vlv_pipe *pipe);
 bool vlv_pipe_wait_for_vblank(struct vlv_pipe *pipe);
-bool vlv_pipe_wait_for_pll_lock(struct vlv_pipe *pipe);
 bool vlv_pipe_wait_for_pll_lock(struct vlv_pipe *pipe);
 u32 vlv_pipe_program_timings(struct vlv_pipe *pipe,
 		struct drm_mode_modeinfo *mode,

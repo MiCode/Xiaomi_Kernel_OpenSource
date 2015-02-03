@@ -468,15 +468,15 @@ struct intel_global_status {
 
 struct intel_clock {
 	/* given values */
-	int n;
-	int m1, m2;
-	int p1, p2;
+	u32 n;
+	u32 m1, m2;
+	u32 p1, p2;
 
 	/* derived values */
-	int dot;
-	int vco;
-	int m;
-	int p;
+	u32 dot;
+	u32 vco;
+	u32 m;
+	u32 p;
 };
 
 struct intel_pipe {
@@ -513,7 +513,10 @@ union encoder_params {
 	} dsi;
 
 	struct {
-		int temp;/*stub*/
+		struct intel_link_m_n *m_n;
+		u8 lane_count;
+		u8 link_bw;
+		u8 bpp;
 	} dp;
 
 	struct {

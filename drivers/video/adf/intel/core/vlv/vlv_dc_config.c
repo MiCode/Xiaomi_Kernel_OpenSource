@@ -16,10 +16,13 @@
 #include <core/intel_dc_config.h>
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/hdmi/gen_hdmi_pipe.h>
+#include <core/common/dp/gen_dp_pipe.h>
 #include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_pri_plane.h>
 #include <core/vlv/vlv_sp_plane.h>
 
+/* only PIPE_C should use DPIO, A & B shares DPIO_2  */
+#define CHV_DPIO(pipe) (((pipe == PIPE_C) ? IOSF_PORT_DPIO : IOSF_PORT_DPIO_2))
 #define VLV_ID(pipe, plane) ((pipe * VLV_MAX_PLANES) + plane)
 
 int chv_pipe_offsets[] = {
@@ -46,8 +49,6 @@ int chv_cursor_offsets[] = {
 	CHV_CURSOR_C_OFFSET
 };
 
-
-#define CHV_DPIO(pipe) (((pipe & 0x1) ? IOSF_PORT_DPIO : IOSF_PORT_DPIO_2))
 
 static const struct intel_dc_attachment chv_allowed_attachments[] = {
 	{
@@ -228,6 +229,7 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 			int pipe, int port, int type, u8 disp_no)
 {
 	struct vlv_dsi_port *dsi_port = NULL;
+	struct vlv_dp_port *dp_port = NULL;
 	struct vlv_hdmi_port *hdmi_port = NULL;
 	struct vlv_pipeline *disp = NULL;
 	struct dsi_pipe *dsi_pipe = NULL;
@@ -243,6 +245,12 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 			dsi_port = &disp->port.dsi_port[port_no];
 			vlv_dsi_port_init(dsi_port, port, pipe);
 		}
+		break;
+	case INTEL_PIPE_DP:
+	case INTEL_PIPE_EDP:
+		dp_port = &disp->port.dp_port;
+		vlv_dp_port_init(dp_port, port, pipe, type,
+		vlv_config->base.dev);
 		break;
 	case INTEL_PIPE_HDMI:
 		hdmi_port = &disp->port.hdmi_port;
@@ -402,6 +410,7 @@ static u16 chv_dc_get_stepping(struct pci_dev *pdev)
 	pr_info("ADF %s CHV stepping id = 0x%x\n", __func__, stepping);
 	return stepping;
 }
+
 struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id)
 {
 	struct vlv_dc_config *config;

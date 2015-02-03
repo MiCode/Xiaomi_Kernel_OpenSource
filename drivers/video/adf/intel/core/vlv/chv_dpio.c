@@ -121,6 +121,8 @@ int vlv_disp_to_port(struct vlv_pipeline *pipeline)
 		break;
 	case INTEL_PIPE_DP:
 	case INTEL_PIPE_EDP:
+		port_id = pipeline->port.dp_port.port_id;
+		break;
 	default:
 		BUG();
 		return -EINVAL;
@@ -292,6 +294,11 @@ void chv_dpio_update_channel(struct intel_pipeline *pipeline)
 	u32 val = 0;
 	u32 port = 0;
 	u32 pll = disp->pll.pll_id;
+
+	if (disp->type == INTEL_PIPE_HDMI)
+		port = disp->port.hdmi_port.port_id;
+	else
+		port = disp->port.dp_port.port_id;
 
 	mutex_lock(&config->dpio_lock);
 

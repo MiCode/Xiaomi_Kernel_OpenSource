@@ -13,4 +13,5 @@ obj-y := vlv_dc_config.o \
 	vlv_dsi_port_cmd.o \
 	vlv_pipeline.o \
 	vlv_hdmi_port.o \
-	chv_dpio.o
+	chv_dpio.o \
+	vlv_dp_port.o

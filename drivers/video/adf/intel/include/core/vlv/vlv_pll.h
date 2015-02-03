@@ -26,6 +26,7 @@ struct vlv_pll {
 	enum port port_id;
 	enum pll pll_id;
 	u32 offset;
+	u32 md_offset;
 	u32 multiplier_offset;
 	u32 dpio_stat_offset;
 	u32 phy_ctrl_offset;
@@ -51,7 +52,8 @@ struct intel_limit {
 u32 vlv_pll_wait_for_port_ready(enum port port_id);
 u32 vlv_pll_program_timings(struct vlv_pll *pll,
 		struct drm_mode_modeinfo *mode,
-		struct intel_clock *clock);
+		struct intel_clock *clock,
+		u32 multiplier);
 u32 vlv_dsi_pll_enable(struct vlv_pll *pll,
 		struct drm_mode_modeinfo *mode);
 u32 vlv_dsi_pll_disable(struct vlv_pll *pll);

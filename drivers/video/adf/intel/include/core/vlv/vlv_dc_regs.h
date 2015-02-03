@@ -3463,6 +3463,11 @@ extern int chv_cursor_offsets[];
 #define   DSL_LINEMASK_GEN2	0x00000fff
 #define   DSL_LINEMASK_GEN3	0x00001fff
 #define _PIPEACONF		(VLV_DISPLAY_BASE + 0x70008)
+#define   PIPECONF_PLANE_DISABLE        (3<<18)
+#define   DITHERING_TYPE_MASK	(3<<2)
+#define   DDA_RESET		(1<<1)
+#define   BPC_MASK		(7<<5)
+#define   PIPECONF_DITHERING	(1<<4)
 #define   PIPECONF_ENABLE	(1<<31)
 #define   PIPECONF_DISABLE	0
 #define   PIPECONF_DOUBLE_WIDE	(1<<30)

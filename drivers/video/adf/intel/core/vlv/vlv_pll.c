@@ -21,6 +21,25 @@
 	({ u64 _tmp = (ll)+(d)/2; do_div(_tmp, d); _tmp; })
 
 #define intel_pll_invalid(s)   do { pr_debug(s);  return false; } while (0)
+#define DISP_PHY_CTL		(VLV_DISPLAY_BASE + 0x60100)
+#define DPIO_INIT_VAL		0xB8800003
+
+struct dp_intel_clock {
+	u32 link_rate;
+	struct intel_clock clock;
+};
+
+static struct dp_intel_clock dp_clock[] = {
+	{ DP_LINK_BW_1_62,      /* m2_int = 32, m2_fraction = 1677722 */
+		{ .p1 = 3, .p2 = 2, .n = 1, .m1 = 2, .m2 = 0x18133330,
+			.vco = 0x76a70 } },
+	{ DP_LINK_BW_2_7,       /* m2_int = 27, m2_fraction = 0 */
+		{ .p1 = 4, .p2 = 1, .n = 1, .m1 = 2, .m2 = 0x1b000000,
+			.vco = 0x83d60 } },
+	{ DP_LINK_BW_5_4,       /* m2_int = 27, m2_fraction = 0 */
+		{ .p1 = 2, .p2 = 1, .n = 1, .m1 = 2, .m2 = 0x1b000000,
+			.vco = 0x83d60 } },
+};
 
 static struct intel_limit intel_limits_chv = {
 	/*
@@ -92,12 +111,18 @@ static bool calc_clock_timings(u32 target, struct intel_clock *best_clock)
 {
 	struct intel_limit *limit = &intel_limits_chv;
 	struct intel_clock clock = {0};
-	uint64_t m2;
+	u64 m2;
 	int refclk = 100000;
 	int found = false;
-
+	int i = 0;
 	memset(best_clock, 0, sizeof(*best_clock));
 
+	for (i = 0; i < ARRAY_SIZE(dp_clock); i++) {
+		if (target == dp_clock[i].link_rate) {
+			*best_clock = dp_clock[i].clock;
+			return true;
+		}
+	}
 	/*
 	 * Based on hardware doc, the n always set to 1, and m1 always
 	 * set to 2.  If requires to support 200Mhz refclk, we need to
@@ -135,26 +160,26 @@ static bool calc_clock_timings(u32 target, struct intel_clock *best_clock)
 		}
 	}
 
-	/* FIXME: program the calc values through DPIO */
 	return found;
 }
 
 u32 vlv_pll_program_timings(struct vlv_pll *pll,
 		struct drm_mode_modeinfo *mode,
-		struct intel_clock *clock)
+		struct intel_clock *clock, u32 multiplier)
 {
 	u32 val = 0;
 	bool ret = false;
-	/* FIXME: get this from encoder */
-	/* int pixel_multiplier = 1; */
 
 	val = DPLL_SSC_REF_CLOCK_CHV | DPLL_REFA_CLK_ENABLE_VLV
 		| DPLL_VGA_MODE_DIS;
 
 	if (pll->pll_id != PLL_A)
-		val = DPLL_INTEGRATED_CRI_CLK_VLV;
+		val |= DPLL_INTEGRATED_CRI_CLK_VLV;
 
 	REG_WRITE(pll->offset, val);
+
+	val = (multiplier - 1) << DPLL_MD_UDI_MULTIPLIER_SHIFT;
+	REG_WRITE(pll->md_offset, val);
 
 	ret = calc_clock_timings(mode->clock, clock);
 	if (!ret) {
@@ -208,7 +233,7 @@ u32 vlv_pll_enable(struct vlv_pll *pll,
 	val = REG_READ(pll->offset);
 	val |= DPLL_VCO_ENABLE;
 	REG_WRITE(pll->offset, val);
-
+	mdelay(40);
 	if (wait_for(((REG_READ(pll->offset) & DPLL_LOCK_VLV) ==
 						DPLL_LOCK_VLV), 1)) {
 		pr_err("PLL %d failed to lock\n", pll->pll_id);
@@ -240,11 +265,12 @@ bool vlv_pll_init(struct vlv_pll *pll, enum intel_pipe_type type,
 	if (type == INTEL_PIPE_DSI)
 		return vlv_dsi_pll_init(pll, pipe_id, port_id);
 
-	/* FIXME: convert to proper pll */
 	pll->pll_id = (enum pll) pipe_id;
 	pll->offset = DPLL(pipe_id);
+	pll->md_offset = DPLL_MD(pipe_id);
 	pll->port_id = port_id;
 
+	REG_WRITE(DISP_PHY_CTL, DPIO_INIT_VAL);
 	return true;
 }
 

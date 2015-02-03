@@ -17,6 +17,16 @@
 #include <core/vlv/vlv_dc_regs.h>
 #include <core/vlv/vlv_pipe.h>
 
+#define PIPE_B_SIZE 0x1E1A0C
+
+void vlv_pipe_program_m_n(struct vlv_pipe *pipe, struct intel_link_m_n *m_n)
+{
+	REG_WRITE(pipe->datam1_offset, TU_SIZE(m_n->tu) | m_n->gmch_m);
+	REG_WRITE(pipe->datan1_offset, m_n->gmch_n);
+	REG_WRITE(pipe->linkm1_offset, m_n->link_m);
+	REG_WRITE(pipe->linkn1_offset, m_n->link_n);
+}
+
 bool vlv_pipe_vblank_on(struct vlv_pipe *pipe)
 {
 	u32 val = REG_READ(pipe->status_offset);
@@ -28,6 +38,10 @@ bool vlv_pipe_vblank_on(struct vlv_pipe *pipe)
 			(val | PIPE_VBLANK_INTERRUPT_ENABLE));
 		REG_POSTING_READ(pipe->status_offset);
 	}
+
+	val = REG_READ(pipe->status_offset);
+	val |= PIPE_VSYNC_INTERRUPT_ENABLE;
+	REG_WRITE(pipe->status_offset, val);
 
 	return true;
 }
@@ -43,6 +57,10 @@ bool vlv_pipe_vblank_off(struct vlv_pipe *pipe)
 	} else
 		pr_info("ADF: %s: vblank already off for pipe = %x\n",
 			__func__, pipe->offset);
+
+	val = REG_READ(pipe->status_offset);
+	val &= ~PIPE_VSYNC_INTERRUPT_ENABLE;
+	REG_WRITE(pipe->status_offset, val);
 
 	return true;
 }
@@ -223,7 +241,14 @@ u32 vlv_pipe_disable(struct vlv_pipe *pipe)
 	u32 err = 0;
 
 	val = REG_READ(pipe->offset);
-	val &= ~PIPECONF_ENABLE;
+	val |= PIPECONF_PLANE_DISABLE;
+	REG_WRITE(pipe->offset, val);
+	vlv_pipe_wait_for_vblank(pipe);
+
+	val = REG_READ(pipe->offset);
+	val &= ~(PIPECONF_ENABLE);
+	val &= ~(DITHERING_TYPE_MASK | DDA_RESET | BPC_MASK |
+					PIPECONF_DITHERING);
 	REG_WRITE(pipe->offset, val);
 
 	/* Wait for the Pipe State to go off */
@@ -295,6 +320,10 @@ u32 vlv_pipe_program_timings(struct vlv_pipe *pipe,
 	REG_WRITE(pipe->src_size_offset,
 			((mode->hdisplay - 1) << 16) | (mode->vdisplay - 1));
 
+	if (pipe->pipe_id == PIPE_B)
+		REG_WRITE(PIPE_B_SIZE, (mode->hdisplay - 1) |
+				((mode->vdisplay - 1) << 16));
+
 	/*
 	 * FIXME: check if dithering needs checing here or later
 	 * if (intel_crtc->config.dither && intel_crtc->config.pipe_bpp != 30)
@@ -323,6 +352,9 @@ u32 vlv_pipe_program_timings(struct vlv_pipe *pipe,
 	else
 		pipeconf |= PIPECONF_PROGRESSIVE;
 
+	/* clear the plane disable bits */
+	pipeconf &= ~PIPECONF_PLANE_DISABLE;
+
 	/*
 	 * FIXME: enable when color ranges are supported
 	 * pipeconf |= PIPECONF_COLOR_RANGE_SELECT;
@@ -330,6 +362,10 @@ u32 vlv_pipe_program_timings(struct vlv_pipe *pipe,
 
 	REG_WRITE(pipe->offset, pipeconf);
 	REG_POSTING_READ(pipe->offset);
+
+	/* clear flags by writing back 1 */
+	pipeconf = REG_READ(pipe->status_offset);
+	REG_WRITE(pipe->status_offset, pipeconf);
 
 	/* FIXME: make this separate func and use passed values */
 	/* Load default gamma LUT */
@@ -339,8 +375,6 @@ u32 vlv_pipe_program_timings(struct vlv_pipe *pipe,
 			(i << 8) |
 			(i));
 	}
-
-	/* TODO primary plane fb update */
 
 	return 0;
 }
@@ -359,6 +393,12 @@ bool vlv_pipe_init(struct vlv_pipe *pipe, enum pipe pipeid)
 	pipe->vblank_offset = VBLANK(pipeid);
 	pipe->vsync_offset = VSYNC(pipeid);
 	pipe->gamma_offset = PALETTE(pipeid);
+
+	pipe->datam1_offset = PIPE_DATA_M1(pipeid);
+	pipe->datan1_offset = PIPE_DATA_N1(pipeid);
+	pipe->linkm1_offset = PIPE_LINK_M1(pipeid);
+	pipe->linkn1_offset = PIPE_LINK_N1(pipeid);
+
 	pipe->src_size_offset = PIPESRC(pipeid);
 	pipe->pipe_id = pipeid;
 
