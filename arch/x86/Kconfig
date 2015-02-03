@@ -858,6 +858,26 @@ config SCHED_MC
 	  making when dealing with multi-core CPU chips at a cost of slightly
 	  increased overhead in some places. If unsure say N here.
 
+config CPU_CONCURRENCY
+       bool "CPU ConCurency (CC)"
+       default n
+       depends on SMP
+       ---help---
+         CPU ConCurrency (CC) is a new CPU semantic that measures the CPU load
+         by averaging the number of running tasks. Using CC, the scheduler can
+         evaluate the load of CPUs to improve load balance for power efficiency
+         without sacrificing performance. If unsure say N here.
+
+config WORKLOAD_CONSOLIDATION
+       bool "CPU Workload Consolidation"
+       default n
+       depends on CPU_CONCURRENCY
+       ---help---
+         CPU Workload Consolidation is a new CPU PM module, which uses the CPU
+         concurrency of the CPU, and allows asymmetric concurrency across CPUs to
+         reduce the SW and HW overhead to increase load balance efficiency and
+         conserve energy. If unsure say N here.
+
 source "kernel/Kconfig.preempt"
 
 config X86_UP_APIC
