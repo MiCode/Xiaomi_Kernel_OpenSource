@@ -32,6 +32,12 @@ Optional properties:
 			   for any one supported channel along with supporting single conversion
 			   requests.
 - qcom,vadc-recalib-check: Add this property to check if recalibration required due to inaccuracy.
+- qcom,vadc-thermal-node : If present a thermal node is created and the channel is registered as
+			   part of the thermal sysfs which allows clients to use the thermal framework
+			   to set temperature thresholds and receive notification when the temperature
+			   crosses a set threshold, read temperature and enable/set trip types supported
+			   by the thermal framework.
+
 
 Client required property:
 - qcom,<consumer name>-vadc : The phandle to the corresponding vadc device.
