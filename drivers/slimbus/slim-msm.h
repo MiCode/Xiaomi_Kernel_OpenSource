@@ -194,6 +194,16 @@ struct msm_slim_sps_bam {
 	int			irq;
 };
 
+/*
+ * struct slim_pshpull_parm: Structure to store push pull protocol parameters
+ * @num_samples: Number of samples in a period
+ * @rpt_period: Repeat period value
+ */
+struct msm_slim_pshpull_parm {
+	int		num_samples;
+	int		rpt_period;
+};
+
 struct msm_slim_endp {
 	struct sps_pipe			*sps;
 	struct sps_connect		config;
@@ -201,6 +211,7 @@ struct msm_slim_endp {
 	struct sps_mem_buffer		buf;
 	bool				connected;
 	int				port_b;
+	struct msm_slim_pshpull_parm	psh_pull;
 };
 
 struct msm_slim_qmi {
@@ -368,7 +379,7 @@ void msm_slim_put_ctrl(struct msm_slim_ctrl *dev);
 irqreturn_t msm_slim_port_irq_handler(struct msm_slim_ctrl *dev, u32 pstat);
 int msm_slim_init_endpoint(struct msm_slim_ctrl *dev, struct msm_slim_endp *ep);
 void msm_slim_free_endpoint(struct msm_slim_endp *ep);
-void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pn);
+void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pn, u8 port_no);
 int msm_alloc_port(struct slim_controller *ctrl, u8 pn);
 void msm_dealloc_port(struct slim_controller *ctrl, u8 pn);
 int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn);
