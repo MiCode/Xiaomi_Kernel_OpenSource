@@ -1,0 +1,37 @@
+PMIC supply(S1) current limiting driver(SUPPLY_LM)
+=====================================
+
+This driver is a current limit management module to help manage
+instantaneous peak current drawn by multiple subsystems on shared
+supply. The inputs to the mitigation algorithm are current states
+of different subsystems sharing this supply like cpu frequency,
+gpu frequency, number of cores online, soc temperature, core leakage,
+and modem state. It throttles cpu frequency and limits number of
+online cores to reduce the dynamic current so as to keep the total
+current drawn from supply in safe limits.
+
+The device tree parameters for SUPPLY_LM driver are:
+
+Required parameters:
+- compatible :	Must be "qcom,supply-lm"
+- interrupts :	SUPPLY_LM modem to apps interrupt details.
+- reg :         Base addresses of the SUPPLY_LM modem interrupt data and
+		its size in bytes.
+- reg-names :   Name of SUPPLY_LM modem register in reg node.
+- qcom,supply-lm-very-hot-temp-range : SUPPLY_LM very hot temperature range
+		info. It expects trigger and clear thresholds in order.
+- qcom,supply-lm-hot-temp-range : SUPPLY_LM hot temperature range info.
+		It expects trigger and clear thresholds in order.
+- gpu-dev-opp:	Phandle for gpu dev.
+Example:
+
+	qcom,supply-lm {
+		compatible = "qcom,supply-lm";
+		interrupts = <0 133 4>;
+		reg =	<0x01946000 0x8>; /* TCSR_TCSR_S1LM_MODEM_TO_APPS_INT and
+					   * TCSR_TCSR_S1LM_MODEM_TO_APPS_INT_DATA */
+		reg-names = "intr_reg";
+		qcom,supply-lm-very-hot-temp-range = <75 72>;
+		qcom,supply-lm-hot-temp-range = <65 62>;
+		gpu-dev-opp = <&msm_gpu>;
+	};

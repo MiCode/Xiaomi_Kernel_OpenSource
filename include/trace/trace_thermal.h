@@ -18,7 +18,75 @@
 #define _TRACE_THERMAL_H
 
 #include <linux/tracepoint.h>
-#ifdef TRACE_MSM_THERMAL
+
+#ifdef TRACE_SUPPLY_LM
+DECLARE_EVENT_CLASS(supply_lm_scm_ctl,
+
+	TP_PROTO(unsigned int value),
+
+	TP_ARGS(value),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, value)
+	),
+
+	TP_fast_assign(
+		__entry->value = value;
+	),
+
+	TP_printk("inp=0x%x", __entry->value)
+);
+
+DEFINE_EVENT(supply_lm_scm_ctl, supply_lm_pre_scm,
+
+	TP_PROTO(unsigned int value),
+
+	TP_ARGS(value)
+);
+
+DEFINE_EVENT(supply_lm_scm_ctl, supply_lm_post_scm,
+
+	TP_PROTO(unsigned int ret),
+
+	TP_ARGS(ret)
+);
+
+DECLARE_EVENT_CLASS(supply_lm_inp_ctl,
+
+	TP_PROTO(unsigned int inp, unsigned int val),
+
+	TP_ARGS(inp, val),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, inp)
+		__field(unsigned int, val)
+	),
+
+	TP_fast_assign(
+		__entry->inp = inp;
+		__entry->val = val;
+	),
+
+	TP_printk("inp=%u val=%u",
+		 __entry->inp, __entry->val)
+);
+
+DEFINE_EVENT(supply_lm_inp_ctl, supply_lm_inp_start_trig,
+
+	TP_PROTO(unsigned int inp, unsigned int val),
+
+	TP_ARGS(inp, val)
+);
+
+DEFINE_EVENT(supply_lm_inp_ctl, supply_lm_inp_end_trig,
+
+	TP_PROTO(unsigned int inp, unsigned int val),
+
+	TP_ARGS(inp, val)
+);
+
+#elif defined(TRACE_MSM_THERMAL)
+
 DECLARE_EVENT_CLASS(msm_thermal_post_core_ctl,
 
 	TP_PROTO(unsigned int cpu, unsigned int online),
