@@ -1,4 +1,5 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -301,6 +302,11 @@ static int smcmod_send_cipher_cmd(struct smcmod_cipher_req *reqp)
 		}
 	}
 
+	if (IS_ERR_OR_NULL(ion_key_handlep)) {
+		ret = -EINVAL;
+		goto buf_cleanup;
+	}
+
 	/* import the plain text buffer and get the physical address */
 	ret = smcmod_ion_fd_to_phys(reqp->ion_plain_text_fd, ion_clientp,
 		&ion_plain_handlep, &scm_req.plain_text_phys_addr, &size);
@@ -441,6 +447,11 @@ static int smcmod_send_msg_digest_cmd(struct smcmod_msg_digest_req *reqp)
 			ret = -EINVAL;
 			goto buf_cleanup;
 		}
+	}
+
+	if (IS_ERR_OR_NULL(ion_key_handlep)) {
+		ret = -EINVAL;
+		goto buf_cleanup;
 	}
 
 	/* import the input buffer and get the physical address */
