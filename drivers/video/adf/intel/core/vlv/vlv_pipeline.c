@@ -105,7 +105,7 @@ u32 vlv_dsi_prepare_on(struct intel_pipeline *pipeline,
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_pll *pll = &disp->pll;
 	struct vlv_pipe *pipe = &disp->pipe;
-	struct vlv_dsi_port *dsi_port = &disp->port.dsi_port;
+	struct vlv_dsi_port *dsi_port = &disp->port.dsi_port[pll->port_id];
 	struct dsi_config *config = pipeline->params.dsi.dsi_config;
 	u32 err = 0;
 
@@ -141,9 +141,10 @@ u32 vlv_port_enable(struct intel_pipeline *pipeline,
 {
 	u32 ret = 0;
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	struct vlv_dsi_port *dsi_port = &disp->port.dsi_port;
 	struct dsi_config *config = pipeline->params.dsi.dsi_config;
 	struct dsi_context *intel_dsi = &config->ctx;
+	struct vlv_pll *pll = &disp->pll;
+	struct vlv_dsi_port *dsi_port = &disp->port.dsi_port[pll->port_id];
 
 	if (disp->type == INTEL_PIPE_DSI) {
 		/* DSI PORT */
@@ -271,7 +272,8 @@ u32 vlv_dsi_pre_pipeline_on(struct intel_pipeline *pipeline,
 		struct drm_mode_modeinfo *mode)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	struct vlv_dsi_port *port = &disp->port.dsi_port;
+	struct vlv_pll *pll = &disp->pll;
+	struct vlv_dsi_port *port = &disp->port.dsi_port[pll->port_id];
 	u32 err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
@@ -286,7 +288,7 @@ u32 vlv_dsi_post_pipeline_off(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_pll *pll = &disp->pll;
-	struct vlv_dsi_port *dsi_port = &disp->port.dsi_port;
+	struct vlv_dsi_port *dsi_port = &disp->port.dsi_port[pll->port_id];
 	u32 err = 0;
 	err = vlv_dsi_port_wait_for_fifo_empty(dsi_port);
 
@@ -322,11 +324,12 @@ static inline u32 vlv_port_disable(struct intel_pipeline *pipeline)
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
 	struct vlv_hdmi_port *hdmi_port = NULL;
+	struct vlv_pll *pll = &disp->pll;
 	u32 err = 0;
 
 	switch (disp->type) {
 	case INTEL_PIPE_DSI:
-		dsi_port = &disp->port.dsi_port;
+		dsi_port = &disp->port.dsi_port[pll->port_id];
 		err = vlv_dsi_port_disable(dsi_port,
 			pipeline->params.dsi.dsi_config);
 		/*
@@ -474,10 +477,11 @@ bool vlv_is_vid_mode(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
+	struct vlv_pll *pll = &disp->pll;
 	bool ret = false;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port;
+		dsi_port = &disp->port.dsi_port[pll->port_id];
 		ret = vlv_dsi_port_is_vid_mode(dsi_port);
 	}
 
@@ -488,10 +492,11 @@ bool vlv_can_be_disabled(struct intel_pipeline *pipeline)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
+	struct vlv_pll *pll = &disp->pll;
 	bool ret = false;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port;
+		dsi_port = &disp->port.dsi_port[pll->port_id];
 		ret = vlv_dsi_port_can_be_disabled(dsi_port);
 	}
 
@@ -523,9 +528,10 @@ void vlv_cmd_hs_mode_enable(struct intel_pipeline *pipeline, bool enable)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
+	struct vlv_pll *pll = &disp->pll;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port;
+		dsi_port = &disp->port.dsi_port[pll->port_id];
 		vlv_dsi_port_cmd_hs_mode_enable(dsi_port, enable);
 	}
 }
@@ -535,10 +541,11 @@ int vlv_cmd_vc_dcs_write(struct intel_pipeline *pipeline, int channel,
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
+	struct vlv_pll *pll = &disp->pll;
 	int err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port;
+		dsi_port = &disp->port.dsi_port[pll->port_id];
 		err = vlv_dsi_port_cmd_vc_dcs_write(dsi_port,
 			channel, data, len);
 	}
@@ -551,10 +558,11 @@ int vlv_cmd_vc_generic_write(struct intel_pipeline *pipeline, int channel,
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
+	struct vlv_pll *pll = &disp->pll;
 	int err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port;
+		dsi_port = &disp->port.dsi_port[pll->port_id];
 		err = vlv_dsi_port_cmd_vc_generic_write(dsi_port,
 			channel, data, len);
 	}
@@ -567,10 +575,11 @@ int vlv_cmd_vc_dcs_read(struct intel_pipeline *pipeline, int channel,
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
+	struct vlv_pll *pll = &disp->pll;
 	int err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port;
+		dsi_port = &disp->port.dsi_port[pll->port_id];
 		err = vlv_dsi_port_cmd_vc_dcs_read(dsi_port, channel,
 			dcs_cmd, buf, buflen);
 	}
@@ -583,10 +592,11 @@ int vlv_cmd_vc_generic_read(struct intel_pipeline *pipeline, int channel,
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
+	struct vlv_pll *pll = &disp->pll;
 	int err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port;
+		dsi_port = &disp->port.dsi_port[pll->port_id];
 		err = vlv_dsi_port_cmd_vc_generic_read(dsi_port, channel,
 			reqdata, reqlen, buf, buflen);
 	}
@@ -598,10 +608,11 @@ int vlv_cmd_dpi_send_cmd(struct intel_pipeline *pipeline, u32 cmd, bool hs)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_dsi_port *dsi_port = NULL;
+	struct vlv_pll *pll = &disp->pll;
 	int err = 0;
 
 	if (disp->type == INTEL_PIPE_DSI) {
-		dsi_port = &disp->port.dsi_port;
+		dsi_port = &disp->port.dsi_port[pll->port_id];
 		err = vlv_dsi_port_cmd_dpi_send_cmd(dsi_port, cmd, hs);
 	}
 

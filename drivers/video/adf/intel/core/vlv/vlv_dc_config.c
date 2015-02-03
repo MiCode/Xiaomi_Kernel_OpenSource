@@ -234,7 +234,7 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 	disp = &vlv_config->pipeline[disp_no];
 	switch (type) {
 	case INTEL_PIPE_DSI:
-		dsi_port = &disp->port.dsi_port;
+		dsi_port = &disp->port.dsi_port[port];
 		vlv_dsi_port_init(dsi_port, port, pipe);
 		break;
 	case INTEL_PIPE_HDMI:

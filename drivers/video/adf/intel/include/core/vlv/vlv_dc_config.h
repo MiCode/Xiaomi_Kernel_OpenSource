@@ -150,7 +150,7 @@ struct vlv_pipeline {
 		struct hdmi_pipe hdmi;
 	} gen;
 	union {
-		struct vlv_dsi_port dsi_port;
+		struct vlv_dsi_port dsi_port[ADF_MAX_PORTS - 1];
 		struct vlv_hdmi_port hdmi_port;
 	} port;
 

@@ -433,41 +433,42 @@ bool vlv_dsi_port_can_be_disabled(struct vlv_dsi_port *port)
 bool vlv_dsi_port_init(struct vlv_dsi_port *port, enum port enum_port,
 		enum pipe pipe)
 {
-	port->offset = MIPI_PORT_CTRL(pipe);
-	port->dr_offset = MIPI_DEVICE_READY(pipe);
-	port->func_prg_offset = MIPI_DSI_FUNC_PRG(pipe);
-	port->eot_offset = MIPI_EOT_DISABLE(pipe);
-	port->fifo_stat_offset = MIPI_GEN_FIFO_STAT(pipe);
-	port->ctrl_offset = MIPI_CTRL(pipe);
-	port->dphy_param_offset = MIPI_DPHY_PARAM(pipe);
-	port->dpi_res_offset = MIPI_DPI_RESOLUTION(pipe);
-	port->hfp_count_offset = MIPI_HFP_COUNT(pipe);
-	port->hsync_count_offset = MIPI_HSYNC_PADDING_COUNT(pipe);
-	port->hbp_count_offset = MIPI_HBP_COUNT(pipe);
-	port->vfp_count_offset = MIPI_VFP_COUNT(pipe);
-	port->vsync_count_offset = MIPI_VSYNC_PADDING_COUNT(pipe);
-	port->vbp_count_offset = MIPI_VBP_COUNT(pipe);
-	port->max_ret_pkt_offset	= MIPI_MAX_RETURN_PKT_SIZE(pipe);
-	port->hs_tx_timeout_offset	= MIPI_HS_TX_TIMEOUT(pipe);
-	port->lp_rx_timeout_offset	= MIPI_LP_RX_TIMEOUT(pipe);
-	port->ta_timeout_offset		= MIPI_TURN_AROUND_TIMEOUT(pipe);
-	port->device_reset_timer_offset	= MIPI_DEVICE_RESET_TIMER(pipe);
-	port->init_count_offset		= MIPI_INIT_COUNT(pipe);
-	port->hl_switch_count_offset	= MIPI_HIGH_LOW_SWITCH_COUNT(pipe);
-	port->lp_byteclk_offset		= MIPI_LP_BYTECLK(pipe);
-	port->dbi_bw_offset		= MIPI_DBI_BW_CTRL(pipe);
-	port->lane_switch_time_offset	= MIPI_CLK_LANE_SWITCH_TIME_CNT(pipe);
-	port->video_mode_offset		= MIPI_VIDEO_MODE_FORMAT(pipe);
+	port->offset = MIPI_PORT_CTRL(enum_port);
+	port->dr_offset = MIPI_DEVICE_READY(enum_port);
+	port->func_prg_offset = MIPI_DSI_FUNC_PRG(enum_port);
+	port->eot_offset = MIPI_EOT_DISABLE(enum_port);
+	port->fifo_stat_offset = MIPI_GEN_FIFO_STAT(enum_port);
+	port->ctrl_offset = MIPI_CTRL(enum_port);
+	port->dphy_param_offset = MIPI_DPHY_PARAM(enum_port);
+	port->dpi_res_offset = MIPI_DPI_RESOLUTION(enum_port);
+	port->hfp_count_offset = MIPI_HFP_COUNT(enum_port);
+	port->hsync_count_offset = MIPI_HSYNC_PADDING_COUNT(enum_port);
+	port->hbp_count_offset = MIPI_HBP_COUNT(enum_port);
+	port->vfp_count_offset = MIPI_VFP_COUNT(enum_port);
+	port->vsync_count_offset = MIPI_VSYNC_PADDING_COUNT(enum_port);
+	port->vbp_count_offset = MIPI_VBP_COUNT(enum_port);
+	port->max_ret_pkt_offset	= MIPI_MAX_RETURN_PKT_SIZE(enum_port);
+	port->hs_tx_timeout_offset	= MIPI_HS_TX_TIMEOUT(enum_port);
+	port->lp_rx_timeout_offset	= MIPI_LP_RX_TIMEOUT(enum_port);
+	port->ta_timeout_offset		= MIPI_TURN_AROUND_TIMEOUT(enum_port);
+	port->device_reset_timer_offset	= MIPI_DEVICE_RESET_TIMER(enum_port);
+	port->init_count_offset		= MIPI_INIT_COUNT(enum_port);
+	port->hl_switch_count_offset	= MIPI_HIGH_LOW_SWITCH_COUNT(enum_port);
+	port->lp_byteclk_offset		= MIPI_LP_BYTECLK(enum_port);
+	port->dbi_bw_offset		= MIPI_DBI_BW_CTRL(enum_port);
+	port->lane_switch_time_offset =
+				MIPI_CLK_LANE_SWITCH_TIME_CNT(enum_port);
+	port->video_mode_offset		= MIPI_VIDEO_MODE_FORMAT(enum_port);
 
 	/* cmd mode offsets */
-	port->hs_ls_dbi_enable_offset = MIPI_HS_LP_DBI_ENABLE(pipe);
-	port->hs_gen_ctrl_offset = MIPI_HS_GEN_CTRL(pipe);
-	port->lp_gen_ctrl_offset = MIPI_LP_GEN_CTRL(pipe);
-	port->hs_gen_data_offset = MIPI_HS_GEN_DATA(pipe);
-	port->lp_gen_data_offset = MIPI_LP_GEN_DATA(pipe);
-	port->dpi_ctrl_offset    = MIPI_DPI_CONTROL(pipe);
+	port->hs_ls_dbi_enable_offset = MIPI_HS_LP_DBI_ENABLE(enum_port);
+	port->hs_gen_ctrl_offset = MIPI_HS_GEN_CTRL(enum_port);
+	port->lp_gen_ctrl_offset = MIPI_LP_GEN_CTRL(enum_port);
+	port->hs_gen_data_offset = MIPI_HS_GEN_DATA(enum_port);
+	port->lp_gen_data_offset = MIPI_LP_GEN_DATA(enum_port);
+	port->dpi_ctrl_offset    = MIPI_DPI_CONTROL(enum_port);
 
-	port->intr_stat_offset = MIPI_INTR_STAT(pipe);
+	port->intr_stat_offset = MIPI_INTR_STAT(enum_port);
 
 	port->port_id = enum_port;
 

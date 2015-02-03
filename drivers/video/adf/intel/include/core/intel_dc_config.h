@@ -168,6 +168,7 @@ enum port {
 	PORT_B,
 	PORT_C,
 	PORT_D,
+	ADF_MAX_PORTS,
 	PORT_INVALID,
 };
 
