@@ -22,6 +22,8 @@
 #include <core/vlv/vlv_dc_hw.h>
 #include <core/vlv/vlv_pipe.h>
 #include <core/common/dsi/dsi_pipe.h>
+#include <video/adf_client.h>
+#include <video/adf_client.h>
 
 struct intel_adf_context *context_from_hp_work(struct work_struct *work)
 {
@@ -33,9 +35,98 @@ void intel_adf_shortpulse_work_function(struct work_struct *work)
 	return;
 }
 
+static int _handle_hdmi_hotplug(struct intel_adf_interface *intf)
+{
+	size_t n_modes;
+	struct intel_pipe *intel_pipe = intf->pipe;
+	struct hdmi_pipe *hdmi_pipe =
+		hdmi_pipe_from_intel_pipe(intel_pipe);
+	struct hdmi_monitor *monitor;
+	struct drm_mode_modeinfo *modelist;
+
+	/* Probe HDMI */
+	if (intel_adf_hdmi_hot_plug(hdmi_pipe)) {
+		pr_err("ADF: %s: HDMI failed to handle interrupt\n",
+				__func__);
+		return -EFAULT;
+	}
+
+	/* Check if its a hot plug or unplug */
+	if (atomic_read(&hdmi_pipe->config.ctx.connected)) {
+		monitor = hdmi_pipe->config.ctx.monitor;
+		intel_pipe->ops->get_modelist(intel_pipe,
+				&modelist, &n_modes);
+
+		if (!modelist || !n_modes) {
+			pr_err("ADF: %s: Invalid/NULL modelist\n",
+					__func__);
+			return -EINVAL;
+		}
+
+		/* Notify userspace about HDMI connection */
+		if (adf_hotplug_notify_connected(&intf->base,
+					modelist, n_modes)) {
+			pr_err("ADF: %s: send HDMI connected noti failed\n",
+					__func__);
+			return -EFAULT;
+		}
+
+		pr_info("ADF: HDMI: %s: HDMI enabled\n", __func__);
+	} else {
+
+		/* HDMI unplug, disable flips and WQ */
+		if (adf_interface_blank(&intf->base,
+					DRM_MODE_DPMS_OFF)) {
+			pr_err("ADF: %s: DIsable HDMI failed\n",
+					__func__);
+			return -EFAULT;
+		}
+
+		/* Notify userspace about HDMI disconnection */
+		adf_hotplug_notify_disconnected(&intf->base);
+		pr_info("ADF: HDMI: %s: HDMI disabled\n", __func__);
+	}
+
+	pr_info("ADF: %s: HDMI hotplug handled\n", __func__);
+	return 0;
+}
+
 void intel_adf_hotplug_work_function(struct work_struct *work)
 {
-	return;
+	u8 count = 0;
+	struct intel_pipe *intel_pipe;
+	struct intel_adf_interface *intf;
+	struct intel_adf_context *adf_context = context_from_hp_work(work);
+
+	pr_info("ADF: %s\n", __func__);
+	while (count < adf_context->n_intfs) {
+		intf = &adf_context->intfs[count++];
+		intel_pipe = intf->pipe;
+
+		if (!intel_pipe->hp_reqd)
+			continue;
+		if (intel_pipe->type == INTEL_PIPE_HDMI) {
+			struct hdmi_context *ctx;
+			struct hdmi_pipe *hdmi_pipe =
+				hdmi_pipe_from_intel_pipe(intel_pipe);
+
+			/* Identify if event is for HDMI */
+			ctx = &hdmi_pipe->config.ctx;
+			if (!ctx->top_half_status) {
+				pr_info("ADF: %s: Not a HDMI event\n",
+						__func__);
+				continue;
+			}
+
+			/* Reset identifier and probe HDMI */
+			ctx->top_half_status = false;
+			if (_handle_hdmi_hotplug(intf)) {
+				pr_err("ADF: %s: failed to handle HDMI hotplug\n",
+						__func__);
+				return;
+			}
+		}
+	}
 }
 
 int intel_adf_handle_events(struct intel_pipe *pipe, u32 events)

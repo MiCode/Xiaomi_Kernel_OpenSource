@@ -285,6 +285,11 @@ static int hdmi_modeset(struct intel_pipe *pipe,
 		return err;
 	}
 
+	if (hdmi_pipe->dpms_state == DRM_MODE_DPMS_ON) {
+		pr_info("ADF: HDMI: %s: HDMI already enabled\n", __func__);
+		return 0;
+	}
+
 	mutex_lock(&config->ctx_lock);
 
 	curr_mode = config->ctx.current_mode;
@@ -433,16 +438,26 @@ void hdmi_get_events(struct intel_pipe *pipe, u32 *events)
 
 void hdmi_handle_events(struct intel_pipe *pipe, u32 events)
 {
-	pr_info("ADF: HDMI: %s\n", __func__);
+	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
+
 	if (intel_adf_handle_events(pipe, events))
 		pr_err("ADF: HDMI: %s handle events (type=%d) failed\n",
 			 __func__, pipe->type);
+
+	if (hdmi_pipe->ops.handle_events)
+		if (hdmi_pipe->ops.handle_events(hdmi_pipe, events))
+			pr_err("ADF: HDMI: %s handle pipe events failed\n",
+					__func__);
 }
 
 u32 hdmi_get_supported_events(struct intel_pipe *pipe)
 {
 	return INTEL_PIPE_EVENT_VSYNC |
-		INTEL_PORT_EVENT_HOTPLUG_DISPLAY;
+		INTEL_PORT_EVENT_HOTPLUG_DISPLAY |
+		INTEL_PIPE_EVENT_AUDIO_BUFFERDONE |
+		INTEL_PIPE_EVENT_AUDIO_UNDERRUN |
+		INTEL_PIPE_EVENT_HOTPLUG_CONNECTED |
+		INTEL_PIPE_EVENT_HOTPLUG_DISCONNECTED;
 }
 
 /* HDMI external ops */

@@ -29,6 +29,19 @@
 
 enum port vlv_get_connected_port(struct intel_pipe *intel_pipe)
 {
+	struct vlv_pipeline *vlv_pipeline =
+		to_vlv_pipeline(intel_pipe->pipeline);
+
+	/*
+	 * This function is only for hot pluggable displays,
+	 * like HDMI. SO handle only these.
+	 */
+	if (intel_pipe->type == INTEL_PIPE_HDMI) {
+		struct vlv_hdmi_port *port = &vlv_pipeline->port.hdmi_port;
+		return port->port_id;
+	}
+
+	pr_err("ADF: %s: invalid display type\n", __func__);
 	return PORT_INVALID;
 }
 

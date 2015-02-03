@@ -229,6 +229,10 @@ int hdmi_pipe_init(struct hdmi_pipe *pipe,
 	}
 
 	pipe->config.pixel_multiplier = 1;
+
+	/* Request hotplug enabling */
+	pipe->base.hp_reqd = true;
+
 	return 0;
 
 fail_pipe:
