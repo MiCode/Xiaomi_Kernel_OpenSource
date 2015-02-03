@@ -174,11 +174,13 @@
 #define ADC_TO_PMICTEMP(a)		(a - 267)
 
 #define STATUS_MON_DELAY_JIFFIES	(HZ * 60)	/*60 sec */
-
+#define STATUS_MON_FULL_DELAY_JIFFIES	(HZ * 30)	/*30sec */
+#define FULL_CAP_THLD			98	/* 98% capacity */
 #define DC_FG_INTR_NUM			6
 
 #define THERM_CURVE_MAX_SAMPLES		18
 #define THERM_CURVE_MAX_VALUES		4
+#define XPWR_VBAT_VMAX_OFFSET		50
 
 /* No of times we should retry on -EAGAIN error */
 #define NR_RETRY_CNT	3
@@ -651,7 +653,7 @@ static int pmic_fg_battery_health(struct pmic_fg_info *info)
 	if (ret < 0)
 		goto health_read_fail;
 
-	if (vocv > info->pdata->design_max_volt)
+	if (vocv > (info->pdata->design_max_volt + XPWR_VBAT_VMAX_OFFSET))
 		health = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 	else if (temp > info->pdata->max_temp ||
 			temp < info->pdata->min_temp)
@@ -799,6 +801,7 @@ static void pmic_fg_status_monitor(struct work_struct *work)
 	static int cache_health = POWER_SUPPLY_HEALTH_UNKNOWN;
 	static int cache_temp = INT_MAX;
 	int present_cap, present_health;
+	unsigned long delay = STATUS_MON_DELAY_JIFFIES;
 
 	mutex_lock(&info->lock);
 	present_cap = pmic_fg_get_capacity(info);
@@ -823,9 +826,18 @@ static void pmic_fg_status_monitor(struct work_struct *work)
 		cache_cap = present_cap;
 		cache_health = present_health;
 		cache_temp = info->btemp;
+	} else if (((present_cap >= FULL_CAP_THLD)
+			&& (info->status == POWER_SUPPLY_STATUS_CHARGING))
+			|| (info->status == POWER_SUPPLY_STATUS_FULL)) {
+		power_supply_changed(&info->bat);
+		/* During full condition, schedule the monitor thread
+		 * at 30 sec to monitor the full condition and
+		 * maintanence charging thresholds.
+		 */
+		delay = STATUS_MON_FULL_DELAY_JIFFIES;
 	}
 end_stat_mon:
-	schedule_delayed_work(&info->status_monitor, STATUS_MON_DELAY_JIFFIES);
+	schedule_delayed_work(&info->status_monitor, delay);
 }
 
 static irqreturn_t pmic_fg_thread_handler(int irq, void *dev)
@@ -1197,6 +1209,11 @@ static void pmic_fg_init_hw_regs(struct pmic_fg_info *info)
 	/* program temperature thresholds */
 	intel_soc_pmic_writeb(DC_FG_VLTFW_REG, FG_VLTFW_0C);
 	intel_soc_pmic_writeb(DC_FG_VHTFW_REG, FG_VHTFW_56C);
+
+	/* Set the Charge end condition to 20% of CC to allow
+	 * charging framework to handle maintenance charging.
+	*/
+	pmic_fg_reg_setb(info, DC_CHRG_CCCV_REG, CHRG_CCCV_ITERM_20P);
 
 	/* enable interrupts */
 	intel_soc_pmic_setb(DC_TEMP_IRQ_CFG_REG, TEMP_IRQ_CFG_MASK);
