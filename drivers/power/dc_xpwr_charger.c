@@ -319,6 +319,7 @@ static inline int pmic_chrg_set_cc(struct pmic_chrg_info *info, int cc)
 	u8 reg_val;
 	int ret;
 
+	dev_info(&info->pdev->dev, "%s: cc=%d\n", __func__, cc);
 	/* read CCCV register */
 	ret = pmic_chrg_reg_readb(info, DC_CHRG_CCCV_REG);
 	if (ret < 0)
@@ -342,6 +343,7 @@ static inline int pmic_chrg_set_cv(struct pmic_chrg_info *info, int cv)
 	u8 reg_val;
 	int ret;
 
+	dev_info(&info->pdev->dev, "%s: cv=%d\n", __func__, cv);
 	/* read CCCV register */
 	ret = pmic_chrg_reg_readb(info, DC_CHRG_CCCV_REG);
 	if (ret < 0)
@@ -407,6 +409,7 @@ static int pmic_chrg_enable_charger(struct pmic_chrg_info *info, bool enable)
 {
 	int ret;
 
+	dev_info(&info->pdev->dev, "%s: enable=%d\n", __func__, enable);
 	if (enable)
 		ret = pmic_chrg_reg_clearb(info,
 			DC_VBUS_ISPOUT_REG, VBUS_ISPOUT_VBUS_PATH_DIS);
@@ -420,10 +423,7 @@ static int pmic_chrg_enable_charging(struct pmic_chrg_info *info, bool enable)
 {
 	int ret;
 
-	ret = pmic_chrg_enable_charger(info, true);
-	if (ret < 0)
-		dev_warn(&info->pdev->dev, "vbus path disable failed\n");
-
+	dev_info(&info->pdev->dev, "%s: enable=%d\n", __func__, enable);
 	if (enable)
 		ret = pmic_chrg_reg_setb(info,
 			DC_CHRG_CCCV_REG, CHRG_CCCV_CHG_EN);
@@ -482,18 +482,30 @@ static int get_charger_health(struct pmic_chrg_info *info)
 	else
 		pwr_irq = ret;
 
-	if (!(pwr_stat & PS_STAT_VBUS_VALID))
+	if (!(pwr_stat & PS_STAT_VBUS_VALID)) {
 		health = POWER_SUPPLY_HEALTH_DEAD;
-	else if (pwr_irq & PWRSRC_IRQ_CFG_SVBUS_OVP)
+		info->is_charger_enabled = 0;
+		/* Xpwr pmic doesnt have interuppt for VBUS undervoltage.
+		* hence trigger a power_supply_change when charger
+		* health chnaged to dead.
+		*/
+		if (info->chrg_health != health)
+			power_supply_changed(&info->psy_usb);
+	} else if (pwr_irq & PWRSRC_IRQ_CFG_SVBUS_OVP) {
 		health = POWER_SUPPLY_HEALTH_OVERVOLTAGE;
-	else if (chrg_stat & CHRG_STAT_PMIC_OTP)
+		info->is_charger_enabled = 0;
+	} else if (chrg_stat & CHRG_STAT_PMIC_OTP)
 		health = POWER_SUPPLY_HEALTH_OVERHEAT;
 	else if (chrg_stat & CHRG_STAT_BAT_SAFE_MODE)
 		health = POWER_SUPPLY_HEALTH_SAFETY_TIMER_EXPIRE;
-	else
+	else if (!info->present)
+		health = POWER_SUPPLY_HEALTH_UNKNOWN;
+	else {
 		health = POWER_SUPPLY_HEALTH_GOOD;
-
+		info->is_charger_enabled = 1;
+	}
 health_read_fail:
+	info->chrg_health = health;
 	return health;
 }
 
