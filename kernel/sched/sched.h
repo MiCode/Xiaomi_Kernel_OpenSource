@@ -522,6 +522,11 @@ struct cpu_concurrency_t {
 	u64 sum_timestamp;
 	u64 contrib_timestamp;
 	unsigned long nr_running;
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+	int unload;
+	int dst_cpu;
+	struct cpu_stop_work unload_work;
+#endif
 };
 #endif
 
@@ -1218,6 +1223,16 @@ extern void resched_cpu(int cpu);
 #ifdef CONFIG_CPU_CONCURRENCY
 extern void init_cpu_concurrency(struct rq *rq);
 extern void update_cpu_concurrency(struct rq *rq);
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+extern int workload_consolidation_wakeup(int prev, int target);
+extern struct sched_group *
+workload_consolidation_find_group(struct sched_domain *sd,
+				 struct task_struct *p, int this_cpu);
+extern void workload_consolidation_unload(struct cpumask *nonshielded);
+extern int workload_consolidation_cpu_shielded(int cpu);
+extern void workload_consolidation_nonshielded_mask(int cpu,
+					 struct cpumask *mask);
+#endif
 #else
 static inline void init_cpu_concurrency(struct rq *rq) {}
 static inline void update_cpu_concurrency(struct rq *rq) {}

@@ -4884,7 +4884,11 @@ set_table_entry(struct ctl_table *entry,
 static struct ctl_table *
 sd_alloc_ctl_domain_table(struct sched_domain *sd)
 {
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+	struct ctl_table *table = sd_alloc_ctl_entry(14);
+#else
 	struct ctl_table *table = sd_alloc_ctl_entry(13);
+#endif
 
 	if (table == NULL)
 		return NULL;
@@ -4914,8 +4918,13 @@ sd_alloc_ctl_domain_table(struct sched_domain *sd)
 		sizeof(int), 0644, proc_dointvec_minmax, false);
 	set_table_entry(&table[11], "name", sd->name,
 		CORENAME_MAX_SIZE, 0444, proc_dostring, false);
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+	set_table_entry(&table[12], "asym_concurrency", &sd->asym_concurrency,
+		sizeof(int), 0644, proc_dointvec, false);
+	/* &table[13] is terminator */
+#else
 	/* &table[12] is terminator */
-
+#endif
 	return table;
 }
 
@@ -5534,6 +5543,33 @@ static void update_top_cache_domain(int cpu)
 	rcu_assign_pointer(per_cpu(sd_asym, cpu), sd);
 }
 
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+static void update_domain_extra_info(struct sched_domain *sd)
+{
+	while (sd) {
+		int i = 0, j = 0, first, min = INT_MAX;
+		struct sched_group *group;
+
+		group = sd->groups;
+		first = group_first_cpu(group);
+		do {
+			int k = group_first_cpu(group);
+			i += 1;
+			if (k < first)
+				j += 1;
+			if (k < min) {
+				sd->first_group = group;
+				min = k;
+			}
+		} while (group = group->next, group != sd->groups);
+
+		sd->total_groups = i;
+		sd->group_number = j;
+		sd = sd->parent;
+	}
+}
+#endif
+
 /*
  * Attach the domain 'sd' to 'cpu' as its base domain. Callers must
  * hold the hotplug lock.
@@ -5582,6 +5618,10 @@ cpu_attach_domain(struct sched_domain *sd, struct root_domain *rd, int cpu)
 	destroy_sched_domains(tmp, cpu);
 
 	update_top_cache_domain(cpu);
+
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+	update_domain_extra_info(sd);
+#endif
 }
 
 /* cpus with isolated domains */

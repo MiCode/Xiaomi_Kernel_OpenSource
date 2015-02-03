@@ -870,6 +870,13 @@ enum cpu_idle_type {
 #define SD_OVERLAP		0x2000	/* sched_domains of this level overlap */
 #define SD_NUMA			0x4000	/* cross-node balancing */
 
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+/* Higher concurrency in front to save power */
+#define SD_ASYM_CONCURRENCY    0x8000
+#else
+#define SD_ASYM_CONCURRENCY 0
+#endif
+
 extern int __weak arch_sd_sibiling_asym_packing(void);
 
 struct sched_domain_attr {
@@ -952,6 +959,13 @@ struct sched_domain {
 		void *private;		/* used during construction */
 		struct rcu_head rcu;	/* used during destruction */
 	};
+
+#ifdef CONFIG_WORKLOAD_CONSOLIDATION
+	unsigned int total_groups;
+	unsigned int group_number;
+	unsigned int asym_concurrency;
+	struct sched_group *first_group;        /* ordered by CPU number */
+#endif
 
 	unsigned int span_weight;
 	/*
