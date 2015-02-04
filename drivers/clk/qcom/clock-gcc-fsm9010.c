@@ -1264,8 +1264,6 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_pdm2_ahb_clk),
 	CLK_LIST(gcc_pcie_phy_0_reset),
 	CLK_LIST(gcc_pcie_phy_1_reset),
-	CLK_LIST(gcc_gmac0_axi_clk),
-	CLK_LIST(gcc_gmac1_axi_clk),
 };
 
 static int msm_gcc_probe(struct platform_device *pdev)
