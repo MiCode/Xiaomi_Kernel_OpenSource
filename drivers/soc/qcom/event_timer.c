@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +101,9 @@ struct event_timer_info *add_event_timer(uint32_t irq,
 
 		get_online_cpus();
 		event_info->cpu = cpumask_any_and(mask, cpu_online_mask);
+		if (event_info->cpu >= nr_cpu_ids)
+			event_info->cpu = cpumask_first(cpu_online_mask);
+
 		event_info->notify.notify = irq_affinity_change_notifier;
 		event_info->notify.release = irq_affinity_release;
 		irq_set_affinity_notifier(irq, &event_info->notify);
@@ -309,6 +312,9 @@ static void irq_affinity_change_notifier(struct irq_affinity_notify *notify,
 	 * the next affinity CPU.
 	 */
 	new_cpu = cpumask_any_and(mask_val, cpu_online_mask);
+	if (new_cpu >= nr_cpu_ids)
+		return;
+
 	old_cpu = event->cpu;
 
 	if (msm_event_debug_mask && MSM_EVENT_TIMER_DEBUG)
