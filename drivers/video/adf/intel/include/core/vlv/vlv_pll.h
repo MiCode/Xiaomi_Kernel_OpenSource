@@ -69,5 +69,6 @@ bool vlv_dsi_pll_init(struct vlv_pll *pll, enum pipe epipe, enum port port);
 bool vlv_pll_init(struct vlv_pll *pll, enum intel_pipe_type type,
 		enum pipe epipe, enum port eport);
 bool vlv_pll_destroy(struct vlv_pll *pll);
+u32 vlv_pll_dpms(struct vlv_pll *pll, u8 dpms_state);
 
 #endif /*_VLV_PLL_H_*/

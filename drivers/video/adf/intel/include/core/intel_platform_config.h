@@ -97,6 +97,7 @@ u32 vlv_get_event(struct intel_pipeline *pipeline, u32 *event);
  * intel_adf_get_dc_config
  */
 
+u32 vlv_dpms(struct intel_pipeline *pipeline, u8 dpms_state);
 
 extern struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id);
 extern void vlv_dc_config_destroy(struct intel_dc_config *config);

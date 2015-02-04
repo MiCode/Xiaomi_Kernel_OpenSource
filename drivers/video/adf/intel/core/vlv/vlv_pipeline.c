@@ -271,6 +271,7 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 	struct intel_clock clock;
 	bool ret = 0;
 	u32 err = 0, dotclock = 0, multiplier = 1;
+	u32 saved_clock = 0;
 	u8 bpp = 0;
 
 	if (!mode) {
@@ -286,6 +287,7 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 		if ((disp->type == INTEL_PIPE_DP) ||
 			(disp->type == INTEL_PIPE_EDP)) {
 			dotclock = pipeline->params.dp.link_bw;
+			saved_clock = mode->clock;
 			mode->clock = dotclock;
 			multiplier = vlv_calc_multiplier(pipeline, dotclock);
 
@@ -337,6 +339,7 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 
 	case INTEL_PIPE_DP:
 	case INTEL_PIPE_EDP:
+		mode->clock = saved_clock;
 		vlv_pipe_program_m_n(pipe, disp->base.params.dp.m_n);
 		bpp = disp->base.params.dp.bpp;
 		break;
@@ -592,16 +595,28 @@ u32 chv_pipeline_off(struct intel_pipeline *pipeline)
 	/* Also check for pending flip and the vblank off  */
 	vlv_pipe_vblank_off(pipe);
 
-	/* port disable */
-	err = vlv_port_disable(pipeline);
-	if (err)
-		pr_err("ADF: %s: port disable failed\n", __func__);
+	if ((disp->type == INTEL_PIPE_EDP) ||
+		(disp->type == INTEL_PIPE_DP)) {
+		/* pipe disable first for dp/edp */
+		err = vlv_pipe_disable(pipe);
+		if (err)
+			pr_err("ADF: %s: pipe disable failed\n", __func__);
 
-	/* pipe disable */
-	err = vlv_pipe_disable(pipe);
-	if (err)
-		pr_err("ADF: %s: pipe disable failed\n", __func__);
+		/* port disable */
+		err = vlv_port_disable(pipeline);
+		if (err)
+			pr_err("ADF: %s: port disable failed\n", __func__);
+	} else {
+		/* port disable */
+		err = vlv_port_disable(pipeline);
+		if (err)
+			pr_err("ADF: %s: port disable failed\n", __func__);
 
+		/* pipe disable */
+		err = vlv_pipe_disable(pipe);
+		if (err)
+			pr_err("ADF: %s: pipe disable failed\n", __func__);
+	}
 	if (disp->type == INTEL_PIPE_DSI)
 		goto out;
 
@@ -983,4 +998,38 @@ u32 vlv_dp_get_brightness(struct intel_pipeline *pipeline)
 	level = vlv_dp_port_get_brightness(port);
 	return level;
 
+}
+
+u32 vlv_dpms(struct intel_pipeline *pipeline, u8 dpms_state)
+{
+	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
+	struct vlv_dp_port *dp_port = &disp->port.dp_port;
+	struct vlv_pll *pll = &disp->pll;
+
+	if (dpms_state == DRM_MODE_DPMS_ON) {
+		vlv_pll_dpms(pll, dpms_state);
+		switch (disp->type) {
+		case INTEL_PIPE_DP:
+		case INTEL_PIPE_EDP:
+			vlv_dp_port_dpms(dp_port, dpms_state);
+			break;
+		default:
+			/* add on required basis */
+			break;
+		}
+
+	} else if (dpms_state == DRM_MODE_DPMS_OFF) {
+		switch (disp->type) {
+		case INTEL_PIPE_DP:
+		case INTEL_PIPE_EDP:
+			vlv_dp_port_dpms(dp_port, dpms_state);
+			break;
+		default:
+			/* add on required basis */
+			break;
+		}
+		vlv_pll_dpms(pll, dpms_state);
+	}
+	disp->dpms_state = dpms_state;
+	return 0;
 }

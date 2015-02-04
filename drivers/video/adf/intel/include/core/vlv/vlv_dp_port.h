@@ -55,7 +55,7 @@ struct vlv_dp_port {
 bool vlv_dp_port_init(struct vlv_dp_port *port, enum port port_id,
 	enum pipe pipe_id, enum intel_pipe_type type, struct device *dev);
 void vlv_dp_port_destroy(struct vlv_dp_port *port);
-
+u32 vlv_dp_port_dpms(struct vlv_dp_port *port, u8 dpms_state);
 u32 vlv_dp_port_set_link_pattern(struct vlv_dp_port *port,
 		u8 train_pattern);
 void vlv_dp_port_get_adjust_train(struct vlv_dp_port *port,

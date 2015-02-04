@@ -258,6 +258,16 @@ u32 vlv_pll_disable(struct vlv_pll *pll)
 	return 0;
 }
 
+u32 vlv_pll_dpms(struct vlv_pll *pll, u8 dpms_state)
+{
+	if (dpms_state == DRM_MODE_DPMS_ON)
+		REG_WRITE(DISP_PHY_CTL, DPIO_INIT_VAL);
+
+	pr_info("pll %d state changed to %d\n", pll->pll_id, dpms_state);
+
+	return 0;
+}
+
 bool vlv_pll_init(struct vlv_pll *pll, enum intel_pipe_type type,
 		enum pipe pipe_id, enum port port_id)
 {

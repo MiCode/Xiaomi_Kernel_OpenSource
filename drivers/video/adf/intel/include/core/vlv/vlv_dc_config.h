@@ -166,6 +166,7 @@ struct vlv_pipeline {
 	struct vlv_sp_plane splane[2];
 	u32 dpio_id;
 	u32 disp_no;
+	u8 dpms_state;
 	enum intel_pipe_type type;
 	u16 dc_stepping;
 	union {

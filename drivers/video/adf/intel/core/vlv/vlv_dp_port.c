@@ -41,6 +41,8 @@
 #define PWM_DUTY_CYCLE		0x1e841e84
 #define PLATFORM_MAX_BRIGHTNESS	0x1FFF
 #define PWM_ENABLE		(1 << 31)
+#define EDP_WRITE_PROTECT	0xabcd0000
+#define EDP_WRITE_PROTECT_MASK	0xffff0000
 
 static u32 wait_panel_status(struct vlv_dp_port *port, u32 mask, u32 value)
 {
@@ -93,6 +95,18 @@ void vlv_dp_port_get_max_vswing_preemp(struct vlv_dp_port *port,
 		*max_p = e6dB;
 	else
 		*max_p = e9_5dB;
+}
+
+void vlv_dp_port_write_protect_off(struct vlv_dp_port *port, bool enable)
+{
+	u32 val = 0;
+
+	val = REG_READ(port->pp_ctl_offset);
+	val &= ~(EDP_WRITE_PROTECT_MASK);
+	if (enable)
+		val |= EDP_WRITE_PROTECT;
+
+	REG_WRITE(port->pp_ctl_offset, val);
 }
 
 u32 vlv_dp_port_panel_power_seq(struct vlv_dp_port *port, bool enable)
@@ -154,7 +168,6 @@ u32 vlv_dp_port_backlight_seq(struct vlv_dp_port *port, bool enable)
 {
 	u32 pp = 0;
 
-	/* FIXME: implement register locking */
 	if (enable) {
 		vlv_dp_port_pwm_seq(port, enable);
 
@@ -162,7 +175,26 @@ u32 vlv_dp_port_backlight_seq(struct vlv_dp_port *port, bool enable)
 		pp = REG_READ(port->pp_ctl_offset);
 		pp |= EDP_BLC_ENABLE;
 		REG_WRITE(port->pp_ctl_offset, pp);
+
+		/*
+		 * backlight is turned on, so modeset is complete
+		 * lock pps registers , only access for these
+		 * should come through brightness calls where
+		 * we should explictly enable and disable this
+		 */
+		vlv_dp_port_write_protect_off(port, false);
 	} else {
+		/*
+		 * exact opposite of above scenario
+		 * since backlight is turned off
+		 * this can be part of modeset where
+		 * pps and pipe timing registers can be acessed
+		 * so turn off write protection
+		 * This will handle dpms as well since
+		 * edp modeset always performs backlight off
+		 * before begining enable sequence
+		 */
+		vlv_dp_port_write_protect_off(port, true);
 		pp = REG_READ(port->pp_ctl_offset);
 		pp &= ~EDP_BLC_ENABLE;
 		REG_WRITE(port->pp_ctl_offset, pp);
@@ -234,7 +266,6 @@ u32 vlv_dp_port_disable(struct vlv_dp_port *port)
 	reg_val &= ~(1 << 31);
 	REG_WRITE(port->hist_ctl_offset, reg_val);
 
-	/* perform lane reset frm chv_post_disable_dp */
 	return 0;
 }
 
@@ -517,7 +548,6 @@ u32 vlv_dp_port_aux_transfer(struct vlv_dp_port *port,
 aux_tx_exit:
 	mutex_unlock(&port->hw_mutex);
 	return ret;
-
 }
 
 u32 vlv_dp_port_set_signal_levels(struct vlv_dp_port *port,
@@ -836,8 +866,8 @@ u32 vlv_dp_port_load_panel_delays(struct vlv_dp_port *port)
 		port->pps_delays.t11_t12 = (510 + 100) * 10;
 
 	} else {
-		pr_err("PPS delays: %d %d %d %d %d\n", *ptr, *(ptr+1), *(ptr+2),
-				*(ptr+3), *(ptr+4));
+		pr_info("PPS delays: %d %d %d %d %d\n", *ptr, *(ptr+1),
+				*(ptr+2), *(ptr+3), *(ptr+4));
 
 		port->pps_delays.t1_t3 = *ptr;
 		port->pps_delays.t8 = *(ptr+1);
@@ -865,6 +895,17 @@ void vlv_dp_port_destroy(struct vlv_dp_port *port)
 {
 	mutex_destroy(&port->hw_mutex);
 	i2c_del_adapter(&port->ddc);
+}
+
+u32 vlv_dp_port_dpms(struct vlv_dp_port *port, u8 dpms_state)
+{
+	if (dpms_state == DRM_MODE_DPMS_ON) {
+		vlv_dp_port_write_protect_off(port, true);
+		vlv_dp_port_load_panel_delays(port);
+		vlv_dp_port_write_protect_off(port, false);
+	}
+
+	return 0;
 }
 
 bool vlv_dp_port_init(struct vlv_dp_port *port, enum port port_id,
@@ -939,11 +980,14 @@ u32 vlv_dp_port_set_brightness(struct vlv_dp_port *port, int level)
 
 	if (!port->is_edp)
 		return 0;
+	vlv_dp_port_write_protect_off(port, true);
 
 	val = REG_READ(port->pwm_duty_cycle_offset);
 	level = (level * PLATFORM_MAX_BRIGHTNESS) / MAXIMUM_BRIGHTNESS;
 	val = val & ~BACKLIGHT_DUTY_CYCLE_MASK;
 	REG_WRITE(port->pwm_duty_cycle_offset, val | level);
+
+	vlv_dp_port_write_protect_off(port, false);
 
 	return 1;
 }

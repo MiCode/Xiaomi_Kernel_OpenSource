@@ -159,7 +159,7 @@ static int dp_pipe_modeset(struct intel_pipe *pipe,
 	struct link_params *params;
 	bool ret = false, err = 0;
 	u8 dpcdval = 1;
-	u32 dotclock = mode->clock;
+	u32 dotclock;
 	u32 bpp = 0;
 
 	params = &dp_pipe->link_params;
@@ -173,8 +173,13 @@ static int dp_pipe_modeset(struct intel_pipe *pipe,
 	pr_err("%s:FIXME: get bpp from edid\n", __func__);
 	bpp = 24;
 
-	/* Avoiding i915 enter into DPMS */
-	intel_adf_display_rpm_get();
+	/* if NULL the current call is from dpms so use saved mode */
+	if (mode == NULL)
+		mode = &dp_pipe->current_mode;
+	else
+		intel_adf_display_rpm_get();
+
+	dotclock = mode->clock;
 	dp_pipe_dump_modes(mode, 1);
 	vlv_dp_backlight_seq(pipeline, false);
 
@@ -236,7 +241,7 @@ static int dp_pipe_dpms(struct intel_pipe *pipe, u8 state)
 {
 	struct dp_pipe *dp_pipe = to_dp_pipe(pipe);
 	struct intel_pipeline *pipeline = dp_pipe->pipeline;
-	struct drm_mode_modeinfo mode;
+	u8 dpcdval = 0;
 	u32 err = 0;
 
 	pr_err("ADF: %s current_state = %d, requested_state = %d\n",
@@ -248,15 +253,18 @@ static int dp_pipe_dpms(struct intel_pipe *pipe, u8 state)
 	switch (state) {
 	case DRM_MODE_DPMS_ON:
 		intel_adf_display_rpm_get();
-		dp_pipe_get_current_mode(pipe, &mode);
-		err = dp_pipe_modeset(pipe, &mode);
+		vlv_dpms(pipeline, state);
+		err = dp_pipe_modeset(pipe, NULL);
 		if (err != 0)
 			goto dpms_exit;
 		break;
 	case DRM_MODE_DPMS_OFF:
 		vlv_dp_backlight_seq(pipeline, false);
 		vlv_dp_panel_power_seq(pipeline, false);
+		dp_panel_set_dpcd(&dp_pipe->panel, DP_SET_POWER,
+			&dpcdval, 1);
 		err = vlv_pipeline_off(pipeline);
+		vlv_dpms(pipeline, state);
 		intel_adf_display_rpm_put();
 		if (err != 0)
 			goto dpms_exit;
