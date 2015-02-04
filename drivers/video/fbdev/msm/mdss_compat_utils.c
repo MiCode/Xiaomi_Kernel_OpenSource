@@ -135,7 +135,6 @@ static struct mdp_input_layer32 *__create_layer_list32(
 	int ret;
 
 	buffer_size32 = sizeof(struct mdp_input_layer32) * layer_count;
-	buffer_size32 += sizeof(struct mdp_output_layer32);
 
 	layer_list32 = kmalloc(buffer_size32, GFP_KERNEL);
 	if (!layer_list32) {
@@ -145,11 +144,13 @@ static struct mdp_input_layer32 *__create_layer_list32(
 	}
 
 	ret = copy_from_user(layer_list32,
-			commit32->commit_v1.input_layers,
+			compat_ptr(commit32->commit_v1.input_layers),
 			sizeof(struct mdp_input_layer32) * layer_count);
 	if (ret) {
-		pr_err("layer list32 copy from user failed\n");
+		pr_err("layer list32 copy from user failed, ptr %p\n",
+			compat_ptr(commit32->commit_v1.input_layers));
 		kfree(layer_list32);
+		ret = -EFAULT;
 		layer_list32 = ERR_PTR(ret);
 	}
 
@@ -174,11 +175,13 @@ static int __copy_scale_params(struct mdp_input_layer *layer,
 	}
 
 	/* scale structure size is same for compat and 64bit version */
-	ret = copy_from_user(scale, layer32->scale,
+	ret = copy_from_user(scale, compat_ptr(layer32->scale),
 			sizeof(struct mdp_scale_data));
 	if (ret) {
 		kfree(scale);
-		pr_err("scale param copy from user failed\n");
+		pr_err("scale param copy from user failed, ptr %p\n",
+			compat_ptr(layer32->scale));
+		ret = -EFAULT;
 	} else {
 		layer->scale = scale;
 	}
@@ -197,7 +200,6 @@ static struct mdp_input_layer *__create_layer_list(
 	struct mdp_input_layer32 *layer32;
 
 	buffer_size = sizeof(struct mdp_input_layer) * layer_count;
-	buffer_size += sizeof(struct mdp_output_layer);
 
 	layer_list = kmalloc(buffer_size, GFP_KERNEL);
 	if (!layer_list) {
@@ -223,7 +225,7 @@ static struct mdp_input_layer *__create_layer_list(
 		layer->src_rect = layer32->src_rect;
 		layer->dst_rect = layer32->dst_rect;
 		layer->buffer = layer32->buffer;
-		layer->pp_info = (void *)layer32->pp_info;
+		layer->pp_info = compat_ptr(layer32->pp_info);
 		memcpy(&layer->reserved, &layer32->reserved,
 			sizeof(layer->reserved));
 
@@ -257,9 +259,15 @@ static int __copy_to_user_atomic_commit(struct mdp_layer_commit  *commit,
 	for (i = 0; i < layer_count; i++)
 		layer_list32[i].error_code = layer_list[i].error_code;
 
-	ret = copy_to_user(commit32->commit_v1.input_layers,
+	ret = copy_to_user(compat_ptr(commit32->commit_v1.input_layers),
 		layer_list32,
 		sizeof(struct mdp_input_layer32) * layer_count);
+	if (ret)
+		goto end;
+
+	ret = copy_to_user(compat_ptr(commit32->commit_v1.output_layer),
+		commit->commit_v1.output_layer,
+		sizeof(struct mdp_output_layer));
 	if (ret)
 		goto end;
 
@@ -290,7 +298,9 @@ static int __compat_atomic_commit(struct fb_info *info, unsigned int cmd,
 	ret = copy_from_user(&commit32, (void __user *)argp,
 		sizeof(struct mdp_layer_commit32));
 	if (ret) {
-		pr_err("%s:copy_from_user failed\n", __func__);
+		pr_err("%s:copy_from_user failed, ptr %p\n", __func__,
+			(void __user *)argp);
+		ret = -EFAULT;
 		return ret;
 	}
 	__copy_atomic_commit_struct(&commit, &commit32);
@@ -303,9 +313,12 @@ static int __compat_atomic_commit(struct fb_info *info, unsigned int cmd,
 			return -ENOMEM;
 		}
 		ret = copy_from_user(output_layer,
-				commit32.commit_v1.output_layer, buffer_size);
+				compat_ptr(commit32.commit_v1.output_layer),
+				buffer_size);
 		if (ret) {
-			pr_err("fail to copy output layer from user\n");
+			pr_err("fail to copy output layer from user, ptr %p\n",
+				compat_ptr(commit32.commit_v1.output_layer));
+			ret = -EFAULT;
 			goto layer_list_err;
 		}
 

@@ -500,9 +500,9 @@ struct mdp_input_layer32 {
 	enum mdss_mdp_blend_op		blend_op;
 	struct mdp_rect		src_rect;
 	struct mdp_rect		dst_rect;
-	compat_caddr_t __user	*scale;
+	compat_caddr_t		scale;
 	struct mdp_layer_buffer	buffer;
-	compat_caddr_t __user	*pp_info;
+	compat_caddr_t		pp_info;
 	int			error_code;
 	uint32_t		reserved[6];
 };
@@ -518,9 +518,9 @@ struct mdp_layer_commit_v1_32 {
 	int			release_fence;
 	struct mdp_rect		left_roi;
 	struct mdp_rect		right_roi;
-	compat_caddr_t __user	*input_layers;
+	compat_caddr_t		input_layers;
 	uint32_t		input_layer_cnt;
-	compat_caddr_t __user *output_layer;
+	compat_caddr_t		output_layer;
 	int			retire_fence;
 	uint32_t		reserved[6];
 };
