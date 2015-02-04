@@ -188,6 +188,7 @@ struct dwc3_msm {
 	unsigned int		scope;
 	unsigned int		voltage_max;
 	unsigned int		current_max;
+	unsigned int		health_status;
 	unsigned int		tx_fifo_size;
 	unsigned int		qdss_tx_fifo_size;
 	bool			vbus_active;
@@ -2264,6 +2265,9 @@ static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = get_prop_usbin_voltage_now(mdwc);
 		break;
+	case POWER_SUPPLY_PROP_HEALTH:
+		val->intval = mdwc->health_status;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -2355,6 +2359,9 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		dev_dbg(mdwc->dev, "%s: charger type: %s\n", __func__,
 				chg_to_string(mdwc->charger.chg_type));
 		break;
+	case POWER_SUPPLY_PROP_HEALTH:
+		mdwc->health_status = val->intval;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -2417,6 +2424,7 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_HEALTH,
 };
 
 static void dwc3_init_adc_work(struct work_struct *w);
