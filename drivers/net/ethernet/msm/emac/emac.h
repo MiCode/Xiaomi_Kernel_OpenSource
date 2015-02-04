@@ -34,7 +34,7 @@
 #define EMAC_NUM_CORE_IRQ     4
 #define EMAC_WOL_IRQ          4
 #define EMAC_SGMII_PHY_IRQ    5
-#define EMAC_NUM_IRQ          6
+#define EMAC_IRQ_CNT          6
 /* mdio/mdc gpios */
 #define EMAC_GPIO_CNT         2
 
@@ -519,18 +519,41 @@ union emac_sw_tpdesc {
 #define EMAC_TPD_LAST_FRAGMENT  0x80000000
 #define EMAC_TPD_TSTAMP_SAVE    0x80000000
 
-struct emac_irq_info {
+
+/* emac_irq_per_dev per-device (per-adapter) irq properties.
+ * @idx:	index of this irq entry in the adapter irq array.
+ * @irq:	irq number.
+ * @mask	mask to use over status register.
+ */
+struct emac_irq_per_dev {
+	int idx;
 	unsigned int irq;
+	u32 mask;
+};
+
+/* emac_irq_common irq properties which are common to all devices of this driver
+ * @name	name in configuration (devicetree).
+ * @handler	ISR.
+ * @status_reg	status register offset.
+ * @mask_reg	mask   register offset.
+ * @init_mask	initial value for mask to use over status register.
+ * @irqflags	request_irq() flags.
+ */
+struct emac_irq_common {
 	char *name;
 	irq_handler_t handler;
 
 	u32 status_reg;
 	u32 mask_reg;
-	u32 mask;
+	u32 init_mask;
 
-	struct emac_rx_queue *rxque;
-	struct emac_adapter  *adpt;
+	unsigned long irqflags;
 };
+
+/* emac_irq_cmn_tbl a table of common irq properties to all devices of this
+ * driver.
+ */
+extern const struct emac_irq_common emac_irq_cmn_tbl[];
 
 struct emac_clk {
 	struct clk		*clk;
@@ -600,7 +623,7 @@ struct emac_rx_queue {
 	u8 consume_shft;
 
 	u32 intr;
-	struct emac_irq_info *irq_info;
+	struct emac_irq_per_dev *irq;
 };
 
 #define GET_RFD_BUFFER(_rque, _i)    (&((_rque)->rfd.rfbuff[(_i)]))
@@ -662,7 +685,7 @@ struct emac_tx_queue {
 struct emac_adapter {
 	struct net_device *netdev;
 
-	struct emac_irq_info  irq_info[EMAC_NUM_IRQ];
+	struct emac_irq_per_dev		irq[EMAC_IRQ_CNT];
 	unsigned int			gpio[EMAC_GPIO_CNT];
 	struct emac_clk			clk[EMAC_CLK_CNT];
 
@@ -711,6 +734,18 @@ struct emac_adapter {
 static inline struct emac_adapter *emac_hw_get_adap(struct emac_hw *hw)
 {
 	return container_of(hw, struct emac_adapter, hw);
+}
+
+static inline
+struct emac_adapter *emac_irq_get_adpt(struct emac_irq_per_dev *irq)
+{
+	struct emac_irq_per_dev *irq_0 = irq - irq->idx;
+	/* why using __builtin_offsetof() and not container_of() ?
+	 * container_of(irq_0, struct emac_adapter, irq) fails to compile
+	 * because emac->irq is of array type.
+	 */
+	return (struct emac_adapter *)
+		((char *)irq_0 - __builtin_offsetof(struct emac_adapter, irq));
 }
 
 /* default to trying for four seconds */
