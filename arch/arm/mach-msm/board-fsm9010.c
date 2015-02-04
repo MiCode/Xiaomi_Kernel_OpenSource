@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
 
 #include <linux/err.h>
 #include <linux/kernel.h>
+#include <linux/etherdevice.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
@@ -26,6 +27,11 @@
 #include "board-dt.h"
 #include "platsmp.h"
 
+#define FSM9010_MAC0_FUSE_PHYS	0xFC4B8440
+#define FSM9010_MAC1_FUSE_PHYS	0xFC4B8448
+#define FSM9010_MAC_FUSE_SIZE	0x10
+
+static const char mac_addr_prop_name[] = "mac-address";
 
 void __init fsm9010_reserve(void)
 {
@@ -47,6 +53,82 @@ static void __init fsm9010_map_io(void)
 	msm_map_fsm9010_io();
 }
 
+static int gmac_dt_update(int cell, phys_addr_t addr, unsigned long size)
+{
+	/*
+	 * Use an array for the fuse. Corrected fuse data may be located
+	 * at a different offsets.
+	 */
+	static int offset[ETH_ALEN] = { 0, 1, 2, 3, 4, 5};
+	void __iomem *fuse_reg;
+	struct device_node *np = NULL;
+	struct property *pmac = NULL;
+	struct property *pp = NULL;
+	u8 buf[ETH_ALEN];
+	int n;
+	int retval = 0;
+
+	fuse_reg = ioremap(addr, size);
+	if (!fuse_reg) {
+		pr_err("failed to ioremap efuse to read mac address");
+		return -ENOMEM;
+	}
+
+	for (n = 0; n < ETH_ALEN; n++)
+		buf[n] = ioread8(fuse_reg + offset[n]);
+
+	iounmap(fuse_reg);
+
+	if (!is_valid_ether_addr(buf)) {
+		pr_err("invalid MAC address in efuse\n");
+		return -ENODATA;
+	}
+
+	pmac = kzalloc(sizeof(*pmac) + ETH_ALEN, GFP_KERNEL);
+	if (!pmac) {
+		pr_err("failed to alloc memory for mac address\n");
+		return -ENOMEM;
+	}
+
+	pmac->value = pmac + 1;
+	pmac->length = ETH_ALEN;
+	pmac->name = (char *)mac_addr_prop_name;
+	memcpy(pmac->value, buf, ETH_ALEN);
+
+	for_each_compatible_node(np, NULL, "qcom,qfec-nss") {
+		if (of_property_read_u32(np, "cell-index", &n))
+			continue;
+		if (n == cell)
+			break;
+	}
+
+	if (!np) {
+		pr_err("failed to find dt node for gmac%d", cell);
+		retval = -ENODEV;
+		goto out;
+	}
+
+	pp = of_find_property(np, pmac->name, NULL);
+	if (pp)
+		of_update_property(np, pmac);
+	else
+		of_add_property(np, pmac);
+
+	of_node_put(np);
+out:
+	if (retval && pmac)
+		kfree(pmac);
+
+	return retval;
+}
+
+int __init fsm9010_gmac_dt_update(void)
+{
+	gmac_dt_update(0, FSM9010_MAC0_FUSE_PHYS, FSM9010_MAC_FUSE_SIZE);
+	gmac_dt_update(1, FSM9010_MAC1_FUSE_PHYS, FSM9010_MAC_FUSE_SIZE);
+	return 0;
+}
+
 void __init fsm9010_init(void)
 {
 	/*
@@ -60,6 +142,8 @@ void __init fsm9010_init(void)
 
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
+
+	fsm9010_gmac_dt_update();
 
 	fsm9010_add_drivers();
 }
