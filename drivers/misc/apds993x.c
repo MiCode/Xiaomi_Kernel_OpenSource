@@ -61,6 +61,7 @@
 #define APDS_CAL_SKIP_COUNT     5
 #define APDS_MAX_CAL	(10 + APDS_CAL_SKIP_COUNT)
 #define CAL_NUM		99
+#define CALIBRATE_PS_DELAY	6000 /* us */
 
 /* Change History
  *
@@ -269,6 +270,7 @@ struct apds993x_data {
 	char calibrate_buf[CAL_NUM];
 	int ps_cal_params[3];
 	int pre_enable_ps;
+	atomic_t ps_cal_status;
 
 	/* ALS parameters */
 	unsigned int als_threshold_l;	/* low threshold */
@@ -1316,6 +1318,11 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 		return -EINVAL;
 	}
 
+	if (atomic_read(&data->ps_cal_status)) {
+		dev_err(&client->dev, "can not enable when calibration\n");
+		return -EBUSY;
+	}
+
 	if (val == 1) {
 		/* turn on p sensor */
 		if ((data->enable_als_sensor == 0) &&
@@ -1875,11 +1882,20 @@ static int apds993x_ps_calibrate(struct sensors_classdev *sensors_cdev,
 	int temp[3] = { 0 };
 	struct apds993x_data *data = container_of(sensors_cdev,
 			struct apds993x_data, ps_cdev);
+
 	data->pre_enable_ps = data->enable_ps_sensor;
 	if (!data->enable_ps_sensor)
 		apds993x_enable_ps_sensor(data->client, 1);
+
+	if (!atomic_cmpxchg(&data->ps_cal_status, 0, 1)) {
+		dev_err(&data->client->dev, "do calibration error\n");
+		return -EBUSY;
+	}
+
+	if (data->irq)
+		disable_irq(data->irq);
 	for (i = 0; i < APDS_MAX_CAL; i++) {
-		msleep(100);
+		usleep_range(CALIBRATE_PS_DELAY, (CALIBRATE_PS_DELAY + 2000));
 		data->ps_cal_data = i2c_smbus_read_word_data(
 			data->client, CMD_WORD|APDS993X_PDATAL_REG);
 		if (i < APDS_CAL_SKIP_COUNT)
@@ -1906,6 +1922,9 @@ static int apds993x_ps_calibrate(struct sensors_classdev *sensors_cdev,
 	snprintf(data->calibrate_buf, sizeof(data->calibrate_buf),
 			"%d,%d,%d", temp[0], temp[1], temp[2]);
 	sensors_cdev->params = data->calibrate_buf;
+	if (data->irq)
+		enable_irq(data->irq);
+	atomic_set(&data->ps_cal_status, 0);
 	if (!data->pre_enable_ps)
 		apds993x_enable_ps_sensor(data->client, 0);
 	return 0;
@@ -2604,6 +2623,7 @@ static int apds993x_probe(struct i2c_client *client,
 	data->ps_detection = 0;	/* default to no detection */
 	data->enable_als_sensor = 0;	// default to 0
 	data->enable_ps_sensor = 0;	// default to 0
+	atomic_set(&data->ps_cal_status, 0);
 	data->als_poll_delay = 100;	// default to 100ms
 	data->als_atime_index = APDS993X_ALS_RES_37888;	// 100ms ATIME
 	data->als_again_index = APDS993X_ALS_GAIN_8X;	// 8x AGAIN
