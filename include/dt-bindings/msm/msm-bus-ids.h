@@ -13,6 +13,11 @@
 #ifndef __MSM_BUS_IDS_H
 #define __MSM_BUS_IDS_H
 
+/* Aggregation types */
+#define AGG_SCHEME_NONE	0
+#define AGG_SCHEME_LEG	1
+#define AGG_SCHEME_1	2
+
 /* Topology related enums */
 #define	MSM_BUS_FAB_DEFAULT 0
 #define	MSM_BUS_FAB_APPSS 0

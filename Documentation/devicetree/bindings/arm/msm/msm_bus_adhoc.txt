@@ -57,14 +57,33 @@ qcom,qos-off:		Parameter that represents the delta between QoS register address
 			space for different devices.
 			Typically these optional properties are used for
 			devices that represent fabric devices.
-qcom,util-fact:		Parameter that represents the DDR utilization factor. It is
-			represented as actual util-factor * 100.
+qcom,agg-scheme:	Parameter that represents the aggregation scheme to be used for the
+			node. This parameter defaults to LEGACY scheme. The valid options
+			are LEGACY/SCHEME_1.
+qcom,util-fact:		Parameter that represents the DDR utilization factor to be used in
+			LEGACY scheme. It is represented as actual util-factor * 100.
 qcom,vrail-comp:	Parameter that represents the voltage rail compensation to push
-			the bus to the next level if needed. It is represented as actual
-			vrail-comp * 100.
+			the bus to the next level if needed in LEGACY and SCHEME 1 aggregation
+			schemes. It is represented as actual vrail-comp * 100.
+qcom,util-levels:	Array of tuples that represent a bandwidth threshold and util factor
+			to be used uptil the given threshold.
 qcom,bus-type:		Parameter that represents the bus type such as BIMC or NOC.
 			Typically these optional properties are used for
 			devices that represent fabric devices.
+bus-gdsc-supply:	Optional fabric device parameter that is a reference to the dual
+			context GDSC supply that is needed before clock operations.
+bus-a-gdsc-supply:	Optional fabric device parameter that is a reference to an active
+			only context GDSC supply that is needed before clock operations.
+bus-qos-gdsc-supply:	Optional node or fabric device parameter that is a reference to a GDSC
+			supply that is needed before use of the clock needed to program
+			QoS registers.
+node-gdsc-supply:	Optional node device parameter that is a reference to a GDSC supply
+			that is needed before node-clock operations.
+qcom,enable-only-clk:   Optional property that is represents if the clock doesn't support
+                        the clk_set_rate API and should only be enabled/disabled.
+qcom,setrate-only-clk:   Optional property that is indicates that bus driver should only
+			set a rate on a clock handle and not call the enable/disable
+			clock API.
 clock-names:		Optional property that represents the clock name associated
 			with the device "bus_clk", "bus_a_clk";
 clocks:			Property pair that represents the clock controller and the clock
@@ -103,7 +122,6 @@ qcom,blacklist:         An array of phandles that represent devices that this de
 			intermediate nodes.
 qcom,agg-ports:		The number of aggregation ports on the bus.
 
-
 The following properties are optional as collecting data via coresight might
 and are present on child nodes that represent NOC devices. The documentation
 for coresight properties can be found in:
@@ -117,6 +135,14 @@ coresight-child-list	List of phandles pointing to the children of this
 			component.
 coresight-child-ports	List of input port numbers of the children.
 
+The following sub-nodes are optional parameters:
+
+qcom,node-qos-clks:	Optional node listing all the clocks and regulators required for programming of
+			QoS registers. Usually these are associated with fabric nodes.
+	clock-names:	An array of clock names for QoS programming,
+	clocks:		An array of clock phandles corresponding to the clock names listed above.
+	clock-name-gdsc:
+			An optional property listing the regulator associated with a given clock name.
 
 Example:
 
@@ -130,6 +156,9 @@ Example:
                 label = "fab-snoc";
                 qcom,fab-dev;
                 qcom,bypass-qos-prg;
+		qcom,agg-scheme = <SCHEME_1>;
+		qcom,util-levels = <450000 133>,
+			<750000 154>;
                 qcom,base-name = "snoc-base";
                 qcom,base-offset = <0x7000>;
                 qcom,qos-off = <0x1000>;
@@ -137,11 +166,19 @@ Example:
                 clock-names = "bus_clk", "bus_a_clk";
                 clocks = <&clock_rpm  clk_snoc_msmbus_clk>,
                       <&clock_rpm  clk_snoc_msmbus_a_clk>;
+		qcom,node-qos-clks {
+			clock-names = "q0-clk", "q1-clk";
+			clocks = <&clock_gcc clk_q0_clk>,
+				<&clock_gcc clk_q1_clk>;
+			q0-clk-supply = <&gdsc_q0_clk>;
+		};
         };
 
         mm_int_bimc: mm-int-bimc {
                 cell-id = <10003>;
                 label = "mm-int-bimc";
+		qcom,util-fact = <154>;
+		qcom,vrail-comp = <100>;
                 qcom,ap-owned;
                 qcom,connections = <&snoc_bimc_1_mas>;
                 qcom,bus-dev = <&fab_snoc>;
