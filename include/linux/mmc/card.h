@@ -311,6 +311,7 @@ struct mmc_card {
 #define MMC_QUIRK_BROKEN_HPI	(1<<13)		/* Disable broken HPI support */
 						/* byte mode */
 #define MMC_QUIRK_INAND_DATA_TIMEOUT  (1<<14)   /* For incorrect data timeout */
+#define MMC_QUIRK_CACHE_DISABLE (1 << 15)	/* prevent cache enable */
 
 
 
