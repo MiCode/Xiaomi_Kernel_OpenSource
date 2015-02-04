@@ -43,6 +43,8 @@
 #define LIMIT_BW_MAX_HDISPLAY	1280
 #define LIMIT_BW_MAX_VDISPLAY	800
 
+static int i915_notify_had;
+
 /* CEA Mode 4 - 1280x720@60Hz */
 struct drm_display_mode hdmi_fallback_mode = {
 	DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER,
@@ -1278,6 +1280,11 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	} else {
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 		if ((status != i915_hdmi_state) && (IS_VALLEYVIEW(dev))) {
+#ifdef CONFIG_EXTCON
+			if (strlen(intel_connector->hotplug_switch.name) != 0)
+				extcon_set_state(
+				&intel_connector->hotplug_switch, 0);
+#endif
 			/* Send a disconnect event to audio */
 			DRM_DEBUG_DRIVER("Sending event to audio");
 			mid_hdmi_audio_signal_event(dev_priv->dev,
@@ -1285,17 +1292,6 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 		}
 #endif
 	}
-
-#ifdef CONFIG_EXTCON
-	if (strlen(intel_connector->hotplug_switch.name) != 0) {
-		if (status == connector_status_connected)
-			extcon_set_state(
-				&intel_connector->hotplug_switch, 1);
-		else
-			extcon_set_state(
-				&intel_connector->hotplug_switch, 0);
-	}
-#endif
 
 det_out:
 	intel_display_power_put(dev_priv, power_domain);
@@ -1316,6 +1312,10 @@ static int intel_hdmi_get_modes(struct drm_connector *connector)
 	enum intel_display_power_domain power_domain;
 	struct edid *edid = NULL;
 	int ret = 0;
+#ifdef CONFIG_EXTCON
+	struct intel_connector *intel_connector =
+				to_intel_connector(connector);
+#endif
 
 	/* We should parse the EDID data and find out if it's an HDMI sink so
 	 * we can send audio to it.
@@ -1325,8 +1325,13 @@ static int intel_hdmi_get_modes(struct drm_connector *connector)
 	intel_display_power_get(dev_priv, power_domain);
 
 	/* No need to read modes if no connection */
-	if (connector->status != connector_status_connected)
+	if (connector->status != connector_status_connected) {
+#ifdef CONFIG_EXTCON
+		if (strlen(intel_connector->hotplug_switch.name) != 0)
+			extcon_set_state(&intel_connector->hotplug_switch, 0);
+#endif
 		goto e_out;
+	}
 
 	DRM_DEBUG_DRIVER("Reading modes from EDID");
 
@@ -1341,7 +1346,16 @@ static int intel_hdmi_get_modes(struct drm_connector *connector)
 		ret = drm_add_edid_modes(connector, edid);
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 		drm_edid_to_eld(connector, edid);
-		hdmi_get_eld(connector->eld);
+		if (i915_notify_had) {
+			hdmi_get_eld(connector->eld);
+#ifdef CONFIG_EXTCON
+			if (strlen(intel_connector->hotplug_switch.name) != 0) {
+				extcon_set_state(
+				&intel_connector->hotplug_switch, 1);
+			}
+#endif
+			i915_notify_had = 0;
+		}
 #endif
 	}
 

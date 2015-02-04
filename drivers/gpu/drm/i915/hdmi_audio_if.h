@@ -41,7 +41,6 @@
 #define MONITOR_TYPE_DVI  2
 
 extern int i915_hdmi_state;
-extern int i915_notify_had;
 
 enum had_caps_list {
 	HAD_GET_ELD = 1,

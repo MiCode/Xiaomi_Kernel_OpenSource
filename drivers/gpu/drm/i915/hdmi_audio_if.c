@@ -34,7 +34,6 @@
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 
 int i915_hdmi_state;
-int i915_notify_had;
 
 /*
  * Audio register range 0x65000 to 0x65FFF
@@ -57,11 +56,7 @@ void hdmi_get_eld(uint8_t *eld)
 	struct drm_i915_private *dev_priv =
 		(struct drm_i915_private *) dev->dev_private;
 	memcpy(hdmi_eld, eld, HAD_MAX_ELD_BYTES);
-	if (i915_notify_had) {
-		mid_hdmi_audio_signal_event(dev_priv->dev,
-			HAD_EVENT_HOT_PLUG);
-		i915_notify_had = 0;
-	}
+	mid_hdmi_audio_signal_event(dev_priv->dev, HAD_EVENT_HOT_PLUG);
 }
 
 static inline int android_hdmi_get_eld(struct drm_device *dev, void *eld)
