@@ -383,7 +383,8 @@ static void ufshcd_add_command_trace(struct ufs_hba *hba,
 static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
 					unsigned int tag, const char *str)
 {
-	ufshcd_add_command_trace(hba, tag, str);
+	if (trace_ufshcd_command_enabled())
+		ufshcd_add_command_trace(hba, tag, str);
 }
 #else
 static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
