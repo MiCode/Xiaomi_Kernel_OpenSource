@@ -2451,18 +2451,47 @@ static void __mdss_fb_wait_for_fence_sub(struct msm_sync_pt_data *sync_pt_data,
 	struct sync_fence **fences, int fence_cnt)
 {
 	int i, ret = 0;
+	unsigned long max_wait = msecs_to_jiffies(WAIT_MAX_FENCE_TIMEOUT);
+	unsigned long timeout = jiffies + max_wait;
+	long wait_ms, wait_jf;
 
 	/* buf sync */
 	for (i = 0; i < fence_cnt && !ret; i++) {
-		ret = sync_fence_wait(fences[i],
-				WAIT_FENCE_FIRST_TIMEOUT);
+		wait_jf = timeout - jiffies;
+		wait_ms = jiffies_to_msecs(wait_jf);
+
+		/*
+		 * In this loop, if one of the previous fence took long
+		 * time, give a chance for the next fence to check if
+		 * fence is already signalled. If not signalled it breaks
+		 * in the final wait timeout.
+		 */
+		if (wait_jf < 0)
+			wait_ms = WAIT_MIN_FENCE_TIMEOUT;
+		else
+			wait_ms = min_t(long, WAIT_FENCE_FIRST_TIMEOUT,
+					wait_ms);
+
+		ret = sync_fence_wait(fences[i], wait_ms);
+
 		if (ret == -ETIME) {
+			wait_jf = timeout - jiffies;
+			wait_ms = jiffies_to_msecs(wait_jf);
+			if (wait_jf < 0)
+				break;
+			else
+				wait_ms = min_t(long, WAIT_FENCE_FINAL_TIMEOUT,
+						wait_ms);
+
 			pr_warn("%s: sync_fence_wait timed out! ",
 					sync_pt_data->fence_name);
-			pr_cont("Waiting %ld more seconds\n",
-					WAIT_FENCE_FINAL_TIMEOUT/MSEC_PER_SEC);
-			ret = sync_fence_wait(fences[i],
-					WAIT_FENCE_FINAL_TIMEOUT);
+			pr_cont("Waiting %ld.%ld more seconds\n",
+				(wait_ms/MSEC_PER_SEC), (wait_ms%MSEC_PER_SEC));
+
+			ret = sync_fence_wait(fences[i], wait_ms);
+
+			if (ret == -ETIME)
+				break;
 		}
 		sync_fence_put(fences[i]);
 	}
@@ -2655,7 +2684,7 @@ static int mdss_fb_wait_for_kickoff(struct msm_fb_data_type *mfd)
 	ret = wait_event_timeout(mfd->kickoff_wait_q,
 			(!atomic_read(&mfd->kickoff_pending) ||
 			 mfd->shutdown_pending),
-			msecs_to_jiffies(WAIT_DISP_OP_TIMEOUT / 2));
+			msecs_to_jiffies(WAIT_DISP_OP_TIMEOUT));
 	if (!ret) {
 		pr_err("%pS: wait for kickoff timeout koff=%d commits=%d\n",
 				__builtin_return_address(0),
