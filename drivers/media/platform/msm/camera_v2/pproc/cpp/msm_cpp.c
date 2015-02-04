@@ -113,7 +113,7 @@ static int msm_cpp_buffer_ops(struct cpp_device *cpp_dev,
 
 struct msm_cpp_timer_data_t {
 	struct cpp_device *cpp_dev;
-	struct msm_cpp_frame_info_t *processed_frame;
+	struct msm_cpp_frame_info_t *processed_frame[MAX_CPP_PROCESSING_FRAME];
 };
 
 struct msm_cpp_timer_t {
@@ -215,10 +215,28 @@ static void msm_cpp_write(u32 data, void __iomem *cpp_base)
 
 static void msm_cpp_clear_timer(struct cpp_device *cpp_dev)
 {
+	uint32_t i = 0;
+
 	if (atomic_read(&cpp_timer.used)) {
 		atomic_set(&cpp_timer.used, 0);
 		del_timer(&cpp_timer.cpp_timer);
-		cpp_timer.data.processed_frame = NULL;
+		for (i = 0; i < MAX_CPP_PROCESSING_FRAME; i++)
+			cpp_timer.data.processed_frame[i] = NULL;
+		cpp_dev->timeout_trial_cnt = 0;
+	}
+}
+
+static void msm_cpp_timer_queue_update(struct cpp_device *cpp_dev)
+{
+	uint32_t i;
+	CPP_DBG("Frame done qlen %d\n", cpp_dev->processing_q.len);
+	if (cpp_dev->processing_q.len <= 1) {
+		msm_cpp_clear_timer(cpp_dev);
+	} else {
+		for (i = 0; i < cpp_dev->processing_q.len - 1; i++)
+			cpp_timer.data.processed_frame[i] =
+				cpp_timer.data.processed_frame[i + 1];
+		cpp_timer.data.processed_frame[i] = NULL;
 		cpp_dev->timeout_trial_cnt = 0;
 	}
 }
@@ -695,13 +713,13 @@ void msm_cpp_do_tasklet(unsigned long data)
 					CPP_DBG("Frame done!!\n");
 					/* delete CPP timer */
 					CPP_DBG("delete timer.\n");
-					msm_cpp_clear_timer(cpp_dev);
+					msm_cpp_timer_queue_update(cpp_dev);
 					msm_cpp_notify_frame_done(cpp_dev);
 				} else if (msg_id ==
 					MSM_CPP_MSG_ID_FRAME_NACK) {
 					pr_err("NACK error from hw!!\n");
 					CPP_DBG("delete timer.\n");
-					msm_cpp_clear_timer(cpp_dev);
+					msm_cpp_timer_queue_update(cpp_dev);
 					msm_cpp_notify_frame_done(cpp_dev);
 				}
 				i += cmd_len + 2;
@@ -1351,6 +1369,13 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev)
 		v4l2_evt.id = processed_frame->inst_id;
 		v4l2_evt.type = V4L2_EVENT_CPP_FRAME_DONE;
 		v4l2_event_queue(cpp_dev->msm_sd.sd.devnode, &v4l2_evt);
+
+		if (queue->len > 0) {
+			rc = mod_timer(&cpp_timer.cpp_timer,
+				jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS));
+			if (rc < 0)
+				CPP_DBG("Timer has not expired yet\n");
+		}
 	}
 	return rc;
 }
@@ -1379,7 +1404,7 @@ static int msm_cpp_dump_frame_cmd(struct msm_cpp_frame_info_t *frame_info)
 static void msm_cpp_do_timeout_work(struct work_struct *work)
 {
 	int ret;
-	uint32_t i = 0;
+	uint32_t i = 0, j = 0;
 	struct msm_cpp_frame_info_t *this_frame = NULL;
 
 	pr_err("cpp_timer_callback called. (jiffies=%lu)\n",
@@ -1419,21 +1444,24 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		return;
 	}
 
-	this_frame = cpp_timer.data.processed_frame;
-	pr_err("Starting timer to fire in %d ms. (jiffies=%lu)\n",
+	CPP_DBG("Starting timer to fire in %d ms. (jiffies=%lu)\n",
 		CPP_CMD_TIMEOUT_MS, jiffies);
 	ret = mod_timer(&cpp_timer.cpp_timer,
 		jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS));
 	if (ret)
-		pr_err("error in mod_timer\n");
-
-	pr_err("Rescheduling for identity=0x%x, frame_id=%03d\n",
-		this_frame->identity, this_frame->frame_id);
-	msm_cpp_write(0x6, cpp_timer.data.cpp_dev->base);
-	msm_cpp_dump_frame_cmd(this_frame);
-	for (i = 0; i < this_frame->msg_len; i++)
-		msm_cpp_write(this_frame->cpp_cmd_msg[i],
-			cpp_timer.data.cpp_dev->base);
+		CPP_DBG("Timer has not expired yet\n");
+	for (j = 0; j < MAX_CPP_PROCESSING_FRAME; j++) {
+		this_frame = cpp_timer.data.processed_frame[j];
+		if (this_frame) {
+			pr_err("Rescheduling for identity=0x%x, frame_id=%03d\n",
+				this_frame->identity, this_frame->frame_id);
+			msm_cpp_write(0x6, cpp_timer.data.cpp_dev->base);
+			msm_cpp_dump_frame_cmd(this_frame);
+			for (i = 0; i < this_frame->msg_len; i++)
+				msm_cpp_write(this_frame->cpp_cmd_msg[i],
+					cpp_timer.data.cpp_dev->base);
+		}
+	}
 	cpp_timer.data.cpp_dev->timeout_trial_cnt++;
 	return;
 }
@@ -1457,21 +1485,23 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 	if (cpp_dev->processing_q.len < MAX_CPP_PROCESSING_FRAME) {
 		process_frame = frame_qcmd->command;
 		msm_enqueue(&cpp_dev->processing_q,
-					&frame_qcmd->list_frame);
-
-		cpp_timer.data.processed_frame = process_frame;
-		atomic_set(&cpp_timer.used, 1);
-		/* install timer for cpp timeout */
-		init_timer(&cpp_timer.cpp_timer);
-		CPP_DBG("Installing cpp_timer\n");
-		setup_timer(&cpp_timer.cpp_timer,
-			cpp_timer_callback, (unsigned long)&cpp_timer);
+			&frame_qcmd->list_frame);
+		cpp_timer.data.processed_frame[cpp_dev->processing_q.len - 1] =
+			process_frame;
+		if (cpp_dev->processing_q.len == 1) {
+			atomic_set(&cpp_timer.used, 1);
+			/* install timer for cpp timeout */
+			init_timer(&cpp_timer.cpp_timer);
+			CPP_DBG("Installing cpp_timer\n");
+			setup_timer(&cpp_timer.cpp_timer,
+				cpp_timer_callback, (unsigned long)&cpp_timer);
+		}
 		CPP_DBG("Starting timer to fire in %d ms. (jiffies=%lu)\n",
 			CPP_CMD_TIMEOUT_MS, jiffies);
 		ret = mod_timer(&cpp_timer.cpp_timer,
 			jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS));
 		if (ret)
-			pr_err("error in mod_timer\n");
+			CPP_DBG("Timer has not expired yet\n");
 
 		msm_cpp_write(0x6, cpp_dev->base);
 		msm_cpp_dump_frame_cmd(process_frame);
