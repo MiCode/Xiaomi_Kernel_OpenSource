@@ -6302,7 +6302,7 @@ static struct rq *move_queued_task(struct task_struct *p, int new_cpu)
 
 	lockdep_assert_held(&rq->lock);
 
-	dequeue_task(rq, p, 0);
+	dequeue_task(rq, p, DEQUEUE_MIGRATING);
 	p->on_rq = TASK_ON_RQ_MIGRATING;
 	set_task_cpu(p, new_cpu);
 	raw_spin_unlock(&rq->lock);
@@ -6312,7 +6312,7 @@ static struct rq *move_queued_task(struct task_struct *p, int new_cpu)
 	raw_spin_lock(&rq->lock);
 	BUG_ON(task_cpu(p) != new_cpu);
 	p->on_rq = TASK_ON_RQ_QUEUED;
-	enqueue_task(rq, p, 0);
+	enqueue_task(rq, p, ENQUEUE_MIGRATING);
 	check_preempt_curr(rq, p, 0);
 
 	return rq;

@@ -743,27 +743,41 @@ static void update_curr_fair(struct rq *rq)
 }
 
 static inline void
-update_stats_wait_start(struct cfs_rq *cfs_rq, struct sched_entity *se)
+update_stats_wait_start(struct cfs_rq *cfs_rq, struct sched_entity *se,
+			bool migrating)
 {
-	schedstat_set(se->statistics.wait_start, rq_clock(rq_of(cfs_rq)));
+	schedstat_set(se->statistics.wait_start,
+		migrating &&
+		likely(rq_clock(rq_of(cfs_rq)) > se->statistics.wait_start) ?
+		rq_clock(rq_of(cfs_rq)) - se->statistics.wait_start :
+		rq_clock(rq_of(cfs_rq)));
 }
 
 /*
  * Task is being enqueued - update stats:
  */
-static void update_stats_enqueue(struct cfs_rq *cfs_rq, struct sched_entity *se)
+static void update_stats_enqueue(struct cfs_rq *cfs_rq, struct sched_entity *se,
+				 bool migrating)
 {
 	/*
 	 * Are we enqueueing a waiting task? (for current tasks
 	 * a dequeue/enqueue event is a NOP)
 	 */
 	if (se != cfs_rq->curr)
-		update_stats_wait_start(cfs_rq, se);
+		update_stats_wait_start(cfs_rq, se, migrating);
 }
 
 static void
-update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se)
+update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se,
+		      bool migrating)
 {
+	if (migrating) {
+		schedstat_set(se->statistics.wait_start,
+			      rq_clock(rq_of(cfs_rq)) -
+			      se->statistics.wait_start);
+		return;
+	}
+
 	schedstat_set(se->statistics.wait_max, max(se->statistics.wait_max,
 			rq_clock(rq_of(cfs_rq)) - se->statistics.wait_start));
 	schedstat_set(se->statistics.wait_count, se->statistics.wait_count + 1);
@@ -779,14 +793,15 @@ update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se)
 }
 
 static inline void
-update_stats_dequeue(struct cfs_rq *cfs_rq, struct sched_entity *se)
+update_stats_dequeue(struct cfs_rq *cfs_rq, struct sched_entity *se,
+		     bool migrating)
 {
 	/*
 	 * Mark the end of the wait period if dequeueing a
 	 * waiting task:
 	 */
 	if (se != cfs_rq->curr)
-		update_stats_wait_end(cfs_rq, se);
+		update_stats_wait_end(cfs_rq, se, migrating);
 }
 
 /*
@@ -4714,7 +4729,7 @@ enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 		enqueue_sleeper(cfs_rq, se);
 	}
 
-	update_stats_enqueue(cfs_rq, se);
+	update_stats_enqueue(cfs_rq, se, !!(flags & ENQUEUE_MIGRATING));
 	check_spread(cfs_rq, se);
 	if (se != cfs_rq->curr)
 		__enqueue_entity(cfs_rq, se);
@@ -4782,7 +4797,7 @@ dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int flags)
 	update_curr(cfs_rq);
 	dequeue_entity_load_avg(cfs_rq, se, flags & DEQUEUE_SLEEP);
 
-	update_stats_dequeue(cfs_rq, se);
+	update_stats_dequeue(cfs_rq, se, !!(flags & DEQUEUE_MIGRATING));
 	if (flags & DEQUEUE_SLEEP) {
 #ifdef CONFIG_SCHEDSTATS
 		if (entity_is_task(se)) {
@@ -4868,7 +4883,7 @@ set_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 		 * a CPU. So account for the time it spent waiting on the
 		 * runqueue.
 		 */
-		update_stats_wait_end(cfs_rq, se);
+		update_stats_wait_end(cfs_rq, se, false);
 		__dequeue_entity(cfs_rq, se);
 	}
 
@@ -4965,7 +4980,7 @@ static void put_prev_entity(struct cfs_rq *cfs_rq, struct sched_entity *prev)
 
 	check_spread(cfs_rq, prev);
 	if (prev->on_rq) {
-		update_stats_wait_start(cfs_rq, prev);
+		update_stats_wait_start(cfs_rq, prev, false);
 		/* Put 'current' back into the tree. */
 		__enqueue_entity(cfs_rq, prev);
 		/* in !on_rq case, update occurred at dequeue */
@@ -7339,7 +7354,7 @@ static void detach_task(struct task_struct *p, struct lb_env *env)
 {
 	lockdep_assert_held(&env->src_rq->lock);
 
-	deactivate_task(env->src_rq, p, 0);
+	deactivate_task(env->src_rq, p, DEQUEUE_MIGRATING);
 	p->on_rq = TASK_ON_RQ_MIGRATING;
 	double_lock_balance(env->src_rq, env->dst_rq);
 	set_task_cpu(p, env->dst_cpu);
@@ -7488,7 +7503,7 @@ static void attach_task(struct rq *rq, struct task_struct *p)
 
 	BUG_ON(task_rq(p) != rq);
 	p->on_rq = TASK_ON_RQ_QUEUED;
-	activate_task(rq, p, 0);
+	activate_task(rq, p, ENQUEUE_MIGRATING);
 	check_preempt_curr(rq, p, 0);
 	if (task_notify_on_migrate(p))
 		per_cpu(dbs_boost_needed, task_cpu(p)) = true;
