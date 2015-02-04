@@ -45,7 +45,7 @@
 #include "ufshcd.h"
 #include "ufs_quirks.h"
 #include "unipro.h"
-#include "debugfs.h"
+#include "ufs-debugfs.h"
 
 #ifdef CONFIG_DEBUG_FS
 
@@ -3730,7 +3730,7 @@ static inline int ufshcd_read_power_desc(struct ufs_hba *hba,
 	return err;
 }
 
-static int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size)
+int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size)
 {
 	return ufshcd_read_desc(hba, QUERY_DESC_IDN_DEVICE, 0, buf, size);
 }

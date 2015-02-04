@@ -24,7 +24,7 @@
 #include "ufs-qcom.h"
 #include "ufshci.h"
 #include "ufs-qcom-ice.h"
-#include "qcom-debugfs.h"
+#include "ufs-qcom-debugfs.h"
 #include "ufs_quirks.h"
 
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\

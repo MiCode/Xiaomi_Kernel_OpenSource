@@ -239,6 +239,10 @@ struct ufs_qcom_ice_data {
 struct qcom_debugfs_files {
 	struct dentry *debugfs_root;
 	struct dentry *dbg_print_en;
+	struct dentry *testbus;
+	struct dentry *testbus_en;
+	struct dentry *testbus_cfg;
+	struct dentry *testbus_bus;
 	struct dentry *dbg_regs;
 };
 #endif
