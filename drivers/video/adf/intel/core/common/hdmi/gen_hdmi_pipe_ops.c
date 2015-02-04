@@ -171,7 +171,7 @@ u32 hdmi_get_vsync_counter(struct intel_pipe *pipe, u32 interval)
 	count += interval;
 	count &= VSYNC_COUNT_MAX_MASK;
 
-	pr_info("ADF: HDMI: vsync count = %#x\n", count);
+	pr_debug("ADF: HDMI: vsync count = %#x\n", count);
 	return count;
 }
 
