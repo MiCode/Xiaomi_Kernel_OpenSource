@@ -69,6 +69,9 @@
  * configured in future*/
 #define MSM_CAMERA_MAX_STREAM_BUF 40
 
+/* Max batch size of processing */
+#define MSM_CAMERA_MAX_USER_BUFF_CNT 16
+
 /* featur base */
 #define MSM_CAMERA_FEATURE_BASE     0x00010000
 #define MSM_CAMERA_FEATURE_SHUTDOWN (MSM_CAMERA_FEATURE_BASE + 1)
@@ -198,6 +201,11 @@ enum smmu_attach_mode {
 
 struct msm_camera_smmu_attach_type {
 	enum smmu_attach_mode attach;
+};
+
+struct msm_camera_user_buf_cont_t {
+	unsigned int buf_cnt;
+	unsigned int buf_idx[MSM_CAMERA_MAX_USER_BUFF_CNT];
 };
 
 #endif /* __LINUX_MSMB_CAMERA_H */
