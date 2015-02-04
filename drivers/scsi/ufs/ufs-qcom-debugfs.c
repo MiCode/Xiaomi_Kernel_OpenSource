@@ -14,8 +14,8 @@
 
 #include <linux/debugfs.h>
 #include <linux/scsi/ufs/ufs-qcom.h>
-#include "qcom-debugfs.h"
-#include "debugfs.h"
+#include "ufs-qcom-debugfs.h"
+#include "ufs-debugfs.h"
 
 #define TESTBUS_CFG_BUFF_LINE_SIZE	sizeof("0xXY, 0xXY")
 

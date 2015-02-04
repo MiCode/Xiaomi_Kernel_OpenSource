@@ -18,7 +18,7 @@
  */
 
 #include <linux/random.h>
-#include "debugfs.h"
+#include "ufs-debugfs.h"
 #include <linux/scsi/ufs/unipro.h>
 #include "ufshci.h"
 
@@ -854,7 +854,7 @@ static int ufsdbg_dme_read(void *data, u64 *attr_val, bool peer)
 	int ret;
 	struct ufs_hba *hba = data;
 	u32 attr_id, read_val = 0;
-	int (*read_func) (struct ufs_hba *, u32, u32 *);
+	int (*read_func)(struct ufs_hba *, u32, u32 *);
 
 	if (!hba)
 		return -EINVAL;
