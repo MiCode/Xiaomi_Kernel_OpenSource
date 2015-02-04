@@ -537,6 +537,14 @@ int dsi_pll_clock_register_20nm(struct platform_device *pdev,
 		shadow_hr_oclk3_div_clk_8994.priv = pll_res;
 		shadow_dsi_vco_clk_8994.priv = pll_res;
 
+		if (pll_res->pll_en_90_phase) {
+			dsi_vco_clk_8994.min_rate = 1000000000;
+			dsi_vco_clk_8994.max_rate = 2000000000;
+			shadow_dsi_vco_clk_8994.min_rate = 1000000000;
+			shadow_dsi_vco_clk_8994.max_rate = 2000000000;
+			pr_debug("%s:Update VCO range: 1GHz-2Ghz", __func__);
+		}
+
 		pll_res->vco_delay = VCO_DELAY_USEC;
 
 		/* Set clock source operations */
