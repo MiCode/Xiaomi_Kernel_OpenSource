@@ -2539,24 +2539,29 @@ static enum power_supply_property smbchg_dc_properties[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 };
 
 static int smbchg_dc_set_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       const union power_supply_propval *val)
 {
+	int rc = 0;
 	struct smbchg_chip *chip = container_of(psy,
 				struct smbchg_chip, dc_psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		return smbchg_dc_en(chip, val->intval, REASON_POWER_SUPPLY);
+		rc = smbchg_dc_en(chip, val->intval, REASON_POWER_SUPPLY);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		rc = smbchg_set_dc_current_max(chip, val->intval / 1000);
 		break;
 	default:
 		return -EINVAL;
 	}
 
-	return 0;
+	return rc;
 }
 
 static int smbchg_dc_get_property(struct power_supply *psy,
@@ -2579,6 +2584,9 @@ static int smbchg_dc_get_property(struct power_supply *psy,
 				&& (get_prop_batt_status(chip)
 					== POWER_SUPPLY_STATUS_CHARGING);
 		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		val->intval = chip->dc_max_current_ma * 1000;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -2593,6 +2601,7 @@ static int smbchg_dc_is_writeable(struct power_supply *psy,
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		rc = 1;
 		break;
 	default:
