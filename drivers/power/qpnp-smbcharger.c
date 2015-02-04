@@ -152,6 +152,7 @@ struct smbchg_chip {
 	bool				sw_esr_pulse_en;
 	bool				safety_timer_en;
 	bool				aicl_complete;
+	bool				usb_ov_det;
 
 	/* jeita and temperature */
 	bool				batt_hot;
@@ -180,6 +181,7 @@ struct smbchg_chip {
 	int				power_ok_irq;
 	int				dcin_uv_irq;
 	int				usbin_uv_irq;
+	int				usbin_ov_irq;
 	int				src_detect_irq;
 	int				otg_fail_irq;
 	int				otg_oc_irq;
@@ -3602,7 +3604,11 @@ static irqreturn_t dcin_uv_handler(int irq, void *_chip)
 static void handle_usb_removal(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
+	int rc;
 
+	/* Clear the OV detected status set before */
+	if (chip->usb_ov_det)
+		chip->usb_ov_det = false;
 	if (chip->usb_psy) {
 		pr_smb(PR_MISC, "setting usb psy type = %d\n",
 				POWER_SUPPLY_TYPE_UNKNOWN);
@@ -3612,6 +3618,12 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 				POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
 		schedule_work(&chip->usb_set_online_work);
+		rc = power_supply_set_health_state(chip->usb_psy,
+				POWER_SUPPLY_HEALTH_UNKNOWN);
+		if (rc)
+			pr_smb(PR_STATUS,
+				"usb psy does not allow updating prop %d rc = %d\n",
+				POWER_SUPPLY_HEALTH_UNKNOWN, rc);
 	}
 	if (parallel_psy)
 		power_supply_set_present(parallel_psy, false);
@@ -3648,6 +3660,15 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
+		/* Notify the USB psy if OV condition is not present */
+		if (!chip->usb_ov_det) {
+			rc = power_supply_set_health_state(chip->usb_psy,
+					POWER_SUPPLY_HEALTH_GOOD);
+			if (rc)
+				pr_smb(PR_STATUS,
+					"usb psy does not allow updating prop %d rc = %d\n",
+					POWER_SUPPLY_HEALTH_GOOD, rc);
+		}
 		schedule_work(&chip->usb_set_online_work);
 		schedule_delayed_work(&chip->hvdcp_det_work,
 					msecs_to_jiffies(HVDCP_NOTIFY_MS));
@@ -3660,6 +3681,43 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		rc = enable_irq_wake(chip->aicl_done_irq);
 		chip->enable_aicl_wake = true;
 	}
+}
+
+/**
+ * usbin_ov_handler() - this is called when an overvoltage condition occurs
+ * @chip: pointer to smbchg_chip chip
+ */
+static irqreturn_t usbin_ov_handler(int irq, void *_chip)
+{
+	struct smbchg_chip *chip = _chip;
+	int rc;
+	u8 reg;
+
+	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read usb rt status rc = %d\n", rc);
+		goto out;
+	}
+
+	/* OV condition is detected. Notify it to USB psy */
+	if (reg & USBIN_OV_BIT) {
+		chip->usb_ov_det = true;
+		if (chip->usb_psy) {
+			rc = power_supply_set_health_state(chip->usb_psy,
+					POWER_SUPPLY_HEALTH_OVERVOLTAGE);
+			if (rc)
+				pr_smb(PR_STATUS,
+					"usb psy does not allow updating prop %d rc = %d\n",
+					POWER_SUPPLY_HEALTH_OVERVOLTAGE, rc);
+		}
+	} else {
+		chip->usb_ov_det = false;
+		/* If USB is present, then handle the USB insertion */
+		if (is_usb_present(chip))
+			handle_usb_insertion(chip);
+	}
+out:
+	return IRQ_HANDLED;
 }
 
 /**
@@ -4656,6 +4714,8 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 		case SMBCHG_USB_CHGPTH_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->usbin_uv_irq,
 				"usbin-uv", usbin_uv_handler, flags, rc);
+			REQUEST_IRQ(chip, spmi_resource, chip->usbin_ov_irq,
+				"usbin-ov", usbin_ov_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->src_detect_irq,
 				"usbin-src-det",
 				src_detect_handler, flags, rc);
@@ -4672,6 +4732,7 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 				usbid_change_handler,
 				(IRQF_TRIGGER_FALLING | IRQF_ONESHOT), rc);
 			enable_irq_wake(chip->usbin_uv_irq);
+			enable_irq_wake(chip->usbin_ov_irq);
 			enable_irq_wake(chip->src_detect_irq);
 			enable_irq_wake(chip->otg_fail_irq);
 			enable_irq_wake(chip->otg_oc_irq);
