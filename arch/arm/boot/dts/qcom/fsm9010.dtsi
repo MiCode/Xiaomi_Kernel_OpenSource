@@ -350,6 +350,24 @@
 		status = "disabled";
 	};
 
+	i2c@f9924000 { /* BLSP-1 QUP-2 */
+		cell-index = <0>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9924000 0x500>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 97 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <100000>;
+		qcom,i2c-src-freq = <19200000>;
+		clocks = <&clock_gcc clk_gcc_blsp1_qup2_i2c_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+		qcom,master-id = <86>;
+		status = "disabled";
+	};
+
 	qfec0: qcom,qfec@0xe7000000 {
 		compatible = "qcom,qfec-nss";
 		cell-index = <0>;

@@ -42,6 +42,12 @@
 		status = "ok";
 	};
 
+	i2c@f9924000 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&i2c_0_active>;
+		status = "ok";
+	};
+
 	qfec0: qcom,qfec@0xe7000000 {
 		phy-addr = <0>;
 		phy-mode = "sgmii";
