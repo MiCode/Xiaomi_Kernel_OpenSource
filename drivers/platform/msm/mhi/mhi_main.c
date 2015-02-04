@@ -773,8 +773,6 @@ static enum MHI_STATUS parse_outbound(struct mhi_device_ctxt *mhi_dev_ctxt,
 		   (0 == (client_handle->pkt_count % client_handle->cb_mod))) {
 			cb_info.cb_reason = MHI_CB_XFER;
 			cb_info.result = &client_handle->result;
-			cb_info.result->transaction_status =
-					MHI_STATUS_SUCCESS;
 			cb_info.chan = chan;
 			client_handle->client_info.mhi_client_cb(&cb_info);
 		}
@@ -821,8 +819,6 @@ static enum MHI_STATUS parse_inbound(struct mhi_device_ctxt *mhi_dev_ctxt,
 		   (0 == (client_handle->pkt_count % client_handle->cb_mod))) {
 			cb_info.cb_reason = MHI_CB_XFER;
 			cb_info.result = &client_handle->result;
-			cb_info.result->transaction_status =
-					MHI_STATUS_SUCCESS;
 			cb_info.chan = chan;
 			client_handle->client_info.mhi_client_cb(&cb_info);
 		}
@@ -866,20 +862,29 @@ enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 	struct mhi_chan_ctxt *chan_ctxt;
 	u32 nr_trb_to_parse;
 	u32 i = 0;
+	u32 ev_code;
 
 	trace_mhi_ev(event);
+	chan = MHI_EV_READ_CHID(EV_CHID, event);
+	if (unlikely(!VALID_CHAN_NR(chan))) {
+		mhi_log(MHI_MSG_ERROR, "Bad ring id.\n");
+		return MHI_STATUS_ERROR;
+	}
+	ev_code = MHI_EV_READ_CODE(EV_TRB_CODE, event);
+	client_handle = mhi_dev_ctxt->client_handle_list[chan];
+	client_handle->pkt_count++;
+	result = &client_handle->result;
+	mhi_log(MHI_MSG_VERBOSE,
+		"Event Received, chan %d, cc_code %d\n",
+		chan, ev_code);
+	if (ev_code == MHI_EVENT_CC_OVERFLOW)
+		result->transaction_status = MHI_STATUS_OVERFLOW;
+	else
+		result->transaction_status = MHI_STATUS_SUCCESS;
 
-	switch (MHI_EV_READ_CODE(EV_TRB_CODE, event)) {
-	case MHI_EVENT_CC_EOB:
-		chan = MHI_EV_READ_CHID(EV_CHID, event);
-		phy_ev_trb_loc = MHI_EV_READ_PTR(EV_PTR, event);
-		mhi_log(MHI_MSG_VERBOSE, "IEOB condition detected\n");
+	switch (ev_code) {
 	case MHI_EVENT_CC_OVERFLOW:
-		chan = MHI_EV_READ_CHID(EV_CHID, event);
-		phy_ev_trb_loc = MHI_EV_READ_PTR(EV_PTR, event);
-		mhi_log(MHI_MSG_VERBOSE,
-			"Overflow condition detected chan %d, ptr 0x%lx\n",
-			chan, phy_ev_trb_loc);
+	case MHI_EVENT_CC_EOB:
 	case MHI_EVENT_CC_EOT:
 	{
 		dma_addr_t trb_data_loc;
@@ -887,15 +892,10 @@ enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 		enum MHI_STATUS ret_val;
 		struct mhi_ring *local_chan_ctxt;
 
-		chan = MHI_EV_READ_CHID(EV_CHID, event);
 		local_chan_ctxt =
 			&mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
 		phy_ev_trb_loc = MHI_EV_READ_PTR(EV_PTR, event);
 
-		if (unlikely(!VALID_CHAN_NR(chan))) {
-			mhi_log(MHI_MSG_ERROR, "Bad ring id.\n");
-			break;
-		}
 		chan_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan];
 		ret_val = validate_xfer_el_addr(chan_ctxt,
 						phy_ev_trb_loc);
@@ -942,10 +942,7 @@ enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 				return MHI_STATUS_ERROR;
 			}
 
-			client_handle = mhi_dev_ctxt->client_handle_list[chan];
 			if (NULL != client_handle) {
-				client_handle->pkt_count++;
-				result = &client_handle->result;
 				result->payload_buf = trb_data_loc;
 				result->bytes_xferd = xfer_len;
 				result->user_data = client_handle->user_data;
@@ -1299,7 +1296,6 @@ int mhi_poll_inbound(struct mhi_client_handle *client_handle,
 		result->bytes_xferd = MHI_TX_TRB_GET_LEN(TX_TRB_LEN,
 					(union mhi_xfer_pkt *)pending_trb);
 		result->flags = pending_trb->info;
-		result->transaction_status = MHI_STATUS_SUCCESS;
 		ret_val = delete_element(local_chan_ctxt,
 					&local_chan_ctxt->ack_rp,
 					&local_chan_ctxt->rp, NULL);
@@ -1314,7 +1310,6 @@ int mhi_poll_inbound(struct mhi_client_handle *client_handle,
 	} else {
 		result->payload_buf = 0;
 		result->bytes_xferd = 0;
-		result->transaction_status = MHI_STATUS_SUCCESS;
 		ret_val = MHI_STATUS_RING_EMPTY;
 	}
 	mutex_unlock(chan_mutex);
