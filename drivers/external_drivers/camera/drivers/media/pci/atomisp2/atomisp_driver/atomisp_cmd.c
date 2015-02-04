@@ -2731,10 +2731,9 @@ int atomisp_calculate_real_zoom_region(struct atomisp_sub_device *asd,
 {
 	struct atomisp_stream_env *stream_env =
 			&asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL];
-	struct atomisp_resolution  max_res, eff_res, out_res;
+	struct atomisp_resolution  eff_res, out_res;
 
 	memset(&eff_res, 0, sizeof(eff_res));
-	memset(&max_res, 0, sizeof(max_res));
 	memset(&out_res, 0, sizeof(out_res));
 
 	if (dz_config->dx || dz_config->dy)
@@ -2772,36 +2771,24 @@ int atomisp_calculate_real_zoom_region(struct atomisp_sub_device *asd,
 	/* FIXME:
 	 * This is not the correct implementation with Google's definition, due
 	 * to firmware limitation.
-	 */
-	if (eff_res.width * asd->sensor_array_res.height
-		> asd->sensor_array_res.width * eff_res.height) {
-		max_res.width = asd->sensor_array_res.width;
-		max_res.height = asd->sensor_array_res.width
-				* eff_res.height / eff_res.width;
-	} else {
-		max_res.width = asd->sensor_array_res.height
-				* eff_res.width / eff_res.height;
-		max_res.height = asd->sensor_array_res.height;
-	}
-	/*
-	 * Map real crop region base on above calculating base max crop region.
+	 * map real crop region base on above calculating base max crop region.
 	 */
 	dz_config->zoom_region.origin.x =
 			dz_config->zoom_region.origin.x
-			* max_res.width
+			* eff_res.width
 			/ asd->sensor_array_res.width;
 	dz_config->zoom_region.origin.y =
 			dz_config->zoom_region.origin.y
-			* max_res.height
+			* eff_res.height
 			/ asd->sensor_array_res.height;
 	dz_config->zoom_region.resolution.width =
 			dz_config->zoom_region.resolution.width
-			* max_res.width
+			* eff_res.width
 			/ asd->sensor_array_res.width;
 	dz_config->zoom_region.resolution.height =
 			dz_config->zoom_region.resolution.height
-			* max_res.height
-			/ eff_res.height;
+			* eff_res.height
+			/ asd->sensor_array_res.height;
 
 	/*
 	  * Set same ratio of crop region resolution and current pipe output
@@ -2827,6 +2814,16 @@ int atomisp_calculate_real_zoom_region(struct atomisp_sub_device *asd,
 				dz_config->zoom_region.resolution.height
 				* out_res.width / out_res.height;
 	}
+	dev_dbg(asd->isp->dev, "%s crop region:(%d,%d),(%d,%d) eff_res(%d, %d) array_size(%d,%d) out_res(%d, %d)\n",
+			__func__, dz_config->zoom_region.origin.x,
+			dz_config->zoom_region.origin.y,
+			dz_config->zoom_region.resolution.width,
+			dz_config->zoom_region.resolution.height,
+			eff_res.width, eff_res.height,
+			asd->sensor_array_res.width,
+			asd->sensor_array_res.height,
+			out_res.width, out_res.height);
+
 
 	if ((dz_config->zoom_region.origin.x +
 		dz_config->zoom_region.resolution.width
