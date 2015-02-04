@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -882,6 +882,7 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->num_connections = pdata_node_info->num_connections;
 	node_info->num_blist = pdata_node_info->num_blist;
 	node_info->num_qports = pdata_node_info->num_qports;
+	node_info->num_aggports = pdata_node_info->num_aggports;
 	node_info->buswidth = pdata_node_info->buswidth;
 	node_info->virt_dev = pdata_node_info->virt_dev;
 	node_info->is_fab_dev = pdata_node_info->is_fab_dev;
