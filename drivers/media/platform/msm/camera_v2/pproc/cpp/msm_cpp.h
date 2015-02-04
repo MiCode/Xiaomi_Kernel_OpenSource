@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -230,5 +230,16 @@ struct cpp_device {
 	struct msm_cpp_buff_queue_info_t *buff_queue;
 	uint32_t num_buffq;
 	struct v4l2_subdev *buf_mgr_subdev;
+
+	uint32_t rd_pntr;
+	uint32_t wr_0_pntr;
+	uint32_t wr_1_pntr;
+	uint32_t wr_2_pntr;
+	uint32_t wr_3_pntr;
+	uint32_t rd_ref_pntr;
+	uint32_t wr_ref_pntr;
+	uint32_t stripe_base;
+	uint32_t stripe_size;
+	uint32_t stripe_info_offset;
 };
 #endif /* __MSM_CPP_H__ */

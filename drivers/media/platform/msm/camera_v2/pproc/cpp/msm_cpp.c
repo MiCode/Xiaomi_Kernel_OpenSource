@@ -51,7 +51,7 @@
 #define ENABLE_CPP_LOW		0
 
 #define CPP_CMD_TIMEOUT_MS	300
-
+#define MSM_CPP_INVALID_OFFSET	0x00000000
 #define MSM_CPP_NOMINAL_CLOCK	266670000
 #define MSM_CPP_TURBO_CLOCK	320000000
 
@@ -59,14 +59,17 @@
 #define CPP_FW_VERSION_1_4_0	0x10040000
 #define CPP_FW_VERSION_1_6_0	0x10060000
 #define CPP_FW_VERSION_1_8_0	0x10080000
+#define CPP_FW_VERSION_1_10_0	0x10100000
 
 /* stripe information offsets in frame command */
 #define STRIPE_BASE_FW_1_2_0	130
 #define STRIPE_BASE_FW_1_4_0	140
 #define STRIPE_BASE_FW_1_6_0	464
 #define STRIPE_BASE_FW_1_8_0	493
+#define STRIPE_BASE_FW_1_10_0	553
 
 #define PLANE_BASE_FW_1_8_0	478
+#define PLANE_BASE_FW_1_10_0	481
 
 /* dump the frame command before writing to the hardware */
 #define  MSM_CPP_DUMP_FRM_CMD 0
@@ -130,6 +133,12 @@ static int msm_cpp_is_tnr_enabled(struct cpp_device *cpp_dev,
 			((cpp_frame_msg[PLANE_BASE_FW_1_8_0] & 0x40) ||
 			(cpp_frame_msg[PLANE_BASE_FW_1_8_0 + 5] & 0x40) ||
 			(cpp_frame_msg[PLANE_BASE_FW_1_8_0 + 10] & 0x40))) {
+			return 1;
+		} else if (((cpp_dev->fw_version & 0xffff0000) ==
+			CPP_FW_VERSION_1_10_0) &&
+			((cpp_frame_msg[PLANE_BASE_FW_1_10_0] & 0x40) ||
+			(cpp_frame_msg[PLANE_BASE_FW_1_10_0 + 24] & 0x40) ||
+			(cpp_frame_msg[PLANE_BASE_FW_1_10_0 + 48] & 0x40))) {
 			return 1;
 		}
 	}
@@ -733,6 +742,72 @@ static void cpp_get_clk_freq_tbl(struct clk *clk, struct cpp_hw_info *hw_info,
 	hw_info->freq_tbl_count = idx;
 }
 
+static void msm_cpp_calculate_stripe_base(struct cpp_device *cpp_dev)
+{
+	if ((cpp_dev->fw_version & 0xffff0000) ==
+		CPP_FW_VERSION_1_2_0) {
+		cpp_dev->stripe_base = STRIPE_BASE_FW_1_2_0;
+		cpp_dev->stripe_info_offset = 12;
+		cpp_dev->stripe_size = 27;
+		cpp_dev->rd_pntr = 5;
+		cpp_dev->wr_0_pntr = 11;
+		cpp_dev->wr_1_pntr = 12;
+		cpp_dev->wr_2_pntr = 13;
+		cpp_dev->wr_3_pntr = 14;
+		cpp_dev->rd_ref_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_ref_pntr = MSM_CPP_INVALID_OFFSET;
+	} else if ((cpp_dev->fw_version & 0xffff0000) ==
+		CPP_FW_VERSION_1_4_0) {
+		cpp_dev->stripe_base = STRIPE_BASE_FW_1_4_0;
+		cpp_dev->stripe_info_offset = 12;
+		cpp_dev->stripe_size = 27;
+		cpp_dev->rd_pntr = 5;
+		cpp_dev->wr_0_pntr = 11;
+		cpp_dev->wr_1_pntr = 12;
+		cpp_dev->wr_2_pntr = 13;
+		cpp_dev->wr_3_pntr = 14;
+		cpp_dev->rd_ref_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_ref_pntr = MSM_CPP_INVALID_OFFSET;
+	} else if ((cpp_dev->fw_version & 0xffff0000) ==
+		CPP_FW_VERSION_1_6_0) {
+		cpp_dev->stripe_base = STRIPE_BASE_FW_1_6_0;
+		cpp_dev->stripe_info_offset = 12;
+		cpp_dev->stripe_size = 27;
+		cpp_dev->rd_pntr = 5;
+		cpp_dev->wr_0_pntr = 11;
+		cpp_dev->wr_1_pntr = 12;
+		cpp_dev->wr_2_pntr = 13;
+		cpp_dev->wr_3_pntr = 14;
+		cpp_dev->rd_ref_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_ref_pntr = MSM_CPP_INVALID_OFFSET;
+	} else if ((cpp_dev->fw_version & 0xffff0000) ==
+		CPP_FW_VERSION_1_8_0) {
+		cpp_dev->stripe_base = STRIPE_BASE_FW_1_8_0;
+		cpp_dev->stripe_info_offset = 9;
+		cpp_dev->stripe_size = 48;
+		cpp_dev->rd_pntr = 8;
+		cpp_dev->wr_0_pntr = 20;
+		cpp_dev->wr_1_pntr = 21;
+		cpp_dev->wr_2_pntr = 22;
+		cpp_dev->wr_3_pntr = 23;
+		cpp_dev->rd_ref_pntr = 14;
+		cpp_dev->wr_ref_pntr = 30;
+	} else if ((cpp_dev->fw_version & 0xffff0000) ==
+		CPP_FW_VERSION_1_10_0) {
+		cpp_dev->stripe_base = STRIPE_BASE_FW_1_10_0;
+		cpp_dev->stripe_info_offset = 9;
+		cpp_dev->stripe_size = 61;
+		cpp_dev->rd_pntr = 11;
+		cpp_dev->wr_0_pntr = 23;
+		cpp_dev->wr_1_pntr = 24;
+		cpp_dev->wr_2_pntr = 25;
+		cpp_dev->wr_3_pntr = 26;
+		cpp_dev->rd_ref_pntr = 17;
+		cpp_dev->wr_ref_pntr = 36;
+	}
+	return;
+}
+
 static int cpp_init_hardware(struct cpp_device *cpp_dev)
 {
 	int rc = 0;
@@ -1031,6 +1106,9 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	pr_info("CPP FW Version: 0x%08x\n", cpp_dev->fw_version);
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
 
+	/* Update the payload offsets */
+	msm_cpp_calculate_stripe_base(cpp_dev);
+
 	/*Disable MC clock*/
 	/*msm_camera_io_w(0x0, cpp_dev->base +
 					   MSM_CPP_MICRO_CLKEN_CTL);*/
@@ -1298,7 +1376,6 @@ static int msm_cpp_dump_frame_cmd(struct msm_cpp_frame_info_t *frame_info)
 }
 #endif
 
-
 static void msm_cpp_do_timeout_work(struct work_struct *work)
 {
 	int ret;
@@ -1489,9 +1566,12 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	unsigned long tnr_scratch_buffer0, tnr_scratch_buffer1;
 	uint16_t num_stripes = 0;
 	struct msm_buf_mngr_info buff_mgr_info, dup_buff_mgr_info;
-	int32_t stripe_base = 0;
 	int32_t in_fd;
 	int32_t i = 0;
+	int32_t stripe_base = 0;
+	uint32_t rd_pntr, wr_0_pntr, wr_1_pntr, wr_2_pntr, wr_3_pntr;
+	uint32_t rd_ref_pntr, wr_ref_pntr, stripe_info_offset, stripe_size;
+	uint8_t tnr_enabled;
 
 	if (!new_frame) {
 		pr_err("%s: Frame is Null\n", __func__);
@@ -1594,103 +1674,81 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		CPP_DBG("out_phyaddr1= %08x\n", (uint32_t)out_phyaddr1);
 	}
 
-	if ((cpp_dev->fw_version & 0xffff0000) != CPP_FW_VERSION_1_8_0) {
-		num_stripes = ((cpp_frame_msg[12] >> 20) & 0x3FF) +
-			((cpp_frame_msg[12] >> 10) & 0x3FF) +
-			(cpp_frame_msg[12] & 0x3FF);
+	stripe_base = cpp_dev->stripe_base;
+	stripe_info_offset = cpp_dev->stripe_info_offset;
+	stripe_size = cpp_dev->stripe_size;
+	rd_pntr = cpp_dev->rd_pntr;
+	wr_0_pntr = cpp_dev->wr_0_pntr;
+	wr_1_pntr = cpp_dev->wr_1_pntr;
+	wr_2_pntr = cpp_dev->wr_2_pntr;
+	wr_3_pntr = cpp_dev->wr_3_pntr;
+	rd_ref_pntr = cpp_dev->rd_ref_pntr;
+	wr_ref_pntr = cpp_dev->wr_ref_pntr;
 
-		if ((cpp_dev->fw_version & 0xffff0000) ==
-			CPP_FW_VERSION_1_2_0) {
-			stripe_base = STRIPE_BASE_FW_1_2_0;
-		} else if ((cpp_dev->fw_version & 0xffff0000) ==
-			CPP_FW_VERSION_1_4_0) {
-			stripe_base = STRIPE_BASE_FW_1_4_0;
-		} else if ((cpp_dev->fw_version & 0xffff0000) ==
-			CPP_FW_VERSION_1_6_0) {
-			stripe_base = STRIPE_BASE_FW_1_6_0;
-		} else {
-			pr_err("invalid fw version %08x", cpp_dev->fw_version);
-			goto phyaddr_err;
-		}
-
-		if ((stripe_base + num_stripes*27 + 1) != new_frame->msg_len) {
-			pr_err("Invalid frame message\n");
+	tnr_enabled = msm_cpp_is_tnr_enabled(cpp_dev, cpp_frame_msg);
+	if (tnr_enabled) {
+		tnr_scratch_buffer0 = msm_cpp_fetch_buffer_info(cpp_dev,
+			&new_frame->tnr_scratch_buffer_info[0],
+			((new_frame->identity >> 16) & 0xFFFF),
+			(new_frame->identity & 0xFFFF),
+			&new_frame->tnr_scratch_buffer_info[0].fd);
+		if (!tnr_scratch_buffer0) {
+			pr_err("error getting scratch buffer physical address\n");
 			rc = -EINVAL;
 			goto phyaddr_err;
 		}
 
-		for (i = 0; i < num_stripes; i++) {
-			cpp_frame_msg[stripe_base + 5 + i*27] +=
-				(uint32_t) in_phyaddr;
-			cpp_frame_msg[stripe_base + 11 + i * 27] +=
-				(uint32_t) out_phyaddr0;
-			cpp_frame_msg[stripe_base + 12 + i * 27] +=
-				(uint32_t) out_phyaddr1;
-			cpp_frame_msg[stripe_base + 13 + i * 27] +=
-				(uint32_t) out_phyaddr0;
-			cpp_frame_msg[stripe_base + 14 + i * 27] +=
-				(uint32_t) out_phyaddr1;
+		tnr_scratch_buffer1 = msm_cpp_fetch_buffer_info(cpp_dev,
+			&new_frame->tnr_scratch_buffer_info[1],
+			((new_frame->identity >> 16) & 0xFFFF),
+			(new_frame->identity & 0xFFFF),
+			&new_frame->tnr_scratch_buffer_info[1].fd);
+		if (!tnr_scratch_buffer1) {
+			pr_err("error getting scratch buffer physical address\n");
+			rc = -EINVAL;
+			goto phyaddr_err;
 		}
 	} else {
-		if (msm_cpp_is_tnr_enabled(cpp_dev, cpp_frame_msg)) {
-			tnr_scratch_buffer0 = msm_cpp_fetch_buffer_info(cpp_dev,
-				&new_frame->tnr_scratch_buffer_info[0],
-				((new_frame->identity >> 16) & 0xFFFF),
-				(new_frame->identity & 0xFFFF),
-				&new_frame->tnr_scratch_buffer_info[0].fd);
-			if (!tnr_scratch_buffer0) {
-				pr_err("error getting scratch buffer physical address\n");
-				rc = -EINVAL;
-				goto phyaddr_err;
-			}
-
-			tnr_scratch_buffer1 = msm_cpp_fetch_buffer_info(cpp_dev,
-				&new_frame->tnr_scratch_buffer_info[1],
-				((new_frame->identity >> 16) & 0xFFFF),
-				(new_frame->identity & 0xFFFF),
-				&new_frame->tnr_scratch_buffer_info[1].fd);
-			if (!tnr_scratch_buffer1) {
-				pr_err("error getting scratch buffer physical address\n");
-				rc = -EINVAL;
-				goto phyaddr_err;
-			}
-		} else {
-			 tnr_scratch_buffer0 = 0;
-			 tnr_scratch_buffer1 = 0;
-		}
-
-		num_stripes = ((cpp_frame_msg[9] >> 20) & 0x3FF) +
-			((cpp_frame_msg[9] >> 10) & 0x3FF) +
-			(cpp_frame_msg[9] & 0x3FF);
-
-		stripe_base = STRIPE_BASE_FW_1_8_0;
-
-		if ((stripe_base + num_stripes*48 + 1) != new_frame->msg_len) {
-			pr_err("Invalid frame message\n");
-			rc = -EINVAL;
-			goto phyaddr_err;
-		}
-
-		for (i = 0; i < num_stripes; i++) {
-
-			cpp_frame_msg[stripe_base + 8 + i * 48] +=
-				(uint32_t) in_phyaddr;
-			cpp_frame_msg[stripe_base + 14 + i * 48] +=
-				(uint32_t) tnr_scratch_buffer0;
-			cpp_frame_msg[stripe_base + 20 + i * 48] +=
-				(uint32_t) out_phyaddr0;
-			cpp_frame_msg[stripe_base + 21 + i * 48] +=
-				(uint32_t) out_phyaddr1;
-			cpp_frame_msg[stripe_base + 22 + i * 48] +=
-				(uint32_t) out_phyaddr0;
-			cpp_frame_msg[stripe_base + 23 + i * 48] +=
-				(uint32_t) out_phyaddr1;
-			cpp_frame_msg[stripe_base + 30 + i * 48] +=
-				(uint32_t) tnr_scratch_buffer1;
-		}
-
-		cpp_frame_msg[10] = out_phyaddr0 - in_phyaddr;
+		tnr_scratch_buffer0 = 0;
+		tnr_scratch_buffer1 = 0;
 	}
+
+	num_stripes = ((cpp_frame_msg[stripe_info_offset] >> 20) & 0x3FF) +
+		((cpp_frame_msg[stripe_info_offset] >> 10) & 0x3FF) +
+		(cpp_frame_msg[stripe_info_offset] & 0x3FF);
+
+	if ((stripe_base + num_stripes * stripe_size + 1) !=
+		new_frame->msg_len) {
+		pr_err("Invalid frame message,len=%d,expected=%d\n",
+			new_frame->msg_len,
+			(stripe_base + num_stripes * stripe_size + 1));
+		rc = -EINVAL;
+		goto phyaddr_err;
+	}
+
+	for (i = 0; i < num_stripes; i++) {
+		cpp_frame_msg[stripe_base + rd_pntr + i * stripe_size] +=
+			(uint32_t) in_phyaddr;
+		cpp_frame_msg[stripe_base + wr_0_pntr + i * stripe_size] +=
+			(uint32_t) out_phyaddr0;
+		cpp_frame_msg[stripe_base + wr_1_pntr + i * stripe_size] +=
+			(uint32_t) out_phyaddr1;
+		cpp_frame_msg[stripe_base + wr_2_pntr + i * stripe_size] +=
+			(uint32_t) out_phyaddr0;
+		cpp_frame_msg[stripe_base + wr_3_pntr + i * stripe_size] +=
+			(uint32_t) out_phyaddr1;
+		if (tnr_enabled) {
+			cpp_frame_msg[stripe_base + rd_ref_pntr +
+				i * stripe_size] +=
+				(uint32_t)tnr_scratch_buffer0;
+			cpp_frame_msg[stripe_base + wr_ref_pntr +
+				i * stripe_size] +=
+				(uint32_t)tnr_scratch_buffer1;
+		}
+	}
+
+	if (tnr_enabled)
+		cpp_frame_msg[10] = out_phyaddr0 - in_phyaddr;
 
 	frame_qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
 	if (!frame_qcmd) {
