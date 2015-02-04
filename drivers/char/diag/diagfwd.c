@@ -1025,6 +1025,33 @@ int diag_cmd_log_on_demand(unsigned char *src_buf, int src_len,
 	return write_len;
 }
 
+int diag_cmd_get_mobile_id(unsigned char *src_buf, int src_len,
+			   unsigned char *dest_buf, int dest_len)
+{
+	int write_len = 0;
+	struct diag_pkt_header_t *header = NULL;
+	struct diag_cmd_ext_mobile_rsp_t rsp;
+
+	if (!src_buf || src_len != sizeof(*header) || !dest_buf ||
+	    dest_len < sizeof(rsp))
+		return -EIO;
+
+	header = (struct diag_pkt_header_t *)src_buf;
+	rsp.header.cmd_code = header->cmd_code;
+	rsp.header.subsys_id = header->subsys_id;
+	rsp.header.subsys_cmd_code = header->subsys_cmd_code;
+	rsp.version = 1;
+	rsp.padding[0] = 0;
+	rsp.padding[1] = 0;
+	rsp.padding[2] = 0;
+	rsp.family = (uint32_t)socinfo_get_msm_cpu();
+
+	memcpy(dest_buf, &rsp, sizeof(rsp));
+	write_len += sizeof(rsp);
+
+	return write_len;
+}
+
 int diag_check_common_cmd(struct diag_pkt_header_t *header)
 {
 	int i;
@@ -1187,6 +1214,18 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		if (write_len > 0)
 			encode_rsp_and_send(write_len - 1);
 		return 0;
+	}
+	/* Mobile ID Rsp */
+	else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
+		(*(buf+1) == DIAG_SS_PARAMS) &&
+		(*(buf+2) == DIAG_EXT_MOBILE_ID) && (*(buf+3) == 0x0)) {
+		write_len = diag_cmd_get_mobile_id(buf, len,
+						   driver->apps_rsp_buf,
+						   APPS_BUF_SIZE);
+		if (write_len > 0) {
+			encode_rsp_and_send(write_len - 1);
+			return 0;
+		}
 	}
 	 /*
 	  * If the apps processor is master and no other
