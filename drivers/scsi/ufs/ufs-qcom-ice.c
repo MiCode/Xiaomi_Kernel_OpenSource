@@ -19,7 +19,7 @@
 #include <crypto/ice.h>
 
 #include "ufs-qcom-ice.h"
-#include "qcom-debugfs.h"
+#include "ufs-qcom-debugfs.h"
 
 #define UFS_QCOM_CRYPTO_LABEL "ufs-qcom-crypto"
 /* Timeout waiting for ICE initialization, that requires TZ access */

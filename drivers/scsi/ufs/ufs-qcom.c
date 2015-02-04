@@ -31,7 +31,7 @@
 #include <linux/phy/phy-qcom-ufs.h>
 #include "ufshci.h"
 #include "ufs-qcom-ice.h"
-#include "qcom-debugfs.h"
+#include "ufs-qcom-debugfs.h"
 
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)

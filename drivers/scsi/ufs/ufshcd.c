@@ -45,7 +45,7 @@
 #include <linux/scsi/ufs/ufshcd.h>
 #include "ufshci.h"
 #include "ufs_quirks.h"
-#include "debugfs.h"
+#include "ufs-debugfs.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ufs.h>
