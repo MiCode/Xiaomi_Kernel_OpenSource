@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -191,6 +191,7 @@ void kgsl_remove_global_pt_entry(struct kgsl_memdesc *memdesc);
 struct kgsl_memdesc *kgsl_search_global_pt_entries(unsigned int gpuaddr,
 		unsigned int size);
 
+void kgsl_mmu_detach_pagetable(struct kgsl_pagetable *pagetable);
 /*
  * Static inline functions of MMU that simply call the SMMU specific
  * function using a function pointer. These functions can be thought
