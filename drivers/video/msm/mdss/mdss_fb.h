@@ -34,6 +34,9 @@
 #define MSM_FB_ENABLE_DBGFS
 #define WAIT_FENCE_FIRST_TIMEOUT (3 * MSEC_PER_SEC)
 #define WAIT_FENCE_FINAL_TIMEOUT (7 * MSEC_PER_SEC)
+#define WAIT_MAX_FENCE_TIMEOUT (WAIT_FENCE_FIRST_TIMEOUT + \
+					WAIT_FENCE_FINAL_TIMEOUT)
+#define WAIT_MIN_FENCE_TIMEOUT  (1)
 /* Display op timeout should be greater than the total timeout but not
  * unreasonably large. Set to 1s more than first wait + final wait which
  * are already quite long and proceed without any further waits. */
