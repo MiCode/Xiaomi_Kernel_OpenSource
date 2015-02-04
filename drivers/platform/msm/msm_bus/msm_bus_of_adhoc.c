@@ -29,6 +29,7 @@
 #define DEFAULT_QOS_FREQ	19200
 #define DEFAULT_UTIL_FACT	100
 #define DEFAULT_VRAIL_COMP	100
+#define DEFAULT_AGG_SCHEME	AGG_SCHEME_LEG
 
 static int get_qos_mode(struct platform_device *pdev,
 			struct device_node *node, const char *qos_mode)
@@ -148,21 +149,6 @@ static struct msm_bus_fab_device_type *get_fab_device_info(
 		fab_dev->qos_freq = DEFAULT_QOS_FREQ;
 	}
 
-	ret = of_property_read_u32(dev_node, "qcom,util-fact",
-						&fab_dev->util_fact);
-	if (ret) {
-		dev_info(&pdev->dev, "Util-fact is missing, default to %d\n",
-				DEFAULT_UTIL_FACT);
-		fab_dev->util_fact = DEFAULT_UTIL_FACT;
-	}
-
-	ret = of_property_read_u32(dev_node, "qcom,vrail-comp",
-						&fab_dev->vrail_comp);
-	if (ret) {
-		dev_info(&pdev->dev, "Vrail-comp is missing, default to %d\n",
-				DEFAULT_VRAIL_COMP);
-		fab_dev->vrail_comp = DEFAULT_VRAIL_COMP;
-	}
 
 	return fab_dev;
 
@@ -228,6 +214,159 @@ static void get_qos_params(
 
 }
 
+static int msm_bus_of_parse_clk_array(struct device_node *dev_node,
+			struct device_node *gdsc_node,
+			struct platform_device *pdev, struct nodeclk **clk_arr,
+			int *num_clks, int id)
+{
+	int ret = 0;
+	int idx = 0;
+	struct property *prop;
+	const char *clk_name;
+	int clks = 0;
+
+	clks = of_property_count_strings(dev_node, "clock-names");
+	if (clks < 0) {
+		pr_info("%s: No qos clks node %d\n", __func__, id);
+		ret = clks;
+		goto exit_of_parse_clk_array;
+	}
+
+	*num_clks = clks;
+	*clk_arr = devm_kzalloc(&pdev->dev,
+			(clks * sizeof(struct nodeclk)), GFP_KERNEL);
+
+	if (!(*clk_arr)) {
+		pr_err("%s: Error allocating clk nodes for %d\n", __func__, id);
+		ret = -ENOMEM;
+		*num_clks = 0;
+		goto exit_of_parse_clk_array;
+	}
+
+	of_property_for_each_string(dev_node, "clock-names", prop, clk_name) {
+		char gdsc_string[MAX_REG_NAME];
+
+		(*clk_arr)[idx].clk = of_clk_get_by_name(dev_node, clk_name);
+
+		if (IS_ERR_OR_NULL((*clk_arr)[idx].clk)) {
+			dev_err(&pdev->dev,
+				"Failed to get clk %s for bus%d ", clk_name,
+									id);
+			continue;
+		}
+		if (strnstr(clk_name, "no-rate", strlen(clk_name)))
+			(*clk_arr)[idx].enable_only_clk = true;
+
+		scnprintf(gdsc_string, MAX_REG_NAME, "%s-supply", clk_name);
+
+		if (of_find_property(gdsc_node, gdsc_string, NULL))
+			scnprintf((*clk_arr)[idx].reg_name,
+				MAX_REG_NAME, "%s", clk_name);
+		else
+			scnprintf((*clk_arr)[idx].reg_name,
+					MAX_REG_NAME, "%c", '\0');
+
+		idx++;
+	}
+exit_of_parse_clk_array:
+	return ret;
+}
+
+static void get_agg_params(
+		struct device_node * const dev_node,
+		struct platform_device * const pdev,
+		struct msm_bus_node_info_type *node_info)
+{
+	int ret;
+
+
+	ret = of_property_read_u32(dev_node, "qcom,buswidth",
+					&node_info->agg_params.buswidth);
+	if (ret) {
+		dev_dbg(&pdev->dev, "Using default 8 bytes %d", node_info->id);
+		node_info->agg_params.buswidth = 8;
+	}
+
+	ret = of_property_read_u32(dev_node, "qcom,agg-ports",
+				   &node_info->agg_params.num_aggports);
+	if (ret)
+		node_info->agg_params.num_aggports = node_info->num_qports;
+
+	ret = of_property_read_u32(dev_node, "qcom,agg-scheme",
+					&node_info->agg_params.agg_scheme);
+	if (ret) {
+		if (node_info->is_fab_dev)
+			node_info->agg_params.agg_scheme = DEFAULT_AGG_SCHEME;
+		else {
+			node_info->agg_params.agg_scheme = AGG_SCHEME_NONE;
+			goto exit_get_agg_params;
+		}
+	}
+
+	ret = of_property_read_u32(dev_node, "qcom,vrail-comp",
+					&node_info->agg_params.vrail_comp);
+	if (ret) {
+		if (node_info->is_fab_dev)
+			node_info->agg_params.vrail_comp = DEFAULT_VRAIL_COMP;
+		else
+			node_info->agg_params.vrail_comp = 0;
+	}
+
+	if (node_info->agg_params.agg_scheme == AGG_SCHEME_LEG) {
+		node_info->agg_params.num_util_levels = 1;
+		node_info->agg_params.util_levels = devm_kzalloc(&pdev->dev,
+			(node_info->agg_params.num_util_levels *
+			sizeof(struct node_util_levels_type)), GFP_KERNEL);
+		if (IS_ERR_OR_NULL(node_info->agg_params.util_levels))
+			goto err_get_agg_params;
+
+		ret = of_property_read_u32(dev_node, "qcom,util-fact",
+			&node_info->agg_params.util_levels[0].util_fact);
+		if (ret) {
+			if (node_info->is_fab_dev)
+				node_info->agg_params.util_levels[0].util_fact
+							= DEFAULT_UTIL_FACT;
+		}
+	} else if (node_info->agg_params.agg_scheme == AGG_SCHEME_1) {
+		uint32_t len = 0;
+		const uint32_t *util_levels;
+		int i, index = 0;
+
+		util_levels =
+			of_get_property(dev_node, "qcom,util-levels", &len);
+		if (!util_levels)
+			goto err_get_agg_params;
+
+		node_info->agg_params.num_util_levels =
+					len / (sizeof(uint32_t) * 2);
+		node_info->agg_params.util_levels = devm_kzalloc(&pdev->dev,
+			(node_info->agg_params.num_util_levels *
+			sizeof(struct node_util_levels_type)), GFP_KERNEL);
+
+		if (IS_ERR_OR_NULL(node_info->agg_params.util_levels))
+			goto err_get_agg_params;
+
+		for (i = 0; i < node_info->agg_params.num_util_levels; i++) {
+			node_info->agg_params.util_levels[i].threshold =
+				KBTOB(be32_to_cpu(util_levels[index++]));
+			node_info->agg_params.util_levels[i].util_fact =
+					be32_to_cpu(util_levels[index++]);
+			dev_dbg(&pdev->dev, "[%d]:Thresh:%llu util_fact:%d\n",
+				i,
+				node_info->agg_params.util_levels[i].threshold,
+				node_info->agg_params.util_levels[i].util_fact);
+		}
+	} else {
+		dev_err(&pdev->dev, "Agg scheme%d unknown, using default\n",
+			node_info->agg_params.agg_scheme);
+		goto err_get_agg_params;
+	}
+
+exit_get_agg_params:
+	return;
+err_get_agg_params:
+	node_info->agg_params.agg_scheme = DEFAULT_AGG_SCHEME;
+}
 
 static struct msm_bus_node_info_type *get_node_info_data(
 		struct device_node * const dev_node,
@@ -261,11 +400,6 @@ static struct msm_bus_node_info_type *get_node_info_data(
 	}
 	node_info->qport = get_arr(pdev, dev_node, "qcom,qport",
 			&node_info->num_qports);
-
-	ret = of_property_read_u32(dev_node, "qcom,agg-ports",
-				   &node_info->num_aggports);
-	if (ret)
-		node_info->num_aggports = node_info->num_qports;
 
 	if (of_get_property(dev_node, "qcom,connections", &size)) {
 		node_info->num_connections = size / sizeof(int);
@@ -324,12 +458,6 @@ static struct msm_bus_node_info_type *get_node_info_data(
 	node_info->is_fab_dev = of_property_read_bool(dev_node, "qcom,fab-dev");
 	node_info->virt_dev = of_property_read_bool(dev_node, "qcom,virt-dev");
 
-	ret = of_property_read_u32(dev_node, "qcom,buswidth",
-						&node_info->buswidth);
-	if (ret) {
-		dev_dbg(&pdev->dev, "Using default 8 bytes %d", node_info->id);
-		node_info->buswidth = 8;
-	}
 
 	ret = of_property_read_u32(dev_node, "qcom,mas-rpm-id",
 						&node_info->mas_rpm_id);
@@ -344,14 +472,8 @@ static struct msm_bus_node_info_type *get_node_info_data(
 		dev_dbg(&pdev->dev, "slv rpm id is missing\n");
 		node_info->slv_rpm_id = -1;
 	}
-	ret = of_property_read_u32(dev_node, "qcom,util-fact",
-						&node_info->util_fact);
-	if (ret)
-		node_info->util_fact = 0;
-	ret = of_property_read_u32(dev_node, "qcom,vrail-comp",
-						&node_info->vrail_comp);
-	if (ret)
-		node_info->vrail_comp = 0;
+
+	get_agg_params(dev_node, pdev, node_info);
 	get_qos_params(dev_node, pdev, node_info);
 
 	return node_info;
@@ -362,11 +484,14 @@ node_info_err:
 	return NULL;
 }
 
-static unsigned int get_bus_node_device_data(
+static int get_bus_node_device_data(
 		struct device_node * const dev_node,
 		struct platform_device * const pdev,
 		struct msm_bus_node_device_type * const node_device)
 {
+	bool enable_only;
+	bool setrate_only;
+
 	node_device->node_info = get_node_info_data(dev_node, pdev);
 	if (IS_ERR_OR_NULL(node_device->node_info)) {
 		dev_err(&pdev->dev, "Error: Node info missing\n");
@@ -376,6 +501,7 @@ static unsigned int get_bus_node_device_data(
 							"qcom,ap-owned");
 
 	if (node_device->node_info->is_fab_dev) {
+		struct device_node *qos_clk_node;
 		dev_err(&pdev->dev, "Dev %d\n", node_device->node_info->id);
 
 		if (!node_device->node_info->virt_dev) {
@@ -388,42 +514,131 @@ static unsigned int get_bus_node_device_data(
 				return -ENODATA;
 			}
 		}
+
+		enable_only = of_property_read_bool(dev_node,
+							"qcom,enable-only-clk");
+		node_device->clk[DUAL_CTX].enable_only_clk = enable_only;
+		node_device->clk[ACTIVE_CTX].enable_only_clk = enable_only;
+
+		/*
+		 * Doesn't make sense to have a clk handle you can't enable or
+		 * set rate on.
+		 */
+		if (!enable_only) {
+			setrate_only = of_property_read_bool(dev_node,
+						"qcom,setrate-only-clk");
+			node_device->clk[DUAL_CTX].setrate_only_clk =
+								setrate_only;
+			node_device->clk[ACTIVE_CTX].setrate_only_clk =
+								setrate_only;
+		}
+
 		node_device->clk[DUAL_CTX].clk = of_clk_get_by_name(dev_node,
 							"bus_clk");
 
-		if (IS_ERR_OR_NULL(node_device->clk[DUAL_CTX].clk))
+		if (IS_ERR_OR_NULL(node_device->clk[DUAL_CTX].clk)) {
+			int ret;
 			dev_err(&pdev->dev,
 				"%s:Failed to get bus clk for bus%d ctx%d",
 				__func__, node_device->node_info->id,
 								DUAL_CTX);
+			ret = (IS_ERR(node_device->clk[DUAL_CTX].clk) ?
+			PTR_ERR(node_device->clk[DUAL_CTX].clk) : -ENXIO);
+			return ret;
+		}
+
+		if (of_find_property(dev_node, "bus-gdsc-supply", NULL))
+			scnprintf(node_device->clk[DUAL_CTX].reg_name,
+				MAX_REG_NAME, "%s", "bus-gdsc");
+		else
+			scnprintf(node_device->clk[DUAL_CTX].reg_name,
+				MAX_REG_NAME, "%c", '\0');
 
 		node_device->clk[ACTIVE_CTX].clk = of_clk_get_by_name(dev_node,
 							"bus_a_clk");
-		if (IS_ERR_OR_NULL(node_device->clk[ACTIVE_CTX].clk))
+		if (IS_ERR_OR_NULL(node_device->clk[ACTIVE_CTX].clk)) {
+			int ret;
 			dev_err(&pdev->dev,
 				"Failed to get bus clk for bus%d ctx%d",
 				 node_device->node_info->id, ACTIVE_CTX);
+			ret = (IS_ERR(node_device->clk[DUAL_CTX].clk) ?
+			PTR_ERR(node_device->clk[DUAL_CTX].clk) : -ENXIO);
+			return ret;
+		}
 
-		node_device->qos_clk.clk = of_clk_get_by_name(dev_node,
+		if (of_find_property(dev_node, "bus-a-gdsc-supply", NULL))
+			scnprintf(node_device->clk[ACTIVE_CTX].reg_name,
+				MAX_REG_NAME, "%s", "bus-a-gdsc");
+		else
+			scnprintf(node_device->clk[ACTIVE_CTX].reg_name,
+				MAX_REG_NAME, "%c", '\0');
+
+		node_device->bus_qos_clk.clk = of_clk_get_by_name(dev_node,
 							"bus_qos_clk");
 
-		if (IS_ERR_OR_NULL(node_device->qos_clk.clk))
+		if (IS_ERR_OR_NULL(node_device->bus_qos_clk.clk)) {
 			dev_dbg(&pdev->dev,
 				"%s:Failed to get bus qos clk for %d",
 				__func__, node_device->node_info->id);
+			scnprintf(node_device->bus_qos_clk.reg_name,
+					MAX_REG_NAME, "%c", '\0');
+		} else {
+			if (of_find_property(dev_node, "bus-qos-gdsc-supply",
+								NULL))
+				scnprintf(node_device->bus_qos_clk.reg_name,
+					MAX_REG_NAME, "%s", "bus-qos-gdsc");
+			else
+				scnprintf(node_device->bus_qos_clk.reg_name,
+					MAX_REG_NAME, "%c", '\0');
+		}
+
+		qos_clk_node = of_find_node_by_name(dev_node,
+						"qcom,node-qos-clks");
+
+		if (qos_clk_node)
+			msm_bus_of_parse_clk_array(qos_clk_node, dev_node, pdev,
+			&node_device->node_qos_clks,
+			&node_device->num_node_qos_clks,
+			node_device->node_info->id);
 
 		if (msmbus_coresight_init_adhoc(pdev, dev_node))
 			dev_warn(&pdev->dev,
 				 "Coresight support absent for bus: %d\n",
 				  node_device->node_info->id);
 	} else {
-		node_device->qos_clk.clk = of_clk_get_by_name(dev_node,
+		node_device->bus_qos_clk.clk = of_clk_get_by_name(dev_node,
 							"bus_qos_clk");
 
-		if (IS_ERR_OR_NULL(node_device->qos_clk.clk))
+		if (IS_ERR_OR_NULL(node_device->bus_qos_clk.clk))
 			dev_dbg(&pdev->dev,
 				"%s:Failed to get bus qos clk for mas%d",
 				__func__, node_device->node_info->id);
+
+		if (of_find_property(dev_node, "bus-qos-gdsc-supply",
+									NULL))
+			scnprintf(node_device->bus_qos_clk.reg_name,
+				MAX_REG_NAME, "%s", "bus-qos-gdsc");
+		else
+			scnprintf(node_device->bus_qos_clk.reg_name,
+				MAX_REG_NAME, "%c", '\0');
+
+		enable_only = of_property_read_bool(dev_node,
+							"qcom,enable-only-clk");
+		node_device->clk[DUAL_CTX].enable_only_clk = enable_only;
+		node_device->bus_qos_clk.enable_only_clk = enable_only;
+
+		/*
+		 * Doesn't make sense to have a clk handle you can't enable or
+		 * set rate on.
+		 */
+		if (!enable_only) {
+			setrate_only = of_property_read_bool(dev_node,
+						"qcom,setrate-only-clk");
+			node_device->clk[DUAL_CTX].setrate_only_clk =
+								setrate_only;
+			node_device->clk[ACTIVE_CTX].setrate_only_clk =
+								setrate_only;
+		}
 
 		node_device->clk[DUAL_CTX].clk = of_clk_get_by_name(dev_node,
 							"node_clk");
@@ -433,6 +648,13 @@ static unsigned int get_bus_node_device_data(
 				"%s:Failed to get bus clk for bus%d ctx%d",
 				__func__, node_device->node_info->id,
 								DUAL_CTX);
+
+		if (of_find_property(dev_node, "node-gdsc-supply", NULL))
+			scnprintf(node_device->clk[DUAL_CTX].reg_name,
+				MAX_REG_NAME, "%s", "node-gdsc");
+		else
+			scnprintf(node_device->clk[DUAL_CTX].reg_name,
+				MAX_REG_NAME, "%c", '\0');
 
 	}
 	return 0;
@@ -482,6 +704,7 @@ struct msm_bus_device_node_registration
 			dev_err(&pdev->dev, "Error: unable to initialize bus nodes\n");
 			goto node_reg_err_1;
 		}
+		pdata->info[i].of_node = child_node;
 		i++;
 	}
 
@@ -493,7 +716,7 @@ struct msm_bus_device_node_registration
 				pdata->info[i].node_info->num_connections);
 		dev_dbg(&pdev->dev, "\nbus_device_id %d\n buswidth %d\n",
 				pdata->info[i].node_info->bus_device_id,
-				pdata->info[i].node_info->buswidth);
+				pdata->info[i].node_info->agg_params.buswidth);
 		for (j = 0; j < pdata->info[i].node_info->num_connections;
 									j++) {
 			dev_dbg(&pdev->dev, "connection[%d]: %d\n", j,
