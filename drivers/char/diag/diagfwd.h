@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +45,8 @@ int chk_apps_only(void);
 int chk_apps_master(void);
 int chk_polling_response(void);
 int diag_cmd_log_on_demand(unsigned char *src_buf, int src_len,
+			   unsigned char *dest_buf, int dest_len);
+int diag_cmd_get_mobile_id(unsigned char *src_buf, int src_len,
 			   unsigned char *dest_buf, int dest_len);
 int diag_check_common_cmd(struct diag_pkt_header_t *header);
 void diag_update_userspace_clients(unsigned int type);
