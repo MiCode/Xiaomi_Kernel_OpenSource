@@ -49,6 +49,7 @@
 			compatible = "qcom,kryo";
 			reg = <0x0 0x0>;
 			enable-method = "qcom,msm8996-acc";
+			qcom,limits-info = <&mitigation_profile0>;
 			qcom,cpuss-pm = <&cpuss_pm>;
 			qcom,cpuss-csr = <&cpuss_csr>;
 			qcom,acc = <&acc0>;
@@ -68,6 +69,7 @@
 			compatible = "qcom,kryo";
 			reg = <0x0 0x1>;
 			enable-method = "qcom,msm8996-acc";
+			qcom,limits-info = <&mitigation_profile1>;
 			qcom,acc = <&acc1>;
 			qcom,sleep-status = <&cpu1_slp_sts>;
 			qcom,ea = <&ea1>;
@@ -79,6 +81,7 @@
 			compatible = "qcom,kryo";
 			reg = <0x0 0x100>;
 			enable-method = "qcom,msm8996-acc";
+			qcom,limits-info = <&mitigation_profile2>;
 			qcom,acc = <&acc2>;
 			qcom,sleep-status = <&cpu2_slp_sts>;
 			qcom,ea = <&ea2>;
@@ -96,6 +99,7 @@
 			reg = <0x0 0x101>;
 			enable-method = "qcom,msm8996-acc";
 			qcom,sleep-status = <&cpu3_slp_sts>;
+			qcom,limits-info = <&mitigation_profile3>;
 			qcom,acc = <&acc3>;
 			qcom,ea = <&ea3>;
 			next-level-cache = <&L2_1>;
@@ -2518,7 +2522,6 @@
 		sensor_information4: qcom,sensor-information-4 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor4";
-			qcom,alias-name = "cpu0";
 			qcom,scaling-factor = <10>;
 		};
 
@@ -2531,7 +2534,6 @@
 		sensor_information6: qcom,sensor-information-6 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor6";
-			qcom,alias-name = "cpu1";
 			qcom,scaling-factor = <10>;
 		};
 
@@ -2550,7 +2552,6 @@
 		sensor_information9: qcom,sensor-information-9 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor9";
-			qcom,alias-name = "cpu2";
 			qcom,scaling-factor = <10>;
 		};
 
@@ -2563,7 +2564,6 @@
 		sensor_information11: qcom,sensor-information-11 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor11";
-			qcom,alias-name = "cpu3";
 			qcom,scaling-factor = <10>;
 		};
 
@@ -2624,6 +2624,34 @@
 		};
 	};
 
+	mitigation_profile0: qcom,limit_info-0 {
+		qcom,temperature-sensor = <&sensor_information4>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+		qcom,emergency-frequency-mitigate;
+	};
+
+	mitigation_profile1: qcom,limit_info-1 {
+		qcom,temperature-sensor = <&sensor_information6>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+		qcom,emergency-frequency-mitigate;
+	};
+
+	mitigation_profile2: qcom,limit_info-2 {
+		qcom,temperature-sensor = <&sensor_information9>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+		qcom,emergency-frequency-mitigate;
+	};
+
+	mitigation_profile3: qcom,limit_info-3 {
+		qcom,temperature-sensor = <&sensor_information11>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+		qcom,emergency-frequency-mitigate;
+	};
+
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <11>;
@@ -2632,20 +2660,17 @@
 		qcom,temp-hysteresis = <10>;
 		qcom,therm-reset-temp = <115>;
 		qcom,freq-step = <4>;
-		qcom,freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,core-limit-temp = <70>;
 		qcom,core-temp-hysteresis = <10>;
-		qcom,core-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,hotplug-temp = <100>;
 		qcom,hotplug-temp-hysteresis = <40>;
-		qcom,cpu-sensors = "tsens_tz_sensor4", "tsens_tz_sensor6",
-				"tsens_tz_sensor9", "tsens_tz_sensor11";
 		qcom,freq-mitigation-temp = <90>;
 		qcom,freq-mitigation-temp-hysteresis = <40>;
 		qcom,freq-mitigation-value = <576000>;
-		qcom,freq-mitigation-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
+		qcom,synchronous-cluster-map = <0 2 &CPU0 &CPU1>,
+			<1 2 &CPU2 &CPU3>;
 		qcom,mx-restriction-temp = <5>;
 		qcom,mx-restriction-temp-hysteresis = <5>;
 		qcom,mx-retention-min = <3>;
