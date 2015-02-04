@@ -374,7 +374,7 @@ static bool hdmi_tx_is_cea_format(int mode)
 
 static inline bool hdmi_tx_is_hdcp_enabled(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	if (hdmi_ctrl->hdcp_feature_on && hdmi_ctrl->present_hdcp)
+	if (hdmi_ctrl->hdcp_feature_on && hdmi_ctrl->hdcp14_present)
 		return true;
 
 	return false;
@@ -1152,6 +1152,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 	struct hdmi_edid_init_data edid_init_data;
 	struct hdmi_hdcp_init_data hdcp_init_data;
 	struct hdmi_cec_init_data cec_init_data;
+	struct resource *res = NULL;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1175,31 +1176,33 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
 		hdmi_ctrl->vid_cfg.vic);
 
-	/* Initialize HDCP feature */
-	if (hdmi_ctrl->present_hdcp) {
-		struct resource *res = NULL;
-		res = platform_get_resource_byname(hdmi_ctrl->pdev,
-			IORESOURCE_MEM, hdmi_tx_io_name(HDMI_TX_CORE_IO));
-		if (!res) {
-			DEV_ERR("%s: Error getting HDMI tx core resource\n",
-				__func__);
-			return -ENODEV;
-		}
-		hdcp_init_data.phy_addr = res->start;
-		hdcp_init_data.core_io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
-		hdcp_init_data.qfprom_io =
-			&hdmi_ctrl->pdata.io[HDMI_TX_QFPROM_IO];
-		hdcp_init_data.mutex = &hdmi_ctrl->mutex;
-		hdcp_init_data.sysfs_kobj = hdmi_ctrl->kobj;
-		hdcp_init_data.ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
-		hdcp_init_data.workq = hdmi_ctrl->workq;
-		hdcp_init_data.notify_status = hdmi_tx_hdcp_cb;
-		hdcp_init_data.cb_data = (void *)hdmi_ctrl;
+	/* Initialize HDCP features */
+	res = platform_get_resource_byname(hdmi_ctrl->pdev,
+		IORESOURCE_MEM, hdmi_tx_io_name(HDMI_TX_CORE_IO));
+	if (!res) {
+		DEV_ERR("%s: Error getting HDMI tx core resource\n",
+			__func__);
+		return -ENODEV;
+	}
 
-		/*
-		 * Initialize both HDCP 1.4 and 2.2 features, decide which one
-		 * to use at HPD time
-		 */
+	hdcp_init_data.phy_addr = res->start;
+	hdcp_init_data.core_io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
+	hdcp_init_data.qfprom_io =
+		&hdmi_ctrl->pdata.io[HDMI_TX_QFPROM_IO];
+	hdcp_init_data.mutex = &hdmi_ctrl->mutex;
+	hdcp_init_data.sysfs_kobj = hdmi_ctrl->kobj;
+	hdcp_init_data.ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
+	hdcp_init_data.workq = hdmi_ctrl->workq;
+	hdcp_init_data.notify_status = hdmi_tx_hdcp_cb;
+	hdcp_init_data.cb_data = (void *)hdmi_ctrl;
+	hdcp_init_data.hdmi_tx_ver = hdmi_ctrl->hdmi_tx_ver;
+
+	/*
+	 * Try to initialize both HDCP 1.4 and 2.2 features, decide which one
+	 * to use at HPD time
+	 */
+	if (hdmi_ctrl->hdcp14_present) {
+
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP] =
 			hdmi_hdcp_init(&hdcp_init_data);
 
@@ -1211,16 +1214,20 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] = NULL;
 			return -EPERM;
 		}
-
-		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2] =
-			hdmi_hdcp2p2_init(&hdcp_init_data);
-
-		if (IS_ERR_OR_NULL(
-				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2]))
-			DEV_WARN("%s: hdmi_hdcp2p2_init failed\n", __func__);
-
-		DEV_DBG("%s: HDCP feature initialized\n", __func__);
+		DEV_DBG("%s: HDCP 1.4 feature initialized\n", __func__);
 	}
+
+	hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2] =
+		hdmi_hdcp2p2_init(&hdcp_init_data);
+
+	if (IS_ERR_OR_NULL(
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2])) {
+		DEV_WARN("%s: hdmi_hdcp2p2_init failed\n", __func__);
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2] = NULL;
+	} else {
+		DEV_DBG("%s: HDCP 2.2 feature initialized\n", __func__);
+	}
+
 
 	/* Initialize CEC feature */
 	cec_init_data.io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
@@ -1344,11 +1351,15 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 			DEV_ERR("%s: Failed to disable ddc power\n", __func__);
 
 		/* Figure out HDCP capabilities of sink */
+		hdmi_ctrl->hdcp_ops = NULL;
 		hdmi_ctrl->hdcp_feature_data =
 			hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2];
-		hdmi_ctrl->hdcp_ops =
-			hdmi_hdcp2p2_start(hdmi_ctrl->hdcp_feature_data);
-		if (!hdmi_ctrl->hdcp_ops) {
+		if (hdmi_ctrl->hdcp_feature_data)
+			hdmi_ctrl->hdcp_ops =
+				hdmi_hdcp2p2_start(
+					hdmi_ctrl->hdcp_feature_data);
+
+		if (!hdmi_ctrl->hdcp_ops && hdmi_ctrl->hdcp14_present) {
 			hdmi_ctrl->hdcp_feature_data =
 				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP];
 			hdmi_ctrl->hdcp_ops =
@@ -1398,10 +1409,10 @@ static int hdmi_tx_check_capability(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	if (hdcp_disabled) {
-		hdmi_ctrl->present_hdcp = 0;
+		hdmi_ctrl->hdcp14_present = 0;
 		DEV_WARN("%s: HDCP disabled\n", __func__);
 	} else {
-		hdmi_ctrl->present_hdcp = 1;
+		hdmi_ctrl->hdcp14_present = 1;
 		DEV_DBG("%s: Device is HDCP enabled\n", __func__);
 	}
 
