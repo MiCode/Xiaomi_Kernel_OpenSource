@@ -694,7 +694,7 @@ static ssize_t csc_enable_show(struct device *kdev,
 		dev_priv->csc_enabled[1] ? "Enabled" : "Disabled");
 	if (IS_CHERRYVIEW(dev))
 		len += scnprintf(ubuf+len, PAGE_SIZE, "Pipe 2: %s\n",
-			dev_priv->csc_enabled[1] ? "Enabled" : "Disabled");
+			dev_priv->csc_enabled[2] ? "Enabled" : "Disabled");
 
 	return len;
 }
