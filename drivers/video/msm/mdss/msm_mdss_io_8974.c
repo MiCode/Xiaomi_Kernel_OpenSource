@@ -49,24 +49,42 @@
 #define DSIPHY_CMN_CTRL_1			0x0020
 #define DSIPHY_CMN_LDO_CNTRL			0x004c
 #define DSIPHY_PLL_CLKBUFLR_EN			0x041c
+#define DSIPHY_PLL_PLL_BANDGAP			0x0508
 
 static struct dsi_clk_desc dsi_pclk;
 
+static void mdss_dsi_ctrl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	/* start phy sw reset */
+	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0001);
+	udelay(1000);
+	wmb();	/* make sure reset */
+	/* end phy sw reset */
+	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0000);
+	udelay(100);
+	wmb();	/* maek sure reset cleared */
+}
+
 static void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
+
 	if (ctrl == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
 
+	if (ctrl->hw_rev == MDSS_DSI_HW_REV_104) {
+		if (mdss_dsi_is_ctrl_clk_master(ctrl))
+			sctrl = mdss_dsi_get_ctrl_clk_slave();
+		else
+			return;
+	}
+
 	/* start phy sw reset */
-	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0001);
-	udelay(1000);
-	wmb();
-	/* end phy sw reset */
-	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0000);
-	udelay(100);
-	wmb();
+	mdss_dsi_ctrl_phy_reset(ctrl);
+	if (sctrl)
+		mdss_dsi_ctrl_phy_reset(sctrl);
 
 	/*
 	 * phy sw reset will wipe out the pll settings for PLL.
@@ -408,6 +426,9 @@ static void mdss_dsi_thulium_pll_source_from_right(
 	data = MIPI_INP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL);
 	data |= BIT(2);
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, data);
+
+	/* enable bias current for pll1 during split display case */
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_PLL_PLL_BANDGAP, 0x3);
 }
 
 static void mdss_dsi_thulium_pll_source_from_left(
@@ -509,7 +530,7 @@ static void mdss_dsi_thulium_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 	udelay(100);
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_CTRL_1, 0x00);
 
-	if (mdss_dsi_sync_wait_enable(ctrl)) {
+	if (mdss_dsi_split_display_enabled()) {
 		if (mdss_dsi_is_left_ctrl(ctrl))
 			mdss_dsi_thulium_pll_source_from_left(ctrl);
 		else
@@ -1427,6 +1448,9 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			goto error_bus_clk_start;
 		}
 
+		if (!pdata->panel_info.cont_splash_enabled)
+			mdss_dsi_read_hw_revision(ctrl);
+
 		/*
 		 * Phy software reset should not be done for:
 		 * 1.) Idle screen power collapse use-case. Issue a phy software
@@ -1442,7 +1466,6 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		 * when continuous splash screen is enabled.
 		 */
 		if (!pdata->panel_info.cont_splash_enabled) {
-			mdss_dsi_read_hw_revision(ctrl);
 			mdss_dsi_phy_init(ctrl);
 			mdss_dsi_ctrl_setup(ctrl);
 		}

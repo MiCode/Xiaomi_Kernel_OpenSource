@@ -552,6 +552,12 @@ static inline struct mdss_dsi_ctrl_pdata *mdss_dsi_get_ctrl_by_index(int ndx)
 	return ctrl_list[ndx];
 }
 
+static inline bool mdss_dsi_is_ctrl_clk_master(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	return mdss_dsi_split_display_enabled() &&
+		(ctrl->ndx == DSI_CTRL_CLK_MASTER);
+}
+
 static inline bool mdss_dsi_is_ctrl_clk_slave(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	return mdss_dsi_split_display_enabled() &&
