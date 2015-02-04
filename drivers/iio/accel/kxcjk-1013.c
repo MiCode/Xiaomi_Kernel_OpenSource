@@ -108,6 +108,8 @@ struct kxcjk1013_data {
 	bool motion_trigger_on;
 	int64_t timestamp;
 	enum kx_chipset chipset;
+	s32 (*read_block_data)(const struct i2c_client *client, u8 command,
+			       u8 length, u8 *values);
 };
 
 enum kxcjk1013_axis {
@@ -214,6 +216,23 @@ static const struct {
 				 {400, 0, 0x06},
 				 {800, 0, 0x06},
 				 {1600, 0, 0x06} };
+
+static s32 kxcjk1013_read_block_data(const struct i2c_client *client,
+				     u8 command, u8 length, u8 *values)
+{
+	s32 data;
+	u8 i;
+
+	for (i = 0; i < length; i += 2) {
+		data = i2c_smbus_read_word_data(client, command + i);
+		if (data < 0)
+			return data;
+
+		values[i] = data & 0xFF;
+		values[i+1] = data >> 8;
+	}
+	return i;
+}
 
 static int kxcjk1013_set_mode(struct kxcjk1013_data *data,
 			      enum kxcjk1013_mode mode)
@@ -948,18 +967,14 @@ static irqreturn_t kxcjk1013_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct kxcjk1013_data *data = iio_priv(indio_dev);
-	int bit, ret, i = 0;
+	int ret;
 
 	mutex_lock(&data->mutex);
-	for (bit = 0; bit < AXIS_MAX; bit++) {
-		ret = kxcjk1013_get_acc_reg(data, bit);
-		if (ret < 0) {
-			mutex_unlock(&data->mutex);
-			goto err;
-		}
-		data->buffer[i++] = ret;
-	}
+	ret = data->read_block_data(data->client, KXCJK1013_REG_XOUT_L,
+				    AXIS_MAX * 2, (u8 *) data->buffer);
 	mutex_unlock(&data->mutex);
+	if (ret < 0)
+		goto err;
 
 	iio_push_to_buffers_with_timestamp(indio_dev, data->buffer,
 					   data->timestamp);
@@ -1182,6 +1197,11 @@ static int kxcjk1013_probe(struct i2c_client *client,
 	const char *name;
 	int ret;
 
+	if (!i2c_check_functionality(client->adapter,
+				     I2C_FUNC_SMBUS_BYTE_DATA |
+				     I2C_FUNC_SMBUS_READ_WORD_DATA))
+		return -ENODEV;
+
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
 	if (!indio_dev)
 		return -ENOMEM;
@@ -1189,6 +1209,12 @@ static int kxcjk1013_probe(struct i2c_client *client,
 	data = iio_priv(indio_dev);
 	i2c_set_clientdata(client, indio_dev);
 	data->client = client;
+
+	if (i2c_check_functionality(client->adapter,
+				    I2C_FUNC_SMBUS_READ_I2C_BLOCK))
+		data->read_block_data = i2c_smbus_read_i2c_block_data;
+	else
+		data->read_block_data = kxcjk1013_read_block_data;
 
 	pdata = dev_get_platdata(&client->dev);
 	if (pdata)
