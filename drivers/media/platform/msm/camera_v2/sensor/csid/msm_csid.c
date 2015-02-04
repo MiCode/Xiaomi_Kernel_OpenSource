@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,7 +70,7 @@ static int msm_csid_cid_lut(
 		pr_err("%s:%d csid_lut_params NULL\n", __func__, __LINE__);
 		return -EINVAL;
 	}
-	for (i = 0; i < csid_lut_params->num_cid && i < 16; i++) {
+	for (i = 0; i < csid_lut_params->num_cid && i < MAX_CID; i++) {
 		if (csid_lut_params->vc_cfg[i]->cid >=
 			csid_lut_params->num_cid ||
 			csid_lut_params->vc_cfg[i]->cid < 0) {
@@ -498,7 +498,7 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void __user *arg)
 			break;
 		}
 		if (csid_params.lut_params.num_cid < 1 ||
-			csid_params.lut_params.num_cid > 16) {
+			csid_params.lut_params.num_cid > MAX_CID) {
 			pr_err("%s: %d num_cid outside range\n",
 				 __func__, __LINE__);
 			rc = -EINVAL;
@@ -631,7 +631,7 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 		csid_params.lut_params.num_cid = lut_par32.num_cid;
 
 		if (csid_params.lut_params.num_cid < 1 ||
-			csid_params.lut_params.num_cid > 16) {
+			csid_params.lut_params.num_cid > MAX_CID) {
 			pr_err("%s: %d num_cid outside range\n",
 				 __func__, __LINE__);
 			rc = -EINVAL;
