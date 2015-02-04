@@ -495,6 +495,20 @@ static inline u32 get_panel_xres(struct mdss_panel_info *pinfo)
 	return xres;
 }
 
+static u32 mdss_mdp_get_rotator_fps(struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 fps = DEFAULT_FRAME_RATE;
+
+	if (mdata->traffic_shaper_en)
+		fps = DEFAULT_ROTATOR_FRAME_RATE;
+
+	if (pipe->src.w >= 3840 || pipe->src.h >= 3840)
+		fps = ROTATOR_LOW_FRAME_RATE;
+
+	return fps;
+}
+
 /**
  * mdss_mdp_perf_calc_pipe() - calculate performance numbers required by pipe
  * @pipe:	Source pipe struct containing updated pipe params
@@ -540,8 +554,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	src = pipe->src;
 
 	if (mixer->rotator_mode) {
-		if (mdata->traffic_shaper_en)
-			fps = DEFAULT_ROTATOR_FRAME_RATE;
+		fps = mdss_mdp_get_rotator_fps(pipe);
 	} else if (mixer->type != MDSS_MDP_MIXER_TYPE_WRITEBACK) {
 		struct mdss_panel_info *pinfo;
 
