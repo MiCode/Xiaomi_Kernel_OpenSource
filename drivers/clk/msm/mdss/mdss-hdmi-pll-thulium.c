@@ -31,12 +31,19 @@
 #define HDMI_REF_CLOCK                           19200000
 #define HDMI_64B_ERR_VAL                         0xFFFFFFFFFFFFFFFF
 
+#define HDMI_2400MHZ_BIT_CLK_HZ                  2400000000
 #define HDMI_2000MHZ_BIT_CLK_HZ                  2000000000
+#define HDMI_1700MHZ_BIT_CLK_HZ                  1700000000
+#define HDMI_1200MHZ_BIT_CLK_HZ                  1200000000
 #define HDMI_1334MHZ_BIT_CLK_HZ                  1334000000
 #define HDMI_1000MHZ_BIT_CLK_HZ                  1000000000
+#define HDMI_850MHZ_BIT_CLK_HZ                   850000000
 #define HDMI_667MHZ_BIT_CLK_HZ                   667000000
+#define HDMI_600MHZ_BIT_CLK_HZ                   600000000
 #define HDMI_500MHZ_BIT_CLK_HZ                   500000000
+#define HDMI_450MHZ_BIT_CLK_HZ                   450000000
 #define HDMI_334MHZ_BIT_CLK_HZ                   334000000
+#define HDMI_300MHZ_BIT_CLK_HZ                   300000000
 #define HDMI_250MHZ_BIT_CLK_HZ                   250000000
 
 /* PLL REGISTERS */
@@ -56,7 +63,7 @@
 #define QSERDES_COM_BIAS_EN_CLKBUFLR_EN          (0x034)
 #define QSERDES_COM_CLK_ENABLE1                  (0x038)
 #define QSERDES_COM_SYS_CLK_CTRL                 (0x03C)
-#define QSERDES_COM_SYSCLK_BUF_ENBALE            (0x040)
+#define QSERDES_COM_SYSCLK_BUF_ENABLE            (0x040)
 #define QSERDES_COM_PLL_EN                       (0x044)
 #define QSERDES_COM_PLL_IVCO                     (0x048)
 #define QSERDES_COM_LOCK_CMP1_MODE0              (0x04C)
@@ -286,7 +293,7 @@
 #define HDMI_PHY_PHY_REVISION_ID3             (0xC4)
 
 #define HDMI_PLL_POLL_MAX_READS                2500
-#define HDMI_PLL_POLL_TIMEOUT_US               50
+#define HDMI_PLL_POLL_TIMEOUT_US               100000
 
 enum hdmi_pll_freqs {
 	HDMI_PCLK_25200_KHZ,
@@ -343,400 +350,6 @@ struct hdmi_thulium_phy_pll_reg_cfg {
 	u32 phy_mode;
 };
 
-static const u32 supported_freq_lut[HDMI_PCLK_MAX] = {
-	25200000,
-	27000000,
-	27027000,
-	74250000,
-	148500000,
-	154000000,
-	268500000,
-	297000000,
-	594000000
-};
-
-static const struct hdmi_thulium_phy_pll_reg_cfg reg_cfg_lut[HDMI_PCLK_MAX] = {
-
-	/* 25200 KHz */
-	{
-		.tx_l0_tx_band                  = 0x7,
-		.tx_l1_tx_band                  = 0x7,
-		.tx_l2_tx_band                  = 0x7,
-		.tx_l3_tx_band                  = 0x7,
-		.com_svs_mode_clk_sel           = 0x0,
-		.com_hsclk_sel                  = 0x2B,
-		.com_pll_cctrl_mode0            = 0x1,
-		.com_pll_rctrl_mode0            = 0x10,
-		.com_cp_ctrl_mode0              = 0x23,
-		.com_dec_start_mode0            = 0x69,
-		.com_div_frac_start1_mode0      = 0x0,
-		.com_div_frac_start2_mode0      = 0x0,
-		.com_div_frac_start3_mode0      = 0x0,
-		.com_integloop_gain0_mode0      = 0xC4,
-		.com_integloop_gain1_mode0      = 0x0,
-		.com_lock_cmp1_mode0            = 0xFF,
-		.com_lock_cmp2_mode0            = 0x29,
-		.com_lock_cmp3_mode0            = 0x0,
-		.com_core_clk_en                = 0x6C,
-		.com_coreclk_div                = 0x5,
-
-		.tx_l0_tx_drv_lvl               = 0x15,
-		.tx_l0_tx_emp_post1_lvl         = 0x10,
-		.tx_l1_tx_drv_lvl               = 0x15,
-		.tx_l1_tx_emp_post1_lvl         = 0x10,
-		.tx_l2_tx_drv_lvl               = 0x15,
-		.tx_l2_tx_emp_post1_lvl         = 0x10,
-		.tx_l3_tx_drv_lvl               = 0x15,
-		.tx_l3_tx_emp_post1_lvl         = 0x10,
-		.tx_l0_vmode_ctrl1              = 0x0,
-		.tx_l0_vmode_ctrl2              = 0xD,
-		.tx_l1_vmode_ctrl1              = 0x0,
-		.tx_l1_vmode_ctrl2              = 0xD,
-		.tx_l2_vmode_ctrl1              = 0x0,
-		.tx_l2_vmode_ctrl2              = 0xD,
-		.tx_l3_vmode_ctrl1              = 0x0,
-		.tx_l3_vmode_ctrl2              = 0xD,
-
-		.phy_mode                       = 0x0,
-	},
-	/* 27000 KHz */
-	{
-		.tx_l0_tx_band                  = 0x7,
-		.tx_l1_tx_band                  = 0x7,
-		.tx_l2_tx_band                  = 0x7,
-		.tx_l3_tx_band                  = 0x7,
-		.com_svs_mode_clk_sel           = 0x0,
-		.com_hsclk_sel                  = 0x2B,
-		.com_pll_cctrl_mode0            = 0x28,
-		.com_pll_rctrl_mode0            = 0x22,
-		.com_cp_ctrl_mode0              = 0xB,
-		.com_dec_start_mode0            = 0x70,
-		.com_div_frac_start1_mode0      = 0x0,
-		.com_div_frac_start2_mode0      = 0x0,
-		.com_div_frac_start3_mode0      = 0x8,
-		.com_integloop_gain0_mode0      = 0x80,
-		.com_integloop_gain1_mode0      = 0x0,
-		.com_lock_cmp1_mode0            = 0xFF,
-		.com_lock_cmp2_mode0            = 0x2C,
-		.com_lock_cmp3_mode0            = 0x0,
-		.com_core_clk_en                = 0x6C,
-		.com_coreclk_div                = 0x5,
-
-		.tx_l0_tx_drv_lvl               = 0x15,
-		.tx_l0_tx_emp_post1_lvl         = 0x10,
-		.tx_l1_tx_drv_lvl               = 0x15,
-		.tx_l1_tx_emp_post1_lvl         = 0x10,
-		.tx_l2_tx_drv_lvl               = 0x15,
-		.tx_l2_tx_emp_post1_lvl         = 0x10,
-		.tx_l3_tx_drv_lvl               = 0x15,
-		.tx_l3_tx_emp_post1_lvl         = 0x10,
-		.tx_l0_vmode_ctrl1              = 0x0,
-		.tx_l0_vmode_ctrl2              = 0xD,
-		.tx_l1_vmode_ctrl1              = 0x0,
-		.tx_l1_vmode_ctrl2              = 0xD,
-		.tx_l2_vmode_ctrl1              = 0x0,
-		.tx_l2_vmode_ctrl2              = 0xD,
-		.tx_l3_vmode_ctrl1              = 0x0,
-		.tx_l3_vmode_ctrl2              = 0xD,
-
-		.phy_mode                       = 0x0,
-	},
-	/* 27027 KHz */
-	{
-		.tx_l0_tx_band                  = 0x7,
-		.tx_l1_tx_band                  = 0x7,
-		.tx_l2_tx_band                  = 0x7,
-		.tx_l3_tx_band                  = 0x7,
-		.com_svs_mode_clk_sel           = 0x0,
-		.com_hsclk_sel                  = 0x2B,
-		.com_pll_cctrl_mode0            = 0x28,
-		.com_pll_rctrl_mode0            = 0x16,
-		.com_cp_ctrl_mode0              = 0xB,
-		.com_dec_start_mode0            = 0x70,
-		.com_div_frac_start1_mode0      = 0xCD,
-		.com_div_frac_start2_mode0      = 0xCC,
-		.com_div_frac_start3_mode0      = 0x9,
-		.com_integloop_gain0_mode0      = 0x80,
-		.com_integloop_gain1_mode0      = 0x0,
-		.com_lock_cmp1_mode0            = 0x0B,
-		.com_lock_cmp2_mode0            = 0x2D,
-		.com_lock_cmp3_mode0            = 0x0,
-		.com_core_clk_en                = 0x6C,
-		.com_coreclk_div                = 0x5,
-
-		.tx_l0_tx_drv_lvl               = 0x15,
-		.tx_l0_tx_emp_post1_lvl         = 0x10,
-		.tx_l1_tx_drv_lvl               = 0x15,
-		.tx_l1_tx_emp_post1_lvl         = 0x10,
-		.tx_l2_tx_drv_lvl               = 0x15,
-		.tx_l2_tx_emp_post1_lvl         = 0x10,
-		.tx_l3_tx_drv_lvl               = 0x15,
-		.tx_l3_tx_emp_post1_lvl         = 0x10,
-		.tx_l0_vmode_ctrl1              = 0x0,
-		.tx_l0_vmode_ctrl2              = 0xD,
-		.tx_l1_vmode_ctrl1              = 0x0,
-		.tx_l1_vmode_ctrl2              = 0xD,
-		.tx_l2_vmode_ctrl1              = 0x0,
-		.tx_l2_vmode_ctrl2              = 0xD,
-		.tx_l3_vmode_ctrl1              = 0x0,
-		.tx_l3_vmode_ctrl2              = 0xD,
-
-		.phy_mode                       = 0x0,
-	},
-	/* 74250 KHz */
-	{
-		.tx_l0_tx_band                  = 0x06,
-		.tx_l1_tx_band                  = 0x06,
-		.tx_l2_tx_band                  = 0x06,
-		.tx_l3_tx_band                  = 0x06,
-		.com_svs_mode_clk_sel           = 0x00,
-		.com_hsclk_sel                  = 0x2A,
-		.com_pll_cctrl_mode0            = 0x28,
-		.com_pll_rctrl_mode0            = 0x16,
-		.com_cp_ctrl_mode0              = 0x0B,
-		.com_dec_start_mode0            = 0x74,
-		.com_div_frac_start1_mode0      = 0x00,
-		.com_div_frac_start2_mode0      = 0x40,
-		.com_div_frac_start3_mode0      = 0x00,
-		.com_integloop_gain0_mode0      = 0x80,
-		.com_integloop_gain1_mode0      = 0x00,
-		.com_lock_cmp1_mode0            = 0xDF,
-		.com_lock_cmp2_mode0            = 0x3D,
-		.com_lock_cmp3_mode0            = 0x00,
-		.com_core_clk_en                = 0x6C,
-		.com_coreclk_div                = 0x05,
-
-		.tx_l0_tx_drv_lvl               = 0x15,
-		.tx_l0_tx_emp_post1_lvl         = 0x10,
-		.tx_l1_tx_drv_lvl               = 0x15,
-		.tx_l1_tx_emp_post1_lvl         = 0x10,
-		.tx_l2_tx_drv_lvl               = 0x15,
-		.tx_l2_tx_emp_post1_lvl         = 0x10,
-		.tx_l3_tx_drv_lvl               = 0x15,
-		.tx_l3_tx_emp_post1_lvl         = 0x10,
-		.tx_l0_vmode_ctrl1              = 0x00,
-		.tx_l0_vmode_ctrl2              = 0x0D,
-		.tx_l1_vmode_ctrl1              = 0x00,
-		.tx_l1_vmode_ctrl2              = 0x0D,
-		.tx_l2_vmode_ctrl1              = 0x00,
-		.tx_l2_vmode_ctrl2              = 0x0D,
-		.tx_l3_vmode_ctrl1              = 0x00,
-		.tx_l3_vmode_ctrl2              = 0x0D,
-
-		.phy_mode                       = 0x00,
-	},
-	/* 148500 KHz */
-	{
-		.tx_l0_tx_band                  = 0x05,
-		.tx_l1_tx_band                  = 0x05,
-		.tx_l2_tx_band                  = 0x05,
-		.tx_l3_tx_band                  = 0x05,
-		.com_svs_mode_clk_sel           = 0x00,
-		.com_hsclk_sel                  = 0x2A,
-		.com_pll_cctrl_mode0            = 0x28,
-		.com_pll_rctrl_mode0            = 0x16,
-		.com_cp_ctrl_mode0              = 0x0B,
-		.com_dec_start_mode0            = 0x74,
-		.com_div_frac_start1_mode0      = 0x00,
-		.com_div_frac_start2_mode0      = 0x40,
-		.com_div_frac_start3_mode0      = 0x00,
-		.com_integloop_gain0_mode0      = 0x80,
-		.com_integloop_gain1_mode0      = 0x00,
-		.com_lock_cmp1_mode0            = 0xDF,
-		.com_lock_cmp2_mode0            = 0x3D,
-		.com_lock_cmp3_mode0            = 0x00,
-		.com_core_clk_en                = 0x6C,
-		.com_coreclk_div                = 0x05,
-
-		.tx_l0_tx_drv_lvl               = 0x15,
-		.tx_l0_tx_emp_post1_lvl         = 0x10,
-		.tx_l1_tx_drv_lvl               = 0x15,
-		.tx_l1_tx_emp_post1_lvl         = 0x10,
-		.tx_l2_tx_drv_lvl               = 0x15,
-		.tx_l2_tx_emp_post1_lvl         = 0x10,
-		.tx_l3_tx_drv_lvl               = 0x15,
-		.tx_l3_tx_emp_post1_lvl         = 0x10,
-		.tx_l0_vmode_ctrl1              = 0x00,
-		.tx_l0_vmode_ctrl2              = 0x0D,
-		.tx_l1_vmode_ctrl1              = 0x00,
-		.tx_l1_vmode_ctrl2              = 0x0D,
-		.tx_l2_vmode_ctrl1              = 0x00,
-		.tx_l2_vmode_ctrl2              = 0x0D,
-		.tx_l3_vmode_ctrl1              = 0x00,
-		.tx_l3_vmode_ctrl2              = 0x0D,
-
-		.phy_mode                       = 0x00,
-	},
-	/* 154000 KHz */
-	{
-		.tx_l0_tx_band                  = 0x05,
-		.tx_l1_tx_band                  = 0x05,
-		.tx_l2_tx_band                  = 0x05,
-		.tx_l3_tx_band                  = 0x05,
-		.com_svs_mode_clk_sel           = 0x00,
-		.com_hsclk_sel                  = 0x2A,
-		.com_pll_cctrl_mode0            = 0x28,
-		.com_pll_rctrl_mode0            = 0x16,
-		.com_cp_ctrl_mode0              = 0x0B,
-		.com_dec_start_mode0            = 0x78,
-		.com_div_frac_start1_mode0      = 0x00,
-		.com_div_frac_start2_mode0      = 0x00,
-		.com_div_frac_start3_mode0      = 0x05,
-		.com_integloop_gain0_mode0      = 0x80,
-		.com_integloop_gain1_mode0      = 0x00,
-		.com_lock_cmp1_mode0            = 0x2A,
-		.com_lock_cmp2_mode0            = 0x40,
-		.com_lock_cmp3_mode0            = 0x00,
-		.com_core_clk_en                = 0x6C,
-		.com_coreclk_div                = 0x05,
-
-		.tx_l0_tx_drv_lvl               = 0x15,
-		.tx_l0_tx_emp_post1_lvl         = 0x10,
-		.tx_l1_tx_drv_lvl               = 0x15,
-		.tx_l1_tx_emp_post1_lvl         = 0x10,
-		.tx_l2_tx_drv_lvl               = 0x15,
-		.tx_l2_tx_emp_post1_lvl         = 0x10,
-		.tx_l3_tx_drv_lvl               = 0x15,
-		.tx_l3_tx_emp_post1_lvl         = 0x10,
-		.tx_l0_vmode_ctrl1              = 0x00,
-		.tx_l0_vmode_ctrl2              = 0x0D,
-		.tx_l1_vmode_ctrl1              = 0x00,
-		.tx_l1_vmode_ctrl2              = 0x0D,
-		.tx_l2_vmode_ctrl1              = 0x00,
-		.tx_l2_vmode_ctrl2              = 0x0D,
-		.tx_l3_vmode_ctrl1              = 0x00,
-		.tx_l3_vmode_ctrl2              = 0x0D,
-
-		.phy_mode                       = 0x00,
-	},
-	/* 268500 KHz */
-	{
-		.tx_l0_tx_band                  = 0x04,
-		.tx_l1_tx_band                  = 0x04,
-		.tx_l2_tx_band                  = 0x04,
-		.tx_l3_tx_band                  = 0x04,
-		.com_svs_mode_clk_sel           = 0x00,
-		.com_hsclk_sel                  = 0x2B,
-		.com_pll_cctrl_mode0            = 0x28,
-		.com_pll_rctrl_mode0            = 0x16,
-		.com_cp_ctrl_mode0              = 0x0B,
-		.com_dec_start_mode0            = 0x8B,
-		.com_div_frac_start1_mode0      = 0x00,
-		.com_div_frac_start2_mode0      = 0x80,
-		.com_div_frac_start3_mode0      = 0x0D,
-		.com_integloop_gain0_mode0      = 0x80,
-		.com_integloop_gain1_mode0      = 0x00,
-		.com_lock_cmp1_mode0            = 0xEF,
-		.com_lock_cmp2_mode0            = 0x37,
-		.com_lock_cmp3_mode0            = 0x00,
-		.com_core_clk_en                = 0x6C,
-		.com_coreclk_div                = 0x05,
-
-		.tx_l0_tx_drv_lvl               = 0x15,
-		.tx_l0_tx_emp_post1_lvl         = 0x10,
-		.tx_l1_tx_drv_lvl               = 0x15,
-		.tx_l1_tx_emp_post1_lvl         = 0x10,
-		.tx_l2_tx_drv_lvl               = 0x15,
-		.tx_l2_tx_emp_post1_lvl         = 0x10,
-		.tx_l3_tx_drv_lvl               = 0x15,
-		.tx_l3_tx_emp_post1_lvl         = 0x10,
-		.tx_l0_vmode_ctrl1              = 0x00,
-		.tx_l0_vmode_ctrl2              = 0x0D,
-		.tx_l1_vmode_ctrl1              = 0x00,
-		.tx_l1_vmode_ctrl2              = 0x0D,
-		.tx_l2_vmode_ctrl1              = 0x00,
-		.tx_l2_vmode_ctrl2              = 0x0D,
-		.tx_l3_vmode_ctrl1              = 0x00,
-		.tx_l3_vmode_ctrl2              = 0x0D,
-
-		.phy_mode                       = 0x00,
-	},
-	/* 297000 KHz */
-	{
-		.tx_l0_tx_band                  = 0x04,
-		.tx_l1_tx_band                  = 0x04,
-		.tx_l2_tx_band                  = 0x04,
-		.tx_l3_tx_band                  = 0x04,
-		.com_svs_mode_clk_sel           = 0x00,
-		.com_hsclk_sel                  = 0x2A,
-		.com_pll_cctrl_mode0            = 0x28,
-		.com_pll_rctrl_mode0            = 0x16,
-		.com_cp_ctrl_mode0              = 0x0B,
-		.com_dec_start_mode0            = 0x74,
-		.com_div_frac_start1_mode0      = 0x00,
-		.com_div_frac_start2_mode0      = 0x40,
-		.com_div_frac_start3_mode0      = 0x00,
-		.com_integloop_gain0_mode0      = 0x80,
-		.com_integloop_gain1_mode0      = 0x00,
-		.com_lock_cmp1_mode0            = 0xDF,
-		.com_lock_cmp2_mode0            = 0x3D,
-		.com_lock_cmp3_mode0            = 0x00,
-		.com_core_clk_en                = 0x6C,
-		.com_coreclk_div                = 0x05,
-
-		.tx_l0_tx_drv_lvl               = 0x15,
-		.tx_l0_tx_emp_post1_lvl         = 0x10,
-		.tx_l1_tx_drv_lvl               = 0x15,
-		.tx_l1_tx_emp_post1_lvl         = 0x10,
-		.tx_l2_tx_drv_lvl               = 0x15,
-		.tx_l2_tx_emp_post1_lvl         = 0x10,
-		.tx_l3_tx_drv_lvl               = 0x15,
-		.tx_l3_tx_emp_post1_lvl         = 0x10,
-		.tx_l0_vmode_ctrl1              = 0x00,
-		.tx_l0_vmode_ctrl2              = 0x0D,
-		.tx_l1_vmode_ctrl1              = 0x00,
-		.tx_l1_vmode_ctrl2              = 0x0D,
-		.tx_l2_vmode_ctrl1              = 0x00,
-		.tx_l2_vmode_ctrl2              = 0x0D,
-		.tx_l3_vmode_ctrl1              = 0x00,
-		.tx_l3_vmode_ctrl2              = 0x0D,
-
-		.phy_mode                       = 0x00,
-	},
-	/* 594000 KHz */
-	{
-		.tx_l0_tx_band                  = 0x04,
-		.tx_l1_tx_band                  = 0x04,
-		.tx_l2_tx_band                  = 0x04,
-		.tx_l3_tx_band                  = 0x04,
-		.com_svs_mode_clk_sel           = 0x00,
-		.com_hsclk_sel                  = 0x29,
-		.com_pll_cctrl_mode0            = 0x28,
-		.com_pll_rctrl_mode0            = 0x16,
-		.com_cp_ctrl_mode0              = 0x0B,
-		.com_dec_start_mode0            = 0x9A,
-		.com_div_frac_start1_mode0      = 0x00,
-		.com_div_frac_start2_mode0      = 0x00,
-		.com_div_frac_start3_mode0      = 0x0B,
-		.com_integloop_gain0_mode0      = 0x80,
-		.com_integloop_gain1_mode0      = 0x00,
-		.com_lock_cmp1_mode0            = 0xBF,
-		.com_lock_cmp2_mode0            = 0x7B,
-		.com_lock_cmp3_mode0            = 0x00,
-		.com_core_clk_en                = 0x6C,
-		.com_coreclk_div                = 0x05,
-
-		.tx_l0_tx_drv_lvl               = 0x19,
-		.tx_l0_tx_emp_post1_lvl         = 0x10,
-		.tx_l1_tx_drv_lvl               = 0x15,
-		.tx_l1_tx_emp_post1_lvl         = 0x10,
-		.tx_l2_tx_drv_lvl               = 0x15,
-		.tx_l2_tx_emp_post1_lvl         = 0x10,
-		.tx_l3_tx_drv_lvl               = 0x15,
-		.tx_l3_tx_emp_post1_lvl         = 0x10,
-		.tx_l0_vmode_ctrl1              = 0x00,
-		.tx_l0_vmode_ctrl2              = 0x0D,
-		.tx_l1_vmode_ctrl1              = 0x00,
-		.tx_l1_vmode_ctrl2              = 0x0D,
-		.tx_l2_vmode_ctrl1              = 0x00,
-		.tx_l2_vmode_ctrl2              = 0x0D,
-		.tx_l3_vmode_ctrl1              = 0x00,
-		.tx_l3_vmode_ctrl2              = 0x0D,
-
-		.phy_mode                       = 0x10,
-	},
-};
-
 static inline struct hdmi_pll_vco_clk *to_hdmi_thulium_vco_clk(struct clk *clk)
 {
 	return container_of(clk, struct hdmi_pll_vco_clk, c);
@@ -744,17 +357,19 @@ static inline struct hdmi_pll_vco_clk *to_hdmi_thulium_vco_clk(struct clk *clk)
 
 static inline u64 hdmi_thulium_get_post_div_lt_2g(u64 bclk)
 {
-	if (bclk >= HDMI_1334MHZ_BIT_CLK_HZ)
+	if (bclk >= HDMI_2400MHZ_BIT_CLK_HZ)
+		return 2;
+	else if (bclk >= HDMI_1700MHZ_BIT_CLK_HZ)
 		return 3;
-	else if (bclk >= HDMI_1000MHZ_BIT_CLK_HZ)
+	else if (bclk >= HDMI_1200MHZ_BIT_CLK_HZ)
 		return 4;
-	else if (bclk >= HDMI_667MHZ_BIT_CLK_HZ)
+	else if (bclk >= HDMI_850MHZ_BIT_CLK_HZ)
 		return 3;
-	else if (bclk >= HDMI_500MHZ_BIT_CLK_HZ)
+	else if (bclk >= HDMI_600MHZ_BIT_CLK_HZ)
 		return 4;
-	else if (bclk >= HDMI_334MHZ_BIT_CLK_HZ)
+	else if (bclk >= HDMI_450MHZ_BIT_CLK_HZ)
 		return 3;
-	else if (bclk >= HDMI_250MHZ_BIT_CLK_HZ)
+	else if (bclk >= HDMI_300MHZ_BIT_CLK_HZ)
 		return 4;
 
 	return HDMI_64B_ERR_VAL;
@@ -791,13 +406,13 @@ static inline u64 hdmi_thulium_get_coreclk_div_ratio(u64 clks_pll_divsel,
 
 static inline u64 hdmi_thulium_get_tx_band(u64 bclk)
 {
-	if (bclk >= HDMI_2000MHZ_BIT_CLK_HZ)
+	if (bclk >= 2400000000)
 		return 0;
-	if (bclk >= HDMI_1000MHZ_BIT_CLK_HZ)
+	if (bclk >= 1200000000)
 		return 1;
-	if (bclk >= HDMI_500MHZ_BIT_CLK_HZ)
+	if (bclk >= 600000000)
 		return 2;
-	if (bclk >= HDMI_250MHZ_BIT_CLK_HZ)
+	if (bclk >= 300000000)
 		return 3;
 
 	return HDMI_64B_ERR_VAL;
@@ -805,13 +420,13 @@ static inline u64 hdmi_thulium_get_tx_band(u64 bclk)
 
 static inline u64 hdmi_thulium_get_hsclk(u64 fdata)
 {
-	if (fdata >= 8000000000)
+	if (fdata >= 9600000000)
 		return 0;
-	else if (fdata >= 4000000000)
+	else if (fdata >= 4800000000)
 		return 1;
-	else if (fdata >= 2700000000)
+	else if (fdata >= 3200000000)
 		return 2;
-	else if (fdata >= 2000000000)
+	else if (fdata >= 2400000000)
 		return 3;
 
 	return HDMI_64B_ERR_VAL;
@@ -928,7 +543,7 @@ static int hdmi_thulium_calculate(u32 pix_clk,
 
 	tx_band_div_ratio = 1 << tx_band;
 
-	if (bclk >= HDMI_2000MHZ_BIT_CLK_HZ) {
+	if (bclk >= HDMI_2400MHZ_BIT_CLK_HZ) {
 		fdata = bclk;
 		hsclk = hdmi_thulium_get_hsclk(fdata);
 		if (hsclk == HDMI_64B_ERR_VAL)
@@ -954,7 +569,6 @@ static int hdmi_thulium_calculate(u32 pix_clk,
 		post_div_gt_2g = (hsclk <= 3) ? (hsclk + 1) : HDMI_64B_ERR_VAL;
 		if (post_div_gt_2g == HDMI_64B_ERR_VAL)
 			goto fail;
-
 	}
 
 	/* Decimal and fraction values */
@@ -978,21 +592,21 @@ static int hdmi_thulium_calculate(u32 pix_clk,
 	pll_cmp = hdmi_thulium_get_pll_cmp(1024, core_clk);
 
 	/* Debug dump */
-	pr_debug("%s: VCO freq: %llu\n", __func__, vco_freq);
-	pr_debug("%s: fdata: %llu\n", __func__, fdata);
-	pr_debug("%s: CLK_DIVTX: %llu\n", __func__, clk_divtx);
-	pr_debug("%s: pix_clk: %d\n", __func__, pix_clk);
-	pr_debug("%s: tmds clk: %llu\n", __func__, tmds_clk);
-	pr_debug("%s: HSCLK_SEL: %llu\n", __func__, hsclk);
-	pr_debug("%s: DEC_START: %llu\n", __func__, dec_start);
-	pr_debug("%s: DIV_FRAC_START: %llu\n", __func__, frac_start);
-	pr_debug("%s: PLL_CPCTRL: %llu\n", __func__, cpctrl);
-	pr_debug("%s: PLL_RCTRL: %llu\n", __func__, rctrl);
-	pr_debug("%s: PLL_CCTRL: %llu\n", __func__, cctrl);
-	pr_debug("%s: INTEGLOOP_GAIN: %llu\n", __func__, integloop_gain);
-	pr_debug("%s: VCO_TUNE: %llu\n", __func__, vco_tune);
-	pr_debug("%s: TX_BAND: %llu\n", __func__, tx_band);
-	pr_debug("%s: PLL_CMP: %llu\n", __func__, pll_cmp);
+	DEV_DBG("%s: VCO freq: %llu\n", __func__, vco_freq);
+	DEV_DBG("%s: fdata: %llu\n", __func__, fdata);
+	DEV_DBG("%s: CLK_DIVTX: %llu\n", __func__, clk_divtx);
+	DEV_DBG("%s: pix_clk: %d\n", __func__, pix_clk);
+	DEV_DBG("%s: tmds clk: %llu\n", __func__, tmds_clk);
+	DEV_DBG("%s: HSCLK_SEL: %llu\n", __func__, hsclk);
+	DEV_DBG("%s: DEC_START: %llu\n", __func__, dec_start);
+	DEV_DBG("%s: DIV_FRAC_START: %llu\n", __func__, frac_start);
+	DEV_DBG("%s: PLL_CPCTRL: %llu\n", __func__, cpctrl);
+	DEV_DBG("%s: PLL_RCTRL: %llu\n", __func__, rctrl);
+	DEV_DBG("%s: PLL_CCTRL: %llu\n", __func__, cctrl);
+	DEV_DBG("%s: INTEGLOOP_GAIN: %llu\n", __func__, integloop_gain);
+	DEV_DBG("%s: VCO_TUNE: %llu\n", __func__, vco_tune);
+	DEV_DBG("%s: TX_BAND: %llu\n", __func__, tx_band);
+	DEV_DBG("%s: PLL_CMP: %llu\n", __func__, pll_cmp);
 
 	/* Convert these values to register specific values */
 	cfg->tx_l0_tx_band = tx_band + 4;
@@ -1018,14 +632,14 @@ static int hdmi_thulium_calculate(u32 pix_clk,
 	cfg->com_coreclk_div = HDMI_CORECLK_DIV;
 
 	if (bclk > HDMI_HIGH_FREQ_BIT_CLK_THRESHOLD) {
-		cfg->tx_l0_tx_drv_lvl = 0x19;
-		cfg->tx_l0_tx_emp_post1_lvl = 0x13;
-		cfg->tx_l1_tx_drv_lvl = 0x19;
-		cfg->tx_l1_tx_emp_post1_lvl = 0x13;
-		cfg->tx_l2_tx_drv_lvl = 0x19;
-		cfg->tx_l2_tx_emp_post1_lvl = 0x13;
-		cfg->tx_l3_tx_drv_lvl = 0x19;
-		cfg->tx_l3_tx_emp_post1_lvl = 0x10;
+		cfg->tx_l0_tx_drv_lvl = 0x39;
+		cfg->tx_l0_tx_emp_post1_lvl = 0x33;
+		cfg->tx_l1_tx_drv_lvl = 0x39;
+		cfg->tx_l1_tx_emp_post1_lvl = 0x33;
+		cfg->tx_l2_tx_drv_lvl = 0x39;
+		cfg->tx_l2_tx_emp_post1_lvl = 0x33;
+		cfg->tx_l3_tx_drv_lvl = 0x39;
+		cfg->tx_l3_tx_emp_post1_lvl = 0x30;
 		cfg->tx_l0_vmode_ctrl1 = 0x00;
 		cfg->tx_l0_vmode_ctrl2 = 0x0D;
 		cfg->tx_l1_vmode_ctrl1 = 0x00;
@@ -1035,14 +649,14 @@ static int hdmi_thulium_calculate(u32 pix_clk,
 		cfg->tx_l3_vmode_ctrl1 = 0x00;
 		cfg->tx_l3_vmode_ctrl2 = 0x0D;
 	} else {
-		cfg->tx_l0_tx_drv_lvl = 0x15;
-		cfg->tx_l0_tx_emp_post1_lvl = 0x10;
-		cfg->tx_l1_tx_drv_lvl = 0x15;
-		cfg->tx_l1_tx_emp_post1_lvl = 0x10;
-		cfg->tx_l2_tx_drv_lvl = 0x15;
-		cfg->tx_l2_tx_emp_post1_lvl = 0x10;
-		cfg->tx_l3_tx_drv_lvl = 0x15;
-		cfg->tx_l3_tx_emp_post1_lvl = 0x10;
+		cfg->tx_l0_tx_drv_lvl = 0x35;
+		cfg->tx_l0_tx_emp_post1_lvl = 0x30;
+		cfg->tx_l1_tx_drv_lvl = 0x35;
+		cfg->tx_l1_tx_emp_post1_lvl = 0x30;
+		cfg->tx_l2_tx_drv_lvl = 0x35;
+		cfg->tx_l2_tx_emp_post1_lvl = 0x30;
+		cfg->tx_l3_tx_drv_lvl = 0x35;
+		cfg->tx_l3_tx_emp_post1_lvl = 0x30;
 		cfg->tx_l0_vmode_ctrl1 = 0x00;
 		cfg->tx_l0_vmode_ctrl2 = 0x0D;
 		cfg->tx_l1_vmode_ctrl1 = 0x00;
@@ -1054,64 +668,64 @@ static int hdmi_thulium_calculate(u32 pix_clk,
 	}
 
 	cfg->phy_mode = (bclk > HDMI_HIGH_FREQ_BIT_CLK_THRESHOLD) ? 0x10 : 0x0;
-	pr_debug("HDMI thulium PLL: PLL Settings\n");
-	pr_debug("PLL PARAM: tx_l0_tx_band = 0x%x\n", cfg->tx_l0_tx_band);
-	pr_debug("PLL PARAM: tx_l1_tx_band = 0x%x\n", cfg->tx_l1_tx_band);
-	pr_debug("PLL PARAM: tx_l2_tx_band = 0x%x\n", cfg->tx_l2_tx_band);
-	pr_debug("PLL PARAM: tx_l3_tx_band = 0x%x\n", cfg->tx_l3_tx_band);
-	pr_debug("PLL PARAM: com_svs_mode_clk_sel = 0x%x\n",
+	DEV_DBG("HDMI thulium PLL: PLL Settings\n");
+	DEV_DBG("PLL PARAM: tx_l0_tx_band = 0x%x\n", cfg->tx_l0_tx_band);
+	DEV_DBG("PLL PARAM: tx_l1_tx_band = 0x%x\n", cfg->tx_l1_tx_band);
+	DEV_DBG("PLL PARAM: tx_l2_tx_band = 0x%x\n", cfg->tx_l2_tx_band);
+	DEV_DBG("PLL PARAM: tx_l3_tx_band = 0x%x\n", cfg->tx_l3_tx_band);
+	DEV_DBG("PLL PARAM: com_svs_mode_clk_sel = 0x%x\n",
 						cfg->com_svs_mode_clk_sel);
-	pr_debug("PLL PARAM: com_hsclk_sel = 0x%x\n", cfg->com_hsclk_sel);
-	pr_debug("PLL PARAM: com_pll_cctrl_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_hsclk_sel = 0x%x\n", cfg->com_hsclk_sel);
+	DEV_DBG("PLL PARAM: com_pll_cctrl_mode0 = 0x%x\n",
 						cfg->com_pll_cctrl_mode0);
-	pr_debug("PLL PARAM: com_pll_rctrl_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_pll_rctrl_mode0 = 0x%x\n",
 						cfg->com_pll_rctrl_mode0);
-	pr_debug("PLL PARAM: com_cp_ctrl_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_cp_ctrl_mode0 = 0x%x\n",
 						cfg->com_cp_ctrl_mode0);
-	pr_debug("PLL PARAM: com_dec_start_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_dec_start_mode0 = 0x%x\n",
 						cfg->com_dec_start_mode0);
-	pr_debug("PLL PARAM: com_div_frac_start1_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_div_frac_start1_mode0 = 0x%x\n",
 						cfg->com_div_frac_start1_mode0);
-	pr_debug("PLL PARAM: com_div_frac_start2_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_div_frac_start2_mode0 = 0x%x\n",
 						cfg->com_div_frac_start2_mode0);
-	pr_debug("PLL PARAM: com_div_frac_start3_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_div_frac_start3_mode0 = 0x%x\n",
 						cfg->com_div_frac_start3_mode0);
-	pr_debug("PLL PARAM: com_integloop_gain0_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_integloop_gain0_mode0 = 0x%x\n",
 						cfg->com_integloop_gain0_mode0);
-	pr_debug("PLL PARAM: com_integloop_gain1_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_integloop_gain1_mode0 = 0x%x\n",
 						cfg->com_integloop_gain1_mode0);
-	pr_debug("PLL PARAM: com_lock_cmp1_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_lock_cmp1_mode0 = 0x%x\n",
 						cfg->com_lock_cmp1_mode0);
-	pr_debug("PLL PARAM: com_lock_cmp2_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_lock_cmp2_mode0 = 0x%x\n",
 						cfg->com_lock_cmp2_mode0);
-	pr_debug("PLL PARAM: com_lock_cmp3_mode0 = 0x%x\n",
+	DEV_DBG("PLL PARAM: com_lock_cmp3_mode0 = 0x%x\n",
 						cfg->com_lock_cmp3_mode0);
-	pr_debug("PLL PARAM: com_core_clk_en = 0x%x\n", cfg->com_core_clk_en);
-	pr_debug("PLL PARAM: com_coreclk_div = 0x%x\n", cfg->com_coreclk_div);
+	DEV_DBG("PLL PARAM: com_core_clk_en = 0x%x\n", cfg->com_core_clk_en);
+	DEV_DBG("PLL PARAM: com_coreclk_div = 0x%x\n", cfg->com_coreclk_div);
 
-	pr_debug("PLL PARAM: l0_tx_drv_lvl = 0x%x\n", cfg->tx_l0_tx_drv_lvl);
-	pr_debug("PLL PARAM: l0_tx_emp_post1_lvl = 0x%x\n",
+	DEV_DBG("PLL PARAM: l0_tx_drv_lvl = 0x%x\n", cfg->tx_l0_tx_drv_lvl);
+	DEV_DBG("PLL PARAM: l0_tx_emp_post1_lvl = 0x%x\n",
 						cfg->tx_l0_tx_emp_post1_lvl);
-	pr_debug("PLL PARAM: l1_tx_drv_lvl = 0x%x\n", cfg->tx_l1_tx_drv_lvl);
-	pr_debug("PLL PARAM: l1_tx_emp_post1_lvl = 0x%x\n",
+	DEV_DBG("PLL PARAM: l1_tx_drv_lvl = 0x%x\n", cfg->tx_l1_tx_drv_lvl);
+	DEV_DBG("PLL PARAM: l1_tx_emp_post1_lvl = 0x%x\n",
 						cfg->tx_l1_tx_emp_post1_lvl);
-	pr_debug("PLL PARAM: l2_tx_drv_lvl = 0x%x\n", cfg->tx_l2_tx_drv_lvl);
-	pr_debug("PLL PARAM: l2_tx_emp_post1_lvl = 0x%x\n",
+	DEV_DBG("PLL PARAM: l2_tx_drv_lvl = 0x%x\n", cfg->tx_l2_tx_drv_lvl);
+	DEV_DBG("PLL PARAM: l2_tx_emp_post1_lvl = 0x%x\n",
 						cfg->tx_l2_tx_emp_post1_lvl);
-	pr_debug("PLL PARAM: l3_tx_drv_lvl = 0x%x\n", cfg->tx_l3_tx_drv_lvl);
-	pr_debug("PLL PARAM: l3_tx_emp_post1_lvl = 0x%x\n",
+	DEV_DBG("PLL PARAM: l3_tx_drv_lvl = 0x%x\n", cfg->tx_l3_tx_drv_lvl);
+	DEV_DBG("PLL PARAM: l3_tx_emp_post1_lvl = 0x%x\n",
 						cfg->tx_l3_tx_emp_post1_lvl);
 
-	pr_debug("PLL PARAM: l0_vmode_ctrl1 = 0x%x\n", cfg->tx_l0_vmode_ctrl1);
-	pr_debug("PLL PARAM: l0_vmode_ctrl2 = 0x%x\n", cfg->tx_l0_vmode_ctrl2);
-	pr_debug("PLL PARAM: l1_vmode_ctrl1 = 0x%x\n", cfg->tx_l1_vmode_ctrl1);
-	pr_debug("PLL PARAM: l1_vmode_ctrl2 = 0x%x\n", cfg->tx_l1_vmode_ctrl2);
-	pr_debug("PLL PARAM: l2_vmode_ctrl1 = 0x%x\n", cfg->tx_l2_vmode_ctrl1);
-	pr_debug("PLL PARAM: l2_vmode_ctrl2 = 0x%x\n", cfg->tx_l2_vmode_ctrl2);
-	pr_debug("PLL PARAM: l3_vmode_ctrl1 = 0x%x\n", cfg->tx_l3_vmode_ctrl1);
-	pr_debug("PLL PARAM: l3_vmode_ctrl2 = 0x%x\n", cfg->tx_l3_vmode_ctrl2);
+	DEV_DBG("PLL PARAM: l0_vmode_ctrl1 = 0x%x\n", cfg->tx_l0_vmode_ctrl1);
+	DEV_DBG("PLL PARAM: l0_vmode_ctrl2 = 0x%x\n", cfg->tx_l0_vmode_ctrl2);
+	DEV_DBG("PLL PARAM: l1_vmode_ctrl1 = 0x%x\n", cfg->tx_l1_vmode_ctrl1);
+	DEV_DBG("PLL PARAM: l1_vmode_ctrl2 = 0x%x\n", cfg->tx_l1_vmode_ctrl2);
+	DEV_DBG("PLL PARAM: l2_vmode_ctrl1 = 0x%x\n", cfg->tx_l2_vmode_ctrl1);
+	DEV_DBG("PLL PARAM: l2_vmode_ctrl2 = 0x%x\n", cfg->tx_l2_vmode_ctrl2);
+	DEV_DBG("PLL PARAM: l3_vmode_ctrl1 = 0x%x\n", cfg->tx_l3_vmode_ctrl1);
+	DEV_DBG("PLL PARAM: l3_vmode_ctrl2 = 0x%x\n", cfg->tx_l3_vmode_ctrl2);
 
-	pr_debug("PLL PARAM: phy_mode = 0x%x\n", cfg->phy_mode);
+	DEV_DBG("PLL PARAM: phy_mode = 0x%x\n", cfg->phy_mode);
 	rc = 0;
 fail:
 	return rc;
@@ -1119,37 +733,21 @@ fail:
 
 static int hdmi_thulium_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 {
-	u32 i = 0;
 	int rc = 0;
 	struct hdmi_pll_vco_clk *vco = to_hdmi_thulium_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
 	struct hdmi_thulium_phy_pll_reg_cfg cfg = {0};
 
-	for (i = 0; i < HDMI_PCLK_MAX; i++) {
-		if ((supported_freq_lut[i] >= (tmds_clk - 2000)) &&
-		    (supported_freq_lut[i] <= (tmds_clk + 2000))) {
-			pr_debug("%s: found clk %d\n", __func__, tmds_clk);
-			break;
-		}
-	}
-
-	if (i >= HDMI_PCLK_MAX) {
-		pr_debug("%s: pixel clock %d is not present in LUT\n", __func__,
-						       tmds_clk);
-
-		rc = hdmi_thulium_calculate(tmds_clk, &cfg);
-		if (rc) {
-			pr_err("%s: PLL calculation failed\n", __func__);
-			return rc;
-		}
-	} else {
-		cfg = reg_cfg_lut[i];
+	rc = hdmi_thulium_calculate(tmds_clk, &cfg);
+	if (rc) {
+		DEV_ERR("%s: PLL calculation failed\n", __func__);
+		return rc;
 	}
 
 	/* Initially shut down PHY */
-	pr_debug("%s: Disabling PHY\n", __func__);
+	DEV_DBG("%s: Disabling PHY\n", __func__);
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_PD_CTL, 0x0);
-	udelay(1000);
+	udelay(250);
 
 	/* Power up sequence */
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_PD_CTL, 0x1);
@@ -1183,11 +781,20 @@ static int hdmi_thulium_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 	MDSS_PLL_REG_W(io->pll_base + HDMI_TX_L3_BASE_OFFSET,
 			       QSERDES_TX_L0_RESET_TSYNC_EN, 0x03);
 
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_SYSCLK_BUF_ENABLE, 0x1E);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x07);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_SYSCLK_EN_SEL, 0x37);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_SYS_CLK_CTRL, 0x02);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_CLK_ENABLE1, 0x0E);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_BG_CTRL, 0x06);
+
+	/* Bypass VCO calibration */
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_SVS_MODE_CLK_SEL,
+					cfg.com_svs_mode_clk_sel);
+
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_BG_TRIM, 0x0F);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_IVCO, 0x0F);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_VCO_TUNE_CTRL, 0x1C);
 
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_SVS_MODE_CLK_SEL,
 					cfg.com_svs_mode_clk_sel);
@@ -1305,6 +912,15 @@ static int hdmi_thulium_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 	MDSS_PLL_REG_W(io->pll_base + HDMI_TX_L3_BASE_OFFSET,
 		       QSERDES_TX_L0_RES_CODE_LANE_OFFSET, 0x00);
 
+	MDSS_PLL_REG_W(io->pll_base + HDMI_TX_L0_BASE_OFFSET,
+		       QSERDES_TX_L0_RES_CODE_LANE_TX, 0x33);
+	MDSS_PLL_REG_W(io->pll_base + HDMI_TX_L1_BASE_OFFSET,
+		       QSERDES_TX_L0_RES_CODE_LANE_TX, 0x33);
+	MDSS_PLL_REG_W(io->pll_base + HDMI_TX_L2_BASE_OFFSET,
+		       QSERDES_TX_L0_RES_CODE_LANE_TX, 0x33);
+	MDSS_PLL_REG_W(io->pll_base + HDMI_TX_L3_BASE_OFFSET,
+		       QSERDES_TX_L0_RES_CODE_LANE_TX, 0x33);
+
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_TXCAL_CFG0, 0x00);
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_TXCAL_CFG1, 0x05);
 
@@ -1354,11 +970,11 @@ static int hdmi_thulium_phy_ready_status(struct mdss_pll_resources *io)
 
 	rc = mdss_pll_resource_enable(io, true);
 	if (rc) {
-		pr_err("%s: pll resource can't be enabled\n", __func__);
+		DEV_ERR("%s: pll resource can't be enabled\n", __func__);
 		return rc;
 	}
 
-	pr_debug("%s: Waiting for PHY Ready\n", __func__);
+	DEV_DBG("%s: Waiting for PHY Ready\n", __func__);
 
 	/* Poll for PHY read status */
 	if (!readl_poll_timeout_atomic(
@@ -1366,10 +982,10 @@ static int hdmi_thulium_phy_ready_status(struct mdss_pll_resources *io)
 		status, ((status & BIT(0)) == 1),
 		HDMI_PLL_POLL_MAX_READS,
 		HDMI_PLL_POLL_TIMEOUT_US)) {
-		pr_debug("%s: PHY READY\n", __func__);
+		DEV_DBG("%s: PHY READY\n", __func__);
 		phy_ready = 1;
 	} else {
-		pr_debug("%s: PHY READY TIMEOUT\n", __func__);
+		DEV_ERR("%s: PHY READY TIMEOUT\n", __func__);
 		phy_ready = 0;
 	}
 
@@ -1386,21 +1002,21 @@ static int hdmi_thulium_pll_lock_status(struct mdss_pll_resources *io)
 
 	rc = mdss_pll_resource_enable(io, true);
 	if (rc) {
-		pr_err("%s: pll resource can't be enabled\n", __func__);
+		DEV_ERR("%s: pll resource can't be enabled\n", __func__);
 		return rc;
 	}
 
-	pr_debug("%s: Waiting for PLL lock\n", __func__);
+	DEV_DBG("%s: Waiting for PLL lock\n", __func__);
 
 	if (!readl_poll_timeout_atomic(
 		(io->pll_base + QSERDES_COM_C_READY_STATUS),
 		status, ((status & BIT(0)) == 1),
 		HDMI_PLL_POLL_MAX_READS,
 		HDMI_PLL_POLL_TIMEOUT_US)) {
-		pr_debug("%s: C READY\n", __func__);
+		DEV_DBG("%s: C READY\n", __func__);
 		pll_locked = 1;
 	} else {
-		pr_debug("%s: C READY TIMEOUT\n", __func__);
+		DEV_ERR("%s: C READY TIMEOUT\n", __func__);
 		pll_locked = 0;
 	}
 
@@ -1409,21 +1025,167 @@ static int hdmi_thulium_pll_lock_status(struct mdss_pll_resources *io)
 	return pll_locked;
 }
 
+static int hdmi_thulium_perform_sw_calibration(struct clk *c)
+{
+	int rc = 0;
+	struct hdmi_pll_vco_clk *vco = to_hdmi_thulium_vco_clk(c);
+	struct mdss_pll_resources *io = vco->priv;
+
+	u32 max_code = 0x190;
+	u32 min_code = 0x0;
+	u32 max_cnt = 0;
+	u32 min_cnt = 0;
+	u32 expected_counter_value = 0;
+	u32 step = 0;
+	u32 dbus_all = 0;
+	u32 dbus_sel = 0;
+	u32 vco_code = 0;
+	u32 val = 0;
+
+	vco_code = 0xC8;
+
+	DEV_DBG("%s: Starting SW calibration with vco_code = %d\n", __func__,
+		 vco_code);
+
+	expected_counter_value =
+	   (MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_LOCK_CMP3_MODE0) << 16) |
+	   (MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_LOCK_CMP2_MODE0) << 8) |
+	   (MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_LOCK_CMP1_MODE0));
+
+	DEV_DBG("%s: expected_counter_value = %d\n", __func__,
+		 expected_counter_value);
+
+	val = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_CMN_MISC1);
+	val |= BIT(4);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_CMN_MISC1, val);
+
+	val = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_CMN_MISC1);
+	val |= BIT(3);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_CMN_MISC1, val);
+
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_DEBUG_BUS_SEL, 0x4);
+
+	val = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_LOCK_CMP_CFG);
+	val |= BIT(1);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_LOCK_CMP_CFG, val);
+
+	udelay(60);
+
+	while (1) {
+		MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_VCO_TUNE1_MODE0,
+			       vco_code & 0xFF);
+		MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_VCO_TUNE2_MODE0,
+			       (vco_code >> 8) & 0x3);
+
+		udelay(20);
+
+		val = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_LOCK_CMP_CFG);
+		val &= ~BIT(1);
+		MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_LOCK_CMP_CFG, val);
+
+		udelay(60);
+
+		val = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_LOCK_CMP_CFG);
+		val |= BIT(1);
+		MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_LOCK_CMP_CFG, val);
+
+		udelay(60);
+
+		dbus_all =
+		  (MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_DEBUG_BUS3) << 24) |
+		  (MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_DEBUG_BUS2) << 16) |
+		  (MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_DEBUG_BUS1) << 8) |
+		  (MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_DEBUG_BUS0));
+
+		dbus_sel = (dbus_all >> 9) & 0x3FFFF;
+		DEV_DBG("%s: loop[%d], dbus_all = 0x%x, dbus_sel = 0x%x\n",
+			__func__, step, dbus_all, dbus_sel);
+		if (dbus_sel == 0)
+			DEV_ERR("%s: CHECK HDMI REF CLK\n", __func__);
+
+		if (dbus_sel == expected_counter_value) {
+			max_code = vco_code;
+			max_cnt = dbus_sel;
+			min_code = vco_code;
+			min_cnt = dbus_sel;
+		} else if (dbus_sel == 0) {
+			max_code = vco_code;
+			max_cnt = dbus_sel;
+			vco_code = (max_code + min_code)/2;
+		} else if (dbus_sel > expected_counter_value) {
+			min_code = vco_code;
+			min_cnt = dbus_sel;
+			vco_code = (max_code + min_code)/2;
+		} else if (dbus_sel < expected_counter_value) {
+			max_code = vco_code;
+			max_cnt = dbus_sel;
+			vco_code = (max_code + min_code)/2;
+		}
+
+		step++;
+
+		if ((vco_code == 0) || (vco_code == 0x3FF) || (step > 0x3FF)) {
+			DEV_ERR("%s: VCO tune code search failed\n", __func__);
+			rc = -ENOTSUPP;
+			break;
+		}
+		if ((max_code - min_code) <= 1) {
+			if ((max_code - min_code) == 1) {
+				if (abs((int)(max_cnt - expected_counter_value))
+				    < abs((int)(min_cnt - expected_counter_value
+					))) {
+					vco_code = max_code;
+				} else {
+					vco_code = min_code;
+				}
+			}
+			break;
+		}
+		DEV_DBG("%s: loop[%d], new vco_code = %d\n", __func__, step,
+			 vco_code);
+	}
+
+	DEV_DBG("%s: CALIB done. vco_code = %d\n", __func__, vco_code);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_VCO_TUNE1_MODE0,
+		       vco_code & 0xFF);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_VCO_TUNE2_MODE0,
+		       (vco_code >> 8) & 0x3);
+	val = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_LOCK_CMP_CFG);
+	val &= ~BIT(1);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_LOCK_CMP_CFG, val);
+
+	val = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_CMN_MISC1);
+	val |= BIT(4);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_CMN_MISC1, val);
+
+	val = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_CMN_MISC1);
+	val &= ~BIT(3);
+	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_CMN_MISC1, val);
+
+	return rc;
+}
+
 static int hdmi_thulium_vco_enable(struct clk *c)
 {
-	int rc;
+	int rc = 0;
 	struct hdmi_pll_vco_clk *vco = to_hdmi_thulium_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
 
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x1);
-	udelay(1);
+	udelay(100);
 
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x19);
-	udelay(1);
+	udelay(100);
+
+	rc = hdmi_thulium_perform_sw_calibration(c);
+	if (rc) {
+		DEV_ERR("%s: software calibration failed\n", __func__);
+		return rc;
+	}
 
 	rc = hdmi_thulium_pll_lock_status(io);
 	if (!rc) {
-		pr_err("%s: PLL not locked\n", __func__);
+		DEV_ERR("%s: PLL not locked\n", __func__);
 		return rc;
 	}
 
@@ -1449,7 +1211,7 @@ static int hdmi_thulium_vco_enable(struct clk *c)
 
 	rc = hdmi_thulium_phy_ready_status(io);
 	if (!rc) {
-		pr_err("%s: PHY not READY\n", __func__);
+		DEV_ERR("%s: PHY not READY\n", __func__);
 		return rc;
 	}
 
@@ -1473,7 +1235,7 @@ static int hdmi_thulium_vco_set_rate(struct clk *c, unsigned long rate)
 
 	rc = mdss_pll_resource_enable(io, true);
 	if (rc) {
-		pr_err("pll resource can't be enabled\n");
+		DEV_ERR("pll resource can't be enabled\n");
 		return rc;
 	}
 
@@ -1483,11 +1245,11 @@ static int hdmi_thulium_vco_set_rate(struct clk *c, unsigned long rate)
 	pll_base = io->pll_base;
 	phy_base = io->phy_base;
 
-	pr_debug("rate=%ld\n", rate);
+	DEV_DBG("HDMI PIXEL CLK rate=%ld\n", rate);
 
 	rc = hdmi_thulium_phy_pll_set_clk_rate(c, rate);
 	if (rc)
-		pr_err("%s: Failed to set clk rate\n", __func__);
+		DEV_ERR("%s: Failed to set clk rate\n", __func__);
 
 	mdss_pll_resource_enable(io, false);
 
@@ -1511,7 +1273,7 @@ static long hdmi_thulium_vco_round_rate(struct clk *c, unsigned long rate)
 {
 	unsigned long rrate = rate;
 
-	pr_debug("rrate=%ld\n", rrate);
+	DEV_DBG("rrate=%ld\n", rrate);
 
 	return rrate;
 }
@@ -1522,7 +1284,7 @@ static int hdmi_thulium_vco_prepare(struct clk *c)
 	struct mdss_pll_resources *io = vco->priv;
 	int ret = 0;
 
-	pr_debug("rate=%ld\n", vco->rate);
+	DEV_DBG("rate=%ld\n", vco->rate);
 
 	if (!vco->rate_set && vco->rate)
 		ret = hdmi_thulium_vco_set_rate(c, vco->rate);
@@ -1530,7 +1292,7 @@ static int hdmi_thulium_vco_prepare(struct clk *c)
 	if (!ret) {
 		ret = mdss_pll_resource_enable(io, true);
 		if (ret)
-			pr_err("pll resource can't be enabled\n");
+			DEV_ERR("pll resource can't be enabled\n");
 	}
 
 	return ret;
@@ -1544,13 +1306,13 @@ static void hdmi_thulium_vco_unprepare(struct clk *c)
 	vco->rate_set = false;
 
 	if (!io) {
-		pr_err("Invalid input parameter\n");
+		DEV_ERR("Invalid input parameter\n");
 		return;
 	}
 
 	if (!io->pll_on &&
 		mdss_pll_resource_enable(io, true)) {
-		pr_err("pll resource can't be enabled\n");
+		DEV_ERR("pll resource can't be enabled\n");
 		return;
 	}
 
@@ -1569,7 +1331,7 @@ static enum handoff hdmi_thulium_vco_handoff(struct clk *c)
 		return HANDOFF_DISABLED_CLK;
 
 	if (mdss_pll_resource_enable(io, true)) {
-		pr_err("pll resource can't be enabled\n");
+		DEV_ERR("pll resource can't be enabled\n");
 		return ret;
 	}
 
@@ -1583,15 +1345,15 @@ static enum handoff hdmi_thulium_vco_handoff(struct clk *c)
 		} else {
 			io->handoff_resources = false;
 			mdss_pll_resource_enable(io, false);
-			pr_debug("%s: PHY not ready\n", __func__);
+			DEV_DBG("%s: PHY not ready\n", __func__);
 		}
 	} else {
 		io->handoff_resources = false;
 		mdss_pll_resource_enable(io, false);
-		pr_debug("%s: PLL not locked\n", __func__);
+		DEV_DBG("%s: PLL not locked\n", __func__);
 	}
 
-	pr_debug("done, ret=%d\n", ret);
+	DEV_DBG("done, ret=%d\n", ret);
 	return ret;
 }
 
@@ -1622,7 +1384,7 @@ int hdmi_thulium_pll_clock_register(struct platform_device *pdev,
 {
 	int rc = -ENOTSUPP;
 	if (!pll_res || !pll_res->phy_base || !pll_res->pll_base) {
-		pr_err("%s: Invalid input parameters\n", __func__);
+		DEV_ERR("%s: Invalid input parameters\n", __func__);
 		return -EPROBE_DEFER;
 	}
 
@@ -1632,10 +1394,10 @@ int hdmi_thulium_pll_clock_register(struct platform_device *pdev,
 	rc = of_msm_clock_register(pdev->dev.of_node, hdmipllcc_8996,
 					ARRAY_SIZE(hdmipllcc_8996));
 	if (rc) {
-		pr_err("%s: Clock register failed rc=%d\n", __func__, rc);
+		DEV_ERR("%s: Clock register failed rc=%d\n", __func__, rc);
 		rc = -EPROBE_DEFER;
 	} else {
-		pr_debug("%s SUCCESS\n", __func__);
+		DEV_DBG("%s SUCCESS\n", __func__);
 	}
 
 	return rc;
