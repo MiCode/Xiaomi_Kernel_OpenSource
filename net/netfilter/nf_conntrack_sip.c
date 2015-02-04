@@ -1800,13 +1800,13 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 				      SIP_HDR_CONTENT_LENGTH,
 				      &matchoff, &matchlen) <= 0){
 			do_not_process = true;
+			content_len_exists = 0;
 			goto destination;
 		}
 
 		clen = simple_strtoul(dptr + matchoff, (char **)&end, 10);
 		if (dptr + matchoff == end) {
-			do_not_process = true;
-			goto destination;
+			break;
 		}
 
 		term = false;
@@ -1817,14 +1817,10 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 				break;
 			}
 		}
-		if (!term) {
-			do_not_process = true;
-			goto destination;
-		}
+		if (!term)
+			break;
 
 		end += strlen("\r\n\r\n") + clen;
-		msglen = origlen = end - dptr;
-
 destination:
 		if (content_len_exists == 0) {
 			origlen = datalen;
@@ -1885,10 +1881,9 @@ destination:
 		dataoff += msglen;
 		dptr	+= msglen;
 		datalen  = datalen + diff - msglen;
-
-		break;
+		if (skb_is_combined)
+			break;
 	}
-
 	if (skb_is_combined) {
 		/* once combined skb is processed, split the skbs again The
 		 * length to split at is the same as length of first skb. Any
