@@ -6815,9 +6815,9 @@ static int __migrate_task(struct task_struct *p, int src_cpu, int dest_cpu)
 	 * placed properly.
 	 */
 	if (p->on_rq) {
-		dequeue_task(rq_src, p, 0);
+		dequeue_task(rq_src, p, DEQUEUE_MIGRATING);
 		set_task_cpu(p, dest_cpu);
-		enqueue_task(rq_dest, p, 0);
+		enqueue_task(rq_dest, p, ENQUEUE_MIGRATING);
 		check_preempt_curr(rq_dest, p, 0);
 		moved = true;
 	}
