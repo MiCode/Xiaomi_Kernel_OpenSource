@@ -32,6 +32,12 @@ static int hdcp2p2_authenticate(void *input);
 #define HDCP_SINK_DDC_HDCP2_RXSTATUS 0x70        /* RxStatus, 2 bytes */
 #define HDCP_SINK_DDC_HDCP2_READ_MESSAGE 0x80    /* HDCP Tx reads here */
 
+/*
+ * HDCP 2.2 encryption requires the data encryption block that is present in
+ * HDMI controller version 4.0.0 and above
+ */
+#define MIN_HDMI_TX_MAJOR_VERSION 4
+
 struct hdcp2p2_message_map {
 	int msg_id;
 	const char *msg_name;
@@ -634,6 +640,11 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 		!init_data->workq || !init_data->cb_data) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return ERR_PTR(-EINVAL);
+	}
+
+	if (init_data->hdmi_tx_ver < MIN_HDMI_TX_MAJOR_VERSION) {
+		DEV_DBG("%s: HDMI Tx does not support HDCP 2.2\n", __func__);
+		return ERR_PTR(-ENODEV);
 	}
 
 	hdcp2p2_ctrl = kzalloc(sizeof(*hdcp2p2_ctrl), GFP_KERNEL);

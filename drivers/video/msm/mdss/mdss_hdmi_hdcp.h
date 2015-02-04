@@ -33,6 +33,7 @@ struct hdmi_hdcp_init_data {
 	void (*notify_status)(void *cb_data, enum hdmi_hdcp_state status);
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
 	u32 phy_addr;
+	u32 hdmi_tx_ver;
 };
 
 struct hdmi_hdcp_ops {
