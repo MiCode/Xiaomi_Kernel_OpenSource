@@ -1502,7 +1502,6 @@ bool intel_restore_clr_mgr_status(struct drm_device *dev)
 				DRM_ERROR("Color Restore: CSC failed\n");
 				return false;
 			}
-			return false;
 		}
 	}
 
