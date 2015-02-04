@@ -942,6 +942,11 @@
 		cell-index = <0>;
 	};
 
+	cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <1 7 0x3f00>;
+	};
+
 	pcie0: qcom,pcie@fc520000 {
 		compatible = "qcom,pci-msm";
 		cell-index = <0>;
