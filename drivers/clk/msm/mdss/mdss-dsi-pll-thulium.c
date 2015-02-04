@@ -179,6 +179,7 @@ int dsi_pll_clock_register_thulium(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
 	int rc;
+	static struct mdss_pll_resources *master_pll;
 
 	if (!pdev || !pdev->dev.of_node) {
 		pr_err("Invalid input parameters\n");
@@ -190,8 +191,22 @@ int dsi_pll_clock_register_thulium(struct platform_device *pdev,
 		return -EPROBE_DEFER;
 	}
 
-	pll_res->priv = &pll_db;
+	pr_debug("ndx=%d is_slave=%d\n", pll_res->index, pll_res->is_slave);
 
+	if (!pll_res->is_slave) {
+		/* master at split display or stand alone */
+		pll_res->priv = &pll_db;
+		master_pll = pll_res;	/* keep master pll */
+	} else {
+		/* slave pll */
+		if (!master_pll) {
+			pr_err("No match PLL master found for ndx=%d\n",
+							pll_res->index);
+			return -EINVAL;
+		}
+		master_pll->slave = pll_res;
+		return 0;	/* done for slave */
+	}
 	/*
 	 * Set client data to mux, div and vco clocks.
 	 * This needs to be done only for PLL0 since, that is the one in

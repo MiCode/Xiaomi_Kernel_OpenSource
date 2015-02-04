@@ -55,9 +55,12 @@ int post_n1_div_set_div(struct div_clk *clk, int div)
 	pout = &pdb->out;
 
 	/*
-	 * postdiv = 1/2/4/8
-	 * n1div = 1 - 15
-	 * fot the time being, assume postdiv = 1
+	 * vco rate = bit_clk * postdiv * n1div
+	 * vco range from 1300 to 2600 Mhz
+	 * postdiv = 1
+	 * n1div = 1 to 15
+	 * n1div = roundup(1300Mhz / bit_clk)
+	 * support bit_clk above 86.67Mhz
 	 */
 
 	/* this is for vco/bit clock */
@@ -103,6 +106,7 @@ int n2_div_set_div(struct div_clk *clk, int div)
 	struct mdss_pll_resources *pll = clk->priv;
 	struct dsi_pll_db *pdb;
 	struct dsi_pll_output *pout;
+	struct mdss_pll_resources *slave;
 
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
@@ -118,6 +122,11 @@ int n2_div_set_div(struct div_clk *clk, int div)
 	n2div &= ~0xf0;	/* bits 4 to 7 */
 	n2div |= (div << 4);
 	MDSS_PLL_REG_W(pll->pll_base, DSIPHY_CMN_CLK_CFG0, n2div);
+
+	/* commit slave if split display is enabled */
+	slave = pll->slave;
+	if (slave)
+		MDSS_PLL_REG_W(slave->pll_base, DSIPHY_CMN_CLK_CFG0, n2div);
 
 	pout->pll_n2div = div;
 
@@ -135,6 +144,9 @@ int n2_div_get_div(struct div_clk *clk)
 	int rc;
 	u32 n2div;
 	struct mdss_pll_resources *pll = clk->priv;
+
+	if (is_gdsc_disabled(pll))
+		return 0;
 
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
@@ -336,7 +348,7 @@ static void pll_thulium_dec_frac_calc(struct dsi_pll_db *pdb,
 				vco_clk_rate, fref);
 
 	dec_start_multiple = div_s64(vco_clk_rate * multiplier, fref);
-	div_s64_rem(dec_start_multiple, multiplier, &div_frac_start);
+	div_s64_rem(vco_clk_rate * multiplier, fref, &div_frac_start);
 
 	dec_start = div_s64(dec_start_multiple, multiplier);
 
@@ -359,7 +371,6 @@ static void pll_thulium_dec_frac_calc(struct dsi_pll_db *pdb,
 	pout->plllock_cmp = (u32)pll_comp_val;
 
 	pout->pll_txclk_en = 1;
-	pout->pll_clkbuflr_en = 1;	/* right output */
 	pout->cmn_ldo_cntrl = 0x1c;
 }
 
@@ -455,10 +466,10 @@ static void pll_db_commit_common(void __iomem *pll_base,
 	data = pout->pll_misc1;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_PLL_MISC1, data);
 
-	data = pout->pll_ie_trim;
+	data = pin->pll_ie_trim;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_IE_TRIM, data);
 
-	data = pout->pll_ip_trim;
+	data = pin->pll_ip_trim;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_IP_TRIM, data);
 
 	data = ((pin->pll_cpmset_cur << 3) | pin->pll_cpcset_cur);
@@ -476,7 +487,7 @@ static void pll_db_commit_common(void __iomem *pll_base,
 	data = ((pdb->in.pll_lpf_cap2 << 4) | pdb->in.pll_lpf_cap1);
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_PLL_LPF1, data);
 
-	data = pout->pll_iptat_trim;
+	data = pin->pll_iptat_trim;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_IPTAT_TRIM, data);
 
 	data = (pdb->in.pll_c3ctrl | (pdb->in.pll_r3ctrl << 4));
@@ -518,10 +529,13 @@ static void pll_db_commit_thulium(void __iomem *pll_base,
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_DEC_START, data);
 
 	data = pout->div_frac_start;
+	data &= 0x0ff;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_DIV_FRAC_START1, data);
 	data = (pout->div_frac_start >> 8);
+	data &= 0x0ff;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_DIV_FRAC_START2, data);
 	data = (pout->div_frac_start >> 16);
+	data &= 0x0ff;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_DIV_FRAC_START3, data);
 
 	data = pout->plllock_cmp;
@@ -572,6 +586,7 @@ int pll_vco_set_rate_thulium(struct clk *c, unsigned long rate)
 	int rc;
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
 	struct mdss_pll_resources *pll = vco->priv;
+	struct mdss_pll_resources *slave;
 	struct dsi_pll_db *pdb;
 
 	pdb = (struct dsi_pll_db *)pll->priv;
@@ -599,6 +614,12 @@ int pll_vco_set_rate_thulium(struct clk *c, unsigned long rate)
 	pll_thulium_calc_vco_count(pdb, pll->vco_current_rate,
 					pll->vco_ref_clk_rate);
 
+	/* commit slave if split display is enabled */
+	slave = pll->slave;
+	if (slave)
+		pll_db_commit_thulium(slave->pll_base, pdb);
+
+	/* commit master itself */
 	pll_db_commit_thulium(pll->pll_base, pdb);
 
 	mdss_pll_resource_enable(pll, false);
