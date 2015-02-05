@@ -503,6 +503,13 @@ config MSM_SHARED_HEAP_ACCESS
 	 Enable support to provide access to clients to certain HLOS regions
 	 which are protected by the secure environment.
 
+config TRACER_PKT
+	bool "Tracer Packet"
+	help
+	  Tracer Packet helps in profiling the performance of inter-
+	  processor communication protocols. The profiling information
+	  can be logged into the tracer packet itself.
+
 config MSM_SECURE_BUFFER
 	bool "Helper functions for securing buffers through TZ"
 	help
