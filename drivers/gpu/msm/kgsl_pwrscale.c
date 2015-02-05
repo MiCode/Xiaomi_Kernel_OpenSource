@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -610,6 +610,14 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	pwrscale->next_governor_call = ktime_add_us(ktime_get(),
 			KGSL_GOVERNOR_CALL_INTERVAL);
 
+	/* history tracking */
+	for (i = 0; i < KGSL_PWREVENT_MAX; i++) {
+		pwrscale->history[i].events = kzalloc(
+				pwrscale->history[i].size *
+				sizeof(struct kgsl_pwr_event), GFP_KERNEL);
+		pwrscale->history[i].type = i;
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_pwrscale_init);
@@ -622,6 +630,7 @@ EXPORT_SYMBOL(kgsl_pwrscale_init);
  */
 void kgsl_pwrscale_close(struct kgsl_device *device)
 {
+	int i;
 	struct kgsl_pwrscale *pwrscale;
 
 	BUG_ON(!mutex_is_locked(&device->mutex));
@@ -634,6 +643,8 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	devfreq_remove_device(device->pwrscale.devfreqptr);
 	device->pwrscale.devfreqptr = NULL;
 	srcu_cleanup_notifier_head(&device->pwrscale.nh);
+	for (i = 0; i < KGSL_PWREVENT_MAX; i++)
+		kfree(pwrscale->history[i].events);
 }
 EXPORT_SYMBOL(kgsl_pwrscale_close);
 
