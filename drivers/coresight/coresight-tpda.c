@@ -58,6 +58,9 @@ struct tpda_drvdata {
 	struct clk		*clk;
 	struct mutex		lock;
 	bool			enable;
+	uint32_t		bc_esize[TPDA_MAX_INPORTS];
+	uint32_t		tc_esize[TPDA_MAX_INPORTS];
+	uint32_t		dsb_esize[TPDA_MAX_INPORTS];
 	uint32_t		cmb_esize[TPDA_MAX_INPORTS];
 	bool			trig_async;
 	bool			trig_flag_ts;
@@ -107,6 +110,21 @@ static void __tpda_enable_port(struct tpda_drvdata *drvdata, int port)
 	uint32_t val;
 
 	val = tpda_readl(drvdata, TPDA_Pn_CR(port));
+	if (drvdata->bc_esize[port] == 32)
+		val = val | BIT(4);
+	else if (drvdata->bc_esize[port] == 64)
+		val = val & ~BIT(4);
+
+	if (drvdata->tc_esize[port] == 32)
+		val = val | BIT(5);
+	else if (drvdata->tc_esize[port] == 64)
+		val = val & ~BIT(5);
+
+	if (drvdata->dsb_esize[port] == 32)
+		val = val | BIT(8);
+	else if (drvdata->dsb_esize[port] == 64)
+		val = val & ~BIT(8);
+
 	val = val & ~(0x3 << 6);
 	if (drvdata->cmb_esize[port] == 8)
 		val &= ~(0x3 << 6);
@@ -114,6 +132,7 @@ static void __tpda_enable_port(struct tpda_drvdata *drvdata, int port)
 		val |= (0x1 << 6);
 	else if (drvdata->cmb_esize[port] == 64)
 		val |= (0x2 << 6);
+
 	/* Set the hold time */
 	val = val & ~(0x7 << 1);
 	val |= (0x5 << 1);
@@ -525,6 +544,94 @@ static const struct attribute_group *tpda_attr_grps[] = {
 	NULL,
 };
 
+static int tpda_parse_of_data(struct tpda_drvdata *drvdata)
+{
+	int len, port, i;
+	const __be32 *prop;
+	struct device_node *node = drvdata->dev->of_node;
+
+	prop = of_get_property(node, "qcom,bc-elem-size", &len);
+	if (prop) {
+		len /= sizeof(__be32);
+		if (len < 2 || len > 63 || len % 2 != 0) {
+			dev_err(drvdata->dev,
+				"Dataset BC width entries are wrong\n");
+			return -EINVAL;
+		}
+
+		for (i = 0; i < len; i++) {
+			port = be32_to_cpu(prop[i++]);
+			if (port >= TPDA_MAX_INPORTS) {
+				dev_err(drvdata->dev,
+					"Wrong port specified for BC\n");
+				return -EINVAL;
+			}
+			drvdata->bc_esize[port] = be32_to_cpu(prop[i]);
+		}
+	}
+
+	prop = of_get_property(node, "qcom,tc-elem-size", &len);
+	if (prop) {
+		len /= sizeof(__be32);
+		if (len < 2 || len > 63 || len % 2 != 0) {
+			dev_err(drvdata->dev,
+				"Dataset TC width entries are wrong\n");
+			return -EINVAL;
+		}
+
+		for (i = 0; i < len; i++) {
+			port = be32_to_cpu(prop[i++]);
+			if (port >= TPDA_MAX_INPORTS) {
+				dev_err(drvdata->dev,
+					"Wrong port specified for TC\n");
+				return -EINVAL;
+			}
+			drvdata->tc_esize[port] = be32_to_cpu(prop[i]);
+		}
+	}
+
+	prop = of_get_property(node, "qcom,dsb-elem-size", &len);
+	if (prop) {
+		len /= sizeof(__be32);
+		if (len < 2 || len > 63 || len % 2 != 0) {
+			dev_err(drvdata->dev,
+				"Dataset DSB width entries are wrong\n");
+			return -EINVAL;
+		}
+
+		for (i = 0; i < len; i++) {
+			port = be32_to_cpu(prop[i++]);
+			if (port >= TPDA_MAX_INPORTS) {
+				dev_err(drvdata->dev,
+					"Wrong port specified for DSB\n");
+				return -EINVAL;
+			}
+			drvdata->dsb_esize[port] = be32_to_cpu(prop[i]);
+		}
+	}
+
+	prop = of_get_property(node, "qcom,cmb-elem-size", &len);
+	if (prop) {
+		len /= sizeof(__be32);
+		if (len < 2 || len > 63 || len % 2 != 0) {
+			dev_err(drvdata->dev,
+				"Dataset CMB width entries are wrong\n");
+			return -EINVAL;
+		}
+
+		for (i = 0; i < len; i++) {
+			port = be32_to_cpu(prop[i++]);
+			if (port >= TPDA_MAX_INPORTS) {
+				dev_err(drvdata->dev,
+					"Wrong port specified for CMB\n");
+				return -EINVAL;
+			}
+			drvdata->cmb_esize[port] = be32_to_cpu(prop[i]);
+		}
+	}
+	return 0;
+}
+
 static void tpda_init_default_data(struct tpda_drvdata *drvdata)
 {
 	drvdata->freq_ts = true;
@@ -532,9 +639,7 @@ static void tpda_init_default_data(struct tpda_drvdata *drvdata)
 
 static int tpda_probe(struct platform_device *pdev)
 {
-	int ret, i;
-	uint32_t port, cmb_esize_len = 0;
-	uint32_t *cmb_esize = 0;
+	int ret;
 	struct device *dev = &pdev->dev;
 	struct coresight_platform_data *pdata;
 	struct tpda_drvdata *drvdata;
@@ -565,36 +670,9 @@ static int tpda_probe(struct platform_device *pdev)
 
 	mutex_init(&drvdata->lock);
 
-	if (of_get_property(pdev->dev.of_node, "qcom,cmb-elem-size",
-			    &cmb_esize_len))
-		cmb_esize_len /= sizeof(u32);
-
-	if (cmb_esize_len) {
-		cmb_esize = devm_kzalloc(drvdata->dev, cmb_esize_len *
-					 sizeof(*cmb_esize), GFP_KERNEL);
-		if (!cmb_esize)
-			return -ENOMEM;
-
-		if (cmb_esize_len % 2 == 0) {
-			ret = of_property_read_u32_array(pdev->dev.of_node,
-							 "qcom,cmb-elem-size",
-							 (u32 *)cmb_esize,
-							 cmb_esize_len);
-			if (ret) {
-				dev_err(dev, "Failed to get CMB width\n");
-				return ret;
-			}
-			for (i = 0; i < cmb_esize_len; i++) {
-				port = cmb_esize[i++];
-				drvdata->cmb_esize[port] = cmb_esize[i];
-			}
-			devm_kfree(drvdata->dev, cmb_esize);
-		} else {
-			devm_kfree(drvdata->dev, cmb_esize);
-			dev_err(dev, "Dataset CMB width entries are wrong\n");
-			return -EINVAL;
-		}
-	}
+	ret = tpda_parse_of_data(drvdata);
+	if (ret)
+		return ret;
 
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk))
