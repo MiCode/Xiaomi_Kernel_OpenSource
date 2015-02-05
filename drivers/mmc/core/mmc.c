@@ -519,6 +519,22 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			ext_csd[EXT_CSD_PWR_CL_DDR_200_360];
 	}
 
+	/* check whether the eMMC card supports HPI */
+	if ((ext_csd[EXT_CSD_HPI_FEATURES] & 0x1) &&
+		!(card->quirks & MMC_QUIRK_BROKEN_HPI)) {
+		card->ext_csd.hpi = 1;
+		if (ext_csd[EXT_CSD_HPI_FEATURES] & 0x2)
+			card->ext_csd.hpi_cmd = MMC_STOP_TRANSMISSION;
+		else
+			card->ext_csd.hpi_cmd = MMC_SEND_STATUS;
+		/*
+		 * Indicate the maximum timeout to close
+		 * a command interrupted by HPI
+		 */
+		card->ext_csd.out_of_int_time =
+			ext_csd[EXT_CSD_OUT_OF_INTERRUPT_TIME] * 10;
+	}
+
 	if (card->ext_csd.rev >= 5) {
 		/* Adjust production date as per JEDEC JESD84-B451 */
 		if (card->cid.year < 2010)
@@ -526,7 +542,8 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 
 		/* check whether the eMMC card supports BKOPS */
 		if (!mmc_card_broken_hpi(card) &&
-		    ext_csd[EXT_CSD_BKOPS_SUPPORT] & 0x1) {
+		    (ext_csd[EXT_CSD_BKOPS_SUPPORT] & 0x1) &&
+				card->ext_csd.hpi) {
 			card->ext_csd.bkops = 1;
 			card->ext_csd.man_bkops_en =
 					(ext_csd[EXT_CSD_BKOPS_EN] &
@@ -1916,9 +1933,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	/*
 	 * If cache size is higher than 0, this indicates
 	 * the existence of cache and it can be turned on.
+	 * If HPI is not supported then cache shouldn't be enabled.
 	 */
 	if (!mmc_card_broken_hpi(card) &&
-	    card->ext_csd.cache_size > 0) {
+	    card->ext_csd.cache_size > 0 && card->ext_csd.hpi_en) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_CACHE_CTRL, 1,
 				card->ext_csd.generic_cmd6_time);
