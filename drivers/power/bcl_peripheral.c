@@ -25,6 +25,7 @@
 #include <linux/spmi.h>
 #include <linux/mutex.h>
 #include <linux/msm_bcl.h>
+#include <linux/power_supply.h>
 
 #define BCL_DRIVER_NAME         "bcl_peripheral"
 #define BCL_VBAT_INT_NAME       "bcl-low-vbat-int"
@@ -103,8 +104,10 @@ struct bcl_peripheral_data {
 	int                     scaling_factor;
 	int                     offset_factor_num;
 	int                     offset_factor_den;
+	int                     offset;
 	int                     gain_factor_num;
 	int                     gain_factor_den;
+	int                     gain;
 	uint32_t                polling_delay_ms;
 	int			inhibit_derating_ua;
 	int (*read_max)         (int *adc_value);
@@ -118,11 +121,15 @@ struct bcl_device {
 	uint16_t                base_addr;
 	uint16_t                pon_spare_addr;
 	uint8_t                 slave_id;
+	int                     i_src;
 	struct workqueue_struct *bcl_isr_wq;
 	struct bcl_peripheral_data   param[BCL_PARAM_MAX];
 };
 
 static struct bcl_device *bcl_perph;
+static struct power_supply bcl_psy;
+static const char bcl_psy_name[] = "fg_adc";
+static bool calibration_done;
 static DEFINE_MUTEX(bcl_access_mutex);
 static DEFINE_MUTEX(bcl_enable_mutex);
 
@@ -185,7 +192,8 @@ static void convert_vbat_to_adc_val(int *val)
 	if (!bcl_perph)
 		return;
 	perph_data = &bcl_perph->param[BCL_PARAM_VOLTAGE];
-	*val = (*val * 100 / (100 + perph_data->gain_factor_num
+	*val = (*val * 100
+		/ (100 + (perph_data->gain_factor_num * perph_data->gain)
 		* BCL_CONSTANT_NUM
 		/ perph_data->gain_factor_den))
 		/ perph_data->scaling_factor;
@@ -200,7 +208,7 @@ static void convert_adc_to_vbat_val(int *val)
 		return;
 	perph_data = &bcl_perph->param[BCL_PARAM_VOLTAGE];
 	*val = (*val * perph_data->scaling_factor)
-		* (100 + perph_data->gain_factor_num
+		* (100 + (perph_data->gain_factor_num * perph_data->gain)
 		* BCL_CONSTANT_NUM  / perph_data->gain_factor_den)
 		/ 100;
 	return;
@@ -213,9 +221,10 @@ static void convert_ibat_to_adc_val(int *val)
 	if (!bcl_perph)
 		return;
 	perph_data = &bcl_perph->param[BCL_PARAM_CURRENT];
-	*val = (*val * 100 / (100 + perph_data->gain_factor_num
+	*val = (*val * 100
+		/ (100 + (perph_data->gain_factor_num * perph_data->gain)
 		* BCL_CONSTANT_NUM / perph_data->gain_factor_den)
-		- perph_data->offset_factor_num
+		- (perph_data->offset_factor_num * perph_data->offset)
 		/ perph_data->offset_factor_den)
 		/  perph_data->scaling_factor;
 	return;
@@ -229,9 +238,9 @@ static void convert_adc_to_ibat_val(int *val)
 		return;
 	perph_data = &bcl_perph->param[BCL_PARAM_CURRENT];
 	*val = (*val * perph_data->scaling_factor
-		+ perph_data->offset_factor_num
+		+ (perph_data->offset_factor_num * perph_data->offset)
 		/ perph_data->offset_factor_den)
-		* (100 + perph_data->gain_factor_num
+		* (100 + (perph_data->gain_factor_num * perph_data->gain)
 		* BCL_CONSTANT_NUM / perph_data->gain_factor_den) / 100;
 	return;
 }
@@ -702,7 +711,6 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 {
 	int ret = 0, irq_num = 0, temp_val = 0;
 	struct resource *resource = NULL;
-	int8_t i_src = 0, val = 0;
 	char *key = NULL;
 	const __be32 *prop = NULL;
 	struct device_node *dev_node = spmi->dev.of_node;
@@ -784,36 +792,87 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 	READ_OPTIONAL_PROP(dev_node, key, temp_val, ret,
 		bcl_perph->param[BCL_PARAM_CURRENT].inhibit_derating_ua);
 
+bcl_dev_exit:
+	return ret;
+}
+
+static int bcl_calibrate(void)
+{
+	int ret = 0;
+	int8_t i_src = 0, val = 0;
+
 	ret = bcl_read_register(BCL_I_SENSE_SRC, &i_src);
 	if (ret) {
 		pr_err("Error reading current sense reg. err:%d\n", ret);
-		goto bcl_dev_exit;
+		goto bcl_cal_exit;
 	}
+
 	ret = bcl_read_register((i_src & 0x01) ? BCL_I_GAIN_RSENSE
 		: BCL_I_GAIN_BATFET, &val);
 	if (ret) {
 		pr_err("Error reading %s current gain. err:%d\n",
 			(i_src & 0x01) ? "rsense" : "batfet", ret);
-		goto bcl_dev_exit;
+		goto bcl_cal_exit;
 	}
-	bcl_perph->param[BCL_PARAM_CURRENT].gain_factor_num *= val;
+	bcl_perph->param[BCL_PARAM_CURRENT].gain = val;
 	ret = bcl_read_register((i_src & 0x01) ? BCL_I_OFFSET_RSENSE
 		: BCL_I_OFFSET_BATFET, &val);
 	if (ret) {
 		pr_err("Error reading %s current offset. err:%d\n",
 			(i_src & 0x01) ? "rsense" : "batfet", ret);
-		goto bcl_dev_exit;
+		goto bcl_cal_exit;
 	}
-	bcl_perph->param[BCL_PARAM_CURRENT].offset_factor_num *= val;
+	bcl_perph->param[BCL_PARAM_CURRENT].offset = val;
 	ret = bcl_read_register(BCL_V_GAIN_BAT, &val);
 	if (ret) {
 		pr_err("Error reading vbat offset. err:%d\n", ret);
-		goto bcl_dev_exit;
+		goto bcl_cal_exit;
 	}
-	bcl_perph->param[BCL_PARAM_VOLTAGE].gain_factor_num *= val;
+	bcl_perph->param[BCL_PARAM_VOLTAGE].gain = val;
 
-bcl_dev_exit:
+	if (((i_src & 0x01) != bcl_perph->i_src)
+		&& (bcl_perph->enabled)) {
+		bcl_set_low_vbat(bcl_perph->param[BCL_PARAM_VOLTAGE]
+				.low_trip);
+		bcl_set_high_ibat(bcl_perph->param[BCL_PARAM_CURRENT]
+				.high_trip);
+		bcl_perph->i_src = i_src;
+	}
+
+bcl_cal_exit:
 	return ret;
+}
+
+static void power_supply_callback(struct power_supply *psy)
+{
+	static struct power_supply *bms_psy;
+	int ret = 0;
+
+	if (calibration_done)
+		return;
+
+	if (!bms_psy)
+		bms_psy = power_supply_get_by_name("bms");
+	if (bms_psy) {
+		calibration_done = true;
+		ret = bcl_calibrate();
+		if (ret)
+			pr_err("Could not read calibration values. err:%d",
+				ret);
+	}
+}
+
+static int bcl_psy_get_property(struct power_supply *psy,
+				enum power_supply_property prop,
+				union power_supply_propval *val)
+{
+	return 0;
+}
+static int bcl_psy_set_property(struct power_supply *psy,
+				enum power_supply_property prop,
+				const union power_supply_propval *val)
+{
+	return -EINVAL;
 }
 
 static int bcl_update_data(void)
@@ -904,6 +963,23 @@ static int bcl_probe(struct spmi_device *spmi)
 		pr_err("Device tree data fetch error. err:%d", ret);
 		goto bcl_probe_exit;
 	}
+	ret = bcl_calibrate();
+	if (ret) {
+		pr_debug("Could not read calibration values. err:%d", ret);
+		goto bcl_probe_exit;
+	}
+	bcl_psy.name = bcl_psy_name;
+	bcl_psy.type = POWER_SUPPLY_TYPE_BMS;
+	bcl_psy.get_property     = bcl_psy_get_property;
+	bcl_psy.set_property     = bcl_psy_set_property;
+	bcl_psy.num_properties   = 0;
+	bcl_psy.external_power_changed = power_supply_callback;
+	ret = power_supply_register(&spmi->dev, &bcl_psy);
+	if (ret < 0) {
+		pr_err("Unable to register bcl_psy rc = %d\n", ret);
+		return ret;
+	}
+
 	bcl_perph->bcl_isr_wq = alloc_workqueue("bcl_isr_wq", WQ_HIGHPRI, 0);
 	if (!bcl_perph->bcl_isr_wq) {
 		pr_err("Alloc work queue failed\n");
