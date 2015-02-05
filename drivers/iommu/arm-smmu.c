@@ -1966,9 +1966,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 
 	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
 				!(tmp & ATSR_ACTIVE), 5, 50)) {
-		dev_err(dev,
-			"iova to phys timed out on 0x%pa. Falling back to software table walk.\n",
-			&iova);
+		dev_err(dev, "iova to phys timed out\n");
 		goto err_resume;
 	}
 
@@ -1997,7 +1995,11 @@ err_resume:
 err_unlock:
 	spin_unlock_irqrestore(&smmu->atos_lock, flags);
 	arm_smmu_disable_clocks(smmu);
-	return arm_smmu_iova_to_phys_soft(domain, iova);
+	phys = arm_smmu_iova_to_phys_soft(domain, iova);
+	dev_err(dev,
+		"iova to phys failed 0x%pa. software table walk result=%pa.\n",
+		&iova, &phys);
+	return 0;
 }
 
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
