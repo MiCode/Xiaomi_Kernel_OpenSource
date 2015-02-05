@@ -1375,6 +1375,9 @@ static const struct interrupt_map_t int_map[] = {
 #define POLL_INTERVAL_MAX_MS	4000
 #define POLL_DEFAULT_INTERVAL_MS 200
 
+/* Interrupt delay in msecs */
+#define BMA_INT_MAX_DELAY	64
+
 #define MAX_RANGE_MAP	4
 
 struct bma2x2_type_map_t {
@@ -1539,6 +1542,7 @@ static struct sensors_classdev sensors_cdev = {
 		.resolution = "0.153125",	/* 15.6mg */
 		.sensor_power = "0.13",	/* typical value */
 		.min_delay = POLL_INTERVAL_MIN_MS * 1000, /* in microseconds */
+		.max_delay = POLL_INTERVAL_MAX_MS,
 		.max_latency = POLL_INTERVAL_MAX_MS,
 		.fifo_reserved_event_count = 0,
 		.fifo_max_event_count = 0,
@@ -7450,6 +7454,8 @@ static int bma2x2_probe(struct i2c_client *client,
 	data->cdev.sensors_poll_delay = bma2x2_cdev_poll_delay;
 	data->cdev.sensors_self_test = bma2x2_self_calibration_xyz;
 	data->cdev.resolution = sensor_type_map[data->chip_type].resolution;
+	if (pdata->use_int)
+		data->cdev.max_delay = BMA_INT_MAX_DELAY;
 	err = sensors_classdev_register(&client->dev, &data->cdev);
 	if (err) {
 		dev_err(&client->dev, "create class device file failed!\n");
