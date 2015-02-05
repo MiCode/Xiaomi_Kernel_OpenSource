@@ -25,8 +25,6 @@ Optional properties :
     - qcom,msm_bus,vectors
 - interrupt-names : Optional interrupt resource entries are:
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
-- qcom,otg-capability: If present then depend on PMIC for VBUS notifications,
-  otherwise depend on PHY.
 - qcom,charging-disabled: If present then battery charging using USB
   is disabled.
 - qcom,skip-charger-detection: If present then charger detection using BC1.2
