@@ -188,7 +188,6 @@ struct msm_hdmi_mode_timing_info {
 #define RESERVE_VFRMT_END		HDMI_VFRMT_RESERVE8
 
 #define HDMI_VFRMT_MAX			(RESERVE_VFRMT_END + 1)
-#define HDMI_VFRMT_FORCE_32BIT		0x7FFFFFFF
 
 /* Timing information for supported modes */
 #define VFRMT_NOT_SUPPORTED(VFRMT) \
