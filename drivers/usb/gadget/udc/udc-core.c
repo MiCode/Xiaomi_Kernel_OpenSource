@@ -504,6 +504,7 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 }
 EXPORT_SYMBOL_GPL(usb_gadget_unregister_driver);
 
+
 /* ------------------------------------------------------------------------- */
 
 static ssize_t usb_udc_srp_store(struct device *dev,
