@@ -38,7 +38,7 @@ static void compute_m_n(u32 m, u32 n,
 	}
 }
 
-static void dp_pipe_compute_m_n(u32 bits_per_pixel, u32 nlanes,
+void dp_pipe_compute_m_n(u32 bits_per_pixel, u32 nlanes,
 		u32 pixel_clock, u32 link_clock, struct intel_link_m_n *m_n)
 {
 	m_n->tu = 64;

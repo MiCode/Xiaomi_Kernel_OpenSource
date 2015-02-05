@@ -73,6 +73,9 @@ u32 dp_pipe_init(struct dp_pipe *pipe, struct device *dev,
 	struct intel_pipeline *pipeline, enum intel_pipe_type type);
 
 u32 dp_pipe_destroy(struct dp_pipe *pipe);
+void dp_pipe_compute_m_n(u32 bits_per_pixel, u32 nlanes,
+			u32 pixel_clock, u32 link_clock,
+			struct intel_link_m_n *m_n);
 
 int intel_adf_dp_hot_plug(struct dp_pipe *dp_pipe);
 int intel_dp_self_modeset(struct dp_pipe *dp_pipe);
