@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,6 +144,8 @@
 
 #define MSM_NAND_READ_ID(info)              MSM_NAND_REG(info, 0x30040)
 #define MSM_NAND_READ_STATUS(info)          MSM_NAND_REG(info, 0x30044)
+#define MSM_NAND_READ_ID2(info)              MSM_NAND_REG(info, 0x30048)
+#define EXTENDED_FETCH_ID           BIT(19)
 #define MSM_NAND_DEV_CMD1(info)             MSM_NAND_REG(info, 0x300A4)
 #define MSM_NAND_DEV_CMD_VLD(info)          MSM_NAND_REG(info, 0x300AC)
 #define MSM_NAND_EBI2_ECC_BUF_CFG(info)     MSM_NAND_REG(info, 0x300F0)

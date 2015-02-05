@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -393,19 +393,19 @@ out:
  * read_id.
  */
 static int msm_nand_flash_read_id(struct msm_nand_info *info,
-		bool read_onfi_signature,
-		uint32_t *read_id)
+		bool read_onfi_signature, uint32_t *read_id,
+		uint32_t *read_id2)
 {
 	int err = 0, i = 0;
 	struct msm_nand_sps_cmd *cmd;
 	struct sps_iovec *iovec;
 	struct sps_iovec iovec_temp;
 	struct msm_nand_chip *chip = &info->nand_chip;
-	uint32_t total_cnt = 4;
+	uint32_t total_cnt = 5;
 	/*
-	 * The following 4 commands are required to read id -
+	 * The following 5 commands are required to read id -
 	 * write commands - addr0, flash, exec
-	 * read_commands - read_id
+	 * read_commands - read_id, read_id2
 	 */
 	struct {
 		struct sps_transfer xfer;
@@ -421,9 +421,10 @@ static int msm_nand_flash_read_id(struct msm_nand_info *info,
 	else
 		dma_buffer->data[0] = FLASH_READ_DEVICE_ID_ADDRESS;
 
-	dma_buffer->data[1] = MSM_NAND_CMD_FETCH_ID;
+	dma_buffer->data[1] = EXTENDED_FETCH_ID | MSM_NAND_CMD_FETCH_ID;
 	dma_buffer->data[2] = 1;
 	dma_buffer->data[3] = 0xeeeeeeee;
+	dma_buffer->data[4] = 0xeeeeeeee;
 
 	cmd = dma_buffer->cmd;
 	msm_nand_prep_single_desc(cmd, MSM_NAND_ADDR0(info), WRITE,
@@ -439,8 +440,12 @@ static int msm_nand_flash_read_id(struct msm_nand_info *info,
 	cmd++;
 
 	msm_nand_prep_single_desc(cmd, MSM_NAND_READ_ID(info), READ,
-		msm_virt_to_dma(chip, &dma_buffer->data[3]),
-		SPS_IOVEC_FLAG_UNLOCK | SPS_IOVEC_FLAG_INT);
+			msm_virt_to_dma(chip, &dma_buffer->data[3]), 0);
+	cmd++;
+
+	msm_nand_prep_single_desc(cmd, MSM_NAND_READ_ID2(info), READ,
+			msm_virt_to_dma(chip, &dma_buffer->data[4]),
+			SPS_IOVEC_FLAG_UNLOCK | SPS_IOVEC_FLAG_INT);
 	cmd++;
 
 	BUG_ON(cmd - dma_buffer->cmd > ARRAY_SIZE(dma_buffer->cmd));
@@ -476,6 +481,11 @@ static int msm_nand_flash_read_id(struct msm_nand_info *info,
 		       dma_buffer->data[3], dma_buffer->data[3] & 0xff,
 		       (dma_buffer->data[3] >> 8) & 0xff);
 	*read_id = dma_buffer->data[3];
+	if (read_id2) {
+		pr_debug("Extended Read ID register value 0x%x\n",
+				dma_buffer->data[4]);
+		*read_id2 = dma_buffer->data[4];
+	}
 	err = msm_nand_put_device(chip->dev);
 out:
 	mutex_unlock(&info->lock);
@@ -666,7 +676,7 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	wait_event(chip->dma_wait_queue, (dma_buffer = msm_nand_get_dma_buffer
 				(chip, sizeof(*dma_buffer))));
 
-	ret = msm_nand_flash_read_id(info, 1, &onfi_signature);
+	ret = msm_nand_flash_read_id(info, 1, &onfi_signature, NULL);
 	if (ret < 0) {
 		pr_err("Failed to read ONFI signature\n");
 		goto free_dma;
@@ -817,7 +827,7 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 		ret = -EIO;
 		goto free_dma;
 	}
-	ret = msm_nand_flash_read_id(info, 0, &flash->flash_id);
+	ret = msm_nand_flash_read_id(info, 0, &flash->flash_id, NULL);
 	if (ret < 0) {
 		pr_err("Failed to read flash ID\n");
 		goto free_dma;
@@ -2347,11 +2357,12 @@ int msm_nand_scan(struct mtd_info *mtd)
 	struct msm_nand_info *info = mtd->priv;
 	struct msm_nand_chip *chip = &info->nand_chip;
 	struct flash_identification *supported_flash = &info->flash_dev;
-	int flash_id = 0, err = 0;
-	uint32_t i, mtd_writesize;
+	int err = 0;
+	uint32_t i, j, mtd_writesize;
 	uint8_t dev_found = 0, wide_bus;
 	uint32_t manid, devid, devcfg;
-	uint8_t id_byte0, id_byte1, id_byte2, id_byte3;
+	uint32_t flash_id = 0, flash_id2 = 0;
+	uint8_t id_byte[NAND_MAX_ID_LEN];
 	uint32_t bad_block_byte;
 	struct nand_flash_dev *flashdev = NULL;
 	struct nand_manufacturers  *flashman = NULL;
@@ -2360,16 +2371,20 @@ int msm_nand_scan(struct mtd_info *mtd)
 	if (!msm_nand_flash_onfi_probe(info)) {
 		dev_found = 1;
 	} else {
-		err = msm_nand_flash_read_id(info, 0, &flash_id);
+		err = msm_nand_flash_read_id(info, 0, &flash_id, &flash_id2);
 		if (err < 0) {
 			pr_err("Failed to read Flash ID\n");
 			err = -EINVAL;
 			goto out;
 		}
-		manid  = id_byte0 = flash_id & 0xFF;
-		devid  = id_byte1 = (flash_id >> 8) & 0xFF;
-		devcfg = id_byte3 = (flash_id >> 24) & 0xFF;
-		id_byte2 = (flash_id >> 16) & 0xFF;
+		manid  = id_byte[0] = flash_id & 0xFF;
+		devid  = id_byte[1] = (flash_id >> 8) & 0xFF;
+		devcfg = id_byte[3] = (flash_id >> 24) & 0xFF;
+		id_byte[2] = (flash_id >> 16) & 0xFF;
+		id_byte[4] = flash_id2 & 0xFF;
+		id_byte[5] = (flash_id2 >> 8) & 0xFF;
+		id_byte[6] = (flash_id2 >> 16) & 0xFF;
+		id_byte[7] = (flash_id2 >> 24) & 0xFF;
 
 		for (i = 0; !flashman && nand_manuf_ids[i].id; ++i)
 			if (nand_manuf_ids[i].id == manid)
@@ -2382,14 +2397,21 @@ int msm_nand_scan(struct mtd_info *mtd)
 			 * the nand device first. If that is not present, only
 			 * then fall back to searching the legacy or extended
 			 * ids in the nand ids array.
+			 * The id_len number of bytes in the nand id read from
+			 * the device are checked against those in the nand id
+			 * table for exact match.
 			 */
-			if (nand_flash_ids[i].id_len &&
-			   (nand_flash_ids[i].id[0] == id_byte0) &&
-			   (nand_flash_ids[i].id[1] == id_byte1) &&
-			   (nand_flash_ids[i].id[2] == id_byte2) &&
-			   (nand_flash_ids[i].id[3] == id_byte3))
-				flashdev = &nand_flash_ids[i];
-			else if (!nand_flash_ids[i].id_len &&
+			if (nand_flash_ids[i].id_len) {
+				for (j = 0; j < nand_flash_ids[i].id_len; j++) {
+					if (nand_flash_ids[i].id[j] ==
+							id_byte[j])
+						continue;
+					else
+						break;
+				}
+				if (j == nand_flash_ids[i].id_len)
+					flashdev = &nand_flash_ids[i];
+			} else if (!nand_flash_ids[i].id_len &&
 					nand_flash_ids[i].dev_id == devid)
 				flashdev = &nand_flash_ids[i];
 		}
