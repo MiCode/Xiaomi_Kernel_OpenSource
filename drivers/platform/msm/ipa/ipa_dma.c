@@ -118,8 +118,10 @@ struct ipa_dma_xfer_wrapper {
  * @ipa_dma_sync_cons_hdl: handle of sync memcpy consumer
  * @sync_memcpy_pending_cnt: number of pending sync memcopy operations
  * @async_memcpy_pending_cnt: number of pending async memcopy operations
+ * @uc_memcpy_pending_cnt: number of pending uc memcopy operations
  * @total_sync_memcpy: total number of sync memcpy (statistics)
  * @total_async_memcpy: total number of async memcpy (statistics)
+ * @total_uc_memcpy: total number of uc memcpy (statistics)
  */
 struct ipa_dma_ctx {
 	bool is_enabled;
@@ -136,8 +138,10 @@ struct ipa_dma_ctx {
 	u32 ipa_dma_async_cons_hdl;
 	atomic_t sync_memcpy_pending_cnt;
 	atomic_t async_memcpy_pending_cnt;
+	atomic_t uc_memcpy_pending_cnt;
 	atomic_t total_sync_memcpy;
 	atomic_t total_async_memcpy;
+	atomic_t total_uc_memcpy;
 };
 static struct ipa_dma_ctx *ipa_dma_ctx;
 
@@ -190,8 +194,10 @@ int ipa_dma_init(void)
 	ipa_dma_ctx_t->destroy_pending = false;
 	atomic_set(&ipa_dma_ctx_t->async_memcpy_pending_cnt, 0);
 	atomic_set(&ipa_dma_ctx_t->sync_memcpy_pending_cnt, 0);
+	atomic_set(&ipa_dma_ctx_t->uc_memcpy_pending_cnt, 0);
 	atomic_set(&ipa_dma_ctx_t->total_async_memcpy, 0);
 	atomic_set(&ipa_dma_ctx_t->total_sync_memcpy, 0);
+	atomic_set(&ipa_dma_ctx_t->total_uc_memcpy, 0);
 
 	/* IPADMA SYNC PROD-source for sync memcpy */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
@@ -302,6 +308,24 @@ int ipa_dma_enable(void)
 }
 EXPORT_SYMBOL(ipa_dma_enable);
 
+static bool ipa_dma_work_pending(void)
+{
+	if (atomic_read(&ipa_dma_ctx->sync_memcpy_pending_cnt)) {
+		IPADMA_DBG("pending sync\n");
+		return true;
+	}
+	if (atomic_read(&ipa_dma_ctx->async_memcpy_pending_cnt)) {
+		IPADMA_DBG("pending async\n");
+		return true;
+	}
+	if (atomic_read(&ipa_dma_ctx->uc_memcpy_pending_cnt)) {
+		IPADMA_DBG("pending uc\n");
+		return true;
+	}
+	IPADMA_DBG("no pending work\n");
+	return false;
+}
+
 /**
  * ipa_dma_disable()- Unvote for IPA clocks.
  *
@@ -328,8 +352,7 @@ int ipa_dma_disable(void)
 		mutex_unlock(&ipa_dma_ctx->enable_lock);
 		return -EPERM;
 	}
-	if (atomic_read(&ipa_dma_ctx->sync_memcpy_pending_cnt) ||
-		atomic_read(&ipa_dma_ctx->async_memcpy_pending_cnt)) {
+	if (ipa_dma_work_pending()) {
 		IPADMA_ERR("There is pending work, can't disable.\n");
 		spin_unlock_irqrestore(&ipa_dma_ctx->pending_lock, flags);
 		mutex_unlock(&ipa_dma_ctx->enable_lock);
@@ -463,9 +486,7 @@ int ipa_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 	BUG_ON(len != iov.size);
 	atomic_inc(&ipa_dma_ctx->total_sync_memcpy);
 	atomic_dec(&ipa_dma_ctx->sync_memcpy_pending_cnt);
-	if (ipa_dma_ctx->destroy_pending &&
-		!atomic_read(&ipa_dma_ctx->sync_memcpy_pending_cnt) &&
-		!atomic_read(&ipa_dma_ctx->async_memcpy_pending_cnt))
+	if (ipa_dma_ctx->destroy_pending && !ipa_dma_work_pending())
 			complete(&ipa_dma_ctx->done);
 
 	IPADMA_FUNC_EXIT();
@@ -478,9 +499,7 @@ fail_sps_send:
 	kmem_cache_free(ipa_dma_ctx->ipa_dma_xfer_wrapper_cache, xfer_descr);
 fail_mem_alloc:
 	atomic_dec(&ipa_dma_ctx->sync_memcpy_pending_cnt);
-	if (ipa_dma_ctx->destroy_pending &&
-		!atomic_read(&ipa_dma_ctx->sync_memcpy_pending_cnt) &&
-		!atomic_read(&ipa_dma_ctx->async_memcpy_pending_cnt))
+	if (ipa_dma_ctx->destroy_pending && !ipa_dma_work_pending())
 			complete(&ipa_dma_ctx->done);
 	return res;
 }
@@ -578,13 +597,60 @@ fail_sps_send:
 	kmem_cache_free(ipa_dma_ctx->ipa_dma_xfer_wrapper_cache, xfer_descr);
 fail_mem_alloc:
 	atomic_dec(&ipa_dma_ctx->async_memcpy_pending_cnt);
-	if (ipa_dma_ctx->destroy_pending &&
-		!atomic_read(&ipa_dma_ctx->sync_memcpy_pending_cnt) &&
-		!atomic_read(&ipa_dma_ctx->async_memcpy_pending_cnt))
+	if (ipa_dma_ctx->destroy_pending && !ipa_dma_work_pending())
 			complete(&ipa_dma_ctx->done);
 	return res;
 }
 EXPORT_SYMBOL(ipa_dma_async_memcpy);
+
+/**
+ * ipa_dma_uc_memcpy() - Perform a memcpy action using IPA uC
+ * @dest: physical address to store the copied data.
+ * @src: physical address of the source data to copy.
+ * @len: number of bytes to copy.
+ *
+ * Return codes: 0: success
+ *		-EINVAL: invalid params
+ *		-EPERM: operation not permitted as ipa_dma isn't enable or
+ *			initialized
+ *		-EBADF: IPA uC is not loaded
+ */
+int ipa_dma_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len)
+{
+	int res;
+	unsigned long flags;
+
+	IPADMA_FUNC_ENTRY();
+
+	IS_INIT("can't memcpy");
+	OVERLAPPING_CHECK(src, dest, len);
+	LEN_CHECK(len);
+
+	spin_lock_irqsave(&ipa_dma_ctx->pending_lock, flags);
+	if (!ipa_dma_ctx->is_enabled) {
+		IPADMA_ERR("can't memcpy, IPADMA isn't enabled\n");
+		spin_unlock_irqrestore(&ipa_dma_ctx->pending_lock, flags);
+		return -EPERM;
+	}
+	atomic_inc(&ipa_dma_ctx->uc_memcpy_pending_cnt);
+	spin_unlock_irqrestore(&ipa_dma_ctx->pending_lock, flags);
+
+	res = ipa_uc_memcpy(dest, src, len);
+	if (res) {
+		IPADMA_ERR("ipa_uc_memcpy failed %d\n", res);
+		goto dec_and_exit;
+	}
+
+	atomic_inc(&ipa_dma_ctx->total_uc_memcpy);
+	res = 0;
+dec_and_exit:
+	atomic_dec(&ipa_dma_ctx->uc_memcpy_pending_cnt);
+	if (ipa_dma_ctx->destroy_pending && !ipa_dma_work_pending())
+		complete(&ipa_dma_ctx->done);
+	IPADMA_FUNC_EXIT();
+	return res;
+}
+EXPORT_SYMBOL(ipa_dma_uc_memcpy);
 
 /**
  * ipa_dma_destroy() -teardown IPADMA pipes and release ipadma.
@@ -601,8 +667,7 @@ void ipa_dma_destroy(void)
 		return;
 	}
 
-	if (atomic_read(&ipa_dma_ctx->sync_memcpy_pending_cnt) ||
-		atomic_read(&ipa_dma_ctx->async_memcpy_pending_cnt)) {
+	if (ipa_dma_work_pending()) {
 		ipa_dma_ctx->destroy_pending = true;
 		IPADMA_DBG("There are pending memcpy, wait for completion\n");
 		wait_for_completion(&ipa_dma_ctx->done);
@@ -675,9 +740,7 @@ void ipa_dma_async_memcpy_notify_cb(void *priv
 	kmem_cache_free(ipa_dma_ctx->ipa_dma_xfer_wrapper_cache,
 		xfer_descr_expected);
 
-	if (ipa_dma_ctx->destroy_pending &&
-		!atomic_read(&ipa_dma_ctx->sync_memcpy_pending_cnt) &&
-		!atomic_read(&ipa_dma_ctx->async_memcpy_pending_cnt))
+	if (ipa_dma_ctx->destroy_pending && !ipa_dma_work_pending())
 			complete(&ipa_dma_ctx->done);
 
 	IPADMA_FUNC_EXIT();
@@ -693,25 +756,36 @@ static ssize_t ipa_dma_debugfs_read(struct file *file, char __user *ubuf,
 {
 	int nbytes = 0;
 
-	if (!ipa_dma_ctx)
-		nbytes += scnprintf(dbg_buff, IPADMA_MAX_MSG_LEN,
+	if (!ipa_dma_ctx) {
+		nbytes += scnprintf(&dbg_buff[nbytes],
+			IPADMA_MAX_MSG_LEN - nbytes,
 			"Not initialized\n");
-	else
-		nbytes += scnprintf(dbg_buff, IPADMA_MAX_MSG_LEN,
+	} else {
+		nbytes += scnprintf(&dbg_buff[nbytes],
+			IPADMA_MAX_MSG_LEN - nbytes,
 			"Status:\n	IPADMA is %s\n",
 			(ipa_dma_ctx->is_enabled) ? "Enabled" : "Disabled");
-		nbytes += scnprintf(dbg_buff, IPADMA_MAX_MSG_LEN,
+		nbytes += scnprintf(&dbg_buff[nbytes],
+			IPADMA_MAX_MSG_LEN - nbytes,
 			"Statistics:\n	total sync memcpy: %d\n	",
 			atomic_read(&ipa_dma_ctx->total_sync_memcpy));
-		nbytes += scnprintf(dbg_buff, IPADMA_MAX_MSG_LEN,
+		nbytes += scnprintf(&dbg_buff[nbytes],
+			IPADMA_MAX_MSG_LEN - nbytes,
 			"total async memcpy: %d\n	",
 			atomic_read(&ipa_dma_ctx->total_async_memcpy));
-		nbytes += scnprintf(dbg_buff, IPADMA_MAX_MSG_LEN,
+		nbytes += scnprintf(&dbg_buff[nbytes],
+			IPADMA_MAX_MSG_LEN - nbytes,
 			"pending sync memcpy jobs: %d\n	",
 			atomic_read(&ipa_dma_ctx->sync_memcpy_pending_cnt));
-		nbytes += scnprintf(dbg_buff, IPADMA_MAX_MSG_LEN,
+		nbytes += scnprintf(&dbg_buff[nbytes],
+			IPADMA_MAX_MSG_LEN - nbytes,
 			"pending async memcpy jobs: %d\n",
 			atomic_read(&ipa_dma_ctx->async_memcpy_pending_cnt));
+		nbytes += scnprintf(&dbg_buff[nbytes],
+			IPADMA_MAX_MSG_LEN - nbytes,
+			"pending uc memcpy jobs: %d\n",
+			atomic_read(&ipa_dma_ctx->uc_memcpy_pending_cnt));
+	}
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
@@ -735,8 +809,7 @@ static ssize_t ipa_dma_debugfs_reset_statistics(struct file *file,
 		return -EFAULT;
 	switch (in_num) {
 	case 0:
-		if (atomic_read(&ipa_dma_ctx->async_memcpy_pending_cnt) ||
-			atomic_read(&ipa_dma_ctx->sync_memcpy_pending_cnt))
+		if (ipa_dma_work_pending())
 			IPADMA_DBG("Note, there are pending memcpy\n");
 
 		atomic_set(&ipa_dma_ctx->total_async_memcpy, 0);
