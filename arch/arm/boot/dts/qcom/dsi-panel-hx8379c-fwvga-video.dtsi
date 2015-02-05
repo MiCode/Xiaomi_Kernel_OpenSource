@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,18 +42,19 @@
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-border-color = <0>;
 		qcom,mdss-dsi-on-command = [39 01 00 00 00 00 04 B9 FF 83 79
-				39 01 00 00 00 00 15 B1 44 18 18 31 51 90 D0 EE D4 80 38 38 F8 44 44 42 00 80 30 00
-				39 01 00 00 00 00 0A B2 80 FE 09 0C 30 50 11 42 1D
-				39 01 00 00 00 00 0E B4 01 28 00 34 00 34 17 3A 17 3A B0 00 FF
+				39 01 00 00 00 00 11 B1 44 1C 1C 31 31 50 D0 EE 54 80 38 38 F8 32 22 22
+				39 01 00 00 00 00 0A B2 80 FE 0B 04 00 50 11 42 1D
+				39 01 00 00 00 00 0B B4 69 6A 69 6A 69 6A 22 70 23 70
+				39 01 00 00 00 00 05 C7 00 00 00 C0
 				39 01 00 00 00 00 02 CC 02
-				39 01 00 00 00 00 02 D2 33
-				39 01 00 00 00 00 1E D3 00 07 00 00 00 06 06 32 10 03 00 03 03 5F 03 5F 00 08 00 08 35 33 07 07 37 07 07 37 07
-				39 01 00 00 00 00 21 D5 18 18 19 19 18 18 20 21 24 25 18 18 18 18 00 01 04 05 02 03 06 07 18 18 18 18 18 18 18 18 18 18
+				39 01 00 00 00 00 02 D2 77
+				39 01 00 00 00 00 1E D3 00 07 00 00 00 00 00 32 10 03 00 03 03 60 03 60 00 08 00 08 45 44 08 08 37 08 08 37 09
+				39 01 00 00 00 00 23 D5 18 18 19 19 18 18 20 21 24 25 18 18 18 18 00 01 04 05 02 03 06 07 18 18 18 18 18 18 18 18 18 18 00 00
 				39 01 00 00 00 00 21 D6 18 18 18 18 19 19 25 24 21 20 18 18 18 18 05 04 01 00 03 02 07 06 18 18 18 18 18 18 18 18 18 18
-				39 01 00 00 00 00 2B E0 00 10 16 35 39 3F 27 47 07 0B 0C 17 0E 13 16 14 15 07 11 13 18 00 10 17 35 3A 3F 26 47 06 0B 0C 17 0F 14 16 14 15 07 11 13 16
-				05 01 00 00 C8 00 02 11 00
-				39 01 00 00 00 00 03 B6 4B 4B
-				05 01 00 00 78 00 02 29 00];
+				39 01 00 00 00 00 2B E0 00 04 0B 2F 39 3F 21 46 07 0A 0C 17 0F 13 16 14 15 07 11 13 30 00 04 0B 2F 3A 3F 21 46 07 0A 0C 17 0F 14 16 14 15 07 11 13 16
+				39 01 00 00 00 00 03 B6 4E 4E
+				05 01 00 00 78 00 02 11 00
+				05 01 00 00 14 00 02 29 00];
 		qcom,mdss-dsi-off-command = [05 01 00 00 32 00 02 28 00
 					05 01 00 00 78 00 02 10 00];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
@@ -64,7 +65,7 @@
 		qcom,mdss-dsi-bllp-power-mode;
 		qcom,mdss-dsi-lane-0-state;
 		qcom,mdss-dsi-lane-1-state;
-		qcom,mdss-dsi-panel-timings = [73 21 1A 00 31 2D 1E 23 2B 03 04 00];
+		qcom,mdss-dsi-panel-timings = [7B 21 1A 00 31 2D 1E 23 2B 03 04 00];
 		qcom,mdss-dsi-t-clk-post = <0x20>;
 		qcom,mdss-dsi-t-clk-pre = <0x2C>;
 		qcom,mdss-dsi-bl-min-level = <1>;
@@ -77,6 +78,6 @@
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 20>;
 		qcom,mdss-dsi-lp11-init;
-		qcom,mdss-dsi-init-delay-us = <50000>;
+		qcom,mdss-dsi-init-delay-us = <7000>;
 	};
 };
