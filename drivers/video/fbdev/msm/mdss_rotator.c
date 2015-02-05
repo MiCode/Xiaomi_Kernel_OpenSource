@@ -657,6 +657,7 @@ static int mdss_rotator_config_dnsc_factor(struct mdss_rot_mgr *mgr,
 	int ret = 0;
 	u16 src_w, src_h, dst_w, dst_h, bit;
 	struct mdp_rotation_item *item = &entry->item;
+	struct mdss_mdp_format_params *fmt;
 
 	src_w = item->src_rect.w;
 	src_h = item->src_rect.h;
@@ -698,6 +699,14 @@ static int mdss_rotator_config_dnsc_factor(struct mdss_rot_mgr *mgr,
 		}
 	}
 
+	fmt =  mdss_mdp_get_format_params(item->output.format);
+	if (mdss_mdp_is_ubwc_format(fmt) &&
+		(entry->dnsc_factor_h || entry->dnsc_factor_w)) {
+		pr_err("ubwc not supported with downscale %d\n",
+			item->output.format);
+		ret = -EINVAL;
+	}
+
 dnsc_err:
 
 	/* Downscaler does not support asymmetrical dnsc */
@@ -713,29 +722,114 @@ dnsc_err:
 	return ret;
 }
 
-static u32 mdss_rotator_get_out_format(u32 in_format, bool rot90)
+static bool mdss_rotator_verify_format(struct mdss_rot_mgr *mgr,
+	struct mdss_mdp_format_params *in_fmt,
+	struct mdss_mdp_format_params *out_fmt, bool rotation)
 {
-	u32 format;
+	u8 in_v_subsample, in_h_subsample;
+	u8 out_v_subsample, out_h_subsample;
 
-	switch (in_format) {
-	case MDP_Y_CBCR_H2V2_VENUS:
-	case MDP_Y_CBCR_H2V2:
-		if (rot90)
-			format = MDP_Y_CRCB_H2V2;
-		else
-			format = in_format;
-		break;
-	case MDP_Y_CB_CR_H2V2:
-	case MDP_Y_CR_CB_GH2V2:
-	case MDP_Y_CR_CB_H2V2:
-		format = MDP_Y_CRCB_H2V2;
-		break;
-	default:
-		format = in_format;
-		break;
+	if (!mgr->has_ubwc && (mdss_mdp_is_ubwc_format(in_fmt) ||
+			mdss_mdp_is_ubwc_format(out_fmt))) {
+		pr_err("Rotator doesn't allow ubwc\n");
+		return -EINVAL;
 	}
 
-	return format;
+	if (!(out_fmt->flag & VALID_ROT_WB_FORMAT)) {
+		pr_err("Invalid output format\n");
+		return false;
+	}
+
+	if (in_fmt->is_yuv != out_fmt->is_yuv) {
+		pr_err("Rotator does not support CSC\n");
+		return false;
+	}
+
+	/* Forcing same pixel depth */
+	if (memcmp(in_fmt->bits, out_fmt->bits, sizeof(in_fmt->bits))) {
+		pr_err("Bit format does not match\n");
+		return false;
+	}
+
+	/* Need to make sure that sub-sampling persists through rotation */
+	if (rotation) {
+		mdss_mdp_get_v_h_subsample_rate(in_fmt->chroma_sample,
+			&in_v_subsample, &in_h_subsample);
+		mdss_mdp_get_v_h_subsample_rate(out_fmt->chroma_sample,
+			&out_v_subsample, &out_h_subsample);
+
+		if ((in_v_subsample != out_h_subsample) ||
+				(in_h_subsample != out_v_subsample)) {
+			pr_err("Rotation has invalid subsampling\n");
+			return false;
+		}
+	} else {
+		if (in_fmt->chroma_sample != out_fmt->chroma_sample) {
+			pr_err("Format subsampling mismatch\n");
+			return false;
+		}
+	}
+
+	pr_debug("in_fmt=%0d, out_fmt=%d, has_ubwc=%d\n",
+		in_fmt->format, out_fmt->format, mgr->has_ubwc);
+	return true;
+}
+
+static int mdss_rotator_verify_config(struct mdss_rot_mgr *mgr,
+	struct mdp_rotation_config *config)
+{
+	struct mdss_mdp_format_params *in_fmt, *out_fmt;
+	u8 in_v_subsample, in_h_subsample;
+	u8 out_v_subsample, out_h_subsample;
+	u32 input, output;
+	bool rotation;
+
+	input = config->input.format;
+	output = config->output.format;
+	rotation = (config->flags & MDP_ROTATION_90) ? true : false;
+
+	in_fmt = mdss_mdp_get_format_params(input);
+	if (!in_fmt) {
+		pr_err("Unrecognized input format:%u\n", input);
+		return -EINVAL;
+	}
+
+	out_fmt = mdss_mdp_get_format_params(output);
+	if (!out_fmt) {
+		pr_err("Unrecognized output format:%u\n", output);
+		return -EINVAL;
+	}
+
+	mdss_mdp_get_v_h_subsample_rate(in_fmt->chroma_sample,
+		&in_v_subsample, &in_h_subsample);
+	mdss_mdp_get_v_h_subsample_rate(out_fmt->chroma_sample,
+		&out_v_subsample, &out_h_subsample);
+
+	/* Dimension of image needs to be divisible by subsample rate  */
+	if ((config->input.height % in_v_subsample) ||
+			(config->input.width % in_h_subsample)) {
+		pr_err("In ROI, subsample mismatch, w=%d, h=%d, vss%d, hss%d\n",
+			config->input.width, config->input.height,
+			in_v_subsample, in_h_subsample);
+		return -EINVAL;
+	}
+
+	if ((config->output.height % out_v_subsample) ||
+			(config->output.width % out_h_subsample)) {
+		pr_err("Out ROI, subsample mismatch, w=%d, h=%d, vss%d, hss%d\n",
+			config->output.width, config->output.height,
+			out_v_subsample, out_h_subsample);
+		return -EINVAL;
+	}
+
+	if (!mdss_rotator_verify_format(mgr, in_fmt,
+			out_fmt, rotation)) {
+		pr_err("Rot format pairing invalid, in_fmt:%d, out_fmt:%d\n",
+			input, output);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int mdss_rotator_validate_entry(struct mdss_rot_mgr *mgr,
@@ -744,11 +838,10 @@ static int mdss_rotator_validate_entry(struct mdss_rot_mgr *mgr,
 	int ret;
 	u32 out_format, in_format;
 	struct mdp_rotation_item *item;
-	struct mdss_mdp_format_params *fmt;
-	bool rotation = false;
 
 	item = &entry->item;
 	in_format = item->input.format;
+	out_format = item->output.format;
 
 	if (item->wb_idx != item->pipe_idx) {
 		pr_err("invalid writeback and pipe idx\n");
@@ -758,20 +851,6 @@ static int mdss_rotator_validate_entry(struct mdss_rot_mgr *mgr,
 	if (item->wb_idx != MDSS_ROTATION_HW_ANY &&
 		item->wb_idx > mgr->queue_count) {
 		pr_err("invalid writeback idx\n");
-		return -EINVAL;
-	}
-
-	fmt = mdss_mdp_get_format_params(in_format);
-	if (!fmt) {
-		pr_err("invalid input format %u\n", in_format);
-		return -EINVAL;
-	}
-
-	rotation = (item->flags &  MDP_ROTATION_90) ? true : false;
-	out_format =
-		mdss_rotator_get_out_format(in_format, rotation);
-	if (item->output.format != out_format) {
-		pr_err("invalid output format %u\n", item->output.format);
 		return -EINVAL;
 	}
 
@@ -1202,11 +1281,16 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 	struct mdp_rotation_config config;
 	struct mdss_rot_perf *perf;
 	int ret;
-	u32 in_format;
 
 	ret = copy_from_user(&config, (void __user *)arg, sizeof(config));
 	if (ret) {
 		pr_err("fail to copy session data\n");
+		return ret;
+	}
+
+	ret = mdss_rotator_verify_config(mgr, &config);
+	if (ret) {
+		pr_err("Rotator verify format failed\n");
 		return ret;
 	}
 
@@ -1217,9 +1301,6 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 	}
 
 	config.session_id = mdss_rotator_generator_session_id(mgr);
-	in_format = config.input.format;
-	config.output.format =
-		mdss_rotator_get_out_format(in_format, true);
 	perf->config = config;
 	INIT_LIST_HEAD(&perf->list);
 
@@ -1284,6 +1365,12 @@ static int mdss_rotator_config_session(struct mdss_rot_mgr *mgr,
 				sizeof(config));
 	if (ret) {
 		pr_err("fail to copy session data\n");
+		return ret;
+	}
+
+	ret = mdss_rotator_verify_config(mgr, &config);
+	if (ret) {
+		pr_err("Rotator verify format failed\n");
 		return ret;
 	}
 
@@ -1693,6 +1780,8 @@ static int mdss_rotator_parse_dt(struct mdss_rot_mgr *mgr,
 	rot_mgr->queue_count = data;
 	rot_mgr->has_downscale = of_property_read_bool(dev->dev.of_node,
 					   "qcom,mdss-has-downscale");
+	rot_mgr->has_ubwc = of_property_read_bool(dev->dev.of_node,
+					   "qcom,mdss-has-ubwc");
 	return 0;
 }
 

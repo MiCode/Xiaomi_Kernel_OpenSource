@@ -272,11 +272,6 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 			pr_err("unsupported wb chroma samp=%d\n", chroma_samp);
 			return -EINVAL;
 		}
-	} else if (ctx->rot90) {
-		if (chroma_samp == MDSS_MDP_CHROMA_H2V1)
-			chroma_samp = MDSS_MDP_CHROMA_H1V2;
-		else if (chroma_samp == MDSS_MDP_CHROMA_H1V2)
-			chroma_samp = MDSS_MDP_CHROMA_H2V1;
 	}
 
 	dst_format = (chroma_samp << 23) |
