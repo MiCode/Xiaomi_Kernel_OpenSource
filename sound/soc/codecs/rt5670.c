@@ -2431,6 +2431,10 @@ static const struct snd_soc_dapm_route rt5670_dapm_routes[] = {
 	{ "micbias1", NULL, "DAC L1 Power" },
 	{ "micbias1", NULL, "DAC R1 Power" },
 
+	{ "dac stereo1 filter", NULL, "PLL1", check_sysclk1_source },
+	{ "dac mono left filter", NULL, "PLL1", check_sysclk1_source },
+	{ "dac mono right filter", NULL, "PLL1", check_sysclk1_source },
+
 	{ "DMIC1", NULL, "DMIC L1" },
 	{ "DMIC1", NULL, "DMIC R1" },
 	{ "DMIC2", NULL, "DMIC L2" },
@@ -2723,14 +2727,10 @@ static const struct snd_soc_dapm_route rt5670_dapm_routes[] = {
 
 	{ "DAC L1", NULL, "DAC L1 Power" },
 	{ "DAC L1", NULL, "Stereo DAC MIXL" },
-	{ "DAC L1", NULL, "PLL1", check_sysclk1_source },
 	{ "DAC R1", NULL, "DAC R1 Power" },
 	{ "DAC R1", NULL, "Stereo DAC MIXR" },
-	{ "DAC R1", NULL, "PLL1", check_sysclk1_source },
 	{ "DAC L2", NULL, "Mono DAC MIXL" },
-	{ "DAC L2", NULL, "PLL1", check_sysclk1_source },
 	{ "DAC R2", NULL, "Mono DAC MIXR" },
-	{ "DAC R2", NULL, "PLL1", check_sysclk1_source },
 
 	{ "OUT MIXL", "BST1 Switch", "BST1" },
 	{ "OUT MIXL", "INL Switch", "INL VOL" },
