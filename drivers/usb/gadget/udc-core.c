@@ -441,30 +441,34 @@ EXPORT_SYMBOL_GPL(usb_gadget_unregister_driver);
 int usb_func_ep_queue(struct usb_function *func, struct usb_ep *ep,
 			       struct usb_request *req, gfp_t gfp_flags)
 {
-	int ret;
+	int ret = -ENOTSUPP;
 	struct usb_gadget *gadget;
 
-	if (!func || !ep || !req) {
-		pr_err("Invalid argument. func=%p, ep=%p, req=%p\n",
-			func, ep, req);
+	if (!func || !func->config || !func->config->cdev ||
+			!func->config->cdev->gadget || !ep || !req)
 		return -EINVAL;
-	}
 
 	pr_debug("Function %s queueing new data into ep %u\n",
 		func->name ? func->name : "", ep->address);
 
 	gadget = func->config->cdev->gadget;
-	if ((gadget->speed == USB_SPEED_SUPER) && func->func_is_suspended) {
-		ret = usb_func_wakeup(func);
-		if (ret) {
-			pr_err("Failed to send function wake up notification. func name:%s, ep:%u\n",
-				func->name ? func->name : "",
-				ep->address);
-			return ret;
+
+	if (func->func_is_suspended && func->func_wakeup_allowed) {
+		ret = usb_gadget_func_wakeup(gadget, func->intf_id);
+		if (ret == -EAGAIN) {
+			pr_debug("bus suspended func wakeup for %s delayed until bus resume.\n",
+				func->name ? func->name : "");
+		} else if (ret < 0 && ret != -ENOTSUPP) {
+			pr_err("Failed to wake function %s from suspend state. ret=%d.\n",
+				func->name ? func->name : "", ret);
 		}
 	}
 
-	ret = usb_ep_queue(ep, req, gfp_flags);
+	if (!func->func_is_suspended)
+		ret = 0;
+
+	if (!ret)
+		ret = usb_ep_queue(ep, req, gfp_flags);
 	return ret;
 }
 
