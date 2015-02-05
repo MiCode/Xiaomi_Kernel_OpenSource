@@ -481,6 +481,10 @@ static int hw_ep_flush(int num, int dir)
 					dir ? "IN" : "OUT");
 				debug_ept_flush_info(num, dir);
 				_udc->skip_flush = true;
+				/* Notify to trigger h/w reset recovery later */
+				if (_udc->udc_driver->notify_event)
+					_udc->udc_driver->notify_event(_udc,
+						CI13XXX_CONTROLLER_ERROR_EVENT);
 				return 0;
 			}
 		}
