@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -512,6 +512,60 @@
 #define TSENS4_OFFSET_9640_MASK		0xf0
 #define TSENS4_OFFSET_9640_SHIFT	4
 
+#define TSENS_MSMTELLURIUM_BASE0_MASK                0x000000ff
+#define TSENS_MSMTELLURIUM_BASE1_MASK                0xff000000
+
+#define TSENS0_MSMTELLURIUM_POINT1_MASK              0x000001f8
+#define TSENS1_MSMTELLURIUM_POINT1_MASK              0x001f8000
+#define TSENS2_MSMTELLURIUM_POINT1_MASK_0_4          0xf8000000
+#define TSENS2_MSMTELLURIUM_POINT1_MASK_5            0x00000001
+#define TSENS3_MSMTELLURIUM_POINT1_MASK              0x00001f80
+#define TSENS4_MSMTELLURIUM_POINT1_MASK              0x01f80000
+#define TSENS5_MSMTELLURIUM_POINT1_MASK              0x00003f00
+#define TSENS6_MSMTELLURIUM_POINT1_MASK              0x03f00000
+#define TSENS7_MSMTELLURIUM_POINT1_MASK              0x0000003f
+#define TSENS8_MSMTELLURIUM_POINT1_MASK              0x0003f000
+#define TSENS9_MSMTELLURIUM_POINT1_MASK              0x0000003f
+#define TSENS10_MSMTELLURIUM_POINT1_MASK             0x0003f000
+
+#define TSENS0_MSMTELLURIUM_POINT2_MASK              0x00007e00
+#define TSENS1_MSMTELLURIUM_POINT2_MASK              0x07e00000
+#define TSENS2_MSMTELLURIUM_POINT2_MASK              0x0000007e
+#define TSENS3_MSMTELLURIUM_POINT2_MASK              0x0007e000
+#define TSENS4_MSMTELLURIUM_POINT2_MASK              0x7e000000
+#define TSENS5_MSMTELLURIUM_POINT2_MASK              0x000fc000
+#define TSENS6_MSMTELLURIUM_POINT2_MASK              0xfc000000
+#define TSENS7_MSMTELLURIUM_POINT2_MASK              0x00000fc0
+#define TSENS8_MSMTELLURIUM_POINT2_MASK              0x00fc0000
+#define TSENS9_MSMTELLURIUM_POINT2_MASK              0x00000fc0
+#define TSENS10_MSMTELLURIUM_POINT2_MASK             0x00fc0000
+
+#define TSENS_MSMTELLURIUM_TSENS_CAL_SEL     0x00000007
+#define TSENS_MSMTELLURIUM_BASE1_SHIFT       24
+
+#define TSENS0_MSMTELLURIUM_POINT1_SHIFT     3
+#define TSENS1_MSMTELLURIUM_POINT1_SHIFT     15
+#define TSENS2_MSMTELLURIUM_POINT1_SHIFT_0_4 27
+#define TSENS2_MSMTELLURIUM_POINT1_SHIFT_5   5
+#define TSENS3_MSMTELLURIUM_POINT1_SHIFT     7
+#define TSENS4_MSMTELLURIUM_POINT1_SHIFT     19
+#define TSENS5_MSMTELLURIUM_POINT1_SHIFT     8
+#define TSENS6_MSMTELLURIUM_POINT1_SHIFT     20
+#define TSENS8_MSMTELLURIUM_POINT1_SHIFT     12
+#define TSENS10_MSMTELLURIUM_POINT1_SHIFT    12
+
+#define TSENS0_MSMTELLURIUM_POINT2_SHIFT     9
+#define TSENS1_MSMTELLURIUM_POINT2_SHIFT     21
+#define TSENS2_MSMTELLURIUM_POINT2_SHIFT     1
+#define TSENS3_MSMTELLURIUM_POINT2_SHIFT     13
+#define TSENS4_MSMTELLURIUM_POINT2_SHIFT     25
+#define TSENS5_MSMTELLURIUM_POINT2_SHIFT     14
+#define TSENS6_MSMTELLURIUM_POINT2_SHIFT     26
+#define TSENS7_MSMTELLURIUM_POINT2_SHIFT     6
+#define TSENS8_MSMTELLURIUM_POINT2_SHIFT     18
+#define TSENS9_MSMTELLURIUM_POINT2_SHIFT     6
+#define TSENS10_MSMTELLURIUM_POINT2_SHIFT    18
+
 enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_8974 = 0,
 	TSENS_CALIB_FUSE_MAP_8X26,
@@ -524,6 +578,7 @@ enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_MSM8909,
 	TSENS_CALIB_FUSE_MAP_MDM9640,
 	TSENS_CALIB_FUSE_MAP_8992,
+	TSENS_CALIB_FUSE_MAP_MSMTELLURIUM,
 	TSENS_CALIB_FUSE_MAP_NUM,
 };
 
@@ -1106,6 +1161,214 @@ static void tsens_hw_init(void)
 	}
 	writel_relaxed(TSENS_INTERRUPT_EN,
 		TSENS_UPPER_LOWER_INTERRUPT_CTRL(tmdev->tsens_addr));
+}
+
+static int tsens_calib_msmtellurium_sensors(void)
+{
+	int i, tsens_base0_data = 0, tsens_base1_data = 0;
+	int tsens0_point1 = 0, tsens0_point2 = 0;
+	int tsens1_point1 = 0, tsens1_point2 = 0;
+	int tsens2_point1 = 0, tsens2_point2 = 0;
+	int tsens3_point1 = 0, tsens3_point2 = 0;
+	int tsens4_point1 = 0, tsens4_point2 = 0;
+	int tsens5_point1 = 0, tsens5_point2 = 0;
+	int tsens6_point1 = 0, tsens6_point2 = 0;
+	int tsens7_point1 = 0, tsens7_point2 = 0;
+	int tsens8_point1 = 0, tsens8_point2 = 0;
+	int tsens9_point1 = 0, tsens9_point2 = 0;
+	int tsens10_point1 = 0, tsens10_point2 = 0;
+
+	int tsens_calibration_mode = 0, temp = 0;
+	uint32_t calib_data[5] = {0, 0, 0, 0, 0};
+	uint32_t calib_tsens_point1_data[11], calib_tsens_point2_data[11];
+
+	if (!tmdev->calibration_less_mode) {
+		calib_data[0] = readl_relaxed(
+					TSENS_8939_EEPROM
+					(tmdev->tsens_calib_addr) + 0x30);
+		calib_data[1] = readl_relaxed(
+					(TSENS_8939_EEPROM
+					 (tmdev->tsens_calib_addr) + 0x34));
+		calib_data[2] = readl_relaxed(
+					(TSENS_8939_EEPROM
+					 (tmdev->tsens_calib_addr)));
+		calib_data[3] = readl_relaxed(
+					(TSENS_8939_EEPROM
+					 (tmdev->tsens_calib_addr) + 0x4));
+		calib_data[4] = readl_relaxed(
+					(TSENS_8939_EEPROM
+					 (tmdev->tsens_calib_addr) + 0x50));
+
+		tsens_calibration_mode =
+				(calib_data[0] &
+					TSENS_MSMTELLURIUM_TSENS_CAL_SEL);
+
+		pr_debug("calib mode is %d\n", tsens_calibration_mode);
+	}
+
+	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB) ||
+		(tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2)) {
+		tsens_base0_data = (calib_data[2] &
+						TSENS_MSMTELLURIUM_BASE0_MASK);
+		tsens0_point1 = (calib_data[0] &
+					TSENS0_MSMTELLURIUM_POINT1_MASK)
+			>> TSENS0_MSMTELLURIUM_POINT1_SHIFT;
+		tsens1_point1 = (calib_data[0] &
+					TSENS1_MSMTELLURIUM_POINT1_MASK)
+				>> TSENS1_MSMTELLURIUM_POINT1_SHIFT;
+		tsens2_point1 = (calib_data[0] &
+					TSENS2_MSMTELLURIUM_POINT1_MASK_0_4)
+				>> TSENS2_MSMTELLURIUM_POINT1_SHIFT_0_4;
+		temp = (calib_data[1] & TSENS2_MSMTELLURIUM_POINT1_MASK_5)
+				<< TSENS2_MSMTELLURIUM_POINT1_SHIFT_5;
+		tsens2_point1 |= temp;
+		tsens3_point1 = (calib_data[1] &
+					TSENS3_MSMTELLURIUM_POINT1_MASK)
+				>> TSENS3_MSMTELLURIUM_POINT1_SHIFT;
+		tsens4_point1 = (calib_data[1] &
+					TSENS4_MSMTELLURIUM_POINT1_MASK)
+				>> TSENS4_MSMTELLURIUM_POINT1_SHIFT;
+		tsens5_point1 = (calib_data[2] &
+					TSENS5_MSMTELLURIUM_POINT1_MASK)
+				>> TSENS5_MSMTELLURIUM_POINT1_SHIFT;
+		tsens6_point1 = (calib_data[2] &
+					TSENS6_MSMTELLURIUM_POINT1_MASK)
+				>> TSENS6_MSMTELLURIUM_POINT1_SHIFT;
+		tsens7_point1 = (calib_data[3] &
+					TSENS7_MSMTELLURIUM_POINT1_MASK);
+		tsens8_point1 = (calib_data[3] &
+					TSENS8_MSMTELLURIUM_POINT1_MASK)
+				>> TSENS8_MSMTELLURIUM_POINT1_SHIFT;
+		tsens9_point1 = (calib_data[4] &
+					TSENS9_MSMTELLURIUM_POINT1_MASK);
+		tsens10_point1 = (calib_data[4] &
+					TSENS10_MSMTELLURIUM_POINT1_MASK)
+				>> TSENS10_MSMTELLURIUM_POINT1_SHIFT;
+	}
+
+	if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+		tsens_base1_data = (calib_data[3] &
+					TSENS_MSMTELLURIUM_BASE1_MASK)
+				>> TSENS_MSMTELLURIUM_BASE1_SHIFT;
+		tsens0_point2 = (calib_data[0] &
+					TSENS0_MSMTELLURIUM_POINT2_MASK)
+				>> TSENS0_MSMTELLURIUM_POINT2_SHIFT;
+		tsens1_point2 = (calib_data[0] &
+					TSENS1_MSMTELLURIUM_POINT2_MASK)
+				>> TSENS1_MSMTELLURIUM_POINT2_SHIFT;
+		tsens2_point2 =	(calib_data[1] &
+					TSENS2_MSMTELLURIUM_POINT2_MASK)
+				>> TSENS2_MSMTELLURIUM_POINT2_SHIFT;
+		tsens3_point2 = (calib_data[1] &
+					TSENS3_MSMTELLURIUM_POINT2_MASK)
+				>> TSENS3_MSMTELLURIUM_POINT2_SHIFT;
+		tsens4_point2 = (calib_data[1] &
+					TSENS4_MSMTELLURIUM_POINT2_MASK)
+				>> TSENS4_MSMTELLURIUM_POINT2_SHIFT;
+		tsens5_point2 = (calib_data[2] &
+					TSENS5_MSMTELLURIUM_POINT2_MASK)
+				>> TSENS5_MSMTELLURIUM_POINT2_SHIFT;
+		tsens6_point2 = (calib_data[2] &
+					TSENS6_MSMTELLURIUM_POINT2_MASK)
+				>> TSENS6_MSMTELLURIUM_POINT2_SHIFT;
+		tsens7_point2 = (calib_data[3] &
+					TSENS7_MSMTELLURIUM_POINT2_MASK)
+				>> TSENS7_MSMTELLURIUM_POINT2_SHIFT;
+		tsens8_point2 = (calib_data[3] &
+					TSENS8_MSMTELLURIUM_POINT2_MASK)
+				>> TSENS8_MSMTELLURIUM_POINT2_SHIFT;
+		tsens9_point2 = (calib_data[4] &
+					TSENS9_MSMTELLURIUM_POINT2_MASK)
+				>> TSENS9_MSMTELLURIUM_POINT2_SHIFT;
+		tsens10_point2 = (calib_data[4] &
+					TSENS10_MSMTELLURIUM_POINT2_MASK)
+				>> TSENS10_MSMTELLURIUM_POINT2_SHIFT;
+	}
+
+	if (tsens_calibration_mode == 0) {
+		pr_debug("TSENS in calibrationless mode\n");
+		for (i = 0; i < tmdev->tsens_num_sensor; i++) {
+			calib_tsens_point2_data[i] = 780;
+			calib_tsens_point1_data[i] = 500;
+		}
+	}
+
+	if ((tsens_calibration_mode == TSENS_ONE_POINT_CALIB_OPTION_2) ||
+		(tsens_calibration_mode == TSENS_TWO_POINT_CALIB)) {
+		calib_tsens_point1_data[0] =
+				(((tsens_base0_data) + tsens0_point1) << 2);
+		calib_tsens_point1_data[1] =
+				(((tsens_base0_data) + tsens1_point1) << 2);
+		calib_tsens_point1_data[2] =
+				(((tsens_base0_data) + tsens2_point1) << 2);
+		calib_tsens_point1_data[3] =
+				(((tsens_base0_data) + tsens3_point1) << 2);
+		calib_tsens_point1_data[4] =
+				(((tsens_base0_data) + tsens4_point1) << 2);
+		calib_tsens_point1_data[5] =
+				(((tsens_base0_data) + tsens5_point1) << 2);
+		calib_tsens_point1_data[6] =
+				(((tsens_base0_data) + tsens6_point1) << 2);
+		calib_tsens_point1_data[7] =
+				(((tsens_base0_data) + tsens7_point1) << 2);
+		calib_tsens_point1_data[8] =
+				(((tsens_base0_data) + tsens8_point1) << 2);
+		calib_tsens_point1_data[9] =
+				(((tsens_base0_data) + tsens9_point1) << 2);
+		calib_tsens_point1_data[10] =
+				(((tsens_base0_data) + tsens10_point1) << 2);
+	}
+
+	if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+		pr_debug("two point calibration calculation\n");
+		calib_tsens_point2_data[0] =
+				((tsens_base1_data + tsens0_point2) << 2);
+		calib_tsens_point2_data[1] =
+				((tsens_base1_data + tsens1_point2) << 2);
+		calib_tsens_point2_data[2] =
+				((tsens_base1_data + tsens2_point2) << 2);
+		calib_tsens_point2_data[3] =
+				((tsens_base1_data + tsens3_point2) << 2);
+		calib_tsens_point2_data[4] =
+				((tsens_base1_data + tsens4_point2) << 2);
+		calib_tsens_point2_data[5] =
+				((tsens_base1_data + tsens5_point2) << 2);
+		calib_tsens_point2_data[6] =
+				((tsens_base1_data + tsens6_point2) << 2);
+		calib_tsens_point2_data[7] =
+				((tsens_base1_data + tsens7_point2) << 2);
+		calib_tsens_point2_data[8] =
+				((tsens_base1_data + tsens8_point2) << 2);
+		calib_tsens_point2_data[9] =
+				((tsens_base1_data + tsens9_point2) << 2);
+		calib_tsens_point2_data[10] =
+				((tsens_base1_data + tsens10_point2) << 2);
+	}
+
+	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
+		int32_t num = 0, den = 0;
+		tmdev->sensor[i].calib_data_point2 = calib_tsens_point2_data[i];
+		tmdev->sensor[i].calib_data_point1 = calib_tsens_point1_data[i];
+		pr_debug("sensor:%d - calib_data_point1:0x%x, calib_data_point2:0x%x\n",
+				i, tmdev->sensor[i].calib_data_point1,
+				tmdev->sensor[i].calib_data_point2);
+		if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+			/* slope (m) = adc_code2 - adc_code1 (y2 - y1)
+			    temp_120_degc - temp_30_degc (x2 - x1) */
+			num = tmdev->sensor[i].calib_data_point2 -
+					tmdev->sensor[i].calib_data_point1;
+			num *= tmdev->tsens_factor;
+			den = TSENS_CAL_DEGC_POINT2 - TSENS_CAL_DEGC_POINT1;
+			tmdev->sensor[i].slope_mul_tsens_factor = num/den;
+		}
+		tmdev->sensor[i].offset = (tmdev->sensor[i].calib_data_point1 *
+				tmdev->tsens_factor) - (TSENS_CAL_DEGC_POINT1 *
+				tmdev->sensor[i].slope_mul_tsens_factor);
+		pr_debug("offset:%d and slope:%d\n", tmdev->sensor[i].offset,
+				tmdev->sensor[i].slope_mul_tsens_factor);
+		tmdev->prev_reading_avail = false;
+	}
+	return 0;
 }
 
 static int tsens_calib_msm8909_sensors(void)
@@ -3055,6 +3318,8 @@ static int tsens_calib_sensors(void)
 		rc = tsens_calib_mdm9640_sensors();
 	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_8992)
 		rc = tsens_calib_8992_sensors();
+	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MSMTELLURIUM)
+		rc = tsens_calib_msmtellurium_sensors();
 	else {
 		pr_err("TSENS Calib fuse not found\n");
 		rc = -ENODEV;
@@ -3096,6 +3361,9 @@ static struct of_device_id tsens_match[] = {
 	},
 	{	.compatible = "qcom,msm8992-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_8992,
+	},
+	{       .compatible = "qcom,msmtellurium-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_MSMTELLURIUM,
 	},
 	{}
 };
