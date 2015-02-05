@@ -11,6 +11,46 @@
  * GNU General Public License for more details.
  */
 
+&tlmm_pinmux {
+	lm3642-en-pin {
+		qcom,pins = <&gp 31>, <&gp 86>;
+		qcom,num-grp-pins = <2>;
+		label = "lm3642_en_pins";
+		qcom,pin-func = <0>;
+
+		lm3642_en_default: en-default {
+			driver-strength = <2>;
+			bias-disable;
+		};
+		lm3642_en_suspend: en-suspend {
+			driver-strength = <2>;
+			bias-pull-down;
+		};
+	};
+
+};
+&i2c_0 {
+	flash_lm3642:qcom,led-flash@0 {
+		cell-index = <0>;
+		reg = <0x63>;
+		qcom,slave-id = <0xC6 0x00 0x0011>;
+		compatible = "ti,lm3642";
+		label = "lm3642";
+		qcom,flash-type = <1>;
+		pinctrl-names = "cam_flash_default","cam_flash_suspend";
+		pinctrl-0 = <&lm3642_en_default>;
+		pinctrl-1 = <&lm3642_en_suspend>;
+		gpios = <&msm_gpio 86 0>,
+			<&msm_gpio 31 0>;
+		qcom,gpio-flash-en = <0>;
+		qcom,gpio-flash-now = <1>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <0 0>;
+		qcom,gpio-req-tbl-label = "FLASH_EN",
+			"FLASH_NOW";
+	};
+
+};
 &cci {
 	actuator0: qcom,actuator@6e {
 		cell-index = <3>;
@@ -27,6 +67,7 @@
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
 		qcom,actuator-src = <&actuator0>;
+		qcom,led-flash-src = <&flash_lm3642>;
 		cam_vdig-supply = <&pm8916_l2>;
 		cam_vio-supply = <&pm8916_l6>;
 		cam_vana-supply = <&pm8916_l17>;

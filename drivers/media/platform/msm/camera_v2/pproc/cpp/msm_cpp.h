@@ -241,5 +241,8 @@ struct cpp_device {
 	uint32_t stripe_base;
 	uint32_t stripe_size;
 	uint32_t stripe_info_offset;
+	uint32_t bus_client;
+	uint32_t bus_idx;
+	uint32_t bus_master_flag;
 };
 #endif /* __MSM_CPP_H__ */

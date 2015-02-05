@@ -31,8 +31,8 @@
 struct msm_actuator_ctrl_t;
 
 enum msm_actuator_state_t {
-	ACTUATOR_POWER_UP,
 	ACTUATOR_POWER_DOWN,
+	ACTUATOR_POWER_UP,
 };
 
 struct msm_actuator_func_tbl {

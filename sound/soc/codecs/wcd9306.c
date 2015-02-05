@@ -58,6 +58,8 @@
 
 #define CODEC_REG_CFG_MINOR_VER 1
 
+#define BUS_DOWN 1
+
 static struct regulator *tapan_codec_find_regulator(
 	struct snd_soc_codec *codec,
 	const char *name);
@@ -338,6 +340,7 @@ struct tapan_priv {
 
 	int (*machine_codec_event_cb)(struct snd_soc_codec *codec,
 					enum wcd9xxx_codec_event);
+	unsigned long status_mask;
 };
 
 static const u32 comp_shift[] = {
@@ -3597,6 +3600,7 @@ static int tapan_write(struct snd_soc_codec *codec, unsigned int reg,
 {
 	int ret;
 	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct tapan_priv *tapan_p = snd_soc_codec_get_drvdata(codec);
 
 	if (reg == SND_SOC_NOPM)
 		return 0;
@@ -3610,7 +3614,12 @@ static int tapan_write(struct snd_soc_codec *codec, unsigned int reg,
 				reg, ret);
 	}
 
-	return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, value);
+	if (unlikely(test_bit(BUS_DOWN, &tapan_p->status_mask))) {
+		printk_ratelimited(KERN_ERR "write 0x%02x while offline\n",
+				reg);
+		return -ENODEV;
+	} else
+		return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, value);
 }
 static unsigned int tapan_read(struct snd_soc_codec *codec,
 				unsigned int reg)
@@ -3618,6 +3627,7 @@ static unsigned int tapan_read(struct snd_soc_codec *codec,
 	unsigned int val;
 	int ret;
 	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct tapan_priv *tapan_p = snd_soc_codec_get_drvdata(codec);
 
 	if (reg == SND_SOC_NOPM)
 		return 0;
@@ -3634,8 +3644,14 @@ static unsigned int tapan_read(struct snd_soc_codec *codec,
 				reg, ret);
 	}
 
-	val = wcd9xxx_reg_read(&wcd9xxx->core_res, reg);
-	return val;
+	if (unlikely(test_bit(BUS_DOWN, &tapan_p->status_mask))) {
+		printk_ratelimited(KERN_ERR "write 0x%02x while offline\n",
+				reg);
+		return -ENODEV;
+	} else {
+		val = wcd9xxx_reg_read(&wcd9xxx->core_res, reg);
+		return val;
+	}
 }
 
 static int tapan_startup(struct snd_pcm_substream *substream,
@@ -6123,9 +6139,13 @@ EXPORT_SYMBOL(tapan_event_register);
 static int tapan_device_down(struct wcd9xxx *wcd9xxx)
 {
 	struct snd_soc_codec *codec;
+	struct tapan_priv *tapan;
 
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
+	tapan = snd_soc_codec_get_drvdata(codec);
+
 	snd_soc_card_change_online_state(codec->card, 0);
+	set_bit(BUS_DOWN, &tapan->status_mask);
 
 	return 0;
 }
@@ -6154,6 +6174,9 @@ static int tapan_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	tapan = snd_soc_codec_get_drvdata(codec);
 
 	mutex_lock(&codec->mutex);
+
+	clear_bit(BUS_DOWN, &tapan->status_mask);
+
 	if (codec->reg_def_copy) {
 		pr_debug("%s: Update ASOC cache", __func__);
 		kfree(codec->reg_cache);
