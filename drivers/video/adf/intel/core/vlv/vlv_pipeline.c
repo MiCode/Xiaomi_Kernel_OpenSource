@@ -263,7 +263,9 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 		struct drm_mode_modeinfo *mode)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
+#if 0
 	struct intel_dc_config *intel_config = &disp->config->base;
+#endif
 	struct vlv_pri_plane *pplane = &disp->pplane;
 	struct vlv_pipe *pipe = &disp->pipe;
 	struct vlv_plane_params plane_params;
@@ -372,8 +374,10 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 	if (err)
 		pr_err("ADF: %s: program pipe failed\n", __func__);
 
+#if 0
 	/* program PFI credits before pipe is enabled */
 	vlv_pm_update_pfi_credits(intel_config);
+#endif
 
 	/* pipe enable */
 	err = vlv_pipe_enable(pipe, mode);
