@@ -212,8 +212,18 @@ static unsigned long jiffies_min_age;
 static unsigned long jiffies_last_scan;
 /* delay between automatic memory scannings */
 static signed long jiffies_scan_wait;
-/* enables or disables the task stacks scanning */
+
+/* Enables or disables the task stacks scanning.
+ * Set to 1 if at compile time we want it enabled.
+ * Else set to 0 to have it disabled by default.
+ * This can be enabled by writing to "stack=on" using
+ * kmemleak debugfs entry.*/
+#ifdef CONFIG_DEBUG_TASK_STACK_SCAN_OFF
+static int kmemleak_stack_scan;
+#else
 static int kmemleak_stack_scan = 1;
+#endif
+
 /* protects the memory scanning, parameters and debug/kmemleak file access */
 static DEFINE_MUTEX(scan_mutex);
 /* setting kmemleak=on, will set this var, skipping the disable */
