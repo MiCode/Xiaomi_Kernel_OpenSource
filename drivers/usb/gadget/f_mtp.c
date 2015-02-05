@@ -42,6 +42,8 @@
 #include "configfs.h"
 
 #define MTP_BULK_BUFFER_SIZE       16384
+#define MTP_BULK_RX_BUFFER_SIZE    (65536*4)
+
 #define INTR_BUFFER_SIZE           28
 #define MAX_INST_NAME_LEN          40
 
@@ -76,6 +78,9 @@
 
 static const char mtp_shortname[] = DRIVER_NAME "_usb";
 
+static unsigned char rx_buffer[RX_REQ_MAX][MTP_BULK_RX_BUFFER_SIZE];
+
+
 struct mtp_dev {
 	struct usb_function function;
 	struct usb_composite_dev *cdev;
@@ -99,6 +104,7 @@ struct mtp_dev {
 	wait_queue_head_t write_wq;
 	wait_queue_head_t intr_wq;
 	struct usb_request *rx_req[RX_REQ_MAX];
+	void *rx_mem[RX_REQ_MAX];
 	int rx_done;
 
 	/* for processing MTP_SEND_FILE, MTP_RECEIVE_FILE and
@@ -516,9 +522,11 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 		mtp_req_put(dev, &dev->tx_idle, req);
 	}
 	for (i = 0; i < RX_REQ_MAX; i++) {
-		req = mtp_request_new(dev->ep_out, MTP_BULK_BUFFER_SIZE);
+		req = usb_ep_alloc_request(dev->ep_in, GFP_KERNEL);
 		if (!req)
 			goto fail;
+		/* link rx_mem buffer to the usb_request */
+		req->buf = dev->rx_mem[i];
 		req->complete = mtp_complete_out;
 		dev->rx_req[i] = req;
 	}
@@ -1438,6 +1446,7 @@ static int __mtp_setup(struct mtp_instance *fi_mtp)
 {
 	struct mtp_dev *dev;
 	int ret;
+	int i;
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 
@@ -1461,6 +1470,18 @@ static int __mtp_setup(struct mtp_instance *fi_mtp)
 		ret = -ENOMEM;
 		goto err1;
 	}
+
+	memset(rx_buffer, 0, RX_REQ_MAX * MTP_BULK_RX_BUFFER_SIZE);
+
+	/* Request memory buffer for RX */
+	for (i = 0; i < RX_REQ_MAX; i++) {
+		dev->rx_mem[i] = rx_buffer[i];
+		if (!dev->rx_mem[i]) {
+			ret = -ENOMEM;
+			goto err2;
+		}
+	}
+
 	INIT_WORK(&dev->send_file_work, send_file_work);
 	INIT_WORK(&dev->receive_file_work, receive_file_work);
 
