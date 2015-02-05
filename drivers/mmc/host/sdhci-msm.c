@@ -3218,6 +3218,11 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		 */
 		sdhci_msm_setup_pins(msm_host->pdata, true);
 
+		/*
+		 * This delay is needed for stabilizing the card detect GPIO
+		 * line after changing the pull configs.
+		 */
+		usleep_range(10000, 10500);
 		ret = mmc_gpio_request_cd(msm_host->mmc,
 				msm_host->pdata->status_gpio, 0);
 		if (ret) {
