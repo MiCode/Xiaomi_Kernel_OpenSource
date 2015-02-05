@@ -809,6 +809,19 @@ static void arm_smmu_tlb_sync_cb(struct arm_smmu_device *smmu,
 		dev_err(smmu->dev, "TLBSYNC timeout!\n");
 }
 
+static void arm_smmu_tlb_sync_cb_atomic(struct arm_smmu_device *smmu,
+					int cbndx)
+{
+	void __iomem *base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cbndx);
+	u32 val;
+
+	writel_relaxed(0, base + ARM_SMMU_CB_TLBSYNC);
+	if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
+					!(val & TLBSTATUS_SACTIVE),
+					20, TLB_LOOP_TIMEOUT))
+		dev_err(smmu->dev, "TLBSYNC timeout!\n");
+}
+
 static void arm_smmu_tlb_inv_context(struct arm_smmu_domain *smmu_domain)
 {
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
@@ -1922,6 +1935,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		if (arm_smmu_halt(smmu))
 			goto err_unlock;
 		writel_relaxed(0, cb_base + ARM_SMMU_CB_S1_TLBIALL);
+		arm_smmu_tlb_sync_cb_atomic(smmu, cfg->cbndx);
 	}
 
 	if (smmu->version == 1) {
