@@ -2172,6 +2172,7 @@ static enum power_supply_property bms_power_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE,
+	POWER_SUPPLY_PROP_RESISTANCE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
 	POWER_SUPPLY_PROP_HI_POWER,
@@ -2223,6 +2224,12 @@ static int qpnp_vm_bms_power_get_property(struct power_supply *psy,
 			val->intval = chip->batt_data->rbatt_capacitive_mohm;
 		if (chip->dt.cfg_r_conn_mohm > 0)
 			val->intval += chip->dt.cfg_r_conn_mohm;
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE_NOW:
+		rc = get_batt_therm(chip, &value);
+		if (rc < 0)
+			value = BMS_DEFAULT_TEMP;
+		val->intval = get_rbatt(chip, chip->calculated_soc, value);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = get_prop_bms_current_now(chip);
