@@ -111,6 +111,42 @@ static void kgsl_pwrctrl_request_state(struct kgsl_device *device,
 				unsigned int state);
 
 /**
+ * _record_pwrevent() - Record the history of the new event
+ * @device: Pointer to the kgsl_device struct
+ * @t: Timestamp
+ * @event: Event type
+ *
+ * Finish recording the duration of the previous event.  Then update the
+ * index, record the start of the new event, and the relevant data.
+ */
+static void _record_pwrevent(struct kgsl_device *device,
+			ktime_t t, int event) {
+	struct kgsl_pwrscale *psc = &device->pwrscale;
+	struct kgsl_pwr_history *history = &psc->history[event];
+	int i = history->index;
+	if (history->events == NULL)
+		return;
+	history->events[i].duration = ktime_us_delta(t,
+					history->events[i].start);
+	i = (i + 1) % history->size;
+	history->index = i;
+	history->events[i].start = t;
+	switch (event) {
+	case KGSL_PWREVENT_STATE:
+		history->events[i].data = device->state;
+		break;
+	case KGSL_PWREVENT_GPU_FREQ:
+		history->events[i].data = device->pwrctrl.active_pwrlevel;
+		break;
+	case KGSL_PWREVENT_BUS_FREQ:
+		history->events[i].data = last_vote_buslevel;
+		break;
+	default:
+		break;
+	}
+}
+
+/**
  * kgsl_get_bw() - Return latest msm bus IB vote
  */
 static unsigned int kgsl_get_bw(void)
@@ -2081,6 +2117,12 @@ int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state)
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 		status = -EINVAL;
 		break;
+	}
+
+	/* Record the state timing info */
+	if (!status) {
+		ktime_t t = ktime_get();
+		_record_pwrevent(device, t, KGSL_PWREVENT_STATE);
 	}
 	return status;
 }
