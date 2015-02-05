@@ -471,7 +471,7 @@ int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu)
 		goto out_acc_reg;
 
 	val = scm_io_read((u32)res.start);
-	val &= BIT(0);
+	val &= ~BIT(0);
 	scm_io_write((u32)res.start, val);
 
 out_acc_reg:
