@@ -82,6 +82,86 @@ void dp_panel_copy_data_from_monitor(struct dp_panel *panel,
 	panel->modelist = probed_modes;
 }
 
+u32 dp_panel_get_next_bpc(u32 bpc)
+{
+	/* valid bpc are 6, 8, 10 */
+	switch (bpc) {
+	case 6:
+		return 0;
+	case 8:
+		return 6;
+	case 10:
+		return 8;
+	default:
+		return 6;
+	}
+}
+
+/* get the bits per color supported by the panel from edid */
+u32 dp_panel_get_bpc(struct dp_panel *panel, u32 dotclock)
+{
+	u32 bpc = 6, edid_val, bw_available;
+	u32 dotclock_req, lane_count, link_bw;
+	u8 *edid = (u8 *)panel->edid;
+
+	/* should not be hit, but for sanity */
+	if (!edid)
+		return bpc;
+
+	/* edid has bpc only after version 1.3 */
+	if (edid[EDID_VERSION_OFFSET] == 1 &&
+		edid[EDID_REVISION_OFFSET] <= 3)
+		return bpc;
+
+	edid_val = edid[EDID_DISP_PARAMS_OFFSET];
+
+	edid_val = (edid_val & EDID_COLOR_DEPTH_MASK) >>
+					EDID_COLOR_DEPTH_SHIFT;
+
+	switch (edid_val) {
+	case 0:
+		/* undefined so set to 6, mandatory per DP spec */
+		bpc = 6;
+		break;
+	case 1:
+		bpc = 6;
+		break;
+	case 2:
+		bpc = 8;
+		break;
+	case 3:
+		bpc = 10;
+		break;
+	default:
+		/*
+		 * TBD: Not handling higher colors for now, to be
+		 * revisited once HBR2 support is added
+		 */
+		bpc = 8;
+		break;
+	}
+
+	pr_info("Edid supports %d bits per color\n", bpc);
+	lane_count = dp_panel_get_max_lane_count(panel);
+	link_bw = dp_panel_get_max_link_bw(panel);
+
+	do {
+		/* bpp = bpc * 3 */
+		dotclock_req = dotclock * (bpc * 3);
+		bw_available = LINK_TO_DOT_CLK(link_bw) *
+				lane_count * BITS_PER_BYTE;
+
+		/* current bpc is capable of being used to drive panel */
+		if (dotclock_req <= bw_available)
+			break;
+
+		bpc = dp_panel_get_next_bpc(bpc);
+	} while (bpc != 0);
+
+	pr_info("Using %d bpc for current dotclock\n", bpc);
+	return bpc;
+}
+
 bool dp_panel_probe(struct dp_panel *panel, struct intel_pipeline *pipeline)
 {
 	/* bool live_status = false; */

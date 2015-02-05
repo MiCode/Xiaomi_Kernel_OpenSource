@@ -29,8 +29,6 @@
 #include <core/vlv/dpio.h>
 #include <intel_dsi_cmd.h>
 
-#define LINK_TO_DOT_CLK(x) ((x) * 27 * 100)
-
 enum port vlv_get_connected_port(struct intel_pipe *intel_pipe)
 {
 	struct vlv_pipeline *vlv_pipeline =
@@ -242,7 +240,7 @@ u32 vlv_calc_multiplier(struct intel_pipeline *pipeline, u32 dotclock)
 
 		temp = dotclock * i;
 
-		if (temp >= 100000) {
+		if (temp >= 1000000) {
 			multiplier = i;
 			break;
 		}
@@ -294,9 +292,9 @@ u32 vlv_pipeline_on(struct intel_pipeline *pipeline,
 			mode->clock = dotclock;
 			multiplier = vlv_calc_multiplier(pipeline, dotclock);
 
-			/* Multiply by 10000 to conver to KHz */
+			/* Multiply by 1000 to conver to KHz */
 			dotclock = LINK_TO_DOT_CLK(pipeline->params.dp.link_bw)
-							* 10000;
+							* 1000;
 		} else
 			/* Convert MHz to KHz */
 			dotclock = mode->clock * 1000;

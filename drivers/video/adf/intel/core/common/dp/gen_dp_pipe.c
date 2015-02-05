@@ -25,8 +25,6 @@
 #define  DATA_LINK_M_N_MASK     (0xffffff)
 #define  DATA_LINK_N_MAX        (0x800000)
 
-#define LINK_TO_DOT_CLK(x) ((x) * 27 * 1000)
-#define BITS_PER_BYTE		8
 
 static void compute_m_n(u32 m, u32 n,
 		u32 *ret_m, u32 *ret_n)
@@ -150,6 +148,29 @@ void dp_pipe_dump_modes(struct drm_mode_modeinfo *modelist, u32 n_modes)
 	}
 }
 
+static inline bool dp_pipe_compare_modes(struct dp_pipe *dp_pipe,
+		struct drm_mode_modeinfo *mode1)
+{
+	struct drm_mode_modeinfo *mode2 = &dp_pipe->current_mode;
+
+	/* Only DPMS calls modeset with NULL */
+	if (!mode1 || !mode2)
+		return false;
+
+	if ((mode1->clock != mode2->clock) ||
+		(mode1->hdisplay != mode2->hdisplay) ||
+		(mode1->hsync_start != mode2->hsync_start) ||
+		(mode1->htotal != mode2->htotal) ||
+		(mode1->hsync_end != mode2->hsync_end) ||
+		(mode1->vdisplay != mode2->vdisplay) ||
+		(mode1->vsync_start != mode2->vsync_start) ||
+		(mode1->vtotal != mode2->vtotal) ||
+		(mode1->vrefresh != mode2->vrefresh))
+		return false;
+	else
+		return true;
+}
+
 static int dp_pipe_modeset(struct intel_pipe *pipe,
 		struct drm_mode_modeinfo *mode)
 {
@@ -166,12 +187,13 @@ static int dp_pipe_modeset(struct intel_pipe *pipe,
 	params->link_bw = 0;
 	params->lane_count = 0;
 
-	/* Avoid duplicate modesets */
-	if (dp_pipe->dpms_state == DRM_MODE_DPMS_ON)
+	/*
+	 * Avoid duplicate modesets, check both dpms state
+	 * and mode being applied
+	 */
+	if ((dp_pipe->dpms_state == DRM_MODE_DPMS_ON) &&
+		dp_pipe_compare_modes(dp_pipe, mode))
 		goto modeset_exit;
-
-	pr_err("%s:FIXME: get bpp from edid\n", __func__);
-	bpp = 24;
 
 	/* if NULL the current call is from dpms so use saved mode */
 	if (mode == NULL)
@@ -180,6 +202,9 @@ static int dp_pipe_modeset(struct intel_pipe *pipe,
 		intel_adf_display_rpm_get();
 
 	dotclock = mode->clock;
+
+	/* bpp = bits per color * 3, for 3 colors in pixel */
+	bpp = dp_panel_get_bpc(&dp_pipe->panel, dotclock) * 3;
 	dp_pipe_dump_modes(mode, 1);
 	vlv_dp_backlight_seq(pipeline, false);
 

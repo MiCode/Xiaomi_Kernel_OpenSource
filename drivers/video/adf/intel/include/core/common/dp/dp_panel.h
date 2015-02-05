@@ -341,6 +341,15 @@ DP_LANE_SYMBOL_LOCKED)
 # define DP_PSR_SINK_STATE_MASK             0x07
 
 # define DP_MAX_ELD_LENGTH			    128
+#define EDID_VERSION_OFFSET	18
+#define EDID_REVISION_OFFSET	19
+#define EDID_DISP_PARAMS_OFFSET 20
+#define EDID_COLOR_DEPTH_MASK	0x70
+#define EDID_COLOR_DEPTH_SHIFT	4
+#define EDID_DIGITAL_INTERFACE	(1 << 7)
+
+#define LINK_TO_DOT_CLK(x) ((x) * 27 * 1000)
+#define BITS_PER_BYTE		8
 
 enum vswing_level {
 	e0_4 = 0,
@@ -416,8 +425,9 @@ extern  bool dp_panel_fast_link_train(struct dp_panel *panel,
 			struct link_params *params);
 extern bool dp_panel_probe(struct dp_panel *panel,
 			struct intel_pipeline *pipeline);
-int dp_panel_set_dpcd(struct dp_panel *panel, u32 address,
+extern int dp_panel_set_dpcd(struct dp_panel *panel, u32 address,
 			u8 *buffer, u32 size);
+extern u32 dp_panel_get_bpc(struct dp_panel *panel, u32 dotclock);
 
 /* Hack:to avoid duplication of edid parsing logic hdmi's parser is used */
 extern struct hdmi_monitor *intel_adf_hdmi_get_monitor(struct edid *edid);
