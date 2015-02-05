@@ -732,7 +732,7 @@ struct qfec_enh_buf_desc {
 #define CLKDIV_SGMII_100           0x0004
 #define CLKDIV_SGMII_10            0x0031
 #define CLKDIV_BMSK                0x007f
-#define GMAC_N_CLKDIV_SHFT(n)      ((n) << 8)
+#define GMAC_N_CLKDIV_SHFT(n)      ((n) * 8)
 #define GMAC_N_CLKDIV_BMSK(n)      (CLKDIV_BMSK << GMAC_N_CLKDIV_SHFT(n))
 #define GMAC_N_CLKDIV(v, n)        ((v) << GMAC_N_CLKDIV_SHFT(n))
 
