@@ -281,7 +281,6 @@
 	interrupt-names = "hs_phy_irq", "pwr_event_irq";
 	qcom,charging-disabled;
 	vbus_dwc3-supply = <&vph_pwr_vreg>;
-	/delete-property/ qcom,otg-capability;
 	qcom,ext-hub-reset-gpio =  <&pm8994_gpios 1 0>;
 	dwc3@f9200000 {
 		snps,host-only-mode;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -511,7 +511,6 @@
 				"pmic_id_irq";
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
-		qcom,otg-capability;
 		qcom,usb-dbm = <&dbm_1p5>;
 
 		qcom,msm-bus,name = "usb3";
@@ -529,8 +528,7 @@
 				compatible = "synopsys,dwc3";
 				reg = <0xf9200000 0xfc000>;
 				interrupt-parent = <&intc>;
-				interrupts = <0 131 0>, <0 179 0>;
-				interrupt-names = "irq", "otg_irq";
+				interrupts = <0 131 0>;
 				usb-phy = <&hsphy0>, <&ssphy0>;
 				snps,nominal-elastic-buffer;
 				snps,hsphy-auto-suspend-disable;

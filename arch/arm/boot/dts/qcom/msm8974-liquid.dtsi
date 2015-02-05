@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -429,10 +429,6 @@
 	qcom,rx-gpio = <&msmgpio 42 0x00>;
 	qcom,cts-gpio = <&msmgpio 43 0x00>;
 	qcom,rfr-gpio = <&msmgpio 44 0x00>;
-};
-
-&usb3 {
-	qcom,otg-capability;
 };
 
 &pm8941_mvs2 {
