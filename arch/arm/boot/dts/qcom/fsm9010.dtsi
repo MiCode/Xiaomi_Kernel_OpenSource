@@ -291,7 +291,7 @@
 		qcom,vdd-io-voltage-level = <1800000 1800000>;
 		qcom,vdd-io-current-level = <200 154000>;
 
-		qcom,clk-rates = <400000>;
+		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
 		qcom,nonremovable;
 		status = "disable";
 	};
