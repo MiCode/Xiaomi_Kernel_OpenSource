@@ -3574,6 +3574,7 @@ extern int chv_cursor_offsets[];
 #define   PIPECONF_DITHER_TYPE_ST1 (1<<2)
 #define   PIPECONF_DITHER_TYPE_ST2 (2<<2)
 #define   PIPECONF_DITHER_TYPE_TEMP (3<<2)
+#define   PIPECONF_EDP_RR_SWITCH_VLV (1 << 14)
 #define _PIPEASTAT		(VLV_DISPLAY_BASE + 0x70024)
 #define   PIPE_FIFO_UNDERRUN_STATUS		(1UL<<31)
 #define   SPRITE1_FLIPDONE_INT_EN_VLV		(1UL<<30)

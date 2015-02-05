@@ -27,6 +27,14 @@ void vlv_pipe_program_m_n(struct vlv_pipe *pipe, struct intel_link_m_n *m_n)
 	REG_WRITE(pipe->linkn1_offset, m_n->link_n);
 }
 
+void vlv_pipe_program_m2_n2(struct vlv_pipe *pipe, struct intel_link_m_n *m_n)
+{
+	REG_WRITE(pipe->datam2_offset, TU_SIZE(m_n->tu) | m_n->gmch_m);
+	REG_WRITE(pipe->datan2_offset, m_n->gmch_n);
+	REG_WRITE(pipe->linkm2_offset, m_n->link_m);
+	REG_WRITE(pipe->linkn2_offset, m_n->link_n);
+}
+
 bool vlv_pipe_vblank_on(struct vlv_pipe *pipe)
 {
 	u32 val = REG_READ(pipe->status_offset);
@@ -409,6 +417,11 @@ bool vlv_pipe_init(struct vlv_pipe *pipe, enum pipe pipeid)
 	pipe->datan1_offset = PIPE_DATA_N1(pipeid);
 	pipe->linkm1_offset = PIPE_LINK_M1(pipeid);
 	pipe->linkn1_offset = PIPE_LINK_N1(pipeid);
+
+	pipe->datam2_offset = PIPE_DATA_M2(pipeid);
+	pipe->datan2_offset = PIPE_DATA_N2(pipeid);
+	pipe->linkm2_offset = PIPE_LINK_M2(pipeid);
+	pipe->linkn2_offset = PIPE_LINK_N2(pipeid);
 
 	pipe->psr_ctrl_offset = VLV_EDP_PSR_CONTROL(pipeid);
 	pipe->psr_sts_offset = VLV_EDP_PSR_STATUS(pipeid);

@@ -36,6 +36,12 @@ struct vlv_pipe {
 	u32 linkm1_offset;
 	u32 linkn1_offset;
 
+	/* m2_n2 values for eDP DRRS */
+	u32 datam2_offset;
+	u32 datan2_offset;
+	u32 linkm2_offset;
+	u32 linkn2_offset;
+
 	u32 src_size_offset;
 
 	/* eDP PSR related registers */
@@ -48,6 +54,8 @@ struct vlv_pipe {
 };
 
 void vlv_pipe_program_m_n(struct vlv_pipe *pipe,
+		struct intel_link_m_n *m_n);
+void vlv_pipe_program_m2_n2(struct vlv_pipe *pipe,
 		struct intel_link_m_n *m_n);
 bool vlv_pipe_vblank_on(struct vlv_pipe *pipe);
 bool vlv_pipe_vblank_off(struct vlv_pipe *pipe);
