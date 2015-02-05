@@ -78,6 +78,7 @@
 #define QSERDES_COM_DEBUG_BUS2			COM_OFF(0x1A8)
 #define QSERDES_COM_DEBUG_BUS3			COM_OFF(0x1AC)
 #define QSERDES_COM_DEBUG_BUS_SEL		COM_OFF(0x1B0)
+#define QSERDES_COM_CMN_MISC2			COM_OFF(0x1B8)
 #define QSERDES_COM_CORECLK_DIV_MODE1		COM_OFF(0x1BC)
 
 /* UFS PHY registers */
@@ -184,6 +185,7 @@ static struct ufs_qcom_phy_calibration phy_cal_table_rate_A_2_0_0[] = {
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_PLL_IVCO, 0x0F),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_BG_TRIM, 0x0F),
 	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_RESCODE_DIV_NUM, 0x15),
+	UFS_QCOM_PHY_CAL_ENTRY(QSERDES_COM_CMN_MISC2, 0x1F),
 	/*
 	 * UFS_PHY_RX_PWM_GEAR_BAND configuration is changed after the power up
 	 * sequence so make sure that this register gets set to power on reset
