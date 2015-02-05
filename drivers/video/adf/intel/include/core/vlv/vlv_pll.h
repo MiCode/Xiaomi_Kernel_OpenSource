@@ -78,4 +78,10 @@ u32 vlv_pll_dpms(struct vlv_pll *pll, u8 dpms_state);
 
 bool calc_clock_timings(u32 target, struct intel_clock *best_clock);
 bool get_best_hdmi_pll(int target, struct intel_clock *best_clock);
+
+/* DRRS Related */
+int vlv_dsi_mnp_calculate_for_pclk(struct intel_pipeline *pipeline,
+		struct dsi_mnp *dsi_mnp, unsigned int pclk);
+int vlv_drrs_configure_dsi_pll(struct intel_pipeline *pipeline,
+		struct dsi_mnp *dsi_mnp);
 #endif /*_VLV_PLL_H_*/

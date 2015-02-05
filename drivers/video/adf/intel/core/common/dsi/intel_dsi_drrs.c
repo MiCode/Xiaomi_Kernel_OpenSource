@@ -271,6 +271,14 @@ int intel_dsi_drrs_init(struct intel_pipeline *pipeline)
 
 	adf_drrs->panel_mode.target_mode = NULL;
 
+	if (IS_VALLEYVIEW() || IS_CHERRYVIEW()) {
+		dsi_pipe->drrs.platform_ops = vlv_dsi_drrs_ops_init();
+	} else {
+		pr_err("ADF: %s: Unsupported platform\n", __func__);
+		ret = -EINVAL;
+		goto out_err;
+	}
+
 	if (!dsi_pipe->drrs.platform_ops) {
 		pr_err("ADF: %s: DSI platform ops not initialized\n", __func__);
 		ret = -EINVAL;

@@ -8,6 +8,7 @@ obj-y := vlv_dc_config.o \
 	vlv_pipe.o \
 	vlv_pll.o \
 	vlv_dsi_pll.o \
+	vlv_dsi_drrs.o \
 	vlv_pm.o \
 	vlv_dsi_port.o \
 	vlv_dsi_port_cmd.o \

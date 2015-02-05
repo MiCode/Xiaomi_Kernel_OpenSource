@@ -56,5 +56,6 @@ struct dsi_drrs {
 
 
 extern inline struct drrs_encoder_ops *intel_drrs_dsi_encoder_ops_init(void);
+extern inline struct drrs_dsi_platform_ops *vlv_dsi_drrs_ops_init(void);
 
 #endif /* INTEL_DSI_DRRS_H */
