@@ -356,6 +356,7 @@ int usb_interface_id(struct usb_configuration *config,
 
 	if (id < MAX_CONFIG_INTERFACES) {
 		config->interface[id] = function;
+		function->intf_id = id;
 		config->next_interface_id = id + 1;
 		return id;
 	}
@@ -363,46 +364,19 @@ int usb_interface_id(struct usb_configuration *config,
 }
 EXPORT_SYMBOL_GPL(usb_interface_id);
 
-/**
- * usb_get_func_interface_id() - Find the interface ID of a function
- * @function: the function for which want to find the interface ID
- * Context: single threaded
- *
- * Returns the interface ID of the function or -ENODEV if this function
- * is not part of this configuration
- */
-int usb_get_func_interface_id(struct usb_function *func)
-{
-	int id;
-	struct usb_configuration *config;
-
-	if (!func)
-		return -EINVAL;
-
-	config = func->config;
-
-	for (id = 0; id < MAX_CONFIG_INTERFACES; id++) {
-		if (config->interface[id] == func)
-			return id;
-	}
-	return -ENODEV;
-}
-
 static int usb_func_wakeup_int(struct usb_function *func)
 {
 	int ret;
-	int interface_id;
 	unsigned long flags;
 	struct usb_gadget *gadget;
 	struct usb_composite_dev *cdev;
 
+	pr_debug("%s - %s function wakeup\n",
+		__func__, func->name ? func->name : "");
 
 	if (!func || !func->config || !func->config->cdev ||
 		!func->config->cdev->gadget)
 		return -EINVAL;
-
-	pr_debug("%s - %s function wakeup\n", __func__,
-					func->name ? func->name : "");
 
 	gadget = func->config->cdev->gadget;
 	if ((gadget->speed != USB_SPEED_SUPER) || !func->func_wakeup_allowed) {
@@ -415,19 +389,9 @@ static int usb_func_wakeup_int(struct usb_function *func)
 	}
 
 	cdev = get_gadget_data(gadget);
+
 	spin_lock_irqsave(&cdev->lock, flags);
-	ret = usb_get_func_interface_id(func);
-	if (ret < 0) {
-		ERROR(func->config->cdev,
-			"Function %s - Unknown interface id. Canceling USB request. ret=%d\n",
-			func->name ? func->name : "", ret);
-
-		spin_unlock_irqrestore(&cdev->lock, flags);
-		return ret;
-	}
-
-	interface_id = ret;
-	ret = usb_gadget_func_wakeup(gadget, interface_id);
+	ret = usb_gadget_func_wakeup(gadget, func->intf_id);
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	return ret;
@@ -459,34 +423,36 @@ EXPORT_SYMBOL_GPL(usb_func_wakeup);
 int usb_func_ep_queue(struct usb_function *func, struct usb_ep *ep,
 			       struct usb_request *req, gfp_t gfp_flags)
 {
-	int ret;
+	int ret = -ENOTSUPP;
 	struct usb_gadget *gadget;
 
-	if (!func || !ep || !req) {
-		pr_err("Invalid argument. func=%p, ep=%p, req=%p\n",
-			func, ep, req);
+	if (!func || !func->config || !func->config->cdev ||
+			!func->config->cdev->gadget || !ep || !req)
 		return -EINVAL;
-	}
 
 	pr_debug("Function %s queueing new data into ep %u\n",
 		func->name ? func->name : "", ep->address);
 
 	gadget = func->config->cdev->gadget;
-	if ((gadget->speed == USB_SPEED_SUPER) && func->func_is_suspended) {
-		ret = usb_func_wakeup(func);
-		if (ret) {
-			if (ret != -EAGAIN)
-				pr_err("Failed to send function wake up notification. func name:%s, ep:%u\n",
-					func->name ? func->name : "",
-					ep->address);
-			return ret;
+
+	if (func->func_is_suspended && func->func_wakeup_allowed) {
+		ret = usb_gadget_func_wakeup(gadget, func->intf_id);
+		if (ret == -EAGAIN) {
+			pr_debug("bus suspended func wakeup for %s delayed until bus resume.\n",
+				func->name ? func->name : "");
+		} else if (ret < 0 && ret != -ENOTSUPP) {
+			pr_err("Failed to wake function %s from suspend state. ret=%d.\n",
+				func->name ? func->name : "", ret);
 		}
 	}
 
-	ret = usb_ep_queue(ep, req, gfp_flags);
+	if (!func->func_is_suspended)
+		ret = 0;
+
+	if (!ret)
+		ret = usb_ep_queue(ep, req, gfp_flags);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(usb_func_ep_queue);
 
 static u8 encode_bMaxPower(enum usb_device_speed speed,
 		struct usb_configuration *c)
