@@ -1113,7 +1113,6 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 	u32	active_v            = 0;
 	u32	blank_h             = 0;
 	u32	blank_v             = 0;
-	u32	ndx                 = 0;
 	u32	img_size_h          = 0;
 	u32	img_size_v          = 0;
 	u32	pixel_clk           = 0;
@@ -1123,6 +1122,10 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 	u32	pulse_width_v       = 0;
 	u32	active_low_h        = 0;
 	u32	active_low_v        = 0;
+
+	struct msm_hdmi_mode_timing_info timing = {0};
+	u64 rr_tmp, frame_data;
+	int rc;
 
 	/*
 	 * Pixel clock/ 10,000
@@ -1241,54 +1244,10 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 		active_h, active_v, blank_h, blank_v, img_size_h, img_size_v,
 		interlaced ? "i" : "p");
 
-	*disp_mode = HDMI_VFRMT_FORCE_32BIT;
-	for (ndx = HDMI_VFRMT_UNKNOWN + 1; ndx < HDMI_VFRMT_MAX; ndx++) {
-		struct msm_hdmi_mode_timing_info timing = {0};
-		u32 ret = hdmi_get_supported_mode(&timing,
-				edid_ctrl->init_data.ds_data,
-				ndx);
+	rr_tmp = pixel_clk * 1000 * 1000;
+	frame_data = (blank_h + active_h) * (blank_v + active_v);
 
-		if (ret || !timing.supported)
-			continue;
-
-		if ((interlaced   == timing.interlaced) &&
-			(active_h == timing.active_h) &&
-			(blank_h  == (timing.front_porch_h +
-				timing.pulse_width_h +
-				timing.back_porch_h)) &&
-			(blank_v  == (timing.front_porch_v +
-				timing.pulse_width_v +
-				timing.back_porch_v)) &&
-			((active_v == timing.active_v) ||
-			(active_v  == (timing.active_v + 1)))) {
-				*disp_mode = timing.video_format;
-
-			/*
-			 * There can be 16:9 and 4:3 aspect ratio of same
-			 * timing details. Continue searching in case aspect
-			 * ratio didn't match but rest of timing details do.
-			 */
-
-			if (aspect_ratio_4_3 &&
-				(timing.ar != HDMI_RES_AR_4_3))
-				continue;
-			else if (!aspect_ratio_4_3 &&
-				(timing.ar == HDMI_RES_AR_4_3))
-				continue;
-			else
-				break;
-		}
-	}
-
-	if (*disp_mode == HDMI_VFRMT_FORCE_32BIT) {
-		struct msm_hdmi_mode_timing_info timing = {0};
-		u64 rr_tmp = pixel_clk * 1000 * 1000;
-		u64 frame_data = (blank_h + active_h) *
-			(blank_v + active_v);
-		int rc = 0;
-
-		DEV_DBG("%s: found new mode\n", __func__);
-
+	if (frame_data) {
 		do_div(rr_tmp, frame_data);
 
 		timing.active_h      = active_h;
@@ -1309,13 +1268,20 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 		timing.supported     = true;
 		timing.ar            = aspect_ratio_4_3 ? HDMI_RES_AR_4_3 :
 					(aspect_ratio_5_4 ? HDMI_RES_AR_5_4 :
-						HDMI_RES_AR_16_9);
+					HDMI_RES_AR_16_9);
 
 		rc = hdmi_set_resv_timing_info(&timing);
-		if (!IS_ERR_VALUE(rc))
-			*disp_mode = rc;
 	} else {
-		DEV_DBG("%s: mode found:%d\n", __func__, *disp_mode);
+		DEV_ERR("%s: Invalid frame data\n", __func__);
+		rc = -EINVAL;
+	}
+
+	if (!IS_ERR_VALUE(rc)) {
+		*disp_mode = rc;
+		DEV_DBG("%s: DTD mode found: %d\n", __func__, *disp_mode);
+	} else {
+		*disp_mode = HDMI_VFRMT_UNKNOWN;
+		DEV_ERR("%s: error adding mode from DTD: %d\n", __func__, rc);
 	}
 } /* hdmi_edid_detail_desc */
 
