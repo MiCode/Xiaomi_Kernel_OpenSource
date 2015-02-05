@@ -50,7 +50,9 @@ enum port vlv_get_connected_port(struct intel_pipe *intel_pipe)
 		return port->port_id;
 	}
 
-	pr_err("ADF: %s: invalid display type\n", __func__);
+	if (intel_pipe->type != INTEL_PIPE_EDP)
+		pr_err("ADF: %s: No HDMI/DP display\n", __func__);
+
 	return PORT_INVALID;
 }
 

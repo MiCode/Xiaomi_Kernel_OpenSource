@@ -98,6 +98,7 @@ void intel_adf_hotplug_work_function(struct work_struct *work)
 	struct intel_pipe *intel_pipe;
 	struct intel_adf_interface *intf;
 	struct intel_adf_context *adf_context = context_from_hp_work(work);
+	bool old_status;
 
 	pr_info("ADF: %s\n", __func__);
 	while (count < adf_context->n_intfs) {
@@ -125,6 +126,53 @@ void intel_adf_hotplug_work_function(struct work_struct *work)
 				pr_err("ADF: %s: failed to handle HDMI hotplug\n",
 						__func__);
 				return;
+			}
+		}
+
+		if (intel_pipe->type == INTEL_PIPE_DP) {
+			size_t n_modes;
+			struct dp_pipe *dp_pipe;
+			struct dp_panel *monitor;
+			struct drm_mode_modeinfo *modelist;
+
+			dp_pipe = to_dp_pipe(intel_pipe);
+			old_status = dp_pipe->panel_present;
+			if (intel_adf_dp_hot_plug(dp_pipe)) {
+				pr_err("ADF: %s: DP failed to handle interrupt\n",
+						__func__);
+				return;
+			}
+			if (old_status == dp_pipe->panel_present) {
+				pr_info("ADF: %s: Not a DP event\n",
+							__func__);
+				continue;
+			}
+
+			/* Inform userspace about detection status */
+			if (dp_pipe->panel_present) {
+				monitor = &dp_pipe->panel;
+				intel_pipe->ops->get_modelist(intel_pipe,
+						&modelist, &n_modes);
+
+				if (!modelist || !n_modes) {
+					pr_err("ADF: %s: Invalid/NULL modelist\n",
+							__func__);
+					return;
+				}
+
+				if (adf_hotplug_notify_connected(&intf->base,
+							modelist, n_modes))
+					pr_err("ADF: %s: send DP connected noti failed\n",
+							__func__);
+			} else {
+				pr_err("ADF: %s: sending DP disconnect noti\n",
+						__func__);
+				if (adf_interface_blank(&intf->base,
+							DRM_MODE_DPMS_OFF))
+					pr_err("ADF: %s: Disable DP failed\n",
+							__func__);
+				adf_hotplug_notify_disconnected(&intf->base);
+				pr_err("ADF: DP disabled\n");
 			}
 		}
 	}

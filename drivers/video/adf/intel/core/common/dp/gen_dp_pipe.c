@@ -17,7 +17,7 @@
 #include <drm/i915_adf.h>
 #include <core/common/dp/gen_dp_pipe.h>
 #include <core/intel_platform_config.h>
-
+#include <intel_adf.h>
 #include <core/vlv/vlv_dc_config.h>
 #include <core/vlv/vlv_dc_regs.h>
 #include <core/vlv/vlv_pm.h>
@@ -324,7 +324,7 @@ static void dp_pipe_get_modelist(struct intel_pipe *pipe,
 	*n_modes = panel->no_probed_modes;
 
 	dp_pipe_dump_modes(*modelist, *n_modes);
-	pr_err("%s done, no_modes=%d\n", __func__, (int)*n_modes);
+	pr_err("%s, number of modes =%d\n", __func__, (int)*n_modes);
 }
 
 static void dp_pipe_get_preferred_mode(struct intel_pipe *pipe,
@@ -357,6 +357,28 @@ static int dp_pipe_hw_init(struct intel_pipe *pipe)
 
 static void dp_pipe_handle_events(struct intel_pipe *pipe, u32 events)
 {
+	struct workqueue_struct *hotplug_wq;
+	struct work_struct *hotplug_work;
+
+	if (intel_adf_handle_events(pipe, events))
+		pr_err("ADF: DP: %s handle events (type=%d) failed\n",
+				__func__, pipe->type);
+
+	/* DP expects hot plug event */
+	if (events & INTEL_PORT_EVENT_HOTPLUG_DISPLAY) {
+
+		/* Validate input */
+		if (!g_adf_context) {
+			pr_err("ADF: %s: No adf context present\n", __func__);
+			return;
+		}
+
+		hotplug_wq = g_adf_context->hotplug_wq;
+		hotplug_work = (struct work_struct *)
+			&g_adf_context->hotplug_work;
+		queue_work(hotplug_wq, hotplug_work);
+	}
+
 	return;
 }
 
@@ -445,7 +467,10 @@ static void dp_pipe_pre_post(struct intel_pipe *pipe)
 
 static u32 dp_pipe_get_supported_events(struct intel_pipe *pipe)
 {
-	return INTEL_PIPE_EVENT_VSYNC;
+	return INTEL_PIPE_EVENT_VSYNC |
+		INTEL_PORT_EVENT_HOTPLUG_DISPLAY |
+		INTEL_PIPE_EVENT_HOTPLUG_CONNECTED |
+		INTEL_PIPE_EVENT_HOTPLUG_DISCONNECTED;
 }
 
 u32 dp_pipe_get_vsync_counter(struct intel_pipe *pipe, u32 interval)
@@ -548,7 +573,7 @@ u32 dp_pipe_init(struct dp_pipe *dp_pipe, struct device *dev,
 		/* Initialize PSR for eDP */
 		vlv_edp_psr_init(pipeline);
 	}
-
+	dp_pipe->base.hp_reqd = true;
 	pr_debug("%s: exit :%x\n", __func__, (unsigned int)err);
 	return err;
 }
@@ -556,4 +581,39 @@ u32 dp_pipe_init(struct dp_pipe *dp_pipe, struct device *dev,
 u32 dp_pipe_destroy(struct dp_pipe *pipe)
 {
 	return 0;
+}
+
+int intel_adf_dp_hot_plug(struct dp_pipe *dp_pipe)
+{
+	if (dp_pipe_is_screen_connected(&dp_pipe->base)) {
+		pr_info("DP: %s: Triggering self modeset\n", __func__);
+		return intel_dp_self_modeset(dp_pipe);
+	} else
+		pr_err("DP screen is not connected\n");
+	return 0;
+}
+
+int intel_dp_self_modeset(struct dp_pipe *dp_pipe)
+{
+	int ret = 0;
+	struct intel_pipe *pipe = &dp_pipe->base;
+	struct dp_panel *panel = &dp_pipe->panel;
+	struct drm_mode_modeinfo *mode;
+
+	mode = panel->preferred_mode;
+	if (!mode) {
+		pr_err("DP: %s No preferred mode\n", __func__);
+		return -EINVAL;
+	}
+
+	if (pipe->ops->modeset) {
+		ret = pipe->ops->modeset(pipe, mode);
+		if (ret) {
+			pr_err("DP: %s Self modeset failed\n", __func__);
+			return ret;
+		}
+		pr_info("DP: %s Self modeset success\n", __func__);
+	}
+
+	return ret;
 }

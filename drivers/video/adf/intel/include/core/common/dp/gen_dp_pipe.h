@@ -74,4 +74,9 @@ u32 dp_pipe_init(struct dp_pipe *pipe, struct device *dev,
 
 u32 dp_pipe_destroy(struct dp_pipe *pipe);
 
+int intel_adf_dp_hot_plug(struct dp_pipe *dp_pipe);
+int intel_dp_self_modeset(struct dp_pipe *dp_pipe);
+extern int
+intel_adf_dp_handle_events(struct dp_pipe *dp_pipe, u32 events);
+
 #endif /* _INTEL_DP_PIPE_H_ */
