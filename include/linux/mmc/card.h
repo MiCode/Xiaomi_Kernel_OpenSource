@@ -302,6 +302,8 @@ struct mmc_card {
 #define MMC_QUIRK_BROKEN_IRQ_POLLING	(1<<11)	/* Polling SDIO_CCCR_INTx could create a fake interrupt */
 						/* byte mode */
 #define MMC_QUIRK_INAND_DATA_TIMEOUT  (1<<12)   /* For incorrect data timeout */
+#define MMC_QUIRK_BROKEN_HPI (1 << 13)		/* For devices which gets */
+						/* broken due to HPI feature */
 
 	unsigned int		erase_size;	/* erase size in sectors */
  	unsigned int		erase_shift;	/* if erase unit is power 2 */
