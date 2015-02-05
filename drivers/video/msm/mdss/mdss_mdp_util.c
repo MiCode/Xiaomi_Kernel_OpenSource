@@ -300,6 +300,29 @@ end:
 		!mdss_mdp_is_ubwc_supported(mdata)) ? NULL : fmt;
 }
 
+void mdss_mdp_get_v_h_subsample_rate(u8 chroma_sample,
+		u8 *v_sample, u8 *h_sample)
+{
+	switch (chroma_sample) {
+	case MDSS_MDP_CHROMA_H2V1:
+		*v_sample = 1;
+		*h_sample = 2;
+		break;
+	case MDSS_MDP_CHROMA_H1V2:
+		*v_sample = 2;
+		*h_sample = 1;
+		break;
+	case MDSS_MDP_CHROMA_420:
+		*v_sample = 2;
+		*h_sample = 2;
+		break;
+	default:
+		*v_sample = 1;
+		*h_sample = 1;
+		break;
+	}
+}
+
 void mdss_mdp_intersect_rect(struct mdss_rect *res_rect,
 	const struct mdss_rect *dst_rect,
 	const struct mdss_rect *sci_rect)
@@ -596,9 +619,7 @@ int mdss_mdp_get_plane_sizes(struct mdss_mdp_format_params *fmt, u32 w, u32 h,
 			ps->plane_size[1] = VENUS_UV_SCANLINES(cf, h) *
 				ps->ystride[1];
 		} else {
-			u8 hmap[] = { 1, 2, 1, 2 };
-			u8 vmap[] = { 1, 1, 2, 2 };
-			u8 horiz, vert, stride_align, height_align;
+			u8 v_subsample, h_subsample, stride_align, height_align;
 			u32 chroma_samp;
 
 			chroma_samp = fmt->chroma_sample;
@@ -610,13 +631,8 @@ int mdss_mdp_get_plane_sizes(struct mdss_mdp_format_params *fmt, u32 w, u32 h,
 					chroma_samp = MDSS_MDP_CHROMA_H2V1;
 			}
 
-			if (chroma_samp >= ARRAY_SIZE(hmap) ||
-				chroma_samp >= ARRAY_SIZE(vmap)) {
-				pr_err("%s: out of bounds error\n", __func__);
-				return -ERANGE;
-			}
-			horiz = hmap[chroma_samp];
-			vert = vmap[chroma_samp];
+			mdss_mdp_get_v_h_subsample_rate(chroma_samp,
+				&v_subsample, &h_subsample);
 
 			switch (fmt->format) {
 			case MDP_Y_CR_CB_GH2V2:
@@ -630,10 +646,10 @@ int mdss_mdp_get_plane_sizes(struct mdss_mdp_format_params *fmt, u32 w, u32 h,
 			}
 
 			ps->ystride[0] = ALIGN(w, stride_align);
-			ps->ystride[1] = ALIGN(w / horiz, stride_align);
+			ps->ystride[1] = ALIGN(w / h_subsample, stride_align);
 			ps->plane_size[0] = ps->ystride[0] *
 				ALIGN(h, height_align);
-			ps->plane_size[1] = ps->ystride[1] * (h / vert);
+			ps->plane_size[1] = ps->ystride[1] * (h / v_subsample);
 
 			if (fmt->fetch_planes == MDSS_MDP_PLANE_PSEUDO_PLANAR) {
 				ps->num_planes = 2;
@@ -806,10 +822,13 @@ void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	if (data->num_planes == 1) {
 		data->p[0].addr += x * fmt->bpp;
 	} else {
-		u8 hmap[] = { 1, 2, 1, 2 };
-		u8 vmap[] = { 1, 1, 2, 2 };
-		u16 xoff = x / hmap[fmt->chroma_sample];
-		u16 yoff = y / vmap[fmt->chroma_sample];
+		u16 xoff, yoff;
+		u8 v_subsample, h_subsample;
+		mdss_mdp_get_v_h_subsample_rate(fmt->chroma_sample,
+			&v_subsample, &h_subsample);
+
+		xoff = x / h_subsample;
+		yoff = y / v_subsample;
 
 		data->p[0].addr += x;
 		data->p[1].addr += xoff + (yoff * ps->ystride[1]);

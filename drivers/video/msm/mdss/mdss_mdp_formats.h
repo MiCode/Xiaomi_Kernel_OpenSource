@@ -31,9 +31,10 @@ enum {
 	COLOR_ALPHA_4BIT = 1,
 };
 
-#define FMT_RGB_565(fmt, fetch_type, e0, e1, e2)		\
+#define FMT_RGB_565(fmt, fetch_type, flag_arg, e0, e1, e2)		\
 	{							\
 		.format = (fmt),				\
+		.flag = flag_arg,					\
 		.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,	\
 		.unpack_tight = 1,				\
 		.unpack_align_msb = 0,				\
@@ -49,9 +50,10 @@ enum {
 		},						\
 	}
 
-#define FMT_RGB_888(fmt, fetch_type, e0, e1, e2)		\
+#define FMT_RGB_888(fmt, fetch_type, flag_arg, e0, e1, e2)		\
 	{							\
 		.format = (fmt),				\
+		.flag = flag_arg,					\
 		.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,	\
 		.unpack_tight = 1,				\
 		.unpack_align_msb = 0,				\
@@ -67,9 +69,11 @@ enum {
 		},						\
 	}
 
-#define FMT_RGB_8888(fmt, fetch_type, alpha_en, e0, e1, e2, e3)	\
+#define FMT_RGB_8888(fmt, fetch_type, flag_arg,	\
+		alpha_en, e0, e1, e2, e3)	\
 	{							\
 		.format = (fmt),				\
+		.flag = flag_arg,					\
 		.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,	\
 		.unpack_tight = 1,				\
 		.unpack_align_msb = 0,				\
@@ -98,9 +102,11 @@ enum {
 		.unpack_tight = 1,				\
 		.unpack_align_msb = 0
 
-#define FMT_YUV_PSEUDO(fmt, fetch_type, samp, e0, e1)		\
+#define FMT_YUV_PSEUDO(fmt, fetch_type, samp, \
+		flag_arg, e0, e1)		\
 	{							\
 		FMT_YUV_COMMON(fmt),				\
+		.flag = flag_arg,					\
 		.fetch_planes = MDSS_MDP_PLANE_PSEUDO_PLANAR,	\
 		.chroma_sample = samp,				\
 		.unpack_count = 2,				\
@@ -109,9 +115,11 @@ enum {
 		.element = { (e0), (e1) },			\
 	}
 
-#define FMT_YUV_PLANR(fmt, fetch_type, samp, e0, e1)		\
+#define FMT_YUV_PLANR(fmt, fetch_type, samp, \
+		flag_arg, e0, e1)		\
 	{							\
 		FMT_YUV_COMMON(fmt),				\
+		.flag = flag_arg,					\
 		.fetch_planes = MDSS_MDP_PLANE_PLANAR,		\
 		.chroma_sample = samp,				\
 		.bpp = 1,					\
@@ -193,13 +201,14 @@ static struct mdss_fudge_factor ubwc_nrt_factors[][UBWC_TOTAL_FORMATS] = {
 static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
 	{
 		.mdp_format = FMT_RGB_565(MDP_RGB_565_UBWC,
-			MDSS_MDP_FETCH_UBWC, C1_B_Cb, C0_G_Y, C2_R_Cr),
+			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT,
+			C1_B_Cb, C0_G_Y, C2_R_Cr),
 		.comp_ratio_rt = {1, 1},
 		.comp_ratio_nrt = {1, 1},
 	},
 	{
 		.mdp_format = FMT_RGB_8888(MDP_RGBA_8888_UBWC,
-			MDSS_MDP_FETCH_UBWC, 1,
+			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT, 1,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
 		.comp_ratio_rt = {1, 1},
 		.comp_ratio_nrt = {1, 1},
@@ -207,80 +216,80 @@ static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
 	{
 		.mdp_format = FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2_UBWC,
 			MDSS_MDP_FETCH_UBWC, MDSS_MDP_CHROMA_420,
-			C1_B_Cb, C2_R_Cr),
+			VALID_ROT_WB_FORMAT, C1_B_Cb, C2_R_Cr),
 		.comp_ratio_rt = {1, 1},
 		.comp_ratio_nrt = {1, 1},
 	},
 };
 
 static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
-	FMT_RGB_565(MDP_RGB_565, MDSS_MDP_FETCH_LINEAR,
+	FMT_RGB_565(MDP_RGB_565, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
 		C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_565(MDP_BGR_565, MDSS_MDP_FETCH_LINEAR,
+	FMT_RGB_565(MDP_BGR_565, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb),
-	FMT_RGB_565(MDP_RGB_565_TILE, MDSS_MDP_FETCH_TILE,
+	FMT_RGB_565(MDP_RGB_565_TILE, MDSS_MDP_FETCH_TILE, VALID_ROT_WB_FORMAT,
 		C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_565(MDP_BGR_565_TILE, MDSS_MDP_FETCH_TILE,
+	FMT_RGB_565(MDP_BGR_565_TILE, MDSS_MDP_FETCH_TILE, VALID_ROT_WB_FORMAT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb),
-	FMT_RGB_888(MDP_RGB_888, MDSS_MDP_FETCH_LINEAR,
+	FMT_RGB_888(MDP_RGB_888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
 		C2_R_Cr, C0_G_Y, C1_B_Cb),
-	FMT_RGB_888(MDP_BGR_888, MDSS_MDP_FETCH_LINEAR,
+	FMT_RGB_888(MDP_BGR_888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
 		C1_B_Cb, C0_G_Y, C2_R_Cr),
 
-	FMT_RGB_8888(MDP_XRGB_8888, MDSS_MDP_FETCH_LINEAR,
+	FMT_RGB_8888(MDP_XRGB_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
 		0, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
-	FMT_RGB_8888(MDP_ARGB_8888, MDSS_MDP_FETCH_LINEAR,
+	FMT_RGB_8888(MDP_ARGB_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
 		1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
-	FMT_RGB_8888(MDP_RGBA_8888, MDSS_MDP_FETCH_LINEAR,
+	FMT_RGB_8888(MDP_RGBA_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
 		1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
-	FMT_RGB_8888(MDP_RGBX_8888, MDSS_MDP_FETCH_LINEAR,
+	FMT_RGB_8888(MDP_RGBX_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
 		0, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
-	FMT_RGB_8888(MDP_BGRA_8888, MDSS_MDP_FETCH_LINEAR,
+	FMT_RGB_8888(MDP_BGRA_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
 		1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
-	FMT_RGB_8888(MDP_BGRX_8888, MDSS_MDP_FETCH_LINEAR,
+	FMT_RGB_8888(MDP_BGRX_8888, MDSS_MDP_FETCH_LINEAR, VALID_ROT_WB_FORMAT,
 		0, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
 	FMT_RGB_8888(MDP_RGBA_8888_TILE, MDSS_MDP_FETCH_TILE,
-		1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+		VALID_ROT_WB_FORMAT, 1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
 	FMT_RGB_8888(MDP_ARGB_8888_TILE, MDSS_MDP_FETCH_TILE,
-		1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
+		VALID_ROT_WB_FORMAT, 1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
 	FMT_RGB_8888(MDP_ABGR_8888_TILE, MDSS_MDP_FETCH_TILE,
-		1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
+		VALID_ROT_WB_FORMAT, 1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
 	FMT_RGB_8888(MDP_BGRA_8888_TILE, MDSS_MDP_FETCH_TILE,
-		1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+		VALID_ROT_WB_FORMAT, 1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
 	FMT_RGB_8888(MDP_RGBX_8888_TILE, MDSS_MDP_FETCH_TILE,
-		0, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+		VALID_ROT_WB_FORMAT, 0, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
 	FMT_RGB_8888(MDP_XRGB_8888_TILE, MDSS_MDP_FETCH_TILE,
-		0, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
+		VALID_ROT_WB_FORMAT, 0, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
 	FMT_RGB_8888(MDP_XBGR_8888_TILE, MDSS_MDP_FETCH_TILE,
-		0, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
+		VALID_ROT_WB_FORMAT, 0, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
 	FMT_RGB_8888(MDP_BGRX_8888_TILE, MDSS_MDP_FETCH_TILE,
-		0, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+		VALID_ROT_WB_FORMAT, 0, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
 
 	FMT_YUV_PSEUDO(MDP_Y_CRCB_H1V1, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_RGB, C2_R_Cr, C1_B_Cb),
+		MDSS_MDP_CHROMA_RGB, 0, C2_R_Cr, C1_B_Cb),
 	FMT_YUV_PSEUDO(MDP_Y_CBCR_H1V1, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_RGB, C1_B_Cb, C2_R_Cr),
+		MDSS_MDP_CHROMA_RGB, 0, C1_B_Cb, C2_R_Cr),
 	FMT_YUV_PSEUDO(MDP_Y_CRCB_H2V1, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_H2V1, C2_R_Cr, C1_B_Cb),
+		MDSS_MDP_CHROMA_H2V1, 0, C2_R_Cr, C1_B_Cb),
 	FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V1, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_H2V1, C1_B_Cb, C2_R_Cr),
+		MDSS_MDP_CHROMA_H2V1, VALID_ROT_WB_FORMAT, C1_B_Cb, C2_R_Cr),
 	FMT_YUV_PSEUDO(MDP_Y_CRCB_H1V2, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_H1V2, C2_R_Cr, C1_B_Cb),
+		MDSS_MDP_CHROMA_H1V2, 0, C2_R_Cr, C1_B_Cb),
 	FMT_YUV_PSEUDO(MDP_Y_CBCR_H1V2, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_H1V2, C1_B_Cb, C2_R_Cr),
+		MDSS_MDP_CHROMA_H1V2, VALID_ROT_WB_FORMAT, C1_B_Cb, C2_R_Cr),
 	FMT_YUV_PSEUDO(MDP_Y_CRCB_H2V2, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_420, C2_R_Cr, C1_B_Cb),
+		MDSS_MDP_CHROMA_420, 0, C2_R_Cr, C1_B_Cb),
 	FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),
+		MDSS_MDP_CHROMA_420, VALID_ROT_WB_FORMAT, C1_B_Cb, C2_R_Cr),
 	FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2_VENUS, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),
+		MDSS_MDP_CHROMA_420, 0, C1_B_Cb, C2_R_Cr),
 
 	FMT_YUV_PLANR(MDP_Y_CB_CR_H2V2, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_420, C2_R_Cr, C1_B_Cb),
+		MDSS_MDP_CHROMA_420, VALID_ROT_WB_FORMAT, C2_R_Cr, C1_B_Cb),
 	FMT_YUV_PLANR(MDP_Y_CR_CB_H2V2, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),
+		MDSS_MDP_CHROMA_420, 0, C1_B_Cb, C2_R_Cr),
 	FMT_YUV_PLANR(MDP_Y_CR_CB_GH2V2, MDSS_MDP_FETCH_LINEAR,
-		MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),
+		MDSS_MDP_CHROMA_420, 0, C1_B_Cb, C2_R_Cr),
 
 	{
 		FMT_YUV_COMMON(MDP_YCBCR_H1V1),

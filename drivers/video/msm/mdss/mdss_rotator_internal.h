@@ -140,6 +140,7 @@ struct mdss_rot_mgr {
 	struct list_head file_list;
 
 	bool has_downscale;
+	bool has_ubwc;
 };
 
 #ifdef CONFIG_COMPAT

@@ -50,6 +50,8 @@
 #define MAX_FREE_LIST_SIZE	12
 #define OVERLAY_MAX		10
 
+#define VALID_ROT_WB_FORMAT BIT(0)
+
 #define C3_ALPHA	3	/* alpha */
 #define C2_R_Cr		2	/* R/Cr */
 #define C1_B_Cb		1	/* B/Cb */
@@ -340,6 +342,7 @@ struct mdss_mdp_mixer {
 
 struct mdss_mdp_format_params {
 	u32 format;
+	u32 flag;
 	u8 is_yuv;
 
 	u8 frame_format;
@@ -1134,6 +1137,8 @@ void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt);
 bool mdss_mdp_initialize_ubwc_factors(struct mdss_data_type *mdata);
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
+void mdss_mdp_get_v_h_subsample_rate(u8 chroma_samp,
+	u8 *v_sample, u8 *h_sample);
 struct mdss_fudge_factor *mdss_mdp_get_comp_factor(u32 format,
 	bool rt_factor);
 int mdss_mdp_data_get(struct mdss_mdp_data *data, struct msmfb_data *planes,
