@@ -41,18 +41,12 @@ struct edp_psr {
 	atomic_t update_pending;
 };
 
-struct dp_pipe {
-	struct edp_psr psr;
-	struct intel_pipe base;
-	struct intel_pipeline *pipeline;
-	struct dp_panel panel;
-	struct drm_mode_modeinfo preferred_mode;
-	struct drm_mode_modeinfo current_mode;
-	struct link_params link_params;
-	u8 dpms_state;
-	bool panel_present;
+/* eDP DRRS related fields */
+struct edp_drrs_platform_ops {
+	void (*init)(struct intel_pipeline *pipeline);
+	void (*exit)(struct intel_pipeline *pipeline);
+	void (*set_drrs_state)(struct intel_pipeline *pipeline);
 };
-
 
 /* Used by dp and fdi links */
 struct intel_link_m_n {
@@ -61,6 +55,27 @@ struct intel_link_m_n {
 	u32        gmch_n;
 	u32        link_m;
 	u32        link_n;
+};
+
+struct edp_drrs {
+	/* M1, N1 for normal mode */
+	struct intel_link_m_n fixed_mn;
+	/* M2, N2 for downclock mode */
+	struct intel_link_m_n downclock_mn;
+	struct edp_drrs_platform_ops *platform_ops;
+};
+
+struct dp_pipe {
+	struct edp_psr psr;
+	struct edp_drrs drrs;
+	struct intel_pipe base;
+	struct intel_pipeline *pipeline;
+	struct dp_panel panel;
+	struct drm_mode_modeinfo preferred_mode;
+	struct drm_mode_modeinfo current_mode;
+	struct link_params link_params;
+	u8 dpms_state;
+	bool panel_present;
 };
 
 static inline struct dp_pipe *to_dp_pipe(struct intel_pipe *pipe)
@@ -82,4 +97,5 @@ int intel_dp_self_modeset(struct dp_pipe *dp_pipe);
 extern int
 intel_adf_dp_handle_events(struct dp_pipe *dp_pipe, u32 events);
 
+struct drrs_encoder_ops *intel_get_edp_drrs_ops(void);
 #endif /* _INTEL_DP_PIPE_H_ */
