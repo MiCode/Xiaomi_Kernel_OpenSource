@@ -1,0 +1,58 @@
+BOSCH BMM150 3-axis magnetic sensor
+
+The BOSCH 3-axis magnetic sensor is a complete 3-axis magnetic sensor with
+on-chip signal processing and intergrated i2c bus. It can be connected to host
+processor via i2c. It can measure magnetic fields within the full scale range
+from -16 Gauss to +16 Gauss.
+
+Required properties:
+
+ - compatible		: Should be "bosch,bmm150".
+ - reg			: i2c address of the device.
+ - vdd-supply		: Analog power supply needed to power up the device.
+ - vio-supply		: Digital IO power supply needed for IO and I2C.
+ - bmm,dir		: String value of the direction of the ecompass sensor
+	chip. There are 8 patterns of direction:
+
+
+       x > 0 /___________o
+               /        /|
+              /        / |* 1st pin is here
+             /________/ /|
+             |_______/|/ |/ z > 0
+                    /
+                  |/ y > 0
+
+
+		The above graph shows the coordination of the sensor chip. Specify the
+		following string to bosch,dir to convert it into Android coordination.
+		Note the definition of sensor placement on target board is relative to
+		Android portrait mode.
+
+						left	right	up	down
+		obverse-x-axis-forward		Y+	Y-	X+	X-
+		obverse-x-axis-rightward	X-	X+	Y+	Y-
+		obverse-x-axis-backward		Y-	Y+	X-	X+
+		obverse-x-axis-leftward		X+	X-	Y-	Y+
+		reverse-x-axis-forward		Y-	Y+	X+	X-
+		reverse-x-axis-rightward	X-	X+	Y-	Y+
+		reverse-x-axis-backward		Y+	Y-	X-	X+
+		reverse-x-axis-leftward		X+	X-	Y+	Y-
+
+Optional properites:
+
+ - bmm,auto-report	: Boolean value to enable auto-report mode.
+
+ Example:
+	A chip on 8916 platform with the pattern as the above graph:
+	&i2c_0 { /* BLSP1 QUP2 */
+		bosch@12 {
+				compatible = "bosch,bmm150";
+				reg = <0x12>;
+				vdd-supply = <&pm8916_l17>;
+				vio-supply = <&pm8916_l6>;
+				bmm,dir = "obverse-x-axis-forward";
+				bmm,auto-report;
+		};
+	};
+
