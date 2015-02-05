@@ -2659,6 +2659,7 @@
 		qcom,vbus-valid-override;
 		qcom,set-pllbtune;
 		qcom,sleep-clk-reset;
+		qcom,vdda-force-on;
 		clocks = <&clock_gcc clk_gcc_usb2_hs_phy_sleep_clk>;
 		clock-names = "phy_sleep_clk";
 	};
