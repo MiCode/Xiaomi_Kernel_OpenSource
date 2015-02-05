@@ -501,17 +501,15 @@ static int ft5x06_leave_pocket(struct device *dev)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 	int err;
-	ft5x06_ts_start(dev);
 
-	if (ft5x06_gesture_support_enabled() && device_may_wakeup(dev) &&
-		data->pdata->gesture_support &&
-		data->gesture_pdata->gesture_enable_to_set) {
-		ft5x0x_write_reg(data->client, FT_REG_GESTURE_ENABLE, 1);
-		err = enable_irq_wake(data->client->irq);
-		if (err)
-			dev_err(&data->client->dev,
-				"%s: set_irq_wake failed\n", __func__);
-	}
+	ft5x06_ts_start(dev);
+	ft5x0x_write_reg(data->client, FT_REG_GESTURE_ENABLE, 1);
+	err = enable_irq_wake(data->client->irq);
+	if (err)
+		dev_err(&data->client->dev,
+			"%s: set_irq_wake failed\n", __func__);
+	data->suspended = true;
+
 	return err;
 }
 
@@ -538,10 +536,11 @@ static ssize_t gesture_in_pocket_mode_store(struct device *dev,
 			__func__, ret);
 		return ret;
 	}
-	if (1 == value) {
+
+	if (1 == value && data->gesture_pdata->in_pocket == 0) {
 		data->gesture_pdata->in_pocket = 1;
 		ft5x06_entry_pocket(dev);
-	} else if (0 == value) {
+	} else if (0 == value && data->gesture_pdata->in_pocket == 1) {
 		ft5x06_leave_pocket(dev);
 		data->gesture_pdata->in_pocket = 0;
 	}
