@@ -404,6 +404,7 @@
 			    "bam_phys";
 		interrupts = <0 24 0>;
 		interrupt-names = "bam_irq";
+		status = "disabled";
 	};
 
 	pcie1: qcom,pcie@fc528000 {
