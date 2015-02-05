@@ -2134,11 +2134,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < smmu->num_global_irqs; ++i) {
-		err = devm_request_irq(smmu->dev, smmu->irqs[i],
-				       arm_smmu_global_fault,
-				       IRQF_SHARED,
-				       "arm-smmu global fault",
-				       smmu);
+		err = devm_request_threaded_irq(smmu->dev, smmu->irqs[i],
+					NULL, arm_smmu_global_fault,
+					IRQF_ONESHOT | IRQF_SHARED,
+					"arm-smmu global fault", smmu);
 		if (err) {
 			dev_err(dev, "failed to request global IRQ %d (%u)\n",
 				i, smmu->irqs[i]);
