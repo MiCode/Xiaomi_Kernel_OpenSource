@@ -3079,6 +3079,11 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		prefer_idle = 1;
 		prefer_idle_override = 1;
 		small_task = 0;
+		/*
+		 * If wake to idle and sync are both set prefer wake to idle
+		 * since sync is a weak hint that might not always be correct.
+		 */
+		sync = 0;
 	}
 
 	if (small_task && !boost) {
