@@ -262,7 +262,7 @@ static int dhdpcie_pci_disable_pm_runtime(struct device *dev, void *data)
 	int *cnt = data;
 
 	pcidev = container_of(dev, struct pci_dev, dev);
-	if (pcidev->device == 0x22c8) {
+	if (pcidev->device == INTEL_CHT_PCIE_ID) {
 		DHD_ERROR(("PCI bridge pm runtime off: 0x%04x, 0x%04x, %s\n",
 			   pcidev->vendor, pcidev->device, dev_name(dev)));
 		if (pm_runtime_enabled(dev))
@@ -297,6 +297,31 @@ static int dhdpcie_device_scan(struct device *dev, void *data)
 }
 #endif /* LINUX_VERSION >= 2.6.0 */
 
+
+static int dhdpcie_pci_remove_bus(struct device *dev, void *data)
+{
+	struct pci_dev *pcidev;
+	struct pci_dev *child, *temp;
+	struct pci_bus *parent;
+
+	pcidev = container_of(dev, struct pci_dev, dev);
+
+	if (pcidev->device == INTEL_CHT_PCIE_ID) {
+		parent = pcidev->subordinate;
+		list_for_each_entry_safe_reverse(child, temp, &parent->devices,
+					bus_list) {
+			DHD_ERROR(("dhdpcie_pci_remove_device: %s\n",
+			dev_name(&child->dev)));
+			pci_dev_get(child);
+			pci_stop_and_remove_bus_device(child);
+			pci_dev_put(child);
+		}
+	}
+
+	return 0;
+}
+
+
 int
 dhdpcie_bus_register(void)
 {
@@ -309,6 +334,8 @@ dhdpcie_bus_register(void)
 
 	DHD_ERROR(("%s: pci_module_init failed 0x%x\n", __FUNCTION__, error));
 #else
+	bus_for_each_dev(&pci_bus_type, NULL, &error,
+		 dhdpcie_pci_remove_bus);
 	if (!(error = pci_register_driver(&dhdpcie_driver))) {
 		bus_for_each_dev(dhdpcie_driver.driver.bus, NULL, &error,
 				 dhdpcie_pci_disable_pm_runtime);

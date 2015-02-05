@@ -300,6 +300,7 @@
 #define PCIXX21_SDIOH_ID	0x803c		/* TI PCI xx21 Standard Host Controller */
 #define R5C822_SDIOH_ID		0x0822		/* Ricoh Co Ltd R5C822 SD/SDIO/MMC/MS/MSPro Host */
 #define JMICRON_SDIOH_ID	0x2381		/* JMicron Standard SDIO Host Controller */
+#define INTEL_CHT_PCIE_ID	0x22c8		/* Intel Bridge */
 
 /* Chip IDs */
 #define	BCM4306_CHIP_ID		0x4306		/* 4306 chipcommon chipid */
