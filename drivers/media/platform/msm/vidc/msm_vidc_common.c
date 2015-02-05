@@ -3680,6 +3680,7 @@ void msm_vidc_fw_unload_handler(struct work_struct *work)
 				dprintk(VIDC_ERR,
 					"Failed to release core, id = %d\n",
 					core->id);
+				mutex_unlock(&core->lock);
 				return;
 			}
 		}
