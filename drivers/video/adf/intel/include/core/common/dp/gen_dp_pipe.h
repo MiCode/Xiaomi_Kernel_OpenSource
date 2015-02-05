@@ -98,4 +98,5 @@ extern int
 intel_adf_dp_handle_events(struct dp_pipe *dp_pipe, u32 events);
 
 struct drrs_encoder_ops *intel_get_edp_drrs_ops(void);
+struct edp_drrs_platform_ops *get_vlv_edp_drrs_ops(void);
 #endif /* _INTEL_DP_PIPE_H_ */
