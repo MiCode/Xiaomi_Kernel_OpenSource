@@ -262,6 +262,11 @@ int drm_lock_free(struct drm_lock_data *lock_data, unsigned int context)
 	unsigned int old, new, prev;
 	volatile unsigned int *lock = &lock_data->hw_lock->lock;
 
+	if (!lock) {
+		DRM_ERROR("Trying to free uninitialized lock\n");
+		return 1;
+	}
+
 	spin_lock_bh(&lock_data->spinlock);
 	if (lock_data->kernel_waiters != 0) {
 		drm_lock_transfer(lock_data, 0);
