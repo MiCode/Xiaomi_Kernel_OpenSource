@@ -600,6 +600,59 @@ static struct ov5648_reg const ov5648_1080p_30fps_2lanes[] = {
 	{OV5648_TOK_TERM, 0, 0}
 };
 
+/* 2x2 subsampled 4:3 mode giving 1280x960.
+ * 84.48Mhz / (HTS*VTS) == 84.48e6/(2500*1126) == 30.01 fps */
+static struct ov5648_reg const ov5648_1280x960_30fps_2lanes[] = {
+	{OV5648_8BIT, 0x3034, 0x1a},
+	{OV5648_8BIT, 0x3035, 0x21},
+	{OV5648_8BIT, 0x3036, 0x58},
+	{OV5648_8BIT, 0x3037, 0x02},
+	{OV5648_8BIT, 0x3038, 0x00},
+	{OV5648_8BIT, 0x3039, 0x00},
+	{OV5648_8BIT, 0x3106, 0x05},
+	{OV5648_8BIT, 0x3105, 0x11},
+	{OV5648_8BIT, 0x303a, 0x00},
+	{OV5648_8BIT, 0x303b, 0x16},
+	{OV5648_8BIT, 0x303c, 0x11},
+	{OV5648_8BIT, 0x303d, 0x20},
+
+	{OV5648_8BIT, 0x350a, 0x00}, /* Def. analog gain = 0x080/16.0 = 8x */
+	{OV5648_8BIT, 0x350b, 0x80},
+
+	{OV5648_8BIT, 0x3708, 0x66},
+	{OV5648_8BIT, 0x3709, 0x52},
+	{OV5648_8BIT, 0x370c, 0xcf},
+
+	{OV5648_8BIT, 0x3800, 0x00}, /* Xstart = 0x0000 */
+	{OV5648_8BIT, 0x3801, 0x00},
+	{OV5648_8BIT, 0x3802, 0x00}, /* Ystart = 0x0000 */
+	{OV5648_8BIT, 0x3803, 0x00},
+	{OV5648_8BIT, 0x3804, 0x0a}, /* Xend = 0x0a3f = 2623 */
+	{OV5648_8BIT, 0x3805, 0x3f},
+	{OV5648_8BIT, 0x3806, 0x07}, /* Yend = 0x07a3 = 1955 */
+	{OV5648_8BIT, 0x3807, 0xa3},
+	{OV5648_8BIT, 0x3808, 0x05}, /* H output size = 0x0510 = 1296 */
+	{OV5648_8BIT, 0x3809, 0x10},
+	{OV5648_8BIT, 0x380a, 0x03}, /* V output size = 0x03cc = 972 */
+	{OV5648_8BIT, 0x380b, 0xcc},
+	{OV5648_8BIT, 0x380c, 0x09}, /* H total size = 0x09c4 = 2500 */
+	{OV5648_8BIT, 0x380d, 0xc4},
+	{OV5648_8BIT, 0x380e, 0x04}, /* V total size = 0x0466 = 1126 */
+	{OV5648_8BIT, 0x380f, 0x66},
+	{OV5648_8BIT, 0x3810, 0x00}, /* X window offset = 0x0008 */
+	{OV5648_8BIT, 0x3811, 0x08},
+	{OV5648_8BIT, 0x3812, 0x00}, /* Y window offset = 0x0004 */
+	{OV5648_8BIT, 0x3813, 0x04},
+	{OV5648_8BIT, 0x3814, 0x31}, /* X subsample step: odd = 3, even = 1 */
+	{OV5648_8BIT, 0x3815, 0x31}, /* Y subsample step: odd = 3, even = 1 */
+	{OV5648_8BIT, 0x3817, 0x00}, /* HSync start = 0 */
+	{OV5648_8BIT, 0x3820, 0x08}, /* V flip off, V binning off */
+	{OV5648_8BIT, 0x3821, 0x07}, /* H mirror on, H binning on */
+
+	{OV5648_8BIT, 0x4004, 0x02},
+	{OV5648_8BIT, 0x4837, 0x18},
+};
+
 static struct ov5648_reg const ov5648_5M_15fps_2lanes[] = {
 	/*;add 19.2MHz */
 	{OV5648_8BIT, 0x3034, 0x1a},
@@ -671,6 +724,21 @@ struct ov5648_resolution ov5648_res_preview[] = {
 	 .regs = ov5648_5M_15fps_2lanes,
 	 },
 	{
+	 .desc = "ov5648_1280x960_30fps",
+	 .width = 1296,
+	 .height = 972,
+	 .pix_clk_freq = 84,
+	 .fps = 30,
+	 .used = 0,
+	 .pixels_per_line = 2500,
+	 .lines_per_frame = 1126,
+	 .bin_factor_x = 2,
+	 .bin_factor_y = 2,
+	 .bin_mode = 1,
+	 .skip_frames = 3,
+	 .regs = ov5648_1280x960_30fps_2lanes,
+	 },
+	{
 	 .desc = "ov5648_720P_30fps",
 	 .width = 1296,
 	 .height = 736,
@@ -706,6 +774,21 @@ struct ov5648_resolution ov5648_res_still[] = {
 	 .regs = ov5648_5M_15fps_2lanes,
 	 },
 	{
+	 .desc = "ov5648_1280x960_30fps",
+	 .width = 1296,
+	 .height = 972,
+	 .pix_clk_freq = 84,
+	 .fps = 30,
+	 .used = 0,
+	 .pixels_per_line = 2500,
+	 .lines_per_frame = 1126,
+	 .bin_factor_x = 2,
+	 .bin_factor_y = 2,
+	 .bin_mode = 1,
+	 .skip_frames = 3,
+	 .regs = ov5648_1280x960_30fps_2lanes,
+	 },
+	{
 	 .desc = "ov5648_720P_30fps",
 	 .width = 1296,
 	 .height = 736,
@@ -739,6 +822,21 @@ struct ov5648_resolution ov5648_res_video[] = {
 	 .bin_mode = 1,
 	 .skip_frames = 3,
 	 .regs = ov5648_720p_30fps_2lanes,
+	 },
+	{
+	 .desc = "ov5648_1280x960_30fps",
+	 .width = 1296,
+	 .height = 972,
+	 .pix_clk_freq = 84,
+	 .fps = 30,
+	 .used = 0,
+	 .pixels_per_line = 2500,
+	 .lines_per_frame = 1126,
+	 .bin_factor_x = 2,
+	 .bin_factor_y = 2,
+	 .bin_mode = 1,
+	 .skip_frames = 3,
+	 .regs = ov5648_1280x960_30fps_2lanes,
 	 },
 };
 
