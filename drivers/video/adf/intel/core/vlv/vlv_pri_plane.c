@@ -140,40 +140,18 @@ static const u32 pri_supported_tiling[] = {
 	INTEL_PLANE_TILE_X,
 };
 
-static int get_format_config(u32 drm_format, u32 *config, u8 *bpp,
-		u8 alpha)
+static int get_format_config(u32 drm_format, u32 *config, u8 *bpp)
 {
 	int i;
-	int ret = -EINVAL;
-
 	for (i = 0; i < ARRAY_SIZE(format_mapping); i++) {
 		if (format_mapping[i].drm_format == drm_format) {
 			*config = format_mapping[i].hw_config;
 			*bpp = format_mapping[i].bpp;
-			ret = 0;
-			break;
+			return 0;
 		}
 	}
 
-	if (alpha)
-		return ret;
-
-	switch (*config) {
-	case DISPPLANE_BGRA888:
-		*config = DISPPLANE_BGRX888;
-		break;
-	case DISPPLANE_RGBA101010:
-		*config = DISPPLANE_RGBX101010;
-		break;
-	case DISPPLANE_BGRA101010:
-		*config = DISPPLANE_BGRX101010;
-		break;
-	case DISPPLANE_RGBA888:
-		*config = DISPPLANE_RGBX888;
-		break;
-	}
-
-	return ret;
+	return -EINVAL;
 }
 
 static int init_context(struct vlv_pri_plane_context *ctx, u8 idx)
@@ -263,8 +241,7 @@ static int vlv_pri_calculate(struct intel_plane *plane,
 	u8 bpp = 0, prev_bpp = 0;
 	u8 i = 0;
 
-	get_format_config(buf->format, &format_config, &bpp,
-			config->alpha);
+	get_format_config(buf->format, &format_config, &bpp);
 
 	if ((buf->format == DRM_FORMAT_XRGB8888) ||
 				(buf->format == DRM_FORMAT_ARGB8888))
