@@ -54,6 +54,7 @@
 #define AC3_OUTPUT_FRAME_SZ		1536
 #define EAC3_OUTPUT_FRAME_SZ		1536
 #define DSP_NUM_OUTPUT_FRAME_BUFFERED	2
+#define FLAC_BLK_SIZE_LIMIT		65535
 
 /* decoder parameter length */
 #define DDP_DEC_MAX_NUM_PARAM		18
@@ -95,6 +96,8 @@ struct msm_compr_gapless_state {
 	int32_t stream_opened[MAX_NUMBER_OF_STREAMS];
 	uint32_t initial_samples_drop;
 	uint32_t trailing_samples_drop;
+	uint32_t min_blk_size;
+	uint32_t max_blk_size;
 	uint32_t gapless_transition;
 	bool use_dsp_gapless_mode;
 };
@@ -976,6 +979,8 @@ static int msm_compr_open(struct snd_compr_stream *cstream)
 	prtd->partial_drain_delay = 0;
 	prtd->next_stream = 0;
 	memset(&prtd->gapless_state, 0, sizeof(struct msm_compr_gapless_state));
+	prtd->gapless_state.min_blk_size = 65537;
+	prtd->gapless_state.max_blk_size = 65537;
 	/*
 	 * Update the use_dsp_gapless_mode from gapless struture with the value
 	 * part of platform data.
@@ -1574,6 +1579,8 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			prtd->first_buffer = 1;
 			prtd->last_buffer = 0;
 			prtd->gapless_state.gapless_transition = 1;
+			prtd->gapless_state.min_blk_size = 65537;
+			prtd->gapless_state.max_blk_size = 65537;
 			prtd->marker_timestamp = 0;
 
 			/*
@@ -2005,6 +2012,8 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 {
 	struct msm_compr_audio *prtd;
 	struct audio_client *ac;
+	struct asm_flac_cfg flac_cfg;
+	int ret = 0;
 	pr_debug("%s\n", __func__);
 
 	if (!metadata || !cstream)
@@ -2028,8 +2037,45 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 	} else if (metadata->key == SNDRV_COMPRESS_ENCODER_DELAY) {
 		pr_debug("%s, got encoder delay %u", __func__, metadata->value[0]);
 		prtd->gapless_state.initial_samples_drop = metadata->value[0];
+	} else if (metadata->key == SNDRV_COMPRESS_MIN_BLK_SIZE) {
+		pr_debug("%s, got min_blk_size %u",
+			__func__, metadata->value[0]);
+		prtd->gapless_state.min_blk_size = metadata->value[0];
+	} else if (metadata->key == SNDRV_COMPRESS_MAX_BLK_SIZE) {
+		pr_debug("%s, got max_blk_size %u",
+			__func__, metadata->value[0]);
+		prtd->gapless_state.max_blk_size = metadata->value[0];
 	}
 
+	if ((prtd->codec == FORMAT_FLAC) &&
+	    (prtd->gapless_state.min_blk_size >= 0) &&
+	    (prtd->gapless_state.min_blk_size <= FLAC_BLK_SIZE_LIMIT) &&
+	    (prtd->gapless_state.max_blk_size >= 0) &&
+	    (prtd->gapless_state.max_blk_size <= FLAC_BLK_SIZE_LIMIT)) {
+		pr_debug("%s: SND_AUDIOCODEC_FLAC\n", __func__);
+		memset(&flac_cfg, 0x0, sizeof(struct asm_flac_cfg));
+		flac_cfg.ch_cfg = prtd->num_channels;
+		flac_cfg.sample_rate = prtd->sample_rate;
+		flac_cfg.stream_info_present = 1;
+		flac_cfg.sample_size =
+			prtd->codec_param.codec.options.flac_dec.sample_size;
+		flac_cfg.min_blk_size =
+			prtd->gapless_state.min_blk_size;
+		flac_cfg.max_blk_size =
+			prtd->gapless_state.max_blk_size;
+		flac_cfg.max_frame_size =
+			prtd->codec_param.codec.options.flac_dec.max_frame_size;
+		flac_cfg.min_frame_size =
+			prtd->codec_param.codec.options.flac_dec.min_frame_size;
+		pr_debug("%s: min_blk_size %d max_blk_size %d\n",
+			__func__, flac_cfg.min_blk_size, flac_cfg.max_blk_size);
+
+		ret = q6asm_stream_media_format_block_flac(ac, &flac_cfg,
+								ac->stream_id);
+		if (ret < 0)
+			pr_err("%s: CMD Format block failed ret %d\n",
+				__func__, ret);
+	}
 	return 0;
 }
 
