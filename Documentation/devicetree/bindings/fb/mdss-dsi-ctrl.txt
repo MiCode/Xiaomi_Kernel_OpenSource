@@ -11,7 +11,6 @@ Required properties:
 - reg-names: 				A list of strings that map in order to the list of regs.
 					"dsi_ctrl" - MDSS DSI controller register region
 					"dsi_phy" - MDSS DSI PHY register region
-					"dsi_phy_regulator" - MDSS DSI PHY REGULATOR region
 					"mmss_misc_phys" - Register region for MMSS DSI clamps
 - vdd-supply:				Phandle for vdd regulator device node.
 - vddio-supply:				Phandle for vdd-io regulator device node.
@@ -33,6 +32,8 @@ Required properties:
 Optional properties:
 - label:		        	A string used to describe the controller used.
 
+- reg-names: 				A list of strings that map in order to the list of regs.
+					"dsi_phy_regulator" - MDSS DSI PHY REGULATOR region
 - vcca-supply:				Phandle for vcca regulator device node.
 - qcom,ctrl-supply-entries:		A node that lists the elements of the supply used by the
 					DSI controller and PHY. There can be more than one instance
