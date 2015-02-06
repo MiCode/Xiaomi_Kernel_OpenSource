@@ -306,15 +306,15 @@
 					<0 50000 0>,
 					<0 20000 0>;
 		qcom,cpr-quotient-adjustment =
-					<0 104  (-41)>, /* VDD_APC - 20mv */
-					<0  41  (-41)>, /* VDD_APC - 20mv */
-					<0 104  (-41)>, /* VDD_APC - 20mv */
-					<0  41  (-41)>, /* VDD_APC - 20mv */
-					<0 104  (-41)>, /* VDD_APC - 20mv */
-					<0  41  (-41)>, /* VDD_APC - 20mv */
-					<0 104  (-41)>, /* VDD_APC - 20mv */
-					<0  41  (-41)>; /* VDD_APC - 20mv */
-		qcom,cpr-fuse-min-quot-diff = <0 0 40>;
+					<0   41  (-41)>, /* NOM + 20mv, TURBO - 20mv */
+					<0 (-20) (-41)>, /* NOM - 10mv, TURBO - 20mv */
+					<0  104  (-41)>, /* NOM + 50mv, TURBO - 20mv */
+					<0   41  (-41)>, /* NOM + 20mv, TURBO - 20mv */
+					<0   41  (-41)>, /* NOM + 20mv, TURBO - 20mv */
+					<0 (-20) (-41)>, /* NOM - 10mv, TURBO - 20mv */
+					<0  104  (-41)>, /* NOM + 50mv, TURBO - 20mv */
+					<0   41  (-41)>; /* NOM + 20mv, TURBO - 20mv */
+		qcom,cpr-fuse-min-quot-diff = <0 0 0>;
 		qcom,cpr-min-quot-diff-adjustment =
 					<0 0 40>,
 					<0 0 40>,
