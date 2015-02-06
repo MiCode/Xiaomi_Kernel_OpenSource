@@ -25,7 +25,9 @@
 #include <linux/spinlock.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
+#ifndef CONFIG_GMIN_INTEL_MID
 #include <media/v4l2-chip-ident.h>
+#endif
 #include <linux/v4l2-mediabus.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>

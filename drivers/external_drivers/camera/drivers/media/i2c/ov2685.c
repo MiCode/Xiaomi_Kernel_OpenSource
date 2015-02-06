@@ -31,7 +31,12 @@
 #include <linux/firmware.h>
 #include <linux/videodev2.h>
 #include <media/v4l2-device.h>
+#ifdef CONFIG_GMIN_INTEL_MID
+#include <linux/acpi.h>
+#include <linux/atomisp_gmin_platform.h>
+#else
 #include <media/v4l2-chip-ident.h>
+#endif
 
 #include "ov2685.h"
 
@@ -740,6 +745,70 @@ static long ov2685_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	return 0;
 }
 
+static int power_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret;
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	if (flag) {
+		ret = dev->platform_data->v2p8_ctrl(sd, 1);
+		if (ret == 0) {
+			ret = dev->platform_data->v1p8_ctrl(sd, 1);
+			if (ret)
+				ret = dev->platform_data->v2p8_ctrl(sd, 0);
+		}
+	} else {
+		ret = dev->platform_data->v2p8_ctrl(sd, 0);
+		ret = dev->platform_data->v1p8_ctrl(sd, 0);
+	}
+#else
+	ret = -EINVAL;
+#endif
+	return ret;
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret;
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	/* Note: current modules wire only one GPIO signal (RESET#),
+	 * but the schematic wires up two to the connector.  BIOS
+	 * versions have been unfortunately inconsistent with which
+	 * ACPI index RESET# is on, so hit both */
+
+	if (flag) {
+		ret = dev->platform_data->gpio0_ctrl(sd, 0);
+		ret = dev->platform_data->gpio1_ctrl(sd, 0);
+		msleep(60);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 1);
+		ret |= dev->platform_data->gpio1_ctrl(sd, 1);
+	} else {
+		ret = dev->platform_data->gpio0_ctrl(sd, 0);
+		ret = dev->platform_data->gpio1_ctrl(sd, 0);
+	}
+#else
+	ret = -EINVAL;
+#endif
+	return ret;
+}
+
 static int power_up(struct v4l2_subdev *sd)
 {
 	struct ov2685_device *dev = to_ov2685_sensor(sd);
@@ -752,12 +821,12 @@ static int power_up(struct v4l2_subdev *sd)
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret)
 		dev_err(&client->dev, "gpio failed\n");
 
@@ -795,12 +864,12 @@ static int power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "flisclk failed\n");
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret)
-		dev_err(&client->dev, "gpio failed\n");
+		dev_err(&client->dev, "gpio failed 1\n");
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
@@ -868,7 +937,9 @@ static int ov2685_to_res(u32 w, u32 h)
 static int ov2685_try_mbus_fmt(struct v4l2_subdev *sd,
 				struct v4l2_mbus_framefmt *fmt)
 {
-	return ov2685_try_res(&fmt->width, &fmt->height);
+	int ret = ov2685_try_res(&fmt->width, &fmt->height);
+	fmt->code = V4L2_MBUS_FMT_UYVY8_1X16;
+	return ret;
 }
 
 static int ov2685_g_mbus_fmt(struct v4l2_subdev *sd,
@@ -941,6 +1012,7 @@ static int ov2685_s_mbus_fmt(struct v4l2_subdev *sd,
 	dev->fmt_idx = res_index;
 	fmt->width = width;
 	fmt->height = height;
+	fmt->code = V4L2_MBUS_FMT_UYVY8_1X16;
 
 	mutex_unlock(&dev->input_lock);
 	return ret;
@@ -1364,6 +1436,7 @@ static int ov2685_enum_frameintervals(struct v4l2_subdev *sd,
 	return 0;
 }
 
+#ifndef CONFIG_GMIN_INTEL_MID /* FIXME! */
 static int
 ov2685_g_chip_ident(struct v4l2_subdev *sd, struct v4l2_dbg_chip_ident *chip)
 {
@@ -1371,7 +1444,7 @@ ov2685_g_chip_ident(struct v4l2_subdev *sd, struct v4l2_dbg_chip_ident *chip)
 
 	return v4l2_chip_ident_i2c_client(client, chip, V4L2_IDENT_OV2685, 0);
 }
-
+#endif
 static int ov2685_enum_mbus_code(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_fh *fh,
 				  struct v4l2_subdev_mbus_code_enum *code)
@@ -1541,6 +1614,9 @@ static int ov2685_remove(struct i2c_client *client)
 
 	release_firmware(dev->firmware);
 	v4l2_device_unregister_subdev(sd);
+#ifdef CONFIG_GMIN_INTEL_MID
+	atomisp_gmin_remove_subdev(sd);
+#endif
 	media_entity_cleanup(&dev->sd.entity);
 	kfree(dev);
 
@@ -1579,7 +1655,10 @@ static int ov2685_probe(struct i2c_client *client,
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
 	struct ov2685_device *dev = container_of(sd,
 					struct ov2685_device, sd);
-	int ret;
+	int ret = 0;
+#ifdef CONFIG_GMIN_INTEL_MID
+	void *pdata;
+#endif
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -1590,13 +1669,29 @@ static int ov2685_probe(struct i2c_client *client,
 	mutex_init(&dev->input_lock);
 
 	v4l2_i2c_subdev_init(&(dev->sd), client, &ov2685_ops);
+#ifdef CONFIG_GMIN_INTEL_MID
+	pdata = client->dev.platform_data;
+	if (ACPI_COMPANION(&client->dev))
+		pdata = gmin_camera_platform_data(&dev->sd,
+						  ATOMISP_INPUT_FORMAT_YUV422_8,
+						  0);
+	if (pdata)
+		ret = ov2685_s_config(&dev->sd, client->irq, pdata);
+	if (!pdata || ret)
+		goto out_free;
+
+	ret = atomisp_register_i2c_module(&dev->sd, pdata, SOC_CAMERA);
+	if (ret)
+		goto out_free;
+#else
+
 	if (client->dev.platform_data) {
 		ret = ov2685_s_config(&dev->sd, client->irq,
 				       client->dev.platform_data);
 		if (ret)
 			goto out_free;
 	}
-
+#endif
 	ret = __ov2685_init_ctrl_handler(dev);
 	if (ret)
 		goto out_ctrl_handler_free;
@@ -1625,10 +1720,21 @@ out_free:
 }
 
 MODULE_DEVICE_TABLE(i2c, ov2685_id);
+#ifdef CONFIG_GMIN_INTEL_MID
+static struct acpi_device_id ov2685_acpi_match[] = {
+	{ "INT33BE" },
+	{},
+};
+MODULE_DEVICE_TABLE(acpi, ov2685_acpi_match);
+#endif
+
 static struct i2c_driver ov2685_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = OV2685_NAME,
+#ifdef CONFIG_GMIN_INTEL_MID
+		.acpi_match_table = ACPI_PTR(ov2685_acpi_match),
+#endif
 	},
 	.probe = ov2685_probe,
 	.remove = __exit_p(ov2685_remove),
