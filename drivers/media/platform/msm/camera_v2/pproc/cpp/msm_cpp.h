@@ -238,6 +238,10 @@ struct cpp_device {
 	uint32_t wr_3_pntr;
 	uint32_t rd_ref_pntr;
 	uint32_t wr_ref_pntr;
+	uint32_t wr_0_meta_data_wr_pntr;
+	uint32_t wr_1_meta_data_wr_pntr;
+	uint32_t wr_2_meta_data_wr_pntr;
+	uint32_t wr_3_meta_data_wr_pntr;
 	uint32_t stripe_base;
 	uint32_t stripe_size;
 	uint32_t stripe_info_offset;
