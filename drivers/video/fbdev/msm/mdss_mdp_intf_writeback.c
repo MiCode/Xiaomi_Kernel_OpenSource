@@ -705,19 +705,20 @@ static void mdss_mdp_set_ot_limit_wb(struct mdss_mdp_writeback_ctx *ctx)
 	ot_params.reg_off_vbif_lim_conf = MMSS_VBIF_WR_LIM_CONF;
 	ot_params.reg_off_mdp_clk_ctrl = ctx->clk_ctrl.reg_off;
 	ot_params.bit_off_mdp_clk_ctrl = ctx->clk_ctrl.bit_off;
+	ot_params.is_rot = (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR);
+	ot_params.is_wb = (ctx->type == MDSS_MDP_WRITEBACK_TYPE_WFD) ||
+		(ctx->type == MDSS_MDP_WRITEBACK_TYPE_LINE);
+	ot_params.is_yuv = ctx->dst_fmt->is_yuv;
 
-	mdss_mdp_set_ot_limit(&ot_params,
-		ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR,
-		(ctx->type == MDSS_MDP_WRITEBACK_TYPE_WFD) ||
-		(ctx->type == MDSS_MDP_WRITEBACK_TYPE_LINE),
-		ctx->dst_fmt->is_yuv);
+	mdss_mdp_set_ot_limit(&ot_params);
+
 }
 
 static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
 	struct mdss_mdp_writeback_arg *wb_args;
-	u32 flush_bits = 0, val, bit_off, reg_off;
+	u32 flush_bits = 0;
 	int ret;
 
 	if (!ctl || !ctl->mdata)
@@ -733,24 +734,9 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 		return -EPERM;
 	}
 
-	if (ctl->mdata->rotator_ot_limit) {
-		if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR)
-			ctx->wr_lim = ctl->mdata->rotator_ot_limit;
-		else
-			ctx->wr_lim = MDSS_DEFAULT_OT_SETTING;
-
-		reg_off = (ctx->xin_id / 4) * 4;
-		bit_off = (ctx->xin_id % 4) * 8;
-
-		val = MDSS_VBIF_READ(ctl->mdata, MMSS_VBIF_WR_LIM_CONF +
-			reg_off, ctx->is_vbif_nrt);
-		val &= ~(0xFF << bit_off);
-		val |= (ctx->wr_lim) << bit_off;
-		MDSS_VBIF_WRITE(ctl->mdata, MMSS_VBIF_WR_LIM_CONF + reg_off,
-			val, ctx->is_vbif_nrt);
-	} else {
+	if (ctl->mdata->default_ot_wr_limit ||
+			ctl->mdata->default_ot_rd_limit)
 		mdss_mdp_set_ot_limit_wb(ctx);
-	}
 
 	wb_args = (struct mdss_mdp_writeback_arg *) arg;
 	if (!wb_args)

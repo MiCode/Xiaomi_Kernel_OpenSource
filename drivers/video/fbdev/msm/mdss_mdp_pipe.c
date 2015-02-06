@@ -1857,11 +1857,11 @@ static void mdss_mdp_set_ot_limit_pipe(struct mdss_mdp_pipe *pipe)
 	ot_params.reg_off_mdp_clk_ctrl = pipe->clk_ctrl.reg_off;
 	ot_params.bit_off_mdp_clk_ctrl = pipe->clk_ctrl.bit_off +
 		CLK_FORCE_ON_OFFSET;
+	ot_params.is_rot = pipe->mixer_left->rotator_mode;
+	ot_params.is_wb = ctl->intf_num == MDSS_MDP_NO_INTF;
+	ot_params.is_yuv = pipe->src_fmt->is_yuv;
 
-	mdss_mdp_set_ot_limit(&ot_params,
-		pipe->mixer_left->rotator_mode,
-		ctl->intf_num ==  MDSS_MDP_NO_INTF,
-		pipe->src_fmt->is_yuv);
+	mdss_mdp_set_ot_limit(&ot_params);
 }
 
 int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
