@@ -429,7 +429,6 @@ static void mdss_dsi_thulium_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct mdss_dsi_phy_ctrl *pd;
 	int j, off, ln, cnt, ln_off;
-	u32 data;
 	char *ip;
 	void __iomem *base;
 
@@ -438,9 +437,7 @@ static void mdss_dsi_thulium_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_LDO_CNTRL, 0x1c);
 
 	/* clk_en */
-	data = MIPI_INP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL);
-	data |= BIT(0);
-	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, data);
+	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, 0x1);
 
 	if (pd->lanecfg_len != 20) {
 		pr_err("%s: wrong lane cfg\n", __func__);
@@ -1445,6 +1442,7 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		 * when continuous splash screen is enabled.
 		 */
 		if (!pdata->panel_info.cont_splash_enabled) {
+			mdss_dsi_read_hw_revision(ctrl);
 			mdss_dsi_phy_init(ctrl);
 			mdss_dsi_ctrl_setup(ctrl);
 		}
