@@ -2706,12 +2706,12 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	mdata->rot_block_size = (!rc ? data : 128);
 
 	rc = of_property_read_u32(pdev->dev.of_node,
-		"qcom,mdss-rotator-ot-limit", &data);
-	mdata->rotator_ot_limit = (!rc ? data : 0);
+		"qcom,mdss-default-ot-rd-limit", &data);
+	mdata->default_ot_rd_limit = (!rc ? data : 0);
 
 	rc = of_property_read_u32(pdev->dev.of_node,
-		"qcom,mdss-default-ot-limit", &data);
-	mdata->default_ot_limit = (!rc ? data : 0);
+		"qcom,mdss-default-ot-wr-limit", &data);
+	mdata->default_ot_wr_limit = (!rc ? data : 0);
 
 	rc = of_property_read_u32(pdev->dev.of_node,
 		"qcom,mdss-default-pipe-qos-lut", &data);
@@ -3155,39 +3155,59 @@ bool force_on_xin_clk(u32 bit_off, u32 clk_ctl_reg_off, bool enable)
 	return clk_forced_on;
 }
 
-static bool limit_rotator_ot(bool is_yuv, u32 width, u32 height)
-{
-	return (true == is_yuv) &&
-		(width * height <= 1080 * 1920);
-}
-
-static int limit_wb_ot(u32 width, u32 height)
-{
-
-	return width * height <= 1080 * 1920;
-}
-
-static u32 get_ot_limit(u32 reg_off, u32 bit_off, bool is_rot,
-	bool is_wb, bool is_yuv, u32 width, u32 height)
+static void apply_dynamic_ot_limit(u32 *ot_lim,
+	struct mdss_mdp_set_ot_params *params)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	u32 ot_lim = mdata->default_ot_limit;
+	u32 res;
+
+	if (!is_dynamic_ot_limit_required(mdata->mdp_rev))
+		return;
+
+	res = params->width * params->height;
+
+	pr_debug("w:%d h:%d rot:%d yuv:%d wb:%d res:%d\n",
+		params->width, params->height, params->is_rot,
+		params->is_yuv, params->is_wb, res);
+
+	if ((params->is_rot && params->is_yuv) ||
+		params->is_wb) {
+		if (res <= 1080 * 1920) {
+			*ot_lim = 2;
+		} else if (res <= 3840 * 2160) {
+			if (params->is_rot && params->is_yuv)
+				*ot_lim = 8;
+			else
+				*ot_lim = 16;
+		}
+	}
+}
+
+static u32 get_ot_limit(u32 reg_off, u32 bit_off,
+	struct mdss_mdp_set_ot_params *params)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 ot_lim = 0;
 	u32 is_vbif_nrt, val;
 
+	if (mdata->default_ot_wr_limit &&
+		(params->reg_off_vbif_lim_conf == MMSS_VBIF_WR_LIM_CONF))
+		ot_lim = mdata->default_ot_wr_limit;
+	else if (mdata->default_ot_rd_limit &&
+		(params->reg_off_vbif_lim_conf == MMSS_VBIF_RD_LIM_CONF))
+		ot_lim = mdata->default_ot_rd_limit;
+
 	/*
-	 * If default ot limit is not set from dt,
-	 * then ot limiting is disabled.
+	 * If default ot is not set from dt,
+	 * then do not configure it.
 	 */
 	if (ot_lim == 0)
 		goto exit;
 
+	/* Modify the limits if the target and the use case requires it */
+	apply_dynamic_ot_limit(&ot_lim, params);
+
 	is_vbif_nrt = mdss_mdp_is_vbif_nrt(mdata->mdp_rev);
-
-	if ((is_rot && limit_rotator_ot(is_yuv, width, height)) ||
-		(is_wb && limit_wb_ot(width, height))) {
-		ot_lim = MDSS_OT_LIMIT;
-	}
-
 	val = MDSS_VBIF_READ(mdata, reg_off, is_vbif_nrt);
 	val &= (0xFF << bit_off);
 	val = val >> bit_off;
@@ -3196,11 +3216,11 @@ static u32 get_ot_limit(u32 reg_off, u32 bit_off, bool is_rot,
 		ot_lim = 0;
 
 exit:
+	pr_debug("ot_lim=%d\n", ot_lim);
 	return ot_lim;
 }
 
-void mdss_mdp_set_ot_limit(struct mdss_mdp_set_ot_params *params,
-	bool is_rot, bool is_wb, bool is_yuv)
+void mdss_mdp_set_ot_limit(struct mdss_mdp_set_ot_params *params)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 ot_lim;
@@ -3211,15 +3231,10 @@ void mdss_mdp_set_ot_limit(struct mdss_mdp_set_ot_params *params,
 	u32 reg_val;
 	bool forced_on;
 
-	if (!mdss_mdp_apply_ot_limit(mdata->mdp_rev))
-		goto exit;
-
 	ot_lim = get_ot_limit(
 		reg_off_vbif_lim_conf,
 		bit_off_vbif_lim_conf,
-		is_rot, is_wb, is_yuv,
-		params->width,
-		params->height) & 0xFF;
+		params) & 0xFF;
 
 	if (ot_lim == 0)
 		goto exit;

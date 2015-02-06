@@ -332,14 +332,23 @@ Optional properties:
 				   sw_reset register bitmap. Number of offsets
 				   defined should match the number of offsets
 				   defined in property: qcom,mdss-pipe-dma-off
-- qcom,mdss-rotator-ot-limit:	This integer value indicates maximum number of pending
-				writes that can be allowed from rotator client. Default
-				value is 16 which is the maximum. This value can be
-				used to reduce the pending writes limit dynamically
-				and can be tuned to match performance requirements
-				depending upon system state.
-- qcom,mdss-default-ot-limit:	This integer value indicates the default number of pending
+- qcom,mdss-default-ot-wr-limit: This integer value indicates maximum number of pending
+				writes that can be allowed from non real time client.
+				This value can be used to reduce the pending writes
+				limit and can be tuned to match performance
+				requirements depending upon system state.
+				Some platforms require a dynamic ot limiting in
+				some cases. Setting this default ot write limit
+				will enable this dynamic limiting for the write
+				operations in the platforms that require these
+				limits.
+- qcom,mdss-default-ot-rd-limit: This integer value indicates the default number of pending
 				reads that can be allowed for the real time clients.
+				Some platforms require a dynamic ot limiting in
+				some cases. Setting this default ot read limit
+				will enable this dynamic limiting for the read
+				operations in the platforms that require these
+				limits.
 - qcom,mdss-default-pipe-qos-lut: This value is used to program the default qos lut
 				  register for the rt clients and nrt rotator read clients.
 - qcom,mdss-clk-levels:		This array indicates the mdp core clock level selection

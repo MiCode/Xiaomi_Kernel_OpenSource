@@ -83,12 +83,6 @@
 #define MASTER_CTX 0
 #define SLAVE_CTX 1
 
-/*
- * Recommendation is to have different ot depending on the fps
- * and resolution, but since current SW doesn't support different
- * fps for non-real time, we are hard-coding the ot limit to 2 for now
- */
-#define MDSS_OT_LIMIT 2
 #define XIN_HALT_TIMEOUT_US	0x4000
 
 enum mdss_mdp_perf_state_type {
@@ -601,6 +595,9 @@ struct mdss_mdp_set_ot_params {
 	u32 num;
 	u32 width;
 	u32 height;
+	bool is_rot;
+	bool is_wb;
+	bool is_yuv;
 	u32 reg_off_vbif_lim_conf;
 	u32 reg_off_mdp_clk_ctrl;
 	u32 bit_off_mdp_clk_ctrl;
@@ -716,7 +713,7 @@ static inline bool mdss_mdp_is_vbif_nrt(u32 mdp_rev)
 		MDSS_MDP_HW_REV_107);
 }
 
-static inline bool mdss_mdp_apply_ot_limit(u32 mdp_rev)
+static inline bool is_dynamic_ot_limit_required(u32 mdp_rev)
 {
 	return mdp_rev == MDSS_MDP_HW_REV_105 ||
 		mdp_rev == MDSS_MDP_HW_REV_109 ||
@@ -1150,8 +1147,7 @@ int mdss_mdp_wb_get_secure(struct msm_fb_data_type *mfd, uint8_t *enable);
 void mdss_mdp_ctl_restore(void);
 int  mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_wait_for_xin_halt(u32 xin_id, bool is_vbif_nrt);
-void mdss_mdp_set_ot_limit(struct mdss_mdp_set_ot_params *params,
-	bool is_rot, bool is_wb, bool is_yuv);
+void mdss_mdp_set_ot_limit(struct mdss_mdp_set_ot_params *params);
 int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *ctl,
 		int frame_cnt);
 int mdss_mdp_ctl_cmd_autorefresh_enable(struct mdss_mdp_ctl *ctl,
