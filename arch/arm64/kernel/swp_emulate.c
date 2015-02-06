@@ -40,13 +40,12 @@ static int swpb(u8 in, u8 *out, u8 *addr)
 {
 	u8 _out;
 	int res;
-	int err;
+	int err = 0;
 
 	do {
 		__asm__ __volatile__(
 		"0:	ldxrb	%w1, %4\n"
 		"1:	stxrb	%w0, %w3, %4\n"
-		"	mov	%w2, #0\n"
 		"2:\n"
 		"	.section	 .fixup,\"ax\"\n"
 		"	.align		2\n"
@@ -59,7 +58,7 @@ static int swpb(u8 in, u8 *out, u8 *addr)
 		"	.quad		1b, 3b\n"
 		"	.previous"
 		: "=&r" (res), "=r" (_out), "=r" (err)
-		: "r" (in), "Q" (*addr), "i" (-EFAULT)
+		: "r" (in), "Q" (addr), "i" (-EFAULT)
 		: "cc", "memory");
 	} while (err == 0 && res != 0);
 
@@ -78,7 +77,6 @@ static int swp(u32 in, u32 *out, u32 *addr)
 		__asm__ __volatile__(
 		"0:	ldxr	%w1, %4\n"
 		"1:	stxr	%w0, %w3, %4\n"
-		"	mov	%w2, #0\n"
 		"2:\n"
 		"	.section	 .fixup,\"ax\"\n"
 		"	.align		2\n"
@@ -91,7 +89,7 @@ static int swp(u32 in, u32 *out, u32 *addr)
 		"	.quad		1b, 3b\n"
 		"	.previous"
 		: "=&r" (res), "=r" (_out), "=r" (err)
-		: "r" (in), "Q" (*addr), "i" (-EFAULT)
+		: "r" (in), "Q" (addr), "i" (-EFAULT)
 		: "cc", "memory");
 	} while (err == 0 && res != 0);
 
