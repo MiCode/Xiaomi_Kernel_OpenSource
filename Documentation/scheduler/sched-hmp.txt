@@ -557,8 +557,13 @@ both tasks and CPUs to aid in the placement of tasks.
 
   /proc/sys/kernel/sched_upmigrate
 
-  This value is a percentage. If a task consumes more than this much of
-  a particular CPU, that CPU will be considered too small for the task.
+  This value is a percentage. If a task consumes more than this much of a
+  particular CPU, that CPU will be considered too small for the task. The task
+  will thus be seen as a "big" task on the cpu and will reflect in nr_big_tasks
+  statistics maintained for that cpu. Note that certain tasks (whose nice
+  value exceeds sched_upmigrate_min_nice value or those that belong to a cgroup
+  whose upmigrate_discourage flag is set) will never be classified as big tasks
+  despite their high demand.
 
 - mostly_idle
 
@@ -1096,6 +1101,8 @@ A task whose nice value is greater than this tunable value will never
 be considered as a "big" task (it will not be allowed to run on a
 high-performance CPU).
 
+See also notes on 'cpu.upmigrate_discourage' tunable.
+
 *** 7.10 sched_enable_power_aware
 
 Appears at: /proc/sys/kernel/sched_enable_power_aware
@@ -1283,6 +1290,22 @@ been associated with a cpu (in either running or runnable state) for more than
 account of energy awareness reasons.
 The same logic also applies to the load balancer path to avoid frequent
 migrations due to energy awareness.
+
+** 7.25 cpu.upmigrate_discourage
+
+Default value : 0
+
+This is a cgroup attribute supported by the cpu resource controller. It normally
+appears at [root_cpu]/[name1]/../[name2]/cpu.upmigrate_discourage. Here
+"root_cpu" is the mount point for cgroup (cpu resource control) filesystem
+and name1, name2 etc are names of cgroups that form a hierarchy.
+
+Setting this flag to 1 discourages upmigration for all tasks of a cgroup. High
+demand tasks of such a cgroup will never be classified as big tasks and hence
+not upmigrated. Any task of the cgroup is allowed to upmigrate only under
+overcommitted scenario. See notes on sched_spill_nr_run and sched_spill_load for
+how overcommitment threshold is defined and also notes on
+'sched_upmigrate_min_nice' tunable.
 
 =========================
 8. HMP SCHEDULER TRACE POINTS
