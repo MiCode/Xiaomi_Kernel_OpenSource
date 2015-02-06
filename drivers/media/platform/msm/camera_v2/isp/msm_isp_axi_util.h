@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,4 +68,7 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts);
+
+void msm_isp_axi_disable_all_wm(struct vfe_device *vfe_dev);
+
 #endif /* __MSM_ISP_AXI_UTIL_H__ */
