@@ -210,6 +210,9 @@ struct task_group {
 	struct cgroup_subsys_state css;
 
 	bool notify_on_migrate;
+#ifdef CONFIG_SCHED_HMP
+	bool upmigrate_discouraged;
+#endif
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* schedulable entities of this group on each cpu */
