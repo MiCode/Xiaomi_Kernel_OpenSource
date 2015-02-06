@@ -876,6 +876,10 @@ static void msm_cpp_calculate_stripe_base(struct cpp_device *cpp_dev)
 		cpp_dev->wr_3_pntr = 14;
 		cpp_dev->rd_ref_pntr = MSM_CPP_INVALID_OFFSET;
 		cpp_dev->wr_ref_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_0_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_1_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_2_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_3_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
 	} else if ((cpp_dev->fw_version & 0xffff0000) ==
 		CPP_FW_VERSION_1_4_0) {
 		cpp_dev->stripe_base = STRIPE_BASE_FW_1_4_0;
@@ -888,6 +892,10 @@ static void msm_cpp_calculate_stripe_base(struct cpp_device *cpp_dev)
 		cpp_dev->wr_3_pntr = 14;
 		cpp_dev->rd_ref_pntr = MSM_CPP_INVALID_OFFSET;
 		cpp_dev->wr_ref_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_0_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_1_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_2_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_3_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
 	} else if ((cpp_dev->fw_version & 0xffff0000) ==
 		CPP_FW_VERSION_1_6_0) {
 		cpp_dev->stripe_base = STRIPE_BASE_FW_1_6_0;
@@ -900,6 +908,10 @@ static void msm_cpp_calculate_stripe_base(struct cpp_device *cpp_dev)
 		cpp_dev->wr_3_pntr = 14;
 		cpp_dev->rd_ref_pntr = MSM_CPP_INVALID_OFFSET;
 		cpp_dev->wr_ref_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_0_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_1_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_2_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_3_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
 	} else if ((cpp_dev->fw_version & 0xffff0000) ==
 		CPP_FW_VERSION_1_8_0) {
 		cpp_dev->stripe_base = STRIPE_BASE_FW_1_8_0;
@@ -912,6 +924,10 @@ static void msm_cpp_calculate_stripe_base(struct cpp_device *cpp_dev)
 		cpp_dev->wr_3_pntr = 23;
 		cpp_dev->rd_ref_pntr = 14;
 		cpp_dev->wr_ref_pntr = 30;
+		cpp_dev->wr_0_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_1_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_2_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_3_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
 	} else if ((cpp_dev->fw_version & 0xffff0000) ==
 		CPP_FW_VERSION_1_10_0) {
 		cpp_dev->stripe_base = STRIPE_BASE_FW_1_10_0;
@@ -924,6 +940,10 @@ static void msm_cpp_calculate_stripe_base(struct cpp_device *cpp_dev)
 		cpp_dev->wr_3_pntr = 26;
 		cpp_dev->rd_ref_pntr = 17;
 		cpp_dev->wr_ref_pntr = 36;
+		cpp_dev->wr_0_meta_data_wr_pntr = 42;
+		cpp_dev->wr_1_meta_data_wr_pntr = 43;
+		cpp_dev->wr_2_meta_data_wr_pntr = 44;
+		cpp_dev->wr_3_meta_data_wr_pntr = 45;
 	}
 	return;
 }
@@ -1717,8 +1737,10 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	int32_t i = 0;
 	int32_t stripe_base = 0;
 	uint32_t rd_pntr, wr_0_pntr, wr_1_pntr, wr_2_pntr, wr_3_pntr;
+	uint32_t wr_0_meta_data_wr_pntr, wr_1_meta_data_wr_pntr,
+		wr_2_meta_data_wr_pntr, wr_3_meta_data_wr_pntr;
 	uint32_t rd_ref_pntr, wr_ref_pntr, stripe_info_offset, stripe_size;
-	uint8_t tnr_enabled;
+	uint8_t tnr_enabled, ubwc_enabled;
 
 	if (!new_frame) {
 		pr_err("%s: Frame is Null\n", __func__);
@@ -1836,8 +1858,14 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	wr_3_pntr = cpp_dev->wr_3_pntr;
 	rd_ref_pntr = cpp_dev->rd_ref_pntr;
 	wr_ref_pntr = cpp_dev->wr_ref_pntr;
+	wr_0_meta_data_wr_pntr = cpp_dev->wr_0_meta_data_wr_pntr;
+	wr_1_meta_data_wr_pntr = cpp_dev->wr_1_meta_data_wr_pntr;
+	wr_2_meta_data_wr_pntr = cpp_dev->wr_2_meta_data_wr_pntr;
+	wr_3_meta_data_wr_pntr = cpp_dev->wr_3_meta_data_wr_pntr;
 
 	tnr_enabled = msm_cpp_is_tnr_enabled(cpp_dev, cpp_frame_msg);
+	pr_debug("%s: feature_mask 0x%x\n", __func__, new_frame->feature_mask);
+	ubwc_enabled = ((new_frame->feature_mask & 0x20) >> 5);
 	if (tnr_enabled) {
 		tnr_scratch_buffer0 = msm_cpp_fetch_buffer_info(cpp_dev,
 			&new_frame->tnr_scratch_buffer_info[0],
@@ -1896,6 +1924,17 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 			cpp_frame_msg[stripe_base + wr_ref_pntr +
 				i * stripe_size] +=
 				(uint32_t)tnr_scratch_buffer1;
+		}
+		if (ubwc_enabled) {
+			cpp_frame_msg[stripe_base + wr_0_meta_data_wr_pntr +
+				i * stripe_size] += (uint32_t) out_phyaddr0;
+			cpp_frame_msg[stripe_base + wr_1_meta_data_wr_pntr +
+				i * stripe_size] += (uint32_t) out_phyaddr1;
+			cpp_frame_msg[stripe_base + wr_2_meta_data_wr_pntr +
+				i * stripe_size] += (uint32_t) out_phyaddr0;
+			cpp_frame_msg[stripe_base + wr_3_meta_data_wr_pntr +
+				i * stripe_size] += (uint32_t) out_phyaddr1;
+
 		}
 	}
 
@@ -2622,6 +2661,7 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 	new_frame->duplicate_output = new_frame32->duplicate_output;
 	new_frame->we_disable = new_frame32->we_disable;
 	new_frame->duplicate_identity = new_frame32->duplicate_identity;
+	new_frame->feature_mask = new_frame32->feature_mask;
 	new_frame->reserved = new_frame32->reserved;
 	new_frame->partial_frame_indicator =
 		new_frame32->partial_frame_indicator;
@@ -2703,6 +2743,7 @@ static void get_compat_frame_from_64bit(struct msm_cpp_frame_info_t *frame,
 	k32_frame->duplicate_output = frame->duplicate_output;
 	k32_frame->we_disable = frame->we_disable;
 	k32_frame->duplicate_identity = frame->duplicate_identity;
+	k32_frame->feature_mask = frame->feature_mask;
 	k32_frame->reserved = frame->reserved;
 	k32_frame->cookie = ptr_to_compat(frame->cookie);
 	k32_frame->partial_frame_indicator = frame->partial_frame_indicator;
