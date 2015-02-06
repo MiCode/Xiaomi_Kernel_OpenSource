@@ -331,7 +331,8 @@ struct mxt_data {
 #ifdef CONFIG_PM_SLEEP
 	bool power_hal_want_suspend;
 #endif
-
+	/*chip initilized status*/
+	bool initialized;
 	int alloc_pdata;
 };
 #ifdef CONFIG_PM_SLEEP
@@ -2761,6 +2762,7 @@ retry_bootloader:
 #ifdef CONFIG_DEBUG_FS
 	mxt_debugfs_create(data);
 #endif
+	data->initialized = true;
 	return 0;
 
 err_free_object_table:
@@ -3740,6 +3742,7 @@ static int mxt_probe(struct i2c_client *client,
 	data->client = client;
 	data->pdata = dev_get_platdata(&client->dev);
 	i2c_set_clientdata(client, data);
+	data->initialized = false;
 
 #ifdef CONFIG_OF
 	if (!data->pdata && client->dev.of_node)
@@ -3834,8 +3837,10 @@ static int mxt_probe(struct i2c_client *client,
 	disable_irq(data->irq);
 
 	error = mxt_initialize_with_fw_check(data);
-	if (error)
+	if (error && !data->initialized) {
+		dev_err(&client->dev, "Failure %d initialize with fw\n", error);
 		goto err_free_irq;
+	}
 
 	error = sysfs_create_group(&client->dev.kobj, &mxt_attr_group);
 	if (error) {
