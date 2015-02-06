@@ -176,7 +176,7 @@ irqreturn_t inv_mpu6050_read_fifo(int irq, void *p)
 
 end_session:
 	mutex_unlock(&indio_dev->mlock);
-	iio_trigger_notify_done(indio_dev->trig);
+	iio_trigger_notify_done(st->trig);
 
 	return IRQ_HANDLED;
 
@@ -185,7 +185,7 @@ flush_fifo:
 	inv_reset_fifo(indio_dev);
 	inv_clear_kfifo(st);
 	mutex_unlock(&indio_dev->mlock);
-	iio_trigger_notify_done(indio_dev->trig);
+	iio_trigger_notify_done(st->trig);
 
 	return IRQ_HANDLED;
 }
