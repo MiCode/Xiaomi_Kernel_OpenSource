@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -188,6 +188,10 @@ static int lmh_reset(struct lmh_sensor_ops *ops)
 
 	down_write(&lmh_sensor_access);
 	if (lmh_data->intr_status_val & BIT(lmh_sensor->sensor_sw_id)) {
+		if (lmh_sensor->last_read_value) {
+			ret = -EAGAIN;
+			goto reset_exit;
+		}
 		lmh_data->intr_status_val ^= BIT(lmh_sensor->sensor_sw_id);
 		lmh_sensor->state = LMH_ISR_MONITOR;
 		pr_debug("Sensor:[%s] not throttling. Switch to monitor mode\n",
