@@ -86,6 +86,8 @@ int mdss_debugfs_init(struct mdss_data_type *mdata);
 int mdss_debugfs_remove(struct mdss_data_type *mdata);
 int mdss_debug_register_base(const char *name, void __iomem *base,
 				    size_t max_offset);
+int panel_debug_register_base(const char *name, void __iomem *base,
+				    size_t max_offset);
 int mdss_misr_set(struct mdss_data_type *mdata, struct mdp_misr *req,
 			struct mdss_mdp_ctl *ctl);
 int mdss_misr_get(struct mdss_data_type *mdata, struct mdp_misr *resp,
@@ -105,6 +107,10 @@ static inline int mdss_debugfs_remove(struct mdss_data_type *mdata)
 }
 static inline int mdss_debug_register_base(const char *name, void __iomem *base,
 					size_t max_offset) { return 0; }
+static inline int panel_debug_register_base(const char *name,
+					void __iomem *base,
+					size_t max_offset)
+{ return 0; }
 static inline int mdss_misr_set(struct mdss_data_type *mdata,
 					struct mdp_misr *req,
 					struct mdss_mdp_ctl *ctl)
