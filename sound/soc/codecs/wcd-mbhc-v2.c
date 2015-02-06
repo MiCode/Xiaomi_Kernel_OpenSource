@@ -1099,8 +1099,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	 */
 	if (!wrk_complete && plug_type == MBHC_PLUG_TYPE_HEADSET) {
 		pr_debug("%s: Headset already reported\n", __func__);
-		wcd_enable_mbhc_supply(mbhc, plug_type);
-		goto exit;
+		goto enable_supply;
 	}
 
 	if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH &&
@@ -1117,10 +1116,11 @@ report:
 	pr_debug("%s: Valid plug found, plug type %d wrk_cmpt %d btn_intr %d\n",
 			__func__, plug_type, wrk_complete,
 			mbhc->btn_press_intr);
-	wcd_enable_mbhc_supply(mbhc, plug_type);
 	WCD_MBHC_RSC_LOCK(mbhc);
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
 	WCD_MBHC_RSC_UNLOCK(mbhc);
+enable_supply:
+	wcd_enable_mbhc_supply(mbhc, plug_type);
 exit:
 	micbias1 = (snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN) & 0x80);
 	micbias2 = (snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN) & 0x80);
