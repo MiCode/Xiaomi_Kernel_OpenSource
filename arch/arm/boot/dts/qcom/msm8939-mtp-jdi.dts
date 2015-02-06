@@ -88,8 +88,6 @@
 		pinctrl-5 = <&mod_en_suspend>;
 		pinctrl-6 = <&disp_vsn_active>;
 		pinctrl-7 = <&disp_vsn_suspend>;
-		irq-gpio = <&msm_gpio 13 0>;
-		rst-gpio = <&msm_gpio 12 0>;
 		vdd_ana-supply = <&pm8916_l17>;
 		vdd_dig-supply = <&pm8916_l6>;
 		jdi,panel-model = "fhd_5_a230adev";
