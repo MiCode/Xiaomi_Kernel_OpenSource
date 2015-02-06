@@ -1181,6 +1181,7 @@ static int msm_vpe_cfg(struct vpe_device *vpe_dev,
 	memset(&buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
 	buff_mgr_info.session_id = ((new_frame->identity >> 16) & 0xFFFF);
 	buff_mgr_info.stream_id = (new_frame->identity & 0xFFFF);
+	buff_mgr_info.type = MSM_CAMERA_BUF_MNGR_BUF_PLANAR;
 	rc = msm_vpe_buffer_ops(vpe_dev, VIDIOC_MSM_BUF_MNGR_GET_BUF,
 				&buff_mgr_info);
 	if (rc < 0) {
