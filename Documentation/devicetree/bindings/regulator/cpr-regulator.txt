@@ -524,6 +524,44 @@ Optional properties:
 - qcom,cpr-quot-min-diff:	Integer which defines the minimum target-quotient difference between
 				the highest and (highest - 1) fuse corner to keep CPR enabled. If this
 				property is not specified a default value of 50 is used.
+- qcom,cpr-fuse-quot-offset:	Array of quadruples in which each quadruple specifies a fuse location to
+				read in order to get the quotient offset for a fuse corner. The fuse values
+				are encoded as the difference between quotients of that fuse corner and its
+				adjacent lower fuse corner divided by an unpacking multiplier.
+				At present, the multiplier is assumed to be same as that of the value defined
+				under qcom,cpr-fuse-target-quot-scale.
+				The 4 elements in one quadruple are:
+				[0]: => the fuse row number of the bits
+				[1]: => LSB bit position of the bits
+				[2]: => number of the bits
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading
+				The quadruples are ordered from the lowest fuse corner to the highest
+				fuse corner.
+				Quotient offset read from the fuse locations above can be overridden with
+				the property qcom,cpr-quot-adjust-scaling-factor-max.
+- qcom,cpr-redun-fuse-quot-offset: Array of quadruples in which each quadruple specifies a fuse location to
+				read in order to get the redundant quotient offset for a fuse corner. This
+				property is the same as qcom,cpr-fuse-quot-offset except that it is only
+				utilized if a chip is configured to use the redundant set of fuse values.
+- qcom,cpr-fuse-min-quot-diff:	Array of values which define the minimum difference allowed between the adjusted
+				quotients of the fuse corners. The length of the array should be equal to the value
+				of the qcom,cpr-fuse-corners property. Where each element in the array maps to the
+				fuse corners in increasing order.
+- qcom,cpr-min-quot-diff-adjustment:	Array of integer tuples of target quotient offsets to be added to
+				the adjusted target quotients of each fuse corner. When the quotient difference
+				between two adjacent fuse corners is insufficient, the quotient for the higher fuse corner is
+				replaced with that of the lower fuse corner plus the adjustment value.
+				The elements in a tuple are ordered from lowest voltage corner to highest voltage corner.
+				Each tuple must be of the length defined by qcom,cpr-fuse-corners.
+				If the qcom,cpr-fuse-version-map property is specified, then qcom,cpr-min-quot-diff-adjustment
+				must contain the same number of tuples as qcom,cpr-fuse-version-map.  These tuples are then mapped
+				one-to-one in the order specified.  E.g. if the second qcom,cpr-fuse-version-map tuple matches
+				for a given device, then the quotient adjustments defined in the
+				second qcom,cpr-min-quot-diff-adjustment tuple will be applied.  If the
+				qcom,cpr-fuse-version-map property is not specified, then
+				qcom,cpr-min-quot-diff-adjustment must contain a single tuple which is then
+				applied unconditionally. The qcom,cpr-min-quot-diff-adjustment property must be specified
+				if the qcom,cpr-fuse-min-quot-diff property is specified.
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
@@ -673,6 +711,11 @@ Example:
 				<0 0 (-100000)>,
 				<0 0 (-100000)>,
 				<0 0 (-45000)>;
+		qcom,cpr-fuse-min-quot-diff = <0 0 40>;
+		qcom,cpr-min-quot-diff-adjustment =
+					<0 0 0>,
+					<0 0 72>,
+					<0 0 104>;
 		qcom,cpr-virtual-corner-init-voltage-adjustment =
 			<0 0 0 (-10000) 0 0 0 0 0 0 0 0>,
 			<0 0 0 0 0 0 0 0 0 0 0 (-20000)>,
