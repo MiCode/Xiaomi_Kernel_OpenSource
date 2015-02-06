@@ -269,6 +269,7 @@
 				qcom,time-overhead = <3700>;
 				qcom,min-child-idx = <1>;
 				qcom,notify-rpm;
+				qcom,disable-dynamic-int-routing;
 			};
 
 			qcom,pm-cluster@0{
