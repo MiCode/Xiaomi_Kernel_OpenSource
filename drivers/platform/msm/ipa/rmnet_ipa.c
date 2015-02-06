@@ -1058,9 +1058,9 @@ static void apps_ipa_packet_receive_notify(void *priv,
 	skb->dev = ipa_netdevs[0];
 	skb->protocol = htons(ETH_P_MAP);
 
-	result = netif_rx(skb);
+	result = netif_rx_ni(skb);
 	if (result)	{
-		pr_err_ratelimited(DEV_NAME " %s:%d fail on netif_rx\n",
+		pr_err_ratelimited(DEV_NAME " %s:%d fail on netif_rx_ni\n",
 				__func__, __LINE__);
 		dev->stats.rx_dropped++;
 	}
