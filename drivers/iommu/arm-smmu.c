@@ -842,6 +842,9 @@ static void arm_smmu_tlb_inv_context(struct arm_smmu_domain *smmu_domain)
 	arm_smmu_tlb_sync(smmu);
 }
 
+static phys_addr_t arm_smmu_iova_to_phys_soft(struct iommu_domain *domain,
+					dma_addr_t iova);
+
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
 	int flags, ret;
@@ -855,6 +858,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	bool ctx_hang_errata =
 		smmu->options & ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG;
 	bool fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
+	phys_addr_t phys_soft;
 
 	arm_smmu_enable_clocks(smmu);
 
@@ -865,11 +869,6 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		arm_smmu_disable_clocks(smmu);
 		return IRQ_NONE;
 	}
-
-	if (fsr & FSR_IGN)
-		dev_err_ratelimited(smmu->dev,
-				    "Unexpected context fault (fsr 0x%x)\n",
-				    fsr);
 
 	if (fatal_asf && (fsr & FSR_ASF)) {
 		dev_err(smmu->dev,
@@ -887,13 +886,32 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	iova |= ((unsigned long)far << 32);
 #endif
 
+	phys_soft = arm_smmu_iova_to_phys_soft(domain, iova);
 	if (!report_iommu_fault(domain, smmu->dev, iova, flags)) {
+		dev_dbg(smmu->dev,
+			"Context fault handled by client: iova=0x%08lx, fsr=0x%x, fsynr=0x%x, cb=%d\n",
+			iova, fsr, fsynr, cfg->cbndx);
+		dev_dbg(smmu->dev,
+			"soft iova-to-phys=%pa\n", &phys_soft);
 		ret = IRQ_HANDLED;
 		resume = ctx_hang_errata ? RESUME_TERMINATE : RESUME_RETRY;
 	} else {
-		dev_err_ratelimited(smmu->dev,
-		    "Unhandled context fault: iova=0x%08lx, fsynr=0x%x, cb=%d\n",
-		    iova, fsynr, cfg->cbndx);
+		dev_err(smmu->dev,
+			"Unhandled context fault: iova=0x%08lx, fsr=0x%x, fsynr=0x%x, cb=%d\n",
+			iova, fsr, fsynr, cfg->cbndx);
+		dev_err(smmu->dev, "FAR    = %016lx\n", (unsigned long)far);
+		dev_err(smmu->dev, "FSR    = %08x [%s%s%s%s%s%s%s%s%s]\n", fsr,
+			(fsr & 0x02) ? "TF " : "",
+			(fsr & 0x04) ? "AFF " : "",
+			(fsr & 0x08) ? "PF " : "",
+			(fsr & 0x10) ? "EF " : "",
+			(fsr & 0x20) ? "TLBMCF " : "",
+			(fsr & 0x40) ? "TLBLKF " : "",
+			(fsr & 0x80) ? "MHF " : "",
+			(fsr & 0x40000000) ? "SS " : "",
+			(fsr & 0x80000000) ? "MULTI " : "");
+		dev_err(smmu->dev,
+			"soft iova-to-phys=%pa\n", &phys_soft);
 		ret = IRQ_NONE;
 		resume = RESUME_TERMINATE;
 	}
