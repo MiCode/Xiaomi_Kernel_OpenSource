@@ -109,8 +109,14 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 		vfe_dev->buf_mgr, done_buf->bufq_handle,
 		done_buf->buf_idx, &ts->buf_time,
 		frame_id);
-	if (rc != 0)
+	if (rc != 0) {
+		*comp_stats_type_mask |=
+			1 << stream_info->stats_type;
+		stats_event->stats_buf_idxs
+			[stream_info->stats_type] =
+			done_buf->buf_idx;
 		return rc;
+	}
 	if (drop_buffer) {
 		vfe_dev->buf_mgr->ops->put_buf(
 			vfe_dev->buf_mgr,
@@ -136,11 +142,12 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 			1 << stream_info->stats_type;
 	}
 
-	return 0;
+	return rc;
 }
 
 static int32_t msm_isp_stats_configure(struct vfe_device *vfe_dev,
-	uint32_t stats_irq_mask, struct msm_isp_timestamp *ts)
+	uint32_t stats_irq_mask, struct msm_isp_timestamp *ts,
+	bool is_composite)
 {
 	int i, rc = 0;
 	struct msm_isp_event_data buf_event;
@@ -173,10 +180,9 @@ static int32_t msm_isp_stats_configure(struct vfe_device *vfe_dev,
 			}
 		}
 	}
-
-	if (comp_stats_type_mask) {
-		ISP_DBG("%s: comp_stats frameid: 0x%x, 0x%x\n",
-			__func__, buf_event.frame_id,
+	if (is_composite && !rc && comp_stats_type_mask) {
+		ISP_DBG("%s:vfe_id %d comp_stats frameid %x,comp_mask %x\n",
+			__func__, vfe_dev->pdev->id, buf_event.frame_id,
 			comp_stats_type_mask);
 		stats_event->stats_mask = comp_stats_type_mask;
 		msm_isp_send_event(vfe_dev,
@@ -193,6 +199,7 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	int j, rc;
 	uint32_t atomic_stats_mask = 0;
 	uint32_t stats_comp_mask = 0, stats_irq_mask = 0;
+	bool comp_flag = false;
 	uint32_t num_stats_comp_mask =
 		vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask;
 
@@ -213,7 +220,8 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 
 	/* Process non-composite irq */
 	if (stats_irq_mask) {
-		rc = msm_isp_stats_configure(vfe_dev, stats_irq_mask, ts);
+		rc = msm_isp_stats_configure(vfe_dev, stats_irq_mask, ts,
+			comp_flag);
 		if (rc < 0) {
 			pr_err("%s:%d failed individual stats rc %d\n",
 				__func__, __LINE__, rc);
@@ -230,7 +238,7 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 				&vfe_dev->stats_data.stats_comp_mask[j]);
 
 			rc = msm_isp_stats_configure(vfe_dev, atomic_stats_mask,
-				ts);
+				ts, !comp_flag);
 			if (rc < 0) {
 				pr_err("%s:%d failed comp stats %d rc %d\n",
 					__func__, __LINE__, j, rc);
