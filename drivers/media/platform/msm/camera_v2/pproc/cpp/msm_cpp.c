@@ -1837,6 +1837,8 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 				((new_frame->identity >> 16) & 0xFFFF);
 			buff_mgr_info.stream_id =
 				(new_frame->identity & 0xFFFF);
+			buff_mgr_info.type =
+				MSM_CAMERA_BUF_MNGR_BUF_PLANAR;
 			rc = msm_cpp_buffer_ops(cpp_dev,
 				VIDIOC_MSM_BUF_MNGR_GET_BUF,
 				&buff_mgr_info);
@@ -1875,6 +1877,8 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 			((new_frame->duplicate_identity >> 16) & 0xFFFF);
 		dup_buff_mgr_info.stream_id =
 			(new_frame->duplicate_identity & 0xFFFF);
+		dup_buff_mgr_info.type =
+			MSM_CAMERA_BUF_MNGR_BUF_PLANAR;
 		rc = msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_GET_BUF,
 			&dup_buff_mgr_info);
 		if (rc < 0) {
@@ -2492,6 +2496,8 @@ STREAM_BUFF_END:
 		buff_mgr_info.session_id =
 			((frame_info.identity >> 16) & 0xFFFF);
 		buff_mgr_info.stream_id = (frame_info.identity & 0xFFFF);
+		buff_mgr_info.type =
+			MSM_CAMERA_BUF_MNGR_BUF_PLANAR;
 		rc = msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_GET_BUF,
 			&buff_mgr_info);
 		if (rc < 0) {
