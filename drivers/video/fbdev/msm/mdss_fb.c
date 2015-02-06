@@ -3850,6 +3850,17 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 		for (i = 0; i < layer_count; i++) {
 			layer = &layer_list[i];
 
+			if (!(layer->flags & MDP_LAYER_PP)) {
+				layer->pp_info = NULL;
+			} else {
+				ret = mdss_mdp_copy_layer_pp_info(layer);
+				if (ret) {
+					pr_err("failure to copy pp_info data for layer %d, ret = %d\n",
+						i, ret);
+					goto err;
+				}
+			}
+
 			if (!(layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT)) {
 				layer->scale = NULL;
 				continue;
@@ -3866,8 +3877,10 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 			ret = copy_from_user(scale, layer->scale,
 					sizeof(struct mdp_scale_data));
 			if (ret) {
-				pr_err("layer list copy from user failed\n");
+				pr_err("layer list copy from user failed, scale = %p\n",
+						layer->scale);
 				kfree(scale);
+				ret = -EFAULT;
 				goto err;
 			}
 			layer->scale = scale;
@@ -3895,8 +3908,10 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	}
 
 err:
-	for (i--; i >= 0; i--)
+	for (i--; i >= 0; i--) {
 		kfree(layer_list[i].scale);
+		mdss_mdp_free_layer_pp_info(&layer_list[i]);
+	}
 	kfree(layer_list);
 	kfree(output_layer);
 

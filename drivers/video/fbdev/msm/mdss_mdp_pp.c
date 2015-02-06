@@ -6042,9 +6042,10 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 	int ret = 0;
 
 	if (!pipe) {
-		pr_err("invalid params %p\n", pipe);
+		pr_err("invalid params, pipe %p\n", pipe);
 		return -EINVAL;
 	}
+
 	cache_res.mdss_pp_res = NULL;
 	cache_res.pipe_res = pipe;
 	ret = sspp_cache_location(pipe->type, &cache_res.block);
@@ -6053,8 +6054,8 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 			ret);
 		goto exit_fail;
 	}
-	len = pipe->pp_cfg.igc_cfg.len;
 	if ((pipe->pp_cfg.config_ops & MDP_OVERLAY_PP_IGC_CFG)) {
+		len = pipe->pp_cfg.igc_cfg.len;
 		if (pp_ops[IGC].pp_set_config) {
 			ret = pp_igc_lut_cache_params(&pipe->pp_cfg.igc_cfg,
 						      &cache_res, false);
@@ -6117,9 +6118,6 @@ int mdss_mdp_pp_sspp_config(struct mdss_mdp_pipe *pipe)
 			}
 			pipe->pp_cfg.hist_lut_cfg.data = pipe->pp_res.hist_lut;
 		} else {
-			cache_res.block = SSPP_VIG;
-			cache_res.mdss_pp_res = NULL;
-			cache_res.pipe_res = pipe;
 			ret = pp_hist_lut_cache_params(
 					&pipe->pp_cfg.hist_lut_cfg,
 					&cache_res);
@@ -6290,4 +6288,90 @@ static void mdss_mdp_hist_intr_notify(u32 disp)
 	}
 	mdp5_data->hist_events++;
 	sysfs_notify_dirent(mdp5_data->hist_event_sd);
+}
+
+int mdss_mdp_copy_layer_pp_info(struct mdp_input_layer *layer)
+{
+	struct mdp_overlay_pp_params *pp_info = NULL;
+	int ret = 0;
+	uint32_t ops;
+
+	if (!layer) {
+		pr_err("invalid layer pointer passed %p\n", layer);
+		return -EFAULT;
+	}
+
+	pp_info = kmalloc(sizeof(struct mdp_overlay_pp_params),
+			GFP_KERNEL);
+	if (!pp_info)
+		return -ENOMEM;
+
+	ret = copy_from_user(pp_info, layer->pp_info,
+			sizeof(struct mdp_overlay_pp_params));
+	if (ret) {
+		pr_err("layer list copy from user failed, pp_info = %p\n",
+			layer->pp_info);
+		ret = -EFAULT;
+		goto exit_pp_info;
+	}
+
+	ops = pp_info->config_ops;
+	if (ops & MDP_OVERLAY_PP_IGC_CFG) {
+		ret = pp_copy_layer_igc_payload(pp_info);
+		if (ret) {
+			pr_err("Failed to copy IGC payload, ret = %d\n", ret);
+			goto exit_pp_info;
+		}
+	}
+	if (ops & MDP_OVERLAY_PP_HIST_LUT_CFG) {
+		ret = pp_copy_layer_hist_lut_payload(pp_info);
+		if (ret) {
+			pr_err("Failed to copy Hist LUT payload, ret = %d\n",
+				ret);
+			goto exit_igc;
+		}
+	}
+	if (ops & MDP_OVERLAY_PP_PA_V2_CFG) {
+		ret = pp_copy_layer_pa_payload(pp_info);
+		if (ret) {
+			pr_err("Failed to copy PA payload, ret = %d\n", ret);
+			goto exit_hist_lut;
+		}
+	}
+	if (ops & MDP_OVERLAY_PP_PCC_CFG) {
+		ret = pp_copy_layer_pcc_payload(pp_info);
+		if (ret) {
+			pr_err("Failed to copy PCC payload, ret = %d\n", ret);
+			goto exit_pa;
+		}
+	}
+
+	layer->pp_info = pp_info;
+
+	return ret;
+
+exit_pa:
+	kfree(pp_info->pa_v2_cfg_data.cfg_payload);
+exit_hist_lut:
+	kfree(pp_info->hist_lut_cfg.cfg_payload);
+exit_igc:
+	kfree(pp_info->igc_cfg.cfg_payload);
+exit_pp_info:
+	kfree(pp_info);
+	return ret;
+}
+
+void mdss_mdp_free_layer_pp_info(struct mdp_input_layer *layer)
+{
+	struct mdp_overlay_pp_params *pp_info =
+		(struct mdp_overlay_pp_params *) layer->pp_info;
+
+	if (!pp_info)
+		return;
+
+	kfree(pp_info->igc_cfg.cfg_payload);
+	kfree(pp_info->hist_lut_cfg.cfg_payload);
+	kfree(pp_info->pa_v2_cfg_data.cfg_payload);
+	kfree(pp_info->pcc_cfg_data.cfg_payload);
+	kfree(pp_info);
 }
