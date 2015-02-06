@@ -376,17 +376,6 @@ config ARCH_WANT_HUGE_PMD_SHARE
 config HAVE_ARCH_TRANSPARENT_HUGEPAGE
 	def_bool y
 
-config ARMV7_COMPAT_CP15_BARRIER
-	bool "Allow applications to use the CP15 barrier operations"
-	depends on ARMV7_COMPAT
-	default y
-	help
-	 This option allows applications to use deprecated CP15 barrier
-	 instructions. This is useful because this was the only way to create
-	 a barrier on older ARM processors.
-
-	 If you want to execute ARMv7 applications, say Y
-
 config ARCH_HAS_CACHE_LINE_SIZE
 	def_bool y
 
