@@ -1842,15 +1842,12 @@ int dsi_panel_device_register(struct device_node *pan_node,
 
 	data = of_get_property(ctrl_pdev->dev.of_node,
 		"qcom,platform-bist-ctrl", &len);
-	if ((!data) || (len != 6)) {
+	if ((!data) || (len != 6))
 		pr_err("%s:%d, Unable to read Phy Bist Ctrl settings\n",
 			__func__, __LINE__);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < len; i++) {
-		pinfo->mipi.dsi_phy_db.bistctrl[i] = data[i];
-	}
+	else
+		for (i = 0; i < len; i++)
+			pinfo->mipi.dsi_phy_db.bistctrl[i] = data[i];
 
 	data = of_get_property(ctrl_pdev->dev.of_node,
 		"qcom,platform-lane-config", &len);

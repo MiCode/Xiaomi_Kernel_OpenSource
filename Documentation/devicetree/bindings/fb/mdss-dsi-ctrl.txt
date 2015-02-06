@@ -22,8 +22,6 @@ Required properties:
 					regulator settings. It use 5 bytes for thulium pll.
 - qcom,platform-strength-ctrl:		An array of length 2 or 10 that specifies the PHY
 					strengthCtrl settings. It use 10 bytes for thulium pll.
-- qcom,platform-bist-ctrl:		An array of length 6 that specifies the PHY
-					BIST ctrl settings.
 - qcom,platform-lane-config:		An array of length 45 or 20 that specifies the PHY
 					lane configuration settings. It use 20 bytes for thulium pll.
 - qcom,dsi-pref-prim-pan:		phandle that specifies the primary panel to be used
@@ -34,6 +32,8 @@ Optional properties:
 
 - reg-names: 				A list of strings that map in order to the list of regs.
 					"dsi_phy_regulator" - MDSS DSI PHY REGULATOR region
+- qcom,platform-bist-ctrl:		An array of length 6 that specifies the PHY
+					BIST ctrl settings.
 - vcca-supply:				Phandle for vcca regulator device node.
 - qcom,ctrl-supply-entries:		A node that lists the elements of the supply used by the
 					DSI controller and PHY. There can be more than one instance
