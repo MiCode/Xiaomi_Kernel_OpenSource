@@ -1123,6 +1123,19 @@ static const SOC_ENUM_SINGLE_DECL(
 static const struct snd_kcontrol_new rt5670_rxdp_mux =
 	SOC_DAPM_ENUM("DAC2 L source", rt5670_rxdp_enum);
 
+
+/* MX-2D [3:2] */
+static const char * const rt5670_txdp_slot_src[] = {
+	"Slot 0-1", "Slot 2-3", "Slot 4-5", "Slot 6-7"
+};
+
+static const SOC_ENUM_SINGLE_DECL(
+	rt5670_txdp_slot_enum, RT5670_DSP_PATH1,
+	RT5670_TXDP_SLOT_SEL_SFT, rt5670_txdp_slot_src);
+
+static const struct snd_kcontrol_new rt5670_txdp_slot_mux =
+	SOC_DAPM_ENUM("TxDP Slot source", rt5670_txdp_slot_enum);
+
 /* MX-2D [1] [0] */
 static const char * const rt5670_dsp_bypass_src[] = {
 	"DSP", "Bypass"
@@ -2220,7 +2233,8 @@ static const struct snd_soc_dapm_widget rt5670_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA("TxDP_ADC_R", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_PGA("TxDC_DAC", SND_SOC_NOPM, 0, 0, NULL, 0),
 
-	SND_SOC_DAPM_PGA("8CH TDM Data", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MUX("TDM Data Mux", SND_SOC_NOPM, 0, 0,
+		&rt5670_txdp_slot_mux),
 
 	SND_SOC_DAPM_MUX("DSP UL Mux", SND_SOC_NOPM, 0, 0,
 			&rt5670_dsp_ul_mux),
@@ -2570,13 +2584,13 @@ static const struct snd_soc_dapm_route rt5670_dapm_routes[] = {
 	{ "IF1 ADC1 IN1 Mux", "IF1_ADC3", "IF1_ADC3" },
 
 	{ "IF1 ADC1 IN2 Mux", "IF1_ADC1_IN1", "IF1 ADC1 IN1 Mux" },
-	{ "IF1 ADC1 IN2 Mux", "IF1_ADC4", "IF1_ADC4" },
+	{ "IF1 ADC1 IN2 Mux", "IF1_ADC4", "TxDP_ADC" },
 
 	{ "IF1 ADC2 IN Mux", "IF_ADC2", "IF_ADC2" },
 	{ "IF1 ADC2 IN Mux", "VAD_ADC", "VAD_ADC" },
 
 	{ "IF1 ADC2 IN1 Mux", "IF1_ADC2_IN", "IF1 ADC2 IN Mux" },
-	{ "IF1 ADC2 IN1 Mux", "IF1_ADC4", "IF1_ADC4" },
+	{ "IF1 ADC2 IN1 Mux", "IF1_ADC4", "TxDP_ADC" },
 
 	{ "IF1_ADC1" , NULL, "IF1 ADC1 IN2 Mux" },
 	{ "IF1_ADC2" , NULL, "IF1 ADC2 IN1 Mux" },
@@ -2594,16 +2608,12 @@ static const struct snd_soc_dapm_route rt5670_dapm_routes[] = {
 	{ "RxDP Mux", "Mono ADC Mixer R", "Mono ADC MIXR" },
 	{ "RxDP Mux", "DAC1", "DAC MIX" },
 
-	{ "8CH TDM Data", NULL, "Stereo1 ADC MIXL" },
-	{ "8CH TDM Data", NULL, "Stereo1 ADC MIXR" },
-	{ "8CH TDM Data", NULL, "Mono ADC MIXL" },
-	{ "8CH TDM Data", NULL, "Mono ADC MIXR" },
-	{ "8CH TDM Data", NULL, "Sto2 ADC MIXL" },
-	{ "8CH TDM Data", NULL, "Sto2 ADC MIXR" },
-	{ "8CH TDM Data", NULL, "IF2 DAC L" },
-	{ "8CH TDM Data", NULL, "IF2 DAC R" },
+	{ "TDM Data Mux", "Slot 0-1", "Stereo1 ADC MIX" },
+	{ "TDM Data Mux", "Slot 2-3", "Mono ADC MIX" },
+	{ "TDM Data Mux", "Slot 4-5", "Stereo2 ADC MIX" },
+	{ "TDM Data Mux", "Slot 6-7", "IF2 DAC" },
 
-	{ "DSP UL Mux", "Bypass", "8CH TDM Data" },
+	{ "DSP UL Mux", "Bypass", "TDM Data Mux" },
 	{ "DSP UL Mux", NULL, "I2S DSP" },
 	{ "DSP DL Mux", "Bypass", "RxDP Mux" },
 	{ "DSP DL Mux", NULL, "I2S DSP" },

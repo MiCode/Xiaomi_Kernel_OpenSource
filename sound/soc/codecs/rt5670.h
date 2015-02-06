@@ -490,6 +490,8 @@
 #define RT5670_TXDP_SRC_SFT			14
 #define RT5670_TXDP_SRC_NOR			(0x0 << 14)
 #define RT5670_TXDP_SRC_DIV3			(0x1 << 14)
+#define RT5670_TXDP_SLOT_SEL_MASK		(0x3 << 2)
+#define RT5670_TXDP_SLOT_SEL_SFT		2
 #define RT5670_DSP_UL_SEL			(0x1 << 1)
 #define RT5670_DSP_UL_SFT			1
 #define RT5670_DSP_DL_SEL			0x1
