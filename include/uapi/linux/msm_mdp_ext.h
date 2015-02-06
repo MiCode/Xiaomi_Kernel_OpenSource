@@ -59,6 +59,9 @@ LAYER FLAG CONFIGURATION
 /* layer is async position updatable */
 #define MDP_LAYER_ASYNC			0x100
 
+/* layer contains postprocessing configuration data */
+#define MDP_LAYER_PP			0x200
+
 /**********************************************************************
 VALIDATE/COMMIT FLAG CONFIGURATION
 **********************************************************************/
