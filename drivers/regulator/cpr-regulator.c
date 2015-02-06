@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2651,6 +2651,57 @@ static int cpr_adjust_target_quots(struct platform_device *pdev,
 	return rc;
 }
 
+static int cpr_check_allowed(struct platform_device *pdev,
+					struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	char *allow_str = "qcom,cpr-allowed";
+	int rc = 0, count;
+	int tuple_count, tuple_match;
+	u32 allow_status;
+
+	if (!of_find_property(of_node, allow_str, &count))
+		/* CPR is allowed for all fuse revisions. */
+		return 0;
+
+	count /= sizeof(u32);
+	if (cpr_vreg->cpr_fuse_map_count) {
+		if (cpr_vreg->cpr_fuse_map_match == FUSE_MAP_NO_MATCH)
+			/* No matching index to use for CPR allowed. */
+			return 0;
+		tuple_count = cpr_vreg->cpr_fuse_map_count;
+		tuple_match = cpr_vreg->cpr_fuse_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	if (count != tuple_count) {
+		cpr_err(cpr_vreg, "%s count=%d is invalid\n", allow_str,
+			count);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_index(of_node, allow_str, tuple_match,
+		&allow_status);
+	if (rc) {
+		cpr_err(cpr_vreg, "could not read %s index %u, rc=%d\n",
+			allow_str, tuple_match, rc);
+		return rc;
+	}
+
+	if (!allow_status)
+		cpr_vreg->cpr_fuse_disable = true;
+	else
+		cpr_vreg->cpr_fuse_disable = false;
+
+	cpr_info(cpr_vreg, "CPR closed loop is %s for fuse revision %d\n",
+		cpr_vreg->cpr_fuse_disable ? "disabled" : "enabled",
+		cpr_vreg->cpr_fuse_revision);
+
+	return rc;
+}
+
 static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				     struct cpr_regulator *cpr_vreg)
 {
@@ -2906,7 +2957,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			cpr_err(cpr_vreg, "invalid quotient values; permanently disabling CPR\n");
 		}
 	}
-
+	rc = cpr_check_allowed(pdev, cpr_vreg);
 
 error:
 	kfree(bp_target_quot);
