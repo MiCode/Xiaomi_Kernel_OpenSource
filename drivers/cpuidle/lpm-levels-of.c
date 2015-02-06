@@ -441,6 +441,8 @@ static int parse_cluster_level(struct device_node *node,
 	}
 
 	level->notify_rpm = of_property_read_bool(node, "qcom,notify-rpm");
+	level->disable_dynamic_routing = of_property_read_bool(node,
+					"qcom,disable-dynamic-int-routing");
 	level->last_core_only = of_property_read_bool(node,
 					"qcom,last-core-only");
 
