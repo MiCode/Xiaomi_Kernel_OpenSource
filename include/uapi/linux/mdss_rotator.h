@@ -24,7 +24,7 @@
 Rotation request flag
 **********************************************************************/
 /* no rotation flag, i.e. color space conversion */
-#define MDP_ROTATION_NOP		0x01
+#define MDP_ROTATION_NOP	0x01
 
 /* left/right flip */
 #define MDP_ROTATION_FLIP_LR	0x02
@@ -33,19 +33,19 @@ Rotation request flag
 #define MDP_ROTATION_FLIP_UD	0x04
 
 /* rotate 90 degree */
-#define MDP_ROTATION_90			0x08
+#define MDP_ROTATION_90		0x08
 
 /* rotate 180 degre */
-#define MDP_ROTATION_180		0x10
+#define MDP_ROTATION_180	(MDP_ROTATION_FLIP_LR | MDP_ROTATION_FLIP_UD)
 
 /* rotate 270 degree */
-#define MDP_ROTATION_270		0x20
+#define MDP_ROTATION_270	(MDP_ROTATION_90 | MDP_ROTATION_180)
 
 /* enable bwc */
-#define MDP_ROTATION_BWC_EN		0x40
+#define MDP_ROTATION_BWC_EN	0x40
 
 /* secure data */
-#define MDP_ROTATION_SECURE		0x80
+#define MDP_ROTATION_SECURE	0x80
 
 /**********************************************************************
 Rotation commit flag
