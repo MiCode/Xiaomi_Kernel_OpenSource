@@ -1180,7 +1180,7 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 	struct atomisp_device *isp;
 	unsigned int start;
 	void __iomem *base;
-	int err;
+	int err, val;
 	u32 irq;
 
 	if (!dev) {
@@ -1190,15 +1190,6 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 
 	if (!is_valid_device(dev, id))
 		return -ENODEV;
-#ifdef CONFIG_GMIN_INTEL_MID
-	/* HPLL frequency is known to be device-specific, but we don't
-	 * have specs yet for exactly how it varies.  Default to
-	 * BYT-CR but let provisioning set it via EFI variable */
-	atomisp_punit_hpll_freq = gmin_get_var_int(&dev->dev, "HpllFreq",
-			HPLL_FREQ_CR);
-	dev_info(&dev->dev, "ISP HPLL frequency base = %d MHz\n",
-			atomisp_punit_hpll_freq);
-#endif
 	/* Pointer to struct device. */
 	atomisp_dev = &dev->dev;
 
@@ -1271,6 +1262,7 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 			isp->dfs = &dfs_config_merr;
 			break;
 		}
+		isp->hpll_freq = HPLL_FREQ_1600MHZ;
 		break;
 	case ATOMISP_PCI_DEVICE_SOC_BYT:
 		isp->media_dev.hw_revision =
@@ -1278,10 +1270,21 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 			 << ATOMISP_HW_REVISION_SHIFT) |
 			ATOMISP_HW_STEPPING_B0;
 		if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2) ||
-				INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2))
+			INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2)) {
 			isp->dfs = &dfs_config_byt_cr;
-		else
+			isp->hpll_freq = HPLL_FREQ_2000MHZ;
+		} else {
 			isp->dfs = &dfs_config_byt;
+			isp->hpll_freq = HPLL_FREQ_1600MHZ;
+		}
+#ifdef CONFIG_GMIN_INTEL_MID
+		/* HPLL frequency is known to be device-specific, but we don't
+		 * have specs yet for exactly how it varies.  Default to
+		 * BYT-CR but let provisioning set it via EFI variable */
+		isp->hpll_freq = gmin_get_var_int(&dev->dev, "HpllFreq",
+					HPLL_FREQ_2000MHZ);
+#endif
+
 		/*
 		 * for BYT/CHT we are put isp into D3cold to avoid pci registers access
 		 * in power off. Set d3cold_delay to 0 since default 100ms is not
@@ -1300,6 +1303,7 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 		isp->media_dev.hw_revision |= isp->pdev->revision < 2 ?
 			ATOMISP_HW_STEPPING_A0 : ATOMISP_HW_STEPPING_B0;
 		isp->dfs = &dfs_config_merr;
+		isp->hpll_freq = HPLL_FREQ_1600MHZ;
 		break;
 	case ATOMISP_PCI_DEVICE_SOC_CHT:
 		isp->media_dev.hw_revision = (
@@ -1314,11 +1318,31 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 
 		isp->dfs = &dfs_config_cht;
 		isp->pdev->d3cold_delay = 0;
+
+		val = intel_mid_msgbus_read32(CCK_PORT, CCK_FUSE_REG_0);
+		switch (val & CCK_FUSE_HPLL_FREQ_MASK) {
+		case 0x00:
+			isp->hpll_freq = HPLL_FREQ_800MHZ;
+			break;
+		case 0x01:
+			isp->hpll_freq = HPLL_FREQ_1600MHZ;
+			break;
+		case 0x02:
+			isp->hpll_freq = HPLL_FREQ_2000MHZ;
+			break;
+		default:
+			isp->hpll_freq = HPLL_FREQ_1600MHZ;
+			dev_warn(isp->dev,
+				 "read HPLL from cck failed.default 1600MHz.\n");
+		}
 		break;
 	default:
 		dev_err(&dev->dev, "un-supported IUNIT device\n");
 		return -ENODEV;
 	}
+
+	dev_info(&dev->dev, "ISP HPLL frequency base = %d MHz\n",
+		 isp->hpll_freq);
 
 	isp->max_isr_latency = ATOMISP_MAX_ISR_LATENCY;
 #ifndef CONFIG_GMIN_INTEL_MID /* No spid in gmin, nor CLVT support */

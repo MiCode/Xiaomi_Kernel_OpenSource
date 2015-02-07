@@ -183,14 +183,12 @@ static int write_target_freq_to_hw(struct atomisp_device *isp,
 				   unsigned int new_freq)
 {
 	unsigned int ratio, timeout, guar_ratio;
-#ifndef CONFIG_GMIN_INTEL_MID
-	unsigned int hpll_freq;
-#endif
-#ifdef CONFIG_GMIN_INTEL_MID
-	unsigned int base_freq = atomisp_punit_hpll_freq;
-#endif
 	u32 isp_sspm1 = 0;
 	int i;
+	if (!isp->hpll_freq) {
+		dev_err(isp->dev, "failed to get hpll_freq. no change to freq\n");
+		return -EINVAL;
+	}
 
 	isp_sspm1 = intel_mid_msgbus_read32(PUNIT_PORT, ISPSSPM1);
 	if (isp_sspm1 & ISP_FREQ_VALID_MASK) {
@@ -199,23 +197,9 @@ static int write_target_freq_to_hw(struct atomisp_device *isp,
 				    isp_sspm1 & ~(1 << ISP_FREQ_VALID_OFFSET));
 	}
 
-#ifndef CONFIG_GMIN_INTEL_MID
-	if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2) ||
-		INTEL_MID_BOARD(3, TABLET, BYT, BLK, ENG, CRV2))
-		hpll_freq = HPLL_FREQ_CR;
-	else
-		hpll_freq = HPLL_FREQ;
-#endif
-#ifndef CONFIG_GMIN_INTEL_MID
-	ratio = (2 * hpll_freq + new_freq / 2) / new_freq - 1;
-#else
-	ratio =  (2 * base_freq + new_freq / 2) / new_freq - 1;
-#endif
-#ifndef CONFIG_GMIN_INTEL_MID
-	guar_ratio = (2 * hpll_freq + 200 / 2) / 200 - 1;
-#else
-	guar_ratio = (2 * base_freq + 200 / 2) / 200 - 1;
-#endif
+	ratio = (2 * isp->hpll_freq + new_freq / 2) / new_freq - 1;
+	guar_ratio = (2 * isp->hpll_freq + 200 / 2) / 200 - 1;
+
 	isp_sspm1 = intel_mid_msgbus_read32(PUNIT_PORT, ISPSSPM1);
 	isp_sspm1 &= ~(0x1F << ISP_REQ_FREQ_OFFSET);
 

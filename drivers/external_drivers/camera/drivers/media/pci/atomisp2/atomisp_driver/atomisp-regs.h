@@ -24,6 +24,7 @@
 
 /* common register definitions */
 #define PUNIT_PORT		0x04
+#define CCK_PORT		0x14
 
 #define PCICMDSTS		0x01
 #define INTR			0x0f
@@ -147,8 +148,13 @@
 #define ISP_FREQ_320MHZ				0x140
 #define ISP_FREQ_266MHZ				0x10a
 #define ISP_FREQ_200MHZ				0xc8
-#define HPLL_FREQ				0x640
-#define HPLL_FREQ_CR				0x7D0
+
+#define HPLL_FREQ_800MHZ			0x320
+#define HPLL_FREQ_1600MHZ			0x640
+#define HPLL_FREQ_2000MHZ			0x7D0
+
+#define CCK_FUSE_REG_0			0x08
+#define CCK_FUSE_HPLL_FREQ_MASK		0x03
 
 #if defined(ISP2401)
 #define ISP_FREQ_MAX	ISP_FREQ_320MHZ

@@ -305,6 +305,7 @@ struct atomisp_device {
 
 	unsigned int mipi_frame_size;
 	const struct atomisp_dfs_config *dfs;
+	unsigned int hpll_freq;
 
 	bool css_initialized;
 };
