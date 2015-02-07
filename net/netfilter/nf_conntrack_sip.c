@@ -1761,6 +1761,7 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 	bool skb_is_combined = false;
 	enum ip_conntrack_dir dir = IP_CT_DIR_MAX;
 	struct sk_buff *combined_skb = NULL;
+	bool content_len_exists = 1;
 
 	typeof(nf_nat_sip_seq_adjust_hook) nf_nat_sip_seq_adjust;
 
@@ -1808,14 +1809,14 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 				      SIP_HDR_CONTENT_LENGTH,
 				      &matchoff, &matchlen) <= 0){
 			do_not_process = true;
+			content_len_exists = 0;
 			goto destination;
 		}
 
 
 		clen = simple_strtoul(dptr + matchoff, (char **)&end, 10);
 		if (dptr + matchoff == end) {
-			do_not_process = true;
-			goto destination;
+			break;
 		}
 
 		term = false;
@@ -1826,16 +1827,15 @@ static int sip_help_tcp(struct sk_buff *skb, unsigned int protoff,
 				break;
 			}
 		}
-		if (!term) {
-				do_not_process = true;
-				goto destination;
-		}
+		if (!term)
+			break;
 
 		end += strlen("\r\n\r\n") + clen;
-		msglen = origlen = end - dptr;
-
 destination:
-
+		if (content_len_exists == 0)
+			msglen = origlen = datalen;
+		else
+			msglen = origlen = end - dptr;
 		if (ct)
 			dir = CTINFO2DIR(ctinfo);
 		combined_skb = skb;
@@ -1888,10 +1888,9 @@ destination:
 		dataoff += msglen;
 		dptr	+= msglen;
 		datalen  = datalen + diff - msglen;
-
-		break;
+		if (skb_is_combined)
+			break;
 	}
-
 	if (skb_is_combined) {
 		/* once combined skb is processed, split the skbs again The
 		 * length to split at is the same as length of first skb. Any
