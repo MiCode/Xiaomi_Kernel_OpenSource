@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -225,6 +225,7 @@ enum msm_vidc_modes {
 	VIDC_TURBO = 1 << 1,
 	VIDC_THUMBNAIL = 1 << 2,
 	VIDC_NOMINAL = 1 << 3,
+	VIDC_POWER_SAVE = 1 << 4,
 };
 
 struct msm_vidc_core_capability {
