@@ -32,6 +32,11 @@ Optional properties:
 - qcom,qsgmii-pcs-chan : Specifies to use which QSGMII PCS channel
 		      This field is required if 'qcom,qfec-nss' compatibility is
 		      specified.
+- pinctrl-names : Specifies the pinctrl binding of GPIO pins for MDIO.
+		      The "active" pinctrl-name specifies the binding when the
+		      GPIO pins serves as MDIO pins.
+		      The "deactive" pinctrl-name specifies the binding when the
+		      GPIO pins does not serve as MDIO pins.
 
 Example:
 	qfec0: qcom,qfec@0xe7000000 {
@@ -49,5 +54,8 @@ Example:
 		phy-addr = <6>;
 		phy-mode = "rgmii";
 		qcom,qsgmii-pcs-chan = <1>;
+		pinctrl-names = "active", "deactive";
+		pinctrl-0 = <&qfec0_mdio_default>;
+		pinctrl-1 = <&gp_mdio_default>;
 		status = "ok";
 	};
