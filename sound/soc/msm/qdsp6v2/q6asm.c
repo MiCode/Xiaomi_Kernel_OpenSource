@@ -1409,7 +1409,7 @@ static int32_t is_no_wait_cmd_rsp(uint32_t opcode, uint32_t *cmd_type)
 			case ASM_DATA_CMD_REMOVE_TRAILING_SILENCE:
 				return 1;
 			default:
-				pr_err("%s: default err 0x%x\n",
+				pr_debug("%s: default err 0x%x\n",
 				__func__, cmd_type[0]);
 				break;
 			}
