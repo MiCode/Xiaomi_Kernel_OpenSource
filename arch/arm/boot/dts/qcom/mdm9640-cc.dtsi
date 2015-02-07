@@ -100,7 +100,6 @@
 		compatible = "qcom,sw-vote-clk";
 		qcom,parent = <&bimc_a_clk>;
 		qcom,config-rate = <2147483647>;
-		qcom,always-on;
 	};
 
 	bimc_msmbus_clk: bimc_msmbus_clk {
