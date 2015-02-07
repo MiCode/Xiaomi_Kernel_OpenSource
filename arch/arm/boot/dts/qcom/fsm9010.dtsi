@@ -299,6 +299,42 @@
 		status = "disabled";
 	};
 
+	qfec0: qcom,qfec@0xe7000000 {
+		compatible = "qcom,qfec-nss";
+		cell-index = <0>;
+		reg = <0xe7000000 0x10000>,
+			<0xfc800000 0x4000>,
+			<0xfc900000 0x100000>,
+			<0xfcb00000 0x100000>;
+		reg-names = "qfec_mac",
+			"qfec_csr",
+			"qfec_qsgmii",
+			"qfec_rgmii_csr";
+		interrupts = <0 242 0>;
+		clocks = <&clock_rpm clk_gcc_gmac0_axi_clk>;
+		clock-names = "core_clk";
+		qcom,qsgmii-pcs-chan = <1>;
+		status = "disabled";
+	};
+
+	qfec1: qcom,qfec@0xe7200000 {
+		compatible = "qcom,qfec-nss";
+		cell-index = <1>;
+		reg = <0xe7200000 0x10000>,
+			<0xfc800000 0x4000>,
+			<0xfc900000 0x100000>,
+			<0xfcb00000 0x100000>;
+		reg-names = "qfec_mac",
+			"qfec_csr",
+			"qfec_qsgmii",
+			"qfec_rgmii_csr";
+		interrupts = <0 244 0>;
+		clocks = <&clock_rpm clk_gcc_gmac1_axi_clk>;
+		clock-names = "core_clk";
+		qcom,qsgmii-pcs-chan = <2>;
+		status = "disabled";
+	};
+
 	pcie0: qcom,pcie@fc520000 {
 		compatible = "qcom,pci-msm";
 		cell-index = <0>;
@@ -556,6 +592,8 @@
 			reg = <0xfe0 12>;
 		};
 	};
+
+
 };
 
 #include "fsm9010-regulator.dtsi"
