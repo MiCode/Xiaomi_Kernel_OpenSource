@@ -2202,12 +2202,32 @@ int __init cpu_clock_8994_init_a57_v2(void)
 	/* Select GPLL0 for 600MHz on the A53s */
 	writel_relaxed(0x6, vbases[ALIAS0_GLB_BASE] + MUX_OFFSET);
 
+	/* Ensure write goes through before we disable PLLs below. */
+	mb();
+	udelay(5);
+
+	/*
+	 * Disable the PLLs in order to allow early rate setting to work.
+	 * The PLL ping-pong scheme needs the PLL to refuse round_rate
+	 * requests if prepare. However handoff will set the PLL ref count
+	 * to one thus preventing PLL ping-ponging to work correctly before
+	 * late_init.
+	 */
+	writel_relaxed(0x0,  vbases[C0_PLL_BASE] + C0_PLL_MODE);
+	writel_relaxed(0x0,  vbases[C0_PLL_BASE] + C0_PLLA_MODE);
+	writel_relaxed(0x0,  vbases[C1_PLL_BASE] + C1_PLL_MODE);
+	writel_relaxed(0x0,  vbases[C1_PLL_BASE] + C1_PLLA_MODE);
+
+	/* Ensure writes go through before divider config below */
+	mb();
+	udelay(5);
+
 	/* Setup dividers and outputs */
 	writel_relaxed(0x109, vbases[C0_PLL_BASE] + C0_PLLA_USER_CTL);
 	writel_relaxed(0x109, vbases[C1_PLL_BASE] + C1_PLL_USER_CTL);
 	writel_relaxed(0x109, vbases[C1_PLL_BASE] + C1_PLLA_USER_CTL);
 
-	/* Ensure write goes through before A53s are brought up. */
+	/* Ensure writes go through before clock driver probe */
 	mb();
 	udelay(5);
 
