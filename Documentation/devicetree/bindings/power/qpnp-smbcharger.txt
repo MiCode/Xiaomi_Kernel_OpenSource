@@ -209,6 +209,9 @@ Optional Properties:
 				the line from the battery connectors through
 				vph_power. This is used to calculate maximum
 				available current of the battery.
+- qcom,vled-max-uv:		The maximum input voltage of the flash leds.
+				This is used to calculate maximum available
+				current of the battery.
 - qcom,autoadjust-vfloat	A boolean property that when set, makes the
 				driver automatically readjust vfloat using the
 				fuel gauge ADC readings to make charging more
@@ -223,6 +226,9 @@ Optional Properties:
 				AICL deglitch configuration dynamically. This needs
 				to be set if the DCIN supply is going to be less
 				than or equal to 5V.
+- qcom,ibat-ocp-threshold-ua	Maximum current before the battery will trigger
+				overcurrent protection. Use the recommended
+				battery pack value minus some margin.
 - qcom,soft-vfloat-comp-disabled	Set this property when the battery is
 					powered via external source and could
 					go above the float voltage.
