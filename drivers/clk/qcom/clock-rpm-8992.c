@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 #define RPM_MEM_CLK_TYPE	0x326b6c63
 #define RPM_IPA_CLK_TYPE	0x617069
 #define RPM_CE_CLK_TYPE		0x6563
+#define RPM_MCFG_CLK_TYPE	0x6766636d
 
 #define RPM_SMD_KEY_ENABLE	0x62616E45
 
@@ -51,6 +52,8 @@
 
 #define CE1_CLK_ID		0x0
 #define CE2_CLK_ID		0x1
+
+#define MSS_CFG_AHB_CLK_ID	0x0
 
 #define BB_CLK1_ID	0x1
 #define BB_CLK2_ID	0x2
@@ -103,6 +106,8 @@ DEFINE_CLK_RPM_SMD(ipa_clk, ipa_a_clk, RPM_IPA_CLK_TYPE,
 DEFINE_CLK_RPM_SMD_XO_BUFFER(ln_bb_clk, ln_bb_a_clk, LN_BB_CLK_ID);
 DEFINE_CLK_RPM_SMD(mmssnoc_ahb_clk, mmssnoc_ahb_a_clk, RPM_BUS_CLK_TYPE,
 		   MMSSNOC_AHB_CLK_ID, NULL);
+DEFINE_CLK_RPM_SMD_BRANCH(mss_cfg_ahb_clk, mss_cfg_ahb_a_clk, RPM_MCFG_CLK_TYPE,
+		   MSS_CFG_AHB_CLK_ID, 19200000);
 static DEFINE_CLK_VOTER(ocmemgx_core_clk, &ocmemgx_clk.c, INT_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_msmbus_clk, &ocmemgx_clk.c, INT_MAX);
 static DEFINE_CLK_VOTER(ocmemgx_msmbus_a_clk, &ocmemgx_a_clk.c, INT_MAX);
@@ -156,6 +161,7 @@ static struct mux_clk rpm_debug_mux = {
 		{ &pnoc_clk.c, 0x0010 },
 		{ &snoc_clk.c, 0x0000 },
 		{ &bimc_clk.c, 0x015c },
+		{ &mss_cfg_ahb_clk.c, 0x0030 },
 		{ &gcc_mmss_bimc_gfx_m_clk.c, 0x002c },
 		{ &ce1_clk.c, 0x0138 },
 		{ &gcc_ce1_axi_m_clk.c, 0x0139 },
@@ -220,6 +226,8 @@ static struct clk_lookup msm_clocks_rpm_8992[] = {
 	CLK_LIST(mcd_ce2_clk),
 	CLK_LIST(mmssnoc_ahb_clk),
 	CLK_LIST(mmssnoc_ahb_a_clk),
+	CLK_LIST(mss_cfg_ahb_clk),
+	CLK_LIST(mss_cfg_ahb_a_clk),
 	CLK_LIST(ocmemgx_core_clk),
 	CLK_LIST(ocmemgx_msmbus_clk),
 	CLK_LIST(ocmemgx_msmbus_a_clk),
