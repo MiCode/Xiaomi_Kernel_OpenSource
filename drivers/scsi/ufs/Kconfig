@@ -100,6 +100,7 @@ config SCSI_UFS_QCOM_ICE
 config SCSI_UFS_TEST
 	tristate "Universal Flash Storage host controller driver unit-tests"
 	depends on SCSI_UFSHCD && IOSCHED_TEST
+	default m
 	---help---
 	This adds UFS Host controller unit-test framework.
 	The UFS unit-tests register as a block device test utility to
