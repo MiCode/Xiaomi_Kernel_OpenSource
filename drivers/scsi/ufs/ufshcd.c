@@ -63,32 +63,27 @@
 		struct request *rq = hba->lrb[task_tag].cmd ?	\
 			hba->lrb[task_tag].cmd->request : NULL;	\
 		u64 **tag_stats = hba->ufs_stats.tag_stats;	\
-		int rq_type = -1;				\
+		int rq_type = TS_WRITE;				\
 		if (!hba->ufs_stats.enabled)			\
 			break;					\
 		tag_stats[tag][TS_TAG]++;			\
-		if (!rq)					\
+		if (!rq || !(rq->cmd_type & REQ_TYPE_FS))	\
 			break;					\
 		WARN_ON(hba->ufs_stats.q_depth > hba->nutrs);	\
-		if (rq_data_dir(rq) == READ)			\
-			rq_type = (rq->cmd_flags & REQ_URGENT) ?\
-				TS_URGENT : TS_READ;		\
-		else if (rq_data_dir(rq) == WRITE)		\
-			rq_type = TS_WRITE;			\
-		else if (rq->cmd_flags & REQ_FLUSH)		\
+		if (rq->cmd_flags & REQ_FLUSH)			\
 			rq_type = TS_FLUSH;			\
-		else						\
-			break;					\
+		else if (rq_data_dir(rq) == READ)		\
+			rq_type = (rq->cmd_flags & REQ_URGENT) ?\
+				TS_URGENT_READ : TS_READ;	\
+		else if (rq->cmd_flags & REQ_URGENT)		\
+			rq_type = TS_URGENT_WRITE;		\
 		tag_stats[hba->ufs_stats.q_depth++][rq_type]++;	\
 	} while (0)
 
 #define UFSHCD_UPDATE_TAG_STATS_COMPLETION(hba, cmd)		\
 	do {							\
 		struct request *rq = cmd ? cmd->request : NULL;	\
-		if (cmd->request &&				\
-				((rq_data_dir(rq) == READ) ||	\
-				(rq_data_dir(rq) == WRITE) ||	\
-				(rq->cmd_flags & REQ_FLUSH)))	\
+		if (rq && rq->cmd_type & REQ_TYPE_FS)		\
 			hba->ufs_stats.q_depth--;		\
 	} while (0)
 
