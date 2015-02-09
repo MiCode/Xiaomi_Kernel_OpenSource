@@ -203,6 +203,103 @@ static void mdss_rotator_release_data(struct mdss_rot_entry *entry)
 	mdss_mdp_data_free(&entry->dst_buf, true, DMA_FROM_DEVICE);
 }
 
+static int mdss_rotator_validate_data(struct mdss_rot_mgr *mgr,
+	struct mdss_rot_entry *entry)
+{
+	int ret;
+	struct mdp_layer_buffer *input;
+	struct mdp_layer_buffer *output;
+	struct mdss_mdp_format_params *fmt;
+	struct mdss_mdp_plane_sizes ps;
+	bool rotation;
+	u32 flag = 0;
+
+	input = &entry->item.input;
+	output = &entry->item.output;
+
+	if (entry->item.flags & MDP_ROTATION_SECURE)
+		flag = MDP_SECURE_OVERLAY_SESSION;
+
+	rotation = (entry->item.flags &  MDP_ROTATION_90) ? true : false;
+
+	ret = mdss_rotator_import_buffer(input, &entry->src_buf, flag,
+				&mgr->pdev->dev, true);
+	if (ret) {
+		pr_err("fail to import input buffer\n");
+		return ret;
+	}
+
+	/*
+	 * driver assumes ouput buffer is ready to be written
+	 * immediately
+	 */
+	ret = mdss_rotator_import_buffer(output, &entry->dst_buf, flag,
+				&mgr->pdev->dev, false);
+	if (ret) {
+		pr_err("fail to import output buffer\n");
+		return ret;
+	}
+
+	ret = mdss_iommu_ctrl(1);
+	if (IS_ERR_VALUE(ret))
+		return ret;
+
+	/* if error during map, the caller will release the data */
+	ret = mdss_mdp_data_map(&entry->src_buf, true, DMA_TO_DEVICE);
+	if (ret) {
+		pr_err("fail to map input buffer ret =%d\n", ret);
+		goto validate_data_err;
+	}
+
+	ret = mdss_mdp_data_map(&entry->dst_buf, true, DMA_FROM_DEVICE);
+	if (ret) {
+		pr_err("fail to map out buffer ret =%d\n", ret);
+		goto validate_data_err;
+	}
+
+	fmt = mdss_mdp_get_format_params(input->format);
+	if (fmt) {
+		pr_err("invalid input format\n");
+		goto validate_data_err;
+	}
+
+	ret = mdss_mdp_get_plane_sizes(
+			fmt, input->width, input->height, &ps, 0, rotation);
+	if (ret) {
+		pr_err("fail to get input plane size ret=%d\n", ret);
+		goto validate_data_err;
+	}
+
+	ret = mdss_mdp_data_check(&entry->src_buf, &ps, fmt);
+	if (ret) {
+		pr_err("fail to check input data ret=%d\n", ret);
+		goto validate_data_err;
+	}
+
+	fmt = mdss_mdp_get_format_params(output->format);
+	if (fmt) {
+		pr_err("invalid output format\n");
+		goto validate_data_err;
+	}
+
+	ret = mdss_mdp_get_plane_sizes(
+			fmt, output->width, output->height, &ps, 0, rotation);
+	if (ret) {
+		pr_err("fail to get output plane size ret=%d\n", ret);
+		goto validate_data_err;
+	}
+
+	ret = mdss_mdp_data_check(&entry->dst_buf, &ps, fmt);
+	if (ret) {
+		pr_err("fail to check output data ret=%d\n", ret);
+		goto validate_data_err;
+	}
+
+validate_data_err:
+	mdss_iommu_ctrl(0);
+	return ret;
+}
+
 static struct mdss_rot_hw_resource *mdss_rotator_hw_alloc(
 	struct mdss_rot_mgr *mgr, u32 pipe_id, u32 wb_id)
 {
@@ -713,21 +810,9 @@ static int mdss_rotator_add_request(struct mdss_rot_mgr *mgr,
 			return ret;
 		}
 
-		ret = mdss_rotator_import_buffer(&item->input,
-			&entry->src_buf, flag, mgr->device, true);
+		ret = mdss_rotator_validate_data(mgr, entry);
 		if (ret) {
-			pr_err("fail to import input buffer\n");
-			return ret;
-		}
-
-		/*
-		 * driver assumes ouput buffer is ready to be written
-		 * immediately
-		 */
-		ret = mdss_rotator_import_buffer(&item->output,
-			&entry->dst_buf, flag, mgr->device, false);
-		if (ret) {
-			pr_err("fail to import output buffer\n");
+			pr_err("fail to validate data\n");
 			return ret;
 		}
 
