@@ -1891,14 +1891,30 @@ static int wcd9xxx_dt_parse_micbias_info(struct device *dev,
 				&prop_val)))
 		micbias->ldoh_v  =  (u8)prop_val;
 
-	wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias-cfilt1-mv",
-				&micbias->cfilt1_mv);
+	if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias-cfilt1-mv",
+				&prop_val)))
+		micbias->cfilt1_mv = prop_val;
+	else if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias1-mv",
+				&prop_val)))
+		micbias->micb1_mv = prop_val;
 
-	wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias-cfilt2-mv",
-				&micbias->cfilt2_mv);
+	if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias-cfilt2-mv",
+				&prop_val)))
+		micbias->cfilt2_mv = prop_val;
+	else if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias2-mv",
+				&prop_val)))
+		micbias->micb2_mv = prop_val;
 
-	wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias-cfilt3-mv",
-				&micbias->cfilt3_mv);
+	if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias-cfilt3-mv",
+				&prop_val)))
+		micbias->cfilt3_mv = prop_val;
+	else if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias3-mv",
+				&prop_val)))
+		micbias->micb3_mv = prop_val;
+
+	if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-micbias4-mv",
+				&prop_val)))
+		micbias->micb4_mv = prop_val;
 
 	/* Read micbias values for codec. Does not matter even if a few
 	 * micbias values are not defined in the Device Tree. Codec will
@@ -1941,6 +1957,10 @@ static int wcd9xxx_dt_parse_micbias_info(struct device *dev,
 	dev_dbg(dev, "ldoh_v  %u cfilt1_mv %u cfilt2_mv %u cfilt3_mv %u",
 		(u32)micbias->ldoh_v, (u32)micbias->cfilt1_mv,
 		(u32)micbias->cfilt2_mv, (u32)micbias->cfilt3_mv);
+
+	dev_dbg(dev, "micb1_mv %u micb2_mv %u micb3_mv %u micb4_mv %u",
+		micbias->micb1_mv, micbias->micb2_mv,
+		micbias->micb3_mv, micbias->micb4_mv);
 
 	dev_dbg(dev, "bias1_cfilt_sel %u bias2_cfilt_sel %u\n",
 		(u32)micbias->bias1_cfilt_sel, (u32)micbias->bias2_cfilt_sel);

@@ -116,6 +116,10 @@ struct wcd9xxx_micbias_setting {
 	u32 cfilt1_mv; /* in mv */
 	u32 cfilt2_mv; /* in mv */
 	u32 cfilt3_mv; /* in mv */
+	u32 micb1_mv;
+	u32 micb2_mv;
+	u32 micb3_mv;
+	u32 micb4_mv;
 	/* Different WCD9xxx series codecs may not
 	 * have 4 mic biases. If a codec has fewer
 	 * mic biases, some of these properties will
