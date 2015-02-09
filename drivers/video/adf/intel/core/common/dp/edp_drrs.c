@@ -95,6 +95,11 @@ int intel_edp_drrs_init(struct intel_pipeline *pipeline)
 	if (!i_pipe->ops->get_preferred_mode)
 		return ret;
 
+	if (dp_pipe->psr.setup_done) {
+		pr_err("PSR enabled, so not enabling DRRS\n");
+		return ret;
+	}
+
 	i_pipe->ops->get_preferred_mode(i_pipe, &preferred);
 	if (!preferred) {
 		pr_err("Failed to obtain edp preferred mode\n");
