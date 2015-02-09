@@ -3131,9 +3131,11 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 	}
 
-	if (dwc->gadget.speed != USB_SPEED_SUPER)
-		/* Suspend unneeded PHY */
-		dwc3_gadget_usb3_phy_suspend(dwc, true);
+	/*
+	 * In HS mode this allows SS phy suspend. In SS mode this allows ss phy
+	 * suspend in P3 state and generates IN_P3 power event irq.
+	 */
+	dwc3_gadget_usb3_phy_suspend(dwc, true);
 
 	dep = dwc->eps[0];
 	ret = __dwc3_gadget_ep_enable(dep, &dwc3_gadget_ep0_desc, NULL, true);
