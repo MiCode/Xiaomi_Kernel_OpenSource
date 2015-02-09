@@ -1200,9 +1200,9 @@ int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
 {
 	int rc, count;
 	struct mdss_overlay_private *mdp5_data;
-	struct mdss_mdp_wfd *wfd;
-	struct mdp_output_layer *output_layer;
-	struct mdss_mdp_wfd_data *data;
+	struct mdss_mdp_wfd *wfd = NULL;
+	struct mdp_output_layer *output_layer = NULL;
+	struct mdss_mdp_wfd_data *data = NULL;
 	struct sync_fence *fence = NULL;
 	struct msm_sync_pt_data *sync_pt_data = NULL;
 
@@ -1216,24 +1216,21 @@ int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
 		return -ENODEV;
 	}
 
-	if (!commit->output_layer) {
-		pr_err("no output layer defined\n");
-		return -EINVAL;
-	}
+	if (commit->output_layer) {
+		wfd = mdp5_data->wfd;
+		output_layer = commit->output_layer;
 
-	wfd = mdp5_data->wfd;
-	output_layer = commit->output_layer;
+		data = mdss_mdp_wfd_add_data(wfd, output_layer);
+		if (IS_ERR_OR_NULL(data))
+			return PTR_ERR(data);
 
-	data = mdss_mdp_wfd_add_data(wfd, output_layer);
-	if (IS_ERR_OR_NULL(data))
-		return PTR_ERR(data);
-
-	if (output_layer->buffer.fence >= 0) {
-		fence = sync_fence_fdget(output_layer->buffer.fence);
-		if (!fence) {
-			pr_err("fail to get output buffer fence\n");
-			rc = -EINVAL;
-			goto fence_get_err;
+		if (output_layer->buffer.fence >= 0) {
+			fence = sync_fence_fdget(output_layer->buffer.fence);
+			if (!fence) {
+				pr_err("fail to get output buffer fence\n");
+				rc = -EINVAL;
+				goto fence_get_err;
+			}
 		}
 	}
 
@@ -1257,7 +1254,8 @@ input_layer_err:
 	if (fence)
 		sync_fence_put(fence);
 fence_get_err:
-	mdss_mdp_wfd_remove_data(wfd, data);
+	if (data)
+		mdss_mdp_wfd_remove_data(wfd, data);
 	return rc;
 }
 
