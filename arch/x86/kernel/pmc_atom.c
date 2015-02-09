@@ -29,12 +29,17 @@
 
 #define	DRIVER_NAME	KBUILD_MODNAME
 
+#define SC_NUM_DEVICES 36
+#define FUNC_DIS_OFFSET 4
+#define FUNC_DIS2_OFFSET 1
+
 struct pmc_dev {
 	u32 base_addr;
 	void __iomem *regmap;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dbgfs_dir;
 #endif /* CONFIG_DEBUG_FS */
+
 };
 
 static struct pmc_dev pmc_device;
@@ -460,6 +465,10 @@ static int pmc_sleep_tmr_open(struct inode *inode, struct file *file)
 	return single_open(file, pmc_sleep_tmr_show, inode->i_private);
 }
 
+static int pmc_func_dis_show(struct seq_file *s, void *unused)
+{
+	return 0;
+}
 
 static const struct file_operations pmc_sleep_tmr_ops = {
 	.open		= pmc_sleep_tmr_open,
@@ -468,6 +477,52 @@ static const struct file_operations pmc_sleep_tmr_ops = {
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
+
+static int pmc_func_dis_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, pmc_func_dis_show, inode->i_private);
+}
+
+static ssize_t pmc_func_dis_write(struct file *file,
+		const char __user *userbuf, size_t count, loff_t *ppos)
+{
+	char buf[64];
+	int val;
+	unsigned int buf_size;
+	u32 fd;
+	struct pmc_dev *pmc = &pmc_device;
+
+	buf_size = count < 64 ? count : 64;
+
+	if (copy_from_user(buf, userbuf, buf_size))
+		return -EFAULT;
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EFAULT;
+
+	if (val < (SC_NUM_DEVICES - FUNC_DIS_OFFSET)) {
+		fd = pmc_reg_read(pmc, PMC_FUNC_DIS);
+		fd |= (1 << val);
+		pmc_reg_write(pmc, PMC_FUNC_DIS, fd);
+
+	} else if (val < (SC_NUM_DEVICES - FUNC_DIS2_OFFSET)) {
+		fd = pmc_reg_read(pmc, PMC_FUNC_DIS_2);
+		fd |= dev_map[val].fn_dis_bit;
+		pmc_reg_write(pmc, PMC_FUNC_DIS_2, fd);
+	} else
+		pr_err("Invalid South Complex IP\n");
+
+	return count;
+}
+
+static const struct file_operations pmc_func_dis_ops = {
+	.open		= pmc_func_dis_open,
+	.read		= seq_read,
+	.write		= pmc_func_dis_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
 
 static void pmc_dbgfs_unregister(struct pmc_dev *pmc)
 {
@@ -502,6 +557,13 @@ static int pmc_dbgfs_register(struct pmc_dev *pmc, struct pci_dev *pdev)
 				dir, pmc, &pmc_pss_state_ops);
 	if (!f) {
 		dev_err(&pdev->dev, "pss_state register failed\n");
+		goto err;
+	}
+
+	f = debugfs_create_file("func_dis", S_IFREG | S_IRUGO,
+				dir, pmc, &pmc_func_dis_ops);
+	if (!f)	{
+		dev_err(&pdev->dev, "func_dis register failed\n");
 		goto err;
 	}
 	pmc->dbgfs_dir = dir;
