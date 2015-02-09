@@ -178,7 +178,7 @@ u32 vlv_port_enable(struct intel_pipeline *pipeline,
 
 		for_each_dsi_port(port, intel_dsi->ports) {
 			dsi_port = &disp->port.dsi_port[port];
-
+			vlv_dsi_port_wait_for_fifo_empty(dsi_port);
 			temp = REG_READ(dsi_port->offset);
 			temp &= ~LANE_CONFIGURATION_MASK;
 			temp &= ~DUAL_LINK_MODE_MASK;
