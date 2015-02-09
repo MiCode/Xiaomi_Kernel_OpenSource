@@ -55,7 +55,7 @@
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pm_qos.h>
-#include <linux/scsi/ufs/unipro.h>
+#include "unipro.h"
 
 #include <asm/irq.h>
 #include <asm/byteorder.h>
@@ -318,7 +318,7 @@ struct ufs_pwr_mode_info {
 struct ufs_hba_variant_ops {
 	const char *name;
 	int	(*init)(struct ufs_hba *);
-	void    (*exit)(struct ufs_hba *);
+	void	(*exit)(struct ufs_hba *);
 	u32	(*get_ufs_hci_version)(struct ufs_hba *);
 	int	(*clk_scale_notify)(struct ufs_hba *, bool,
 				    enum ufs_notify_change_status);
@@ -332,8 +332,8 @@ struct ufs_hba_variant_ops {
 					enum ufs_notify_change_status status,
 					struct ufs_pa_layer_attr *,
 					struct ufs_pa_layer_attr *);
-	int     (*suspend)(struct ufs_hba *, enum ufs_pm_op);
-	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
+	int	(*suspend)(struct ufs_hba *, enum ufs_pm_op);
+	int	(*resume)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
 	int	(*crypto_engine_cfg)(struct ufs_hba *, unsigned int);

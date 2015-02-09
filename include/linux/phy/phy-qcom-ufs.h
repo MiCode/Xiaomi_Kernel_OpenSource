@@ -15,9 +15,7 @@
 #ifndef PHY_QCOM_UFS_H_
 #define PHY_QCOM_UFS_H_
 
-#include <linux/scsi/ufs/ufshcd.h>
-#include <linux/scsi/ufs/unipro.h>
-#include <linux/scsi/ufs/ufs-qcom.h>
+#include "phy.h"
 
 /**
  * ufs_qcom_phy_enable_ref_clk() - Enable the phy

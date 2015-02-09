@@ -17,7 +17,7 @@
 
 #include <scsi/scsi_cmnd.h>
 
-#include <linux/scsi/ufs/ufs-qcom.h>
+#include "ufs-qcom.h"
 
 /*
  * UFS host controller ICE registers. There are n [0..31]

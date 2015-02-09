@@ -18,8 +18,8 @@
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_host.h>
-#include <linux/scsi/ufs/ufshcd.h>
-#include <linux/scsi/ufs/ufs.h>
+#include "ufshcd.h"
+#include "ufs.h"
 
 #define MODULE_NAME "ufs_test"
 

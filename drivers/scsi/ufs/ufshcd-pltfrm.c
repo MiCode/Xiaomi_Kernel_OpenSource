@@ -39,7 +39,6 @@
 
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
-#include <linux/scsi/ufs/ufshcd.h>
 
 static int ufshcd_parse_clock_info(struct ufs_hba *hba)
 {

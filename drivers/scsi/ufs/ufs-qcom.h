@@ -14,6 +14,9 @@
 #ifndef UFS_QCOM_H_
 #define UFS_QCOM_H_
 
+#include <linux/phy/phy.h>
+#include "ufshcd.h"
+
 #define MAX_UFS_QCOM_HOSTS	1
 #define MAX_U32                 (~(u32)0)
 #define MPHY_TX_FSM_STATE       0x41
@@ -64,15 +67,6 @@ enum {
 	UFS_TEST_BUS_CTRL_2			= 0xF4,
 	UFS_UNIPRO_CFG				= 0xF8,
 
-	/*
-	 * QCOM UFS host controller vendor specific registers
-	 * added in HW Version 3.0.0
-	 */
-	UFS_AH8_CFG				= 0xFC,
-};
-
-/* QCOM UFS host controller vendor specific debug registers */
-enum {
 	UFS_DBG_RD_REG_UAWM			= 0x100,
 	UFS_DBG_RD_REG_UARM			= 0x200,
 	UFS_DBG_RD_REG_TXUC			= 0x300,
@@ -87,9 +81,6 @@ enum {
 	UFS_UFS_DBG_RD_RESP_RAM			= 0x1800,
 	UFS_UFS_DBG_RD_EDTL_RAM			= 0x1900,
 };
-
-#define UFS_CNTLR_2_x_x_VEN_REGS_OFFSET(x)	(0x000 + x)
-#define UFS_CNTLR_3_x_x_VEN_REGS_OFFSET(x)	(0x400 + x)
 
 /* bit definitions for REG_UFS_CFG1 register */
 #define QUNIPRO_SEL	UFS_BIT(0)
@@ -192,12 +183,51 @@ struct ufs_qcom_bus_vote {
 	struct device_attribute max_bus_bw;
 };
 
+/**
+ * struct ufs_qcom_ice_data - ICE related information
+ * @vops:	pointer to variant operations of ICE
+ * @async_done:	completion for supporting ICE's driver asynchronous nature
+ * @pdev:	pointer to the proper ICE platform device
+ * @state:      UFS-ICE interface's internal state (see
+ *       ufs-qcom-ice.h for possible internal states)
+ * @quirks:     UFS-ICE interface related quirks
+ * @crypto_engine_err: crypto engine errors
+ */
+struct ufs_qcom_ice_data {
+	struct qcom_ice_variant_ops *vops;
+	struct completion async_done;
+	struct platform_device *pdev;
+	int state;
+
+	/*
+	 * If UFS host controller should handle cryptographic engine's
+	 * errors, enables this quirk.
+	 */
+	#define UFS_QCOM_ICE_QUIRK_HANDLE_CRYPTO_ENGINE_ERRORS	UFS_BIT(0)
+
+	u16 quirks;
+
+	bool crypto_engine_err;
+};
+
 /* Host controller hardware version: major.minor.step */
 struct ufs_hw_version {
 	u16 step;
 	u16 minor;
 	u8 major;
 };
+
+#ifdef CONFIG_DEBUG_FS
+struct qcom_debugfs_files {
+	struct dentry *debugfs_root;
+	struct dentry *dbg_print_en;
+	struct dentry *testbus;
+	struct dentry *testbus_en;
+	struct dentry *testbus_cfg;
+	struct dentry *testbus_bus;
+	struct dentry *dbg_regs;
+};
+#endif
 
 struct ufs_qcom_testbus {
 	u8 select_major;
@@ -212,12 +242,6 @@ struct ufs_qcom_host {
 	 * controller supports the QUniPro mode.
 	 */
 	#define UFS_QCOM_CAP_QUNIPRO	UFS_BIT(0)
-
-	/*
-	 * Set this capability if host controller can retain the secure
-	 * configuration even after UFS controller core power collapse.
-	 */
-	#define UFS_QCOM_CAP_RETAIN_SEC_CFG_AFTER_PWR_COLLAPSE	UFS_BIT(1)
 	u32 caps;
 
 	struct phy *generic_phy;
@@ -229,13 +253,15 @@ struct ufs_qcom_host {
 	struct clk *rx_l1_sync_clk;
 	struct clk *tx_l1_sync_clk;
 	bool is_lane_clks_enabled;
-
+	bool sec_cfg_updated;
+	struct ufs_qcom_ice_data ice;
 	void __iomem *dev_ref_clk_ctrl_mmio;
 	bool is_dev_ref_clk_enabled;
 	struct ufs_hw_version hw_ver;
-
 	u32 dev_ref_clk_en_mask;
-
+#ifdef CONFIG_DEBUG_FS
+	struct qcom_debugfs_files debugfs_files;
+#endif
 	/* Bitmask for enabling debug prints */
 	u32 dbg_print_en;
 	struct ufs_qcom_testbus testbus;
@@ -246,6 +272,9 @@ struct ufs_qcom_host {
 #define ufs_qcom_is_link_hibern8(hba) ufshcd_is_link_hibern8(hba)
 
 int ufs_qcom_testbus_config(struct ufs_qcom_host *host);
+void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba, void *priv,
+		void (*print_fn)(struct ufs_hba *hba, int offset, int num_regs,
+				char *str, void *priv));
 
 static inline bool ufs_qcom_cap_qunipro(struct ufs_qcom_host *host)
 {
