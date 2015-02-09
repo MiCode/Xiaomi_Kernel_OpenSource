@@ -23,8 +23,13 @@
 #define __BYT_CR_BOARD_CONFIGS_H__
 
 enum jack_int_select {
-	JACK_INT1,
-	JACK_INT2,
+	JACK_INT1, /* AUDIO_INT */
+	JACK_INT2, /* JACK_DET */
+};
+
+enum jack_bp_select {
+	JACK_BP_CODEC,
+	JACK_BP_MICBIAS,
 };
 
 struct board_config {
@@ -34,6 +39,7 @@ struct board_config {
 	int mic_input;
 	int jack_active_low;
 	enum jack_int_select jack_int_sel;
+	enum jack_bp_select jack_bp_sel;
 };
 
 struct mach_codec_link {
@@ -69,6 +75,7 @@ static const struct board_config board_config_default0 = {
 	.mic_input = 3,
 	.jack_active_low = 0,
 	.jack_int_sel = JACK_INT1,
+	.jack_bp_sel = JACK_BP_MICBIAS,
 };
 
 static const struct board_config board_configs0[] = {
@@ -79,6 +86,7 @@ static const struct board_config board_configs0[] = {
 		.mic_input = 3,
 		.jack_active_low = 0,
 		.jack_int_sel = JACK_INT1,
+		.jack_bp_sel = JACK_BP_MICBIAS,
 	},
 	[RT5640_T100] = {
 		.name = "bytcr-rt5642-t100",
@@ -87,6 +95,7 @@ static const struct board_config board_configs0[] = {
 		.mic_input = 1,
 		.jack_active_low = 0,
 		.jack_int_sel = JACK_INT1,
+		.jack_bp_sel = JACK_BP_MICBIAS,
 	},
 	[RT5640_MALATA] = {
 		.name = "bytcr-rt5640",
@@ -95,6 +104,7 @@ static const struct board_config board_configs0[] = {
 		.mic_input = 3,
 		.jack_active_low = 1,
 		.jack_int_sel = JACK_INT2,
+		.jack_bp_sel = JACK_BP_CODEC,
 	},
 	[RT5640_CHIPHD] = {
 		.name = "bytcr-rt5640",
@@ -103,6 +113,7 @@ static const struct board_config board_configs0[] = {
 		.mic_input = 3,
 		.jack_active_low = 1,
 		.jack_int_sel = JACK_INT2,
+		.jack_bp_sel = JACK_BP_CODEC,
 	},
 	{}
 };
@@ -164,6 +175,7 @@ static const struct board_config board_config_default1 = {
 	.mic_input = 3,
 	.jack_active_low = 0,
 	.jack_int_sel = JACK_INT2,
+	.jack_bp_sel = JACK_BP_MICBIAS,
 };
 
 static const struct board_config board_configs1[] = {
@@ -173,6 +185,7 @@ static const struct board_config board_configs1[] = {
 		.mic_input = 3,
 		.jack_active_low = 0,
 		.jack_int_sel = JACK_INT2,
+		.jack_bp_sel = JACK_BP_MICBIAS,
 	},
 	{}
 };
