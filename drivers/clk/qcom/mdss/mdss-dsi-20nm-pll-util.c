@@ -602,15 +602,20 @@ static void pll_20nm_config_loop_bw(void __iomem *pll_base)
 }
 
 static void pll_20nm_vco_rate_calc(struct mdss_pll_vco_calc *vco_calc,
-	s64 vco_clk_rate, s64 ref_clk_rate)
+		s64 vco_clk_rate, s64 ref_clk_rate, bool pll_en_90_phase)
 {
 	s64 multiplier = (1 << 20);
-	s64 duration = 1024, pll_comp_val;
+	s64 duration, pll_comp_val;
 	s64 dec_start_multiple, dec_start;
 	s32 div_frac_start;
 	s64 dec_start1, dec_start2;
 	s32 div_frac_start1, div_frac_start2, div_frac_start3;
 	s64 pll_plllock_cmp1, pll_plllock_cmp2, pll_plllock_cmp3;
+
+	if (pll_en_90_phase)
+		duration = 128;
+	else
+		duration = 1024;
 
 	memset(vco_calc, 0, sizeof(*vco_calc));
 	pr_debug("vco_clk_rate=%lld ref_clk_rate=%lld\n", vco_clk_rate,
@@ -627,7 +632,11 @@ static void pll_20nm_vco_rate_calc(struct mdss_pll_vco_calc *vco_calc,
 	div_frac_start1 = (div_frac_start & 0x7f) | BIT(7);
 	div_frac_start2 = ((div_frac_start >> 7) & 0x7f) | BIT(7);
 	div_frac_start3 = ((div_frac_start >> 14) & 0x3f) | BIT(6);
-	pll_comp_val = (div_s64(dec_start_multiple * 2 * duration,
+	if (pll_en_90_phase)
+		pll_comp_val = div_s64(dec_start_multiple * 2 * (duration - 1),
+				10 * multiplier);
+	else
+		pll_comp_val = (div_s64(dec_start_multiple * 2 * duration,
 				10 * multiplier)) - 1;
 	pll_plllock_cmp1 = pll_comp_val & 0xff;
 	pll_plllock_cmp2 = (pll_comp_val >> 8) & 0xff;
@@ -658,7 +667,7 @@ static void pll_20nm_vco_rate_calc(struct mdss_pll_vco_calc *vco_calc,
 }
 
 static void pll_20nm_config_vco_rate(void __iomem *pll_base,
-	struct mdss_pll_vco_calc *vco_calc)
+		struct mdss_pll_vco_calc *vco_calc, bool pll_en_90_phase)
 {
 	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_DIV_FRAC_START1,
 		vco_calc->div_frac_start1);
@@ -676,7 +685,10 @@ static void pll_20nm_config_vco_rate(void __iomem *pll_base,
 		vco_calc->pll_plllock_cmp2);
 	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_PLLLOCK_CMP3,
 		vco_calc->pll_plllock_cmp3);
-	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_PLLLOCK_CMP_EN, 0x01);
+	if (pll_en_90_phase)
+		MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_PLLLOCK_CMP_EN, 0x0d);
+	else
+		MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_PLLLOCK_CMP_EN, 0x01);
 }
 
 int pll_20nm_vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate)
@@ -708,7 +720,8 @@ int shadow_pll_20nm_vco_set_rate(struct dsi_pll_vco_clk *vco,
 
 	/* div fraction, start and comp calculations */
 	pll_20nm_vco_rate_calc(&vco_calc, vco_clk_rate,
-		dsi_pll_res->vco_ref_clk_rate);
+			dsi_pll_res->vco_ref_clk_rate,
+			dsi_pll_res->pll_en_90_phase);
 
 	MDSS_DYN_PLL_REG_W(dsi_pll_res->dyn_pll_base,
 		MMSS_DSI_DYNAMIC_REFRESH_PLL_CTRL0,
@@ -972,8 +985,10 @@ int pll_20nm_vco_enable_seq(struct mdss_pll_resources *dsi_pll_res)
 	pll_20nm_config_loop_bw(dsi_pll_res->pll_base);
 
 	pll_20nm_vco_rate_calc(&vco_calc, dsi_pll_res->vco_current_rate,
-		dsi_pll_res->vco_ref_clk_rate);
-	pll_20nm_config_vco_rate(dsi_pll_res->pll_base, &vco_calc);
+				dsi_pll_res->vco_ref_clk_rate,
+				dsi_pll_res->pll_en_90_phase);
+	pll_20nm_config_vco_rate(dsi_pll_res->pll_base, &vco_calc,
+				dsi_pll_res->pll_en_90_phase);
 
 	pr_debug("init lock=%d prev vco_rate=%llu, new vco_rate=%llu\n",
 		dsi_pll_res->is_init_locked, dsi_pll_res->vco_locking_rate,

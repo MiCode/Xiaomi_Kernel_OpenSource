@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -98,6 +98,12 @@ struct mdss_pll_resources {
 	 * status for them to turn on/off after set rate success.
 	 */
 	bool		pll_on;
+
+	/*
+	 * Certain plls' have to change the vco freq range to support
+	 * 90 phase difference between bit and byte clock frequency.
+	 */
+	bool		pll_en_90_phase;
 
 	/*
 	 * handoff_status is true of pll is already enabled by bootloader with
