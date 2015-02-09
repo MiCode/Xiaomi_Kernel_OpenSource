@@ -54,5 +54,6 @@
 
 &sdhc_1 {
 	status = "ok";
+	qcom,clk-rates = <400000>;
 };
 

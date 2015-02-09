@@ -20,6 +20,9 @@
 	qcom,board-id = <0x00010008 0>;
 };
 
+&sdhc_1 {
+	status = "ok";
+};
 
 &soc {
 	blsp1_uart3: serial@f9920000 {
