@@ -1790,6 +1790,7 @@ static int akm_report_data(struct akm_compass_data *akm)
 	int ret;
 	int mag_x, mag_y, mag_z;
 	int tmp;
+	uint8_t mode;
 
 	ret = AKECS_GetData_Poll(akm, dat_buf, AKM_SENSOR_DATA_SIZE);
 	if (ret) {
@@ -1800,6 +1801,9 @@ static int akm_report_data(struct akm_compass_data *akm)
 	if (STATUS_ERROR(dat_buf[8])) {
 		dev_warn(&akm->i2c->dev, "Status error. Reset...\n");
 		AKECS_Reset(akm, 0);
+		mode = akm_select_frequency(akm->delay[MAG_DATA_FLAG]);
+		AKECS_SetMode(akm, mode);
+
 		return -EIO;
 	}
 
