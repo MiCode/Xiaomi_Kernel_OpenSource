@@ -797,8 +797,8 @@ static int bcl_get_devicetree_data(struct spmi_device *spmi)
 		goto bcl_dev_exit;
 	}
 	bcl_perph->param[BCL_PARAM_CURRENT].gain_factor_num *= val;
-	ret = bcl_read_register((i_src & 0x01) ? BCL_I_GAIN_RSENSE
-		: BCL_I_GAIN_BATFET, &val);
+	ret = bcl_read_register((i_src & 0x01) ? BCL_I_OFFSET_RSENSE
+		: BCL_I_OFFSET_BATFET, &val);
 	if (ret) {
 		pr_err("Error reading %s current offset. err:%d\n",
 			(i_src & 0x01) ? "rsense" : "batfet", ret);
