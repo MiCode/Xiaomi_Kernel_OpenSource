@@ -8,3 +8,4 @@ menuconfig MSM_VIDC_V4L2
 		select VIDEOBUF2_CORE
 
 source "drivers/media/platform/msm/vidc/vmem/Kconfig"
+source "drivers/media/platform/msm/vidc/governors/Kconfig"

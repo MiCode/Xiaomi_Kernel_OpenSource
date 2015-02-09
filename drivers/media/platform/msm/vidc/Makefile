@@ -14,4 +14,6 @@ obj-$(CONFIG_MSM_VIDC_V4L2) := 	msm_v4l2_vidc.o \
 				venus_boot.o \
 				msm_vidc_dcvs.o \
 
+obj-$(CONFIG_MSM_VIDC_V4L2) += governors/
+
 obj-$(CONFIG_MSM_VIDC_VMEM) += vmem/
