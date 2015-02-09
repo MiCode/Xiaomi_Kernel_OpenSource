@@ -591,6 +591,11 @@ static int mdss_rotator_config_dnsc_factor(struct mdss_rot_mgr *mgr,
 	}
 
 dnsc_err:
+
+	/* Downscaler does not support asymmetrical dnsc */
+	if (entry->dnsc_factor_w != entry->dnsc_factor_h)
+		ret = -EINVAL;
+
 	if (ret) {
 		pr_err("Invalid rotator downscale ratio %dx%d->%dx%d\n",
 			src_w, src_h, dst_w, dst_h);
