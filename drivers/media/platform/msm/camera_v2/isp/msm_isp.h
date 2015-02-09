@@ -50,7 +50,7 @@
 
 #define VFE_MAX_CFG_TIMEOUT 3000
 #define VFE_CLK_INFO_MAX 16
-#define STATS_COMP_BIT_MASK 0xFF0000
+#define STATS_COMP_BIT_MASK 0x1FF
 
 #define MSM_ISP_MIN_AB 300000000
 #define MSM_ISP_MIN_IB 450000000
@@ -71,6 +71,7 @@ enum msm_isp_pack_fmt {
 	DPCM8,
 	PLAIN8,
 	PLAIN16,
+	DPCM10,
 	MAX_ISP_PACK_FMT,
 };
 
