@@ -316,9 +316,9 @@ int mdss_mdp_wfd_kickoff(struct mdss_mdp_wfd *wfd,
 
 	mutex_lock(&wfd->lock);
 	if (list_empty(&wfd->data_queue)) {
-		pr_err("no output buffer\n");
+		pr_debug("no output buffer\n");
 		mutex_unlock(&wfd->lock);
-		return -EINVAL;
+		return 0;
 	}
 	wfd_data = list_first_entry(&wfd->data_queue,
 				struct mdss_mdp_wfd_data, next);
