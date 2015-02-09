@@ -107,6 +107,7 @@
 #include "msmtellurium-ipcrouter.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msmtellurium-coresight.dtsi"
+#include "msmtellurium-bus.dtsi"
 
 &soc {
 	#address-cells = <1>;
