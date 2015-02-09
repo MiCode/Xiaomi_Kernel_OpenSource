@@ -331,7 +331,7 @@ int msm8994_cpu_ldo_config(unsigned int cpu)
 	val = (val & 0xffffff00) | 0xc2;
 	writel_relaxed(val, ldo_bhs_reg_base + APC_LDO_CFG1);
 	val = readl_relaxed(ldo_bhs_reg_base + APC_LDO_CFG1);
-	val = (val & 0xffff00ff) | (0x98 << 8);
+	val = (val & 0xffff00ff) | (0xf8 << 8);
 	writel_relaxed(val, ldo_bhs_reg_base + APC_LDO_CFG1);
 	val = readl_relaxed(ldo_bhs_reg_base + APC_LDO_CFG2);
 	val = (val & 0xffffff00) | 0x60;
