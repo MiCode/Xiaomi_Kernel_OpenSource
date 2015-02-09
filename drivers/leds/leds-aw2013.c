@@ -208,7 +208,7 @@ static void aw2013_brightness_work(struct work_struct *work)
 
 	/* enable regulators if they are disabled */
 	if (!led->pdata->led->poweron) {
-		if (aw2013_power_on(led, true)) {
+		if (aw2013_power_on(led->pdata->led, true)) {
 			dev_err(&led->pdata->led->client->dev, "power on failed");
 			return;
 		}
@@ -241,7 +241,7 @@ static void aw2013_led_blink_set(struct aw2013_led *led, unsigned long blinking)
 
 	/* enable regulators if they are disabled */
 	if (!led->pdata->led->poweron) {
-		if (aw2013_power_on(led, true)) {
+		if (aw2013_power_on(led->pdata->led, true)) {
 			dev_err(&led->pdata->led->client->dev, "power on failed");
 			return;
 		}
