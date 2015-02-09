@@ -91,6 +91,8 @@ struct gmin_subdev {
 	enum atomisp_bayer_order csi_bayer;
 	bool v1p8_on;
 	bool v2p8_on;
+	int eldo1_sel_reg, eldo1_1p8v, eldo1_ctrl_shift;
+	int eldo2_sel_reg, eldo2_1p8v, eldo2_ctrl_shift;
 };
 
 static struct gmin_subdev gmin_subdevs[MAX_SUBDEVS];
@@ -364,6 +366,18 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 	gmin_subdevs[i].csi_lanes = gmin_get_var_int(dev, "CsiLanes", 1);
 	gmin_subdevs[i].gpio0 = gpiod_get_index(dev, "cam_gpio0", 0);
 	gmin_subdevs[i].gpio1 = gpiod_get_index(dev, "cam_gpio1", 1);
+	gmin_subdevs[i].eldo1_1p8v = gmin_get_var_int(dev, "eldo1_1p8v",
+							ELDO1_1P8V);
+	gmin_subdevs[i].eldo1_sel_reg =
+		gmin_get_var_int(dev, "eldo1_sel_reg", ELDO1_SEL_REG);
+	gmin_subdevs[i].eldo1_ctrl_shift =
+		gmin_get_var_int(dev, "eldo1_ctrl_shift", ELDO1_CTRL_SHIFT);
+	gmin_subdevs[i].eldo2_1p8v =
+		gmin_get_var_int(dev, "eldo2_1p8v", ELDO2_1P8V);
+	gmin_subdevs[i].eldo2_sel_reg = gmin_get_var_int(dev, "eldo2_sel_reg",
+							ELDO2_SEL_REG);
+	gmin_subdevs[i].eldo2_ctrl_shift =
+		gmin_get_var_int(dev, "eldo2_ctrl_shift", ELDO2_CTRL_SHIFT);
 
 	if (!IS_ERR(gmin_subdevs[i].gpio0)) {
 		ret = gpiod_direction_output(gmin_subdevs[i].gpio0, 0);
@@ -449,11 +463,11 @@ static int axp_regulator_set(int sel_reg, u8 setting, int ctrl_reg, int shift, b
 	return 0;
 }
 
-static int axp_v1p8_on(void)
+static int axp_v1p8_on(struct gmin_subdev *gs)
 {
 	int ret;
-	ret = axp_regulator_set(ELDO2_SEL_REG, ELDO2_1P8V, ELDO_CTRL_REG,
-		ELDO2_CTRL_SHIFT, true);
+	ret = axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
+		ELDO_CTRL_REG, gs->eldo2_ctrl_shift, true);
 	if (ret)
 		return ret;
 
@@ -461,21 +475,21 @@ static int axp_v1p8_on(void)
 	 * only one I currently see that wants to set both 1.8v rails. */
 	usleep_range(110, 150);
 
-	ret = axp_regulator_set(ELDO1_SEL_REG, ELDO1_1P8V, ELDO_CTRL_REG,
-		ELDO1_CTRL_SHIFT, true);
+	ret = axp_regulator_set(gs->eldo1_sel_reg, gs->eldo1_1p8v,
+		ELDO_CTRL_REG, gs->eldo1_ctrl_shift, true);
 	if (ret)
-		axp_regulator_set(ELDO2_SEL_REG, ELDO2_1P8V, ELDO_CTRL_REG,
-				     ELDO2_CTRL_SHIFT, false);
+		axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
+		ELDO_CTRL_REG, gs->eldo2_ctrl_shift, false);
 	return ret;
 }
 
-static int axp_v1p8_off(void)
+static int axp_v1p8_off(struct gmin_subdev *gs)
 {
 	int ret;
-	ret = axp_regulator_set(ELDO1_SEL_REG, ELDO1_1P8V, ELDO_CTRL_REG,
-				ELDO1_CTRL_SHIFT, false);
-	ret |= axp_regulator_set(ELDO2_SEL_REG, ELDO2_1P8V, ELDO_CTRL_REG,
-				 ELDO2_CTRL_SHIFT, false);
+	ret = axp_regulator_set(gs->eldo1_sel_reg, gs->eldo1_1p8v,
+		ELDO_CTRL_REG, gs->eldo1_ctrl_shift, false);
+	ret |= axp_regulator_set(gs->eldo2_sel_reg, gs->eldo2_1p8v,
+		ELDO_CTRL_REG, gs->eldo2_ctrl_shift, false);
 	return ret;
 }
 
@@ -528,9 +542,9 @@ int gmin_v1p8_ctrl(struct v4l2_subdev *subdev, int on)
 
 	if (pmic_id == PMIC_AXP) {
 		if (on)
-			return axp_v1p8_on();
+			return axp_v1p8_on(gs);
 		else
-			return axp_v1p8_off();
+			return axp_v1p8_off(gs);
 	}
 
 	if (pmic_id == PMIC_TI) {
