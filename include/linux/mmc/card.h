@@ -310,6 +310,10 @@ struct mmc_bkops_info {
 #define BKOPS_SIZE_PERCENTAGE_TO_QUEUE_DELAYED_WORK 1 /* 1% */
 };
 
+enum mmc_pon_type {
+	MMC_LONG_PON = 1,
+	MMC_SHRT_PON,
+};
 /*
  * MMC device
  */
@@ -396,7 +400,7 @@ struct mmc_card {
 	struct device_attribute rpm_attrib;
 	unsigned int		idle_timeout;
 	struct notifier_block        reboot_notify;
-	bool issue_long_pon;
+	enum mmc_pon_type pon_type;
 	u8 *cached_ext_csd;
 };
 
@@ -654,5 +658,5 @@ extern struct mmc_wr_pack_stats *mmc_blk_get_packed_statistics(
 			struct mmc_card *card);
 extern void mmc_blk_init_packed_statistics(struct mmc_card *card);
 extern void mmc_blk_disable_wr_packing(struct mmc_queue *mq);
-extern int mmc_send_long_pon(struct mmc_card *card);
+extern int mmc_send_pon(struct mmc_card *card);
 #endif /* LINUX_MMC_CARD_H */
