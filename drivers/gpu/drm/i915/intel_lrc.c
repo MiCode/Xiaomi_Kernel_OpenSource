@@ -1249,17 +1249,14 @@ logical_ring_write_active_request(struct intel_ringbuffer *ringbuf,
 				  struct drm_i915_gem_request *req)
 {
 	int ret;
-	struct intel_engine_cs *ring = ringbuf->ring;
 
 	ret = intel_logical_ring_begin(ringbuf, 4);
 	if (ret)
 		return ret;
 
 	intel_logical_ring_emit(ringbuf, MI_STORE_DWORD_INDEX);
-	intel_logical_ring_emit(ringbuf,
-				(ring->status_page.gfx_addr +
-				 (I915_GEM_ACTIVE_SEQNO_INDEX <<
-				  MI_STORE_DWORD_INDEX_SHIFT)));
+	intel_logical_ring_emit(ringbuf, I915_GEM_ACTIVE_SEQNO_INDEX <<
+				  MI_STORE_DWORD_INDEX_SHIFT);
 	intel_logical_ring_emit(ringbuf, i915_gem_request_get_seqno(req));
 	intel_logical_ring_emit(ringbuf, MI_NOOP);
 	intel_logical_ring_advance(ringbuf);
