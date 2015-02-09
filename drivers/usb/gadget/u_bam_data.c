@@ -906,6 +906,8 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 
 		d->ipa_params.usb_connection_speed = gadget->speed;
+		d->ipa_params.cons_clnt_hdl = -1;
+		d->ipa_params.prod_clnt_hdl = -1;
 
 		if (d->dst_pipe_type != USB_BAM_PIPE_BAM2BAM) {
 			spin_unlock_irqrestore(&port->port_lock, flags);
@@ -1188,7 +1190,9 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	return;
 
 disconnect_ipa:
-	usb_bam_disconnect_ipa(&d->ipa_params);
+	/* let disconnect work take care of ipa disconnect */
+	port->is_ipa_connected = true;
+	return;
 }
 
 /*
