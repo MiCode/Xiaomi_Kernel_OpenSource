@@ -960,6 +960,70 @@ DEFINE_SIMPLE_ATTRIBUTE(ufsdbg_dbg_print_en_ops,
 			ufsdbg_dbg_print_en_set,
 			"%llu\n");
 
+static ssize_t ufsdbg_req_stats_write(struct file *filp,
+		const char __user *ubuf, size_t cnt, loff_t *ppos)
+{
+	struct ufs_hba *hba = filp->f_mapping->host->i_private;
+	int val;
+	int ret;
+	unsigned long flags;
+
+	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
+	if (ret) {
+		dev_err(hba->dev, "%s: Invalid argument\n", __func__);
+		return ret;
+	}
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufshcd_init_req_stats(hba);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	return cnt;
+}
+
+static int ufsdbg_req_stats_show(struct seq_file *file, void *data)
+{
+	struct ufs_hba *hba = (struct ufs_hba *)file->private;
+	int i;
+	unsigned long flags;
+
+	/* Header */
+	seq_printf(file, "\t%-10s %-10s %-10s %-10s %-10s %-10s",
+		"All", "Write", "Read", "Read(urg)", "Write(urg)", "Flush");
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+
+	seq_printf(file, "\n%s:\t", "Min");
+	for (i = 0; i < TS_NUM_STATS; i++)
+		seq_printf(file, "%-10llu ", hba->ufs_stats.req_stats[i].min);
+	seq_printf(file, "\n%s:\t", "Max");
+	for (i = 0; i < TS_NUM_STATS; i++)
+		seq_printf(file, "%-10llu ", hba->ufs_stats.req_stats[i].max);
+	seq_printf(file, "\n%s:\t", "Avg.");
+	for (i = 0; i < TS_NUM_STATS; i++)
+		seq_printf(file, "%-10llu ",
+			div64_u64(hba->ufs_stats.req_stats[i].sum,
+				hba->ufs_stats.req_stats[i].count));
+	seq_printf(file, "\n%s:\t", "Count");
+	for (i = 0; i < TS_NUM_STATS; i++)
+		seq_printf(file, "%-10llu ", hba->ufs_stats.req_stats[i].count);
+	seq_puts(file, "\n");
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	return 0;
+}
+
+static int ufsdbg_req_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufsdbg_req_stats_show, inode->i_private);
+}
+
+static const struct file_operations ufsdbg_req_stats_desc = {
+	.open		= ufsdbg_req_stats_open,
+	.read		= seq_read,
+	.write		= ufsdbg_req_stats_write,
+};
+
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
 	if (!hba) {
@@ -1072,6 +1136,17 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	if (!hba->debugfs_files.dbg_print_en) {
 		dev_err(hba->dev,
 			"%s:  failed create dbg_print_en debugfs entry\n",
+			__func__);
+		goto err;
+	}
+
+	hba->debugfs_files.req_stats =
+		debugfs_create_file("req_stats", S_IRUSR | S_IWUSR,
+			hba->debugfs_files.debugfs_root, hba,
+			&ufsdbg_req_stats_desc);
+	if (!hba->debugfs_files.req_stats) {
+		dev_err(hba->dev,
+			"%s:  failed create req_stats debugfs entry\n",
 			__func__);
 		goto err;
 	}
