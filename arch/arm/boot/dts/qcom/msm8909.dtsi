@@ -415,6 +415,11 @@
 			qcom,sensor-type = "adc";
 			qcom,sensor-name = "pa_therm0";
 		};
+
+		sensor_information6: qcom,sensor-information@6 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "case_therm";
+		};
 	};
 
 	qcom,msm-thermal {
