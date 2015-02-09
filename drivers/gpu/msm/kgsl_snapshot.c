@@ -666,13 +666,7 @@ int kgsl_device_snapshot(struct kgsl_device *device,
 		return -ENOMEM;
 	}
 
-	/* We need to have the GPU on for the entire snapshotting operation */
-
-	if (kgsl_active_count_get(device)) {
-		KGSL_DRV_ERR(device, "snapshot: unable to turn on the GPU\n");
-		return -EINVAL;
-	}
-
+	BUG_ON(!kgsl_state_is_awake(device));
 	/* increment the hang count for good book keeping */
 	device->snapshot_faultcount++;
 
@@ -741,7 +735,6 @@ int kgsl_device_snapshot(struct kgsl_device *device,
 	 */
 	queue_work(device->work_queue, &snapshot->work);
 done:
-	kgsl_active_count_put(device);
 	return ret;
 }
 EXPORT_SYMBOL(kgsl_device_snapshot);
