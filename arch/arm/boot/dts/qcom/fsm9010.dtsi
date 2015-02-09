@@ -82,6 +82,17 @@
 		clock-frequency = <19200000>;
 	};
 
+	qcom,wdt@f9017000 {
+		compatible = "qcom,msm-watchdog";
+		reg = <0xf9017000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <0 3 0>, <0 4 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <10000>;
+		qcom,ipi-ping;
+		status = "disabled";
+	};
+
 	clock_gcc: qcom,gcc@fc400000 {
 		compatible = "qcom,gcc-fsm9010";
 		reg = <0xfc400000 0x4000>;
