@@ -21,6 +21,7 @@
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/rbtree.h>
 #include <linux/uaccess.h>
@@ -29,6 +30,7 @@
 #include <linux/msm-bus-board.h>
 #include <linux/netdevice.h>
 #include <linux/delay.h>
+#include <linux/qcom_iommu.h>
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
 
@@ -176,21 +178,48 @@ static DECLARE_DELAYED_WORK(ipa_sps_release_resource_work,
 
 static struct ipa_plat_drv_res ipa_res = {0, };
 static struct of_device_id ipa_plat_drv_match[] = {
-	{
-		.compatible = "qcom,ipa",
-	},
-
-	{
-	}
+	{ .compatible = "qcom,ipa", },
+	{ .compatible = "qcom,ipa-smmu-ap-cb", },
+	{ .compatible = "qcom,ipa-smmu-wlan-cb", },
+	{ .compatible = "qcom,ipa-smmu-uc-cb", },
+	{}
 };
+struct msm_bus_scale_pdata *bus_scale_table;
 
 static struct clk *ipa_clk_src;
 static struct clk *ipa_clk;
+static struct clk *smmu_clk;
 static struct clk *sys_noc_ipa_axi_clk;
 static struct clk *ipa_cnoc_clk;
 static struct clk *ipa_inactivity_clk;
 
 struct ipa_context *ipa_ctx;
+static struct device *master_dev;
+static bool smmu_present;
+static bool arm_smmu;
+static bool smmu_disable_htw;
+
+enum ipa_smmu_cb_type {
+	IPA_SMMU_CB_AP,
+	IPA_SMMU_CB_WLAN,
+	IPA_SMMU_CB_UC,
+	IPA_SMMU_CB_MAX
+
+};
+
+struct ipa_smmu_cb_ctx {
+	bool valid;
+	struct device *dev;
+	struct dma_iommu_mapping *mapping;
+};
+
+static struct ipa_smmu_cb_ctx smmu_cb[IPA_SMMU_CB_MAX];
+
+struct device *ipa_get_dma_dev(void)
+{
+	return ipa_ctx->pdev;
+}
+EXPORT_SYMBOL(ipa_get_dma_dev);
 
 static int ipa_open(struct inode *inode, struct file *filp)
 {
@@ -2305,9 +2334,23 @@ static int ipa_get_clks(struct device *dev)
 {
 	ipa_clk = clk_get(dev, "core_clk");
 	if (IS_ERR(ipa_clk)) {
-		ipa_clk = NULL;
-		IPAERR("fail to get ipa clk\n");
-		return -ENODEV;
+		if (ipa_clk != ERR_PTR(-EPROBE_DEFER))
+			IPAERR("fail to get ipa clk\n");
+		return PTR_ERR(ipa_clk);
+	}
+
+	if (smmu_present && arm_smmu) {
+		smmu_clk = clk_get(dev, "smmu_clk");
+		if (IS_ERR(smmu_clk)) {
+			if (smmu_clk != ERR_PTR(-EPROBE_DEFER))
+				IPAERR("fail to get smmu clk\n");
+			return PTR_ERR(smmu_clk);
+		}
+
+		if (clk_get_rate(smmu_clk) == 0) {
+			long rate = clk_round_rate(smmu_clk, 1000);
+			clk_set_rate(smmu_clk, rate);
+		}
 	}
 
 	if (ipa_ctx->ipa_hw_type < IPA_HW_v2_0) {
@@ -2355,6 +2398,9 @@ void _ipa_enable_clks_v2_0(void)
 	} else {
 		WARN_ON(1);
 	}
+
+	if (smmu_clk)
+		clk_prepare_enable(smmu_clk);
 }
 
 void _ipa_enable_clks_v1_1(void)
@@ -2481,6 +2527,9 @@ void _ipa_disable_clks_v2_0(void)
 		clk_disable_unprepare(ipa_clk);
 	else
 		WARN_ON(1);
+
+	if (smmu_clk)
+		clk_disable_unprepare(smmu_clk);
 }
 
 /**
@@ -2985,15 +3034,13 @@ static void sps_event_cb(enum sps_callback_case event, void *param)
 * - Initialize IPA RM (resource manager)
 */
 static int ipa_init(const struct ipa_plat_drv_res *resource_p,
-		struct platform_device *pdev)
+		struct device *ipa_dev)
 {
 	int result = 0;
 	int i;
 	struct sps_bam_props bam_props = { 0 };
 	struct ipa_flt_tbl *flt_tbl;
 	struct ipa_rt_tbl_set *rset;
-	struct msm_bus_scale_pdata *bus_scale_table;
-	struct device *ipa_dev = &pdev->dev;
 
 	IPADBG("IPA Driver initialization started\n");
 
@@ -3011,6 +3058,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 
 	ipa_ctx->pdev = ipa_dev;
+	ipa_ctx->smmu_present = smmu_present;
 	ipa_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa_ctx->ipa_hw_type = resource_p->ipa_hw_type;
 	ipa_ctx->ipa_hw_mode = resource_p->ipa_hw_mode;
@@ -3044,7 +3092,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	       ipa_ctx->ip6_rt_tbl_lcl, ipa_ctx->ip4_flt_tbl_lcl,
 	       ipa_ctx->ip6_flt_tbl_lcl);
 
-	bus_scale_table = msm_bus_cl_get_pdata(pdev);
 	if (bus_scale_table) {
 		IPADBG("Use bus scaling info from device tree\n");
 		ipa_ctx->ctrl->msm_bus_data_ptr = bus_scale_table;
@@ -3058,18 +3105,16 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		if (!ipa_ctx->ipa_bus_hdl) {
 			IPAERR("fail to register with bus mgr!\n");
 			result = -ENODEV;
-			goto fail_bind;
+			goto fail_bus_reg;
 		}
 	} else {
 		IPADBG("Skipping bus scaling registration on Virtual plat\n");
 	}
 
 	/* get IPA clocks */
-	if (ipa_get_clks(ipa_dev) != 0) {
-		IPAERR(":fail to get clk handle's!\n");
-		result = -ENODEV;
-		goto fail_bind;
-	}
+	result = ipa_get_clks(master_dev);
+	if (result)
+		goto fail_clk;
 
 	/* Enable ipa_ctx->enable_clock_scaling */
 	ipa_ctx->enable_clock_scaling = 1;
@@ -3400,7 +3445,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 
 	/*register IPA IRQ handler*/
 	result = ipa_interrupts_init(resource_p->ipa_irq, 0,
-			ipa_dev);
+			master_dev);
 	if (result) {
 		IPAERR("ipa interrupts initialization failed\n");
 		result = -ENODEV;
@@ -3450,7 +3495,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	return 0;
 
 fail_add_interrupt_handler:
-	free_irq(resource_p->ipa_irq, ipa_dev);
+	free_irq(resource_p->ipa_irq, master_dev);
 fail_ipa_interrupts_init:
 	ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
 fail_create_apps_resource:
@@ -3501,6 +3546,13 @@ fail_init_hw:
 	iounmap(ipa_ctx->mmio);
 fail_remap:
 	ipa_disable_clks();
+fail_clk:
+	msm_bus_scale_unregister_client(ipa_ctx->ipa_bus_hdl);
+fail_bus_reg:
+	if (bus_scale_table) {
+		msm_bus_cl_clear_pdata(bus_scale_table);
+		bus_scale_table = NULL;
+	}
 fail_bind:
 	kfree(ipa_ctx->ctrl);
 fail_mem_ctrl:
@@ -3524,6 +3576,9 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_bam_remote_mode = false;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
+
+	smmu_disable_htw = of_property_read_bool(pdev->dev.of_node,
+			"qcom,smmu-disable-htw");
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -3652,29 +3707,160 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	return 0;
 }
 
-static int ipa_plat_drv_probe(struct platform_device *pdev_p)
+#define IPA_SMMU_AP_VA_START 0x1000
+#define IPA_SMMU_AP_VA_SIZE 0x40000000
+
+static int ipa_smmu_wlan_cb_probe(struct device *dev)
 {
+	IPADBG("sub pdev=%p\n", dev);
+
+	return 0;
+}
+
+static int ipa_smmu_uc_cb_probe(struct device *dev)
+{
+	IPADBG("sub pdev=%p\n", dev);
+
+	return 0;
+}
+
+static int ipa_smmu_ap_cb_probe(struct device *dev)
+{
+	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_AP];
+	int order = 0;
 	int result;
+	int disable_htw = 1;
 
-	IPADBG("IPA driver probing started\n");
+	IPADBG("sub pdev=%p\n", dev);
 
-	 result = get_ipa_dts_configuration(pdev_p, &ipa_res);
-	 if (result) {
-		IPAERR("IPA dts parsing failed\n");
-		return result;
-	}
-
-	if (dma_set_mask(&pdev_p->dev, DMA_BIT_MASK(32)) ||
-		    dma_set_coherent_mask(&pdev_p->dev, DMA_BIT_MASK(32))) {
+	if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
+		    dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
 		IPAERR("DMA set mask failed\n");
 		return -EOPNOTSUPP;
 	}
 
+	cb->dev = dev;
+	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
+			IPA_SMMU_AP_VA_START, IPA_SMMU_AP_VA_SIZE, order);
+	if (IS_ERR(cb->mapping)) {
+		IPADBG("Fail to create mapping\n");
+		/* assume this failure is because iommu driver is not ready */
+		return -EPROBE_DEFER;
+	}
+
+	result = arm_iommu_attach_device(cb->dev, cb->mapping);
+	if (result) {
+		IPAERR("couldn't attach to IOMMU ret=%d\n", result);
+		return result;
+	}
+
+	if (smmu_disable_htw) {
+		if (iommu_domain_set_attr(cb->mapping->domain,
+				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+				 &disable_htw)) {
+			IPAERR("couldn't disable coherent HTW\n");
+			arm_iommu_detach_device(cb->dev);
+			return -EIO;
+		}
+	}
+
+	cb->valid = true;
+	smmu_present = true;
+
 	/* Proceed to real initialization */
-	result = ipa_init(&ipa_res, pdev_p);
+	result = ipa_init(&ipa_res, dev);
 	if (result) {
 		IPAERR("ipa_init failed\n");
+		arm_iommu_detach_device(cb->dev);
+		arm_iommu_release_mapping(cb->mapping);
 		return result;
+	}
+
+	return result;
+}
+
+#define IPA_QSMMU_AP_CB_LABEL "ipa_shared"
+#define IPA_QSMMU_WLAN_CB_LABEL "ipa_wlan"
+#define IPA_QSMMU_UC_CB_LABEL "ipa_uc"
+
+static int ipa_qsmmu_setup(struct device *dev)
+{
+	struct device *d;
+	int result = 0;
+
+	d = msm_iommu_get_ctx(IPA_QSMMU_AP_CB_LABEL);
+	if (IS_ERR_OR_NULL(d)) {
+		if (d != ERR_PTR(-EPROBE_DEFER))
+			IPAERR("fail to get ipa ap cb\n");
+		return PTR_ERR(d);
+	} else {
+		result = ipa_smmu_ap_cb_probe(d);
+	}
+
+	/* TODO: add err handling for WLAN and uc */
+	d = msm_iommu_get_ctx(IPA_QSMMU_WLAN_CB_LABEL);
+	if (IS_ERR_OR_NULL(d))
+		IPAERR("fail to get ipa wlan cb\n");
+	else
+		ipa_smmu_wlan_cb_probe(d);
+
+	d = msm_iommu_get_ctx(IPA_QSMMU_UC_CB_LABEL);
+	if (IS_ERR_OR_NULL(d))
+		IPAERR("fail to get ipa uc cb\n");
+	else
+		ipa_smmu_uc_cb_probe(d);
+
+	return result;
+}
+
+static int ipa_plat_drv_probe(struct platform_device *pdev_p)
+{
+	int result;
+	struct device *dev = &pdev_p->dev;
+
+	IPADBG("IPA driver probing started\n");
+
+	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-ap-cb"))
+		return ipa_smmu_ap_cb_probe(dev);
+
+	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-wlan-cb"))
+		return ipa_smmu_wlan_cb_probe(dev);
+
+	if (of_device_is_compatible(dev->of_node, "qcom,ipa-smmu-uc-cb"))
+		return ipa_smmu_uc_cb_probe(dev);
+
+	master_dev = dev;
+
+	result = get_ipa_dts_configuration(pdev_p, &ipa_res);
+	if (result) {
+		IPAERR("IPA dts parsing failed\n");
+		return result;
+	}
+
+	if (!bus_scale_table)
+		bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
+
+	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
+		arm_smmu = true;
+		result = of_platform_populate(pdev_p->dev.of_node,
+				ipa_plat_drv_match, NULL, &pdev_p->dev);
+	} else if (of_property_read_bool(pdev_p->dev.of_node,
+				"qcom,msm-smmu")) {
+		result = ipa_qsmmu_setup(dev);
+	} else {
+		if (dma_set_mask(&pdev_p->dev, DMA_BIT_MASK(32)) ||
+			    dma_set_coherent_mask(&pdev_p->dev,
+			    DMA_BIT_MASK(32))) {
+			IPAERR("DMA set mask failed\n");
+			return -EOPNOTSUPP;
+		}
+
+		/* Proceed to real initialization */
+		result = ipa_init(&ipa_res, dev);
+		if (result) {
+			IPAERR("ipa_init failed\n");
+			return result;
+		}
 	}
 
 	return result;

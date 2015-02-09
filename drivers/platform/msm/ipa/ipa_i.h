@@ -23,6 +23,8 @@
 #include <linux/slab.h>
 #include <linux/ipa.h>
 #include <linux/msm-sps.h>
+#include <asm/dma-iommu.h>
+#include <linux/iommu.h>
 #include "ipa_hw_defs.h"
 #include "ipa_ram_mmap.h"
 #include "ipa_reg.h"
@@ -1199,6 +1201,7 @@ struct ipa_context {
 	struct ipa_uc_wdi_ctx uc_wdi_ctx;
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
+	bool smmu_present;
 };
 
 /**
