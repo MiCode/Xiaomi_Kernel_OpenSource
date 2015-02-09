@@ -12,23 +12,18 @@
  *
  */
 
-#include <linux/io.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
 #include <linux/time.h>
-#include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/iopoll.h>
 #include <linux/platform_device.h>
-
 #include <linux/msm-bus.h>
 #include <soc/qcom/scm.h>
 #include <linux/phy/phy.h>
-
-#include <linux/scsi/ufs/ufshcd.h>
-#include <linux/scsi/ufs/unipro.h>
-#include <linux/scsi/ufs/ufs-qcom.h>
 #include <linux/phy/phy-qcom-ufs.h>
+
+#include "ufshcd.h"
+#include "unipro.h"
+#include "ufs-qcom.h"
 #include "ufshci.h"
 #include "ufs-qcom-ice.h"
 #include "ufs-qcom-debugfs.h"

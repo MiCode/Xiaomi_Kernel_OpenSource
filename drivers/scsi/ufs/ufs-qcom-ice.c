@@ -15,11 +15,11 @@
 #include <linux/of.h>
 #include <linux/async.h>
 #include <linux/blkdev.h>
-#include <linux/scsi/ufs/ufshcd.h>
 #include <crypto/ice.h>
 
 #include "ufs-qcom-ice.h"
 #include "ufs-qcom-debugfs.h"
+#include "ufshcd.h"
 
 #define UFS_QCOM_CRYPTO_LABEL "ufs-qcom-crypto"
 /* Timeout waiting for ICE initialization, that requires TZ access */

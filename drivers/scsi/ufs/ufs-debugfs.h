@@ -21,7 +21,7 @@
 #define _UFS_DEBUGFS_H
 
 #include <linux/debugfs.h>
-#include <linux/scsi/ufs/ufshcd.h>
+#include "ufshcd.h"
 
 #ifdef CONFIG_DEBUG_FS
 void ufsdbg_add_debugfs(struct ufs_hba *hba);

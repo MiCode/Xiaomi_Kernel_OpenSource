@@ -16,7 +16,6 @@
 #define PHY_QCOM_UFS_H_
 
 #include "phy.h"
-#include <linux/scsi/ufs/ufs-qcom.h>
 
 int ufs_qcom_phy_enable_ref_clk(struct phy *phy);
 void ufs_qcom_phy_disable_ref_clk(struct phy *phy);

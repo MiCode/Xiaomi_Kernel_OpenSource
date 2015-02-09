@@ -81,7 +81,7 @@ enum {
  */
 static inline bool ufs_is_valid_unit_desc_lun(u8 lun)
 {
-	return (lun == UFS_UPIU_RPMB_WLUN || (lun < UFS_UPIU_MAX_GENERAL_LUN));
+	return lun == UFS_UPIU_RPMB_WLUN || (lun < UFS_UPIU_MAX_GENERAL_LUN);
 }
 
 /*

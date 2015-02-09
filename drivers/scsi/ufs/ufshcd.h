@@ -55,7 +55,7 @@
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pm_qos.h>
-#include <linux/scsi/ufs/unipro.h>
+#include "unipro.h"
 
 #include <asm/irq.h>
 #include <asm/byteorder.h>
@@ -315,18 +315,18 @@ struct ufs_pwr_mode_info {
 struct ufs_hba_variant_ops {
 	const char *name;
 	int	(*init)(struct ufs_hba *);
-	void    (*exit)(struct ufs_hba *);
+	void	(*exit)(struct ufs_hba *);
 	u32	(*get_ufs_hci_version)(struct ufs_hba *);
 	int	(*clk_scale_notify)(struct ufs_hba *, bool, bool);
-	int     (*setup_clocks)(struct ufs_hba *, bool);
-	int     (*setup_regulators)(struct ufs_hba *, bool);
-	int     (*hce_enable_notify)(struct ufs_hba *, bool);
-	int     (*link_startup_notify)(struct ufs_hba *, bool);
+	int	(*setup_clocks)(struct ufs_hba *, bool);
+	int	(*setup_regulators)(struct ufs_hba *, bool);
+	int	(*hce_enable_notify)(struct ufs_hba *, bool);
+	int	(*link_startup_notify)(struct ufs_hba *, bool);
 	int	(*pwr_change_notify)(struct ufs_hba *,
 					bool, struct ufs_pa_layer_attr *,
 					struct ufs_pa_layer_attr *);
-	int     (*suspend)(struct ufs_hba *, enum ufs_pm_op);
-	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
+	int	(*suspend)(struct ufs_hba *, enum ufs_pm_op);
+	int	(*resume)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 	int	(*crypto_engine_cfg)(struct ufs_hba *, unsigned int);
 	int	(*crypto_engine_reset)(struct ufs_hba *);

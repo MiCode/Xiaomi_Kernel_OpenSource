@@ -19,7 +19,7 @@
 
 #include <linux/random.h>
 #include "ufs-debugfs.h"
-#include <linux/scsi/ufs/unipro.h>
+#include "unipro.h"
 #include "ufshci.h"
 
 enum field_width {

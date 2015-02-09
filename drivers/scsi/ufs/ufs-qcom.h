@@ -15,7 +15,7 @@
 #define UFS_QCOM_H_
 
 #include <linux/phy/phy.h>
-#include <linux/scsi/ufs/ufshcd.h>
+#include "ufshcd.h"
 
 #define MAX_UFS_QCOM_HOSTS	1
 #define MAX_U32                 (~(u32)0)
@@ -153,6 +153,11 @@ static inline void ufs_qcom_assert_reset(struct ufs_hba *hba)
 {
 	ufshcd_rmwl(hba, MASK_UFS_PHY_SOFT_RESET,
 			1 << OFFSET_UFS_PHY_SOFT_RESET, REG_UFS_CFG1);
+
+	/*
+	 * make sure that this configuration is applied before
+	 * we continue
+	 */
 	mb();
 }
 
@@ -160,6 +165,11 @@ static inline void ufs_qcom_deassert_reset(struct ufs_hba *hba)
 {
 	ufshcd_rmwl(hba, MASK_UFS_PHY_SOFT_RESET,
 			0 << OFFSET_UFS_PHY_SOFT_RESET, REG_UFS_CFG1);
+
+	/*
+	 * make sure that this configuration is applied before
+	 * we continue
+	 */
 	mb();
 }
 

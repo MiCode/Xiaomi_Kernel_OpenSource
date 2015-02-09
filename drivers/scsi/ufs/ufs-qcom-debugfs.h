@@ -15,7 +15,7 @@
 #ifndef QCOM_DEBUGFS_H_
 #define QCOM_DEBUGFS_H_
 
-#include <linux/scsi/ufs/ufshcd.h>
+#include "ufshcd.h"
 
 #ifdef CONFIG_DEBUG_FS
 void ufs_qcom_dbg_add_debugfs(struct ufs_hba *hba, struct dentry *root);

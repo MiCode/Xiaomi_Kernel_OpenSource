@@ -22,7 +22,6 @@
 #include <linux/slab.h>
 #include <linux/phy/phy-qcom-ufs.h>
 #include <linux/platform_device.h>
-#include <linux/scsi/ufs/ufs-qcom.h>
 
 #define UFS_QCOM_PHY_CAL_ENTRY(reg, val)	\
 	{				\

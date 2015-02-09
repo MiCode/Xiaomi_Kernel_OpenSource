@@ -13,7 +13,7 @@
  */
 
 #include <linux/debugfs.h>
-#include <linux/scsi/ufs/ufs-qcom.h>
+#include "ufs-qcom.h"
 #include "ufs-qcom-debugfs.h"
 #include "ufs-debugfs.h"
 
