@@ -163,6 +163,8 @@ struct bmc150_accel_data {
 	bool motion_trigger_on;
 	int64_t timestamp;
 	const struct bmc150_accel_chip_info *chip_info;
+	s32 (*read_block_data)(const struct i2c_client *client, u8 command,
+			       u8 length, u8 *values);
 };
 
 static const struct {
@@ -206,6 +208,22 @@ static const struct {
 				       {500000, BMC150_ACCEL_SLEEP_500_MS},
 				       {1000000, BMC150_ACCEL_SLEEP_1_SEC} };
 
+static s32 bmc150_accel_read_block_data(const struct i2c_client *client,
+					u8 command, u8 length, u8 *values)
+{
+	s32 data;
+	u8 i;
+
+	for (i = 0; i < length; i += 2) {
+		data = i2c_smbus_read_word_data(client, command + i);
+		if (data < 0)
+			return data;
+
+		values[i] = data & 0xFF;
+		values[i+1] = data >> 8;
+	}
+	return i;
+}
 
 static int bmc150_accel_set_mode(struct bmc150_accel_data *data,
 				 enum bmc150_power_modes mode,
@@ -986,19 +1004,14 @@ static irqreturn_t bmc150_accel_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct bmc150_accel_data *data = iio_priv(indio_dev);
-	int bit, ret, i = 0;
+	int ret;
 
 	mutex_lock(&data->mutex);
-	for (bit = 0; bit < AXIS_MAX; bit++) {
-		ret = i2c_smbus_read_word_data(data->client,
-					       BMC150_ACCEL_AXIS_TO_REG(bit));
-		if (ret < 0) {
-			mutex_unlock(&data->mutex);
-			goto err_read;
-		}
-		data->buffer[i++] = ret;
-	}
+	ret = data->read_block_data(data->client, BMC150_ACCEL_REG_XOUT_L,
+				    AXIS_MAX * 2, (u8 *) data->buffer);
 	mutex_unlock(&data->mutex);
+	if (ret < 0)
+		goto err_read;
 
 	iio_push_to_buffers_with_timestamp(indio_dev, data->buffer,
 					   data->timestamp);
@@ -1204,6 +1217,11 @@ static int bmc150_accel_probe(struct i2c_client *client,
 	const char *name = NULL;
 	int chip_id = 0;
 
+	if (!i2c_check_functionality(client->adapter,
+				     I2C_FUNC_SMBUS_BYTE_DATA |
+				     I2C_FUNC_SMBUS_READ_WORD_DATA))
+		return -ENODEV;
+
 	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
 	if (!indio_dev)
 		return -ENOMEM;
@@ -1211,6 +1229,12 @@ static int bmc150_accel_probe(struct i2c_client *client,
 	data = iio_priv(indio_dev);
 	i2c_set_clientdata(client, indio_dev);
 	data->client = client;
+
+	if (i2c_check_functionality(client->adapter,
+				    I2C_FUNC_SMBUS_READ_I2C_BLOCK))
+		data->read_block_data = i2c_smbus_read_i2c_block_data;
+	else
+		data->read_block_data = bmc150_accel_read_block_data;
 
 	if (id) {
 		name = id->name;
