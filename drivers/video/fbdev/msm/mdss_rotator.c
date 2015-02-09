@@ -30,6 +30,7 @@
 /* acquire fence time out, following other driver fence time out practice */
 #define ROT_FENCE_WAIT_TIMEOUT MSEC_PER_SEC
 
+#define CLASS_NAME "rotator"
 #define DRIVER_NAME "mdss_rotator"
 
 static struct mdss_rot_mgr *rot_mgr;
@@ -1552,6 +1553,35 @@ static long mdss_rotator_ioctl(struct file *file, unsigned int cmd,
 	return ret;
 }
 
+static ssize_t mdss_rotator_show_capabilities(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	size_t len = PAGE_SIZE;
+	int cnt = 0;
+
+	if (!rot_mgr)
+		return cnt;
+
+#define SPRINT(fmt, ...) \
+		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
+
+	SPRINT("wb_count=%d\n", rot_mgr->queue_count);
+	SPRINT("downscale=%d\n", rot_mgr->has_downscale);
+
+	return cnt;
+}
+
+static DEVICE_ATTR(caps, S_IRUGO, mdss_rotator_show_capabilities, NULL);
+
+static struct attribute *mdss_rotator_fs_attrs[] = {
+	&dev_attr_caps.attr,
+	NULL
+};
+
+static struct attribute_group mdss_rotator_fs_attr_group = {
+	.attrs = mdss_rotator_fs_attrs
+};
+
 static const struct file_operations mdss_rotator_fops = {
 	.owner = THIS_MODULE,
 	.open = mdss_rotator_open,
@@ -1618,7 +1648,7 @@ static int mdss_rotator_probe(struct platform_device *pdev)
 		goto error_get_dev_num;
 	}
 
-	rot_mgr->class = class_create(THIS_MODULE, DRIVER_NAME);
+	rot_mgr->class = class_create(THIS_MODULE, CLASS_NAME);
 	if (IS_ERR(rot_mgr->class)) {
 		ret = PTR_ERR(rot_mgr->class);
 		pr_err("couldn't create class rc = %d\n", ret);
@@ -1640,6 +1670,11 @@ static int mdss_rotator_probe(struct platform_device *pdev)
 		pr_err("cdev_add failed %d\n", ret);
 		goto error_cdev_add;
 	}
+
+	ret = sysfs_create_group(&rot_mgr->device->kobj,
+			&mdss_rotator_fs_attr_group);
+	if (ret)
+		pr_err("unable to register rotator sysfs nodes\n");
 
 	return 0;
 
@@ -1664,6 +1699,8 @@ static int mdss_rotator_remove(struct platform_device *dev)
 	mgr = (struct mdss_rot_mgr *)platform_get_drvdata(dev);
 	if (!mgr)
 		return -ENODEV;
+
+	sysfs_remove_group(&rot_mgr->device->kobj, &mdss_rotator_fs_attr_group);
 
 	mdss_rotator_release_all(mgr);
 
