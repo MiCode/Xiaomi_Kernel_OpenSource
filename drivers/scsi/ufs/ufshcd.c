@@ -52,6 +52,23 @@
 
 #ifdef CONFIG_DEBUG_FS
 
+static int ufshcd_tag_req_type(struct request *rq)
+{
+	int rq_type = TS_WRITE;
+
+	if (!rq || !(rq->cmd_type & REQ_TYPE_FS))
+		rq_type = TS_NOT_SUPPORTED;
+	else if (rq->cmd_flags & REQ_FLUSH)
+		rq_type = TS_FLUSH;
+	else if (rq_data_dir(rq) == READ)
+		rq_type = (rq->cmd_flags & REQ_URGENT) ?
+			TS_URGENT_READ : TS_READ;
+	else if (rq->cmd_flags & REQ_URGENT)
+		rq_type = TS_URGENT_WRITE;
+
+	return rq_type;
+}
+
 #define UFSHCD_UPDATE_ERROR_STATS(hba, type)	\
 	do {					\
 		if (type < UFS_ERR_MAX)	\
@@ -63,20 +80,14 @@
 		struct request *rq = hba->lrb[task_tag].cmd ?	\
 			hba->lrb[task_tag].cmd->request : NULL;	\
 		u64 **tag_stats = hba->ufs_stats.tag_stats;	\
-		int rq_type = TS_WRITE;				\
+		int rq_type;					\
 		if (!hba->ufs_stats.enabled)			\
 			break;					\
 		tag_stats[tag][TS_TAG]++;			\
 		if (!rq || !(rq->cmd_type & REQ_TYPE_FS))	\
 			break;					\
 		WARN_ON(hba->ufs_stats.q_depth > hba->nutrs);	\
-		if (rq->cmd_flags & REQ_FLUSH)			\
-			rq_type = TS_FLUSH;			\
-		else if (rq_data_dir(rq) == READ)		\
-			rq_type = (rq->cmd_flags & REQ_URGENT) ?\
-				TS_URGENT_READ : TS_READ;	\
-		else if (rq->cmd_flags & REQ_URGENT)		\
-			rq_type = TS_URGENT_WRITE;		\
+		rq_type = ufshcd_tag_req_type(rq);		\
 		tag_stats[hba->ufs_stats.q_depth++][rq_type]++;	\
 	} while (0)
 
@@ -91,12 +102,47 @@
 
 #define UFSDBG_REMOVE_DEBUGFS(hba)	ufsdbg_remove_debugfs(hba);
 
+static void update_req_stats(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
+{
+	int rq_type;
+	struct request *rq = lrbp->cmd ? lrbp->cmd->request : NULL;
+	s64 delta = ktime_us_delta(lrbp->complete_time_stamp,
+		lrbp->issue_time_stamp);
+
+	/* update general request statistics */
+	if (hba->ufs_stats.req_stats[TS_TAG].count == 0)
+		hba->ufs_stats.req_stats[TS_TAG].min = delta;
+	hba->ufs_stats.req_stats[TS_TAG].count++;
+	hba->ufs_stats.req_stats[TS_TAG].sum += delta;
+	if (delta > hba->ufs_stats.req_stats[TS_TAG].max)
+		hba->ufs_stats.req_stats[TS_TAG].max = delta;
+	if (delta < hba->ufs_stats.req_stats[TS_TAG].min)
+			hba->ufs_stats.req_stats[TS_TAG].min = delta;
+
+	rq_type = ufshcd_tag_req_type(rq);
+	if (rq_type == TS_NOT_SUPPORTED)
+		return;
+
+	/* update request type specific statistics */
+	if (hba->ufs_stats.req_stats[rq_type].count == 0)
+		hba->ufs_stats.req_stats[rq_type].min = delta;
+	hba->ufs_stats.req_stats[rq_type].count++;
+	hba->ufs_stats.req_stats[rq_type].sum += delta;
+	if (delta > hba->ufs_stats.req_stats[rq_type].max)
+		hba->ufs_stats.req_stats[rq_type].max = delta;
+	if (delta < hba->ufs_stats.req_stats[rq_type].min)
+			hba->ufs_stats.req_stats[rq_type].min = delta;
+}
+
 #else
 #define UFSHCD_UPDATE_TAG_STATS(hba, tag)
 #define UFSHCD_UPDATE_TAG_STATS_COMPLETION(hba, cmd)
 #define UFSDBG_ADD_DEBUGFS(hba)
 #define UFSDBG_REMOVE_DEBUGFS(hba)
 #define UFSHCD_UPDATE_ERROR_STATS(hba, type)
+static inline
+void update_req_stats(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
+{}
 
 #endif
 
@@ -1941,10 +1987,11 @@ int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	}
 
 	hba->lrb[task_tag].issue_time_stamp = ktime_get();
+	hba->lrb[task_tag].complete_time_stamp = ktime_set(0, 0);
 	ufshcd_clk_scaling_start_busy(hba);
 	__set_bit(task_tag, &hba->outstanding_reqs);
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TRANSFER_REQ_DOOR_BELL);
-	/* Make sure that doorbell is commited immediately */
+	/* Make sure that doorbell is committed immediately */
 	wmb();
 	ufshcd_cond_add_cmd_trace(hba, task_tag, "send");
 	UFSHCD_UPDATE_TAG_STATS(hba, task_tag);
@@ -4807,12 +4854,14 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 					UFS_ERR_INT_FATAL_ERRORS);
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
-			/* Mark completed command as NULL in LRB */
-			lrbp->cmd = NULL;
 			/* Clear pending transfer requests */
 			ufshcd_clear_cmd(hba, index);
 			ufshcd_outstanding_req_clear(hba, index);
 			clear_bit_unlock(index, &hba->lrb_in_use);
+			lrbp->complete_time_stamp = ktime_get();
+			update_req_stats(hba, lrbp);
+			/* Mark completed command as NULL in LRB */
+			lrbp->cmd = NULL;
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
 			ufshcd_release_all(hba);
@@ -4849,9 +4898,11 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
+			clear_bit_unlock(index, &hba->lrb_in_use);
+			lrbp->complete_time_stamp = ktime_get();
+			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
-			clear_bit_unlock(index, &hba->lrb_in_use);
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
 			__ufshcd_release(hba, false);

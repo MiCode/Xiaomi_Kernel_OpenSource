@@ -187,6 +187,7 @@ struct ufs_pm_lvl_states {
  * @lun: LUN of the command
  * @intr_cmd: Interrupt command (doesn't participate in interrupt aggregation)
  * @issue_time_stamp: time stamp for debug purposes
+ * @complete_time_stamp: time stamp for statistics
  * @req_abort_skip: skip request abort task flag
  */
 struct ufshcd_lrb {
@@ -210,6 +211,7 @@ struct ufshcd_lrb {
 	u8 lun; /* UPIU LUN id field is only 8-bit wide */
 	bool intr_cmd;
 	ktime_t issue_time_stamp;
+	ktime_t complete_time_stamp;
 
 	bool req_abort_skip;
 };
@@ -448,38 +450,6 @@ struct ufs_uic_err_reg_hist {
 	ktime_t tstamp[UIC_ERR_REG_HIST_LENGTH];
 };
 
-/**
- * struct ufs_stats - keeps usage/err statistics
- * @enabled: enable tagstats for debugfs
- * @tag_stats: pointer to tag statistic counters
- * @q_depth: current amount of busy slots
- * @err_stats: counters to keep track of various errors
- * @hibern8_exit_cnt: Counter to keep track of number of exits,
- *		reset this after link-startup.
- * @last_hibern8_exit_tstamp: Set time after the hibern8 exit.
- *		Clear after the first successful command completion.
- * @pa_err: tracks pa-uic errors
- * @dl_err: tracks dl-uic errors
- * @nl_err: tracks nl-uic errors
- * @tl_err: tracks tl-uic errors
- * @dme_err: tracks dme errors
- */
-struct ufs_stats {
-#ifdef CONFIG_DEBUG_FS
-	bool enabled;
-	u64 **tag_stats;
-	int q_depth;
-	int err_stats[UFS_ERR_MAX];
-#endif
-	u32 hibern8_exit_cnt;
-	ktime_t last_hibern8_exit_tstamp;
-	struct ufs_uic_err_reg_hist pa_err;
-	struct ufs_uic_err_reg_hist dl_err;
-	struct ufs_uic_err_reg_hist nl_err;
-	struct ufs_uic_err_reg_hist tl_err;
-	struct ufs_uic_err_reg_hist dme_err;
-};
-
 #ifdef CONFIG_DEBUG_FS
 struct debugfs_files {
 	struct dentry *debugfs_root;
@@ -492,6 +462,7 @@ struct debugfs_files {
 	struct dentry *dme_local_read;
 	struct dentry *dme_peer_read;
 	struct dentry *dbg_print_en;
+	struct dentry *req_stats;
 	u32 dme_local_attr_id;
 	u32 dme_peer_attr_id;
 #ifdef CONFIG_UFS_FAULT_INJECTION
@@ -511,7 +482,55 @@ enum ts_types {
 	TS_FLUSH		= 5,
 	TS_NUM_STATS		= 6,
 };
+
+/**
+ * struct ufshcd_req_stat - statistics for request handling times (in usec)
+ * @min: shortest time measured
+ * @max: longest time measured
+ * @sum: sum of all the handling times measured (used for average calculation)
+ * @count: number of measurements taken
+ */
+struct ufshcd_req_stat {
+	u64 min;
+	u64 max;
+	u64 sum;
+	u64 count;
+};
 #endif
+
+/**
+ * struct ufs_stats - keeps usage/err statistics
+ * @enabled: enable tag stats for debugfs
+ * @tag_stats: pointer to tag statistic counters
+ * @q_depth: current amount of busy slots
+ * @err_stats: counters to keep track of various errors
+ * @req_stat: request handling time statistics per request type
+ * @hibern8_exit_cnt: Counter to keep track of number of exits,
+ *		reset this after link-startup.
+ * @last_hibern8_exit_tstamp: Set time after the hibern8 exit.
+ *		Clear after the first successful command completion.
+ * @pa_err: tracks pa-uic errors
+ * @dl_err: tracks dl-uic errors
+ * @nl_err: tracks nl-uic errors
+ * @tl_err: tracks tl-uic errors
+ * @dme_err: tracks dme errors
+ */
+struct ufs_stats {
+#ifdef CONFIG_DEBUG_FS
+	bool enabled;
+	u64 **tag_stats;
+	int q_depth;
+	int err_stats[UFS_ERR_MAX];
+	struct ufshcd_req_stat req_stats[TS_NUM_STATS];
+#endif
+	u32 hibern8_exit_cnt;
+	ktime_t last_hibern8_exit_tstamp;
+	struct ufs_uic_err_reg_hist pa_err;
+	struct ufs_uic_err_reg_hist dl_err;
+	struct ufs_uic_err_reg_hist nl_err;
+	struct ufs_uic_err_reg_hist tl_err;
+	struct ufs_uic_err_reg_hist dme_err;
+};
 
 /* PM QoS voting state  */
 enum ufshcd_pm_qos_state {
@@ -943,6 +962,11 @@ static inline bool ufshcd_is_hs_mode(struct ufs_pa_layer_attr *pwr_info)
 		pwr_info->pwr_rx == FASTAUTO_MODE) &&
 		(pwr_info->pwr_tx == FAST_MODE ||
 		pwr_info->pwr_tx == FASTAUTO_MODE);
+}
+
+static inline void ufshcd_init_req_stats(struct ufs_hba *hba)
+{
+	memset(hba->ufs_stats.req_stats, 0, sizeof(hba->ufs_stats.req_stats));
 }
 
 #define ASCII_STD true
