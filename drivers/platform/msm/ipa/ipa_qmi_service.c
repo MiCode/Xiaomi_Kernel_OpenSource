@@ -727,7 +727,7 @@ static void ipa_q6_clnt_svc_arrive(struct work_struct *work)
 		return;
 	}
 	qmi_modem_init_fin = true;
-	ipa_q6_init_done();
+	ipa_proxy_clk_unvote();
 	IPAWANDBG("complete, qmi_modem_init_fin : %d\n",
 		qmi_modem_init_fin);
 
